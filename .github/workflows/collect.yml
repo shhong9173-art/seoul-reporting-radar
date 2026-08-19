@@ -16,7 +16,6 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
-          cache: 'pip'
       - name: Install document readers
         run: |
           sudo apt-get update -y
