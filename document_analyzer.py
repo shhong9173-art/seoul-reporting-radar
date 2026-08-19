@@ -5,12 +5,17 @@ from urllib.parse import urlparse,urljoin
 NUM=re.compile(r'(?P<value>\d+(?:,\d{3})*(?:\.\d+)?)\s*(?P<unit>조원|억원|만원|원|%|명|가구|세대|건|곳|개)')
 FILE=re.compile(r'\.(pdf|hwp|hwpx|xlsx?|csv|docx?|pptx?)(?:[?#]|$)',re.I)
 LINK=re.compile(r'''(?:href|src)=["']([^"']+)["']''',re.I)
-UA='Seoul-Reporting-Radar/2.2'
-MAX_ITEMS=60
-MAX_DOCS_PER_ITEM=6
+UA='Seoul-Reporting-Radar/2.3'
+
+# Keep the scheduled collector bounded. The previous version could spend tens of minutes
+# walking many portal pages and attachments, causing manual runs to fail near the workflow limit.
+MAX_ITEMS=20
+MAX_DOCS_PER_ITEM=2
+PAGE_TIMEOUT=10
+DOC_TIMEOUT=20
 
 # Network failures should not consume the whole Actions run.
-def fetch(u,timeout=15):
+def fetch(u,timeout=PAGE_TIMEOUT):
     try:
         r=urlopen(Request(u,headers={'User-Agent':UA,'Accept':'text/html,application/pdf,*/*'}),timeout=timeout)
         return r.read(),r.headers.get('Content-Type','')
@@ -27,7 +32,7 @@ def discover_page(url):
         if x not in urls:urls.append(x)
     return urls,text
 
-def discover_documents(url,depth=0,max_links=10):
+def discover_documents(url,depth=0,max_links=6):
     found=[];seen=set()
     def add(u,source):
         u=clean_url(u)
@@ -36,7 +41,6 @@ def discover_documents(url,depth=0,max_links=10):
     links,_=discover_page(url)
     for u in links:
         if FILE.search(urlparse(u).path):add(u,url)
-    # Only a couple of likely detail/download pages. Do not recursively crawl an entire portal.
     if depth==0:
         host=urlparse(url).netloc
         candidates=[u for u in links if urlparse(u).netloc==host and any(k in u.lower() for k in ('detail','view','download','attach','file','notice','board','article'))]
@@ -46,7 +50,7 @@ def discover_documents(url,depth=0,max_links=10):
     return found[:max_links]
 
 def text_from(u):
-    b,ct=fetch(u,30)
+    b,ct=fetch(u,DOC_TIMEOUT)
     if not b:return '', 'download_failed'
     ext=os.path.splitext(urlparse(u).path)[1].lower()
     if not ext:
@@ -54,21 +58,21 @@ def text_from(u):
     d=tempfile.mkdtemp();p=os.path.join(d,'f'+ext);open(p,'wb').write(b)
     try:
         if ext=='.pdf':
-            r=subprocess.run(['pdftotext','-layout',p,'-'],capture_output=True,text=True,timeout=30);return r.stdout,('pdf_extract_failed' if r.returncode else '')
+            r=subprocess.run(['pdftotext','-layout',p,'-'],capture_output=True,text=True,timeout=DOC_TIMEOUT);return r.stdout,('pdf_extract_failed' if r.returncode else '')
         if ext in ('.xlsx','.xls'):
             code='import pandas as pd,sys; x=pd.ExcelFile(sys.argv[1]); print("\\n".join(["SHEET: "+s+"\\n"+pd.read_excel(sys.argv[1],sheet_name=s).fillna("").to_string(index=False) for s in x.sheet_names]))'
-            r=subprocess.run(['python','-c',code,p],capture_output=True,text=True,timeout=45);return r.stdout,('excel_extract_failed' if r.returncode else '')
+            r=subprocess.run(['python','-c',code,p],capture_output=True,text=True,timeout=DOC_TIMEOUT);return r.stdout,('excel_extract_failed' if r.returncode else '')
         if ext=='.csv':return b.decode('utf-8-sig','ignore'),''
         if ext=='.docx':
             code='import zipfile,re,sys; z=zipfile.ZipFile(sys.argv[1]); s=z.read("word/document.xml").decode("utf-8","ignore"); print(" ".join(re.findall(r"<w:t[^>]*>(.*?)</w:t>",s)))'
-            r=subprocess.run(['python','-c',code,p],capture_output=True,text=True,timeout=20);return r.stdout,('docx_extract_failed' if r.returncode else '')
+            r=subprocess.run(['python','-c',code,p],capture_output=True,text=True,timeout=DOC_TIMEOUT);return r.stdout,('docx_extract_failed' if r.returncode else '')
         if ext=='.pptx':
             code='import zipfile,re,sys; z=zipfile.ZipFile(sys.argv[1]); out=[]; [out.extend(re.findall(r"<a:t>(.*?)</a:t>",z.read(n).decode("utf-8","ignore"))) for n in z.namelist() if n.startswith("ppt/slides/slide") and n.endswith(".xml")]; print(" ".join(out))'
-            r=subprocess.run(['python','-c',code,p],capture_output=True,text=True,timeout=20);return r.stdout,('pptx_extract_failed' if r.returncode else '')
+            r=subprocess.run(['python','-c',code,p],capture_output=True,text=True,timeout=DOC_TIMEOUT);return r.stdout,('pptx_extract_failed' if r.returncode else '')
         if ext in ('.hwp','.hwpx'):
             for cmd in (['hwp5txt',p],['pandoc',p,'-t','plain']):
                 try:
-                    r=subprocess.run(cmd,capture_output=True,text=True,timeout=30)
+                    r=subprocess.run(cmd,capture_output=True,text=True,timeout=DOC_TIMEOUT)
                     if r.stdout.strip():return r.stdout,''
                 except:pass
             return '','hwp_extractor_unavailable'
@@ -122,7 +126,7 @@ def analyze(item):
     return item
 
 s=open('data.js',encoding='utf-8').read();payload=s.split('=',1)[1].strip().rstrip(';');items=json.loads(payload)
-# Analyze every explicit attachment first, then the highest-scoring non-attachment candidates.
+# Analyze explicit attachments first, then the highest-scoring non-attachment candidates.
 with_docs=[x for x in items if x.get('attachments')]
 ranked=sorted([x for x in items if x not in with_docs],key=lambda x:int(x.get('score') or 0),reverse=True)
 priority=(with_docs+ranked)[:MAX_ITEMS]
