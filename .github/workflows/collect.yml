@@ -28,10 +28,12 @@ jobs:
         run: python compare_engine.py
       - name: Link Seoul and district evidence
         run: python cross_source_engine.py
+      - name: Build investigation graph
+        run: python investigation_graph.py
       - name: Commit radar data
         run: |
           git config user.name 'seoul-reporting-radar-bot'
           git config user.email 'actions@users.noreply.github.com'
           git add data.js
-          git diff --cached --quiet || git commit -m "chore: refresh cross-source reporting radar"
+          git diff --cached --quiet || git commit -m "chore: build investigation graph"
           git push
