@@ -1,12 +1,14 @@
 import json,re,urllib.parse,urllib.request
 from html import unescape
 
-MAX_WEB_CHECKS=100
+# Keep external media checks bounded so a slow search provider cannot consume the Actions run.
+MAX_WEB_CHECKS=30
+SEARCH_TIMEOUT=6
 
 def search(q):
  u='https://www.google.com/search?'+urllib.parse.urlencode({'q':q+' 뉴스','num':10})
  try:
-  r=urllib.request.urlopen(urllib.request.Request(u,headers={'User-Agent':'Mozilla/5.0 Seoul-Reporting-Radar/2.1'}),timeout=10).read().decode('utf-8','ignore')
+  r=urllib.request.urlopen(urllib.request.Request(u,headers={'User-Agent':'Mozilla/5.0 Seoul-Reporting-Radar/2.2'}),timeout=SEARCH_TIMEOUT).read().decode('utf-8','ignore')
   titles=re.findall(r'<h3[^>]*>(.*?)</h3>',r,re.S)
   return [re.sub('<[^>]+>','',unescape(t)).strip() for t in titles[:10]]
  except:return []
