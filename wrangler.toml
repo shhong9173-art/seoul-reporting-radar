@@ -1,0 +1,10 @@
+name = "seoul-reporting-radar"
+main = "worker.js"
+compatibility_date = "2026-08-19"
+
+[assets]
+directory = "."
+binding = "ASSETS"
+
+[triggers]
+crons = ["0 23 * * *"]
