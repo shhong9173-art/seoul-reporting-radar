@@ -1,5 +1,9 @@
 name: Seoul Reporting Radar Collector
 on:
+  push:
+    paths-ignore:
+      - 'data.js'
+      - 'README.md'
   schedule:
     - cron: '0 23 * * *'
     - cron: '0 3 * * *'
@@ -23,21 +27,21 @@ jobs:
           python -m pip install --upgrade pip
           pip install pandas openpyxl pyhwp
       - name: Collect public information
-        run: python collector.py
+        run: python -u collector.py
       - name: Analyze attached documents
-        run: python document_analyzer.py
+        run: python -u document_analyzer.py
       - name: Compare historical data
-        run: python compare_engine.py
+        run: python -u compare_engine.py
       - name: Link Seoul and district evidence
-        run: python cross_source_engine.py
+        run: python -u cross_source_engine.py
       - name: Build investigation graph
-        run: python investigation_graph.py
+        run: python -u investigation_graph.py
       - name: Score story quality
-        run: python story_quality.py
+        run: python -u story_quality.py
       - name: Check media novelty
-        run: python news_novelty.py
+        run: python -u news_novelty.py
       - name: Advanced radar analysis
-        run: python advanced_radar.py
+        run: python -u advanced_radar.py
       - name: Commit radar data
         run: |
           git config user.name 'seoul-reporting-radar-bot'
