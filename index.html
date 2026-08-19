@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>서울 취재 레이더</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand"><span class="dot"></span><div><b>서울 취재 레이더</b><small>REPORTING RADAR</small></div></div>
+    <nav>
+      <button class="nav active" data-filter="all">오늘의 레이더 <span id="countAll">0</span></button>
+      <button class="nav" data-filter="S">S급 단독 후보 <span id="countS">0</span></button>
+      <button class="nav" data-filter="A">A급 취재 후보 <span id="countA">0</span></button>
+      <button class="nav" data-filter="B">일반 기사 <span id="countB">0</span></button>
+      <button class="nav" data-filter="follow">추적 취재 <span id="countFollow">0</span></button>
+    </nav>
+    <div class="section-label">분야</div>
+    <div class="chips">
+      <button class="chip" data-cat="부동산">부동산</button><button class="chip" data-cat="예산·재정">예산·재정</button>
+      <button class="chip" data-cat="교통">교통</button><button class="chip" data-cat="복지">복지</button>
+      <button class="chip" data-cat="안전">안전</button><button class="chip" data-cat="행정">행정</button>
+    </div>
+    <div class="sidebar-foot">서울시 + 25개 자치구<br><span>자동 수집 시스템 연결 전용 UI</span></div>
+  </aside>
+
+  <main>
+    <header>
+      <div>
+        <div class="eyebrow">DAILY NEWSROOM INTELLIGENCE</div>
+        <h1>오늘 뭐를 파볼까?</h1>
+        <p id="today">서울시와 25개 자치구의 신규 행정자료를 취재 관점에서 선별합니다.</p>
+      </div>
+      <div class="header-actions">
+        <input id="search" placeholder="키워드·구청·사업 검색">
+        <button id="reset" class="secondary">초기화</button>
+      </div>
+    </header>
+
+    <section class="stats">
+      <div class="stat"><small>오늘 수집</small><strong id="statTotal">0</strong><span>건</span></div>
+      <div class="stat"><small>S급 단독</small><strong id="statS">0</strong><span>건</span></div>
+      <div class="stat"><small>추적 필요</small><strong id="statF">0</strong><span>건</span></div>
+      <div class="stat"><small>마지막 업데이트</small><strong class="time">08:00</strong><span>매일</span></div>
+    </section>
+
+    <section class="toolbar">
+      <div><b id="viewTitle">오늘의 레이더</b><span id="resultCount"></span></div>
+      <select id="sort"><option value="score">기사 가치순</option><option value="new">최신순</option></select>
+    </section>
+
+    <section id="cards" class="cards"></section>
+  </main>
+
+  <div id="modal" class="modal hidden">
+    <div class="modal-box">
+      <button class="close" id="close">×</button>
+      <div id="detail"></div>
+    </div>
+  </div>
+</div>
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
