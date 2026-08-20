@@ -9,36 +9,29 @@ KEY=re.compile(r'(통계|데이터|현황|실적|지표|분석|예산|결산|재
 FILE=re.compile(r'\.(pdf|hwp|hwpx|xlsx?|csv|docx?|pptx?|zip)(?:[?#]|$)',re.I)
 PROMO=re.compile(r'(보도자료|보도설명자료|행사|축제|캠페인|수상|업무협약|협약식|개최|참여|기념|홍보)')
 NUM=re.compile(r'\d+(?:\.\d+)?\s*(?:억|억원|조원|만원|%|명|가구|세대|건|곳|개)')
+DATE=re.compile(r'(20\d{2})[.\-/](\d{1,2})[.\-/](\d{1,2})')
 LINK=re.compile(r'''<a[^>]+href=["']([^"']+)["'][^>]*>([\s\S]*?)</a>''',re.I)
+PAGE_TIMEOUT=6;MAX_PAGE_BYTES=2_000_000;MAX_CANDIDATES_PER_ORG=10;MAX_DETAILS_PER_ORG=4;MAX_ITEMS=400
 
-PAGE_TIMEOUT=6
-MAX_PAGE_BYTES=2_000_000
-MAX_CANDIDATES_PER_ORG=10
-MAX_DETAILS_PER_ORG=4
-MAX_ITEMS=400
-
-# A single dead government portal must never block the whole radar.
 def fetch(url,timeout=PAGE_TIMEOUT):
     try:
-        req=Request(url,headers={'User-Agent':'Mozilla/5.0 Seoul-Reporting-Radar/3.0','Accept':'text/html,*/*'})
-        with urlopen(req,timeout=timeout) as r:
-            return r.read(MAX_PAGE_BYTES).decode('utf-8','ignore')
-    except Exception:
-        return ''
+        req=Request(url,headers={'User-Agent':'Mozilla/5.0 Seoul-Reporting-Radar/4.0','Accept':'text/html,*/*'})
+        with urlopen(req,timeout=timeout) as r:return r.read(MAX_PAGE_BYTES).decode('utf-8','ignore')
+    except Exception:return ''
 
 def clean(s):
-    s=re.sub(r'<script[\s\S]*?</script>|<style[\s\S]*?</style>',' ',s,flags=re.I)
-    s=re.sub(r'<[^>]+>',' ',s);s=htmlmod.unescape(s)
-    return re.sub(r'\s+',' ',s).strip()
+    s=re.sub(r'<script[\s\S]*?</script>|<style[\s\S]*?</style>|<noscript[\s\S]*?</noscript>',' ',s,flags=re.I)
+    s=re.sub(r'<[^>]+>',' ',s);s=htmlmod.unescape(s);return re.sub(r'\s+',' ',s).strip()
 
-def cat(t):
-    if re.search(r'통계|데이터|현황|실적|지표|분석',t):return '데이터·통계'
-    if re.search(r'예산|결산|재정|계약|입찰|보조금|지원금|사업비',t):return '예산·재정'
-    if re.search(r'주택|건축|부동산|도시계획|재개발|재건축|용적률',t):return '부동산'
-    if re.search(r'교통|지하철|버스|도로',t):return '교통'
-    if re.search(r'복지|출생|청년|어르신|장애|돌봄',t):return '복지'
-    if re.search(r'안전|재난|화재|사고|단속|적발',t):return '안전'
-    return '행정·공고'
+def content_text(body):
+    # Prefer a real article/main/content block. Do not feed navigation to the radar.
+    patterns=[r'<article\b[\s\S]*?</article>',r'<main\b[\s\S]*?</main>',r'<div[^>]+(?:id|class)=["'][^"']*(?:view|content|article|bbs|board)[^"']*["'][^>]*>[\s\S]*?</div>']
+    for pat in patterns:
+        m=re.search(pat,body,re.I)
+        if m:
+            t=clean(m.group(0))
+            if len(t)>=120:return t
+    return clean(body)
 
 def links(page,base):
     out=[];seen=set()
@@ -49,10 +42,21 @@ def links(page,base):
 
 def detail(url):
     body=fetch(url);atts=[]
-    if not body:return '',atts
+    if not body:return '',[],''
     for href,title in links(body,url):
         if FILE.search(urlparse(href).path) or re.search(r'(첨부|다운로드|download|attach|file)',title,re.I):atts.append(href)
-    return clean(body)[:12000],list(dict.fromkeys(atts))[:6]
+    text=content_text(body)
+    dm=DATE.search(text[:4000]);pubdate=f'{dm.group(1)}-{int(dm.group(2)):02d}-{int(dm.group(3)):02d}' if dm else ''
+    return text[:12000],list(dict.fromkeys(atts))[:6],pubdate
+
+def cat(t):
+    if re.search(r'통계|데이터|현황|실적|지표|분석',t):return '데이터·통계'
+    if re.search(r'예산|결산|재정|계약|입찰|보조금|지원금|사업비',t):return '예산·재정'
+    if re.search(r'주택|건축|부동산|도시계획|재개발|재건축|용적률',t):return '부동산'
+    if re.search(r'교통|지하철|버스|도로',t):return '교통'
+    if re.search(r'복지|출생|청년|어르신|장애|돌봄',t):return '복지'
+    if re.search(r'안전|재난|화재|사고|단속|적발',t):return '안전'
+    return '행정·공고'
 
 def collect(org,url):
     page=fetch(url)
@@ -61,9 +65,7 @@ def collect(org,url):
     for href,title in links(page,url):
         if len(title)<8 or href in seen:continue
         if any(x in title for x in ('로그인','검색','메뉴','바로가기','사이트맵','개인정보')):continue
-        if KEY.search(title) or FILE.search(href) or PROMO.search(title):
-            seen.add(href);candidates.append((href,title))
-    # Prefer data/finance/real-estate/safety material over generic event notices.
+        if KEY.search(title) or FILE.search(href) or PROMO.search(title):seen.add(href);candidates.append((href,title))
     candidates.sort(key=lambda x:(10 if KEY.search(x[1]) else 0)+(5 if NUM.search(x[1]) else 0)+(5 if FILE.search(x[0]) else 0),reverse=True)
     candidates=candidates[:MAX_CANDIDATES_PER_ORG]
     details={}
@@ -71,24 +73,26 @@ def collect(org,url):
         futs={ex.submit(detail,u):u for u,t in candidates[:MAX_DETAILS_PER_ORG] if not FILE.search(urlparse(u).path)}
         for f in as_completed(futs):
             try:details[futs[f]]=f.result()
-            except Exception:details[f]=('',[])
+            except Exception:details[futs[f]]=('',[],'')
     out=[]
     for href,title in candidates:
-        isfile=bool(FILE.search(urlparse(href).path));bodytext,atts=details.get(href,('',[]))
+        isfile=bool(FILE.search(urlparse(href).path));bodytext,atts,pubdate=details.get(href,('',[],''))
         allatts=[href] if isfile else [x for x in atts if FILE.search(urlparse(x).path)]
-        nums=NUM.findall(title)
-        score=35+(8 if KEY.search(title) else 0)+(5 if nums else 0)+(5 if allatts else 0)
-        out.append({'id':hashlib.sha1(href.encode()).hexdigest()[:12],'level':'B','category':cat(title),'org':org,'date':datetime.date.today().isoformat(),'score':min(score,69),'title':('[첨부파일] ' if isfile else '')+title,'summary':bodytext[:1800] if bodytext else f'{org} 공개정보에서 자동 발견된 자료. 공식 발표 자체를 단독 근거로 판정하지 않습니다.','why':'원문·첨부파일을 먼저 확인한 뒤 과거자료·예산·계약·통계와 교차검증합니다.','keyNumber':nums[0] if nums else '','tags':['자동수집',org,cat(title)]+(['첨부파일'] if allatts else []),'questions':['원문과 첨부파일의 핵심 수치는 무엇인가?','전년·전월 또는 기존 계획과 무엇이 달라졌는가?','예산·계약·통계 자료와 숫자가 일치하는가?','25개 자치구 전체 추세와 비교했을 때 이상치인가?'],'source':href,'detailUrl':href,'attachments':allatts,'standaloneEligible':False,'rawDetail':bodytext[:12000]})
+        nums=NUM.findall(title);date=pubdate or datetime.date.today().isoformat();score=35+(8 if KEY.search(title) else 0)+(5 if nums else 0)+(5 if allatts else 0)
+        out.append({'id':hashlib.sha1(href.encode()).hexdigest()[:12],'level':'B','category':cat(title),'org':org,'date':date,'score':min(score,69),'title':title,'summary':bodytext[:1800] if bodytext else f'{org} 공개정보에서 자동 발견된 자료. 공식 발표 자체를 단독 근거로 판정하지 않습니다.','why':'원문·첨부파일을 먼저 확인한 뒤 과거자료·예산·계약·통계와 교차검증합니다.','keyNumber':nums[0] if nums else '','tags':['자동수집',org,cat(title)]+(['첨부파일'] if allatts else []),'questions':['원문과 첨부파일의 핵심 수치는 무엇인가?','전년·전월 또는 기존 계획과 무엇이 달라졌는가?','예산·계약·통계 자료와 숫자가 일치하는가?','25개 자치구 전체 추세와 비교했을 때 이상치인가?'],'source':href,'detailUrl':href,'attachments':allatts,'standaloneEligible':False,'rawDetail':bodytext[:12000]})
     return out
 
 items=[]
-# Fetch the 27 portals concurrently; this is the key fix for the 30+ minute failures.
 with ThreadPoolExecutor(max_workers=8) as ex:
     futs={ex.submit(collect,org,url):org for org,url in SOURCES+DISTRICTS}
     for f in as_completed(futs):
         try:items.extend(f.result())
         except Exception as e:print('collect failed',futs[f],type(e).__name__)
-items.sort(key=lambda x:(x.get('score',0),x.get('org','')),reverse=True)
-items=items[:MAX_ITEMS]
+seen=set();unique=[]
+for x in sorted(items,key=lambda y:(y.get('score',0),y.get('date','')),reverse=True):
+    k=(x.get('source',''),x.get('org',''),x.get('title',''))
+    if k in seen:continue
+    seen.add(k);unique.append(x)
+items=unique[:MAX_ITEMS]
 with open('data.js','w',encoding='utf-8') as f:f.write('const ITEMS = '+json.dumps(items,ensure_ascii=False,separators=(',',':'))+';\n')
-print('collected',len(items),'from',len(SOURCES)+len(DISTRICTS),'portals')
+print('collected',len(items),'unique items from',len(SOURCES)+len(DISTRICTS),'portals')
