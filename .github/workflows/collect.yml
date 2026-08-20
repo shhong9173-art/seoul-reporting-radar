@@ -13,6 +13,7 @@ permissions:
   id-token: write
 jobs:
   collect:
+    # [deploy-radar] trigger a fresh collection after code changes.
     if: github.event_name != 'push' || contains(github.event.head_commit.message, '[deploy-radar]')
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -51,7 +52,6 @@ jobs:
           if '=' not in raw: raise SystemExit('data.js has no assignment')
           items=json.loads(raw.split('=',1)[1].rstrip(' ;\n'))
           if not isinstance(items,list): raise SystemExit('data.js payload is not a list')
-          # Final safety gate: never publish duplicated/stale rows or more than 400 items.
           unique=[];seen=set()
           for x in items:
               k=str(x.get('id') or (x.get('org',''),x.get('title',''),x.get('source','')))
