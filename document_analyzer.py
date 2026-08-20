@@ -1,24 +1,21 @@
-import os,re,json,subprocess,tempfile,datetime,html
+import os,re,json,subprocess,tempfile,html
 from urllib.request import Request,urlopen
 from urllib.parse import urlparse,urljoin
 
 NUM=re.compile(r'(?P<value>\d+(?:,\d{3})*(?:\.\d+)?)\s*(?P<unit>조원|억원|만원|원|%|명|가구|세대|건|곳|개)')
 FILE=re.compile(r'\.(pdf|hwp|hwpx|xlsx?|csv|docx?|pptx?)(?:[?#]|$)',re.I)
 LINK=re.compile(r'''(?:href|src)=["']([^"']+)["']''',re.I)
-UA='Seoul-Reporting-Radar/2.3'
+UA='Seoul-Reporting-Radar/3.0'
+MAX_ITEMS=12
+MAX_DOCS_PER_ITEM=1
+PAGE_TIMEOUT=5
+DOC_TIMEOUT=12
+MAX_BYTES=1_500_000
 
-# Keep the scheduled collector bounded. The previous version could spend tens of minutes
-# walking many portal pages and attachments, causing manual runs to fail near the workflow limit.
-MAX_ITEMS=20
-MAX_DOCS_PER_ITEM=2
-PAGE_TIMEOUT=10
-DOC_TIMEOUT=20
-
-# Network failures should not consume the whole Actions run.
 def fetch(u,timeout=PAGE_TIMEOUT):
     try:
         r=urlopen(Request(u,headers={'User-Agent':UA,'Accept':'text/html,application/pdf,*/*'}),timeout=timeout)
-        return r.read(),r.headers.get('Content-Type','')
+        return r.read(MAX_BYTES),r.headers.get('Content-Type','')
     except Exception:return b'',''
 
 def clean_url(u):return html.unescape(u).replace('&amp;','&').strip()
@@ -32,21 +29,19 @@ def discover_page(url):
         if x not in urls:urls.append(x)
     return urls,text
 
-def discover_documents(url,depth=0,max_links=6):
+def discover_documents(url,max_links=3):
     found=[];seen=set()
     def add(u,source):
         u=clean_url(u)
-        if u and u not in seen:
-            seen.add(u);found.append({'url':u,'source':source})
+        if u and u not in seen:seen.add(u);found.append({'url':u,'source':source})
     links,_=discover_page(url)
     for u in links:
         if FILE.search(urlparse(u).path):add(u,url)
-    if depth==0:
-        host=urlparse(url).netloc
-        candidates=[u for u in links if urlparse(u).netloc==host and any(k in u.lower() for k in ('detail','view','download','attach','file','notice','board','article'))]
-        for u in candidates[:2]:
-            for d in discover_documents(u,1,max(0,max_links-len(found))):add(d['url'],d.get('source',u))
-            if len(found)>=max_links:break
+    host=urlparse(url).netloc
+    candidates=[u for u in links if urlparse(u).netloc==host and any(k in u.lower() for k in ('detail','view','download','attach','file','notice','board','article'))]
+    for u in candidates[:1]:
+        for x in discover_documents(u,max(0,max_links-len(found))):add(x['url'],x.get('source',u))
+        if len(found)>=max_links:break
     return found[:max_links]
 
 def text_from(u):
@@ -54,13 +49,13 @@ def text_from(u):
     if not b:return '', 'download_failed'
     ext=os.path.splitext(urlparse(u).path)[1].lower()
     if not ext:
-        c=(ct or '').lower();ext='.pdf' if 'pdf' in c else ('.xlsx' if 'spreadsheet' in c or 'excel' in c else '')
+        c=(ct or '').lower();ext='.pdf' if 'pdf' in c else ''
     d=tempfile.mkdtemp();p=os.path.join(d,'f'+ext);open(p,'wb').write(b)
     try:
         if ext=='.pdf':
             r=subprocess.run(['pdftotext','-layout',p,'-'],capture_output=True,text=True,timeout=DOC_TIMEOUT);return r.stdout,('pdf_extract_failed' if r.returncode else '')
         if ext in ('.xlsx','.xls'):
-            code='import pandas as pd,sys; x=pd.ExcelFile(sys.argv[1]); print("\\n".join(["SHEET: "+s+"\\n"+pd.read_excel(sys.argv[1],sheet_name=s).fillna("").to_string(index=False) for s in x.sheet_names]))'
+            code='import pandas as pd,sys; print(pd.read_excel(sys.argv[1]).fillna("").to_string(index=False))'
             r=subprocess.run(['python','-c',code,p],capture_output=True,text=True,timeout=DOC_TIMEOUT);return r.stdout,('excel_extract_failed' if r.returncode else '')
         if ext=='.csv':return b.decode('utf-8-sig','ignore'),''
         if ext=='.docx':
@@ -69,15 +64,8 @@ def text_from(u):
         if ext=='.pptx':
             code='import zipfile,re,sys; z=zipfile.ZipFile(sys.argv[1]); out=[]; [out.extend(re.findall(r"<a:t>(.*?)</a:t>",z.read(n).decode("utf-8","ignore"))) for n in z.namelist() if n.startswith("ppt/slides/slide") and n.endswith(".xml")]; print(" ".join(out))'
             r=subprocess.run(['python','-c',code,p],capture_output=True,text=True,timeout=DOC_TIMEOUT);return r.stdout,('pptx_extract_failed' if r.returncode else '')
-        if ext in ('.hwp','.hwpx'):
-            for cmd in (['hwp5txt',p],['pandoc',p,'-t','plain']):
-                try:
-                    r=subprocess.run(cmd,capture_output=True,text=True,timeout=DOC_TIMEOUT)
-                    if r.stdout.strip():return r.stdout,''
-                except:pass
-            return '','hwp_extractor_unavailable'
-    except Exception as e:return '',str(e)
-    return '','unsupported_format'
+        return '','unsupported_format'
+    except Exception as e:return '',type(e).__name__
 
 def numbers(t):
     out=[]
@@ -91,46 +79,32 @@ def numbers(t):
     return out
 
 def should_analyze(item):
-    if item.get('attachments'):return True
-    if int(item.get('score') or 0)>=55:return True
-    return item.get('category') in ('데이터·통계','예산·재정') and int(item.get('score') or 0)>=48
+    return bool(item.get('attachments')) or int(item.get('score') or 0)>=55 or (item.get('category') in ('데이터·통계','예산·재정') and int(item.get('score') or 0)>=48)
 
 def analyze(item):
     discovered=[]
     for u in (item.get('attachments') or []):
-        if u:
-            if FILE.search(urlparse(u).path):discovered.append({'url':u,'source':u})
-            else:discovered.extend(discover_documents(u))
+        if u and FILE.search(urlparse(u).path):discovered.append({'url':u,'source':u})
     if should_analyze(item) and not discovered:
         u=item.get('detailUrl') or item.get('source')
-        if isinstance(u,str) and u.startswith('http'):
-            discovered.extend(discover_documents(u))
-    unique=[];seen=set()
+        if isinstance(u,str) and u.startswith('http'):discovered.extend(discover_documents(u))
+    docs=[];seen=set()
     for d in discovered:
-        if d['url'] not in seen:seen.add(d['url']);unique.append(d)
-    docs=[]
-    for d in unique[:MAX_DOCS_PER_ITEM]:
-        t,e=text_from(d['url'])
-        docs.append({'url':d['url'],'source':d['source'],'text':re.sub(r'\s+',' ',t)[:30000],'error':e,'numbers':numbers(t)[:300]})
-    body=item.get('summary','')+' '+item.get('title','')
-    allnums=numbers(body)+[n for d in docs for n in d['numbers']]
+        if d['url'] in seen:continue
+        seen.add(d['url']);t,e=text_from(d['url']);docs.append({'url':d['url'],'source':d['source'],'text':re.sub(r'\s+',' ',t)[:20000],'error':e,'numbers':numbers(t)[:150]})
+        if len(docs)>=MAX_DOCS_PER_ITEM:break
+    body=item.get('summary','')+' '+item.get('title','');allnums=numbers(body)+[n for d in docs for n in d['numbers']]
     verified=bool(docs and any(d['text'] for d in docs));findings=[]
-    if verified:findings.append('상세 페이지에서 첨부파일을 찾아 문서 본문을 실제 추출했습니다.')
-    if docs:findings.append(f'첨부/문서 후보 {len(docs)}개를 분석했습니다.')
+    if verified:findings.append('첨부파일 본문을 실제 추출했습니다.')
+    if docs:findings.append(f'첨부/문서 {len(docs)}개를 분석했습니다.')
     for d in docs:
         if d['error']:findings.append('첨부파일 분석 실패: '+d['error'])
-    item['documentText']='\n\n'.join(d['text'] for d in docs if d['text'])[:30000]
-    item['documentFiles']=docs;item['numbers']=allnums[:300];item['findings']=findings;item['documentVerified']=verified;item['attachmentCount']=len(docs)
-    item['standaloneEligible']=False;item['level']='A' if verified else item.get('level','B');item['score']=min(100,item.get('score',35)+(10 if verified else 0))
-    if verified:item['summary']=docs[0]['text'][:1500]
+    item['documentText']='\n\n'.join(d['text'] for d in docs if d['text'])[:20000];item['documentFiles']=docs;item['numbers']=allnums[:200];item['findings']=findings;item['documentVerified']=verified;item['attachmentCount']=len(docs);item['standaloneEligible']=False;item['level']='A' if verified else item.get('level','B');item['score']=min(100,int(item.get('score',35))+(10 if verified else 0))
+    if verified:item['summary']=docs[0]['text'][:1200]
     return item
 
 s=open('data.js',encoding='utf-8').read();payload=s.split('=',1)[1].strip().rstrip(';');items=json.loads(payload)
-# Analyze explicit attachments first, then the highest-scoring non-attachment candidates.
-with_docs=[x for x in items if x.get('attachments')]
-ranked=sorted([x for x in items if x not in with_docs],key=lambda x:int(x.get('score') or 0),reverse=True)
-priority=(with_docs+ranked)[:MAX_ITEMS]
-priority_ids={x.get('id') for x in priority}
+with_docs=[x for x in items if x.get('attachments')];ranked=sorted([x for x in items if x not in with_docs],key=lambda x:int(x.get('score') or 0),reverse=True);priority=(with_docs+ranked)[:MAX_ITEMS];priority_ids={x.get('id') for x in priority}
 for i,x in enumerate(items):
     if x.get('id') in priority_ids:items[i]=analyze(x)
     else:
