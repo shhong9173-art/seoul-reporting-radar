@@ -1,46 +1,51 @@
-import json,re
-from collections import defaultdict
-NUM_RE=re.compile(r'(?P<n>\d+(?:\.\d+)?)\s*(?P<u>조원|억원|천만원|만원|%|명|가구|세대|건|곳|개)')
-UNIT={'조원':1_0000_0000,'억원':1_0000,'천만원':1000,'만원':1,'%':1,'명':1,'가구':1,'세대':1,'건':1,'곳':1,'개':1}
-STOP=set('서울시 서울특별시 구청 사업 추진 계획 관련 개최 위한 따른 통해 올해 지난해 올해의 자료 안내 보도 공고'.split())
-def norm(s): return re.sub(r'[^0-9가-힣 ]',' ',(s or '').lower())
-def tokens(s): return [x for x in norm(s).split() if len(x)>=2 and x not in STOP]
-def vals(x):
- text=' '.join([x.get('documentText',''),x.get('title',''),x.get('summary','')]);out=[]
- for m in NUM_RE.finditer(text): out.append((m.group(0),float(m.group('n'))*UNIT[m.group('u')],m.group('u')))
+import json,re,datetime
+
+def txt(x):return ' '.join([x.get('title',''),x.get('summary',''),x.get('documentText','')])
+def nums(x):
+ out=[]
+ for m in re.finditer(r'(\d+(?:\.\d+)?)\s*(조원|억원|천만원|만원|%)',txt(x)):out.append((float(m.group(1)),m.group(2),m.group(0)))
  return out
-def fingerprint(x): return set(tokens(' '.join([x.get('title',''),x.get('summary',''),x.get('documentText','')[:4000]])))
+def words(x):return set(re.findall(r'[가-힣A-Za-z0-9]{2,}',' '.join([x.get('title',''),x.get('summary','')])))
 def similarity(a,b):
- A=fingerprint(a);B=fingerprint(b)
- return len(A&B)/max(1,len(A|B)) if A and B else 0
-def group_candidates(items):
- groups=[]
- for x in items:
-  candidates=[(similarity(x,g[0]),g) for g in groups if x.get('org')==g[0].get('org') and x.get('category')==g[0].get('category')]
-  candidates=[c for c in candidates if c[0]>=0.20]
-  if candidates:max(candidates,key=lambda z:z[0])[1].append(x)
-  else:groups.append([x])
- return groups
+ A=words(a);B=words(b);return len(A&B)/max(1,len(A|B)) if A and B else 0
+
 def compare(items):
- for x in items:x['comparisons']=[];x['level']='B';x['standaloneEligible']=False;x['comparisonConfidence']=0
- for g in group_candidates(items):
-  g.sort(key=lambda x:x.get('date',''))
-  for i,x in enumerate(g):
-   best=[]
-   for p in g[max(0,i-3):i]:
-    sim=similarity(x,p);a=vals(p);b=vals(x)
-    for old in a:
-     for new in b:
-      if old[2]==new[2] and old[1]!=0:
-       pct=(new[1]-old[1])/abs(old[1])*100
-       if abs(pct)>=20:best.append((abs(pct),sim,p,old,new,pct))
-   if not best:continue
-   best.sort(reverse=True,key=lambda z:z[0]);maxpct,sim,p,old,new,pct=best[0]
-   x['comparisonConfidence']=round(sim*100,1)
-   x['comparisons']=[f"{q.get('date')} {o[0]} → {n[0]} ({pc:+.1f}%)" for _,_,q,o,n,pc in best[:5]]
-   if sim>=0.32 and maxpct>=50:x['level']='S';x['score']=min(99,80+int(min(maxpct/2,19)));x['standaloneEligible']=True
-   elif sim>=0.20 and maxpct>=20:x['level']='A';x['score']=min(79,60+int(min(maxpct/2,19)))
-   x['why']=f"과거 자료와 내용 유사도 {sim*100:.0f}%로 매칭됐고 동일 단위 수치 변화가 확인됐습니다: "+'; '.join(x['comparisons'])
-   x['questions']=['변경된 수치의 공식 사유와 최초 결정 시점은?','증감분의 세부 항목별 금액·인원은?','예산서·계약자료·의회자료에서도 같은 변화가 확인되는가?','담당 부서와 최종 승인자는 누구인가?']
+ for x in items:
+  x['comparisons']=[];x['comparisonConfidence']=0
+  # Never manufacture an S-grade from same-day duplicates or unrelated documents.
+  if x.get('level')=='S':x['level']='B';x['standaloneEligible']=False
+  x['standaloneEligible']=False
+ for i,x in enumerate(items):
+  best=None
+  for j,y in enumerate(items):
+   if i==j or x.get('org')!=y.get('org'):continue
+   try:
+    dx=datetime.date.fromisoformat(str(x.get('date',''))[:10]);dy=datetime.date.fromisoformat(str(y.get('date',''))[:10])
+   except Exception:continue
+   if dy>=dx:continue
+   sim=similarity(x,y)
+   if sim<0.55:continue
+   old=nums(y);new=nums(x)
+   changes=[]
+   for a in old:
+    for b in new:
+     if a[1]==b[1] and a[0]!=0:
+      pct=(b[0]-a[0])/abs(a[0])*100
+      if abs(pct)>=20:changes.append((abs(pct),a,b,pct))
+   if changes:
+    c=max(changes,key=lambda z:z[0]);candidate=(sim,y,c)
+    if best is None or candidate[0]>best[0] or (candidate[0]==best[0] and candidate[2][0]>best[2][0]):best=candidate
+  if not best:continue
+  sim,y,c=best;maxpct,a,b,pct=c
+  x['comparisonConfidence']=round(sim*100,1)
+  x['comparisons']=[f"{y.get('date')} {a[2]} → {b[2]} ({pct:+.1f}%)"]
+  if sim>=0.72 and maxpct>=50:
+   x['level']='A';x['score']=max(int(x.get('score') or 0),78);x['standaloneEligible']=False
+   x['why']=f"과거 동일 기관 자료({y.get('date')})와 내용 유사도 {sim*100:.0f}%를 확인했고 수치가 {pct:+.1f}% 변했습니다. 단독 여부는 별도 보도·원문 확인이 필요합니다."
+  elif sim>=0.55 and maxpct>=20:
+   x['level']='A';x['score']=max(int(x.get('score') or 0),68);x['standaloneEligible']=False
+   x['why']=f"과거 자료와 내용 유사도 {sim*100:.0f}%로 매칭됐고 수치 변화({pct:+.1f}%)가 확인됐습니다."
+  x['questions']=['변경된 수치의 공식 사유와 최초 결정 시점은?','증감분의 세부 항목별 금액·인원은?','예산서·계약자료·의회자료에서도 같은 변화가 확인되는가?','동일 내용이 이미 보도됐는지 확인했는가?']
  return items
-raw=open('data.js',encoding='utf-8').read();items=json.loads(raw.split('=',1)[1].rstrip(' ;\n'));items=compare(items);open('data.js','w',encoding='utf-8').write('const ITEMS = '+json.dumps(items,ensure_ascii=False,separators=(',',':'))+';\n');print('compared',len(items))
+
+raw=open('data.js',encoding='utf-8').read();items=json.loads(raw.split('=',1)[1].rstrip(' ;\n'));items=compare(items);open('data.js','w',encoding='utf-8').write('const ITEMS = '+json.dumps(items,ensure_ascii=False,separators=(',',':'))+';\n');print('historical comparisons',len(items))
