@@ -15,7 +15,7 @@ PAGE_TIMEOUT=6;MAX_PAGE_BYTES=2_000_000;MAX_CANDIDATES_PER_ORG=10;MAX_DETAILS_PE
 
 def fetch(url,timeout=PAGE_TIMEOUT):
     try:
-        req=Request(url,headers={'User-Agent':'Mozilla/5.0 Seoul-Reporting-Radar/4.0','Accept':'text/html,*/*'})
+        req=Request(url,headers={'User-Agent':'Mozilla/5.0 Seoul-Reporting-Radar/4.1','Accept':'text/html,*/*'})
         with urlopen(req,timeout=timeout) as r:return r.read(MAX_PAGE_BYTES).decode('utf-8','ignore')
     except Exception:return ''
 
@@ -24,8 +24,11 @@ def clean(s):
     s=re.sub(r'<[^>]+>',' ',s);s=htmlmod.unescape(s);return re.sub(r'\s+',' ',s).strip()
 
 def content_text(body):
-    # Prefer a real article/main/content block. Do not feed navigation to the radar.
-    patterns=[r'<article\b[\s\S]*?</article>',r'<main\b[\s\S]*?</main>',r'<div[^>]+(?:id|class)=["'][^"']*(?:view|content|article|bbs|board)[^"']*["'][^>]*>[\s\S]*?</div>']
+    patterns=[
+        r"<article\b[\s\S]*?</article>",
+        r"<main\b[\s\S]*?</main>",
+        r"<div[^>]+(?:id|class)=[\"'][^\"']*(?:view|content|article|bbs|board)[^\"']*[\"'][^>]*>[\s\S]*?</div>"
+    ]
     for pat in patterns:
         m=re.search(pat,body,re.I)
         if m:
