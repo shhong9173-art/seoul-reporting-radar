@@ -1,29 +1,11 @@
-let items = [];
-let filter="all", cat="", query="";
-const $=s=>document.querySelector(s);
+let items=[];let filter="all",cat="",query="";const $=s=>document.querySelector(s);
 function filtered(){let a=items.filter(x=>(filter==="all"||x.level===filter||filter==="follow"&&x.level==="follow")&&(cat===""||x.category===cat));if(query)a=a.filter(x=>(x.title+x.summary+x.org+x.category+(x.tags||[]).join(" ")).toLowerCase().includes(query.toLowerCase()));const sort=$("#sort").value;return a.sort((a,b)=>sort==="score"?b.score-a.score:b.date.localeCompare(a.date));}
 function levelName(l){return l==="S"?"S급 검증된 취재 포인트":l==="A"?"A급 추가 취재 후보":l==="B"?"공개자료":l==="follow"?"추적 필요":"공개자료"}
 function esc(v=''){return String(v).replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]))}
-function list(a,empty='확인된 내용이 없습니다.'){return Array.isArray(a)&&a.length?`<ul>${a.map(v=>`<li>${esc(v)}</li>`).join('')}</ul>`:`<p>${empty}</p>`}
-function render(){const a=filtered();$("#cards").innerHTML=a.length?a.map(x=>`<article class="card" onclick="openItem('${esc(x.id)}')"><div class="card-top"><span class="badge ${x.level}">${levelName(x.level)}</span><span class="score">${x.score||0}점</span></div><div class="meta">${esc(x.org)} · ${esc(x.date)} · ${esc(x.category)}</div><div class="title">${esc(x.title)}</div><div class="summary"><b>${esc(x.why||'자료 내용 확인 필요')}</b><br>${esc(x.summary||'')}</div>${x.keyNumber?`<div class="key-number">${esc(x.keyNumber)}</div>`:''}<div class="bottom">${(x.tags||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}</div></article>`).join(''):`<div class="card"><div class="summary">조건에 맞는 자료가 없습니다.</div></div>`;$("#resultCount").textContent=`${a.length}건`;}
+function list(a,empty='확인된 내용이 없습니다.'){return Array.isArray(a)&&a.length?`<ul>${a.map(v=>`<li>${esc(typeof v==='object'?JSON.stringify(v):v)}</li>`).join('')}</ul>`:`<p>${empty}</p>`}
+function render(){const a=filtered();$("#cards").innerHTML=a.length?a.map(x=>{const summary=String(x.summary||'').slice(0,520);const why=String(x.why||'자료 내용 확인 필요').slice(0,240);return `<article class="card" onclick="openItem('${esc(x.id)}')"><div class="card-top"><span class="badge ${x.level}">${levelName(x.level)}</span><span class="score">${x.score||0}점</span></div><div class="meta">${esc(x.org)} · ${esc(x.date)} · ${esc(x.category)}</div><div class="title">${esc(x.title)}</div><div class="summary"><b>${esc(why)}</b><br>${esc(summary)}${String(x.summary||'').length>520?'…':''}</div>${x.keyNumber?`<div class="key-number">${esc(x.keyNumber)}</div>`:''}<div class="bottom">${(x.tags||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}</div></article>`}).join(''):`<div class="card"><div class="summary">조건에 맞는 자료가 없습니다.</div></div>`;$("#resultCount").textContent=`${a.length}건`;}
 function openItem(id){const x=items.find(i=>String(i.id)===String(id));if(!x)return;const comps=x.comparisons||[];const findings=x.findings||((x.documentText||'').split(/(?<=[.!?])\s+/).filter(Boolean).slice(0,8));const numbers=x.numbers||[];$("#detail").innerHTML=`<span class="badge ${x.level}">${levelName(x.level)}</span><h2>${esc(x.title)}</h2><div class="meta">${esc(x.org)} · ${esc(x.date)} · ${esc(x.category)} · 분석점수 ${x.score||0}점</div>${x.keyNumber?`<div class="key-number large">${esc(x.keyNumber)}</div>`:''}<div class="quote"><b>무슨 자료인가</b><br>${esc(x.summary||'자료 설명이 없습니다.')}</div><h3>자료에서 확인한 내용</h3>${list(findings,'문서 본문을 아직 추출하지 못했습니다.') }<h3>핵심 숫자</h3>${list(numbers,'본문에서 확정된 핵심 숫자가 없습니다.') }<h3>왜 취재 포인트인가</h3><div class="quote">${esc(x.why||'추가 비교가 필요합니다.')}<br><small>※ 공식자료 자체만으로 단독기사라고 판정하지 않습니다.</small></div><h3>과거·다른 구청과 비교한 결과</h3>${list(comps,'아직 비교 근거가 충분하지 않습니다. 자료가 축적되면 자동 비교합니다.') }<h3>추가로 확인할 것</h3>${list(x.questions,'추가 질문을 생성하는 중입니다.') }<h3>누구에게 물어볼 것인가</h3>${list(x.contacts||['담당 부서 확인 필요'])}<h3>첫 질문</h3><p>${esc(x.firstQuestion||'자료의 핵심 수치와 변화 이유를 확인하세요.')}</p><h3>원문·첨부파일</h3><p><a href="${esc(x.source||'#')}" target="_blank" rel="noopener">공식 원문 열기 ↗</a></p>${(x.attachments||[]).map(a=>`<p><a href="${esc(a)}" target="_blank" rel="noopener">첨부파일 열기 ↗</a></p>`).join('')}`;$("#modal").classList.remove("hidden")}
 function counts(){$("#countAll").textContent=items.length;$("#countS").textContent=items.filter(x=>x.level==="S").length;$("#countA").textContent=items.filter(x=>x.level==="A").length;$("#countB").textContent=items.filter(x=>x.level==="B").length;$("#countFollow").textContent=items.filter(x=>x.level==="follow").length;$("#statTotal").textContent=items.length;$("#statS").textContent=items.filter(x=>x.level==="S").length;$("#statF").textContent=items.filter(x=>x.level==="follow").length)}
 document.querySelectorAll(".nav").forEach(b=>b.onclick=()=>{document.querySelectorAll(".nav").forEach(n=>n.classList.remove("active"));b.classList.add("active");filter=b.dataset.filter;$("#viewTitle").textContent=b.textContent.trim().replace(/\s+\d+$/,"");render()});document.querySelectorAll(".chip").forEach(b=>b.onclick=()=>{cat=cat===b.dataset.cat?"":b.dataset.cat;render()});$("#search").oninput=e=>{query=e.target.value;render()};$("#sort").onchange=render;$("#reset").onclick=()=>{filter="all";cat="";query="";$("#search").value="";render()};$("#close").onclick=()=>$("#modal").classList.add("hidden");$("#modal").onclick=e=>{if(e.target.id==="modal")$("#modal").classList.add("hidden")};
-async function loadLocal(){
-  try{
-    const res=await fetch('data.json?v='+Date.now(),{cache:'no-store'});
-    if(!res.ok)throw new Error('HTTP '+res.status);
-    const data=await res.json();
-    if(!Array.isArray(data))throw new Error('data.json is not an array');
-    items=data;
-    const d=new Date();
-    $("#today").textContent=`${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일 · 서울시 + 25개 자치구 공개정보`;
-    counts();
-    render();
-  }catch(e){
-    console.error('Radar data load failed:',e);
-    $("#cards").innerHTML='<div class="card"><div class="summary">레이더 데이터를 불러오지 못했습니다. 잠시 후 다시 시도하세요.</div></div>';
-    $("#resultCount").textContent='0건';
-  }
-}
+async function loadLocal(){try{const res=await fetch('data.json?v='+Date.now(),{cache:'no-store'});if(!res.ok)throw new Error('HTTP '+res.status);const data=await res.json();if(!Array.isArray(data))throw new Error('data.json is not an array');items=data;const d=new Date();$("#today").textContent=`${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일 · 서울시 + 25개 자치구 공개정보`;counts();render()}catch(e){console.error('Radar data load failed:',e);$("#cards").innerHTML='<div class="card"><div class="summary">레이더 데이터를 불러오지 못했습니다. 잠시 후 다시 시도하세요.</div></div>';$("#resultCount").textContent='0건'}}
 loadLocal();
