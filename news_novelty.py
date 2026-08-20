@@ -28,4 +28,4 @@ def run(items):
    x['questions']=list(dict.fromkeys((x.get('questions') or [])+['기존 보도와 비교해 새롭게 확인된 사실은 무엇인가?']))
   else:x['standaloneStatus']='검색상 동일 내용 기사 미확인(단독 가능성 후보)'
  return items
-p=open('data.js',encoding='utf-8').read();items=json.loads(p.split('=',1)[1].rstrip(' ;\n'));items=run(items);open('data.js','w',encoding='utf-8').write('const ITEMS = '+json.dumps(items,ensure_ascii=False,separators=(',',':'))+';\n');print('media checked',len(check_ids),'of',len(items))
+p=open('data.js',encoding='utf-8').read();items=json.loads(p.split('=',1)[1].rstrip(' ;\n'));items=run(items);open('data.js','w',encoding='utf-8').write('const ITEMS = '+json.dumps(items,ensure_ascii=False,separators=(',',':'))+';\n');print('media checked',min(MAX_WEB_CHECKS,len(items)),'of',len(items))
