@@ -13,22 +13,37 @@ DATE=re.compile(r'(20\d{2})[.\-/](\d{1,2})[.\-/](\d{1,2})')
 LINK=re.compile(r'''<a[^>]+href=["']([^"']+)["'][^>]*>([\s\S]*?)</a>''',re.I)
 PAGE_TIMEOUT=6;MAX_PAGE_BYTES=2_000_000;MAX_CANDIDATES_PER_ORG=10;MAX_DETAILS_PER_ORG=4;MAX_ITEMS=400
 
+
 def fetch(url,timeout=PAGE_TIMEOUT):
     try:
-        req=Request(url,headers={'User-Agent':'Mozilla/5.0 Seoul-Reporting-Radar/4.1','Accept':'text/html,*/*'})
+        req=Request(url,headers={'User-Agent':'Mozilla/5.0 Seoul-Reporting-Radar/4.2','Accept':'text/html,*/*'})
         with urlopen(req,timeout=timeout) as r:return r.read(MAX_PAGE_BYTES).decode('utf-8','ignore')
     except Exception:return ''
+
 
 def clean(s):
     s=re.sub(r'<script[\s\S]*?</script>|<style[\s\S]*?</style>|<noscript[\s\S]*?</noscript>',' ',s,flags=re.I)
     s=re.sub(r'<[^>]+>',' ',s);s=htmlmod.unescape(s);return re.sub(r'\s+',' ',s).strip()
 
+
+def is_bad_link(href):
+    p=href.strip().lower()
+    return p.startswith(('javascript:','mailto:','tel:','#')) or p.startswith('data:')
+
+
+def is_bad_title(title):
+    t=' '.join(title.split()).strip()
+    if len(t)<8 or len(t)>180:return True
+    low=t.lower()
+    bad_tokens=('position:','display:','width:','height:','z-index','@media','padding-','margin-','box-sizing','background:','font-','javascript:','jquery','layer_popup','text-indent')
+    if any(k in low for k in bad_tokens):return True
+    if t.count('{')+t.count('}')>=2 or t.count(';')>=2:return True
+    if t.startswith(('.', '#', '@')):return True
+    return False
+
+
 def content_text(body):
-    patterns=[
-        r"<article\b[\s\S]*?</article>",
-        r"<main\b[\s\S]*?</main>",
-        r"<div[^>]+(?:id|class)=[\"'][^\"']*(?:view|content|article|bbs|board)[^\"']*[\"'][^>]*>[\s\S]*?</div>"
-    ]
+    patterns=[r"<article\b[\s\S]*?</article>",r"<main\b[\s\S]*?</main>",r"<div[^>]+(?:id|class)=[\"'][^\"']*(?:view|content|article|bbs|board)[^\"']*[\"'][^>]*>[\s\S]*?</div>"]
     for pat in patterns:
         m=re.search(pat,body,re.I)
         if m:
@@ -36,12 +51,16 @@ def content_text(body):
             if len(t)>=120:return t
     return clean(body)
 
+
 def links(page,base):
     out=[];seen=set()
     for href,title in LINK.findall(page):
         u=urljoin(base,htmlmod.unescape(href).replace('&amp;','&').strip())
-        if u not in seen:seen.add(u);out.append((u,clean(title)))
+        t=clean(title)
+        if is_bad_link(u) or is_bad_title(t):continue
+        if u not in seen:seen.add(u);out.append((u,t))
     return out
+
 
 def detail(url):
     body=fetch(url);atts=[]
@@ -52,6 +71,7 @@ def detail(url):
     dm=DATE.search(text[:4000]);pubdate=f'{dm.group(1)}-{int(dm.group(2)):02d}-{int(dm.group(3)):02d}' if dm else ''
     return text[:12000],list(dict.fromkeys(atts))[:6],pubdate
 
+
 def cat(t):
     if re.search(r'통계|데이터|현황|실적|지표|분석',t):return '데이터·통계'
     if re.search(r'예산|결산|재정|계약|입찰|보조금|지원금|사업비',t):return '예산·재정'
@@ -61,14 +81,16 @@ def cat(t):
     if re.search(r'안전|재난|화재|사고|단속|적발',t):return '안전'
     return '행정·공고'
 
+
 def collect(org,url):
     page=fetch(url)
     if not page:return []
     candidates=[];seen=set()
     for href,title in links(page,url):
-        if len(title)<8 or href in seen:continue
+        if href in seen:continue
         if any(x in title for x in ('로그인','검색','메뉴','바로가기','사이트맵','개인정보')):continue
-        if KEY.search(title) or FILE.search(href) or PROMO.search(title):seen.add(href);candidates.append((href,title))
+        if KEY.search(title) or FILE.search(href) or PROMO.search(title):
+            seen.add(href);candidates.append((href,title))
     candidates.sort(key=lambda x:(10 if KEY.search(x[1]) else 0)+(5 if NUM.search(x[1]) else 0)+(5 if FILE.search(x[0]) else 0),reverse=True)
     candidates=candidates[:MAX_CANDIDATES_PER_ORG]
     details={}
