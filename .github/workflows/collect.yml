@@ -79,9 +79,10 @@ jobs:
               x['summary']=(summary or '공식 공개자료입니다. 원문·첨부자료를 확인하고 과거자료·예산·계약·통계와 교차검증합니다.')[:900]
               x['source']=source
               x['detailUrl']=normalize(x.get('detailUrl') or source)
-              # S is allowed only when the strict story-quality gate explicitly proved it.
-              if x.get('level')=='S' and not x.get('standaloneEligible'):
+              # S is hard-locked at the publish gate until an explicit, verified scoop proof exists.
+              if x.get('level')=='S':
                   x['level']='A' if int(x.get('score') or 0)>=70 else 'B'
+                  x['standaloneEligible']=False
               key=(x.get('org',''),x['title'],x['source'])
               if key in seen:continue
               seen.add(key);clean.append(x)
@@ -92,17 +93,11 @@ jobs:
           bad=[x for x in items if NOISE_RE.search(x.get('title',''))]
           if bad: raise SystemExit(f'noise titles remain: {len(bad)}')
           s_count=sum(1 for x in items if x.get('level')=='S')
+          if s_count: raise SystemExit(f'S-grade items remain at publish gate: {s_count}')
           print('browser data:',len(items),'valid unique items; S-grade:',s_count)
           with open('data.json','w',encoding='utf-8') as f: json.dump(items,f,ensure_ascii=False,separators=(',',':'))
           with open('data.js','w',encoding='utf-8') as f: f.write('const ITEMS = '+json.dumps(items,ensure_ascii=False,separators=(',',':'))+';\n')
           PY
-      - name: Commit radar data
-        run: |
-          git config user.name 'seoul-reporting-radar-bot'
-          git config user.email 'actions@users.noreply.github.com'
-          git add data.js data.json
-          git diff --cached --quiet || git commit -m "chore: publish radar data"
-          git push
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
       - name: Upload homepage
