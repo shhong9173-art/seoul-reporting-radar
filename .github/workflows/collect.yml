@@ -7,13 +7,18 @@ on:
     - cron: '0 3 * * *'
     - cron: '0 9 * * *'
   workflow_dispatch:
+
+concurrency:
+  group: seoul-reporting-radar-main
+  cancel-in-progress: true
+
 permissions:
   contents: write
   pages: write
   id-token: write
+
 jobs:
   collect:
-    # [deploy-radar] trigger a fresh collection after code changes.
     if: github.event_name != 'push' || contains(github.event.head_commit.message, '[deploy-radar]')
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -56,60 +61,40 @@ jobs:
           NOISE_RE = re.compile(r'(layer_popup|@media|z-index|position\s*:|display\s*:|padding\s*:|margin\s*:|javascript:|mailto:|tel:|<\s*(div|style|script)|본문\s*바로가기|주메뉴\s*바로가기|사이트맵|로그인)', re.I)
           NAV_RE = re.compile(r'^(메뉴|검색|로그인|회원가입|사이트맵|바로가기|개인정보|주메뉴|본문|언어)$', re.I)
 
-          def normalize_text(v):
-              v = html.unescape(str(v or ''))
-              v = re.sub(r'\s+', ' ', v).strip()
-              return v
-
-          def clean_title(t):
-              t = normalize_text(t)
-              if not t: return ''
-              if NOISE_RE.search(t): return ''
-              t = re.sub(r'\s*\.{2,}\s*', '… ', t)
-              # Collapse obvious duplicated headline fragments.
-              for n in range(min(120, len(t)//2), 29, -1):
-                  left=t[:n].strip(' .…-')
-                  if len(left)>=30 and left in t[n:]:
-                      t=left
-                      break
-              return t[:180].strip(' .…-')
-
-          def clean_summary(s,title):
-              s = normalize_text(s)
-              if not s: return '공식 공개자료입니다. 원문과 첨부자료를 확인한 뒤 과거자료·예산·계약·통계와 교차검증합니다.'
-              if NOISE_RE.search(s) and sum(s.lower().count(x) for x in ['본문 바로가기','주메뉴 바로가기','로그인','사이트맵']) >= 2:
-                  s = ''
-              # Remove repeated exact title/lead fragments.
-              if title and len(s) > 250:
-                  lead=normalize_text(title)
-                  if lead and s.lower().count(lead.lower()) > 1:
-                      s=lead+' '+s.split(lead,1)[-1].strip()
-              return (s or '공식 공개자료입니다. 원문과 첨부자료를 확인한 뒤 과거자료·예산·계약·통계와 교차검증합니다.')[:900]
+          def normalize(v):
+              return re.sub(r'\s+', ' ', html.unescape(str(v or ''))).strip()
 
           clean=[];seen=set()
           for x in items:
-              title=clean_title(x.get('title',''))
-              source=normalize_text(x.get('source',''))
-              if not title or NAV_RE.match(title):
+              title=normalize(x.get('title'))
+              source=normalize(x.get('source'))
+              if not title or NAV_RE.match(title) or NOISE_RE.search(title):
                   continue
               if not source or re.match(r'^(javascript:|mailto:|tel:)',source,re.I):
                   continue
-              x['title']=title
-              x['summary']=clean_summary(x.get('summary',''), title)
+              x['title']=title[:180]
+              summary=normalize(x.get('summary'))
+              if NOISE_RE.search(summary) and sum(summary.lower().count(k) for k in ['본문 바로가기','주메뉴 바로가기','로그인','사이트맵'])>=2:
+                  summary=''
+              x['summary']=(summary or '공식 공개자료입니다. 원문·첨부자료를 확인하고 과거자료·예산·계약·통계와 교차검증합니다.')[:900]
               x['source']=source
-              x['detailUrl']=normalize_text(x.get('detailUrl') or source)
-              # Keep a source/title/org identity key and remove exact duplicates.
-              k=(x.get('org',''), title, source)
-              if k in seen: continue
-              seen.add(k); clean.append(x)
+              x['detailUrl']=normalize(x.get('detailUrl') or source)
+              # S is allowed only when the strict story-quality gate explicitly proved it.
+              if x.get('level')=='S' and not x.get('standaloneEligible'):
+                  x['level']='A' if int(x.get('score') or 0)>=70 else 'B'
+              key=(x.get('org',''),x['title'],x['source'])
+              if key in seen:continue
+              seen.add(key);clean.append(x)
 
-          # Sort for stable newsroom-facing output and cap the public dataset.
-          clean.sort(key=lambda x:(int(x.get('score') or 0), x.get('date','')), reverse=True)
+          clean.sort(key=lambda z:(int(z.get('score') or 0),z.get('date','')),reverse=True)
           items=clean[:400]
           if not items: raise SystemExit('no valid radar items remain after sanitization')
+          bad=[x for x in items if NOISE_RE.search(x.get('title',''))]
+          if bad: raise SystemExit(f'noise titles remain: {len(bad)}')
+          s_count=sum(1 for x in items if x.get('level')=='S')
+          print('browser data:',len(items),'valid unique items; S-grade:',s_count)
           with open('data.json','w',encoding='utf-8') as f: json.dump(items,f,ensure_ascii=False,separators=(',',':'))
           with open('data.js','w',encoding='utf-8') as f: f.write('const ITEMS = '+json.dumps(items,ensure_ascii=False,separators=(',',':'))+';\n')
-          print('browser data:',len(items),'valid unique items')
           PY
       - name: Commit radar data
         run: |
@@ -129,5 +114,3 @@ jobs:
         uses: actions/deploy-pages@v4
         with:
           token: ${{ github.token }}
-
-# [deploy-radar] force a fresh Pages deployment after UI and data-sanitization changes.
