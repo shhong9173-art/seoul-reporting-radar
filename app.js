@@ -1,4 +1,4 @@
-let items=Array.isArray(window.ITEMS)?window.ITEMS:[];let filter='must',cat='',company='',query='';const $=s=>document.querySelector(s);
+let items=Array.isArray(window.ITEMS)?window.ITEMS:(typeof ITEMS!=='undefined'&&Array.isArray(ITEMS)?ITEMS:[]);let filter='must',cat='',company='',query='';const $=s=>document.querySelector(s);
 function esc(v=''){return String(v).replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]))}
 function scoreClass(x){return x.priority==='must'?'must':x.exclusive?'exclusive':x.followUp?'follow':'normal'}
 function badge(x){return x.priority==='must'?'오늘 꼭 볼 것':x.exclusive?'단독·속보 후보':x.followUp?'후속 취재 후보':'모니터링'}
