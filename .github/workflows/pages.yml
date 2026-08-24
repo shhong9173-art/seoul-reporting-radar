@@ -24,6 +24,25 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Collect fresh auto desk feed
+        run: python collector.py
+
+      - name: Verify browser data
+        run: |
+          python - <<'PY'
+          import json
+          with open('data.json',encoding='utf-8') as f:
+              items=json.load(f)
+          if not isinstance(items,list) or len(items)<10:
+              raise SystemExit(f'Invalid data feed: {len(items) if isinstance(items,list) else 0} items')
+          print(f'Pages feed ready: {len(items)} items')
+          PY
+
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
