@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>산업부 자동차 취재 레이더</title>
-<link rel="stylesheet" href="style.css?v=20260824-1">
+<link rel="stylesheet" href="style.css?v=20260824-2">
 </head>
 <body>
 <div class="app">
@@ -13,21 +13,19 @@
     <nav>
       <button class="nav active" data-filter="must">오늘 꼭 볼 것 <span id="countMust">0</span></button>
       <button class="nav" data-filter="exclusive">단독·속보 후보 <span id="countExclusive">0</span></button>
-      <button class="nav" data-filter="all">전체 모니터링 <span id="countAll">0</span></button>
       <button class="nav" data-filter="follow">후속 취재 후보 <span id="countFollow">0</span></button>
+      <button class="nav" data-filter="all">전체 모니터링 <span id="countAll">0</span></button>
     </nav>
     <div class="section-label">분야</div>
     <div class="chips">
-      <button class="chip" data-cat="완성차">완성차</button>
-      <button class="chip" data-cat="부품">부품</button>
-      <button class="chip" data-cat="배터리">배터리</button>
-      <button class="chip" data-cat="정책·관세">정책·관세</button>
-      <button class="chip" data-cat="중국차">중국차</button>
-      <button class="chip" data-cat="노조·생산">노조·생산</button>
+      <button class="chip" data-cat="완성차">완성차</button><button class="chip" data-cat="부품">부품</button>
+      <button class="chip" data-cat="배터리">배터리</button><button class="chip" data-cat="정책·관세">정책·관세</button>
+      <button class="chip" data-cat="중국차">중국차</button><button class="chip" data-cat="노조·생산">노조·생산</button>
+      <button class="chip" data-cat="리콜·안전">리콜·안전</button><button class="chip" data-cat="수주·투자">수주·투자</button>
     </div>
     <div class="section-label">기업</div>
     <div class="chips compact" id="companyChips"></div>
-    <div class="sidebar-foot">자동차 · 부품 · 배터리<br><span>30분 주기 자동 수집</span></div>
+    <div class="sidebar-foot">자동차 · 부품 · 배터리<br><span>30분 주기 자동 수집 · 이슈 클러스터링</span></div>
   </aside>
 
   <main>
@@ -35,7 +33,7 @@
       <div>
         <div class="eyebrow">DAILY INDUSTRY NEWSROOM INTELLIGENCE</div>
         <h1>오늘 자동차판에서 놓치면 안 되는 것</h1>
-        <p id="today">단독·속보 후보와 후속 취재 포인트를 우선 선별합니다.</p>
+        <p id="today">단독·속보 후보와 경쟁지 선행 보도, 후속 취재 포인트를 우선 선별합니다.</p>
       </div>
       <div class="header-actions">
         <input id="search" placeholder="기업·키워드·매체 검색">
@@ -47,12 +45,12 @@
       <div class="stat"><small>오늘 수집</small><strong id="statTotal">0</strong><span>건</span></div>
       <div class="stat hot"><small>오늘 꼭 볼 것</small><strong id="statMust">0</strong><span>건</span></div>
       <div class="stat"><small>단독·속보 후보</small><strong id="statExclusive">0</strong><span>건</span></div>
-      <div class="stat"><small>후속 취재 후보</small><strong id="statFollow">0</strong><span>건</span></div>
+      <div class="stat"><small>경쟁지 선행 이슈</small><strong id="statCompetition">0</strong><span>건</span></div>
     </section>
 
     <section class="toolbar">
       <div><b id="viewTitle">오늘 꼭 볼 것</b><span id="resultCount"></span></div>
-      <select id="sort"><option value="score">취재가치순</option><option value="new">최신순</option></select>
+      <select id="sort"><option value="score">취재가치순</option><option value="new">최신순</option><option value="coverage">경쟁지 선행순</option></select>
     </section>
 
     <section id="cards" class="cards"></section>
@@ -65,7 +63,7 @@
     </div>
   </div>
 </div>
-<script src="data.js?v=20260824-1"></script>
-<script src="app.js?v=20260824-1"></script>
+<script src="data.js?v=20260824-2"></script>
+<script src="app.js?v=20260824-2"></script>
 </body>
 </html>
