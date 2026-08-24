@@ -1,6 +1,10 @@
 name: Auto Desk News Update
 
 on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'data.js'
   schedule:
     - cron: '*/30 * * * *'
   workflow_dispatch:
