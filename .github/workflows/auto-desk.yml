@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths-ignore:
       - 'data.js'
+      - 'data.json'
   schedule:
     - cron: '*/30 * * * *'
   workflow_dispatch:
@@ -30,18 +31,22 @@ jobs:
       - name: Validate feed before publishing
         run: |
           python - <<'PY'
-          import json, re
+          import json
           raw=open('data.js',encoding='utf-8').read()
-          m=re.match(r'^const ITEMS = (.*);\s*$',raw,re.S)
-          if not m:
+          prefix='window.ITEMS = '
+          if not raw.startswith(prefix) or not raw.rstrip().endswith(';'):
               raise SystemExit('data.js format is invalid')
-          items=json.loads(m.group(1))
+          items=json.loads(raw[len(prefix):].rstrip()[:-1])
           if len(items) < 10:
               raise SystemExit(f'collection returned only {len(items)} items; keeping previous feed')
           required={'title','url','published','sourceName','category','score','priority'}
           bad=[x for x in items if not required.issubset(x)]
           if bad:
               raise SystemExit(f'feed schema invalid: {len(bad)} items')
+          with open('data.json',encoding='utf-8') as f:
+              json_items=json.load(f)
+          if json_items != items:
+              raise SystemExit('data.json and data.js are inconsistent')
           print(f'validated {len(items)} items')
           PY
 
@@ -49,7 +54,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data.js
+          git add data.js data.json
           if git diff --cached --quiet; then
             echo "No feed changes"
           else
