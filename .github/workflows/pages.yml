@@ -29,6 +29,17 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Check collector syntax
+        run: python -m py_compile collector.py
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Check browser script syntax
+        run: node --check app.js
+
       - name: Collect fresh auto desk feed
         run: python collector.py
 
@@ -40,7 +51,10 @@ jobs:
               items=json.load(f)
           if not isinstance(items,list) or len(items)<10:
               raise SystemExit(f'Invalid data feed: {len(items) if isinstance(items,list) else 0} items')
-          print(f'Pages feed ready: {len(items)} items')
+          if any('title' not in x or 'url' not in x for x in items):
+              raise SystemExit('Feed schema is invalid')
+          globals_count=sum(1 for x in items if x.get('global'))
+          print(f'Pages feed ready: {len(items)} items / {globals_count} global')
           PY
 
       - name: Configure Pages
