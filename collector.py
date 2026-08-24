@@ -5,7 +5,7 @@ from email.utils import parsedate_to_datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-KST=ZoneInfo('Asia/Seoul');OUT=Path('data.js')
+KST=ZoneInfo('Asia/Seoul');OUT=Path('data.js');JSON_OUT=Path('data.json')
 FEEDS=[
  ('완성차','현대차 OR 기아 OR 제네시스 OR 현대자동차 OR 기아자동차'),
  ('부품','자동차부품 OR 현대모비스 OR 현대위아 OR 현대트랜시스 OR HL만도 OR 전장부품'),
@@ -40,7 +40,6 @@ def company_list(text):return [c for c in COMPANIES if c in text]
 
 def is_exclusive_title(title):
  t=re.sub(r'\s+',' ',title.strip())
- # Avoid false positives such as '단독 사고', '단독주택', or '단독 인터뷰'.
  patterns=[r'^\s*\[단독(?:취재|보도)?\]',r'^\s*\(단독(?:취재|보도)?\)',r'\b단독(?:취재|보도|입수)\s*:',r'\b단독(?:취재|보도|입수)\b(?=\s*[\"\'“”‘’])',r'\b단독보도\b']
  return any(re.search(p,t,re.I) for p in patterns)
 
@@ -108,4 +107,7 @@ raw=[]
 for cat,q in FEEDS:raw.extend(parse_feed(cat,q))
 items=enrich(dedupe(raw));items.sort(key=lambda x:(x['priority']!='must',-x['score'],x['published']));items=items[:180]
 if len(items)<10:raise SystemExit(f'collection returned only {len(items)} items')
-OUT.write_text('const ITEMS = '+json.dumps(items,ensure_ascii=False,separators=(',',':'))+';\n',encoding='utf-8');print(f'wrote {len(items)} items from {len(FEEDS)} RSS queries')
+payload=json.dumps(items,ensure_ascii=False,separators=(',',':'))
+JSON_OUT.write_text(payload,encoding='utf-8')
+OUT.write_text('window.ITEMS = '+payload+';\n',encoding='utf-8')
+print(f'wrote {len(items)} items from {len(FEEDS)} RSS queries')
