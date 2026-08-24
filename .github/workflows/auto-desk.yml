@@ -27,6 +27,24 @@ jobs:
       - name: Collect auto industry news
         run: python collector.py
 
+      - name: Validate feed before publishing
+        run: |
+          python - <<'PY'
+          import json, re
+          raw=open('data.js',encoding='utf-8').read()
+          m=re.match(r'^const ITEMS = (.*);\s*$',raw,re.S)
+          if not m:
+              raise SystemExit('data.js format is invalid')
+          items=json.loads(m.group(1))
+          if len(items) < 10:
+              raise SystemExit(f'collection returned only {len(items)} items; keeping previous feed')
+          required={'title','url','published','sourceName','category','score','priority'}
+          bad=[x for x in items if not required.issubset(x)]
+          if bad:
+              raise SystemExit(f'feed schema invalid: {len(bad)} items')
+          print(f'validated {len(items)} items')
+          PY
+
       - name: Commit updated feed
         run: |
           git config user.name "github-actions[bot]"
