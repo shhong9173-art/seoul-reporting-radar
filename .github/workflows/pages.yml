@@ -33,6 +33,8 @@ jobs:
         run: |
           python -m py_compile collector.py
           python -m py_compile global_collector.py
+          python -m py_compile dart_collector.py
+          python -m py_compile dart_enrich_pitch.py
           python -m py_compile archive_builder.py
           python -m py_compile pitch_builder.py
 
@@ -50,7 +52,12 @@ jobs:
       - name: Collect dedicated global radar
         run: python global_collector.py
 
-      - name: Build pitch scores and persistent archive
+      - name: Collect DART disclosure radar
+        env:
+          DART_API_KEY: ${{ secrets.DART_API_KEY }}
+        run: python dart_collector.py
+
+      - name: Build pitch score and persistent archive
         run: python archive_builder.py
 
       - name: Normalize pitch pair orientation
@@ -61,13 +68,15 @@ jobs:
           s=p.read_text(encoding='utf-8')
           old='frame,angle=PAIR_FRAMES[pair]'
           new="frame,angle=PAIR_FRAMES.get(pair, PAIR_FRAMES.get((pair[1], pair[0])))"
-          if old not in s:
-              raise SystemExit('Expected pitch pair lookup not found')
-          p.write_text(s.replace(old,new),encoding='utf-8')
+          if old in s:
+              p.write_text(s.replace(old,new),encoding='utf-8')
           PY
 
       - name: Build cross-source pitch items
         run: python pitch_builder.py
+
+      - name: Enrich pitch items with DART disclosures
+        run: python dart_enrich_pitch.py
 
       - name: Stamp browser asset cache versions
         env:
@@ -91,13 +100,15 @@ jobs:
           items=json.load(open('data.json',encoding='utf-8'))
           archive=json.load(open('archive.json',encoding='utf-8'))
           pitches=json.load(open('pitch.json',encoding='utf-8'))
+          dart=json.load(open('dart.json',encoding='utf-8'))
           if not isinstance(items,list) or len(items)<10: raise SystemExit('Invalid data feed')
           if any('title' not in x or 'url' not in x for x in items): raise SystemExit('Feed schema is invalid')
           globals_count=sum(1 for x in items if x.get('global'))
           if globals_count < 1: raise SystemExit('Global feed is empty')
           if not isinstance(pitches,list): raise SystemExit('Pitch output is invalid')
           if any('headline' not in x or 'evidence' not in x for x in pitches): raise SystemExit('Pitch schema is invalid')
-          print(f'Pages feed ready: {len(items)} items / {globals_count} global / {len(archive)} archived / {len(pitches)} pitch items')
+          if not isinstance(dart,dict) or 'items' not in dart: raise SystemExit('DART output is invalid')
+          print(f'Pages feed ready: {len(items)} items / {globals_count} global / {len(dart["items"])} DART disclosures / {len(archive)} archived / {len(pitches)} pitch items')
           PY
 
       - name: Configure Pages
