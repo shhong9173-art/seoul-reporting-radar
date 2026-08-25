@@ -8,6 +8,8 @@ on:
       - 'data.json'
       - 'global.json'
       - 'archive.json'
+      - 'dart.json'
+      - 'pitch.json'
   schedule:
     - cron: '*/30 * * * *'
   workflow_dispatch:
@@ -32,6 +34,11 @@ jobs:
 
       - name: Collect dedicated global radar
         run: python global_collector.py
+
+      - name: Collect DART disclosure radar
+        env:
+          DART_API_KEY: ${{ secrets.DART_API_KEY }}
+        run: python dart_collector.py
 
       - name: Build pitch score and persistent archive
         run: python archive_builder.py
@@ -58,18 +65,20 @@ jobs:
           if json_items != items: raise SystemExit('data.json and data.js are inconsistent')
           with open('global.json',encoding='utf-8') as f: global_items=json.load(f)
           if len(global_items) != len(globals_): raise SystemExit('global.json and data.js are inconsistent')
+          with open('dart.json',encoding='utf-8') as f: dart=json.load(f)
+          if not isinstance(dart,dict) or 'items' not in dart: raise SystemExit('dart.json is invalid')
           with open('archive.json',encoding='utf-8') as f: archive=json.load(f)
-          print(f'validated {len(items)} current items, {len(globals_)} global records and {len(archive)} archive records')
+          print(f'validated {len(items)} current items, {len(globals_)} global records, {len(dart["items"])} DART disclosures and {len(archive)} archive records')
           PY
 
       - name: Commit updated feed and archive
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data.js data.json global.json archive.json
+          git add data.js data.json global.json archive.json dart.json
           if git diff --cached --quiet; then
             echo "No feed changes"
           else
-            git commit -m "chore: refresh domestic and global auto radar"
+            git commit -m "chore: refresh domestic global and DART auto radar"
             git push
           fi
