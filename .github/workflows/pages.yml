@@ -34,6 +34,7 @@ jobs:
           python -m py_compile collector.py
           python -m py_compile global_collector.py
           python -m py_compile archive_builder.py
+          python -m py_compile pitch_builder.py
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -41,7 +42,7 @@ jobs:
           node-version: '22'
 
       - name: Check browser script syntax
-        run: node --check app.js
+        run: node --check app.js && node --check pitch.js
 
       - name: Collect domestic auto desk feed
         run: python collector.py
@@ -52,18 +53,20 @@ jobs:
       - name: Build pitch scores and persistent archive
         run: python archive_builder.py
 
+      - name: Build cross-source pitch items
+        run: python pitch_builder.py
+
       - name: Stamp browser asset cache versions
         env:
           BUILD_SHA: ${{ github.sha }}
         run: |
           python - <<'PY'
           from pathlib import Path
-          import os
-          import re
+          import os,re
           p=Path('index.html')
           s=p.read_text(encoding='utf-8')
           v=os.environ['BUILD_SHA']
-          for asset in ('data.js','app.js','pitch.js','style.css'):
+          for asset in ('data.js','app.js','pitch.js','style.css','pitch.json'):
               s=re.sub(r'('+re.escape(asset)+r'\?v=)[^"\']+', r'\g<1>'+v, s)
           p.write_text(s,encoding='utf-8')
           PY
@@ -72,18 +75,16 @@ jobs:
         run: |
           python - <<'PY'
           import json
-          with open('data.json',encoding='utf-8') as f:
-              items=json.load(f)
-          with open('archive.json',encoding='utf-8') as f:
-              archive=json.load(f)
-          if not isinstance(items,list) or len(items)<10:
-              raise SystemExit(f'Invalid data feed: {len(items) if isinstance(items,list) else 0} items')
-          if any('title' not in x or 'url' not in x for x in items):
-              raise SystemExit('Feed schema is invalid')
+          items=json.load(open('data.json',encoding='utf-8'))
+          archive=json.load(open('archive.json',encoding='utf-8'))
+          pitches=json.load(open('pitch.json',encoding='utf-8'))
+          if not isinstance(items,list) or len(items)<10: raise SystemExit('Invalid data feed')
+          if any('title' not in x or 'url' not in x for x in items): raise SystemExit('Feed schema is invalid')
           globals_count=sum(1 for x in items if x.get('global'))
-          if globals_count < 1:
-              raise SystemExit('Global feed is empty')
-          print(f'Pages feed ready: {len(items)} items / {globals_count} global / {len(archive)} archived')
+          if globals_count < 1: raise SystemExit('Global feed is empty')
+          if not isinstance(pitches,list) or len(pitches)<1: raise SystemExit('Pitch builder returned no candidates')
+          if any('headline' not in x or 'evidence' not in x for x in pitches): raise SystemExit('Pitch schema is invalid')
+          print(f'Pages feed ready: {len(items)} items / {globals_count} global / {len(archive)} archived / {len(pitches)} pitch items')
           PY
 
       - name: Configure Pages
