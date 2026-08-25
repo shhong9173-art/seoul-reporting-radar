@@ -6,6 +6,7 @@ on:
     paths-ignore:
       - 'data.js'
       - 'data.json'
+      - 'global.json'
       - 'archive.json'
   schedule:
     - cron: '*/30 * * * *'
@@ -26,8 +27,11 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Collect auto industry news
+      - name: Collect domestic auto industry news
         run: python collector.py
+
+      - name: Collect dedicated global radar
+        run: python global_collector.py
 
       - name: Build pitch score and persistent archive
         run: python archive_builder.py
@@ -47,20 +51,25 @@ jobs:
           bad=[x for x in items if not required.issubset(x)]
           if bad:
               raise SystemExit(f'feed schema invalid: {len(bad)} items')
+          globals_=[x for x in items if x.get('global')]
+          if not globals_:
+              raise SystemExit('global radar returned 0 records; keeping previous feed')
           with open('data.json',encoding='utf-8') as f: json_items=json.load(f)
           if json_items != items: raise SystemExit('data.json and data.js are inconsistent')
+          with open('global.json',encoding='utf-8') as f: global_items=json.load(f)
+          if len(global_items) != len(globals_): raise SystemExit('global.json and data.js are inconsistent')
           with open('archive.json',encoding='utf-8') as f: archive=json.load(f)
-          print(f'validated {len(items)} current items and {len(archive)} archive records')
+          print(f'validated {len(items)} current items, {len(globals_)} global records and {len(archive)} archive records')
           PY
 
       - name: Commit updated feed and archive
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data.js data.json archive.json
+          git add data.js data.json global.json archive.json
           if git diff --cached --quiet; then
             echo "No feed changes"
           else
-            git commit -m "chore: refresh auto desk feed and archive"
+            git commit -m "chore: refresh domestic and global auto radar"
             git push
           fi
