@@ -13,20 +13,26 @@ from urllib.request import Request, urlopen
 API_KEY = os.environ.get("DART_API_KEY", "").strip()
 IN = Path("dart.json")
 OUT = Path("dart_numeric.json")
-MAX_DOCS = 10
+MAX_DOCS = 12
 
-NUMBER_RE = re.compile(r"(?<![A-Za-z0-9])[-+]?\d{1,3}(?:,\d{3})*(?:\.\d+)?\s*(?:조|억|만|천|백)?\s*(?:원|원?화|달러|USD|EUR|%|명|대|만대|억원|조원|GWh|MWh|kWh|톤|㎡|m²|km)?")
-KEYWORD_RE = re.compile(
-    r"시설투자|신규시설|출자|유상증자|타법인|지분|생산능력|생산|공장|설비|계약|수주|공급|배터리|ESS|AAM|로보택시|북미|미국|유럽|중국|투자",
+# Only capture material values with an explicit unit. Dates and table row indices are discarded.
+VALUE_RE = re.compile(
+    r"(?<![A-Za-z0-9])[-+]?\d{1,3}(?:,\d{3})*(?:\.\d+)?\s*(?:조원|억원|만원|원|조|억|만대|천대|대|%|명|GWh|MWh|kWh|톤|㎡|m²|km|달러|USD|EUR)(?![A-Za-z0-9])",
     re.I,
 )
-
+KEYWORD_RE = re.compile(
+    r"시설투자|신규시설|출자|유상증자|타법인|지분|생산능력|생산중단|생산|공장|설비|계약|수주|공급|배터리|ESS|AAM|로보택시|북미|미국|유럽|중국|투자",
+    re.I,
+)
+PRIORITY_WORDS = (
+    "시설투자", "출자", "유상증자", "타법인", "지분", "생산중단",
+    "주요사항보고서", "사업보고서", "분기보고서", "반기보고서", "영업양수도",
+)
 
 def fetch_bytes(url: str) -> bytes:
     req = Request(url, headers={"User-Agent": "auto-desk-radar/1.0"})
-    with urlopen(req, timeout=30) as r:
+    with urlopen(req, timeout=25) as r:
         return r.read()
-
 
 def html_to_text(raw: bytes) -> str:
     text = raw.decode("utf-8", errors="ignore")
@@ -34,17 +40,14 @@ def html_to_text(raw: bytes) -> str:
     text = re.sub(r"<style[\s\S]*?</style>", " ", text, flags=re.I)
     text = re.sub(r"<[^>]+>", " ", text)
     text = re.sub(r"&nbsp;|&#160;", " ", text)
-    text = re.sub(r"\s+", " ", text)
-    return text
+    return re.sub(r"\s+", " ", text)
 
-
-def extract_document(receipt_no: str) -> dict:
+def extract_document(base: dict) -> dict:
+    receipt_no = base.get("receiptNo", "")
     if not API_KEY or not receipt_no:
-        return {"receiptNo": receipt_no, "numbers": [], "error": "missing api key or receipt"}
+        return {**base, "numbers": [], "snippets": [], "error": "missing api key or receipt"}
     try:
-        url = "https://opendart.fss.or.kr/api/document.xml?" + urlencode(
-            {"crtfc_key": API_KEY, "rcept_no": receipt_no}
-        )
+        url = "https://opendart.fss.or.kr/api/document.xml?" + urlencode({"crtfc_key": API_KEY, "rcept_no": receipt_no})
         raw = fetch_bytes(url)
         numbers = {}
         snippets = []
@@ -56,22 +59,19 @@ def extract_document(receipt_no: str) -> dict:
                     text = html_to_text(z.read(name))
                 except Exception:
                     continue
-                for m in KEYWORD_RE.finditer(text):
-                    start = max(0, m.start() - 180)
-                    end = min(len(text), m.end() + 280)
+                for match in KEYWORD_RE.finditer(text):
+                    start = max(0, match.start() - 220)
+                    end = min(len(text), match.end() + 360)
                     context = text[start:end]
-                    vals = NUMBER_RE.findall(context)
-                    vals = [re.sub(r"\s+", "", v) for v in vals]
-                    vals = [v for v in vals if re.search(r"\d", v)]
-                    for v in vals:
-                        numbers[v] = context.strip()
+                    vals = [re.sub(r"\s+", "", v) for v in VALUE_RE.findall(context)]
+                    vals = list(dict.fromkeys(vals))
+                    for value in vals:
+                        numbers[value] = context.strip()
                     if vals:
-                        snippets.append({"keyword": m.group(0), "numbers": vals[:8], "context": context.strip()})
-        out_numbers = list(numbers.keys())[:30]
-        return {"receiptNo": receipt_no, "numbers": out_numbers, "snippets": snippets[:20]}
-    except Exception as e:
-        return {"receiptNo": receipt_no, "numbers": [], "snippets": [], "error": str(e)}
-
+                        snippets.append({"keyword": match.group(0), "numbers": vals[:10], "context": context.strip()})
+        return {**base, "numbers": list(numbers.keys())[:40], "snippets": snippets[:24]}
+    except Exception as exc:
+        return {**base, "numbers": [], "snippets": [], "error": str(exc)}
 
 def main():
     if not IN.exists():
@@ -79,28 +79,23 @@ def main():
         return
     payload = json.loads(IN.read_text(encoding="utf-8"))
     rows = payload.get("items", []) if isinstance(payload, dict) else []
-    # Focus on the newest, most useful disclosure types to keep the 30-minute run lightweight.
-    priority_words = ("시설투자", "출자", "유상증자", "타법인", "지분", "주요사항보고서", "사업보고서", "분기보고서", "반기보고서")
     rows = sorted(
         rows,
         key=lambda x: (
-            not any(w.lower() in str(x.get("reportName", "")).lower() for w in priority_words),
+            any(w.lower() in str(x.get("reportName", "")).lower() for w in PRIORITY_WORDS),
             x.get("date", ""),
         ),
-        reverse=False,
+        reverse=True,
     )[:MAX_DOCS]
     results = []
     with ThreadPoolExecutor(max_workers=4) as pool:
-        futures = {pool.submit(extract_document, r.get("receiptNo", "")): r for r in rows}
-        for fut in as_completed(futures):
-            base = futures[fut]
-            result = fut.result()
-            result.update({"corpName": base.get("corpName"), "reportName": base.get("reportName"), "date": base.get("date"), "url": base.get("url")})
-            results.append(result)
+        futures = [pool.submit(extract_document, row) for row in rows]
+        for future in as_completed(futures):
+            results.append(future.result())
     results.sort(key=lambda x: x.get("date", ""), reverse=True)
+    with_numbers = [x for x in results if x.get("numbers")]
     OUT.write_text(json.dumps({"count": len(results), "items": results}, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-    print(f"DART numeric extraction: {sum(bool(x.get('numbers')) for x in results)} docs with numeric signals / {len(results)} docs inspected")
-
+    print(f"DART numeric extraction: {len(with_numbers)} docs with material numeric signals / {len(results)} docs inspected")
 
 if __name__ == "__main__":
     main()
