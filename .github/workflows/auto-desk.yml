@@ -54,10 +54,10 @@ jobs:
           items=json.loads(raw[len(prefix):].rstrip()[:-1])
           if len(items) < 10:
               raise SystemExit(f'collection returned only {len(items)} items; keeping previous feed')
-          required={'title','url','published','sourceName','category','score','priority'}
-          bad=[x for x in items if not required.issubset(x)]
+          base_required={'title','url','published','sourceName','category','score','priority'}
+          bad=[x for x in items if not base_required.issubset(x)]
           if bad:
-              raise SystemExit(f'feed schema invalid: {len(bad)} items')
+              raise SystemExit(f'base feed schema invalid: {len(bad)} items')
           globals_=[x for x in items if x.get('global')]
           if not globals_:
               raise SystemExit('global radar returned 0 records; keeping previous feed')
@@ -65,6 +65,9 @@ jobs:
           if json_items != items: raise SystemExit('data.json and data.js are inconsistent')
           with open('global.json',encoding='utf-8') as f: global_items=json.load(f)
           if len(global_items) != len(globals_): raise SystemExit('global.json and data.js are inconsistent')
+          global_required={'title','url','published','sourceName'}
+          bad_global=[x for x in globals_ if not global_required.issubset(x)]
+          if bad_global: raise SystemExit(f'global feed schema invalid: {len(bad_global)} items')
           with open('dart.json',encoding='utf-8') as f: dart=json.load(f)
           if not isinstance(dart,dict) or 'items' not in dart: raise SystemExit('dart.json is invalid')
           with open('archive.json',encoding='utf-8') as f: archive=json.load(f)
