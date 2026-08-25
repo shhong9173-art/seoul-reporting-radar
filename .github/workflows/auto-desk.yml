@@ -44,6 +44,12 @@ jobs:
       - name: Build pitch score and persistent archive
         run: python archive_builder.py
 
+      - name: Extract numeric facts from DART originals
+        env:
+          DART_API_KEY: ${{ secrets.DART_API_KEY }}
+        continue-on-error: true
+        run: python dart_numeric_extractor.py
+
       - name: Normalize pitch pair orientation
         run: |
           python - <<'PY'
@@ -56,17 +62,11 @@ jobs:
               p.write_text(s.replace(old,new),encoding='utf-8')
           PY
 
-      - name: Build cross-source pitch items
+      - name: Build cross-source pitch items with DART numeric gate
         run: python pitch_builder.py
 
       - name: Enrich pitch items with DART disclosures
         run: python dart_enrich_pitch.py
-
-      - name: Extract numeric facts from DART originals
-        env:
-          DART_API_KEY: ${{ secrets.DART_API_KEY }}
-        continue-on-error: true
-        run: python dart_numeric_extractor.py
 
       - name: Enrich pitch items with DART numeric facts
         continue-on-error: true
@@ -87,29 +87,22 @@ jobs:
           globals_=[x for x in items if x.get('global')]
           domestic_required={'title','url','published','sourceName','category','score','priority'}
           global_required={'title','url','published','sourceName','category'}
-          bad_domestic=[x for x in domestic if not domestic_required.issubset(x)]
-          bad_global=[x for x in globals_ if not global_required.issubset(x)]
-          if bad_domestic:
-              raise SystemExit(f'domestic feed schema invalid: {len(bad_domestic)} items')
-          if bad_global:
-              raise SystemExit(f'global feed schema invalid: {len(bad_global)} items')
-          if not globals_:
-              raise SystemExit('global radar returned 0 records; keeping previous feed')
-          with open('data.json',encoding='utf-8') as f: json_items=json.load(f)
-          if json_items != items: raise SystemExit('data.json and data.js are inconsistent')
-          with open('global.json',encoding='utf-8') as f: global_items=json.load(f)
-          if len(global_items) != len(globals_): raise SystemExit('global.json and data.js are inconsistent')
-          with open('dart.json',encoding='utf-8') as f: dart=json.load(f)
-          if not isinstance(dart,dict) or 'items' not in dart: raise SystemExit('dart.json is invalid')
-          with open('pitch.json',encoding='utf-8') as f: pitches=json.load(f)
-          if not isinstance(pitches,list): raise SystemExit('pitch.json is invalid')
-          try:
-              with open('dart_numeric.json',encoding='utf-8') as f: numeric=json.load(f)
-          except FileNotFoundError:
-              numeric={'items':[]}
-          if not isinstance(numeric,dict) or 'items' not in numeric: raise SystemExit('dart_numeric.json is invalid')
-          with open('archive.json',encoding='utf-8') as f: archive=json.load(f)
-          print(f'validated {len(items)} current items, {len(globals_)} global records, {len(dart["items"])} DART disclosures, {len(numeric["items"])} numeric docs, {len(pitches)} pitch items and {len(archive)} archive records')
+          if any(not domestic_required.issubset(x) for x in domestic): raise SystemExit('domestic feed schema invalid')
+          if any(not global_required.issubset(x) for x in globals_): raise SystemExit('global feed schema invalid')
+          if not globals_: raise SystemExit('global radar returned 0 records')
+          if json.load(open('data.json',encoding='utf-8')) != items: raise SystemExit('data.js/data.json inconsistent')
+          if len(json.load(open('global.json',encoding='utf-8'))) != len(globals_): raise SystemExit('global.json/data.js inconsistent')
+          dart=json.load(open('dart.json',encoding='utf-8'))
+          pitches=json.load(open('pitch.json',encoding='utf-8'))
+          numeric=json.load(open('dart_numeric.json',encoding='utf-8')) if __import__('pathlib').Path('dart_numeric.json').exists() else {'items':[]}
+          archive=json.load(open('archive.json',encoding='utf-8'))
+          if not isinstance(dart,dict) or 'items' not in dart: raise SystemExit('dart.json invalid')
+          if not isinstance(pitches,list): raise SystemExit('pitch.json invalid')
+          if not isinstance(numeric,dict) or 'items' not in numeric: raise SystemExit('dart_numeric.json invalid')
+          if not isinstance(archive,list): raise SystemExit('archive.json invalid')
+          a=sum(1 for p in pitches if p.get('grade')=='A')
+          linked=sum(1 for p in pitches if p.get('dartNumericSignals'))
+          print(f'validated {len(items)} items / {len(globals_)} global / {len(dart["items"])} DART / {len(numeric["items"])} numeric docs / {len(pitches)} pitches / {a} A-grade / {linked} numeric-linked')
           PY
 
       - name: Commit updated feed, pitches and archive
