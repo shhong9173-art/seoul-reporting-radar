@@ -79,6 +79,9 @@ jobs:
         continue-on-error: true
         run: python dart_numeric_enrich_pitch.py
 
+      - name: Deduplicate and sanitize pitch items
+        run: python pitch_dedup.py
+
       - name: Validate feed before publishing
         run: |
           python - <<'PY'
