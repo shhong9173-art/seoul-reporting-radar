@@ -3,6 +3,7 @@ from __future__ import annotations
 import html
 import json
 import re
+import time
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
@@ -14,7 +15,6 @@ from zoneinfo import ZoneInfo
 KST = ZoneInfo("Asia/Seoul")
 DATA = Path("data.json")
 
-# Separate global radar: broader searches than the domestic collector.
 QUERIES = [
     ("Reuters", "site:reuters.com automotive OR EV OR electric vehicle OR battery OR auto tariff OR Hyundai OR Kia OR LG Energy Solution OR Samsung SDI OR SK On OR CATL OR BYD"),
     ("Bloomberg", "site:bloomberg.com automotive OR EV OR electric vehicle OR battery OR auto tariff OR Hyundai OR Kia OR LG Energy Solution OR Samsung SDI OR SK On"),
@@ -49,7 +49,7 @@ HIGH_IMPACT = [
 def get(url: str, timeout: int = 15) -> bytes:
     req = urllib.request.Request(
         url,
-        headers={"User-Agent": "Mozilla/5.0 AutoIndustryGlobalRadar/1.0", "Accept": "application/rss+xml,application/xml,text/xml,*/*"},
+        headers={"User-Agent": "Mozilla/5.0 AutoIndustryGlobalRadar/1.1", "Accept": "application/rss+xml,application/xml,text/xml,*/*"},
     )
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return r.read()
@@ -60,16 +60,40 @@ def clean(text: str) -> str:
     return re.sub(r"\s+", " ", html.unescape(text)).strip()
 
 
-def translate(text: str) -> str:
+def looks_korean(text: str) -> bool:
+    return bool(re.search(r"[가-힣]", text or ""))
+
+
+def translate(text: str) -> tuple[str, str]:
     text = clean(text)[:1000]
     if not text:
-        return ""
+        return "", "empty"
+    if looks_korean(text) and not re.search(r"\b(the|and|of|to|for|with|after|before|reportedly|starts|launches|says)\b", text, re.I):
+        return text, "already_ko"
+
+    url = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=ko&dt=t&q=" + urllib.parse.quote(text)
+    for attempt in range(3):
+        try:
+            raw = json.loads(get(url, 12))
+            translated = "".join(part[0] for part in raw[0] if part and part[0]).strip()
+            if translated and (looks_korean(translated) or not re.search(r"[A-Za-z]", text)):
+                return translated, "translated"
+        except Exception:
+            pass
+        time.sleep(0.7 * (attempt + 1))
+
+    # Second provider fallback. It is intentionally only used when Google translation failed.
     try:
-        url = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=ko&dt=t&q=" + urllib.parse.quote(text)
-        raw = json.loads(get(url, 10))
-        return "".join(part[0] for part in raw[0] if part and part[0]).strip()
+        q = urllib.parse.quote(text[:500])
+        mm = f"https://api.mymemory.translated.net/get?q={q}&langpair=en|ko"
+        raw = json.loads(get(mm, 12))
+        translated = str(raw.get("responseData", {}).get("translatedText", "")).strip()
+        if translated and looks_korean(translated):
+            return translated, "translated_fallback"
     except Exception:
-        return text
+        pass
+
+    return text, "translation_failed"
 
 
 def parse(source: str, query: str) -> list[dict]:
@@ -100,11 +124,16 @@ def parse(source: str, query: str) -> list[dict]:
         korea_score = sum(1 for x in KOREA_SIGNALS if x in text)
         if industry_score == 0:
             continue
-        # Global radar is intentionally broad, but requires either a Korea signal or a strong global industry signal.
         if korea_score == 0 and industry_score < 2:
             continue
         impact = sum(1 for x in HIGH_IMPACT if x in text)
         score = min(99, 45 + korea_score * 9 + min(industry_score, 5) * 4 + min(impact, 5) * 4)
+
+        ko_title, title_status = translate(title)
+        ko_summary, summary_status = translate(desc[:900])
+        # Never label an untranslated English string as translated.
+        translation_status = "translated" if title_status.startswith("translated") else title_status
+
         rows.append({
             "title": title,
             "url": link,
@@ -115,9 +144,9 @@ def parse(source: str, query: str) -> list[dict]:
             "globalSource": source,
             "summary": desc[:1000],
             "globalScore": score,
-            "koTitle": translate(title),
-            "koSummary": translate(desc[:900]),
-            "translationStatus": "translated",
+            "koTitle": ko_title,
+            "koSummary": ko_summary,
+            "translationStatus": translation_status,
             "globalWhy": "한국 자동차·부품·배터리 산업과 연결되거나 글로벌 공급망·통상·생산 변화가 큰 해외 신호입니다.",
             "globalPitch": score >= 70,
         })
@@ -130,7 +159,6 @@ def main() -> None:
     except Exception:
         current = []
 
-    # Keep the current domestic feed and replace only the global slice.
     domestic = [x for x in current if not x.get("global")]
     globals_: list[dict] = []
     for source, query in QUERIES:
@@ -145,7 +173,8 @@ def main() -> None:
         seen.add(key)
         unique.append(item)
 
-    # Keep the most useful 80 global records so the static page remains fast.
+    # Drop items whose title could not be translated; they are not useful for the Korean newsroom view.
+    unique = [x for x in unique if x.get("translationStatus") != "translation_failed" and x.get("koTitle")]
     unique = sorted(unique, key=lambda x: (x.get("globalScore", 0), x["published"]), reverse=True)[:80]
     merged = domestic + unique
     merged.sort(key=lambda x: x.get("published", ""), reverse=True)
@@ -153,7 +182,8 @@ def main() -> None:
     DATA.write_text(json.dumps(merged, ensure_ascii=False, indent=2), encoding="utf-8")
     Path("data.js").write_text("window.ITEMS = " + json.dumps(merged, ensure_ascii=False, indent=2) + ";\n", encoding="utf-8")
     Path("global.json").write_text(json.dumps(unique, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(f"global radar: {len(unique)} records; total feed: {len(merged)}")
+    failed = sum(1 for x in unique if x.get("translationStatus") == "translation_failed")
+    print(f"global radar: {len(unique)} translated records retained; {failed} translation failures dropped; total feed: {len(merged)}")
 
 
 if __name__ == "__main__":
