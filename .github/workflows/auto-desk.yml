@@ -43,6 +43,9 @@ jobs:
       - name: Collect dedicated global radar
         run: python global_collector.py
 
+      - name: Filter repetitive follow-up coverage
+        run: python followup_filter.py
+
       - name: Collect DART disclosure radar
         env:
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
@@ -113,14 +116,15 @@ jobs:
           linked=sum(1 for p in pitches if p.get('dartNumericSignals'))
           industry=sum(1 for x in items if x.get('industrySource'))
           auto=sum(1 for x in items if x.get('category') in {'완성차','부품','배터리','정책·관세','중국차','노조·생산','수주·투자','리콜·안전','단독','미국·글로벌'} and not x.get('global'))
-          print(f'validated {len(items)} items / auto {auto} / expanded industry {industry} / {len(globals_)} global / {len(dart["items"])} DART / {len(numeric["items"])} numeric docs / {len(pitches)} pitches / {a} A-grade / {linked} numeric-linked')
+          follow=sum(1 for x in items if x.get('followUp') and not x.get('global'))
+          print(f'validated {len(items)} items / auto {auto} / expanded industry {industry} / {len(globals_)} global / {len(dart["items"])} DART / {len(numeric["items"])} numeric docs / {len(pitches)} pitches / {a} A-grade / {linked} numeric-linked / {follow} retained follow-up')
           PY
 
       - name: Commit updated feed, pitches and archive
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data.js data.json global.json archive.json dart.json pitch.json dart_numeric.json industry.json
+          git add data.js data.json global.json archive.json dart.json pitch.json dart_numeric.json industry.json followup_filter.py
           if git diff --cached --quiet; then
             echo "No feed changes"
           else
@@ -155,7 +159,8 @@ jobs:
           industry=sum(1 for x in items if x.get('industrySource'))
           auto=sum(1 for x in items if x.get('category') in {'완성차','부품','배터리','정책·관세','중국차','노조·생산','수주·투자','리콜·안전','단독','미국·글로벌'} and not x.get('global'))
           glob=sum(1 for x in items if x.get('global'))
-          print(f'latest main feed: {len(items)} items / auto {auto} / expanded industry {industry} / global {glob}')
+          follow=sum(1 for x in items if x.get('followUp') and not x.get('global'))
+          print(f'latest main feed: {len(items)} items / auto {auto} / expanded industry {industry} / global {glob} / follow-up {follow}')
           PY
 
       - name: Setup Python
