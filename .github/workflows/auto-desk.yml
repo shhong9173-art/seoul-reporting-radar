@@ -124,3 +124,65 @@ jobs:
             git commit -m "chore: refresh domestic global DART industry and pitch radar"
             git push
           fi
+
+  deploy:
+    needs: collect
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout latest collected main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Verify latest collected outputs
+        run: |
+          python - <<'PY'
+          import json
+          items=json.load(open('data.json',encoding='utf-8'))
+          if not isinstance(items,list) or len(items)<10:
+              raise SystemExit('Latest feed is invalid')
+          industry=sum(1 for x in items if x.get('industrySource'))
+          auto=sum(1 for x in items if x.get('category') in {'완성차','부품','배터리','정책·관세','중국차','노조·생산','수주·투자','리콜·안전','단독','미국·글로벌'} and not x.get('global'))
+          glob=sum(1 for x in items if x.get('global'))
+          print(f'latest main feed: {len(items)} items / auto {auto} / expanded industry {industry} / global {glob}')
+          PY
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Stamp browser asset cache versions
+        env:
+          BUILD_SHA: ${{ github.sha }}
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import os,re
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          v=os.environ['BUILD_SHA']
+          for asset in ('data.js','app.js','pitch.js','style.css','pitch.json'):
+              s=re.sub(r'('+re.escape(asset)+r'\?v=)[^"\']+', r'\g<1>'+v, s)
+          p.write_text(s,encoding='utf-8')
+          PY
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload latest site
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+      - name: Deploy latest site
+        id: deployment
+        uses: actions/deploy-pages@v4
