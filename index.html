@@ -3,15 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>산업부 자동차 취재 레이더</title>
-<link rel="stylesheet" href="style.css?v=20260825-10">
+<title>산업부 종합 취재 레이더</title>
+<link rel="stylesheet" href="style.css?v=20260826-01">
 </head>
 <body>
 <div class="app">
   <aside class="sidebar">
-    <div class="brand"><span class="dot"></span><div><b>산업부 자동차 레이더</b><small>AUTO DESK</small></div></div>
+    <div class="brand"><span class="dot"></span><div><b>산업부 종합 취재 레이더</b><small>AUTO + INDUSTRY DESK</small></div></div>
     <nav>
-      <button class="nav active" data-view="must">오늘 꼭 볼 것 <span id="countMust">0</span></button>
+      <button class="nav active" data-view="must">자동차 핵심 <span id="countMust">0</span></button>
+      <button class="nav" data-view="industryMust">산업부 핵심 <span id="countIndustryMust">0</span></button>
+      <button class="nav" data-view="all">전체 모니터링 <span id="countAll">0</span></button>
       <button class="nav pitch-nav" type="button">🔥 발제 아이템 <span id="countPitch">0</span></button>
       <button class="nav archive-nav" type="button">단독·발제 아카이브 <span id="countArchive">0</span></button>
       <button class="nav" data-view="exclusive">단독·속보 후보 <span id="countExclusive">0</span></button>
@@ -22,37 +24,43 @@
       <button class="nav" data-view="keywords">키워드 급상승</button>
       <button class="nav" data-view="issues">이슈 타임라인</button>
       <button class="nav" data-view="global">글로벌 레이더 <span id="countGlobal">0</span></button>
-      <button class="nav" data-view="all">전체 모니터링 <span id="countAll">0</span></button>
     </nav>
-    <div class="section-label">분야</div>
+    <div class="section-label">자동차</div>
     <div class="chips">
       <button class="chip" data-cat="완성차">완성차</button><button class="chip" data-cat="부품">부품</button>
       <button class="chip" data-cat="배터리">배터리</button><button class="chip" data-cat="정책·관세">정책·관세</button>
       <button class="chip" data-cat="중국차">중국차</button><button class="chip" data-cat="노조·생산">노조·생산</button>
       <button class="chip" data-cat="리콜·안전">리콜·안전</button><button class="chip" data-cat="수주·투자">수주·투자</button>
     </div>
+    <div class="section-label">산업부</div>
+    <div class="chips">
+      <button class="chip" data-cat="철강">철강</button><button class="chip" data-cat="비철금속">비철금속</button>
+      <button class="chip" data-cat="전력기기">전력기기</button><button class="chip" data-cat="전선·전력">전선·전력</button>
+      <button class="chip" data-cat="에너지">에너지</button><button class="chip" data-cat="재생에너지">재생에너지</button>
+      <button class="chip" data-cat="화학·소재">화학·소재</button>
+    </div>
     <div class="section-label">기업</div>
     <div class="chips compact" id="companyChips"></div>
-    <div class="sidebar-foot">자동차 · 부품 · 배터리<br><span>30분 주기 자동 수집 · 경쟁지 선행 · 글로벌 번역 · 발제 아이템</span></div>
+    <div class="sidebar-foot">자동차는 1순위로 별도 유지<br><span>자동차·부품·배터리 + 철강·비철·전력기기·전선·에너지·재생에너지·화학소재 · 30분 자동 수집</span></div>
   </aside>
   <main>
     <header>
-      <div><div class="eyebrow">DAILY INDUSTRY NEWSROOM INTELLIGENCE</div><h1 id="headline">오늘 자동차판에서 놓치면 안 되는 것</h1><p id="today">뉴스 데이터를 불러오는 중입니다.</p></div>
+      <div><div class="eyebrow">DAILY INDUSTRY NEWSROOM INTELLIGENCE</div><h1 id="headline">자동차판에서 오늘 놓치면 안 되는 것</h1><p id="today">뉴스 데이터를 불러오는 중입니다.</p></div>
       <div class="header-actions"><input id="search" placeholder="기업·키워드·매체 검색"><button id="reset" class="secondary">초기화</button></div>
     </header>
     <section class="stats">
-      <div class="stat"><small>오늘 수집</small><strong id="statTotal">0</strong><span>건</span></div>
-      <div class="stat hot"><small>오늘 꼭 볼 것</small><strong id="statMust">0</strong><span>건</span></div>
-      <div class="stat"><small>발제 아이템</small><strong id="statPitch">0</strong><span>건</span></div>
-      <div class="stat"><small>단독·속보 후보</small><strong id="statExclusive">0</strong><span>건</span></div>
+      <div class="stat hot"><small>자동차</small><strong id="statAuto">0</strong><span>건</span></div>
+      <div class="stat"><small>산업부 신규</small><strong id="statIndustry">0</strong><span>건</span></div>
+      <div class="stat"><small>발제</small><strong id="statPitch">0</strong><span>건</span></div>
+      <div class="stat"><small>글로벌</small><strong id="statGlobal">0</strong><span>건</span></div>
     </section>
-    <section class="toolbar"><div><b id="viewTitle">오늘 꼭 볼 것</b><span id="resultCount"></span></div><select id="sort"><option value="score">취재가치순</option><option value="new">최신순</option><option value="coverage">경쟁지 선행순</option></select></section>
+    <section class="toolbar"><div><b id="viewTitle">자동차 핵심</b><span id="resultCount"></span></div><select id="sort"><option value="score">취재가치순</option><option value="new">최신순</option><option value="coverage">경쟁지 선행순</option></select></section>
     <section id="cards" class="cards"></section>
   </main>
   <div id="modal" class="modal hidden"><div class="modal-box"><button class="close" id="close">×</button><div id="detail"></div></div></div>
 </div>
-<script src="data.js?v=20260825-10"></script>
-<script src="app.js?v=20260825-10"></script>
-<script src="pitch.js?v=20260825-10"></script>
+<script src="data.js?v=20260826-01"></script>
+<script src="app.js?v=20260826-01"></script>
+<script src="pitch.js?v=20260826-01"></script>
 </body>
 </html>
