@@ -9,6 +9,7 @@ on:
       - 'global.json'
       - 'archive.json'
       - 'dart.json'
+      - 'dart_numeric.json'
       - 'pitch.json'
   schedule:
     - cron: '*/30 * * * *'
@@ -43,6 +44,34 @@ jobs:
       - name: Build pitch score and persistent archive
         run: python archive_builder.py
 
+      - name: Normalize pitch pair orientation
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('pitch_builder.py')
+          s=p.read_text(encoding='utf-8')
+          old='frame,angle=PAIR_FRAMES[pair]'
+          new="frame,angle=PAIR_FRAMES.get(pair, PAIR_FRAMES.get((pair[1], pair[0])))"
+          if old in s:
+              p.write_text(s.replace(old,new),encoding='utf-8')
+          PY
+
+      - name: Build cross-source pitch items
+        run: python pitch_builder.py
+
+      - name: Enrich pitch items with DART disclosures
+        run: python dart_enrich_pitch.py
+
+      - name: Extract numeric facts from DART originals
+        env:
+          DART_API_KEY: ${{ secrets.DART_API_KEY }}
+        continue-on-error: true
+        run: python dart_numeric_extractor.py
+
+      - name: Enrich pitch items with DART numeric facts
+        continue-on-error: true
+        run: python dart_numeric_enrich_pitch.py
+
       - name: Validate feed before publishing
         run: |
           python - <<'PY'
@@ -72,18 +101,25 @@ jobs:
           if len(global_items) != len(globals_): raise SystemExit('global.json and data.js are inconsistent')
           with open('dart.json',encoding='utf-8') as f: dart=json.load(f)
           if not isinstance(dart,dict) or 'items' not in dart: raise SystemExit('dart.json is invalid')
+          with open('pitch.json',encoding='utf-8') as f: pitches=json.load(f)
+          if not isinstance(pitches,list): raise SystemExit('pitch.json is invalid')
+          try:
+              with open('dart_numeric.json',encoding='utf-8') as f: numeric=json.load(f)
+          except FileNotFoundError:
+              numeric={'items':[]}
+          if not isinstance(numeric,dict) or 'items' not in numeric: raise SystemExit('dart_numeric.json is invalid')
           with open('archive.json',encoding='utf-8') as f: archive=json.load(f)
-          print(f'validated {len(items)} current items, {len(globals_)} global records, {len(dart["items"])} DART disclosures and {len(archive)} archive records')
+          print(f'validated {len(items)} current items, {len(globals_)} global records, {len(dart["items"])} DART disclosures, {len(numeric["items"])} numeric docs, {len(pitches)} pitch items and {len(archive)} archive records')
           PY
 
-      - name: Commit updated feed and archive
+      - name: Commit updated feed, pitches and archive
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data.js data.json global.json archive.json dart.json
+          git add data.js data.json global.json archive.json dart.json pitch.json dart_numeric.json
           if git diff --cached --quiet; then
             echo "No feed changes"
           else
-            git commit -m "chore: refresh domestic global and DART auto radar"
+            git commit -m "chore: refresh domestic global DART and pitch radar"
             git push
           fi
