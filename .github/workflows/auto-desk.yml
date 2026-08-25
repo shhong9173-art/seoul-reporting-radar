@@ -29,6 +29,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -93,13 +95,14 @@ jobs:
         run: |
           python - <<'PY'
           import json
+          from pathlib import Path
           raw=open('data.js',encoding='utf-8').read()
           prefix='window.ITEMS = '
           if not raw.startswith(prefix) or not raw.rstrip().endswith(';'):
               raise SystemExit('data.js format is invalid')
           items=json.loads(raw[len(prefix):].rstrip()[:-1])
           if len(items) < 10:
-              raise SystemExit(f'collection returned only {len(items)} items; keeping previous feed')
+              raise SystemExit(f'collection returned only {len(items)} items')
           domestic=[x for x in items if not x.get('global')]
           globals_=[x for x in items if x.get('global')]
           domestic_required={'title','url','published','sourceName','category','score','priority'}
@@ -110,7 +113,7 @@ jobs:
           if json.load(open('data.json',encoding='utf-8')) != items: raise SystemExit('data.js/data.json inconsistent')
           dart=json.load(open('dart.json',encoding='utf-8'))
           pitches=json.load(open('pitch.json',encoding='utf-8'))
-          numeric=json.load(open('dart_numeric.json',encoding='utf-8')) if __import__('pathlib').Path('dart_numeric.json').exists() else {'items':[]}
+          numeric=json.load(open('dart_numeric.json',encoding='utf-8')) if Path('dart_numeric.json').exists() else {'items':[]}
           archive=json.load(open('archive.json',encoding='utf-8'))
           if not isinstance(dart,dict) or 'items' not in dart: raise SystemExit('dart.json invalid')
           if not isinstance(pitches,list): raise SystemExit('pitch.json invalid')
@@ -126,14 +129,30 @@ jobs:
 
       - name: Commit updated feed, pitches and archive
         run: |
+          set -e
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data.js data.json global.json archive.json dart.json pitch.json dart_numeric.json industry.json followup_filter.py
+          git add data.js data.json global.json archive.json dart.json pitch.json dart_numeric.json industry.json
           if git diff --cached --quiet; then
             echo "No feed changes"
           else
             git commit -m "chore: refresh domestic global DART industry and pitch radar"
-            git push
+            for i in 1 2 3; do
+              git fetch origin main
+              if ! git rebase origin/main; then
+                git rebase --abort || true
+                echo "Rebase conflict while publishing refreshed feed"
+                exit 1
+              fi
+              if git push origin HEAD:main; then
+                break
+              fi
+              if [ "$i" = "3" ]; then
+                echo "Unable to push refreshed feed after 3 attempts"
+                exit 1
+              fi
+              sleep 3
+            done
           fi
 
   deploy:
@@ -143,6 +162,9 @@ jobs:
       contents: read
       pages: write
       id-token: write
+    concurrency:
+      group: pages
+      cancel-in-progress: true
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -163,8 +185,9 @@ jobs:
           industry=sum(1 for x in items if x.get('industrySource'))
           auto=sum(1 for x in items if x.get('category') in {'완성차','부품','배터리','정책·관세','중국차','노조·생산','수주·투자','리콜·안전','단독','미국·글로벌'} and not x.get('global'))
           glob=sum(1 for x in items if x.get('global'))
+          pitches=json.load(open('pitch.json',encoding='utf-8')) if __import__('pathlib').Path('pitch.json').exists() else []
           follow=sum(1 for x in items if x.get('followUp') and not x.get('global'))
-          print(f'latest main feed: {len(items)} items / auto {auto} / expanded industry {industry} / global {glob} / follow-up {follow}')
+          print(f'latest main feed: {len(items)} items / auto {auto} / expanded industry {industry} / global {glob} / pitches {len(pitches)} / follow-up {follow}')
           PY
 
       - name: Setup Python
@@ -182,7 +205,7 @@ jobs:
           p=Path('index.html')
           s=p.read_text(encoding='utf-8')
           v=os.environ['BUILD_SHA']
-          for asset in ('data.js','app.js','pitch.js','style.css','pitch.json'):
+          for asset in ('data.js','app.js','pitch.js','industry_priority.js','style.css','pitch.json'):
               s=re.sub(r'('+re.escape(asset)+r'\?v=)[^"\']+', r'\g<1>'+v, s)
           p.write_text(s,encoding='utf-8')
           PY
