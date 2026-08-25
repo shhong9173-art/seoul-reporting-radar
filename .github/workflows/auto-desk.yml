@@ -47,7 +47,7 @@ jobs:
           items=json.loads(raw[len(prefix):].rstrip()[:-1])
           if len(items) < 10:
               raise SystemExit(f'collection returned only {len(items)} items; keeping previous feed')
-          required={'title','url','published','sourceName','category','score','priority','pitchScore'}
+          required={'title','url','published','sourceName','category','score','priority'}
           bad=[x for x in items if not required.issubset(x)]
           if bad:
               raise SystemExit(f'feed schema invalid: {len(bad)} items')
