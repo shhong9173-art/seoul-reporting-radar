@@ -6,6 +6,7 @@ on:
     paths-ignore:
       - 'data.js'
       - 'data.json'
+      - 'archive.json'
   schedule:
     - cron: '*/30 * * * *'
   workflow_dispatch:
@@ -28,6 +29,9 @@ jobs:
       - name: Collect auto industry news
         run: python collector.py
 
+      - name: Build pitch score and persistent archive
+        run: python archive_builder.py
+
       - name: Validate feed before publishing
         run: |
           python - <<'PY'
@@ -39,25 +43,24 @@ jobs:
           items=json.loads(raw[len(prefix):].rstrip()[:-1])
           if len(items) < 10:
               raise SystemExit(f'collection returned only {len(items)} items; keeping previous feed')
-          required={'title','url','published','sourceName','category','score','priority'}
+          required={'title','url','published','sourceName','category','score','priority','pitchScore'}
           bad=[x for x in items if not required.issubset(x)]
           if bad:
               raise SystemExit(f'feed schema invalid: {len(bad)} items')
-          with open('data.json',encoding='utf-8') as f:
-              json_items=json.load(f)
-          if json_items != items:
-              raise SystemExit('data.json and data.js are inconsistent')
-          print(f'validated {len(items)} items')
+          with open('data.json',encoding='utf-8') as f: json_items=json.load(f)
+          if json_items != items: raise SystemExit('data.json and data.js are inconsistent')
+          with open('archive.json',encoding='utf-8') as f: archive=json.load(f)
+          print(f'validated {len(items)} current items and {len(archive)} archive records')
           PY
 
-      - name: Commit updated feed
+      - name: Commit updated feed and archive
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data.js data.json
+          git add data.js data.json archive.json
           if git diff --cached --quiet; then
             echo "No feed changes"
           else
-            git commit -m "chore: refresh auto desk feed"
+            git commit -m "chore: refresh auto desk feed and archive"
             git push
           fi
