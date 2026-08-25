@@ -35,6 +35,8 @@ jobs:
           python -m py_compile global_collector.py
           python -m py_compile dart_collector.py
           python -m py_compile dart_enrich_pitch.py
+          python -m py_compile dart_numeric_extractor.py
+          python -m py_compile dart_numeric_enrich_pitch.py
           python -m py_compile archive_builder.py
           python -m py_compile pitch_builder.py
 
@@ -75,8 +77,16 @@ jobs:
       - name: Build cross-source pitch items
         run: python pitch_builder.py
 
+      - name: Extract numeric facts from DART originals
+        env:
+          DART_API_KEY: ${{ secrets.DART_API_KEY }}
+        run: python dart_numeric_extractor.py
+
       - name: Enrich pitch items with DART disclosures
         run: python dart_enrich_pitch.py
+
+      - name: Enrich pitch items with DART numeric facts
+        run: python dart_numeric_enrich_pitch.py
 
       - name: Stamp browser asset cache versions
         env:
@@ -101,14 +111,29 @@ jobs:
           archive=json.load(open('archive.json',encoding='utf-8'))
           pitches=json.load(open('pitch.json',encoding='utf-8'))
           dart=json.load(open('dart.json',encoding='utf-8'))
-          if not isinstance(items,list) or len(items)<10: raise SystemExit('Invalid data feed')
-          if any('title' not in x or 'url' not in x for x in items): raise SystemExit('Feed schema is invalid')
-          globals_count=sum(1 for x in items if x.get('global'))
-          if globals_count < 1: raise SystemExit('Global feed is empty')
-          if not isinstance(pitches,list): raise SystemExit('Pitch output is invalid')
-          if any('headline' not in x or 'evidence' not in x for x in pitches): raise SystemExit('Pitch schema is invalid')
-          if not isinstance(dart,dict) or 'items' not in dart: raise SystemExit('DART output is invalid')
-          print(f'Pages feed ready: {len(items)} items / {globals_count} global / {len(dart["items"])} DART disclosures / {len(archive)} archived / {len(pitches)} pitch items')
+          if not isinstance(items,list) or len(items)<10:
+              raise SystemExit('Invalid data feed')
+          dom=[x for x in items if not x.get('global')]
+          glob=[x for x in items if x.get('global')]
+          dom_required={'title','url','published','sourceName','category','score','priority'}
+          glob_required={'title','url','published','sourceName','category'}
+          if any(not dom_required.issubset(x) for x in dom):
+              raise SystemExit('Domestic feed schema is invalid')
+          if any(not glob_required.issubset(x) for x in glob):
+              raise SystemExit('Global feed schema is invalid')
+          if not glob:
+              raise SystemExit('Global feed is empty')
+          if not isinstance(pitches,list):
+              raise SystemExit('Pitch output is invalid')
+          if any('headline' not in x or 'evidence' not in x for x in pitches):
+              raise SystemExit('Pitch schema is invalid')
+          if not isinstance(dart,dict) or 'items' not in dart:
+              raise SystemExit('DART output is invalid')
+          numeric=json.load(open('dart_numeric.json',encoding='utf-8'))
+          if not isinstance(numeric,dict) or 'items' not in numeric:
+              raise SystemExit('DART numeric output is invalid')
+          linked=sum(1 for p in pitches if p.get('dartNumericSignals'))
+          print(f'Pages feed ready: {len(items)} items / {len(glob)} global / {len(dart["items"])} DART disclosures / {len(numeric["items"])} DART numeric docs / {len(archive)} archived / {len(pitches)} pitch items / {linked} pitches with numeric DART signals')
           PY
 
       - name: Configure Pages
