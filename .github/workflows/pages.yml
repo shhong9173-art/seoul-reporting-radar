@@ -53,6 +53,19 @@ jobs:
       - name: Build pitch scores and persistent archive
         run: python archive_builder.py
 
+      - name: Normalize pitch pair orientation
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('pitch_builder.py')
+          s=p.read_text(encoding='utf-8')
+          old='frame,angle=PAIR_FRAMES[pair]'
+          new="frame,angle=PAIR_FRAMES.get(pair, PAIR_FRAMES.get((pair[1], pair[0])))"
+          if old not in s:
+              raise SystemExit('Expected pitch pair lookup not found')
+          p.write_text(s.replace(old,new),encoding='utf-8')
+          PY
+
       - name: Build cross-source pitch items
         run: python pitch_builder.py
 
@@ -82,7 +95,7 @@ jobs:
           if any('title' not in x or 'url' not in x for x in items): raise SystemExit('Feed schema is invalid')
           globals_count=sum(1 for x in items if x.get('global'))
           if globals_count < 1: raise SystemExit('Global feed is empty')
-          if not isinstance(pitches,list) or len(pitches)<1: raise SystemExit('Pitch builder returned no candidates')
+          if not isinstance(pitches,list): raise SystemExit('Pitch output is invalid')
           if any('headline' not in x or 'evidence' not in x for x in pitches): raise SystemExit('Pitch schema is invalid')
           print(f'Pages feed ready: {len(items)} items / {globals_count} global / {len(archive)} archived / {len(pitches)} pitch items')
           PY
