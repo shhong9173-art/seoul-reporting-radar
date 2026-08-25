@@ -52,6 +52,22 @@ jobs:
       - name: Build pitch scores and persistent archive
         run: python archive_builder.py
 
+      - name: Stamp browser asset cache versions
+        env:
+          BUILD_SHA: ${{ github.sha }}
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import os
+          import re
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          v=os.environ['BUILD_SHA']
+          for asset in ('data.js','app.js','pitch.js','style.css'):
+              s=re.sub(r'('+re.escape(asset)+r'\?v=)[^"\']+', r'\g<1>'+v, s)
+          p.write_text(s,encoding='utf-8')
+          PY
+
       - name: Verify browser data
         run: |
           python - <<'PY'
