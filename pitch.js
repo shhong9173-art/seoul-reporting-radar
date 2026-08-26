@@ -20,9 +20,11 @@
       <div class="card-top"><span class="badge ${x.grade==='A'?'must':'follow'}">발제 ${esc(x.grade||'B')} · ${esc(x.pitchScore)}점</span><span class="score">${i+1}위</span></div>
       <div class="meta">${esc(x.category||'산업')} · ${esc((x.companies||[]).join(', ')||'관련 기업')} · 출처 ${x.sourceCount||0}곳 · 글로벌 ${x.globalSignals||0}건 · DART 수치 ${x.dartNumericCount||0}건</div>
       <div class="title">${esc(x.headline||'발제 아이템')}</div>
-      <div class="quote"><b>새로 확인된 사실</b><br>${esc(x.newFact||'')}</div>
-      <div class="quote"><b>기사 각도</b><br>${esc(x.angle||'')}</div>
-      <div class="summary"><b class="why">기존 보도와 다른 점</b><br>${esc(x.differentiator||'')}</div>
+      <div class="quote"><b>발제 한 줄</b><br>${esc(x.angle||x.newFact||'')}</div>
+      ${x.articlePlan?.length?`<div class="quote"><b>기사 구성</b><ul>${x.articlePlan.slice(0,4).map(v=>`<li>${esc(v)}</li>`).join('')}</ul></div>`:''}
+      ${x.reportingBrief?.length?`<div class="quote"><b>보고서에 넣을 팩트</b><ul>${x.reportingBrief.slice(0,4).map(v=>`<li>${esc(v)}</li>`).join('')}</ul></div>`:''}
+      <div class="summary"><b class="why">새로 확인된 사실</b><br>${esc(x.newFact||'')}</div>
+      <div class="summary"><b class="why">기존 기사와 다른 점</b><br>${esc(x.differentiator||'')}</div>
       <div class="summary"><b class="why">왜 지금?</b><br>${esc(x.whyNow||'')}</div>
       ${x.numbers?.length?`<div class="signal-row">${x.numbers.slice(0,8).map(n=>`<span class="signal">${esc(n)}</span>`).join('')}</div>`:''}
       ${x.dartNumericSignals?.length?`<div class="quote"><b>DART 원자료</b><ul>${x.dartNumericSignals.slice(0,4).map(e=>`<li><b>${esc(e.reportName||'공시')}</b> · ${esc((e.numbers||[]).slice(0,8).join(', '))}${e.url?` <a href="${esc(e.url)}" target="_blank" rel="noopener">원문↗</a>`:''}</li>`).join('')}</ul></div>`:''}
