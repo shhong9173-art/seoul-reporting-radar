@@ -31,130 +31,93 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
-
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-
       - name: Collect domestic auto industry news
         run: python collector.py
-
       - name: Collect expanded industrial desk radar
         run: python industry_collector.py
-
       - name: Merge expanded industrial desk radar
         run: python merge_industry.py
-
       - name: Collect dedicated global radar
         run: python global_collector.py
-
       - name: Filter repetitive follow-up coverage
         run: python followup_filter.py
-
       - name: Collect DART disclosure radar
         env:
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
         run: python dart_collector.py
-
       - name: Build pitch score and persistent archive
         run: python archive_builder.py
-
       - name: Extract numeric facts from DART originals
         env:
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
         continue-on-error: true
         run: python dart_numeric_extractor.py
-
       - name: Normalize pitch pair orientation
         run: |
           python - <<'PY'
           from pathlib import Path
-          p=Path('pitch_builder.py')
-          s=p.read_text(encoding='utf-8')
+          p=Path('pitch_builder.py'); s=p.read_text(encoding='utf-8')
           old='frame,angle=PAIR_FRAMES[pair]'
           new="frame,angle=PAIR_FRAMES.get(pair, PAIR_FRAMES.get((pair[1], pair[0])))"
-          if old in s:
-              p.write_text(s.replace(old,new),encoding='utf-8')
+          if old in s: p.write_text(s.replace(old,new),encoding='utf-8')
           PY
-
       - name: Build cross-source pitch items with DART numeric gate
         run: python pitch_builder.py
-
+      - name: Expand into reporter-ready event briefs
+        run: python pitch_expand.py
       - name: Enrich pitch items with DART disclosures
         run: python dart_enrich_pitch.py
-
       - name: Enrich pitch items with DART numeric facts
         continue-on-error: true
         run: python dart_numeric_enrich_pitch.py
-
       - name: Deduplicate and sanitize pitch items
         run: python pitch_dedup.py
-
       - name: Validate feed before publishing
         run: |
           python - <<'PY'
           import json
           from pathlib import Path
-          raw=open('data.js',encoding='utf-8').read()
-          prefix='window.ITEMS = '
-          if not raw.startswith(prefix) or not raw.rstrip().endswith(';'):
-              raise SystemExit('data.js format is invalid')
+          raw=open('data.js',encoding='utf-8').read(); prefix='window.ITEMS = '
+          if not raw.startswith(prefix) or not raw.rstrip().endswith(';'): raise SystemExit('data.js format is invalid')
           items=json.loads(raw[len(prefix):].rstrip()[:-1])
-          if len(items) < 10:
-              raise SystemExit(f'collection returned only {len(items)} items')
-          domestic=[x for x in items if not x.get('global')]
-          globals_=[x for x in items if x.get('global')]
-          domestic_required={'title','url','published','sourceName','category','score','priority'}
-          global_required={'title','url','published','sourceName','category'}
-          if any(not domestic_required.issubset(x) for x in domestic): raise SystemExit('domestic feed schema invalid')
-          if any(not global_required.issubset(x) for x in globals_): raise SystemExit('global feed schema invalid')
+          if len(items)<10: raise SystemExit(f'collection returned only {len(items)} items')
+          domestic=[x for x in items if not x.get('global')]; globals_=[x for x in items if x.get('global')]
+          req={'title','url','published','sourceName','category','score','priority'}; greq={'title','url','published','sourceName','category'}
+          if any(not req.issubset(x) for x in domestic): raise SystemExit('domestic feed schema invalid')
+          if any(not greq.issubset(x) for x in globals_): raise SystemExit('global feed schema invalid')
           if not globals_: raise SystemExit('global radar returned 0 records')
           if json.load(open('data.json',encoding='utf-8')) != items: raise SystemExit('data.js/data.json inconsistent')
-          dart=json.load(open('dart.json',encoding='utf-8'))
-          pitches=json.load(open('pitch.json',encoding='utf-8'))
+          dart=json.load(open('dart.json',encoding='utf-8')); pitches=json.load(open('pitch.json',encoding='utf-8'))
           numeric=json.load(open('dart_numeric.json',encoding='utf-8')) if Path('dart_numeric.json').exists() else {'items':[]}
           archive=json.load(open('archive.json',encoding='utf-8'))
           if not isinstance(dart,dict) or 'items' not in dart: raise SystemExit('dart.json invalid')
           if not isinstance(pitches,list): raise SystemExit('pitch.json invalid')
           if not isinstance(numeric,dict) or 'items' not in numeric: raise SystemExit('dart_numeric.json invalid')
           if not isinstance(archive,list): raise SystemExit('archive.json invalid')
-          a=sum(1 for p in pitches if p.get('grade')=='A')
-          linked=sum(1 for p in pitches if p.get('dartNumericSignals'))
-          industry=sum(1 for x in items if x.get('industrySource'))
-          auto=sum(1 for x in items if x.get('category') in {'완성차','부품','배터리','정책·관세','중국차','노조·생산','수주·투자','리콜·안전','단독','미국·글로벌'} and not x.get('global'))
-          follow=sum(1 for x in items if x.get('followUp') and not x.get('global'))
-          print(f'validated {len(items)} items / auto {auto} / expanded industry {industry} / {len(globals_)} global / {len(dart["items"])} DART / {len(numeric["items"])} numeric docs / {len(pitches)} pitches / {a} A-grade / {linked} numeric-linked / {follow} retained follow-up')
+          a=sum(1 for p in pitches if p.get('grade')=='A'); linked=sum(1 for p in pitches if p.get('dartNumericSignals')); event=sum(1 for p in pitches if p.get('type')=='event-led')
+          industry=sum(1 for x in items if x.get('industrySource')); auto=sum(1 for x in items if x.get('category') in {'완성차','부품','배터리','정책·관세','중국차','노조·생산','수주·투자','리콜·안전','단독','미국·글로벌'} and not x.get('global')); follow=sum(1 for x in items if x.get('followUp') and not x.get('global'))
+          print(f'validated {len(items)} items / auto {auto} / expanded industry {industry} / {len(globals_)} global / {len(dart["items"])} DART / {len(numeric["items"])} numeric docs / {len(pitches)} pitches / {a} A-grade / {linked} numeric-linked / {event} event-led / {follow} retained follow-up')
           PY
-
       - name: Commit updated feed, pitches and archive
         run: |
           set -e
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add data.js data.json global.json archive.json dart.json pitch.json dart_numeric.json industry.json
-          if git diff --cached --quiet; then
-            echo "No feed changes"
-          else
+          if git diff --cached --quiet; then echo "No feed changes"; else
             git commit -m "chore: refresh domestic global DART industry and pitch radar"
             for i in 1 2 3; do
               git fetch origin main
-              if ! git rebase origin/main; then
-                git rebase --abort || true
-                echo "Rebase conflict while publishing refreshed feed"
-                exit 1
-              fi
-              if git push origin HEAD:main; then
-                break
-              fi
-              if [ "$i" = "3" ]; then
-                echo "Unable to push refreshed feed after 3 attempts"
-                exit 1
-              fi
+              if ! git rebase origin/main; then git rebase --abort || true; exit 1; fi
+              if git push origin HEAD:main; then break; fi
+              if [ "$i" = "3" ]; then exit 1; fi
               sleep 3
             done
           fi
-
   deploy:
     needs: collect
     runs-on: ubuntu-latest
@@ -171,53 +134,34 @@ jobs:
     steps:
       - name: Checkout latest collected main
         uses: actions/checkout@v4
-        with:
-          ref: main
-          fetch-depth: 1
-
+        with: {ref: main, fetch-depth: 1}
       - name: Verify latest collected outputs
         run: |
           python - <<'PY'
           import json
-          items=json.load(open('data.json',encoding='utf-8'))
-          if not isinstance(items,list) or len(items)<10:
-              raise SystemExit('Latest feed is invalid')
-          industry=sum(1 for x in items if x.get('industrySource'))
-          auto=sum(1 for x in items if x.get('category') in {'완성차','부품','배터리','정책·관세','중국차','노조·생산','수주·투자','리콜·안전','단독','미국·글로벌'} and not x.get('global'))
-          glob=sum(1 for x in items if x.get('global'))
-          pitches=json.load(open('pitch.json',encoding='utf-8')) if __import__('pathlib').Path('pitch.json').exists() else []
-          follow=sum(1 for x in items if x.get('followUp') and not x.get('global'))
-          print(f'latest main feed: {len(items)} items / auto {auto} / expanded industry {industry} / global {glob} / pitches {len(pitches)} / follow-up {follow}')
+          items=json.load(open('data.json',encoding='utf-8')); pitches=json.load(open('pitch.json',encoding='utf-8')) if __import__('pathlib').Path('pitch.json').exists() else []
+          if not isinstance(items,list) or len(items)<10: raise SystemExit('Latest feed is invalid')
+          print(f'latest main feed: {len(items)} items / pitches {len(pitches)}')
           PY
-
       - name: Setup Python
         uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
+        with: {python-version: '3.12'}
       - name: Stamp browser asset cache versions
-        env:
-          BUILD_SHA: ${{ github.sha }}
+        env: {BUILD_SHA: ${{ github.sha }}}
         run: |
           python - <<'PY'
           from pathlib import Path
           import os,re
-          p=Path('index.html')
-          s=p.read_text(encoding='utf-8')
-          v=os.environ['BUILD_SHA']
+          p=Path('index.html'); s=p.read_text(encoding='utf-8'); v=os.environ['BUILD_SHA']
           for asset in ('data.js','app.js','pitch.js','industry_priority.js','style.css','pitch.json'):
               s=re.sub(r'('+re.escape(asset)+r'\?v=)[^"\']+', r'\g<1>'+v, s)
           p.write_text(s,encoding='utf-8')
           PY
-
       - name: Configure Pages
         uses: actions/configure-pages@v5
-
       - name: Upload latest site
         uses: actions/upload-pages-artifact@v3
-        with:
-          path: .
-
+        with: {path: .}
       - name: Deploy latest site
         id: deployment
         uses: actions/deploy-pages@v4
