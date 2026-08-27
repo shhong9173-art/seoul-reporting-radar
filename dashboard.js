@@ -14,13 +14,15 @@
   async function render(){
     show();
     const all=Array.isArray(window.ITEMS)?window.ITEMS:[]; const domestic=all.filter(x=>!x.global); const auto=domestic.filter(x=>!x.industrySource); const industry=domestic.filter(x=>x.industrySource);
-    let pitches=[],changes=[],shifts=[];
+    let pitches=[],changes=[],shifts=[],dig=[];
     try{const r=await fetch('pitch.json?v='+Date.now(),{cache:'no-store'});const j=await r.json();pitches=Array.isArray(j)?j:[]}catch(e){}
     try{const r=await fetch('changes.json?v='+Date.now(),{cache:'no-store'});const j=await r.json();changes=j&&Array.isArray(j.changes)?j.changes:[]}catch(e){}
     try{const r=await fetch('strategic_shifts.json?v='+Date.now(),{cache:'no-store'});const j=await r.json();shifts=j&&Array.isArray(j.items)?j.items:[]}catch(e){}
+    try{const r=await fetch('dig_today.json?v='+Date.now(),{cache:'no-store'});const j=await r.json();dig=j&&Array.isArray(j.items)?j.items:[]}catch(e){}
     pitches=pitches.slice().sort((a,b)=>(b.pitchScore||0)-(a.pitchScore||0)).slice(0,3);
     changes=changes.filter(x=>x.company).slice(0,6);
     shifts=shifts.slice().sort((a,b)=>(b.score||0)-(a.score||0)).slice(0,5);
+    dig=dig.slice().sort((a,b)=>(b.score||0)-(a.score||0)).slice(0,5);
     const must=auto.filter(x=>x.priority==='must').sort((a,b)=>(b.score||0)-(a.score||0)).slice(0,3);
     const groups={};domestic.filter(x=>(x.clusterCount||1)>=2).forEach(x=>{const k=x.clusterId||x.id;(groups[k]??=[]).push(x)});
     const competition=Object.values(groups).sort((a,b)=>new Set(b.map(x=>x.sourceName)).size-new Set(a.map(x=>x.sourceName)).size||b.length-a.length).slice(0,3);
@@ -28,7 +30,8 @@
     const newNums=[];const seen=new Set();r24.forEach(x=>nums(titleOf(x)+' '+summaryOf(x)).forEach(n=>{if(!seen.has(n)){seen.add(n);newNums.push({n,x})}}));
     const indStats={};industry.forEach(x=>{const c=x.category||'산업부';(indStats[c]??={recent:0,old:0});Date.now()-time(x)<=86400000?indStats[c].recent++:indStats[c].old++});
     const ind=Object.entries(indStats).map(([c,v])=>({c,...v,growth:v.recent-v.old})).sort((a,b)=>b.growth-a.growth||b.recent-a.recent).slice(0,7);
-    box.innerHTML=`<div class="dash-head"><div><div class="eyebrow">REPORTING CONTROL ROOM</div><h2>오늘 취재 상황판</h2><p>뉴스를 읽는 화면이 아니라, 오늘 무엇을 쓸지 고르는 화면입니다.</p></div><button class="dash-refresh" type="button">다시 계산</button></div>
+    box.innerHTML=`<div class="dash-head"><div><div class="eyebrow">REPORTING CONTROL ROOM</div><h2>오늘 취재 상황판</h2><p>뉴스를 읽는 화면이 아니라, 오늘 무엇을 파고들지 고르는 화면입니다.</p></div><button class="dash-refresh" type="button">다시 계산</button></div>
+    <section class="dash-section dash-feature"><div class="dash-section-head"><b>오늘 파볼 것</b><span>단독 가능성 · 전략 변화 · 글로벌→국내</span></div>${dig.map((d,i)=>card(`${i+1}순위 · ${d.kind||'취재 후보'}`,d.headline,d.why||'관련 자료를 연결해 새 기사를 확인할 후보입니다.',(d.numbers||[]).slice(0,5).join(' · '),'investigation-highlight')).join('')||'<div class="dash-empty">현재 강한 단독·변화 후보가 없습니다.</div>'}</section>
     <div class="dash-grid">
       <section class="dash-section dash-feature"><div class="dash-section-head"><b>오늘 발제</b><span>바로 보고할 수 있는 후보</span></div>${pitches.map((p,i)=>card(`발제 ${i+1}`,p.headline,p.angle||'자료를 연결해 실제 취재할 포인트를 확인하세요.',(p.numbers||[]).slice(0,4).join(' · '),'pitch-highlight')).join('')||'<div class="dash-empty">오늘 바로 쓸 발제가 없습니다.</div>'}</section>
       <section class="dash-section dash-feature"><div class="dash-section-head"><b>30일간 전략이 달라진 기업</b><span>공시 + 뉴스 교차</span></div>${shifts.map(s=>card(`${s.category||'산업'} · ${(s.signals||[]).slice(0,3).join(' · ')}`,s.headline,s.angle,(s.numbers||[]).slice(0,4).join(' · '),'shift-highlight')).join('')||'<div class="dash-empty">누적 데이터가 아직 부족합니다.</div>'}</section>
