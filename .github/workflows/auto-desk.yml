@@ -63,6 +63,8 @@ jobs:
         run: python strategic_shift_radar.py
       - name: Build reporter investigation radar
         run: python investigation_radar.py
+      - name: Gate investigation items for reporter quality
+        run: python investigation_quality_gate.py
       - name: Build pitch score and persistent archive
         run: python archive_builder.py
       - name: Normalize pitch pair orientation
@@ -111,9 +113,10 @@ jobs:
           if not isinstance(changes,dict) or 'changes' not in changes: raise SystemExit('changes.json invalid')
           if not isinstance(shifts,dict) or 'items' not in shifts: raise SystemExit('strategic_shifts.json invalid')
           if not isinstance(dig,dict) or 'items' not in dig: raise SystemExit('dig_today.json invalid')
+          if not isinstance(dig.get('qualityGate'),dict): raise SystemExit('investigation quality gate metadata missing')
           a=sum(1 for p in pitches if p.get('grade')=='A'); linked=sum(1 for p in pitches if p.get('dartNumericSignals'))
           industry=sum(1 for x in items if x.get('industrySource')); auto=sum(1 for x in items if x.get('category') in {'완성차','부품','배터리','정책·관세','중국차','노조·생산','수주·투자','리콜·안전','단독','미국·글로벌'} and not x.get('global')); follow=sum(1 for x in items if x.get('followUp') and not x.get('global'))
-          print(f'validated {len(items)} items / auto {auto} / expanded industry {industry} / {len(globals_)} global / {len(dart["items"])} DART / {len(numeric["items"])} numeric docs / {len(pitches)} pitches / {a} A-grade / {linked} numeric-linked / {follow} retained follow-up / {len(changes["changes"])} changes / {len(shifts["items"])} strategic shifts / {len(dig["items"])} investigation items')
+          print(f'validated {len(items)} items / auto {auto} / expanded industry {industry} / {len(globals_)} global / {len(dart["items"])} DART / {len(numeric["items"])} numeric docs / {len(pitches)} pitches / {a} A-grade / {linked} numeric-linked / {follow} retained follow-up / {len(changes["changes"])} changes / {len(shifts["items"])} strategic shifts / {len(dig["items"])} investigation items / quality {dig["qualityGate"].get("input")}->{dig["qualityGate"].get("output")}')
           if len(pitches)>3: raise SystemExit(f'pitch count {len(pitches)} exceeds max 3')
           if len(dig['items'])>5: raise SystemExit('too many investigation items')
           PY
@@ -163,8 +166,8 @@ jobs:
           if not isinstance(items,list) or len(items)<10: raise SystemExit('Latest feed is invalid')
           if len(pitches)>3: raise SystemExit('Too many pitches in latest main')
           if not isinstance(shifts,dict) or 'items' not in shifts: raise SystemExit('Latest strategic shifts invalid')
-          if not isinstance(dig,dict) or 'items' not in dig: raise SystemExit('Latest investigation radar invalid')
-          print(f'latest main feed: {len(items)} items / pitches {len(pitches)} / strategic shifts {len(shifts["items"])} / investigation {len(dig["items"])}')
+          if not isinstance(dig,dict) or 'items' not in dig or not isinstance(dig.get('qualityGate'),dict): raise SystemExit('Latest investigation radar invalid')
+          print(f'latest main feed: {len(items)} items / pitches {len(pitches)} / strategic shifts {len(shifts["items"])} / investigation {len(dig["items"])} / quality {dig["qualityGate"].get("input")}->{dig["qualityGate"].get("output")}')
           PY
       - name: Setup Python
         uses: actions/setup-python@v5
