@@ -26,25 +26,27 @@
     cards.innerHTML=out.length?out.map((x,i)=>{
       const plan=(x.articlePlan||[]).slice(0,4);
       const numbers=(x.numbers||[]).slice(0,6);
-      return `<article class="card ${x.grade==='A'?'must':'follow'} pitch-card">
-        <div class="card-top"><span class="badge ${x.grade==='A'?'must':'follow'}">발제 ${esc(x.grade||'B')} · ${esc(x.pitchScore)}점</span><span class="score">${i+1}위</span></div>
-        <div class="meta">${esc(x.category||'산업')} · ${esc((x.companies||[]).join(', ')||'관련 기업')} · 근거 ${Math.max(x.sourceCount||0, (x.evidence||[]).length)}개</div>
+      const lead=x.angle||x.newFact||'';
+      const proof=(x.evidence||[]).slice(0,3);
+      return `<article class="card ${x.grade==='A'?'must':'follow'} pitch-card pitch-simple">
+        <div class="card-top"><span class="badge ${x.grade==='A'?'must':'follow'}">발제 ${esc(x.grade||'B')}</span><span class="score">${i+1}위</span></div>
+        <div class="meta">${esc(x.category||'산업')} · ${esc((x.companies||[]).join(', ')||'관련 기업')}</div>
         <div class="title">${esc(x.headline||'발제 아이템')}</div>
-        <div class="pitch-lead"><span>무엇을 쓸 기사인가</span><strong>${esc(x.angle||x.newFact||'')}</strong></div>
-        ${plan.length?`<div class="pitch-plan"><b>기사 흐름</b><ol>${plan.map(v=>`<li>${esc(v)}</li>`).join('')}</ol></div>`:''}
-        ${x.newFact?`<div class="pitch-fact"><b>핵심 근거</b><p>${esc(x.newFact)}</p></div>`:''}
-        ${numbers.length?`<div class="signal-row compact-signals">${numbers.map(n=>`<span class="signal">${esc(n)}</span>`).join('')}</div>`:''}
+        <div class="pitch-lead"><b>무슨 기사?</b><p>${esc(lead)}</p></div>
+        ${plan.length?`<div class="pitch-plan"><b>이렇게 쓰면 됨</b><ul>${plan.map(v=>`<li>${esc(v)}</li>`).join('')}</ul></div>`:''}
+        ${numbers.length?`<div class="pitch-numbers"><b>핵심 숫자</b><div class="signal-row compact-signals">${numbers.map(n=>`<span class="signal">${esc(n)}</span>`).join('')}</div></div>`:''}
         <details class="pitch-details">
-          <summary>근거·DART·확인 질문 보기</summary>
-          ${x.differentiator?`<div class="summary"><b class="why">기존 기사와 다른 점</b><br>${esc(x.differentiator)}</div>`:''}
-          ${x.whyNow?`<div class="summary"><b class="why">왜 지금?</b><br>${esc(x.whyNow)}</div>`:''}
-          ${x.dartNumericSignals?.length?`<div class="quote"><b>DART 원자료</b><ul>${x.dartNumericSignals.slice(0,4).map(e=>`<li><b>${esc(e.reportName||'공시')}</b> · ${esc((e.numbers||[]).slice(0,8).join(', '))}${e.url?` <a href="${esc(e.url)}" target="_blank" rel="noopener">원문↗</a>`:''}</li>`).join('')}</ul></div>`:''}
-          <div class="quote"><b>확인된 근거</b><ul>${evidenceLines(x)}</ul></div>
+          <summary>근거·출처·확인할 것</summary>
+          ${x.newFact?`<div class="summary"><b class="why">왜 이게 기사거리인가</b><br>${esc(x.newFact)}</div>`:''}
+          ${x.differentiator?`<div class="summary"><b class="why">기존 기사와 뭐가 다른가</b><br>${esc(x.differentiator)}</div>`:''}
+          ${x.whyNow?`<div class="summary"><b class="why">왜 지금인가</b><br>${esc(x.whyNow)}</div>`:''}
+          ${x.dartNumericSignals?.length?`<div class="quote"><b>DART 원자료</b><ul>${x.dartNumericSignals.slice(0,3).map(e=>`<li><b>${esc(e.reportName||'공시')}</b> · ${esc((e.numbers||[]).slice(0,8).join(', '))}${e.url?` <a href="${esc(e.url)}" target="_blank" rel="noopener">원문↗</a>`:''}</li>`).join('')}</ul></div>`:''}
+          ${proof.length?`<div class="quote"><b>근거 기사</b><ul>${evidenceLines(x)}</ul></div>`:''}
           <div class="quote"><b>먼저 확인할 질문</b><ul>${(x.questions||[]).slice(0,4).map(q=>`<li>${esc(q)}</li>`).join('')}</ul></div>
         </details>
         <div class="bottom">${(x.companies||[]).map(c=>`<span class="tag">${esc(c)}</span>`).join('')}</div>
       </article>`;
-    }).join(''):'<div class="card"><div class="summary">현재 원자료·복수 출처 교차검증을 통과한 발제 아이템이 없습니다. 다음 수집 주기에 다시 계산합니다.</div></div>';
+    }).join(''):'<div class="card"><div class="summary">원자료와 복수 출처를 교차검증해 통과한 발제 아이템이 없습니다. 다음 수집 주기에 다시 계산합니다.</div></div>';
   }
   function renderArchive(){
     setActive(archiveButton);title.textContent='단독·발제 아카이브';result.textContent=archive.length+'건';
