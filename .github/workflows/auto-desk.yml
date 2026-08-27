@@ -47,21 +47,21 @@ jobs:
         run: python global_collector.py
       - name: Filter repetitive follow-up coverage
         run: python followup_filter.py
-      - name: Detect persistent company and industry changes
-        run: python change_detector.py
-      - name: Detect 30-day strategic shifts
-        run: python strategic_shift.py
       - name: Collect DART disclosure radar
         env:
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
         run: python dart_collector.py
-      - name: Build pitch score and persistent archive
-        run: python archive_builder.py
       - name: Extract numeric facts from DART originals
         env:
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
         continue-on-error: true
         run: python dart_numeric_extractor.py
+      - name: Detect persistent company and industry changes
+        run: python change_detector.py
+      - name: Detect 30-day strategic shifts
+        run: python strategic_shift_radar.py
+      - name: Build pitch score and persistent archive
+        run: python archive_builder.py
       - name: Normalize pitch pair orientation
         run: |
           python - <<'PY'
@@ -116,7 +116,7 @@ jobs:
           set -e
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data.js data.json global.json archive.json changes.json strategic_shifts.json dart.json pitch.json dart_numeric.json industry.json
+          git add data.js data.json global.json archive.json changes.json strategic_shifts.json dart.json dart_numeric.json pitch.json industry.json
           if git diff --cached --quiet; then echo "No feed changes"; else
             git commit -m "chore: refresh newsroom radar and strategic shifts"
             for i in 1 2 3; do
