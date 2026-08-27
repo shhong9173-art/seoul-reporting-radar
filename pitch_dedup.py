@@ -21,6 +21,7 @@ def valid(p):
         and not any(w in body(p) for w in NOISE_WORDS)
         and len(p.get('evidence') or []) >= 2
         and len(p.get('questions') or []) >= 3
+        and len(p.get('articlePlan') or []) >= 3
     )
 
 def tokens(s):
@@ -51,4 +52,4 @@ for p in clean:
         break
 
 OUT.write_text(json.dumps(final,ensure_ascii=False,separators=(',',':')),encoding='utf-8')
-print(f'pitch dedup: {len(pitches)} -> {len(final)}; strategy-change + industry-issue only; max 3; events excluded')
+print(f'pitch dedup: {len(pitches)} -> {len(final)}; reporter-ready strategy/industry only; max 3; events excluded')
