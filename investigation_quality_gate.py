@@ -6,7 +6,7 @@ IN=Path('dig_today.json')
 data=json.loads(IN.read_text(encoding='utf-8')) if IN.exists() else {'generatedAt':None,'items':[]}
 items=data.get('items',[])
 
-BAD_TITLE_PATTERNS=('공시에 새','공시에 새 숫자','사업전략 얼마나 달라졌나','전략 변화 본격화되나','짚어볼 만','실제 전략은')
+BAD_TITLE_PATTERNS=('공시에 새','공시에 새 숫자','사업전략 얼마나 달라졌나','전략 변화 본격화하나','짚어볼 만','실제 전략은')
 GENERIC_LINES=('최근 30일','관련 보도가 동시에 확인됨','구체적 수치 확인','실제 변화인지 확인','경쟁사와 투자·생산·수주 속도를 비교')
 INDUSTRY_HINTS={
  '철강':('철강','고로','수소환원','후판','중국산','감산','원료','탄소'),
