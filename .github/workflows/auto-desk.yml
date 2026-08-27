@@ -14,6 +14,7 @@ on:
       - 'dart_numeric.json'
       - 'pitch.json'
       - 'industry.json'
+      - 'dig_today.json'
   schedule:
     - cron: '*/30 * * * *'
   workflow_dispatch:
@@ -60,6 +61,8 @@ jobs:
         run: python change_detector.py
       - name: Detect 30-day strategic shifts
         run: python strategic_shift_radar.py
+      - name: Build reporter investigation radar
+        run: python investigation_radar.py
       - name: Build pitch score and persistent archive
         run: python archive_builder.py
       - name: Normalize pitch pair orientation
@@ -100,25 +103,28 @@ jobs:
           archive=json.load(open('archive.json',encoding='utf-8'))
           changes=json.load(open('changes.json',encoding='utf-8')) if Path('changes.json').exists() else {'changes':[],'snapshots':[]}
           shifts=json.load(open('strategic_shifts.json',encoding='utf-8')) if Path('strategic_shifts.json').exists() else {'items':[]}
+          dig=json.load(open('dig_today.json',encoding='utf-8')) if Path('dig_today.json').exists() else {'items':[]}
           if not isinstance(dart,dict) or 'items' not in dart: raise SystemExit('dart.json invalid')
           if not isinstance(pitches,list): raise SystemExit('pitch.json invalid')
           if not isinstance(numeric,dict) or 'items' not in numeric: raise SystemExit('dart_numeric.json invalid')
           if not isinstance(archive,list): raise SystemExit('archive.json invalid')
           if not isinstance(changes,dict) or 'changes' not in changes: raise SystemExit('changes.json invalid')
           if not isinstance(shifts,dict) or 'items' not in shifts: raise SystemExit('strategic_shifts.json invalid')
+          if not isinstance(dig,dict) or 'items' not in dig: raise SystemExit('dig_today.json invalid')
           a=sum(1 for p in pitches if p.get('grade')=='A'); linked=sum(1 for p in pitches if p.get('dartNumericSignals'))
           industry=sum(1 for x in items if x.get('industrySource')); auto=sum(1 for x in items if x.get('category') in {'완성차','부품','배터리','정책·관세','중국차','노조·생산','수주·투자','리콜·안전','단독','미국·글로벌'} and not x.get('global')); follow=sum(1 for x in items if x.get('followUp') and not x.get('global'))
-          print(f'validated {len(items)} items / auto {auto} / expanded industry {industry} / {len(globals_)} global / {len(dart["items"])} DART / {len(numeric["items"])} numeric docs / {len(pitches)} pitches / {a} A-grade / {linked} numeric-linked / {follow} retained follow-up / {len(changes["changes"])} changes / {len(shifts["items"])} strategic shifts')
+          print(f'validated {len(items)} items / auto {auto} / expanded industry {industry} / {len(globals_)} global / {len(dart["items"])} DART / {len(numeric["items"])} numeric docs / {len(pitches)} pitches / {a} A-grade / {linked} numeric-linked / {follow} retained follow-up / {len(changes["changes"])} changes / {len(shifts["items"])} strategic shifts / {len(dig["items"])} investigation items')
           if len(pitches)>3: raise SystemExit(f'pitch count {len(pitches)} exceeds max 3')
+          if len(dig['items'])>5: raise SystemExit('too many investigation items')
           PY
       - name: Commit updated feed, pitches, changes and archive
         run: |
           set -e
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data.js data.json global.json archive.json changes.json strategic_shifts.json dart.json dart_numeric.json pitch.json industry.json
+          git add data.js data.json global.json archive.json changes.json strategic_shifts.json dart.json dart_numeric.json pitch.json industry.json dig_today.json
           if git diff --cached --quiet; then echo "No feed changes"; else
-            git commit -m "chore: refresh newsroom radar and strategic shifts"
+            git commit -m "chore: refresh newsroom radar and investigation leads"
             for i in 1 2 3; do
               git fetch origin main
               if ! git rebase origin/main; then git rebase --abort || true; exit 1; fi
@@ -153,10 +159,12 @@ jobs:
           from pathlib import Path
           items=json.load(open('data.json',encoding='utf-8')); pitches=json.load(open('pitch.json',encoding='utf-8')) if Path('pitch.json').exists() else []
           shifts=json.load(open('strategic_shifts.json',encoding='utf-8')) if Path('strategic_shifts.json').exists() else {'items':[]}
+          dig=json.load(open('dig_today.json',encoding='utf-8')) if Path('dig_today.json').exists() else {'items':[]}
           if not isinstance(items,list) or len(items)<10: raise SystemExit('Latest feed is invalid')
           if len(pitches)>3: raise SystemExit('Too many pitches in latest main')
           if not isinstance(shifts,dict) or 'items' not in shifts: raise SystemExit('Latest strategic shifts invalid')
-          print(f'latest main feed: {len(items)} items / pitches {len(pitches)} / strategic shifts {len(shifts["items"])}')
+          if not isinstance(dig,dict) or 'items' not in dig: raise SystemExit('Latest investigation radar invalid')
+          print(f'latest main feed: {len(items)} items / pitches {len(pitches)} / strategic shifts {len(shifts["items"])} / investigation {len(dig["items"])}')
           PY
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -170,7 +178,7 @@ jobs:
           from pathlib import Path
           import os,re
           p=Path('index.html'); s=p.read_text(encoding='utf-8'); v=os.environ['BUILD_SHA']
-          for asset in ('data.js','app.js','pitch.js','dashboard.js','dashboard_v2.js','industry_priority.js','style.css','pitch.json','changes.json','strategic_shifts.json'):
+          for asset in ('data.js','app.js','pitch.js','dashboard.js','dashboard_v2.js','industry_priority.js','style.css','pitch.json','changes.json','strategic_shifts.json','dig_today.json'):
               s=re.sub(r'('+re.escape(asset)+r'\?v=)[^"\']+', r'\g<1>'+v, s)
           p.write_text(s,encoding='utf-8')
           PY
