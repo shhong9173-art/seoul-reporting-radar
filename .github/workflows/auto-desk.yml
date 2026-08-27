@@ -65,16 +65,14 @@ jobs:
           new="frame,angle=PAIR_FRAMES.get(pair, PAIR_FRAMES.get((pair[1], pair[0])))"
           if old in s: p.write_text(s.replace(old,new),encoding='utf-8')
           PY
-      - name: Build cross-source pitch items with DART numeric gate
+      - name: Build strategy and industry pitch candidates
         run: python pitch_builder.py
-      - name: Expand into reporter-ready event briefs
-        run: python pitch_expand.py
       - name: Enrich pitch items with DART disclosures
         run: python dart_enrich_pitch.py
       - name: Enrich pitch items with DART numeric facts
         continue-on-error: true
         run: python dart_numeric_enrich_pitch.py
-      - name: Deduplicate and sanitize pitch items
+      - name: Deduplicate and restrict pitch items
         run: python pitch_dedup.py
       - name: Validate feed before publishing
         run: |
@@ -98,9 +96,10 @@ jobs:
           if not isinstance(pitches,list): raise SystemExit('pitch.json invalid')
           if not isinstance(numeric,dict) or 'items' not in numeric: raise SystemExit('dart_numeric.json invalid')
           if not isinstance(archive,list): raise SystemExit('archive.json invalid')
-          a=sum(1 for p in pitches if p.get('grade')=='A'); linked=sum(1 for p in pitches if p.get('dartNumericSignals')); event=sum(1 for p in pitches if p.get('type')=='event-led')
+          a=sum(1 for p in pitches if p.get('grade')=='A'); linked=sum(1 for p in pitches if p.get('dartNumericSignals'))
           industry=sum(1 for x in items if x.get('industrySource')); auto=sum(1 for x in items if x.get('category') in {'완성차','부품','배터리','정책·관세','중국차','노조·생산','수주·투자','리콜·안전','단독','미국·글로벌'} and not x.get('global')); follow=sum(1 for x in items if x.get('followUp') and not x.get('global'))
-          print(f'validated {len(items)} items / auto {auto} / expanded industry {industry} / {len(globals_)} global / {len(dart["items"])} DART / {len(numeric["items"])} numeric docs / {len(pitches)} pitches / {a} A-grade / {linked} numeric-linked / {event} event-led / {follow} retained follow-up')
+          print(f'validated {len(items)} items / auto {auto} / expanded industry {industry} / {len(globals_)} global / {len(dart["items"])} DART / {len(numeric["items"])} numeric docs / {len(pitches)} pitches / {a} A-grade / {linked} numeric-linked / {follow} retained follow-up')
+          if len(pitches)>3: raise SystemExit(f'pitch count {len(pitches)} exceeds max 3')
           PY
       - name: Commit updated feed, pitches and archive
         run: |
@@ -134,20 +133,25 @@ jobs:
     steps:
       - name: Checkout latest collected main
         uses: actions/checkout@v4
-        with: {ref: main, fetch-depth: 1}
+        with:
+          ref: main
+          fetch-depth: 1
       - name: Verify latest collected outputs
         run: |
           python - <<'PY'
           import json
           items=json.load(open('data.json',encoding='utf-8')); pitches=json.load(open('pitch.json',encoding='utf-8')) if __import__('pathlib').Path('pitch.json').exists() else []
           if not isinstance(items,list) or len(items)<10: raise SystemExit('Latest feed is invalid')
+          if len(pitches)>3: raise SystemExit('Too many pitches in latest main')
           print(f'latest main feed: {len(items)} items / pitches {len(pitches)}')
           PY
       - name: Setup Python
         uses: actions/setup-python@v5
-        with: {python-version: '3.12'}
+        with:
+          python-version: '3.12'
       - name: Stamp browser asset cache versions
-        env: {BUILD_SHA: ${{ github.sha }}}
+        env:
+          BUILD_SHA: ${{ github.sha }}
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -161,7 +165,8 @@ jobs:
         uses: actions/configure-pages@v5
       - name: Upload latest site
         uses: actions/upload-pages-artifact@v3
-        with: {path: .}
+        with:
+          path: .
       - name: Deploy latest site
         id: deployment
         uses: actions/deploy-pages@v4
