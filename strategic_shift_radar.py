@@ -28,6 +28,7 @@ SIGNALS = {
 }
 NUM_RE = re.compile(r'(?<!\d)(?:\d{1,3}(?:,\d{3})+|\d+(?:\.\d+)?)(?:조원|억원|만원|만대|천대|대|명|%|GWh|MWh|kWh|톤|km|MW|GW)(?!\w)', re.I)
 
+
 def dt(x):
     raw = str(x.get('published') or x.get('date') or '')
     try:
@@ -35,18 +36,23 @@ def dt(x):
     except Exception:
         return datetime.min.replace(tzinfo=timezone.utc)
 
+
 def company(x):
     return (x.get('companies') or [None])[0]
+
 
 def text(x):
     return ' '.join(str(x.get(k) or '') for k in ('title','koTitle','summary','koSummary')).strip()
 
+
 def numbers(x):
     return list(dict.fromkeys(NUM_RE.findall(text(x))))
+
 
 def signals(x):
     t = text(x).lower()
     return [name for name, words in SIGNALS.items() if any(w.lower() in t for w in words)]
+
 
 def relevant(x):
     if x.get('global') or company(x) is None or x.get('category') not in AUTO | IND:
@@ -82,13 +88,22 @@ for c, row in by_company.items():
     for name, vals in dart_by.items():
         if name == c or c in name or name in c:
             darts.extend(vals)
+    if not darts and row['count'] if False else False:
+        continue
+
     dart_numbers = []
+    dart_reports = []
     for d in darts:
+        if d.get('reportName') or d.get('signalText'):
+            dart_reports.append(str(d.get('reportName') or d.get('signalText')))
         for n in d.get('numbers') or []:
             if n not in dart_numbers:
                 dart_numbers.append(n)
-    combined = list(dict.fromkeys(list(row['numbers']) + dart_numbers))
+    article_numbers = row['numbers']
+    uncovered = [n for n in dart_numbers if n not in article_numbers]
+    combined = list(dict.fromkeys(list(article_numbers) + dart_numbers))
     sig = row['signals']
+
     score = 0
     reasons = []
     if darts:
@@ -97,12 +112,16 @@ for c, row in by_company.items():
         score += 25; reasons.append('서로 다른 사업 신호 동시 포착')
     if len(row['sources']) >= 2:
         score += 15; reasons.append('복수 매체에서 변화 확인')
-    if len(combined) >= 3:
-        score += 15; reasons.append('구체적 수치 다수 확인')
+    if len(uncovered) >= 1:
+        score += 20; reasons.append('기사에서 아직 확인되지 않은 공시 숫자 존재')
+    elif len(combined) >= 3:
+        score += 10; reasons.append('구체적 수치 다수 확인')
     if '사업재편' in sig:
         score += 10; reasons.append('사업재편 신호')
     score = min(100, score)
-    if score < 60:
+
+    # Strong candidates need either DART + uncovered number, or a multi-signal change.
+    if score < 60 or (not darts and len(sig) < 3):
         continue
 
     if '투자' in sig and '수주' in sig:
@@ -117,10 +136,14 @@ for c, row in by_company.items():
     elif '생산' in sig and '투자' in sig:
         headline = f'{c}, 생산능력 키운다…증설이 수익성으로 이어질까'
         angle = f'{c}의 생산능력 확대가 실제 수요와 수익성 개선으로 이어지는지 확인'
+    elif uncovered:
+        headline = f'{c}, 공시에 새 숫자 나왔다…실제 투자·사업 변화는'
+        angle = f'DART에서 확인된 미보도 숫자가 기존 공개 계획과 실제 사업 집행의 차이를 보여주는지 확인'
     else:
         headline = f'{c}, 최근 한달 사업 변화 확대…전략 전환 실체는'
-        angle = f'{c}에서 최근 한달 새 나타난 투자·생산·수주 변화가 일시적 움직임인지 전략 전환인지 확인'
+        angle = f'{c}에서 최근 한달 새 나타난 사업 변화가 일시적 움직임인지 전략 전환인지 확인'
 
+    latest = row['latest']
     candidates.append({
         'company': c,
         'category': sorted(row['categories'])[0] if row['categories'] else '산업',
@@ -129,23 +152,25 @@ for c, row in by_company.items():
         'angle': angle,
         'signals': sorted(sig),
         'numbers': combined[:10],
+        'uncoveredDartNumbers': uncovered[:10],
         'sources': sorted(row['sources']),
         'recentArticles': row['titles'],
-        'latestTitle': row['latest'].get('title') or row['latest'].get('koTitle') or '',
-        'dartReports': [str(d.get('reportName') or d.get('signalText') or '') for d in darts[:4]],
+        'latestTitle': latest.get('title') or latest.get('koTitle') or '',
+        'latestPublished': latest.get('published') or '',
+        'dartReports': list(dict.fromkeys(dart_reports))[:4],
         'dartNumbers': dart_numbers[:12],
         'reasons': reasons,
         'questions': [
             '최근 30일 변화가 기존에 공개된 계획과 무엇이 다른가?',
             '공시의 투자·생산·수주 숫자가 최근 기사에서 충분히 설명됐는가?',
-            '이 변화가 실제 생산능력·원가·수익성에 어떤 영향을 주는가?',
+            '미보도 공시 숫자가 실제 생산능력·원가·수익성 변화와 연결되는가?',
             '경쟁사에서도 같은 방향의 변화가 나타나는가?'
         ],
         'detectedAt': now.isoformat(),
         'windowDays': 30
     })
 
-candidates.sort(key=lambda x: (x['score'], len(x['numbers']), len(x['signals'])), reverse=True)
+candidates.sort(key=lambda x: (bool(x['uncoveredDartNumbers']), x['score'], len(x['signals']), len(x['numbers'])), reverse=True)
 final = []
 seen = set()
 for c in candidates:
@@ -160,6 +185,6 @@ OUT.write_text(json.dumps({
     'generatedAt': now.isoformat(),
     'items': final,
     'sourceWindow': '30d-news-45d-dart',
-    'note': '최근 30일 뉴스와 최근 45일 DART를 결합한 전략 변화 후보. 발제 전 원문 확인 필요.'
+    'note': '최근 30일 뉴스와 최근 45일 DART를 결합한 전략 변화 및 미보도 숫자 후보. 발제 전 원문 확인 필요.'
 }, ensure_ascii=False, separators=(',', ':')), encoding='utf-8')
 print(f'strategic shift radar: {len(final)} candidates')
