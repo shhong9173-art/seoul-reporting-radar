@@ -20,28 +20,40 @@
       return e.url?`<li>${esc(body)} <a href="${esc(e.url)}" target="_blank" rel="noopener">원문↗</a></li>`:`<li>${esc(body)}</li>`;
     }).join('');
   }
+  function shortEvidence(e){
+    const source=e.source||'출처';
+    const title=String(e.title||'').replace(/\s+/g,' ').trim();
+    const cleaned=title.length>120?title.slice(0,120)+'…':title;
+    const nums=(e.numbers||[]).slice(0,3).join(', ');
+    return `${source}: ${cleaned}${nums?` (${nums})`:''}`;
+  }
+  function buildBullets(x){
+    const bullets=[];
+    if(x.newFact) bullets.push(x.newFact);
+    const ev=(x.evidence||[]).filter(e=>e.source&&e.source!=='DART');
+    ev.slice(0,2).forEach(e=>bullets.push(shortEvidence(e)));
+    if(x.angle) bullets.push(`핵심: ${x.angle}`);
+    return bullets.slice(0,4);
+  }
   function renderPitch(){
     setActive(pitchButton);title.textContent='오늘 발제 아이템';
     const out=pitches.slice().sort((a,b)=>(b.pitchScore||0)-(a.pitchScore||0));result.textContent=out.length+'개 아이템';
     cards.innerHTML=out.length?out.map((x,i)=>{
-      const plan=(x.articlePlan||[]).slice(0,4);
+      const bullets=buildBullets(x);
       const numbers=(x.numbers||[]).slice(0,6);
-      const lead=x.angle||x.newFact||'';
-      const proof=(x.evidence||[]).slice(0,3);
       return `<article class="card ${x.grade==='A'?'must':'follow'} pitch-card pitch-simple">
         <div class="card-top"><span class="badge ${x.grade==='A'?'must':'follow'}">발제 ${esc(x.grade||'B')}</span><span class="score">${i+1}위</span></div>
         <div class="meta">${esc(x.category||'산업')} · ${esc((x.companies||[]).join(', ')||'관련 기업')}</div>
         <div class="title">${esc(x.headline||'발제 아이템')}</div>
-        <div class="pitch-lead"><b>무슨 기사?</b><p>${esc(lead)}</p></div>
-        ${plan.length?`<div class="pitch-plan"><b>이렇게 쓰면 됨</b><ul>${plan.map(v=>`<li>${esc(v)}</li>`).join('')}</ul></div>`:''}
+        <div class="pitch-lead"><b>발제 한 줄</b><p>${esc(x.angle||x.newFact||'')}</p></div>
+        ${bullets.length?`<div class="pitch-plan"><b>기사 내용</b><ul>${bullets.map(v=>`<li>${esc(v)}</li>`).join('')}</ul></div>`:''}
         ${numbers.length?`<div class="pitch-numbers"><b>핵심 숫자</b><div class="signal-row compact-signals">${numbers.map(n=>`<span class="signal">${esc(n)}</span>`).join('')}</div></div>`:''}
         <details class="pitch-details">
-          <summary>근거·출처·확인할 것</summary>
-          ${x.newFact?`<div class="summary"><b class="why">왜 이게 기사거리인가</b><br>${esc(x.newFact)}</div>`:''}
-          ${x.differentiator?`<div class="summary"><b class="why">기존 기사와 뭐가 다른가</b><br>${esc(x.differentiator)}</div>`:''}
-          ${x.whyNow?`<div class="summary"><b class="why">왜 지금인가</b><br>${esc(x.whyNow)}</div>`:''}
+          <summary>근거·검증 내용 보기</summary>
+          ${x.differentiator?`<div class="summary"><b class="why">기존 기사와 다른 점</b><br>${esc(x.differentiator)}</div>`:''}
+          ${x.whyNow?`<div class="summary"><b class="why">왜 지금?</b><br>${esc(x.whyNow)}</div>`:''}
           ${x.dartNumericSignals?.length?`<div class="quote"><b>DART 원자료</b><ul>${x.dartNumericSignals.slice(0,3).map(e=>`<li><b>${esc(e.reportName||'공시')}</b> · ${esc((e.numbers||[]).slice(0,8).join(', '))}${e.url?` <a href="${esc(e.url)}" target="_blank" rel="noopener">원문↗</a>`:''}</li>`).join('')}</ul></div>`:''}
-          ${proof.length?`<div class="quote"><b>근거 기사</b><ul>${evidenceLines(x)}</ul></div>`:''}
+          <div class="quote"><b>확인된 근거</b><ul>${evidenceLines(x)}</ul></div>
           <div class="quote"><b>먼저 확인할 질문</b><ul>${(x.questions||[]).slice(0,4).map(q=>`<li>${esc(q)}</li>`).join('')}</ul></div>
         </details>
         <div class="bottom">${(x.companies||[]).map(c=>`<span class="tag">${esc(c)}</span>`).join('')}</div>
