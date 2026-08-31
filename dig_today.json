@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-31T02:13:40.786960+00:00",
+  "generatedAt": "2026-08-31T02:43:41.729075+00:00",
   "items": [
     {
       "kind": "공시 미보도 숫자",
@@ -8,8 +8,8 @@
       "why": "DART의 100억원이 최근 기사에서 충분히 설명됐는지 확인할 가치가 있는 후보.",
       "lines": [
         "DART [기재정정]반기보고서 (2026.06)에서 100억원 확인",
-        "네이트: [핀포인트] [포스코퓨처엠] 수주 13조→2.8조…80조 계약도 시험대 - 네이트",
-        "아이뉴스24: 8000억원 투입하는 포스코 HyREX…'탄소 감축' 넘어 이제는 '원가'다 - 아이뉴스24",
+        "네이트: \"원가 절감에 해외 사업 기회까지\"…SK·GS·포스코 이어 한화도 LNG 사업 '도전장' - 네이트",
+        "라이센스뉴스: [기업 Pick] 포스코홀딩스·대한화섬, 글로벌 공급망·첨단 소재로 경쟁력 강화 - 라이센스뉴스",
         "공시 숫자를 기존 투자·생산·수주 계획과 대조해 실제 변화인지 확인",
         "원재료·전력·관세 변화를 붙여 원가와 마진 영향 확인"
       ],
@@ -26,7 +26,7 @@
       "sources": [
         "DART",
         "네이트",
-        "아이뉴스24"
+        "라이센스뉴스"
       ],
       "competitors": [
         "현대제철"
@@ -51,12 +51,95 @@
       ],
       "qualityGate": "pass",
       "qualityReason": "숫자·복수 근거·사업 변화·제목의 주장까지 모두 근거로 확인된 후보"
+    },
+    {
+      "kind": "글로벌→국내",
+      "score": 94,
+      "headline": "글로벌 배터리 경쟁 심화…SK온, 투자·수주 전략 달라지나",
+      "why": "해외 산업 변화와 국내 기업의 최근 사업 움직임을 한 기사로 연결할 수 있는 후보.",
+      "lines": [
+        "해외 주요 매체 InsideEVs에서 관련 변화 확인",
+        "InsideEVs: 이 미국 배터리는 EV 공급망에 대한 중국의 그립을 깨뜨릴 수 있습니다 - InsideEVs",
+        "스마트비즈: SK온, 미국서 1조5000억원 규모 ESS 배터리 수주···9GWh 공급 - 스마트비즈",
+        "코리아포스트 한글판: [글로벌 수주] SK온, 美서 1.5조원 규모 LFP 배터리 수주…공장 가동률 높인다 - 코리아포스트 한글판",
+        "국내 공시·수주·생산 자료와 연결해 실제 영향 확인"
+      ],
+      "questions": [
+        "해외 변화가 국내 기업의 수주·가격·생산에 실제 영향을 주는가?",
+        "국내 경쟁사도 같은 대응을 하는가?",
+        "국내 공시에서 숫자로 확인되는 변화가 있는가?"
+      ],
+      "company": "SK온",
+      "category": "배터리",
+      "numbers": [],
+      "sources": [
+        "InsideEVs",
+        "The Verge",
+        "스마트비즈",
+        "코리아포스트 한글판"
+      ],
+      "competitors": [
+        "LG에너지솔루션",
+        "삼성SDI"
+      ],
+      "global": [
+        {
+          "title": "This American Battery Could Break China’s Grip On The EV Supply Chain - InsideEVs",
+          "url": "https://news.google.com/rss/articles/CBMifkFVX3lxTE5QR0QxdEpVUW5DdjBsLXQtT01jQWNNZWt2cF92eHR0cktWSGROOTVQU1VNNzRwY1M2cVhlWl9uM0tFR01COTdsRk5zbWJLSUVOZDdHWmphelJEM09pbDRmYWFGbTlOT1NPbVdOTFhscjV0Zk1lTDRxamNNeVU0dw?oc=5",
+          "published": "2026-08-31T10:28:03+09:00",
+          "sourceName": "InsideEVs",
+          "category": "글로벌",
+          "global": true,
+          "globalSource": "InsideEVs",
+          "summary": "This American Battery Could Break China’s Grip On The EV Supply Chain InsideEVs",
+          "globalScore": 65,
+          "koTitle": "이 미국 배터리는 EV 공급망에 대한 중국의 그립을 깨뜨릴 수 있습니다 - InsideEVs",
+          "koSummary": "이 미국 배터리는 EV 내부의 EV 공급망에 대한 중국의 그립을 깨뜨릴 수 있습니다.",
+          "translationStatus": "translated",
+          "globalWhy": "한국 자동차·부품·배터리 산업과 연결되거나 글로벌 공급망·통상·생산 변화가 큰 해외 신호입니다.",
+          "globalPitch": false
+        },
+        {
+          "title": "Chess.com launched a poker site and is planning even more classic games - The Verge",
+          "url": "https://news.google.com/rss/articles/CBMidEFVX3lxTFBTdHZLckNkTDdoZjV6SGgwaEVEYk84S0xaQlJPV3N0Sjc4enVfUXFkQ1p2QWw1MHJJSngzdnp4Rm5mUVNnalRwb0RtMTZMQ2tHZFp5Tm03VFFpTktmVXlDWFlCVi1sWjJyVVhjZWlQMWItbEZw?oc=5",
+          "published": "2026-08-30T22:00:00+09:00",
+          "sourceName": "The Verge",
+          "category": "글로벌",
+          "global": true,
+          "globalSource": "The Verge",
+          "summary": "Chess.com launched a poker site and is planning even more classic games The Verge",
+          "globalScore": 57,
+          "koTitle": "Chess.com은 포커 사이트를 개설하고 더 고전적인 게임을 계획하고 있습니다 - The Verge",
+          "koSummary": "Chess.com은 포커 사이트를 개설하고 더 고전적인 게임 The Verge를 계획하고 있습니다.",
+          "translationStatus": "translated",
+          "globalWhy": "한국 자동차·부품·배터리 산업과 연결되거나 글로벌 공급망·통상·생산 변화가 큰 해외 신호입니다.",
+          "globalPitch": false
+        },
+        {
+          "title": "BYD Is Building Its Ultra-Fast Flash Charging Network At A Ferocious Pace - InsideEVs",
+          "url": "https://news.google.com/rss/articles/CBMib0FVX3lxTE8wMmU2SmtydTBaZlNVNEJBN2lERUNwODUzY1dSVXQzUm1BY1p3MjZlb2p0WDRxRlJnYUZPZEtSMkVpaW51Ui0tVlVKQk5oYTZjQnpybHRpME1QeFg5cFgzRUdNc3dRZzFNbUdRYVZ5UQ?oc=5",
+          "published": "2026-08-29T20:00:00+09:00",
+          "sourceName": "InsideEVs",
+          "category": "글로벌",
+          "global": true,
+          "globalSource": "InsideEVs",
+          "summary": "BYD Is Building Its Ultra-Fast Flash Charging Network At A Ferocious Pace InsideEVs",
+          "globalScore": 53,
+          "koTitle": "BYD는 격렬한 속도로 초고속 플래시 충전 네트워크를 구축하고 있습니다 - InsideEVs",
+          "koSummary": "BYD는 내부 EV에서 격렬한 속도로 초고속 플래시 충전 네트워크를 구축하고 있습니다",
+          "translationStatus": "translated",
+          "globalWhy": "한국 자동차·부품·배터리 산업과 연결되거나 글로벌 공급망·통상·생산 변화가 큰 해외 신호입니다.",
+          "globalPitch": false
+        }
+      ],
+      "qualityGate": "pass",
+      "qualityReason": "숫자·복수 근거·사업 변화·제목의 주장까지 모두 근거로 확인된 후보"
     }
   ],
   "note": "오늘 파볼 것: 공시 미보도 숫자·전략 변화·글로벌→국내 연결을 우선 선별. 기사화 전 원문 확인 필요.",
   "qualityGate": {
     "input": 5,
-    "output": 1,
+    "output": 2,
     "rule": "구체적 숫자+복수 근거+사업 변화+제목 주장과 근거의 일치성+인과관계 검증"
   }
 }
