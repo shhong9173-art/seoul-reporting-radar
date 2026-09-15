@@ -14,13 +14,13 @@
     '화학·소재':['LG화학','롯데케미칼','금호석유화학','효성첨단소재','코오롱인더']
   };
   function text(x){return ((x.title||'')+' '+(x.summary||'')).toLowerCase();}
-  function scoops(t){return SCOOP.filter(w=>t.includes(w.toLowerCase())).length;}
+  function scoops(t,x){return (x.exclusive?1:0)+SCOOP.filter(w=>t.includes(w.toLowerCase())).length;}
   function signals(t){return MUST.filter(w=>t.includes(w.toLowerCase())).length;}
   function hasNumber(x,t){return !!x.concreteNumber || /\d[\d,.]*\s*(조원|억원|만원|억달러|달러|만대|천대|대|명|%|톤|mw|gw|gwh|mwh)/i.test(t);}
   function targetHit(x){const list=TARGETS[x.category]||[];const blob=(x.title||'')+' '+(x.summary||'');return list.filter(c=>blob.includes(c)).length;}
   function isCore(x){
     if(!x||x.global||!x.industrySource||!CORE_CATS.has(x.category)) return false;
-    const t=text(x), sg=signals(t), sc=scoops(t), unique=(x.clusterCount||1)<=1, num=hasNumber(x,t), th=targetHit(x);
+    const t=text(x), sg=signals(t), sc=scoops(t,x), unique=(x.clusterCount||1)<=1, num=hasNumber(x,t), th=targetHit(x);
     const noise=NOISE.filter(w=>t.includes(w.toLowerCase())).length;
     const event=EVENT.some(w=>(x.title||'').includes(w));
     if(noise>0 || (event && sc===0)) return false;
@@ -32,18 +32,18 @@
     return true;
   }
   function scoopScore(x){
-    const t=text(x), sc=scoops(t), sg=signals(t), unique=(x.clusterCount||1)<=1, num=hasNumber(x,t), th=targetHit(x);
+    const t=text(x), sc=scoops(t,x), sg=signals(t), unique=(x.clusterCount||1)<=1, num=hasNumber(x,t), th=targetHit(x);
     return sc*80 + (unique?24:0) + (num?18:0) + Math.min(18,sg*2) + Math.min(10,th*5) + Math.min(10,x.strategySignalCount||0) + Math.min(8,(x.score||0)/12);
   }
   function badge(x){
     const t=text(x);
-    if(scoops(t)>0) return '단독·취재확인';
+    if(x.exclusive||scoops(t,x)>0) return '단독·취재확인';
     if((x.clusterCount||1)<=1 && hasNumber(x,t)) return '새 이슈';
     return '산업부 핵심';
   }
   function badgeClass(x){
     const t=text(x);
-    return scoops(t)>0?'exclusive':((x.clusterCount||1)<=1&&hasNumber(x,t)?'must':'normal');
+    return (x.exclusive||scoops(t,x)>0)?'exclusive':((x.clusterCount||1)<=1&&hasNumber(x,t)?'must':'normal');
   }
   function esc(v){return String(v??'').replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]));}
   function renderCore(){
