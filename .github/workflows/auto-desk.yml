@@ -24,7 +24,7 @@ permissions:
 
 concurrency:
   group: auto-desk-refresh
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   collect:
@@ -181,7 +181,7 @@ jobs:
           from pathlib import Path
           import os,re
           p=Path('index.html'); s=p.read_text(encoding='utf-8'); v=os.environ['BUILD_SHA']
-          for asset in ('data.js','app.js','pitch.js','dashboard.js','dashboard_v2.js','industry_priority.js','style.css','pitch.json','changes.json','strategic_shifts.json','dig_today.json'):
+          for asset in ('data.js','app.js','pitch.js','dashboard.js','dashboard_v2.js','industry_priority.js','auto_exclusive.js','cross_media_gap.js','style.css','pitch.json','changes.json','strategic_shifts.json','dig_today.json'):
               s=re.sub(r'('+re.escape(asset)+r'\?v=)[^"\']+', r'\g<1>'+v, s)
           p.write_text(s,encoding='utf-8')
           PY
