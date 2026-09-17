@@ -16,7 +16,7 @@ on:
       - 'industry.json'
       - 'dig_today.json'
   schedule:
-    - cron: '*/30 * * * *'
+    - cron: '*/15 * * * *'
   workflow_dispatch:
 
 permissions:
@@ -24,7 +24,7 @@ permissions:
 
 concurrency:
   group: auto-desk-refresh
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   collect:
