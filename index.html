@@ -11,8 +11,8 @@
   <aside class="sidebar">
     <div class="brand"><span class="dot"></span><div><b>산업부 종합 취재 레이더</b><small>AUTO + INDUSTRY DESK</small></div></div>
     <nav>
-      <button class="nav active" data-view="must">자동차 핵심 <span id="countMust">0</span></button>
-      <button class="nav" data-view="industryMust">산업부 핵심 <span id="countIndustryMust">0</span></button>
+      <button class="nav active" data-view="today">오늘 취재 우선순위 <span id="countMust">0</span></button>
+      <button class="nav" data-view="must">자동차 핵심 <span id="countAutoMust">0</span></button>\n      <button class="nav" data-view="industryMust">산업부 핵심 <span id="countIndustryMust">0</span></button>
       <button class="nav" data-view="all">전체 모니터링 <span id="countAll">0</span></button>
       <button class="nav pitch-nav" type="button">🔥 발제 아이템 <span id="countPitch">0</span></button>
       <button class="nav archive-nav" type="button">단독·발제 아카이브 <span id="countArchive">0</span></button>
@@ -41,16 +41,16 @@
     </div>
     <div class="section-label">기업</div>
     <div class="chips compact" id="companyChips"></div>
-    <div class="sidebar-foot">자동차는 1순위로 별도 유지<br><span>자동차·부품·배터리 + 철강·비철·전력기기·전선·에너지·재생에너지·화학소재 · 15분 자동 수집</span></div>
+    <div class="sidebar-foot">자동차는 별도 핵심 탭으로 유지<br><span>자동차·부품·배터리 + 철강·비철·전력기기·전선·에너지·재생에너지·화학소재 · 15분 자동 수집</span></div>
   </aside>
   <main>
     <header>
-      <div><div class="eyebrow">DAILY INDUSTRY NEWSROOM INTELLIGENCE</div><h1 id="headline">산업부 종합 취재 레이더</h1><p id="today">뉴스 데이터를 불러오는 중입니다.</p></div>
-      <div class="header-actions"><input id="search" placeholder="기업·키워드·매체 검색"><button id="reset" class="secondary">초기화</button></div>
+      <div><div class="eyebrow">DAILY INDUSTRY NEWSROOM INTELLIGENCE</div><h1 id="headline">산업부 전체 출입처에서 오늘 파볼 것</h1><p id="today">뉴스 데이터를 불러오는 중입니다.</p></div>
+      <div class="header-actions"><input id="search" placeholder="기업·키워드·매체·출입처 검색"><button id="reset" class="secondary">초기화</button></div>
     </header>
     <section class="stats">
       <div class="stat hot"><small>자동차</small><strong id="statAuto">0</strong><span>건</span></div>
-      <div class="stat"><small>산업부 신규</small><strong id="statIndustry">0</strong><span>건</span></div>
+      <div class="stat"><small>산업부 전체</small><strong id="statIndustry">0</strong><span>건</span></div>
       <div class="stat"><small>발제</small><strong id="statPitch">0</strong><span>건</span></div>
       <div class="stat"><small>글로벌</small><strong id="statGlobal">0</strong><span>건</span></div>
     </section>
@@ -60,7 +60,7 @@
   <div id="modal" class="modal hidden"><div class="modal-box"><button class="close" id="close">×</button><div id="detail"></div></div></div>
 </div>
 <script src="data.js?v=20260828-03"></script>
-<script src="app.js?v=20260828-03"></script>
+<script src="app.js?v=20260918-unified01"></script>
 <script src="dashboard.js?v=20260828-03"></script>
 <script src="pitch.js?v=20260828-03"></script>
 <script src="industry_priority.js?v=20260915-02"></script>
