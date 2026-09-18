@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-18T06:31:23.627074+00:00",
+  "generatedAt": "2026-09-18T06:59:02.540569+00:00",
   "items": [
     {
       "kind": "공시 미보도 숫자",
@@ -68,17 +68,17 @@
           "globalPitch": false
         },
         {
-          "title": "Stellantis says no business case for Brampton plant, as Unifor warns of 1st major casualty of auto tariffs - autonews.com",
+          "title": "Stellantis says no business case for Brampton plant, as Unifor warns of 1st major casualty of auto tariffs - Automotive News",
           "url": "https://news.google.com/rss/articles/CBMikAFBVV95cUxQSGRUUGhtbm5ha1ZDXzdsUXJ0SFBxX0hobFY0V0Fnb2VrbkdrWG5sZnpyQlF3WEhZR2E2dTktUDRpazVhZE9rajhjeGtiSHpyRi1ocTlGLW9UYTcwMFFicVZqNWxRdTNQeG1iY0k2ZWI3aFFtbjRaaTFSSUljMDluN293aE45WExISVhYcjE4QzU?oc=5",
           "published": "2026-09-18T03:54:00+09:00",
-          "sourceName": "autonews.com",
+          "sourceName": "Automotive News",
           "category": "글로벌",
           "global": true,
           "globalSource": "Automotive News",
-          "summary": "Stellantis says no business case for Brampton plant, as Unifor warns of 1st major casualty of auto tariffs autonews.com",
+          "summary": "Stellantis says no business case for Brampton plant, as Unifor warns of 1st major casualty of auto tariffs Automotive News",
           "globalScore": 69,
           "koTitle": "Stellantis는 Unifor가 자동차 관세로 인한 첫 번째 주요 피해에 대해 경고함에 따라 Brampton 공장에 대한 비즈니스 사례가 없다고 밝혔습니다.",
-          "koSummary": "Stellantis는 Unifor가 자동차 관세로 인한 첫 번째 주요 피해에 대해 경고함에 따라 Brampton 공장에 대한 비즈니스 사례가 없다고 밝혔습니다 autonews.com",
+          "koSummary": "Stellantis는 Unifor가 자동차 관세로 인한 첫 번째 주요 피해에 대해 경고함에 따라 Brampton 공장에 대한 비즈니스 사례가 없다고 밝혔습니다.",
           "translationStatus": "translated",
           "globalWhy": "한국 자동차·부품·배터리 산업과 연결되거나 글로벌 공급망·통상·생산 변화가 큰 해외 신호입니다.",
           "globalPitch": false
@@ -121,12 +121,44 @@
       "global": [],
       "qualityGate": "pass",
       "qualityReason": "숫자·복수 근거·사업 변화·제목의 주장까지 모두 근거로 확인된 후보"
+    },
+    {
+      "kind": "전략 변화",
+      "score": 91,
+      "headline": "한화솔루션, 수주 늘자 1569억원 투자…생산능력 확충이 관건",
+      "why": "한 회사에서 서로 다른 사업 신호가 동시에 움직여 단일 뉴스보다 전략 변화로 볼 근거가 있는 후보.",
+      "lines": [
+        "최근 30일 가격·원가, 생산, 수주 신호가 동시에 확인됨",
+        "여수신문: 한화솔루션 여수공장, 추석맞이 ‘함께멀리 희망나눔’실천 - 여수신문",
+        "CBC뉴스: [속보] LS마린솔루션, 한화솔루션과 1569억원 규모 해저케이블 운송·설치 계약…지난해 매출액의 64.2% - CBC뉴스",
+        "기존 사업계획·공시 수치와 실제 투자·생산·수주 흐름을 대조",
+        "경쟁사 두산에너빌리티와 투자·생산·수주 속도를 비교"
+      ],
+      "questions": [
+        "기존 중장기 계획에서 무엇이 실제로 달라졌나?",
+        "경쟁사와 비교해 무엇이 다른가?",
+        "투자 확대가 매출·생산능력·수익성으로 이어지는가?"
+      ],
+      "company": "한화솔루션",
+      "category": "재생에너지",
+      "numbers": [],
+      "sources": [
+        "여수신문",
+        "CBC뉴스",
+        "PRESS9"
+      ],
+      "competitors": [
+        "두산에너빌리티"
+      ],
+      "global": [],
+      "qualityGate": "pass",
+      "qualityReason": "숫자·복수 근거·사업 변화·제목의 주장까지 모두 근거로 확인된 후보"
     }
   ],
   "note": "오늘 파볼 것: 공시 미보도 숫자·전략 변화·글로벌→국내 연결을 우선 선별. 기사화 전 원문 확인 필요.",
   "qualityGate": {
     "input": 5,
-    "output": 2,
+    "output": 3,
     "rule": "구체적 숫자+복수 근거+사업 변화+제목 주장과 근거의 일치성+인과관계 검증"
   }
 }
