@@ -1,5 +1,5 @@
 let items=Array.isArray(window.ITEMS)?window.ITEMS:[];
-let view='must',cat='',company='',query='';
+let view='today',cat='',company='',query='';
 const $=s=>document.querySelector(s);
 const esc=v=>String(v??'').replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]));
 const toks=t=>new Set(String(t||'').toLowerCase().match(/[가-힣A-Za-z0-9]{2,}/g)||[]);
@@ -7,14 +7,15 @@ const AUTO_CATS=new Set(['완성차','부품','배터리','정책·관세','중�
 const INDUSTRY_CATS=new Set(['철강','비철금속','전력기기','전선·전력','에너지','재생에너지','화학·소재']);
 const INDUSTRY_ITEMS=()=>items.filter(x=>!x.global&&x.industrySource);
 const AUTO_ITEMS=()=>items.filter(x=>!x.global&&(!x.industrySource||AUTO_CATS.has(x.category)));
-function badge(x){return x.global?'글로벌':x.exclusive?'단독·속보 후보':x.priority==='must'?'오늘 핵심':x.followUp?'후속 검토':'모니터링'}
+function badge(x){return x.global?'글로벌':x.exclusive?'단독·속보 후보':x.priority==='must'?'오늘 핵심':x.priority==='follow'||x.followUp?'후속 검토':x.industrySource?'산업부':'모니터링'}
 function cls(x){return x.global?'normal':x.exclusive?'exclusive':x.priority==='must'?'must':x.followUp?'follow':'normal'}
 function titleOf(x){return x.global&&x.koTitle?x.koTitle:x.title}
 function summaryOf(x){return x.global&&x.koSummary?x.koSummary:x.summary}
 function isAuto(x){return !x.global && AUTO_CATS.has(x.category) && !x.industrySource}
-function isIndustry(x){return !x.global && x.industrySource}
+function isIndustry(x){return !x.global && x.industrySource && INDUSTRY_CATS.has(x.category)}
 function filtered(){
   let a=items.slice();
+  if(view==='today')a=a.filter(isTodayPriority);
   if(view==='must')a=a.filter(x=>isAuto(x)&&x.priority==='must');
   if(view==='industryMust')a=a.filter(x=>isIndustry(x)).sort((a,b)=>(b.score||0)-(a.score||0)).slice(0,80);
   if(view==='all')a=a.filter(x=>!x.global);
@@ -29,8 +30,37 @@ function filtered(){
   return a.sort((a,b)=>s==='new'?new Date(b.published)-new Date(a.published):s==='coverage'?((b.clusterCount||1)-(a.clusterCount||1))||b.score-a.score:(b.score||0)-(a.score||0));
 }
 function article(x){
-  const industryLabel=x.industrySource?`<span class="tag">${esc(x.category)}</span>`:'';
-  return `<article class="card ${cls(x)}" onclick="openItem('${esc(x.id)}')"><div class="card-top"><span class="badge ${cls(x)}">${badge(x)}</span><span class="score">${x.score||0}점</span></div><div class="meta">${esc(x.sourceName)} · ${esc(x.publishedLabel||x.published)} · ${esc(x.category)} ${x.industrySource?'· 산업부':''}</div><div class="title">${esc(titleOf(x))}</div>${x.global&&x.title!==x.koTitle?`<div class="muted" style="font-size:11px;margin-bottom:7px">원문: ${esc(x.title)}</div>`:''}<div class="summary"><b class="why">${esc(x.whyNow||'')}</b><br>${esc(summaryOf(x))}</div><div class="signal-row"><span class="signal">이슈 ${esc(x.clusterId||'-')}</span><span class="signal">관련 ${x.clusterCount||1}건</span>${x.earliestObservedSource?`<span class="signal">최초 ${esc(x.earliestObservedSource)}</span>`:''}</div><div class="bottom">${industryLabel}${(x.companies||[]).slice(0,5).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}${(x.tags||[]).slice(0,4).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}</div></article>`
+  const score=view==='today'?unifiedScore(x):(x.score||x.industryPriorityScore||0);\n  
+function beatOf(x){return x.industrySource?'산업부':'자동차'}
+function hasConcrete(x){return !!x.concreteNumber||/\d[\d,.]*\s*(조원|억원|만원|억달러|달러|만대|천대|대|명|%|톤|mw|gw|gwh|mwh)/i.test((x.title||'')+' '+(x.summary||''))}
+function unifiedScore(x){
+  const base=Number(x.score||x.industryPriorityScore||0);
+  const spread=Math.max(1,Number(x.clusterCount||1));
+  const exclusive=x.exclusive?12:0;
+  const newIssue=spread===1?8:0;
+  const concrete=hasConcrete(x)?6:0;
+  const strategy=Math.min(8,Number(x.strategySignalCount||0)*2);
+  const target=x.industrySource&&Array.isArray(x.companies)&&x.companies.length?4:0;
+  return Math.min(99,Math.round(base+exclusive+newIssue+concrete+strategy+target));
+}
+function isTodayPriority(x){
+  if(!x||x.global)return false;
+  if(isAuto(x))return !!x.exclusive||x.priority==='must'||Number(x.score||0)>=78;
+  if(isIndustry(x))return !!x.industryRelevant||!!x.exclusive||Number(x.industryPriorityScore||x.score||0)>=70;
+  return false;
+}
+function priorityReason(x){
+  const t=(x.title||'')+' '+(x.summary||'');
+  if(x.exclusive)return '단독·취재확인 신호';
+  if(isIndustry(x)&&hasConcrete(x))return '산업 변화 + 구체적 숫자';
+  if(hasConcrete(x))return '구체적 숫자 확인';
+  if(Number(x.clusterCount||1)===1)return '확산 전 단일 보도';
+  if(Number(x.clusterCount||1)>=2)return '복수 매체 확산';
+  if(/수주|계약|공급|증설|투자|공장|감산|철수|매각|관세|리콜|파업|风력|HVDC|전력망/.test(t))return '사업 변화 신호';
+  return beatOf(x)+' 핵심 모니터링';
+}
+\nfunction isAuto(x)`<span class="tag">${esc(x.category)}</span>`:'';
+  return `<article class="card ${cls(x)}" onclick="openItem('${esc(x.id)}')"><div class="card-top"><span class="badge ${cls(x)}">${badge(x)}</span><span class="score">${score}점</span></div><div class="meta"><b>${esc(beatOf(x))}</b> · ${esc(x.sourceName)} · ${esc(x.publishedLabel||x.published)} · ${esc(x.category)}</div><div class="title">${esc(titleOf(x))}</div>${x.global&&x.title!==x.koTitle?`<div class="muted" style="font-size:11px;margin-bottom:7px">원문: ${esc(x.title)}</div>`:''}<div class="summary"><b class="why">${esc(view==='today'?priorityReason(x):(x.whyNow||''))}</b><br>${esc(summaryOf(x))}</div><div class="signal-row"><span class="signal">이슈 ${esc(x.clusterId||'-')}</span><span class="signal">관련 ${x.clusterCount||1}건</span>${x.earliestObservedSource?`<span class="signal">최초 ${esc(x.earliestObservedSource)}</span>`:''}</div><div class="bottom">${industryLabel}${(x.companies||[]).slice(0,5).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}${(x.tags||[]).slice(0,4).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}</div></article>`
 }
 function render(){
   const cards=$('#cards');
@@ -72,22 +102,22 @@ function openItem(id){
   $('#modal').classList.remove('hidden');
 }
 function counts(){
-  const auto=AUTO_ITEMS().length, industry=INDUSTRY_ITEMS().length, global=items.filter(x=>x.global).length, must=items.filter(x=>isAuto(x)&&x.priority==='must').length;
-  $('#countAll').textContent=items.filter(x=>!x.global).length; $('#countMust').textContent=must; $('#countIndustryMust').textContent=industry; $('#countExclusive').textContent=items.filter(x=>x.exclusive).length; $('#countFollow').textContent=items.filter(x=>x.followUp&&!x.global).length; $('#countCompetition').textContent=items.filter(x=>(x.clusterCount||1)>=2&&!x.global).length; $('#countGlobal').textContent=global;
+  const auto=AUTO_ITEMS().length, industry=INDUSTRY_ITEMS().length, global=items.filter(x=>x.global).length, must=items.filter(isTodayPriority).length;
+  $('#countAll').textContent=items.filter(x=>!x.global).length; $('#countMust').textContent=must; if($('#countAutoMust'))$('#countAutoMust').textContent=items.filter(x=>isAuto(x)&&x.priority==='must').length; $('#countIndustryMust').textContent=industry; $('#countExclusive').textContent=items.filter(x=>x.exclusive).length; $('#countFollow').textContent=items.filter(x=>x.followUp&&!x.global).length; $('#countCompetition').textContent=items.filter(x=>(x.clusterCount||1)>=2&&!x.global).length; $('#countGlobal').textContent=global;
   $('#statAuto').textContent=auto; $('#statIndustry').textContent=industry; $('#statGlobal').textContent=global;
 }
 function setupCompanies(){const c=[...new Set(items.flatMap(x=>x.companies||[]))].filter(Boolean).sort();$('#companyChips').innerHTML=c.slice(0,40).map(v=>`<button class="chip" data-company="${esc(v)}">${esc(v)}</button>`).join('');document.querySelectorAll('[data-company]').forEach(b=>b.onclick=()=>{company=company===b.dataset.company?'':b.dataset.company;view='company';syncNav();render()});}
 function syncNav(){
   document.querySelectorAll('.nav').forEach(n=>n.classList.toggle('active',n.dataset.view===view));
-  const names={must:'자동차 핵심',industryMust:'산업부 핵심',all:'전체 모니터링',exclusive:'단독·속보 후보',follow:'후속 취재 후보',competition:'경쟁지 선행 이슈',calls:'오늘 전화할 곳',company:company?company+' 타임라인':'기업 타임라인',keywords:'키워드 급상승',issues:'이슈 타임라인',global:'글로벌 레이더'};
+  const names={today:'오늘 취재 우선순위',must:'자동차 핵심',industryMust:'산업부 핵심',all:'전체 모니터링',exclusive:'단독·속보 후보',follow:'후속 취재 후보',competition:'경쟁지 선행 이슈',calls:'오늘 전화할 곳',company:company?company+' 타임라인':'기업 타임라인',keywords:'키워드 급상승',issues:'이슈 타임라인',global:'글로벌 레이더'};
   $('#viewTitle').textContent=names[view]||'산업부 종합 레이더';
-  $('#headline').textContent=view==='global'?'글로벌 자동차·산업판에서 놓치면 안 되는 것':view==='industryMust'?'산업부 전체 출입처에서 놓치면 안 되는 것':'자동차판에서 오늘 놓치면 안 되는 것';
+  $('#headline').textContent=view==='global'?'글로벌 자동차·산업판에서 놓치면 안 되는 것':view==='must'?'자동차판에서 오늘 놓치면 안 되는 것':view==='industryMust'?'산업부에서 오늘 파볼 것':'산업부 전체 출입처에서 오늘 파볼 것';\n  if(view==='today')$('#today').textContent='자동차 + 산업부 전 출입처를 한 화면에서 통합. 단독·새 이슈·숫자·사업 변화 순으로 정렬합니다.';
 }
 function bind(){
-  document.querySelectorAll('.nav:not(.pitch-nav):not(.archive-nav)').forEach(b=>b.onclick=()=>{view=b.dataset.view||'must';company='';syncNav();render();});
+  document.querySelectorAll('.nav:not(.pitch-nav):not(.archive-nav)').forEach(b=>b.onclick=()=>{view=b.dataset.view||'today';company='';syncNav();render();});
   document.querySelectorAll('.chip[data-cat]').forEach(b=>b.onclick=()=>{cat=cat===b.dataset.cat?'':b.dataset.cat;if(cat) view='all';syncNav();render();});
   $('#search').oninput=e=>{query=e.target.value;render()}; $('#sort').onchange=render;
-  $('#reset').onclick=()=>{view='must';cat='';company='';query='';$('#search').value='';syncNav();render()};
+  $('#reset').onclick=()=>{view='today';cat='';company='';query='';$('#search').value='';syncNav();render()};
   $('#close').onclick=()=>$('#modal').classList.add('hidden'); $('#modal').onclick=e=>{if(e.target.id==='modal')$('#modal').classList.add('hidden')};
 }
-bind();counts();setupCompanies();syncNav();render();$('#today').textContent=`${items.filter(x=>!x.global).length}건 국내 산업뉴스 · 자동차 1순위 · 산업부 7개 신규 분야 · 30분 자동 수집 · 글로벌 번역`;
+bind();counts();setupCompanies();syncNav();render();$('#today').textContent='자동차 + 산업부 전 출입처를 한 화면에서 통합. 단독·새 이슈·숫자·사업 변화 순으로 정렬합니다.';
