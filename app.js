@@ -109,12 +109,13 @@ function counts(){
   $('#statAuto').textContent=auto; $('#statIndustry').textContent=industry; $('#statGlobal').textContent=global;
 }
 function setupCompanies(){const c=[...new Set(items.flatMap(x=>x.companies||[]))].filter(Boolean).sort();$('#companyChips').innerHTML=c.slice(0,50).map(v=>'<button class="chip" data-company="'+esc(v)+'">'+esc(v)+'</button>').join('');document.querySelectorAll('[data-company]').forEach(b=>b.onclick=()=>{company=company===b.dataset.company?'':b.dataset.company;view='company';syncNav();render()});}
+function latestObserved(){const arr=items.filter(x=>!x.global&&x.published);if(!arr.length)return '-';const d=new Date(arr.reduce((m,x)=>x.published>m?x.published:m,'1970-01-01'));return d.toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false});}
 function syncNav(){
   document.querySelectorAll('.nav').forEach(n=>n.classList.toggle('active',n.dataset.view===view));
   const names={today:'오늘 취재 우선순위',must:'자동차 핵심',industryMust:'산업부 핵심',all:'전체 모니터링',exclusive:'단독·속보 후보',follow:'후속 취재 후보',competition:'경쟁지 선행 이슈',calls:'오늘 전화할 곳',company:company?company+' 타임라인':'기업 타임라인',keywords:'키워드 급상승',issues:'이슈 타임라인',global:'글로벌 레이더'};
   $('#viewTitle').textContent=names[view]||'산업부 종합 취재 레이더';
   $('#headline').textContent=view==='global'?'글로벌 자동차·산업판에서 놓치면 안 되는 것':view==='must'?'자동차판에서 오늘 놓치면 안 되는 것':view==='industryMust'?'산업부에서 오늘 파볼 것':'산업부 전체 출입처에서 오늘 파볼 것';
-  if(view==='today')$('#today').textContent='자동차 + 산업부 전 출입처를 한 화면에서 통합. 단독·새 이슈·숫자·사업 변화 순으로 정렬합니다.';
+  if(view==='today')$('#today').textContent='자동차 + 산업부 전 출입처 통합 · 마지막 기사 관측 '+latestObserved()+' · 단독·새 이슈·숫자·사업 변화 순';
 }
 function bind(){
   document.querySelectorAll('.nav:not(.pitch-nav):not(.archive-nav)').forEach(b=>b.onclick=()=>{view=b.dataset.view||'today';company='';syncNav();render();});
@@ -123,4 +124,4 @@ function bind(){
   $('#reset').onclick=()=>{view='today';cat='';company='';query='';$('#search').value='';syncNav();render();};
   $('#close').onclick=()=>$('#modal').classList.add('hidden'); $('#modal').onclick=e=>{if(e.target.id==='modal')$('#modal').classList.add('hidden')};
 }
-bind();counts();setupCompanies();syncNav();render();$('#today').textContent='자동차 + 산업부 전 출입처를 한 화면에서 통합. 단독·새 이슈·숫자·사업 변화 순으로 정렬합니다.';
+bind();counts();setupCompanies();syncNav();render();$('#today').textContent='자동차 + 산업부 전 출입처 통합 · 마지막 기사 관측 '+latestObserved()+' · 단독·새 이슈·숫자·사업 변화 순';
