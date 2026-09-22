@@ -49,7 +49,15 @@ def company_list(text):return [c for c in COMPANIES if c in text]
 def tokens(t):return {w for w in re.findall(r'[가-힣A-Za-z0-9]{2,}',t.lower()) if w not in STOP and not w.isdigit()}
 
 def exclusive(t):
-    return any(re.search(p,t,re.I) for p in [r'^\s*\[단독(?:취재|보도)?\]',r'^\s*\(단독(?:취재|보도)?\)',r'\b단독(?:취재|보도|입수)\s*:',r'\b단독보도\b'])
+    s=str(t or '')
+    pats=[
+        r'^\s*\[[^\]]*단독[^\]]*\]',
+        r'^\s*\([^\)]*단독[^\)]*\)',
+        r'(?:^|[^가-힣A-Za-z0-9])본지\s*(?:단독|취재(?:결과)?)',
+        r'(?:^|[^가-힣A-Za-z0-9])단독(?:보도|취재|입수|확인|포착|인터뷰)(?=$|[^가-힣A-Za-z0-9])',
+        r'(?:^|[^가-힣A-Za-z0-9])단독\s*[:：]'
+    ]
+    return any(re.search(p,s,re.I) for p in pats)
 
 def parse_feed(category,query,global_feed=False,source_hint=''):
     lang,gl=('en-US','US') if global_feed else ('ko','KR')
