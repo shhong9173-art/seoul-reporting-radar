@@ -30,7 +30,7 @@ KEY=[
  'ESS','석유화학','구조조정','스페셜티','배터리소재','미국','중국','유럽','북미'
 ]
 
-EXCLUSIVE_WORDS=('단독','단독취재','단독 확인','단독으로','취재결과','취재를 종합하면','본지 취재','확인됐다','확인한 결과')
+EXCLUSIVE_PATTERNS=(r'^\s*\[[^\]]*단독[^\]]*\]',r'^\s*\([^\)]*단독[^\)]*\)',r'(?:^|[^가-힣A-Za-z0-9])본지\s*(?:단독|취재(?:결과)?)',r'(?:^|[^가-힣A-Za-z0-9])단독(?:보도|취재|입수|확인|포착|인터뷰)(?=$|[^가-힣A-Za-z0-9])',r'(?:^|[^가-힣A-Za-z0-9])단독\s*[:：]')
 STRATEGY_WORDS=('증설','투자','신규공장','공장','생산능력','생산중단','가동','감산','철수','매각','인수','합작','구조조정','수주','계약','공급','가격','원가','마진','관세','반덤핑','통상','해상풍력','HVDC','변압기','전력망','석유화학','스페셜티','배터리소재')
 EVENT_WORDS=('인베스터데이','주주총회','설명회','세미나','포럼','엑스포','컨퍼런스','부스투어','기조연설','발표회')
 
@@ -47,7 +47,7 @@ def company_list(text):return [c for c in COMPANIES if c in text]
 
 def classify(title,desc):
     blob=(title+' '+desc).lower()
-    exclusive=any(w.lower() in blob for w in EXCLUSIVE_WORDS) or '단독' in title
+    exclusive=any(re.search(p,title,re.I) for p in EXCLUSIVE_PATTERNS)
     event=any(w in title for w in EVENT_WORDS)
     signal=sum(1 for k in KEY if k.lower() in blob)
     strategy=sum(1 for k in STRATEGY_WORDS if k.lower() in blob)
