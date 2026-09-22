@@ -17,7 +17,7 @@ FEEDS=[
  ('리콜·안전','자동차 리콜 OR 전기차 화재 OR 자동차 결함 OR 전기차 안전 OR 국토부 리콜'),
  ('단독','단독 자동차 OR 단독 현대차 OR 단독 기아 OR 단독 자동차부품 OR 단독 배터리 OR 단독 전기차'),
  ('미국·글로벌','미국 자동차 시장 OR 미국 자동차 공장 OR 유럽 자동차 규제 OR 글로벌 자동차 공급망'),
- ('단독·취재','현대차 단독 OR 기아 단독 OR 제네시스 단독 OR 현대모비스 단독 OR 현대위아 단독 OR 현대트랜시스 단독 OR HL만도 단독 OR LG에너지솔루션 단독 OR 삼성SDI 단독 OR SK온 단독 OR BYD 단독 OR 테슬라 단독 OR CATL 단독 OR 자동차 단독')]
+ ('단독','현대차 단독 OR 기아 단독 OR 제네시스 단독 OR 현대모비스 단독 OR 현대위아 단독 OR 현대트랜시스 단독 OR HL만도 단독 OR LG에너지솔루션 단독 OR 삼성SDI 단독 OR SK온 단독 OR BYD 단독 OR 테슬라 단독 OR CATL 단독 OR 자동차 단독')]
 GLOBAL_FEEDS=[
  ('Reuters','site:reuters.com (automotive OR car OR EV OR battery OR tariff)'),
  ('Automotive News','site:autonews.com (automotive OR EV OR battery OR supplier)'),
