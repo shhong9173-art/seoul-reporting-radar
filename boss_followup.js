@@ -7,6 +7,7 @@
   const PRESS_PREFIX_RE = /^\s*(?:보도자료|자료제공|자료배포|보도자료 배포|press release)\b/i;
   const PRESS_TEMPLATE_RE = /언론보도자료|본 자료는 .*보도자료|배포일시|담당부서\s*[:：].*(?:홍보|커뮤니케이션)|문의처\s*[:：].*(?:홍보|커뮤니케이션)/i;
   const EVENT_RE = /인베스터데이|주주총회|설명회|세미나|포럼|엑스포|컨퍼런스|부스투어|기조연설|발표회/;
+  const NOISE_RE = /주가|증권|목표주가|급등|급락|추천|관련주|테마주|특징주|종목|증시|장중|오전장/;
   const ACTION_RE = /수주|계약|공급|증설|투자|공장|생산능력|생산중단|가동|감산|철수|매각|인수|합작|구조조정|관세|반덤핑|통상|가격|원가|마진|리콜|화재|노조|파업|임단협|자율주행|HVDC|변압기|전력망|해상풍력|풍력|태양광|석유화학|스페셜티|배터리소재/;
   const STOP = new Set('및 의 을 를 이 가 은 는 에서 으로 로 와 과 에 대한 관련 올해 오늘 최근 국내 글로벌 업계 시장 기업 사업 계획 추진 전망 기자 보도 밝혔다 따르면 통해 위한 대한 있다 없다 것으로 가운데 당시 이후 이전 현재 이번 등 전 the and for with from this that auto automotive news company market vehicle vehicles'.split(' '));
 
@@ -51,6 +52,7 @@
     if (age > 72) return null;
     if (media.every(x => x.event || EVENT_RE.test(x.title || '')) && !media.some(x => ACTION_RE.test(textOf(x)) || x.concreteNumber)) return null;
     const allText = media.map(textOf).join(' ');
+    if (NOISE_RE.test(allText)) return null;
     const useful = ACTION_RE.test(allText) || media.some(x => x.concreteNumber) || /출시|양산|인증|판매|수출|수입|소송|규제|정책|공급망|고객사|조달|생산/.test(allText);
     if (!useful) return null;
     const anchor = media[0];
