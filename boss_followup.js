@@ -50,7 +50,9 @@
     const age = Math.max(0, (Date.now() - new Date(latest.published)) / 3600000);
     if (age > 72) return null;
     if (media.every(x => x.event || EVENT_RE.test(x.title || '')) && !media.some(x => ACTION_RE.test(textOf(x)) || x.concreteNumber)) return null;
-
+    const allText = media.map(textOf).join(' ');
+    const useful = ACTION_RE.test(allText) || media.some(x => x.concreteNumber) || /출시|양산|인증|판매|수출|수입|소송|규제|정책|공급망|고객사|조달|생산/.test(allText);
+    if (!useful) return null;
     const anchor = media[0];
     let independent = 0, added = 0, copied = 0;
     const details = media.map((x, i) => {
@@ -68,14 +70,11 @@
     });
     const latestAgeLabel = age < 24 ? '오늘' : age < 48 ? '최근 48시간' : '최근 72시간';
     const company = [...new Set(media.flatMap(x => x.companies || []))].slice(0,4);
-    const action = ACTION_RE.exec(media.map(textOf).join(' '))?.[0] || '';
-    // 팔로업 후보는 '복수 매체'만으로 올리지 않는다. 실제 별도 취재 또는 추가 팩트가 있어야 한다.
-    const realFollowup = independent > 0 || added > 0;
-    if (!realFollowup) return null;
-    const score = Math.min(99, 48 + sources.length*7 + independent*18 + added*10 + (age <= 12 ? 10 : age <= 24 ? 6 : 3) + (action ? 6 : 0));
-    return {media, sources, anchor, latest, age, latestAgeLabel, company, independent, added, copied, action, score, details};
+    const action = ACTION_RE.exec(allText)?.[0] || '';
+    const type = independent > 0 ? '독립취재' : added > 0 ? '추가팩트' : '복수매체 확산';
+    const score = Math.min(99, 44 + sources.length*7 + independent*18 + added*10 + copied*2 + (age <= 12 ? 10 : age <= 24 ? 6 : 3) + (action ? 6 : 0) + 8);
+    return {media, sources, anchor, latest, age, latestAgeLabel, company, independent, added, copied, action, score, details, type};
   }
-
   function ranked() {
     return clusters().map(candidate).filter(Boolean).sort((a,b) => b.score-a.score || b.independent-a.independent || new Date(b.latest.published)-new Date(a.latest.published)).slice(0,8);
   }
@@ -110,7 +109,7 @@
     }
     cards.innerHTML = list.map((c, i) => {
       const title = c.latest.title;
-      const extra = c.independent > 0 ? `${c.independent}개 매체 별도 취재 정황` : `${c.added}개 매체에서 새 숫자·사실 추가`;
+      const extra = c.type==='독립취재' ? (c.independent+'개 매체 별도 취재 정황') : c.type==='추가팩트' ? (c.added+'개 매체에서 새 숫자·사실 추가') : (c.sources.length+'개 매체가 보도한 실제 기사 확산 · 보도자료 제외');
       return `<article class="card follow">
         <div class="card-top"><span class="badge follow">부장 대응 ${i+1}</span><span class="score">${c.score}점</span></div>
         <div class="meta">${c.latestAgeLabel} · ${esc(c.latest.category || '')} · ${c.sources.length}개 매체 · 최초 ${esc(c.anchor.sourceName || '미상')}</div>
