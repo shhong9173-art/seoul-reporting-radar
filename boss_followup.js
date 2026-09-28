@@ -2,7 +2,8 @@
   const OWN_RE = /아이뉴스24|iNews24|inews24/i;
   const PRESS_SOURCE_RE = /뉴스와이어|Newswire|PRNewswire|Business Wire|GlobeNewswire|EIN Presswire|PRWeb|Accesswire|Press Release/i;
   const OFFICIAL_RELEASE_SOURCE_RE = /뉴스룸|미디어센터|프레스센터|press room|media center/i;
-  const PRESS_TITLE_RE = /^\s*(?:\[[^\]]*\s*)?(?:보도자료|자료제공|자료배포|보도자료 배포)(?:\]|[:：)]|\s|$)/i;
+  const PRESS_TITLE_RE = /(?:^|[\s|｜·\-:：\[\(])(보도자료|자료제공|자료배포|보도자료 배포)(?=$|[\s|｜·\-:：\]\)])/i;
+  const PRESS_REPOST_RE = /(?:^|[\s|｜·\-:：\[\(])(보도자료|자료제공|자료배포)(?:\s*\|\s*기사|\s*기사\s*\|\s*|\s*배포)(?=$|[\s|｜·\-:：\]\)])/i;
   const PRESS_PREFIX_RE = /^\s*(?:보도자료|자료제공|자료배포|보도자료 배포|press release)\b/i;
   const PRESS_TEMPLATE_RE = /언론보도자료|본 자료는 .*보도자료|배포일시|담당부서\s*[:：].*(?:홍보|커뮤니케이션)|문의처\s*[:：].*(?:홍보|커뮤니케이션)/i;
   const EVENT_RE = /인베스터데이|주주총회|설명회|세미나|포럼|엑스포|컨퍼런스|부스투어|기조연설|발표회/;
@@ -18,6 +19,7 @@
     if (OFFICIAL_RELEASE_SOURCE_RE.test(source)) score += 5;
     if (PRESS_TITLE_RE.test(title)) score += 5;
     if (PRESS_PREFIX_RE.test(summary)) score += 4;
+    if (PRESS_REPOST_RE.test(title)) score += 5;
     if (PRESS_TEMPLATE_RE.test(`${title} ${summary}`)) score += 3;
     return score >= 5;
   };
@@ -67,7 +69,10 @@
     const latestAgeLabel = age < 24 ? '오늘' : age < 48 ? '최근 48시간' : '최근 72시간';
     const company = [...new Set(media.flatMap(x => x.companies || []))].slice(0,4);
     const action = ACTION_RE.exec(media.map(textOf).join(' '))?.[0] || '';
-    const score = Math.min(99, 48 + sources.length*7 + independent*16 + added*8 + (age <= 12 ? 10 : age <= 24 ? 6 : 3) + (action ? 6 : 0));
+    // 팔로업 후보는 '복수 매체'만으로 올리지 않는다. 실제 별도 취재 또는 추가 팩트가 있어야 한다.
+    const realFollowup = independent > 0 || added > 0;
+    if (!realFollowup) return null;
+    const score = Math.min(99, 48 + sources.length*7 + independent*18 + added*10 + (age <= 12 ? 10 : age <= 24 ? 6 : 3) + (action ? 6 : 0));
     return {media, sources, anchor, latest, age, latestAgeLabel, company, independent, added, copied, action, score, details};
   }
 
@@ -94,7 +99,7 @@
     }
     cards.innerHTML = list.map((c, i) => {
       const title = c.latest.title;
-      const extra = c.independent > 0 ? `${c.independent}개 매체 별도 취재 정황` : '매체 간 추가 취재 여부 확인 필요';
+      const extra = c.independent > 0 ? `${c.independent}개 매체 별도 취재 정황` : `${c.added}개 매체에서 새 숫자·사실 추가`;
       return `<article class="card follow">
         <div class="card-top"><span class="badge follow">부장 대응 ${i+1}</span><span class="score">${c.score}점</span></div>
         <div class="meta">${c.latestAgeLabel} · ${esc(c.latest.category || '')} · ${c.sources.length}개 매체 · 최초 ${esc(c.anchor.sourceName || '미상')}</div>
