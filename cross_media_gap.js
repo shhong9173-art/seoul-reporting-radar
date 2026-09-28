@@ -6,7 +6,7 @@
   // 보도자료 원문·배포 서비스는 이 레이더에서 하드 제외한다.
   const PRESS_SOURCE_RE = /뉴스와이어|Newswire|PRNewswire|Business Wire|GlobeNewswire|EIN Presswire|PRWeb|Accesswire|Press Release/i;
   const OFFICIAL_RELEASE_SOURCE_RE = /뉴스룸|미디어센터|프레스센터|press room|media center/i;
-  const PRESS_TITLE_RE = /^\s*(?:\[[^\]]*\s*)?(?:보도자료|자료제공|자료배포|보도자료 배포)(?:\]|[:：)]|\s|$)/i;
+  const PRESS_TITLE_RE = /(?:^|[\s|｜·\-:：\[\(])(보도자료|자료제공|자료배포|보도자료 배포)(?=$|[\s|｜·\-:：\]\)])/i;\n  const PRESS_REPOST_RE = /(?:보도자료|자료제공|자료배포)\s*(?:\|\s*기사|\|\s*배포|기사\s*\|)/i;
   const PRESS_PREFIX_RE = /^\s*(?:보도자료|자료제공|자료배포|보도자료 배포|press release)\b/i;
   const PRESS_TEMPLATE_RE = /언론보도자료|본 자료는 .*보도자료|배포일시|담당부서\s*[:：].*(?:홍보|커뮤니케이션)|문의처\s*[:：].*(?:홍보|커뮤니케이션)/i;
 
@@ -37,7 +37,7 @@
     if (OFFICIAL_RELEASE_SOURCE_RE.test(source)) { score += 5; reasons.push('기업·기관 원문 채널'); }
     if (PRESS_TITLE_RE.test(title)) { score += 5; reasons.push('보도자료 제목'); }
     if (PRESS_PREFIX_RE.test(summary)) { score += 4; reasons.push('본문 보도자료 머리말'); }
-    if (PRESS_TEMPLATE_RE.test(`${title} ${summary}`)) { score += 3; reasons.push('배포문 템플릿'); }
+    if (PRESS_TEMPLATE_RE.test(`${title} ${summary}`)) { score += 3; reasons.push('배포문 템플릿'); }\n    if (PRESS_REPOST_RE.test(title)) { score += 5; reasons.push('보도자료 재게시'); }
     return {isPressRelease: score >= 5, score, reasons};
   }
 
