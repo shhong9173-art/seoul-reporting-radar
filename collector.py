@@ -34,6 +34,16 @@ HIGH=['수주','계약','공급','증설','투자','공장','생산중단','생�
 FOLLOW=['수주','공급','계약','증설','투자','공장','노조','파업','임단협','관세','리콜','판매','실적','배터리','화재','가격','자율주행','tariff','battery','autonomous']
 STOP=set('자동차 자동차산업 산업 업계 관련 시장 올해 오늘 최근 전망 기자 보도 밝혔다 따르면 대한 통해 위한 국내 글로벌 전기차 차량 기업 사업 계획 등 및 의 과 에서 으로 위한 the and for with from this that auto automotive'.split())
 
+PRESS_SOURCE_RE=re.compile(r'뉴스와이어|Newswire|PRNewswire|Business Wire|GlobeNewswire|EIN Presswire|PRWeb|Accesswire|Press Release',re.I)
+OFFICIAL_RELEASE_SOURCE_RE=re.compile(r'뉴스룸|미디어센터|프레스센터|press room|media center',re.I)
+PRESS_TITLE_RE=re.compile(r'(?:^|[\\s|｜·\\-:：\\[\\(])(보도자료|자료제공|자료배포|보도자료 배포)(?=$|[\\s|｜·\\-:：\\]\\)])',re.I)
+PRESS_REPOST_RE=re.compile(r'(?:보도자료|자료제공|자료배포)\\s*(?:\\|\\s*기사|\\|\\s*배포|기사\\s*\\|)',re.I)
+PRESS_TEMPLATE_RE=re.compile(r'언론보도자료|본 자료는 .*보도자료|배포일시|담당부서\\s*[:：].*(?:홍보|커뮤니케이션)|문의처\\s*[:：].*(?:홍보|커뮤니케이션)',re.I)
+
+def is_press_release(title,source,summary):
+    t,su,sr=str(title or ''),str(source or ''),str(summary or '')
+    return bool(PRESS_SOURCE_RE.search(sr) or OFFICIAL_RELEASE_SOURCE_RE.search(sr) or PRESS_TITLE_RE.search(t) or PRESS_REPOST_RE.search(t) or PRESS_TEMPLATE_RE.search(t+' '+su))
+
 def get(url,timeout=18):
     req=urllib.request.Request(url,headers={'User-Agent':'Mozilla/5.0 AutoIndustryDesk/4.0','Accept':'application/rss+xml,application/xml,text/xml,*/*'})
     with urllib.request.urlopen(req,timeout=timeout) as r:return r.read()
@@ -114,7 +124,7 @@ def enrich(items):
             text=(x['title']+' '+x.get('summary','')).lower(); ex=exclusive(x['title']); hc=sum(w.lower() in text for w in HIGH); fc=sum(w.lower() in text for w in FOLLOW); tier=GLOBAL_TIERS.get(x.get('sourceName',''),4) if x.get('global') else SOURCE_TIERS.get(x.get('sourceName',''),3)
             age=max(0,(datetime.now(KST)-datetime.fromisoformat(x['published'])).total_seconds()/3600); fresh=max(0,8-int(age//12)); coverage=min(18,max(0,(len(members)-1)*4)); competition=12 if len(sources)>=3 else (8 if len(sources)==2 else 0)
             score=max(38,min(99,44+min(28,hc*4)+min(15,len(companies)*3)+(16 if ex else 0)+tier+competition+fresh-coverage))
-            follow=fc>=1 and (bool(companies) or any(w in x['title'] for w in ['관세','리콜','파업','수주','공장','tariff','battery','autonomous']))
+            follow=(not is_press_release(x['title'],x['sourceName'],x.get('summary',''))) and fc>=1 and (bool(companies) or any(w in x['title'] for w in ['관세','리콜','파업','수주','공장','tariff','battery','autonomous']))
             priority='must' if ex or score>=78 else ('follow' if follow else 'normal')
             if x.get('global'):
                 x['koTitle']=translate(x['title']);x['koSummary']=translate(x.get('summary',''))[:700];x['translationStatus']='translated';why='해외 주요 매체의 자동차·배터리 이슈입니다. 국내 업체·공급망 파급효과를 먼저 확인하세요.'
