@@ -80,6 +80,17 @@
     return clusters().map(candidate).filter(Boolean).sort((a,b) => b.score-a.score || b.independent-a.independent || new Date(b.latest.published)-new Date(a.latest.published)).slice(0,8);
   }
 
+  function evidenceLines(c) {
+    return c.details
+      .filter(d => d.independent || d.added)
+      .slice(0,3)
+      .map(d => ({
+        source:String(d.x?.sourceName || '매체'),
+        title:String(d.x?.title || '').replace(/\s*[-|｜]\s*[^-|｜]{1,30}\s*$/, '').trim(),
+        nums:(d.newNums || []).slice(0,4)
+      }));
+  }
+
   function bossLine(c) {
     const topic = c.latest.title.replace(/^\s*\[[^\]]+\]\s*/, '').trim();
     const src = c.sources.slice(0,3).join(', ');
@@ -107,6 +118,7 @@
         <div class="summary"><b class="why">${esc(extra)}</b><br>${esc(c.sources.join(', '))} · 아이뉴스24 미보도</div>
         <div class="signal-row"><span class="signal">관련 ${c.media.length}건</span><span class="signal">독립취재 ${c.independent}건</span><span class="signal">추가 숫자 ${c.added}건</span></div>
         <div class="quote"><b>부장님께 바로 답할 문장</b><p>${esc(bossLine(c))}</p></div>
+        <div class="quote"><b>타사에서 새로 붙은 내용</b><ul>${evidenceLines(c).length ? evidenceLines(c).map(e => '<li><b>'+esc(e.source)+'</b> · '+esc(e.title)+(e.nums.length ? ' · 새 숫자 '+esc(e.nums.join(', ')) : '')+'</li>').join('') : '<li>매체별 추가 취재 여부를 원문으로 대조</li>'}</ul></div>
         <div class="quote"><b>바로 확인할 것</b><ul><li>최초 매체가 확보한 원출처·취재원을 확인</li><li>매체별 추가 숫자·고객사·계약조건 차이를 대조</li><li>국내 기업·정부에 전화해 아이뉴스24 추가 팩트 확인</li></ul></div>
         <div class="bottom">${c.company.map(v=>`<span class="tag">${esc(v)}</span>`).join('')}<span class="tag">${esc(c.sources.join(', '))}</span></div>
       </article>`;
