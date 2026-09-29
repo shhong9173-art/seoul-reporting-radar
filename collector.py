@@ -36,9 +36,9 @@ STOP=set('자동차 자동차산업 산업 업계 관련 시장 올해 오늘 �
 
 PRESS_SOURCE_RE=re.compile(r'뉴스와이어|Newswire|PRNewswire|Business Wire|GlobeNewswire|EIN Presswire|PRWeb|Accesswire|Press Release',re.I)
 OFFICIAL_RELEASE_SOURCE_RE=re.compile(r'뉴스룸|미디어센터|프레스센터|press room|media center',re.I)
-PRESS_TITLE_RE=re.compile(r'(?:^|[\\s|｜·\\-:：\\[\\(])(보도자료|자료제공|자료배포|보도자료 배포)(?=$|[\\s|｜·\\-:：\\]\\)])',re.I)
-PRESS_REPOST_RE=re.compile(r'(?:보도자료|자료제공|자료배포)\\s*(?:\\|\\s*기사|\\|\\s*배포|기사\\s*\\|)',re.I)
-PRESS_TEMPLATE_RE=re.compile(r'언론보도자료|본 자료는 .*보도자료|배포일시|담당부서\\s*[:：].*(?:홍보|커뮤니케이션)|문의처\\s*[:：].*(?:홍보|커뮤니케이션)',re.I)
+PRESS_TITLE_RE=re.compile(r'(?:^|[\s|｜·\-:：\[\(])(보도자료|자료제공|자료배포|보도자료 배포)(?=$|[\s|｜·\-:：\]\)])',re.I)
+PRESS_REPOST_RE=re.compile(r'(?:보도자료|자료제공|자료배포)\s*(?:\|\s*기사|\|\s*배포|기사\s*\|)',re.I)
+PRESS_TEMPLATE_RE=re.compile(r'언론보도자료|본 자료는 .*보도자료|배포일시|담당부서\s*[:：].*(?:홍보|커뮤니케이션)|문의처\s*[:：].*(?:홍보|커뮤니케이션)',re.I)
 
 def is_press_release(title,source,summary):
     t,su,sr=str(title or ''),str(source or ''),str(summary or '')
