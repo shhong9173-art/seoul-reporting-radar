@@ -2,8 +2,10 @@ from __future__ import annotations
 import json,re
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
+from zoneinfo import ZoneInfo
 
 DATA=Path('data.json'); DART=Path('dart.json'); NUM=Path('dart_numeric.json'); OUT=Path('pitch.json')
+KST=ZoneInfo('Asia/Seoul')
 items=json.loads(DATA.read_text(encoding='utf-8')) if DATA.exists() else []
 dart=json.loads(DART.read_text(encoding='utf-8')).get('items',[]) if DART.exists() else []
 numeric=json.loads(NUM.read_text(encoding='utf-8')).get('items',[]) if NUM.exists() else []
@@ -69,13 +71,21 @@ def evidence_title(x):
     return title[:110] + ('…' if len(title)>110 else '')
 
 def strategy_headline(c, topic, th, n):
-    if topic=='수소환원제철': return f'{n} 투입하는 {c} 수소환원제철…탄소보다 원가가 관건'
-    if topic=='전력망·전력기기': return f'{n} 투자하는 {c}…전력망 호황, 증설 따라잡나'
-    if topic=='풍력': return f'{n} 투자하는 {c}…풍력 확대, 수익성까지 잡나'
-    if '사업재편' in th: return f'{c}, 사업재편 속 {n} 규모 변화…생산·투자 전략 어디로'
-    if '수주·공급망' in th and '투자·생산' in th: return f'{c}, 수주 늘자 {n} 투자…생산능력 확충이 관건'
-    if '통상·가격' in th and '투자·생산' in th: return f'{c}, 관세·원가 부담 속 {n} 투자…가격 경쟁력 시험대'
-    return f'{c}, {n} 규모 변화…기존 사업전략 어디까지 달라졌나'
+    if '사업재편' in th:
+        return f'{c}, 사업부 떼고 판다…{n} 규모 자금이 핵심사업으로 흐르나'
+    if '수주·공급망' in th and '투자·생산' in th:
+        return f'{c}, 수주 확대에 생산능력 키운다…{n} 투자 집행이 관건'
+    if '통상·가격' in th and '투자·생산' in th:
+        return f'{c}, 관세·원가 부담 속 {n} 투자…가격 경쟁력 방어 나선다'
+    if topic=='수소환원제철':
+        return f'{c}, 수소환원제철에 {n} 투입…원가 경쟁력 확보가 관건'
+    if topic=='전력망·전력기기':
+        return f'{c}, 전력망 수요에 {n} 투자…변압기·HVDC 증설 속도 붙나'
+    if topic=='풍력':
+        return f'{c}, 풍력에 {n} 투자…해상풍력 확대가 실적 바꿀까'
+    if topic=='석유화학':
+        return f'{c}, 석유화학 {n} 규모 변화…증설보다 수익성 방어에 무게'
+    return f'{c}, {n} 규모 사업 변화…생산·투자 전략이 달라진다'
 
 def build_dart():
     out=[]
@@ -102,7 +112,13 @@ def build_dart():
         elif '수주·공급망' in th: plan.append('수주잔고·가동률·증설 규모를 연결해 생산능력 부족 여부 확인')
         elif '사업재편' in th: plan.append('재편 전후 공장·인력·자산 변화를 비교해 전략 전환 실체 확인')
         else: plan.append('실제 매출·생산·수익성 변화와 경쟁사 움직임 확인')
+        brief=[
+          f'공시에서 {", ".join(fresh[:3])}의 새 수치가 확인됐고, 최근 보도에서는 관련 사업 재편 흐름이 확인됨.',
+          '공시 원문·최근 보도·기존 사업계획을 대조해 이미 알려진 숫자가 아니라 실제 사업 변화와 연결되는 지점을 확인.',
+          f'결론: {corp}의 {primary} 변화가 생산·투자·수주·원가 가운데 어디를 실제로 바꾸는지 확인해 사업전략 전환의 실체를 기사로 제시.'
+        ]
         out.append({'type':'strategy-change','grade':'A','pitchScore':98,'headline':headline,'category':related[0].get('category') or '산업','companies':[corp],
+          'reporter':'홍성효','generatedAt':datetime.now(KST).isoformat(),'briefBullets':brief,
           'newFact':f'DART {report}에서 {", ".join(fresh[:4])}의 구체적 수치가 확인됨. 최근 기사와 대조했을 때 이 수치가 의미하는 사업 변화가 충분히 다뤄지지 않음.',
           'angle':f'{corp}의 {primary} 변화가 단순 숫자 변화인지, 실제 생산·투자·수주·원가 전략 전환으로 이어지는지 확인',
           'differentiator':'공시 원문·최근 보도·과거 계획을 함께 대조해 이미 보도된 사실이 아니라 아직 설명되지 않은 변화를 찾음.',
@@ -128,7 +144,13 @@ def build_industry():
                 top=best_topic(txt(a)+' '+txt(b)) or cat; th=ta|tb
                 headline=f'{top} 업계, {"·".join(sorted(th)[:2])} 동시 확대…공급능력이 관건'
                 plan=[f'{ca}: {evidence_title(a)}',f'{cb}: {evidence_title(b)}','두 기업의 투자·생산·수주 숫자와 일정을 비교해 공통 변화 확인','공시·IR로 실제 공급능력·원가·수익성 변화와 경쟁사 흐름 확인']
+                brief=[
+                  f'{ca}와 {cb}에서 각각 구체적 숫자와 사업 움직임이 확인돼 같은 업종의 변화 신호를 함께 볼 수 있음.',
+                  f'두 기업의 투자·생산·수주·가격 변수를 묶어 단순 개별 기사와 다른 산업 단위의 취재 포인트를 설정.',
+                  f'결론: {ca}·{cb}의 움직임이 일시적 이벤트인지 업계 구조 변화인지 경쟁사·공급망까지 확인해 기사화.'
+                ]
                 out.append({'type':'industry-issue','grade':'A','pitchScore':95,'headline':headline,'category':cat,'companies':[ca,cb],
+                  'reporter':'홍성효','generatedAt':datetime.now(KST).isoformat(),'briefBullets':brief,
                   'newFact':f'{a.get("sourceName")}와 {b.get("sourceName")}에서 서로 다른 기업의 사업 움직임과 구체적 수치가 확인됨.',
                   'angle':f'{ca}와 {cb}의 움직임을 연결해 {cat} 업계의 구조 변화가 실제로 진행되는지 확인',
                   'differentiator':'같은 기사 반복이 아니라 서로 다른 기업의 숫자와 움직임을 연결해 산업 단위의 새로운 취재 질문을 만듦.',
