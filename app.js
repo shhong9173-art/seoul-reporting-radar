@@ -5,6 +5,7 @@ const esc=v=>String(v??'').replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'
 const toks=t=>new Set(String(t||'').toLowerCase().match(/[가-힣A-Za-z0-9]{2,}/g)||[]);
 const AUTO_CATS=new Set(['완성차','부품','배터리','정책·관세','중국차','노조·생산','리콜·안전','수주·투자','단독','미국·글로벌']);
 const INDUSTRY_CATS=new Set(['철강','비철금속','전력기기','전선·전력','에너지','재생에너지','화학·소재']);
+const AUTO_SCOOP_RE=/현대차|현대자동차|기아|제네시스|현대모비스|현대위아|현대트랜시스|HL만도|LG에너지솔루션|삼성SDI|SK온|CATL|BYD|테슬라|폭스바겐|GM|포드|토요타|BMW|벤츠|르노코리아|한국GM|KG모빌리티|볼보|파나소닉|노스볼트|전기차|자동차|차량|배터리|자율주행|충전기|리콜|결함/i;
 const INDUSTRY_ITEMS=()=>items.filter(x=>!x.global&&x.industrySource);
 const AUTO_ITEMS=()=>items.filter(x=>!x.global&&(!x.industrySource||AUTO_CATS.has(x.category)));
 function badge(x){return x.global?'글로벌':x.exclusive?'단독·속보 후보':x.priority==='must'?'오늘 핵심':x.priority==='follow'||x.followUp?'후속 검토':x.industrySource?'산업부':'모니터링'}
@@ -13,6 +14,14 @@ function titleOf(x){return x.global&&x.koTitle?x.koTitle:x.title}
 function summaryOf(x){return x.global&&x.koSummary?x.koSummary:x.summary}
 function isAuto(x){return !x.global && AUTO_CATS.has(x.category) && !x.industrySource}
 function isIndustry(x){return !x.global && x.industrySource && INDUSTRY_CATS.has(x.category)}
+function isAutomotiveExclusive(x){
+  if(!x||x.global||x.industrySource||!x.exclusive)return false;
+  const t=(x.title||'')+' '+(x.summary||'');
+  return AUTO_CATS.has(x.category)&&AUTO_SCOOP_RE.test(t);
+}
+function isIndustrialExclusive(x){
+  return !!(x&&!x.global&&x.industrySource&&x.exclusive&&INDUSTRY_CATS.has(x.category));
+}
 
 function beatOf(x){return x.industrySource?'산업부':'자동차'}
 function hasConcrete(x){return !!x.concreteNumber||/\d[\d,.]*\s*(조원|억원|만원|억달러|달러|만대|천대|대|명|%|톤|mw|gw|gwh|mwh)/i.test((x.title||'')+' '+(x.summary||''))}
@@ -48,7 +57,7 @@ function filtered(){
   if(view==='must')a=a.filter(x=>isAuto(x)&&x.priority==='must');
   if(view==='industryMust')a=a.filter(x=>isIndustry(x)).sort((a,b)=>(b.score||0)-(a.score||0)).slice(0,80);
   if(view==='all')a=a.filter(x=>!x.global);
-  if(view==='exclusive')a=a.filter(x=>x.exclusive);
+  if(view==='exclusive')a=a.filter(x=>isAutomotiveExclusive(x)||isIndustrialExclusive(x));
   if(view==='follow')a=a.filter(x=>x.followUp&&!x.global);
   if(view==='competition')a=a.filter(x=>(x.clusterCount||1)>=2&&!x.global);
   if(view==='global')a=a.filter(x=>x.global);
@@ -104,8 +113,8 @@ function openItem(id){
   $('#modal').classList.remove('hidden');
 }
 function counts(){
-  const auto=AUTO_ITEMS().length, industry=INDUSTRY_ITEMS().length, global=items.filter(x=>x.global).length, must=items.filter(isTodayPriority).length;
-  $('#countAll').textContent=items.filter(x=>!x.global).length; $('#countMust').textContent=must; if($('#countAutoMust'))$('#countAutoMust').textContent=items.filter(x=>isAuto(x)&&x.priority==='must').length; $('#countIndustryMust').textContent=industry; $('#countExclusive').textContent=items.filter(x=>x.exclusive).length; $('#countFollow').textContent=items.filter(x=>x.followUp&&!x.global).length; $('#countCompetition').textContent=items.filter(x=>(x.clusterCount||1)>=2&&!x.global).length; $('#countGlobal').textContent=global;
+  const auto=AUTO_ITEMS().length, industry=INDUSTRY_ITEMS().length, global=items.filter(x=>x.global).length, must=items.filter(isTodayPriority).length, exclusive=items.filter(x=>isAutomotiveExclusive(x)||isIndustrialExclusive(x)).length;
+  $('#countAll').textContent=items.filter(x=>!x.global).length; $('#countMust').textContent=must; if($('#countAutoMust'))$('#countAutoMust').textContent=items.filter(x=>isAuto(x)&&x.priority==='must').length; $('#countIndustryMust').textContent=industry; $('#countExclusive').textContent=exclusive; $('#countFollow').textContent=items.filter(x=>x.followUp&&!x.global).length; $('#countCompetition').textContent=items.filter(x=>(x.clusterCount||1)>=2&&!x.global).length; $('#countGlobal').textContent=global;
   $('#statAuto').textContent=auto; $('#statIndustry').textContent=industry; $('#statGlobal').textContent=global;
 }
 function setupCompanies(){const c=[...new Set(items.flatMap(x=>x.companies||[]))].filter(Boolean).sort();$('#companyChips').innerHTML=c.slice(0,50).map(v=>'<button class="chip" data-company="'+esc(v)+'">'+esc(v)+'</button>').join('');document.querySelectorAll('[data-company]').forEach(b=>b.onclick=()=>{company=company===b.dataset.company?'':b.dataset.company;view='company';syncNav();render()});}
