@@ -57,6 +57,8 @@ def norm_title(t):
 
 def company_list(text):return [c for c in COMPANIES if c in text]
 
+AUTO_SCOOP_RE=re.compile(r'현대차|현대자동차|기아|제네시스|현대모비스|현대위아|현대트랜시스|HL만도|LG에너지솔루션|삼성SDI|SK온|CATL|BYD|테슬라|폭스바겐|GM|포드|토요타|BMW|벤츠|르노코리아|한국GM|KG모빌리티|볼보|파나소닉|노스볼트|전기차|자동차|차량|배터리|자율주행|충전기|리콜|결함',re.I)
+
 def tokens(t):return {w for w in re.findall(r'[가-힣A-Za-z0-9]{2,}',t.lower()) if w not in STOP and not w.isdigit()}
 
 def exclusive(t):
@@ -80,6 +82,11 @@ def parse_feed(category,query,global_feed=False,source_hint=''):
         title=(item.findtext('title') or '').strip();link=(item.findtext('link') or '').strip();pub=(item.findtext('pubDate') or '').strip();desc=clean(item.findtext('description') or '')
         src=item.find('source');source=(src.text or '').strip() if src is not None else source_hint
         if not title or not link:continue
+        # Dedicated scoop feed must stay in the automotive beat. Google News can
+        # otherwise return unrelated "[단독]" articles that happen to contain
+        # the generic scoop token.
+        if category=='단독' and not AUTO_SCOOP_RE.search(title+' '+desc):
+            continue
         try:dt=parsedate_to_datetime(pub).astimezone(KST)
         except Exception:dt=datetime.now(KST)
         if dt<cutoff:continue
