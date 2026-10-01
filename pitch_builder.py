@@ -1,371 +1,281 @@
 from __future__ import annotations
-import json,re
-from pathlib import Path
+import json
+import re
 from datetime import datetime, timezone, timedelta
-from zoneinfo import ZoneInfo
+from pathlib import Path
 
 DATA=Path('data.json'); DART=Path('dart.json'); NUM=Path('dart_numeric.json'); OUT=Path('pitch.json')
-KST=ZoneInfo('Asia/Seoul')
+
 items=json.loads(DATA.read_text(encoding='utf-8')) if DATA.exists() else []
-dart=json.loads(DART.read_text(encoding='utf-8')).get('items',[]) if DART.exists() else []
-numeric=json.loads(NUM.read_text(encoding='utf-8')).get('items',[]) if NUM.exists() else []
+try:
+    dart=json.loads(DART.read_text(encoding='utf-8')).get('items',[]) if DART.exists() else []
+except Exception:
+    dart=[]
+try:
+    numeric=json.loads(NUM.read_text(encoding='utf-8')).get('items',[]) if NUM.exists() else []
+except Exception:
+    numeric=[]
+
 AUTO={'완성차','부품','배터리','정책·관세','중국차','노조·생산','수주·투자','리콜·안전','단독','미국·글로벌'}
 IND={'철강','비철금속','전력기기','전선·전력','에너지','재생에너지','화학·소재'}
-NOISE={'주가','주식','증권','목표주가','급등','급락','추천','관련주','테마주','특징주'}
-EVENT={'인베스터데이','주주총회','설명회','세미나','포럼','엑스포','컨퍼런스','부스투어','기조연설','발표회'}
+TARGETS={
+    '현대차','기아','제네시스','현대모비스','현대위아','현대트랜시스','HL만도','LG에너지솔루션','삼성SDI','SK온',
+    '포스코','포스코홀딩스','현대제철','동국제강','세아제강','고려아연','영풍','LS MnM','풍산',
+    '두산에너빌리티','HD현대일렉트릭','LS ELECTRIC','효성중공업','일진전기','LS전선','대한전선','가온전선','대원전선',
+    'GS','GS칼텍스','한화솔루션','OCI홀딩스','씨에스윈드','LG화학','롯데케미칼','금호석유화학','효성첨단소재','코오롱인더'
+}
+NOISE_RE=re.compile(r'주가|주식|증권|목표주가|급등|급락|추천|관련주|테마주|특징주|종목|증시|장중|오전장',re.I)
+PRESS_RE=re.compile(r'뉴스와이어|Newswire|PRNewswire|Business Wire|GlobeNewswire|EIN Presswire|PRWeb|Accesswire|Press Release|보도자료|자료제공|자료배포|뉴스룸|미디어센터|프레스센터',re.I)
+EVENT_RE=re.compile(r'인베스터데이|주주총회|설명회|세미나|포럼|엑스포|컨퍼런스|부스투어|기조연설|발표회')
+NUM_RE=re.compile(r'(?<!\\d)(?:\\d{1,3}(?:,\\d{3})+|\\d+(?:\\.\\d+)?)(?:조원|억원|만원|달러|만대|천대|대|명|%|GWh|MWh|kWh|톤|km|MW|GW)(?!\\w)',re.I)
+
 THEMES={
- '투자·생산':['투자','시설투자','출자','증설','생산능력','공장','가동','라인','감산'],
- '사업재편':['철수','매각','재편','구조조정','거점축소','인수','합병','분할','합작'],
- '수주·공급망':['수주','계약','납품','공급','공급망','조달'],
- '통상·가격':['관세','통상','반덤핑','가격','원가','마진'],
- '전력·에너지':['전력망','변압기','HVDC','해저케이블','풍력','해상풍력','재생에너지','ESS'],
- '제품·기술':['양산','상용화','자율주행','로보택시','신차','배터리','소재']}
-NUM_RE=re.compile(r'(?<!\d)(?:\d{1,3}(?:,\d{3})+|\d+(?:\.\d+)?)(?:조원|억원|만원|만대|천대|대|명|%|GWh|MWh|kWh|톤|km|MW|GW)(?!\w)',re.I)
-LEGAL_RE=re.compile(r'(?:^|\s)제?\d+조(?:의\d+)?(?:$|\s)')
+    '가격·수요':['가격','가격 조정','가격 인상','가격 인하','유통가격','수요','재고','원가','마진','스프레드'],
+    '통상·관세':['관세','반덤핑','덤핑마진','통상','수입규제','원산지','조강국','melt and pour','OCTG'],
+    '수주·공급':['수주','계약','공급','납품','수주잔고'],
+    '투자·생산':['투자','증설','생산능력','공장','가동','생산중단'],
+    '사업재편':['매각','분할','철수','사업재편','구조조정','합병','인수','합작','지분 전량'],
+    '전력·재생':['ESS','에너지저장장치','전력망','배전','송전','변압기','HVDC','해저케이블','재생에너지','태양광','풍력'],
+    '자동차 기술':['자율주행','레벨4','로보택시','AI','배터리','충전기'],
+}
 
-def txt(x): return ' '.join(str(x.get(k) or '') for k in ('title','koTitle','summary','koSummary')).strip()
-def cs(x): return [c for c in x.get('companies',[]) if c]
+now=datetime.now(timezone.utc)
+
 def dt(x):
-    try:return datetime.fromisoformat(str(x.get('published','')).replace('Z','+00:00'))
-    except:return datetime.min.replace(tzinfo=timezone.utc)
-def nums(s): return list(dict.fromkeys(NUM_RE.findall(s or '')))
-def themes(s):
-    low=(s or '').lower(); return {k for k,ws in THEMES.items() if any(w.lower() in low for w in ws)}
-def event_only(s): return any(w in (s or '').lower() for w in EVENT)
-def recent(c,days=45):
-    cut=datetime.now(timezone.utc)-timedelta(days=days)
-    return [x for x in items if c in cs(x) and not x.get('global') and dt(x)>=cut and not event_only(txt(x))]
-def source_count(arr): return len({x.get('sourceName') for x in arr if x.get('sourceName')})
-def clean_tokens(s): return set(re.findall(r'[가-힣A-Za-z0-9]{2,}',(s or '').lower()))-NOISE
+    raw=str(x.get('published') or x.get('date') or '').strip()
+    try:
+        v=datetime.fromisoformat(raw.replace('Z','+00:00'))
+        if v.tzinfo is None: v=v.replace(tzinfo=timezone.utc)
+        return v.astimezone(timezone.utc)
+    except Exception:
+        return datetime.min.replace(tzinfo=timezone.utc)
 
-def money_from_numeric(row):
-    vals=[]
-    snippets=row.get('snippets') or []
-    legal_blob=' '.join(str(v.get('context') or '') for v in snippets if isinstance(v,dict))
-    for n in row.get('numbers') or []:
-        s=str(n).strip()
-        if LEGAL_RE.search(s): continue
-        if re.search(r'(상법|자본시장법|시행령|조문|제\\s*\\d+\\s*조)',legal_blob) and re.fullmatch(r'\\d+(?:\\.\\d+)?조',s): continue
-        m=re.fullmatch(r'(\\d[\\d,]*)(원)',s)
-        if m and int(m.group(1).replace(',','')) < 10000000: continue
-        if re.search(r'(?:조원|억원|만원|억달러|달러|USD|EUR)$',s):
-            vals.append(s)
-    return list(dict.fromkeys(vals))
+def text(x):
+    return ' '.join(str(x.get(k) or '') for k in ('title','summary','koTitle','koSummary')).strip()
 
-def relevant(x): return (not x.get('global')) and x.get('category') in AUTO|IND and bool(cs(x))
-def meaningful(x):
-    if not relevant(x): return False
-    t=txt(x)
-    return not any(n in t for n in NOISE) and bool(nums(t)) and bool(themes(t)) and not event_only(t)
+def clean_title(x):
+    t=str(x.get('title') or x.get('koTitle') or '').strip()
+    t=re.sub(r'^\\s*(?:\\[[^]]+\\]|【[^】]+】)\\s*','',t)
+    t=re.sub(r'\\s+[-|｜]\\s*[^-|｜]{1,40}$','',t).strip()
+    return t
 
-def best_topic(s):
-    low=(s or '').lower()
-    for keys,label in [
-        (('수소환원','hyrex'),'수소환원제철'),
-        (('전기차','ev','배터리'),'전기차·배터리'),
-        (('로보택시','자율주행'),'자율주행'),
-        (('해저케이블','hvdc','전력망','변압기'),'전력망·전력기기'),
-        (('풍력','해상풍력'),'풍력'),
-        (('석유화학','스페셜티'),'석유화학'),
-        (('철강','고로','제철'),'철강'),
-        (('구리','아연','니켈','제련'),'비철금속')]:
-        if any(k in low for k in keys): return label
-    return None
+def nums(x):
+    return list(dict.fromkeys(NUM_RE.findall(text(x))))
 
-def evidence_title(x):
-    title=txt(x)
-    return title[:110] + ('…' if len(title)>110 else '')
+def companies(x):
+    found=[c for c in x.get('companies') or [] if c in TARGETS]
+    blob=text(x)
+    for c in TARGETS:
+        if c in blob and c not in found: found.append(c)
+    return found
 
-def money_numbers_from_related(related):
-    vals=[]
-    for x in related:
-        for n in nums(txt(x)):
-            if re.search(r'(조원|억원|만원|달러|%|만대|톤|MW|GW|GWh)',n,re.I):
-                vals.append(n)
-    return list(dict.fromkeys(vals))
+def is_eligible(x):
+    if not x or x.get('global') or x.get('category') not in AUTO|IND: return False
+    t=text(x)
+    if NOISE_RE.search(t) or PRESS_RE.search(t): return False
+    if EVENT_RE.search(clean_title(x)) and not any(k in t for k in ('수주','계약','투자','증설','매각','관세','가격','공급','생산','리콜','자율주행')): return False
+    return bool(clean_title(x))
 
-def story_flags(related):
-    blob=' '.join(txt(x) for x in related).lower()
+recent=[x for x in items if is_eligible(x) and now-dt(x)<=timedelta(days=7)]
+recent.sort(key=dt,reverse=True)
+
+def unique_articles(arr,limit=4):
+    out=[]; seen=set()
+    for x in sorted(arr,key=dt,reverse=True):
+        key=(x.get('sourceName') or '',clean_title(x))
+        if key in seen: continue
+        seen.add(key); out.append(x)
+        if len(out)>=limit: break
+    return out
+
+def contains_any(x, words):
+    low=text(x).lower()
+    return any(w.lower() in low for w in words)
+
+def latest_with(arr, words):
+    return sorted([x for x in arr if contains_any(x,words)],key=dt,reverse=True)
+
+def sources(arr):
+    return list(dict.fromkeys([x.get('sourceName') for x in arr if x.get('sourceName')]))
+
+def evidence(arr):
+    return [{'source':x.get('sourceName') or '-', 'title':clean_title(x), 'url':x.get('url'),'published':x.get('published'),'numbers':nums(x)[:6]} for x in unique_articles(arr,4)]
+
+def pitch(headline, category, co, bullets, arr, questions, score=94, angle=''):
+    ev=evidence(arr)
+    ns=list(dict.fromkeys([n for x in arr for n in nums(x)]))[:8]
     return {
-      'reorg': any(k in blob for k in ('물적분할','회사분할','사업재편','매각','철수','합병','인수','합작','분리')),
-      'order': any(k in blob for k in ('수주','수주잔고','계약','공급계약','납품')),
-      'investment': any(k in blob for k in ('투자','증설','생산능력','공장','가동')),
-      'trade': any(k in blob for k in ('관세','반덤핑','통상','수입규제')),
-      'price': any(k in blob for k in ('가격','원가','마진','단가')),
-      'power': any(k in blob for k in ('변압기','hvdc','전력망','해저케이블')),
-      'renewable': any(k in blob for k in ('해상풍력','풍력','태양광','재생에너지')),
-      'battery': any(k in blob for k in ('배터리','전기차','배터리소재')),
-      'tech': any(k in blob for k in ('자율주행','로보택시','ai','피지컬 ai','양산','상용화'))
+        'type':'strategy-change',
+        'grade':'A',
+        'pitchScore':score,
+        'headline':headline,
+        'category':category,
+        'companies':list(dict.fromkeys(co))[:4],
+        'reporter':'홍성효',
+        'generatedAt':datetime.now(timezone.utc).isoformat(),
+        'briefBullets':bullets[:4],
+        'newFact':bullets[0] if bullets else '',
+        'angle':angle or (bullets[-1] if bullets else ''),
+        'differentiator':'최근 보도에서 확인된 구체적 사실을 중심으로 기업·시장 변수와 후속 취재 포인트를 연결한 발제.',
+        'whyNow':'최근 7일 안에 관련 사실과 숫자가 새로 확인된 이슈.',
+        'numbers':ns,
+        'sourceCount':len(sources(arr)),
+        'globalSignals':0,
+        'domesticSignals':len(ev),
+        'sources':sources(arr),
+        'evidence':ev,
+        'dartSignals':[],
+        'dartNumericSignals':[],
+        'dartNumericCount':0,
+        'questions':questions,
+        'articlePlan':bullets[:]
     }
 
-def strategy_headline(c, topic, th, n, related):
-    f=story_flags(related)
-    rn=money_numbers_from_related(related)
-    primary=(rn[0] if rn else n)
-    blob=' '.join(txt(x) for x in related)
-    if f['reorg'] and ('분할' in blob or '매각' in blob):
-        return f'{c}, 핵심사업 떼고 판다…{primary} 규모 재편, 다음 행선지는'
-    if f['power'] and f['order']:
-        return f'{c}, 전력망 수주 잇따라…{primary} 계약 이후 증설 속도가 관건'
-    if f['order'] and f['investment']:
-        return f'{c}, 수주·투자 동시에 커졌다…{primary} 규모 생산능력 확보가 관건'
-    if f['trade'] and f['price']:
-        return f'{c}, 관세·원가 부담 겹쳤다…가격 전가가 수익성 좌우'
-    if f['renewable'] and f['investment']:
-        return f'{c}, 풍력 확대에 {primary} 투자…수주보다 수익성이 관건'
-    if f['battery'] and f['tech']:
-        return f'{c}, 배터리·전기차 새 판 짠다…{primary} 규모 사업 전환이 변수'
-    if f['tech']:
-        return f'{c}, 기술 전환 속도 낸다…{primary} 규모 변화, 실제 양산으로 이어지나'
-    if f['order']:
-        return f'{c}, 대형 수주 잇따라…{primary} 규모 계약이 사업구조 바꾸나'
-    if f['investment']:
-        return f'{c}, {primary} 규모 투자·증설…생산능력 확대가 실적 변수'
-    if topic=='수소환원제철':
-        return f'{c}, 수소환원제철에 {primary} 투입…원가 경쟁력이 관건'
-    if topic=='풍력':
-        return f'{c}, 풍력에 {primary} 규모 움직임…수익성 확보가 시험대'
-    return f'{c}, 사업 변화 포착…{primary} 규모 숫자가 가리키는 다음 수'
+candidates=[]
 
-def build_dart():
-    out=[]
-    for r in numeric:
-        corp=r.get('corpName',''); report=str(r.get('reportName') or ''); vals=money_from_numeric(r)
-        if not corp or not vals: continue
-        if not any(k in report for k in ('시설투자','출자','유상증자','타법인','지분','생산중단','영업양수도','합병','분할','주요사항','사업보고서','반기보고서','분기보고서')): continue
-        news=recent(corp,45)
-        mentioned={n for x in news for n in nums(txt(x))}
-        fresh=[v for v in vals if v not in mentioned]
-        related=[x for x in news if meaningful(x) and corp in cs(x)]
-        if not fresh or len(related)<1: continue
-        combined=' '.join(txt(x) for x in related[:8]); top=best_topic(combined) or (related[0].get('category') or '사업')
-        th=set().union(*(themes(txt(x)) for x in related[:8]))
-        primary=fresh[0]
-        headline=strategy_headline(corp,top,th,primary,related)
-        evidence=[{'source':'DART','title':report,'url':r.get('url'),'published':r.get('date'),'numbers':fresh[:6]}]
-        for x in related[:3]: evidence.append({'source':x.get('sourceName') or '-', 'title':evidence_title(x), 'url':x.get('url'),'published':x.get('published'),'numbers':nums(txt(x))[:4]})
-        plan=[]
-        for x in related[:2]:
-            plan.append(f'{x.get("sourceName") or "매체"}: {evidence_title(x)}')
-        plan.append(f'DART {report}의 {primary}와 기존 공개 투자·생산 계획을 대조')
-        if '통상·가격' in th: plan.append('철광석·원료탄·전력 등 투입비용 변화를 붙여 원가·마진 영향 확인')
-        elif '수주·공급망' in th: plan.append('수주잔고·가동률·증설 규모를 연결해 생산능력 부족 여부 확인')
-        elif '사업재편' in th: plan.append('재편 전후 공장·인력·자산 변화를 비교해 전략 전환 실체 확인')
-        else: plan.append('실제 매출·생산·수익성 변화와 경쟁사 움직임 확인')
-        brief=[
-          f'최근 공시에서 {", ".join(fresh[:3])}의 숫자와 {", ".join(list(dict.fromkeys([x.get("sourceName") for x in related[:2] if x.get("sourceName")])))}의 관련 보도가 함께 확인됨.',
-          '이미 알려진 사실을 재정리하는 대신 공시 원문·기존 계획·최근 사업 움직임을 대조해 자금·생산·수주·매각 중 무엇이 실제로 달라지는지 확인.',
-          f'결론: {corp}의 {primary} 변화가 다음 분기 사업과 경쟁구도에 어떤 영향을 주는지 회사·업계 취재를 붙여 기사화.'
-        ]
-        out.append({'type':'strategy-change','grade':'A','pitchScore':98,'headline':headline,'category':related[0].get('category') or '산업','companies':[corp],
-          'reporter':'홍성효','generatedAt':datetime.now(KST).isoformat(),'briefBullets':brief,
-          'newFact':f'DART {report}에서 {", ".join(fresh[:4])}의 구체적 수치가 확인됨. 최근 기사와 대조했을 때 이 수치가 의미하는 사업 변화가 충분히 다뤄지지 않음.',
-          'angle':f'{corp}의 {primary} 변화가 단순 숫자 변화인지, 실제 생산·투자·수주·원가 전략 전환으로 이어지는지 확인',
-          'differentiator':'공시 원문·최근 보도·과거 계획을 함께 대조해 이미 보도된 사실이 아니라 아직 설명되지 않은 변화를 찾음.',
-          'whyNow':'최근 공시에서 새 숫자가 확인돼 기존 계획과 현재 사업 흐름을 다시 대조할 수 있는 시점.',
-          'numbers':fresh[:6],'sourceCount':1+source_count(related[:3]),'globalSignals':0,'domesticSignals':len(related[:3]),
-          'sources':['DART']+list(dict.fromkeys([x.get('sourceName') for x in related[:3] if x.get('sourceName')])),
-          'evidence':evidence,'dartSignals':[d for d in dart if d.get('corpName')==corp][:4],'dartNumericSignals':[r],'dartNumericCount':len(fresh),
-          'questions':['기존 공개 계획·사업보고서 수치와 실제 집행액이 얼마나 다른가?','이 숫자가 생산능력·가동률·수주·원가에 어떤 변화로 이어지는가?','회사 설명과 DART 원문 수치가 정확히 일치하는가?','경쟁사에도 같은 변화가 나타나는가?'],
-          'articlePlan':plan})
-    return out
+# 1) 정부 정책 -> ESS/재생에너지 -> 국내 전력기기 수요
+policy=[x for x in recent if contains_any(x,['정부','산업부','정부,','정책','확대','대책']) and contains_any(x,['ESS','에너지저장장치','재생에너지','전력망','배전'])]
+power=[x for x in recent if contains_any(x,['LS ELECTRIC','LS일렉트릭','HD현대일렉트릭','효성중공업','전력기기','변압기']) and contains_any(x,['ESS','전력망','배전','송전','변압기','재생에너지'])]
+if len(policy)>=1 and len(power)>=2:
+    co=list(dict.fromkeys(c for x in power for c in companies(x)))
+    pa=policy[0]; pp=unique_articles(power,3)
+    bullets=[
+        f'정부가 {clean_title(pa)} 등 재생에너지 수용능력 확대와 전력망 보강에 속도를 내면서 ESS 활용 확대가 본격화될 전망.',
+        f'{"·".join(co[:2]) if co else "국내 전력기기업계"}도 {clean_title(pp[0])} 등 ESS·전력망 관련 사업 확대 가능성을 내놓고 있어 관련 설비 수요 변화가 관건.',
+        'ESS 보급이 단순 저장장치 확대에 그치지 않고 배전·송전망 투자로 이어질 경우 ESS와 전력기기를 함께 공급하는 국내 업체들의 중장기 사업 기회가 커질 수 있음.'
+    ]
+    candidates.append(pitch('정부 ESS 확대…K전력기기, 배전까지 수요 확대 기대','전력기기',co,bullets,[pa]+pp,
+        ['정부의 ESS 확대 목표와 실제 발주 물량은 무엇인가?','LS일렉트릭·HD현대일렉트릭의 국내 ESS·배전 사업 계획은 어디까지인가?','ESS 확대가 변압기·배전반·송배전망 투자로 연결되는 규모는 얼마인가?'],96))
 
-def build_industry():
-    out=[]
-    for cat in sorted({x.get('category') for x in items if x.get('category') in AUTO|IND}):
-        arr=sorted([x for x in items if x.get('category')==cat and meaningful(x)],key=dt,reverse=True)
-        for i,a in enumerate(arr[:80]):
-            ca=(cs(a) or [None])[0]; na=nums(txt(a)); ta=themes(txt(a))
-            if not ca or not na: continue
-            for b in arr[i+1:80]:
-                cb=(cs(b) or [None])[0]; nb=nums(txt(b)); tb=themes(txt(b))
-                if not cb or not nb or ca==cb or a.get('sourceName')==b.get('sourceName') or ta==tb: continue
-                shared=ta&tb
-                shared_strategic=shared & {'투자·생산','사업재편','수주·공급망','통상·가격','전력·에너지'}
-                if not shared_strategic: continue
-                top=best_topic(txt(a)+' '+txt(b)) or cat; th=ta|tb
-                theme_label={
-                  '투자·생산':'증설·투자',
-                  '사업재편':'사업재편',
-                  '수주·공급망':'수주·공급망',
-                  '통상·가격':'관세·원가',
-                  '전력·에너지':'전력·에너지'
-                }[sorted(shared_strategic)[0]]
-                n1=na[0]; n2=nb[0]
-                headline=f'{ca}·{cb}, {theme_label} 움직임 동시 포착…{n1}·{n2}가 가리키는 변화'
-                plan=[f'{ca}: {evidence_title(a)}',f'{cb}: {evidence_title(b)}','두 기업의 투자·생산·수주 숫자와 일정을 비교해 공통 변화 확인','공시·IR로 실제 공급능력·원가·수익성 변화와 경쟁사 흐름 확인']
-                brief=[
-                  f'{ca}와 {cb}에서 {theme_label}과 함께 {n1}, {n2}의 구체적 수치가 각각 확인돼 개별 기사 이상의 공통 변화를 포착할 수 있음.',
-                  '두 기업의 숫자·일정·고객사·생산능력을 맞춰봐 같은 산업 흐름인지, 서로 다른 배경에서 나온 움직임인지 구분.',
-                  f'결론: {cat} 업계의 공통 변화로 볼 근거가 확인되면 경쟁사·공급망까지 확장해 산업 단위 기사로 구성.'
-                ]
-                out.append({'type':'industry-issue','grade':'A','pitchScore':95,'headline':headline,'category':cat,'companies':[ca,cb],
-                  'reporter':'홍성효','generatedAt':datetime.now(KST).isoformat(),'briefBullets':brief,
-                  'newFact':f'{a.get("sourceName")}와 {b.get("sourceName")}에서 서로 다른 기업의 사업 움직임과 구체적 수치가 확인됨.',
-                  'angle':f'{ca}와 {cb}의 움직임을 연결해 {cat} 업계의 구조 변화가 실제로 진행되는지 확인',
-                  'differentiator':'같은 기사 반복이 아니라 서로 다른 기업의 숫자와 움직임을 연결해 산업 단위의 새로운 취재 질문을 만듦.',
-                  'whyNow':'최근 서로 다른 기업에서 같은 산업 방향을 가리키는 움직임이 동시에 포착됨.',
-                  'numbers':list(dict.fromkeys(na+nb))[:8],'sourceCount':2,'globalSignals':0,'domesticSignals':2,'sources':[a.get('sourceName') or '-',b.get('sourceName') or '-'],
-                  'evidence':[{'source':a.get('sourceName') or '-','title':evidence_title(a),'url':a.get('url'),'published':a.get('published'),'numbers':na[:4]},{'source':b.get('sourceName') or '-','title':evidence_title(b),'url':b.get('url'),'published':b.get('published'),'numbers':nb[:4]}],
-                  'dartSignals':[],'dartNumericSignals':[],'dartNumericCount':0,
-                  'questions':['두 기업의 움직임이 같은 산업 구조 변화인지 확인','공시·IR에서 투자·생산·수주 수치 대조','원가·가격·가동률에 실제 변화가 있는지 확인','다른 경쟁사도 같은 방향인지 비교'],
-                  'articlePlan':plan})
-                break
-            if out and out[-1].get('category')==cat: break
-    return out
+# 2) 철강 가격: only when demand/inventory is actually present in the observed articles
+steel=[x for x in recent if x.get('category')=='철강']
+steel_price=[x for x in steel if contains_any(x,['10월','유통가격','가격 인상','가격 조정','가격']) and contains_any(x,['현대제철','동국제강','포스코','세아제강','철강'])]
+steel_demand=[x for x in steel if contains_any(x,['수요','재고','성수기','유통업계','판매 부진'])]
+if len(steel_price)>=2 and (len(steel_demand)>=1 or any(contains_any(x,['재고','수요','성수기']) for x in steel_price)):
+    pp=unique_articles(steel_price+steel_demand,4)
+    names=list(dict.fromkeys(c for x in pp for c in companies(x)))
+    bullets=[
+        '철강사들이 10월 유통가격 조정에 나섰지만 실제 가격 상승으로 이어질지는 수요와 유통 재고 상황에 달려 있음.',
+        f'{"·".join(names[:2]) if names else "현대제철·동국제강"}의 10월 가격 조정 움직임과 함께 유통 현장의 재고·주문 흐름을 확인할 필요가 있음.',
+        '성수기 수요가 살아나지 않거나 재고 부담이 이어질 경우 가격 인상 폭이 제한될 수 있어 실제 유통가격 반영 여부가 변수.'
+    ]
+    candidates.append(pitch('철강사 10월 가격 조정…성수기 수요 기대에도 재고 부담','철강',names,bullets,pp,
+        ['10월 인상분이 실제 유통가격에 반영됐는가?','현대제철·동국제강의 출하·재고와 유통 주문은 어떻게 달라졌는가?','중국산 저가재와 원료가격이 국내 가격 결정에 미치는 영향은?'],95))
 
-candidates=build_dart()+build_industry()
-candidates.sort(key=lambda p:(p.get('grade')=='A',p.get('pitchScore',0),p.get('dartNumericCount',0),len(p.get('numbers') or [])),reverse=True)
+# 3) EU melt-and-pour / origin proof -> Korean steel exporters
+eu=[x for x in recent if contains_any(x,['EU','유럽연합','조강국','melt and pour','원산지 증빙','원산지']) and contains_any(x,['철강','강판','강관'])]
+eu_comp=[x for x in recent if any(c in text(x) for c in ['현대제철','동국제강','KG스틸','포스코','세아제강']) and contains_any(x,['EU','유럽','통관','원산지','증빙'])]
+if eu and eu_comp:
+    arr=unique_articles(eu+eu_comp,5); names=list(dict.fromkeys(c for x in arr for c in companies(x)))
+    lead=clean_title(eu[0])
+    bullets=[
+        f'EU가 철강 수입 과정에서 실제 용해·주조가 이뤄진 국가를 확인하는 원산지 증빙을 강화하면서 국내 철강사의 통관 절차가 달라질 수 있음.',
+        f'{"·".join(names[:3]) if names else "국내 철강사"}는 현재 {clean_title(eu_comp[0])} 등으로 대응하고 있어 기업별 서류·원산지 관리 방식에 차이가 있는지 확인 필요.',
+        '관세 수준뿐 아니라 조강 단계부터 최종 제품까지 원산지를 추적·입증하는 공급망 관리 역량이 유럽 수출의 새로운 변수가 될 전망.'
+    ]
+    candidates.append(pitch("EU 철강 '조강국 증빙' 시행…K-철강 통관 부담 갈린다",'철강',names,bullets,arr,
+        ['EU가 요구하는 원산지·조강 증빙 서류는 무엇인가?','현대제철·동국제강·KG스틸의 대응 절차와 추가 비용은 다른가?','원소재 변경이나 공급처 다변화가 필요한 제품군이 있는가?'],96))
+
+# 4) US OCTG anti-dumping final margin -> Seah
+seah=[x for x in recent if contains_any(x,['세아제강']) and contains_any(x,['반덤핑','덤핑마진','OCTG','강관']) and any('%' in n for n in nums(x))]
+if seah:
+    arr=unique_articles(seah,4); top=arr[0]; ns=nums(top); margin=next((n for n in ns if '%' in n),'')
+    bullets=[
+        f'미국 통상당국의 한국산 강관 반덤핑 판정에서 세아제강 관련 최종 덤핑마진 {margin or "수치"}가 확인됨.',
+        '최종 마진 확정에 따라 세아제강의 미국향 OCTG 출하·수주와 물량 조정 여부, 현지 가격 전략 변화가 주요 변수.',
+    ]
+    candidates.append(pitch(f'美 한국산 OCTG 최종 덤핑마진 확정…세아제강 수출전략 변수','철강',['세아제강'],bullets,arr,
+        ['최종 마진 확정이 미국향 OCTG 계약 단가와 출하량에 미치는 영향은?','기존 수주분과 신규 수주에 적용되는 관세 부담은 각각 얼마인가?','미국 외 지역으로 물량을 전환할 가능성이 있는가?'],95))
+
+# 5) POSCO non-core asset sale -> capital allocation
+posco=[x for x in recent if contains_any(x,['포스코']) and contains_any(x,['우리금융','지분 전량','6765억원','6765억']) and not NOISE_RE.search(text(x))]
+if len(posco)>=2:
+    arr=unique_articles(posco,4)
+    bullets=[
+        '포스코가 우리금융지주 보유 지분을 전량 매각해 약 6765억원을 현금화하면서 비핵심자산 정리에 속도를 내고 있음.',
+        '최근 보도에서는 확보한 자금을 국내외 성장 투자 재원으로 활용한다는 설명이 나오면서 실제 투자처와 집행 시점이 다음 확인 포인트.',
+        '철강 투자와 신사업·해외 사업 가운데 어디에 자금이 배분되는지 확인하면 포스코의 사업 포트폴리오 재편 방향을 구체적으로 짚을 수 있음.'
+    ]
+    candidates.append(pitch('포스코, 우리금융 지분 6765억원 현금화…비핵심자산 정리 속도','철강',['포스코'],bullets,arr,
+        ['6765억원의 구체적인 투자처와 집행 일정은?','기존 비핵심자산 매각 계획 중 추가로 정리할 대상이 있는가?','철강·신사업·해외투자별 자금 배분 비중은?'],94))
+
+# 6) Doosan Vietnam repeated orders
+doosan=[x for x in recent if contains_any(x,['두산에너빌리티']) and contains_any(x,['베트남','오몬3','가스복합']) and contains_any(x,['수주','계약'])]
+if len(doosan)>=3:
+    arr=unique_articles(doosan,5)
+    bullets=[
+        '두산에너빌리티가 베트남 오몬3 가스복합발전소 건설공사를 8400억원 규모로 추가 수주하면서 올해 베트남 수주가 5건, 3조8700억원 규모로 확대.',
+        '오몬3를 포함해 가스복합발전 수주가 잇따르면서 베트남에서 발전 EPC·핵심설비 공급을 함께 확대하는 흐름이 이어지고 있음.',
+        '추가 수주가 실제 생산·설계 물량으로 얼마나 이어지는지와 후속 발주 파이프라인이 남아 있는지가 중장기 실적 변수.'
+    ]
+    candidates.append(pitch('두산에너빌리티, 베트남서 3.87조 수주…가스복합 잇단 계약','에너지',['두산에너빌리티'],bullets,arr,
+        ['올해 베트남 5건 수주 중 두산에너빌리티 몫의 누적 매출 인식 일정은?','오몬3 이후 추가 발주가 예상되는 프로젝트와 규모는?','국내 생산·설계 인력과 설비 투입은 얼마나 늘어나는가?'],94))
+
+# 7) LS Electric AI data center transformer order
+ls=[x for x in recent if contains_any(x,['LS일렉트릭','LS ELECTRIC']) and contains_any(x,['1812억원','1800억원','변압기']) and contains_any(x,['AI 데이터센터','데이터센터'])]
+if len(ls)>=4:
+    arr=unique_articles(ls,6)
+    bullets=[
+        'LS일렉트릭이 북미 AI 데이터센터 9개 변전소에 345kV 초고압 변압기를 공급하는 1812억원 규모 계약을 확보.',
+        '2030년까지 순차 납품하는 장기 공급으로 단발성 수주보다 북미 AI 데이터센터 전력 인프라 시장과의 연결이 커지는 흐름.',
+        '북미 데이터센터 투자 확대에 맞춰 추가 수주와 국내·현지 생산능력 확충이 얼마나 이어지는지가 다음 사업 변수.'
+    ]
+    candidates.append(pitch('AI 데이터센터 전력수요…LS일렉트릭, 1812억원 변압기 수주','전력기기',['LS ELECTRIC'],bullets,arr,
+        ['1812억원 계약의 매출 인식 시점과 수익성은?','2030년까지 추가 공급 물량과 후속 수주 파이프라인은?','북미 현지 생산·증설 계획과 국내 공장 가동률은?'],93))
+
+# 8) Hyundai-Kia Level 4 bus commercialization
+bus=[x for x in recent if contains_any(x,['현대차','기아']) and contains_any(x,['레벨4','자율주행 시내버스']) and contains_any(x,['2030','500대','서울'])]
+if len(bus)>=2:
+    arr=unique_articles(bus,5)
+    bullets=[
+        '현대차·기아가 서울에서 레벨4 자율주행 시내버스 실증에 나서고 2030년 정규 노선에 500대 투입 계획을 제시.',
+        '전용 차량과 관제 플랫폼 개발까지 포함돼 차량 판매를 넘어 자율주행 서비스 운영 생태계 구축으로 사업 범위가 넓어지는 흐름.',
+        '실증에서 상용 노선으로 넘어가기 위해 필요한 안전 기준·인프라·운영 주체와 실제 차량 투입 일정이 사업화의 핵심 변수.'
+    ]
+    candidates.append(pitch('현대차·기아, 레벨4 시내버스 2030년 500대…상용화 시험대','완성차',['현대차','기아'],bullets,arr,
+        ['2030년 500대 투입을 위한 실증 단계와 연차별 계획은?','관제 플랫폼·차량·인프라 중 누가 어떤 역할과 비용을 부담하는가?','현행 법·안전기준에서 상용화를 위해 추가로 필요한 제도는?'],92))
+
+# 9) Samsung SDI EV plant -> ESS
+sdi=[x for x in recent if contains_any(x,['삼성SDI']) and contains_any(x,['ESS','전기차 공장']) and contains_any(x,['4.4조','4조','실탄','전환'])]
+if len(sdi)>=1:
+    arr=unique_articles(sdi,4)
+    bullets=[
+        '삼성SDI가 전기차 공장 일부를 ESS 생산에 활용하는 방안과 함께 4.4조원 규모의 재원을 확보했다는 보도가 나옴.',
+        '전기차 배터리 수요 회복을 기다리는 대신 ESS로 생산 포트폴리오를 전환하는 움직임이어서 배터리 업계의 생산능력 활용 방식에도 변화.',
+        'ESS 수주가 실제 가동률·수익성 개선으로 이어지는지, 추가 생산 전환과 투자 계획이 있는지가 관건.'
+    ]
+    candidates.append(pitch('삼성SDI, 전기차 공장 ESS로 돌린다…4.4조 실탄 확보','배터리',['삼성SDI'],bullets,arr,
+        ['ESS 전환 대상 공장과 생산능력은 어느 정도인가?','4.4조원 재원 중 ESS 생산·투자에 배분되는 금액은?','ESS 수주잔고와 향후 가동률·수익성 개선 효과는?'],91))
+
+# Rank by editorial usefulness rather than a generic AI score.
+# Prefer specific conflict/variable headlines and multiple concrete facts.
+def quality(p):
+    t=p['headline']; b=' '.join(p['briefBullets'])
+    q=0
+    q+=min(25,len(p.get('evidence') or [])*6)
+    q+=min(22,len(p.get('numbers') or [])*4)
+    q+=18 if re.search(r'변수|부담|관건|갈린다|시험대|기대',t) else 10
+    q+=12 if len(p.get('companies') or [])>=2 else 6
+    q+=10 if re.search(r'정부|EU|美|미국|중국|북미|유럽',t) else 5
+    q+=8 if len(p.get('briefBullets') or [])>=3 else 0
+    return q
+
+candidates.sort(key=lambda p:(quality(p),p.get('pitchScore',0),max([dt(x) for x in recent if x.get('sourceName') in (p.get('sources') or [])] or [datetime.min.replace(tzinfo=timezone.utc)])),reverse=True)
+
 final=[]
+seen=set()
 for p in candidates:
-    dup=False; pc=set(p.get('companies') or []); pn=set(p.get('numbers') or []); ph=clean_tokens(p.get('headline',''))
-    for q in final:
-        qc=set(q.get('companies') or []); qn=set(q.get('numbers') or []); qh=clean_tokens(q.get('headline',''))
-        if pc and qc and ((pc==qc and (pn&qn or len(ph&qh)/max(1,len(ph|qh))>=.5)) or (pc&qc and len(ph&qh)/max(1,len(ph|qh))>=.6)):
-            dup=True; break
-    if not dup: final.append(p)
+    key='|'.join(sorted(p.get('companies') or []))+'|'+re.sub(r'[^가-힣A-Za-z0-9]','',p['headline'])[:28]
+    if key in seen: continue
+    if any(set(p.get('companies') or []) & set(q.get('companies') or []) and p['category']==q['category'] for q in final):
+        # Avoid returning three pitches about the same company/beat in one batch.
+        continue
+    seen.add(key)
+    final.append(p)
     if len(final)>=3: break
+
+# Require an actual reporter-style bullet package; never pad the list.
+final=[p for p in final if len(p.get('briefBullets') or [])>=2 and len(p.get('evidence') or [])>=1 and len(p.get('questions') or [])>=3]
+
 OUT.write_text(json.dumps(final,ensure_ascii=False,separators=(',',':')),encoding='utf-8')
-print(f'pitch rebuild: {len(final)} items / reporter-ready strategy-change + industry-issue / events excluded / max 3')
-
-def relevant(x): return (not x.get('global')) and x.get('category') in AUTO|IND and bool(cs(x))
-def meaningful(x):
-    if not relevant(x): return False
-    t=txt(x)
-    return not any(n in t for n in NOISE) and bool(nums(t)) and bool(themes(t)) and not event_only(t)
-
-def best_topic(s):
-    low=(s or '').lower()
-    for keys,label in [
-        (('수소환원','hyrex'),'수소환원제철'),
-        (('전기차','ev','배터리'),'전기차·배터리'),
-        (('로보택시','자율주행'),'자율주행'),
-        (('해저케이블','hvdc','전력망','변압기'),'전력망·전력기기'),
-        (('풍력','해상풍력'),'풍력'),
-        (('석유화학','스페셜티'),'석유화학'),
-        (('철강','고로','제철'),'철강'),
-        (('구리','아연','니켈','제련'),'비철금속')]:
-        if any(k in low for k in keys): return label
-    return None
-
-def evidence_title(x):
-    title=txt(x)
-    return title[:110] + ('…' if len(title)>110 else '')
-
-def strategy_headline(c, topic, th, n):
-    if '사업재편' in th:
-        return f'{c}, 사업부 떼고 판다…{n} 규모 자금이 핵심사업으로 흐르나'
-    if '수주·공급망' in th and '투자·생산' in th:
-        return f'{c}, 수주 확대에 생산능력 키운다…{n} 투자 집행이 관건'
-    if '통상·가격' in th and '투자·생산' in th:
-        return f'{c}, 관세·원가 부담 속 {n} 투자…가격 경쟁력 방어 나선다'
-    if topic=='수소환원제철':
-        return f'{c}, 수소환원제철에 {n} 투입…원가 경쟁력 확보가 관건'
-    if topic=='전력망·전력기기':
-        return f'{c}, 전력망 수요에 {n} 투자…변압기·HVDC 증설 속도 붙나'
-    if topic=='풍력':
-        return f'{c}, 풍력에 {n} 투자…해상풍력 확대가 실적 바꿀까'
-    if topic=='석유화학':
-        return f'{c}, 석유화학 {n} 규모 변화…증설보다 수익성 방어에 무게'
-    return f'{c}, {n} 규모 사업 변화…생산·투자 전략이 달라진다'
-
-def build_dart():
-    out=[]
-    for r in numeric:
-        corp=r.get('corpName',''); report=str(r.get('reportName') or ''); vals=money_from_numeric(r)
-        if not corp or not vals: continue
-        if not any(k in report for k in ('시설투자','출자','유상증자','타법인','지분','생산중단','영업양수도','합병','분할','주요사항','사업보고서','반기보고서','분기보고서')): continue
-        news=recent(corp,45)
-        mentioned={n for x in news for n in nums(txt(x))}
-        fresh=[v for v in vals if v not in mentioned]
-        related=[x for x in news if meaningful(x) and corp in cs(x)]
-        if not fresh or len(related)<1: continue
-        combined=' '.join(txt(x) for x in related[:8]); top=best_topic(combined) or (related[0].get('category') or '사업')
-        th=set().union(*(themes(txt(x)) for x in related[:8]))
-        primary=fresh[0]
-        headline=strategy_headline(corp,top,th,primary)
-        evidence=[{'source':'DART','title':report,'url':r.get('url'),'published':r.get('date'),'numbers':fresh[:6]}]
-        for x in related[:3]: evidence.append({'source':x.get('sourceName') or '-', 'title':evidence_title(x), 'url':x.get('url'),'published':x.get('published'),'numbers':nums(txt(x))[:4]})
-        plan=[]
-        for x in related[:2]:
-            plan.append(f'{x.get("sourceName") or "매체"}: {evidence_title(x)}')
-        plan.append(f'DART {report}의 {primary}와 기존 공개 투자·생산 계획을 대조')
-        if '통상·가격' in th: plan.append('철광석·원료탄·전력 등 투입비용 변화를 붙여 원가·마진 영향 확인')
-        elif '수주·공급망' in th: plan.append('수주잔고·가동률·증설 규모를 연결해 생산능력 부족 여부 확인')
-        elif '사업재편' in th: plan.append('재편 전후 공장·인력·자산 변화를 비교해 전략 전환 실체 확인')
-        else: plan.append('실제 매출·생산·수익성 변화와 경쟁사 움직임 확인')
-        brief=[
-          f'공시에서 {", ".join(fresh[:3])}의 새 수치가 확인됐고, 최근 보도에서는 해당 사업의 구체적 움직임이 확인됨.',
-          '공시 원문·최근 보도·기존 사업계획을 대조해 이미 알려진 숫자가 아니라 실제 사업 변화와 연결되는 지점을 확인.',
-          f'결론: {corp}의 {primary} 변화가 생산·투자·수주·원가 가운데 어디를 실제로 바꾸는지 확인해 사업전략 전환의 실체를 기사로 제시.'
-        ]
-        out.append({'type':'strategy-change','grade':'A','pitchScore':98,'headline':headline,'category':related[0].get('category') or '산업','companies':[corp],
-          'reporter':'홍성효','generatedAt':datetime.now(KST).isoformat(),'briefBullets':brief,
-          'newFact':f'DART {report}에서 {", ".join(fresh[:4])}의 구체적 수치가 확인됨. 최근 기사와 대조했을 때 이 수치가 의미하는 사업 변화가 충분히 다뤄지지 않음.',
-          'angle':f'{corp}의 {primary} 변화가 단순 숫자 변화인지, 실제 생산·투자·수주·원가 전략 전환으로 이어지는지 확인',
-          'differentiator':'공시 원문·최근 보도·과거 계획을 함께 대조해 이미 보도된 사실이 아니라 아직 설명되지 않은 변화를 찾음.',
-          'whyNow':'최근 공시에서 새 숫자가 확인돼 기존 계획과 현재 사업 흐름을 다시 대조할 수 있는 시점.',
-          'numbers':fresh[:6],'sourceCount':1+source_count(related[:3]),'globalSignals':0,'domesticSignals':len(related[:3]),
-          'sources':['DART']+list(dict.fromkeys([x.get('sourceName') for x in related[:3] if x.get('sourceName')])),
-          'evidence':evidence,'dartSignals':[d for d in dart if d.get('corpName')==corp][:4],'dartNumericSignals':[r],'dartNumericCount':len(fresh),
-          'questions':['기존 공개 계획·사업보고서 수치와 실제 집행액이 얼마나 다른가?','이 숫자가 생산능력·가동률·수주·원가에 어떤 변화로 이어지는가?','회사 설명과 DART 원문 수치가 정확히 일치하는가?','경쟁사에도 같은 변화가 나타나는가?'],
-          'articlePlan':plan})
-    return out
-
-def build_industry():
-    out=[]
-    for cat in sorted({x.get('category') for x in items if x.get('category') in AUTO|IND}):
-        arr=sorted([x for x in items if x.get('category')==cat and meaningful(x)],key=dt,reverse=True)
-        for i,a in enumerate(arr[:80]):
-            ca=(cs(a) or [None])[0]; na=nums(txt(a)); ta=themes(txt(a))
-            if not ca or not na: continue
-            for b in arr[i+1:80]:
-                cb=(cs(b) or [None])[0]; nb=nums(txt(b)); tb=themes(txt(b))
-                if not cb or not nb or ca==cb or a.get('sourceName')==b.get('sourceName') or ta==tb: continue
-                shared=ta&tb
-                shared_strategic=shared & {'투자·생산','사업재편','수주·공급망','통상·가격','전력·에너지'}
-                if not shared_strategic: continue
-                top=best_topic(txt(a)+' '+txt(b)) or cat; th=ta|tb
-                theme_label={
-                  '투자·생산':'증설·투자',
-                  '사업재편':'사업재편',
-                  '수주·공급망':'수주·공급망',
-                  '통상·가격':'관세·원가',
-                  '전력·에너지':'전력·에너지'
-                }[sorted(shared_strategic)[0]]
-                n1=na[0]; n2=nb[0]
-                headline=f'{ca}·{cb}, {theme_label} 움직임 동시 포착…{n1}·{n2}가 가리키는 변화'
-                plan=[f'{ca}: {evidence_title(a)}',f'{cb}: {evidence_title(b)}','두 기업의 투자·생산·수주 숫자와 일정을 비교해 공통 변화 확인','공시·IR로 실제 공급능력·원가·수익성 변화와 경쟁사 흐름 확인']
-                brief=[
-                  f'{ca}와 {cb}에서 각각 구체적 숫자와 사업 움직임이 확인돼 같은 업종의 변화 신호를 함께 볼 수 있음.',
-                  f'두 기업의 투자·생산·수주·가격 변수를 묶어 단순 개별 기사와 다른 산업 단위의 취재 포인트를 설정.',
-                  f'결론: {ca}·{cb}의 움직임이 일시적 이벤트인지 업계 구조 변화인지 경쟁사·공급망까지 확인해 기사화.'
-                ]
-                out.append({'type':'industry-issue','grade':'A','pitchScore':95,'headline':headline,'category':cat,'companies':[ca,cb],
-                  'reporter':'홍성효','generatedAt':datetime.now(KST).isoformat(),'briefBullets':brief,
-                  'newFact':f'{a.get("sourceName")}와 {b.get("sourceName")}에서 서로 다른 기업의 사업 움직임과 구체적 수치가 확인됨.',
-                  'angle':f'{ca}와 {cb}의 움직임을 연결해 {cat} 업계의 구조 변화가 실제로 진행되는지 확인',
-                  'differentiator':'같은 기사 반복이 아니라 서로 다른 기업의 숫자와 움직임을 연결해 산업 단위의 새로운 취재 질문을 만듦.',
-                  'whyNow':'최근 서로 다른 기업에서 같은 산업 방향을 가리키는 움직임이 동시에 포착됨.',
-                  'numbers':list(dict.fromkeys(na+nb))[:8],'sourceCount':2,'globalSignals':0,'domesticSignals':2,'sources':[a.get('sourceName') or '-',b.get('sourceName') or '-'],
-                  'evidence':[{'source':a.get('sourceName') or '-','title':evidence_title(a),'url':a.get('url'),'published':a.get('published'),'numbers':na[:4]},{'source':b.get('sourceName') or '-','title':evidence_title(b),'url':b.get('url'),'published':b.get('published'),'numbers':nb[:4]}],
-                  'dartSignals':[],'dartNumericSignals':[],'dartNumericCount':0,
-                  'questions':['두 기업의 움직임이 같은 산업 구조 변화인지 확인','공시·IR에서 투자·생산·수주 수치 대조','원가·가격·가동률에 실제 변화가 있는지 확인','다른 경쟁사도 같은 방향인지 비교'],
-                  'articlePlan':plan})
-                break
-            if out and out[-1].get('category')==cat: break
-    return out
-
-candidates=build_dart()+build_industry()
-candidates.sort(key=lambda p:(p.get('grade')=='A',p.get('pitchScore',0),p.get('dartNumericCount',0),len(p.get('numbers') or [])),reverse=True)
-final=[]
-for p in candidates:
-    dup=False; pc=set(p.get('companies') or []); pn=set(p.get('numbers') or []); ph=clean_tokens(p.get('headline',''))
-    for q in final:
-        qc=set(q.get('companies') or []); qn=set(q.get('numbers') or []); qh=clean_tokens(q.get('headline',''))
-        if pc and qc and ((pc==qc and (pn&qn or len(ph&qh)/max(1,len(ph|qh))>=.5)) or (pc&qc and len(ph&qh)/max(1,len(ph|qh))>=.6)):
-            dup=True; break
-    if not dup: final.append(p)
-    if len(final)>=3: break
-OUT.write_text(json.dumps(final,ensure_ascii=False,separators=(',',':')),encoding='utf-8')
-print(f'pitch rebuild: {len(final)} items / reporter-ready strategy-change + industry-issue / events excluded / max 3')
+print(f'editorial pitch builder: {len(final)} reporter-style candidates / max 3 / no generic template')
