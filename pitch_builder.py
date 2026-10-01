@@ -45,10 +45,13 @@ def money_from_numeric(row):
     for n in row.get('numbers') or []:
         s=str(n).strip()
         if LEGAL_RE.search(s): continue
-        if re.search(r'(상법|자본시장법|시행령|조문|제\s*\d+\s*조)',legal_blob) and re.fullmatch(r'\d+(?:\.\d+)?조',s): continue
-        m=re.fullmatch(r'(\d[\d,]*)(원)',s)
+        if re.search(r'(상법|자본시장법|시행령|조문|제\\s*\\d+\\s*조)',legal_blob) and re.fullmatch(r'\\d+(?:\\.\\d+)?조',s): continue
+        m=re.fullmatch(r'(\\d[\\d,]*)(원)',s)
         if m and int(m.group(1).replace(',','')) < 10000000: continue
-        if re.search(r'(?:조원|억원|만원|조|억달러|달러|USD|EUR)
+        if re.search(r'(?:조원|억원|만원|억달러|달러|USD|EUR)$',s):
+            vals.append(s)
+    return list(dict.fromkeys(vals))
+
 def relevant(x): return (not x.get('global')) and x.get('category') in AUTO|IND and bool(cs(x))
 def meaningful(x):
     if not relevant(x): return False
