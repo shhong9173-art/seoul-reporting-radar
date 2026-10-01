@@ -1,6 +1,7 @@
 (function(){
   const AUTO_CATS=new Set(['완성차','부품','배터리','정책·관세','중국차','노조·생산','수주·투자','리콜·안전','단독','미국·글로벌']);
   const INDUSTRY_CATS=new Set(['철강','비철금속','전력기기','전선·전력','에너지','재생에너지','화학·소재']);
+  const AUTO_RE=/현대차|현대자동차|기아|제네시스|현대모비스|현대위아|현대트랜시스|HL만도|LG에너지솔루션|삼성SDI|SK온|CATL|BYD|테슬라|폭스바겐|GM|포드|토요타|BMW|벤츠|르노코리아|한국GM|KG모빌리티|볼보|파나소닉|노스볼트|전기차|자동차|차량|배터리|자율주행|충전기|리콜|결함/i;
   const PATTERNS=[
     /(^|[\s\[\(])단독(?:보도|취재|입수|확인|인터뷰|공개)?(?=[:：\]\)\s]|$)/i,
     /본지\s*(?:단독|취재|취재결과)/i,
@@ -10,7 +11,9 @@
   ];
   function explicit(x){
     if(!x || x.global || !PATTERNS.some(re=>re.test(x.title||''))) return false;
-    return (!x.industrySource && AUTO_CATS.has(x.category)) || (x.industrySource && INDUSTRY_CATS.has(x.category));
+    const t=(x.title||'')+' '+(x.summary||'');
+    if(!x.industrySource) return AUTO_CATS.has(x.category)&&AUTO_RE.test(t);
+    return INDUSTRY_CATS.has(x.category);
   }
   function uniquePush(arr,x){if(!arr.some(v=>v.id===x.id))arr.push(x)}
   function apply(){
