@@ -227,9 +227,6 @@ for p in candidates:
     if len(final)>=3: break
 OUT.write_text(json.dumps(final,ensure_ascii=False,separators=(',',':')),encoding='utf-8')
 print(f'pitch rebuild: {len(final)} items / reporter-ready strategy-change + industry-issue / events excluded / max 3')
-,s):
-            vals.append(s)
-    return list(dict.fromkeys(vals))
 
 def relevant(x): return (not x.get('global')) and x.get('category') in AUTO|IND and bool(cs(x))
 def meaningful(x):
