@@ -28,37 +28,41 @@
     return `${source}: ${cleaned}${nums?` (${nums})`:''}`;
   }
   function buildBullets(x){
+    if(Array.isArray(x.briefBullets)&&x.briefBullets.length) return x.briefBullets.slice(0,3);
     const bullets=[];
     if(x.newFact) bullets.push(x.newFact);
-    const ev=(x.evidence||[]).filter(e=>e.source&&e.source!=='DART');
-    ev.slice(0,2).forEach(e=>bullets.push(shortEvidence(e)));
-    if(x.angle) bullets.push(`핵심: ${x.angle}`);
-    return bullets.slice(0,4);
+    if(x.differentiator) bullets.push(x.differentiator);
+    if(x.angle) bullets.push('결론: '+x.angle);
+    return bullets.slice(0,3);
+  }
+  function briefTime(x){
+    const raw=x.generatedAt||x.published||'';
+    const d=raw?new Date(raw):new Date();
+    if(Number.isNaN(d.getTime())) return '';
+    return d.toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false});
   }
   function renderPitch(){
     setActive(pitchButton);title.textContent='오늘 발제 아이템';
-    const out=pitches.slice().sort((a,b)=>(b.pitchScore||0)-(a.pitchScore||0));result.textContent=out.length+'개 아이템';
-    cards.innerHTML=out.length?out.map((x,i)=>{
+    const out=pitches.slice();
+    result.textContent=out.length+'개 아이템';
+    cards.innerHTML=out.length?out.map((x)=>{
       const bullets=buildBullets(x);
-      const numbers=(x.numbers||[]).slice(0,6);
-      return `<article class="card ${x.grade==='A'?'must':'follow'} pitch-card pitch-simple">
-        <div class="card-top"><span class="badge ${x.grade==='A'?'must':'follow'}">발제 ${esc(x.grade||'B')}</span><span class="score">${i+1}위</span></div>
+      const when=briefTime(x);
+      const who=x.reporter||'홍성효';
+      return `<article class="card pitch-card newsroom-brief">
+        <div class="brief-head"><b>*${esc(x.headline||'발제 아이템')} (${esc(who)}, ${esc(when)})</b></div>
         <div class="meta">${esc(x.category||'산업')} · ${esc((x.companies||[]).join(', ')||'관련 기업')}</div>
-        <div class="title">${esc(x.headline||'발제 아이템')}</div>
-        <div class="pitch-lead"><b>발제 한 줄</b><p>${esc(x.angle||x.newFact||'')}</p></div>
-        ${bullets.length?`<div class="pitch-plan"><b>기사 내용</b><ul>${bullets.map(v=>`<li>${esc(v)}</li>`).join('')}</ul></div>`:''}
-        ${numbers.length?`<div class="pitch-numbers"><b>핵심 숫자</b><div class="signal-row compact-signals">${numbers.map(n=>`<span class="signal">${esc(n)}</span>`).join('')}</div></div>`:''}
+        <div class="brief-body">${bullets.map(v=>`<div class="brief-bullet">- ${esc(v)}</div>`).join('')}</div>
+        ${(x.questions||[]).length?`<div class="quote"><b>바로 확인할 것</b><ul>${(x.questions||[]).slice(0,4).map(q=>`<li>${esc(q)}</li>`).join('')}</ul></div>`:''}
         <details class="pitch-details">
           <summary>근거·검증 내용 보기</summary>
           ${x.differentiator?`<div class="summary"><b class="why">기존 기사와 다른 점</b><br>${esc(x.differentiator)}</div>`:''}
           ${x.whyNow?`<div class="summary"><b class="why">왜 지금?</b><br>${esc(x.whyNow)}</div>`:''}
           ${x.dartNumericSignals?.length?`<div class="quote"><b>DART 원자료</b><ul>${x.dartNumericSignals.slice(0,3).map(e=>`<li><b>${esc(e.reportName||'공시')}</b> · ${esc((e.numbers||[]).slice(0,8).join(', '))}${e.url?` <a href="${esc(e.url)}" target="_blank" rel="noopener">원문↗</a>`:''}</li>`).join('')}</ul></div>`:''}
           <div class="quote"><b>확인된 근거</b><ul>${evidenceLines(x)}</ul></div>
-          <div class="quote"><b>먼저 확인할 질문</b><ul>${(x.questions||[]).slice(0,4).map(q=>`<li>${esc(q)}</li>`).join('')}</ul></div>
         </details>
-        <div class="bottom">${(x.companies||[]).map(c=>`<span class="tag">${esc(c)}</span>`).join('')}</div>
       </article>`;
-    }).join(''):'<div class="card"><div class="summary">원자료와 복수 출처를 교차검증해 통과한 발제 아이템이 없습니다. 다음 수집 주기에 다시 계산합니다.</div></div>';
+    }).join(''):'<div class="card"><div class="summary">복수 출처와 원자료를 교차검증한 주말발제 후보가 없습니다.</div></div>';
   }
   function renderArchive(){
     setActive(archiveButton);title.textContent='단독·발제 아카이브';result.textContent=archive.length+'건';
