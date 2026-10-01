@@ -113,7 +113,7 @@ def build_dart():
         elif '사업재편' in th: plan.append('재편 전후 공장·인력·자산 변화를 비교해 전략 전환 실체 확인')
         else: plan.append('실제 매출·생산·수익성 변화와 경쟁사 움직임 확인')
         brief=[
-          f'공시에서 {", ".join(fresh[:3])}의 새 수치가 확인됐고, 최근 보도에서는 관련 사업 재편 흐름이 확인됨.',
+          f'공시에서 {", ".join(fresh[:3])}의 새 수치가 확인됐고, 최근 보도에서는 해당 사업의 구체적 움직임이 확인됨.',
           '공시 원문·최근 보도·기존 사업계획을 대조해 이미 알려진 숫자가 아니라 실제 사업 변화와 연결되는 지점을 확인.',
           f'결론: {corp}의 {primary} 변화가 생산·투자·수주·원가 가운데 어디를 실제로 바꾸는지 확인해 사업전략 전환의 실체를 기사로 제시.'
         ]
@@ -140,9 +140,19 @@ def build_industry():
             for b in arr[i+1:80]:
                 cb=(cs(b) or [None])[0]; nb=nums(txt(b)); tb=themes(txt(b))
                 if not cb or not nb or ca==cb or a.get('sourceName')==b.get('sourceName') or ta==tb: continue
-                if not (ta&tb) and len(ta|tb)<2: continue
+                shared=ta&tb
+                shared_strategic=shared & {'투자·생산','사업재편','수주·공급망','통상·가격','전력·에너지'}
+                if not shared_strategic: continue
                 top=best_topic(txt(a)+' '+txt(b)) or cat; th=ta|tb
-                headline=f'{top} 업계, {"·".join(sorted(th)[:2])} 동시 확대…공급능력이 관건'
+                theme_label={
+                  '투자·생산':'증설·투자',
+                  '사업재편':'사업재편',
+                  '수주·공급망':'수주·공급망',
+                  '통상·가격':'관세·원가',
+                  '전력·에너지':'전력·에너지'
+                }[sorted(shared_strategic)[0]]
+                n1=na[0]; n2=nb[0]
+                headline=f'{ca}·{cb}, {theme_label} 움직임 동시 포착…{n1}·{n2}가 가리키는 변화'
                 plan=[f'{ca}: {evidence_title(a)}',f'{cb}: {evidence_title(b)}','두 기업의 투자·생산·수주 숫자와 일정을 비교해 공통 변화 확인','공시·IR로 실제 공급능력·원가·수익성 변화와 경쟁사 흐름 확인']
                 brief=[
                   f'{ca}와 {cb}에서 각각 구체적 숫자와 사업 움직임이 확인돼 같은 업종의 변화 신호를 함께 볼 수 있음.',
