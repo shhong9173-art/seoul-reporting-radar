@@ -8,6 +8,7 @@ import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta, timezone
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 
 KST = timezone(timedelta(hours=9))
@@ -95,8 +96,15 @@ def clean(s: str) -> str:
     return re.sub(r"\s+", " ", html.unescape(s)).strip()
 
 def parse_dt(raw: str) -> datetime:
+    value=str(raw or '').strip()
     try:
-        d = datetime.fromisoformat(str(raw).replace("Z","+00:00"))
+        d=parsedate_to_datetime(value)
+        if d.tzinfo is None: d=d.replace(tzinfo=KST)
+        return d.astimezone(KST)
+    except Exception:
+        pass
+    try:
+        d=datetime.fromisoformat(value.replace("Z","+00:00"))
         return d if d.tzinfo else d.replace(tzinfo=KST)
     except Exception:
         return datetime.min.replace(tzinfo=KST)
