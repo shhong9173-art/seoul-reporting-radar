@@ -336,26 +336,41 @@ def dart_title(corp,report,blob,nums):
 
 def candidate_kind(title,category):
     t=(title or "").lower()
+    if any(w in t for w in ("리콜","결함","제작결함","무상수리","investigation","complaint","recall","defect")):return "결함·리콜"
+    if any(w in t for w in ("인증","형식승인","certificate","certification","type approval")):return "인증·형식승인"
+    if any(w in t for w in ("환경영향","환경성평가","환경입지","건축허가","인허가","개발행위","사업계획승인","산업단지","착공","심의")):return "인허가·환경"
+    if any(w in t for w in ("소송","제소","가처분","판결","행정심판","특허심판","분쟁","petition","complaint")):return "소송·분쟁"
+    if any(w in t for w in ("상표","디자인","trademark","design patent")):return "상표·디자인"
     if any(w in t for w in ("대표이사","임원","이사","선임","취임","퇴임","인사","조직개편","경영진")):return "인사"
     if any(w in t for w in ("특허","출원","등록","patent")):return "특허·기술"
-    if any(w in t for w in ("관세","반덤핑","덤핑","통상","tariff","customs")):return "통상·관세"
-    if any(w in t for w in ("법안","고시","시행","규제","정책","세제","입법")):return "정책·규제"
-    if any(w in t for w in ("발주","입찰","조달")):return "조달·발주"
-    if any(w in t for w in ("매각","철수","分할","분할","합병","인수","출자","법인")):return "사업재편"
-    if any(w in t for w in ("투자","증설","공장","생산","가동")):return "신사업·투자"
+    if any(w in t for w in ("관세","반덤핑","덤핑","통상","tariff","customs","countervailing","원산지","품목분류")):return "통상·관세"
+    if any(w in t for w in ("법안","고시","시행","규제","정책","세제","입법","입법예고")):return "정책·규제"
+    if any(w in t for w in ("발주","입찰","조달","낙찰")):return "조달·발주"
+    if any(w in t for w in ("물적분할","인적분할","분할","합병","인수","매각","철수","신설법인","사업재편")):return "사업재편"
+    if any(w in t for w in ("투자","증설","공장","생산라인","생산","가동","신규법인")):return "신사업·투자"
     if any(w in t for w in ("수주","계약","공급","납품")):return "계약·수주"
     return category or "기업 원자료"
 
 def build_pitch(x,kind,companies,numbers):
     base=re.sub(r"\s*[-|｜].*$","",(x.get("title") or "")).strip()
+    if kind=="결함·리콜":
+        return f"{base}…국내 판매차량 영향은","결함 부위·생산기간·대상을 확인하고 국내 리콜·무상수리 여부와 회사 대응을 교차 확인"
+    if kind=="인증·형식승인":
+        return f"{base}…신차·사양 변경 선행 신호인가","인증 원문에서 차종·파워트레인·배출가스·형식 정보를 확인해 출시·양산 계획과 연결"
+    if kind=="인허가·환경":
+        return f"{base}…공장·증설 실제 움직임은","환경영향평가·인허가 원문에서 사업지·면적·용량·사업자·예상 착공 시점을 확인"
+    if kind=="소송·분쟁":
+        return f"{base}…기업 간 실제 쟁점은","소장·결정문·심판 기록에서 청구내용·금액·기술·계약 쟁점을 확인하고 상대방 입장을 교차 확인"
+    if kind=="상표·디자인":
+        return f"{base}…신차·신제품 출시 신호인가","출원인·출원일·지정상품·디자인 대상을 확인하고 실제 출시계획과 연결되는지 취재"
     if kind=="인사":
         return f"{base}…인선 배경과 담당 사업이 변수","인사 원문에서 직책·담당 사업·전임자와의 차이를 확인하고 최근 조직·투자 변화와 연결"
     if kind=="특허·기술":
-        return f"{base}…실제 적용·양산 시점이 관건","특허 원문에서 출원번호·청구항·적용 제품을 확인해 단순 특허 소개를 넘어 사업화 여부를 취재"
+        return f"{base}…실제 적용·양산 시점이 관건","특허 원문에서 출원번호·청구항·적용 제품을 확인해 단순 등록 사실을 넘어 사업화 여부를 취재"
     if kind=="정책·규제":
         return f"{base}…현장에 달라지는 규정은","최종 고시·법안에서 시행일·대상·예외 조항을 확인하고 출입처별 실제 대응을 교차 확인"
     if kind=="통상·관세":
-        return f"{base}…국내 기업 수출전략 변수","최종 판정·시행 조건을 실제 출하·계약에 대입해 국내 기업별 영향과 대응을 확인"
+        return f"{base}…국내 출입처 수출·원가 변수는","판정 원문에서 품목·국가·세율·적용기간을 확인하고 국내 기업별 수출·원가 영향을 취재"
     if kind=="조달·발주":
         return f"{base}…새로 생기는 발주 물량은","입찰·발주 원문에서 예산·물량·납기·참여사를 확인해 실제 수요를 취재"
     if kind=="사업재편":
@@ -363,14 +378,14 @@ def build_pitch(x,kind,companies,numbers):
     if kind=="신사업·투자":
         return f"{base}…기존 계획과 다른 점은","투자액·대상·가동 시점·생산능력을 확인하고 기존 계획 대비 변화 여부를 취재"
     if kind=="계약·수주":
-        return f"{base}…고객사·물량·기간은","계약 원문에서 고객사·물량·기간·단가·생산능력을 확인해 후속 수주 가능성을 취재"
+        return f"{base}…고객사·물량·기간은","계약 원문에서 고객사·물량·기간·단가·생산능력을 확인해 신규 시장·고객 여부를 취재"
     return f"{base}…새로 확인된 변화","원문 숫자와 담당 조직을 확인하고 출입처에서 실제 변화를 교차 확인"
-
 def source_tier(x):
     label=str(x.get("officialLabel") or x.get("sourceName") or "")
-    if label in {"DART","특허청·KIPRIS","특허청","조달청"}: return 3
-    if label in {"산업부","국토부","공정위","관세청","기재부","환경부","금감원·DART","USTR","미국 상무부","EU 집행위","EU"}: return 3
-    if x.get("category")=="기업 원자료": return 2
+    group=source_group(x)
+    if group in {"DART","KIND","특허","조달","자동차·결함","환경·인허가","법령·입법","통상·분쟁","해외기관","지역·투자"}:return 3
+    if label in {"산업부","국토부","공정위","관세청","기재부","환경부","USTR","미국 상무부","EU 집행위","EU","NHTSA","EPA","USITC","CBP CROSS","UNECE WP.29","중국 SAMR"}:return 3
+    if x.get("category")=="기업 원자료":return 2
     return 1
 
 def extract_person(blob,corp):
@@ -388,49 +403,55 @@ def extract_person(blob,corp):
 
 def relevant_primary(x,companies,kind,joined):
     t=joined.lower()
-    if kind in {"특허·기술","인사","사업재편","신사업·투자","계약·수주"}: return bool(companies)
-    if kind=="정책·규제":
-        terms=("전기차","자동차","차량","자율주행","리콜","배터리","충전","수소차","부품","배출가스","연비","안전기준","형식승인","관세","반덤핑","통상")
-        return bool(companies) or any(k in t for k in terms)
-    if kind=="조달·발주":
-        terms=("변압기","hvdc","전력망","ess","자동차","차량","배터리","충전")
-        return bool(companies) and any(k in t for k in terms)
-    return bool(companies)
+    general_terms=("자동차","차량","타이어","철강","열연","냉연","후판","강관","비철","구리","아연","전력","변압기","hvdc","케이블","풍력","태양광","ess","에너지","lng","원전","수소","화학","소재","공장","산업단지")
+    auto_terms=("자동차","차량","전기차","하이브리드","pbv","자율주행","adas","타이어","리콜","결함","형식승인","배출가스")
+    if companies:return True
+    if kind in {"정책·규제","통상·관세","인허가·환경","소송·분쟁"}:return any(k in t for k in general_terms)
+    if kind in {"결함·리콜","인증·형식승인"}:return any(k in t for k in auto_terms)
+    return any(k in t for k in general_terms)
 
 def scoop_headline(x,kind,corp,blob,nums):
     base=(x.get("title") or "").strip()
+    if kind=="결함·리콜":return f"{corp}, {base}…대상 차종·대수는"
+    if kind=="인증·형식승인":return f"{corp}, 새 인증 포착…국내 출시·사양 변경하나"
+    if kind=="인허가·환경":return f"{corp}, 공장·사업 인허가 움직임…착공 시점은"
+    if kind=="소송·분쟁":return f"{corp}, 새 소송·분쟁 확인…쟁점과 규모는"
+    if kind=="상표·디자인":return f"{corp}, 새 상표·디자인 출원…신차·신제품 신호인가"
     if kind=="인사":
         person=extract_person(blob,corp)
         role=next((k for k in ("대표이사","사장","부사장","전무","상무","본부장","부문장","사내이사","사외이사","임원") if k in base+" "+blob),"")
         return f"{corp}, {person} {role} 인사…배경은" if person!=corp else f"{corp}, 경영진 인사 확인…담당 사업은"
     if kind=="특허·기술":
-        detail=next((k for k in ("자율주행","로보택시","배터리","충전","로봇","램프","차량","변압기","HVDC","전력망") if k in base+" "+blob),"신기술")
+        detail=next((k for k in ("자율주행","로보택시","배터리","충전","로봇","램프","차량","변압기","HVDC","전력망","풍력","원전") if k in base+" "+blob),"신기술")
         return f"{corp}, {detail} 특허 새로 확인…양산 적용하나"
     if kind=="정책·규제":
-        clean_base=re.sub(r"\\s*[-|｜].*$","",base)
-        return f"{clean_base}…자동차 업계에 달라지는 규정은"
+        clean_base=re.sub(r"\s*[-|｜].*$","",base)
+        return f"{clean_base}…업계에 달라지는 규정은"
+    if kind=="통상·관세":return f"{base}…국내 출입처 수출·원가 영향은"
     if kind=="사업재편":
         if "물적분할" in base:return f"{corp}, 사업부문 물적분할…분할 대상·향후 사업은"
         return f"{base}…실제 사업재편 내용은"
     if kind=="신사업·투자":return f"{base}…투자 대상·가동 시점은"
-    if kind=="계약·수주":
-        return f"{corp}, 신규 계약 {nums[0]}…고객사·물량은" if nums else f"{base}…고객사·물량·기간은"
+    if kind=="계약·수주":return f"{corp}, 신규 계약 {nums[0]}…고객사·물량은" if nums else f"{base}…고객사·물량·기간은"
     if kind=="조달·발주":return f"{base}…예산·물량·참여사는"
     return base
 
 def source_group(x):
     label=str(x.get("officialLabel") or x.get("sourceName") or "")
-    dom=str(x.get("url") or "")
+    dom=str(x.get("url") or "").lower()
     if label=="DART" or "dart.fss.or.kr" in dom:return "DART"
-    if any(d in dom for d in ("kipris.or.kr","kipo.go.kr","patents.google.com")):return "특허"
     if "kind.krx.co.kr" in dom:return "KIND"
+    if any(d in dom for d in ("kipris.or.kr","kipo.go.kr","patents.google.com","j-platpat.inpit.go.jp")):return "특허"
     if any(d in dom for d in ("g2b.go.kr","pps.go.kr")):return "조달"
-    if any(d in dom for d in ("nhtsa.gov","epa.gov","sec.gov","ustr.gov","trade.gov","ec.europa.eu","eur-lex.europa.eu")):return "해외기관"
-    if any(d in dom for d in ("motie.go.kr","molit.go.kr","ftc.go.kr","customs.go.kr","me.go.kr","keco.or.kr","law.go.kr")):return "정부"
-    if any(d in dom for d in ("hyundai.com","kia.com","mobis.com","posco.com","hyundai-steel.com","ls-electric.com","doosanenerbility.com","seah.co.kr")):return "기업"
+    if "car.go.kr" in dom:return "자동차·결함"
+    if "eiass.go.kr" in dom:return "환경·인허가"
+    if any(d in dom for d in ("law.go.kr","lawmaking.go.kr")):return "법령·입법"
+    if any(d in dom for d in ("usitc.gov","ids.usitc.gov","rulings.cbp.gov","cbp.gov","ustr.gov","trade.gov","ec.europa.eu","eur-lex.europa.eu")):return "통상·분쟁"
+    if any(d in dom for d in ("nhtsa.gov","epa.gov","sec.gov","unece.org","samr.gov.cn","cnca.gov.cn","safetygate.ec.europa.eu")):return "해외기관"
+    if any(d in dom for d in ("motie.go.kr","molit.go.kr","ftc.go.kr","customs.go.kr","me.go.kr","keco.or.kr","kostat.go.kr","moef.go.kr")):return "정부"
+    if any(d in dom for d in ("hyundai.com","kia.com","mobis.com","hyundai-wia.com","hlmando.com","gm-korea.co.kr","kg-mobility.com","mercedes-benz.co.kr","volkswagen.co.kr","bmw.co.kr","renault.co.kr","audi.co.kr","honda.co.kr","hankooktire.com","nexentire.com","kumhotire.com","posco.com","hyundai-steel.com","seah.co.kr","koreazinc.co.kr","youngpoong.co.kr","ls-electric.com","taihan.com","doosanenerbility.com","gscaltex.com","hanwhasolutions.com","oci.co.kr","oci-holdings.co.kr","taekwang.com","dongsungchemical.com","dlchem.com")):return "기업"
     if any(d in dom for d in ("seoul.go.kr","gg.go.kr","investkorea.org")):return "지역·투자"
     return "기타"
-
 
 def main():
     data=json.loads(DATA.read_text(encoding="utf-8")) if DATA.exists() else []
