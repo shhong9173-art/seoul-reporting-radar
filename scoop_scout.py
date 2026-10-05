@@ -55,21 +55,40 @@ TOPIC_RE=re.compile(r"자동차|전기차|배터리|철강|비철|구리|아연|
 NUM_RE=re.compile(r"(?<!\d)(?:\d{1,3}(?:,\d{3})+|\d+(?:\.\d+)?)(?:조원|억원|만원|달러|만대|천대|대|명|%|GWh|MWh|kWh|톤|km|MW|GW)(?!\w)",re.I)
 
 PRIMARY_QUERY_SETS=[
- ("정책·규제","site:motie.go.kr (정책 OR 고시 OR 시행 OR 법안 OR 제도 OR 관세 OR 통상) (자동차 OR 철강 OR 전력 OR 배터리 OR ESS OR 에너지)"),
- ("정책·규제","site:molit.go.kr (정책 OR 고시 OR 시행 OR 법안 OR 제도) (자동차 OR 자율주행 OR 전기차 OR 리콜)"),
- ("정책·규제","site:ftc.go.kr (기업결합 OR 부당지원 OR 담합 OR 인수 OR 분할 OR 합병)"),
- ("정책·규제","site:customs.go.kr (철강 OR 자동차 OR 배터리) (관세 OR 반덤핑 OR 통관)"),
- ("정책·규제","site:moef.go.kr (세제 OR 투자 OR 산업) (자동차 OR 에너지 OR 제조)"),
- ("정책·규제","site:me.go.kr (탄소 OR 배출권 OR 재생에너지 OR 산업)"),
- ("조달·발주","site:g2b.go.kr (변압기 OR HVDC OR ESS OR 전력망 OR 철강 OR 자동차) (입찰 OR 계약 OR 발주)"),
- ("특허·기술","site:kipris.or.kr (현대차 OR 기아 OR 현대모비스 OR 포스코 OR LS일렉트릭) (특허 OR 출원 OR 등록)"),
- ("특허·기술","site:kipo.go.kr (현대차 OR 기아 OR 포스코 OR 현대제철 OR LS일렉트릭 OR 두산에너빌리티) (특허 OR 출원 OR 등록)"),
- ("통상·해외","site:ustr.gov (automotive OR steel OR battery OR tariff OR Korea)"),
- ("통상·해외","site:trade.gov (steel OR automotive OR battery OR Korea OR tariff)"),
- ("통상·해외","site:ec.europa.eu (steel OR automotive OR battery OR Korean)"),
+    ("정책·규제","site:motie.go.kr (정책 OR 고시 OR 시행 OR 법안 OR 제도 OR 관세 OR 통상) (자동차 OR 전기차 OR 배터리 OR 철강 OR 전력 OR ESS OR 에너지)"),
+    ("정책·규제","site:molit.go.kr (고시 OR 시행 OR 입법예고 OR 정책 OR 제도 OR 안전기준 OR 리콜) (자동차 OR 자율주행 OR 전기차 OR 차량)"),
+    ("정책·규제","site:ftc.go.kr (기업결합 OR 인수 OR 합병 OR 분할 OR 담합 OR 부당지원) (현대차 OR 기아 OR 자동차 OR 부품 OR 배터리)"),
+    ("정책·규제","site:customs.go.kr (자동차 OR 철강 OR 배터리 OR 부품) (관세 OR 반덤핑 OR 통관 OR 원산지)"),
+    ("정책·규제","site:me.go.kr (배출가스 OR 탄소 OR 배출권 OR 환경영향 OR 화학물질) (자동차 OR 배터리 OR 철강 OR 공장)"),
+    ("정책·규제","site:keco.or.kr (자동차 OR 배터리 OR 폐배터리 OR 탄소) (기준 OR 인증 OR 규제 OR 회수)"),
+    ("정책·규제","site:law.go.kr (자동차 OR 전기차 OR 자율주행 OR 배터리 OR 철강 OR 전력) (법령 OR 시행령 OR 고시 OR 입법예고)"),
+    ("거래소·공시","site:kind.krx.co.kr (현대차 OR 기아 OR 현대모비스 OR 포스코 OR 현대제철 OR LS일렉트릭 OR 두산에너빌리티 OR 세아제강) (공시 OR 조회공시 OR 임원 OR 최대주주 OR 자사주 OR 분할 OR 합병 OR 투자)"),
+    ("조달·발주","site:g2b.go.kr (자동차 OR 전기차 OR 충전 OR 배터리 OR 변압기 OR HVDC OR ESS OR 전력망) (입찰 OR 발주 OR 낙찰 OR 계약 OR 구매)"),
+    ("조달·발주","site:pps.go.kr (자동차 OR 전기차 OR 충전 OR 전력기기 OR ESS) (조달 OR 입찰 OR 계약)"),
+    ("특허·기술","site:kipris.or.kr (현대차 OR 기아 OR 현대모비스 OR 현대위아 OR 현대트랜시스 OR 포스코 OR 현대제철 OR LS일렉트릭 OR 두산에너빌리티) (특허 OR 출원 OR 등록)"),
+    ("특허·기술","site:kipo.go.kr (현대차 OR 기아 OR 현대모비스 OR 포스코 OR 현대제철 OR LS일렉트릭 OR 두산에너빌리티) (특허 OR 출원 OR 등록 OR 심사)"),
+    ("특허·기술","site:patents.google.com (Hyundai OR Kia OR "Hyundai Mobis" OR POSCO OR "Hyundai Steel" OR "LS Electric") (autonomous OR battery OR vehicle OR lidar OR robot OR transformer OR HVDC)"),
+    ("기업 원자료","site:hyundai.com (invest OR investment OR plant OR factory OR hiring OR executive OR board OR autonomous OR battery OR software OR mobility)"),
+    ("기업 원자료","site:kia.com (invest OR plant OR factory OR executive OR board OR autonomous OR battery OR EV OR PBV)"),
+    ("기업 원자료","site:mobis.com (investment OR plant OR executive OR patent OR autonomous OR lamp OR sensor OR ADAS)"),
+    ("기업 원자료","site:posco.com (investment OR plant OR steel OR hydrogen OR non-core OR executive OR board)"),
+    ("기업 원자료","site:hyundai-steel.com (investment OR plant OR production OR steel OR executive OR board)"),
+    ("기업 원자료","site:ls-electric.com (transformer OR HVDC OR grid OR data center OR investment OR plant OR executive)"),
+    ("기업 원자료","site:doosanenerbility.com (contract OR investment OR plant OR gas turbine OR hydrogen OR nuclear OR executive)"),
+    ("기업 원자료","site:seah.co.kr (steel OR pipe OR OCTG OR investment OR plant OR executive)"),
+    ("해외 규제","site:nhtsa.gov (Hyundai OR Kia OR Genesis OR battery OR autonomous) (recall OR investigation OR defect OR petition OR complaint)"),
+    ("해외 규제","site:epa.gov (Hyundai OR Kia OR automotive OR battery) (emissions OR certification OR penalty OR settlement)"),
+    ("해외 규제","site:sec.gov (Hyundai OR Kia OR battery OR automotive OR POSCO) (filing OR 8-K OR acquisition OR investment OR executive)"),
+    ("통상·해외","site:ustr.gov (automotive OR steel OR battery OR Korea) (tariff OR antidumping OR investigation OR agreement)"),
+    ("통상·해외","site:trade.gov (steel OR automotive OR battery OR Korea) (tariff OR antidumping OR investigation)"),
+    ("통상·해외","site:ec.europa.eu (automotive OR steel OR battery OR Korean) (tariff OR antidumping OR safeguard OR regulation)"),
+    ("통상·해외","site:eur-lex.europa.eu (automotive OR battery OR steel OR vehicle) (regulation OR implementing OR tariff)"),
+    ("지역 인허가","site:seoul.go.kr (현대차 OR 기아 OR 자동차 OR 전기차 OR 충전) (인허가 OR 건축허가 OR 산업 OR 공장 OR 교통)"),
+    ("지역 인허가","site:gg.go.kr (현대차 OR 기아 OR 자동차 OR 배터리 OR 공장) (인허가 OR 투자 OR 착공 OR 산업단지)"),
+    ("지역 인허가","site:investkorea.org (현대차 OR 기아 OR 배터리 OR 자동차 OR 공장) (투자 OR 착공 OR 유치 OR 외투)"),
 ]
 for company,domain in COMPANY_DOMAINS.items():
-    PRIMARY_QUERY_SETS.append(("기업 원자료",f"site:{domain} ({company} OR 투자 OR 증설 OR 공장 OR 수주 OR 계약 OR 특허 OR 임원 OR 대표이사 OR 조직개편)"))
+    PRIMARY_QUERY_SETS.append(("기업 원자료",f"site:{domain} ({company} OR investment OR 투자 OR 증설 OR 공장 OR 수주 OR 계약 OR 특허 OR 임원 OR 대표이사 OR 조직개편 OR board)"))
 
 def get(url,timeout=15):
     req=urllib.request.Request(url,headers={"User-Agent":"Mozilla/5.0 NewsroomScoopScout/3.0","Accept":"application/rss+xml,application/xml,text/xml,*/*"})
@@ -346,6 +365,20 @@ def scoop_headline(x,kind,corp,blob,nums):
     if kind=="조달·발주":return f"{base}…예산·물량·참여사는"
     return base
 
+def source_group(x):
+    label=str(x.get("officialLabel") or x.get("sourceName") or "")
+    dom=str(x.get("url") or "")
+    if label=="DART" or "dart.fss.or.kr" in dom:return "DART"
+    if any(d in dom for d in ("kipris.or.kr","kipo.go.kr","patents.google.com")):return "특허"
+    if "kind.krx.co.kr" in dom:return "KIND"
+    if any(d in dom for d in ("g2b.go.kr","pps.go.kr")):return "조달"
+    if any(d in dom for d in ("nhtsa.gov","epa.gov","sec.gov","ustr.gov","trade.gov","ec.europa.eu","eur-lex.europa.eu")):return "해외기관"
+    if any(d in dom for d in ("motie.go.kr","molit.go.kr","ftc.go.kr","customs.go.kr","me.go.kr","keco.or.kr","law.go.kr")):return "정부"
+    if any(d in dom for d in ("hyundai.com","kia.com","mobis.com","posco.com","hyundai-steel.com","ls-electric.com","doosanenerbility.com","seah.co.kr")):return "기업"
+    if any(d in dom for d in ("seoul.go.kr","gg.go.kr","investkorea.org")):return "지역·투자"
+    return "기타"
+
+
 def main():
     data=json.loads(DATA.read_text(encoding="utf-8")) if DATA.exists() else []
     dart=json.loads(DART.read_text(encoding="utf-8")).get("items",[]) if DART.exists() else []
@@ -476,22 +509,34 @@ def main():
             "questions":questions,"firstSeenAt":x.get("published"),
             "firstSeenSource":x.get("officialLabel") or x.get("sourceName"),
             "verification":"원문·출입처 확인 후 단독 확정",
-            "evidenceTier":tier,"coverageChecked":True
+            "evidenceTier":tier,"coverageChecked":True,
+            "sourceGroup":source_group(x)
         })
 
     kind_rank={"인사":7,"특허·기술":7,"사업재편":6,"정책·규제":6,"신사업·투자":5,"조달·발주":3,"계약·수주":2}
     candidates.sort(key=lambda z:(z["score"],kind_rank.get(z["kind"],1),-z["coverageCount"],len(z.get("numbers") or []),z.get("firstSeenAt","")),reverse=True)
 
-    final=[];used_primary=set();used_keys=set()
-    for c in candidates:
+    final=[];used_primary=set();used_keys=set();used_groups=set()
+    for c in sorted(candidates,key=lambda z:(z["score"],{"인사":7,"특허·기술":7,"사업재편":6,"정책·규제":6,"신사업·투자":5,"조달·발주":4,"계약·수주":2}.get(z["kind"],1)),reverse=True):
         key=(tuple(sorted(c.get("companies") or [])),re.sub(r"[^가-힣A-Za-z0-9]","",c.get("title",""))[:45])
         if key in used_keys:continue
+        sg=c.get("sourceGroup","기타")
+        if sg=="DART" and sum(1 for x in final if x.get("sourceGroup")=="DART")>=4:continue
+        if sg in used_groups and len(used_groups)<5 and sg in {"특허","KIND","조달","해외기관","정부","기업","지역·투자"}:continue
         primary_company=(c.get("companies") or [None])[0]
         if primary_company and primary_company in used_primary and c["score"]<94:continue
         used_keys.add(key)
         if primary_company:used_primary.add(primary_company)
+        used_groups.add(sg)
         final.append(c)
         if len(final)>=12:break
+    if len(final)<12:
+        for c in candidates:
+            key=(tuple(sorted(c.get("companies") or [])),re.sub(r"[^가-힣A-Za-z0-9]","",c.get("title",""))[:45])
+            if key in used_keys:continue
+            if c.get("sourceGroup")=="DART" and sum(1 for x in final if x.get("sourceGroup")=="DART")>=4:continue
+            used_keys.add(key);final.append(c)
+            if len(final)>=12:break
 
     old={}
     if OUT.exists():
@@ -511,7 +556,8 @@ def main():
             "beats":len(set(x["beat"] for x in final))
         },
         "items":final,
-        "note":"단독감은 기존 언론 기사의 중요도를 평가하는 기능이 아닙니다. 원자료에서 새 사실을 먼저 포착하고, 현재 언론·아카이브에 동일 사실이 없을 때만 후보로 올립니다. 인사·특허·정책·사업재편을 우선하며 일반적인 공급계약은 추가성이 없으면 제외합니다."
+        "sourceGroups":{g:sum(1 for x in final if x.get("sourceGroup")==g) for g in sorted({x.get("sourceGroup","기타") for x in final})},
+        "note":"단독감은 기존 언론 기사의 중요도를 평가하는 기능이 아닙니다. DART뿐 아니라 특허·KIND·정부·조달·기업 원자료·해외 규제기관·지역 인허가 자료에서 새 사실을 먼저 포착하고, 현재 언론·아카이브에 동일 사실이 없을 때만 후보로 올립니다. 인사·특허·정책·사업재편을 우선하며 일반적인 공급계약은 추가성이 없으면 제외합니다."
     }
     OUT.write_text(json.dumps(payload,ensure_ascii=False,separators=(",",":")),encoding="utf-8")
     print(f"primary-source scoop scout: {len(primary)} primary hits -> {len(final)} selective unreported candidates")
