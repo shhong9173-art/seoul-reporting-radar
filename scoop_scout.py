@@ -51,8 +51,8 @@ WEAK_RE=re.compile(r"사회공헌|기부|봉사|채용|수상|캠페인|축제|�
 ACTION_RE=re.compile(r"정책|규제|시행|법안|고시|입법|관세|반덤핑|특허|출원|등록|대표이사|임원|사내이사|사외이사|선임|퇴임|조직개편|신설|투자|출자|증설|공장|법인|합병|분할|인수|매각|철수|수주|계약|공급|발주|입찰|생산|가동|감산|가격|원가|마진|배터리|ESS|HVDC|변압기|해저케이블|해상풍력|자율주행|리콜",re.I)
 NUM_RE=re.compile(r"(?<!\d)(?:\d{1,3}(?:,\d{3})+|\d+(?:\.\d+)?)(?:조원|억원|만원|달러|만대|천대|대|명|%|GWh|MWh|kWh|톤|km|MW|GW)(?!\w)",re.I)
 PRIMARY_QUERY_SETS=[
- ("정책·규제","site:motie.go.kr (자동차 OR 철강 OR 전력 OR 배터리 OR ESS OR 관세 OR 통상)"),
- ("정책·규제","site:molit.go.kr (자동차 OR 자율주행 OR 전기차 OR 리콜)"),
+ ("정책·규제","site:motie.go.kr (정책 OR 고시 OR 시행 OR 자동차 OR 철강 OR 전력 OR 배터리 OR ESS OR 관세 OR 통상)"),
+ ("정책·규제","site:molit.go.kr (정책 OR 고시 OR 시행 OR 자동차 OR 자율주행 OR 전기차 OR 리콜)"),
  ("정책·규제","site:ftc.go.kr (기업결합 OR 부당지원 OR 담합 OR 인수 OR 분할 OR 합병)"),
  ("정책·규제","site:customs.go.kr (철강 OR 자동차 OR 배터리 OR 관세 OR 반덤핑 OR 통관)"),
  ("정책·규제","site:moef.go.kr (세제 OR 투자 OR 산업 OR 자동차 OR 에너지)"),
@@ -117,7 +117,9 @@ def google_rss(category,query,max_items=8):
     url="https://news.google.com/rss/search?q="+urllib.parse.quote(query)+"&hl=ko&gl=KR&ceid=KR:ko"
     try:root=ET.fromstring(get(url))
     except Exception:return []
-    cutoff=datetime.now(KST)-timedelta(days=7);out=[]
+    cutoff=datetime.now(KST)-timedelta(days=14);out=[]
+    site_match=re.search(r"site:([A-Za-z0-9.-]+)",query,re.I)
+    site=site_match.group(1).lower() if site_match else ""
     for item in root.findall("./channel/item"):
         title=(item.findtext("title") or "").strip();link=(item.findtext("link") or "").strip();pub=item.findtext("pubDate") or ""
         desc=clean(item.findtext("description") or ""); src=item.find("source"); source=(src.text or "").strip() if src is not None else ""
@@ -125,9 +127,23 @@ def google_rss(category,query,max_items=8):
         dt=parse_dt(pub)
         if dt<cutoff:continue
         official_label,official=domain_for(link)
+        source_text=(source+" "+title).lower()
+        source_official_hint=(
+            any(name.lower() in source_text for name in OFFICIAL_DOMAINS.values())
+            or any(dom.split(".")[0].lower() in source_text for dom in OFFICIAL_DOMAINS)
+            or any(name.lower() in source_text for name in COMPANY_DOMAINS)
+        )
+        # A site-constrained query is the primary-source scout. The RSS link itself
+        # points to news.google.com, so the site constraint and source label are the
+        # reliable primary-source markers here.
+        primary=bool(site) or official or source_official_hint
+        label=official_label
+        if not label and site:
+            label=OFFICIAL_DOMAINS.get(site) or next((n for n,d in COMPANY_DOMAINS.items() if d==site),site)
         out.append({
-            "category":category,"title":title,"url":link,"published":dt.isoformat(),"sourceName":source or official_label or "Google News",
-            "summary":desc[:1200],"official":official or bool(official_label),"officialLabel":official_label
+            "category":category,"title":title,"url":link,"published":dt.isoformat(),
+            "sourceName":source or label or "Google News","summary":desc[:1200],
+            "official":primary,"officialLabel":label,"querySite":site
         })
         if len(out)>=max_items:break
     return out
@@ -135,6 +151,25 @@ def google_rss(category,query,max_items=8):
 def bad_secondary(x):
     t=(x.get("title") or "")+" "+(x.get("summary") or "")
     return bool(NOISE_RE.search(t) or WEAK_RE.search(t) or x.get("sourceName") in {"Google News"})
+
+def general_coverage_query(x):
+    title=re.sub(r"[-|｜:：].*$","",x.get("title",""))
+    companies=target_hits(title+" "+x.get("summary",""))
+    nums=NUM_RE.findall(title+" "+x.get("summary",""))
+    # Search the first compact fact rather than the full headline so wording differences don't hide coverage.
+    compact=re.sub(r"[^가-힣A-Za-z0-9%조억원만대톤GWMW.+ ]"," ",title)
+    words=[w for w in re.findall(r"[가-힣A-Za-z0-9]{2,}",compact) if w not in {"관련","정책","사업","계획","기업","시장"}]
+    phrase=" ".join(words[:8])
+    if companies:
+        phrase=companies[0]+" "+phrase
+    if nums:
+        phrase+=" "+" ".join(nums[:2])
+    return phrase.strip()
+
+def coverage_search(x):
+    query=general_coverage_query(x)
+    if len(query)<5:return []
+    return [h for h in google_rss("coverage",f'"{query}"',max_items=8) if not h.get("official") and not h.get("global")]
 
 def newsroom_matches(title,data):
     matches=[]
@@ -246,11 +281,14 @@ def main():
         seen.add(key)
         if bad_secondary(x):continue
 
-        own= news = newsroom_matches(title,data)
-        # DART/company/government wording can differ materially from article wording,
-        # so a lower semantic threshold is used; two or more matching articles means
-        # the fact is already publicly covered and is not a scoop candidate.
-        if len(news)>=2:
+        news=newsroom_matches(title,data)
+        coverage=coverage_search(x)
+        # A true scoop candidate must survive two checks:
+        # - no clear match in our newsroom DB
+        # - no non-official media article found by a fresh coverage search
+        if any(re.sub(r"\s*[-|｜].*$","",title).strip()==re.sub(r"\s*[-|｜].*$","",r.get("title","")).strip() for r in news):
+            continue
+        if coverage:
             continue
 
         joined=title+" "+x.get("summary","")
@@ -260,8 +298,8 @@ def main():
             continue
 
         kind=candidate_kind(title,x.get("category",""))
-        score=quality(title,x.get("summary",""),bool(x.get("official")),news,kind)
-        if len(news)==1:score-=18
+        score=quality(title,x.get("summary",""),bool(x.get("official")),coverage,kind)
+        if len(coverage)>0:score-=30
         if not x.get("official"):score-=30
         if kind=="인사" and not re.search(r"선임|취임|퇴임|대표이사|임원|이사|조직",title,re.I):
             continue
@@ -298,8 +336,8 @@ def main():
             "url":x.get("url"),
             "published":x.get("published")
         }]
-        for row in news[:3]:
-            evidence.append({"source":row.get("sourceName"),"label":"기존 기사","title":row.get("title"),"url":row.get("url"),"published":row.get("published")})
+        for row in coverage[:4]:
+            evidence.append({"source":row.get("sourceName"),"label":"검색된 기존 기사","title":row.get("title"),"url":row.get("url"),"published":row.get("published")})
         history=[]
         for row in archive:
             if similarity(title,row.get("title",""))>=0.42:
@@ -315,8 +353,9 @@ def main():
             "originalSource":x.get("officialLabel") or x.get("sourceName"),
             "originalSourceUrl":x.get("url"),
             "original":True,
-            "coverageCount":len(news),
-            "coverageSources":list(dict.fromkeys(r.get("sourceName") for r in news if r.get("sourceName"))),
+            "coverageCount":len(coverage),
+            "coverageSources":list(dict.fromkeys(r.get("sourceName") for r in coverage if r.get("sourceName"))),
+            "newsroomMatches":[{"source":r.get("sourceName"),"title":r.get("title"),"published":r.get("published")} for r in news[:4]],
             "why":f"{x.get('officialLabel') or x.get('sourceName')} 원자료에서 잡힌 신호입니다. 현재 기사 DB에서 동일 사실의 보도 {len(news)}건이 확인돼, 추가 취재 전 선점 여부를 확인할 가치가 있습니다.",
             "whatConfirmed":x.get("title"),
             "pitch":pitch,
@@ -332,7 +371,7 @@ def main():
         })
 
     # Diverse, high-value queue. We deliberately do not fill with ordinary media stories.
-    candidates.sort(key=lambda z:(z["score"],z["coverageCount"]==0,bool(z["numbers"]),z["kind"]=="인사"),reverse=True)
+    candidates.sort(key=lambda z:(z["coverageCount"]==0,z["score"],bool(z["numbers"]),z["kind"]=="인사"),reverse=True)
     final=[];seen_company_kind=set()
     for x in candidates:
         group=(x["companies"][0] if x["companies"] else x["beat"],x["kind"])
