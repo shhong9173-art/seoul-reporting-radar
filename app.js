@@ -8,7 +8,7 @@ const INDUSTRY_CATS=new Set(['철강','비철금속','전력기기','전선·전
 const AUTO_SCOOP_RE=/현대차|현대자동차|기아|제네시스|현대모비스|현대위아|현대트랜시스|HL만도|LG에너지솔루션|삼성SDI|SK온|CATL|BYD|테슬라|폭스바겐|GM|포드|토요타|BMW|벤츠|르노코리아|한국GM|KG모빌리티|볼보|파나소닉|노스볼트|전기차|자동차|차량|배터리|자율주행|충전기|리콜|결함/i;
 const INDUSTRY_ITEMS=()=>items.filter(x=>!x.global&&x.industrySource);
 const AUTO_ITEMS=()=>items.filter(x=>!x.global&&(!x.industrySource||AUTO_CATS.has(x.category)));
-function badge(x){return x.global?'글로벌':x.exclusive?'단독·속보 후보':x.priority==='must'?'오늘 핵심':x.priority==='follow'||x.followUp?'후속 검토':x.industrySource?'산업부':'모니터링'}
+function badge(x){return x.global?'글로벌':x.exclusive?'타사 단독·속보':x.priority==='must'?'오늘 핵심':x.priority==='follow'||x.followUp?'후속 검토':x.industrySource?'산업부':'모니터링'}
 function cls(x){return x.global?'normal':x.exclusive?'exclusive':x.priority==='must'?'must':x.followUp?'follow':'normal'}
 function titleOf(x){return x.global&&x.koTitle?x.koTitle:x.title}
 function summaryOf(x){return x.global&&x.koSummary?x.koSummary:x.summary}
@@ -121,7 +121,7 @@ function setupCompanies(){const c=[...new Set(items.flatMap(x=>x.companies||[]))
 function latestObserved(){const arr=items.filter(x=>!x.global&&x.published);if(!arr.length)return '-';const d=new Date(arr.reduce((m,x)=>x.published>m?x.published:m,'1970-01-01'));return d.toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false});}
 function syncNav(){
   document.querySelectorAll('.nav').forEach(n=>n.classList.toggle('active',n.dataset.view===view));
-  const names={today:'오늘 취재 우선순위',must:'자동차 핵심',industryMust:'산업부 핵심',all:'전체 모니터링',scoop:'단독감 레이더',exclusive:'단독·속보 후보',follow:'후속 취재 후보',competition:'경쟁지 선행 이슈',calls:'오늘 전화할 곳',company:company?company+' 타임라인':'기업 타임라인',keywords:'키워드 급상승',issues:'이슈 타임라인',global:'글로벌 레이더'};
+  const names={today:'오늘 취재 우선순위',must:'자동차 핵심',industryMust:'산업부 핵심',all:'전체 모니터링',scoop:'단독감 레이더',exclusive:'타사 단독·속보',follow:'후속 취재 후보',competition:'경쟁지 선행 이슈',calls:'오늘 전화할 곳',company:company?company+' 타임라인':'기업 타임라인',keywords:'키워드 급상승',issues:'이슈 타임라인',global:'글로벌 레이더'};
   $('#viewTitle').textContent=names[view]||'산업부 종합 취재 레이더';
   $('#headline').textContent=view==='global'?'글로벌 자동차·산업판에서 놓치면 안 되는 것':view==='must'?'자동차판에서 오늘 놓치면 안 되는 것':view==='industryMust'?'산업부에서 오늘 파볼 것':'산업부 전체 출입처에서 오늘 파볼 것';
   if(view==='today')$('#today').textContent='자동차 + 산업부 전 출입처 통합 · 마지막 기사 관측 '+latestObserved()+' · 단독·새 이슈·숫자·사업 변화 순';
