@@ -45,7 +45,8 @@ PRESS_RE = re.compile(
     r"뉴스와이어|Newswire|PRNewswire|Business Wire|GlobeNewswire|EIN Presswire|PRWeb|Accesswire|Press Release|보도자료|자료제공|자료배포|뉴스룸|미디어센터|프레스센터",
     re.I
 )
-WEAK_RE = re.compile(r"사회공헌|기부|봉사|교육|인재|채용|수상|선정|캠페인|축제|전시|세미나|포럼|특집|칼럼|오피니언|강연", re.I)\nEVENT_RE = re.compile(
+WEAK_RE = re.compile(r"사회공헌|기부|봉사|교육|인재|채용|수상|선정|캠페인|축제|전시|세미나|포럼|특집|칼럼|오피니언|강연", re.I)
+EVENT_RE = re.compile(
     r"인베스터데이|주주총회|설명회|세미나|포럼|엑스포|컨퍼런스|부스투어|기조연설|발표회"
 )
 ACTION_WORDS = (
