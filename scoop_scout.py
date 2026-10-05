@@ -80,6 +80,7 @@ OFFICIAL_DOMAINS={
  "samr.gov.cn":"중국 SAMR","cnca.gov.cn":"중국 인증","j-platpat.inpit.go.jp":"J-PlatPat","safetygate.ec.europa.eu":"EU Safety Gate",
  "seoul.go.kr":"서울시","gg.go.kr":"경기도","investkorea.org":"Invest Korea",
  "assembly.go.kr":"국회","bai.go.kr":"감사원","kpx.or.kr":"전력거래소","kepco.co.kr":"한국전력","kogas.or.kr":"한국가스공사","khnp.co.kr":"한수원","knrec.or.kr":"에너지공단",
+ "kisrating.com":"한국신용평가","korearatings.com":"한국기업평가","crefia.or.kr":"신용평가·금융",
  "kosa.or.kr":"한국철강협회","kweia.or.kr":"한국풍력산업협회","lngkorea.org":"민간LNG산업협회","metall.or.kr":"금속노련",
  "kepic.or.kr":"대한전기협회","koema.or.kr":"한국전기산업진흥회","kaif.or.kr":"한국원자력산업협회",
  "hyundai.com":"현대차","kia.com":"기아","mobis.com":"현대모비스","hyundai-wia.com":"현대위아","hlmando.com":"HL만도",
@@ -156,6 +157,8 @@ PRIMARY_QUERY_SETS=[
  ("공기업·에너지","site:kogas.or.kr (LNG OR 천연가스 OR 터미널 OR 배관 OR 수급 OR 직수입 OR 투자 OR 공사 OR 입찰)"),
  ("공기업·원전","site:khnp.co.kr (원전 OR SMR OR 원자로 OR 건설 OR 입찰 OR 기자재 OR 공급 OR 구매)"),
  ("재생에너지","site:knrec.or.kr (풍력 OR 태양광 OR ESS OR 재생에너지 OR 보급 OR 입찰 OR 공급망 OR 인증 OR 지원금)"),
+ ("재무·신용","site:kisrating.com (현대자동차 OR 기아 OR 현대모비스 OR 포스코 OR 현대제철 OR 고려아연 OR 영풍 OR LS OR 두산에너빌리티 OR GS OR 한화솔루션 OR OCI OR 태광 OR 동성케미칼 OR DL케미칼) (수시평가 OR Issuer Comment OR 그룹분석 OR 신용등급 OR 전망 OR 차입 OR 투자 OR 인수 OR 매각 OR 자금조달 OR 재무구조)"),
+ ("재무·신용","site:korearatings.com (현대자동차 OR 기아 OR 현대모비스 OR 포스코 OR 현대제철 OR 고려아연 OR 영풍 OR LS OR 두산에너빌리티 OR GS OR 한화솔루션 OR OCI OR 태광 OR 동성케미칼 OR DL케미칼) (수시평가 OR 신용등급 OR 전망 OR 투자 OR 인수 OR 매각 OR 자금조달 OR 재무구조)"),
  ("노사·현장","site:metall.or.kr (현대차 OR 기아 OR 포스코 OR 현대제철 OR LS전선 OR HD현대일렉트릭 OR 일진전기 OR 세아 OR 금호타이어 OR 한국타이어 OR 넥센타이어) (임단협 OR 단체교섭 OR 잠정합의 OR 파업 OR 쟁의 OR 투표 OR 노조 OR 생산 OR 조업)"),
 ]
 for company,domain in {
@@ -435,7 +438,7 @@ def build_pitch(x,kind,companies,numbers):
 def source_tier(x):
     label=str(x.get("officialLabel") or x.get("sourceName") or "")
     group=source_group(x)
-    if group in {"DART","KIND","특허","조달","자동차·결함","환경·인허가","법령·입법","통상·분쟁","해외기관","지역·투자","협회","노사·현장","정책·감독","공기업·시장"}:return 3
+    if group in {"DART","KIND","특허","조달","자동차·결함","환경·인허가","법령·입법","통상·분쟁","해외기관","지역·투자","협회","노사·현장","정책·감독","공기업·시장","재무·신용"}:return 3
     if label in {"산업부","국토부","공정위","관세청","기재부","환경부","USTR","미국 상무부","EU 집행위","EU","NHTSA","EPA","USITC","CBP CROSS","UNECE WP.29","중국 SAMR"}:return 3
     if x.get("category")=="기업 원자료":return 2
     return 1
@@ -457,7 +460,7 @@ def relevant_primary(x,companies,kind,joined):
     t=joined.lower()
     general_terms=("자동차","차량","타이어","철강","열연","냉연","후판","강관","비철","구리","아연","전력","변압기","hvdc","케이블","풍력","태양광","ess","에너지","lng","원전","수소","화학","소재","공장","산업단지")
     auto_terms=("자동차","차량","전기차","하이브리드","pbv","자율주행","adas","타이어","리콜","결함","형식승인","배출가스")
-    specific=("생산라인","생산계획","생산량","공급사","대체투입","재고","조업","가동중단","종풍","증설","공장","투자","매각","인수","합병","분할","이사회","임원","대표이사","선임","퇴임","특허","상표","디자인","리콜","결함","조사","인증","형식승인","환경영향","건축허가","사업계획","입찰","낙찰","수주","계약","관세","반덤핑","소송","판결","심판","자금조달","유상증자","채권","RSU","노사","임단협","잠정합의","파업","쟁의","생산계획","생산조정","공급중단","대체투입","재고","납기","거래종결","지분")
+    specific=("생산라인","생산계획","생산량","공급사","대체투입","재고","조업","가동중단","종풍","증설","공장","투자","매각","인수","합병","분할","이사회","임원","대표이사","선임","퇴임","특허","상표","디자인","리콜","결함","조사","인증","형식승인","환경영향","건축허가","사업계획","입찰","낙찰","수주","계약","관세","반덤핑","소송","판결","심판","자금조달","유상증자","채권","RSU","신용등급","전망","수시평가","Issuer Comment","그룹분석","차입","노사","임단협","잠정합의","파업","쟁의","생산계획","생산조정","공급중단","대체투입","재고","납기","거래종결","지분")
     # Company-specific source signals are highest value.
     if companies:return True
     if COMPANY_BY_DOMAIN.get(str(x.get("querySite") or "").lower()):return True
@@ -509,10 +512,30 @@ def source_group(x):
     if any(d in (dom+" "+query_site) for d in ("hyundai.com","kia.com","mobis.com","hyundai-wia.com","hlmando.com","gm-korea.co.kr","kg-mobility.com","mercedes-benz.co.kr","volkswagen.co.kr","bmw.co.kr","renault.co.kr","audi.co.kr","honda.co.kr","hankooktire.com","nexentire.com","kumhotire.com","posco.com","hyundai-steel.com","seah.co.kr","koreazinc.co.kr","youngpoong.co.kr","ls-electric.com","taihan.com","doosanenerbility.com","gscaltex.com","hanwhasolutions.com","oci.co.kr","oci-holdings.co.kr","taekwang.com","dongsungchemical.com","dlchem.com")):return "기업"
     if any(d in (dom+" "+query_site) for d in ("seoul.go.kr","gg.go.kr","investkorea.org")):return "지역·투자"
     if any(d in (dom+" "+query_site) for d in ("assembly.go.kr","bai.go.kr")):return "정책·감독"
+    if any(d in (dom+" "+query_site) for d in ("kisrating.com","korearatings.com","crefia.or.kr")):return "재무·신용"
     if any(d in (dom+" "+query_site) for d in ("kpx.or.kr","kepco.co.kr","kogas.or.kr","khnp.co.kr","knrec.or.kr")):return "공기업·시장"
     if any(d in (dom+" "+query_site) for d in ("kosa.or.kr","kweia.or.kr","lngkorea.org","kepic.or.kr","koema.or.kr","kaif.or.kr")):return "협회"
     if "metall.or.kr" in (dom+" "+query_site):return "노사·현장"
     return "기타"
+
+EXCLUSIVE_PATTERN_MAP={
+    "노사·생산":("노사","임단협","잠정합의","생산조정","생산계획","파업","쟁의","공급차질"),
+    "내부인사":("내정","인선","퇴임","조직개편","이사회","사장","대표이사","임원"),
+    "사업재편":("매각 협상","우선협상","인수","분할","철수","신설법인","거래종결"),
+    "공급망":("공급사","공급중단","대체투입","납품","재고","생산차질","가격인상"),
+    "프로젝트":("착공","인허가","환경영향","보조금","지원금","공장","증설","발주"),
+    "자금조달":("PRS","유증","회사채","사모","브리지","리파이낸싱","자금조달"),
+    "규제·조사":("조사개시","시정명령","행정처분","리콜","결함","소송","심판","반덤핑"),
+    "기술·제품":("특허","출원","상표","디자인","인증","형식승인","시제품","양산"),
+}
+
+def exclusive_pattern_hits(text):
+    t=(text or "").lower()
+    hits=[]
+    for label,terms in EXCLUSIVE_PATTERN_MAP.items():
+        n=sum(1 for k in terms if k.lower() in t)
+        if n>=2:hits.append((label,n))
+    return hits
 
 def main():
     data=json.loads(DATA.read_text(encoding="utf-8")) if DATA.exists() else []
@@ -521,6 +544,15 @@ def main():
     archive=json.loads(ARCHIVE.read_text(encoding="utf-8")) if ARCHIVE.exists() else []
     now=datetime.now(KST)
     primary=[]
+    pattern_frequency={}
+    for row in data:
+        if row.get("global"):continue
+        title=str(row.get("title") or "")
+        body=title+" "+str(row.get("summary") or "")
+        if any(k in title.lower() for k in ("단독","본지","단독취재","단독 확인")):
+            for label,n in exclusive_pattern_hits(body):
+                pattern_frequency[label]=pattern_frequency.get(label,0)+n
+
 
     for category,query in PRIMARY_QUERY_SETS:
         for x in google_rss(category,query,max_items=8):
@@ -623,10 +655,11 @@ def main():
         kind_weight=8 if kind in {"결함·리콜","인증·형식승인","인허가·환경","소송·분쟁","인사","특허·기술","상표·디자인","사업재편","정책·규제","통상·관세"} else 4
         source_boost={
             "자동차·결함":14,"환경·인허가":14,"법령·입법":12,"특허":12,"KIND":10,"조달":10,
-            "통상·분쟁":12,"해외기관":10,"정부":9,"협회":8,"노사·현장":12,"기업":8,"지역·투자":10,"DART":3,"기타":0
+            "통상·분쟁":12,"해외기관":10,"정부":9,"협회":8,"노사·현장":12,"정책·감독":11,"공기업·시장":11,"재무·신용":12,"기업":8,"지역·투자":10,"DART":3,"기타":0
         }.get(source_group_now,0)
         exclusive_signal=sum(2 for k in ("내정","잠정합의","생산조정","생산계획","생산중단","공급중단","대체투입","공급사 변경","공급망","이사회","임원","퇴임","매각 협상","우선협상","거래종결","자금조달","보조금","지원금","인허가","환경영향","조사개시","소송 제기","특허심판","리콜","제작결함") if k in source_text)
-        score=min(98,30+freshness+specificity+change+source_weight+novelty+kind_weight+source_boost+min(12,exclusive_signal))
+        learned_signal=sum(min(3,pattern_frequency.get(label,0)//3) for label,_ in exclusive_pattern_hits(source_text))
+        score=min(98,30+freshness+specificity+change+source_weight+novelty+kind_weight+source_boost+min(12,exclusive_signal)+min(6,learned_signal))
 
         if score<66:continue
         if not (numbers or kind in {"결함·리콜","인증·형식승인","인허가·환경","소송·분쟁","인사","특허·기술","상표·디자인","정책·규제","사업재편","통상·관세"} or any(k in joined for k in ("공장","법인","조직개편","대표이사","특허","고시","법안","리콜","결함","인증","인허가","소송","판결","관세"))):continue
@@ -697,7 +730,9 @@ def main():
             "firstSeenSource":x.get("officialLabel") or x.get("sourceName"),
             "verification":"원문·출입처 확인 후 단독 확정",
             "evidenceTier":tier,"coverageChecked":True,
-            "sourceGroup":source_group(x)
+            "sourceGroup":source_group(x),
+            "exclusivePatternHits":exclusive_pattern_hits(source_text),
+            "reportingPath":questions[:3]
         })
 
     kind_rank={"결함·리콜":10,"인증·형식승인":10,"인허가·환경":9,"소송·분쟁":9,"인사":8,"특허·기술":8,"상표·디자인":7,"사업재편":7,"정책·규제":7,"통상·관세":6,"신사업·투자":6,"조달·발주":5,"계약·수주":3}
