@@ -19,73 +19,126 @@ DATA=Path("data.json"); DART=Path("dart.json"); NUM=Path("dart_numeric.json")
 ARCHIVE=Path("archive.json"); OUT=Path("scoop.json")
 
 TARGETS=[
+ # 자동차
  ("현대차","자동차"),("기아","자동차"),("제네시스","자동차"),("현대모비스","자동차"),("현대위아","자동차"),
- ("현대트랜시스","자동차"),("HL만도","자동차"),("현대글로비스","자동차"),("LG에너지솔루션","배터리"),
- ("삼성SDI","배터리"),("SK온","배터리"),("포스코","철강"),("포스코홀딩스","철강"),("현대제철","철강"),
- ("동국제강","철강"),("세아제강","철강"),("고려아연","비철금속"),("영풍","비철금속"),("LS MnM","비철금속"),
- ("풍산","비철금속"),("LS ELECTRIC","전력기기"),("HD현대일렉트릭","전력기기"),("효성중공업","전력기기"),
- ("일진전기","전력기기"),("LS전선","전선·전력"),("대한전선","전선·전력"),("두산에너빌리티","에너지"),
- ("GS","에너지"),("GS칼텍스","에너지"),("한화솔루션","재생에너지"),("OCI홀딩스","재생에너지"),
- ("씨에스윈드","재생에너지"),("LG화학","화학·소재"),("롯데케미칼","화학·소재"),("금호석유화학","화학·소재"),
- ("효성첨단소재","화학·소재"),("코오롱인더","화학·소재")
+ ("HL만도","자동차"),("만도","자동차"),("한국GM","자동차"),("KG모빌리티","자동차"),("메르세데스벤츠코리아","자동차"),
+ ("폭스바겐코리아","자동차"),("폭스바겐","자동차"),("BMW코리아","자동차"),("BMW","자동차"),("르노코리아","자동차"),
+ ("아우디코리아","자동차"),("아우디","자동차"),("혼다코리아","자동차"),("한국타이어","자동차"),("넥센타이어","자동차"),
+ ("금호타이어","자동차"),("현대트랜시스","자동차"),("현대글로비스","자동차"),
+ # 철강
+ ("포스코홀딩스","철강"),("포스코","철강"),("현대제철","철강"),("KG스틸","철강"),("세아홀딩스","철강"),("세아제강","철강"),
+ # 비철
+ ("고려아연","비철금속"),("영풍","비철금속"),("LS MnM","비철금속"),
+ # 전력기기
+ ("HD현대일렉트릭","전력기기"),("LS일렉트릭","전력기기"),("대한전선","전력기기"),("효성중공업","전력기기"),("일진전기","전력기기"),
+ # 전선·전력
+ ("LS전선","전선·전력"),("LS M&M","전선·전력"),("LS지주","전선·전력"),
+ # 에너지
+ ("두산에너빌리티","에너지"),("GS","에너지"),("GS칼텍스","에너지"),
+ # 풍력·재생에너지
+ ("한화솔루션","재생에너지"),("OCI","재생에너지"),("OCI홀딩스","재생에너지"),("씨에스윈드","재생에너지"),
+ # 화학·소재
+ ("태광","화학·소재"),("동성케미칼","화학·소재"),("DL케미칼","화학·소재"),
+ ("LG화학","화학·소재"),("롯데케미칼","화학·소재"),("금호석유화학","화학·소재"),("효성첨단소재","화학·소재"),("코오롱인더","화학·소재"),
+ # 협회
+ ("한국철강협회","협회·산업단체"),("한국풍력산업협회","협회·산업단체"),("민간LNG산업협회","협회·산업단체"),
+ ("대한전기협회","협회·산업단체"),("한국전기산업진흥회","협회·산업단체"),("한국원자력산업협회","협회·산업단체"),
 ]
 ALIASES={
- "현대차":("현대차","현대자동차"),"기아":("기아","기아자동차"),"LG에너지솔루션":("LG에너지솔루션","LG엔솔"),
- "LS ELECTRIC":("LS ELECTRIC","LS일렉트릭"),"HD현대일렉트릭":("HD현대일렉트릭",),
- "두산에너빌리티":("두산에너빌리티",),"포스코":("포스코","POSCO"),"현대제철":("현대제철","Hyundai Steel"),
- "고려아연":("고려아연",),"롯데케미칼":("롯데케미칼",),"한화솔루션":("한화솔루션",)
+ "현대차":("현대차","현대자동차","Hyundai Motor"),"기아":("기아","기아자동차","Kia"),
+ "제네시스":("제네시스","Genesis"),"현대모비스":("현대모비스","Hyundai Mobis"),"현대위아":("현대위아","Hyundai Wia"),
+ "HL만도":("HL만도","HL Mando","만도"),"만도":("만도","Mando","HL만도"),"한국GM":("한국GM","GM Korea","쉐보레","Chevrolet"),
+ "KG모빌리티":("KG모빌리티","KGM","쌍용자동차"),"메르세데스벤츠코리아":("메르세데스벤츠코리아","메르세데스-벤츠 코리아","Mercedes-Benz Korea"),
+ "폭스바겐코리아":("폭스바겐코리아","Volkswagen Korea"),"폭스바겐":("폭스바겐","Volkswagen"),
+ "BMW코리아":("BMW코리아","BMW 코리아","BMW Korea"),"BMW":("BMW",),
+ "르노코리아":("르노코리아","Renault Korea"),"아우디코리아":("아우디코리아","Audi Korea"),"아우디":("아우디","Audi"),
+ "혼다코리아":("혼다코리아","Honda Korea"),"한국타이어":("한국타이어","Hankook Tire","Hankook"),"넥센타이어":("넥센타이어","Nexen Tire"),
+ "금호타이어":("금호타이어","Kumho Tire"),"현대트랜시스":("현대트랜시스","Hyundai Transys"),"현대글로비스":("현대글로비스","Hyundai Glovis"),
+ "포스코":("포스코","POSCO"),"포스코홀딩스":("포스코홀딩스","POSCO Holdings"),"현대제철":("현대제철","Hyundai Steel"),
+ "KG스틸":("KG스틸","KG Steel"),"세아홀딩스":("세아홀딩스","SeAH Holdings"),"세아제강":("세아제강","SeAH Steel"),
+ "고려아연":("고려아연","Korea Zinc"),"영풍":("영풍","Young Poong"),"LS MnM":("LS MnM","LS MnM Inc."),
+ "HD현대일렉트릭":("HD현대일렉트릭","HD Hyundai Electric"),"LS일렉트릭":("LS일렉트릭","LS ELECTRIC"),
+ "대한전선":("대한전선","Taihan Cable"),"효성중공업":("효성중공업","Hyosung Heavy Industries"),"일진전기":("일진전기","Iljin Electric"),
+ "LS전선":("LS전선","LS Cable & System"),"LS M&M":("LS M&M","LS MnM"),"LS지주":("LS지주","LS Corp"),
+ "두산에너빌리티":("두산에너빌리티","Doosan Enerbility"),"GS":("GS",),"GS칼텍스":("GS칼텍스","GS Caltex"),
+ "한화솔루션":("한화솔루션","Hanwha Solutions"),"OCI":("OCI",),"OCI홀딩스":("OCI홀딩스","OCI Holdings"),
+ "씨에스윈드":("씨에스윈드","CS Wind"),"태광":("태광","Taekwang"),"동성케미칼":("동성케미칼","Dongsung Chemical"),
+ "DL케미칼":("DL케미칼","DL Chemical"),"LG화학":("LG화학","LG Chem"),"롯데케미칼":("롯데케미칼","Lotte Chemical"),
+ "금호석유화학":("금호석유화학","Kumho Petrochemical"),"효성첨단소재":("효성첨단소재","Hyosung Advanced Materials"),
+ "코오롱인더":("코오롱인더","Kolon Industries"),
+ "한국철강협회":("한국철강협회","Korea Iron & Steel Association"),"한국풍력산업협회":("한국풍력산업협회","Korea Wind Energy Association"),
+ "민간LNG산업협회":("민간LNG산업협회","Korea Private LNG Industry Association"),"대한전기협회":("대한전기협회","Korea Electric Association"),
+ "한국전기산업진흥회":("한국전기산업진흥회","Korea Electrical Manufacturers Association"),"한국원자력산업협회":("한국원자력산업협회","Korea Nuclear Association"),
 }
 OFFICIAL_DOMAINS={
- "motie.go.kr":"산업부","molit.go.kr":"국토부","ftc.go.kr":"공정위","kostat.go.kr":"통계청",
- "korea.kr":"정부","moef.go.kr":"기재부","customs.go.kr":"관세청","me.go.kr":"환경부","kma.go.kr":"기상청",
- "g2b.go.kr":"조달청","kipris.or.kr":"특허청·KIPRIS","kipo.go.kr":"특허청","fss.or.kr":"금감원·DART",
- "dart.fss.or.kr":"DART","nhtsa.gov":"NHTSA","ustr.gov":"USTR","trade.gov":"미 상무부",
- "ec.europa.eu":"EU 집행위","europa.eu":"EU","sec.gov":"SEC","epa.gov":"EPA","energy.gov":"미 에너지부","bis.gov":"BIS"
+ "motie.go.kr":"산업부","molit.go.kr":"국토부","ftc.go.kr":"공정위","kostat.go.kr":"통계청","korea.kr":"정부","moef.go.kr":"기재부",
+ "customs.go.kr":"관세청","me.go.kr":"환경부","kma.go.kr":"기상청","g2b.go.kr":"조달청","pps.go.kr":"조달청",
+ "kipris.or.kr":"특허청·KIPRIS","kipo.go.kr":"특허청","fss.or.kr":"금감원·DART","dart.fss.or.kr":"DART","kind.krx.co.kr":"KIND",
+ "car.go.kr":"자동차리콜센터","eiass.go.kr":"환경영향평가","law.go.kr":"법령·입법","lawmaking.go.kr":"입법예고",
+ "nhtsa.gov":"NHTSA","epa.gov":"EPA","sec.gov":"SEC","ustr.gov":"USTR","trade.gov":"미 상무부","ec.europa.eu":"EU 집행위","eur-lex.europa.eu":"EU",
+ "ids.usitc.gov":"USITC","usitc.gov":"USITC","rulings.cbp.gov":"CBP CROSS","cbp.gov":"CBP","unece.org":"UNECE WP.29",
+ "samr.gov.cn":"중국 SAMR","cnca.gov.cn":"중국 인증","j-platpat.inpit.go.jp":"J-PlatPat","safetygate.ec.europa.eu":"EU Safety Gate",
+ "seoul.go.kr":"서울시","gg.go.kr":"경기도","investkorea.org":"Invest Korea",
+ "hyundai.com":"현대차","kia.com":"기아","mobis.com":"현대모비스","hyundai-wia.com":"현대위아","hlmando.com":"HL만도",
+ "gm-korea.co.kr":"한국GM","kg-mobility.com":"KG모빌리티","mercedes-benz.co.kr":"메르세데스벤츠코리아","volkswagen.co.kr":"폭스바겐코리아",
+ "bmw.co.kr":"BMW코리아","renault.co.kr":"르노코리아","audi.co.kr":"아우디코리아","honda.co.kr":"혼다코리아",
+ "hankooktire.com":"한국타이어","nexentire.com":"넥센타이어","kumhotire.com":"금호타이어",
+ "posco.com":"포스코","hyundai-steel.com":"현대제철","seah.co.kr":"세아","koreazinc.co.kr":"고려아연","youngpoong.co.kr":"영풍",
+ "ls-electric.com":"LS일렉트릭","taihan.com":"대한전선","hyosung.com":"효성","iljinelectric.co.kr":"일진전기","lscns.co.kr":"LS전선",
+ "lscorp.co.kr":"LS지주","doosanenerbility.com":"두산에너빌리티","gscaltex.com":"GS칼텍스","hanwhasolutions.com":"한화솔루션",
+ "oci.co.kr":"OCI","oci-holdings.co.kr":"OCI홀딩스","cswind.com":"씨에스윈드","taekwang.com":"태광",
+ "dongsungchemical.com":"동성케미칼","dlchem.com":"DL케미칼"
 }
 COMPANY_DOMAINS={
- "현대차":"hyundai.com","기아":"kia.com","현대모비스":"mobis.com","포스코":"posco.com",
- "현대제철":"hyundai-steel.com","고려아연":"koreazinc.co.kr","LS ELECTRIC":"ls-electric.com",
- "두산에너빌리티":"doosanenerbility.com","GS칼텍스":"gscaltex.com","한화솔루션":"hanwhasolutions.com",
- "LG화학":"lgchem.com","롯데케미칼":"lottechem.com"
+ "현대차":"hyundai.com","기아":"kia.com","현대모비스":"mobis.com","현대위아":"hyundai-wia.com","HL만도":"hlmando.com",
+ "한국GM":"gm-korea.co.kr","KG모빌리티":"kg-mobility.com","메르세데스벤츠코리아":"mercedes-benz.co.kr","폭스바겐코리아":"volkswagen.co.kr",
+ "BMW코리아":"bmw.co.kr","르노코리아":"renault.co.kr","아우디코리아":"audi.co.kr","혼다코리아":"honda.co.kr",
+ "한국타이어":"hankooktire.com","넥센타이어":"nexentire.com","금호타이어":"kumhotire.com","포스코":"posco.com","현대제철":"hyundai-steel.com",
+ "세아홀딩스":"seah.co.kr","고려아연":"koreazinc.co.kr","영풍":"youngpoong.co.kr","LS일렉트릭":"ls-electric.com",
+ "대한전선":"taihan.com","두산에너빌리티":"doosanenerbility.com","GS칼텍스":"gscaltex.com","한화솔루션":"hanwhasolutions.com",
+ "OCI":"oci.co.kr","OCI홀딩스":"oci-holdings.co.kr","태광":"taekwang.com","동성케미칼":"dongsungchemical.com","DL케미칼":"dlchem.com"
 }
 NOISE_RE=re.compile(r"주가|증권|목표주가|급등|급락|관련주|테마주|특징주|장중|종목|추천주|리포트",re.I)
 WEAK_RE=re.compile(r"사회공헌|기부|봉사|채용|수상|캠페인|축제|전시|세미나|포럼|강연|홍보대사|혜택|이벤트|모먼트|스토리|재단|장학|펠로|양궁|칵테일|아트워크|우수조",re.I)
-HARD_SIGNAL_RE=re.compile(r"정책|규제|시행|고시|법안|입법|관세|반덤핑|특허|출원|등록|대표이사|임원|사내이사|사외이사|선임|취임|퇴임|조직개편|신설|투자|출자|증설|공장|법인|합병|분할|인수|매각|철수|수주|계약|공급|발주|입찰|생산|가동|감산|가격|원가|마진|배터리|ESS|HVDC|변압기|해저케이블|해상풍력|자율주행|리콜|조업정지",re.I)
-TOPIC_RE=re.compile(r"자동차|전기차|배터리|철강|비철|구리|아연|니켈|전력|변압기|HVDC|케이블|풍력|태양광|ESS|에너지|석유화학|화학|소재|공장|수출|관세|산업단지|자율주행|데이터센터|원전",re.I)
+HARD_SIGNAL_RE=re.compile(r"정책|규제|시행|고시|법안|입법|예고|결정고시|행정처분|관세|반덤핑|상계관세|특허|출원|등록|특허심판|심판|상표|디자인|대표이사|임원|사내이사|사외이사|선임|취임|퇴임|조직개편|신설|투자|출자|증설|공장|법인|합병|분할|인수|매각|철수|수주|계약|공급|발주|입찰|낙찰|생산|가동|감산|가격|원가|마진|배터리|ESS|HVDC|변압기|해저케이블|해상풍력|자율주행|리콜|결함|제작결함|무상수리|조사개시|인증|형식승인|환경영향|환경성평가|건축허가|사업계획승인|산업단지|소송|제소|가처분|판결|행정심판",re.I)
+TOPIC_RE=re.compile(r"자동차|전기차|하이브리드|PBV|자율주행|ADAS|타이어|배터리|철강|열연|냉연|후판|강관|비철|구리|아연|니켈|전력|변압기|HVDC|케이블|해저케이블|풍력|태양광|ESS|에너지|LNG|원전|수소|석유화학|화학|소재|공장|수출|관세|산업단지|데이터센터|재생에너지",re.I)
 NUM_RE=re.compile(r"(?<!\d)(?:\d{1,3}(?:,\d{3})+|\d+(?:\.\d+)?)(?:조원|억원|만원|달러|만대|천대|대|명|%|GWh|MWh|kWh|톤|km|MW|GW)(?!\w)",re.I)
 
 PRIMARY_QUERY_SETS=[
-    ("정책·규제","site:motie.go.kr (정책 OR 고시 OR 시행 OR 법안 OR 제도 OR 관세 OR 통상) (자동차 OR 전기차 OR 배터리 OR 철강 OR 전력 OR ESS OR 에너지)"),
-    ("정책·규제","site:molit.go.kr (고시 OR 시행 OR 입법예고 OR 정책 OR 제도 OR 안전기준 OR 리콜) (자동차 OR 자율주행 OR 전기차 OR 차량)"),
-    ("정책·규제","site:ftc.go.kr (기업결합 OR 인수 OR 합병 OR 분할 OR 담합 OR 부당지원) (현대차 OR 기아 OR 자동차 OR 부품 OR 배터리)"),
-    ("정책·규제","site:customs.go.kr (자동차 OR 철강 OR 배터리 OR 부품) (관세 OR 반덤핑 OR 통관 OR 원산지)"),
-    ("정책·규제","site:me.go.kr (배출가스 OR 탄소 OR 배출권 OR 환경영향 OR 화학물질) (자동차 OR 배터리 OR 철강 OR 공장)"),
-    ("정책·규제","site:keco.or.kr (자동차 OR 배터리 OR 폐배터리 OR 탄소) (기준 OR 인증 OR 규제 OR 회수)"),
-    ("정책·규제","site:law.go.kr (자동차 OR 전기차 OR 자율주행 OR 배터리 OR 철강 OR 전력) (법령 OR 시행령 OR 고시 OR 입법예고)"),
-    ("거래소·공시","site:kind.krx.co.kr (현대차 OR 기아 OR 현대모비스 OR 포스코 OR 현대제철 OR LS일렉트릭 OR 두산에너빌리티 OR 세아제강) (공시 OR 조회공시 OR 임원 OR 최대주주 OR 자사주 OR 분할 OR 합병 OR 투자)"),
-    ("조달·발주","site:g2b.go.kr (자동차 OR 전기차 OR 충전 OR 배터리 OR 변압기 OR HVDC OR ESS OR 전력망) (입찰 OR 발주 OR 낙찰 OR 계약 OR 구매)"),
-    ("조달·발주","site:pps.go.kr (자동차 OR 전기차 OR 충전 OR 전력기기 OR ESS) (조달 OR 입찰 OR 계약)"),
-    ("특허·기술","site:kipris.or.kr (현대차 OR 기아 OR 현대모비스 OR 현대위아 OR 현대트랜시스 OR 포스코 OR 현대제철 OR LS일렉트릭 OR 두산에너빌리티) (특허 OR 출원 OR 등록)"),
-    ("특허·기술","site:kipo.go.kr (현대차 OR 기아 OR 현대모비스 OR 포스코 OR 현대제철 OR LS일렉트릭 OR 두산에너빌리티) (특허 OR 출원 OR 등록 OR 심사)"),
-    ("특허·기술","site:patents.google.com (Hyundai OR Kia OR "Hyundai Mobis" OR POSCO OR "Hyundai Steel" OR "LS Electric") (autonomous OR battery OR vehicle OR lidar OR robot OR transformer OR HVDC)"),
-    ("기업 원자료","site:hyundai.com (invest OR investment OR plant OR factory OR hiring OR executive OR board OR autonomous OR battery OR software OR mobility)"),
-    ("기업 원자료","site:kia.com (invest OR plant OR factory OR executive OR board OR autonomous OR battery OR EV OR PBV)"),
-    ("기업 원자료","site:mobis.com (investment OR plant OR executive OR patent OR autonomous OR lamp OR sensor OR ADAS)"),
-    ("기업 원자료","site:posco.com (investment OR plant OR steel OR hydrogen OR non-core OR executive OR board)"),
-    ("기업 원자료","site:hyundai-steel.com (investment OR plant OR production OR steel OR executive OR board)"),
-    ("기업 원자료","site:ls-electric.com (transformer OR HVDC OR grid OR data center OR investment OR plant OR executive)"),
-    ("기업 원자료","site:doosanenerbility.com (contract OR investment OR plant OR gas turbine OR hydrogen OR nuclear OR executive)"),
-    ("기업 원자료","site:seah.co.kr (steel OR pipe OR OCTG OR investment OR plant OR executive)"),
-    ("해외 규제","site:nhtsa.gov (Hyundai OR Kia OR Genesis OR battery OR autonomous) (recall OR investigation OR defect OR petition OR complaint)"),
-    ("해외 규제","site:epa.gov (Hyundai OR Kia OR automotive OR battery) (emissions OR certification OR penalty OR settlement)"),
-    ("해외 규제","site:sec.gov (Hyundai OR Kia OR battery OR automotive OR POSCO) (filing OR 8-K OR acquisition OR investment OR executive)"),
-    ("통상·해외","site:ustr.gov (automotive OR steel OR battery OR Korea) (tariff OR antidumping OR investigation OR agreement)"),
-    ("통상·해외","site:trade.gov (steel OR automotive OR battery OR Korea) (tariff OR antidumping OR investigation)"),
-    ("통상·해외","site:ec.europa.eu (automotive OR steel OR battery OR Korean) (tariff OR antidumping OR safeguard OR regulation)"),
-    ("통상·해외","site:eur-lex.europa.eu (automotive OR battery OR steel OR vehicle) (regulation OR implementing OR tariff)"),
-    ("지역 인허가","site:seoul.go.kr (현대차 OR 기아 OR 자동차 OR 전기차 OR 충전) (인허가 OR 건축허가 OR 산업 OR 공장 OR 교통)"),
-    ("지역 인허가","site:gg.go.kr (현대차 OR 기아 OR 자동차 OR 배터리 OR 공장) (인허가 OR 투자 OR 착공 OR 산업단지)"),
-    ("지역 인허가","site:investkorea.org (현대차 OR 기아 OR 배터리 OR 자동차 OR 공장) (투자 OR 착공 OR 유치 OR 외투)"),
+ ("정책·규제","site:motie.go.kr (정책 OR 고시 OR 시행 OR 법안 OR 제도 OR 관세 OR 통상 OR 공급망) (자동차 OR 철강 OR 비철 OR 전력기기 OR 전선 OR LNG OR 원전 OR 수소 OR 풍력 OR 태양광 OR 화학 OR 소재)"),
+ ("정책·규제","site:molit.go.kr (고시 OR 시행 OR 입법예고 OR 정책 OR 제도 OR 안전기준 OR 리콜 OR 자동차관리 OR 자율주행) (자동차 OR 차량 OR 타이어 OR 전기차)"),
+ ("정책·규제","site:ftc.go.kr (기업결합 OR 인수 OR 합병 OR 분할 OR 담합 OR 부당지원 OR 하도급) (자동차 OR 철강 OR 전력 OR 에너지 OR 화학 OR 소재)"),
+ ("정책·규제","site:customs.go.kr (자동차 OR 철강 OR 배터리 OR 부품 OR 구리 OR 알루미늄 OR 전력기기) (관세 OR 반덤핑 OR 통관 OR 원산지 OR 품목분류)"),
+ ("정책·규제","site:me.go.kr (배출가스 OR 탄소 OR 배출권 OR 환경영향 OR 화학물질 OR 대기오염 OR 폐기물) (자동차 OR 철강 OR 공장 OR 화학 OR 풍력 OR 태양광 OR LNG OR 수소)"),
+ ("정책·규제","site:keco.or.kr (자동차 OR 배터리 OR 폐배터리 OR 탄소 OR 배출권) (기준 OR 인증 OR 규제 OR 회수)"),
+ ("정책·규제","site:law.go.kr (자동차 OR 전기차 OR 자율주행 OR 철강 OR 전력 OR HVDC OR LNG OR 원전 OR 풍력 OR 화학) (법령 OR 시행령 OR 시행규칙 OR 고시 OR 입법예고)"),
+ ("정책·규제","site:lawmaking.go.kr (자동차 OR 철강 OR 전력 OR 에너지 OR 화학 OR 소재) (입법예고 OR 법령안 OR 일부개정령안)"),
+ ("자동차 결함","site:car.go.kr (현대 OR 기아 OR 제네시스 OR 현대모비스 OR 한국GM OR KGM OR 벤츠 OR 폭스바겐 OR BMW OR 르노 OR 아우디 OR 혼다 OR 한국타이어 OR 넥센 OR 금호타이어) (리콜 OR 결함 OR 무상수리 OR 제작결함 OR 신고 OR 조사)"),
+ ("자동차 결함","site:car.go.kr (자동차 OR 타이어 OR 전기차) (리콜 OR 결함 OR 무상수리 OR 제작결함 OR 신고)"),
+ ("자동차 인증","site:epa.gov (Hyundai OR Kia OR Genesis OR Mercedes OR Volkswagen OR BMW OR Renault OR Audi OR Honda OR automotive) (certificate OR certification OR emissions OR family)"),
+ ("자동차 규제","site:nhtsa.gov (Hyundai OR Kia OR Genesis OR Mercedes OR Volkswagen OR BMW OR Renault OR Audi OR Honda) (recall OR investigation OR defect OR petition OR complaint OR manufacturer communication)"),
+ ("환경·인허가","site:eiass.go.kr (현대차 OR 기아 OR 포스코 OR 현대제철 OR KG스틸 OR 세아 OR 고려아연 OR 영풍 OR LS OR 두산 OR 한화 OR OCI OR 공장 OR 산업단지) (환경영향평가 OR 환경성평가 OR 사업조회)"),
+ ("환경·인허가","site:seoul.go.kr (현대차 OR 기아 OR 포스코 OR LS OR 자동차 OR 철강 OR 전력 OR 에너지 OR 공장) (인허가 OR 건축허가 OR 심의 OR 도시계획 OR 산업 OR 착공 OR 사업계획)"),
+ ("환경·인허가","site:gg.go.kr (현대차 OR 기아 OR 포스코 OR 현대제철 OR KG스틸 OR 세아 OR 공장 OR 배터리 OR 전력) (인허가 OR 투자 OR 착공 OR 산업단지 OR 환경영향 OR 심의)"),
+ ("환경·인허가","site:investkorea.org (현대차 OR 기아 OR 자동차 OR 철강 OR 전력 OR 에너지 OR 화학 OR 소재 OR 공장) (투자 OR 착공 OR 유치 OR 외투 OR 산업단지)"),
+ ("거래소·공시","site:kind.krx.co.kr (현대차 OR 기아 OR 현대모비스 OR 현대위아 OR 만도 OR 한국GM OR KG모빌리티 OR 포스코 OR 현대제철 OR KG스틸 OR 세아 OR 고려아연 OR 영풍 OR LS OR 두산에너빌리티 OR GS OR 한화솔루션 OR OCI OR 태광 OR 동성케미칼 OR DL케미칼) (공시 OR 조회공시 OR 임원 OR 최대주주 OR 자사주 OR 분할 OR 합병 OR 투자 OR 인수 OR 매각)"),
+ ("조달·발주","site:g2b.go.kr (자동차 OR 전기차 OR 충전 OR 타이어 OR 철강 OR 변압기 OR HVDC OR ESS OR 전력망 OR 케이블 OR LNG OR 원전 OR 풍력 OR 태양광) (입찰 OR 발주 OR 낙찰 OR 계약 OR 구매 OR 적격심사)"),
+ ("조달·발주","site:pps.go.kr (자동차 OR 전기차 OR 철강 OR 변압기 OR HVDC OR 전력기기 OR ESS OR 케이블 OR 원전) (조달 OR 입찰 OR 계약 OR 낙찰)"),
+ ("특허·기술","site:kipris.or.kr (현대차 OR 기아 OR 현대모비스 OR 현대위아 OR 만도 OR 한국GM OR KG모빌리티 OR 포스코 OR 현대제철 OR KG스틸 OR 세아 OR 고려아연 OR 영풍 OR LS OR 두산에너빌리티 OR GS칼텍스 OR 한화솔루션 OR OCI OR 태광 OR 동성케미칼 OR DL케미칼) (특허 OR 출원 OR 등록 OR 심판 OR 상표 OR 디자인)"),
+ ("특허·기술","site:kipo.go.kr (현대차 OR 기아 OR 현대모비스 OR 포스코 OR 현대제철 OR LS일렉트릭 OR 두산에너빌리티 OR 한화솔루션 OR OCI) (특허 OR 출원 OR 등록 OR 심판 OR 상표 OR 디자인)"),
+ ("특허·기술","site:patents.google.com (Hyundai OR Kia OR "Hyundai Mobis" OR "Hyundai Wia" OR "HL Mando" OR POSCO OR "Hyundai Steel" OR "Korea Zinc" OR "LS Electric" OR Doosan OR "Hanwha Solutions") (autonomous OR battery OR vehicle OR tire OR transformer OR HVDC OR wind OR hydrogen OR nuclear OR steel)"),
+ ("특허·기술","site:j-platpat.inpit.go.jp (Toyota OR Honda OR Nissan OR Hyundai OR Kia OR Denso OR Aisin) (patent OR trademark OR design)"),
+ ("분쟁·조사","site:usitc.gov (Hyundai OR Kia OR steel OR cable OR transformer OR battery OR tire OR Korea) (investigation OR petition OR complaint OR antidumping OR countervailing OR Section 337)"),
+ ("분쟁·조사","site:ids.usitc.gov (Hyundai OR Kia OR steel OR cable OR transformer OR battery OR tire OR Korea) (investigation OR petition OR instituted OR complaint)"),
+ ("분쟁·조사","site:rulings.cbp.gov (Hyundai OR Kia OR steel OR cable OR transformer OR battery OR tire OR Korea) (origin OR classification OR tariff)"),
+ ("해외 규제","site:unece.org (vehicle OR autonomous OR ADAS OR EV OR battery OR tire OR hydrogen) (regulation OR WP.29 OR GRVA OR GRSP OR GRPE OR proposal)"),
+ ("해외 규제","site:samr.gov.cn (Hyundai OR Kia OR Mercedes OR Volkswagen OR BMW OR Renault OR Audi OR Honda OR tire) (recall OR defect OR vehicle)"),
+ ("해외 규제","site:safetygate.ec.europa.eu (vehicle OR tire OR battery OR charger OR automotive) (alert OR recall OR safety)"),
+ ("해외 규제","site:sec.gov (Hyundai OR Kia OR automotive OR POSCO OR steel OR cable OR energy) (8-K OR acquisition OR investment OR executive OR agreement)"),
+ ("통상·해외","site:ustr.gov (automotive OR steel OR battery OR cable OR Korea) (tariff OR antidumping OR investigation OR agreement)"),
+ ("통상·해외","site:trade.gov (steel OR automotive OR cable OR battery OR Korea) (tariff OR antidumping OR investigation)"),
+ ("통상·해외","site:ec.europa.eu (automotive OR steel OR battery OR cable OR Korean) (tariff OR antidumping OR safeguard OR regulation)"),
+ ("통상·해외","site:eur-lex.europa.eu (automotive OR battery OR steel OR vehicle OR cable) (regulation OR implementing OR tariff OR antidumping)"),
 ]
 for company,domain in COMPANY_DOMAINS.items():
     PRIMARY_QUERY_SETS.append(("기업 원자료",f"site:{domain} ({company} OR investment OR 투자 OR 증설 OR 공장 OR 수주 OR 계약 OR 특허 OR 임원 OR 대표이사 OR 조직개편 OR board)"))
