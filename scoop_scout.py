@@ -22,6 +22,15 @@ AUTO = {
 IND = {
     "철강","비철금속","전력기기","전선·전력","에너지","재생에너지","화학·소재"
 }
+COMPANY_ALIASES = {
+    '현대차':('현대자동차','현대차'), '기아':('기아자동차','기아'),
+    'LG에너지솔루션':('LG엔솔','LG에너지솔루션'), '삼성SDI':('삼성SDI',),
+    'SK온':('SK온','SK on'), 'LS ELECTRIC':('LS일렉트릭','LS ELECTRIC'),
+    'HD현대일렉트릭':('HD현대일렉트릭',), '효성중공업':('효성중공업',),
+    'LS전선':('LS전선',), '대한전선':('대한전선',), '두산에너빌리티':('두산에너빌리티',),
+    'GS칼텍스':('GS칼텍스',), '한화솔루션':('한화솔루션',), '씨에스윈드':('씨에스윈드',),
+    'LG화학':('LG화학',), '롯데케미칼':('롯데케미칼',), '금호석유화학':('금호석유화학',)
+}
 TARGETS = [
     ("현대차","자동차"),("기아","자동차"),("제네시스","자동차"),("현대모비스","자동차"),
     ("현대위아","자동차"),("HL만도","자동차"),("현대트랜시스","자동차"),("현대글로비스","자동차"),("LG에너지솔루션","자동차"),("삼성SDI","자동차"),
@@ -189,13 +198,20 @@ def title_key(t: str) -> str:
     return re.sub(r"[^가-힣A-Za-z0-9]", "", (t or "").lower())[:160]
 
 def company_hits(s: str) -> list[str]:
-    return [name for name, _ in TARGETS if name.lower() in (s or "").lower()]
+    t=(s or "").lower()
+    out=[]
+    for name,_ in TARGETS:
+        aliases=COMPANY_ALIASES.get(name,(name,))
+        if any(a.lower() in t for a in aliases):
+            out.append(name)
+    return list(dict.fromkeys(out))
 
 def beat_for(s: str) -> str:
-    hits = [beat for name, beat in TARGETS if name.lower() in (s or "").lower()]
-    if hits:
-        return hits[0]
-    return "산업부"
+    for name,beat in TARGETS:
+        aliases=COMPANY_ALIASES.get(name,(name,))
+        if any(a.lower() in (s or "").lower() for a in aliases):
+            return beat
+    return "정책·통상"
 
 def is_bad(x: dict) -> bool:
     t = (x.get("title") or "") + " " + (x.get("summary") or "")
@@ -270,11 +286,25 @@ def score_candidate(x: dict, same_source: int, same_issue_sources: int, history:
     if history: score-=min(24,max(0,len(history)-1)*8)
     return max(0,min(99,score))
 
-def make_candidate(x: dict, all_hits: list[dict], archive: list[dict]) -> dict:
+def data_matches(title: str, data: list[dict]) -> list[dict]:
+    out=[]
+    for row in data:
+        if row.get("global"): continue
+        old=row.get("title") or ""
+        sim=similarity(title,old)
+        if sim>=0.45:
+            out.append((sim,row))
+    out.sort(key=lambda z:z[0],reverse=True)
+    return [row for _,row in out[:8]]
+
+def make_candidate(x: dict, all_hits: list[dict], archive: list[dict], data: list[dict]) -> dict:
     title=x.get("title") or ""
     issue=canonical_issue(title)
     issue_hits=[h for h in all_hits if similarity(issue,canonical_issue(h.get("title") or ""))>=0.55]
+    db_matches=data_matches(title,data)
+    own_match=any(OWN_RE.search(str(r.get("sourceName") or "")) for r in db_matches)
     base_sources=x.get("coveredBy") or ([x.get("sourceName")] if x.get("sourceName") else [])
+    base_sources.extend([r.get("sourceName") for r in db_matches if r.get("sourceName")])
     distinct_sources=list(dict.fromkeys([*base_sources,*[h.get("sourceName") for h in issue_hits if h.get("sourceName")]]))
     history=in_archive(title,archive,4)
     companies=company_hits((title+" "+x.get("summary","")))
@@ -337,6 +367,8 @@ def make_candidate(x: dict, all_hits: list[dict], archive: list[dict]) -> dict:
         "companies":companies[:5],
         "sources":source_rows,
         "history":[{"title":h.get("title"),"source":h.get("sourceName"),"published":h.get("published")} for h in history],
+        "newsroomMatches":[{"title":r.get("title"),"source":r.get("sourceName"),"published":r.get("published")} for r in db_matches[:5]],
+        "alreadyCoveredByUs":own_match,
         "questions":questions,
         "firstSeenAt":x.get("published"),
         "firstSeenSource":x.get("sourceName"),
@@ -390,7 +422,9 @@ def main():
         if x in data and spread>4 and not new_fact:
             continue
 
-        c=make_candidate(x,pool,archive)
+        c=make_candidate(x,pool,archive,data)
+        if c.get("alreadyCoveredByUs"):
+            continue
         if c["score"]<55:
             continue
         joined=(title+" "+x.get("summary","")).lower()
