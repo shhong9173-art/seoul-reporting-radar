@@ -283,42 +283,65 @@ def newsroom_matches(title,data):
     out.sort(key=lambda z:z[0],reverse=True)
     return [r for _,r in out[:8]]
 
+def event_signal_terms(text):
+    return set(re.findall(
+        r"조업정지|생산중단|가동중단|생산조정|생산계획|공급중단|공급차질|대체투입|생산라인|공급사|재고|납기|가격인상|가격인하|매각|인수|우선협상|거래종결|분할|합병|철수|신설법인|조직개편|대표이사|사장|임원|선임|퇴임|인허가|환경영향|건축허가|사업계획승인|착공|증설|공장|리콜|결함|조사개시|행정처분|소송|제소|판결|특허심판|특허|출원|등록|상표|디자인|인증|형식승인|관세|반덤핑|상계관세|수주|계약|발주|입찰|낙찰|자금조달|유상증자|회사채|PRS|보조금|지원금|신용등급|수시평가|재무구조",
+        str(text or ""),re.I))
+
+def event_match_score(x,h):
+    title=(x.get("title") or "").strip()
+    htitle=(h.get("title") or "").strip()
+    if not title or not htitle:return 0.0
+    xtext=title+" "+(x.get("summary") or "")
+    htext=htitle+" "+(h.get("summary") or "")
+    companies=target_hits(xtext)
+    same_company=bool(companies) and any(c.lower() in htext.lower() for c in companies)
+    tsim=similarity(title,htitle)
+    ssim=similarity((x.get("summary") or "")[:1800],(h.get("summary") or "")[:1800])
+    shared_terms=len(event_signal_terms(title)&event_signal_terms(htitle))
+    nums_x=set(NUM_RE.findall(xtext)); nums_h=set(NUM_RE.findall(htext))
+    shared_nums=len(nums_x&nums_h)
+    if same_company and shared_terms>=2 and tsim>=0.28:
+        return 0.72+min(0.18,shared_terms*0.025)+min(0.10,shared_nums*0.03)
+    if same_company and shared_terms>=1 and (shared_nums>=1 or tsim>=0.42):
+        return 0.62+min(0.16,shared_terms*0.02)+min(0.10,shared_nums*0.03)
+    if tsim>=0.56 or (tsim>=0.42 and ssim>=0.20):
+        return 0.58
+    return 0.0
+
 def coverage_search(x):
     title=(x.get("title") or "").strip()
     if len(title)<8:return []
     joined=title+" "+(x.get("summary") or "")
     companies=target_hits(joined)
-    nums=list(dict.fromkeys(NUM_RE.findall(joined)))[:3]
-    stop={"정책","사업","결정","주요","사항","관련","전체","상세보기","행정규칙","훈령","예규","고시","기업","회사","신규","공급계약","체결","발표","현황","자동차","산업"}
+    stop={"정책","사업","결정","주요","사항","관련","전체","상세보기","행정규칙","훈령","예규","고시","기업","회사","신규","공급계약","체결","발표","현황","자동차","산업","원자료","확인"}
     raw=[w for w in re.findall(r"[가-힣A-Za-z0-9]{2,}",title) if w not in stop]
-    hard=[w for w in raw if re.search(r"물적분할|인적분할|분할|합병|매각|인수|철수|신설|조직개편|대표이사|사내이사|특허|출원|등록|자율주행|공장|증설|투자|수주|계약|공급|관세|반덤핑|리콜|생산|가동|ESS|HVDC|변압기",w,re.I)]
+    signal_words=[w for w in raw if re.search(r"조업정지|생산중단|가동중단|공급중단|대체투입|생산라인|공급사|재고|납기|매각|인수|우선협상|거래종결|분할|합병|철수|신설|조직개편|대표이사|임원|선임|퇴임|인허가|환경영향|건축허가|착공|증설|공장|리콜|결함|조사|행정처분|소송|판결|특허|출원|등록|상표|디자인|인증|형식승인|관세|반덤핑|수주|계약|발주|입찰|낙찰|자금조달|유상증자|회사채|PRS|보조금|지원금",w,re.I)]
     queries=[]
-    if companies:
-        queries.append((companies[0]+" "+" ".join(hard[:4] or raw[:5])+" "+" ".join(nums[:2])).strip())
-    queries.append(" ".join(raw[:8]))
+    company=companies[0] if companies else ""
+    core=signal_words[:4] or raw[:6]
+    if company and core:
+        queries.append((company+" "+" ".join(core[:4])).strip())
+        queries.append((company+" "+" ".join(core[:2])).strip())
+    elif core:
+        queries.append(" ".join(core[:6]))
+    if len(core)>=2:queries.append(f'"{core[0]}" "{core[1]}"')
+    if company and len(core)>=1:queries.append(f'"{company}" "{core[0]}"')
+    if company and len(raw)>=3:queries.append(f'"{company}" "{" ".join(raw[1:4])}"')
     out=[];seen=set()
-    for q in queries[:2]:
+    for q in queries[:5]:
         if len(q)<8:continue
-        for h in google_rss("coverage",q,max_items=10):
+        for h in google_rss("coverage",q,max_items=12,lookback_days=COVERAGE_LOOKBACK_DAYS):
             if h.get("official") or h.get("sourceName")=="Google News":continue
             key=h.get("url") or (h.get("sourceName","")+"|"+h.get("title",""))
             if key not in seen:
                 seen.add(key);out.append(h)
     scored=[]
     for h in out:
-        ht=h.get("title") or ""; hs=h.get("summary") or ""
-        tsim=similarity(title,ht); ssim=similarity((x.get("summary") or "")[:1600],hs[:1600])
-        n1=set(nums); n2=set(NUM_RE.findall(ht+" "+hs))
-        act1=set(re.findall(r"수주|계약|공급|투자|증설|공장|생산|가동|감산|철수|매각|인수|분할|합병|특허|출원|등록|선임|취임|퇴임|관세|반덤핑|리콜|자율주행|ESS|HVDC|변압기",title))
-        act2=set(re.findall(r"수주|계약|공급|투자|증설|공장|생산|가동|감산|철수|매각|인수|분할|합병|특허|출원|등록|선임|취임|퇴임|관세|반덤핑|리콜|자율주행|ESS|HVDC|변압기",ht+" "+hs))
-        same_company=bool(companies) and any(c.lower() in (ht+" "+hs).lower() for c in companies)
-        shared_nums=len(n1&n2); shared_actions=len(act1&act2)
-        if tsim>=0.52 or (tsim>=0.38 and ssim>=0.22) or (same_company and shared_nums>=1 and shared_actions>=1):
-            quality=tsim*65+ssim*20+min(10,shared_nums*5)+min(5,shared_actions*2)+(5 if same_company else 0)
-            scored.append((quality,h))
+        quality=event_match_score(x,h)
+        if quality>0:scored.append((quality,h))
     scored.sort(key=lambda z:z[0],reverse=True)
-    return [h for _,h in scored[:8]]
-
+    return [h for _,h in scored[:12]]
 def fetch_dart_document(receipt):
     key=os.environ.get("DART_API_KEY","").strip()
     if not key or not receipt:return ""
