@@ -126,7 +126,7 @@ PRIMARY_QUERY_SETS=[
  ("조달·발주","site:pps.go.kr (자동차 OR 전기차 OR 철강 OR 변압기 OR HVDC OR 전력기기 OR ESS OR 케이블 OR 원전) (조달 OR 입찰 OR 계약 OR 낙찰)"),
  ("특허·기술","site:kipris.or.kr (현대차 OR 기아 OR 현대모비스 OR 현대위아 OR 만도 OR 한국GM OR KG모빌리티 OR 포스코 OR 현대제철 OR KG스틸 OR 세아 OR 고려아연 OR 영풍 OR LS OR 두산에너빌리티 OR GS칼텍스 OR 한화솔루션 OR OCI OR 태광 OR 동성케미칼 OR DL케미칼) (특허 OR 출원 OR 등록 OR 심판 OR 상표 OR 디자인)"),
  ("특허·기술","site:kipo.go.kr (현대차 OR 기아 OR 현대모비스 OR 포스코 OR 현대제철 OR LS일렉트릭 OR 두산에너빌리티 OR 한화솔루션 OR OCI) (특허 OR 출원 OR 등록 OR 심판 OR 상표 OR 디자인)"),
- ("특허·기술","site:patents.google.com (Hyundai OR Kia OR "Hyundai Mobis" OR "Hyundai Wia" OR "HL Mando" OR POSCO OR "Hyundai Steel" OR "Korea Zinc" OR "LS Electric" OR Doosan OR "Hanwha Solutions") (autonomous OR battery OR vehicle OR tire OR transformer OR HVDC OR wind OR hydrogen OR nuclear OR steel)"),
+ ("특허·기술",'site:patents.google.com (Hyundai OR Kia OR "Hyundai Mobis" OR "Hyundai Wia" OR "HL Mando" OR POSCO OR "Hyundai Steel" OR "Korea Zinc" OR "LS Electric" OR Doosan OR "Hanwha Solutions") (autonomous OR battery OR vehicle OR tire OR transformer OR HVDC OR wind OR hydrogen OR nuclear OR steel)'),
  ("특허·기술","site:j-platpat.inpit.go.jp (Toyota OR Honda OR Nissan OR Hyundai OR Kia OR Denso OR Aisin) (patent OR trademark OR design)"),
  ("분쟁·조사","site:usitc.gov (Hyundai OR Kia OR steel OR cable OR transformer OR battery OR tire OR Korea) (investigation OR petition OR complaint OR antidumping OR countervailing OR Section 337)"),
  ("분쟁·조사","site:ids.usitc.gov (Hyundai OR Kia OR steel OR cable OR transformer OR battery OR tire OR Korea) (investigation OR petition OR instituted OR complaint)"),
@@ -176,10 +176,15 @@ def similarity(a,b):
 def target_hits(s):
     t=(s or "").lower();out=[]
     for name,_ in TARGETS:
-        if any(a.lower() in t for a in ALIASES.get(name,(name,))):
-            out.append(name)
+        matched=False
+        for alias in ALIASES.get(name,(name,)):
+            a=alias.lower()
+            if re.fullmatch(r"[a-z0-9 ]{2,}",a):
+                if re.search(r"(?<![a-z0-9])"+re.escape(a)+r"(?![a-z0-9])",t):matched=True;break
+            elif a in t:
+                matched=True;break
+        if matched:out.append(name)
     return list(dict.fromkeys(out))
-
 def beat_for(s):
     for name,beat in TARGETS:
         if any(a.lower() in (s or "").lower() for a in ALIASES.get(name,(name,))):
@@ -336,10 +341,10 @@ def dart_title(corp,report,blob,nums):
 
 def candidate_kind(title,category):
     t=(title or "").lower()
-    if any(w in t for w in ("리콜","결함","제작결함","무상수리","investigation","complaint","recall","defect")):return "결함·리콜"
+    if any(w in t for w in ("리콜","결함","제작결함","무상수리","recall","defect")) or category=="자동차 결함":return "결함·리콜"
     if any(w in t for w in ("인증","형식승인","certificate","certification","type approval")):return "인증·형식승인"
     if any(w in t for w in ("환경영향","환경성평가","환경입지","건축허가","인허가","개발행위","사업계획승인","산업단지","착공","심의")):return "인허가·환경"
-    if any(w in t for w in ("소송","제소","가처분","판결","행정심판","특허심판","분쟁","petition","complaint")):return "소송·분쟁"
+    if any(w in t for w in ("소송","제소","가처분","판결","행정심판","특허심판","분쟁","petition","complaint","investigation")):return "소송·분쟁"
     if any(w in t for w in ("상표","디자인","trademark","design patent")):return "상표·디자인"
     if any(w in t for w in ("대표이사","임원","이사","선임","취임","퇴임","인사","조직개편","경영진")):return "인사"
     if any(w in t for w in ("특허","출원","등록","patent")):return "특허·기술"
@@ -350,7 +355,6 @@ def candidate_kind(title,category):
     if any(w in t for w in ("투자","증설","공장","생산라인","생산","가동","신규법인")):return "신사업·투자"
     if any(w in t for w in ("수주","계약","공급","납품")):return "계약·수주"
     return category or "기업 원자료"
-
 def build_pitch(x,kind,companies,numbers):
     base=re.sub(r"\s*[-|｜].*$","",(x.get("title") or "")).strip()
     if kind=="결함·리콜":
