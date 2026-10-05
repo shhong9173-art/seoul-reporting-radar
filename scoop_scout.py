@@ -153,16 +153,40 @@ def newsroom_matches(title,data):
     return [r for _,r in out[:8]]
 
 def coverage_search(x):
-    q=(x.get("title") or "").strip()
-    if len(q)<8:return []
-    q=re.sub(r"\s*[-|｜].*$","",q)
-    companies=target_hits(q)
-    nums=NUM_RE.findall(q+" "+x.get("summary",""))
-    words=[w for w in re.findall(r"[가-힣A-Za-z0-9]{2,}",q) if w not in {"정책","사업","결정","주요","사항","관련","전체"}]
-    phrase=" ".join(words[:10])
-    if companies:phrase=companies[0]+" "+phrase
-    if nums:phrase+=" "+" ".join(nums[:2])
-    return [h for h in google_rss("coverage",f'"{phrase}"',max_items=8) if not h.get("official") and h.get("sourceName") not in {"Google News"}]
+    title=(x.get("title") or "").strip()
+    if len(title)<8:return []
+    joined=title+" "+(x.get("summary") or "")
+    companies=target_hits(joined)
+    nums=list(dict.fromkeys(NUM_RE.findall(joined)))[:3]
+    stop={"정책","사업","결정","주요","사항","관련","전체","상세보기","행정규칙","훈령","예규","고시","기업","회사","신규","공급계약","체결","발표","현황","자동차","산업"}
+    raw=[w for w in re.findall(r"[가-힣A-Za-z0-9]{2,}",title) if w not in stop]
+    hard=[w for w in raw if re.search(r"물적분할|인적분할|분할|합병|매각|인수|철수|신설|조직개편|대표이사|사내이사|특허|출원|등록|자율주행|공장|증설|투자|수주|계약|공급|관세|반덤핑|리콜|생산|가동|ESS|HVDC|변압기",w,re.I)]
+    queries=[]
+    if companies:
+        queries.append((companies[0]+" "+" ".join(hard[:4] or raw[:5])+" "+" ".join(nums[:2])).strip())
+    queries.append(" ".join(raw[:8]))
+    out=[];seen=set()
+    for q in queries[:2]:
+        if len(q)<8:continue
+        for h in google_rss("coverage",q,max_items=10):
+            if h.get("official") or h.get("sourceName")=="Google News":continue
+            key=h.get("url") or (h.get("sourceName","")+"|"+h.get("title",""))
+            if key not in seen:
+                seen.add(key);out.append(h)
+    scored=[]
+    for h in out:
+        ht=h.get("title") or ""; hs=h.get("summary") or ""
+        tsim=similarity(title,ht); ssim=similarity((x.get("summary") or "")[:1600],hs[:1600])
+        n1=set(nums); n2=set(NUM_RE.findall(ht+" "+hs))
+        act1=set(re.findall(r"수주|계약|공급|투자|증설|공장|생산|가동|감산|철수|매각|인수|분할|합병|특허|출원|등록|선임|취임|퇴임|관세|반덤핑|리콜|자율주행|ESS|HVDC|변압기",title))
+        act2=set(re.findall(r"수주|계약|공급|투자|증설|공장|생산|가동|감산|철수|매각|인수|분할|합병|특허|출원|등록|선임|취임|퇴임|관세|반덤핑|리콜|자율주행|ESS|HVDC|변압기",ht+" "+hs))
+        same_company=bool(companies) and any(c.lower() in (ht+" "+hs).lower() for c in companies)
+        shared_nums=len(n1&n2); shared_actions=len(act1&act2)
+        if tsim>=0.52 or (tsim>=0.38 and ssim>=0.22) or (same_company and shared_nums>=1 and shared_actions>=1):
+            quality=tsim*65+ssim*20+min(10,shared_nums*5)+min(5,shared_actions*2)+(5 if same_company else 0)
+            scored.append((quality,h))
+    scored.sort(key=lambda z:z[0],reverse=True)
+    return [h for _,h in scored[:8]]
 
 def fetch_dart_document(receipt):
     key=os.environ.get("DART_API_KEY","").strip()
@@ -270,6 +294,58 @@ def build_pitch(x,kind,companies,numbers):
         return f"{base}…고객사·물량·기간은","계약 원문에서 고객사·물량·기간·단가·생산능력을 확인해 후속 수주 가능성을 취재"
     return f"{base}…새로 확인된 변화","원문 숫자와 담당 조직을 확인하고 출입처에서 실제 변화를 교차 확인"
 
+def source_tier(x):
+    label=str(x.get("officialLabel") or x.get("sourceName") or "")
+    if label in {"DART","특허청·KIPRIS","특허청","조달청"}: return 3
+    if label in {"산업부","국토부","공정위","관세청","기재부","환경부","금감원·DART","USTR","미국 상무부","EU 집행위","EU"}: return 3
+    if x.get("category")=="기업 원자료": return 2
+    return 1
+
+def extract_person(blob,corp):
+    pats=[
+        r"성명\\s+([가-힣A-Za-z·]{2,12})[^\\n]{0,80}?(?:직책|직위)\\s+([가-힣A-Za-z·\\s]{2,30})",
+        r"([가-힣]{2,5})\\s+(?:대표이사|사장|부사장|전무|상무|부문장|본부장|실장|사내이사|사외이사)",
+        r"(?:대표이사|사내이사|사외이사|이사|임원)\\s+([가-힣]{2,5})"
+    ]
+    for p in pats:
+        z=re.search(p,blob,re.I)
+        if z:
+            vals=[v.strip() for v in z.groups() if v and v.strip()]
+            if vals:return " ".join(vals[:2])
+    return corp
+
+def relevant_primary(x,companies,kind,joined):
+    t=joined.lower()
+    if kind in {"특허·기술","인사","사업재편","신사업·투자","계약·수주"}: return bool(companies)
+    if kind=="정책·규제":
+        terms=("전기차","자동차","차량","자율주행","리콜","배터리","충전","수소차","부품","배출가스","연비","안전기준","형식승인","관세","반덤핑","통상")
+        return bool(companies) or any(k in t for k in terms)
+    if kind=="조달·발주":
+        terms=("변압기","hvdc","전력망","ess","자동차","차량","배터리","충전")
+        return bool(companies) and any(k in t for k in terms)
+    return bool(companies)
+
+def scoop_headline(x,kind,corp,blob,nums):
+    base=(x.get("title") or "").strip()
+    if kind=="인사":
+        person=extract_person(blob,corp)
+        role=next((k for k in ("대표이사","사장","부사장","전무","상무","본부장","부문장","사내이사","사외이사","임원") if k in base+" "+blob),"")
+        return f"{corp}, {person} {role} 인사…배경은" if person!=corp else f"{corp}, 경영진 인사 확인…담당 사업은"
+    if kind=="특허·기술":
+        detail=next((k for k in ("자율주행","로보택시","배터리","충전","로봇","램프","차량","변압기","HVDC","전력망") if k in base+" "+blob),"신기술")
+        return f"{corp}, {detail} 특허 새로 확인…양산 적용하나"
+    if kind=="정책·규제":
+        clean_base=re.sub(r"\\s*[-|｜].*$","",base)
+        return f"{clean_base}…자동차 업계에 달라지는 규정은"
+    if kind=="사업재편":
+        if "물적분할" in base:return f"{corp}, 사업부문 물적분할…분할 대상·향후 사업은"
+        return f"{base}…실제 사업재편 내용은"
+    if kind=="신사업·투자":return f"{base}…투자 대상·가동 시점은"
+    if kind=="계약·수주":
+        return f"{corp}, 신규 계약 {nums[0]}…고객사·물량은" if nums else f"{base}…고객사·물량·기간은"
+    if kind=="조달·발주":return f"{base}…예산·물량·참여사는"
+    return base
+
 def main():
     data=json.loads(DATA.read_text(encoding="utf-8")) if DATA.exists() else []
     dart=json.loads(DART.read_text(encoding="utf-8")).get("items",[]) if DART.exists() else []
@@ -287,99 +363,157 @@ def main():
         if not report:continue
         ddt=parse_dt(d.get("date",""))
         if ddt<now-timedelta(days=14):continue
-        material=any(k in report for k in ("회사분할","영업정지","생산중단","신규시설투자","타법인주식및출자증권취득결정","단일판매ㆍ공급계약체결","유상증자","영업양수도","합병","대표이사","임원","이사선임"))
+        material=any(k in report for k in ("회사분할","영업정지","생산중단","신규시설투자","타법인주식및출자증권취득결정","단일판매ㆍ공급계약체결","유상증자","영업양수도","합병","대표이사","임원","이사선임","주요사항보고"))
         if ("기재정정" in report or "첨부정정" in report) and not material:continue
         if not HARD_SIGNAL_RE.search(report):continue
         blob,nums=dart_fact(d,numeric)
         primary.append({
             "category":"공시","title":dart_title(d.get("corpName",""),report,blob,nums),
-            "url":d.get("url",""),"published":ddt.isoformat(),"sourceName":"DART","summary":(d.get("signalText","")+" "+blob)[:7000],
-            "official":True,"officialLabel":"DART","receiptNo":d.get("receiptNo"),"dartNumbers":nums,"rawReport":report
+            "url":d.get("url",""),"published":ddt.isoformat(),"sourceName":"DART",
+            "summary":(d.get("signalText","")+" "+blob)[:12000],
+            "official":True,"officialLabel":"DART","receiptNo":d.get("receiptNo"),
+            "dartNumbers":nums,"rawReport":report
         })
 
     candidates=[];seen=set()
     for x in sorted(primary,key=lambda z:z.get("published",""),reverse=True):
-        title=(x.get("title") or "").strip();joined=title+" "+x.get("summary","")
+        title=(x.get("title") or "").strip()
+        joined=title+" "+x.get("summary","")
         if not title or NOISE_RE.search(title) or WEAK_RE.search(title):continue
-        if not HARD_SIGNAL_RE.search(joined):continue
-        if not TOPIC_RE.search(joined) and x.get("category") not in {"공시"}:continue
         companies=target_hits(joined)
         numbers=list(dict.fromkeys((x.get("dartNumbers") or [])+NUM_RE.findall(joined)))[:8]
-        if x.get("category")=="공시" and not companies:continue
-        if x.get("category")=="기업 원자료" and not companies:continue
-        if x.get("category")=="특허·기술" and not companies:continue
-        if x.get("category") in {"정책·규제","조달·발주"} and not TOPIC_RE.search(joined):continue
-        if not companies and not numbers and not TOPIC_RE.search(joined):continue
+        kind=candidate_kind(title,x.get("category",""))
+        if not relevant_primary(x,companies,kind,joined):continue
 
         newsroom=newsroom_matches(title,data)
-        coverage=coverage_search(x)
-        if coverage:continue
-        # An exact newsroom match means we already have the item.
-        if any(similarity(title,r.get("title",""))>=0.62 for r in newsroom):continue
+        archive_matches=[]
+        for r in archive:
+            sim=similarity(title,(r.get("title","")+" "+r.get("summary",""))[:2500])
+            if sim>=0.44:archive_matches.append((sim,r))
+        archive_matches.sort(key=lambda z:z[0],reverse=True)
+        if archive_matches and archive_matches[0][0]>=0.58:continue
 
-        kind=candidate_kind(title,x.get("category",""))
-        # Generic KIPRIS/DART document headings without a business fact are not leads.
-        meaningful=len(companies)>0 or bool(numbers) or bool(re.search(r"자동차용 램프|패키지기판|석포제련소|생산시설|데이터센터|전력망|해상풍력|ESS|자율주행|대표이사|임원|分할|분할|합병|특허|고시|법안",joined,re.I))
-        if not meaningful:continue
+        coverage=[]
+        best_news=max([similarity(title,r.get("title","")+" "+(r.get("summary") or "")) for r in newsroom] or [0])
+        if best_news<0.52:coverage=coverage_search(x)
 
-        score=52
-        score+=22 if x.get("official") else 0
-        score+=16 if not coverage else 0
-        score+=12 if companies else 0
-        score+=10 if numbers else 0
-        score+=8 if kind=="인사" else 0
-        score+=7 if kind in {"특허·기술","정책·규제","사업재편","신사업·투자","계약·수주"} else 0
-        score+=5 if x.get("category")=="공시" else 0
+        combined=[]
+        for r in newsroom:
+            combined.append({"source":r.get("sourceName"),"title":r.get("title"),"published":r.get("published"),"url":r.get("url"),"_sim":similarity(title,r.get("title","")+" "+(r.get("summary") or ""))})
+        for r in coverage:
+            combined.append({"source":r.get("sourceName"),"title":r.get("title"),"published":r.get("published"),"url":r.get("url"),"_sim":similarity(title,r.get("title","")+" "+(r.get("summary") or ""))})
+        combined.sort(key=lambda z:z.get("_sim",0),reverse=True)
+        strong=[r for r in combined if r.get("_sim",0)>=0.54]
+        if strong:continue
+
+        # Routine contracts are not useful scoop candidates unless they carry a new customer/market,
+        # unusual project, large amount, or specific physical quantity.
+        if kind=="계약·수주":
+            large=any(re.search(r"(조원|억원)",str(n)) and float(re.sub(r"[^0-9.]","",str(n).replace(",","")) or 0)>=1000 for n in numbers)
+            unusual=any(k in joined for k in ("첫","최초","북미","미국","유럽","중동","사우디","호주","대규모","장기","독점","신규 고객","신규 고객사","프로젝트"))
+            detailed=any(k in joined for k in ("GWh","MWh","MW","GW","km","톤","만대","물량","사업장","지역"))
+            if not (large or unusual or detailed):continue
+
+        # A true personnel/patent scoop must originate in an authoritative or company source.
+        if kind in {"특허·기술","인사"} and source_tier(x)<2:continue
+
+        age_h=max(0,(now-parse_dt(x.get("published"))).total_seconds()/3600)
+        tier=source_tier(x)
+        concrete=min(18,len(numbers)*3)
+        hard=min(12,sum(1 for k in ("분할","합병","매각","인수","철수","신설","조직개편","대표이사","임원","선임","취임","特許","특허","출원","등록","고시","법안","수주","계약","投资","투자","증설","공장","생산") if k in joined))
+        score=42 + tier*8 + concrete + hard + 28
+        if kind in {"인사","특허·기술","사업재편","정책·규제"}:score+=9
+        if age_h<=24:score+=7
+        elif age_h<=72:score+=4
+        if not archive_matches:score+=4
         score=min(99,score)
 
-        key=re.sub(r"[^가-힣A-Za-z0-9]","",title.lower())[:180]
-        if key in seen:continue
-        seen.add(key)
-        pitch,angle=build_pitch(x,kind,companies,numbers)
+        if score<78:continue
+        if not (numbers or kind in {"인사","특허·기술","정책·규제","사업재편"} or any(k in joined for k in ("공장","법인","조직개편","대표이사","특허","고시","법안"))):continue
+
+        corp=companies[0] if companies else "정부"
+        headline=scoop_headline(x,kind,corp,x.get("summary") or "",numbers)
+        dedup=re.sub(r"[^가-힣A-Za-z0-9]","",headline.lower())
+        if dedup in seen:continue
+        seen.add(dedup)
+
+        if kind=="인사":
+            why=f"DART·원자료에서 경영진/이사 변화를 먼저 포착했습니다. 현재 검색된 국내 보도에서 동일 인선의 강한 매칭이 없어, 직책·담당 사업·인선 배경을 확인할 가치가 있습니다."
+        elif kind=="특허·기술":
+            why=f"특허 원자료에서 새로운 출원·등록 신호를 포착했습니다. 기존 보도에 없는 기술적 세부와 양산·상용화 연결 여부를 확인할 수 있는 후보입니다."
+        elif kind=="정책·규제":
+            why=f"정부 원자료에서 자동차 산업에 직접 영향을 줄 수 있는 제도 변화를 포착했습니다. 시행일과 실제 적용 범위를 먼저 확인할 수 있는 후보입니다."
+        elif kind=="사업재편":
+            why=f"공시 원문에서 사업부문·법인·생산거점의 변화를 포착했습니다. 기존 계획과 달라진 구체적 조건을 확인할 필요가 있습니다."
+        else:
+            why=f"{x.get('officialLabel') or x.get('sourceName')} 원자료에서 구체적 사업 사실을 포착했습니다. 국내 언론에서 동일 사실의 강한 매칭이 없어 선점 취재 후보로 분류했습니다."
 
         questions={
-            "인사":["선임·퇴임의 정확한 발령일과 새 직책은 무엇인가?","최근 해당 사업의 투자·수주·조직 변화와 맞물리는가?","회사에 인선 배경과 담당 범위를 확인할 수 있는가?"],
-            "특허·기술":["특허 출원일·출원번호·핵심 청구항은 무엇인가?","기존 기술과 무엇이 달라졌으며 실제 적용 제품은 무엇인가?","양산·상용화 계획이 회사 내부에서 잡혀 있는가?"],
-            "정책·규제":["최종 고시·법안 원문과 시행일은 무엇인가?","기존 제도와 달라진 조항은 정확히 무엇인가?","출입처 기업들의 실제 대응은 무엇인가?"],
-            "사업재편":["기존 사업계획과 비교해 실제로 무엇이 달라졌는가?","분할·매각·투자 대상 사업의 자산과 인력은 어떻게 바뀌는가?","회사에서 밝히지 않은 후속 일정은 무엇인가?"]
-        }.get(kind,["원문에 적힌 금액·직책·계약조건을 다시 확인했는가?","동일 사실을 다룬 언론 기사가 정말 없는가?","출입처에서 실제 물량·생산·투자·조직 변화로 확인되는가?"])
+            "인사":["정확한 발령일·직책·담당 사업은 무엇인가?","기존 보직과 무엇이 달라졌고 왜 지금 바뀌었나?","최근 해당 사업의 투자·수주·조직 변화와 연결되는가?"],
+            "특허·기술":["출원일·출원번호·핵심 청구항은 무엇인가?","기존 기술과 무엇이 달라졌고 실제 적용 제품은 무엇인가?","양산·상용화 계획이나 협력사가 정해져 있는가?"],
+            "정책·규제":["최종 고시·법안에서 달라진 조항은 무엇인가?","시행일과 적용 대상 기업·차종·부품은 어디까지인가?","자동차 회사와 부품사가 실제로 바꿔야 하는 절차·비용은 무엇인가?"],
+            "사업재편":["분할·매각·신설 대상 사업의 자산과 인력은 어떻게 이동하는가?","기존 계획과 비교해 이번 결정으로 달라지는 사업 범위는 무엇인가?","후속 일정과 생산·투자 변화는 언제 발생하는가?"],
+            "신사업·투자":["투자 대상·금액·가동 시점은 무엇인가?","기존 생산능력·사업계획에서 얼마나 달라졌는가?","신규 고객·시장 진입 효과가 있는가?"],
+            "계약·수주":["계약 상대방과 프로젝트·지역은 어디인가?","물량·기간·단가와 실제 생산능력 투입 규모는 얼마인가?","이번 계약이 신규 고객 또는 신규 시장 진입을 의미하는가?"],
+            "조달·발주":["예산·물량·납기·발주기관은 어디인가?","참여 예상 기업과 낙찰 일정은 언제인가?","기존 계획에 없던 신규 수요인지 확인할 수 있는가?"]
+        }.get(kind,["원자료의 핵심 조건은 무엇인가?","동일 사실의 언론 보도가 정말 없는가?","출입처에서 어떤 사실을 전화로 교차확인할 수 있는가?"])
 
-        evidence=[{"source":x.get("sourceName"),"label":x.get("officialLabel") or x.get("sourceName"),"title":x.get("title"),"url":x.get("url"),"published":x.get("published")}]
-        history=[]
-        for r in archive:
-            if similarity(title,r.get("title",""))>=0.42:
-                history.append({"title":r.get("title"),"source":r.get("sourceName"),"published":r.get("published")})
-                if len(history)>=3:break
+        matches=[{k:v for k,v in r.items() if k!="_sim"} for r in combined[:6] if r.get("source")]
+        history=[{"title":r.get("title"),"source":r.get("sourceName"),"published":r.get("published")} for _,r in archive_matches[:3]]
+        sources=[{"source":x.get("sourceName"),"label":x.get("officialLabel") or x.get("sourceName"),"title":x.get("title"),"url":x.get("url"),"published":x.get("published")}]
 
         candidates.append({
-            "id":hashlib.sha1((x.get("url","")+"|"+title).encode()).hexdigest()[:12],
-            "kind":kind,"beat":beat_for(joined),"title":title,"score":score,"status":"미보도 확인중",
-            "originalSource":x.get("officialLabel") or x.get("sourceName"),"originalSourceUrl":x.get("url"),"original":True,
-            "coverageCount":0,"coverageSources":[],"newsroomMatches":[{"source":r.get("sourceName"),"title":r.get("title"),"published":r.get("published")} for r in newsroom[:4]],
-            "why":f"{x.get('officialLabel') or x.get('sourceName')} 원자료에서 확인된 신호입니다. 현재 검색권에서 동일 내용을 보도한 매체가 확인되지 않아 선점 취재 가치가 있습니다.",
-            "whatConfirmed":x.get("title"),"pitch":pitch,"angle":angle,"numbers":numbers,"companies":companies,
-            "sources":evidence,"history":history,"questions":questions,
-            "firstSeenAt":x.get("published"),"firstSeenSource":x.get("officialLabel") or x.get("sourceName"),
-            "verification":"원문·회사 확인 후 단독 확정"
+            "id":hashlib.sha1((x.get("url","")+"|"+headline).encode()).hexdigest()[:12],
+            "kind":kind,"beat":beat_for(joined),"title":headline,"score":score,
+            "status":"미보도 유력" if not strong and score>=88 else "미보도 후보",
+            "originalSource":x.get("officialLabel") or x.get("sourceName"),
+            "originalSourceUrl":x.get("url"),"original":True,
+            "coverageCount":len(strong),"coverageSources":[r.get("source") for r in strong if r.get("source")],
+            "newsroomMatches":matches,"why":why,"whatConfirmed":x.get("title"),
+            "pitch":build_pitch(x,kind,companies,numbers)[0],
+            "angle":build_pitch(x,kind,companies,numbers)[1],
+            "numbers":numbers,"companies":companies,"sources":sources,"history":history,
+            "questions":questions,"firstSeenAt":x.get("published"),
+            "firstSeenSource":x.get("officialLabel") or x.get("sourceName"),
+            "verification":"원문·출입처 확인 후 단독 확정",
+            "evidenceTier":tier,"coverageChecked":True
         })
 
-    candidates.sort(key=lambda z:(z["score"],z["kind"]=="인사",bool(z["numbers"]),len(z["companies"])),reverse=True)
+    kind_rank={"인사":7,"특허·기술":7,"사업재편":6,"정책·규제":6,"신사업·투자":5,"조달·발주":3,"계약·수주":2}
+    candidates.sort(key=lambda z:(z["score"],kind_rank.get(z["kind"],1),-z["coverageCount"],len(z.get("numbers") or []),z.get("firstSeenAt","")),reverse=True)
+
+    final=[];used_primary=set();used_keys=set()
+    for c in candidates:
+        key=(tuple(sorted(c.get("companies") or [])),re.sub(r"[^가-힣A-Za-z0-9]","",c.get("title",""))[:45])
+        if key in used_keys:continue
+        primary_company=(c.get("companies") or [None])[0]
+        if primary_company and primary_company in used_primary and c["score"]<94:continue
+        used_keys.add(key)
+        if primary_company:used_primary.add(primary_company)
+        final.append(c)
+        if len(final)>=12:break
+
     old={}
     if OUT.exists():
         try:old={x.get("id"):x for x in json.loads(OUT.read_text(encoding="utf-8")).get("items",[])}
         except Exception:old={}
-    for c in candidates:
-        if c["id"] in old:
-            c["status"]=old[c["id"]].get("status",c["status"]);c["note"]=old[c["id"]].get("note","");c["checkedCount"]=int(old[c["id"]].get("checkedCount",0))+1
-        else:c["checkedCount"]=1
-    final=candidates[:40]
+    for c in final:
+        prev=old.get(c["id"],{})
+        c["note"]=prev.get("note","")
+        c["checkedCount"]=int(prev.get("checkedCount",0))+1 if prev else 1
+
     payload={
         "generatedAt":now.isoformat(),"windowDays":14,"mode":"primary-source-first",
-        "counts":{"primaryHits":len(primary),"candidates":len(final),"uncovered":len(final),"alreadyCoveredOne":0,"beats":len(set(x["beat"] for x in final))},
+        "counts":{
+            "primaryHits":len(primary),"candidates":len(final),
+            "uncovered":sum(1 for x in final if x.get("coverageCount",0)==0),
+            "alreadyCoveredOne":sum(1 for x in final if x.get("coverageCount",0)>0),
+            "beats":len(set(x["beat"] for x in final))
+        },
         "items":final,
-        "note":"단독 후보는 언론 기사를 재수집하지 않습니다. DART·정부·조달·특허·기업 원자료를 먼저 찾아 같은 사실의 언론 보도 여부를 다시 검색한 뒤 미보도 후보만 남깁니다."
+        "note":"단독감은 기존 언론 기사의 중요도를 평가하는 기능이 아닙니다. 원자료에서 새 사실을 먼저 포착하고, 현재 언론·아카이브에 동일 사실이 없을 때만 후보로 올립니다. 인사·특허·정책·사업재편을 우선하며 일반적인 공급계약은 추가성이 없으면 제외합니다."
     }
     OUT.write_text(json.dumps(payload,ensure_ascii=False,separators=(",",":")),encoding="utf-8")
-    print(f"primary-source scoop scout: {len(primary)} primary hits -> {len(final)} unreported candidates")
+    print(f"primary-source scoop scout: {len(primary)} primary hits -> {len(final)} selective unreported candidates")
 
 if __name__=="__main__":main()
