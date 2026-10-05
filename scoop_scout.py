@@ -17,6 +17,10 @@ from pathlib import Path
 KST=timezone(timedelta(hours=9))
 DATA=Path("data.json"); DART=Path("dart.json"); NUM=Path("dart_numeric.json")
 ARCHIVE=Path("archive.json"); OUT=Path("scoop.json")
+PRIMARY_LOOKBACK_DAYS=10
+COVERAGE_LOOKBACK_DAYS=180
+PRIMARY_LOOKBACK_DAYS=10
+COVERAGE_LOOKBACK_DAYS=180
 
 TARGETS=[
  # 자동차
@@ -239,11 +243,10 @@ def domain_for(url):
         if host==domain or host.endswith("."+domain):return label,True
     return "",False
 
-def google_rss(category,query,max_items=8):
+def google_rss(category,query,max_items=8,lookback_days=PRIMARY_LOOKBACK_DAYS):
     now=datetime.now(KST)
-    # Google News can surface old indexed government pages even for a current query.
-    # Force a recent search window and independently reject stale source pages.
-    after=(now-timedelta(days=10)).strftime("%Y-%m-%d")
+    # Primary-source queries stay tight; coverage queries intentionally look much further back.
+    after=(now-timedelta(days=lookback_days)).strftime("%Y-%m-%d")
     q=query+" after:"+after
     url="https://news.google.com/rss/search?q="+urllib.parse.quote(q)+"&hl=ko&gl=KR&ceid=KR:ko"
     try:root=ET.fromstring(get(url))
