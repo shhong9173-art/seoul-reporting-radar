@@ -79,6 +79,7 @@ OFFICIAL_DOMAINS={
  "ids.usitc.gov":"USITC","usitc.gov":"USITC","rulings.cbp.gov":"CBP CROSS","cbp.gov":"CBP","unece.org":"UNECE WP.29",
  "samr.gov.cn":"중국 SAMR","cnca.gov.cn":"중국 인증","j-platpat.inpit.go.jp":"J-PlatPat","safetygate.ec.europa.eu":"EU Safety Gate",
  "seoul.go.kr":"서울시","gg.go.kr":"경기도","investkorea.org":"Invest Korea",
+ "assembly.go.kr":"국회","bai.go.kr":"감사원","kpx.or.kr":"전력거래소","kepco.co.kr":"한국전력","kogas.or.kr":"한국가스공사","khnp.co.kr":"한수원","knrec.or.kr":"에너지공단",
  "kosa.or.kr":"한국철강협회","kweia.or.kr":"한국풍력산업협회","lngkorea.org":"민간LNG산업협회","metall.or.kr":"금속노련",
  "kepic.or.kr":"대한전기협회","koema.or.kr":"한국전기산업진흥회","kaif.or.kr":"한국원자력산업협회",
  "hyundai.com":"현대차","kia.com":"기아","mobis.com":"현대모비스","hyundai-wia.com":"현대위아","hlmando.com":"HL만도",
@@ -100,6 +101,7 @@ COMPANY_DOMAINS={
  "대한전선":"taihan.com","두산에너빌리티":"doosanenerbility.com","GS칼텍스":"gscaltex.com","한화솔루션":"hanwhasolutions.com",
  "OCI":"oci.co.kr","OCI홀딩스":"oci-holdings.co.kr","태광":"taekwang.com","동성케미칼":"dongsungchemical.com","DL케미칼":"dlchem.com"
 }
+COMPANY_BY_DOMAIN={domain:company for company,domain in COMPANY_DOMAINS.items()}
 NOISE_RE=re.compile(r"주가|증권|목표주가|급등|급락|관련주|테마주|특징주|장중|종목|추천주|리포트",re.I)
 WEAK_RE=re.compile(r"사회공헌|기부|봉사|채용|수상|캠페인|축제|전시|세미나|포럼|강연|홍보대사|혜택|이벤트|모먼트|스토리|재단|장학|펠로|양궁|칵테일|아트워크|우수조",re.I)
 HARD_SIGNAL_RE=re.compile(r"정책|규제|시행|고시|법안|입법|예고|결정고시|행정처분|관세|반덤핑|상계관세|특허|출원|등록|특허심판|심판|상표|디자인|대표이사|임원|사내이사|사외이사|선임|취임|퇴임|조직개편|신설|투자|출자|증설|공장|법인|합병|분할|인수|매각|철수|수주|계약|공급|발주|입찰|낙찰|생산|가동|감산|가격|원가|마진|배터리|ESS|HVDC|변압기|해저케이블|해상풍력|자율주행|리콜|결함|제작결함|무상수리|조사개시|인증|형식승인|환경영향|환경성평가|건축허가|사업계획승인|산업단지|소송|제소|가처분|판결|행정심판",re.I)
@@ -147,6 +149,13 @@ PRIMARY_QUERY_SETS=[
  ("협회·산업단체","site:kepic.or.kr (기술기준 OR 개정 OR 인증 OR 표준 OR 입찰 OR 원전 OR 전력 OR 전기설비 OR 안전)"),
  ("협회·산업단체","site:koema.or.kr (정책 OR 수출 OR 조사 OR 인증 OR 시험 OR 전력망 OR 변압기 OR HVDC OR 기술 OR 회원사)"),
  ("협회·산업단체","site:kaif.or.kr (원전 OR SMR OR 입찰 OR 회원사 OR 정책 OR 수출 OR 수주 OR 프로젝트 OR 산업실태조사 OR 기술) (공지 OR 입찰정보 OR 보도자료 OR 투데이뉴스)"),
+ ("정책·의원실","site:assembly.go.kr (현대차 OR 기아 OR 현대모비스 OR 포스코 OR 현대제철 OR 고려아연 OR 영풍 OR LS OR 두산에너빌리티 OR GS OR 한화솔루션 OR OCI OR 태광 OR 동성케미칼 OR DL케미칼) (요구자료 OR 국정감사 OR 의원실 OR 자료제출 OR 질의 OR 현안)"),
+ ("감사·감독","site:bai.go.kr (현대차 OR 기아 OR 포스코 OR 현대제철 OR 고려아연 OR LS OR 두산에너빌리티 OR GS OR 한화솔루션 OR OCI) (감사 OR 처분 OR 지적 OR 조사)"),
+ ("전력시장","site:kpx.or.kr (전력망 OR 전력수급 OR SMP OR REC OR HVDC OR ESS OR 발전 OR 송전 OR 예비력) (계획 OR 통계 OR 공고 OR 회의 OR 용량)"),
+ ("공기업·에너지","site:kepco.co.kr (HVDC OR 변압기 OR 전력망 OR 송전 OR 배전 OR 입찰 OR 발주 OR 구매 OR 계약 OR 공사)"),
+ ("공기업·에너지","site:kogas.or.kr (LNG OR 천연가스 OR 터미널 OR 배관 OR 수급 OR 직수입 OR 투자 OR 공사 OR 입찰)"),
+ ("공기업·원전","site:khnp.co.kr (원전 OR SMR OR 원자로 OR 건설 OR 입찰 OR 기자재 OR 공급 OR 구매)"),
+ ("재생에너지","site:knrec.or.kr (풍력 OR 태양광 OR ESS OR 재생에너지 OR 보급 OR 입찰 OR 공급망 OR 인증 OR 지원금)"),
  ("노사·현장","site:metall.or.kr (현대차 OR 기아 OR 포스코 OR 현대제철 OR LS전선 OR HD현대일렉트릭 OR 일진전기 OR 세아 OR 금호타이어 OR 한국타이어 OR 넥센타이어) (임단협 OR 단체교섭 OR 잠정합의 OR 파업 OR 쟁의 OR 투표 OR 노조 OR 생산 OR 조업)"),
 ]
 for company,domain in {
@@ -381,14 +390,14 @@ def dart_title(corp,report,blob,nums):
 def candidate_kind(title,category):
     t=(title or "").lower()
     if any(w in t for w in ("리콜","결함","제작결함","무상수리","recall","defect")) or category=="자동차 결함":return "결함·리콜"
-    if any(w in t for w in ("인증","형식승인","certificate","certification","type approval")):return "인증·형식승인"
+    if any(w in t for w in ("인증","형식승인","certificate","certification","type approval","emissions family")):return "인증·형식승인"
     if any(w in t for w in ("환경영향","환경성평가","환경입지","건축허가","인허가","개발행위","사업계획승인","산업단지","착공","심의")):return "인허가·환경"
     if any(w in t for w in ("소송","제소","가처분","판결","행정심판","특허심판","분쟁","petition","complaint","investigation")):return "소송·분쟁"
     if any(w in t for w in ("상표","디자인","trademark","design patent")):return "상표·디자인"
     if any(w in t for w in ("대표이사","임원","이사","선임","취임","퇴임","인사","조직개편","경영진")):return "인사"
     if any(w in t for w in ("특허","출원","등록","patent")):return "특허·기술"
     if any(w in t for w in ("관세","반덤핑","덤핑","통상","tariff","customs","countervailing","원산지","품목분류")):return "통상·관세"
-    if any(w in t for w in ("법안","고시","시행","규제","정책","세제","입법","입법예고")):return "정책·규제"
+    if any(w in t for w in ("요구자료","국정감사","의원실","감사","감사처분","지적","정책","법안","고시","시행","규제","정책","세제","입법","입법예고")):return "정책·규제"
     if any(w in t for w in ("발주","입찰","조달","낙찰")):return "조달·발주"
     if any(w in t for w in ("물적분할","인적분할","분할","합병","인수","매각","철수","신설법인","사업재편")):return "사업재편"
     if any(w in t for w in ("투자","증설","공장","생산라인","생산","가동","신규법인")):return "신사업·투자"
@@ -426,7 +435,7 @@ def build_pitch(x,kind,companies,numbers):
 def source_tier(x):
     label=str(x.get("officialLabel") or x.get("sourceName") or "")
     group=source_group(x)
-    if group in {"DART","KIND","특허","조달","자동차·결함","환경·인허가","법령·입법","통상·분쟁","해외기관","지역·투자","협회","노사·현장"}:return 3
+    if group in {"DART","KIND","특허","조달","자동차·결함","환경·인허가","법령·입법","통상·분쟁","해외기관","지역·투자","협회","노사·현장","정책·감독","공기업·시장"}:return 3
     if label in {"산업부","국토부","공정위","관세청","기재부","환경부","USTR","미국 상무부","EU 집행위","EU","NHTSA","EPA","USITC","CBP CROSS","UNECE WP.29","중국 SAMR"}:return 3
     if x.get("category")=="기업 원자료":return 2
     return 1
@@ -451,6 +460,7 @@ def relevant_primary(x,companies,kind,joined):
     specific=("생산라인","생산계획","생산량","공급사","대체투입","재고","조업","가동중단","종풍","증설","공장","투자","매각","인수","합병","분할","이사회","임원","대표이사","선임","퇴임","특허","상표","디자인","리콜","결함","조사","인증","형식승인","환경영향","건축허가","사업계획","입찰","낙찰","수주","계약","관세","반덤핑","소송","판결","심판","자금조달","유상증자","채권","RSU","노사","임단협","잠정합의","파업","쟁의","생산계획","생산조정","공급중단","대체투입","재고","납기","거래종결","지분")
     # Company-specific source signals are highest value.
     if companies:return True
+    if COMPANY_BY_DOMAIN.get(str(x.get("querySite") or "").lower()):return True
     if kind in {"결함·리콜","인증·형식승인"}:return any(k in t for k in auto_terms)
     if kind in {"정책·규제","통상·관세","인허가·환경","소송·분쟁"}:
         return any(k in t for k in general_terms) and any(k in t for k in specific)
@@ -498,6 +508,8 @@ def source_group(x):
     if any(d in (dom+" "+query_site) for d in ("motie.go.kr","molit.go.kr","ftc.go.kr","customs.go.kr","me.go.kr","keco.or.kr","kostat.go.kr","moef.go.kr")):return "정부"
     if any(d in (dom+" "+query_site) for d in ("hyundai.com","kia.com","mobis.com","hyundai-wia.com","hlmando.com","gm-korea.co.kr","kg-mobility.com","mercedes-benz.co.kr","volkswagen.co.kr","bmw.co.kr","renault.co.kr","audi.co.kr","honda.co.kr","hankooktire.com","nexentire.com","kumhotire.com","posco.com","hyundai-steel.com","seah.co.kr","koreazinc.co.kr","youngpoong.co.kr","ls-electric.com","taihan.com","doosanenerbility.com","gscaltex.com","hanwhasolutions.com","oci.co.kr","oci-holdings.co.kr","taekwang.com","dongsungchemical.com","dlchem.com")):return "기업"
     if any(d in (dom+" "+query_site) for d in ("seoul.go.kr","gg.go.kr","investkorea.org")):return "지역·투자"
+    if any(d in (dom+" "+query_site) for d in ("assembly.go.kr","bai.go.kr")):return "정책·감독"
+    if any(d in (dom+" "+query_site) for d in ("kpx.or.kr","kepco.co.kr","kogas.or.kr","khnp.co.kr","knrec.or.kr")):return "공기업·시장"
     if any(d in (dom+" "+query_site) for d in ("kosa.or.kr","kweia.or.kr","lngkorea.org","kepic.or.kr","koema.or.kr","kaif.or.kr")):return "협회"
     if "metall.or.kr" in (dom+" "+query_site):return "노사·현장"
     return "기타"
@@ -521,9 +533,12 @@ def main():
         if any(k in report for k in ("투자설명서","증권신고서","사업보고서","반기보고서","분기보고서","기타시장안내")):continue
         ddt=parse_dt(d.get("date",""))
         if ddt<now-timedelta(days=14):continue
-        material=any(k in report for k in ("회사분할","영업정지","생산중단","신규시설투자","타법인주식및출자증권취득결정","단일판매ㆍ공급계약체결","유상증자","영업양수도","합병","대표이사","임원","이사선임","주요사항보고"))
+        material=any(k in report for k in ("회사분할","영업정지","생산중단","신규시설투자","타법인주식및출자증권취득결정","유상증자","영업양수도","합병","대표이사","임원","이사선임","소송","주요사항보고"))
+        contract_report=("단일판매ㆍ공급계약체결" in report)
+        if contract_report:continue
         if ("기재정정" in report or "첨부정정" in report) and not material:continue
         if not HARD_SIGNAL_RE.search(report):continue
+        if not target_hits(corp_name):continue
         blob,nums=dart_fact(d,numeric)
         primary.append({
             "category":"공시","title":dart_title(corp_name,report,blob,nums),
@@ -542,6 +557,9 @@ def main():
         if x.get("corpName"):
             direct=target_hits(x.get("corpName"))
             companies=list(dict.fromkeys(direct+companies))
+        query_company=COMPANY_BY_DOMAIN.get(str(x.get("querySite") or "").lower())
+        if query_company:
+            companies=list(dict.fromkeys([query_company]+companies))
         numbers=list(dict.fromkeys((x.get("dartNumbers") or [])+NUM_RE.findall(joined)))[:8]
         kind=candidate_kind(title,x.get("category",""))
         if not relevant_primary(x,companies,kind,joined):continue
@@ -559,6 +577,8 @@ def main():
         concrete_hooks+=min(2,len(NUM_RE.findall(source_text)))
         concrete_hooks+=sum(1 for k in ("이사회","임원","대표이사","선임","퇴임","생산계획","생산라인","공급사","대체투입","매각","인수","분할","합병","공장","증설","인증","형식승인","리콜","결함","환경영향","인허가","특허","상표","디자인","수주","입찰","낙찰","관세","반덤핑","소송","판결","심판","자금조달","유상증자","채권","RSU") if k in source_text)
         if not companies and concrete_hooks<2:continue
+        if source_group_now!="DART" and source_group_now!="기타" and concrete_hooks<1:
+            continue
         newsroom=newsroom_matches(title,data)
         archive_matches=[]
         for r in archive:
@@ -601,7 +621,12 @@ def main():
         source_weight=12 if tier>=3 else 6
         novelty=8 if not archive_matches else 0
         kind_weight=8 if kind in {"결함·리콜","인증·형식승인","인허가·환경","소송·분쟁","인사","특허·기술","상표·디자인","사업재편","정책·규제","통상·관세"} else 4
-        score=min(98,35+freshness+specificity+change+source_weight+novelty+kind_weight)
+        source_boost={
+            "자동차·결함":14,"환경·인허가":14,"법령·입법":12,"특허":12,"KIND":10,"조달":10,
+            "통상·분쟁":12,"해외기관":10,"정부":9,"협회":8,"노사·현장":12,"기업":8,"지역·투자":10,"DART":3,"기타":0
+        }.get(source_group_now,0)
+        exclusive_signal=sum(2 for k in ("내정","잠정합의","생산조정","생산계획","생산중단","공급중단","대체투입","공급사 변경","공급망","이사회","임원","퇴임","매각 협상","우선협상","거래종결","자금조달","보조금","지원금","인허가","환경영향","조사개시","소송 제기","특허심판","리콜","제작결함") if k in source_text)
+        score=min(98,30+freshness+specificity+change+source_weight+novelty+kind_weight+source_boost+min(12,exclusive_signal))
 
         if score<66:continue
         if not (numbers or kind in {"결함·리콜","인증·형식승인","인허가·환경","소송·분쟁","인사","특허·기술","상표·디자인","정책·규제","사업재편","통상·관세"} or any(k in joined for k in ("공장","법인","조직개편","대표이사","특허","고시","법안","리콜","결함","인증","인허가","소송","판결","관세"))):continue
@@ -683,8 +708,8 @@ def main():
         key=(tuple(sorted(c.get("companies") or [])),re.sub(r"[^가-힣A-Za-z0-9]","",c.get("title",""))[:45])
         if key in used_keys:continue
         sg=c.get("sourceGroup","기타")
-        if sg=="DART" and sum(1 for x in final if x.get("sourceGroup")=="DART")>=4:continue
-        if sg in used_groups and len(used_groups)<5 and sg in {"특허","KIND","조달","해외기관","정부","기업","지역·투자"}:continue
+        if sg=="DART" and sum(1 for x in final if x.get("sourceGroup")=="DART")>=2:continue
+        if sg in used_groups and len(used_groups)<8 and sg in {"특허","KIND","조달","자동차·결함","환경·인허가","해외기관","정부","기업","지역·투자","협회","노사·현장","통상·분쟁","법령·입법"}:continue
         primary_company=(c.get("companies") or [None])[0]
         if primary_company and primary_company in used_primary and c["score"]<94:continue
         used_keys.add(key)
@@ -696,7 +721,7 @@ def main():
         for c in candidates:
             key=(tuple(sorted(c.get("companies") or [])),re.sub(r"[^가-힣A-Za-z0-9]","",c.get("title",""))[:45])
             if key in used_keys:continue
-            if c.get("sourceGroup")=="DART" and sum(1 for x in final if x.get("sourceGroup")=="DART")>=4:continue
+            if c.get("sourceGroup")=="DART" and sum(1 for x in final if x.get("sourceGroup")=="DART")>=2:continue
             used_keys.add(key);final.append(c)
             if len(final)>=12:break
 
