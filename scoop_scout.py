@@ -79,6 +79,8 @@ OFFICIAL_DOMAINS={
  "ids.usitc.gov":"USITC","usitc.gov":"USITC","rulings.cbp.gov":"CBP CROSS","cbp.gov":"CBP","unece.org":"UNECE WP.29",
  "samr.gov.cn":"중국 SAMR","cnca.gov.cn":"중국 인증","j-platpat.inpit.go.jp":"J-PlatPat","safetygate.ec.europa.eu":"EU Safety Gate",
  "seoul.go.kr":"서울시","gg.go.kr":"경기도","investkorea.org":"Invest Korea",
+ "kosa.or.kr":"한국철강협회","kweia.or.kr":"한국풍력산업협회","lngkorea.org":"민간LNG산업협회",
+ "kepic.or.kr":"대한전기협회","koema.or.kr":"한국전기산업진흥회","kaif.or.kr":"한국원자력산업협회",
  "hyundai.com":"현대차","kia.com":"기아","mobis.com":"현대모비스","hyundai-wia.com":"현대위아","hlmando.com":"HL만도",
  "gm-korea.co.kr":"한국GM","kg-mobility.com":"KG모빌리티","mercedes-benz.co.kr":"메르세데스벤츠코리아","volkswagen.co.kr":"폭스바겐코리아",
  "bmw.co.kr":"BMW코리아","renault.co.kr":"르노코리아","audi.co.kr":"아우디코리아","honda.co.kr":"혼다코리아",
@@ -139,7 +141,19 @@ PRIMARY_QUERY_SETS=[
  ("통상·해외","site:trade.gov (steel OR automotive OR cable OR battery OR Korea) (tariff OR antidumping OR investigation)"),
  ("통상·해외","site:ec.europa.eu (automotive OR steel OR battery OR cable OR Korean) (tariff OR antidumping OR safeguard OR regulation)"),
  ("통상·해외","site:eur-lex.europa.eu (automotive OR battery OR steel OR vehicle OR cable) (regulation OR implementing OR tariff OR antidumping)"),
+ ("협회·산업단체","site:kosa.or.kr (정책 OR 건의 OR 조사 OR 통계 OR 수급 OR 가격 OR 통상 OR 반덤핑 OR 수입 OR 수출 OR 회원사 OR 공동대응 OR 연구) (철강 OR 열연 OR 냉연 OR 후판 OR 강관 OR 철광석)"),
+ ("협회·산업단체","site:kweia.or.kr (정책 OR 제도 OR 입찰 OR 조사 OR 프로젝트 OR 공급망 OR 인허가 OR 특별법 OR 회원사 OR 공동대응) (풍력 OR 해상풍력 OR 전력 OR 항만 OR 선박)"),
+ ("협회·산업단체","site:lngkorea.org (정책 OR 제도 OR 통상 OR 직수입 OR 배관 OR 공동이용 OR 수급 OR 요금 OR 연구 OR 회원사) (LNG OR 천연가스)"),
+ ("협회·산업단체","site:kepic.or.kr (기술기준 OR 개정 OR 인증 OR 표준 OR 입찰 OR 원전 OR 전력 OR 전기설비 OR 안전)"),
+ ("협회·산업단체","site:koema.or.kr (정책 OR 수출 OR 조사 OR 인증 OR 시험 OR 전력망 OR 변압기 OR HVDC OR 기술 OR 회원사)"),
+ ("협회·산업단체","site:kaif.or.kr (원전 OR SMR OR 입찰 OR 회원사 OR 정책 OR 수출 OR 수주 OR 프로젝트 OR 산업실태조사 OR 기술) (공지 OR 입찰정보 OR 보도자료 OR 투데이뉴스)"),
 ]
+for company,domain in {
+    "한국철강협회":"kosa.or.kr","한국풍력산업협회":"kweia.or.kr","민간LNG산업협회":"lngkorea.org",
+    "대한전기협회":"kepic.or.kr","한국전기산업진흥회":"koema.or.kr","한국원자력산업협회":"kaif.or.kr"
+}.items():
+    PRIMARY_QUERY_SETS.append(("협회·산업단체",f"site:{domain} ({company} OR 정책 OR 건의 OR 조사 OR 통계 OR 수급 OR 회원사 OR 공동대응 OR 입찰 OR 프로젝트)"))
+
 for company,domain in COMPANY_DOMAINS.items():
     PRIMARY_QUERY_SETS.append(("기업 원자료",f"site:{domain} ({company} OR investment OR 투자 OR 증설 OR 공장 OR 수주 OR 계약 OR 특허 OR 임원 OR 대표이사 OR 조직개편 OR board)"))
 
@@ -410,7 +424,7 @@ def build_pitch(x,kind,companies,numbers):
 def source_tier(x):
     label=str(x.get("officialLabel") or x.get("sourceName") or "")
     group=source_group(x)
-    if group in {"DART","KIND","특허","조달","자동차·결함","환경·인허가","법령·입법","통상·분쟁","해외기관","지역·투자"}:return 3
+    if group in {"DART","KIND","특허","조달","자동차·결함","환경·인허가","법령·입법","통상·분쟁","해외기관","지역·투자","협회"}:return 3
     if label in {"산업부","국토부","공정위","관세청","기재부","환경부","USTR","미국 상무부","EU 집행위","EU","NHTSA","EPA","USITC","CBP CROSS","UNECE WP.29","중국 SAMR"}:return 3
     if x.get("category")=="기업 원자료":return 2
     return 1
@@ -482,6 +496,7 @@ def source_group(x):
     if any(d in (dom+" "+query_site) for d in ("motie.go.kr","molit.go.kr","ftc.go.kr","customs.go.kr","me.go.kr","keco.or.kr","kostat.go.kr","moef.go.kr")):return "정부"
     if any(d in (dom+" "+query_site) for d in ("hyundai.com","kia.com","mobis.com","hyundai-wia.com","hlmando.com","gm-korea.co.kr","kg-mobility.com","mercedes-benz.co.kr","volkswagen.co.kr","bmw.co.kr","renault.co.kr","audi.co.kr","honda.co.kr","hankooktire.com","nexentire.com","kumhotire.com","posco.com","hyundai-steel.com","seah.co.kr","koreazinc.co.kr","youngpoong.co.kr","ls-electric.com","taihan.com","doosanenerbility.com","gscaltex.com","hanwhasolutions.com","oci.co.kr","oci-holdings.co.kr","taekwang.com","dongsungchemical.com","dlchem.com")):return "기업"
     if any(d in (dom+" "+query_site) for d in ("seoul.go.kr","gg.go.kr","investkorea.org")):return "지역·투자"
+    if any(d in (dom+" "+query_site) for d in ("kosa.or.kr","kweia.or.kr","lngkorea.org","kepic.or.kr","koema.or.kr","kaif.or.kr")):return "협회"
     return "기타"
 
 def main():
@@ -531,8 +546,10 @@ def main():
         source_group_now=source_group(x)
         # Reject generic administrative pages and evergreen notices masquerading as new scoops.
         generic_doc=("상세보기" in title or "행정규칙" in title) and not companies
-        evergreen=any(k in title for k in ("교육생 모집","세미나","포럼","행사","캠페인","신년인사회","채용","모집공고"))
+        evergreen=any(k in title for k in ("교육생 모집","세미나","포럼","행사","캠페인","신년인사회","채용","모집공고","참가신청"))
         if generic_doc or evergreen:continue
+        if source_group_now=="협회" and not any(k in source_text for k in ("政策","정책","제도","건의","조사","통계","수급","가격","통상","반덤핑","공동대응","회원사","입찰","낙찰","프로젝트","수주","공급망","인증","기술기준","표준","안전","수출","수입")):
+            continue
         # A scoop needs a concrete reporting handle, not just an industry keyword.
         source_text=(title+" "+x.get("summary",""))
         concrete_hooks=0
