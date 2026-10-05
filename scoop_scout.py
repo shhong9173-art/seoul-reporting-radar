@@ -627,10 +627,10 @@ def main():
         generic_doc=("상세보기" in title or "행정규칙" in title) and not companies
         evergreen=any(k in title for k in ("교육생 모집","세미나","포럼","행사","캠페인","신년인사회","채용","모집공고","참가신청"))
         if generic_doc or evergreen:continue
-        if source_group_now=="협회" and not any(k in source_text for k in ("政策","정책","제도","건의","조사","통계","수급","가격","통상","반덤핑","공동대응","회원사","입찰","낙찰","프로젝트","수주","공급망","인증","기술기준","표준","안전","수출","수입")):
-            continue
         # A scoop needs a concrete reporting handle, not just an industry keyword.
         source_text=(title+" "+x.get("summary",""))
+        if source_group_now=="협회" and not any(k in source_text for k in ("정책","제도","건의","조사","통계","수급","가격","통상","반덤핑","공동대응","회원사","입찰","낙찰","프로젝트","수주","공급망","인증","기술기준","표준","안전","수출","수입")):
+            continue
         concrete_hooks=0
         concrete_hooks+=min(2,len(NUM_RE.findall(source_text)))
         concrete_hooks+=sum(1 for k in ("이사회","임원","대표이사","선임","퇴임","생산계획","생산라인","공급사","대체투입","매각","인수","분할","합병","공장","증설","인증","형식승인","리콜","결함","환경영향","인허가","특허","상표","디자인","수주","입찰","낙찰","관세","반덤핑","소송","판결","심판","자금조달","유상증자","채권","RSU") if k in source_text)
@@ -640,23 +640,32 @@ def main():
         newsroom=newsroom_matches(title,data)
         archive_matches=[]
         for r in archive:
-            sim=similarity(title,(r.get("title","")+" "+r.get("summary",""))[:2500])
-            if sim>=0.44:archive_matches.append((sim,r))
+            ev=event_match_score(x,{"title":r.get("title",""),"summary":r.get("summary") or "","sourceName":r.get("sourceName"),"published":r.get("published")})
+            if ev>=0.58:archive_matches.append((ev,r))
         archive_matches.sort(key=lambda z:z[0],reverse=True)
-        if archive_matches and archive_matches[0][0]>=0.58:continue
 
         coverage=[]
-        best_news=max([similarity(title,r.get("title","")+" "+(r.get("summary") or "")) for r in newsroom] or [0])
-        if best_news<0.52:coverage=coverage_search(x)
+        best_news=max([event_match_score(x,r) for r in newsroom] or [0])
+        if best_news<0.62:coverage=coverage_search(x)
 
         combined=[]
         for r in newsroom:
             combined.append({"source":r.get("sourceName"),"title":r.get("title"),"published":r.get("published"),"url":r.get("url"),"_sim":similarity(title,r.get("title","")+" "+(r.get("summary") or ""))})
         for r in coverage:
             combined.append({"source":r.get("sourceName"),"title":r.get("title"),"published":r.get("published"),"url":r.get("url"),"_sim":similarity(title,r.get("title","")+" "+(r.get("summary") or ""))})
+        for _,r in archive_matches[:12]:
+            combined.append({"source":r.get("sourceName") or "archive","title":r.get("title"),"published":r.get("published"),"url":r.get("url"),"_sim":similarity(title,r.get("title","")+" "+(r.get("summary") or ""))})
         combined.sort(key=lambda z:z.get("_sim",0),reverse=True)
-        strong=[r for r in combined if r.get("_sim",0)>=0.54]
-        if strong:continue
+        strong=[]
+        for r in combined:
+            ev=event_match_score(x,{"title":r.get("title",""),"summary":r.get("summary") or "","published":r.get("published"),"sourceName":r.get("source")})
+            r["_event"]=ev
+            if ev>=0.62:strong.append(r)
+        # A newly posted disclosure is not a new scoop when the same event was already
+        # reported before the disclosure date. This is the decisive novelty gate.
+        primary_dt=parse_dt(x.get("published"))
+        prior_strong=[r for r in strong if r.get("published") and parse_dt(r.get("published"))<=primary_dt]
+        if prior_strong:continue
 
         # Routine contracts are not useful scoop candidates unless they carry a new customer/market,
         # unusual project, large amount, or specific physical quantity.
@@ -801,6 +810,7 @@ def main():
             "primaryHits":len(primary),"candidates":len(final),
             "uncovered":sum(1 for x in final if x.get("coverageCount",0)==0),
             "alreadyCoveredOne":sum(1 for x in final if x.get("coverageCount",0)>0),
+            "coverageLookbackDays":COVERAGE_LOOKBACK_DAYS,
             "beats":len(set(x["beat"] for x in final)),
             "strongCandidates":sum(1 for x in final if x.get("status")=="단독 유력")
         },
