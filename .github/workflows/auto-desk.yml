@@ -72,7 +72,9 @@ jobs:
         run: python investigation_quality_gate.py
       - name: Build pitch score and persistent archive
         run: python archive_builder.py
-      - name: Scout web-first scoop candidates
+      - name: Scout primary-source scoop candidates
+        env:
+          DART_API_KEY: ${{ secrets.DART_API_KEY }}
         run: python scoop_scout.py
       - name: Normalize pitch pair orientation
         run: |
