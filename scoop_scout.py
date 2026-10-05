@@ -185,10 +185,24 @@ def target_hits(s):
                 matched=True;break
         if matched:out.append(name)
     return list(dict.fromkeys(out))
+BEAT_KEYWORDS=[
+    (("자동차","차량","전기차","하이브리드","PBV","자율주행","ADAS","타이어","리콜","결함","형식승인"),"자동차"),
+    (("철강","열연","냉연","후판","강관","철광석","제철","제강","도금"),"철강"),
+    (("고려아연","영풍","구리","아연","니켈","제련","희소금속"),"비철금속"),
+    (("HVDC","변압기","전력기기","전력망","배전","송전"),"전력기기"),
+    (("해저케이블","전선","케이블","초고압"),"전선·전력"),
+    (("LNG","원전","원자로","SMR","가스터빈","수소","발전"),"에너지"),
+    (("풍력","해상풍력","태양광","재생에너지","ESS"),"재생에너지"),
+    (("석유화학","화학","소재","수지","고분자","탄소섬유"),"화학·소재"),
+]
 def beat_for(s):
-    for name,beat in TARGETS:
-        if any(a.lower() in (s or "").lower() for a in ALIASES.get(name,(name,))):
-            return beat
+    hits=target_hits(s)
+    for name in hits:
+        for target,beat in TARGETS:
+            if target==name:return beat
+    t=(s or "")
+    for keys,beat in BEAT_KEYWORDS:
+        if any(k.lower() in t.lower() for k in keys):return beat
     return "정책·통상"
 
 def domain_for(url):
@@ -198,10 +212,15 @@ def domain_for(url):
     return "",False
 
 def google_rss(category,query,max_items=8):
-    url="https://news.google.com/rss/search?q="+urllib.parse.quote(query)+"&hl=ko&gl=KR&ceid=KR:ko"
+    now=datetime.now(KST)
+    # Google News can surface old indexed government pages even for a current query.
+    # Force a recent search window and independently reject stale source pages.
+    after=(now-timedelta(days=10)).strftime("%Y-%m-%d")
+    q=query+" after:"+after
+    url="https://news.google.com/rss/search?q="+urllib.parse.quote(q)+"&hl=ko&gl=KR&ceid=KR:ko"
     try:root=ET.fromstring(get(url))
     except Exception:return []
-    cutoff=datetime.now(KST)-timedelta(days=14);out=[]
+    cutoff=now-timedelta(days=10);out=[]
     site_match=re.search(r"site:([A-Za-z0-9.-]+)",query,re.I)
     site=site_match.group(1).lower() if site_match else ""
     for item in root.findall("./channel/item"):
@@ -210,12 +229,16 @@ def google_rss(category,query,max_items=8):
         if not title or not link:continue
         dt=parse_dt(pub)
         if dt<cutoff:continue
+        # Drop clearly stale source documents that Google can re-surface with a new feed timestamp.
+        stale_marker=re.search(r"(?:^|[\s\[\(])20(?:0\d|1\d|2[0-4])(?:년|년도)",title)
+        if stale_marker:continue
         label,domain_official=domain_for(link)
         out.append({
             "category":category,"title":title,"url":link,"published":dt.isoformat(),
             "sourceName":source or label or "Google News","summary":desc[:2000],
             "official":bool(site or domain_official),"officialLabel":label or (OFFICIAL_DOMAINS.get(site) if site else ""),
-            "querySite":site
+            "querySite":site,
+            "retrievalQuery":q
         })
         if len(out)>=max_items:break
     return out
@@ -409,10 +432,13 @@ def relevant_primary(x,companies,kind,joined):
     t=joined.lower()
     general_terms=("자동차","차량","타이어","철강","열연","냉연","후판","강관","비철","구리","아연","전력","변압기","hvdc","케이블","풍력","태양광","ess","에너지","lng","원전","수소","화학","소재","공장","산업단지")
     auto_terms=("자동차","차량","전기차","하이브리드","pbv","자율주행","adas","타이어","리콜","결함","형식승인","배출가스")
+    specific=("생산라인","생산계획","생산량","공급사","대체투입","재고","조업","가동중단","종풍","증설","공장","투자","매각","인수","합병","분할","이사회","임원","대표이사","선임","퇴임","특허","상표","디자인","리콜","결함","조사","인증","형식승인","환경영향","건축허가","사업계획","입찰","낙찰","수주","계약","관세","반덤핑","소송","판결","심판","자금조달","유상증자","채권","RSU")
+    # Company-specific source signals are highest value.
     if companies:return True
-    if kind in {"정책·규제","통상·관세","인허가·환경","소송·분쟁"}:return any(k in t for k in general_terms)
     if kind in {"결함·리콜","인증·형식승인"}:return any(k in t for k in auto_terms)
-    return any(k in t for k in general_terms)
+    if kind in {"정책·규제","통상·관세","인허가·환경","소송·분쟁"}:
+        return any(k in t for k in general_terms) and any(k in t for k in specific)
+    return any(k in t for k in general_terms) and any(k in t for k in specific)
 
 def scoop_headline(x,kind,corp,blob,nums):
     base=(x.get("title") or "").strip()
@@ -443,18 +469,19 @@ def scoop_headline(x,kind,corp,blob,nums):
 def source_group(x):
     label=str(x.get("officialLabel") or x.get("sourceName") or "")
     dom=str(x.get("url") or "").lower()
+    query_site=str(x.get("querySite") or "").lower()
     if label=="DART" or "dart.fss.or.kr" in dom:return "DART"
-    if "kind.krx.co.kr" in dom:return "KIND"
-    if any(d in dom for d in ("kipris.or.kr","kipo.go.kr","patents.google.com","j-platpat.inpit.go.jp")):return "특허"
-    if any(d in dom for d in ("g2b.go.kr","pps.go.kr")):return "조달"
-    if "car.go.kr" in dom:return "자동차·결함"
-    if "eiass.go.kr" in dom:return "환경·인허가"
-    if any(d in dom for d in ("law.go.kr","lawmaking.go.kr")):return "법령·입법"
-    if any(d in dom for d in ("usitc.gov","ids.usitc.gov","rulings.cbp.gov","cbp.gov","ustr.gov","trade.gov","ec.europa.eu","eur-lex.europa.eu")):return "통상·분쟁"
-    if any(d in dom for d in ("nhtsa.gov","epa.gov","sec.gov","unece.org","samr.gov.cn","cnca.gov.cn","safetygate.ec.europa.eu")):return "해외기관"
-    if any(d in dom for d in ("motie.go.kr","molit.go.kr","ftc.go.kr","customs.go.kr","me.go.kr","keco.or.kr","kostat.go.kr","moef.go.kr")):return "정부"
-    if any(d in dom for d in ("hyundai.com","kia.com","mobis.com","hyundai-wia.com","hlmando.com","gm-korea.co.kr","kg-mobility.com","mercedes-benz.co.kr","volkswagen.co.kr","bmw.co.kr","renault.co.kr","audi.co.kr","honda.co.kr","hankooktire.com","nexentire.com","kumhotire.com","posco.com","hyundai-steel.com","seah.co.kr","koreazinc.co.kr","youngpoong.co.kr","ls-electric.com","taihan.com","doosanenerbility.com","gscaltex.com","hanwhasolutions.com","oci.co.kr","oci-holdings.co.kr","taekwang.com","dongsungchemical.com","dlchem.com")):return "기업"
-    if any(d in dom for d in ("seoul.go.kr","gg.go.kr","investkorea.org")):return "지역·투자"
+    if "kind.krx.co.kr" in dom or query_site=="kind.krx.co.kr":return "KIND"
+    if any(d in (dom+" "+query_site) for d in ("kipris.or.kr","kipo.go.kr","patents.google.com","j-platpat.inpit.go.jp")):return "특허"
+    if any(d in (dom+" "+query_site) for d in ("g2b.go.kr","pps.go.kr")):return "조달"
+    if "car.go.kr" in (dom+" "+query_site):return "자동차·결함"
+    if "eiass.go.kr" in (dom+" "+query_site):return "환경·인허가"
+    if any(d in (dom+" "+query_site) for d in ("law.go.kr","lawmaking.go.kr")):return "법령·입법"
+    if any(d in (dom+" "+query_site) for d in ("usitc.gov","ids.usitc.gov","rulings.cbp.gov","cbp.gov","ustr.gov","trade.gov","ec.europa.eu","eur-lex.europa.eu")):return "통상·분쟁"
+    if any(d in (dom+" "+query_site) for d in ("nhtsa.gov","epa.gov","sec.gov","unece.org","samr.gov.cn","cnca.gov.cn","safetygate.ec.europa.eu")):return "해외기관"
+    if any(d in (dom+" "+query_site) for d in ("motie.go.kr","molit.go.kr","ftc.go.kr","customs.go.kr","me.go.kr","keco.or.kr","kostat.go.kr","moef.go.kr")):return "정부"
+    if any(d in (dom+" "+query_site) for d in ("hyundai.com","kia.com","mobis.com","hyundai-wia.com","hlmando.com","gm-korea.co.kr","kg-mobility.com","mercedes-benz.co.kr","volkswagen.co.kr","bmw.co.kr","renault.co.kr","audi.co.kr","honda.co.kr","hankooktire.com","nexentire.com","kumhotire.com","posco.com","hyundai-steel.com","seah.co.kr","koreazinc.co.kr","youngpoong.co.kr","ls-electric.com","taihan.com","doosanenerbility.com","gscaltex.com","hanwhasolutions.com","oci.co.kr","oci-holdings.co.kr","taekwang.com","dongsungchemical.com","dlchem.com")):return "기업"
+    if any(d in (dom+" "+query_site) for d in ("seoul.go.kr","gg.go.kr","investkorea.org")):return "지역·투자"
     return "기타"
 
 def main():
@@ -470,8 +497,10 @@ def main():
             if x.get("official"):primary.append(x)
 
     for d in dart:
+        corp_name=str(d.get("corpName") or "").strip()
         report=str(d.get("reportName") or "")
-        if not report:continue
+        if not report or not corp_name:continue
+        if any(k in report for k in ("투자설명서","증권신고서","사업보고서","반기보고서","분기보고서","기타시장안내")):continue
         ddt=parse_dt(d.get("date",""))
         if ddt<now-timedelta(days=14):continue
         material=any(k in report for k in ("회사분할","영업정지","생산중단","신규시설투자","타법인주식및출자증권취득결정","단일판매ㆍ공급계약체결","유상증자","영업양수도","합병","대표이사","임원","이사선임","주요사항보고"))
@@ -479,11 +508,11 @@ def main():
         if not HARD_SIGNAL_RE.search(report):continue
         blob,nums=dart_fact(d,numeric)
         primary.append({
-            "category":"공시","title":dart_title(d.get("corpName",""),report,blob,nums),
+            "category":"공시","title":dart_title(corp_name,report,blob,nums),
             "url":d.get("url",""),"published":ddt.isoformat(),"sourceName":"DART",
             "summary":(d.get("signalText","")+" "+blob)[:12000],
             "official":True,"officialLabel":"DART","receiptNo":d.get("receiptNo"),
-            "dartNumbers":nums,"rawReport":report
+            "dartNumbers":nums,"rawReport":report,"corpName":corp_name
         })
 
     candidates=[];seen=set()
@@ -492,10 +521,24 @@ def main():
         joined=title+" "+x.get("summary","")
         if not title or NOISE_RE.search(title) or WEAK_RE.search(title):continue
         companies=target_hits(joined)
+        if x.get("corpName"):
+            direct=target_hits(x.get("corpName"))
+            companies=list(dict.fromkeys(direct+companies))
         numbers=list(dict.fromkeys((x.get("dartNumbers") or [])+NUM_RE.findall(joined)))[:8]
         kind=candidate_kind(title,x.get("category",""))
         if not relevant_primary(x,companies,kind,joined):continue
 
+        source_group_now=source_group(x)
+        # Reject generic administrative pages and evergreen notices masquerading as new scoops.
+        generic_doc=("상세보기" in title or "행정규칙" in title) and not companies
+        evergreen=any(k in title for k in ("교육생 모집","세미나","포럼","행사","캠페인","신년인사회","채용","모집공고"))
+        if generic_doc or evergreen:continue
+        # A scoop needs a concrete reporting handle, not just an industry keyword.
+        source_text=(title+" "+x.get("summary",""))
+        concrete_hooks=0
+        concrete_hooks+=min(2,len(NUM_RE.findall(source_text)))
+        concrete_hooks+=sum(1 for k in ("이사회","임원","대표이사","선임","퇴임","생산계획","생산라인","공급사","대체투입","매각","인수","분할","합병","공장","증설","인증","형식승인","리콜","결함","환경영향","인허가","특허","상표","디자인","수주","입찰","낙찰","관세","반덤핑","소송","판결","심판","자금조달","유상증자","채권","RSU") if k in source_text)
+        if not companies and concrete_hooks<2:continue
         newsroom=newsroom_matches(title,data)
         archive_matches=[]
         for r in archive:
@@ -532,15 +575,19 @@ def main():
         tier=source_tier(x)
         concrete=min(18,len(numbers)*3)
         hard=min(12,sum(1 for k in ("분할","합병","매각","인수","철수","신설","조직개편","대표이사","임원","선임","취임","特許","특허","출원","등록","고시","법안","수주","계약","投资","투자","증설","공장","생산") if k in joined))
-        score=42 + tier*8 + concrete + hard + 28
-        if kind in {"결함·리콜","인증·형식승인","인허가·환경","소송·분쟁","인사","특허·기술","상표·디자인","사업재편","정책·규제","통상·관세"}:score+=9
-        if age_h<=24:score+=7
-        elif age_h<=72:score+=4
-        if not archive_matches:score+=4
-        score=min(99,score)
+        freshness=12 if age_h<=24 else 8 if age_h<=72 else 3
+        specificity=min(20,concrete*3)
+        change=min(16,hard*2)
+        source_weight=12 if tier>=3 else 6
+        novelty=8 if not archive_matches else 0
+        kind_weight=8 if kind in {"결함·리콜","인증·형식승인","인허가·환경","소송·분쟁","인사","특허·기술","상표·디자인","사업재편","정책·규제","통상·관세"} else 4
+        score=min(98,35+freshness+specificity+change+source_weight+novelty+kind_weight)
 
-        if score<78:continue
+        if score<66:continue
         if not (numbers or kind in {"결함·리콜","인증·형식승인","인허가·환경","소송·분쟁","인사","특허·기술","상표·디자인","정책·규제","사업재편","통상·관세"} or any(k in joined for k in ("공장","법인","조직개편","대표이사","특허","고시","법안","리콜","결함","인증","인허가","소송","판결","관세"))):continue
+        # Public-source freshness and specificity are mandatory for a real scoop candidate.
+        if source_group_now=="기타" and not x.get("officialLabel"):continue
+        if not companies and kind in {"특허·기술","상표·디자인","인사","결함·리콜","인증·형식승인"}:continue
 
         corp=companies[0] if companies else "정부"
         headline=scoop_headline(x,kind,corp,x.get("summary") or "",numbers)
@@ -593,7 +640,7 @@ def main():
         candidates.append({
             "id":hashlib.sha1((x.get("url","")+"|"+headline).encode()).hexdigest()[:12],
             "kind":kind,"beat":beat_for(joined),"title":headline,"score":score,
-            "status":"미보도 유력" if not strong and score>=88 else "미보도 후보",
+            "status":"단독 유력" if not strong and score>=86 and tier>=3 and concrete_hooks>=2 else "단독 후보",
             "originalSource":x.get("officialLabel") or x.get("sourceName"),
             "originalSourceUrl":x.get("url"),"original":True,
             "coverageCount":len(strong),"coverageSources":[r.get("source") for r in strong if r.get("source")],
@@ -648,11 +695,12 @@ def main():
             "primaryHits":len(primary),"candidates":len(final),
             "uncovered":sum(1 for x in final if x.get("coverageCount",0)==0),
             "alreadyCoveredOne":sum(1 for x in final if x.get("coverageCount",0)>0),
-            "beats":len(set(x["beat"] for x in final))
+            "beats":len(set(x["beat"] for x in final)),
+            "strongCandidates":sum(1 for x in final if x.get("status")=="단독 유력")
         },
         "items":final,
         "sourceGroups":{g:sum(1 for x in final if x.get("sourceGroup")==g) for g in sorted({x.get("sourceGroup","기타") for x in final})},
-        "note":"단독감은 기존 언론 기사의 중요도를 평가하는 기능이 아닙니다. DART뿐 아니라 특허·KIND·정부·조달·기업 원자료·해외 규제기관·지역 인허가 자료에서 새 사실을 먼저 포착하고, 현재 언론·아카이브에 동일 사실이 없을 때만 후보로 올립니다. 인사·특허·정책·사업재편을 우선하며 일반적인 공급계약은 추가성이 없으면 제외합니다."
+        "note":"단독감은 중요 뉴스 랭킹이 아닙니다. 실제 단독 기사에서 반복되는 내부 의사결정·생산계획·공급변경·이사회·인사·거래구조·자금조달·규제/인허가 선행 신호를 찾고, 구체적 사실·최근성·원자료성·미보도 여부·실제 전화 확인 가능성을 함께 평가합니다. 일반 공지·행정규칙·행사·채용·단순 계약 규모만으로는 올리지 않습니다."
     }
     OUT.write_text(json.dumps(payload,ensure_ascii=False,separators=(",",":")),encoding="utf-8")
     print(f"primary-source scoop scout: {len(primary)} primary hits -> {len(final)} selective unreported candidates")
