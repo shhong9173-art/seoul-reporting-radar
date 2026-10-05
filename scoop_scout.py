@@ -79,7 +79,7 @@ OFFICIAL_DOMAINS={
  "ids.usitc.gov":"USITC","usitc.gov":"USITC","rulings.cbp.gov":"CBP CROSS","cbp.gov":"CBP","unece.org":"UNECE WP.29",
  "samr.gov.cn":"중국 SAMR","cnca.gov.cn":"중국 인증","j-platpat.inpit.go.jp":"J-PlatPat","safetygate.ec.europa.eu":"EU Safety Gate",
  "seoul.go.kr":"서울시","gg.go.kr":"경기도","investkorea.org":"Invest Korea",
- "kosa.or.kr":"한국철강협회","kweia.or.kr":"한국풍력산업협회","lngkorea.org":"민간LNG산업협회",
+ "kosa.or.kr":"한국철강협회","kweia.or.kr":"한국풍력산업협회","lngkorea.org":"민간LNG산업협회","metall.or.kr":"금속노련",
  "kepic.or.kr":"대한전기협회","koema.or.kr":"한국전기산업진흥회","kaif.or.kr":"한국원자력산업협회",
  "hyundai.com":"현대차","kia.com":"기아","mobis.com":"현대모비스","hyundai-wia.com":"현대위아","hlmando.com":"HL만도",
  "gm-korea.co.kr":"한국GM","kg-mobility.com":"KG모빌리티","mercedes-benz.co.kr":"메르세데스벤츠코리아","volkswagen.co.kr":"폭스바겐코리아",
@@ -147,6 +147,7 @@ PRIMARY_QUERY_SETS=[
  ("협회·산업단체","site:kepic.or.kr (기술기준 OR 개정 OR 인증 OR 표준 OR 입찰 OR 원전 OR 전력 OR 전기설비 OR 안전)"),
  ("협회·산업단체","site:koema.or.kr (정책 OR 수출 OR 조사 OR 인증 OR 시험 OR 전력망 OR 변압기 OR HVDC OR 기술 OR 회원사)"),
  ("협회·산업단체","site:kaif.or.kr (원전 OR SMR OR 입찰 OR 회원사 OR 정책 OR 수출 OR 수주 OR 프로젝트 OR 산업실태조사 OR 기술) (공지 OR 입찰정보 OR 보도자료 OR 투데이뉴스)"),
+ ("노사·현장","site:metall.or.kr (현대차 OR 기아 OR 포스코 OR 현대제철 OR LS전선 OR HD현대일렉트릭 OR 일진전기 OR 세아 OR 금호타이어 OR 한국타이어 OR 넥센타이어) (임단협 OR 단체교섭 OR 잠정합의 OR 파업 OR 쟁의 OR 투표 OR 노조 OR 생산 OR 조업)"),
 ]
 for company,domain in {
     "한국철강협회":"kosa.or.kr","한국풍력산업협회":"kweia.or.kr","민간LNG산업협회":"lngkorea.org",
@@ -154,8 +155,9 @@ for company,domain in {
 }.items():
     PRIMARY_QUERY_SETS.append(("협회·산업단체",f"site:{domain} ({company} OR 정책 OR 건의 OR 조사 OR 통계 OR 수급 OR 회원사 OR 공동대응 OR 입찰 OR 프로젝트)"))
 
+SCOOP_FINGERPRINT_TERMS="이사회 OR 임원 OR 대표이사 OR 인사 OR 퇴사 OR 조직개편 OR 생산계획 OR 생산조정 OR 생산라인 OR 공급사 OR 공급중단 OR 대체투입 OR 재고 OR 납기 OR 노사 OR 임단협 OR 잠정합의 OR 파업 OR 쟁의 OR 매각 OR 인수 OR 거래종결 OR 지분 OR 자금조달 OR 유상증자 OR 회사채 OR RSU OR 양산 OR 시제품 OR 품질 OR 리콜 OR 인증 OR 인허가 OR 환경영향 OR 특허"
 for company,domain in COMPANY_DOMAINS.items():
-    PRIMARY_QUERY_SETS.append(("기업 원자료",f"site:{domain} ({company} OR investment OR 투자 OR 증설 OR 공장 OR 수주 OR 계약 OR 특허 OR 임원 OR 대표이사 OR 조직개편 OR board)"))
+    PRIMARY_QUERY_SETS.append(("기업 원자료",f"site:{domain} ({company}) ({SCOOP_FINGERPRINT_TERMS})"))
 
 def get(url,timeout=15):
     req=urllib.request.Request(url,headers={"User-Agent":"Mozilla/5.0 NewsroomScoopScout/3.0","Accept":"application/rss+xml,application/xml,text/xml,*/*"})
@@ -424,7 +426,7 @@ def build_pitch(x,kind,companies,numbers):
 def source_tier(x):
     label=str(x.get("officialLabel") or x.get("sourceName") or "")
     group=source_group(x)
-    if group in {"DART","KIND","특허","조달","자동차·결함","환경·인허가","법령·입법","통상·분쟁","해외기관","지역·투자","협회"}:return 3
+    if group in {"DART","KIND","특허","조달","자동차·결함","환경·인허가","법령·입법","통상·분쟁","해외기관","지역·투자","협회","노사·현장"}:return 3
     if label in {"산업부","국토부","공정위","관세청","기재부","환경부","USTR","미국 상무부","EU 집행위","EU","NHTSA","EPA","USITC","CBP CROSS","UNECE WP.29","중국 SAMR"}:return 3
     if x.get("category")=="기업 원자료":return 2
     return 1
@@ -446,7 +448,7 @@ def relevant_primary(x,companies,kind,joined):
     t=joined.lower()
     general_terms=("자동차","차량","타이어","철강","열연","냉연","후판","강관","비철","구리","아연","전력","변압기","hvdc","케이블","풍력","태양광","ess","에너지","lng","원전","수소","화학","소재","공장","산업단지")
     auto_terms=("자동차","차량","전기차","하이브리드","pbv","자율주행","adas","타이어","리콜","결함","형식승인","배출가스")
-    specific=("생산라인","생산계획","생산량","공급사","대체투입","재고","조업","가동중단","종풍","증설","공장","투자","매각","인수","합병","분할","이사회","임원","대표이사","선임","퇴임","특허","상표","디자인","리콜","결함","조사","인증","형식승인","환경영향","건축허가","사업계획","입찰","낙찰","수주","계약","관세","반덤핑","소송","판결","심판","자금조달","유상증자","채권","RSU")
+    specific=("생산라인","생산계획","생산량","공급사","대체투입","재고","조업","가동중단","종풍","증설","공장","투자","매각","인수","합병","분할","이사회","임원","대표이사","선임","퇴임","특허","상표","디자인","리콜","결함","조사","인증","형식승인","환경영향","건축허가","사업계획","입찰","낙찰","수주","계약","관세","반덤핑","소송","판결","심판","자금조달","유상증자","채권","RSU","노사","임단협","잠정합의","파업","쟁의","생산계획","생산조정","공급중단","대체투입","재고","납기","거래종결","지분")
     # Company-specific source signals are highest value.
     if companies:return True
     if kind in {"결함·리콜","인증·형식승인"}:return any(k in t for k in auto_terms)
@@ -497,6 +499,7 @@ def source_group(x):
     if any(d in (dom+" "+query_site) for d in ("hyundai.com","kia.com","mobis.com","hyundai-wia.com","hlmando.com","gm-korea.co.kr","kg-mobility.com","mercedes-benz.co.kr","volkswagen.co.kr","bmw.co.kr","renault.co.kr","audi.co.kr","honda.co.kr","hankooktire.com","nexentire.com","kumhotire.com","posco.com","hyundai-steel.com","seah.co.kr","koreazinc.co.kr","youngpoong.co.kr","ls-electric.com","taihan.com","doosanenerbility.com","gscaltex.com","hanwhasolutions.com","oci.co.kr","oci-holdings.co.kr","taekwang.com","dongsungchemical.com","dlchem.com")):return "기업"
     if any(d in (dom+" "+query_site) for d in ("seoul.go.kr","gg.go.kr","investkorea.org")):return "지역·투자"
     if any(d in (dom+" "+query_site) for d in ("kosa.or.kr","kweia.or.kr","lngkorea.org","kepic.or.kr","koema.or.kr","kaif.or.kr")):return "협회"
+    if "metall.or.kr" in (dom+" "+query_site):return "노사·현장"
     return "기타"
 
 def main():
