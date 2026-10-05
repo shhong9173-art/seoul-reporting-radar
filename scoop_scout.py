@@ -49,7 +49,7 @@ COMPANY_DOMAINS={
  "LG화학":"lgchem.com","롯데케미칼":"lottechem.com"
 }
 NOISE_RE=re.compile(r"주가|증권|목표주가|급등|급락|관련주|테마주|특징주|장중|종목|추천주|리포트",re.I)
-WEAK_RE=re.compile(r"사회공헌|기부|봉사|채용|수상|캠페인|축제|전시|세미나|포럼|강연|홍보대사|혜택|이벤트|모먼트|스토리",re.I)
+WEAK_RE=re.compile(r"사회공헌|기부|봉사|채용|수상|캠페인|축제|전시|세미나|포럼|강연|홍보대사|혜택|이벤트|모먼트|스토리|재단|장학|펠로|양궁|칵테일|아트워크|우수조",re.I)
 HARD_SIGNAL_RE=re.compile(r"정책|규제|시행|고시|법안|입법|관세|반덤핑|특허|출원|등록|대표이사|임원|사내이사|사외이사|선임|취임|퇴임|조직개편|신설|투자|출자|증설|공장|법인|합병|분할|인수|매각|철수|수주|계약|공급|발주|입찰|생산|가동|감산|가격|원가|마진|배터리|ESS|HVDC|변압기|해저케이블|해상풍력|자율주행|리콜|조업정지",re.I)
 TOPIC_RE=re.compile(r"자동차|전기차|배터리|철강|비철|구리|아연|니켈|전력|변압기|HVDC|케이블|풍력|태양광|ESS|에너지|석유화학|화학|소재|공장|수출|관세|산업단지|자율주행|데이터센터|원전",re.I)
 NUM_RE=re.compile(r"(?<!\d)(?:\d{1,3}(?:,\d{3})+|\d+(?:\.\d+)?)(?:조원|억원|만원|달러|만대|천대|대|명|%|GWh|MWh|kWh|톤|km|MW|GW)(?!\w)",re.I)
@@ -188,28 +188,55 @@ def dart_fact(d,numeric_rows):
     document=fetch_dart_document(d.get("receiptNo"))
     return (context+" "+document).strip(),nums
 
+def won_amount(blob):
+    m=re.search(r"(?:계약금액|투자금액|취득금액|출자금액)\s*\(?원\)?\s+([0-9,]+)",blob)
+    if not m:return ""
+    try:v=int(m.group(1).replace(",",""))
+    except Exception:return ""
+    if v>=1000000000000:return f"{v/1e12:.2f}".rstrip("0").rstrip(".")+"조원"
+    if v>=100000000:return f"{v/1e8:,.0f}억원"
+    if v>=10000:return f"{v/1e4:,.0f}만원"
+    return f"{v:,}원"
+
+def near_fact(blob,label):
+    m=re.search(re.escape(label)+r"\s+([^\n]{2,100})",blob,re.I)
+    return re.sub(r"\s+"," ",m.group(1)).strip() if m else ""
+
+def percent_fact(blob):
+    m=re.search(r"매출액대비\(?%\)?\s+([0-9]+(?:\.[0-9]+)?)",blob)
+    return (m.group(1)+"%") if m else ""
+
 def dart_title(corp,report,blob,nums):
-    amounts=[str(n) for n in nums if re.search(r"(조원|억원|만원|달러|USD|EUR)$",str(n))]
+    amount=won_amount(blob)
+    pct=percent_fact(blob)
     if "회사분할" in report:
         if "자동차용 램프" in blob:return f"{corp}, 자동차용 램프 사업부문 물적분할"
         return f"{corp}, 사업부문 물적분할 결정"
     if "생산중단" in report or "영업정지" in report:
-        if "10일의 조업정지 처분을 취소" in blob:return f"{corp}, 석포제련소 10일 조업정지 처분 취소"
+        if "10일의 조업정지 처분을 취소" in blob:return f"{corp}, 석포제련소 10일 조업정지 처분 취소"+(f"…매출비중 {pct}" if pct else "")
         return f"{corp}, 생산중단 관련 새 결정"
     if "신규시설투자" in report or "시설투자" in report:
-        target=re.search(r"투자대상\s+([^0-9]{2,100}?)(?:\s+2\.|\s+투자내역)",blob)
-        what=target.group(1).strip() if target else "생산시설"
-        return f"{corp}, {what} {amounts[0]+' ' if amounts else ''}증설 투자".strip()
+        m=re.search(r"투자대상\s+(.{2,100}?)(?:\s+2\.|\s+투자내역)",blob)
+        what=re.sub(r"\s+"," ",m.group(1)).strip() if m else "생산시설"
+        return f"{corp}, {what} "+(amount+" " if amount else "")+"증설 투자"
     if "타법인주식및출자증권취득결정" in report:
-        target=re.search(r"발행회사\s+회사명\s+([^0-9]{2,100}?)(?:\s+국적|\s+대표자)",blob)
-        what=target.group(1).strip() if target else "타법인"
-        return f"{corp}, {what} 지분 취득" + (f"…{amounts[0]}" if amounts else "")
+        m=re.search(r"발행회사\s+회사명\s+(.{2,90}?)(?:\s+국적|\s+대표자)",blob)
+        what=re.sub(r"\s+"," ",m.group(1)).strip() if m else "타법인"
+        return f"{corp}, {what} 지분 취득"+(f"…{amount}" if amount else "")
     if "단일판매" in report or "공급계약" in report:
-        return f"{corp}, 신규 공급계약 공시" + (f"…{amounts[0]}" if amounts else "")
-    if any(k in report for k in ("대표이사","임원","이사선임")):
-        if "대표이사" in blob:return f"{corp}, 대표이사 인사 변경"
-        return f"{corp}, 임원 인사 변경"
+        party=near_fact(blob,"계약상대방")
+        contract=near_fact(blob,"계약명")
+        units=[u for u in nums if re.search(r"(GWh|MWh|km|MW|GW|톤|만대|대)$",str(u),re.I)]
+        detail=units[0] if units else ""
+        if party and len(party)<45:
+            return f"{corp}, {party} 공급계약"+(f" {detail}" if detail else "")+(f"…{amount}" if amount else "")
+        if contract and len(contract)<70:
+            return f"{corp}, {contract}"+(f"…{amount}" if amount else "")
+        return f"{corp}, 신규 공급계약"+(f" {detail}" if detail else "")+(f"…{amount}" if amount else "")
+    if any(k in report for k in ("대표이사","임원","이사선임")):return f"{corp}, 경영진 인사 변경"
+    if "유상증자" in report:return f"{corp}, 자회사 유상증자 결정"+(f"…{amount}" if amount else "")
     return f"{corp}, {report}"
+
 
 def candidate_kind(title,category):
     t=(title or "").lower()
@@ -278,7 +305,11 @@ def main():
         if not TOPIC_RE.search(joined) and x.get("category") not in {"공시"}:continue
         companies=target_hits(joined)
         numbers=list(dict.fromkeys((x.get("dartNumbers") or [])+NUM_RE.findall(joined)))[:8]
-        if not companies and not numbers and x.get("category") not in {"정책·규제","특허·기술","통상·해외"}:continue
+        if x.get("category")=="공시" and not companies:continue
+        if x.get("category")=="기업 원자료" and not companies:continue
+        if x.get("category")=="특허·기술" and not companies:continue
+        if x.get("category") in {"정책·규제","조달·발주"} and not TOPIC_RE.search(joined):continue
+        if not companies and not numbers and not TOPIC_RE.search(joined):continue
 
         newsroom=newsroom_matches(title,data)
         coverage=coverage_search(x)
@@ -288,7 +319,7 @@ def main():
 
         kind=candidate_kind(title,x.get("category",""))
         # Generic KIPRIS/DART document headings without a business fact are not leads.
-        meaningful=len(target_hits(joined))>0 or bool(numbers) or bool(re.search(r"자동차용 램프|패키지기판|석포제련소|생산시설|데이터센터|전력망|해상풍력|ESS|자율주행",joined,re.I))
+        meaningful=len(companies)>0 or bool(numbers) or bool(re.search(r"자동차용 램프|패키지기판|석포제련소|생산시설|데이터센터|전력망|해상풍력|ESS|자율주행|대표이사|임원|分할|분할|합병|특허|고시|법안",joined,re.I))
         if not meaningful:continue
 
         score=52
@@ -297,7 +328,8 @@ def main():
         score+=12 if companies else 0
         score+=10 if numbers else 0
         score+=8 if kind=="인사" else 0
-        score+=6 if kind in {"특허·기술","정책·규제","사업재편","신사업·투자"} else 0
+        score+=7 if kind in {"특허·기술","정책·규제","사업재편","신사업·투자","계약·수주"} else 0
+        score+=5 if x.get("category")=="공시" else 0
         score=min(99,score)
 
         key=re.sub(r"[^가-힣A-Za-z0-9]","",title.lower())[:180]
