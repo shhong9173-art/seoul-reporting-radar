@@ -16,6 +16,7 @@ on:
       - 'pitch.json'
       - 'industry.json'
       - 'dig_today.json'
+      - 'scoop.json'
   schedule:
     - cron: '*/15 * * * *'
   workflow_dispatch:
@@ -112,6 +113,8 @@ jobs:
           changes=json.load(open('changes.json',encoding='utf-8')) if Path('changes.json').exists() else {'changes':[],'snapshots':[]}
           shifts=json.load(open('strategic_shifts.json',encoding='utf-8')) if Path('strategic_shifts.json').exists() else {'items':[]}
           dig=json.load(open('dig_today.json',encoding='utf-8')) if Path('dig_today.json').exists() else {'items':[]}
+          scoop=json.load(open('scoop.json',encoding='utf-8')) if Path('scoop.json').exists() else {'items':[]}
+          scoop=json.load(open('scoop.json',encoding='utf-8')) if Path('scoop.json').exists() else {'items':[]}
           if not isinstance(dart,dict) or 'items' not in dart: raise SystemExit('dart.json invalid')
           if not isinstance(pitches,list): raise SystemExit('pitch.json invalid')
           if not isinstance(numeric,dict) or 'items' not in numeric: raise SystemExit('dart_numeric.json invalid')
@@ -119,10 +122,12 @@ jobs:
           if not isinstance(changes,dict) or 'changes' not in changes: raise SystemExit('changes.json invalid')
           if not isinstance(shifts,dict) or 'items' not in shifts: raise SystemExit('strategic_shifts.json invalid')
           if not isinstance(dig,dict) or 'items' not in dig: raise SystemExit('dig_today.json invalid')
+          if not isinstance(scoop,dict) or 'items' not in scoop: raise SystemExit('scoop.json invalid')
+          if len(scoop.get('items',[]))>60: raise SystemExit('too many scoop candidates')
           if not isinstance(dig.get('qualityGate'),dict): raise SystemExit('investigation quality gate metadata missing')
           a=sum(1 for p in pitches if p.get('grade')=='A'); linked=sum(1 for p in pitches if p.get('dartNumericSignals'))
           industry=sum(1 for x in items if x.get('industrySource')); auto=sum(1 for x in items if x.get('category') in {'완성차','부품','배터리','정책·관세','중국차','노조·생산','수주·투자','리콜·안전','단독','미국·글로벌'} and not x.get('global')); follow=sum(1 for x in items if x.get('followUp') and not x.get('global'))
-          print(f'validated {len(items)} items / auto {auto} / expanded industry {industry} / {len(globals_)} global / {len(dart["items"])} DART / {len(numeric["items"])} numeric docs / {len(pitches)} pitches / {a} A-grade / {linked} numeric-linked / {follow} retained follow-up / {len(changes["changes"])} changes / {len(shifts["items"])} strategic shifts / {len(dig["items"])} investigation items / quality {dig["qualityGate"].get("input")}->{dig["qualityGate"].get("output")}')
+          print(f'validated {len(items)} items / auto {auto} / expanded industry {industry} / {len(globals_)} global / {len(dart["items"])} DART / {len(numeric["items"])} numeric docs / {len(pitches)} pitches / {a} A-grade / {linked} numeric-linked / {follow} retained follow-up / {len(changes["changes"])} changes / {len(shifts["items"])} strategic shifts / {len(dig["items"])} investigation items / scoop {len(scoop["items"])} / quality {dig["qualityGate"].get("input")}->{dig["qualityGate"].get("output")}')
           if len(pitches)>3: raise SystemExit(f'pitch count {len(pitches)} exceeds max 3')
           if len(dig['items'])>5: raise SystemExit('too many investigation items')
           PY
@@ -131,7 +136,7 @@ jobs:
           set -e
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data.js data.json global.json archive.json changes.json strategic_shifts.json dart.json dart_numeric.json pitch.json industry.json dig_today.json scoop.json
+          git add data.js data.json global.json archive.json changes.json strategic_shifts.json dart.json dart_numeric.json pitch.json industry.json dig_today.json scoop.json scoop.json
           if git diff --cached --quiet; then echo "No feed changes"; else
             git commit -m "chore: refresh newsroom radar and investigation leads"
             for i in 1 2 3; do
@@ -174,7 +179,8 @@ jobs:
           if len(pitches)>3: raise SystemExit('Too many pitches in latest main')
           if not isinstance(shifts,dict) or 'items' not in shifts: raise SystemExit('Latest strategic shifts invalid')
           if not isinstance(dig,dict) or 'items' not in dig or not isinstance(dig.get('qualityGate'),dict): raise SystemExit('Latest investigation radar invalid')
-          print(f'latest main feed: {len(items)} items / pitches {len(pitches)} / strategic shifts {len(shifts["items"])} / investigation {len(dig["items"])} / quality {dig["qualityGate"].get("input")}->{dig["qualityGate"].get("output")}')
+          if not isinstance(scoop,dict) or 'items' not in scoop: raise SystemExit('Latest scoop radar invalid')
+          print(f'latest main feed: {len(items)} items / pitches {len(pitches)} / strategic shifts {len(shifts["items"])} / investigation {len(dig["items"])} / scoop {len(scoop["items"])} / quality {dig["qualityGate"].get("input")}->{dig["qualityGate"].get("output")}')
           PY
       - name: Setup Python
         uses: actions/setup-python@v5
