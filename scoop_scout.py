@@ -40,6 +40,7 @@ NOISE_RE = re.compile(
     r"주가|증권|목표주가|급등|급락|추천|관련주|테마주|특징주|장중|오전장|종목|주목할 종목|리포트",
     re.I
 )
+OWN_RE = re.compile(r"아이뉴스24|iNews24|inews24", re.I)
 PRESS_RE = re.compile(
     r"뉴스와이어|Newswire|PRNewswire|Business Wire|GlobeNewswire|EIN Presswire|PRWeb|Accesswire|Press Release|보도자료|자료제공|자료배포|뉴스룸|미디어센터|프레스센터",
     re.I
@@ -59,25 +60,25 @@ NUM_RE = re.compile(
 )
 
 QUERY_SETS = [
-    ("자동차","현대차 기아 제네시스 특허 자율주행 레벨4 리콜 생산 투자 가격 관세"),
-    ("자동차","현대모비스 현대위아 HL만도 수주 공급 생산 증설 투자 특허"),
-    ("자동차","LG에너지솔루션 삼성SDI SK온 ESS 배터리 공장 전환 수주 투자"),
-    ("자동차","BYD 테슬라 중국 전기차 한국 인증 가격 관세 판매"),
-    ("철강","포스코 현대제철 동국제강 세아제강 10월 가격 유통가격 수요 재고"),
-    ("철강","포스코 현대제철 세아제강 미국 철강 관세 반덤핑 OCTG 투자 공장"),
-    ("비철금속","고려아연 영풍 LS MnM 풍산 아연 구리 제련 투자 가격 공급"),
-    ("전력기기","LS ELECTRIC HD현대일렉트릭 효성중공업 일진전기 변압기 HVDC 데이터센터 수주"),
-    ("전선·전력","LS전선 대한전선 해저케이블 초고압 HVDC 수주 미국 투자"),
-    ("에너지","두산에너빌리티 GS GS칼텍스 수주 투자 발전소 원전 가스 가격"),
-    ("재생에너지","한화솔루션 OCI홀딩스 씨에스윈드 태양광 풍력 ESS 전력망 투자"),
-    ("화학·소재","LG화학 롯데케미칼 금호석유화학 효성첨단소재 코오롱인더 투자 증설 구조조정 가격"),
-    ("정책·조달","산업부 국토부 공정위 환경부 철강 자동차 전력기기 조달 계약 관세 정책"),
-    ("특허·기술","site:kipris.or.kr 현대차 기아 현대모비스 특허 자율주행 배터리"),
-    ("특허·기술","site:kipris.or.kr 포스코 현대제철 LS ELECTRIC 두산에너빌리티 특허"),
-    ("공시·조달","site:dart.fss.or.kr 현대차 기아 포스코 현대제철 수주 투자 매각 분할"),
-    ("공시·조달","site:dart.fss.or.kr LS ELECTRIC HD현대일렉트릭 두산에너빌리티 수주 투자"),
-    ("공시·조달","site:dart.fss.or.kr 고려아연 영풍 LS MnM LG화학 롯데케미칼 투자"),
-    ("정책·조달","site:g2b.go.kr 전력망 변압기 ESS 철강 자동차 조달 계약"),
+    ("자동차","(현대차 OR 기아 OR 제네시스) (특허 OR 자율주행 OR 레벨4 OR 리콜 OR 생산 OR 투자 OR 가격 OR 관세)"),
+    ("자동차","(현대모비스 OR 현대위아 OR HL만도) (수주 OR 공급 OR 생산 OR 증설 OR 투자 OR 특허)"),
+    ("자동차","(LG에너지솔루션 OR 삼성SDI OR SK온) (ESS OR 배터리 OR 공장 OR 전환 OR 수주 OR 투자)"),
+    ("자동차","(BYD OR 테슬라 OR 중국 전기차) (한국 OR 인증 OR 가격 OR 관세 OR 판매)"),
+    ("철강","(포스코 OR 현대제철 OR 동국제강 OR 세아제강) (10월 OR 가격 OR 유통가격 OR 수요 OR 재고)"),
+    ("철강","(포스코 OR 현대제철 OR 세아제강) (미국 OR 관세 OR 반덤핑 OR OCTG OR 투자 OR 공장)"),
+    ("비철금속","(고려아연 OR 영풍 OR LS MnM OR 풍산) (아연 OR 구리 OR 제련 OR 투자 OR 가격 OR 공급)"),
+    ("전력기기","(LS ELECTRIC OR HD현대일렉트릭 OR 효성중공업 OR 일진전기) (변압기 OR HVDC OR 데이터센터 OR 수주)"),
+    ("전선·전력","(LS전선 OR 대한전선) (해저케이블 OR 초고압 OR HVDC OR 수주 OR 미국 OR 투자)"),
+    ("에너지","(두산에너빌리티 OR GS OR GS칼텍스) (수주 OR 투자 OR 발전소 OR 원전 OR 가스 OR 가격)"),
+    ("재생에너지","(한화솔루션 OR OCI홀딩스 OR 씨에스윈드) (태양광 OR 풍력 OR ESS OR 전력망 OR 투자)"),
+    ("화학·소재","(LG화학 OR 롯데케미칼 OR 금호석유화학 OR 효성첨단소재 OR 코오롱인더) (투자 OR 증설 OR 구조조정 OR 가격)"),
+    ("정책·조달","(산업부 OR 국토부 OR 공정위 OR 환경부) (철강 OR 자동차 OR 전력기기) (조달 OR 계약 OR 관세 OR 정책)"),
+    ("특허·기술","site:kipris.or.kr (현대차 OR 기아 OR 현대모비스) (특허 OR 자율주행 OR 배터리)"),
+    ("특허·기술","site:kipris.or.kr (포스코 OR 현대제철 OR LS ELECTRIC OR 두산에너빌리티) 특허"),
+    ("공시·조달","site:dart.fss.or.kr (현대차 OR 기아 OR 포스코 OR 현대제철) (수주 OR 투자 OR 매각 OR 분할)"),
+    ("공시·조달","site:dart.fss.or.kr (LS ELECTRIC OR HD현대일렉트릭 OR 두산에너빌리티) (수주 OR 투자)"),
+    ("공시·조달","site:dart.fss.or.kr (고려아연 OR 영풍 OR LS MnM OR LG화학 OR 롯데케미칼) 투자"),
+    ("정책·조달","site:g2b.go.kr (전력망 OR 변압기 OR ESS OR 철강 OR 자동차) (조달 OR 입찰 OR 계약)"),
 ]
 
 def get(url: str, timeout: int = 15) -> bytes:
@@ -197,7 +198,7 @@ def beat_for(s: str) -> str:
 
 def is_bad(x: dict) -> bool:
     t = (x.get("title") or "") + " " + (x.get("summary") or "")
-    if NOISE_RE.search(t) or PRESS_RE.search(t):
+    if NOISE_RE.search(t) or PRESS_RE.search(t) or OWN_RE.search(str(x.get("sourceName") or "")):
         return True
     if EVENT_RE.search(x.get("title") or "") and not any(k in t for k in ACTION_WORDS):
         return True
@@ -345,69 +346,109 @@ def make_candidate(x: dict, all_hits: list[dict], archive: list[dict]) -> dict:
 
 def main():
     try:
-        data = json.loads(DATA.read_text(encoding="utf-8")) if DATA.exists() else []
+        data=json.loads(DATA.read_text(encoding="utf-8")) if DATA.exists() else []
     except Exception:
-        data = []
+        data=[]
     try:
-        archive = json.loads(ARCHIVE.read_text(encoding="utf-8")) if ARCHIVE.exists() else []
+        archive=json.loads(ARCHIVE.read_text(encoding="utf-8")) if ARCHIVE.exists() else []
     except Exception:
-        archive = []
+        archive=[]
 
-    existing_titles = [x.get("title","") for x in data if x.get("title")]
-    hits = search_hits()
-    candidates = []
-    seen_issue = set()
+    # Start with the current newsroom DB, then add an independent web search layer.
+    # The goal is not "already covered nowhere"; it is "not yet covered by iNews24
+    # and still actionable enough to pursue".
+    feed_seeds=[]
+    for x in data:
+        if not x.get("global") and not is_bad(x):
+            t=(x.get("title") or "")+" "+(x.get("summary") or "")
+            signal=sum(1 for w in ACTION_WORDS if w.lower() in t.lower())
+            spread=int(x.get("clusterCount") or 1)
+            if x.get("exclusive") or NUM_RE.search(t) or signal>=2 or spread<=2:
+                feed_seeds.append(x)
 
-    for x in hits:
-        title = x.get("title") or ""
-        if not title:
+    web_hits=search_hits()
+    pool=[]
+    seen=set()
+    for x in sorted(feed_seeds+web_hits,key=lambda z:z.get("published",""),reverse=True):
+        k=(x.get("sourceName",""),title_key(x.get("title","")))
+        if k in seen or is_bad(x):
             continue
-        # Keep genuinely new findings. Items already present in the newsroom feed
-        # are useful as context, but do not become "scoop candidates".
-        if max([similarity(title, old) for old in existing_titles] or [0]) >= 0.82:
+        seen.add(k)
+        pool.append(x)
+
+    candidates=[]
+    seen_issue=set()
+    for x in pool:
+        title=x.get("title") or ""
+        source=str(x.get("sourceName") or "")
+        if not title or OWN_RE.search(source):
             continue
-        issue = canonical_issue(title)
+
+        # Do not call a broadly covered item a scoop candidate unless it carries
+        # a genuinely new exclusive/number/policy/contract fact.
+        spread=int(x.get("clusterCount") or 0)
+        new_fact=bool(x.get("exclusive") or NUM_RE.search(title+" "+x.get("summary","")))
+        if x in data and spread>4 and not new_fact:
+            continue
+
+        c=make_candidate(x,pool,archive)
+        if c["score"]<55:
+            continue
+        joined=(title+" "+x.get("summary","")).lower()
+        if not (c["numbers"] or c["companies"] or x.get("exclusive")):
+            continue
+        if not any(w.lower() in joined for w in ACTION_WORDS):
+            continue
+
+        issue=canonical_issue(title)
         if issue in seen_issue:
             continue
         seen_issue.add(issue)
-        c = make_candidate(x, hits, archive)
-        # A scoop candidate needs at least one concrete reporting signal.
-        if not c["numbers"] and not c["companies"] and c["kind"] == "단독감":
-            continue
-        if c["score"] < 60:
-            continue
         candidates.append(c)
 
-    candidates.sort(key=lambda x: (x["score"], bool(x["numbers"]), len(x["questions"])), reverse=True)
+    candidates.sort(
+        key=lambda x:(
+            x["score"],
+            len(x["coverageSources"])<=1,
+            bool(x["numbers"]),
+            len(x["history"])==0,
+        ),
+        reverse=True
+    )
 
-    old = {}
+    old={}
     if OUT.exists():
         try:
-            old = {x.get("id"): x for x in json.loads(OUT.read_text(encoding="utf-8")).get("items", [])}
+            old={x.get("id"):x for x in json.loads(OUT.read_text(encoding="utf-8")).get("items",[])}
         except Exception:
-            old = {}
+            old={}
+
     for c in candidates:
-        prev = old.get(c["id"])
+        prev=old.get(c["id"])
         if prev:
-            c["status"] = prev.get("status","확인중")
-            c["note"] = prev.get("note","")
-    out = candidates[:30]
-    payload = {
-        "generatedAt": datetime.now(KST).isoformat(),
-        "windowDays": 7,
-        "searchEngines": ["Google News RSS","Bing News RSS"],
-        "counts": {
-            "hits": len(hits),
-            "candidates": len(out),
-            "beats": len({x["beat"] for x in out}),
-            "singleSource": sum(1 for x in out if len(x["coverageSources"]) <= 1),
+            c["status"]=prev.get("status","확인중")
+            c["note"]=prev.get("note","")
+            c["checkedCount"]=int(prev.get("checkedCount",0))+1
+        else:
+            c["checkedCount"]=1
+
+    out=candidates[:60]
+    payload={
+        "generatedAt":datetime.now(KST).isoformat(),
+        "windowDays":7,
+        "searchEngines":["Google News RSS","Bing News RSS"],
+        "counts":{
+            "hits":len(pool),
+            "candidates":len(out),
+            "beats":len({x["beat"] for x in out}),
+            "singleSource":sum(1 for x in out if len(x["coverageSources"])<=1),
         },
-        "items": out,
-        "note": "뉴스·공시·특허·정책·조달 검색 결과를 기존 기사 DB와 대조해 확산 전 기사거리를 추립니다."
+        "items":out,
+        "note":"현재 기사 DB와 웹 탐색 결과를 비교해 아이뉴스24 미보도·단일매체·정책·공시·수치·특허·통상 등 실제 확인 가능한 기사거리를 지속 축적합니다."
     }
-    OUT.write_text(json.dumps(payload, ensure_ascii=False, separators=(",",":")), encoding="utf-8")
+    OUT.write_text(json.dumps(payload,ensure_ascii=False,separators=(",",":")),encoding="utf-8")
     print(
-        f"scoop scout: {len(hits)} web hits -> {len(out)} candidates / "
+        f"scoop scout: pool {len(pool)} -> {len(out)} candidates / "
         f"single-source {payload['counts']['singleSource']}"
     )
 
