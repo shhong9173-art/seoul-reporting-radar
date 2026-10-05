@@ -15,8 +15,9 @@
       '<div><b>원자료 탐색</b><span>'+esc(c.primaryHits||0)+'건</span></div>'+
       '<div><b>언론 미보도</b><span>'+esc(c.uncovered||0)+'건</span></div>'+
       '<div><b>후보</b><span>'+esc(c.candidates||0)+'건</span></div>'+
-      '<div><b>탐색 범위</b><span>14일 · 원자료</span></div>'+
+      '<div><b>출처군</b><span>'+Object.keys(doc.sourceGroups||{}).length+'종</span></div>'+
       '</div>'+
+      '<div class="scoop-rule">출처별: '+Object.entries(doc.sourceGroups||{}).map(([k,v])=>esc(k)+' '+esc(v)+'건').join(' · ')+'</div>'+
       '<div class="scoop-rule">언론 기사 자체를 단독감으로 올리지 않습니다. DART·정부·조달·특허·기업 원자료에서 먼저 신호를 찾고, 같은 사실이 이미 보도됐는지 대조합니다.</div>'+
       (items.length?items.map(x=>{
         const sources=(x.sources||[]).slice(0,4), nums=(x.numbers||[]).slice(0,5), matches=(x.newsroomMatches||[]).slice(0,4);
