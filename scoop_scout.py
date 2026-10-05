@@ -24,11 +24,11 @@ IND = {
 }
 TARGETS = [
     ("현대차","자동차"),("기아","자동차"),("제네시스","자동차"),("현대모비스","자동차"),
-    ("현대위아","자동차"),("HL만도","자동차"),("LG에너지솔루션","자동차"),("삼성SDI","자동차"),
+    ("현대위아","자동차"),("HL만도","자동차"),("현대트랜시스","자동차"),("현대글로비스","자동차"),("LG에너지솔루션","자동차"),("삼성SDI","자동차"),
     ("SK온","자동차"),("BYD","자동차"),("테슬라","자동차"),
     ("포스코","철강"),("포스코홀딩스","철강"),("현대제철","철강"),("동국제강","철강"),("세아제강","철강"),
     ("고려아연","비철금속"),("영풍","비철금속"),("LS MnM","비철금속"),("풍산","비철금속"),
-    ("LS ELECTRIC","전력기기"),("HD현대일렉트릭","전력기기"),("효성중공업","전력기기"),("일진전기","전력기기"),
+    ("LS ELECTRIC","전력기기"),("HD현대일렉트릭","전력기기"),("HD현대중공업","전력기기"),("LS마린솔루션","전선·전력"),("효성중공업","전력기기"),("일진전기","전력기기"),
     ("LS전선","전선·전력"),("대한전선","전선·전력"),
     ("두산에너빌리티","에너지"),("GS","에너지"),("GS칼텍스","에너지"),
     ("한화솔루션","재생에너지"),("OCI홀딩스","재생에너지"),("씨에스윈드","재생에너지"),
@@ -45,7 +45,7 @@ PRESS_RE = re.compile(
     r"뉴스와이어|Newswire|PRNewswire|Business Wire|GlobeNewswire|EIN Presswire|PRWeb|Accesswire|Press Release|보도자료|자료제공|자료배포|뉴스룸|미디어센터|프레스센터",
     re.I
 )
-EVENT_RE = re.compile(
+WEAK_RE = re.compile(r"사회공헌|기부|봉사|교육|인재|채용|수상|선정|캠페인|축제|전시|세미나|포럼|특집|칼럼|오피니언|강연", re.I)\nEVENT_RE = re.compile(
     r"인베스터데이|주주총회|설명회|세미나|포럼|엑스포|컨퍼런스|부스투어|기조연설|발표회"
 )
 ACTION_WORDS = (
@@ -252,96 +252,94 @@ def candidate_kind(x: dict) -> str:
     return "단독감"
 
 def score_candidate(x: dict, same_source: int, same_issue_sources: int, history: list[dict]) -> int:
-    t = (x.get("title","") + " " + x.get("summary","")).lower()
-    score = 42
-    score += min(18, len(company_hits(t)) * 6)
-    score += min(18, sum(1 for w in ACTION_WORDS if w.lower() in t) * 2)
-    score += 14 if NUM_RE.search(t) else 0
-    score += 10 if any(w in t for w in ("단독","특허","공시","확정","최종판정","전량","신규","처음")) else 0
-    score += 10 if same_source == 1 else 0
-    score += 8 if same_issue_sources == 1 else 0
-    score -= min(24, max(0, len(history) - 1) * 8)
-    return max(0, min(99, score))
+    t=(x.get("title","")+" "+x.get("summary","")).lower()
+    score=40
+    companies=len(company_hits(t))
+    actions=sum(1 for w in ACTION_WORDS if w.lower() in t)
+    score+=min(24,companies*8)
+    score+=min(20,actions*2)
+    score+=16 if NUM_RE.search(t) else 0
+    score+=14 if any(w in t for w in ("단독","특허","공시","최종판정","덤핑마진","원산지","전량","신규","확정")) else 0
+    score+=14 if same_issue_sources<=1 else (8 if same_issue_sources==2 else 0)
+    score-=12 if same_issue_sources>=5 else 0
+    spread=int(x.get("clusterCount") or 0)
+    if spread==1: score+=10
+    elif spread==2: score+=5
+    elif spread>=5: score-=18
+    if history: score-=min(24,max(0,len(history)-1)*8)
+    return max(0,min(99,score))
 
 def make_candidate(x: dict, all_hits: list[dict], archive: list[dict]) -> dict:
-    title = x.get("title") or ""
-    issue = canonical_issue(title)
-    issue_hits = [
-        h for h in all_hits
-        if similarity(issue, canonical_issue(h.get("title") or "")) >= 0.55
-    ]
-    distinct_sources = list(dict.fromkeys(h.get("sourceName") for h in issue_hits if h.get("sourceName")))
-    history = in_archive(title, archive, 4)
-    companies = company_hits((title + " " + x.get("summary","")))
-    if not companies:
-        companies = company_hits(issue)
-    same_source = len(distinct_sources)
-    same_issue_sources = len(issue_hits)
-    score = score_candidate(x, same_source, same_issue_sources, history)
-    beat = beat_for(title + " " + x.get("summary",""))
-    numbers = list(dict.fromkeys(NUM_RE.findall(title + " " + x.get("summary",""))))[:8]
-    kind = candidate_kind(x)
+    title=x.get("title") or ""
+    issue=canonical_issue(title)
+    issue_hits=[h for h in all_hits if similarity(issue,canonical_issue(h.get("title") or ""))>=0.55]
+    base_sources=x.get("coveredBy") or ([x.get("sourceName")] if x.get("sourceName") else [])
+    distinct_sources=list(dict.fromkeys([*base_sources,*[h.get("sourceName") for h in issue_hits if h.get("sourceName")]]))
+    history=in_archive(title,archive,4)
+    companies=company_hits((title+" "+x.get("summary","")))
+    beat=beat_for(title+" "+x.get("summary",""))
+    numbers=list(dict.fromkeys(NUM_RE.findall(title+" "+x.get("summary",""))))[:8]
+    kind=candidate_kind(x)
+    same_issue_sources=len(distinct_sources)
 
-    why = (
-        f"{x.get('sourceName','한 매체')}에서 먼저 포착된 이슈입니다. "
-        f"현재 검색권에서 같은 내용이 {same_issue_sources}건 확인돼 확산 전 선점 여부를 볼 수 있습니다."
-    )
-    if history:
-        why += f" 과거 유사 이슈 {len(history)}건과 비교해 새로 붙은 사실을 확인해야 합니다."
-    if kind == "특허·기술":
-        angle = "특허 원문에서 실제 적용 제품·양산 시점·출원 범위를 확인해 단순 특허 소개를 넘어 사업화 가능성을 취재"
-    elif kind == "정책·조달":
-        angle = "정책·조달 원문과 실제 기업 수주·참여 여부를 맞춰 시장에 새로 생기는 물량을 확인"
-    elif kind == "통상":
-        angle = "최종 판정·시행 시점과 실제 출하·계약 조건을 붙여 국내 기업의 수출전략 변화를 확인"
-    elif kind == "가격·수요":
-        angle = "발표 가격과 실제 유통가격·주문·재고를 대조해 시장 반영 여부를 확인"
-    elif kind == "공시·사업":
-        angle = "공시 원문과 기존 사업계획을 대조해 실제 자금·생산·사업 포트폴리오 변화인지 확인"
+    why=f"{x.get('sourceName','한 매체')}에서 먼저 포착된 이슈입니다. 현재 아이뉴스24 보도 여부와 확산 정도를 대조해 선점 가능성을 확인합니다."
+    if same_issue_sources>1:
+        why+=f" 같은 이슈가 현재 {same_issue_sources}개 매체에서 확인돼 추가로 붙을 수 있는 사실이 있는지 봅니다."
     else:
-        angle = "최초 보도에 없는 추가 숫자·계약·현장 상황을 붙여 아이뉴스24만의 후속 기사로 확장"
+        why+=" 현재 확인 매체가 1곳이라 회사·정부 원자료를 바로 대조할 가치가 있습니다."
+    if history:
+        why+=f" 과거 유사 기사 {len(history)}건과 비교해 무엇이 새로 달라졌는지도 확인합니다."
 
-    pitch = (
-        f"{companies[0] if companies else beat} {title.split(' - ')[0].strip()}…"
-        f"실제 사업 영향과 다음 변수를 확인"
-    )
-    questions = [
-        "이 내용의 원자료는 무엇이며 회사·정부의 공식 확인은 나왔는가?",
+    if kind=="특허·기술":
+        angle="특허 원문에서 적용 제품·출원 범위·양산 시점을 확인해 기술 소개가 아닌 사업화 기사로 확장"
+        pitch_text=f"{title.split(' - ')[0].strip()}…특허 실제 적용·양산 시점이 변수"
+    elif kind=="정책·조달":
+        angle="정책·조달 원문과 실제 발주·예산·참여 기업을 맞춰 새로 생기는 물량과 수혜처를 확인"
+        pitch_text=f"{title.split(' - ')[0].strip()}…실제 발주·예산 규모가 관건"
+    elif kind=="통상":
+        angle="시행·최종 판정 조건을 실제 출하·계약에 대입해 국내 기업의 물량·가격·수출전략 변화를 확인"
+        pitch_text=f"{title.split(' - ')[0].strip()}…출하·계약 영향까지 확인할 필요"
+    elif kind=="가격·수요":
+        angle="발표 가격과 실제 유통가격·주문·재고를 대조해 시장에서 실제로 가격이 움직였는지 확인"
+        pitch_text=f"{title.split(' - ')[0].strip()}…발표 가격과 실제 유통가격이 변수"
+    elif kind=="공시·사업":
+        angle="공시 원문과 기존 투자·생산 계획을 대조해 숫자 변화가 실제 사업재편으로 이어지는지 확인"
+        pitch_text=f"{title.split(' - ')[0].strip()}…기존 계획과 실제 집행의 차이가 핵심"
+    else:
+        angle="최초 기사에 없는 추가 숫자·계약·회사 입장을 붙여 아이뉴스24만의 후속 기사로 확장"
+        pitch_text=f"{title.split(' - ')[0].strip()}…회사 대응과 추가 숫자 확인이 핵심"
+
+    questions=[
+        "원자료는 무엇이며 회사·정부의 공식 확인은 나왔는가?",
         "기존 공개 계획이나 지난해 같은 시점과 비교해 새롭게 달라진 숫자는 무엇인가?",
         "출입처에서 확인할 실제 물량·계약·가격·투자·생산 변화는 무엇인가?"
     ]
     if numbers:
-        questions[1] = f"확인된 {', '.join(numbers[:3])}이 기존 수치와 어떻게 달라졌는가?"
-    source_rows = []
+        questions[1]=f"확인된 {', '.join(numbers[:3])}이 기존 수치와 어떻게 달라졌는가?"
+
+    source_rows=[]
     for h in issue_hits[:5]:
-        source_rows.append({
-            "source": h.get("sourceName") or "-",
-            "title": h.get("title") or "",
-            "url": h.get("url"),
-            "published": h.get("published"),
-        })
+        source_rows.append({"source":h.get("sourceName") or "-", "title":h.get("title") or "", "url":h.get("url"), "published":h.get("published")})
+
     return {
-        "id": hashlib.sha1((x.get("url","")+"|"+title).encode()).hexdigest()[:12],
-        "kind": kind,
-        "beat": beat,
-        "title": title,
-        "score": score,
-        "status": "확인중",
-        "why": why,
-        "whatConfirmed": f"{x.get('sourceName','매체')}에서 {title}",
-        "angle": angle,
-        "pitch": pitch,
-        "numbers": numbers,
-        "companies": companies[:5],
-        "sources": source_rows,
-        "history": [
-            {"title": h.get("title"), "source": h.get("sourceName"), "published": h.get("published")}
-            for h in history
-        ],
-        "questions": questions,
-        "firstSeenAt": x.get("published"),
-        "firstSeenSource": x.get("sourceName"),
-        "coverageSources": distinct_sources[:8],
+        "id":hashlib.sha1((x.get("url","")+"|"+title).encode()).hexdigest()[:12],
+        "kind":kind,
+        "beat":beat,
+        "title":title,
+        "score":score_candidate(x,len(distinct_sources),same_issue_sources,history),
+        "status":"확인중",
+        "why":why,
+        "whatConfirmed":f"{x.get('sourceName','매체')}에서 {title}",
+        "angle":angle,
+        "pitch":pitch_text,
+        "numbers":numbers,
+        "companies":companies[:5],
+        "sources":source_rows,
+        "history":[{"title":h.get("title"),"source":h.get("sourceName"),"published":h.get("published")} for h in history],
+        "questions":questions,
+        "firstSeenAt":x.get("published"),
+        "firstSeenSource":x.get("sourceName"),
+        "coverageSources":distinct_sources[:8],
     }
 
 def main():
