@@ -175,6 +175,7 @@ jobs:
           items=json.load(open('data.json',encoding='utf-8')); pitches=json.load(open('pitch.json',encoding='utf-8')) if Path('pitch.json').exists() else []
           shifts=json.load(open('strategic_shifts.json',encoding='utf-8')) if Path('strategic_shifts.json').exists() else {'items':[]}
           dig=json.load(open('dig_today.json',encoding='utf-8')) if Path('dig_today.json').exists() else {'items':[]}
+          scoop=json.load(open('scoop.json',encoding='utf-8')) if Path('scoop.json').exists() else {'items':[]}
           if not isinstance(items,list) or len(items)<10: raise SystemExit('Latest feed is invalid')
           if len(pitches)>3: raise SystemExit('Too many pitches in latest main')
           if not isinstance(shifts,dict) or 'items' not in shifts: raise SystemExit('Latest strategic shifts invalid')
