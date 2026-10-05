@@ -21,7 +21,7 @@
       (items.length?items.map(x=>{
         const sources=(x.sources||[]).slice(0,4), nums=(x.numbers||[]).slice(0,5), matches=(x.newsroomMatches||[]).slice(0,4);
         return '<article class="card scoop-card">'+
-          '<div class="card-top"><span class="badge '+(x.score>=85?'must':'follow')+'">'+esc(x.kind||'단독 후보')+'</span><span class="score">'+esc(x.score||0)+'점</span></div>'+
+          '<div class="card-top"><span class="badge '+(x.score>=88?'must':'follow')+'">'+esc(x.status||'미보도 후보')+'</span><span class="score">'+esc(x.score||0)+'점</span></div><div class="meta" style="margin-top:-2px"><span class="tag">'+esc(x.kind||'단독 후보')+'</span></div>'+
           '<div class="meta"><b>'+esc(x.beat||'정책·통상')+'</b> · 원자료 '+esc(x.originalSource||x.firstSeenSource||'-')+' · '+esc(x.firstSeenAt||'-')+'</div>'+
           '<div class="title">'+esc(x.title||'')+'</div>'+
           '<div class="scoop-status"><span>미보도 '+(x.coverageCount===0?'✓':'△ '+esc(x.coverageCount)+'건')+'</span><span>'+esc(x.verification||'원문 확인 필요')+'</span></div>'+
