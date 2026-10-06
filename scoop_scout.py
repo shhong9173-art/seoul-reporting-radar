@@ -262,7 +262,7 @@ def google_rss(category,query,max_items=8,lookback_days=PRIMARY_LOOKBACK_DAYS):
     url="https://news.google.com/rss/search?q="+urllib.parse.quote(q)+"&hl=ko&gl=KR&ceid=KR:ko"
     try:root=ET.fromstring(get(url))
     except Exception:return []
-    cutoff=now-timedelta(days=10);out=[]
+    cutoff=now-timedelta(days=lookback_days);out=[]
     site_match=re.search(r"site:([A-Za-z0-9.-]+)",query,re.I)
     site=site_match.group(1).lower() if site_match else ""
     for item in root.findall("./channel/item"):
