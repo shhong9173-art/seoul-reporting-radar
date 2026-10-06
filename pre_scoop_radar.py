@@ -73,6 +73,65 @@ def parse_dt(raw):
         except Exception:
             return datetime.min.replace(tzinfo=KST)
 
+def target_hits(text):
+    t=str(text or "").lower()
+    aliases={
+        "현대차":["현대차","현대자동차","hyundai motor"],
+        "기아":["기아","kia"],
+        "제네시스":["제네시스","genesis"],
+        "현대모비스":["현대모비스","hyundai mobis"],
+        "현대위아":["현대위아","hyundai wia"],
+        "HL만도":["hl만도","hl mando","만도"],
+        "한국GM":["한국gm","gm korea","쉐보레","chevrolet"],
+        "KG모빌리티":["kg모빌리티","kgm","쌍용자동차"],
+        "메르세데스벤츠코리아":["메르세데스벤츠코리아","메르세데스-벤츠 코리아","mercedes-benz korea","벤츠"],
+        "폭스바겐코리아":["폭스바겐코리아","volkswagen korea","폭스바겐"],
+        "BMW코리아":["bmw코리아","bmw korea","bmw"],
+        "르노코리아":["르노코리아","renault korea"],
+        "아우디코리아":["아우디코리아","audi korea","아우디"],
+        "혼다코리아":["혼다코리아","honda korea"],
+        "한국타이어":["한국타이어","hankook tire"],
+        "넥센타이어":["넥센타이어","nexen tire"],
+        "금호타이어":["금호타이어","kumho tire"],
+        "현대트랜시스":["현대트랜시스","hyundai transys"],
+        "현대글로비스":["현대글로비스","hyundai glovis","glovis"],
+        "포스코":["포스코","posco"],
+        "포스코홀딩스":["포스코홀딩스","posco holdings"],
+        "현대제철":["현대제철","hyundai steel"],
+        "KG스틸":["kg스틸","kg steel"],
+        "세아홀딩스":["세아홀딩스","seah holdings"],
+        "세아제강":["세아제강","seah steel"],
+        "고려아연":["고려아연","korea zinc"],
+        "영풍":["영풍","young poong"],
+        "LS MnM":["ls mnm","ls mnm inc"],
+        "HD현대일렉트릭":["hd현대일렉트릭","hd hyundai electric"],
+        "LS일렉트릭":["ls일렉트릭","ls electric"],
+        "대한전선":["대한전선","taihan cable"],
+        "효성중공업":["효성중공업","hyosung heavy industries"],
+        "일진전기":["일진전기","iljin electric"],
+        "LS전선":["ls전선","ls cable"],
+        "LS지주":["ls지주","ls corp","ls holdings"],
+        "두산에너빌리티":["두산에너빌리티","doosan enerbility"],
+        "GS":["gs"],
+        "GS칼텍스":["gs칼텍스","gs caltex"],
+        "한화솔루션":["한화솔루션","hanwha solutions"],
+        "OCI":["oci"],
+        "OCI홀딩스":["oci홀딩스","oci holdings"],
+        "씨에스윈드":["씨에스윈드","cs wind"],
+        "태광":["태광","taekwang"],
+        "동성케미칼":["동성케미칼","dongsung chemical"],
+        "DL케미칼":["dl케미칼","dl chemical"],
+        "LG화학":["lg화학","lg chem"],
+        "롯데케미칼":["롯데케미칼","lotte chemical"],
+        "금호석유화학":["금호석유화학","kumho petrochemical"],
+        "효성첨단소재":["효성첨단소재","hyosung advanced materials"],
+        "코오롱인더":["코오롱인더","kolon industries"],
+    }
+    out=[]
+    for k,vals in aliases.items():
+        if any(v in t for v in vals): out.append(k)
+    return out
+
 def parse_feed(root, domain, group, now):
     out=[]
     for item in root.findall("./channel/item"):
@@ -85,45 +144,80 @@ def parse_feed(root, domain, group, now):
         if not title or not link: continue
         dt=parse_dt(pub)
         if dt < now-timedelta(days=LOOKBACK_DAYS): continue
-        if not SIGNAL_TERMS.search(title+" "+desc): continue
+        body=title+" "+desc
+        companies=target_hits(body)
+        if not companies: continue
+        if not SIGNAL_TERMS.search(body): continue
         out.append({
             "sourceName":source_name,"officialLabel":domain,"querySite":domain,
             "sourceGroup":group,"title":title,"url":link,"published":dt.isoformat(),
-            "summary":desc[:3000],"official":True,"preScoop":True,
+            "summary":desc[:3500],"official":True,"preScoop":True,"companies":companies,
         })
     return out
 
-def fetch_source(group, domain, terms, max_items=20):
+def parse_bing_html(raw, domain, group, now):
+    text_raw=raw.decode("utf-8","ignore")
+    out=[]
+    for m in re.finditer(r'<li class="b_algo".*?</li>',text_raw,re.S|re.I):
+        block=m.group(0)
+        lm=re.search(r'<h2[^>]*>\s*<a[^>]+href="([^"]+)"[^>]*>(.*?)</a>',block,re.S|re.I)
+        if not lm: continue
+        link=html.unescape(lm.group(1))
+        title=clean(lm.group(2))
+        sm=re.search(r'<p[^>]*>(.*?)</p>',block,re.S|re.I)
+        desc=clean(sm.group(1) if sm else "")
+        body=title+" "+desc
+        companies=target_hits(body)
+        if not companies or not SIGNAL_TERMS.search(body): continue
+        out.append({
+            "sourceName":domain,"officialLabel":domain,"querySite":domain,
+            "sourceGroup":group,"title":title,"url":link,"published":now.isoformat(),
+            "summary":desc[:3500],"official":True,"preScoop":True,"companies":companies,
+            "searchIndexed":True,
+        })
+    return out
+
+def fetch_source(group, domain, terms, max_items=25):
     now=datetime.now(KST)
     after=(now-timedelta(days=LOOKBACK_DAYS)).strftime("%Y-%m-%d")
     out=[];seen=set()
+    company_batches=COMPANY_GROUPS
 
-    # Company batches prevent one giant OR query from collapsing relevant results.
-    for companies in COMPANY_GROUPS:
+    def add(h):
+        key=h.get("url") or h.get("title")
+        if key and key not in seen:
+            seen.add(key); out.append(h)
+
+    # 1) Company-targeted searches.
+    for companies in company_batches:
         q=f"site:{domain} ({' OR '.join(companies)}) ({terms}) after:{after}"
         url="https://news.google.com/rss/search?q="+urllib.parse.quote(q)+"&hl=ko&gl=KR&ceid=KR:ko"
         try:
             root=ET.fromstring(get(url))
-            for h in parse_feed(root,domain,group,now):
-                if h["url"] not in seen:
-                    seen.add(h["url"]);out.append(h)
-        except Exception:
-            pass
+            for h in parse_feed(root,domain,group,now): add(h)
+        except Exception: pass
         if len(out)>=max_items: break
 
-    # Official databases are often poorly indexed by Google News; use Bing RSS as fallback.
+    # 2) Signal-targeted search without a huge company OR.
     if len(out)<max_items:
-        for companies in COMPANY_GROUPS:
+        q=f"site:{domain} ({terms}) after:{after}"
+        url="https://news.google.com/rss/search?q="+urllib.parse.quote(q)+"&hl=ko&gl=KR&ceid=KR:ko"
+        try:
+            root=ET.fromstring(get(url))
+            for h in parse_feed(root,domain,group,now): add(h)
+        except Exception: pass
+
+    # 3) General web search fallback.
+    if len(out)<max_items:
+        for companies in company_batches:
             q=f"site:{domain} ({' OR '.join(companies)}) ({terms})"
-            url="https://www.bing.com/search?format=rss&q="+urllib.parse.quote(q)+"&setlang=ko-KR"
+            url="https://www.bing.com/search?q="+urllib.parse.quote(q)+"&setlang=ko-KR"
             try:
-                root=ET.fromstring(get(url))
-                for h in parse_feed(root,domain,group,now):
-                    if h["url"] not in seen:
-                        seen.add(h["url"]);out.append(h)
-            except Exception:
-                pass
+                raw=get(url)
+                for h in parse_bing_html(raw,domain,group,now): add(h)
+            except Exception: pass
             if len(out)>=max_items: break
+
     return out[:max_items]
 def main():
     items = []
