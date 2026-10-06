@@ -103,12 +103,12 @@ OFFICIAL_DOMAINS={
  "dongsungchemical.com":"동성케미칼","dlchem.com":"DL케미칼"
 }
 COMPANY_DOMAINS={
- "현대차":"hyundai.com","기아":"kia.com","현대모비스":"mobis.com","현대위아":"hyundai-wia.com","HL만도":"hlmando.com",
+ "현대차":"hyundai.com","기아":"kia.com","제네시스":"genesis.com","현대모비스":"mobis.com","현대위아":"hyundai-wia.com","HL만도":"hlmando.com","만도":"hlmando.com",
  "한국GM":"gm-korea.co.kr","KG모빌리티":"kg-mobility.com","메르세데스벤츠코리아":"mercedes-benz.co.kr","폭스바겐코리아":"volkswagen.co.kr",
- "BMW코리아":"bmw.co.kr","르노코리아":"renault.co.kr","아우디코리아":"audi.co.kr","혼다코리아":"honda.co.kr",
+ "BMW코리아":"bmw.co.kr","BMW":"bmw.co.kr","르노코리아":"renault.co.kr","아우디코리아":"audi.co.kr","아우디":"audi.co.kr","혼다코리아":"honda.co.kr","폭스바겐":"volkswagen.co.kr",
  "한국타이어":"hankooktire.com","넥센타이어":"nexentire.com","금호타이어":"kumhotire.com",
  "현대트랜시스":"hyundai-transys.com","현대글로비스":"glovis.net",
- "포스코":"posco.com","현대제철":"hyundai-steel.com","KG스틸":"kg-steel.co.kr","세아홀딩스":"seah.co.kr","세아제강":"seahsteel.co.kr",
+ "포스코":"posco.com","포스코홀딩스":"posco-inc.com","현대제철":"hyundai-steel.com","KG스틸":"kg-steel.co.kr","세아홀딩스":"seah.co.kr","세아제강":"seahsteel.co.kr",
  "고려아연":"koreazinc.co.kr","영풍":"youngpoong.co.kr","LS MnM":"lsmnm.com","LS M&M":"lsmnm.com",
  "HD현대일렉트릭":"hd-hyundaielectric.com","LS일렉트릭":"ls-electric.com","대한전선":"taihan.com","효성중공업":"hyosungheavyindustries.com","일진전기":"iljinelectric.co.kr",
  "LS전선":"lscns.co.kr","LS지주":"lsholdings.com",
