@@ -475,7 +475,7 @@ def build_pitch(x,kind,companies,numbers):
 def source_tier(x):
     label=str(x.get("officialLabel") or x.get("sourceName") or "")
     group=source_group(x)
-    if group in {"DART","KIND","특허","조달","자동차·결함","환경·인허가","법령·입법","통상·분쟁","해외기관","지역·투자","협회","노사·현장","정책·감독","공기업·시장","재무·신용"}:return 3
+    if group in {"DART","KIND","특허","조달","자동차·결함","환경·인허가","법령·입법","통상·분쟁","해외기관","지역·투자","협회","노사·현장","정책·감독","공기업·시장","공기업·조달","법원·분쟁","공장·산업단지","인증·안전","R&D·기술","중앙노동위","고용노동","재무·신용"}:return 3
     if label in {"산업부","국토부","공정위","관세청","기재부","환경부","USTR","미국 상무부","EU 집행위","EU","NHTSA","EPA","USITC","CBP CROSS","UNECE WP.29","중국 SAMR"}:return 3
     if x.get("category")=="기업 원자료":return 2
     return 1
@@ -533,6 +533,7 @@ def scoop_headline(x,kind,corp,blob,nums):
     return base
 
 def source_group(x):
+    if x.get("sourceGroup") and x.get("preScoop"):return str(x.get("sourceGroup"))
     label=str(x.get("officialLabel") or x.get("sourceName") or "")
     dom=str(x.get("url") or "").lower()
     query_site=str(x.get("querySite") or "").lower()
@@ -579,6 +580,7 @@ def main():
     dart=json.loads(DART.read_text(encoding="utf-8")).get("items",[]) if DART.exists() else []
     numeric=json.loads(NUM.read_text(encoding="utf-8")).get("items",[]) if NUM.exists() else []
     archive=json.loads(ARCHIVE.read_text(encoding="utf-8")) if ARCHIVE.exists() else []
+    pre_scoop=json.loads(Path("pre_scoop.json").read_text(encoding="utf-8")).get("items",[]) if Path("pre_scoop.json").exists() else []
     now=datetime.now(KST)
     primary=[]
     pattern_frequency={}
@@ -616,6 +618,10 @@ def main():
             "official":True,"officialLabel":"DART","receiptNo":d.get("receiptNo"),
             "dartNumbers":nums,"rawReport":report,"corpName":corp_name
         })
+
+    for p in pre_scoop:
+        if p.get("title") and p.get("url") and p.get("preScoop"):
+            primary.append(p)
 
     candidates=[];seen=set()
     for x in sorted(primary,key=lambda z:z.get("published",""),reverse=True):
@@ -735,7 +741,7 @@ def main():
         kind_weight=8 if kind in {"결함·리콜","인증·형식승인","인허가·환경","소송·분쟁","인사","특허·기술","상표·디자인","사업재편","정책·규제","통상·관세"} else 4
         source_boost={
             "자동차·결함":14,"환경·인허가":14,"법령·입법":12,"특허":12,"KIND":10,"조달":10,
-            "통상·분쟁":12,"해외기관":10,"정부":9,"협회":8,"노사·현장":12,"정책·감독":11,"공기업·시장":11,"재무·신용":12,"기업":8,"지역·투자":10,"DART":3,"기타":0
+            "통상·분쟁":12,"해외기관":10,"정부":9,"협회":8,"노사·현장":12,"정책·감독":11,"공기업·시장":11,"공기업·조달":13,"법원·분쟁":14,"중앙노동위":14,"고용노동":13,"공장·산업단지":15,"인증·안전":13,"R&D·기술":13,"재무·신용":12,"기업":8,"지역·투자":10,"DART":3,"기타":0
         }.get(source_group_now,0)
         exclusive_signal=sum(2 for k in ("내정","잠정합의","생산조정","생산계획","생산중단","공급중단","대체투입","공급사 변경","공급망","이사회","임원","퇴임","매각 협상","우선협상","거래종결","자금조달","보조금","지원금","인허가","환경영향","조사개시","소송 제기","특허심판","리콜","제작결함") if k in source_text)
         learned_signal=sum(min(3,pattern_frequency.get(label,0)//3) for label,_ in exclusive_pattern_hits(source_text))
