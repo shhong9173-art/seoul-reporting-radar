@@ -664,8 +664,42 @@ def main():
         # A newly posted disclosure is not a new scoop when the same event was already
         # reported before the disclosure date. This is the decisive novelty gate.
         primary_dt=parse_dt(x.get("published"))
-        prior_strong=[r for r in strong if r.get("published") and parse_dt(r.get("published"))<=primary_dt]
+        def is_prior_coverage(r):
+            if not r.get("published"):return False
+            rdt=parse_dt(r.get("published"))
+            if rdt<=primary_dt:return True
+            # DART/KIND-style records often carry only a calendar date and are parsed
+            # at midnight. A same-day news report is therefore still prior coverage.
+            if primary_dt.hour==0 and primary_dt.minute==0 and rdt.date()==primary_dt.date():
+                return True
+            return False
+        prior_strong=[r for r in strong if is_prior_coverage(r)]
         if prior_strong:continue
+
+        # Procurement feeds contain many welfare, education, PR, event and routine service
+        # tenders. Those are not industry scoop signals even when a tracked company is named.
+        procurement_text=(title+" "+x.get("summary","")).lower()
+        procurement_noise=(
+            "세이브더칠드런","청소년","진로","교육","봉사","사회공헌","기부","복지","캠프",
+            "체험","축제","행사","캠페인","홍보","전시","포럼","세미나","멘토링","장학",
+            "희망드림","아동","학교","유치원","어린이","지역사회","문화","체육"
+        )
+        procurement_material=(
+            "공장","생산","설비","기자재","변압기","hvdc","케이블","송전","배전","ess",
+            "충전기","충전소","원전","발전","터빈","풍력","태양광","배터리","철강","강관",
+            "차량","자동차","타이어","산업단지","건설","토목","건축","플랜트","배관","터미널",
+            "선박","항만","물류센터","데이터센터","시스템","소프트웨어","인증시험","시험장"
+        )
+        if source_group_now=="조달":
+            if any(k in procurement_text for k in procurement_noise):
+                continue
+            if not any(k in procurement_text for k in procurement_material):
+                continue
+            # A company name alone is never enough; the tender must expose an
+            # industrial asset, physical demand, infrastructure or material service.
+            procurement_specific=sum(1 for k in procurement_material if k in procurement_text)
+            if procurement_specific<1:
+                continue
 
         # Routine contracts are not useful scoop candidates unless they carry a new customer/market,
         # unusual project, large amount, or specific physical quantity.
@@ -746,7 +780,7 @@ def main():
             "계약·수주":["계약 상대방과 프로젝트·지역은 어디인가?","물량·기간·단가와 실제 생산능력 투입 규모는 얼마인가?","이번 계약이 신규 고객 또는 신규 시장 진입을 의미하는가?"],
             "조달·발주":["예산·물량·납기·발주기관은 어디인가?","참여 예상 기업과 낙찰 일정은 언제인가?","기존 계획에 없던 신규 수요인지 확인할 수 있는가?"]
         }.get(kind,["원자료의 핵심 조건은 무엇인가?","동일 사실의 언론 보도가 정말 없는가?","출입처에서 어떤 사실을 전화로 교차확인할 수 있는가?"])
-        matches=[{k:v for k,v in r.items() if k!="_sim"} for r in combined[:6] if r.get("source")]
+        matches=[{k:v for k,v in r.items() if k!="_sim" and k!="_event"} for r in combined[:6] if r.get("source")]
         history=[{"title":r.get("title"),"source":r.get("sourceName"),"published":r.get("published")} for _,r in archive_matches[:3]]
         sources=[{"source":x.get("sourceName"),"label":x.get("officialLabel") or x.get("sourceName"),"title":x.get("title"),"url":x.get("url"),"published":x.get("published")}]
 
