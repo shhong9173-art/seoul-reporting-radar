@@ -17,6 +17,7 @@ on:
       - 'industry.json'
       - 'dig_today.json'
       - 'scoop.json'
+      - 'pre_scoop.json'
   schedule:
     - cron: '*/15 * * * *'
   workflow_dispatch:
@@ -118,7 +119,7 @@ jobs:
           shifts=json.load(open('strategic_shifts.json',encoding='utf-8')) if Path('strategic_shifts.json').exists() else {'items':[]}
           dig=json.load(open('dig_today.json',encoding='utf-8')) if Path('dig_today.json').exists() else {'items':[]}
           scoop=json.load(open('scoop.json',encoding='utf-8')) if Path('scoop.json').exists() else {'items':[]}
-          scoop=json.load(open('scoop.json',encoding='utf-8')) if Path('scoop.json').exists() else {'items':[]}
+          pre=json.load(open('pre_scoop.json',encoding='utf-8')) if Path('pre_scoop.json').exists() else {'items':[]}
           if not isinstance(dart,dict) or 'items' not in dart: raise SystemExit('dart.json invalid')
           if not isinstance(pitches,list): raise SystemExit('pitch.json invalid')
           if not isinstance(numeric,dict) or 'items' not in numeric: raise SystemExit('dart_numeric.json invalid')
@@ -127,6 +128,7 @@ jobs:
           if not isinstance(shifts,dict) or 'items' not in shifts: raise SystemExit('strategic_shifts.json invalid')
           if not isinstance(dig,dict) or 'items' not in dig: raise SystemExit('dig_today.json invalid')
           if not isinstance(scoop,dict) or 'items' not in scoop: raise SystemExit('scoop.json invalid')
+          if not isinstance(pre,dict) or 'items' not in pre: raise SystemExit('pre_scoop.json invalid')
           if len(scoop.get('items',[]))>60: raise SystemExit('too many scoop candidates')
           if not isinstance(dig.get('qualityGate'),dict): raise SystemExit('investigation quality gate metadata missing')
           a=sum(1 for p in pitches if p.get('grade')=='A'); linked=sum(1 for p in pitches if p.get('dartNumericSignals'))
@@ -140,7 +142,7 @@ jobs:
           set -e
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data.js data.json global.json archive.json changes.json strategic_shifts.json dart.json dart_numeric.json pitch.json industry.json dig_today.json scoop.json scoop.json
+          git add data.js data.json global.json archive.json changes.json strategic_shifts.json dart.json dart_numeric.json pitch.json industry.json dig_today.json pre_scoop.json scoop.json
           if git diff --cached --quiet; then echo "No feed changes"; else
             git commit -m "chore: refresh newsroom radar and investigation leads"
             for i in 1 2 3; do
@@ -180,11 +182,13 @@ jobs:
           shifts=json.load(open('strategic_shifts.json',encoding='utf-8')) if Path('strategic_shifts.json').exists() else {'items':[]}
           dig=json.load(open('dig_today.json',encoding='utf-8')) if Path('dig_today.json').exists() else {'items':[]}
           scoop=json.load(open('scoop.json',encoding='utf-8')) if Path('scoop.json').exists() else {'items':[]}
+          pre=json.load(open('pre_scoop.json',encoding='utf-8')) if Path('pre_scoop.json').exists() else {'items':[]}
           if not isinstance(items,list) or len(items)<10: raise SystemExit('Latest feed is invalid')
           if len(pitches)>3: raise SystemExit('Too many pitches in latest main')
           if not isinstance(shifts,dict) or 'items' not in shifts: raise SystemExit('Latest strategic shifts invalid')
           if not isinstance(dig,dict) or 'items' not in dig or not isinstance(dig.get('qualityGate'),dict): raise SystemExit('Latest investigation radar invalid')
           if not isinstance(scoop,dict) or 'items' not in scoop: raise SystemExit('Latest scoop radar invalid')
+          if not isinstance(pre,dict) or 'items' not in pre: raise SystemExit('Latest pre-scoop radar invalid')
           print(f'latest main feed: {len(items)} items / pitches {len(pitches)} / strategic shifts {len(shifts["items"])} / investigation {len(dig["items"])} / scoop {len(scoop["items"])} / quality {dig["qualityGate"].get("input")}->{dig["qualityGate"].get("output")}')
           PY
       - name: Setup Python
