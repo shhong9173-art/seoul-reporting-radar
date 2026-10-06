@@ -14,15 +14,19 @@ KST = timezone(timedelta(hours=9))
 OUT = Path("pre_scoop.json")
 LOOKBACK_DAYS = 21
 
-TARGET_TERMS = (
-    "현대차 OR 현대자동차 OR 기아 OR 제네시스 OR 현대모비스 OR 현대위아 OR 만도 OR HL만도 "
-    "OR 한국GM OR KG모빌리티 OR 벤츠 OR 메르세데스 OR 폭스바겐 OR BMW OR 르노 OR 아우디 OR 혼다 "
-    "OR 한국타이어 OR 넥센타이어 OR 금호타이어 OR 현대트랜시스 OR 현대글로비스 "
-    "OR 포스코 OR 포스코홀딩스 OR 현대제철 OR KG스틸 OR 세아 OR 세아제강 "
-    "OR 고려아연 OR 영풍 OR LS MnM OR LS일렉트릭 OR HD현대일렉트릭 OR 대한전선 OR 효성중공업 OR 일진전기 "
-    "OR LS전선 OR LS지주 OR 두산에너빌리티 OR GS OR GS칼텍스 OR 한화솔루션 OR OCI OR OCI홀딩스 OR 씨에스윈드 "
-    "OR 태광 OR 동성케미칼 OR DL케미칼 OR LG화학 OR 롯데케미칼 OR 금호석유화학 OR 효성첨단소재 OR 코오롱인더"
-)
+TARGET_COMPANIES = [
+    "현대차","기아","제네시스","현대모비스","현대위아","HL만도","한국GM","KG모빌리티",
+    "메르세데스벤츠코리아","폭스바겐코리아","BMW코리아","르노코리아","아우디코리아","혼다코리아",
+    "한국타이어","넥센타이어","금호타이어","현대트랜시스","현대글로비스",
+    "포스코","포스코홀딩스","현대제철","KG스틸","세아홀딩스","세아제강","고려아연","영풍","LS MnM",
+    "HD현대일렉트릭","LS일렉트릭","대한전선","효성중공업","일진전기","LS전선","LS지주",
+    "두산에너빌리티","GS","GS칼텍스","한화솔루션","OCI","OCI홀딩스","씨에스윈드",
+    "태광","동성케미칼","DL케미칼","LG화학","롯데케미칼","금호석유화학","효성첨단소재","코오롱인더"
+]
+COMPANY_GROUPS = [
+    TARGET_COMPANIES[0:10], TARGET_COMPANIES[10:20], TARGET_COMPANIES[20:30],
+    TARGET_COMPANIES[30:40], TARGET_COMPANIES[40:50], TARGET_COMPANIES[50:60]
+]
 
 SOURCE_SPECS = [
     ("법원·분쟁", "g.scourt.go.kr", "(소송 OR 판결 OR 가처분 OR 손해배상 OR 계약 OR 특허 OR 상표 OR 하도급 OR 구조조정)"),
@@ -69,51 +73,58 @@ def parse_dt(raw):
         except Exception:
             return datetime.min.replace(tzinfo=KST)
 
-def fetch_source(group, domain, terms, max_items=12):
-    now = datetime.now(KST)
-    after = (now - timedelta(days=LOOKBACK_DAYS)).strftime("%Y-%m-%d")
-    q = f"site:{domain} ({TARGET_TERMS}) {terms} after:{after}"
-    url = "https://news.google.com/rss/search?q=" + urllib.parse.quote(q) + "&hl=ko&gl=KR&ceid=KR:ko"
-    try:
-        root = ET.fromstring(get(url))
-    except Exception:
-        return []
-    out = []
-    seen = set()
+def parse_feed(root, domain, group, now):
+    out=[]
     for item in root.findall("./channel/item"):
-        title = (item.findtext("title") or "").strip()
-        link = (item.findtext("link") or "").strip()
-        pub = item.findtext("pubDate") or ""
-        desc = clean(item.findtext("description") or "")
-        src = item.find("source")
-        source_name = (src.text or "").strip() if src is not None else domain
-        if not title or not link:
-            continue
-        dt = parse_dt(pub)
-        if dt < now - timedelta(days=LOOKBACK_DAYS):
-            continue
-        if not SIGNAL_TERMS.search(title + " " + desc):
-            continue
-        key = link or (source_name + "|" + title)
-        if key in seen:
-            continue
-        seen.add(key)
+        title=(item.findtext("title") or "").strip()
+        link=(item.findtext("link") or "").strip()
+        pub=item.findtext("pubDate") or ""
+        desc=clean(item.findtext("description") or "")
+        src=item.find("source")
+        source_name=(src.text or "").strip() if src is not None else domain
+        if not title or not link: continue
+        dt=parse_dt(pub)
+        if dt < now-timedelta(days=LOOKBACK_DAYS): continue
+        if not SIGNAL_TERMS.search(title+" "+desc): continue
         out.append({
-            "sourceName": source_name,
-            "officialLabel": domain,
-            "querySite": domain,
-            "sourceGroup": group,
-            "title": title,
-            "url": link,
-            "published": dt.isoformat(),
-            "summary": desc[:3000],
-            "official": True,
-            "preScoop": True,
+            "sourceName":source_name,"officialLabel":domain,"querySite":domain,
+            "sourceGroup":group,"title":title,"url":link,"published":dt.isoformat(),
+            "summary":desc[:3000],"official":True,"preScoop":True,
         })
-        if len(out) >= max_items:
-            break
     return out
 
+def fetch_source(group, domain, terms, max_items=20):
+    now=datetime.now(KST)
+    after=(now-timedelta(days=LOOKBACK_DAYS)).strftime("%Y-%m-%d")
+    out=[];seen=set()
+
+    # Company batches prevent one giant OR query from collapsing relevant results.
+    for companies in COMPANY_GROUPS:
+        q=f"site:{domain} ({' OR '.join(companies)}) ({terms}) after:{after}"
+        url="https://news.google.com/rss/search?q="+urllib.parse.quote(q)+"&hl=ko&gl=KR&ceid=KR:ko"
+        try:
+            root=ET.fromstring(get(url))
+            for h in parse_feed(root,domain,group,now):
+                if h["url"] not in seen:
+                    seen.add(h["url"]);out.append(h)
+        except Exception:
+            pass
+        if len(out)>=max_items: break
+
+    # Official databases are often poorly indexed by Google News; use Bing RSS as fallback.
+    if len(out)<max_items:
+        for companies in COMPANY_GROUPS:
+            q=f"site:{domain} ({' OR '.join(companies)}) ({terms})"
+            url="https://www.bing.com/search?format=rss&q="+urllib.parse.quote(q)+"&setlang=ko-KR"
+            try:
+                root=ET.fromstring(get(url))
+                for h in parse_feed(root,domain,group,now):
+                    if h["url"] not in seen:
+                        seen.add(h["url"]);out.append(h)
+            except Exception:
+                pass
+            if len(out)>=max_items: break
+    return out[:max_items]
 def main():
     items = []
     by_group = {}
