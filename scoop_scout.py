@@ -86,6 +86,11 @@ OFFICIAL_DOMAINS={
  "assembly.go.kr":"국회","bai.go.kr":"감사원","kpx.or.kr":"전력거래소","kepco.co.kr":"한국전력","kogas.or.kr":"한국가스공사","khnp.co.kr":"한수원","knrec.or.kr":"에너지공단",
  "kisrating.com":"한국신용평가","korearatings.com":"한국기업평가","crefia.or.kr":"신용평가·금융",
  "kosa.or.kr":"한국철강협회","kweia.or.kr":"한국풍력산업협회","lngkorea.org":"민간LNG산업협회","metall.or.kr":"금속노련",
+ "hyundai-transys.com":"현대트랜시스","glovis.net":"현대글로비스","kg-steel.co.kr":"KG스틸","seahsteel.co.kr":"세아제강",
+ "lsmnm.com":"LS MnM","hd-hyundaielectric.com":"HD현대일렉트릭","hyosungheavyindustries.com":"효성중공업",
+ "lscns.co.kr":"LS전선","lsholdings.com":"LS지주","gs.co.kr":"GS",
+ "kkpc.com":"금호석유화학","hshyosungadvancedmaterials.com":"효성첨단소재","kolonindustries.com":"코오롱인더",
+ "lgchem.com":"LG화학","lottechem.com":"롯데케미칼",
  "kepic.or.kr":"대한전기협회","koema.or.kr":"한국전기산업진흥회","kaif.or.kr":"한국원자력산업협회",
  "hyundai.com":"현대차","kia.com":"기아","mobis.com":"현대모비스","hyundai-wia.com":"현대위아","hlmando.com":"HL만도",
  "gm-korea.co.kr":"한국GM","kg-mobility.com":"KG모빌리티","mercedes-benz.co.kr":"메르세데스벤츠코리아","volkswagen.co.kr":"폭스바겐코리아",
@@ -101,10 +106,16 @@ COMPANY_DOMAINS={
  "현대차":"hyundai.com","기아":"kia.com","현대모비스":"mobis.com","현대위아":"hyundai-wia.com","HL만도":"hlmando.com",
  "한국GM":"gm-korea.co.kr","KG모빌리티":"kg-mobility.com","메르세데스벤츠코리아":"mercedes-benz.co.kr","폭스바겐코리아":"volkswagen.co.kr",
  "BMW코리아":"bmw.co.kr","르노코리아":"renault.co.kr","아우디코리아":"audi.co.kr","혼다코리아":"honda.co.kr",
- "한국타이어":"hankooktire.com","넥센타이어":"nexentire.com","금호타이어":"kumhotire.com","포스코":"posco.com","현대제철":"hyundai-steel.com",
- "세아홀딩스":"seah.co.kr","고려아연":"koreazinc.co.kr","영풍":"youngpoong.co.kr","LS일렉트릭":"ls-electric.com",
- "대한전선":"taihan.com","두산에너빌리티":"doosanenerbility.com","GS칼텍스":"gscaltex.com","한화솔루션":"hanwhasolutions.com",
- "OCI":"oci.co.kr","OCI홀딩스":"oci-holdings.co.kr","태광":"taekwang.com","동성케미칼":"dongsungchemical.com","DL케미칼":"dlchem.com"
+ "한국타이어":"hankooktire.com","넥센타이어":"nexentire.com","금호타이어":"kumhotire.com",
+ "현대트랜시스":"hyundai-transys.com","현대글로비스":"glovis.net",
+ "포스코":"posco.com","현대제철":"hyundai-steel.com","KG스틸":"kg-steel.co.kr","세아홀딩스":"seah.co.kr","세아제강":"seahsteel.co.kr",
+ "고려아연":"koreazinc.co.kr","영풍":"youngpoong.co.kr","LS MnM":"lsmnm.com","LS M&M":"lsmnm.com",
+ "HD현대일렉트릭":"hd-hyundaielectric.com","LS일렉트릭":"ls-electric.com","대한전선":"taihan.com","효성중공업":"hyosungheavyindustries.com","일진전기":"iljinelectric.co.kr",
+ "LS전선":"lscns.co.kr","LS지주":"lsholdings.com",
+ "두산에너빌리티":"doosanenerbility.com","GS":"gs.co.kr","GS칼텍스":"gscaltex.com",
+ "한화솔루션":"hanwhasolutions.com","OCI":"oci.co.kr","OCI홀딩스":"oci-holdings.co.kr","씨에스윈드":"cswind.com",
+ "태광":"taekwang.com","동성케미칼":"dongsungchemical.com","DL케미칼":"dlchem.com",
+ "LG화학":"lgchem.com","롯데케미칼":"lottechem.com","금호석유화학":"kkpc.com","효성첨단소재":"hshyosungadvancedmaterials.com","코오롱인더":"kolonindustries.com"
 }
 COMPANY_BY_DOMAIN={domain:company for company,domain in COMPANY_DOMAINS.items()}
 NOISE_RE=re.compile(r"주가|증권|목표주가|급등|급락|관련주|테마주|특징주|장중|종목|추천주|리포트",re.I)
@@ -535,7 +546,7 @@ def source_group(x):
     if any(d in (dom+" "+query_site) for d in ("usitc.gov","ids.usitc.gov","rulings.cbp.gov","cbp.gov","ustr.gov","trade.gov","ec.europa.eu","eur-lex.europa.eu")):return "통상·분쟁"
     if any(d in (dom+" "+query_site) for d in ("nhtsa.gov","epa.gov","sec.gov","unece.org","samr.gov.cn","cnca.gov.cn","safetygate.ec.europa.eu")):return "해외기관"
     if any(d in (dom+" "+query_site) for d in ("motie.go.kr","molit.go.kr","ftc.go.kr","customs.go.kr","me.go.kr","keco.or.kr","kostat.go.kr","moef.go.kr")):return "정부"
-    if any(d in (dom+" "+query_site) for d in ("hyundai.com","kia.com","mobis.com","hyundai-wia.com","hlmando.com","gm-korea.co.kr","kg-mobility.com","mercedes-benz.co.kr","volkswagen.co.kr","bmw.co.kr","renault.co.kr","audi.co.kr","honda.co.kr","hankooktire.com","nexentire.com","kumhotire.com","posco.com","hyundai-steel.com","seah.co.kr","koreazinc.co.kr","youngpoong.co.kr","ls-electric.com","taihan.com","doosanenerbility.com","gscaltex.com","hanwhasolutions.com","oci.co.kr","oci-holdings.co.kr","taekwang.com","dongsungchemical.com","dlchem.com")):return "기업"
+    if any(domain in (dom+" "+query_site) for domain in COMPANY_DOMAINS.values()):return "기업"
     if any(d in (dom+" "+query_site) for d in ("seoul.go.kr","gg.go.kr","investkorea.org")):return "지역·투자"
     if any(d in (dom+" "+query_site) for d in ("assembly.go.kr","bai.go.kr")):return "정책·감독"
     if any(d in (dom+" "+query_site) for d in ("kisrating.com","korearatings.com","crefia.or.kr")):return "재무·신용"
