@@ -177,6 +177,53 @@ def parse_bing_html(raw, domain, group, now):
         })
     return out
 
+def fetch_direct_nlrc(max_items=12):
+    """Read the NLRC's recent major judgment list directly, then inspect recent case pages for tracked companies."""
+    base="https://nlrc.go.kr"
+    list_url=base+"/nlrc/mainCase/mainJudgment/list.do"
+    now=datetime.now(KST)
+    cutoff=now-timedelta(days=LOOKBACK_DAYS)
+    try:
+        raw=get(list_url, timeout=15).decode("utf-8","ignore")
+    except Exception:
+        return []
+    out=[]; seen=set()
+    rows=re.findall(r"<tr[^>]*>(.*?)</tr>", raw, flags=re.I|re.S)
+    for row in rows[:24]:
+        dm=re.search(r"(20\d{2}-\d{2}-\d{2})", row)
+        lm=re.search(r'<a[^>]+href=["\']([^"\']+)["\'][^>]*>(.*?)</a>', row, flags=re.I|re.S)
+        if not dm or not lm:
+            continue
+        try:
+            dt=datetime.strptime(dm.group(1),"%Y-%m-%d").replace(tzinfo=KST)
+        except ValueError:
+            continue
+        if dt < cutoff:
+            continue
+        title=clean(lm.group(2))
+        href=urllib.parse.urljoin(base,lm.group(1))
+        if not title or href in seen:
+            continue
+        seen.add(href)
+        detail=""
+        try:
+            detail=clean(get(href, timeout=10).decode("utf-8","ignore"))[:12000]
+        except Exception:
+            detail=""
+        body=title+" "+detail
+        companies=target_hits(body)
+        if not companies or not SIGNAL_TERMS.search(body):
+            continue
+        out.append({
+            "sourceName":"중앙노동위원회","officialLabel":"중앙노동위","querySite":"nlrc.go.kr",
+            "sourceGroup":"중앙노동위","title":title,"url":href,"published":dt.isoformat(),
+            "summary":detail[:3500],"official":True,"preScoop":True,"companies":companies,
+            "directSource":True
+        })
+        if len(out)>=max_items:
+            break
+    return out
+
 def fetch_source(group, domain, terms, max_items=25):
     now=datetime.now(KST)
     after=(now-timedelta(days=LOOKBACK_DAYS)).strftime("%Y-%m-%d")
@@ -226,6 +273,10 @@ def main():
         hits = fetch_source(group, domain, terms)
         items.extend(hits)
         by_group[group] = by_group.get(group, 0) + len(hits)
+
+    direct_nlrc = fetch_direct_nlrc()
+    items.extend(direct_nlrc)
+    by_group["중앙노동위"] = by_group.get("중앙노동위", 0) + len(direct_nlrc)
     # Keep the feed compact and deterministic.
     dedup = {}
     for x in items:
