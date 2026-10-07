@@ -19,8 +19,6 @@ DATA=Path("data.json"); DART=Path("dart.json"); NUM=Path("dart_numeric.json")
 ARCHIVE=Path("archive.json"); OUT=Path("scoop.json")
 PRIMARY_LOOKBACK_DAYS=10
 COVERAGE_LOOKBACK_DAYS=180
-PRIMARY_LOOKBACK_DAYS=10
-COVERAGE_LOOKBACK_DAYS=180
 
 TARGETS=[
  # 자동차
@@ -312,12 +310,16 @@ def event_match_score(x,h):
     shared_terms=len(event_signal_terms(title)&event_signal_terms(htitle))
     nums_x=set(NUM_RE.findall(xtext)); nums_h=set(NUM_RE.findall(htext))
     shared_nums=len(nums_x&nums_h)
-    if same_company and shared_terms>=2 and tsim>=0.28:
-        return 0.72+min(0.18,shared_terms*0.025)+min(0.10,shared_nums*0.03)
-    if same_company and shared_terms>=1 and (shared_nums>=1 or tsim>=0.42):
-        return 0.62+min(0.16,shared_terms*0.02)+min(0.10,shared_nums*0.03)
-    if tsim>=0.56 or (tsim>=0.42 and ssim>=0.20):
-        return 0.58
+    # Similar company/topic is not enough to call it the same event.
+    # Prior-coverage suppression requires a materially stronger match.
+    if same_company and shared_terms>=2 and tsim>=0.42:
+        return 0.82+min(0.10,shared_nums*0.03)
+    if same_company and shared_terms>=1 and shared_nums>=1 and tsim>=0.34:
+        return 0.76+min(0.10,shared_nums*0.04)
+    if same_company and tsim>=0.66:
+        return 0.80
+    if tsim>=0.72 or (tsim>=0.55 and ssim>=0.32):
+        return 0.70
     return 0.0
 
 def coverage_search(x):
@@ -623,11 +625,12 @@ def main():
         if p.get("title") and p.get("url") and p.get("preScoop"):
             primary.append(p)
 
-    candidates=[];seen=set()
+    candidates=[];seen=set();drop_stats={"noise":0,"relevance":0,"generic":0,"specificity":0,"prior_coverage":0,"procurement":0,"routine_contract":0,"low_score":0,"other":0,"accepted":0}
     for x in sorted(primary,key=lambda z:z.get("published",""),reverse=True):
         title=(x.get("title") or "").strip()
         joined=title+" "+x.get("summary","")
-        if not title or NOISE_RE.search(title) or WEAK_RE.search(title):continue
+        if not title or NOISE_RE.search(title) or WEAK_RE.search(title):
+            drop_stats["noise"]+=1;continue
         companies=target_hits(joined)
         if x.get("corpName"):
             direct=target_hits(x.get("corpName"))
@@ -637,13 +640,15 @@ def main():
             companies=list(dict.fromkeys([query_company]+companies))
         numbers=list(dict.fromkeys((x.get("dartNumbers") or [])+NUM_RE.findall(joined)))[:8]
         kind=candidate_kind(title,x.get("category",""))
-        if not relevant_primary(x,companies,kind,joined):continue
+        if not relevant_primary(x,companies,kind,joined):
+            drop_stats["relevance"]+=1;continue
 
         source_group_now=source_group(x)
         # Reject generic administrative pages and evergreen notices masquerading as new scoops.
         generic_doc=("상세보기" in title or "행정규칙" in title) and not companies
         evergreen=any(k in title for k in ("교육생 모집","세미나","포럼","행사","캠페인","신년인사회","채용","모집공고","참가신청"))
-        if generic_doc or evergreen:continue
+        if generic_doc or evergreen:
+            drop_stats["generic"]+=1;continue
         # A scoop needs a concrete reporting handle, not just an industry keyword.
         source_text=(title+" "+x.get("summary",""))
         if source_group_now=="협회" and not any(k in source_text for k in ("정책","제도","건의","조사","통계","수급","가격","통상","반덤핑","공동대응","회원사","입찰","낙찰","프로젝트","수주","공급망","인증","기술기준","표준","안전","수출","수입")):
@@ -651,19 +656,20 @@ def main():
         concrete_hooks=0
         concrete_hooks+=min(2,len(NUM_RE.findall(source_text)))
         concrete_hooks+=sum(1 for k in ("이사회","임원","대표이사","선임","퇴임","생산계획","생산라인","공급사","대체투입","매각","인수","분할","합병","공장","증설","인증","형식승인","리콜","결함","환경영향","인허가","특허","상표","디자인","수주","입찰","낙찰","관세","반덤핑","소송","판결","심판","자금조달","유상증자","채권","RSU") if k in source_text)
-        if not companies and concrete_hooks<2:continue
+        if not companies and concrete_hooks<2:
+            drop_stats["specificity"]+=1;continue
         if source_group_now!="DART" and source_group_now!="기타" and concrete_hooks<1:
-            continue
+            drop_stats["specificity"]+=1;continue
         newsroom=newsroom_matches(title,data)
         archive_matches=[]
         for r in archive:
             ev=event_match_score(x,{"title":r.get("title",""),"summary":r.get("summary") or "","sourceName":r.get("sourceName"),"published":r.get("published")})
-            if ev>=0.58:archive_matches.append((ev,r))
+            if ev>=0.72:archive_matches.append((ev,r))
         archive_matches.sort(key=lambda z:z[0],reverse=True)
 
         coverage=[]
         best_news=max([event_match_score(x,r) for r in newsroom] or [0])
-        if best_news<0.62:coverage=coverage_search(x)
+        if best_news<0.78:coverage=coverage_search(x)
 
         combined=[]
         for r in newsroom:
@@ -677,7 +683,7 @@ def main():
         for r in combined:
             ev=event_match_score(x,{"title":r.get("title",""),"summary":r.get("summary") or "","published":r.get("published"),"sourceName":r.get("source")})
             r["_event"]=ev
-            if ev>=0.62:strong.append(r)
+            if ev>=0.76:strong.append(r)
         # A newly posted disclosure is not a new scoop when the same event was already
         # reported before the disclosure date. This is the decisive novelty gate.
         primary_dt=parse_dt(x.get("published"))
@@ -691,7 +697,8 @@ def main():
                 return True
             return False
         prior_strong=[r for r in strong if is_prior_coverage(r)]
-        if prior_strong:continue
+        if prior_strong:
+            drop_stats["prior_coverage"]+=1;continue
 
         # Procurement feeds contain many welfare, education, PR, event and routine service
         # tenders. Those are not industry scoop signals even when a tracked company is named.
@@ -716,7 +723,7 @@ def main():
             # industrial asset, physical demand, infrastructure or material service.
             procurement_specific=sum(1 for k in procurement_material if k in procurement_text)
             if procurement_specific<1:
-                continue
+                drop_stats["procurement"]+=1;continue
 
         # Routine contracts are not useful scoop candidates unless they carry a new customer/market,
         # unusual project, large amount, or specific physical quantity.
@@ -724,10 +731,12 @@ def main():
             large=any(re.search(r"(조원|억원)",str(n)) and float(re.sub(r"[^0-9.]","",str(n).replace(",","")) or 0)>=1000 for n in numbers)
             unusual=any(k in joined for k in ("첫","최초","북미","미국","유럽","중동","사우디","호주","대규모","장기","독점","신규 고객","신규 고객사","프로젝트"))
             detailed=any(k in joined for k in ("GWh","MWh","MW","GW","km","톤","만대","물량","사업장","지역"))
-            if not (large or unusual or detailed):continue
+            if not (large or unusual or detailed):
+                drop_stats["routine_contract"]+=1;continue
 
         # A true personnel/patent scoop must originate in an authoritative or company source.
-        if kind in {"특허·기술","상표·디자인","인사","결함·리콜","인증·형식승인","인허가·환경","소송·분쟁"} and source_tier(x)<2:continue
+        if kind in {"특허·기술","상표·디자인","인사","결함·리콜","인증·형식승인","인허가·환경","소송·분쟁"} and source_tier(x)<2:
+            drop_stats["other"]+=1;continue
 
         age_h=max(0,(now-parse_dt(x.get("published"))).total_seconds()/3600)
         tier=source_tier(x)
@@ -747,7 +756,8 @@ def main():
         learned_signal=sum(min(3,pattern_frequency.get(label,0)//3) for label,_ in exclusive_pattern_hits(source_text))
         score=min(98,30+freshness+specificity+change+source_weight+novelty+kind_weight+source_boost+min(12,exclusive_signal)+min(6,learned_signal))
 
-        if score<66:continue
+        if score<66:
+            drop_stats["low_score"]+=1;continue
         if not (numbers or kind in {"결함·리콜","인증·형식승인","인허가·환경","소송·분쟁","인사","특허·기술","상표·디자인","정책·규제","사업재편","통상·관세"} or any(k in joined for k in ("공장","법인","조직개편","대표이사","특허","고시","법안","리콜","결함","인증","인허가","소송","판결","관세"))):continue
         # Public-source freshness and specificity are mandatory for a real scoop candidate.
         if source_group_now=="기타" and not x.get("officialLabel"):continue
@@ -801,6 +811,7 @@ def main():
         history=[{"title":r.get("title"),"source":r.get("sourceName"),"published":r.get("published")} for _,r in archive_matches[:3]]
         sources=[{"source":x.get("sourceName"),"label":x.get("officialLabel") or x.get("sourceName"),"title":x.get("title"),"url":x.get("url"),"published":x.get("published")}]
 
+        drop_stats["accepted"]+=1
         candidates.append({
             "id":hashlib.sha1((x.get("url","")+"|"+headline).encode()).hexdigest()[:12],
             "kind":kind,"beat":beat_for(joined),"title":headline,"score":score,
@@ -866,6 +877,7 @@ def main():
             "strongCandidates":sum(1 for x in final if x.get("status")=="단독 유력")
         },
         "items":final,
+        "dropStats":drop_stats,
         "sourceGroups":{g:sum(1 for x in final if x.get("sourceGroup")==g) for g in sorted({x.get("sourceGroup","기타") for x in final})},
         "note":"단독감은 중요 뉴스 랭킹이 아닙니다. 실제 단독 기사에서 반복되는 내부 의사결정·생산계획·공급변경·이사회·인사·거래구조·자금조달·규제/인허가 선행 신호를 찾고, 구체적 사실·최근성·원자료성·미보도 여부·실제 전화 확인 가능성을 함께 평가합니다. 일반 공지·행정규칙·행사·채용·단순 계약 규모만으로는 올리지 않습니다."
     }
