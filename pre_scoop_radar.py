@@ -263,16 +263,18 @@ def fetch_direct_car_recalls(max_items=20):
         href_raw=html.unescape(m.group(1).strip())
         title=clean(m.group(2))
         diag["linksScanned"]+=1
-        if not title or not re.search(r"리콜|결함|무상수리|시정",title,re.I):
+        if not title or not re.search(r"(?:관련\s*리콜|관련\s*무상수리|제작결함|결함조사)",title,re.I):
+            continue
+        if re.fullmatch(r"(?:자동차)?리콜(?:정보|현황|제도|센터|알리미)?|결함신고|무상점검\s*[·ㆍ]?\s*수리",title,re.I):
             continue
         diag["recallTitles"]+=1
         href=urllib.parse.urljoin(base,href_raw)
         if href in seen:
             continue
         seen.add(href)
-        left=max(0,m.start()-800);right=min(len(raw),m.end()+2200)
+        left=max(0,m.start()-1800);right=min(len(raw),m.end()+5000)
         context=raw[left:right]
-        date_hits=list(re.finditer(r"20\d{2}[-./]\d{1,2}[-./]\d{1,2}",context))
+        date_hits=list(re.finditer(r"20\d{2}\s*[-./]\s*\d{1,2}\s*[-./]\s*\d{1,2}",context))
         if not date_hits:
             if len(diag["sampleEntries"])<6:
                 diag["sampleEntries"].append({"title":title,"href":href_raw,"context":clean(context)[:500],"reason":"no-date"})
@@ -280,7 +282,8 @@ def fetch_direct_car_recalls(max_items=20):
         center=m.start()-left
         chosen=min(date_hits,key=lambda x:abs(x.start()-center))
         try:
-            dt=datetime.strptime(re.sub(r"[./]","-",chosen.group(0)),"%Y-%m-%d").replace(tzinfo=KST)
+            normalized_date=re.sub(r"\s*[-./]\s*","-",chosen.group(0)).strip()
+            dt=datetime.strptime(normalized_date,"%Y-%m-%d").replace(tzinfo=KST)
         except ValueError:
             continue
         diag["datedRows"]+=1
