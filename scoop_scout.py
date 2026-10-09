@@ -638,13 +638,12 @@ def main():
             if source_dt.year < 2000 or (now-source_dt).total_seconds() > PRIMARY_LOOKBACK_DAYS*86400:
                 drop_stats["stale_pre_scoop"]+=1
                 continue
-        # Routine announcement of a completed inspection is not itself a scoop.
-        # Keep it only when the source exposes a material outcome worth separate reporting.
-        if re.search(r"(?:산업안전|근로|특별)\s*(?:감독|점검).{0,12}(?:결과|발표|실시)", title):
-            material_outcome=("사망","중대재해","작업중지","조업정지","영업정지","과징금","기소","구속","형사입건","대표이사 입건","시정명령","위반 건수","적발 건수","재발")
-            if not any(k in joined for k in material_outcome):
-                drop_stats["routine_regulatory"]+=1
-                continue
+        # Completed inspection-result press releases are ordinary published news,
+        # not an unpublished scoop lead. Keep "inspection begins" signals, but never
+        # elevate a generic "results announced" headline into a scoop.
+        if x.get("preScoop") and re.search(r"(?:산업안전|근로|특별)?\s*(?:안전)?(?:감독|점검|단속).{0,18}(?:결과|발표)", title):
+            drop_stats["routine_regulatory"]+=1
+            continue
         if not title or NOISE_RE.search(title) or WEAK_RE.search(title):
             drop_stats["noise"]+=1;continue
         companies=target_hits(joined)
