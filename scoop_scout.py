@@ -1033,7 +1033,12 @@ def main():
         "leadDiagnostics":lead_diagnostics,
         "sourceHealth":{
             "dart":{"count":len(dart),"status":"ok" if dart else ("error" if (json.loads(DART.read_text(encoding="utf-8")).get("errors") if DART.exists() else []) else "empty"),"errors":(json.loads(DART.read_text(encoding="utf-8")).get("errors",[]) if DART.exists() else [])[:3]},
-            "preScoop":{"count":len(pre_scoop),"groups":(json.loads(Path("pre_scoop.json").read_text(encoding="utf-8")).get("sourceGroups",{}) if Path("pre_scoop.json").exists() else {})}
+            "preScoop":{
+                "count":len(pre_scoop),
+                "groups":(json.loads(Path("pre_scoop.json").read_text(encoding="utf-8")).get("sourceGroups",{}) if Path("pre_scoop.json").exists() else {}),
+                "sourceDiagnostics":(json.loads(Path("pre_scoop.json").read_text(encoding="utf-8")).get("sourceDiagnostics",{}) if Path("pre_scoop.json").exists() else {}),
+                "directSourceDiagnostics":(json.loads(Path("pre_scoop.json").read_text(encoding="utf-8")).get("directSourceDiagnostics",{}) if Path("pre_scoop.json").exists() else {})
+            }
         },
         "dropStats":drop_stats,
         "sourceGroups":{g:sum(1 for x in final if x.get("sourceGroup")==g) for g in sorted({x.get("sourceGroup","기타") for x in final})},
