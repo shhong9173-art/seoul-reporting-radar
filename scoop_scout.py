@@ -606,7 +606,7 @@ def build_lead_signals(primary, data, now, limit=12):
     noise_re = re.compile(
         r"검색|바로가기|안내|설명회|개최 알림|주간 동향|주간 입찰|자료실|상세보기|정기보고|실적발표|월간동향|"
         r"행사|캠페인|수상|채용|교육생 모집|사회공헌|기부|봉사|홍보대사|체험|진로탐색|청소년|희망드림|"
-        r"세이브더칠드런|수수료 지원|달력 제작|회계감사 용역|국제민간항공기구|유가보조금 관리 규정", re.I)
+        r"세이브더칠드런|수수료 지원|달력 제작|회계감사 용역|국제민간항공기구|유가보조금 관리 규정|보증제도|명품보증|보증대상|프로모션|브랜드 캠페인|고객 혜택", re.I)
     diag={k:0 for k in ("input","invalid","noise","outside_window","no_hard_change","no_signal_pattern","no_company","untrusted_source","duplicate","rows","coverage_checked","prior_coverage","diversity_skip","surfaced")}
     diag["sample_no_hard_change"]=[]
     diag["sample_no_signal_pattern"]=[]
