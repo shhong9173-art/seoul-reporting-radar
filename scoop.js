@@ -53,6 +53,8 @@
       '<div><b>선행보도 검증</b><span>후보별 확인</span></div>'+
       '</div>'+
       '<div class="scoop-rule">구분 원칙: ‘취재 단서’는 확인이 필요한 신호일 뿐 단독이 아닙니다. ‘단독 후보’도 원문·보도 여부·출입처 확인 전에는 확정하지 않습니다.</div>'+
+      (doc.sourceHealth&&doc.sourceHealth.dart&&doc.sourceHealth.dart.status!=='ok'?'<div class="scoop-rule" style="border-left:3px solid #b66a00;padding:10px 12px;background:#fffaf0"><b>소스 상태 경고 · DART</b><p>공시 원자료 수집이 정상 작동하지 않습니다. '+esc((doc.sourceHealth.dart.errors||[]).map(e=>e.error||e.message||JSON.stringify(e)).join(' / ')||'공시 데이터 0건')+'</p></div>':'')+
+      (doc.leadDiagnostics?'<details class="pitch-details"><summary>취재 단서 탐색 진단</summary><div class="signal-row">'+Object.entries(doc.leadDiagnostics).map(([k,v])=>'<span class="signal">'+esc(k)+' '+esc(v)+'</span>').join('')+'</div></details>':'')+
       (leads.length?'<h2 class="scoop-section-title">1. 취재 선행신호 <span>전화 취재로 확인할 항목</span></h2>'+leadCards:'<div class="card"><div class="summary">현재 조건을 충족한 취재 단서가 없습니다. 이는 실제 단독거리가 없다는 뜻은 아닙니다.</div></div>')+
       '<h2 class="scoop-section-title">2. 단독 후보 <span>보도 매칭·원자료 검토 단계</span></h2>'+
       (items.length?candidateCards:'<div class="card"><div class="summary">현재 검증 관문을 통과한 단독 후보가 없습니다. 취재 단서와 단독 후보를 혼동하지 않도록 분리했습니다.</div></div>')+
