@@ -50,7 +50,7 @@ SIGNAL_TERMS = re.compile(
     re.I,
 )
 
-def get(url, timeout=15):
+def get(url, timeout=8):
     req = urllib.request.Request(
         url,
         headers={"User-Agent": "Mozilla/5.0 NewsroomPreScoop/1.0", "Accept": "application/rss+xml,application/xml,text/xml,*/*"},
@@ -325,7 +325,11 @@ def fetch_source(group, domain, terms, max_items=25):
         "group":group,"rssQueries":0,"rssRawItems":0,"rssAccepted":0,
         "bingQueries":0,"bingResultBlocks":0,"bingAccepted":0,"errors":[]
     })
-    company_batches=COMPANY_GROUPS
+    # Spread company coverage across half-hour slots instead of making up to
+    # 130 serial web requests in a single refresh. Two adjacent batches are
+    # checked per run; six batches rotate across three refresh slots.
+    slot=int(now.timestamp()//1800)%len(COMPANY_GROUPS)
+    company_batches=[COMPANY_GROUPS[slot],COMPANY_GROUPS[(slot+1)%len(COMPANY_GROUPS)]]
 
     def add(h):
         key=h.get("url") or h.get("title")
