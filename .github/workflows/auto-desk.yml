@@ -78,12 +78,6 @@ jobs:
         run: python investigation_quality_gate.py
       - name: Build pitch score and persistent archive
         run: python archive_builder.py
-      - name: Scout pre-scoop raw-source signals
-        run: python pre_scoop_radar.py
-      - name: Scout primary-source scoop candidates
-        env:
-          DART_API_KEY: ${{ secrets.DART_API_KEY }}
-        run: python scoop_scout.py
       - name: Normalize pitch pair orientation
         run: |
           python - <<'PY'
