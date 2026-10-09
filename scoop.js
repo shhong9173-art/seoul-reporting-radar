@@ -68,6 +68,7 @@
       '</div>'+
       '<div class="scoop-rule">구분 원칙: ‘취재 단서’는 확인이 필요한 신호일 뿐 단독이 아닙니다. ‘단독 후보’도 원문·보도 여부·출입처 확인 전에는 확정하지 않습니다.</div>'+
       (doc.sourceHealth&&doc.sourceHealth.dart&&doc.sourceHealth.dart.status!=='ok'?'<div class="scoop-rule" style="border-left:3px solid #b66a00;padding:10px 12px;background:#fffaf0"><b>소스 상태 경고 · DART</b><p>공시 원자료 수집이 정상 작동하지 않습니다. '+esc((doc.sourceHealth.dart.errors||[]).map(e=>e.error||e.message||JSON.stringify(e)).join(' / ')||'공시 데이터 0건')+'</p></div>':'')+
+      (doc.sourceHealth&&doc.sourceHealth.dartNumeric&&doc.sourceHealth.dartNumeric.errorCount>0?'<div class="scoop-rule" style="border-left:3px solid #b66a00;padding:10px 12px;background:#fffaf0"><b>원문 수치 추출 경고 · DART</b><p>공시 목록 '+esc(doc.sourceHealth.dartNumeric.count||0)+'건 중 원문 수치 추출 '+esc(doc.sourceHealth.dartNumeric.errorCount||0)+'건 실패, 시스템 점검 응답 '+esc(doc.sourceHealth.dartNumeric.maintenanceCount||0)+'건. 상세 숫자는 복구 전까지 취재 사실로 사용하지 않습니다.</p><p>'+esc((doc.sourceHealth.dartNumeric.errors||[]).map(e=>(e.company||'')+' '+(e.error||'')).join(' / '))+'</p></div>':'')+
       (doc.leadDiagnostics?'<details class="pitch-details"><summary>취재 단서 탐색 진단</summary><div class="signal-row">'+Object.entries(doc.leadDiagnostics).map(([k,v])=>'<span class="signal">'+esc(k)+' '+esc(v)+'</span>').join('')+'</div></details>':'')+
       '<h2 class="scoop-section-title">1. 공개 원자료 추적 <span>공개 사실 · 단독으로 다루지 않음</span></h2>'+
       (publicSignals.length?publicCards:'<div class="card"><div class="summary">현재 추적할 만한 공개 원자료가 없습니다.</div></div>')+
