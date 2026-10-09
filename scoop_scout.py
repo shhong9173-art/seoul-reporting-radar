@@ -380,9 +380,13 @@ def dart_fact(d,numeric_rows):
     context="";nums=[]
     if nr:
         nums=list(dict.fromkeys(nr.get("numbers") or []))
-        context=" ".join(s.get("context","") for s in nr.get("snippets",[])[:2])
+        context=" ".join(sn.get("context","") for sn in nr.get("snippets",[])[:2])
+        # The numeric extractor already queried this receipt. Do not fetch the same
+        # document again on every radar refresh, especially when OpenDART is in maintenance.
+        if context or nums or nr.get("error"):
+            return context.strip(),nums
     document=fetch_dart_document(d.get("receiptNo"))
-    return (context+" "+document).strip(),nums
+    return document.strip(),nums
 
 def won_amount(blob):
     m=re.search(r"(?:계약금액|투자금액|취득금액|출자금액)\s*\(?원\)?\s+([0-9,]+)",blob)
