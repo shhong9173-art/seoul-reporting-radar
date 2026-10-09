@@ -11,6 +11,8 @@ on:
       - 'dart.json'
       - 'dart_numeric.json'
       - 'archive.json'
+      - 'scoop.js'
+      - 'index.html'
   schedule:
     - cron: '7,37 * * * *'
   workflow_dispatch:
