@@ -6,6 +6,7 @@ on:
     paths:
       - 'pre_scoop_radar.py'
       - 'scoop_scout.py'
+      - 'dart_numeric_extractor.py'
       - '.github/workflows/scoop-radar.yml'
       - 'data.json'
       - 'dart.json'
@@ -42,7 +43,13 @@ jobs:
           python-version: '3.12'
       - name: Collect official-source and early signals
         run: python pre_scoop_radar.py
+      - name: Extract numeric facts from DART originals
+        env:
+          DART_API_KEY: ${{ secrets.DART_API_KEY }}
+        run: python dart_numeric_extractor.py
       - name: Screen scoop candidates and build lead diagnostics
+        env:
+          DART_API_KEY: ${{ secrets.DART_API_KEY }}
         run: python scoop_scout.py
       - name: Validate isolated radar outputs
         run: |
@@ -51,6 +58,9 @@ jobs:
           from pathlib import Path
           pre=json.loads(Path('pre_scoop.json').read_text(encoding='utf-8'))
           scoop=json.loads(Path('scoop.json').read_text(encoding='utf-8'))
+          numeric=json.loads(Path('dart_numeric.json').read_text(encoding='utf-8'))
+          if not isinstance(numeric,dict) or not isinstance(numeric.get('items'),list):
+              raise SystemExit('dart_numeric.json schema invalid')
           if not isinstance(pre,dict) or not isinstance(pre.get('items'),list):
               raise SystemExit('pre_scoop.json schema invalid')
           if not isinstance(scoop,dict) or not isinstance(scoop.get('items'),list):
@@ -76,11 +86,11 @@ jobs:
           set -e
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add pre_scoop.json scoop.json
+          git add pre_scoop.json scoop.json dart_numeric.json
           if git diff --cached --quiet; then
             echo "No isolated radar output changes"
           else
-            git commit -m "chore: refresh isolated scoop radar"
+            git commit -m "chore: refresh isolated scoop radar [skip ci]"
             for i in 1 2 3; do
               git fetch origin main
               git rebase origin/main
