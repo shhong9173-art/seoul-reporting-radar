@@ -1186,6 +1186,13 @@ def main():
         "leadDiagnostics":lead_diagnostics,
         "sourceHealth":{
             "dart":{"count":len(dart),"status":"ok" if dart else ("error" if (json.loads(DART.read_text(encoding="utf-8")).get("errors") if DART.exists() else []) else "empty"),"errors":(json.loads(DART.read_text(encoding="utf-8")).get("errors",[]) if DART.exists() else [])[:3]},
+            "dartNumeric":{
+                "count":len(numeric),
+                "withNumbers":sum(1 for row in numeric if row.get("numbers")),
+                "errorCount":sum(1 for row in numeric if row.get("error")),
+                "maintenanceCount":sum(1 for row in numeric if "status 800" in str(row.get("error","")).lower() or "시스템 점검" in str(row.get("error",""))),
+                "errors":[{"company":row.get("corpName"),"report":row.get("reportName"),"error":row.get("error")} for row in numeric if row.get("error")][:3]
+            },
             "preScoop":{
                 "count":len(pre_scoop),
                 "groups":(json.loads(Path("pre_scoop.json").read_text(encoding="utf-8")).get("sourceGroups",{}) if Path("pre_scoop.json").exists() else {}),
