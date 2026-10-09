@@ -603,6 +603,8 @@ def build_lead_signals(primary, data, now, limit=12):
         r"행사|캠페인|수상|채용|교육생 모집|사회공헌|기부|봉사|홍보대사|체험|진로탐색|청소년|희망드림|"
         r"세이브더칠드런|수수료 지원|달력 제작|회계감사 용역|국제민간항공기구|유가보조금 관리 규정", re.I)
     diag={k:0 for k in ("input","invalid","noise","outside_window","no_hard_change","no_signal_pattern","no_company","untrusted_source","duplicate","rows","coverage_checked","prior_coverage","diversity_skip","surfaced")}
+    diag["sample_no_hard_change"]=[]
+    diag["sample_no_signal_pattern"]=[]
     rows=[]; seen=set()
     for x in primary:
         diag["input"]+=1
@@ -618,12 +620,18 @@ def build_lead_signals(primary, data, now, limit=12):
             diag["outside_window"]+=1; continue
         body=title+" "+str(x.get("summary") or "")
         if not hard_change_re.search(title):
-            diag["no_hard_change"]+=1; continue
+            diag["no_hard_change"]+=1
+            if len(diag["sample_no_hard_change"])<12:
+                diag["sample_no_hard_change"].append({"title":title,"source":x.get("sourceName") or x.get("officialLabel") or "","group":source_group(x)})
+            continue
         if re.search(r"\d+\s*년\s*만에|지난해|전년|누적\s*생산|정기\s*준공|준공식", title) and not re.search(r"신규|증설|변경|중단|매각|협상|분할|합병|생산계획|공급차질|리콜|결함|소송|내정|조직개편", title):
             diag["no_hard_change"]+=1; continue
         hits=[(label,terms) for label,terms in signal_patterns if any(term.lower() in body.lower() for term in terms)]
         if not hits:
-            diag["no_signal_pattern"]+=1; continue
+            diag["no_signal_pattern"]+=1
+            if len(diag["sample_no_signal_pattern"])<12:
+                diag["sample_no_signal_pattern"].append({"title":title,"source":x.get("sourceName") or x.get("officialLabel") or "","group":source_group(x)})
+            continue
         companies=target_hits(body)
         if x.get("corpName"):
             companies=list(dict.fromkeys(target_hits(x.get("corpName"))+companies))
