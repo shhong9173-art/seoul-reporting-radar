@@ -4,7 +4,9 @@ import io
 import json
 import os
 import re
+import time
 import zipfile
+from xml.etree import ElementTree
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from urllib.parse import urlencode
@@ -42,36 +44,74 @@ def html_to_text(raw: bytes) -> str:
     text = re.sub(r"&nbsp;|&#160;", " ", text)
     return re.sub(r"\s+", " ", text)
 
+def describe_api_error(raw: bytes) -> tuple[str, str]:
+    """Return OpenDART status/message when the endpoint returns XML/JSON instead of ZIP."""
+    try:
+        root=ElementTree.fromstring(raw)
+        status=(root.findtext(".//status") or "").strip()
+        message=(root.findtext(".//message") or "").strip()
+        if status or message:
+            return status, message
+    except Exception:
+        pass
+    try:
+        obj=json.loads(raw.decode("utf-8","ignore"))
+        if isinstance(obj,dict) and (obj.get("status") or obj.get("message")):
+            return str(obj.get("status","")), str(obj.get("message",""))
+    except Exception:
+        pass
+    sample=raw[:180].decode("utf-8","replace").replace("\n"," ").strip()
+    return "", f"Expected ZIP but received {sample!r}"
+
 def extract_document(base: dict) -> dict:
     receipt_no = base.get("receiptNo", "")
     if not API_KEY or not receipt_no:
         return {**base, "numbers": [], "snippets": [], "error": "missing api key or receipt"}
-    try:
-        url = "https://opendart.fss.or.kr/api/document.xml?" + urlencode({"crtfc_key": API_KEY, "rcept_no": receipt_no})
-        raw = fetch_bytes(url)
-        numbers = {}
-        snippets = []
-        with zipfile.ZipFile(io.BytesIO(raw)) as z:
-            for name in z.namelist():
-                if not name.lower().endswith((".xml", ".html", ".htm", ".txt")):
-                    continue
-                try:
-                    text = html_to_text(z.read(name))
-                except Exception:
-                    continue
-                for match in KEYWORD_RE.finditer(text):
-                    start = max(0, match.start() - 220)
-                    end = min(len(text), match.end() + 360)
-                    context = text[start:end]
-                    vals = [re.sub(r"\s+", "", v) for v in VALUE_RE.findall(context)]
-                    vals = list(dict.fromkeys(vals))
-                    for value in vals:
-                        numbers[value] = context.strip()
-                    if vals:
-                        snippets.append({"keyword": match.group(0), "numbers": vals[:10], "context": context.strip()})
-        return {**base, "numbers": list(numbers.keys())[:40], "snippets": snippets[:24]}
-    except Exception as exc:
-        return {**base, "numbers": [], "snippets": [], "error": str(exc)}
+    url = "https://opendart.fss.or.kr/api/document.xml?" + urlencode({"crtfc_key": API_KEY, "rcept_no": receipt_no})
+    last_error = "OpenDART document fetch failed"
+    for attempt, delay in enumerate((0, 2, 6), start=1):
+        if delay:
+            time.sleep(delay)
+        try:
+            raw = fetch_bytes(url)
+        except Exception as exc:
+            last_error=f"OpenDART document request failed: {type(exc).__name__}: {exc}"
+            # Network timeouts can be transient; make the bounded retry attempts.
+            continue
+        try:
+            with zipfile.ZipFile(io.BytesIO(raw)) as z:
+                numbers = {}
+                snippets = []
+                for name in z.namelist():
+                    if not name.lower().endswith((".xml", ".html", ".htm", ".txt")):
+                        continue
+                    try:
+                        text = html_to_text(z.read(name))
+                    except Exception:
+                        continue
+                    for match in KEYWORD_RE.finditer(text):
+                        start = max(0, match.start() - 220)
+                        end = min(len(text), match.end() + 360)
+                        context = text[start:end]
+                        vals = [re.sub(r"\s+", "", v) for v in VALUE_RE.findall(context)]
+                        vals = list(dict.fromkeys(vals))
+                        for value in vals:
+                            numbers[value] = context.strip()
+                        if vals:
+                            snippets.append({"keyword": match.group(0), "numbers": vals[:10], "context": context.strip()})
+                return {**base, "numbers": list(numbers.keys())[:40], "snippets": snippets[:24]}
+        except zipfile.BadZipFile:
+            status,message=describe_api_error(raw)
+            last_error=f"OpenDART status {status or 'unknown'}: {message}"
+            # Status 800 / maintenance is transient. Authentication, receipt number
+            # and quota errors are recorded immediately instead of being mislabeled
+            # as corrupt ZIP data.
+            if status!="800" and not re.search(r"시스템\s*점검|maintenance|temporarily unavailable",message,re.I):
+                break
+        except Exception as exc:
+            last_error=f"OpenDART response parse failed: {type(exc).__name__}: {exc}"
+            break
+    return {**base, "numbers": [], "snippets": [], "error": last_error}
 
 def main():
     if not IN.exists():
