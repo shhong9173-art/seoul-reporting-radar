@@ -63,6 +63,16 @@ def clean(s):
 
 def parse_dt(raw):
     v = str(raw or "").strip()
+    if not v:
+        return datetime.min.replace(tzinfo=KST)
+    normalized = v.replace("년", "-").replace("월", "-").replace("일", "").replace("/", "-").replace(".", "-")
+    normalized = re.sub(r"-{2,}", "-", normalized).strip("- ")
+    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d"):
+        try:
+            d = datetime.strptime(normalized[:19], fmt)
+            return d.replace(tzinfo=KST)
+        except Exception:
+            pass
     try:
         d = parsedate_to_datetime(v)
         return d.astimezone(KST) if d.tzinfo else d.replace(tzinfo=KST)
@@ -266,6 +276,73 @@ def fetch_source(group, domain, terms, max_items=25):
             if len(out)>=max_items: break
 
     return out[:max_items]
+def fetch_direct_kepco_enc(max_items=20):
+    """Scrape KEPCO Engineering's public purchase-specification board.
+    Retain only material rows with an explicit, recent publication date.
+    """
+    base = "https://www.kepco-enc.com"
+    list_url = base + "/portal/bidInformationList.es?mid=a10608020100&type=std"
+    now = datetime.now(KST)
+    cutoff = now - timedelta(days=LOOKBACK_DAYS)
+    material_re = re.compile(
+        r"원전|원자력|원자로|SMR|변압기|HVDC|해저케이블|케이블|송전|배전|터빈|발전기|배관|"
+        r"플랜트|전력망|풍력|태양광|ESS|배터리|자동차|타이어|철강|강관|수소|암모니아|압축기|"
+        r"제어시스템|계측제어|전기설비|주기기|보조기기|정비|계속운전", re.I
+    )
+    try:
+        raw = get(list_url, timeout=25).decode("utf-8", "ignore")
+    except Exception as e:
+        print(f"direct procurement scout: KEPCO-ENC list fetch failed: {type(e).__name__}: {e}")
+        return []
+    out = []
+    seen = set()
+    rows = re.findall(r"<tr\b[^>]*>.*?</tr>", raw, flags=re.I | re.S)
+    for row in rows:
+        link_match = re.search(r'<a[^>]+href=["\']([^"\']+)["\'][^>]*>(.*?)</a>', row, flags=re.I | re.S)
+        if not link_match:
+            continue
+        title = clean(link_match.group(2))
+        href = urllib.parse.urljoin(base, html.unescape(link_match.group(1)))
+        if not title or not material_re.search(title) or href in seen:
+            continue
+        seen.add(href)
+        row_text = clean(row)
+        date_match = re.search(r"20\d{2}\s*(?:[-./년])\s*\d{1,2}\s*(?:[-./월])\s*\d{1,2}\s*(?:일)?(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?", row_text)
+        detail_text = ""
+        if not date_match:
+            try:
+                detail_text = clean(get(href, timeout=12).decode("utf-8", "ignore"))[:16000]
+            except Exception:
+                detail_text = ""
+            date_match = re.search(r"20\d{2}\s*(?:[-./년])\s*\d{1,2}\s*(?:[-./월])\s*\d{1,2}\s*(?:일)?(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?", detail_text)
+        if not date_match:
+            continue
+        dt = parse_dt(date_match.group(0))
+        if dt.year < 2000 or dt < cutoff or dt > now + timedelta(hours=6):
+            continue
+        body = title + " " + row_text + " " + detail_text
+        numbers = re.findall(r"(?:\d{1,3}(?:,\d{3})+|\d+(?:\.\d+)?)(?:\s*)(?:원|억원|만원|MW|GW|kV|톤|km)", body, re.I)
+        out.append({
+            "sourceName": "한국전력기술 구매규격 사전공개",
+            "officialLabel": "한국전력기술",
+            "querySite": "kepco-enc.com",
+            "sourceGroup": "공기업·조달",
+            "title": title,
+            "url": href,
+            "published": dt.isoformat(),
+            "summary": (row_text + " " + detail_text[:2000])[:3500],
+            "official": True,
+            "preScoop": True,
+            "directSource": True,
+            "procurementSignal": True,
+            "companies": target_hits(body),
+            "numbers": list(dict.fromkeys(numbers))[:5],
+        })
+        if len(out) >= max_items:
+            break
+    print(f"direct procurement scout: KEPCO-ENC material/date-verified rows={len(out)}")
+    return out
+
 def main():
     items = []
     by_group = {}
@@ -277,6 +354,10 @@ def main():
     direct_nlrc = fetch_direct_nlrc()
     items.extend(direct_nlrc)
     by_group["중앙노동위"] = by_group.get("중앙노동위", 0) + len(direct_nlrc)
+
+    direct_procurement = fetch_direct_kepco_enc()
+    items.extend(direct_procurement)
+    by_group["공기업·조달"] = by_group.get("공기업·조달", 0) + len(direct_procurement)
     # Keep the feed compact and deterministic.
     dedup = {}
     for x in items:
