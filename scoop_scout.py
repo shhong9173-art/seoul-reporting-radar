@@ -622,6 +622,15 @@ def build_lead_signals(primary, data, now, limit=12):
         url=str(x.get("url") or "").strip()
         if not title or not url:
             diag["invalid"]+=1; continue
+        # A public recall notice is useful for follow-up reporting, but the published
+        # notice itself must not be surfaced as a scoop lead.
+        if x.get("signalType")=="official_recall_notice":
+            diag["noise"]+=1; continue
+        # Company newsroom releases announce public facts; they are not pre-publication
+        # signals. Keep them out of the lead queue and use them only as source material.
+        source_name=str(x.get("sourceName") or "")
+        if re.search(r"뉴스룸|보도자료|press release|newsroom",source_name,re.I):
+            diag["noise"]+=1; continue
         if noise_re.search(title):
             diag["noise"]+=1; continue
         dt=parse_dt(x.get("published"))
@@ -680,7 +689,9 @@ def build_lead_signals(primary, data, now, limit=12):
         except Exception:
             prior=[]
         source_dt=row["date"]
-        if any(parse_dt(h.get("published"))<=source_dt and event_match_score(x,h)>=0.76 for h in prior):
+        # Any strong same-event media match means this is already a public story,
+        # even when the article followed the original public announcement.
+        if any(event_match_score(x,h)>=0.76 for h in prior):
             diag["prior_coverage"]+=1
             continue
         co=(row["companies"][0] if row["companies"] else "공기업 조달")
@@ -796,6 +807,16 @@ def main():
     for x in sorted(primary,key=lambda z:z.get("published",""),reverse=True):
         title=(x.get("title") or "").strip()
         joined=title+" "+x.get("summary","")
+        # Public recall-list entries are already published notices, not scoop candidates.
+        if x.get("signalType")=="official_recall_notice":
+            drop_stats.setdefault("routine_public_notice",0)
+            drop_stats["routine_public_notice"]+=1
+            continue
+        # Company newsroom announcements are public releases, not unpublished scoops.
+        if re.search(r"뉴스룸|press release|newsroom",str(x.get("sourceName") or ""),re.I) and source_group(x)=="기업":
+            drop_stats.setdefault("public_company_release",0)
+            drop_stats["public_company_release"]+=1
+            continue
         # Pre-scoop search intentionally looks 21 days back for raw signals, but only
         # the recent 10-day window is eligible to enter the actual scoop-candidate queue.
         # Otherwise an old official press release can reappear as a "new" scoop.
