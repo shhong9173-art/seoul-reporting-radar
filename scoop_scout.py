@@ -578,13 +578,18 @@ def exclusive_pattern_hits(text):
         if n>=2:hits.append((label,n))
     return hits
 
+def group_is_procurement(x):
+    group=str(x.get("sourceGroup") or "")
+    return group in {"공기업·조달","조달"} and bool(re.search(r"원전|원자력|원자로|SMR|변압기|HVDC|케이블|송전|배전|터빈|발전기|배관|플랜트|전력망|풍력|태양광|ESS|배터리|철강|강관|수소|암모니아|압축기|제어시스템|계측제어|전기설비|계속운전", str(x.get("title") or ""), re.I))
+
 def build_lead_signals(primary, data, now, limit=12):
     """Surface only company-specific material changes after a recent-news cross-check."""
     signal_patterns = [
         ("노사·생산", ("잠정합의","임단협","단체교섭","파업","쟁의","생산계획","생산조정","생산라인","감산","조업중단","생산중단")),
         ("공급망", ("공급중단","공급차질","공급사 변경","대체투입","납기","재고","생산차질","원료수급")),
         ("사업재편", ("매각 협상","우선협상","인수","매각","분할","합병","철수","거래종결","신설법인","지분취득")),
-        ("투자·공장", ("신규시설투자","증설","신설","공장 증설","생산능력 확대","양산","가동중단","생산중단")),
+        ("투자·공장", ("투자","신규시설투자","증설","신설","공장","생산능력","양산","가동중단","생산중단")),
+        ("신제품·시장", ("출시","수출","납품","사업화","기술개발","개발 완료","고객사","생산 개시","양산 돌입")),
         ("인허가·규제", ("변경허가","환경영향","사업계획승인","인허가","시정명령","행정처분","조사개시","반덤핑","상계관세")),
         ("기술·제품", ("특허 출원","특허심판","상표 출원","디자인 출원","형식승인","리콜","제작결함","결함조사","시제품","실증","양산 적용")),
         ("자금·거래", ("PRS","유상증자","회사채","자금조달","리파이낸싱","보조금","지원금","신용등급 하향","신용등급 상향")),
@@ -597,7 +602,7 @@ def build_lead_signals(primary, data, now, limit=12):
         r"생산계획|생산조정|생산라인|대체투입|공급차질|공급중단|변경허가|사업계획승인|환경영향|시정명령|조사개시|"
         r"반덤핑|상계관세|특허심판|특허 출원|상표 출원|디자인 출원|형식승인|리콜|제작결함|결함조사|PRS|유상증자|"
         r"회사채|자금조달|리파이낸싱|신규 수주|낙찰|입찰공고|계약 해지|고객사 변경|소송 제기|가처분|판결|"
-        r"대표이사 선임|임원 선임|사장 교체|퇴임", re.I)
+        r"대표이사 선임|임원 선임|사장 교체|퇴임|투자|공급|계약|납품|출시|수출|사업화|개발|고객사|생산 개시|양산 돌입|준공", re.I)
     noise_re = re.compile(
         r"검색|바로가기|안내|설명회|개최 알림|주간 동향|주간 입찰|자료실|상세보기|정기보고|실적발표|월간동향|"
         r"행사|캠페인|수상|채용|교육생 모집|사회공헌|기부|봉사|홍보대사|체험|진로탐색|청소년|희망드림|"
@@ -619,12 +624,13 @@ def build_lead_signals(primary, data, now, limit=12):
         if dt.year < 2000 or age_h < -6 or age_h > PRIMARY_LOOKBACK_DAYS*24:
             diag["outside_window"]+=1; continue
         body=title+" "+str(x.get("summary") or "")
-        if not hard_change_re.search(title):
+        direct_procurement=bool(x.get("procurementSignal") and x.get("directSource") and group_is_procurement(x))
+        if not hard_change_re.search(title) and not direct_procurement:
             diag["no_hard_change"]+=1
             if len(diag["sample_no_hard_change"])<12:
                 diag["sample_no_hard_change"].append({"title":title,"source":x.get("sourceName") or x.get("officialLabel") or "","group":source_group(x)})
             continue
-        if re.search(r"\d+\s*년\s*만에|지난해|전년|누적\s*생산|정기\s*준공|준공식", title) and not re.search(r"신규|증설|변경|중단|매각|협상|분할|합병|생산계획|공급차질|리콜|결함|소송|내정|조직개편", title):
+        if re.search(r"\d+\s*년\s*만에|지난해|전년|누적\s*생산|정기\s*준공|준공식", title) and not re.search(r"신규|증설|변경|중단|매각|협상|분할|합병|생산계획|공급차질|리콜|결함|소송|내정|조직개편|투자|신제품|출시|고객사|양산|생산 개시", title):
             diag["no_hard_change"]+=1; continue
         hits=[(label,terms) for label,terms in signal_patterns if any(term.lower() in body.lower() for term in terms)]
         if not hits:
@@ -638,17 +644,20 @@ def build_lead_signals(primary, data, now, limit=12):
         qcompany=COMPANY_BY_DOMAIN.get(str(x.get("querySite") or "").lower())
         if qcompany:
             companies=list(dict.fromkeys([qcompany]+companies))
-        if not companies:
+        direct_procurement=bool(x.get("procurementSignal") and x.get("directSource") and group_is_procurement(x))
+        if not companies and not direct_procurement:
             diag["no_company"]+=1; continue
         group=source_group(x)
         if group=="기타" and not x.get("officialLabel"):
             diag["untrusted_source"]+=1; continue
         if group=="조달" and re.search(r"청소년|진로|체험|기부|후원|사회공헌|달력|홍보|주간 입찰",title,re.I):
             diag["noise"]+=1; continue
-        matched=hits[0][0]
+        matched=hits[0][0] if hits else ("수주·발주" if direct_procurement else "산업 신호")
         signal_terms=[term for label,terms in hits for term in terms if term.lower() in body.lower()]
+        if direct_procurement and not signal_terms:
+            signal_terms=["구매규격 사전공개"]
         concrete_numbers=list(dict.fromkeys(NUM_RE.findall(body)))[:4]
-        score=min(24,len(signal_terms)*4)+min(8,len(concrete_numbers)*2)+12
+        score=min(24,len(signal_terms)*4)+min(8,len(concrete_numbers)*2)+(8 if companies else 2)+4
         key=(url,re.sub(r"[^가-힣A-Za-z0-9]","",title).lower())
         if key in seen:
             diag["duplicate"]+=1; continue
@@ -669,7 +678,7 @@ def build_lead_signals(primary, data, now, limit=12):
         if any(parse_dt(h.get("published"))<=source_dt and event_match_score(x,h)>=0.76 for h in prior):
             diag["prior_coverage"]+=1
             continue
-        co=row["companies"][0]
+        co=(row["companies"][0] if row["companies"] else "공기업 조달")
         if co in used_companies or row["sourceGroup"] in used_groups:
             diag["diversity_skip"]+=1
             continue
