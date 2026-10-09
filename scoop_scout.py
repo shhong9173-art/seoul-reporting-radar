@@ -729,6 +729,97 @@ def build_lead_signals(primary, data, now, limit=12):
             break
     return out,diag
 
+
+def build_public_signals(primary, dart_rows, now, limit=10):
+    """Expose public-source follow-ups in a separate lane; never imply exclusivity."""
+    out=[];seen=set()
+    cutoff=now-timedelta(days=PRIMARY_LOOKBACK_DAYS)
+
+    # Public recall notices are useful for follow-up reporting, but the notice itself
+    # is already public. Group by make and date to avoid duplicate cards.
+    recall_groups={}
+    for x in primary:
+        if x.get("signalType")!="official_recall_notice":
+            continue
+        title=str(x.get("title") or "").strip()
+        dt=parse_dt(x.get("published"))
+        if not title or dt.year<2000 or dt<cutoff or dt>now+timedelta(hours=6):
+            continue
+        companies=x.get("companies") or target_hits(title)
+        if not companies:
+            continue
+        company=companies[0]
+        key=(company,dt.date().isoformat())
+        g=recall_groups.setdefault(key,{"company":company,"date":dt,"items":[],"url":x.get("url",""),"source":x.get("sourceName") or "자동차리콜센터"})
+        clean_title=re.sub(r"\s*(?:\.\.\.|…)\s*-->?$","",title).strip()
+        if clean_title not in g["items"]:
+            g["items"].append(clean_title)
+    for g in recall_groups.values():
+        titles=g["items"][:8]
+        out.append({
+            "id":hashlib.sha1(("public-recall|"+g["company"]+"|"+g["date"].date().isoformat()).encode()).hexdigest()[:12],
+            "signalGroup":"자동차·결함","kind":"공개 리콜 공지","companies":[g["company"]],
+            "title":f'{g["company"]}, {g["date"].strftime("%-m월 %-d일")} 리콜 공지 {len(g["items"])}건',
+            "published":g["date"].isoformat(),"sourceName":g["source"],"url":g["url"],
+            "details":titles,
+            "verification":"공개 원자료 · 단독 아님",
+            "coverageStatus":"공식 리콜 목록에 공개된 사실입니다. 공지 자체를 단독으로 취급하지 않습니다.",
+            "whyFollowup":"동일 제조사의 리콜 공지를 묶어 대상 대수·생산기간·국내 판매 차종·반복 결함 여부를 추가 확인할 수 있습니다.",
+            "questions":["대상 대수와 생산기간, 국내 판매 차량은 몇 대인가?","최근 12개월 동일 제조사의 유사 부품·결함 리콜이 반복됐나?","시정 조치율과 부품 공급·수리 대기 기간은 어느 정도인가?"]
+        })
+
+    # Material DART filings appear here as public facts to investigate, not as scoops.
+    dart_terms={
+        "회사분할결정":"사업재편","합병":"사업재편","영업양수도":"사업재편","영업정지":"생산·사업 중단",
+        "생산중단":"생산·사업 중단","신규시설투자":"투자·공장","유상증자":"자금·거래",
+        "전환사채":"자금·거래","교환사채":"자금·거래","신주인수권부사채":"자금·거래",
+        "타법인주식및출자증권취득결정":"지분·투자","대표이사":"인사·조직","임원":"인사·조직",
+        "이사선임":"인사·조직","주요사항보고서(소송)":"소송·분쟁","소송":"소송·분쟁",
+        "단일판매ㆍ공급계약체결":"공급계약 추적","자기주식처분결정":"지분·자금"
+    }
+    for d in dart_rows:
+        corp=str(d.get("corpName") or "").strip()
+        report=str(d.get("reportName") or "").strip()
+        if not corp or not report or not target_hits(corp):
+            continue
+        dt=parse_dt(d.get("date") or d.get("published") or "")
+        if dt.year<2000 or dt<cutoff or dt>now+timedelta(hours=6):
+            continue
+        if any(k in report for k in ("투자설명서","증권신고서","사업보고서","반기보고서","분기보고서","기타시장안내")):
+            continue
+        if re.search(r"자기주식|자사주",report) and re.search(r"임원.*상여|상여금|임직원.*보상",str(d.get("signalText") or ""),re.I):
+            continue
+        group=next((label for term,label in dart_terms.items() if term in report),None)
+        if not group:
+            continue
+        key=(corp,report,dt.date().isoformat())
+        if key in seen:
+            continue
+        seen.add(key)
+        correction=("기재정정" in report or "첨부정정" in report)
+        url=str(d.get("url") or "")
+        out.append({
+            "id":hashlib.sha1(("public-dart|"+"|".join(key)).encode()).hexdigest()[:12],
+            "signalGroup":group,"kind":report,"companies":[corp],
+            "title":f"{corp} {report}"+(" — 변경 항목 대조 필요" if correction else ""),
+            "published":dt.isoformat(),"sourceName":"DART","url":url,"details":[],
+            "verification":"공개 공시 · 단독 아님",
+            "coverageStatus":"공개 공시입니다. 미보도·단독으로 표시하지 않습니다." if not correction else "정정 공시입니다. 최초 공시 대비 변경된 항목을 확인해야 합니다.",
+            "whyFollowup":"공시 원문에서 실제로 바뀐 숫자·일정·사업 범위를 확인한 뒤, 기존 보도와 회사 설명을 교차 확인해야 합니다.",
+            "questions":["최초 공시와 비교해 실제 변경된 항목은 무엇인가?","생산·투자·계약·재무에 미치는 정량적 영향은 얼마인가?","이 변경으로 추가 확인해야 할 고객사·사업장·적용 일정이 있는가?"]
+        })
+    out.sort(key=lambda x:(x["published"],x["signalGroup"]),reverse=True)
+    # Prefer distinct companies so one issuer does not flood the monitoring lane.
+    final=[];used=set()
+    for x in out:
+        company=(x.get("companies") or [""])[0]
+        if company in used:
+            continue
+        final.append(x);used.add(company)
+        if len(final)>=limit:
+            break
+    return final
+
 def main():
     data=json.loads(DATA.read_text(encoding="utf-8")) if DATA.exists() else []
     dart=json.loads(DART.read_text(encoding="utf-8")).get("items",[]) if DART.exists() else []
@@ -803,6 +894,7 @@ def main():
             primary.append(p)
 
     lead_signals,lead_diagnostics=build_lead_signals(primary,data,now,limit=12)
+    public_signals=build_public_signals(primary,dart,now,limit=10)
     candidates=[];seen=set();drop_stats={"noise":0,"stale_pre_scoop":0,"routine_regulatory":0,"relevance":0,"generic":0,"specificity":0,"prior_coverage":0,"procurement":0,"routine_contract":0,"low_score":0,"other":0,"accepted":0}
     for x in sorted(primary,key=lambda z:z.get("published",""),reverse=True):
         title=(x.get("title") or "").strip()
@@ -1083,6 +1175,8 @@ def main():
         "items":final,
         "leadSignals":lead_signals,
         "leadSignalCount":len(lead_signals),
+        "publicSignals":public_signals,
+        "publicSignalCount":len(public_signals),
         "leadDiagnostics":lead_diagnostics,
         "sourceHealth":{
             "dart":{"count":len(dart),"status":"ok" if dart else ("error" if (json.loads(DART.read_text(encoding="utf-8")).get("errors") if DART.exists() else []) else "empty"),"errors":(json.loads(DART.read_text(encoding="utf-8")).get("errors",[]) if DART.exists() else [])[:3]},
