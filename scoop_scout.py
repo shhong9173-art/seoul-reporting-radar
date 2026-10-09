@@ -722,7 +722,7 @@ def main():
     now=datetime.now(KST)
     primary=[]
     pattern_frequency={}
-    dart_suppression={"correction":0,"outside_7day_window":0,"contract_reports_seen":0,"contract_reports_routine":0,"contract_reports_eligible":0,"routine_equity_compensation":0}
+    dart_suppression={"correction":0,"outside_lookback_window":0,"contract_reports_seen":0,"contract_reports_routine":0,"contract_reports_eligible":0,"routine_equity_compensation":0}
     for row in data:
         if row.get("global"):continue
         title=str(row.get("title") or "")
@@ -747,8 +747,8 @@ def main():
             dart_suppression["correction"]+=1
             continue
         ddt=parse_dt(d.get("date",""))
-        if ddt<now-timedelta(days=7):
-            dart_suppression["outside_7day_window"]+=1
+        if ddt<now-timedelta(days=PRIMARY_LOOKBACK_DAYS):
+            dart_suppression["outside_lookback_window"]+=1
             continue
         material=any(k in report for k in ("회사분할","영업정지","생산중단","신규시설투자","타법인주식및출자증권취득결정","유상증자","영업양수도","합병","대표이사","임원","이사선임","소송","주요사항보고","자기주식처분결정","자기주식취득","주식소각","금전대여","채무인수","전환사채","교환사채"))
         contract_report=("단일판매ㆍ공급계약체결" in report)
