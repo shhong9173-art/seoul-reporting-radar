@@ -652,9 +652,7 @@ def build_lead_signals(primary, data, now, limit=12):
     rows.sort(key=lambda r:(r["score"],r["date"].isoformat()),reverse=True)
     out=[];used_companies=set();used_groups=set()
     # Cross-check a bounded number of high-scoring, company-specific signals against older news.
-    for row in rows:
-        if len(out)>=max(limit*2,12):
-            break
+    for row in rows[:max(limit,12)]:
         x=row["raw"]
         prior=[]
         try:
