@@ -2,6 +2,7 @@ import io
 import json
 import os
 import sys
+import time
 import zipfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
@@ -10,6 +11,8 @@ from urllib.request import Request, urlopen
 
 API_KEY = os.environ.get("DART_API_KEY", "").strip()
 OUT = "dart.json"
+CORP_CACHE = "dart_corp_codes.json"
+CORP_CODE_ERRORS = []
 LOOKBACK_DAYS = 30
 TARGET_NAMES = [
     "현대자동차", "기아", "현대모비스", "현대위아", "현대오토에버",
@@ -96,41 +99,66 @@ def _parse_corp_json(raw):
     return found
 
 def fetch_corp_codes():
+    global CORP_CODE_ERRORS
+    CORP_CODE_ERRORS = []
     if not API_KEY:
+        CORP_CODE_ERRORS=["DART_API_KEY is not set"]
         print("DART corp code lookup skipped: DART_API_KEY is not set", file=sys.stderr)
-        return {}
-    errors=[]
-    # Official Korean endpoint returns a ZIP containing CORPCODE.xml.
-    try:
-        raw=fetch_bytes("https://opendart.fss.or.kr/api/corpCode.xml?"+urlencode({"crtfc_key":API_KEY}),timeout=40)
+        return _read_corp_cache()
+
+    # OpenDART occasionally returns an XML maintenance response instead of the
+    # documented ZIP. Retry that transient condition before using a cached map.
+    for attempt, delay in enumerate((0, 5, 15), start=1):
+        if delay:
+            time.sleep(delay)
         try:
-            with zipfile.ZipFile(io.BytesIO(raw)) as z:
-                xml_name=next((n for n in z.namelist() if n.lower().endswith(".xml")),z.namelist()[0])
-                found=_parse_corp_xml(z.read(xml_name))
-                if found:
-                    print(f"DART corp code lookup: {len(found)} target companies resolved from Korean ZIP endpoint")
-                    return found
-                errors.append("Korean ZIP endpoint returned a valid list, but no tracked company names matched")
-        except Exception:
-            errors.append(_dart_error(raw,"Korean ZIP endpoint"))
-    except Exception as e:
-        errors.append(f"Korean ZIP endpoint request failed: {type(e).__name__}: {e}")
+            raw=fetch_bytes("https://opendart.fss.or.kr/api/corpCode.xml?"+urlencode({"crtfc_key":API_KEY}),timeout=40)
+            try:
+                with zipfile.ZipFile(io.BytesIO(raw)) as z:
+                    xml_name=next((n for n in z.namelist() if n.lower().endswith(".xml")),z.namelist()[0])
+                    found=_parse_corp_xml(z.read(xml_name))
+                    if found:
+                        _write_corp_cache(found)
+                        print(f"DART corp code lookup: {len(found)} target companies resolved (attempt {attempt})")
+                        return found
+                    CORP_CODE_ERRORS.append("OpenDART corpCode ZIP parsed successfully but no tracked company names matched")
+            except Exception:
+                error=_dart_error(raw,"OpenDART corpCode.xml")
+                CORP_CODE_ERRORS.append(error)
+                if "status 800" not in error.lower() and "maintenance" not in error.lower() and "점검" not in error:
+                    # Authentication, access or quota errors won't usually be fixed by retrying.
+                    break
+        except Exception as e:
+            CORP_CODE_ERRORS.append(f"OpenDART corpCode.xml request failed: {type(e).__name__}: {e}")
+            break
 
-    # Official English mirror returns JSON and helps distinguish format/network errors
-    # from invalid, suspended, IP-restricted, expired, or rate-limited API keys.
-    try:
-        raw=fetch_bytes("https://engopendart.fss.or.kr/engapi/corpCode.json?"+urlencode({"crtfc_key":API_KEY}),timeout=30)
-        found=_parse_corp_json(raw)
-        if found:
-            print(f"DART corp code lookup: {len(found)} target companies resolved from English JSON endpoint")
-            return found
-        errors.append("English JSON endpoint returned a valid response, but no tracked company names matched")
-    except Exception as e:
-        errors.append(f"English JSON endpoint: {e}")
+    cached=_read_corp_cache()
+    if cached:
+        CORP_CODE_ERRORS.append(f"Using cached target company codes ({len(cached)}); disclosure list may still be unavailable during API maintenance")
+        print("DART corp code lookup failed live; using cached target company codes", file=sys.stderr)
+        return cached
 
-    for err in errors:
+    for err in CORP_CODE_ERRORS:
         print("DART corp code lookup diagnostic: "+err, file=sys.stderr)
     return {}
+
+def _read_corp_cache():
+    try:
+        with open(CORP_CACHE,encoding="utf-8") as f:
+            obj=json.load(f)
+        rows=obj.get("companies",obj)
+        if not isinstance(rows,dict):
+            return {}
+        return {str(k):v for k,v in rows.items() if isinstance(v,dict) and v.get("corp_code")}
+    except Exception:
+        return {}
+
+def _write_corp_cache(found):
+    try:
+        with open(CORP_CACHE,"w",encoding="utf-8") as f:
+            json.dump({"updatedAt":datetime.now(timezone.utc).isoformat(),"companies":found},f,ensure_ascii=False,indent=2)
+    except Exception as e:
+        print(f"DART corp code cache write failed: {e}",file=sys.stderr)
 
 def fetch_company(name, corp):
     today = datetime.now(timezone.utc).date()
@@ -177,7 +205,8 @@ def main():
         return
     corps = fetch_corp_codes()
     if not corps:
-        payload = {"generatedAt": datetime.now(timezone.utc).isoformat(), "lookbackDays": LOOKBACK_DAYS, "count": 0, "items": [], "errors": [{"error": "No target corp codes resolved"}]}
+        errors=CORP_CODE_ERRORS or ["No target corp codes resolved"]
+        payload = {"generatedAt": datetime.now(timezone.utc).isoformat(), "lookbackDays": LOOKBACK_DAYS, "count": 0, "items": [], "errors": [{"error": str(err)} for err in errors[:5]]}
         with open(OUT, "w", encoding="utf-8") as f:
             json.dump(payload, f, ensure_ascii=False, indent=2)
         print("DART radar: 0 relevant disclosures", file=sys.stderr)
