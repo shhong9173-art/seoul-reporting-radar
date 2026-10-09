@@ -42,32 +42,95 @@ def fetch_bytes(url, timeout=25):
 def get_json(url):
     return json.loads(fetch_bytes(url, timeout=20).decode("utf-8"))
 
+def _dart_error(raw, label):
+    """Decode OpenDART's XML/JSON error response without ever printing credentials."""
+    try:
+        from xml.etree import ElementTree as ET
+        root=ET.fromstring(raw)
+        status=(root.findtext(".//status") or "").strip()
+        message=(root.findtext(".//message") or "").strip()
+        if status or message:
+            return f"{label}: OpenDART status {status or 'unknown'} - {message or 'no message'}"
+    except Exception:
+        pass
+    try:
+        obj=json.loads(raw.decode("utf-8","ignore"))
+        if isinstance(obj,dict) and (obj.get("status") or obj.get("message")):
+            return f"{label}: OpenDART status {obj.get('status','unknown')} - {obj.get('message','no message')}"
+    except Exception:
+        pass
+    sample=raw[:180].decode("utf-8","replace").replace("\\n"," ").strip()
+    return f"{label}: expected ZIP/JSON but got {sample!r}"
+
+def _parse_corp_xml(raw):
+    from xml.etree import ElementTree as ET
+    root=ET.fromstring(raw)
+    wanted=set(TARGET_NAMES)
+    found={}
+    for item in root.iter("list"):
+        name=(item.findtext("corp_name") or "").strip()
+        if name not in wanted:
+            continue
+        code=(item.findtext("corp_code") or "").strip()
+        stock=(item.findtext("stock_code") or "").strip()
+        if code:
+            found[name]={"corp_code":code,"stock_code":stock}
+    return found
+
+def _parse_corp_json(raw):
+    obj=json.loads(raw.decode("utf-8","ignore"))
+    if isinstance(obj,dict) and obj.get("status") not in (None,"000","0"):
+        raise ValueError(f"OpenDART status {obj.get('status')}: {obj.get('message','')}")
+    rows=obj.get("list",obj.get("result",[])) if isinstance(obj,dict) else []
+    if isinstance(rows,dict):
+        rows=rows.get("list",[])
+    wanted=set(TARGET_NAMES); found={}
+    for row in rows or []:
+        name=(row.get("corp_name") or row.get("corpName") or "").strip()
+        if name not in wanted:
+            continue
+        code=(row.get("corp_code") or row.get("corpCode") or "").strip()
+        stock=(row.get("stock_code") or row.get("stockCode") or "").strip()
+        if code:
+            found[name]={"corp_code":code,"stock_code":stock}
+    return found
+
 def fetch_corp_codes():
     if not API_KEY:
+        print("DART corp code lookup skipped: DART_API_KEY is not set", file=sys.stderr)
         return {}
+    errors=[]
+    # Official Korean endpoint returns a ZIP containing CORPCODE.xml.
     try:
-        raw = fetch_bytes(
-            "https://opendart.fss.or.kr/api/corpCode.xml?" + urlencode({"crtfc_key": API_KEY}),
-            timeout=40,
-        )
-        with zipfile.ZipFile(io.BytesIO(raw)) as z:
-            data = z.read(z.namelist()[0])
-        from xml.etree import ElementTree as ET
-        root = ET.fromstring(data)
-        wanted = set(TARGET_NAMES)
-        found = {}
-        for item in root.findall("list"):
-            name = (item.findtext("corp_name") or "").strip()
-            if name not in wanted:
-                continue
-            code = (item.findtext("corp_code") or "").strip()
-            stock = (item.findtext("stock_code") or "").strip()
-            if code:
-                found[name] = {"corp_code": code, "stock_code": stock}
-        return found
+        raw=fetch_bytes("https://opendart.fss.or.kr/api/corpCode.xml?"+urlencode({"crtfc_key":API_KEY}),timeout=40)
+        try:
+            with zipfile.ZipFile(io.BytesIO(raw)) as z:
+                xml_name=next((n for n in z.namelist() if n.lower().endswith(".xml")),z.namelist()[0])
+                found=_parse_corp_xml(z.read(xml_name))
+                if found:
+                    print(f"DART corp code lookup: {len(found)} target companies resolved from Korean ZIP endpoint")
+                    return found
+                errors.append("Korean ZIP endpoint returned a valid list, but no tracked company names matched")
+        except Exception:
+            errors.append(_dart_error(raw,"Korean ZIP endpoint"))
     except Exception as e:
-        print(f"DART corp code lookup failed: {e}", file=sys.stderr)
-        return {}
+        errors.append(f"Korean ZIP endpoint request failed: {type(e).__name__}: {e}")
+
+    # Official English mirror returns JSON and helps distinguish format/network errors
+    # from invalid, suspended, IP-restricted, expired, or rate-limited API keys.
+    try:
+        raw=fetch_bytes("https://engopendart.fss.or.kr/engapi/corpCode.json?"+urlencode({"crtfc_key":API_KEY}),timeout=30)
+        found=_parse_corp_json(raw)
+        if found:
+            print(f"DART corp code lookup: {len(found)} target companies resolved from English JSON endpoint")
+            return found
+        errors.append("English JSON endpoint returned a valid response, but no tracked company names matched")
+    except Exception as e:
+        errors.append(f"English JSON endpoint: {e}")
+
+    for err in errors:
+        print("DART corp code lookup diagnostic: "+err, file=sys.stderr)
+    return {}
 
 def fetch_company(name, corp):
     today = datetime.now(timezone.utc).date()
