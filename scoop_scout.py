@@ -431,6 +431,7 @@ def dart_title(corp,report,blob,nums):
 
 def candidate_kind(title,category):
     t=(title or "").lower()
+    if any(w in t for w in ("산업안전","근로감독","특별감독","중대재해","행정처분","시정명령","임금체불")):return "정책·규제"
     if any(w in t for w in ("리콜","결함","제작결함","무상수리","recall","defect")) or category=="자동차 결함":return "결함·리콜"
     if any(w in t for w in ("인증","형식승인","certificate","certification","type approval","emissions family")):return "인증·형식승인"
     if any(w in t for w in ("환경영향","환경성평가","환경입지","건축허가","인허가","개발행위","사업계획승인","산업단지","착공","심의")):return "인허가·환경"
@@ -625,10 +626,25 @@ def main():
         if p.get("title") and p.get("url") and p.get("preScoop"):
             primary.append(p)
 
-    candidates=[];seen=set();drop_stats={"noise":0,"relevance":0,"generic":0,"specificity":0,"prior_coverage":0,"procurement":0,"routine_contract":0,"low_score":0,"other":0,"accepted":0}
+    candidates=[];seen=set();drop_stats={"noise":0,"stale_pre_scoop":0,"routine_regulatory":0,"relevance":0,"generic":0,"specificity":0,"prior_coverage":0,"procurement":0,"routine_contract":0,"low_score":0,"other":0,"accepted":0}
     for x in sorted(primary,key=lambda z:z.get("published",""),reverse=True):
         title=(x.get("title") or "").strip()
         joined=title+" "+x.get("summary","")
+        # Pre-scoop search intentionally looks 21 days back for raw signals, but only
+        # the recent 10-day window is eligible to enter the actual scoop-candidate queue.
+        # Otherwise an old official press release can reappear as a "new" scoop.
+        if x.get("preScoop"):
+            source_dt=parse_dt(x.get("published"))
+            if source_dt.year < 2000 or (now-source_dt).total_seconds() > PRIMARY_LOOKBACK_DAYS*86400:
+                drop_stats["stale_pre_scoop"]+=1
+                continue
+        # Routine announcement of a completed inspection is not itself a scoop.
+        # Keep it only when the source exposes a material outcome worth separate reporting.
+        if re.search(r"(?:산업안전|근로|특별)\s*(?:감독|점검).{0,12}(?:결과|발표|실시)", title):
+            material_outcome=("사망","중대재해","작업중지","조업정지","영업정지","과징금","기소","구속","형사입건","대표이사 입건","시정명령","위반 건수","적발 건수","재발")
+            if not any(k in joined for k in material_outcome):
+                drop_stats["routine_regulatory"]+=1
+                continue
         if not title or NOISE_RE.search(title) or WEAK_RE.search(title):
             drop_stats["noise"]+=1;continue
         companies=target_hits(joined)
