@@ -238,7 +238,7 @@ def fetch_direct_nlrc(max_items=12):
 
 def fetch_direct_car_recalls(max_items=20):
     """Read the official Korea vehicle recall list directly, not through news search indexing."""
-    base="https://www.car.go.kr"
+    base="https://car.go.kr"
     list_url=base+"/ri/stat/list.do?menuId=0203010000"
     now=datetime.now(KST)
     cutoff=now-timedelta(days=LOOKBACK_DAYS)
@@ -249,7 +249,7 @@ def fetch_direct_car_recalls(max_items=20):
     }
     DIRECT_DIAGNOSTICS["car-recalls"]=diag
     try:
-        raw=get(list_url,timeout=25).decode("utf-8","ignore")
+        raw=get(list_url,timeout=12).decode("utf-8","ignore")
         diag["listFetched"]=True
     except Exception as e:
         diag["errors"].append(f"list fetch: {type(e).__name__}: {e}")
