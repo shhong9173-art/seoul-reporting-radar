@@ -236,6 +236,72 @@ def fetch_direct_nlrc(max_items=12):
             break
     return out
 
+def fetch_direct_car_recalls(max_items=20):
+    """Read the official Korea vehicle recall list directly, not through news search indexing."""
+    base="https://www.car.go.kr"
+    list_url=base+"/ri/stat/list.do?menuId=0203010000"
+    now=datetime.now(KST)
+    cutoff=now-timedelta(days=LOOKBACK_DAYS)
+    diag={
+        "listFetched":False,"linksScanned":0,"recallTitles":0,"datedRows":0,
+        "recentRows":0,"trackedBrandRows":0,"retained":0,"errors":[]
+    }
+    DIRECT_DIAGNOSTICS["car-recalls"]=diag
+    try:
+        raw=get(list_url,timeout=25).decode("utf-8","ignore")
+        diag["listFetched"]=True
+    except Exception as e:
+        diag["errors"].append(f"list fetch: {type(e).__name__}: {e}")
+        print(f"direct vehicle recall scout: list fetch failed: {type(e).__name__}: {e}")
+        return []
+    out=[];seen=set()
+    # The listing renders a detail link followed by publisher/date metadata in the
+    # same compact HTML block. Match only links inside the recall-list route.
+    link_re=re.compile(r'<a[^>]+href=["\']([^"\']*(?:/ri/stat/|ri/stat/)[^"\']*)["\'][^>]*>(.*?)</a>',re.I|re.S)
+    for m in link_re.finditer(raw):
+        href_raw=html.unescape(m.group(1).strip())
+        title=clean(m.group(2))
+        diag["linksScanned"]+=1
+        if not title or not re.search(r"리콜|결함|무상수리|시정",title,re.I):
+            continue
+        diag["recallTitles"]+=1
+        href=urllib.parse.urljoin(base,href_raw)
+        if href in seen:
+            continue
+        seen.add(href)
+        left=max(0,m.start()-450);right=min(len(raw),m.end()+850)
+        context=raw[left:right]
+        date_hits=list(re.finditer(r"20\d{2}[-./]\d{1,2}[-./]\d{1,2}",context))
+        if not date_hits:
+            continue
+        center=m.start()-left
+        chosen=min(date_hits,key=lambda x:abs(x.start()-center))
+        try:
+            dt=datetime.strptime(re.sub(r"[./]","-",chosen.group(0)),"%Y-%m-%d").replace(tzinfo=KST)
+        except ValueError:
+            continue
+        diag["datedRows"]+=1
+        if dt<cutoff or dt>now+timedelta(hours=6):
+            continue
+        diag["recentRows"]+=1
+        companies=target_hits(title)
+        if not companies:
+            continue
+        diag["trackedBrandRows"]+=1
+        out.append({
+            "sourceName":"자동차리콜센터(국토교통부·자동차안전연구원)",
+            "officialLabel":"자동차리콜센터","querySite":"car.go.kr",
+            "sourceGroup":"자동차·결함","title":title,"url":href,
+            "published":dt.isoformat(),"summary":clean(context)[:2500],
+            "official":True,"preScoop":True,"directSource":True,
+            "companies":companies,"signalType":"official_recall_notice"
+        })
+        if len(out)>=max_items:
+            break
+    diag["retained"]=len(out)
+    print(f"direct vehicle recall scout: diagnostics={diag}")
+    return out
+
 def fetch_source(group, domain, terms, max_items=25):
     now=datetime.now(KST)
     after=(now-timedelta(days=LOOKBACK_DAYS)).strftime("%Y-%m-%d")
@@ -400,6 +466,10 @@ def main():
     direct_procurement = fetch_direct_kepco_enc()
     items.extend(direct_procurement)
     by_group["공기업·조달"] = by_group.get("공기업·조달", 0) + len(direct_procurement)
+
+    direct_recalls = fetch_direct_car_recalls()
+    items.extend(direct_recalls)
+    by_group["자동차·결함"] = by_group.get("자동차·결함", 0) + len(direct_recalls)
     # Keep the feed compact and deterministic.
     dedup = {}
     for x in items:
