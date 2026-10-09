@@ -787,7 +787,9 @@ def build_public_signals(primary, dart_rows, now, limit=10):
             continue
         if any(k in report for k in ("투자설명서","증권신고서","사업보고서","반기보고서","분기보고서","기타시장안내")):
             continue
-        if re.search(r"자기주식|자사주",report) and re.search(r"임원.*상여|상여금|임직원.*보상",str(d.get("signalText") or ""),re.I):
+        # Treasury-share disposition filings are often routine employee/management
+        # compensation. Do not fill the public monitoring lane with them by default.
+        if re.search(r"자기주식|자사주",report):
             continue
         group=next((label for term,label in dart_terms.items() if term in report),None)
         if not group:
