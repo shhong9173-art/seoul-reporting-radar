@@ -416,7 +416,7 @@ def fetch_direct_kepco_enc(max_items=20):
         r"플랜트|전력망|풍력|태양광|ESS|배터리|자동차|타이어|철강|강관|수소|암모니아|압축기|"
         r"제어시스템|계측제어|전기설비|주기기|보조기기|정비|계속운전", re.I
     )
-    diag={"listFetched":False,"rowsScanned":0,"materialTitles":0,"detailPagesFetched":0,"datedRows":0,"recentRows":0,"retained":0,"errors":[]}
+    diag={"listFetched":False,"rowsScanned":0,"materialTitles":0,"detailPagesFetched":0,"datedRows":0,"recentRows":0,"retained":0,"errors":[],"sampleRows":[]}
     DIRECT_DIAGNOSTICS["kepco-enc"] = diag
     try:
         raw = get(list_url, timeout=25).decode("utf-8", "ignore")
@@ -430,12 +430,21 @@ def fetch_direct_kepco_enc(max_items=20):
     rows = re.findall(r"<tr\b[^>]*>.*?</tr>", raw, flags=re.I | re.S)
     diag["rowsScanned"]=len(rows)
     for row in rows:
-        link_match = re.search(r'<a[^>]+href=["\']([^"\']+)["\'][^>]*>(.*?)</a>', row, flags=re.I | re.S)
-        if not link_match:
+        # A row contains several anchors (number, title, detail buttons). Choose the
+        # actual 사업명/title link matching material terms, not simply the first anchor.
+        link_matches = re.findall(r'<a[^>]+href=["\']([^"\']*)["\'][^>]*>(.*?)</a>', row, flags=re.I | re.S)
+        eligible=[]
+        for raw_href, raw_title in link_matches:
+            candidate_title=clean(raw_title)
+            candidate_href=urllib.parse.urljoin(base, html.unescape(raw_href))
+            if len(candidate_title)>=8 and material_re.search(candidate_title) and not re.search(r"상세보기|바로가기|첨부파일|다운로드|이전|다음",candidate_title):
+                eligible.append((candidate_href,candidate_title))
+        if not eligible:
+            if len(diag["sampleRows"])<8:
+                diag["sampleRows"].append(clean(row)[:400])
             continue
-        title = clean(link_match.group(2))
-        href = urllib.parse.urljoin(base, html.unescape(link_match.group(1)))
-        if not title or not material_re.search(title) or href in seen:
+        href,title=eligible[0]
+        if not title or href in seen:
             continue
         seen.add(href)
         diag["materialTitles"]+=1
