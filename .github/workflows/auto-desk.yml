@@ -13,6 +13,7 @@ on:
       - 'strategic_shifts.json'
       - 'dart.json'
       - 'dart_numeric.json'
+      - 'dart_corp_codes.json'
       - 'pitch.json'
       - 'industry.json'
       - 'dig_today.json'
@@ -142,7 +143,7 @@ jobs:
           set -e
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data.js data.json global.json archive.json changes.json strategic_shifts.json dart.json dart_numeric.json pitch.json industry.json dig_today.json pre_scoop.json scoop.json
+          git add data.js data.json global.json archive.json changes.json strategic_shifts.json dart.json dart_numeric.json dart_corp_codes.json pitch.json industry.json dig_today.json pre_scoop.json scoop.json
           if git diff --cached --quiet; then echo "No feed changes"; else
             git commit -m "chore: refresh newsroom radar and investigation leads"
             for i in 1 2 3; do
