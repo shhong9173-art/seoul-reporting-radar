@@ -19,6 +19,10 @@ on:
       - 'dig_today.json'
       - 'scoop.json'
       - 'pre_scoop.json'
+      - 'pre_scoop_radar.py'
+      - 'scoop_scout.py'
+      - '.github/workflows/auto-desk.yml'
+      - '.github/workflows/scoop-radar.yml'
   schedule:
     - cron: '*/15 * * * *'
   workflow_dispatch:
