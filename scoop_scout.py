@@ -116,7 +116,7 @@ COMPANY_DOMAINS={
  "LG화학":"lgchem.com","롯데케미칼":"lottechem.com","금호석유화학":"kkpc.com","효성첨단소재":"hshyosungadvancedmaterials.com","코오롱인더":"kolonindustries.com"
 }
 COMPANY_BY_DOMAIN={domain:company for company,domain in COMPANY_DOMAINS.items()}
-NOISE_RE=re.compile(r"주가|증권|목표주가|급등|급락|관련주|테마주|특징주|장중|종목|추천주|리포트",re.I)
+NOISE_RE=re.compile(r"주가|증권|목표주가|급등|급락|관련주|테마주|특징주|장중|종목|추천주|리포트|기재정정|첨부정정",re.I)
 WEAK_RE=re.compile(r"사회공헌|기부|봉사|채용|수상|캠페인|축제|전시|세미나|포럼|강연|홍보대사|혜택|이벤트|모먼트|스토리|재단|장학|펠로|양궁|칵테일|아트워크|우수조",re.I)
 HARD_SIGNAL_RE=re.compile(r"정책|규제|시행|고시|법안|입법|예고|결정고시|행정처분|관세|반덤핑|상계관세|특허|출원|등록|특허심판|심판|상표|디자인|대표이사|임원|사내이사|사외이사|선임|취임|퇴임|조직개편|신설|투자|출자|증설|공장|법인|합병|분할|인수|매각|철수|수주|계약|공급|발주|입찰|낙찰|생산|가동|감산|가격|원가|마진|배터리|ESS|HVDC|변압기|해저케이블|해상풍력|자율주행|리콜|결함|제작결함|무상수리|조사개시|인증|형식승인|환경영향|환경성평가|건축허가|사업계획승인|산업단지|소송|제소|가처분|판결|행정심판",re.I)
 TOPIC_RE=re.compile(r"자동차|전기차|하이브리드|PBV|자율주행|ADAS|타이어|배터리|철강|열연|냉연|후판|강관|비철|구리|아연|니켈|전력|변압기|HVDC|케이블|해저케이블|풍력|태양광|ESS|에너지|LNG|원전|수소|석유화학|화학|소재|공장|수출|관세|산업단지|데이터센터|재생에너지",re.I)
@@ -606,7 +606,7 @@ def build_lead_signals(primary, data, now, limit=12):
     noise_re = re.compile(
         r"검색|바로가기|안내|설명회|개최 알림|주간 동향|주간 입찰|자료실|상세보기|정기보고|실적발표|월간동향|"
         r"행사|캠페인|수상|채용|교육생 모집|사회공헌|기부|봉사|홍보대사|체험|진로탐색|청소년|희망드림|"
-        r"세이브더칠드런|수수료 지원|달력 제작|회계감사 용역|국제민간항공기구|유가보조금 관리 규정|보증제도|명품보증|보증대상|프로모션|브랜드 캠페인|고객 혜택", re.I)
+        r"세이브더칠드런|수수료 지원|달력 제작|회계감사 용역|국제민간항공기구|유가보조금 관리 규정|보증제도|명품보증|보증대상|프로모션|브랜드 캠페인|고객 혜택|기재정정|첨부정정", re.I)
     diag={k:0 for k in ("input","invalid","noise","outside_window","no_hard_change","no_signal_pattern","no_company","untrusted_source","duplicate","rows","coverage_checked","prior_coverage","diversity_skip","surfaced")}
     diag["sample_no_hard_change"]=[]
     diag["sample_no_signal_pattern"]=[]
@@ -722,6 +722,7 @@ def main():
     now=datetime.now(KST)
     primary=[]
     pattern_frequency={}
+    dart_suppression={"correction":0,"outside_7day_window":0}
     for row in data:
         if row.get("global"):continue
         title=str(row.get("title") or "")
@@ -740,8 +741,15 @@ def main():
         report=str(d.get("reportName") or "")
         if not report or not corp_name:continue
         if any(k in report for k in ("투자설명서","증권신고서","사업보고서","반기보고서","분기보고서","기타시장안내")):continue
+        # Corrective filings are not new events by themselves. The changed fields
+        # must be compared with the original filing before they can support a scoop.
+        if "기재정정" in report or "첨부정정" in report:
+            dart_suppression["correction"]+=1
+            continue
         ddt=parse_dt(d.get("date",""))
-        if ddt<now-timedelta(days=14):continue
+        if ddt<now-timedelta(days=7):
+            dart_suppression["outside_7day_window"]+=1
+            continue
         material=any(k in report for k in ("회사분할","영업정지","생산중단","신규시설투자","타법인주식및출자증권취득결정","유상증자","영업양수도","합병","대표이사","임원","이사선임","소송","주요사항보고"))
         contract_report=("단일판매ㆍ공급계약체결" in report)
         if contract_report:continue
@@ -1040,6 +1048,7 @@ def main():
                 "directSourceDiagnostics":(json.loads(Path("pre_scoop.json").read_text(encoding="utf-8")).get("directSourceDiagnostics",{}) if Path("pre_scoop.json").exists() else {})
             }
         },
+        "sourceSuppressionStats":{"dart":dart_suppression},
         "dropStats":drop_stats,
         "sourceGroups":{g:sum(1 for x in final if x.get("sourceGroup")==g) for g in sorted({x.get("sourceGroup","기타") for x in final})},
         "note":"단독감은 중요 뉴스 랭킹이 아닙니다. 실제 단독 기사에서 반복되는 내부 의사결정·생산계획·공급변경·이사회·인사·거래구조·자금조달·규제/인허가 선행 신호를 찾고, 구체적 사실·최근성·원자료성·미보도 여부·실제 전화 확인 가능성을 함께 평가합니다. 일반 공지·행정규칙·행사·채용·단순 계약 규모만으로는 올리지 않습니다."
