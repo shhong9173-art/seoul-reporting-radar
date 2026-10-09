@@ -118,7 +118,7 @@ COMPANY_DOMAINS={
 COMPANY_BY_DOMAIN={domain:company for company,domain in COMPANY_DOMAINS.items()}
 NOISE_RE=re.compile(r"주가|증권|목표주가|급등|급락|관련주|테마주|특징주|장중|종목|추천주|리포트|기재정정|첨부정정",re.I)
 WEAK_RE=re.compile(r"사회공헌|기부|봉사|채용|수상|캠페인|축제|전시|세미나|포럼|강연|홍보대사|혜택|이벤트|모먼트|스토리|재단|장학|펠로|양궁|칵테일|아트워크|우수조",re.I)
-HARD_SIGNAL_RE=re.compile(r"정책|규제|시행|고시|법안|입법|예고|결정고시|행정처분|관세|반덤핑|상계관세|특허|출원|등록|특허심판|심판|상표|디자인|대표이사|임원|사내이사|사외이사|선임|취임|퇴임|조직개편|신설|투자|출자|증설|공장|법인|합병|분할|인수|매각|철수|수주|계약|공급|발주|입찰|낙찰|생산|가동|감산|가격|원가|마진|배터리|ESS|HVDC|변압기|해저케이블|해상풍력|자율주행|리콜|결함|제작결함|무상수리|조사개시|인증|형식승인|환경영향|환경성평가|건축허가|사업계획승인|산업단지|소송|제소|가처분|판결|행정심판",re.I)
+HARD_SIGNAL_RE=re.compile(r"정책|규제|시행|고시|법안|입법|예고|결정고시|행정처분|관세|반덤핑|상계관세|특허|출원|등록|특허심판|심판|상표|디자인|대표이사|임원|사내이사|사외이사|선임|취임|퇴임|조직개편|신설|투자|출자|증설|공장|법인|합병|분할|인수|매각|철수|수주|계약|공급|발주|입찰|낙찰|생산|가동|감산|가격|원가|마진|배터리|ESS|HVDC|변압기|해저케이블|해상풍력|자율주행|리콜|결함|제작결함|무상수리|조사개시|인증|형식승인|환경영향|환경성평가|건축허가|사업계획승인|산업단지|소송|제소|가처분|판결|행정심판|자기주식|자사주|주식처분|주식소각|전환사채|교환사채|신주인수권부사채|금전대여|채무인수|담보제공|보증제공|영업정지|영업양수도",re.I)
 TOPIC_RE=re.compile(r"자동차|전기차|하이브리드|PBV|자율주행|ADAS|타이어|배터리|철강|열연|냉연|후판|강관|비철|구리|아연|니켈|전력|변압기|HVDC|케이블|해저케이블|풍력|태양광|ESS|에너지|LNG|원전|수소|석유화학|화학|소재|공장|수출|관세|산업단지|데이터센터|재생에너지",re.I)
 NUM_RE=re.compile(r"(?<!\d)(?:\d{1,3}(?:,\d{3})+|\d+(?:\.\d+)?)(?:조원|억원|만원|달러|만대|천대|대|명|%|GWh|MWh|kWh|톤|km|MW|GW)(?!\w)",re.I)
 
@@ -722,7 +722,7 @@ def main():
     now=datetime.now(KST)
     primary=[]
     pattern_frequency={}
-    dart_suppression={"correction":0,"outside_7day_window":0}
+    dart_suppression={"correction":0,"outside_7day_window":0,"contract_reports_seen":0,"contract_reports_routine":0,"contract_reports_eligible":0,"routine_equity_compensation":0}
     for row in data:
         if row.get("global"):continue
         title=str(row.get("title") or "")
@@ -750,13 +750,30 @@ def main():
         if ddt<now-timedelta(days=7):
             dart_suppression["outside_7day_window"]+=1
             continue
-        material=any(k in report for k in ("회사분할","영업정지","생산중단","신규시설투자","타법인주식및출자증권취득결정","유상증자","영업양수도","합병","대표이사","임원","이사선임","소송","주요사항보고"))
+        material=any(k in report for k in ("회사분할","영업정지","생산중단","신규시설투자","타법인주식및출자증권취득결정","유상증자","영업양수도","합병","대표이사","임원","이사선임","소송","주요사항보고","자기주식처분결정","자기주식취득","주식소각","금전대여","채무인수","전환사채","교환사채"))
         contract_report=("단일판매ㆍ공급계약체결" in report)
-        if contract_report:continue
+        if contract_report:dart_suppression["contract_reports_seen"]+=1
         if ("기재정정" in report or "첨부정정" in report) and not material:continue
         if not HARD_SIGNAL_RE.search(report):continue
         if not target_hits(corp_name):continue
         blob,nums=dart_fact(d,numeric)
+        joined_dart=str(d.get("signalText",""))+" "+blob
+        if contract_report:
+            party=near_fact(blob,"계약상대방")
+            party_specific=bool(party and not re.search(r"해당없음|미정|비공개|불특정|기타|없음|-",party,re.I) and len(party.strip())>=2)
+            contract_units=bool(re.search(r"\\b(?:GWh|MWh|MW|GW|kV|km|톤|만대|천대)\\b|물량|생산능력|연간 공급|공급 기간|납기",joined_dart,re.I))
+            unusual_contract=any(k in joined_dart for k in ("첫","최초","신규 고객","신규 고객사","신규 시장","북미","미국","유럽","중동","사우디","호주","독점","장기 공급","신규 프로젝트"))
+            amount=won_amount(blob)
+            material_amount=amount>=100_000_000_000 if amount else False
+            if not (unusual_contract or contract_units or (material_amount and party_specific)):
+                dart_suppression["contract_reports_routine"]+=1
+                continue
+            dart_suppression["contract_reports_eligible"]+=1
+        # Small treasury-share transfers used for routine executive bonuses are governance notices,
+        # not industrial scoops. Keep material ownership/control changes for later verification.
+        if re.search(r"자기주식|자사주",report) and re.search(r"임원.*상여|상여금|임직원.*보상",joined_dart) and won_amount(blob)<10_000_000_000:
+            dart_suppression["routine_equity_compensation"]+=1
+            continue
         primary.append({
             "category":"공시","title":dart_title(corp_name,report,blob,nums),
             "url":d.get("url",""),"published":ddt.isoformat(),"sourceName":"DART",
@@ -888,9 +905,11 @@ def main():
         # unusual project, large amount, or specific physical quantity.
         if kind=="계약·수주":
             large=any(re.search(r"(조원|억원)",str(n)) and float(re.sub(r"[^0-9.]","",str(n).replace(",","")) or 0)>=1000 for n in numbers)
-            unusual=any(k in joined for k in ("첫","최초","북미","미국","유럽","중동","사우디","호주","대규모","장기","독점","신규 고객","신규 고객사","프로젝트"))
-            detailed=any(k in joined for k in ("GWh","MWh","MW","GW","km","톤","만대","물량","사업장","지역"))
-            if not (large or unusual or detailed):
+            unusual=any(k in joined for k in ("첫","최초","북미","미국","유럽","중동","사우디","호주","대규모","장기","독점","신규 고객","신규 고객사","신규 시장","프로젝트"))
+            detailed=any(k in joined for k in ("GWh","MWh","MW","GW","kV","km","톤","만대","물량","생산능력","연간 공급","공급 기간","납기"))
+            party=near_fact(x.get("summary",""),"계약상대방")
+            party_specific=bool(party and not re.search(r"해당없음|미정|비공개|불특정|기타|없음|-",party,re.I) and len(party.strip())>=2)
+            if not (unusual or detailed or (large and party_specific)):
                 drop_stats["routine_contract"]+=1;continue
 
         # A true personnel/patent scoop must originate in an authoritative or company source.
