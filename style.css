@@ -20,3 +20,14 @@
 .scoop-pitch p{font-weight:700;color:#253039}
 .compact-signals{margin-top:8px}
 @media (max-width:800px){.scoop-overview{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+.scoop-section-title{display:flex;align-items:baseline;gap:10px;font-size:16px;font-weight:850;letter-spacing:-.35px;margin:24px 0 10px;color:#26323a}
+.scoop-section-title span{font-size:11px;font-weight:500;letter-spacing:0;color:#7e8992}
+.scoop-lead-card{border-top:3px solid #8fa3b3}
+.scoop-lead-card .title{font-size:17px}
+.scoop-lead-card ul{margin:6px 0 0;padding-left:19px}
+.scoop-lead-card li{font-size:12px;line-height:1.55;color:#4f5d67;margin:3px 0}
+.scoop-actions{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px;padding-top:10px;border-top:1px solid #edf0f2;font-size:11px}
+.scoop-actions a{color:#245d9b;font-weight:750;text-decoration:none}
+.scoop-actions span{color:#7a858e}
+.scoop-lead-card .scoop-rule{font-size:11px;color:#7a858e;line-height:1.5;margin-top:10px}
