@@ -579,7 +579,7 @@ def exclusive_pattern_hits(text):
     return hits
 
 def build_lead_signals(primary, data, now, limit=12):
-    """Surface only company-specific, material changes after a recent-news cross-check."""
+    """Surface only company-specific material changes after a recent-news cross-check."""
     signal_patterns = [
         ("노사·생산", ("잠정합의","임단협","단체교섭","파업","쟁의","생산계획","생산조정","생산라인","감산","조업중단","생산중단")),
         ("공급망", ("공급중단","공급차질","공급사 변경","대체투입","납기","재고","생산차질","원료수급")),
@@ -602,74 +602,68 @@ def build_lead_signals(primary, data, now, limit=12):
         r"검색|바로가기|안내|설명회|개최 알림|주간 동향|주간 입찰|자료실|상세보기|정기보고|실적발표|월간동향|"
         r"행사|캠페인|수상|채용|교육생 모집|사회공헌|기부|봉사|홍보대사|체험|진로탐색|청소년|희망드림|"
         r"세이브더칠드런|수수료 지원|달력 제작|회계감사 용역|국제민간항공기구|유가보조금 관리 규정", re.I)
+    diag={k:0 for k in ("input","invalid","noise","outside_window","no_hard_change","no_signal_pattern","no_company","untrusted_source","duplicate","rows","coverage_checked","prior_coverage","diversity_skip","surfaced")}
     rows=[]; seen=set()
     for x in primary:
+        diag["input"]+=1
         title=str(x.get("title") or "").strip()
         url=str(x.get("url") or "").strip()
-        if not title or not url or noise_re.search(title):
-            continue
+        if not title or not url:
+            diag["invalid"]+=1; continue
+        if noise_re.search(title):
+            diag["noise"]+=1; continue
         dt=parse_dt(x.get("published"))
         age_h=(now-dt).total_seconds()/3600
         if dt.year < 2000 or age_h < -6 or age_h > PRIMARY_LOOKBACK_DAYS*24:
-            continue
-        if x.get("preScoop") and age_h > PRIMARY_LOOKBACK_DAYS*24:
-            continue
+            diag["outside_window"]+=1; continue
         body=title+" "+str(x.get("summary") or "")
         if not hard_change_re.search(title):
-            continue
+            diag["no_hard_change"]+=1; continue
         if re.search(r"\d+\s*년\s*만에|지난해|전년|누적\s*생산|정기\s*준공|준공식", title) and not re.search(r"신규|증설|변경|중단|매각|협상|분할|합병|생산계획|공급차질|리콜|결함|소송|내정|조직개편", title):
-            continue
+            diag["no_hard_change"]+=1; continue
         hits=[(label,terms) for label,terms in signal_patterns if any(term.lower() in body.lower() for term in terms)]
         if not hits:
-            continue
+            diag["no_signal_pattern"]+=1; continue
         companies=target_hits(body)
         if x.get("corpName"):
             companies=list(dict.fromkeys(target_hits(x.get("corpName"))+companies))
         qcompany=COMPANY_BY_DOMAIN.get(str(x.get("querySite") or "").lower())
         if qcompany:
             companies=list(dict.fromkeys([qcompany]+companies))
-        # This queue is for actionable company-specific leads, not generic public notices.
         if not companies:
-            continue
+            diag["no_company"]+=1; continue
         group=source_group(x)
         if group=="기타" and not x.get("officialLabel"):
-            continue
-        # Exclude routine government tenders that do not identify a tracked company or a substantive change.
+            diag["untrusted_source"]+=1; continue
         if group=="조달" and re.search(r"청소년|진로|체험|기부|후원|사회공헌|달력|홍보|주간 입찰",title,re.I):
-            continue
+            diag["noise"]+=1; continue
         matched=hits[0][0]
         signal_terms=[term for label,terms in hits for term in terms if term.lower() in body.lower()]
         concrete_numbers=list(dict.fromkeys(NUM_RE.findall(body)))[:4]
-        score=min(24,len(signal_terms)*4)+min(8,len(concrete_numbers)*2)+(8 if len(companies)>0 else 0)+(4 if group not in {"기타"} else 0)
+        score=min(24,len(signal_terms)*4)+min(8,len(concrete_numbers)*2)+12
         key=(url,re.sub(r"[^가-힣A-Za-z0-9]","",title).lower())
         if key in seen:
-            continue
+            diag["duplicate"]+=1; continue
         seen.add(key)
-        rows.append({
-            "raw":x,"title":title,"url":url,"date":dt,"sourceGroup":group,"kind":matched,
-            "companies":companies,"signalTerms":signal_terms,"numbers":concrete_numbers,"score":score
-        })
+        rows.append({"raw":x,"title":title,"url":url,"date":dt,"sourceGroup":group,"kind":matched,
+            "companies":companies,"signalTerms":signal_terms,"numbers":concrete_numbers,"score":score})
     rows.sort(key=lambda r:(r["score"],r["date"].isoformat()),reverse=True)
+    diag["rows"]=len(rows)
     out=[];used_companies=set();used_groups=set()
-    # Cross-check a bounded number of high-scoring, company-specific signals against older news.
     for row in rows[:max(limit,12)]:
+        diag["coverage_checked"]+=1
         x=row["raw"]
-        prior=[]
         try:
             prior=coverage_search(x)
         except Exception:
             prior=[]
         source_dt=row["date"]
-        already_reported=False
-        for h in prior:
-            hdt=parse_dt(h.get("published"))
-            if hdt <= source_dt and event_match_score(x,h)>=0.76:
-                already_reported=True
-                break
-        if already_reported:
+        if any(parse_dt(h.get("published"))<=source_dt and event_match_score(x,h)>=0.76 for h in prior):
+            diag["prior_coverage"]+=1
             continue
         co=row["companies"][0]
         if co in used_companies or row["sourceGroup"] in used_groups:
+            diag["diversity_skip"]+=1
             continue
         questions={
             "노사·생산":["합의·생산조정이 확정됐나. 적용 시점과 대상 사업장은 어디인가?","생산량·근무형태·협력사 물량에 실제 변화가 있나?"],
@@ -697,10 +691,10 @@ def build_lead_signals(primary, data, now, limit=12):
             "questions":questions,"directSource":bool(x.get("directSource") or x.get("receiptNo")),"preScoop":bool(x.get("preScoop"))
         })
         used_companies.add(co);used_groups.add(row["sourceGroup"])
+        diag["surfaced"]+=1
         if len(out)>=limit:
             break
-    return out
-
+    return out,diag
 
 def main():
     data=json.loads(DATA.read_text(encoding="utf-8")) if DATA.exists() else []
@@ -750,7 +744,7 @@ def main():
         if p.get("title") and p.get("url") and p.get("preScoop"):
             primary.append(p)
 
-    lead_signals=build_lead_signals(primary,data,now,limit=12)
+    lead_signals,lead_diagnostics=build_lead_signals(primary,data,now,limit=12)
     candidates=[];seen=set();drop_stats={"noise":0,"stale_pre_scoop":0,"routine_regulatory":0,"relevance":0,"generic":0,"specificity":0,"prior_coverage":0,"procurement":0,"routine_contract":0,"low_score":0,"other":0,"accepted":0}
     for x in sorted(primary,key=lambda z:z.get("published",""),reverse=True):
         title=(x.get("title") or "").strip()
@@ -1019,6 +1013,11 @@ def main():
         "items":final,
         "leadSignals":lead_signals,
         "leadSignalCount":len(lead_signals),
+        "leadDiagnostics":lead_diagnostics,
+        "sourceHealth":{
+            "dart":{"count":len(dart),"status":"ok" if dart else ("error" if (json.loads(DART.read_text(encoding="utf-8")).get("errors") if DART.exists() else []) else "empty"),"errors":(json.loads(DART.read_text(encoding="utf-8")).get("errors",[]) if DART.exists() else [])[:3]},
+            "preScoop":{"count":len(pre_scoop),"groups":(json.loads(Path("pre_scoop.json").read_text(encoding="utf-8")).get("sourceGroups",{}) if Path("pre_scoop.json").exists() else {})}
+        },
         "dropStats":drop_stats,
         "sourceGroups":{g:sum(1 for x in final if x.get("sourceGroup")==g) for g in sorted({x.get("sourceGroup","기타") for x in final})},
         "note":"단독감은 중요 뉴스 랭킹이 아닙니다. 실제 단독 기사에서 반복되는 내부 의사결정·생산계획·공급변경·이사회·인사·거래구조·자금조달·규제/인허가 선행 신호를 찾고, 구체적 사실·최근성·원자료성·미보도 여부·실제 전화 확인 가능성을 함께 평가합니다. 일반 공지·행정규칙·행사·채용·단순 계약 규모만으로는 올리지 않습니다."
