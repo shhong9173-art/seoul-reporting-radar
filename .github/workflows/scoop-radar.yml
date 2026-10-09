@@ -1,0 +1,156 @@
+name: Scoop Radar Independent Refresh
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'pre_scoop_radar.py'
+      - 'scoop_scout.py'
+      - '.github/workflows/scoop-radar.yml'
+      - 'data.json'
+      - 'dart.json'
+      - 'dart_numeric.json'
+      - 'archive.json'
+  schedule:
+    - cron: '7,37 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: scoop-radar-refresh
+  cancel-in-progress: false
+
+jobs:
+  scout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - name: Checkout current main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Collect official-source and early signals
+        run: python pre_scoop_radar.py
+      - name: Screen scoop candidates and build lead diagnostics
+        run: python scoop_scout.py
+      - name: Validate isolated radar outputs
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          pre=json.loads(Path('pre_scoop.json').read_text(encoding='utf-8'))
+          scoop=json.loads(Path('scoop.json').read_text(encoding='utf-8'))
+          if not isinstance(pre,dict) or not isinstance(pre.get('items'),list):
+              raise SystemExit('pre_scoop.json schema invalid')
+          if not isinstance(scoop,dict) or not isinstance(scoop.get('items'),list):
+              raise SystemExit('scoop.json schema invalid')
+          if not isinstance(scoop.get('leadDiagnostics'),dict):
+              raise SystemExit('leadDiagnostics missing')
+          if not isinstance(scoop.get('dropStats'),dict):
+              raise SystemExit('dropStats missing')
+          if len(scoop['items'])>60:
+              raise SystemExit('too many scoop candidates')
+          print(
+              'isolated scoop radar validated | '
+              f"raw signals={len(pre['items'])} | "
+              f"primary hits={scoop.get('counts',{}).get('primaryHits',0)} | "
+              f"lead signals={scoop.get('leadSignalCount',0)} | "
+              f"scoop candidates={len(scoop['items'])} | "
+              f"lead diagnostics={scoop['leadDiagnostics']} | "
+              f"drop stats={scoop['dropStats']}"
+          )
+          PY
+      - name: Commit only isolated radar outputs
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add pre_scoop.json scoop.json
+          if git diff --cached --quiet; then
+            echo "No isolated radar output changes"
+          else
+            git commit -m "chore: refresh isolated scoop radar"
+            for i in 1 2 3; do
+              git fetch origin main
+              git rebase origin/main
+              if git push origin HEAD:main; then
+                break
+              fi
+              if [ "$i" = "3" ]; then
+                echo "Unable to push isolated radar update after 3 attempts"
+                exit 1
+              fi
+              sleep 3
+            done
+          fi
+
+  deploy:
+    needs: scout
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    concurrency:
+      group: pages
+      cancel-in-progress: true
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout latest collected main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - name: Validate latest radar before deployment
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          for name in ('data.json','pre_scoop.json','scoop.json'):
+              p=Path(name)
+              if not p.exists():
+                  raise SystemExit(f'{name} missing')
+              json.loads(p.read_text(encoding='utf-8'))
+          items=json.loads(Path('data.json').read_text(encoding='utf-8'))
+          if not isinstance(items,list) or len(items)<10:
+              raise SystemExit('latest newsroom feed invalid')
+          scoop=json.loads(Path('scoop.json').read_text(encoding='utf-8'))
+          print(f"deployment check: {len(items)} news items | {len(scoop.get('items',[]))} scoop candidates")
+          PY
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Stamp browser asset cache versions
+        env:
+          BUILD_SHA: ${{ github.sha }}
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import os,re
+          p=Path('index.html'); s=p.read_text(encoding='utf-8'); v=os.environ['BUILD_SHA']
+          for asset in ('data.js','app.js','pitch.js','dashboard.js','dashboard_v2.js','industry_priority.js','auto_exclusive.js','cross_media_gap.js','boss_followup.js','style.css','pitch.json','changes.json','strategic_shifts.json','dig_today.json','scoop.json'):
+              s=re.sub(r'('+re.escape(asset)+r'\?v=)[^"\\']+', r'\g<1>'+v, s)
+          p.write_text(s,encoding='utf-8')
+          PY
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+      - name: Upload latest site
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+      - name: Deploy latest site
+        id: deployment
+        uses: actions/deploy-pages@v4
