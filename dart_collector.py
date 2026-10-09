@@ -1,3 +1,4 @@
+import csv
 import io
 import json
 import os
@@ -132,6 +133,16 @@ def fetch_corp_codes():
             CORP_CODE_ERRORS.append(f"OpenDART corpCode.xml request failed: {type(e).__name__}: {e}")
             break
 
+    # Fallback to a recent public identifier crosswalk when OpenDART is under maintenance
+    # and no local cache exists. It is used only for corp-code lookup; disclosures still
+    # come from OpenDART. A later live OpenDART response replaces it.
+    registry = _fetch_registry_codes()
+    if registry:
+        _write_corp_cache(registry)
+        CORP_CODE_ERRORS.append(f"Using public corp-code crosswalk fallback ({len(registry)} tracked issuers; dataset extraction date 2026-10-04)")
+        print(f"DART corp code lookup: {len(registry)} tracked issuers resolved from public crosswalk fallback", file=sys.stderr)
+        return registry
+
     cached=_read_corp_cache()
     if cached:
         CORP_CODE_ERRORS.append(f"Using cached target company codes ({len(cached)}); disclosure list may still be unavailable during API maintenance")
@@ -141,6 +152,28 @@ def fetch_corp_codes():
     for err in CORP_CODE_ERRORS:
         print("DART corp code lookup diagnostic: "+err, file=sys.stderr)
     return {}
+
+def _fetch_registry_codes():
+    """Use an open Korean issuer-ID crosswalk as a degraded-mode lookup only."""
+    url = "https://raw.githubusercontent.com/pon00050/kr-company-registry/main/data/dist/kr_corp_ids.csv"
+    try:
+        raw = fetch_bytes(url, timeout=25).decode("utf-8-sig", "replace")
+        reader = csv.DictReader(io.StringIO(raw))
+        wanted = set(TARGET_NAMES)
+        found = {}
+        for row in reader:
+            name = (row.get("corp_name") or "").strip()
+            code = (row.get("corp_code") or "").strip()
+            stock = (row.get("ticker") or "").strip()
+            if name not in wanted or not re.fullmatch(r"\d{8}", code):
+                continue
+            if stock and not re.fullmatch(r"\d{6}", stock):
+                stock = ""
+            found[name] = {"corp_code": code, "stock_code": stock}
+        return found
+    except Exception as e:
+        CORP_CODE_ERRORS.append(f"Public corp-code crosswalk fallback failed: {type(e).__name__}: {e}")
+        return {}
 
 def _read_corp_cache():
     try:
