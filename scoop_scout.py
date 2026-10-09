@@ -761,7 +761,7 @@ def main():
         if contract_report:
             party=near_fact(blob,"계약상대방")
             party_specific=bool(party and not re.search(r"해당없음|미정|비공개|불특정|기타|없음|-",party,re.I) and len(party.strip())>=2)
-            contract_units=bool(re.search(r"\\b(?:GWh|MWh|MW|GW|kV|km|톤|만대|천대)\\b|물량|생산능력|연간 공급|공급 기간|납기",joined_dart,re.I))
+            contract_units=bool(re.search(r"\b(?:GWh|MWh|MW|GW|kV|km|톤|만대|천대)\b|물량|생산능력|연간 공급|공급 기간|납기",joined_dart,re.I))
             unusual_contract=any(k in joined_dart for k in ("첫","최초","신규 고객","신규 고객사","신규 시장","북미","미국","유럽","중동","사우디","호주","독점","장기 공급","신규 프로젝트"))
             amount=won_amount(blob)
             material_amount=amount>=100_000_000_000 if amount else False
