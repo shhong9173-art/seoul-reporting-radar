@@ -9,7 +9,8 @@
     title.textContent='단독감 레이더 — 취재 단서와 검증 후보';
     const items=doc.items||[];
     const leads=(doc.leadSignals||[]).filter(l=>!items.some(x=>(x.originalSourceUrl&&x.originalSourceUrl===l.url)||(x.whatConfirmed&&x.whatConfirmed===l.title)));
-    result.textContent=items.length+'건 후보 · '+leads.length+'건 단서';
+    const publicSignals=doc.publicSignals||[];
+    result.textContent=items.length+'건 단독 후보 · '+leads.length+'건 미확정 단서 · '+publicSignals.length+'건 공개 원자료';
     const count=document.querySelector('#countScoop');if(count)count.textContent=items.length;
     const c=doc.counts||{};
     const leadCards=leads.map(x=>{
@@ -24,6 +25,19 @@
         '<div class="scoop-block"><b>우선 확인 질문</b><ul>'+qs.map(q=>'<li>'+esc(q)+'</li>').join('')+'</ul></div>'+
         '<div class="scoop-rule">'+esc(x.coverageStatus||'언론 전체 보도 여부 미검증')+'</div>'+
         '<div class="scoop-actions"><a href="'+esc(x.url||'#')+'" target="_blank" rel="noopener">원문 확인 ↗</a><span>'+esc(x.kind||'산업 신호')+'</span></div>'+
+        '</article>';
+    }).join('');
+    const publicCards=publicSignals.map(x=>{
+      const qs=(x.questions||[]).slice(0,3), details=(x.details||[]).slice(0,8);
+      return '<article class="card scoop-lead-card">'+
+        '<div class="card-top"><span class="badge normal">공개 원자료 · 단독 아님</span><span class="score" style="color:#53616b">'+esc(x.signalGroup||x.kind||'원자료')+'</span></div>'+
+        '<div class="meta"><b>'+esc((x.companies||[]).join(', ')||'산업 전반')+'</b> · '+esc(x.sourceName||'공식자료')+' · '+esc(x.published||'-')+'</div>'+
+        '<div class="title">'+esc(x.title||'')+'</div>'+
+        (details.length?'<div class="scoop-block"><b>원자료 항목</b><ul>'+details.map(t=>'<li>'+esc(t)+'</li>').join('')+'</ul></div>':'')+
+        '<div class="scoop-block"><b>후속 취재 가능성</b><p>'+esc(x.whyFollowup||'공개 원자료에서 확인된 변화를 바탕으로 추가 취재 가치를 점검합니다.')+'</p></div>'+
+        '<div class="scoop-block"><b>확인 질문</b><ul>'+qs.map(q=>'<li>'+esc(q)+'</li>').join('')+'</ul></div>'+
+        '<div class="scoop-rule">'+esc(x.coverageStatus||'공개 자료입니다. 단독 여부를 주장하지 않습니다.')+'</div>'+
+        '<div class="scoop-actions"><a href="'+esc(x.url||'#')+'" target="_blank" rel="noopener">공식 원문 ↗</a><span>'+esc(x.verification||'공개 원자료 · 단독 아님')+'</span></div>'+
         '</article>';
     }).join('');
     const candidateCards=items.map(x=>{
@@ -48,16 +62,18 @@
     cards.innerHTML=
       '<div class="scoop-overview">'+
       '<div><b>원자료 탐색</b><span>'+esc(c.primaryHits||0)+'건</span></div>'+
+      '<div><b>공개 원자료 추적</b><span>'+esc(publicSignals.length)+'건</span></div>'+
       '<div><b>취재 단서</b><span>'+esc(leads.length)+'건</span></div>'+
       '<div><b>단독 후보</b><span>'+esc(c.candidates||0)+'건</span></div>'+
-      '<div><b>선행보도 검증</b><span>후보별 확인</span></div>'+
       '</div>'+
       '<div class="scoop-rule">구분 원칙: ‘취재 단서’는 확인이 필요한 신호일 뿐 단독이 아닙니다. ‘단독 후보’도 원문·보도 여부·출입처 확인 전에는 확정하지 않습니다.</div>'+
       (doc.sourceHealth&&doc.sourceHealth.dart&&doc.sourceHealth.dart.status!=='ok'?'<div class="scoop-rule" style="border-left:3px solid #b66a00;padding:10px 12px;background:#fffaf0"><b>소스 상태 경고 · DART</b><p>공시 원자료 수집이 정상 작동하지 않습니다. '+esc((doc.sourceHealth.dart.errors||[]).map(e=>e.error||e.message||JSON.stringify(e)).join(' / ')||'공시 데이터 0건')+'</p></div>':'')+
       (doc.leadDiagnostics?'<details class="pitch-details"><summary>취재 단서 탐색 진단</summary><div class="signal-row">'+Object.entries(doc.leadDiagnostics).map(([k,v])=>'<span class="signal">'+esc(k)+' '+esc(v)+'</span>').join('')+'</div></details>':'')+
-      (leads.length?'<h2 class="scoop-section-title">1. 취재 선행신호 <span>전화 취재로 확인할 항목</span></h2>'+leadCards:'<div class="card"><div class="summary">현재 조건을 충족한 취재 단서가 없습니다. 이는 실제 단독거리가 없다는 뜻은 아닙니다.</div></div>')+
-      '<h2 class="scoop-section-title">2. 단독 후보 <span>보도 매칭·원자료 검토 단계</span></h2>'+
-      (items.length?candidateCards:'<div class="card"><div class="summary">현재 검증 관문을 통과한 단독 후보가 없습니다. 취재 단서와 단독 후보를 혼동하지 않도록 분리했습니다.</div></div>')+
+      '<h2 class="scoop-section-title">1. 공개 원자료 추적 <span>공개 사실 · 단독으로 다루지 않음</span></h2>'+
+      (publicSignals.length?publicCards:'<div class="card"><div class="summary">현재 추적할 만한 공개 원자료가 없습니다.</div></div>')+
+      (leads.length?'<h2 class="scoop-section-title">2. 취재 선행신호 <span>전화 취재로 확인할 미확정 단서</span></h2>'+leadCards:'<div class="card"><div class="summary">현재 검증 기준을 통과한 미확정 취재 단서가 없습니다. 공개 발표를 단독 후보로 대체하지 않았습니다.</div></div>')+
+      '<h2 class="scoop-section-title">3. 단독 후보 <span>보도 매칭·원자료 검토 단계</span></h2>'+
+      (items.length?candidateCards:'<div class="card"><div class="summary">현재 검증 관문을 통과한 단독 후보가 없습니다. 숫자를 채우기 위해 공개 발표를 단독 후보로 올리지 않습니다.</div></div>')+
       (doc.dropStats?'<details class="pitch-details"><summary>레이더 진단 · 탈락 사유</summary><div class="signal-row">'+Object.entries(doc.dropStats).map(([k,v])=>'<span class="signal">'+esc(k)+' '+esc(v)+'</span>').join('')+'</div></details>':'');
   }
   nav.addEventListener('click',async e=>{e.preventDefault();await load();render();});
