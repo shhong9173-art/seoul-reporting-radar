@@ -88,18 +88,18 @@ def parse_dt(raw):
 def target_hits(text):
     t=str(text or "").lower()
     aliases={
-        "현대차":["현대차","현대자동차","hyundai motor"],
+        "현대차":["현대차","현대자동차","hyundai motor","[현대]","[hyundai]"],
         "기아":["기아","kia"],
         "제네시스":["제네시스","genesis"],
         "현대모비스":["현대모비스","hyundai mobis"],
         "현대위아":["현대위아","hyundai wia"],
         "HL만도":["hl만도","hl mando","만도"],
-        "한국GM":["한국gm","gm korea","쉐보레","chevrolet"],
+        "한국GM":["한국gm","gm korea","쉐보레","chevrolet","[쉐보레]"],
         "KG모빌리티":["kg모빌리티","kgm","쌍용자동차"],
-        "메르세데스벤츠코리아":["메르세데스벤츠코리아","메르세데스-벤츠 코리아","mercedes-benz korea","벤츠"],
+        "메르세데스벤츠코리아":["메르세데스벤츠코리아","메르세데스-벤츠 코리아","mercedes-benz korea","벤츠","[벤츠]","[메르세데스-벤츠]"],
         "폭스바겐코리아":["폭스바겐코리아","volkswagen korea","폭스바겐"],
         "BMW코리아":["bmw코리아","bmw korea","bmw"],
-        "르노코리아":["르노코리아","renault korea"],
+        "르노코리아":["르노코리아","renault korea","[르노]"],
         "아우디코리아":["아우디코리아","audi korea","아우디"],
         "혼다코리아":["혼다코리아","honda korea"],
         "한국타이어":["한국타이어","hankook tire"],
@@ -237,85 +237,97 @@ def fetch_direct_nlrc(max_items=12):
     return out
 
 def fetch_direct_car_recalls(max_items=20):
-    """Read the official Korea vehicle recall list directly, not through news search indexing."""
+    """Search official recall listings by rotating tracked maker/model query terms."""
     base="https://car.go.kr"
-    list_url=base+"/ri/stat/list.do?menuId=0203010000"
+    list_path="/ri/stat/list.do"
     now=datetime.now(KST)
     cutoff=now-timedelta(days=LOOKBACK_DAYS)
+    query_terms=[
+        "현대","코나","아이오닉","기아","쏘렌토","EV3","벤츠","BMW",
+        "폭스바겐","ID.4","혼다","CR-V","르노","아르카나","쉐보레","트랙스",
+        "KG모빌리티","토레스"
+    ]
+    batches=[query_terms[i:i+4] for i in range(0,len(query_terms),4)]
+    slot=int(now.timestamp()//1800)%len(batches)
+    active_terms=batches[slot]
     diag={
-        "listFetched":False,"linksScanned":0,"recallTitles":0,"datedRows":0,
-        "recentRows":0,"trackedBrandRows":0,"retained":0,"errors":[],
-        "sampleEntries":[]
+        "listFetched":False,"queriesAttempted":0,"queriesSucceeded":0,
+        "queryTerms":active_terms,"linksScanned":0,"recallTitles":0,
+        "datedRows":0,"recentRows":0,"trackedBrandRows":0,"retained":0,
+        "errors":[],"sampleEntries":[]
     }
     DIRECT_DIAGNOSTICS["car-recalls"]=diag
-    try:
-        raw=get(list_url,timeout=12).decode("utf-8","ignore")
-        diag["listFetched"]=True
-    except Exception as e:
-        diag["errors"].append(f"list fetch: {type(e).__name__}: {e}")
-        print(f"direct vehicle recall scout: list fetch failed: {type(e).__name__}: {e}")
-        return []
     out=[];seen=set()
-    # The listing renders a detail link followed by publisher/date metadata in the
-    # same compact HTML block. Match only links inside the recall-list route.
     link_re=re.compile(r'<a[^>]+href=["\']([^"\']*)["\'][^>]*>(.*?)</a>',re.I|re.S)
-    for m in link_re.finditer(raw):
-        href_raw=html.unescape(m.group(1).strip())
-        title=clean(m.group(2))
-        diag["linksScanned"]+=1
-        if not title or not re.search(r"(?:관련\s*리콜|관련\s*무상수리|제작결함|결함조사)",title,re.I):
-            continue
-        if re.fullmatch(r"(?:자동차)?리콜(?:정보|현황|제도|센터|알리미)?|결함신고|무상점검\s*[·ㆍ]?\s*수리",title,re.I):
-            continue
-        diag["recallTitles"]+=1
-        href=urllib.parse.urljoin(base,href_raw)
-        if href in seen:
-            continue
-        seen.add(href)
-        left=max(0,m.start()-1800);right=min(len(raw),m.end()+5000)
-        context=raw[left:right]
-        date_hits=list(re.finditer(r"20\d{2}\s*[-./]\s*\d{1,2}\s*[-./]\s*\d{1,2}",context))
-        if not date_hits:
-            if len(diag["sampleEntries"])<6:
-                diag["sampleEntries"].append({"title":title,"href":href_raw,"context":clean(context)[:500],"reason":"no-date"})
-            continue
-        center=m.start()-left
-        chosen=min(date_hits,key=lambda x:abs(x.start()-center))
-        try:
-            normalized_date=re.sub(r"\s*[-./]\s*","-",chosen.group(0)).strip()
-            dt=datetime.strptime(normalized_date,"%Y-%m-%d").replace(tzinfo=KST)
-        except ValueError:
-            continue
-        diag["datedRows"]+=1
-        if dt<cutoff or dt>now+timedelta(hours=6):
-            if len(diag["sampleEntries"])<6:
-                diag["sampleEntries"].append({"title":title,"href":href_raw,"date":dt.isoformat(),"reason":"outside-window"})
-            continue
-        diag["recentRows"]+=1
-        companies=target_hits(title)
-        if not companies:
-            if len(diag["sampleEntries"])<6:
-                diag["sampleEntries"].append({"title":title,"href":href_raw,"date":dt.isoformat(),"reason":"brand-not-tracked"})
-            continue
-        diag["trackedBrandRows"]+=1
-        # Some recall detail links are rendered as JavaScript handlers; retain the
-        # official listing URL rather than emitting a non-navigable javascript: link.
-        detail_url=href if href.startswith(("http://","https://")) else (urllib.parse.urljoin(base,href_raw) if href_raw.startswith("/") else list_url)
-        if detail_url.lower().startswith("javascript:"):
-            detail_url=list_url
-        out.append({
-            "sourceName":"자동차리콜센터(국토교통부·자동차안전연구원)",
-            "officialLabel":"자동차리콜센터","querySite":"car.go.kr",
-            "sourceGroup":"자동차·결함","title":title,"url":detail_url,
-            "published":dt.isoformat(),"summary":clean(context)[:2500],
-            "official":True,"preScoop":True,"directSource":True,
-            "companies":companies,"signalType":"official_recall_notice"
+    for term in active_terms:
+        list_url=base+list_path+"?"+urllib.parse.urlencode({
+            "ctype":"O","currentPageNo":"1","searchProductName":term
         })
-        if len(out)>=max_items:
-            break
+        diag["queriesAttempted"]+=1
+        try:
+            raw=get(list_url,timeout=8).decode("utf-8","ignore")
+            diag["listFetched"]=True
+            diag["queriesSucceeded"]+=1
+        except Exception as e:
+            if len(diag["errors"])<4:
+                diag["errors"].append(f"{term}: {type(e).__name__}: {e}")
+            continue
+        for m in link_re.finditer(raw):
+            href_raw=html.unescape(m.group(1).strip())
+            title=clean(m.group(2))
+            diag["linksScanned"]+=1
+            # Keep actual case-level recall rows, not navigation/menu links.
+            if not title or not re.search(r"(?:관련\s*리콜|제작결함|결함조사|중대리콜)",title,re.I):
+                continue
+            if re.fullmatch(r"(?:자동차)?리콜(?:정보|현황|제도|센터|알리미)?|결함신고|무상점검\s*[·ㆍ]?\s*수리",title,re.I):
+                continue
+            diag["recallTitles"]+=1
+            key=re.sub(r"[^가-힣A-Za-z0-9]","",title).lower()
+            if key in seen:
+                continue
+            left=max(0,m.start()-700);right=min(len(raw),m.end()+1600)
+            context=raw[left:right]
+            date_hits=list(re.finditer(r"20\d{2}\s*[-./]\s*\d{1,2}\s*[-./]\s*\d{1,2}",context))
+            if not date_hits:
+                if len(diag["sampleEntries"])<8:
+                    diag["sampleEntries"].append({"title":title,"query":term,"reason":"no-date"})
+                continue
+            center=m.start()-left
+            chosen=min(date_hits,key=lambda x:abs(x.start()-center))
+            try:
+                normalized_date=re.sub(r"\s*[-./]\s*","-",chosen.group(0)).strip()
+                dt=datetime.strptime(normalized_date,"%Y-%m-%d").replace(tzinfo=KST)
+            except ValueError:
+                continue
+            diag["datedRows"]+=1
+            if dt<cutoff or dt>now+timedelta(hours=6):
+                if len(diag["sampleEntries"])<8:
+                    diag["sampleEntries"].append({"title":title,"query":term,"date":dt.isoformat(),"reason":"outside-window"})
+                continue
+            diag["recentRows"]+=1
+            companies=target_hits(title)
+            if not companies:
+                if len(diag["sampleEntries"])<8:
+                    diag["sampleEntries"].append({"title":title,"query":term,"date":dt.isoformat(),"reason":"brand-not-tracked"})
+                continue
+            diag["trackedBrandRows"]+=1
+            seen.add(key)
+            out.append({
+                "sourceName":"자동차리콜센터(국토교통부·자동차안전연구원)",
+                "officialLabel":"자동차리콜센터","querySite":"car.go.kr",
+                "sourceGroup":"자동차·결함","title":title,"url":list_url,
+                "published":dt.isoformat(),"summary":clean(context)[:2500],
+                "official":True,"preScoop":True,"directSource":True,
+                "companies":companies,"signalType":"official_recall_notice",
+                "sourceQuery":term
+            })
+            if len(out)>=max_items:
+                diag["retained"]=len(out)
+                return out
     diag["retained"]=len(out)
     print(f"direct vehicle recall scout: diagnostics={diag}")
     return out
+
 
 def fetch_source(group, domain, terms, max_items=25):
     now=datetime.now(KST)
