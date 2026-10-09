@@ -322,7 +322,10 @@ def event_match_score(x,h):
         return 0.70
     return 0.0
 
-def coverage_search(x):
+COVERAGE_SEARCH_DIAGNOSTICS={"calls":0,"queries":0,"results":0}
+
+def coverage_search(x,max_queries=2):
+    COVERAGE_SEARCH_DIAGNOSTICS["calls"]+=1
     title=(x.get("title") or "").strip()
     if len(title)<8:return []
     joined=title+" "+(x.get("summary") or "")
@@ -342,9 +345,10 @@ def coverage_search(x):
     if company and len(core)>=1:queries.append(f'"{company}" "{core[0]}"')
     if company and len(raw)>=3:queries.append(f'"{company}" "{" ".join(raw[1:4])}"')
     out=[];seen=set()
-    for q in queries[:5]:
+    for q in queries[:max_queries]:
+        COVERAGE_SEARCH_DIAGNOSTICS['queries']+=1
         if len(q)<8:continue
-        for h in google_rss("coverage",q,max_items=12,lookback_days=COVERAGE_LOOKBACK_DAYS):
+        for h in google_rss("coverage",q,max_items=6,lookback_days=COVERAGE_LOOKBACK_DAYS):
             if h.get("official") or h.get("sourceName")=="Google News":continue
             key=h.get("url") or (h.get("sourceName","")+"|"+h.get("title",""))
             if key not in seen:
@@ -354,7 +358,8 @@ def coverage_search(x):
         quality=event_match_score(x,h)
         if quality>0:scored.append((quality,h))
     scored.sort(key=lambda z:z[0],reverse=True)
-    return [h for _,h in scored[:12]]
+    COVERAGE_SEARCH_DIAGNOSTICS['results']+=len(scored)
+    return [h for _,h in scored[:8]]
 def fetch_dart_document(receipt):
     key=os.environ.get("DART_API_KEY","").strip()
     if not key or not receipt:return ""
@@ -1068,6 +1073,7 @@ def main():
             }
         },
         "sourceSuppressionStats":{"dart":dart_suppression},
+        "coverageSearchDiagnostics":COVERAGE_SEARCH_DIAGNOSTICS,
         "dropStats":drop_stats,
         "sourceGroups":{g:sum(1 for x in final if x.get("sourceGroup")==g) for g in sorted({x.get("sourceGroup","기타") for x in final})},
         "note":"단독감은 중요 뉴스 랭킹이 아닙니다. 실제 단독 기사에서 반복되는 내부 의사결정·생산계획·공급변경·이사회·인사·거래구조·자금조달·규제/인허가 선행 신호를 찾고, 구체적 사실·최근성·원자료성·미보도 여부·실제 전화 확인 가능성을 함께 평가합니다. 일반 공지·행정규칙·행사·채용·단순 계약 규모만으로는 올리지 않습니다."
