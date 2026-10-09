@@ -89,7 +89,7 @@ def target_hits(text):
     t=str(text or "").lower()
     aliases={
         "현대차":["현대차","현대자동차","hyundai motor","[현대]","[hyundai]"],
-        "기아":["기아","kia"],
+        "기아":["기아","kia","[기아]"],
         "제네시스":["제네시스","genesis"],
         "현대모비스":["현대모비스","hyundai mobis"],
         "현대위아":["현대위아","hyundai wia"],
@@ -97,11 +97,11 @@ def target_hits(text):
         "한국GM":["한국gm","gm korea","쉐보레","chevrolet","[쉐보레]"],
         "KG모빌리티":["kg모빌리티","kgm","쌍용자동차"],
         "메르세데스벤츠코리아":["메르세데스벤츠코리아","메르세데스-벤츠 코리아","mercedes-benz korea","벤츠","[벤츠]","[메르세데스-벤츠]"],
-        "폭스바겐코리아":["폭스바겐코리아","volkswagen korea","폭스바겐"],
-        "BMW코리아":["bmw코리아","bmw korea","bmw"],
+        "폭스바겐코리아":["폭스바겐코리아","폭스바겐그룹","volkswagen korea","폭스바겐","[폭스바겐]","[폭스바겐그룹]"],
+        "BMW코리아":["bmw코리아","bmw korea","bmw","비엠더블유","[비엠더블유]"],
         "르노코리아":["르노코리아","renault korea","[르노]"],
         "아우디코리아":["아우디코리아","audi korea","아우디"],
-        "혼다코리아":["혼다코리아","honda korea"],
+        "혼다코리아":["혼다코리아","honda korea","혼다","[혼다]"],
         "한국타이어":["한국타이어","hankook tire"],
         "넥센타이어":["넥센타이어","nexen tire"],
         "금호타이어":["금호타이어","kumho tire"],
