@@ -244,7 +244,8 @@ def fetch_direct_car_recalls(max_items=20):
     cutoff=now-timedelta(days=LOOKBACK_DAYS)
     diag={
         "listFetched":False,"linksScanned":0,"recallTitles":0,"datedRows":0,
-        "recentRows":0,"trackedBrandRows":0,"retained":0,"errors":[]
+        "recentRows":0,"trackedBrandRows":0,"retained":0,"errors":[],
+        "sampleEntries":[]
     }
     DIRECT_DIAGNOSTICS["car-recalls"]=diag
     try:
@@ -257,7 +258,7 @@ def fetch_direct_car_recalls(max_items=20):
     out=[];seen=set()
     # The listing renders a detail link followed by publisher/date metadata in the
     # same compact HTML block. Match only links inside the recall-list route.
-    link_re=re.compile(r'<a[^>]+href=["\']([^"\']*(?:/ri/stat/|ri/stat/)[^"\']*)["\'][^>]*>(.*?)</a>',re.I|re.S)
+    link_re=re.compile(r'<a[^>]+href=["\']([^"\']*)["\'][^>]*>(.*?)</a>',re.I|re.S)
     for m in link_re.finditer(raw):
         href_raw=html.unescape(m.group(1).strip())
         title=clean(m.group(2))
@@ -269,10 +270,12 @@ def fetch_direct_car_recalls(max_items=20):
         if href in seen:
             continue
         seen.add(href)
-        left=max(0,m.start()-450);right=min(len(raw),m.end()+850)
+        left=max(0,m.start()-800);right=min(len(raw),m.end()+2200)
         context=raw[left:right]
         date_hits=list(re.finditer(r"20\d{2}[-./]\d{1,2}[-./]\d{1,2}",context))
         if not date_hits:
+            if len(diag["sampleEntries"])<6:
+                diag["sampleEntries"].append({"title":title,"href":href_raw,"context":clean(context)[:500],"reason":"no-date"})
             continue
         center=m.start()-left
         chosen=min(date_hits,key=lambda x:abs(x.start()-center))
@@ -282,16 +285,25 @@ def fetch_direct_car_recalls(max_items=20):
             continue
         diag["datedRows"]+=1
         if dt<cutoff or dt>now+timedelta(hours=6):
+            if len(diag["sampleEntries"])<6:
+                diag["sampleEntries"].append({"title":title,"href":href_raw,"date":dt.isoformat(),"reason":"outside-window"})
             continue
         diag["recentRows"]+=1
         companies=target_hits(title)
         if not companies:
+            if len(diag["sampleEntries"])<6:
+                diag["sampleEntries"].append({"title":title,"href":href_raw,"date":dt.isoformat(),"reason":"brand-not-tracked"})
             continue
         diag["trackedBrandRows"]+=1
+        # Some recall detail links are rendered as JavaScript handlers; retain the
+        # official listing URL rather than emitting a non-navigable javascript: link.
+        detail_url=href if href.startswith(("http://","https://")) else (urllib.parse.urljoin(base,href_raw) if href_raw.startswith("/") else list_url)
+        if detail_url.lower().startswith("javascript:"):
+            detail_url=list_url
         out.append({
             "sourceName":"자동차리콜센터(국토교통부·자동차안전연구원)",
             "officialLabel":"자동차리콜센터","querySite":"car.go.kr",
-            "sourceGroup":"자동차·결함","title":title,"url":href,
+            "sourceGroup":"자동차·결함","title":title,"url":detail_url,
             "published":dt.isoformat(),"summary":clean(context)[:2500],
             "official":True,"preScoop":True,"directSource":True,
             "companies":companies,"signalType":"official_recall_notice"
