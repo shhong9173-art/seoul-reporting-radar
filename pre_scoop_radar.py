@@ -430,20 +430,28 @@ def fetch_direct_kepco_enc(max_items=20):
     rows = re.findall(r"<tr\b[^>]*>.*?</tr>", raw, flags=re.I | re.S)
     diag["rowsScanned"]=len(rows)
     for row in rows:
-        # A row contains several anchors (number, title, detail buttons). Choose the
-        # actual 사업명/title link matching material terms, not simply the first anchor.
-        link_matches = re.findall(r'<a[^>]+href=["\']([^"\']*)["\'][^>]*>(.*?)</a>', row, flags=re.I | re.S)
-        eligible=[]
-        for raw_href, raw_title in link_matches:
-            candidate_title=clean(raw_title)
-            candidate_href=urllib.parse.urljoin(base, html.unescape(raw_href))
-            if len(candidate_title)>=8 and material_re.search(candidate_title) and not re.search(r"상세보기|바로가기|첨부파일|다운로드|이전|다음",candidate_title):
-                eligible.append((candidate_href,candidate_title))
-        if not eligible:
+        # The purchase-spec board renders 사업명 as plain table-cell text; the
+        # clickable anchor can be a sequence number/detail control. Read these separately.
+        cell_matches=re.findall(r"<td\b[^>]*>(.*?)</td>",row,flags=re.I|re.S)
+        cell_texts=[clean(c) for c in cell_matches]
+        title_candidates=[
+            t for t in cell_texts
+            if len(t)>=18 and material_re.search(t)
+            and not re.search(r"추정가격|낙찰자 결정방법|세부사항|바로가기|상세보기|비고",t)
+        ]
+        link_matches=re.findall(r'<a[^>]+href=["\']([^"\']*)["\'][^>]*>(.*?)</a>',row,flags=re.I|re.S)
+        detail_hrefs=[]
+        for raw_href,_raw_title in link_matches:
+            raw_href=html.unescape(raw_href.strip())
+            if not raw_href or raw_href=="#" or raw_href.lower().startswith("javascript:"):
+                continue
+            detail_hrefs.append(urllib.parse.urljoin(base,raw_href))
+        if not title_candidates or not detail_hrefs:
             if len(diag["sampleRows"])<8:
-                diag["sampleRows"].append(clean(row)[:400])
+                diag["sampleRows"].append({"row":clean(row)[:350],"cells":cell_texts[:5],"links":[{"href":html.unescape(h),"title":clean(t)} for h,t in link_matches[:4]]})
             continue
-        href,title=eligible[0]
+        title=max(title_candidates,key=len)
+        href=detail_hrefs[0]
         if not title or href in seen:
             continue
         seen.add(href)
