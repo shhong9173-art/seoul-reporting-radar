@@ -578,6 +578,117 @@ def exclusive_pattern_hits(text):
         if n>=2:hits.append((label,n))
     return hits
 
+def build_lead_signals(primary, data, now, limit=12):
+    """Return recent, concrete reporting leads without calling them scoops."""
+    signal_patterns = [
+        ("노사·생산", ("잠정합의","임단협","단체교섭","파업","쟁의","생산계획","생산조정","생산라인","감산","조업중단","생산중단")),
+        ("공급망", ("공급중단","공급차질","공급사 변경","대체투입","납기","재고","생산차질","원료수급")),
+        ("사업재편", ("매각 협상","우선협상","인수","매각","분할","합병","철수","거래종결","신설법인")),
+        ("투자·공장", ("신규시설투자","증설","신설","공장","착공","생산능력","양산","가동")),
+        ("인허가·규제", ("변경허가","환경영향","사업계획승인","인허가","시정명령","행정처분","조사개시","반덤핑","상계관세")),
+        ("기술·제품", ("특허","상표","디자인","형식승인","인증","시제품","실증","사업화","기술개발")),
+        ("자금·거래", ("PRS","유상증자","회사채","자금조달","리파이낸싱","지분취득","보조금","지원금","신용등급")),
+        ("수주·발주", ("입찰","발주","낙찰","수주","신규 고객","공급계약")),
+        ("소송·분쟁", ("소송","제소","가처분","판결","특허심판","분쟁")),
+        ("결함·안전", ("리콜","제작결함","결함조사","안전기준","배터리 화재")),
+    ]
+    routine_re = re.compile(r"감독.{0,15}(결과|발표)|점검.{0,15}(결과|발표)|정기보고|실적발표|월간동향|행사|캠페인|수상|채용|교육생 모집|사회공헌|기부|봉사|홍보대사|업무협약 체결", re.I)
+    rows=[]; seen=set()
+    for x in primary:
+        title=str(x.get("title") or "").strip()
+        url=str(x.get("url") or "").strip()
+        if not title or not url:
+            continue
+        dt=parse_dt(x.get("published"))
+        age_h=(now-dt).total_seconds()/3600
+        if dt.year < 2000 or age_h < -6 or age_h > PRIMARY_LOOKBACK_DAYS*24:
+            continue
+        if routine_re.search(title) or NOISE_RE.search(title) or WEAK_RE.search(title):
+            continue
+        body=title+" "+str(x.get("summary") or "")
+        hits=[(label,terms) for label,terms in signal_patterns if any(term.lower() in body.lower() for term in terms)]
+        if not hits:
+            continue
+        companies=target_hits(body)
+        if x.get("corpName"):
+            companies=list(dict.fromkeys(target_hits(x.get("corpName"))+companies))
+        qcompany=COMPANY_BY_DOMAIN.get(str(x.get("querySite") or "").lower())
+        if qcompany:
+            companies=list(dict.fromkeys([qcompany]+companies))
+        group=source_group(x)
+        # Require a tracked company, a mapped official source, or a verifiable DART/court/regulator source.
+        if not companies and group not in {"정부","정책·감독","법령·입법","통상·분쟁","해외기관","공기업·시장","공기업·조달","조달","환경·인허가","자동차·결함","법원·분쟁","중앙노동위","고용노동","공장·산업단지","R&D·기술"}:
+            continue
+        # Headline-only routine deals and generic MOUs do not create a reporting lead.
+        if re.search(r"업무협약|양해각서|MOU", title, re.I) and not any(k in body for k in ("최초","첫","공급","물량","생산","공장","투자","양산","고객사","지원금","금액","인허가")):
+            continue
+        if group=="기타" and not x.get("officialLabel"):
+            continue
+        matched=hits[0][0]
+        # Down-rank and exclude signals already strongly represented in the currently collected newsroom feed.
+        newsroom=newsroom_matches(title,data)
+        prior=False
+        for n in newsroom:
+            ev=event_match_score(x,n)
+            if ev>=0.76 and n.get("published") and parse_dt(n.get("published"))<=dt:
+                prior=True; break
+        if prior:
+            continue
+        signal_terms=[term for label,terms in hits for term in terms if term.lower() in body.lower()]
+        concrete_numbers=list(dict.fromkeys(NUM_RE.findall(body)))[:4]
+        score=min(20, len(signal_terms)*3)+min(8,len(concrete_numbers)*2)+(6 if companies else 0)+(4 if group not in {"기타"} else 0)
+        key=(url, re.sub(r"[^가-힣A-Za-z0-9]","",title).lower())
+        if key in seen:
+            continue
+        seen.add(key)
+        questions=[]
+        if matched=="노사·생산":
+            questions=["합의·생산조정이 확정됐나, 적용 시점과 대상 사업장은 어디인가?","생산량·근무형태·협력사 물량에 실제 변화가 있나?"]
+        elif matched=="공급망":
+            questions=["변경 대상 부품·소재와 적용 시점은 언제인가?","기존 공급사·납기·재고 또는 생산계획에 어떤 변화가 생기나?"]
+        elif matched=="사업재편":
+            questions=["협상·이사회·계약 단계가 어디까지 진행됐나?","대상 자산·지분·금액·종결 조건은 무엇인가?"]
+        elif matched=="투자·공장":
+            questions=["계획이 검토·승인·착공 중 어느 단계인가?","투자액·생산능력·가동 시점이 기존 계획과 어떻게 다른가?"]
+        elif matched=="인허가·규제":
+            questions=["원문상 대상 사업장·품목·적용 시점은 무엇인가?","해당 회사의 실제 비용·생산·수출 영향은 어느 정도인가?"]
+        elif matched=="기술·제품":
+            questions=["출원·인증·실증이 새로 확인된 것인가, 공개·등록 시점은 언제인가?","실제 제품 적용·양산·고객사 검증 단계까지 진행됐나?"]
+        elif matched=="자금·거래":
+            questions=["조달·거래의 확정 여부와 사용 목적은 무엇인가?","금액·상대방·만기·담보 등 조건에서 기존과 달라진 점이 있나?"]
+        elif matched=="수주·발주":
+            questions=["입찰·계약의 수요자·물량·기간·추정금액은 무엇인가?","해당 출입처 기업이 참여·수주했는지 별도 확인 가능한가?"]
+        elif matched=="소송·분쟁":
+            questions=["당사자·청구취지·쟁점·절차 단계는 무엇인가?","생산·판매·기술 적용·손익에 직접 영향을 주는가?"]
+        else:
+            questions=["대상 차종·제품·사업장·기간을 원문에서 특정할 수 있나?","국내 판매·생산·고객사에 미치는 영향과 회사 대응은 무엇인가?"]
+        rows.append({
+            "id":hashlib.sha1((url+"|lead").encode()).hexdigest()[:12],
+            "title":title,"url":url,"published":dt.isoformat(),"sourceName":x.get("sourceName") or x.get("officialLabel") or "공식자료",
+            "originalSource":x.get("officialLabel") or x.get("sourceName") or "원자료 검색",
+            "sourceGroup":group,"kind":matched,"companies":companies[:5],"summary":str(x.get("summary") or "")[:500],
+            "signalTerms":signal_terms[:6],"numbers":concrete_numbers,"leadScore":score,
+            "leadStrength":"강" if score>=20 else "보통","verification":"취재 단서 — 단독 확정 아님",
+            "coverageStatus":"현재 수집 피드의 중복만 확인. 언론 전체 보도 여부는 추가 검증 필요.",
+            "whyLead":"원자료에서 최근 포착된 구체적 변화 신호다. 발표 사실 자체를 단독으로 취급하지 않고, 실제 변경 여부와 기존 계획 대비 차이를 확인해야 한다.",
+            "questions":questions,"directSource":bool(x.get("directSource") or x.get("receiptNo")),"preScoop":bool(x.get("preScoop"))
+        })
+    # Diversify: one main signal per company/source group before filling remaining slots.
+    rows.sort(key=lambda r:(r["leadScore"],r["published"]),reverse=True)
+    final=[]; used_companies=set(); used_groups=set()
+    for row in rows:
+        co=(row.get("companies") or ["sector-wide"])[0]
+        if co in used_companies or row["sourceGroup"] in used_groups:
+            continue
+        final.append(row); used_companies.add(co); used_groups.add(row["sourceGroup"])
+        if len(final)>=limit: return final
+    for row in rows:
+        if row not in final:
+            final.append(row)
+        if len(final)>=limit:
+            break
+    return final
+
 def main():
     data=json.loads(DATA.read_text(encoding="utf-8")) if DATA.exists() else []
     dart=json.loads(DART.read_text(encoding="utf-8")).get("items",[]) if DART.exists() else []
@@ -626,6 +737,7 @@ def main():
         if p.get("title") and p.get("url") and p.get("preScoop"):
             primary.append(p)
 
+    lead_signals=build_lead_signals(primary,data,now,limit=12)
     candidates=[];seen=set();drop_stats={"noise":0,"stale_pre_scoop":0,"routine_regulatory":0,"relevance":0,"generic":0,"specificity":0,"prior_coverage":0,"procurement":0,"routine_contract":0,"low_score":0,"other":0,"accepted":0}
     for x in sorted(primary,key=lambda z:z.get("published",""),reverse=True):
         title=(x.get("title") or "").strip()
@@ -892,6 +1004,8 @@ def main():
             "strongCandidates":sum(1 for x in final if x.get("status")=="단독 유력")
         },
         "items":final,
+        "leadSignals":lead_signals,
+        "leadSignalCount":len(lead_signals),
         "dropStats":drop_stats,
         "sourceGroups":{g:sum(1 for x in final if x.get("sourceGroup")==g) for g in sorted({x.get("sourceGroup","기타") for x in final})},
         "note":"단독감은 중요 뉴스 랭킹이 아닙니다. 실제 단독 기사에서 반복되는 내부 의사결정·생산계획·공급변경·이사회·인사·거래구조·자금조달·규제/인허가 선행 신호를 찾고, 구체적 사실·최근성·원자료성·미보도 여부·실제 전화 확인 가능성을 함께 평가합니다. 일반 공지·행정규칙·행사·채용·단순 계약 규모만으로는 올리지 않습니다."
