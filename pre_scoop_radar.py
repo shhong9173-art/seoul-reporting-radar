@@ -13,6 +13,8 @@ from pathlib import Path
 KST = timezone(timedelta(hours=9))
 OUT = Path("pre_scoop.json")
 LOOKBACK_DAYS = 21
+SOURCE_DIAGNOSTICS = {}
+DIRECT_DIAGNOSTICS = {}
 
 TARGET_COMPANIES = [
     "현대차","기아","제네시스","현대모비스","현대위아","HL만도","한국GM","KG모빌리티",
@@ -238,6 +240,10 @@ def fetch_source(group, domain, terms, max_items=25):
     now=datetime.now(KST)
     after=(now-timedelta(days=LOOKBACK_DAYS)).strftime("%Y-%m-%d")
     out=[];seen=set()
+    diag=SOURCE_DIAGNOSTICS.setdefault(domain,{
+        "group":group,"rssQueries":0,"rssRawItems":0,"rssAccepted":0,
+        "bingQueries":0,"bingResultBlocks":0,"bingAccepted":0,"errors":[]
+    })
     company_batches=COMPANY_GROUPS
 
     def add(h):
@@ -245,37 +251,61 @@ def fetch_source(group, domain, terms, max_items=25):
         if key and key not in seen:
             seen.add(key); out.append(h)
 
+    def record_error(kind,e):
+        msg=f"{kind}: {type(e).__name__}: {e}"
+        if len(diag["errors"])<3 and msg not in diag["errors"]:
+            diag["errors"].append(msg)
+
     # 1) Company-targeted searches.
     for companies in company_batches:
         q=f"site:{domain} ({' OR '.join(companies)}) ({terms}) after:{after}"
         url="https://news.google.com/rss/search?q="+urllib.parse.quote(q)+"&hl=ko&gl=KR&ceid=KR:ko"
+        diag["rssQueries"]+=1
         try:
             root=ET.fromstring(get(url))
-            for h in parse_feed(root,domain,group,now): add(h)
-        except Exception: pass
+            raw_items=root.findall("./channel/item")
+            diag["rssRawItems"]+=len(raw_items)
+            parsed=parse_feed(root,domain,group,now)
+            diag["rssAccepted"]+=len(parsed)
+            for h in parsed: add(h)
+        except Exception as e:
+            record_error("Google RSS company query",e)
         if len(out)>=max_items: break
 
     # 2) Signal-targeted search without a huge company OR.
     if len(out)<max_items:
         q=f"site:{domain} ({terms}) after:{after}"
         url="https://news.google.com/rss/search?q="+urllib.parse.quote(q)+"&hl=ko&gl=KR&ceid=KR:ko"
+        diag["rssQueries"]+=1
         try:
             root=ET.fromstring(get(url))
-            for h in parse_feed(root,domain,group,now): add(h)
-        except Exception: pass
+            raw_items=root.findall("./channel/item")
+            diag["rssRawItems"]+=len(raw_items)
+            parsed=parse_feed(root,domain,group,now)
+            diag["rssAccepted"]+=len(parsed)
+            for h in parsed: add(h)
+        except Exception as e:
+            record_error("Google RSS signal query",e)
 
     # 3) General web search fallback.
     if len(out)<max_items:
         for companies in company_batches:
             q=f"site:{domain} ({' OR '.join(companies)}) ({terms})"
             url="https://www.bing.com/search?q="+urllib.parse.quote(q)+"&setlang=ko-KR"
+            diag["bingQueries"]+=1
             try:
                 raw=get(url)
-                for h in parse_bing_html(raw,domain,group,now): add(h)
-            except Exception: pass
+                diag["bingResultBlocks"]+=len(re.findall(rb'<li class="b_algo"',raw,re.I))
+                parsed=parse_bing_html(raw,domain,group,now)
+                diag["bingAccepted"]+=len(parsed)
+                for h in parsed: add(h)
+            except Exception as e:
+                record_error("Bing fallback",e)
             if len(out)>=max_items: break
 
+    diag["uniqueRetained"]=len(out)
     return out[:max_items]
+
 def fetch_direct_kepco_enc(max_items=20):
     """Scrape KEPCO Engineering's public purchase-specification board.
     Retain only material rows with an explicit, recent publication date.
@@ -289,14 +319,19 @@ def fetch_direct_kepco_enc(max_items=20):
         r"플랜트|전력망|풍력|태양광|ESS|배터리|자동차|타이어|철강|강관|수소|암모니아|압축기|"
         r"제어시스템|계측제어|전기설비|주기기|보조기기|정비|계속운전", re.I
     )
+    diag={"listFetched":False,"rowsScanned":0,"materialTitles":0,"detailPagesFetched":0,"datedRows":0,"recentRows":0,"retained":0,"errors":[]}
+    DIRECT_DIAGNOSTICS["kepco-enc"] = diag
     try:
         raw = get(list_url, timeout=25).decode("utf-8", "ignore")
+        diag["listFetched"]=True
     except Exception as e:
+        diag["errors"].append(f"list fetch: {type(e).__name__}: {e}")
         print(f"direct procurement scout: KEPCO-ENC list fetch failed: {type(e).__name__}: {e}")
         return []
     out = []
     seen = set()
     rows = re.findall(r"<tr\b[^>]*>.*?</tr>", raw, flags=re.I | re.S)
+    diag["rowsScanned"]=len(rows)
     for row in rows:
         link_match = re.search(r'<a[^>]+href=["\']([^"\']+)["\'][^>]*>(.*?)</a>', row, flags=re.I | re.S)
         if not link_match:
@@ -306,20 +341,26 @@ def fetch_direct_kepco_enc(max_items=20):
         if not title or not material_re.search(title) or href in seen:
             continue
         seen.add(href)
+        diag["materialTitles"]+=1
         row_text = clean(row)
         date_match = re.search(r"20\d{2}\s*(?:[-./년])\s*\d{1,2}\s*(?:[-./월])\s*\d{1,2}\s*(?:일)?(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?", row_text)
         detail_text = ""
         if not date_match:
             try:
-                detail_text = clean(get(href, timeout=12).decode("utf-8", "ignore"))[:16000]
-            except Exception:
+                diag["detailPagesFetched"]+=1
+                detail_text = clean(get(href, timeout=8).decode("utf-8", "ignore"))[:16000]
+            except Exception as e:
+                if len(diag["errors"])<3:
+                    diag["errors"].append(f"detail fetch: {type(e).__name__}: {e}")
                 detail_text = ""
             date_match = re.search(r"20\d{2}\s*(?:[-./년])\s*\d{1,2}\s*(?:[-./월])\s*\d{1,2}\s*(?:일)?(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?", detail_text)
         if not date_match:
             continue
+        diag["datedRows"]+=1
         dt = parse_dt(date_match.group(0))
         if dt.year < 2000 or dt < cutoff or dt > now + timedelta(hours=6):
             continue
+        diag["recentRows"]+=1
         body = title + " " + row_text + " " + detail_text
         numbers = re.findall(r"(?:\d{1,3}(?:,\d{3})+|\d+(?:\.\d+)?)(?:\s*)(?:원|억원|만원|MW|GW|kV|톤|km)", body, re.I)
         out.append({
@@ -340,7 +381,8 @@ def fetch_direct_kepco_enc(max_items=20):
         })
         if len(out) >= max_items:
             break
-    print(f"direct procurement scout: KEPCO-ENC material/date-verified rows={len(out)}")
+    diag["retained"]=len(out)
+    print(f"direct procurement scout: KEPCO-ENC diagnostics={diag}")
     return out
 
 def main():
@@ -368,6 +410,8 @@ def main():
         "generatedAt": datetime.now(KST).isoformat(),
         "lookbackDays": LOOKBACK_DAYS,
         "sourceGroups": by_group,
+        "sourceDiagnostics": SOURCE_DIAGNOSTICS,
+        "directSourceDiagnostics": DIRECT_DIAGNOSTICS,
         "items": items,
     }
     OUT.write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
