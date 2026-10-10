@@ -23,7 +23,9 @@ TARGET_COMPANIES = [
     "포스코","포스코홀딩스","현대제철","KG스틸","세아홀딩스","세아제강","고려아연","영풍","LS MnM",
     "HD현대일렉트릭","LS일렉트릭","대한전선","효성중공업","일진전기","LS전선","LS지주",
     "두산에너빌리티","GS","GS칼텍스","한화솔루션","OCI","OCI홀딩스","씨에스윈드",
-    "태광","동성케미칼","DL케미칼","LG화학","롯데케미칼","금호석유화학","효성첨단소재","코오롱인더"
+    "태광","동성케미칼","DL케미칼","LG화학","롯데케미칼","금호석유화학","효성첨단소재","코오롱인더",
+    "현대오토에버","삼성전기","LG에너지솔루션","삼성SDI","SK온","SK이노베이션",
+    "포스코퓨처엠","엘앤에프","포스코인터내셔널"
 ]
 COMPANY_GROUPS = [
     TARGET_COMPANIES[0:10], TARGET_COMPANIES[10:20], TARGET_COMPANIES[20:30],
@@ -107,6 +109,15 @@ def target_hits(text):
         "금호타이어":["금호타이어","kumho tire"],
         "현대트랜시스":["현대트랜시스","hyundai transys"],
         "현대글로비스":["현대글로비스","hyundai glovis","glovis"],
+        "현대오토에버":["현대오토에버","hyundai autoever"],
+        "삼성전기":["삼성전기","samsung electro-mechanics","samsung electro mechanics"],
+        "LG에너지솔루션":["lg에너지솔루션","lg energy solution","lges"],
+        "삼성SDI":["삼성sdi","samsung sdi"],
+        "SK온":["sk온","sk on"],
+        "SK이노베이션":["sk이노베이션","sk innovation"],
+        "포스코퓨처엠":["포스코퓨처엠","posco future m"],
+        "엘앤에프":["엘앤에프","l&f","lnf"],
+        "포스코인터내셔널":["포스코인터내셔널","posco international"],
         "포스코":["포스코","posco"],
         "포스코홀딩스":["포스코홀딩스","posco holdings"],
         "현대제철":["현대제철","hyundai steel"],
@@ -117,7 +128,7 @@ def target_hits(text):
         "영풍":["영풍","young poong"],
         "LS MnM":["ls mnm","ls mnm inc"],
         "HD현대일렉트릭":["hd현대일렉트릭","hd hyundai electric"],
-        "LS일렉트릭":["ls일렉트릭","ls electric"],
+        "LS일렉트릭":["ls일렉트릭","엘에스일렉트릭","ls electric"],
         "대한전선":["대한전선","taihan cable"],
         "효성중공업":["효성중공업","hyosung heavy industries"],
         "일진전기":["일진전기","iljin electric"],
@@ -141,8 +152,10 @@ def target_hits(text):
     }
     out=[]
     for k,vals in aliases.items():
-        if any(v in t for v in vals): out.append(k)
-    return out
+        matched=[v for v in vals if v in t]
+        if matched: out.append((max(len(v) for v in matched),k))
+    # Resolve overlapping names to the most specific tracked issuer first.
+    return [k for _,k in sorted(out,reverse=True)]
 
 def parse_feed(root, domain, group, now):
     out=[]
