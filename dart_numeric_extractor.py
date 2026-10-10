@@ -110,7 +110,42 @@ def fetch_dart_viewer_text(receipt_no: str, diagnostics: dict | None = None) -> 
         labels = re.findall(r"""\btext\s*:\s*(['"])(.{1,120}?)\1""", context, re.I | re.S)
         label = html.unescape(labels[-1][1]).strip() if labels else ""
         params["label"] = re.sub(r"<[^>]+>", " ", label).strip()
+        params["tocNo"] = ""
         docs.append(params)
+
+    # Current DART pages often store table-of-contents entries as nodeN['field']
+    # assignments instead of literal viewDoc('...') calls. Parse that structure
+    # as a fallback, matching receipt number to avoid borrowing another filing's IDs.
+    parser_type = "viewDoc-call"
+    if not docs:
+        node_values = {}
+        assignment_re = re.compile(
+            r"(?P<node>[A-Za-z_$][\\w$]*)\\s*\\[\\s*['\"](?P<field>text|rcpNo|dcmNo|eleId|offset|length|dtd|tocNo)['\"]\\s*\\]"
+            r"\\s*=\\s*(['\"])(.*?)\\3\\s*;",
+            re.I | re.S,
+        )
+        for match in assignment_re.finditer(main_html):
+            node = match.group("node")
+            field = match.group("field")
+            value = html.unescape(match.group(4)).strip()
+            node_values.setdefault(node, {})[field] = value
+        for fields in node_values.values():
+            if fields.get("rcpNo") != receipt_no:
+                continue
+            if not all(fields.get(k) for k in ("dcmNo", "eleId", "offset", "length", "dtd")):
+                continue
+            docs.append({
+                "rcp": fields["rcpNo"],
+                "dcm": fields["dcmNo"],
+                "ele": fields["eleId"],
+                "offset": fields["offset"],
+                "length": fields["length"],
+                "dtd": fields["dtd"],
+                "tocNo": fields.get("tocNo", ""),
+                "label": fields.get("text", ""),
+            })
+        parser_type = "toc-node-assignments"
+    diag["parserType"] = parser_type
     diag["documentsFound"] = len(docs)
     diag["documentLabels"] = [d["label"][:80] for d in docs[:8]]
 
@@ -132,6 +167,8 @@ def fetch_dart_viewer_text(receipt_no: str, diagnostics: dict | None = None) -> 
             "length": doc["length"],
             "dtd": doc["dtd"],
         }
+        if doc.get("tocNo"):
+            query["tocNo"] = doc["tocNo"]
         url = "https://dart.fss.or.kr/report/viewer.do?" + urlencode(query)
         try:
             raw = fetch_bytes(url, timeout=10)
