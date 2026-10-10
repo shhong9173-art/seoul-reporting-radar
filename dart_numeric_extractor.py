@@ -120,8 +120,8 @@ def fetch_dart_viewer_text(receipt_no: str, diagnostics: dict | None = None) -> 
     if not docs:
         node_values = {}
         assignment_re = re.compile(
-            r"(?P<node>[A-Za-z_$][\\w$]*)\\s*\\[\\s*['\"](?P<field>text|rcpNo|dcmNo|eleId|offset|length|dtd|tocNo)['\"]\\s*\\]"
-            r"\\s*=\\s*(['\"])(.*?)\\3\\s*;",
+            r"(?P<node>[A-Za-z_$][\w$]*)\s*\[\s*['\"](?P<field>text|rcpNo|dcmNo|eleId|offset|length|dtd|tocNo)['\"]\s*\]"
+            r"\s*=\s*(['\"])(.*?)\3\s*;",
             re.I | re.S,
         )
         for match in assignment_re.finditer(main_html):
