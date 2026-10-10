@@ -884,6 +884,52 @@ def build_public_signals(primary, dart_rows, now, limit=10, numeric_rows=None):
             "questions":["대상 대수와 생산기간, 국내 판매 차량은 몇 대인가?","최근 12개월 동일 제조사의 유사 부품·결함 리콜이 반복됐나?","시정 조치율과 부품 공급·수리 대기 기간은 어느 정도인가?"]
         })
 
+    # Companyless official policy/legislation signals are public-source follow-ups,
+    # not scoops: the announcement itself is already publicly available.
+    policy_seen=set()
+    for x in primary:
+        if not x.get("policySignal") or x.get("companies"):
+            continue
+        title=str(x.get("title") or "").strip()
+        dt=parse_dt(x.get("published") or "")
+        if not title or dt.year<2000 or dt<cutoff or dt>now+timedelta(hours=6):
+            continue
+        norm_title=re.sub(r"[^가-힣A-Za-z0-9]","",title).lower()
+        key=(norm_title,dt.date().isoformat())
+        if key in policy_seen:
+            continue
+        policy_seen.add(key)
+        legislative=bool(re.search(r"법안|법률안|개정안|입법예고|행정예고|시행령|시행규칙|고시|본회의 통과",title))
+        if legislative:
+            followup="공식 입법·정책 발표 자체는 공개된 사실입니다. 개정 전 조문과 바뀐 조항, 공포·시행일, 적용 대상, 유예·예외 규정 및 기업별 실제 비용을 확인해야 후속 취재 가치가 생깁니다."
+            questions=[
+                "기존 법령과 비교해 실제로 바뀐 조문·의무·제재는 무엇인가?",
+                "공포일·시행일·유예기간과 적용 대상 사업장은 어디까지인가?",
+                "자동차·철강·전력·에너지 업종 중 영향받는 공정·비용과 기업 대응은 무엇인가?"
+            ]
+        else:
+            followup="공식 기관이 공개한 산업 정책·시장 자료입니다. 발표 사실 자체를 단독으로 취급하지 않고, 후속 시행·입찰 조건·업계 적용 범위가 기존 계획과 어떻게 달라지는지 확인합니다."
+            questions=[
+                "최종 고시·공고 원문에서 확정된 조건과 일정은 무엇인가?",
+                "적용 대상 기업·제품·사업장과 예외 조건은 어디까지인가?",
+                "업계의 투자·생산·수출 비용에 미치는 실제 영향은 무엇인가?"
+            ]
+        out.append({
+            "id":hashlib.sha1(("public-policy|"+"|".join(key)).encode()).hexdigest()[:12],
+            "signalGroup":"정책·규제",
+            "kind":"공개 입법·정책 자료",
+            "companies":[],
+            "title":title,
+            "published":dt.isoformat(),
+            "sourceName":str(x.get("sourceName") or x.get("officialLabel") or "공식기관"),
+            "url":str(x.get("url") or ""),
+            "details":[],
+            "verification":"공개 정부자료 · 단독 아님",
+            "coverageStatus":"공식 기관에 공개된 입법·정책 자료입니다. 공표 사실 자체는 단독 후보가 아닙니다. 적용 범위와 후속 시행·현장 영향은 별도 확인이 필요합니다.",
+            "whyFollowup":followup,
+            "questions":questions
+        })
+
     # Material DART filings appear here as public facts to investigate, not as scoops.
     dart_terms={
         "회사분할결정":"사업재편","합병":"사업재편","영업양수도":"사업재편","영업정지":"생산·사업 중단",
@@ -931,13 +977,14 @@ def build_public_signals(primary, dart_rows, now, limit=10, numeric_rows=None):
             "questions":questions
         })
     out.sort(key=lambda x:(x["published"],x["signalGroup"]),reverse=True)
-    # Prefer distinct companies so one issuer does not flood the monitoring lane.
+    # Prefer distinct issuers while allowing multiple companyless policy events.
     final=[];used=set()
     for x in out:
         company=(x.get("companies") or [""])[0]
-        if company in used:
+        dedup_key=company if company else (str(x.get("signalGroup") or "")+"|"+str(x.get("title") or ""))
+        if dedup_key in used:
             continue
-        final.append(x);used.add(company)
+        final.append(x);used.add(dedup_key)
         if len(final)>=limit:
             break
     return final
@@ -1059,7 +1106,7 @@ def main():
             primary.append(p)
 
     lead_signals,lead_diagnostics=build_lead_signals(primary,data,now,limit=12)
-    public_signals=build_public_signals(primary,dart,now,limit=10,numeric_rows=numeric)
+    public_signals=build_public_signals(primary,dart,now,limit=14,numeric_rows=numeric)
     candidates=[];seen=set();drop_examples={};drop_stats={"noise":0,"stale_pre_scoop":0,"routine_regulatory":0,"relevance":0,"generic":0,"association_filter":0,"specificity":0,"prior_coverage":0,"procurement":0,"procurement_noise":0,"procurement_nonmaterial":0,"routine_contract":0,"contract_details_unavailable":0,"low_score":0,"low_score_rescued":0,"missing_core_facts":0,"untrusted_source":0,"company_required":0,"duplicate":0,"other":0,"accepted":0}
     for x in sorted(primary,key=lambda z:z.get("published",""),reverse=True):
         title=(x.get("title") or "").strip()
@@ -1069,6 +1116,12 @@ def main():
             drop_stats.setdefault("routine_public_notice",0)
             drop_stats["routine_public_notice"]+=1
             record_drop_example(drop_examples,"routine_public_notice",x,"공식 리콜 공지는 공개 원자료 영역으로 분리")
+            continue
+        # Published official policy notices are follow-ups, not exclusive scoops.
+        if x.get("policySignal") and source_tier(x)>=3:
+            drop_stats.setdefault("public_policy_signal",0)
+            drop_stats["public_policy_signal"]+=1
+            record_drop_example(drop_examples,"public_policy_signal",x,"공식 기관이 이미 공개한 정책·입법 자료는 후속 취재 영역으로 분리")
             continue
         # Company newsroom announcements are public releases, not unpublished scoops.
         public_company_release=(source_group(x)=="기업" and bool(x.get("official")))
