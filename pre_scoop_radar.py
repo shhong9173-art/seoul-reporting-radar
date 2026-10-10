@@ -346,8 +346,8 @@ def fetch_direct_ntis_announcements(max_items=12):
     active_terms=batches[slot]
     diag={
         "queriesAttempted":0,"searchPagesFetched":0,"announcementLinks":0,
-        "detailPagesFetched":0,"datedRecords":0,"recentRecords":0,"retained":0,
-        "queryTerms":active_terms,"errors":[],"sampleRows":[]
+        "detailPagesAttempted":0,"detailPagesFetched":0,"datedRecords":0,"recentRecords":0,"retained":0,
+        "queryTerms":active_terms,"errors":[],"sampleRows":[],"sampleAnchors":[]
     }
     DIRECT_DIAGNOSTICS["ntis-announcements"]=diag
     anchor_re=re.compile(r'<a\b[^>]+href=["\']([^"\']+)["\'][^>]*>(.*?)</a>',re.I|re.S)
@@ -356,13 +356,25 @@ def fetch_direct_ntis_announcements(max_items=12):
 
     for term in active_terms:
         query_url=base+"/ThSearchResultAnnouncementList.do?"+urllib.parse.urlencode({
+            "searchSentence":"",
             "searchWord":term,
-            "sort":"SS01/DESC"
+            "sort":"RANK/DESC,SS01/DESC"
         })
         diag["queriesAttempted"]+=1
         try:
             listing=get(query_url,timeout=18).decode("utf-8","ignore")
             diag["searchPagesFetched"]+=1
+            if len(diag["sampleAnchors"])<8:
+                diag["sampleAnchors"].append({
+                    "queryTerm":term,
+                    "pageTitle":clean(re.search(r"<title[^>]*>(.*?)</title>",listing,re.I|re.S).group(1))[:120]
+                        if re.search(r"<title[^>]*>(.*?)</title>",listing,re.I|re.S) else "",
+                    "pageBytes":len(listing),
+                    "containsAnnouncementPath":"/rndgate/eg/un/ra/view.do" in listing,
+                    "containsAnnouncementText":bool(re.search(r"국가R&D통합공고|공고명|공고일",listing)),
+                    "anchorSamples":[{"href":html.unescape(m.group(1))[:260],"title":clean(m.group(2))[:160]}
+                        for m in list(anchor_re.finditer(listing))[:8]]
+                })
         except Exception as exc:
             if len(diag["errors"])<4:
                 diag["errors"].append(f"search {term}: {type(exc).__name__}: {exc}"[:240])
@@ -380,8 +392,9 @@ def fetch_direct_ntis_announcements(max_items=12):
                 continue
             seen.add(url)
             diag["announcementLinks"]+=1
-            if len(out)>=max_items:
+            if len(out)>=max_items or diag["detailPagesAttempted"]>=12:
                 break
+            diag["detailPagesAttempted"]+=1
             try:
                 detail_raw=get(url,timeout=12)
                 detail=clean(detail_raw.decode("utf-8","ignore"))
