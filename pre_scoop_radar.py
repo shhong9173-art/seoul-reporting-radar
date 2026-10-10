@@ -30,7 +30,8 @@ TARGET_COMPANIES = [
     "두산에너빌리티","GS","GS칼텍스","한화솔루션","OCI","OCI홀딩스","씨에스윈드",
     "태광","동성케미칼","DL케미칼","LG화학","롯데케미칼","금호석유화학","효성첨단소재","코오롱인더",
     "현대오토에버","삼성전기","LG에너지솔루션","삼성SDI","SK온","SK이노베이션",
-    "포스코퓨처엠","엘앤에프","포스코인터내셔널"
+    "포스코퓨처엠","엘앤에프","포스코인터내셔널",
+    "한국전력공사","한국수력원자력","한국전력기술","전력거래소"
 ]
 COMPANY_GROUPS = [
     TARGET_COMPANIES[0:10], TARGET_COMPANIES[10:20], TARGET_COMPANIES[20:30],
@@ -142,6 +143,10 @@ def target_hits(text):
         "포스코퓨처엠":["포스코퓨처엠","posco future m"],
         "엘앤에프":["엘앤에프","l&f","lnf"],
         "포스코인터내셔널":["포스코인터내셔널","posco international"],
+        "한국전력공사":["한국전력공사","KEPCO","Korea Electric Power Corporation"],
+        "한국수력원자력":["한국수력원자력","한수원","KHNP","Korea Hydro & Nuclear Power"],
+        "한국전력기술":["한국전력기술","한전기술","KEPCO E&C","KEPCO Engineering & Construction"],
+        "전력거래소":["전력거래소","KPX","Korea Power Exchange"],
         "포스코":["포스코","posco"],
         "포스코홀딩스":["포스코홀딩스","posco holdings"],
         "현대제철":["현대제철","hyundai steel"],
