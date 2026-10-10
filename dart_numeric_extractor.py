@@ -17,6 +17,9 @@ API_KEY = os.environ.get("DART_API_KEY", "").strip()
 IN = Path("dart.json")
 OUT = Path("dart_numeric.json")
 MAX_DOCS = 12
+# OpenDART status 800 is a service-wide maintenance signal. Once observed,
+# stop retrying the same unavailable API for every remaining receipt.
+OPENDART_MAINTENANCE_SEEN = False
 
 # Only capture material values with an explicit unit. Dates and table row indices are discarded.
 VALUE_RE = re.compile(
@@ -217,9 +220,17 @@ def extract_viewer_facts(base: dict, viewer_text: str, error: str, diagnostics: 
 
 
 def extract_document(base: dict) -> dict:
+    global OPENDART_MAINTENANCE_SEEN
     receipt_no = base.get("receiptNo", "")
     if not API_KEY or not receipt_no:
         return {**base, "numbers": [], "snippets": [], "error": "missing api key or receipt"}
+    last_error = "OpenDART status 800: service-wide maintenance circuit breaker is active"
+    if OPENDART_MAINTENANCE_SEEN:
+        viewer_diag = {}
+        viewer_text = fetch_dart_viewer_text(receipt_no, viewer_diag)
+        if viewer_text:
+            return extract_viewer_facts(base, viewer_text, last_error, viewer_diag)
+        return {**base, "numbers": [], "snippets": [], "fallbackSource": "DART HTML viewer attempted", "viewerFallbackDiagnostics": viewer_diag, "error": last_error}
     url = "https://opendart.fss.or.kr/api/document.xml?" + urlencode({"crtfc_key": API_KEY, "rcept_no": receipt_no})
     last_error = "OpenDART document fetch failed"
     for attempt, delay in enumerate((0, 2, 6), start=1):
@@ -259,8 +270,10 @@ def extract_document(base: dict) -> dict:
             # Status 800 / maintenance is transient. Authentication, receipt number
             # and quota errors are recorded immediately instead of being mislabeled
             # as corrupt ZIP data.
-            if status!="800" and not re.search(r"시스템\s*점검|maintenance|temporarily unavailable",message,re.I):
+            if status=="800" or re.search(r"시스템\s*점검|maintenance|temporarily unavailable",message,re.I):
+                OPENDART_MAINTENANCE_SEEN = True
                 break
+            break
         except Exception as exc:
             last_error=f"OpenDART response parse failed: {type(exc).__name__}: {exc}"
             break
