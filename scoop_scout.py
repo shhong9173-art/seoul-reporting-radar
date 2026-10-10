@@ -360,20 +360,29 @@ def coverage_search(x,max_queries=2):
     scored.sort(key=lambda z:z[0],reverse=True)
     COVERAGE_SEARCH_DIAGNOSTICS['results']+=len(scored)
     return [h for _,h in scored[:8]]
+DART_DOC_CACHE={}
+
 def fetch_dart_document(receipt):
     key=os.environ.get("DART_API_KEY","").strip()
     if not key or not receipt:return ""
+    receipt=str(receipt)
+    if receipt in DART_DOC_CACHE:
+        return DART_DOC_CACHE[receipt]
     try:
         u="https://opendart.fss.or.kr/api/document.xml?"+urllib.parse.urlencode({"crtfc_key":key,"rcept_no":receipt})
-        raw=get(u,30)
+        raw=get(u,8)
         with zipfile.ZipFile(io.BytesIO(raw)) as z:
             chunks=[]
             for name in z.namelist()[:10]:
                 if not name.lower().endswith((".xml",".html",".htm",".txt")):continue
                 txt=clean(z.read(name).decode("utf-8",errors="ignore"))
                 if txt:chunks.append(txt)
-            return " ".join(chunks)[:16000]
-    except Exception:return ""
+            result=" ".join(chunks)[:16000]
+            DART_DOC_CACHE[receipt]=result
+            return result
+    except Exception:
+        DART_DOC_CACHE[receipt]=""
+        return ""
 
 def dart_fact(d,numeric_rows):
     nr=next((r for r in numeric_rows if r.get("receiptNo")==d.get("receiptNo")),None)
