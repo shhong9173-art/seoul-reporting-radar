@@ -273,40 +273,40 @@ def fetch_direct_car_recalls(max_items=20):
             if len(diag["errors"])<4:
                 diag["errors"].append(f"{term}: {type(e).__name__}: {e}")
             continue
-        for m in anchor_re.finditer(raw):
+        anchors=list(anchor_re.finditer(raw))
+        recall_anchor_idxs=[]
+        for ai,am in enumerate(anchors):
+            atitle=clean(am.group(2))
+            if atitle and re.search(r"(?:관련\s*리콜|제작결함|결함조사|중대리콜)",atitle,re.I) and not re.fullmatch(r"(?:자동차)?리콜(?:정보|현황|제도|센터|알리미)?|결함신고|무상점검\s*[·ㆍ]?\s*수리",atitle,re.I):
+                recall_anchor_idxs.append(ai)
+        next_recall={idx:(anchors[recall_anchor_idxs[pos+1]].start() if pos+1<len(recall_anchor_idxs) else len(raw)) for pos,idx in enumerate(recall_anchor_idxs)}
+        for ai,m in enumerate(anchors):
             href_raw=html.unescape(m.group(1).strip())
             title=clean(m.group(2))
             diag["linksScanned"]+=1
-            if not title or not re.search(r"(?:관련\s*리콜|제작결함|결함조사|중대리콜)",title,re.I):
-                continue
-            if re.fullmatch(r"(?:자동차)?리콜(?:정보|현황|제도|센터|알리미)?|결함신고|무상점검\s*[·ㆍ]?\s*수리",title,re.I):
+            if ai not in next_recall:
                 continue
             diag["recallTitles"]+=1
             key=re.sub(r"[^가-힣A-Za-z0-9]","",title).lower()
             if key in seen:
                 continue
 
-            # Dates must come from the containing result row, not a wide context
-            # window that can accidentally pick the previous/next recall's date.
-            row_start=-1;row_end=-1
-            for tag in ("li","tr"):
-                a=raw.rfind("<"+tag,0,m.start())
-                e=raw.find("</"+tag+">",m.end())
-                if a>=0 and e>=m.end() and e-a<5000:
-                    if row_start<0 or a>row_start:
-                        row_start=a;row_end=e+len("</"+tag+">")
-            row_html=raw[row_start:row_end] if row_start>=0 and row_end>row_start else raw[max(0,m.start()-350):min(len(raw),m.end()+350)]
-            row_text=clean(row_html)
-            date_hits=list(date_re.finditer(row_text))
+            # On this site, date metadata sits in sibling list elements after
+            # each title anchor. Read only up to the next recall title anchor to
+            # prevent borrowing the adjacent recall's date.
+            segment_end=next_recall[ai]
+            segment=raw[m.end():segment_end]
+            date_hits=list(date_re.finditer(segment))
             if not date_hits:
                 if len(diag["sampleEntries"])<8:
-                    diag["sampleEntries"].append({"title":title,"query":term,"reason":"no-row-date","rowSample":row_text[:240]})
+                    diag["sampleEntries"].append({"title":title,"query":term,"reason":"no-item-date","rowSample":clean(segment)[:240]})
                 continue
             try:
-                normalized_date=re.sub(r"\s*[-./]\s*","-",date_hits[-1].group(0)).strip()
+                normalized_date=re.sub(r"\s*[-./]\s*","-",date_hits[0].group(0)).strip()
                 dt=datetime.strptime(normalized_date,"%Y-%m-%d").replace(tzinfo=KST)
             except ValueError:
                 continue
+            row_text=clean(raw[m.start():segment_end])
             diag["datedRows"]+=1
             if dt<cutoff or dt>now+timedelta(hours=6):
                 if len(diag["sampleEntries"])<8:
@@ -327,7 +327,7 @@ def fetch_direct_car_recalls(max_items=20):
                 "published":dt.isoformat(),"summary":row_text[:2000],
                 "official":True,"preScoop":True,"directSource":True,
                 "companies":companies,"signalType":"official_recall_notice",
-                "sourceQuery":term
+                "dateParseVersion":"sequence-v2","sourceQuery":term
             })
             if len(out)>=max_items:
                 break
@@ -525,6 +525,25 @@ def main():
     direct_recalls = fetch_direct_car_recalls()
     items.extend(direct_recalls)
     by_group["자동차·결함"] = by_group.get("자동차·결함", 0) + len(direct_recalls)
+
+    # Persist rolling official-source signals across rotating query batches.
+    # Old recall records collected by the previous, date-contaminating parser are
+    # deliberately discarded unless they carry the current parse-version marker.
+    now=datetime.now(KST)
+    prior_items=[]
+    try:
+        previous=json.loads(OUT.read_text(encoding="utf-8"))
+        prior_items=previous.get("items",[]) if isinstance(previous,dict) else []
+    except Exception:
+        prior_items=[]
+    for item in prior_items:
+        dt=parse_dt(item.get("published"))
+        if dt.year<2000 or dt<now-timedelta(days=LOOKBACK_DAYS) or dt>now+timedelta(hours=6):
+            continue
+        if item.get("signalType")=="official_recall_notice" and item.get("dateParseVersion")!="sequence-v2":
+            continue
+        items.append(item)
+
     # Keep the feed compact and deterministic.
     dedup = {}
     for x in items:
