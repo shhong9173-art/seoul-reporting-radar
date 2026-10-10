@@ -20,7 +20,7 @@ MAX_DOCS = 12
 
 # Only capture material values with an explicit unit. Dates and table row indices are discarded.
 VALUE_RE = re.compile(
-    r"(?<![A-Za-z0-9])[-+]?\d{1,3}(?:,\d{3})*(?:\.\d+)?\s*(?:조원|억원|만원|원|조|억|만대|천대|대|%|명|GWh|MWh|kWh|톤|㎡|m²|km|달러|USD|EUR)(?![A-Za-z0-9])",
+    r"(?<![A-Za-z0-9제])[-+]?\d{1,3}(?:,\d{3})*(?:\.\d+)?\s*(?:조원|억원|만원|원|만주|천주|주|만대|천대|대|조|억|%|명|GWh|MWh|kWh|톤|㎡|m²|km|달러|USD|EUR)(?![A-Za-z0-9])",
     re.I,
 )
 KEYWORD_RE = re.compile(
