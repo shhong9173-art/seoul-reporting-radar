@@ -195,25 +195,53 @@ def parse_feed(root, domain, group, now, diag=None):
         })
     return out
 
-def parse_bing_html(raw, domain, group, now):
+def parse_bing_html(raw, domain, group, now, diag=None):
     text_raw=raw.decode("utf-8","ignore")
     out=[]
-    for m in re.finditer(r'<li class="b_algo".*?</li>',text_raw,re.S|re.I):
+    block_re=r'<li\b(?=[^>]*class=["\'][^"\']*\bb_algo\b[^"\']*["\'])[^>]*>.*?</li>'
+    blocks=list(re.finditer(block_re,text_raw,re.S|re.I))
+    if diag is not None:
+        diag["bingParsedBlocks"]=diag.get("bingParsedBlocks",0)+len(blocks)
+    date_re=re.compile(r'20\d{2}\s*[-./]\s*\d{1,2}\s*[-./]\s*\d{1,2}|\b(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+\d{1,2},?\s+20\d{2}\b',re.I)
+    def reject(reason,title):
+        if diag is None:return
+        key="bingReject"+reason
+        diag[key]=diag.get(key,0)+1
+        samples=diag.setdefault("bingRejectSamples",[])
+        if len(samples)<8:samples.append({"reason":reason,"title":title[:200]})
+    for m in blocks:
         block=m.group(0)
-        lm=re.search(r'<h2[^>]*>\s*<a[^>]+href="([^"]+)"[^>]*>(.*?)</a>',block,re.S|re.I)
-        if not lm: continue
+        lm=re.search(r'<h2\b[^>]*>\s*<a\b[^>]*href=["\']([^"\']+)["\'][^>]*>(.*?)</a>',block,re.S|re.I)
+        if not lm:
+            reject("Malformed","[missing result link]")
+            continue
         link=html.unescape(lm.group(1))
         title=clean(lm.group(2))
-        sm=re.search(r'<p[^>]*>(.*?)</p>',block,re.S|re.I)
+        sm=re.search(r'<p\b[^>]*>(.*?)</p>',block,re.S|re.I)
         desc=clean(sm.group(1) if sm else "")
+        date_match=date_re.search(clean(block))
+        # Search-index retrieval time is not the publication date. Undated results
+        # are logged but cannot become fresh leads by borrowing the current time.
+        if not date_match:
+            reject("Undated",title)
+            continue
+        dt=parse_dt(date_match.group(0))
+        if dt.year<2000 or dt<now-timedelta(days=LOOKBACK_DAYS) or dt>now+timedelta(hours=6):
+            reject("OutsideWindow",title)
+            continue
         body=title+" "+desc
         companies=target_hits(body)
-        if not companies or not SIGNAL_TERMS.search(body): continue
+        if not companies:
+            reject("NoCompany",title)
+            continue
+        if not SIGNAL_TERMS.search(body):
+            reject("NoSignalTerm",title)
+            continue
         out.append({
             "sourceName":domain,"officialLabel":domain,"querySite":domain,
-            "sourceGroup":group,"title":title,"url":link,"published":now.isoformat(),
+            "sourceGroup":group,"title":title,"url":link,"published":dt.isoformat(),
             "summary":desc[:3500],"official":True,"preScoop":True,"companies":companies,
-            "searchIndexed":True,
+            "searchIndexed":True,"dateSource":"indexed-result-snippet",
         })
     return out
 
