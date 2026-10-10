@@ -645,7 +645,7 @@ def build_lead_signals(primary, data, now, limit=12):
         r"검색|바로가기|안내|설명회|개최 알림|주간 동향|주간 입찰|자료실|상세보기|정기보고|실적발표|월간동향|"
         r"행사|캠페인|수상|채용|교육생 모집|사회공헌|기부|봉사|홍보대사|체험|진로탐색|청소년|희망드림|"
         r"세이브더칠드런|수수료 지원|달력 제작|회계감사 용역|국제민간항공기구|유가보조금 관리 규정|보증제도|명품보증|보증대상|프로모션|브랜드 캠페인|고객 혜택|기재정정|첨부정정", re.I)
-    diag={k:0 for k in ("input","invalid","noise","outside_window","no_hard_change","no_signal_pattern","no_company","untrusted_source","duplicate","rows","coverage_checked","prior_coverage","diversity_skip","surfaced")}
+    diag={k:0 for k in ("input","invalid","noise","outside_window","no_hard_change","no_signal_pattern","no_company","untrusted_source","duplicate","rows","coverage_checked","prior_coverage","diversity_skip","surfaced","details_unavailable")}
     diag["sample_no_hard_change"]=[]
     diag["sample_no_signal_pattern"]=[]
     # Convert multiple public recall notices for one tracked company into one
@@ -689,6 +689,11 @@ def build_lead_signals(primary, data, now, limit=12):
         url=str(x.get("url") or "").strip()
         if not title or not url:
             diag["invalid"]+=1; continue
+        # OpenDART outage is an extraction failure, not evidence that an event is unreported.
+        # Keep the filing in the public-source lane, but never surface it as a lead signal.
+        if x.get("detailUnavailable"):
+            diag["details_unavailable"]+=1
+            continue
         # A public recall notice is useful for follow-up reporting, but the published
         # notice itself must not be surfaced as a scoop lead.
         if x.get("signalType")=="official_recall_notice":
@@ -801,9 +806,13 @@ def build_lead_signals(primary, data, now, limit=12):
     return out,diag
 
 
-def build_public_signals(primary, dart_rows, now, limit=10):
+def build_public_signals(primary, dart_rows, now, limit=10, numeric_rows=None):
     """Expose public-source follow-ups in a separate lane; never imply exclusivity."""
     out=[];seen=set()
+    numeric_by_receipt={
+        str(r.get("receiptNo")):r for r in (numeric_rows or [])
+        if r.get("receiptNo")
+    }
     cutoff=now-timedelta(days=PRIMARY_LOOKBACK_DAYS)
 
     # Public recall notices are useful for follow-up reporting, but the notice itself
@@ -871,15 +880,19 @@ def build_public_signals(primary, dart_rows, now, limit=10):
         seen.add(key)
         correction=("기재정정" in report or "첨부정정" in report)
         url=str(d.get("url") or "")
+        nr=numeric_by_receipt.get(str(d.get("receiptNo") or ""))
+        extract_error=str((nr or {}).get("error") or "")
+        extract_unavailable=bool(extract_error and not (nr or {}).get("numbers"))
+        questions=["최초 공시와 비교해 실제로 달라진 항목은 무엇인가?","계약 상대방·물량·기간·금액은 원문에서 어떻게 명시됐는가?","동일 사실의 보도 여부와 회사 설명을 교차 확인했는가?"] if "계약" in report else ["최초 공시와 비교해 실제 변경된 항목은 무엇인가?","생산·투자·계약·재무에 미치는 정량적 영향은 얼마인가?","이 변경으로 추가 확인해야 할 고객사·사업장·적용 일정이 있는가?"]
         out.append({
             "id":hashlib.sha1(("public-dart|"+"|".join(key)).encode()).hexdigest()[:12],
             "signalGroup":group,"kind":report,"companies":[corp],
             "title":f"{corp} {report}"+(" — 변경 항목 대조 필요" if correction else ""),
             "published":dt.isoformat(),"sourceName":"DART","url":url,"details":[],
-            "verification":"공개 공시 · 단독 아님",
-            "coverageStatus":"공개 공시입니다. 미보도·단독으로 표시하지 않습니다." if not correction else "정정 공시입니다. 최초 공시 대비 변경된 항목을 확인해야 합니다.",
-            "whyFollowup":"공시 원문에서 실제로 바뀐 숫자·일정·사업 범위를 확인한 뒤, 기존 보도와 회사 설명을 교차 확인해야 합니다.",
-            "questions":["최초 공시와 비교해 실제 변경된 항목은 무엇인가?","생산·투자·계약·재무에 미치는 정량적 영향은 얼마인가?","이 변경으로 추가 확인해야 할 고객사·사업장·적용 일정이 있는가?"]
+            "verification":("공개 공시 · 원문 수치 추출 실패 · 단독 아님" if extract_unavailable else "공개 공시 · 단독 아님"),
+            "coverageStatus":("OpenDART 원문 추출 실패: "+extract_error+" 원문 링크에서 조건을 직접 확인해야 하며 미보도 여부는 별도 검증이 필요합니다." if extract_unavailable else ("정정 공시입니다. 최초 공시 대비 변경된 항목을 확인해야 합니다." if correction else "공개 공시입니다. 미보도·단독으로 표시하지 않습니다.")),
+            "whyFollowup":("OpenDART 원문 추출이 실패했습니다. 금액·상대방·물량을 확인하기 전에는 계약의 중요도나 미보도 여부를 판단하지 않습니다." if extract_unavailable else "공시 원문에서 실제로 바뀐 숫자·일정·사업 범위를 확인한 뒤, 기존 보도와 회사 설명을 교차 확인해야 합니다."),
+            "questions":questions
         })
     out.sort(key=lambda x:(x["published"],x["signalGroup"]),reverse=True)
     # Prefer distinct companies so one issuer does not flood the monitoring lane.
@@ -977,7 +990,7 @@ def main():
             primary.append(p)
 
     lead_signals,lead_diagnostics=build_lead_signals(primary,data,now,limit=12)
-    public_signals=build_public_signals(primary,dart,now,limit=10)
+    public_signals=build_public_signals(primary,dart,now,limit=10,numeric_rows=numeric)
     candidates=[];seen=set();drop_stats={"noise":0,"stale_pre_scoop":0,"routine_regulatory":0,"relevance":0,"generic":0,"association_filter":0,"specificity":0,"prior_coverage":0,"procurement":0,"procurement_noise":0,"procurement_nonmaterial":0,"routine_contract":0,"contract_details_unavailable":0,"low_score":0,"low_score_rescued":0,"missing_core_facts":0,"untrusted_source":0,"company_required":0,"duplicate":0,"other":0,"accepted":0}
     for x in sorted(primary,key=lambda z:z.get("published",""),reverse=True):
         title=(x.get("title") or "").strip()
