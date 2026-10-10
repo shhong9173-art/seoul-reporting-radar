@@ -265,19 +265,25 @@ def extract_document(base: dict) -> dict:
                             snippets.append({"keyword": match.group(0), "numbers": vals[:10], "context": context.strip()})
                 return {**base, "numbers": list(numbers.keys())[:40], "snippets": snippets[:24]}
         except zipfile.BadZipFile:
-            status,message=describe_api_error(raw)
+            # Some OpenDART outages return a branded HTML page (not the documented
+            # status-800 XML), so recognize the payload shape before generic parsing.
+            is_html_page = raw.lstrip().lower().startswith((b"<!doctype html", b"<html"))
+            if is_html_page:
+                status,message="html","OpenDART document endpoint returned HTML instead of ZIP"
+            else:
+                status,message=describe_api_error(raw)
             last_error=f"OpenDART status {status or 'unknown'}: {message}"
-            # Status 800 / maintenance is transient. Authentication, receipt number
-            # and quota errors are recorded immediately instead of being mislabeled
-            # as corrupt ZIP data.
-            if status=="800" or re.search(r"시스템\s*점검|maintenance|temporarily unavailable",message,re.I):
+            # A service-wide maintenance/HTML block should trip the circuit breaker.
+            # Fall back to the public DART viewer immediately rather than retrying
+            # the same non-ZIP response for every receipt.
+            if status.lower()=="html" or status=="800" or re.search(r"시스템\s*점검|maintenance|temporarily unavailable",message,re.I):
                 OPENDART_MAINTENANCE_SEEN = True
                 break
             break
         except Exception as exc:
             last_error=f"OpenDART response parse failed: {type(exc).__name__}: {exc}"
             break
-    if re.search(r"status\s*800|시스템\s*점검|maintenance|temporarily unavailable|timed?\s*out|urlerror|connection reset", last_error, re.I):
+    if re.search(r"status\s*800|returned HTML|HTML instead of ZIP|Expected ZIP but received|시스템\s*점검|maintenance|temporarily unavailable|timed?\s*out|urlerror|connection reset", last_error, re.I):
         viewer_diag = {}
         viewer_text = fetch_dart_viewer_text(receipt_no, viewer_diag)
         if viewer_text:
