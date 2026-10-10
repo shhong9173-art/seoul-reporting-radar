@@ -460,8 +460,8 @@ def fetch_source(group, domain, terms, max_items=25):
             diag["bingQueries"]+=1
             try:
                 raw=get(url)
-                diag["bingResultBlocks"]+=len(re.findall(rb'<li class="b_algo"',raw,re.I))
-                parsed=parse_bing_html(raw,domain,group,now)
+                diag["bingResultBlocks"]+=len(re.findall(rb"<li\b(?=[^>]*class=[\"'][^\"']*\bb_algo\b[^\"']*[\"'])[^>]*>",raw,re.I))
+                parsed=parse_bing_html(raw,domain,group,now,diag)
                 diag["bingAccepted"]+=len(parsed)
                 for h in parsed: add(h)
             except Exception as e:
@@ -484,7 +484,7 @@ def fetch_direct_kepco_enc(max_items=20):
         r"플랜트|전력망|풍력|태양광|ESS|배터리|자동차|타이어|철강|강관|수소|암모니아|압축기|"
         r"제어시스템|계측제어|전기설비|주기기|보조기기|정비|계속운전", re.I
     )
-    diag={"listFetched":False,"rowsScanned":0,"materialTitles":0,"detailPagesFetched":0,"datedRows":0,"recentRows":0,"retained":0,"errors":[],"sampleRows":[]}
+    diag={"listFetched":False,"rowsScanned":0,"materialTitles":0,"detailPagesFetched":0,"datedRows":0,"recentRows":0,"undatedMaterialRows":0,"retained":0,"errors":[],"sampleRows":[]}
     DIRECT_DIAGNOSTICS["kepco-enc"] = diag
     try:
         raw = get(list_url, timeout=25).decode("utf-8", "ignore")
@@ -514,20 +514,20 @@ def fetch_direct_kepco_enc(max_items=20):
             if not raw_href or raw_href=="#" or raw_href.lower().startswith("javascript:"):
                 continue
             detail_hrefs.append(urllib.parse.urljoin(base,raw_href))
-        if not title_candidates or not detail_hrefs:
+        if not title_candidates:
             if len(diag["sampleRows"])<8:
-                diag["sampleRows"].append({"row":clean(row)[:350],"cells":cell_texts[:5],"links":[{"href":html.unescape(h),"title":clean(t)} for h,t in link_matches[:4]]})
+                diag["sampleRows"].append({"reason":"no-material-title","row":clean(row)[:350],"cells":cell_texts[:5],"links":[{"href":html.unescape(h),"title":clean(t)} for h,t in link_matches[:4]]})
             continue
         title=max(title_candidates,key=len)
-        href=detail_hrefs[0]
-        if not title or href in seen:
+        diag["materialTitles"]+=1
+        href=detail_hrefs[0] if detail_hrefs else list_url
+        row_text=clean(row)
+        if href in seen:
             continue
         seen.add(href)
-        diag["materialTitles"]+=1
-        row_text = clean(row)
         date_match = re.search(r"20\d{2}\s*(?:[-./년])\s*\d{1,2}\s*(?:[-./월])\s*\d{1,2}\s*(?:일)?(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?", row_text)
         detail_text = ""
-        if not date_match:
+        if not date_match and detail_hrefs:
             try:
                 diag["detailPagesFetched"]+=1
                 detail_text = clean(get(href, timeout=8).decode("utf-8", "ignore"))[:16000]
@@ -537,6 +537,9 @@ def fetch_direct_kepco_enc(max_items=20):
                 detail_text = ""
             date_match = re.search(r"20\d{2}\s*(?:[-./년])\s*\d{1,2}\s*(?:[-./월])\s*\d{1,2}\s*(?:일)?(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?", detail_text)
         if not date_match:
+            diag["undatedMaterialRows"]+=1
+            if len(diag["sampleRows"])<8:
+                diag["sampleRows"].append({"reason":"material-title-but-no-publication-date","title":title[:220],"row":row_text[:350],"links":len(detail_hrefs)})
             continue
         diag["datedRows"]+=1
         dt = parse_dt(date_match.group(0))
