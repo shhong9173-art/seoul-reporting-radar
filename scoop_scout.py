@@ -410,15 +410,20 @@ def fetch_dart_document(receipt):
 
 def dart_fact(d,numeric_rows,force_document=False):
     nr=next((r for r in numeric_rows if r.get("receiptNo")==d.get("receiptNo")),None)
-    context="";nums=[]
+    context="";nums=[];viewer_text=""
     if nr:
         nums=list(dict.fromkeys(nr.get("numbers") or []))
         context=" ".join(sn.get("context","") for sn in nr.get("snippets",[])[:2])
-        # Reuse snippets for ordinary filings. Material single-sale/supply contracts
-        # are the exception: customer, tonnage, duration and destination often live
-        # in the original filing body rather than the numeric extractor's snippets.
-        if (context or nums or nr.get("error")) and not force_document:
-            return context.strip(),nums
+        viewer_text=str(nr.get("viewerText") or "").strip()
+        # Reuse structured snippets where possible. During OpenDART maintenance,
+        # the numeric extractor may have recovered the body from the public HTML viewer.
+        if not force_document and (context or nums or nr.get("error")):
+            return (context+" "+viewer_text).strip(),nums
+        # Material supply contracts need the complete body for counterparty and
+        # contract-name extraction; prefer the recovered public viewer over retrying
+        # the unavailable OpenDART API a second time.
+        if force_document and viewer_text:
+            return (context+" "+viewer_text).strip(),nums
     document=fetch_dart_document(d.get("receiptNo"))
     return (context+" "+document).strip(),nums
 
