@@ -66,9 +66,15 @@ COMPANYLESS_POLICY_ACTION = re.compile(
 )
 
 def get(url, timeout=8):
+    # Use a normal browser HTML preference for web-search pages while keeping
+    # XML endpoints usable through content negotiation.
     req = urllib.request.Request(
         url,
-        headers={"User-Agent": "Mozilla/5.0 NewsroomPreScoop/1.0", "Accept": "application/rss+xml,application/xml,text/xml,*/*"},
+        headers={
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
+        },
     )
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return r.read()
@@ -455,6 +461,7 @@ def fetch_source(group, domain, terms, max_items=25):
         "rssRejectInvalid":0,"rssRejectOutsideWindow":0,"rssRejectNoCompany":0,"rssRejectNoSignalTerm":0,"rssRejectSamples":[],
         "bingQueries":0,"bingResultBlocks":0,"bingParsedBlocks":0,"bingAccepted":0,
         "bingRejectMalformed":0,"bingRejectUndated":0,"bingRejectOffDomain":0,"bingRejectOutsideWindow":0,"bingRejectNoCompany":0,"bingRejectNoSignalTerm":0,"bingRejectSamples":[],
+        "bingQueryDiagnostics":[],
         "errors":[]
     })
     # Spread company coverage across half-hour slots instead of making up to
@@ -512,7 +519,28 @@ def fetch_source(group, domain, terms, max_items=25):
             diag["bingQueries"]+=1
             try:
                 raw=get(url)
-                diag["bingResultBlocks"]+=len(re.findall(rb"<li\b(?=[^>]*class=[\"'][^\"']*\bb_algo\b[^\"']*[\"'])[^>]*>",raw,re.I))
+                result_blocks=list(re.finditer(rb"<li\b(?=[^>]*class=[\"'][^\"']*\bb_algo\b[^\"']*[\"'])[^>]*>.*?</li>",raw,re.I|re.S))
+                diag["bingResultBlocks"]+=len(result_blocks)
+                if len(diag.setdefault("bingQueryDiagnostics",[]))<3:
+                    raw_text=raw.decode("utf-8","ignore")
+                    title_match=re.search(r"<title[^>]*>(.*?)</title>",raw_text,re.I|re.S)
+                    result_hosts=[]
+                    for block_match in result_blocks[:10]:
+                        block=block_match.group(0).decode("utf-8","ignore")
+                        link_match=re.search(r'<h2\b[^>]*>\s*<a\b[^>]*href=["\']([^"\']+)["\']',block,re.I|re.S)
+                        if not link_match:
+                            continue
+                        host=urllib.parse.urlparse(html.unescape(link_match.group(1))).netloc.lower().split(":")[0]
+                        if host and host not in result_hosts:
+                            result_hosts.append(host)
+                    diag["bingQueryDiagnostics"].append({
+                        "query":q[:260],
+                        "responseTitle":clean(title_match.group(1) if title_match else "")[:160],
+                        "responseBytes":len(raw),
+                        "resultBlockCount":len(result_blocks),
+                        "resultHosts":result_hosts[:8],
+                        "requestedDomainPresent":any(official_host_matches("https://"+host+"/",domain) for host in result_hosts),
+                    })
                 parsed=parse_bing_html(raw,domain,group,now,diag)
                 diag["bingAccepted"]+=len(parsed)
                 for h in parsed: add(h)
