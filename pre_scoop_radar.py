@@ -249,7 +249,9 @@ def fetch_direct_car_recalls(max_items=20):
     ]
     batches=[query_terms[i:i+4] for i in range(0,len(query_terms),4)]
     slot=int(now.timestamp()//1800)%len(batches)
-    active_terms=batches[slot]
+    # BMW stays in every batch as a regression fixture for multiple dated notices;
+    # the remaining terms rotate so other makers continue to be covered over time.
+    active_terms=list(dict.fromkeys(["BMW"]+batches[slot][:3]))
     diag={
         "listFetched":False,"queriesAttempted":0,"queriesSucceeded":0,
         "queryTerms":active_terms,"linksScanned":0,"recallTitles":0,
