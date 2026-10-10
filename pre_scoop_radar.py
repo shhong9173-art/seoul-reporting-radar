@@ -363,11 +363,11 @@ def fetch_direct_ntis_announcements(max_items=12):
         query_url=base+"/ThSearchResultAnnouncementList.do?"+urllib.parse.urlencode({
             "searchSentence":"",
             "searchWord":term,
-            "sort":"RANK/DESC,SS01/DESC"
+            "sort":"SS01/DESC"
         })
         diag["queriesAttempted"]+=1
         try:
-            listing=get(query_url,timeout=18).decode("utf-8","ignore")
+            listing=get(query_url,timeout=10).decode("utf-8","ignore")
             diag["searchPagesFetched"]+=1
             if len(diag["sampleAnchors"])<8:
                 diag["sampleAnchors"].append({
@@ -397,11 +397,11 @@ def fetch_direct_ntis_announcements(max_items=12):
                 continue
             seen.add(url)
             diag["announcementLinks"]+=1
-            if len(out)>=max_items or diag["detailPagesAttempted"]>=12:
+            if len(out)>=max_items or diag["detailPagesAttempted"]>=8:
                 break
             diag["detailPagesAttempted"]+=1
             try:
-                detail_raw=get(url,timeout=12)
+                detail_raw=get(url,timeout=8)
                 detail=clean(detail_raw.decode("utf-8","ignore"))
                 diag["detailPagesFetched"]+=1
             except Exception as exc:
