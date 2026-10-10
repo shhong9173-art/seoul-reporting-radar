@@ -594,6 +594,7 @@ def group_is_procurement(x):
 def build_lead_signals(primary, data, now, limit=12):
     """Surface only company-specific material changes after a recent-news cross-check."""
     signal_patterns = [
+        ("결함·안전", ("리콜","제작결함","결함조사","안전기준","배터리 화재")),
         ("노사·생산", ("잠정합의","임단협","단체교섭","파업","쟁의","생산계획","생산조정","생산라인","감산","조업중단","생산중단")),
         ("공급망", ("공급중단","공급차질","공급사 변경","대체투입","납기","재고","생산차질","원료수급")),
         ("사업재편", ("매각 협상","우선협상","인수","매각","분할","합병","철수","거래종결","신설법인","지분취득")),
@@ -619,8 +620,42 @@ def build_lead_signals(primary, data, now, limit=12):
     diag={k:0 for k in ("input","invalid","noise","outside_window","no_hard_change","no_signal_pattern","no_company","untrusted_source","duplicate","rows","coverage_checked","prior_coverage","diversity_skip","surfaced")}
     diag["sample_no_hard_change"]=[]
     diag["sample_no_signal_pattern"]=[]
+    # Convert multiple public recall notices for one tracked company into one
+    # verification lead. Individual public notices are never labelled as scoops.
+    recall_groups={}
+    for item in primary:
+        if item.get("signalType")!="official_recall_notice":
+            continue
+        dt=parse_dt(item.get("published"))
+        if dt.year<2000 or dt<now-timedelta(days=30) or dt>now+timedelta(hours=6):
+            continue
+        for company in (item.get("companies") or target_hits(item.get("title",""))):
+            recall_groups.setdefault(company,[]).append(item)
+    recall_clusters=[]
+    for company,records in recall_groups.items():
+        unique={}
+        for rec in sorted(records,key=lambda r:parse_dt(r.get("published"))):
+            unique[(rec.get("title") or "").strip()]=rec
+        records=list(unique.values())
+        if len(records)<2:
+            continue
+        dates=[parse_dt(r.get("published")) for r in records]
+        defects="; ".join(f"{parse_dt(r.get('published')).strftime('%m/%d')} {r.get('title','')}" for r in records)
+        newest=max(dates)
+        recall_clusters.append({
+            "title":f"{company}, 최근 30일간 리콜 공지 {len(records)}건…대상 차종·결함 부위는",
+            "url":records[-1].get("url") or "https://car.go.kr/ri/stat/list.do",
+            "published":newest.isoformat(),
+            "sourceName":"자동차리콜센터(국토교통부·자동차안전연구원)",
+            "officialLabel":"자동차리콜센터","querySite":"car.go.kr",
+            "sourceGroup":"자동차·결함","official":True,"preScoop":True,"directSource":True,
+            "companies":[company],"signalType":"recall_cluster",
+            "summary":"공식 리콜현황 목록에서 확인한 최근 공지: "+defects,
+            "recallItems":[{"title":r.get("title"),"published":r.get("published"),"url":r.get("url")} for r in records]
+        })
+    lead_input=[x for x in primary if x.get("signalType")!="official_recall_notice"]+recall_clusters
     rows=[]; seen=set()
-    for x in primary:
+    for x in lead_input:
         diag["input"]+=1
         title=str(x.get("title") or "").strip()
         url=str(x.get("url") or "").strip()
@@ -633,7 +668,10 @@ def build_lead_signals(primary, data, now, limit=12):
         # Company newsroom releases announce public facts; they are not pre-publication
         # signals. Keep them out of the lead queue and use them only as source material.
         source_name=str(x.get("sourceName") or "")
-        if re.search(r"뉴스룸|보도자료|press release|newsroom",source_name,re.I):
+        group_hint=source_group(x)
+        public_company_source=(group_hint=="기업" and bool(x.get("official")))
+        public_release_url=bool(re.search(r"newsroom\\.|/newsroom/|/pr/|/press/|/press-release",url,re.I))
+        if re.search(r"뉴스룸|보도자료|press release|newsroom",source_name,re.I) or public_company_source or public_release_url:
             diag["noise"]+=1; continue
         if noise_re.search(title):
             diag["noise"]+=1; continue
@@ -911,7 +949,9 @@ def main():
             drop_stats["routine_public_notice"]+=1
             continue
         # Company newsroom announcements are public releases, not unpublished scoops.
-        if re.search(r"뉴스룸|press release|newsroom",str(x.get("sourceName") or ""),re.I) and source_group(x)=="기업":
+        public_company_release=(source_group(x)=="기업" and bool(x.get("official")))
+        public_release_url=bool(re.search(r"newsroom\\.|/newsroom/|/pr/|/press/|/press-release",str(x.get("url") or ""),re.I))
+        if public_company_release or public_release_url or (re.search(r"뉴스룸|press release|newsroom",str(x.get("sourceName") or ""),re.I) and source_group(x)=="기업"):
             drop_stats.setdefault("public_company_release",0)
             drop_stats["public_company_release"]+=1
             continue
