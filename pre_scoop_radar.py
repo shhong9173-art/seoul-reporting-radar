@@ -540,9 +540,21 @@ def fetch_source(group, domain, terms, max_items=25):
             record_error("Google RSS signal query",e)
 
     # 3) General web search fallback.
+    # A long OR over company names is too ambiguous for Bing (e.g. "OCI"
+    # returns unrelated OCI Services pages) and can cause it to ignore site:.
+    # Search the official domain by event terms first; use one rotating,
+    # quoted company batch as a second query. Strict destination-host checks
+    # below remain mandatory in both cases.
     if len(out)<max_items:
-        for companies in company_batches:
-            q=f"site:{domain} ({' OR '.join(companies)}) ({terms})"
+        target_companies=[
+            c for c in company_batches[0]
+            if not re.fullmatch(r"[A-Z]{2,3}",str(c).strip())
+        ]
+        bing_queries=[f"site:{domain} ({terms})"]
+        if target_companies:
+            quoted_companies=" OR ".join('"'+c.replace('"','')+'"' for c in target_companies[:6])
+            bing_queries.append(f"site:{domain} ({quoted_companies}) ({terms})")
+        for q in bing_queries[:2]:
             url="https://www.bing.com/search?q="+urllib.parse.quote(q)+"&setlang=ko-KR"
             diag["bingQueries"]+=1
             try:
