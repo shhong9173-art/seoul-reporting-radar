@@ -439,7 +439,11 @@ def won_amount(blob):
 
 def won_amount_value(blob):
     """Return an explicitly stated amount in won as an integer, or None."""
-    m=re.search(r"(?:계약금액|투자금액|취득금액|출자금액)\s*\(?원\)?\s+([0-9,]+)",blob)
+    m=re.search(
+        r"(?:계약금액|투자금액|취득금액|출자금액|처분예정금액|처분금액)"
+        r"\s*\(?원\)?\s+(?:(?:보통주식|기타주식)\s+)?([0-9,]+)",
+        blob,
+    )
     if not m:
         return None
     try:
