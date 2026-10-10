@@ -237,7 +237,7 @@ def fetch_direct_nlrc(max_items=12):
     return out
 
 def fetch_direct_car_recalls(max_items=20):
-    """Search official recall listings by rotating tracked maker/model query terms."""
+    """Search official recall listings by rotating tracked maker/model terms, parsing each list row's own date."""
     base="https://car.go.kr"
     list_path="/ri/stat/list.do"
     now=datetime.now(KST)
@@ -258,7 +258,8 @@ def fetch_direct_car_recalls(max_items=20):
     }
     DIRECT_DIAGNOSTICS["car-recalls"]=diag
     out=[];seen=set()
-    link_re=re.compile(r'<a[^>]+href=["\']([^"\']*)["\'][^>]*>(.*?)</a>',re.I|re.S)
+    anchor_re=re.compile(r'<a[^>]+href=["\']([^"\']*)["\'][^>]*>(.*?)</a>',re.I|re.S)
+    date_re=re.compile(r"20\d{2}\s*[-./]\s*\d{1,2}\s*[-./]\s*\d{1,2}")
     for term in active_terms:
         list_url=base+list_path+"?"+urllib.parse.urlencode({
             "ctype":"O","currentPageNo":"1","searchProductName":term
@@ -272,11 +273,10 @@ def fetch_direct_car_recalls(max_items=20):
             if len(diag["errors"])<4:
                 diag["errors"].append(f"{term}: {type(e).__name__}: {e}")
             continue
-        for m in link_re.finditer(raw):
+        for m in anchor_re.finditer(raw):
             href_raw=html.unescape(m.group(1).strip())
             title=clean(m.group(2))
             diag["linksScanned"]+=1
-            # Keep actual case-level recall rows, not navigation/menu links.
             if not title or not re.search(r"(?:관련\s*리콜|제작결함|결함조사|중대리콜)",title,re.I):
                 continue
             if re.fullmatch(r"(?:자동차)?리콜(?:정보|현황|제도|센터|알리미)?|결함신고|무상점검\s*[·ㆍ]?\s*수리",title,re.I):
@@ -285,17 +285,25 @@ def fetch_direct_car_recalls(max_items=20):
             key=re.sub(r"[^가-힣A-Za-z0-9]","",title).lower()
             if key in seen:
                 continue
-            left=max(0,m.start()-700);right=min(len(raw),m.end()+1600)
-            context=raw[left:right]
-            date_hits=list(re.finditer(r"20\d{2}\s*[-./]\s*\d{1,2}\s*[-./]\s*\d{1,2}",context))
+
+            # Dates must come from the containing result row, not a wide context
+            # window that can accidentally pick the previous/next recall's date.
+            row_start=-1;row_end=-1
+            for tag in ("li","tr"):
+                a=raw.rfind("<"+tag,0,m.start())
+                e=raw.find("</"+tag+">",m.end())
+                if a>=0 and e>=m.end() and e-a<5000:
+                    if row_start<0 or a>row_start:
+                        row_start=a;row_end=e+len("</"+tag+">")
+            row_html=raw[row_start:row_end] if row_start>=0 and row_end>row_start else raw[max(0,m.start()-350):min(len(raw),m.end()+350)]
+            row_text=clean(row_html)
+            date_hits=list(date_re.finditer(row_text))
             if not date_hits:
                 if len(diag["sampleEntries"])<8:
-                    diag["sampleEntries"].append({"title":title,"query":term,"reason":"no-date"})
+                    diag["sampleEntries"].append({"title":title,"query":term,"reason":"no-row-date","rowSample":row_text[:240]})
                 continue
-            center=m.start()-left
-            chosen=min(date_hits,key=lambda x:abs(x.start()-center))
             try:
-                normalized_date=re.sub(r"\s*[-./]\s*","-",chosen.group(0)).strip()
+                normalized_date=re.sub(r"\s*[-./]\s*","-",date_hits[-1].group(0)).strip()
                 dt=datetime.strptime(normalized_date,"%Y-%m-%d").replace(tzinfo=KST)
             except ValueError:
                 continue
@@ -316,14 +324,13 @@ def fetch_direct_car_recalls(max_items=20):
                 "sourceName":"자동차리콜센터(국토교통부·자동차안전연구원)",
                 "officialLabel":"자동차리콜센터","querySite":"car.go.kr",
                 "sourceGroup":"자동차·결함","title":title,"url":list_url,
-                "published":dt.isoformat(),"summary":clean(context)[:2500],
+                "published":dt.isoformat(),"summary":row_text[:2000],
                 "official":True,"preScoop":True,"directSource":True,
                 "companies":companies,"signalType":"official_recall_notice",
                 "sourceQuery":term
             })
             if len(out)>=max_items:
-                diag["retained"]=len(out)
-                return out
+                break
     diag["retained"]=len(out)
     print(f"direct vehicle recall scout: diagnostics={diag}")
     return out
