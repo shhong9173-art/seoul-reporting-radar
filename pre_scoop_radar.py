@@ -48,7 +48,20 @@ SOURCE_SPECS = [
 SIGNAL_TERMS = re.compile(
     r"공장|증설|신설|생산|가동|생산라인|생산계획|공급중단|공급사|대체투입|재고|납기|인허가|허가|환경영향|변경허가| "
     r"소송|판결|가처분|특허|상표|리콜|결함|조사|행정처분|특별감독|부당노동|교섭|쟁의|파업|구조조정| "
-    r"입찰|발주|규격|사전공고|구매|계약|과제|실증|시제품|사업화|연구개발",
+    r"입찰|발주|규격|사전공고|구매|계약|과제|실증|시제품|사업화|연구개발|법안|개정안|입법예고|행정예고|고시|"
+    r"시행령|시행규칙|본회의 통과|반덤핑|상계관세|관세|탄소배출|배출권|수소발전|전력시장|안전기준|조사개시|판정",
+    re.I,
+)
+COMPANYLESS_POLICY_GROUPS = {"고용노동","환경·인허가","법원·분쟁","중앙노동위","공기업·조달"}
+COMPANYLESS_POLICY_CONTEXT = re.compile(
+    r"자동차|전기차|배터리|타이어|철강|강관|변압기|전력망|전력시장|케이블|풍력|태양광|재생에너지|ess|"
+    r"수소|수소발전|원전|원자력|smr|산업안전|산업재해|중대재해|탄소|배출권|관세|반덤핑|상계관세|"
+    r"환경영향|배출시설|산업단지|공장|공급망|수출|수입|발전|입찰시장",
+    re.I,
+)
+COMPANYLESS_POLICY_ACTION = re.compile(
+    r"법안|개정안|입법예고|행정예고|고시|시행령|시행규칙|본회의 통과|조사개시|판정|시정명령|"
+    r"행정처분|반덤핑|상계관세|관세|입찰|발주|사업계획승인|변경허가|환경영향평가|안전기준|확정",
     re.I,
 )
 
@@ -152,7 +165,14 @@ def target_hits(text):
     }
     out=[]
     for k,vals in aliases.items():
-        matched=[v for v in vals if v in t]
+        matched=[]
+        for v in vals:
+            a=v.lower()
+            if re.fullmatch(r"[a-z0-9 &.-]{2,}",a):
+                found=bool(re.search(r"(?<![a-z0-9])"+re.escape(a)+r"(?![a-z0-9])",t))
+            else:
+                found=a in t
+            if found:matched.append(a)
         if matched: out.append((max(len(v) for v in matched),k))
     # Resolve overlapping names to the most specific tracked issuer first.
     return [k for _,k in sorted(out,reverse=True)]
@@ -182,7 +202,13 @@ def parse_feed(root, domain, group, now, diag=None):
             continue
         body=title+" "+desc
         companies=target_hits(body)
-        if not companies:
+        policy_signal=bool(
+            not companies
+            and group in COMPANYLESS_POLICY_GROUPS
+            and COMPANYLESS_POLICY_CONTEXT.search(body)
+            and COMPANYLESS_POLICY_ACTION.search(body)
+        )
+        if not companies and not policy_signal:
             reject("NoCompany",title)
             continue
         if not SIGNAL_TERMS.search(body):
@@ -192,8 +218,20 @@ def parse_feed(root, domain, group, now, diag=None):
             "sourceName":source_name,"officialLabel":domain,"querySite":domain,
             "sourceGroup":group,"title":title,"url":link,"published":dt.isoformat(),
             "summary":desc[:3500],"official":True,"preScoop":True,"companies":companies,
+            "policySignal":policy_signal,
         })
     return out
+
+def official_host_matches(url, domain):
+    host=urllib.parse.urlparse(url or "").netloc.lower().split(":")[0]
+    requested=domain.lower()
+    if host==requested or host.endswith("."+requested):
+        return True
+    # The court search subdomain redirects/indexes pages on the parent court domain.
+    if requested=="g.scourt.go.kr" and (host=="scourt.go.kr" or host.endswith(".scourt.go.kr")):
+        return True
+    return False
+
 
 def parse_bing_html(raw, domain, group, now, diag=None):
     text_raw=raw.decode("utf-8","ignore")
@@ -219,7 +257,21 @@ def parse_bing_html(raw, domain, group, now, diag=None):
         title=clean(lm.group(2))
         sm=re.search(r'<p\b[^>]*>(.*?)</p>',block,re.S|re.I)
         desc=clean(sm.group(1) if sm else "")
-        date_match=date_re.search(clean(block))
+        if not official_host_matches(link,domain):
+            reject("OffDomain",title)
+            continue
+        # Only dates emitted in a structured date attribute or explicit date
+        # metadata are publication dates. Dates embedded in tender titles/snippets
+        # may be deadlines, not publication timestamps.
+        date_value=""
+        meta_date=re.search(r'\bdatetime=["\']([^"\']+)["\']',block,re.I)
+        if meta_date:
+            date_value=meta_date.group(1).strip()
+        if not date_value:
+            meta_date=re.search(r'<(?:span|div)\b[^>]*(?:class=["\'][^"\']*(?:news_dt|b_date|publication-date|published-date)[^"\']*["\']|itemprop=["\']datePublished["\'])[^>]*>(.*?)</(?:span|div)>',block,re.I|re.S)
+            if meta_date:
+                date_value=clean(meta_date.group(1))
+        date_match=date_re.search(date_value)
         # Search-index retrieval time is not the publication date. Undated results
         # are logged but cannot become fresh leads by borrowing the current time.
         if not date_match:
@@ -402,7 +454,7 @@ def fetch_source(group, domain, terms, max_items=25):
         "group":group,"rssQueries":0,"rssRawItems":0,"rssAccepted":0,
         "rssRejectInvalid":0,"rssRejectOutsideWindow":0,"rssRejectNoCompany":0,"rssRejectNoSignalTerm":0,"rssRejectSamples":[],
         "bingQueries":0,"bingResultBlocks":0,"bingParsedBlocks":0,"bingAccepted":0,
-        "bingRejectMalformed":0,"bingRejectUndated":0,"bingRejectOutsideWindow":0,"bingRejectNoCompany":0,"bingRejectNoSignalTerm":0,"bingRejectSamples":[],
+        "bingRejectMalformed":0,"bingRejectUndated":0,"bingRejectOffDomain":0,"bingRejectOutsideWindow":0,"bingRejectNoCompany":0,"bingRejectNoSignalTerm":0,"bingRejectSamples":[],
         "errors":[]
     })
     # Spread company coverage across half-hour slots instead of making up to
