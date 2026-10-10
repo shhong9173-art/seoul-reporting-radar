@@ -40,6 +40,7 @@ TARGETS=[
  ("LS전선","전선·전력"),("LS M&M","전선·전력"),("LS지주","전선·전력"),
  # 에너지
  ("두산에너빌리티","에너지"),("GS","에너지"),("GS칼텍스","에너지"),
+ ("한국전력공사","전력·에너지"),("한국수력원자력","에너지"),("한국전력기술","에너지"),("전력거래소","전력시장"),
  # 풍력·재생에너지
  ("한화솔루션","재생에너지"),("OCI","재생에너지"),("OCI홀딩스","재생에너지"),("씨에스윈드","재생에너지"),
  # 화학·소재
@@ -79,6 +80,10 @@ ALIASES={
  "한국철강협회":("한국철강협회","Korea Iron & Steel Association"),"한국풍력산업협회":("한국풍력산업협회","Korea Wind Energy Association"),
  "민간LNG산업협회":("민간LNG산업협회","Korea Private LNG Industry Association"),"대한전기협회":("대한전기협회","Korea Electric Association"),
  "한국전기산업진흥회":("한국전기산업진흥회","Korea Electrical Manufacturers Association"),"한국원자력산업협회":("한국원자력산업협회","Korea Nuclear Association"),
+ "한국전력공사":("한국전력공사","KEPCO","Korea Electric Power Corporation"),
+ "한국수력원자력":("한국수력원자력","한수원","KHNP","Korea Hydro & Nuclear Power"),
+ "한국전력기술":("한국전력기술","한전기술","KEPCO E&C","KEPCO Engineering & Construction"),
+ "전력거래소":("전력거래소","KPX","Korea Power Exchange"),
 }
 OFFICIAL_DOMAINS={
  "motie.go.kr":"산업부","molit.go.kr":"국토부","ftc.go.kr":"공정위","kostat.go.kr":"통계청","korea.kr":"정부","moef.go.kr":"기재부",
