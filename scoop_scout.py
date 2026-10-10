@@ -1135,7 +1135,7 @@ def main():
             # after the prior-coverage gate. Routine equity disposals/contracts do not qualify.
             material_primary=(tier>=3 and bool(companies) and kind in material_kinds
                 and source_group_now in authoritative_groups
-                and bool(re.search(r"물적분할|인적분할|회사분할|영업정지|생산중단|조업정지|가동중단|신규시설투자|증설|사업부문|영업양수도|합병|매각|인수|철수|대표이사.{0,12}(?:선임|취임)|특허(?:출원|등록|심판)|환경영향평가|사업계획승인|행정처분|반덤핑|상계관세|형식승인|제작결함",source_text,re.I))
+                and bool(re.search(r"물적분할|인적분할|회사분할|영업정지|생산중단|조업정지|가동중단|신규시설투자|증설|사업부문|영업양수도|합병|매각|인수|철수|대표이사.{0,12}(?:선임|취임)|특허(?:출원|등록|심판)|환경영향평가|사업계획승인|행정처분|반덤핑|상계관세|형식승인|제작결함",source_text,re.I)))
             if material_primary:
                 score=66
                 score_floor_applied=True
