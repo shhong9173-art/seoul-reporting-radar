@@ -78,6 +78,16 @@ def fetch_dart_viewer_text(receipt_no: str, diagnostics: dict | None = None) -> 
         main_raw = fetch_bytes(main_url, timeout=12)
         main_html = main_raw.decode("utf-8", "ignore")
         diag["mainPageBytes"] = len(main_raw)
+        lowered = main_html.lower()
+        markers = ("viewdoc", "dcmno", "viewer.do", "report/viewer", "iframe", "rcpno", "document_no", "docno")
+        diag["mainMarkers"] = {marker: marker in lowered for marker in markers}
+        excerpts = []
+        for marker in ("viewdoc", "viewer.do", "iframe", "dcmno", "document_no"):
+            at = lowered.find(marker)
+            if at >= 0:
+                excerpt = re.sub(r"\\s+", " ", main_html[max(0, at - 220):min(len(main_html), at + 420)]).strip()
+                excerpts.append({"marker": marker, "excerpt": excerpt[:520]})
+        diag["mainPageExcerpts"] = excerpts[:5]
     except Exception as exc:
         diag["mainPageError"] = f"{type(exc).__name__}: {exc}"[:240]
         return ""
