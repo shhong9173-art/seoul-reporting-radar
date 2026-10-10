@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import html
+import os
 import json
 import re
 import urllib.parse
@@ -16,6 +17,9 @@ OUT = Path("pre_scoop.json")
 LOOKBACK_DAYS = 21
 SOURCE_DIAGNOSTICS = {}
 DIRECT_DIAGNOSTICS = {}
+# Bing's fallback repeatedly returned off-domain results across official sources.
+# It is opt-in until source-level result quality is independently revalidated.
+ENABLE_BING_FALLBACK = os.environ.get("ENABLE_BING_FALLBACK", "").strip() == "1"
 
 TARGET_COMPANIES = [
     "현대차","기아","제네시스","현대모비스","현대위아","HL만도","한국GM","KG모빌리티",
@@ -545,7 +549,7 @@ def fetch_source(group, domain, terms, max_items=25):
     # Search the official domain by event terms first; use one rotating,
     # quoted company batch as a second query. Strict destination-host checks
     # below remain mandatory in both cases.
-    if len(out)<max_items:
+    if len(out)<max_items and ENABLE_BING_FALLBACK:
         target_companies=[
             c for c in company_batches[0]
             if not re.fullmatch(r"[A-Z]{2,3}",str(c).strip())
@@ -588,6 +592,12 @@ def fetch_source(group, domain, terms, max_items=25):
             except Exception as e:
                 record_error("Bing fallback",e)
             if len(out)>=max_items: break
+
+    if not ENABLE_BING_FALLBACK:
+        diag["bingFallbackDisabled"] = True
+        diag["bingFallbackNote"] = "Disabled by default after repeated off-domain-only results; Google RSS and direct official collectors remain active."
+    else:
+        diag["bingFallbackDisabled"] = False
 
     diag["uniqueRetained"]=len(out)
     return out[:max_items]
