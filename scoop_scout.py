@@ -935,6 +935,30 @@ def build_public_signals(primary, dart_rows, now, limit=10, numeric_rows=None):
             break
     return final
 
+def record_drop_example(store, stage, item, reason, limit=4):
+    """Keep a small, auditable sample for each suppression gate."""
+    bucket=store.setdefault(stage, [])
+    if len(bucket)>=limit or not isinstance(item,dict):
+        return
+    title=str(item.get("title") or "").strip()
+    if not title:
+        title=" ".join(str(item.get(k) or "") for k in ("corpName","reportName")).strip()
+    summary=str(item.get("summary") or item.get("signalText") or "")
+    companies=item.get("companies") or target_hits(title+" "+summary)
+    bucket.append({
+        "reason":str(reason)[:180],
+        "title":title[:240],
+        "source":str(item.get("sourceName") or item.get("officialLabel") or ("DART" if item.get("receiptNo") else ""))[:100],
+        "sourceGroup":source_group(item),
+        "published":str(item.get("published") or item.get("date") or "")[:60],
+        "url":str(item.get("url") or "")[:600],
+        "companies":list(companies)[:4] if isinstance(companies,(list,tuple)) else [],
+        "summary":summary[:360],
+        "receiptNo":str(item.get("receiptNo") or "")[:30],
+        "detailUnavailable":bool(item.get("detailUnavailable"))
+    })
+
+
 def main():
     data=json.loads(DATA.read_text(encoding="utf-8")) if DATA.exists() else []
     dart=json.loads(DART.read_text(encoding="utf-8")).get("items",[]) if DART.exists() else []
@@ -945,6 +969,7 @@ def main():
     primary=[]
     pattern_frequency={}
     dart_suppression={"correction":0,"outside_lookback_window":0,"contract_reports_seen":0,"contract_reports_routine":0,"contract_reports_details_unavailable":0,"contract_reports_eligible":0,"routine_equity_compensation":0}
+    dart_suppression_examples={}
     for row in data:
         if row.get("global"):continue
         title=str(row.get("title") or "")
@@ -967,17 +992,23 @@ def main():
         # must be compared with the original filing before they can support a scoop.
         if "기재정정" in report or "첨부정정" in report:
             dart_suppression["correction"]+=1
+            record_drop_example(dart_suppression_examples,"correction",d,"정정 공시는 원공시 대비 변경사항 비교 전까지 신규 사건으로 취급하지 않음")
             continue
         ddt=parse_dt(d.get("date",""))
         if ddt<now-timedelta(days=PRIMARY_LOOKBACK_DAYS):
             dart_suppression["outside_lookback_window"]+=1
+            record_drop_example(dart_suppression_examples,"outside_lookback_window",d,f"공시일이 {PRIMARY_LOOKBACK_DAYS}일 탐색창보다 오래됨")
             continue
         material=any(k in report for k in ("회사분할","영업정지","생산중단","신규시설투자","타법인주식및출자증권취득결정","유상증자","영업양수도","합병","대표이사","임원","이사선임","소송","주요사항보고","자기주식처분결정","자기주식취득","주식소각","금전대여","채무인수","전환사채","교환사채"))
         contract_report=("단일판매ㆍ공급계약체결" in report)
         if contract_report:dart_suppression["contract_reports_seen"]+=1
         if ("기재정정" in report or "첨부정정" in report) and not material:continue
-        if not HARD_SIGNAL_RE.search(report):continue
-        if not target_hits(corp_name):continue
+        if not HARD_SIGNAL_RE.search(report):
+            record_drop_example(dart_suppression_examples,"no_hard_signal",d,"공시 제목이 HARD_SIGNAL_RE에 해당하지 않음")
+            continue
+        if not target_hits(corp_name):
+            record_drop_example(dart_suppression_examples,"company_not_tracked",d,"공시 회사명이 추적 기업명/별칭과 매칭되지 않음")
+            continue
         blob,nums=dart_fact(d,numeric,force_document=contract_report)
         joined_dart=str(d.get("signalText",""))+" "+blob
         numeric_row=next((r for r in numeric if r.get("receiptNo")==d.get("receiptNo")),None)
@@ -993,6 +1024,7 @@ def main():
             material_amount=amount>=100_000_000_000 if amount else False
             if not (unusual_contract or contract_units or (material_amount and party_specific)):
                 if detail_unavailable:
+                    record_drop_example(dart_suppression_examples,"contract_body_unavailable",d,"본문 추출 장애로 신규 고객·물량·금액 여부를 판단할 수 없음")
                     # A temporary source failure is not evidence that a contract is routine.
                     # Keep it for an explicit diagnostic hold, but never promote it as a scoop.
                     dart_suppression["contract_reports_details_unavailable"]+=1
@@ -1004,6 +1036,7 @@ def main():
         # not industrial scoops. Keep material ownership/control changes for later verification.
         if re.search(r"자기주식|자사주",report) and re.search(r"임원.*상여|상여금|임직원.*보상",joined_dart) and won_amount(blob)<10_000_000_000:
             dart_suppression["routine_equity_compensation"]+=1
+            record_drop_example(dart_suppression_examples,"routine_equity_compensation",d,"소액 임직원 보상 목적의 자사주 처분으로 분류됨")
             continue
         primary.append({
             "category":"공시","title":dart_title(corp_name,report,blob,nums),
@@ -1020,7 +1053,7 @@ def main():
 
     lead_signals,lead_diagnostics=build_lead_signals(primary,data,now,limit=12)
     public_signals=build_public_signals(primary,dart,now,limit=10,numeric_rows=numeric)
-    candidates=[];seen=set();drop_stats={"noise":0,"stale_pre_scoop":0,"routine_regulatory":0,"relevance":0,"generic":0,"association_filter":0,"specificity":0,"prior_coverage":0,"procurement":0,"procurement_noise":0,"procurement_nonmaterial":0,"routine_contract":0,"contract_details_unavailable":0,"low_score":0,"low_score_rescued":0,"missing_core_facts":0,"untrusted_source":0,"company_required":0,"duplicate":0,"other":0,"accepted":0}
+    candidates=[];seen=set();drop_examples={};drop_stats={"noise":0,"stale_pre_scoop":0,"routine_regulatory":0,"relevance":0,"generic":0,"association_filter":0,"specificity":0,"prior_coverage":0,"procurement":0,"procurement_noise":0,"procurement_nonmaterial":0,"routine_contract":0,"contract_details_unavailable":0,"low_score":0,"low_score_rescued":0,"missing_core_facts":0,"untrusted_source":0,"company_required":0,"duplicate":0,"other":0,"accepted":0}
     for x in sorted(primary,key=lambda z:z.get("published",""),reverse=True):
         title=(x.get("title") or "").strip()
         joined=title+" "+x.get("summary","")
@@ -1028,6 +1061,7 @@ def main():
         if x.get("signalType")=="official_recall_notice":
             drop_stats.setdefault("routine_public_notice",0)
             drop_stats["routine_public_notice"]+=1
+            record_drop_example(drop_examples,"routine_public_notice",x,"공식 리콜 공지는 공개 원자료 영역으로 분리")
             continue
         # Company newsroom announcements are public releases, not unpublished scoops.
         public_company_release=(source_group(x)=="기업" and bool(x.get("official")))
@@ -1035,6 +1069,7 @@ def main():
         if public_company_release or public_release_url or (re.search(r"뉴스룸|press release|newsroom",str(x.get("sourceName") or ""),re.I) and source_group(x)=="기업"):
             drop_stats.setdefault("public_company_release",0)
             drop_stats["public_company_release"]+=1
+            record_drop_example(drop_examples,"public_company_release",x,"기업 뉴스룸/보도자료에 이미 공개된 내용")
             continue
         # Pre-scoop search intentionally looks 21 days back for raw signals, but only
         # the recent 10-day window is eligible to enter the actual scoop-candidate queue.
@@ -1043,15 +1078,19 @@ def main():
             source_dt=parse_dt(x.get("published"))
             if source_dt.year < 2000 or (now-source_dt).total_seconds() > PRIMARY_LOOKBACK_DAYS*86400:
                 drop_stats["stale_pre_scoop"]+=1
+                record_drop_example(drop_examples,"stale_pre_scoop",x,f"원자료 날짜가 {PRIMARY_LOOKBACK_DAYS}일 탐색창 밖")
                 continue
         # Completed inspection-result press releases are ordinary published news,
         # not an unpublished scoop lead. Keep "inspection begins" signals, but never
         # elevate a generic "results announced" headline into a scoop.
         if x.get("preScoop") and re.search(r"(?:산업안전|근로|특별)?\s*(?:안전)?(?:감독|점검|단속).{0,18}(?:결과|발표)", title):
             drop_stats["routine_regulatory"]+=1
+            record_drop_example(drop_examples,"routine_regulatory",x,"이미 발표된 감독·점검 결과 공지")
             continue
         if not title or NOISE_RE.search(title) or WEAK_RE.search(title):
-            drop_stats["noise"]+=1;continue
+            drop_stats["noise"]+=1
+            record_drop_example(drop_examples,"noise",x,"제목이 비어 있거나 노이즈/약한 제목 패턴과 일치")
+            continue
         companies=target_hits(joined)
         if x.get("corpName"):
             direct=target_hits(x.get("corpName"))
@@ -1062,26 +1101,35 @@ def main():
         numbers=list(dict.fromkeys((x.get("dartNumbers") or [])+NUM_RE.findall(joined)))[:8]
         kind=candidate_kind(title,x.get("category",""))
         if not relevant_primary(x,companies,kind,joined):
-            drop_stats["relevance"]+=1;continue
+            drop_stats["relevance"]+=1
+            record_drop_example(drop_examples,"relevance",x,f"산업 관련성 함수 불통과; kind={kind}; companies={companies[:3]}")
+            continue
 
         source_group_now=source_group(x)
         # Reject generic administrative pages and evergreen notices masquerading as new scoops.
         generic_doc=("상세보기" in title or "행정규칙" in title) and not companies
         evergreen=any(k in title for k in ("교육생 모집","세미나","포럼","행사","캠페인","신년인사회","채용","모집공고","참가신청"))
         if generic_doc or evergreen:
-            drop_stats["generic"]+=1;continue
+            drop_stats["generic"]+=1
+            record_drop_example(drop_examples,"generic",x,"일반 행정 페이지·행사·채용 등 상시 공지")
+            continue
         # A scoop needs a concrete reporting handle, not just an industry keyword.
         source_text=(title+" "+x.get("summary",""))
         if source_group_now=="협회" and not any(k in source_text for k in ("정책","제도","건의","조사","통계","수급","가격","통상","반덤핑","공동대응","회원사","입찰","낙찰","프로젝트","수주","공급망","인증","기술기준","표준","안전","수출","수입")):
             drop_stats["association_filter"]+=1
+            record_drop_example(drop_examples,"association_filter",x,"협회 자료 제목/본문에서 정책·시장·기술 변화 핸들을 찾지 못함")
             continue
         concrete_hooks=0
         concrete_hooks+=min(2,len(NUM_RE.findall(source_text)))
         concrete_hooks+=sum(1 for k in ("이사회","임원","대표이사","선임","퇴임","생산계획","생산라인","공급사","대체투입","매각","인수","분할","합병","공장","증설","인증","형식승인","리콜","결함","환경영향","인허가","특허","상표","디자인","수주","입찰","낙찰","관세","반덤핑","소송","판결","심판","자금조달","유상증자","채권","RSU") if k in source_text)
         if not companies and concrete_hooks<2:
-            drop_stats["specificity"]+=1;continue
+            drop_stats["specificity"]+=1
+            record_drop_example(drop_examples,"specificity",x,"추적 기업명이 없고 구체적 취재 단서가 2개 미만")
+            continue
         if source_group_now!="DART" and source_group_now!="기타" and concrete_hooks<1:
-            drop_stats["specificity"]+=1;continue
+            drop_stats["specificity"]+=1
+            record_drop_example(drop_examples,"specificity",x,"공식 출처이나 구체적 취재 단서가 없음")
+            continue
         newsroom=newsroom_matches(title,data)
         archive_matches=[]
         for r in archive:
@@ -1120,7 +1168,9 @@ def main():
             return False
         prior_strong=[r for r in strong if is_prior_coverage(r)]
         if prior_strong:
-            drop_stats["prior_coverage"]+=1;continue
+            drop_stats["prior_coverage"]+=1
+            record_drop_example(drop_examples,"prior_coverage",x,"동일 사건으로 판정된 선행 보도 확인")
+            continue
 
         # Procurement feeds contain many welfare, education, PR, event and routine service
         # tenders. Those are not industry scoop signals even when a tracked company is named.
@@ -1139,20 +1189,25 @@ def main():
         if source_group_now=="조달":
             if any(k in procurement_text for k in procurement_noise):
                 drop_stats["procurement_noise"]+=1
+                record_drop_example(drop_examples,"procurement_noise",x,"조달 제목/본문이 복지·홍보·행사 등 비산업 용역으로 분류됨")
                 continue
             if not any(k in procurement_text for k in procurement_material):
                 drop_stats["procurement_nonmaterial"]+=1
+                record_drop_example(drop_examples,"procurement_nonmaterial",x,"조달 자료에서 실물 자산·산업 수요 키워드 없음")
                 continue
             # A company name alone is never enough; the tender must expose an
             # industrial asset, physical demand, infrastructure or material service.
             procurement_specific=sum(1 for k in procurement_material if k in procurement_text)
             if procurement_specific<1:
-                drop_stats["procurement"]+=1;continue
+                drop_stats["procurement"]+=1
+                record_drop_example(drop_examples,"procurement",x,"산업 수요 구체성 기준 미달")
+                continue
 
         # Routine contracts are not useful scoop candidates unless they carry a new customer/market,
         # unusual project, large amount, or specific physical quantity.
         if kind=="계약·수주" and x.get("detailUnavailable"):
             drop_stats["contract_details_unavailable"]+=1
+            record_drop_example(drop_examples,"contract_details_unavailable",x,"OpenDART 본문 추출 실패로 계약 구체성 검증 불가")
             continue
         if kind=="계약·수주":
             large=any(re.search(r"(조원|억원)",str(n)) and float(re.sub(r"[^0-9.]","",str(n).replace(",","")) or 0)>=1000 for n in numbers)
@@ -1161,11 +1216,15 @@ def main():
             party=near_fact(x.get("summary",""),"계약상대방")
             party_specific=bool(party and not re.search(r"해당없음|미정|비공개|불특정|기타|없음|-",party,re.I) and len(party.strip())>=2)
             if not (unusual or detailed or (large and party_specific)):
-                drop_stats["routine_contract"]+=1;continue
+                drop_stats["routine_contract"]+=1
+                record_drop_example(drop_examples,"routine_contract",x,"신규 고객·시장, 물량·기간 또는 큰 금액 근거가 없는 통상 계약")
+                continue
 
         # A true personnel/patent scoop must originate in an authoritative or company source.
         if kind in {"특허·기술","상표·디자인","인사","결함·리콜","인증·형식승인","인허가·환경","소송·분쟁"} and source_tier(x)<2:
-            drop_stats["other"]+=1;continue
+            drop_stats["other"]+=1
+            record_drop_example(drop_examples,"other",x,f"해당 사건 유형의 출처 등급 미달; tier={source_tier(x)}")
+            continue
 
         age_h=max(0,(now-parse_dt(x.get("published"))).total_seconds()/3600)
         tier=source_tier(x)
@@ -1200,16 +1259,20 @@ def main():
                 drop_stats["low_score_rescued"]+=1
             else:
                 drop_stats["low_score"]+=1
+                record_drop_example(drop_examples,"low_score",x,f"종합점수 {score}점으로 최소 66점 미달; kind={kind}; tier={tier}")
                 continue
         if not (numbers or kind in {"결함·리콜","인증·형식승인","인허가·환경","소송·분쟁","인사","특허·기술","상표·디자인","정책·규제","사업재편","신사업·투자","조달·발주","통상·관세"} or any(k in joined for k in ("공장","법인","조직개편","대표이사","특허","고시","법안","리콜","결함","인증","인허가","소송","판결","관세"))):
             drop_stats["missing_core_facts"]+=1
+            record_drop_example(drop_examples,"missing_core_facts",x,f"숫자·사건 유형·핵심 사업변화 표현 중 검증 가능한 사실 부족; kind={kind}")
             continue
         # Public-source freshness and specificity are mandatory for a real scoop candidate.
         if source_group_now=="기타" and not x.get("officialLabel"):
             drop_stats["untrusted_source"]+=1
+            record_drop_example(drop_examples,"untrusted_source",x,"출처가 공식으로 확인되지 않음")
             continue
         if not companies and kind in {"특허·기술","상표·디자인","인사","결함·리콜","인증·형식승인"}:
             drop_stats["company_required"]+=1
+            record_drop_example(drop_examples,"company_required",x,f"{kind} 유형에 추적 기업 매칭이 없음")
             continue
 
         corp=companies[0] if companies else "정부"
@@ -1217,6 +1280,7 @@ def main():
         dedup=re.sub(r"[^가-힣A-Za-z0-9]","",headline.lower())
         if dedup in seen:
             drop_stats["duplicate"]+=1
+            record_drop_example(drop_examples,"duplicate",x,"생성된 후보 제목이 앞선 후보와 중복")
             continue
         seen.add(dedup)
 
@@ -1353,6 +1417,8 @@ def main():
             }
         },
         "sourceSuppressionStats":{"dart":dart_suppression},
+        "sourceSuppressionExamples":{"dart":dart_suppression_examples},
+        "dropExamples":drop_examples,
         "coverageSearchDiagnostics":COVERAGE_SEARCH_DIAGNOSTICS,
         "dropStats":drop_stats,
         "sourceGroups":{g:sum(1 for x in final if x.get("sourceGroup")==g) for g in sorted({x.get("sourceGroup","기타") for x in final})},
