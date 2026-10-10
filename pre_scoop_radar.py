@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import html
 import json
 import re
@@ -228,6 +229,32 @@ def parse_feed(root, domain, group, now, diag=None):
         })
     return out
 
+def unwrap_bing_link(link):
+    """Resolve Bing's /ck/a wrapper to its encoded destination URL."""
+    link=html.unescape(str(link or "")).strip()
+    parsed=urllib.parse.urlparse(link)
+    host=(parsed.hostname or "").lower()
+    if host not in {"bing.com","www.bing.com","cn.bing.com","global.bing.com"}:
+        return link
+    query=urllib.parse.parse_qs(parsed.query)
+    encoded=(query.get("u") or [""])[0]
+    if not encoded:
+        return link
+    # Bing commonly prefixes a URL-safe Base64 destination with 'a1'.
+    payload=encoded[2:] if encoded.startswith("a1") else encoded
+    try:
+        payload += "="*((-len(payload))%4)
+        target=base64.urlsafe_b64decode(payload.encode("ascii")).decode("utf-8","ignore").strip()
+        target=html.unescape(target)
+        target_parsed=urllib.parse.urlparse(target)
+        if target_parsed.scheme in {"http","https"} and target_parsed.hostname:
+            return target
+    except Exception:
+        pass
+    # Do not treat a wrapper as a trusted destination if decoding fails.
+    return link
+
+
 def official_host_matches(url, domain):
     host=urllib.parse.urlparse(url or "").netloc.lower().split(":")[0]
     requested=domain.lower()
@@ -259,7 +286,8 @@ def parse_bing_html(raw, domain, group, now, diag=None):
         if not lm:
             reject("Malformed","[missing result link]")
             continue
-        link=html.unescape(lm.group(1))
+        raw_link=html.unescape(lm.group(1))
+        link=unwrap_bing_link(raw_link)
         title=clean(lm.group(2))
         sm=re.search(r'<p\b[^>]*>(.*?)</p>',block,re.S|re.I)
         desc=clean(sm.group(1) if sm else "")
@@ -530,7 +558,8 @@ def fetch_source(group, domain, terms, max_items=25):
                         link_match=re.search(r'<h2\b[^>]*>\s*<a\b[^>]*href=["\']([^"\']+)["\']',block,re.I|re.S)
                         if not link_match:
                             continue
-                        host=urllib.parse.urlparse(html.unescape(link_match.group(1))).netloc.lower().split(":")[0]
+                        destination=unwrap_bing_link(html.unescape(link_match.group(1)))
+                        host=urllib.parse.urlparse(destination).netloc.lower().split(":")[0]
                         if host and host not in result_hosts:
                             result_hosts.append(host)
                     diag["bingQueryDiagnostics"].append({
