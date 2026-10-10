@@ -29,7 +29,7 @@ TARGET_COMPANIES = [
 ]
 COMPANY_GROUPS = [
     TARGET_COMPANIES[0:10], TARGET_COMPANIES[10:20], TARGET_COMPANIES[20:30],
-    TARGET_COMPANIES[30:40], TARGET_COMPANIES[40:50], TARGET_COMPANIES[50:60]
+    TARGET_COMPANIES[30:40], TARGET_COMPANIES[40:50], TARGET_COMPANIES[50:]
 ]
 
 SOURCE_SPECS = [
@@ -157,8 +157,15 @@ def target_hits(text):
     # Resolve overlapping names to the most specific tracked issuer first.
     return [k for _,k in sorted(out,reverse=True)]
 
-def parse_feed(root, domain, group, now):
+def parse_feed(root, domain, group, now, diag=None):
     out=[]
+    def reject(reason,title):
+        if diag is None:return
+        key="rssReject"+reason
+        diag[key]=diag.get(key,0)+1
+        samples=diag.setdefault("rssRejectSamples",[])
+        if len(samples)<8:
+            samples.append({"reason":reason,"title":title[:200]})
     for item in root.findall("./channel/item"):
         title=(item.findtext("title") or "").strip()
         link=(item.findtext("link") or "").strip()
@@ -166,13 +173,21 @@ def parse_feed(root, domain, group, now):
         desc=clean(item.findtext("description") or "")
         src=item.find("source")
         source_name=(src.text or "").strip() if src is not None else domain
-        if not title or not link: continue
+        if not title or not link:
+            reject("Invalid",title or "[empty title]")
+            continue
         dt=parse_dt(pub)
-        if dt < now-timedelta(days=LOOKBACK_DAYS): continue
+        if dt.year<2000 or dt < now-timedelta(days=LOOKBACK_DAYS) or dt>now+timedelta(hours=6):
+            reject("OutsideWindow",title)
+            continue
         body=title+" "+desc
         companies=target_hits(body)
-        if not companies: continue
-        if not SIGNAL_TERMS.search(body): continue
+        if not companies:
+            reject("NoCompany",title)
+            continue
+        if not SIGNAL_TERMS.search(body):
+            reject("NoSignalTerm",title)
+            continue
         out.append({
             "sourceName":source_name,"officialLabel":domain,"querySite":domain,
             "sourceGroup":group,"title":title,"url":link,"published":dt.isoformat(),
