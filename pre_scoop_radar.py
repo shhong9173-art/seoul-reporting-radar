@@ -335,6 +335,107 @@ def parse_bing_html(raw, domain, group, now, diag=None):
         })
     return out
 
+def fetch_direct_ntis_announcements(max_items=12):
+    """Fetch dated NTIS national R&D calls directly, rather than relying on search-engine indexing."""
+    base="https://www.ntis.go.kr"
+    now=datetime.now(KST)
+    cutoff=now-timedelta(days=LOOKBACK_DAYS)
+    terms=["자동차","전기차","배터리","철강","변압기","수소발전","해상풍력","전력망","탄소"]
+    batches=[terms[i:i+3] for i in range(0,len(terms),3)]
+    slot=int(now.timestamp()//1800)%len(batches)
+    active_terms=batches[slot]
+    diag={
+        "queriesAttempted":0,"searchPagesFetched":0,"announcementLinks":0,
+        "detailPagesFetched":0,"datedRecords":0,"recentRecords":0,"retained":0,
+        "queryTerms":active_terms,"errors":[],"sampleRows":[]
+    }
+    DIRECT_DIAGNOSTICS["ntis-announcements"]=diag
+    anchor_re=re.compile(r'<a\b[^>]+href=["\']([^"\']+)["\'][^>]*>(.*?)</a>',re.I|re.S)
+    date_re=re.compile(r"공고일\s*[:：]?\s*(20\d{2}\s*[./-]\s*\d{1,2}\s*[./-]\s*\d{1,2})")
+    out=[];seen=set()
+
+    for term in active_terms:
+        query_url=base+"/ThSearchResultAnnouncementList.do?"+urllib.parse.urlencode({
+            "searchWord":term,
+            "sort":"SS01/DESC"
+        })
+        diag["queriesAttempted"]+=1
+        try:
+            listing=get(query_url,timeout=18).decode("utf-8","ignore")
+            diag["searchPagesFetched"]+=1
+        except Exception as exc:
+            if len(diag["errors"])<4:
+                diag["errors"].append(f"search {term}: {type(exc).__name__}: {exc}"[:240])
+            continue
+
+        for match in anchor_re.finditer(listing):
+            href=html.unescape(match.group(1).strip())
+            title=clean(match.group(2))
+            if not title or len(title)<10:
+                continue
+            if "/rndgate/eg/un/ra/view.do" not in href:
+                continue
+            url=urllib.parse.urljoin(base,href)
+            if url in seen:
+                continue
+            seen.add(url)
+            diag["announcementLinks"]+=1
+            if len(out)>=max_items:
+                break
+            try:
+                detail_raw=get(url,timeout=12)
+                detail=clean(detail_raw.decode("utf-8","ignore"))
+                diag["detailPagesFetched"]+=1
+            except Exception as exc:
+                if len(diag["errors"])<4:
+                    diag["errors"].append(f"detail {title[:70]}: {type(exc).__name__}: {exc}"[:240])
+                continue
+
+            date_match=date_re.search(detail)
+            if not date_match:
+                if len(diag["sampleRows"])<8:
+                    diag["sampleRows"].append({"title":title[:180],"url":url,"reason":"no explicit 공고일 field"})
+                continue
+            diag["datedRecords"]+=1
+            date_value=re.sub(r"\s+","",date_match.group(1)).replace(".","-").replace("/","-")
+            dt=parse_dt(date_value)
+            if dt.year<2000 or dt<cutoff or dt>now+timedelta(hours=6):
+                if len(diag["sampleRows"])<8:
+                    diag["sampleRows"].append({"title":title[:180],"url":url,"published":dt.isoformat(),"reason":"outside lookback"})
+                continue
+            diag["recentRecords"]+=1
+
+            # This is a published public-sector R&D call, so it is surfaced as
+            # follow-up context rather than treated as an unpublished scoop.
+            companies=target_hits(title+" "+detail)
+            out.append({
+                "sourceName":"NTIS 국가R&D통합공고",
+                "officialLabel":"NTIS",
+                "querySite":"ntis.go.kr",
+                "sourceGroup":"R&D·기술",
+                "title":title,
+                "url":url,
+                "published":dt.isoformat(),
+                "summary":detail[:3500],
+                "official":True,
+                "preScoop":True,
+                "directSource":True,
+                "policySignal":True,
+                "category":"정책·규제",
+                "companies":companies,
+                "signalType":"ntis_rnd_announcement",
+                "dateSource":"NTIS 공고일"
+            })
+            if len(out)>=max_items:
+                break
+        if len(out)>=max_items:
+            break
+
+    diag["retained"]=len(out)
+    print(f"direct NTIS announcement scout: diagnostics={diag}")
+    return out
+
+
 def fetch_direct_nlrc(max_items=12):
     """Read the NLRC's recent major judgment list directly, then inspect recent case pages for tracked companies."""
     base="https://nlrc.go.kr"
@@ -708,6 +809,10 @@ def main():
         hits = fetch_source(group, domain, terms)
         items.extend(hits)
         by_group[group] = by_group.get(group, 0) + len(hits)
+
+    direct_ntis = fetch_direct_ntis_announcements()
+    items.extend(direct_ntis)
+    by_group["R&D·기술"] = by_group.get("R&D·기술", 0) + len(direct_ntis)
 
     direct_nlrc = fetch_direct_nlrc()
     items.extend(direct_nlrc)
