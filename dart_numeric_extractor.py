@@ -119,6 +119,18 @@ def main():
         return
     payload = json.loads(IN.read_text(encoding="utf-8"))
     rows = payload.get("items", []) if isinstance(payload, dict) else []
+    # OpenDART maintenance must not erase a successful extraction for the same receipt.
+    prior_payload = {}
+    try:
+        if OUT.exists():
+            prior_payload = json.loads(OUT.read_text(encoding="utf-8"))
+    except Exception:
+        prior_payload = {}
+    prior_by_receipt = {
+        str(x.get("receiptNo")): x
+        for x in prior_payload.get("items", [])
+        if x.get("receiptNo")
+    } if isinstance(prior_payload, dict) else {}
     rows = sorted(
         rows,
         key=lambda x: (
@@ -133,9 +145,19 @@ def main():
         for future in as_completed(futures):
             results.append(future.result())
     results.sort(key=lambda x: x.get("date", ""), reverse=True)
+    for row in results:
+        previous = prior_by_receipt.get(str(row.get("receiptNo") or ""))
+        error = str(row.get("error") or "")
+        temporary = bool(re.search(r"status\s*800|시스템\s*점검|maintenance|temporarily unavailable|timed?\s*out|urlerror|connection reset", error, re.I))
+        if temporary and previous and previous.get("numbers"):
+            row["numbers"] = previous.get("numbers", [])
+            row["snippets"] = previous.get("snippets", [])
+            row["cacheFallback"] = True
+            row["cacheSourceGeneratedAt"] = prior_payload.get("generatedAt", "")
     with_numbers = [x for x in results if x.get("numbers")]
+    cache_fallbacks = sum(1 for x in results if x.get("cacheFallback"))
     OUT.write_text(json.dumps({"count": len(results), "items": results}, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-    print(f"DART numeric extraction: {len(with_numbers)} docs with material numeric signals / {len(results)} docs inspected")
+    print(f"DART numeric extraction: {len(with_numbers)} docs with material numeric signals / {len(results)} docs inspected; reused prior values for {cache_fallbacks}")
 
 if __name__ == "__main__":
     main()
