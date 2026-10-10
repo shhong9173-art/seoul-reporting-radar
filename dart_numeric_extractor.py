@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import html
 import io
 import json
 import os
@@ -23,7 +24,7 @@ VALUE_RE = re.compile(
     re.I,
 )
 KEYWORD_RE = re.compile(
-    r"시설투자|신규시설|출자|유상증자|타법인|지분|생산능력|생산중단|생산|공장|설비|계약|수주|공급|배터리|ESS|AAM|로보택시|북미|미국|유럽|중국|투자",
+    r"시설투자|신규시설|출자|유상증자|타법인|지분|생산능력|생산중단|생산|공장|설비|계약|수주|공급|배터리|ESS|AAM|로보택시|북미|미국|유럽|중국|투자|자기주식|자사주|주식처분|처분예정주식|처분목적|처분금액",
     re.I,
 )
 PRIORITY_WORDS = (
@@ -31,13 +32,13 @@ PRIORITY_WORDS = (
     "주요사항보고서", "사업보고서", "분기보고서", "반기보고서", "영업양수도",
 )
 
-def fetch_bytes(url: str) -> bytes:
-    req = Request(url, headers={"User-Agent": "auto-desk-radar/1.0"})
-    with urlopen(req, timeout=25) as r:
+def fetch_bytes(url: str, timeout: int = 25) -> bytes:
+    req = Request(url, headers={"User-Agent": "Mozilla/5.0 (compatible; auto-desk-radar/1.0)", "Accept": "text/html,application/xhtml+xml,application/xml,*/*"})
+    with urlopen(req, timeout=timeout) as r:
         return r.read()
 
 def html_to_text(raw: bytes) -> str:
-    text = raw.decode("utf-8", errors="ignore")
+    text = html.unescape(raw.decode("utf-8", errors="ignore"))
     text = re.sub(r"<script[\s\S]*?</script>", " ", text, flags=re.I)
     text = re.sub(r"<style[\s\S]*?</style>", " ", text, flags=re.I)
     text = re.sub(r"<[^>]+>", " ", text)
@@ -62,6 +63,90 @@ def describe_api_error(raw: bytes) -> tuple[str, str]:
         pass
     sample=raw[:180].decode("utf-8","replace").replace("\n"," ").strip()
     return "", f"Expected ZIP but received {sample!r}"
+
+def fetch_dart_viewer_text(receipt_no: str) -> str:
+    """Fallback to the public DART HTML viewer when OpenDART document.xml is unavailable."""
+    receipt_no = str(receipt_no or "").strip()
+    if not re.fullmatch(r"\d{14}", receipt_no):
+        return ""
+    try:
+        main_url = "https://dart.fss.or.kr/dsaf001/main.do?" + urlencode({"rcpNo": receipt_no})
+        main_html = fetch_bytes(main_url, timeout=12).decode("utf-8", "ignore")
+    except Exception:
+        return ""
+
+    pattern = re.compile(
+        r"viewDoc\(\s*['\"](?P<rcp>\d{14})['\"]\s*,\s*['\"](?P<dcm>\d+)['\"]\s*,"
+        r"\s*['\"](?P<ele>[^'\"]*)['\"]\s*,\s*['\"](?P<offset>\d+)['\"]\s*,"
+        r"\s*['\"](?P<length>\d+)['\"]\s*,\s*['\"](?P<dtd>[^'\"]*)['\"]\s*\)",
+        re.I,
+    )
+    docs = []
+    seen = set()
+    for match in pattern.finditer(main_html):
+        params = match.groupdict()
+        key = (params["dcm"], params["ele"], params["offset"], params["length"], params["dtd"])
+        if key in seen:
+            continue
+        seen.add(key)
+        context = main_html[max(0, match.start() - 1200):match.start()]
+        labels = re.findall(r"""\btext\s*:\s*(['"])(.{1,120}?)\1""", context, re.I | re.S)
+        label = html.unescape(labels[-1][1]).strip() if labels else ""
+        params["label"] = re.sub(r"<[^>]+>", " ", label).strip()
+        docs.append(params)
+
+    if not docs:
+        return ""
+    priority = re.compile(r"주요사항보고서|단일판매|공급계약|시설투자|회사분할|생산중단|영업정지|자기주식|자사주|주식처분|투자결정", re.I)
+    docs.sort(key=lambda d: (bool(priority.search(d["label"])), bool(d["label"]), -int(d["offset"] or 0)), reverse=True)
+
+    chunks = []
+    for doc in docs[:4]:
+        query = {
+            "rcpNo": doc["rcp"],
+            "dcmNo": doc["dcm"],
+            "eleId": doc["ele"],
+            "offset": doc["offset"],
+            "length": doc["length"],
+            "dtd": doc["dtd"],
+        }
+        url = "https://dart.fss.or.kr/report/viewer.do?" + urlencode(query)
+        try:
+            body = html_to_text(fetch_bytes(url, timeout=10))
+        except Exception:
+            continue
+        if len(body) >= 60:
+            if doc["label"]:
+                chunks.append(doc["label"] + " " + body)
+            else:
+                chunks.append(body)
+        if sum(map(len, chunks)) >= 24000:
+            break
+        time.sleep(0.15)
+    return re.sub(r"\s+", " ", " ".join(chunks)).strip()[:24000]
+
+
+def extract_viewer_facts(base: dict, viewer_text: str, error: str) -> dict:
+    numbers = {}
+    snippets = []
+    for match in KEYWORD_RE.finditer(viewer_text):
+        start = max(0, match.start() - 240)
+        end = min(len(viewer_text), match.end() + 420)
+        context = viewer_text[start:end]
+        values = list(dict.fromkeys(re.sub(r"\s+", "", value) for value in VALUE_RE.findall(context)))
+        for value in values:
+            numbers[value] = context.strip()
+        if values and len(snippets) < 24:
+            snippets.append({"keyword": match.group(0), "numbers": values[:10], "context": context.strip()})
+    return {
+        **base,
+        "numbers": list(numbers.keys())[:40],
+        "snippets": snippets,
+        "viewerText": viewer_text[:24000],
+        "fallbackSource": "DART HTML viewer",
+        "error": "" if numbers else (error + "; HTML viewer fetched but no values matched configured unit patterns"),
+    }
+
 
 def extract_document(base: dict) -> dict:
     receipt_no = base.get("receiptNo", "")
@@ -111,6 +196,10 @@ def extract_document(base: dict) -> dict:
         except Exception as exc:
             last_error=f"OpenDART response parse failed: {type(exc).__name__}: {exc}"
             break
+    if re.search(r"status\s*800|시스템\s*점검|maintenance|temporarily unavailable", last_error, re.I):
+        viewer_text = fetch_dart_viewer_text(receipt_no)
+        if viewer_text:
+            return extract_viewer_facts(base, viewer_text, last_error)
     return {**base, "numbers": [], "snippets": [], "error": last_error}
 
 def main():
