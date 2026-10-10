@@ -64,15 +64,22 @@ def describe_api_error(raw: bytes) -> tuple[str, str]:
     sample=raw[:180].decode("utf-8","replace").replace("\n"," ").strip()
     return "", f"Expected ZIP but received {sample!r}"
 
-def fetch_dart_viewer_text(receipt_no: str) -> str:
+def fetch_dart_viewer_text(receipt_no: str, diagnostics: dict | None = None) -> str:
     """Fallback to the public DART HTML viewer when OpenDART document.xml is unavailable."""
+    diag = diagnostics if diagnostics is not None else {}
+    diag["attempted"] = True
     receipt_no = str(receipt_no or "").strip()
     if not re.fullmatch(r"\d{14}", receipt_no):
+        diag["receiptValid"] = False
         return ""
+    diag["receiptValid"] = True
     try:
         main_url = "https://dart.fss.or.kr/dsaf001/main.do?" + urlencode({"rcpNo": receipt_no})
-        main_html = fetch_bytes(main_url, timeout=12).decode("utf-8", "ignore")
-    except Exception:
+        main_raw = fetch_bytes(main_url, timeout=12)
+        main_html = main_raw.decode("utf-8", "ignore")
+        diag["mainPageBytes"] = len(main_raw)
+    except Exception as exc:
+        diag["mainPageError"] = f"{type(exc).__name__}: {exc}"[:240]
         return ""
 
     pattern = re.compile(
@@ -94,13 +101,18 @@ def fetch_dart_viewer_text(receipt_no: str) -> str:
         label = html.unescape(labels[-1][1]).strip() if labels else ""
         params["label"] = re.sub(r"<[^>]+>", " ", label).strip()
         docs.append(params)
+    diag["documentsFound"] = len(docs)
+    diag["documentLabels"] = [d["label"][:80] for d in docs[:8]]
 
     if not docs:
+        diag["reason"] = "no viewDoc() document entries found in DART viewer HTML"
         return ""
     priority = re.compile(r"주요사항보고서|단일판매|공급계약|시설투자|회사분할|생산중단|영업정지|자기주식|자사주|주식처분|투자결정", re.I)
     docs.sort(key=lambda d: (bool(priority.search(d["label"])), bool(d["label"]), -int(d["offset"] or 0)), reverse=True)
 
     chunks = []
+    viewer_errors = []
+    pages_fetched = 0
     for doc in docs[:4]:
         query = {
             "rcpNo": doc["rcp"],
@@ -112,21 +124,29 @@ def fetch_dart_viewer_text(receipt_no: str) -> str:
         }
         url = "https://dart.fss.or.kr/report/viewer.do?" + urlencode(query)
         try:
-            body = html_to_text(fetch_bytes(url, timeout=10))
-        except Exception:
+            raw = fetch_bytes(url, timeout=10)
+            body = html_to_text(raw)
+            pages_fetched += 1
+        except Exception as exc:
+            if len(viewer_errors) < 3:
+                viewer_errors.append(f"{type(exc).__name__}: {exc}"[:240])
             continue
         if len(body) >= 60:
-            if doc["label"]:
-                chunks.append(doc["label"] + " " + body)
-            else:
-                chunks.append(body)
+            chunks.append((doc["label"] + " " + body).strip() if doc["label"] else body)
         if sum(map(len, chunks)) >= 24000:
             break
         time.sleep(0.15)
-    return re.sub(r"\s+", " ", " ".join(chunks)).strip()[:24000]
+    viewer_text = re.sub(r"\s+", " ", " ".join(chunks)).strip()[:24000]
+    diag["viewerPagesAttempted"] = min(len(docs), 4)
+    diag["viewerPagesFetched"] = pages_fetched
+    diag["viewerErrors"] = viewer_errors
+    diag["viewerTextLength"] = len(viewer_text)
+    if not viewer_text:
+        diag["reason"] = "viewer entries found but no readable body text returned"
+    return viewer_text
 
 
-def extract_viewer_facts(base: dict, viewer_text: str, error: str) -> dict:
+def extract_viewer_facts(base: dict, viewer_text: str, error: str, diagnostics: dict | None = None) -> dict:
     numbers = {}
     snippets = []
     for match in KEYWORD_RE.finditer(viewer_text):
@@ -144,6 +164,7 @@ def extract_viewer_facts(base: dict, viewer_text: str, error: str) -> dict:
         "snippets": snippets,
         "viewerText": viewer_text[:24000],
         "fallbackSource": "DART HTML viewer",
+        "viewerFallbackDiagnostics": diagnostics or {},
         "error": "" if numbers else (error + "; HTML viewer fetched but no values matched configured unit patterns"),
     }
 
@@ -196,10 +217,12 @@ def extract_document(base: dict) -> dict:
         except Exception as exc:
             last_error=f"OpenDART response parse failed: {type(exc).__name__}: {exc}"
             break
-    if re.search(r"status\s*800|시스템\s*점검|maintenance|temporarily unavailable", last_error, re.I):
-        viewer_text = fetch_dart_viewer_text(receipt_no)
+    if re.search(r"status\s*800|시스템\s*점검|maintenance|temporarily unavailable|timed?\s*out|urlerror|connection reset", last_error, re.I):
+        viewer_diag = {}
+        viewer_text = fetch_dart_viewer_text(receipt_no, viewer_diag)
         if viewer_text:
-            return extract_viewer_facts(base, viewer_text, last_error)
+            return extract_viewer_facts(base, viewer_text, last_error, viewer_diag)
+        return {**base, "numbers": [], "snippets": [], "fallbackSource": "DART HTML viewer attempted", "viewerFallbackDiagnostics": viewer_diag, "error": last_error}
     return {**base, "numbers": [], "snippets": [], "error": last_error}
 
 def main():
