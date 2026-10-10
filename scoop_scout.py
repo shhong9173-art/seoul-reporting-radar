@@ -484,7 +484,7 @@ def candidate_kind(title,category):
     if any(w in t for w in ("대표이사","임원","이사","선임","취임","퇴임","인사","조직개편","경영진")):return "인사"
     if any(w in t for w in ("특허","출원","등록","patent")):return "특허·기술"
     if any(w in t for w in ("관세","반덤핑","덤핑","통상","tariff","customs","countervailing","원산지","품목분류")):return "통상·관세"
-    if any(w in t for w in ("요구자료","국정감사","의원실","감사","감사처분","지적","정책","법안","고시","시행","규제","정책","세제","입법","입법예고")):return "정책·규제"
+    if any(w in t for w in ("요구자료","국정감사","의원실","감사","감사처분","지적","정책","법안","법률안","개정안","본회의 통과","행정예고","고시","시행령","시행규칙","시행","규제","세제","입법","입법예고")):return "정책·규제"
     if any(w in t for w in ("발주","입찰","조달","낙찰")):return "조달·발주"
     if any(w in t for w in ("물적분할","인적분할","분할","합병","인수","매각","철수","신설법인","사업재편")):return "사업재편"
     if any(w in t for w in ("투자","증설","공장","생산라인","생산","가동","신규법인")):return "신사업·투자"
