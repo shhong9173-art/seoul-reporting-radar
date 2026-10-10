@@ -27,6 +27,9 @@ TARGETS=[
  ("폭스바겐코리아","자동차"),("폭스바겐","자동차"),("BMW코리아","자동차"),("BMW","자동차"),("르노코리아","자동차"),
  ("아우디코리아","자동차"),("아우디","자동차"),("혼다코리아","자동차"),("한국타이어","자동차"),("넥센타이어","자동차"),
  ("금호타이어","자동차"),("현대트랜시스","자동차"),("현대글로비스","자동차"),
+ ("현대오토에버","자동차"),("삼성전기","자동차부품"),
+ ("LG에너지솔루션","배터리"),("삼성SDI","배터리"),("SK온","배터리"),("SK이노베이션","에너지"),
+ ("포스코퓨처엠","배터리·소재"),("엘앤에프","배터리·소재"),("포스코인터내셔널","철강·에너지"),
  # 철강
  ("포스코홀딩스","철강"),("포스코","철강"),("현대제철","철강"),("KG스틸","철강"),("세아홀딩스","철강"),("세아제강","철강"),
  # 비철
@@ -56,10 +59,15 @@ ALIASES={
  "르노코리아":("르노코리아","Renault Korea"),"아우디코리아":("아우디코리아","Audi Korea"),"아우디":("아우디","Audi"),
  "혼다코리아":("혼다코리아","Honda Korea"),"한국타이어":("한국타이어","Hankook Tire","Hankook"),"넥센타이어":("넥센타이어","Nexen Tire"),
  "금호타이어":("금호타이어","Kumho Tire"),"현대트랜시스":("현대트랜시스","Hyundai Transys"),"현대글로비스":("현대글로비스","Hyundai Glovis"),
+ "현대오토에버":("현대오토에버","Hyundai AutoEver"),"삼성전기":("삼성전기","Samsung Electro-Mechanics"),
+ "LG에너지솔루션":("LG에너지솔루션","LG Energy Solution","LGES"),"삼성SDI":("삼성SDI","Samsung SDI"),
+ "SK온":("SK온","SK On"),"SK이노베이션":("SK이노베이션","SK Innovation"),
+ "포스코퓨처엠":("포스코퓨처엠","POSCO Future M"),"엘앤에프":("엘앤에프","L&F","LNF"),
+ "포스코인터내셔널":("포스코인터내셔널","POSCO International"),
  "포스코":("포스코","POSCO"),"포스코홀딩스":("포스코홀딩스","POSCO Holdings"),"현대제철":("현대제철","Hyundai Steel"),
  "KG스틸":("KG스틸","KG Steel"),"세아홀딩스":("세아홀딩스","SeAH Holdings"),"세아제강":("세아제강","SeAH Steel"),
  "고려아연":("고려아연","Korea Zinc"),"영풍":("영풍","Young Poong"),"LS MnM":("LS MnM","LS MnM Inc."),
- "HD현대일렉트릭":("HD현대일렉트릭","HD Hyundai Electric"),"LS일렉트릭":("LS일렉트릭","LS ELECTRIC"),
+ "HD현대일렉트릭":("HD현대일렉트릭","HD Hyundai Electric"),"LS일렉트릭":("LS일렉트릭","엘에스일렉트릭","LS ELECTRIC"),
  "대한전선":("대한전선","Taihan Cable"),"효성중공업":("효성중공업","Hyosung Heavy Industries"),"일진전기":("일진전기","Iljin Electric"),
  "LS전선":("LS전선","LS Cable & System"),"LS M&M":("LS M&M","LS MnM"),"LS지주":("LS지주","LS Corp"),
  "두산에너빌리티":("두산에너빌리티","Doosan Enerbility"),"GS":("GS",),"GS칼텍스":("GS칼텍스","GS Caltex"),
@@ -88,7 +96,7 @@ OFFICIAL_DOMAINS={
  "lsmnm.com":"LS MnM","hd-hyundaielectric.com":"HD현대일렉트릭","hyosungheavyindustries.com":"효성중공업",
  "lscns.co.kr":"LS전선","lsholdings.com":"LS지주","gs.co.kr":"GS",
  "kkpc.com":"금호석유화학","hshyosungadvancedmaterials.com":"효성첨단소재","kolonindustries.com":"코오롱인더",
- "lgchem.com":"LG화학","lottechem.com":"롯데케미칼",
+ "lgchem.com":"LG화학","lottechem.com":"롯데케미칼","lgensol.com":"LG에너지솔루션","samsungsem.com":"삼성전기","poscofuturem.com":"포스코퓨처엠",
  "kepic.or.kr":"대한전기협회","koema.or.kr":"한국전기산업진흥회","kaif.or.kr":"한국원자력산업협회",
  "hyundai.com":"현대차","kia.com":"기아","mobis.com":"현대모비스","hyundai-wia.com":"현대위아","hlmando.com":"HL만도",
  "gm-korea.co.kr":"한국GM","kg-mobility.com":"KG모빌리티","mercedes-benz.co.kr":"메르세데스벤츠코리아","volkswagen.co.kr":"폭스바겐코리아",
@@ -106,6 +114,7 @@ COMPANY_DOMAINS={
  "BMW코리아":"bmw.co.kr","BMW":"bmw.co.kr","르노코리아":"renault.co.kr","아우디코리아":"audi.co.kr","아우디":"audi.co.kr","혼다코리아":"honda.co.kr","폭스바겐":"volkswagen.co.kr",
  "한국타이어":"hankooktire.com","넥센타이어":"nexentire.com","금호타이어":"kumhotire.com",
  "현대트랜시스":"hyundai-transys.com","현대글로비스":"glovis.net",
+ "LG에너지솔루션":"lgensol.com","삼성전기":"samsungsem.com","포스코퓨처엠":"poscofuturem.com",
  "포스코":"posco.com","포스코홀딩스":"posco-inc.com","현대제철":"hyundai-steel.com","KG스틸":"kg-steel.co.kr","세아홀딩스":"seah.co.kr","세아제강":"seahsteel.co.kr",
  "고려아연":"koreazinc.co.kr","영풍":"youngpoong.co.kr","LS MnM":"lsmnm.com","LS M&M":"lsmnm.com",
  "HD현대일렉트릭":"hd-hyundaielectric.com","LS일렉트릭":"ls-electric.com","대한전선":"taihan.com","효성중공업":"hyosungheavyindustries.com","일진전기":"iljinelectric.co.kr",
@@ -215,17 +224,20 @@ def similarity(a,b):
     return len(aa&bb)/max(1,len(aa|bb))
 
 def target_hits(s):
-    t=(s or "").lower();out=[]
-    for name,_ in TARGETS:
-        matched=False
+    t=(s or "").lower();hits=[]
+    for order,(name,_) in enumerate(TARGETS):
+        matched_len=0
         for alias in ALIASES.get(name,(name,)):
             a=alias.lower()
-            if re.fullmatch(r"[a-z0-9 ]{2,}",a):
-                if re.search(r"(?<![a-z0-9])"+re.escape(a)+r"(?![a-z0-9])",t):matched=True;break
-            elif a in t:
-                matched=True;break
-        if matched:out.append(name)
-    return list(dict.fromkeys(out))
+            if re.fullmatch(r"[a-z0-9 &.-]{2,}",a):
+                matched=bool(re.search(r"(?<![a-z0-9])"+re.escape(a)+r"(?![a-z0-9])",t))
+            else:
+                matched=a in t
+            if matched:matched_len=max(matched_len,len(a))
+        if matched_len:hits.append((matched_len,-order,name))
+    # Prefer the most specific tracked company first (e.g. POSCO Future M before POSCO).
+    hits.sort(reverse=True)
+    return list(dict.fromkeys(name for _,_,name in hits))
 BEAT_KEYWORDS=[
     (("자동차","차량","전기차","하이브리드","PBV","자율주행","ADAS","타이어","리콜","결함","형식승인"),"자동차"),
     (("철강","열연","냉연","후판","강관","철광석","제철","제강","도금"),"철강"),
@@ -294,7 +306,7 @@ def newsroom_matches(title,data):
 
 def event_signal_terms(text):
     return set(re.findall(
-        r"조업정지|생산중단|가동중단|생산조정|생산계획|공급중단|공급차질|대체투입|생산라인|공급사|재고|납기|가격인상|가격인하|매각|인수|우선협상|거래종결|분할|합병|철수|신설법인|조직개편|대표이사|사장|임원|선임|퇴임|인허가|환경영향|건축허가|사업계획승인|착공|증설|공장|리콜|결함|조사개시|행정처분|소송|제소|판결|특허심판|특허|출원|등록|상표|디자인|인증|형식승인|관세|반덤핑|상계관세|수주|계약|발주|입찰|낙찰|자금조달|유상증자|회사채|PRS|보조금|지원금|신용등급|수시평가|재무구조",
+        r"영업정지|조업정지|생산중단|가동중단|생산조정|생산계획|공급중단|공급차질|대체투입|생산라인|공급사|재고|납기|가격인상|가격인하|매각|인수|우선협상|거래종결|분할|합병|철수|신설법인|조직개편|대표이사|사장|임원|선임|퇴임|인허가|환경영향|건축허가|사업계획승인|착공|증설|공장|리콜|결함|조사개시|행정처분|소송|제소|판결|특허심판|특허|출원|등록|상표|디자인|인증|형식승인|관세|반덤핑|상계관세|수주|계약|발주|입찰|낙찰|자금조달|유상증자|회사채|PRS|보조금|지원금|신용등급|수시평가|재무구조",
         str(text or ""),re.I))
 
 def event_match_score(x,h):
@@ -312,6 +324,11 @@ def event_match_score(x,h):
     shared_nums=len(nums_x&nums_h)
     # Similar company/topic is not enough to call it the same event.
     # Prior-coverage suppression requires a materially stronger match.
+    # A distinctive event can match prior coverage even when the filing has no amount.
+    specific_pattern=re.compile(r"물적분할|인적분할|회사분할|영업정지|생산중단|조업정지|가동중단|영업양수도|합병|인수|매각|철수|우선협상|거래종결|가처분|소송제기|특허심판|반덤핑|상계관세",re.I)
+    shared_specific=set(specific_pattern.findall(title)) & set(specific_pattern.findall(htitle))
+    if same_company and shared_specific and tsim>=0.28:
+        return 0.80
     if same_company and shared_terms>=2 and tsim>=0.42:
         return 0.82+min(0.10,shared_nums*0.03)
     if same_company and shared_terms>=1 and shared_nums>=1 and tsim>=0.34:
@@ -450,6 +467,7 @@ def dart_title(corp,report,blob,nums):
 
 def candidate_kind(title,category):
     t=(title or "").lower()
+    if any(w in t for w in ("영업정지","생산중단","조업정지","가동중단","생산조정")):return "사업재편"
     if any(w in t for w in ("산업안전","근로감독","특별감독","중대재해","행정처분","시정명령","임금체불")):return "정책·규제"
     if any(w in t for w in ("리콜","결함","제작결함","무상수리","recall","defect")) or category=="자동차 결함":return "결함·리콜"
     if any(w in t for w in ("인증","형식승인","certificate","certification","type approval","emissions family")):return "인증·형식승인"
@@ -950,7 +968,7 @@ def main():
 
     lead_signals,lead_diagnostics=build_lead_signals(primary,data,now,limit=12)
     public_signals=build_public_signals(primary,dart,now,limit=10)
-    candidates=[];seen=set();drop_stats={"noise":0,"stale_pre_scoop":0,"routine_regulatory":0,"relevance":0,"generic":0,"specificity":0,"prior_coverage":0,"procurement":0,"routine_contract":0,"low_score":0,"other":0,"accepted":0}
+    candidates=[];seen=set();drop_stats={"noise":0,"stale_pre_scoop":0,"routine_regulatory":0,"relevance":0,"generic":0,"specificity":0,"prior_coverage":0,"procurement":0,"routine_contract":0,"low_score":0,"low_score_rescued":0,"other":0,"accepted":0}
     for x in sorted(primary,key=lambda z:z.get("published",""),reverse=True):
         title=(x.get("title") or "").strip()
         joined=title+" "+x.get("summary","")
@@ -1109,8 +1127,22 @@ def main():
         learned_signal=sum(min(3,pattern_frequency.get(label,0)//3) for label,_ in exclusive_pattern_hits(source_text))
         score=min(98,30+freshness+specificity+change+source_weight+novelty+kind_weight+source_boost+min(12,exclusive_signal)+min(6,learned_signal))
 
+        score_floor_applied=False
         if score<66:
-            drop_stats["low_score"]+=1;continue
+            material_kinds={"결함·리콜","인증·형식승인","인허가·환경","소송·분쟁","인사","특허·기술","상표·디자인","사업재편","정책·규제","통상·관세","신사업·투자"}
+            authoritative_groups={"DART","KIND","특허","조달","자동차·결함","환경·인허가","법령·입법","통상·분쟁","해외기관","지역·투자","협회","노사·현장","정책·감독","공기업·시장","공기업·조달","법원·분쟁","공장·산업단지","인증·안전","R&D·기술","중앙노동위","고용노동","재무·신용"}
+            # Rescue only a concrete material event from an authoritative source,
+            # after the prior-coverage gate. Routine equity disposals/contracts do not qualify.
+            material_primary=(tier>=3 and bool(companies) and kind in material_kinds
+                and source_group_now in authoritative_groups
+                and bool(re.search(r"물적분할|인적분할|회사분할|영업정지|생산중단|조업정지|가동중단|신규시설투자|증설|사업부문|영업양수도|합병|매각|인수|철수|대표이사.{0,12}(?:선임|취임)|특허(?:출원|등록|심판)|환경영향평가|사업계획승인|행정처분|반덤핑|상계관세|형식승인|제작결함",source_text,re.I))
+            if material_primary:
+                score=66
+                score_floor_applied=True
+                drop_stats["low_score_rescued"]+=1
+            else:
+                drop_stats["low_score"]+=1
+                continue
         if not (numbers or kind in {"결함·리콜","인증·형식승인","인허가·환경","소송·분쟁","인사","특허·기술","상표·디자인","정책·규제","사업재편","통상·관세"} or any(k in joined for k in ("공장","법인","조직개편","대표이사","특허","고시","법안","리콜","결함","인증","인허가","소송","판결","관세"))):continue
         # Public-source freshness and specificity are mandatory for a real scoop candidate.
         if source_group_now=="기타" and not x.get("officialLabel"):continue
@@ -1168,6 +1200,8 @@ def main():
         candidates.append({
             "id":hashlib.sha1((x.get("url","")+"|"+headline).encode()).hexdigest()[:12],
             "kind":kind,"beat":beat_for(joined),"title":headline,"score":score,
+            "scoreFloorApplied":score_floor_applied,
+            "scoreNote":"공식 원자료의 중대 사건이나 수치 누락으로 원문 재확인이 필요함" if score_floor_applied else "일반 점수 기준 충족",
             "status":"단독 유력" if not strong and score>=86 and tier>=3 and concrete_hooks>=2 else "단독 후보",
             "originalSource":x.get("officialLabel") or x.get("sourceName"),
             "originalSourceUrl":x.get("url"),"original":True,
@@ -1220,7 +1254,7 @@ def main():
         c["checkedCount"]=int(prev.get("checkedCount",0))+1 if prev else 1
 
     payload={
-        "generatedAt":now.isoformat(),"windowDays":14,"mode":"primary-source-first",
+        "generatedAt":now.isoformat(),"windowDays":PRIMARY_LOOKBACK_DAYS,"mode":"primary-source-first",
         "counts":{
             "primaryHits":len(primary),"candidates":len(final),
             "uncovered":sum(1 for x in final if x.get("coverageCount",0)==0),
@@ -1241,6 +1275,7 @@ def main():
                 "count":len(numeric),
                 "withNumbers":sum(1 for row in numeric if row.get("numbers")),
                 "errorCount":sum(1 for row in numeric if row.get("error")),
+                "cacheFallbackCount":sum(1 for row in numeric if row.get("cacheFallback")),
                 "maintenanceCount":sum(1 for row in numeric if "status 800" in str(row.get("error","")).lower() or "시스템 점검" in str(row.get("error",""))),
                 "errors":[{"company":row.get("corpName"),"report":row.get("reportName"),"error":row.get("error")} for row in numeric if row.get("error")][:3]
             },
