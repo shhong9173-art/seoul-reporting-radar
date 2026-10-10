@@ -384,18 +384,19 @@ def fetch_dart_document(receipt):
         DART_DOC_CACHE[receipt]=""
         return ""
 
-def dart_fact(d,numeric_rows):
+def dart_fact(d,numeric_rows,force_document=False):
     nr=next((r for r in numeric_rows if r.get("receiptNo")==d.get("receiptNo")),None)
     context="";nums=[]
     if nr:
         nums=list(dict.fromkeys(nr.get("numbers") or []))
         context=" ".join(sn.get("context","") for sn in nr.get("snippets",[])[:2])
-        # The numeric extractor already queried this receipt. Do not fetch the same
-        # document again on every radar refresh, especially when OpenDART is in maintenance.
-        if context or nums or nr.get("error"):
+        # Reuse snippets for ordinary filings. Material single-sale/supply contracts
+        # are the exception: customer, tonnage, duration and destination often live
+        # in the original filing body rather than the numeric extractor's snippets.
+        if (context or nums or nr.get("error")) and not force_document:
             return context.strip(),nums
     document=fetch_dart_document(d.get("receiptNo"))
-    return document.strip(),nums
+    return (context+" "+document).strip(),nums
 
 def won_amount(blob):
     m=re.search(r"(?:계약금액|투자금액|취득금액|출자금액)\s*\(?원\)?\s+([0-9,]+)",blob)
@@ -612,7 +613,7 @@ def build_lead_signals(primary, data, now, limit=12):
         ("인허가·규제", ("변경허가","환경영향","사업계획승인","인허가","시정명령","행정처분","조사개시","반덤핑","상계관세")),
         ("기술·제품", ("특허 출원","특허심판","상표 출원","디자인 출원","형식승인","리콜","제작결함","결함조사","시제품","실증","양산 적용")),
         ("자금·거래", ("PRS","유상증자","회사채","자금조달","리파이낸싱","보조금","지원금","신용등급 하향","신용등급 상향")),
-        ("수주·발주", ("신규 수주","낙찰","입찰공고","공급계약","계약 체결","계약 해지","고객사 변경")),
+        ("수주·발주", ("신규 계약","신규 수주","단일판매","낙찰","입찰공고","공급계약","계약 체결","계약 해지","고객사 변경","물량","수주")),
         ("소송·분쟁", ("소송 제기","제소","가처분","판결","특허심판","분쟁 개시")),
         ("인사·조직", ("내정","조직개편","대표이사 선임","임원 선임","사장 교체","퇴임")),
     ]
@@ -760,6 +761,7 @@ def build_lead_signals(primary, data, now, limit=12):
             "수주·발주":["입찰·계약의 수요자·물량·기간·추정금액은 무엇인가?","해당 회사가 참여·수주했는지 별도 확인 가능한가?"],
             "소송·분쟁":["당사자·청구취지·쟁점·절차 단계는 무엇인가?","생산·판매·기술 적용·손익에 직접 영향을 주는가?"],
             "인사·조직":["인선·조직 변경이 확정됐나. 적용 시점과 담당 사업은 무엇인가?","전임자·조직 개편과 최근 투자·사업 변경이 연결되는가?"],
+            "결함·안전":["두 리콜의 대상 차종·생산기간·대수가 겹치는가?","각 공지의 결함 부품·시정개시일·조치 방법은 무엇인가?","같은 날 공지된 배경이나 공통 부품·공급망 이슈가 있는지 회사와 국토부에 확인할 수 있나?"],
         }.get(row["kind"],["원문상 확정된 변경 사항과 적용 시점은 무엇인가?","기존 계획·생산·고객사·손익에 어떤 차이가 생기나?"])
         out.append({
             "id":hashlib.sha1((row["url"]+"|lead").encode()).hexdigest()[:12],
@@ -771,8 +773,8 @@ def build_lead_signals(primary, data, now, limit=12):
             "leadScore":row["score"],"leadStrength":"강" if row["score"]>=24 else "보통",
             "verification":"취재 단서 — 단독 확정 아님",
             "coverageStatus":"최근 180일 언론 검색에서 강한 동일 사건 매칭 없음. 전체 미보도 확정은 아니므로 추가 확인 필요.",
-            "whyLead":"구체적인 기업 변화 신호를 원자료 검색에서 포착했다. 발표 사실 자체를 단독으로 보지 말고, 기존 계획 대비 달라진 부분을 확인해야 한다.",
-            "questions":questions,"directSource":bool(x.get("directSource") or x.get("receiptNo")),"preScoop":bool(x.get("preScoop"))
+            "whyLead":("공식 리콜현황에서 같은 제조사의 리콜 공지가 최근 30일 내 복수 확인됐다. 공지 자체는 공개 정보이며 단독으로 볼 수 없다. 차종·생산기간·대수·결함 부품의 공통점이 실제로 있는지 확인할 때만 후속 기사 가치가 생긴다." if x.get("signalType")=="recall_cluster" else "구체적인 기업 변화 신호를 원자료 검색에서 포착했다. 발표 사실 자체를 단독으로 보지 말고, 기존 계획 대비 달라진 부분을 확인해야 한다."),
+            "questions":questions,"recallItems":x.get("recallItems",[]),"directSource":bool(x.get("directSource") or x.get("receiptNo")),"preScoop":bool(x.get("preScoop"))
         })
         used_companies.add(co);used_groups.add(row["sourceGroup"])
         diag["surfaced"]+=1
@@ -916,7 +918,7 @@ def main():
         if ("기재정정" in report or "첨부정정" in report) and not material:continue
         if not HARD_SIGNAL_RE.search(report):continue
         if not target_hits(corp_name):continue
-        blob,nums=dart_fact(d,numeric)
+        blob,nums=dart_fact(d,numeric,force_document=contract_report)
         joined_dart=str(d.get("signalText",""))+" "+blob
         if contract_report:
             party=near_fact(blob,"계약상대방")
