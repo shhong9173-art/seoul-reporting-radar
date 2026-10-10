@@ -989,28 +989,66 @@ def build_public_signals(primary, dart_rows, now, limit=10, numeric_rows=None):
             break
     return final
 
-def record_drop_example(store, stage, item, reason, limit=4):
-    """Keep a small, auditable sample for each suppression gate."""
-    bucket=store.setdefault(stage, [])
-    if len(bucket)>=limit or not isinstance(item,dict):
+def record_drop_example(store, stage, item, reason, limit=8):
+    """Keep high-information, auditable examples for each suppression gate."""
+    if not isinstance(item,dict):
         return
+    bucket=store.setdefault(stage, [])
     title=str(item.get("title") or "").strip()
     if not title:
         title=" ".join(str(item.get(k) or "") for k in ("corpName","reportName")).strip()
     summary=str(item.get("summary") or item.get("signalText") or "")
-    companies=item.get("companies") or target_hits(title+" "+summary)
-    bucket.append({
+    event_text=title+" "+summary
+    companies=item.get("companies") or target_hits(event_text)
+    signal_terms=list(dict.fromkeys(HARD_SIGNAL_RE.findall(event_text)))[:8]
+    topic_terms=list(dict.fromkeys(TOPIC_RE.findall(event_text)))[:6]
+    source=str(item.get("sourceName") or item.get("officialLabel") or ("DART" if item.get("receiptNo") else ""))[:100]
+    sample={
         "reason":str(reason)[:180],
         "title":title[:240],
-        "source":str(item.get("sourceName") or item.get("officialLabel") or ("DART" if item.get("receiptNo") else ""))[:100],
+        "source":source,
         "sourceGroup":source_group(item),
         "published":str(item.get("published") or item.get("date") or "")[:60],
         "url":str(item.get("url") or "")[:600],
         "companies":list(companies)[:4] if isinstance(companies,(list,tuple)) else [],
+        "signalTerms":signal_terms,
+        "topicTerms":topic_terms,
         "summary":summary[:360],
         "receiptNo":str(item.get("receiptNo") or "")[:30],
         "detailUnavailable":bool(item.get("detailUnavailable"))
-    })
+    }
+
+    def sample_rank(row):
+        row_title=str(row.get("title") or "")
+        row_text=row_title+" "+str(row.get("summary") or "")
+        row_signals=row.get("signalTerms") or HARD_SIGNAL_RE.findall(row_text)
+        row_topics=row.get("topicTerms") or TOPIC_RE.findall(row_text)
+        row_companies=row.get("companies") or []
+        rank=min(len(row_title),80)//20
+        rank+=4 if HARD_SIGNAL_RE.search(row_title) else (2 if row_signals else 0)
+        rank+=2 if row_topics else 0
+        rank+=2 if row_companies else 0
+        rank+=2 if NUM_RE.search(row_text) else 0
+        rank+=1 if len(str(row.get("summary") or ""))>=80 else 0
+        if re.search(r"홈페이지|전체 목록|말과 글|조문정보|메뉴|베이스\s*-|뉴스룸 메인",row_title,re.I):
+            rank-=4
+        if not row_title or len(row_title)<8:
+            rank-=3
+        return rank
+
+    identity=lambda row:(re.sub(r"[^가-힣A-Za-z0-9]","",str(row.get("title") or "")).lower(),str(row.get("source") or ""))
+    key=identity(sample)
+    for index, previous in enumerate(bucket):
+        if identity(previous)==key:
+            if sample_rank(sample)<=sample_rank(previous):
+                return
+            bucket[index]=sample
+            bucket.sort(key=sample_rank,reverse=True)
+            del bucket[limit:]
+            return
+    bucket.append(sample)
+    bucket.sort(key=sample_rank,reverse=True)
+    del bucket[limit:]
 
 
 def main():
