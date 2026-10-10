@@ -316,7 +316,10 @@ def event_match_score(x,h):
     xtext=title+" "+(x.get("summary") or "")
     htext=htitle+" "+(h.get("summary") or "")
     companies=target_hits(xtext)
-    same_company=bool(companies) and any(c.lower() in htext.lower() for c in companies)
+    # Resolve aliases on both sides; "삼성전기" and "Samsung Electro-Mechanics"
+    # must map to the same tracked issuer rather than relying on literal strings.
+    h_companies=set(target_hits(htext))
+    same_company=bool(set(companies) & h_companies)
     tsim=similarity(title,htitle)
     ssim=similarity((x.get("summary") or "")[:1800],(h.get("summary") or "")[:1800])
     shared_terms=len(event_signal_terms(title)&event_signal_terms(htitle))
@@ -756,14 +759,40 @@ def build_lead_signals(primary, data, now, limit=12):
     rows.sort(key=lambda r:(r["score"],r["date"].isoformat()),reverse=True)
     diag["rows"]=len(rows)
     out=[];used_companies=set();used_groups=set()
+    # Reuse already collected newsroom articles before issuing additional search queries.
+    # This closes the gap where a story is in data.json but the RSS coverage query misses it.
+    local_rows=[]
+    for h in data if isinstance(data,list) else []:
+        if not isinstance(h,dict) or h.get("global"):
+            continue
+        htitle=str(h.get("title") or "").strip()
+        hdate=parse_dt(h.get("published") or h.get("date") or "")
+        if not htitle or hdate.year<2000 or hdate>now+timedelta(hours=6):
+            continue
+        local_rows.append(h)
     for row in rows[:max(limit,12)]:
         diag["coverage_checked"]+=1
         x=row["raw"]
-        try:
-            prior=coverage_search(x)
-        except Exception:
-            prior=[]
         source_dt=row["date"]
+        prior=[]
+        event_cutoff=source_dt-timedelta(days=COVERAGE_LOOKBACK_DAYS)
+        event_ceiling=min(now+timedelta(hours=6),source_dt+timedelta(days=14))
+        x_companies=set(row.get("companies") or target_hits(row["title"]+" "+str(x.get("summary") or "")))
+        for h in local_rows:
+            hdate=parse_dt(h.get("published") or h.get("date") or "")
+            if hdate<event_cutoff or hdate>event_ceiling:
+                continue
+            htext=str(h.get("title") or "")+" "+str(h.get("summary") or "")
+            if not (x_companies & set(target_hits(htext))):
+                continue
+            if event_match_score(x,h)>=0.76:
+                prior.append(h)
+        # Search coverage RSS only if already collected newsroom articles did not match.
+        if not prior:
+            try:
+                prior=coverage_search(x)
+            except Exception:
+                prior=[]
         # Any strong same-event media match means this is already a public story,
         # even when the article followed the original public announcement.
         if any(event_match_score(x,h)>=0.76 for h in prior):
