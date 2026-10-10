@@ -372,7 +372,10 @@ def fetch_source(group, domain, terms, max_items=25):
     out=[];seen=set()
     diag=SOURCE_DIAGNOSTICS.setdefault(domain,{
         "group":group,"rssQueries":0,"rssRawItems":0,"rssAccepted":0,
-        "bingQueries":0,"bingResultBlocks":0,"bingAccepted":0,"errors":[]
+        "rssRejectInvalid":0,"rssRejectOutsideWindow":0,"rssRejectNoCompany":0,"rssRejectNoSignalTerm":0,"rssRejectSamples":[],
+        "bingQueries":0,"bingResultBlocks":0,"bingParsedBlocks":0,"bingAccepted":0,
+        "bingRejectMalformed":0,"bingRejectUndated":0,"bingRejectOutsideWindow":0,"bingRejectNoCompany":0,"bingRejectNoSignalTerm":0,"bingRejectSamples":[],
+        "errors":[]
     })
     # Spread company coverage across half-hour slots instead of making up to
     # 130 serial web requests in a single refresh. Two adjacent batches are
@@ -399,7 +402,7 @@ def fetch_source(group, domain, terms, max_items=25):
             root=ET.fromstring(get(url))
             raw_items=root.findall("./channel/item")
             diag["rssRawItems"]+=len(raw_items)
-            parsed=parse_feed(root,domain,group,now)
+            parsed=parse_feed(root,domain,group,now,diag)
             diag["rssAccepted"]+=len(parsed)
             for h in parsed: add(h)
         except Exception as e:
@@ -415,7 +418,7 @@ def fetch_source(group, domain, terms, max_items=25):
             root=ET.fromstring(get(url))
             raw_items=root.findall("./channel/item")
             diag["rssRawItems"]+=len(raw_items)
-            parsed=parse_feed(root,domain,group,now)
+            parsed=parse_feed(root,domain,group,now,diag)
             diag["rssAccepted"]+=len(parsed)
             for h in parsed: add(h)
         except Exception as e:
