@@ -437,6 +437,16 @@ def won_amount(blob):
     if v>=10000:return f"{v/1e4:,.0f}만원"
     return f"{v:,}원"
 
+def won_amount_value(blob):
+    """Return an explicitly stated amount in won as an integer, or None."""
+    m=re.search(r"(?:계약금액|투자금액|취득금액|출자금액)\s*\(?원\)?\s+([0-9,]+)",blob)
+    if not m:
+        return None
+    try:
+        return int(m.group(1).replace(",",""))
+    except (TypeError, ValueError):
+        return None
+
 def near_fact(blob,label):
     m=re.search(re.escape(label)+r"\s+([^\n]{2,100})",blob,re.I)
     return re.sub(r"\s+"," ",m.group(1)).strip() if m else ""
@@ -1117,8 +1127,8 @@ def main():
             party_specific=bool(party and not re.search(r"해당없음|미정|비공개|불특정|기타|없음|-",party,re.I) and len(party.strip())>=2)
             contract_units=bool(re.search(r"\b(?:GWh|MWh|MW|GW|kV|km|톤|만대|천대)\b|물량|생산능력|연간 공급|공급 기간|납기",joined_dart,re.I))
             unusual_contract=any(k in joined_dart for k in ("첫","최초","신규 고객","신규 고객사","신규 시장","북미","미국","유럽","중동","사우디","호주","독점","장기 공급","신규 프로젝트"))
-            amount=won_amount(blob)
-            material_amount=amount>=100_000_000_000 if amount else False
+            amount_value=won_amount_value(blob)
+            material_amount=amount_value>=100_000_000_000 if amount_value is not None else False
             if not (unusual_contract or contract_units or (material_amount and party_specific)):
                 if detail_unavailable:
                     record_drop_example(dart_suppression_examples,"contract_body_unavailable",d,"본문 추출 장애로 신규 고객·물량·금액 여부를 판단할 수 없음")
@@ -1131,7 +1141,11 @@ def main():
             dart_suppression["contract_reports_eligible"]+=1
         # Small treasury-share transfers used for routine executive bonuses are governance notices,
         # not industrial scoops. Keep material ownership/control changes for later verification.
-        if re.search(r"자기주식|자사주",report) and re.search(r"임원.*상여|상여금|임직원.*보상",joined_dart) and won_amount(blob)<10_000_000_000:
+        routine_comp_amount=won_amount_value(blob)
+        if (re.search(r"자기주식|자사주",report)
+            and re.search(r"임원.*상여|상여금|임직원.*보상",joined_dart)
+            and routine_comp_amount is not None
+            and routine_comp_amount<10_000_000_000):
             dart_suppression["routine_equity_compensation"]+=1
             record_drop_example(dart_suppression_examples,"routine_equity_compensation",d,"소액 임직원 보상 목적의 자사주 처분으로 분류됨")
             continue
