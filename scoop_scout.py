@@ -1177,6 +1177,22 @@ def main():
     for x in sorted(primary,key=lambda z:z.get("published",""),reverse=True):
         title=(x.get("title") or "").strip()
         joined=title+" "+x.get("summary","")
+        # Generic procurement-market briefing notices are follow-up calendar items,
+        # not material changes. Keep them out of the scoop queue unless the notice
+        # itself announces a concrete change to rules, budget, volume or market design.
+        public_briefing_notice=bool(
+            re.search(r"설명회|개최 알림|개최 계획",title)
+            and re.search(r"입찰시장|입찰|사업자|공급자",title)
+        )
+        material_briefing_change=bool(re.search(
+            r"시장 개편|입찰조건 변경|물량 확대|예산 확대|기준 변경|규정 개정|제도 변경|신규 제도",
+            joined
+        ))
+        if public_briefing_notice and not material_briefing_change:
+            drop_stats.setdefault("routine_public_notice",0)
+            drop_stats["routine_public_notice"]+=1
+            record_drop_example(drop_examples,"routine_public_notice",x,"공개 입찰·사업자 설명회 일정은 후속 일정으로 분리")
+            continue
         # Public recall-list entries are already published notices, not scoop candidates.
         if x.get("signalType")=="official_recall_notice":
             drop_stats.setdefault("routine_public_notice",0)
