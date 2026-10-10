@@ -306,7 +306,7 @@ def newsroom_matches(title,data):
 
 def event_signal_terms(text):
     return set(re.findall(
-        r"영업정지|조업정지|생산중단|가동중단|생산조정|생산계획|공급중단|공급차질|대체투입|생산라인|공급사|재고|납기|가격인상|가격인하|매각|인수|우선협상|거래종결|분할|합병|철수|신설법인|조직개편|대표이사|사장|임원|선임|퇴임|인허가|환경영향|건축허가|사업계획승인|착공|증설|공장|리콜|결함|조사개시|행정처분|소송|제소|판결|특허심판|특허|출원|등록|상표|디자인|인증|형식승인|관세|반덤핑|상계관세|수주|계약|발주|입찰|낙찰|자금조달|유상증자|회사채|PRS|보조금|지원금|신용등급|수시평가|재무구조",
+        r"영업정지|조업정지|생산중단|가동중단|생산조정|생산계획|공급중단|공급차질|대체투입|생산라인|공급사|재고|납기|가격인상|가격인하|매각|인수|우선협상|거래종결|분할|합병|철수|신설법인|조직개편|대표이사|사장|임원|선임|퇴임|인허가|환경영향|건축허가|사업계획승인|착공|증설|공장|리콜|결함|조사개시|행정처분|소송|제소|판결|특허심판|특허|출원|등록|상표|디자인|인증|형식승인|관세|반덤핑|상계관세|수주|계약|발주|입찰|낙찰|자금조달|유상증자|회사채|PRS|보조금|지원금|신용등급|수시평가|재무구조|법안|개정안|입법예고|행정예고|고시|시행령|시행규칙|본회의 통과|안전기준|탄소배출|배출권|수소발전|전력시장|판정",
         str(text or ""),re.I))
 
 def event_match_score(x,h):
@@ -331,6 +331,10 @@ def event_match_score(x,h):
     specific_pattern=re.compile(r"물적분할|인적분할|회사분할|영업정지|생산중단|조업정지|가동중단|영업양수도|합병|인수|매각|철수|우선협상|거래종결|가처분|소송제기|특허심판|반덤핑|상계관세",re.I)
     shared_specific=set(specific_pattern.findall(title)) & set(specific_pattern.findall(htitle))
     if same_company and shared_specific and tsim>=0.28:
+        return 0.80
+    # Companyless regulatory/market-wide notices still need exact event matching.
+    # Require near-identical titles plus a shared event term; topic-only matches stay weak.
+    if not companies and shared_terms>=1 and tsim>=0.82:
         return 0.80
     if same_company and shared_terms>=2 and tsim>=0.42:
         return 0.82+min(0.10,shared_nums*0.03)
@@ -538,12 +542,15 @@ def extract_person(blob,corp):
 
 def relevant_primary(x,companies,kind,joined):
     t=joined.lower()
-    general_terms=("자동차","차량","타이어","철강","열연","냉연","후판","강관","비철","구리","아연","전력","변압기","hvdc","케이블","풍력","태양광","ess","에너지","lng","원전","수소","화학","소재","공장","산업단지")
+    general_terms=("자동차","차량","전기차","하이브리드","타이어","철강","열연","냉연","후판","강관","비철","구리","아연","전력","변압기","hvdc","케이블","풍력","태양광","ess","배터리","충전","에너지","lng","원전","원자력","smr","수소","수소발전","발전","전력시장","화학","소재","공장","산업단지","산업안전","산업재해","중대재해","탄소","배출권","배출시설","공급망","관세","반덤핑","상계관세")
     auto_terms=("자동차","차량","전기차","하이브리드","pbv","자율주행","adas","타이어","리콜","결함","형식승인","배출가스")
-    specific=("생산라인","생산계획","생산량","공급사","대체투입","재고","조업","가동중단","종풍","증설","공장","투자","매각","인수","합병","분할","이사회","임원","대표이사","선임","퇴임","특허","상표","디자인","리콜","결함","조사","인증","형식승인","환경영향","건축허가","사업계획","입찰","낙찰","수주","계약","관세","반덤핑","소송","판결","심판","자금조달","유상증자","채권","RSU","신용등급","전망","수시평가","Issuer Comment","그룹분석","차입","노사","임단협","잠정합의","파업","쟁의","생산계획","생산조정","공급중단","대체투입","재고","납기","거래종결","지분")
-    # Company-specific source signals are highest value.
+    specific=("생산라인","생산계획","생산량","공급사","대체투입","재고","조업","가동중단","종풍","증설","공장","투자","매각","인수","합병","분할","이사회","임원","대표이사","선임","퇴임","특허","상표","디자인","리콜","결함","조사","인증","형식승인","환경영향","건축허가","사업계획","입찰","낙찰","수주","계약","관세","반덤핑","소송","판결","심판","자금조달","유상증자","채권","RSU","신용등급","전망","수시평가","Issuer Comment","그룹분석","차입","노사","임단협","잠정합의","파업","쟁의","생산계획","생산조정","공급중단","대체투입","재고","납기","거래종결","지분","법안","개정안","입법예고","행정예고","고시","시행령","시행규칙","본회의 통과","안전기준","사업계획승인","변경허가","조사개시","판정")
+    # Company-specific source signals are highest value. Companyless policy signals
+    # are allowed only when the collector matched a material industry context and action
+    # on an authoritative domain; a generic ministry page remains excluded.
     if companies:return True
     if COMPANY_BY_DOMAIN.get(str(x.get("querySite") or "").lower()):return True
+    if x.get("policySignal") and source_tier(x)>=3 and kind in {"정책·규제","통상·관세","인허가·환경","소송·분쟁"}:return True
     if kind in {"결함·리콜","인증·형식승인"}:return any(k in t for k in auto_terms)
     if kind in {"정책·규제","통상·관세","인허가·환경","소송·분쟁"}:
         return any(k in t for k in general_terms) and any(k in t for k in specific)
@@ -1121,8 +1128,9 @@ def main():
             continue
         concrete_hooks=0
         concrete_hooks+=min(2,len(NUM_RE.findall(source_text)))
-        concrete_hooks+=sum(1 for k in ("이사회","임원","대표이사","선임","퇴임","생산계획","생산라인","공급사","대체투입","매각","인수","분할","합병","공장","증설","인증","형식승인","리콜","결함","환경영향","인허가","특허","상표","디자인","수주","입찰","낙찰","관세","반덤핑","소송","판결","심판","자금조달","유상증자","채권","RSU") if k in source_text)
-        if not companies and concrete_hooks<2:
+        concrete_hooks+=sum(1 for k in ("이사회","임원","대표이사","선임","퇴임","생산계획","생산라인","공급사","대체투입","매각","인수","분할","합병","공장","증설","인증","형식승인","리콜","결함","환경영향","인허가","특허","상표","디자인","수주","입찰","낙찰","관세","반덤핑","소송","판결","심판","자금조달","유상증자","채권","RSU","법안","개정안","입법예고","행정예고","고시","시행령","시행규칙","본회의 통과","안전기준","산업안전보건법","산업재해","중대재해","탄소배출","배출권","사업계획승인","변경허가","조사개시","판정") if k in source_text)
+        trusted_policy_signal=bool(x.get("policySignal") and source_tier(x)>=3 and kind in {"정책·규제","통상·관세","인허가·환경","소송·분쟁"})
+        if not companies and concrete_hooks<2 and not trusted_policy_signal:
             drop_stats["specificity"]+=1
             record_drop_example(drop_examples,"specificity",x,"추적 기업명이 없고 구체적 취재 단서가 2개 미만")
             continue
