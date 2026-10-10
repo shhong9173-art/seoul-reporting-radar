@@ -902,7 +902,7 @@ def main():
     now=datetime.now(KST)
     primary=[]
     pattern_frequency={}
-    dart_suppression={"correction":0,"outside_lookback_window":0,"contract_reports_seen":0,"contract_reports_routine":0,"contract_reports_eligible":0,"routine_equity_compensation":0}
+    dart_suppression={"correction":0,"outside_lookback_window":0,"contract_reports_seen":0,"contract_reports_routine":0,"contract_reports_details_unavailable":0,"contract_reports_eligible":0,"routine_equity_compensation":0}
     for row in data:
         if row.get("global"):continue
         title=str(row.get("title") or "")
@@ -938,6 +938,10 @@ def main():
         if not target_hits(corp_name):continue
         blob,nums=dart_fact(d,numeric,force_document=contract_report)
         joined_dart=str(d.get("signalText",""))+" "+blob
+        numeric_row=next((r for r in numeric if r.get("receiptNo")==d.get("receiptNo")),None)
+        detail_unavailable=bool(contract_report and not blob.strip() and not nums and (
+            not numeric_row or numeric_row.get("error") or not numeric_row.get("snippets")
+        ))
         if contract_report:
             party=near_fact(blob,"계약상대방")
             party_specific=bool(party and not re.search(r"해당없음|미정|비공개|불특정|기타|없음|-",party,re.I) and len(party.strip())>=2)
@@ -946,8 +950,13 @@ def main():
             amount=won_amount(blob)
             material_amount=amount>=100_000_000_000 if amount else False
             if not (unusual_contract or contract_units or (material_amount and party_specific)):
-                dart_suppression["contract_reports_routine"]+=1
-                continue
+                if detail_unavailable:
+                    # A temporary source failure is not evidence that a contract is routine.
+                    # Keep it for an explicit diagnostic hold, but never promote it as a scoop.
+                    dart_suppression["contract_reports_details_unavailable"]+=1
+                else:
+                    dart_suppression["contract_reports_routine"]+=1
+                    continue
             dart_suppression["contract_reports_eligible"]+=1
         # Small treasury-share transfers used for routine executive bonuses are governance notices,
         # not industrial scoops. Keep material ownership/control changes for later verification.
@@ -959,7 +968,8 @@ def main():
             "url":d.get("url",""),"published":ddt.isoformat(),"sourceName":"DART",
             "summary":(d.get("signalText","")+" "+blob)[:12000],
             "official":True,"officialLabel":"DART","receiptNo":d.get("receiptNo"),
-            "dartNumbers":nums,"rawReport":report,"corpName":corp_name
+            "dartNumbers":nums,"rawReport":report,"corpName":corp_name,
+            "detailUnavailable":detail_unavailable
         })
 
     for p in pre_scoop:
@@ -968,7 +978,7 @@ def main():
 
     lead_signals,lead_diagnostics=build_lead_signals(primary,data,now,limit=12)
     public_signals=build_public_signals(primary,dart,now,limit=10)
-    candidates=[];seen=set();drop_stats={"noise":0,"stale_pre_scoop":0,"routine_regulatory":0,"relevance":0,"generic":0,"specificity":0,"prior_coverage":0,"procurement":0,"routine_contract":0,"low_score":0,"low_score_rescued":0,"other":0,"accepted":0}
+    candidates=[];seen=set();drop_stats={"noise":0,"stale_pre_scoop":0,"routine_regulatory":0,"relevance":0,"generic":0,"association_filter":0,"specificity":0,"prior_coverage":0,"procurement":0,"procurement_noise":0,"procurement_nonmaterial":0,"routine_contract":0,"contract_details_unavailable":0,"low_score":0,"low_score_rescued":0,"missing_core_facts":0,"untrusted_source":0,"company_required":0,"duplicate":0,"other":0,"accepted":0}
     for x in sorted(primary,key=lambda z:z.get("published",""),reverse=True):
         title=(x.get("title") or "").strip()
         joined=title+" "+x.get("summary","")
@@ -1021,6 +1031,7 @@ def main():
         # A scoop needs a concrete reporting handle, not just an industry keyword.
         source_text=(title+" "+x.get("summary",""))
         if source_group_now=="협회" and not any(k in source_text for k in ("정책","제도","건의","조사","통계","수급","가격","통상","반덤핑","공동대응","회원사","입찰","낙찰","프로젝트","수주","공급망","인증","기술기준","표준","안전","수출","수입")):
+            drop_stats["association_filter"]+=1
             continue
         concrete_hooks=0
         concrete_hooks+=min(2,len(NUM_RE.findall(source_text)))
@@ -1085,8 +1096,10 @@ def main():
         )
         if source_group_now=="조달":
             if any(k in procurement_text for k in procurement_noise):
+                drop_stats["procurement_noise"]+=1
                 continue
             if not any(k in procurement_text for k in procurement_material):
+                drop_stats["procurement_nonmaterial"]+=1
                 continue
             # A company name alone is never enough; the tender must expose an
             # industrial asset, physical demand, infrastructure or material service.
@@ -1096,6 +1109,9 @@ def main():
 
         # Routine contracts are not useful scoop candidates unless they carry a new customer/market,
         # unusual project, large amount, or specific physical quantity.
+        if kind=="계약·수주" and x.get("detailUnavailable"):
+            drop_stats["contract_details_unavailable"]+=1
+            continue
         if kind=="계약·수주":
             large=any(re.search(r"(조원|억원)",str(n)) and float(re.sub(r"[^0-9.]","",str(n).replace(",","")) or 0)>=1000 for n in numbers)
             unusual=any(k in joined for k in ("첫","최초","북미","미국","유럽","중동","사우디","호주","대규모","장기","독점","신규 고객","신규 고객사","신규 시장","프로젝트"))
@@ -1143,15 +1159,23 @@ def main():
             else:
                 drop_stats["low_score"]+=1
                 continue
-        if not (numbers or kind in {"결함·리콜","인증·형식승인","인허가·환경","소송·분쟁","인사","특허·기술","상표·디자인","정책·규제","사업재편","통상·관세"} or any(k in joined for k in ("공장","법인","조직개편","대표이사","특허","고시","법안","리콜","결함","인증","인허가","소송","판결","관세"))):continue
+        if not (numbers or kind in {"결함·리콜","인증·형식승인","인허가·환경","소송·분쟁","인사","특허·기술","상표·디자인","정책·규제","사업재편","신사업·투자","조달·발주","통상·관세"} or any(k in joined for k in ("공장","법인","조직개편","대표이사","특허","고시","법안","리콜","결함","인증","인허가","소송","판결","관세"))):
+            drop_stats["missing_core_facts"]+=1
+            continue
         # Public-source freshness and specificity are mandatory for a real scoop candidate.
-        if source_group_now=="기타" and not x.get("officialLabel"):continue
-        if not companies and kind in {"특허·기술","상표·디자인","인사","결함·리콜","인증·형식승인"}:continue
+        if source_group_now=="기타" and not x.get("officialLabel"):
+            drop_stats["untrusted_source"]+=1
+            continue
+        if not companies and kind in {"특허·기술","상표·디자인","인사","결함·리콜","인증·형식승인"}:
+            drop_stats["company_required"]+=1
+            continue
 
         corp=companies[0] if companies else "정부"
         headline=scoop_headline(x,kind,corp,x.get("summary") or "",numbers)
         dedup=re.sub(r"[^가-힣A-Za-z0-9]","",headline.lower())
-        if dedup in seen:continue
+        if dedup in seen:
+            drop_stats["duplicate"]+=1
+            continue
         seen.add(dedup)
 
         if kind=="결함·리콜":
