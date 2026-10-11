@@ -39,7 +39,7 @@ COMPANY_GROUPS = [
 ]
 
 SOURCE_SPECS = [
-    ("법원·분쟁", "glaw.scourt.go.kr", "(소송 OR 판결 OR 가처분 OR 손해배상 OR 계약 OR 특허 OR 상표 OR 하도급 OR 구조조정)"),
+    ("법원·분쟁", "scourt.go.kr", "(소송 OR 판결 OR 가처분 OR 손해배상 OR 계약 OR 특허 OR 상표 OR 하도급 OR 구조조정)"),
     ("중앙노동위", "nlrc.go.kr", "(판정 OR 결정 OR 조정 OR 부당노동행위 OR 교섭 OR 쟁의 OR 해고 OR 구조조정 OR 단체협약)"),
     ("고용노동", "moel.go.kr", "(특별감독 OR 근로감독 OR 산업안전 OR 중대재해 OR 행정처분 OR 시정명령 OR 임금체불 OR 직장폐쇄)"),
     ("공장·산업단지", "factoryon.go.kr", "(공장등록 OR 등록변경 OR 신설 OR 증설 OR 업종변경 OR 제조시설 OR 산업단지 OR 입주계약 OR 처분)"),
@@ -470,14 +470,116 @@ def fetch_direct_ntis_announcements(max_items=12):
     return out
 
 
+def fetch_direct_court(max_items=12):
+    """Collect date-stamped Supreme Court releases and industry-related disputes."""
+    base="https://www.scourt.go.kr"
+    page_paths=[
+        "/supreme/news/NewsListAction.work?gubun=702",
+        "/portal/news/NewsListAction.work?gubun=6",
+    ]
+    now=datetime.now(KST)
+    cutoff=now-timedelta(days=LOOKBACK_DAYS)
+    diag={"pagesAttempted":0,"pagesFetched":0,"rowsScanned":0,"datedRows":0,
+          "recentRows":0,"detailPagesAttempted":0,"detailPagesFetched":0,"retained":0,
+          "errors":[],"sampleRows":[]}
+    DIRECT_DIAGNOSTICS["scourt-case-releases"]=diag
+    out=[];seen=set()
+    date_re=re.compile(r"20\d{2}\s*[-./]\s*\d{1,2}\s*[-./]\s*\d{1,2}")
+    anchor_re=re.compile(r'<a\b[^>]+href=["\']([^"\']+)["\'][^>]*>(.*?)</a>',re.I|re.S)
+    material_re=re.compile(
+        r"자동차|모빌리티|전기차|배터리|타이어|철강|강관|변압기|전력기기|전선|케이블|"
+        r"풍력|태양광|원전|원자력|SMR|에너지|산업재해|중대재해|산업안전|하도급|공정거래|"
+        r"담합|영업비밀|특허|상표|기술유출|공급계약|공사대금|산업단지|환경오염|폐기물|"
+        r"탄소|노동조합|임금|정리해고|구조조정|회생|파산|손해배상|추심금|계약해지",
+        re.I,
+    )
+    ignore_title_re=re.compile(r"임명식|인사발령|포토뉴스|사법연감|인사말|행사|기념식",re.I)
+    for path in page_paths:
+        if len(out)>=max_items: break
+        page_url=base+path
+        diag["pagesAttempted"]+=1
+        try:
+            page=decode_web_bytes(get(page_url,timeout=10))
+            diag["pagesFetched"]+=1
+        except Exception as exc:
+            if len(diag["errors"])<4:
+                diag["errors"].append(f"{path}: {type(exc).__name__}: {exc}"[:240])
+            continue
+        rows=re.findall(r"<tr\b[^>]*>.*?</tr>",page,re.I|re.S)
+        for row in rows:
+            diag["rowsScanned"]+=1
+            links=list(anchor_re.finditer(row))
+            if not links: continue
+            date_match=date_re.search(row)
+            if not date_match: continue
+            try:
+                date_value=re.sub(r"\s*[-./]\s*","-",date_match.group(0)).strip()
+                dt=datetime.strptime(date_value,"%Y-%m-%d").replace(tzinfo=KST)
+            except ValueError:
+                continue
+            diag["datedRows"]+=1
+            if dt<cutoff or dt>now+timedelta(hours=6): continue
+            candidates=[]
+            for link in links:
+                title=clean(link.group(2))
+                href=urllib.parse.urljoin(base,html.unescape(link.group(1).strip()))
+                if len(title)<8 or re.search(r"첨부|다운로드|바로가기|이미지|아이콘|목록|이전|다음",title,re.I):
+                    continue
+                if href.lower().endswith((".pdf",".hwp",".hwpx",".zip")):
+                    continue
+                if "NewsViewAction.work" not in href and "newsView" not in href:
+                    continue
+                candidates.append((title,href))
+            if not candidates: continue
+            title,href=max(candidates,key=lambda item:len(item[0]))
+            if href in seen or ignore_title_re.search(title): continue
+            diag["recentRows"]+=1
+            seen.add(href)
+            detail=""
+            title_companies=target_hits(title)
+            if not title_companies and diag["detailPagesAttempted"]<8:
+                diag["detailPagesAttempted"]+=1
+                try:
+                    detail=clean(decode_web_bytes(get(href,timeout=8)))[:12000]
+                    diag["detailPagesFetched"]+=1
+                except Exception as exc:
+                    if len(diag["errors"])<4:
+                        diag["errors"].append(f"detail {title[:50]}: {type(exc).__name__}: {exc}"[:240])
+            body=title+" "+detail
+            companies=target_hits(body)
+            if not SIGNAL_TERMS.search(body): continue
+            if not companies and not material_re.search(body):
+                if len(diag["sampleRows"])<8:
+                    diag["sampleRows"].append({"title":title[:160],"date":dt.isoformat(),
+                                                "reason":"not a tracked-company or industry-related dispute"})
+                continue
+            out.append({
+                "sourceName":"대법원 보도자료","officialLabel":"대한민국 법원",
+                "querySite":"scourt.go.kr","sourceGroup":"법원·분쟁",
+                "title":title,"url":href,"published":dt.isoformat(),
+                "summary":detail[:3500],"official":True,"preScoop":True,
+                "companies":companies,"directSource":True,
+                "signalType":"supreme_court_case_release",
+                "dateSource":"대법원 보도자료 게시일"
+            })
+            if len(out)>=max_items: break
+    diag["retained"]=len(out)
+    print(f"direct Supreme Court case scout: diagnostics={diag}")
+    return out
+
+
 def fetch_direct_nlrc(max_items=12):
-    """Read current NLRC case-summary pages, not the obsolete mainJudgment path."""
+    """Read dated NLRC judgment/case-summary links; ignore unrelated homepage news links."""
     base="https://nlrc.go.kr"
     page_paths=[
-        "/nlrc/main/main.do",
-        "/nlrc/mainCase/judgment/search/index.do",
-        "/nlrc/mainCase/caseAnalysis/index.do",
-        "/nlrc/mainCase/mainJudgment/list.do",
+        "/nlrc/main.do",
+        "/nlrc/seoul/mainCase/judgment/search/index.do",
+        "/nlrc/seoul/mainCase/caseAnalysis/index.do",
+        "/nlrc/gyeonggi/mainCase/judgment/search/index.do",
+        "/nlrc/gyeonggi/mainCase/caseAnalysis/index.do",
+        "/nlrc/busan/mainCase/judgment/search/index.do",
+        "/nlrc/incheon/mainCase/judgment/search/index.do",
+        "/nlrc/chungnam/mainCase/judgment/search/index.do",
     ]
     now=datetime.now(KST)
     cutoff=now-timedelta(days=LOOKBACK_DAYS)
@@ -487,13 +589,18 @@ def fetch_direct_nlrc(max_items=12):
     out=[];seen=set()
     date_re=re.compile(r"20\d{2}\s*[-./]\s*\d{1,2}\s*[-./]\s*\d{1,2}")
     anchor_re=re.compile(r'<a\b[^>]+href=["\']([^"\']+)["\'][^>]*>(.*?)</a>',re.I|re.S)
+    labor_industry_re=re.compile(
+        r"자동차|전기차|배터리|철강|강관|변압기|전력기기|전선|케이블|풍력|태양광|"
+        r"원전|원자력|에너지|제조업|생산직|공장|산업재해|중대재해|하도급|협력업체|"
+        r"사업장|구조조정|정리해고|임금체불|노동조합|단체교섭|부당노동행위",
+        re.I,
+    )
     for path in page_paths:
         if len(out)>=max_items: break
-        url=base+path
+        page_url=base+path
         diag["pagesAttempted"]+=1
         try:
-            raw=get(url,timeout=12)
-            page=decode_web_bytes(raw)
+            page=decode_web_bytes(get(page_url,timeout=10))
             diag["pagesFetched"]+=1
         except Exception as exc:
             if len(diag["errors"])<4:
@@ -503,53 +610,57 @@ def fetch_direct_nlrc(max_items=12):
             diag["anchorsScanned"]+=1
             title=clean(match.group(2))
             href=urllib.parse.urljoin(base,html.unescape(match.group(1).strip()))
-            if len(title)<8 or href==url or href in seen:
+            if len(title)<8 or href in seen: continue
+            if "/mainCase/" not in urllib.parse.urlparse(href).path:
                 continue
-            if re.search(r"검색|로그인|회원가입|바로가기|더보기|전체메뉴|판정·결정요지$",title):
+            if not re.search(r"/(?:detail|view|viewDetail|caseView)\.do(?:$|[?#])",href,re.I):
                 continue
-            # Prefer date metadata in the same table row/list item; use a small
-            # nearby window only for card layouts without explicit row markup.
-            left=max(0,match.start()-500)
-            right=min(len(page),match.end()+650)
-            context=page[left:right]
+            if re.search(r"검색|로그인|회원가입|바로가기|더보기|전체메뉴|목록",title):
+                continue
+            row_start=page.rfind("<tr",0,match.start())
+            row_end=page.find("</tr>",match.end())
+            if row_start>=0 and row_end>=0 and row_end-match.start()<2500:
+                context=page[row_start:row_end+5]
+            else:
+                context=page[max(0,match.start()-350):min(len(page),match.end()+450)]
             date_match=date_re.search(context)
-            if not date_match:
-                continue
+            if not date_match: continue
             try:
                 date_value=re.sub(r"\s*[-./]\s*","-",date_match.group(0)).strip()
                 dt=datetime.strptime(date_value,"%Y-%m-%d").replace(tzinfo=KST)
             except ValueError:
                 continue
             diag["datedLinks"]+=1
-            if dt<cutoff or dt>now+timedelta(hours=6):
-                continue
+            if dt<cutoff or dt>now+timedelta(hours=6): continue
             diag["recentLinks"]+=1
             seen.add(href)
             detail=""
             try:
                 detail=clean(decode_web_bytes(get(href,timeout=8)))[:12000]
                 diag["detailPagesFetched"]+=1
-            except Exception:
-                pass
+            except Exception as exc:
+                if len(diag["errors"])<4:
+                    diag["errors"].append(f"detail {title[:50]}: {type(exc).__name__}: {exc}"[:240])
             body=title+" "+detail
             companies=target_hits(body)
-            if not companies or not SIGNAL_TERMS.search(body):
+            if not SIGNAL_TERMS.search(body) or (not companies and not labor_industry_re.search(body)):
                 if len(diag["sampleRows"])<8:
                     diag["sampleRows"].append({"title":title[:160],"date":dt.isoformat(),
-                                                "reason":"no tracked company or material signal"})
+                                                "reason":"not an industry-relevant dated labor-board case"})
                 continue
             out.append({
-                "sourceName":"중앙노동위원회 주요사례","officialLabel":"중앙노동위",
+                "sourceName":"중앙·지방노동위원회 주요사례","officialLabel":"노동위원회",
                 "querySite":"nlrc.go.kr","sourceGroup":"중앙노동위","title":title,
                 "url":href,"published":dt.isoformat(),"summary":detail[:3500],
                 "official":True,"preScoop":True,"companies":companies,
                 "directSource":True,"signalType":"nlrc_case_summary",
-                "dateSource":"중앙노동위 판정·사례 페이지"
+                "dateSource":"노동위원회 판정·사례 게시일"
             })
             if len(out)>=max_items: break
     diag["retained"]=len(out)
     print(f"direct NLRC case scout: diagnostics={diag}")
     return out
+
 
 
 def fetch_direct_ieps(max_items=12):
@@ -640,6 +751,7 @@ def fetch_direct_factoryon(max_items=12):
     """Read FactoryON's dated public notices and industrial-land sale/disposal notices."""
     base="https://www.factoryon.go.kr"
     page_paths=[
+        "/mobile/bbs/lttotNdDspsPblancList.do",
         "/mobile/main/main.do",
         "/mobile/bbs/noticeBbsList.do",
     ]
@@ -1051,6 +1163,10 @@ def main():
         hits = fetch_source(group, domain, terms)
         items.extend(hits)
         by_group[group] = by_group.get(group, 0) + len(hits)
+
+    direct_court = fetch_direct_court()
+    items.extend(direct_court)
+    by_group["법원·분쟁"] = by_group.get("법원·분쟁", 0) + len(direct_court)
 
     direct_ntis = fetch_direct_ntis_announcements()
     items.extend(direct_ntis)
