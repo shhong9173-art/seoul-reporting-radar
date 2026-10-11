@@ -569,30 +569,32 @@ def fetch_direct_court(max_items=12):
 
 
 def fetch_direct_nlrc(max_items=12):
-    """Read dated NLRC judgment/case-summary links; ignore unrelated homepage news links."""
+    """Read actual NLRC published case-list rows, not navigation links.
+
+    The case search/index.do pages are search forms. Their hyperlinks do not
+    contain dated judgment records, so scraping anchor neighbors returned zero
+    dated results even when the official case listing had older records.
+    """
     base="https://nlrc.go.kr"
     page_paths=[
-        "/nlrc/main.do",
-        "/nlrc/seoul/mainCase/judgment/search/index.do",
-        "/nlrc/seoul/mainCase/caseAnalysis/index.do",
-        "/nlrc/gyeonggi/mainCase/judgment/search/index.do",
-        "/nlrc/gyeonggi/mainCase/caseAnalysis/index.do",
-        "/nlrc/busan/mainCase/judgment/search/index.do",
-        "/nlrc/incheon/mainCase/judgment/search/index.do",
-        "/nlrc/chungnam/mainCase/judgment/search/index.do",
+        "/nlrc/mainCase/mainJudgment/list.do",
+        "/nlrc/jeonnam/mainCase/judgment/index.do",
+        "/nlrc/mainCase/judgment/search/index.do",
     ]
     now=datetime.now(KST)
     cutoff=now-timedelta(days=LOOKBACK_DAYS)
-    diag={"pagesAttempted":0,"pagesFetched":0,"anchorsScanned":0,"datedLinks":0,
-          "recentLinks":0,"detailPagesFetched":0,"retained":0,"errors":[],"sampleRows":[]}
+    diag={"pagesAttempted":0,"pagesFetched":0,"rowsScanned":0,"datedRows":0,
+          "recentRows":0,"outsideWindow":0,"industryRelevantRows":0,
+          "detailPagesFetched":0,"retained":0,"latestPublished":"",
+          "errors":[],"sampleRows":[]}
     DIRECT_DIAGNOSTICS["nlrc-case-summaries"]=diag
     out=[];seen=set()
     date_re=re.compile(r"20\d{2}\s*[-./]\s*\d{1,2}\s*[-./]\s*\d{1,2}")
-    anchor_re=re.compile(r'<a\b[^>]+href=["\']([^"\']+)["\'][^>]*>(.*?)</a>',re.I|re.S)
-    labor_industry_re=re.compile(
+    anchor_re=re.compile(r'<a\b[^>]*href=["\x27]([^"\x27]*)["\x27][^>]*>(.*?)</a>',re.I|re.S)
+    industry_re=re.compile(
         r"자동차|전기차|배터리|철강|강관|변압기|전력기기|전선|케이블|풍력|태양광|"
         r"원전|원자력|에너지|제조업|생산직|공장|산업재해|중대재해|하도급|협력업체|"
-        r"사업장|구조조정|정리해고|임금체불|노동조합|단체교섭|부당노동행위",
+        r"사업장|구조조정|정리해고|임금체불|노동조합|단체교섭|교섭요구|부당노동행위|산업안전",
         re.I,
     )
     for path in page_paths:
@@ -606,58 +608,75 @@ def fetch_direct_nlrc(max_items=12):
             if len(diag["errors"])<4:
                 diag["errors"].append(f"{path}: {type(exc).__name__}: {exc}"[:240])
             continue
-        for match in anchor_re.finditer(page):
-            diag["anchorsScanned"]+=1
-            title=clean(match.group(2))
-            href=urllib.parse.urljoin(base,html.unescape(match.group(1).strip()))
-            if len(title)<8 or href in seen: continue
-            if "/mainCase/" not in urllib.parse.urlparse(href).path:
+        # Each HTML table row has its own publication date; never borrow a
+        # date from the previous or next case or from the current page header.
+        for row in re.findall(r"<tr\b[^>]*>.*?</tr>",page,re.I|re.S):
+            diag["rowsScanned"]+=1
+            row_text=clean(row)
+            dm=date_re.search(row_text)
+            if not dm:
                 continue
-            if not re.search(r"/(?:detail|view|viewDetail|caseView)\.do(?:$|[?#])",href,re.I):
-                continue
-            if re.search(r"검색|로그인|회원가입|바로가기|더보기|전체메뉴|목록",title):
-                continue
-            row_start=page.rfind("<tr",0,match.start())
-            row_end=page.find("</tr>",match.end())
-            if row_start>=0 and row_end>=0 and row_end-match.start()<2500:
-                context=page[row_start:row_end+5]
-            else:
-                context=page[max(0,match.start()-350):min(len(page),match.end()+450)]
-            date_match=date_re.search(context)
-            if not date_match: continue
             try:
-                date_value=re.sub(r"\s*[-./]\s*","-",date_match.group(0)).strip()
-                dt=datetime.strptime(date_value,"%Y-%m-%d").replace(tzinfo=KST)
+                dt=parse_dt(re.sub(r"\s*[-./]\s*","-",dm.group(0)))
             except ValueError:
                 continue
-            diag["datedLinks"]+=1
-            if dt<cutoff or dt>now+timedelta(hours=6): continue
-            diag["recentLinks"]+=1
-            seen.add(href)
-            detail=""
-            try:
-                detail=clean(decode_web_bytes(get(href,timeout=8)))[:12000]
-                diag["detailPagesFetched"]+=1
-            except Exception as exc:
-                if len(diag["errors"])<4:
-                    diag["errors"].append(f"detail {title[:50]}: {type(exc).__name__}: {exc}"[:240])
-            body=title+" "+detail
-            companies=target_hits(body)
-            if not SIGNAL_TERMS.search(body) or (not companies and not labor_industry_re.search(body)):
-                if len(diag["sampleRows"])<8:
-                    diag["sampleRows"].append({"title":title[:160],"date":dt.isoformat(),
-                                                "reason":"not an industry-relevant dated labor-board case"})
+            if dt.year<2000:
                 continue
+            diag["datedRows"]+=1
+            if not diag["latestPublished"] or dt.isoformat()>diag["latestPublished"]:
+                diag["latestPublished"]=dt.isoformat()
+            links=[(clean(m.group(2)),html.unescape(m.group(1).strip()))
+                   for m in anchor_re.finditer(row)]
+            links=[(t,href) for t,href in links
+                   if len(t)>=15 and not re.search(r"목록|더보기|전체보기|검색|파일|첨부",t)]
+            if links:
+                title,raw_href=max(links,key=lambda item:len(item[0]))
+            else:
+                title=re.sub(r"^\s*[\d,]+\s*", "", row_text)
+                title=re.sub(date_re, "", title).strip()[:220]
+                raw_href=""
+            if len(title)<15:
+                continue
+            if dt<cutoff or dt>now+timedelta(hours=6):
+                diag["outsideWindow"]+=1
+                if len(diag["sampleRows"])<5:
+                    diag["sampleRows"].append({"title":title[:130],"date":dt.isoformat(),"reason":"outside lookback"})
+                continue
+            diag["recentRows"]+=1
+            key=re.sub(r"[^가-힣A-Za-z0-9]","",title).lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            companies=target_hits(title)
+            if not companies and not industry_re.search(title):
+                continue
+            if not SIGNAL_TERMS.search(title):
+                continue
+            diag["industryRelevantRows"]+=1
+            # A JS-only detail control is not a valid public URL: link to the
+            # official dated case list instead of inventing a detail endpoint.
+            url=urllib.parse.urljoin(base,raw_href) if raw_href and not raw_href.lower().startswith(("javascript:","#")) else page_url
+            if urllib.parse.urlparse(url).hostname not in ("nlrc.go.kr","www.nlrc.go.kr"):
+                url=page_url
             out.append({
-                "sourceName":"중앙·지방노동위원회 주요사례","officialLabel":"노동위원회",
-                "querySite":"nlrc.go.kr","sourceGroup":"중앙노동위","title":title,
-                "url":href,"published":dt.isoformat(),"summary":detail[:3500],
+                "sourceName":"중앙·지방노동위원회 주요판정사례",
+                "officialLabel":"노동위원회","querySite":"nlrc.go.kr",
+                "sourceGroup":"중앙노동위","title":title,"url":url,
+                "published":dt.isoformat(),"summary":row_text[:3500],
                 "official":True,"preScoop":True,"companies":companies,
-                "directSource":True,"signalType":"nlrc_case_summary",
-                "dateSource":"노동위원회 판정·사례 게시일"
+                "directSource":True,"policySignal":not bool(companies),
+                "signalType":"nlrc_dated_case_listing","category":"노동·분쟁",
+                "dateSource":"노동위원회 판정사례 게시일"
             })
-            if len(out)>=max_items: break
+            if len(out)>=max_items:
+                break
     diag["retained"]=len(out)
+    if diag["datedRows"] and not diag["recentRows"]:
+        diag["status"]="official_case_lists_have_no_records_inside_21_day_window"
+    elif not diag["datedRows"]:
+        diag["status"]="date_rows_not_parsed"
+    else:
+        diag["status"]="recent_cases_checked"
     print(f"direct NLRC case scout: diagnostics={diag}")
     return out
 
