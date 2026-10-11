@@ -39,7 +39,7 @@ COMPANY_GROUPS = [
 ]
 
 SOURCE_SPECS = [
-    ("법원·분쟁", "g.scourt.go.kr", "(소송 OR 판결 OR 가처분 OR 손해배상 OR 계약 OR 특허 OR 상표 OR 하도급 OR 구조조정)"),
+    ("법원·분쟁", "glaw.scourt.go.kr", "(소송 OR 판결 OR 가처분 OR 손해배상 OR 계약 OR 특허 OR 상표 OR 하도급 OR 구조조정)"),
     ("중앙노동위", "nlrc.go.kr", "(판정 OR 결정 OR 조정 OR 부당노동행위 OR 교섭 OR 쟁의 OR 해고 OR 구조조정 OR 단체협약)"),
     ("고용노동", "moel.go.kr", "(특별감독 OR 근로감독 OR 산업안전 OR 중대재해 OR 행정처분 OR 시정명령 OR 임금체불 OR 직장폐쇄)"),
     ("공장·산업단지", "factoryon.go.kr", "(공장등록 OR 등록변경 OR 신설 OR 증설 OR 업종변경 OR 제조시설 OR 산업단지 OR 입주계약 OR 처분)"),
@@ -84,6 +84,22 @@ def get(url, timeout=8):
     )
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return r.read()
+
+def decode_web_bytes(raw):
+    """Decode UTF-8 first, then Korean legacy encodings without dropping Hangul."""
+    try:
+        return raw.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        pass
+    candidates=[]
+    for encoding in ("cp949","euc-kr"):
+        try:
+            candidate=raw.decode(encoding,errors="replace")
+            hangul=sum(1 for ch in candidate if "\uac00"<=ch<="\ud7a3")
+            candidates.append((hangul-candidate.count("\ufffd")*20,candidate))
+        except Exception:
+            continue
+    return max(candidates,key=lambda item:item[0])[1] if candidates else raw.decode("utf-8","replace")
 
 def clean(s):
     s = html.unescape(s or "")
@@ -345,7 +361,7 @@ def fetch_direct_ntis_announcements(max_items=12):
     base="https://www.ntis.go.kr"
     now=datetime.now(KST)
     cutoff=now-timedelta(days=LOOKBACK_DAYS)
-    terms=["자동차","전기차","배터리","철강","변압기","수소발전","해상풍력","전력망","탄소"]
+    terms=["자동차","전기차","배터리","철강","변압기","전력망","해상풍력","수소발전","원전","탄소","소재"]
     batches=[terms[i:i+3] for i in range(0,len(terms),3)]
     slot=int(now.timestamp()//1800)%len(batches)
     active_terms=batches[slot]
@@ -455,51 +471,170 @@ def fetch_direct_ntis_announcements(max_items=12):
 
 
 def fetch_direct_nlrc(max_items=12):
-    """Read the NLRC's recent major judgment list directly, then inspect recent case pages for tracked companies."""
+    """Read current NLRC case-summary pages, not the obsolete mainJudgment path."""
     base="https://nlrc.go.kr"
-    list_url=base+"/nlrc/mainCase/mainJudgment/list.do"
+    page_paths=[
+        "/nlrc/main/main.do",
+        "/nlrc/mainCase/judgment/search/index.do",
+        "/nlrc/mainCase/caseAnalysis/index.do",
+        "/nlrc/mainCase/mainJudgment/list.do",
+    ]
     now=datetime.now(KST)
     cutoff=now-timedelta(days=LOOKBACK_DAYS)
-    try:
-        raw=get(list_url, timeout=15).decode("utf-8","ignore")
-    except Exception:
-        return []
-    out=[]; seen=set()
-    rows=re.findall(r"<tr[^>]*>(.*?)</tr>", raw, flags=re.I|re.S)
-    for row in rows[:24]:
-        dm=re.search(r"(20\d{2}-\d{2}-\d{2})", row)
-        lm=re.search(r'<a[^>]+href=["\']([^"\']+)["\'][^>]*>(.*?)</a>', row, flags=re.I|re.S)
-        if not dm or not lm:
-            continue
+    diag={"pagesAttempted":0,"pagesFetched":0,"anchorsScanned":0,"datedLinks":0,
+          "recentLinks":0,"detailPagesFetched":0,"retained":0,"errors":[],"sampleRows":[]}
+    DIRECT_DIAGNOSTICS["nlrc-case-summaries"]=diag
+    out=[];seen=set()
+    date_re=re.compile(r"20\d{2}\s*[-./]\s*\d{1,2}\s*[-./]\s*\d{1,2}")
+    anchor_re=re.compile(r'<a\b[^>]+href=["\']([^"\']+)["\'][^>]*>(.*?)</a>',re.I|re.S)
+    for path in page_paths:
+        if len(out)>=max_items: break
+        url=base+path
+        diag["pagesAttempted"]+=1
         try:
-            dt=datetime.strptime(dm.group(1),"%Y-%m-%d").replace(tzinfo=KST)
-        except ValueError:
+            raw=get(url,timeout=12)
+            page=decode_web_bytes(raw)
+            diag["pagesFetched"]+=1
+        except Exception as exc:
+            if len(diag["errors"])<4:
+                diag["errors"].append(f"{path}: {type(exc).__name__}: {exc}"[:240])
             continue
-        if dt < cutoff:
-            continue
-        title=clean(lm.group(2))
-        href=urllib.parse.urljoin(base,lm.group(1))
-        if not title or href in seen:
-            continue
-        seen.add(href)
-        detail=""
-        try:
-            detail=clean(get(href, timeout=10).decode("utf-8","ignore"))[:12000]
-        except Exception:
+        for match in anchor_re.finditer(page):
+            diag["anchorsScanned"]+=1
+            title=clean(match.group(2))
+            href=urllib.parse.urljoin(base,html.unescape(match.group(1).strip()))
+            if len(title)<8 or href==url or href in seen:
+                continue
+            if re.search(r"검색|로그인|회원가입|바로가기|더보기|전체메뉴|판정·결정요지$",title):
+                continue
+            # Prefer date metadata in the same table row/list item; use a small
+            # nearby window only for card layouts without explicit row markup.
+            left=max(0,match.start()-500)
+            right=min(len(page),match.end()+650)
+            context=page[left:right]
+            date_match=date_re.search(context)
+            if not date_match:
+                continue
+            try:
+                date_value=re.sub(r"\s*[-./]\s*","-",date_match.group(0)).strip()
+                dt=datetime.strptime(date_value,"%Y-%m-%d").replace(tzinfo=KST)
+            except ValueError:
+                continue
+            diag["datedLinks"]+=1
+            if dt<cutoff or dt>now+timedelta(hours=6):
+                continue
+            diag["recentLinks"]+=1
+            seen.add(href)
             detail=""
-        body=title+" "+detail
-        companies=target_hits(body)
-        if not companies or not SIGNAL_TERMS.search(body):
-            continue
-        out.append({
-            "sourceName":"중앙노동위원회","officialLabel":"중앙노동위","querySite":"nlrc.go.kr",
-            "sourceGroup":"중앙노동위","title":title,"url":href,"published":dt.isoformat(),
-            "summary":detail[:3500],"official":True,"preScoop":True,"companies":companies,
-            "directSource":True
-        })
-        if len(out)>=max_items:
-            break
+            try:
+                detail=clean(decode_web_bytes(get(href,timeout=8)))[:12000]
+                diag["detailPagesFetched"]+=1
+            except Exception:
+                pass
+            body=title+" "+detail
+            companies=target_hits(body)
+            if not companies or not SIGNAL_TERMS.search(body):
+                if len(diag["sampleRows"])<8:
+                    diag["sampleRows"].append({"title":title[:160],"date":dt.isoformat(),
+                                                "reason":"no tracked company or material signal"})
+                continue
+            out.append({
+                "sourceName":"중앙노동위원회 주요사례","officialLabel":"중앙노동위",
+                "querySite":"nlrc.go.kr","sourceGroup":"중앙노동위","title":title,
+                "url":href,"published":dt.isoformat(),"summary":detail[:3500],
+                "official":True,"preScoop":True,"companies":companies,
+                "directSource":True,"signalType":"nlrc_case_summary",
+                "dateSource":"중앙노동위 판정·사례 페이지"
+            })
+            if len(out)>=max_items: break
+    diag["retained"]=len(out)
+    print(f"direct NLRC case scout: diagnostics={diag}")
     return out
+
+
+def fetch_direct_ieps(max_items=12):
+    """Read dated notice/permit-trend lists from the official integrated environment-permit system."""
+    base="https://ieps.nier.go.kr"
+    page_paths=[
+        "/web/board/1/",
+        "/web/board/5/?CERT_TYP=3&pMENUMST_ID=95&tab=four",
+    ]
+    now=datetime.now(KST)
+    cutoff=now-timedelta(days=LOOKBACK_DAYS)
+    diag={"pagesAttempted":0,"pagesFetched":0,"anchorsScanned":0,"datedLinks":0,
+          "recentLinks":0,"detailPagesFetched":0,"retained":0,"errors":[],"sampleRows":[]}
+    DIRECT_DIAGNOSTICS["ieps-permits"]=diag
+    out=[];seen=set()
+    anchor_re=re.compile(r'<a\b[^>]+href=["\']([^"\']*)["\'][^>]*>(.*?)</a>',re.I|re.S)
+    date_re=re.compile(r"20\d{2}\s*[-./]\s*\d{1,2}\s*[-./]\s*\d{1,2}")
+    material_re=re.compile(
+        r"통합환경허가|허가재검토|허가배출기준|변경허가|배출시설|배출기준|공정변경|"
+        r"사업장\s*(?:허가|증설|변경)|증설\s*(?:허가|사업장)|환경영향평가|배출량",
+        re.I,
+    )
+    for path in page_paths:
+        if len(out)>=max_items: break
+        url=base+path
+        diag["pagesAttempted"]+=1
+        try:
+            page=decode_web_bytes(get(url,timeout=12))
+            diag["pagesFetched"]+=1
+        except Exception as exc:
+            if len(diag["errors"])<4:
+                diag["errors"].append(f"{path}: {type(exc).__name__}: {exc}"[:240])
+            continue
+        for match in anchor_re.finditer(page):
+            diag["anchorsScanned"]+=1
+            title=clean(match.group(2))
+            href=urllib.parse.urljoin(base,html.unescape(match.group(1).strip()))
+            if len(title)<8 or href==url or href in seen:
+                continue
+            if re.search(r"로그인|회원가입|검색|바로가기|개인정보처리방침|전체메뉴|이전글|다음글",title):
+                continue
+            context=page[max(0,match.start()-380):min(len(page),match.end()+700)]
+            date_match=date_re.search(context)
+            if not date_match:
+                continue
+            try:
+                date_value=re.sub(r"\s*[-./]\s*","-",date_match.group(0)).strip()
+                dt=datetime.strptime(date_value,"%Y-%m-%d").replace(tzinfo=KST)
+            except ValueError:
+                continue
+            diag["datedLinks"]+=1
+            if dt<cutoff or dt>now+timedelta(hours=6):
+                continue
+            diag["recentLinks"]+=1
+            seen.add(href)
+            detail=""
+            try:
+                detail=clean(decode_web_bytes(get(href,timeout=8)))[:12000]
+                diag["detailPagesFetched"]+=1
+            except Exception:
+                pass
+            body=title+" "+detail
+            companies=target_hits(body)
+            # Do not promote routine environmental notices: require a named tracked
+            # company or a concrete permit/discharge/process change signal.
+            if not companies and not material_re.search(body):
+                if len(diag["sampleRows"])<8:
+                    diag["sampleRows"].append({"title":title[:160],"date":dt.isoformat(),
+                                                "reason":"no tracked company or permit-change signal"})
+                continue
+            if not SIGNAL_TERMS.search(body):
+                continue
+            out.append({
+                "sourceName":"통합환경허가시스템","officialLabel":"통합환경허가시스템",
+                "querySite":"ieps.nier.go.kr","sourceGroup":"환경·인허가","title":title,
+                "url":href,"published":dt.isoformat(),"summary":detail[:3500],
+                "official":True,"preScoop":True,"companies":companies,
+                "directSource":True,"signalType":"ieps_permit_signal",
+                "category":"인허가·환경","dateSource":"통합환경허가시스템 게시일"
+            })
+            if len(out)>=max_items: break
+    diag["retained"]=len(out)
+    print(f"direct IEPS permit scout: diagnostics={diag}")
+    return out
+
 
 def fetch_direct_car_recalls(max_items=20):
     """Search official recall listings by rotating tracked maker/model terms, parsing each list row's own date."""
@@ -835,6 +970,10 @@ def main():
     direct_nlrc = fetch_direct_nlrc()
     items.extend(direct_nlrc)
     by_group["중앙노동위"] = by_group.get("중앙노동위", 0) + len(direct_nlrc)
+
+    direct_ieps = fetch_direct_ieps()
+    items.extend(direct_ieps)
+    by_group["환경·인허가"] = by_group.get("환경·인허가", 0) + len(direct_ieps)
 
     direct_procurement = fetch_direct_kepco_enc()
     items.extend(direct_procurement)
