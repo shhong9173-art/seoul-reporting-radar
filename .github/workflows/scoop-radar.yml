@@ -7,6 +7,7 @@ on:
       - 'pre_scoop_radar.py'
       - 'scoop_scout.py'
       - 'dart_numeric_extractor.py'
+      - 'tests/test_official_collectors.py'
       - '.github/workflows/scoop-radar.yml'
       - 'data.json'
       - 'dart.json'
@@ -41,6 +42,8 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Test official collector parsers offline
+        run: python -m unittest discover -s tests -p 'test_official_collectors.py' -v
       - name: Collect official-source and early signals
         run: python pre_scoop_radar.py
       - name: Extract numeric facts from DART originals
