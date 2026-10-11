@@ -156,26 +156,32 @@ def fetch_dart_viewer_text(receipt_no: str, diagnostics: dict | None = None) -> 
         diag["mainPageError"] = f"{type(exc).__name__}: {exc}"[:240]
         return ""
 
-    # Accept both quoted and unquoted numeric arguments used by different DART viewer builds.
+    # DART currently bootstraps many correction/short-form filings with a
+    # seven-argument call: viewDoc("rcpNo","dcmNo","0","0","0","HTML","").
+    # Older builds use six arguments. Do not discard a valid initial document
+    # just because it has a seventh (possibly empty) tocNo.
     pattern = re.compile(
         r"viewDoc\(\s*['\"]?(?P<rcp>\d{14})['\"]?\s*,\s*['\"]?(?P<dcm>\d+)['\"]?\s*,"
-        r"\s*['\"](?P<ele>[^'\"]*)['\"]\s*,\s*['\"]?(?P<offset>\d+)['\"]?\s*,"
-        r"\s*['\"]?(?P<length>\d+)['\"]?\s*,\s*['\"](?P<dtd>[^'\"]*)['\"]\s*\)",
+        r"\s*['\"]?(?P<ele>[\w.-]*)['\"]?\s*,\s*['\"]?(?P<offset>\d+)['\"]?\s*,"
+        r"\s*['\"]?(?P<length>\d+)['\"]?\s*,\s*['\"]?(?P<dtd>[A-Za-z0-9_.-]+)['\"]?"
+        r"(?:\s*,\s*['\"]?(?P<toc>[\w.-]*)['\"]?)?\s*\)",
         re.I,
     )
     docs = []
     seen = set()
     for match in pattern.finditer(main_html):
         params = match.groupdict()
-        key = (params["dcm"], params["ele"], params["offset"], params["length"], params["dtd"])
+        if params["rcp"] != receipt_no:
+            continue
+        key = (params["dcm"], params["ele"], params["offset"], params["length"], params["dtd"], params.get("toc"))
         if key in seen:
             continue
         seen.add(key)
         context = main_html[max(0, match.start() - 1200):match.start()]
-        labels = re.findall(r"""\btext\s*:\s*(['"])(.{1,120}?)\1""", context, re.I | re.S)
+        labels = re.findall(r"""\\btext\s*:\s*(['"])(.{1,120}?)\1""", context, re.I | re.S)
         label = html.unescape(labels[-1][1]).strip() if labels else ""
         params["label"] = re.sub(r"<[^>]+>", " ", label).strip()
-        params["tocNo"] = ""
+        params["tocNo"] = params.pop("toc", "") or ""
         docs.append(params)
 
     # Current DART pages often store table-of-contents entries as nodeN['field']
