@@ -30,14 +30,14 @@ VALUE_RE = re.compile(
 # "처분예정금액(원) 보통주식 258,750,000". Require an explicit
 # unit heading and a nearby financial/quantity field, not arbitrary numbers.
 HEADING_VALUE_RE = re.compile(
-    r"(?P<label>처분예정금액|처분금액|투자금액|투자금액총액|투자금액\\s*합계|"
+    r"(?P<label>처분예정금액|처분금액|투자금액|투자금액총액|투자금액\s*합계|"
     r"취득금액|출자금액|증자금액|발행금액|계약금액|계약총액|거래금액|"
     r"처분예정주식|취득예정주식|처분예정수량|생산능력|투자비용)"
-    r"\\s*\\(\\s*(?P<unit>원|백만원|천원|억원|주|천주|만주|MW|GW|톤|대)\\s*\\)"
+    r"\s*\(\s*(?P<unit>원|백만원|천원|억원|주|천주|만주|MW|GW|톤|대)\s*\)"
     r"(?P<tail>.{0,105})",
     re.I | re.S,
 )
-BARE_TABLE_NUMBER_RE = re.compile(r"(?<![A-Za-z0-9])(?P<num>\\d{1,3}(?:,\\d{3})+|\\d{1,9}(?:\\.\\d+)?)(?![A-Za-z0-9.,])")
+BARE_TABLE_NUMBER_RE = re.compile(r"(?<![A-Za-z0-9])(?P<num>\d{1,3}(?:,\d{3})+|\d{1,9}(?:\.\d+)?)(?![A-Za-z0-9.,])")
 
 def extract_heading_values(context: str) -> list[str]:
     values = []
@@ -45,7 +45,7 @@ def extract_heading_values(context: str) -> list[str]:
         tail = match.group("tail")
         # Keep the match in its immediate table cell; avoid another numbered
         # disclosure row or a later heading becoming the field's value.
-        tail = re.split(r"(?<!\\d)\\b(?:[2-9]|1[0-9])\\s*\\.\\s*(?=[가-힣])", tail, maxsplit=1)[0]
+        tail = re.split(r"(?<!\d)\b(?:[2-9]|1[0-9])\s*\.\s*(?=[가-힣])", tail, maxsplit=1)[0]
         number = BARE_TABLE_NUMBER_RE.search(tail)
         if not number:
             continue
