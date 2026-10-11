@@ -470,6 +470,100 @@ def fetch_direct_ntis_announcements(max_items=12):
     return out
 
 
+
+def fetch_direct_iris_announcements(max_items=10):
+    """Check IRIS official R&D calls; use publication dates from detail pages.
+
+    The list shows APPLICATION windows, not necessarily announcement dates.
+    Only stable detail IDs present in the official list are followed.
+    """
+    base="https://www.iris.go.kr"
+    list_url=base+"/contents/retrieveBsnsAncmListView.do"
+    now=datetime.now(KST)
+    cutoff=now-timedelta(days=LOOKBACK_DAYS)
+    diag={"listFetched":False,"detailIdsSeen":0,"detailPagesAttempted":0,
+          "detailPagesFetched":0,"datedRecords":0,"recentRecords":0,
+          "materialRecords":0,"retained":0,"errors":[],"sampleRows":[]}
+    DIRECT_DIAGNOSTICS["iris-rnd-announcements"]=diag
+    out=[]
+    try:
+        listing=decode_web_bytes(get(list_url,timeout=12))
+        diag["listFetched"]=True
+    except Exception as exc:
+        diag["errors"].append(f"list: {type(exc).__name__}: {exc}"[:240])
+        return out
+    # The HTML list may encode the same announcement ID in an href, a data
+    # attribute or a JS navigation call. Do not synthesize unverified IDs.
+    ids=[]
+    for pat in (
+        r"retrieveBsnsAncmView\.do\?[^\"'\s<>]*?ancmId=(\d{4,})",
+        r"ancmId\s*[:=]\s*['\"]?(\d{4,})",
+        r"data-ancm-id\s*=\s*['\"](\d{4,})['\"]",
+    ):
+        ids.extend(re.findall(pat,listing,re.I))
+    ids=list(dict.fromkeys(ids))
+    diag["detailIdsSeen"]=len(ids)
+    diag["listUsesJsOrAjax"]=not bool(ids)
+    material_re=re.compile(
+        r"자동차|모빌리티|전기차|배터리|이차전지|철강|강관|소재|부품|장비|"
+        r"변압기|전력망|케이블|풍력|태양광|재생에너지|에너지|전력|수소|"
+        r"원전|원자력|SMR|탄소|희소금속|비철|화학|산업기술|제조|실증",
+        re.I,
+    )
+    date_re=re.compile(r"공고일자\s*[:：]?\s*(20\d{2}\s*[./-]\s*\d{1,2}\s*[./-]\s*\d{1,2})")
+    for ann_id in ids[:12]:
+        diag["detailPagesAttempted"]+=1
+        url=base+"/contents/retrieveBsnsAncmView.do?"+urllib.parse.urlencode({"ancmId":ann_id})
+        try:
+            detail=clean(decode_web_bytes(get(url,timeout=9)))
+            diag["detailPagesFetched"]+=1
+        except Exception as exc:
+            if len(diag["errors"])<4:
+                diag["errors"].append(f"detail {ann_id}: {type(exc).__name__}: {exc}"[:240])
+            continue
+        date_match=date_re.search(detail)
+        if not date_match:
+            if len(diag["sampleRows"])<5:
+                diag["sampleRows"].append({"ancmId":ann_id,"reason":"no explicit announcement date"})
+            continue
+        dt=parse_dt(date_match.group(1))
+        diag["datedRecords"]+=1
+        if dt.year<2000 or dt<cutoff or dt>now+timedelta(hours=6):
+            if len(diag["sampleRows"])<5:
+                diag["sampleRows"].append({"ancmId":ann_id,"date":dt.isoformat(),"reason":"outside lookback"})
+            continue
+        diag["recentRecords"]+=1
+        tm=re.search(r"공고명\s*[:：]?\s*(.{10,250}?)\s*(?:공고일자|재공고 여부|공고번호)",detail,re.I|re.S)
+        title=tm.group(1).strip() if tm else ""
+        if not title:
+            if len(diag["sampleRows"])<5:
+                diag["sampleRows"].append({"ancmId":ann_id,"reason":"no validated announcement title"})
+            continue
+        body=title+" "+detail[:1800]
+        companies=target_hits(title)
+        if not companies and not material_re.search(title):
+            continue
+        diag["materialRecords"]+=1
+        out.append({
+            "sourceName":"범부처통합연구지원시스템 사업공고",
+            "officialLabel":"IRIS","querySite":"iris.go.kr",
+            "sourceGroup":"R&D·기술","title":title[:280],"url":url,
+            "published":dt.isoformat(),"summary":detail[:3500],
+            "official":True,"preScoop":True,"directSource":True,
+            "policySignal":True,"companies":companies,
+            "signalType":"iris_rnd_announcement","category":"정책·규제",
+            "dateSource":"IRIS 공고일자"
+        })
+        if len(out)>=max_items:
+            break
+    diag["retained"]=len(out)
+    diag["status"]=("no_detail_ids_in_list" if not ids else
+                    "no_recent_publications_in_checked_details" if not diag["recentRecords"] else
+                    "recent_announcements_checked")
+    print(f"direct IRIS scout: diagnostics={diag}")
+    return out
+
+
 def fetch_direct_court(max_items=12):
     """Collect date-stamped Supreme Court releases and industry-related disputes."""
     base="https://www.scourt.go.kr"
@@ -1186,6 +1280,10 @@ def main():
     direct_court = fetch_direct_court()
     items.extend(direct_court)
     by_group["법원·분쟁"] = by_group.get("법원·분쟁", 0) + len(direct_court)
+
+    direct_iris = fetch_direct_iris_announcements()
+    items.extend(direct_iris)
+    by_group["R&D·기술"] = by_group.get("R&D·기술", 0) + len(direct_iris)
 
     direct_ntis = fetch_direct_ntis_announcements()
     items.extend(direct_ntis)
