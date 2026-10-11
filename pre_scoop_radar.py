@@ -652,8 +652,8 @@ def fetch_direct_factoryon(max_items=12):
     anchor_re=re.compile(r'<a\b[^>]+href=["\']([^"\']*)["\'][^>]*>(.*?)</a>',re.I|re.S)
     date_re=re.compile(r"20\d{2}\s*[-./]\s*\d{1,2}\s*[-./]\s*\d{1,2}")
     material_re=re.compile(
-        r"공장등록현황통계|산업단지|산업시설용지|공장설립|공장등록|입주계약|"
-        r"공장\s*(?:신설|증설|이전)|분양공고|처분공고|생산시설",
+        r"공장등록현황통계|산업단지|산업시설용지|산업용지|지식산업센터|공장설립|공장등록|입주계약|"
+        r"공장\s*(?:신설|증설|이전)|분양|처분|공급공고|임대\s*공고|생산시설",
         re.I,
     )
     ignore_re=re.compile(r"시스템\s*점검|로그인|회원가입|개인정보|위변조|서비스\s*중단|오류\s*안내",re.I)
@@ -676,10 +676,17 @@ def fetch_direct_factoryon(max_items=12):
                 continue
             if not material_re.search(title):
                 continue
-            context=page[max(0,match.start()-420):min(len(page),match.end()+700)]
-            date_match=date_re.search(context)
-            if not date_match:
+            # FactoryON uses different list-card markup between desktop and mobile.
+            # Prefer the closest visible date within a wider homepage list window.
+            left=max(0,match.start()-1600)
+            right=min(len(page),match.end()+2200)
+            context=page[left:right]
+            date_matches=list(date_re.finditer(context))
+            if not date_matches:
+                if len(diag["sampleRows"])<8:
+                    diag["sampleRows"].append({"title":title[:160],"reason":"material title but no nearby publication date"})
                 continue
+            date_match=min(date_matches,key=lambda item:abs(left+item.start()-match.start()))
             try:
                 date_value=re.sub(r"\s*[-./]\s*","-",date_match.group(0)).strip()
                 dt=datetime.strptime(date_value,"%Y-%m-%d").replace(tzinfo=KST)
