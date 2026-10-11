@@ -26,6 +26,35 @@ VALUE_RE = re.compile(
     r"(?<![A-Za-z0-9제])[-+]?\d+(?:,\d{3})*(?:\.\d+)?\s*(?:조원|천억원|백억원|십억원|억원|천만원|백만원|만원|천원|원|백만주|만주|천주|주|백만대|만대|천대|대|TWh|GWh|MWh|kWh|GW|MW|kW|kV|MVA|kVA|톤|천톤|만톤|㎡|m²|km²|km|헥타르|달러|USD|EUR|%|명|건|EA)(?![가-힣A-Za-z0-9])",
     re.I,
 )
+# DART tables frequently put units in a column heading before a bare value:
+# "처분예정금액(원) 보통주식 258,750,000". Require an explicit
+# unit heading and a nearby financial/quantity field, not arbitrary numbers.
+HEADING_VALUE_RE = re.compile(
+    r"(?P<label>처분예정금액|처분금액|투자금액|투자금액총액|투자금액\\s*합계|"
+    r"취득금액|출자금액|증자금액|발행금액|계약금액|계약총액|거래금액|"
+    r"처분예정주식|취득예정주식|처분예정수량|생산능력|투자비용)"
+    r"\\s*\\(\\s*(?P<unit>원|백만원|천원|억원|주|천주|만주|MW|GW|톤|대)\\s*\\)"
+    r"(?P<tail>.{0,105})",
+    re.I | re.S,
+)
+BARE_TABLE_NUMBER_RE = re.compile(r"(?<![A-Za-z0-9])(?P<num>\\d{1,3}(?:,\\d{3})+|\\d{1,9}(?:\\.\\d+)?)(?![A-Za-z0-9.,])")
+
+def extract_heading_values(context: str) -> list[str]:
+    values = []
+    for match in HEADING_VALUE_RE.finditer(context):
+        tail = match.group("tail")
+        # Keep the match in its immediate table cell; avoid another numbered
+        # disclosure row or a later heading becoming the field's value.
+        tail = re.split(r"(?<!\\d)\\b(?:[2-9]|1[0-9])\\s*\\.\\s*(?=[가-힣])", tail, maxsplit=1)[0]
+        number = BARE_TABLE_NUMBER_RE.search(tail)
+        if not number:
+            continue
+        unit = match.group("unit")
+        value = number.group("num") + unit
+        if value not in values:
+            values.append(value)
+    return values
+
 KEYWORD_RE = re.compile(
     r"시설투자|신규시설|출자|유상증자|타법인|지분|생산능력|생산중단|생산|공장|설비|계약|수주|공급|배터리|ESS|AAM|로보택시|북미|미국|유럽|중국|투자|자기주식|자사주|주식처분|처분예정주식|처분목적|처분예정금액|처분금액",
     re.I,
@@ -113,6 +142,16 @@ def fetch_dart_viewer_text(receipt_no: str, diagnostics: dict | None = None) -> 
                 excerpt = re.sub(r"\\s+", " ", main_html[max(0, at - 220):min(len(main_html), at + 420)]).strip()
                 excerpts.append({"marker": marker, "excerpt": excerpt[:520]})
         diag["mainPageExcerpts"] = excerpts[:5]
+        # Capture the actual script initialization around this filing number
+        # so future viewer variants can be diagnosed without guessing IDs.
+        receipt_positions = [m.start() for m in re.finditer(re.escape(receipt_no), main_html)]
+        diag["receiptOccurrences"] = len(receipt_positions)
+        diag["receiptExcerpts"] = [
+            re.sub(r"\\s+", " ", main_html[max(0, pos - 160):pos + 270])[:430]
+            for pos in receipt_positions[:5]
+        ]
+        diag["tocAssignmentCount"] = len(re.findall(r"\\[['\\\"](?:rcpNo|dcmNo|eleId|offset|length|dtd)['\\\"]\\]", main_html))
+
     except Exception as exc:
         diag["mainPageError"] = f"{type(exc).__name__}: {exc}"[:240]
         return ""
@@ -226,7 +265,7 @@ def extract_viewer_facts(base: dict, viewer_text: str, error: str, diagnostics: 
         start = max(0, match.start() - 240)
         end = min(len(viewer_text), match.end() + 420)
         context = viewer_text[start:end]
-        values = list(dict.fromkeys(re.sub(r"\s+", "", value) for value in VALUE_RE.findall(context)))
+        values = list(dict.fromkeys([re.sub(r"\s+", "", value) for value in VALUE_RE.findall(context)] + extract_heading_values(context)))
         for value in values:
             numbers[value] = context.strip()
         if values and len(snippets) < 24:
@@ -288,7 +327,7 @@ def extract_document(base: dict) -> dict:
                         start = max(0, match.start() - 220)
                         end = min(len(text), match.end() + 360)
                         context = text[start:end]
-                        vals = [re.sub(r"\s+", "", v) for v in VALUE_RE.findall(context)]
+                        vals = [re.sub(r"\s+", "", v) for v in VALUE_RE.findall(context)] + extract_heading_values(context)
                         vals = list(dict.fromkeys(vals))
                         if len(keyword_samples) < 8:
                             keyword_samples.append({
