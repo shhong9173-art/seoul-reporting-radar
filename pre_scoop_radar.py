@@ -636,6 +636,88 @@ def fetch_direct_ieps(max_items=12):
     return out
 
 
+def fetch_direct_factoryon(max_items=12):
+    """Read FactoryON's dated public notices and industrial-land sale/disposal notices."""
+    base="https://www.factoryon.go.kr"
+    page_paths=[
+        "/mobile/main/main.do",
+        "/mobile/bbs/noticeBbsList.do",
+    ]
+    now=datetime.now(KST)
+    cutoff=now-timedelta(days=LOOKBACK_DAYS)
+    diag={"pagesAttempted":0,"pagesFetched":0,"anchorsScanned":0,"datedLinks":0,
+          "recentLinks":0,"detailPagesFetched":0,"retained":0,"errors":[],"sampleRows":[]}
+    DIRECT_DIAGNOSTICS["factoryon-industrial-sites"]=diag
+    out=[];seen=set()
+    anchor_re=re.compile(r'<a\b[^>]+href=["\']([^"\']*)["\'][^>]*>(.*?)</a>',re.I|re.S)
+    date_re=re.compile(r"20\d{2}\s*[-./]\s*\d{1,2}\s*[-./]\s*\d{1,2}")
+    material_re=re.compile(
+        r"공장등록현황통계|산업단지|산업시설용지|공장설립|공장등록|입주계약|"
+        r"공장\s*(?:신설|증설|이전)|분양공고|처분공고|생산시설",
+        re.I,
+    )
+    ignore_re=re.compile(r"시스템\s*점검|로그인|회원가입|개인정보|위변조|서비스\s*중단|오류\s*안내",re.I)
+    for path in page_paths:
+        if len(out)>=max_items: break
+        url=base+path
+        diag["pagesAttempted"]+=1
+        try:
+            page=decode_web_bytes(get(url,timeout=12))
+            diag["pagesFetched"]+=1
+        except Exception as exc:
+            if len(diag["errors"])<4:
+                diag["errors"].append(f"{path}: {type(exc).__name__}: {exc}"[:240])
+            continue
+        for match in anchor_re.finditer(page):
+            diag["anchorsScanned"]+=1
+            title=clean(match.group(2))
+            href=urllib.parse.urljoin(base,html.unescape(match.group(1).strip()))
+            if len(title)<8 or href==url or href in seen or ignore_re.search(title):
+                continue
+            if not material_re.search(title):
+                continue
+            context=page[max(0,match.start()-420):min(len(page),match.end()+700)]
+            date_match=date_re.search(context)
+            if not date_match:
+                continue
+            try:
+                date_value=re.sub(r"\s*[-./]\s*","-",date_match.group(0)).strip()
+                dt=datetime.strptime(date_value,"%Y-%m-%d").replace(tzinfo=KST)
+            except ValueError:
+                continue
+            diag["datedLinks"]+=1
+            if dt<cutoff or dt>now+timedelta(hours=6):
+                continue
+            diag["recentLinks"]+=1
+            seen.add(href)
+            detail=""
+            try:
+                detail=clean(decode_web_bytes(get(href,timeout=8)))[:10000]
+                diag["detailPagesFetched"]+=1
+            except Exception:
+                pass
+            body=title+" "+detail
+            companies=target_hits(body)
+            # These are leads for plant/industrial-site follow-up, not scoops by
+            # themselves. Generic IT/service notices and untimed static pages fail above.
+            if not material_re.search(body):
+                continue
+            out.append({
+                "sourceName":"FACTORY ON(한국산업단지공단)",
+                "officialLabel":"팩토리온","querySite":"factoryon.go.kr",
+                "sourceGroup":"공장·산업단지","title":title,"url":href,
+                "published":dt.isoformat(),"summary":detail[:3500],
+                "official":True,"preScoop":True,"companies":companies,
+                "directSource":True,"signalType":"factoryon_site_or_registration_notice",
+                "category":"인허가·환경" if re.search(r"공장등록|공장\s*(?:신설|증설|이전)|입주계약",title) else "조달·발주",
+                "dateSource":"팩토리온 공지·공고 게시일"
+            })
+            if len(out)>=max_items: break
+    diag["retained"]=len(out)
+    print(f"direct FactoryON industrial-site scout: diagnostics={diag}")
+    return out
+
+
 def fetch_direct_car_recalls(max_items=20):
     """Search official recall listings by rotating tracked maker/model terms, parsing each list row's own date."""
     base="https://car.go.kr"
@@ -974,6 +1056,10 @@ def main():
     direct_ieps = fetch_direct_ieps()
     items.extend(direct_ieps)
     by_group["환경·인허가"] = by_group.get("환경·인허가", 0) + len(direct_ieps)
+
+    direct_factoryon = fetch_direct_factoryon()
+    items.extend(direct_factoryon)
+    by_group["공장·산업단지"] = by_group.get("공장·산업단지", 0) + len(direct_factoryon)
 
     direct_procurement = fetch_direct_kepco_enc()
     items.extend(direct_procurement)
