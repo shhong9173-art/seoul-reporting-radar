@@ -40,13 +40,35 @@ def fetch_bytes(url: str, timeout: int = 25) -> bytes:
     with urlopen(req, timeout=timeout) as r:
         return r.read()
 
+def decode_web_bytes(raw: bytes) -> str:
+    """Decode Korean government pages without silently discarding legacy-encoded Hangul."""
+    try:
+        return raw.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        pass
+    best = ""
+    best_score = -1
+    for encoding in ("cp949", "euc-kr", "utf-8"):
+        try:
+            candidate = raw.decode(encoding, errors="replace")
+        except Exception:
+            continue
+        hangul = sum(1 for ch in candidate if "\uac00" <= ch <= "\ud7a3")
+        replacement = candidate.count("\ufffd")
+        score = hangul * 4 - replacement * 20
+        if score > best_score:
+            best, best_score = candidate, score
+    return best or raw.decode("utf-8", errors="replace")
+
+
 def html_to_text(raw: bytes) -> str:
-    text = html.unescape(raw.decode("utf-8", errors="ignore"))
+    text = html.unescape(decode_web_bytes(raw))
     text = re.sub(r"<script[\s\S]*?</script>", " ", text, flags=re.I)
     text = re.sub(r"<style[\s\S]*?</style>", " ", text, flags=re.I)
     text = re.sub(r"<[^>]+>", " ", text)
     text = re.sub(r"&nbsp;|&#160;", " ", text)
     return re.sub(r"\s+", " ", text)
+
 
 def describe_api_error(raw: bytes) -> tuple[str, str]:
     """Return OpenDART status/message when the endpoint returns XML/JSON instead of ZIP."""
@@ -79,7 +101,7 @@ def fetch_dart_viewer_text(receipt_no: str, diagnostics: dict | None = None) -> 
     try:
         main_url = "https://dart.fss.or.kr/dsaf001/main.do?" + urlencode({"rcpNo": receipt_no})
         main_raw = fetch_bytes(main_url, timeout=12)
-        main_html = main_raw.decode("utf-8", "ignore")
+        main_html = decode_web_bytes(main_raw)
         diag["mainPageBytes"] = len(main_raw)
         lowered = main_html.lower()
         markers = ("viewdoc", "dcmno", "viewer.do", "report/viewer", "iframe", "rcpno", "document_no", "docno")
@@ -95,10 +117,11 @@ def fetch_dart_viewer_text(receipt_no: str, diagnostics: dict | None = None) -> 
         diag["mainPageError"] = f"{type(exc).__name__}: {exc}"[:240]
         return ""
 
+    # Accept both quoted and unquoted numeric arguments used by different DART viewer builds.
     pattern = re.compile(
-        r"viewDoc\(\s*['\"](?P<rcp>\d{14})['\"]\s*,\s*['\"](?P<dcm>\d+)['\"]\s*,"
-        r"\s*['\"](?P<ele>[^'\"]*)['\"]\s*,\s*['\"](?P<offset>\d+)['\"]\s*,"
-        r"\s*['\"](?P<length>\d+)['\"]\s*,\s*['\"](?P<dtd>[^'\"]*)['\"]\s*\)",
+        r"viewDoc\(\s*['\"]?(?P<rcp>\d{14})['\"]?\s*,\s*['\"]?(?P<dcm>\d+)['\"]?\s*,"
+        r"\s*['\"](?P<ele>[^'\"]*)['\"]\s*,\s*['\"]?(?P<offset>\d+)['\"]?\s*,"
+        r"\s*['\"]?(?P<length>\d+)['\"]?\s*,\s*['\"](?P<dtd>[^'\"]*)['\"]\s*\)",
         re.I,
     )
     docs = []
@@ -246,14 +269,21 @@ def extract_document(base: dict) -> dict:
             with zipfile.ZipFile(io.BytesIO(raw)) as z:
                 numbers = {}
                 snippets = []
-                for name in z.namelist():
+                names = z.namelist()
+                parsed_files = 0
+                decoded_chars = 0
+                keyword_hits = 0
+                for name in names:
                     if not name.lower().endswith((".xml", ".html", ".htm", ".txt")):
                         continue
                     try:
                         text = html_to_text(z.read(name))
                     except Exception:
                         continue
+                    parsed_files += 1
+                    decoded_chars += len(text)
                     for match in KEYWORD_RE.finditer(text):
+                        keyword_hits += 1
                         start = max(0, match.start() - 220)
                         end = min(len(text), match.end() + 360)
                         context = text[start:end]
@@ -263,7 +293,36 @@ def extract_document(base: dict) -> dict:
                             numbers[value] = context.strip()
                         if vals:
                             snippets.append({"keyword": match.group(0), "numbers": vals[:10], "context": context.strip()})
-                return {**base, "numbers": list(numbers.keys())[:40], "snippets": snippets[:24]}
+                if numbers:
+                    return {
+                        **base,
+                        "numbers": list(numbers.keys())[:40],
+                        "snippets": snippets[:24],
+                        "extractionDiagnostics": {
+                            "method": "OpenDART ZIP",
+                            "archiveEntries": len(names),
+                            "textFilesParsed": parsed_files,
+                            "decodedTextChars": decoded_chars,
+                            "keywordHits": keyword_hits,
+                        },
+                    }
+                # A valid ZIP can still contain an empty/poorly decoded main document.
+                # Retry the public viewer before treating a zero-value parse as a real zero.
+                last_error = (
+                    f"OpenDART ZIP parsed but no material numeric contexts matched "
+                    f"(entries={len(names)}, textFiles={parsed_files}, chars={decoded_chars}, keywords={keyword_hits})"
+                )
+                viewer_diag = {"openDartZipEntries": len(names), "openDartTextFilesParsed": parsed_files,
+                               "openDartDecodedTextChars": decoded_chars, "openDartKeywordHits": keyword_hits}
+                viewer_text = fetch_dart_viewer_text(receipt_no, viewer_diag)
+                if viewer_text:
+                    return extract_viewer_facts(base, viewer_text, last_error, viewer_diag)
+                return {
+                    **base, "numbers": [], "snippets": [],
+                    "fallbackSource": "DART HTML viewer attempted",
+                    "viewerFallbackDiagnostics": viewer_diag,
+                    "error": last_error,
+                }
         except zipfile.BadZipFile:
             # Some OpenDART outages return a branded HTML page (not the documented
             # status-800 XML), so recognize the payload shape before generic parsing.
