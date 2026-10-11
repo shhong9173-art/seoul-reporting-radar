@@ -342,7 +342,7 @@ def extract_document(base: dict) -> dict:
         except Exception as exc:
             last_error=f"OpenDART response parse failed: {type(exc).__name__}: {exc}"
             break
-    if re.search(r"status\s*800|returned HTML|HTML instead of ZIP|Expected ZIP but received|시스템\s*점검|maintenance|temporarily unavailable|timed?\s*out|urlerror|connection reset", last_error, re.I):
+    if re.search(r"status\s*(?:800|014)|returned HTML|HTML instead of ZIP|Expected ZIP but received|파일이\s*존재하지\s*않습니다|no material numeric contexts matched|시스템\s*점검|maintenance|temporarily unavailable|timed?\s*out|urlerror|connection reset", last_error, re.I):
         viewer_diag = {}
         viewer_text = fetch_dart_viewer_text(receipt_no, viewer_diag)
         if viewer_text:
@@ -385,7 +385,10 @@ def main():
     for row in results:
         previous = prior_by_receipt.get(str(row.get("receiptNo") or ""))
         error = str(row.get("error") or "")
-        temporary = bool(re.search(r"status\s*800|시스템\s*점검|maintenance|temporarily unavailable|timed?\s*out|urlerror|connection reset", error, re.I))
+        temporary = bool(
+            re.search(r"status\s*(?:800|014)|파일이\s*존재하지\s*않습니다|시스템\s*점검|maintenance|temporarily unavailable|timed?\s*out|urlerror|connection reset|no material numeric contexts matched", error, re.I)
+            or (not row.get("numbers") and row.get("viewerFallbackDiagnostics"))
+        )
         if temporary and previous and previous.get("numbers"):
             row["numbers"] = previous.get("numbers", [])
             row["snippets"] = previous.get("snippets", [])
