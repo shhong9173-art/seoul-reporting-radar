@@ -23,7 +23,7 @@ OPENDART_MAINTENANCE_SEEN = False
 
 # Only capture material values with an explicit unit. Dates and table row indices are discarded.
 VALUE_RE = re.compile(
-    r"(?<![A-Za-z0-9제])[-+]?\d{1,3}(?:,\d{3})*(?:\.\d+)?\s*(?:조원|억원|만원|원|만주|천주|주|만대|천대|대|조|억|%|명|GWh|MWh|kWh|톤|㎡|m²|km|달러|USD|EUR)(?![가-힣A-Za-z0-9])",
+    r"(?<![A-Za-z0-9제])[-+]?\d+(?:,\d{3})*(?:\.\d+)?\s*(?:조원|천억원|백억원|십억원|억원|천만원|백만원|만원|천원|원|백만주|만주|천주|주|백만대|만대|천대|대|TWh|GWh|MWh|kWh|GW|MW|kW|kV|MVA|kVA|톤|천톤|만톤|㎡|m²|km²|km|헥타르|달러|USD|EUR|%|명|건|EA)(?![가-힣A-Za-z0-9])",
     re.I,
 )
 KEYWORD_RE = re.compile(
@@ -269,6 +269,7 @@ def extract_document(base: dict) -> dict:
             with zipfile.ZipFile(io.BytesIO(raw)) as z:
                 numbers = {}
                 snippets = []
+                keyword_samples = []
                 names = z.namelist()
                 parsed_files = 0
                 decoded_chars = 0
@@ -289,6 +290,12 @@ def extract_document(base: dict) -> dict:
                         context = text[start:end]
                         vals = [re.sub(r"\s+", "", v) for v in VALUE_RE.findall(context)]
                         vals = list(dict.fromkeys(vals))
+                        if len(keyword_samples) < 8:
+                            keyword_samples.append({
+                                "keyword": match.group(0),
+                                "numbersMatched": vals[:8],
+                                "context": context.strip()[:420],
+                            })
                         for value in vals:
                             numbers[value] = context.strip()
                         if vals:
@@ -313,7 +320,8 @@ def extract_document(base: dict) -> dict:
                     f"(entries={len(names)}, textFiles={parsed_files}, chars={decoded_chars}, keywords={keyword_hits})"
                 )
                 viewer_diag = {"openDartZipEntries": len(names), "openDartTextFilesParsed": parsed_files,
-                               "openDartDecodedTextChars": decoded_chars, "openDartKeywordHits": keyword_hits}
+                               "openDartDecodedTextChars": decoded_chars, "openDartKeywordHits": keyword_hits,
+                               "openDartKeywordSamples": keyword_samples[:8]}
                 viewer_text = fetch_dart_viewer_text(receipt_no, viewer_diag)
                 if viewer_text:
                     return extract_viewer_facts(base, viewer_text, last_error, viewer_diag)
