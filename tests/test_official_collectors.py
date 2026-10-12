@@ -41,6 +41,22 @@ class CollectorRegressionTests(unittest.TestCase):
         self.assertEqual(scoops.direct_beat_company_hits(
             {"corpName": "포스코퓨처엠"}, "포스코퓨처엠 주요사항보고서"), [])
 
+    def test_public_radar_excludes_nonbeat_disclosures(self):
+        now=datetime.now(scoops.KST)
+        date=now.strftime("%Y%m%d")
+        rows=[
+            {"corpName":"삼성전기","reportName":"신규시설투자등",
+             "date":date,"receiptNo":"20261012000001","url":"https://dart.fss.or.kr"},
+            {"corpName":"LG화학","reportName":"생산중단",
+             "date":date,"receiptNo":"20261012000002","url":"https://dart.fss.or.kr"},
+            {"corpName":"두산에너빌리티","reportName":"생산중단",
+             "date":date,"receiptNo":"20261012000003","url":"https://dart.fss.or.kr"},
+            {"corpName":"포스코퓨처엠","reportName":"회사분할결정",
+             "date":date,"receiptNo":"20261012000004","url":"https://dart.fss.or.kr"},
+        ]
+        public=scoops.build_public_signals([],rows,now,numeric_rows=[])
+        self.assertEqual([x["companies"] for x in public],[["두산에너빌리티"]])
+
     def test_companyless_policy_not_exclusive(self):
         self.assertFalse(scoops.relevant_primary(
             {"policySignal": True, "official": True}, [],
