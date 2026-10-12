@@ -159,6 +159,40 @@ class PatentStoryTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             h.build(a,b,now=NOW,max_news=0)
 
+    def test_press_queries_advance_to_new_patents_instead_of_rescanning_top_eight(self):
+        docs=[example(pub=f"102026014{i:04d}",date="20261012") for i in range(5)]
+        official,deep=sources(docs)
+        called=[]
+        def press(row):
+            called.append(row["publicationNumber"])
+            return {"status":"검색 미발견 · 미보도 증명 아님",
+                    "completeSearch":True,"possibleEarlierCoverage":False,
+                    "queries":[{"query":"test","status":"no_hits","articles":[]}]}
+        first=h.build(official,deep,now=NOW,max_news=2,press=press)
+        second=h.build(official,deep,now=NOW+timedelta(hours=2),
+                       max_news=2,press=press,previous=first)
+        third=h.build(official,deep,now=NOW+timedelta(hours=4),
+                      max_news=2,press=press,previous=second)
+        self.assertEqual(len(set(called)),5)
+        self.assertEqual(len(called),5)
+        self.assertEqual(first["mediaLeadsAttempted"],2)
+        self.assertEqual(second["mediaLeadsAttempted"],4)
+        self.assertEqual(third["mediaLeadsAttempted"],5)
+        self.assertEqual(third["mediaLeadsNotAttempted"],0)
+        self.assertEqual(third["mediaQueriesThisRun"],1)
+
+    def test_previous_press_hit_still_warns_on_next_run(self):
+        docs=[example(pub="1020260147319")]
+        a,b=sources(docs)
+        def news(_):
+            return {"status":"검색 기사 발견",
+                    "completeSearch":True,"possibleEarlierCoverage":True,
+                    "queries":[{"query":"CJ 현대차 효소","status":"hits","articles":[]}]}
+        first=h.build(a,b,now=NOW,max_news=1,press=news)
+        second=h.build(a,b,now=NOW+timedelta(hours=1),max_news=0,previous=first)
+        self.assertIn("기보도 가능성",second["investigations"][0]["status"])
+        self.assertEqual(second["mediaLeadsAttempted"],1)
+
     def test_more_than_eighty_leads_are_retained_without_truncation(self):
         rows=[example(pub=f"102026014{i:04d}",date="20261012") for i in range(96)]
         a,b=sources(rows)
