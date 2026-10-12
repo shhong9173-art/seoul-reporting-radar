@@ -206,7 +206,7 @@ try{
    if(row.abstract)card.append(e("p","공식 초록: "+row.abstract.slice(0,550)));
    card.append(e("p",row.partnerStatus||"공동출원인 사업관계 확인 전","scope"));
    for(const q of (row.partnerQuestions||[]).slice(0,3))card.append(e("p","취재 확인: "+q,"question"));
-   if(/^[\\d-]{10,22}$/.test(row.publicationNumber)){
+   if(/^[0-9-]{10,22}$/.test(row.publicationNumber)){
      const a=e("a","공개번호로 원문·청구항 조회 (2차 확인)","source");
      a.href="https://patents.google.com/?q="+encodeURIComponent(row.publicationNumber);
      a.target="_blank";a.rel="noopener noreferrer";card.append(a);
