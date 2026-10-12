@@ -117,6 +117,14 @@ def project_rows(evidence):
                 continue
             if re.fullmatch(r"[\d,.%()'-]+",name):
                 continue
+            # Dates, legal-entity category totals and vague strategic
+            # descriptions are not an identified factory/project.
+            if (re.search(r"20\d{2}\s*년.*(?:~|부터|까지|20\d{2})",name)
+                or re.search(r"(?:^해외법인|^국내법인|^기타법인|^미래\s*성장동력)",name)
+                or re.fullmatch(r"(?:미국|멕시코|슬로박|중국|인도|체코|유럽)공장",name)):
+                continue
+            if not re.search(r"(?:공장|캠퍼스|설비|라인|신축|증설|증축|건립|부지|프로젝트|공정|발전소|데이터센터)",name):
+                continue
             # Evidence rows need an actual schedule or number; narrative-only
             # fragments are retained in context, not promoted as projects.
             if not any(re.search(r"\d",str(v)) for v in row[1:]):
