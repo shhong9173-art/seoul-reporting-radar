@@ -76,16 +76,18 @@ def federal_register(term,since,fetch=read_json):
         identifier=str(r.get("document_number") or "")
         published=str(r.get("publication_date") or "")
         link=str(r.get("html_url") or "")
-        if not (hits and re.fullmatch(r"20\d{2}-\d{4,6}",identifier)
+        if not (re.fullmatch(r"20\d{2}-\d{4,6}",identifier)
                 and re.fullmatch(r"20\d{2}-\d{2}-\d{2}",published)
                 and link.startswith("https://www.federalregister.gov/documents/")):
             continue
         items.append({
             "source":"US Federal Register","sourceType":"federal_notice",
             "sourceId":identifier,"published":published,
-            "companiesMentioned":hits,"title":title[:260],
+            "companiesMentioned":hits,"companySearchTerm":term,
+            "nameVerified":bool(hits),"title":title[:260],
             "abstract":abstract[:350],"sourceUrl":link,
-            "evidence":"공식 연방 고시의 제목·요약에 기업명 등장",
+            "evidence":("공식 연방 고시의 제목·요약에 기업명 등장" if hits
+                        else "연방 고시 검색 색인 일치: 기업명·사건 관계를 원문에서 확인하지 못함"),
             "notProven":"지역 공장허가 취득·회사 사업 확정·직접 수주 여부 미확인",
             "exclusiveStatus":"공개 문서 취재 단서·단독 미확정",
         })
@@ -132,17 +134,17 @@ def ted_procurement(term,since,fetch=read_json):
         # A free-text match can be in the full notice body. If the title or
         # buyer lacks an exact legal/company identity, do not assert a link.
         companies=match_company(title+" "+buyer)
-        if not companies:
-            continue
         published=str(notice.get("publication-date") or "")[:10]
         if not re.fullmatch(r"20\d{2}-\d{2}-\d{2}",published):
             continue
         items.append({
             "source":"EU TED","sourceType":"eu_procurement_notice",
             "sourceId":number,"published":published,
-            "companiesMentioned":companies,"title":title,"buyer":buyer,
+            "companiesMentioned":companies,"companySearchTerm":term,
+            "nameVerified":bool(companies),"title":title,"buyer":buyer,
             "sourceUrl":f"https://ted.europa.eu/en/notice/{number}/html",
-            "evidence":"공식 EU 조달 공고 제목 또는 구매기관 이름의 회사 언급",
+            "evidence":("EU 조달 공고 제목·발주자 필드에 회사 실명 확인" if companies
+                        else "TED 전문검색 일치: 공식 공고에서 해당 기업의 역할 확인 전"),
             "notProven":"낙찰·공급사 선정·계약금액·해당 회사 사업 귀속 여부 미확인",
             "exclusiveStatus":"공개 조달 공고 취재 단서·단독 미확정",
         })
@@ -176,17 +178,22 @@ def collect(now=None,fr=federal_register,ted=ted_procurement):
                     seen.add(identity)
                     documents.append(d)
             sources.append({"provider":provider,"query":term,"status":"checked",
-                            "returned":result.get("returned"),"matched":len(result.get("items",[]))})
+                            "returned":result.get("returned"),
+                            "matched":sum(bool(x.get("nameVerified")) for x in result.get("items",[])),
+                            "unverified":sum(not x.get("nameVerified") for x in result.get("items",[]))})
         except Exception as err:
             sources.append({"provider":provider,"query":term,"status":"source_error",
-                            "errorType":type(err).__name__,"matched":None})
+                            "errorType":type(err).__name__,
+                            "errorDetail":str(err)[:155],"matched":None})
     documents.sort(key=lambda row:(row["published"],row["sourceId"]),reverse=True)
     return {
         "generatedAt":now.isoformat(timespec="seconds"),
         "lookbackDays":DAYS,"windowStart":since,
         "scope":"US Federal Register 연방 고시 및 EU TED 공개 조달 공고",
         "limits":"미국 주·카운티 건축/환경 인허가, EU 각국 소액 조달, 모든 세계 공장 인허가를 망라하지 않음",
-        "checks":sources,"documents":documents,"matchedCount":len(documents),
+        "checks":sources,"documents":documents,
+        "matchedCount":sum(bool(x.get("nameVerified")) for x in documents),
+        "unverifiedSearchMatches":sum(not x.get("nameVerified") for x in documents),
         "sourceErrors":sum(x["status"]=="source_error" for x in sources),
         "scoopConfirmed":0,
     }

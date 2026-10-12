@@ -27,6 +27,7 @@ class OfficialSourceTests(unittest.TestCase):
         ans=overseas.federal_register("Hyundai Motor","2026-09-13",
                         fetch=lambda req:{"results":[record],"count":1})
         self.assertEqual(ans["items"][0]["companiesMentioned"],["현대자동차"])
+        self.assertTrue(ans["items"][0]["nameVerified"])
         self.assertIn("미확인",ans["items"][0]["notProven"])
         self.assertNotIn("허가 확정",ans["items"][0]["exclusiveStatus"])
 
@@ -35,7 +36,10 @@ class OfficialSourceTests(unittest.TestCase):
            "abstract":"Discussion of regulations","publication_date":"2026-10-12",
            "html_url":"https://www.federalregister.gov/documents/2026/10/12/2026-12345/energy"}
         ans=overseas.federal_register("Hyundai Motor","2026-09-13",fetch=lambda req:{"results":[r]})
-        self.assertEqual(ans["items"],[])
+        self.assertEqual(len(ans["items"]),1)
+        self.assertFalse(ans["items"][0]["nameVerified"])
+        self.assertEqual(ans["items"][0]["companiesMentioned"],[])
+        self.assertIn("원문에서 확인하지 못함",ans["items"][0]["evidence"])
 
     def test_short_substring_is_not_company(self):
         self.assertEqual(overseas.match_company("Kia Motors wins?"),["기아"])
@@ -50,6 +54,7 @@ class OfficialSourceTests(unittest.TestCase):
         ans=overseas.ted_procurement("HD Hyundai Electric","2026-09-13",
             fetch=lambda req:{"notices":[notice],"timedOut":False,"totalNoticeCount":1})
         self.assertEqual(len(ans["items"]),1)
+        self.assertTrue(ans["items"][0]["nameVerified"])
         self.assertEqual(ans["items"][0]["sourceUrl"],
                          "https://ted.europa.eu/en/notice/778811-2026/html")
         self.assertIn("낙찰",ans["items"][0]["notProven"])
@@ -61,7 +66,10 @@ class OfficialSourceTests(unittest.TestCase):
                 "publication-date":"2026-10-12"}
         ans=overseas.ted_procurement("Hyosung Heavy Industries","2026-09-13",
             fetch=lambda req:{"notices":[notice]})
-        self.assertEqual(ans["items"],[])
+        self.assertEqual(len(ans["items"]),1)
+        self.assertFalse(ans["items"][0]["nameVerified"])
+        self.assertEqual(ans["items"][0]["companiesMentioned"],[])
+        self.assertIn("확인 전",ans["items"][0]["evidence"])
 
     def test_ted_timeout_not_no_match(self):
         with self.assertRaises(ValueError):
