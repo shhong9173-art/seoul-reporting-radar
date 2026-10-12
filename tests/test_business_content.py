@@ -110,6 +110,10 @@ class ContentTests(unittest.TestCase):
         self.assertEqual(r["verifiedNumericChanges"],0)
         self.assertIn("단독 판단 불가",r["scoopStatus"])
 
+    def test_new_direct_beats_are_in_scope(self):
+        self.assertTrue({"현대자동차","기아","현대제철","세아제강"}.issubset(set(bc.CORPS)))
+        self.assertNotIn("포스코퓨처엠",bc.CORPS)
+
     def test_unrelated_company_never_filled_in(self):
         r=bc.build_report({"삼성전기":{"corp_code":"00126371"}},"key",2025,names=("HD현대일렉트릭",))
         self.assertEqual(r["companies"][0]["status"],"corp_code_unavailable")
