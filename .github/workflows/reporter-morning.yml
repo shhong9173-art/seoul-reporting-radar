@@ -1,5 +1,9 @@
 name: Reporter Morning DART Digest
 on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/reporter-morning.yml'
   schedule:
     # Sunday-Thursday 21:50 UTC = Monday-Friday 06:50 KST.
     - cron: '50 21 * * 0-4'
