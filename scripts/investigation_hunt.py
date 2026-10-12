@@ -9,7 +9,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import html
 import re
+import xml.etree.ElementTree as ET
+from urllib.parse import quote
+from urllib.request import Request, urlopen
 import sys
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
@@ -18,7 +22,6 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/"scripts"))
 from business_content import CORPS
-from business_coverage import check_one
 
 KST=timezone(timedelta(hours=9))
 RECEIPT=re.compile(r"\d{14}\Z")
@@ -215,7 +218,44 @@ def desk_packet(group,as_of):
     }
 
 
-def news_lookup(row,check=check_one):
+def targeted_press_search(query,fetch=None):
+    """Target PROJECT name, not just generic company financial results."""
+    company=str(query["company"])
+    project=str(query["rowIdentity"][0])
+    project=re.sub(r"\(\*\)|[＊*()]","",project).strip()[:55]
+    search=f'{company} "{project}" when:365d'
+    url="https://news.google.com/rss/search?q="+quote(search)+"&hl=ko&gl=KR&ceid=KR:ko"
+    if fetch is None:
+        def fetch(uri):
+            req=Request(uri,headers={"User-Agent":"reporter-document-delta-hunt/1.0",
+                                     "Accept":"application/rss+xml"})
+            with urlopen(req,timeout=12) as result:
+                data=result.read(600001)
+            if len(data)>600000:
+                raise ValueError("뉴스 RSS 크기 제한 초과")
+            return data
+    try:
+        root=ET.fromstring(fetch(url))
+        if root.tag!="rss" or root.find("channel") is None:
+            raise ValueError("뉴스 RSS 응답 형식 오류")
+        articles=[]
+        for item in root.findall("./channel/item")[:15]:
+            title=html.unescape(re.sub(r"<[^>]+>","",item.findtext("title") or "")).strip()[:220]
+            link=str(item.findtext("link") or "")
+            if title and link.startswith("https://news.google.com/"):
+                articles.append({"title":title,"url":link,
+                                "published":str(item.findtext("pubDate") or "")[:85]})
+            if len(articles)>=4:
+                break
+        return {"query":search,"status":("관련 기사 검색됨: 사건·숫자·보도시점 동일성 재검증" if articles
+                                           else "해당 검색어 결과 미발견: 미보도 여부 판단 불가"),
+                "articles":articles}
+    except (ValueError,TimeoutError,OSError,ET.ParseError) as exc:
+        return {"query":search,"status":"보도 검색 실패: "+type(exc).__name__,
+                "articles":[]}
+
+
+def news_lookup(row,check=targeted_press_search):
     # Existing official-news helper applies strict direct-beat company
     # identity and bounded Google RSS with a one-year lookback.
     query={
@@ -292,7 +332,7 @@ def main():
         ap.error("보도검색 상한 0~8")
     annual=json.loads(Path(args.annual).read_text(encoding="utf-8"))
     recent=json.loads(Path(args.recent).read_text(encoding="utf-8"))
-    result=build(annual,recent,fetch_news=(check_one if args.max_news else None),
+    result=build(annual,recent,fetch_news=(targeted_press_search if args.max_news else None),
                  news_limit=args.max_news)
     output=Path(args.output);output.parent.mkdir(parents=True,exist_ok=True)
     tmp=output.with_suffix(".json.tmp")
