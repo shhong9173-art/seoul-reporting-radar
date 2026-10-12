@@ -15,8 +15,13 @@ import zipfile
 from collections import defaultdict
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
+import sys
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
+
+# When invoked as 'python scripts/dart_lineage.py', the repository root is
+# not necessarily on sys.path. Resolve sibling root modules explicitly.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from dart_numeric_extractor import decode_web_bytes, html_to_text
 from dart_corrections import Tables, compare_correction

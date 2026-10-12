@@ -31,6 +31,8 @@ jobs:
         run: |
           python -m unittest discover -s tests -p 'test_reporter_kit.py' -v
           python -m unittest discover -s tests -p 'test_review_engine.py' -v
+          python -m unittest discover -s tests -p 'test_dart_lineage.py' -v
+          python scripts/dart_lineage.py --help > /dev/null
       - name: Collect official OpenDART filing lists
         env:
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
