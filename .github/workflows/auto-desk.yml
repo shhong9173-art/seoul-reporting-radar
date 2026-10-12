@@ -62,6 +62,8 @@ jobs:
         run: python global_collector.py
       - name: Filter repetitive follow-up coverage
         run: python followup_filter.py
+      - name: Test official collectors offline
+        run: python -m unittest discover -s tests -p 'test_official_collectors.py' -v
       - name: Collect DART disclosure radar
         env:
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
@@ -69,7 +71,6 @@ jobs:
       - name: Extract numeric facts from DART originals
         env:
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
-        continue-on-error: true
         run: python dart_numeric_extractor.py
       - name: Detect persistent company and industry changes
         run: python change_detector.py
@@ -99,6 +100,8 @@ jobs:
         run: python dart_numeric_enrich_pitch.py
       - name: Deduplicate and restrict pitch items
         run: python pitch_dedup.py
+      - name: Refresh DART diagnostics from current files
+        run: python dart_health.py
       - name: Validate feed before publishing
         run: |
           python - <<'PY'
@@ -198,6 +201,8 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Refresh deployed DART diagnostics
+        run: python dart_health.py
       - name: Stamp browser asset cache versions
         env:
           BUILD_SHA: ${{ github.sha }}

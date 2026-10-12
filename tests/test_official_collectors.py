@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from dart_integrity_cases import DartIntegrityTests
 import dart_numeric_extractor as dart
 import pre_scoop_radar as scout
 import scoop_scout as scoops
