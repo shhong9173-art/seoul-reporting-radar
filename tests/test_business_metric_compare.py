@@ -41,7 +41,8 @@ class VerifiedBusinessMetricTests(unittest.TestCase):
     def test_restatement_rejected_even_when_delta_large(self):
         data=self.hd()
         data["periods"]["2025"]["tables"][0]["rows"][1][2]="2,040,000"
-        self.assertEqual(m.compare_company(data,2024,2025),[])
+        remaining=m.compare_company(data,2024,2025)
+        self.assertEqual([x["rowIdentity"] for x in remaining],[["회전기기"]])
 
     def test_mixed_units_rejected(self):
         data=self.hd()
