@@ -1026,7 +1026,7 @@ def build_public_signals(primary, dart_rows, now, limit=10, numeric_rows=None):
         questions=["최초 공시와 비교해 실제로 달라진 항목은 무엇인가?","계약 상대방·물량·기간·금액은 원문에서 어떻게 명시됐는가?","동일 사실의 보도 여부와 회사 설명을 교차 확인했는가?"] if "계약" in report else ["최초 공시와 비교해 실제 변경된 항목은 무엇인가?","생산·투자·계약·재무에 미치는 정량적 영향은 얼마인가?","이 변경으로 추가 확인해야 할 고객사·사업장·적용 일정이 있는가?"]
         out.append({
             "id":hashlib.sha1(("public-dart|"+"|".join(key)).encode()).hexdigest()[:12],
-            "signalGroup":group,"kind":report,"companies":[corp],
+            "signalGroup":group,"kind":report,"companies":direct_beat_company_hits({"corpName":corp},corp),
             "title":f"{corp} {report}"+(" — 변경 항목 대조 필요" if correction else ""),
             "published":dt.isoformat(),"sourceName":"DART","url":url,"details":[],
             "verification":("공개 공시 · 원문 수치 추출 실패 · 단독 아님" if extract_unavailable else "공개 공시 · 단독 아님"),
