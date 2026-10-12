@@ -403,6 +403,9 @@ def main():
         except (OSError,ValueError):
             pass
     key=os.environ.get("KIPRIS_SERVICE_KEY","").strip()
+    if not key:
+        print("KIPRIS_SERVICE_KEY 미설정: 기존 공식 특허 데이터 파일 보존")
+        raise SystemExit(2)
     report=build(key,previous=previous,news_limit=args.max_news)
     if key and not report.get("sourceWindowComplete"):
         print("KIPRISPlus 24개 출입처 공식 검색에 오류·누락·페이지 절단 발생: 이전 검증 데이터 보존")
