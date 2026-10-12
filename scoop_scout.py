@@ -31,7 +31,7 @@ TARGETS=[
  ("LG에너지솔루션","배터리"),("삼성SDI","배터리"),("SK온","배터리"),("SK이노베이션","에너지"),
  ("포스코퓨처엠","배터리·소재"),("엘앤에프","배터리·소재"),("포스코인터내셔널","철강·에너지"),
  # 철강
- ("포스코홀딩스","철강"),("포스코","철강"),("현대제철","철강"),("KG스틸","철강"),("세아홀딩스","철강"),("세아제강","철강"),
+ ("포스코홀딩스","철강"),("포스코","철강"),("현대제철","철강"),("KG스틸","철강"),("세아홀딩스","철강"),("세아제강","철강"),("세아씨엠","철강"),("동국제강","철강"),("동국씨엠","철강"),
  # 비철
  ("고려아연","비철금속"),("영풍","비철금속"),("LS MnM","비철금속"),
  # 전력기기
@@ -67,6 +67,7 @@ ALIASES={
  "포스코인터내셔널":("포스코인터내셔널","POSCO International"),
  "포스코":("포스코","POSCO"),"포스코홀딩스":("포스코홀딩스","POSCO Holdings"),"현대제철":("현대제철","Hyundai Steel"),
  "KG스틸":("KG스틸","KG Steel"),"세아홀딩스":("세아홀딩스","SeAH Holdings"),"세아제강":("세아제강","SeAH Steel"),
+ "세아씨엠":("세아씨엠","SeAH CM"),"동국제강":("동국제강","Dongkuk Steel"),"동국씨엠":("동국씨엠","Dongkuk CM"),
  "고려아연":("고려아연","Korea Zinc"),"영풍":("영풍","Young Poong"),"LS MnM":("LS MnM","LS MnM Inc."),
  "HD현대일렉트릭":("HD현대일렉트릭","HD Hyundai Electric"),"LS일렉트릭":("LS일렉트릭","엘에스일렉트릭","LS ELECTRIC"),
  "대한전선":("대한전선","Taihan Cable"),"효성중공업":("효성중공업","Hyosung Heavy Industries"),"일진전기":("일진전기","Iljin Electric"),
@@ -130,6 +131,36 @@ COMPANY_DOMAINS={
  "LG화학":"lgchem.com","롯데케미칼":"lottechem.com","금호석유화학":"kkpc.com","효성첨단소재":"hshyosungadvancedmaterials.com","코오롱인더":"kolonindustries.com"
 }
 COMPANY_BY_DOMAIN={domain:company for company,domain in COMPANY_DOMAINS.items()}
+# Actual direct company beats; non-beat suppliers, courts and agencies remain
+# useful sources but are not standalone exclusive-story subjects.
+DIRECT_BEAT_COMPANIES=frozenset({
+ "현대차","기아","현대모비스","현대위아","HL만도","한국GM","KG모빌리티",
+ "르노코리아","BMW코리아","메르세데스벤츠코리아","아우디코리아",
+ "폭스바겐코리아","혼다코리아","한국타이어","넥센타이어","금호타이어",
+ "포스코홀딩스","포스코","현대제철","KG스틸","세아홀딩스","세아제강",
+ "세아씨엠","동국제강","동국씨엠","고려아연","영풍","LS MnM",
+ "HD현대일렉트릭","LS일렉트릭","효성중공업","일진전기","대한전선",
+ "LS전선","LS지주","두산에너빌리티","GS","GS칼텍스",
+ "한화솔루션","OCI","OCI홀딩스"
+})
+DIRECT_BEAT_CANONICAL={
+ "만도":"HL만도","BMW":"BMW코리아","폭스바겐":"폭스바겐코리아",
+ "아우디":"아우디코리아","제네시스":"현대차","LS M&M":"LS MnM"
+}
+def direct_beat_company_hits(x,title):
+    """Require an explicit direct-beat issuer or named company in the title."""
+    detected=target_hits(title)
+    if x.get("corpName"):
+        detected=target_hits(str(x["corpName"]))+detected
+    company=COMPANY_BY_DOMAIN.get(str(x.get("querySite") or "").lower())
+    if company and source_group(x)=="기업":
+        detected=[company]+detected
+    return list(dict.fromkeys(
+        normalized for name in detected
+        for normalized in [DIRECT_BEAT_CANONICAL.get(name,name)]
+        if normalized in DIRECT_BEAT_COMPANIES
+    ))
+
 NOISE_RE=re.compile(r"주가|증권|목표주가|급등|급락|관련주|테마주|특징주|장중|종목|추천주|리포트|기재정정|첨부정정",re.I)
 WEAK_RE=re.compile(r"사회공헌|기부|봉사|채용|수상|캠페인|축제|전시|세미나|포럼|강연|홍보대사|혜택|이벤트|모먼트|스토리|재단|장학|펠로|양궁|칵테일|아트워크|우수조",re.I)
 HARD_SIGNAL_RE=re.compile(r"정책|규제|시행|고시|법안|입법|예고|결정고시|행정처분|관세|반덤핑|상계관세|특허|출원|등록|특허심판|심판|상표|디자인|대표이사|임원|사내이사|사외이사|선임|취임|퇴임|조직개편|신설|투자|출자|증설|공장|법인|합병|분할|인수|매각|철수|수주|계약|공급|발주|입찰|낙찰|생산|가동|감산|가격|원가|마진|배터리|ESS|HVDC|변압기|해저케이블|해상풍력|자율주행|리콜|결함|제작결함|무상수리|조사개시|인증|형식승인|환경영향|환경성평가|건축허가|사업계획승인|산업단지|소송|제소|가처분|판결|행정심판|자기주식|자사주|주식처분|주식소각|전환사채|교환사채|신주인수권부사채|금전대여|채무인수|담보제공|보증제공|영업정지|영업양수도",re.I)
@@ -565,20 +596,9 @@ def extract_person(blob,corp):
     return corp
 
 def relevant_primary(x,companies,kind,joined):
-    t=joined.lower()
-    general_terms=("자동차","차량","전기차","하이브리드","타이어","철강","열연","냉연","후판","강관","비철","구리","아연","전력","변압기","hvdc","케이블","풍력","태양광","ess","배터리","충전","에너지","lng","원전","원자력","smr","수소","수소발전","발전","전력시장","화학","소재","공장","산업단지","산업안전","산업재해","중대재해","탄소","배출권","배출시설","공급망","관세","반덤핑","상계관세")
-    auto_terms=("자동차","차량","전기차","하이브리드","pbv","자율주행","adas","타이어","리콜","결함","형식승인","배출가스")
-    specific=("생산라인","생산계획","생산량","공급사","대체투입","재고","조업","가동중단","종풍","증설","공장","투자","매각","인수","합병","분할","이사회","임원","대표이사","선임","퇴임","특허","상표","디자인","리콜","결함","조사","인증","형식승인","환경영향","건축허가","사업계획","입찰","낙찰","수주","계약","관세","반덤핑","소송","판결","심판","자금조달","유상증자","채권","RSU","신용등급","전망","수시평가","Issuer Comment","그룹분석","차입","노사","임단협","잠정합의","파업","쟁의","생산계획","생산조정","공급중단","대체투입","재고","납기","거래종결","지분","법안","개정안","입법예고","행정예고","고시","시행령","시행규칙","본회의 통과","안전기준","사업계획승인","변경허가","조사개시","판정")
-    # Company-specific source signals are highest value. Companyless policy signals
-    # are allowed only when the collector matched a material industry context and action
-    # on an authoritative domain; a generic ministry page remains excluded.
-    if companies:return True
-    if COMPANY_BY_DOMAIN.get(str(x.get("querySite") or "").lower()):return True
-    if x.get("policySignal") and source_tier(x)>=3 and kind in {"정책·규제","통상·관세","인허가·환경","소송·분쟁"}:return True
-    if kind in {"결함·리콜","인증·형식승인"}:return any(k in t for k in auto_terms)
-    if kind in {"정책·규제","통상·관세","인허가·환경","소송·분쟁"}:
-        return any(k in t for k in general_terms) and any(k in t for k in specific)
-    return any(k in t for k in general_terms) and any(k in t for k in specific)
+    # Companyless court and industry-policy notices are source context, not scoops.
+    return bool(companies)
+
 
 def scoop_headline(x,kind,corp,blob,nums):
     base=(x.get("title") or "").strip()
@@ -679,7 +699,7 @@ def build_lead_signals(primary, data, now, limit=12):
         r"검색|바로가기|안내|설명회|개최 알림|주간 동향|주간 입찰|자료실|상세보기|정기보고|실적발표|월간동향|"
         r"행사|캠페인|수상|채용|교육생 모집|사회공헌|기부|봉사|홍보대사|체험|진로탐색|청소년|희망드림|"
         r"세이브더칠드런|수수료 지원|달력 제작|회계감사 용역|국제민간항공기구|유가보조금 관리 규정|보증제도|명품보증|보증대상|프로모션|브랜드 캠페인|고객 혜택|기재정정|첨부정정", re.I)
-    diag={k:0 for k in ("input","invalid","noise","outside_window","no_hard_change","no_signal_pattern","no_company","untrusted_source","duplicate","rows","coverage_checked","prior_coverage","diversity_skip","surfaced","details_unavailable")}
+    diag={k:0 for k in ("input","invalid","noise","outside_window","no_hard_change","no_signal_pattern","no_company","out_of_beat","untrusted_source","duplicate","rows","coverage_checked","prior_coverage","diversity_skip","surfaced","details_unavailable")}
     diag["sample_no_hard_change"]=[]
     diag["sample_no_signal_pattern"]=[]
     # Convert multiple public recall notices for one tracked company into one
@@ -723,6 +743,9 @@ def build_lead_signals(primary, data, now, limit=12):
         url=str(x.get("url") or "").strip()
         if not title or not url:
             diag["invalid"]+=1; continue
+        if not direct_beat_company_hits(x,title):
+            diag["out_of_beat"]+=1
+            continue
         # OpenDART outage is an extraction failure, not evidence that an event is unreported.
         # Keep the filing in the public-source lane, but never surface it as a lead signal.
         if x.get("detailUnavailable"):
@@ -761,12 +784,7 @@ def build_lead_signals(primary, data, now, limit=12):
             if len(diag["sample_no_signal_pattern"])<12:
                 diag["sample_no_signal_pattern"].append({"title":title,"source":x.get("sourceName") or x.get("officialLabel") or "","group":source_group(x)})
             continue
-        companies=target_hits(body)
-        if x.get("corpName"):
-            companies=list(dict.fromkeys(target_hits(x.get("corpName"))+companies))
-        qcompany=COMPANY_BY_DOMAIN.get(str(x.get("querySite") or "").lower())
-        if qcompany:
-            companies=list(dict.fromkeys([qcompany]+companies))
+        companies=direct_beat_company_hits(x,title)
         direct_procurement=bool(x.get("procurementSignal") and x.get("directSource") and group_is_procurement(x))
         if not companies and not direct_procurement:
             diag["no_company"]+=1; continue
@@ -1122,8 +1140,8 @@ def main():
         if not HARD_SIGNAL_RE.search(report):
             record_drop_example(dart_suppression_examples,"no_hard_signal",d,"공시 제목이 HARD_SIGNAL_RE에 해당하지 않음")
             continue
-        if not target_hits(corp_name):
-            record_drop_example(dart_suppression_examples,"company_not_tracked",d,"공시 회사명이 추적 기업명/별칭과 매칭되지 않음")
+        if not direct_beat_company_hits({"corpName":corp_name},corp_name):
+            record_drop_example(dart_suppression_examples,"company_not_tracked",d,"공시 회사가 실제 직접 담당 출입처에 해당하지 않음")
             continue
         blob,nums=dart_fact(d,numeric,force_document=contract_report)
         joined_dart=str(d.get("signalText",""))+" "+blob
@@ -1173,9 +1191,14 @@ def main():
 
     lead_signals,lead_diagnostics=build_lead_signals(primary,data,now,limit=12)
     public_signals=build_public_signals(primary,dart,now,limit=14,numeric_rows=numeric)
-    candidates=[];seen=set();drop_examples={};drop_stats={"noise":0,"stale_pre_scoop":0,"routine_regulatory":0,"relevance":0,"generic":0,"association_filter":0,"specificity":0,"prior_coverage":0,"procurement":0,"procurement_noise":0,"procurement_nonmaterial":0,"routine_contract":0,"contract_details_unavailable":0,"low_score":0,"low_score_rescued":0,"missing_core_facts":0,"untrusted_source":0,"company_required":0,"duplicate":0,"other":0,"accepted":0}
+    candidates=[];seen=set();drop_examples={};drop_stats={"noise":0,"stale_pre_scoop":0,"routine_regulatory":0,"relevance":0,"generic":0,"association_filter":0,"specificity":0,"prior_coverage":0,"procurement":0,"procurement_noise":0,"procurement_nonmaterial":0,"routine_contract":0,"contract_details_unavailable":0,"low_score":0,"low_score_rescued":0,"missing_core_facts":0,"untrusted_source":0,"company_required":0,"out_of_beat":0,"duplicate":0,"other":0,"accepted":0}
     for x in sorted(primary,key=lambda z:z.get("published",""),reverse=True):
         title=(x.get("title") or "").strip()
+        scoped_companies=direct_beat_company_hits(x,title)
+        if not scoped_companies:
+            drop_stats["out_of_beat"]+=1
+            record_drop_example(drop_examples,"out_of_beat",x,"직접 출입처 기업이 제목·공시 회사명에서 확인되지 않음")
+            continue
         joined=title+" "+x.get("summary","")
         # Generic procurement-market briefing notices are follow-up calendar items,
         # not material changes. Keep them out of the scoop queue unless the notice
@@ -1233,13 +1256,7 @@ def main():
             drop_stats["noise"]+=1
             record_drop_example(drop_examples,"noise",x,"제목이 비어 있거나 노이즈/약한 제목 패턴과 일치")
             continue
-        companies=target_hits(joined)
-        if x.get("corpName"):
-            direct=target_hits(x.get("corpName"))
-            companies=list(dict.fromkeys(direct+companies))
-        query_company=COMPANY_BY_DOMAIN.get(str(x.get("querySite") or "").lower())
-        if query_company:
-            companies=list(dict.fromkeys([query_company]+companies))
+        companies=scoped_companies
         numbers=list(dict.fromkeys((x.get("dartNumbers") or [])+NUM_RE.findall(joined)))[:8]
         kind=candidate_kind(title,x.get("category",""))
         if not relevant_primary(x,companies,kind,joined):
@@ -1471,6 +1488,7 @@ def main():
 
         drop_stats["accepted"]+=1
         candidates.append({
+            "scopeVerified":True,
             "id":hashlib.sha1((x.get("url","")+"|"+headline).encode()).hexdigest()[:12],
             "kind":kind,"beat":beat_for(joined),"title":headline,"score":score,
             "scoreFloorApplied":score_floor_applied,
@@ -1517,6 +1535,10 @@ def main():
             used_keys.add(key);final.append(c)
             if len(final)>=12:break
 
+    final=[c for c in final if c.get("companies") and
+           set(c["companies"]).issubset(DIRECT_BEAT_COMPANIES) and c.get("scopeVerified")]
+    lead_signals=[x for x in lead_signals
+                  if x.get("companies") and set(x["companies"]).issubset(DIRECT_BEAT_COMPANIES)]
     old={}
     if OUT.exists():
         try:old={x.get("id"):x for x in json.loads(OUT.read_text(encoding="utf-8")).get("items",[])}
@@ -1528,6 +1550,7 @@ def main():
 
     payload={
         "generatedAt":now.isoformat(),"windowDays":PRIMARY_LOOKBACK_DAYS,"mode":"primary-source-first",
+        "beatScope":"direct-company-beats-only",
         "counts":{
             "primaryHits":len(primary),"candidates":len(final),
             "uncovered":sum(1 for x in final if x.get("coverageCount",0)==0),
