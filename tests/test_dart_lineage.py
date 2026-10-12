@@ -1,6 +1,9 @@
 """Origin receipt linkage is opt-in to evidence, never infer from issuer+date."""
 import json
+import os
+import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -130,6 +133,27 @@ class LineageTests(unittest.TestCase):
         result=review.build_review(digest,{"items":[]},lineage=lineage_data)
         self.assertEqual(result["items"][0]["lane"],"원문·변경 사실 확인")
         self.assertFalse(result["items"][0]["originalDocumentVerified"])
+
+    def test_direct_cli_invocation_from_another_directory(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            digest_path = root/"digest.json"
+            output = root/"lineage.json"
+            digest_path.write_text(
+                json.dumps({"generatedAt":"2026-10-13T00:00:00+09:00",
+                            "items":[self.row()]}), encoding="utf-8")
+            env = dict(os.environ, DART_API_KEY="")
+            done = subprocess.run([
+                sys.executable,
+                str(Path(__file__).resolve().parents[1]/"scripts"/"dart_lineage.py"),
+                "--digest",str(digest_path),
+                "--corp-codes",str(root/"absent.json"),
+                "--output",str(output),
+            ],cwd=directory,env=env,capture_output=True,text=True,timeout=20)
+            self.assertEqual(done.returncode,0,done.stderr)
+            result = json.loads(output.read_text(encoding="utf-8"))
+            self.assertEqual(result["processedCount"],1)
+            self.assertEqual(result["items"][0]["status"],"original_unverified")
 
     def test_review_shows_verified_but_does_not_promote_to_exclusive(self):
         row=self.row()
