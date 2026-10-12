@@ -108,6 +108,35 @@ def naver_search(company: str, term: str):
         return {"status": f"조회 오류: {type(exc).__name__}", "results": []}
 
 
+def google_news_search(company: str, term: str):
+    """Fallback when NAVER credentials are absent; not an exhaustive search."""
+    import urllib.error
+    import urllib.parse
+    import urllib.request
+    import xml.etree.ElementTree as ET
+    query = urllib.parse.quote(f"{company} {term} when:30d")
+    url = ("https://news.google.com/rss/search?q=" + query +
+           "&hl=ko&gl=KR&ceid=KR:ko")
+    request = urllib.request.Request(url, headers={"User-Agent": "reporter-radar/1.0"})
+    try:
+        with urllib.request.urlopen(request, timeout=12) as response:
+            payload = response.read(1024 * 1024)
+        root = ET.fromstring(payload)
+        if root.tag != "rss" or root.find("channel") is None:
+            raise ValueError("Google News RSS 형식 불일치")
+        matches = normalize_news([
+            {"title": (item.findtext("title") or ""),
+             "link": (item.findtext("link") or ""),
+             "pubDate": (item.findtext("pubDate") or "")}
+            for item in root.findall("./channel/item")[:12]
+        ])
+        return {"status": ("Google News 최근 30일 관련 기사 후보: 동일 사건 미검증" if matches
+                           else "Google News 최근 30일 검색상 미발견: 미보도 확정 불가"),
+                "results": matches}
+    except (ValueError, urllib.error.URLError, TimeoutError, ET.ParseError) as exc:
+        return {"status": f"Google News 검색 실패: {type(exc).__name__}", "results": []}
+
+
 def _correction_evidence(matching_numeric):
     changes = []
     for group in matching_numeric.get("correctionComparisons", []):
@@ -244,9 +273,9 @@ def main():
     digest = json.loads(Path(args.digest).read_text(encoding="utf-8"))
     numeric = json.loads(Path(args.numeric).read_text(encoding="utf-8"))
     has_keys = bool(os.environ.get("NAVER_CLIENT_ID") and os.environ.get("NAVER_CLIENT_SECRET"))
-    search = naver_search if (has_keys and not args.no_news) else None
+    search = (naver_search if has_keys else google_news_search) if not args.no_news else None
     if not search:
-        print("기존 기사 실검색 미실행: 검색 API 미연결 또는 --no-news")
+        print("기존 기사 실검색 미실행: --no-news")
     review = build_review(digest, numeric, search=search)
     out = Path(args.output)
     out.parent.mkdir(parents=True, exist_ok=True)
