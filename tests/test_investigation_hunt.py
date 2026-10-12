@@ -116,6 +116,23 @@ class HuntTests(unittest.TestCase):
         generic=tbl("미국공장","'23.05~'26.12","6,114")
         self.assertEqual(hunt.by_project([generic]),{})
 
+    def test_googlerss_fulltext_match_is_not_same_project_confirmation(self):
+        xml=b'<rss><channel><item><title>HD Hyundai industry rally</title><link>https://news.google.com/rss/articles/abc</link><pubDate>Mon, 12 Oct 2026 06:00:00 GMT</pubDate></item></channel></rss>'
+        result=hunt.targeted_press_search({"company":"HD현대일렉트릭",
+                  "rowIdentity":["변압기 철심공장"]},fetch=lambda _:xml)
+        self.assertEqual(result["titleMatchedCount"],0)
+        self.assertFalse(result["articles"][0]["companyAndProjectInTitle"])
+        self.assertIn("동일 사업명 제목 일치 미확인",result["status"])
+
+    def test_company_and_named_factory_both_in_title_still_not_same_event_proof(self):
+        xml=('<rss><channel><item><title>HD현대일렉트릭 변압기 철심공장 투자</title>'
+             '<link>https://news.google.com/rss/articles/abc</link></item></channel></rss>').encode("utf-8")
+        result=hunt.targeted_press_search({"company":"HD현대일렉트릭",
+                   "rowIdentity":["변압기 철심공장"]},fetch=lambda _:xml)
+        self.assertEqual(result["titleMatchedCount"],1)
+        self.assertTrue(result["articles"][0]["companyAndProjectInTitle"])
+        self.assertIn("변경 숫자는 미검증",result["articles"][0]["matchStatus"])
+
     def test_one_preexisting_press_article_is_not_exclusive_proof(self):
         old,new=datasets()
         annual={"reportYear":2025,"generatedAt":"old","companies":[old]}
