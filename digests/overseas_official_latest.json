@@ -1,0 +1,69 @@
+{
+  "generatedAt": "2026-10-13T02:24:41+09:00",
+  "lookbackDays": 30,
+  "windowStart": "2026-09-13",
+  "scope": "US Federal Register 연방 고시 및 EU TED 공개 조달 공고",
+  "limits": "미국 주·카운티 건축/환경 인허가, EU 각국 소액 조달, 모든 세계 공장 인허가를 망라하지 않음",
+  "checks": [
+    {
+      "provider": "US Federal Register",
+      "query": "Hyundai Motor",
+      "status": "checked",
+      "returned": 2,
+      "matched": 0
+    },
+    {
+      "provider": "US Federal Register",
+      "query": "Doosan Enerbility",
+      "status": "source_error",
+      "errorType": "ValueError",
+      "matched": null
+    },
+    {
+      "provider": "US Federal Register",
+      "query": "Kia Motors",
+      "status": "checked",
+      "returned": 1,
+      "matched": 0
+    },
+    {
+      "provider": "US Federal Register",
+      "query": "Korea Zinc",
+      "status": "source_error",
+      "errorType": "ValueError",
+      "matched": null
+    },
+    {
+      "provider": "EU TED",
+      "query": "Hyundai Motor",
+      "status": "checked",
+      "returned": 0,
+      "matched": 0
+    },
+    {
+      "provider": "EU TED",
+      "query": "Hyosung Heavy Industries",
+      "status": "checked",
+      "returned": 0,
+      "matched": 0
+    },
+    {
+      "provider": "EU TED",
+      "query": "HD Hyundai Electric",
+      "status": "checked",
+      "returned": 0,
+      "matched": 0
+    },
+    {
+      "provider": "EU TED",
+      "query": "Doosan Enerbility",
+      "status": "checked",
+      "returned": 1,
+      "matched": 0
+    }
+  ],
+  "documents": [],
+  "matchedCount": 0,
+  "sourceErrors": 2,
+  "scoopConfirmed": 0
+}
