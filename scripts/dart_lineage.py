@@ -143,14 +143,29 @@ def comparable_differences(before, after):
     return changes
 
 
-def issuer_list(api_key, corp_code, day, fetch_json):
-    """Check receipt and issuing corporation in a date-scoped official list call."""
+def issuer_list(api_key, corp_code, day, fetch_json=None):
+    """Check receipt and issuing corporation in a date-scoped official list call.
+
+    A production default is required: review_lineage calls this with
+    exactly (api_key, corp_code, day). Tests may inject a stub fetcher.
+    """
     if not re.fullmatch(r"\d{8}",day) or not re.fullmatch(r"\d{8}",corp_code):
         return []
     address = ("https://opendart.fss.or.kr/api/list.json?" +
                urlencode({"crtfc_key":api_key, "corp_code":corp_code, "bgn_de":day,
                           "end_de":day, "page_no":1,"page_count":100}))
+    if fetch_json is None:
+        def fetch_json(uri):
+            request=Request(uri,headers={"User-Agent":"newsroom-dart-lineage/1.0",
+                                         "Accept":"application/json"})
+            with urlopen(request,timeout=15) as response:
+                payload=response.read(2_000_001)
+            if len(payload)>2_000_000:
+                raise ValueError("DART 정정 원공시 목록 응답이 너무 큼")
+            return json.loads(payload.decode("utf-8-sig"))
     obj=fetch_json(address)
+    if not isinstance(obj,dict):
+        raise ValueError("DART 날짜별 원공시 목록 응답이 객체가 아님")
     if obj.get("status")=="013":
         return []
     if obj.get("status")!="000":
