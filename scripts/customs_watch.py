@@ -43,9 +43,10 @@ def aggregate(items,start,end):
     if not isinstance(items,list) or not items:
         raise ValueError("관세청 데이터 미수신: 유효한 통계 0건이라고 볼 수 없음")
     for record in items:
-        month=record.get("year","")
-        if "총" in month:
+        raw_month=record.get("year","")
+        if "총" in str(raw_month) or "합계" in str(raw_month):
             continue
+        month=customs.normalize_month(raw_month)
         verify_month(month,start,end)
         for field,label in zip(FIELDS,METRICS):
             if field not in record:

@@ -30,6 +30,14 @@ URL = "https://apis.data.go.kr/1220000/nitemtrade/getNitemtradeList"
 ROOT = Path(__file__).resolve().parent.parent
 
 
+def normalize_month(value):
+    """Normalize official month labels YYYY.MM and YYYYMM; do not invent a month."""
+    month = str(value or "").strip()
+    if re.fullmatch(r"(?:19|20)\d{2}\.(?:0[1-9]|1[0-2])", month):
+        return month.replace(".", "")
+    return month
+
+
 def month_add(yyyymm, n):
     y, m = int(yyyymm[:4]), int(yyyymm[4:])
     m += n
@@ -50,8 +58,12 @@ def fetch(k, hs, start, end, country, raw=False):
     params = {"serviceKey": k, "strtYymm": start, "endYymm": end, "hsSgn": hs}
     if country:
         params["cntyCd"] = country
-    r = requests.get(URL, params=params, timeout=60)
-    r.raise_for_status()
+    # Never put the service key or the full request URL in CI exception logs.
+    try:
+        r = requests.get(URL, params=params, timeout=60)
+        r.raise_for_status()
+    except requests.RequestException:
+        raise RuntimeError("관세청 통계 HTTP/네트워크 요청 실패 (인증키·URL 비공개)") from None
     if raw:
         print(r.text[:3000])
     root = ET.fromstring(r.content)
@@ -96,9 +108,10 @@ def main():
     # 월별 합계 (총계 줄은 빼고, 같은 달 여러 세부 HS 줄은 더한다)
     by_month = defaultdict(lambda: [Decimal(0), Decimal(0), Decimal(0), Decimal(0)])
     for it in items:
-        ym = it.get("year", "")
-        if not ym or "총" in ym:
+        raw_month = it.get("year", "")
+        if "총" in str(raw_month) or "합계" in str(raw_month):
             continue
+        ym = normalize_month(raw_month)
         if not re.fullmatch(r"(?:19|20)\d{2}(?:0[1-9]|1[0-2])", ym) or not a.start<=ym<=a.end:
             raise ValueError(f"월별 원자료 기간/조회범위 오류: {ym!r}")
         if any(k not in it for k in ("expDlr","expWgt","impDlr","impWgt")):
@@ -109,6 +122,8 @@ def main():
         v[2] += num(it["impDlr"])
         v[3] += num(it["impWgt"])
 
+    if not by_month:
+        raise ValueError("관세청 API에서 유효한 월별 통계를 받지 못함 (0건으로 간주하지 않음)")
     out = ROOT / "data" / f"customs_{a.hs}_{a.country or 'ALL'}_{a.start}_{a.end}.csv"
     out.parent.mkdir(exist_ok=True)
     with out.open("w", newline="", encoding="utf-8-sig") as f:

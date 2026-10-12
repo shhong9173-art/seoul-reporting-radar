@@ -40,6 +40,20 @@ class CustomsIntegrityTests(unittest.TestCase):
         self.assertEqual(rows[0]["수출중량(kg)"],"15.00")
         self.assertEqual(rows[0]["수입금액(달러)"],"3")
 
+    def test_official_yyyy_dot_mm_label_normalized(self):
+        rows=self.rows()
+        rows[0]["year"]="2026.01"
+        rows[1]["year"]="2026.01"
+        out=self.run_csv(rows)
+        self.assertEqual(len(out),1)
+        self.assertEqual(out[0]["월"],"202601")
+        self.assertEqual(out[0]["수출금액(달러)"],"12.00")
+
+    def test_total_row_not_double_counted(self):
+        rows=self.rows()+[{"year":"총계","expDlr":"999999"}]
+        out=self.run_csv(rows)
+        self.assertEqual(out[0]["수출금액(달러)"],"12.00")
+
     def test_month_format_bad_fails(self):
         rows=self.rows();rows[0]["year"]="202699"
         with self.assertRaises(ValueError):
