@@ -7,6 +7,7 @@ Compare only matching fiscal years, statements, currency, and account IDs.
 from __future__ import annotations
 
 import argparse
+import html
 import json
 import os
 import re
@@ -16,8 +17,9 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from statistics import median
 from urllib.error import URLError
-from urllib.parse import urlencode
+from urllib.parse import urlencode, quote
 from urllib.request import Request, urlopen
+import xml.etree.ElementTree as ET
 
 KST = timezone(timedelta(hours=9))
 ENDPOINT = "https://opendart.fss.or.kr/api/fnlttSinglAcntAll.json"
@@ -280,6 +282,59 @@ def collect(codes,key,annual_year,interim_year,get=get_json):
     return records
 
 
+def prior_news_candidates(company,period,year,fetch= None):
+    """Related coverage leads from Google News; never same-event proof.
+
+    One bounded search per candidate with a wide lookback: annual/interim
+    disclosures may have been reported months before the current scan.
+    """
+    if fetch is None:
+        def fetch(url):
+            req=Request(url,headers={"User-Agent":"industry-reporter-research/1.0",
+                                     "Accept":"application/rss+xml"})
+            with urlopen(req,timeout=12) as response:
+                raw=response.read(800001)
+            if len(raw)>800000:
+                raise ValueError("Google News RSS 크기 상한 초과")
+            return raw
+    season="상반기 실적 매출" if period=="halfyear" else "연간 실적 매출"
+    query=f"{company} {year} {season} when:365d"
+    url="https://news.google.com/rss/search?q="+quote(query)+"&hl=ko&gl=KR&ceid=KR:ko"
+    try:
+        root=ET.fromstring(fetch(url))
+        if root.tag!="rss" or root.find("channel") is None:
+            raise ValueError("Google RSS 응답 형식 불일치")
+        articles=[]
+        for item in root.findall("./channel/item")[:12]:
+            headline=html.unescape(re.sub(r"<[^>]+>","",item.findtext("title") or "")).strip()
+            link=(item.findtext("link") or "").strip()
+            if not headline or not link.startswith("https://news.google.com/"):
+                continue
+            articles.append({"title":headline[:220],"url":link,
+                             "published":str(item.findtext("pubDate") or "")[:90]})
+            if len(articles)>=4:
+                break
+        return {
+            "query":query,"checkedVia":"Google News RSS", "items":articles,
+            "status":("관련 보도 검색 결과 있음: 같은 사건 여부 직접 확인 필요" if articles else
+                      "검색 범위 내 보도 미발견: 단독 판단 불가"),
+        }
+    except (ET.ParseError,ValueError,URLError,TimeoutError,OSError) as exc:
+        return {"query":query,"checkedVia":"Google News RSS","items":[],
+                "status":"검색 오류: "+type(exc).__name__+"; 미보도 주장 불가"}
+
+
+def attach_prior_coverage(report,lookup=prior_news_candidates):
+    """Append evidence of search attempts. Retain all anomalous source signals."""
+    for item in report.get("findings",[])[:12]:
+        try:
+            item["priorCoverage"]=lookup(item["company"],item["period"],item["year"])
+        except Exception as exc:
+            item["priorCoverage"]={"status":"보도 조회 예외: "+type(exc).__name__,
+                                   "items":[]}
+    return report
+
+
 def main():
     p=argparse.ArgumentParser()
     p.add_argument("--codes",default="dart_corp_codes.json")
@@ -299,7 +354,7 @@ def main():
     errors=[r for r in records if r.get("status")=="error"]
     if errors or usable<3:
         raise SystemExit(f"공식 데이터 불완전: 조회 오류={len(errors)}, 지표 성공={usable}; 기존 파일 보존")
-    output=analyze(records)
+    output=attach_prior_coverage(analyze(records))
     output["coverage"]={"requested":len(records),"extracted":usable,
                         "unavailable":sum(r.get("status")!="extracted" for r in records),
                         "errors":len(errors)}
