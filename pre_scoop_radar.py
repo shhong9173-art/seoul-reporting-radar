@@ -358,116 +358,208 @@ def parse_bing_html(raw, domain, group, now, diag=None):
         })
     return out
 
-def fetch_direct_ntis_announcements(max_items=12):
-    """Fetch dated NTIS national R&D calls directly, rather than relying on search-engine indexing."""
-    base="https://www.ntis.go.kr"
-    now=datetime.now(KST)
-    cutoff=now-timedelta(days=LOOKBACK_DAYS)
-    terms=["자동차","전기차","배터리","철강","변압기","전력망","해상풍력","수소발전","원전","탄소","소재"]
-    batches=[terms[i:i+3] for i in range(0,len(terms),3)]
-    slot=int(now.timestamp()//1800)%len(batches)
-    active_terms=batches[slot]
-    diag={
-        "queriesAttempted":0,"searchPagesFetched":0,"announcementLinks":0,
-        "detailPagesAttempted":0,"detailPagesFetched":0,"datedRecords":0,"recentRecords":0,"retained":0,
-        "queryTerms":active_terms,"errors":[],"sampleRows":[],"sampleAnchors":[]
-    }
-    DIRECT_DIAGNOSTICS["ntis-announcements"]=diag
-    anchor_re=re.compile(r'<a\b[^>]+href=["\']([^"\']+)["\'][^>]*>(.*?)</a>',re.I|re.S)
-    date_re=re.compile(r"공고일\s*[:：]?\s*(20\d{2}\s*[./-]\s*\d{1,2}\s*[./-]\s*\d{1,2})")
-    out=[];seen=set()
+def _ntis_detail_url(href):
+    """Canonicalize only observed official announcement IDs, never arbitrary hosts."""
+    parsed = urllib.parse.urlsplit(urllib.parse.urljoin("https://www.ntis.go.kr", html.unescape(href)))
+    if (parsed.scheme not in ("http", "https") or parsed.netloc.lower() != "www.ntis.go.kr"
+            or parsed.path != "/rndgate/eg/un/ra/view.do"):
+        return ""
+    ids = urllib.parse.parse_qs(parsed.query).get("roRndUid", [])
+    if len(ids) != 1 or not re.fullmatch(r"\d{1,16}", ids[0]):
+        return ""
+    return "https://www.ntis.go.kr/rndgate/eg/un/ra/view.do?" + urllib.parse.urlencode({"roRndUid": ids[0]})
 
-    for term in active_terms:
-        query_url=base+"/ThSearchResultAnnouncementList.do?"+urllib.parse.urlencode({
-            "searchSentence":"",
-            "searchWord":term,
-            "sort":"SS01/DESC"
-        })
-        diag["queriesAttempted"]+=1
+
+def _ntis_fetch(url, diag, stage, timeout=12):
+    for attempt in range(2):
+        diag["httpAttempts"] += 1
         try:
-            listing=get(query_url,timeout=10).decode("utf-8","ignore")
-            diag["searchPagesFetched"]+=1
-            if len(diag["sampleAnchors"])<8:
-                diag["sampleAnchors"].append({
-                    "queryTerm":term,
-                    "pageTitle":clean(re.search(r"<title[^>]*>(.*?)</title>",listing,re.I|re.S).group(1))[:120]
-                        if re.search(r"<title[^>]*>(.*?)</title>",listing,re.I|re.S) else "",
-                    "pageBytes":len(listing),
-                    "containsAnnouncementPath":"/rndgate/eg/un/ra/view.do" in listing,
-                    "containsAnnouncementText":bool(re.search(r"국가R&D통합공고|공고명|공고일",listing)),
-                    "anchorSamples":[{"href":html.unescape(m.group(1))[:260],"title":clean(m.group(2))[:160]}
-                        for m in list(anchor_re.finditer(listing))[:8]]
-                })
-        except Exception as exc:
-            if len(diag["errors"])<4:
-                diag["errors"].append(f"search {term}: {type(exc).__name__}: {exc}"[:240])
-            continue
+            return decode_web_bytes(get(url, timeout=timeout))
+        except (OSError, urllib.error.URLError) as exc:
+            retry = attempt == 0 and (not isinstance(exc, urllib.error.HTTPError)
+                                     or exc.code == 429 or exc.code >= 500)
+            diag["errors"].append({"stage": stage, "url": url, "attempt": attempt + 1,
+                                   "error": f"{type(exc).__name__}: {exc}"[:240], "retry": retry})
+            if not retry:
+                return None
+            diag["retries"] += 1
+    return None
 
-        for match in anchor_re.finditer(listing):
-            href=html.unescape(match.group(1).strip())
-            title=clean(match.group(2))
-            if not title or len(title)<10:
-                continue
+
+class _NtisBodyParser(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.depth = 0
+        self.skip = 0
+        self.parts = []
+
+    def handle_starttag(self, tag, attrs):
+        attrs = dict(attrs)
+        if tag == "div" and (self.depth or "notice_cont" in attrs.get("class", "").split()):
+            self.depth += 1
+        if self.depth and tag in ("script", "style"):
+            self.skip += 1
+        if self.depth and tag in ("p", "br", "div", "tr", "li"):
+            self.parts.append("\n")
+
+    def handle_endtag(self, tag):
+        if self.depth and tag in ("script", "style"):
+            self.skip = max(0, self.skip - 1)
+        if self.depth and tag in ("p", "div", "tr", "li"):
+            self.parts.append("\n")
+        if self.depth and tag == "div":
+            self.depth -= 1
+
+    def handle_data(self, data):
+        if self.depth and not self.skip:
+            self.parts.append(data)
+
+
+def _ntis_title_key(value):
+    # NTIS search indexing drops the ampersand in R&D; detail HTML preserves it.
+    return re.sub(r"\s+", "", re.sub(r"\bR\s*&\s*D\b", "RD", value, flags=re.I))
+
+
+def parse_ntis_detail(markup):
+    heading = re.search(r'<h1\b[^>]*class=["\'][^"\']*\bditail_tit\b[^"\']*["\'][^>]*>(.*?)</h1>', markup, re.I | re.S)
+    if not heading:
+        return "", {}, ""
+    title = clean(heading[1])
+    fields = {}
+    for row in re.findall(r"<li\b[^>]*>(.*?)</li>", markup[heading.end():], re.I | re.S):
+        match = re.search(r"<span\b[^>]*>(.*?)</span>(.*)", row, re.I | re.S)
+        if match:
+            label = clean(match[1]).rstrip(":： ")
+            if label in ("공고일", "접수일", "마감일", "사업명", "부처명", "공고기관명", "공고금액"):
+                fields.setdefault(label, clean(match[2]))
+    parser = _NtisBodyParser()
+    parser.feed(markup)
+    lines = [re.sub(r"\s+", " ", line).strip() for line in "".join(parser.parts).splitlines()]
+    return title, fields, "\n".join(line for line in lines if line)
+
+
+def fetch_direct_ntis_announcements(max_items=12, query_terms=None, max_details=8):
+    """Bounded official-source collection; round-robin prevents first-term starvation."""
+    now = datetime.now(KST)
+    cutoff = now - timedelta(days=LOOKBACK_DAYS)
+    terms = ["자동차", "전기차", "배터리", "철강", "변압기", "전력망", "해상풍력", "수소발전", "원전", "탄소", "소재"]
+    batches = [terms[i:i+3] for i in range(0, len(terms), 3)]
+    active_terms = list(dict.fromkeys(query_terms if query_terms is not None else batches[int(now.timestamp() // 1800) % len(batches)]))
+    diag = {"queriesAttempted": 0, "searchPagesFetched": 0, "searchPagesParsed": 0,
+            "announcementLinks": 0, "invalidLinks": 0, "duplicateLinks": 0,
+            "detailPagesAttempted": 0, "detailPagesFetched": 0, "datedRecords": 0,
+            "recentRecords": 0, "retained": 0, "httpAttempts": 0, "retries": 0,
+            "queryTerms": active_terms, "queryDiagnostics": [], "errors": [],
+            "exclusions": {}, "sampleRows": [], "coverageLimited": False}
+    DIRECT_DIAGNOSTICS["ntis-announcements"] = diag
+    if max_items < 1 or max_details < 1 or not active_terms:
+        diag["status"] = "disabled_by_limit"
+        return []
+
+    def exclude(reason, url):
+        diag["exclusions"][reason] = diag["exclusions"].get(reason, 0) + 1
+        if len(diag["sampleRows"]) < 12:
+            diag["sampleRows"].append({"url": url, "reason": reason})
+
+    queues = []
+    for term in active_terms:
+        qdiag = {"term": term, "links": 0, "detailPagesAttempted": 0, "detailPagesFetched": 0}
+        diag["queryDiagnostics"].append(qdiag)
+        queue = []
+        queues.append((qdiag, queue))
+        url = "https://www.ntis.go.kr/ThSearchResultAnnouncementList.do?" + urllib.parse.urlencode({
+            "searchSentence": "", "searchWord": term, "sort": "SS01/DESC,RANK/DESC"})
+        diag["queriesAttempted"] += 1
+        markup = _ntis_fetch(url, diag, f"search:{term}")
+        if markup is None:
+            qdiag["status"] = "search_fetch_failed"
+            diag["coverageLimited"] = True
+            continue
+        diag["searchPagesFetched"] += 1
+        for match in re.finditer(r'<a\b[^>]+href=["\']([^"\']+)["\'][^>]*>(.*?)</a>', markup, re.I | re.S):
+            href, title = html.unescape(match[1]), clean(match[2])
             if "/rndgate/eg/un/ra/view.do" not in href:
                 continue
-            url=urllib.parse.urljoin(base,href)
+            detail_url = _ntis_detail_url(href)
+            if not detail_url or len(title) < 10:
+                diag["invalidLinks"] += 1
+                continue
+            queue.append((detail_url, title))
+        total = re.search(r'id=["\']totalCnt["\'][^>]*value=["\'](\d+)["\']', markup, re.I)
+        if not queue and (not total or int(total[1]) != 0):
+            qdiag["status"] = "detail_links_missing_or_invalid_list"
+            diag["coverageLimited"] = True
+            continue
+        diag["searchPagesParsed"] += 1
+        qdiag.update(status="list_parsed", links=len(queue), totalResults=int(total[1]) if total else None)
+        # Only the first results page is checked, not the whole NTIS catalogue.
+        if not total or int(total[1]) > len(queue):
+            diag["coverageLimited"] = True
+
+    ordered, seen = [], set()
+    for index in range(max((len(queue) for _, queue in queues), default=0)):
+        for qdiag, queue in queues:
+            if index >= len(queue):
+                continue
+            url, title = queue[index]
             if url in seen:
+                diag["duplicateLinks"] += 1
                 continue
             seen.add(url)
-            diag["announcementLinks"]+=1
-            if len(out)>=max_items or diag["detailPagesAttempted"]>=8:
-                break
-            diag["detailPagesAttempted"]+=1
-            try:
-                detail_raw=get(url,timeout=8)
-                detail=clean(detail_raw.decode("utf-8","ignore"))
-                diag["detailPagesFetched"]+=1
-            except Exception as exc:
-                if len(diag["errors"])<4:
-                    diag["errors"].append(f"detail {title[:70]}: {type(exc).__name__}: {exc}"[:240])
-                continue
-
-            date_match=date_re.search(detail)
-            if not date_match:
-                if len(diag["sampleRows"])<8:
-                    diag["sampleRows"].append({"title":title[:180],"url":url,"reason":"no explicit 공고일 field"})
-                continue
-            diag["datedRecords"]+=1
-            date_value=re.sub(r"\s+","",date_match.group(1)).replace(".","-").replace("/","-")
-            dt=parse_dt(date_value)
-            if dt.year<2000 or dt<cutoff or dt>now+timedelta(hours=6):
-                if len(diag["sampleRows"])<8:
-                    diag["sampleRows"].append({"title":title[:180],"url":url,"published":dt.isoformat(),"reason":"outside lookback"})
-                continue
-            diag["recentRecords"]+=1
-
-            # This is a published public-sector R&D call, so it is surfaced as
-            # follow-up context rather than treated as an unpublished scoop.
-            companies=target_hits(title+" "+detail)
-            out.append({
-                "sourceName":"NTIS 국가R&D통합공고",
-                "officialLabel":"NTIS",
-                "querySite":"ntis.go.kr",
-                "sourceGroup":"R&D·기술",
-                "title":title,
-                "url":url,
-                "published":dt.isoformat(),
-                "summary":detail[:3500],
-                "official":True,
-                "preScoop":True,
-                "directSource":True,
-                "policySignal":True,
-                "category":"정책·규제",
-                "companies":companies,
-                "signalType":"ntis_rnd_announcement",
-                "dateSource":"NTIS 공고일"
-            })
-            if len(out)>=max_items:
-                break
-        if len(out)>=max_items:
+            ordered.append((qdiag, url, title))
+    diag["announcementLinks"] = len(ordered)
+    out = []
+    for qdiag, url, listed_title in ordered[:max_details]:
+        if len(out) >= max_items:
             break
-
-    diag["retained"]=len(out)
+        diag["detailPagesAttempted"] += 1
+        qdiag["detailPagesAttempted"] += 1
+        markup = _ntis_fetch(url, diag, "detail")
+        if markup is None:
+            exclude("detail_fetch_failed", url)
+            continue
+        diag["detailPagesFetched"] += 1
+        qdiag["detailPagesFetched"] += 1
+        title, fields, body = parse_ntis_detail(markup)
+        if not title:
+            exclude("detail_structure_or_title_missing", url)
+            continue
+        if _ntis_title_key(title) != _ntis_title_key(listed_title):
+            exclude("list_detail_title_mismatch", url)
+            continue
+        date = re.sub(r"\s+", "", fields.get("공고일", ""))
+        dt = parse_dt(date)
+        if not re.fullmatch(r"20\d{2}[./-]\d{1,2}[./-]\d{1,2}", date) or dt.year < 2000:
+            exclude("announcement_date_missing_or_invalid", url)
+            continue
+        diag["datedRecords"] += 1
+        if dt < cutoff or dt > now + timedelta(hours=6):
+            exclude("outside_lookback", url)
+            continue
+        diag["recentRecords"] += 1
+        if not body or body == "공고내용":
+            exclude("body_missing", url)
+            continue
+        out.append({"sourceName": "NTIS 국가R&D통합공고", "officialLabel": "NTIS",
+                    "querySite": "ntis.go.kr", "sourceGroup": "R&D·기술", "title": title,
+                    "url": url, "published": dt.isoformat(), "summary": body[:3500], "bodyText": body,
+                    "official": True, "preScoop": True, "directSource": True, "policySignal": True,
+                    "category": "정책·규제", "companies": target_hits(title),
+                    "signalType": "ntis_rnd_announcement", "dateSource": "NTIS 공고일",
+                    "announcementFields": fields, "programName": fields.get("사업명", ""),
+                    "verification": "공개 원자료 추적 — 기업 참여·선정 및 단독 여부 미확인",
+                    "evidenceLimitations": ["첨부문서는 수집하지 않음", "공모 자체는 기업 참여의 증거가 아님"]})
+    diag["retained"] = len(out)
+    diag["detailsSkippedByLimit"] = len(ordered) - diag["detailPagesAttempted"]
+    diag["coverageLimited"] |= bool(diag["detailsSkippedByLimit"])
+    diag["status"] = ("search_fetch_or_parse_failed" if not diag["searchPagesParsed"] else
+                      "empty_official_search" if not ordered else
+                      "detail_fetch_failed" if not diag["detailPagesFetched"] else
+                      "detail_parse_failed" if not diag["datedRecords"] else
+                      "no_recent_publications_in_checked_details" if not diag["recentRecords"] else
+                      "recent_announcements_checked")
+    diag["collectionComplete"] = not (diag["coverageLimited"] or diag["errors"] or diag["invalidLinks"]
+        or any(reason != "outside_lookback" for reason in diag["exclusions"]))
     print(f"direct NTIS announcement scout: diagnostics={diag}")
     return out
 
