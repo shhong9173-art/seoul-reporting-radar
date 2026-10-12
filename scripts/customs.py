@@ -81,9 +81,9 @@ def main():
     ap.add_argument("--raw", action="store_true", help="API 원문 앞부분 출력")
     a = ap.parse_args()
 
-    if not re.fullmatch(r"(?:19|20)\\d{2}(?:0[1-9]|1[0-2])", a.start) or not re.fullmatch(r"(?:19|20)\\d{2}(?:0[1-9]|1[0-2])", a.end) or a.start>a.end:
+    if not re.fullmatch(r"(?:19|20)\d{2}(?:0[1-9]|1[0-2])", a.start) or not re.fullmatch(r"(?:19|20)\d{2}(?:0[1-9]|1[0-2])", a.end) or a.start>a.end:
         ap.error("연월 YYYYMM 범위 오류")
-    if not re.fullmatch(r"\\d{2,10}", a.hs):
+    if not re.fullmatch(r"\d{2,10}", a.hs):
         ap.error("HS 코드는 숫자 2~10자리만 입력")
     k = os.environ.get("CUSTOMS_API_KEY", "").strip()
     if not k:
@@ -99,7 +99,7 @@ def main():
         ym = it.get("year", "")
         if not ym or "총" in ym:
             continue
-        if not re.fullmatch(r"\\d{6}", ym):
+        if not re.fullmatch(r"\d{6}", ym):
             raise ValueError(f"월별 원자료 기간 형식 오류: {ym!r}")
         if any(k not in it for k in ("expDlr","expWgt","impDlr","impWgt")):
             raise ValueError(f"관세청 API 응답 수치 열 누락: {sorted(it)}")
