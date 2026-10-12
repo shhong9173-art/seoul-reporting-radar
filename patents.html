@@ -25,6 +25,10 @@ ul{padding-left:20px}
 <p class="dim">공식 서지상세 API로 현재 특허 제1항을 검증하고, 같은 발명명칭·일부 동일 출원인인 종전 특허의 제1항을 대조한다. 문구 변화는 기술적 신규성이나 실제 제품 채택을 증명하지 않는다.</p>
 <p id="claim-status" class="status">출원번호와 청구항 원문 대조 현황 확인 중</p>
 <div id="claim-cards"></div></section>
+<section><h2>기업·대학·연구기관 공동출원 — /joint-patent</h2>
+<p class="dim">공식 공보의 전체 출원인을 비교해 담당 출입처와 외부 법인·대학이 함께 등재된 특허를 별도 표시한다. 공동출원은 기술 역할분담, 사업 제휴, 납품 계약 또는 양산 적용의 증거가 아니다. 선행 보도도 별도 확인해야 한다.</p>
+<p id="joint-patent-status" class="status">공동출원인 원문 분석 결과 확인 중</p>
+<div id="joint-patent-cards"></div></section>
 <section><h2>원문 특허 심층 취재 후보 — /patent-deep</h2>
 <p class="dim">공동출원을 하나의 공개번호로 묶고, 최근 35일 관련 기술 및 2023년 이후 동일 발명명칭의 공식 공보를 제한적으로 대조한다. 청구항·특허패밀리·실제 사업화 여부는 별도 검증 대상이다.</p>
 <p id="patent-deep-status" class="status">중복 제거와 공식 과거 공보 확인 중</p><div id="patent-deep-cards"></div></section>
@@ -102,6 +106,7 @@ try{
 (async function(){
 "use strict";
 const status=document.querySelector("#patent-deep-status"),list=document.querySelector("#patent-deep-cards");
+const partnerStatus=document.querySelector("#joint-patent-status"),partnerList=document.querySelector("#joint-patent-cards");
 function e(tag,value,cls){const n=document.createElement(tag);if(value!==undefined&&value!==null)n.textContent=String(value);if(cls)n.className=cls;return n}
 try{
  const [base,deep]=await Promise.all([
@@ -111,13 +116,37 @@ try{
  const [original,data]=await Promise.all([base.json(),deep.json()]);
  if(!data.patentDatasetGeneratedAt||
      data.patentDatasetGeneratedAt!==original.generatedAt||
-     !Array.isArray(data.investigations))
+     !Array.isArray(data.investigations)||!Array.isArray(data.partnerInvestigations))
    throw Error("심층 분석과 공식 공개특허 원자료 시점이 달라 결과를 숨김");
  status.textContent="최근 공보 원자료 "+data.inputPatents+"개 행 → 서로 다른 공개번호 "+
     data.uniquePublicationCount+"건 · 공동출원 "+
     data.jointApplications+"건 · 과거 동일 제목 조회 "+data.historicalQueriesAttempted+
     "건 · 단독 확정 0건 · 출입처 그룹별로 후보 배분 · "+
     (data.sourceCoverageComplete?"출원인 전체 검색 완료":"일부 출원인 검색 불완전");
+ partnerStatus.textContent="공식 출입처 외 출원인이 있는 공동공보 "+
+   data.outsideBeatJointPublications+"건 · 화면 상위 "+Math.min(18,data.partnerInvestigations.length)+
+   "건 · 공개공보 우선 · 기보도/협업 목적/기술효과/양산 확인 전 · 단독 확정 0건";
+ if(!data.partnerInvestigations.length)partnerList.append(e("p","해당 기간 출입처 외 공동출원 후보 없음. 이는 전체 기간에 공동개발이 없다는 의미가 아님.","notice"));
+ for(const row of data.partnerInvestigations.slice(0,18)){
+   const card=e("article",undefined,"card");
+   card.append(e("span","외부 공동출원인 확인 · 단독 미확정","tag"));
+   card.append(e("h3",row.title));
+   card.append(e("p","공개번호 "+row.publicationNumber+" · 공개일 "+row.publicationDate+
+       " · 출원일 "+(row.applicationDate||"미확인"),"dim"));
+   card.append(e("p","출입처 기업: "+(row.coveredCompanies||[]).join(" · "),"question"));
+   card.append(e("p","외부 공동출원인: "+(row.outsideBeatCoApplicants||[]).join(" · "),"question"));
+   card.append(e("p","전체 공개 출원인 명단: "+(row.applicants||[]).join(" · "),"dim"));
+   card.append(e("p","기술 주제: "+(row.investigativeThemes||[]).join(" / "),"dim"));
+   if(row.abstract)card.append(e("p","공식 초록: "+row.abstract.slice(0,550)));
+   card.append(e("p",row.partnerStatus||"공동출원인 사업관계 확인 전","scope"));
+   for(const q of (row.partnerQuestions||[]).slice(0,3))card.append(e("p","취재 확인: "+q,"question"));
+   if(/^[\\d-]{10,22}$/.test(row.publicationNumber)){
+     const a=e("a","공개번호로 원문·청구항 조회 (2차 확인)","source");
+     a.href="https://patents.google.com/?q="+encodeURIComponent(row.publicationNumber);
+     a.target="_blank";a.rel="noopener noreferrer";card.append(a);
+   }
+   partnerList.append(card);
+ }
  if(!data.investigations.length)list.append(e("p","원문 기준 분석할 특허 공보 없음","notice"));
  for(const row of data.investigations.slice(0,18)){
   const card=e("article",undefined,"card");
@@ -147,7 +176,10 @@ try{
   card.append(e("p","취재 질문: 이번 특허의 독립 청구항과 2023년 이후 종전 유사 특허의 기술적 차이는 무엇인가? 실제 어느 차종·공장·장비에 적용됐는가?","question"));
   list.append(card);
  }
-}catch(ex){status.textContent="특허 심층 비교 미확인: "+ex.message+" · 해당 심층 분석 실행 로그 확인 필요"}
+}catch(ex){
+ status.textContent="특허 심층 비교 미확인: "+ex.message+" · 해당 심층 분석 실행 로그 확인 필요";
+ partnerStatus.textContent="공동출원인 분석 미확인: "+ex.message+" · 0건으로 간주하지 않음";
+}
 })();
 </script>
 <script>
