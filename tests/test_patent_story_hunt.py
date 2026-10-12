@@ -47,6 +47,21 @@ class PatentStoryTests(unittest.TestCase):
         self.assertEqual(lead["sourceAbstractExcerpt"],"플라스틱 부품을 효소로 분해한다.")
         self.assertFalse(lead["scoopConfirmed"])
 
+    def test_generic_thermoset_resin_not_auto_labeled_recycled_car_plastic(self):
+        row=example(title="열경화성 수지 조성물, 이의 제조방법 및 이를 포함하는 복합재",
+                    abstract="수지의 열경화 및 제조 특성이 개선된 복합재")
+        a,b=sources([row])
+        lead=h.build(a,b,now=NOW,max_news=0)["investigations"][0]
+        self.assertEqual(lead["topic"],"화학소재·고분자")
+        self.assertNotIn("폐차",lead["topic"])
+
+    def test_cj_enzymatic_recovery_stays_in_circular_category(self):
+        row=example(title="자동차용 플라스틱 부품을 재생하는 방법",
+                    abstract="폴리에스테르 분해 효소를 사용하여 테레프탈산을 회수하는 방법")
+        a,b=sources([row])
+        lead=h.build(a,b,now=NOW,max_news=0)["investigations"][0]
+        self.assertEqual(lead["topic"],"순환소재·폐차재활용")
+
     def test_accessibility_door_not_mistaken_for_battery_project(self):
         patent=example(title="도어 및 이를 갖춘 차량",
                        abstract="휠체어 승하차를 보조하는 도어와 램프, 플로어 패널 아래 배터리 모듈을 포함한다")
