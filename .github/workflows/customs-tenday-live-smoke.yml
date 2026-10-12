@@ -5,6 +5,7 @@ on:
       - integration/customs-tenday-20261013
     paths:
       - .github/workflows/customs-tenday-live-smoke.yml
+      - scripts/customs_tenday.py
   workflow_dispatch:
 
 permissions:
