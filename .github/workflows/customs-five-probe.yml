@@ -1,0 +1,51 @@
+name: Customs Five Service Probe (Temporary)
+on:
+  push:
+    branches: [integration/customs-five-20261013]
+    paths: ['.github/workflows/customs-five-probe.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install "requests>=2.31,<3"
+      - name: Validate approved Customs five API services (metadata only)
+        env:
+          CUSTOMS_API_KEY: ${{ secrets.CUSTOMS_API_KEY }}
+        run: |
+          python - <<'PY'
+          import os, requests, xml.etree.ElementTree as ET
+          key=os.environ.get("CUSTOMS_API_KEY","")
+          assert key,"Secret missing"
+          config={
+            "regional":("sidoitemtrade/getSidoitemtradeList",{"sidoCd":"31"}),
+            "newtemper":("newtempertrade/getNewtempertradeList",{"imexTpcd":"1","imexTmprUnfcClsfCd":"13050102"}),
+            "newtemper_country":("nnewtempertrade/getNnewtempertradeList",{"imexTpcd":"1","imexTmprUnfcClsfCd":"13050102","cntyCd":"US"}),
+            "temper_country":("ntempertrade/getNtempertradeList",{"imexTpcd":"1","cntyCd":"US"}),
+            "kind":("kindtrade/getKindtradeList",{"imexTpcd":"1"}),
+          }
+          failures=0
+          for name,(route,args) in config.items():
+            params={"serviceKey":key,"strtYymm":"202601","endYymm":"202601",**args}
+            try:
+              r=requests.get("https://apis.data.go.kr/1220000/"+route,params=params,timeout=90)
+              root=ET.fromstring(r.content)
+              code=root.findtext(".//resultCode") or root.findtext(".//returnReasonCode")
+              n=len(root.findall(".//item"))
+              fields=sorted({e.tag for e in root.findall(".//item")[0]}) if n else []
+              print(f"{name}: HTTP {r.status_code}, resultCode {code}, itemCount {n}, fields {','.join(fields)}",flush=True)
+              if r.status_code!=200 or code not in ("00","0") or n<1:
+                failures+=1
+            except (requests.RequestException,ET.ParseError) as exc:
+              print(f"{name}: service verification failed ({type(exc).__name__})",flush=True)
+              failures+=1
+          if failures:
+            raise SystemExit(f"Customs metadata probe failed: {failures} of 5 services")
+          PY
