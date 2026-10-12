@@ -11,11 +11,9 @@ import io
 import json
 import os
 import re
-import time
 import zipfile
 from collections import defaultdict
 from datetime import datetime, timezone, timedelta
-from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
@@ -215,6 +213,9 @@ def review_lineage(row, corp_codes, *, api_key, fetch_documents=zip_documents,
     if not has_correction(report):
         return answer
     answer["status"]="original_unverified"
+    if not api_key:
+        answer["reason"]="DART_API_KEY 미설정: 원문 독립 조회 미실행"
+        return answer
     corp=corp_codes.get(company)
     code=corp.get("corp_code") if isinstance(corp,dict) else None
     if not isinstance(code,str) or not re.fullmatch(r"\d{8}",code):
@@ -275,7 +276,7 @@ def review_lineage(row, corp_codes, *, api_key, fetch_documents=zip_documents,
         return answer
 
 
-def build_lineage(digest,numeric,corp_codes,api_key,fetch_documents=zip_documents,
+def build_lineage(digest,corp_codes,api_key,fetch_documents=zip_documents,
                   fetch_list=issuer_list,limit=3):
     if not isinstance(digest,dict) or not isinstance(digest.get("items"),list):
         raise ValueError("아침 공시 digest가 유효하지 않음")
@@ -306,7 +307,7 @@ def main():
     path=Path(args.corp_codes)
     codes=json.loads(path.read_text(encoding="utf-8")).get("companies",{}) if path.exists() else {}
     key=os.environ.get("DART_API_KEY","").strip()
-    result=build_lineage(digest,{},codes,key,limit=args.limit)
+    result=build_lineage(digest,codes,key,limit=args.limit)
     dest=Path(args.output)
     dest.parent.mkdir(parents=True,exist_ok=True)
     dest.write_text(json.dumps(result,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
