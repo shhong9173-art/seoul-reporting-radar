@@ -61,3 +61,4 @@ jobs:
       - run: python -m unittest discover -s tests -p 'test_official_collectors.py' -v
       - run: node tests/test_dart_health_ui.cjs
       - run: node tests/test_morning_view.cjs
+      - run: node tests/test_data_lab.cjs
