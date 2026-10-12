@@ -195,6 +195,11 @@ try{
         " · 기술적 우월성/신규성 미검증"));
        section.append(t("p","이전 원문: "+(old.priorShortExcerpt||""),"dim"));
        section.append(t("p","현재 원문: "+(old.currentShortExcerpt||""),"dim"));
+       for(const diff of (old.claimWordingDeltas||[])){
+         section.append(t("p","원문 문구 변경 구간(기술적 차별성 미확인) · "+diff.editType,"dim"));
+         section.append(t("p","종전 제1항 구절: "+(diff.priorWording||""),"question"));
+         section.append(t("p","현재 제1항 구절: "+(diff.currentWording||""),"question"));
+       }
       }
       section.append(t("p",old.finding||"이전 제1항 미확인 · 비교 금지","dim"));
       box.append(section);

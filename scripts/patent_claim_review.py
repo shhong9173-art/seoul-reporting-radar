@@ -145,6 +145,43 @@ def parse_bibliography(raw,expected_application):
     }
 
 
+def claim_wording_evidence(current_text,prior_text,max_diffs=2):
+    """Source spans of different TEXT, not newly invented claim elements.
+
+    Text alignment is descriptive; it neither proves a legal 'new element'
+    nor explains patent novelty, technical effects or industrial relevance.
+    """
+    matcher=difflib.SequenceMatcher(None,prior_text,current_text,autojunk=False)
+    edits=[]
+    seen=set()
+    for kind,i1,i2,j1,j2 in matcher.get_opcodes():
+        if kind=="equal":
+            continue
+        before=prior_text[i1:i2].strip()
+        after=current_text[j1:j2].strip()
+        # Ignore punctuation-only edits; a one-character technical
+        # substitution (e.g. 유선->무선) may still be important to verify.
+        if not re.search(r"[가-힣A-Za-z]",before+after):
+            continue
+        if max(len(before),len(after))<12:
+            excerpt_before=prior_text[max(0,i1-15):min(len(prior_text),i2+35)]
+            excerpt_after=current_text[max(0,j1-15):min(len(current_text),j2+35)]
+        else:
+            excerpt_before=before[:65]+("…" if len(before)>65 else "")
+            excerpt_after=after[:65]+("…" if len(after)>65 else "")
+        identity=(excerpt_before,excerpt_after)
+        if identity in seen:
+            continue
+        seen.add(identity)
+        edits.append({"editType":"문구 삭제/추가" if kind=="replace" else
+                                  "현재 제1항 기재 문구" if kind=="insert" else "종전 제1항 기재 문구",
+                      "priorWording":excerpt_before,"currentWording":excerpt_after,
+                      "evidenceStatus":"공식 제1항 텍스트 정렬로 확인한 문구만; 기술적 특이성 판단 전"})
+        if len(edits)>=max_diffs:
+            break
+    return edits
+
+
 def compare_claims(current,prior):
     """Only text-level similarity; novelty and patent-family comparison excluded."""
     a=current["claim1Text"]
@@ -158,6 +195,7 @@ def compare_claims(current,prior):
         "priorApplication":prior["applicationNumber"],
         "sameClaimText":not changed,
         "textSimilarity":score,
+        "claimWordingDeltas":claim_wording_evidence(a,b),
         "currentClaimSha256":current["claim1Sha256"],
         "priorClaimSha256":prior["claim1Sha256"],
         "currentClaimLength":current["claim1Length"],
@@ -218,10 +256,12 @@ def _newspaper_news(query,fetch=None):
 
 def related_press(row,fetch=None):
     pub=row.get("publicationNumber","")
-    company="/".join((row.get("coveredCompanies") or [])[:2])
+    members=(row.get("coveredCompanies") or [])[:2]
+    members=[m for m in members if m]
     search=(f'"{pub}"' if PUBLICATION.fullmatch(pub or "") else
             f'"{_clean(row.get("title"))[:35]}"')
-    search2=f'{company} "{_clean(row.get("title"))[:34]}"'
+    issuer=" OR ".join('"'+m+'"' for m in members)
+    search2=f'({issuer}) "{_clean(row.get("title"))[:34]}"'
     research=[]
     for q in (search,search2):
         try:
