@@ -28,7 +28,9 @@ jobs:
       - name: Install API client
         run: python -m pip install "requests>=2.31,<3"
       - name: Run offline checks
-        run: python -m unittest discover -s tests -p 'test_reporter_kit.py' -v
+        run: |
+          python -m unittest discover -s tests -p 'test_reporter_kit.py' -v
+          python -m unittest discover -s tests -p 'test_review_engine.py' -v
       - name: Collect official OpenDART filing lists
         env:
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
