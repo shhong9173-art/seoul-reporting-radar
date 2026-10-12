@@ -141,7 +141,9 @@ DIRECT_BEAT_COMPANIES=frozenset({
  "세아씨엠","동국제강","동국씨엠","고려아연","영풍","LS MnM",
  "HD현대일렉트릭","LS일렉트릭","효성중공업","일진전기","대한전선",
  "LS전선","LS지주","두산에너빌리티","GS","GS칼텍스",
- "한화솔루션","OCI","OCI홀딩스"
+ "한화솔루션","OCI","OCI홀딩스",
+ "한국철강협회","한국풍력산업협회","대한전기협회",
+ "한국전기산업진흥회","한국원자력산업협회"
 })
 DIRECT_BEAT_CANONICAL={
  "만도":"HL만도","BMW":"BMW코리아","폭스바겐":"폭스바겐코리아",
@@ -914,7 +916,7 @@ def build_public_signals(primary, dart_rows, now, limit=10, numeric_rows=None):
         dt=parse_dt(x.get("published"))
         if not title or dt.year<2000 or dt<cutoff or dt>now+timedelta(hours=6):
             continue
-        companies=x.get("companies") or target_hits(title)
+        companies=direct_beat_company_hits(x,title)
         if not companies:
             continue
         company=companies[0]
@@ -944,6 +946,9 @@ def build_public_signals(primary, dart_rows, now, limit=10, numeric_rows=None):
         if not x.get("policySignal") or x.get("companies"):
             continue
         title=str(x.get("title") or "").strip()
+        scoped_policy_companies=direct_beat_company_hits(x,title)
+        if not scoped_policy_companies:
+            continue
         dt=parse_dt(x.get("published") or "")
         if not title or dt.year<2000 or dt<cutoff or dt>now+timedelta(hours=6):
             continue
@@ -971,7 +976,7 @@ def build_public_signals(primary, dart_rows, now, limit=10, numeric_rows=None):
             "id":hashlib.sha1(("public-policy|"+"|".join(key)).encode()).hexdigest()[:12],
             "signalGroup":"정책·규제",
             "kind":"공개 입법·정책 자료",
-            "companies":[],
+            "companies":scoped_policy_companies,
             "title":title,
             "published":dt.isoformat(),
             "sourceName":str(x.get("sourceName") or x.get("officialLabel") or "공식기관"),
@@ -995,7 +1000,7 @@ def build_public_signals(primary, dart_rows, now, limit=10, numeric_rows=None):
     for d in dart_rows:
         corp=str(d.get("corpName") or "").strip()
         report=str(d.get("reportName") or "").strip()
-        if not corp or not report or not target_hits(corp):
+        if not corp or not report or not direct_beat_company_hits({"corpName":corp},corp):
             continue
         dt=parse_dt(d.get("date") or d.get("published") or "")
         if dt.year<2000 or dt<cutoff or dt>now+timedelta(hours=6):
@@ -1029,6 +1034,8 @@ def build_public_signals(primary, dart_rows, now, limit=10, numeric_rows=None):
             "whyFollowup":("OpenDART 원문 추출이 실패했습니다. 금액·상대방·물량을 확인하기 전에는 계약의 중요도나 미보도 여부를 판단하지 않습니다." if extract_unavailable else "공시 원문에서 실제로 바뀐 숫자·일정·사업 범위를 확인한 뒤, 기존 보도와 회사 설명을 교차 확인해야 합니다."),
             "questions":questions
         })
+    out=[x for x in out if x.get("companies") and
+         set(x["companies"]).issubset(DIRECT_BEAT_COMPANIES)]
     out.sort(key=lambda x:(x["published"],x["signalGroup"]),reverse=True)
     # Prefer distinct issuers while allowing multiple companyless policy events.
     final=[];used=set()
