@@ -14,6 +14,10 @@ on:
       - 'tests/test_business_metric_compare.py'
       - 'tests/test_business_coverage.py'
       - 'tests/test_recent_business_scout.py'
+      - 'tests/test_official_foreign_contracts.py'
+      - 'tests/test_official_watch.cjs'
+      - 'official-watch.html'
+      - '.github/workflows/official-overseas-contracts.yml'
       - 'tests/test_latest_interim_view.cjs'
       - '.github/workflows/latest-interim-scout.yml'
       - 'tests/test_customs_integrity.py'
@@ -25,6 +29,10 @@ on:
       - 'tests/test_business_metric_compare.py'
       - 'tests/test_business_coverage.py'
       - 'tests/test_recent_business_scout.py'
+      - 'tests/test_official_foreign_contracts.py'
+      - 'tests/test_official_watch.cjs'
+      - 'official-watch.html'
+      - '.github/workflows/official-overseas-contracts.yml'
       - 'tests/test_latest_interim_view.cjs'
       - '.github/workflows/latest-interim-scout.yml'
       - 'tests/test_customs_integrity.py'
@@ -57,6 +65,10 @@ on:
       - 'tests/test_business_metric_compare.py'
       - 'tests/test_business_coverage.py'
       - 'tests/test_recent_business_scout.py'
+      - 'tests/test_official_foreign_contracts.py'
+      - 'tests/test_official_watch.cjs'
+      - 'official-watch.html'
+      - '.github/workflows/official-overseas-contracts.yml'
       - 'tests/test_latest_interim_view.cjs'
       - '.github/workflows/latest-interim-scout.yml'
       - 'tests/test_customs_integrity.py'
@@ -68,6 +80,10 @@ on:
       - 'tests/test_business_metric_compare.py'
       - 'tests/test_business_coverage.py'
       - 'tests/test_recent_business_scout.py'
+      - 'tests/test_official_foreign_contracts.py'
+      - 'tests/test_official_watch.cjs'
+      - 'official-watch.html'
+      - '.github/workflows/official-overseas-contracts.yml'
       - 'tests/test_latest_interim_view.cjs'
       - '.github/workflows/latest-interim-scout.yml'
       - 'tests/test_customs_integrity.py'
@@ -109,6 +125,7 @@ jobs:
       - run: python -m unittest discover -s tests -p 'test_business_metric_compare.py' -v
       - run: python -m unittest discover -s tests -p 'test_business_coverage.py' -v
       - run: python -m unittest discover -s tests -p 'test_recent_business_scout.py' -v
+      - run: python -m unittest discover -s tests -p 'test_official_foreign_contracts.py' -v
       - run: python -m unittest discover -s tests -p 'test_customs_integrity.py' -v
       - run: python -m unittest discover -s tests -p 'test_customs_watch.py' -v
       - run: python -m unittest discover -s tests -p 'test_business_metric_compare.py' -v
@@ -122,3 +139,4 @@ jobs:
       - run: node tests/test_business_news_view.cjs
       - run: node tests/test_hs_trade_view.cjs
       - run: node tests/test_latest_interim_view.cjs
+      - run: node tests/test_official_watch.cjs

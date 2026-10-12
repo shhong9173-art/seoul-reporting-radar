@@ -61,3 +61,10 @@
 - 매 평일 오전 07:45(KST) 최신 접수번호를 확인하고, 변경이 없으면 이전 검증 원문 발췌를 재사용한다. 새로운 정정공시라면 즉시 원문 재조회.
 - `data-lab.html`에 출입처별 최신 투자 근거·선행 기사 검색·취재 질문을 제공.
 - 이전 표 일부에서 사업명이 보이지 않아도 신규 투자·최초·단독임을 뜻하지 않는다. [설계와 검증](docs/latest-interim-source-scout.md).
+
+## 해외 공식 문서·최근 DART 계약 취재 레이더
+- `official-watch.html`에서 US Federal Register의 연방고시, EU TED의 조달공고, DART 공급/시설투자/생산 공시를 **공식 원문 링크와 함께** 조회한다.
+- `scripts/overseas_official.py`: 미 연방 공식 고시와 EU 공개 조달 제목/구매기관의 직접 회사명 언급만 추적. 해당 회사의 공장 허가·낙찰 사실로 확정하지 않음.
+- `scripts/recent_contracts.py`: 직접 출입처 DART 최근 21일 공시 중 신규 공급계약·시설투자·생산재개·중단과 정정 원공시를 **명시적 접수번호 근거가 있을 때만** 연결.
+- `.github/workflows/official-overseas-contracts.yml`: 평일 08:10 KST 새 원천 검색, 회사 코멘트·기보도 검증 전까지 단독 미확정.
+- 실제 원천의 범위와 빠진 현지 미국 주/카운티 공장 인허가: `docs/official-overseas-contracts.md`.
