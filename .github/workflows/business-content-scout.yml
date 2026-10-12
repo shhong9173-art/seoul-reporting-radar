@@ -1,0 +1,55 @@
+name: Business Content Evidence Scout
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/business-content-scout.yml'
+      - 'scripts/business_content.py'
+  schedule:
+    # Thursday 07:35 Asia/Seoul = Wednesday 22:35 UTC
+    - cron: '35 22 * * 3'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+concurrency:
+  group: business-content-evidence
+  cancel-in-progress: false
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify evidence-only parser
+        run: |
+          python -m compileall -q scripts/business_content.py
+          python -m unittest discover -s tests -p 'test_business_content.py' -v
+      - name: Retrieve official 2024 and 2025 annual business sections
+        env:
+          DART_API_KEY: ${{ secrets.DART_API_KEY }}
+        run: python scripts/business_content.py --year 2025
+      - name: Publish verified source excerpts
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add digests/business_content_latest.json
+          if git diff --cached --quiet; then
+            echo "Business evidence unchanged"
+          else
+            git commit -m "data: update annual business content evidence [skip ci]"
+            for attempt in 1 2 3; do
+              git pull --rebase origin main
+              if git push origin HEAD:main; then exit 0; fi
+              sleep 3
+            done
+            echo "Cannot safely publish business evidence" >&2
+            exit 1
+          fi
