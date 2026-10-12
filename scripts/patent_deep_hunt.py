@@ -68,10 +68,29 @@ def accurate_topics(row):
         topics.append("전력변환 기술(계통 HVDC 여부 미확인)")
     if "수소·연료전지" in old and any(w in title for w in ("수소","연료전지","수전해")):
         topics.append("수소·연료전지")
-    for theme in ("저탄소 제철","공장·제조 자동화"):
+    for theme in ("저탄소 제철","공장·제조 자동화","순환소재·폐차재활용"):
         if theme in old:
             topics.append(theme)
     return topics or ["관련 출입처 기술·세부 활용처 확인"]
+
+
+def outside_beat_applicants(applicants):
+    """Keep ALL named official co-applicants, but classify exact beat legal
+    entities separately. No inference of supply contracts or joint ventures.
+    """
+    if not isinstance(applicants,list):
+        return []
+    found=[]
+    seen=set()
+    for name in applicants:
+        name=str(name or "").strip()
+        identity=normalize(name)
+        if not identity or identity in seen:
+            continue
+        seen.add(identity)
+        if not any(applicant_matches(name,aliases) for aliases in APPLICANTS.values()):
+            found.append(name)
+    return found
 
 
 def merge_publications(source):
@@ -98,6 +117,13 @@ def merge_publications(source):
             if company not in cur["coveredCompanies"]:
                 cur["coveredCompanies"].append(company)
             cur["sourceRecordCount"]+=1
+            # A multi-applicant public record may be returned for two beat
+            # companies. Preserve any genuinely named outside participants.
+            known={normalize(a) for a in cur.get("applicants",[])}
+            for applicant in row.get("applicants",[]):
+                if normalize(applicant) not in known:
+                    cur.setdefault("applicants",[]).append(applicant)
+                    known.add(normalize(applicant))
             cur["previouslyObserved"]=bool(cur.get("previouslyObserved") and row.get("previouslyObserved"))
     for number in set(invalid):
         merged.pop(number,None)
@@ -105,7 +131,18 @@ def merge_publications(source):
     for x in items:
         x["coveredCompanies"].sort()
         x["investigativeThemes"]=accurate_topics(x)
-        x["jointApplicantGroup"]=len(x["coveredCompanies"])>1
+        # Corporate-group filings (Hyundai + Kia) and cross-organization
+        # filings are different editorial signals.
+        x["outsideBeatCoApplicants"]=outside_beat_applicants(x.get("applicants",[]))
+        x["officialApplicantCount"]=len({normalize(n) for n in x.get("applicants",[]) if normalize(n)})
+        x["jointApplicantGroup"]=x["officialApplicantCount"]>1
+        x["crossOrganizationLead"]=bool(x["outsideBeatCoApplicants"])
+        x["partnerStatus"]="공동출원 명의만 확인 · 역할/사업화/협업 계약 미확인"
+        x["partnerQuestions"]=[
+            "출입처 외 공동출원인 각각이 담당한 효소·소재·공정·차량 적용 기술은 무엇인가?",
+            "특허의 청구항이 폐차 재료의 실제 재생·신차 적용을 설명하는가, 연구 단계인가?",
+            "양산 적용 시점·공급 계약 및 기존 유사 기술과의 차이·선행 보도는 확인됐는가?"
+        ] if x["crossOrganizationLead"] else []
         x["newsroomScore"]=score(x)
         x["techNoveltyStatus"]="특허 청구항·기존 기술과의 실질 차이 미확인"
         x["commercialStatus"]="기업 직접 확인 전 제품화·양산·수주 미확인"
@@ -129,6 +166,10 @@ def score(row):
         signal+=8
     if row.get("jointApplicantGroup"):
         signal+=3
+    if row.get("crossOrganizationLead"):
+        signal+=17
+    if any(t.get("theme")=="순환소재·폐차재활용" for t in row.get("themes",[])):
+        signal+=10
     return min(85,28+signal)
 
 
@@ -253,6 +294,11 @@ def build(source,key="",historical=historical_title_search,search_limit=10,now=N
         "sourceCandidateCount":source.get("candidateCount"),
         "uniquePublicationCount":len(items),
         "jointApplications":sum(x["jointApplicantGroup"] for x in items),
+        "outsideBeatJointPublications":sum(x["crossOrganizationLead"] for x in items),
+        "partnerInvestigations":sorted(
+            (x for x in items if x["crossOrganizationLead"]),
+            key=lambda x:(-x["newsroomScore"],-int(x.get("publicationDate") or 0))
+        )[:30],
         "invalidDuplicateNumbers":rejected,
         "sourceCoverageComplete":source.get("sourceWindowComplete",False),
         "historicalQueriesAttempted":count,
