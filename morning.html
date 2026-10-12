@@ -1,36 +1,110 @@
 <!doctype html>
-<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>산업부 아침 공시 브리핑</title><style>
-body{margin:0;background:#f5f7fa;font:15px system-ui,"Noto Sans KR",sans-serif;color:#172536}
-main{max-width:940px;margin:auto;padding:25px 18px 55px}h1{font-size:25px;margin:10px 0}
-h2{font-size:18px;margin-top:25px}a{color:#185b9d}.note,.item,.metric{background:white;border:1px solid #dde4eb;border-radius:12px;padding:14px}
-.note{font-size:13px;line-height:1.65}.item{margin:9px 0}.item a{font-weight:650;text-decoration:none}
-.meta{color:#65788b;font-size:12px;margin-top:8px}.stats{display:flex;gap:9px;flex-wrap:wrap;margin:15px 0}
-.metric{min-width:130px}.metric strong{display:block;font-size:24px}.badge{display:inline-block;font-size:12px;padding:3px 7px;background:#eef3f8;margin-right:5px;border-radius:6px}
-</style></head><body><main><a href="index.html">← 산업부 레이더로</a>
-<h1>아침 공시 브리핑</h1><p class="meta" id="timestamp">수집 파일 확인 중</p>
-<div class="note">★는 <b>공시 유형의 우선 확인 표식</b>이며 공개자료 자체는 단독이 아니야. 반드시 원문·기존 발표·선행 보도·실제 기업 영향을 확인해야 해.</div>
-<div class="stats" id="stats"></div><p class="meta" id="status"></p>
-<h2>★ 우선 확인 공시</h2><section id="priority"></section><h2>기타 공시</h2><section id="other"></section>
-</main><script>
-(async()=>{
-const $=s=>document.querySelector(s),sum=$("#stats"),pri=$("#priority"),other=$("#other");
-function stat(label,num){let el=document.createElement("div");el.className="metric";let strong=document.createElement("strong");strong.textContent=String(num);el.append(strong,document.createTextNode(label));sum.append(el)}
-function add(x,to){const el=document.createElement("div");el.className="item";
-if(x.tag){const b=document.createElement("span");b.className="badge";b.textContent=x.tag;el.append(b)}
-if(x.isNew){const b=document.createElement("span");b.className="badge";b.textContent="새 접수";el.append(b)}
-const link=document.createElement("a");link.textContent=(x.company||"회사 미확인")+" · "+(x.report||"공시");
-if(/^https:\/\/dart\.fss\.or\.kr\/dsaf001\/main\.do\?rcpNo=\d{14}$/.test(x.url||"")){link.href=x.url;link.target="_blank";link.rel="noopener noreferrer"}
-const meta=document.createElement("div");meta.className="meta";meta.textContent=[x.group,x.published,"접수번호 "+x.receiptNo].filter(Boolean).join(" · ");
-el.append(document.createElement("div"),link,meta);to.append(el)}
-try{
-const res=await fetch("digests/latest.json",{cache:"no-store"});if(!res.ok)throw Error("아직 digest 파일이 없어 ("+res.status+")");
-const d=await res.json();if(!Array.isArray(d.items))throw Error("JSON items 형식 오류");
-$("#timestamp").textContent="기준 "+d.generatedAt+" · 대상 기간 "+d.rangeStart+"~"+d.rangeEnd;
-stat("전체 공시",d.totalCount);stat("신규 접수",d.newCount);stat("우선 확인",d.flaggedCount);
-if(d.missingCompanies?.length)$("#status").textContent="DART 코드 미확인·미조회 기업: "+d.missingCompanies.join(", ")+". 해당 기업은 공시 0건으로 판단하지 마.";
-const hot=d.items.filter(x=>x.tag);hot.forEach(x=>add(x,pri));d.items.filter(x=>!x.tag).forEach(x=>add(x,other));
-if(!hot.length)pri.textContent="우선 확인 공시 없음";if(!other.children.length)other.textContent="기타 공시 없음";
-}catch(e){$("#status").textContent="브리핑 파일을 아직 읽지 못했어. GitHub Actions Reporter Morning DART Digest 실행을 확인해: "+e.message}
+<html lang="ko">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>산업부 취재 근거·아침 공시 브리핑</title>
+<style>
+:root{font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif;color:#1b2a3a;background:#f5f7f9}
+*{box-sizing:border-box}body{margin:0}main{max-width:1070px;margin:auto;padding:26px 18px 70px}
+h1{font-size:26px;margin:14px 0 6px}h2{font-size:19px;margin:29px 0 11px}
+a{color:#155c99}header p,.sub{color:#5e7285;font-size:13px}
+.notice,.item,.metric{background:white;border:1px solid #dce3ec;border-radius:12px}
+.notice{padding:15px;line-height:1.7;font-size:13px}.metrics{display:flex;flex-wrap:wrap;gap:10px;margin:16px 0}
+.metric{padding:13px 17px;min-width:138px}.metric strong{display:block;font-size:24px}
+.item{padding:16px;margin:11px 0}.item h3{font-size:16px;margin:10px 0 7px}
+.item h3 a{text-decoration:none}.item p{margin:7px 0;font-size:13px;line-height:1.65}
+.item .sub{margin-top:6px}.chip{display:inline-block;background:#edf2f6;border-radius:6px;color:#3b5368;font-size:12px;padding:4px 7px;margin-right:6px}
+.detail{border-top:1px solid #e8edf2;margin-top:12px;padding-top:11px}
+.label{font-weight:650;font-size:13px;margin:10px 0 4px}
+.fact{background:#f6f8fa;border-radius:7px;margin:7px 0;padding:9px;font-size:12px;line-height:1.6;overflow-wrap:anywhere}
+.fact span{display:block;margin:3px 0}.quiet{color:#6b7b89;font-size:13px}.status{font-size:13px;margin:12px 0;color:#3d546b}
+small{font-size:12px}.prior{margin:6px 0;font-size:12px;overflow-wrap:anywhere}
+</style>
+</head>
+<body><main>
+<a href="index.html">← 산업부 취재 레이더</a>
+<header><h1>아침 공시 · 취재 근거 검토</h1><p id="time">공시 데이터 확인 중</p></header>
+<div class="notice"><b>판정 기준</b> · ★는 공개 공시 유형의 우선 확인 표식이지 단독이 아니야.
+정정표에 적힌 변경 전·후는 <b>발행인 기재 내용</b>으로 표시하고 최초 원공시 대조 여부를 분리해.
+검색된 관련 기사도 동일 사건이라는 검증 전에는 선행 보도로 확정하지 않아.
+기사 발제 전에는 회사에 실제 영향과 수치를 확인해야 해.</div>
+<div id="metrics" class="metrics"></div>
+<p class="status" id="status"></p><div id="sections"></div>
+</main>
+<script>
+(async function(){
+ const $=x=>document.querySelector(x), area=$("#sections"), metrics=$("#metrics");
+ function el(tag,cls,txt){const n=document.createElement(tag);if(cls)n.className=cls;if(txt!==undefined)n.textContent=String(txt);return n}
+ function addStat(label,value){const c=el("div","metric"),b=el("strong","",value);c.append(b,el("span","",label));metrics.append(c)}
+ function link(url,title){const a=el("a","",title);try{const u=new URL(url);if(u.protocol==="https:"||u.protocol==="http:"){a.href=url;a.target="_blank";a.rel="noopener noreferrer"}}catch(_){}return a}
+ function addBasic(row,parent){const box=el("article","item"),top=el("div");
+  for(const chipText of [row.tag,row.isNew?"새로 접수":null,row.lane])if(chipText)top.append(el("span","chip",chipText));
+  const title=el("h3");title.append(link(row.url,(row.company||"회사 미확인")+" · "+(row.report||"공시")));
+  const subtitle=el("div","sub",[row.group,row.published,"접수 "+row.receiptNo].filter(Boolean).join(" · "));
+  box.append(top,title,subtitle);parent.append(box);return box}
+ function detail(row,parent){
+  const detailBox=el("div","detail");
+  detailBox.append(el("p","",row.reason||"기사 가치 판단 전"));
+  detailBox.append(el("p","quiet","증거: "+(row.evidenceStatus||"원문 추가 검증 필요")));
+  detailBox.append(el("p","quiet","비교: "+(row.changeStatus||"실제 전후 변화 미확인")));
+  for(const ch of row.changes||[]){
+    const wrap=el("div","fact");
+    wrap.append(el("b","",ch.field||"정정 항목"));
+    wrap.append(el("span","","변경 전: "+ch.before));
+    wrap.append(el("span","","변경 후: "+ch.after));
+    wrap.append(el("small","quiet",ch.originalDocumentVerified?"원공시 비교 검증됨":"발행인 정정표 기재 · 원공시 독립 대조 미완료"));
+    detailBox.append(wrap);
+  }
+  if((row.numericFacts||[]).length){
+    detailBox.append(el("div","label","확인된 공시 원문 수치(기사 영향으로 추정 금지)"));
+    for(const fact of row.numericFacts){
+      const f=el("div","fact");f.append(el("b","",fact.label+": "+fact.value));
+      if(fact.interpretation)f.append(el("span","quiet",fact.interpretation));detailBox.append(f);
+    }
+  }
+  if(row.coverage){
+    detailBox.append(el("div","label","선행 보도 검색"));
+    detailBox.append(el("p","",row.coverage.status||"미검증"));
+    for(const n of row.coverage.results||[]){const p=el("div","prior");p.append(link(n.url,n.title||"관련 보도"));detailBox.append(p)}
+  }
+  if((row.questions||[]).length){
+    detailBox.append(el("div","label","전화해서 확인할 것"));
+    for(const q of row.questions)detailBox.append(el("p","quiet","· "+q));
+  }
+  detailBox.append(el("p","quiet","단독 여부: "+(row.exclusiveStatus||"기자 확인 전")));
+  parent.append(detailBox);
+ }
+ function section(label,rows,isReview){
+  if(!rows.length)return;const h=el("h2","",label),container=el("section");area.append(h,container);
+  for(const row of rows){const card=addBasic(row,container);if(isReview)detail(row,card)}
+ }
+ let raw;
+ try{
+   const response=await fetch("digests/latest.json",{cache:"no-store"});
+   if(!response.ok)throw Error("수집 파일 아직 없음 (HTTP "+response.status+")");
+   raw=await response.json();
+   if(!Array.isArray(raw.items))throw Error("공시 파일 형식 오류");
+ }catch(error){$("#status").textContent="공시를 표시할 수 없어. GitHub Actions Reporter Morning DART Digest를 확인해: "+error.message;return}
+ $("#time").textContent="DART 공시 수집 "+raw.generatedAt+" · 조회 기간 "+raw.rangeStart+"~"+raw.rangeEnd;
+ addStat("전체 공시",raw.totalCount);addStat("새 공시",raw.newCount);addStat("★ 유형",raw.flaggedCount);
+ if((raw.missingCompanies||[]).length)$("#status").textContent="고유번호 미확인 기업: "+raw.missingCompanies.join(", ")+" (공시 0건으로 판단 금지)";
+ let review;
+ try{
+  const response=await fetch("digests/review_latest.json",{cache:"no-store"});
+  if(response.ok){const data=await response.json();if(Array.isArray(data.items)&&data.digestGeneratedAt===raw.generatedAt)review=data}
+ }catch(_){}
+ if(!review){
+  area.append(el("p","quiet","근거 검토 결과가 아직 갱신되지 않아 공시 원목록만 표시해. 모든 자료의 변경 전후·보도 여부는 미검증 상태야."));
+  section("★ 우선 확인 (단독 아님)",raw.items.filter(x=>x.tag),false);
+  section("기타 공시",raw.items.filter(x=>!x.tag),false);
+  return;
+ }
+ for(const [lane,count] of Object.entries(review.counts||{}))addStat(lane,count);
+ section("정정표 변경 검토",review.items.filter(x=>x.lane==="정정표 변경 검토"),true);
+ section("원문·변경 사실 확인",review.items.filter(x=>x.lane==="원문·변경 사실 확인"),true);
+ section("공개자료 추적",review.items.filter(x=>x.lane==="공개자료 추적"),true);
+ section("정례 공개·후순위",review.items.filter(x=>x.lane==="정례 공개·후순위"),true);
+ if(!review.items.length)area.append(el("p","quiet","검토 대상 공시 없음. 원자료 수집 진단을 확인해."));
 })();
-</script></body></html>
+</script>
+</body></html>
