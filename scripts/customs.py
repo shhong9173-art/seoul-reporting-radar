@@ -17,6 +17,7 @@
 import argparse
 import csv
 import os
+import re
 import sys
 import xml.etree.ElementTree as ET
 from collections import defaultdict
@@ -62,8 +63,8 @@ def fetch(k, hs, start, end, country, raw=False):
 def num(x):
     try:
         return float(str(x).replace(",", ""))
-    except ValueError:
-        return 0.0
+    except (ValueError, TypeError) as exc:
+        raise ValueError(f"관세청 원자료 숫자 파싱 실패: {x!r}") from exc
 
 
 def main():
@@ -89,6 +90,8 @@ def main():
         ym = it.get("year", "")
         if not ym or "총" in ym:
             continue
+        if not re.fullmatch(r"\\d{6}", ym):
+            raise ValueError(f"월별 원자료 기간 형식 오류: {ym!r}")
         v = by_month[ym]
         v[0] += num(it.get("expDlr", 0))
         v[1] += num(it.get("expWgt", 0))
