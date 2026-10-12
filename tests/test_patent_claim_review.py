@@ -167,7 +167,7 @@ class ClaimReviewTests(unittest.TestCase):
              '<link>https://news.google.com/rss/articles/example</link></item>'
              '</channel></rss>').encode()
         r=a.related_press(patent(),fetch=lambda url:rss)
-        self.assertIn("미검증",r["queries"][0]["articles"][0]["status"])
+        self.assertIn("미확인",r["queries"][0]["articles"][0]["status"])
 
 
 if __name__=="__main__":
