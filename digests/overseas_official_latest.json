@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-13T02:24:41+09:00",
+  "generatedAt": "2026-10-13T02:29:39+09:00",
   "lookbackDays": 30,
   "windowStart": "2026-09-13",
   "scope": "US Federal Register 연방 고시 및 EU TED 공개 조달 공고",
@@ -10,13 +10,15 @@
       "query": "Hyundai Motor",
       "status": "checked",
       "returned": 2,
-      "matched": 0
+      "matched": 0,
+      "unverified": 2
     },
     {
       "provider": "US Federal Register",
       "query": "Doosan Enerbility",
       "status": "source_error",
       "errorType": "ValueError",
+      "errorDetail": "Federal Register results 누락: 검색 완료 아님",
       "matched": null
     },
     {
@@ -24,13 +26,15 @@
       "query": "Kia Motors",
       "status": "checked",
       "returned": 1,
-      "matched": 0
+      "matched": 0,
+      "unverified": 1
     },
     {
       "provider": "US Federal Register",
       "query": "Korea Zinc",
       "status": "source_error",
       "errorType": "ValueError",
+      "errorDetail": "Federal Register results 누락: 검색 완료 아님",
       "matched": null
     },
     {
@@ -38,32 +42,83 @@
       "query": "Hyundai Motor",
       "status": "checked",
       "returned": 0,
-      "matched": 0
+      "matched": 0,
+      "unverified": 0
     },
     {
       "provider": "EU TED",
       "query": "Hyosung Heavy Industries",
       "status": "checked",
       "returned": 0,
-      "matched": 0
+      "matched": 0,
+      "unverified": 0
     },
     {
       "provider": "EU TED",
       "query": "HD Hyundai Electric",
       "status": "checked",
       "returned": 0,
-      "matched": 0
+      "matched": 0,
+      "unverified": 0
     },
     {
       "provider": "EU TED",
       "query": "Doosan Enerbility",
       "status": "checked",
       "returned": 1,
-      "matched": 0
+      "matched": 0,
+      "unverified": 1
     }
   ],
-  "documents": [],
+  "documents": [
+    {
+      "source": "US Federal Register",
+      "sourceType": "federal_notice",
+      "sourceId": "2026-20160",
+      "published": "2026-10-01",
+      "companiesMentioned": [],
+      "companySearchTerm": "Hyundai Motor",
+      "nameVerified": false,
+      "title": "Initiation of Antidumping and Countervailing Duty Administrative Reviews",
+      "abstract": "The U.S. Department of Commerce (Commerce) has received requests to conduct administrative reviews of various antidumping duty (AD) and countervailing duty (CVD) orders with August anniversary dates. In accordance with Commerce's regulations, we are initiating those administrative reviews.",
+      "sourceUrl": "https://www.federalregister.gov/documents/2026/10/01/2026-20160/initiation-of-antidumping-and-countervailing-duty-administrative-reviews",
+      "evidence": "연방 고시 검색 색인 일치: 기업명·사건 관계를 원문에서 확인하지 못함",
+      "notProven": "지역 공장허가 취득·회사 사업 확정·직접 수주 여부 미확인",
+      "exclusiveStatus": "공개 문서 취재 단서·단독 미확정"
+    },
+    {
+      "source": "EU TED",
+      "sourceType": "eu_procurement_notice",
+      "sourceId": "674215-2026",
+      "published": "2026-09-30",
+      "companiesMentioned": [],
+      "companySearchTerm": "Doosan Enerbility",
+      "nameVerified": false,
+      "title": "Romania – Nuclear-power station construction work – Lucrări de Retehnologizare a Unității 1 CNE Cernavodă",
+      "buyer": "NUCLEARELECTRICA",
+      "sourceUrl": "https://ted.europa.eu/en/notice/674215-2026/html",
+      "evidence": "TED 전문검색 일치: 공식 공고에서 해당 기업의 역할 확인 전",
+      "notProven": "낙찰·공급사 선정·계약금액·해당 회사 사업 귀속 여부 미확인",
+      "exclusiveStatus": "공개 조달 공고 취재 단서·단독 미확정"
+    },
+    {
+      "source": "US Federal Register",
+      "sourceType": "federal_notice",
+      "sourceId": "2026-19964",
+      "published": "2026-09-30",
+      "companiesMentioned": [],
+      "companySearchTerm": "Hyundai Motor",
+      "nameVerified": false,
+      "title": "The Safer Affordable Fuel-Efficient (SAFE) Vehicles Rule III for Model Years 2022 to 2031 Passenger Cars and Light Trucks",
+      "abstract": "NHTSA, on behalf of the U.S. Department of Transportation (DOT), is substantially recalibrating the Corporate Average Fuel Economy (CAFE) program to bring the program into compliance with the law and to remove previous regulatory distortions which have induced manufacturers to make design decisions that have neither aligned with market demand and t",
+      "sourceUrl": "https://www.federalregister.gov/documents/2026/09/30/2026-19964/the-safer-affordable-fuel-efficient-safe-vehicles-rule-iii-for-model-years-2022-to-2031-passenger",
+      "evidence": "연방 고시 검색 색인 일치: 기업명·사건 관계를 원문에서 확인하지 못함",
+      "notProven": "지역 공장허가 취득·회사 사업 확정·직접 수주 여부 미확인",
+      "exclusiveStatus": "공개 문서 취재 단서·단독 미확정"
+    }
+  ],
   "matchedCount": 0,
+  "unverifiedSearchMatches": 3,
   "sourceErrors": 2,
   "scoopConfirmed": 0
 }
