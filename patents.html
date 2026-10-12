@@ -58,14 +58,15 @@ try{
    " · 정상 출원인 조회 "+data.completelyCheckedCompanies+"/"+data.applicantCount+
    "개 · 기술별 공개공보 "+data.candidateCount+
    "건 · 기준선 생성 "+(data.baselineInitialized?"예":"아니오")+
-   " · 신규 관측(첫 기준선 이후) "+data.alertCount+"건 · 단독 확정 0건";
+   " · 기준선 이후 신규 관측 "+data.alertCount+"건 · 과거 누락 복구 "+(data.historicalBackfillCount||0)+"건 · 단독 확정 0건";
  if(!data.items.length)host.append(el("p","최근 공개된 관련 특허 후보가 없거나 조회 누락·인증 오류가 있어. 회사별 수집 현황을 확인해.","notice"));
  for(const p of data.items.slice(0,35)){
   const box=el("article",undefined,"card");
   box.append(el("span",p.company,"tag"));
   box.append(el("span","기술 취재 우선순위 "+p.priorityScore+" · 단독 점수 아님","tag"));
   if(p.initialBaseline)box.append(el("span","기준선에 포함된 과거 공개공보","tag"));
-  else if(!p.previouslyObserved)box.append(el("span","새로 관측된 공개공보 · 최초 특허 아님","tag"));
+  else if(p.historicalBackfill)box.append(el("span","과거 누락분 보완 · 이번에 신규 공개된 사실 아님","tag"));
+  else if(p.freshObservation)box.append(el("span","새로 관측된 공개공보 · 최초 특허 아님","tag"));
   box.append(el("h3",p.title));
   box.append(el("p","공개번호 "+p.publicationNumber+" · 공개일 "+
     p.publicationDate+" · 출원일 "+(p.applicationDate||"미확인")+
@@ -111,7 +112,8 @@ try{
  status.textContent="최근 공보 원자료 "+data.inputPatents+"개 행 → 서로 다른 공개번호 "+
     data.uniquePublicationCount+"건 · 공동출원 "+
     data.jointApplications+"건 · 과거 동일 제목 조회 "+data.historicalQueriesAttempted+
-    "건 · 단독 확정 0건 · "+(data.sourceCoverageComplete?"출원인 전체 검색 완료":"일부 출원인 검색 불완전");
+    "건 · 단독 확정 0건 · 출입처 그룹별로 후보 배분 · "+
+    (data.sourceCoverageComplete?"출원인 전체 검색 완료":"일부 출원인 검색 불완전");
  if(!data.investigations.length)list.append(e("p","원문 기준 분석할 특허 공보 없음","notice"));
  for(const row of data.investigations.slice(0,18)){
   const card=e("article",undefined,"card");

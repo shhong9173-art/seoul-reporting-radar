@@ -116,6 +116,41 @@ class PatentDeepTests(unittest.TestCase):
         self.assertEqual(len(calls),2)
         self.assertEqual(result["historicalQueriesAttempted"],2)
 
+    def test_research_budget_diversified_across_issuer_groups(self):
+        items=[]
+        for index in range(8):
+            a=patent(number=f"1020260123{index:03d}",
+                      title=f"자율주행 차량 센서 AI 제어 시스템 제{index}형")
+            a["newsroomScore"]=70
+            a["coveredCompanies"]=["기아","현대자동차"]
+            items.append(a)
+        power=patent(company="HD현대일렉트릭",number="1020260147348",
+                     title="선박 축발전기용 몰드변압기 냉각 에어가이드")
+        power["newsroomScore"]=55
+        power["coveredCompanies"]=["HD현대일렉트릭"]
+        items.append(power)
+        ordered=d.balance_issuers(items)
+        self.assertEqual(ordered[0]["coveredCompanies"],["기아","현대자동차"])
+        self.assertEqual(ordered[1]["coveredCompanies"],["HD현대일렉트릭"])
+        self.assertEqual(len(ordered),len(items))
+
+    def test_historical_lookups_reach_power_and_auto_not_just_joint_filers(self):
+        items=[]
+        for index in range(8):
+            a=patent(number=f"1020260123{index:03d}",
+                     title=f"자율주행 차량 센서 AI 제어 시스템 제{index}형")
+            items.append(a)
+        items.append(patent(company="HD현대일렉트릭",number="1020260147348",
+                            title="선박 축발전기용 몰드변압기 냉각 에어가이드"))
+        calls=[]
+        def fake(key,title,cutoff):
+            calls.append(title)
+            return {"rows":[],"total":0,"complete":True}
+        report=d.build({"items":items,"generatedAt":"test"},key="key",
+                       historical=fake,search_limit=2,now=NOW)
+        self.assertEqual(len(calls),2)
+        self.assertTrue(any("변압기" in x for x in calls))
+
     def test_empty_or_bad_source_fails(self):
         with self.assertRaises(ValueError):
             d.build({"items":None},now=NOW)

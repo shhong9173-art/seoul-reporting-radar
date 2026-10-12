@@ -140,6 +140,34 @@ class PatentScoutTests(unittest.TestCase):
         self.assertTrue(report["items"][0]["alreadyPublic"] if "alreadyPublic" in report["items"][0] else True)
         self.assertFalse(report["items"][0]["scoopConfirmed"])
 
+    def test_prior_truncated_query_backfill_is_not_today_disclosure(self):
+        def search(key,term,start,end):
+            return {"rows":[row(pubdate="20261008")],"total":1,"complete":True}
+        previous={"status":"official_search_partial",
+                  "generatedAt":"2026-10-13T03:39:28+09:00",
+                  "seen":{}}
+        out=p.build("fake",previous=previous,now=NOW,
+                    search=search,names=["현대자동차"],news_limit=0)
+        self.assertEqual(out["candidateCount"],1)
+        self.assertEqual(out["historicalBackfillCount"],1)
+        self.assertEqual(out["alertCount"],0)
+        self.assertTrue(out["items"][0]["historicalBackfill"])
+        self.assertFalse(out["items"][0]["freshObservation"])
+
+    def test_newer_published_after_previous_date_is_fresh_observation(self):
+        later=datetime(2026,10,15,8,0,tzinfo=KST)
+        patent=row(pubdate="20261014")
+        def search(key,term,start,end):
+            return {"rows":[patent],"total":1,"complete":True}
+        previous={"status":"official_search_completed",
+                  "generatedAt":"2026-10-13T03:39:28+09:00",
+                  "seen":{}}
+        out=p.build("fake",previous=previous,now=later,
+                    search=search,names=["현대자동차"],news_limit=0)
+        self.assertEqual(out["alertCount"],1)
+        self.assertEqual(out["historicalBackfillCount"],0)
+        self.assertTrue(out["items"][0]["freshObservation"])
+
     def test_missing_api_key_not_zero_patent_fact(self):
         result=p.build("",now=NOW)
         self.assertFalse(result["complete"])

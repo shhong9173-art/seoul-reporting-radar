@@ -260,6 +260,9 @@ def build(key,previous=None,now=None,search=search_applicant,coverage=None,
     if not isinstance(old_seen,dict):
         old_seen={}
     baseline=previous.get("status") not in ("official_search_partial","official_search_completed")
+    previous_day=re.sub(r"[^0-9]","",str(previous.get("generatedAt") or "")[:10])
+    # Publications older than the previous successful snapshot are backfills
+    # (including a previously truncated applicant query), not fresh disclosure.
     companies=names if names is not None else list(APPLICANTS)
     seen=dict(old_seen)
     checks=[]
@@ -286,6 +289,17 @@ def build(key,previous=None,now=None,search=search_applicant,coverage=None,
                 candidate["previouslyObserved"]=identity in old_seen
                 candidate["firstObservedAt"]=old_seen.get(identity,now.date().isoformat())
                 candidate["initialBaseline"]=baseline
+                candidate["historicalBackfill"]=bool(not baseline
+                    and identity not in old_seen and len(previous_day)==8
+                    and candidate["publicationDate"]<=previous_day)
+                candidate["freshObservation"]=bool(not baseline
+                    and identity not in old_seen and not candidate["historicalBackfill"])
+                candidate["observationNote"]=(
+                    "직전 스냅샷 이전 공개 공보를 뒤늦게 수집(신규 공개 아님)"
+                    if candidate["historicalBackfill"] else
+                    "수집 기준선의 과거 공보" if baseline else
+                    "이미 관측된 공개공보" if candidate["previouslyObserved"] else
+                    "새로 관측한 공개공보(최초 출원·단독 아님)")
                 candidates[identity]=candidate
                 seen.setdefault(identity,now.date().isoformat())
                 count+=1
@@ -313,7 +327,8 @@ def build(key,previous=None,now=None,search=search_applicant,coverage=None,
         "companyChecks":checks,"candidateCount":len(leads),
         "completelyCheckedCompanies":successes,
         "baselineInitialized":baseline,
-        "alertCount":sum(not r["previouslyObserved"] and not baseline for r in leads),
+        "alertCount":sum(bool(r["freshObservation"]) for r in leads),
+        "historicalBackfillCount":sum(bool(r["historicalBackfill"]) for r in leads),
         "items":leads[:500],"seen":seen,"confirmedScoops":0,
         "displayedCount":min(500,len(leads)),
         "unshownCount":max(0,len(leads)-500),
