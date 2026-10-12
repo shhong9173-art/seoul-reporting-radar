@@ -161,7 +161,7 @@ def _correction_evidence(matching_numeric):
     return changes[:15]
 
 
-def review_item(row, numeric_by_receipt, search=None):
+def review_item(row, numeric_by_receipt, search=None, lineage_by_receipt=None):
     if not isinstance(row, dict):
         raise ValueError("잘못된 digest 항목")
     receipt = row.get("receiptNo")
@@ -185,9 +185,26 @@ def review_item(row, numeric_by_receipt, search=None):
                 "context": str(fact.get("context", ""))[:400],
                 "interpretation": str(fact.get("interpretation", ""))[:280],
             })
+    lineage_data = (lineage_by_receipt or {}).get(receipt, {})
+    if not isinstance(lineage_data, dict) or lineage_data.get("company") != company:
+        lineage_data = {}
+    verified_origin = bool(lineage_data.get("originalDocumentVerified"))
+    verified_differences = (lineage_data.get("changes") or []) if verified_origin else []
+    origin_proof = {
+        "status": lineage_data.get("status", "미조회"),
+        "reason": lineage_data.get("reason", "원공시 독립 조회 전"),
+        "originalReceiptNo": lineage_data.get("originReceiptNo") if verified_origin else None,
+        "originalUrl": lineage_data.get("originSourceUrl") if verified_origin else None,
+        "verifiedChanges": verified_differences[:12],
+        "candidateOrigins": lineage_data.get("candidateOrigins", [])[:8],
+        "originalDocumentVerified": verified_origin,
+    }
     routine = is_routine(report)
     relevant_term = event_term(report)
-    if routine:
+    if verified_origin and verified_differences:
+        lane = "원공시 독립 대조 확인"
+        reason = "원공시와 정정 공시의 공식 원문을 별도로 읽어 명시적 접수번호 연결 및 동일 표 항목의 전후 차이를 확인"
+    elif routine:
         lane = "정례 공개·후순위"
         reason = "보고서 유형만으로 실제 지분 변화·경영 영향이 확인되지 않음"
     elif changes:
@@ -199,7 +216,9 @@ def review_item(row, numeric_by_receipt, search=None):
     else:
         lane = "공개자료 추적"
         reason = "변경 전후의 직접 근거 또는 실질적인 기사 야마가 아직 없음"
-    if routine:
+    if verified_origin and verified_differences:
+        questions = (lineage_data.get("questions") or [])[:3]
+    elif routine:
         questions = ["신고 대상·보유 전후 수량·비율을 원문에서 비교", "경영권 등 실질적 영향 존재 여부 확인"]
     elif changes:
         questions = ["정정 공시 표의 변경사항을 최초 공시 원문과 독립 대조", "수정된 일정·계약 조건이 실제 사업에 미치는 영향 회사에 확인"]
@@ -222,15 +241,16 @@ def review_item(row, numeric_by_receipt, search=None):
                            "공시 목록 확인, 상세 근거 미검증"),
         "changeStatus": ("발행인 정정표 문구 변화 확인" if changes else "동일 사건 전후 변화 미확인"),
         "changes": changes, "numericFacts": facts,
+        "originalComparison": origin_proof,
         "coverage": coverage,
         "companyResponse": "미확인",
         "exclusiveStatus": "판정 보류: 자동 단독 확정 금지",
         "questions": questions,
-        "originalDocumentVerified": bool(changes) and all(v["originalDocumentVerified"] for v in changes),
+        "originalDocumentVerified": verified_origin,
     }
 
 
-def build_review(digest, numeric, *, search: Callable | None = None):
+def build_review(digest, numeric, *, search: Callable | None = None, lineage=None):
     if not isinstance(digest, dict) or not isinstance(digest.get("items"), list):
         raise ValueError("원본 공시 digest 데이터가 유효하지 않음")
     if not isinstance(numeric, dict) or not isinstance(numeric.get("items"), list):
@@ -239,6 +259,11 @@ def build_review(digest, numeric, *, search: Callable | None = None):
     for doc in numeric["items"]:
         if isinstance(doc, dict) and valid_receipt(doc.get("receiptNo")):
             doc_index[doc["receiptNo"]] = doc
+    verified_index = {}
+    if (isinstance(lineage, dict) and lineage.get("digestGeneratedAt") == digest.get("generatedAt")
+            and isinstance(lineage.get("items"), list)):
+        verified_index = {v.get("receiptNo"): v for v in lineage["items"]
+                          if isinstance(v, dict) and valid_receipt(v.get("receiptNo"))}
     seen = set()
     results = []
     for row in digest["items"]:
@@ -247,9 +272,11 @@ def build_review(digest, numeric, *, search: Callable | None = None):
         if row["receiptNo"] in seen:
             continue
         seen.add(row["receiptNo"])
-        results.append(review_item(row, doc_index, search=search))
-    rank = {"정정표 변경 검토": 0, "원문·변경 사실 확인": 1,
-            "공개자료 추적": 2, "정례 공개·후순위": 3}
+        results.append(review_item(row, doc_index, search=search,
+                                   lineage_by_receipt=verified_index))
+    rank = {"원공시 독립 대조 확인": 0, "정정표 변경 검토": 1,
+            "원문·변경 사실 확인": 2, "공개자료 추적": 3,
+            "정례 공개·후순위": 4}
     results.sort(key=lambda r: (rank[r["lane"]], not r["isNew"], r["receiptNo"]), reverse=False)
     lanes = {name: sum(x["lane"] == name for x in results) for name in rank}
     return {
@@ -267,6 +294,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--digest", default="digests/latest.json")
     parser.add_argument("--numeric", default="dart_numeric.json")
+    parser.add_argument("--lineage", default="digests/lineage_latest.json")
     parser.add_argument("--output", default="digests/review_latest.json")
     parser.add_argument("--no-news", action="store_true", help="외부 보도 검색 없이 로컬 원자료만 분석")
     args = parser.parse_args()
@@ -287,7 +315,12 @@ def main():
                 return {"status": "자동 보도 검색 10개 쿼리 상한: 미확인", "results": []}
             cache[key] = base_search(company, term)
             return cache[key]
-    review = build_review(digest, numeric, search=search)
+    lineage = {}
+    try:
+        lineage = json.loads(Path(args.lineage).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        print("원공시 검증 파일 없음/오류: 원본 대조는 미확인으로 유지")
+    review = build_review(digest, numeric, search=search, lineage=lineage)
     out = Path(args.output)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(review, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
