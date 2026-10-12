@@ -21,6 +21,10 @@ ul{padding-left:20px}
   해당 특허의 <b>청구항과 선행 특허, 회사 사업계획 및 타사 보도</b>를 교차 확인해야 한다.
 </div>
 <p id="patent-status" class="status">KIPRISPlus 공식 특허 API 연결과 마지막 갱신 상태 확인 중</p>
+<section><h2>제1항 청구항 원문 대조 — /claim-check</h2>
+<p class="dim">공식 서지상세 API로 현재 특허 제1항을 검증하고, 같은 발명명칭·일부 동일 출원인인 종전 특허의 제1항을 대조한다. 문구 변화는 기술적 신규성이나 실제 제품 채택을 증명하지 않는다.</p>
+<p id="claim-status" class="status">출원번호와 청구항 원문 대조 현황 확인 중</p>
+<div id="claim-cards"></div></section>
 <section><h2>원문 특허 심층 취재 후보 — /patent-deep</h2>
 <p class="dim">공동출원을 하나의 공개번호로 묶고, 최근 35일 관련 기술 및 2023년 이후 동일 발명명칭의 공식 공보를 제한적으로 대조한다. 청구항·특허패밀리·실제 사업화 여부는 별도 검증 대상이다.</p>
 <p id="patent-deep-status" class="status">중복 제거와 공식 과거 공보 확인 중</p><div id="patent-deep-cards"></div></section>
@@ -144,5 +148,77 @@ try{
   list.append(card);
  }
 }catch(ex){status.textContent="특허 심층 비교 미확인: "+ex.message+" · 해당 심층 분석 실행 로그 확인 필요"}
+})();
+</script>
+<script>
+(async function(){
+"use strict";
+const status=document.querySelector("#claim-status"),cards=document.querySelector("#claim-cards");
+function t(tag,v,cls){const n=document.createElement(tag);if(v!==undefined&&v!==null)n.textContent=String(v);if(cls)n.className=cls;return n}
+try{
+ const res=await Promise.all([
+   fetch("digests/patent_hunt_latest.json",{cache:"no-store"}),
+   fetch("digests/patent_deep_latest.json",{cache:"no-store"}),
+   fetch("digests/patent_claim_review_latest.json",{cache:"no-store"})]);
+ if(res.some(r=>!r.ok))throw Error("공식 제1항 분석 파일 미생성 또는 인증 오류");
+ const [base,deep,result]=await Promise.all(res.map(r=>r.json()));
+ if(!result.patentDatasetGeneratedAt||result.patentDatasetGeneratedAt!==base.generatedAt||
+    result.deepDatasetGeneratedAt!==deep.generatedAt||!Array.isArray(result.reviews))
+   throw Error("청구항 분석과 원 공보/과거 자료 시점 불일치. 이전 결과 노출 중단");
+ status.textContent="KIPRIS 원문 조회 "+result.generatedAt+
+  " · 제1항 확인 "+result.currentClaimsVerified+"/"+result.reviewCount+
+  "건 · 과거 동명 특허 제1항 직접 비교 "+result.pairedClaimsCompared+
+  "건 · 단독 검증 0건";
+ for(const review of result.reviews){
+   const box=t("article",undefined,"card");
+   box.append(t("span",(review.company||[]).join(" · "),"tag"));
+   box.append(t("span",review.status,"tag"));
+   box.append(t("h3",review.title));
+   box.append(t("p","출원번호 "+review.currentApplication+
+     " · 공개번호 "+review.publicationNumber+" · 공개일 "+review.published,"dim"));
+   if(review.claimVerified){
+    box.append(t("p","공식 청구항 1 확인 · "+review.claim1Length+"자 · 청구항 "+
+      review.claimsParsed+"개 판독","dim"));
+    if(review.claim1Excerpt)box.append(t("p","제1항 근거 발췌: "+review.claim1Excerpt+
+       (review.claim1Length>115?"…":""),"scope"));
+   }else{
+    box.append(t("p","원문 미확인: "+review.status+
+        (review.errorType?" ("+review.errorType+")":""),"status"));
+   }
+   for(const old of review.priorComparisons||[]){
+      const section=t("div",undefined,"scope");
+      section.append(t("p","이전 공개번호 "+old.priorPublicationNumber+
+         " · 공식 제1항 비교 상태: "+old.status,"dim"));
+      if(old.textSimilarity!==undefined){
+       section.append(t("p","청구항 문구 유사도 "+old.textSimilarity+
+        " · 동일문구 여부 "+(old.sameClaimText?"같음":"다름")+
+        " · 기술적 우월성/신규성 미검증"));
+       section.append(t("p","이전 원문: "+(old.priorShortExcerpt||""),"dim"));
+       section.append(t("p","현재 원문: "+(old.currentShortExcerpt||""),"dim"));
+      }
+      section.append(t("p",old.finding||"이전 제1항 미확인 · 비교 금지","dim"));
+      box.append(section);
+   }
+   if(review.desk){
+    box.append(t("p","사업 연결 확인: "+review.desk.applicationHypothesis,"scope"));
+    box.append(t("p",review.desk.industryEffectStatus,"dim"));
+    for(const q of review.desk.companyQuestions||[])
+       box.append(t("p","기업 취재 질문: "+q,"question"));
+   }
+   box.append(t("p","기보도: "+(review.relatedPress?.status||"미검색"),"dim"));
+   for(const q of review.relatedPress?.queries||[]){
+      box.append(t("p",q.query+" — "+q.status,"dim"));
+      for(const news of q.articles||[]){
+        if(typeof news.url==="string"&&news.url.startsWith("https://news.google.com/")){
+          const a=t("a",news.title,"source");
+          a.href=news.url;a.target="_blank";a.rel="noopener noreferrer";box.append(a);
+        }
+      }
+   }
+   box.append(t("p","데스킹 판정: 청구항 문구·구체적 사업 적용·기보도·기업 답변 검증 전 단독 미확정","status"));
+   cards.append(box);
+ }
+}catch(e){status.textContent="공식 청구항 비교 현재 표시 불가: "+e.message+
+ " · 출원번호 또는 KIPRIS 상세 API 접근 상태 확인 필요"}
 })();
 </script></body></html>
