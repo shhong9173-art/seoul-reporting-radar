@@ -2,6 +2,7 @@ import sys
 import unittest
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 import customs_tenday as td
@@ -46,6 +47,20 @@ class TenDayTests(unittest.TestCase):
         ):
             with self.subTest(data=data[:40]), self.assertRaises(ValueError):
                 td.parse(data, "exp_item", "202610")
+
+    def test_fetch_uses_verified_single_gateway_prefix(self):
+        class Response:
+            status_code = 200
+            content = xml_row()
+            def raise_for_status(self):
+                return None
+        with patch.object(td.requests, "get", return_value=Response()) as getter:
+            rows = td.fetch("placeholder", "exp_item", "202610")
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(
+                getter.call_args.args[0],
+                "https://apis.data.go.kr/1220000/prlstMmUtPrviExpAcrs/getPrlstMmUtPrviExpAcrs")
+            self.assertEqual(getter.call_args.kwargs["params"]["strtYymm"], "202610")
 
     def test_same_cutoff_yoy_and_no_mixing_years(self):
         today = datetime(2026, 10, 13, tzinfo=timezone(timedelta(hours=9)))
