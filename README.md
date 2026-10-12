@@ -68,3 +68,8 @@
 - `scripts/recent_contracts.py`: 직접 출입처 DART 최근 21일 공시 중 신규 공급계약·시설투자·생산재개·중단과 정정 원공시를 **명시적 접수번호 근거가 있을 때만** 연결.
 - `.github/workflows/official-overseas-contracts.yml`: 평일 08:10 KST 새 원천 검색, 회사 코멘트·기보도 검증 전까지 단독 미확정.
 - 실제 원천의 범위와 빠진 현지 미국 주/카운티 공장 인허가: `docs/official-overseas-contracts.md`.
+
+## 공식 투자계획의 원문 변화 발굴
+- hunt.html은 2025 연간 사업보고서와 2026 최신 정기보고서, 가능하면 2024 연간 보고서의 같은 투자 항목을 직접 비교한다.
+- scripts/investigation_hunt.py는 공식 투자 종료 예정월·금액의 변경을 찾고 기보도 검색/데스킹 질문을 제시한다. 실제 준공 지연이나 단독을 자동 확정하지 않는다.
+- 평일 08:45 KST digests/investigation_hunt_latest.json 갱신. 설계: docs/source-delta-hunt.md.
