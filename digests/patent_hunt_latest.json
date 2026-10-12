@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-13T04:24:12+09:00",
+  "generatedAt": "2026-10-13T04:35:14+09:00",
   "source": "KIPRISPlus Patent/Utility Publication official Open API",
   "status": "official_search_completed",
   "reportingWindow": "20260908~20261013",
@@ -8,21 +8,21 @@
     {
       "company": "현대자동차",
       "status": "checked",
-      "matched": 94,
+      "matched": 98,
       "rawTotal": 282,
       "rawRetrieved": 282
     },
     {
       "company": "기아",
       "status": "checked",
-      "matched": 94,
+      "matched": 98,
       "rawTotal": 284,
       "rawRetrieved": 284
     },
     {
       "company": "현대모비스",
       "status": "checked",
-      "matched": 12,
+      "matched": 13,
       "rawTotal": 113,
       "rawRetrieved": 113
     },
@@ -155,7 +155,7 @@
     {
       "company": "두산에너빌리티",
       "status": "checked",
-      "matched": 1,
+      "matched": 3,
       "rawTotal": 17,
       "rawRetrieved": 17
     },
@@ -174,11 +174,11 @@
       "rawRetrieved": 0
     }
   ],
-  "candidateCount": 213,
+  "candidateCount": 224,
   "completelyCheckedCompanies": 24,
   "baselineInitialized": false,
   "alertCount": 0,
-  "historicalBackfillCount": 0,
+  "historicalBackfillCount": 11,
   "items": [
     {
       "company": "기아",
@@ -1709,6 +1709,58 @@
       "company": "기아",
       "applicants": [
         "현대자동차주식회사",
+        "기아 주식회사",
+        "씨제이제일제당 (주)",
+        "경북대학교 산학협력단"
+      ],
+      "applicationNumber": "1020250041823",
+      "publicationNumber": "1020260147319",
+      "applicationDate": "20250331",
+      "publicationDate": "20261008",
+      "registrationDate": null,
+      "registerStatus": "공개",
+      "title": "자동차용 플라스틱 부품을 재생하는 방법, 폴리에스테르 수지를 제조하는 방법, 자동차용 부품을 제조하는 방법 및 자동차를 제조하는 방법",
+      "abstract": "실시예는 자동차로부터 폴리에틸렌테레프탈레이트계 수지를 80wt% 내지 99wt%의 함량으로 포함하는 플라스틱 부품을 획득하는 단계; 상기 플라스틱 부품을 전처리하여, 폴리에틸렌테레프탈레이트계 분말을 제조하는 단계; 및 상기 폴리에틸렌테레프탈레이트계 분말을 폴리에스테르 분해 효소를 사용하여 분해하여, 테레프탈산을 획득하는 단계;를 포함하고, 상기 플라스틱 부품은 아크릴 수지, 폴리에틸렌 수지, 폴리프로필렌계 수지, 실리콘계 수지, 에틸렌비닐아세테이트계 수지, 열가소성 폴리올레핀계 수지 또는 폴리우레탄계 수지로 구성되는 그룹으로부터 적어도 하나 이상 선택되는 추가 수지를 더 포함하는 자동차용 플라스틱 부품을 재생하는 방법을 제공하고자 한다.",
+      "ipc": "B29B 17/02|B29B 17/04|B09B 3/60|C08J 11/10|B09B 101/75|B29K 67/00|B29K 23/00|B29K 75/00|B29L 31/30",
+      "themes": [
+        {
+          "theme": "순환소재·폐차재활용",
+          "titleHits": [
+            "플라스틱",
+            "폴리에스테르"
+          ],
+          "abstractHits": [
+            "효소",
+            "플라스틱",
+            "폴리에스테르",
+            "폴리에틸렌테레프탈레이트"
+          ]
+        }
+      ],
+      "priorityScore": 60,
+      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
+      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
+      "lookupNumber": "1020260147319",
+      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
+      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
+      "questions": [
+        "이 공개특허의 독립 청구항 핵심 구성과 종전 기술의 차이는 무엇인가?",
+        "기존 동일 출원인 특허·우선권·특허패밀리/해외공개와 중복되지 않는가?",
+        "해당 기술이 연구 단계인지, 현재 양산차·제품/설비에 적용되는가?",
+        "업계 경쟁제품 및 특허 관련 기보도/기업 발표와 다른 사실은 무엇인가?"
+      ],
+      "scoopConfirmed": false,
+      "previouslyObserved": false,
+      "firstObservedAt": "2026-10-13",
+      "initialBaseline": false,
+      "historicalBackfill": true,
+      "freshObservation": false,
+      "observationNote": "직전 스냅샷 이전 공개 공보를 뒤늦게 수집(신규 공개 아님)"
+    },
+    {
+      "company": "기아",
+      "applicants": [
+        "현대자동차주식회사",
         "기아 주식회사"
       ],
       "applicationNumber": "1020250041938",
@@ -2034,6 +2086,58 @@
       "historicalBackfill": false,
       "freshObservation": false,
       "observationNote": "이미 관측된 공개공보"
+    },
+    {
+      "company": "현대자동차",
+      "applicants": [
+        "현대자동차주식회사",
+        "기아 주식회사",
+        "씨제이제일제당 (주)",
+        "경북대학교 산학협력단"
+      ],
+      "applicationNumber": "1020250041823",
+      "publicationNumber": "1020260147319",
+      "applicationDate": "20250331",
+      "publicationDate": "20261008",
+      "registrationDate": null,
+      "registerStatus": "공개",
+      "title": "자동차용 플라스틱 부품을 재생하는 방법, 폴리에스테르 수지를 제조하는 방법, 자동차용 부품을 제조하는 방법 및 자동차를 제조하는 방법",
+      "abstract": "실시예는 자동차로부터 폴리에틸렌테레프탈레이트계 수지를 80wt% 내지 99wt%의 함량으로 포함하는 플라스틱 부품을 획득하는 단계; 상기 플라스틱 부품을 전처리하여, 폴리에틸렌테레프탈레이트계 분말을 제조하는 단계; 및 상기 폴리에틸렌테레프탈레이트계 분말을 폴리에스테르 분해 효소를 사용하여 분해하여, 테레프탈산을 획득하는 단계;를 포함하고, 상기 플라스틱 부품은 아크릴 수지, 폴리에틸렌 수지, 폴리프로필렌계 수지, 실리콘계 수지, 에틸렌비닐아세테이트계 수지, 열가소성 폴리올레핀계 수지 또는 폴리우레탄계 수지로 구성되는 그룹으로부터 적어도 하나 이상 선택되는 추가 수지를 더 포함하는 자동차용 플라스틱 부품을 재생하는 방법을 제공하고자 한다.",
+      "ipc": "B29B 17/02|B29B 17/04|B09B 3/60|C08J 11/10|B09B 101/75|B29K 67/00|B29K 23/00|B29K 75/00|B29L 31/30",
+      "themes": [
+        {
+          "theme": "순환소재·폐차재활용",
+          "titleHits": [
+            "플라스틱",
+            "폴리에스테르"
+          ],
+          "abstractHits": [
+            "효소",
+            "플라스틱",
+            "폴리에스테르",
+            "폴리에틸렌테레프탈레이트"
+          ]
+        }
+      ],
+      "priorityScore": 60,
+      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
+      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
+      "lookupNumber": "1020260147319",
+      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
+      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
+      "questions": [
+        "이 공개특허의 독립 청구항 핵심 구성과 종전 기술의 차이는 무엇인가?",
+        "기존 동일 출원인 특허·우선권·특허패밀리/해외공개와 중복되지 않는가?",
+        "해당 기술이 연구 단계인지, 현재 양산차·제품/설비에 적용되는가?",
+        "업계 경쟁제품 및 특허 관련 기보도/기업 발표와 다른 사실은 무엇인가?"
+      ],
+      "scoopConfirmed": false,
+      "previouslyObserved": false,
+      "firstObservedAt": "2026-10-13",
+      "initialBaseline": false,
+      "historicalBackfill": true,
+      "freshObservation": false,
+      "observationNote": "직전 스냅샷 이전 공개 공보를 뒤늦게 수집(신규 공개 아님)"
     },
     {
       "company": "현대자동차",
@@ -2459,6 +2563,51 @@
       "historicalBackfill": false,
       "freshObservation": false,
       "observationNote": "이미 관측된 공개공보"
+    },
+    {
+      "company": "기아",
+      "applicants": [
+        "현대자동차주식회사",
+        "기아 주식회사",
+        "동진이공(주)"
+      ],
+      "applicationNumber": "1020250041573",
+      "publicationNumber": "1020260146861",
+      "applicationDate": "20250331",
+      "publicationDate": "20261007",
+      "registrationDate": null,
+      "registerStatus": "공개",
+      "title": "플로어 카페트 및 이를 포함하는 차량",
+      "abstract": "본 발명은 복수의 에어 포켓을 포함하는 내부 코어, 상기 내부 코어와 일체로 형성되고, 연결 영역을 포함하여 상기 내부 코어와 동일선 상에 배치되며, 토출되는 에어의 유동 경로를 형성하는 에어 덕트 및 상기 내부 코어 및 상기 에어 덕트를 감싸도록 형성되고, 상기 내부 코어 및 상기 에어 덕트를 지지하는 본체를 포함한다.",
+      "ipc": "B60H 1/00|B60H 1/24|B60N 3/04",
+      "themes": [
+        {
+          "theme": "순환소재·폐차재활용",
+          "titleHits": [
+            "페트"
+          ],
+          "abstractHits": []
+        }
+      ],
+      "priorityScore": 60,
+      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
+      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
+      "lookupNumber": "1020260146861",
+      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
+      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
+      "questions": [
+        "이 공개특허의 독립 청구항 핵심 구성과 종전 기술의 차이는 무엇인가?",
+        "기존 동일 출원인 특허·우선권·특허패밀리/해외공개와 중복되지 않는가?",
+        "해당 기술이 연구 단계인지, 현재 양산차·제품/설비에 적용되는가?",
+        "업계 경쟁제품 및 특허 관련 기보도/기업 발표와 다른 사실은 무엇인가?"
+      ],
+      "scoopConfirmed": false,
+      "previouslyObserved": false,
+      "firstObservedAt": "2026-10-13",
+      "initialBaseline": false,
+      "historicalBackfill": true,
+      "freshObservation": false,
+      "observationNote": "직전 스냅샷 이전 공개 공보를 뒤늦게 수집(신규 공개 아님)"
     },
     {
       "company": "기아",
@@ -2930,6 +3079,51 @@
       "historicalBackfill": false,
       "freshObservation": false,
       "observationNote": "이미 관측된 공개공보"
+    },
+    {
+      "company": "현대자동차",
+      "applicants": [
+        "현대자동차주식회사",
+        "기아 주식회사",
+        "동진이공(주)"
+      ],
+      "applicationNumber": "1020250041573",
+      "publicationNumber": "1020260146861",
+      "applicationDate": "20250331",
+      "publicationDate": "20261007",
+      "registrationDate": null,
+      "registerStatus": "공개",
+      "title": "플로어 카페트 및 이를 포함하는 차량",
+      "abstract": "본 발명은 복수의 에어 포켓을 포함하는 내부 코어, 상기 내부 코어와 일체로 형성되고, 연결 영역을 포함하여 상기 내부 코어와 동일선 상에 배치되며, 토출되는 에어의 유동 경로를 형성하는 에어 덕트 및 상기 내부 코어 및 상기 에어 덕트를 감싸도록 형성되고, 상기 내부 코어 및 상기 에어 덕트를 지지하는 본체를 포함한다.",
+      "ipc": "B60H 1/00|B60H 1/24|B60N 3/04",
+      "themes": [
+        {
+          "theme": "순환소재·폐차재활용",
+          "titleHits": [
+            "페트"
+          ],
+          "abstractHits": []
+        }
+      ],
+      "priorityScore": 60,
+      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
+      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
+      "lookupNumber": "1020260146861",
+      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
+      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
+      "questions": [
+        "이 공개특허의 독립 청구항 핵심 구성과 종전 기술의 차이는 무엇인가?",
+        "기존 동일 출원인 특허·우선권·특허패밀리/해외공개와 중복되지 않는가?",
+        "해당 기술이 연구 단계인지, 현재 양산차·제품/설비에 적용되는가?",
+        "업계 경쟁제품 및 특허 관련 기보도/기업 발표와 다른 사실은 무엇인가?"
+      ],
+      "scoopConfirmed": false,
+      "previouslyObserved": false,
+      "firstObservedAt": "2026-10-13",
+      "initialBaseline": false,
+      "historicalBackfill": true,
+      "freshObservation": false,
+      "observationNote": "직전 스냅샷 이전 공개 공보를 뒤늦게 수집(신규 공개 아님)"
     },
     {
       "company": "현대자동차",
@@ -5496,6 +5690,54 @@
       "company": "기아",
       "applicants": [
         "현대자동차주식회사",
+        "기아 주식회사",
+        "주식회사 폼웍스"
+      ],
+      "applicationNumber": "1020250032550",
+      "publicationNumber": "1020260139353",
+      "applicationDate": "20250313",
+      "publicationDate": "20260922",
+      "registrationDate": null,
+      "registerStatus": "공개",
+      "title": "자동차 내장재용 재생 폴리우레탄폼 조성물 및 그 폴리우레탄폼",
+      "abstract": "본 개시는 자동차 내장재용 재생 폴리우레탄폼 조성물 및 그 폴리우레탄폼에 관한 것이다.  본 개시의 재생 폴리우레탄폼 조성물 및 그 폴리우레탄폼은 폐폴리우레탄폼을 재활용하여 폐자원 순환구조를 완성함으로써 탄소 배출량을 현저히 줄일 수 있고, 신재 폴리우레탄폼과 비교하여 동등 수준의 물성을 나타내어 상업적으로 이용 가능한 장점이 있다.",
+      "ipc": "C08G 18/40|C08G 18/48|C08G 18/76|C08J 9/00|C08J 9/12|B60R 13/02",
+      "themes": [
+        {
+          "theme": "순환소재·폐차재활용",
+          "titleHits": [
+            "자동차 내장재"
+          ],
+          "abstractHits": [
+            "재활용",
+            "자동차 내장재"
+          ]
+        }
+      ],
+      "priorityScore": 60,
+      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
+      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
+      "lookupNumber": "1020260139353",
+      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
+      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
+      "questions": [
+        "이 공개특허의 독립 청구항 핵심 구성과 종전 기술의 차이는 무엇인가?",
+        "기존 동일 출원인 특허·우선권·특허패밀리/해외공개와 중복되지 않는가?",
+        "해당 기술이 연구 단계인지, 현재 양산차·제품/설비에 적용되는가?",
+        "업계 경쟁제품 및 특허 관련 기보도/기업 발표와 다른 사실은 무엇인가?"
+      ],
+      "scoopConfirmed": false,
+      "previouslyObserved": false,
+      "firstObservedAt": "2026-10-13",
+      "initialBaseline": false,
+      "historicalBackfill": true,
+      "freshObservation": false,
+      "observationNote": "직전 스냅샷 이전 공개 공보를 뒤늦게 수집(신규 공개 아님)"
+    },
+    {
+      "company": "기아",
+      "applicants": [
+        "현대자동차주식회사",
         "기아 주식회사"
       ],
       "applicationNumber": "1020250032740",
@@ -5769,6 +6011,54 @@
       "historicalBackfill": false,
       "freshObservation": false,
       "observationNote": "이미 관측된 공개공보"
+    },
+    {
+      "company": "현대자동차",
+      "applicants": [
+        "현대자동차주식회사",
+        "기아 주식회사",
+        "주식회사 폼웍스"
+      ],
+      "applicationNumber": "1020250032550",
+      "publicationNumber": "1020260139353",
+      "applicationDate": "20250313",
+      "publicationDate": "20260922",
+      "registrationDate": null,
+      "registerStatus": "공개",
+      "title": "자동차 내장재용 재생 폴리우레탄폼 조성물 및 그 폴리우레탄폼",
+      "abstract": "본 개시는 자동차 내장재용 재생 폴리우레탄폼 조성물 및 그 폴리우레탄폼에 관한 것이다.  본 개시의 재생 폴리우레탄폼 조성물 및 그 폴리우레탄폼은 폐폴리우레탄폼을 재활용하여 폐자원 순환구조를 완성함으로써 탄소 배출량을 현저히 줄일 수 있고, 신재 폴리우레탄폼과 비교하여 동등 수준의 물성을 나타내어 상업적으로 이용 가능한 장점이 있다.",
+      "ipc": "C08G 18/40|C08G 18/48|C08G 18/76|C08J 9/00|C08J 9/12|B60R 13/02",
+      "themes": [
+        {
+          "theme": "순환소재·폐차재활용",
+          "titleHits": [
+            "자동차 내장재"
+          ],
+          "abstractHits": [
+            "재활용",
+            "자동차 내장재"
+          ]
+        }
+      ],
+      "priorityScore": 60,
+      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
+      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
+      "lookupNumber": "1020260139353",
+      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
+      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
+      "questions": [
+        "이 공개특허의 독립 청구항 핵심 구성과 종전 기술의 차이는 무엇인가?",
+        "기존 동일 출원인 특허·우선권·특허패밀리/해외공개와 중복되지 않는가?",
+        "해당 기술이 연구 단계인지, 현재 양산차·제품/설비에 적용되는가?",
+        "업계 경쟁제품 및 특허 관련 기보도/기업 발표와 다른 사실은 무엇인가?"
+      ],
+      "scoopConfirmed": false,
+      "previouslyObserved": false,
+      "firstObservedAt": "2026-10-13",
+      "initialBaseline": false,
+      "historicalBackfill": true,
+      "freshObservation": false,
+      "observationNote": "직전 스냅샷 이전 공개 공보를 뒤늦게 수집(신규 공개 아님)"
     },
     {
       "company": "현대자동차",
@@ -6533,6 +6823,52 @@
       "company": "기아",
       "applicants": [
         "현대자동차주식회사",
+        "기아 주식회사"
+      ],
+      "applicationNumber": "1020250031305",
+      "publicationNumber": "1020260138182",
+      "applicationDate": "20250311",
+      "publicationDate": "20260918",
+      "registrationDate": null,
+      "registerStatus": "공개",
+      "title": "가속 열산화 에이징에 기반하여 폴리머 중의 재활용 소재 비율을 계산하는 방법",
+      "abstract": "본 발명은 가속 열산화 에이징에 기반하여 폴리머 중의 재활용 소재 비율을 계산하는 방법을 제공하며, 해당 방법은, 단계 (1), 복수의 표준 샘플을 준비하고 열산화 에이징 수행하고, 특징량을 측정하고; 단계 (2), 특징량의 데이터에 따라, 에이징 곡선을 피팅하고, 피크 열화 속도(R) 및/또는 열화 시간(T90-70)을 획득하고; 단계 (3), 피크 열화 속도(R) 및/또는 열화 시간(T90-70), 및 재활용 소재 비율에 따라, 피크 열화 속도(R) 및/또는 열화 시간(T90-70)과 재활용 소재 비율(ratio) 간의 관계를 피팅하여 얻고; 단계 (4), 분석 대상 샘플을 준비하고, 열산화 에이징을 수행하고 특징량을 측정하고; 단계 (5), 특징량의 데이터에 따라, 피팅하여 에이징 곡선을 얻고, 분석 대상 샘플의 피크 열화 속도(R) 및/또는 열화 시간(T90-70)를 획득하고; 및 단계 (6), 단계 (4)에서 얻은 관계, 단계 (5)에서 얻은 피크 열화 속도(R) 및/또는 열화 시간(T90-70)에 따라, 분석 대상 샘플의 재활용 소재 비율을 계산하는 단계를 포함한다.",
+      "ipc": "G16C 60/00|G16C 20/10|G16C 20/70|G01N 33/44",
+      "themes": [
+        {
+          "theme": "순환소재·폐차재활용",
+          "titleHits": [
+            "재활용"
+          ],
+          "abstractHits": [
+            "재활용"
+          ]
+        }
+      ],
+      "priorityScore": 60,
+      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
+      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
+      "lookupNumber": "1020260138182",
+      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
+      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
+      "questions": [
+        "이 공개특허의 독립 청구항 핵심 구성과 종전 기술의 차이는 무엇인가?",
+        "기존 동일 출원인 특허·우선권·특허패밀리/해외공개와 중복되지 않는가?",
+        "해당 기술이 연구 단계인지, 현재 양산차·제품/설비에 적용되는가?",
+        "업계 경쟁제품 및 특허 관련 기보도/기업 발표와 다른 사실은 무엇인가?"
+      ],
+      "scoopConfirmed": false,
+      "previouslyObserved": false,
+      "firstObservedAt": "2026-10-13",
+      "initialBaseline": false,
+      "historicalBackfill": true,
+      "freshObservation": false,
+      "observationNote": "직전 스냅샷 이전 공개 공보를 뒤늦게 수집(신규 공개 아님)"
+    },
+    {
+      "company": "기아",
+      "applicants": [
+        "현대자동차주식회사",
         "기아 주식회사",
         "한국컨테이너풀 주식회사"
       ],
@@ -6809,6 +7145,52 @@
       "historicalBackfill": false,
       "freshObservation": false,
       "observationNote": "이미 관측된 공개공보"
+    },
+    {
+      "company": "현대자동차",
+      "applicants": [
+        "현대자동차주식회사",
+        "기아 주식회사"
+      ],
+      "applicationNumber": "1020250031305",
+      "publicationNumber": "1020260138182",
+      "applicationDate": "20250311",
+      "publicationDate": "20260918",
+      "registrationDate": null,
+      "registerStatus": "공개",
+      "title": "가속 열산화 에이징에 기반하여 폴리머 중의 재활용 소재 비율을 계산하는 방법",
+      "abstract": "본 발명은 가속 열산화 에이징에 기반하여 폴리머 중의 재활용 소재 비율을 계산하는 방법을 제공하며, 해당 방법은, 단계 (1), 복수의 표준 샘플을 준비하고 열산화 에이징 수행하고, 특징량을 측정하고; 단계 (2), 특징량의 데이터에 따라, 에이징 곡선을 피팅하고, 피크 열화 속도(R) 및/또는 열화 시간(T90-70)을 획득하고; 단계 (3), 피크 열화 속도(R) 및/또는 열화 시간(T90-70), 및 재활용 소재 비율에 따라, 피크 열화 속도(R) 및/또는 열화 시간(T90-70)과 재활용 소재 비율(ratio) 간의 관계를 피팅하여 얻고; 단계 (4), 분석 대상 샘플을 준비하고, 열산화 에이징을 수행하고 특징량을 측정하고; 단계 (5), 특징량의 데이터에 따라, 피팅하여 에이징 곡선을 얻고, 분석 대상 샘플의 피크 열화 속도(R) 및/또는 열화 시간(T90-70)를 획득하고; 및 단계 (6), 단계 (4)에서 얻은 관계, 단계 (5)에서 얻은 피크 열화 속도(R) 및/또는 열화 시간(T90-70)에 따라, 분석 대상 샘플의 재활용 소재 비율을 계산하는 단계를 포함한다.",
+      "ipc": "G16C 60/00|G16C 20/10|G16C 20/70|G01N 33/44",
+      "themes": [
+        {
+          "theme": "순환소재·폐차재활용",
+          "titleHits": [
+            "재활용"
+          ],
+          "abstractHits": [
+            "재활용"
+          ]
+        }
+      ],
+      "priorityScore": 60,
+      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
+      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
+      "lookupNumber": "1020260138182",
+      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
+      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
+      "questions": [
+        "이 공개특허의 독립 청구항 핵심 구성과 종전 기술의 차이는 무엇인가?",
+        "기존 동일 출원인 특허·우선권·특허패밀리/해외공개와 중복되지 않는가?",
+        "해당 기술이 연구 단계인지, 현재 양산차·제품/설비에 적용되는가?",
+        "업계 경쟁제품 및 특허 관련 기보도/기업 발표와 다른 사실은 무엇인가?"
+      ],
+      "scoopConfirmed": false,
+      "previouslyObserved": false,
+      "firstObservedAt": "2026-10-13",
+      "initialBaseline": false,
+      "historicalBackfill": true,
+      "freshObservation": false,
+      "observationNote": "직전 스냅샷 이전 공개 공보를 뒤늦게 수집(신규 공개 아님)"
     },
     {
       "company": "현대자동차",
@@ -7943,6 +8325,51 @@
       "historicalBackfill": false,
       "freshObservation": false,
       "observationNote": "이미 관측된 공개공보"
+    },
+    {
+      "company": "두산에너빌리티",
+      "applicants": [
+        "두산에너빌리티 주식회사"
+      ],
+      "applicationNumber": "1020250027709",
+      "publicationNumber": "1020260135118",
+      "applicationDate": "20250304",
+      "publicationDate": "20260911",
+      "registrationDate": null,
+      "registerStatus": "공개",
+      "title": "중간 냉각 배출기능 및 수소 회수를 통해 미반응 가스를 효율적으로 재활용하는 메탄올 생산 시스템",
+      "abstract": "본 발명의 일 실시 예는, 이산화탄소가 포함된 탄화수소류(CxHy) 가스인 폐가스를 개질하여 수소와 일산화탄소 및 이산화탄소를 포함하는 합성가스를 생성하는 폐가스 개질부;와, 상기 합성가스가 공급되며 제1 촉매에 의해 상기 합성가스가 반응하여 메탄올이 생성되는 제1 반응구역과, 상기 제1 반응구역에서 미반응된 미반응 가스가 공급되며 제2 촉매에 의해 상기 미반응 가스가 반응하여 메탄올이 생성되는 제2 반응구역을 포함하는 메탄올 생산 반응부;와, 상기 메탄올 생산 반응부에서 배출되는 가스에서 메탄올과 물을 응축시키는 제1 응축부; 및 상기 제1 응축부에서 메탄올과 물이 응축되어 분리된 후 배출되는 가스로부터 수소 또는 수소와 일산화탄소를 재활용 가스로서 분리하는 분리부;를 포함하는, 메탄올 생산 시스템을 제공한다.",
+      "ipc": "C07C 29/151|C07C 29/76|C07C 29/80|C07C 29/152|C07C 31/04",
+      "themes": [
+        {
+          "theme": "순환소재·폐차재활용",
+          "titleHits": [
+            "재활용"
+          ],
+          "abstractHits": [
+            "재활용"
+          ]
+        }
+      ],
+      "priorityScore": 60,
+      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
+      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
+      "lookupNumber": "1020260135118",
+      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
+      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
+      "questions": [
+        "이 공개특허의 독립 청구항 핵심 구성과 종전 기술의 차이는 무엇인가?",
+        "기존 동일 출원인 특허·우선권·특허패밀리/해외공개와 중복되지 않는가?",
+        "해당 기술이 연구 단계인지, 현재 양산차·제품/설비에 적용되는가?",
+        "업계 경쟁제품 및 특허 관련 기보도/기업 발표와 다른 사실은 무엇인가?"
+      ],
+      "scoopConfirmed": false,
+      "previouslyObserved": false,
+      "firstObservedAt": "2026-10-13",
+      "initialBaseline": false,
+      "historicalBackfill": true,
+      "freshObservation": false,
+      "observationNote": "직전 스냅샷 이전 공개 공보를 뒤늦게 수집(신규 공개 아님)"
     },
     {
       "company": "포스코",
@@ -9905,6 +10332,49 @@
       "observationNote": "이미 관측된 공개공보"
     },
     {
+      "company": "현대모비스",
+      "applicants": [
+        "현대모비스 주식회사"
+      ],
+      "applicationNumber": "1020250031670",
+      "publicationNumber": "1020260138328",
+      "applicationDate": "20250311",
+      "publicationDate": "20260918",
+      "registrationDate": null,
+      "registerStatus": "공개",
+      "title": "차량의 현가장치",
+      "abstract": "본 발명은 차량의 현가장치에 관한 것으로, 쇽업소버(20)의 실린더(21)에 스냅링(130)이 결합되고, 스프링로워시트(110)를 플라스틱으로 형성하고, 스냅링(130)과 스프링로워시트(110)에 결합된 인서트구조물(140)이 나사 체결구조로 결합되고, 인서트구조물(140)에서 스프링로워시트(110)와 접촉하는 일면에 복수개의 구조물돌기(142)가 구비되어서, 스냅링(130)과 인서트구조물(140)의 나사체결시 구조물돌기(142)는 스프링로워시트(110)와 인서트구조물(140)사이의 슬립을 방지할 수 있도록 된 것이다.",
+      "ipc": "B60G 15/06|B60G 11/16",
+      "themes": [
+        {
+          "theme": "순환소재·폐차재활용",
+          "titleHits": [],
+          "abstractHits": [
+            "플라스틱"
+          ]
+        }
+      ],
+      "priorityScore": 46,
+      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
+      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
+      "lookupNumber": "1020260138328",
+      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
+      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
+      "questions": [
+        "이 공개특허의 독립 청구항 핵심 구성과 종전 기술의 차이는 무엇인가?",
+        "기존 동일 출원인 특허·우선권·특허패밀리/해외공개와 중복되지 않는가?",
+        "해당 기술이 연구 단계인지, 현재 양산차·제품/설비에 적용되는가?",
+        "업계 경쟁제품 및 특허 관련 기보도/기업 발표와 다른 사실은 무엇인가?"
+      ],
+      "scoopConfirmed": false,
+      "previouslyObserved": false,
+      "firstObservedAt": "2026-10-13",
+      "initialBaseline": false,
+      "historicalBackfill": true,
+      "freshObservation": false,
+      "observationNote": "직전 스냅샷 이전 공개 공보를 뒤늦게 수집(신규 공개 아님)"
+    },
+    {
       "company": "현대자동차",
       "applicants": [
         "현대자동차주식회사",
@@ -10079,6 +10549,49 @@
       "historicalBackfill": false,
       "freshObservation": false,
       "observationNote": "이미 관측된 공개공보"
+    },
+    {
+      "company": "두산에너빌리티",
+      "applicants": [
+        "두산에너빌리티 주식회사"
+      ],
+      "applicationNumber": "1020250027710",
+      "publicationNumber": "1020260135119",
+      "applicationDate": "20250304",
+      "publicationDate": "20260911",
+      "registrationDate": null,
+      "registerStatus": "공개",
+      "title": "효과적인 메탄올 생산을 위해 미반응 가스를 재사용하는 메탄올 생산 시스템",
+      "abstract": "본 발명의 일 실시 예는, 이산화탄소가 포함된 탄화수소류(CxHy) 가스인 폐가스를 개질하여 수소와 일산화탄소 및 이산화탄소를 포함하는 합성가스를 생성하는 폐가스 개질부;와, 상기 합성가스의 일부가 공급되며 제1 촉매에 의해 상기 합성가스가 반응하여 메탄올이 생성되는 제1 반응구역과, 상기 합성가스의 나머지 일부가 공급되며 제2 촉매에 의해 상기 합성가스가 반응하여 메탄올이 생성되는 제2 반응구역을 포함하는 메탄올 생산 반응부;와, 상기 메탄올 생산 반응부에서 배출되는 가스에서 메탄올과 물을 응축시키는 응축부; 및 상기 응축부에서 메탄올과 물이 응축되어 분리된 후 배출되는 가스로부터 수소 또는 수소와 일산화탄소를 재활용 가스로서 분리하는 분리부;를 포함하는, 메탄올 생산 시스템을 제공한다.",
+      "ipc": "C07C 29/151|C07C 29/76|C07C 29/80|C07C 29/152|C07C 31/04",
+      "themes": [
+        {
+          "theme": "순환소재·폐차재활용",
+          "titleHits": [],
+          "abstractHits": [
+            "재활용"
+          ]
+        }
+      ],
+      "priorityScore": 46,
+      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
+      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
+      "lookupNumber": "1020260135119",
+      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
+      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
+      "questions": [
+        "이 공개특허의 독립 청구항 핵심 구성과 종전 기술의 차이는 무엇인가?",
+        "기존 동일 출원인 특허·우선권·특허패밀리/해외공개와 중복되지 않는가?",
+        "해당 기술이 연구 단계인지, 현재 양산차·제품/설비에 적용되는가?",
+        "업계 경쟁제품 및 특허 관련 기보도/기업 발표와 다른 사실은 무엇인가?"
+      ],
+      "scoopConfirmed": false,
+      "previouslyObserved": false,
+      "firstObservedAt": "2026-10-13",
+      "initialBaseline": false,
+      "historicalBackfill": true,
+      "freshObservation": false,
+      "observationNote": "직전 스냅샷 이전 공개 공보를 뒤늦게 수집(신규 공개 아님)"
     },
     {
       "company": "현대자동차",
@@ -10428,10 +10941,21 @@
     "기아|1020260136831": "2026-10-13",
     "기아|1020260134981": "2026-10-13",
     "기아|1020260135063": "2026-10-13",
-    "기아|1020260134271": "2026-10-13"
+    "기아|1020260134271": "2026-10-13",
+    "현대자동차|1020260147319": "2026-10-13",
+    "현대자동차|1020260146861": "2026-10-13",
+    "현대자동차|1020260139353": "2026-10-13",
+    "현대자동차|1020260138182": "2026-10-13",
+    "기아|1020260147319": "2026-10-13",
+    "기아|1020260146861": "2026-10-13",
+    "기아|1020260139353": "2026-10-13",
+    "기아|1020260138182": "2026-10-13",
+    "현대모비스|1020260138328": "2026-10-13",
+    "두산에너빌리티|1020260135119": "2026-10-13",
+    "두산에너빌리티|1020260135118": "2026-10-13"
   },
   "confirmedScoops": 0,
-  "displayedCount": 213,
+  "displayedCount": 224,
   "unshownCount": 0,
   "sourceWindowComplete": true,
   "coverageWarning": "첫 조회는 과거 35일 공개공보의 기준선. 출원일과 공개일이 다르고 특허 공개는 출시/양산·단독 확정이 아님. API 미지원/절단/장애는 회사 0건 아님"
