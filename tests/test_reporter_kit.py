@@ -36,6 +36,13 @@ class ReporterKitTests(unittest.TestCase):
         self.assertEqual(list(customs.chunks("202501","202602")), [("202501","202512"),("202601","202602")])
         self.assertEqual(customs.month_add("202512",1), "202601")
 
+    def test_customs_invalid_numbers_must_not_be_zero(self):
+        self.assertEqual(customs.num("0"), 0.0)
+        for invalid in ("", "not-a-number", None):
+            with self.subTest(invalid=invalid):
+                with self.assertRaises(ValueError):
+                    customs.num(invalid)
+
     def test_news_check_requires_explicit_credentials(self):
         with patch.dict("os.environ", {"NAVER_CLIENT_ID":"","NAVER_CLIENT_SECRET":""}):
             with patch.object(sys,"argv",["news_check.py","현대차"]):
