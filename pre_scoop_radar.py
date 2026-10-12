@@ -5,12 +5,14 @@ import html
 import os
 import json
 import re
+import urllib.error
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 from pathlib import Path
+from html.parser import HTMLParser
 
 KST = timezone(timedelta(hours=9))
 OUT = Path("pre_scoop.json")
@@ -356,212 +358,461 @@ def parse_bing_html(raw, domain, group, now, diag=None):
         })
     return out
 
-def fetch_direct_ntis_announcements(max_items=12):
-    """Fetch dated NTIS national R&D calls directly, rather than relying on search-engine indexing."""
-    base="https://www.ntis.go.kr"
-    now=datetime.now(KST)
-    cutoff=now-timedelta(days=LOOKBACK_DAYS)
-    terms=["자동차","전기차","배터리","철강","변압기","전력망","해상풍력","수소발전","원전","탄소","소재"]
-    batches=[terms[i:i+3] for i in range(0,len(terms),3)]
-    slot=int(now.timestamp()//1800)%len(batches)
-    active_terms=batches[slot]
-    diag={
-        "queriesAttempted":0,"searchPagesFetched":0,"announcementLinks":0,
-        "detailPagesAttempted":0,"detailPagesFetched":0,"datedRecords":0,"recentRecords":0,"retained":0,
-        "queryTerms":active_terms,"errors":[],"sampleRows":[],"sampleAnchors":[]
-    }
-    DIRECT_DIAGNOSTICS["ntis-announcements"]=diag
-    anchor_re=re.compile(r'<a\b[^>]+href=["\']([^"\']+)["\'][^>]*>(.*?)</a>',re.I|re.S)
-    date_re=re.compile(r"공고일\s*[:：]?\s*(20\d{2}\s*[./-]\s*\d{1,2}\s*[./-]\s*\d{1,2})")
-    out=[];seen=set()
+def _ntis_detail_url(href):
+    """Canonicalize only observed official announcement IDs, never arbitrary hosts."""
+    parsed = urllib.parse.urlsplit(urllib.parse.urljoin("https://www.ntis.go.kr", html.unescape(href)))
+    if (parsed.scheme not in ("http", "https") or parsed.netloc.lower() != "www.ntis.go.kr"
+            or parsed.path != "/rndgate/eg/un/ra/view.do"):
+        return ""
+    ids = urllib.parse.parse_qs(parsed.query).get("roRndUid", [])
+    if len(ids) != 1 or not re.fullmatch(r"\d{1,16}", ids[0]):
+        return ""
+    return "https://www.ntis.go.kr/rndgate/eg/un/ra/view.do?" + urllib.parse.urlencode({"roRndUid": ids[0]})
 
-    for term in active_terms:
-        query_url=base+"/ThSearchResultAnnouncementList.do?"+urllib.parse.urlencode({
-            "searchSentence":"",
-            "searchWord":term,
-            "sort":"SS01/DESC"
-        })
-        diag["queriesAttempted"]+=1
+
+def _ntis_fetch(url, diag, stage, timeout=12):
+    for attempt in range(2):
+        diag["httpAttempts"] += 1
         try:
-            listing=get(query_url,timeout=10).decode("utf-8","ignore")
-            diag["searchPagesFetched"]+=1
-            if len(diag["sampleAnchors"])<8:
-                diag["sampleAnchors"].append({
-                    "queryTerm":term,
-                    "pageTitle":clean(re.search(r"<title[^>]*>(.*?)</title>",listing,re.I|re.S).group(1))[:120]
-                        if re.search(r"<title[^>]*>(.*?)</title>",listing,re.I|re.S) else "",
-                    "pageBytes":len(listing),
-                    "containsAnnouncementPath":"/rndgate/eg/un/ra/view.do" in listing,
-                    "containsAnnouncementText":bool(re.search(r"국가R&D통합공고|공고명|공고일",listing)),
-                    "anchorSamples":[{"href":html.unescape(m.group(1))[:260],"title":clean(m.group(2))[:160]}
-                        for m in list(anchor_re.finditer(listing))[:8]]
-                })
-        except Exception as exc:
-            if len(diag["errors"])<4:
-                diag["errors"].append(f"search {term}: {type(exc).__name__}: {exc}"[:240])
-            continue
+            return decode_web_bytes(get(url, timeout=timeout))
+        except (OSError, urllib.error.URLError) as exc:
+            retry = attempt == 0 and (not isinstance(exc, urllib.error.HTTPError)
+                                     or exc.code == 429 or exc.code >= 500)
+            diag["errors"].append({"stage": stage, "url": url, "attempt": attempt + 1,
+                                   "error": f"{type(exc).__name__}: {exc}"[:240], "retry": retry})
+            if not retry:
+                return None
+            diag["retries"] += 1
+    return None
 
-        for match in anchor_re.finditer(listing):
-            href=html.unescape(match.group(1).strip())
-            title=clean(match.group(2))
-            if not title or len(title)<10:
-                continue
+
+class _NtisBodyParser(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.depth = 0
+        self.skip = 0
+        self.parts = []
+
+    def handle_starttag(self, tag, attrs):
+        attrs = dict(attrs)
+        if tag == "div" and (self.depth or "notice_cont" in attrs.get("class", "").split()):
+            self.depth += 1
+        if self.depth and tag in ("script", "style"):
+            self.skip += 1
+        if self.depth and tag in ("p", "br", "div", "tr", "li"):
+            self.parts.append("\n")
+
+    def handle_endtag(self, tag):
+        if self.depth and tag in ("script", "style"):
+            self.skip = max(0, self.skip - 1)
+        if self.depth and tag in ("p", "div", "tr", "li"):
+            self.parts.append("\n")
+        if self.depth and tag == "div":
+            self.depth -= 1
+
+    def handle_data(self, data):
+        if self.depth and not self.skip:
+            self.parts.append(data)
+
+
+def _ntis_title_key(value):
+    # NTIS search indexing drops the ampersand in R&D; detail HTML preserves it.
+    return re.sub(r"\s+", "", re.sub(r"\bR\s*&\s*D\b", "RD", value, flags=re.I))
+
+
+def parse_ntis_detail(markup):
+    heading = re.search(r'<h1\b[^>]*class=["\'][^"\']*\bditail_tit\b[^"\']*["\'][^>]*>(.*?)</h1>', markup, re.I | re.S)
+    if not heading:
+        return "", {}, ""
+    title = clean(heading[1])
+    fields = {}
+    for row in re.findall(r"<li\b[^>]*>(.*?)</li>", markup[heading.end():], re.I | re.S):
+        match = re.search(r"<span\b[^>]*>(.*?)</span>(.*)", row, re.I | re.S)
+        if match:
+            label = clean(match[1]).rstrip(":： ")
+            if label in ("공고일", "접수일", "마감일", "사업명", "부처명", "공고기관명", "공고금액"):
+                fields.setdefault(label, clean(match[2]))
+    parser = _NtisBodyParser()
+    parser.feed(markup)
+    lines = [re.sub(r"\s+", " ", line).strip() for line in "".join(parser.parts).splitlines()]
+    return title, fields, "\n".join(line for line in lines if line)
+
+
+def fetch_direct_ntis_announcements(max_items=12, query_terms=None, max_details=8):
+    """Bounded official-source collection; round-robin prevents first-term starvation."""
+    now = datetime.now(KST)
+    cutoff = now - timedelta(days=LOOKBACK_DAYS)
+    terms = ["자동차", "전기차", "배터리", "철강", "변압기", "전력망", "해상풍력", "수소발전", "원전", "탄소", "소재"]
+    batches = [terms[i:i+3] for i in range(0, len(terms), 3)]
+    active_terms = list(dict.fromkeys(query_terms if query_terms is not None else batches[int(now.timestamp() // 1800) % len(batches)]))
+    diag = {"queriesAttempted": 0, "searchPagesFetched": 0, "searchPagesParsed": 0,
+            "announcementLinks": 0, "invalidLinks": 0, "duplicateLinks": 0,
+            "detailPagesAttempted": 0, "detailPagesFetched": 0, "datedRecords": 0,
+            "recentRecords": 0, "retained": 0, "httpAttempts": 0, "retries": 0,
+            "queryTerms": active_terms, "queryDiagnostics": [], "errors": [],
+            "exclusions": {}, "sampleRows": [], "coverageLimited": False}
+    DIRECT_DIAGNOSTICS["ntis-announcements"] = diag
+    if max_items < 1 or max_details < 1 or not active_terms:
+        diag["status"] = "disabled_by_limit"
+        return []
+
+    def exclude(reason, url):
+        diag["exclusions"][reason] = diag["exclusions"].get(reason, 0) + 1
+        if len(diag["sampleRows"]) < 12:
+            diag["sampleRows"].append({"url": url, "reason": reason})
+
+    queues = []
+    for term in active_terms:
+        qdiag = {"term": term, "links": 0, "detailPagesAttempted": 0, "detailPagesFetched": 0}
+        diag["queryDiagnostics"].append(qdiag)
+        queue = []
+        queues.append((qdiag, queue))
+        url = "https://www.ntis.go.kr/ThSearchResultAnnouncementList.do?" + urllib.parse.urlencode({
+            "searchSentence": "", "searchWord": term, "sort": "SS01/DESC,RANK/DESC"})
+        diag["queriesAttempted"] += 1
+        markup = _ntis_fetch(url, diag, f"search:{term}")
+        if markup is None:
+            qdiag["status"] = "search_fetch_failed"
+            diag["coverageLimited"] = True
+            continue
+        diag["searchPagesFetched"] += 1
+        for match in re.finditer(r'<a\b[^>]+href=["\']([^"\']+)["\'][^>]*>(.*?)</a>', markup, re.I | re.S):
+            href, title = html.unescape(match[1]), clean(match[2])
             if "/rndgate/eg/un/ra/view.do" not in href:
                 continue
-            url=urllib.parse.urljoin(base,href)
+            detail_url = _ntis_detail_url(href)
+            if not detail_url or len(title) < 10:
+                diag["invalidLinks"] += 1
+                continue
+            queue.append((detail_url, title))
+        total = re.search(r'id=["\']totalCnt["\'][^>]*value=["\'](\d+)["\']', markup, re.I)
+        if not queue and (not total or int(total[1]) != 0):
+            qdiag["status"] = "detail_links_missing_or_invalid_list"
+            diag["coverageLimited"] = True
+            continue
+        diag["searchPagesParsed"] += 1
+        qdiag.update(status="list_parsed", links=len(queue), totalResults=int(total[1]) if total else None)
+        # Only the first results page is checked, not the whole NTIS catalogue.
+        if not total or int(total[1]) > len(queue):
+            diag["coverageLimited"] = True
+
+    ordered, seen = [], set()
+    for index in range(max((len(queue) for _, queue in queues), default=0)):
+        for qdiag, queue in queues:
+            if index >= len(queue):
+                continue
+            url, title = queue[index]
             if url in seen:
+                diag["duplicateLinks"] += 1
                 continue
             seen.add(url)
-            diag["announcementLinks"]+=1
-            if len(out)>=max_items or diag["detailPagesAttempted"]>=8:
-                break
-            diag["detailPagesAttempted"]+=1
-            try:
-                detail_raw=get(url,timeout=8)
-                detail=clean(detail_raw.decode("utf-8","ignore"))
-                diag["detailPagesFetched"]+=1
-            except Exception as exc:
-                if len(diag["errors"])<4:
-                    diag["errors"].append(f"detail {title[:70]}: {type(exc).__name__}: {exc}"[:240])
-                continue
-
-            date_match=date_re.search(detail)
-            if not date_match:
-                if len(diag["sampleRows"])<8:
-                    diag["sampleRows"].append({"title":title[:180],"url":url,"reason":"no explicit 공고일 field"})
-                continue
-            diag["datedRecords"]+=1
-            date_value=re.sub(r"\s+","",date_match.group(1)).replace(".","-").replace("/","-")
-            dt=parse_dt(date_value)
-            if dt.year<2000 or dt<cutoff or dt>now+timedelta(hours=6):
-                if len(diag["sampleRows"])<8:
-                    diag["sampleRows"].append({"title":title[:180],"url":url,"published":dt.isoformat(),"reason":"outside lookback"})
-                continue
-            diag["recentRecords"]+=1
-
-            # This is a published public-sector R&D call, so it is surfaced as
-            # follow-up context rather than treated as an unpublished scoop.
-            companies=target_hits(title+" "+detail)
-            out.append({
-                "sourceName":"NTIS 국가R&D통합공고",
-                "officialLabel":"NTIS",
-                "querySite":"ntis.go.kr",
-                "sourceGroup":"R&D·기술",
-                "title":title,
-                "url":url,
-                "published":dt.isoformat(),
-                "summary":detail[:3500],
-                "official":True,
-                "preScoop":True,
-                "directSource":True,
-                "policySignal":True,
-                "category":"정책·규제",
-                "companies":companies,
-                "signalType":"ntis_rnd_announcement",
-                "dateSource":"NTIS 공고일"
-            })
-            if len(out)>=max_items:
-                break
-        if len(out)>=max_items:
+            ordered.append((qdiag, url, title))
+    diag["announcementLinks"] = len(ordered)
+    out = []
+    for qdiag, url, listed_title in ordered[:max_details]:
+        if len(out) >= max_items:
             break
-
-    diag["retained"]=len(out)
+        diag["detailPagesAttempted"] += 1
+        qdiag["detailPagesAttempted"] += 1
+        markup = _ntis_fetch(url, diag, "detail")
+        if markup is None:
+            exclude("detail_fetch_failed", url)
+            continue
+        diag["detailPagesFetched"] += 1
+        qdiag["detailPagesFetched"] += 1
+        title, fields, body = parse_ntis_detail(markup)
+        if not title:
+            exclude("detail_structure_or_title_missing", url)
+            continue
+        if _ntis_title_key(title) != _ntis_title_key(listed_title):
+            exclude("list_detail_title_mismatch", url)
+            continue
+        date = re.sub(r"\s+", "", fields.get("공고일", ""))
+        dt = parse_dt(date)
+        if not re.fullmatch(r"20\d{2}[./-]\d{1,2}[./-]\d{1,2}", date) or dt.year < 2000:
+            exclude("announcement_date_missing_or_invalid", url)
+            continue
+        diag["datedRecords"] += 1
+        if dt < cutoff or dt > now + timedelta(hours=6):
+            exclude("outside_lookback", url)
+            continue
+        diag["recentRecords"] += 1
+        if not body or body == "공고내용":
+            exclude("body_missing", url)
+            continue
+        out.append({"sourceName": "NTIS 국가R&D통합공고", "officialLabel": "NTIS",
+                    "querySite": "ntis.go.kr", "sourceGroup": "R&D·기술", "title": title,
+                    "url": url, "published": dt.isoformat(), "summary": body[:3500], "bodyText": body,
+                    "official": True, "preScoop": True, "directSource": True, "policySignal": True,
+                    "category": "정책·규제", "companies": target_hits(title),
+                    "signalType": "ntis_rnd_announcement", "dateSource": "NTIS 공고일",
+                    "announcementFields": fields, "programName": fields.get("사업명", ""),
+                    "verification": "공개 원자료 추적 — 기업 참여·선정 및 단독 여부 미확인",
+                    "evidenceLimitations": ["첨부문서는 수집하지 않음", "공모 자체는 기업 참여의 증거가 아님"]})
+    diag["retained"] = len(out)
+    diag["detailsSkippedByLimit"] = len(ordered) - diag["detailPagesAttempted"]
+    diag["coverageLimited"] |= bool(diag["detailsSkippedByLimit"])
+    diag["status"] = ("search_fetch_or_parse_failed" if not diag["searchPagesParsed"] else
+                      "empty_official_search" if not ordered else
+                      "detail_fetch_failed" if not diag["detailPagesFetched"] else
+                      "detail_parse_failed" if not diag["datedRecords"] else
+                      "no_recent_publications_in_checked_details" if not diag["recentRecords"] else
+                      "recent_announcements_checked")
+    diag["collectionComplete"] = not (diag["coverageLimited"] or diag["errors"] or diag["invalidLinks"]
+        or any(reason != "outside_lookback" for reason in diag["exclusions"]))
     print(f"direct NTIS announcement scout: diagnostics={diag}")
     return out
 
 
 
-def fetch_direct_iris_announcements(max_items=10):
-    """Check IRIS official R&D calls; use publication dates from detail pages.
+IRIS_BASE = "https://www.iris.go.kr"
+IRIS_LIST_PATH = "/contents/retrieveBsnsAncmBtinSituList.do"
 
-    The list shows APPLICATION windows, not necessarily announcement dates.
-    Only stable detail IDs present in the official list are followed.
-    """
-    base="https://www.iris.go.kr"
-    list_url=base+"/contents/retrieveBsnsAncmListView.do"
-    now=datetime.now(KST)
-    cutoff=now-timedelta(days=LOOKBACK_DAYS)
-    diag={"listFetched":False,"detailIdsSeen":0,"detailPagesAttempted":0,
-          "detailPagesFetched":0,"datedRecords":0,"recentRecords":0,
-          "materialRecords":0,"retained":0,"errors":[],"sampleRows":[]}
-    DIRECT_DIAGNOSTICS["iris-rnd-announcements"]=diag
-    out=[]
-    try:
-        listing=decode_web_bytes(get(list_url,timeout=12))
-        diag["listFetched"]=True
-    except Exception as exc:
-        diag["errors"].append(f"list: {type(exc).__name__}: {exc}"[:240])
-        return out
-    # The HTML list may encode the same announcement ID in an href, a data
-    # attribute or a JS navigation call. Do not synthesize unverified IDs.
-    ids=[]
-    for pat in (
-        r"retrieveBsnsAncmView\.do\?[^\"'\s<>]*?ancmId=(\d{4,})",
-        r"ancmId\s*[:=]\s*['\"]?(\d{4,})",
-        r"data-ancm-id\s*=\s*['\"](\d{4,})['\"]",
-    ):
-        ids.extend(re.findall(pat,listing,re.I))
-    ids=list(dict.fromkeys(ids))
-    diag["detailIdsSeen"]=len(ids)
-    diag["listUsesJsOrAjax"]=not bool(ids)
-    material_re=re.compile(
-        r"자동차|모빌리티|전기차|배터리|이차전지|철강|강관|소재|부품|장비|"
-        r"변압기|전력망|케이블|풍력|태양광|재생에너지|에너지|전력|수소|"
-        r"원전|원자력|SMR|탄소|희소금속|비철|화학|산업기술|제조|실증",
-        re.I,
-    )
-    date_re=re.compile(r"공고일자\s*[:：]?\s*(20\d{2}\s*[./-]\s*\d{1,2}\s*[./-]\s*\d{1,2})")
-    for ann_id in ids[:12]:
-        diag["detailPagesAttempted"]+=1
-        url=base+"/contents/retrieveBsnsAncmView.do?"+urllib.parse.urlencode({"ancmId":ann_id})
+
+def _iris_request(url, data=None, timeout=12):
+    """Official read-only form POST used by bsnsAncmBtinSituList.js."""
+    if data is None:
+        return get(url, timeout=timeout)
+    req = urllib.request.Request(url, data=urllib.parse.urlencode(data).encode(), headers={
+        "User-Agent": "Mozilla/5.0", "Accept": "application/json",
+        "X-Requested-With": "XMLHttpRequest",
+        "Referer": IRIS_BASE + "/contents/retrieveBsnsAncmBtinSituListView.do",
+    })
+    with urllib.request.urlopen(req, timeout=timeout) as response:
+        return response.read()
+
+
+def _iris_fetch(url, data, diag, stage):
+    # One retry for transport errors only; parser failures must remain visible.
+    for attempt in range(2):
         try:
-            detail=clean(decode_web_bytes(get(url,timeout=9)))
-            diag["detailPagesFetched"]+=1
-        except Exception as exc:
-            if len(diag["errors"])<4:
-                diag["errors"].append(f"detail {ann_id}: {type(exc).__name__}: {exc}"[:240])
+            return decode_web_bytes(_iris_request(url, data))
+        except (OSError, urllib.error.URLError) as exc:
+            retry = attempt == 0 and (not isinstance(exc, urllib.error.HTTPError)
+                                     or exc.code == 429 or exc.code >= 500)
+            diag["errors"].append({"stage": stage, "attempt": attempt + 1,
+                                   "error": f"{type(exc).__name__}: {exc}"[:240],
+                                   "retry": retry})
+            if not retry:
+                return None
+            diag["retries"] += 1
+    return None
+
+
+class _IrisBodyParser(HTMLParser):
+    """Read only the announcement body, excluding menus, scripts and footer."""
+    def __init__(self):
+        super().__init__()
+        self.depth = 0
+        self.skip = 0
+        self.parts = []
+
+    def handle_starttag(self, tag, attrs):
+        attrs = dict(attrs)
+        if tag == "div":
+            if self.depth or "tb_contents" in attrs.get("class", "").split():
+                self.depth += 1
+        if self.depth and tag in ("script", "style"):
+            self.skip += 1
+        if self.depth and tag in ("p", "br", "tr", "li", "div"):
+            self.parts.append("\n")
+
+    def handle_endtag(self, tag):
+        if self.depth and tag in ("script", "style"):
+            self.skip = max(0, self.skip - 1)
+        if self.depth and tag in ("p", "tr", "li", "div"):
+            self.parts.append("\n")
+        if self.depth and tag == "div":
+            self.depth -= 1
+
+    def handle_data(self, data):
+        if self.depth and not self.skip:
+            self.parts.append(data)
+
+
+def parse_iris_detail(markup):
+    # The real page puts 공고일자 BEFORE 공고명. Match labelled fields, not order.
+    fields = {}
+    for row in re.findall(r"<li\b[^>]*>(.*?)</li>", markup, re.I | re.S):
+        match = re.search(r"<(em|strong)\b[^>]*>(.*?)</\1>\s*<span\b[^>]*>(.*?)</span>",
+                          row, re.I | re.S)
+        if match:
+            fields[clean(match[2])] = clean(match[3])
+    for row in re.findall(r"<tr\b[^>]*>(.*?)</tr>", markup, re.I | re.S):
+        cells = [clean(cell) for cell in re.findall(r"<(?:td|th)\b[^>]*>(.*?)</(?:td|th)>", row, re.I | re.S)]
+        if len(cells) >= 2 and cells[0] in ("지원대상", "지원 대상", "자격조건", "세부사업명", "내역사업명"):
+            fields.setdefault(cells[0], " | ".join(cells[1:]))
+    parser = _IrisBodyParser()
+    parser.feed(markup)
+    lines = [re.sub(r"\s+", " ", line).strip() for line in "".join(parser.parts).splitlines()]
+    body = "\n".join(line for line in lines if line)
+    return fields, body
+
+
+def _iris_company_mentions(text):
+    # These are literal mentions, NOT proof of participation or direct-beat status.
+    aliases = {"현대차": ("현대차", "현대자동차"),
+               "메르세데스벤츠코리아": ("메르세데스벤츠코리아", "메르세데스-벤츠 코리아"),
+               "BMW코리아": ("BMW코리아", "BMW 코리아"),
+               "LS MnM": ("LS MnM", "LS M&M")}
+    return [name for name in TARGET_COMPANIES if any(
+        re.search(r"(?<![\w])" + re.escape(alias) + r"(?![\w])", text, re.I)
+        for alias in aliases.get(name, (name,)))]
+
+
+def fetch_direct_iris_announcements(max_items=10, max_pages=2, max_details=30):
+    """Read official JSON lists and labelled detail HTML; never infer newness.
+
+    Both open and closed calls are checked. Limits are reported as incomplete
+    coverage, not evidence that no recent calls exist. No output files are written.
+    """
+    now = datetime.now(KST)
+    cutoff = now - timedelta(days=LOOKBACK_DAYS)
+    diag = {"listFetched": False, "listPagesAttempted": 0, "listPagesFetched": 0,
+            "listPagesParsed": 0, "detailIdsSeen": 0, "duplicateIds": 0,
+            "invalidIds": 0, "detailPagesAttempted": 0, "detailPagesFetched": 0,
+            "datedRecords": 0, "recentRecords": 0, "materialRecords": 0,
+            "companyMentionRecords": 0, "retained": 0, "retries": 0,
+            "exclusions": {}, "errors": [], "sampleRows": [], "tabs": {},
+            "listUsesJsOrAjax": True, "listTransport": "official_form_post_json",
+            "coverageLimited": False}
+    DIRECT_DIAGNOSTICS["iris-rnd-announcements"] = diag
+    if min(max_items, max_pages, max_details) < 1:
+        diag["status"] = "disabled_by_limit"
+        return []
+
+    def exclude(reason, ann_id):
+        diag["exclusions"][reason] = diag["exclusions"].get(reason, 0) + 1
+        if len(diag["sampleRows"]) < 12:
+            diag["sampleRows"].append({"ancmId": ann_id, "reason": reason})
+
+    announcements = {}
+    for tab in ("ancmIng", "ancmEnd"):
+        for page in range(1, max_pages + 1):
+            diag["listPagesAttempted"] += 1
+            listing = _iris_fetch(IRIS_BASE + IRIS_LIST_PATH,
+                                  {"pageIndex": page, "prgmId": "", "ancmPrg": tab},
+                                  diag, f"list:{tab}:{page}")
+            if listing is None:
+                diag["coverageLimited"] = True
+                break
+            diag["listFetched"] = True
+            diag["listPagesFetched"] += 1
+            try:
+                data = json.loads(listing)
+                records = data["listBsnsAncmBtinSitu"]
+                paging = data["paginationInfo"]
+                total_pages = int(paging["totalPageCount"])
+                total_records = int(paging["totalRecordCount"])
+                if (not isinstance(records, list) or not all(isinstance(r, dict) for r in records)
+                        or int(paging["currentPageNo"]) != page or total_pages < 0 or total_records < 0):
+                    raise ValueError("unexpected IRIS list schema/page")
+                if not records and total_records > 0:
+                    raise ValueError("empty page with nonzero totalRecordCount")
+            except (ValueError, KeyError, TypeError) as exc:
+                diag["errors"].append({"stage": f"list_parse:{tab}:{page}", "error": str(exc)[:240]})
+                diag["coverageLimited"] = True
+                break
+            diag["listPagesParsed"] += 1
+            diag["tabs"][tab] = {"pagesChecked": page, "totalPages": total_pages,
+                                  "totalRecords": total_records}
+            for record in records:
+                ann_id = record.get("ancmId")
+                if not isinstance(ann_id, str) or not re.fullmatch(r"\d{4,12}", ann_id):
+                    diag["invalidIds"] += 1
+                    continue
+                if ann_id in announcements:
+                    diag["duplicateIds"] += 1
+                    continue
+                announcements[ann_id] = (tab, record)
+            if page >= total_pages:
+                break
+            if page == max_pages:
+                diag["coverageLimited"] = True
+
+    diag["detailIdsSeen"] = len(announcements)
+    # Prioritize actual list announcement dates, never application deadlines.
+    ordered = sorted(announcements.items(), key=lambda pair: parse_dt(pair[1][1].get("ancmDe")), reverse=True)
+    if len(ordered) > max_details:
+        diag["coverageLimited"] = True
+    diag["detailsSkippedByLimit"] = max(0, len(ordered) - max_details)
+    material_re = re.compile(r"자동차|모빌리티|전기차|배터리|이차전지|철강|강관|소재|부품|장비|변압기|전력망|케이블|풍력|태양광|재생에너지|에너지|전력|수소|원전|원자력|SMR|탄소|희소금속|비철|화학|산업기술|제조|실증", re.I)
+    out = []
+    for ann_id, (tab, listed) in ordered[:max_details]:
+        url = IRIS_BASE + "/contents/retrieveBsnsAncmView.do?" + urllib.parse.urlencode({"ancmId": ann_id, "ancmPrg": tab})
+        diag["detailPagesAttempted"] += 1
+        markup = _iris_fetch(url, None, diag, f"detail:{ann_id}")
+        if markup is None:
+            exclude("detail_fetch_failed", ann_id)
             continue
-        date_match=date_re.search(detail)
-        if not date_match:
-            if len(diag["sampleRows"])<5:
-                diag["sampleRows"].append({"ancmId":ann_id,"reason":"no explicit announcement date"})
-            continue
-        dt=parse_dt(date_match.group(1))
-        diag["datedRecords"]+=1
-        if dt.year<2000 or dt<cutoff or dt>now+timedelta(hours=6):
-            if len(diag["sampleRows"])<5:
-                diag["sampleRows"].append({"ancmId":ann_id,"date":dt.isoformat(),"reason":"outside lookback"})
-            continue
-        diag["recentRecords"]+=1
-        tm=re.search(r"공고명\s*[:：]?\s*(.{10,250}?)\s*(?:공고일자|재공고 여부|공고번호)",detail,re.I|re.S)
-        title=tm.group(1).strip() if tm else ""
+        diag["detailPagesFetched"] += 1
+        fields, body = parse_iris_detail(markup)
+        title = fields.get("공고명", "")
         if not title:
-            if len(diag["sampleRows"])<5:
-                diag["sampleRows"].append({"ancmId":ann_id,"reason":"no validated announcement title"})
+            exclude("detail_structure_or_title_missing", ann_id)
             continue
-        body=title+" "+detail[:1800]
-        companies=target_hits(title)
+        date = re.sub(r"\s+", "", fields.get("공고일자", ""))
+        if not re.fullmatch(r"20\d{2}[./-]\d{1,2}[./-]\d{1,2}", date) or parse_dt(date).year < 2000:
+            exclude("announcement_date_missing_or_invalid", ann_id)
+            continue
+        dt = parse_dt(date)
+        diag["datedRecords"] += 1
+        if listed.get("ancmDe") and parse_dt(listed["ancmDe"]).date() != dt.date():
+            exclude("list_detail_date_mismatch", ann_id)
+            continue
+        if listed.get("ancmTl") and clean(listed["ancmTl"]) != title:
+            exclude("list_detail_title_mismatch", ann_id)
+            continue
+        if dt < cutoff or dt > now + timedelta(hours=6):
+            exclude("outside_lookback", ann_id)
+            continue
+        diag["recentRecords"] += 1
+        if not body:
+            exclude("body_missing", ann_id)
+            continue
+        companies = _iris_company_mentions(title)
+        mentions = _iris_company_mentions(title + " " + body)
+        if mentions:
+            diag["companyMentionRecords"] += 1
         if not companies and not material_re.search(title):
+            exclude("no_company_or_industry_in_title", ann_id)
             continue
-        diag["materialRecords"]+=1
+        diag["materialRecords"] += 1
         out.append({
-            "sourceName":"범부처통합연구지원시스템 사업공고",
-            "officialLabel":"IRIS","querySite":"iris.go.kr",
-            "sourceGroup":"R&D·기술","title":title[:280],"url":url,
-            "published":dt.isoformat(),"summary":detail[:3500],
-            "official":True,"preScoop":True,"directSource":True,
-            "policySignal":True,"companies":companies,
-            "signalType":"iris_rnd_announcement","category":"정책·규제",
-            "dateSource":"IRIS 공고일자"
+            "sourceName": "범부처통합연구지원시스템 사업공고", "officialLabel": "IRIS",
+            "querySite": "iris.go.kr", "sourceGroup": "R&D·기술", "title": title,
+            "url": url, "published": dt.isoformat(), "summary": body[:3500],
+            "official": True, "preScoop": True, "directSource": True,
+            "policySignal": True, "companies": companies, "mentionedCompanies": mentions,
+            "signalType": "iris_rnd_announcement", "category": "정책·규제",
+            "dateSource": "IRIS 공고일자", "announcementId": ann_id,
+            "announcementFields": fields, "bodyText": body,
+            "programName": fields.get("내역사업명") or fields.get("사업공고명", ""),
+            "eligibility": fields.get("지원대상") or fields.get("지원 대상") or fields.get("자격조건", ""),
+            "applicationPeriod": fields.get("접수기간", ""),
+            "verification": "공개 원자료 추적 — 공모 공고이며 기업 참여·선정 및 단독 여부 미확인",
+            "evidenceLimitations": ["첨부문서는 수집하지 않음", "기업명 언급은 참여·선정의 증거가 아님"],
         })
-        if len(out)>=max_items:
-            break
-    diag["retained"]=len(out)
-    diag["status"]=("no_detail_ids_in_list" if not ids else
-                    "no_recent_publications_in_checked_details" if not diag["recentRecords"] else
-                    "recent_announcements_checked")
+    diag["retained"] = min(len(out), max_items)
+    diag["recordsSkippedByLimit"] = max(0, len(out) - max_items)
+    if not diag["listPagesParsed"]:
+        status = "list_fetch_or_parse_failed"
+    elif not announcements:
+        status = "invalid_detail_ids" if diag["invalidIds"] else "empty_official_list"
+    elif not diag["detailPagesFetched"]:
+        status = "detail_fetch_failed"
+    elif not diag["datedRecords"]:
+        status = "detail_parse_failed"
+    elif not diag["recentRecords"]:
+        status = "no_recent_publications_in_checked_details"
+    else:
+        status = "recent_announcements_checked"
+    diag["status"] = status
+    diag["collectionComplete"] = not (diag["coverageLimited"] or diag["errors"] or diag["invalidIds"] or diag["recordsSkippedByLimit"]
+        or any(reason not in ("outside_lookback", "no_company_or_industry_in_title") for reason in diag["exclusions"]))
     print(f"direct IRIS scout: diagnostics={diag}")
-    return out
+    return out[:max_items]
+
 
 
 def fetch_direct_court(max_items=12):

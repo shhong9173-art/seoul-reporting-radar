@@ -138,40 +138,54 @@ DIRECT_BEAT_COMPANIES=frozenset({
  "르노코리아","BMW코리아","메르세데스벤츠코리아","아우디코리아",
  "폭스바겐코리아","혼다코리아","한국타이어","넥센타이어","금호타이어",
  "포스코홀딩스","포스코","현대제철","KG스틸","세아홀딩스","세아제강",
- "세아씨엠","동국제강","동국씨엠","고려아연","영풍","LS MnM",
- "HD현대일렉트릭","LS일렉트릭","효성중공업","일진전기","대한전선",
+ "동국제강","고려아연","영풍","LS MnM",
+ "HD현대일렉트릭","LS일렉트릭","대한전선",
  "LS전선","LS지주","두산에너빌리티","GS","GS칼텍스",
- "한화솔루션","OCI","OCI홀딩스",
+ "한화솔루션","OCI","OCI홀딩스","태광","동성케미칼","DL케미칼",
  "한국철강협회","한국풍력산업협회","대한전기협회",
  "한국전기산업진흥회","한국원자력산업협회"
 })
-DIRECT_BEAT_CANONICAL={
- "만도":"HL만도","BMW":"BMW코리아","폭스바겐":"폭스바겐코리아",
- "아우디":"아우디코리아","제네시스":"현대차","LS M&M":"LS MnM"
-}
+# Related companies remain in TARGETS/ALIASES for monitoring, not direct beats.
+DIRECT_BEAT_REVIEW_REQUIRED=frozenset({"세아씨엠","동국씨엠","효성중공업","일진전기"})
+DIRECT_BEAT_CANONICAL={"만도":"HL만도","제네시스":"현대차","LS M&M":"LS MnM"}
+
+
+def strict_company_hits(text):
+    """Recognize an entity, not an affiliate prefix or an acronym substring."""
+    spans=[]
+    aliases=dict(ALIASES)
+    aliases["메르세데스벤츠코리아"]=aliases.get("메르세데스벤츠코리아",())+("메르세데스-벤츠 코리아",)
+    aliases["__related_taekwang__"]=("태광산업","태광실업","태광그룹","Taekwang Industrial","Taekwang Industry","Taekwang Group")
+    suffix=r"(?=$|[^0-9A-Za-z가-힣]|(?:은|는|이|가|을|를|의|와|과|에서|에게|으로|로|도)(?=$|[^0-9A-Za-z가-힣]))"
+    for name, values in aliases.items():
+        for alias in values:
+            pattern=r"(?<![0-9A-Za-z가-힣])"+re.escape(alias)+suffix
+            for match in re.finditer(pattern,str(text or ""),re.I):
+                spans.append((match.start(),match.end(),name))
+    # Prefer the whole entity at each occurrence; a separate parent mention survives.
+    hits=[]
+    for start,end,name in sorted(spans,key=lambda m:(m[0],-(m[1]-m[0]))):
+        if any(a<=start and end<=b and (b-a)>(end-start) for a,b,_ in spans):
+            continue
+        if name not in hits:
+            hits.append(name)
+    return hits
+
+
 def direct_beat_company_hits(x,title):
-    """Require an explicit direct-beat issuer or named company in the title."""
-    detected=target_hits(title)
-    # A prefix match is not a company match: POSCO Future M and POSCO
-    # International are separately tracked suppliers, not the POSCO beat.
-    # Only retain standalone POSCO if explicitly named apart from those issuers.
-    if any(z in detected for z in ("포스코퓨처엠","포스코인터내셔널")):
-        if not re.search(r"포스코(?!퓨처엠|인터내셔널)", title):
-            detected=[name for name in detected if name!="포스코"]
-    if x.get("corpName"):
-        issuer=str(x["corpName"])
-        issuer_hits=target_hits(issuer)
-        if any(z in issuer_hits for z in ("포스코퓨처엠","포스코인터내셔널")):
-            if not re.search(r"포스코(?!퓨처엠|인터내셔널)", issuer):
-                issuer_hits=[name for name in issuer_hits if name!="포스코"]
-        detected=issuer_hits+detected
-    company=COMPANY_BY_DOMAIN.get(str(x.get("querySite") or "").lower())
-    if company and source_group(x)=="기업":
-        detected=[company]+detected
+    detected=strict_company_hits(title)+strict_company_hits(x.get("corpName",""))
+    # Only the actual source host can supply missing company context, not a query hint.
+    try:
+        host=(urllib.parse.urlsplit(str(x.get("url") or "")).hostname or "").lower()
+    except ValueError:
+        host=""
+    if source_group(x)=="기업" and (not detected or all(name in {"BMW","아우디","폭스바겐"} for name in detected)):
+        for company,domain in COMPANY_DOMAINS.items():
+            if company in DIRECT_BEAT_COMPANIES and (host==domain or host.endswith("."+domain)):
+                detected.append(company)
     return list(dict.fromkeys(
-        normalized for name in detected
-        for normalized in [DIRECT_BEAT_CANONICAL.get(name,name)]
-        if normalized in DIRECT_BEAT_COMPANIES
+        DIRECT_BEAT_CANONICAL.get(name,name) for name in detected
+        if DIRECT_BEAT_CANONICAL.get(name,name) in DIRECT_BEAT_COMPANIES
     ))
 
 NOISE_RE=re.compile(r"주가|증권|목표주가|급등|급락|관련주|테마주|특징주|장중|종목|추천주|리포트|기재정정|첨부정정",re.I)
@@ -1018,6 +1032,7 @@ def build_public_signals(primary, dart_rows, now, limit=10, numeric_rows=None):
         if key in seen:
             continue
         seen.add(key)
+        from dart_corrections import public_correction_details
         correction=("기재정정" in report or "첨부정정" in report)
         url=str(d.get("url") or "")
         nr=numeric_by_receipt.get(str(d.get("receiptNo") or ""))
@@ -1028,7 +1043,7 @@ def build_public_signals(primary, dart_rows, now, limit=10, numeric_rows=None):
             "id":hashlib.sha1(("public-dart|"+"|".join(key)).encode()).hexdigest()[:12],
             "signalGroup":group,"kind":report,"companies":direct_beat_company_hits({"corpName":corp},corp),
             "title":f"{corp} {report}"+(" — 변경 항목 대조 필요" if correction else ""),
-            "published":dt.isoformat(),"sourceName":"DART","url":url,"details":[],
+            "published":dt.isoformat(),"sourceName":"DART","url":url,"details":public_correction_details(nr) if correction else [],
             "verification":("공개 공시 · 원문 수치 추출 실패 · 단독 아님" if extract_unavailable else "공개 공시 · 단독 아님"),
             "coverageStatus":("OpenDART 원문 추출 실패: "+extract_error+" 원문 링크에서 조건을 직접 확인해야 하며 미보도 여부는 별도 검증이 필요합니다." if extract_unavailable else ("정정 공시입니다. 최초 공시 대비 변경된 항목을 확인해야 합니다." if correction else "공개 공시입니다. 미보도·단독으로 표시하지 않습니다.")),
             "whyFollowup":("OpenDART 원문 추출이 실패했습니다. 금액·상대방·물량을 확인하기 전에는 계약의 중요도나 미보도 여부를 판단하지 않습니다." if extract_unavailable else "공시 원문에서 실제로 바뀐 숫자·일정·사업 범위를 확인한 뒤, 기존 보도와 회사 설명을 교차 확인해야 합니다."),
@@ -1608,6 +1623,8 @@ def main():
         "sourceGroups":{g:sum(1 for x in final if x.get("sourceGroup")==g) for g in sorted({x.get("sourceGroup","기타") for x in final})},
         "note":"단독감은 중요 뉴스 랭킹이 아닙니다. 실제 단독 기사에서 반복되는 내부 의사결정·생산계획·공급변경·이사회·인사·거래구조·자금조달·규제/인허가 선행 신호를 찾고, 구체적 사실·최근성·원자료성·미보도 여부·실제 전화 확인 가능성을 함께 평가합니다. 일반 공지·행정규칙·행사·채용·단순 계약 규모만으로는 올리지 않습니다."
     }
+    from dart_health import refresh_health
+    refresh_health(payload, capture=True)
     OUT.write_text(json.dumps(payload,ensure_ascii=False,separators=(",",":")),encoding="utf-8")
     print(f"primary-source scoop scout: {len(primary)} primary hits -> {len(final)} selective unreported candidates")
 

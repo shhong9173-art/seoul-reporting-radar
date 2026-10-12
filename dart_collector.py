@@ -206,11 +206,43 @@ def fetch_company(name, corp):
         "page_count": "100",
     }
     try:
-        data = get_json("https://opendart.fss.or.kr/api/list.json?" + urlencode(params))
-        if str(data.get("status")) not in {"000", "013"}:
-            return {"name": name, "items": [], "error": f"status {data.get('status')}: {data.get('message','')}"}
+        all_rows = []
+        expected_pages = None
+        for page in range(1, 6):
+            params['page_no'] = str(page)
+            for attempt in range(2):
+                try:
+                    data = get_json("https://opendart.fss.or.kr/api/list.json?" + urlencode(params))
+                    break
+                except (TimeoutError, ConnectionError):
+                    if attempt:
+                        raise
+                    time.sleep(1)
+                except Exception as exc:
+                    from urllib.error import URLError, HTTPError
+                    transient = (isinstance(exc, HTTPError) and exc.code in {502, 503, 504}) or (isinstance(exc, URLError) and not isinstance(exc, HTTPError))
+                    if not transient or attempt:
+                        raise
+                    time.sleep(1)
+            status = str(data.get('status'))
+            if status == '013' and page == 1:
+                return {'name': name, 'items': []}
+            if status != '000':
+                return {'name': name, 'items': [], 'error': f'page {page}: status {status}'}
+            rows = data.get('list')
+            pages = int(data.get('total_page', 1))
+            if not isinstance(rows, list) or not rows:
+                return {'name': name, 'items': [], 'error': f'page {page}: empty or invalid list'}
+            if pages < 1 or pages > 5 or (expected_pages is not None and pages != expected_pages):
+                return {'name': name, 'items': [], 'error': f'page {page}: pagination limit or changing total_page'}
+            if int(data.get('page_no', page)) != page:
+                return {'name': name, 'items': [], 'error': f'page {page}: wrong page returned'}
+            expected_pages = pages
+            all_rows.extend(rows)
+            if page == pages:
+                break
         items = []
-        for row in data.get("list", []) or []:
+        for row in all_rows:
             report = (row.get("report_nm") or "").strip()
             if not any(k.lower() in report.lower() for k in KEYWORDS):
                 continue
@@ -229,22 +261,14 @@ def fetch_company(name, corp):
             })
         return {"name": name, "items": items}
     except Exception as e:
-        return {"name": name, "items": [], "error": str(e)}
+        return {"name": name, "items": [], "error": type(e).__name__}
 
 def main():
     if not API_KEY:
-        payload = {"generatedAt": datetime.now(timezone.utc).isoformat(), "lookbackDays": LOOKBACK_DAYS, "count": 0, "items": [], "errors": [{"error": "DART_API_KEY is not set"}]}
-        with open(OUT, "w", encoding="utf-8") as f:
-            json.dump(payload, f, ensure_ascii=False, indent=2)
-        return
+        raise SystemExit("DART 수집 실패: API 키 없음; 기존 dart.json 보존")
     corps = fetch_corp_codes()
     if not corps:
-        errors=CORP_CODE_ERRORS or ["No target corp codes resolved"]
-        payload = {"generatedAt": datetime.now(timezone.utc).isoformat(), "lookbackDays": LOOKBACK_DAYS, "count": 0, "items": [], "errors": [{"error": str(err)} for err in errors[:5]]}
-        with open(OUT, "w", encoding="utf-8") as f:
-            json.dump(payload, f, ensure_ascii=False, indent=2)
-        print("DART radar: 0 relevant disclosures", file=sys.stderr)
-        return
+        raise SystemExit("DART 수집 실패: 기업 코드 조회 실패; 기존 dart.json 보존")
     all_items, errors = [], []
     with ThreadPoolExecutor(max_workers=8) as pool:
         futures = {pool.submit(fetch_company, name, corps[name]): name for name in corps}
@@ -253,6 +277,12 @@ def main():
             all_items.extend(result.get("items", []))
             if result.get("error"):
                 errors.append({"corpName": result.get("name"), "error": result["error"]})
+    if errors:
+        # Partial results must not replace a previously complete snapshot.
+        print(json.dumps({"status": "collection_failed", "failedCompanies": len(errors),
+                          "successfulCompanies": len(corps) - len(errors), "errors": errors},
+                         ensure_ascii=False), file=sys.stderr)
+        raise SystemExit("DART 목록 수집 불완전: 기존 dart.json 보존; 정상 0건으로 처리하지 않음")
     all_items.sort(key=lambda x: (x.get("date", ""), x.get("corpName", "")), reverse=True)
     dedup, seen = [], set()
     for row in all_items:
@@ -269,8 +299,10 @@ def main():
         "items": dedup,
         "errors": errors,
     }
-    with open(OUT, "w", encoding="utf-8") as f:
-        json.dump(payload, f, ensure_ascii=False, indent=2)
+    from pathlib import Path
+    temporary = Path(OUT).with_suffix(".json.tmp")
+    temporary.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    temporary.replace(OUT)
     print(f"DART radar: {len(dedup)} relevant disclosures across {len(corps)} target companies")
 
 if __name__ == "__main__": main()

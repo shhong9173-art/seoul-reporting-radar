@@ -156,6 +156,8 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Refresh deployed DART diagnostics
+        run: python dart_health.py
       - name: Stamp browser asset cache versions
         env:
           BUILD_SHA: ${{ github.sha }}
