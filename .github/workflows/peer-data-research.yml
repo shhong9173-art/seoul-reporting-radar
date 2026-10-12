@@ -11,8 +11,10 @@ on:
 permissions:
   contents: write
 concurrency:
-  # Shared with radar writers to prevent simultaneous Git rebase on main.
-  group: newsroom-radar-writers
+  # This job only writes digests/peer_financial_latest.json; no other
+  # newsroom writer touches it. A shared concurrency group can discard
+  # queued scheduled runs while the heavy scoop scout is active.
+  group: peer-financial-research
   cancel-in-progress: false
 jobs:
   scan:
