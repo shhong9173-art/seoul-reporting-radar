@@ -131,8 +131,12 @@ class PatentScoutTests(unittest.TestCase):
         self.assertIn("ServiceKey=fake-key",captured[0])
 
     def test_incomplete_pagination_cannot_be_claimed_all_checked(self):
+        from urllib.parse import parse_qs,urlparse
         def fetch(url):
-            return doc([row()],total=201)
+            page=int(parse_qs(urlparse(url).query)["pageNo"][0])
+            r=row()
+            r["openNumber"]=f"1020260{page:06d}"
+            return doc([r],total=201)
         result=p.search_applicant("fake-key","현대자동차","20260908","20261013",
                                   fetch=fetch,max_pages=2)
         self.assertFalse(result["complete"])
