@@ -109,9 +109,16 @@ def fetch(api_key: str, series: str, month: str) -> list[dict]:
             "serviceKey": api_key, "strtYymm": month, "endYymm": month
         }, timeout=50)
         response.raise_for_status()
+    except requests.HTTPError as exc:
+        # Report only HTTP status and public gateway error code, never the URL/key.
+        try:
+            gw_code = ET.fromstring(exc.response.content).findtext(".//returnReasonCode")
+        except (ET.ParseError, TypeError):
+            gw_code = None
+        status = exc.response.status_code
+        raise RuntimeError(f"{series} {month}: 관세청 API HTTP {status} / gateway {gw_code or 'unknown'} (URL 비공개)") from None
     except requests.RequestException:
-        # requests.HTTPError includes the query URL (and serviceKey) if propagated.
-        raise RuntimeError(f"{series} {month}: API 요청/인증/네트워크 오류 (URL 비공개)") from None
+        raise RuntimeError(f"{series} {month}: API 네트워크 오류 (URL 비공개)") from None
     return parse(response.content, series, month)
 
 
