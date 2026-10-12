@@ -239,16 +239,33 @@ def targeted_press_search(query,fetch=None):
         if root.tag!="rss" or root.find("channel") is None:
             raise ValueError("뉴스 RSS 응답 형식 오류")
         articles=[]
+        tokens=[x for x in re.findall(r"[A-Za-z가-힣0-9]+",project)
+                if len(x)>=2 and x not in {"신축","증설","설비","시설","공사","사업"}]
         for item in root.findall("./channel/item")[:15]:
             title=html.unescape(re.sub(r"<[^>]+>","",item.findtext("title") or "")).strip()[:220]
             link=str(item.findtext("link") or "")
             if title and link.startswith("https://news.google.com/"):
+                norm=normalize(title)
+                # Google RSS full-text matching is often broader than headline.
+                # Do not label the article as covering this SAME project unless
+                # issuer name AND concrete investment-name tokens appear.
+                issuer_in_title=normalize(company) in norm
+                project_in_title=bool(tokens) and all(normalize(t) in norm for t in tokens)
+                relevant=bool(issuer_in_title and project_in_title)
                 articles.append({"title":title,"url":link,
-                                "published":str(item.findtext("pubDate") or "")[:85]})
-            if len(articles)>=4:
+                                "published":str(item.findtext("pubDate") or "")[:85],
+                                "companyAndProjectInTitle":relevant,
+                                "matchStatus":("제목에 회사+사업명 동시 확인: 내용과 변경 숫자는 미검증" if relevant
+                                               else "검색 색인 일치만 확인: 동일 사업 기사 여부 불명")})
+            if len(articles)>=5:
                 break
-        return {"query":search,"status":("관련 기사 검색됨: 사건·숫자·보도시점 동일성 재검증" if articles
-                                           else "해당 검색어 결과 미발견: 미보도 여부 판단 불가"),
+        precise=sum(bool(x["companyAndProjectInTitle"]) for x in articles)
+        return {"query":search,
+                "status":("회사명·투자명 제목 동시 확인 후보 "+str(precise)+"건: 동일 변경 내용 여부 확인 필요"
+                          if precise else
+                          "기사 검색 결과 있으나 동일 사업명 제목 일치 미확인" if articles else
+                          "해당 검색어 결과 미발견: 미보도 여부 판단 불가"),
+                "titleMatchedCount":precise,
                 "articles":articles}
     except (ValueError,TimeoutError,OSError,ET.ParseError) as exc:
         return {"query":search,"status":"보도 검색 실패: "+type(exc).__name__,
@@ -256,8 +273,8 @@ def targeted_press_search(query,fetch=None):
 
 
 def news_lookup(row,check=targeted_press_search):
-    # Existing official-news helper applies strict direct-beat company
-    # identity and bounded Google RSS with a one-year lookback.
+    # Check the concrete project name, and label RSS full-text-only matches
+    # separately from headlines that include both company and project.
     query={
         "company":row["company"],"topic":"investment","toYear":2026,
         "rowIdentity":[row["project"]]
