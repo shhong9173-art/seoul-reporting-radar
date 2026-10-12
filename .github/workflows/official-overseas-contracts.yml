@@ -6,6 +6,7 @@ on:
       - '.github/workflows/official-overseas-contracts.yml'
       - 'scripts/overseas_official.py'
       - 'scripts/recent_contracts.py'
+      - 'scripts/dart_lineage.py'
   schedule:
     # Mon-Fri 08:10 Asia/Seoul (Sunday-Thursday 23:10 UTC)
     - cron: '10 23 * * 0-4'
