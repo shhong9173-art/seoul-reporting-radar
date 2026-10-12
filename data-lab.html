@@ -27,6 +27,10 @@ th{font-weight:600;color:#53697c}
 <div class="alert">이 화면은 <b>공개된 사업보고서·반기보고서의 연결(CFS) 재무제표</b>를 동일 기간·원화 기준으로 비교해 조사할 숫자를 찾는다. <b>단독 여부를 판단하지 않는다.</b>
 매출액은 수주잔고·출하량·수출금액이 아니며, 그룹회사 간 중복 및 제품 구성이 달라 회사별 원인과 회사 답변을 반드시 확인해야 한다.
 3년 자료로 ‘사상 처음’을 주장하지 않는다.</div>
+<section id="recent-business"><h2>최신 분기·반기: 신규 투자 취재 단서</h2>
+<p id="recent-business-status" class="small">공식 최신 사업보고서 원문 확인 중</p>
+<div class="alert"><b>선배식 취재 우선순위:</b> 과거 공개 자료를 반복 소개하지 않고 최근 보고기간에 등장한 투자·생산·수주 표를 전년도 같은 보고기간과 대조한다. 표 일부만 발췌하므로, 이전 자료에서 사업명이 발견되지 않더라도 <b>새로운 투자나 미보도 사실로 확정하지 않는다.</b></div>
+<div id="recent-business-cards"></div></section>
 <div class="controls">
 <label for="period">비교 기준 </label><select id="period">
 <option value="halfyear">최근 반기 누적 (전년 동기 비교)</option>
@@ -264,5 +268,56 @@ try{
   host.append(box);
  }
 }catch(err){status.textContent="관세청 통계 수집 미완료: "+err.message+" (기존 데이터가 없을 때 임의 수치를 표시하지 않아)"}
+})();
+</script>
+<script>
+(async function(){
+"use strict";
+const state=document.querySelector("#recent-business-status");
+const cards=document.querySelector("#recent-business-cards");
+function e(tag,txt,cls){const x=document.createElement(tag);if(txt!==undefined&&txt!==null)x.textContent=String(txt);if(cls)x.className=cls;return x}
+function dartLink(source,label){if(!source||!/^https:\/\/dart\.fss\.or\.kr\/dsaf001\/main\.do\?rcpNo=\d{14}$/.test(source))return null;
+ const a=e("a",label,"reportlink");a.href=source;a.target="_blank";a.rel="noopener noreferrer";return a}
+function pressLink(source,title){if(!source||!/^https:\/\/news\.google\.com\//.test(source))return null;
+ const a=e("a",title,"reportlink");a.href=source;a.target="_blank";a.rel="noopener noreferrer";return a}
+try{
+ const res=await fetch("digests/recent_business_latest.json",{cache:"no-store"});
+ if(!res.ok)throw Error("최신 분기·반기 데이터가 아직 게시되지 않았어");
+ const report=await res.json();
+ if(!Array.isArray(report.companies)||!report.generatedAt)throw Error("공식 자료 형식 오류");
+ const age=Date.now()-Date.parse(report.generatedAt);
+ state.textContent="원공시 목록 확인 "+report.generatedAt+
+ " · 분석 "+report.retrievedCount+"/"+report.companies.length+"개사 · 설비투자 취재 단서 "+report.leadCount+"건"+
+ (Number.isFinite(age)&&age>8*86400000?" · 자료 갱신 지연 주의":"");
+ for(const record of report.companies){
+  const box=e("article",undefined,"card");
+  box.append(e("h3",record.company+" · "+(record.current?.periodLabel||"최근 보고서 미확인")));
+  const before=record.priorSamePeriod,now=record.current;
+  box.append(e("p",(now?.year||report.businessYear)+"년 "+(now?.periodLabel||"미확인")+" ↔ "+
+    (before?.year||report.businessYear-1)+"년 동기 · "+
+    (record.cacheHit?"원문 재사용(접수번호 재확인)":"원문 조회")+" · 상태 "+record.status,"small"));
+  if(now?.url){const a=dartLink(now.url,"최신 DART 원문");if(a)box.append(a)}
+  if(before?.url){const a=dartLink(before.url,"전년 동기 DART 원문");if(a)box.append(a)}
+  const topics=Object.entries(record.topicCounts||{}).filter(([k,n])=>n>0);
+  if(topics.length)box.append(e("p","원문 표 발췌: "+topics.map(([k,n])=>k+" "+n).join(" · "),"note"));
+  const signals=(record.signals||[]);
+  if(!signals.length)box.append(e("p",
+      "사업명 검토 후보 없음. 보고서 수집 오류 또는 추출 한계일 수 있으며 실물 투자 0건을 뜻하지 않아.","detail"));
+  for(const signal of signals){
+   const area=e("div",undefined,"gridwrap");
+   area.append(e("b","설비투자 사업명 확인: "+signal.project));
+   area.append(e("p","최근 보고서에 기재: "+(signal.currentRow||[]).join(" | "),"call"));
+   area.append(e("p",signal.observation,"note"));
+   area.append(e("p","선행 보도: "+(signal.coverage?.status||"검색 미완료"),"detail"));
+   for(const hit of signal.coverage?.articles||[]){
+    const a=pressLink(hit.url,hit.title);if(a)area.append(a);
+   }
+   for(const question of signal.questions||[])area.append(e("p","취재 질문: "+question,"call"));
+   box.append(area);
+  }
+  cards.append(box);
+ }
+}catch(err){state.textContent="최신 사업내용 취재 레이더 미확인: "+err.message+
+" · GitHub Actions Latest Interim Business Source Scout 실행 여부 확인 필요"}
 })();
 </script></body></html>
