@@ -1,4 +1,5 @@
 """Offline regression checks for public-source parsers; no network or secrets required."""
+from beat_identity_cases import BeatIdentityTests
 import sys
 import unittest
 from datetime import datetime, timedelta
@@ -29,11 +30,11 @@ class CollectorRegressionTests(unittest.TestCase):
         cases = {
             "현대차, 전기차 생산계획 조정": "현대차",
             "HL만도 공급사 변경": "HL만도",
-            "BMW 740d 제작결함 리콜": "BMW코리아",
+            "BMW코리아 740d 제작결함 리콜": "BMW코리아",
             "포스코홀딩스 광물 사업 투자": "포스코홀딩스",
             "LS일렉트릭 HVDC 변압기 수주": "LS일렉트릭",
             "동국제강 철강제품 생산조정": "동국제강",
-            "세아씨엠 공장 설비 증설": "세아씨엠",
+            "동성케미칼 공장 설비 증설": "동성케미칼",
         }
         for title, name in cases.items():
             with self.subTest(title=title):
