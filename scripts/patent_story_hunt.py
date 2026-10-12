@@ -200,7 +200,7 @@ def prioritize(row,topic,now):
     return max(1,min(90,score)),fresh,age
 
 
-def build(official,deep,now=None,max_news=8,press=search_press):
+def build(official,deep,now=None,max_news=8,press=search_press,previous=None):
     now=now or datetime.now(KST)
     if not isinstance(official.get("items"),list) or not isinstance(deep.get("investigations"),list):
         raise ValueError("KIPRIS source data incomplete")
@@ -212,6 +212,11 @@ def build(official,deep,now=None,max_news=8,press=search_press):
     # ALL verified publications here from the official complete list.
     from patent_deep_hunt import merge_publications
     all_rows,rejected=merge_publications(official)
+    # Reuse previous public PRESS SEARCH RESULTS, never exclusive verdicts.
+    # Only exact publication number+title+publication date can match.
+    old_rows=(previous or {}).get("investigations",[])
+    old_by_number={x.get("publicationNumber"):x for x in old_rows
+                   if isinstance(x,dict) and x.get("publicationNumber")}
     stories=[]
     for row in all_rows:
         topic=topic_for(row.get("title"),row.get("abstract"))
@@ -253,9 +258,29 @@ def build(official,deep,now=None,max_news=8,press=search_press):
     stories.sort(key=lambda x:(-x["rank"],-int(x.get("publicationDate") or 0),x["publicationNumber"]))
     if not 0<=max_news<=20:
         raise ValueError("Max news lookups outside 0-20")
-    for item in stories[:max_news]:
+    for item in stories:
+        old=old_by_number.get(item["publicationNumber"])
+        if not old or old.get("title")!=item["title"] or old.get("publicationDate")!=item["publicationDate"]:
+            continue
+        previous_result=old.get("pressCoverage") or {}
+        # Carry forward an actual attempt, including RSS errors, so that
+        # the next run can progress past it to other unreviewed patents.
+        if isinstance(previous_result.get("queries"),list) and previous_result["queries"]:
+            item["pressCoverage"]=previous_result
+            item["pressCheckedAt"]=old.get("pressCheckedAt") or (previous or {}).get("generatedAt")
+    media_queries_new=0
+    attempts=0
+    # Prioritize never-queried patents. After they are exhausted, revisit
+    # old/incomplete checks, oldest first. Eight per run is bounded.
+    unsearched=[x for x in stories if not x.get("pressCheckedAt")]
+    revisits=sorted((x for x in stories if x.get("pressCheckedAt")),
+                    key=lambda x:x["pressCheckedAt"])
+    for item in (unsearched+revisits)[:max_news]:
         item["pressCoverage"]=press(item)
-        # A media hit flags editorial checking, never a definitive duplicate.
+        item["pressCheckedAt"]=now.isoformat(timespec="seconds")
+        media_queries_new+=len((item["pressCoverage"] or {}).get("queries",[]))
+        attempts+=1
+    for item in stories:
         if item["pressCoverage"].get("possibleEarlierCoverage"):
             item["status"]="기보도 가능성 · 원문 기사 대조 먼저"
     return {
@@ -269,6 +294,10 @@ def build(official,deep,now=None,max_news=8,press=search_press):
         "possibleResearchLeads":len(stories),
         "outsidePartnerLeads":sum(bool(x["outsideBeatCoApplicants"]) for x in stories),
         "mediaQueriesCompleted":sum(len((x.get("pressCoverage") or {}).get("queries",[])) for x in stories),
+        "mediaQueriesThisRun":media_queries_new,
+        "mediaLeadsChecked":sum(bool((x.get("pressCoverage") or {}).get("queries")) for x in stories),
+        "mediaLeadsNotChecked":sum(not bool((x.get("pressCoverage") or {}).get("queries")) for x in stories),
+        "mediaAttemptedThisRun":attempts,
         "rejectedConflictPublications":rejected,
         # The browser collapses older/lower-priority rows by default,
         # but no verified candidate is silently excluded from the dataset.
@@ -289,8 +318,14 @@ def main():
     args=p.parse_args()
     official=json.loads(Path(args.source).read_text(encoding="utf-8"))
     deep=json.loads(Path(args.deep).read_text(encoding="utf-8"))
-    report=build(official,deep,max_news=args.max_news)
     out=Path(args.out)
+    previous=None
+    if out.is_file():
+        try:
+            previous=json.loads(out.read_text(encoding="utf-8"))
+        except (OSError,ValueError):
+            pass
+    report=build(official,deep,max_news=args.max_news,previous=previous)
     out.parent.mkdir(parents=True,exist_ok=True)
     tmp=out.with_suffix(".json.tmp")
     tmp.write_text(json.dumps(report,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
