@@ -189,10 +189,11 @@ def verified_patent(raw,company,aliases,start,end):
         except ValueError:
             return None
     tags=tech_tags(title,raw.get("astrtCont",""))
-    if not tags:
-        return None  # Topic not specifically linked to the user's beat
+    # Preserve verified publications even without known sector terms:
+    # cross-industry technology must not be excluded by a keyword gate.
     title_tags=[t for t in tags if t["titleHits"]]
-    score=min(85,35+14*len(title_tags)+5*len(tags)+(6 if raw.get("astrtCont") else 0))
+    score=(min(85,35+14*len(title_tags)+5*len(tags)+(6 if raw.get("astrtCont") else 0))
+           if tags else 20)
     return {
         "company":company,"applicants":applicant.split("|"),
         "applicationNumber":app_no,"publicationNumber":pub_no,
@@ -202,6 +203,9 @@ def verified_patent(raw,company,aliases,start,end):
         "title":title,"abstract":html.unescape(raw.get("astrtCont","")).strip()[:850],
         "ipc":raw.get("ipcNumber","")[:160],
         "themes":tags,"priorityScore":score,
+        "themeMatched":bool(tags),
+        "classificationStatus":("기술 키워드 일치 · 별도 원문 검증 필요" if tags
+                                 else "기존 기술사전에 없음 · 공동출원인/초록 검토"),
         "source":"KIPRISPlus 특허·실용 공개·등록공보 API",
         "sourceLookup":LANDING,
         "lookupNumber":pub_no,
@@ -326,13 +330,17 @@ def build(key,previous=None,now=None,search=search_applicant,coverage=None,
         "reportingWindow":since+"~"+until,
         "applicantCount":len(companies),
         "companyChecks":checks,"candidateCount":len(leads),
+        "topicMatchedCount":sum(bool(r["themeMatched"]) for r in leads),
+        "unclassifiedCount":sum(not r["themeMatched"] for r in leads),
+        "capturePolicy":"35일 공개공보에서 공식 출입처 법인명·공개번호·공개일 검증; 기술 키워드 제외 없음",
         "completelyCheckedCompanies":successes,
         "baselineInitialized":baseline,
         "alertCount":sum(bool(r["freshObservation"]) for r in leads),
         "historicalBackfillCount":sum(bool(r["historicalBackfill"]) for r in leads),
-        "items":leads[:500],"seen":seen,"confirmedScoops":0,
-        "displayedCount":min(500,len(leads)),
-        "unshownCount":max(0,len(leads)-500),
+        # No top-500 truncation: keep complete validated records for downstream discovery.
+        "items":leads,"seen":seen,"confirmedScoops":0,
+        "displayedCount":len(leads),
+        "unshownCount":0,
         "sourceWindowComplete":successes==len(companies) and all(c["status"]=="checked" for c in checks),
         "coverageWarning":"첫 조회는 과거 35일 공개공보의 기준선. 출원일과 공개일이 다르고 특허 공개는 출시/양산·단독 확정이 아님. API 미지원/절단/장애는 회사 0건 아님",
     }

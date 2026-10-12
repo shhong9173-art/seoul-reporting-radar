@@ -2,9 +2,9 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const html=fs.readFileSync('patents.html','utf8');
 const scripts=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(x=>x[1]);
-assert.equal(scripts.length,3);
+assert.equal(scripts.length,4);
 for(const script of scripts)new Function(script);
-for(const token of ['digests/patent_hunt_latest.json','KIPRIS_SERVICE_KEY',
+for(const token of ['digests/patent_story_latest.json','patent-story-status','outsideBeatCoApplicants','기보도 검색','digests/patent_hunt_latest.json','KIPRIS_SERVICE_KEY',
      'publicationNumber','applicationDate','publicationDate','단독 확정','textContent','companyChecks']){
   assert(html.includes(token),'missing KIPRIS audit label '+token);
 }

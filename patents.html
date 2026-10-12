@@ -21,6 +21,10 @@ ul{padding-left:20px}
   해당 특허의 <b>청구항과 선행 특허, 회사 사업계획 및 타사 보도</b>를 교차 확인해야 한다.
 </div>
 <p id="patent-status" class="status">KIPRISPlus 공식 특허 API 연결과 마지막 갱신 상태 확인 중</p>
+<section><h2>특허 원문 → 기사 가설·기보도 확인 — /story-radar</h2>
+<p class="dim">출입처 24개 법인의 최근 35일 공개공보를 기술 키워드 없이 수집한 뒤 공동출원, 공식 초록, 공개일로 우선순위를 산정합니다. 기사 제목은 취재 가설이며 기술 효과·양산·공급계약·단독 사실이 아닙니다. 기보도 검색 결과가 없더라도 미보도 증명이 아닙니다.</p>
+<p id="patent-story-status" class="status">전체 특허·선행 보도 검토 결과 확인 중</p>
+<div id="patent-story-cards"></div></section>
 <section><h2>제1항 청구항 원문 대조 — /claim-check</h2>
 <p class="dim">공식 서지상세 API로 현재 특허 제1항을 검증하고, 같은 발명명칭·일부 동일 출원인인 종전 특허의 제1항을 대조한다. 문구 변화는 기술적 신규성이나 실제 제품 채택을 증명하지 않는다.</p>
 <p id="claim-status" class="status">출원번호와 청구항 원문 대조 현황 확인 중</p>
@@ -40,6 +44,65 @@ ul{padding-left:20px}
   각 후보의 공개번호를 KIPRIS에 입력해 청구항·도면·권리 상태를 다시 확인해.
   API 키는 GitHub Secrets의 <code>KIPRIS_SERVICE_KEY</code>에 별도로 등록해야 해. 관세청 API 키와 같다고 가정하지 않아.
 </div></main>
+<script>
+(async function(){
+"use strict";
+const status=document.querySelector("#patent-story-status");
+const cards=document.querySelector("#patent-story-cards");
+function textEl(tag,value,cls){const n=document.createElement(tag);n.textContent=String(value??"");if(cls)n.className=cls;return n}
+function safeLink(target,url,label){
+  try{
+    const u=new URL(url);
+    if(u.protocol!=="https:"||!["news.google.com","patents.google.com"].includes(u.hostname))return;
+    const a=textEl("a",label,"source");a.href=u.href;a.target="_blank";a.rel="noopener noreferrer";target.append(a)
+  }catch(error){}
+}
+try{
+ const [a,b,c]=await Promise.all([
+   fetch("digests/patent_hunt_latest.json",{cache:"no-store"}),
+   fetch("digests/patent_deep_latest.json",{cache:"no-store"}),
+   fetch("digests/patent_story_latest.json",{cache:"no-store"})
+ ]);
+ if(!a.ok||!b.ok||!c.ok)throw Error("공식 특허 또는 기사 가설 분석 데이터 미생성");
+ const [base,deep,story]=await Promise.all([a.json(),b.json(),c.json()]);
+ if(!story.officialSourceGeneratedAt||
+    story.officialSourceGeneratedAt!==base.generatedAt||
+    story.deepSourceGeneratedAt!==deep.generatedAt||
+    !Array.isArray(story.investigations))throw Error("특허 원문과 기사 가설 분석 시점 불일치");
+ status.textContent="분석 "+story.generatedAt+" · 35일 공식 유효공보 "+story.allVerifiedPublications+
+   "건 · 사전 미분류 "+story.unclassifiedVerifiedRecords+"건 · 취재 검토 "+story.possibleResearchLeads+
+   "건 · 외부 공동출원 "+story.outsidePartnerLeads+"건 · 언론 검색 쿼리 "+story.mediaQueriesCompleted+
+   "건 · 단독 확정 0건 · "+(story.sourceWindowComplete?"법인별 수집 완료":"일부 법인 검색 불완전");
+ if(!story.investigations.length)cards.append(textEl("p","검토 우선 후보가 없으며, 전체 공보 누락 여부는 수집 현황에서 확인하세요.","notice"));
+ for(const r of story.investigations.slice(0,20)){
+  const box=textEl("article",null,"card");
+  box.append(textEl("span","취재 우선순위 "+r.rank+"점 · 단독 점수 아님","tag"));
+  box.append(textEl("span",r.recentPublication?"공개 후 3일 이내":"이전 공개 공보","tag"));
+  if(r.historicalBackfill)box.append(textEl("span","과거 누락 보완 · 신규 공개 아님","tag"));
+  box.append(textEl("h3",r.reportingTitleDraft));
+  box.append(textEl("p","공개번호 "+r.publicationNumber+" · 공개일 "+r.publicationDate+
+    " · 출원일 "+(r.applicationDate||"미확인"),"dim"));
+  box.append(textEl("p","공식 출원인: "+(r.applicants||[]).join(" · "),"dim"));
+  if((r.outsideBeatCoApplicants||[]).length)
+   box.append(textEl("p","외부 공동출원인: "+r.outsideBeatCoApplicants.join(" · "),"question"));
+  box.append(textEl("p","기술 주제(추정 분류): "+r.topic+" · 판정 근거 "+r.topicDetectionSource,"dim"));
+  box.append(textEl("p","공식 초록 원문 발췌: "+(r.sourceAbstractExcerpt||"없음"),"question"));
+  box.append(textEl("p","확인할 산업 영향: "+r.industryImpactToVerify+" (검증 전 가설)","scope"));
+  box.append(textEl("p","기보도 검색: "+(r.pressCoverage?.status||"미조회 · 미보도 확정 불가"),"status"));
+  for(const q of (r.pressCoverage?.queries||[])){
+    box.append(textEl("p","검색식: "+q.query+" · "+q.status,"dim"));
+    for(const hit of (q.articles||[]))safeLink(box,hit.url,hit.title)
+  }
+  for(const q of (r.questions||[]))box.append(textEl("p","취재 확인: "+q,"question"));
+  if(/^[0-9-]{10,22}$/.test(r.publicationNumber||""))
+    safeLink(box,"https://patents.google.com/?q="+encodeURIComponent(r.publicationNumber),
+       "공개번호 원문 대조 (Google Patents · 2차 확인)");
+  box.append(textEl("p","판정: "+r.status+" · 단독/기술 신규성/실제 양산 미확인","dim"));
+  cards.append(box);
+ }
+}catch(error){status.textContent="기사 가설 데이터 확인 실패: "+error.message+" · 미수집을 0건으로 판단하지 않음"}
+})();
+</script>
 <script>
 (async function(){
 "use strict";
@@ -143,7 +206,7 @@ try{
    if(row.abstract)card.append(e("p","공식 초록: "+row.abstract.slice(0,550)));
    card.append(e("p",row.partnerStatus||"공동출원인 사업관계 확인 전","scope"));
    for(const q of (row.partnerQuestions||[]).slice(0,3))card.append(e("p","취재 확인: "+q,"question"));
-   if(/^[\\d-]{10,22}$/.test(row.publicationNumber)){
+   if(/^[0-9-]{10,22}$/.test(row.publicationNumber)){
      const a=e("a","공개번호로 원문·청구항 조회 (2차 확인)","source");
      a.href="https://patents.google.com/?q="+encodeURIComponent(row.publicationNumber);
      a.target="_blank";a.rel="noopener noreferrer";card.append(a);

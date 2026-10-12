@@ -74,10 +74,28 @@ class PatentScoutTests(unittest.TestCase):
         self.assertIsNone(p.verified_patent(r,"현대자동차",p.APPLICANTS["현대자동차"],
                                              "20260908","20261013"))
 
-    def test_ambiguous_generic_patent_not_reported_as_breakthrough(self):
-        self.assertIsNone(p.verified_patent(
+    def test_keyword_free_valid_patent_preserved_but_not_breakthrough(self):
+        r=p.verified_patent(
             row(title="베어링 제조 방법",abstract="프레스와 금형"),
-            "현대자동차",p.APPLICANTS["현대자동차"],"20260908","20261013"))
+            "현대자동차",p.APPLICANTS["현대자동차"],"20260908","20261013")
+        self.assertIsNotNone(r)
+        self.assertFalse(r["themeMatched"])
+        self.assertEqual(r["priorityScore"],20)
+        self.assertFalse(r["scoopConfirmed"])
+
+    def test_full_source_is_not_silently_truncated_at_500(self):
+        def search(key,term,start,end):
+            docs=[]
+            for i in range(510):
+                patent=row(title="베어링 제조 방법",abstract="기술적 검토 필요")
+                patent["openNumber"]=f"1020260{i:06d}"
+                docs.append(patent)
+            return {"rows":docs,"total":len(docs),"complete":True}
+        result=p.build("key",now=NOW,names=["현대자동차"],search=search,news_limit=0)
+        self.assertEqual(result["candidateCount"],510)
+        self.assertEqual(len(result["items"]),510)
+        self.assertEqual(result["unshownCount"],0)
+        self.assertEqual(result["unclassifiedCount"],510)
 
     def test_malformed_publication_number_rejected(self):
         r=row();r["openNumber"]="!"
