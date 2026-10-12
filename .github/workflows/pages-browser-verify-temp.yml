@@ -1,0 +1,56 @@
+name: Verify GitHub Pages Browser Render (Temporary)
+on:
+  push:
+    branches: [diagnostics/pages-live-verify-20261013]
+    paths: ['.github/workflows/pages-browser-verify-temp.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Render actual deployed HTML in headless Chrome and assert 5 API cards
+        run: |
+          python -u - <<'PY'
+          import shutil,subprocess,re,html
+          binary=(shutil.which("google-chrome") or shutil.which("chromium") or
+                  shutil.which("chromium-browser") or shutil.which("google-chrome-stable"))
+          if not binary:
+            raise SystemExit("CHROME_NOT_INSTALLED - cannot validate rendered UI")
+          print("Chrome executable:",binary,flush=True)
+          url="https://shhong9173-art.github.io/seoul-reporting-radar/data-lab.html?ui_smoke=20261013"
+          run=subprocess.run([binary,"--headless=new","--disable-gpu","--no-sandbox",
+                 "--disable-dev-shm-usage","--hide-scrollbars",
+                 "--virtual-time-budget=16000","--dump-dom",url],
+                 capture_output=True,text=True,timeout=65)
+          page=run.stdout
+          print("CHROME_EXIT",run.returncode,"DOM_BYTES",len(page),flush=True)
+          five=re.search(r'<div id="customs-five-results">([\s\S]*?)</section>',page)
+          tenday=re.search(r'<div id="ten-day-cards">([\s\S]*?)</section>',page)
+          if not five:
+            print("FIVE_ROOT_NOT_FOUND")
+            raise SystemExit(1)
+          if not tenday:
+            print("TENDAY_ROOT_NOT_FOUND")
+            raise SystemExit(1)
+          five_html=five.group(1);ten_html=tenday.group(1)
+          count5=len(re.findall(r'<details\b',five_html))
+          count10=len(re.findall(r'<article\b',ten_html))
+          print("BROWSER_RENDERED_FIVE_SERVICE_CARDS",count5,flush=True)
+          print("BROWSER_RENDERED_TENDAY_CARDS",count10,flush=True)
+          status5=re.search(r'<p id="customs-five-status"[^>]*>(.*?)</p>',page,re.S)
+          status10=re.search(r'<p id="ten-day-status"[^>]*>(.*?)</p>',page,re.S)
+          print("STATUS_FIVE",html.unescape(re.sub(r'<[^>]+>','',(status5.group(1) if status5 else "NOT_FOUND")))[:210],flush=True)
+          print("STATUS_TENDAY",html.unescape(re.sub(r'<[^>]+>','',(status10.group(1) if status10 else "NOT_FOUND")))[:210],flush=True)
+          assert count5==5,"five official statistic cards missing"
+          assert count10==10,"ten-day cards missing"
+          print("LIVE_CHROME_RENDER_PASS",flush=True)
+          PY
