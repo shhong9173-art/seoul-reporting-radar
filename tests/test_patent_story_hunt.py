@@ -47,6 +47,22 @@ class PatentStoryTests(unittest.TestCase):
         self.assertEqual(lead["sourceAbstractExcerpt"],"플라스틱 부품을 효소로 분해한다.")
         self.assertFalse(lead["scoopConfirmed"])
 
+    def test_accessibility_door_not_mistaken_for_battery_project(self):
+        patent=example(title="도어 및 이를 갖춘 차량",
+                       abstract="휠체어 승하차를 보조하는 도어와 램프, 플로어 패널 아래 배터리 모듈을 포함한다")
+        a,b=sources([patent])
+        lead=h.build(a,b,now=NOW,max_news=0)["investigations"][0]
+        self.assertEqual(lead["topic"],"차체·교통약자 접근성")
+        self.assertEqual(lead["topicDetectionSource"],"발명명칭")
+
+    def test_unclassified_counts_unique_patents_not_company_rows(self):
+        patent=example(title="형상 기억 탄성 구조체",
+                       abstract="극저온에서 구동력을 전달하는 구조체")
+        a,b=sources([patent,{**patent,"company":"기아"}])
+        result=h.build(a,b,now=NOW,max_news=0)
+        self.assertEqual(result["allVerifiedPublications"],1)
+        self.assertEqual(result["unclassifiedVerifiedRecords"],1)
+
     def test_unknown_patent_kept_and_cross_sector_analysis_still_happens(self):
         a,b=sources([example(title="형상 기억 탄성 구조체",abstract="극저온에서 구동력을 전달하는 구조체")])
         result=h.build(a,b,now=NOW,max_news=0)
