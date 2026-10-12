@@ -13,6 +13,9 @@ on:
       - 'tests/test_business_content.py'
       - 'tests/test_business_metric_compare.py'
       - 'tests/test_business_coverage.py'
+      - 'tests/test_recent_business_scout.py'
+      - 'tests/test_latest_interim_view.cjs'
+      - '.github/workflows/latest-interim-scout.yml'
       - 'tests/test_customs_integrity.py'
       - 'tests/test_customs_watch.py'
       - 'tests/test_hs_trade_view.cjs'
@@ -21,6 +24,9 @@ on:
       - 'tests/test_business_metric_view.cjs'
       - 'tests/test_business_metric_compare.py'
       - 'tests/test_business_coverage.py'
+      - 'tests/test_recent_business_scout.py'
+      - 'tests/test_latest_interim_view.cjs'
+      - '.github/workflows/latest-interim-scout.yml'
       - 'tests/test_customs_integrity.py'
       - 'tests/test_customs_watch.py'
       - 'tests/test_hs_trade_view.cjs'
@@ -50,6 +56,9 @@ on:
       - 'tests/test_business_content.py'
       - 'tests/test_business_metric_compare.py'
       - 'tests/test_business_coverage.py'
+      - 'tests/test_recent_business_scout.py'
+      - 'tests/test_latest_interim_view.cjs'
+      - '.github/workflows/latest-interim-scout.yml'
       - 'tests/test_customs_integrity.py'
       - 'tests/test_customs_watch.py'
       - 'tests/test_hs_trade_view.cjs'
@@ -58,6 +67,9 @@ on:
       - 'tests/test_business_metric_view.cjs'
       - 'tests/test_business_metric_compare.py'
       - 'tests/test_business_coverage.py'
+      - 'tests/test_recent_business_scout.py'
+      - 'tests/test_latest_interim_view.cjs'
+      - '.github/workflows/latest-interim-scout.yml'
       - 'tests/test_customs_integrity.py'
       - 'tests/test_customs_watch.py'
       - 'tests/test_hs_trade_view.cjs'
@@ -96,6 +108,7 @@ jobs:
       - run: python -m unittest discover -s tests -p 'test_business_content.py' -v
       - run: python -m unittest discover -s tests -p 'test_business_metric_compare.py' -v
       - run: python -m unittest discover -s tests -p 'test_business_coverage.py' -v
+      - run: python -m unittest discover -s tests -p 'test_recent_business_scout.py' -v
       - run: python -m unittest discover -s tests -p 'test_customs_integrity.py' -v
       - run: python -m unittest discover -s tests -p 'test_customs_watch.py' -v
       - run: python -m unittest discover -s tests -p 'test_business_metric_compare.py' -v
@@ -108,3 +121,4 @@ jobs:
       - run: node tests/test_business_metric_view.cjs
       - run: node tests/test_business_news_view.cjs
       - run: node tests/test_hs_trade_view.cjs
+      - run: node tests/test_latest_interim_view.cjs
