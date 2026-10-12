@@ -197,6 +197,27 @@ def historical_summary(patent,response):
             "foreignFamilyComparison":"미조회: KIPRISPlus 별도 패밀리·우선권 또는 해외 공식 API 필요"}
 
 
+
+def balance_issuers(items):
+    """Round-robin across distinct applicant groups, then by source priority.
+
+    If Hyundai/Kia co-file most patents, their one group must not consume
+    the entire research budget while power/steel/parts filings are skipped.
+    This does not imply that less common filings are more newsworthy.
+    """
+    groups={}
+    for row in items:
+        key="+".join(sorted(row.get("coveredCompanies") or [row.get("company","")]))
+        groups.setdefault(key,[]).append(row)
+    order=sorted(groups,key=lambda k:(-groups[k][0]["newsroomScore"],k))
+    result=[]
+    while any(groups.values()):
+        for key in order:
+            if groups[key]:
+                result.append(groups[key].pop(0))
+    return result
+
+
 def build(source,key="",historical=historical_title_search,search_limit=10,now=None):
     now=now or datetime.now(KST)
     if not 0<=search_limit<=20:
@@ -204,6 +225,7 @@ def build(source,key="",historical=historical_title_search,search_limit=10,now=N
     items,rejected=merge_publications(source)
     relate(items)
     items.sort(key=lambda x:(-x["newsroomScore"],-int(x.get("publicationDate") or 0),x["publicationNumber"]))
+    items=balance_issuers(items)
     count=0
     for row in items:
         if count>=search_limit or not key:
@@ -233,6 +255,7 @@ def build(source,key="",historical=historical_title_search,search_limit=10,now=N
         "invalidDuplicateNumbers":rejected,
         "sourceCoverageComplete":source.get("sourceWindowComplete",False),
         "historicalQueriesAttempted":count,
+        "rankingMethod":"공식 기술 근거 우선점수×공동출원 법인군 라운드로빈(출입처 편중 방지, 단독 확률 아님)",
         "historicalScope":"동일 발명명칭 공식 KIPRIS 공개공보 2023년 이후 목록 부분검색; 청구범위/해외패밀리 전체 선행기술 비교 아님",
         "warning":"출원/공개/등록·실제 기술 적용·세계최초·선행보도·단독은 각각 독립 검증해야 한다. 공동출원 하나는 1건.",
         "confirmedScoops":0,
