@@ -36,6 +36,8 @@ th{font-weight:600;color:#53697c}
 </div>
 <p id="status" class="small"></p>
 <section id="findings"></section><section id="tables"></section>
+<section id="customs-hs-research"><h2>관세청 HS별 수출·물량·단가 추세</h2>
+<p id="hs-status" class="small">공식 관세청 HS 원표 연동 상태 확인 중</p><div id="hs-results"></div></section>
 <section id="business-news-audit"><h2>사업 내용 · 기존 기사 교차 확인</h2><p id="business-news-status" class="small">관련 기사 검색 결과 확인 중</p><div id="business-news-items"></div></section>
 <section id="validated-business"><h2>사업 내용 · 두 공시에서 재검증된 수치 변화</h2>
 <p class="small" id="validated-business-status">공식 수치 비교 파일 확인 중</p><div id="validated-business-results"></div></section>
@@ -232,5 +234,35 @@ try{
  }
  if(!coverage.items.length)host.append(create("p","검산된 변경 지표가 없어 선행보도 검색 대상 없음","small"));
 }catch(e){status.textContent="기존 기사 교차 확인 미완료: "+e.message}
+})();
+</script>
+<script>
+(async function(){
+"use strict";
+const status=document.querySelector("#hs-status"),host=document.querySelector("#hs-results");
+function e(tag,value,cls){const x=document.createElement(tag);if(value!==undefined)x.textContent=String(value);if(cls)x.className=cls;return x}
+function percent(value){return typeof value==="number"&&Number.isFinite(value)?value.toFixed(1)+"%":"미산출"}
+try{
+ const response=await fetch("digests/hs_trends_latest.json",{cache:"no-store"});
+ if(!response.ok)throw Error("관세청 자료가 아직 게시되지 않았어. CUSTOMS_API_KEY 연결과 HS Trends Actions 확인 필요");
+ const data=await response.json();
+ if(!Array.isArray(data.items)||!data.generatedAt)throw Error("공식 HS 자료 형식 오류");
+ status.textContent="관세청 공식 통계 "+data.generatedAt+" · 비교 "+data.periodStart+"~"+data.periodEnd+
+ " · HS4 전 품목군으로 개별 기업 수출액이 아님";
+ for(const row of data.items){
+  const box=e("article",undefined,"card");
+  box.append(e("h3","HS "+row.hs4+" · "+row.label));
+  const c=row.comparison;
+  box.append(e("p","전년 동월 비교: "+(c?.comparableMonths||[]).join(", ")+"월 · "+(c?.status||"비교 불가"),"detail"));
+  const t=c?.totals;
+  if(t){
+   box.append(e("p","수출액 증감률 "+percent(t.exportValueYoYPercent)+
+      " · 수출중량 증감률 "+percent(t.exportWeightYoYPercent)+
+      " · 수출단가(USD/kg) 증감률 "+percent(t.unitValueYoYPercent)));
+  }
+  box.append(e("p",row.scopeWarning||"동일 HS·국가·기간 확인 필요","note"));
+  host.append(box);
+ }
+}catch(err){status.textContent="관세청 통계 수집 미완료: "+err.message+" (기존 데이터가 없을 때 임의 수치를 표시하지 않아)"}
 })();
 </script></body></html>
