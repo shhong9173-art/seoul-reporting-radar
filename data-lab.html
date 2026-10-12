@@ -47,6 +47,10 @@ th{font-weight:600;color:#53697c}
 <p class="small" id="validated-business-status">공식 수치 비교 파일 확인 중</p><div id="validated-business-results"></div></section>
 <section id="business-evidence"><h2>사업보고서 본문·수주·생산 자료 비교</h2><p class="small" id="business-status">공식 사업내용 분석 자료 확인 중</p><div id="business-cards"></div></section>
 <p class="small">공식 출처: <a href="https://opendart.fss.or.kr/guide/detail.do?apiGrpCd=DS003&amp;apiId=2019020" target="_blank" rel="noopener noreferrer">금융감독원 OpenDART 단일회사 전체 재무제표</a>. 신호 판정은 취재 우선순위용 참고이며 과거에 이미 보도된 사실일 수 있다.</p>
+<section id="customs-ten-day"><h2>관세청 10일 단위 잠정 수출입</h2>
+<p id="ten-day-status" class="small">공식 잠정치 연동 확인 중</p>
+<div class="alert">이 자료는 1~10일·1~20일·1~말일의 <b>누적 수출입금액</b>이며 단위는 천 달러입니다. 전년의 동일 누적 구간만 비교합니다. 개별 기업 실적·단독 근거가 아니며 HS 월별 통계와 더하지 않습니다.</div>
+<div id="ten-day-cards"></div></section>
 </main>
 <script>
 (function(){
@@ -320,4 +324,38 @@ try{
 }catch(err){state.textContent="최신 사업내용 취재 레이더 미확인: "+err.message+
 " · GitHub Actions Latest Interim Business Source Scout 실행 여부 확인 필요"}
 })();
-</script></body></html>
+</script>
+<script>
+(async function(){
+"use strict";
+const status=document.getElementById("ten-day-status");
+const host=document.getElementById("ten-day-cards");
+function node(tag,content,cls){const e=document.createElement(tag);if(content!==undefined)e.textContent=String(content);if(cls)e.className=cls;return e}
+function amt(value){const n=Number(value);return Number.isFinite(n)?n.toLocaleString("ko-KR")+"천 달러":"미확인"}
+try{
+ const response=await fetch("digests/customs_tenday_latest.json",{cache:"no-store"});
+ if(!response.ok)throw Error("잠정치 수집 결과가 아직 게시되지 않음 (HTTP "+response.status+")");
+ const doc=await response.json();
+ if(!doc.generatedAt||!Array.isArray(doc.focus))throw Error("관세청 잠정치 데이터 형식 오류");
+ const age=Date.now()-Date.parse(doc.generatedAt);
+ status.textContent="조회 "+doc.generatedAt+" · 공식 잠정치 · 누적액 · "+
+   (Number.isFinite(age)&&age>25*86400000?"오래된 수집 결과: 최신 발표 확인 필요":"취재 참고·단독 미확정");
+ if(!doc.focus.length){host.append(node("p","확인된 주요품목 잠정치 없음. 데이터 수집 범위와 발표 시점을 검토해야 함","note"));return}
+ for(const r of doc.focus){
+  const card=node("article",undefined,"card");
+  card.append(node("h3",(r.series==="exp_item"?"수출":"수입")+" · "+r.item+" · "+r.month+" "+r.periodLabel));
+  card.append(node("p","누적금액 "+amt(r.amountKUsd)));
+  const yoy=typeof r.yoyPercent==="number"&&Number.isFinite(r.yoyPercent)?r.yoyPercent.toFixed(1)+"%":"비교 불가";
+  card.append(node("p","전년 동일 누적구간 대비 "+yoy+" · 기준 "+(r.priorYearMonth||"미확인"),"detail"));
+  card.append(node("p","천 달러 단위 관세청 주요품목 잠정치. 기업별 출하·시장 점유율·개별 계약으로 추론 금지.","note"));
+  if(["exp_item","imp_item"].includes(r.series)){
+   const a=node("a","관세청 공식 API","reportlink");
+   a.href="https://www.data.go.kr/data/"+(r.series==="exp_item"?"15157908":"15157901")+"/openapi.do";
+   a.target="_blank";a.rel="noopener noreferrer";card.append(a);
+  }
+  host.append(card);
+ }
+}catch(e){status.textContent="관세청 10일 잠정치 미연결/미검증: "+e.message+" · Actions Customs 10-Day Provisional Trade 확인"}
+})();
+</script>
+</body></html>
