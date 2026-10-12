@@ -144,6 +144,14 @@ class PatentStoryTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             h.build(a,b,now=NOW,max_news=0)
 
+    def test_more_than_eighty_leads_are_retained_without_truncation(self):
+        rows=[example(pub=f"102026014{i:04d}",date="20261012") for i in range(96)]
+        a,b=sources(rows)
+        report=h.build(a,b,now=NOW,max_news=0)
+        self.assertEqual(report["possibleResearchLeads"],96)
+        self.assertEqual(len(report["investigations"]),96)
+        self.assertEqual(report["unshownInvestigations"],0)
+
     def test_news_queries_limited_to_high_priority(self):
         rows=[example(pub=f"102026014{i:04d}",date="20261012")
               for i in range(12)]
