@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import dart_numeric_extractor as dart
+from dart_table_cases import DartTableTests
 import pre_scoop_radar as scout
 import scoop_scout as scoops
 
