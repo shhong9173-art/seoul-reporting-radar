@@ -116,6 +116,12 @@ class PatentStoryTests(unittest.TestCase):
         self.assertFalse(r["completeSearch"])
         self.assertIn("미확인",r["status"])
 
+    def test_incomplete_official_applicant_source_cannot_be_published(self):
+        a,b=sources([example()])
+        a["sourceWindowComplete"]=False
+        with self.assertRaisesRegex(ValueError,"incomplete"):
+            h.build(a,b,now=NOW,max_news=0)
+
     def test_source_timestamp_mismatch_is_hard_error(self):
         a,b=sources([example()])
         b["patentDatasetGeneratedAt"]="2025-01-01"
