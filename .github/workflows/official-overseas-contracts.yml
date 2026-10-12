@@ -1,0 +1,89 @@
+name: Official Overseas & Contract Leads
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/official-overseas-contracts.yml'
+      - 'scripts/overseas_official.py'
+      - 'scripts/recent_contracts.py'
+  schedule:
+    # Mon-Fri 08:10 Asia/Seoul (Sunday-Thursday 23:10 UTC)
+    - cron: '10 23 * * 0-4'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: official-overseas-contracts
+  cancel-in-progress: false
+
+jobs:
+  overseas:
+    runs-on: ubuntu-latest
+    timeout-minutes: 17
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Unit test official providers and source identity
+        run: |
+          python -m compileall -q scripts/overseas_official.py scripts/recent_contracts.py
+          python -m unittest discover -s tests -p 'test_official_foreign_contracts.py' -v
+      - name: Search US federal published notices and EU TED published tenders
+        run: python scripts/overseas_official.py
+      - name: Publish only verified official matches
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add digests/overseas_official_latest.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "data: official overseas notice evidence [skip ci]"
+          for retry in 1 2 3; do
+            git pull --rebase origin main
+            if git push origin HEAD:main; then exit 0; fi
+            sleep 4
+          done
+          echo "Failed to publish official overseas docs" >&2
+          exit 1
+
+  dart_contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Unit test issuer and DART lineage source controls
+        run: |
+          python -m compileall -q scripts/recent_contracts.py
+          python -m unittest discover -s tests -p 'test_official_foreign_contracts.py' -v
+          python -m unittest discover -s tests -p 'test_dart_lineage.py' -v
+      - name: Audit direct-beat official contract and investment events
+        env:
+          DART_API_KEY: ${{ secrets.DART_API_KEY }}
+        run: python scripts/recent_contracts.py --limit 9
+      - name: Publish verified DART source evidence
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add digests/recent_contracts_latest.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "data: refresh official contract events [skip ci]"
+          for retry in 1 2 3; do
+            git pull --rebase origin main
+            if git push origin HEAD:main; then exit 0; fi
+            sleep 4
+          done
+          echo "Failed to publish DART contract ledger" >&2
+          exit 1
