@@ -5,6 +5,7 @@ on:
     paths:
       - '.github/workflows/business-content-scout.yml'
       - 'scripts/business_content.py'
+      - 'scripts/business_metric_compare.py'
   schedule:
     # Thursday 07:35 Asia/Seoul = Wednesday 22:35 UTC
     - cron: '35 22 * * 3'
@@ -31,16 +32,20 @@ jobs:
         run: |
           python -m compileall -q scripts/business_content.py
           python -m unittest discover -s tests -p 'test_business_content.py' -v
+          python -m unittest discover -s tests -p 'test_business_metric_compare.py' -v
+          python -m compileall -q scripts/business_metric_compare.py
       - name: Retrieve official 2024 and 2025 annual business sections
         env:
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
         run: python scripts/business_content.py --year 2025
+      - name: Reconcile same-year carry-forward figures before reporting numeric changes
+        run: python scripts/business_metric_compare.py
       - name: Publish verified source excerpts
         run: |
           set -e
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add digests/business_content_latest.json
+          git add digests/business_content_latest.json digests/business_metrics_latest.json
           if git diff --cached --quiet; then
             echo "Business evidence unchanged"
           else
