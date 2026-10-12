@@ -116,18 +116,21 @@ try{
  const [original,data]=await Promise.all([base.json(),deep.json()]);
  if(!data.patentDatasetGeneratedAt||
      data.patentDatasetGeneratedAt!==original.generatedAt||
-     !Array.isArray(data.investigations)||!Array.isArray(data.partnerInvestigations))
+     !Array.isArray(data.investigations))
    throw Error("심층 분석과 공식 공개특허 원자료 시점이 달라 결과를 숨김");
  status.textContent="최근 공보 원자료 "+data.inputPatents+"개 행 → 서로 다른 공개번호 "+
     data.uniquePublicationCount+"건 · 공동출원 "+
     data.jointApplications+"건 · 과거 동일 제목 조회 "+data.historicalQueriesAttempted+
     "건 · 단독 확정 0건 · 출입처 그룹별로 후보 배분 · "+
     (data.sourceCoverageComplete?"출원인 전체 검색 완료":"일부 출원인 검색 불완전");
- partnerStatus.textContent="공식 출입처 외 출원인이 있는 공동공보 "+
-   data.outsideBeatJointPublications+"건 · 화면 상위 "+Math.min(18,data.partnerInvestigations.length)+
+ const partnerRows=Array.isArray(data.partnerInvestigations)?data.partnerInvestigations:null;
+ partnerStatus.textContent=partnerRows===null?
+   "출입처 외 공동출원인 분석 데이터 미갱신 · 0건 아님 (기존 심층 특허 목록은 계속 표시)":
+   "공식 출입처 외 출원인이 있는 공동공보 "+
+   data.outsideBeatJointPublications+"건 · 화면 상위 "+Math.min(18,partnerRows.length)+
    "건 · 공개공보 우선 · 기보도/협업 목적/기술효과/양산 확인 전 · 단독 확정 0건";
- if(!data.partnerInvestigations.length)partnerList.append(e("p","해당 기간 출입처 외 공동출원 후보 없음. 이는 전체 기간에 공동개발이 없다는 의미가 아님.","notice"));
- for(const row of data.partnerInvestigations.slice(0,18)){
+ if(partnerRows!==null&&!partnerRows.length)partnerList.append(e("p","해당 기간 출입처 외 공동출원 후보 없음. 이는 전체 기간에 공동개발이 없다는 의미가 아님.","notice"));
+ for(const row of (partnerRows||[]).slice(0,18)){
    const card=e("article",undefined,"card");
    card.append(e("span","외부 공동출원인 확인 · 단독 미확정","tag"));
    card.append(e("h3",row.title));
