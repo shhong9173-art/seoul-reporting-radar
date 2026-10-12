@@ -266,8 +266,10 @@ def build(official,deep,now=None,max_news=8,press=search_press):
         "outsidePartnerLeads":sum(bool(x["outsideBeatCoApplicants"]) for x in stories),
         "mediaQueriesCompleted":sum(len((x.get("pressCoverage") or {}).get("queries",[])) for x in stories),
         "rejectedConflictPublications":rejected,
-        "investigations":stories[:80],
-        "unshownInvestigations":max(0,len(stories)-80),
+        # The browser collapses older/lower-priority rows by default,
+        # but no verified candidate is silently excluded from the dataset.
+        "investigations":stories,
+        "unshownInvestigations":0,
         "sourceScope":"담당 24개 법인의 최근 35일 공개공보; 출입처 외 기업 단독출원은 미포함",
         "mediaCaveat":"Google 뉴스 RSS 번호·제목·이종 산업 키워드 최대 3개 검색식/상위 후보 일부; 검색 무결성·전 매체 선행 보도 확인 불가",
         "confirmedScoops":0,
