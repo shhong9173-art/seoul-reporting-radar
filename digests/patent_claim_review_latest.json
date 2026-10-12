@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-10-13T04:19:30+09:00",
-  "patentDatasetGeneratedAt": "2026-10-13T04:18:44+09:00",
-  "deepDatasetGeneratedAt": "2026-10-13T04:19:19+09:00",
+  "generatedAt": "2026-10-13T04:25:11+09:00",
+  "patentDatasetGeneratedAt": "2026-10-13T04:24:12+09:00",
+  "deepDatasetGeneratedAt": "2026-10-13T04:24:58+09:00",
   "source": "KIPRISPlus getBibliographyDetailInfoSearch official claimInfoArray",
   "scope": "기본 후보 6개 출원서 제1항; 2023년 이후 동일 제목·동일 출원인 일부와 제한 대조",
   "reviewCount": 6,
@@ -29,6 +29,20 @@
           "priorApplication": "1020220033608",
           "sameClaimText": false,
           "textSimilarity": 0.327,
+          "claimWordingDeltas": [
+            {
+              "editType": "문구 삭제/추가",
+              "priorWording": "1. 차량의 고장 발생시 자율 주행을 제어하는 프로세서; 및 상기 프로세",
+              "currentWording": "1. 송수신부;하나 이상의 프로세서; 및 상기 하나 이상의 프로세서에 의해 실행되는 하",
+              "evidenceStatus": "공식 제1항 텍스트 정렬로 확인한 문구만; 기술적 특이성 판단 전"
+            },
+            {
+              "editType": "종전 제1항 기재 문구",
+              "priorWording": "고장 발생시 자율 주행을 제어하는",
+              "currentWording": "",
+              "evidenceStatus": "공식 제1항 텍스트 정렬로 확인한 문구만; 기술적 특이성 판단 전"
+            }
+          ],
           "currentClaimSha256": "ecde8e9989eb02dbce75327bcce854fcff1bee80dba043810b26aa5ccfc50523",
           "priorClaimSha256": "b8e87c8760a288afeb77bb95bbe6985e3f49f08f8718f1b9a71533d5cfde5ccb",
           "currentClaimLength": 459,
@@ -48,6 +62,20 @@
           "priorApplication": "1020220028944",
           "sameClaimText": false,
           "textSimilarity": 0.327,
+          "claimWordingDeltas": [
+            {
+              "editType": "문구 삭제/추가",
+              "priorWording": "1. 주행 차량의 자율 주행을 제어하는 프로세서; 및 상기 프로세서에 의",
+              "currentWording": "1. 송수신부;하나 이상의 프로세서; 및 상기 하나 이상의 프로세서에 의해 실행되",
+              "evidenceStatus": "공식 제1항 텍스트 정렬로 확인한 문구만; 기술적 특이성 판단 전"
+            },
+            {
+              "editType": "문구 삭제/추가",
+              "priorWording": "1. 주행 차량의 자율 주행을 제어하는 프로세서; 및 상기 프로세서에 의해 구",
+              "currentWording": "1. 송수신부;하나 이상의 프로세서; 및 상기 하나 이상의 프로세서에 의해 실행되는 하",
+              "evidenceStatus": "공식 제1항 텍스트 정렬로 확인한 문구만; 기술적 특이성 판단 전"
+            }
+          ],
           "currentClaimSha256": "ecde8e9989eb02dbce75327bcce854fcff1bee80dba043810b26aa5ccfc50523",
           "priorClaimSha256": "d1afea7ca078ac3ef23299d2cdac16223f36691862a216b3606c692a3d8e5fa4",
           "currentClaimLength": 459,
@@ -85,7 +113,7 @@
             "status": "검색 미발견: 미보도 확정 불가"
           },
           {
-            "query": "기아/현대자동차 \"자율주행 차량 제어 장치 및 방법\"",
+            "query": "(\"기아\" OR \"현대자동차\") \"자율주행 차량 제어 장치 및 방법\"",
             "articles": [],
             "status": "검색 미발견: 미보도 확정 불가"
           }
@@ -137,7 +165,7 @@
             "status": "검색 미발견: 미보도 확정 불가"
           },
           {
-            "query": "기아/현대자동차 \"자율주행 차량의 차로 변경 제어장치 및 방법\"",
+            "query": "(\"기아\" OR \"현대자동차\") \"자율주행 차량의 차로 변경 제어장치 및 방법\"",
             "articles": [],
             "status": "검색 미발견: 미보도 확정 불가"
           }
@@ -188,7 +216,7 @@
             "status": "검색 미발견: 미보도 확정 불가"
           },
           {
-            "query": "HD현대일렉트릭 \"덕트형 에어가이드 및 이를 포함하는 선박의 축발전기용 몰드변압\"",
+            "query": "(\"HD현대일렉트릭\") \"덕트형 에어가이드 및 이를 포함하는 선박의 축발전기용 몰드변압\"",
             "articles": [],
             "status": "검색 미발견: 미보도 확정 불가"
           }
@@ -239,7 +267,7 @@
             "status": "검색 미발견: 미보도 확정 불가"
           },
           {
-            "query": "현대모비스 \"자율주행 시뮬레이션 기반 가상영상 인식성능 통합 테스트 방법 \"",
+            "query": "(\"현대모비스\") \"자율주행 시뮬레이션 기반 가상영상 인식성능 통합 테스트 방법 \"",
             "articles": [],
             "status": "검색 미발견: 미보도 확정 불가"
           }
@@ -290,7 +318,7 @@
             "status": "검색 미발견: 미보도 확정 불가"
           },
           {
-            "query": "효성중공업 \"가스절연개폐기 내장용 이중화 머징 유닛 및 그 방법\"",
+            "query": "(\"효성중공업\") \"가스절연개폐기 내장용 이중화 머징 유닛 및 그 방법\"",
             "articles": [],
             "status": "검색 미발견: 미보도 확정 불가"
           }
@@ -341,7 +369,7 @@
             "status": "검색 미발견: 미보도 확정 불가"
           },
           {
-            "query": "두산에너빌리티 \"수소 질량 정량화 장치 및 이를 포함하는 튜브 트레일러 및 수\"",
+            "query": "(\"두산에너빌리티\") \"수소 질량 정량화 장치 및 이를 포함하는 튜브 트레일러 및 수\"",
             "articles": [],
             "status": "검색 미발견: 미보도 확정 불가"
           }
