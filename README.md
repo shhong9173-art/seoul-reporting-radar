@@ -32,3 +32,10 @@
 - OpenDART 전체 재무제표(`fnlttSinglAcntAll`)를 같은 보고서 코드·기업코드·계정 ID·원화 연결 기준으로 검산. 실제 데이터를 확보하지 못하면 빈 값으로 남긴다.
 - [공식 지표 비교 엔진](scripts/peer_financial.py)은 3곳 이상 회사가 비교될 때 매출 증감률의 경쟁기업 중앙값 격차가 큰 자료를 **취재 단서**로만 제시한다. 단독 자동 확정 금지.
 - [매주 자동 실행](.github/workflows/peer-data-research.yml): 월요일 07:20 KST 예정, API 장애 시 기존 JSON 보존. 자세한 기준은 [설계 문서](docs/peer-research-design-20261013.md).
+
+
+## 사업보고서 ‘사업의 내용’ 본문 발굴 시범
+- `scripts/business_content.py`: 2024·2025 사업보고서의 'II. 사업의 내용' 공식 원문에 등장하는 수주·생산능력·가동률·부문매출 표 증거를 탐색.
+- `data-lab.html`에 새 원문/표 대조 패널 추가. 숫자 비교 검증과 단독 판정은 아직 아님.
+- `.github/workflows/business-content-scout.yml`: 주간 자동 갱신, 공식 XML 조회와 데이터 보존 안전장치.
+- 범위·한계: `docs/business-content-scout.md`.
