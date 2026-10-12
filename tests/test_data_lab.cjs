@@ -5,7 +5,7 @@ const page=fs.readFileSync('data-lab.html','utf8');
 const js=page.match(/<script>([\s\S]*?)<\/script>/);
 assert(js,'missing research renderer');
 new Function(js[1]);
-for(const text of ['digests/peer_financial_latest.json','연간 사업보고서',
+for(const text of ['digests/peer_financial_latest.json','최근 사업보고서',
                   '최근 반기 누적','단독 미확정','textContent','공시 원문']){
   assert(page.includes(text),'missing report/source marker '+text);
 }
