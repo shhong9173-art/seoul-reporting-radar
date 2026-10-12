@@ -15,6 +15,10 @@ on:
       - 'tests/test_business_coverage.py'
       - 'tests/test_recent_business_scout.py'
       - 'tests/test_official_foreign_contracts.py'
+      - 'tests/test_investigation_hunt.py'
+      - 'tests/test_hunt_view.cjs'
+      - 'hunt.html'
+      - '.github/workflows/investigation-hunt.yml'
       - 'tests/test_official_watch.cjs'
       - 'official-watch.html'
       - '.github/workflows/official-overseas-contracts.yml'
@@ -30,6 +34,10 @@ on:
       - 'tests/test_business_coverage.py'
       - 'tests/test_recent_business_scout.py'
       - 'tests/test_official_foreign_contracts.py'
+      - 'tests/test_investigation_hunt.py'
+      - 'tests/test_hunt_view.cjs'
+      - 'hunt.html'
+      - '.github/workflows/investigation-hunt.yml'
       - 'tests/test_official_watch.cjs'
       - 'official-watch.html'
       - '.github/workflows/official-overseas-contracts.yml'
@@ -66,6 +74,10 @@ on:
       - 'tests/test_business_coverage.py'
       - 'tests/test_recent_business_scout.py'
       - 'tests/test_official_foreign_contracts.py'
+      - 'tests/test_investigation_hunt.py'
+      - 'tests/test_hunt_view.cjs'
+      - 'hunt.html'
+      - '.github/workflows/investigation-hunt.yml'
       - 'tests/test_official_watch.cjs'
       - 'official-watch.html'
       - '.github/workflows/official-overseas-contracts.yml'
@@ -81,6 +93,10 @@ on:
       - 'tests/test_business_coverage.py'
       - 'tests/test_recent_business_scout.py'
       - 'tests/test_official_foreign_contracts.py'
+      - 'tests/test_investigation_hunt.py'
+      - 'tests/test_hunt_view.cjs'
+      - 'hunt.html'
+      - '.github/workflows/investigation-hunt.yml'
       - 'tests/test_official_watch.cjs'
       - 'official-watch.html'
       - '.github/workflows/official-overseas-contracts.yml'
@@ -126,6 +142,7 @@ jobs:
       - run: python -m unittest discover -s tests -p 'test_business_coverage.py' -v
       - run: python -m unittest discover -s tests -p 'test_recent_business_scout.py' -v
       - run: python -m unittest discover -s tests -p 'test_official_foreign_contracts.py' -v
+      - run: python -m unittest discover -s tests -p 'test_investigation_hunt.py' -v
       - run: python -m unittest discover -s tests -p 'test_customs_integrity.py' -v
       - run: python -m unittest discover -s tests -p 'test_customs_watch.py' -v
       - run: python -m unittest discover -s tests -p 'test_business_metric_compare.py' -v
@@ -140,3 +157,4 @@ jobs:
       - run: node tests/test_hs_trade_view.cjs
       - run: node tests/test_latest_interim_view.cjs
       - run: node tests/test_official_watch.cjs
+      - run: node tests/test_hunt_view.cjs
