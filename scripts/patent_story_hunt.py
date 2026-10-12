@@ -36,7 +36,7 @@ TOPIC_RULES=(
      "전력설비 생산성·효율·수명 관련 기술 적용",
      "실제 제조·출하 품목인지? 고객·시험 규격·제품화 단계는?"),
     ("철강·비철 소재",
-     ("제철","강판","수소환원","합금","아연","동","전기로","압연","도금"),
+     ("제철","강판","수소환원","합금","아연","동박","동합금","동제련","전기로","압연","도금"),
      "소재 제조공정·품질·원가 관련 기술 적용",
      "실제 생산공정·판매제품에 반영됐는지, 기술 효과는 검증됐는가?"),
     ("제조공정·자동화",
@@ -152,7 +152,7 @@ def search_press(row,fetch=rss_fetch):
                              "articles":[]})
     has_hits=any(x["status"]=="hits" for x in searches)
     failed=any(x["status"]=="error" for x in searches)
-    return {"status":("관련 검색 기사 발견 · 동일 기술/기보도 여부 확인" if has_hits
+    return {"status":("관련 검색 기사 발견 · 동일 기술/기보도 여부 원문 대조 필요" if has_hits
                       else "검색 오류 포함 · 기보도 여부 미확인" if failed
                       else "검색 미발견 · 미보도 증명 아님"),
             "queries":searches,"possibleEarlierCoverage":has_hits,
