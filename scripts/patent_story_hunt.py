@@ -100,7 +100,8 @@ def news_queries(row):
     title=compact(row.get("title"))
     issuers=(row.get("coveredCompanies") or [])
     outsiders=(row.get("outsideBeatCoApplicants") or [])
-    main=_brand_for_press(issuers[0]) if issuers else ""
+    main=("현대차" if any("현대자동차" in n for n in issuers)
+          else _brand_for_press(issuers[0]) if issuers else "")
     partner=_brand_for_press(outsiders[0]) if outsiders else ""
     terms=_distinctive_terms(row)
     queries=[]
