@@ -1,0 +1,39 @@
+name: Codex Integration Regression Tests
+
+on:
+  push:
+    branches:
+      - 'integration/**'
+    paths:
+      - '**.py'
+      - 'tests/**'
+      - 'scoop.js'
+      - '.github/workflows/codex-integration-tests.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '**.py'
+      - 'tests/**'
+      - 'scoop.js'
+      - '.github/workflows/codex-integration-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  integration-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check Python syntax
+        run: python -m compileall -q pre_scoop_radar.py scoop_scout.py dart_collector.py dart_numeric_extractor.py dart_refresh.py dart_health.py dart_corrections.py tests
+      - name: Run offline Python regression tests
+        run: python -m unittest discover -s tests -p 'test_official_collectors.py' -v
+      - name: Verify DART warning labels
+        run: node tests/test_dart_health_ui.cjs
