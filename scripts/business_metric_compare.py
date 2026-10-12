@@ -170,6 +170,17 @@ def extract_current_and_carry(table,year):
     return {k:items[0] for k,items in parsed.items() if len(items)==1}
 
 
+def fiscal_period_at_current(table,year):
+    rows=table.get("rows") or []
+    mapped=year_columns(rows,year)
+    if not mapped:
+        return None
+    i,positions=mapped
+    label=rows[i][positions[year]]
+    match=PERIOD_RE.search(str(label))
+    return int(match[1]) if match else None
+
+
 def compare_company(record,older_year,year):
     periods=record.get("periods") or {}
     before=periods.get(str(older_year),{})
@@ -188,6 +199,12 @@ def compare_company(record,older_year,year):
         for a in old:
             for b in new:
                 if clean_unit(a)!=clean_unit(b) or table_scope(a)!=table_scope(b):
+                    continue
+                old_fiscal=fiscal_period_at_current(a,older_year)
+                new_fiscal=fiscal_period_at_current(b,year)
+                if old_fiscal is not None and new_fiscal is not None and new_fiscal!=old_fiscal+1:
+                    continue
+                if (old_fiscal is None)!=(new_fiscal is None):
                     continue
                 arows=extract_current_and_carry({**a,"unit":clean_unit(a)},older_year)
                 brows=extract_current_and_carry({**b,"unit":clean_unit(b)},year)
