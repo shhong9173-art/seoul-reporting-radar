@@ -28,12 +28,19 @@ jobs:
       - name: Install API client
         run: python -m pip install "requests>=2.31,<3"
       - name: Run offline checks
-        run: python -m unittest discover -s tests -p 'test_reporter_kit.py' -v
+        run: |
+          python -m unittest discover -s tests -p 'test_reporter_kit.py' -v
+          python -m unittest discover -s tests -p 'test_review_engine.py' -v
       - name: Collect official OpenDART filing lists
         env:
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
         run: python scripts/dart_watch.py --days 5
+      - name: Compare source evidence and check prior-news candidates
+        env:
+          NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
+          NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
+        run: python scripts/review_engine.py
       - name: Publish briefing
         run: |
           set -e
