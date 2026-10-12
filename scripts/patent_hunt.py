@@ -11,6 +11,7 @@ import html
 import json
 import os
 import re
+import time
 import xml.etree.ElementTree as ET
 from collections import Counter
 from datetime import datetime, timedelta, timezone
@@ -23,7 +24,7 @@ KST=timezone(timedelta(hours=9))
 BASE="https://plus.kipris.or.kr/kipo-api/kipi/patUtiModInfoSearchSevice/getAdvancedSearch"
 LANDING="https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001"
 LIMIT=100
-MAX_PAGES=2
+MAX_PAGES=4
 # Explicit Korean corporate names, not labels shortened to "현대", "LS", "포스코".
 APPLICANTS={
  "현대자동차":("현대자동차주식회사","현대자동차 주식회사"),
@@ -120,6 +121,8 @@ def search_applicant(key,term,from_date,to_date,fetch=request_xml,max_pages=MAX_
     all_rows=[]
     total=None
     for page in range(1,max_pages+1):
+        if page>1 and fetch is request_xml:
+            time.sleep(0.18)  # pace KIPRISPlus requests
         params={
             "applicant":term,"openDate":from_date+"~"+to_date,
             "patent":"true","utility":"false",
@@ -311,7 +314,10 @@ def build(key,previous=None,now=None,search=search_applicant,coverage=None,
         "completelyCheckedCompanies":successes,
         "baselineInitialized":baseline,
         "alertCount":sum(not r["previouslyObserved"] and not baseline for r in leads),
-        "items":leads[:80],"seen":seen,"confirmedScoops":0,
+        "items":leads[:500],"seen":seen,"confirmedScoops":0,
+        "displayedCount":min(500,len(leads)),
+        "unshownCount":max(0,len(leads)-500),
+        "sourceWindowComplete":successes==len(companies) and all(c["status"]=="checked" for c in checks),
         "coverageWarning":"첫 조회는 과거 35일 공개공보의 기준선. 출원일과 공개일이 다르고 특허 공개는 출시/양산·단독 확정이 아님. API 미지원/절단/장애는 회사 0건 아님",
     }
 

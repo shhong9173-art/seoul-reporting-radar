@@ -17,6 +17,8 @@ on:
       - 'tests/test_official_foreign_contracts.py'
       - 'tests/test_investigation_hunt.py'
       - 'tests/test_patent_hunt.py'
+      - 'tests/test_patent_deep_hunt.py'
+      - 'tests/test_patent_deep_view.cjs'
       - 'tests/test_patent_hunt_view.cjs'
       - 'patents.html'
       - '.github/workflows/kipris-patent-hunt.yml'
@@ -148,6 +150,7 @@ jobs:
       - run: python -m unittest discover -s tests -p 'test_official_foreign_contracts.py' -v
       - run: python -m unittest discover -s tests -p 'test_investigation_hunt.py' -v
       - run: python -m unittest discover -s tests -p 'test_patent_hunt.py' -v
+      - run: python -m unittest discover -s tests -p 'test_patent_deep_hunt.py' -v
       - run: python -m unittest discover -s tests -p 'test_customs_integrity.py' -v
       - run: python -m unittest discover -s tests -p 'test_customs_watch.py' -v
       - run: python -m unittest discover -s tests -p 'test_business_metric_compare.py' -v
@@ -164,3 +167,4 @@ jobs:
       - run: node tests/test_official_watch.cjs
       - run: node tests/test_hunt_view.cjs
       - run: node tests/test_patent_hunt_view.cjs
+      - run: node tests/test_patent_deep_view.cjs
