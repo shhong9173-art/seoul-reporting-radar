@@ -275,7 +275,7 @@ def build(official,deep,now=None,max_news=8,press=search_press,previous=None):
     unsearched=[x for x in stories if not x.get("pressCheckedAt")]
     revisits=sorted((x for x in stories if x.get("pressCheckedAt")),
                     key=lambda x:x["pressCheckedAt"])
-    for item in (unsearched+revisits)[:max_news]:
+    for item in (unsearched if unsearched else revisits)[:max_news]:
         item["pressCoverage"]=press(item)
         item["pressCheckedAt"]=now.isoformat(timespec="seconds")
         media_queries_new+=len((item["pressCoverage"] or {}).get("queries",[]))
