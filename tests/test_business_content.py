@@ -33,7 +33,7 @@ class ContentTests(unittest.TestCase):
         self.assertEqual(len(rows),1)
         self.assertEqual(rows[0]["topic"],"orderBacklog")
         self.assertEqual(rows[0]["unit"],"억원")
-        self.assertEqual(rows[0]["rows"][1][1],"125,000")
+        self.assertEqual(rows[0]["rows"][0][1],"125,000")
 
     def test_compare_only_same_topic_single_table_unit(self):
         old=bc.evidence_tables(bc.business_section(markup(value="100,000")),B)
