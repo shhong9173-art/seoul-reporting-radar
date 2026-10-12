@@ -36,6 +36,8 @@ th{font-weight:600;color:#53697c}
 </div>
 <p id="status" class="small"></p>
 <section id="findings"></section><section id="tables"></section>
+<section id="validated-business"><h2>사업 내용 · 두 공시에서 재검증된 수치 변화</h2>
+<p class="small" id="validated-business-status">공식 수치 비교 파일 확인 중</p><div id="validated-business-results"></div></section>
 <section id="business-evidence"><h2>사업보고서 본문·수주·생산 자료 비교</h2><p class="small" id="business-status">공식 사업내용 분석 자료 확인 중</p><div id="business-cards"></div></section>
 <p class="small">공식 출처: <a href="https://opendart.fss.or.kr/guide/detail.do?apiGrpCd=DS003&amp;apiId=2019020" target="_blank" rel="noopener noreferrer">금융감독원 OpenDART 단일회사 전체 재무제표</a>. 신호 판정은 취재 우선순위용 참고이며 과거에 이미 보도된 사실일 수 있다.</p>
 </main>
@@ -167,5 +169,35 @@ try{
  }
  if(!doc.companies.length)cards.append(el("p","공식 자료 확인 결과 없음","small"));
 }catch(e){status.textContent="실제 사업의 내용 분석은 아직 확인되지 않았어: "+e.message}
+})();
+</script>
+<script>
+(async function(){
+"use strict";
+const status=document.querySelector("#validated-business-status"),host=document.querySelector("#validated-business-results");
+function element(tag,value,cls){const x=document.createElement(tag);if(value!==undefined&&value!==null)x.textContent=String(value);if(cls)x.className=cls;return x}
+function sourceLink(receipt){const a=element("a","DART "+receipt,"reportlink");
+ if(/^\d{14}$/.test(receipt)){a.href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo="+receipt;a.target="_blank";a.rel="noopener noreferrer"}return a}
+try{
+ const [metricsRes,rawRes]=await Promise.all([
+  fetch("digests/business_metrics_latest.json",{cache:"no-store"}),
+  fetch("digests/business_content_latest.json",{cache:"no-store"})]);
+ if(!metricsRes.ok||!rawRes.ok)throw Error("공식 비교 결과 수집 전이거나 데이터 게시 오류");
+ const [metrics,raw]=await Promise.all([metricsRes.json(),rawRes.json()]);
+ if(!Array.isArray(metrics.findings)||metrics.sourceGeneratedAt!==raw.generatedAt)throw Error("원자료와 검산 파일 생성시각 불일치: 이전 결과를 숨김");
+ status.textContent="수치 검산 "+metrics.generatedAt+" · "+metrics.findingCount+"건 · 과거 공시의 재분석이며 단독 미확정";
+ if(!metrics.findings.length){host.append(element("p","두 원문·동일 행·기간·단위·이월 수치 검증을 모두 통과한 숫자 변화 없음. 취재 단서가 전혀 없다는 의미는 아니야.","small"));return}
+ for(const f of metrics.findings){
+  const card=element("article",null,"card");
+  card.append(element("h3",f.company+" · "+f.rowIdentity.join(" · ")));
+  card.append(element("span","공시 원문 수치 대조 완료 · 단독 미확정","label"));
+  const percent=typeof f.changePercent==="number"&&Number.isFinite(f.changePercent)?f.changePercent.toFixed(1)+"%":"증감률 산출 불가";
+  card.append(element("p",f.fromYear+"년 "+f.from+" → "+f.toYear+"년 "+f.to+" ("+f.unit+") · 변화 "+f.change+" ("+percent+")"));
+  card.append(element("p","대조 확인: 다음 해 사업보고서의 전기 값과 앞 해 사업보고서의 당기 값이 일치","detail"));
+  card.append(element("p","취재 필요: 과거 이미 보도됐는지, 제품·사업범위/가격/환율 영향이 무엇인지, 담당 회사 직접 설명","note"));
+  for(const receipt of f.originalReceipts||[])card.append(sourceLink(receipt));
+  host.append(card);
+ }
+}catch(e){status.textContent="수치 대조 결과를 아직 표시할 수 없어: "+e.message}
 })();
 </script></body></html>

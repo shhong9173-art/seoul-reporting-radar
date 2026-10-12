@@ -39,3 +39,10 @@
 - `data-lab.html`에 새 원문/표 대조 패널 추가. 숫자 비교 검증과 단독 판정은 아직 아님.
 - `.github/workflows/business-content-scout.yml`: 주간 자동 갱신, 공식 XML 조회와 데이터 보존 안전장치.
 - 범위·한계: `docs/business-content-scout.md`.
+
+
+## 공식 사업보고서 수주·생산능력 수치 검산
+- `scripts/business_metric_compare.py`가 전·당기 이월 수치와 동일 행·표시 단위·회계기간을 교차 검증한 뒤 `digests/business_metrics_latest.json`을 생성한다.
+- 현대차·기아·현대제철·세아제강을 추가해 공식 사업내용 발췌 대상으로 총 7개사를 확인한다.
+- `data-lab.html`은 검증된 두 원문 수치 변화와 각 원문 링크를 별도 영역에 표시한다. 공개된 사업보고서 재분석 결과이며 단독 인증은 아니다.
+- 상세 검증 및 사례: `docs/business-metric-validation-20261013.md`.

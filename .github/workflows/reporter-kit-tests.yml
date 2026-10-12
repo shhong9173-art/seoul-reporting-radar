@@ -11,6 +11,9 @@ on:
       - 'tests/test_review_engine.py'
       - 'tests/test_peer_financial.py'
       - 'tests/test_business_content.py'
+      - 'tests/test_business_metric_compare.py'
+      - 'tests/test_business_metric_view.cjs'
+      - 'tests/test_business_metric_compare.py'
       - 'tests/test_business_content_view.cjs'
       - '.github/workflows/business-content-scout.yml'
       - 'data-lab.html'
@@ -33,6 +36,9 @@ on:
       - 'tests/test_review_engine.py'
       - 'tests/test_peer_financial.py'
       - 'tests/test_business_content.py'
+      - 'tests/test_business_metric_compare.py'
+      - 'tests/test_business_metric_view.cjs'
+      - 'tests/test_business_metric_compare.py'
       - 'tests/test_business_content_view.cjs'
       - '.github/workflows/business-content-scout.yml'
       - 'data-lab.html'
@@ -57,16 +63,19 @@ jobs:
         with:
           python-version: '3.12'
       - run: python -m pip install "requests>=2.31,<3"
-      - run: python -m compileall -q scripts tests/test_reporter_kit.py tests/test_review_engine.py tests/test_dart_lineage.py tests/test_trade_trends.py tests/test_writer_lock.py tests/test_peer_financial.py tests/test_business_content.py
+      - run: python -m compileall -q scripts tests/test_reporter_kit.py tests/test_review_engine.py tests/test_dart_lineage.py tests/test_trade_trends.py tests/test_writer_lock.py tests/test_peer_financial.py tests/test_business_content.py tests/test_business_metric_compare.py
       - run: python -m unittest discover -s tests -p 'test_reporter_kit.py' -v
       - run: python -m unittest discover -s tests -p 'test_review_engine.py' -v
       - run: python -m unittest discover -s tests -p 'test_dart_lineage.py' -v
       - run: python -m unittest discover -s tests -p 'test_trade_trends.py' -v
       - run: python -m unittest discover -s tests -p 'test_peer_financial.py' -v
       - run: python -m unittest discover -s tests -p 'test_business_content.py' -v
+      - run: python -m unittest discover -s tests -p 'test_business_metric_compare.py' -v
+      - run: python -m unittest discover -s tests -p 'test_business_metric_compare.py' -v
       - run: python -m unittest discover -s tests -p 'test_writer_lock.py' -v
       - run: python -m unittest discover -s tests -p 'test_official_collectors.py' -v
       - run: node tests/test_dart_health_ui.cjs
       - run: node tests/test_morning_view.cjs
       - run: node tests/test_data_lab.cjs
       - run: node tests/test_business_content_view.cjs
+      - run: node tests/test_business_metric_view.cjs
