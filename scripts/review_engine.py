@@ -236,10 +236,12 @@ def review_item(row, numeric_by_receipt, search=None, lineage_by_receipt=None):
         "report": report, "published": row.get("published", ""),
         "url": source_url, "isNew": bool(row.get("isNew")), "tag": row.get("tag", ""),
         "lane": lane, "reason": reason,
-        "evidenceStatus": ("발행인 정정표 확인(원공시 대조 미완료)" if changes else
+        "evidenceStatus": ("명시적 원공시 접수번호·최초 및 정정 원문을 독립 대조" if verified_origin else
+                           "발행인 정정표 확인(원공시 대조 미완료)" if changes else
                            "동일 접수번호 원문 수치 일부 확인" if facts else
                            "공시 목록 확인, 상세 근거 미검증"),
-        "changeStatus": ("발행인 정정표 문구 변화 확인" if changes else "동일 사건 전후 변화 미확인"),
+        "changeStatus": ("양쪽 원문에서 같은 표 항목 변경 확인" if verified_differences else
+                         "발행인 정정표 문구 변화 확인" if changes else "동일 사건 전후 변화 미확인"),
         "changes": changes, "numericFacts": facts,
         "originalComparison": origin_proof,
         "coverage": coverage,
