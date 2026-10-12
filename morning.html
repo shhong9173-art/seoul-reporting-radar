@@ -55,6 +55,24 @@ small{font-size:12px}.prior{margin:6px 0;font-size:12px;overflow-wrap:anywhere}
     wrap.append(el("small","quiet",ch.originalDocumentVerified?"원공시 비교 검증됨":"발행인 정정표 기재 · 원공시 독립 대조 미완료"));
     detailBox.append(wrap);
   }
+  if(row.originalComparison){
+    const oc=row.originalComparison;
+    detailBox.append(el("div","label","최초 공시 독립 대조"));
+    detailBox.append(el("p","quiet",oc.reason||"원공시 독립 조회 전"));
+    if(oc.originalDocumentVerified&&oc.originalReceiptNo){
+      const p=el("p","prior");p.append(link(oc.originalUrl||"","확인된 원공시 접수번호 "+oc.originalReceiptNo));detailBox.append(p);
+      for(const diff of oc.verifiedChanges||[]){
+        const wrap=el("div","fact");wrap.append(el("b","",diff.field));
+        wrap.append(el("span","","원공시: "+diff.before));
+        wrap.append(el("span","","정정공시: "+diff.after));
+        wrap.append(el("small","quiet","각 원문 독립 확인 · 실제 경영 영향과 변경 효력은 회사 확인 필요"));
+        detailBox.append(wrap);
+      }
+    }
+    for(const candidate of oc.candidateOrigins||[]){
+      const p=el("p","prior");p.append(link(candidate.url,"원공시 후보(연결 미확정): "+candidate.receiptNo));detailBox.append(p);
+    }
+  }
   if((row.numericFacts||[]).length){
     detailBox.append(el("div","label","확인된 공시 원문 수치(기사 영향으로 추정 금지)"));
     for(const fact of row.numericFacts){
@@ -100,6 +118,7 @@ small{font-size:12px}.prior{margin:6px 0;font-size:12px;overflow-wrap:anywhere}
   return;
  }
  for(const [lane,count] of Object.entries(review.counts||{}))addStat(lane,count);
+ section("원공시 독립 대조 확인",review.items.filter(x=>x.lane==="원공시 독립 대조 확인"),true);
  section("정정표 변경 검토",review.items.filter(x=>x.lane==="정정표 변경 검토"),true);
  section("원문·변경 사실 확인",review.items.filter(x=>x.lane==="원문·변경 사실 확인"),true);
  section("공개자료 추적",review.items.filter(x=>x.lane==="공개자료 추적"),true);

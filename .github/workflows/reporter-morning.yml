@@ -36,6 +36,10 @@ jobs:
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
         run: python scripts/dart_watch.py --days 5
+      - name: Verify original and amended DART documents independently
+        env:
+          DART_API_KEY: ${{ secrets.DART_API_KEY }}
+        run: python scripts/dart_lineage.py --limit 3
       - name: Compare source evidence and check prior-news candidates
         env:
           NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
