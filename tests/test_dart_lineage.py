@@ -1,4 +1,5 @@
 """Origin receipt linkage is opt-in to evidence, never infer from issuer+date."""
+import io
 import json
 import os
 import subprocess
@@ -6,6 +7,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/"scripts"))
 import dart_lineage as lineage
@@ -87,6 +89,29 @@ class LineageTests(unittest.TestCase):
         text="원공시 접수번호 "+ORIGINAL+" 원공시 접수번호 20260802000110"
         out=lineage.explicit_origin_id([text],AMENDED)
         self.assertEqual(out["status"],"ambiguous_explicit_references")
+
+    def test_default_issuer_lookup_reads_official_list_without_required_callback(self):
+        payload={"status":"000","total_page":1,
+                 "list":[{"rcept_no":ORIGINAL,"corp_code":CODE,
+                          "report_nm":"단일판매ㆍ공급계약체결"}]}
+        with patch.object(lineage,"urlopen",return_value=io.BytesIO(
+                json.dumps(payload).encode("utf-8"))) as mocked:
+            items=lineage.issuer_list("fake",CODE,"20260901")
+        self.assertEqual(items[0]["rcept_no"],ORIGINAL)
+        self.assertEqual(mocked.call_count,1)
+
+    def test_live_default_list_adapter_allows_verified_amendment(self):
+        payload={"status":"000","total_page":1,
+                 "list":[{"rcept_no":ORIGINAL,"corp_code":CODE,
+                          "report_nm":"단일판매ㆍ공급계약체결"}]}
+        with patch.object(lineage,"urlopen",return_value=io.BytesIO(
+                json.dumps(payload).encode("utf-8"))):
+            out=lineage.review_lineage(
+                self.row(),{COMPANY:{"corp_code":CODE}},api_key="fake",
+                fetch_documents=self.orig)
+        self.assertTrue(out["originalDocumentVerified"])
+        self.assertEqual(out["status"],"original_verified_changes")
+        self.assertEqual(out["changes"][0]["before"],"1,000,000")
 
     def test_no_key_does_not_invoke_network(self):
         def never(*a,**kw):
