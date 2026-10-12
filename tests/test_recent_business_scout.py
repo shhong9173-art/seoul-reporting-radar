@@ -132,6 +132,43 @@ class InterimBusinessTests(unittest.TestCase):
         self.assertEqual(r["status"],"source_error")
         self.assertEqual(r["errorType"],"RuntimeError")
 
+    def test_cache_reuses_only_verified_matching_receipts(self):
+        current=example("06",2026,"20260814000001")
+        prior=example("06",2025,"20250814000002")
+        def listing(key,corp,year): return [current] if year==2026 else [prior]
+        previous={
+            "company":"HD현대일렉트릭","corpCode":COMPANY,
+            "status":"official_sections_retrieved",
+            "current":{**current,"status":"evidence_found","tables":[]},
+            "priorSamePeriod":{**prior,"status":"evidence_found","tables":[]},
+            "signals":[]}
+        record=scout.scan_company("HD현대일렉트릭",COMPANY,"key",2026,
+            list_fetch=listing,doc_fetch=lambda *args:self.fail("cached docs must not refetch"),
+            cache_record=previous)
+        self.assertTrue(record["cacheHit"])
+        self.assertEqual(record["current"]["receiptNo"],current["receiptNo"])
+
+    def test_new_correction_must_invalidate_cached_documents(self):
+        current=example("06",2026,"20260915000008")
+        prior=example("06",2025,"20250814000002")
+        oldcache={
+            "company":"HD현대일렉트릭","corpCode":COMPANY,
+            "status":"official_sections_retrieved",
+            "current":{**example(),"status":"evidence_found","tables":[]},
+            "priorSamePeriod":{**prior,"status":"evidence_found","tables":[]},
+            "signals":[]}
+        called=[]
+        def get_doc(key,receipt):
+            called.append(receipt)
+            return {"status":"found","section":"<SECTION-1></SECTION-1>","document":"test.xml"}
+        with patch.object(scout,"evidence_tables",return_value=[{"topic":"investment","unit":"백만원",
+          "receiptNo":"20260915000008","context":"진행중인 투자","rows":[["변압기 공장","2025","50"]]}]):
+            record=scout.scan_company("HD현대일렉트릭",COMPANY,"key",2026,
+                list_fetch=lambda k,c,y:[current] if y==2026 else [prior],
+                doc_fetch=get_doc,cache_record=oldcache)
+        self.assertFalse(record.get("cacheHit",False))
+        self.assertEqual(len(called),2)
+
     def test_only_direct_beat_corp_code(self):
         report=scout.source_report(
             {"삼성전기":{"corp_code":"00126371"}},
