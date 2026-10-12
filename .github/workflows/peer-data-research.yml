@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/peer-data-research.yml'
+      - 'scripts/peer_financial.py'
   schedule:
     # Monday 07:20 Asia/Seoul (Sunday 22:20 UTC)
     - cron: '20 22 * * 0'
