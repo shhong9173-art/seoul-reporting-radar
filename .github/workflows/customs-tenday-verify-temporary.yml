@@ -4,6 +4,7 @@ on:
     branches: [integration/customs-tenday-20261013]
     paths:
       - '.github/workflows/customs-tenday-verify-temporary.yml'
+      - 'scripts/customs_tenday.py'
   workflow_dispatch:
 permissions:
   contents: read
