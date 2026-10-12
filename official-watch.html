@@ -58,22 +58,25 @@ fetch("digests/overseas_official_latest.json",{cache:"no-store"}).then(r=>{
  if(!r.ok)throw Error("해외 공식 원천 파일이 아직 게시되지 않았어");return r.json()
 }).then(data=>{
  if(!Array.isArray(data.documents)||!Array.isArray(data.checks))throw Error("공식 API 응답 형식이 올바르지 않아");
- target.overseasStatus.textContent="수집: "+data.generatedAt+" · 제목/요약에서 명시적 출입처 이름 확인 "+data.matchedCount+
- "건 · 소스 조회 장애 "+data.sourceErrors+"건 / 8회";
+ target.overseasStatus.textContent="수집: "+data.generatedAt+" · 제목/요약에서 출입처 실명 확인 "+data.matchedCount+
+ "건 · 검색 결과만 일치(관계 미검증) "+(data.unverifiedSearchMatches||0)+"건 · API 오류 "+data.sourceErrors+"회";
  if(!data.documents.length)paragraph(target.overseas,
-  "출입처 명칭이 공식 고시 제목·요약/조달 제목·구매자명에 직접 확인된 결과가 없어. 검색 범위와 연결성을 확인해야 해.","dim");
+  "공식 원천 검색 결과 없음. 검색 범위·API 장애 여부를 확인해야 해.","dim");
  for(const d of data.documents){
    const card=element("article",undefined,"card");
    card.append(element("h3",d.title));
    card.append(element("span",d.source+" · "+d.published+" · "+d.sourceId,"tag"));
-   paragraph(card,"출입처 언급: "+(d.companiesMentioned||[]).join(", "),"dim");
+   if(d.nameVerified)paragraph(card,"원문 제목·요약에 실명 확인: "+(d.companiesMentioned||[]).join(", "),"dim");
+   else paragraph(card,"검색어 "+d.companySearchTerm+
+    " · 색인 일치만 확인, 특정 회사 관련성/입찰 지위 검증 전","dim");
    paragraph(card,d.evidence,"dim");paragraph(card,d.notProven,"q");
    putLink(card,d.sourceUrl,"공식 원문 확인 ↗");
    card.append(element("p","취재 질문: 공고의 대상 기업·입찰 단계·사업 위치·발표 경위가 정확히 무엇인가?","q"));
    target.overseas.append(card);
  }
  for(const q of data.checks){if(q.status==="source_error")
-   paragraph(target.overseas,q.provider+" · "+q.query+": 공식 API 오류 "+q.errorType,"dim")}
+   paragraph(target.overseas,q.provider+" · "+q.query+": 공식 API 오류 "+q.errorType+
+      (q.errorDetail?" ("+q.errorDetail+")":""),"dim")}
 }).catch(e=>{target.overseasStatus.textContent="해외 공식자료 현재 확인 불가: "+e.message});
 fetch("digests/recent_contracts_latest.json",{cache:"no-store"}).then(r=>{
  if(!r.ok)throw Error("DART 공급계약 수집 파일이 아직 게시되지 않았어");return r.json()
