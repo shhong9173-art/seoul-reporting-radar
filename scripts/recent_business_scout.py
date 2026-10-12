@@ -177,7 +177,7 @@ def signals_from_company(company,old,current,period):
 
 
 def scan_company(company,corp_code,key,year,list_fetch=reports_for_year,
-                 doc_fetch=fetch_report):
+                 doc_fetch=fetch_report,cache_record=None):
     item={"company":company,"corpCode":corp_code,"status":"not_checked",
           "current":None,"priorSamePeriod":None,"signals":[],"topicCounts":{}}
     try:
@@ -192,6 +192,18 @@ def scan_company(company,corp_code,key,year,list_fetch=reports_for_year,
             item.update({"status":"prior_matching_interim_not_found",
                          "current":{**latest,"status":"not_fetched"}})
             return item
+        # A checked, unchanged pair can reuse its original verified excerpts.
+        # Revisit the API list every weekday so new reports/corrections are
+        # noticed immediately, while avoiding redundant large ZIP downloads.
+        if (isinstance(cache_record,dict)
+            and cache_record.get("corpCode")==corp_code
+            and cache_record.get("status")=="official_sections_retrieved"
+            and (cache_record.get("current") or {}).get("receiptNo")==latest["receiptNo"]
+            and (cache_record.get("priorSamePeriod") or {}).get("receiptNo")==past["receiptNo"]
+            and (cache_record.get("current") or {}).get("status")=="evidence_found"
+            and (cache_record.get("priorSamePeriod") or {}).get("status")=="evidence_found"):
+            return {**cache_record,"cacheHit":True,
+                    "listCheckedAt":datetime.now(KST).isoformat(timespec="seconds")}
         item["current"]={**latest,**extracted_sections(key,latest,doc_fetch)}
         item["priorSamePeriod"]={**past,**extracted_sections(key,past,doc_fetch)}
         recent=item["current"]
@@ -209,7 +221,7 @@ def scan_company(company,corp_code,key,year,list_fetch=reports_for_year,
     return item
 
 
-def source_report(codes,key,year,names=SCOUT_COMPANIES,scan=scan_company):
+def source_report(codes,key,year,names=SCOUT_COMPANIES,scan=scan_company,previous=None):
     records=[]
     for name in names:
         code=(codes.get(name) or {}).get("corp_code")
@@ -217,9 +229,15 @@ def source_report(codes,key,year,names=SCOUT_COMPANIES,scan=scan_company):
             records.append({"company":name,"status":"corp_code_unavailable",
                             "signals":[],"current":None,"priorSamePeriod":None})
         else:
-            records.append(scan(name,code,key,year))
+            cached=next((r for r in (previous or {}).get("companies",[])
+                         if r.get("company")==name),None)
+            if cached:
+                records.append(scan(name,code,key,year,cache_record=cached))
+            else:
+                records.append(scan(name,code,key,year))
     return {
         "generatedAt":datetime.now(KST).isoformat(timespec="seconds"),
+        "unchangedCachedCount":sum(bool(x.get("cacheHit")) for x in records),
         "businessYear":year,
         "source":"OpenDART 정기공시 검색 list.json + document.xml 원문",
         "scope":"직접 출입처 분기·반기 최신 공시 대 전년 같은 보고기간",
@@ -269,7 +287,16 @@ def main():
     if not key:
         raise SystemExit("DART_API_KEY 미설정: 기존 공식 탐지 파일 보존")
     codes=json.loads(Path(args.codes).read_text(encoding="utf-8")).get("companies",{})
-    report=source_report(codes,key,args.year)
+    previous=None
+    old_file=Path(args.out)
+    if old_file.is_file():
+        try:
+            candidate=json.loads(old_file.read_text(encoding="utf-8"))
+            if candidate.get("businessYear")==args.year and isinstance(candidate.get("companies"),list):
+                previous=candidate
+        except (ValueError,OSError,TypeError):
+            pass
+    report=source_report(codes,key,args.year,previous=previous)
     if report["retrievedCount"]<1:
         raise SystemExit("공식 당해·전년 분기/반기 원문 대조 성공 0개사: 기존 파일 보존")
     if args.max_news:
