@@ -159,11 +159,16 @@ def claim_wording_evidence(current_text,prior_text,max_diffs=2):
             continue
         before=prior_text[i1:i2].strip()
         after=current_text[j1:j2].strip()
-        # Ignore punctuation-only edits and 1-character substitutions.
-        if max(len(before),len(after))<12 or not re.search(r"[가-힣A-Za-z]",before+after):
+        # Ignore punctuation-only edits; a one-character technical
+        # substitution (e.g. 유선->무선) may still be important to verify.
+        if not re.search(r"[가-힣A-Za-z]",before+after):
             continue
-        excerpt_before=before[:65]+("…" if len(before)>65 else "")
-        excerpt_after=after[:65]+("…" if len(after)>65 else "")
+        if max(len(before),len(after))<12:
+            excerpt_before=prior_text[max(0,i1-15):min(len(prior_text),i2+35)]
+            excerpt_after=current_text[max(0,j1-15):min(len(current_text),j2+35)]
+        else:
+            excerpt_before=before[:65]+("…" if len(before)>65 else "")
+            excerpt_after=after[:65]+("…" if len(after)>65 else "")
         identity=(excerpt_before,excerpt_after)
         if identity in seen:
             continue
