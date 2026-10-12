@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>산업부 아침 공시 브리핑</title><style>
+body{margin:0;background:#f5f7fa;font:15px system-ui,"Noto Sans KR",sans-serif;color:#172536}
+main{max-width:940px;margin:auto;padding:25px 18px 55px}h1{font-size:25px;margin:10px 0}
+h2{font-size:18px;margin-top:25px}a{color:#185b9d}.note,.item,.metric{background:white;border:1px solid #dde4eb;border-radius:12px;padding:14px}
+.note{font-size:13px;line-height:1.65}.item{margin:9px 0}.item a{font-weight:650;text-decoration:none}
+.meta{color:#65788b;font-size:12px;margin-top:8px}.stats{display:flex;gap:9px;flex-wrap:wrap;margin:15px 0}
+.metric{min-width:130px}.metric strong{display:block;font-size:24px}.badge{display:inline-block;font-size:12px;padding:3px 7px;background:#eef3f8;margin-right:5px;border-radius:6px}
+</style></head><body><main><a href="index.html">← 산업부 레이더로</a>
+<h1>아침 공시 브리핑</h1><p class="meta" id="timestamp">수집 파일 확인 중</p>
+<div class="note">★는 <b>공시 유형의 우선 확인 표식</b>이며 공개자료 자체는 단독이 아니야. 반드시 원문·기존 발표·선행 보도·실제 기업 영향을 확인해야 해.</div>
+<div class="stats" id="stats"></div><p class="meta" id="status"></p>
+<h2>★ 우선 확인 공시</h2><section id="priority"></section><h2>기타 공시</h2><section id="other"></section>
+</main><script>
+(async()=>{
+const $=s=>document.querySelector(s),sum=$("#stats"),pri=$("#priority"),other=$("#other");
+function stat(label,num){let el=document.createElement("div");el.className="metric";let strong=document.createElement("strong");strong.textContent=String(num);el.append(strong,document.createTextNode(label));sum.append(el)}
+function add(x,to){const el=document.createElement("div");el.className="item";
+if(x.tag){const b=document.createElement("span");b.className="badge";b.textContent=x.tag;el.append(b)}
+if(x.isNew){const b=document.createElement("span");b.className="badge";b.textContent="새 접수";el.append(b)}
+const link=document.createElement("a");link.textContent=(x.company||"회사 미확인")+" · "+(x.report||"공시");
+if(/^https:\/\/dart\.fss\.or\.kr\/dsaf001\/main\.do\?rcpNo=\d{14}$/.test(x.url||"")){link.href=x.url;link.target="_blank";link.rel="noopener noreferrer"}
+const meta=document.createElement("div");meta.className="meta";meta.textContent=[x.group,x.published,"접수번호 "+x.receiptNo].filter(Boolean).join(" · ");
+el.append(document.createElement("div"),link,meta);to.append(el)}
+try{
+const res=await fetch("digests/latest.json",{cache:"no-store"});if(!res.ok)throw Error("아직 digest 파일이 없어 ("+res.status+")");
+const d=await res.json();if(!Array.isArray(d.items))throw Error("JSON items 형식 오류");
+$("#timestamp").textContent="기준 "+d.generatedAt+" · 대상 기간 "+d.rangeStart+"~"+d.rangeEnd;
+stat("전체 공시",d.totalCount);stat("신규 접수",d.newCount);stat("우선 확인",d.flaggedCount);
+if(d.missingCompanies?.length)$("#status").textContent="DART 코드 미확인·미조회 기업: "+d.missingCompanies.join(", ")+". 해당 기업은 공시 0건으로 판단하지 마.";
+const hot=d.items.filter(x=>x.tag);hot.forEach(x=>add(x,pri));d.items.filter(x=>!x.tag).forEach(x=>add(x,other));
+if(!hot.length)pri.textContent="우선 확인 공시 없음";if(!other.children.length)other.textContent="기타 공시 없음";
+}catch(e){$("#status").textContent="브리핑 파일을 아직 읽지 못했어. GitHub Actions Reporter Morning DART Digest 실행을 확인해: "+e.message}
+})();
+</script></body></html>
