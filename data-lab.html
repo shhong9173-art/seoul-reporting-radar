@@ -36,6 +36,7 @@ th{font-weight:600;color:#53697c}
 </div>
 <p id="status" class="small"></p>
 <section id="findings"></section><section id="tables"></section>
+<section id="business-news-audit"><h2>사업 내용 · 기존 기사 교차 확인</h2><p id="business-news-status" class="small">관련 기사 검색 결과 확인 중</p><div id="business-news-items"></div></section>
 <section id="validated-business"><h2>사업 내용 · 두 공시에서 재검증된 수치 변화</h2>
 <p class="small" id="validated-business-status">공식 수치 비교 파일 확인 중</p><div id="validated-business-results"></div></section>
 <section id="business-evidence"><h2>사업보고서 본문·수주·생산 자료 비교</h2><p class="small" id="business-status">공식 사업내용 분석 자료 확인 중</p><div id="business-cards"></div></section>
@@ -199,5 +200,37 @@ try{
   host.append(card);
  }
 }catch(e){status.textContent="수치 대조 결과를 아직 표시할 수 없어: "+e.message}
+})();
+</script>
+<script>
+(async function(){
+"use strict";
+const status=document.querySelector("#business-news-status"),host=document.querySelector("#business-news-items");
+function create(t,txt,cls){const node=document.createElement(t);if(txt!==undefined)node.textContent=String(txt);if(cls)node.className=cls;return node}
+try{
+ const [a,b]=await Promise.all([
+  fetch("digests/business_metrics_latest.json",{cache:"no-store"}),
+  fetch("digests/business_coverage_latest.json",{cache:"no-store"})]);
+ if(!a.ok||!b.ok)throw Error("공식 검산 또는 보도검색 자료가 아직 게시되지 않음");
+ const [metrics,coverage]=await Promise.all([a.json(),b.json()]);
+ if(coverage.metricsGeneratedAt!==metrics.generatedAt||!Array.isArray(coverage.items))
+  throw Error("검산 데이터와 검색 파일의 시각이 달라 보도검색 결과 숨김");
+ status.textContent="Google News RSS 검색 시각: "+coverage.generatedAt+
+  " · 보도 후보만 표시하며 미보도 여부와 동일 사건 검증은 별개";
+ for(const item of coverage.items){
+  const box=create("article",undefined,"card");
+  box.append(create("h3",item.company+" · "+(item.rowIdentity||[]).join(" · ")));
+  box.append(create("p",(item.coverage?.status||"보도검색 미확인"),"detail"));
+  box.append(create("p","판정: "+item.exclusiveStatus,"note"));
+  for(const n of item.coverage?.articles||[]){
+   const url=n.url||"";
+   if(!/^https:\/\/news\.google\.com\//.test(url))continue;
+   const a=create("a",n.title,"reportlink");a.href=url;a.target="_blank";a.rel="noopener noreferrer";
+   box.append(a);
+  }
+  host.append(box);
+ }
+ if(!coverage.items.length)host.append(create("p","검산된 변경 지표가 없어 선행보도 검색 대상 없음","small"));
+}catch(e){status.textContent="기존 기사 교차 확인 미완료: "+e.message}
 })();
 </script></body></html>
