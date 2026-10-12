@@ -40,7 +40,13 @@ def query_for(f):
     unit=TOPIC_QUERY.get(f.get("topic"))
     if not unit:
         raise ValueError("지원하지 않는 자료 종류")
-    label=" ".join(str(x) for x in f.get("rowIdentity",[])[:2])[:48].strip()
+    # Long legal-entity lists from consolidated tables make RSS queries
+    # nearly impossible to match. Use at most one short distinct product/plant.
+    generic={"전력","중공업","제품","기타","공통","건설","사업부문"}
+    identifiers=[str(x).strip() for x in f.get("rowIdentity",[])
+                 if isinstance(x,str) and 2<=len(x.strip())<=8
+                 and x.strip() not in generic]
+    label=identifiers[0] if identifiers else ""
     return f"{company} {year} {unit} {label} when:365d".strip()
 
 
@@ -88,6 +94,28 @@ def build(metrics,search=check_one,limit=8):
         raise ValueError("공식 수치 검증 JSON 형식 오류")
     if not 1<=limit<=20:
         raise ValueError("뉴스 검색 최대 건수 1~20")
+    # Search is quota-limited; order by substantive change and diversify
+    # across direct-beat issuers rather than spending all queries on one company.
+    topic_rank={"orderBacklog":0,"productionCapacity":1,"utilization":2,
+                "investment":3,"segmentSales":4,"productionActual":5}
+    buckets={}
+    for i,f in enumerate(metrics["findings"]):
+        if not isinstance(f,dict) or f.get("carryForwardMatched") is not True:
+            continue
+        buckets.setdefault(f.get("company",""),[]).append((i,f))
+    for group in buckets.values():
+        group.sort(key=lambda pair:(
+            topic_rank.get(pair[1].get("topic"),9),
+            -abs(float(pair[1].get("changePercent") or 0)),
+            pair[0]))
+    companies=sorted(buckets,
+                     key=lambda c:(topic_rank.get(buckets[c][0][1].get("topic"),9),c))
+    selected=[]
+    while len(selected)<limit and any(buckets.values()):
+        for c in companies:
+            if buckets[c] and len(selected)<limit:
+                selected.append(buckets[c].pop(0)[0])
+    selected=set(selected)
     rows=[]
     for i,f in enumerate(metrics["findings"]):
         if not isinstance(f,dict):
@@ -98,7 +126,7 @@ def build(metrics,search=check_one,limit=8):
             "sourceStatus":f.get("status"),
             "exclusiveStatus":"보류: 단독 기사 자동 판정 금지",
         }
-        if i<limit and f.get("carryForwardMatched") is True:
+        if i in selected and f.get("carryForwardMatched") is True:
             try:
                 candidate["coverage"]=search(f)
             except (ValueError,TypeError) as err:
