@@ -21,6 +21,7 @@ import re
 import sys
 import xml.etree.ElementTree as ET
 from collections import defaultdict
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 import requests
@@ -55,17 +56,21 @@ def fetch(k, hs, start, end, country, raw=False):
         print(r.text[:3000])
     root = ET.fromstring(r.content)
     code = root.findtext(".//resultCode")
-    if code not in (None, "00"):
-        raise RuntimeError(f"관세청 API 오류 {code}: {root.findtext('.//resultMsg')}")
+    if code not in ("00","0"):
+        raise RuntimeError(f"관세청 API 오류/응답 형식 미확인 {code}: {root.findtext('.//resultMsg')}")
     return [{c.tag: (c.text or "").strip() for c in item} for item in root.iter("item")]
 
 
 def num(x):
+    if x is None or str(x).strip()=="":
+        raise ValueError("관세청 원자료 수치가 누락됨")
     try:
-        return float(str(x).replace(",", ""))
-    except (ValueError, TypeError) as exc:
+        n=Decimal(str(x).replace(",", ""))
+    except (InvalidOperation,ValueError,TypeError) as exc:
         raise ValueError(f"관세청 원자료 숫자 파싱 실패: {x!r}") from exc
-
+    if not n.is_finite() or n<0:
+        raise ValueError(f"관세청 비정상 금액·중량: {x!r}")
+    return n
 
 def main():
     ap = argparse.ArgumentParser()
@@ -76,6 +81,10 @@ def main():
     ap.add_argument("--raw", action="store_true", help="API 원문 앞부분 출력")
     a = ap.parse_args()
 
+    if not re.fullmatch(r"(?:19|20)\d{2}(?:0[1-9]|1[0-2])", a.start) or not re.fullmatch(r"(?:19|20)\d{2}(?:0[1-9]|1[0-2])", a.end) or a.start>a.end:
+        ap.error("연월 YYYYMM 범위 오류")
+    if not re.fullmatch(r"\d{2,10}", a.hs):
+        ap.error("HS 코드는 숫자 2~10자리만 입력")
     k = os.environ.get("CUSTOMS_API_KEY", "").strip()
     if not k:
         sys.exit("CUSTOMS_API_KEY 환경변수가 없다. data.go.kr 에서 인증키를 받아 넣어줘.")
@@ -85,18 +94,20 @@ def main():
         items += fetch(k, a.hs, s, e, a.country, a.raw)
 
     # 월별 합계 (총계 줄은 빼고, 같은 달 여러 세부 HS 줄은 더한다)
-    by_month = defaultdict(lambda: [0.0, 0.0, 0.0, 0.0])
+    by_month = defaultdict(lambda: [Decimal(0), Decimal(0), Decimal(0), Decimal(0)])
     for it in items:
         ym = it.get("year", "")
         if not ym or "총" in ym:
             continue
-        if not re.fullmatch(r"\\d{6}", ym):
-            raise ValueError(f"월별 원자료 기간 형식 오류: {ym!r}")
+        if not re.fullmatch(r"(?:19|20)\d{2}(?:0[1-9]|1[0-2])", ym) or not a.start<=ym<=a.end:
+            raise ValueError(f"월별 원자료 기간/조회범위 오류: {ym!r}")
+        if any(k not in it for k in ("expDlr","expWgt","impDlr","impWgt")):
+            raise ValueError(f"관세청 API 응답 수치 열 누락: {sorted(it)}")
         v = by_month[ym]
-        v[0] += num(it.get("expDlr", 0))
-        v[1] += num(it.get("expWgt", 0))
-        v[2] += num(it.get("impDlr", 0))
-        v[3] += num(it.get("impWgt", 0))
+        v[0] += num(it["expDlr"])
+        v[1] += num(it["expWgt"])
+        v[2] += num(it["impDlr"])
+        v[3] += num(it["impWgt"])
 
     out = ROOT / "data" / f"customs_{a.hs}_{a.country or 'ALL'}_{a.start}_{a.end}.csv"
     out.parent.mkdir(exist_ok=True)
@@ -104,18 +115,18 @@ def main():
         w = csv.writer(f)
         w.writerow(["월", "수출금액(달러)", "수출중량(kg)", "수입금액(달러)", "수입중량(kg)"])
         for ym in sorted(by_month):
-            w.writerow([ym, *[int(x) for x in by_month[ym]]])
+            w.writerow([ym, *[format(x,"f") for x in by_month[ym]]])
 
     print(f"HS {a.hs} {a.country or '전체 국가'} {a.start}~{a.end}")
     print(f"{'월':<10}{'수출(만달러)':>14}{'수입(만달러)':>14}")
-    yearly = defaultdict(float)
+    yearly = defaultdict(lambda: Decimal(0))
     for ym in sorted(by_month):
         e, _, i, _ = by_month[ym]
         yearly[ym[:4]] += e
-        print(f"{ym:<10}{e/1e4:>14,.0f}{i/1e4:>14,.0f}")
+        print(f"{ym:<10}{e/Decimal(10000):>14,.0f}{i/Decimal(10000):>14,.0f}")
     print("\n연도별 수출 합계(만달러, 부분 연도는 그 기간만):")
     for y in sorted(yearly):
-        print(f"  {y}: {yearly[y]/1e4:,.0f}")
+        print(f"  {y}: {yearly[y]/Decimal(10000):,.0f}")
     print(f"\n저장: {out}")
 
 
