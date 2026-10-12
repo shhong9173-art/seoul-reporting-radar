@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-13T02:29:39+09:00",
+  "generatedAt": "2026-10-13T02:32:54+09:00",
   "lookbackDays": 30,
   "windowStart": "2026-09-13",
   "scope": "US Federal Register 연방 고시 및 EU TED 공개 조달 공고",
@@ -16,10 +16,10 @@
     {
       "provider": "US Federal Register",
       "query": "Doosan Enerbility",
-      "status": "source_error",
-      "errorType": "ValueError",
-      "errorDetail": "Federal Register results 누락: 검색 완료 아님",
-      "matched": null
+      "status": "checked",
+      "returned": 0,
+      "matched": 0,
+      "unverified": 0
     },
     {
       "provider": "US Federal Register",
@@ -32,10 +32,10 @@
     {
       "provider": "US Federal Register",
       "query": "Korea Zinc",
-      "status": "source_error",
-      "errorType": "ValueError",
-      "errorDetail": "Federal Register results 누락: 검색 완료 아님",
-      "matched": null
+      "status": "checked",
+      "returned": 0,
+      "matched": 0,
+      "unverified": 0
     },
     {
       "provider": "EU TED",
@@ -119,6 +119,6 @@
   ],
   "matchedCount": 0,
   "unverifiedSearchMatches": 3,
-  "sourceErrors": 2,
+  "sourceErrors": 0,
   "scoopConfirmed": 0
 }
