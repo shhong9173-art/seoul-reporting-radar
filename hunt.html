@@ -89,7 +89,10 @@ try{
    addlink(block,project.originalUrls?.[0],"이전 DART 사업보고서");
    addlink(block,project.originalUrls?.[1],"최신 DART 정기보고서");
    block.append(elt("p","선행 기사 확인: "+(project.coverage?.status||"미검색"),"muted"));
-   for(const news of project.coverage?.articles||[])addlink(block,news.url,news.title);
+   for(const news of project.coverage?.articles||[]){
+      block.append(elt("p",news.matchStatus||"검색 결과: 동일 사건 여부 확인 전","muted"));
+      addlink(block,news.url,news.title);
+   }
    card.append(block);
   }
   card.append(elt("h3","데스킹 전 확인 질문"));
