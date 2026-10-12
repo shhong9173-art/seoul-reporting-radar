@@ -30,7 +30,7 @@ class TenDayTests(unittest.TestCase):
             td.cutoff_for("21~31")  # 누적 구간이 아니므로 거부
 
     def test_parse_preserves_thousand_usd(self):
-        rows = td.parse(xml_row(overrides={"itemUsdAmt03": "1,234"}),
+        rows = td.parse(xml_row(overrides={"itemUsdAmt03": "1,234", "itemUsdAmt00": "3000"}),
                         "exp_item", "202610")
         self.assertEqual(rows[0]["cutoff"], 10)
         self.assertEqual(rows[0]["items"][3]["amountKUsd"], "1234")
