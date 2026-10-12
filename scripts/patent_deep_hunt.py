@@ -184,7 +184,8 @@ def historical_summary(patent,response):
         owner=str(row.get("applicantName") or "")
         known=any(applicant_matches(owner,APPLICANTS[c]) for c in patent["coveredCompanies"])
         past.append({"publicationNumber":number,"title":title,
-                     "published":pub,"applicants":owner[:220],
+                     "published":pub,"applicationNumber":str(row.get("applicationNumber") or ""),
+                     "applicants":owner[:220],
                      "overlappingApplicant":known})
     return {"status":("과거 동일 제목 공보 발견(청구항/패밀리 동일성 미검증)" if past
                       else "동일 제목 공보 미확인(다른 명칭의 선행기술은 검증 전)"),
