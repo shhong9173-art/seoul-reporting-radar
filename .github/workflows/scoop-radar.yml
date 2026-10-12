@@ -25,8 +25,9 @@ permissions:
   id-token: write
 
 concurrency:
-  group: scoop-radar-refresh
-  cancel-in-progress: true
+  # Both workflows write scoop.json and dart_numeric.json. Serialize writers.
+  group: newsroom-radar-writers
+  cancel-in-progress: false
 
 jobs:
   scout:
