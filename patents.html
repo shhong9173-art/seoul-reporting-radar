@@ -127,7 +127,8 @@ try{
  }
  status.textContent="수집 시각 "+data.generatedAt+" · 공개일 범위 "+data.reportingWindow+
    " · 정상 출원인 조회 "+data.completelyCheckedCompanies+"/"+data.applicantCount+
-   "개 · 기술별 공개공보 "+data.candidateCount+
+    "개 · 공식 출입처 공개공보 "+data.candidateCount+
+   "건 · 기술사전 미분류 "+(data.unclassifiedCount??"미계산")+
    "건 · 기준선 생성 "+(data.baselineInitialized?"예":"아니오")+
    " · 기준선 이후 신규 관측 "+data.alertCount+"건 · 과거 누락 복구 "+(data.historicalBackfillCount||0)+"건 · 단독 확정 0건";
  if(!data.items.length)host.append(el("p","최근 공개된 관련 특허 후보가 없거나 조회 누락·인증 오류가 있어. 회사별 수집 현황을 확인해.","notice"));

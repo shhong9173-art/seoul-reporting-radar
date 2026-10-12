@@ -174,7 +174,7 @@ def verified_patent(raw,company,aliases,start,end):
     title=html.unescape(raw.get("inventionTitle","")).strip()
     if (not DATE8.fullmatch(published) or not start<=published<=end
         or not PATENT_NUMBER.fullmatch(pub_no) or not PATENT_NUMBER.fullmatch(app_no)
-        or not 8<=len(title)<=250):
+        or not 2<=len(title)<=250):
         return None
     try:
         real_date=datetime.strptime(published,"%Y%m%d").date()
