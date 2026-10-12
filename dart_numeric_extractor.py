@@ -64,6 +64,77 @@ PRIORITY_WORDS = (
     "주요사항보고서", "사업보고서", "분기보고서", "반기보고서", "영업양수도",
 )
 
+TABLE_NUMERIC_LABELS = frozenset({
+    "생산중단분야의매출액", "생산중단분야매출액", "최근매출액", "최근매출총액",
+    "영업정지금액", "매출액대비", "출자금액", "출자상대방총출자액",
+})
+TABLE_UNIT_RE = re.compile(r"\(단위[:：](원|천원|백만원|억원|%)\)")
+
+
+def extract_table_facts(raw: bytes) -> list[dict]:
+    """Bind a known label to its adjacent numeric cell and an explicit table unit.
+
+    A unit-only table may scope the immediately following table. Never carry
+    that unit through another table or across narrative text or documents.
+    """
+    markup = decode_web_bytes(raw)
+    facts = []
+    pending_unit = ""
+    previous_end = 0
+    for table in re.finditer(r"<table\b[^>]*>(.*?)</table>", markup, re.I | re.S):
+        between = html_to_text(markup[previous_end:table.start()].encode()).strip()
+        inherited = pending_unit if not between else ""
+        pending_unit = ""
+        previous_end = table.end()
+        table_markup = table[1]
+        if re.search(r"<table\b", table_markup, re.I):
+            # Nested layout tables need a separate parser; do not guess scope.
+            continue
+        table_text = html_to_text(table_markup.encode()).strip()
+        compact = re.sub(r"\s+", "", table_text)
+        declaration = TABLE_UNIT_RE.fullmatch(compact)
+        if declaration:
+            pending_unit = declaration[1]
+            continue
+        table_unit = inherited
+        if between:
+            declaration = TABLE_UNIT_RE.fullmatch(re.sub(r"\s+", "", between))
+            if declaration:
+                table_unit = declaration[1]
+        for row in re.findall(r"<tr\b[^>]*>(.*?)</tr>", table_markup, re.I | re.S):
+            cells = [html_to_text(cell.encode()).strip() for cell in
+                     re.findall(r"<(?:td|th|te|tu)\b[^>]*>(.*?)</(?:td|th|te|tu)>", row, re.I | re.S)]
+            # A leading unit row scopes this table, not the next unrelated one.
+            if len(cells) == 1:
+                declaration = TABLE_UNIT_RE.fullmatch(re.sub(r"\s+", "", cells[0]))
+                if declaration:
+                    table_unit = declaration[1]
+                    continue
+                if "단위" in cells[0]:
+                    table_unit = ""  # mixed/unsupported units are ambiguous
+            for label_cell, value_cell in zip(cells, cells[1:]):
+                label = re.sub(r"\s+", "", label_cell)
+                label = re.sub(r"^(?:\d+|[가-하])\.", "", label)
+                explicit = re.fullmatch(r"(.+?)\((원|천원|백만원|억원|%)\)", label)
+                unit = explicit[2] if explicit else table_unit
+                label_key = explicit[1] if explicit else label
+                if label_key not in TABLE_NUMERIC_LABELS or not unit:
+                    continue
+                # A dash/empty cell must not borrow a number from a later row.
+                if not re.fullmatch(r"[-+]?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?", value_cell):
+                    continue
+                if (label_key == "매출액대비") != (unit == "%"):
+                    continue
+                fact = {"label": label_cell, "value": value_cell, "unit": unit,
+                        "formatted": value_cell + unit,
+                        "unitSource": "field_heading" if explicit else "table_unit",
+                        "context": " | ".join(cells), "interpretation": "공시 항목에 기재된 수치; 신규 변경 여부는 별도 비교 필요"}
+                if "매출" in label_key or label_key == "영업정지금액":
+                    fact["interpretation"] = "공시상 매출 기준 항목; 손실액·신규 계약금액으로 해석하지 말 것"
+                if fact not in facts:
+                    facts.append(fact)
+    return facts
+
 def fetch_bytes(url: str, timeout: int = 25) -> bytes:
     req = Request(url, headers={"User-Agent": "Mozilla/5.0 (compatible; auto-desk-radar/1.0)", "Accept": "text/html,application/xhtml+xml,application/xml,*/*"})
     with urlopen(req, timeout=timeout) as r:
@@ -150,7 +221,7 @@ def fetch_dart_viewer_text(receipt_no: str, diagnostics: dict | None = None) -> 
             re.sub(r"\\s+", " ", main_html[max(0, pos - 160):pos + 270])[:430]
             for pos in receipt_positions[:5]
         ]
-        diag["tocAssignmentCount"] = len(re.findall(r"\\[['\\\"](?:rcpNo|dcmNo|eleId|offset|length|dtd)['\\\"]\\]", main_html))
+        diag["tocAssignmentCount"] = len(re.findall(r"\[\s*['\"](?:rcpNo|dcmNo|eleId|offset|length|dtd)['\"]\s*\]", main_html))
 
     except Exception as exc:
         diag["mainPageError"] = f"{type(exc).__name__}: {exc}"[:240]
@@ -227,6 +298,7 @@ def fetch_dart_viewer_text(receipt_no: str, diagnostics: dict | None = None) -> 
     docs.sort(key=lambda d: (bool(priority.search(d["label"])), bool(d["label"]), -int(d["offset"] or 0)), reverse=True)
 
     chunks = []
+    table_facts = []
     viewer_errors = []
     pages_fetched = 0
     for doc in docs[:4]:
@@ -244,6 +316,8 @@ def fetch_dart_viewer_text(receipt_no: str, diagnostics: dict | None = None) -> 
         try:
             raw = fetch_bytes(url, timeout=10)
             body = html_to_text(raw)
+            for fact in extract_table_facts(raw):
+                table_facts.append({**fact, "sourceUrl": url})
             pages_fetched += 1
         except Exception as exc:
             if len(viewer_errors) < 3:
@@ -259,6 +333,7 @@ def fetch_dart_viewer_text(receipt_no: str, diagnostics: dict | None = None) -> 
     diag["viewerPagesFetched"] = pages_fetched
     diag["viewerErrors"] = viewer_errors
     diag["viewerTextLength"] = len(viewer_text)
+    diag["numericTableFacts"] = table_facts
     if not viewer_text:
         diag["reason"] = "viewer entries found but no readable body text returned"
     return viewer_text
@@ -267,6 +342,11 @@ def fetch_dart_viewer_text(receipt_no: str, diagnostics: dict | None = None) -> 
 def extract_viewer_facts(base: dict, viewer_text: str, error: str, diagnostics: dict | None = None) -> dict:
     numbers = {}
     snippets = []
+    table_facts = (diagnostics or {}).get("numericTableFacts", [])
+    for fact in table_facts:
+        numbers[fact["formatted"]] = fact["context"]
+        snippets.append({"keyword": fact["label"], "numbers": [fact["formatted"]],
+                         "context": fact["context"], "interpretation": fact["interpretation"]})
     for match in KEYWORD_RE.finditer(viewer_text):
         start = max(0, match.start() - 240)
         end = min(len(viewer_text), match.end() + 420)
@@ -276,6 +356,10 @@ def extract_viewer_facts(base: dict, viewer_text: str, error: str, diagnostics: 
             numbers[value] = context.strip()
         if values and len(snippets) < 24:
             snippets.append({"keyword": match.group(0), "numbers": values[:10], "context": context.strip()})
+    attachment_only = (not numbers and "첨부정정" in str(base.get("reportName", ""))
+                       and bool(re.search(r"정정대상\s*공시서류\s*[:：]?\s*이사회의사록\s*등\s*증빙서류", viewer_text)))
+    status = "numeric_facts_extracted" if numbers else (
+        "attachment_correction_without_numeric_facts" if attachment_only else "no_target_values_in_readable_document")
     return {
         **base,
         "numbers": list(numbers.keys())[:40],
@@ -283,7 +367,10 @@ def extract_viewer_facts(base: dict, viewer_text: str, error: str, diagnostics: 
         "viewerText": viewer_text[:24000],
         "fallbackSource": "DART HTML viewer",
         "viewerFallbackDiagnostics": diagnostics or {},
-        "error": "" if numbers else (error + "; HTML viewer fetched but no values matched configured unit patterns"),
+        "numericFacts": table_facts,
+        "extractionStatus": status,
+        "upstreamError": error,
+        "error": "" if numbers or attachment_only else (error + "; HTML viewer fetched but no values matched configured unit patterns"),
     }
 
 
@@ -314,6 +401,7 @@ def extract_document(base: dict) -> dict:
             with zipfile.ZipFile(io.BytesIO(raw)) as z:
                 numbers = {}
                 snippets = []
+                table_facts = []
                 keyword_samples = []
                 names = z.namelist()
                 parsed_files = 0
@@ -323,7 +411,14 @@ def extract_document(base: dict) -> dict:
                     if not name.lower().endswith((".xml", ".html", ".htm", ".txt")):
                         continue
                     try:
-                        text = html_to_text(z.read(name))
+                        document_raw = z.read(name)
+                        text = html_to_text(document_raw)
+                        for fact in extract_table_facts(document_raw):
+                            fact = {**fact, "documentName": name}
+                            table_facts.append(fact)
+                            numbers[fact["formatted"]] = fact["context"]
+                            snippets.append({"keyword": fact["label"], "numbers": [fact["formatted"]],
+                                             "context": fact["context"], "interpretation": fact["interpretation"]})
                     except Exception:
                         continue
                     parsed_files += 1
@@ -350,6 +445,8 @@ def extract_document(base: dict) -> dict:
                         **base,
                         "numbers": list(numbers.keys())[:40],
                         "snippets": snippets[:24],
+                        "numericFacts": table_facts,
+                        "extractionStatus": "numeric_facts_extracted",
                         "extractionDiagnostics": {
                             "method": "OpenDART ZIP",
                             "archiveEntries": len(names),
@@ -438,7 +535,7 @@ def main():
     for row in results:
         previous = prior_by_receipt.get(str(row.get("receiptNo") or ""))
         error = str(row.get("error") or "")
-        temporary = bool(
+        temporary = row.get("extractionStatus") != "attachment_correction_without_numeric_facts" and bool(
             re.search(r"status\s*(?:800|014)|파일이\s*존재하지\s*않습니다|시스템\s*점검|maintenance|temporarily unavailable|timed?\s*out|urlerror|connection reset|no material numeric contexts matched", error, re.I)
             or (not row.get("numbers") and row.get("viewerFallbackDiagnostics"))
         )
