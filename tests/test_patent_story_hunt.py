@@ -79,6 +79,19 @@ class PatentStoryTests(unittest.TestCase):
         self.assertEqual(len(result["investigations"]),1)
         self.assertEqual(result["outsidePartnerLeads"],1)
 
+    def test_alternative_cj_hyundai_coverage_query_without_patent_title(self):
+        row=example(title="자동차용 플라스틱 부품을 재생하는 방법",
+                    abstract="자동차 PET 부품을 효소로 분해하여 재활용")
+        row["coveredCompanies"]=["기아","현대자동차"]
+        row["outsideBeatCoApplicants"]=["씨제이제일제당 (주)","경북대학교 산학협력단"]
+        queries=h.news_queries(row)
+        self.assertEqual(len(queries),3)
+        self.assertIn("1020260147319",queries[0])
+        self.assertIn("현대차",queries[2])
+        self.assertIn("CJ제일제당",queries[2])
+        self.assertIn("효소",queries[2])
+        self.assertIn("플라스틱",queries[2])
+
     def test_news_rss_search_has_explicit_unknown_when_zero(self):
         urls=[]
         def empty(url):
@@ -102,6 +115,12 @@ class PatentStoryTests(unittest.TestCase):
         r=h.search_press(example(),fetch=lambda _:b"<html></html>")
         self.assertFalse(r["completeSearch"])
         self.assertIn("미확인",r["status"])
+
+    def test_incomplete_official_applicant_source_cannot_be_published(self):
+        a,b=sources([example()])
+        a["sourceWindowComplete"]=False
+        with self.assertRaisesRegex(ValueError,"incomplete"):
+            h.build(a,b,now=NOW,max_news=0)
 
     def test_source_timestamp_mismatch_is_hard_error(self):
         a,b=sources([example()])

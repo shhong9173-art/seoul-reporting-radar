@@ -318,9 +318,10 @@ def main():
     p.add_argument("--max-history",type=int,default=10)
     args=p.parse_args()
     source=json.loads(Path(args.input).read_text(encoding="utf-8"))
-    if source.get("status") not in ("official_search_completed","official_search_partial"):
-        print("KIPRIS 공식 출원인 자료 없음: 과거기술 비교 미실행")
-        return
+    if (source.get("status")!="official_search_completed" or
+        source.get("sourceWindowComplete") is not True):
+        print("KIPRIS 공식 출원인 전체 검색 미검증: 과거 심층 분석 출판 중지")
+        raise SystemExit(2)
     key=os.environ.get("KIPRIS_SERVICE_KEY","").strip()
     result=build(source,key=key,search_limit=args.max_history if key else 0)
     out=Path(args.output);out.parent.mkdir(parents=True,exist_ok=True)

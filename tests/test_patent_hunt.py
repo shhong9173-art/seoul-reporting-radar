@@ -131,11 +131,62 @@ class PatentScoutTests(unittest.TestCase):
         self.assertIn("ServiceKey=fake-key",captured[0])
 
     def test_incomplete_pagination_cannot_be_claimed_all_checked(self):
+        from urllib.parse import parse_qs,urlparse
         def fetch(url):
-            return doc([row()],total=201)
+            page=int(parse_qs(urlparse(url).query)["pageNo"][0])
+            r=row()
+            r["openNumber"]=f"1020260{page:06d}"
+            return doc([r],total=201)
         result=p.search_applicant("fake-key","현대자동차","20260908","20261013",
                                   fetch=fetch,max_pages=2)
         self.assertFalse(result["complete"])
+
+    def test_oversubscribed_search_is_split_by_disclosure_date(self):
+        from urllib.parse import parse_qs,urlparse
+        docs=[]
+        for date,n in (("20261012",225),("20261013",225)):
+            for i in range(n):
+                r=row(pubdate=date)
+                r["openNumber"]=f"102026{int(date[-2:]):02d}{i:05d}"
+                r["applicationNumber"]=f"102025{int(date[-2:]):02d}{i:05d}"
+                docs.append(r)
+        calls=[]
+        def fetch(url):
+            q=parse_qs(urlparse(url).query)
+            left,right=q["openDate"][0].split("~")
+            page=int(q["pageNo"][0])
+            matching=[r for r in docs if left<=r["openDate"]<=right]
+            calls.append((left,right,page))
+            return doc(matching[(page-1)*100:page*100],total=len(matching))
+        report=p.search_applicant("key","현대자동차","20261012","20261013",fetch=fetch)
+        self.assertTrue(report["complete"])
+        self.assertEqual(len(report["rows"]),450)
+        self.assertEqual(report["total"],450)
+        self.assertEqual(report["splitWindowCount"],2)
+        self.assertGreater(report["requestCount"],5)
+        self.assertIn(("20261012","20261013",1),calls)
+
+    def test_overcapacity_single_day_stays_incomplete(self):
+        from urllib.parse import parse_qs,urlparse
+        def fetch(url):
+            page=int(parse_qs(urlparse(url).query)["pageNo"][0])
+            records=[]
+            for i in range((page-1)*100,min(page*100,425)):
+                r=row(pubdate="20261013")
+                r["openNumber"]=f"1020260{i:06d}"
+                records.append(r)
+            return doc(records,total=425)
+        report=p.search_applicant("key","현대자동차","20261013","20261013",fetch=fetch)
+        self.assertFalse(report["complete"])
+        self.assertEqual(len(report["rows"]),400)
+        self.assertEqual(report["splitWindowCount"],1)
+
+    def test_api_page_repeating_earlier_records_is_not_complete(self):
+        def fetch(_url):
+            r=row()
+            return doc([r],total=2)
+        with self.assertRaisesRegex(ValueError,"반복"):
+            p.search_applicant("key","현대자동차","20261012","20261012",fetch=fetch)
 
     def test_initial_baseline_not_fake_first_found(self):
         def search(key,term,start,end):

@@ -76,20 +76,46 @@ def official_excerpt(text,length=185):
     return s[:length]+("…" if len(s)>length else "")
 
 
+def _brand_for_press(name):
+    """Broader newsroom names; never presented as legal-entity evidence."""
+    value=compact(name)
+    if "씨제이제일제당" in value or "CJ제일제당" in value:
+        return "CJ제일제당"
+    if "현대자동차" in value:
+        return "현대차"
+    return re.sub(r"(주식회사|산학협력단|\(주\))","",value).strip()[:24]
+
+
+def _distinctive_terms(row):
+    source=(compact(row.get("title"))+" "+compact(row.get("sourceAbstractExcerpt") or row.get("abstract"))).lower()
+    tokens=("효소","플라스틱","재활용","해중합","폴리에스테르","폐차","폴리우레탄",
+            "전고체","배터리","충전","음극","양극","수소","연료전지",
+            "라이다","레이더","자율주행","변압기","송전","도금","전기로","냉각")
+    return [x for x in tokens if x in source][:3]
+
+
 def news_queries(row):
-    # Different paths: exact disclosure id, and patent title + co-applicants.
+    """Different article wording must be searched, not just patent title."""
     number=re.sub(r"[^0-9]","",row.get("publicationNumber") or "")
     title=compact(row.get("title"))
     issuers=(row.get("coveredCompanies") or [])
     outsiders=(row.get("outsideBeatCoApplicants") or [])
-    owner=outsiders[0] if outsiders else (issuers[0] if issuers else "")
+    main=("현대차" if any("현대자동차" in n for n in issuers)
+          else _brand_for_press(issuers[0]) if issuers else "")
+    partner=_brand_for_press(outsiders[0]) if outsiders else ""
+    terms=_distinctive_terms(row)
     queries=[]
     if re.fullmatch(r"10\d{11}",number):
         queries.append('"'+number+'"')
-    # RSS phrase length is limited to reduce accidental broad company hits.
     if title:
-        queries.append('"'+title[:48]+'" '+compact(owner)[:28])
-    return queries[:2]
+        queries.append('"'+title[:48]+'" '+(partner or main))
+    if partner and main:
+        # This catches headlines such as 'CJ·현대차, 플라스틱 먹는 효소'
+        # where neither the formal patent title nor publication number appears.
+        queries.append(" ".join([main,partner]+terms[:2]+["특허"]))
+    elif main and terms:
+        queries.append(" ".join([main]+terms[:2]+["특허"]))
+    return list(dict.fromkeys(queries))[:3]
 
 
 def rss_fetch(url):
@@ -168,6 +194,8 @@ def build(official,deep,now=None,max_news=8,press=search_press):
     now=now or datetime.now(KST)
     if not isinstance(official.get("items"),list) or not isinstance(deep.get("investigations"),list):
         raise ValueError("KIPRIS source data incomplete")
+    if official.get("sourceWindowComplete") is not True:
+        raise ValueError("KIPRIS official source incomplete: cannot publish story leads")
     if official.get("generatedAt")!=deep.get("patentDatasetGeneratedAt"):
         raise ValueError("Official and deep snapshots have different dates")
     # The deep ranking view is intentionally limited to 60, so reconstruct
@@ -235,7 +263,7 @@ def build(official,deep,now=None,max_news=8,press=search_press):
         "investigations":stories[:80],
         "unshownInvestigations":max(0,len(stories)-80),
         "sourceScope":"담당 24개 법인의 최근 35일 공개공보; 출입처 외 기업 단독출원은 미포함",
-        "mediaCaveat":"Google 뉴스 RSS 2개 탐색 쿼리/상위 후보 일부; 검색 무결성·전 매체 선행 보도 확인 불가",
+        "mediaCaveat":"Google 뉴스 RSS 번호·제목·이종 산업 키워드 최대 3개 검색식/상위 후보 일부; 검색 무결성·전 매체 선행 보도 확인 불가",
         "confirmedScoops":0,
     }
 

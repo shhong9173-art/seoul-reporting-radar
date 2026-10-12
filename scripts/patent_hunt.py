@@ -115,36 +115,76 @@ def request_xml(url):
 
 
 def search_applicant(key,term,from_date,to_date,fetch=request_xml,max_pages=MAX_PAGES):
+    """Complete a date range using recursive nonoverlapping windows.
+
+    KIPRISPlus pages are capped at 100 rows. When the four-page budget
+    cannot cover a company, split by disclosure date instead of silently
+    dropping later records. A single over-capacity day remains explicitly
+    INCOMPLETE and must not replace a previously verified snapshot.
+    """
     if not key or not term or not DATE8.fullmatch(from_date) or not DATE8.fullmatch(to_date):
         raise ValueError("KIPRIS 검색 인증키/공개일/출원인 값 이상")
     if from_date>to_date or not 1<=max_pages<=4:
         raise ValueError("KIPRIS 기간·페이지 범위 오류")
-    all_rows=[]
-    total=None
-    for page in range(1,max_pages+1):
-        if page>1 and fetch is request_xml:
-            time.sleep(0.18)  # pace KIPRISPlus requests
-        params={
-            "applicant":term,"openDate":from_date+"~"+to_date,
-            "patent":"true","utility":"false",
-            "sortSpec":"OPD","descSort":"true",
-            "pageNo":str(page),"numOfRows":str(LIMIT),
-            "ServiceKey":key
-        }
-        # KIPRISPlus official documentation shows this exact operation path.
-        result=parse_response(fetch(BASE+"?"+urlencode(params)))
-        if total is None:
-            total=result["total"]
-        elif result["total"]!=total:
-            raise ValueError("페이지 간 공보 건수 변경: 완전 탐색 확인 불가")
-        all_rows.extend(result["items"])
-        if len(all_rows)>=total:
-            break
-        if not result["items"]:
-            raise ValueError("빈 페이지가 있는데 전체 공보 건수는 남아 있음")
+    first=datetime.strptime(from_date,"%Y%m%d").date()
+    last=datetime.strptime(to_date,"%Y%m%d").date()
+    total_requests=0
+    windows=[]
+
+    def query_day_range(left,right):
+        nonlocal total_requests
+        begin=left.strftime("%Y%m%d")
+        finish=right.strftime("%Y%m%d")
+        def page_request(page):
+            nonlocal total_requests
+            if fetch is request_xml and total_requests:
+                time.sleep(0.18)
+            params={
+                "applicant":term,"openDate":begin+"~"+finish,
+                "patent":"true","utility":"false",
+                "sortSpec":"OPD","descSort":"true",
+                "pageNo":str(page),"numOfRows":str(LIMIT),
+                "ServiceKey":key,
+            }
+            total_requests+=1
+            return parse_response(fetch(BASE+"?"+urlencode(params)))
+        head=page_request(1)
+        raw_total=head["total"]
+        # The windows must be disjoint, not paged separately after splitting.
+        if raw_total>max_pages*LIMIT and left<right:
+            pivot=left+timedelta(days=(right-left).days//2)
+            a=query_day_range(left,pivot)
+            b=query_day_range(pivot+timedelta(days=1),right)
+            return {
+                "rows":a["rows"]+b["rows"],
+                "total":a["total"]+b["total"],
+                "complete":a["complete"] and b["complete"],
+            }
+        rows=list(head["items"])
+        for page in range(2,max_pages+1):
+            if len(rows)>=raw_total:
+                break
+            reply=page_request(page)
+            if reply["total"]!=raw_total:
+                raise ValueError("페이지 간 공보 건수 변경: 완전 탐색 확인 불가")
+            if not reply["items"]:
+                raise ValueError("빈 페이지가 있는데 전체 공보 건수는 남아 있음")
+            rows.extend(reply["items"])
+        # Repeating the same page is not evidence of complete retrieval.
+        ids=[(x.get("openNumber") or "",x.get("applicationNumber") or "")
+             for x in rows]
+        if len(ids)!=len(set(ids)):
+            raise ValueError("특허 페이지 간 동일 공개번호 반복: 완전 탐색 실패")
+        complete=len(rows)==raw_total
+        windows.append({"start":begin,"end":finish,"total":raw_total,
+                        "retrieved":len(rows),"complete":complete})
+        return {"rows":rows,"total":raw_total,"complete":complete}
+
+    report=query_day_range(first,last)
     return {
-        "rows":all_rows,"total":total,"complete":len(all_rows)>=total,
-        "query":term,"window":from_date+"~"+to_date
+        **report,"query":term,"window":from_date+"~"+to_date,
+        "requestCount":total_requests,"windows":windows,
+        "splitWindowCount":len(windows),
     }
 
 
@@ -310,7 +350,9 @@ def build(key,previous=None,now=None,search=search_applicant,coverage=None,
                 count+=1
             checks.append({"company":company,"status":("checked" if result["complete"] else "truncated"),
                            "matched":count,"rawTotal":result["total"],
-                           "rawRetrieved":len(result["rows"])})
+                           "rawRetrieved":len(result["rows"]),
+                           "requests":result.get("requestCount"),
+                           "windows":result.get("splitWindowCount")})
         except Exception as ex:
             checks.append({"company":company,"status":"source_error",
                            "errorType":type(ex).__name__,
@@ -361,9 +403,12 @@ def main():
         except (OSError,ValueError):
             pass
     key=os.environ.get("KIPRIS_SERVICE_KEY","").strip()
+    if not key:
+        print("KIPRIS_SERVICE_KEY 미설정: 기존 공식 특허 데이터 파일 보존")
+        raise SystemExit(2)
     report=build(key,previous=previous,news_limit=args.max_news)
-    if key and report["completelyCheckedCompanies"]==0:
-        print("KIPRISPlus 공식 API 인증/검색 성공 0개사: 기존 결과 파일 보존")
+    if key and not report.get("sourceWindowComplete"):
+        print("KIPRISPlus 24개 출입처 공식 검색에 오류·누락·페이지 절단 발생: 이전 검증 데이터 보존")
         raise SystemExit(2)
     output.parent.mkdir(parents=True,exist_ok=True)
     tmp=output.with_suffix(".json.tmp")
