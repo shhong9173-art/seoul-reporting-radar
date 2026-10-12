@@ -1032,6 +1032,7 @@ def build_public_signals(primary, dart_rows, now, limit=10, numeric_rows=None):
         if key in seen:
             continue
         seen.add(key)
+        from dart_corrections import public_correction_details
         correction=("기재정정" in report or "첨부정정" in report)
         url=str(d.get("url") or "")
         nr=numeric_by_receipt.get(str(d.get("receiptNo") or ""))
@@ -1042,7 +1043,7 @@ def build_public_signals(primary, dart_rows, now, limit=10, numeric_rows=None):
             "id":hashlib.sha1(("public-dart|"+"|".join(key)).encode()).hexdigest()[:12],
             "signalGroup":group,"kind":report,"companies":direct_beat_company_hits({"corpName":corp},corp),
             "title":f"{corp} {report}"+(" — 변경 항목 대조 필요" if correction else ""),
-            "published":dt.isoformat(),"sourceName":"DART","url":url,"details":[],
+            "published":dt.isoformat(),"sourceName":"DART","url":url,"details":public_correction_details(nr) if correction else [],
             "verification":("공개 공시 · 원문 수치 추출 실패 · 단독 아님" if extract_unavailable else "공개 공시 · 단독 아님"),
             "coverageStatus":("OpenDART 원문 추출 실패: "+extract_error+" 원문 링크에서 조건을 직접 확인해야 하며 미보도 여부는 별도 검증이 필요합니다." if extract_unavailable else ("정정 공시입니다. 최초 공시 대비 변경된 항목을 확인해야 합니다." if correction else "공개 공시입니다. 미보도·단독으로 표시하지 않습니다.")),
             "whyFollowup":("OpenDART 원문 추출이 실패했습니다. 금액·상대방·물량을 확인하기 전에는 계약의 중요도나 미보도 여부를 판단하지 않습니다." if extract_unavailable else "공시 원문에서 실제로 바뀐 숫자·일정·사업 범위를 확인한 뒤, 기존 보도와 회사 설명을 교차 확인해야 합니다."),

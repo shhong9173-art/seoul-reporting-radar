@@ -8,6 +8,7 @@ import urllib.error
 import urllib.parse
 from contextlib import redirect_stdout
 from datetime import datetime, timedelta
+from correction_cases import CorrectionTests
 from pathlib import Path
 from unittest.mock import patch
 
