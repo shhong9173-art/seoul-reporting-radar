@@ -123,10 +123,10 @@ def main():
     for ym in sorted(by_month):
         e, _, i, _ = by_month[ym]
         yearly[ym[:4]] += e
-        print(f"{ym:<10}{e/1e4:>14,.0f}{i/1e4:>14,.0f}")
+        print(f"{ym:<10}{e/Decimal(10000):>14,.0f}{i/Decimal(10000):>14,.0f}")
     print("\n연도별 수출 합계(만달러, 부분 연도는 그 기간만):")
     for y in sorted(yearly):
-        print(f"  {y}: {yearly[y]/1e4:,.0f}")
+        print(f"  {y}: {yearly[y]/Decimal(10000):,.0f}")
     print(f"\n저장: {out}")
 
 
