@@ -103,7 +103,7 @@ def parse(xml: bytes | str, series: str, month: str) -> list[dict]:
 
 def fetch(api_key: str, series: str, month: str) -> list[dict]:
     endpoint = SOURCES[series]["endpoint"]
-    path = f"/1220000/{endpoint}/get{endpoint[0].upper()}{endpoint[1:]}"
+    path = f"/{endpoint}/get{endpoint[0].upper()}{endpoint[1:]}"
     try:
         response = requests.get(BASE + path, params={
             "serviceKey": api_key, "strtYymm": month, "endYymm": month
