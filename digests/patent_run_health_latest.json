@@ -1,0 +1,47 @@
+{
+  "generatedAt": "2026-10-13T05:14:30+09:00",
+  "workflowRunId": "38302886839",
+  "workflowAttempt": "1",
+  "workflowEvent": "push",
+  "steps": {
+    "checks": "failure",
+    "source": "skipped",
+    "deep": "skipped",
+    "story": "skipped",
+    "claims": "skipped"
+  },
+  "datasets": {
+    "source": {
+      "path": "digests/patent_hunt_latest.json",
+      "exists": true,
+      "generatedAt": "2026-10-13T04:35:14+09:00",
+      "consistent": false,
+      "complete": true,
+      "validCompanies": 24,
+      "checkedCompanies": 24,
+      "missingCompanies": []
+    },
+    "deep": {
+      "path": "digests/patent_deep_latest.json",
+      "exists": true,
+      "generatedAt": "2026-10-13T04:36:06+09:00",
+      "consistent": false
+    },
+    "story": {
+      "path": "digests/patent_story_latest.json",
+      "exists": false,
+      "generatedAt": null,
+      "consistent": false
+    },
+    "claims": {
+      "path": "digests/patent_claim_review_latest.json",
+      "exists": true,
+      "generatedAt": "2026-10-13T04:36:18+09:00",
+      "consistent": false
+    }
+  },
+  "status": "degraded",
+  "claimComparisonStatus": "partial_or_missing",
+  "warning": "중간 오류·누락 또는 파일 갱신 미확인. 기존 데이터 유지·신규 단독 판단 금지",
+  "scoopConfirmed": false
+}
