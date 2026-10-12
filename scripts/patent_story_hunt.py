@@ -19,6 +19,10 @@ from urllib.request import Request, urlopen
 
 KST=timezone(timedelta(hours=9))
 TOPIC_RULES=(
+    ("차체·교통약자 접근성",
+     ("휠체어","승하차","도어","차량용 램프","슬라이딩 도어","승강장치"),
+     "차량 승하차 구조·접근성 및 차체부품 설계의 실제 적용 가능성",
+     "기존 차량의 접근성 설계와 무엇이 다르며, 실제 어느 차종·사업에 적용됐는가?"),
     ("순환소재·폐차재활용",
      ("재활용","폐플라스틱","폐차","해중합","효소","플라스틱","폴리에스테르","폴리우레탄","재생원료","수지","분해"),
      "회수 소재의 재생 공정과 자동차 부품 재사용 가능성",
@@ -166,7 +170,9 @@ def article_hypothesis(row,topic):
     if outsiders:
         company+="·"+compact(outsiders[0]).replace(" 주식회사","")[:25]
     verb="공동출원" if row.get("jointApplicantGroup") else "특허 공개"
-    title=compact(row.get("title"))[:73]
+    title=compact(row.get("title"))
+    if len(title)>73:
+        title=title[:73].rsplit(" ",1)[0].rstrip(",") + "…"
     # A literal evidence-based draft title, not an unverified conclusion.
     return company+", '"+title+"' "+verb
 
@@ -255,7 +261,7 @@ def build(official,deep,now=None,max_news=8,press=search_press):
         "sourceWindow":official.get("reportingWindow"),
         "sourceWindowComplete":bool(official.get("sourceWindowComplete")),
         "allVerifiedPublications":len(all_rows),
-        "unclassifiedVerifiedRecords":official.get("unclassifiedCount"),
+        "unclassifiedVerifiedRecords":sum(not item.get("themes") for item in all_rows),
         "possibleResearchLeads":len(stories),
         "outsidePartnerLeads":sum(bool(x["outsideBeatCoApplicants"]) for x in stories),
         "mediaQueriesCompleted":sum(len((x.get("pressCoverage") or {}).get("queries",[])) for x in stories),
