@@ -1,0 +1,819 @@
+{
+  "generatedAt": "2026-10-13T00:49:01+09:00",
+  "source": "OpenDART fnlttSinglAcntAll.json · CFS · 각 보고서의 표준 계정ID",
+  "sourceGuide": "https://opendart.fss.or.kr/guide/detail.do?apiGrpCd=DS003&apiId=2019020",
+  "method": "같은 기준의 매출액 1년 증가율이 비교회사 중앙값에서 15%p 이상 벌어지고 절대 변화가 10% 이상일 때 취재 단서",
+  "limitations": "기업별 제품 구성이 달라 원인·산업 전체 추세·단독 여부는 미확인. 3개년은 '사상 처음'을 입증하지 못함",
+  "groupNames": {
+    "자동차 완성차": [
+      "현대자동차",
+      "기아"
+    ],
+    "자동차 부품": [
+      "현대모비스",
+      "현대위아",
+      "HL만도"
+    ],
+    "전력기기": [
+      "HD현대일렉트릭",
+      "엘에스일렉트릭",
+      "효성중공업"
+    ],
+    "철강": [
+      "현대제철",
+      "동국제강",
+      "세아제강"
+    ],
+    "비철": [
+      "고려아연",
+      "영풍"
+    ]
+  },
+  "periods": {
+    "annual": {
+      "label": "연간 사업보고서",
+      "year": 2025
+    },
+    "halfyear": {
+      "label": "반기 누적",
+      "year": 2026
+    }
+  },
+  "companies": [
+    {
+      "name": "현대자동차",
+      "corpCode": "00164742",
+      "period": "annual",
+      "periodName": "연간 사업보고서",
+      "reportYear": 2025,
+      "scope": "CFS",
+      "currency": "KRW",
+      "reportCode": "11011",
+      "status": "extracted",
+      "metrics": {
+        "revenue": {
+          "2025": "186254472000000",
+          "2024": "175231153000000",
+          "2023": "162663579000000"
+        },
+        "operatingIncome": {
+          "2025": "11467851000000",
+          "2024": "14239592000000",
+          "2023": "15126901000000"
+        }
+      },
+      "sources": [
+        {
+          "receiptNo": "20260318001394",
+          "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260318001394"
+        }
+      ],
+      "warning": "동일 사업보고서 기준 공시 수치. 과거 수치가 재작성됐을 수 있고 그룹사 간 사업구조·내부거래가 다름",
+      "group": "자동차 완성차"
+    },
+    {
+      "name": "기아",
+      "corpCode": "00106641",
+      "period": "annual",
+      "periodName": "연간 사업보고서",
+      "reportYear": 2025,
+      "scope": "CFS",
+      "currency": "KRW",
+      "reportCode": "11011",
+      "status": "extracted",
+      "metrics": {
+        "revenue": {
+          "2025": "114140919000000",
+          "2024": "107448752000000",
+          "2023": "99808420000000"
+        },
+        "operatingIncome": {
+          "2025": "9078148000000",
+          "2024": "12667139000000",
+          "2023": "11607873000000"
+        }
+      },
+      "sources": [
+        {
+          "receiptNo": "20260312001224",
+          "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260312001224"
+        }
+      ],
+      "warning": "동일 사업보고서 기준 공시 수치. 과거 수치가 재작성됐을 수 있고 그룹사 간 사업구조·내부거래가 다름",
+      "group": "자동차 완성차"
+    },
+    {
+      "name": "현대모비스",
+      "corpCode": "00164788",
+      "period": "annual",
+      "periodName": "연간 사업보고서",
+      "reportYear": 2025,
+      "scope": "CFS",
+      "currency": "KRW",
+      "reportCode": "11011",
+      "status": "extracted",
+      "metrics": {
+        "revenue": {
+          "2025": "61118127000000",
+          "2024": "57236995000000",
+          "2023": "59254361000000"
+        },
+        "operatingIncome": {
+          "2025": "3357456000000",
+          "2024": "3073456000000",
+          "2023": "2295284000000"
+        }
+      },
+      "sources": [
+        {
+          "receiptNo": "20260309001878",
+          "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260309001878"
+        }
+      ],
+      "warning": "동일 사업보고서 기준 공시 수치. 과거 수치가 재작성됐을 수 있고 그룹사 간 사업구조·내부거래가 다름",
+      "group": "자동차 부품"
+    },
+    {
+      "name": "현대위아",
+      "corpCode": "00106623",
+      "period": "annual",
+      "periodName": "연간 사업보고서",
+      "reportYear": 2025,
+      "scope": "CFS",
+      "currency": "KRW",
+      "reportCode": "11011",
+      "status": "extracted",
+      "metrics": {
+        "revenue": {
+          "2025": "8481561000000",
+          "2024": "8180886000000",
+          "2023": "8165581000000"
+        },
+        "operatingIncome": {
+          "2025": "204413000000",
+          "2024": "218810000000",
+          "2023": "232802000000"
+        }
+      },
+      "sources": [
+        {
+          "receiptNo": "20260317000785",
+          "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260317000785"
+        }
+      ],
+      "warning": "동일 사업보고서 기준 공시 수치. 과거 수치가 재작성됐을 수 있고 그룹사 간 사업구조·내부거래가 다름",
+      "group": "자동차 부품"
+    },
+    {
+      "name": "HL만도",
+      "corpCode": "01042775",
+      "period": "annual",
+      "periodName": "연간 사업보고서",
+      "reportYear": 2025,
+      "scope": "CFS",
+      "currency": "KRW",
+      "reportCode": "11011",
+      "status": "extracted",
+      "metrics": {
+        "revenue": {
+          "2025": "9454812581023",
+          "2024": "8848181871751",
+          "2023": "8393086800929"
+        },
+        "operatingIncome": {
+          "2025": "357120974882",
+          "2024": "358760766831",
+          "2023": "279276996280"
+        }
+      },
+      "sources": [
+        {
+          "receiptNo": "20260318000883",
+          "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260318000883"
+        }
+      ],
+      "warning": "동일 사업보고서 기준 공시 수치. 과거 수치가 재작성됐을 수 있고 그룹사 간 사업구조·내부거래가 다름",
+      "group": "자동차 부품"
+    },
+    {
+      "name": "HD현대일렉트릭",
+      "corpCode": "01205851",
+      "period": "annual",
+      "periodName": "연간 사업보고서",
+      "reportYear": 2025,
+      "scope": "CFS",
+      "currency": "KRW",
+      "reportCode": "11011",
+      "status": "extracted",
+      "metrics": {
+        "revenue": {
+          "2025": "4079497658529",
+          "2024": "3322349007529",
+          "2023": "2702799337370"
+        },
+        "operatingIncome": {
+          "2025": "995313437790",
+          "2024": "668970713547",
+          "2023": "315218290721"
+        }
+      },
+      "sources": [
+        {
+          "receiptNo": "20260316000940",
+          "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260316000940"
+        }
+      ],
+      "warning": "동일 사업보고서 기준 공시 수치. 과거 수치가 재작성됐을 수 있고 그룹사 간 사업구조·내부거래가 다름",
+      "group": "전력기기"
+    },
+    {
+      "name": "엘에스일렉트릭",
+      "corpCode": "00105855",
+      "period": "annual",
+      "periodName": "연간 사업보고서",
+      "reportYear": 2025,
+      "scope": "CFS",
+      "currency": "KRW",
+      "reportCode": "11011",
+      "status": "extracted",
+      "metrics": {
+        "revenue": {
+          "2025": "4965798552980",
+          "2024": "4551837252467",
+          "2023": "4230482628448"
+        },
+        "operatingIncome": {
+          "2025": "426407143017",
+          "2024": "389717122317",
+          "2023": "324877723039"
+        }
+      },
+      "sources": [
+        {
+          "receiptNo": "20260318001243",
+          "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260318001243"
+        }
+      ],
+      "warning": "동일 사업보고서 기준 공시 수치. 과거 수치가 재작성됐을 수 있고 그룹사 간 사업구조·내부거래가 다름",
+      "group": "전력기기"
+    },
+    {
+      "name": "효성중공업",
+      "corpCode": "01316245",
+      "period": "annual",
+      "periodName": "연간 사업보고서",
+      "reportYear": 2025,
+      "scope": "CFS",
+      "currency": "KRW",
+      "reportCode": "11011",
+      "status": "extracted",
+      "metrics": {
+        "revenue": {
+          "2025": "5968511616609",
+          "2024": "4894979612220",
+          "2023": "4300571503251"
+        },
+        "operatingIncome": {
+          "2025": "746968417289",
+          "2024": "362479487133",
+          "2023": "257836947601"
+        }
+      },
+      "sources": [
+        {
+          "receiptNo": "20260323001004",
+          "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260323001004"
+        }
+      ],
+      "warning": "동일 사업보고서 기준 공시 수치. 과거 수치가 재작성됐을 수 있고 그룹사 간 사업구조·내부거래가 다름",
+      "group": "전력기기"
+    },
+    {
+      "name": "현대제철",
+      "corpCode": "00145880",
+      "period": "annual",
+      "periodName": "연간 사업보고서",
+      "reportYear": 2025,
+      "scope": "CFS",
+      "currency": "KRW",
+      "reportCode": "11011",
+      "status": "extracted",
+      "metrics": {
+        "revenue": {
+          "2025": "22733237259727",
+          "2024": "23226141091217",
+          "2023": "25914760456167"
+        },
+        "operatingIncome": {
+          "2025": "219235156230",
+          "2024": "159492008580",
+          "2023": "798325068073"
+        }
+      },
+      "sources": [
+        {
+          "receiptNo": "20260318001506",
+          "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260318001506"
+        }
+      ],
+      "warning": "동일 사업보고서 기준 공시 수치. 과거 수치가 재작성됐을 수 있고 그룹사 간 사업구조·내부거래가 다름",
+      "group": "철강"
+    },
+    {
+      "name": "동국제강",
+      "corpCode": "01765265",
+      "reportYear": 2025,
+      "period": "annual",
+      "status": "no_report",
+      "metrics": {},
+      "sources": [],
+      "group": "철강"
+    },
+    {
+      "name": "세아제강",
+      "corpCode": "01325979",
+      "period": "annual",
+      "periodName": "연간 사업보고서",
+      "reportYear": 2025,
+      "scope": "CFS",
+      "currency": "KRW",
+      "reportCode": "11011",
+      "status": "extracted",
+      "metrics": {
+        "revenue": {
+          "2025": "1484796736010",
+          "2024": "1809432963576",
+          "2023": "1860904969919"
+        },
+        "operatingIncome": {
+          "2025": "49601484490",
+          "2024": "202908673849",
+          "2023": "231910194040"
+        }
+      },
+      "sources": [
+        {
+          "receiptNo": "20260312000989",
+          "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260312000989"
+        }
+      ],
+      "warning": "동일 사업보고서 기준 공시 수치. 과거 수치가 재작성됐을 수 있고 그룹사 간 사업구조·내부거래가 다름",
+      "group": "철강"
+    },
+    {
+      "name": "고려아연",
+      "corpCode": "00102858",
+      "period": "annual",
+      "periodName": "연간 사업보고서",
+      "reportYear": 2025,
+      "scope": "CFS",
+      "currency": "KRW",
+      "reportCode": "11011",
+      "status": "extracted",
+      "metrics": {
+        "revenue": {
+          "2025": "16587850779912",
+          "2024": "12052918410249",
+          "2023": "9704521343024"
+        },
+        "operatingIncome": {
+          "2025": "1231926775791",
+          "2024": "723472208523",
+          "2023": "659935424598"
+        }
+      },
+      "sources": [
+        {
+          "receiptNo": "20260813001726",
+          "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260813001726"
+        }
+      ],
+      "warning": "동일 사업보고서 기준 공시 수치. 과거 수치가 재작성됐을 수 있고 그룹사 간 사업구조·내부거래가 다름",
+      "group": "비철"
+    },
+    {
+      "name": "영풍",
+      "corpCode": "00141307",
+      "period": "annual",
+      "periodName": "연간 사업보고서",
+      "reportYear": 2025,
+      "scope": "CFS",
+      "currency": "KRW",
+      "reportCode": "11011",
+      "status": "extracted",
+      "metrics": {
+        "revenue": {
+          "2025": "2908974321148",
+          "2024": "2787414358375",
+          "2023": "3761732632263"
+        },
+        "operatingIncome": {
+          "2025": "-259688708486",
+          "2024": "-160701935806",
+          "2023": "-169812608768"
+        }
+      },
+      "sources": [
+        {
+          "receiptNo": "20260317000753",
+          "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260317000753"
+        }
+      ],
+      "warning": "동일 사업보고서 기준 공시 수치. 과거 수치가 재작성됐을 수 있고 그룹사 간 사업구조·내부거래가 다름",
+      "group": "비철"
+    },
+    {
+      "name": "현대자동차",
+      "corpCode": "00164742",
+      "period": "halfyear",
+      "periodName": "반기 누적",
+      "reportYear": 2026,
+      "scope": "CFS",
+      "currency": "KRW",
+      "reportCode": "11012",
+      "status": "extracted",
+      "metrics": {
+        "revenue": {
+          "2026": "95154214000000",
+          "2025": "92694438000000"
+        },
+        "operatingIncome": {
+          "2026": "5365574000000",
+          "2025": "7235206000000"
+        }
+      },
+      "sources": [
+        {
+          "receiptNo": "20260814003521",
+          "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003521"
+        }
+      ],
+      "warning": "동일 사업보고서 기준 공시 수치. 과거 수치가 재작성됐을 수 있고 그룹사 간 사업구조·내부거래가 다름",
+      "group": "자동차 완성차"
+    },
+    {
+      "name": "기아",
+      "corpCode": "00106641",
+      "period": "halfyear",
+      "periodName": "반기 누적",
+      "reportYear": 2026,
+      "scope": "CFS",
+      "currency": "KRW",
+      "reportCode": "11012",
+      "status": "extracted",
+      "metrics": {
+        "revenue": {
+          "2026": "62538936000000",
+          "2025": "57367145000000"
+        },
+        "operatingIncome": {
+          "2026": "4833650000000",
+          "2025": "5773354000000"
+        }
+      },
+      "sources": [
+        {
+          "receiptNo": "20260916000427",
+          "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427"
+        }
+      ],
+      "warning": "동일 사업보고서 기준 공시 수치. 과거 수치가 재작성됐을 수 있고 그룹사 간 사업구조·내부거래가 다름",
+      "group": "자동차 완성차"
+    },
+    {
+      "name": "현대모비스",
+      "corpCode": "00164788",
+      "period": "halfyear",
+      "periodName": "반기 누적",
+      "reportYear": 2026,
+      "scope": "CFS",
+      "currency": "KRW",
+      "reportCode": "11012",
+      "status": "extracted",
+      "metrics": {
+        "revenue": {
+          "2026": "31885209000000",
+          "2025": "30688275000000"
+        },
+        "operatingIncome": {
+          "2026": "1777806000000",
+          "2025": "1646683000000"
+        }
+      },
+      "sources": [
+        {
+          "receiptNo": "20260814004065",
+          "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814004065"
+        }
+      ],
+      "warning": "동일 사업보고서 기준 공시 수치. 과거 수치가 재작성됐을 수 있고 그룹사 간 사업구조·내부거래가 다름",
+      "group": "자동차 부품"
+    },
+    {
+      "name": "현대위아",
+      "corpCode": "00106623",
+      "period": "halfyear",
+      "periodName": "반기 누적",
+      "reportYear": 2026,
+      "scope": "CFS",
+      "currency": "KRW",
+      "reportCode": "11012",
+      "status": "extracted",
+      "metrics": {
+        "revenue": {
+          "2026": "4533071000000",
+          "2025": "4240349000000"
+        },
+        "operatingIncome": {
+          "2026": "101952000000",
+          "2025": "104879000000"
+        }
+      },
+      "sources": [
+        {
+          "receiptNo": "20260814002618",
+          "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814002618"
+        }
+      ],
+      "warning": "동일 사업보고서 기준 공시 수치. 과거 수치가 재작성됐을 수 있고 그룹사 간 사업구조·내부거래가 다름",
+      "group": "자동차 부품"
+    },
+    {
+      "name": "HL만도",
+      "corpCode": "01042775",
+      "period": "halfyear",
+      "periodName": "반기 누적",
+      "reportYear": 2026,
+      "scope": "CFS",
+      "currency": "KRW",
+      "reportCode": "11012",
+      "status": "extracted",
+      "metrics": {
+        "revenue": {
+          "2026": "4806940168584",
+          "2025": "4671919160393"
+        },
+        "operatingIncome": {
+          "2026": "200602041564",
+          "2025": "183284367336"
+        }
+      },
+      "sources": [
+        {
+          "receiptNo": "20260814004041",
+          "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814004041"
+        }
+      ],
+      "warning": "동일 사업보고서 기준 공시 수치. 과거 수치가 재작성됐을 수 있고 그룹사 간 사업구조·내부거래가 다름",
+      "group": "자동차 부품"
+    },
+    {
+      "name": "HD현대일렉트릭",
+      "corpCode": "01205851",
+      "period": "halfyear",
+      "periodName": "반기 누적",
+      "reportYear": 2026,
+      "scope": "CFS",
+      "currency": "KRW",
+      "reportCode": "11012",
+      "status": "extracted",
+      "metrics": {
+        "revenue": {
+          "2026": "2178313164743",
+          "2025": "1920886883904"
+        },
+        "operatingIncome": {
+          "2026": "545303822428",
+          "2025": "427320784863"
+        }
+      },
+      "sources": [
+        {
+          "receiptNo": "20260814003228",
+          "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003228"
+        }
+      ],
+      "warning": "동일 사업보고서 기준 공시 수치. 과거 수치가 재작성됐을 수 있고 그룹사 간 사업구조·내부거래가 다름",
+      "group": "전력기기"
+    },
+    {
+      "name": "엘에스일렉트릭",
+      "corpCode": "00105855",
+      "period": "halfyear",
+      "periodName": "반기 누적",
+      "reportYear": 2026,
+      "scope": "CFS",
+      "currency": "KRW",
+      "reportCode": "11012",
+      "status": "extracted",
+      "metrics": {
+        "revenue": {
+          "2026": "2953549973514",
+          "2025": "2225126484951"
+        },
+        "operatingIncome": {
+          "2026": "305087151603",
+          "2025": "195907352623"
+        }
+      },
+      "sources": [
+        {
+          "receiptNo": "20260814003088",
+          "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003088"
+        }
+      ],
+      "warning": "동일 사업보고서 기준 공시 수치. 과거 수치가 재작성됐을 수 있고 그룹사 간 사업구조·내부거래가 다름",
+      "group": "전력기기"
+    },
+    {
+      "name": "효성중공업",
+      "corpCode": "01316245",
+      "period": "halfyear",
+      "periodName": "반기 누적",
+      "reportYear": 2026,
+      "scope": "CFS",
+      "currency": "KRW",
+      "reportCode": "11012",
+      "status": "extracted",
+      "metrics": {
+        "revenue": {
+          "2026": "3045187250830",
+          "2025": "2601419818136"
+        },
+        "operatingIncome": {
+          "2026": "416608567951",
+          "2025": "266648491139"
+        }
+      },
+      "sources": [
+        {
+          "receiptNo": "20260813001554",
+          "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260813001554"
+        }
+      ],
+      "warning": "동일 사업보고서 기준 공시 수치. 과거 수치가 재작성됐을 수 있고 그룹사 간 사업구조·내부거래가 다름",
+      "group": "전력기기"
+    },
+    {
+      "name": "현대제철",
+      "corpCode": "00145880",
+      "period": "halfyear",
+      "periodName": "반기 누적",
+      "reportYear": 2026,
+      "scope": "CFS",
+      "currency": "KRW",
+      "reportCode": "11012",
+      "status": "extracted",
+      "metrics": {
+        "revenue": {
+          "2026": "11846989711408",
+          "2025": "11509019989320"
+        },
+        "operatingIncome": {
+          "2026": "73408556289",
+          "2025": "82740071671"
+        }
+      },
+      "sources": [
+        {
+          "receiptNo": "20260814003379",
+          "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003379"
+        }
+      ],
+      "warning": "동일 사업보고서 기준 공시 수치. 과거 수치가 재작성됐을 수 있고 그룹사 간 사업구조·내부거래가 다름",
+      "group": "철강"
+    },
+    {
+      "name": "동국제강",
+      "corpCode": "01765265",
+      "reportYear": 2026,
+      "period": "halfyear",
+      "status": "no_report",
+      "metrics": {},
+      "sources": [],
+      "group": "철강"
+    },
+    {
+      "name": "세아제강",
+      "corpCode": "01325979",
+      "period": "halfyear",
+      "periodName": "반기 누적",
+      "reportYear": 2026,
+      "scope": "CFS",
+      "currency": "KRW",
+      "reportCode": "11012",
+      "status": "extracted",
+      "metrics": {
+        "revenue": {
+          "2026": "943738432413",
+          "2025": "793740641401"
+        },
+        "operatingIncome": {
+          "2026": "59043083671",
+          "2025": "46508956094"
+        }
+      },
+      "sources": [
+        {
+          "receiptNo": "20260814003277",
+          "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003277"
+        }
+      ],
+      "warning": "동일 사업보고서 기준 공시 수치. 과거 수치가 재작성됐을 수 있고 그룹사 간 사업구조·내부거래가 다름",
+      "group": "철강"
+    },
+    {
+      "name": "고려아연",
+      "corpCode": "00102858",
+      "period": "halfyear",
+      "periodName": "반기 누적",
+      "reportYear": 2026,
+      "scope": "CFS",
+      "currency": "KRW",
+      "reportCode": "11012",
+      "status": "extracted",
+      "metrics": {
+        "revenue": {
+          "2026": "12444628513649",
+          "2025": "7658165058958"
+        },
+        "operatingIncome": {
+          "2026": "1333168321617",
+          "2025": "529991066186"
+        }
+      },
+      "sources": [
+        {
+          "receiptNo": "20260814003958",
+          "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003958"
+        }
+      ],
+      "warning": "동일 사업보고서 기준 공시 수치. 과거 수치가 재작성됐을 수 있고 그룹사 간 사업구조·내부거래가 다름",
+      "group": "비철"
+    },
+    {
+      "name": "영풍",
+      "corpCode": "00141307",
+      "period": "halfyear",
+      "periodName": "반기 누적",
+      "reportYear": 2026,
+      "scope": "CFS",
+      "currency": "KRW",
+      "reportCode": "11012",
+      "status": "extracted",
+      "metrics": {
+        "revenue": {
+          "2026": "1704276764408",
+          "2025": "1171710161702"
+        },
+        "operatingIncome": {
+          "2026": "44842514713",
+          "2025": "-150408142288"
+        }
+      },
+      "sources": [
+        {
+          "receiptNo": "20260814002751",
+          "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814002751"
+        }
+      ],
+      "warning": "동일 사업보고서 기준 공시 수치. 과거 수치가 재작성됐을 수 있고 그룹사 간 사업구조·내부거래가 다름",
+      "group": "비철"
+    }
+  ],
+  "findings": [
+    {
+      "group": "전력기기",
+      "company": "엘에스일렉트릭",
+      "period": "halfyear",
+      "year": 2026,
+      "metric": "매출액 증가율의 비교기업 격차",
+      "gapPp": 17.51,
+      "latestYoYPercent": 32.74,
+      "comparisonMedianPercent": 15.23,
+      "otherPeerCount": 2,
+      "priorYoYPercent": null,
+      "sources": [
+        {
+          "receiptNo": "20260814003088",
+          "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003088"
+        }
+      ],
+      "status": "취재 단서·단독 미확정",
+      "coverage": "미검증: 회사 IR·기존 언론 보도·해당 원자료를 추가 확인",
+      "questions": [
+        "사업부·제품별 매출 구성이 비교기업과 다른지?",
+        "해당 기간 환율·인수합병·연결범위 변화가 수치에 반영됐는지?",
+        "증감 원인과 수주·생산/출하 변화가 실제로 연결되는지?"
+      ]
+    }
+  ],
+  "findingCount": 1,
+  "status": "research_only_not_exclusives",
+  "coverage": {
+    "requested": 26,
+    "extracted": 24,
+    "unavailable": 2,
+    "errors": 0
+  }
+}
