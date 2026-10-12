@@ -86,7 +86,7 @@
 ## KIPRIS 공식특허 발굴
 - [특허 취재 레이더](patents.html)는 24개 국내 직접 출입처 법인의 공식 출원인명·최근 35일 공개특허 번호·공개일·초록·IPC를 대조한다. 출원일과 공개일은 별도 표시.
 - KIPRISPlus **해당 특허·실용신안 공보 API 이용 승인과 별도 ServiceKey**가 있어야 실제 수집 가능. GitHub Actions Secret `KIPRIS_SERVICE_KEY`로 설정. 관세청 키와 다름.
-- `scripts/patent_hunt.py`, `digests/patent_hunt_latest.json`, `.github/workflows/kipris-patent-hunt.yml`: 평일 09:15(KST) 갱신. 특허 공개는 사업화·단독 확정이 아니며 미인증은 0건으로 취급하지 않는다. `docs/kipris-patent-hunt.md`.
+- `scripts/patent_hunt.py`, `digests/patent_hunt_latest.json`, `.github/workflows/kipris-patent-hunt.yml`: 평일 06:30·12:30·17:30(KST) 갱신 (GitHub Actions 예약 실행은 지연 가능). 특허 공개는 사업화·단독 확정이 아니며 미인증은 0건으로 취급하지 않는다. `docs/kipris-patent-hunt.md`.
 
 ## 특허 기술 변경 단독 연구 2단계
 - `scripts/patent_deep_hunt.py`와 `digests/patent_deep_latest.json`: 24개사 최근 특허 공개번호별 중복/공동출원 합산, 정밀 기술주제 교정, 제목 유사 특허와 2023년 이후 공식 동일 발명명칭 선행공보 조회(최대 10건).
