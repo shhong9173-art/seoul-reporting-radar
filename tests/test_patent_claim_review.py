@@ -97,6 +97,31 @@ class ClaimReviewTests(unittest.TestCase):
         self.assertEqual(len(diff["currentClaimSha256"]),64)
         self.assertLess(len(diff["currentShortExcerpt"]),120)
 
+    def test_diff_excerpts_cite_actual_short_text_not_invented_component(self):
+        old="청구항 1 차량 주변정보를 유선 센서로 수신하고 주행 경로를 계산하는 제어장치"
+        new="청구항 1 차량 주변정보를 무선 센서로 수신하고 주행 경로를 계산하는 제어장치"
+        evidence=a.claim_wording_evidence(new,old)
+        self.assertTrue(evidence)
+        for row in evidence:
+            self.assertIn(row["currentWording"].rstrip("…"),new)
+            self.assertIn(row["priorWording"].rstrip("…"),old)
+            self.assertIn("기술적 특이성 판단 전",row["evidenceStatus"])
+            self.assertLessEqual(len(row["currentWording"]),66)
+
+    def test_claim_component_evidence_rejects_punctuation_only_changes(self):
+        before="청구항 1 차량 제어 장치로서; 프로세서를 포함한다."
+        after="청구항 1 차량 제어 장치로서: 프로세서를 포함한다."
+        self.assertEqual(a.claim_wording_evidence(after,before),[])
+
+    def test_multi_company_news_query_uses_or_not_literal_slash(self):
+        sent=[]
+        xml=b"<rss><channel></channel></rss>"
+        a.related_press(patent(),fetch=lambda u:(sent.append(u) or xml))
+        from urllib.parse import parse_qs,urlparse
+        query=parse_qs(urlparse(sent[1]).query)["q"][0]
+        self.assertIn(" OR ",query)
+        self.assertNotIn("기아/현대자동차",query)
+
     def test_same_claim1_does_not_prove_same_family(self):
         cur=mock_detail("key",CUR)
         old=a.parse_bibliography(sample(OLD,cur["claim1Text"]),OLD)
