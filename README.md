@@ -73,3 +73,12 @@
 - hunt.html은 2025 연간 사업보고서와 2026 최신 정기보고서, 가능하면 2024 연간 보고서의 같은 투자 항목을 직접 비교한다.
 - scripts/investigation_hunt.py는 공식 투자 종료 예정월·금액의 변경을 찾고 기보도 검색/데스킹 질문을 제시한다. 실제 준공 지연이나 단독을 자동 확정하지 않는다.
 - 평일 08:45 KST digests/investigation_hunt_latest.json 갱신. 설계: docs/source-delta-hunt.md.
+
+## 관세청 승인 API 8종 연동 상태 (2026-10-13)
+- 기존 월별 HS 통계: `scripts/customs_watch.py`, `.github/workflows/hs-trends.yml` (HS4 8504·8544·8703·7208). 개별 회사 수출실적 아님.
+- 10일 누적 잠정치 수출·수입: `scripts/customs_tenday.py`, `.github/workflows/customs-tenday.yml`. 1일·11일·21일 11:30 KST 수집.
+- **추가 관세청 5종**: `scripts/customs_five.py`, `.github/workflows/customs-five.yml`. 매월 16·18일 11:30 KST, 수동 실행 가능. `CUSTOMS_API_KEY` GitHub Secret 1개를 공통 사용.
+- 추가 5종: 시도별 품목별(HS2·울산/충남/경북), 신성질별 국가별(미국/중국), 신성질별(전체 국가), 성질별 국가별(미국/중국), 종류별(전국 거래 형태). **표본 범위**는 출입 산업의 취재용 부분집합이며 대한민국 무역 전체를 대표하지 않는다.
+- 결과: `digests/customs_five_latest.json`을 검증 후 원자적으로 교체하고 `data-lab.html`에 집계 단위별 개별 표로 표시. 각 표는 같은 달의 전년도 값과 비교한다. 중복 합산/기업 귀속/단독 표시 금지.
+- 공공데이터포털 월별 공식 통계의 다음 달 중순 공표 주기를 고려하여 **16일 이전에는 전전월**, 이후에는 전월을 조회한다. 신규 월 값이 미수신되거나 API 오류가 나면 기존 JSON은 보존하며 해당 수집 실행은 실패 처리한다.
+- 실데이터 검증과 범위: [관세청 5종 API 통합 설계](docs/customs-five-statistics.md).
