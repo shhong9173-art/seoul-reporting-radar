@@ -20,3 +20,9 @@
 
 ## 주의
 ‘단독 후보’는 기사형 단독 표기를 탐지한 후보이며 실제 단독 여부를 보증하지 않습니다. 기사 작성 전 원문과 취재원 확인이 필요합니다.
+
+## 선배 취재 키트 기반 확장
+- 출입처별 아침 공시 브리핑: [`morning.html`](morning.html) 및 `digests/latest.md` (첫 자동 실행 이후 생성).
+- 독립 일정: `.github/workflows/reporter-morning.yml`, 평일 06:50 KST, 기존 `DART_API_KEY` Secrets 사용.
+- 원자료 → 이미 보도 확인 → 본 기자 발제 → 팩트체크: [`reporter_kit/README.md`](reporter_kit/README.md)
+- 관세청·네이버 API 도구: `scripts/customs.py`, `scripts/news_check.py` (별도 키 필요).

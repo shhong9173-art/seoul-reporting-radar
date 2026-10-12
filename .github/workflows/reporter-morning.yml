@@ -1,0 +1,54 @@
+name: Reporter Morning DART Digest
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/reporter-morning.yml'
+  schedule:
+    # Sunday-Thursday 21:50 UTC = Monday-Friday 06:50 KST.
+    - cron: '50 21 * * 0-4'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: reporter-morning-digest
+  cancel-in-progress: false
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install API client
+        run: python -m pip install "requests>=2.31,<3"
+      - name: Run offline checks
+        run: python -m unittest discover -s tests -p 'test_reporter_kit.py' -v
+      - name: Collect official OpenDART filing lists
+        env:
+          DART_API_KEY: ${{ secrets.DART_API_KEY }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: python scripts/dart_watch.py --days 5
+      - name: Publish briefing
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add digests/ data/seen.txt
+          if git diff --cached --quiet; then
+            echo "No digest change"
+          else
+            git commit -m "chore: refresh morning briefing [skip ci]"
+            for attempt in 1 2 3; do
+              git pull --rebase origin main
+              if git push origin HEAD:main; then exit 0; fi
+              sleep 3
+            done
+            echo "Cannot publish briefing after three attempts" >&2
+            exit 1
+          fi
