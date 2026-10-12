@@ -15,7 +15,8 @@ async function render(status, alignment) {
   };
   const doc = {items: [], sourceHealth: {
     dart: {status, errors: status === 'error' ? [{error: 'TimeoutError'}] : []},
-    dartNumeric: {sourceAlignment: alignment}, dartCandidateAlignment: alignment
+    dartNumeric: {sourceAlignment: alignment}, dartCandidateAlignment: alignment,
+    dartRefresh: status === 'stale' ? {status: 'error', attemptedAt: '2026-10-12'} : {status: 'ok'}
   }};
   vm.runInNewContext(code, {document, fetch: async () => ({ok: true, json: async () => doc})});
   await click({preventDefault() {}});
@@ -33,5 +34,9 @@ async function render(status, alignment) {
   const unknown = await render('ok', 'unverified');
   assert.match(unknown, /자료 갱신 확인 필요/);
   assert.doesNotMatch(unknown, /소스 상태 경고/);
-  console.log('DART UI: 3 cases passed');
+  const stale = await render('stale', 'current');
+  assert.match(stale, /이전 자료 표시 중/);
+  assert.match(stale, /새 공시가 없다는 뜻이 아닙니다/);
+  assert.doesNotMatch(stale, /목록 조회 완료/);
+  console.log('DART UI: 4 cases passed');
 })().catch(error => {console.error(error); process.exitCode = 1;});

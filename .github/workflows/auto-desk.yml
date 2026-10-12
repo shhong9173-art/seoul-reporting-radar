@@ -14,6 +14,7 @@ on:
       - 'dart.json'
       - 'dart_numeric.json'
       - 'dart_corp_codes.json'
+      - 'dart_refresh_status.json'
       - 'pitch.json'
       - 'industry.json'
       - 'dig_today.json'
@@ -64,14 +65,10 @@ jobs:
         run: python followup_filter.py
       - name: Test official collectors offline
         run: python -m unittest discover -s tests -p 'test_official_collectors.py' -v
-      - name: Collect DART disclosure radar
+      - name: Refresh DART without blocking healthy news on source failure
         env:
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
-        run: python dart_collector.py
-      - name: Extract numeric facts from DART originals
-        env:
-          DART_API_KEY: ${{ secrets.DART_API_KEY }}
-        run: python dart_numeric_extractor.py
+        run: python dart_refresh.py
       - name: Detect persistent company and industry changes
         run: python change_detector.py
       - name: Detect 30-day strategic shifts
@@ -147,7 +144,7 @@ jobs:
           set -e
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data.js data.json global.json archive.json changes.json strategic_shifts.json dart.json dart_numeric.json pitch.json industry.json dig_today.json pre_scoop.json scoop.json
+          git add dart_refresh_status.json data.js data.json global.json archive.json changes.json strategic_shifts.json dart.json dart_numeric.json pitch.json industry.json dig_today.json pre_scoop.json scoop.json
           if [ -f dart_corp_codes.json ]; then git add dart_corp_codes.json; fi
           if git diff --cached --quiet; then echo "No feed changes"; else
             git commit -m "chore: refresh newsroom radar and investigation leads"

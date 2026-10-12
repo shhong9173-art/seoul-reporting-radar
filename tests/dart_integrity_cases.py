@@ -117,3 +117,79 @@ class DartIntegrityTests(unittest.TestCase):
         for rows, errors, status in (([], [], 'empty'), ([], [{'error': 'timeout'}], 'error'), ([{}], [{'error': 'timeout'}], 'partial')):
             self.write(self.source, {'items': rows, 'errors': errors})
             self.assertEqual(refresh_health({'items': []}, self.root)['sourceHealth']['dart']['status'], status)
+
+    def test_two_pages_preserve_second_page_disclosure(self):
+        rows = [{'report_nm': '생산중단', 'rcept_no': str(n), 'rcept_dt': '20261012'} for n in (1, 2)]
+        responses = [{'status': '000', 'page_no': n, 'total_page': 2, 'list': [rows[n-1]]} for n in (1, 2)]
+        with patch.object(collector, 'get_json', side_effect=responses) as fetch:
+            result = collector.fetch_company('A', {'corp_code': '1'})
+        self.assertEqual([r['receiptNo'] for r in result['items']], ['1', '2'])
+        self.assertIn('page_no=2', fetch.call_args_list[1].args[0])
+
+    def test_later_page_failure_discards_partial_list(self):
+        first = {'status': '000', 'total_page': 2, 'list': [{'report_nm': '생산중단'}]}
+        with patch.object(collector, 'get_json', side_effect=[first, {'status': '013'}]):
+            result = collector.fetch_company('A', {'corp_code': '1'})
+        self.assertEqual(result['items'], [])
+        self.assertIn('page 2', result['error'])
+
+    def test_retry_recovers_timeout_and_is_bounded(self):
+        with patch.object(collector, 'get_json', side_effect=[TimeoutError(), {'status': '013'}]) as fetch, patch.object(collector.time, 'sleep'):
+            self.assertFalse(collector.fetch_company('A', {'corp_code': '1'}).get('error'))
+            self.assertEqual(fetch.call_count, 2)
+        with patch.object(collector, 'get_json', side_effect=TimeoutError()) as fetch, patch.object(collector.time, 'sleep'):
+            self.assertEqual(collector.fetch_company('A', {'corp_code': '1'})['error'], 'TimeoutError')
+            self.assertEqual(fetch.call_count, 2)
+
+    def test_auth_failure_is_not_retried(self):
+        with patch.object(collector, 'get_json', return_value={'status': '010'}) as fetch:
+            self.assertTrue(collector.fetch_company('A', {'corp_code': '1'}).get('error'))
+            self.assertEqual(fetch.call_count, 1)
+
+    def test_page_limit_and_wrong_page_are_not_success(self):
+        for pages, page in ((6, 1), (2, 5)):
+            with patch.object(collector, 'get_json', return_value={'status': '000', 'list': [{}], 'total_page': pages, 'page_no': page}):
+                self.assertTrue(collector.fetch_company('A', {'corp_code': '1'}).get('error'))
+
+    def test_isolated_failure_keeps_pair_and_exposes_stale_status(self):
+        from dart_refresh import run
+        original = (self.source.read_bytes(), self.output.read_bytes())
+        def fail():
+            raise SystemExit('failed')
+        with redirect_stdout(io.StringIO()):
+            status = run(self.root, collect=fail, extract=lambda: self.fail('must not extract'))
+        self.assertEqual(status['status'], 'error')
+        self.assertEqual(original, (self.source.read_bytes(), self.output.read_bytes()))
+        health = refresh_health({'items': []}, self.root)['sourceHealth']
+        self.assertEqual(health['dart']['status'], 'stale')
+        self.assertTrue(health['dartRefresh']['usingPreviousData'])
+
+    def test_numeric_crash_rolls_back_new_list(self):
+        from dart_refresh import run
+        original = self.source.read_bytes()
+        def collect():
+            self.write(self.source, {'items': [{'receiptNo': 'new'}]})
+        def fail():
+            raise RuntimeError('secret request URL')
+        with redirect_stdout(io.StringIO()):
+            status = run(self.root, collect=collect, extract=fail)
+        self.assertEqual(self.source.read_bytes(), original)
+        self.assertEqual(status['stage'], 'numeric')
+        self.assertNotIn('secret', json.dumps(status))
+
+    def test_missing_backup_cannot_continue_as_success(self):
+        from dart_refresh import run
+        self.source.unlink()
+        def fail():
+            raise SystemExit('failed')
+        with self.assertRaises(FileNotFoundError):
+            run(self.root, collect=fail, extract=lambda: None)
+        self.assertFalse(self.source.exists())
+
+    def test_success_clears_previous_failure_status(self):
+        from dart_refresh import run
+        self.write(self.root/'dart_refresh_status.json', {'status': 'error'})
+        status = run(self.root, collect=lambda: None, extract=lambda: None)
+        self.assertEqual(status['status'], 'ok')
+        self.assertFalse(status['usingPreviousData'])
+        self.assertEqual(refresh_health({'items': []}, self.root)['sourceHealth']['dart']['status'], 'ok')

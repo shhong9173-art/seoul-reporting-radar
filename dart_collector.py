@@ -206,17 +206,43 @@ def fetch_company(name, corp):
         "page_count": "100",
     }
     try:
-        data = get_json("https://opendart.fss.or.kr/api/list.json?" + urlencode(params))
-        if str(data.get("status")) not in {"000", "013"}:
-            return {"name": name, "items": [], "error": f"status {data.get('status')}: {data.get('message','')}"}
-        if str(data.get("status")) == "013":
-            return {"name": name, "items": []}
-        if not isinstance(data.get("list"), list):
-            return {"name": name, "items": [], "error": "list schema invalid"}
-        if int(data.get("total_page", 1)) > 1:
-            return {"name": name, "items": [], "error": "pagination incomplete: only first page fetched"}
+        all_rows = []
+        expected_pages = None
+        for page in range(1, 6):
+            params['page_no'] = str(page)
+            for attempt in range(2):
+                try:
+                    data = get_json("https://opendart.fss.or.kr/api/list.json?" + urlencode(params))
+                    break
+                except (TimeoutError, ConnectionError):
+                    if attempt:
+                        raise
+                    time.sleep(1)
+                except Exception as exc:
+                    from urllib.error import URLError, HTTPError
+                    transient = (isinstance(exc, HTTPError) and exc.code in {502, 503, 504}) or (isinstance(exc, URLError) and not isinstance(exc, HTTPError))
+                    if not transient or attempt:
+                        raise
+                    time.sleep(1)
+            status = str(data.get('status'))
+            if status == '013' and page == 1:
+                return {'name': name, 'items': []}
+            if status != '000':
+                return {'name': name, 'items': [], 'error': f'page {page}: status {status}'}
+            rows = data.get('list')
+            pages = int(data.get('total_page', 1))
+            if not isinstance(rows, list) or not rows:
+                return {'name': name, 'items': [], 'error': f'page {page}: empty or invalid list'}
+            if pages < 1 or pages > 5 or (expected_pages is not None and pages != expected_pages):
+                return {'name': name, 'items': [], 'error': f'page {page}: pagination limit or changing total_page'}
+            if int(data.get('page_no', page)) != page:
+                return {'name': name, 'items': [], 'error': f'page {page}: wrong page returned'}
+            expected_pages = pages
+            all_rows.extend(rows)
+            if page == pages:
+                break
         items = []
-        for row in data.get("list", []) or []:
+        for row in all_rows:
             report = (row.get("report_nm") or "").strip()
             if not any(k.lower() in report.lower() for k in KEYWORDS):
                 continue

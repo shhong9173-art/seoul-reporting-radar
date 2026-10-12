@@ -44,6 +44,14 @@ def refresh_health(scoop, root=Path("."), capture=False):
         "unverified" if not scoop.get("dartCandidateInputs") else
         "current" if scoop["dartCandidateInputs"] == current else "changed")
     health["dartCheckedAt"] = datetime.now(timezone.utc).isoformat()
+    attempt_path = root / 'dart_refresh_status.json'
+    if attempt_path.exists():
+        attempt = json.loads(attempt_path.read_text(encoding='utf-8'))
+        health['dartRefresh'] = attempt
+        if attempt.get('status') == 'error':
+            health['dart']['status'] = 'stale'
+    else:
+        health.pop('dartRefresh', None)
     return scoop
 
 
