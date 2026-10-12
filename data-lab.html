@@ -51,6 +51,12 @@ th{font-weight:600;color:#53697c}
 <p id="ten-day-status" class="small">공식 잠정치 연동 확인 중</p>
 <div class="alert">이 자료는 1~10일·1~20일·1~말일의 <b>누적 수출입금액</b>이며 단위는 천 달러입니다. 전년의 동일 누적 구간만 비교합니다. 개별 기업 실적·단독 근거가 아니며 HS 월별 통계와 더하지 않습니다.</div>
 <div id="ten-day-cards"></div></section>
+<section id="customs-five-data">
+<h2>관세청 추가 통계 · 지역·국가·성질·거래유형</h2>
+<p id="customs-five-status" class="small">관세청 공식 통계 확인 중</p>
+<div class="alert">시도별 HS2, 신성질별 8자리, 성질별 5자리, 거래 종류는 <b>서로 다른 집계 체계</b>입니다. 각 표의 같은 달·같은 분류끼리만 전년 동월 대비를 계산합니다. 출입처 기업 실적이나 단독 보도로 확정하지 않습니다. 총계는 이중 합산하지 않습니다.</div>
+<div id="customs-five-results"></div>
+</section>
 </main>
 <script>
 (function(){
@@ -356,6 +362,56 @@ try{
   host.append(card);
  }
 }catch(e){status.textContent="관세청 10일 잠정치 미연결/미검증: "+e.message+" · Actions Customs 10-Day Provisional Trade 확인"}
+})();
+</script>
+<script>
+(async function(){
+"use strict";
+const status=document.getElementById("customs-five-status");
+const host=document.getElementById("customs-five-results");
+const add=(tag,text,cl)=>{const x=document.createElement(tag);if(text!==undefined&&text!==null)x.textContent=String(text);if(cl)x.className=cl;return x;};
+function amount(s){if(!/^\d+(?:\.\d+)?$/.test(String(s||"")))return "미확인";if(/^\d+$/.test(String(s)))return BigInt(s).toLocaleString("ko-KR");const n=Number(s);return Number.isFinite(n)?n.toLocaleString("ko-KR",{maximumFractionDigits:2}):"미확인";}
+function pct(v){return typeof v==="number"&&Number.isFinite(v)?(v>0?"+":"")+v.toFixed(1)+"%":"산출 불가";}
+try{
+ const response=await fetch("digests/customs_five_latest.json",{cache:"no-store"});
+ if(!response.ok)throw Error("추가 API 5개 수집 결과 미게시 (HTTP "+response.status+")");
+ const data=await response.json();
+ if(!data.generatedAt||!Array.isArray(data.services)||data.services.length!==5||
+    !data.services.every(s=>s.status==="official_public_statistics_not_exclusive"&&Array.isArray(s.rows)))
+   throw Error("공식 통계 검증 상태 또는 응답 형식 불일치");
+ const age=Date.now()-Date.parse(data.generatedAt);
+ status.textContent="수집 "+data.generatedAt+" · 기준 "+data.period+" vs "+data.previousPeriod+
+   (Number.isFinite(age)&&age>46*86400000?" · 주의: 오래된 통계 결과":" · 5개 API 공식 자료·단독 미확정");
+ for(const s of data.services){
+  const wrap=add("details",undefined,"card");
+  const summary=add("summary",s.name+" · "+s.unit+" · 원본 "+s.rawRecordsCurrent+"행 · 관심 분류 "+s.matchedRows+"개");
+  summary.style.cursor="pointer";summary.style.fontWeight="650";
+  wrap.append(summary);
+  wrap.append(add("p",s.scope+" · 전년 동일 월 비교: "+s.period+" / "+s.previousPeriod,"note"));
+  if(s.rows.length){
+   const div=add("div",undefined,"gridwrap");
+   const t=add("table");
+   const tr=add("tr");
+   for(const name of ["국가·지역","수출입","코드","분류·거래 유형","당기 ("+s.unit+")","전년 동월","증감률"])tr.append(add("th",name));
+   const thead=add("thead");thead.append(tr);t.append(thead);
+   const tbody=add("tbody");
+   for(const r of s.rows){
+    const row=add("tr");
+    for(const value of [r.market,r.flow,r.code,r.name,amount(r.current),amount(r.previous),pct(r.changePercent)])
+      row.append(add("td",value));
+    tbody.append(row);
+   }
+   t.append(tbody);div.append(t);wrap.append(div);
+  }else{
+   wrap.append(add("p","선택한 출입 산업 키워드에 해당하는 공개 분류가 없음. 조회 실패나 수출입 실적 0을 뜻하지 않음.","note"));
+  }
+  const allowed=/^https:\/\/www\.data\.go\.kr\/data\/\d+\/openapi\.do$/;
+  if(allowed.test(s.sourceUrl)){
+   const link=add("a","원자료 API 문서","reportlink");link.href=s.sourceUrl;link.rel="noopener noreferrer";link.target="_blank";wrap.append(link);
+  }
+  host.append(wrap);
+ }
+}catch(err){status.textContent="관세청 추가 통계 조회 불가: "+err.message+" · Actions Customs Five Statistics 확인"}
 })();
 </script>
 </body></html>

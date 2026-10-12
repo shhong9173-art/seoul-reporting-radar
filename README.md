@@ -74,7 +74,16 @@
 - scripts/investigation_hunt.py는 공식 투자 종료 예정월·금액의 변경을 찾고 기보도 검색/데스킹 질문을 제시한다. 실제 준공 지연이나 단독을 자동 확정하지 않는다.
 - 평일 08:45 KST digests/investigation_hunt_latest.json 갱신. 설계: docs/source-delta-hunt.md.
 
-## 특허청 KIPRIS 공식특허 발굴
-- [특허 취재 레이더](patents.html)는 KIPRISPlus 특허 공개공보에서 자동차·철강·전력기기·에너지 24개 법인 명의 신규 공개 특허를 조회하고, 출원인·공개번호·공개일·기술초록 및 관련 보도 검색을 검증한다.
-- `KIPRIS_SERVICE_KEY` GitHub Actions Secret과 해당 공보 API 이용 승인이 필요. 기존 관세청 API 인증키는 대신 사용하지 않음. 키가 없으면 미연결 상태를 표시하며 발명을 지어내지 않는다.
-- `scripts/patent_hunt.py`, `digests/patent_hunt_latest.json`, `.github/workflows/kipris-patent-hunt.yml`: 평일 09:15 KST 업데이트. 특허 공개=실제 사업화·단독 아님. 설계: `docs/kipris-patent-hunt.md`.
+## 관세청 승인 API 8종 연동 상태 (2026-10-13)
+- 기존 월별 HS 통계: `scripts/customs_watch.py`, `.github/workflows/hs-trends.yml` (HS4 8504·8544·8703·7208). 개별 회사 수출실적 아님.
+- 10일 누적 잠정치 수출·수입: `scripts/customs_tenday.py`, `.github/workflows/customs-tenday.yml`. 1일·11일·21일 11:30 KST 수집.
+- **추가 관세청 5종**: `scripts/customs_five.py`, `.github/workflows/customs-five.yml`. 매월 16·18일 11:30 KST, 수동 실행 가능. `CUSTOMS_API_KEY` GitHub Secret 1개를 공통 사용.
+- 추가 5종: 시도별 품목별(HS2·울산/충남/경북), 신성질별 국가별(미국/중국), 신성질별(전체 국가), 성질별 국가별(미국/중국), 종류별(전국 거래 형태). **표본 범위**는 출입 산업의 취재용 부분집합이며 대한민국 무역 전체를 대표하지 않는다.
+- 결과: `digests/customs_five_latest.json`을 검증 후 원자적으로 교체하고 `data-lab.html`에 집계 단위별 개별 표로 표시. 각 표는 같은 달의 전년도 값과 비교한다. 중복 합산/기업 귀속/단독 표시 금지.
+- 공공데이터포털 월별 공식 통계의 다음 달 중순 공표 주기를 고려하여 **16일 이전에는 전전월**, 이후에는 전월을 조회한다. 신규 월 값이 미수신되거나 API 오류가 나면 기존 JSON은 보존하며 해당 수집 실행은 실패 처리한다.
+- 실데이터 검증과 범위: [관세청 5종 API 통합 설계](docs/customs-five-statistics.md).
+
+## KIPRIS 공식특허 발굴
+- [특허 취재 레이더](patents.html)는 24개 국내 직접 출입처 법인의 공식 출원인명·최근 35일 공개특허 번호·공개일·초록·IPC를 대조한다. 출원일과 공개일은 별도 표시.
+- KIPRISPlus **해당 특허·실용신안 공보 API 이용 승인과 별도 ServiceKey**가 있어야 실제 수집 가능. GitHub Actions Secret `KIPRIS_SERVICE_KEY`로 설정. 관세청 키와 다름.
+- `scripts/patent_hunt.py`, `digests/patent_hunt_latest.json`, `.github/workflows/kipris-patent-hunt.yml`: 평일 09:15(KST) 갱신. 특허 공개는 사업화·단독 확정이 아니며 미인증은 0건으로 취급하지 않는다. `docs/kipris-patent-hunt.md`.
