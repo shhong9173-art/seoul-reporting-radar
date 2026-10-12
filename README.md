@@ -91,3 +91,7 @@
 ## 특허 기술 변경 단독 연구 2단계
 - `scripts/patent_deep_hunt.py`와 `digests/patent_deep_latest.json`: 24개사 최근 특허 공개번호별 중복/공동출원 합산, 정밀 기술주제 교정, 제목 유사 특허와 2023년 이후 공식 동일 발명명칭 선행공보 조회(최대 10건).
 - `patents.html` 특허 심층 취재 조사 카드: 기술적 청구항/외국 특허패밀리/양산·수주 관련성은 아직 독립 확인 전 미확정, 기술 관련성과 회사 답변 검증을 독려. [설계/검증](docs/kipris-patent-deep-hunt.md).
+
+## KIPRIS 공식 제1항(청구항) 원문 대조
+- `scripts/patent_claim_review.py`가 특허 공개/심층 결과에 연결된 공식 출원번호를 KIPRISPlus 서지상세 `getBibliographyDetailInfoSearch`에 조회한다. 이전 문헌(동일 발명명칭·일부 동일 출원인)과 **청구항 제1항의 문구를 확보한 경우에만** 비교해 `digests/patent_claim_review_latest.json`에 발췌·해시·유사도와 취재 질문을 저장한다.
+- 원문 부재·청구항 파싱 오류는 결과 없음으로 취급하며 의미 있는 신기술·단독이라고 판정하지 않는다. 특허 `patents.html` 페이지의 `/claim-check` 영역과 [원칙](docs/patent-claim-source-review.md) 참고.
