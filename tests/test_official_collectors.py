@@ -9,6 +9,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import dart_numeric_extractor as dart
 import pre_scoop_radar as scout
 import scoop_scout as scoops
+from ntis_collector_cases import NtisCollectorTests
 
 
 class CollectorRegressionTests(unittest.TestCase):
