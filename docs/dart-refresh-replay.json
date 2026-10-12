@@ -1,0 +1,1953 @@
+[
+  {
+    "commit": "47ccf54",
+    "before": {
+      "count": 43,
+      "status": "ok",
+      "errors": []
+    },
+    "after": {
+      "dart": {
+        "count": 0,
+        "generatedAt": "2026-10-12T00:19:06.172539+00:00",
+        "status": "error",
+        "errors": [
+          {
+            "corpName": "엘에스일렉트릭",
+            "error": "<urlopen error timed out>"
+          },
+          {
+            "corpName": "기아",
+            "error": "<urlopen error timed out>"
+          },
+          {
+            "corpName": "현대위아",
+            "error": "<urlopen error timed out>"
+          }
+        ]
+      },
+      "dartNumeric": {
+        "count": 0,
+        "generatedAt": null,
+        "sourceAlignment": "unverified",
+        "withNumbers": 0,
+        "errorCount": 0,
+        "cacheFallbackCount": 0,
+        "maintenanceCount": 0,
+        "errors": []
+      },
+      "preScoop": {
+        "count": 22,
+        "groups": {
+          "법원·분쟁": 8,
+          "중앙노동위": 0,
+          "고용노동": 3,
+          "공장·산업단지": 1,
+          "환경·인허가": 0,
+          "R&D·기술": 0,
+          "자동차·결함": 2,
+          "공기업·조달": 2
+        },
+        "sourceDiagnostics": {
+          "scourt.go.kr": {
+            "group": "법원·분쟁",
+            "rssQueries": 3,
+            "rssRawItems": 100,
+            "rssAccepted": 0,
+            "rssRejectInvalid": 0,
+            "rssRejectOutsideWindow": 0,
+            "rssRejectNoCompany": 100,
+            "rssRejectNoSignalTerm": 0,
+            "rssRejectSamples": [
+              {
+                "reason": "NoCompany",
+                "title": "우리법원 주요판결 - 대구고등법원"
+              },
+              {
+                "reason": "NoCompany",
+                "title": "- 대한민국 법원"
+              },
+              {
+                "reason": "NoCompany",
+                "title": "우리법원 주요판결 - 대구고등법원"
+              },
+              {
+                "reason": "NoCompany",
+                "title": "보도자료/언론보도해명 - 대한민국 법원"
+              },
+              {
+                "reason": "NoCompany",
+                "title": "광주고등법원 2026년 9월 계약정보 공개(해당사항 없음) - 대한민국 법원"
+              },
+              {
+                "reason": "NoCompany",
+                "title": "우리법원 주요판결 - 대구고등법원"
+              },
+              {
+                "reason": "NoCompany",
+                "title": "검색결과 : 전자민원센터 - 대한민국 법원"
+              },
+              {
+                "reason": "NoCompany",
+                "title": "토지 수용보상금 산정 시 송전선 소유를 위한 구분지상권의 평가방법이 문제 된 사건[대법원 2026. 10. 1. 선고 중요판결] - 대한민국 법원"
+              }
+            ],
+            "bingQueries": 0,
+            "bingResultBlocks": 0,
+            "bingParsedBlocks": 0,
+            "bingAccepted": 0,
+            "bingRejectMalformed": 0,
+            "bingRejectUndated": 0,
+            "bingRejectOffDomain": 0,
+            "bingRejectOutsideWindow": 0,
+            "bingRejectNoCompany": 0,
+            "bingRejectNoSignalTerm": 0,
+            "bingRejectSamples": [],
+            "bingQueryDiagnostics": [],
+            "errors": [],
+            "bingFallbackDisabled": true,
+            "bingFallbackNote": "Disabled by default after repeated off-domain-only results; Google RSS and direct official collectors remain active.",
+            "uniqueRetained": 0
+          },
+          "nlrc.go.kr": {
+            "group": "중앙노동위",
+            "rssQueries": 3,
+            "rssRawItems": 0,
+            "rssAccepted": 0,
+            "rssRejectInvalid": 0,
+            "rssRejectOutsideWindow": 0,
+            "rssRejectNoCompany": 0,
+            "rssRejectNoSignalTerm": 0,
+            "rssRejectSamples": [],
+            "bingQueries": 0,
+            "bingResultBlocks": 0,
+            "bingParsedBlocks": 0,
+            "bingAccepted": 0,
+            "bingRejectMalformed": 0,
+            "bingRejectUndated": 0,
+            "bingRejectOffDomain": 0,
+            "bingRejectOutsideWindow": 0,
+            "bingRejectNoCompany": 0,
+            "bingRejectNoSignalTerm": 0,
+            "bingRejectSamples": [],
+            "bingQueryDiagnostics": [],
+            "errors": [],
+            "bingFallbackDisabled": true,
+            "bingFallbackNote": "Disabled by default after repeated off-domain-only results; Google RSS and direct official collectors remain active.",
+            "uniqueRetained": 0
+          },
+          "moel.go.kr": {
+            "group": "고용노동",
+            "rssQueries": 3,
+            "rssRawItems": 102,
+            "rssAccepted": 4,
+            "rssRejectInvalid": 0,
+            "rssRejectOutsideWindow": 0,
+            "rssRejectNoCompany": 98,
+            "rssRejectNoSignalTerm": 0,
+            "rssRejectSamples": [
+              {
+                "reason": "NoCompany",
+                "title": "“공직부터 민간기업까지”... 발달장애 청년을 위한 맞춤형 채용·직무 정보 한자리에 - 고용노동부"
+              },
+              {
+                "reason": "NoCompany",
+                "title": "한화에어로스페이스(주) 대전사업장 특별감독 결과 발표 - 고용노동부"
+              },
+              {
+                "reason": "NoCompany",
+                "title": "'26년 9월 중대재해사이렌(오픈채팅방) 자료 공개 - 고용노동부"
+              },
+              {
+                "reason": "NoCompany",
+                "title": "안전보건공단, 한국ESG학회와 ‘산업안전 특화 ESG 경영’ 확산 나선다 - 고용노동부"
+              },
+              {
+                "reason": "NoCompany",
+                "title": "(참고) 추석 전 임금체불 적발·청산 총력 - 고용노동부"
+              },
+              {
+                "reason": "NoCompany",
+                "title": "고용노동부 중부지방고용노동청 - 고용노동부"
+              },
+              {
+                "reason": "NoCompany",
+                "title": "안전보건공단, 한국ESG학회와 ‘산업안전 특화 ESG 경영’ 확산 나선다 - 고용노동부"
+              },
+              {
+                "reason": "NoCompany",
+                "title": "문서뷰어 - 고용노동부"
+              }
+            ],
+            "bingQueries": 0,
+            "bingResultBlocks": 0,
+            "bingParsedBlocks": 0,
+            "bingAccepted": 0,
+            "bingRejectMalformed": 0,
+            "bingRejectUndated": 0,
+            "bingRejectOffDomain": 0,
+            "bingRejectOutsideWindow": 0,
+            "bingRejectNoCompany": 0,
+            "bingRejectNoSignalTerm": 0,
+            "bingRejectSamples": [],
+            "bingQueryDiagnostics": [],
+            "errors": [],
+            "bingFallbackDisabled": true,
+            "bingFallbackNote": "Disabled by default after repeated off-domain-only results; Google RSS and direct official collectors remain active.",
+            "uniqueRetained": 3
+          },
+          "factoryon.go.kr": {
+            "group": "공장·산업단지",
+            "rssQueries": 3,
+            "rssRawItems": 0,
+            "rssAccepted": 0,
+            "rssRejectInvalid": 0,
+            "rssRejectOutsideWindow": 0,
+            "rssRejectNoCompany": 0,
+            "rssRejectNoSignalTerm": 0,
+            "rssRejectSamples": [],
+            "bingQueries": 0,
+            "bingResultBlocks": 0,
+            "bingParsedBlocks": 0,
+            "bingAccepted": 0,
+            "bingRejectMalformed": 0,
+            "bingRejectUndated": 0,
+            "bingRejectOffDomain": 0,
+            "bingRejectOutsideWindow": 0,
+            "bingRejectNoCompany": 0,
+            "bingRejectNoSignalTerm": 0,
+            "bingRejectSamples": [],
+            "bingQueryDiagnostics": [],
+            "errors": [],
+            "bingFallbackDisabled": true,
+            "bingFallbackNote": "Disabled by default after repeated off-domain-only results; Google RSS and direct official collectors remain active.",
+            "uniqueRetained": 0
+          },
+          "ieps.nier.go.kr": {
+            "group": "환경·인허가",
+            "rssQueries": 3,
+            "rssRawItems": 0,
+            "rssAccepted": 0,
+            "rssRejectInvalid": 0,
+            "rssRejectOutsideWindow": 0,
+            "rssRejectNoCompany": 0,
+            "rssRejectNoSignalTerm": 0,
+            "rssRejectSamples": [],
+            "bingQueries": 0,
+            "bingResultBlocks": 0,
+            "bingParsedBlocks": 0,
+            "bingAccepted": 0,
+            "bingRejectMalformed": 0,
+            "bingRejectUndated": 0,
+            "bingRejectOffDomain": 0,
+            "bingRejectOutsideWindow": 0,
+            "bingRejectNoCompany": 0,
+            "bingRejectNoSignalTerm": 0,
+            "bingRejectSamples": [],
+            "bingQueryDiagnostics": [],
+            "errors": [],
+            "bingFallbackDisabled": true,
+            "bingFallbackNote": "Disabled by default after repeated off-domain-only results; Google RSS and direct official collectors remain active.",
+            "uniqueRetained": 0
+          },
+          "ntis.go.kr": {
+            "group": "R&D·기술",
+            "rssQueries": 3,
+            "rssRawItems": 8,
+            "rssAccepted": 0,
+            "rssRejectInvalid": 0,
+            "rssRejectOutsideWindow": 0,
+            "rssRejectNoCompany": 8,
+            "rssRejectNoSignalTerm": 0,
+            "rssRejectSamples": [
+              {
+                "reason": "NoCompany",
+                "title": "- NTIS"
+              },
+              {
+                "reason": "NoCompany",
+                "title": "- NTIS"
+              },
+              {
+                "reason": "NoCompany",
+                "title": "- NTIS"
+              },
+              {
+                "reason": "NoCompany",
+                "title": "- NTIS"
+              },
+              {
+                "reason": "NoCompany",
+                "title": "- NTIS"
+              },
+              {
+                "reason": "NoCompany",
+                "title": "- NTIS"
+              },
+              {
+                "reason": "NoCompany",
+                "title": "- NTIS"
+              },
+              {
+                "reason": "NoCompany",
+                "title": "- NTIS"
+              }
+            ],
+            "bingQueries": 0,
+            "bingResultBlocks": 0,
+            "bingParsedBlocks": 0,
+            "bingAccepted": 0,
+            "bingRejectMalformed": 0,
+            "bingRejectUndated": 0,
+            "bingRejectOffDomain": 0,
+            "bingRejectOutsideWindow": 0,
+            "bingRejectNoCompany": 0,
+            "bingRejectNoSignalTerm": 0,
+            "bingRejectSamples": [],
+            "bingQueryDiagnostics": [],
+            "errors": [],
+            "bingFallbackDisabled": true,
+            "bingFallbackNote": "Disabled by default after repeated off-domain-only results; Google RSS and direct official collectors remain active.",
+            "uniqueRetained": 0
+          },
+          "kotsa.or.kr": {
+            "group": "자동차·결함",
+            "rssQueries": 3,
+            "rssRawItems": 2,
+            "rssAccepted": 0,
+            "rssRejectInvalid": 0,
+            "rssRejectOutsideWindow": 0,
+            "rssRejectNoCompany": 2,
+            "rssRejectNoSignalTerm": 0,
+            "rssRejectSamples": [
+              {
+                "reason": "NoCompany",
+                "title": "사람 중심 교통안전을 선도하는 세계 최고의 전문기관 - 한국교통안전공단"
+              },
+              {
+                "reason": "NoCompany",
+                "title": "- 한국교통안전공단"
+              }
+            ],
+            "bingQueries": 0,
+            "bingResultBlocks": 0,
+            "bingParsedBlocks": 0,
+            "bingAccepted": 0,
+            "bingRejectMalformed": 0,
+            "bingRejectUndated": 0,
+            "bingRejectOffDomain": 0,
+            "bingRejectOutsideWindow": 0,
+            "bingRejectNoCompany": 0,
+            "bingRejectNoSignalTerm": 0,
+            "bingRejectSamples": [],
+            "bingQueryDiagnostics": [],
+            "errors": [],
+            "bingFallbackDisabled": true,
+            "bingFallbackNote": "Disabled by default after repeated off-domain-only results; Google RSS and direct official collectors remain active.",
+            "uniqueRetained": 0
+          },
+          "kepco.co.kr": {
+            "group": "공기업·조달",
+            "rssQueries": 3,
+            "rssRawItems": 12,
+            "rssAccepted": 0,
+            "rssRejectInvalid": 0,
+            "rssRejectOutsideWindow": 4,
+            "rssRejectNoCompany": 1,
+            "rssRejectNoSignalTerm": 7,
+            "rssRejectSamples": [
+              {
+                "reason": "NoSignalTerm",
+                "title": "- KEPCO"
+              },
+              {
+                "reason": "NoSignalTerm",
+                "title": "상세 | 공지사항 | 뉴스룸 | 홍보센터 - KEPCO"
+              },
+              {
+                "reason": "NoSignalTerm",
+                "title": "간편조회 | KEPCO - 한전 사이버지점 - KEPCO"
+              },
+              {
+                "reason": "OutsideWindow",
+                "title": "고객소통안내 - KEPCO"
+              },
+              {
+                "reason": "NoSignalTerm",
+                "title": "명의 변경 - 한전 사이버지점 - 한국전력공사 - KEPCO"
+              },
+              {
+                "reason": "NoSignalTerm",
+                "title": "서식자료실 | KEPCO - 한전 사이버지점 - 한국전력공사 - KEPCO"
+              },
+              {
+                "reason": "NoSignalTerm",
+                "title": "사규 및 하위 규범 | 내부규정 | 정보공개 - KEPCO"
+              },
+              {
+                "reason": "NoCompany",
+                "title": "- 한전 파워플래너"
+              }
+            ],
+            "bingQueries": 0,
+            "bingResultBlocks": 0,
+            "bingParsedBlocks": 0,
+            "bingAccepted": 0,
+            "bingRejectMalformed": 0,
+            "bingRejectUndated": 0,
+            "bingRejectOffDomain": 0,
+            "bingRejectOutsideWindow": 0,
+            "bingRejectNoCompany": 0,
+            "bingRejectNoSignalTerm": 0,
+            "bingRejectSamples": [],
+            "bingQueryDiagnostics": [],
+            "errors": [],
+            "bingFallbackDisabled": true,
+            "bingFallbackNote": "Disabled by default after repeated off-domain-only results; Google RSS and direct official collectors remain active.",
+            "uniqueRetained": 0
+          },
+          "khnp.co.kr": {
+            "group": "공기업·조달",
+            "rssQueries": 3,
+            "rssRawItems": 3,
+            "rssAccepted": 0,
+            "rssRejectInvalid": 0,
+            "rssRejectOutsideWindow": 1,
+            "rssRejectNoCompany": 2,
+            "rssRejectNoSignalTerm": 0,
+            "rssRejectSamples": [
+              {
+                "reason": "NoCompany",
+                "title": "- 열린원전운영정보"
+              },
+              {
+                "reason": "NoCompany",
+                "title": "- 열린원전운영정보"
+              },
+              {
+                "reason": "OutsideWindow",
+                "title": "한강수력 - KHNP"
+              }
+            ],
+            "bingQueries": 0,
+            "bingResultBlocks": 0,
+            "bingParsedBlocks": 0,
+            "bingAccepted": 0,
+            "bingRejectMalformed": 0,
+            "bingRejectUndated": 0,
+            "bingRejectOffDomain": 0,
+            "bingRejectOutsideWindow": 0,
+            "bingRejectNoCompany": 0,
+            "bingRejectNoSignalTerm": 0,
+            "bingRejectSamples": [],
+            "bingQueryDiagnostics": [],
+            "errors": [],
+            "bingFallbackDisabled": true,
+            "bingFallbackNote": "Disabled by default after repeated off-domain-only results; Google RSS and direct official collectors remain active.",
+            "uniqueRetained": 0
+          },
+          "kepco-enc.com": {
+            "group": "공기업·조달",
+            "rssQueries": 3,
+            "rssRawItems": 10,
+            "rssAccepted": 2,
+            "rssRejectInvalid": 0,
+            "rssRejectOutsideWindow": 0,
+            "rssRejectNoCompany": 0,
+            "rssRejectNoSignalTerm": 8,
+            "rssRejectSamples": [
+              {
+                "reason": "NoSignalTerm",
+                "title": "한국전력기술(주)의 상임감사를 모십니다 | 공지사항 | 소통센터 : 한국전력기술 - 한국전력기술"
+              },
+              {
+                "reason": "NoSignalTerm",
+                "title": "한전기술, 세계가 인정한 엔지니어링 역량… 인도네시아서 또 한 번 빛나 - 한국전력기술"
+              },
+              {
+                "reason": "NoSignalTerm",
+                "title": "한국전력기술, 한국선급과 해양 SMR ‘BANDI’ 등 해양원자력 분야 협력 | 보도자료 | 소통센터 : 한국전력기술 - 한국전력기술"
+              },
+              {
+                "reason": "NoSignalTerm",
+                "title": "한전기술, 국민권익위원회 이명순 부위원장 초청 청렴특강 개최 - 한국전력기술"
+              },
+              {
+                "reason": "NoSignalTerm",
+                "title": "김태균 한국전력기술 사장, 국립한밭대 대학생들과 ‘미래 에너지’ 소통 | 보도자료 | 소통센터 : 한국전력기술 - 한국전력기술"
+              },
+              {
+                "reason": "NoSignalTerm",
+                "title": "UAE원전 SD 설계계산서 리딩룸 시범 운영을 위한 해외출장 승인(이**) - 한국전력기술"
+              },
+              {
+                "reason": "NoSignalTerm",
+                "title": "한국전력기술 – 트러스톤자산운용 기술·금융 연계해 재생에너지 사업 개발 협력 | 보도자료 | 소통센터 : 한국전력기술 - 한국전력기술"
+              },
+              {
+                "reason": "NoSignalTerm",
+                "title": "2026년도 대국민 안전보건 퀴즈 - 한국전력기술"
+              }
+            ],
+            "bingQueries": 0,
+            "bingResultBlocks": 0,
+            "bingParsedBlocks": 0,
+            "bingAccepted": 0,
+            "bingRejectMalformed": 0,
+            "bingRejectUndated": 0,
+            "bingRejectOffDomain": 0,
+            "bingRejectOutsideWindow": 0,
+            "bingRejectNoCompany": 0,
+            "bingRejectNoSignalTerm": 0,
+            "bingRejectSamples": [],
+            "bingQueryDiagnostics": [],
+            "errors": [],
+            "bingFallbackDisabled": true,
+            "bingFallbackNote": "Disabled by default after repeated off-domain-only results; Google RSS and direct official collectors remain active.",
+            "uniqueRetained": 2
+          }
+        },
+        "directSourceDiagnostics": {
+          "scourt-case-releases": {
+            "pagesAttempted": 2,
+            "pagesFetched": 2,
+            "rowsScanned": 22,
+            "datedRows": 20,
+            "recentRows": 8,
+            "detailPagesAttempted": 8,
+            "detailPagesFetched": 8,
+            "retained": 8,
+            "errors": [],
+            "sampleRows": []
+          },
+          "iris-rnd-announcements": {
+            "listFetched": true,
+            "detailIdsSeen": 0,
+            "detailPagesAttempted": 0,
+            "detailPagesFetched": 0,
+            "datedRecords": 0,
+            "recentRecords": 0,
+            "materialRecords": 0,
+            "retained": 0,
+            "errors": [],
+            "sampleRows": [],
+            "listUsesJsOrAjax": true,
+            "status": "no_detail_ids_in_list"
+          },
+          "ntis-announcements": {
+            "queriesAttempted": 3,
+            "searchPagesFetched": 3,
+            "announcementLinks": 11,
+            "detailPagesAttempted": 8,
+            "detailPagesFetched": 4,
+            "datedRecords": 4,
+            "recentRecords": 0,
+            "retained": 0,
+            "queryTerms": [
+              "자동차",
+              "전기차",
+              "배터리"
+            ],
+            "errors": [
+              "detail 2026년도 자동차 산업기술개발 2차 신규지원 대상과제 공고: URLError: <urlopen error timed out>",
+              "detail 2026년도 SDV대응가혹환경극복 자동차 반도체핵심IP원천기술개발사업 신규과제 재공모: URLError: <urlopen error timed out>",
+              "detail 2026년도 자동차 분야 신규 기반조성 사업시행계획 통합공고(1차): URLError: <urlopen error timed out>",
+              "detail 2026년도 자동차 핵심부품용탄소배출저감특화철강판재기술개발사업 신규지원 대상과제 공고: URLError: <urlopen error timed out>"
+            ],
+            "sampleRows": [
+              {
+                "title": "2027년 자동차 분야 산업기술 RD 기술수요조사 공고",
+                "url": "http://www.ntis.go.kr/rndgate/eg/un/ra/view.do?roRndUid=1273956",
+                "published": "2026-07-22T00:00:00+09:00",
+                "reason": "outside lookback"
+              },
+              {
+                "title": "2026년도 SDV대응가혹환경극복 자동차 반도체핵심IP원천기술개발사업 신규과제 공모(수정)",
+                "url": "http://www.ntis.go.kr/rndgate/eg/un/ra/view.do?roRndUid=1260364",
+                "published": "2026-04-23T00:00:00+09:00",
+                "reason": "outside lookback"
+              },
+              {
+                "title": "2026년도 SDV대응가혹환경극복 자동차 반도체핵심IP원천기술개발사업 신규과제 공모",
+                "url": "http://www.ntis.go.kr/rndgate/eg/un/ra/view.do?roRndUid=1263029",
+                "published": "2026-04-07T00:00:00+09:00",
+                "reason": "outside lookback"
+              },
+              {
+                "title": "2026년도 자동차 산업기술개발사업(1차) 신규지원 대상과제 공고",
+                "url": "http://www.ntis.go.kr/rndgate/eg/un/ra/view.do?roRndUid=1256003",
+                "published": "2026-02-06T00:00:00+09:00",
+                "reason": "outside lookback"
+              }
+            ],
+            "sampleAnchors": [
+              {
+                "queryTerm": "자동차",
+                "pageTitle": "NTIS > 국가R&D통합공고 검색",
+                "pageBytes": 213199,
+                "containsAnnouncementPath": true,
+                "containsAnnouncementText": true,
+                "anchorSamples": [
+                  {
+                    "href": "javascript:closeRecently(",
+                    "title": "닫기"
+                  },
+                  {
+                    "href": "/ThMain.do",
+                    "title": "NTIS"
+                  },
+                  {
+                    "href": "/",
+                    "title": "NTIS"
+                  },
+                  {
+                    "href": "#",
+                    "title": "국가 R&D 전략"
+                  },
+                  {
+                    "href": "https://www.ntis.go.kr/rndgate/eg/ia/mlp/allMap.do",
+                    "title": "과학기술분야중장기계획"
+                  },
+                  {
+                    "href": "https://www.ntis.go.kr/rndgate/eg/ia/ccl/cclInfo.do",
+                    "title": "국가연구개발사업 전주기"
+                  },
+                  {
+                    "href": "https://www.ntis.go.kr/rndtrend/PacstList.do",
+                    "title": "정책·기술 동향"
+                  },
+                  {
+                    "href": "https://www.ntis.go.kr/rndyeta/index.do",
+                    "title": "R&D 기획·성과평가 관리"
+                  }
+                ]
+              },
+              {
+                "queryTerm": "전기차",
+                "pageTitle": "NTIS > 국가R&D통합공고 검색",
+                "pageBytes": 201622,
+                "containsAnnouncementPath": true,
+                "containsAnnouncementText": true,
+                "anchorSamples": [
+                  {
+                    "href": "javascript:closeRecently(",
+                    "title": "닫기"
+                  },
+                  {
+                    "href": "/ThMain.do",
+                    "title": "NTIS"
+                  },
+                  {
+                    "href": "/",
+                    "title": "NTIS"
+                  },
+                  {
+                    "href": "#",
+                    "title": "국가 R&D 전략"
+                  },
+                  {
+                    "href": "https://www.ntis.go.kr/rndgate/eg/ia/mlp/allMap.do",
+                    "title": "과학기술분야중장기계획"
+                  },
+                  {
+                    "href": "https://www.ntis.go.kr/rndgate/eg/ia/ccl/cclInfo.do",
+                    "title": "국가연구개발사업 전주기"
+                  },
+                  {
+                    "href": "https://www.ntis.go.kr/rndtrend/PacstList.do",
+                    "title": "정책·기술 동향"
+                  },
+                  {
+                    "href": "https://www.ntis.go.kr/rndyeta/index.do",
+                    "title": "R&D 기획·성과평가 관리"
+                  }
+                ]
+              },
+              {
+                "queryTerm": "배터리",
+                "pageTitle": "NTIS > 국가R&D통합공고 검색",
+                "pageBytes": 205227,
+                "containsAnnouncementPath": true,
+                "containsAnnouncementText": true,
+                "anchorSamples": [
+                  {
+                    "href": "javascript:closeRecently(",
+                    "title": "닫기"
+                  },
+                  {
+                    "href": "/ThMain.do",
+                    "title": "NTIS"
+                  },
+                  {
+                    "href": "/",
+                    "title": "NTIS"
+                  },
+                  {
+                    "href": "#",
+                    "title": "국가 R&D 전략"
+                  },
+                  {
+                    "href": "https://www.ntis.go.kr/rndgate/eg/ia/mlp/allMap.do",
+                    "title": "과학기술분야중장기계획"
+                  },
+                  {
+                    "href": "https://www.ntis.go.kr/rndgate/eg/ia/ccl/cclInfo.do",
+                    "title": "국가연구개발사업 전주기"
+                  },
+                  {
+                    "href": "https://www.ntis.go.kr/rndtrend/PacstList.do",
+                    "title": "정책·기술 동향"
+                  },
+                  {
+                    "href": "https://www.ntis.go.kr/rndyeta/index.do",
+                    "title": "R&D 기획·성과평가 관리"
+                  }
+                ]
+              }
+            ]
+          },
+          "nlrc-case-summaries": {
+            "pagesAttempted": 3,
+            "pagesFetched": 3,
+            "rowsScanned": 11,
+            "datedRows": 10,
+            "recentRows": 0,
+            "outsideWindow": 10,
+            "industryRelevantRows": 0,
+            "detailPagesFetched": 0,
+            "retained": 0,
+            "latestPublished": "2026-09-17T00:00:00+09:00",
+            "errors": [],
+            "sampleRows": [
+              {
+                "title": "아파트 경비원에 대한 근로계약 갱신기대권을 인정하고, 갱신거절에 합리적 이유가 없어 부당해고로 판정한 사례",
+                "date": "2026-09-17T00:00:00+09:00",
+                "reason": "outside lookback"
+              },
+              {
+                "title": "방송국PD의 근로자성 인정 및 서면 통지 의무 위반으로 인한 부당해고로 판정한 사례",
+                "date": "2026-09-14T00:00:00+09:00",
+                "reason": "outside lookback"
+              },
+              {
+                "title": "원청 사용자가 수급업체 소속 근로자에 대한 노동안전(산업안전) 교섭의제에 대하여 실질적으로 지배력을 가지거나 결정할 수 있는 지위에 있는 자로 보이므로, 노동조합의 교섭요구 사실을 공고하여야 할 의무가 존재한다고 결정한 사례",
+                "date": "2026-09-09T00:00:00+09:00",
+                "reason": "outside lookback"
+              },
+              {
+                "title": "성과급을 지급하지 않은 것은 불리한 처우에 해당하고, 불리한 처우에 합리적인 이유가 없으므로 차별이 존재한다고 판정한 사례",
+                "date": "2026-09-07T00:00:00+09:00",
+                "reason": "outside lookback"
+              },
+              {
+                "title": "원청 사용자가 하청 사용자 소속 근로자의 산업안전 관련 근로조건에 대해 실질적·구체적으로 지배·결정할 수 있는 자로 보이므로, 교섭요구 노동조합 확정공고 의무가 있다고 결정한 사례",
+                "date": "2026-09-03T00:00:00+09:00",
+                "reason": "outside lookback"
+              }
+            ],
+            "status": "official_case_lists_have_no_records_inside_21_day_window"
+          },
+          "ieps-permits": {
+            "pagesAttempted": 2,
+            "pagesFetched": 2,
+            "anchorsScanned": 109,
+            "datedLinks": 20,
+            "recentLinks": 0,
+            "detailPagesFetched": 0,
+            "retained": 0,
+            "errors": [],
+            "sampleRows": []
+          },
+          "factoryon-industrial-sites": {
+            "pagesAttempted": 3,
+            "pagesFetched": 3,
+            "anchorsScanned": 79,
+            "datedLinks": 6,
+            "recentLinks": 1,
+            "detailPagesFetched": 0,
+            "retained": 1,
+            "errors": [],
+            "sampleRows": [
+              {
+                "title": "FACTORY ON - 한국산업단지공단",
+                "reason": "material title but no nearby publication date"
+              },
+              {
+                "title": "공장설립절차 공장의 설립 승인절차 안내",
+                "reason": "material title but no nearby publication date"
+              },
+              {
+                "title": "산업단지안내 산업단지 관리기본계획 정보제공",
+                "reason": "material title but no nearby publication date"
+              },
+              {
+                "title": "(수정)2026년 상반기(1월~6월) 전국 공장등록현황통계 공표 안내",
+                "reason": "material title but no nearby publication date"
+              },
+              {
+                "title": "[처분] 포항융합기술산업지구 처분신청용지 매각 공고(4차)",
+                "reason": "material title but no nearby publication date"
+              },
+              {
+                "title": "[신규] 강릉 공공임대형 지식산업센터 임대 공고",
+                "reason": "material title but no nearby publication date"
+              },
+              {
+                "title": "[신규] 평택 브레인시티 일반산업단지 산업시설용지(2단계) 조건부 공급공고",
+                "reason": "material title but no nearby publication date"
+              },
+              {
+                "title": "FACTORY ON - 한국산업단지공단",
+                "reason": "material title but no nearby publication date"
+              }
+            ]
+          },
+          "kepco-enc": {
+            "listFetched": true,
+            "rowsScanned": 11,
+            "materialTitles": 4,
+            "detailPagesFetched": 0,
+            "datedRows": 0,
+            "recentRows": 0,
+            "undatedMaterialRows": 1,
+            "retained": 0,
+            "errors": [],
+            "sampleRows": [
+              {
+                "reason": "no-material-title",
+                "row": "번호 분류 사업명 추정가격 낙찰자 결정방법 비고",
+                "cells": [],
+                "links": []
+              },
+              {
+                "reason": "material-title-but-no-publication-date",
+                "title": "고리2호기 2차 계속운전 주기적안전성평가(설비건전성 분야) 및 주요기기수명평가 용역 손해배상보험(공제)",
+                "row": "1194 용역 고리2호기 2차 계속운전 주기적안전성평가(설비건전성 분야) 및 주요기기수명평가 용역 손해배상보험(공제) 43,907,000 원 기타(최저가 낙찰제) 세부사항은 한전전자조달시스템(http://srm.kepco.net) 참조",
+                "links": 0
+              },
+              {
+                "reason": "no-material-title",
+                "row": "1193 용역 신규1,2호기 사전준비용역 손해배상보험(공제) 130,358,000 원 기타 세부사항은 한전전자조달시스템(http://srm.kepco.net) 참조",
+                "cells": [
+                  "1193",
+                  "용역",
+                  "신규1,2호기 사전준비용역 손해배상보험(공제)",
+                  "130,358,000 원",
+                  "기타"
+                ],
+                "links": []
+              },
+              {
+                "reason": "no-material-title",
+                "row": "1192 용역 기술개발 과제 사업화 관리 시스템 고도화 사업 445,681,330 원 협상계약 세부사항은 한전전자조달시스템(http://srm.kepco.net) 참조",
+                "cells": [
+                  "1192",
+                  "용역",
+                  "기술개발 과제 사업화 관리 시스템 고도화 사업",
+                  "445,681,330 원",
+                  "협상계약"
+                ],
+                "links": []
+              },
+              {
+                "reason": "no-material-title",
+                "row": "1191 용역 한빛현장 출·퇴근버스 임차 용역 202,376,000 원 적격심사 세부사항은 한전전자조달시스템(http://srm.kepco.net) 참조",
+                "cells": [
+                  "1191",
+                  "용역",
+                  "한빛현장 출·퇴근버스 임차 용역",
+                  "202,376,000 원",
+                  "적격심사"
+                ],
+                "links": []
+              },
+              {
+                "reason": "no-material-title",
+                "row": "1189 용역 2027~2029 회계연도 외부회계감사 용역 1,172,000,000 원 협상계약 세부사항은 한전전자조달시스템(http://srm.kepco.net) 참조",
+                "cells": [
+                  "1189",
+                  "용역",
+                  "2027~2029 회계연도 외부회계감사 용역",
+                  "1,172,000,000 원",
+                  "협상계약"
+                ],
+                "links": []
+              },
+              {
+                "reason": "no-material-title",
+                "row": "1188 용역 하동복합 1호기 건설사업 종합설계용역 손해배상보험(공제) 429,495,010 원 기타 세부사항은 한전전자조달시스템(http://srm.kepco.net) 참조",
+                "cells": [
+                  "1188",
+                  "용역",
+                  "하동복합 1호기 건설사업 종합설계용역 손해배상보험(공제)",
+                  "429,495,010 원",
+                  "기타"
+                ],
+                "links": []
+              },
+              {
+                "reason": "no-material-title",
+                "row": "1186 용역 한국전력기술 2027년~2028년 사보 기획·디자인 용역 267,360,000 원 협상계약 세부사항은 한전전자조달시스템(http://srm.kepco.net) 참조",
+                "cells": [
+                  "1186",
+                  "용역",
+                  "한국전력기술 2027년~2028년 사보 기획·디자인 용역",
+                  "267,360,000 원",
+                  "협상계약"
+                ],
+                "links": []
+              }
+            ]
+          },
+          "car-recalls": {
+            "listFetched": true,
+            "queriesAttempted": 3,
+            "queriesSucceeded": 3,
+            "queryTerms": [
+              "BMW",
+              "KG모빌리티",
+              "토레스"
+            ],
+            "linksScanned": 264,
+            "recallTitles": 10,
+            "datedRows": 10,
+            "recentRows": 2,
+            "trackedBrandRows": 2,
+            "retained": 2,
+            "errors": [],
+            "sampleEntries": [
+              {
+                "title": "[비엠더블유] BMW 730d xDrive 등 7차종 - 추진축 관련 리콜 ... -->",
+                "query": "BMW",
+                "date": "2026-09-10T00:00:00+09:00",
+                "reason": "outside-window"
+              },
+              {
+                "title": "[비엠더블유] BMW 230i xDrive 등 25차종 - 스타터 모터 관련 리콜 중대리콜(화재위험) ... -->",
+                "query": "BMW",
+                "date": "2026-08-11T00:00:00+09:00",
+                "reason": "outside-window"
+              },
+              {
+                "title": "[비엠더블유] BMW 520i 등 8차종 - 통합제동장치 관련 리콜 ... -->",
+                "query": "BMW",
+                "date": "2026-07-24T00:00:00+09:00",
+                "reason": "outside-window"
+              },
+              {
+                "title": "[케이지모빌리티] 토레스EVX 등 2차종 - 후방추돌경보장치(RCW) 관련 리콜 ... -->",
+                "query": "토레스",
+                "date": "2026-04-20T00:00:00+09:00",
+                "reason": "outside-window"
+              },
+              {
+                "title": "[케이지모빌리티] 토레스 등 6차종 - 게기판 관련 리콜 ... -->",
+                "query": "토레스",
+                "date": "2026-04-20T00:00:00+09:00",
+                "reason": "outside-window"
+              },
+              {
+                "title": "[케이지모빌리티] 토레스 등 3차종 - 냉각팬 레지스터 관련 리콜 중대리콜(화재위험) ... -->",
+                "query": "토레스",
+                "date": "2026-03-16T00:00:00+09:00",
+                "reason": "outside-window"
+              },
+              {
+                "title": "[케이지모빌리티] 코란도 등 2차종 - 스타터모터 관련 리콜 중대리콜(화재위험) ... -->",
+                "query": "토레스",
+                "date": "2026-03-10T00:00:00+09:00",
+                "reason": "outside-window"
+              },
+              {
+                "title": "[케이지모빌리티] 토레스EVX - 전자식 조향제어시스템 관련 리콜 ... -->",
+                "query": "토레스",
+                "date": "2024-03-26T00:00:00+09:00",
+                "reason": "outside-window"
+              }
+            ]
+          }
+        }
+      },
+      "dartCandidateAlignment": "unverified",
+      "dartCheckedAt": "2026-10-12T01:29:32.294029+00:00"
+    },
+    "candidatesUnchanged": true
+  },
+  {
+    "commit": "8aafac0",
+    "before": {
+      "count": 43,
+      "status": "ok",
+      "errors": []
+    },
+    "after": {
+      "dart": {
+        "count": 43,
+        "generatedAt": "2026-10-12T01:25:56.712683+00:00",
+        "status": "ok",
+        "errors": []
+      },
+      "dartNumeric": {
+        "count": 12,
+        "generatedAt": null,
+        "sourceAlignment": "unverified",
+        "withNumbers": 7,
+        "errorCount": 5,
+        "cacheFallbackCount": 0,
+        "maintenanceCount": 0,
+        "errors": [
+          {
+            "company": "LG화학",
+            "report": "[기재정정]생산중단",
+            "error": "OpenDART ZIP parsed but no material numeric contexts matched (entries=1, textFiles=1, chars=1284, keywords=39); HTML viewer fetched but no values matched configured unit patterns"
+          },
+          {
+            "company": "영풍",
+            "report": "[기재정정]생산중단",
+            "error": "OpenDART ZIP parsed but no material numeric contexts matched (entries=1, textFiles=1, chars=1214, keywords=19); HTML viewer fetched but no values matched configured unit patterns"
+          },
+          {
+            "company": "금호석유화학",
+            "report": "[첨부정정]주요사항보고서(자기주식취득신탁계약해지결정)",
+            "error": "OpenDART status 014: 파일이 존재하지 않습니다.; HTML viewer fetched but no values matched configured unit patterns"
+          }
+        ]
+      },
+      "preScoop": {
+        "count": 22,
+        "groups": {
+          "법원·분쟁": 8,
+          "중앙노동위": 0,
+          "고용노동": 3,
+          "공장·산업단지": 1,
+          "환경·인허가": 0,
+          "R&D·기술": 0,
+          "자동차·결함": 2,
+          "공기업·조달": 2
+        },
+        "sourceDiagnostics": {
+          "scourt.go.kr": {
+            "group": "법원·분쟁",
+            "rssQueries": 3,
+            "rssRawItems": 100,
+            "rssAccepted": 0,
+            "rssRejectInvalid": 0,
+            "rssRejectOutsideWindow": 0,
+            "rssRejectNoCompany": 100,
+            "rssRejectNoSignalTerm": 0,
+            "rssRejectSamples": [
+              {
+                "reason": "NoCompany",
+                "title": "우리법원 주요판결 - 대구고등법원"
+              },
+              {
+                "reason": "NoCompany",
+                "title": "- 대한민국 법원"
+              },
+              {
+                "reason": "NoCompany",
+                "title": "우리법원 주요판결 - 대구고등법원"
+              },
+              {
+                "reason": "NoCompany",
+                "title": "보도자료/언론보도해명 - 대한민국 법원"
+              },
+              {
+                "reason": "NoCompany",
+                "title": "광주고등법원 2026년 9월 계약정보 공개(해당사항 없음) - 대한민국 법원"
+              },
+              {
+                "reason": "NoCompany",
+                "title": "우리법원 주요판결 - 대구고등법원"
+              },
+              {
+                "reason": "NoCompany",
+                "title": "검색결과 : 전자민원센터 - 대한민국 법원"
+              },
+              {
+                "reason": "NoCompany",
+                "title": "토지 수용보상금 산정 시 송전선 소유를 위한 구분지상권의 평가방법이 문제 된 사건[대법원 2026. 10. 1. 선고 중요판결] - 대한민국 법원"
+              }
+            ],
+            "bingQueries": 0,
+            "bingResultBlocks": 0,
+            "bingParsedBlocks": 0,
+            "bingAccepted": 0,
+            "bingRejectMalformed": 0,
+            "bingRejectUndated": 0,
+            "bingRejectOffDomain": 0,
+            "bingRejectOutsideWindow": 0,
+            "bingRejectNoCompany": 0,
+            "bingRejectNoSignalTerm": 0,
+            "bingRejectSamples": [],
+            "bingQueryDiagnostics": [],
+            "errors": [],
+            "bingFallbackDisabled": true,
+            "bingFallbackNote": "Disabled by default after repeated off-domain-only results; Google RSS and direct official collectors remain active.",
+            "uniqueRetained": 0
+          },
+          "nlrc.go.kr": {
+            "group": "중앙노동위",
+            "rssQueries": 3,
+            "rssRawItems": 0,
+            "rssAccepted": 0,
+            "rssRejectInvalid": 0,
+            "rssRejectOutsideWindow": 0,
+            "rssRejectNoCompany": 0,
+            "rssRejectNoSignalTerm": 0,
+            "rssRejectSamples": [],
+            "bingQueries": 0,
+            "bingResultBlocks": 0,
+            "bingParsedBlocks": 0,
+            "bingAccepted": 0,
+            "bingRejectMalformed": 0,
+            "bingRejectUndated": 0,
+            "bingRejectOffDomain": 0,
+            "bingRejectOutsideWindow": 0,
+            "bingRejectNoCompany": 0,
+            "bingRejectNoSignalTerm": 0,
+            "bingRejectSamples": [],
+            "bingQueryDiagnostics": [],
+            "errors": [],
+            "bingFallbackDisabled": true,
+            "bingFallbackNote": "Disabled by default after repeated off-domain-only results; Google RSS and direct official collectors remain active.",
+            "uniqueRetained": 0
+          },
+          "moel.go.kr": {
+            "group": "고용노동",
+            "rssQueries": 3,
+            "rssRawItems": 102,
+            "rssAccepted": 4,
+            "rssRejectInvalid": 0,
+            "rssRejectOutsideWindow": 0,
+            "rssRejectNoCompany": 98,
+            "rssRejectNoSignalTerm": 0,
+            "rssRejectSamples": [
+              {
+                "reason": "NoCompany",
+                "title": "“공직부터 민간기업까지”... 발달장애 청년을 위한 맞춤형 채용·직무 정보 한자리에 - 고용노동부"
+              },
+              {
+                "reason": "NoCompany",
+                "title": "한화에어로스페이스(주) 대전사업장 특별감독 결과 발표 - 고용노동부"
+              },
+              {
+                "reason": "NoCompany",
+                "title": "'26년 9월 중대재해사이렌(오픈채팅방) 자료 공개 - 고용노동부"
+              },
+              {
+                "reason": "NoCompany",
+                "title": "안전보건공단, 한국ESG학회와 ‘산업안전 특화 ESG 경영’ 확산 나선다 - 고용노동부"
+              },
+              {
+                "reason": "NoCompany",
+                "title": "(참고) 추석 전 임금체불 적발·청산 총력 - 고용노동부"
+              },
+              {
+                "reason": "NoCompany",
+                "title": "고용노동부 중부지방고용노동청 - 고용노동부"
+              },
+              {
+                "reason": "NoCompany",
+                "title": "안전보건공단, 한국ESG학회와 ‘산업안전 특화 ESG 경영’ 확산 나선다 - 고용노동부"
+              },
+              {
+                "reason": "NoCompany",
+                "title": "문서뷰어 - 고용노동부"
+              }
+            ],
+            "bingQueries": 0,
+            "bingResultBlocks": 0,
+            "bingParsedBlocks": 0,
+            "bingAccepted": 0,
+            "bingRejectMalformed": 0,
+            "bingRejectUndated": 0,
+            "bingRejectOffDomain": 0,
+            "bingRejectOutsideWindow": 0,
+            "bingRejectNoCompany": 0,
+            "bingRejectNoSignalTerm": 0,
+            "bingRejectSamples": [],
+            "bingQueryDiagnostics": [],
+            "errors": [],
+            "bingFallbackDisabled": true,
+            "bingFallbackNote": "Disabled by default after repeated off-domain-only results; Google RSS and direct official collectors remain active.",
+            "uniqueRetained": 3
+          },
+          "factoryon.go.kr": {
+            "group": "공장·산업단지",
+            "rssQueries": 3,
+            "rssRawItems": 0,
+            "rssAccepted": 0,
+            "rssRejectInvalid": 0,
+            "rssRejectOutsideWindow": 0,
+            "rssRejectNoCompany": 0,
+            "rssRejectNoSignalTerm": 0,
+            "rssRejectSamples": [],
+            "bingQueries": 0,
+            "bingResultBlocks": 0,
+            "bingParsedBlocks": 0,
+            "bingAccepted": 0,
+            "bingRejectMalformed": 0,
+            "bingRejectUndated": 0,
+            "bingRejectOffDomain": 0,
+            "bingRejectOutsideWindow": 0,
+            "bingRejectNoCompany": 0,
+            "bingRejectNoSignalTerm": 0,
+            "bingRejectSamples": [],
+            "bingQueryDiagnostics": [],
+            "errors": [],
+            "bingFallbackDisabled": true,
+            "bingFallbackNote": "Disabled by default after repeated off-domain-only results; Google RSS and direct official collectors remain active.",
+            "uniqueRetained": 0
+          },
+          "ieps.nier.go.kr": {
+            "group": "환경·인허가",
+            "rssQueries": 3,
+            "rssRawItems": 0,
+            "rssAccepted": 0,
+            "rssRejectInvalid": 0,
+            "rssRejectOutsideWindow": 0,
+            "rssRejectNoCompany": 0,
+            "rssRejectNoSignalTerm": 0,
+            "rssRejectSamples": [],
+            "bingQueries": 0,
+            "bingResultBlocks": 0,
+            "bingParsedBlocks": 0,
+            "bingAccepted": 0,
+            "bingRejectMalformed": 0,
+            "bingRejectUndated": 0,
+            "bingRejectOffDomain": 0,
+            "bingRejectOutsideWindow": 0,
+            "bingRejectNoCompany": 0,
+            "bingRejectNoSignalTerm": 0,
+            "bingRejectSamples": [],
+            "bingQueryDiagnostics": [],
+            "errors": [],
+            "bingFallbackDisabled": true,
+            "bingFallbackNote": "Disabled by default after repeated off-domain-only results; Google RSS and direct official collectors remain active.",
+            "uniqueRetained": 0
+          },
+          "ntis.go.kr": {
+            "group": "R&D·기술",
+            "rssQueries": 3,
+            "rssRawItems": 8,
+            "rssAccepted": 0,
+            "rssRejectInvalid": 0,
+            "rssRejectOutsideWindow": 0,
+            "rssRejectNoCompany": 8,
+            "rssRejectNoSignalTerm": 0,
+            "rssRejectSamples": [
+              {
+                "reason": "NoCompany",
+                "title": "- NTIS"
+              },
+              {
+                "reason": "NoCompany",
+                "title": "- NTIS"
+              },
+              {
+                "reason": "NoCompany",
+                "title": "- NTIS"
+              },
+              {
+                "reason": "NoCompany",
+                "title": "- NTIS"
+              },
+              {
+                "reason": "NoCompany",
+                "title": "- NTIS"
+              },
+              {
+                "reason": "NoCompany",
+                "title": "- NTIS"
+              },
+              {
+                "reason": "NoCompany",
+                "title": "- NTIS"
+              },
+              {
+                "reason": "NoCompany",
+                "title": "- NTIS"
+              }
+            ],
+            "bingQueries": 0,
+            "bingResultBlocks": 0,
+            "bingParsedBlocks": 0,
+            "bingAccepted": 0,
+            "bingRejectMalformed": 0,
+            "bingRejectUndated": 0,
+            "bingRejectOffDomain": 0,
+            "bingRejectOutsideWindow": 0,
+            "bingRejectNoCompany": 0,
+            "bingRejectNoSignalTerm": 0,
+            "bingRejectSamples": [],
+            "bingQueryDiagnostics": [],
+            "errors": [],
+            "bingFallbackDisabled": true,
+            "bingFallbackNote": "Disabled by default after repeated off-domain-only results; Google RSS and direct official collectors remain active.",
+            "uniqueRetained": 0
+          },
+          "kotsa.or.kr": {
+            "group": "자동차·결함",
+            "rssQueries": 3,
+            "rssRawItems": 2,
+            "rssAccepted": 0,
+            "rssRejectInvalid": 0,
+            "rssRejectOutsideWindow": 0,
+            "rssRejectNoCompany": 2,
+            "rssRejectNoSignalTerm": 0,
+            "rssRejectSamples": [
+              {
+                "reason": "NoCompany",
+                "title": "사람 중심 교통안전을 선도하는 세계 최고의 전문기관 - 한국교통안전공단"
+              },
+              {
+                "reason": "NoCompany",
+                "title": "- 한국교통안전공단"
+              }
+            ],
+            "bingQueries": 0,
+            "bingResultBlocks": 0,
+            "bingParsedBlocks": 0,
+            "bingAccepted": 0,
+            "bingRejectMalformed": 0,
+            "bingRejectUndated": 0,
+            "bingRejectOffDomain": 0,
+            "bingRejectOutsideWindow": 0,
+            "bingRejectNoCompany": 0,
+            "bingRejectNoSignalTerm": 0,
+            "bingRejectSamples": [],
+            "bingQueryDiagnostics": [],
+            "errors": [],
+            "bingFallbackDisabled": true,
+            "bingFallbackNote": "Disabled by default after repeated off-domain-only results; Google RSS and direct official collectors remain active.",
+            "uniqueRetained": 0
+          },
+          "kepco.co.kr": {
+            "group": "공기업·조달",
+            "rssQueries": 3,
+            "rssRawItems": 12,
+            "rssAccepted": 0,
+            "rssRejectInvalid": 0,
+            "rssRejectOutsideWindow": 4,
+            "rssRejectNoCompany": 1,
+            "rssRejectNoSignalTerm": 7,
+            "rssRejectSamples": [
+              {
+                "reason": "NoSignalTerm",
+                "title": "- KEPCO"
+              },
+              {
+                "reason": "NoSignalTerm",
+                "title": "상세 | 공지사항 | 뉴스룸 | 홍보센터 - KEPCO"
+              },
+              {
+                "reason": "NoSignalTerm",
+                "title": "간편조회 | KEPCO - 한전 사이버지점 - KEPCO"
+              },
+              {
+                "reason": "OutsideWindow",
+                "title": "고객소통안내 - KEPCO"
+              },
+              {
+                "reason": "NoSignalTerm",
+                "title": "명의 변경 - 한전 사이버지점 - 한국전력공사 - KEPCO"
+              },
+              {
+                "reason": "NoSignalTerm",
+                "title": "서식자료실 | KEPCO - 한전 사이버지점 - 한국전력공사 - KEPCO"
+              },
+              {
+                "reason": "NoSignalTerm",
+                "title": "사규 및 하위 규범 | 내부규정 | 정보공개 - KEPCO"
+              },
+              {
+                "reason": "NoCompany",
+                "title": "- 한전 파워플래너"
+              }
+            ],
+            "bingQueries": 0,
+            "bingResultBlocks": 0,
+            "bingParsedBlocks": 0,
+            "bingAccepted": 0,
+            "bingRejectMalformed": 0,
+            "bingRejectUndated": 0,
+            "bingRejectOffDomain": 0,
+            "bingRejectOutsideWindow": 0,
+            "bingRejectNoCompany": 0,
+            "bingRejectNoSignalTerm": 0,
+            "bingRejectSamples": [],
+            "bingQueryDiagnostics": [],
+            "errors": [],
+            "bingFallbackDisabled": true,
+            "bingFallbackNote": "Disabled by default after repeated off-domain-only results; Google RSS and direct official collectors remain active.",
+            "uniqueRetained": 0
+          },
+          "khnp.co.kr": {
+            "group": "공기업·조달",
+            "rssQueries": 3,
+            "rssRawItems": 3,
+            "rssAccepted": 0,
+            "rssRejectInvalid": 0,
+            "rssRejectOutsideWindow": 1,
+            "rssRejectNoCompany": 2,
+            "rssRejectNoSignalTerm": 0,
+            "rssRejectSamples": [
+              {
+                "reason": "NoCompany",
+                "title": "- 열린원전운영정보"
+              },
+              {
+                "reason": "NoCompany",
+                "title": "- 열린원전운영정보"
+              },
+              {
+                "reason": "OutsideWindow",
+                "title": "한강수력 - KHNP"
+              }
+            ],
+            "bingQueries": 0,
+            "bingResultBlocks": 0,
+            "bingParsedBlocks": 0,
+            "bingAccepted": 0,
+            "bingRejectMalformed": 0,
+            "bingRejectUndated": 0,
+            "bingRejectOffDomain": 0,
+            "bingRejectOutsideWindow": 0,
+            "bingRejectNoCompany": 0,
+            "bingRejectNoSignalTerm": 0,
+            "bingRejectSamples": [],
+            "bingQueryDiagnostics": [],
+            "errors": [],
+            "bingFallbackDisabled": true,
+            "bingFallbackNote": "Disabled by default after repeated off-domain-only results; Google RSS and direct official collectors remain active.",
+            "uniqueRetained": 0
+          },
+          "kepco-enc.com": {
+            "group": "공기업·조달",
+            "rssQueries": 3,
+            "rssRawItems": 10,
+            "rssAccepted": 2,
+            "rssRejectInvalid": 0,
+            "rssRejectOutsideWindow": 0,
+            "rssRejectNoCompany": 0,
+            "rssRejectNoSignalTerm": 8,
+            "rssRejectSamples": [
+              {
+                "reason": "NoSignalTerm",
+                "title": "한국전력기술(주)의 상임감사를 모십니다 | 공지사항 | 소통센터 : 한국전력기술 - 한국전력기술"
+              },
+              {
+                "reason": "NoSignalTerm",
+                "title": "한전기술, 세계가 인정한 엔지니어링 역량… 인도네시아서 또 한 번 빛나 - 한국전력기술"
+              },
+              {
+                "reason": "NoSignalTerm",
+                "title": "한국전력기술, 한국선급과 해양 SMR ‘BANDI’ 등 해양원자력 분야 협력 | 보도자료 | 소통센터 : 한국전력기술 - 한국전력기술"
+              },
+              {
+                "reason": "NoSignalTerm",
+                "title": "한전기술, 국민권익위원회 이명순 부위원장 초청 청렴특강 개최 - 한국전력기술"
+              },
+              {
+                "reason": "NoSignalTerm",
+                "title": "김태균 한국전력기술 사장, 국립한밭대 대학생들과 ‘미래 에너지’ 소통 | 보도자료 | 소통센터 : 한국전력기술 - 한국전력기술"
+              },
+              {
+                "reason": "NoSignalTerm",
+                "title": "UAE원전 SD 설계계산서 리딩룸 시범 운영을 위한 해외출장 승인(이**) - 한국전력기술"
+              },
+              {
+                "reason": "NoSignalTerm",
+                "title": "한국전력기술 – 트러스톤자산운용 기술·금융 연계해 재생에너지 사업 개발 협력 | 보도자료 | 소통센터 : 한국전력기술 - 한국전력기술"
+              },
+              {
+                "reason": "NoSignalTerm",
+                "title": "2026년도 대국민 안전보건 퀴즈 - 한국전력기술"
+              }
+            ],
+            "bingQueries": 0,
+            "bingResultBlocks": 0,
+            "bingParsedBlocks": 0,
+            "bingAccepted": 0,
+            "bingRejectMalformed": 0,
+            "bingRejectUndated": 0,
+            "bingRejectOffDomain": 0,
+            "bingRejectOutsideWindow": 0,
+            "bingRejectNoCompany": 0,
+            "bingRejectNoSignalTerm": 0,
+            "bingRejectSamples": [],
+            "bingQueryDiagnostics": [],
+            "errors": [],
+            "bingFallbackDisabled": true,
+            "bingFallbackNote": "Disabled by default after repeated off-domain-only results; Google RSS and direct official collectors remain active.",
+            "uniqueRetained": 2
+          }
+        },
+        "directSourceDiagnostics": {
+          "scourt-case-releases": {
+            "pagesAttempted": 2,
+            "pagesFetched": 2,
+            "rowsScanned": 22,
+            "datedRows": 20,
+            "recentRows": 8,
+            "detailPagesAttempted": 8,
+            "detailPagesFetched": 8,
+            "retained": 8,
+            "errors": [],
+            "sampleRows": []
+          },
+          "iris-rnd-announcements": {
+            "listFetched": true,
+            "detailIdsSeen": 0,
+            "detailPagesAttempted": 0,
+            "detailPagesFetched": 0,
+            "datedRecords": 0,
+            "recentRecords": 0,
+            "materialRecords": 0,
+            "retained": 0,
+            "errors": [],
+            "sampleRows": [],
+            "listUsesJsOrAjax": true,
+            "status": "no_detail_ids_in_list"
+          },
+          "ntis-announcements": {
+            "queriesAttempted": 3,
+            "searchPagesFetched": 3,
+            "announcementLinks": 11,
+            "detailPagesAttempted": 8,
+            "detailPagesFetched": 4,
+            "datedRecords": 4,
+            "recentRecords": 0,
+            "retained": 0,
+            "queryTerms": [
+              "자동차",
+              "전기차",
+              "배터리"
+            ],
+            "errors": [
+              "detail 2026년도 자동차 산업기술개발 2차 신규지원 대상과제 공고: URLError: <urlopen error timed out>",
+              "detail 2026년도 SDV대응가혹환경극복 자동차 반도체핵심IP원천기술개발사업 신규과제 재공모: URLError: <urlopen error timed out>",
+              "detail 2026년도 자동차 분야 신규 기반조성 사업시행계획 통합공고(1차): URLError: <urlopen error timed out>",
+              "detail 2026년도 자동차 핵심부품용탄소배출저감특화철강판재기술개발사업 신규지원 대상과제 공고: URLError: <urlopen error timed out>"
+            ],
+            "sampleRows": [
+              {
+                "title": "2027년 자동차 분야 산업기술 RD 기술수요조사 공고",
+                "url": "http://www.ntis.go.kr/rndgate/eg/un/ra/view.do?roRndUid=1273956",
+                "published": "2026-07-22T00:00:00+09:00",
+                "reason": "outside lookback"
+              },
+              {
+                "title": "2026년도 SDV대응가혹환경극복 자동차 반도체핵심IP원천기술개발사업 신규과제 공모(수정)",
+                "url": "http://www.ntis.go.kr/rndgate/eg/un/ra/view.do?roRndUid=1260364",
+                "published": "2026-04-23T00:00:00+09:00",
+                "reason": "outside lookback"
+              },
+              {
+                "title": "2026년도 SDV대응가혹환경극복 자동차 반도체핵심IP원천기술개발사업 신규과제 공모",
+                "url": "http://www.ntis.go.kr/rndgate/eg/un/ra/view.do?roRndUid=1263029",
+                "published": "2026-04-07T00:00:00+09:00",
+                "reason": "outside lookback"
+              },
+              {
+                "title": "2026년도 자동차 산업기술개발사업(1차) 신규지원 대상과제 공고",
+                "url": "http://www.ntis.go.kr/rndgate/eg/un/ra/view.do?roRndUid=1256003",
+                "published": "2026-02-06T00:00:00+09:00",
+                "reason": "outside lookback"
+              }
+            ],
+            "sampleAnchors": [
+              {
+                "queryTerm": "자동차",
+                "pageTitle": "NTIS > 국가R&D통합공고 검색",
+                "pageBytes": 213199,
+                "containsAnnouncementPath": true,
+                "containsAnnouncementText": true,
+                "anchorSamples": [
+                  {
+                    "href": "javascript:closeRecently(",
+                    "title": "닫기"
+                  },
+                  {
+                    "href": "/ThMain.do",
+                    "title": "NTIS"
+                  },
+                  {
+                    "href": "/",
+                    "title": "NTIS"
+                  },
+                  {
+                    "href": "#",
+                    "title": "국가 R&D 전략"
+                  },
+                  {
+                    "href": "https://www.ntis.go.kr/rndgate/eg/ia/mlp/allMap.do",
+                    "title": "과학기술분야중장기계획"
+                  },
+                  {
+                    "href": "https://www.ntis.go.kr/rndgate/eg/ia/ccl/cclInfo.do",
+                    "title": "국가연구개발사업 전주기"
+                  },
+                  {
+                    "href": "https://www.ntis.go.kr/rndtrend/PacstList.do",
+                    "title": "정책·기술 동향"
+                  },
+                  {
+                    "href": "https://www.ntis.go.kr/rndyeta/index.do",
+                    "title": "R&D 기획·성과평가 관리"
+                  }
+                ]
+              },
+              {
+                "queryTerm": "전기차",
+                "pageTitle": "NTIS > 국가R&D통합공고 검색",
+                "pageBytes": 201622,
+                "containsAnnouncementPath": true,
+                "containsAnnouncementText": true,
+                "anchorSamples": [
+                  {
+                    "href": "javascript:closeRecently(",
+                    "title": "닫기"
+                  },
+                  {
+                    "href": "/ThMain.do",
+                    "title": "NTIS"
+                  },
+                  {
+                    "href": "/",
+                    "title": "NTIS"
+                  },
+                  {
+                    "href": "#",
+                    "title": "국가 R&D 전략"
+                  },
+                  {
+                    "href": "https://www.ntis.go.kr/rndgate/eg/ia/mlp/allMap.do",
+                    "title": "과학기술분야중장기계획"
+                  },
+                  {
+                    "href": "https://www.ntis.go.kr/rndgate/eg/ia/ccl/cclInfo.do",
+                    "title": "국가연구개발사업 전주기"
+                  },
+                  {
+                    "href": "https://www.ntis.go.kr/rndtrend/PacstList.do",
+                    "title": "정책·기술 동향"
+                  },
+                  {
+                    "href": "https://www.ntis.go.kr/rndyeta/index.do",
+                    "title": "R&D 기획·성과평가 관리"
+                  }
+                ]
+              },
+              {
+                "queryTerm": "배터리",
+                "pageTitle": "NTIS > 국가R&D통합공고 검색",
+                "pageBytes": 205227,
+                "containsAnnouncementPath": true,
+                "containsAnnouncementText": true,
+                "anchorSamples": [
+                  {
+                    "href": "javascript:closeRecently(",
+                    "title": "닫기"
+                  },
+                  {
+                    "href": "/ThMain.do",
+                    "title": "NTIS"
+                  },
+                  {
+                    "href": "/",
+                    "title": "NTIS"
+                  },
+                  {
+                    "href": "#",
+                    "title": "국가 R&D 전략"
+                  },
+                  {
+                    "href": "https://www.ntis.go.kr/rndgate/eg/ia/mlp/allMap.do",
+                    "title": "과학기술분야중장기계획"
+                  },
+                  {
+                    "href": "https://www.ntis.go.kr/rndgate/eg/ia/ccl/cclInfo.do",
+                    "title": "국가연구개발사업 전주기"
+                  },
+                  {
+                    "href": "https://www.ntis.go.kr/rndtrend/PacstList.do",
+                    "title": "정책·기술 동향"
+                  },
+                  {
+                    "href": "https://www.ntis.go.kr/rndyeta/index.do",
+                    "title": "R&D 기획·성과평가 관리"
+                  }
+                ]
+              }
+            ]
+          },
+          "nlrc-case-summaries": {
+            "pagesAttempted": 3,
+            "pagesFetched": 3,
+            "rowsScanned": 11,
+            "datedRows": 10,
+            "recentRows": 0,
+            "outsideWindow": 10,
+            "industryRelevantRows": 0,
+            "detailPagesFetched": 0,
+            "retained": 0,
+            "latestPublished": "2026-09-17T00:00:00+09:00",
+            "errors": [],
+            "sampleRows": [
+              {
+                "title": "아파트 경비원에 대한 근로계약 갱신기대권을 인정하고, 갱신거절에 합리적 이유가 없어 부당해고로 판정한 사례",
+                "date": "2026-09-17T00:00:00+09:00",
+                "reason": "outside lookback"
+              },
+              {
+                "title": "방송국PD의 근로자성 인정 및 서면 통지 의무 위반으로 인한 부당해고로 판정한 사례",
+                "date": "2026-09-14T00:00:00+09:00",
+                "reason": "outside lookback"
+              },
+              {
+                "title": "원청 사용자가 수급업체 소속 근로자에 대한 노동안전(산업안전) 교섭의제에 대하여 실질적으로 지배력을 가지거나 결정할 수 있는 지위에 있는 자로 보이므로, 노동조합의 교섭요구 사실을 공고하여야 할 의무가 존재한다고 결정한 사례",
+                "date": "2026-09-09T00:00:00+09:00",
+                "reason": "outside lookback"
+              },
+              {
+                "title": "성과급을 지급하지 않은 것은 불리한 처우에 해당하고, 불리한 처우에 합리적인 이유가 없으므로 차별이 존재한다고 판정한 사례",
+                "date": "2026-09-07T00:00:00+09:00",
+                "reason": "outside lookback"
+              },
+              {
+                "title": "원청 사용자가 하청 사용자 소속 근로자의 산업안전 관련 근로조건에 대해 실질적·구체적으로 지배·결정할 수 있는 자로 보이므로, 교섭요구 노동조합 확정공고 의무가 있다고 결정한 사례",
+                "date": "2026-09-03T00:00:00+09:00",
+                "reason": "outside lookback"
+              }
+            ],
+            "status": "official_case_lists_have_no_records_inside_21_day_window"
+          },
+          "ieps-permits": {
+            "pagesAttempted": 2,
+            "pagesFetched": 2,
+            "anchorsScanned": 109,
+            "datedLinks": 20,
+            "recentLinks": 0,
+            "detailPagesFetched": 0,
+            "retained": 0,
+            "errors": [],
+            "sampleRows": []
+          },
+          "factoryon-industrial-sites": {
+            "pagesAttempted": 3,
+            "pagesFetched": 3,
+            "anchorsScanned": 79,
+            "datedLinks": 6,
+            "recentLinks": 1,
+            "detailPagesFetched": 0,
+            "retained": 1,
+            "errors": [],
+            "sampleRows": [
+              {
+                "title": "FACTORY ON - 한국산업단지공단",
+                "reason": "material title but no nearby publication date"
+              },
+              {
+                "title": "공장설립절차 공장의 설립 승인절차 안내",
+                "reason": "material title but no nearby publication date"
+              },
+              {
+                "title": "산업단지안내 산업단지 관리기본계획 정보제공",
+                "reason": "material title but no nearby publication date"
+              },
+              {
+                "title": "(수정)2026년 상반기(1월~6월) 전국 공장등록현황통계 공표 안내",
+                "reason": "material title but no nearby publication date"
+              },
+              {
+                "title": "[처분] 포항융합기술산업지구 처분신청용지 매각 공고(4차)",
+                "reason": "material title but no nearby publication date"
+              },
+              {
+                "title": "[신규] 강릉 공공임대형 지식산업센터 임대 공고",
+                "reason": "material title but no nearby publication date"
+              },
+              {
+                "title": "[신규] 평택 브레인시티 일반산업단지 산업시설용지(2단계) 조건부 공급공고",
+                "reason": "material title but no nearby publication date"
+              },
+              {
+                "title": "FACTORY ON - 한국산업단지공단",
+                "reason": "material title but no nearby publication date"
+              }
+            ]
+          },
+          "kepco-enc": {
+            "listFetched": true,
+            "rowsScanned": 11,
+            "materialTitles": 4,
+            "detailPagesFetched": 0,
+            "datedRows": 0,
+            "recentRows": 0,
+            "undatedMaterialRows": 1,
+            "retained": 0,
+            "errors": [],
+            "sampleRows": [
+              {
+                "reason": "no-material-title",
+                "row": "번호 분류 사업명 추정가격 낙찰자 결정방법 비고",
+                "cells": [],
+                "links": []
+              },
+              {
+                "reason": "material-title-but-no-publication-date",
+                "title": "고리2호기 2차 계속운전 주기적안전성평가(설비건전성 분야) 및 주요기기수명평가 용역 손해배상보험(공제)",
+                "row": "1194 용역 고리2호기 2차 계속운전 주기적안전성평가(설비건전성 분야) 및 주요기기수명평가 용역 손해배상보험(공제) 43,907,000 원 기타(최저가 낙찰제) 세부사항은 한전전자조달시스템(http://srm.kepco.net) 참조",
+                "links": 0
+              },
+              {
+                "reason": "no-material-title",
+                "row": "1193 용역 신규1,2호기 사전준비용역 손해배상보험(공제) 130,358,000 원 기타 세부사항은 한전전자조달시스템(http://srm.kepco.net) 참조",
+                "cells": [
+                  "1193",
+                  "용역",
+                  "신규1,2호기 사전준비용역 손해배상보험(공제)",
+                  "130,358,000 원",
+                  "기타"
+                ],
+                "links": []
+              },
+              {
+                "reason": "no-material-title",
+                "row": "1192 용역 기술개발 과제 사업화 관리 시스템 고도화 사업 445,681,330 원 협상계약 세부사항은 한전전자조달시스템(http://srm.kepco.net) 참조",
+                "cells": [
+                  "1192",
+                  "용역",
+                  "기술개발 과제 사업화 관리 시스템 고도화 사업",
+                  "445,681,330 원",
+                  "협상계약"
+                ],
+                "links": []
+              },
+              {
+                "reason": "no-material-title",
+                "row": "1191 용역 한빛현장 출·퇴근버스 임차 용역 202,376,000 원 적격심사 세부사항은 한전전자조달시스템(http://srm.kepco.net) 참조",
+                "cells": [
+                  "1191",
+                  "용역",
+                  "한빛현장 출·퇴근버스 임차 용역",
+                  "202,376,000 원",
+                  "적격심사"
+                ],
+                "links": []
+              },
+              {
+                "reason": "no-material-title",
+                "row": "1189 용역 2027~2029 회계연도 외부회계감사 용역 1,172,000,000 원 협상계약 세부사항은 한전전자조달시스템(http://srm.kepco.net) 참조",
+                "cells": [
+                  "1189",
+                  "용역",
+                  "2027~2029 회계연도 외부회계감사 용역",
+                  "1,172,000,000 원",
+                  "협상계약"
+                ],
+                "links": []
+              },
+              {
+                "reason": "no-material-title",
+                "row": "1188 용역 하동복합 1호기 건설사업 종합설계용역 손해배상보험(공제) 429,495,010 원 기타 세부사항은 한전전자조달시스템(http://srm.kepco.net) 참조",
+                "cells": [
+                  "1188",
+                  "용역",
+                  "하동복합 1호기 건설사업 종합설계용역 손해배상보험(공제)",
+                  "429,495,010 원",
+                  "기타"
+                ],
+                "links": []
+              },
+              {
+                "reason": "no-material-title",
+                "row": "1186 용역 한국전력기술 2027년~2028년 사보 기획·디자인 용역 267,360,000 원 협상계약 세부사항은 한전전자조달시스템(http://srm.kepco.net) 참조",
+                "cells": [
+                  "1186",
+                  "용역",
+                  "한국전력기술 2027년~2028년 사보 기획·디자인 용역",
+                  "267,360,000 원",
+                  "협상계약"
+                ],
+                "links": []
+              }
+            ]
+          },
+          "car-recalls": {
+            "listFetched": true,
+            "queriesAttempted": 3,
+            "queriesSucceeded": 3,
+            "queryTerms": [
+              "BMW",
+              "KG모빌리티",
+              "토레스"
+            ],
+            "linksScanned": 264,
+            "recallTitles": 10,
+            "datedRows": 10,
+            "recentRows": 2,
+            "trackedBrandRows": 2,
+            "retained": 2,
+            "errors": [],
+            "sampleEntries": [
+              {
+                "title": "[비엠더블유] BMW 730d xDrive 등 7차종 - 추진축 관련 리콜 ... -->",
+                "query": "BMW",
+                "date": "2026-09-10T00:00:00+09:00",
+                "reason": "outside-window"
+              },
+              {
+                "title": "[비엠더블유] BMW 230i xDrive 등 25차종 - 스타터 모터 관련 리콜 중대리콜(화재위험) ... -->",
+                "query": "BMW",
+                "date": "2026-08-11T00:00:00+09:00",
+                "reason": "outside-window"
+              },
+              {
+                "title": "[비엠더블유] BMW 520i 등 8차종 - 통합제동장치 관련 리콜 ... -->",
+                "query": "BMW",
+                "date": "2026-07-24T00:00:00+09:00",
+                "reason": "outside-window"
+              },
+              {
+                "title": "[케이지모빌리티] 토레스EVX 등 2차종 - 후방추돌경보장치(RCW) 관련 리콜 ... -->",
+                "query": "토레스",
+                "date": "2026-04-20T00:00:00+09:00",
+                "reason": "outside-window"
+              },
+              {
+                "title": "[케이지모빌리티] 토레스 등 6차종 - 게기판 관련 리콜 ... -->",
+                "query": "토레스",
+                "date": "2026-04-20T00:00:00+09:00",
+                "reason": "outside-window"
+              },
+              {
+                "title": "[케이지모빌리티] 토레스 등 3차종 - 냉각팬 레지스터 관련 리콜 중대리콜(화재위험) ... -->",
+                "query": "토레스",
+                "date": "2026-03-16T00:00:00+09:00",
+                "reason": "outside-window"
+              },
+              {
+                "title": "[케이지모빌리티] 코란도 등 2차종 - 스타터모터 관련 리콜 중대리콜(화재위험) ... -->",
+                "query": "토레스",
+                "date": "2026-03-10T00:00:00+09:00",
+                "reason": "outside-window"
+              },
+              {
+                "title": "[케이지모빌리티] 토레스EVX - 전자식 조향제어시스템 관련 리콜 ... -->",
+                "query": "토레스",
+                "date": "2024-03-26T00:00:00+09:00",
+                "reason": "outside-window"
+              }
+            ]
+          }
+        }
+      },
+      "dartCandidateAlignment": "unverified",
+      "dartCheckedAt": "2026-10-12T01:29:32.492170+00:00"
+    },
+    "candidatesUnchanged": true
+  }
+]

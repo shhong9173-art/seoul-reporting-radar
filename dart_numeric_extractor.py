@@ -501,11 +501,14 @@ def extract_document(base: dict) -> dict:
     return {**base, "numbers": [], "snippets": [], "error": last_error}
 
 def main():
+    from dart_health import fingerprint, read_payload
+    from datetime import datetime, timezone
     if not IN.exists():
-        OUT.write_text(json.dumps({"count": 0, "items": [], "errors": ["dart.json missing"]}, ensure_ascii=False), encoding="utf-8")
-        return
-    payload = json.loads(IN.read_text(encoding="utf-8"))
-    rows = payload.get("items", []) if isinstance(payload, dict) else []
+        raise SystemExit("dart.json 누락: 기존 수치 파일 보존")
+    payload = read_payload(IN)
+    if payload.get("errors"):
+        raise SystemExit("DART 목록 수집 오류: 기존 수치 파일 보존")
+    rows = payload["items"]
     # OpenDART maintenance must not erase a successful extraction for the same receipt.
     prior_payload = {}
     try:
@@ -546,7 +549,12 @@ def main():
             row["cacheSourceGeneratedAt"] = prior_payload.get("generatedAt", "")
     with_numbers = [x for x in results if x.get("numbers")]
     cache_fallbacks = sum(1 for x in results if x.get("cacheFallback"))
-    OUT.write_text(json.dumps({"count": len(results), "items": results}, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    temporary = OUT.with_suffix(".json.tmp")
+    temporary.write_text(json.dumps({"generatedAt": datetime.now(timezone.utc).isoformat(),
+                                    "sourceDartHash": fingerprint(payload),
+                                    "count": len(results), "items": results},
+                                   ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    temporary.replace(OUT)
     print(f"DART numeric extraction: {len(with_numbers)} docs with material numeric signals / {len(results)} docs inspected; reused prior values for {cache_fallbacks}")
 
 if __name__ == "__main__":
