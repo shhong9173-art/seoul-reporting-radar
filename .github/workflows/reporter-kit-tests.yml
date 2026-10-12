@@ -13,9 +13,11 @@ on:
       - 'tests/test_business_content.py'
       - 'tests/test_business_metric_compare.py'
       - 'tests/test_business_coverage.py'
+      - 'tests/test_business_news_view.cjs'
       - 'tests/test_business_metric_view.cjs'
       - 'tests/test_business_metric_compare.py'
       - 'tests/test_business_coverage.py'
+      - 'tests/test_business_news_view.cjs'
       - 'tests/test_business_content_view.cjs'
       - '.github/workflows/business-content-scout.yml'
       - 'data-lab.html'
@@ -40,9 +42,11 @@ on:
       - 'tests/test_business_content.py'
       - 'tests/test_business_metric_compare.py'
       - 'tests/test_business_coverage.py'
+      - 'tests/test_business_news_view.cjs'
       - 'tests/test_business_metric_view.cjs'
       - 'tests/test_business_metric_compare.py'
       - 'tests/test_business_coverage.py'
+      - 'tests/test_business_news_view.cjs'
       - 'tests/test_business_content_view.cjs'
       - '.github/workflows/business-content-scout.yml'
       - 'data-lab.html'
@@ -84,3 +88,4 @@ jobs:
       - run: node tests/test_data_lab.cjs
       - run: node tests/test_business_content_view.cjs
       - run: node tests/test_business_metric_view.cjs
+      - run: node tests/test_business_news_view.cjs
