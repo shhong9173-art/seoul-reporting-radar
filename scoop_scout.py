@@ -150,8 +150,19 @@ DIRECT_BEAT_CANONICAL={
 def direct_beat_company_hits(x,title):
     """Require an explicit direct-beat issuer or named company in the title."""
     detected=target_hits(title)
+    # A prefix match is not a company match: POSCO Future M and POSCO
+    # International are separately tracked suppliers, not the POSCO beat.
+    # Only retain standalone POSCO if explicitly named apart from those issuers.
+    if any(z in detected for z in ("포스코퓨처엠","포스코인터내셔널")):
+        if not re.search(r"포스코(?!퓨처엠|인터내셔널)", title):
+            detected=[name for name in detected if name!="포스코"]
     if x.get("corpName"):
-        detected=target_hits(str(x["corpName"]))+detected
+        issuer=str(x["corpName"])
+        issuer_hits=target_hits(issuer)
+        if any(z in issuer_hits for z in ("포스코퓨처엠","포스코인터내셔널")):
+            if not re.search(r"포스코(?!퓨처엠|인터내셔널)", issuer):
+                issuer_hits=[name for name in issuer_hits if name!="포스코"]
+        detected=issuer_hits+detected
     company=COMPANY_BY_DOMAIN.get(str(x.get("querySite") or "").lower())
     if company and source_group(x)=="기업":
         detected=[company]+detected
