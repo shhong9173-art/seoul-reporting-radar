@@ -8,9 +8,48 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import dart_numeric_extractor as dart
 import pre_scoop_radar as scout
+import scoop_scout as scoops
 
 
 class CollectorRegressionTests(unittest.TestCase):
+    def test_exclusive_scope_rejects_unrelated_sources_and_suppliers(self):
+        unrelated = [
+            "대법원 선고 2026도11543 증거인멸교사 등 사건에 관한 보도자료",
+            "경매 임차인 통지서 전면 개선",
+            "삼성전기, 신규 계약 2,856억원…고객사·물량은",
+            "포스코퓨처엠 해외 양극재 투자",
+            "포스코인터내셔널 신규 LNG 도입 계약",
+            "한국전력기술 전기설계 분야 채용",
+        ]
+        for title in unrelated:
+            with self.subTest(title=title):
+                self.assertEqual(scoops.direct_beat_company_hits({}, title), [])
+
+    def test_exclusive_scope_allows_direct_companies(self):
+        cases = {
+            "현대차, 전기차 생산계획 조정": "현대차",
+            "HL만도 공급사 변경": "HL만도",
+            "BMW 740d 제작결함 리콜": "BMW코리아",
+            "포스코홀딩스 광물 사업 투자": "포스코홀딩스",
+            "LS일렉트릭 HVDC 변압기 수주": "LS일렉트릭",
+            "동국제강 철강제품 생산조정": "동국제강",
+            "세아씨엠 공장 설비 증설": "세아씨엠",
+        }
+        for title, name in cases.items():
+            with self.subTest(title=title):
+                self.assertIn(name, scoops.direct_beat_company_hits({}, title))
+        self.assertEqual(scoops.direct_beat_company_hits(
+            {"corpName": "포스코퓨처엠"}, "포스코퓨처엠 주요사항보고서"), [])
+
+    def test_companyless_policy_not_exclusive(self):
+        self.assertFalse(scoops.relevant_primary(
+            {"policySignal": True, "official": True}, [],
+            "소송·분쟁", "법원 판결 및 산업 관련 제도 개선"
+        ))
+        self.assertTrue(scoops.relevant_primary(
+            {"corpName": "기아"}, ["기아"], "사업재편", "공장 신설"
+        ))
+
     def test_dart_seven_argument_bootstrap(self):
         receipt = "20261008800790"
         main = ('<html><script>viewDoc("20261008800790", "11608769", '
