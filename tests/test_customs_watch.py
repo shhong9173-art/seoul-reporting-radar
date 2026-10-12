@@ -35,6 +35,13 @@ class CustomsWatchTests(unittest.TestCase):
             cw.build("key","202501","202609",2026,codes=("8504",),
                      fetch=lambda *args:[trade_row("202601",80,10)])
 
+    def test_official_yyyy_dot_mm_label_and_total_row(self):
+        rows=[trade_row("2025.01",100,10),trade_row("2026.01",180,12),
+              {"year":"총계","expDlr":"999999"}]
+        totals=cw.aggregate(rows,"202501","202609")
+        self.assertEqual(set(totals),{"202501","202601"})
+        self.assertEqual(totals["202601"]["수출금액(달러)"],180)
+
     def test_missing_fields_fail_closed(self):
         with self.assertRaises(ValueError):
             cw.aggregate([{"year":"202601","expDlr":"80"}],"202501","202609")
