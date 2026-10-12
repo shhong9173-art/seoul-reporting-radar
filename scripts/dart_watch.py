@@ -104,7 +104,8 @@ def pick_code(table, name):
     if not rows:
         return None
     listed = [r for r in rows if r[1]]
-    return (listed or rows)[0][0]
+    candidate_codes = {r[0] for r in (listed or rows) if r[0]}
+    return next(iter(candidate_codes)) if len(candidate_codes) == 1 else None
 
 
 def filings(k, corp_code, bgn, end):
@@ -125,6 +126,8 @@ def filings(k, corp_code, bgn, end):
         out += j.get("list", [])
         if page >= int(j.get("total_page", 1)):
             return out
+        if page >= 30:
+            raise RuntimeError("DART 공시 목록 페이지가 30개를 넘어 수집을 중단합니다.")
         page += 1
         time.sleep(0.2)
 
@@ -150,8 +153,10 @@ def notify(text):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--days", type=int, default=3)
+    ap.add_argument("--days", type=int, default=3, help="달력 기준 역산 일수(1~14일)")
     a = ap.parse_args()
+    if not 1 <= a.days <= 14:
+        ap.error("--days는 1~14일이어야 합니다.")
 
     k = key()
     today = dt.datetime.now(KST).date()
@@ -179,7 +184,7 @@ def main():
     lines = [f"# 출입처 공시 {bgn}~{end}", "",
              f"생성 {dt.datetime.now(KST):%Y-%m-%d %H:%M} KST · 총 {len(rows)}건 · 새 공시 {sum(r['new'] for r in rows)}건", ""]
     flagged = [r for r in rows if r["tag"]]
-    lines += ["## ★ 기사 될 만한 공시", ""]
+    lines += ["## ★ 우선 확인 공시 (공개자료·단독 아님)", "", "★는 서류 유형에 따른 우선 확인 표식이며 미보도·단독 판정은 아닙니다.", ""]
     if not flagged:
         lines.append("없음")
     for r in flagged:
@@ -193,6 +198,25 @@ def main():
     DIGESTS.mkdir(exist_ok=True)
     out = DIGESTS / f"{today:%Y-%m-%d}.md"
     out.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    (DIGESTS / "latest.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    digest = {
+        "generatedAt": dt.datetime.now(KST).isoformat(timespec="seconds"),
+        "date": today.isoformat(), "rangeStart": bgn, "rangeEnd": end,
+        "totalCount": len(rows), "newCount": sum(r["new"] for r in rows),
+        "flaggedCount": len(flagged), "missingCompanies": missing,
+        "classification": "공개자료·단독 여부 미확정",
+        "items": [
+            {"company": r["corp_name"], "group": r["group"],
+             "report": r["report_nm"].strip(), "published": r["rcept_dt"],
+             "receiptNo": r["rcept_no"], "tag": r["tag"],
+             "priority": r["pri"], "isNew": r["new"],
+             "url": f"https://dart.fss.or.kr/dsaf001/main.do?rcpNo={r['rcept_no']}"}
+            for r in rows
+        ],
+    }
+    (DIGESTS / "latest.json").write_text(
+        json.dumps(digest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
     seen |= {r["rcept_no"] for r in rows}
     seen_path.write_text("\n".join(sorted(seen)) + "\n", encoding="utf-8")
     print(f"저장: {out} ({len(rows)}건, ★ {len(flagged)}건)")
