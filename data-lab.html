@@ -64,7 +64,7 @@ function makeTable(name,records,year,kind){
   for(const cell of cells)row.append(elem("td",cell));
   const source=elem("td");
   if((r.sources||[]).length)for(const x of r.sources||[])source.append(link(x.url,"원문"));
-  else source.textContent=r.status==="no_report"?"공시 없음":"원문·지표 확인 불가";
+  else source.textContent=r.status==="no_report"?"연결(CFS) 자료 없음 · 별도(OFS) 공시 여부 확인 필요":"원문·지표 확인 불가";
   row.append(source);body.append(row);
  }
  table.append(body);wrap.append(table);
@@ -89,6 +89,17 @@ function render(){
   if(x.priorYoYPercent!==null)box.append(elem("p","이전 동일 기준 증가율 "+percent(x.priorYoYPercent),"small"));
   box.append(elem("p","사전 보도 확인 전. 회계범위·사업구조·주요제품을 대조해야 기사 야마 성립.","detail"));
   for(const q of x.questions||[])box.append(elem("p","확인: "+q,"call"));
+  if(x.priorCoverage){
+    box.append(elem("p","기존 보도 확인: "+x.priorCoverage.status,"detail"));
+    for(const n of x.priorCoverage.items||[]){
+      try{
+        const u=new URL(n.url);
+        if(u.protocol!=="https:"||u.hostname!=="news.google.com")continue;
+        const a=elem("a",n.title,"reportlink");a.href=n.url;a.target="_blank";a.rel="noopener noreferrer";
+        box.append(a);
+      }catch(_){}
+    }
+  }
   for(const src of x.sources||[])box.append(link(src.url,"DART 원문"));
   findings.append(box);
  }

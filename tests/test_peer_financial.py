@@ -104,6 +104,38 @@ class FinancialResearchTests(unittest.TestCase):
         self.assertEqual(result["status"],"no_report")
         self.assertEqual(result["sources"],[])
 
+    def test_related_news_is_a_lead_not_proof(self):
+        xml=(b'<rss><channel><item><title>LS ELECTRIC 2026 revenue</title>'
+             b'<link>https://news.google.com/rss/articles/abc</link>'
+             b'<pubDate>Mon, 03 Aug 2026 04:00:00 GMT</pubDate>'
+             b'</item></channel></rss>')
+        urls=[]
+        def fake(url):
+            urls.append(url)
+            return xml
+        output=pf.prior_news_candidates("엘에스일렉트릭","halfyear",2026,fetch=fake)
+        self.assertEqual(len(output["items"]),1)
+        self.assertIn("같은 사건 여부 직접 확인",output["status"])
+        self.assertIn("365d",urls[0])
+        self.assertNotIn("단독 확정",output["status"])
+
+    def test_unavailable_news_search_cannot_certify_exclusive(self):
+        result=pf.prior_news_candidates("엘에스일렉트릭","annual",2025,
+                                        fetch=lambda url:b"<html>Error</html>")
+        self.assertEqual(result["items"],[])
+        self.assertIn("미보도 주장 불가",result["status"])
+
+    def test_coverage_preserves_anomaly_even_when_article_found(self):
+        record={"findings":[{"company":"현대모비스","period":"annual","year":2025,
+                             "status":"취재 단서·단독 미확정"}]}
+        def fake(company,period,year):
+            return {"status":"관련 보도 검색 결과 있음: 같은 사건 여부 직접 확인 필요",
+                    "items":[{"title":"이미 언론 보도","url":"https://news.google.com/rss/articles/abc"}]}
+        done=pf.attach_prior_coverage(record,lookup=fake)
+        self.assertEqual(len(done["findings"]),1)
+        self.assertEqual(done["findings"][0]["status"],"취재 단서·단독 미확정")
+        self.assertEqual(len(done["findings"][0]["priorCoverage"]["items"]),1)
+
     def test_analyze_does_not_claim_first_or_exclusive(self):
         r=pf.analyze([])
         self.assertEqual(r["status"],"research_only_not_exclusives")
