@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>데이터 발굴 | 산업부 취재 레이더</title>
+<style>
+:root{font:15px system-ui,-apple-system,"Noto Sans KR",sans-serif;color:#1f3040;background:#f5f7fa}
+*{box-sizing:border-box}body{margin:0}main{max-width:1080px;margin:auto;padding:23px 16px 70px}
+a{color:#14619f}h1{font-size:25px;margin:13px 0 8px}h2{font-size:19px;margin:27px 0 10px}
+p{line-height:1.65}.small{font-size:13px;color:#62768a}
+.alert,.card,.gridwrap{background:#fff;border:1px solid #dce4eb;border-radius:12px;padding:16px}
+.alert{font-size:13px;line-height:1.65}.error{border-color:#d9babb}
+.controls{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:16px 0}
+select{border:1px solid #cbd6e0;background:#fff;border-radius:9px;padding:10px;font:inherit}
+.card{margin:10px 0}.card h3{font-size:16px;margin:0 0 9px}
+.label{font-size:11px;padding:3px 7px;border-radius:7px;background:#eff3f8;display:inline-block;margin:0 6px 4px 0}
+.gridwrap{overflow-x:auto;margin:12px 0}
+table{width:100%;border-collapse:collapse;font-size:13px;min-width:710px}
+th,td{padding:11px 9px;border-bottom:1px solid #ebeff2;text-align:right;white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{font-weight:600;color:#53697c}
+.reportlink{display:inline-block;margin:4px 8px 0 0;font-size:12px}
+.detail{color:#52677a;font-size:13px}.call{padding:7px 0;margin:0;border-top:1px solid #f0f3f6}
+.note{font-size:12px;color:#637588}.hidden{display:none}
+</style></head><body><main>
+<a href="index.html">← 산업부 종합 취재 레이더</a>
+<h1>데이터 발굴 · 기업 간 비교</h1>
+<p class="small" id="at">공식 DART 자료 갱신 현황 확인 중</p>
+<div class="alert">이 화면은 <b>공개된 사업보고서·반기보고서의 연결(CFS) 재무제표</b>를 동일 기간·원화 기준으로 비교해 조사할 숫자를 찾는다. <b>단독 여부를 판단하지 않는다.</b>
+매출액은 수주잔고·출하량·수출금액이 아니며, 그룹회사 간 중복 및 제품 구성이 달라 회사별 원인과 회사 답변을 반드시 확인해야 한다.
+3년 자료로 ‘사상 처음’을 주장하지 않는다.</div>
+<div class="controls">
+<label for="period">비교 기준 </label><select id="period">
+<option value="halfyear">최근 반기 누적 (전년 동기 비교)</option>
+<option value="annual">최근 사업보고서 (3개년)</option>
+</select>
+<label for="group">출입처 그룹 </label><select id="group"><option value="all">전체 보기</option></select>
+</div>
+<p id="status" class="small"></p>
+<section id="findings"></section><section id="tables"></section>
+<p class="small">공식 출처: <a href="https://opendart.fss.or.kr/guide/detail.do?apiGrpCd=DS003&amp;apiId=2019020" target="_blank" rel="noopener noreferrer">금융감독원 OpenDART 단일회사 전체 재무제표</a>. 신호 판정은 취재 우선순위용 참고이며 과거에 이미 보도된 사실일 수 있다.</p>
+</main>
+<script>
+(function(){
+"use strict";
+const $=s=>document.querySelector(s);
+const root=$("#tables"),findings=$("#findings"),sel=$("#period"),group=$("#group");
+let raw=null;
+function elem(tag,text,cls){const o=document.createElement(tag);if(text!==undefined&&text!==null)o.textContent=String(text);if(cls)o.className=cls;return o}
+function link(url,label){const a=elem("a",label,"reportlink");if(/^https:\/\/dart\.fss\.or\.kr\/dsaf001\/main\.do\?rcpNo=\d{14}$/.test(url||"")){a.href=url;a.target="_blank";a.rel="noopener noreferrer"}return a}
+function billion(n){if(n===undefined||n===null||n==="")return "미확인";const a=Number(n);if(!Number.isFinite(a))return "미확인";return (a/1e8).toLocaleString("ko-KR",{maximumFractionDigits:0})+"억원"}
+function percent(n){return typeof n==="number"&&Number.isFinite(n)?n.toFixed(1)+"%":"—"}
+function stat(r,metric,year){const n=r.metrics?.[metric]?.[String(year)];return n?Number(n):null}
+function growth(a,b){return a!==null&&b!==null&&b>0?(a/b-1)*100:null}
+function makeTable(name,records,year,kind){
+ const title=elem("h2",name),wrap=elem("div",null,"gridwrap");const table=elem("table");
+ const columns=["기업","매출 ("+year+")","매출 ("+(year-1)+")","전년 동기/전년 대비","영업이익률 ("+year+")","공시 원문"];
+ const header=elem("tr");
+ for(const h of columns)header.append(elem("th",h));
+ const thead=elem("thead");thead.append(header);table.append(thead);const body=elem("tbody");
+ for(const r of records){
+  const row=elem("tr"),sales=stat(r,"revenue",year),old=stat(r,"revenue",year-1);
+  const income=stat(r,"operatingIncome",year);
+  const margin=sales!==null&&income!==null&&sales>0?income/sales*100:null;
+  const cells=[r.name,billion(sales),billion(old),percent(growth(sales,old)),percent(margin)];
+  for(const cell of cells)row.append(elem("td",cell));
+  const source=elem("td");
+  if((r.sources||[]).length)for(const x of r.sources||[])source.append(link(x.url,"원문"));
+  else source.textContent=r.status==="no_report"?"공시 없음":"원문·지표 확인 불가";
+  row.append(source);body.append(row);
+ }
+ table.append(body);wrap.append(table);
+ const desc=elem("p","단위: 원화 연결재무제표. 수출액·생산량·수주잔고 아님. 사업부와 연결범위가 다를 수 있음.","note");
+ root.append(title,wrap,desc);
+}
+function render(){
+ if(!raw)return;
+ const period=sel.value, filter=group.value;
+ const data=raw.companies.filter(x=>x.period===period&&(filter==="all"||raw.groupNames[filter]?.includes(x.name)));
+ const year=raw.periods?.[period]?.year;
+ root.replaceChildren();findings.replaceChildren();
+ const title=elem("h2","공식 자료에서 확인된 비교 이례값");
+ findings.append(title);
+ const signals=raw.findings.filter(x=>x.period===period&&(filter==="all"||x.group===filter));
+ if(!signals.length)findings.append(elem("p","설정된 기준에 해당하는 이상 격차 없음. 이는 단독 소재가 없거나 모든 원자료가 완전하다는 뜻은 아니야.","small"));
+ for(const x of signals){
+  const box=elem("article",null,"card");
+  box.append(elem("h3",x.company+" · "+x.metric));
+  box.append(elem("div","취재 단서 · 단독 미확정","label"));
+  box.append(elem("p","매출 증가율 "+percent(x.latestYoYPercent)+" · 다른 비교기업 중앙값 "+percent(x.comparisonMedianPercent)+" · 격차 "+x.gapPp.toFixed(1)+"%p"));
+  if(x.priorYoYPercent!==null)box.append(elem("p","이전 동일 기준 증가율 "+percent(x.priorYoYPercent),"small"));
+  box.append(elem("p","사전 보도 확인 전. 회계범위·사업구조·주요제품을 대조해야 기사 야마 성립.","detail"));
+  for(const q of x.questions||[])box.append(elem("p","확인: "+q,"call"));
+  for(const src of x.sources||[])box.append(link(src.url,"DART 원문"));
+  findings.append(box);
+ }
+ if(!year){$("#status").textContent="기준 연도 누락: 비교할 수 없음";return}
+ $("#status").textContent=raw.periods[period].label+" · "+year+"년과 "+(year-1)+"년 비교 · "+data.length+"개 회사 조회 기록 · "+
+   "공식 자료 추출 성공 "+data.filter(x=>x.status==="extracted").length+"곳";
+ for(const [name,companies] of Object.entries(raw.groupNames||{})){
+  if(filter!=="all"&&name!==filter)continue;
+  const rows=data.filter(r=>companies.includes(r.name));
+  if(rows.length)makeTable(name,rows,year,period);
+ }
+}
+fetch("digests/peer_financial_latest.json",{cache:"no-store"}).then(r=>{if(!r.ok)throw Error("연간 공식 비교 데이터 아직 미게시 (HTTP "+r.status+")");return r.json()}).then(data=>{
+ if(!Array.isArray(data.companies)||!data.groupNames||!data.periods||!Array.isArray(data.findings))throw Error("비교 데이터 스키마 불일치");
+ raw=data;$("#at").textContent="마지막 DART 자료 수집 "+data.generatedAt+" · 공식 정보는 이미 공개된 자료일 수 있음";
+ const age=Date.now()-Date.parse(data.generatedAt);if(Number.isFinite(age)&&age>10*86400000)$("#at").textContent+=" · 오래된 수집 파일: 최신 여부 확인 필요";
+ for(const g of Object.keys(data.groupNames)) {const x=elem("option",g);x.value=g;group.append(x)}
+ sel.addEventListener("change",render);group.addEventListener("change",render);render();
+}).catch(e=>{$("#status").textContent="데이터 발굴 파일을 읽지 못했어: "+e.message+". GitHub Actions Official Peer Data Research를 확인해."});
+})();
+</script>
+</body></html>

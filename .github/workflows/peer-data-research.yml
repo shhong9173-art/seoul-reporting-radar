@@ -1,0 +1,54 @@
+name: Official Peer Data Research
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/peer-data-research.yml'
+  schedule:
+    # Monday 07:20 Asia/Seoul (Sunday 22:20 UTC)
+    - cron: '20 22 * * 0'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  # Shared with radar writers to prevent simultaneous Git rebase on main.
+  group: newsroom-radar-writers
+  cancel-in-progress: false
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify official statement parser offline
+        run: |
+          python -m compileall -q scripts/peer_financial.py
+          python -m unittest discover -s tests -p 'test_peer_financial.py' -v
+      - name: Retrieve same-basis historical OpenDART financial figures
+        env:
+          DART_API_KEY: ${{ secrets.DART_API_KEY }}
+        run: python scripts/peer_financial.py
+      - name: Publish peer comparison evidence
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add digests/peer_financial_latest.json
+          if git diff --cached --quiet; then
+            echo "Peer source data unchanged"
+          else
+            git commit -m "data: refresh official peer research [skip ci]"
+            for attempt in 1 2 3; do
+              git pull --rebase origin main
+              if git push origin HEAD:main; then exit 0; fi
+              sleep 4
+            done
+            echo "Cannot safely publish peer research" >&2
+            exit 1
+          fi

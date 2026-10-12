@@ -26,3 +26,9 @@
 - 독립 일정: `.github/workflows/reporter-morning.yml`, 평일 06:50 KST, 기존 `DART_API_KEY` Secrets 사용.
 - 원자료 → 이미 보도 확인 → 본 기자 발제 → 팩트체크: [`reporter_kit/README.md`](reporter_kit/README.md)
 - 관세청·네이버 API 도구: `scripts/customs.py`, `scripts/news_check.py` (별도 키 필요).
+
+## 신규: 공식 데이터 발굴·회사 간 비교
+- [데이터 발굴 화면](data-lab.html)에서 자동차, 자동차 부품, 전력기기, 철강, 비철 기업의 3개년 연결 매출·영업이익과 최근 반기 누적을 비교한다.
+- OpenDART 전체 재무제표(`fnlttSinglAcntAll`)를 같은 보고서 코드·기업코드·계정 ID·원화 연결 기준으로 검산. 실제 데이터를 확보하지 못하면 빈 값으로 남긴다.
+- [공식 지표 비교 엔진](scripts/peer_financial.py)은 3곳 이상 회사가 비교될 때 매출 증감률의 경쟁기업 중앙값 격차가 큰 자료를 **취재 단서**로만 제시한다. 단독 자동 확정 금지.
+- [매주 자동 실행](.github/workflows/peer-data-research.yml): 월요일 07:20 KST 예정, API 장애 시 기존 JSON 보존. 자세한 기준은 [설계 문서](docs/peer-research-design-20261013.md).
