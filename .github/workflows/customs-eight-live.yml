@@ -1,0 +1,68 @@
+name: Customs Eight Live API Verification (Temporary)
+on:
+  push:
+    branches: [diagnostics/customs-eight-live-20261013]
+    paths: ['.github/workflows/customs-eight-live.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install "requests>=2.31,<3"
+      - name: Request each approved endpoint using Actions Secret (no raw response/key published)
+        env:
+          CUSTOMS_API_KEY: ${{ secrets.CUSTOMS_API_KEY }}
+        run: |
+          python -u - <<'PY'
+          import os, requests, xml.etree.ElementTree as ET
+          from concurrent.futures import ThreadPoolExecutor, as_completed
+          key=os.environ.get("CUSTOMS_API_KEY","")
+          if not key:
+              raise SystemExit("CUSTOMS_API_KEY is empty")
+          base="https://apis.data.go.kr/1220000/"
+          month={"strtYymm":"202601","endYymm":"202601"}
+          urls={
+            "01_hs_monthly": ("nitemtrade/getNitemtradeList",dict(month,hsSgn="8703")),
+            "02_export_10day": ("prlstMmUtPrviExpAcrs/getPrlstMmUtPrviExpAcrs",dict(month)),
+            "03_import_10day": ("prlstMmUtPrviImpAcrs/getPrlstMmUtPrviImpAcrs",dict(month)),
+            "04_regional_hs": ("sidoitemtrade/getSidoitemtradeList",dict(month,sidoCd="31")),
+            "05_newtemper_country": ("nnewtempertrade/getNnewtempertradeList",dict(month,imexTpcd="1",imexTmprUnfcClsfCd="13050102",cntyCd="US")),
+            "06_newtemper": ("newtempertrade/getNewtempertradeList",dict(month,imexTpcd="1",imexTmprUnfcClsfCd="13050102")),
+            "07_temper_country": ("ntempertrade/getNtempertradeList",dict(month,imexTpcd="1",cntyCd="US")),
+            "08_kind": ("kindtrade/getKindtradeList",dict(month,imexTpcd="1")),
+          }
+          def check(name, route, params):
+            try:
+              r=requests.get(base+route,params={"serviceKey":key,**params},timeout=(8,18),headers={"Accept":"application/xml"})
+              try:
+                root=ET.fromstring(r.content)
+                code=root.findtext(".//resultCode") or root.findtext(".//returnReasonCode")
+                items=root.findall(".//item")
+                head=sorted(x.tag for x in items[0]) if items else []
+                return (name, r.status_code,code,len(items),",".join(head[:20]),"xml")
+              except ET.ParseError:
+                return (name,r.status_code,"INVALID_XML",0,"","nonxml")
+            except requests.ConnectTimeout: return(name,"CONNECT_TIMEOUT",None,0,"","timeout")
+            except requests.ReadTimeout: return(name,"READ_TIMEOUT",None,0,"","timeout")
+            except requests.RequestException as e: return(name,type(e).__name__,None,0,"","network")
+          with ThreadPoolExecutor(max_workers=8) as pool:
+            futures=[pool.submit(check,name,route,params) for name,(route,params) in urls.items()]
+            results=[f.result() for f in as_completed(futures)]
+          print("--- SERVICE HEALTH (no URLs or credentials) ---",flush=True)
+          ok=0
+          for name,status,code,count,fields,fmt in sorted(results):
+            passed=status==200 and code in ("00","0") and count>0 and fmt=="xml"
+            ok+=int(passed)
+            print(f"{name}: status={status} code={code} items={count} fields={fields} verdict={'PASS' if passed else 'FAIL_OR_UNKNOWN'}",flush=True)
+          print(f"VERIFIED {ok} / 8 services",flush=True)
+          if ok!=8:
+            raise SystemExit(1)
+          PY
