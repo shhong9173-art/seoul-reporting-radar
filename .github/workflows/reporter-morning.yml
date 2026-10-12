@@ -34,6 +34,11 @@ jobs:
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
         run: python scripts/dart_watch.py --days 5
+      - name: Compare source evidence and check prior-news candidates
+        env:
+          NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
+          NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
+        run: python scripts/review_engine.py
       - name: Publish briefing
         run: |
           set -e
