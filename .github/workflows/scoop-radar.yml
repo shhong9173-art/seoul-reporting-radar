@@ -74,6 +74,14 @@ jobs:
               raise SystemExit('dropStats missing')
           if len(scoop['items'])>60:
               raise SystemExit('too many scoop candidates')
+          from scoop_scout import DIRECT_BEAT_COMPANIES
+          if scoop.get('beatScope') != 'direct-company-beats-only':
+              raise SystemExit('scoop scope marker missing')
+          for group in ('items', 'leadSignals'):
+              for item in scoop.get(group,[]):
+                  companies=item.get('companies') or []
+                  if not companies or not set(companies).issubset(DIRECT_BEAT_COMPANIES):
+                      raise SystemExit(f'out-of-beat {group}: {item.get("title")} / {companies}')
           print(
               'isolated scoop radar validated | '
               f"raw signals={len(pre['items'])} | "
