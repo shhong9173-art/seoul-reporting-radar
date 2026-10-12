@@ -243,6 +243,10 @@ def fetch_dart_viewer_text(receipt_no: str, diagnostics: dict | None = None) -> 
         url = "https://dart.fss.or.kr/report/viewer.do?" + urlencode(query)
         try:
             raw = fetch_bytes(url, timeout=10)
+            from dart_corrections import compare_correction
+            comparison = compare_correction(decode_web_bytes(raw), url)
+            if comparison['status'] != 'comparison_unavailable':
+                diag.setdefault('correctionComparisons', []).append(comparison)
             body = html_to_text(raw)
             pages_fetched += 1
         except Exception as exc:
@@ -280,6 +284,7 @@ def extract_viewer_facts(base: dict, viewer_text: str, error: str, diagnostics: 
         **base,
         "numbers": list(numbers.keys())[:40],
         "snippets": snippets,
+        "correctionComparisons": (diagnostics or {}).get("correctionComparisons", []),
         "viewerText": viewer_text[:24000],
         "fallbackSource": "DART HTML viewer",
         "viewerFallbackDiagnostics": diagnostics or {},
@@ -315,6 +320,7 @@ def extract_document(base: dict) -> dict:
                 numbers = {}
                 snippets = []
                 keyword_samples = []
+                corrections = []
                 names = z.namelist()
                 parsed_files = 0
                 decoded_chars = 0
@@ -328,6 +334,12 @@ def extract_document(base: dict) -> dict:
                         continue
                     parsed_files += 1
                     decoded_chars += len(text)
+                    from dart_corrections import compare_correction
+                    comparison = compare_correction(decode_web_bytes(z.read(name)),
+                        "https://dart.fss.or.kr/dsaf001/main.do?" + urlencode({"rcpNo": receipt_no}))
+                    if comparison['status'] != 'comparison_unavailable':
+                        comparison['documentName'] = name
+                        corrections.append(comparison)
                     for match in KEYWORD_RE.finditer(text):
                         keyword_hits += 1
                         start = max(0, match.start() - 220)
@@ -348,6 +360,7 @@ def extract_document(base: dict) -> dict:
                 if numbers:
                     return {
                         **base,
+                        "correctionComparisons": corrections,
                         "numbers": list(numbers.keys())[:40],
                         "snippets": snippets[:24],
                         "extractionDiagnostics": {
@@ -364,7 +377,7 @@ def extract_document(base: dict) -> dict:
                     f"OpenDART ZIP parsed but no material numeric contexts matched "
                     f"(entries={len(names)}, textFiles={parsed_files}, chars={decoded_chars}, keywords={keyword_hits})"
                 )
-                viewer_diag = {"openDartZipEntries": len(names), "openDartTextFilesParsed": parsed_files,
+                viewer_diag = {"correctionComparisons": corrections, "openDartZipEntries": len(names), "openDartTextFilesParsed": parsed_files,
                                "openDartDecodedTextChars": decoded_chars, "openDartKeywordHits": keyword_hits,
                                "openDartKeywordSamples": keyword_samples[:8]}
                 viewer_text = fetch_dart_viewer_text(receipt_no, viewer_diag)
@@ -373,6 +386,7 @@ def extract_document(base: dict) -> dict:
                 return {
                     **base, "numbers": [], "snippets": [],
                     "fallbackSource": "DART HTML viewer attempted",
+                    "correctionComparisons": corrections,
                     "viewerFallbackDiagnostics": viewer_diag,
                     "error": last_error,
                 }
