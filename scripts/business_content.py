@@ -27,15 +27,19 @@ from dart_corrections import Tables
 from dart_numeric_extractor import decode_web_bytes, html_to_text
 
 KST=timezone(timedelta(hours=9))
-CORPS=("HD현대일렉트릭","엘에스일렉트릭","효성중공업")
+CORPS=("HD현대일렉트릭","엘에스일렉트릭","효성중공업",
+       "현대자동차","기아","현대제철","세아제강")
 TOPICS={
     "orderBacklog":("수주잔고","수주상황"),
     "productionCapacity":("생산능력",),
     "utilization":("가동률","평균가동률"),
     "segmentSales":("매출실적","제품별매출","사업부문별매출"),
+    "productionActual":("생산실적",),
+    "investment":("진행중인투자","향후투자계획","설비의신설"),
 }
 LABELS={"orderBacklog":"수주잔고","productionCapacity":"생산능력",
-        "utilization":"가동률","segmentSales":"제품·사업부별 매출"}
+        "utilization":"가동률","segmentSales":"제품·사업부별 매출",
+        "productionActual":"생산실적","investment":"진행·계획 투자"}
 DATE_RE=re.compile(r"\d{8}\Z")
 RECEIPT_RE=re.compile(r"\d{14}\Z")
 UNIT_RE=re.compile(r"(?:단위\s*[:：]\s*|\(\s*단위\s*[:：]\s*)(백만원|천원|억원|원|천달러|백만달러|USD|MVA|MW|GW|대|톤|%|시간|천대|만대)\b",re.I)
@@ -148,15 +152,42 @@ def business_section(markup):
 
 
 def classify_table(markup,context):
-    body=plain(markup[:22_000])
-    words=re.sub(r"\s+","",body+" "+context)
-    labels=[kind for kind,keywords in TOPICS.items()
-            if any(word in words for word in keywords)]
-    # A table can contain several topics; don't silently assign one.
-    if len(labels)!=1:
+    """Nearest explicit topic in the heading, rather than historical
+    keywords earlier in the document, determines the table type."""
+    words=re.sub(r"\s+","",context[-320:])
+    # '생산능력' in a footnote before '생산실적' must NOT turn
+    # production results into physical capacity.
+    anchors={
+        "orderBacklog":("수주상황","수주잔고"),
+        "productionCapacity":("생산능력",),
+        "utilization":("가동률",),
+        "segmentSales":("매출실적","매출현황"),
+        "productionActual":("생산실적",),
+        "investment":("진행중인투자","향후투자계획","설비의신설","신설ㆍ매입계획"),
+    }
+    hits=[(words.rfind(x),topic) for topic,keys in anchors.items()
+          for x in keys if x in words]
+    if not hits:
         return None
-    return labels[0]
+    hits.sort(reverse=True)
+    if len(hits)>1 and hits[0][0]==hits[1][0]:
+        return None
+    return hits[0][1]
 
+
+def explicit_table_unit(context,table):
+    """Reject mixed currency/physical-unit tables and ambiguous headings."""
+    preceding=re.sub(r"<[^>]+>"," ",context[-380:])
+    matches=list(re.finditer(r"단위\s*[:：]\s*([^)<>。]{1,75})",preceding,re.I))
+    if not matches:
+        return None
+    clause=matches[-1].group(1).strip()
+    # An authoritative heading must include exactly one known unit.
+    # Some tables show thousands of RMB/USD and KRW simultaneously.
+    if any(t in clause for t in (",","，","및","/","천RMB","천INR","천USD")):
+        return None
+    unit_match=re.match(r"^(백만원|천원|억원|원|MVA|MW|GW|대|톤|%|시간|천대|만대)(?![가-힣A-Za-z0-9])",clause,re.I)
+    return unit_match.group(1) if unit_match else None
 
 def table_rows(table):
     parser=Tables()
@@ -191,8 +222,7 @@ def evidence_tables(section,receipt):
         if not rows:
             continue
         # Only accept a unit if it is explicitly present and unambiguous.
-        unit_set=set(UNIT_RE.findall(context[-300:]+chunk[:800]))
-        unit=next(iter(unit_set)) if len(unit_set)==1 else None
+        unit=explicit_table_unit(context,chunk)
         count_key=topic
         counts[count_key]+=1
         evidence.append({"topic":topic,"topicName":LABELS[topic],
@@ -269,7 +299,7 @@ def build_report(codes,key,year=2025,names=CORPS,scan=scan_company):
         "generatedAt":datetime.now(KST).isoformat(timespec="seconds"),
         "reportYear":year,"priorYear":year-1,
         "source":"OpenDART list.json + 사업보고서 document.xml 원문",
-        "scope":"전력기기 출입처 3사 시범 · II. 사업의 내용",
+        "scope":"전력기기 3사·자동차 완성차 2사·철강 2사 · II. 사업의 내용",
         "basis":"공식 원문 사업의 내용에서 수주·생산·가동·매출 표를 발췌. 표 간 원시 숫자 자동 비교 금지",
         "statuses":statuses,"companies":records,
         "candidatePairs":sum(len(x.get("pairs",[])) for x in records),
