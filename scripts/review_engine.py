@@ -70,7 +70,7 @@ def normalize_news(items):
     for raw in items[:12]:
         if not isinstance(raw, dict):
             continue
-        link = raw.get("originallink") or raw.get("link") or ""
+        link = raw.get("originallink") or raw.get("link") or raw.get("url") or ""
         parsed = urlparse(str(link))
         if parsed.scheme not in ("https", "http") or not parsed.netloc:
             continue
