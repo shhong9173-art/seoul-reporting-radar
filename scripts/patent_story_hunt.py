@@ -194,6 +194,8 @@ def build(official,deep,now=None,max_news=8,press=search_press):
     now=now or datetime.now(KST)
     if not isinstance(official.get("items"),list) or not isinstance(deep.get("investigations"),list):
         raise ValueError("KIPRIS source data incomplete")
+    if official.get("sourceWindowComplete") is not True:
+        raise ValueError("KIPRIS official source incomplete: cannot publish story leads")
     if official.get("generatedAt")!=deep.get("patentDatasetGeneratedAt"):
         raise ValueError("Official and deep snapshots have different dates")
     # The deep ranking view is intentionally limited to 60, so reconstruct
