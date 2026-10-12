@@ -1,0 +1,93 @@
+name: Customs Five Statistics
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/customs_five.py'
+      - 'tests/test_customs_five.py'
+      - '.github/workflows/customs-five.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'scripts/customs_five.py'
+      - 'tests/test_customs_five.py'
+      - '.github/workflows/customs-five.yml'
+      - 'data-lab.html'
+  schedule:
+    # 16th and 18th of each month, 11:30 KST
+    - cron: '30 2 16,18 * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+concurrency:
+  group: customs-five-statistics-writer
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install "requests>=2.31,<3"
+      - name: Offline tests including 5 API schema, scopes and month labels
+        run: |
+          python -m compileall -q scripts/customs_five.py
+          python -m unittest discover -s tests -p 'test_customs_five.py' -v
+
+  collect:
+    if: github.event_name != 'pull_request'
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install "requests>=2.31,<3"
+      - name: Collect 5 official monthly dimensions with private API Secret
+        env:
+          CUSTOMS_API_KEY: ${{ secrets.CUSTOMS_API_KEY }}
+        run: python scripts/customs_five.py
+      - name: Publish all 5 only after source validation
+        run: |
+          set -e
+          if [ ! -s digests/customs_five_latest.json ]; then
+            echo "No valid official 5-service result; keep previous data"
+            exit 0
+          fi
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path("digests/customs_five_latest.json")
+          d=json.loads(p.read_text(encoding="utf-8"))
+          expected={"regional","newtemper_country","newtemper","temper_country","kind"}
+          actual={s["id"] for s in d["services"]}
+          assert expected==actual and len(d["services"])==5, "Missing verified service"
+          for s in d["services"]:
+              assert s["status"]=="official_public_statistics_not_exclusive"
+              assert s["rawRecordsCurrent"]>0 and s["rawRecordsPriorYear"]>0
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add digests/customs_five_latest.json
+          if git diff --cached --quiet; then
+            echo "Five official Customs datasets unchanged"
+            exit 0
+          fi
+          git commit -m "data: publish official five-dimension Customs statistics [skip ci]"
+          for attempt in 1 2 3; do
+            git pull --rebase origin main
+            if git push origin HEAD:main; then exit 0; fi
+            sleep 4
+          done
+          echo "Unable to publish approved source data" >&2
+          exit 1
