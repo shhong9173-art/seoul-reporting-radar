@@ -23,6 +23,34 @@ def patent(company="현대자동차",number="1020260148128",
 
 
 class PatentDeepTests(unittest.TestCase):
+    def test_three_company_cross_sector_joint_patent_exposes_outside_partner(self):
+        first=patent(title="폐차 플라스틱 효소 해중합 및 재생 원료 제조 방법")
+        first["applicants"]=["현대자동차주식회사","기아 주식회사","씨제이제일제당 주식회사"]
+        first["themes"]=[{"theme":"순환소재·폐차재활용","titleHits":["플라스틱"],"abstractHits":["효소"]}]
+        other={**first,"company":"기아"}
+        output=d.build({"items":[first,other],"generatedAt":"2026-10-13"},search_limit=0,now=NOW)
+        self.assertEqual(output["uniquePublicationCount"],1)
+        self.assertEqual(output["jointApplications"],1)
+        self.assertEqual(output["outsideBeatJointPublications"],1)
+        lead=output["partnerInvestigations"][0]
+        self.assertEqual(lead["outsideBeatCoApplicants"],["씨제이제일제당 주식회사"])
+        self.assertEqual(lead["officialApplicantCount"],3)
+        self.assertIn("순환소재·폐차재활용",lead["investigativeThemes"])
+        self.assertIn("미확인",lead["partnerStatus"])
+        self.assertEqual(output["confirmedScoops"],0)
+
+    def test_same_group_hyundai_and_kia_not_outside_collaboration(self):
+        base=patent()
+        output=d.build({"items":[base],"generatedAt":"2026-10-13"},search_limit=0,now=NOW)
+        self.assertEqual(output["outsideBeatJointPublications"],0)
+        self.assertEqual(output["partnerInvestigations"],[])
+        self.assertEqual(output["jointApplications"],1)
+
+    def test_outside_partner_does_not_mistake_covered_corporate_alias(self):
+        self.assertEqual(d.outside_beat_applicants(
+            ["현대자동차 주식회사","기아주식회사","인천대학교 산학협력단"]),
+            ["인천대학교 산학협력단"])
+
     def test_joint_patent_is_one_document_not_two_exclusives(self):
         source={"items":[patent(),patent(company="기아")],"generatedAt":"2026-10-13T03:39"}
         results=d.build(source,search_limit=0,now=NOW)
