@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - 'scripts/patent_hunt.py'
+      - 'scripts/patent_deep_hunt.py'
       - '.github/workflows/kipris-patent-hunt.yml'
   schedule:
     # Mon-Fri 09:15 Asia/Seoul = 00:15 UTC
@@ -32,17 +33,23 @@ jobs:
         run: |
           python -m compileall -q scripts/patent_hunt.py
           python -m unittest discover -s tests -p 'test_patent_hunt.py' -v
+          python -m unittest discover -s tests -p 'test_patent_deep_hunt.py' -v
           node tests/test_patent_hunt_view.cjs
       - name: Query KIPRISPlus applicant publications when separately authorized
         env:
           KIPRIS_SERVICE_KEY: ${{ secrets.KIPRIS_SERVICE_KEY }}
         run: python scripts/patent_hunt.py --max-news 5
+      - name: Correlate joint publications and compare official historical patent titles
+        env:
+          KIPRIS_SERVICE_KEY: ${{ secrets.KIPRIS_SERVICE_KEY }}
+        run: python scripts/patent_deep_hunt.py --max-history 10
       - name: Publish official patent evidence only
         run: |
           set -e
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add digests/patent_hunt_latest.json
+          if [ -f digests/patent_deep_latest.json ]; then git add digests/patent_deep_latest.json; fi
           if git diff --cached --quiet; then
             echo "No KIPRISPlus patent dataset changes"
             exit 0
