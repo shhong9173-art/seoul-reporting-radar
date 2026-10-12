@@ -63,7 +63,12 @@ def federal_register(term,since,fetch=read_json):
     url=FR_API+"?"+urlencode(params)
     data=fetch(Request(url,headers={"User-Agent":"newsroom-official-research/1.0","Accept":"application/json"}))
     if not isinstance(data.get("results"),list):
-        raise ValueError("Federal Register results 누락: 검색 완료 아님")
+        # Some API searches return count=0 without a results array.
+        # Only an explicit zero and no provider errors are valid emptiness.
+        if data.get("count")==0 and not data.get("errors"):
+            data["results"]=[]
+        else:
+            raise ValueError("Federal Register results 누락: 검색 완료 아님")
     items=[]
     for r in data["results"]:
         if not isinstance(r,dict):
