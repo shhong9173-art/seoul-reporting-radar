@@ -82,3 +82,8 @@
 - 결과: `digests/customs_five_latest.json`을 검증 후 원자적으로 교체하고 `data-lab.html`에 집계 단위별 개별 표로 표시. 각 표는 같은 달의 전년도 값과 비교한다. 중복 합산/기업 귀속/단독 표시 금지.
 - 공공데이터포털 월별 공식 통계의 다음 달 중순 공표 주기를 고려하여 **16일 이전에는 전전월**, 이후에는 전월을 조회한다. 신규 월 값이 미수신되거나 API 오류가 나면 기존 JSON은 보존하며 해당 수집 실행은 실패 처리한다.
 - 실데이터 검증과 범위: [관세청 5종 API 통합 설계](docs/customs-five-statistics.md).
+
+## KIPRIS 공식특허 발굴
+- [특허 취재 레이더](patents.html)는 24개 국내 직접 출입처 법인의 공식 출원인명·최근 35일 공개특허 번호·공개일·초록·IPC를 대조한다. 출원일과 공개일은 별도 표시.
+- KIPRISPlus **해당 특허·실용신안 공보 API 이용 승인과 별도 ServiceKey**가 있어야 실제 수집 가능. GitHub Actions Secret `KIPRIS_SERVICE_KEY`로 설정. 관세청 키와 다름.
+- `scripts/patent_hunt.py`, `digests/patent_hunt_latest.json`, `.github/workflows/kipris-patent-hunt.yml`: 평일 09:15(KST) 갱신. 특허 공개는 사업화·단독 확정이 아니며 미인증은 0건으로 취급하지 않는다. `docs/kipris-patent-hunt.md`.

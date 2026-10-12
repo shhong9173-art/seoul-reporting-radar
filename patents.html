@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>특허 원문 단독 취재 레이더 | 산업부 취재 레이더</title>
+<style>
+:root{font:15px/1.65 system-ui,-apple-system,"Noto Sans KR",sans-serif;color:#20364b;background:#f5f7fa}
+*{box-sizing:border-box}body{margin:0}main{max-width:1090px;margin:auto;padding:24px 18px 80px}
+a{color:#0d5d90}h1{font-size:25px;margin:12px 0}h2{font-size:19px;margin:26px 0 11px}
+small,.dim{font-size:13px;color:#657489}.notice,.card{background:#fff;border:1px solid #d7e0e9;border-radius:12px;padding:17px;margin:12px 0}
+.card h3{font-size:17px;margin:8px 0}.tag{font-size:12px;color:#354e62;background:#eaf0f5;border-radius:7px;padding:3px 8px;display:inline-block;margin:3px 6px 5px 0}
+.label{font-weight:700}.source{margin-right:14px;font-size:13px;display:inline-block}.scope{font-size:13px;border-top:1px solid #edf0f4;margin-top:10px;padding-top:10px}
+.question{padding:5px 0;font-size:13px;margin:0}.status{font-size:13px;color:#72521f;background:#fff9eb;padding:10px;border-radius:7px}
+ul{padding-left:20px}
+</style></head><body><main>
+<a href="index.html">← 산업부 레이더</a> · <a href="hunt.html">공시 원문 변화</a> ·
+<a href="official-watch.html">공식 해외·계약 문서</a>
+<h1>특허 원문 취재 레이더 /patent-hunt</h1>
+<div class="notice">
+  <b>단독 발굴 기준</b> — 신규 공개특허의 출원인·공개번호·공개일·기술 초록을 공식 원문으로 확인한다.
+  출원일은 공개일이 아니며, 공개·등록·특허패밀리도 서로 다른 개념이다.
+  신차·신기술 상용화, 사업 진출, 매출·수주 또는 미보도 단독은 이 화면만으로 확정되지 않는다.
+  해당 특허의 <b>청구항과 선행 특허, 회사 사업계획 및 타사 보도</b>를 교차 확인해야 한다.
+</div>
+<p id="patent-status" class="status">KIPRISPlus 공식 특허 API 연결과 마지막 갱신 상태 확인 중</p>
+<section><h2>최근 공개특허 · 취재 우선순위</h2><div id="patent-candidates"></div></section>
+<details class="notice"><summary>출입처별 공식 수집 현황·누락 사유</summary><div id="patent-checks"></div></details>
+<div class="notice">
+  <b>공식 출처</b> — <a href="https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001" target="_blank" rel="noopener noreferrer">KIPRISPlus 특허·실용 공개·등록공보 API</a> ·
+  <a href="https://www.kipris.or.kr/" target="_blank" rel="noopener noreferrer">KIPRIS 특허 검색</a>.
+  각 후보의 공개번호를 KIPRIS에 입력해 청구항·도면·권리 상태를 다시 확인해.
+  API 키는 GitHub Secrets의 <code>KIPRIS_SERVICE_KEY</code>에 별도로 등록해야 해. 관세청 API 키와 같다고 가정하지 않아.
+</div></main>
+<script>
+(async function(){
+"use strict";
+const status=document.querySelector("#patent-status");
+const host=document.querySelector("#patent-candidates");
+const checks=document.querySelector("#patent-checks");
+function el(t,v,c){const x=document.createElement(t);if(v!==undefined&&v!==null)x.textContent=String(v);if(c)x.className=c;return x}
+function link(url,label){let uri;try{uri=new URL(url)}catch(err){return null}
+ if(uri.protocol!=="https:"||!["news.google.com","patents.google.com","plus.kipris.or.kr"].includes(uri.hostname))return null;
+ const a=el("a",label,"source");a.href=url;a.target="_blank";a.rel="noopener noreferrer";return a
+}
+function appendLink(to,url,label){const a=link(url,label);if(a)to.append(a)}
+try{
+ const res=await fetch("digests/patent_hunt_latest.json",{cache:"no-store"});
+ if(!res.ok)throw Error("KIPRIS 수집 결과 파일 아직 없음");
+ const data=await res.json();
+ if(!Array.isArray(data.items)||!Array.isArray(data.companyChecks)||!data.generatedAt)
+   throw Error("공식 특허 정보 형식 오류");
+ if(data.status==="KIPRIS_SERVICE_KEY 미설정"){
+  status.textContent="KIPRISPlus 특허 API 인증키 미연결. GitHub Actions Secrets에서 KIPRIS_SERVICE_KEY 설정 필요. 현재 특허 0건이라고 판단할 수 없음";
+  return
+ }
+ status.textContent="수집 시각 "+data.generatedAt+" · 공개일 범위 "+data.reportingWindow+
+   " · 정상 출원인 조회 "+data.completelyCheckedCompanies+"/"+data.applicantCount+
+   "개 · 기술별 공개공보 "+data.candidateCount+
+   "건 · 기준선 생성 "+(data.baselineInitialized?"예":"아니오")+
+   " · 신규 관측(첫 기준선 이후) "+data.alertCount+"건 · 단독 확정 0건";
+ if(!data.items.length)host.append(el("p","최근 공개된 관련 특허 후보가 없거나 조회 누락·인증 오류가 있어. 회사별 수집 현황을 확인해.","notice"));
+ for(const p of data.items){
+  const box=el("article",undefined,"card");
+  box.append(el("span",p.company,"tag"));
+  box.append(el("span","기술 취재 우선순위 "+p.priorityScore+" · 단독 점수 아님","tag"));
+  if(p.initialBaseline)box.append(el("span","기준선에 포함된 과거 공개공보","tag"));
+  else if(!p.previouslyObserved)box.append(el("span","새로 관측된 공개공보 · 최초 특허 아님","tag"));
+  box.append(el("h3",p.title));
+  box.append(el("p","공개번호 "+p.publicationNumber+" · 공개일 "+
+    p.publicationDate+" · 출원일 "+(p.applicationDate||"미확인")+
+    " · 출원인 "+(p.applicants||[]).join(", "),"dim"));
+  box.append(el("p","기술 분류: "+(p.themes||[]).map(t=>t.theme+
+    " ["+(t.titleHits||[]).join(", ")+"]").join(" · "),"dim"));
+  if(p.abstract)box.append(el("p",p.abstract));
+  box.append(el("p","기사화 제한: "+p.notProven,"scope"));
+  box.append(el("p","기보도 검색: "+(p.pressCoverage?.status||"미검색"),"dim"));
+  for(const a of p.pressCoverage?.articles||[])appendLink(box,a.url,a.title);
+  appendLink(box,p.sourceLookup,"공식 KIPRISPlus 검색 서비스");
+  if(/^[\d-]{10,22}$/.test(p.publicationNumber||""))
+    appendLink(box,"https://patents.google.com/?q="+encodeURIComponent(p.publicationNumber),
+       "Google Patents 교차 검색(2차 출처)");
+  for(const q of p.questions||[])box.append(el("p","취재 질문: "+q,"question"));
+  host.append(box);
+ }
+ for(const c of data.companyChecks||[]){
+  const line=el("p",c.company+" · "+c.status+
+    (c.rawTotal!==undefined?" · 검색 "+c.rawTotal+"건 / 수집 "+c.rawRetrieved+"건":"")+
+    (c.errorType?" · "+c.errorType:""),"dim");
+  checks.append(line)
+ }
+}catch(e){status.textContent="특허 공식 수집 자료 확인 실패: "+e.message+
+  " · 연결·실행 로그를 확인해야 하며, 자료 0건으로 해석하면 안 돼"}
+})();
+</script></body></html>
