@@ -30,6 +30,18 @@ def doc(rows,total=None):
 
 
 class PatentScoutTests(unittest.TestCase):
+    def test_enzymatic_plastic_recycling_is_in_scope_for_vehicle_beat(self):
+        official=row(
+            applicant="현대자동차주식회사|기아 주식회사|씨제이제일제당 주식회사",
+            title="폐차 플라스틱의 효소적 해중합 및 재생 원료 제조 방법",
+            abstract="폐플라스틱 PET 재활용과 효소 분해 공정")
+        found=p.verified_patent(official,"현대자동차",p.APPLICANTS["현대자동차"],
+                                "20260908","20261013")
+        self.assertIsNotNone(found)
+        self.assertEqual(len(found["applicants"]),3)
+        self.assertTrue(any(t["theme"]=="순환소재·폐차재활용" for t in found["themes"]))
+        self.assertFalse(found["scoopConfirmed"])
+
     def test_exact_issuer_identity_not_a_partial_hyundai_hit(self):
         variants=p.APPLICANTS["현대자동차"]
         self.assertTrue(p.applicant_matches("현대자동차 주식회사|기아 주식회사",variants))
