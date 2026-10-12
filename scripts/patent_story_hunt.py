@@ -83,7 +83,7 @@ def _brand_for_press(name):
         return "CJ제일제당"
     if "현대자동차" in value:
         return "현대차"
-    return re.sub(r"(주식회사|산학협력단|\\(주\\)|\\(주\\)|\\( 주 \\))","",value).strip()[:24]
+    return re.sub(r"(주식회사|산학협력단|\(주\))","",value).strip()[:24]
 
 
 def _distinctive_terms(row):
@@ -104,7 +104,7 @@ def news_queries(row):
     partner=_brand_for_press(outsiders[0]) if outsiders else ""
     terms=_distinctive_terms(row)
     queries=[]
-    if re.fullmatch(r"10\\d{11}",number):
+    if re.fullmatch(r"10\d{11}",number):
         queries.append('"'+number+'"')
     if title:
         queries.append('"'+title[:48]+'" '+(partner or main))
