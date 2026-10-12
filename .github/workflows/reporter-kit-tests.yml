@@ -13,10 +13,18 @@ on:
       - 'tests/test_business_content.py'
       - 'tests/test_business_metric_compare.py'
       - 'tests/test_business_coverage.py'
+      - 'tests/test_customs_integrity.py'
+      - 'tests/test_customs_watch.py'
+      - 'tests/test_hs_trade_view.cjs'
+      - '.github/workflows/hs-trends.yml'
       - 'tests/test_business_news_view.cjs'
       - 'tests/test_business_metric_view.cjs'
       - 'tests/test_business_metric_compare.py'
       - 'tests/test_business_coverage.py'
+      - 'tests/test_customs_integrity.py'
+      - 'tests/test_customs_watch.py'
+      - 'tests/test_hs_trade_view.cjs'
+      - '.github/workflows/hs-trends.yml'
       - 'tests/test_business_news_view.cjs'
       - 'tests/test_business_content_view.cjs'
       - '.github/workflows/business-content-scout.yml'
@@ -42,10 +50,18 @@ on:
       - 'tests/test_business_content.py'
       - 'tests/test_business_metric_compare.py'
       - 'tests/test_business_coverage.py'
+      - 'tests/test_customs_integrity.py'
+      - 'tests/test_customs_watch.py'
+      - 'tests/test_hs_trade_view.cjs'
+      - '.github/workflows/hs-trends.yml'
       - 'tests/test_business_news_view.cjs'
       - 'tests/test_business_metric_view.cjs'
       - 'tests/test_business_metric_compare.py'
       - 'tests/test_business_coverage.py'
+      - 'tests/test_customs_integrity.py'
+      - 'tests/test_customs_watch.py'
+      - 'tests/test_hs_trade_view.cjs'
+      - '.github/workflows/hs-trends.yml'
       - 'tests/test_business_news_view.cjs'
       - 'tests/test_business_content_view.cjs'
       - '.github/workflows/business-content-scout.yml'
@@ -71,7 +87,7 @@ jobs:
         with:
           python-version: '3.12'
       - run: python -m pip install "requests>=2.31,<3"
-      - run: python -m compileall -q scripts tests/test_reporter_kit.py tests/test_review_engine.py tests/test_dart_lineage.py tests/test_trade_trends.py tests/test_writer_lock.py tests/test_peer_financial.py tests/test_business_content.py tests/test_business_metric_compare.py tests/test_business_coverage.py
+      - run: python -m compileall -q scripts tests/test_reporter_kit.py tests/test_review_engine.py tests/test_dart_lineage.py tests/test_trade_trends.py tests/test_writer_lock.py tests/test_peer_financial.py tests/test_business_content.py tests/test_business_metric_compare.py tests/test_business_coverage.py tests/test_customs_integrity.py tests/test_customs_watch.py
       - run: python -m unittest discover -s tests -p 'test_reporter_kit.py' -v
       - run: python -m unittest discover -s tests -p 'test_review_engine.py' -v
       - run: python -m unittest discover -s tests -p 'test_dart_lineage.py' -v
@@ -80,6 +96,8 @@ jobs:
       - run: python -m unittest discover -s tests -p 'test_business_content.py' -v
       - run: python -m unittest discover -s tests -p 'test_business_metric_compare.py' -v
       - run: python -m unittest discover -s tests -p 'test_business_coverage.py' -v
+      - run: python -m unittest discover -s tests -p 'test_customs_integrity.py' -v
+      - run: python -m unittest discover -s tests -p 'test_customs_watch.py' -v
       - run: python -m unittest discover -s tests -p 'test_business_metric_compare.py' -v
       - run: python -m unittest discover -s tests -p 'test_writer_lock.py' -v
       - run: python -m unittest discover -s tests -p 'test_official_collectors.py' -v
@@ -89,3 +107,4 @@ jobs:
       - run: node tests/test_business_content_view.cjs
       - run: node tests/test_business_metric_view.cjs
       - run: node tests/test_business_news_view.cjs
+      - run: node tests/test_hs_trade_view.cjs
