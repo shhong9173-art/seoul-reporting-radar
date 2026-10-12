@@ -1,6 +1,11 @@
 """Offline regression checks for public-source parsers; no network or secrets required."""
 import sys
+import json
+import io
 import unittest
+import urllib.error
+import urllib.parse
+from contextlib import redirect_stdout
 from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import patch
@@ -110,23 +115,185 @@ class CollectorRegressionTests(unittest.TestCase):
         self.assertTrue(scout.DIRECT_DIAGNOSTICS["nlrc-case-summaries"]["outsideWindow"] >= 1)
 
     def test_iris_date_from_detail_not_application_window(self):
-        today = datetime.now(scout.KST).strftime("%Y-%m-%d")
-        listing = ('<a href="/contents/retrieveBsnsAncmView.do?ancmId=024237">'
-                   '2026년도 소재부품기술개발사업 공고</a>')
-        detail = (f"<html><body>공고번호 산업통상부 2026-613 "
-                  f"공고명 2026년도 소재부품기술개발사업 신규지원 대상과제 공고 "
-                  f"공고일자 {today} 재공고 여부 N 접수기간 2026-10-13 ~ 2026-10-21"
-                  f"</body></html>")
+        fields, body = scout.parse_iris_detail((IRIS_FIXTURES / "old-detail.html").read_text(encoding="utf-8"))
+        self.assertEqual(fields["공고일자"], "2026-09-14")
+        self.assertIn("2026-10-12", fields["접수기간"])
+        self.assertTrue(body)
 
-        def fake_get(url, timeout=12):
-            return listing.encode() if "ListView" in url else detail.encode()
 
-        with patch.object(scout, "get", side_effect=fake_get):
-            rows = scout.fetch_direct_iris_announcements()
+IRIS_FIXTURES = Path(__file__).parent / "fixtures" / "iris"
+
+
+class IrisRegressionTests(unittest.TestCase):
+    def setUp(self):
+        self.detail = (IRIS_FIXTURES / "detail.html").read_text(encoding="utf-8")
+        self.listing = json.loads((IRIS_FIXTURES / "list.json").read_text(encoding="utf-8"))
+        self.record = next(r for r in self.listing["listBsnsAncmBtinSitu"] if r["ancmId"] == "024237")
+        self.now = datetime(2026, 10, 12, 10, tzinfo=scout.KST)
+
+    def page(self, records, page=1, total_pages=1):
+        return json.dumps({"listBsnsAncmBtinSitu": records, "paginationInfo": {
+            "currentPageNo": page, "totalPageCount": total_pages,
+            "totalRecordCount": len(records) if total_pages == 1 else 20,
+        }}, ensure_ascii=False).encode()
+
+    def run_collector(self, detail=None, records=None, responder=None, **kwargs):
+        requested = []
+        def request(url, data=None, timeout=12):
+            requested.append((url, data))
+            if responder:
+                return responder(url, data)
+            if data is not None:
+                return self.page((records if records is not None else [self.record]) if data["ancmPrg"] == "ancmIng" else [])
+            return (self.detail if detail is None else detail).encode()
+        with patch.object(scout, "_iris_request", side_effect=request), patch.object(scout, "datetime") as clock, redirect_stdout(io.StringIO()):
+            clock.now.return_value = self.now
+            clock.strptime = datetime.strptime
+            clock.fromisoformat = datetime.fromisoformat
+            clock.min = datetime.min
+            rows = scout.fetch_direct_iris_announcements(**kwargs)
+        return rows, scout.DIRECT_DIAGNOSTICS["iris-rnd-announcements"], requested
+
+    def test_real_json_and_detail_structure(self):
+        rows, diag, requests = self.run_collector(detail='<nav>메뉴전용문구</nav>' + self.detail + '<footer>푸터전용문구</footer>')
         self.assertEqual(len(rows), 1)
-        self.assertEqual(rows[0]["published"][:10], today)
-        self.assertEqual(rows[0]["dateSource"], "IRIS 공고일자")
-        self.assertTrue(rows[0]["url"].endswith("ancmId=024237"))
+        row = rows[0]
+        self.assertEqual(row["title"], self.record["ancmTl"])
+        self.assertEqual(row["published"][:10], "2026-09-22")
+        self.assertEqual(row["dateSource"], "IRIS 공고일자")
+        self.assertTrue(row["bodyText"])
+        self.assertNotIn("메뉴전용문구", row["bodyText"])
+        self.assertNotIn("푸터전용문구", row["bodyText"])
+        self.assertIn("소재", row["eligibility"])
+        self.assertNotIn("numbers", row)
+        url = urllib.parse.urlparse(row["url"])
+        self.assertEqual((url.scheme, url.netloc, url.path), ("https", "www.iris.go.kr", "/contents/retrieveBsnsAncmView.do"))
+        self.assertEqual(urllib.parse.parse_qs(url.query), {"ancmId": ["024237"], "ancmPrg": ["ancmIng"]})
+        self.assertEqual(diag["detailIdsSeen"], 1)
+        self.assertEqual(diag["detailPagesFetched"], 1)
+        self.assertEqual(diag["datedRecords"], 1)
+        self.assertTrue(diag["collectionComplete"])
+        self.assertTrue(requests[0][0].endswith(scout.IRIS_LIST_PATH))
+
+    def test_old_announcement_not_refreshed_by_deadline(self):
+        old = (IRIS_FIXTURES / "old-detail.html").read_text(encoding="utf-8")
+        record = next(r for r in self.listing["listBsnsAncmBtinSitu"] if r["ancmId"] == "024199")
+        rows, diag, _ = self.run_collector(detail=old, records=[record])
+        self.assertEqual(rows, [])
+        self.assertEqual(diag["exclusions"]["outside_lookback"], 1)
+        self.assertEqual(diag["status"], "no_recent_publications_in_checked_details")
+
+    def test_missing_invalid_future_dates_not_today(self):
+        for date in ("", "2026-02-30", "2026-12-01"):
+            with self.subTest(date=date):
+                rows, diag, _ = self.run_collector(detail=self.detail.replace("2026-09-22</span>", date + "</span>"), records=[{**self.record, "ancmDe": ""}])
+                self.assertEqual(rows, [])
+                self.assertEqual(diag["recentRecords"], 0)
+
+    def test_list_date_is_not_fallback_for_missing_detail_date(self):
+        rows, diag, _ = self.run_collector(detail=self.detail.replace("공고일자", "알 수 없는 날짜"))
+        self.assertEqual(rows, [])
+        self.assertEqual(diag["exclusions"]["announcement_date_missing_or_invalid"], 1)
+
+    def test_wrong_detail_response_is_not_success(self):
+        for detail in ("<html>로그인이 필요합니다</html>", self.detail.replace(self.record["ancmTl"], "다른 공고")):
+            rows, diag, _ = self.run_collector(detail=detail)
+            self.assertEqual(rows, [])
+            self.assertEqual(diag["detailPagesFetched"], 1)
+            self.assertFalse(diag["collectionComplete"])
+
+    def test_date_conflict_is_explicit(self):
+        rows, diag, _ = self.run_collector(records=[{**self.record, "ancmDe": "2026-10-01"}])
+        self.assertEqual(rows, [])
+        self.assertEqual(diag["exclusions"]["list_detail_date_mismatch"], 1)
+
+    def test_missing_body_is_not_inferred(self):
+        rows, diag, _ = self.run_collector(detail=self.detail.split('<div class="tb_contents">')[0])
+        self.assertEqual(rows, [])
+        self.assertEqual(diag["exclusions"]["body_missing"], 1)
+
+    def test_duplicate_ids_and_invalid_ids(self):
+        rows, diag, requests = self.run_collector(records=[self.record, self.record, {"ancmId": "{{:ancmId}}"}, {"ancmId": "024237&evil=1"}])
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(diag["duplicateIds"], 1)
+        self.assertEqual(diag["invalidIds"], 2)
+        self.assertEqual(sum(data is None for _, data in requests), 1)
+
+    def test_pagination_and_closed_tab(self):
+        def response(url, data):
+            if data is None:
+                return self.detail.encode()
+            if data["ancmPrg"] == "ancmEnd":
+                return self.page([self.record])
+            return self.page([self.record], data["pageIndex"], 2)
+        rows, diag, requests = self.run_collector(responder=response)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(diag["listPagesParsed"], 3)
+        self.assertEqual(diag["duplicateIds"], 2)
+        self.assertTrue(diag["collectionComplete"])
+        self.assertTrue(any(data and data["pageIndex"] == 2 for _, data in requests))
+
+    def test_page_and_detail_limits_report_partial_coverage(self):
+        def response(url, data):
+            if data is None:
+                return self.detail.encode()
+            return self.page([self.record, {**self.record, "ancmId": "024238"}], data["pageIndex"], 20)
+        rows, diag, _ = self.run_collector(responder=response, max_pages=1, max_details=1)
+        self.assertEqual(diag["detailsSkippedByLimit"], 1)
+        self.assertTrue(diag["coverageLimited"])
+        self.assertFalse(diag["collectionComplete"])
+
+    def test_malformed_list_does_not_claim_empty_success(self):
+        for payload in (b'<html>error</html>', b'{}', b'{"listBsnsAncmBtinSitu": {}}'):
+            rows, diag, _ = self.run_collector(responder=lambda u, d: payload)
+            self.assertEqual(rows, [])
+            self.assertEqual(diag["listPagesParsed"], 0)
+            self.assertEqual(diag["status"], "list_fetch_or_parse_failed")
+            self.assertTrue(diag["errors"])
+
+    def test_empty_valid_list_is_distinct(self):
+        rows, diag, _ = self.run_collector(records=[])
+        self.assertEqual(rows, [])
+        self.assertEqual(diag["status"], "empty_official_list")
+        self.assertEqual(diag["detailPagesAttempted"], 0)
+        self.assertTrue(diag["collectionComplete"])
+
+    def test_detail_timeout_retry_is_bounded(self):
+        def response(url, data):
+            if data is not None:
+                return self.page([self.record])
+            raise TimeoutError("test detail timeout")
+        rows, diag, requests = self.run_collector(responder=response)
+        self.assertEqual(rows, [])
+        self.assertEqual(sum(data is None for _, data in requests), 2)
+        self.assertEqual(diag["retries"], 1)
+        self.assertEqual(diag["status"], "detail_fetch_failed")
+
+    def test_list_failure_is_distinct(self):
+        def response(url, data):
+            raise urllib.error.HTTPError(url, 403, "Forbidden", {}, None)
+        rows, diag, requests = self.run_collector(responder=response)
+        self.assertFalse(diag["listFetched"])
+        self.assertEqual(diag["listPagesParsed"], 0)
+        self.assertEqual(diag["retries"], 0)
+        self.assertEqual(len(requests), 2)
+
+    def test_company_mentions_do_not_expand_direct_beat(self):
+        for text, expected in (("포스코퓨처엠", ["포스코퓨처엠"]), ("포스코인터내셔널", ["포스코인터내셔널"]),
+                               ("BMW 글로벌 기술", []), ("BMW코리아 기술", ["BMW코리아"]),
+                               ("GS칼텍스", ["GS칼텍스"]), ("SK온도", [])):
+            self.assertEqual(scout._iris_company_mentions(text), expected)
+        rows, diag, _ = self.run_collector()
+        leads, lead_diag = scoops.build_lead_signals(rows, [], self.now)
+        self.assertEqual(leads, [])
+        self.assertEqual(lead_diag["out_of_beat"], 1)
+        self.assertEqual(rows[0]["companies"], [])
+        for company in ("삼성전기", "포스코퓨처엠", "포스코인터내셔널"):
+            title = company + " 신규 기술개발 과제 공고"
+            rows, _, _ = self.run_collector(detail=self.detail.replace(self.record["ancmTl"], title), records=[{**self.record, "ancmTl": title}])
+            leads, lead_diag = scoops.build_lead_signals(rows, [], self.now)
+            self.assertEqual(leads, [])
+            self.assertEqual(lead_diag["out_of_beat"], 1)
 
 
 if __name__ == "__main__":
