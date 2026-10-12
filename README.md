@@ -73,3 +73,8 @@
 - hunt.html은 2025 연간 사업보고서와 2026 최신 정기보고서, 가능하면 2024 연간 보고서의 같은 투자 항목을 직접 비교한다.
 - scripts/investigation_hunt.py는 공식 투자 종료 예정월·금액의 변경을 찾고 기보도 검색/데스킹 질문을 제시한다. 실제 준공 지연이나 단독을 자동 확정하지 않는다.
 - 평일 08:45 KST digests/investigation_hunt_latest.json 갱신. 설계: docs/source-delta-hunt.md.
+
+## 특허청 KIPRIS 공식특허 발굴
+- [특허 취재 레이더](patents.html)는 KIPRISPlus 특허 공개공보에서 자동차·철강·전력기기·에너지 24개 법인 명의 신규 공개 특허를 조회하고, 출원인·공개번호·공개일·기술초록 및 관련 보도 검색을 검증한다.
+- `KIPRIS_SERVICE_KEY` GitHub Actions Secret과 해당 공보 API 이용 승인이 필요. 기존 관세청 API 인증키는 대신 사용하지 않음. 키가 없으면 미연결 상태를 표시하며 발명을 지어내지 않는다.
+- `scripts/patent_hunt.py`, `digests/patent_hunt_latest.json`, `.github/workflows/kipris-patent-hunt.yml`: 평일 09:15 KST 업데이트. 특허 공개=실제 사업화·단독 아님. 설계: `docs/kipris-patent-hunt.md`.
