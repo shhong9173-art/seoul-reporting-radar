@@ -1,0 +1,268 @@
+{
+  "generatedAt": "2026-10-13T02:52:02+09:00",
+  "annualDataAt": "2026-10-13T01:54:44+09:00",
+  "interimDataAt": "2026-10-13T02:24:55+09:00",
+  "status": "source_changes_detected_not_exclusive",
+  "method": "같은 회사·투자명·사업목적·기간시작·백만원 단위 원문 행의 2025 사업보고서/2026 최신 분기보고서 직접 비교",
+  "warning": "원문 변경 시점과 실제 사건 발생 시점은 다름. 종료 예정월 변경=준공 지연 아님. 기사 선행 보도, 반론, 회사답변 전 단독 판정 금지",
+  "investigationCount": 1,
+  "verifiedChangeCount": 3,
+  "scoopConfirmed": 0,
+  "diagnostics": [
+    {
+      "company": "HD현대일렉트릭",
+      "status": "changed_in_official_reports",
+      "checkedProjects": 3,
+      "changedRows": 3,
+      "rejections": []
+    },
+    {
+      "company": "엘에스일렉트릭",
+      "status": "no_supported_changes",
+      "checkedProjects": 0,
+      "changedRows": 0,
+      "rejections": []
+    },
+    {
+      "company": "효성중공업",
+      "status": "no_supported_changes",
+      "checkedProjects": 0,
+      "changedRows": 0,
+      "rejections": []
+    },
+    {
+      "company": "현대자동차",
+      "status": "no_supported_changes",
+      "checkedProjects": 0,
+      "changedRows": 0,
+      "rejections": []
+    },
+    {
+      "company": "기아",
+      "status": "no_supported_changes",
+      "checkedProjects": 0,
+      "changedRows": 0,
+      "rejections": []
+    },
+    {
+      "company": "현대제철",
+      "status": "no_supported_changes",
+      "checkedProjects": 0,
+      "changedRows": 0,
+      "rejections": []
+    },
+    {
+      "company": "세아제강",
+      "status": "no_supported_changes",
+      "checkedProjects": 0,
+      "changedRows": 0,
+      "rejections": []
+    }
+  ],
+  "investigations": [
+    {
+      "company": "HD현대일렉트릭",
+      "headline": "HD현대일렉트릭, 3개 설비투자 항목의 공시상 종료 예정월 변경",
+      "angleConditional": "HD현대일렉트릭의 3개 생산·설비 투자는 2025년 사업보고서 대비 2026년 최신 보고서에서 종료 예정월이 늦춰져 기재됐다. 실제 준공·가동 지연인지는 확인되지 않았다.",
+      "priorityScore": 92,
+      "reporterStatus": "P1 원자료 변화 취재 착수",
+      "projects": [
+        {
+          "company": "HD현대일렉트릭",
+          "project": "변압기 철심공장",
+          "comparisonType": "투자계획의 공시 기재 변경",
+          "fromPeriod": "2025년 연간 사업보고서",
+          "toPeriod": "2026년 반기",
+          "fromPublished": "20260316",
+          "toPublished": "20260814",
+          "oldPlannedEnd": "2026.01",
+          "newPlannedEnd": "2026.11",
+          "endMonthShift": 10,
+          "oldBudgetMillionWon": "35091",
+          "newBudgetMillionWon": "35056",
+          "budgetChangeMillionWon": "-35",
+          "unit": "백만원",
+          "annualReceipt": "20260316000940",
+          "currentReceipt": "20260814003228",
+          "originalUrls": [
+            "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260316000940",
+            "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003228"
+          ],
+          "sourceRows": [
+            [
+              "변압기 철심공장",
+              "'22.10~'26.01",
+              "건물 外",
+              "생산능력확충",
+              "35,091",
+              "34,821(2,186)",
+              "270"
+            ],
+            [
+              "변압기 철심공장",
+              "'22.10~'26.11",
+              "건물 外",
+              "생산능력확충",
+              "35,056",
+              "34,821(-)",
+              "235"
+            ]
+          ],
+          "history2024": {
+            "receiptNo": "20250320001309",
+            "plannedEnd": "2025.04",
+            "plannedBudgetMillionWon": "33719",
+            "firstToAnnualMonths": 9
+          },
+          "factVerified": "동일 투자명·기간 시작·사업 목적·원화 단위 표의 공시 기재값을 대조",
+          "notProven": "투자 종료 예정월은 착공·준공·가동일과 같지 않음. 실제 지연·이익 영향·새로운 단독·원인은 회사 취재 전 미확인",
+          "alreadyPublic": true,
+          "coverage": {
+            "status": "관련 기사 검색됨: 사건·숫자·보도시점 동일성 재검증",
+            "articles": [
+              {
+                "title": "[특징주] HD현대일렉트릭(267260), 데이터센터 전력 수요 폭발…북미서 질주 - Daum",
+                "url": "https://news.google.com/rss/articles/CBMiRkFVX3lxTFBndDNSMHY3cmVNb3BrcXlDSVJZMnc0azRsMGhqY1UtVzlwU3JUMzhDaHd1aVM2OGdzeGdtVHBQVVp4RHRsTkE?oc=5",
+                "published": "Sun, 06 Sep 2026 07:00:00 GMT"
+              },
+              {
+                "title": "삼성, 해남-구미에 AI 데이터센터… 현대차, 울산에 수소전지 공장 - 동아일보",
+                "url": "https://news.google.com/rss/articles/CBMidkFVX3lxTE5VU0ZQak4tejZPTXExWlg5VjRCN05tQ2staDdQZ1llZHRNcE5DZXRURUU5ZzB5WV9SUklMa1F3VktUVVQ4YVg4RWpSOURoaGIyb1hrSTdTOF9wX3l3bDNBS2JLUzZyTWdCaHBKRWJzWm5mWmNJV0HSAWZBVV95cUxNWHMxemVUNUZEeThoZXdkQXdRM2lMdDIyclFvRHRWZ2JHU1NyVEtsUjZVZWpmWjRZWnlOSE5EaDFiZ1RZNjJPRERzMHJnUm5WQi1jN0JKdXhmVUx6Y09aMUQ5aU5POVE?oc=5",
+                "published": "Thu, 05 Feb 2026 08:00:00 GMT"
+              }
+            ],
+            "query": "HD현대일렉트릭 \"변압기 철심공장\" when:365d",
+            "decision": "기사 내용/동일 사건을 직접 확인하기 전 미보도 또는 이미 보도로 확정 금지"
+          },
+          "exclusiveStatus": "공개 원자료 변화 확인 · 미보도/단독 확인 전"
+        },
+        {
+          "company": "HD현대일렉트릭",
+          "project": "중저압차단기 자동화설비",
+          "comparisonType": "투자계획의 공시 기재 변경",
+          "fromPeriod": "2025년 연간 사업보고서",
+          "toPeriod": "2026년 반기",
+          "fromPublished": "20260316",
+          "toPublished": "20260814",
+          "oldPlannedEnd": "2026.05",
+          "newPlannedEnd": "2026.10",
+          "endMonthShift": 5,
+          "oldBudgetMillionWon": "21453",
+          "newBudgetMillionWon": "19602",
+          "budgetChangeMillionWon": "-1851",
+          "unit": "백만원",
+          "annualReceipt": "20260316000940",
+          "currentReceipt": "20260814003228",
+          "originalUrls": [
+            "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260316000940",
+            "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003228"
+          ],
+          "sourceRows": [
+            [
+              "중저압차단기 자동화설비",
+              "'24.01~'26.05",
+              "기계장치 外",
+              "생산성 향상",
+              "21,453",
+              "15,347(12,640)",
+              "6,106"
+            ],
+            [
+              "중저압차단기 자동화설비",
+              "'24.01~'26.10",
+              "기계장치 外",
+              "생산성 향상",
+              "19,602",
+              "17,838(2,491)",
+              "1,764"
+            ]
+          ],
+          "history2024": {
+            "receiptNo": "20250320001309",
+            "plannedEnd": "2025.12",
+            "plannedBudgetMillionWon": "22080",
+            "firstToAnnualMonths": 5
+          },
+          "factVerified": "동일 투자명·기간 시작·사업 목적·원화 단위 표의 공시 기재값을 대조",
+          "notProven": "투자 종료 예정월은 착공·준공·가동일과 같지 않음. 실제 지연·이익 영향·새로운 단독·원인은 회사 취재 전 미확인",
+          "alreadyPublic": true,
+          "coverage": {
+            "status": "해당 검색어 결과 미발견: 미보도 여부 판단 불가",
+            "articles": [],
+            "query": "HD현대일렉트릭 \"중저압차단기 자동화설비\" when:365d",
+            "decision": "기사 내용/동일 사건을 직접 확인하기 전 미보도 또는 이미 보도로 확정 금지"
+          },
+          "exclusiveStatus": "공개 원자료 변화 확인 · 미보도/단독 확인 전"
+        },
+        {
+          "company": "HD현대일렉트릭",
+          "project": "청주 배전캠퍼스 신축(*)",
+          "comparisonType": "투자계획의 공시 기재 변경",
+          "fromPeriod": "2025년 연간 사업보고서",
+          "toPeriod": "2026년 반기",
+          "fromPublished": "20260316",
+          "toPublished": "20260814",
+          "oldPlannedEnd": "2026.06",
+          "newPlannedEnd": "2026.12",
+          "endMonthShift": 6,
+          "oldBudgetMillionWon": "118473",
+          "newBudgetMillionWon": "116563",
+          "budgetChangeMillionWon": "-1910",
+          "unit": "백만원",
+          "annualReceipt": "20260316000940",
+          "currentReceipt": "20260814003228",
+          "originalUrls": [
+            "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260316000940",
+            "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003228"
+          ],
+          "sourceRows": [
+            [
+              "청주 배전캠퍼스 신축(*)",
+              "'23.05~'26.06",
+              "토지, 건물 外",
+              "생산능력확충",
+              "118,473",
+              "113,551(61,494)",
+              "4,922"
+            ],
+            [
+              "청주 배전캠퍼스 신축(*)",
+              "'23.05~'26.12",
+              "토지, 건물 外",
+              "생산능력확충",
+              "116,563",
+              "115,937(2,387)",
+              "626"
+            ]
+          ],
+          "history2024": null,
+          "factVerified": "동일 투자명·기간 시작·사업 목적·원화 단위 표의 공시 기재값을 대조",
+          "notProven": "투자 종료 예정월은 착공·준공·가동일과 같지 않음. 실제 지연·이익 영향·새로운 단독·원인은 회사 취재 전 미확인",
+          "alreadyPublic": true,
+          "coverage": {
+            "status": "관련 기사 검색됨: 사건·숫자·보도시점 동일성 재검증",
+            "articles": [
+              {
+                "title": "HD현대일렉트릭 청주공장 ‘전력기기 핵심 거점’ 부상 - 중부매일",
+                "url": "https://news.google.com/rss/articles/CBMiakFVX3lxTE5FMFFOdHotVWl2YnZzckZnV2ZHR0VZaFRlcm45TGFjOHl0dzl2VGMyV04yREdwYzYweGlBSTR6UHVVM0o5QTgxdWNmeHhTTFVlMTEtalNXX1dnZ1NPNVExdmVtWHNxemZpdWfSAW5BVV95cUxPQm1EbldEa1doSGNid0ZmQnhfeGs1by1GaDdBX0tzM0ZnTkVOb0ozT2lDY09pZmJFV21TVHkwSUR6b080TmhkTzV2Y0lPaV8yVk5JQjNSbFhCcFZ3dW1BTW9SLXh0OXZYWWM5RkEwdw?oc=5",
+                "published": "Wed, 24 Jun 2026 07:00:00 GMT"
+              }
+            ],
+            "query": "HD현대일렉트릭 \"청주 배전캠퍼스 신축\" when:365d",
+            "decision": "기사 내용/동일 사건을 직접 확인하기 전 미보도 또는 이미 보도로 확정 금지"
+          },
+          "exclusiveStatus": "공개 원자료 변화 확인 · 미보도/단독 확인 전"
+        }
+      ],
+      "coverageStatus": "선행 기사 동일 사건 여부 직접 확인 필요",
+      "deskChecks": [
+        "원문: 전기·당기 두 자료에서 동일 사업장·품목·투자 범위/단위인가?",
+        "이미 나온 보도: 사업명·이전/변경 일정·금액이 전문지나 기존 IR에 공개됐는가?",
+        "회사 확인: 투자 종료 예정월 수정과 실제 준공/가동·생산 일정 변경은 같은가?",
+        "규모·영향: 달라진 기간이 수주 소화·생산량·출하/고객사에 영향을 주는가?",
+        "반론: 일정이 아니라 회계 집행기간·인허가·신설사업 분류만 수정됐을 가능성은?"
+      ],
+      "deskVerdict": "발제 미확정: 회사 답변·기보도 사실 확인 후 보고"
+    }
+  ]
+}
