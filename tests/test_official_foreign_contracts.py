@@ -46,6 +46,21 @@ class OfficialSourceTests(unittest.TestCase):
         self.assertEqual(overseas.match_company("Hyundai Motorsports"),[])
         self.assertEqual(overseas.match_company("Doosan Enerbility JV"),["두산에너빌리티"])
 
+    def test_explicit_zero_without_results_is_not_provider_failure(self):
+        empty=overseas.federal_register("Korea Zinc","2026-09-13",
+                                        fetch=lambda req:{"count":0})
+        self.assertEqual(empty["status"],"checked")
+        self.assertEqual(empty["returned"],0)
+        self.assertEqual(empty["items"],[])
+
+    def test_missing_results_without_zero_remains_source_error(self):
+        with self.assertRaises(ValueError):
+            overseas.federal_register("Korea Zinc","2026-09-13",
+                    fetch=lambda req:{"status":400,"message":"bad query"})
+        with self.assertRaises(ValueError):
+            overseas.federal_register("Korea Zinc","2026-09-13",
+                    fetch=lambda req:{"count":0,"errors":{"term":["invalid"]}})
+
     def test_ted_actual_notice_title_and_link(self):
         notice={"publication-number":"778811-2026",
                 "notice-title":{"eng":["Transformers from HD Hyundai Electric"]},
