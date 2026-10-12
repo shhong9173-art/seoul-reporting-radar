@@ -36,6 +36,7 @@ th{font-weight:600;color:#53697c}
 </div>
 <p id="status" class="small"></p>
 <section id="findings"></section><section id="tables"></section>
+<section id="business-evidence"><h2>사업보고서 본문·수주·생산 자료 비교</h2><p class="small" id="business-status">공식 사업내용 분석 자료 확인 중</p><div id="business-cards"></div></section>
 <p class="small">공식 출처: <a href="https://opendart.fss.or.kr/guide/detail.do?apiGrpCd=DS003&amp;apiId=2019020" target="_blank" rel="noopener noreferrer">금융감독원 OpenDART 단일회사 전체 재무제표</a>. 신호 판정은 취재 우선순위용 참고이며 과거에 이미 보도된 사실일 수 있다.</p>
 </main>
 <script>
@@ -121,4 +122,50 @@ fetch("digests/peer_financial_latest.json",{cache:"no-store"}).then(r=>{if(!r.ok
 }).catch(e=>{$("#status").textContent="데이터 발굴 파일을 읽지 못했어: "+e.message+". GitHub Actions Official Peer Data Research를 확인해."});
 })();
 </script>
-</body></html>
+
+<script>
+(async function(){
+"use strict";
+const status=document.querySelector("#business-status"),cards=document.querySelector("#business-cards");
+function el(tag,txt,cls){const n=document.createElement(tag);if(txt!==undefined&&txt!==null)n.textContent=String(txt);if(cls)n.className=cls;return n}
+function doclink(period){const a=el("a",period.year+"년 사업보고서 원문","reportlink");
+  const url=period.url||"";
+  if(/^https:\/\/dart\.fss\.or\.kr\/dsaf001\/main\.do\?rcpNo=\d{14}$/.test(url)){a.href=url;a.target="_blank";a.rel="noopener noreferrer"}
+  return a}
+function lines(block,place){
+ const c=el("div",null,"detail");
+ c.append(el("b",block.topicName+" · 명시 단위 "+(block.unit||"미확인")));
+ c.append(el("p",block.context||"자료 출처 문구 미확인","note"));
+ for(const r of (block.rows||[]).slice(0,5))c.append(el("p",r.join(" | "),"call"));
+ place.append(c);
+}
+try{
+ const res=await fetch("digests/business_content_latest.json",{cache:"no-store"});
+ if(!res.ok)throw Error("사업내용 원문 발췌 파일 미게시 (HTTP "+res.status+")");
+ const doc=await res.json();
+ if(!Array.isArray(doc.companies)||!doc.generatedAt)throw Error("원문 발췌 데이터 형식 오류");
+ const age=Date.now()-Date.parse(doc.generatedAt);
+ status.textContent=doc.scope+" · 수집 "+doc.generatedAt+" · 두 해 모두 동일 사업·단위인지 별도 확인 필요"+
+ (Number.isFinite(age)&&age>15*86400000?" · 자료가 오래됐어":"");
+ for(const company of doc.companies){
+  const wrap=el("article",null,"card");wrap.append(el("h3",company.company+" · 사업의 내용"));
+  wrap.append(el("span",company.status||"미확인","label"));
+  const sections=Object.entries(company.periods||{}).sort((a,b)=>a[0].localeCompare(b[0]));
+  for(const [year,period] of sections){
+   const sub=el("div",null,"detail");sub.append(el("b",year+"년: "+period.status));
+   if(period.receiptNo)sub.append(doclink(period));
+   sub.append(el("p","관련 표 후보 "+(period.tables?.length||0)+"개. 표 기준과 실질 변화는 기자 검증 필요","note"));
+   for(const block of (period.tables||[]).slice(0,5))lines(block,sub);
+   wrap.append(sub);
+  }
+  if((company.pairs||[]).length){
+   wrap.append(el("p","같은 종류·단위 표 "+company.pairs.length+
+   "쌍 탐지 — 사업범위·기간·열 정의 확인 전이므로 수치 변화율 자동 계산 안 함","detail"));
+  }
+  if(company.questions)for(const q of company.questions)wrap.append(el("p","확인 질문: "+q,"call"));
+  cards.append(wrap);
+ }
+ if(!doc.companies.length)cards.append(el("p","공식 자료 확인 결과 없음","small"));
+}catch(e){status.textContent="실제 사업의 내용 분석은 아직 확인되지 않았어: "+e.message}
+})();
+</script></body></html>
