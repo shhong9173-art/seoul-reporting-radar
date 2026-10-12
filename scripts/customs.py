@@ -99,8 +99,8 @@ def main():
         ym = it.get("year", "")
         if not ym or "총" in ym:
             continue
-        if not re.fullmatch(r"\d{6}", ym):
-            raise ValueError(f"월별 원자료 기간 형식 오류: {ym!r}")
+        if not re.fullmatch(r"(?:19|20)\d{2}(?:0[1-9]|1[0-2])", ym) or not a.start<=ym<=a.end:
+            raise ValueError(f"월별 원자료 기간/조회범위 오류: {ym!r}")
         if any(k not in it for k in ("expDlr","expWgt","impDlr","impWgt")):
             raise ValueError(f"관세청 API 응답 수치 열 누락: {sorted(it)}")
         v = by_month[ym]
