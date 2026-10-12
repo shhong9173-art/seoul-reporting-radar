@@ -276,6 +276,17 @@ def main():
     search = (naver_search if has_keys else google_news_search) if not args.no_news else None
     if not search:
         print("기존 기사 실검색 미실행: --no-news")
+    else:
+        base_search = search
+        cache = {}
+        def search(company, term):
+            key = (company, term)
+            if key in cache:
+                return cache[key]
+            if len(cache) >= 10:
+                return {"status": "자동 보도 검색 10개 쿼리 상한: 미확인", "results": []}
+            cache[key] = base_search(company, term)
+            return cache[key]
     review = build_review(digest, numeric, search=search)
     out = Path(args.output)
     out.parent.mkdir(parents=True, exist_ok=True)
