@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-10-13T01:54:44+09:00",
-  "sourceGeneratedAt": "2026-10-13T01:54:44+09:00",
+  "generatedAt": "2026-10-13T15:26:23+09:00",
+  "sourceGeneratedAt": "2026-10-13T15:26:23+09:00",
   "source": "DART 사업보고서 두 해 원문과 다음 해 보고서 전기 이월값 대조",
-  "sourceScope": "전력기기 3사·자동차 완성차 2사·철강 2사 · II. 사업의 내용",
+  "sourceScope": "직접 출입처 완성차·부품·타이어·철강·비철·전력기기·에너지 21개사 · II. 사업의 내용",
   "status": "validated_filing_values_not_exclusives",
-  "findingCount": 10,
+  "findingCount": 23,
   "findings": [
     {
       "company": "HD현대일렉트릭",
@@ -434,6 +434,556 @@
           "104.15%",
           "102.37%",
           "94.99%"
+        ]
+      ],
+      "status": "양쪽 공시 원문 동일 행·기간·단위·이월 수치 대조",
+      "journalismStatus": "기보도·기업 원인·사업범위 확인 전 · 단독 아님"
+    },
+    {
+      "company": "현대위아",
+      "topic": "productionCapacity",
+      "unit": "백만원",
+      "scope": "생산능력:생산능력+가동률",
+      "rowIdentity": [
+        "차량부품",
+        "창원공장서산공장평택공장등"
+      ],
+      "fromYear": 2024,
+      "toYear": 2025,
+      "from": "8907914",
+      "to": "9643661",
+      "change": "735747",
+      "changePercent": 8.259475787485151,
+      "carryForwardMatched": true,
+      "originalReceipts": [
+        "20250313000158",
+        "20260317000785"
+      ],
+      "sourceUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250313000158",
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260317000785"
+      ],
+      "sourceRows": [
+        [
+          "차량부품",
+          "창원공장 서산공장 평택공장 등",
+          "8,907,914",
+          "8,257,448",
+          "6,740,521"
+        ],
+        [
+          "차량부품",
+          "창원공장, 서산공장,평택공장 등",
+          "9,643,661",
+          "8,907,914",
+          "8,257,448"
+        ]
+      ],
+      "status": "양쪽 공시 원문 동일 행·기간·단위·이월 수치 대조",
+      "journalismStatus": "기보도·기업 원인·사업범위 확인 전 · 단독 아님"
+    },
+    {
+      "company": "HL만도",
+      "topic": "segmentSales",
+      "unit": "백만원",
+      "scope": "매출실적:수주상황",
+      "rowIdentity": [
+        "내부거래및연결조정",
+        "제품상품기타매출"
+      ],
+      "fromYear": 2024,
+      "toYear": 2025,
+      "from": "-1374192",
+      "to": "-1569678",
+      "change": "-195486",
+      "changePercent": null,
+      "carryForwardMatched": true,
+      "originalReceipts": [
+        "20250326001216",
+        "20260318000883"
+      ],
+      "sourceUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250326001216",
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260318000883"
+      ],
+      "sourceRows": [
+        [
+          "내부거래 및 연결조정",
+          "제품, 상품, 기타매출",
+          "-1,374,192",
+          "-1,346,294",
+          "-1,180,525"
+        ],
+        [
+          "내부거래 및 연결조정",
+          "제품, 상품, 기타매출",
+          "-1,569,678",
+          "-1,374,192",
+          "-1,346,294"
+        ]
+      ],
+      "status": "양쪽 공시 원문 동일 행·기간·단위·이월 수치 대조",
+      "journalismStatus": "기보도·기업 원인·사업범위 확인 전 · 단독 아님"
+    },
+    {
+      "company": "HL만도",
+      "topic": "segmentSales",
+      "unit": "백만원",
+      "scope": "매출실적:수주상황",
+      "rowIdentity": [
+        "미국",
+        "제품상품기타매출"
+      ],
+      "fromYear": 2024,
+      "toYear": 2025,
+      "from": "1518593",
+      "to": "1642287",
+      "change": "123694",
+      "changePercent": 8.14530292184937,
+      "carryForwardMatched": true,
+      "originalReceipts": [
+        "20250326001216",
+        "20260318000883"
+      ],
+      "sourceUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250326001216",
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260318000883"
+      ],
+      "sourceRows": [
+        [
+          "미국",
+          "제품, 상품, 기타매출",
+          "1,518,593",
+          "1,483,112",
+          "1,404,198"
+        ],
+        [
+          "미국",
+          "제품, 상품, 기타매출",
+          "1,642,287",
+          "1,518,593",
+          "1,483,112"
+        ]
+      ],
+      "status": "양쪽 공시 원문 동일 행·기간·단위·이월 수치 대조",
+      "journalismStatus": "기보도·기업 원인·사업범위 확인 전 · 단독 아님"
+    },
+    {
+      "company": "HL만도",
+      "topic": "segmentSales",
+      "unit": "백만원",
+      "scope": "매출실적:수주상황",
+      "rowIdentity": [
+        "인도",
+        "제품상품기타매출"
+      ],
+      "fromYear": 2024,
+      "toYear": 2025,
+      "from": "900328",
+      "to": "1008174",
+      "change": "107846",
+      "changePercent": 11.978523382589456,
+      "carryForwardMatched": true,
+      "originalReceipts": [
+        "20250326001216",
+        "20260318000883"
+      ],
+      "sourceUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250326001216",
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260318000883"
+      ],
+      "sourceRows": [
+        [
+          "인도",
+          "제품, 상품, 기타매출",
+          "900,328",
+          "819,467",
+          "781,255"
+        ],
+        [
+          "인도",
+          "제품, 상품, 기타매출",
+          "1,008,174",
+          "900,328",
+          "819,467"
+        ]
+      ],
+      "status": "양쪽 공시 원문 동일 행·기간·단위·이월 수치 대조",
+      "journalismStatus": "기보도·기업 원인·사업범위 확인 전 · 단독 아님"
+    },
+    {
+      "company": "HL만도",
+      "topic": "segmentSales",
+      "unit": "백만원",
+      "scope": "매출실적:수주상황",
+      "rowIdentity": [
+        "중국",
+        "제품상품기타매출"
+      ],
+      "fromYear": 2024,
+      "toYear": 2025,
+      "from": "2303132",
+      "to": "2267590",
+      "change": "-35542",
+      "changePercent": -1.543202908040008,
+      "carryForwardMatched": true,
+      "originalReceipts": [
+        "20250326001216",
+        "20260318000883"
+      ],
+      "sourceUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250326001216",
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260318000883"
+      ],
+      "sourceRows": [
+        [
+          "중국",
+          "제품, 상품, 기타매출",
+          "2,303,132",
+          "2,306,815",
+          "1,999,146"
+        ],
+        [
+          "중국",
+          "제품, 상품, 기타매출",
+          "2,267,590",
+          "2,303,132",
+          "2,306,815"
+        ]
+      ],
+      "status": "양쪽 공시 원문 동일 행·기간·단위·이월 수치 대조",
+      "journalismStatus": "기보도·기업 원인·사업범위 확인 전 · 단독 아님"
+    },
+    {
+      "company": "HL만도",
+      "topic": "segmentSales",
+      "unit": "백만원",
+      "scope": "매출실적:수주상황",
+      "rowIdentity": [
+        "한국",
+        "제품상품기타매출"
+      ],
+      "fromYear": 2024,
+      "toYear": 2025,
+      "from": "3835929",
+      "to": "4137783",
+      "change": "301854",
+      "changePercent": 7.869123750726356,
+      "carryForwardMatched": true,
+      "originalReceipts": [
+        "20250326001216",
+        "20260318000883"
+      ],
+      "sourceUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250326001216",
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260318000883"
+      ],
+      "sourceRows": [
+        [
+          "한국",
+          "제품, 상품, 기타매출",
+          "3,835,929",
+          "3,727,300",
+          "3,485,136"
+        ],
+        [
+          "한국",
+          "제품, 상품, 기타매출",
+          "4,137,783",
+          "3,835,929",
+          "3,727,300"
+        ]
+      ],
+      "status": "양쪽 공시 원문 동일 행·기간·단위·이월 수치 대조",
+      "journalismStatus": "기보도·기업 원인·사업범위 확인 전 · 단독 아님"
+    },
+    {
+      "company": "한국타이어앤테크놀로지",
+      "topic": "productionCapacity",
+      "unit": "백만원",
+      "scope": "생산능력:생산능력",
+      "rowIdentity": [
+        "생산설비"
+      ],
+      "fromYear": 2024,
+      "toYear": 2025,
+      "from": "80593",
+      "to": "122347",
+      "change": "41754",
+      "changePercent": 51.80846971821374,
+      "carryForwardMatched": true,
+      "originalReceipts": [
+        "20250318001355",
+        "20260318000959"
+      ],
+      "sourceUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250318001355",
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260318000959"
+      ],
+      "sourceRows": [
+        [
+          "생산설비",
+          "80,593",
+          "35,065",
+          "34,118"
+        ],
+        [
+          "생산설비",
+          "122,347",
+          "80,593",
+          "35,065"
+        ]
+      ],
+      "status": "양쪽 공시 원문 동일 행·기간·단위·이월 수치 대조",
+      "journalismStatus": "기보도·기업 원인·사업범위 확인 전 · 단독 아님"
+    },
+    {
+      "company": "한국타이어앤테크놀로지",
+      "topic": "segmentSales",
+      "unit": "백만원",
+      "scope": "매출실적:수주상황",
+      "rowIdentity": [
+        "제조업타이어부문",
+        "제품",
+        "타이어"
+      ],
+      "fromYear": 2024,
+      "toYear": 2025,
+      "from": "9134980",
+      "to": "10001420",
+      "change": "866440",
+      "changePercent": 9.484859299089871,
+      "carryForwardMatched": true,
+      "originalReceipts": [
+        "20250318001355",
+        "20260318000959"
+      ],
+      "sourceUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250318001355",
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260318000959"
+      ],
+      "sourceRows": [
+        [
+          "제조업[타이어부문]",
+          "제품",
+          "타이어",
+          "9,134,980",
+          "8,721,308",
+          "8,161,737"
+        ],
+        [
+          "제조업[타이어부문]",
+          "제품",
+          "타이어",
+          "10,001,420",
+          "9,134,980",
+          "8,721,308"
+        ]
+      ],
+      "status": "양쪽 공시 원문 동일 행·기간·단위·이월 수치 대조",
+      "journalismStatus": "기보도·기업 원인·사업범위 확인 전 · 단독 아님"
+    },
+    {
+      "company": "포스코",
+      "topic": "productionCapacity",
+      "unit": "톤",
+      "scope": "생산능력:생산능력",
+      "rowIdentity": [
+        "철강부원료",
+        "탈산제",
+        "알루미늄공장"
+      ],
+      "fromYear": 2024,
+      "toYear": 2025,
+      "from": "39058",
+      "to": "41005",
+      "change": "1947",
+      "changePercent": 4.984894259818731,
+      "carryForwardMatched": true,
+      "originalReceipts": [
+        "20250313001116",
+        "20260312001382"
+      ],
+      "sourceUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250313001116",
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260312001382"
+      ],
+      "sourceRows": [
+        [
+          "철강부원료",
+          "탈산제",
+          "알루미늄공장",
+          "39,058",
+          "39,294",
+          "39,058"
+        ],
+        [
+          "철강부원료",
+          "탈산제",
+          "알루미늄공장",
+          "41,005",
+          "39,058",
+          "39,294"
+        ]
+      ],
+      "status": "양쪽 공시 원문 동일 행·기간·단위·이월 수치 대조",
+      "journalismStatus": "기보도·기업 원인·사업범위 확인 전 · 단독 아님"
+    },
+    {
+      "company": "일진전기",
+      "topic": "segmentSales",
+      "unit": "백만원",
+      "scope": "매출현황:unspecified",
+      "rowIdentity": [
+        "국내"
+      ],
+      "fromYear": 2024,
+      "toYear": 2025,
+      "from": "1044515",
+      "to": "1256357",
+      "change": "211842",
+      "changePercent": 20.281374609268415,
+      "carryForwardMatched": true,
+      "originalReceipts": [
+        "20250312000485",
+        "20260311004216"
+      ],
+      "sourceUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250312000485",
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260311004216"
+      ],
+      "sourceRows": [
+        [
+          "국내",
+          "1,044,515",
+          "927,094",
+          "826,466"
+        ],
+        [
+          "국내",
+          "1,256,357",
+          "1,044,515",
+          "927,094"
+        ]
+      ],
+      "status": "양쪽 공시 원문 동일 행·기간·단위·이월 수치 대조",
+      "journalismStatus": "기보도·기업 원인·사업범위 확인 전 · 단독 아님"
+    },
+    {
+      "company": "일진전기",
+      "topic": "segmentSales",
+      "unit": "백만원",
+      "scope": "매출현황:unspecified",
+      "rowIdentity": [
+        "미주"
+      ],
+      "fromYear": 2024,
+      "toYear": 2025,
+      "from": "193697",
+      "to": "297955",
+      "change": "104258",
+      "changePercent": 53.825304470384154,
+      "carryForwardMatched": true,
+      "originalReceipts": [
+        "20250312000485",
+        "20260311004216"
+      ],
+      "sourceUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250312000485",
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260311004216"
+      ],
+      "sourceRows": [
+        [
+          "미주",
+          "193,697",
+          "89,378",
+          "98,852"
+        ],
+        [
+          "미주",
+          "297,955",
+          "193,697",
+          "89,378"
+        ]
+      ],
+      "status": "양쪽 공시 원문 동일 행·기간·단위·이월 수치 대조",
+      "journalismStatus": "기보도·기업 원인·사업범위 확인 전 · 단독 아님"
+    },
+    {
+      "company": "일진전기",
+      "topic": "segmentSales",
+      "unit": "백만원",
+      "scope": "매출현황:unspecified",
+      "rowIdentity": [
+        "아시아호주"
+      ],
+      "fromYear": 2024,
+      "toYear": 2025,
+      "from": "323460",
+      "to": "457405",
+      "change": "133945",
+      "changePercent": 41.4100661596488,
+      "carryForwardMatched": true,
+      "originalReceipts": [
+        "20250312000485",
+        "20260311004216"
+      ],
+      "sourceUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250312000485",
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260311004216"
+      ],
+      "sourceRows": [
+        [
+          "아시아, 호주",
+          "323,460",
+          "201,923",
+          "157,574"
+        ],
+        [
+          "아시아, 호주",
+          "457,405",
+          "323,460",
+          "201,923"
+        ]
+      ],
+      "status": "양쪽 공시 원문 동일 행·기간·단위·이월 수치 대조",
+      "journalismStatus": "기보도·기업 원인·사업범위 확인 전 · 단독 아님"
+    },
+    {
+      "company": "일진전기",
+      "topic": "segmentSales",
+      "unit": "백만원",
+      "scope": "매출현황:unspecified",
+      "rowIdentity": [
+        "유럽"
+      ],
+      "fromYear": 2024,
+      "toYear": 2025,
+      "from": "15575",
+      "to": "25151",
+      "change": "9576",
+      "changePercent": 61.48314606741573,
+      "carryForwardMatched": true,
+      "originalReceipts": [
+        "20250312000485",
+        "20260311004216"
+      ],
+      "sourceUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250312000485",
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260311004216"
+      ],
+      "sourceRows": [
+        [
+          "유럽",
+          "15,575",
+          "27,973",
+          "81,754"
+        ],
+        [
+          "유럽",
+          "25,151",
+          "15,575",
+          "27,973"
         ]
       ],
       "status": "양쪽 공시 원문 동일 행·기간·단위·이월 수치 대조",
