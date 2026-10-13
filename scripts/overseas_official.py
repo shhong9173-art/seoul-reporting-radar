@@ -24,6 +24,13 @@ ALIASES={
     "효성중공업":("Hyosung Heavy Industries",),
     "HD현대일렉트릭":("HD Hyundai Electric",),
     "고려아연":("Korea Zinc",),
+    "현대제철":("Hyundai Steel",),
+    "현대모비스":("Hyundai Mobis",),
+    "포스코":("POSCO Holdings","POSCO"),
+    "영풍":("Young Poong",),
+    "한화솔루션":("Hanwha Solutions",),
+    "엘에스일렉트릭":("LS Electric",),
+    "대한전선":("Taihan Cable",),
 }
 DAYS=30
 TED_FIELDS=["publication-number","notice-title","buyer-name",
@@ -173,6 +180,14 @@ def collect(now=None,fr=federal_register,ted=ted_procurement):
         (ted,"EU TED","Hyosung Heavy Industries"),
         (ted,"EU TED","HD Hyundai Electric"),
         (ted,"EU TED","Doosan Enerbility"),
+        (fr,"US Federal Register","Hyundai Mobis"),
+        (fr,"US Federal Register","Hyundai Steel"),
+        (fr,"US Federal Register","POSCO"),
+        (fr,"US Federal Register","Hanwha Solutions"),
+        (ted,"EU TED","Hyundai Steel"),
+        (ted,"EU TED","LS Electric"),
+        (ted,"EU TED","Taihan Cable"),
+        (ted,"EU TED","Korea Zinc"),
     ]
     for func,provider,term in tasks:
         try:
@@ -194,7 +209,7 @@ def collect(now=None,fr=federal_register,ted=ted_procurement):
     return {
         "generatedAt":now.isoformat(timespec="seconds"),
         "lookbackDays":DAYS,"windowStart":since,
-        "scope":"US Federal Register 연방 고시 및 EU TED 공개 조달 공고",
+        "scope":"US Federal Register 8개 검색 + EU TED 8개 검색. 회사명 검색 결과만 검토하며 주·카운티 인허가 및 EPA 시설별 환경허가는 별도 확인 필요",
         "limits":"미국 주·카운티 건축/환경 인허가, EU 각국 소액 조달, 모든 세계 공장 인허가를 망라하지 않음",
         "checks":sources,"documents":documents,
         "matchedCount":sum(bool(x.get("nameVerified")) for x in documents),
@@ -216,7 +231,7 @@ def main():
     temp=output.with_suffix(".json.tmp")
     temp.write_text(json.dumps(data,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
     temp.replace(output)
-    print(f"해외 공식 원천 8회 질의, 원문 기업언급 {data['matchedCount']}건, "
+    print(f"해외 공식 원천 {len(data['checks'])}회 질의, 원문 기업언급 {data['matchedCount']}건, "
           f"API 오류 {data['sourceErrors']}건, 단독 확정 0건")
 
 
