@@ -12,6 +12,12 @@ assert(page.includes('src="pitch-format.js"'));
 assert(home.includes('href="patent-pitches.html"'));
 assert(patents.includes('href="patent-pitches.html"'));
 assert(!page.includes("innerHTML"));
+for(const token of ["patent_reporting_triage_latest.json","triage-status",
+ "count-human","count-hit","record-patent-editorial-review.yml",
+ "source_review_company_call","측정 불가","humanFinalSample","editorialOutcome",
+ "result.deskSourceGeneratedAt===desk.generatedAt",
+ "result.crossSourceGeneratedAt===cross.generatedAt"])
+ assert(page.includes(token),"missing reporter feedback ranking marker "+token);
 for(const term of ["patent_cross_evidence_latest.json","cross-status",
   "record-patent-public-factcheck.yml","localStorage.getItem","localStorage.setItem",
   "공식 DART 교차검증","기자 취재 체크","실제 출고·단독 자동 확정 아님"])
