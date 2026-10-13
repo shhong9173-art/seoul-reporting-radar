@@ -46,7 +46,7 @@ def direct_make(make,manufacturer):
 def parse_tab_data(content,now=None,lookback=100):
     now=now or datetime.now(KST)
     if not 1<=lookback<=365:raise ValueError("1..365 days only")
-    if len(content)>23_000_000:raise ValueError("NHTSA uncompressed investigation file too large")
+    if len(content)>120_000_000:raise ValueError("NHTSA uncompressed investigation file too large")
     decoded=content.decode("utf-8-sig",errors="replace")
     start=(now-timedelta(days=lookback)).strftime("%Y%m%d")
     end=now.strftime("%Y%m%d")
@@ -96,8 +96,15 @@ def fetch_zip(url=SOURCE):
         names=[n for n in z.namelist() if n.lower().endswith((".txt",".lst"))]
         if len(names)!=1:raise ValueError("NHTSA ZIP expected one tab data text file")
         info=z.getinfo(names[0])
-        if info.file_size>23_000_000:raise ValueError("NHTSA decompressed file too large")
+        if info.file_size>120_000_000:raise ValueError("NHTSA decompressed file too large")
         return z.read(info)
+
+
+def write_health(data,output=Path("digests/nhtsa_source_status_latest.json")):
+    output.parent.mkdir(parents=True,exist_ok=True)
+    temp=output.with_suffix(".json.tmp")
+    temp.write_text(json.dumps(data,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
+    temp.replace(output)
 
 
 def main():
@@ -112,7 +119,21 @@ def main():
         try:previous=json.loads(out.read_text(encoding="utf-8"))
         except (OSError,ValueError):pass
     now=datetime.now(KST)
-    result=parse_tab_data(fetch_zip(),now=now,lookback=a.lookback)
+    try:
+        downloaded=fetch_zip()
+        result=parse_tab_data(downloaded,now=now,lookback=a.lookback)
+        if result["scannedRecords"]<200:
+            raise ValueError("NHTSA investigations original file was incomplete")
+        status={"generatedAt":now.isoformat(timespec="seconds"),"status":"checked",
+                "scannedRecords":result["scannedRecords"],"candidateCount":len(result["items"]),
+                "sourceUrl":SOURCE}
+    except (OSError,ValueError,TimeoutError,zipfile.BadZipFile) as err:
+        status={"generatedAt":now.isoformat(timespec="seconds"),"status":"source_error",
+                "errorType":type(err).__name__,"sourceUrl":SOURCE,
+                "warning":"NHTSA 공식원천 다운로드/파싱 불완전, 이전 정상자료 보존"}
+        write_health(status)
+        raise SystemExit("NHTSA official source failed: "+type(err).__name__) from None
+    write_health(status)
     result.update({"generatedAt":now.isoformat(timespec="seconds"),"sourceUrl":SOURCE,
                    "scope":"US ODI formal opened investigations among matched marques, not recalls or complaint allegation totals",
                    "lookbackDays":a.lookback,
@@ -120,8 +141,6 @@ def main():
     recent_changes(result,previous)
     # Empty for matched makes may be correct, but successful official scan is
     # required; neither failed download nor silent schema change means zero.
-    if result["scannedRecords"]<200:
-        raise ValueError("NHTSA investigations original file was incomplete")
     out.parent.mkdir(parents=True,exist_ok=True)
     temp=out.with_suffix(".json.tmp")
     temp.write_text(json.dumps(result,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")

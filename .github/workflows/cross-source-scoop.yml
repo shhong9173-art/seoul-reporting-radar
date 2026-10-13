@@ -45,16 +45,21 @@ jobs:
         with: {ref: main, fetch-depth: 0}
       - uses: actions/setup-python@v5
         with: {python-version: '3.12'}
-      - name: Verify US ODI source and investigation identity
-        run: |
-          python -m unittest discover -s tests -p 'test_nhtsa_investigations.py' -v
-          python scripts/nhtsa_investigations.py
-      - name: Publish validated ODI records
+      - name: Verify US ODI source schema and unit tests
+        run: python -m unittest discover -s tests -p 'test_nhtsa_investigations.py' -v
+      - name: Retrieve official US opened investigations
+        id: nhtsa
+        run: python scripts/nhtsa_investigations.py
+      - name: Publish successful ODI evidence or safe source diagnostics
+        if: ${{ always() }}
         run: |
           set -e
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add digests/nhtsa_investigations_latest.json
+          if [ -f digests/nhtsa_source_status_latest.json ]; then git add digests/nhtsa_source_status_latest.json; fi
+          if [ "${{ steps.nhtsa.outcome }}" = "success" ] && [ -f digests/nhtsa_investigations_latest.json ]; then
+            git add digests/nhtsa_investigations_latest.json
+          fi
           if git diff --cached --quiet; then exit 0; fi
           git commit -m "data: official US ODI investigation leads [skip ci]"
           for i in 1 2 3; do

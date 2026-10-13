@@ -58,13 +58,14 @@ async function load(path){
    if(!r.ok)return null;const j=await r.json();return j&&j.generatedAt?j:null;
  }catch(e){return null;}
 }
-const [investment,metrics,overseas,nhtsa,government,hs]=await Promise.all([
+const [investment,metrics,overseas,nhtsa,government,hs,nhtsaHealth]=await Promise.all([
  load("investigation_hunt_latest.json"),
  load("recent_metric_changes_latest.json"),
  load("overseas_official_latest.json"),
  load("nhtsa_investigations_latest.json"),
  load("research_procurement_latest.json"),
- load("customs_hs6_latest.json")]);
+ load("customs_hs6_latest.json"),
+ load("nhtsa_source_status_latest.json")]);
 if(investment||metrics){
  $("dart-status").textContent="투자계획 변경 "+(investment?.verifiedChangeCount??"미확인")+
   "건 · 비교가능 공시상 수치 변동 "+(metrics?.officialChanges??"미검증")+
@@ -98,7 +99,10 @@ if(nhtsa){
   card("nhtsa",o.coveredIssuerRelation+" · "+o.actionNumber+" · "+o.subject,
    "개시일 "+o.openedDate+" · 미국 차종 "+o.model+" · 부품 "+o.component+
    " · 결함 확정/국내 적용 미확인",[[o.sourceUrl,"NHTSA 데이터 설명"]]);
-}else $("nhtsa-status").textContent="NHTSA 조사 자료 미생성 또는 수집실패 · 실제 조사 0건으로 해석 금지";
+}else $("nhtsa-status").textContent=nhtsaHealth?.status==="source_error"?
+ "NHTSA 공식원천 수집 실패 "+nhtsaHealth.generatedAt+
+ " · "+nhtsaHealth.errorType+" · 데이터 0건으로 해석 금지":
+ "NHTSA 조사 자료 미생성 또는 수집실패 · 실제 조사 0건으로 해석 금지";
 if(government){
  $("research-status").textContent="공식 사업공고/입찰 단서 "+government.matchedItems+
  "건 · 연구공모 "+government.checks?.research?.status+
