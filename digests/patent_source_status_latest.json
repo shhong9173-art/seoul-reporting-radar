@@ -1,57 +1,57 @@
 {
-  "generatedAt": "2026-10-13T14:17:33+09:00",
-  "status": "complete",
+  "generatedAt": "2026-10-13T17:31:38+09:00",
+  "status": "incomplete",
   "totalCompanies": 24,
-  "checkedCompanies": 24,
+  "checkedCompanies": 22,
   "companyChecks": [
     {
       "company": "현대자동차",
       "status": "checked",
       "errorType": null,
-      "rawTotal": 282,
-      "rawRetrieved": 282
+      "rawTotal": 308,
+      "rawRetrieved": 308
     },
     {
       "company": "기아",
       "status": "checked",
       "errorType": null,
-      "rawTotal": 284,
-      "rawRetrieved": 284
+      "rawTotal": 310,
+      "rawRetrieved": 310
     },
     {
       "company": "현대모비스",
       "status": "checked",
       "errorType": null,
-      "rawTotal": 113,
-      "rawRetrieved": 113
+      "rawTotal": 127,
+      "rawRetrieved": 127
     },
     {
       "company": "현대위아",
       "status": "checked",
       "errorType": null,
-      "rawTotal": 3,
-      "rawRetrieved": 3
+      "rawTotal": 4,
+      "rawRetrieved": 4
     },
     {
       "company": "HL만도",
       "status": "checked",
       "errorType": null,
-      "rawTotal": 27,
-      "rawRetrieved": 27
+      "rawTotal": 29,
+      "rawRetrieved": 29
     },
     {
       "company": "한국타이어앤테크놀로지",
       "status": "checked",
       "errorType": null,
-      "rawTotal": 10,
-      "rawRetrieved": 10
+      "rawTotal": 14,
+      "rawRetrieved": 14
     },
     {
       "company": "넥센타이어",
       "status": "checked",
       "errorType": null,
-      "rawTotal": 0,
-      "rawRetrieved": 0
+      "rawTotal": 1,
+      "rawRetrieved": 1
     },
     {
       "company": "금호타이어",
@@ -64,22 +64,22 @@
       "company": "현대제철",
       "status": "checked",
       "errorType": null,
-      "rawTotal": 23,
-      "rawRetrieved": 23
+      "rawTotal": 26,
+      "rawRetrieved": 26
     },
     {
       "company": "포스코",
       "status": "checked",
       "errorType": null,
-      "rawTotal": 37,
-      "rawRetrieved": 37
+      "rawTotal": 40,
+      "rawRetrieved": 40
     },
     {
       "company": "포스코홀딩스",
       "status": "checked",
       "errorType": null,
-      "rawTotal": 3,
-      "rawRetrieved": 3
+      "rawTotal": 4,
+      "rawRetrieved": 4
     },
     {
       "company": "동국제강",
@@ -106,15 +106,15 @@
       "company": "영풍",
       "status": "checked",
       "errorType": null,
-      "rawTotal": 0,
-      "rawRetrieved": 0
+      "rawTotal": 1,
+      "rawRetrieved": 1
     },
     {
       "company": "HD현대일렉트릭",
       "status": "checked",
       "errorType": null,
-      "rawTotal": 7,
-      "rawRetrieved": 7
+      "rawTotal": 8,
+      "rawRetrieved": 8
     },
     {
       "company": "LS일렉트릭",
@@ -141,8 +141,8 @@
       "company": "대한전선",
       "status": "checked",
       "errorType": null,
-      "rawTotal": 1,
-      "rawRetrieved": 1
+      "rawTotal": 2,
+      "rawRetrieved": 2
     },
     {
       "company": "LS전선",
@@ -160,19 +160,34 @@
     },
     {
       "company": "한화솔루션",
-      "status": "checked",
-      "errorType": null,
-      "rawTotal": 6,
-      "rawRetrieved": 6
+      "status": "source_error",
+      "errorType": "RuntimeError",
+      "rawTotal": null,
+      "rawRetrieved": null
     },
     {
       "company": "OCI",
-      "status": "checked",
-      "errorType": null,
-      "rawTotal": 0,
-      "rawRetrieved": 0
+      "status": "source_error",
+      "errorType": "RuntimeError",
+      "rawTotal": null,
+      "rawRetrieved": null
     }
   ],
-  "incompleteCompanies": [],
+  "incompleteCompanies": [
+    {
+      "company": "한화솔루션",
+      "status": "source_error",
+      "errorType": "RuntimeError",
+      "rawTotal": null,
+      "rawRetrieved": null
+    },
+    {
+      "company": "OCI",
+      "status": "source_error",
+      "errorType": "RuntimeError",
+      "rawTotal": null,
+      "rawRetrieved": null
+    }
+  ],
   "warning": "회사 검색 실패는 공개특허 0건을 뜻하지 않음. KIPRIS 인증키·API URL·전체 오류 본문 비공개"
 }
