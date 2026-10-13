@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-10-13T11:40:56+09:00",
-  "workflowRunId": "38337908667",
+  "generatedAt": "2026-10-13T14:18:57+09:00",
+  "workflowRunId": "38350618415",
   "workflowAttempt": "1",
-  "workflowEvent": "schedule",
+  "workflowEvent": "push",
   "steps": {
     "checks": "success",
     "source": "success",
@@ -10,13 +10,14 @@
     "story": "success",
     "quality": "success",
     "claims": "success",
-    "desk": "success"
+    "desk": "success",
+    "cross": "success"
   },
   "datasets": {
     "source": {
       "path": "digests/patent_hunt_latest.json",
       "exists": true,
-      "generatedAt": "2026-10-13T11:39:41+09:00",
+      "generatedAt": "2026-10-13T14:17:33+09:00",
       "consistent": true,
       "complete": true,
       "validCompanies": 24,
@@ -26,43 +27,51 @@
     "deep": {
       "path": "digests/patent_deep_latest.json",
       "exists": true,
-      "generatedAt": "2026-10-13T11:40:24+09:00",
+      "generatedAt": "2026-10-13T14:18:23+09:00",
       "consistent": true
     },
     "story": {
       "path": "digests/patent_story_latest.json",
       "exists": true,
-      "generatedAt": "2026-10-13T11:40:34+09:00",
+      "generatedAt": "2026-10-13T14:18:33+09:00",
       "consistent": true,
       "leads": 133,
-      "coverageQueries": 168
+      "coverageQueries": 192
     },
     "quality": {
       "path": "digests/patent_quality_latest.json",
       "exists": true,
-      "generatedAt": "2026-10-13T11:40:40+09:00",
+      "generatedAt": "2026-10-13T14:18:39+09:00",
       "consistent": true,
       "humanReviewedCurrentCandidates": 0
     },
     "claims": {
       "path": "digests/patent_claim_review_latest.json",
       "exists": true,
-      "generatedAt": "2026-10-13T11:40:40+09:00",
+      "generatedAt": "2026-10-13T14:18:39+09:00",
       "consistent": true
     },
     "desk": {
       "path": "digests/patent_desk_latest.json",
       "exists": true,
-      "generatedAt": "2026-10-13T11:40:56+09:00",
+      "generatedAt": "2026-10-13T14:18:56+09:00",
       "consistent": true,
       "shortlistCount": 5,
       "publicationReady": 0
+    },
+    "cross": {
+      "path": "digests/patent_cross_evidence_latest.json",
+      "exists": true,
+      "generatedAt": "2026-10-13T14:18:57+09:00",
+      "consistent": true,
+      "technicalMatches": 0
     }
   },
   "status": "ready",
   "claimComparisonStatus": "ok",
   "editorialQualityStatus": "ok",
   "editorialDeskStatus": "ok",
+  "crossEvidenceStatus": "ok",
   "warning": "검증 완료된 같은 실행의 공식 수집·심층·기사 가설 파일",
   "scoopConfirmed": false
 }
