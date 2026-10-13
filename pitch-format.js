@@ -59,7 +59,7 @@ function kstTime(date){
 function title(item){
   const people=issuers(item),orgs=people.slice(0,3).join("·");
   const suffix=people.length>3?" 등":"";
-  return (orgs||"출원인 확인 필요")+suffix+", "+focus(item)+" 공동출원";
+  return (orgs||"출원인 확인 필요")+suffix+", "+focus(item)+(people.length>=2?" 공동출원":" 특허 공개");
 }
 function points(item){
   const parties=issuers(item),number=clean(item.publicationNumber);
