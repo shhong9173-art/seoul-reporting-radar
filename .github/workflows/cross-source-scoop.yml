@@ -6,6 +6,10 @@ on:
       - 'scripts/nhtsa_investigations.py'
       - 'scripts/research_procurement.py'
       - 'scripts/customs_hs6.py'
+      - 'scripts/recent_metric_hunt.py'
+      - 'scoop-sources.html'
+      - 'tests/test_scoop_sources_view.cjs'
+      - 'tests/test_recent_metric_hunt.py'
       - 'tests/test_nhtsa_investigations.py'
       - 'tests/test_multisource_expansion.py'
       - '.github/workflows/cross-source-scoop.yml'
@@ -19,6 +23,20 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Validate source hub and strict quarter/half-year DART metrics
+        run: |
+          python -m unittest discover -s tests -p 'test_recent_metric_hunt.py' -v
+          node tests/test_scoop_sources_view.cjs
+
   research:
     runs-on: ubuntu-latest
     timeout-minutes: 13
