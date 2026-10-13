@@ -128,8 +128,10 @@ def main():
                 "scannedRecords":result["scannedRecords"],"candidateCount":len(result["items"]),
                 "sourceUrl":SOURCE}
     except (OSError,ValueError,TimeoutError,zipfile.BadZipFile) as err:
+        reason=(str(err)[:160] if isinstance(err,ValueError) else "network_or_zip_error")
         status={"generatedAt":now.isoformat(timespec="seconds"),"status":"source_error",
                 "errorType":type(err).__name__,"sourceUrl":SOURCE,
+                "errorReason":reason,
                 "warning":"NHTSA 공식원천 다운로드/파싱 불완전, 이전 정상자료 보존"}
         write_health(status)
         raise SystemExit("NHTSA official source failed: "+type(err).__name__) from None
