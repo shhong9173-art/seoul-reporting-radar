@@ -1,0 +1,73 @@
+name: Record Patent Editorial Review
+on:
+  workflow_dispatch:
+    inputs:
+      publication_number:
+        description: 'KIPRIS patent publication number (13 digits, e.g. 1020260147319)'
+        required: true
+        type: string
+      decision:
+        description: 'Human editorial finding; not a machine-verified exclusive'
+        required: true
+        type: choice
+        options:
+          - needs_reporting
+          - worth_reporting
+          - already_reported
+          - wrong_beat
+          - unsupported_angle
+          - low_value
+          - published
+      evidence_url:
+        description: 'Public HTTPS evidence URL (mandatory if already_reported/published)'
+        required: false
+        type: string
+      public_note:
+        description: 'Optional public note, max 300 chars. Do not enter confidential reporting.'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: patent-editorial-record
+  cancel-in-progress: false
+
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate editorial review and metrics
+        env:
+          REVIEW_PUBLICATION_NUMBER: ${{ inputs.publication_number }}
+          REVIEW_DECISION: ${{ inputs.decision }}
+          REVIEW_EVIDENCE_URL: ${{ inputs.evidence_url }}
+          REVIEW_PUBLIC_NOTE: ${{ inputs.public_note }}
+        run: |
+          python -m unittest discover -s tests -p 'test_patent_quality_metrics.py' -v
+          python scripts/patent_record_review.py
+          python scripts/patent_quality_metrics.py
+      - name: Commit audited review and quality output
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/patent_editorial_reviews.json digests/patent_quality_latest.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "data: record human-verified KIPRIS editorial outcome [skip ci]"
+          for attempt in 1 2 3; do
+            git pull --rebase origin main
+            if git push origin HEAD:main; then exit 0; fi
+            sleep 3
+          done
+          echo "Could not safely save editorial review" >&2
+          exit 1
