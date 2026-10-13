@@ -1,0 +1,33 @@
+name: Patent Media Editorial CI
+on:
+  pull_request:
+    paths:
+      - 'scripts/patent_story_hunt.py'
+      - 'scripts/patent_editorial_desk.py'
+      - 'scripts/patent_reporting_triage.py'
+      - 'tests/test_patent_story_hunt.py'
+      - 'tests/test_patent_editorial_desk.py'
+      - 'tests/test_patent_reporting_triage.py'
+      - 'patents.html'
+      - '.github/workflows/kipris-patent-hunt.yml'
+      - '.github/workflows/patent-media-desk-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  offline-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compile and test editorial coverage safeguards without API keys
+        run: |
+          python -m compileall -q scripts/patent_story_hunt.py scripts/patent_editorial_desk.py scripts/patent_reporting_triage.py
+          python -m unittest discover -s tests -p 'test_patent_story_hunt.py' -v
+          python -m unittest discover -s tests -p 'test_patent_editorial_desk.py' -v
+          python -m unittest discover -s tests -p 'test_patent_reporting_triage.py' -v
