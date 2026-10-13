@@ -145,12 +145,44 @@ def build(desk, cross, triage, now=None, limit=15):
         eligible = bool(media_complete and t.get("stage") not in BLOCKED_STAGES)
         dart_rows = dossier_sources(x, now)
         live_documents = [r for r in dart_rows if r["filedWithin3Days"]]
+        prior_patents = []
+        for old in (lead.get("priorWithin35Days") or [])[:4]:
+            if not isinstance(old, dict) or not PUB.fullmatch(str(old.get("publicationNumber") or "")):
+                continue
+            if str(old.get("publicationDate") or "") >= str(lead.get("publicationDate") or ""):
+                continue
+            prior_patents.append({
+                "publicationNumber":old["publicationNumber"],
+                "publicationDate":old.get("publicationDate"),
+                "title":str(old.get("title") or "")[:160],
+                "similarity":old.get("titleSimilarity"),
+                "samePatentOrClaimProven":False,
+            })
+        older_title = (lead.get("olderSameTitle") or {})
+        older_title_matches = [x for x in (older_title.get("matches") or [])[:3]
+                               if isinstance(x, dict) and
+                               PUB.fullmatch(str(x.get("publicationNumber") or ""))]
+        press_articles = []
+        for article in (lead.get("mediaReview", {}).get("articleEvidence") or [])[:5]:
+            if not isinstance(article, dict):continue
+            url = str(article.get("url") or "")
+            if not url.startswith("https://news.google.com/"):continue
+            press_articles.append({
+                "headline":str(article.get("headline") or "")[:180],
+                "url":url,
+                "headlineRelation":article.get("headlineRelation"),
+                "samePatentConfirmed":False,
+            })
         safety = []
         if not recent: safety.append("old_patent_publication_not_new_event")
         if not media_complete: safety.append("media_lookup_incomplete")
         if t.get("stage") == "hold_for_review": safety.append("existing_coverage_or_editorial_hold")
         if not live_documents and dart_rows: safety.append("dart_evidence_is_historical_context")
         if not dart_rows: safety.append("no_dart_related_source_coverage")
+        if prior_patents or older_title_matches:
+            safety.append("earlier_patent_titles_need_claim_and_family_comparison")
+        if press_articles:
+            safety.append("indexed_news_needs_full_article_review")
         ntis = ntis_queries(lead)
         questions = [
             "동일 공개번호·청구항과 이전 특허의 우선권·패밀리/기술 차이를 확인했는가?",
@@ -169,10 +201,16 @@ def build(desk, cross, triage, now=None, limit=15):
             "recentPatentWithin3Days":recent,
             "claim1OfficiallyRetrieved":bool(lead.get("claim1Review", {}).get("verified")),
             "claim1Excerpt":(lead.get("claim1Review", {}).get("claim1Excerpt") or "")[:180],
-            "olderSameTitleSearchState":(lead.get("olderSameTitle") or {}).get("state", "not_checked"),
+            "olderSameTitleSearchState":older_title.get("state", "not_checked"),
+            "olderSameTitleSearchComplete":bool(older_title.get("queryComplete")),
+            "earlierPublicationsWithin35Days":prior_patents,
+            "olderSameTitlePublications":older_title_matches,
+            "officialClaim1Comparisons":(lead.get("claim1Review") or {}).get("comparisons", [])[:2],
             "patentNoveltyOrTechnicalSuperiorityProven":False,
             "pressLookupCompleted":media_complete,
             "pressRisk":(lead.get("mediaReview") or {}).get("state"),
+            "pressIndexArticlesForManualReview":press_articles,
+            "pressEarlierCoverageProven":False,
             "candidateStage":t.get("stage"),
             "eligibleForResearchQueue":eligible,
             "dartDocuments":dart_rows,
