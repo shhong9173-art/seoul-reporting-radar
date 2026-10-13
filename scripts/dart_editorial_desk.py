@@ -36,6 +36,11 @@ def evaluate(source,metric,now=None,top=8):
    old=float(delta["priorValue"]);new=float(delta["currentValue"])
   except (ValueError,TypeError,KeyError):continue
   if old==0 or abs(pct)<5 or not (-1e7<pct<1e7):continue
+  try:
+   official_date=datetime.strptime(str(urls[1]).split("rcpNo=")[-1][:8],"%Y%m%d").date()
+   age_days=(now.date()-official_date).days
+  except (ValueError,TypeError):continue
+  is_recent=0<=age_days<=3
   mode="reported_money" if unit in MONETARY else "reported_quantity_unit"
   direction="증가" if new>old else "감소"
   target="·".join(labels[:3])[:96]
@@ -55,6 +60,8 @@ def evaluate(source,metric,now=None,top=8):
     "rowIdentity":labels,"period":period,"priorValue":str(delta["priorValue"]),
     "currentValue":str(delta["currentValue"]),"percentChange":pct,
     "unit":unit,"unitInterpretation":mode,"sourceUrls":urls,
+    "officialFilingDate":official_date.isoformat(),
+    "filingAgeDays":age_days,"freshDisclosureWithin3Days":is_recent,
     "evidenceScoreForReview":round(val,1),"pitchTitle":title,
     "pitchBullets":[f1,f2,f3],
     "sourcePeriod":years,"status":"not_ready_public_documents_only",
@@ -67,20 +74,25 @@ def evaluate(source,metric,now=None,top=8):
        "수요·출하·수주·공정 변화가 실제로 발생했는지 기업이 직접 확인했는가?"]})
  rows.sort(key=lambda r:(-r["evidenceScoreForReview"],-abs(r["percentChange"]),r["company"]))
  # Diverse company / topic; never repeat three similar table rows as separate exclusive stories.
- seen=set();short=[]
+ seen=set();short=[];archive=[]
  for r in rows:
   key=(r["company"],r["topic"])
   if key in seen:continue
-  seen.add(key);short.append(r)
-  if len(short)>=top:break
+  seen.add(key)
+  if r["freshDisclosureWithin3Days"]:
+   if len(short)<top:short.append(r)
+  elif len(archive)<top:
+   archive.append(r)
  return {"generatedAt":now.isoformat(timespec="seconds"),
   "sourceGeneratedAt":source["generatedAt"],
   "numericSourceGeneratedAt":metric["generatedAt"],
   "comparedCompanies":metric.get("checkedCompanies"),
   "numericChangesVerified":len(rows),"reportingHypotheses":len(short),
-  "shortlist":short,"allRows":rows,
+  "freshlyDisclosedChanges":sum(r["freshDisclosureWithin3Days"] for r in rows),
+  "researchArchiveCount":sum(not r["freshDisclosureWithin3Days"] for r in rows),
+  "shortlist":short,"researchArchive":archive,"allRows":rows,
   "confirmedScoops":0,"publicationApproved":0,
-  "warning":"기존 공시를 재분석한 취재 가설. 당사자 답변·원문 범위·단가와 수량 분해·기보도 확인 전 발제 보고 금지."}
+  "warning":"현재 3일 이내 접수된 공시 수치 변화만 신규 취재 후보. 이전 공시로부터 추출한 변화는 과거 자료 후속 검토로만 표시. 당사자 답변·단가/물량·기보도 검증 전 발제 미확정."}
 
 def main():
  p=argparse.ArgumentParser()
