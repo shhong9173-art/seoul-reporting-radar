@@ -4,6 +4,8 @@ on:
     branches: [main]
     paths:
       - 'scripts/nhtsa_investigations.py'
+      - 'scripts/epa_echo_facilities.py'
+      - 'tests/test_epa_echo_facilities.py'
       - 'scripts/research_procurement.py'
       - 'scripts/customs_hs6.py'
       - 'scripts/recent_metric_hunt.py'
@@ -62,6 +64,37 @@ jobs:
           fi
           if git diff --cached --quiet; then exit 0; fi
           git commit -m "data: official US ODI investigation leads [skip ci]"
+          for i in 1 2 3; do
+            git pull --rebase origin main
+            if git push origin HEAD:main; then exit 0; fi
+            sleep 4
+          done
+          exit 1
+
+  epa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: main, fetch-depth: 0}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Validate US EPA facility matches and prohibit fake new permits
+        run: python -m unittest discover -s tests -p 'test_epa_echo_facilities.py' -v
+      - name: Search public EPA ECHO regulated facilities
+        run: python scripts/epa_echo_facilities.py
+      - name: Publish only actual official EPA facility registry records
+        run: |
+          set -e
+          if [ ! -f digests/epa_facilities_latest.json ]; then
+            echo "EPA checked facility list unavailable; previous evidence retained"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add digests/epa_facilities_latest.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "data: official EPA ECHO facility registry evidence [skip ci]"
           for i in 1 2 3; do
             git pull --rebase origin main
             if git push origin HEAD:main; then exit 0; fi
