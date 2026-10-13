@@ -94,6 +94,15 @@ class DeskTests(unittest.TestCase):
         self.assertEqual(row["mediaReview"]["state"],"indexed_articles_need_review")
         self.assertEqual(report["shortlistCount"],1)
 
+    def test_alternative_cj_enzyme_headline_matches_official_abstract_concepts_only(self):
+        relation,score=d.headline_match(
+            {"publicationNumber":CJ,
+             "title":"자동차용 플라스틱 부품을 재생하는 방법, 폴리에스테르 수지를 제조하는 방법",
+             "sourceAbstractExcerpt":"PET 플라스틱을 폴리에스테르 분해 효소로 분해해 테레프탈산을 얻는다"},
+            "현대차·CJ, 플라스틱 먹는 효소 기술 특허")
+        self.assertEqual(relation,"abstract_tech_headline_overlap_review")
+        self.assertGreaterEqual(score,0.6)
+
     def test_generic_title_does_not_trigger_strong_identity(self):
         status,score=d.headline_match({"title":"차량 제어 장치 및 방법",
                                         "publicationNumber":PUB},
