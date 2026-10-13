@@ -1,0 +1,119 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>공식 단독 단서 통합 | 산업부 취재 레이더</title>
+<style>
+:root{font:15px/1.55 system-ui,-apple-system,"Malgun Gothic",sans-serif;color:#1e3246;background:#f5f7fa}
+*{box-sizing:border-box}body{margin:0}main{max-width:1160px;margin:auto;padding:24px 18px 80px}
+h1{font-size:28px;margin:12px 0 6px}h2{font-size:20px;margin:0 0 10px}p{margin:7px 0}
+a{color:#095e94}.muted{color:#657787;font-size:13px}.warn{padding:14px 17px;border-left:4px solid #a87922;background:#fff9ef;margin:20px 0;color:#5d4a28}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:15px}
+.panel,.item{background:#fff;border:1px solid #d6e0e9;border-radius:12px;padding:16px}
+.panel{min-height:200px}.panel-head{display:flex;align-items:center;gap:8px;justify-content:space-between}
+.tag{font-size:12px;background:#eff3f8;color:#315877;border-radius:5px;padding:3px 8px}
+.item{margin:9px 0 0;padding:10px 12px;background:#fafcfe;border-color:#e6ecf2}
+.item strong{font-size:14px}.item a{display:inline-block;font-size:12px;margin-right:8px}
+summary{cursor:pointer;font-weight:650;color:#315f7a}
+footer{font-size:12px;color:#718292;padding-top:30px}
+@media(max-width:600px){h1{font-size:23px}.grid{grid-template-columns:1fr}.panel{padding:13px}}
+</style></head><body><main>
+<a href="index.html">← 산업부 종합 취재 레이더</a>
+<h1>공식 원문 단독 단서 · 통합 확인</h1>
+<p class="muted">2026년 10월 13일 개발 기준 · 공식 수집처별 검증 단계와 가장 최근 자료 시각을 분리 표시</p>
+<div class="warn"><strong>이 화면은 단독 보증이 아닙니다.</strong> 공시상 값 변경은 실제 설비/생산 변경이 아니고, 조사 개시는 결함 확정이 아니며, 공개 입찰은 낙찰이 아닙니다. 원문·이전 자료·타사 선행 보도·기업 답변을 확인하고 발제하세요.</div>
+<div class="grid">
+<section class="panel" id="dart"><div class="panel-head"><h2>1. DART 공시 원문 변화</h2><a href="hunt.html">/hunt 상세 ↗</a></div><p class="muted" id="dart-status">확인 중</p><div id="dart-items"></div></section>
+<section class="panel" id="foreign"><div class="panel-head"><h2>2. 해외 공식 고시·공공조달</h2><a href="official-watch.html">해외 문서 상세 ↗</a></div><p class="muted" id="foreign-status">확인 중</p><div id="foreign-items"></div></section>
+<section class="panel" id="nhtsa"><div class="panel-head"><h2>3. 미국 NHTSA 결함 조사</h2><a href="https://www.nhtsa.gov/nhtsa-datasets-and-apis" target="_blank" rel="noopener noreferrer">ODI 공식 원천 ↗</a></div><p class="muted" id="nhtsa-status">확인 중</p><div id="nhtsa-items"></div></section>
+<section class="panel" id="research"><div class="panel-head"><h2>4. 연구공모·나라장터 입찰</h2><a href="https://www.data.go.kr/" target="_blank" rel="noopener noreferrer">공공데이터포털 ↗</a></div><p class="muted" id="research-status">확인 중</p><div id="research-items"></div></section>
+<section class="panel" id="customs"><div class="panel-head"><h2>5. 관세청 HS6 세부품목</h2><a href="data-lab.html">통계 검산 상세 ↗</a></div><p class="muted" id="customs-status">확인 중</p><div id="customs-items"></div></section>
+<section class="panel"><h2>6. 아직 연결되지 않은 공식자료</h2>
+<p class="muted">아래 자료는 공식 검색 경로만 확인했습니다. 자동 수집·특정 기업 적용·인허가 발급·연구과제 선정은 **미검증**입니다.</p>
+<p><a href="https://echo.epa.gov/tools/web-services" target="_blank" rel="noopener noreferrer">미국 EPA ECHO 기업별 환경시설·허가 자료 ↗</a></p>
+<p><a href="https://www.ntis.go.kr/" target="_blank" rel="noopener noreferrer">NTIS 국가 R&D 선정·집행 과제 원문 ↗</a></p>
+<p><a href="https://www.data.go.kr/data/15129427/openapi.do" target="_blank" rel="noopener noreferrer">조달청 계약·변경이력 공식 API 안내 ↗</a></p>
+<p class="muted">일부 공급자에는 별도 이용 승인이나 기관별 상세 검색조건이 필요합니다. 승인되지 않은 수집처를 0건으로 간주하지 않습니다.</p>
+</section>
+</div>
+<footer>유효 원문 확인 건수를 우선 표시하며, 해당 데이터가 없으면 최신 확인 실패/연결 대기로 표시합니다. 공개자료와 잠정 취재 단서를 구분한 채 보관합니다.</footer>
+<script>
+(async function(){
+"use strict";
+const $=id=>document.getElementById(id);
+const add=(el,tag,content,cls)=>{const n=document.createElement(tag);n.textContent=String(content??"");if(cls)n.className=cls;el.append(n);return n};
+function safeLink(target,url,label){
+ try{const u=new URL(url);if(u.protocol!=="https:")return;
+  const ok=["dart.fss.or.kr","www.nhtsa.gov","www.g2b.go.kr","www.msit.go.kr","msit.go.kr",
+   "ted.europa.eu","www.federalregister.gov","echo.epa.gov","www.data.go.kr"];
+  if(!ok.includes(u.hostname))return;
+  const a=add(target,"a",label);a.href=u.href;a.target="_blank";a.rel="noopener noreferrer";
+ }catch(e){}
+}
+const date=x=>String(x||"미확인");
+const card=(area,title,info,links)=>{
+ const e=add($(area+"-items"),"div","","item");
+ add(e,"strong",title);add(e,"p",info,"muted");
+ for(const [url,label] of links||[])safeLink(e,url,label);
+};
+async function load(path){
+ try{const r=await fetch("digests/"+path,{cache:"no-store"});
+   if(!r.ok)return null;const j=await r.json();return j&&j.generatedAt?j:null;
+ }catch(e){return null;}
+}
+const [investment,metrics,overseas,nhtsa,government,hs]=await Promise.all([
+ load("investigation_hunt_latest.json"),
+ load("recent_metric_changes_latest.json"),
+ load("overseas_official_latest.json"),
+ load("nhtsa_investigations_latest.json"),
+ load("research_procurement_latest.json"),
+ load("customs_hs6_latest.json")]);
+if(investment||metrics){
+ $("dart-status").textContent="투자계획 변경 "+(investment?.verifiedChangeCount??"미확인")+
+  "건 · 비교가능 공시상 수치 변동 "+(metrics?.officialChanges??"미검증")+
+  "건 · 자료 "+date(metrics?.generatedAt||investment?.generatedAt);
+ for(const o of (investment?.investigations||[]).slice(0,3)){
+  const project=o.projects?.[0];
+  card("dart",o.headline||"공시 투자기간 변경",
+   "공개 원문상 변경. 실제 준공/가동 지연 여부 미확인",
+   (project?.originalUrls||[]).map((u,i)=>[u,i?"변경 후":"변경 전"]));
+ }
+ for(const o of (metrics?.items||[]).slice(0,5)){
+  card("dart",o.company+" · "+(o.rowIdentity||[]).join(" / "),
+  "공시상 "+o.fromYear+"년 "+o.priorValue+"→"+o.toYear+"년 "+o.currentValue+
+  " ("+o.unit+") · "+o.percentChange+"% · 효과/기보도 미확인",
+  (o.sourceUrls||[]).map((u,i)=>[u,i?"최근 원문":"전기 원문"]));
+ }
+}else $("dart-status").textContent="최근 비교 원문 미생성/실행 상태 미확인 · 기존 공시 변화 0건 주장 금지";
+if(overseas){
+ $("foreign-status").textContent="원문 "+(overseas.documents||[]).length+
+ "건 · 검색상 회사명 직접 확인 "+overseas.matchedCount+
+ "건 · API 오류 "+overseas.sourceErrors+"건 · "+date(overseas.generatedAt);
+ for(const o of (overseas.documents||[]).slice(0,4))
+  card("foreign",o.title,"출처 "+o.source+" · "+o.published+
+   " · "+o.evidence,[ [o.sourceUrl,"공식 문서"] ]);
+}else $("foreign-status").textContent="해외 원문 검증 상태 미확인";
+if(nhtsa){
+ $("nhtsa-status").textContent="최근 "+nhtsa.lookbackDays+"일 조사 개시 "+
+ (nhtsa.items||[]).length+"건 · 레이더 신규 관측 "+nhtsa.newlyObserved+
+ "건 · "+date(nhtsa.generatedAt);
+ for(const o of (nhtsa.items||[]).slice(0,6))
+  card("nhtsa",o.coveredIssuerRelation+" · "+o.actionNumber+" · "+o.subject,
+   "개시일 "+o.openedDate+" · 미국 차종 "+o.model+" · 부품 "+o.component+
+   " · 결함 확정/국내 적용 미확인",[[o.sourceUrl,"NHTSA 데이터 설명"]]);
+}else $("nhtsa-status").textContent="NHTSA 조사 자료 미생성 또는 수집실패 · 실제 조사 0건으로 해석 금지";
+if(government){
+ $("research-status").textContent="공식 사업공고/입찰 단서 "+government.matchedItems+
+ "건 · 연구공모 "+government.checks?.research?.status+
+ " / 조달 "+government.checks?.procurement?.status+" · "+date(government.generatedAt);
+ for(const o of (government.items||[]).slice(0,6))
+  card("research",o.title,
+    (o.sourceType==="msit_research_call"?"과기부 연구공모":"나라장터 공사 입찰")+
+    " · "+(o.published||o.noticeNumber)+" · 선정/낙찰/계약 미확인",
+    [[o.url||o.sourceUrl,o.url?"공식 공고":"나라장터 조회"]]);
+}else $("research-status").textContent="MSIT_API_KEY/G2B_API_KEY 별도 활용 승인 필요하거나 조회 미완료 · 0건 아님";
+if(hs){
+ $("customs-status").textContent="HS6 "+(hs.items||[]).length+"종 · "+hs.periodStart+
+  "~"+hs.periodEnd+" · "+date(hs.generatedAt)+" · 기업 귀속 불가";
+ for(const o of (hs.items||[]).slice(0,6))
+ card("customs",o.hs6+" · "+o.label,"국가 전체 품목군(ALL). 특정 회사 수출·실제 단가 아님",[]);
+}else $("customs-status").textContent="HS6 최신 검증 자료 미생성/인증 필요 · 이전 HS4 통계와 동일시 금지";
+})();
+</script></main></body></html>
