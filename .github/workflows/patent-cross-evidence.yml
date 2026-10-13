@@ -4,6 +4,8 @@ on:
     branches: [main]
     paths:
       - 'scripts/patent_cross_evidence.py'
+      - 'scripts/patent_reporting_triage.py'
+      - 'tests/test_patent_reporting_triage.py'
       - 'scripts/patent_public_factcheck.py'
       - 'tests/test_patent_cross_evidence.py'
       - '.github/workflows/patent-cross-evidence.yml'
@@ -35,16 +37,19 @@ jobs:
           python-version: '3.12'
       - name: Test verified company matches and public-only reporter checks
         run: |
-          python -m compileall -q scripts/patent_cross_evidence.py scripts/patent_public_factcheck.py
+          python -m compileall -q scripts/patent_cross_evidence.py scripts/patent_public_factcheck.py scripts/patent_reporting_triage.py
           python -m unittest discover -s tests -p 'test_patent_cross_evidence.py' -v
+          python -m unittest discover -s tests -p 'test_patent_reporting_triage.py' -v
       - name: Evaluate newest available verified patent & DART snapshots
-        run: python scripts/patent_cross_evidence.py
+        run: |
+          python scripts/patent_cross_evidence.py
+          python scripts/patent_reporting_triage.py
       - name: Commit independent DART cross evidence
         run: |
           set -e
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add digests/patent_cross_evidence_latest.json
+          git add digests/patent_cross_evidence_latest.json digests/patent_reporting_triage_latest.json
           if git diff --cached --quiet; then exit 0; fi
           git commit -m "data: refresh patent-to-DART newsroom evidence [skip ci]"
           for attempt in 1 2 3; do

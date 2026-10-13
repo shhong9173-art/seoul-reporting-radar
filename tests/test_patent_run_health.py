@@ -91,6 +91,27 @@ class HealthTests(unittest.TestCase):
         self.assertEqual(x["status"],"degraded")
         self.assertEqual(x["editorialQualityStatus"],"partial_or_missing")
 
+    def test_editorial_triage_is_optional_but_provenance_checked(self):
+        snap(self.root,"patent_cross_evidence_latest.json",{
+            "generatedAt":"2026-10-13T09:03:10+09:00",
+            "deskSourceGeneratedAt":"2026-10-13T09:02:45+09:00"})
+        snap(self.root,"patent_reporting_triage_latest.json",{
+            "generatedAt":"2026-10-13T09:03:12+09:00",
+            "deskSourceGeneratedAt":"2026-10-13T09:02:45+09:00",
+            "crossSourceGeneratedAt":"2026-10-13T09:03:10+09:00",
+            "finalHumanSample":0})
+        audited=p.audit(dict.fromkeys(p.STEPS,"success"),root=self.root)
+        self.assertTrue(audited["datasets"]["triage"]["consistent"])
+        self.assertEqual(audited["editorialTriageStatus"],"ok")
+        snap(self.root,"patent_reporting_triage_latest.json",{
+            "generatedAt":"2026-10-13T09:03:12+09:00",
+            "deskSourceGeneratedAt":"2026-10-12T09:00:00+09:00",
+            "crossSourceGeneratedAt":"2026-10-13T09:03:10+09:00"})
+        stale=p.audit(dict.fromkeys(p.STEPS,"success"),root=self.root)
+        self.assertFalse(stale["datasets"]["triage"]["consistent"])
+        self.assertEqual(stale["editorialTriageStatus"],"optional_partial_or_missing")
+        self.assertEqual(stale["status"],"ready") # independent KIPRIS source remains sound
+
     def test_cross_dataset_mismatch_degraded(self):
         snap(self.root,"patent_story_latest.json",{
             "generatedAt":"2026-10-13T09:02:00+09:00",

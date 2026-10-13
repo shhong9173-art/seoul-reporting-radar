@@ -9,6 +9,8 @@ on:
       - 'scripts/patent_story_hunt.py'
       - 'scripts/patent_editorial_desk.py'
       - 'scripts/patent_cross_evidence.py'
+      - 'scripts/patent_reporting_triage.py'
+      - 'tests/test_patent_reporting_triage.py'
       - 'scripts/patent_public_factcheck.py'
       - 'tests/test_patent_cross_evidence.py'
       - 'data/patent_reporting_checks.json'
@@ -47,7 +49,7 @@ jobs:
       - name: Check official patent identity, publication date, and exclusions
         id: checks
         run: |
-          python -m compileall -q scripts/patent_hunt.py scripts/patent_deep_hunt.py scripts/patent_story_hunt.py scripts/patent_run_health.py scripts/patent_quality_metrics.py scripts/patent_record_review.py scripts/patent_editorial_desk.py scripts/patent_cross_evidence.py scripts/patent_public_factcheck.py
+          python -m compileall -q scripts/patent_hunt.py scripts/patent_deep_hunt.py scripts/patent_story_hunt.py scripts/patent_run_health.py scripts/patent_quality_metrics.py scripts/patent_record_review.py scripts/patent_editorial_desk.py scripts/patent_cross_evidence.py scripts/patent_public_factcheck.py scripts/patent_reporting_triage.py
           python -m unittest discover -s tests -p 'test_patent_hunt.py' -v
           python -m unittest discover -s tests -p 'test_patent_deep_hunt.py' -v
           python -m unittest discover -s tests -p 'test_patent_claim_review.py' -v
@@ -56,6 +58,7 @@ jobs:
           python -m unittest discover -s tests -p 'test_patent_quality_metrics.py' -v
           python -m unittest discover -s tests -p 'test_patent_editorial_desk.py' -v
           python -m unittest discover -s tests -p 'test_patent_cross_evidence.py' -v
+          python -m unittest discover -s tests -p 'test_patent_reporting_triage.py' -v
           node tests/test_patent_hunt_view.cjs
       - name: Query KIPRISPlus applicant publications when separately authorized
         id: source
@@ -86,6 +89,10 @@ jobs:
         id: cross
         continue-on-error: true
         run: python scripts/patent_cross_evidence.py
+      - name: Build reporter-feedback candidate order and human sample statistics
+        id: triage
+        continue-on-error: true
+        run: python scripts/patent_reporting_triage.py
       - name: Emit health result even if an earlier stage fails
         if: ${{ always() }}
         env:
@@ -96,6 +103,7 @@ jobs:
           PIPELINE_QUALITY: ${{ steps.quality.outcome }}
           PIPELINE_DESK: ${{ steps.desk.outcome }}
           PIPELINE_CROSS: ${{ steps.cross.outcome }}
+          PIPELINE_TRIAGE: ${{ steps.triage.outcome }}
           PIPELINE_CLAIMS: ${{ steps.claims.outcome }}
         run: python scripts/patent_run_health.py
       - name: Publish checked evidence and pipeline health
@@ -113,6 +121,7 @@ jobs:
           if [ "${{ steps.quality.outcome }}" = "success" ] && [ -f digests/patent_quality_latest.json ]; then git add digests/patent_quality_latest.json; fi
           if [ "${{ steps.desk.outcome }}" = "success" ] && [ -f digests/patent_desk_latest.json ]; then git add digests/patent_desk_latest.json; fi
           if [ "${{ steps.cross.outcome }}" = "success" ] && [ -f digests/patent_cross_evidence_latest.json ]; then git add digests/patent_cross_evidence_latest.json; fi
+          if [ "${{ steps.triage.outcome }}" = "success" ] && [ -f digests/patent_reporting_triage_latest.json ]; then git add digests/patent_reporting_triage_latest.json; fi
           if git diff --cached --quiet; then
             echo "No KIPRISPlus patent dataset changes"
             exit 0

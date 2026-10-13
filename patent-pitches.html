@@ -36,6 +36,8 @@ footer{font-size:12px;color:#6a7d8c;padding-top:25px}
   <div><span>발제 문안</span><div><b id="count-pitches">–</b>건</div></div>
   <div><span>언론 검색 시도</span><div><b id="count-news">–</b>건</div></div>
   <div><span>출고 승인</span><div><b id="count-ready">–</b>건</div></div>
+  <div><span>기자 최종 평가</span><div><b id="count-human">–</b>건</div></div>
+  <div><span>관측 발제 적중률</span><div><b id="count-hit">–</b></div></div>
 </div>
 <div class="topbar">
   <h2>우선 취재 발제 초안</h2>
@@ -46,6 +48,8 @@ footer{font-size:12px;color:#6a7d8c;padding-top:25px}
 </div>
 <p id="pitch-status" class="status" aria-live="polite">공식 특허 발제 데이터 불러오는 중</p>
 <p id="cross-status" class="status">DART 정기공시·공급계약·투자계획 자료와 특허 교차검증 결과 확인 중</p>
+<p id="triage-status" class="status">기자 평가와 공개 근거가 반영된 최신 발제 순위 확인 중</p>
+<p class="secondary"><a href="https://github.com/shhong9173-art/seoul-reporting-radar/actions/workflows/record-patent-editorial-review.yml" target="_blank" rel="noopener noreferrer">특허번호별 기자 최종 판정 입력 ↗</a> · 이미 보도·가치 부족·추가 취재·기사 가치 등 공개 판정만 저장합니다. 비공개 취재 내용은 넣지 마세요.</p>
 <div id="pitch-cards"></div>
 <div class="notice">
  <strong>이 화면에서 확인할 점</strong>
@@ -60,6 +64,20 @@ footer{font-size:12px;color:#6a7d8c;padding-top:25px}
 const $=s=>document.querySelector(s);
 const container=$("#pitch-cards"),status=$("#pitch-status"),all=$("#btn-copy-all"),refresh=$("#btn-refresh-time");
 const edits=[];
+const stageLabels={
+ hold_for_review:"기보도·부정 판정 보류",
+ media_check_first:"기보도 먼저 확인",
+ reporter_editorial_review:"공개 근거 5항목 기록 · 편집자 최종 검토 필요",
+ reporter_follow_up:"기자가 가치 확인 · 취재 계속",
+ official_context_check_company:"같은 회사 DART 기술어 확인 · 업체 추가 확인",
+ source_review_company_call:"회사 적용·효과 확인 필요"
+};
+const outcomeLabels={
+ not_reviewed:"기자 미판정",needs_reporting:"추가 취재",
+ worth_reporting:"기사 가치 있다고 판정",published:"기사 발행",
+ already_reported:"이미 보도",wrong_beat:"출입처 부적합",
+ unsupported_angle:"근거 부족",low_value:"기사 가치 낮음"
+};
 const checkLabels=[
  ["prior_coverage","기보도 기사·회사 발표 원문 대조"],
  ["company_response","회사 공식 답변 확인"],
@@ -104,10 +122,11 @@ function detail(parent,label,value){
   parent.append(el("p",label+" "+value,"fact"));
 }
 try{
-  const [d,h,c]=await Promise.all([
+  const [d,h,c,r]=await Promise.all([
     fetch("digests/patent_desk_latest.json",{cache:"no-store"}),
     fetch("digests/patent_run_health_latest.json",{cache:"no-store"}),
-    fetch("digests/patent_cross_evidence_latest.json",{cache:"no-store"}).catch(()=>null)
+    fetch("digests/patent_cross_evidence_latest.json",{cache:"no-store"}).catch(()=>null),
+    fetch("digests/patent_reporting_triage_latest.json",{cache:"no-store"}).catch(()=>null)
   ]);
   if(!d.ok||!h.ok)throw Error("취재 발제 데이터·실행 상태 파일이 없습니다");
   const [desk,health]=await Promise.all([d.json(),h.json()]);
@@ -123,7 +142,30 @@ try{
     cross.candidateWithSpecificTermOverlap+"/"+cross.candidateCount+
     "건 · 일치가 동일 사업·기술 적용을 의미하지는 않음":
     "DART 교차검증은 미완료 또는 다른 시점의 자료입니다 · 개별 특허와 특정 사업 연계를 추정하지 않습니다";
-  const crossByPub=new Map((cross?.prioritized||[]).map(x=>[x.publicationNumber,x]));
+  const crossByPub=new Map((cross?.reviews||[]).map(x=>[x.publicationNumber,x]));
+  let triage=null;
+  try{
+    if(r&&r.ok&&cross){
+      const result=await r.json();
+      if(result.deskSourceGeneratedAt===desk.generatedAt &&
+         result.crossSourceGeneratedAt===cross.generatedAt &&
+         Array.isArray(result.shortlist)&&result.shortlist.length<=5)triage=result;
+    }
+  }catch(e){}
+  const recommended=triage ? triage.shortlist.map(x=>x.publicationNumber):
+      desk.shortlist.map(x=>x.publicationNumber);
+  const deskByPub=new Map((desk.reviewQueue||[]).map(x=>[x.publicationNumber,x]));
+  const viewRows=recommended.map(x=>deskByPub.get(x)).filter(Boolean);
+  const triageByPub=new Map((triage?.reviewQueue||[]).map(x=>[x.publicationNumber,x]));
+  $("#count-human").textContent=triage?triage.finalHumanSample:"–";
+  $("#count-hit").textContent=triage&&triage.observedEditorialHitRate!==null?
+       (100*triage.observedEditorialHitRate).toFixed(1)+"%":"측정 불가";
+  $("#triage-status").textContent=triage ?
+    "근거 기반 취재 순서 갱신 "+triage.generatedAt+
+    " · 보류 "+triage.holdCandidates+"건 · 기사 검색 우선 "+triage.unsearchedMediaCandidates+
+    "건 · 기자 평가 "+triage.finalHumanSample+"건(임의표본, 전체 적중률 아님)"+
+    " · 단독/출고 자동 승인 없음":
+    "최신 기자 평가 순위 미생성 또는 출처 시점 불일치 · 기존 공식 특허 순서로 표시";
   if(!PatentPitch.validDataset(desk))throw Error("검증 범위가 불명확한 발제 파일입니다");
   // Keep the last verified research briefing readable during an API outage.
   // Never label cached evidence as a newly confirmed exclusive.
@@ -135,23 +177,36 @@ try{
   const hoursOld=(Date.now()-new Date(desk.generatedAt).getTime())/3600000;
   const stale=!Number.isFinite(hoursOld)||hoursOld>24||hoursOld<(-1);
   $("#count-candidates").textContent=desk.candidateCount;
-  $("#count-pitches").textContent=desk.shortlist.length;
+  $("#count-pitches").textContent=viewRows.length;
   $("#count-news").textContent=desk.newsSearched;
   $("#count-ready").textContent=desk.publicationReady;
   status.textContent=(freshRun?"공식 교차분석":"최신 자동실행 실패 · 이전 검증 자료 표시")+
     " "+desk.generatedAt+(stale?" · 24시간 초과 자료":"")+
-    " · 발제 초안 "+desk.shortlist.length+"건 · 기업 답변·기보도·상용화 미확인";
-  for(const [i,item] of desk.shortlist.entries()){
+    " · 발제 초안 "+viewRows.length+"건 · 기업 답변·기보도·상용화 미확인";
+  for(const [i,item] of viewRows.entries()){
     const card=el("article",undefined,"card");
     const header=el("div",undefined,"card-head");
     header.append(el("span","취재 우선 "+(i+1)+"순위 · 공개번호 "+item.publicationNumber,"number"));
-    header.append(el("span","기업 확인 전 · 발제 미확정","tag"));
+    const rankState=triageByPub.get(item.publicationNumber);
+    header.append(el("span",rankState?
+      "공개 근거 체크 "+rankState.publicCheckCount+"/5 · "+
+      (stageLabels[rankState.stage]||"취재 가설")+" · 발제 미확정":
+      "기업 확인 전 · 발제 미확정","tag"));
+    if(rankState){
+      const missing=rankState.missingChecks.map(k=>
+        checkLabels.find(row=>row[0]===k)?.[1]||k).join(" / ");
+      const stageInfo=el("p","기자 판정: "+
+        (outcomeLabels[rankState.editorialOutcome]||"미확인")+
+        " · 부족한 확인: "+(missing||"공개 자료상 확인 사항 기록")+
+        " · 다음 취재: "+rankState.nextStep,"status");
+      card.append(header,stageInfo);
+    }else card.append(header);
     const field=document.createElement("textarea");
     field.setAttribute("aria-label","발제 "+(i+1)+"번 문안 편집");
     field.spellcheck=false;
     field.value=PatentPitch.format(item,kst());
     edits.push({field,item});
-    card.append(header,field);
+    card.append(field);
     const buttons=el("div",undefined,"actions");
     const one=el("button","이 발제 복사");
     one.type="button";
