@@ -25,8 +25,9 @@ footer{font-size:12px;color:#718292;padding-top:30px}
 <section class="panel" id="nhtsa"><div class="panel-head"><h2>3. 미국 NHTSA 결함 조사</h2><a href="https://www.nhtsa.gov/nhtsa-datasets-and-apis" target="_blank" rel="noopener noreferrer">ODI 공식 원천 ↗</a></div><p class="muted" id="nhtsa-status">확인 중</p><div id="nhtsa-items"></div></section>
 <section class="panel" id="research"><div class="panel-head"><h2>4. 연구공모·나라장터 입찰</h2><a href="https://www.data.go.kr/" target="_blank" rel="noopener noreferrer">공공데이터포털 ↗</a></div><p class="muted" id="research-status">확인 중</p><div id="research-items"></div></section>
 <section class="panel" id="customs"><div class="panel-head"><h2>5. 관세청 HS6 세부품목</h2><a href="data-lab.html">통계 검산 상세 ↗</a></div><p class="muted" id="customs-status">확인 중</p><div id="customs-items"></div></section>
-<section class="panel"><h2>6. 아직 연결되지 않은 공식자료</h2>
-<p class="muted">아래 자료는 공식 검색 경로만 확인했습니다. 자동 수집·특정 기업 적용·인허가 발급·연구과제 선정은 **미검증**입니다.</p>
+<section class="panel"><h2>6. 미국 EPA 시설 환경자료</h2>
+<p id="epa-status" class="muted">EPA ECHO 공식 시설검색 확인 중</p><div id="epa-items"></div><h2>추가 공식자료</h2>
+<p class="muted">EPA ECHO는 공식 시설 등록자료만 조회합니다. 시설 등록은 새로운 공장 건축허가나 환경허가 발급 사실이 아닙니다. 아래 외부 자료는 단순 검색 경로이며 선정·낙찰은 검증되지 않았습니다.</p>
 <p><a href="https://echo.epa.gov/tools/web-services" target="_blank" rel="noopener noreferrer">미국 EPA ECHO 기업별 환경시설·허가 자료 ↗</a></p>
 <p><a href="https://www.ntis.go.kr/" target="_blank" rel="noopener noreferrer">NTIS 국가 R&D 선정·집행 과제 원문 ↗</a></p>
 <p><a href="https://www.data.go.kr/data/15129427/openapi.do" target="_blank" rel="noopener noreferrer">조달청 계약·변경이력 공식 API 안내 ↗</a></p>
@@ -58,14 +59,15 @@ async function load(path){
    if(!r.ok)return null;const j=await r.json();return j&&j.generatedAt?j:null;
  }catch(e){return null;}
 }
-const [investment,metrics,overseas,nhtsa,government,hs,nhtsaHealth]=await Promise.all([
+const [investment,metrics,overseas,nhtsa,government,hs,nhtsaHealth,epa]=await Promise.all([
  load("investigation_hunt_latest.json"),
  load("recent_metric_changes_latest.json"),
  load("overseas_official_latest.json"),
  load("nhtsa_investigations_latest.json"),
  load("research_procurement_latest.json"),
  load("customs_hs6_latest.json"),
- load("nhtsa_source_status_latest.json")]);
+ load("nhtsa_source_status_latest.json"),
+ load("epa_facilities_latest.json")]);
 if(investment||metrics){
  $("dart-status").textContent="투자계획 변경 "+(investment?.verifiedChangeCount??"미확인")+
   "건 · 비교가능 공시상 수치 변동 "+(metrics?.officialChanges??"미검증")+
@@ -119,5 +121,15 @@ if(hs){
  for(const o of (hs.items||[]).slice(0,6))
  card("customs",o.hs6+" · "+o.label,"국가 전체 품목군(ALL). 특정 회사 수출·실제 단가 아님",[]);
 }else $("customs-status").textContent="HS6 최신 검증 자료 미생성/인증 필요 · 이전 HS4 통계와 동일시 금지";
+
+if(epa){
+ $("epa-status").textContent="ECHO 시설명 검색 후보 "+epa.candidateCount+"곳 / 질의 "+epa.queries+
+ "개 · 자료 "+epa.generatedAt+" · 시설 이름 일치≠모기업 소유/신규 인허가";
+ for(const r of (epa.facilityCandidates||[]).slice(0,6)){
+  card("epa",r.facilityName,"미국 "+r.state+" "+r.city+" · EPA 등록번호 "+
+     r.registryId+" · 관련 법인 소유·신규 공장 인허가·허가 발급 미확인",
+    [[r.sourceUrl,"공식 EPA ECHO 시설 검색"]]);
+ }
+}else $("epa-status").textContent="EPA 시설검색 미실행/출처 오류 · 신규 인허가 0건이라는 뜻 아님";
 })();
 </script></main></body></html>
