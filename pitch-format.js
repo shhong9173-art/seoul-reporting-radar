@@ -11,7 +11,8 @@ function clean(value){return String(value==null?"":value).replace(/\s+/g," ").tr
 function company(value){
   return clean(value).replace(/^주식회사\s*/,"").replace(/\s*주식회사$/,"")
     .replace(/\s*\(주\)$/,"").replace("현대자동차","현대차")
-    .replace(/산학협력단$/,"산학협력단");
+    .replace(/서울대학교\s*산학협력단/g,"서울대")
+    .replace(/중앙대학교\s*산학협력단/g,"중앙대");
 }
 function issuers(item){
   const raw=[...(item.coveredCompanies||[]),...(item.outsideBeatCoApplicants||[])];
@@ -65,8 +66,11 @@ function points(item){
   const parties=issuers(item),number=clean(item.publicationNumber);
   const count=parties.length;
   const owners=parties.slice(0,4).join("·")+(count>4?" 등":"");
+  const hangul=owners.charCodeAt(owners.length-1);
+  const particle=hangul>=0xAC00&&hangul<=0xD7A3?
+    ((hangul-0xAC00)%28===0?"가":"이"):"이/가";
   const fact="- "+dateText(item.publicationDate)+" 공개된 특허공보("+number+")에 "+owners+
-    (count>=2?"이 공동출원인으로 등재됨":"이 출원인으로 등재됨");
+    (count>=2?particle+" 공동출원인으로 등재됨":particle+" 출원인으로 등재됨");
   const tech="- "+technology(item);
   const media=item.mediaReview||{},prior=item.olderSameTitle||{};
   const press=media.state==="index_no_hits_not_proof"?"일부 뉴스 색인 검색에서 관련 기사 미발견(미보도 증명 아님)":
