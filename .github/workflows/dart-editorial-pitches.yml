@@ -4,6 +4,8 @@ on:
     branches: [main]
     paths:
       - 'scripts/dart_editorial_desk.py'
+      - 'scripts/recent_metric_hunt.py'
+      - 'tests/test_recent_metric_hunt.py'
       - 'tests/test_dart_editorial_desk.py'
       - 'dart-pitches.html'
       - '.github/workflows/dart-editorial-pitches.yml'
@@ -30,8 +32,11 @@ jobs:
           python-version: '3.12'
       - name: Verify exact-source money-versus-quantity language
         run: |
-          python -m compileall -q scripts/dart_editorial_desk.py
+          python -m compileall -q scripts/dart_editorial_desk.py scripts/recent_metric_hunt.py
+          python -m unittest discover -s tests -p 'test_recent_metric_hunt.py' -v
           python -m unittest discover -s tests -p 'test_dart_editorial_desk.py' -v
+      - name: Recompute same-period numeric changes against CURRENT filing snapshot
+        run: python scripts/recent_metric_hunt.py
       - name: Create reporter-grade DART comparison briefing
         run: python scripts/dart_editorial_desk.py
       - name: Publish verified snapshot without replacing official originals
@@ -39,7 +44,7 @@ jobs:
           set -e
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add digests/dart_editorial_desk_latest.json
+          git add digests/recent_metric_changes_latest.json digests/dart_editorial_desk_latest.json
           if git diff --cached --quiet; then exit 0; fi
           git commit -m "data: refresh verified DART change pitch hypotheses [skip ci]"
           for attempt in 1 2 3; do
