@@ -108,6 +108,42 @@ class DossierTests(unittest.TestCase):
         self.assertFalse(r["dartDocuments"][0]["patentBusinessRelationshipProven"])
         self.assertFalse(r["publicationApproved"])
 
+    def test_prior_patent_and_press_index_only_create_review_clues(self):
+        a,b,c=fixture()
+        a["reviewQueue"][0]["priorWithin35Days"]=[{
+            "publicationNumber":"1020260131234","publicationDate":"20261006",
+            "title":"케이블 부분방전 센서","titleSimilarity":0.87}]
+        a["reviewQueue"][0]["olderSameTitle"]={
+            "state":"searched_same_title_only","queryComplete":True,
+            "matches":[{"publicationNumber":"1020250123000","title":"케이블 부착 센서"}]}
+        a["reviewQueue"][0]["claim1Review"]["comparisons"]=[{"status":"text_different"}]
+        a["reviewQueue"][0]["mediaReview"]["articleEvidence"]=[{
+            "headline":"LS전선 케이블 부분방전 기술 개발",
+            "url":"https://news.google.com/rss/articles/test-123",
+            "headlineRelation":"technical_headline_overlap_review"}]
+        r=d.build(a,b,c,NOW)["dossiers"][0]
+        self.assertEqual(r["earlierPublicationsWithin35Days"][0]["publicationNumber"],"1020260131234")
+        self.assertFalse(r["earlierPublicationsWithin35Days"][0]["samePatentOrClaimProven"])
+        self.assertTrue(r["olderSameTitleSearchComplete"])
+        self.assertEqual(len(r["olderSameTitlePublications"]),1)
+        self.assertEqual(len(r["officialClaim1Comparisons"]),1)
+        self.assertFalse(r["pressEarlierCoverageProven"])
+        self.assertEqual(len(r["pressIndexArticlesForManualReview"]),1)
+        self.assertFalse(r["patentNoveltyOrTechnicalSuperiorityProven"])
+        self.assertIn("indexed_news_needs_full_article_review",r["cautions"])
+
+    def test_future_prior_and_untrusted_press_urls_are_ignored(self):
+        a,b,c=fixture()
+        a["reviewQueue"][0]["priorWithin35Days"]=[
+            {"publicationNumber":"1020260999999","publicationDate":"20261201","title":"미래 유사 특허"},
+            {"publicationNumber":"bad","publicationDate":"20261005","title":"위조 ID"}]
+        a["reviewQueue"][0]["mediaReview"]["articleEvidence"]=[
+            {"headline":"악성 링크","url":"https://news.google.com.evil.test/rss/articles/x"},
+            {"headline":"공식 사이트 아닌 기사","url":"https://example.test/story"}]
+        r=d.build(a,b,c,NOW)["dossiers"][0]
+        self.assertEqual(r["earlierPublicationsWithin35Days"],[])
+        self.assertEqual(r["pressIndexArticlesForManualReview"],[])
+
     def test_old_patent_never_presented_as_new(self):
         a,b,c=fixture()
         x=d.build(a,b,c,NOW)
