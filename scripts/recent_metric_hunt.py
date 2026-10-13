@@ -34,6 +34,11 @@ def rows(tables):
             if any(x is None for x in metrics):continue
             labels=tuple(norm(x) for x in values[:-3])
             if not labels or any(not t or len(t)>150 for t in labels):continue
+            # Subtotals and accounting rollups without a specific product or
+            # business line are not an article-worthy named-company change.
+            if len(labels)<2 and labels[0] in {
+                "소계","총계","합계","합계액","기타","전체","계","내수","수출"
+            }:continue
             key=(table["topic"],table["unit"],labels)
             if key in found:duplicates.add(key)
             else:found[key]={"value":metrics[0],"priorYear":metrics[1],

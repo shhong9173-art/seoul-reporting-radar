@@ -31,6 +31,12 @@ class Tests(unittest.TestCase):
   d=dataset();row=d["companies"][0]["current"]["tables"][0]["rows"][1]
   d["companies"][0]["current"]["tables"][0]["rows"].append(row)
   self.assertEqual(m.evaluate(d)["officialChanges"],0)
+ def test_generic_subtotal_without_company_product_identity_rejected(self):
+  d=dataset()
+  for era in ("current","priorSamePeriod"):
+   d["companies"][0][era]["tables"][0]["rows"][1]=["소계","228,651","100,000","90,000"]
+  self.assertEqual(m.evaluate(d)["officialChanges"],0)
+
  def test_non_numeric_or_currency_hidden_rejected(self):
   d=dataset();d["companies"][0]["current"]["tables"][0]["rows"][1][2]="1식"
   self.assertEqual(m.evaluate(d)["officialChanges"],0)
