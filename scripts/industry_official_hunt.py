@@ -2,7 +2,7 @@
 import json
 from pathlib import Path
 from datetime import datetime,timezone,timedelta
-def build(sources,g2b=None):
+def build(sources,g2b=None,g2b_status=None):
  feeds=[];leads=[]
  for name,data,key in sources:
   ready=bool(data.get("generatedAt") and isinstance(data.get(key),list))
@@ -45,12 +45,12 @@ def build(sources,g2b=None):
       "fact":"공식 문서 명시적 법인명 언급","url":row.get("sourceUrl"),
       "verification":"공장·수주·낙찰 확정 전 원문 확인"})
  # A KONEPS bid is a PUBLIC tender, not a contract nor a named supplier award.
- g2b=g2b or {}
- ready=(bool(g2b.get("generatedAt")) and isinstance(g2b.get("notices"),list)
+ g2b=g2b or {};g2b_status=g2b_status or {}
+ ready=(g2b_status.get("status")=="checked" and bool(g2b.get("generatedAt")) and isinstance(g2b.get("notices"),list)
        and len(g2b.get("checks") or [])>=2 and
        all(c.get("status")=="checked" for c in g2b["checks"]))
  feeds.append({"name":"나라장터 공공조달",
-               "status":"ready" if ready else "not_connected",
+               "status":"ready" if ready else "source_error" if g2b_status.get("status")=="source_error" else "not_connected",
                "rows":len(g2b["notices"]) if ready else None,
                "generatedAt":g2b.get("generatedAt") if ready else None})
  if ready:
@@ -77,7 +77,8 @@ def main():
             ("DART_METRIC",get("recent_metric_changes_latest.json"),"items"),
             ("CUSTOMS_FIVE",{"generatedAt":get("customs_five_latest.json").get("generatedAt"),
                              "items":get("customs_five_latest.json").get("services")},"items")],
-           g2b=get("g2b_tender_latest.json"))
+           g2b=get("g2b_tender_latest.json"),
+           g2b_status=get("g2b_source_status_latest.json"))
  p=Path("digests/industry_official_hunt_latest.json")
  tmp=p.with_suffix(".json.tmp");tmp.write_text(json.dumps(doc,ensure_ascii=False,indent=2)+"\n",encoding="utf-8");tmp.replace(p)
 if __name__=="__main__":main()
