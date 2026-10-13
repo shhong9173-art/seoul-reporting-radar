@@ -51,6 +51,9 @@ class EvidenceTests(unittest.TestCase):
         args[1]["companies"][0]["current"]["tables"]=[{"rows":[["봉형강","10톤"]]}]
         p=x.evaluate(*args,now=NOW)
         self.assertEqual(p["prioritized"][0]["independentDartTechnicalOverlap"],[])
+        self.assertTrue(p["prioritized"][0]["sameIssuerBackgroundSources"])
+        self.assertEqual(p["prioritized"][0]["sameIssuerBackgroundSources"][0]["linkState"],
+                         "same_company_only_no_patent_relation")
         self.assertEqual(p["prioritized"][0]["stage"],"patent_only_no_project_identity")
 
     def test_no_generic_keyword_battery_false_link(self):

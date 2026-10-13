@@ -187,6 +187,16 @@ try{
           link.href=entry.url;link.target="_blank";link.rel="noopener noreferrer";crossBox.append(link);
         }
       }
+      if((business.sameIssuerBackgroundSources||[]).length){
+        detail(crossBox,"기업 공시 참고:","아래는 동일 법인의 공시 자료일 뿐 이 특허와의 사업 연관성은 확인되지 않았습니다");
+        for(const ref of business.sameIssuerBackgroundSources.slice(0,3)){
+          if(typeof ref.sourceUrl==="string"&&/^https:\/\/dart\.fss\.or\.kr\/dsaf001\/main\.do\?rcpNo=\d{14}$/.test(ref.sourceUrl)){
+            const link=el("a","같은 회사 DART 공식 보고서 · "+ref.reference);
+            link.href=ref.sourceUrl;link.target="_blank";link.rel="noopener noreferrer";
+            crossBox.append(link,el("span"," · ","secondary"));
+          }
+        }
+      }
       detail(crossBox,"검증 결과:",business.nextStep);
     }
     const local=readChecks(item.publicationNumber);
