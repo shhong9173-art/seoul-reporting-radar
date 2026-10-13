@@ -72,7 +72,7 @@ jobs:
         run: python scripts/patent_deep_hunt.py --max-history 8
       - name: Build publication-grounded article angles and preliminary press checks
         id: story
-        run: python scripts/patent_story_hunt.py --max-news 8
+        run: python scripts/patent_story_hunt.py --max-news 12
       - name: Measure human-reviewed newsroom quality and known-case replay
         id: quality
         run: python scripts/patent_quality_metrics.py

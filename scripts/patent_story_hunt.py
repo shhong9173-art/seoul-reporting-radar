@@ -278,12 +278,28 @@ def build(official,deep,now=None,max_news=8,press=search_press,previous=None):
             item["pressCheckedAt"]=old.get("pressCheckedAt") or (previous or {}).get("generatedAt")
     media_queries_new=0
     attempts=0
-    # Prioritize never-queried patents. After they are exhausted, revisit
-    # old/incomplete checks, oldest first. Eight per run is bounded.
+    # Retry some genuine RSS failures each run, while retaining most of the
+    # request budget for never-searched patents. Errors must not stay buried
+    # behind 100+ previously unseen disclosures; nor monopolize every run.
     unsearched=[x for x in stories if not x.get("pressCheckedAt")]
     revisits=sorted((x for x in stories if x.get("pressCheckedAt")),
                     key=lambda x:x["pressCheckedAt"])
-    for item in (unsearched if unsearched else revisits)[:max_news]:
+    failures=[x for x in revisits if any(
+        not isinstance(q,dict) or q.get("status") not in ("hits","no_hits")
+        for q in ((x.get("pressCoverage") or {}).get("queries") or []))]
+    retry_limit=(max(1,max_news//3) if unsearched else max_news) if max_news else 0
+    selected=failures[:retry_limit]
+    selected_ids={x["publicationNumber"] for x in selected}
+    # Do not spend spare budget repeatedly rescanning completed patents while
+    # new publications still exist. This also prevents duplicate attempts
+    # after the final unsearched item in the current batch.
+    candidates=unsearched if unsearched else revisits
+    for item in candidates:
+        if len(selected)>=max_news:break
+        if item["publicationNumber"] not in selected_ids:
+            selected.append(item)
+            selected_ids.add(item["publicationNumber"])
+    for item in selected:
         item["pressCoverage"]=press(item)
         item["pressCheckedAt"]=now.isoformat(timespec="seconds")
         media_queries_new+=len((item["pressCoverage"] or {}).get("queries",[]))

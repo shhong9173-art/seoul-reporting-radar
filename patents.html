@@ -92,7 +92,7 @@ try{
     desk.storySourceGeneratedAt!==story.generatedAt||
     !Array.isArray(desk.shortlist))throw Error("공식 원문·뉴스·데스킹 스냅샷 시점 불일치");
  status.textContent=desk.generatedAt+" · 취재 검토 "+desk.candidateCount+
-  "건 · 기사 검색 시도 "+desk.newsSearched+"건 · 청구항 검증 "+desk.claim1Checked+
+  "건 · 언론 검색 완료 "+desk.newsSearched+"건 · 검색 실패·미완료 "+(desk.newsIncomplete??"미집계")+"건 · 미검색 "+(desk.newsNotAttempted??"미집계")+"건 · 청구항 검증 "+desk.claim1Checked+
   "건 · 과거 동일 제목 조회 "+desk.historyTitleSearched+"건 · 우선 취재 "+
   desk.shortlistCount+"건 · 단독 확정 "+desk.confirmedScoops+
   "건 · 출고 승인 "+desk.publicationReady+"건";

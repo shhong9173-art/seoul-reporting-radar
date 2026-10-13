@@ -155,6 +155,31 @@ class PatentStoryTests(unittest.TestCase):
         self.assertFalse(r["completeSearch"])
         self.assertIn("미확인",r["status"])
 
+    def test_failed_media_queries_retry_but_do_not_starve_new_patents(self):
+        docs=[example(pub=f"102026014{i:04d}",date="20261012") for i in range(4)]
+        official,deep=sources(docs)
+        seen=[]
+        first_pub="1020260140000"
+        def press(row):
+            pub=row["publicationNumber"]
+            seen.append(pub)
+            failed=pub==first_pub and seen.count(pub)==1
+            return {"status":"검색 오류" if failed else "검색 완료",
+                    "completeSearch":not failed,"possibleEarlierCoverage":False,
+                    "queries":[{"query":"number",
+                                "status":"error" if failed else "no_hits",
+                                "articles":[]}]}
+        first=h.build(official,deep,now=NOW,max_news=2,press=press)
+        self.assertEqual(first["mediaLeadsAttempted"],2)
+        second=h.build(official,deep,now=NOW+timedelta(hours=2),
+                       max_news=2,press=press,previous=first)
+        self.assertEqual(seen.count(first_pub),2)
+        self.assertEqual(second["mediaLeadsAttempted"],3)
+        self.assertEqual(second["mediaLeadsNotAttempted"],1)
+        third=h.build(official,deep,now=NOW+timedelta(hours=4),
+                      max_news=2,press=press,previous=second)
+        self.assertEqual(third["mediaLeadsNotAttempted"],0)
+
     def test_incomplete_official_applicant_source_cannot_be_published(self):
         a,b=sources([example()])
         a["sourceWindowComplete"]=False
