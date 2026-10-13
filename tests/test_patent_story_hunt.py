@@ -62,6 +62,14 @@ class PatentStoryTests(unittest.TestCase):
         lead=h.build(a,b,now=NOW,max_news=0)["investigations"][0]
         self.assertEqual(lead["topic"],"순환소재·폐차재활용")
 
+    def test_power_cable_partial_discharge_sensor_not_autonomous_driving(self):
+        row=example(title="케이블 부착식 부분방전 센서 및 이를 포함하는 부분방전 검출 시스템",
+                    abstract="케이블 절연 상태에서 발생하는 부분방전을 측정")
+        a,b=sources([row])
+        lead=h.build(a,b,now=NOW,max_news=0)["investigations"][0]
+        self.assertEqual(lead["topic"],"전력망·전력기기")
+        self.assertIn("부분방전",lead["topicEvidenceTerms"])
+
     def test_accessibility_door_not_mistaken_for_battery_project(self):
         patent=example(title="도어 및 이를 갖춘 차량",
                        abstract="휠체어 승하차를 보조하는 도어와 램프, 플로어 패널 아래 배터리 모듈을 포함한다")
