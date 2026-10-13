@@ -82,6 +82,9 @@ class DeskTests(unittest.TestCase):
 
     def test_article_without_matching_technical_title_not_auto_duplicate(self):
         f=fixtures()
+        # Test unrelated press indexing separately from a genuine older
+        # same-title patent, which deliberately blocks the shortlist.
+        f[1]["investigations"][0]["priorFullTitleCheck"]["matches"]=[]
         f[2]["investigations"][0]["pressCoverage"]={
             "queries":[{"query":"회사","status":"hits","articles":[{
                "title":"완성차 업계, 2026년 수출 실적 점검",
@@ -118,6 +121,7 @@ class DeskTests(unittest.TestCase):
 
     def test_missing_claim_or_mismatched_claim_is_unverified_not_reused(self):
         f=fixtures()
+        f[1]["investigations"][0]["priorFullTitleCheck"]["matches"]=[]
         f[3]["patentDatasetGeneratedAt"]="2026-01-01"
         f[2]["investigations"][0]["pressCoverage"]={"queries":[{"query":"x","status":"no_hits","articles":[]}]}
         r=d.evaluate(*f,now=NOW)
