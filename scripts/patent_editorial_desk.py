@@ -66,10 +66,14 @@ def press_assessment(lead):
         return {"state":"not_searched","checked":False,"hits":0,"articleEvidence":[],
                 "warning":"언론 검색 미실시. 단독 또는 미보도 추정 금지"}
     evidence=[]
-    errors=0
+    # A query that errored or returned an unknown status is NOT a complete
+    # earlier-coverage check. Counting attempts as completed searches silently
+    # elevates patents whose Google News lookup actually failed.
+    errors=sum(not isinstance(q,dict) or q.get("status") not in ("hits","no_hits")
+               for q in queries)
     for q in queries:
-        if q.get("status")=="error":
-            errors+=1
+        if not isinstance(q,dict):
+            continue
         for article in (q.get("articles") or []):
             kind,score=headline_match(lead,article.get("title"))
             url=str(article.get("url") or "")
@@ -87,8 +91,10 @@ def press_assessment(lead):
            "indexed_articles_need_review" if evidence else
            "search_errors_not_cleared" if errors else
            "index_no_hits_not_proof")
-    return {"state":state,"checked":True,"hits":len(evidence),"articleEvidence":evidence[:5],
-            "searchErrors":errors,"warning":"검색 제목 일치만으로 동일 특허 보도 확정 불가; 기사 본문·발행일과 회사 발표 별도 확인"}
+    return {"state":state,"attempted":True,"checked":errors==0,
+            "searchComplete":errors==0,"queryCount":len(queries),
+            "hits":len(evidence),"articleEvidence":evidence[:5],
+            "searchErrors":errors,"warning":"검색 실패·부분 오류는 기보도 점검 완료가 아님. 기사 본문·발행일과 회사 발표 별도 확인"}
 
 
 def recent_priors(lead,source,limit=3):
@@ -246,7 +252,12 @@ def evaluate(official,deep,story,claim,reviews,benchmarks,now=None,top=5):
         "storySourceGeneratedAt":story["generatedAt"],
         "claimSourceGeneratedAt":claim.get("generatedAt") if claims_consistent else None,
         "claimSnapshotConsistent":claims_consistent,
-        "candidateCount":len(rows),"newsSearched":sum(x["mediaReview"]["checked"] for x in rows),
+        "candidateCount":len(rows),
+        "newsSearched":sum(x["mediaReview"]["checked"] for x in rows),
+        "newsAttempted":sum(x["mediaReview"].get("attempted",False) for x in rows),
+        "newsIncomplete":sum(x["mediaReview"].get("attempted",False) and
+                             not x["mediaReview"]["checked"] for x in rows),
+        "newsNotAttempted":sum(not x["mediaReview"].get("attempted",False) for x in rows),
         "claim1Checked":sum(x["claim1Review"]["verified"] for x in rows),
         "historyTitleSearched":sum(x["olderSameTitle"]["state"]=="searched_same_title_only" for x in rows),
         "replayExcluded":sum(x["retrospectiveKnownCase"] for x in rows),
@@ -256,7 +267,8 @@ def evaluate(official,deep,story,claim,reviews,benchmarks,now=None,top=5):
         "status":"research_priorities_only",
         "warnings":[
             "후보 순위와 검토 가제는 수동 취재 전 단계. 단독 확인·기사 발제 승인 아님",
-            "구글뉴스 검색 0건은 미보도 증명이 아니며, 발견 기사 제목 유사도는 본문 동일성 증명 아님",
+            "구글뉴스 검색 0건은 미보도 증명이 아니며, 오류가 있는 검색 시도는 완료로 세지 않음",
+            "검색 기사 제목 유사도는 본문 동일성 증명 아님",
             "과거 특허 대조는 35일 수집 윈도 및 일부 동일 제목 조회. 특허패밀리/선행기술 전체 아님",
             "기업 직접 답변·사업화 증거가 아직 없으면 출고용 사실·인과관계를 생성하지 않음",
         ],
