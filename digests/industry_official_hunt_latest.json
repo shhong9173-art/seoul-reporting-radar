@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-13T16:06:07.894710+09:00",
+  "generatedAt": "2026-10-13T16:08:38.149769+09:00",
   "feeds": [
     {
       "name": "DART",
@@ -23,7 +23,19 @@
       "name": "NHTSA",
       "status": "ready",
       "rows": 9,
-      "generatedAt": "2026-10-13T16:06:07.857181+09:00"
+      "generatedAt": "2026-10-13T16:08:38.093041+09:00"
+    },
+    {
+      "name": "DART_METRIC",
+      "status": "ready",
+      "rows": 21,
+      "generatedAt": "2026-10-13T15:05:06+09:00"
+    },
+    {
+      "name": "CUSTOMS_FIVE",
+      "status": "ready",
+      "rows": 5,
+      "generatedAt": "2026-10-13T03:13:09+09:00"
     },
     {
       "name": "NTIS 연구과제",
@@ -148,6 +160,146 @@
       "fact": "이미 공개된 미국 recalls",
       "url": "https://api.nhtsa.gov/recalls/recallsByVehicle?make=Kia&model=SORENTO&modelYear=2026",
       "verification": "한국 판매차 관련성 및 당국 조사 별도 검증"
+    },
+    {
+      "source": "DART_METRIC",
+      "headline": "엘에스일렉트릭 · 부산/초고압변압기, 배전변압기, HVDC Valve, FACTS",
+      "fact": "공식 2025→2026 동일기간·단위 숫자 228651 → 484052 (백만원)",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003088",
+      "verification": "원문 숫자 변동과 실제 물량·생산능력 확대·기보도/기업 설명 구분"
+    },
+    {
+      "source": "DART_METRIC",
+      "headline": "엘에스일렉트릭 · 전력/베트남",
+      "fact": "공식 2025→2026 동일기간·단위 숫자 44881 → 76935 (백만원)",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003088",
+      "verification": "원문 숫자 변동과 실제 물량·생산능력 확대·기보도/기업 설명 구분"
+    },
+    {
+      "source": "DART_METRIC",
+      "headline": "엘에스일렉트릭 · 전력/청주",
+      "fact": "공식 2025→2026 동일기간·단위 숫자 17159 → 25579 (백만원)",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003088",
+      "verification": "원문 숫자 변동과 실제 물량·생산능력 확대·기보도/기업 설명 구분"
+    },
+    {
+      "source": "DART_METRIC",
+      "headline": "효성중공업 · 중공업/효성중공업(주)Nantong Hyosung Transformer Co., Ltd.Hyosung T&D India Pvt LtdHyosung HICO, Ltd.",
+      "fact": "공식 2025→2026 동일기간·단위 숫자 1516460 → 1979213 (백만원)",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260813001554",
+      "verification": "원문 숫자 변동과 실제 물량·생산능력 확대·기보도/기업 설명 구분"
+    },
+    {
+      "source": "DART_METRIC",
+      "headline": "엘에스일렉트릭 · 청주2/배전반, 초고압GIS, 변압기, 철도/SE등",
+      "fact": "공식 2025→2026 동일기간·단위 숫자 804233 → 1029202 (백만원)",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003088",
+      "verification": "원문 숫자 변동과 실제 물량·생산능력 확대·기보도/기업 설명 구분"
+    },
+    {
+      "source": "DART_METRIC",
+      "headline": "효성중공업 · 건설/주상복합, 아파트, 오피스텔 등",
+      "fact": "공식 2025→2026 동일기간·단위 숫자 793315 → 1011988 (백만원)",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260813001554",
+      "verification": "원문 숫자 변동과 실제 물량·생산능력 확대·기보도/기업 설명 구분"
+    },
+    {
+      "source": "DART_METRIC",
+      "headline": "효성중공업 · 중공업/효성중공업(주)Nantong Hyosung Transformer Co., Ltd.Hyosung T&D India Pvt LtdHyosung HICO, Ltd.",
+      "fact": "공식 2025→2026 동일기간·단위 숫자 1539659 → 1894093 (백만원)",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260813001554",
+      "verification": "원문 숫자 변동과 실제 물량·생산능력 확대·기보도/기업 설명 구분"
+    },
+    {
+      "source": "DART_METRIC",
+      "headline": "엘에스일렉트릭 · 자동화/천안",
+      "fact": "공식 2025→2026 동일기간·단위 숫자 223557 → 181414 (백만원)",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003088",
+      "verification": "원문 숫자 변동과 실제 물량·생산능력 확대·기보도/기업 설명 구분"
+    },
+    {
+      "source": "DART_METRIC",
+      "headline": "현대자동차 · HMTR/튀르키예",
+      "fact": "공식 2025→2026 동일기간·단위 숫자 117600 → 95900 (대)",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003521",
+      "verification": "원문 숫자 변동과 실제 물량·생산능력 확대·기보도/기업 설명 구분"
+    },
+    {
+      "source": "DART_METRIC",
+      "headline": "현대자동차 · HMI/인도",
+      "fact": "공식 2025→2026 동일기간·단위 숫자 398700 → 464400 (대)",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003521",
+      "verification": "원문 숫자 변동과 실제 물량·생산능력 확대·기보도/기업 설명 구분"
+    },
+    {
+      "source": "DART_METRIC",
+      "headline": "HD현대일렉트릭 · 전력기기",
+      "fact": "공식 2025→2026 동일기간·단위 숫자 1279698 → 1476122 (백만원)",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003228",
+      "verification": "원문 숫자 변동과 실제 물량·생산능력 확대·기보도/기업 설명 구분"
+    },
+    {
+      "source": "DART_METRIC",
+      "headline": "기아 · 슬로박공장",
+      "fact": "공식 2025→2026 동일기간·단위 숫자 175950 → 149437 (대)",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
+      "verification": "원문 숫자 변동과 실제 물량·생산능력 확대·기보도/기업 설명 구분"
+    },
+    {
+      "source": "DART_METRIC",
+      "headline": "HD현대일렉트릭 · 제 품",
+      "fact": "공식 2025→2026 동일기간·단위 숫자 1912484 → 2170118 (백만원)",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003228",
+      "verification": "원문 숫자 변동과 실제 물량·생산능력 확대·기보도/기업 설명 구분"
+    },
+    {
+      "source": "DART_METRIC",
+      "headline": "HD현대일렉트릭 · 전기전자 부문/변압기 外",
+      "fact": "공식 2025→2026 동일기간·단위 숫자 1920887 → 2178313 (백만원)",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003228",
+      "verification": "원문 숫자 변동과 실제 물량·생산능력 확대·기보도/기업 설명 구분"
+    },
+    {
+      "source": "DART_METRIC",
+      "headline": "효성중공업 · 중공업/변압기, 차단기, 전동기, 감속기 등",
+      "fact": "공식 2025→2026 동일기간·단위 숫자 1792247 → 2017762 (백만원)",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260813001554",
+      "verification": "원문 숫자 변동과 실제 물량·생산능력 확대·기보도/기업 설명 구분"
+    },
+    {
+      "source": "CUSTOMS_FIVE",
+      "headline": "시도별 품목별",
+      "fact": "관세청 구분별 공개 집계(202608) · 기업 실적 아님",
+      "url": "https://www.data.go.kr/data/15101641/openapi.do",
+      "verification": "시도·성질/국가별 모집단·단위 확인"
+    },
+    {
+      "source": "CUSTOMS_FIVE",
+      "headline": "신성질별 국가별",
+      "fact": "관세청 구분별 공개 집계(202608) · 기업 실적 아님",
+      "url": "https://www.data.go.kr/data/15101607/openapi.do",
+      "verification": "시도·성질/국가별 모집단·단위 확인"
+    },
+    {
+      "source": "CUSTOMS_FIVE",
+      "headline": "신성질별",
+      "fact": "관세청 구분별 공개 집계(202608) · 기업 실적 아님",
+      "url": "https://www.data.go.kr/data/15101616/openapi.do",
+      "verification": "시도·성질/국가별 모집단·단위 확인"
+    },
+    {
+      "source": "CUSTOMS_FIVE",
+      "headline": "성질별 국가별",
+      "fact": "관세청 구분별 공개 집계(202608) · 기업 실적 아님",
+      "url": "https://www.data.go.kr/data/15100476/openapi.do",
+      "verification": "시도·성질/국가별 모집단·단위 확인"
+    },
+    {
+      "source": "CUSTOMS_FIVE",
+      "headline": "종류별",
+      "fact": "관세청 구분별 공개 집계(202608) · 기업 실적 아님",
+      "url": "https://www.data.go.kr/data/15101634/openapi.do",
+      "verification": "시도·성질/국가별 모집단·단위 확인"
     }
   ],
   "confirmedScoops": 0,
