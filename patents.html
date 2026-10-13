@@ -101,6 +101,25 @@ try{
  ]);
  if(!a.ok||!b.ok||!c.ok)throw Error("공식 특허 또는 기사 가설 분석 데이터 미생성");
  const [base,deep,story]=await Promise.all([a.json(),b.json(),c.json()]);
+ const qualityStatus=document.querySelector("#patent-quality-status");
+ try{
+  const reply=await fetch("digests/patent_quality_latest.json",{cache:"no-store"});
+  if(!reply.ok)throw Error("품질 지표 미생성");
+  const q=await reply.json();
+  if(q.officialSourceGeneratedAt!==base.generatedAt||q.storySourceGeneratedAt!==story.generatedAt)
+    throw Error("평가 데이터와 특허 수집 시점 불일치");
+  const percent=x=>x===null||x===undefined?"측정 불가":(100*x).toFixed(1)+"%";
+  qualityStatus.textContent="평가 "+q.humanReviewedCurrentCandidates+"/"+story.possibleResearchLeads+
+    "건 · 최종 판정 "+q.finalizedHumanReviewSample+"건 · 취재 가치 적중 "+
+    percent(q.observedEditorialHitRate)+" · 오분류/기보도/낮은 가치 "+
+    percent(q.observedFalsePositiveRate)+" · 기사 발행 판정 "+
+    q.publishedEditorialCount+"건 · 기존 기사 사후 재현 "+
+    (q.knownCaseReplay?.matched??0)+"/"+(q.knownCaseReplay?.total??0)+
+    "건(사전 단독 발견 아님) · "+q.samplingCaveat;
+ }catch(error){
+  qualityStatus.textContent="기자 판정 지표 미확인: "+error.message+
+    " · 표본 기반 적중률을 추정하지 않습니다";
+ }
  if(!story.officialSourceGeneratedAt||
     story.officialSourceGeneratedAt!==base.generatedAt||
     story.deepSourceGeneratedAt!==deep.generatedAt||
