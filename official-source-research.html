@@ -1,0 +1,48 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>해외 인허가·무역구제·국가 R&D 취재 검색대</title>
+<style>body{background:#f4f6fa;color:#1a3245;margin:0;font:15px/1.65 system-ui,sans-serif}
+main{max-width:980px;margin:auto;padding:27px 17px 90px}h1{font-size:26px}h2{font-size:20px}
+a{color:#185d90}.note{background:#fff9ee;border-left:3px solid #bd8b31;padding:12px}
+article{background:white;border:1px solid #d9e2eb;border-radius:12px;padding:17px;margin:12px 0}
+p.muted,small{color:#536779;font-size:13px}select{padding:9px;border:1px solid #b5c9d5}
+button{font:inherit;border:0;background:#214f6d;color:#fff;padding:9px;border-radius:6px;cursor:pointer}
+.sources{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.sources article{margin:0}a.ext{display:inline-block;margin:4px 10px 4px 0}
+</style></head><body><main>
+<p><a href="index.html">산업부 레이더</a> / <a href="official-leads.html">공식자료 발제</a></p>
+<h1>NTIS·해외 인허가·통상조치 공식 원문 취재 검색대</h1>
+<p class="note">이 화면은 <strong>공식 검색처 바로가기</strong>입니다. 자동 확인된 신규 과제·허가·반덤핑 확정 사실이 아닙니다.
+공식 번호, 발표일, 관계 법인, 공개 시점, 국내 기업 영향을 원문에서 확인한 뒤 발제해야 합니다.</p>
+<h2>출입처 R&D 연구과제 직접 검색</h2>
+<p><label for="company">출입처 선택</label> <select id="company"></select>
+<button type="button" id="search-ntis">NTIS 과제 검색 열기</button></p>
+<p class="muted">국가과제는 수행기관·연구목표·기간·정부출연금·성과 특허를 각각 확인하세요. 특허 공동출원과 같은 사업이라고 자동 연결하지 않습니다.</p>
+<div class="sources">
+<article><h2>정부 R&D</h2><p>NTIS/IRIS 연구과제 원문과 공식 과제번호 확인. 국가 R&D 검색 OpenAPI는 별도 활용승인 전입니다.</p>
+<a class="ext" href="https://www.ntis.go.kr/ThSearchProjectList.do?dbt=project" target="_blank" rel="noopener noreferrer">NTIS 과제검색</a>
+<a class="ext" href="https://www.data.go.kr/data/15077315/openapi.do" target="_blank" rel="noopener noreferrer">NTIS 공식 OpenAPI 신청</a>
+<a class="ext" href="https://www.iris.go.kr/" target="_blank" rel="noopener noreferrer">IRIS 연구지원시스템</a></article>
+<article><h2>미국 사업장·환경 인허가</h2><p>시설명·허가번호·신청 상태를 원문 조회. 신청·발급·가동은 서로 다른 사실입니다.</p>
+<a class="ext" href="https://echo.epa.gov/" target="_blank" rel="noopener noreferrer">미 EPA ECHO</a>
+<a class="ext" href="https://permit-search.tceq.texas.gov/" target="_blank" rel="noopener noreferrer">텍사스 TCEQ 인허가</a>
+<a class="ext" href="https://permitsearch.gaepd.org/" target="_blank" rel="noopener noreferrer">조지아 EPD 대기허가</a></article>
+<article><h2>EU 무역구제</h2><p>사건번호·국가·대상품목·개시·잠정·최종 조치를 구분. 기한 예상표는 확정 관세가 아닙니다.</p>
+<a class="ext" href="https://tron.trade.ec.europa.eu/investigations/home" target="_blank" rel="noopener noreferrer">진행 중인 사건</a>
+<a class="ext" href="https://tron.trade.ec.europa.eu/investigations/cases" target="_blank" rel="noopener noreferrer">사건 검색</a>
+<a class="ext" href="https://www.usitc.gov/investigations/import_injury" target="_blank" rel="noopener noreferrer">미국 USITC 조사</a></article>
+<article><h2>일본 무역구제</h2><p>경제산업성(METI)의 조사 개시·대상 원산지·품목·최종 판정 구분. 한국 기업별 세율은 별도 판정자료로 검증.</p>
+<a class="ext" href="https://www.meti.go.jp/english/press/2026/0601_001.html" target="_blank" rel="noopener noreferrer">열연강판 조사 개시 원문(2026년 6월)</a>
+<a class="ext" href="https://www.meti.go.jp/english/press/2026/0601_002.html" target="_blank" rel="noopener noreferrer">냉연강판 조사 개시 원문(2026년 6월)</a></article>
+<article><h2>공공조달</h2><p>나라장터 공고번호→개찰·낙찰→계약번호→계약변경의 단계별 확인. 공고를 수주라고 쓰면 안 됩니다.</p>
+<a class="ext" href="https://www.g2b.go.kr/" target="_blank" rel="noopener noreferrer">나라장터 공식 검색</a>
+<a class="ext" href="https://www.data.go.kr/data/15129394/openapi.do" target="_blank" rel="noopener noreferrer">공고 API 권한 신청</a>
+<a class="ext" href="https://www.data.go.kr/data/15129427/openapi.do" target="_blank" rel="noopener noreferrer">계약·변경 API 별도 신청</a></article>
+</div>
+<script>
+const companies=["현대자동차","기아","현대모비스","현대위아","HL만도","포스코","현대제철","동국제강","세아제강","고려아연","영풍","LS전선","엘에스일렉트릭","HD현대일렉트릭","효성중공업","대한전선","두산에너빌리티","한화솔루션","OCI홀딩스"];
+for(const c of companies){const x=document.createElement("option");x.value=c;x.textContent=c;document.querySelector("#company").append(x);}
+document.querySelector("#search-ntis").addEventListener("click",()=>{
+ const term=document.querySelector("#company").value;
+ const url="https://www.ntis.go.kr/ThSearchProjectList.do?dbt=project&searchWord="+encodeURIComponent(term);
+ window.open(url,"_blank","noopener,noreferrer");
+});
+</script></main></body></html>
