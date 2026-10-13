@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>산업부 공식 원문 단독 취재 대기열</title>
+<style>body{margin:0;background:#f4f6f9;color:#1b3043;font:15px/1.65 system-ui,sans-serif}main{max-width:980px;margin:auto;padding:24px 16px}a{color:#155d90}h1{font-size:27px}.card{background:#fff;padding:16px;margin:12px 0;border:1px solid #d8e1e9;border-radius:10px}small,.muted{color:#526579}button{padding:9px 13px;border:1px solid #b6c6d3;border-radius:6px;background:white;cursor:pointer}textarea{width:100%;min-height:135px;border:1px solid #d1dae1;padding:10px;box-sizing:border-box}select{padding:9px;border:1px solid #bacbd7;border-radius:6px}#feeds{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}</style>
+</head><body><main><p><a href="index.html">산업부 레이더</a> / <a href="hunt.html">DART 원문 변화</a> / <a href="official-watch.html">해외 공식 문서</a></p>
+<h1>특허 외 공식 원문 취재 대기열</h1><p class="muted">공식자료 출처별 취재 단서입니다. 기사 제목·단독·준공 지연·기업 사업 영향은 아직 확인되지 않았습니다.</p>
+<div id="feeds"></div><h2>자료별 연구 단서</h2><select id="filter"><option value="ALL">전체 수집처</option></select>
+<p id="status" class="muted">원문 자료 읽는 중</p><div id="results"></div>
+<script>
+(async()=>{
+const $=s=>document.querySelector(s);
+function node(tag,text){const e=document.createElement(tag);if(text!==undefined)e.textContent=String(text);return e;}
+try{const r=await fetch("digests/industry_official_hunt_latest.json",{cache:"no-store"});if(!r.ok)throw Error("데이터 미생성");
+const data=await r.json();if(data.status!=="research_only"||!Array.isArray(data.feeds)||!Array.isArray(data.leads))throw Error("응답 구조 오류");
+for(const f of data.feeds){const card=node("div");card.className="card";card.append(node("b",f.name),node("p",f.status==="ready"?"원문 수집: "+f.rows+"건 · "+f.generatedAt:"연동/수집 미완료 · 0건으로 간주 불가"));$("#feeds").append(card);}
+for(const f of data.feeds){const op=node("option",f.name);op.value=f.name;$("#filter").append(op);}
+const show=()=>{const host=$("#results");host.replaceChildren();const stream=$("#filter").value;const rows=data.leads.filter(x=>stream==="ALL"||x.source===stream);$("#status").textContent="자료 생성 "+data.generatedAt+" · 표시 "+rows.length+"건 · 단독 확인 0건";
+for(const x of rows){const card=node("article");card.className="card";card.append(node("small",x.source),node("h3",x.headline),node("p","확인된 자료: "+x.fact),node("p","다음 취재: "+x.verification));
+if(typeof x.url==="string"&&x.url.startsWith("https://")){const a=node("a","공식 근거 열기");a.href=x.url;a.target="_blank";a.rel="noopener noreferrer";card.append(a);}
+const draft=node("textarea");draft.value="*"+x.headline+" (홍성효, 취재 중)\n- "+x.fact+"\n- 기보도·해당 기업 사업 영향 미확인\n- "+x.verification;card.append(draft);
+const btn=node("button","발제 검토 문안 복사");btn.onclick=async()=>{try{await navigator.clipboard.writeText(draft.value);btn.textContent="복사 완료";}catch(e){draft.focus();draft.select();btn.textContent="문안 선택됨 · 직접 복사";}};card.append(btn);host.append(card);}}
+$("#filter").onchange=show;show();
+}catch(e){$("#status").textContent="공식 통합 수집 결과 미확인 · 예전 자료로 단독을 판단하지 않습니다.";}
+})();
+</script></main></body></html>
