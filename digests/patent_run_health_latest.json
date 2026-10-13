@@ -1,22 +1,23 @@
 {
-  "generatedAt": "2026-10-13T09:05:31+09:00",
-  "workflowRunId": "38325355944",
+  "generatedAt": "2026-10-13T09:39:19+09:00",
+  "workflowRunId": "38328290001",
   "workflowAttempt": "1",
   "workflowEvent": "push",
   "steps": {
-    "checks": "success",
-    "source": "success",
-    "deep": "success",
-    "story": "success",
-    "quality": "success",
-    "claims": "success"
+    "checks": "failure",
+    "source": "skipped",
+    "deep": "skipped",
+    "story": "skipped",
+    "quality": "skipped",
+    "claims": "skipped",
+    "desk": "skipped"
   },
   "datasets": {
     "source": {
       "path": "digests/patent_hunt_latest.json",
       "exists": true,
       "generatedAt": "2026-10-13T09:04:08+09:00",
-      "consistent": true,
+      "consistent": false,
       "complete": true,
       "validCompanies": 24,
       "checkedCompanies": 24,
@@ -26,13 +27,13 @@
       "path": "digests/patent_deep_latest.json",
       "exists": true,
       "generatedAt": "2026-10-13T09:04:56+09:00",
-      "consistent": true
+      "consistent": false
     },
     "story": {
       "path": "digests/patent_story_latest.json",
       "exists": true,
       "generatedAt": "2026-10-13T09:05:08+09:00",
-      "consistent": true,
+      "consistent": false,
       "leads": 133,
       "coverageQueries": 72
     },
@@ -40,19 +41,25 @@
       "path": "digests/patent_quality_latest.json",
       "exists": true,
       "generatedAt": "2026-10-13T09:05:14+09:00",
-      "consistent": true,
-      "humanReviewedCurrentCandidates": 0
+      "consistent": false
     },
     "claims": {
       "path": "digests/patent_claim_review_latest.json",
       "exists": true,
       "generatedAt": "2026-10-13T09:05:14+09:00",
-      "consistent": true
+      "consistent": false
+    },
+    "desk": {
+      "path": "digests/patent_desk_latest.json",
+      "exists": false,
+      "generatedAt": null,
+      "consistent": false
     }
   },
-  "status": "ready",
-  "claimComparisonStatus": "ok",
-  "editorialQualityStatus": "ok",
-  "warning": "검증 완료된 같은 실행의 공식 수집·심층·기사 가설 파일",
+  "status": "degraded",
+  "claimComparisonStatus": "partial_or_missing",
+  "editorialQualityStatus": "partial_or_missing",
+  "editorialDeskStatus": "partial_or_missing",
+  "warning": "중간 오류·누락 또는 파일 갱신 미확인. 기존 데이터 유지·신규 단독 판단 금지",
   "scoopConfirmed": false
 }
