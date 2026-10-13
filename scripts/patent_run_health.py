@@ -11,13 +11,14 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 KST=timezone(timedelta(hours=9))
-STEPS=("checks","source","deep","story","quality","claims")
+STEPS=("checks","source","deep","story","quality","claims","desk")
 ARTIFACTS={
     "source":"digests/patent_hunt_latest.json",
     "deep":"digests/patent_deep_latest.json",
     "story":"digests/patent_story_latest.json",
     "quality":"digests/patent_quality_latest.json",
     "claims":"digests/patent_claim_review_latest.json",
+    "desk":"digests/patent_desk_latest.json",
 }
 
 
@@ -82,8 +83,20 @@ def audit(outcomes,root=Path("."),now=None):
                                           c.get("deepDatasetGeneratedAt")==deep)
         except (OSError,ValueError):
             pass
+    if statuses["desk"]=="success" and source and deep and data["story"]["generatedAt"]:
+        try:
+            d=json.loads((root/ARTIFACTS["desk"]).read_text(encoding="utf-8"))
+            data["desk"]["consistent"]=(
+                d.get("officialSourceGeneratedAt")==source
+                and d.get("deepSourceGeneratedAt")==deep
+                and d.get("storySourceGeneratedAt")==data["story"]["generatedAt"]
+                and d.get("candidateCount") is not None)
+            data["desk"]["shortlistCount"]=d.get("shortlistCount")
+            data["desk"]["publicationReady"]=d.get("publicationReady")
+        except (OSError,ValueError):
+            pass
     ready=(statuses["checks"]=="success" and
-           all(data[k]["consistent"] for k in ("source","deep","story","quality")))
+           all(data[k]["consistent"] for k in ("source","deep","story","quality","desk")))
     return {
         "generatedAt":now.isoformat(timespec="seconds"),
         "workflowRunId":os.environ.get("GITHUB_RUN_ID","")[:32],
@@ -94,6 +107,7 @@ def audit(outcomes,root=Path("."),now=None):
         "status":"ready" if ready else "degraded",
         "claimComparisonStatus":"ok" if data["claims"]["consistent"] else "partial_or_missing",
         "editorialQualityStatus":"ok" if data["quality"]["consistent"] else "partial_or_missing",
+        "editorialDeskStatus":"ok" if data["desk"]["consistent"] else "partial_or_missing",
         "warning":("검증 완료된 같은 실행의 공식 수집·심층·기사 가설 파일" if ready else
                    "중간 오류·누락 또는 파일 갱신 미확인. 기존 데이터 유지·신규 단독 판단 금지"),
         "scoopConfirmed":False,

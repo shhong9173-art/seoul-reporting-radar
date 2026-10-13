@@ -38,6 +38,12 @@ class HealthTests(unittest.TestCase):
             "officialSourceGeneratedAt":"2026-10-13T09:00:00+09:00",
             "storySourceGeneratedAt":"2026-10-13T09:02:00+09:00",
             "humanReviewedCurrentCandidates":0})
+        snap(self.root,"patent_desk_latest.json",{
+            "generatedAt":"2026-10-13T09:02:45+09:00",
+            "officialSourceGeneratedAt":"2026-10-13T09:00:00+09:00",
+            "deepSourceGeneratedAt":"2026-10-13T09:01:00+09:00",
+            "storySourceGeneratedAt":"2026-10-13T09:02:00+09:00",
+            "candidateCount":12,"shortlistCount":4,"publicationReady":0})
         snap(self.root,"patent_claim_review_latest.json",{
             "generatedAt":"2026-10-13T09:02:30+09:00",
             "patentDatasetGeneratedAt":"2026-10-13T09:00:00+09:00",
@@ -62,6 +68,23 @@ class HealthTests(unittest.TestCase):
         self.assertEqual(x["status"],"degraded")
         self.assertFalse(x["datasets"]["story"]["exists"])
         self.assertIsNone(x["datasets"]["story"]["generatedAt"])
+    def test_missing_desk_shortlist_makes_pipeline_degraded(self):
+        (self.root/"digests/patent_desk_latest.json").unlink()
+        x=p.audit(dict.fromkeys(p.STEPS,"success"),root=self.root)
+        self.assertEqual(x["status"],"degraded")
+        self.assertEqual(x["editorialDeskStatus"],"partial_or_missing")
+
+    def test_desk_provenance_mismatch_stays_degraded(self):
+        snap(self.root,"patent_desk_latest.json",{
+            "generatedAt":"2026-10-13T09:02:45+09:00",
+            "officialSourceGeneratedAt":"2026-10-12T09:00:00+09:00",
+            "deepSourceGeneratedAt":"2026-10-13T09:01:00+09:00",
+            "storySourceGeneratedAt":"2026-10-13T09:02:00+09:00",
+            "candidateCount":12})
+        x=p.audit(dict.fromkeys(p.STEPS,"success"),root=self.root)
+        self.assertFalse(x["datasets"]["desk"]["consistent"])
+        self.assertEqual(x["status"],"degraded")
+
     def test_missing_quality_digest_makes_pipeline_degraded(self):
         (self.root/"digests/patent_quality_latest.json").unlink()
         x=p.audit(dict.fromkeys(p.STEPS,"success"),root=self.root)

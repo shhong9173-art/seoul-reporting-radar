@@ -23,6 +23,11 @@ ul{padding-left:20px}
 <p id="patent-status" class="status">KIPRISPlus 공식 특허 API 연결과 마지막 갱신 상태 확인 중</p>
 <p id="patent-health-status" class="status">마지막 GitHub Actions 수집 실행 상태 확인 중</p>
 <a href="https://github.com/shhong9173-art/seoul-reporting-radar/actions/workflows/kipris-patent-hunt.yml" target="_blank" rel="noopener noreferrer">특허 수집 실행 기록 보기</a>
+<section><h2>공식 특허·언론·청구항 통합 검토 — 취재 우선 5건</h2>
+<p class="dim">기사 작성 허가나 단독 판정이 아닌 취재 순서입니다. 수집된 35일 공개특허, 과거 동일 제목 검색, 청구항 제1항 검증, 언론 RSS 제목을 한 번에 비교합니다. 회사 답변·실제 적용·청구범위 신규성·미보도 여부는 별도 검증 대상입니다.</p>
+<p id="patent-desk-status" class="status">공식 근거 교차 대조와 취재 후보 확인 중</p>
+<div id="patent-desk-cards"></div>
+</section>
 <section><h2>기자 평가 기반 특허 취재 품질</h2>
 <p class="dim">적중률과 오분류율은 실제 기자 검토 표본이 있어야 계산합니다. 기존 기사 재현은 사전 단독 발견의 증거가 아닙니다.</p>
 <p id="patent-quality-status" class="status">평가 자료 확인 중</p>
@@ -54,6 +59,80 @@ ul{padding-left:20px}
   각 후보의 공개번호를 KIPRIS에 입력해 청구항·도면·권리 상태를 다시 확인해.
   API 키는 GitHub Secrets의 <code>KIPRIS_SERVICE_KEY</code>에 별도로 등록해야 해. 관세청 API 키와 같다고 가정하지 않아.
 </div></main>
+<script>
+(async function(){
+"use strict";
+const status=document.querySelector("#patent-desk-status");
+const host=document.querySelector("#patent-desk-cards");
+function elt(tag,value,cls){
+ const node=document.createElement(tag);
+ node.textContent=String(value??"");
+ if(cls)node.className=cls;
+ return node;
+}
+function evidenceLink(box,url,title){
+ try{
+   const link=new URL(url);
+   if(link.protocol!=="https:"||link.hostname!=="news.google.com")return;
+   const a=elt("a",title,"source");
+   a.href=link.href;a.target="_blank";a.rel="noopener noreferrer";
+   box.append(a);
+ }catch(error){}
+}
+try{
+ const paths=["digests/patent_desk_latest.json","digests/patent_hunt_latest.json",
+              "digests/patent_deep_latest.json","digests/patent_story_latest.json"];
+ const responses=await Promise.all(paths.map(path=>fetch(path,{cache:"no-store"})));
+ if(responses.some(x=>!x.ok))throw Error("통합 취재 검토 데이터 또는 원문 스냅샷 미생성");
+ const [desk,official,deep,story]=await Promise.all(responses.map(x=>x.json()));
+ if(desk.officialSourceGeneratedAt!==official.generatedAt||
+    desk.deepSourceGeneratedAt!==deep.generatedAt||
+    desk.storySourceGeneratedAt!==story.generatedAt||
+    !Array.isArray(desk.shortlist))throw Error("공식 원문·뉴스·데스킹 스냅샷 시점 불일치");
+ status.textContent=desk.generatedAt+" · 취재 검토 "+desk.candidateCount+
+  "건 · 기사 검색 시도 "+desk.newsSearched+"건 · 청구항 검증 "+desk.claim1Checked+
+  "건 · 과거 동일 제목 조회 "+desk.historyTitleSearched+"건 · 우선 취재 "+
+  desk.shortlistCount+"건 · 단독 확정 "+desk.confirmedScoops+
+  "건 · 출고 승인 "+desk.publicationReady+"건";
+ if(!desk.shortlist.length)
+  host.append(elt("p","언론 검색·기보도 위험 점검을 통과한 우선 검토 후보 없음. 미조회 특허를 단독이 없다고 판단하지 않습니다.","notice"));
+ for(const [index,item] of desk.shortlist.entries()){
+   const card=elt("article",null,"card");
+   card.append(elt("span","취재 우선 "+(index+1)+"순위 · 근거 점수 "+
+         item.evidencePriorityScore+" (단독 가능성 아님)","tag"));
+   card.append(elt("h3",item.reportingTitleDraft||item.title));
+   card.append(elt("p","공개번호 "+item.publicationNumber+
+     " · 공개일 "+item.publicationDate+" · 기술 주제 "+item.topic,"dim"));
+   card.append(elt("p","공식 초록 근거: "+(item.sourceAbstractExcerpt||"미확인"),"question"));
+   const press=item.mediaReview||{};
+   card.append(elt("p","기보도 기사 색인 점검: "+(press.state||"미확인")+
+     " · 검색된 기사 "+(press.hits??0)+"건 · 원문 동일 여부 미확정","status"));
+   for(const article of (press.articleEvidence||[])){
+      card.append(elt("p","기사 제목 대조: "+article.headline+
+        " · "+article.headlineRelation+" · 동일 기사 내용 미확정","dim"));
+      evidenceLink(card,article.url,"관련 색인 기사 열어보기");
+   }
+   const old=item.olderSameTitle||{};
+   card.append(elt("p","2023년 이후 제한적 동일 제목 조회: "+(old.status||"미조회")+
+      " · 기존 공보 "+(old.matches||[]).length+"건","dim"));
+   for(const previous of (item.priorWithin35Days||[]))
+      card.append(elt("p","35일 공개공보 유사 제목: "+previous.publicationNumber+
+        " · "+previous.title+" · 문자열 유사도 "+previous.titleSimilarity+
+        " (특허 신규성 판단 아님)","question"));
+   const claim=item.claim1Review||{};
+   card.append(elt("p","공식 청구항 제1항: "+(claim.state||"미확인")+
+     (claim.claim1Excerpt?" · "+claim.claim1Excerpt:"")+
+     " · 신규성·사업화 별도 확인","scope"));
+   card.append(elt("p","취재 상태: "+item.deskStatus+
+      " · 회사 답변·출시·단독 확정하지 않음","status"));
+   for(const q of (item.questions||[]))
+      card.append(elt("p","기업 취재 확인: "+q,"question"));
+   host.append(card);
+ }
+}catch(error){status.textContent="통합 후보 확인 실패: "+error.message+
+  " · 미수집/검증 오류를 단독 후보 0건으로 해석 금지"}
+})();
+</script>
 <script>
 (async function(){
 "use strict";
