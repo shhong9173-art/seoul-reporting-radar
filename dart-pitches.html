@@ -21,12 +21,14 @@ function valid(url){return typeof url==="string"&&/^https:\/\/dart\.fss\.or\.kr\
 try{
  const r=await fetch("digests/dart_editorial_desk_latest.json",{cache:"no-store"});
  if(!r.ok)throw Error("자료 미생성");
- const data=await r.json();if(!Array.isArray(data.shortlist)||data.confirmedScoops!==0||!data.sourceGeneratedAt)throw Error("검증되지 않은 발제");
+ const data=await r.json();if(!Array.isArray(data.shortlist)||!Array.isArray(data.researchArchive)||data.confirmedScoops!==0||!data.sourceGeneratedAt)throw Error("검증되지 않은 발제");
  document.querySelector("#status").textContent="검증된 비교 항목 "+data.numericChangesVerified+
-  "건 · 발제 검토 "+data.shortlist.length+"건 · 산출 "+data.generatedAt+
+  "건 · 최근 3일 신규 공시상 발제 검토 "+data.shortlist.length+"건 · 과거자료 후속 "+data.researchArchive.length+"건 · 산출 "+data.generatedAt+
   " · 기업 답변·기보도 미확인";
- for(const row of data.shortlist){
-  const card=el("article");card.append(el("h3",row.pitchTitle));
+ for(const row of [...data.shortlist,...data.researchArchive]){
+  const card=el("article");
+  card.append(el("small",row.freshDisclosureWithin3Days?"최근 3일 공시 · 취재 검토":"과거 공개 공시("+row.officialFilingDate+") · 오늘 신규 이슈 아님"));
+  card.append(el("h3",row.pitchTitle));
   card.append(el("p","공시 비교기간: "+row.sourcePeriod+" · "+
       row.unit+" · "+row.unitInterpretation+" · 단독 미확인"));
   const draft=el("textarea");
