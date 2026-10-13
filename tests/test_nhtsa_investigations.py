@@ -22,7 +22,7 @@ class Tests(unittest.TestCase):
         import io,zipfile
         holder=io.BytesIO()
         with zipfile.ZipFile(holder,"w",compression=zipfile.ZIP_DEFLATED) as z:
-            z.writestr("FLAT_INV.txt","\\n".join([
+            z.writestr("FLAT_INV.txt","\n".join([
                 rec("PE26-100"),rec("PE26-101","KIA")]))
         parsed=n.parse_zip_data(holder.getvalue(),now=NOW)
         self.assertEqual(parsed["scannedRecords"],2)
