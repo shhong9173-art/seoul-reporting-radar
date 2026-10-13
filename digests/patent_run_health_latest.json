@@ -1,23 +1,23 @@
 {
-  "generatedAt": "2026-10-13T09:39:19+09:00",
-  "workflowRunId": "38328290001",
+  "generatedAt": "2026-10-13T09:42:45+09:00",
+  "workflowRunId": "38328453837",
   "workflowAttempt": "1",
   "workflowEvent": "push",
   "steps": {
-    "checks": "failure",
-    "source": "skipped",
-    "deep": "skipped",
-    "story": "skipped",
-    "quality": "skipped",
-    "claims": "skipped",
-    "desk": "skipped"
+    "checks": "success",
+    "source": "success",
+    "deep": "success",
+    "story": "success",
+    "quality": "success",
+    "claims": "success",
+    "desk": "success"
   },
   "datasets": {
     "source": {
       "path": "digests/patent_hunt_latest.json",
       "exists": true,
-      "generatedAt": "2026-10-13T09:04:08+09:00",
-      "consistent": false,
+      "generatedAt": "2026-10-13T09:41:26+09:00",
+      "consistent": true,
       "complete": true,
       "validCompanies": 24,
       "checkedCompanies": 24,
@@ -26,40 +26,43 @@
     "deep": {
       "path": "digests/patent_deep_latest.json",
       "exists": true,
-      "generatedAt": "2026-10-13T09:04:56+09:00",
-      "consistent": false
+      "generatedAt": "2026-10-13T09:42:11+09:00",
+      "consistent": true
     },
     "story": {
       "path": "digests/patent_story_latest.json",
       "exists": true,
-      "generatedAt": "2026-10-13T09:05:08+09:00",
-      "consistent": false,
+      "generatedAt": "2026-10-13T09:42:22+09:00",
+      "consistent": true,
       "leads": 133,
-      "coverageQueries": 72
+      "coverageQueries": 96
     },
     "quality": {
       "path": "digests/patent_quality_latest.json",
       "exists": true,
-      "generatedAt": "2026-10-13T09:05:14+09:00",
-      "consistent": false
+      "generatedAt": "2026-10-13T09:42:28+09:00",
+      "consistent": true,
+      "humanReviewedCurrentCandidates": 0
     },
     "claims": {
       "path": "digests/patent_claim_review_latest.json",
       "exists": true,
-      "generatedAt": "2026-10-13T09:05:14+09:00",
-      "consistent": false
+      "generatedAt": "2026-10-13T09:42:28+09:00",
+      "consistent": true
     },
     "desk": {
       "path": "digests/patent_desk_latest.json",
-      "exists": false,
-      "generatedAt": null,
-      "consistent": false
+      "exists": true,
+      "generatedAt": "2026-10-13T09:42:43+09:00",
+      "consistent": true,
+      "shortlistCount": 5,
+      "publicationReady": 0
     }
   },
-  "status": "degraded",
-  "claimComparisonStatus": "partial_or_missing",
-  "editorialQualityStatus": "partial_or_missing",
-  "editorialDeskStatus": "partial_or_missing",
-  "warning": "중간 오류·누락 또는 파일 갱신 미확인. 기존 데이터 유지·신규 단독 판단 금지",
+  "status": "ready",
+  "claimComparisonStatus": "ok",
+  "editorialQualityStatus": "ok",
+  "editorialDeskStatus": "ok",
+  "warning": "검증 완료된 같은 실행의 공식 수집·심층·기사 가설 파일",
   "scoopConfirmed": false
 }

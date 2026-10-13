@@ -1,17 +1,17 @@
 {
-  "generatedAt": "2026-10-13T09:05:08+09:00",
-  "officialSourceGeneratedAt": "2026-10-13T09:04:08+09:00",
-  "deepSourceGeneratedAt": "2026-10-13T09:04:56+09:00",
+  "generatedAt": "2026-10-13T09:42:22+09:00",
+  "officialSourceGeneratedAt": "2026-10-13T09:41:26+09:00",
+  "deepSourceGeneratedAt": "2026-10-13T09:42:11+09:00",
   "sourceWindow": "20260908~20261013",
   "sourceWindowComplete": true,
   "allVerifiedPublications": 493,
   "unclassifiedVerifiedRecords": 362,
   "possibleResearchLeads": 133,
   "outsidePartnerLeads": 82,
-  "mediaQueriesCompleted": 72,
+  "mediaQueriesCompleted": 96,
   "mediaQueriesThisRun": 24,
-  "mediaLeadsAttempted": 24,
-  "mediaLeadsNotAttempted": 109,
+  "mediaLeadsAttempted": 32,
+  "mediaLeadsNotAttempted": 101,
   "mediaAttemptedThisRun": 8,
   "rejectedConflictPublications": [],
   "investigations": [
@@ -1728,10 +1728,47 @@
       "historicalBackfill": false,
       "publicationSource": "KIPRISPlus 공식 특허 공개공보 API",
       "pressCoverage": {
-        "status": "미조회 · 미보도 확정 불가"
+        "status": "관련 검색 기사 발견 · 동일 기술/기보도 여부 원문 대조 필요",
+        "queries": [
+          {
+            "query": "\"1020260143325\"",
+            "status": "no_hits",
+            "articles": []
+          },
+          {
+            "query": "\"배터리\" 카펙발레오",
+            "status": "hits",
+            "articles": [
+              {
+                "title": "전기차 배터리 시스템 전문기업 카펙발레오, 1600억원 투자해 영천하이테크파크지구에 신규 생산라인 구축 - 전자신문",
+                "url": "https://news.google.com/rss/articles/CBMiTkFVX3lxTE1yTGNGZFB4QVF2MWlfbEI5NG0wc296a09lVFRTaXdiS0IyOGRoRE1kZjlKZXJQUzdmOEtkc1FqbUVpajFXYTVWNlJFaWRfUQ?oc=5",
+                "publishedAt": "Mon, 07 Jul 2025 07:00:00 GMT"
+              },
+              {
+                "title": "㈜카펙발레오, 영천하이테크파크 지구에 대규모 투자 단행 - 데일리대구경북뉴스",
+                "url": "https://news.google.com/rss/articles/CBMiZkFVX3lxTFBGaHNZeGZPRWYwSkpKYVo5MUdHUGl0U3lFWExzY2kwYnRPcThsdDd3RnhyXzBFbmpwcWJyX3dscTJZOWdJMTZWLWxXT19iWGFzam1ENExJZjVmNmZpYWhrYWhiR2JkUQ?oc=5",
+                "publishedAt": "Tue, 08 Jul 2025 07:00:00 GMT"
+              },
+              {
+                "title": "카펙발레오, 경북 영천에 대규모 전기차 배터리시스템 생산라인 구축 - 인더스트리뉴스",
+                "url": "https://news.google.com/rss/articles/CBMickFVX3lxTE82bTBoY3JROHFYQksydWhNcVUtUUwzajhOMURtRnZESGpPeUx6ZE9SZGl4d2NfUXpZSjFNVkNtanIyeTVocm94eS1rUHZHZjJCcVV3ZVhwcWtyMklqVmd3dGxaYjI4SDg4VjVqVldWa01XZw?oc=5",
+                "publishedAt": "Mon, 07 Jul 2025 07:00:00 GMT"
+              }
+            ]
+          },
+          {
+            "query": "현대차 카펙발레오 배터리 냉각 특허",
+            "status": "no_hits",
+            "articles": []
+          }
+        ],
+        "possibleEarlierCoverage": true,
+        "completeSearch": true,
+        "scoopConfirmed": false
       },
       "scoopConfirmed": false,
-      "status": "기사 가설 · 실제 성과/출시/단독 미확인"
+      "status": "기보도 가능성 · 원문 기사 대조 먼저",
+      "pressCheckedAt": "2026-10-13T09:42:22+09:00"
     },
     {
       "publicationNumber": "1020260141185",
@@ -1772,10 +1809,31 @@
       "historicalBackfill": false,
       "publicationSource": "KIPRISPlus 공식 특허 공개공보 API",
       "pressCoverage": {
-        "status": "미조회 · 미보도 확정 불가"
+        "status": "검색 미발견 · 미보도 증명 아님",
+        "queries": [
+          {
+            "query": "\"1020260141185\"",
+            "status": "no_hits",
+            "articles": []
+          },
+          {
+            "query": "\"방열 조성물, 이를 적용한 절연-방열체 및 구조\" 이엔플러스",
+            "status": "no_hits",
+            "articles": []
+          },
+          {
+            "query": "현대차 이엔플러스 수소 특허",
+            "status": "no_hits",
+            "articles": []
+          }
+        ],
+        "possibleEarlierCoverage": false,
+        "completeSearch": true,
+        "scoopConfirmed": false
       },
       "scoopConfirmed": false,
-      "status": "기사 가설 · 실제 성과/출시/단독 미확인"
+      "status": "기사 가설 · 실제 성과/출시/단독 미확인",
+      "pressCheckedAt": "2026-10-13T09:42:22+09:00"
     },
     {
       "publicationNumber": "1020260141249",
@@ -1816,10 +1874,37 @@
       "historicalBackfill": false,
       "publicationSource": "KIPRISPlus 공식 특허 공개공보 API",
       "pressCoverage": {
-        "status": "미조회 · 미보도 확정 불가"
+        "status": "관련 검색 기사 발견 · 동일 기술/기보도 여부 원문 대조 필요",
+        "queries": [
+          {
+            "query": "\"1020260141249\"",
+            "status": "no_hits",
+            "articles": []
+          },
+          {
+            "query": "\"태양전지 모듈 제조 방법\" 솔라스틱",
+            "status": "no_hits",
+            "articles": []
+          },
+          {
+            "query": "현대차 솔라스틱 특허",
+            "status": "hits",
+            "articles": [
+              {
+                "title": "현대차 ‘솔라스틱 바디’: 차체 일체형 태양광으로 EV 자립성·주행거리 대폭 강화 전격 공개 - SpeedMe.ru",
+                "url": "https://news.google.com/rss/articles/CBMi7AFBVV95cUxNQXBWdjNlb0p1ajJOMUZPeGRfQXhYdEVJQXd0N3dxWDFtb1phV01sQzlscG5sNU5yeXVRcGVGSkZjQjNJT0lOdC1OaFRUUUp0MTk2MVRYZG5hZHB6dWpvTkQ2cVcydmxRTXA2RGo3enNpZzYxZFFWbF9CeGk2Tm9laFBLSl9vRG1yYU1OSWF6WWlyRE5TUXhjUmE5U3FMaklIVnQ3TUhOMzNNQzhERHFZRmRyN2d2SWRyNm5lWWRBVDZoZFdSaWI4TUp4WmNidXRodVhxWlVlc2lJbTlFa29lOWpvbmg3VFZaek9LZNIB8AFBVV95cUxQanBUb3F1eVNjX1hSUk43bTBLenFZX2Y4SGthaVhfNWRQaXFkZW5yRnl1ZW9Sb3dua1FPQ3l0TG9sRzljUjFSaEpjNDdBQVNLMDVTU1EzWVNpdVdtVFpsb25FTmdQZHpXQUdmSDJtRk0xdHlXNE9ueW5QNUx5OTBYcGxjcVB6MWpjUm9tUW8tcDdzWDlUdUFTelR0SDBNQ2RZS1hMdUg3RlFaRnlrZTNwZjlCWFZEOVdNbF9pV0ZYN2tzVzVSenJfcWdHdlowQV9MNE83UTBrbXNBZ2FzSXFUb0I3dy0xel9kZ1RUampPaHk?oc=5",
+                "publishedAt": "Sun, 11 Jan 2026 08:00:00 GMT"
+              }
+            ]
+          }
+        ],
+        "possibleEarlierCoverage": true,
+        "completeSearch": true,
+        "scoopConfirmed": false
       },
       "scoopConfirmed": false,
-      "status": "기사 가설 · 실제 성과/출시/단독 미확인"
+      "status": "기보도 가능성 · 원문 기사 대조 먼저",
+      "pressCheckedAt": "2026-10-13T09:42:22+09:00"
     },
     {
       "publicationNumber": "1020260141812",
@@ -1862,10 +1947,42 @@
       "historicalBackfill": false,
       "publicationSource": "KIPRISPlus 공식 특허 공개공보 API",
       "pressCoverage": {
-        "status": "미조회 · 미보도 확정 불가"
+        "status": "관련 검색 기사 발견 · 동일 기술/기보도 여부 원문 대조 필요",
+        "queries": [
+          {
+            "query": "\"1020260141812\"",
+            "status": "no_hits",
+            "articles": []
+          },
+          {
+            "query": "\"연료 전지 장치 및 그의 제어 방법\" 영화테크",
+            "status": "no_hits",
+            "articles": []
+          },
+          {
+            "query": "현대차 영화테크 배터리 특허",
+            "status": "hits",
+            "articles": [
+              {
+                "title": "[투자분석] 영화테크, 전기차 시장에 기대감…GM, 현대차 등이 고객사 - 디지털데일리",
+                "url": "https://news.google.com/rss/articles/CBMiYkFVX3lxTE9kR1pGZ0Z5eGttZUhhOVJzQXJvX0J0NkREaThzUjJNcXAzOEpacmJpR2lvT3JzcjdxaWxJd00tYkNNNkZyNVc2U0g3bTZ1R2FNdG5STGo1X1drN3FoU2J3WUxR?oc=5",
+                "publishedAt": "Fri, 13 Oct 2017 07:00:00 GMT"
+              },
+              {
+                "title": "영화테크, 정의선 “전기차 글로벌 리더”…전기차 전력변환 1위 기술력 보유↑ - 서울경제TV",
+                "url": "https://news.google.com/rss/articles/CBMiZEFVX3lxTE92WFNkLTJkQkZvVjhUTDdVdW5hTFlUTy0wTERpZXZUb3NSWGF6TGc2Q3ZuZWRJMnQ2UVBhb3kza2hOendQQzVyOWFMLXRFdy0tcTJsNHNJTWRORlBkNEFBYk93Rkg?oc=5",
+                "publishedAt": "Wed, 15 Jul 2020 07:00:00 GMT"
+              }
+            ]
+          }
+        ],
+        "possibleEarlierCoverage": true,
+        "completeSearch": true,
+        "scoopConfirmed": false
       },
       "scoopConfirmed": false,
-      "status": "기사 가설 · 실제 성과/출시/단독 미확인"
+      "status": "기보도 가능성 · 원문 기사 대조 먼저",
+      "pressCheckedAt": "2026-10-13T09:42:22+09:00"
     },
     {
       "publicationNumber": "1020260142423",
@@ -1906,10 +2023,31 @@
       "historicalBackfill": false,
       "publicationSource": "KIPRISPlus 공식 특허 공개공보 API",
       "pressCoverage": {
-        "status": "미조회 · 미보도 확정 불가"
+        "status": "검색 미발견 · 미보도 증명 아님",
+        "queries": [
+          {
+            "query": "\"1020260142423\"",
+            "status": "no_hits",
+            "articles": []
+          },
+          {
+            "query": "\"열경화성 수지 조성물 및 이의 제조방법\" 서울대학교",
+            "status": "no_hits",
+            "articles": []
+          },
+          {
+            "query": "현대차 서울대학교 폴리우레탄 특허",
+            "status": "no_hits",
+            "articles": []
+          }
+        ],
+        "possibleEarlierCoverage": false,
+        "completeSearch": true,
+        "scoopConfirmed": false
       },
       "scoopConfirmed": false,
-      "status": "기사 가설 · 실제 성과/출시/단독 미확인"
+      "status": "기사 가설 · 실제 성과/출시/단독 미확인",
+      "pressCheckedAt": "2026-10-13T09:42:22+09:00"
     },
     {
       "publicationNumber": "1020260142525",
@@ -1951,10 +2089,42 @@
       "historicalBackfill": false,
       "publicationSource": "KIPRISPlus 공식 특허 공개공보 API",
       "pressCoverage": {
-        "status": "미조회 · 미보도 확정 불가"
+        "status": "관련 검색 기사 발견 · 동일 기술/기보도 여부 원문 대조 필요",
+        "queries": [
+          {
+            "query": "\"1020260142525\"",
+            "status": "no_hits",
+            "articles": []
+          },
+          {
+            "query": "\"선택적 광투과성을 가진 메타렌즈 및 이를 포함하는 자율주행용 센서\" 부산대학교",
+            "status": "no_hits",
+            "articles": []
+          },
+          {
+            "query": "현대차 부산대학교 자율주행 특허",
+            "status": "hits",
+            "articles": [
+              {
+                "title": "부산대 자율주행차의 눈 ‘라이다’ 연구 성우하이텍 첨단산업 분야 기술이전 성공 - 부산일보",
+                "url": "https://news.google.com/rss/articles/CBMidEFVX3lxTE42NTZWQ0g0TUM2ejJNUktPNTBTWlQ2VHdqMUN5M3RuNFZEazhrWGttU1BJS0dhbGVZd1ctSlVWeS1JZm5IUUxpdU1INVE2aHNhRkRMSmpJRDI4emlPVDdlenJMUWs3QVY2LUlSbUhRQ0t6bFZX?oc=5",
+                "publishedAt": "Thu, 21 Sep 2023 07:00:00 GMT"
+              },
+              {
+                "title": "현대차·기아, 사내 ‘발명의 날’ 행사...특허 출원 독려 - 인더뉴스",
+                "url": "https://news.google.com/rss/articles/CBMiX0FVX3lxTE8wWm53OFpFYzFLRnJTaU5JekZrWjdSTGZnZlhiM3laaUJSYUhVU0hMUnNFVE1DNjVlUmVMbmZpZUFyR3ljSmdZa3h6NFlEcTJ0azc4VEk3X3UtN1NMQVhj?oc=5",
+                "publishedAt": "Mon, 24 May 2021 07:00:00 GMT"
+              }
+            ]
+          }
+        ],
+        "possibleEarlierCoverage": true,
+        "completeSearch": true,
+        "scoopConfirmed": false
       },
       "scoopConfirmed": false,
-      "status": "기사 가설 · 실제 성과/출시/단독 미확인"
+      "status": "기보도 가능성 · 원문 기사 대조 먼저",
+      "pressCheckedAt": "2026-10-13T09:42:22+09:00"
     },
     {
       "publicationNumber": "1020260146861",
@@ -1995,10 +2165,31 @@
       "historicalBackfill": false,
       "publicationSource": "KIPRISPlus 공식 특허 공개공보 API",
       "pressCoverage": {
-        "status": "미조회 · 미보도 확정 불가"
+        "status": "검색 미발견 · 미보도 증명 아님",
+        "queries": [
+          {
+            "query": "\"1020260146861\"",
+            "status": "no_hits",
+            "articles": []
+          },
+          {
+            "query": "\"플로어 카페트 및 이를 포함하는 차량\" 동진이공",
+            "status": "no_hits",
+            "articles": []
+          },
+          {
+            "query": "현대차 동진이공 특허",
+            "status": "no_hits",
+            "articles": []
+          }
+        ],
+        "possibleEarlierCoverage": false,
+        "completeSearch": true,
+        "scoopConfirmed": false
       },
       "scoopConfirmed": false,
-      "status": "기사 가설 · 실제 성과/출시/단독 미확인"
+      "status": "기사 가설 · 실제 성과/출시/단독 미확인",
+      "pressCheckedAt": "2026-10-13T09:42:22+09:00"
     },
     {
       "publicationNumber": "1020260144616",
@@ -2039,10 +2230,47 @@
       "historicalBackfill": false,
       "publicationSource": "KIPRISPlus 공식 특허 공개공보 API",
       "pressCoverage": {
-        "status": "미조회 · 미보도 확정 불가"
+        "status": "관련 검색 기사 발견 · 동일 기술/기보도 여부 원문 대조 필요",
+        "queries": [
+          {
+            "query": "\"1020260144616\"",
+            "status": "no_hits",
+            "articles": []
+          },
+          {
+            "query": "\"전단 시험 장치\" 한양대학교",
+            "status": "no_hits",
+            "articles": []
+          },
+          {
+            "query": "현대차 한양대학교 특허",
+            "status": "hits",
+            "articles": [
+              {
+                "title": "\"자율주행 특허 절반이 중국\"... 자동차가 아니라 `AI 두뇌` 전쟁이 시작됐다 - 특허뉴스",
+                "url": "https://news.google.com/rss/articles/CBMiSEFVX3lxTE1CWHRobGJoYy1Ea2t0Mnl0c2liZ09DTUpZN1dlU01FTDJ1aWtFb2x6MkFyaVhmbXEtN0xTYlY0Mm1nVUN5SVdFMQ?oc=5",
+                "publishedAt": "Tue, 04 Aug 2026 07:00:00 GMT"
+              },
+              {
+                "title": "[현대차 레이더] 현대차그룹, 휴머노이드부터 캐릭터 UX·특허 혁신까지 - 더밸류뉴스",
+                "url": "https://news.google.com/rss/articles/CBMiVEFVX3lxTE0tNGd1OUZ1N3JObV9nWklLX3IwWVdSSlVrZzQydGxNVXNYc1lob2czcWJiYWx1MzlWX29ha2U1QkRTVHNJU3dDa3lrMHJONEY0MjhVOA?oc=5",
+                "publishedAt": "Tue, 19 May 2026 07:00:00 GMT"
+              },
+              {
+                "title": "[이주의 모빌리티] 현대차그룹, 화성시 '안전한국훈련' 참가 外 - 딜사이트",
+                "url": "https://news.google.com/rss/articles/CBMiT0FVX3lxTFBmUHAxYjlXWWZDN0R0c3BDdkM2LXFPcWtqTTF6a2M1ZXFvbzBZd19kWENnNG9YWFVpdHpIajVuMXc4X2VWRGJDYUt0REtLbFU?oc=5",
+                "publishedAt": "Fri, 22 May 2026 07:00:00 GMT"
+              }
+            ]
+          }
+        ],
+        "possibleEarlierCoverage": true,
+        "completeSearch": true,
+        "scoopConfirmed": false
       },
       "scoopConfirmed": false,
-      "status": "기사 가설 · 실제 성과/출시/단독 미확인"
+      "status": "기보도 가능성 · 원문 기사 대조 먼저",
+      "pressCheckedAt": "2026-10-13T09:42:22+09:00"
     },
     {
       "publicationNumber": "1020260145303",
