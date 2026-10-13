@@ -12,10 +12,11 @@ assert(page.includes('src="pitch-format.js"'));
 assert(home.includes('href="patent-pitches.html"'));
 assert(patents.includes('href="patent-pitches.html"'));
 assert(!page.includes("innerHTML"));
+assert(code.includes("companyResponsesVerified"),"source guard belongs to pitch-format.js");
 assert.equal([...page.matchAll(/<script>/g)].length,1);
 for(const match of page.matchAll(/<script>([\s\S]*?)<\/script>/g))new Function(match[1]);
 for(const token of ["btn-copy-all","btn-refresh-time","pitch-cards","pitch-status","navigator.clipboard","aria-label",
- "patent_run_health_latest.json","companyResponsesVerified","publicationReady","수정"])assert(page.includes(token),token);
+ "patent_run_health_latest.json","publicationReady","수정"])assert(page.includes(token),token);
 const known=[
  {publicationNumber:"1020260145290",publicationDate:"20261007",title:"케이블 부착식 부분방전 센서 및 이를 포함하는 부분방전 검출 시스템",coveredCompanies:["LS전선"],outsideBeatCoApplicants:["한빛이디에스(주)"],sourceAbstractExcerpt:"배전 환경에 노이즈가 많아도 검출할 수 있고 케이블 탈부착이 용이한 구조",mediaReview:{state:"index_no_hits_not_proof"},olderSameTitle:{state:"searched_same_title_only"}},
  {publicationNumber:"1020260145560",publicationDate:"20261007",title:"상변태 기반 판재 냉각 제어 장치 및 방법",coveredCompanies:["현대제철"],outsideBeatCoApplicants:["서울대학교산학협력단"],sourceAbstractExcerpt:"판재 조직정보와 온도정보를 측정하고 냉각수 공급량을 제어",mediaReview:{state:"index_no_hits_not_proof"},olderSameTitle:{state:"searched_same_title_only"}},
