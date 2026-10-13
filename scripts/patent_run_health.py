@@ -11,7 +11,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 KST=timezone(timedelta(hours=9))
-STEPS=("checks","source","deep","story","quality","claims","desk","cross")
+STEPS=("checks","source","deep","story","quality","claims","desk","cross","triage")
 ARTIFACTS={
     "source":"digests/patent_hunt_latest.json",
     "deep":"digests/patent_deep_latest.json",
@@ -20,6 +20,7 @@ ARTIFACTS={
     "claims":"digests/patent_claim_review_latest.json",
     "desk":"digests/patent_desk_latest.json",
     "cross":"digests/patent_cross_evidence_latest.json",
+    "triage":"digests/patent_reporting_triage_latest.json",
 }
 
 
@@ -103,6 +104,15 @@ def audit(outcomes,root=Path("."),now=None):
             data["cross"]["technicalMatches"]=c.get("candidateWithSpecificTermOverlap")
         except (OSError,ValueError):
             pass
+    if statuses["triage"]=="success" and data["desk"]["generatedAt"] and data["cross"]["generatedAt"]:
+        try:
+            t=json.loads((root/ARTIFACTS["triage"]).read_text(encoding="utf-8"))
+            data["triage"]["consistent"]=(
+                t.get("deskSourceGeneratedAt")==data["desk"]["generatedAt"]
+                and t.get("crossSourceGeneratedAt")==data["cross"]["generatedAt"])
+            data["triage"]["humanFinalSample"]=t.get("finalHumanSample")
+        except (OSError,ValueError):
+            pass
     ready=(statuses["checks"]=="success" and
            all(data[k]["consistent"] for k in ("source","deep","story","quality","desk")))
     return {
@@ -117,6 +127,7 @@ def audit(outcomes,root=Path("."),now=None):
         "editorialQualityStatus":"ok" if data["quality"]["consistent"] else "partial_or_missing",
         "editorialDeskStatus":"ok" if data["desk"]["consistent"] else "partial_or_missing",
         "crossEvidenceStatus":"ok" if data["cross"]["consistent"] else "optional_partial_or_missing",
+        "editorialTriageStatus":"ok" if data["triage"]["consistent"] else "optional_partial_or_missing",
         "warning":("검증 완료된 같은 실행의 공식 수집·심층·기사 가설 파일" if ready else
                    "중간 오류·누락 또는 파일 갱신 미확인. 기존 데이터 유지·신규 단독 판단 금지"),
         "scoopConfirmed":False,
