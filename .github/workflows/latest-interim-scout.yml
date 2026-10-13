@@ -5,6 +5,8 @@ on:
     paths:
       - '.github/workflows/latest-interim-scout.yml'
       - 'scripts/recent_business_scout.py'
+      - 'scripts/business_content.py'
+      - 'dart_corp_codes.json'
   schedule:
     # Mon-Fri 07:45 Asia/Seoul = Sunday-Thursday 22:45 UTC
     - cron: '45 22 * * 0-4'
