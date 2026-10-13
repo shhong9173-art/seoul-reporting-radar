@@ -35,9 +35,13 @@ for(const row of known){
  assert(!result.includes("단독 확인"));
 }
 assert(f.title(known[0]).startsWith("LS전선·한빛이디에스"));
+assert(f.points(known[0])[0].includes("한빛이디에스가 공동출원인"));
+assert(f.points(known[2])[0].includes("나우가 공동출원인"));
+assert(f.title(known[1]).includes("현대제철·서울대"));
 assert(f.title(known[1]).includes("판재 냉각"));
 assert(f.title(known[2]).includes("압력용기"));
 assert(f.title(known[3]).includes("휠체어"));
+assert(f.title(known[4]).includes("중앙대"));
 assert(f.title(known[4]).includes("고정자"));
 const kst=f.kstTime(new Date("2026-10-13T02:33:00.000Z"));
 assert.equal(kst,"11:33");
