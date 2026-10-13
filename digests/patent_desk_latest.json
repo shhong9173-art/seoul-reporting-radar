@@ -1,12 +1,12 @@
 {
-  "generatedAt": "2026-10-13T09:53:26+09:00",
-  "officialSourceGeneratedAt": "2026-10-13T09:47:10+09:00",
-  "deepSourceGeneratedAt": "2026-10-13T09:48:35+09:00",
-  "storySourceGeneratedAt": "2026-10-13T09:48:49+09:00",
-  "claimSourceGeneratedAt": "2026-10-13T09:51:30+09:00",
+  "generatedAt": "2026-10-13T11:40:56+09:00",
+  "officialSourceGeneratedAt": "2026-10-13T11:39:41+09:00",
+  "deepSourceGeneratedAt": "2026-10-13T11:40:24+09:00",
+  "storySourceGeneratedAt": "2026-10-13T11:40:34+09:00",
+  "claimSourceGeneratedAt": "2026-10-13T11:40:40+09:00",
   "claimSnapshotConsistent": true,
   "candidateCount": 133,
-  "newsSearched": 48,
+  "newsSearched": 56,
   "claim1Checked": 6,
   "historyTitleSearched": 22,
   "replayExcluded": 1,
@@ -771,6 +771,73 @@
       "pitchOutlineDraft": [
         "공식 공개공보 1020260141185 / 공개일 20260929 / 출원인 현대자동차주식회사, 기아 주식회사, 주식회사 이엔플러스",
         "발명명칭 '방열 조성물, 이를 적용한 절연-방열체 및 구조' 및 공식 초록(청구항 별도 검증)",
+        "기보도·과거특허·실제 사업 적용 미확인: 업체 직접 답변 확인 후 기사 야마 확정"
+      ],
+      "scoopConfirmed": false,
+      "companyResponsesVerified": false,
+      "publicationNoveltyConfirmed": false,
+      "warning": "공보의 기술 가설만 확인. 언론 전문·청구항 전수·사업화·기업 직접 답변·단독은 별도 취재 필요"
+    },
+    {
+      "publicationNumber": "1020260143498",
+      "publicationDate": "20261001",
+      "reportingTitleDraft": "현대모비스·한국방송공사, '기준국 단위 RTCM 메시지 통합 및 패킷 길이 정보 포함에 기반한 방송망 최적화 전송 방법 및 장치' 공동출원",
+      "title": "기준국 단위 RTCM 메시지 통합 및 패킷 길이 정보 포함에 기반한 방송망 최적화 전송 방법 및 장치",
+      "coveredCompanies": [
+        "현대모비스"
+      ],
+      "outsideBeatCoApplicants": [
+        "한국방송공사",
+        "정수아"
+      ],
+      "topic": "미분류·이종산업 탐색",
+      "sourceAbstractExcerpt": "방송 서버에 의해 복수 기준국들에 댓한 RTCM(Real-Time Correction Message) 메시지를 방송망에 기반하여 로버 단말로 전송하는 RTCM 메시지 전송 방법에 있어서, 하나의 기준국 단위로 복수의 RTCM 메시지들을 수집하고 상기 복수의 RTCM 메시지들에 기반하여 하나의 컨테이너 메시지를 생성하는 단계; 상기…",
+      "sourceRank": 58,
+      "evidencePriorityScore": 75,
+      "priorWithin35Days": [],
+      "olderSameTitle": {
+        "state": "searched_same_title_only",
+        "queryComplete": true,
+        "matches": [],
+        "status": "동일 제목 공보 미확인(다른 명칭의 선행기술은 검증 전)"
+      },
+      "claim1Review": {
+        "state": "official_claim1_verified",
+        "verified": true,
+        "claim1Excerpt": "1. 방송 서버에 의해 복수 기준국들에 댓한 RTCM(Real-Time Correction Message) 메시지를 방송망에 기반하여 로버 단말로 전송하는 RTCM 메시지 전송 방법에 있어서,하나의 기준국 ",
+        "comparisons": [],
+        "warning": "청구항 문구 차이만으로 신규성·기술적 우월성 확정 불가"
+      },
+      "mediaReview": {
+        "state": "indexed_articles_need_review",
+        "checked": true,
+        "hits": 1,
+        "articleEvidence": [
+          {
+            "headline": "‘갑’의 후려치기…파산 - KBS 뉴스",
+            "url": "https://news.google.com/rss/articles/CBMiW0FVX3lxTE8zWmFLdXVPaW5GSl9vdnJ5Q0dhMXNPMTRhR0FobmpFdmVXaVJOWUIwWHNVY1pTSHlORFo2OUZya3gwa3FhY3lLM3RmNXBiRVpPbXhpS05qT2lidEE?oc=5",
+            "publishedAt": "Fri, 24 Oct 2014 07:00:00 GMT",
+            "headlineRelation": "weak_or_generic_index_hit",
+            "titleOverlap": 0.0,
+            "samePatentConfirmed": false
+          }
+        ],
+        "searchErrors": 0,
+        "warning": "검색 제목 일치만으로 동일 특허 보도 확정 불가; 기사 본문·발행일과 회사 발표 별도 확인"
+      },
+      "humanEditorialDecision": "not_reviewed",
+      "retrospectiveKnownCase": false,
+      "cautionFlags": [],
+      "deskStatus": "research_first_company_reply_missing",
+      "questions": [
+        "공개특허의 제1항 핵심 기술 구성과 기존 유사 특허의 실제 차이는 무엇인가?",
+        "같은 기술을 먼저 다룬 언론 기사·해외 기사·회사 발표의 본문은 확인했는가?",
+        "공동출원인별 연구 역할, 특허 권리관계와 실제 제품·설비 적용 여부는?",
+        "효과 수치·사업 규모·양산 시점은 업체 자료/공식 검증으로 확인됐는가?"
+      ],
+      "pitchOutlineDraft": [
+        "공식 공개공보 1020260143498 / 공개일 20261001 / 출원인 현대모비스 주식회사, 한국방송공사, 정수아",
+        "발명명칭 '기준국 단위 RTCM 메시지 통합 및 패킷 길이 정보 포함에 기반한 방송망 최적화 전송 방법 및 장치' 및 공식 초록(청구항 별도 검증)",
         "기보도·과거특허·실제 사업 적용 미확인: 업체 직접 답변 확인 후 기사 야마 확정"
       ],
       "scoopConfirmed": false,
@@ -2318,6 +2385,178 @@
       "warning": "공보의 기술 가설만 확인. 언론 전문·청구항 전수·사업화·기업 직접 답변·단독은 별도 취재 필요"
     },
     {
+      "publicationNumber": "1020260141948",
+      "publicationDate": "20260929",
+      "reportingTitleDraft": "현대모비스·주식회사 디아임, 'AVN 시스템 생산설비의 영상부분 검증장치 및 그 방법' 공동출원",
+      "title": "AVN 시스템 생산설비의 영상부분 검증장치 및 그 방법",
+      "coveredCompanies": [
+        "현대모비스"
+      ],
+      "outsideBeatCoApplicants": [
+        "주식회사 디아임"
+      ],
+      "topic": "미분류·이종산업 탐색",
+      "sourceAbstractExcerpt": "본 발명은 AVN 시스템 생산설비의 영상부분 검증장치 및 그 방법에 관한 것으로, AVN 시스템에 입력되는 다수의 영상신호를 수신받는 수신모듈; 입출력모듈; 및 수신모듈 및 입출력모듈과 작동적으로 연결(operatively coupled to)된 프로세서;를 포함하되, 프로세서는 입출력모듈을 통해 선택된 수신모듈의 각 채널을 통해…",
+      "sourceRank": 58,
+      "evidencePriorityScore": 67,
+      "priorWithin35Days": [],
+      "olderSameTitle": {
+        "state": "searched_same_title_only",
+        "queryComplete": false,
+        "matches": [],
+        "status": "미검색"
+      },
+      "claim1Review": {
+        "state": "not_checked",
+        "verified": false,
+        "claim1Excerpt": null,
+        "comparisons": [],
+        "warning": "청구항 문구 차이만으로 신규성·기술적 우월성 확정 불가"
+      },
+      "mediaReview": {
+        "state": "index_no_hits_not_proof",
+        "checked": true,
+        "hits": 0,
+        "articleEvidence": [],
+        "searchErrors": 0,
+        "warning": "검색 제목 일치만으로 동일 특허 보도 확정 불가; 기사 본문·발행일과 회사 발표 별도 확인"
+      },
+      "humanEditorialDecision": "not_reviewed",
+      "retrospectiveKnownCase": false,
+      "cautionFlags": [],
+      "deskStatus": "research_first_company_reply_missing",
+      "questions": [
+        "공개특허의 제1항 핵심 기술 구성과 기존 유사 특허의 실제 차이는 무엇인가?",
+        "같은 기술을 먼저 다룬 언론 기사·해외 기사·회사 발표의 본문은 확인했는가?",
+        "공동출원인별 연구 역할, 특허 권리관계와 실제 제품·설비 적용 여부는?",
+        "효과 수치·사업 규모·양산 시점은 업체 자료/공식 검증으로 확인됐는가?"
+      ],
+      "pitchOutlineDraft": [
+        "공식 공개공보 1020260141948 / 공개일 20260929 / 출원인 현대모비스 주식회사, 주식회사 디아임",
+        "발명명칭 'AVN 시스템 생산설비의 영상부분 검증장치 및 그 방법' 및 공식 초록(청구항 별도 검증)",
+        "기보도·과거특허·실제 사업 적용 미확인: 업체 직접 답변 확인 후 기사 야마 확정"
+      ],
+      "scoopConfirmed": false,
+      "companyResponsesVerified": false,
+      "publicationNoveltyConfirmed": false,
+      "warning": "공보의 기술 가설만 확인. 언론 전문·청구항 전수·사업화·기업 직접 답변·단독은 별도 취재 필요"
+    },
+    {
+      "publicationNumber": "1020260139353",
+      "publicationDate": "20260922",
+      "reportingTitleDraft": "기아·현대자동차·주식회사 폼웍스, '자동차 내장재용 재생 폴리우레탄폼 조성물 및 그 폴리우레탄폼' 공동출원",
+      "title": "자동차 내장재용 재생 폴리우레탄폼 조성물 및 그 폴리우레탄폼",
+      "coveredCompanies": [
+        "기아",
+        "현대자동차"
+      ],
+      "outsideBeatCoApplicants": [
+        "주식회사 폼웍스"
+      ],
+      "topic": "순환소재·폐차재활용",
+      "sourceAbstractExcerpt": "본 개시는 자동차 내장재용 재생 폴리우레탄폼 조성물 및 그 폴리우레탄폼에 관한 것이다. 본 개시의 재생 폴리우레탄폼 조성물 및 그 폴리우레탄폼은 폐폴리우레탄폼을 재활용하여 폐자원 순환구조를 완성함으로써 탄소 배출량을 현저히 줄일 수 있고, 신재 폴리우레탄폼과 비교하여 동등 수준의 물성을 나타내어 상업적으로 이용 가능한 장점이 있다…",
+      "sourceRank": 56,
+      "evidencePriorityScore": 65,
+      "priorWithin35Days": [],
+      "olderSameTitle": {
+        "state": "searched_same_title_only",
+        "queryComplete": false,
+        "matches": [],
+        "status": "미검색"
+      },
+      "claim1Review": {
+        "state": "not_checked",
+        "verified": false,
+        "claim1Excerpt": null,
+        "comparisons": [],
+        "warning": "청구항 문구 차이만으로 신규성·기술적 우월성 확정 불가"
+      },
+      "mediaReview": {
+        "state": "index_no_hits_not_proof",
+        "checked": true,
+        "hits": 0,
+        "articleEvidence": [],
+        "searchErrors": 0,
+        "warning": "검색 제목 일치만으로 동일 특허 보도 확정 불가; 기사 본문·발행일과 회사 발표 별도 확인"
+      },
+      "humanEditorialDecision": "not_reviewed",
+      "retrospectiveKnownCase": false,
+      "cautionFlags": [],
+      "deskStatus": "research_first_company_reply_missing",
+      "questions": [
+        "공개특허의 제1항 핵심 기술 구성과 기존 유사 특허의 실제 차이는 무엇인가?",
+        "같은 기술을 먼저 다룬 언론 기사·해외 기사·회사 발표의 본문은 확인했는가?",
+        "공동출원인별 연구 역할, 특허 권리관계와 실제 제품·설비 적용 여부는?",
+        "효과 수치·사업 규모·양산 시점은 업체 자료/공식 검증으로 확인됐는가?"
+      ],
+      "pitchOutlineDraft": [
+        "공식 공개공보 1020260139353 / 공개일 20260922 / 출원인 현대자동차주식회사, 기아 주식회사, 주식회사 폼웍스",
+        "발명명칭 '자동차 내장재용 재생 폴리우레탄폼 조성물 및 그 폴리우레탄폼' 및 공식 초록(청구항 별도 검증)",
+        "기보도·과거특허·실제 사업 적용 미확인: 업체 직접 답변 확인 후 기사 야마 확정"
+      ],
+      "scoopConfirmed": false,
+      "companyResponsesVerified": false,
+      "publicationNoveltyConfirmed": false,
+      "warning": "공보의 기술 가설만 확인. 언론 전문·청구항 전수·사업화·기업 직접 답변·단독은 별도 취재 필요"
+    },
+    {
+      "publicationNumber": "1020260138731",
+      "publicationDate": "20260921",
+      "reportingTitleDraft": "LS전선·엘에스이브이코리아, '전기차 충전용 케이블, 케이블 커넥터 및 이들을 포함하는 전기차 충전용 어셈블리' 공동출원",
+      "title": "전기차 충전용 케이블, 케이블 커넥터 및 이들을 포함하는 전기차 충전용 어셈블리",
+      "coveredCompanies": [
+        "LS전선"
+      ],
+      "outsideBeatCoApplicants": [
+        "엘에스이브이코리아 주식회사"
+      ],
+      "topic": "배터리·전동화",
+      "sourceAbstractExcerpt": "본 발명은 전기차 충전용 케이블, 케이블 커넥터 및 이들을 포함하는 전기차 충전용 어셈블리에 관한 것이다. 구체적으로, 본 발명은 전기차 충전용 케이블을 구성하는 도체와 케이블 커넥터를 구성하는 단자의 발열 문제를 해결하기 위한 냉각수단의 냉각효율이 우수할 뿐만 아니라 전기차 충전용 케이블의 외경 및 무게가 감소되고 구조 역시 안…",
+      "sourceRank": 56,
+      "evidencePriorityScore": 65,
+      "priorWithin35Days": [],
+      "olderSameTitle": {
+        "state": "searched_same_title_only",
+        "queryComplete": false,
+        "matches": [],
+        "status": "미검색"
+      },
+      "claim1Review": {
+        "state": "not_checked",
+        "verified": false,
+        "claim1Excerpt": null,
+        "comparisons": [],
+        "warning": "청구항 문구 차이만으로 신규성·기술적 우월성 확정 불가"
+      },
+      "mediaReview": {
+        "state": "index_no_hits_not_proof",
+        "checked": true,
+        "hits": 0,
+        "articleEvidence": [],
+        "searchErrors": 0,
+        "warning": "검색 제목 일치만으로 동일 특허 보도 확정 불가; 기사 본문·발행일과 회사 발표 별도 확인"
+      },
+      "humanEditorialDecision": "not_reviewed",
+      "retrospectiveKnownCase": false,
+      "cautionFlags": [],
+      "deskStatus": "research_first_company_reply_missing",
+      "questions": [
+        "공개특허의 제1항 핵심 기술 구성과 기존 유사 특허의 실제 차이는 무엇인가?",
+        "같은 기술을 먼저 다룬 언론 기사·해외 기사·회사 발표의 본문은 확인했는가?",
+        "공동출원인별 연구 역할, 특허 권리관계와 실제 제품·설비 적용 여부는?",
+        "효과 수치·사업 규모·양산 시점은 업체 자료/공식 검증으로 확인됐는가?"
+      ],
+      "pitchOutlineDraft": [
+        "공식 공개공보 1020260138731 / 공개일 20260921 / 출원인 엘에스전선 주식회사, 엘에스이브이코리아 주식회사",
+        "발명명칭 '전기차 충전용 케이블, 케이블 커넥터 및 이들을 포함하는 전기차 충전용 어셈블리' 및 공식 초록(청구항 별도 검증)",
+        "기보도·과거특허·실제 사업 적용 미확인: 업체 직접 답변 확인 후 기사 야마 확정"
+      ],
+      "scoopConfirmed": false,
+      "companyResponsesVerified": false,
+      "publicationNoveltyConfirmed": false,
+      "warning": "공보의 기술 가설만 확인. 언론 전문·청구항 전수·사업화·기업 직접 답변·단독은 별도 취재 필요"
+    },
+    {
       "publicationNumber": "1020260147017",
       "publicationDate": "20261007",
       "reportingTitleDraft": "현대모비스·국민대학교산학협력단, '제어 채널 반복 전송 장치 및 방법' 공동출원",
@@ -2647,6 +2886,98 @@
       "warning": "공보의 기술 가설만 확인. 언론 전문·청구항 전수·사업화·기업 직접 답변·단독은 별도 취재 필요"
     },
     {
+      "publicationNumber": "1020260141871",
+      "publicationDate": "20260929",
+      "reportingTitleDraft": "기아·현대모비스·주식회사화신, '차량의 현가장치 지지구조' 공동출원",
+      "title": "차량의 현가장치 지지구조",
+      "coveredCompanies": [
+        "기아",
+        "현대모비스",
+        "현대자동차"
+      ],
+      "outsideBeatCoApplicants": [
+        "주식회사화신"
+      ],
+      "topic": "미분류·이종산업 탐색",
+      "sourceAbstractExcerpt": "본 발명은 측방으로 개구된 마운팅함몰부를 구비한 서브프레임; 및 상기 서브프레임에 결합되며, 적어도 일부가 상기 마운팅함몰부에 삽입되고, 현가암을 지지하도록 서로 평행하게 이격된 두 서포트윙이 일체로 구비된 현가암브라켓을 포함하여 구성된다.",
+      "sourceRank": 58,
+      "evidencePriorityScore": 63,
+      "priorWithin35Days": [
+        {
+          "publicationNumber": "1020260138328",
+          "publicationDate": "20260918",
+          "title": "차량의 현가장치",
+          "titleSimilarity": 0.778,
+          "comparisonScope": "동일 35일 공보 내 발명명칭 문자열 유사: 청구항·우선권/동일패밀리 미확인"
+        }
+      ],
+      "olderSameTitle": {
+        "state": "searched_same_title_only",
+        "queryComplete": true,
+        "matches": [],
+        "status": "동일 제목 공보 미확인(다른 명칭의 선행기술은 검증 전)"
+      },
+      "claim1Review": {
+        "state": "not_checked",
+        "verified": false,
+        "claim1Excerpt": null,
+        "comparisons": [],
+        "warning": "청구항 문구 차이만으로 신규성·기술적 우월성 확정 불가"
+      },
+      "mediaReview": {
+        "state": "indexed_articles_need_review",
+        "checked": true,
+        "hits": 3,
+        "articleEvidence": [
+          {
+            "headline": "화신, 현대차그룹 57% 장악한 ‘뼈대 기술’ 휴머노이드로··아틀라스 3만대 양산 공급망 정조준 ‘PER 4배 저평가’ - 데이터투자",
+            "url": "https://news.google.com/rss/articles/CBMic0FVX3lxTE9CdjkyLVlzQ3kzOV96MEpHR3QxNl9NeUMxeHlsUmc0Q1gtbVU2MnVIdDNWQnY2SFRJYTFweW1JbERVU2VQU1pQTlhUeVY3Q09FdkV5TUJJSU9wa2RIc09BYVp1T2t1OWF2dUdSME5yMUc1R1U?oc=5",
+            "publishedAt": "Fri, 14 Aug 2026 07:00:00 GMT",
+            "headlineRelation": "weak_or_generic_index_hit",
+            "titleOverlap": 0.0,
+            "samePatentConfirmed": false
+          },
+          {
+            "headline": "'현대차 협력사' 화신, 美 조지아에 전기차용 섀시 부품 제조 시설 건설 - 더구루",
+            "url": "https://news.google.com/rss/articles/CBMiXEFVX3lxTE45RzlEYVBMLXhDUU16Y0hrUjJJLWZHYTVrUFJ2U2R2QjZ2UEpBY2hFQXI0Q2V1VVVQbThYQm9zSUR6YXdnOWF1Q2p4d2tvcFFEcDV2eFNQeFFycjla?oc=5",
+            "publishedAt": "Wed, 01 Nov 2023 07:00:00 GMT",
+            "headlineRelation": "weak_or_generic_index_hit",
+            "titleOverlap": 0.0,
+            "samePatentConfirmed": false
+          },
+          {
+            "headline": "[단독] '현대차 협력사' 화신, 170억 투자 美 증설…베터리팩 케이스 생산 - 더구루",
+            "url": "https://news.google.com/rss/articles/CBMiXEFVX3lxTFB2NjRyYkVnU2JGUmF5WFJicUhTbUZVT2tNLUkxcXNqWElVSjZRbmF5SEM2dzBERllGYWxCb0NSdXl4Y0xUTTk2RGltaFMxT0xWN1QxR0NWZnFzTkVJ?oc=5",
+            "publishedAt": "Fri, 24 Jun 2022 07:00:00 GMT",
+            "headlineRelation": "weak_or_generic_index_hit",
+            "titleOverlap": 0.0,
+            "samePatentConfirmed": false
+          }
+        ],
+        "searchErrors": 0,
+        "warning": "검색 제목 일치만으로 동일 특허 보도 확정 불가; 기사 본문·발행일과 회사 발표 별도 확인"
+      },
+      "humanEditorialDecision": "not_reviewed",
+      "retrospectiveKnownCase": false,
+      "cautionFlags": [],
+      "deskStatus": "research_first_company_reply_missing",
+      "questions": [
+        "공개특허의 제1항 핵심 기술 구성과 기존 유사 특허의 실제 차이는 무엇인가?",
+        "같은 기술을 먼저 다룬 언론 기사·해외 기사·회사 발표의 본문은 확인했는가?",
+        "공동출원인별 연구 역할, 특허 권리관계와 실제 제품·설비 적용 여부는?",
+        "효과 수치·사업 규모·양산 시점은 업체 자료/공식 검증으로 확인됐는가?"
+      ],
+      "pitchOutlineDraft": [
+        "공식 공개공보 1020260141871 / 공개일 20260929 / 출원인 현대자동차주식회사, 기아 주식회사, 주식회사화신, 현대모비스 주식회사",
+        "발명명칭 '차량의 현가장치 지지구조' 및 공식 초록(청구항 별도 검증)",
+        "기보도·과거특허·실제 사업 적용 미확인: 업체 직접 답변 확인 후 기사 야마 확정"
+      ],
+      "scoopConfirmed": false,
+      "companyResponsesVerified": false,
+      "publicationNoveltyConfirmed": false,
+      "warning": "공보의 기술 가설만 확인. 언론 전문·청구항 전수·사업화·기업 직접 답변·단독은 별도 취재 필요"
+    },
+    {
       "publicationNumber": "1020260145303",
       "publicationDate": "20261007",
       "reportingTitleDraft": "기아·현대자동차·(주) 더블유에스엠티, '기판 고정 지그 어셈블리 및 이를 이용한 파워 모듈 제작 방법' 공동출원",
@@ -2814,6 +3145,64 @@
       "pitchOutlineDraft": [
         "공식 공개공보 1020260146264 / 공개일 20261007 / 출원인 현대자동차주식회사, 기아 주식회사, 인터내셔널 비지네스 머신즈 코포레이션",
         "발명명칭 '양자 컴퓨팅을 이용하여 계산 비용이 덜 드는 방식으로 다목적 계산 문제를 해결하는 방법' 및 공식 초록(청구항 별도 검증)",
+        "기보도·과거특허·실제 사업 적용 미확인: 업체 직접 답변 확인 후 기사 야마 확정"
+      ],
+      "scoopConfirmed": false,
+      "companyResponsesVerified": false,
+      "publicationNoveltyConfirmed": false,
+      "warning": "공보의 기술 가설만 확인. 언론 전문·청구항 전수·사업화·기업 직접 답변·단독은 별도 취재 필요"
+    },
+    {
+      "publicationNumber": "1020260139985",
+      "publicationDate": "20260922",
+      "reportingTitleDraft": "기아·현대자동차·국립공주대학교 산학협력단, '용접 이미지 예측 장치 및 방법' 공동출원",
+      "title": "용접 이미지 예측 장치 및 방법",
+      "coveredCompanies": [
+        "기아",
+        "현대자동차"
+      ],
+      "outsideBeatCoApplicants": [
+        "국립공주대학교 산학협력단"
+      ],
+      "topic": "제조공정·자동화",
+      "sourceAbstractExcerpt": "본 발명은 용접 이미지 예측 장치 및 방법에 관한 것이다. 본 발명의 일 형태에 따른 용접 이미지 예측 장치는 용접 시에 발생하는 플라즈마를 관측하여 스펙트럼 정보를 생성하는 관측부; 용접 예측 모델을 이용하여 상기 스펙트럼 정보로부터 용접 예측 정보를 생성하는 프로세서부; 및 상기 용접 예측 정보를 기 설정된 임계값을 기준으로 …",
+      "sourceRank": 56,
+      "evidencePriorityScore": 60,
+      "priorWithin35Days": [],
+      "olderSameTitle": {
+        "state": "not_checked",
+        "queryComplete": false,
+        "matches": [],
+        "status": "이 특허의 과거 동일 제목 KIPRIS API 대조 미실시"
+      },
+      "claim1Review": {
+        "state": "not_checked",
+        "verified": false,
+        "claim1Excerpt": null,
+        "comparisons": [],
+        "warning": "청구항 문구 차이만으로 신규성·기술적 우월성 확정 불가"
+      },
+      "mediaReview": {
+        "state": "index_no_hits_not_proof",
+        "checked": true,
+        "hits": 0,
+        "articleEvidence": [],
+        "searchErrors": 0,
+        "warning": "검색 제목 일치만으로 동일 특허 보도 확정 불가; 기사 본문·발행일과 회사 발표 별도 확인"
+      },
+      "humanEditorialDecision": "not_reviewed",
+      "retrospectiveKnownCase": false,
+      "cautionFlags": [],
+      "deskStatus": "research_first_company_reply_missing",
+      "questions": [
+        "공개특허의 제1항 핵심 기술 구성과 기존 유사 특허의 실제 차이는 무엇인가?",
+        "같은 기술을 먼저 다룬 언론 기사·해외 기사·회사 발표의 본문은 확인했는가?",
+        "공동출원인별 연구 역할, 특허 권리관계와 실제 제품·설비 적용 여부는?",
+        "효과 수치·사업 규모·양산 시점은 업체 자료/공식 검증으로 확인됐는가?"
+      ],
+      "pitchOutlineDraft": [
+        "공식 공개공보 1020260139985 / 공개일 20260922 / 출원인 현대자동차주식회사, 기아 주식회사, 국립공주대학교 산학협력단",
+        "발명명칭 '용접 이미지 예측 장치 및 방법' 및 공식 초록(청구항 별도 검증)",
         "기보도·과거특허·실제 사업 적용 미확인: 업체 직접 답변 확인 후 기사 야마 확정"
       ],
       "scoopConfirmed": false,
@@ -3484,93 +3873,27 @@
       "warning": "공보의 기술 가설만 확인. 언론 전문·청구항 전수·사업화·기업 직접 답변·단독은 별도 취재 필요"
     },
     {
-      "publicationNumber": "1020260143498",
-      "publicationDate": "20261001",
-      "reportingTitleDraft": "현대모비스·한국방송공사, '기준국 단위 RTCM 메시지 통합 및 패킷 길이 정보 포함에 기반한 방송망 최적화 전송 방법 및 장치' 공동출원",
-      "title": "기준국 단위 RTCM 메시지 통합 및 패킷 길이 정보 포함에 기반한 방송망 최적화 전송 방법 및 장치",
-      "coveredCompanies": [
-        "현대모비스"
-      ],
-      "outsideBeatCoApplicants": [
-        "한국방송공사",
-        "정수아"
-      ],
-      "topic": "미분류·이종산업 탐색",
-      "sourceAbstractExcerpt": "방송 서버에 의해 복수 기준국들에 댓한 RTCM(Real-Time Correction Message) 메시지를 방송망에 기반하여 로버 단말로 전송하는 RTCM 메시지 전송 방법에 있어서, 하나의 기준국 단위로 복수의 RTCM 메시지들을 수집하고 상기 복수의 RTCM 메시지들에 기반하여 하나의 컨테이너 메시지를 생성하는 단계; 상기…",
-      "sourceRank": 58,
-      "evidencePriorityScore": 50,
-      "priorWithin35Days": [],
-      "olderSameTitle": {
-        "state": "searched_same_title_only",
-        "queryComplete": true,
-        "matches": [],
-        "status": "동일 제목 공보 미확인(다른 명칭의 선행기술은 검증 전)"
-      },
-      "claim1Review": {
-        "state": "official_claim1_verified",
-        "verified": true,
-        "claim1Excerpt": "1. 방송 서버에 의해 복수 기준국들에 댓한 RTCM(Real-Time Correction Message) 메시지를 방송망에 기반하여 로버 단말로 전송하는 RTCM 메시지 전송 방법에 있어서,하나의 기준국 ",
-        "comparisons": [],
-        "warning": "청구항 문구 차이만으로 신규성·기술적 우월성 확정 불가"
-      },
-      "mediaReview": {
-        "state": "not_searched",
-        "checked": false,
-        "hits": 0,
-        "articleEvidence": [],
-        "warning": "언론 검색 미실시. 단독 또는 미보도 추정 금지"
-      },
-      "humanEditorialDecision": "not_reviewed",
-      "retrospectiveKnownCase": false,
-      "cautionFlags": [],
-      "deskStatus": "research_first_media_not_checked",
-      "questions": [
-        "공개특허의 제1항 핵심 기술 구성과 기존 유사 특허의 실제 차이는 무엇인가?",
-        "같은 기술을 먼저 다룬 언론 기사·해외 기사·회사 발표의 본문은 확인했는가?",
-        "공동출원인별 연구 역할, 특허 권리관계와 실제 제품·설비 적용 여부는?",
-        "효과 수치·사업 규모·양산 시점은 업체 자료/공식 검증으로 확인됐는가?"
-      ],
-      "pitchOutlineDraft": [
-        "공식 공개공보 1020260143498 / 공개일 20261001 / 출원인 현대모비스 주식회사, 한국방송공사, 정수아",
-        "발명명칭 '기준국 단위 RTCM 메시지 통합 및 패킷 길이 정보 포함에 기반한 방송망 최적화 전송 방법 및 장치' 및 공식 초록(청구항 별도 검증)",
-        "기보도·과거특허·실제 사업 적용 미확인: 업체 직접 답변 확인 후 기사 야마 확정"
-      ],
-      "scoopConfirmed": false,
-      "companyResponsesVerified": false,
-      "publicationNoveltyConfirmed": false,
-      "warning": "공보의 기술 가설만 확인. 언론 전문·청구항 전수·사업화·기업 직접 답변·단독은 별도 취재 필요"
-    },
-    {
-      "publicationNumber": "1020260141871",
+      "publicationNumber": "1020260141870",
       "publicationDate": "20260929",
-      "reportingTitleDraft": "기아·현대모비스·주식회사화신, '차량의 현가장치 지지구조' 공동출원",
-      "title": "차량의 현가장치 지지구조",
+      "reportingTitleDraft": "기아·현대자동차·현대트랜시스, '시트 쿠션 틸팅 장치' 공동출원",
+      "title": "시트 쿠션 틸팅 장치",
       "coveredCompanies": [
         "기아",
-        "현대모비스",
         "현대자동차"
       ],
       "outsideBeatCoApplicants": [
-        "주식회사화신"
+        "현대트랜시스 주식회사"
       ],
       "topic": "미분류·이종산업 탐색",
-      "sourceAbstractExcerpt": "본 발명은 측방으로 개구된 마운팅함몰부를 구비한 서브프레임; 및 상기 서브프레임에 결합되며, 적어도 일부가 상기 마운팅함몰부에 삽입되고, 현가암을 지지하도록 서로 평행하게 이격된 두 서포트윙이 일체로 구비된 현가암브라켓을 포함하여 구성된다.",
+      "sourceAbstractExcerpt": "본 발명은 쿠션로워프레임에 대하여 틸팅 가능하게 설치된 쿠션어퍼프레임; 상기 쿠션로워프레임에 고정된 힌지파이프; 상기 힌지파이프에 대해 회전되어, 상기 쿠션어퍼프레임을 틸팅시킬 수 있도록 설치된 틸팅브라켓; 유체를 공급받아 상기 틸팅브라켓을 회전시킬 수 있도록 구비된 틸팅블래더; 및 유체를 공급받아 상기 힌지파이프에 대한 틸팅브라…",
       "sourceRank": 58,
-      "evidencePriorityScore": 38,
-      "priorWithin35Days": [
-        {
-          "publicationNumber": "1020260138328",
-          "publicationDate": "20260918",
-          "title": "차량의 현가장치",
-          "titleSimilarity": 0.778,
-          "comparisonScope": "동일 35일 공보 내 발명명칭 문자열 유사: 청구항·우선권/동일패밀리 미확인"
-        }
-      ],
+      "evidencePriorityScore": 58,
+      "priorWithin35Days": [],
       "olderSameTitle": {
-        "state": "searched_same_title_only",
-        "queryComplete": true,
+        "state": "not_checked",
+        "queryComplete": false,
         "matches": [],
-        "status": "동일 제목 공보 미확인(다른 명칭의 선행기술은 검증 전)"
+        "status": "이 특허의 과거 동일 제목 KIPRIS API 대조 미실시"
       },
       "claim1Review": {
         "state": "not_checked",
@@ -3580,16 +3903,42 @@
         "warning": "청구항 문구 차이만으로 신규성·기술적 우월성 확정 불가"
       },
       "mediaReview": {
-        "state": "not_searched",
-        "checked": false,
-        "hits": 0,
-        "articleEvidence": [],
-        "warning": "언론 검색 미실시. 단독 또는 미보도 추정 금지"
+        "state": "indexed_articles_need_review",
+        "checked": true,
+        "hits": 3,
+        "articleEvidence": [
+          {
+            "headline": "현대차, GV90 겨냥 안전벨트 특허 출원…B필러 없는 모델에 최적화 - 더구루",
+            "url": "https://news.google.com/rss/articles/CBMiY0FVX3lxTE1wUHVVaUdwc29TYm9SaUZONUVxaHhTTjRUaDRLMkIxWGFPZklTaHB2Q1FtdzhNdFA4eEg5dV95ckRxcXZqNkFNWHB2cjUyMGhzYWZtWjVGX3A4ZkJhZkF6RkI4bw?oc=5",
+            "publishedAt": "Mon, 24 Aug 2026 07:00:00 GMT",
+            "headlineRelation": "weak_or_generic_index_hit",
+            "titleOverlap": 0.0,
+            "samePatentConfirmed": false
+          },
+          {
+            "headline": "현대차, 12개 계열사 총출동 상생 나선다…\"협력사 대금 10일 만에 지급\" - 뉴시스",
+            "url": "https://news.google.com/rss/articles/CBMiYEFVX3lxTE1nalVwLXd6NTJIMllCZFU3WS1ReGgxMWZuSzdqVGI3UTFya3NCd2tDOFdKMDQ1WDRqZjlVMlVqdVoxbkZkd3RtRng5Q0ZScDJtanNwcHNzdmVBLXlTc0ZTYdIBeEFVX3lxTE50bnBucE9ZOW93eXV4VjhrTjV5ZWw1cFVreFc0UWh4R1FJNmV0OWU5cUwtMV9pSk9YLVpSTjlZOHd6aXZaUUFrcUlZYkN1WDRobnhqRHktT0tmVXdydFhnWFA5ZnRoZXJVQ0c2enZDNGZNZ3hmSkNrdw?oc=5",
+            "publishedAt": "Tue, 07 Jul 2026 07:00:00 GMT",
+            "headlineRelation": "weak_or_generic_index_hit",
+            "titleOverlap": 0.0,
+            "samePatentConfirmed": false
+          },
+          {
+            "headline": "현대자동차그룹, AI·로봇·SDV 미래 모빌리티 상생협약 전격 체결 - 다나와 자동차",
+            "url": "https://news.google.com/rss/articles/CBMie0FVX3lxTE5SZGF1VXJ5MjQ5M0hFd18wdXV0dTZjRmhYMFN1NWRSRzgzUUVTd1RJZWxVc3JqNnQ1aUR6cG1xT3lMY0ZvUDZHcmZSWmV3c2NLWkJoUjFNWkozOTBYZW0zX2stUVZ6MUZRQjhtTGFjb2tORHo5VHRSbHMxVQ?oc=5",
+            "publishedAt": "Wed, 08 Jul 2026 07:00:00 GMT",
+            "headlineRelation": "weak_or_generic_index_hit",
+            "titleOverlap": 0.0,
+            "samePatentConfirmed": false
+          }
+        ],
+        "searchErrors": 0,
+        "warning": "검색 제목 일치만으로 동일 특허 보도 확정 불가; 기사 본문·발행일과 회사 발표 별도 확인"
       },
       "humanEditorialDecision": "not_reviewed",
       "retrospectiveKnownCase": false,
       "cautionFlags": [],
-      "deskStatus": "research_first_media_not_checked",
+      "deskStatus": "research_first_company_reply_missing",
       "questions": [
         "공개특허의 제1항 핵심 기술 구성과 기존 유사 특허의 실제 차이는 무엇인가?",
         "같은 기술을 먼저 다룬 언론 기사·해외 기사·회사 발표의 본문은 확인했는가?",
@@ -3597,8 +3946,8 @@
         "효과 수치·사업 규모·양산 시점은 업체 자료/공식 검증으로 확인됐는가?"
       ],
       "pitchOutlineDraft": [
-        "공식 공개공보 1020260141871 / 공개일 20260929 / 출원인 현대자동차주식회사, 기아 주식회사, 주식회사화신, 현대모비스 주식회사",
-        "발명명칭 '차량의 현가장치 지지구조' 및 공식 초록(청구항 별도 검증)",
+        "공식 공개공보 1020260141870 / 공개일 20260929 / 출원인 현대자동차주식회사, 기아 주식회사, 현대트랜시스 주식회사",
+        "발명명칭 '시트 쿠션 틸팅 장치' 및 공식 초록(청구항 별도 검증)",
         "기보도·과거특허·실제 사업 적용 미확인: 업체 직접 답변 확인 후 기사 야마 확정"
       ],
       "scoopConfirmed": false,
@@ -3607,26 +3956,27 @@
       "warning": "공보의 기술 가설만 확인. 언론 전문·청구항 전수·사업화·기업 직접 답변·단독은 별도 취재 필요"
     },
     {
-      "publicationNumber": "1020260141948",
-      "publicationDate": "20260929",
-      "reportingTitleDraft": "현대모비스·주식회사 디아임, 'AVN 시스템 생산설비의 영상부분 검증장치 및 그 방법' 공동출원",
-      "title": "AVN 시스템 생산설비의 영상부분 검증장치 및 그 방법",
+      "publicationNumber": "1020260139385",
+      "publicationDate": "20260922",
+      "reportingTitleDraft": "기아·현대자동차·인하대학교 산학협력단, '지상 로버 모빌리티용 서스펜션 장치' 공동출원",
+      "title": "지상 로버 모빌리티용 서스펜션 장치",
       "coveredCompanies": [
-        "현대모비스"
+        "기아",
+        "현대자동차"
       ],
       "outsideBeatCoApplicants": [
-        "주식회사 디아임"
+        "인하대학교 산학협력단"
       ],
-      "topic": "미분류·이종산업 탐색",
-      "sourceAbstractExcerpt": "본 발명은 AVN 시스템 생산설비의 영상부분 검증장치 및 그 방법에 관한 것으로, AVN 시스템에 입력되는 다수의 영상신호를 수신받는 수신모듈; 입출력모듈; 및 수신모듈 및 입출력모듈과 작동적으로 연결(operatively coupled to)된 프로세서;를 포함하되, 프로세서는 입출력모듈을 통해 선택된 수신모듈의 각 채널을 통해…",
-      "sourceRank": 58,
-      "evidencePriorityScore": 38,
+      "topic": "자율주행·차량제어",
+      "sourceAbstractExcerpt": "지상 로버 모빌리티용 서스펜션 장치가 개시된다. 개시된 예시적인 일 실시 예에 따른 지상 로버 모빌리티용 서스펜션 장치는, 모빌리티 바디에 한 쌍의 프론트 차륜들, 한 쌍의 센터 차륜들, 그리고 한 쌍의 리어 차륜들이 설치된 지상 로버 모빌리티에 구비되는 것으로서, i)모빌리티 바디의 차폭 방향에 따른 양측에 차체 전후 방향을 따…",
+      "sourceRank": 56,
+      "evidencePriorityScore": 56,
       "priorWithin35Days": [],
       "olderSameTitle": {
-        "state": "searched_same_title_only",
+        "state": "not_checked",
         "queryComplete": false,
         "matches": [],
-        "status": "미검색"
+        "status": "이 특허의 과거 동일 제목 KIPRIS API 대조 미실시"
       },
       "claim1Review": {
         "state": "not_checked",
@@ -3636,16 +3986,42 @@
         "warning": "청구항 문구 차이만으로 신규성·기술적 우월성 확정 불가"
       },
       "mediaReview": {
-        "state": "not_searched",
-        "checked": false,
-        "hits": 0,
-        "articleEvidence": [],
-        "warning": "언론 검색 미실시. 단독 또는 미보도 추정 금지"
+        "state": "indexed_articles_need_review",
+        "checked": true,
+        "hits": 3,
+        "articleEvidence": [
+          {
+            "headline": "[Who Is ?] 조명우 인하대학교 총장 - 비즈니스포스트",
+            "url": "https://news.google.com/rss/articles/CBMic0FVX3lxTE0tdUt5Ym1VbTlPclZyR3J3UDg2b1Y4bFdrZDRsb2F2bTE1UDVCZzF4RnBqOTI3enFaX0pfSWtkZDdpUnZCZl9GeHM0c3BIcnAzMEhQczlDcUdScDBtRUhiWHVfTExBV3o5M2hWM1FMcjBGb2M?oc=5",
+            "publishedAt": "Thu, 15 Jan 2026 08:00:00 GMT",
+            "headlineRelation": "weak_or_generic_index_hit",
+            "titleOverlap": 0.0,
+            "samePatentConfirmed": false
+          },
+          {
+            "headline": "[증권가 중계] IBK투자증권, 현대차증권, LS증권 등 - 비즈월드",
+            "url": "https://news.google.com/rss/articles/CBMia0FVX3lxTE54RFNweHplUzhEZERjSzVHYm4yeTBLRTBvakJqVVNOYXI2cHp1cGVzVzk5X0VidjM4REN4eWEyT1pLR0V5Rnp4YkZPdk1iNW9pa0xQMmJPckpJTUlFUC16N3FjMWdQSm5aUVpr?oc=5",
+            "publishedAt": "Mon, 13 Jul 2026 07:00:00 GMT",
+            "headlineRelation": "weak_or_generic_index_hit",
+            "titleOverlap": 0.0,
+            "samePatentConfirmed": false
+          },
+          {
+            "headline": "인공지능이 노면 상태 감지 및 타이어 제동거리 분석한다...'차량 제어 성능 최적화' - 인공지능신문",
+            "url": "https://news.google.com/rss/articles/CBMiZ0FVX3lxTE1FME1UX2hVQ2E0M1J0VnR3UnN2WUFqSm4zYXNqZTN6eTRSM2E4RUZJZTMzN1pkWkZ0bHRiNWlUNS1wWF9nQzh5OUM5SmMzRktfUloyZ1k3TlRGQmpORmNNSUp3NXBVVmM?oc=5",
+            "publishedAt": "Mon, 05 Dec 2022 08:00:00 GMT",
+            "headlineRelation": "weak_or_generic_index_hit",
+            "titleOverlap": 0.0,
+            "samePatentConfirmed": false
+          }
+        ],
+        "searchErrors": 0,
+        "warning": "검색 제목 일치만으로 동일 특허 보도 확정 불가; 기사 본문·발행일과 회사 발표 별도 확인"
       },
       "humanEditorialDecision": "not_reviewed",
       "retrospectiveKnownCase": false,
       "cautionFlags": [],
-      "deskStatus": "research_first_media_not_checked",
+      "deskStatus": "research_first_company_reply_missing",
       "questions": [
         "공개특허의 제1항 핵심 기술 구성과 기존 유사 특허의 실제 차이는 무엇인가?",
         "같은 기술을 먼저 다룬 언론 기사·해외 기사·회사 발표의 본문은 확인했는가?",
@@ -3653,8 +4029,8 @@
         "효과 수치·사업 규모·양산 시점은 업체 자료/공식 검증으로 확인됐는가?"
       ],
       "pitchOutlineDraft": [
-        "공식 공개공보 1020260141948 / 공개일 20260929 / 출원인 현대모비스 주식회사, 주식회사 디아임",
-        "발명명칭 'AVN 시스템 생산설비의 영상부분 검증장치 및 그 방법' 및 공식 초록(청구항 별도 검증)",
+        "공식 공개공보 1020260139385 / 공개일 20260922 / 출원인 현대자동차주식회사, 기아 주식회사, 인하대학교 산학협력단",
+        "발명명칭 '지상 로버 모빌리티용 서스펜션 장치' 및 공식 초록(청구항 별도 검증)",
         "기보도·과거특허·실제 사업 적용 미확인: 업체 직접 답변 확인 후 기사 야마 확정"
       ],
       "scoopConfirmed": false,
@@ -3711,119 +4087,6 @@
       "pitchOutlineDraft": [
         "공식 공개공보 1020260135991 / 공개일 20260915 / 출원인 에이치디한국조선해양 주식회사, 에이치디현대일렉트릭 주식회사",
         "발명명칭 '철심 적층 장치 및 해당 장치에 의한 철심 적층 방법' 및 공식 초록(청구항 별도 검증)",
-        "기보도·과거특허·실제 사업 적용 미확인: 업체 직접 답변 확인 후 기사 야마 확정"
-      ],
-      "scoopConfirmed": false,
-      "companyResponsesVerified": false,
-      "publicationNoveltyConfirmed": false,
-      "warning": "공보의 기술 가설만 확인. 언론 전문·청구항 전수·사업화·기업 직접 답변·단독은 별도 취재 필요"
-    },
-    {
-      "publicationNumber": "1020260139353",
-      "publicationDate": "20260922",
-      "reportingTitleDraft": "기아·현대자동차·주식회사 폼웍스, '자동차 내장재용 재생 폴리우레탄폼 조성물 및 그 폴리우레탄폼' 공동출원",
-      "title": "자동차 내장재용 재생 폴리우레탄폼 조성물 및 그 폴리우레탄폼",
-      "coveredCompanies": [
-        "기아",
-        "현대자동차"
-      ],
-      "outsideBeatCoApplicants": [
-        "주식회사 폼웍스"
-      ],
-      "topic": "순환소재·폐차재활용",
-      "sourceAbstractExcerpt": "본 개시는 자동차 내장재용 재생 폴리우레탄폼 조성물 및 그 폴리우레탄폼에 관한 것이다. 본 개시의 재생 폴리우레탄폼 조성물 및 그 폴리우레탄폼은 폐폴리우레탄폼을 재활용하여 폐자원 순환구조를 완성함으로써 탄소 배출량을 현저히 줄일 수 있고, 신재 폴리우레탄폼과 비교하여 동등 수준의 물성을 나타내어 상업적으로 이용 가능한 장점이 있다…",
-      "sourceRank": 56,
-      "evidencePriorityScore": 36,
-      "priorWithin35Days": [],
-      "olderSameTitle": {
-        "state": "searched_same_title_only",
-        "queryComplete": false,
-        "matches": [],
-        "status": "미검색"
-      },
-      "claim1Review": {
-        "state": "not_checked",
-        "verified": false,
-        "claim1Excerpt": null,
-        "comparisons": [],
-        "warning": "청구항 문구 차이만으로 신규성·기술적 우월성 확정 불가"
-      },
-      "mediaReview": {
-        "state": "not_searched",
-        "checked": false,
-        "hits": 0,
-        "articleEvidence": [],
-        "warning": "언론 검색 미실시. 단독 또는 미보도 추정 금지"
-      },
-      "humanEditorialDecision": "not_reviewed",
-      "retrospectiveKnownCase": false,
-      "cautionFlags": [],
-      "deskStatus": "research_first_media_not_checked",
-      "questions": [
-        "공개특허의 제1항 핵심 기술 구성과 기존 유사 특허의 실제 차이는 무엇인가?",
-        "같은 기술을 먼저 다룬 언론 기사·해외 기사·회사 발표의 본문은 확인했는가?",
-        "공동출원인별 연구 역할, 특허 권리관계와 실제 제품·설비 적용 여부는?",
-        "효과 수치·사업 규모·양산 시점은 업체 자료/공식 검증으로 확인됐는가?"
-      ],
-      "pitchOutlineDraft": [
-        "공식 공개공보 1020260139353 / 공개일 20260922 / 출원인 현대자동차주식회사, 기아 주식회사, 주식회사 폼웍스",
-        "발명명칭 '자동차 내장재용 재생 폴리우레탄폼 조성물 및 그 폴리우레탄폼' 및 공식 초록(청구항 별도 검증)",
-        "기보도·과거특허·실제 사업 적용 미확인: 업체 직접 답변 확인 후 기사 야마 확정"
-      ],
-      "scoopConfirmed": false,
-      "companyResponsesVerified": false,
-      "publicationNoveltyConfirmed": false,
-      "warning": "공보의 기술 가설만 확인. 언론 전문·청구항 전수·사업화·기업 직접 답변·단독은 별도 취재 필요"
-    },
-    {
-      "publicationNumber": "1020260138731",
-      "publicationDate": "20260921",
-      "reportingTitleDraft": "LS전선·엘에스이브이코리아, '전기차 충전용 케이블, 케이블 커넥터 및 이들을 포함하는 전기차 충전용 어셈블리' 공동출원",
-      "title": "전기차 충전용 케이블, 케이블 커넥터 및 이들을 포함하는 전기차 충전용 어셈블리",
-      "coveredCompanies": [
-        "LS전선"
-      ],
-      "outsideBeatCoApplicants": [
-        "엘에스이브이코리아 주식회사"
-      ],
-      "topic": "배터리·전동화",
-      "sourceAbstractExcerpt": "본 발명은 전기차 충전용 케이블, 케이블 커넥터 및 이들을 포함하는 전기차 충전용 어셈블리에 관한 것이다. 구체적으로, 본 발명은 전기차 충전용 케이블을 구성하는 도체와 케이블 커넥터를 구성하는 단자의 발열 문제를 해결하기 위한 냉각수단의 냉각효율이 우수할 뿐만 아니라 전기차 충전용 케이블의 외경 및 무게가 감소되고 구조 역시 안…",
-      "sourceRank": 56,
-      "evidencePriorityScore": 36,
-      "priorWithin35Days": [],
-      "olderSameTitle": {
-        "state": "searched_same_title_only",
-        "queryComplete": false,
-        "matches": [],
-        "status": "미검색"
-      },
-      "claim1Review": {
-        "state": "not_checked",
-        "verified": false,
-        "claim1Excerpt": null,
-        "comparisons": [],
-        "warning": "청구항 문구 차이만으로 신규성·기술적 우월성 확정 불가"
-      },
-      "mediaReview": {
-        "state": "not_searched",
-        "checked": false,
-        "hits": 0,
-        "articleEvidence": [],
-        "warning": "언론 검색 미실시. 단독 또는 미보도 추정 금지"
-      },
-      "humanEditorialDecision": "not_reviewed",
-      "retrospectiveKnownCase": false,
-      "cautionFlags": [],
-      "deskStatus": "research_first_media_not_checked",
-      "questions": [
-        "공개특허의 제1항 핵심 기술 구성과 기존 유사 특허의 실제 차이는 무엇인가?",
-        "같은 기술을 먼저 다룬 언론 기사·해외 기사·회사 발표의 본문은 확인했는가?",
-        "공동출원인별 연구 역할, 특허 권리관계와 실제 제품·설비 적용 여부는?",
-        "효과 수치·사업 규모·양산 시점은 업체 자료/공식 검증으로 확인됐는가?"
-      ],
-      "pitchOutlineDraft": [
-        "공식 공개공보 1020260138731 / 공개일 20260921 / 출원인 엘에스전선 주식회사, 엘에스이브이코리아 주식회사",
-        "발명명칭 '전기차 충전용 케이블, 케이블 커넥터 및 이들을 포함하는 전기차 충전용 어셈블리' 및 공식 초록(청구항 별도 검증)",
         "기보도·과거특허·실제 사업 적용 미확인: 업체 직접 답변 확인 후 기사 야마 확정"
       ],
       "scoopConfirmed": false,
@@ -3936,177 +4199,6 @@
       "pitchOutlineDraft": [
         "공식 공개공보 1020260136595 / 공개일 20260915 / 출원인 주식회사 씨에스엠, 현대제철 주식회사",
         "발명명칭 '2차 정련 슬래그를 반응성 결합재 원료로 활용하기 위한 공정 내 처리 방법 및 상기 공정에 의해 처리된 슬래그를 이용한 속경성 시멘트 결합재 제조 방법' 및 공식 초록(청구항 별도 검증)",
-        "기보도·과거특허·실제 사업 적용 미확인: 업체 직접 답변 확인 후 기사 야마 확정"
-      ],
-      "scoopConfirmed": false,
-      "companyResponsesVerified": false,
-      "publicationNoveltyConfirmed": false,
-      "warning": "공보의 기술 가설만 확인. 언론 전문·청구항 전수·사업화·기업 직접 답변·단독은 별도 취재 필요"
-    },
-    {
-      "publicationNumber": "1020260141870",
-      "publicationDate": "20260929",
-      "reportingTitleDraft": "기아·현대자동차·현대트랜시스, '시트 쿠션 틸팅 장치' 공동출원",
-      "title": "시트 쿠션 틸팅 장치",
-      "coveredCompanies": [
-        "기아",
-        "현대자동차"
-      ],
-      "outsideBeatCoApplicants": [
-        "현대트랜시스 주식회사"
-      ],
-      "topic": "미분류·이종산업 탐색",
-      "sourceAbstractExcerpt": "본 발명은 쿠션로워프레임에 대하여 틸팅 가능하게 설치된 쿠션어퍼프레임; 상기 쿠션로워프레임에 고정된 힌지파이프; 상기 힌지파이프에 대해 회전되어, 상기 쿠션어퍼프레임을 틸팅시킬 수 있도록 설치된 틸팅브라켓; 유체를 공급받아 상기 틸팅브라켓을 회전시킬 수 있도록 구비된 틸팅블래더; 및 유체를 공급받아 상기 힌지파이프에 대한 틸팅브라…",
-      "sourceRank": 58,
-      "evidencePriorityScore": 33,
-      "priorWithin35Days": [],
-      "olderSameTitle": {
-        "state": "not_checked",
-        "queryComplete": false,
-        "matches": [],
-        "status": "이 특허의 과거 동일 제목 KIPRIS API 대조 미실시"
-      },
-      "claim1Review": {
-        "state": "not_checked",
-        "verified": false,
-        "claim1Excerpt": null,
-        "comparisons": [],
-        "warning": "청구항 문구 차이만으로 신규성·기술적 우월성 확정 불가"
-      },
-      "mediaReview": {
-        "state": "not_searched",
-        "checked": false,
-        "hits": 0,
-        "articleEvidence": [],
-        "warning": "언론 검색 미실시. 단독 또는 미보도 추정 금지"
-      },
-      "humanEditorialDecision": "not_reviewed",
-      "retrospectiveKnownCase": false,
-      "cautionFlags": [],
-      "deskStatus": "research_first_media_not_checked",
-      "questions": [
-        "공개특허의 제1항 핵심 기술 구성과 기존 유사 특허의 실제 차이는 무엇인가?",
-        "같은 기술을 먼저 다룬 언론 기사·해외 기사·회사 발표의 본문은 확인했는가?",
-        "공동출원인별 연구 역할, 특허 권리관계와 실제 제품·설비 적용 여부는?",
-        "효과 수치·사업 규모·양산 시점은 업체 자료/공식 검증으로 확인됐는가?"
-      ],
-      "pitchOutlineDraft": [
-        "공식 공개공보 1020260141870 / 공개일 20260929 / 출원인 현대자동차주식회사, 기아 주식회사, 현대트랜시스 주식회사",
-        "발명명칭 '시트 쿠션 틸팅 장치' 및 공식 초록(청구항 별도 검증)",
-        "기보도·과거특허·실제 사업 적용 미확인: 업체 직접 답변 확인 후 기사 야마 확정"
-      ],
-      "scoopConfirmed": false,
-      "companyResponsesVerified": false,
-      "publicationNoveltyConfirmed": false,
-      "warning": "공보의 기술 가설만 확인. 언론 전문·청구항 전수·사업화·기업 직접 답변·단독은 별도 취재 필요"
-    },
-    {
-      "publicationNumber": "1020260139385",
-      "publicationDate": "20260922",
-      "reportingTitleDraft": "기아·현대자동차·인하대학교 산학협력단, '지상 로버 모빌리티용 서스펜션 장치' 공동출원",
-      "title": "지상 로버 모빌리티용 서스펜션 장치",
-      "coveredCompanies": [
-        "기아",
-        "현대자동차"
-      ],
-      "outsideBeatCoApplicants": [
-        "인하대학교 산학협력단"
-      ],
-      "topic": "자율주행·차량제어",
-      "sourceAbstractExcerpt": "지상 로버 모빌리티용 서스펜션 장치가 개시된다. 개시된 예시적인 일 실시 예에 따른 지상 로버 모빌리티용 서스펜션 장치는, 모빌리티 바디에 한 쌍의 프론트 차륜들, 한 쌍의 센터 차륜들, 그리고 한 쌍의 리어 차륜들이 설치된 지상 로버 모빌리티에 구비되는 것으로서, i)모빌리티 바디의 차폭 방향에 따른 양측에 차체 전후 방향을 따…",
-      "sourceRank": 56,
-      "evidencePriorityScore": 31,
-      "priorWithin35Days": [],
-      "olderSameTitle": {
-        "state": "not_checked",
-        "queryComplete": false,
-        "matches": [],
-        "status": "이 특허의 과거 동일 제목 KIPRIS API 대조 미실시"
-      },
-      "claim1Review": {
-        "state": "not_checked",
-        "verified": false,
-        "claim1Excerpt": null,
-        "comparisons": [],
-        "warning": "청구항 문구 차이만으로 신규성·기술적 우월성 확정 불가"
-      },
-      "mediaReview": {
-        "state": "not_searched",
-        "checked": false,
-        "hits": 0,
-        "articleEvidence": [],
-        "warning": "언론 검색 미실시. 단독 또는 미보도 추정 금지"
-      },
-      "humanEditorialDecision": "not_reviewed",
-      "retrospectiveKnownCase": false,
-      "cautionFlags": [],
-      "deskStatus": "research_first_media_not_checked",
-      "questions": [
-        "공개특허의 제1항 핵심 기술 구성과 기존 유사 특허의 실제 차이는 무엇인가?",
-        "같은 기술을 먼저 다룬 언론 기사·해외 기사·회사 발표의 본문은 확인했는가?",
-        "공동출원인별 연구 역할, 특허 권리관계와 실제 제품·설비 적용 여부는?",
-        "효과 수치·사업 규모·양산 시점은 업체 자료/공식 검증으로 확인됐는가?"
-      ],
-      "pitchOutlineDraft": [
-        "공식 공개공보 1020260139385 / 공개일 20260922 / 출원인 현대자동차주식회사, 기아 주식회사, 인하대학교 산학협력단",
-        "발명명칭 '지상 로버 모빌리티용 서스펜션 장치' 및 공식 초록(청구항 별도 검증)",
-        "기보도·과거특허·실제 사업 적용 미확인: 업체 직접 답변 확인 후 기사 야마 확정"
-      ],
-      "scoopConfirmed": false,
-      "companyResponsesVerified": false,
-      "publicationNoveltyConfirmed": false,
-      "warning": "공보의 기술 가설만 확인. 언론 전문·청구항 전수·사업화·기업 직접 답변·단독은 별도 취재 필요"
-    },
-    {
-      "publicationNumber": "1020260139985",
-      "publicationDate": "20260922",
-      "reportingTitleDraft": "기아·현대자동차·국립공주대학교 산학협력단, '용접 이미지 예측 장치 및 방법' 공동출원",
-      "title": "용접 이미지 예측 장치 및 방법",
-      "coveredCompanies": [
-        "기아",
-        "현대자동차"
-      ],
-      "outsideBeatCoApplicants": [
-        "국립공주대학교 산학협력단"
-      ],
-      "topic": "제조공정·자동화",
-      "sourceAbstractExcerpt": "본 발명은 용접 이미지 예측 장치 및 방법에 관한 것이다. 본 발명의 일 형태에 따른 용접 이미지 예측 장치는 용접 시에 발생하는 플라즈마를 관측하여 스펙트럼 정보를 생성하는 관측부; 용접 예측 모델을 이용하여 상기 스펙트럼 정보로부터 용접 예측 정보를 생성하는 프로세서부; 및 상기 용접 예측 정보를 기 설정된 임계값을 기준으로 …",
-      "sourceRank": 56,
-      "evidencePriorityScore": 31,
-      "priorWithin35Days": [],
-      "olderSameTitle": {
-        "state": "not_checked",
-        "queryComplete": false,
-        "matches": [],
-        "status": "이 특허의 과거 동일 제목 KIPRIS API 대조 미실시"
-      },
-      "claim1Review": {
-        "state": "not_checked",
-        "verified": false,
-        "claim1Excerpt": null,
-        "comparisons": [],
-        "warning": "청구항 문구 차이만으로 신규성·기술적 우월성 확정 불가"
-      },
-      "mediaReview": {
-        "state": "not_searched",
-        "checked": false,
-        "hits": 0,
-        "articleEvidence": [],
-        "warning": "언론 검색 미실시. 단독 또는 미보도 추정 금지"
-      },
-      "humanEditorialDecision": "not_reviewed",
-      "retrospectiveKnownCase": false,
-      "cautionFlags": [],
-      "deskStatus": "research_first_media_not_checked",
-      "questions": [
-        "공개특허의 제1항 핵심 기술 구성과 기존 유사 특허의 실제 차이는 무엇인가?",
-        "같은 기술을 먼저 다룬 언론 기사·해외 기사·회사 발표의 본문은 확인했는가?",
-        "공동출원인별 연구 역할, 특허 권리관계와 실제 제품·설비 적용 여부는?",
-        "효과 수치·사업 규모·양산 시점은 업체 자료/공식 검증으로 확인됐는가?"
-      ],
-      "pitchOutlineDraft": [
-        "공식 공개공보 1020260139985 / 공개일 20260922 / 출원인 현대자동차주식회사, 기아 주식회사, 국립공주대학교 산학협력단",
-        "발명명칭 '용접 이미지 예측 장치 및 방법' 및 공식 초록(청구항 별도 검증)",
         "기보도·과거특허·실제 사업 적용 미확인: 업체 직접 답변 확인 후 기사 야마 확정"
       ],
       "scoopConfirmed": false,
