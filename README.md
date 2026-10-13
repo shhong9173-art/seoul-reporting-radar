@@ -95,3 +95,12 @@
 ## KIPRIS 공식 제1항(청구항) 원문 대조
 - `scripts/patent_claim_review.py`가 특허 공개/심층 결과에 연결된 공식 출원번호를 KIPRISPlus 서지상세 `getBibliographyDetailInfoSearch`에 조회한다. 이전 문헌(동일 발명명칭·일부 동일 출원인)과 **청구항 제1항의 문구를 확보한 경우에만** 비교해 `digests/patent_claim_review_latest.json`에 발췌·해시·유사도와 취재 질문을 저장한다.
 - 원문 부재·청구항 파싱 오류는 결과 없음으로 취급하며 의미 있는 신기술·단독이라고 판정하지 않는다. 특허 `patents.html` 페이지의 `/claim-check` 영역과 [원칙](docs/patent-claim-source-review.md) 참고.
+
+
+## 특허 외 공식 원문 취재 대기열 (2026-10-13)
+- [공식자료 통합 발제 화면](official-leads.html): DART 투자계획 원문 변경, 같은 분기/단위의 사업표 수치 변화, 미국 연방관보/EU TED, 관세청 HS4·추가 5종 통계, 미 NHTSA 리콜·소비자 민원을 출처별로 분리한다.
+- 수집기: `scripts/nhtsa_public_watch.py`(미국 2026년형 현대차/기아 모델 4종, 공식 리콜·민원 API), `scripts/industry_official_hunt.py`(검증된 기존 JSON 집계). 독립 `.github/workflows/industry-official-hunt.yml`은 평일 09:50 KST 및 관련 코드 변경시 실행.
+- 10월 13일 실제 최초 실행: NHTSA 요청 8개 중 성공 3개, HTTP 오류 5개. 이미 공개된 리콜 9건. **미국 신고 없음/국내 결함/새 단독을 의미하지 않음.** 오류와 일부 성공을 따로 표시한다.
+- DART 정기 사업내용 출입처 21개사 실제 수집 성공. `/hunt`의 수치 검증은 같은 기간·행·단위가 일치할 때만 비교하고, 공시상 투자 예정월 변경으로 실제 준공 지연을 추정하지 않는다.
+- 연동 미완료: NTIS/IRIS 실시간 정부 연구과제 원문 검색, 나라장터 입찰·낙찰·계약변경 API, 미국 주정부/카운티별 시설 인허가, 유럽·일본 국가별 무역구제 사건 일괄 감시는 아직 자동화되지 않았다. 해당 항목은 'not_connected'이지 수집 0건이 아니다. 승인 키·공식 응답 스키마 검증 없이 결과를 만들지 않는다.
+- 출력: `digests/nhtsa_official_latest.json`, `digests/industry_official_hunt_latest.json`. 발제 문안은 '취재 가설'이며 기보도·회사 직접 답변·물량/산업 영향 확인이 필요하다.
