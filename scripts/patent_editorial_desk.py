@@ -35,6 +35,19 @@ def headline_match(story,headline):
     norm=lambda v:re.sub(r"[\W_]","",v).lower()
     if len(norm(title))>=12 and norm(title) in norm(headline):
         return "invention_title_visible",0.95
+    # Alternative headlines often omit the legal invention title: e.g.
+    # "플라스틱 먹는 효소" versus CJ/Hyundai's official long PET claim title.
+    # Two explicitly shared technical concepts are an ARTICLE REVIEW FLAG,
+    # not proof that the entire patent or business plan was already reported.
+    excerpt=str(story.get("sourceAbstractExcerpt") or "").lower()
+    signals=("효소","플라스틱","재활용","해중합","폐차","전고체","배터리",
+             "열폭주","음극","양극","변압기","송전","수소","연료전지",
+             "자율주행","라이다","레이더","도어","휠체어",
+             "모터","철심","아연","동박","냉각","충전")
+    concept=[word for word in signals
+             if word in (title+" "+excerpt).lower() and word in headline.lower()]
+    if len(concept)>=2:
+        return "abstract_tech_headline_overlap_review",round(min(0.9,0.5+len(concept)*0.1),2)
     a=tokens(title)
     b=tokens(headline)
     if len(a)<2 or not b:
@@ -68,6 +81,7 @@ def press_assessment(lead):
                                  "headlineRelation":kind,"titleOverlap":score,
                                  "samePatentConfirmed":False})
     strong=any(x["headlineRelation"] in ("publication_number_visible","invention_title_visible",
+                                        "abstract_tech_headline_overlap_review",
                                         "technical_headline_overlap_review") for x in evidence)
     state=("indexed_potential_same_technology" if strong else
            "indexed_articles_need_review" if evidence else
