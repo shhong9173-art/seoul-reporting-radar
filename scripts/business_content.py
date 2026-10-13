@@ -27,8 +27,14 @@ from dart_corrections import Tables
 from dart_numeric_extractor import decode_web_bytes, html_to_text
 
 KST=timezone(timedelta(hours=9))
+# Direct beat companies with verified legal corp codes in dart_corp_codes.json.
+# Missing company codes and source failures remain explicit non-results.
 CORPS=("HD현대일렉트릭","엘에스일렉트릭","효성중공업",
-       "현대자동차","기아","현대제철","세아제강")
+       "현대자동차","기아","현대모비스","현대위아","HL만도",
+       "금호타이어","한국타이어앤테크놀로지",
+       "현대제철","세아제강","포스코","동국제강","고려아연","영풍",
+       "두산에너빌리티","대한전선","일진전기",
+       "한화솔루션","OCI홀딩스")
 TOPICS={
     "orderBacklog":("수주잔고","수주상황"),
     "productionCapacity":("생산능력",),
@@ -299,7 +305,7 @@ def build_report(codes,key,year=2025,names=CORPS,scan=scan_company):
         "generatedAt":datetime.now(KST).isoformat(timespec="seconds"),
         "reportYear":year,"priorYear":year-1,
         "source":"OpenDART list.json + 사업보고서 document.xml 원문",
-        "scope":"전력기기 3사·자동차 완성차 2사·철강 2사 · II. 사업의 내용",
+        "scope":"직접 출입처 완성차·부품·타이어·철강·비철·전력기기·에너지 21개사 · II. 사업의 내용",
         "basis":"공식 원문 사업의 내용에서 수주·생산·가동·매출 표를 발췌. 표 간 원시 숫자 자동 비교 금지",
         "statuses":statuses,"companies":records,
         "candidatePairs":sum(len(x.get("pairs",[])) for x in records),
