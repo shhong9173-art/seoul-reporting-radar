@@ -58,6 +58,54 @@ class DeskTests(unittest.TestCase):
         self.assertEqual(report["confirmedScoops"],0)
         self.assertFalse(report["reviewQueue"][0]["scoopConfirmed"])
 
+    def test_partial_rss_failure_is_not_counted_as_press_check_complete(self):
+        f=fixtures()
+        f[1]["investigations"][0]["priorFullTitleCheck"]["matches"]=[]
+        f[2]["investigations"][0]["pressCoverage"]={
+            "queries":[{"query":"정확한 공개번호","status":"no_hits","articles":[]},
+                       {"query":"기술어 대조","status":"error","articles":[]}],
+            "completeSearch":False}
+        report=d.evaluate(*f,now=NOW)
+        row=next(x for x in report["reviewQueue"] if x["publicationNumber"]==PUB)
+        self.assertFalse(row["mediaReview"]["checked"])
+        self.assertEqual(row["mediaReview"]["state"],"search_errors_not_cleared")
+        self.assertEqual(row["mediaReview"]["searchErrors"],1)
+        self.assertEqual(row["deskStatus"],"research_first_media_not_checked")
+        self.assertEqual(report["newsSearched"],0)
+        self.assertEqual(report["newsAttempted"],1)
+        self.assertEqual(report["newsIncomplete"],1)
+        self.assertEqual(report["newsNotAttempted"],1)
+        self.assertEqual(report["shortlistCount"],0)
+
+    def test_media_hit_and_other_query_error_still_blocks_shortlist(self):
+        f=fixtures()
+        f[1]["investigations"][0]["priorFullTitleCheck"]["matches"]=[]
+        f[2]["investigations"][0]["pressCoverage"]={
+            "queries":[{"query":"일반 기사","status":"hits","articles":[{
+                "title":"완성차 업계, 2026년 수출 실적 점검",
+                "url":"https://news.google.com/rss/articles/abc"}]},
+                       {"query":"별도 기술 검색","status":"error","articles":[]}]}
+        report=d.evaluate(*f,now=NOW)
+        row=next(x for x in report["reviewQueue"] if x["publicationNumber"]==PUB)
+        self.assertEqual(row["mediaReview"]["hits"],1)
+        self.assertFalse(row["mediaReview"]["checked"])
+        self.assertEqual(report["newsIncomplete"],1)
+        self.assertEqual(report["shortlistCount"],0)
+
+    def test_all_successful_queries_count_completed_but_not_exclusivity(self):
+        f=fixtures()
+        f[1]["investigations"][0]["priorFullTitleCheck"]["matches"]=[]
+        f[2]["investigations"][0]["pressCoverage"]={
+            "queries":[{"query":"공개번호","status":"no_hits","articles":[]},
+                       {"query":"특허명","status":"no_hits","articles":[]}]}
+        report=d.evaluate(*f,now=NOW)
+        row=next(x for x in report["reviewQueue"] if x["publicationNumber"]==PUB)
+        self.assertTrue(row["mediaReview"]["checked"])
+        self.assertEqual(report["newsSearched"],1)
+        self.assertEqual(report["newsIncomplete"],0)
+        self.assertEqual(report["shortlistCount"],1)
+        self.assertFalse(row["scoopConfirmed"])
+
     def test_official_prior_within_window_not_worldwide_patent_novelty(self):
         report=d.evaluate(*fixtures(),now=NOW)
         row=next(x for x in report["reviewQueue"] if x["publicationNumber"]==PUB)
