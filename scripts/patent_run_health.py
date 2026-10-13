@@ -11,11 +11,12 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 KST=timezone(timedelta(hours=9))
-STEPS=("checks","source","deep","story","claims")
+STEPS=("checks","source","deep","story","quality","claims")
 ARTIFACTS={
     "source":"digests/patent_hunt_latest.json",
     "deep":"digests/patent_deep_latest.json",
     "story":"digests/patent_story_latest.json",
+    "quality":"digests/patent_quality_latest.json",
     "claims":"digests/patent_claim_review_latest.json",
 }
 
@@ -65,6 +66,15 @@ def audit(outcomes,root=Path("."),now=None):
                                          s.get("deepSourceGeneratedAt")==deep)
         except (OSError,ValueError):
             pass
+    if statuses["quality"]=="success" and source and data["story"]["generatedAt"]:
+        try:
+            q=json.loads((root/ARTIFACTS["quality"]).read_text(encoding="utf-8"))
+            data["quality"]["consistent"]=(
+                q.get("officialSourceGeneratedAt")==source and
+                q.get("storySourceGeneratedAt")==data["story"]["generatedAt"])
+            data["quality"]["humanReviewedCurrentCandidates"]=q.get("humanReviewedCurrentCandidates")
+        except (OSError,ValueError):
+            pass
     if statuses["claims"]=="success" and source and deep:
         try:
             c=json.loads((root/ARTIFACTS["claims"]).read_text(encoding="utf-8"))
@@ -73,7 +83,7 @@ def audit(outcomes,root=Path("."),now=None):
         except (OSError,ValueError):
             pass
     ready=(statuses["checks"]=="success" and
-           all(data[k]["consistent"] for k in ("source","deep","story")))
+           all(data[k]["consistent"] for k in ("source","deep","story","quality")))
     return {
         "generatedAt":now.isoformat(timespec="seconds"),
         "workflowRunId":os.environ.get("GITHUB_RUN_ID","")[:32],
@@ -83,6 +93,7 @@ def audit(outcomes,root=Path("."),now=None):
         "datasets":data,
         "status":"ready" if ready else "degraded",
         "claimComparisonStatus":"ok" if data["claims"]["consistent"] else "partial_or_missing",
+        "editorialQualityStatus":"ok" if data["quality"]["consistent"] else "partial_or_missing",
         "warning":("검증 완료된 같은 실행의 공식 수집·심층·기사 가설 파일" if ready else
                    "중간 오류·누락 또는 파일 갱신 미확인. 기존 데이터 유지·신규 단독 판단 금지"),
         "scoopConfirmed":False,
