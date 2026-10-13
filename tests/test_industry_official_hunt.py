@@ -11,6 +11,16 @@ class Sources(unittest.TestCase):
   self.assertIsNone(out["feeds"][1]["rows"])
   self.assertEqual(len(out["leads"]),1)
   self.assertEqual(out["confirmedScoops"],0)
+ def test_same_period_dart_metric_is_distinct_from_real_output(self):
+  rows=[("DART_METRIC",{"generatedAt":"2026-10-13","items":[
+   {"company":"엘에스일렉트릭","rowIdentity":["부산","변압기"],
+    "fromYear":2025,"toYear":2026,"priorValue":"228651","currentValue":"484052",
+    "unit":"백만원","sourceUrls":["https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250814001952",
+                                    "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003088"]}]},"items")]
+  doc=h.build(rows)
+  self.assertEqual(doc["feeds"][0]["status"],"ready")
+  self.assertIn("숫자",doc["leads"][0]["fact"])
+  self.assertIn("실제 물량",doc["leads"][0]["verification"])
  def test_nhtsa_public_us_recalls_not_scoops(self):
   def fake(url):
    return {"results":[{"NHTSACampaignNumber":"26V100000"}]} if "/recalls/" in url else {"results":[{"odiNumber":"12345678"}]}
