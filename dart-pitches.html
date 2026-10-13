@@ -1,0 +1,48 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DART 원문 변화 기사 발제 검토</title><style>
+body{margin:0;background:#f5f7fa;color:#24364a;font:15px/1.65 system-ui,sans-serif}
+main{max-width:940px;margin:auto;padding:28px 16px 80px}h1{font-size:26px}a{color:#19628e}
+article{background:white;border:1px solid #d4dfe8;padding:19px;margin:15px 0;border-radius:10px}
+label,small,.small{font-size:13px;color:#52667c}textarea{width:100%;min-height:190px;padding:12px;box-sizing:border-box;
+font:14px/1.65 Consolas,monospace;background:#f9fbfc;border:1px solid #cad7e1;border-radius:5px}
+button{border:0;border-radius:6px;background:#214d6a;color:white;padding:10px;cursor:pointer}
+.warning{padding:15px;border-left:3px solid #b27c28;background:#fff9ef}details{margin-top:14px}
+</style></head><body><main>
+<p><a href="index.html">산업부 레이더</a> / <a href="official-leads.html">전체 공식 자료</a> / <a href="hunt.html">DART 원문변화</a></p>
+<h1>공시상 수치 변화 — 취재 발제 검토</h1>
+<p class="warning">출고·단독 확정 0건. '생산능력' 표의 단위가 백만원이면 생산 대수·톤수 증가가 아닙니다.
+동일 행·기간·단위의 공시상 숫자 변화만 표시합니다. 회사 답변, 기존 IR과 기보도 원문 비교가 필요합니다.</p>
+<p id="status">공식 수치 변화 발제 자료 확인 중</p>
+<div id="cards"></div>
+<script>
+(async()=>{
+const el=(tag,value)=>{const x=document.createElement(tag);if(value!==undefined)x.textContent=String(value);return x;};
+function valid(url){return typeof url==="string"&&/^https:\/\/dart\.fss\.or\.kr\/dsaf001\/main\.do\?rcpNo=20\d{12}$/.test(url);}
+try{
+ const r=await fetch("digests/dart_editorial_desk_latest.json",{cache:"no-store"});
+ if(!r.ok)throw Error("자료 미생성");
+ const data=await r.json();if(!Array.isArray(data.shortlist)||data.confirmedScoops!==0||!data.sourceGeneratedAt)throw Error("검증되지 않은 발제");
+ document.querySelector("#status").textContent="검증된 비교 항목 "+data.numericChangesVerified+
+  "건 · 발제 검토 "+data.shortlist.length+"건 · 산출 "+data.generatedAt+
+  " · 기업 답변·기보도 미확인";
+ for(const row of data.shortlist){
+  const card=el("article");card.append(el("h3",row.pitchTitle));
+  card.append(el("p","공시 비교기간: "+row.sourcePeriod+" · "+
+      row.unit+" · "+row.unitInterpretation+" · 단독 미확인"));
+  const draft=el("textarea");
+  const d=new Date();const tm=new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Seoul",hour:"2-digit",minute:"2-digit",hourCycle:"h23"}).format(d);
+  draft.value="*"+row.pitchTitle+" (홍성효, "+tm+")\n"+
+      row.pitchBullets.map(x=>"- "+x).join("\n");
+  card.append(draft);
+  const btn=el("button","발제 검토 문안 복사");
+  btn.onclick=async()=>{try{await navigator.clipboard.writeText(draft.value);btn.textContent="복사됨";}catch(e){draft.focus();draft.select();btn.textContent="선택됨 · 직접 복사";}};
+  card.append(btn);
+  const detail=el("details");detail.append(el("summary","DART 공시 원문·확인 사항"));
+  for(const [i,url] of (row.sourceUrls||[]).entries()){if(!valid(url))continue;
+   const a=el("a",i?"최신 분기·반기 공시":"비교 이전 분기·반기 공시");a.href=url;a.rel="noopener noreferrer";a.target="_blank";detail.append(el("p"));detail.append(a);}
+  for(const question of row.reporterQuestions||[])detail.append(el("p","취재 확인: "+question));
+  card.append(detail);document.querySelector("#cards").append(card);
+ }
+}catch(e){document.querySelector("#status").textContent="검증된 공시 변화 발제 자료가 없거나 오류가 있습니다. 이전 수치를 최신 단독으로 쓰지 마세요.";}
+})();
+</script></main></body></html>
