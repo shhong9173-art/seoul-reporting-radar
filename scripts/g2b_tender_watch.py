@@ -117,8 +117,9 @@ def build(key,get=fetch,now=None,previous=None):
  old={(x.get("noticeId"),x.get("revision"),x.get("workType")) for x in
       (previous or {}).get("notices",[]) if isinstance(x,dict)}
  for row in unique:
-  row["firstSeenInMonitor"]=False if previous is None else
-      (row["noticeId"],row["revision"],row["workType"]) not in old
+  row["firstSeenInMonitor"]=(
+      False if previous is None else
+      (row["noticeId"],row["revision"],row["workType"]) not in old)
  return {"generatedAt":now.isoformat(timespec="seconds"),
          "from":start,"to":end,"source":"PPS official KONEPS tender notices",
          "checks":checks,"notices":unique[:180],
