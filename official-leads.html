@@ -11,7 +11,7 @@ const $=s=>document.querySelector(s);
 function node(tag,text){const e=document.createElement(tag);if(text!==undefined)e.textContent=String(text);return e;}
 try{const r=await fetch("digests/industry_official_hunt_latest.json",{cache:"no-store"});if(!r.ok)throw Error("데이터 미생성");
 const data=await r.json();if(data.status!=="research_only"||!Array.isArray(data.feeds)||!Array.isArray(data.leads))throw Error("응답 구조 오류");
-for(const f of data.feeds){const card=node("div");card.className="card";card.append(node("b",f.name),node("p",f.status==="ready"?"원문 수집: "+f.rows+"건 · "+f.generatedAt:"연동/수집 미완료 · 0건으로 간주 불가"));$("#feeds").append(card);}
+for(const f of data.feeds){const card=node("div");card.className="card";card.append(node("b",f.name),node("p",f.status==="ready"?"원문 수집: "+f.rows+"건 · "+f.generatedAt:f.status==="partial"?"일부 수집 "+f.rows+"건 · 성공 "+f.checkedQueries+"회 / 오류 "+f.failedQueries+"회 · 전체 수집 아님":"연동/수집 미완료 · 0건으로 간주 불가"));$("#feeds").append(card);}
 for(const f of data.feeds){const op=node("option",f.name);op.value=f.name;$("#filter").append(op);}
 const show=()=>{const host=$("#results");host.replaceChildren();const stream=$("#filter").value;const rows=data.leads.filter(x=>stream==="ALL"||x.source===stream);$("#status").textContent="자료 생성 "+data.generatedAt+" · 표시 "+rows.length+"건 · 단독 확인 0건";
 for(const x of rows){const card=node("article");card.className="card";card.append(node("small",x.source),node("h3",x.headline),node("p","확인된 자료: "+x.fact),node("p","다음 취재: "+x.verification));
