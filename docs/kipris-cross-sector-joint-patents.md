@@ -50,3 +50,14 @@ CJ 등 다른 산업의 회사, 대학·산학협력단, 연구소와 자동차/
 - 새 실행은 검색 이력이 없는 고유 특허를 우선 최대 8건 조회하며, 남은 미조회 후보가 없어지면 이전 검색 후보를 가장 오래된 시각부터 재점검한다.
 - `pressCheckedAt`, `mediaLeadsAttempted`, `mediaLeadsNotAttempted`, `mediaQueriesThisRun`으로 시도 현황과 검색 시점이 드러난다. **RSS에서 발견되지 않았다는 이유로 미보도나 단독을 확정하지 않는다.**
 - 출입처 24개 최근 35일 범위가 유지되며, 보도 검색은 모든 매체와 비색인 기사를 완전 포괄하지 않는다. 신규 공보 우선·기존 언론 검색 캐시 재사용 정책은 단독 인증 로직이 아니다.
+
+## 2026-10-13 사람 검토 기반 뉴스룸 성능 지표
+
+- 특허 카드에서 공개번호를 확인한 후 GitHub Actions의 **Record Patent Editorial Review → Run workflow**를 실행한다. 판정 유형은 needs_reporting, worth_reporting, already_reported, wrong_beat, unsupported_angle, low_value, published이다.
+- already_reported / published를 선택하면 확인된 보도 기사 URL(HTTPS) 필수. 취재원 정보, 비공개 단독 계획, 협업 계약 등 기밀 정보는 공개 노트에 적지 않는다.
+- 수동 검토는 data/patent_editorial_reviews.json에 append-only 이벤트로 저장한다. 같은 공개번호는 최신 평가만 현재 집계에 들어가며 과거 판정도 기록된다. 쓰기 권한이 있는 저장소 사용자만 GitHub Actions로 입력한다.
+- 검토표본 **적중률** = worth_reporting + published / 완결된 판정 수. **오분류·기보도·낮은 가치 비중** = already_reported + wrong_beat + unsupported_angle + low_value / 같은 분모. needs_reporting은 미결정으로 분모에서 제외한다. 평가 표본 0이면 적중률은 null(측정 불가)이다.
+- 지표는 **선택된 기자 검토 표본**의 판정 비율이다. 편의표집이므로 모든 후보의 정확도 추정치로 과장해서는 안 된다. 데이터 원문·기사 후보·평가 지표의 생성 시각을 일치시키고, 점수대별 리뷰 표본 수를 표시한다.
+- 이미 보도된 CJ·현대차·기아·경북대 효소 재활용 공개특허(1020260147319)는 data/patent_benchmark_cases.json에 사후 재현 사례로만 등록했다. 이 기술의 기사 보도 **이전에** 레이더가 탐지했다는 근거가 아니며 미래 단독 발견율로 취급하지 않는다.
+- 실제 놓친 단독의 재현율을 측정하려면 레이더 **밖에서** 수집한 기사/공식자료의 모집단과 시각을 별도로 구축해야 한다. 현 상태에서는 사후 알려진 사례 재현률만 측정 가능.
+- 현재 수동 판정 입력은 최근 35일 공식 공보로 확인된 공개번호에 한정되며, GitHub 저장소 공개 범위에 따라 기록도 공개될 수 있다. published 판정은 기사 발행에 대한 기자 판단이지 자동 단독 검증이 아니다.
