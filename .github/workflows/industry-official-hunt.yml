@@ -1,0 +1,54 @@
+name: Multi-source Official Reporting Radar
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/nhtsa_public_watch.py'
+      - 'scripts/industry_official_hunt.py'
+      - 'tests/test_industry_official_hunt.py'
+      - 'official-leads.html'
+      - '.github/workflows/industry-official-hunt.yml'
+  schedule:
+    - cron: '50 0 * * 1-5'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: official-multisource-desk
+  cancel-in-progress: false
+jobs:
+  official:
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify official-source parsing and caution guards
+        run: |
+          python -m compileall -q scripts/nhtsa_public_watch.py scripts/industry_official_hunt.py
+          python -m unittest discover -s tests -p 'test_industry_official_hunt.py' -v
+      - name: Collect US official safety records
+        continue-on-error: true
+        run: python scripts/nhtsa_public_watch.py
+      - name: Generate combined research queue even on NHTSA outages
+        run: python scripts/industry_official_hunt.py
+      - name: Publish only successful source results and explicit coverage states
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+users.noreply.github.com"
+          git add digests/industry_official_hunt_latest.json
+          if [ -f digests/nhtsa_official_latest.json ]; then git add digests/nhtsa_official_latest.json; fi
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "data: update official cross-industry reporting queue [skip ci]"
+          for attempt in 1 2 3; do
+            git pull --rebase origin main
+            if git push origin HEAD:main; then exit 0; fi
+            sleep 4
+          done
+          exit 1
