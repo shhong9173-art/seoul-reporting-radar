@@ -95,6 +95,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           if [ -f digests/patent_run_health_latest.json ]; then git add digests/patent_run_health_latest.json; fi
+          if [ -f digests/patent_source_status_latest.json ]; then git add digests/patent_source_status_latest.json; fi
           if [ "${{ steps.source.outcome }}" = "success" ]; then git add digests/patent_hunt_latest.json; fi
           if [ "${{ steps.deep.outcome }}" = "success" ] && [ -f digests/patent_deep_latest.json ]; then git add digests/patent_deep_latest.json; fi
           if [ "${{ steps.claims.outcome }}" = "success" ] && [ -f digests/patent_claim_review_latest.json ]; then git add digests/patent_claim_review_latest.json; fi

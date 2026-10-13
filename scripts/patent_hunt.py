@@ -388,6 +388,34 @@ def build(key,previous=None,now=None,search=search_applicant,coverage=None,
     }
 
 
+
+def publication_diagnostics(report):
+    """Public, secret-free capture diagnostics for incomplete issuer searches."""
+    checks=report.get("companyChecks") or []
+    safe=[{"company":str(row.get("company") or "")[:55],
+           "status":str(row.get("status") or "")[:25],
+           "errorType":str(row.get("errorType") or "")[:50] or None,
+           "rawTotal":row.get("rawTotal") if isinstance(row.get("rawTotal"),int) else None,
+           "rawRetrieved":row.get("rawRetrieved") if isinstance(row.get("rawRetrieved"),int) else None}
+          for row in checks]
+    return {
+        "generatedAt":report.get("generatedAt"),
+        "status":("complete" if report.get("sourceWindowComplete") else "incomplete"),
+        "totalCompanies":report.get("applicantCount",len(checks)),
+        "checkedCompanies":sum(row["status"]=="checked" for row in safe),
+        "companyChecks":safe,
+        "incompleteCompanies":[row for row in safe if row["status"]!="checked"],
+        "warning":"회사 검색 실패는 공개특허 0건을 뜻하지 않음. KIPRIS 인증키·API URL·전체 오류 본문 비공개",
+    }
+
+
+def save_publication_diagnostics(report,output=Path("digests/patent_source_status_latest.json")):
+    output.parent.mkdir(parents=True,exist_ok=True)
+    temp=output.with_suffix(".json.tmp")
+    temp.write_text(json.dumps(publication_diagnostics(report),ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
+    temp.replace(output)
+
+
 def main():
     parser=argparse.ArgumentParser()
     parser.add_argument("--out",default="digests/patent_hunt_latest.json")
@@ -404,9 +432,15 @@ def main():
             pass
     key=os.environ.get("KIPRIS_SERVICE_KEY","").strip()
     if not key:
+        save_publication_diagnostics({"generatedAt":datetime.now(KST).isoformat(timespec="seconds"),
+                                      "applicantCount":len(APPLICANTS),
+                                      "sourceWindowComplete":False,
+                                      "companyChecks":[{"company":c,"status":"api_key_missing"}
+                                                       for c in APPLICANTS]})
         print("KIPRIS_SERVICE_KEY 미설정: 기존 공식 특허 데이터 파일 보존")
         raise SystemExit(2)
     report=build(key,previous=previous,news_limit=args.max_news)
+    save_publication_diagnostics(report)
     if key and not report.get("sourceWindowComplete"):
         print("KIPRISPlus 24개 출입처 공식 검색에 오류·누락·페이지 절단 발생: 이전 검증 데이터 보존")
         raise SystemExit(2)

@@ -255,6 +255,21 @@ class PatentScoutTests(unittest.TestCase):
         self.assertEqual(result["status"],"KIPRIS_SERVICE_KEY 미설정")
         self.assertEqual(result["confirmedScoops"],0)
 
+    def test_source_diagnostics_expose_issuer_errors_without_secrets(self):
+        sample={"generatedAt":"2026-10-13T09:44:09+09:00",
+                "applicantCount":2,"sourceWindowComplete":False,
+                "companyChecks":[
+                  {"company":"현대자동차","status":"checked","rawTotal":2,"rawRetrieved":2},
+                  {"company":"기아","status":"source_error","errorType":"TimeoutError",
+                   "errorDetail":"ServiceKey=secret-must-not-leak"}]}
+        report=p.publication_diagnostics(sample)
+        self.assertEqual(report["status"],"incomplete")
+        self.assertEqual(report["checkedCompanies"],1)
+        self.assertEqual(report["incompleteCompanies"][0]["company"],"기아")
+        import json
+        self.assertNotIn("secret-must-not-leak",json.dumps(report))
+        self.assertEqual(report["incompleteCompanies"][0]["errorType"],"TimeoutError")
+
     def test_failed_issuer_does_not_zero_fill(self):
         report=p.build("fake",now=NOW,names=["현대자동차"],
                        search=lambda *a:(_ for _ in ()).throw(ValueError("API error")))
