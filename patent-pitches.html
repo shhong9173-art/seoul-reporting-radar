@@ -12,7 +12,7 @@ h2{font-size:19px;line-height:1.4;margin:0 0 13px}
 .summary b{font-size:20px;color:#122c47}.summary span{color:#577089;font-size:13px}
 .warning{border-left:3px solid #a97820;padding:11px 14px;background:#fff9ef;margin:20px 0;color:#624922;font-size:13px}
 .topbar{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap}
-button{background:#174c70;color:white;border:0;border-radius:7px;padding:10px 15px;font:inherit;cursor:pointer}
+select{padding:6px;border:1px solid #bccdda;border-radius:6px;background:#fff;color:#24394d;font:inherit}button{background:#174c70;color:white;border:0;border-radius:7px;padding:10px 15px;font:inherit;cursor:pointer}
 button:hover{background:#0c374f}button.ghost{background:white;color:#1c526f;border:1px solid #b8c9d6}button:disabled{opacity:.45;cursor:not-allowed}
 .card{background:white;border:1px solid #d7e0e9;border-radius:12px;padding:22px;margin:19px 0}
 .card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
@@ -45,6 +45,7 @@ footer{font-size:12px;color:#6a7d8c;padding-top:25px}
   </div>
 </div>
 <p id="pitch-status" class="status" aria-live="polite">공식 특허 발제 데이터 불러오는 중</p>
+<p id="cross-status" class="status">DART 정기공시·공급계약·투자계획 자료와 특허 교차검증 결과 확인 중</p>
 <div id="pitch-cards"></div>
 <div class="notice">
  <strong>이 화면에서 확인할 점</strong>
@@ -59,6 +60,29 @@ footer{font-size:12px;color:#6a7d8c;padding-top:25px}
 const $=s=>document.querySelector(s);
 const container=$("#pitch-cards"),status=$("#pitch-status"),all=$("#btn-copy-all"),refresh=$("#btn-refresh-time");
 const edits=[];
+const checkLabels=[
+ ["prior_coverage","기보도 기사·회사 발표 원문 대조"],
+ ["company_response","회사 공식 답변 확인"],
+ ["actual_application","해당 기술의 실제 제품·공정 적용 확인"],
+ ["industry_impact","산업 영향·효과 수치 근거 확인"],
+ ["reporting_angle","기사 야마와 반론 검증"]
+];
+const checkValues=[
+ ["not_checked","미확인"],["in_progress","취재 중"],
+ ["verified","기자가 확인"],["contradicted","기존 주장과 불일치"]
+];
+function localKey(number){return "patent-editor-check-v1:"+number;}
+function readChecks(number){
+ try{
+  const raw=JSON.parse(localStorage.getItem(localKey(number))||"{}");
+  return raw&&typeof raw==="object"&&!Array.isArray(raw)?raw:{};
+ }catch(e){return {};}
+}
+function saveChecks(number,value){
+ try{localStorage.setItem(localKey(number),JSON.stringify(value));return true;}
+ catch(e){return false;}
+}
+
 function el(tag,content,cls){
   const a=document.createElement(tag);
   if(content!==undefined)a.textContent=String(content);
@@ -80,12 +104,26 @@ function detail(parent,label,value){
   parent.append(el("p",label+" "+value,"fact"));
 }
 try{
-  const [d,h]=await Promise.all([
+  const [d,h,c]=await Promise.all([
     fetch("digests/patent_desk_latest.json",{cache:"no-store"}),
-    fetch("digests/patent_run_health_latest.json",{cache:"no-store"})
+    fetch("digests/patent_run_health_latest.json",{cache:"no-store"}),
+    fetch("digests/patent_cross_evidence_latest.json",{cache:"no-store"}).catch(()=>null)
   ]);
   if(!d.ok||!h.ok)throw Error("취재 발제 데이터·실행 상태 파일이 없습니다");
   const [desk,health]=await Promise.all([d.json(),h.json()]);
+  let cross=null;
+  try{
+    if(c&&c.ok){
+      const parsed=await c.json();
+      if(parsed.deskSourceGeneratedAt===desk.generatedAt&&Array.isArray(parsed.prioritized))cross=parsed;
+    }
+  }catch(e){}
+  $("#cross-status").textContent=cross?
+    "DART 원문 교차점검 "+cross.generatedAt+" · 구체 기술어휘 일치 후보 "+
+    cross.candidateWithSpecificTermOverlap+"/"+cross.candidateCount+
+    "건 · 일치가 동일 사업·기술 적용을 의미하지는 않음":
+    "DART 교차검증은 미완료 또는 다른 시점의 자료입니다 · 개별 특허와 특정 사업 연계를 추정하지 않습니다";
+  const crossByPub=new Map((cross?.prioritized||[]).map(x=>[x.publicationNumber,x]));
   if(!PatentPitch.validDataset(desk))throw Error("검증 범위가 불명확한 발제 파일입니다");
   // Keep the last verified research briefing readable during an API outage.
   // Never label cached evidence as a newly confirmed exclusive.
@@ -133,7 +171,66 @@ try{
     for(const q of item.questions||[])detail(detailBox,"취재 질문:",q);
     const link=el("a","상세 특허 검토 화면에서 근거 확인");
     link.href="patents.html";detailBox.append(link);
-    card.append(detailBox);container.append(card);
+    const business=crossByPub.get(item.publicationNumber);
+    const crossBox=document.createElement("details");
+    crossBox.append(el("summary","DART 교차검증 · 기자 취재 결과 체크"));
+    if(!business)detail(crossBox,"공식 DART 교차검증:","미실행 또는 스냅샷 미확인");
+    else{
+      const matches=business.independentDartTechnicalOverlap||[];
+      if(!matches.length)
+        detail(crossBox,"DART 교차검증:","같은 회사의 관련 기술어휘를 직접 확인한 독립 자료 없음(실제 연구·적용이 없다는 뜻 아님)");
+      for(const entry of matches.slice(0,3)){
+        detail(crossBox,"DART 검토 단서:",entry.sourceType+" · 일치 기술어 "+entry.technicalTermsShared.join(", ")+
+          " · 원문 일부 '"+entry.text.slice(0,100)+"' (같은 프로젝트 확인 전)");
+        if(typeof entry.url==="string"&&/^https:\/\/dart\.fss\.or\.kr\/dsaf001\/main\.do\?rcpNo=\d{14}$/.test(entry.url)){
+          const link=el("a","해당 DART 공시 열어보기");
+          link.href=entry.url;link.target="_blank";link.rel="noopener noreferrer";crossBox.append(link);
+        }
+      }
+      detail(crossBox,"검증 결과:",business.nextStep);
+    }
+    const local=readChecks(item.publicationNumber);
+    const checkTitle=el("p","기자 취재 체크 — 이 브라우저에만 저장 (비공개 원문/취재원 기록 금지)","status");
+    crossBox.append(checkTitle);
+    const selectors={};
+    for(const [key,label] of checkLabels){
+      const wrapper=el("div",undefined,"fact");
+      const lab=document.createElement("label");
+      lab.textContent=label+" · ";
+      const select=document.createElement("select");
+      select.setAttribute("aria-label",label);
+      for(const [value,name] of checkValues){
+        const opt=document.createElement("option");opt.value=value;opt.textContent=name;select.append(opt);
+      }
+      select.value=checkValues.some(a=>a[0]===local[key])?local[key]:"not_checked";
+      select.addEventListener("change",()=>{
+        local[key]=select.value;
+        const ok=saveChecks(item.publicationNumber,local);
+        saved.textContent=ok?"이 브라우저의 체크 상태 저장 완료 · GitHub/서버 미전송":
+          "브라우저 저장 불가 · 현재 화면에서만 선택 상태 유지";
+      });
+      selectors[key]=select;lab.append(select);wrapper.append(lab);crossBox.append(wrapper);
+    }
+    const saved=el("p","체크 결과는 별도 편집 참고용이며 자동 기사 승인 기준이 아닙니다","status");
+    crossBox.append(saved);
+    const reporter=el("button","체크 결과 복사 (비공개 보고용)");
+    reporter.type="button";
+    reporter.addEventListener("click",async()=>{
+      const lines=[item.publicationNumber+" · 특허 취재 현황 · 부장 보고 전 검증 대기"];
+      for(const [key,label] of checkLabels){
+        lines.push("- "+label+": "+checkValues.find(x=>x[0]===selectors[key].value)[1]);
+      }
+      lines.push("모두 확인 표시여도 실제 출고·단독 자동 확정 아님");
+      try{await copy(lines.join("\n"));reporter.textContent="체크 결과 복사 완료"}
+      catch(e){reporter.textContent="복사 실패"}
+    });
+    crossBox.append(reporter);
+    crossBox.append(el("p","공개된 공식 답변·기사·보고서 URL만 GitHub에 기록할 수 있습니다. 비공개 전화 답변·취재원 신원·기사 전략은 GitHub에 입력하지 마세요.","secondary"));
+    const factLink=el("a","공식 자료 근거 공개 체크 기록 (GitHub Actions)");
+    factLink.href="https://github.com/shhong9173-art/seoul-reporting-radar/actions/workflows/record-patent-public-factcheck.yml";
+    factLink.target="_blank";factLink.rel="noopener noreferrer";
+    crossBox.append(factLink);
+    card.append(detailBox,crossBox);container.append(card);
   }
   all.disabled=!edits.length;refresh.disabled=!edits.length;
   all.textContent=edits.length+"건 전체 복사";
