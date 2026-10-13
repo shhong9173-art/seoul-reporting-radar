@@ -148,6 +148,17 @@ def evaluate(desk,business,contracts,delta,ledger,now=None):
         for event in ranked:
             by_reference.setdefault((event["sourceType"],event["url"],event["text"]),event)
         linked=list(by_reference.values())[:5]
+        # Show independent *same issuer* DART sources even without technical
+        # overlap. They are background reading, not evidence of application.
+        background={}
+        for entry in same_issuer:
+            key=(entry["sourceType"],entry["url"],entry["reference"])
+            if key not in background:
+                background[key]={"company":entry["company"],
+                    "sourceType":entry["sourceType"],"reference":entry["reference"],
+                    "sourceUrl":entry["url"],"published":entry["published"],
+                    "linkState":"same_company_only_no_patent_relation"}
+        background=list(background.values())[:4]
         labels={kind:reviewed.get((number,kind),{}).get("result","not_reviewed")
                 for kind in ("prior_coverage","company_response",
                              "actual_application","industry_impact","reporting_angle")}
@@ -173,6 +184,7 @@ def evaluate(desk,business,contracts,delta,ledger,now=None):
             "topic":row.get("topic"),
             "technicalTerms":sorted(terms),
             "sameIssuerDartRowsObserved":len(same_issuer)+len(technical),
+            "sameIssuerBackgroundSources":background,
             "independentDartTechnicalOverlap":linked,
             "humanPublicCheckStatuses":labels,
             "missingVerification":blockers,
