@@ -1,0 +1,55 @@
+name: Patent Public DART Evidence Cross-Check
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/patent_cross_evidence.py'
+      - 'scripts/patent_public_factcheck.py'
+      - 'tests/test_patent_cross_evidence.py'
+      - '.github/workflows/patent-cross-evidence.yml'
+  schedule:
+    # KST 07:05, 13:15, 18:20 weekdays; uses last complete datasets.
+    - cron: '5 22 * * 0-4'
+    - cron: '15 4 * * 1-5'
+    - cron: '20 9 * * 1-5'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: patent-cross-evidence-independent
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test verified company matches and public-only reporter checks
+        run: |
+          python -m compileall -q scripts/patent_cross_evidence.py scripts/patent_public_factcheck.py
+          python -m unittest discover -s tests -p 'test_patent_cross_evidence.py' -v
+      - name: Evaluate newest available verified patent & DART snapshots
+        run: python scripts/patent_cross_evidence.py
+      - name: Commit independent DART cross evidence
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add digests/patent_cross_evidence_latest.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "data: refresh patent-to-DART newsroom evidence [skip ci]"
+          for attempt in 1 2 3; do
+            git pull --rebase origin main
+            if git push origin HEAD:main; then exit 0; fi
+            sleep 4
+          done
+          exit 1
