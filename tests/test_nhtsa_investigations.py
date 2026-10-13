@@ -18,6 +18,16 @@ class Tests(unittest.TestCase):
         self.assertEqual(d["scannedRecords"],5)
         self.assertEqual(len(d["items"]),2)
         self.assertTrue(all(x["caution"].find("결함 확정")>=0 for x in d["items"]))
+    def test_zip_streaming_uses_identical_tab_schema_without_extracting_archive(self):
+        import io,zipfile
+        holder=io.BytesIO()
+        with zipfile.ZipFile(holder,"w",compression=zipfile.ZIP_DEFLATED) as z:
+            z.writestr("FLAT_INV.txt","\\n".join([
+                rec("PE26-100"),rec("PE26-101","KIA")]))
+        parsed=n.parse_zip_data(holder.getvalue(),now=NOW)
+        self.assertEqual(parsed["scannedRecords"],2)
+        self.assertEqual(len(parsed["items"]),2)
+
     def test_first_seen_is_not_first_published(self):
         d={"generatedAt":"2026-10-13T12:00:00+09:00",
            "items":[{"actionNumber":"PE26-100","openedDate":"20261001"}]}
