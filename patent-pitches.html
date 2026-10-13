@@ -87,14 +87,21 @@ try{
   if(!d.ok||!h.ok)throw Error("취재 발제 데이터·실행 상태 파일이 없습니다");
   const [desk,health]=await Promise.all([d.json(),h.json()]);
   if(!PatentPitch.validDataset(desk))throw Error("검증 범위가 불명확한 발제 파일입니다");
-  if(health.status!=="ready"||health.datasets?.desk?.generatedAt!==desk.generatedAt||
-     health.datasets?.desk?.consistent!==true)
+  // Keep the last verified research briefing readable during an API outage.
+  // Never label cached evidence as a newly confirmed exclusive.
+  if(health.status==="ready" &&
+     (health.datasets?.desk?.generatedAt!==desk.generatedAt||
+      health.datasets?.desk?.consistent!==true))
     throw Error("공식 원문과 발제 자료의 실행 시점이 일치하지 않습니다");
+  const freshRun=health.status==="ready";
+  const hoursOld=(Date.now()-new Date(desk.generatedAt).getTime())/3600000;
+  const stale=!Number.isFinite(hoursOld)||hoursOld>24||hoursOld<(-1);
   $("#count-candidates").textContent=desk.candidateCount;
   $("#count-pitches").textContent=desk.shortlist.length;
   $("#count-news").textContent=desk.newsSearched;
   $("#count-ready").textContent=desk.publicationReady;
-  status.textContent="마지막 공식 교차분석 "+desk.generatedAt+
+  status.textContent=(freshRun?"공식 교차분석":"최신 자동실행 실패 · 이전 검증 자료 표시")+
+    " "+desk.generatedAt+(stale?" · 24시간 초과 자료":"")+
     " · 발제 초안 "+desk.shortlist.length+"건 · 기업 답변·기보도·상용화 미확인";
   for(const [i,item] of desk.shortlist.entries()){
     const card=el("article",undefined,"card");
