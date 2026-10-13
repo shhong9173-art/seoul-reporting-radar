@@ -290,7 +290,11 @@ def build(official,deep,now=None,max_news=8,press=search_press,previous=None):
     retry_limit=(max(1,max_news//3) if unsearched else max_news) if max_news else 0
     selected=failures[:retry_limit]
     selected_ids={x["publicationNumber"] for x in selected}
-    for item in unsearched+revisits:
+    # Do not spend spare budget repeatedly rescanning completed patents while
+    # new publications still exist. This also prevents duplicate attempts
+    # after the final unsearched item in the current batch.
+    candidates=unsearched if unsearched else revisits
+    for item in candidates:
         if len(selected)>=max_news:break
         if item["publicationNumber"] not in selected_ids:
             selected.append(item)
