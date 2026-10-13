@@ -12,6 +12,10 @@ assert(page.includes('src="pitch-format.js"'));
 assert(home.includes('href="patent-pitches.html"'));
 assert(patents.includes('href="patent-pitches.html"'));
 assert(!page.includes("innerHTML"));
+for(const term of ["patent_cross_evidence_latest.json","cross-status",
+  "record-patent-public-factcheck.yml","localStorage.getItem","localStorage.setItem",
+  "공식 DART 교차검증","기자 취재 체크","실제 출고·단독 자동 확정 아님"])
+  assert(page.includes(term),"missing DART reporter checklist control "+term);
 assert(page.includes("최신 자동실행 실패 · 이전 검증 자료 표시"),"stale official evidence must remain viewable but clearly dated");
 assert(code.includes("companyResponsesVerified"),"source guard belongs to pitch-format.js");
 assert.equal([...page.matchAll(/<script>/g)].length,1);
