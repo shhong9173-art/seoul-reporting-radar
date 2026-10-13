@@ -84,6 +84,8 @@ class EvidenceTests(unittest.TestCase):
         p=x.evaluate(*args,now=NOW)
         r=p["reviews"][0]
         self.assertEqual(r["humanPublicCheckStatuses"]["company_response"],"verified_public")
+        self.assertTrue(r["publicCompanyResponseMarkedByReporter"])
+        self.assertFalse(r["independentlyValidatedCompanyResponse"])
         self.assertFalse(r["approvedForPublication"])
         self.assertIn("actual_application",r["missingVerification"])
 
