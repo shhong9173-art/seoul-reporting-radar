@@ -1,0 +1,60 @@
+name: KONEPS Tender Official Research
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/g2b_tender_watch.py'
+      - 'scripts/industry_official_hunt.py'
+      - 'tests/test_g2b_tender_watch.py'
+      - 'tests/test_industry_official_hunt.py'
+      - '.github/workflows/g2b-tender-official.yml'
+  schedule:
+    - cron: '35 0 * * 1-5'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: official-g2b-bids
+  cancel-in-progress: false
+jobs:
+  procurement:
+    runs-on: ubuntu-latest
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test bid-not-award safeguards and pagination fail closed
+        run: |
+          python -m compileall -q scripts/g2b_tender_watch.py scripts/industry_official_hunt.py
+          python -m unittest discover -s tests -p 'test_g2b_tender_watch.py' -v
+          python -m unittest discover -s tests -p 'test_industry_official_hunt.py' -v
+      - name: Query newly published G2B tenders when authorized
+        id: source
+        continue-on-error: true
+        env:
+          G2B_API_KEY: ${{ secrets.G2B_API_KEY }}
+        run: python scripts/g2b_tender_watch.py
+      - name: Refresh multi-source research status, including provider failure
+        run: python scripts/industry_official_hunt.py
+      - name: Publish diagnostics, complete tender snapshot only if valid
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add digests/industry_official_hunt_latest.json digests/g2b_source_status_latest.json
+          if [ "${{ steps.source.outcome }}" = "success" ] && [ -f digests/g2b_tender_latest.json ]; then
+            git add digests/g2b_tender_latest.json
+          fi
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "data: refresh public procurement API diagnostics and tenders [skip ci]"
+          for attempt in 1 2 3; do
+            git pull --rebase origin main
+            if git push origin HEAD:main; then exit 0; fi
+            sleep 4
+          done
+          exit 1
