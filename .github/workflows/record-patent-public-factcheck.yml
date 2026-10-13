@@ -1,0 +1,74 @@
+name: Record Patent Public Fact Check
+on:
+  workflow_dispatch:
+    inputs:
+      publication_number:
+        description: 'Existing official patent publication number (13 digits)'
+        required: true
+        type: string
+      check_type:
+        description: 'Which fact was checked with a PUBLIC document?'
+        required: true
+        type: choice
+        options:
+          - prior_coverage
+          - company_response
+          - actual_application
+          - industry_impact
+          - reporting_angle
+      result:
+        description: 'Public evidence status, NOT a scoop certificate'
+        required: true
+        type: choice
+        options:
+          - needs_check
+          - verified_public
+          - contradicted_public
+      evidence_url:
+        description: 'PUBLIC HTTPS source only (required except needs_check). No private interviews.'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: patent-public-factcheck
+  cancel-in-progress: false
+
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Unit-test and record only public factcheck status
+        env:
+          FACTCHECK_PUBLICATION_NUMBER: ${{ inputs.publication_number }}
+          FACTCHECK_TYPE: ${{ inputs.check_type }}
+          FACTCHECK_RESULT: ${{ inputs.result }}
+          FACTCHECK_URL: ${{ inputs.evidence_url }}
+        run: |
+          python -m unittest discover -s tests -p 'test_patent_cross_evidence.py' -v
+          python scripts/patent_public_factcheck.py
+          python scripts/patent_cross_evidence.py
+      - name: Commit public checks and refreshed cross evidence
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/patent_reporting_checks.json digests/patent_cross_evidence_latest.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "data: update public patent verification checklist [skip ci]"
+          for attempt in 1 2 3; do
+            git pull --rebase origin main
+            if git push origin HEAD:main; then exit 0; fi
+            sleep 4
+          done
+          exit 1
