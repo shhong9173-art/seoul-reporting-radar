@@ -12,6 +12,7 @@ assert(page.includes('src="pitch-format.js"'));
 assert(home.includes('href="patent-pitches.html"'));
 assert(patents.includes('href="patent-pitches.html"'));
 assert(!page.includes("innerHTML"));
+assert(page.includes("최신 자동실행 실패 · 이전 검증 자료 표시"),"stale official evidence must remain viewable but clearly dated");
 assert(code.includes("companyResponsesVerified"),"source guard belongs to pitch-format.js");
 assert.equal([...page.matchAll(/<script>/g)].length,1);
 for(const match of page.matchAll(/<script>([\s\S]*?)<\/script>/g))new Function(match[1]);
