@@ -44,17 +44,23 @@ def direct_make(make,manufacturer):
 
 
 def parse_tab_data(content,now=None,lookback=100):
+    """Legacy small in-memory fixtures: real NHTSA ZIP is stream-parsed."""
+    if len(content)>120_000_000:raise ValueError("In-memory fixture too large")
+    text=io.StringIO(content.decode("utf-8-sig",errors="replace"))
+    return parse_rows(csv.reader(text,delimiter="\t"),now=now,lookback=lookback)
+
+
+def parse_rows(reader,now=None,lookback=100):
     now=now or datetime.now(KST)
     if not 1<=lookback<=365:raise ValueError("1..365 days only")
-    if len(content)>120_000_000:raise ValueError("NHTSA uncompressed investigation file too large")
-    decoded=content.decode("utf-8-sig",errors="replace")
     start=(now-timedelta(days=lookback)).strftime("%Y%m%d")
     end=now.strftime("%Y%m%d")
     leads={}
     inspected=0
-    for row in csv.reader(io.StringIO(decoded),delimiter="\t"):
+    for row in reader:
         if not row or len(row)!=11:continue
         inspected+=1
+        if inspected>800_000:raise ValueError("NHTSA record row count exceeds safety limit")
         obj=dict(zip(FIELDS,(str(x or "").strip() for x in row)))
         action=obj["actionNumber"]
         opened=obj["openedDate"]
@@ -92,12 +98,24 @@ def fetch_zip(url=SOURCE):
     with urlopen(req,timeout=35) as r:
         raw=r.read(12_000_001)
     if len(raw)>12_000_000:raise ValueError("NHTSA official compressed dataset larger than expected")
+    return raw
+
+
+def parse_zip_data(raw,now=None,lookback=100):
+    # The official 4MB compressed archive can expand beyond 120MB. Stream
+    # rather than materializing decompressed multi-decade records in memory.
     with zipfile.ZipFile(io.BytesIO(raw)) as z:
         names=[n for n in z.namelist() if n.lower().endswith((".txt",".lst"))]
         if len(names)!=1:raise ValueError("NHTSA ZIP expected one tab data text file")
         info=z.getinfo(names[0])
-        if info.file_size>120_000_000:raise ValueError("NHTSA decompressed file too large")
-        return z.read(info)
+        if info.file_size>650_000_000:raise ValueError("NHTSA ZIP exceeds bounded scan size")
+        if info.compress_size<1 or info.file_size<100:
+            raise ValueError("NHTSA ZIP text content incomplete")
+        with z.open(info) as f:
+            with io.TextIOWrapper(f,encoding="utf-8-sig",errors="replace",
+                                  newline="") as reader:
+                csv.field_size_limit(15_000)
+                return parse_rows(csv.reader(reader,delimiter="\t"),now=now,lookback=lookback)
 
 
 def write_health(data,output=Path("digests/nhtsa_source_status_latest.json")):
@@ -121,7 +139,7 @@ def main():
     now=datetime.now(KST)
     try:
         downloaded=fetch_zip()
-        result=parse_tab_data(downloaded,now=now,lookback=a.lookback)
+        result=parse_zip_data(downloaded,now=now,lookback=a.lookback)
         if result["scannedRecords"]<200:
             raise ValueError("NHTSA investigations original file was incomplete")
         status={"generatedAt":now.isoformat(timespec="seconds"),"status":"checked",
