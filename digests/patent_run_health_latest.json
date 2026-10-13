@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-10-13T05:28:33+09:00",
-  "workflowRunId": "38304299764",
+  "generatedAt": "2026-10-13T09:05:31+09:00",
+  "workflowRunId": "38325355944",
   "workflowAttempt": "1",
   "workflowEvent": "push",
   "steps": {
@@ -8,13 +8,14 @@
     "source": "success",
     "deep": "success",
     "story": "success",
+    "quality": "success",
     "claims": "success"
   },
   "datasets": {
     "source": {
       "path": "digests/patent_hunt_latest.json",
       "exists": true,
-      "generatedAt": "2026-10-13T05:27:23+09:00",
+      "generatedAt": "2026-10-13T09:04:08+09:00",
       "consistent": true,
       "complete": true,
       "validCompanies": 24,
@@ -24,26 +25,34 @@
     "deep": {
       "path": "digests/patent_deep_latest.json",
       "exists": true,
-      "generatedAt": "2026-10-13T05:28:00+09:00",
+      "generatedAt": "2026-10-13T09:04:56+09:00",
       "consistent": true
     },
     "story": {
       "path": "digests/patent_story_latest.json",
       "exists": true,
-      "generatedAt": "2026-10-13T05:28:11+09:00",
+      "generatedAt": "2026-10-13T09:05:08+09:00",
       "consistent": true,
       "leads": 133,
-      "coverageQueries": 48
+      "coverageQueries": 72
+    },
+    "quality": {
+      "path": "digests/patent_quality_latest.json",
+      "exists": true,
+      "generatedAt": "2026-10-13T09:05:14+09:00",
+      "consistent": true,
+      "humanReviewedCurrentCandidates": 0
     },
     "claims": {
       "path": "digests/patent_claim_review_latest.json",
       "exists": true,
-      "generatedAt": "2026-10-13T05:28:17+09:00",
+      "generatedAt": "2026-10-13T09:05:14+09:00",
       "consistent": true
     }
   },
   "status": "ready",
   "claimComparisonStatus": "ok",
+  "editorialQualityStatus": "ok",
   "warning": "검증 완료된 같은 실행의 공식 수집·심층·기사 가설 파일",
   "scoopConfirmed": false
 }
