@@ -14,7 +14,7 @@ assert(patents.includes('href="patent-pitches.html"'));
 assert(!page.includes("innerHTML"));
 for(const token of ["patent_reporting_triage_latest.json","triage-status",
  "count-human","count-hit","record-patent-editorial-review.yml",
- "source_review_company_call","측정 불가","humanFinalSample","editorialOutcome",
+ "source_review_company_call","측정 불가","finalHumanSample","editorialOutcome",
  "result.deskSourceGeneratedAt===desk.generatedAt",
  "result.crossSourceGeneratedAt===cross.generatedAt"])
  assert(page.includes(token),"missing reporter feedback ranking marker "+token);
