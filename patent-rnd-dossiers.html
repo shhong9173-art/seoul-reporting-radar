@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>특허·국가과제·DART 교차 취재 조사서 | 산업부 취재 레이더</title>
+<style>
+:root{font:15px/1.65 system-ui,-apple-system,"Noto Sans KR",sans-serif;color:#1d3246;background:#f4f6f9}
+*{box-sizing:border-box}body{margin:0}main{max-width:1030px;margin:auto;padding:26px 18px 70px}
+a{color:#0b5f93}h1{font-size:26px;margin:12px 0 4px}h2{font-size:19px;margin-top:25px}
+h3{font-size:17px;margin:10px 0 7px}.muted{font-size:13px;color:#60758a}
+.panel,.card{background:white;border:1px solid #d8e1ea;border-radius:10px;padding:17px;margin:12px 0}
+.warning{border-left:4px solid #bc852d;padding:13px;background:#fffaf1;margin:15px 0;font-size:14px}
+.line{display:flex;gap:12px;flex-wrap:wrap;align-items:center}.chips{display:flex;flex-wrap:wrap;gap:10px;margin:15px 0}
+label{font-size:13px}select{font:inherit;padding:8px;border:1px solid #bcc9d4;border-radius:6px}
+.tag{display:inline-block;background:#edf2f6;color:#3a576c;padding:3px 8px;font-size:12px;border-radius:5px}
+li{margin:6px 0}ul{padding-left:19px}.sources{border-top:1px solid #e5eaf1;padding-top:9px;margin-top:12px}
+button{font:inherit;border:1px solid #b5c7d5;background:#edf4f8;color:#174b6d;padding:9px 12px;cursor:pointer;border-radius:6px}
+@media(max-width:600px){h1{font-size:22px}.card{padding:13px}}
+</style></head><body><main>
+<p class="muted"><a href="index.html">산업부 레이더</a> / <a href="patents.html">특허 원문</a> / <a href="patent-pitches.html">3줄 발제</a></p>
+<h1>특허 → 국가과제 → DART 교차 취재 조사서</h1>
+<p class="muted">KIPRIS 공식 공개공보·과거 동일 제목 검토·청구항·뉴스 검색·동일 법인 DART 자료를 근거별로 분리합니다.</p>
+<div class="warning"><b>자료 연결 여부를 혼동하지 마세요.</b> NTIS 과제검색 바로가기는 실제 과제 조회·선정 확인이 아닙니다. IRIS 사업공고는 선정과제 증거가 아닙니다. 동일 회사 DART 문서·기술어휘 일치는 동일 R&D·차종 적용·양산·단독 증명이 아닙니다.</div>
+<div id="state" class="panel" role="status">공식 출처 일치 및 자료 상태 확인 중</div>
+<div class="panel" id="sources"><b>공식 연계 상태</b><p class="muted" id="source-status">확인 중</p>
+<a href="https://www.data.go.kr/data/15077315/openapi.do" target="_blank" rel="noopener noreferrer">NTIS 국가R&D 과제검색 API 신청·명세</a> ·
+<a href="https://www.ntis.go.kr/ThSearchProjectList.do" target="_blank" rel="noopener noreferrer">NTIS 공식 과제검색</a> ·
+<a href="https://www.iris.go.kr/main.do" target="_blank" rel="noopener noreferrer">IRIS 사업공고</a>
+</div>
+<div class="line"><label for="filter">후보 보기</label><select id="filter">
+<option value="all">전체 조사서</option>
+<option value="recent">최근 3일 공개특허만</option>
+<option value="checked">언론 검색 완료·보류 아님</option>
+<option value="gaps">미검색·기보도 위험·과거 자료</option>
+</select><span id="count" class="muted"></span></div>
+<div id="cards"></div>
+<script>
+(async function(){
+"use strict";
+const $=sel=>document.querySelector(sel);
+const host=$("#cards");
+const node=(tag,value,cls)=>{
+ const e=document.createElement(tag);
+ if(value!==undefined)e.textContent=String(value);
+ if(cls)e.className=cls;
+ return e;
+};
+function link(host,url,title,kind){
+ try{
+  const u=new URL(url);
+  if(u.protocol!=="https:")return;
+  if(kind==="dart" &&
+     (u.hostname!=="dart.fss.or.kr" || u.pathname!=="/dsaf001/main.do" ||
+      !/^\d{14}$/.test(u.searchParams.get("rcpNo")||"")))return;
+  if(kind==="ntis" && (u.hostname!=="www.ntis.go.kr" ||
+     u.pathname!=="/ThSearchProjectList.do"))return;
+  const a=node("a",title);
+  a.href=u.href;a.target="_blank";a.rel="noopener noreferrer";
+  host.append(a);
+ }catch(e){}
+}
+function para(host,text,cls){host.append(node("p",text,cls));}
+try{
+ const r=await fetch("digests/patent_rnd_dossiers_latest.json",{cache:"no-store"});
+ if(!r.ok)throw Error("교차 조사서 데이터 미생성");
+ const data=await r.json();
+ if(data.status!=="research_only" || !Array.isArray(data.dossiers) ||
+    !data.deskGeneratedAt||!data.crossGeneratedAt||!data.triageGeneratedAt ||
+    data.sourceStatus?.ntisProjectApi!=="not_connected" ||
+    data.verifiedPatentProjectMappings!==0 || data.confirmedExclusives!==0)
+   throw Error("조사서 검증 범위 또는 소스 상태가 일치하지 않습니다");
+ const check=await Promise.all([
+   fetch("digests/patent_desk_latest.json",{cache:"no-store"}),
+   fetch("digests/patent_cross_evidence_latest.json",{cache:"no-store"}),
+   fetch("digests/patent_reporting_triage_latest.json",{cache:"no-store"})
+ ]);
+ if(check.some(x=>!x.ok))throw Error("원천 검증 스냅샷 누락");
+ const [desk,cross,triage]=await Promise.all(check.map(x=>x.json()));
+ if(desk.generatedAt!==data.deskGeneratedAt ||
+    cross.generatedAt!==data.crossGeneratedAt ||
+    triage.generatedAt!==data.triageGeneratedAt)
+   throw Error("공식 공보·DART·기자 순위의 원천 시점 불일치");
+ const age=(Date.now()-Date.parse(data.generatedAt))/3600000;
+ const stale=!Number.isFinite(age)||age>24||age<(-1);
+ $("#state").textContent="작성 "+data.generatedAt+" · 특허 "+data.totalCurrentCandidates+
+    "건 중 조사서 "+data.dossiersDisplayed+"건 · 현재 공개특허 "+data.freshPublicationsInDisplayed+
+    "건 · NTIS 과제 API 미연결 · 단독 확정 0건"+
+    (stale?" · 24시간 초과: 최신 발제로 사용 금지":"");
+ $("#source-status").textContent="KIPRIS 원문 검증 스냅샷 · DART 일부 공식 자료 · NTIS 연구과제 API 미연결 · IRIS 선정결과 API 미연결. 미연결=0개 과제라는 뜻 아님";
+ const show=()=>{
+  const filter=$("#filter").value;
+  host.replaceChildren();
+  const records=data.dossiers.filter(x=>filter==="all" ||
+    (filter==="recent"&&x.recentPatentWithin3Days) ||
+    (filter==="checked"&&x.eligibleForResearchQueue) ||
+    (filter==="gaps"&&(!x.eligibleForResearchQueue||!x.recentPatentWithin3Days)));
+  $("#count").textContent=records.length+"건 표시 · 기사/단독 승인 아님";
+  if(!records.length){host.append(node("p","조건에 맞는 검증 조사서가 없습니다. 0건은 단독이 없다는 뜻이 아닙니다.","panel"));return}
+  for(const x of records){
+   const card=node("article",undefined,"card");
+   card.append(node("span",x.recentPatentWithin3Days?"최근 3일 공개공보":"과거 공개공보 · 후속 연구자료","tag"));
+   card.append(node("h3",x.title||"발명명칭 미확인"));
+   para(card,"공개번호 "+x.publicationNumber+" · 공개일 "+(x.publicationDate||"미확인")+
+    " · 출입처 "+(x.companies||[]).join(", "),"muted");
+   para(card,"외부 공동출원인: "+((x.outsideCoApplicants||[]).join(", ")||"없음/미확인"),"muted");
+   para(card,"청구항 제1항: "+(x.claim1OfficiallyRetrieved?"원문 확인(신규성 미확정)":"미조회")+
+    " · 과거 동일 제목 검토: "+(x.olderSameTitleSearchState||"미확인")+
+    " · 언론 RSS: "+(x.pressLookupCompleted?"검색식 오류 없이 조회(미보도 증명 아님)":"미완료·실패 가능"),"muted");
+   const official=node("div",undefined,"sources");
+   official.append(node("b","DART 원문 대조 — 해당 특허의 사업 적용 여부 미확인"));
+   if(!(x.dartDocuments||[]).length)para(official,"같은 법인 관련 문서 연결 단서 없음(자료 수집 범위 제한).","muted");
+   for(const doc of x.dartDocuments||[]){
+    const line=node("p",undefined,"muted");
+    line.append(node("span",(doc.filingDate||"접수일 미확인")+" · "+
+      (doc.filedWithin3Days?"최근 3일 접수":"과거 공시·새 사건 아님")+" · "+
+      (doc.relation==="same_issuer_only_no_patent_relation"?"동일 법인 참고자료":"기술어휘 일치만 확인")+" · "));
+    link(line,doc.sourceUrl,"DART 원문 열기","dart");
+    official.append(line);
+   }
+   card.append(official);
+   const nd=node("div",undefined,"sources");
+   nd.append(node("b","NTIS 국가연구과제 검색 — API 미연결·과제 수혜 미확인"));
+   if(!(x.ntisResearchQueries||[]).length)para(nd,"식별 가능한 특화 기술어가 없어 자동 검색식 생성 보류.","muted");
+   for(const q of x.ntisResearchQueries||[]){
+     const line=node("p",undefined,"muted");
+     line.append(node("span","직접 검색: "+q.query+" · "));
+     link(line,q.url,"NTIS 결과 확인","ntis");
+     nd.append(line);
+   }
+   card.append(nd);
+   const detail=node("details",undefined,"sources");
+   detail.append(node("summary","부장 보고 전 5가지 확인 사항"));
+   const list=node("ul");
+   for(const q of (x.questions||[]).slice(0,6)){const item=node("li",q);list.append(item)}
+   detail.append(list);
+   if((x.cautions||[]).length)para(detail,"보류·주의: "+x.cautions.join(", "),"muted");
+   card.append(detail);
+   host.append(card);
+  }
+ };
+ $("#filter").addEventListener("change",show);
+ show();
+}catch(e){
+ $("#state").textContent="조사서 미생성·검증 오류: "+e.message+" · 오래된 자료를 최신 발제로 사용하지 않습니다";
+}
+})();
+</script>
+</main></body></html>

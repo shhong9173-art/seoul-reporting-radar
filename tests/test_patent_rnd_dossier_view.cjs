@@ -1,0 +1,15 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const vm = require('node:vm');
+const html = fs.readFileSync('patent-rnd-dossiers.html','utf8');
+const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)];
+assert.equal(scripts.length, 1, 'single inline display script expected');
+new vm.Script(scripts[0][1], {filename:'patent-rnd-dossiers-inline.js'});
+assert(html.includes('patent_rnd_dossiers_latest.json'));
+assert(html.includes('deskGeneratedAt') && html.includes('triageGeneratedAt'));
+assert(html.includes('crossGeneratedAt') && html.includes('not_connected'));
+assert(html.includes('old') === false || html.includes('과거 공시'));
+assert(!html.includes('innerHTML'), 'HTML injection is forbidden');
+assert(html.includes('sourceStatus?.ntisProjectApi'));
+assert(html.includes('verifiedPatentProjectMappings!==0'));
+console.log('Patent R&D dossier UI syntax, source and fail-closed gates passed');
