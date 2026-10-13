@@ -21,6 +21,17 @@ class Sources(unittest.TestCase):
   self.assertEqual(doc["feeds"][0]["status"],"ready")
   self.assertIn("숫자",doc["leads"][0]["fact"])
   self.assertIn("실제 물량",doc["leads"][0]["verification"])
+ def test_g2b_tender_requires_current_validated_provider_status(self):
+  sample={"generatedAt":"2026-10-13T15:00:00+09:00",
+          "notices":[{"title":"초고압 변압기 조달 공고","noticeId":"R26BK0012345","demandAgency":"한전",
+                      "sourceUrl":"https://www.g2b.go.kr/"}],
+          "checks":[{"status":"checked"},{"status":"checked"}]}
+  missing=h.build([],g2b=sample,g2b_status={"status":"not_connected"})
+  self.assertEqual(missing["feeds"][0]["status"],"not_connected")
+  self.assertEqual(len(missing["leads"]),0)
+  available=h.build([],g2b=sample,g2b_status={"status":"checked"})
+  self.assertEqual(available["feeds"][0]["status"],"ready")
+  self.assertIn("낙찰·계약",available["leads"][0]["fact"])
  def test_nhtsa_public_us_recalls_not_scoops(self):
   def fake(url):
    return {"results":[{"NHTSACampaignNumber":"26V100000"}]} if "/recalls/" in url else {"results":[{"odiNumber":"12345678"}]}

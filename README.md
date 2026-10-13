@@ -104,3 +104,11 @@
 - DART 정기 사업내용 출입처 21개사 실제 수집 성공. `/hunt`의 수치 검증은 같은 기간·행·단위가 일치할 때만 비교하고, 공시상 투자 예정월 변경으로 실제 준공 지연을 추정하지 않는다.
 - 연동 미완료: NTIS/IRIS 실시간 정부 연구과제 원문 검색, 나라장터 입찰·낙찰·계약변경 API, 미국 주정부/카운티별 시설 인허가, 유럽·일본 국가별 무역구제 사건 일괄 감시는 아직 자동화되지 않았다. 해당 항목은 'not_connected'이지 수집 0건이 아니다. 승인 키·공식 응답 스키마 검증 없이 결과를 만들지 않는다.
 - 출력: `digests/nhtsa_official_latest.json`, `digests/industry_official_hunt_latest.json`. 발제 문안은 '취재 가설'이며 기보도·회사 직접 답변·물량/산업 영향 확인이 필요하다.
+
+
+## 조달청 나라장터 입찰공고 API 실연동 단계
+- `scripts/g2b_tender_watch.py`는 공공데이터포털 [나라장터 입찰공고정보서비스](https://www.data.go.kr/data/15129394/openapi.do)의 물품 및 공사 입찰공고 목록을 조회한다. 낙찰/체결 계약 API와는 서로 다른 서비스이다.
+- 먼저 공공데이터포털에서 위 서비스 활용신청(자동승인)을 완료하고 별도 유효 인증키를 GitHub Actions Secret `G2B_API_KEY`로 등록해야 한다. 기존 `CUSTOMS_API_KEY`가 조달청 서비스를 호출할 권한을 가진다고 가정하지 않는다.
+- `.github/workflows/g2b-tender-official.yml`: 평일 09:35 KST, 전일 00:00~당일 23:59 등록시간 조회. 모든 자료 페이지를 수집하지 못하면 정상 결과를 덮어쓰지 않는다. 누락/키 미설정은 `digests/g2b_source_status_latest.json`에 `not_connected`/`source_error`로만 표시하고 '0건'으로 해석하지 않는다.
+- 검증된 공고 제목의 전력·변압기·에너지·전기차 관련 단어 일치를 `digests/g2b_tender_latest.json`에 보존하고 통합 연구화면 `official-leads.html`에 노출. 품명 일치는 공급사 선정/낙찰/계약금액/수주나 단독을 의미하지 않는다. 원문 공고번호와 후속 계약 서비스를 별도로 대조해야 한다.
+- NTIS 과제검색은 [국가 R&D 과제검색 서비스](https://www.data.go.kr/data/15077315/openapi.do)의 독립 인증·XML 스키마가 검증된 뒤 연동한다. NTIS과제 존재와 특정 출입기업 사업 적용 여부는 다른 사실이다.

@@ -2,7 +2,7 @@
 import json
 from pathlib import Path
 from datetime import datetime,timezone,timedelta
-def build(sources):
+def build(sources,g2b=None,g2b_status=None):
  feeds=[];leads=[]
  for name,data,key in sources:
   ready=bool(data.get("generatedAt") and isinstance(data.get(key),list))
@@ -44,8 +44,26 @@ def build(sources):
     leads.append({"source":name,"headline":str(row.get("title")),
       "fact":"공식 문서 명시적 법인명 언급","url":row.get("sourceUrl"),
       "verification":"공장·수주·낙찰 확정 전 원문 확인"})
- for name in ("NTIS 연구과제","나라장터 공공조달"):
-  feeds.append({"name":name,"status":"not_connected","rows":None})
+ # A KONEPS bid is a PUBLIC tender, not a contract nor a named supplier award.
+ g2b=g2b or {};g2b_status=g2b_status or {}
+ ready=(g2b_status.get("status")=="checked" and bool(g2b.get("generatedAt")) and isinstance(g2b.get("notices"),list)
+       and len(g2b.get("checks") or [])>=2 and
+       all(c.get("status")=="checked" for c in g2b["checks"]))
+ feeds.append({"name":"나라장터 공공조달",
+               "status":"ready" if ready else "source_error" if g2b_status.get("status")=="source_error" else "not_connected",
+               "rows":len(g2b["notices"]) if ready else None,
+               "generatedAt":g2b.get("generatedAt") if ready else None})
+ if ready:
+  for notice in g2b["notices"][:30]:
+   leads.append({"source":"나라장터 공공조달",
+     "headline":str(notice.get("title")),
+     "fact":"조달청 공개 입찰공고 · "+str(notice.get("demandAgency"))+
+            " · 낙찰·계약·당사자 공급업체 미확인",
+     "url":notice.get("sourceUrl") or "https://www.g2b.go.kr/",
+     "verification":"원문 공고번호 "+str(notice.get("noticeId"))+
+                    " 확인 후 낙찰자·계약·공급사·기보도 대조"})
+ feeds.append({"name":"NTIS 연구과제","status":"not_connected","rows":None,
+               "documentation":"https://www.data.go.kr/data/15077315/openapi.do"})
  return {"generatedAt":datetime.now(timezone(timedelta(hours=9))).isoformat(),
    "feeds":feeds,"leads":leads,"confirmedScoops":0,"status":"research_only"}
 def main():
@@ -58,7 +76,9 @@ def main():
             ("NHTSA",get("nhtsa_official_latest.json"),"records"),
             ("DART_METRIC",get("recent_metric_changes_latest.json"),"items"),
             ("CUSTOMS_FIVE",{"generatedAt":get("customs_five_latest.json").get("generatedAt"),
-                             "items":get("customs_five_latest.json").get("services")},"items")])
+                             "items":get("customs_five_latest.json").get("services")},"items")],
+           g2b=get("g2b_tender_latest.json"),
+           g2b_status=get("g2b_source_status_latest.json"))
  p=Path("digests/industry_official_hunt_latest.json")
  tmp=p.with_suffix(".json.tmp");tmp.write_text(json.dumps(doc,ensure_ascii=False,indent=2)+"\n",encoding="utf-8");tmp.replace(p)
 if __name__=="__main__":main()
