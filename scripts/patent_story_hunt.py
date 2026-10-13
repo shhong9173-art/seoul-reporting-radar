@@ -61,6 +61,14 @@ def compact(s):
 def topic_for(title,abstract):
     title=compact(title).lower()
     abstract=compact(abstract).lower()
+    # Domain-specific terms outrank generic 'sensor' (ADAS) or 'test'
+    # when the invention concerns power-cable partial discharge.
+    power_signals=("부분방전","전력케이블","송전케이블","고압케이블","송전선로")
+    exact=[x for x in power_signals if x in title]
+    if exact:
+        name,terms,angle,question=next(x for x in TOPIC_RULES if x[0]=="전력망·전력기기")
+        return {"topic":name,"matchedSource":"발명명칭",
+                "matchedTerms":exact,"impactToVerify":angle,"question":question}
     for name,terms,angle,question in TOPIC_RULES:
         matches=[word for word in terms if word in title]
         if matches:
