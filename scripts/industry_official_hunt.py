@@ -7,8 +7,12 @@ def build(sources):
  for name,data,key in sources:
   ready=bool(data.get("generatedAt") and isinstance(data.get(key),list))
   rows=data.get(key,[]) if ready else []
-  feeds.append({"name":name,"status":"ready" if ready else "missing",
-                "rows":len(rows) if ready else None,"generatedAt":data.get("generatedAt") if ready else None})
+  checks=data.get("checks",[]) if isinstance(data.get("checks"),list) else []
+  failures=sum(x.get("status")=="source_error" for x in checks)
+  success=sum(x.get("status")=="checked" for x in checks)
+  feeds.append({"name":name,"status":("partial" if ready and failures else "ready" if ready else "missing"),
+                "rows":len(rows) if ready else None,"generatedAt":data.get("generatedAt") if ready else None,
+                "checkedQueries":success if checks else None,"failedQueries":failures if checks else None})
   for row in rows[:15]:
    if name=="DART":
     for p in row.get("projects",[])[:3]:

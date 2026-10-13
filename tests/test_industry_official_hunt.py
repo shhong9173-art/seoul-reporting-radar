@@ -34,6 +34,13 @@ class Sources(unittest.TestCase):
    return {"results":[]}
   a=n.collect(fetch=fake)
   self.assertEqual(sum(x["status"]=="source_error" for x in a["checks"]),4)
+ def test_partial_results_cannot_be_reported_as_complete(self):
+  source={"generatedAt":"2026-10-13","records":[{"make":"Kia","model":"SORENTO","id":"26V123000","kind":"recalls","officialApi":"https://api.nhtsa.gov/recalls/recallsByVehicle"}],
+          "checks":[{"status":"checked"},{"status":"source_error"}]}
+  output=h.build([("NHTSA",source,"records")])
+  self.assertEqual(output["feeds"][0]["status"],"partial")
+  self.assertEqual(output["feeds"][0]["failedQueries"],1)
+  self.assertEqual(output["feeds"][0]["checkedQueries"],1)
  def test_nhtsa_all_failure_does_not_overwrite(self):
   with self.assertRaises(ValueError):n.collect(fetch=lambda uri:(_ for _ in ()).throw(OSError("offline")))
 if __name__=="__main__":unittest.main()
