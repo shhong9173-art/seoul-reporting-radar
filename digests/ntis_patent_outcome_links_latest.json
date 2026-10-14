@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-10-14T16:01:01+09:00",
-  "dossierGeneratedAt": "2026-10-14T15:44:50+09:00",
+  "generatedAt": "2026-10-14T16:33:13+09:00",
+  "dossierGeneratedAt": "2026-10-14T16:00:58+09:00",
   "kiprisDeepGeneratedAt": "2026-10-13T14:18:23+09:00",
   "ntisProjectsGeneratedAt": "2026-10-14T15:36:38+09:00",
   "ntisOutcomeGeneratedAt": null,
-  "status": "missing_official_patent_outcome_schema",
+  "status": "ntis_patent_outcome_records_not_yet_collected",
   "projectSnapshotMatchesCurrentDossier": false,
   "patentsConsidered": 15,
   "patentsWithOfficialKiprisApplicationNumbers": 7,
@@ -14,6 +14,7 @@
   "commercializationConfirmed": 0,
   "exclusiveConfirmed": 0,
   "reviewOnlyMatches": [],
+  "outcomeNumberTypeChecks": "Only RegistType=출원(code 01) and exact RegistNumber vs KIPRIS application accepted; NTIS registration is not a publication",
   "reviewQuestions": [
     "NTIS 성과검색 전체용 승인과 실측 XML의 필드 뜻을 공식 매뉴얼로 확인했는가?",
     "성과 원문에 과제번호 및 출원번호 또는 공개번호가 각각 명시돼 있는가?",
@@ -21,5 +22,5 @@
     "동일 과제의 연차별 번호와 주관·공동연구기관을 원문으로 구분했는가?",
     "해당 특허와 특정 차량·설비 제품 적용, 사업화 및 기보도를 별도 취재했는가?"
   ],
-  "warning": "성과검색 API 승인/스키마 실측 전에는 공식 특허 성과 직접 연결 0건. 공개번호와 출원번호를 혼용하지 않음. 단순 NTIS 검색 결과는 과제 참여나 특허 성과 증명 아님."
+  "warning": "성과검색 API 공식 필드는 확인됨. 단, 같은 성과 HIT의 과제번호/출원번호 일치도 취재 검증 대상으로만 분류하며 특허 사업화·최근 이벤트·미보도 단독은 별도 확인. 공개번호와 출원번호를 혼용하지 않음."
 }
