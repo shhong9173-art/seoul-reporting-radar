@@ -13,8 +13,9 @@ def read(path):
 
 PLAN=read("digests/ntis_project_reverse_plan_latest.json")
 PROJECTS=read("digests/ntis_project_leads_latest.json")
-DOSSIER=read("digests/patent_rnd_dossiers_latest.json")
-DEEP=read("digests/patent_deep_latest.json")
+PINNED=read("digests/ntis_project_reverse_kipris_source.json")
+DOSSIER=PINNED["dossier"]
+DEEP=PINNED["deep"]
 
 def fixture():
     checks=[]
