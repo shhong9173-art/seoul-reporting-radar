@@ -21,9 +21,11 @@ button{font:inherit;border:1px solid #b5c7d5;background:#edf4f8;color:#174b6d;pa
 <div class="warning"><b>자료 연결 여부를 혼동하지 마세요.</b> NTIS 과제검색 바로가기는 실제 과제 조회·선정 확인이 아닙니다. IRIS 사업공고는 선정과제 증거가 아닙니다. 동일 회사 DART 문서·기술어휘 일치는 동일 R&D·차종 적용·양산·단독 증명이 아닙니다.</div>
 <div id="state" class="panel" role="status">공식 출처 일치 및 자료 상태 확인 중</div>
 <div id="ntis-live-status" class="panel" role="status">NTIS 국가과제 OpenAPI 실제 응답 확인 중 (등록 키는 화면에 표시하지 않음)</div>
+<div id="ntis-outcome-status" class="panel" role="status">국가R&D 특허 성과검색 직접 연결 여부 확인 중</div>
 <div class="panel" id="sources"><b>공식 연계 상태</b><p class="muted" id="source-status">확인 중</p>
 <a href="https://www.data.go.kr/data/15077315/openapi.do" target="_blank" rel="noopener noreferrer">NTIS 국가R&D 과제검색 API 신청·명세</a> ·
 <a href="https://www.ntis.go.kr/ThSearchProjectList.do" target="_blank" rel="noopener noreferrer">NTIS 공식 과제검색</a> ·
+<a href="https://www.data.go.kr/data/15077316/openapi.do" target="_blank" rel="noopener noreferrer">NTIS 성과검색 별도 API 신청</a> ·
 <a href="https://www.iris.go.kr/main.do" target="_blank" rel="noopener noreferrer">IRIS 사업공고</a>
 </div>
 <div class="line"><label for="filter">후보 보기</label><select id="filter">
@@ -81,6 +83,26 @@ try{
     cross.generatedAt!==data.crossGeneratedAt ||
     triage.generatedAt!==data.triageGeneratedAt)
    throw Error("공식 공보·DART·기자 순위의 원천 시점 불일치");
+ let outcomeAudit=null;
+ try{
+   const raw=await fetch("digests/ntis_patent_outcome_links_latest.json",{cache:"no-store"});
+   if(raw.ok){
+     const parsed=await raw.json();
+     if(parsed.dossierGeneratedAt===data.generatedAt &&
+        parsed.confirmedPatentProjectLinks===0 &&
+        parsed.exclusiveConfirmed===0 &&
+        parsed.commercializationConfirmed===0 &&
+        Array.isArray(parsed.reviewOnlyMatches))
+          outcomeAudit=parsed;
+   }
+ }catch(e){}
+ $("#ntis-outcome-status").textContent=outcomeAudit?
+    "NTIS 성과검색: "+outcomeAudit.status+
+    " · KIPRIS 출원번호 확인 "+outcomeAudit.patentsWithOfficialKiprisApplicationNumbers+
+    "건 · 과제/특허 직접 연결 확정 "+outcomeAudit.confirmedPatentProjectLinks+
+    "건 · 번호만 일치한 검토 후보 "+outcomeAudit.potentialExactNumberPairsNeedingHumanReview+
+    "건 (제품·사업화·단독 검증 안 됨)":
+    "NTIS 특허 성과검색: 미연결 또는 공식 원천 시점 불일치 · 직접 연결 확인 0건(없다는 증명 아님)";
  let ntis=null;
  try{
    const reply=await fetch("digests/ntis_project_leads_latest.json",{cache:"no-store"});
