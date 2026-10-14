@@ -1,0 +1,63 @@
+name: NTIS Patent Outcome Provenance Audit
+on:
+  pull_request:
+    paths:
+      - 'scripts/ntis_outcome_reconcile.py'
+      - 'scripts/ntis_patent_outcome_probe.ps1'
+      - 'scripts/Run_NTIS_Patent_Outcome_Check.cmd'
+      - 'tests/test_ntis_outcome_reconcile.py'
+      - 'tests/test_ntis_outcome_view.cjs'
+      - 'patent-rnd-dossiers.html'
+      - '.github/workflows/ntis-patent-outcome-audit.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/ntis_outcome_reconcile.py'
+      - 'scripts/ntis_patent_outcome_probe.ps1'
+      - 'scripts/Run_NTIS_Patent_Outcome_Check.cmd'
+      - 'digests/patent_rnd_dossiers_latest.json'
+      - 'digests/ntis_project_leads_latest.json'
+      - 'digests/patent_deep_latest.json'
+      - '.github/workflows/ntis-patent-outcome-audit.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ntis-patent-outcome-audit-writer
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Reject false patent/project identity and unsigned schema assumptions
+        run: |
+          python -m compileall -q scripts/ntis_outcome_reconcile.py
+          python -m unittest discover -s tests -p 'test_ntis_outcome_reconcile.py' -v
+          pwsh -NoProfile -File scripts/ntis_patent_outcome_probe.ps1 -SelfTest
+          node tests/test_ntis_outcome_view.cjs
+      - name: Build offline NTIS outcome evidence status (no API credential used)
+        run: python scripts/ntis_outcome_reconcile.py
+      - name: Publish unverified outcome audit status
+        if: ${{ github.event_name != 'pull_request' }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add digests/ntis_patent_outcome_links_latest.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "data: NTIS patent outcome linkage status [skip ci]"
+          for attempt in 1 2 3; do
+            git pull --rebase origin main
+            if git push origin HEAD:main; then exit 0; fi
+            sleep 4
+          done
+          exit 1
