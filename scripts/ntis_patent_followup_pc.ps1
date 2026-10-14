@@ -1,7 +1,7 @@
 ﻿# NTIS targeted patent-outcome follow-up from a fixed historical PC audit.
 # This script runs only on the NTIS approved Windows PC (PowerShell 5.1+).
 # Credentials, raw URLs, and unrelated patent HIT details are never exported.
-param([switch]$SelfTest,[switch]$OfflineTest,[string]$SnapshotRoot='')
+param([switch]$SelfTest,[switch]$OfflineTest,[switch]$KeepOfflineOutput,[string]$SnapshotRoot='')
 $ErrorActionPreference='Stop'
 $api='https://www.ntis.go.kr/rndopen/openApi/public_result'
 $repo='https://raw.githubusercontent.com/shhong9173-art/seoul-reporting-radar/main/'
@@ -355,7 +355,7 @@ try{
     if($OfflineTest){
         if($completed -ne $plan.uniqueQueries -or $requests -ne 15 -or
            $records.Count -lt 1){throw 'OFFLINE_END_TO_END_FAILED'}
-        Remove-Item -LiteralPath $output -Force -ErrorAction SilentlyContinue
+        if(!$KeepOfflineOutput){Remove-Item -LiteralPath $output -Force -ErrorAction SilentlyContinue}
         Write-Output 'PASS: 11 plans / 15 simulated queries / strict number-type gate / JSON export'
     }
 }catch{
