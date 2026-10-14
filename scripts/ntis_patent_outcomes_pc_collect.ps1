@@ -1,4 +1,4 @@
-# NTIS 국가R&D 특허 성과검색: 승인된 Windows PC에서만 실행.
+﻿# NTIS 국가R&D 특허 성과검색: 승인된 Windows PC에서만 실행.
 # 2024-01-03 공식 매뉴얼 p15-23 + 2026-10-14 승인 PC XML 실측.
 # 인증키는 숨김 입력. 파일에는 현재 KIPRIS 정확한 출원번호 +
 # NTIS 동일 HIT의 ProjectID까지 일치한 연구 단서만 저장.
