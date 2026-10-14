@@ -1,0 +1,43 @@
+name: NTIS Bounded Follow-up Import Verification
+on:
+  pull_request:
+    paths:
+      - 'digests/ntis_patent_followup_plan_latest.json'
+      - 'digests/ntis_patent_followup_pc_latest.json'
+      - 'scripts/ntis_followup_plan.py'
+      - 'scripts/ntis_followup_validate.py'
+      - 'tests/test_ntis_followup_plan.py'
+      - 'tests/test_ntis_followup_validate.py'
+      - '.github/workflows/ntis-followup-import.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'digests/ntis_patent_followup_plan_latest.json'
+      - 'digests/ntis_patent_followup_pc_latest.json'
+      - '.github/workflows/ntis-followup-import.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+
+jobs:
+  pin-provenance-and-reject-false-claims:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Cross-check real source, deduplicated plan and importer
+        run: |
+          python scripts/ntis_followup_plan.py
+          python -m unittest discover -s tests -p 'test_ntis_followup*.py' -v
+          if test -f digests/ntis_patent_followup_pc_latest.json; then
+            python scripts/ntis_followup_validate.py digests/ntis_patent_followup_pc_latest.json
+            if grep -Eqi 'apprvKey|authorization|bearer |api[_-]?key|password|secret' digests/ntis_patent_followup_pc_latest.json; then
+              echo 'Credential-looking strings in public NTIS follow-up file'
+              exit 1
+            fi
+          else
+            echo 'No user-approved PC follow-up report published yet'
+          fi
