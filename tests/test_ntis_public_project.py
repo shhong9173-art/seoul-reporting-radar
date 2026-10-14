@@ -72,7 +72,7 @@ class NTISTests(unittest.TestCase):
                 n.parse_project_xml(content)
         err=n.collect(dossier(),"secret",now=NOW,max_queries=1,
                       search=lambda q,k:n.parse_project_xml(b"<html>access denied</html>"))
-        self.assertEqual(err["status"],"partial_errors")
+        self.assertEqual(err["status"],"endpoint_schema_or_authorization_unrecognized")
         self.assertEqual(err["failedQueries"],1)
         self.assertEqual(err["remainingQueries"],1)
         self.assertNotIn("secret",str(err))
