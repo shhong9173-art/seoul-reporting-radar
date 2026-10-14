@@ -4,6 +4,14 @@ on:
     paths:
       - 'scripts/ntis_patent_outcomes_pc_collect.ps1'
       - 'scripts/ntis_patent_discovery_pc.ps1'
+      - 'scripts/ntis_patent_followup_pc.ps1'
+      - 'scripts/ntis_followup_plan.py'
+      - 'scripts/ntis_followup_validate.py'
+      - 'scripts/Run_NTIS_Patent_Followup.cmd'
+      - 'digests/ntis_patent_followup_plan_latest.json'
+      - 'digests/ntis_patent_discovery_pc_latest.json'
+      - 'tests/test_ntis_followup_plan.py'
+      - 'tests/test_ntis_followup_validate.py'
       - 'scripts/ntis_validate_patent_discovery.py'
       - 'scripts/Run_NTIS_Patent_Discovery.cmd'
       - 'tests/test_ntis_validate_patent_discovery.py'
@@ -27,12 +35,20 @@ jobs:
         run: |
           .\scripts\ntis_patent_outcomes_pc_collect.ps1 -SelfTest
           .\scripts\ntis_patent_discovery_pc.ps1 -SelfTest
+          .\scripts\ntis_patent_followup_pc.ps1 -SelfTest
       - name: Reproduce full pipeline using actual public snapshots without API key
         shell: powershell
         run: |
           .\scripts\ntis_patent_outcomes_pc_collect.ps1 -OfflineTest -SnapshotRoot "$env:GITHUB_WORKSPACE" -MaxTargets 7
           .\scripts\ntis_patent_discovery_pc.ps1 -OfflineTest -SnapshotRoot "$env:GITHUB_WORKSPACE" -MaxTargets 7 -MaxQueries 21 -MaxPages 1
+          .\scripts\ntis_patent_followup_pc.ps1 -OfflineTest -KeepOfflineOutput -SnapshotRoot "$env:GITHUB_WORKSPACE"
       - name: Reject outcome discovery source confusion and false positives
         shell: powershell
         run: |
           python -m unittest discover -s tests -p 'test_ntis_validate_patent_discovery.py' -v
+      - name: Verify pinned follow-up plan and synthetic output report
+        shell: powershell
+        run: |
+          python scripts/ntis_followup_plan.py
+          python scripts/ntis_followup_validate.py "$env:TEMP\ntis_patent_followup_offline.json"
+          python -m unittest discover -s tests -p 'test_ntis_followup*.py' -v
