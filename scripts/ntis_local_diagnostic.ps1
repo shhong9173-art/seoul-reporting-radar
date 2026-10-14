@@ -14,7 +14,8 @@ function New-NtisRequestUri {
     param(
         [Parameter(Mandatory=$true)][string]$Endpoint,
         [Parameter(Mandatory=$true)][string]$Query,
-        [Parameter(Mandatory=$true)][string]$Key
+        [Parameter(Mandatory=$true)][string]$Key,
+        [ValidateSet('Example','Specification')][string]$Profile='Example'
     )
     # NTIS official 2025 PDF p.11 REST example. Its p.6 request table
     # lists alternative names (SRWR/displayCnt); do not silently mix them.
@@ -31,6 +32,21 @@ function New-NtisRequestUri {
         startPosition='1'
         apprvKey=$Key
         cmbnApiYn='Y'
+    }
+    if ($Profile -eq 'Specification') {
+        # NTIS 2025 PDF pp.6-8 request-table wire names.
+        # Kept separate from p.11 REST URI example for diagnosis of zero hits.
+        $fields = [ordered]@{
+            apprvKey=$Key
+            userId=''
+            collection='project'
+            SRWR=$Query
+            searchFd='BI'
+            addQuery=''
+            searchRnkn='DATE/DESC'
+            startPosition='1'
+            displayCnt='1'
+        }
     }
     $pairs = foreach ($item in $fields.GetEnumerator()) {
         '{0}={1}' -f ([Uri]::EscapeDataString([string]$item.Key)),
@@ -52,7 +68,16 @@ if ($SelfTest) {
             throw 'Self-test: incorrect official query URL'
         }
     }
-    Write-Output 'PASS: official NTIS paths, query parameters and UTF-8 encoding'
+    $spec = New-NtisRequestUri -Endpoint $officialEndpoints[0] -Query '나노' -Key 'DUMMY_LOCAL_TEST' -Profile Specification
+    $specParts = [Uri]$spec
+    if ($specParts.Query -notmatch 'SRWR=%EB%82%98%EB%85%B8' -or
+        $specParts.Query -notmatch 'searchFd=BI' -or
+        $specParts.Query -notmatch 'displayCnt=1' -or
+        $specParts.Query -match '(?:[?&])query=' -or
+        $specParts.Query -match 'cmbnApiYn=Y') {
+        throw 'Self-test: incorrect specification-table parameter profile'
+    }
+    Write-Output 'PASS: official NTIS paths, both documented parameter profiles and UTF-8 encoding'
     exit 0
 }
 
@@ -130,9 +155,106 @@ try {
             if ($total -notmatch '^\d+$' -or $null -eq $resultset) {
                 throw 'Unrecognized data schema'
             }
-            Write-Output ($label + ': VERIFIED_RESULT_TOTALHITS_' + $total)
-            Write-Output 'RESULT: this registered PC can query the official NTIS service.'
-            $verified = $true
+            $hits = $document.DocumentElement.SelectNodes('RESULTSET/HIT')
+            if ([long]$total -gt 0 -and $null -ne $hits -and $hits.Count -gt 0) {
+                $firstHit = $document.DocumentElement.SelectSingleNode('RESULTSET/HIT')
+                if ($null -eq $firstHit.SelectSingleNode('ProjectNumber') -or
+                    $null -eq $firstHit.SelectSingleNode('ProjectTitle')) {
+                    Write-Output ($label + ': POSITIVE_TOTAL_BUT_PROJECT_FIELDS_UNRECOGNIZED')
+                }
+                else {
+                    Write-Output ($label + ': VERIFIED_PROJECT_HITS_' + $total)
+                    Write-Output 'RESULT: real official project record(s) were returned.'
+                    $verified = $true
+                }
+            }
+            elseif ([long]$total -eq 0) {
+                Write-Output ($label + ': VALID_XML_BUT_ZERO_HITS_WITH_EXAMPLE_PARAMETERS')
+                # The manual's request table (pp.6-8) uses SRWR/displayCnt
+                # while its REST example (p.11) uses query/displayCount.
+                # Check the other officially documented profile once, on
+                # this same endpoint; do not claim zero projects until then.
+                $specUri = New-NtisRequestUri -Endpoint $endpoint -Query '나노' -Key $key -Profile Specification
+                $specCode = $null
+                $specContent = $null
+                try {
+                    $specResponse = Invoke-WebRequest -Uri $specUri -UseBasicParsing -Method Get -TimeoutSec 20 -MaximumRedirection 0 -ErrorAction Stop
+                    $specCode = [int]$specResponse.StatusCode
+                    $specContent = [string]$specResponse.Content
+                }
+                catch {
+                    # Never emit raw exception text or URLs containing the key.
+                    if ($null -ne $_.Exception.Response) {
+                        try { $specCode = [int]$_.Exception.Response.StatusCode } catch { $specCode = $null }
+                    }
+                    if ($null -eq $specCode) {
+                        Write-Output ($label + ': SPECIFICATION_PARAMETERS_NETWORK_OR_OTHER_ERROR')
+                    }
+                }
+                finally {
+                    $specUri = $null
+                }
+                if ($null -ne $specCode -and $specCode -ne 200) {
+                    Write-Output ($label + ': SPECIFICATION_PARAMETERS_HTTP_' + $specCode)
+                }
+                elseif ($specCode -eq 200) {
+                    if (!$specContent -or $specContent.Length -gt 1500000 -or
+                        $specContent -match '(?i)<!DOCTYPE|<!ENTITY') {
+                        Write-Output ($label + ': SPECIFICATION_PARAMETERS_INVALID_XML')
+                    }
+                    else {
+                        try {
+                            [xml]$specDoc = $specContent
+                            if ($specDoc.DocumentElement.LocalName -ne 'RESULT' -or
+                                $null -eq $specDoc.DocumentElement.SelectSingleNode('RESULTSET')) {
+                                throw 'Unrecognized response'
+                            }
+                            $specTotal = [string]$specDoc.RESULT.TOTALHITS
+                            $specHit = $specDoc.DocumentElement.SelectSingleNode('RESULTSET/HIT')
+                            if ($specTotal -notmatch '^\d+
+        }
+        catch {
+            Write-Output ($label + ': HTTP_200_BUT_UNRECOGNIZED_RESULT')
+        }
+        break
+    }
+}
+finally {
+    $key = $null
+    $secureKey = $null
+    $content = $null
+}
+if (!$verified) {
+    Write-Output 'RESULT: no project records verified. Valid zero-hit XML is NOT proof that there are no projects; check access and query handling.'
+    exit 2
+}
+exit 0
+) {
+                                throw 'Unrecognized total'
+                            }
+                            if ([long]$specTotal -gt 0 -and $null -ne $specHit -and
+                                $null -ne $specHit.SelectSingleNode('ProjectNumber') -and
+                                $null -ne $specHit.SelectSingleNode('ProjectTitle')) {
+                                Write-Output ($label + ': SPECIFICATION_PARAMETERS_VERIFIED_PROJECT_HITS_' + $specTotal)
+                                Write-Output 'RESULT: real project records were returned with request-table parameters.'
+                                $verified = $true
+                            }
+                            elseif ([long]$specTotal -eq 0) {
+                                Write-Output ($label + ': SPECIFICATION_PARAMETERS_VALID_XML_BUT_ZERO_HITS')
+                            }
+                            else {
+                                Write-Output ($label + ': SPECIFICATION_PARAMETERS_INCONSISTENT_PROJECT_RESPONSE')
+                            }
+                        }
+                        catch {
+                            Write-Output ($label + ': SPECIFICATION_PARAMETERS_UNRECOGNIZED_XML')
+                        }
+                    }
+                }
+            }
+            else {
+                Write-Output ($label + ': NONZERO_TOTAL_BUT_NO_PROJECT_ROWS')
+            }
         }
         catch {
             Write-Output ($label + ': HTTP_200_BUT_UNRECOGNIZED_RESULT')
