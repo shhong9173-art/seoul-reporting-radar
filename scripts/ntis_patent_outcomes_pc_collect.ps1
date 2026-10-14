@@ -150,7 +150,7 @@ try{
             # $PID is a PowerShell automatic read-only variable (case-insensitive).
             # Never use $pid for NTIS project numbers on Windows.
             $projectNumber=[string]$row.projectNumber
-            if($projectNumber -match '^\d{10}
+            if($projectNumber -match '^\d{10}$'){[void]$projectIDs.Add($projectNumber)}
         }
     }
     $phase='INDEX_KIPRIS_APPLICATIONS'
