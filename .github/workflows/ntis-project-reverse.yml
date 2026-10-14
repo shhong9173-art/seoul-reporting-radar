@@ -1,0 +1,62 @@
+name: NTIS Project-ID Reverse Patent Outcome Regression
+on:
+  pull_request:
+    paths:
+      - 'scripts/ntis_project_reverse_plan.py'
+      - 'scripts/ntis_project_reverse_validate.py'
+      - 'scripts/ntis_project_reverse_pc.ps1'
+      - 'scripts/Run_NTIS_Project_Reverse.cmd'
+      - 'tests/test_ntis_project_reverse_plan.py'
+      - 'tests/test_ntis_project_reverse_validate.py'
+      - 'digests/ntis_project_reverse_plan_latest.json'
+      - 'digests/ntis_project_reverse_kipris_source.json'
+      - 'digests/ntis_project_reverse_pc_latest.json'
+      - '.github/workflows/ntis-project-reverse.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'digests/ntis_project_reverse_pc_latest.json'
+      - '.github/workflows/ntis-project-reverse.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-source-and-plan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check frozen project numbers, KIPRIS identities and no false reporting claims
+        run: |
+          python scripts/ntis_project_reverse_plan.py
+          python -m unittest discover -s tests -p 'test_ntis_project_reverse*.py' -v
+          if test -f digests/ntis_project_reverse_pc_latest.json; then
+            python scripts/ntis_project_reverse_validate.py digests/ntis_project_reverse_pc_latest.json
+            if grep -Eqi 'apprvKey|authorization|bearer |api[_-]?key|password|secret' digests/ntis_project_reverse_pc_latest.json; then
+              echo 'Suspected credential in NTIS reverse lookup import'
+              exit 1
+            fi
+          fi
+  windows-full-pipeline:
+    runs-on: windows-latest
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+      - name: Windows PowerShell 5.1 official XML parser and index field test
+        shell: powershell
+        run: |
+          .\scripts\ntis_project_reverse_pc.ps1 -SelfTest
+      - name: Full 26-project reverse lookup with synthetic XML (never live NTIS)
+        shell: powershell
+        run: |
+          .\scripts\ntis_project_reverse_pc.ps1 -OfflineTest -KeepOfflineOutput -SnapshotRoot "$env:GITHUB_WORKSPACE" -MaxProjects 26
+      - name: Reject unrelated project IDs and patent registration-number false matches
+        shell: powershell
+        run: |
+          python scripts/ntis_project_reverse_validate.py "$env:TEMP\ntis_project_reverse_offline.json"
+          python -m unittest discover -s tests -p 'test_ntis_project_reverse*.py' -v
