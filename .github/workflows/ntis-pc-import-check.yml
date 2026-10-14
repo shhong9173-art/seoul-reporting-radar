@@ -1,0 +1,35 @@
+name: NTIS PC Export Provenance Check
+on:
+  pull_request:
+    paths:
+      - 'digests/ntis_project_leads_latest.json'
+      - 'scripts/ntis_validate_local_export.py'
+      - 'tests/test_ntis_validate_local_export.py'
+      - '.github/workflows/ntis-pc-import-check.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'digests/ntis_project_leads_latest.json'
+      - '.github/workflows/ntis-pc-import-check.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-untrusted-import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate exact KIPRIS-dossier identity and public NTIS fields
+        run: |
+          python -m unittest discover -s tests -p 'test_ntis_validate_local_export.py' -v
+          python scripts/ntis_validate_local_export.py digests/ntis_project_leads_latest.json --dossiers digests/patent_rnd_dossiers_latest.json
+          if grep -Eqi 'apprvKey|authorization|password|api[_-]?key|secret|token|<span' digests/ntis_project_leads_latest.json; then
+            echo 'NTIS public file contains suspected credentials or unclean search HTML'
+            exit 1
+          fi

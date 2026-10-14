@@ -92,13 +92,19 @@ try{
         Array.isArray(parsed.checks))ntis=parsed;
    }
  }catch(e){}
+ const pcImport=ntis?.collectionMethod==="approved_pc_local_manual_review";
+ const ntisAge=ntis?(Date.now()-Date.parse(ntis.generatedAt))/3600000:NaN;
+ const ntisOld=ntis && (!Number.isFinite(ntisAge)||ntisAge>24||ntisAge<(-1));
  $("#ntis-live-status").textContent=ntis ?
-   "NTIS OpenAPI 실제 조회 상태: "+ntis.status+
+   "NTIS "+(pcImport?"등록된 PC에서 수집한 자료(자동 실시간 갱신 아님)":"OpenAPI 수집")+
+   " · 조회일 "+ntis.generatedAt+
+   " · 상태 "+ntis.status+
    " · 검색 완료 "+ntis.completedQueries+
    "건 · 오류 "+ntis.failedQueries+
    "건 · 미조회 "+ntis.remainingQueries+
    "건 · 수집 과제 메타정보 "+ntis.sourceRecords+
-   "건(첫 페이지 일부만 확인, 특허 성과·사업화 증명 아님)":
+   "건(검색식별 첫 페이지, 같은 과제의 연차별 기록·검색어 오탐 포함 가능; 특허 성과 미증명)"+
+   (ntisOld?" · 수집 후 24시간 초과: 현재 발제 근거로 재사용 전 공식 원문 확인":""):
    "NTIS API 수집결과 미생성 또는 특허 조사서와 시점 불일치 · 국가과제 0건으로 판단 금지";
  const age=(Date.now()-Date.parse(data.generatedAt))/3600000;
  const stale=!Number.isFinite(age)||age>24||age<(-1);
@@ -155,6 +161,7 @@ try{
    card.append(official);
    const nd=node("div",undefined,"sources");
    nd.append(node("b","NTIS 국가연구과제 공식 검색 — 검색 결과는 특허 성과/사업 적용 근거 아님"));
+   para(nd,"검색어가 본문에만 등장해도 결과에 포함될 수 있습니다. 수행기관, 참여기관, 과제번호, 특허 성과를 원문에서 각각 확인해야 합니다.","muted");
    if(!(x.ntisResearchQueries||[]).length)para(nd,"식별 가능한 특화 기술어가 없어 자동 검색식 생성 보류.","muted");
    for(const q of x.ntisResearchQueries||[]){
      const line=node("p",undefined,"muted");
