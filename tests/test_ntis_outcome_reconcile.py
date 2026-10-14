@@ -46,6 +46,39 @@ class OutcomeAuditTests(unittest.TestCase):
         self.assertEqual(r["potentialExactNumberPairsNeedingHumanReview"],0)
         self.assertEqual(r["patentsWithOfficialKiprisApplicationNumbers"],1)
 
+    def test_seven_completed_zero_queries_are_not_missing_api_access(self):
+        d,k,p,o=fixtures()
+        o["dossierGeneratedAt"]=d["generatedAt"]
+        o["records"]=[]
+        o["targetCount"]=7
+        o["completedTargets"]=7
+        o["errorTargets"]=0
+        o["matchingOutcomeRows"]=0
+        o["sampleOutcomeRowsObserved"]=0
+        o["checks"]=[{"status":"checked","totalHits":0} for _ in range(7)]
+        r=x.build(d,k,p,o,now=NOW)
+        self.assertEqual(r["status"],"application_number_queries_returned_zero_hits")
+        self.assertEqual(r["outcomeQueriesCompleted"],7)
+        self.assertEqual(r["outcomeSearchTotalHits"],0)
+        self.assertEqual(r["confirmedPatentProjectLinks"],0)
+        self.assertEqual(r["reviewOnlyMatches"],[])
+        self.assertTrue(r["outcomeDataIsCurrentForDossier"])
+
+    def test_zero_queries_with_errors_are_not_labeled_seven_successes(self):
+        d,k,p,o=fixtures()
+        o["records"]=[]
+        o["targetCount"]=7
+        o["completedTargets"]=6
+        o["errorTargets"]=1
+        o["matchingOutcomeRows"]=0
+        o["sampleOutcomeRowsObserved"]=0
+        o["checks"]=[{"status":"checked","totalHits":0} for _ in range(6)]+[
+            {"status":"source_error","errorClass":"OUTCOME_HTTP_403"}
+        ]
+        r=x.build(d,k,p,o,now=NOW)
+        self.assertNotEqual(r["status"],"application_number_queries_returned_zero_hits")
+        self.assertEqual(r["outcomeQueryErrors"],1)
+
     def test_same_project_and_application_number_creates_review_only_lead(self):
         d,k,p,o=fixtures()
         r=x.build(d,k,p,o,now=NOW)

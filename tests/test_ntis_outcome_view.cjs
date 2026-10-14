@@ -12,6 +12,9 @@ for(const phrase of [
  'parsed.exclusiveConfirmed===0',
  'parsed.commercializationConfirmed===0',
  'outcomeAudit.potentialExactNumberPairsNeedingHumanReview',
+ 'outcomeAudit.outcomeQueriesCompleted',
+ 'outcomeAudit.outcomeSearchTotalHits',
+ '특허 성과 부재 판정 아님',
  '15077316/openapi.do',
 ]){
  assert(html.includes(phrase),'missing evidence gate: '+phrase)

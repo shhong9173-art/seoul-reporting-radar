@@ -103,6 +103,24 @@ def build(dossier, deep, projects, outcomes=None, now=None):
             # KIPRIS application are found in the *same* NTIS rpatent HIT.
             # They do not turn an older research project into recent news.
             eligible_outcomes=outcomes["records"]
+    if outcomes is not None and outcome_status in (
+        "outcome_records_ready_for_manual_link_review",
+        "outcome_records_ready_but_historical_project_dossier",
+    ) and not eligible_outcomes:
+        checked=outcomes.get("completedTargets")
+        errors=outcomes.get("errorTargets")
+        total=outcomes.get("targetCount")
+        if (type(checked) is int and type(errors) is int and
+            type(total) is int and checked==total and errors==0 and
+            total>0 and outcomes.get("matchingOutcomeRows")==0 and
+            outcomes.get("sampleOutcomeRowsObserved")==0 and
+            len(outcomes.get("checks",[]))==total and
+            all(ch.get("status")=="checked" and ch.get("totalHits")==0
+                for ch in outcomes["checks"])):
+            outcome_status="application_number_queries_returned_zero_hits"
+        else:
+            outcome_status="outcome_queries_checked_no_eligible_exact_number_match"
+
     if eligible_outcomes:
         # Only exact, type-preserving matches for the *same record* count as
         # number-identity evidence. Related titles, applicants and keywords
@@ -156,6 +174,17 @@ def build(dossier, deep, projects, outcomes=None, now=None):
         "kiprisDeepGeneratedAt":deep.get("generatedAt"),
         "ntisProjectsGeneratedAt":projects.get("generatedAt"),
         "ntisOutcomeGeneratedAt":outcomes.get("generatedAt") if outcomes else None,
+        "outcomeQueriesPlanned":outcomes.get("targetCount") if outcomes else 0,
+        "outcomeQueriesCompleted":outcomes.get("completedTargets") if outcomes else 0,
+        "outcomeQueryErrors":outcomes.get("errorTargets") if outcomes else 0,
+        "outcomeSearchTotalHits":sum(
+            ch.get("totalHits",0) for ch in outcomes.get("checks",[])
+            if ch.get("status")=="checked" and type(ch.get("totalHits")) is int
+        ) if outcomes else 0,
+        "outcomeSearchMethod":"NTIS rpatent application-number query: official API indexed results only; zero is not proof of absent R&D results",
+        "outcomeDataIsCurrentForDossier":(
+            outcomes.get("dossierGeneratedAt")==dossier.get("generatedAt")
+        ) if outcomes else False,
         "status":outcome_status,
         "projectSnapshotMatchesCurrentDossier":aligned,
         "patentsConsidered":len(patents),
@@ -174,7 +203,7 @@ def build(dossier, deep, projects, outcomes=None, now=None):
             "동일 과제의 연차별 번호와 주관·공동연구기관을 원문으로 구분했는가?",
             "해당 특허와 특정 차량·설비 제품 적용, 사업화 및 기보도를 별도 취재했는가?",
         ],
-        "warning":"성과검색 API 공식 필드는 확인됨. 단, 같은 성과 HIT의 과제번호/출원번호 일치도 취재 검증 대상으로만 분류하며 특허 사업화·최근 이벤트·미보도 단독은 별도 확인. 공개번호와 출원번호를 혼용하지 않음.",
+        "warning":"성과검색 API 공식 필드는 확인됨. 출원번호 방식 조회 0건은 NTIS가 해당 특허를 국가R&D 성과로 수집·색인하지 않았다는 확정 판정이 아님. 동일 성과 HIT의 번호 일치도 취재 검증 후보일 뿐, 기업 사업화·단독은 별도 확인.",
     }
 
 
