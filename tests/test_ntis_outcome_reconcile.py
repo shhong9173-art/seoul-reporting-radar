@@ -31,7 +31,9 @@ def fixtures():
                           "patentApplicationNumber":"10-2025-0039383",
                           "patentPublicationNumber":None,
                           "sourceOfficialRecordId":"NTIS-PTO-2026-123",
-                          "sourceFieldMappingVerified":True}]}
+                          "sourceFieldMappingVerified":True,
+                          "registType":"출원","registTypeCode":"01",
+                          "registNumberRaw":"10-2025-0039383"}]}
     return dossier,deep,projects,outcomes
 
 
@@ -39,7 +41,7 @@ class OutcomeAuditTests(unittest.TestCase):
     def test_missing_outcome_schema_always_zero_confirmed(self):
         d,k,p,o=fixtures()
         r=x.build(d,k,p,None,now=NOW)
-        self.assertEqual(r["status"],"missing_official_patent_outcome_schema")
+        self.assertEqual(r["status"],"ntis_patent_outcome_records_not_yet_collected")
         self.assertEqual(r["confirmedPatentProjectLinks"],0)
         self.assertEqual(r["potentialExactNumberPairsNeedingHumanReview"],0)
         self.assertEqual(r["patentsWithOfficialKiprisApplicationNumbers"],1)
@@ -69,7 +71,7 @@ class OutcomeAuditTests(unittest.TestCase):
         o["records"][0]["patentApplicationNumber"]=None
         o["records"][0]["patentPublicationNumber"]="10-2026-0145290"
         r=x.build(d,k,p,o,now=NOW)
-        self.assertEqual(r["reviewOnlyMatches"][0]["identityEvidence"],["publication_number_exact"])
+        self.assertEqual(r["potentialExactNumberPairsNeedingHumanReview"],0)  # NTIS has no publication number field
 
     def test_title_and_company_keyword_only_is_not_direct_outcome_match(self):
         d,k,p,o=fixtures()
@@ -86,11 +88,27 @@ class OutcomeAuditTests(unittest.TestCase):
         r=x.build(d,k,p,o,now=NOW)
         self.assertEqual(r["potentialExactNumberPairsNeedingHumanReview"],0)
 
-    def test_stale_project_snapshot_blocks_link(self):
+    def test_old_project_dossier_is_flagged_and_never_promoted_as_recent_news(self):
         d,k,p,o=fixtures()
         p["dossierGeneratedAt"]="2026-10-14T15:50:00+09:00"
         r=x.build(d,k,p,o,now=NOW)
-        self.assertEqual(r["status"],"source_snapshot_mismatch")
+        self.assertEqual(r["status"],"outcome_records_ready_but_historical_project_dossier")
+        self.assertEqual(r["potentialExactNumberPairsNeedingHumanReview"],1)
+        self.assertFalse(r["projectSnapshotMatchesCurrentDossier"])
+        self.assertEqual(r["confirmedPatentProjectLinks"],0)
+
+    def test_registered_patent_number_is_not_an_application(self):
+        d,k,p,o=fixtures()
+        o["records"][0]["registType"]="등록"
+        o["records"][0]["registTypeCode"]="02"
+        r=x.build(d,k,p,o,now=NOW)
+        self.assertEqual(r["potentialExactNumberPairsNeedingHumanReview"],0)
+        self.assertEqual(r["confirmedPatentProjectLinks"],0)
+
+    def test_ntis_registnumber_must_match_application_without_guessing(self):
+        d,k,p,o=fixtures()
+        o["records"][0]["registNumberRaw"]="10-2024-0000123"
+        r=x.build(d,k,p,o,now=NOW)
         self.assertEqual(r["potentialExactNumberPairsNeedingHumanReview"],0)
 
     def test_uncorroborated_schema_and_record_block_link(self):

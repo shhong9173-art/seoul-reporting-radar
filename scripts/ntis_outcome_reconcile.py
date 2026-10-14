@@ -5,10 +5,10 @@ Only an *explicitly field-mapped* patent outcome containing both an exact
 project number and exact corresponding patent number can create a review
 candidate. Even that candidate needs NTIS detail and newsroom confirmation.
 
-The performance-search public API XML field paths have NOT been authenticated
-against an approved official service manual or a successful live response.
-Until those are established, this script only produces diagnostics and does
-not assert any confirmed link. No key required; offline.
+The user supplied the NTIS 2024 outcome-search official PDF and a 2026-10-14
+approved-PC probe verifying ProjectID/RegistNumber/RegistType/ResultID XML.
+A registration number never implies a KIPRIS application or publication.
+Matching identifiers remain reporter-review evidence, not commercial results.
 """
 import argparse
 import json
@@ -19,7 +19,7 @@ from pathlib import Path
 KST=timezone(timedelta(hours=9))
 PAT=re.compile(r"^10\d{11}$")
 PROJ=re.compile(r"^[A-Za-z0-9-]{4,80}$")
-OUTCOME_PROFILE="ntis_patent_outcome_fields_manual_confirmed_v1"
+OUTCOME_PROFILE="ntis_rpatent_2024_manual_registtype_application_v1"
 
 
 def number(raw):
@@ -87,16 +87,21 @@ def build(dossier, deep, projects, outcomes=None, now=None):
     links=[]
     blocked=[]
     eligible_outcomes=[]
-    outcome_status="missing_official_patent_outcome_schema"
+    outcome_status="ntis_patent_outcome_records_not_yet_collected"
     if outcomes is not None:
         if (outcomes.get("status")!="verified_official_patent_outcomes" or
             outcomes.get("mappingProfile")!=OUTCOME_PROFILE or
             not isinstance(outcomes.get("records"),list)):
             outcome_status="outcome_schema_or_authorization_unverified"
-        elif not aligned or outcomes.get("projectSourceGeneratedAt")!=projects.get("generatedAt"):
-            outcome_status="source_snapshot_mismatch"
+        elif outcomes.get("projectSourceGeneratedAt")!=projects.get("generatedAt"):
+            outcome_status="project_source_timestamp_mismatch"
         else:
-            outcome_status="outcome_records_ready_for_manual_link_review"
+            outcome_status=("outcome_records_ready_for_manual_link_review" if aligned else
+                            "outcome_records_ready_but_historical_project_dossier")
+            # Historical project-search snapshots remain usable only as
+            # explicit old context when the same official ProjectID and exact
+            # KIPRIS application are found in the *same* NTIS rpatent HIT.
+            # They do not turn an older research project into recent news.
             eligible_outcomes=outcomes["records"]
     if eligible_outcomes:
         # Only exact, type-preserving matches for the *same record* count as
@@ -107,7 +112,15 @@ def build(dossier, deep, projects, outcomes=None, now=None):
                 continue
             pid=str(record.get("projectNumber") or "")
             app=number(record.get("patentApplicationNumber"))
-            pub=number(record.get("patentPublicationNumber"))
+            # NTIS manual: RegistNumber = 출원(등록)번호. No publication field.
+            # Registration ("등록", code 02) must not be compared with KIPRIS
+            # *application* or *publication* identifiers.
+            if (record.get("registType")!="출원" or
+                str(record.get("registTypeCode"))!="01" or
+                number(record.get("registNumberRaw"))!=app or
+                record.get("patentPublicationNumber") is not None):
+                blocked.append("not_official_application_number")
+                continue
             if pid not in project_rows:
                 blocked.append("project_not_in_approved_pc_snapshot")
                 continue
@@ -118,8 +131,8 @@ def build(dossier, deep, projects, outcomes=None, now=None):
                 match=[]
                 if app and patent["applicationNumber"] and app==patent["applicationNumber"]:
                     match.append("application_number_exact")
-                if pub and pub==patent["publicationNumber"]:
-                    match.append("publication_number_exact")
+                # NTIS rpatent API has RegistNumber (not 공개번호),
+                # so publication-number matches are never inferred here.
                 if not match:
                     continue
                 links.append({
@@ -153,6 +166,7 @@ def build(dossier, deep, projects, outcomes=None, now=None):
         "commercializationConfirmed":0,
         "exclusiveConfirmed":0,
         "reviewOnlyMatches":list(dedup.values())[:30],
+        "outcomeNumberTypeChecks":"Only RegistType=출원(code 01) and exact RegistNumber vs KIPRIS application accepted; NTIS registration is not a publication",
         "reviewQuestions":[
             "NTIS 성과검색 전체용 승인과 실측 XML의 필드 뜻을 공식 매뉴얼로 확인했는가?",
             "성과 원문에 과제번호 및 출원번호 또는 공개번호가 각각 명시돼 있는가?",
@@ -160,7 +174,7 @@ def build(dossier, deep, projects, outcomes=None, now=None):
             "동일 과제의 연차별 번호와 주관·공동연구기관을 원문으로 구분했는가?",
             "해당 특허와 특정 차량·설비 제품 적용, 사업화 및 기보도를 별도 취재했는가?",
         ],
-        "warning":"성과검색 API 승인/스키마 실측 전에는 공식 특허 성과 직접 연결 0건. 공개번호와 출원번호를 혼용하지 않음. 단순 NTIS 검색 결과는 과제 참여나 특허 성과 증명 아님.",
+        "warning":"성과검색 API 공식 필드는 확인됨. 단, 같은 성과 HIT의 과제번호/출원번호 일치도 취재 검증 대상으로만 분류하며 특허 사업화·최근 이벤트·미보도 단독은 별도 확인. 공개번호와 출원번호를 혼용하지 않음.",
     }
 
 

@@ -48,3 +48,35 @@ python scripts/ntis_outcome_reconcile.py
 출력은 `digests/ntis_patent_outcome_links_latest.json`입니다. 이는 현재 **성과 API가 미연결이라는 상태 진단**일 뿐, 공식 과제·특허 연결이 존재하지 않는다는 의미가 아닙니다.
 
 매뉴얼과 XML 스키마가 확인되면 다음 단계로 API 파서 및 검증된 식별자 추출 로직을 작성합니다. 승인된 PC에서만 실제 수집을 수행하고, 비밀키가 없는 검증 JSON을 엄격한 출처·스키마 검사 후 취재 레이더에 반영합니다.
+
+## 2026-10-14 공식 매뉴얼·실제 승인 PC 결과 추가 검증
+
+사용자가 업로드한 **2024-01-03 NTIS 국가R&D 성과검색(전체용) 매뉴얼**(31쪽)과 승인 PC에서 추출한 **필드 이름 전용 JSON**을 대조했습니다.
+
+- p.4 서비스 URL: `https://www.ntis.go.kr/rndopen/openApi/natRnDSearch`. **p.15의 실제 특허 검색 END POINT**는 `https://www.ntis.go.kr/rndopen/openApi/public_result`, `collection=rpatent`입니다.
+- p.15~16 요청명세에는 `SRWR`, `searchFd`, `displayCnt`, `addQuery=DBT=PAT`가 명시돼 있지만 **p.18~19 실제 REST URI 예시**는 `query`, `searchField`, `displayCount`, `cmbnApiYn=Y`를 사용합니다.
+- p.17~18 응답필드: `ProjectID`=국가과제 고유번호, `RegistNumber`=**출원번호 또는 등록번호**, `RegistType`=**출원·등록 구분**, `ResultID`=NTIS 성과 식별자. **NTIS 성과검색의 `RegistNumber`는 KIPRIS 공개번호가 아닙니다.**
+- p.22 공식 XML 예시에서 `RegistNumber=1020080017515`, `RegistType code=01>출원`, `ProjectID=1415076898`가 **같은 HIT**에 기재됩니다.
+- 사용자의 실측 JSON: 특허 검색 시 `부분방전` 전체 결과 197건, 샘플 HIT 3건에서 위 필드명 모두 확인. **197건이 특정 출입처와 연계됐다는 뜻은 아닙니다.**
+
+### 승인 PC의 실제 성과번호 교차 조회 (개발 완료, 실행은 PC에서 필요)
+
+`scripts/ntis_patent_outcomes_pc_collect.ps1`과 `scripts/Run_NTIS_Patent_Outcomes_Collection.cmd`를 동일 폴더에 다운로드하거나 별도 배포 ZIP을 압축 해제합니다.
+
+1. NTIS에 등록한 공인 IP와 동일한 PC·네트워크에서 CMD를 더블클릭하고 **성과검색 활용승인 키를 숨김 입력**합니다.
+2. 공개 GitHub `patent_rnd_dossiers_latest.json`, `patent_deep_latest.json`, `ntis_project_leads_latest.json`의 공개 스냅샷을 불러옵니다. 키는 GitHub로 전송하지 않습니다.
+3. 확인된 KIPRIS **출원번호** 최대 7개를 실제 NTIS 특허 성과검색으로 검색합니다. `RegistType=출원`, 코드 `01`일 때만 해당 KIPRIS 출원번호와 정규화 후 비교합니다.
+4. **동일 성과 HIT** 내 `ProjectID`가 승인 PC에서 이미 수집했던 공식 과제번호에도 포함될 때에 한해 최소 필드만 JSON에 기록합니다.
+5. 파일 `ntis_patent_outcomes_pc_latest.json`을 메모장으로 검사한 뒤 채팅에 첨부합니다. 모든 API 비밀키 및 전체 요청 URL은 파일과 로그에 포함하지 않습니다.
+
+생성 파일은 **취재 검토용 번호 일치 후보**이며 기업의 국가과제 참여범위·특허의 실제 양산 적용·독점권·미보도·단독 여부는 자동 확정되지 않습니다. 번호가 0건 일치해도 국가과제 성과가 존재하지 않는다는 증명이 아닙니다. 실제 검색 첫 페이지(검색식당 최대 10개)만 확인하며, 출원번호로 색인되지 않은 특허가 있을 수 있습니다.
+
+### 안전 검증
+
+```bash
+python -m unittest discover -s tests -p 'test_ntis_validate_patent_outcomes.py' -v
+python scripts/ntis_validate_patent_outcomes.py ntis_patent_outcomes_pc_latest.json
+python scripts/ntis_outcome_reconcile.py --outcomes ntis_patent_outcomes_pc_latest.json
+```
+
+검증기는 매뉴얼 필드 해석(`RegistNumber`, `RegistType=출원`)과 **KIPRIS 출원번호 및 NTIS 과제번호의 정확한 타입·번호 일치**를 요구합니다. 별도의 등록번호·공개번호·과거 스냅샷을 교차해 오류를 내거나 근거의 최신성을 경고합니다.

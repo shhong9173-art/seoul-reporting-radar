@@ -3,6 +3,10 @@ on:
   pull_request:
     paths:
       - 'scripts/ntis_outcome_reconcile.py'
+      - 'scripts/ntis_patent_outcomes_pc_collect.ps1'
+      - 'scripts/ntis_validate_patent_outcomes.py'
+      - 'scripts/Run_NTIS_Patent_Outcomes_Collection.cmd'
+      - 'tests/test_ntis_validate_patent_outcomes.py'
       - 'scripts/ntis_patent_outcome_probe.ps1'
       - 'scripts/Run_NTIS_Patent_Outcome_Check.cmd'
       - 'tests/test_ntis_outcome_reconcile.py'
@@ -13,10 +17,15 @@ on:
     branches: [main]
     paths:
       - 'scripts/ntis_outcome_reconcile.py'
+      - 'scripts/ntis_patent_outcomes_pc_collect.ps1'
+      - 'scripts/ntis_validate_patent_outcomes.py'
+      - 'scripts/Run_NTIS_Patent_Outcomes_Collection.cmd'
+      - 'tests/test_ntis_validate_patent_outcomes.py'
       - 'scripts/ntis_patent_outcome_probe.ps1'
       - 'scripts/Run_NTIS_Patent_Outcome_Check.cmd'
       - 'digests/patent_rnd_dossiers_latest.json'
       - 'digests/ntis_project_leads_latest.json'
+      - 'digests/ntis_patent_outcomes_pc_latest.json'
       - 'digests/patent_deep_latest.json'
       - '.github/workflows/ntis-patent-outcome-audit.yml'
   workflow_dispatch:
@@ -43,10 +52,18 @@ jobs:
         run: |
           python -m compileall -q scripts/ntis_outcome_reconcile.py
           python -m unittest discover -s tests -p 'test_ntis_outcome_reconcile.py' -v
+          python -m unittest discover -s tests -p 'test_ntis_validate_patent_outcomes.py' -v
           pwsh -NoProfile -File scripts/ntis_patent_outcome_probe.ps1 -SelfTest
+          pwsh -NoProfile -File scripts/ntis_patent_outcomes_pc_collect.ps1 -SelfTest
           node tests/test_ntis_outcome_view.cjs
       - name: Build offline NTIS outcome evidence status (no API credential used)
-        run: python scripts/ntis_outcome_reconcile.py
+        run: |
+          if test -f digests/ntis_patent_outcomes_pc_latest.json; then
+            python scripts/ntis_validate_patent_outcomes.py digests/ntis_patent_outcomes_pc_latest.json
+            python scripts/ntis_outcome_reconcile.py --outcomes digests/ntis_patent_outcomes_pc_latest.json
+          else
+            python scripts/ntis_outcome_reconcile.py
+          fi
       - name: Publish unverified outcome audit status
         if: ${{ github.event_name != 'pull_request' }}
         run: |
