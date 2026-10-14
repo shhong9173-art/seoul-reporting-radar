@@ -9,7 +9,7 @@ import ntis_public_project as n
 
 NOW=datetime(2026,10,14,9,20,tzinfo=timezone(timedelta(hours=9)))
 PUB="1020260147965"
-MOCK_XML=b"""<?xml version="1.0" encoding="UTF-8"?>
+MOCK_XML="""<?xml version="1.0" encoding="UTF-8"?>
 <RESULT><TOTALHITS>3</TOTALHITS><RESULTSET><HIT>
 <ProjectNumber>2024R1A00001</ProjectNumber>
 <ProjectTitle><Korean>고정자 냉각 신기술</Korean></ProjectTitle>
@@ -18,7 +18,7 @@ MOCK_XML=b"""<?xml version="1.0" encoding="UTF-8"?>
 <ProjectPeriod><Start>20240101</Start><End>20261231</End></ProjectPeriod>
 <Abstract><Teaser>전기 모터의 냉각 연구</Teaser></Abstract>
 <Keyword><Korean>고정자, 모터</Korean></Keyword>
-</HIT></RESULTSET></RESULT>"""
+</HIT></RESULTSET></RESULT>""".encode("utf-8")
 
 def dossier():
     return {"status":"research_only","generatedAt":"2026-10-14T09:00:00+09:00",
