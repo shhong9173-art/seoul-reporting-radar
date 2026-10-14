@@ -147,8 +147,147 @@ try{
     foreach($check in @($projects.checks)){
         if($check.status -ne 'checked'){continue}
         foreach($row in @($check.records)){
-            $pid=[string]$row.projectNumber
-            if($pid -match '^\d{10}$'){[void]$projectIDs.Add($pid)}
+            # $PID is a PowerShell automatic read-only variable (case-insensitive).
+            # Never use $pid for NTIS project numbers on Windows.
+            $projectNumber=[string]$row.projectNumber
+            if($projectNumber -match '^\d{10}
+        }
+    }
+    $phase='INDEX_KIPRIS_APPLICATIONS'
+    $patentApps=@{}
+    foreach($p in @($deep.investigations)){
+        $pub=Normalize-Patent ([string]$p.publicationNumber)
+        $app=Normalize-Patent ([string]$p.applicationNumber)
+        if(!$pub -or !$app){continue}
+        if(!$patentApps.ContainsKey($pub)){$patentApps[$pub]=New-Object 'System.Collections.Generic.HashSet[string]'}
+        [void]$patentApps[$pub].Add($app)
+    }
+    $phase='BUILD_PATENT_TARGETS'
+    $targets=New-Object System.Collections.ArrayList
+    foreach($p in @($dossier.dossiers)){
+        $pub=Normalize-Patent ([string]$p.publicationNumber)
+        if($pub -and $patentApps.ContainsKey($pub) -and $patentApps[$pub].Count -eq 1){
+            $app=@($patentApps[$pub])[0]
+            [void]$targets.Add([pscustomobject]@{publicationNumber=$pub;applicationNumber=$app})
+            if($targets.Count -ge $MaxTargets){break}
+        }
+    }
+    if($targets.Count -eq 0){throw 'NO_KIPRIS_APPLICATION_NUMBERS'}
+    $phase='PREPARE_OUTCOME_QUERIES'
+    $checks=New-Object System.Collections.ArrayList
+    $matched=New-Object System.Collections.ArrayList
+    $keys=New-Object 'System.Collections.Generic.HashSet[string]'
+    $errors=0;$observed=0
+    $phase='EXECUTE_OUTCOME_QUERIES'
+    foreach($t in @($targets.ToArray())){
+        $lastError=$null;$res=$null
+        try{
+            # OG = 출원등록번호 according to manual p15.
+            $res=Query-Official -term $t.applicationNumber -key $key -field 'OG'
+            # p22 actual example omits searchField: one fallback for zero hits.
+            if($res.totalHits -eq 0){$res=Query-Official -term $t.applicationNumber -key $key -field ''}
+            $observed+=$res.rows.Count
+            $matches=0;$appRows=0
+            foreach($hit in @($res.rows)){
+                # RegistNumber can be a registered-patent number. Compare ONLY
+                # when RegistType explicitly says APPLICATION code 01.
+                $n=Normalize-Patent ([string]$hit.registNumber)
+                if($hit.registType -ne '출원' -or $hit.registTypeCode -ne '01' -or
+                   $n -ne $t.applicationNumber){continue}
+                $appRows++
+                if(!$projectIDs.Contains([string]$hit.projectNumber)){continue}
+                if($hit.resultId -notmatch '^[A-Za-z0-9_-]{5,100}$'){continue}
+                $dedupe=$t.publicationNumber+'|'+$hit.projectNumber+'|'+$hit.resultId
+                if(!$keys.Add($dedupe)){continue}
+                [void]$matched.Add([pscustomobject]@{
+                    publicationNumber=$t.publicationNumber
+                    patentApplicationNumber=$t.applicationNumber
+                    patentPublicationNumber=$null
+                    projectNumber=$hit.projectNumber
+                    sourceOfficialRecordId=$hit.resultId
+                    sourceFieldMappingVerified=$true
+                    registType='출원';registTypeCode='01'
+                    registNumberRaw=$hit.registNumber
+                    resultTitle=$hit.resultTitle
+                    projectTitle=$hit.projectTitle
+                    performAgency=$hit.performAgency
+                    resultYear=$hit.resultYear
+                })
+                $matches++
+            }
+            [void]$checks.Add([pscustomobject]@{
+                publicationNumber=$t.publicationNumber;applicationNumber=$t.applicationNumber
+                status='checked';totalHits=$res.totalHits;rowsObserved=$res.rows.Count
+                exactApplicationRows=$appRows;numberProjectMatches=$matches
+            })
+            Write-Output ('CHECK: official outcome hits '+$res.totalHits+', exact application rows '+$appRows+', project number pairs '+$matches)
+        }catch{
+            $code=[string]$_.Exception.Message
+            if($code -notin @('OUTCOME_HTTP_401','OUTCOME_HTTP_403','OUTCOME_HTTP_404',
+                'OUTCOME_NETWORK_OR_IP_ERROR','INVALID_OUTCOME_XML','OUTCOME_XML_PARSE_FAILED',
+                'UNKNOWN_OUTCOME_RESPONSE','OUTCOME_POSITIVE_TOTAL_WITHOUT_ROWS')){
+                $code='OUTCOME_QUERY_ERROR'
+            }
+            $lastError=$code;$errors++
+            [void]$checks.Add([pscustomobject]@{
+                publicationNumber=$t.publicationNumber;applicationNumber=$t.applicationNumber
+                status='source_error';errorClass=$code
+            })
+            Write-Output ('CHECK: '+$code)
+        }
+        if($lastError -in @('OUTCOME_HTTP_401','OUTCOME_HTTP_403','OUTCOME_HTTP_404','UNKNOWN_OUTCOME_RESPONSE')){break}
+    }
+    $completed=@($checks.ToArray() | Where-Object {$_.status -eq 'checked'}).Count
+    $status=if($errors -gt 0){'partial_official_patent_outcomes'}
+            elseif($completed -eq $targets.Count){'verified_official_patent_outcomes'}
+            else{'source_error'}
+    $now=[DateTimeOffset]::UtcNow.ToOffset([TimeSpan]::FromHours(9)).ToString('yyyy-MM-ddTHH:mm:sszzz')
+    $output=[ordered]@{
+        generatedAt=$now;dossierGeneratedAt=[string]$dossier.generatedAt
+        projectSourceGeneratedAt=[string]$projects.generatedAt
+        projectDossierGeneratedAt=[string]$projects.dossierGeneratedAt
+        kiprisDeepGeneratedAt=[string]$deep.generatedAt
+        status=$status;mappingProfile=$profile
+        collectionMethod='approved_pc_rpatent_official_manual'
+        targetCount=$targets.Count;completedTargets=$completed;errorTargets=$errors
+        matchingOutcomeRows=$matched.Count;sampleOutcomeRowsObserved=$observed
+        projectNumbersInKeywordSnapshot=$projectIDs.Count
+        records=@($matched.ToArray());checks=@($checks.ToArray())
+        confirmedPatentProjectLinks=0;commercializationConfirmed=0;exclusiveConfirmed=0
+        warning='Exact official RegistType=출원/RegistNumber and ProjectID pairs are reporter review leads only. Registration numbers, publication numbers and product adoption NOT inferred. The PC project snapshot may be older than the dossier.'
+    }
+    $phase='WRITE_REVIEW_JSON'
+    $json=$output | ConvertTo-Json -Depth 15
+    if($json.Contains($key)){throw 'CREDENTIAL_EXPOSURE_ABORTED'}
+    [System.IO.File]::WriteAllText($local,$json+[Environment]::NewLine,([System.Text.UTF8Encoding]::new($false)))
+    Write-Output ('RESULT: '+$status+'; completed '+$completed+'; exact source number pairs '+$matched.Count)
+    Write-Output 'OUTPUT: ntis_patent_outcomes_pc_latest.json (review file before sharing)'
+    if($OfflineTest){
+        if($completed -ne $targets.Count -or $targets.Count -ne 7){
+            throw 'OFFLINE_EXPECTED_SEVEN_PATENT_TARGETS'
+        }
+        Remove-Item -LiteralPath $local -Force -ErrorAction SilentlyContinue
+        Write-Output 'PASS: all 7 current KIPRIS application IDs, offline queries and JSON assembly'
+    }
+}catch{
+    $reason=[string]$_.Exception.Message
+    if($reason -notin @('INPUT_SNAPSHOTS_UNVERIFIED','PUBLIC_SNAPSHOT_DOWNLOAD_FAILED',
+        'NO_KIPRIS_APPLICATION_NUMBERS','CREDENTIAL_EXPOSURE_ABORTED')){
+        $reason='OUTCOME_PC_COLLECTION_FAILED'
+    }
+    Write-Output ('RESULT: '+$reason)
+    $safePhases=@('LOAD_PATENT_DOSSIER','LOAD_KIPRIS_DEEP','LOAD_NTIS_PROJECTS',
+        'VERIFY_INPUT_SNAPSHOTS','INDEX_OFFICIAL_PROJECTS',
+        'INDEX_KIPRIS_APPLICATIONS','BUILD_PATENT_TARGETS',
+        'PREPARE_OUTCOME_QUERIES','EXECUTE_OUTCOME_QUERIES','WRITE_REVIEW_JSON')
+    $label=if($safePhases -contains $phase){$phase}else{'UNSPECIFIED_PHASE'}
+    $exceptionType=$_.Exception.GetType().Name -replace '[^A-Za-z0-9]',''
+    $line=[int]$_.InvocationInfo.ScriptLineNumber
+    Write-Output ('DIAGNOSTIC: PHASE='+$label+'; TYPE='+$exceptionType+'; LINE='+$line)
+    if($OfflineTest){Remove-Item -LiteralPath $local -Force -ErrorAction SilentlyContinue}
+    exit 2
+}finally{$key=$null;$secret=$null}
+){[void]$projectIDs.Add($projectNumber)}
         }
     }
     $phase='INDEX_KIPRIS_APPLICATIONS'
