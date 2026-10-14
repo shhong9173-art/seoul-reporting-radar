@@ -24,6 +24,7 @@ button{font:inherit;border:1px solid #b5c7d5;background:#edf4f8;color:#174b6d;pa
 <div id="ntis-outcome-status" class="panel" role="status">국가R&D 특허 성과검색 직접 연결 여부 확인 중</div>
 <div id="ntis-discovery-status" class="panel" role="status">NTIS 특허 성과의 특허명·기술어·법인 출원인 검색 결과 확인 중</div>
 <div id="ntis-followup-status" class="panel" role="status">NTIS 성과검색 추가 페이지·기업 기술 결합검색 결과 확인 중</div>
+<div id="ntis-project-reverse-status" class="panel" role="status">NTIS 26개 과제번호 역조회 계획·승인 PC 조회 상태 확인 중</div>
 <div class="panel" id="sources"><b>공식 연계 상태</b><p class="muted" id="source-status">확인 중</p>
 <a href="https://www.data.go.kr/data/15077315/openapi.do" target="_blank" rel="noopener noreferrer">NTIS 국가R&D 과제검색 API 신청·명세</a> ·
 <a href="https://www.ntis.go.kr/ThSearchProjectList.do" target="_blank" rel="noopener noreferrer">NTIS 공식 과제검색</a> ·
@@ -178,6 +179,51 @@ try{
     (followupOld?" · 24시간 경과: 현재 기사 발제 전 재검증":"")+
     " · 미확인 페이지가 남아 있으며 '0건'은 성과 부존재 판정이 아님":
     "NTIS 특허 성과 후속검색: 승인된 PC 결과 미수집 또는 이전 조사서와 연결 불가(성과 0건으로 판단 금지)";
+ let ntisReversePlan=null;
+ let ntisReverseResult=null;
+ try{
+   const response=await fetch("digests/ntis_project_reverse_plan_latest.json",{cache:"no-store"});
+   if(response.ok){
+     const plan=await response.json();
+     if(plan.planVersion==="ntis_rpatent_reverse_projectid_v1" &&
+        plan.projectCount===26 && plan.absoluteMaxHttpRequests===52 &&
+        Array.isArray(plan.projects) && plan.projects.length===26 &&
+        Array.isArray(plan.targetKiprisApplications) &&
+        plan.targetKiprisApplications.length>0)
+       ntisReversePlan=plan;
+   }
+   if(ntisReversePlan){
+     const resultResponse=await fetch("digests/ntis_project_reverse_pc_latest.json",{cache:"no-store"});
+     if(resultResponse.ok){
+       const record=await resultResponse.json();
+       if(record.planVersion===ntisReversePlan.planVersion &&
+          record.planGeneratedAt===ntisReversePlan.generatedAt &&
+          record.projectSourceGeneratedAt===ntisReversePlan.projectSourceGeneratedAt &&
+          record.kiprisDossierGeneratedAt===ntisReversePlan.kiprisDossierGeneratedAt &&
+          ["ready","partial_errors","incomplete"].includes(record.status) &&
+          record.verifiedPatentProjectOutcomes===0 &&
+          record.confirmedCommercialization===0 &&
+          record.confirmedExclusives===0 &&
+          record.completedProjects+record.failedProjects===record.checks.length &&
+          record.actualHttpRequests<=52 &&
+          Array.isArray(record.checks) && Array.isArray(record.records))
+         ntisReverseResult=record;
+     }
+   }
+ }catch(e){}
+ $("#ntis-project-reverse-status").textContent=ntisReverseResult?
+   "NTIS 과제번호 → 특허 성과 역조회(등록 PC 실수집 · 과거 원천): 과제 "+
+   ntisReverseResult.completedProjects+"/"+ntisReverseResult.plannedUniqueProjects+
+   "개 조회 · 호출 "+ntisReverseResult.actualHttpRequests+"/52회 · 확인한 결과행 "+
+   ntisReverseResult.rowsInspected+"건 · 정확한 과제+KIPRIS 출원번호 검토 후보 "+
+   ntisReverseResult.reviewedNumberPairs+"건 · 공식 성과·사업화·단독 확정 0건 · 수집 "+
+   ntisReverseResult.generatedAt+
+   " · 조회 0건은 성과 부재 증거가 아니며 첫 페이지만 확인":
+   (ntisReversePlan?
+   "NTIS 과제번호 → 특허 성과 역조회: 공식 과제번호 "+ntisReversePlan.projectCount+
+   "개·KIPRIS 출원번호 "+ntisReversePlan.targetKiprisApplications.length+
+   "건 대조 예정 · PC 수집 아직 미실행 · 현재 성과 연결 확인 0건(성과 없음 판정 아님)":
+   "NTIS 과제번호 역조회 계획 미생성 또는 출처 검증 불가");
  let ntis=null;
  try{
    const reply=await fetch("digests/ntis_project_leads_latest.json",{cache:"no-store"});
@@ -338,6 +384,28 @@ try{
      para(followup,"원천 기준 특허 조사서 "+ntisFollowup.sourceDossierGeneratedAt+
        " · 현재 수집이 자동 연장되거나 해당 기술의 적용·단독이 증명되는 것은 아닙니다.","muted");
    card.append(followup);
+   const reverse=node("div",undefined,"sources");
+   reverse.append(node("b","NTIS 국가과제 번호 → 공식 특허 성과 역조회 (출원번호와 등록번호 혼동 금지)"));
+   if(!ntisReverseResult){
+     para(reverse,"고유 과제번호 26개 역조회는 등록 PC 실측 대기. 기술어 검색만으로 특허 성과가 연결됐다고 판단하지 않습니다.","muted");
+   }else{
+     const leads=ntisReverseResult.records.filter(a=>a.publicationNumber===x.publicationNumber);
+     const relatedProjects=(ntisReversePlan?.projects||[]).filter(p=>
+       Array.isArray(p.earlierKeywordMatchedPatentPublications)&&
+       p.earlierKeywordMatchedPatentPublications.includes(x.publicationNumber));
+     para(reverse,"키워드 검색 당시 관련 과제로 잡힌 번호 "+relatedProjects.length+
+       "개(특허의 공식 연구성과라는 뜻 아님) · 역조회 검토 후보 "+leads.length+
+       "건 · 원천 기준 "+ntisReverseResult.projectSourceGeneratedAt,"muted");
+     for(const record of leads.slice(0,8)){
+       para(reverse,"동일 공식 성과 레코드 번호 대조: 과제 "+record.projectNumber+
+         " · NTIS 성과 "+record.officialResultID+
+         " · KIPRIS 출원번호 "+record.applicationNumber+
+         " · 회사 과제참여·사업화·기보도·단독은 별도 확인","muted");
+     }
+     if(!leads.length)
+       para(reverse,"실제 확인한 첫 페이지에서 해당 특허의 정확한 과제·출원번호 쌍이 발견되지 않음. 전체 NTIS 성과가 없다는 뜻은 아닙니다.","muted");
+   }
+   card.append(reverse);
    const detail=node("details",undefined,"sources");
    detail.append(node("summary","부장 보고 전 5가지 확인 사항"));
    const list=node("ul");
