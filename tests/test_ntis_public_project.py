@@ -72,7 +72,7 @@ class NTISTests(unittest.TestCase):
                 n.parse_project_xml(content)
         err=n.collect(dossier(),"secret",now=NOW,max_queries=1,
                       search=lambda q,k:n.parse_project_xml(b"<html>access denied</html>"))
-        self.assertEqual(err["status"],"partial_errors")
+        self.assertEqual(err["status"],"endpoint_schema_or_authorization_unrecognized")
         self.assertEqual(err["failedQueries"],1)
         self.assertEqual(err["remainingQueries"],1)
         self.assertNotIn("secret",str(err))
@@ -116,6 +116,29 @@ class NTISTests(unittest.TestCase):
             n.collect(data,"secret",max_queries=n.MAX_QUERIES+1)
         data["status"]="unknown"
         with self.assertRaises(ValueError):n.plan_queries(data)
+
+    def test_http_404_halts_following_queries_immediately(self):
+        from urllib.error import HTTPError
+        calls=[]
+        def fail(q,k):
+            calls.append(q)
+            raise HTTPError("https://ntis.invalid/?apprvKey=SECRET",404,
+                            "Not Found",None,None)
+        output=n.collect(dossier(),"SECRET",now=NOW,max_queries=12,search=fail)
+        self.assertEqual(output["status"],"endpoint_not_found")
+        self.assertEqual(output["newQueriesThisRun"],1)
+        self.assertEqual(output["remainingQueries"],1)
+        self.assertEqual(output["failedQueries"],1)
+        self.assertEqual(len(calls),1)
+        self.assertEqual(output["checks"][0]["errorClass"],"HTTP_404")
+        self.assertNotIn("SECRET",str(output))
+
+    def test_http_403_marks_access_or_ip_issue_and_halts(self):
+        from urllib.error import HTTPError
+        def deny(q,k):raise HTTPError("https://ntis.invalid/",403,"Forbidden",None,None)
+        output=n.collect(dossier(),"SECRET",now=NOW,max_queries=12,search=deny)
+        self.assertEqual(output["status"],"permission_or_ip_blocked")
+        self.assertEqual(output["newQueriesThisRun"],1)
 
     def test_network_error_not_exposed_with_api_key(self):
         from urllib.error import URLError
