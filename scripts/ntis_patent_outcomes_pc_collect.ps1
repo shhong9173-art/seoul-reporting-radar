@@ -173,6 +173,13 @@ try{
         }
     }
     if($targets.Count -eq 0){throw 'NO_KIPRIS_APPLICATION_NUMBERS'}
+    # Never send an object-to-string representation or publication number
+    # in place of a verified KIPRIS application identifier.
+    foreach($target in @($targets.ToArray())){
+        if([string]$target.applicationNumber -notmatch '^10\d{11}$'){
+            throw 'INVALID_KIPRIS_TARGET_NUMBER'
+        }
+    }
     $phase='PREPARE_OUTCOME_QUERIES'
     $checks=New-Object System.Collections.ArrayList
     $matched=New-Object System.Collections.ArrayList
@@ -272,7 +279,7 @@ try{
 }catch{
     $reason=[string]$_.Exception.Message
     if($reason -notin @('INPUT_SNAPSHOTS_UNVERIFIED','PUBLIC_SNAPSHOT_DOWNLOAD_FAILED',
-        'NO_KIPRIS_APPLICATION_NUMBERS','CREDENTIAL_EXPOSURE_ABORTED')){
+        'NO_KIPRIS_APPLICATION_NUMBERS','INVALID_KIPRIS_TARGET_NUMBER','CREDENTIAL_EXPOSURE_ABORTED')){
         $reason='OUTCOME_PC_COLLECTION_FAILED'
     }
     Write-Output ('RESULT: '+$reason)
