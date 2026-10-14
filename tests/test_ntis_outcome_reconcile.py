@@ -48,6 +48,7 @@ class OutcomeAuditTests(unittest.TestCase):
 
     def test_seven_completed_zero_queries_are_not_missing_api_access(self):
         d,k,p,o=fixtures()
+        o["dossierGeneratedAt"]=d["generatedAt"]
         o["records"]=[]
         o["targetCount"]=7
         o["completedTargets"]=7
