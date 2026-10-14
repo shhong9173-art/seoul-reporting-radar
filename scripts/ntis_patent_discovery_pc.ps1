@@ -7,7 +7,7 @@ param(
     [switch]$OfflineTest,
     [string]$SnapshotRoot='',
     [ValidateRange(1,7)][int]$MaxTargets=7,
-    [ValidateRange(1,21)][int]$MaxQueries=14,
+    [ValidateRange(1,21)][int]$MaxQueries=21,
     [ValidateRange(1,3)][int]$MaxPages=1
 )
 $ErrorActionPreference='Stop'
