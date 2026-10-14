@@ -101,7 +101,9 @@ try{
     " · KIPRIS 출원번호 확인 "+outcomeAudit.patentsWithOfficialKiprisApplicationNumbers+
     "건 · 과제/특허 직접 연결 확정 "+outcomeAudit.confirmedPatentProjectLinks+
     "건 · 번호만 일치한 검토 후보 "+outcomeAudit.potentialExactNumberPairsNeedingHumanReview+
-    "건 (제품·사업화·단독 검증 안 됨)":
+    "건 (제품·사업화·단독 검증 안 됨)"+
+    (!outcomeAudit.projectSnapshotMatchesCurrentDossier?
+      " · NTIS 과제 수집본과 최신 특허 조사서 시점 불일치: 연결 판단 보류":""):
     "NTIS 특허 성과검색: 미연결 또는 공식 원천 시점 불일치 · 직접 연결 확인 0건(없다는 증명 아님)";
  let ntis=null;
  try{
