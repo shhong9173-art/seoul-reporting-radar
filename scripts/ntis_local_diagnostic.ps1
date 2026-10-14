@@ -211,25 +211,7 @@ try {
                             }
                             $specTotal = [string]$specDoc.RESULT.TOTALHITS
                             $specHit = $specDoc.DocumentElement.SelectSingleNode('RESULTSET/HIT')
-                            if ($specTotal -notmatch '^\d+
-        }
-        catch {
-            Write-Output ($label + ': HTTP_200_BUT_UNRECOGNIZED_RESULT')
-        }
-        break
-    }
-}
-finally {
-    $key = $null
-    $secureKey = $null
-    $content = $null
-}
-if (!$verified) {
-    Write-Output 'RESULT: no project records verified. Valid zero-hit XML is NOT proof that there are no projects; check access and query handling.'
-    exit 2
-}
-exit 0
-) {
+                            if ($specTotal -notmatch '^\d+$') {
                                 throw 'Unrecognized total'
                             }
                             if ([long]$specTotal -gt 0 -and $null -ne $specHit -and
@@ -268,7 +250,7 @@ finally {
     $content = $null
 }
 if (!$verified) {
-    Write-Output 'RESULT: request failed on this PC too; 404 alone does NOT identify the cause.'
+    Write-Output 'RESULT: no project records verified. Valid zero-hit XML is NOT proof that there are no projects; check access and query handling.'
     exit 2
 }
 exit 0
