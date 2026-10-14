@@ -311,10 +311,11 @@ try{
             unrelatedApplicationExcluded=$other
             truncated=if($null -ne $total){$total -gt ((@($complete.ToArray()) | Measure-Object -Maximum).Maximum * 10)}else{$true}
         })
+        $displayStatus=if($failure){$failure}else{'checked'}
         Write-Output ('CHECK '+$checks.Count+'/'+$plan.uniqueQueries+
             ' strategy='+$task.strategy+' pages='+(@($complete.ToArray()) -join ',')+
             ' rows='+$rows+' exactApp='+$exact+' projectOutsideOldSubset='+$outside+
-            ' status='+(if($failure){$failure}else{'checked'}))
+            ' status='+$displayStatus)
         if($failure -in @('NTIS_HTTP_401','NTIS_HTTP_403','NTIS_HTTP_404','UNKNOWN_NTIS_SCHEMA')){break}
     }
     $completed=@($checks.ToArray()|Where-Object {$_.status -eq 'checked'}).Count
