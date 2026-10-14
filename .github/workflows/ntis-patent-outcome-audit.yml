@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - 'scripts/ntis_outcome_reconcile.py'
+      - 'digests/ntis_patent_outcomes_pc_latest.json'
       - 'scripts/ntis_patent_outcomes_pc_collect.ps1'
       - 'scripts/ntis_validate_patent_outcomes.py'
       - 'scripts/Run_NTIS_Patent_Outcomes_Collection.cmd'
