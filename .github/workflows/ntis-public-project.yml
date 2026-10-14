@@ -4,6 +4,7 @@ on:
     paths:
       - 'scripts/ntis_public_project.py'
       - 'tests/test_ntis_public_project.py'
+      - 'tests/test_ntis_project_view.cjs'
       - 'patent-rnd-dossiers.html'
       - '.github/workflows/ntis-public-project.yml'
   push:
@@ -11,6 +12,7 @@ on:
     paths:
       - 'scripts/ntis_public_project.py'
       - 'tests/test_ntis_public_project.py'
+      - 'tests/test_ntis_project_view.cjs'
       - 'patent-rnd-dossiers.html'
       - '.github/workflows/ntis-public-project.yml'
   schedule:
@@ -42,6 +44,7 @@ jobs:
         run: |
           python -m compileall -q scripts/ntis_public_project.py
           python -m unittest discover -s tests -p 'test_ntis_public_project.py' -v
+          node tests/test_ntis_project_view.cjs
       - name: Query authorized NTIS public_project with repo secret
         if: ${{ github.event_name != 'pull_request' }}
         env:
