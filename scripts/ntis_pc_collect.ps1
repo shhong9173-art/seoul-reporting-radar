@@ -164,7 +164,7 @@ try{
     }
     $json=$out | ConvertTo-Json -Depth 16
     if($json.Contains($key)){throw 'UNSAFE_OUTPUT_ABORTED'}
-    $utf8=New-Object System.Text.UTF8Encoding($false)
+    $utf8=[System.Text.UTF8Encoding]::new($false)
     [System.IO.File]::WriteAllText($outputFile,$json+[Environment]::NewLine,$utf8)
     Write-Output ('RESULT: '+$state+'; searches='+$done+'; first-page records='+$recordCount)
     Write-Output 'OUTPUT_FILE: ntis_project_leads_latest.json'
