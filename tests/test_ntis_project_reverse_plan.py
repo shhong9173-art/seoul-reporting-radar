@@ -13,8 +13,9 @@ def read(path):
 
 PLAN=read("digests/ntis_project_reverse_plan_latest.json")
 PROJECTS=read("digests/ntis_project_leads_latest.json")
-DOSSIER=read("digests/patent_rnd_dossiers_latest.json")
-DEEP=read("digests/patent_deep_latest.json")
+PINNED=read("digests/ntis_project_reverse_kipris_source.json")
+DOSSIER=PINNED["dossier"]
+DEEP=PINNED["deep"]
 
 class ReversePlanTests(unittest.TestCase):
     def test_all_unique_26_official_project_numbers(self):
@@ -36,7 +37,7 @@ class ReversePlanTests(unittest.TestCase):
     def test_top_priorities_are_2026_as_scheduling_not_scoop(self):
         self.assertTrue(all(p["projectYear"]=="2026" for p in PLAN["projects"][:3]))
         self.assertEqual(PLAN["projects"][0]["projectNumber"],"2410017694")
-        self.assertIn("Year priority",__doc__ or "Year priority",msg=None) if False else None
+        self.assertEqual(PLAN["projects"][2]["projectNumber"],"2410019058")
 
     def test_exact_plan_reconstructed_from_official_snapshots(self):
         self.assertEqual(build(PROJECTS,DOSSIER,DEEP,PLAN["generatedAt"]),PLAN)
