@@ -206,10 +206,14 @@ try{
     $plan=Load-Snapshot 'digests/ntis_project_reverse_plan_latest.json'
     $phase='LOAD_PROJECT_SOURCE'
     $projects=Load-Snapshot 'digests/ntis_project_leads_latest.json'
-    $phase='LOAD_KIPRIS_DOSSIER'
-    $dossier=Load-Snapshot 'digests/patent_rnd_dossiers_latest.json'
-    $phase='LOAD_KIPRIS_DEEP'
-    $deep=Load-Snapshot 'digests/patent_deep_latest.json'
+    $phase='LOAD_PINNED_KIPRIS_IDENTIFIERS'
+    $historicalKipris=Load-Snapshot 'digests/ntis_project_reverse_kipris_source.json'
+    if($historicalKipris.schema -ne 'ntis_rpatent_kipris_7_identifiers_frozen_v1' -or
+       $historicalKipris.confirmedProjectOutcomeLinks -ne 0){
+        throw 'UNVERIFIED_KIPRIS_PINNED_SOURCE'
+    }
+    $dossier=$historicalKipris.dossier
+    $deep=$historicalKipris.deep
     $phase='VERIFY_PINNED_SOURCES'
     Validate-Plan $plan $projects $dossier $deep
     $apps=@{}
@@ -364,8 +368,8 @@ try{
     }
 }catch{
     # No exception message or URL: Invoke-WebRequest can contain a secret key.
-    $safe=@('LOAD_REVERSE_PLAN','LOAD_PROJECT_SOURCE','LOAD_KIPRIS_DOSSIER',
-        'LOAD_KIPRIS_DEEP','VERIFY_PINNED_SOURCES','RUN_OFFICIAL_PROJECTID_SEARCH')
+    $safe=@('LOAD_REVERSE_PLAN','LOAD_PROJECT_SOURCE','LOAD_PINNED_KIPRIS_IDENTIFIERS',
+        'VERIFY_PINNED_SOURCES','RUN_OFFICIAL_PROJECTID_SEARCH')
     $label=if($safe -contains $phase){$phase}else{'UNKNOWN_PHASE'}
     $type=$_.Exception.GetType().Name -replace '[^A-Za-z0-9]',''
     $line=[int]$_.InvocationInfo.ScriptLineNumber
