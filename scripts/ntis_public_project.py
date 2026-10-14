@@ -27,6 +27,9 @@ from urllib.request import Request, urlopen
 
 KST = timezone(timedelta(hours=9))
 API_URL = "https://www.ntis.go.kr/rndopen/openApi/public_project"
+# Manual p.4 "service URL", distinct from the p.6 endpoint. Probe only
+# after confirmed HTTP 404 on the documented endpoint, with same-origin only.
+DOCUMENTED_SERVICE_URL = "https://www.ntis.go.kr/rndopen/openApi/pjtSearch/"
 # The 2025 PDF's actual REST example uses these wire names, not the alternate
 # names SRWR/displayCnt/searchFd shown in the preceding request table.
 REQUEST_PROFILE = "ntis_2025_pdf_page11_rest_example"
@@ -107,18 +110,31 @@ def request_xml(query, key, count=10, fetch=None):
         "collection":"project", "boostquery":"", "userId":"",
         "startPosition":1, "apprvKey":key, "cmbnApiYn":"Y",
     }
-    url = API_URL + "?" + urlencode(params)
-    if fetch:
-        # Test hooks accept the URL; NEVER print that URL in production.
-        return parse_project_xml(fetch(url))
-    request = Request(url,headers={"User-Agent":"industry-reporting-radar/ntis-1.0",
-                                   "Accept":"application/xml,text/xml"})
-    with urlopen(request,timeout=20) as response:
-        actual=urlsplit(response.geturl())
-        if actual.scheme!="https" or actual.hostname!="www.ntis.go.kr":
-            raise ValueError("unexpected_api_redirect")
-        payload=response.read(MAX_XML+1)
-    return parse_project_xml(payload)
+    # p.6 explicitly calls public_project the END POINT. p.4 separately
+    # lists pjtSearch/ as service URL; it is NOT assumed to work until an
+    # actual RESULT XML is returned. Probe only once after a 404.
+    for index, endpoint in enumerate((API_URL, DOCUMENTED_SERVICE_URL)):
+        url = endpoint + "?" + urlencode(params)
+        try:
+            if fetch:
+                # Test hooks accept the URL; NEVER print that URL in production.
+                payload=fetch(url)
+            else:
+                request = Request(url,headers={"User-Agent":"industry-reporting-radar/ntis-1.0",
+                                               "Accept":"application/xml,text/xml"})
+                with urlopen(request,timeout=20) as response:
+                    actual=urlsplit(response.geturl())
+                    if actual.scheme!="https" or actual.hostname!="www.ntis.go.kr":
+                        raise ValueError("unexpected_api_redirect")
+                    payload=response.read(MAX_XML+1)
+            result=parse_project_xml(payload)
+            result["sourceEndpointPath"]=urlsplit(endpoint).path
+            return result
+        except HTTPError as exc:
+            if exc.code==404 and index==0:
+                continue
+            raise
+    raise ValueError("ntis_documented_endpoints_not_checked")
 
 
 def plan_queries(dossiers):
@@ -185,6 +201,10 @@ def collect(dossiers, key, previous=None, now=None, max_queries=MAX_QUERIES, sea
                 info.update({"status":"checked","totalHits":result["totalHits"],
                              "firstPageOnly":result["firstPageOnly"],
                              "records":result["records"]})
+                if result.get("sourceEndpointPath") in (
+                    "/rndopen/openApi/public_project",
+                    "/rndopen/openApi/pjtSearch/"):
+                    info["sourceEndpointPath"]=result["sourceEndpointPath"]
             except HTTPError as exc:
                 info.update({"status":"source_error","errorClass":"HTTP_"+str(exc.code)})
                 if exc.code==404:
