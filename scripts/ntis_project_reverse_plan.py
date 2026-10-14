@@ -130,13 +130,16 @@ def validate_plan(plan,source,dossier,deep):
 def main():
     p=argparse.ArgumentParser()
     p.add_argument("--source",default="digests/ntis_project_leads_latest.json")
-    p.add_argument("--dossier",default="digests/patent_rnd_dossiers_latest.json")
-    p.add_argument("--deep",default="digests/patent_deep_latest.json")
+    p.add_argument("--kipris-source",default="digests/ntis_project_reverse_kipris_source.json")
     p.add_argument("--out",default="digests/ntis_project_reverse_plan_latest.json")
     p.add_argument("--write",action="store_true")
     a=p.parse_args()
     read=lambda s:json.loads(Path(s).read_text(encoding="utf-8-sig"))
-    source,dossier,deep=read(a.source),read(a.dossier),read(a.deep)
+    source=read(a.source)
+    pinned=read(a.kipris_source)
+    if pinned.get("schema")!="ntis_rpatent_kipris_7_identifiers_frozen_v1" or pinned.get("confirmedProjectOutcomeLinks")!=0:
+        raise ValueError("not_verified_pinned_kipris_identity_subset")
+    dossier,deep=pinned["dossier"],pinned["deep"]
     f=Path(a.out)
     if a.write:
         plan=build(source,dossier,deep)
