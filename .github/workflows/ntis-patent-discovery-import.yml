@@ -1,0 +1,39 @@
+name: NTIS Approved-PC Discovery Import Audit
+on:
+  pull_request:
+    paths:
+      - 'digests/ntis_patent_discovery_pc_latest.json'
+      - 'scripts/ntis_validate_patent_discovery.py'
+      - 'tests/test_ntis_validate_patent_discovery.py'
+      - 'tests/test_ntis_discovery_view.cjs'
+      - 'patent-rnd-dossiers.html'
+      - '.github/workflows/ntis-patent-discovery-import.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'digests/ntis_patent_discovery_pc_latest.json'
+      - 'patent-rnd-dossiers.html'
+      - '.github/workflows/ntis-patent-discovery-import.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-approved-pc-ntis:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate exact KIPRIS title/applicant provenance and result honesty
+        run: |
+          python -m unittest discover -s tests -p 'test_ntis_validate_patent_discovery.py' -v
+          python scripts/ntis_validate_patent_discovery.py digests/ntis_patent_discovery_pc_latest.json
+          node tests/test_ntis_discovery_view.cjs
+          if grep -Eqi 'apprvKey|authorization|bearer |api[_-]?key|password|secret' digests/ntis_patent_discovery_pc_latest.json; then
+            echo 'Potential credentials in public NTIS discovery file'
+            exit 1
+          fi
