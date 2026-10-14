@@ -50,3 +50,53 @@ NTIS 활용신청에서 특정 공인 IP를 등록했다면, 해당 IP에서 호
 조회가 성공했다고 기록하며, 둘 다 404이거나 두 번째 URL이 HTML 등
 비정상 구조를 반환하면 오류 상태를 유지합니다. 요청에 사용한
 인증키/전체 URL은 출력하지 않고, 성공 시 경로명만 기록합니다.
+
+
+## 2026-10-14: NTIS registered PC IP versus GitHub Actions runner
+
+The NTIS application registered a reporter's **PC public IP**. Standard GitHub
+Actions Ubuntu runners use separate, changing egress IP ranges. HTTP 404 from
+Actions is consistent with an IP allowlist issue, but is not proof that NTIS
+uses HTTP 404 for IP denial. The uploaded NTIS manual does not specify an
+IP-restriction error code.
+
+### First test from the registered Windows PC
+
+1. On the same Windows PC and internet connection used for NTIS registration,
+   open https://api.ipify.org and privately verify the current public IP still
+   matches the NTIS registered address. A VPN, mobile hotspot or network
+   change may change the IP. Do not post it publicly.
+2. Download and inspect [scripts/ntis_local_diagnostic.ps1](../scripts/ntis_local_diagnostic.ps1).
+   The script uses only PowerShell built-ins, sends at most two NTIS requests
+   to two URLs printed in the 2025 manual, and queries the manual's
+   example keyword (나노).
+3. Open PowerShell in the folder where you saved the file. For Downloads:
+
+       cd "$env:USERPROFILE\Downloads"
+       powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\ntis_local_diagnostic.ps1"
+
+   Inspect the file first; the process-scoped execution-policy switch does
+   not permanently alter system-wide Windows policies.
+4. At the hidden prompt, enter the approved NTIS API key. Do not type it into
+   shell command history, GitHub Issues, or a ChatGPT message. The script
+   transmits it over HTTPS to NTIS only, and does not save, echo or publish it.
+5. Share only result labels such as DOCUMENTED_PATH_1: HTTP_404,
+   DOCUMENTED_PATH_2: HTTP_404, or VERIFIED_RESULT_TOTALHITS_123.
+
+### How to interpret the codes
+
+- Registered PC returns valid official RESULT XML but Actions gets HTTP 404:
+  narrow the investigation to cloud runner/IP/network restrictions; this
+  supports, but does not prove, the egress-IP hypothesis.
+- Both PC and Actions HTTP 404: ask NTIS about API approval, service URL,
+  IP restrictions and current service state; do not infer that data is absent.
+- PC HTTP 403: examine API approval, registered IP and authorization.
+- HTTP 200 but unexpected HTML/XML: do not count it as zero projects.
+- A valid RESULT with TOTALHITS=0 means only the current test keyword yielded
+  no indexed results in that particular request.
+
+For unattended collection, use an NTIS-approved fixed-egress-IP machine or
+ask NTIS whether their service supports a different allowed access policy.
+Never register one arbitrary GitHub-hosted runner IP as permanent. A
+self-hosted runner on a public repository can expose secrets through unsafe
+workflows and pull requests; seek security review before considering it.
