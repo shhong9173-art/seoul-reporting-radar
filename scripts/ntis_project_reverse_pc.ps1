@@ -71,7 +71,7 @@ function Load-Snapshot([string]$path){
             return ConvertFrom-Json -InputObject ([System.IO.File]::ReadAllText($source,[System.Text.Encoding]::UTF8))
         }
         $r=Invoke-WebRequest -Method Get -Uri ($repo+$path) -UseBasicParsing -TimeoutSec 25 -MaximumRedirection 0 -ErrorAction Stop
-        if([int]$r.StatusCode -ne 200 -or $r.Content.Length -gt 120000){throw 'SOURCE_TOO_LARGE'}
+        if([int]$r.StatusCode -ne 200 -or $r.Content.Length -gt 700000){throw 'SOURCE_TOO_LARGE'}
         return ConvertFrom-Json -InputObject ([string]$r.Content)
     }catch{throw 'PUBLIC_SNAPSHOT_FETCH_FAILED'}
 }
