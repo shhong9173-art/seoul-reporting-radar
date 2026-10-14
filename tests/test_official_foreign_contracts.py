@@ -95,7 +95,7 @@ class OfficialSourceTests(unittest.TestCase):
         checked=overseas.collect(now=NOW,
             fr=lambda q,d:{"items":[],"returned":1},
             ted=lambda q,d:(_ for _ in ()).throw(TimeoutError()))
-        self.assertEqual(checked["sourceErrors"],4)
+        self.assertEqual(checked["sourceErrors"],8)  # 8 EU TED tasks now tested
         self.assertEqual(checked["matchedCount"],0)
         self.assertTrue(any(c["status"]=="source_error" for c in checked["checks"]))
         self.assertEqual(checked["scoopConfirmed"],0)
