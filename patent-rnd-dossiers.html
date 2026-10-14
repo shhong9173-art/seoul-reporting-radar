@@ -87,7 +87,7 @@ try{
    if(reply.ok){
      const parsed=await reply.json();
      if(parsed.dossierGeneratedAt===data.generatedAt &&
-        ["ready","partial_errors","partial_not_yet_checked","missing_key","no_queries"].includes(parsed.status) &&
+        ["ready","partial_errors","partial_not_yet_checked","missing_key","no_queries","endpoint_not_found","permission_or_ip_blocked","endpoint_schema_or_authorization_unrecognized"].includes(parsed.status) &&
         parsed.projectPatentLinksConfirmed===0 && parsed.actualApplicationConfirmed===0 &&
         Array.isArray(parsed.checks))ntis=parsed;
    }
