@@ -3,6 +3,10 @@ on:
   pull_request:
     paths:
       - 'scripts/ntis_patent_outcomes_pc_collect.ps1'
+      - 'scripts/ntis_patent_discovery_pc.ps1'
+      - 'scripts/ntis_validate_patent_discovery.py'
+      - 'scripts/Run_NTIS_Patent_Discovery.cmd'
+      - 'tests/test_ntis_validate_patent_discovery.py'
       - 'digests/patent_rnd_dossiers_latest.json'
       - 'digests/patent_deep_latest.json'
       - 'digests/ntis_project_leads_latest.json'
@@ -22,7 +26,13 @@ jobs:
         shell: powershell
         run: |
           .\scripts\ntis_patent_outcomes_pc_collect.ps1 -SelfTest
+          .\scripts\ntis_patent_discovery_pc.ps1 -SelfTest
       - name: Reproduce full pipeline using actual public snapshots without API key
         shell: powershell
         run: |
           .\scripts\ntis_patent_outcomes_pc_collect.ps1 -OfflineTest -SnapshotRoot "$env:GITHUB_WORKSPACE" -MaxTargets 7
+          .\scripts\ntis_patent_discovery_pc.ps1 -OfflineTest -SnapshotRoot "$env:GITHUB_WORKSPACE" -MaxTargets 7 -MaxQueries 21 -MaxPages 1
+      - name: Reject outcome discovery source confusion and false positives
+        shell: powershell
+        run: |
+          python -m unittest discover -s tests -p 'test_ntis_validate_patent_discovery.py' -v
