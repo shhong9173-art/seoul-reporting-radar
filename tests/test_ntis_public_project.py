@@ -52,9 +52,40 @@ class NTISTests(unittest.TestCase):
         r=n.request_xml("기아 고정자","TEST-KEY-SECRET",fetch=fake)
         self.assertEqual(seen[0]["apprvKey"],["TEST-KEY-SECRET"])
         self.assertEqual(seen[0]["collection"],["project"])
-        self.assertEqual(seen[0]["SRWR"],["기아 고정자"])
+        self.assertEqual(seen[0]["query"],["기아 고정자"])
+        self.assertEqual(seen[0]["displayCount"],["10"])
+        self.assertEqual(seen[0]["searchField"],[""])
+        self.assertEqual(seen[0]["sortby"],[""])
+        self.assertEqual(seen[0]["startPosition"],["1"])
+        self.assertEqual(seen[0]["cmbnApiYn"],["Y"])
+        self.assertEqual(seen[0]["naviCount"],["30"])
+        self.assertEqual(seen[0]["boostquery"],[""])
+        self.assertNotIn("SRWR",seen[0])
+        self.assertNotIn("displayCnt",seen[0])
         self.assertNotIn("TEST-KEY-SECRET",str(r))
         self.assertEqual(len(r["records"]),1)
+
+    def test_2025_pdf_rest_example_endpoint_and_utf8_query(self):
+        urls=[]
+        def fake(url):
+            urls.append(url)
+            return MOCK_XML
+        n.request_xml("모터 냉각","PRIVATE_KEY",count=1,fetch=fake)
+        parsed=urlsplit(urls[0])
+        self.assertEqual(parsed.scheme,"https")
+        self.assertEqual(parsed.hostname,"www.ntis.go.kr")
+        self.assertEqual(parsed.path,"/rndopen/openApi/public_project")
+        values=parse_qs(parsed.query,keep_blank_values=True)
+        self.assertEqual(values["query"],["모터 냉각"])
+        self.assertEqual(values["displayCount"],["1"])
+        self.assertEqual(values["collection"],["project"])
+        self.assertEqual(values["cmbnApiYn"],["Y"])
+
+    def test_manual_request_profile_visible_without_exposing_key(self):
+        r=n.collect(dossier(),None,now=NOW)
+        self.assertEqual(r["requestProfile"],"ntis_2025_pdf_page11_rest_example")
+        self.assertNotIn("apprvKey",str(r))
+        self.assertNotIn("PRIVATE_KEY",str(r))
 
     def test_missing_key_is_explicit_not_zero_hit(self):
         a=n.collect(dossier(),None,now=NOW)
