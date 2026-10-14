@@ -1,0 +1,177 @@
+{
+  "planVersion": "ntis_rpatent_followup_v1",
+  "generatedAt": "2026-10-14T11:03:39.476Z",
+  "sourceDiscoveryGeneratedAt": "2026-10-14T19:19:36+09:00",
+  "sourceDossierGeneratedAt": "2026-10-14T18:57:27+09:00",
+  "sourceKiprisDeepGeneratedAt": "2026-10-13T14:18:23+09:00",
+  "sourceNtisProjectsGeneratedAt": "2026-10-14T15:36:38+09:00",
+  "sourceNtisProjectDossierGeneratedAt": "2026-10-14T10:18:52+09:00",
+  "sourceQueryCount": 21,
+  "sourceTruncatedQueries": 12,
+  "sourceRowsScanned": 136,
+  "applicantQueriesNotRepeated": 7,
+  "duplicateBareApplicantSearchesAvoided": 1,
+  "uniqueQueries": 11,
+  "maximumHttpRequests": 15,
+  "tasks": [
+    {
+      "query": "부분방전",
+      "strategy": "technology_next_pages",
+      "pages": [
+        2,
+        3
+      ],
+      "sourceTotalHits": 197,
+      "targets": [
+        {
+          "publicationNumber": "1020260145290",
+          "applicationNumber": "1020250039383"
+        }
+      ]
+    },
+    {
+      "query": "메타렌즈",
+      "strategy": "technology_next_pages",
+      "pages": [
+        2,
+        3
+      ],
+      "sourceTotalHits": 142,
+      "targets": [
+        {
+          "publicationNumber": "1020260142525",
+          "applicationNumber": "1020250036393"
+        }
+      ]
+    },
+    {
+      "query": "복합패널",
+      "strategy": "technology_next_pages",
+      "pages": [
+        2,
+        3
+      ],
+      "sourceTotalHits": 238,
+      "targets": [
+        {
+          "publicationNumber": "1020260143286",
+          "applicationNumber": "1020250037199"
+        }
+      ]
+    },
+    {
+      "query": "방열 조성물",
+      "strategy": "technology_next_pages",
+      "pages": [
+        2,
+        3
+      ],
+      "sourceTotalHits": 127,
+      "targets": [
+        {
+          "publicationNumber": "1020260141185",
+          "applicationNumber": "1020250034362"
+        }
+      ]
+    },
+    {
+      "query": "엘에스전선 부분방전",
+      "strategy": "corporate_technology_narrowing",
+      "pages": [
+        1
+      ],
+      "sourceTotalHits": null,
+      "targets": [
+        {
+          "publicationNumber": "1020260145290",
+          "applicationNumber": "1020250039383"
+        }
+      ]
+    },
+    {
+      "query": "현대제철 상변태",
+      "strategy": "corporate_technology_narrowing",
+      "pages": [
+        1
+      ],
+      "sourceTotalHits": null,
+      "targets": [
+        {
+          "publicationNumber": "1020260145560",
+          "applicationNumber": "1020250128567"
+        }
+      ]
+    },
+    {
+      "query": "두산에너빌리티 침투탐상",
+      "strategy": "corporate_technology_narrowing",
+      "pages": [
+        1
+      ],
+      "sourceTotalHits": null,
+      "targets": [
+        {
+          "publicationNumber": "1020260143786",
+          "applicationNumber": "1020250037237"
+        }
+      ]
+    },
+    {
+      "query": "현대자동차 메타렌즈",
+      "strategy": "corporate_technology_narrowing",
+      "pages": [
+        1
+      ],
+      "sourceTotalHits": null,
+      "targets": [
+        {
+          "publicationNumber": "1020260142525",
+          "applicationNumber": "1020250036393"
+        }
+      ]
+    },
+    {
+      "query": "포스코 복합패널",
+      "strategy": "corporate_technology_narrowing",
+      "pages": [
+        1
+      ],
+      "sourceTotalHits": null,
+      "targets": [
+        {
+          "publicationNumber": "1020260143286",
+          "applicationNumber": "1020250037199"
+        }
+      ]
+    },
+    {
+      "query": "현대자동차 방열 조성물",
+      "strategy": "corporate_technology_narrowing",
+      "pages": [
+        1
+      ],
+      "sourceTotalHits": null,
+      "targets": [
+        {
+          "publicationNumber": "1020260141185",
+          "applicationNumber": "1020250034362"
+        }
+      ]
+    },
+    {
+      "query": "현대모비스 RTCM",
+      "strategy": "corporate_technology_narrowing",
+      "pages": [
+        1
+      ],
+      "sourceTotalHits": null,
+      "targets": [
+        {
+          "publicationNumber": "1020260143498",
+          "applicationNumber": "1020260043798"
+        }
+      ]
+    }
+  ],
+  "warning": "This is targeted follow-up of a historical 2026-10-14 snapshot. Company+technology is an exploratory NTIS query, not a verified Boolean AND. Results are page-limited; only exact RegistType=출원 and KIPRIS application plus official ProjectID in the SAME HIT can be reviewed. No exclusive/product claim."
+}
