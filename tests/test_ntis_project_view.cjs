@@ -1,0 +1,17 @@
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const vm=require('node:vm');
+const html=fs.readFileSync('patent-rnd-dossiers.html','utf8');
+const scripts=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)];
+assert.equal(scripts.length,1,'Expected a single inline dossier display script');
+new vm.Script(scripts[0][1],{filename:'patent-ntis-project-view.js'});
+assert(html.includes('ntis-live-status'));
+assert(html.includes('ntis_project_leads_latest.json'));
+assert(html.includes('parsed.dossierGeneratedAt===data.generatedAt'));
+assert(html.includes('parsed.projectPatentLinksConfirmed===0'));
+assert(html.includes('item.publicationDate===x.publicationDate'));
+assert(html.includes('project.projectNumber'));
+assert(html.includes('project.sourceSearchUrl'));
+assert(!html.includes('innerHTML'));
+assert(!html.includes('apprvKey'));
+console.log('NTIS dossier UI syntax, source timestamp and patent-provenance guard passed');
