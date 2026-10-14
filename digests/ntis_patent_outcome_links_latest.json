@@ -1,10 +1,16 @@
 {
-  "generatedAt": "2026-10-14T16:56:31+09:00",
-  "dossierGeneratedAt": "2026-10-14T16:00:58+09:00",
+  "generatedAt": "2026-10-14T18:57:27+09:00",
+  "dossierGeneratedAt": "2026-10-14T18:41:19+09:00",
   "kiprisDeepGeneratedAt": "2026-10-13T14:18:23+09:00",
   "ntisProjectsGeneratedAt": "2026-10-14T15:36:38+09:00",
-  "ntisOutcomeGeneratedAt": null,
-  "status": "ntis_patent_outcome_records_not_yet_collected",
+  "ntisOutcomeGeneratedAt": "2026-10-14T18:48:54+09:00",
+  "outcomeQueriesPlanned": 7,
+  "outcomeQueriesCompleted": 7,
+  "outcomeQueryErrors": 0,
+  "outcomeSearchTotalHits": 0,
+  "outcomeSearchMethod": "NTIS rpatent application-number query: official API indexed results only; zero is not proof of absent R&D results",
+  "outcomeDataIsCurrentForDossier": true,
+  "status": "application_number_queries_returned_zero_hits",
   "projectSnapshotMatchesCurrentDossier": false,
   "patentsConsidered": 15,
   "patentsWithOfficialKiprisApplicationNumbers": 7,
@@ -22,5 +28,5 @@
     "동일 과제의 연차별 번호와 주관·공동연구기관을 원문으로 구분했는가?",
     "해당 특허와 특정 차량·설비 제품 적용, 사업화 및 기보도를 별도 취재했는가?"
   ],
-  "warning": "성과검색 API 공식 필드는 확인됨. 단, 같은 성과 HIT의 과제번호/출원번호 일치도 취재 검증 대상으로만 분류하며 특허 사업화·최근 이벤트·미보도 단독은 별도 확인. 공개번호와 출원번호를 혼용하지 않음."
+  "warning": "성과검색 API 공식 필드는 확인됨. 출원번호 방식 조회 0건은 NTIS가 해당 특허를 국가R&D 성과로 수집·색인하지 않았다는 확정 판정이 아님. 동일 성과 HIT의 번호 일치도 취재 검증 후보일 뿐, 기업 사업화·단독은 별도 확인."
 }
