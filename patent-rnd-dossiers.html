@@ -20,6 +20,7 @@ button{font:inherit;border:1px solid #b5c7d5;background:#edf4f8;color:#174b6d;pa
 <p class="muted">KIPRIS 공식 공개공보·과거 동일 제목 검토·청구항·뉴스 검색·동일 법인 DART 자료를 근거별로 분리합니다.</p>
 <div class="warning"><b>자료 연결 여부를 혼동하지 마세요.</b> NTIS 과제검색 바로가기는 실제 과제 조회·선정 확인이 아닙니다. IRIS 사업공고는 선정과제 증거가 아닙니다. 동일 회사 DART 문서·기술어휘 일치는 동일 R&D·차종 적용·양산·단독 증명이 아닙니다.</div>
 <div id="state" class="panel" role="status">공식 출처 일치 및 자료 상태 확인 중</div>
+<div id="ntis-live-status" class="panel" role="status">NTIS 국가과제 OpenAPI 실제 응답 확인 중 (등록 키는 화면에 표시하지 않음)</div>
 <div class="panel" id="sources"><b>공식 연계 상태</b><p class="muted" id="source-status">확인 중</p>
 <a href="https://www.data.go.kr/data/15077315/openapi.do" target="_blank" rel="noopener noreferrer">NTIS 국가R&D 과제검색 API 신청·명세</a> ·
 <a href="https://www.ntis.go.kr/ThSearchProjectList.do" target="_blank" rel="noopener noreferrer">NTIS 공식 과제검색</a> ·
@@ -80,13 +81,32 @@ try{
     cross.generatedAt!==data.crossGeneratedAt ||
     triage.generatedAt!==data.triageGeneratedAt)
    throw Error("공식 공보·DART·기자 순위의 원천 시점 불일치");
+ let ntis=null;
+ try{
+   const reply=await fetch("digests/ntis_project_leads_latest.json",{cache:"no-store"});
+   if(reply.ok){
+     const parsed=await reply.json();
+     if(parsed.dossierGeneratedAt===data.generatedAt &&
+        ["ready","partial_errors","partial_not_yet_checked","missing_key","no_queries"].includes(parsed.status) &&
+        parsed.projectPatentLinksConfirmed===0 && parsed.actualApplicationConfirmed===0 &&
+        Array.isArray(parsed.checks))ntis=parsed;
+   }
+ }catch(e){}
+ $("#ntis-live-status").textContent=ntis ?
+   "NTIS OpenAPI 실제 조회 상태: "+ntis.status+
+   " · 검색 완료 "+ntis.completedQueries+
+   "건 · 오류 "+ntis.failedQueries+
+   "건 · 미조회 "+ntis.remainingQueries+
+   "건 · 수집 과제 메타정보 "+ntis.sourceRecords+
+   "건(첫 페이지 일부만 확인, 특허 성과·사업화 증명 아님)":
+   "NTIS API 수집결과 미생성 또는 특허 조사서와 시점 불일치 · 국가과제 0건으로 판단 금지";
  const age=(Date.now()-Date.parse(data.generatedAt))/3600000;
  const stale=!Number.isFinite(age)||age>24||age<(-1);
  $("#state").textContent="작성 "+data.generatedAt+" · 특허 "+data.totalCurrentCandidates+
     "건 중 조사서 "+data.dossiersDisplayed+"건 · 현재 공개특허 "+data.freshPublicationsInDisplayed+
-    "건 · NTIS 과제 API 미연결 · 단독 확정 0건"+
+    "건 · 국가과제 검색결과는 별도 검증 · 단독 확정 0건"+
     (stale?" · 24시간 초과: 최신 발제로 사용 금지":"");
- $("#source-status").textContent="KIPRIS 원문 검증 스냅샷 · DART 일부 공식 자료 · NTIS 연구과제 API 미연결 · IRIS 선정결과 API 미연결. 미연결=0개 과제라는 뜻 아님";
+ $("#source-status").textContent="KIPRIS 공식 공보·DART 일부 공시 · NTIS 과제검색은 별도 OpenAPI 수집 결과 표시 · NTIS 성과검색과 IRIS 선정결과 API는 미연결. 키 누락·IP 제한·수집 오류는 검색 0건과 다름";
  const show=()=>{
   const filter=$("#filter").value;
   host.replaceChildren();
@@ -134,13 +154,34 @@ try{
    }
    card.append(official);
    const nd=node("div",undefined,"sources");
-   nd.append(node("b","NTIS 국가연구과제 검색 — API 미연결·과제 수혜 미확인"));
+   nd.append(node("b","NTIS 국가연구과제 공식 검색 — 검색 결과는 특허 성과/사업 적용 근거 아님"));
    if(!(x.ntisResearchQueries||[]).length)para(nd,"식별 가능한 특화 기술어가 없어 자동 검색식 생성 보류.","muted");
    for(const q of x.ntisResearchQueries||[]){
      const line=node("p",undefined,"muted");
      line.append(node("span","직접 검색: "+q.query+" · "));
      link(line,q.url,"NTIS 결과 확인","ntis");
      nd.append(line);
+   }
+   const fetched=(ntis?.checks||[]).filter(item=>item.publicationNumber===x.publicationNumber &&
+     item.publicationDate===x.publicationDate &&
+     (x.ntisResearchQueries||[]).some(q=>q.query===item.query));
+   if(ntis && fetched.length===0)
+     para(nd,"해당 특허의 NTIS API 검색은 아직 대기 중. 과제가 0건이라는 뜻 아님.","muted");
+   for(const checked of fetched){
+     para(nd,"API 조회식 '"+checked.query+"' · "+(
+       checked.status==="checked"?"정상 응답 (전체 색인 "+checked.totalHits+"건; 첫 페이지 일부만 수집)":
+       "API 오류 "+(checked.errorClass||"응답 미확인")+" · 과제 수 0건 아님"),"muted");
+     if(checked.status==="checked"){
+       for(const project of (checked.records||[]).slice(0,5)){
+         const line=node("p",undefined,"muted");
+         line.append(node("span","NTIS 과제번호 "+project.projectNumber+" · "+project.projectTitle+
+          " · 공개 수행기관 "+(project.performingAgency||"자료 없음")+
+          " · 과제연도 "+(project.projectYear||"미확인")+" · "));
+         link(line,project.sourceSearchUrl,"원문에서 재확인","ntis");
+         nd.append(line);
+       }
+       if(checked.firstPageOnly)para(nd,"전체 검색결과를 모두 수집한 것이 아닙니다.","muted");
+     }
    }
    card.append(nd);
    const detail=node("details",undefined,"sources");
