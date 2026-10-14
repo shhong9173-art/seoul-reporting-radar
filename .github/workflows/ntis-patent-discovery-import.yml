@@ -25,13 +25,57 @@ jobs:
     timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
       - name: Validate exact KIPRIS title/applicant provenance and result honesty
         run: |
           python -m unittest discover -s tests -p 'test_ntis_validate_patent_discovery.py' -v
-          python scripts/ntis_validate_patent_discovery.py digests/ntis_patent_discovery_pc_latest.json
+          python - <<'PY'
+          import json
+          import os
+          import subprocess
+          import sys
+          from pathlib import Path
+
+          path = Path('digests/ntis_patent_discovery_pc_latest.json')
+          audit = json.loads(path.read_text(encoding='utf-8-sig'))
+          dossier = json.loads(Path('digests/patent_rnd_dossiers_latest.json').read_text(encoding='utf-8-sig'))
+          deep = json.loads(Path('digests/patent_deep_latest.json').read_text(encoding='utf-8-sig'))
+          projects = json.loads(Path('digests/ntis_project_leads_latest.json').read_text(encoding='utf-8-sig'))
+          aligned = (
+              audit.get('dossierGeneratedAt') == dossier.get('generatedAt') and
+              audit.get('kiprisDeepGeneratedAt') == deep.get('generatedAt') and
+              audit.get('ntisProjectsGeneratedAt') == projects.get('generatedAt') and
+              audit.get('ntisProjectDossierGeneratedAt') == projects.get('dossierGeneratedAt')
+          )
+          if aligned:
+              subprocess.run([sys.executable, 'scripts/ntis_validate_patent_discovery.py', str(path)],check=True)
+          else:
+              # A historical *unchanged* approved-PC snapshot remains an archive.
+              # Never allow a NEW or modified import to bypass timestamp checks.
+              comparison = ('origin/main...HEAD' if
+                            os.getenv('GITHUB_EVENT_NAME') == 'pull_request'
+                            else 'HEAD^..HEAD')
+              changed = subprocess.run(
+                  ['git','diff','--name-only',comparison,'--',str(path)],
+                  capture_output=True,text=True,check=True
+              ).stdout.strip()
+              if changed:
+                  raise SystemExit('New NTIS discovery import rejected: KIPRIS/NTIS source timestamps mismatch')
+              if (audit.get('status') != 'ready' or
+                  audit.get('mappingProfile') != 'ntis_rpatent_2024_manual_keyword_discovery_v1' or
+                  audit.get('collectionMethod') != 'approved_pc_rpatent_keyword_discovery' or
+                  audit.get('verifiedDirectPatentProjectLinks') != 0 or
+                  audit.get('commercializationConfirmed') != 0 or
+                  audit.get('exclusiveConfirmed') != 0 or
+                  not isinstance(audit.get('checks'),list)):
+                  raise SystemExit('Historical NTIS discovery audit has invalid status/claims')
+              print('HISTORICAL_NTIS_DISCOVERY: archived unchanged official data;')
+              print('cannot be joined to latest KIPRIS dossier as current evidence.')
+          PY
           node tests/test_ntis_discovery_view.cjs
           if grep -Eqi 'apprvKey|authorization|bearer |api[_-]?key|password|secret' digests/ntis_patent_discovery_pc_latest.json; then
             echo 'Potential credentials in public NTIS discovery file'

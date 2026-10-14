@@ -23,6 +23,7 @@ button{font:inherit;border:1px solid #b5c7d5;background:#edf4f8;color:#174b6d;pa
 <div id="ntis-live-status" class="panel" role="status">NTIS 국가과제 OpenAPI 실제 응답 확인 중 (등록 키는 화면에 표시하지 않음)</div>
 <div id="ntis-outcome-status" class="panel" role="status">국가R&D 특허 성과검색 직접 연결 여부 확인 중</div>
 <div id="ntis-discovery-status" class="panel" role="status">NTIS 특허 성과의 특허명·기술어·법인 출원인 검색 결과 확인 중</div>
+<div id="ntis-followup-status" class="panel" role="status">NTIS 성과검색 추가 페이지·기업 기술 결합검색 결과 확인 중</div>
 <div class="panel" id="sources"><b>공식 연계 상태</b><p class="muted" id="source-status">확인 중</p>
 <a href="https://www.data.go.kr/data/15077315/openapi.do" target="_blank" rel="noopener noreferrer">NTIS 국가R&D 과제검색 API 신청·명세</a> ·
 <a href="https://www.ntis.go.kr/ThSearchProjectList.do" target="_blank" rel="noopener noreferrer">NTIS 공식 과제검색</a> ·
@@ -143,6 +144,40 @@ try{
     (discoveryStale?" · 24시간 경과: 최신 취재 근거로 사용 전 재검증":"")+
     " · 검토한 일부 행에 없다는 뜻이지 성과 부존재 판정 아님":
     "NTIS 특허 성과 확장검색: 미수집 또는 원천 조사서 시점 불일치(0건이라는 뜻 아님)";
+ let ntisFollowup=null;
+ try{
+   const res=await fetch("digests/ntis_patent_followup_pc_latest.json",{cache:"no-store"});
+   if(res.ok){
+     const t=await res.json();
+     if(ntisDiscovery &&
+        t.planVersion==="ntis_rpatent_followup_v1" &&
+        t.collectionMethod==="approved_pc_ntis_rpatent_targeted_followup" &&
+        t.sourceDiscoveryGeneratedAt===ntisDiscovery.generatedAt &&
+        t.sourceDossierGeneratedAt===ntisDiscovery.dossierGeneratedAt &&
+        ["ready","partial_errors","incomplete"].includes(t.status) &&
+        Array.isArray(t.checks) && Array.isArray(t.records) &&
+        t.completedQueries+t.failedQueries===t.checks.length &&
+        t.actualHttpRequests<=t.maxHttpRequests &&
+        t.officialPatentProjectLinksConfirmed===0 &&
+        t.commercializationConfirmed===0 &&
+        t.exclusiveConfirmed===0)
+       ntisFollowup=t;
+   }
+ }catch(e){}
+ const followupOld=ntisFollowup &&
+   (!Number.isFinite(Date.parse(ntisFollowup.generatedAt)) ||
+    Date.now()-Date.parse(ntisFollowup.generatedAt)>86400000);
+ $("#ntis-followup-status").textContent=ntisFollowup?
+    "NTIS 성과 후속검색(승인 PC · 과거 검색 시점 고정): "+
+    ntisFollowup.completedQueries+"/"+ntisFollowup.plannedQueries+
+    " 검색 완료 · NTIS 요청 "+ntisFollowup.actualHttpRequests+"/"+ntisFollowup.maxHttpRequests+
+    "회 · 추가 확인한 응답행 "+ntisFollowup.additionalScannedRows+
+    "건(중복·표본 가능) · 정확한 특허/과제번호 검토 후보 "+
+    ntisFollowup.exactApplicationProjectNumberReviewCandidates+
+    "건 · 직접 연계 및 사업화 확정 0건 · 자료 수집 "+ntisFollowup.generatedAt+
+    (followupOld?" · 24시간 경과: 현재 기사 발제 전 재검증":"")+
+    " · 미확인 페이지가 남아 있으며 '0건'은 성과 부존재 판정이 아님":
+    "NTIS 특허 성과 후속검색: 승인된 PC 결과 미수집 또는 이전 조사서와 연결 불가(성과 0건으로 판단 금지)";
  let ntis=null;
  try{
    const reply=await fetch("digests/ntis_project_leads_latest.json",{cache:"no-store"});
@@ -278,6 +313,31 @@ try{
    if(discoveryQueries.length && discoveryQueries.some(q=>q.truncated))
      para(discovery,"전체 색인 중 일부만 봤으므로 직접 연결 후보 0건은 성과 부재의 증거가 아닙니다.","muted");
    card.append(discovery);
+   const followup=node("div",undefined,"sources");
+   followup.append(node("b","NTIS 특허 성과 추가 조회 — 확인 범위에 한정, 단독/사업화 미확정"));
+   const followChecks=(ntisFollowup?.checks||[]).filter(q=>
+      Array.isArray(q.targets) &&
+      q.targets.some(t=>t.publicationNumber===x.publicationNumber));
+   if(!ntisFollowup)
+     para(followup,"이번 조사서의 이전 확장검색과 직접 연결된 후속검색 기록이 없습니다.","muted");
+   else if(!followChecks.length)
+     para(followup,"이번 특허는 추가 조회 대상이 아닙니다. 특허 성과 0건 판정은 불가합니다.","muted");
+   for(const q of followChecks){
+     const label=q.strategy==="technology_next_pages"?"기술어 2·3페이지":"법인명+기술어 결합검색";
+     const got=Array.isArray(q.pagesCompleted)?q.pagesCompleted.join(","):"없음";
+     const total=q.strategy==="technology_next_pages"?q.sourceTotalHits:q.newQueryTotalHits;
+     para(followup,label+" '"+q.query+"' · 조회 페이지 "+got+
+       " · 검색 반환 수 "+(total==null?"미확인":total)+
+       "건 · 추가 확인 행 "+q.newlyScannedRows+
+       "건 · 정확한 출원번호 일치 "+q.exactApplicationRows+
+       "건"+(q.truncated?" · 이후 미확인 결과 있음":"")+
+       (q.status!=="checked"?" · 조회 오류(미확인 구간)":"")+
+       " · 공식 출원·과제 동일 레코드 연계 확정 아님","muted");
+   }
+   if(followChecks.length)
+     para(followup,"원천 기준 특허 조사서 "+ntisFollowup.sourceDossierGeneratedAt+
+       " · 현재 수집이 자동 연장되거나 해당 기술의 적용·단독이 증명되는 것은 아닙니다.","muted");
+   card.append(followup);
    const detail=node("details",undefined,"sources");
    detail.append(node("summary","부장 보고 전 5가지 확인 사항"));
    const list=node("ul");

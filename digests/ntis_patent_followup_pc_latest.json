@@ -1,0 +1,318 @@
+{
+  "generatedAt": "2026-10-14T20:34:59+09:00",
+  "planGeneratedAt": "2026-10-14T11:03:39.476Z",
+  "sourceDiscoveryGeneratedAt": "2026-10-14T19:19:36+09:00",
+  "sourceDossierGeneratedAt": "2026-10-14T18:57:27+09:00",
+  "status": "ready",
+  "collectionMethod": "approved_pc_ntis_rpatent_targeted_followup",
+  "planVersion": "ntis_rpatent_followup_v1",
+  "plannedQueries": 11,
+  "completedQueries": 11,
+  "failedQueries": 0,
+  "maxHttpRequests": 15,
+  "actualHttpRequests": 15,
+  "additionalScannedRows": 82,
+  "applicationMatchRowsOutsideOldProjectSubset": 0,
+  "exactApplicationProjectNumberReviewCandidates": 0,
+  "officialPatentProjectLinksConfirmed": 0,
+  "commercializationConfirmed": 0,
+  "exclusiveConfirmed": 0,
+  "checks": [
+    {
+      "query": "부분방전",
+      "strategy": "technology_next_pages",
+      "sourceTotalHits": 197,
+      "pagesRequested": [
+        2,
+        3
+      ],
+      "pagesCompleted": [
+        2,
+        3
+      ],
+      "targets": [
+        {
+          "publicationNumber": "1020260145290",
+          "applicationNumber": "1020250039383"
+        }
+      ],
+      "status": "checked",
+      "errorClass": null,
+      "newQueryTotalHits": null,
+      "newlyScannedRows": 20,
+      "exactApplicationRows": 0,
+      "exactApplicationWithProjectOutsideOlderSubset": 0,
+      "registrationTypeExcluded": 9,
+      "unrelatedApplicationExcluded": 11,
+      "truncated": true
+    },
+    {
+      "query": "메타렌즈",
+      "strategy": "technology_next_pages",
+      "sourceTotalHits": 142,
+      "pagesRequested": [
+        2,
+        3
+      ],
+      "pagesCompleted": [
+        2,
+        3
+      ],
+      "targets": [
+        {
+          "publicationNumber": "1020260142525",
+          "applicationNumber": "1020250036393"
+        }
+      ],
+      "status": "checked",
+      "errorClass": null,
+      "newQueryTotalHits": null,
+      "newlyScannedRows": 20,
+      "exactApplicationRows": 0,
+      "exactApplicationWithProjectOutsideOlderSubset": 0,
+      "registrationTypeExcluded": 3,
+      "unrelatedApplicationExcluded": 17,
+      "truncated": true
+    },
+    {
+      "query": "복합패널",
+      "strategy": "technology_next_pages",
+      "sourceTotalHits": 238,
+      "pagesRequested": [
+        2,
+        3
+      ],
+      "pagesCompleted": [
+        2,
+        3
+      ],
+      "targets": [
+        {
+          "publicationNumber": "1020260143286",
+          "applicationNumber": "1020250037199"
+        }
+      ],
+      "status": "checked",
+      "errorClass": null,
+      "newQueryTotalHits": null,
+      "newlyScannedRows": 20,
+      "exactApplicationRows": 0,
+      "exactApplicationWithProjectOutsideOlderSubset": 0,
+      "registrationTypeExcluded": 7,
+      "unrelatedApplicationExcluded": 13,
+      "truncated": true
+    },
+    {
+      "query": "방열 조성물",
+      "strategy": "technology_next_pages",
+      "sourceTotalHits": 127,
+      "pagesRequested": [
+        2,
+        3
+      ],
+      "pagesCompleted": [
+        2,
+        3
+      ],
+      "targets": [
+        {
+          "publicationNumber": "1020260141185",
+          "applicationNumber": "1020250034362"
+        }
+      ],
+      "status": "checked",
+      "errorClass": null,
+      "newQueryTotalHits": null,
+      "newlyScannedRows": 20,
+      "exactApplicationRows": 0,
+      "exactApplicationWithProjectOutsideOlderSubset": 0,
+      "registrationTypeExcluded": 5,
+      "unrelatedApplicationExcluded": 15,
+      "truncated": true
+    },
+    {
+      "query": "엘에스전선 부분방전",
+      "strategy": "corporate_technology_narrowing",
+      "sourceTotalHits": null,
+      "pagesRequested": [
+        1
+      ],
+      "pagesCompleted": [
+        1
+      ],
+      "targets": [
+        {
+          "publicationNumber": "1020260145290",
+          "applicationNumber": "1020250039383"
+        }
+      ],
+      "status": "checked",
+      "errorClass": null,
+      "newQueryTotalHits": 0,
+      "newlyScannedRows": 0,
+      "exactApplicationRows": 0,
+      "exactApplicationWithProjectOutsideOlderSubset": 0,
+      "registrationTypeExcluded": 0,
+      "unrelatedApplicationExcluded": 0,
+      "truncated": false
+    },
+    {
+      "query": "현대제철 상변태",
+      "strategy": "corporate_technology_narrowing",
+      "sourceTotalHits": null,
+      "pagesRequested": [
+        1
+      ],
+      "pagesCompleted": [
+        1
+      ],
+      "targets": [
+        {
+          "publicationNumber": "1020260145560",
+          "applicationNumber": "1020250128567"
+        }
+      ],
+      "status": "checked",
+      "errorClass": null,
+      "newQueryTotalHits": 0,
+      "newlyScannedRows": 0,
+      "exactApplicationRows": 0,
+      "exactApplicationWithProjectOutsideOlderSubset": 0,
+      "registrationTypeExcluded": 0,
+      "unrelatedApplicationExcluded": 0,
+      "truncated": false
+    },
+    {
+      "query": "두산에너빌리티 침투탐상",
+      "strategy": "corporate_technology_narrowing",
+      "sourceTotalHits": null,
+      "pagesRequested": [
+        1
+      ],
+      "pagesCompleted": [
+        1
+      ],
+      "targets": [
+        {
+          "publicationNumber": "1020260143786",
+          "applicationNumber": "1020250037237"
+        }
+      ],
+      "status": "checked",
+      "errorClass": null,
+      "newQueryTotalHits": 0,
+      "newlyScannedRows": 0,
+      "exactApplicationRows": 0,
+      "exactApplicationWithProjectOutsideOlderSubset": 0,
+      "registrationTypeExcluded": 0,
+      "unrelatedApplicationExcluded": 0,
+      "truncated": false
+    },
+    {
+      "query": "현대자동차 메타렌즈",
+      "strategy": "corporate_technology_narrowing",
+      "sourceTotalHits": null,
+      "pagesRequested": [
+        1
+      ],
+      "pagesCompleted": [
+        1
+      ],
+      "targets": [
+        {
+          "publicationNumber": "1020260142525",
+          "applicationNumber": "1020250036393"
+        }
+      ],
+      "status": "checked",
+      "errorClass": null,
+      "newQueryTotalHits": 0,
+      "newlyScannedRows": 0,
+      "exactApplicationRows": 0,
+      "exactApplicationWithProjectOutsideOlderSubset": 0,
+      "registrationTypeExcluded": 0,
+      "unrelatedApplicationExcluded": 0,
+      "truncated": false
+    },
+    {
+      "query": "포스코 복합패널",
+      "strategy": "corporate_technology_narrowing",
+      "sourceTotalHits": null,
+      "pagesRequested": [
+        1
+      ],
+      "pagesCompleted": [
+        1
+      ],
+      "targets": [
+        {
+          "publicationNumber": "1020260143286",
+          "applicationNumber": "1020250037199"
+        }
+      ],
+      "status": "checked",
+      "errorClass": null,
+      "newQueryTotalHits": 0,
+      "newlyScannedRows": 0,
+      "exactApplicationRows": 0,
+      "exactApplicationWithProjectOutsideOlderSubset": 0,
+      "registrationTypeExcluded": 0,
+      "unrelatedApplicationExcluded": 0,
+      "truncated": false
+    },
+    {
+      "query": "현대자동차 방열 조성물",
+      "strategy": "corporate_technology_narrowing",
+      "sourceTotalHits": null,
+      "pagesRequested": [
+        1
+      ],
+      "pagesCompleted": [
+        1
+      ],
+      "targets": [
+        {
+          "publicationNumber": "1020260141185",
+          "applicationNumber": "1020250034362"
+        }
+      ],
+      "status": "checked",
+      "errorClass": null,
+      "newQueryTotalHits": 2,
+      "newlyScannedRows": 2,
+      "exactApplicationRows": 0,
+      "exactApplicationWithProjectOutsideOlderSubset": 0,
+      "registrationTypeExcluded": 1,
+      "unrelatedApplicationExcluded": 1,
+      "truncated": false
+    },
+    {
+      "query": "현대모비스 RTCM",
+      "strategy": "corporate_technology_narrowing",
+      "sourceTotalHits": null,
+      "pagesRequested": [
+        1
+      ],
+      "pagesCompleted": [
+        1
+      ],
+      "targets": [
+        {
+          "publicationNumber": "1020260143498",
+          "applicationNumber": "1020260043798"
+        }
+      ],
+      "status": "checked",
+      "errorClass": null,
+      "newQueryTotalHits": 0,
+      "newlyScannedRows": 0,
+      "exactApplicationRows": 0,
+      "exactApplicationWithProjectOutsideOlderSubset": 0,
+      "registrationTypeExcluded": 0,
+      "unrelatedApplicationExcluded": 0,
+      "truncated": false
+    }
+  ],
+  "records": [],
+  "warning": "Historical 2026-10-14 source. Corporate+technology query semantics may not be AND. Every candidate requires exact RegistType=출원 and application number with ProjectID in one official HIT. Previous 26 project IDs are a partial subset. No news/exclusive or product application claim."
+}
