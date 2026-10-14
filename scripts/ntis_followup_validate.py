@@ -87,9 +87,11 @@ def validate(export,plan,previous,projects):
     for item,expected in zip(export["checks"],plan["tasks"]):
         if not isinstance(item,dict) or set(item)!=CHECK:
             raise ValueError("unexpected_check_fields")
-        for prop in ("query","strategy","sourceTotalHits","pagesRequested","targets"):
+        for prop in ("query","strategy","sourceTotalHits","targets"):
             if item.get(prop)!=expected[prop]:
                 raise ValueError("query_not_in_approved_followup_plan")
+        if item.get("pagesRequested")!=expected["pages"]:
+            raise ValueError("query_not_in_approved_followup_plan")
         pages=item.get("pagesCompleted")
         if not isinstance(pages,list) or pages!=expected["pages"][:len(pages)]:
             raise ValueError("unapproved_page_sequence")
