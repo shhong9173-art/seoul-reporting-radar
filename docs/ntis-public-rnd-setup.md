@@ -22,3 +22,10 @@ NTIS 활용신청에서 특정 공인 IP를 등록했다면, 해당 IP에서 호
 - 새 취재 조사서가 생성되면 `dossierGeneratedAt` 일치 여부를 확인한 뒤 웹 화면에 표시합니다. 서로 다른 시점의 근거는 새 사실로 결합하지 않습니다.
 
 원문: [NTIS OpenAPI](https://www.ntis.go.kr/rndopen/api/mng/apiMain.do) · [공공데이터포털 과제검색 서비스](https://www.data.go.kr/data/15077315/openapi.do)
+
+## 2026-10-14 첫 운영 진단
+
+- 저장소에서 `NTIS_API_KEY`를 전달한 실행이 실제로 이루어졌지만, 기존 공개 예제의 `/rndopen/openApi/public_project` 경로가 **HTTP 404**를 반환했습니다(10개 검색식).
+- 404는 실제 국가과제 0건이 아닙니다. 서버 IP 제약·API 서비스 주소 변경·승인된 서비스와 다른 URL 등 원인을 구분해야 합니다.
+- 즉시 중단 가드가 추가돼 동일 API 경로에 대한 404/403 등 반복 요청을 하지 않습니다.
+- **NTIS에 표시된 `01.통합OpenAPI_국가R&D 과제검색(전체용)_매뉴얼_2025.pdf`를 확인해 공식 요청 URL과 쿼리 파라미터를 정확히 맞출 것.** GitHub에 키/등록 IP를 공개해서는 안 됩니다.
