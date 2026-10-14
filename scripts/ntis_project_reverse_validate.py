@@ -208,12 +208,14 @@ def main():
     p.add_argument("file")
     p.add_argument("--plan",default="digests/ntis_project_reverse_plan_latest.json")
     p.add_argument("--projects",default="digests/ntis_project_leads_latest.json")
-    p.add_argument("--dossier",default="digests/patent_rnd_dossiers_latest.json")
-    p.add_argument("--deep",default="digests/patent_deep_latest.json")
+    p.add_argument("--kipris-source",default="digests/ntis_project_reverse_kipris_source.json")
     a=p.parse_args()
     read=lambda filename:json.loads(Path(filename).read_text(encoding="utf-8-sig"))
+    pinned=read(a.kipris_source)
+    if pinned.get("schema")!="ntis_rpatent_kipris_7_identifiers_frozen_v1" or pinned.get("confirmedProjectOutcomeLinks")!=0:
+        raise ValueError("not_verified_pinned_kipris_identity_subset")
     print("NTIS project reverse lookup:",validate(read(a.file),read(a.plan),
-                                                  read(a.projects),read(a.dossier),
-                                                  read(a.deep)))
+                                                  read(a.projects),pinned["dossier"],
+                                                  pinned["deep"]))
 if __name__=="__main__":
     main()
