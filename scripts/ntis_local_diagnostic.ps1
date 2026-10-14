@@ -57,7 +57,7 @@ if ($SelfTest) {
 }
 
 Write-Output 'NTIS registered-PC diagnostic (2025 official manual)'
-Write-Output 'The key stays on this PC; only HTTP status or verified hit count is shown.'
+Write-Output 'The key is not printed or saved; it is transmitted only to NTIS over HTTPS.'
 Write-Output 'Compare your CURRENT PC public IP with the address registered on NTIS.'
 $secureKey = Read-Host 'Enter approved NTIS API key (hidden)' -AsSecureString
 $pointer = [IntPtr]::Zero
