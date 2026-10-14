@@ -1,0 +1,64 @@
+name: NTIS Public R&D Project Collection
+on:
+  pull_request:
+    paths:
+      - 'scripts/ntis_public_project.py'
+      - 'tests/test_ntis_public_project.py'
+      - 'patent-rnd-dossiers.html'
+      - '.github/workflows/ntis-public-project.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/ntis_public_project.py'
+      - 'tests/test_ntis_public_project.py'
+      - 'patent-rnd-dossiers.html'
+      - '.github/workflows/ntis-public-project.yml'
+  schedule:
+    # After patent-R&D dossier: weekdays 07:50, 14:00, 19:15 KST.
+    - cron: '50 22 * * 0-4'
+    - cron: '0 5 * * 1-5'
+    - cron: '15 10 * * 1-5'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ntis-public-project-writer
+  cancel-in-progress: false
+
+jobs:
+  ntis-project:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify XML, provenance, error and secret-leak guards
+        run: |
+          python -m compileall -q scripts/ntis_public_project.py
+          python -m unittest discover -s tests -p 'test_ntis_public_project.py' -v
+      - name: Query authorized NTIS public_project with repo secret
+        if: ${{ github.event_name != 'pull_request' }}
+        env:
+          NTIS_API_KEY: ${{ secrets.NTIS_API_KEY }}
+        run: python scripts/ntis_public_project.py --max-queries 12
+      - name: Publish research leads or explicit disconnected/partial status
+        if: ${{ github.event_name != 'pull_request' }}
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add digests/ntis_project_leads_latest.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "data: NTIS R&D project research candidates [skip ci]"
+          for attempt in 1 2 3; do
+            git pull --rebase origin main
+            if git push origin HEAD:main; then exit 0; fi
+            sleep 4
+          done
+          exit 1
