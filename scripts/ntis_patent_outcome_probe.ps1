@@ -148,7 +148,7 @@ try{
     }
     $json=$data | ConvertTo-Json -Depth 8
     if($json.Contains($key)){throw 'UNSAFE_OUTCOME_EXPORT_ABORTED'}
-    [System.IO.File]::WriteAllText($file,$json+[Environment]::NewLine,(New-Object System.Text.UTF8Encoding($false)))
+    [System.IO.File]::WriteAllText($file,$json+[Environment]::NewLine,([System.Text.UTF8Encoding]::new($false)))
     Write-Output ('RESULT: '+$overall)
     Write-Output 'OUTPUT_FILE: ntis_patent_outcome_schema_probe.json'
     Write-Output 'Send this JSON file and the official outcome-search API PDF manual, NOT your NTIS key.'
