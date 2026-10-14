@@ -100,3 +100,23 @@ ask NTIS whether their service supports a different allowed access policy.
 Never register one arbitrary GitHub-hosted runner IP as permanent. A
 self-hosted runner on a public repository can expose secrets through unsafe
 workflows and pull requests; seek security review before considering it.
+
+## 2026-10-14 등록 PC 진단 결과: HTTP/XML 정상, '나노' 검색 0건
+
+사용자가 등록된 PC에서 실행한 첫 버전 진단 출력은
+DOCUMENTED_PATH_1: VERIFIED_RESULT_TOTALHITS_0 이었습니다.
+이 결과는 공식 주소가 HTTP 200과 XML 문서를 반환했음을 뜻하지만
+**실제 국가R&D 과제 데이터를 한 건이라도 받은 것은 아닙니다**.
+2025 공식 매뉴얼의 예제에서는 '나노' 검색 결과가 다수이므로
+현재 0건은 검색 정상 작동을 입증하는 결과로 사용하지 않습니다.
+
+보완한 진단 스크립트는 p.11 REST 예제 방식에서 0건이 반환되면
+같은 공식 API 주소에 p.6~8 요청명세 표 방식(SRWR, searchFd=BI,
+displayCnt)을 정확히 한 번만 추가 확인합니다.
+두 방식 모두 0건이라면 API 접속만 확인됐고 실제 과제 수집은
+검증되지 않은 상태로 남깁니다.
+
+출력은 응답 본문·승인키·전체 요청 URL이 아닌 상태명만 포함합니다.
+예: VALID_XML_BUT_ZERO_HITS_WITH_EXAMPLE_PARAMETERS,
+SPECIFICATION_PARAMETERS_VERIFIED_PROJECT_HITS_... 또는
+SPECIFICATION_PARAMETERS_VALID_XML_BUT_ZERO_HITS.
