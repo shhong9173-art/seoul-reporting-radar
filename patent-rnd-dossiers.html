@@ -22,6 +22,7 @@ button{font:inherit;border:1px solid #b5c7d5;background:#edf4f8;color:#174b6d;pa
 <div id="state" class="panel" role="status">공식 출처 일치 및 자료 상태 확인 중</div>
 <div id="ntis-live-status" class="panel" role="status">NTIS 국가과제 OpenAPI 실제 응답 확인 중 (등록 키는 화면에 표시하지 않음)</div>
 <div id="ntis-outcome-status" class="panel" role="status">국가R&D 특허 성과검색 직접 연결 여부 확인 중</div>
+<div id="ntis-discovery-status" class="panel" role="status">NTIS 특허 성과의 특허명·기술어·법인 출원인 검색 결과 확인 중</div>
 <div class="panel" id="sources"><b>공식 연계 상태</b><p class="muted" id="source-status">확인 중</p>
 <a href="https://www.data.go.kr/data/15077315/openapi.do" target="_blank" rel="noopener noreferrer">NTIS 국가R&D 과제검색 API 신청·명세</a> ·
 <a href="https://www.ntis.go.kr/ThSearchProjectList.do" target="_blank" rel="noopener noreferrer">NTIS 공식 과제검색</a> ·
@@ -108,6 +109,40 @@ try{
     (!outcomeAudit.projectSnapshotMatchesCurrentDossier?
       " · NTIS 과제 수집본과 최신 특허 조사서 시점 불일치: 연결 판단 보류":""):
     "NTIS 특허 성과검색: 미연결 또는 공식 원천 시점 불일치 · 직접 연결 확인 0건(없다는 증명 아님)";
+ let ntisDiscovery=null;
+ try{
+   const reply=await fetch("digests/ntis_patent_discovery_pc_latest.json",{cache:"no-store"});
+   if(reply.ok){
+     const parsed=await reply.json();
+     if(parsed.dossierGeneratedAt===data.generatedAt &&
+        parsed.mappingProfile==="ntis_rpatent_2024_manual_keyword_discovery_v1" &&
+        parsed.collectionMethod==="approved_pc_rpatent_keyword_discovery" &&
+        ["ready","partial_errors","incomplete"].includes(parsed.status) &&
+        parsed.verifiedDirectPatentProjectLinks===0 &&
+        parsed.commercializationConfirmed===0 &&
+        parsed.exclusiveConfirmed===0 &&
+        Array.isArray(parsed.checks) &&
+        Array.isArray(parsed.records) &&
+        parsed.completedQueries+parsed.failedQueries===parsed.checks.length)
+       ntisDiscovery=parsed;
+   }
+ }catch(e){}
+ const discoveryStale=ntisDiscovery &&
+   (!Number.isFinite(Date.parse(ntisDiscovery.generatedAt)) ||
+    Date.now()-Date.parse(ntisDiscovery.generatedAt)>86400000);
+ const discoveryPartial=ntisDiscovery?.checks.filter(q=>q.status==="checked"&&q.truncated).length||0;
+ $("#ntis-discovery-status").textContent=ntisDiscovery?
+    "NTIS 성과 확장검색(등록 PC · 실시간 아님): "+
+    ntisDiscovery.completedQueries+"/"+ntisDiscovery.plannedQueries+
+    "회 · API 오류 "+ntisDiscovery.failedQueries+
+    "회 · 검색별 색인 건수 합계 "+ntisDiscovery.totalSearchHitsAcrossQueries+
+    "건(중복 검색 포함) · 실제 확인한 응답행 "+ntisDiscovery.scannedOutcomeRows+
+    "건(중복 가능) · 다음 페이지 미확인 검색 "+discoveryPartial+
+    "회 · 정확한 출원번호·기존 과제표본 번호 일치 "+ntisDiscovery.exactPatentAndPriorProjectNumberPairs+
+    "건 · 직접 성과 확정 0건 · 조회 "+ntisDiscovery.generatedAt+
+    (discoveryStale?" · 24시간 경과: 최신 취재 근거로 사용 전 재검증":"")+
+    " · 검토한 일부 행에 없다는 뜻이지 성과 부존재 판정 아님":
+    "NTIS 특허 성과 확장검색: 미수집 또는 원천 조사서 시점 불일치(0건이라는 뜻 아님)";
  let ntis=null;
  try{
    const reply=await fetch("digests/ntis_project_leads_latest.json",{cache:"no-store"});
@@ -218,6 +253,31 @@ try{
      }
    }
    card.append(nd);
+   const discovery=node("div",undefined,"sources");
+   discovery.append(node("b","NTIS 특허 성과 확장검색 — 키워드 일치가 특허·국가과제 연결 증거는 아님"));
+   const discoveryQueries=ntisDiscovery?.checks.filter(q=>q.publicationNumber===x.publicationNumber)||[];
+   if(!ntisDiscovery)
+     para(discovery,"이번 조사서 시점과 일치하는 성과검색 수집본이 없습니다.","muted");
+   else if(!discoveryQueries.length)
+     para(discovery,"해당 특허의 성과검색 미실시. 성과 0건 판정 불가.","muted");
+   for(const q of discoveryQueries){
+     const modeLabel=({technology:"기술어",title:"특허명",applicant:"법인 출원인"})[q.mode]||"기타";
+     if(q.status!=="checked"){
+       para(discovery,modeLabel+" 검색 오류 · 원문 접근 또는 승인 상태 재검증 필요. 결과 0건 판정 불가.","muted");
+       continue;
+     }
+     para(discovery,modeLabel+" '"+q.query+"' · 전체 색인 "+q.totalHits+
+       "건 · 확인한 응답 "+q.rowsExamined+
+       "건 · KIPRIS 출원번호 정확히 일치 "+q.exactApplicationRows+
+       "건"+(q.truncated?" · 미확인 페이지 존재":"")+
+       " · 등록번호 제외 "+q.registrationTypeRowsExcluded+
+       "건 (확인 범위에 한정)","muted");
+     if(q.exactApplicationRowsWithProjectOutsidePriorSample)
+       para(discovery,"주의: 동일 출원번호이지만 과거 26개 과제 표본 밖 번호가 검출됨. NTIS 과제 원문 별도 조회 필요.","muted");
+   }
+   if(discoveryQueries.length && discoveryQueries.some(q=>q.truncated))
+     para(discovery,"전체 색인 중 일부만 봤으므로 직접 연결 후보 0건은 성과 부재의 증거가 아닙니다.","muted");
+   card.append(discovery);
    const detail=node("details",undefined,"sources");
    detail.append(node("summary","부장 보고 전 5가지 확인 사항"));
    const list=node("ul");
