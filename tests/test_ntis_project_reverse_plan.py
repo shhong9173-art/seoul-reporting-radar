@@ -56,7 +56,7 @@ class ReversePlanTests(unittest.TestCase):
     def test_unofficial_app_number_refused(self):
         changed=copy.deepcopy(DEEP)
         changed["investigations"]=[]
-        with self.assertRaisesRegex(ValueError,"plan_or_source_mismatch"):
+        with self.assertRaisesRegex(ValueError,"no_official_kipris_target_application_numbers"):
             validate_plan(PLAN,PROJECTS,DOSSIER,changed)
 
     def test_tampered_plan_query_budget_refused(self):
