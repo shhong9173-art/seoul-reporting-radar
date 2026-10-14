@@ -65,3 +65,15 @@ jobs:
             sleep 4
           done
           exit 1
+      - name: Fail workflow when NTIS source was unavailable (status already published)
+        if: ${{ github.event_name != 'pull_request' }}
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path("digests/ntis_project_leads_latest.json").read_text(encoding="utf-8"))
+          status=d.get("status")
+          print("NTIS API result status:",status)
+          if status not in {"ready","partial_not_yet_checked","no_queries"}:
+              raise SystemExit("NTIS official source unavailable; published diagnostic JSON, not valid project records")
+          PY
