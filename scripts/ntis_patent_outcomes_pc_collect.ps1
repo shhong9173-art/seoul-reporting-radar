@@ -1,13 +1,20 @@
-# NTIS 국가R&D 특허 성과검색: 승인된 Windows PC에서만 실행.
+﻿# NTIS 국가R&D 특허 성과검색: 승인된 Windows PC에서만 실행.
 # 2024-01-03 공식 매뉴얼 p15-23 + 2026-10-14 승인 PC XML 실측.
 # 인증키는 숨김 입력. 파일에는 현재 KIPRIS 정확한 출원번호 +
 # NTIS 동일 HIT의 ProjectID까지 일치한 연구 단서만 저장.
-param([switch]$SelfTest,[ValidateRange(1,12)][int]$MaxTargets=7)
+param([switch]$SelfTest,[switch]$OfflineTest,[string]$SnapshotRoot='',[ValidateRange(1,12)][int]$MaxTargets=7)
 $ErrorActionPreference='Stop'
 $api='https://www.ntis.go.kr/rndopen/openApi/public_result'
 $raw='https://raw.githubusercontent.com/shhong9173-art/seoul-reporting-radar/main/'
 $local=Join-Path $PSScriptRoot 'ntis_patent_outcomes_pc_latest.json'
 $profile='ntis_rpatent_2024_manual_registtype_application_v1'
+# Safe, fixed phase names only. Do not reveal raw exception messages:
+# PowerShell's Invoke-WebRequest errors can contain secret-bearing URLs.
+$phase='START'
+if($OfflineTest){
+    if(!$SnapshotRoot){throw 'OFFLINE_FIXTURE_ROOT_REQUIRED'}
+    $local=Join-Path ([System.IO.Path]::GetTempPath()) 'ntis_patent_outcome_offline_regression.json'
+}
 
 function Normalize-Patent([string]$value){
     if(!$value){return $null}
@@ -56,6 +63,11 @@ function Read-OutcomeXml([string]$xml){
     return [pscustomobject]@{totalHits=$total;rows=@($rows.ToArray())}
 }
 function Query-Official([string]$term,[string]$key,[string]$field){
+    if($OfflineTest){
+        # Offline mode must exercise indexing/loop/JSON export without
+        # connecting to NTIS or using any real API key.
+        return [pscustomobject]@{totalHits=0;rows=@()}
+    }
     if($term.Length -lt 4 -or $term.Length -gt 110){throw 'INVALID_QUERY'}
     $args=[ordered]@{
         naviCount='30';searchField=$field;addQuery='DBT=PAT'
@@ -81,6 +93,10 @@ function Query-Official([string]$term,[string]$key,[string]$field){
 }
 function Get-PublicJson([string]$name){
     try{
+        if($OfflineTest){
+            $file=Join-Path $SnapshotRoot ($name -replace '/',[System.IO.Path]::DirectorySeparatorChar)
+            return ConvertFrom-Json -InputObject ([System.IO.File]::ReadAllText($file,[System.Text.Encoding]::UTF8))
+        }
         $response=Invoke-WebRequest -Uri ($raw+$name) -UseBasicParsing -TimeoutSec 20 -MaximumRedirection 0 -ErrorAction Stop
         if($response.StatusCode -ne 200 -or $response.Content.Length -gt 2500000){throw 'bad_snapshot'}
         return ConvertFrom-Json -InputObject ([string]$response.Content)
@@ -99,30 +115,45 @@ if($SelfTest){
     Write-Output 'PASS: official RegistNumber, RegistType, ProjectID and ResultID parse; HTML rejected'
     exit 0
 }
-Write-Output 'NTIS PATENT OUTCOME CHECK - approved Windows PC'
-Write-Output '2024 official XML fields. Only exact KIPRIS application + official project pairs are exported.'
-Write-Output 'Input key is hidden. No API key, request URL or unrelated individual record is saved.'
-$key=$null;$secret=Read-Host 'NTIS approved performance-search API key (hidden)' -AsSecureString
-$ptr=[IntPtr]::Zero
+Write-Output 'NTIS PATENT OUTCOME CHECK - approved Windows PC (diagnostic build)'
+Write-Output '2024 official XML fields. Exact KIPRIS application + NTIS project pairs only.'
+Write-Output 'Key hidden; errors show only safe PHASE/TYPE/LINE, never URLs or exception text.'
+$key=$null;$secret=$null
+if($OfflineTest){
+    Write-Output 'OFFLINE_TEST: local public JSON snapshots only, no NTIS request or key'
+    $key='LOCAL_OFFLINE_TEST_ONLY'
+}else{
+    $phase='READ_HIDDEN_KEY'
+    $secret=Read-Host 'NTIS approved performance-search API key (hidden)' -AsSecureString
+    $ptr=[IntPtr]::Zero
+    try{
+        $ptr=[Runtime.InteropServices.Marshal]::SecureStringToBSTR($secret)
+        $key=[Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr)
+    }finally{if($ptr -ne [IntPtr]::Zero){[Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr)}}
+    if([string]::IsNullOrWhiteSpace($key)){Write-Output 'RESULT: MISSING_KEY';exit 2}
+}
 try{
-    $ptr=[Runtime.InteropServices.Marshal]::SecureStringToBSTR($secret)
-    $key=[Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr)
-}finally{if($ptr -ne [IntPtr]::Zero){[Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr)}}
-if([string]::IsNullOrWhiteSpace($key)){Write-Output 'RESULT: MISSING_KEY';exit 2}
-try{
+    $phase='LOAD_PATENT_DOSSIER'
     $dossier=Get-PublicJson 'digests/patent_rnd_dossiers_latest.json'
+    $phase='LOAD_KIPRIS_DEEP'
     $deep=Get-PublicJson 'digests/patent_deep_latest.json'
+    $phase='LOAD_NTIS_PROJECTS'
     $projects=Get-PublicJson 'digests/ntis_project_leads_latest.json'
+    $phase='VERIFY_INPUT_SNAPSHOTS'
     if($dossier.status -ne 'research_only' -or $projects.status -ne 'ready' -or
        $null -eq $dossier.dossiers -or $null -eq $deep.investigations){throw 'INPUT_SNAPSHOTS_UNVERIFIED'}
+    $phase='INDEX_OFFICIAL_PROJECTS'
     $projectIDs=New-Object 'System.Collections.Generic.HashSet[string]'
     foreach($check in @($projects.checks)){
         if($check.status -ne 'checked'){continue}
         foreach($row in @($check.records)){
-            $pid=[string]$row.projectNumber
-            if($pid -match '^\d{10}$'){[void]$projectIDs.Add($pid)}
+            # $PID is a PowerShell automatic read-only variable (case-insensitive).
+            # Never use $pid for NTIS project numbers on Windows.
+            $projectNumber=[string]$row.projectNumber
+            if($projectNumber -match '^\d{10}$'){[void]$projectIDs.Add($projectNumber)}
         }
     }
+    $phase='INDEX_KIPRIS_APPLICATIONS'
     $patentApps=@{}
     foreach($p in @($deep.investigations)){
         $pub=Normalize-Patent ([string]$p.publicationNumber)
@@ -131,6 +162,7 @@ try{
         if(!$patentApps.ContainsKey($pub)){$patentApps[$pub]=New-Object 'System.Collections.Generic.HashSet[string]'}
         [void]$patentApps[$pub].Add($app)
     }
+    $phase='BUILD_PATENT_TARGETS'
     $targets=New-Object System.Collections.ArrayList
     foreach($p in @($dossier.dossiers)){
         $pub=Normalize-Patent ([string]$p.publicationNumber)
@@ -141,10 +173,19 @@ try{
         }
     }
     if($targets.Count -eq 0){throw 'NO_KIPRIS_APPLICATION_NUMBERS'}
+    # Never send an object-to-string representation or publication number
+    # in place of a verified KIPRIS application identifier.
+    foreach($target in @($targets.ToArray())){
+        if([string]$target.applicationNumber -notmatch '^10\d{11}$'){
+            throw 'INVALID_KIPRIS_TARGET_NUMBER'
+        }
+    }
+    $phase='PREPARE_OUTCOME_QUERIES'
     $checks=New-Object System.Collections.ArrayList
     $matched=New-Object System.Collections.ArrayList
     $keys=New-Object 'System.Collections.Generic.HashSet[string]'
     $errors=0;$observed=0
+    $phase='EXECUTE_OUTCOME_QUERIES'
     foreach($t in @($targets.ToArray())){
         $lastError=$null;$res=$null
         try{
@@ -222,17 +263,34 @@ try{
         confirmedPatentProjectLinks=0;commercializationConfirmed=0;exclusiveConfirmed=0
         warning='Exact official RegistType=출원/RegistNumber and ProjectID pairs are reporter review leads only. Registration numbers, publication numbers and product adoption NOT inferred. The PC project snapshot may be older than the dossier.'
     }
+    $phase='WRITE_REVIEW_JSON'
     $json=$output | ConvertTo-Json -Depth 15
     if($json.Contains($key)){throw 'CREDENTIAL_EXPOSURE_ABORTED'}
     [System.IO.File]::WriteAllText($local,$json+[Environment]::NewLine,([System.Text.UTF8Encoding]::new($false)))
     Write-Output ('RESULT: '+$status+'; completed '+$completed+'; exact source number pairs '+$matched.Count)
     Write-Output 'OUTPUT: ntis_patent_outcomes_pc_latest.json (review file before sharing)'
+    if($OfflineTest){
+        if($completed -ne $targets.Count -or $targets.Count -ne 7){
+            throw 'OFFLINE_EXPECTED_SEVEN_PATENT_TARGETS'
+        }
+        Remove-Item -LiteralPath $local -Force -ErrorAction SilentlyContinue
+        Write-Output 'PASS: all 7 current KIPRIS application IDs, offline queries and JSON assembly'
+    }
 }catch{
     $reason=[string]$_.Exception.Message
     if($reason -notin @('INPUT_SNAPSHOTS_UNVERIFIED','PUBLIC_SNAPSHOT_DOWNLOAD_FAILED',
-        'NO_KIPRIS_APPLICATION_NUMBERS','CREDENTIAL_EXPOSURE_ABORTED')){
+        'NO_KIPRIS_APPLICATION_NUMBERS','INVALID_KIPRIS_TARGET_NUMBER','CREDENTIAL_EXPOSURE_ABORTED')){
         $reason='OUTCOME_PC_COLLECTION_FAILED'
     }
     Write-Output ('RESULT: '+$reason)
+    $safePhases=@('LOAD_PATENT_DOSSIER','LOAD_KIPRIS_DEEP','LOAD_NTIS_PROJECTS',
+        'VERIFY_INPUT_SNAPSHOTS','INDEX_OFFICIAL_PROJECTS',
+        'INDEX_KIPRIS_APPLICATIONS','BUILD_PATENT_TARGETS',
+        'PREPARE_OUTCOME_QUERIES','EXECUTE_OUTCOME_QUERIES','WRITE_REVIEW_JSON')
+    $label=if($safePhases -contains $phase){$phase}else{'UNSPECIFIED_PHASE'}
+    $exceptionType=$_.Exception.GetType().Name -replace '[^A-Za-z0-9]',''
+    $line=[int]$_.InvocationInfo.ScriptLineNumber
+    Write-Output ('DIAGNOSTIC: PHASE='+$label+'; TYPE='+$exceptionType+'; LINE='+$line)
+    if($OfflineTest){Remove-Item -LiteralPath $local -Force -ErrorAction SilentlyContinue}
     exit 2
 }finally{$key=$null;$secret=$null}

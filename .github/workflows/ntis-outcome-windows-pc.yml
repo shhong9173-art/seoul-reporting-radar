@@ -1,0 +1,28 @@
+name: NTIS Outcome Windows PC Regression
+on:
+  pull_request:
+    paths:
+      - 'scripts/ntis_patent_outcomes_pc_collect.ps1'
+      - 'digests/patent_rnd_dossiers_latest.json'
+      - 'digests/patent_deep_latest.json'
+      - 'digests/ntis_project_leads_latest.json'
+      - '.github/workflows/ntis-outcome-windows-pc.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-approved-pc-offline-simulation:
+    runs-on: windows-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse and test NTIS patent result XML with Windows PowerShell 5.1
+        shell: powershell
+        run: |
+          .\scripts\ntis_patent_outcomes_pc_collect.ps1 -SelfTest
+      - name: Reproduce full pipeline using actual public snapshots without API key
+        shell: powershell
+        run: |
+          .\scripts\ntis_patent_outcomes_pc_collect.ps1 -OfflineTest -SnapshotRoot "$env:GITHUB_WORKSPACE" -MaxTargets 7
