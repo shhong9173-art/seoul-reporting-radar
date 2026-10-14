@@ -31,7 +31,7 @@ jobs:
         shell: powershell
         run: |
           .\scripts\ntis_patent_outcomes_pc_collect.ps1 -OfflineTest -SnapshotRoot "$env:GITHUB_WORKSPACE" -MaxTargets 7
-          .\scripts\ntis_patent_discovery_pc.ps1 -OfflineTest -SnapshotRoot "$env:GITHUB_WORKSPACE" -MaxTargets 7 -MaxQueries 14 -MaxPages 1
+          .\scripts\ntis_patent_discovery_pc.ps1 -OfflineTest -SnapshotRoot "$env:GITHUB_WORKSPACE" -MaxTargets 7 -MaxQueries 21 -MaxPages 1
       - name: Reject outcome discovery source confusion and false positives
         shell: powershell
         run: |
