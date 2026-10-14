@@ -19,7 +19,7 @@ from pathlib import Path
 KST=timezone(timedelta(hours=9))
 PAT=re.compile(r"^10\d{11}$")
 PROJ=re.compile(r"^[A-Za-z0-9-]{4,80}$")
-OUTCOME_PROFILE="ntis_patent_outcome_fields_manual_confirmed_v1"
+OUTCOME_PROFILE="ntis_rpatent_2024_manual_registtype_application_v1"
 
 
 def number(raw):
