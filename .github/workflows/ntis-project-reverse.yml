@@ -8,6 +8,8 @@ on:
       - 'scripts/Run_NTIS_Project_Reverse.cmd'
       - 'tests/test_ntis_project_reverse_plan.py'
       - 'tests/test_ntis_project_reverse_validate.py'
+      - 'tests/test_ntis_project_reverse_view.cjs'
+      - 'patent-rnd-dossiers.html'
       - 'digests/ntis_project_reverse_plan_latest.json'
       - 'digests/ntis_project_reverse_kipris_source.json'
       - 'digests/ntis_project_reverse_pc_latest.json'
@@ -35,6 +37,7 @@ jobs:
         run: |
           python scripts/ntis_project_reverse_plan.py
           python -m unittest discover -s tests -p 'test_ntis_project_reverse*.py' -v
+          node tests/test_ntis_project_reverse_view.cjs
           if test -f digests/ntis_project_reverse_pc_latest.json; then
             python scripts/ntis_project_reverse_validate.py digests/ntis_project_reverse_pc_latest.json
             if grep -Eqi 'apprvKey|authorization|bearer |api[_-]?key|password|secret' digests/ntis_project_reverse_pc_latest.json; then
@@ -60,3 +63,4 @@ jobs:
         run: |
           python scripts/ntis_project_reverse_validate.py "$env:TEMP\ntis_project_reverse_offline.json"
           python -m unittest discover -s tests -p 'test_ntis_project_reverse*.py' -v
+          node tests/test_ntis_project_reverse_view.cjs
