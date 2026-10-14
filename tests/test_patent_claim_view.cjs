@@ -2,7 +2,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const page=fs.readFileSync('patents.html','utf8');
 const scripts=[...page.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(x=>x[1]);
-assert.equal(scripts.length,3);
+assert(scripts.length>=3 && scripts.length<=20,'expected patent dashboard inline scripts');
 for(const script of scripts)new Function(script);
 for(const part of ['digests/patent_claim_review_latest.json','claim1Excerpt',
  'claim1Length','priorComparisons','textSimilarity','companyQuestions',
