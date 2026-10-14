@@ -163,6 +163,7 @@ def collect(dossiers, key, previous=None, now=None, max_queries=MAX_QUERIES, sea
         row=cached.get((p["publicationNumber"],p["query"]))
         if row:checks.append(row)
     attempted=0
+    halted=None
     if key:
         for p in pending[:max_queries]:
             attempted+=1
@@ -176,6 +177,10 @@ def collect(dossiers, key, previous=None, now=None, max_queries=MAX_QUERIES, sea
                              "records":result["records"]})
             except HTTPError as exc:
                 info.update({"status":"source_error","errorClass":"HTTP_"+str(exc.code)})
+                if exc.code==404:
+                    halted="endpoint_not_found"
+                elif exc.code in (401,403):
+                    halted="permission_or_ip_blocked"
             except (URLError,TimeoutError,OSError):
                 info.update({"status":"source_error","errorClass":"network_or_ip_allowlist"})
             except (ValueError,ET.ParseError,KeyError,TypeError) as exc:
@@ -188,12 +193,20 @@ def collect(dossiers, key, previous=None, now=None, max_queries=MAX_QUERIES, sea
                 code=str(exc)
                 info.update({"status":"source_error",
                              "errorClass":code if code in allowed else "api_schema_unknown"})
+                if code in {"unexpected_ntis_xml_wrapper",
+                            "ntis_status_or_schema_unrecognized",
+                            "project_hits_unrecognized_fields"}:
+                    halted="endpoint_schema_or_authorization_unrecognized"
             checks.append(info)
+            # An endpoint or authorization error is not a per-keyword miss.
+            # Stop immediately rather than hitting the same invalid route 12x.
+            if halted:
+                break
     remaining=len(plans)-len(cached)-attempted
     errors=sum(x["status"]=="source_error" for x in checks)
     completed=sum(x["status"]=="checked" for x in checks)
     state=("missing_key" if not key else "no_queries" if not plans else
-           "partial_errors" if errors else
+           halted if halted else "partial_errors" if errors else
            "partial_not_yet_checked" if remaining else "ready")
     return {
         "generatedAt":now.isoformat(timespec="seconds"),
