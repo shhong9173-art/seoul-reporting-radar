@@ -5,9 +5,12 @@ must never enter a repository file, a GitHub Actions log or a browser response.
 The public_project service returns searchable project metadata; keyword hits
 do NOT show patent outcome, project participation, product adoption or a scoop.
 
-Public NTIS API path and parameters follow the NTIS OpenAPI guide; the first
-authorized live response should be inspected for schema changes before making
-journalistic assertions. An unrecognized response fails closed, never '0 hits'.
+The NTIS 2025-12-16 official PDF shows two different parameter conventions:
+the request specification lists SRWR/displayCnt/searchFd while its actual
+REST example sends query/displayCount/searchField/cmbnApiYn=Y. This client
+follows the actual documented URI example, with the same documented
+public_project path, and never silently treats 404 as no R&D projects.
+An unrecognized response fails closed, never '0 hits'.
 """
 from __future__ import annotations
 
@@ -24,6 +27,9 @@ from urllib.request import Request, urlopen
 
 KST = timezone(timedelta(hours=9))
 API_URL = "https://www.ntis.go.kr/rndopen/openApi/public_project"
+# The 2025 PDF's actual REST example uses these wire names, not the alternate
+# names SRWR/displayCnt/searchFd shown in the preceding request table.
+REQUEST_PROFILE = "ntis_2025_pdf_page11_rest_example"
 SEARCH_URL = "https://www.ntis.go.kr/ThSearchProjectList.do"
 PATENT = re.compile(r"^10\d{11}$")
 MAX_XML = 1_500_000
@@ -92,10 +98,14 @@ def request_xml(query, key, count=10, fetch=None):
         raise ValueError("invalid_search_query")
     if not 1<=count<=25:
         raise ValueError("invalid_display_count")
+    # Official manual pp. 6-8 (spec) vs p. 11 (actual REST URL).
+    # Preserve exact endpoint from the spec and exact query parameter names
+    # from the example; keep the approved key private and never log URL.
     params = {
-        "apprvKey":key, "userId":"", "collection":"project",
-        "SRWR":query, "searchFd":"", "addQuery":"", "searchRnkn":"",
-        "startPosition":1, "displayCnt":count,
+        "naviCount":30, "searchField":"", "addQuery":"",
+        "query":query, "displayCount":count, "sortby":"",
+        "collection":"project", "boostquery":"", "userId":"",
+        "startPosition":1, "apprvKey":key, "cmbnApiYn":"Y",
     }
     url = API_URL + "?" + urlencode(params)
     if fetch:
@@ -213,6 +223,7 @@ def collect(dossiers, key, previous=None, now=None, max_queries=MAX_QUERIES, sea
         "dossierGeneratedAt":dossiers["generatedAt"],
         "status":state,
         "source":"NTIS public_project OpenAPI - public project metadata",
+        "requestProfile":REQUEST_PROFILE,
         "scope":"bounded selected patent query strings, first result page, not NTIS exhaustive coverage",
         "totalResearchQueries":len(plans),
         "completedQueries":completed,"failedQueries":errors,
