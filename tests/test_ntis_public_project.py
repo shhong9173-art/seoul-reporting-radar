@@ -87,6 +87,44 @@ class NTISTests(unittest.TestCase):
         self.assertNotIn("apprvKey",str(r))
         self.assertNotIn("PRIVATE_KEY",str(r))
 
+    def test_404_on_endpoint_probes_exact_documented_service_url_once(self):
+        from urllib.error import HTTPError
+        calls=[]
+        def fake(url):
+            parsed=urlsplit(url)
+            calls.append(parsed.path)
+            if parsed.path=="/rndopen/openApi/public_project":
+                raise HTTPError(url,404,"Not Found",None,None)
+            return MOCK_XML
+        result=n.request_xml("모터 냉각","PRIVATE_KEY",count=2,fetch=fake)
+        self.assertEqual(calls,[
+            "/rndopen/openApi/public_project",
+            "/rndopen/openApi/pjtSearch/"])
+        self.assertEqual(result["sourceEndpointPath"],"/rndopen/openApi/pjtSearch/")
+        self.assertEqual(result["totalHits"],3)
+        self.assertNotIn("PRIVATE_KEY",str(result))
+
+    def test_both_official_manual_urls_404_are_not_zero_hits(self):
+        from urllib.error import HTTPError
+        calls=[]
+        def missing(url):
+            calls.append(urlsplit(url).path)
+            raise HTTPError(url,404,"Not Found",None,None)
+        with self.assertRaises(HTTPError):
+            n.request_xml("기아 고정자","PRIVATE_KEY",fetch=missing)
+        self.assertEqual(calls,[
+            "/rndopen/openApi/public_project",
+            "/rndopen/openApi/pjtSearch/"])
+
+    def test_fallback_html_is_never_considered_valid_project_search(self):
+        from urllib.error import HTTPError
+        def fake(url):
+            if urlsplit(url).path=="/rndopen/openApi/public_project":
+                raise HTTPError(url,404,"Not Found",None,None)
+            return b"<html><title>NTIS</title></html>"
+        with self.assertRaisesRegex(ValueError,"unexpected_ntis_xml_wrapper"):
+            n.request_xml("모터 냉각","PRIVATE_KEY",fetch=fake)
+
     def test_missing_key_is_explicit_not_zero_hit(self):
         a=n.collect(dossier(),None,now=NOW)
         self.assertEqual(a["status"],"missing_key")
