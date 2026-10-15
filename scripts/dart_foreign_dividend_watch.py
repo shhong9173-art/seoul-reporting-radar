@@ -71,6 +71,93 @@ def extract_tables(markup,company,receipt):
     return out
 
 
+
+# Explicit issuer accounting wording is materially stronger than a near-by
+# dividend word. Do NOT translate it into a cash remittance.
+RECOGNIZED_FROM_ENTITY = re.compile(
+    r"(?P<entity>Kia\s+Slovakia\s+s\.?\s*r\.?\s*o\.?(?:\s*\(KaSK\))?"
+    r"|Hyundai\s+Motor\s+Manufacturing\s+Czech(?:\s+s\.?\s*r\.?\s*o\.?)?)"
+    r"\s*로부터\s*인식한\s*"
+    r"(?P<amount>\d{1,3}(?:,\d{3})+|\d{1,14})\s*백만원",
+    re.I
+)
+
+
+def exact_dividend_income_recognition(visible, company, receipt):
+    """DART issuer's explicit individual entity dividend income recognition.
+
+    Require 'dividend income' and correct period in the immediate sentence
+    BEFORE the named foreign entity; do not join other headings or total rows.
+    """
+    if company not in KEYWORDS or not isinstance(visible,str):
+        return []
+    matches=[]
+    for m in RECOGNIZED_FROM_ENTITY.finditer(visible):
+        entity=m.group("entity").strip()
+        if not matches_foreign_entity(entity,company):
+            continue
+        amount=m.group("amount")
+        if not amount.replace(",","").isdigit():
+            continue
+        # Korean notes: '당반기 배당금수익은 Kia Slovakia ...로부터 인식한'
+        # A different unrelated table-heading's income label is not enough.
+        prefix=visible[max(0,m.start()-190):m.start()]
+        marker=list(re.finditer(r"(?:당반기|전반기|당기|전기)\s*배당금수익(?:은|에는|으로)?",prefix))
+        if not marker:
+            continue
+        near=prefix[marker[-1].start():]
+        if len(near)>145:
+            continue
+        scope=marker[-1].group(0)
+        period=("current" if scope.startswith(("당반기","당기"))
+                else "previous")
+        # Require one recognized entity + amount expression without an
+        # intervening sentence boundary; only official exact phrase captured.
+        statement=visible[max(0,m.start()-min(85,len(prefix))):m.end()+28]
+        matches.append({
+          "company":company,"receiptNo":receipt,
+          "filingUrl":"https://dart.fss.or.kr/dsaf001/main.do?rcpNo="+receipt,
+          "namedEntity":entity,
+          "accountingLine":"배당금수익",
+          "issuerNamedRecognitionAmount":amount,
+          "issuerUnit":"백만원",
+          "issuerRecognizedPeriod":period,
+          "recognitionPhrase":visible[m.start():m.end()],
+          "context":statement[:280],
+          "sourceScope":"issuer_explicit_named_entity_recognized_dividend_income",
+          "evidenceTier":"exact_issuer_recognized_dividend_income",
+          "amountParsed":True,
+          "cashReceiptVerified":False,
+          "separateFinancialStatementsVerified":False,
+          "foreignRegistryVerified":False,
+          "historicalNetIncomeCompared":False,
+          "mediaCoverageVerified":False,
+          "scoopConfirmed":False,
+          "verify":[
+            "Confirm issuer's note uses separate vs consolidated basis and exact accounting period",
+            "Verify dividend recognition rather than actual cash receipt using issuer filings and public cash-flow materials",
+            "Read Czech/Slovak legal-entity annual accounts or resolutions for distribution period and retained earnings",
+            "Compare first publication date and prior Korean/local-media articles about this precise dividend",
+            "Ask issuer PR only published figures, accounting line, and confirmation of public documents; not private transfer strategy"
+          ]
+        })
+        if len(matches)>=8:break
+    if not matches:return []
+    by_amount={}
+    for row in matches:
+        k=(row["issuerRecognizedPeriod"],re.sub(r"\s+","",row["namedEntity"]).lower())
+        by_amount.setdefault(k,set()).add(row["issuerNamedRecognitionAmount"])
+    conflicting={k for k,v in by_amount.items() if len(v)>1}
+    clean=[];seen=set()
+    for row in matches:
+        k=(row["issuerRecognizedPeriod"],re.sub(r"\s+","",row["namedEntity"]).lower())
+        if k in conflicting or (k,row["issuerNamedRecognitionAmount"]) in seen:
+            continue
+        seen.add((k,row["issuerNamedRecognitionAmount"]))
+        clean.append(row)
+    return clean[:8]
+
+
 def document_tables(key,receipt,company,fetch=api_bytes,diagnostic=None):
     if not key or company not in KEYWORDS or not VALID_RECEIPT.fullmatch(str(receipt)):
         raise ValueError("missing valid corporate filing")
@@ -101,6 +188,12 @@ def document_tables(key,receipt,company,fetch=api_bytes,diagnostic=None):
             # a different financial table. Track this explicitly as weaker
             # proximity evidence; never parse an amount from it.
             visible=plain(decoded)
+            # Look for a legal entity and issuer-recognized dividend income in
+            # ONE explicit sentence. Retain only stronger evidence when found.
+            exact=exact_dividend_income_recognition(visible,company,receipt)
+            if exact:
+                hits=[x for x in hits if x.get("evidenceTier")!="low_confidence_proximity"]
+                hits.extend(exact)
             normalized=re.sub(r"\\s+"," ",visible).upper()
             aliases=KEYWORDS[company]
             positions=sorted(set(p for alias in aliases for p in
