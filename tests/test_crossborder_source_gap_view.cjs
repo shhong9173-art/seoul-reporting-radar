@@ -15,6 +15,11 @@ for(const marker of [
   'pitchGate.domesticOfficialChecked!==false',
   'pitchGate.exactComponentMatch!==false',
   'koreanModelSearchLinks',
+  'nhtsaPart573Original',
+  'originalReportsRead',
+  'priorSameAngleNewsChecked!==false',
+  'NHTSA 제조사 원문 PDF',
+
   'searchResultRead!==false',
   'absenceOfRecallVerified!==false',
   "자동차리콜센터에서 '",
