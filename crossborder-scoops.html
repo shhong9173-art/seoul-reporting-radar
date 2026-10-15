@@ -40,6 +40,19 @@ try{
     d.domesticRecallAbsenceVerified!==false||
     d.foreignParentCashTransferVerified!==false||
     !Array.isArray(d.items))throw Error("교차검증 증거 원천·안전성 불일치");
+ const companyLinks=d.foreignLegalEntityLinks||{};
+ const czech=companyLinks.hyundaiCzechFactory;
+ if(czech){
+   const c=card($("gap-dossiers"),"현대차 체코 생산법인 · 현지 정부 법인 확인");
+   line(c,"생산법인 IČO "+czech.ico+" · "+(czech.identityVerified===true?
+     "체코 재무부 ARES 법인명·고유번호 일치":"체코 공식 API 기업 동일성 미확인 · 현지 공시가 없다는 뜻 아님"),"dim");
+   if(czech.auditedAccountsContentsReviewed!==false||czech.dividendsPaidVerified!==false)
+      throw Error("체코 재무제표 전문 또는 배당금 확인 근거 없음");
+   link(c,czech.officialCompanyUrl,"체코 재무부 ARES 법인 정보 ↗");
+   c.append(el("span"," · "));
+   link(c,czech.officialJusticeCollection,"체코 법무부 공식 재무제표 공시 검색 ↗");
+   line(c,"법인 존재 확인은 현지 재무제표·배당결의서나 한국 본사의 배당금 현금수령 확인과 다릅니다. 현지 공시 PDF의 연도·금액·주석을 별도 열람해야 합니다.","dim");
+ }
  $("gap-status").textContent=ageNotice(d)+
    " · 공식 미국 리콜 조사서 "+d.usSafetyDossiers+
    "건 · 해외법인 회계상 배당수익 개별 인식액 "+d.issuerExactDividendDossiers+
