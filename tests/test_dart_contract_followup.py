@@ -155,9 +155,14 @@ class FollowupReview(unittest.TestCase):
         self.assertTrue(all(x["pressIndexStatus"]=="press_not_searched" for x in out["items"]))
     def test_saved_oct15_official_ledger_is_supported_without_network(self):
         source=json.loads((ROOT/"digests/recent_contracts_latest.json").read_text(encoding="utf-8"))
-        out=m.build(source,now=NOW,search=False)
-        self.assertEqual(out["reviewedEvents"],7)
-        self.assertEqual(out["correctionsWithoutVerifiedOriginal"],4)
+        # The source snapshot is updated on each scheduled production run.
+        # Never replay newer official data at a frozen pre-refresh test time.
+        replay_now=max(NOW,datetime.fromisoformat(source["generatedAt"])+timedelta(minutes=1))
+        out=m.build(source,now=replay_now,search=False)
+        self.assertEqual(out["reviewedEvents"],len(source["items"]))
+        self.assertEqual(out["correctionsWithoutVerifiedOriginal"],
+                         sum(x["isCorrection"] and x.get("status")!="original_verified"
+                             for x in source["items"]))
         self.assertEqual(out["independentlyComparedMaterialFields"],0)
         self.assertEqual(out["confirmedScoops"],0)
         self.assertEqual(out["unreviewedDartItems"],0)
