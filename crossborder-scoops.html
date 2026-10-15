@@ -95,7 +95,7 @@ try{
       line(c,"슬로바키아 재무부 등록부 동일 법인번호(IČO) "+sk.ico+" · 기아 슬로바키아 생산법인 확인","dim");
       for(const y of sk.individualAnnualFilings||[]){
          if(y.profitAndDistributionAmountsNotInspected!==true)throw Error("현지 이익/배당 실측 근거 없음");
-         line(c,"공식 현지 개별 재무제표 "+y.financialYear+"년: 제출 "+(y.submitted||"미확인")+
+         line(c,"공식 현지 재무제표 등록 "+y.financialYear+"년: 제출 "+(y.submitted||"미확인")+
            " · 승인 "+(y.approved||"미확인")+
            " · 회계상 순이익·배당결의·송금 확인 불가","small");
       }
