@@ -1,0 +1,72 @@
+{
+  "generatedAt": "2026-10-15T10:21:47+09:00",
+  "profile": "ntis_rpatent_project_id_index_control_v1",
+  "collectionMethod": "approved_pc_official_rpatent_field_control",
+  "status": "some_project_search_paths_work",
+  "controlSeedTerm": "부분방전",
+  "controlSeedTotalHits": 197,
+  "controlSeedRowsInspected": 10,
+  "officialReferenceProjectAndOutcomeSeenInSeed": true,
+  "controlProjectIdExported": false,
+  "controlResultIdExported": false,
+  "plannedAdditionalControlQueries": 5,
+  "completedAdditionalControlQueries": 5,
+  "failedAdditionalControlQueries": 0,
+  "exactReferenceOutcomeRecoveredInAnyMode": true,
+  "searchModes": [
+    {
+      "mode": "project_ti",
+      "status": "checked",
+      "totalHits": 3,
+      "rowsInspected": 3,
+      "exactReferenceProjectRows": 3,
+      "exactReferenceOutcomeRows": 1,
+      "additionalPagesNotChecked": false,
+      "errorClass": null
+    },
+    {
+      "mode": "project_bi",
+      "status": "checked",
+      "totalHits": 3,
+      "rowsInspected": 3,
+      "exactReferenceProjectRows": 3,
+      "exactReferenceOutcomeRows": 1,
+      "additionalPagesNotChecked": false,
+      "errorClass": null
+    },
+    {
+      "mode": "project_unscoped",
+      "status": "checked",
+      "totalHits": 3,
+      "rowsInspected": 3,
+      "exactReferenceProjectRows": 3,
+      "exactReferenceOutcomeRows": 1,
+      "additionalPagesNotChecked": false,
+      "errorClass": null
+    },
+    {
+      "mode": "ti03_seed",
+      "status": "checked",
+      "totalHits": 2,
+      "rowsInspected": 2,
+      "exactReferenceProjectRows": 2,
+      "exactReferenceOutcomeRows": 1,
+      "additionalPagesNotChecked": false,
+      "errorClass": null
+    },
+    {
+      "mode": "ti03_project",
+      "status": "checked",
+      "totalHits": 3,
+      "rowsInspected": 3,
+      "exactReferenceProjectRows": 3,
+      "exactReferenceOutcomeRows": 1,
+      "additionalPagesNotChecked": false,
+      "errorClass": null
+    }
+  ],
+  "verifiedPatentProjectOutcomeLinks": 0,
+  "commercializationConfirmed": 0,
+  "exclusiveConfirmed": 0,
+  "warning": "An official positive-control rpatent ProjectID and ResultID from the same HIT are queried under TI, BI, unscoped and TI03 variants. Neither TOTALHITS>0 nor recovery within first 10 proves project field has full coverage; 0 is not evidence of no national R&D patent. No private unrelated outcome row is saved."
+}
