@@ -11,7 +11,7 @@ for(const token of [
  "issuer_stated_correction_only",
  "same_receipt_data_reparse_discrepancy",
  "companiesCodeVerified","companiesUnresolved",
- "companiesWithSourceErrors","firstRunBaseline",
+ "companiesWithSourceErrors","baselineOnly",
  "priorNewsFulltextChecked!==false",
  "businessImpactVerified!==false",
  "scoopConfirmed!==false",
