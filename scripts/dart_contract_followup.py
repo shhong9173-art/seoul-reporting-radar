@@ -24,6 +24,11 @@ from official_event_triage import dart_receipt_link
 KST=timezone(timedelta(hours=9))
 FIELD_NAMES={
  "contract_amount":"계약금액",
+ "recent_sales":"공시상 최근매출액(원)",
+ "sales_ratio":"공시상 최근 매출액 대비 비율(%)",
+ "counterparty_relationship":"공시상 계약상대의 회사와의 관계",
+ "contract_subject":"공시상 체결계약명",
+ "supply_region":"판매·공급지역",
  "contract_start":"계약 시작일",
  "contract_end":"계약 종료일",
  "investment_amount":"시설투자금액",
@@ -202,6 +207,9 @@ def review_one(item,*,rss_fetch=from_rss,now=None,search=True):
                 suspected_pre_filing+=1
     outstanding=["기보도 전문 원문과 동일 계약 여부 확인","공시 계약 상대방·금액·기간·실제 효력 별도 검증",
                  "해당 출입처 사업부·납품 물량·매출 영향 직접 답변"]
+    if current.get("counterparty_relationship") in ("자회사","종속회사","계열회사","관계회사"):
+        outstanding.insert(0,
+            "공시상 계약상대가 관계회사: 외부 최종 고객·실제 납품/연결 매출 계상 여부 확인 (계열사간 계약 자체를 외부 신규 수주로 단정 금지)")
     if item.get("isCorrection") and original is None:
         outstanding.insert(0,"원공시 접수번호가 정정문에 명시됐는지 추가 확인(동일 날짜 추정 연결 금지)")
     elif changes:
