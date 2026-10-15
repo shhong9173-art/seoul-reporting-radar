@@ -33,6 +33,7 @@ select{font:inherit;padding:7px;border:1px solid #bdccd7;background:#fff;border-
  <option value="two_official_documents_changed_terms">원공시 독립 대조</option>
  <option value="issuer_stated_correction_only">정정문 자체의 변경 기재</option>
  <option value="newly_observed_public_filing">공개 문서 새 관측</option>
+ <option value="same_receipt_first_document_field_recovery">기존 공시 원문 신규 해독(기업 변화 아님)</option>
  <option value="source_error">오류·미연결 기업</option>
 </select>
 <div id="recent"></div>
@@ -51,6 +52,7 @@ const labels={
  new_observed_correction_unconfirmed_change:"정정공시 새 관측(실질 변경 미확인)",
  newly_observed_public_filing:"공개된 공시 접수 기록(본문 미검증 가능)",
  same_receipt_data_reparse_discrepancy:"같은 접수번호 원문 추출값 불일치 · 코드/원천 점검",
+ same_receipt_first_document_field_recovery:"이전 목록만 확인한 기존 공시의 원문을 이번에 처음 분석(기업 변화 아님)",
  previously_seen_public_filing:"이미 관측된 공시"
 };
 function official(host,url,label,receipt){
@@ -124,6 +126,7 @@ try{
               ["고유번호 미확인",src.companiesUnresolved],
               ["수집 오류·페이지 누락",src.companiesWithSourceErrors],
               ["확인된 공개 공시",src.relevantFilings],
+              ["검토 대기 원문",src.uninspectedRelevantDetails],
               ["최신 3일 검토",changes.recentOfficialReviewCount]];
  for(const [name,val] of cards){const c=el("div");c.append(el("span",name,"dim"),el("div",val,"num"));$("#summary").append(c)}
  const groups=[...new Set(src.sourceChecks.map(x=>x.beat))];
