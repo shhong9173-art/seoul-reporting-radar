@@ -86,7 +86,70 @@ def fixture():
         "warning":"Data is a synthetic reverse lookup test, not verified R&D outcomes.",
     }
 
+def remaining_23_fixture():
+    payload=fixture()
+    payload["generatedAt"]="2026-10-15T11:30:00+09:00"
+    payload["plannedUniqueProjects"]=23
+    payload["completedProjects"]=23
+    payload["maximumHttpRequests"]=46
+    payload["checks"]=payload["checks"][3:]
+    # A TI03 fallback on a previously unqueried 2025 project is tested.
+    extra=next(x for x in payload["checks"] if x["projectNumber"]=="2410011506")
+    extra["searchModesCompleted"]=["primary","ti03"]
+    extra["primaryTotalHits"]=0
+    extra["fallbackTotalHits"]=1
+    extra["rowsInspected"]=1
+    extra["exactProjectIdRows"]=0
+    extra["differentProjectIdRowsExcluded"]=1
+    extra["registrationTypeRowsExcluded"]=0
+    extra["applicationTypeRows"]=0
+    payload["records"]=[]
+    payload["reviewedNumberPairs"]=0
+    payload["matchedOfficialProjectApplicationRows"]=0
+    payload["primaryQueriesCompleted"]=23
+    payload["fallbackQueriesCompleted"]=1
+    payload["actualHttpRequests"]=24
+    payload["rowsInspected"]=sum(x["rowsInspected"] for x in payload["checks"])
+    return payload
+
 class ReverseImportTests(unittest.TestCase):
+    def test_verified_remaining_23_skips_first_three_official_projects(self):
+        payload=remaining_23_fixture()
+        proof=validate(payload,PLAN,PROJECTS,DOSSIER,DEEP)
+        self.assertEqual(proof["projects"],23)
+        self.assertEqual(proof["httpRequests"],24)
+        self.assertEqual(payload["maximumHttpRequests"],46)
+        self.assertNotIn("2410019058",{x["projectNumber"] for x in payload["checks"]})
+
+    def test_remaining_23_cannot_reinclude_a_pilot_project(self):
+        payload=remaining_23_fixture()
+        payload["checks"][0]["projectNumber"]="2410017694"
+        with self.assertRaisesRegex(ValueError,"reverse_project_subset_or_order_mismatch"):
+            validate(payload,PLAN,PROJECTS,DOSSIER,DEEP)
+
+    def test_remaining_23_request_ceiling_is_strict(self):
+        payload=remaining_23_fixture()
+        payload["maximumHttpRequests"]=52
+        with self.assertRaisesRegex(ValueError,"excessive_unbounded_reverse_data"):
+            validate(payload,PLAN,PROJECTS,DOSSIER,DEEP)
+
+    def test_historical_3_project_pilot_exact_source_is_accepted(self):
+        payload=fixture()
+        payload["generatedAt"]="2026-10-15T09:57:05+09:00"
+        payload["plannedUniqueProjects"]=3
+        payload["completedProjects"]=3
+        payload["checks"]=payload["checks"][:3]
+        payload["records"]=[]
+        payload["reviewedNumberPairs"]=0
+        payload["matchedOfficialProjectApplicationRows"]=0
+        payload["actualHttpRequests"]=4
+        payload["primaryQueriesCompleted"]=3
+        payload["fallbackQueriesCompleted"]=1
+        payload["rowsInspected"]=sum(x["rowsInspected"] for x in payload["checks"])
+        for q in payload["checks"]:
+            q["matchingKiprisApplicationRows"]=0
+        self.assertEqual(validate(payload,PLAN,PROJECTS,DOSSIER,DEEP)["projects"],3)
+
     def test_official_synthetic_matched_pair_only_review_not_confirmed(self):
         x=fixture()
         y=validate(x,PLAN,PROJECTS,DOSSIER,DEEP)
