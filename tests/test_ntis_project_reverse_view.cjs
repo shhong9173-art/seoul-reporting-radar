@@ -18,7 +18,7 @@ for(const text of [
   'ntisReverseResult.completedProjects',
   'ntisReverseResult.reviewedNumberPairs',
   '...ntisReverseResult.records',
-  '...ntisRemainingResult?.records||[]',
+  '...(ntisRemainingResult?.records||[])',
   '.filter(a=>a.publicationNumber===x.publicationNumber)',
   'PC 수집 아직 미실행',
   '첫 페이지만 확인',
