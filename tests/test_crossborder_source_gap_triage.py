@@ -76,6 +76,53 @@ class CrossBorderDossiers(unittest.TestCase):
         self.assertFalse(row["pitchGate"]["sameAnglePriorPressChecked"])
         self.assertFalse(result["foreignParentCashTransferVerified"])
 
+    def test_real_official_slovak_metadata_enriches_accounting_case_without_cash_claim(self):
+        from slovakia_official_accounts import registry_evidence
+        from test_slovakia_official_accounts import api_data
+        registry=registry_evidence(api_data,now=NOW)
+        n,d=sources()
+        result=t.build(n,d,now=NOW,slovakia=registry)
+        row=next(x for x in result["items"]
+                 if x["type"]=="foreign_subsidiary_dividend_accounting")
+        sk=row["slovakGovernmentAccounts"]
+        self.assertTrue(sk["officialEntityVerified"])
+        self.assertEqual(sk["ico"],"35876832")
+        self.assertEqual([x["financialYear"] for x in sk["individualAnnualFilings"]],
+                         [2025,2024])
+        self.assertFalse(sk["companyCashReceivedVerified"])
+        self.assertFalse(sk["fundingSourceVerified"])
+        self.assertFalse(sk["auditedPdfReviewed"])
+        self.assertFalse(row["pitchGate"]["cashReceivedByParentVerified"])
+        self.assertEqual(result["sourceHealth"]["foreignSubsidiaryRegistries"],
+                         "slovak_issuer_metadata_only")
+        self.assertEqual(result["sourceHealth"]["czechSubsidiaryRegistry"],
+                         "not_connected")
+        self.assertEqual(result["confirmedScoops"],0)
+
+    def test_failed_slovak_api_is_unknown_not_zero_or_verified(self):
+        n,d=sources()
+        sk={"status":"official_slovak_registry_identity_and_filing_metadata",
+            "ico":"35876832","companyIdentityVerified":False,
+            "companyIdentityStatus":"official_source_error_or_exact_identity_unverified",
+            "statements":[]}
+        result=t.build(n,d,now=NOW,slovakia=sk)
+        target=next(x for x in result["items"] if
+                    x["type"]=="foreign_subsidiary_dividend_accounting")
+        self.assertFalse(target["slovakGovernmentAccounts"]["officialEntityVerified"])
+        self.assertFalse(target["slovakGovernmentAccounts"]["dividendPaymentVerified"])
+        self.assertFalse(target["pitchGate"]["cashReceivedByParentVerified"])
+
+    def test_wrong_ico_registry_metadata_must_not_attach(self):
+        n,d=sources()
+        sk={"status":"official_slovak_registry_identity_and_filing_metadata",
+            "ico":"35942894","companyIdentityVerified":True,
+            "companyIdentityStatus":"exact_registered_name_ico_unique",
+            "statements":[]}
+        result=t.build(n,d,now=NOW,slovakia=sk)
+        target=next(x for x in result["items"] if
+                    x["type"]=="foreign_subsidiary_dividend_accounting")
+        self.assertFalse(target["slovakGovernmentAccounts"]["officialEntityVerified"])
+
     def test_wrong_entity_or_total_dividend_is_not_subsidiary_amount(self):
         x=note()
         x["tableExcerpt"]="당반기 배당금수익은 1,747,732백만원입니다. Kia Slovakia 현지공장 매출 32억원"
