@@ -25,6 +25,7 @@ button{font:inherit;border:1px solid #b5c7d5;background:#edf4f8;color:#174b6d;pa
 <div id="ntis-discovery-status" class="panel" role="status">NTIS 특허 성과의 특허명·기술어·법인 출원인 검색 결과 확인 중</div>
 <div id="ntis-followup-status" class="panel" role="status">NTIS 성과검색 추가 페이지·기업 기술 결합검색 결과 확인 중</div>
 <div id="ntis-project-reverse-status" class="panel" role="status">NTIS 26개 과제번호 역조회 계획·승인 PC 조회 상태 확인 중</div>
+<div id="ntis-project-id-index-control-status" class="panel" role="status">NTIS 특허 성과검색의 과제번호 인덱싱 양성 대조군 검증 대기</div>
 <div class="panel" id="sources"><b>공식 연계 상태</b><p class="muted" id="source-status">확인 중</p>
 <a href="https://www.data.go.kr/data/15077315/openapi.do" target="_blank" rel="noopener noreferrer">NTIS 국가R&D 과제검색 API 신청·명세</a> ·
 <a href="https://www.ntis.go.kr/ThSearchProjectList.do" target="_blank" rel="noopener noreferrer">NTIS 공식 과제검색</a> ·
@@ -224,6 +225,39 @@ try{
    "개·KIPRIS 출원번호 "+ntisReversePlan.targetKiprisApplications.length+
    "건 대조 예정 · PC 수집 아직 미실행 · 현재 성과 연결 확인 0건(성과 없음 판정 아님)":
    "NTIS 과제번호 역조회 계획 미생성 또는 출처 검증 불가");
+ let projectIndexControl=null;
+ try{
+   const reply=await fetch("digests/ntis_project_field_probe_pc_latest.json",{cache:"no-store"});
+   if(reply.ok){
+     const control=await reply.json();
+     if(control.profile==="ntis_rpatent_project_id_index_control_v1" &&
+        control.collectionMethod==="approved_pc_official_rpatent_field_control" &&
+        control.controlSeedTerm==="부분방전" &&
+        control.controlProjectIdExported===false &&
+        control.controlResultIdExported===false &&
+        control.verifiedPatentProjectOutcomeLinks===0 &&
+        control.commercializationConfirmed===0 &&
+        control.exclusiveConfirmed===0 &&
+        Array.isArray(control.searchModes) &&
+        control.completedAdditionalControlQueries+control.failedAdditionalControlQueries===
+        control.searchModes.length)
+       projectIndexControl=control;
+   }
+ }catch(e){}
+ const tiControl=projectIndexControl?.searchModes?.find(q=>q.mode==="project_ti");
+ const biControl=projectIndexControl?.searchModes?.find(q=>q.mode==="project_bi");
+ const ti03Control=projectIndexControl?.searchModes?.find(q=>q.mode==="ti03_seed");
+ const controlRecovered=q=>q?.status==="checked" && q.exactReferenceOutcomeRows>0;
+ $("#ntis-project-id-index-control-status").textContent=projectIndexControl?
+   "NTIS 과제번호 인덱싱 양성 대조군(승인 PC · 자동 실시간 갱신 아님): "+
+   "기준 '부분방전' 성과검색 "+projectIndexControl.controlSeedTotalHits+
+   "건 · 같은 NTIS 성과ID 재검색 가능 여부 — TI "+
+   (controlRecovered(tiControl)?"1페이지 재현":"재현 미확인")+
+   ", BI "+(controlRecovered(biControl)?"1페이지 재현":"재현 미확인")+
+   ", TI03 "+(controlRecovered(ti03Control)?"1페이지 재현":"재현 미확인")+
+   " · "+projectIndexControl.status+" · "+projectIndexControl.generatedAt+
+   " · 재현되지 않았더라도 국가R&D 특허 성과 부재 증명 아님":
+   "NTIS 과제번호 인덱싱 양성 대조군 검사 대기 · 3개 과제번호에서 조회 0건이지만 과제번호 검색 자체가 검증되지 않아 나머지 23개 일괄조회 보류";
  let ntis=null;
  try{
    const reply=await fetch("digests/ntis_project_leads_latest.json",{cache:"no-store"});
