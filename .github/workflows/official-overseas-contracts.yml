@@ -7,6 +7,8 @@ on:
       - 'scripts/overseas_official.py'
       - 'scripts/recent_contracts.py'
       - 'scripts/dart_lineage.py'
+      - 'scripts/dart_contract_tables.py'
+      - 'tests/test_dart_contract_tables.py'
       - 'scripts/dart_contract_followup.py'
       - 'tests/test_dart_contract_followup.py'
       - 'tests/test_dart_contract_followup_view.cjs'
@@ -70,7 +72,8 @@ jobs:
           python-version: '3.12'
       - name: Unit test issuer and DART lineage source controls
         run: |
-          python -m compileall -q scripts/recent_contracts.py scripts/dart_contract_followup.py
+          python -m compileall -q scripts/recent_contracts.py scripts/dart_contract_followup.py scripts/dart_contract_tables.py
+          python -m unittest discover -s tests -p 'test_dart_contract_tables.py' -v
           python -m unittest discover -s tests -p 'test_official_foreign_contracts.py' -v
           python -m unittest discover -s tests -p 'test_dart_lineage.py' -v
           python -m unittest discover -s tests -p 'test_dart_contract_followup.py' -v
