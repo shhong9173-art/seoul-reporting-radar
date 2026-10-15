@@ -104,6 +104,52 @@ class BeatCoverageTests(unittest.TestCase):
         signals=m.change_review(fresh,previous=prev,now=NOW+timedelta(hours=2))
         self.assertEqual(signals["observedSignals"],0)
 
+    def test_second_poll_drains_uninspected_old_receipts_without_false_company_change(self):
+        ids={"현대자동차":"20261015800221","KG스틸":"20261014800222"}
+        calls=[]
+        def records(key,name,code,start,end):
+            return {"records":[item(name,code,ids[name])],
+                    "complete":True,"pagesRead":1,"totalOfficialFilings":1}
+        def capture(row,key):
+            calls.append(row["receiptNo"])
+            return fake_detail(row,key)
+        first=m.collect(sparse_codes(),"key",now=NOW,query=records,detail=capture,limit=1)
+        self.assertEqual(first["detailsAttempted"],1)
+        self.assertEqual(first["uninspectedRelevantDetails"],1)
+        self.assertEqual(first["detailNotAttemptedThisRun"],1)
+        second=m.collect(sparse_codes(),"key",now=NOW+timedelta(hours=1),
+                         previous=first,query=records,detail=capture,limit=1)
+        self.assertEqual(second["detailsAttempted"],1)
+        self.assertEqual(second["uninspectedRelevantDetails"],0)
+        self.assertEqual(len(calls),2)
+        self.assertNotEqual(calls[0],calls[1])
+        changes=m.change_review(second,first,now=NOW+timedelta(hours=1))
+        self.assertEqual(changes["observedSignals"],1)
+        self.assertEqual(changes["signals"][0]["status"],
+                         "same_receipt_first_document_field_recovery")
+        self.assertFalse(changes["signals"][0]["businessImpactVerified"])
+        self.assertFalse(changes["signals"][0]["scoopConfirmed"])
+
+    def test_retry_correction_source_error_instead_of_caching_failed_document_forever(self):
+        code="00164742"
+        record=item("현대자동차",code,"20261015800227",
+                    "[기재정정]단일판매ㆍ공급계약체결")
+        def records(key,name,corp,start,end):
+            return {"records":[record] if name=="현대자동차" else [],
+                    "complete":True,"pagesRead":1,"totalOfficialFilings":1}
+        calls=[]
+        def details(row,key):
+            calls.append(row["receiptNo"])
+            return {**row,"status":"original_not_verified",
+                    "sourceError":len(calls)==1,
+                    "issuerCorrectionTable":{"status":"not_examined","changes":[]}}
+        prev=m.collect(sparse_codes(),"key",now=NOW,query=records,detail=details,limit=1)
+        second=m.collect(sparse_codes(),"key",now=NOW+timedelta(hours=1),
+                         query=records,detail=details,previous=prev,limit=1)
+        self.assertEqual(len(calls),2)
+        self.assertEqual(second["detailsAttempted"],1)
+        self.assertFalse(second["records"][0]["sourceError"])
+
     def test_issuer_declared_material_differentiated_from_two_verified_docs(self):
         def correction(row,key):
             return {**row,"status":"original_not_verified",
@@ -179,6 +225,25 @@ class RegistryTests(unittest.TestCase):
         new,report=registry.resolve({"현대자동차":{"corp_code":"00164742"}},idx,now=NOW,registry_count=n)
         self.assertEqual(new["KG스틸"]["corp_code"],"00880099")
         self.assertGreaterEqual(report["newUniqueCodesAdded"],1)
+
+    def test_existing_exact_official_code_survives_multiple_legal_name_candidates(self):
+        existing={
+          "KG스틸":{"corp_code":"00115676","stock_code":"016380"},
+          "포스코홀딩스":{"corp_code":"00155319","stock_code":"005490"}
+        }
+        index={
+          "kg스틸":{"00115676"},
+          "케이지스틸":{"00115676","00999999"},
+          "posco홀딩스":{"00155319"}
+        }
+        updated,report=registry.resolve(existing,index,now=NOW)
+        self.assertEqual(updated,existing)
+        self.assertEqual(report["manualConflicts"],0)
+        by_name={x["company"]:x for x in report["companies"]}
+        self.assertEqual(by_name["KG스틸"]["status"],
+                         "existing_code_verified_in_official_registry")
+        self.assertEqual(by_name["포스코홀딩스"]["status"],
+                         "existing_code_verified_in_official_registry")
 
     def test_ambiguous_legal_name_is_not_resolved(self):
         new,report=registry.resolve({},{"케이지스틸":{"00111111","00222222"}},now=NOW)
