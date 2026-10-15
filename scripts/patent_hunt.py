@@ -312,7 +312,12 @@ def build(key,previous=None,now=None,search=search_applicant,coverage=None,
     seen=dict(old_seen)
     checks=[]
     candidates={}
+    provider_failure=None
     for company in companies:
+        if provider_failure is not None:
+            checks.append({"company":company,"status":"not_attempted_after_provider_error",
+                           "errorType":"UpstreamProviderError"})
+            continue
         aliases=APPLICANTS.get(company)
         if not aliases:
             checks.append({"company":company,"status":"unlisted_issuer"})
@@ -354,9 +359,18 @@ def build(key,previous=None,now=None,search=search_applicant,coverage=None,
                            "requests":result.get("requestCount"),
                            "windows":result.get("splitWindowCount")})
         except Exception as ex:
+            # Do not publish request URL, response body, exception text or API key.
+            hit=(re.fullmatch(r"KIPRISPlus 응답 오류 코드 ([A-Za-z0-9_-]{1,12})",
+                              str(ex)) if isinstance(ex,RuntimeError) else None)
+            code=hit.group(1) if hit else None
             checks.append({"company":company,"status":"source_error",
                            "errorType":type(ex).__name__,
+                           "providerResultCode":code,
                            "errorDetail":str(ex)[:110] if isinstance(ex,ValueError) else ""})
+            # An official nonzero response header stops complete-source publication.
+            # Avoid another 23 identical failing official calls.
+            if code is not None:
+                provider_failure=code
     leads=sorted(candidates.values(),key=lambda r:(-r["priorityScore"],-int(r["publicationDate"]),r["company"]))
     for row in leads[:news_limit]:
         row["pressCoverage"]=(coverage or press_lookup)(row)
@@ -395,6 +409,9 @@ def publication_diagnostics(report):
     safe=[{"company":str(row.get("company") or "")[:55],
            "status":str(row.get("status") or "")[:25],
            "errorType":str(row.get("errorType") or "")[:50] or None,
+           "providerResultCode":(str(row.get("providerResultCode"))
+              if re.fullmatch(r"[A-Za-z0-9_-]{1,12}",str(row.get("providerResultCode") or ""))
+              else None),
            "rawTotal":row.get("rawTotal") if isinstance(row.get("rawTotal"),int) else None,
            "rawRetrieved":row.get("rawRetrieved") if isinstance(row.get("rawRetrieved"),int) else None}
           for row in checks]
