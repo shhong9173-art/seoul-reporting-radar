@@ -352,6 +352,58 @@ def attach_verified_slovak_pdf_clues(dossier,registry,pdf):
                 "businessImpactVerified":False,
                 "companyParentCashTransferVerified":False
             })
+    # Exact calendar-year accounting rows are stronger than search-word
+    # snippets, but do NOT identify the recipient, 2026 distributions or
+    # whether the Korean parent physically received cash.
+    result["auditedCalendarYearRows"]=[]
+    result["auditedYearRowConflicts"]=0
+    eligible={(r["year"],r["attachmentUrl"],r["sha256"])
+              for r in pdf["reports"] if isinstance(r,dict)
+              and r.get("pdfReadAndOfficialHashVerified") is True
+              and r.get("year") in (2024,2025)
+              and isinstance(r.get("attachmentUrl"),str)
+              and isinstance(r.get("sha256"),str)
+              and re.fullmatch(r"[a-f0-9]{64}",r["sha256"])}
+    for m in (pdf.get("annualAccountingMatrix") or [])[:12]:
+        if (not isinstance(m,dict) or
+            m.get("metric") not in ("dividend_cash_outflow",
+                "annual_profit_cf_reconciliation","retained_earnings_balance")
+            or m.get("calendarYear") not in (2023,2024,2025)
+            or m.get("unit")!="EUR_thousands"
+            or m.get("manualSourceTableReviewConfirmed") is not False
+            or m.get("koreanParentCashReceiptVerified") is not False
+            or m.get("samePeriodAs2026KiaDartDividendIncome") is not False
+            or not isinstance(m.get("sourceDocuments"),list)
+            or not m["sourceDocuments"]):
+            continue
+        documents=m["sourceDocuments"]
+        if any((d.get("reportYear"),d.get("pdfUrl"),d.get("documentSha256"))
+               not in eligible or
+               d.get("reportedAs") not in ("reporting_year","comparative_previous_year")
+               or type(d.get("sourcePdfPage")) is not int or
+               d["sourcePdfPage"] not in (7,9)
+               for d in documents if isinstance(d,dict)):
+            continue
+        if not all(isinstance(d,dict) for d in documents):
+            continue
+        conflict=m.get("annualValueWithheldBecauseContradiction") is True
+        if conflict:
+            result["auditedYearRowConflicts"]+=1
+        value=m.get("value")
+        if value is None and not conflict:continue
+        if value is not None and (type(value) is not int or conflict):continue
+        result["auditedCalendarYearRows"].append({
+          "metric":m["metric"],"metricLabelKo":m.get("metricLabelKo"),
+          "year":m["calendarYear"],"amountThousandEur":value,
+          "sourceCount":len(documents),
+          "annualReportComparativeConflict":conflict,
+          "sourceDocuments":documents,
+          "amountFromKiaParentDart2026":False,
+          "parentRecipientVerified":False,
+          "koreanCashReceiptVerified":False,
+          "year2026LocalPaymentNotYetVerified":True,
+          "humanAuditOfParsedRowCompleted":False
+        })
     result["status"]=("verified_pdf_keyword_pages_for_manual_accounting_review"
                       if result["passages"] else
                       "official_pdf_verified_no_searchable_matching_phrase_not_proof_of_none"
