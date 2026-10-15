@@ -112,7 +112,7 @@ class BeatCoverageTests(unittest.TestCase):
                                 "basis":"issuer_reported_amendment_table_only",
                                 "commercialEffectVerified":False}]}}
         def records(key,name,code,start,end):
-            return {"records":[item(name,code,"20261015800221","[기재정정]단일판매ㆍ공급계약체결")],
+            return {"records":[item(name,code,"20261015800221" if name=="현대자동차" else "20261015800222","[기재정정]단일판매ㆍ공급계약체결")],
                     "complete":True,"pagesRead":1,"totalOfficialFilings":1}
         d=m.collect(sparse_codes(),"key",now=NOW,query=records,detail=correction)
         signals=m.change_review(d,now=NOW)["signals"]
@@ -130,7 +130,7 @@ class BeatCoverageTests(unittest.TestCase):
                             "after":"200","basis":"independent_primary_documents",
                             "needsCompanyConfirmation":True}]}
         def records(key,name,code,start,end):
-            return {"records":[item(name,code,"20261015800221","[기재정정]단일판매ㆍ공급계약체결")],
+            return {"records":[item(name,code,"20261015800221" if name=="현대자동차" else "20261015800222","[기재정정]단일판매ㆍ공급계약체결")],
                     "complete":True,"pagesRead":1,"totalOfficialFilings":1}
         d=m.collect(sparse_codes(),"key",now=NOW,query=records,detail=correction)
         x=m.change_review(d,now=NOW)["signals"][0]
