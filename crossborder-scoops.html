@@ -78,6 +78,27 @@ try{
       " · 차종/연식 "+(x.officialFact.usModelYears||[]).map(y=>y.model+" "+y.year).join(", "));
     line(c,"미국 당국 공개 결함 설명: "+x.officialFact.usDefectSummary,"dim");
     line(c,"국내 자동차리콜센터 공식 API 미연결. 국내 리콜 '없음', 동일 부품, 국내 화재 여부는 판정하지 않았습니다.","dim");
+    const usdoc=x.nhtsaPart573Original;
+    if(usdoc){
+      if(usdoc.koreanSameComponentVerified!==false||
+         usdoc.koreanRecallAbsenceVerified!==false||
+         usdoc.priorSameAngleNewsChecked!==false)
+         throw Error("미국 Part573 원문은 국내 부품·리콜 부재/기보도 증명이 아님");
+      line(c,"미국 제조사 Part 573 원문 PDF 검토 "+
+           usdoc.originalReportsRead+"건 · 공개된 미국 원문 설명과 국내 적용 여부는 별개입니다.","dim");
+      for(const q of (usdoc.passages||[]).slice(0,9)){
+        if(q.basis!=="nhtsa_us_manufacturer_original_pdf_unmatched_to_korea"||
+           q.koreanSamePartVerified!==false||q.domesticRecallAbsentVerified!==false||
+           !/^[a-f0-9]{64}$/.test(q.sourcePdfSHA256))
+          throw Error("미국 원문 교차검증 근거 부족");
+        const page=new URL(q.officialPart573PdfUrl);
+        if(page.protocol!=="https:"||page.hostname!=="static.nhtsa.gov"||
+           !/^\/odi\/rcl\/2026\/RCLRPT-26V(664|588)-[0-9]{4}\.pdf$/.test(page.pathname))
+          throw Error("공식 NHTSA PDF 외 링크");
+        line(c,"Part 573 원문 "+q.page+"쪽: "+q.literalPdfExcerpt,"small");
+        link(c,q.officialPart573PdfUrl,"NHTSA 제조사 원문 PDF ↗");
+      }
+    }
     for(const q of x.koreanModelSearchLinks||[]){
       if(q.searchResultRead!==false||q.matchingRecallVerified!==false||
          q.absenceOfRecallVerified!==false||q.koreanIdenticalComponentVerified!==false)

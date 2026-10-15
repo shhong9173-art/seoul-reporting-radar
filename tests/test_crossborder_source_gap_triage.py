@@ -78,6 +78,28 @@ class CrossBorderDossiers(unittest.TestCase):
     def test_unknown_us_model_generates_no_invented_korean_variant(self):
         self.assertEqual(t.manual_korean_model_search([{"model":"UNKNOWN X"}]),[])
 
+    def test_nhtsa_part573_pdf_can_be_attached_only_with_same_official_source_snapshot(self):
+        import hashlib
+        n,d=sources()
+        n["leads"][0]["id"]="26V664000"
+        from nhtsa_part573_primary import scan
+        def pdf(url):
+            return b"%PDF-1.4 26V664"+b"0"*2100
+        def convert(data):
+            return ["NHTSA Part 573 Recall 26V664",
+                    "Description of Defect: The power seat motor may overheat."]
+        official=scan(n,now=NOW,get=pdf,convert=convert)
+        x=t.build(n,d,now=NOW,nhtsa_part573=official)["items"][0]
+        us=x["nhtsaPart573Original"]
+        self.assertEqual(us["originalReportsRead"],1)
+        self.assertTrue(us["passages"])
+        self.assertFalse(us["koreanSameComponentVerified"])
+        self.assertFalse(us["koreanRecallAbsenceVerified"])
+        self.assertFalse(x["pitchGate"]["domesticOfficialChecked"])
+        official["sourceCampaignSnapshotAt"]="2026-10-01T00:00:00+09:00"
+        old=t.build(n,d,now=NOW,nhtsa_part573=official)["items"][0]
+        self.assertEqual(old["nhtsaPart573Original"]["originalReportsRead"],0)
+
     def test_kia_recognized_issuer_dividend_not_cash_and_not_a_new_20261016_event(self):
         n,d=sources()
         result=t.build(n,d,now=NOW)
