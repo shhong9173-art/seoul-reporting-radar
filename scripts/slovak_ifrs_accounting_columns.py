@@ -59,18 +59,36 @@ def columns(page_text,report_year,metric):
         return {"status":"both_column_years_not_verified"}
     matches=[]
     for raw in page_text.splitlines():
-        # normalize internal whitespace only after identifying one full row
-        txt=re.sub(r"[ \t\u00a0]+"," ",raw).strip()
-        m=LABELS[metric].fullmatch(txt)
-        if not m:continue
-        curr=clean_number(m.group("now"))
-        prev=clean_number(m.group("prior"))
+        # -layout preserves at least two spaces between the statement label,
+        # Note-column and EACH year. A single space also separates groups of
+        # three thousands; flattening first would convert two calendar-year
+        # numbers into one apparently valid larger number.
+        parts=[re.sub(r"[ \t\u00a0]+"," ",x).strip()
+               for x in re.split(r"[ \t]{2,}",raw.strip()) if x.strip()]
+        curr=prev=None
+        label=LABELS[metric].pattern
+        prefix=(
+          r"Splatenie dividend(?: 4)?" if metric=="dividend_cash_outflow"
+          else r"Zisk za účtovné obdobie" if metric=="annual_profit_cf_reconciliation"
+          else r"Nerozdelený zisk minulých období")
+        if len(parts) in (3,4) and re.fullmatch(prefix,parts[0],re.I):
+            if len(parts)==3 or (len(parts)==4 and parts[1]=="4" and
+                                  metric=="dividend_cash_outflow"):
+                curr=clean_number(parts[-2])
+                prev=clean_number(parts[-1])
+        # Only a trivially unambiguous zero/outflow row may use fallback
+        # where text extraction destroyed visual column separation.
+        elif metric=="dividend_cash_outflow":
+            flat=re.sub(r"[ \t\u00a0]+"," ",raw).strip()
+            m=LABELS[metric].fullmatch(flat)
+            if m and (m.group("now")=="0" and
+                      (m.group("prior")=="0" or m.group("prior").startswith("-"))):
+                curr=clean_number(m.group("now"))
+                prev=clean_number(m.group("prior"))
         if curr is None or prev is None:continue
         if metric=="dividend_cash_outflow" and (curr>0 or prev>0):
-            # Payments in the issuer statement are represented as negative
-            # financing cash outflows or exact 0, not positive receipts.
             continue
-        matches.append((curr,prev,txt))
+        matches.append((curr,prev,re.sub(r"[ \t\u00a0]+"," ",raw).strip()))
     if len(matches)!=1:
         return {"status":"row_missing_or_ambiguous","matchingRows":len(matches)}
     curr,prev,source_line=matches[0]
