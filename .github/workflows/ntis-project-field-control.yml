@@ -9,6 +9,7 @@ on:
       - 'tests/test_ntis_project_field_control_view.cjs'
       - 'digests/ntis_project_reverse_pc_latest.json'
       - 'digests/ntis_project_field_probe_pc_latest.json'
+      - 'digests/ntis_project_reverse_remaining_23_pc_latest.json'
       - 'patent-rnd-dossiers.html'
       - '.github/workflows/ntis-project-field-control.yml'
   push:
@@ -16,6 +17,7 @@ on:
     paths:
       - 'digests/ntis_project_reverse_pc_latest.json'
       - 'digests/ntis_project_field_probe_pc_latest.json'
+      - 'digests/ntis_project_reverse_remaining_23_pc_latest.json'
       - '.github/workflows/ntis-project-field-control.yml'
   workflow_dispatch:
 
@@ -38,6 +40,9 @@ jobs:
           python scripts/ntis_project_reverse_validate.py digests/ntis_project_reverse_pc_latest.json
           if test -f digests/ntis_project_field_probe_pc_latest.json; then
             python scripts/ntis_project_field_control_validate.py digests/ntis_project_field_probe_pc_latest.json
+          fi
+          if test -f digests/ntis_project_reverse_remaining_23_pc_latest.json; then
+            python scripts/ntis_project_reverse_validate.py digests/ntis_project_reverse_remaining_23_pc_latest.json
           fi
   windows-approved-pc-offline-replay:
     runs-on: windows-latest

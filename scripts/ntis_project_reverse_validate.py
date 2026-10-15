@@ -82,9 +82,17 @@ def validate(result,plan,projects,dossier,deep):
               "matchedOfficialProjectApplicationRows","reviewedNumberPairs"):
         if type(result.get(k)) is not int or result[k]<0:
             raise ValueError("invalid_statistical_field")
-    if (not 1<=result["plannedUniqueProjects"]<=26 or
-        result["maximumHttpRequests"]!=52 or
-        result["actualHttpRequests"]>52 or
+    planned=result["plannedUniqueProjects"]
+    # 2026-10-15 first pilot was collected with the original absolute 52-call
+    # plan ceiling. All NEW registered-PC exports must use the strict runtime
+    # ceiling of 2 requests per selected project.
+    historical_pilot=(planned==3 and
+        result["generatedAt"]=="2026-10-15T09:57:05+09:00" and
+        result["maximumHttpRequests"]==52)
+    max_matches=(result["maximumHttpRequests"]==2*planned) or historical_pilot
+    if (not 1<=planned<=26 or
+        not max_matches or
+        result["actualHttpRequests"]>result["maximumHttpRequests"] or
         not isinstance(result["checks"],list) or
         not isinstance(result["records"],list) or
         len(result["checks"])>26 or len(result["records"])>70):
@@ -92,6 +100,14 @@ def validate(result,plan,projects,dossier,deep):
     if len(result["checks"])>result["plannedUniqueProjects"]:
         raise ValueError("too_many_checked_projects")
     projects_in_plan={p["projectNumber"]:p for p in plan["projects"]}
+    # Follow-up run must skip ONLY the three projects actually collected in
+    # the 2026-10-15 pilot. Old 3-project output stays separately archived.
+    expected_set=(plan["projects"][3:] if planned==23 else
+                  plan["projects"][:planned])
+    expected_order=[x["projectNumber"] for x in expected_set]
+    actual_order=[x.get("projectNumber") for x in result["checks"]]
+    if actual_order!=expected_order[:len(actual_order)]:
+        raise ValueError("reverse_project_subset_or_order_mismatch")
     targets={(a["publicationNumber"],a["applicationNumber"])
              for a in plan["targetKiprisApplications"]}
     completed=failed=primary=fallback=scanned=matched=0
@@ -214,7 +230,15 @@ def main():
     pinned=read(a.kipris_source)
     if pinned.get("schema")!="ntis_rpatent_kipris_7_identifiers_frozen_v1" or pinned.get("confirmedProjectOutcomeLinks")!=0:
         raise ValueError("not_verified_pinned_kipris_identity_subset")
-    print("NTIS project reverse lookup:",validate(read(a.file),read(a.plan),
+    result=read(a.file)
+    if result.get("plannedUniqueProjects")==23:
+        from ntis_project_field_control_validate import validate as validate_control
+        control=read("digests/ntis_project_field_probe_pc_latest.json")
+        summary=validate_control(control)
+        if (summary["status"]!="some_project_search_paths_work" or
+            summary["retrievedReferencePaths"]<3 or summary["errors"]):
+            raise ValueError("positive_control_not_verified_before_remaining23")
+    print("NTIS project reverse lookup:",validate(result,read(a.plan),
                                                   read(a.projects),pinned["dossier"],
                                                   pinned["deep"]))
 if __name__=="__main__":
