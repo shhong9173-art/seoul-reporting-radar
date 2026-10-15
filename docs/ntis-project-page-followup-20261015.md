@@ -27,3 +27,12 @@
 - 동일 공식 NTIS 성과 HIT의 ProjectID+RegistType+RegistNumber와 KIPRIS 실제 출원번호를 대조한다. 번호만 같아도 **성과 귀속 확인 및 기사 단독 확정은 별도**다.
 - 발제 후보는 **최근 원천 → 기보도 교차검증 → 회사 실제 참여·사업 적용/물량 영향 → 기업 직접 답변 → 기자 야마**의 순서를 거친다.
 - 현재 자료에서 공식 NTIS 번호 일치 0은 확인한 부분집합의 결과일 뿐, 국가R&D 전체에 해당 특허 성과가 없다는 결론이 아니다.
+
+
+## 2차 단독 후보 우선순위 개선 (코드 검증)
+- scripts/ntis_patent_evidence_gate.py는 2026-10-14 고정 KIPRIS 출원번호 7쌍, 2026-10-15 실제 NTIS 역조회 3+23건, 실제 보완조회 결과(등록된 경우에 한함)를 **별도 증거 수준**으로 분류한다.
+- 기존 기술어 검색에만 잡힌 국가과제는 'keyword_only_no_frozen_kipris_application'으로 표시하며 **출원번호 직접 비교 0건이라고 속이지 않는다**.
+- 공식 출원번호 직접 비교 표본에서 해당 과제 미확인 페이지가 남은 경우 'partially_inspected_no_official_pair_observed'와 미확인 범위를 보인다. 정확한 같은 HIT 번호 쌍이 있으면 'same_official_hit_number_pair_for_human_review'로만 표시한다.
+- scripts/patent_reporting_triage.py는 **동일 회사 DART 기술단어 겹침에 대한 기존 자동 +4점을 제거**한다. NTIS 키워드 연결·검색 0건·확인 범위는 점수를 올리지 않는다.
+- patent-pitches.html에서 각 후보의 NTIS 근거 구분을 별도 안내한다. 기자 직접 확인·사업 영향·기보도 조사 전에는 출고·단독 인정 불가.
+- 데이터가 없거나 현재 표본에 없는 특허의 NTIS 일치 건수는 **null/미확인**, 즉 '0건'이 아니다.
