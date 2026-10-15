@@ -394,7 +394,7 @@ def change_review(current,previous=None,*,now=None):
             "priorNewsFulltextChecked":False,
             "scoopConfirmed":False,"approvedForPitch":False,
             "nextCheck":(
-             "기존에는 법인 코드/공식 자료 오류로 이 기업을 조회하지 못했으나 이번에 첫 공개자료를 수집함. 공시 자체는 이미 공개됨. 공시일·기보도·실제 산업 영향 별도 확인"
+             "기존에는 법인 코드/공식 자료 오류로 이 기업을 조회하지 못했으나 이번에 기존 공개자료를 처음 수집함. 공시 자체는 이미 공개됨. 공시일·기보도·실제 산업 영향 별도 확인"
              if coverage_new else
              "이전에 목록만 확인한 같은 공시번호의 표 항목을 처음 추출함: 신규 기업 변화가 아님. 원문 확인 필요"
              if kind=="same_receipt_first_document_field_recovery" else
