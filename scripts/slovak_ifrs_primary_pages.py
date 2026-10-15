@@ -20,6 +20,7 @@ from datetime import datetime,timedelta,timezone
 from pathlib import Path
 from urllib.request import Request,urlopen
 from urllib.error import HTTPError,URLError
+from slovak_ifrs_accounting_columns import audited_rows,reconcile
 
 KST=timezone(timedelta(hours=9))
 API="https://registeruz.sk/cruz-public/api/uctovny-vykaz?id="
@@ -137,6 +138,9 @@ def analyze(source,*,now=None,fetch=get_data,pdf_text=extract_pages):
         "verifiedPageExcerpts":0,"sourceQueriesFailed":0,
         "errors":[],
         "financialFiguresInterpreted":False,
+        "directStatementYearColumnsExtracted":False,
+        "annualAccountingMatrix":[],
+        "comparativeYearConflicts":0,
         "dividendDistributionResolutionVerified":False,
         "koreanParentCashReceiptVerified":False,
         "dividendPaymentToParentVerified":False,
@@ -189,6 +193,7 @@ def analyze(source,*,now=None,fetch=get_data,pdf_text=extract_pages):
                     try:
                         pages=pdf_text(pdf)
                         row["pageClues"]=page_clues(pages)
+                        row["auditedStatementRows"]=audited_rows(pages,year)
                         r["verifiedPageExcerpts"]+=len(row["pageClues"])
                         row["status"]=(
                             "official_pdf_text_passages_for_manual_review"
@@ -204,6 +209,11 @@ def analyze(source,*,now=None,fetch=get_data,pdf_text=extract_pages):
             r["errors"].append(type(err).__name__)
         r["reports"].append(row)
     r["reportCount"]=len(r["reports"])
+    r["annualAccountingMatrix"]=reconcile(r["reports"])
+    r["directStatementYearColumnsExtracted"]=bool(r["annualAccountingMatrix"])
+    r["comparativeYearConflicts"]=sum(
+       bool(x["annualValueWithheldBecauseContradiction"])
+       for x in r["annualAccountingMatrix"])
     return r
 
 def main():
