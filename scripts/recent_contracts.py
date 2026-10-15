@@ -84,6 +84,12 @@ def document_evidence(item,key,documents=zip_documents,lineage=review_lineage):
             "originalReceiptNo":info.get("originReceiptNo") if original_ok else None,
             "originalSourceUrl":info.get("originSourceUrl") if original_ok else None,
             "changes":info.get("changes",[]) if original_ok else [],
+            # This is a DIFFERENT and weaker evidence class. Never blend it
+            # into independently matched original/amended contract changes.
+            "issuerCorrectionTable":info.get("issuerCorrectionTable",{
+                "status":"not_examined","changes":[],
+                "independentOriginalDocumentCompared":False
+            }),
             "unverifiedSameDateCandidates":info.get("candidateOrigins",[])[:8],
             "evidenceStatus":info.get("reason","원공시 근거 미확인"),
             "sourceError":info.get("status")=="source_unavailable",
