@@ -78,6 +78,20 @@ try{
       " · 차종/연식 "+(x.officialFact.usModelYears||[]).map(y=>y.model+" "+y.year).join(", "));
     line(c,"미국 당국 공개 결함 설명: "+x.officialFact.usDefectSummary,"dim");
     line(c,"국내 자동차리콜센터 공식 API 미연결. 국내 리콜 '없음', 동일 부품, 국내 화재 여부는 판정하지 않았습니다.","dim");
+    for(const q of x.koreanModelSearchLinks||[]){
+      if(q.searchResultRead!==false||q.matchingRecallVerified!==false||
+         q.absenceOfRecallVerified!==false||q.koreanIdenticalComponentVerified!==false)
+        throw Error("국내차종 공식 조회결과 확인 없이 판정 금지");
+      const expected=new URL("https://www.car.go.kr/ri/stat/list.do");
+      const dest=new URL(q.officialSearchUrl);
+      if(dest.protocol!==expected.protocol||dest.host!==expected.host||
+         dest.pathname!==expected.pathname||dest.searchParams.get("searchProductName")!==q.searchTerm)
+        throw Error("국내 리콜 공식 차종 검색 링크 출처 불명");
+      link(c,q.officialSearchUrl,"자동차리콜센터에서 '"+q.searchTerm+"' 검색 ↗");
+      c.append(el("span"," · "));
+    }
+    if((x.koreanModelSearchLinks||[]).length)
+      line(c,"위 링크는 국내 차종 이름을 미리 입력한 공식 검색 페이지일 뿐 조회결과·동일 부품·국내 미리콜 여부가 확인됐다는 뜻은 아닙니다.","dim");
   }else if(x.type==="foreign_subsidiary_dividend_accounting"){
     if(x.pitchGate.cashReceivedByParentVerified!==false||
        x.pitchGate.foreignCompanyLegalAccountsVerified!==false)throw Error("현금 회수 미확인");
