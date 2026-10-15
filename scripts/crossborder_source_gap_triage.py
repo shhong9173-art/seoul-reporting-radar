@@ -207,7 +207,61 @@ def recognized_dividend_dossiers(row):
         results.append(res)
     return results
 
-def build(safety,dividends,*,now=None):
+def attach_slovak_registry(dossier, registry):
+    """Keep government annual-filing *metadata* separate from DART income."""
+    if (not isinstance(registry,dict)
+        or registry.get("status")!="official_slovak_registry_identity_and_filing_metadata"
+        or registry.get("ico")!="35876832"
+        or registry.get("companyIdentityVerified") is not True
+        or registry.get("companyIdentityStatus")!="exact_registered_name_ico_unique"
+        or registry.get("companyRegistryUrl")!=
+          "https://www.registeruz.sk/cruz-public/domain/accountingentity/show/244945"
+        or not isinstance(registry.get("statements"),list)
+        or any(registry.get(x) is not False for x in (
+            "actualNetProfitVerified","approvedDistributionAmountVerified",
+            "dividendPaymentToKoreanParentVerified","parentCashReceiptVerified",
+            "auditedLocalStatementsReadInFull","exclusiveConfirmed"))):
+        dossier["slovakGovernmentAccounts"]={"status":
+            "not_verified_or_official_source_failed",
+            "individualAnnualFilings":[],"officialEntityVerified":False,
+            "fundingSourceVerified":False,"dividendPaymentVerified":False}
+        return dossier
+    valid=[]
+    for x in registry["statements"][:8]:
+        if (not isinstance(x,dict)
+            or x.get("financialYear") not in (2024,2025)
+            or x.get("sameIcoAndLegalNameConfirmed") is not True
+            or x.get("profitOrDividendAmountsParsed") is not False
+            or x.get("basis")!="official_registry_individual_filing_metadata"):
+            continue
+        valid.append({
+            "financialYear":x["financialYear"],"periodTo":x.get("periodTo"),
+            "submitted":x.get("submitted"),"approved":x.get("approved"),
+            "statementType":x.get("statementType"),
+            "statementId":x.get("statementId"),
+            "profitAndDistributionAmountsNotInspected":True
+        })
+    dossier["slovakGovernmentAccounts"]={
+        "status":registry.get("statementAvailabilityStatus"),
+        "officialEntityVerified":True,
+        "ico":"35876832",
+        "registryUrl":registry["companyRegistryUrl"],
+        "individualAnnualFilings":valid,
+        "fundingSourceVerified":False,
+        "dividendPaymentVerified":False,
+        "companyCashReceivedVerified":False,
+        "auditedPdfReviewed":False
+    }
+    dossier["sourceAvailability"]["foreignLocalRegistry"]=(
+        "exact_company_official_filing_metadata_only"
+    )
+    dossier["criticalEvidenceNotYetVerified"].append(
+        "2024/2025 IFRS auditor PDF notes must be opened to test distributable profits, dividends payable and cash settlement"
+    )
+    return dossier
+
+
+def build(safety,dividends,*,now=None,slovakia=None,czech=None):
     now=now or datetime.now(KST)
     if now.utcoffset() is None:raise ValueError("timezone_required")
     if (not isinstance(safety,dict) or not isinstance(dividends,dict)
@@ -232,7 +286,17 @@ def build(safety,dividends,*,now=None):
               if isinstance(x,dict))
             else "no_official_receipt_checked"),
         "koreanRecallAPI":"not_connected_permission_required",
-        "foreignSubsidiaryRegistries":"not_connected",
+        "foreignSubsidiaryRegistries":(
+           "slovak_issuer_metadata_only" if isinstance(slovakia,dict) and
+            slovakia.get("companyIdentityVerified") is True else
+            "not_connected_or_official_api_failed"),
+        "czechSubsidiaryRegistry":(
+            "manufacturer_official_legal_identity_only"
+            if isinstance(czech,dict) and czech.get("identityVerified") is True
+            and czech.get("status")=="czech_official_ares_issuer_identity_only"
+            and czech.get("ico")=="27773035"
+            and czech.get("czechAuditedAccountsDocumentChecked") is False
+            else "not_connected_or_ares_identity_unavailable"),
         "sameAngleNewsFulltext":"not_verified"
     }
     dossiers=[]
@@ -240,7 +304,15 @@ def build(safety,dividends,*,now=None):
         y=safety_dossier(x,now.astimezone(KST))
         if y:dossiers.append(y)
     for x in dividends["leads"][:100]:
-        dossiers.extend(recognized_dividend_dossiers(x))
+        generated=recognized_dividend_dossiers(x)
+        for d in generated:
+            # Only the precisely named Slovak manufacturing entity can be
+            # linked to the official registry. Czech entities are UNCONNECTED.
+            if (d["companyGroup"]=="기아" and
+                "kiaslovakia" in "".join(
+                   str(d["officialFact"]["recognizedFromEntity"]).lower().split())):
+                attach_slovak_registry(d,slovakia)
+            dossiers.append(d)
     unique={}
     for d in dossiers:
         if d["id"] in unique:raise ValueError("duplicate_evidence_dossier")
@@ -251,9 +323,33 @@ def build(safety,dividends,*,now=None):
       "generatedAt":now.astimezone(KST).isoformat(timespec="seconds"),
       "status":"crossborder_reporter_evidence_gap_not_exclusive",
       "officialSourceGeneratedAt":{
-          "nhtsa":safety["generatedAt"],"dartDividend":dividends["generatedAt"]},
+          "nhtsa":safety["generatedAt"],"dartDividend":dividends["generatedAt"],
+          "slovakGovernmentRegistry":slovakia.get("generatedAt")
+              if isinstance(slovakia,dict) else None,
+          "czechAresRegistry":czech.get("generatedAt")
+              if isinstance(czech,dict) else None},
       "sourceHealth":source_states,
       "sourceStale48h":any((now-x).total_seconds()>48*3600 for x in source_dates),
+      "foreignLegalEntityLinks":{
+          "kiaSlovakia":{
+              "company":"Kia Slovakia s. r. o.","ico":"35876832",
+              "identityVerified":slovakia.get("companyIdentityVerified") is True
+                    if isinstance(slovakia,dict) else False,
+              "officialRegisterUrl":"https://www.registeruz.sk/cruz-public/domain/accountingentity/show/244945",
+              "auditedAccountsContentsReviewed":False,"dividendsPaidVerified":False,
+          },
+          "hyundaiCzechFactory":{
+              "company":"Hyundai Motor Manufacturing Czech s.r.o.",
+              "ico":"27773035",
+              "identityVerified":czech.get("identityVerified") is True
+                      if isinstance(czech,dict) and czech.get("status")==
+                          "czech_official_ares_issuer_identity_only" else False,
+              "officialCompanyUrl":"https://ares.gov.cz/ekonomicke-subjekty-v-be/rest/ekonomicke-subjekty/27773035",
+              "officialJusticeCollection":"https://www.or.justice.cz/ias/ui/rejstrik",
+              "auditedAccountsContentsReviewed":False,
+              "dividendsPaidVerified":False
+          }
+      },
       "dossierCount":len(dossiers),
       "usSafetyDossiers":sum(x["type"]=="overseas_safety_domestic_comparison" for x in dossiers),
       "issuerExactDividendDossiers":sum(x["type"]=="foreign_subsidiary_dividend_accounting" for x in dossiers),
@@ -269,9 +365,20 @@ def main():
     p.add_argument("--nhtsa",default="digests/crossborder_safety_latest.json")
     p.add_argument("--dividends",default="digests/overseas_dividend_evidence_latest.json")
     p.add_argument("--out",default="digests/crossborder_source_gap_latest.json")
+    p.add_argument("--slovakia",default="digests/slovakia_official_accounts_latest.json")
+    p.add_argument("--czech",default="digests/czech_factory_official_identity_latest.json")
     a=p.parse_args()
     src=lambda path:json.loads(Path(path).read_text(encoding="utf-8"))
-    result=build(src(a.nhtsa),src(a.dividends))
+    try:
+        government=src(a.slovakia)
+    except (OSError,ValueError):
+        government=None
+    try:
+        czech_identity=src(a.czech)
+    except (OSError,ValueError):
+        czech_identity=None
+    result=build(src(a.nhtsa),src(a.dividends),slovakia=government,
+                 czech=czech_identity)
     if result["sourceHealth"]["nhtsaOfficial"]!="checked":
         raise SystemExit("NHTSA source incomplete; preserve last good dossier")
     if result["sourceHealth"]["dartOfficialDividendNotes"]=="no_official_receipt_checked":

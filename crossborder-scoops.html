@@ -19,7 +19,7 @@ button{font:inherit;padding:6px 12px;border-radius:7px;background:#f8fafc;border
 <p id="gap-status" class="dim">해외 원문·국내 조치·기보도 검증 상태 비교 중</p><div id="gap-dossiers"></div>
 <h2>NHTSA 전체 모델·연식 신규 리콜 <small class="dim">한국 판매차와 국내 조치 별도 확인</small></h2>
 <p id="safety-state" class="dim">공식 자료 확인 중</p><div id="safety"></div>
-<h2>DART 해외 생산법인 배당 주석 <small class="dim">체코·슬로바키아 현지 등기 미연동</small></h2>
+<h2>DART 해외 생산법인 배당 주석 <small class="dim">기아 슬로바키아 현지 재무제표 등록정보 연동 · 체코 미연동</small></h2>
 <p id="dividend-state" class="dim">공식 자료 확인 중</p><div id="dividends"></div>
 <script>
 (async()=>{
@@ -40,6 +40,19 @@ try{
     d.domesticRecallAbsenceVerified!==false||
     d.foreignParentCashTransferVerified!==false||
     !Array.isArray(d.items))throw Error("교차검증 증거 원천·안전성 불일치");
+ const companyLinks=d.foreignLegalEntityLinks||{};
+ const czech=companyLinks.hyundaiCzechFactory;
+ if(czech){
+   const c=card($("gap-dossiers"),"현대차 체코 생산법인 · 현지 정부 법인 확인");
+   line(c,"생산법인 IČO "+czech.ico+" · "+(czech.identityVerified===true?
+     "체코 재무부 ARES 법인명·고유번호 일치":"체코 공식 API 기업 동일성 미확인 · 현지 공시가 없다는 뜻 아님"),"dim");
+   if(czech.auditedAccountsContentsReviewed!==false||czech.dividendsPaidVerified!==false)
+      throw Error("체코 재무제표 전문 또는 배당금 확인 근거 없음");
+   link(c,czech.officialCompanyUrl,"체코 재무부 ARES 법인 정보 ↗");
+   c.append(el("span"," · "));
+   link(c,czech.officialJusticeCollection,"체코 법무부 공식 재무제표 공시 검색 ↗");
+   line(c,"법인 존재 확인은 현지 재무제표·배당결의서나 한국 본사의 배당금 현금수령 확인과 다릅니다. 현지 공시 PDF의 연도·금액·주석을 별도 열람해야 합니다.","dim");
+ }
  $("gap-status").textContent=ageNotice(d)+
    " · 공식 미국 리콜 조사서 "+d.usSafetyDossiers+
    "건 · 해외법인 회계상 배당수익 개별 인식액 "+d.issuerExactDividendDossiers+
@@ -72,7 +85,26 @@ try{
     line(c,"공시상 해외법인 "+x.officialFact.recognizedFromEntity+
        " · 배당수익 인식액 "+x.officialFact.recognizedDividendIncomeText+
        " (단위: 백만원 · 현금 송금액 아님)");
-    line(c,"본사 실제 현금 수령·해외법인 과거 순이익·배당결의일·현지 재무제표·기보도는 아직 검증되지 않았습니다.","dim");
+    const sk=x.slovakGovernmentAccounts;
+    if(sk&&sk.officialEntityVerified===true){
+      if(sk.fundingSourceVerified!==false||
+         sk.dividendPaymentVerified!==false||
+         sk.companyCashReceivedVerified!==false||
+         sk.auditedPdfReviewed!==false)
+        throw Error("슬로바키아 등록정보에서 현금 배당을 입증했다고 표시하지 않음");
+      line(c,"슬로바키아 재무부 등록부 동일 법인번호(IČO) "+sk.ico+" · 기아 슬로바키아 생산법인 확인","dim");
+      for(const y of sk.individualAnnualFilings||[]){
+         if(y.profitAndDistributionAmountsNotInspected!==true)throw Error("현지 이익/배당 실측 근거 없음");
+         line(c,"공식 현지 개별 재무제표 "+y.financialYear+"년: 제출 "+(y.submitted||"미확인")+
+           " · 승인 "+(y.approved||"미확인")+
+           " · 회계상 순이익·배당결의·송금 확인 불가","small");
+      }
+      link(c,sk.registryUrl,"슬로바키아 재무부 공식 개별 재무제표 등록부 ↗");
+      line(c,"현지 등록 자료는 연도·제출/승인·회사 법인식별 정보입니다. 감사보고서 첨부 PDF의 배당 관련 주석 전문은 아직 독립 분석되지 않았습니다.","dim");
+    }else{
+      line(c,"슬로바키아 공식 재무제표 API에서 해당 생산법인의 확정 연결·회계연도 자료를 확보하지 못했습니다. 미확인은 현지 공시 부재를 뜻하지 않습니다.","dim");
+    }
+    line(c,"본사 실제 현금 수령·해외법인 과거 순이익·배당결의일·현지 감사 재무제표 전문·기보도는 아직 검증되지 않았습니다.","dim");
   }
   for(const z of x.sourceEvidence||[])link(c,z.url,z.system+" 공식 원문 ↗");
   const unknown=el("details");unknown.append(el("summary","부족한 결정적 증거·보도 전 검증 항목"));
