@@ -47,6 +47,20 @@ class SlovakOfficial(unittest.TestCase):
                      "auditedLocalStatementsReadInFull","exclusiveConfirmed"):
             self.assertIs(v[flag],False,flag)
 
+    def test_missing_optional_consolidation_property_is_metadata_not_verified_standalone(self):
+        def omitted(url):
+            d=api_data(url)
+            if "/uctovna-zavierka?" in url:
+                d.pop("konsolidovana",None)
+            return d
+        report=a.registry_evidence(omitted,now=NOW)
+        self.assertEqual(report["statementAvailabilityStatus"],
+                         "registered_annual_filing_metadata_for_both_years")
+        self.assertEqual([x["financialYear"] for x in report["statements"]],[2025,2024])
+        self.assertEqual({x["consolidationFlag"] for x in report["statements"]},
+                         {"not_specified_by_api"})
+        self.assertFalse(report["auditedLocalStatementsReadInFull"])
+
     def test_kia_sales_slovakia_same_brand_wrong_ico_refused(self):
         def wrong(url):
             d=api_data(url)
