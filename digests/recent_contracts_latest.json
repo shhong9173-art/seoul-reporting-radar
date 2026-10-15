@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-15T12:48:04+09:00",
+  "generatedAt": "2026-10-15T12:52:49+09:00",
   "periodStart": "20260924",
   "periodEnd": "20261015",
   "source": "OpenDART 회사별 공시검색 list.json 및 조회된 경우 document.xml",
@@ -202,12 +202,24 @@
       "status": "official_document_read",
       "evidenceStatus": "공식 DART 원문 표의 동일 행 필드만 수집. 공시상 기재값이며 실제 납품·매출·효력 확인 아님",
       "observedFields": {
+        "contract_subject": "펜실베니아 연료전지 전력설비 공급 PJT",
         "contract_amount": "185,257,183,992",
+        "recent_sales": "4,965,798,552,980",
+        "sales_ratio": "3.73",
         "counterparty": "LS ELECTRIC AMERICA Inc.",
+        "counterparty_relationship": "자회사",
+        "supply_region": "미국",
         "contract_start": "2026-10-12",
         "contract_end": "2027-07-05"
       },
       "observedFieldEvidence": {
+        "contract_subject": {
+          "sourceLabel": "- 체결계약명",
+          "rowPattern": "two_cell_explicit_label",
+          "basis": "same_official_table_row",
+          "independentBusinessVerification": false,
+          "distinctDocumentRows": 1
+        },
         "contract_amount": {
           "sourceLabel": "계약금액(원)",
           "rowPattern": "three_cell_explicit_label",
@@ -215,8 +227,36 @@
           "independentBusinessVerification": false,
           "distinctDocumentRows": 1
         },
+        "recent_sales": {
+          "sourceLabel": "최근매출액(원)",
+          "rowPattern": "two_cell_explicit_label",
+          "basis": "same_official_table_row",
+          "independentBusinessVerification": false,
+          "distinctDocumentRows": 1
+        },
+        "sales_ratio": {
+          "sourceLabel": "매출액대비(%)",
+          "rowPattern": "two_cell_explicit_label",
+          "basis": "same_official_table_row",
+          "independentBusinessVerification": false,
+          "distinctDocumentRows": 1
+        },
         "counterparty": {
           "sourceLabel": "3. 계약상대",
+          "rowPattern": "two_cell_explicit_label",
+          "basis": "same_official_table_row",
+          "independentBusinessVerification": false,
+          "distinctDocumentRows": 1
+        },
+        "counterparty_relationship": {
+          "sourceLabel": "- 회사와의 관계",
+          "rowPattern": "two_cell_explicit_label",
+          "basis": "same_official_table_row",
+          "independentBusinessVerification": false,
+          "distinctDocumentRows": 1
+        },
+        "supply_region": {
+          "sourceLabel": "4. 판매ㆍ공급지역",
           "rowPattern": "two_cell_explicit_label",
           "basis": "same_official_table_row",
           "independentBusinessVerification": false,
@@ -259,12 +299,23 @@
       "status": "official_document_read",
       "evidenceStatus": "공식 DART 원문 표의 동일 행 필드만 수집. 공시상 기재값이며 실제 납품·매출·효력 확인 아님",
       "observedFields": {
+        "contract_subject": "Engineering, Procurement and Construction (EPC) of O Mon III Combined Cycle Power Plant Construction Project",
         "contract_amount": "837,970,880,392",
+        "recent_sales": "17,057,876,465,803",
+        "sales_ratio": "4.91",
         "counterparty": "VIETNAM NATIONAL INDUSTRY - ENERGY GROUP (PVN)",
+        "supply_region": "Vietnam, Can Tho",
         "contract_start": "2026-10-06",
         "contract_end": "2030-10-06"
       },
       "observedFieldEvidence": {
+        "contract_subject": {
+          "sourceLabel": "- 체결계약명",
+          "rowPattern": "two_cell_explicit_label",
+          "basis": "same_official_table_row",
+          "independentBusinessVerification": false,
+          "distinctDocumentRows": 1
+        },
         "contract_amount": {
           "sourceLabel": "계약금액(원)",
           "rowPattern": "three_cell_explicit_label",
@@ -272,8 +323,29 @@
           "independentBusinessVerification": false,
           "distinctDocumentRows": 1
         },
+        "recent_sales": {
+          "sourceLabel": "최근매출액(원)",
+          "rowPattern": "two_cell_explicit_label",
+          "basis": "same_official_table_row",
+          "independentBusinessVerification": false,
+          "distinctDocumentRows": 1
+        },
+        "sales_ratio": {
+          "sourceLabel": "매출액대비(%)",
+          "rowPattern": "two_cell_explicit_label",
+          "basis": "same_official_table_row",
+          "independentBusinessVerification": false,
+          "distinctDocumentRows": 1
+        },
         "counterparty": {
           "sourceLabel": "3. 계약상대",
+          "rowPattern": "two_cell_explicit_label",
+          "basis": "same_official_table_row",
+          "independentBusinessVerification": false,
+          "distinctDocumentRows": 1
+        },
+        "supply_region": {
+          "sourceLabel": "4. 판매ㆍ공급지역",
           "rowPattern": "two_cell_explicit_label",
           "basis": "same_official_table_row",
           "independentBusinessVerification": false,
@@ -316,12 +388,24 @@
       "status": "official_document_read",
       "evidenceStatus": "공식 DART 원문 표의 동일 행 필드만 수집. 공시상 기재값이며 실제 납품·매출·효력 확인 아님",
       "observedFields": {
+        "contract_subject": "북미 Hyperscale Data Center 전력설비 공급 PJT",
         "contract_amount": "181,229,274,677",
+        "recent_sales": "4,965,798,552,980",
+        "sales_ratio": "3.65",
         "counterparty": "LS ELECTRIC AMERICA Inc.",
+        "counterparty_relationship": "자회사",
+        "supply_region": "미국",
         "contract_start": "2026-09-30",
         "contract_end": "2030-01-30"
       },
       "observedFieldEvidence": {
+        "contract_subject": {
+          "sourceLabel": "- 체결계약명",
+          "rowPattern": "two_cell_explicit_label",
+          "basis": "same_official_table_row",
+          "independentBusinessVerification": false,
+          "distinctDocumentRows": 1
+        },
         "contract_amount": {
           "sourceLabel": "계약금액(원)",
           "rowPattern": "three_cell_explicit_label",
@@ -329,8 +413,36 @@
           "independentBusinessVerification": false,
           "distinctDocumentRows": 1
         },
+        "recent_sales": {
+          "sourceLabel": "최근매출액(원)",
+          "rowPattern": "two_cell_explicit_label",
+          "basis": "same_official_table_row",
+          "independentBusinessVerification": false,
+          "distinctDocumentRows": 1
+        },
+        "sales_ratio": {
+          "sourceLabel": "매출액대비(%)",
+          "rowPattern": "two_cell_explicit_label",
+          "basis": "same_official_table_row",
+          "independentBusinessVerification": false,
+          "distinctDocumentRows": 1
+        },
         "counterparty": {
           "sourceLabel": "3. 계약상대",
+          "rowPattern": "two_cell_explicit_label",
+          "basis": "same_official_table_row",
+          "independentBusinessVerification": false,
+          "distinctDocumentRows": 1
+        },
+        "counterparty_relationship": {
+          "sourceLabel": "- 회사와의 관계",
+          "rowPattern": "two_cell_explicit_label",
+          "basis": "same_official_table_row",
+          "independentBusinessVerification": false,
+          "distinctDocumentRows": 1
+        },
+        "supply_region": {
+          "sourceLabel": "4. 판매ㆍ공급지역",
           "rowPattern": "two_cell_explicit_label",
           "basis": "same_official_table_row",
           "independentBusinessVerification": false,
