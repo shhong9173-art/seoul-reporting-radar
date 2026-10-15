@@ -196,7 +196,7 @@ try{
   if($json.Contains($key) -or $json -match '(?i)apprvKey|authorization|bearer\s|api[_-]?key|password|secret'){
     throw 'OUTPUT_FAILED_SECURITY_CHECK'
   }
-  [IO.File]::WriteAllText($out,$json+[Environment]::NewLine,(New-Object Text.UTF8Encoding($false)))
+  [IO.File]::WriteAllText($out,$json+[Environment]::NewLine,([System.Text.UTF8Encoding]::new($false)))
   Write-Output ('RESULT: ready; official calls 2/2; pages 1+2; observed 11 distinct rows; exact KIPRIS number-pair review leads '+$matched.Count)
   Write-Output ('OUTPUT_FILE: '+(Split-Path $out -Leaf))
 }catch{
