@@ -1,0 +1,123 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DART 계약 정정·언론 기보도 교차 검증 | 산업부 레이더</title>
+<style>
+:root{font:15px/1.6 system-ui,-apple-system,"Noto Sans KR",sans-serif;color:#1d3345;background:#f5f7fa}
+*{box-sizing:border-box}body{margin:0}main{max-width:1020px;margin:auto;padding:22px 18px 72px}
+a{color:#135f8f}h1{font-size:25px;line-height:1.3}h2{font-size:19px;margin-top:24px}
+.notice,.card{border:1px solid #d7e1e9;background:white;border-radius:10px;padding:16px;margin:12px 0}
+.warning{border-left:4px solid #b18c40;background:#fffaf2}.dim{font-size:13px;color:#617383}
+.tag{display:inline-block;font-size:12px;border-radius:6px;padding:3px 8px;background:#ebf0f5;margin-right:8px}
+p{margin:8px 0}.pair{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:9px 0}
+.pair>div{padding:10px;background:#f5f7fb;border:1px solid #dce5ee;border-radius:7px;overflow-wrap:anywhere}
+@media(max-width:620px){.pair{grid-template-columns:1fr}}
+.search-results{padding:5px 0;border-top:1px solid #edf1f4;margin:7px 0}
+details{border:1px solid #d7e1e9;padding:12px;border-radius:8px}
+small{font-size:12px}
+</style></head><body><main>
+<p class="dim"><a href="index.html">산업부 취재 레이더</a> / <a href="official-today.html">최근 공식 문서</a> / <a href="official-watch.html">해외·계약 원문</a></p>
+<h1>DART 계약·정정 공시와 기보도 교차 검증</h1>
+<p class="notice warning"><b>공개된 공식 공시의 취재 검토자료입니다.</b> 정정공시를 새 계약으로 보지 않습니다. 명시적 원공시 접수번호와 독립 문서 2건이 검증된 경우에만 전후 항목을 표시합니다. 언론 RSS 검색 결과는 동일 계약 보도라는 뜻이 아니며, 색인 결과가 없다고 미보도·단독으로 판단하지 않습니다.</p>
+<p id="status" class="notice" role="status">DART 공시 이력과 기사 색인 검증 자료 확인 중</p>
+<section id="records"></section>
+</main><script>
+(async()=>{"use strict";
+const $=s=>document.querySelector(s);
+const el=(t,text,cls)=>{const x=document.createElement(t);if(text!==undefined)x.textContent=String(text);if(cls)x.className=cls;return x};
+const p=(box,text,cls)=>box.append(el("p",text,cls));
+const link=(box,url,label,host)=>{
+ try{
+  const u=new URL(url);
+  if(u.protocol!=="https:"||u.username||u.password||u.hostname!==host)return;
+  if(host==="dart.fss.or.kr"&&!(u.pathname==="/dsaf001/main.do"&&/^rcpNo=\d{14}$/.test(u.search.slice(1))))return;
+  const a=el("a",label);a.href=u.href;a.target="_blank";a.rel="noopener noreferrer";box.append(a)
+ }catch(e){}
+};
+const statuses={
+ "original_unverified_no_comparison":"정정공시 · 명시적 원공시 접수번호 독립 확인 실패(전후 비교 불가)",
+ "original_verified_changes_needs_reporting":"원공시·정정 원문 독립 확인 · 변경값 취재 검토",
+ "original_verified_no_comparable_material_change":"원공시 독립 확인 · 비교 가능한 주요 변경항목 미관측",
+ "invalid_independent_comparison":"변경 근거 형식이 불완전하여 비교 차단",
+ "not_a_correction":"신규 공개 공시 접수(계약 세부·실제 효력 별도 확인)"
+};
+const presses={
+ "press_index_partial_failure":"기사 색인 검색 일부 실패 · 기보도 여부 미확인",
+ "indexed_possible_articles_require_fulltext":"관련 가능 기사 색인 발견 · 원문과 동일 계약 확인 필요",
+ "index_no_hits_not_proof_unreported":"언론 색인 결과 미발견 · 미보도 증명 아님",
+ "press_not_searched":"기사 검색 미실행 · 기보도 여부 미확인"
+};
+function render(x){
+ if(x.exclusiveConfirmed!==false||x.approvedForPitch!==false||
+    x.companyImpactVerified!==false||x.actualShipmentChangeVerified!==false||
+    x.priorCoverageOfSameContractVerified!==false)throw Error("허위 단독·기업 영향 확정 상태");
+ const box=el("article",undefined,"card");
+ box.append(el("span",x.published+" DART 공개","tag"),el("span",x.isCorrection?"정정 공시":"신규 공시 접수","tag"));
+ box.append(el("h2",x.headline));
+ p(box,statuses[x.comparisonStatus]||"공식 전후 대조 미확인","dim");
+ link(box,x.officialSourceUrl,"해당 DART 공시 ↗","dart.fss.or.kr");
+ if(x.originalReceiptNo&&x.originalSourceUrl){
+  p(box,"공식 명시 원공시 접수번호: "+x.originalReceiptNo,"dim");
+  link(box,x.originalSourceUrl,"원공시 원문 ↗","dart.fss.or.kr");
+ }
+ if(x.materialFieldChanges.length){
+  box.append(el("h3","공식 원공시·정정문 직접 확인된 차이"));
+  for(const a of x.materialFieldChanges){
+   if(a.basis!=="independent_primary_documents"||a.businessImpactVerified!==false||
+      a.numericDifference!==null||a.sameContractVerifiedByOfficialReceipts!==true)
+      throw Error("검증되지 않은 공시 비교");
+   box.append(el("b",a.fieldLabel));
+   const pair=el("div",undefined,"pair");
+   const before=el("div");before.append(el("small","원공시"),el("p",a.before));
+   const after=el("div");after.append(el("small","정정공시"),el("p",a.after));
+   pair.append(before,after);box.append(pair);
+   p(box,"공시상 기재값만 비교. 실제 계약 효과·금액 증감·납품 물량은 회사 직접 확인 필요.","dim");
+  }
+ }else if(x.isCorrection){
+  p(box,"최초 계약과 다른 금액·기간·물량이 있다는 근거 없음. 원공시 연결이 확인되지 않았다면 동일 계약 비교 금지.","dim");
+ }
+ const fields=Object.entries(x.unambiguousCurrentDocumentFields||{});
+ if(fields.length){
+  box.append(el("h3","공시 원문 표에서 추출된 현재 기재값"));
+  p(box,fields.map(([k,v])=>k+" : "+v).join(" / "),"dim");
+  p(box,"표의 문자 그대로입니다. 실제 공급 물량, 계약 효력 또는 산업 영향 확정 아님.","dim");
+ }else if(!x.isCorrection)p(box,"공시 원문 표 항목 자동 추출 미완료: 공시 원문에서 금액·상대방·기간 확인 필요","dim");
+ box.append(el("h3","기보도 색인 조회"));
+ p(box,presses[x.pressIndexStatus]||"언론 검색 상태 미확인","dim");
+ p(box,"조회 기사 색인 "+x.indexedArticleCount+"건 · 색인 게시시각이 공시일 전 또는 같은 날짜인 가능 기사 "+
+  x.possiblePreOrSameFilingDayIndexedCount+"건 (같은 계약 보도 확인 아님)","dim");
+ const news=x.pressSearchQueries||[];
+ for(const q of news){
+  const result=el("div",undefined,"search-results");
+  p(result,"검색어: "+q.query+" · "+q.status+(q.errorType?" · 오류: "+q.errorType:""),"dim");
+  for(const n of q.articles||[]){
+   const a=el("div");link(a,n.url,n.title,"news.google.com");result.append(a);
+   p(result,"색인 게시: "+(n.publishedAt||"미확인")+" · 기사 전문과 동일 계약 여부 대조 필요","dim");
+  }
+  box.append(result);
+ }
+ box.append(el("h3","기자 취재 질문"));
+ for(const question of x.nextChecks||[])p(box,"- "+question,"dim");
+ p(box,"이 데이터만으로 부장 보고·단독기사 확정 불가","dim");
+ $("#records").append(box);
+}
+try{
+ const r=await fetch("digests/dart_contract_followup_latest.json",{cache:"no-store"});
+ if(!r.ok)throw Error("DART 후속 검증 파일 미생성");
+ const d=await r.json();
+ if(d.status!=="reporter_review_not_exclusive"||
+    d.confirmedScoops!==0||d.approvedArticles!==0||
+    !Array.isArray(d.items)||d.reviewedEvents!==d.items.length)
+   throw Error("공식 출처와 판정 상태 불일치");
+ const ageH=(Date.now()-Date.parse(d.dartSourceGeneratedAt))/3600000;
+ const stale=(!Number.isFinite(ageH)||ageH>24||ageH<(-1));
+ $("#status").textContent=
+  "DART 원자료 "+d.dartSourceGeneratedAt+" · 검토 공시 "+d.reviewedEvents+"/"+d.sourceItemCount+
+  "건 · 독립 대조 주요 필드 "+d.independentlyComparedMaterialFields+"건 · 최초 공시 미확인 정정 "+
+  d.correctionsWithoutVerifiedOriginal+"건 · 기사 색인 조회 미완료/오류 공시 "+
+  d.mediaLookupFailedEvents+"건"+
+  (stale?" · 자료 생성 후 24시간 초과: 최신 공시/계약 없는 것으로 판단 금지":"")+
+  " · 기사 단독 0건(확정된 것 없음)";
+ if(!d.items.length)p($("#records"),"DART 검증 목록이 비어 있습니다. 공시 없음이 아니라 원천 범위를 확인해야 합니다.","notice");
+ for(const x of d.items)render(x);
+}catch(e){$("#status").textContent="DART 계약 전후/기보도 분석 자료 미확인: "+e.message+" · 검색 미완료를 기보도 0건으로 간주하지 않습니다.";}
+})();
+</script></body></html>
