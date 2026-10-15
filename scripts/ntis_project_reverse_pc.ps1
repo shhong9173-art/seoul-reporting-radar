@@ -7,7 +7,8 @@ param(
     [switch]$OfflineTest,
     [switch]$KeepOfflineOutput,
     [string]$SnapshotRoot='',
-    [ValidateRange(1,26)][int]$MaxProjects=26
+    [ValidateRange(1,26)][int]$MaxProjects=26,
+    [ValidateRange(0,3)][int]$SkipFirstProjects=0
 )
 $ErrorActionPreference='Stop'
 $repo='https://raw.githubusercontent.com/shhong9173-art/seoul-reporting-radar/main/'
@@ -79,17 +80,17 @@ function Get-Official([string]$project,[string]$key,[string]$mode){
     if($OfflineTest){
         # Synthetic test: one matching 2026 LS / Hanbit outcome.
         # All other projects are independent queries. No live data/keys.
-        if($project -eq '2410017896' -and $mode -eq 'primary'){
+        if($project -in @('2410017896','2410011506') -and $mode -eq 'primary'){
             return Parse-NtisXml '<RESULT><TOTALHITS>0</TOTALHITS><RESULTSET/></RESULT>'
         }
-        if($project -eq '2410017896' -and $mode -eq 'ti03'){
+        if($project -in @('2410017896','2410011506') -and $mode -eq 'ti03'){
             $body='<RESULT><TOTALHITS>1</TOTALHITS><RESULTSET>'+
                   '<HIT><ProjectID>1111111111</ProjectID><ResultID>UNRELATED001</ResultID>'+
                   '<RegistNumber>10-2025-0039383</RegistNumber>'+
                   '<RegistType code="01">출원</RegistType></HIT></RESULTSET></RESULT>'
             return Parse-NtisXml $body
         }
-        $code=if($project -eq '2410019058'){'2410019058'}else{'1111111111'}
+        $code=if($project -in @('2410019058','2410010601')){$project}else{'1111111111'}
         $body='<RESULT><TOTALHITS>3</TOTALHITS><RESULTSET>'+
           '<HIT><ProjectID>'+$code+'</ProjectID><ResultID>MOCK'+$project+'A</ResultID>'+
           '<RegistNumber>10-2025-0039383</RegistNumber><RegistType code="01">출원</RegistType>'+
@@ -216,6 +217,36 @@ try{
     $deep=$historicalKipris.deep
     $phase='VERIFY_PINNED_SOURCES'
     Validate-Plan $plan $projects $dossier $deep
+    if($SkipFirstProjects -ne 0 -and $SkipFirstProjects -ne 3){
+        throw 'UNAPPROVED_PILOT_SKIP_COUNT'
+    }
+    if($SkipFirstProjects -eq 3){
+        if($MaxProjects -ne 26){throw 'REMAINING_REQUIRES_FULL_26_PLAN'}
+        $phase='VERIFY_REAL_PROJECT_INDEX_POSITIVE_CONTROL'
+        $control=Load-Snapshot 'digests/ntis_project_field_probe_pc_latest.json'
+        if($control.profile -ne 'ntis_rpatent_project_id_index_control_v1' -or
+           $control.status -ne 'some_project_search_paths_work' -or
+           !$control.officialReferenceProjectAndOutcomeSeenInSeed -or
+           !$control.exactReferenceOutcomeRecoveredInAnyMode -or
+           $control.failedAdditionalControlQueries -ne 0 -or
+           $control.completedAdditionalControlQueries -ne 5 -or
+           $control.verifiedPatentProjectOutcomeLinks -ne 0 -or
+           $control.commercializationConfirmed -ne 0 -or
+           $control.exclusiveConfirmed -ne 0){
+            throw 'POSITIVE_CONTROL_NOT_VERIFIED'
+        }
+        $modes=@($control.searchModes)
+        if($modes.Count -ne 5 -or
+           @($modes | Where-Object {$_.status -eq 'checked' -and $_.exactReferenceOutcomeRows -gt 0}).Count -lt 3){
+            throw 'NO_CONFIRMED_OFFICIAL_ID_RETRIEVAL'
+        }
+        $exportPath=Join-Path $PSScriptRoot 'ntis_project_reverse_remaining_23_pc_latest.json'
+        if($OfflineTest){$exportPath=Join-Path ([System.IO.Path]::GetTempPath()) 'ntis_project_reverse_remaining_23_offline.json'}
+    }
+    $selectedProjects=@($plan.projects | Select-Object -First $MaxProjects | Select-Object -Skip $SkipFirstProjects)
+    if($selectedProjects.Count -lt 1){throw 'NO_REMAINING_PROJECTS'}
+    $plannedCount=$selectedProjects.Count
+    $requestLimit=2*$plannedCount
     $apps=@{}
     foreach($t in @($plan.targetKiprisApplications)){
         $app=[string]$t.applicationNumber
@@ -227,7 +258,7 @@ try{
     $matchedIds=New-Object 'System.Collections.Generic.HashSet[string]'
     $phase='RUN_OFFICIAL_PROJECTID_SEARCH'
     $calls=0;$errors=0;$totalRows=0;$primaryChecked=0;$fallbackChecked=0
-    foreach($project in @($plan.projects | Select-Object -First $MaxProjects)){
+    foreach($project in $selectedProjects){
         $id=[string]$project.projectNumber
         $modes=New-Object System.Collections.ArrayList
         $inspected=0;$exactProject=0;$applicationType=0;$matchedApps=0
@@ -236,7 +267,7 @@ try{
         foreach($mode in @('primary','ti03')){
             if($mode -eq 'ti03' -and $null -ne $primaryHits -and $primaryHits -gt 0){break}
             try{
-                if($calls -ge 52){throw 'REVERSE_QUERY_BUDGET_EXCEEDED'}
+                if($calls -ge $requestLimit){throw 'REVERSE_QUERY_BUDGET_EXCEEDED'}
                 $calls++
                 $response=Get-Official $id $key $mode
                 if($mode -eq 'primary'){$primaryHits=[long]$response.totalHits;$primaryChecked++}
@@ -313,14 +344,14 @@ try{
             uninspectedPagesRemain=[bool]$truncated
         })
         $statusLabel=if($errorCode){$errorCode}else{'checked'}
-        Write-Output ('CHECK '+$checks.Count+'/'+$MaxProjects+
+        Write-Output ('CHECK '+$checks.Count+'/'+$plannedCount+
             ' official project '+$id+' modes='+(@($modes.ToArray()) -join ',')+
             ' rows='+$inspected+' exactProject='+$exactProject+
             ' kiprisApplicationMatches='+$matchedApps+' status='+$statusLabel)
         if($errorCode -in @('NTIS_HTTP_401','NTIS_HTTP_403','NTIS_HTTP_404','NTIS_UNRECOGNIZED_XML')){break}
     }
     $complete=@($checks.ToArray()|Where-Object {$_.status -eq 'checked'}).Count
-    $status=if($errors){'partial_errors'}elseif($complete -eq $MaxProjects){'ready'}else{'incomplete'}
+    $status=if($errors){'partial_errors'}elseif($complete -eq $plannedCount){'ready'}else{'incomplete'}
     $now=[DateTimeOffset]::UtcNow.ToOffset([TimeSpan]::FromHours(9)).ToString('yyyy-MM-ddTHH:mm:sszzz')
     $result=[ordered]@{
         generatedAt=$now
@@ -332,11 +363,11 @@ try{
         kiprisDeepGeneratedAt=[string]$plan.kiprisDeepGeneratedAt
         status=$status
         collectionMethod='approved_pc_ntis_rpatent_reverse_projectid'
-        plannedUniqueProjects=$MaxProjects
+        plannedUniqueProjects=$plannedCount
         completedProjects=$complete
         failedProjects=$errors
         actualHttpRequests=$calls
-        maximumHttpRequests=52
+        maximumHttpRequests=$requestLimit
         primaryQueriesCompleted=$primaryChecked
         fallbackQueriesCompleted=$fallbackChecked
         rowsInspected=$totalRows
@@ -354,22 +385,24 @@ try{
         throw 'UNSAFE_OUTPUT_CREDENTIALS'
     }
     [System.IO.File]::WriteAllText($exportPath,$json+[Environment]::NewLine,([System.Text.UTF8Encoding]::new($false)))
-    Write-Output ('RESULT: '+$status+'; projects '+$complete+'/'+$MaxProjects+
-      '; official calls '+$calls+'/52; scanned '+$totalRows+
+    Write-Output ('RESULT: '+$status+'; projects '+$complete+'/'+$plannedCount+
+      '; official calls '+$calls+'/'+$requestLimit+'; scanned '+$totalRows+
       '; KIPRIS number-pair leads '+$records.Count)
-    Write-Output 'OUTPUT_FILE: ntis_project_reverse_pc_latest.json'
+    $outputLabel=if($SkipFirstProjects -eq 3){'ntis_project_reverse_remaining_23_pc_latest.json'}else{'ntis_project_reverse_pc_latest.json'}
+    Write-Output ('OUTPUT_FILE: '+$outputLabel)
     if($OfflineTest){
-        if($complete -ne $MaxProjects -or $errors -ne 0 -or
+        if($complete -ne $plannedCount -or $errors -ne 0 -or
            $fallbackChecked -lt 1 -or $records.Count -lt 1){
             throw 'OFFLINE_FULL_PATH_FAILED'
         }
         if(!$KeepOfflineOutput){Remove-Item -LiteralPath $exportPath -Force -ErrorAction SilentlyContinue}
-        Write-Output 'PASS: 26 project searches, documented TI03 fallback, strict type+project match and JSON export'
+        Write-Output ('PASS: '+$plannedCount+' project reverse searches, official TI03 fallback, strict ID checks and JSON export')
     }
 }catch{
     # No exception message or URL: Invoke-WebRequest can contain a secret key.
     $safe=@('LOAD_REVERSE_PLAN','LOAD_PROJECT_SOURCE','LOAD_PINNED_KIPRIS_IDENTIFIERS',
-        'VERIFY_PINNED_SOURCES','RUN_OFFICIAL_PROJECTID_SEARCH')
+        'VERIFY_PINNED_SOURCES','VERIFY_REAL_PROJECT_INDEX_POSITIVE_CONTROL',
+        'RUN_OFFICIAL_PROJECTID_SEARCH')
     $label=if($safe -contains $phase){$phase}else{'UNKNOWN_PHASE'}
     $type=$_.Exception.GetType().Name -replace '[^A-Za-z0-9]',''
     $line=[int]$_.InvocationInfo.ScriptLineNumber
