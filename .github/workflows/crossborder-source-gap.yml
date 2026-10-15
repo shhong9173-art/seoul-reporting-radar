@@ -40,6 +40,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Install PDF source-text extractor
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq poppler-utils
+          pdftotext -v
       - name: Verify NHTSA, dividend, and source-gap semantic safeguards
         run: |
           python -m compileall -q scripts/crossborder_scoop_watch.py scripts/dart_foreign_dividend_watch.py scripts/crossborder_source_gap_triage.py
