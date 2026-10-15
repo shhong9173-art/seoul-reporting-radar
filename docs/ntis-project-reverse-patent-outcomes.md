@@ -48,3 +48,24 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\ntis_project_reverse_
 - `python -m unittest discover -s tests -p 'test_ntis_project_reverse*.py' -v` — 식별번호와 사업화 과대 해석 차단
 - `python scripts/ntis_project_reverse_validate.py ntis_project_reverse_pc_latest.json` — 실제 PC 결과 수입 전 엄격한 구조·키·출처 검증
 - GitHub Actions `NTIS Project-ID Reverse Patent Outcome Regression`: Windows PowerShell 5.1에서 고정 실수집 소스 26건으로 검색계획을 구성한 뒤 **가상 공식 XML**을 사용하여 전체 루프·타입 검사·JSON 생성을 검증. 테스트의 번호 일치는 실제 NTIS 발견 사례가 아닙니다.
+
+## 2026-10-15 09:57 KST — 등록 PC의 실제 3개 과제 시범조회
+
+업로드된 `ntis_project_reverse_pc_latest.json`을 과거 공식 국가과제 데이터·고정 KIPRIS 출원번호 자료와 대조했습니다.
+
+- 정확히 **3/3개 과제번호 조회**, API 6회 완료, 오류 0회.
+- `2410017694` (글로벌엔지니어링 xEV 위치센서), `2410017896` ((주)오텍 PBV), `2410019058` (한빛이디에스 전력설비 센서): 모두 **TI 0, TI03 0, 실제 확인 성과행 0**.
+- 이 자료는 **NTIS 성과검색 서비스에 해당 특허 성과가 없다는 판정이 아님**. 공식 매뉴얼의 TI/TI03 명세는 확인됐으나 검색 필드가 실서버에서 과제번호를 정확히 색인하는지는 양성 대조군 검사로 증명되지 않았습니다.
+- 따라서 **나머지 23개 과제의 일괄조회는 보류**. 먼저 기존 `부분방전` 특허 성과검색의 실제 HIT에서 추출한 공식 `ProjectID`와 `ResultID`를 기준으로 같은 결과가 과제번호 검색에서도 재현되는지 검증합니다.
+
+### 검색 필드 양성 대조군 검증
+
+승인받은 Windows PC에서 **`scripts/ntis_project_field_control_pc.ps1`**과 **`scripts/Run_NTIS_Project_Field_Control.cmd`**를 같은 폴더에 두고 CMD를 실행합니다.
+
+실제 NTIS `rpatent`에서 먼저 `부분방전`을 조회하고, 정규화된 **10자리 과제번호와 성과ID가 동시에 들어 있는 공식 HIT 1건**을 메모리에서 선택합니다. 그 과제번호를 ① `searchField=TI`, ② `BI`, ③ 기본 전체검색, ④ `부분방전`+`TI03` 상세조건, ⑤ 과제번호+`TI03`로 조회합니다. **총 최대 6회**, 각 페이지 첫 10건만 확인합니다.
+
+단순 `TOTALHITS`뿐 아니라 최초 공식 성과의 **같은 `ResultID`와 `ProjectID`가 검색 결과에 다시 나타나는지** 기록합니다. `searchField`별로 0이 나오면 해당 경로의 검색 재현이 확인되지 않았다는 의미일 뿐 전체 성과 데이터 부재가 아닙니다.
+
+생성되는 `ntis_project_field_probe_pc_latest.json`에는 **검색별 총건수·응답행·같은 성과 재발견 여부만** 저장됩니다. 대조군의 과제번호, 성과ID, 관계없는 성과행, 개인명, URL 전체, API 키는 출력하지 않습니다. 파일을 메모장으로 확인한 뒤 해당 JSON만 채팅에 올리면 됩니다.
+
+Python 검사기 `scripts/ntis_project_field_control_validate.py`는 키 노출·과장된 기사 주장·예상 밖의 데이터 필드·10자리 무관 과제번호 저장까지 차단합니다. GitHub Actions의 Windows PowerShell 5.1 오프라인 가상 응답 테스트는 실제 서버에서 인덱싱이 된다는 증거가 아닙니다.
