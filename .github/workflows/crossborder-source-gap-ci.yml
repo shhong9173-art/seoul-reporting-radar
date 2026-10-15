@@ -1,0 +1,49 @@
+name: Crossborder Official Scoop Dossier Regression
+on:
+  pull_request:
+    paths:
+      - 'scripts/dart_foreign_dividend_watch.py'
+      - 'scripts/crossborder_source_gap_triage.py'
+      - 'tests/test_crossborder_scoop_watch.py'
+      - 'tests/test_crossborder_source_gap_triage.py'
+      - 'tests/test_crossborder_source_gap_view.cjs'
+      - 'crossborder-scoops.html'
+      - '.github/workflows/crossborder-source-gap.yml'
+      - '.github/workflows/crossborder-source-gap-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/crossborder_source_gap_triage.py'
+      - '.github/workflows/crossborder-source-gap-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  evidence-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compare NHTSA US recall and DART named dividends without unsupported exclusive conclusions
+        run: |
+          python -m compileall -q scripts/dart_foreign_dividend_watch.py scripts/crossborder_source_gap_triage.py
+          python -m unittest discover -s tests -p 'test_crossborder_scoop_watch.py' -v
+          python -m unittest discover -s tests -p 'test_crossborder_source_gap_triage.py' -v
+          node tests/test_crossborder_source_gap_view.cjs
+      - name: Saved primary-source regression output remains unapproved
+        run: |
+          python scripts/crossborder_source_gap_triage.py --out /tmp/crossborder_gap_review.json
+          python - <<'PY'
+          import json
+          d=json.load(open('/tmp/crossborder_gap_review.json',encoding='utf-8'))
+          assert d['confirmedScoops']==d['approvedArticles']==0
+          assert d['domesticRecallAbsenceVerified'] is False
+          assert d['foreignParentCashTransferVerified'] is False
+          assert all(x['pitchGate']['exclusiveConfirmed'] is False for x in d['items'])
+          print('Official source gap dossiers:', d['dossierCount'],
+                'US safety:',d['usSafetyDossiers'],
+                'named dividend income:',d['issuerExactDividendDossiers'])
+          PY
