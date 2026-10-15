@@ -123,6 +123,21 @@ class CrossBorderDossiers(unittest.TestCase):
                     x["type"]=="foreign_subsidiary_dividend_accounting")
         self.assertFalse(target["slovakGovernmentAccounts"]["officialEntityVerified"])
 
+    def test_czech_manufacturing_identity_not_dividend_or_importer(self):
+        from czech_factory_official_identity import verify
+        row=verify(lambda:{"ico":"27773035",
+            "obchodniJmeno":"Hyundai Motor Manufacturing Czech s.r.o."},now=NOW)
+        n,d=sources()
+        result=t.build(n,d,now=NOW,czech=row)
+        x=result["foreignLegalEntityLinks"]["hyundaiCzechFactory"]
+        self.assertTrue(x["identityVerified"])
+        self.assertEqual(x["ico"],"27773035")
+        self.assertFalse(x["auditedAccountsContentsReviewed"])
+        self.assertFalse(x["dividendsPaidVerified"])
+        self.assertEqual(result["sourceHealth"]["czechSubsidiaryRegistry"],
+                         "manufacturer_official_legal_identity_only")
+        self.assertFalse(result["foreignParentCashTransferVerified"])
+
     def test_wrong_entity_or_total_dividend_is_not_subsidiary_amount(self):
         x=note()
         x["tableExcerpt"]="당반기 배당금수익은 1,747,732백만원입니다. Kia Slovakia 현지공장 매출 32억원"
