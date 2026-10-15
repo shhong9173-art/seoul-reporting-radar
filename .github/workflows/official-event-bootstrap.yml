@@ -1,0 +1,66 @@
+name: Bootstrap Official Document Event-Date Queue
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/official-event-bootstrap.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: official-multisource-desk
+  cancel-in-progress: false
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Generate missing snapshot without any provider or KIPRIS requests
+        run: |
+          set -e
+          python -m unittest discover -s tests -p 'test_official_event_triage.py' -v
+          if test -f digests/official_event_triage_latest.json; then
+            echo 'Existing official event queue; do not replace current data'
+            exit 0
+          fi
+          python scripts/official_event_triage.py
+          python - <<'PY'
+          import json
+          d=json.load(open('digests/official_event_triage_latest.json',encoding='utf-8'))
+          assert d['status']=='official_date_triage'
+          assert d['confirmedScoops']==0 and d['approvedArticles']==0
+          assert d['freshOfficialReviewCount']==len(d['freshOfficialReview'])
+          assert all(x['officialDateInRecentWindow'] for x in d['freshOfficialReview'])
+          assert all(not x['exclusiveConfirmed'] for x in d['freshOfficialReview'])
+          assert d['firstRunBaseline']
+          print('Bootstrap safe:',d['freshOfficialReviewCount'],'public review docs')
+          PY
+      - name: Publish only newly missing baseline, not an already refreshed queue
+        run: |
+          set -e
+          if ! test -f digests/official_event_triage_latest.json; then exit 0; fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add digests/official_event_triage_latest.json
+          if git diff --cached --quiet; then
+            echo 'Already tracked on this branch; nothing to publish'
+            exit 0
+          fi
+          git commit -m 'data: bootstrap official event-date reporting queue [skip ci]'
+          for attempt in 1 2 3; do
+            git pull --rebase origin main
+            if git push origin HEAD:main; then exit 0; fi
+            sleep 4
+          done
+          echo 'Bootstrap push failed' >&2
+          exit 1
