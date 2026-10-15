@@ -37,7 +37,7 @@ for(const marker of [
   'annualReportComparativeConflict',
   'year2026LocalPaymentNotYetVerified',
   'sourceCount',
-  '같은 회계연도가 아니며',
+  '동일 회계연도가 아니며',
   'governmentHashVerifiedReports',
   'amountsIndependentlyAudited!==false',
   'SHA-256 검증된 정부 원본 PDF',
