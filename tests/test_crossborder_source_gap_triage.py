@@ -96,7 +96,7 @@ class CrossBorderDossiers(unittest.TestCase):
         self.assertEqual(result["sourceHealth"]["foreignSubsidiaryRegistries"],
                          "slovak_issuer_metadata_only")
         self.assertEqual(result["sourceHealth"]["czechSubsidiaryRegistry"],
-                         "not_connected")
+                         "not_connected_or_ares_identity_unavailable")
         self.assertEqual(result["confirmedScoops"],0)
 
     def test_failed_slovak_api_is_unknown_not_zero_or_verified(self):
