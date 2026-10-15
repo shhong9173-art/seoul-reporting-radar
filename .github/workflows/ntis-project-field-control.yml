@@ -1,0 +1,57 @@
+name: NTIS rpatent ProjectID Index Control
+on:
+  pull_request:
+    paths:
+      - 'scripts/ntis_project_field_control_pc.ps1'
+      - 'scripts/Run_NTIS_Project_Field_Control.cmd'
+      - 'scripts/ntis_project_field_control_validate.py'
+      - 'tests/test_ntis_project_field_control.py'
+      - 'digests/ntis_project_reverse_pc_latest.json'
+      - 'digests/ntis_project_field_probe_pc_latest.json'
+      - 'patent-rnd-dossiers.html'
+      - '.github/workflows/ntis-project-field-control.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'digests/ntis_project_reverse_pc_latest.json'
+      - 'digests/ntis_project_field_probe_pc_latest.json'
+      - '.github/workflows/ntis-project-field-control.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  python-provenance-and-security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify no identifier/secret leakage or false zero-absence claims
+        run: |
+          python -m unittest discover -s tests -p 'test_ntis_project_field_control.py' -v
+          python scripts/ntis_project_reverse_validate.py digests/ntis_project_reverse_pc_latest.json
+          if test -f digests/ntis_project_field_probe_pc_latest.json; then
+            python scripts/ntis_project_field_control_validate.py digests/ntis_project_field_probe_pc_latest.json
+          fi
+  windows-approved-pc-offline-replay:
+    runs-on: windows-latest
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+      - name: PowerShell 5.1 parses official NTIS ProjectID reference HIT
+        shell: powershell
+        run: |
+          .\scripts\ntis_project_field_control_pc.ps1 -SelfTest
+      - name: Run complete synthetic control-mode search and save JSON
+        shell: powershell
+        run: |
+          .\scripts\ntis_project_field_control_pc.ps1 -OfflineTest -KeepOfflineOutput
+      - name: Validate synthetic output contains only count-level evidence
+        shell: powershell
+        run: |
+          python scripts/ntis_project_field_control_validate.py "$env:TEMP\ntis_project_field_probe_offline.json"
+          python -m unittest discover -s tests -p 'test_ntis_project_field_control.py' -v
