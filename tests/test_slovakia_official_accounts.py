@@ -42,6 +42,10 @@ class SlovakOfficial(unittest.TestCase):
         self.assertEqual([x["financialYear"] for x in v["statements"]],[2025,2024])
         self.assertTrue(all(x["profitOrDividendAmountsParsed"] is False
                             for x in v["statements"]))
+        # Mock registry record IDs do not carry the real government IFRS
+        # attachments, so they must not yield a hard-coded clickable report.
+        self.assertTrue(all(x["officialIfrsReportDetailUrl"] is None
+                            for x in v["statements"]))
         for flag in ("actualNetProfitVerified","approvedDistributionAmountVerified",
                      "dividendPaymentToKoreanParentVerified","parentCashReceiptVerified",
                      "auditedLocalStatementsReadInFull","exclusiveConfirmed"):
@@ -60,6 +64,23 @@ class SlovakOfficial(unittest.TestCase):
         self.assertEqual({x["consolidationFlag"] for x in report["statements"]},
                          {"not_specified_by_api"})
         self.assertFalse(report["auditedLocalStatementsReadInFull"])
+
+    def test_government_ifrs_report_link_requires_actual_matching_report_id(self):
+        def source(url):
+            d=api_data(url)
+            if "/uctovna-zavierka?" in url:
+                year=int(d["obdobieDo"][:4])
+                d["idUctovnychVykazov"]=([9718744] if year==2024 else [10298519])
+            return d
+        r=a.registry_evidence(source,now=NOW)
+        links={x["financialYear"]:x["officialIfrsReportDetailUrl"]
+               for x in r["statements"]}
+        self.assertEqual(links[2024],
+            "https://www.registeruz.sk/cruz-public/domain/financialreport/show/9718744")
+        self.assertEqual(links[2025],
+            "https://www.registeruz.sk/cruz-public/domain/financialreport/show/10298519")
+        self.assertTrue(all(x["auditedPdfContentRead"] is False
+                            for x in r["statements"]))
 
     def test_kia_sales_slovakia_same_brand_wrong_ico_refused(self):
         def wrong(url):
