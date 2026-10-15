@@ -95,6 +95,23 @@ class NHTSAReport(unittest.TestCase):
         self.assertFalse(hits[0]["domesticRecallAbsenceVerified"])
         self.assertFalse(hits[0]["sameAnglePressFulltextChecked"])
 
+    def test_real_26v664_page_three_korea_thermal_allegation_vs_confirmed_fire(self):
+        actual=("July 2, 2026 – Hyundai received additional information related to "
+                "power seat switch performance and associated thermal event "
+                "allegations from the Korean market, resulting in technical review.")
+        refs=m.manufacturer_korea_market_mentions(["US-market assembled vehicle",
+                                                    "Part 573 chronology",
+                                                    actual])
+        self.assertEqual(len(refs),1)
+        self.assertEqual(refs[0]["pdfPage"],3)
+        self.assertTrue(refs[0]["incidentTermNearby"])
+        self.assertEqual(refs[0]["incidentLanguageClassification"],
+                         "thermal_event_allegation_unverified")
+        self.assertEqual(refs[0]["manufacturerInformationReceivedDateFromExactText"],
+                         "2026-07-02")
+        self.assertFalse(refs[0]["explicitFireConfirmedByManufacturer"])
+        self.assertFalse(refs[0]["domesticIncidentVerified"])
+
     def test_south_korean_assembly_for_usa_and_part573_fire_form_are_not_domestic_incident(self):
         pages=["South Korea production for sale in the United States. "
                "Description of the safety risk, including crash, fire, death, injury. "
