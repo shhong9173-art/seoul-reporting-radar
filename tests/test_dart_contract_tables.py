@@ -55,7 +55,8 @@ class ContractTableSourceTests(unittest.TestCase):
         r=t.extract_contract_terms([doc])
         self.assertEqual(r["fields"]["contract_amount"],"125,000,000,000")
         self.assertEqual(r["fields"]["counterparty"],"글로벌 전력망 운영사")
-        self.assertNotIn("recent_sales",r["fields"])
+        self.assertEqual(r["fields"]["recent_sales"],"200,000,000,000")
+        self.assertEqual(r["fields"]["sales_ratio"],"62.5")
         self.assertEqual(r["fieldEvidence"]["contract_amount"]["rowPattern"],
                          "three_cell_explicit_label")
         self.assertFalse(r["fieldEvidence"]["contract_amount"]["independentBusinessVerification"])
@@ -95,7 +96,11 @@ class ContractTableSourceTests(unittest.TestCase):
         <TR><TD>계약기간시작일</TD><TD>2026-22-99</TD></TR>
         <TR><TD>최근매출액(원)</TD><TD>19,000,000,000</TD></TR>
         </TABLE>"""
-        self.assertEqual(t.extract_contract_terms([html])["fields"],{})
+        fields=t.extract_contract_terms([html])["fields"]
+        self.assertEqual(fields,{"recent_sales":"19,000,000,000"})
+        self.assertNotIn("contract_amount",fields)
+        self.assertNotIn("counterparty",fields)
+        self.assertNotIn("contract_start",fields)
 
     def test_nested_tables_cannot_fake_parent_fields(self):
         html="""
