@@ -1,0 +1,382 @@
+"""Broader industry-beat OpenDART monitoring and evidence-gated changes.
+
+Separate *new official receipts*, issuer-stated amendments, independently
+verified original-to-amended values, and differences caused by re-parsing a
+same-receipt file. NONE means unreported/exclusive business impact.
+
+Companies without a verified DART corporation code remain visible as
+unresolved coverage, not "0 filings".
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+from datetime import datetime,timedelta,timezone
+from pathlib import Path
+from urllib.error import URLError
+from urllib.parse import urlencode
+from urllib.request import Request,urlopen
+
+from business_content import api_json
+from dart_lineage import event_type,has_correction,valid_receipt,source_link
+from recent_contracts import document_evidence
+from official_event_triage import dart_receipt_link
+
+KST=timezone(timedelta(hours=9))
+BEATS={
+ "자동차·부품·타이어":(
+  "현대자동차","기아","현대모비스","현대위아","HL만도","한국GM",
+  "KG모빌리티","르노코리아","한국타이어앤테크놀로지","넥센타이어",
+  "금호타이어","한온시스템","에스엘","현대오토에버",
+  "메르세데스벤츠코리아","BMW코리아","아우디코리아","폭스바겐코리아","혼다코리아"),
+ "철강":("포스코홀딩스","포스코","현대제철","KG스틸","세아홀딩스",
+        "세아제강","동국제강","동국씨엠","포스코인터내셔널"),
+ "비철":("고려아연","영풍","LS MnM"),
+ "전력기기·전선":("HD현대일렉트릭","엘에스일렉트릭","일진전기",
+       "효성중공업","대한전선","LS전선","가온전선","LS"),
+ "에너지·화학":("두산에너빌리티","한화솔루션","OCI","OCI홀딩스",
+       "GS","GS칼텍스","한국전력공사","SK이노베이션","씨에스윈드")
+}
+TARGETS={name:group for group,names in BEATS.items() for name in names}
+if sum(map(len,BEATS.values()))!=len(TARGETS):
+    raise ValueError("DART whitelist has duplicate company name")
+CODE=re.compile(r"^\d{8}$")
+DAY=re.compile(r"^20\d{6}$")
+IMPORTANT=(
+ "사업보고서","반기보고서","분기보고서","주요사항보고서",
+ "유상증자결정","무상증자결정","영업(잠정)실적",
+ "영업실적","타법인주식및출자증권","회사분할결정","합병결정",
+)
+PRIORITY_FIELDS=frozenset(("contract_amount","contract_start","contract_end",
+        "investment_amount","production_restart"))
+WINDOW_DAYS=30
+MAX_PAGES=3
+PAGE_SIZE=100
+MAX_DETAILS=12
+
+
+def interesting(title):
+    t="".join(str(title or "").split()).replace("[기재정정]","").replace("[첨부정정]","")
+    cat=event_type(t)
+    if cat:return cat
+    for label in IMPORTANT:
+        if label in t:return "정기·주요공시"
+    return None
+
+
+def fetch_official_list(key,company,code,start,end,*,get=api_json,max_pages=MAX_PAGES):
+    if (not key or company not in TARGETS or not isinstance(code,str)
+        or not CODE.fullmatch(code) or not DAY.fullmatch(start)
+        or not DAY.fullmatch(end) or start>end):
+        raise ValueError("missing_verifiable_issuer_and_period")
+    found={}
+    total_pages=1
+    for page in range(1,max_pages+1):
+        address="https://opendart.fss.or.kr/api/list.json?"+urlencode({
+            "crtfc_key":key,"corp_code":code,"bgn_de":start,"end_de":end,
+            "page_no":page,"page_count":PAGE_SIZE,"last_reprt_at":"N"})
+        obj=get(address)
+        if not isinstance(obj,dict):raise ValueError("malformed_list_response")
+        if obj.get("status")=="013":
+            if page!=1:raise ValueError("unexpected_empty_page_after_results")
+            return {"records":[],"pagesRead":1,"complete":True,
+                    "totalOfficialFilings":0,"status":"checked_no_filings"}
+        if obj.get("status")!="000":
+            raise RuntimeError("OpenDART list error "+str(obj.get("status","invalid"))[:8])
+        if not isinstance(obj.get("list"),list):
+            raise ValueError("missing_list_array")
+        try:
+            total_pages=int(obj.get("total_page",1))
+            total_count=int(obj.get("total_count",len(obj["list"])))
+        except (ValueError,TypeError) as exc:
+            raise ValueError("malformed_count") from exc
+        if total_pages<1 or total_count<0 or total_pages>100:
+            raise ValueError("unsafe_pagination")
+        if total_pages>max_pages:
+            # Never claim to have covered the official population.
+            return {"records":[],"pagesRead":page,"complete":False,
+                    "totalOfficialFilings":total_count,
+                    "status":"pagination_over_bound"}
+        for entry in obj["list"]:
+            if not isinstance(entry,dict) or entry.get("corp_code")!=code:continue
+            receipt=str(entry.get("rcept_no") or "")
+            dt=str(entry.get("rcept_dt") or "")
+            title=str(entry.get("report_nm") or "")
+            if not (valid_receipt(receipt) and DAY.fullmatch(dt)
+                    and dt==receipt[:8] and start<=dt<=end and title.strip()):
+                continue
+            kind=interesting(title)
+            if not kind:continue
+            row={
+                "company":company,"beat":TARGETS[company],"corpCode":code,
+                "receiptNo":receipt,"published":dt,
+                "report":title[:230],"category":kind,
+                "isCorrection":has_correction(title) and event_type(title) is not None,
+                "sourceUrl":source_link(receipt),"sourceType":"official_list_receipt",
+                "originalDocumentVerified":False,
+                "companyImpactVerified":False,"scoopConfirmed":False
+            }
+            if receipt in found and found[receipt]!=row:
+                raise ValueError("conflicting_duplicate_official_receipt")
+            found[receipt]=row
+        if page>=total_pages:
+            return {"records":sorted(found.values(),key=lambda x:x["receiptNo"],reverse=True),
+                    "pagesRead":page,"complete":True,
+                    "totalOfficialFilings":total_count,"status":"checked"}
+    raise ValueError("pagination_bounded")
+
+
+def valid_prior_snapshot(previous):
+    return (isinstance(previous,dict)
+            and previous.get("status")=="industry_beat_official_receipt_review"
+            and isinstance(previous.get("records"),list)
+            and isinstance(previous.get("firstSeen"),dict))
+
+
+def collect(codes,key,*,now=None,previous=None,query=fetch_official_list,
+            detail=document_evidence,limit=MAX_DETAILS,window_days=WINDOW_DAYS):
+    now=now or datetime.now(KST)
+    if now.utcoffset() is None or not 1<=limit<=15 or not 3<=window_days<=45:
+        raise ValueError("invalid_window_or_detail_limit")
+    if not isinstance(codes,dict) or not key:raise ValueError("codes_and_key_required")
+    now=now.astimezone(KST)
+    start=(now-timedelta(days=window_days-1)).strftime("%Y%m%d")
+    end=now.strftime("%Y%m%d")
+    prior_ok=valid_prior_snapshot(previous)
+    old_records={x["receiptNo"]:x for x in previous.get("records",[])
+                 if isinstance(x,dict) and valid_receipt(x.get("receiptNo"))} if prior_ok else {}
+    first_seen=dict(previous.get("firstSeen",{})) if prior_ok else {}
+    checks=[]
+    rows=[]
+    for name in TARGETS:
+        obj=codes.get(name)
+        number=obj.get("corp_code") if isinstance(obj,dict) else None
+        if not isinstance(number,str) or not CODE.fullmatch(number):
+            checks.append({"company":name,"beat":TARGETS[name],
+                           "status":"corp_code_unavailable",
+                           "officialRows":None,"relevantRows":None})
+            continue
+        try:
+            got=query(key,name,number,start,end)
+            if not isinstance(got,dict) or not isinstance(got.get("records"),list):
+                raise ValueError("malformed_official_result")
+            if got.get("complete") is not True:
+                checks.append({"company":name,"beat":TARGETS[name],
+                    "status":"pagination_uninspected","officialRows":got.get("totalOfficialFilings"),
+                    "relevantRows":None})
+                continue
+            validated=[]
+            for x in got["records"]:
+                if (not isinstance(x,dict) or x.get("corpCode")!=number
+                    or x.get("company")!=name or x.get("published")!=x.get("receiptNo","")[:8]
+                    or not dart_receipt_link(x.get("receiptNo"),x.get("sourceUrl"))
+                    or not start<=x["published"]<=end):
+                    raise ValueError("unverifiable_official_list_row")
+                validated.append(x)
+            rows.extend(validated)
+            checks.append({"company":name,"beat":TARGETS[name],"status":"checked",
+                           "officialRows":got.get("totalOfficialFilings"),
+                           "relevantRows":len(validated),"pagesRead":got.get("pagesRead")})
+        except (ValueError,RuntimeError,URLError,TimeoutError,OSError) as exc:
+            checks.append({"company":name,"beat":TARGETS[name],"status":"source_error",
+                           "errorType":type(exc).__name__,
+                           "officialRows":None,"relevantRows":None})
+    official_count=len(rows)
+    dedup={}
+    for row in rows:
+        receipt=row["receiptNo"]
+        if receipt in dedup and dedup[receipt]!=row:
+            raise ValueError("duplicate_receipt_conflict")
+        dedup[receipt]=row
+    rows=sorted(dedup.values(),key=lambda x:(x["published"],x["receiptNo"]),reverse=True)
+    first_run=not prior_ok
+    detailed=[]
+    by_number={}
+    # If full source already parsed in last run, reuse only the SAME receipt
+    # source evidence. This is not new corporate activity.
+    for row in rows:
+        old=old_records.get(row["receiptNo"])
+        if old and old.get("status") in ("official_document_read","original_verified",
+                                        "original_not_verified"):
+            by_number[row["receiptNo"]]=old
+    # Only publicly filed supply/production/investment cases get text access.
+    candidates=[r for r in rows if event_type(r["report"]) is not None
+                and r["receiptNo"] not in by_number]
+    selected=candidates[:limit]
+    for row in selected:
+        try:
+            result=detail(dict(row),key)
+            if result.get("receiptNo")!=row["receiptNo"] or result.get("company")!=row["company"]:
+                raise ValueError("detail_receipt_or_issuer_mismatch")
+            by_number[row["receiptNo"]]=result
+        except (ValueError,RuntimeError,URLError,TimeoutError,OSError) as exc:
+            by_number[row["receiptNo"]]={**row,"status":"detail_source_error",
+                                         "errorType":type(exc).__name__}
+    for row in rows:
+        receipt=row["receiptNo"]
+        item={**row,**by_number.get(receipt,{})}
+        item["firstObservedAt"]=first_seen.get(receipt,now.isoformat(timespec="seconds"))
+        item["firstObservedThisRun"]=(None if first_run else receipt not in first_seen)
+        item["detailStatus"]=item.get("status","not_inspected_bounded_detail_budget")
+        item["independentContractComparisonVerified"]=bool(
+            item.get("status")=="original_verified" and
+            isinstance(item.get("originalReceiptNo"),str) and
+            valid_receipt(item["originalReceiptNo"]) and
+            isinstance(item.get("changes"),list))
+        item["companyImpactVerified"]=False
+        item["scoopConfirmed"]=False
+        item["approvedForPitch"]=False
+        detailed.append(item)
+        first_seen.setdefault(receipt,item["firstObservedAt"])
+    return {
+        "generatedAt":now.isoformat(timespec="seconds"),
+        "status":"industry_beat_official_receipt_review",
+        "windowStart":start,"windowEnd":end,
+        "scopeCompanyCount":len(TARGETS),
+        "companiesCodeVerified":sum(c["status"]=="checked" for c in checks),
+        "companiesUnresolved":sum(c["status"]=="corp_code_unavailable" for c in checks),
+        "companiesWithSourceErrors":sum(c["status"] in ("source_error","pagination_uninspected")
+                                       for c in checks),
+        "sourceComplete":all(c["status"]=="checked" for c in checks),
+        "relevantFilings":official_count,
+        "detailBound":limit,"detailsAttempted":len(selected),
+        "uninspectedRelevantDetails":sum(event_type(r["report"]) is not None and
+                                          r["receiptNo"] not in by_number for r in rows),
+        "firstRunBaseline":first_run,
+        "sourceChecks":checks,"records":detailed,"firstSeen":first_seen,
+        "confirmedScoops":0,"approvedArticles":0,
+        "warning":"Official list coverage excludes unresolved DART corporation IDs and unavailable/non-DART entities. Newly OBSERVED official receipts do not prove unreported or novel business events. Filing value changes, including correction-table assertions, never prove actual shipments or contract impact."
+    }
+
+
+def change_review(current,previous=None,*,now=None):
+    """Compare exact receipts and verified original references only.
+
+    Different receipt numbers from the same issuer do NOT imply same contract.
+    Any identical-receipt extracted-value difference is parsing/source
+    consistency investigation, not a new contract.
+    """
+    now=now or datetime.now(KST)
+    if now.utcoffset() is None or not valid_prior_snapshot(current):
+        raise ValueError("invalid_current_snapshot")
+    previous=previous if valid_prior_snapshot(previous) else None
+    old={x["receiptNo"]:x for x in previous["records"]} if previous else {}
+    now_day=now.astimezone(KST).date()
+    signals=[]
+    for row in current["records"]:
+        receipt=row["receiptNo"]
+        prior=old.get(receipt)
+        kind="previously_seen_public_filing"
+        cited=[]
+        changed_fields=[]
+        new_receipt=prior is None
+        if prior is not None and row.get("observedFields")!=prior.get("observedFields"):
+            if row.get("observedFields") or prior.get("observedFields"):
+                kind="same_receipt_data_reparse_discrepancy"
+                changed_fields=sorted(set((row.get("observedFields") or {}).keys())
+                                      |set((prior.get("observedFields") or {}).keys()))
+        elif new_receipt and row.get("isCorrection"):
+            source_changes=row.get("changes",[])
+            original=row.get("originalReceiptNo")
+            if (row.get("independentContractComparisonVerified") is True
+                and valid_receipt(original) and dart_receipt_link(original,row.get("originalSourceUrl"))
+                and source_changes
+                and all(x.get("basis")=="independent_primary_documents" and
+                        x.get("needsCompanyConfirmation") is True for x in source_changes)):
+                kind="two_official_documents_changed_terms"
+                cited=source_changes[:12]
+            else:
+                issuer=row.get("issuerCorrectionTable") or {}
+                values=issuer.get("changes",[])
+                if issuer.get("status")=="issuer_table_material_changes_for_review" and isinstance(values,list) and values:
+                    kind="issuer_stated_correction_only"
+                    cited=[v for v in values if
+                        isinstance(v,dict) and
+                        v.get("basis")=="issuer_reported_amendment_table_only"
+                        and v.get("commercialEffectVerified") is False][:8]
+                else:
+                    kind="new_observed_correction_unconfirmed_change"
+        elif new_receipt:
+            kind="newly_observed_public_filing"
+        try:
+            official_day=datetime.strptime(row["published"],"%Y%m%d").date()
+        except (ValueError,TypeError):continue
+        recent=0<=(now_day-official_day).days<=2
+        if not new_receipt and kind=="previously_seen_public_filing":continue
+        # Every non-duplicate candidate has exact DART URL from upstream.
+        signals.append({
+            "company":row["company"],"beat":row["beat"],"receiptNo":receipt,
+            "officialDate":row["published"],"sourceUrl":row["sourceUrl"],
+            "title":row["report"],"status":kind,
+            "recentOfficialDocument":recent,
+            "newObservation":(None if current["firstRunBaseline"] else new_receipt),
+            "companyInOfficialScope":True,
+            "priorReceiptIndependentCompared":kind=="two_official_documents_changed_terms",
+            "originalReceiptNo":(row.get("originalReceiptNo")
+                        if kind=="two_official_documents_changed_terms" else None),
+            "changedTermsForReview":cited,"sourceReparseFieldKeys":changed_fields,
+            "businessImpactVerified":False,
+            "priorNewsFulltextChecked":False,
+            "scoopConfirmed":False,"approvedForPitch":False,
+            "nextCheck":(
+             "같은 공시번호의 데이터 추출 차이: 공식 원문과 수집기 코드 확인 (기업 변화로 해석 금지)"
+             if kind=="same_receipt_data_reparse_discrepancy" else
+             "명시된 원공시 및 전후 공시 원문·기보도 기사 전문·실제 기업 영향 확인"
+             if row.get("isCorrection") else
+             "공식 접수내용/동일 사건 기보도/출입처 실제 변화를 확인")
+        })
+    signals.sort(key=lambda r:(not r["recentOfficialDocument"],r["officialDate"],
+                               r["receiptNo"]),reverse=False)
+    # Sort recent first, then newest within group.
+    signals.sort(key=lambda r:(not r["recentOfficialDocument"],-int(r["officialDate"]),
+                               r["company"],r["receiptNo"]))
+    return {
+      "generatedAt":now.astimezone(KST).isoformat(timespec="seconds"),
+      "sourceGeneratedAt":current["generatedAt"],
+      "previousSourceGeneratedAt":previous["generatedAt"] if previous else None,
+      "status":"official_receipt_change_review_not_exclusive",
+      "baselineOnly":current["firstRunBaseline"] or previous is None,
+      "scopedSourcesComplete":current["sourceComplete"],
+      "monitoredCompanies":current["scopeCompanyCount"],
+      "companiesMissingCode":current["companiesUnresolved"],
+      "companiesWithFailures":current["companiesWithSourceErrors"],
+      "observedSignals":len(signals),
+      "recentOfficialReviewCount":sum(x["recentOfficialDocument"] for x in signals),
+      "confirmedScoops":0,"approvedArticles":0,
+      "warning":"A new or changed DART receipt is public. Issuer correction statements are NOT independently verified original-to-current contract effects; same-receipt parser changes are not new business developments. All prior-media/operational impact conclusions require separate reporting.",
+      "signals":signals[:140]
+    }
+
+
+def main():
+    p=argparse.ArgumentParser()
+    p.add_argument("--codes",default="dart_corp_codes.json")
+    p.add_argument("--source",default="digests/dart_beat_monitor_latest.json")
+    p.add_argument("--changes",default="digests/dart_beat_changes_latest.json")
+    p.add_argument("--detail-limit",type=int,default=MAX_DETAILS)
+    a=p.parse_args()
+    key=os.environ.get("DART_API_KEY","").strip()
+    if not key:raise SystemExit("DART_API_KEY missing: keep last verified outputs")
+    read=lambda x:json.loads(Path(x).read_text(encoding="utf-8"))
+    companies=read(a.codes).get("companies",{})
+    try:previous=read(a.source)
+    except (OSError,ValueError):previous=None
+    result=collect(companies,key,previous=previous,limit=a.detail_limit)
+    if result["companiesCodeVerified"]==0:
+        raise SystemExit("OpenDART no successful company sources: preserve previous snapshots")
+    signals=change_review(result,previous=previous)
+    for path,data in ((a.source,result),(a.changes,signals)):
+        dest=Path(path);dest.parent.mkdir(parents=True,exist_ok=True)
+        temp=dest.with_suffix(".tmp")
+        temp.write_text(json.dumps(data,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
+        temp.replace(dest)
+    print("DART beat monitor",result["scopeCompanyCount"],"targets",
+          result["companiesCodeVerified"],"checked",
+          result["companiesUnresolved"],"missing code",
+          result["companiesWithSourceErrors"],"errors",
+          result["relevantFilings"],"public receipts",
+          signals["recentOfficialReviewCount"],"recent dated reviews, exclusives 0")
+
+if __name__=="__main__":main()

@@ -1,0 +1,161 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>전체 출입처 DART 수집·변화 검증 | 산업부 레이더</title>
+<style>
+:root{font:15px/1.6 system-ui,-apple-system,"Malgun Gothic",sans-serif;color:#233b4c;background:#f5f7fa}*{box-sizing:border-box}
+body{margin:0}main{max-width:1080px;margin:auto;padding:24px 18px 80px}
+a{color:#125b84}h1{font-size:25px;line-height:1.3}h2{font-size:19px;margin:24px 0 10px}
+.notice,.card{border:1px solid #d8e2eb;background:white;border-radius:10px;padding:15px;margin:11px 0}
+.warn{border-left:4px solid #ac8439;background:#fffbf4}.dim{font-size:13px;color:#5f7585}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:10px}
+.stats>div{padding:12px;border-radius:9px;background:#fff;border:1px solid #dce5ed}
+.num{font-size:24px;font-weight:700;font-variant-numeric:tabular-nums}
+.tag{display:inline-block;border-radius:6px;background:#edf2f6;font-size:12px;padding:3px 8px;margin-right:7px}
+.row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:8px 0}
+.row>div{padding:9px;background:#f5f7fa;border-radius:7px;overflow-wrap:anywhere}
+select{font:inherit;padding:7px;border:1px solid #bdccd7;background:#fff;border-radius:6px}p{margin:7px 0}
+@media(max-width:570px){.row{grid-template-columns:1fr}}details{margin:13px 0}
+</style></head><body><main>
+<p class="dim"><a href="index.html">산업부 취재 레이더</a> / <a href="official-today.html">최근 공식문서</a> / <a href="dart-contract-followup.html">계약 상세</a></p>
+<h1>출입처 전체 DART 수집·원문 변화 검증</h1>
+<p class="notice warn"><strong>공식 문서에 변화가 생겼다는 사실과 새로운 단독기사는 다릅니다.</strong>
+동일 공시번호의 재파싱 차이는 시스템 점검, 정정문 자체의 전후 기재는 발행회사 진술,
+정확한 원공시와 두 문서를 독립 대조한 차이는 공식 기재값 변경으로 서로 구별합니다.
+어느 경우에도 실제 매출·수주·출하·사업 영향과 기보도 여부는 별도 검증해야 합니다.</p>
+<p id="status" class="notice" role="status">공식 출입처 DART 자료 범위와 각 기업별 수집 결과 확인 중</p>
+<div id="summary" class="stats"></div>
+<h2>최근 3일 공개 공시 검토</h2>
+<p class="dim">공식 접수일을 기준으로 3일 내 자료만 우선 표시합니다. 이전에 관측하지 않은 공개 공시라고 해서 미보도 단독이 아닙니다.</p>
+<label for="beat">분야</label>
+<select id="beat"><option value="ALL">전체</option></select>
+<label for="source">증거</label>
+<select id="source">
+ <option value="ALL">모든 공시 검토</option>
+ <option value="two_official_documents_changed_terms">원공시 독립 대조</option>
+ <option value="issuer_stated_correction_only">정정문 자체의 변경 기재</option>
+ <option value="newly_observed_public_filing">공개 문서 새 관측</option>
+ <option value="source_error">오류·미연결 기업</option>
+</select>
+<div id="recent"></div>
+<details><summary>기존 공개일의 검토 기록 (<span id="older-count">0</span>건)</summary><div id="older"></div></details>
+<h2>출입처별 수집 상황</h2>
+<p class="dim">회사가 공식 공시 대상인지, 정확한 법인명으로 고유번호가 확인되는지는 각 회사별로 다릅니다. 코드 없는 회사를 '공시 0건'으로 계산하지 않습니다.</p>
+<div id="checks"></div>
+</main><script>
+(async()=>{"use strict";
+const $=x=>document.querySelector(x);
+const el=(tag,value,cls)=>{const n=document.createElement(tag);if(value!==undefined)n.textContent=String(value);if(cls)n.className=cls;return n};
+const p=(host,msg,cls)=>host.append(el("p",msg,cls));
+const labels={
+ two_official_documents_changed_terms:"공식 원공시·정정문 독립 대조(계약 영향 미확정)",
+ issuer_stated_correction_only:"정정문 자체의 전후 기재(원공시 직접 대조 미완료)",
+ new_observed_correction_unconfirmed_change:"정정공시 새 관측(실질 변경 미확인)",
+ newly_observed_public_filing:"공개된 공시 접수 기록(본문 미검증 가능)",
+ same_receipt_data_reparse_discrepancy:"같은 접수번호 원문 추출값 불일치 · 코드/원천 점검",
+ previously_seen_public_filing:"이미 관측된 공시"
+};
+function official(host,url,label,receipt){
+ try{
+  const u=new URL(url);
+  if(u.protocol!=="https:"||u.hostname!=="dart.fss.or.kr"||
+     u.pathname!=="/dsaf001/main.do"||
+     u.searchParams.get("rcpNo")!==receipt||
+     !/^\d{14}$/.test(receipt)||[...u.searchParams.keys()].length!==1)return;
+  const a=el("a",label);a.href=u.href;a.target="_blank";a.rel="noopener noreferrer";host.append(a);
+ }catch(e){}
+}
+function record(x,host){
+ if(x.scoopConfirmed!==false||x.approvedForPitch!==false||
+    x.businessImpactVerified!==false||x.priorNewsFulltextChecked!==false)
+   throw Error("근거가 없는 사업 영향/단독 검증 플래그");
+ const c=el("article",undefined,"card");
+ c.append(el("span",x.beat,"tag"),el("span",x.officialDate+" 공개","tag"));
+ c.append(el("h2",x.company+" · "+x.title));
+ p(c,labels[x.status]||"공식 문서 검토 상태 확인 필요","dim");
+ p(c,"공식 접수번호 "+x.receiptNo+" · "+
+  (x.newObservation===null?"첫 수집 기준선":x.newObservation?"새로 관측한 기존 공개문서(미보도 증명 아님)":"기존 관측 기록"),"dim");
+ official(c,x.sourceUrl,"DART 공시 원문 ↗",x.receiptNo);
+ if(x.originalReceiptNo && x.priorReceiptIndependentCompared){
+   p(c,"검증한 원공시 접수번호 "+x.originalReceiptNo,"dim");
+   official(c,"https://dart.fss.or.kr/dsaf001/main.do?rcpNo="+x.originalReceiptNo,
+     "원공시 보기 ↗",x.originalReceiptNo);
+ }
+ for(const t of x.changedTermsForReview||[]){
+   const independently=t.basis==="independent_primary_documents";
+   const issuer=t.basis==="issuer_reported_amendment_table_only";
+   if(!(independently||issuer))throw Error("공식 원문 변경 근거 없음");
+   if(issuer&&x.priorReceiptIndependentCompared)throw Error("정정문 설명과 원공시 비교 근거 혼합");
+   p(c,independently?
+       "원공시·정정문에서 각각 검증된 항목: "+t.field:
+       "발행회사가 정정문에서 설명한 항목: "+t.fieldLabel,"dim");
+   const side=el("div",undefined,"row");
+   const before=el("div");before.append(el("small",independently?"원공시":"정정문 기재 '정정 전'"),el("p",t.before));
+   const after=el("div");after.append(el("small",independently?"정정공시":"정정문 기재 '정정 후'"),el("p",t.after));
+   side.append(before,after);c.append(side);
+ }
+ if(x.sourceReparseFieldKeys?.length)
+   p(c,"동일 공시번호 재파싱 검증 항목: "+x.sourceReparseFieldKeys.join(", ")+" (기업의 신규 사건 아님)","dim");
+ p(c,"취재 확인: "+x.nextCheck,"dim");
+ host.append(c);
+}
+try{
+ const [r1,r2]=await Promise.all([
+   fetch("digests/dart_beat_monitor_latest.json",{cache:"no-store"}),
+   fetch("digests/dart_beat_changes_latest.json",{cache:"no-store"})
+ ]);
+ if(!r1.ok||!r2.ok)throw Error("공식 출입처별 초깃값 미생성");
+ const src=await r1.json(),changes=await r2.json();
+ if(src.status!=="industry_beat_official_receipt_review"||
+    changes.status!=="official_receipt_change_review_not_exclusive"||
+    changes.sourceGeneratedAt!==src.generatedAt||
+    !Array.isArray(src.sourceChecks)||!Array.isArray(changes.signals)||
+    src.confirmedScoops!==0||changes.confirmedScoops!==0||
+    src.approvedArticles!==0||changes.approvedArticles!==0)
+   throw Error("공식 출처 스냅샷 또는 단독·기업 영향 검증 수준 불일치");
+ const hours=(Date.now()-Date.parse(src.generatedAt))/3600000;
+ const stale=!Number.isFinite(hours)||hours>24||hours<(-1);
+ $("#status").textContent=
+  "공식 자료 갱신 "+src.generatedAt+" · 공시 접수일 조회 "+src.windowStart+"~"+src.windowEnd+
+  " · "+(src.sourceComplete?"조회 대상 전부 정상":"부분 조회·고유번호 누락(전체 0건 해석 금지)")+
+  (changes.baselineOnly?" · 첫 조회 기준선(새로운 미보도 사실 미확정)":"")+
+  (stale?" · 24시간 초과: 현재 최신 공시 판단 불가":"")+
+  " · 단독 확정 0건";
+ const cards=[["관리 대상",src.scopeCompanyCount],
+              ["공식 조회 성공",src.companiesCodeVerified],
+              ["고유번호 미확인",src.companiesUnresolved],
+              ["수집 오류·페이지 누락",src.companiesWithSourceErrors],
+              ["확인된 공개 공시",src.relevantFilings],
+              ["최신 3일 검토",changes.recentOfficialReviewCount]];
+ for(const [name,val] of cards){const c=el("div");c.append(el("span",name,"dim"),el("div",val,"num"));$("#summary").append(c)}
+ const groups=[...new Set(src.sourceChecks.map(x=>x.beat))];
+ for(const group of groups){const o=el("option",group);o.value=group;$("#beat").append(o)}
+ function rerender(){
+  $("#recent").replaceChildren();$("#older").replaceChildren();$("#checks").replaceChildren();
+  const group=$("#beat").value,k=$("#source").value;
+  const belongs=x=>(group==="ALL"||x.beat===group);
+  const relevant=changes.signals.filter(x=>belongs(x)&&(k==="ALL"||x.status===k));
+  const now=relevant.filter(x=>x.recentOfficialDocument);
+  const older=relevant.filter(x=>!x.recentOfficialDocument);
+  $("#older-count").textContent=older.length;
+  for(const x of now)record(x,$("#recent"));
+  for(const x of older)record(x,$("#older"));
+  if(!now.length)p($("#recent"),"선택한 범위에 검증 중인 최신 공시가 없습니다. 원천 수집 누락·미연결 여부를 먼저 확인하세요.","notice");
+  const targets=src.sourceChecks.filter(belongs).filter(x=>k==="ALL"||
+    (k==="source_error"&&x.status!=="checked"));
+  for(const x of targets){
+    const c=el("div",undefined,"card");
+    c.append(el("span",x.beat,"tag"),el("strong",x.company));
+    p(c,x.status==="checked"?
+      "공식 회사 공시 조회 정상 · 기간 내 전체 공시 "+(x.officialRows??"미확인")+
+      "건 · 선별 대상 "+(x.relevantRows??"미확인")+"건":
+      x.status==="corp_code_unavailable"?"공식 고유번호 미확인 또는 비공시 대상(공시 없음으로 판정 불가)":
+      x.status==="pagination_uninspected"?"공식 자료 페이지 상한으로 수집 불완전":
+      "공식 API 오류로 수집 실패(공시 없음으로 판정 불가)","dim");
+    $("#checks").append(c);
+  }
+ }
+ $("#beat").addEventListener("change",rerender);
+ $("#source").addEventListener("change",rerender);
+ rerender();
+}catch(e){$("#status").textContent="DART 전체 출입처 자료 확인 실패: "+e.message+" · 조회 실패를 단독/공시 0건으로 간주하지 않습니다.";}
+})();
+</script></body></html>

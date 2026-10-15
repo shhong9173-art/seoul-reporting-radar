@@ -1,0 +1,50 @@
+name: DART Industry Beat Coverage and Changes Regression
+on:
+  pull_request:
+    paths:
+      - 'scripts/dart_beat_monitor.py'
+      - 'scripts/dart_corp_registry.py'
+      - 'tests/test_dart_beat_monitor.py'
+      - 'tests/test_dart_beat_monitor_view.cjs'
+      - 'dart-beat-monitor.html'
+      - 'index.html'
+      - '.github/workflows/dart-beat-monitor.yml'
+      - '.github/workflows/dart-beat-monitor-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/dart_beat_monitor.py'
+      - '.github/workflows/dart-beat-monitor-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test-official-provenance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Source identity, missing coverage, exact receipts and official changes
+        run: |
+          python -m compileall -q scripts/dart_beat_monitor.py scripts/dart_corp_registry.py
+          python -m unittest discover -s tests -p 'test_dart_beat_monitor.py' -v
+          python -m unittest discover -s tests -p 'test_official_foreign_contracts.py' -v
+          python -m unittest discover -s tests -p 'test_dart_issuer_table_review.py' -v
+          node tests/test_dart_beat_monitor_view.cjs
+      - name: Inspect committed company ID scope without live provider queries
+        run: |
+          python - <<'PY'
+          import json,sys
+          sys.path.insert(0,'scripts')
+          from dart_beat_monitor import TARGETS
+          j=json.load(open('dart_corp_codes.json',encoding='utf-8'))
+          m=j.get('companies',{})
+          good=[x for x in TARGETS if isinstance(m.get(x),dict) and
+                isinstance(m[x].get('corp_code'),str) and len(m[x]['corp_code'])==8]
+          missing=[x for x in TARGETS if x not in good]
+          assert len(TARGETS)>=45 and len(good)>=20
+          print('Exact company map: targets',len(TARGETS),'coded',len(good),'unresolved',len(missing))
+          PY

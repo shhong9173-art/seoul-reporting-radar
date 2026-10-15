@@ -1,0 +1,192 @@
+"""Regression for complete beat coverage, bounded DART paging and exact change proofs."""
+import io
+import json
+import sys
+import unittest
+import zipfile
+from datetime import datetime,timedelta,timezone
+from pathlib import Path
+from urllib.parse import parse_qs,urlsplit
+
+ROOT=Path(__file__).resolve().parents[1]
+sys.path.insert(0,str(ROOT/"scripts"))
+import dart_beat_monitor as m
+import dart_corp_registry as registry
+
+NOW=datetime(2026,10,15,18,0,tzinfo=timezone(timedelta(hours=9)))
+
+def item(name,code,receipt,kind="단일판매ㆍ공급계약체결"):
+    return {"company":name,"beat":m.TARGETS[name],"corpCode":code,
+        "receiptNo":receipt,"published":receipt[:8],"report":kind,
+        "category":m.interesting(kind),"isCorrection":"정정" in kind,
+        "sourceUrl":"https://dart.fss.or.kr/dsaf001/main.do?rcpNo="+receipt,
+        "sourceType":"official_list_receipt","scoopConfirmed":False}
+def fake_list(key,company,code,start,end):
+    return {"records":[item(company,code,"20261014800222")] if company=="현대자동차" else [],
+            "pagesRead":1,"status":"checked","complete":True,"totalOfficialFilings":1}
+def fake_detail(row,key):
+    return {**row,"status":"official_document_read",
+            "observedFields":{"contract_amount":"100,000,000"},
+            "observedFieldEvidence":{"contract_amount":{"basis":"same_official_table_row"}},
+            "scoopConfirmed":False}
+def sparse_codes():
+    return {"현대자동차":{"corp_code":"00164742"},
+            "KG스틸":{"corp_code":"00112233"}}
+
+class BeatCoverageTests(unittest.TestCase):
+    def test_issuer_scope_contains_all_five_beats_and_missing_visible(self):
+        self.assertGreaterEqual(len(m.TARGETS),45)
+        for expected in ("현대자동차","KG스틸","LS전선","HD현대일렉트릭",
+                         "고려아연","영풍","한국GM","르노코리아","GS칼텍스"):
+            self.assertIn(expected,m.TARGETS)
+        d=m.collect(sparse_codes(),"key",now=NOW,query=fake_list,detail=fake_detail)
+        self.assertEqual(d["scopeCompanyCount"],len(m.TARGETS))
+        self.assertEqual(d["companiesCodeVerified"],2)
+        self.assertEqual(d["companiesUnresolved"],len(m.TARGETS)-2)
+        self.assertFalse(d["sourceComplete"])
+        self.assertTrue(any(c["status"]=="corp_code_unavailable" for c in d["sourceChecks"]))
+        self.assertTrue(d["firstRunBaseline"])
+        self.assertEqual(d["detailsAttempted"],1)
+        signals=m.change_review(d,now=NOW)
+        self.assertTrue(signals["baselineOnly"])
+        self.assertEqual(signals["confirmedScoops"],0)
+        self.assertIsNone(signals["signals"][0]["newObservation"])
+
+    def test_public_list_pagination_works_without_fabricating_zero(self):
+        called=[]
+        def fetch(uri):
+            q=parse_qs(urlsplit(uri).query)
+            called.append(int(q["page_no"][0]))
+            num=called[-1]
+            return {"status":"000","total_page":2,"total_count":2,"list":[
+              {"corp_code":"00164742","rcept_no":f"2026101{num}800111",
+               "rcept_dt":f"2026101{num}","report_nm":"단일판매ㆍ공급계약체결"}
+            ]}
+        result=m.fetch_official_list("key","현대자동차","00164742",
+                                    "20261001","20261015",get=fetch)
+        self.assertEqual(called,[1,2])
+        self.assertTrue(result["complete"])
+        self.assertEqual(len(result["records"]),2)
+        self.assertEqual(result["pagesRead"],2)
+
+    def test_over_max_page_fails_closed_and_cannot_report_zero(self):
+        def fetch(_):
+            return {"status":"000","total_page":4,"total_count":401,"list":[]}
+        result=m.fetch_official_list("key","현대자동차","00164742",
+                                    "20261001","20261015",get=fetch)
+        self.assertFalse(result["complete"])
+        self.assertEqual(result["status"],"pagination_over_bound")
+        self.assertEqual(result["totalOfficialFilings"],401)
+
+    def test_provider_error_and_checked_zero_differ(self):
+        def err(*a):
+            raise RuntimeError("provider timeout")
+        d=m.collect(sparse_codes(),"key",now=NOW,query=err,detail=fake_detail)
+        self.assertEqual(d["companiesWithSourceErrors"],2)
+        self.assertFalse(d["sourceComplete"])
+        self.assertEqual(d["relevantFilings"],0)
+        self.assertEqual(d["sourceChecks"][0]["status"],"source_error")
+        def zero(*a):
+            return {"records":[],"pagesRead":1,"complete":True,
+                    "status":"checked_no_filings","totalOfficialFilings":0}
+        z=m.collect(sparse_codes(),"key",now=NOW,query=zero,detail=fake_detail)
+        self.assertEqual(z["companiesCodeVerified"],2)
+        self.assertEqual(z["relevantFilings"],0)
+        self.assertEqual(z["sourceChecks"][0]["status"],"checked")
+
+    def test_first_seen_is_not_media_first_report_or_exclusivity(self):
+        prev=m.collect(sparse_codes(),"key",now=NOW,query=fake_list,detail=fake_detail)
+        fresh=m.collect(sparse_codes(),"key",now=NOW+timedelta(hours=2),
+                        query=fake_list,detail=fake_detail,previous=prev)
+        self.assertFalse(fresh["firstRunBaseline"])
+        self.assertFalse(fresh["records"][0]["firstObservedThisRun"])
+        self.assertEqual(fresh["detailsAttempted"],0)
+        signals=m.change_review(fresh,previous=prev,now=NOW+timedelta(hours=2))
+        self.assertEqual(signals["observedSignals"],0)
+
+    def test_issuer_declared_material_differentiated_from_two_verified_docs(self):
+        def correction(row,key):
+            return {**row,"status":"original_not_verified",
+                "issuerCorrectionTable":{"status":"issuer_table_material_changes_for_review",
+                    "changes":[{"fieldLabel":"계약금액","before":"100","after":"150",
+                                "basis":"issuer_reported_amendment_table_only",
+                                "commercialEffectVerified":False}]}}
+        def records(key,name,code,start,end):
+            return {"records":[item(name,code,"20261015800221" if name=="현대자동차" else "20261015800222","[기재정정]단일판매ㆍ공급계약체결")],
+                    "complete":True,"pagesRead":1,"totalOfficialFilings":1}
+        d=m.collect(sparse_codes(),"key",now=NOW,query=records,detail=correction)
+        signals=m.change_review(d,now=NOW)["signals"]
+        self.assertEqual(signals[0]["status"],"issuer_stated_correction_only")
+        self.assertFalse(signals[0]["priorReceiptIndependentCompared"])
+        self.assertFalse(signals[0]["businessImpactVerified"])
+        self.assertFalse(signals[0]["scoopConfirmed"])
+
+    def test_strict_independent_original_receipt_only(self):
+        def correction(row,key):
+            return {**row,"status":"original_verified",
+                "originalReceiptNo":"20261001800304",
+                "originalSourceUrl":"https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261001800304",
+                "changes":[{"field":"contract_amount","before":"100",
+                            "after":"200","basis":"independent_primary_documents",
+                            "needsCompanyConfirmation":True}]}
+        def records(key,name,code,start,end):
+            return {"records":[item(name,code,"20261015800221" if name=="현대자동차" else "20261015800222","[기재정정]단일판매ㆍ공급계약체결")],
+                    "complete":True,"pagesRead":1,"totalOfficialFilings":1}
+        d=m.collect(sparse_codes(),"key",now=NOW,query=records,detail=correction)
+        x=m.change_review(d,now=NOW)["signals"][0]
+        self.assertEqual(x["status"],"two_official_documents_changed_terms")
+        self.assertTrue(x["priorReceiptIndependentCompared"])
+        self.assertEqual(x["changedTermsForReview"][0]["before"],"100")
+        self.assertFalse(x["businessImpactVerified"])
+
+    def test_same_receipt_reparse_discrepancy_not_real_business_change(self):
+        first=m.collect(sparse_codes(),"key",now=NOW,query=fake_list,detail=fake_detail)
+        later=m.collect(sparse_codes(),"key",now=NOW+timedelta(hours=1),
+                        query=fake_list,detail=fake_detail,previous=first)
+        later["records"][0]["observedFields"]={"contract_amount":"999,000,000"}
+        signal=m.change_review(later,previous=first,now=NOW+timedelta(hours=1))["signals"][0]
+        self.assertEqual(signal["status"],"same_receipt_data_reparse_discrepancy")
+        self.assertFalse(signal["businessImpactVerified"])
+        self.assertFalse(signal["scoopConfirmed"])
+
+    def test_nonrelated_and_invalid_corp_name_rejected(self):
+        with self.assertRaises(ValueError):
+            m.fetch_official_list("key","삼성전기","00126371","20261001","20261015")
+        with self.assertRaises(ValueError):
+            m.fetch_official_list("key","현대자동차","WRONG","20261001","20261015")
+
+class RegistryTests(unittest.TestCase):
+    def sample_zip(self):
+        entries=[("<list><corp_code>00164742</corp_code><corp_name>(주)현대자동차</corp_name></list>"),
+                 ("<list><corp_code>00880099</corp_code><corp_name>주식회사 케이지스틸</corp_name></list>")]
+        entries += [f"<list><corp_code>{i:08d}</corp_code><corp_name>기타기업{i}</corp_name></list>"
+                    for i in range(1000,2000)]
+        data=("<result>"+"".join(entries)+"</result>").encode()
+        io_buffer=io.BytesIO()
+        with zipfile.ZipFile(io_buffer,"w",zipfile.ZIP_DEFLATED) as z:
+            z.writestr("CORPCODE.xml",data)
+        return io_buffer.getvalue()
+
+    def test_unique_official_match_populates_missing_only(self):
+        idx,n=registry.official_index(self.sample_zip())
+        self.assertGreaterEqual(n,1000)
+        new,report=registry.resolve(sparse_codes(),idx,now=NOW,registry_count=n)
+        self.assertEqual(new["KG스틸"]["corp_code"],"00112233")
+        self.assertEqual(new["현대자동차"]["corp_code"],"00164742")
+        self.assertEqual(report["manualConflicts"],1)
+        self.assertTrue(any(x["status"]=="existing_code_official_name_mismatch_manual_review"
+                            for x in report["companies"] if x["company"]=="KG스틸"))
+        new,report=registry.resolve({"현대자동차":{"corp_code":"00164742"}},idx,now=NOW,registry_count=n)
+        self.assertEqual(new["KG스틸"]["corp_code"],"00880099")
+        self.assertGreaterEqual(report["newUniqueCodesAdded"],1)
+
+    def test_ambiguous_legal_name_is_not_resolved(self):
+        new,report=registry.resolve({},{"케이지스틸":{"00111111","00222222"}},now=NOW)
+        self.assertNotIn("KG스틸",new)
+        self.assertGreaterEqual(report["manualConflicts"],1)
+
+    def test_fake_xml_nonzip_never_claims_code(self):
+        with self.assertRaises(ValueError):
+            registry.official_index(b"<result><list><corp_code>12345678</corp_code></list></result>")
+
+if __name__=="__main__":unittest.main()
