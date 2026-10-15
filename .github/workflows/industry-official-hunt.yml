@@ -5,6 +5,10 @@ on:
     paths:
       - 'scripts/nhtsa_public_watch.py'
       - 'scripts/industry_official_hunt.py'
+      - 'scripts/official_event_triage.py'
+      - 'tests/test_official_event_triage.py'
+      - 'tests/test_official_event_triage_view.cjs'
+      - 'official-today.html'
       - 'tests/test_industry_official_hunt.py'
       - 'official-leads.html'
       - '.github/workflows/industry-official-hunt.yml'
@@ -32,17 +36,22 @@ jobs:
         run: |
           python -m compileall -q scripts/nhtsa_public_watch.py scripts/industry_official_hunt.py
           python -m unittest discover -s tests -p 'test_industry_official_hunt.py' -v
+          python -m unittest discover -s tests -p 'test_official_event_triage.py' -v
+          node tests/test_official_event_triage_view.cjs
       - name: Collect US official safety records
         continue-on-error: true
         run: python scripts/nhtsa_public_watch.py
       - name: Generate combined research queue even on NHTSA outages
         run: python scripts/industry_official_hunt.py
+      - name: Create date-grounded official document queue without KIPRIS
+        run: python scripts/official_event_triage.py
       - name: Publish only successful source results and explicit coverage states
         run: |
           set -e
           git config user.name "github-actions[bot]"
           git config user.email "41898282+users.noreply.github.com"
           git add digests/industry_official_hunt_latest.json
+          git add digests/official_event_triage_latest.json
           if [ -f digests/nhtsa_official_latest.json ]; then git add digests/nhtsa_official_latest.json; fi
           if git diff --cached --quiet; then exit 0; fi
           git commit -m "data: update official cross-industry reporting queue [skip ci]"
