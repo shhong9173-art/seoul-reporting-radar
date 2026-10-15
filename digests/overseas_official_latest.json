@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-10-13T12:31:41+09:00",
+  "generatedAt": "2026-10-15T10:27:03+09:00",
   "lookbackDays": 30,
-  "windowStart": "2026-09-13",
-  "scope": "US Federal Register 연방 고시 및 EU TED 공개 조달 공고",
+  "windowStart": "2026-09-15",
+  "scope": "US Federal Register 8개 검색 + EU TED 8개 검색. 회사명 검색 결과만 검토하며 주·카운티 인허가 및 EPA 시설별 환경허가는 별도 확인 필요",
   "limits": "미국 주·카운티 건축/환경 인허가, EU 각국 소액 조달, 모든 세계 공장 인허가를 망라하지 않음",
   "checks": [
     {
@@ -33,9 +33,9 @@
       "provider": "US Federal Register",
       "query": "Korea Zinc",
       "status": "checked",
-      "returned": 0,
+      "returned": 1,
       "matched": 0,
-      "unverified": 0
+      "unverified": 1
     },
     {
       "provider": "EU TED",
@@ -68,9 +68,136 @@
       "returned": 1,
       "matched": 0,
       "unverified": 1
+    },
+    {
+      "provider": "US Federal Register",
+      "query": "Hyundai Mobis",
+      "status": "checked",
+      "returned": 0,
+      "matched": 0,
+      "unverified": 0
+    },
+    {
+      "provider": "US Federal Register",
+      "query": "Hyundai Steel",
+      "status": "checked",
+      "returned": 8,
+      "matched": 2,
+      "unverified": 6
+    },
+    {
+      "provider": "US Federal Register",
+      "query": "POSCO",
+      "status": "checked",
+      "returned": 4,
+      "matched": 1,
+      "unverified": 3
+    },
+    {
+      "provider": "US Federal Register",
+      "query": "Hanwha Solutions",
+      "status": "checked",
+      "returned": 0,
+      "matched": 0,
+      "unverified": 0
+    },
+    {
+      "provider": "EU TED",
+      "query": "Hyundai Steel",
+      "status": "checked",
+      "returned": 0,
+      "matched": 0,
+      "unverified": 0
+    },
+    {
+      "provider": "EU TED",
+      "query": "LS Electric",
+      "status": "checked",
+      "returned": 0,
+      "matched": 0,
+      "unverified": 0
+    },
+    {
+      "provider": "EU TED",
+      "query": "Taihan Cable",
+      "status": "checked",
+      "returned": 0,
+      "matched": 0,
+      "unverified": 0
+    },
+    {
+      "provider": "EU TED",
+      "query": "Korea Zinc",
+      "status": "checked",
+      "returned": 0,
+      "matched": 0,
+      "unverified": 0
     }
   ],
   "documents": [
+    {
+      "source": "US Federal Register",
+      "sourceType": "federal_notice",
+      "sourceId": "2026-20897",
+      "published": "2026-10-14",
+      "companiesMentioned": [],
+      "companySearchTerm": "Korea Zinc",
+      "nameVerified": false,
+      "title": "Certain Corrosion-Resistant Steel Products From Taiwan: Preliminary Results and Rescission, in Part, of Antidumping Duty Administrative Review; 2024-2025",
+      "abstract": "The U.S. Department of Commerce (Commerce) preliminarily determines that certain corrosion-resistant steel products (CORE) from Taiwan are being sold in the United States at below normal value during the period of review (POR), July 1, 2024, through June 30, 2025. We invite interested parties to comment on these preliminary results.",
+      "sourceUrl": "https://www.federalregister.gov/documents/2026/10/14/2026-20897/certain-corrosion-resistant-steel-products-from-taiwan-preliminary-results-and-rescission-in-part-of",
+      "evidence": "연방 고시 검색 색인 일치: 기업명·사건 관계를 원문에서 확인하지 못함",
+      "notProven": "지역 공장허가 취득·회사 사업 확정·직접 수주 여부 미확인",
+      "exclusiveStatus": "공개 문서 취재 단서·단독 미확정"
+    },
+    {
+      "source": "US Federal Register",
+      "sourceType": "federal_notice",
+      "sourceId": "2026-20778",
+      "published": "2026-10-09",
+      "companiesMentioned": [
+        "현대제철",
+        "포스코"
+      ],
+      "companySearchTerm": "Hyundai Steel",
+      "nameVerified": true,
+      "title": "Certain Hot-Rolled Steel Flat Products From the Republic of Korea: Final Results of Countervailing Duty Administrative Review; 2023",
+      "abstract": "The U.S. Department of Commerce (Commerce) determines Hyundai Steel Company (Hyundai Steel) and POSCO, producers/exporters of certain hot-rolled steel flat products (hot-rolled steel) from the Republic of Korea (Korea), received countervailable subsidies during the period of review (POR) January 1, 2023, through December 31, 2023.",
+      "sourceUrl": "https://www.federalregister.gov/documents/2026/10/09/2026-20778/certain-hot-rolled-steel-flat-products-from-the-republic-of-korea-final-results-of-countervailing",
+      "evidence": "공식 연방 고시의 제목·요약에 기업명 등장",
+      "notProven": "지역 공장허가 취득·회사 사업 확정·직접 수주 여부 미확인",
+      "exclusiveStatus": "공개 문서 취재 단서·단독 미확정"
+    },
+    {
+      "source": "US Federal Register",
+      "sourceType": "federal_notice",
+      "sourceId": "2026-20699",
+      "published": "2026-10-08",
+      "companiesMentioned": [],
+      "companySearchTerm": "Hyundai Steel",
+      "nameVerified": false,
+      "title": "Certain Corrosion-Resistant Steel Products From the Republic of Korea: Preliminary Results and Recission, In Part, of Countervailing Duty Administrative Review; 2024",
+      "abstract": "The U.S. Department of Commerce (Commerce) preliminarily determines that countervailable subsidies were provided to producers and exporters of certain corrosion-resistant steel products (CORE) from the Republic of Korea (Korea), during the period of review (POR) January 1, 2024, through December 31, 2024. In addition, Commerce is rescinding this re",
+      "sourceUrl": "https://www.federalregister.gov/documents/2026/10/08/2026-20699/certain-corrosion-resistant-steel-products-from-the-republic-of-korea-preliminary-results-and",
+      "evidence": "연방 고시 검색 색인 일치: 기업명·사건 관계를 원문에서 확인하지 못함",
+      "notProven": "지역 공장허가 취득·회사 사업 확정·직접 수주 여부 미확인",
+      "exclusiveStatus": "공개 문서 취재 단서·단독 미확정"
+    },
+    {
+      "source": "US Federal Register",
+      "sourceType": "federal_notice",
+      "sourceId": "2026-20698",
+      "published": "2026-10-08",
+      "companiesMentioned": [],
+      "companySearchTerm": "Hyundai Steel",
+      "nameVerified": false,
+      "title": "Certain Corrosion-Resistant Steel Products From the Republic of Korea: Preliminary Results and Rescission, in Part, of Antidumping Duty Administrative Review; 2024-2025",
+      "abstract": "The U.S. Department of Commerce (Commerce) preliminarily determines that producers/exporters subject to this review made sales of subject merchandise at less than normal value (NV) during the period of review (POR), July 1, 2024, through June 30, 2025. Interested parties are invited to comment on these preliminary results of review.",
+      "sourceUrl": "https://www.federalregister.gov/documents/2026/10/08/2026-20698/certain-corrosion-resistant-steel-products-from-the-republic-of-korea-preliminary-results-and",
+      "evidence": "연방 고시 검색 색인 일치: 기업명·사건 관계를 원문에서 확인하지 못함",
+      "notProven": "지역 공장허가 취득·회사 사업 확정·직접 수주 여부 미확인",
+      "exclusiveStatus": "공개 문서 취재 단서·단독 미확정"
+    },
     {
       "source": "US Federal Register",
       "sourceType": "federal_notice",
@@ -115,10 +242,57 @@
       "evidence": "연방 고시 검색 색인 일치: 기업명·사건 관계를 원문에서 확인하지 못함",
       "notProven": "지역 공장허가 취득·회사 사업 확정·직접 수주 여부 미확인",
       "exclusiveStatus": "공개 문서 취재 단서·단독 미확정"
+    },
+    {
+      "source": "US Federal Register",
+      "sourceType": "federal_notice",
+      "sourceId": "2026-19932",
+      "published": "2026-09-30",
+      "companiesMentioned": [],
+      "companySearchTerm": "Hyundai Steel",
+      "nameVerified": false,
+      "title": "Welded Line Pipe From the Republic of Korea: Notice of Court Decision Not in Harmony With the Less-Than-Fair-Value Amended Final Determination; Notice of Amended Final Determination and Notice of Amended Antidumping Duty Order",
+      "abstract": "On September 15, 2026, the U.S. Court of International Trade (CIT) issued its final judgment in Stupp Corp. v. United States, Court no. 15-00334, sustaining the U.S. Department of Commerce (Commerce)'s fourth final results of redetermination pursuant to remand pertaining to the less-than-fair-value (LTFV) investigation of welded line pipe from the ",
+      "sourceUrl": "https://www.federalregister.gov/documents/2026/09/30/2026-19932/welded-line-pipe-from-the-republic-of-korea-notice-of-court-decision-not-in-harmony-with-the",
+      "evidence": "연방 고시 검색 색인 일치: 기업명·사건 관계를 원문에서 확인하지 못함",
+      "notProven": "지역 공장허가 취득·회사 사업 확정·직접 수주 여부 미확인",
+      "exclusiveStatus": "공개 문서 취재 단서·단독 미확정"
+    },
+    {
+      "source": "US Federal Register",
+      "sourceType": "federal_notice",
+      "sourceId": "2026-19529",
+      "published": "2026-09-24",
+      "companiesMentioned": [],
+      "companySearchTerm": "Hyundai Steel",
+      "nameVerified": false,
+      "title": "Certain Oil Country Tubular Goods From the Republic of Korea: Final Results of Antidumping Duty Administrative Review; 2023-2024",
+      "abstract": "The U.S. Department of Commerce (Commerce) determines that oil country tubular goods (OCTG) from the Republic of Korea (Korea) were sold at less than normal value (NV) during the period of review (POR) September 1, 2023, through August 31, 2024.",
+      "sourceUrl": "https://www.federalregister.gov/documents/2026/09/24/2026-19529/certain-oil-country-tubular-goods-from-the-republic-of-korea-final-results-of-antidumping-duty",
+      "evidence": "연방 고시 검색 색인 일치: 기업명·사건 관계를 원문에서 확인하지 못함",
+      "notProven": "지역 공장허가 취득·회사 사업 확정·직접 수주 여부 미확인",
+      "exclusiveStatus": "공개 문서 취재 단서·단독 미확정"
+    },
+    {
+      "source": "US Federal Register",
+      "sourceType": "federal_notice",
+      "sourceId": "2026-18788",
+      "published": "2026-09-15",
+      "companiesMentioned": [
+        "현대제철"
+      ],
+      "companySearchTerm": "Hyundai Steel",
+      "nameVerified": true,
+      "title": "Oil Country Tubular Goods From the Republic of Korea: Final Results of Countervailing Duty Administrative Review and Rescission, in Part; 2023",
+      "abstract": "The U.S. Department of Commerce (Commerce) determines countervailable subsidies were not provided to SeAH Steel Corporation (SeAH Steel), a producer and exporter of oil country tubular goods (OCTG) from the Republic of Korea (Korea). The period of review (POR) is January 1, 2023, through December 31, 2023. In addition, Commerce is rescinding this r",
+      "sourceUrl": "https://www.federalregister.gov/documents/2026/09/15/2026-18788/oil-country-tubular-goods-from-the-republic-of-korea-final-results-of-countervailing-duty",
+      "evidence": "공식 연방 고시의 제목·요약에 기업명 등장",
+      "notProven": "지역 공장허가 취득·회사 사업 확정·직접 수주 여부 미확인",
+      "exclusiveStatus": "공개 문서 취재 단서·단독 미확정"
     }
   ],
-  "matchedCount": 0,
-  "unverifiedSearchMatches": 3,
+  "matchedCount": 2,
+  "unverifiedSearchMatches": 8,
   "sourceErrors": 0,
   "scoopConfirmed": 0
 }
