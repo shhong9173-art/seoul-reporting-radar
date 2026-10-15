@@ -27,7 +27,7 @@ for(const marker of [
  "issuerDeclaredMaterialChanges","issuerCorrectionTableStatus",
  "issuer_reported_amendment_table_only","originalDocumentCompared!==false",
  "sameEventPriorCoverageVerified!==false",
- "정정문 자체의 기재", "원공시의 실제 계약조건을 독립 확인한 결과가 아니며",
+ "정정 공시 자체의 기재", "원공시의 실제 계약조건을 독립 확인한 결과가 아니며",
  "이번에 새로 수집됐어도 최근 새 사건/단독으로 볼 수 없습니다"
 ]) assert(html.includes(marker),"Missing cautious issuer-declared correction label: "+marker);
 console.log('PASS DART contract before/after and prior-news reader rejects unsupported scoops');
