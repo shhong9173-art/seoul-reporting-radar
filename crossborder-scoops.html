@@ -175,6 +175,38 @@ try{
               entry.sourceTextExcerpt,"small");
          link(c,entry.officialOriginalPdfUrl,"SHA-256 검증된 정부 원본 PDF ↗");
       }
+      const statements=pdf.auditedCalendarYearRows||[];
+      if(statements.length){
+        line(c,"슬로바키아 IFRS 실제 행·회계연도별 증거 (단위: 천유로). 동일 연도가 비교 열에 다시 나와도 중복 합산하지 않습니다.","dim");
+        const metricLabels={
+          dividend_cash_outflow:"현지법인 현금흐름표 배당 지급(현금 유출 부호)",
+          annual_profit_cf_reconciliation:"현지법인 순이익(현금흐름표 조정 시작액)",
+          retained_earnings_balance:"현지법인 이월이익잉여금(재무상태표)"
+        };
+        const ordered=[...statements].sort((a,b)=>
+          (a.metric==="dividend_cash_outflow"?0:1)-(b.metric==="dividend_cash_outflow"?0:1)
+          ||b.year-a.year);
+        for(const z of ordered.slice(0,9)){
+          if(!Object.hasOwn(metricLabels,z.metric)||
+             z.parentRecipientVerified!==false||
+             z.koreanCashReceiptVerified!==false||
+             z.amountFromKiaParentDart2026!==false||
+             z.humanAuditOfParsedRowCompleted!==false||
+             z.year2026LocalPaymentNotYetVerified!==true)
+            throw Error("현지 재무제표 회계연도/본사 배당금 확인 상태 불일치");
+          if(z.annualReportComparativeConflict===true){
+            line(c,z.year+"년 "+metricLabels[z.metric]+": 서로 다른 공시 비교열 수치 불일치 · 숫자 확정 보류","dim");
+            continue;
+          }
+          if(!Number.isSafeInteger(z.amountThousandEur))throw Error("원문 수치 정합성 미확인");
+          line(c,z.year+"년 "+metricLabels[z.metric]+": "+
+            z.amountThousandEur.toLocaleString("ko-KR")+
+            "천유로 · 원문 보고서 "+z.sourceCount+"건 교차열 확인","small");
+        }
+        line(c,"주의: 2023~2025년 현지 법인 재무제표의 과거 연도 회계 행입니다. 2026년 반기 기아 DART 배당수익 인식액과 동일 회계연도가 아니며 한국 본사 현금 송금·배당 재원 입증 자료가 아닙니다.","dim");
+      }else{
+        line(c,"현지 IFRS의 연도별 지급/이익잉여금 원문 행은 아직 신뢰 가능한 숫자로 복원되지 않았습니다. 0원으로 판단하지 않습니다.","dim");
+      }
       if(!(pdf.passages||[]).length)
          line(c,"현지 PDF에서 검색 가능한 배당 관련 문장을 확보하지 못했습니다. 배당이 없다는 뜻이 아닙니다.","dim");
     }
