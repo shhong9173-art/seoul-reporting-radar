@@ -1,0 +1,115 @@
+{
+  "generatedAt": "2026-10-16T03:24:34.865467+09:00",
+  "source": "NHTSA ODI full post-2010 recall archive",
+  "sourceUrl": "https://static.nhtsa.gov/odi/ffdd/rcl/FLAT_RCL_POST_2010.zip",
+  "archiveLatestReceived": "2026-10-09",
+  "lookbackDays": 45,
+  "recentSourceRowsExamined": 887,
+  "beatRows": 14,
+  "campaignCount": 2,
+  "status": "official_us_recalls_to_review",
+  "domesticSourceStatus": "not_connected",
+  "firstSeenWarning": "Initial run is a baseline, not newly published scoops",
+  "confirmedScoops": 0,
+  "leads": [
+    {
+      "id": "26V664000",
+      "officialDate": "20261008",
+      "makes": [
+        "GENESIS",
+        "HYUNDAI"
+      ],
+      "models": [
+        {
+          "model": "G80",
+          "year": "2017"
+        },
+        {
+          "model": "G80",
+          "year": "2018"
+        },
+        {
+          "model": "G80",
+          "year": "2019"
+        },
+        {
+          "model": "G80",
+          "year": "2020"
+        },
+        {
+          "model": "GENESIS",
+          "year": "2015"
+        },
+        {
+          "model": "GENESIS",
+          "year": "2016"
+        }
+      ],
+      "modelCount": 6,
+      "component": "SEATS:FRONT ASSEMBLY:POWER ADJUST",
+      "defect": "Hyundai Motor America (Genesis) is recalling certain 2015-2016 Hyundai Genesis, and 2017-2020 Genesis G80 vehicles. The front power seat motors may overheat due to a stuck power seat control switch, which can result in a fire while parked or driving.",
+      "consequence": "A fire increases the risk of injury.",
+      "remedy": "Owners are advised to park their vehicles outdoors and away from other vehicles or structures until the repair has been performed. The remedy is currently under development. Owner notification letters are expected to be mailed December 7, 2026. Owners of Hyundai vehicles may contact Hyundai customer service at 1-855-371-9460. Genesis owners may contact Genesis customer service at 844-340-1200. Hyundai recall number for this recall is 308 and Genesis' recall number is 035G. Vehicle Identification Numbers (VINs) involved in this recall became searchable on NHTSA.gov beginning October 13, 2026.",
+      "flags": [
+        "fire_or_thermal_word_in_us_summary",
+        "us_park_outside_advice",
+        "older_vehicle_model"
+      ],
+      "priorityScore": 80,
+      "sourceUrl": "https://api.nhtsa.gov/recalls/campaignNumber?campaignNumber=26V664000",
+      "reportSearchUrl": "https://www.nhtsa.gov/recalls?nhtsaId=26V664000",
+      "officialEvidence": "NHTSA US recall record only",
+      "usRecallExists": true,
+      "part573ChronologyVerified": false,
+      "koreanIncidentVerified": false,
+      "koreanPartMatchVerified": false,
+      "koreanRecallChecked": false,
+      "priorCoverageChecked": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "mustCheck": [
+        "Open complete Part 573 chronology and search Korea / thermal event; no claim until original text verified",
+        "Compare exact seat/component part numbers and specifications of Korea-sold variants",
+        "Check Korea recall and free repair in car.go.kr and ask KATRI/MOLIT if inaccessible",
+        "Check domestic/overseas news for the same angle; US recall itself is not exclusive"
+      ]
+    },
+    {
+      "id": "26V588000",
+      "officialDate": "20260911",
+      "makes": [
+        "HYUNDAI"
+      ],
+      "models": [
+        {
+          "model": "IONIQ 9",
+          "year": "2026"
+        }
+      ],
+      "modelCount": 1,
+      "component": "SEATS:MID/REAR ASSEMBLY:POWER ADJUST",
+      "defect": "Hyundai Motor America (Hyundai) is recalling certain 2026 Ioniq 9 vehicles equipped with a Limited, Calligraphy, or Calligraphy Design trim package. The second-row power seats may fail to detect a person. As a result, the seats may continue to move after contacting a person during powered seat functions, such as automatic power fold-and-stow.",
+      "consequence": "A person, especially a child, may become trapped by a rear powered seat, increasing the risk of injury.",
+      "remedy": "Owners are advised to exercise caution when operating the second-row power seat functions until the repair is performed. Children are advised not to be in the rear seats or near the rear seating area during power-folding operation. The seat software will be inspected and updated over-the-air (OTA) or by a dealer, as necessary, free of charge. Owner notification letters are expected to be mailed October 1, 2026. Owners may contact Hyundai customer service at 1-855-371-9460. Hyundai's number for this recall is 307. Vehicle Identification Numbers (VINs) involved in this recall became searchable o",
+      "flags": [],
+      "priorityScore": 40,
+      "sourceUrl": "https://api.nhtsa.gov/recalls/campaignNumber?campaignNumber=26V588000",
+      "reportSearchUrl": "https://www.nhtsa.gov/recalls?nhtsaId=26V588000",
+      "officialEvidence": "NHTSA US recall record only",
+      "usRecallExists": true,
+      "part573ChronologyVerified": false,
+      "koreanIncidentVerified": false,
+      "koreanPartMatchVerified": false,
+      "koreanRecallChecked": false,
+      "priorCoverageChecked": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "mustCheck": [
+        "Open complete Part 573 chronology and search Korea / thermal event; no claim until original text verified",
+        "Compare exact seat/component part numbers and specifications of Korea-sold variants",
+        "Check Korea recall and free repair in car.go.kr and ask KATRI/MOLIT if inaccessible",
+        "Check domestic/overseas news for the same angle; US recall itself is not exclusive"
+      ]
+    }
+  ]
+}
