@@ -61,6 +61,23 @@ class CrossBorderDossiers(unittest.TestCase):
         self.assertEqual(data["confirmedScoops"],0)
         self.assertFalse(data["domesticRecallAbsenceVerified"])
 
+    def test_korean_recall_center_model_jump_is_not_domestic_matching_evidence(self):
+        result=t.build(*sources(),now=NOW)
+        genesis=next(x for x in result["items"] if x["id"]=="usrecall:26V664000")
+        self.assertEqual([q["searchTerm"] for q in genesis["koreanModelSearchLinks"]],
+                         ["G80","제네시스"])
+        for query in genesis["koreanModelSearchLinks"]:
+            self.assertIn("https://www.car.go.kr/ri/stat/list.do?",query["officialSearchUrl"])
+            self.assertFalse(query["searchResultRead"])
+            self.assertFalse(query["matchingRecallVerified"])
+            self.assertFalse(query["absenceOfRecallVerified"])
+            self.assertFalse(query["koreanIdenticalComponentVerified"])
+        self.assertFalse(genesis["pitchGate"]["domesticOfficialChecked"])
+        self.assertFalse(genesis["pitchGate"]["exclusiveConfirmed"])
+
+    def test_unknown_us_model_generates_no_invented_korean_variant(self):
+        self.assertEqual(t.manual_korean_model_search([{"model":"UNKNOWN X"}]),[])
+
     def test_kia_recognized_issuer_dividend_not_cash_and_not_a_new_20261016_event(self):
         n,d=sources()
         result=t.build(n,d,now=NOW)
