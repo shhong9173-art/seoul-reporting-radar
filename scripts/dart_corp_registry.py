@@ -34,7 +34,7 @@ ALIASES={
   "LS MnM":("엘에스엠앤엠",),
   "LS":("엘에스",),
   "동국씨엠":("동국씨엠",),
-  "포스코홀딩스":("포스코홀딩스",),
+  "포스코홀딩스":("포스코홀딩스","POSCO홀딩스"),
   "OCI":("오씨아이",),
 }
 MAX_RESPONSE=8_000_000
@@ -101,8 +101,13 @@ def resolve(codes,official,*,now=None,registry_count=0):
         keys={issuer_name(name)}|{issuer_name(x) for x in ALIASES.get(name,())}
         hits=set().union(*(official.get(k,set()) for k in keys))
         if oldcode is not None and CODE.fullmatch(str(oldcode)):
-            state=("already_known" if not hits or hits=={oldcode}
-                    else "existing_code_official_name_mismatch_manual_review")
+            # Name aliases may refer to MULTIPLE real registered companies.
+            # If the already-verified code is one of the matching official
+            # IDs, do not falsely flag it as a mismatch just because another
+            # unrelated entity has a similar legal company name.
+            state=("existing_code_verified_in_official_registry" if oldcode in hits
+                   else "already_known_registry_name_not_matched" if not hits
+                   else "existing_code_official_name_mismatch_manual_review")
             final=oldcode
         elif len(hits)==1:
             final=next(iter(hits))
