@@ -151,6 +151,27 @@ class CrossBorderDossiers(unittest.TestCase):
         self.assertFalse(x["pitchGate"]["exclusiveConfirmed"])
         self.assertEqual(dossier["confirmedScoops"],0)
 
+    def test_actual_part573_korean_market_thermal_claim_date_survives_verified_pdf_crosslink(self):
+        from nhtsa_part573_primary import scan
+        n,d=sources()
+        us=scan(n,now=NOW,get=lambda url:b"%PDF-1.4\\n664"+b"0"*2300,
+                convert=lambda pdf:[
+                  "Part 573 Safety Recall Report 26V664",
+                  "July 2, 2026 – Hyundai received additional information "
+                  "related to power seat switch performance and associated "
+                  "thermal event allegations from the Korean market."
+                ])
+        dossier=t.build(n,d,now=NOW,nhtsa_part573=us)
+        x=next(row for row in dossier["items"] if row["id"]=="usrecall:26V664000")
+        source=x["nhtsaPart573Original"]["koreanMarketSourceClaims"][0]
+        self.assertEqual(source["incidentLanguageClassification"],
+                         "thermal_event_allegation_unverified")
+        self.assertEqual(source["manufacturerInformationReceivedDateFromExactText"],
+                         "2026-07-02")
+        self.assertFalse(source["explicitFireConfirmedByManufacturer"])
+        self.assertFalse(source["domesticIncidentIndependentlyVerified"])
+        self.assertFalse(x["pitchGate"]["exclusiveConfirmed"])
+
     def test_kia_recognized_issuer_dividend_not_cash_and_not_a_new_20261016_event(self):
         n,d=sources()
         result=t.build(n,d,now=NOW)
