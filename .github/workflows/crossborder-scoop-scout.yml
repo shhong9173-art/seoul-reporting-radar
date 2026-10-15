@@ -1,0 +1,72 @@
+name: Cross-border Scoop Evidence Scout
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/crossborder_scoop_watch.py'
+      - 'scripts/dart_foreign_dividend_watch.py'
+      - 'tests/test_crossborder_scoop_watch.py'
+      - 'crossborder-scoops.html'
+      - '.github/workflows/crossborder-scoop-scout.yml'
+  schedule:
+    # KST 06:40, 12:20, 16:30 on weekdays (UTC follows)
+    - cron: '40 21 * * 0-4'
+    - cron: '20 3 * * 1-5'
+    - cron: '30 7 * * 1-5'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: crossborder-scoop-evidence
+  cancel-in-progress: false
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.head_ref || 'main' }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Offline parser and claim guard tests
+        run: |
+          python -m compileall -q scripts/crossborder_scoop_watch.py scripts/dart_foreign_dividend_watch.py
+          python -m unittest discover -s tests -p 'test_crossborder_scoop_watch.py' -v
+      - name: Download complete NHTSA post-2010 recall archive
+        if: github.event_name != 'pull_request'
+        run: python scripts/crossborder_scoop_watch.py
+      - name: Scan original DART subsidiary dividend notes
+        if: github.event_name != 'pull_request'
+        env:
+          DART_API_KEY: ${{ secrets.DART_API_KEY }}
+        run: |
+          if [ -n "$DART_API_KEY" ]; then
+            python scripts/dart_foreign_dividend_watch.py
+          else
+            echo "DART_API_KEY not configured; dividend source NOT CONNECTED"
+          fi
+      - name: Publish verified evidence only
+        if: github.event_name != 'pull_request'
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add digests/crossborder_safety_latest.json
+          if [ -f digests/overseas_dividend_evidence_latest.json ]; then
+            git add digests/overseas_dividend_evidence_latest.json
+          fi
+          if git diff --cached --quiet; then
+            echo "Evidence unchanged"; exit 0
+          fi
+          git commit -m "data: refresh cross-border official evidence [skip ci]"
+          for attempt in 1 2 3; do
+            git pull --rebase origin main
+            if git push origin HEAD:main; then exit 0; fi
+            sleep 4
+          done
+          exit 1
