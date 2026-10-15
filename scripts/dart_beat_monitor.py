@@ -198,8 +198,15 @@ def collect(codes,key,*,now=None,previous=None,query=fetch_official_list,
     # source evidence. This is not new corporate activity.
     for row in rows:
         old=old_records.get(row["receiptNo"])
-        if old and old.get("status") in ("official_document_read","original_verified",
-                                        "original_not_verified"):
+        if (old and old.get("status") in
+                ("official_document_read","original_verified","original_not_verified")
+            and old.get("sourceError") is not True
+            and old.get("company")==row["company"]
+            and old.get("corpCode")==row["corpCode"]
+            and old.get("sourceUrl")==row["sourceUrl"]):
+            # Never perpetually cache a failed source read or a now-mismatched
+            # issuer/receipt identity. Previously unread rows will be
+            # processed on the next scheduled run until the backlog drains.
             by_number[row["receiptNo"]]=old
     # Only publicly filed supply/production/investment cases get text access.
     candidates=[r for r in rows if event_type(r["report"]) is not None
@@ -242,6 +249,8 @@ def collect(codes,key,*,now=None,previous=None,query=fetch_official_list,
         "sourceComplete":all(c["status"]=="checked" for c in checks),
         "relevantFilings":official_count,
         "detailBound":limit,"detailsAttempted":len(selected),
+        "detailBacklogQueued":len(candidates),
+        "detailNotAttemptedThisRun":max(0,len(candidates)-len(selected)),
         "uninspectedRelevantDetails":sum(event_type(r["report"]) is not None and
                                           r["receiptNo"] not in by_number for r in rows),
         "firstRunBaseline":first_run,
@@ -274,9 +283,20 @@ def change_review(current,previous=None,*,now=None):
         new_receipt=prior is None
         if prior is not None and row.get("observedFields")!=prior.get("observedFields"):
             if row.get("observedFields") or prior.get("observedFields"):
-                kind="same_receipt_data_reparse_discrepancy"
                 changed_fields=sorted(set((row.get("observedFields") or {}).keys())
                                       |set((prior.get("observedFields") or {}).keys()))
+                # On scheduled backlog catch-up the old snapshot may only
+                # contain official list metadata. Extracting a table for the
+                # SAME receipt is not a company changing its contract.
+                if (not prior.get("observedFields")
+                    and row.get("observedFields")
+                    and prior.get("detailStatus") in (
+                        "not_inspected_bounded_detail_budget",
+                        "detail_source_error","document_unavailable",
+                        "original_not_verified",None)):
+                    kind="same_receipt_first_document_field_recovery"
+                else:
+                    kind="same_receipt_data_reparse_discrepancy"
         elif new_receipt and row.get("isCorrection"):
             source_changes=row.get("changes",[])
             original=row.get("originalReceiptNo")
@@ -321,6 +341,8 @@ def change_review(current,previous=None,*,now=None):
             "priorNewsFulltextChecked":False,
             "scoopConfirmed":False,"approvedForPitch":False,
             "nextCheck":(
+             "이전에 목록만 확인한 같은 공시번호의 표 항목을 처음 추출함: 신규 기업 변화가 아님. 원문 확인 필요"
+             if kind=="same_receipt_first_document_field_recovery" else
              "같은 공시번호의 데이터 추출 차이: 공식 원문과 수집기 코드 확인 (기업 변화로 해석 금지)"
              if kind=="same_receipt_data_reparse_discrepancy" else
              "명시된 원공시 및 전후 공시 원문·기보도 기사 전문·실제 기업 영향 확인"
