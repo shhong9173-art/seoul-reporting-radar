@@ -102,6 +102,11 @@ class CrossBorderDossiers(unittest.TestCase):
 
     def test_part573_us_count_never_becomes_korean_vehicles_and_revision_conflict_is_withheld(self):
         n,d=sources()
+        second={**n["leads"][0],
+                "id":"26V588000",
+                "sourceUrl":"https://api.nhtsa.gov/recalls/campaignNumber?campaignNumber=26V588000",
+                "models":[{"model":"IONIQ 9","year":"2026"}]}
+        n["leads"].append(second)
         from nhtsa_part573_primary import scan
         us=scan(n,now=NOW,get=lambda url:(
              b"%PDF-1.4\\n"+(b"664" if "26V664" in url else b"588")+b"0"*2500),
