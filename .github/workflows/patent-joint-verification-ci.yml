@@ -35,6 +35,7 @@ jobs:
       - name: Check official coapplicant identity, media uncertainty, time window
         run: |
           python -m compileall -q scripts/patent_deep_hunt.py scripts/patent_joint_verification.py
+          python -m unittest discover -s tests -p 'test_patent_hunt.py' -v
           python -m unittest discover -s tests -p 'test_patent_deep_hunt.py' -v
           python -m unittest discover -s tests -p 'test_patent_joint_verification.py' -v
           node tests/test_patent_joint_verification_view.cjs
