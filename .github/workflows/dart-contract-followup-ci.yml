@@ -1,0 +1,53 @@
+name: DART Contract Lineage and Media Audit
+on:
+  pull_request:
+    paths:
+      - 'scripts/dart_contract_followup.py'
+      - 'tests/test_dart_contract_followup.py'
+      - 'tests/test_dart_contract_followup_view.cjs'
+      - 'dart-contract-followup.html'
+      - 'official-watch.html'
+      - 'official-today.html'
+      - '.github/workflows/official-overseas-contracts.yml'
+      - '.github/workflows/dart-contract-followup-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/dart_contract_followup.py'
+      - '.github/workflows/dart-contract-followup-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify primary DART lineage and safe prior-news status semantics
+        run: |
+          python -m compileall -q scripts/dart_contract_followup.py
+          python -m unittest discover -s tests -p 'test_dart_lineage.py' -v
+          python -m unittest discover -s tests -p 'test_official_foreign_contracts.py' -v
+          python -m unittest discover -s tests -p 'test_dart_contract_followup.py' -v
+          node tests/test_dart_contract_followup_view.cjs
+      - name: Replay committed official DART snapshot with media network disabled
+        run: |
+          python scripts/dart_contract_followup.py --no-press-network --output /tmp/official_contract_followup_replay.json
+          python - <<'PY'
+          import json
+          d=json.load(open('/tmp/official_contract_followup_replay.json',encoding='utf-8'))
+          assert d['sourceItemCount']>=d['reviewedEvents']
+          assert d['confirmedScoops']==d['approvedArticles']==0
+          assert not any(x['exclusiveConfirmed'] or x['approvedForPitch'] for x in d['items'])
+          assert all(x['pressIndexStatus']=='press_not_searched' for x in d['items'])
+          assert all(x['originalReceiptNo'] is None for x in d['items'] if
+                     x['isCorrection'] and x['comparisonStatus']=='original_unverified_no_comparison')
+          print('PASS:',d['reviewedEvents'],'DART records,',d['correctionsWithoutVerifiedOriginal'],
+                'uncorroborated original corrections, no leaked exclusivity')
+          PY
