@@ -39,6 +39,18 @@ class PatentDeepTests(unittest.TestCase):
         self.assertIn("미확인",lead["partnerStatus"])
         self.assertEqual(output["confirmedScoops"],0)
 
+
+    def test_all_external_joint_patents_are_preserved_in_investigation_data(self):
+        originals=[]
+        for i in range(45):
+            row=patent(number="10"+str(20260140000+i).zfill(11))
+            row["applicants"]=["현대자동차주식회사","기아 주식회사","부산대학교 산학협력단"]
+            originals.append(row)
+        result=d.build({"items":originals,"generatedAt":"2026-10-13T08:00:00+09:00"},search_limit=0,now=NOW)
+        self.assertEqual(result["outsideBeatJointPublications"],45)
+        self.assertEqual(len(result["partnerInvestigations"]),45)
+        self.assertEqual(result["confirmedScoops"],0)
+
     def test_same_group_hyundai_and_kia_not_outside_collaboration(self):
         base=patent()
         output=d.build({"items":[base],"generatedAt":"2026-10-13"},search_limit=0,now=NOW)
