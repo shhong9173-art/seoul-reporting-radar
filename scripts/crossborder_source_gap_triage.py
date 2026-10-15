@@ -232,7 +232,7 @@ def attach_slovak_registry(dossier, registry):
             or x.get("financialYear") not in (2024,2025)
             or x.get("sameIcoAndLegalNameConfirmed") is not True
             or x.get("profitOrDividendAmountsParsed") is not False
-            or x.get("basis")!="official_registry_individual_filing_metadata"):
+            or x.get("basis")!="official_registry_annual_filing_metadata"):
             continue
         valid.append({
             "financialYear":x["financialYear"],"periodTo":x.get("periodTo"),
