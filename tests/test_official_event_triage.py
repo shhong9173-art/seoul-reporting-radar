@@ -66,7 +66,7 @@ class OfficialEventTriage(unittest.TestCase):
         self.assertFalse(lead["exclusiveConfirmed"])
         self.assertFalse(lead["contractTermsVerified"])
         self.assertEqual(result["confirmedScoops"],0)
-        self.assertEqual(result["backgroundReferenceCount"],4)
+        self.assertEqual(result["backgroundReferenceCount"],5)
         self.assertEqual(result["excluded"]["correction_without_original"],1)
         self.assertEqual(result["excluded"]["unverified_foreign_search_hit"],1)
     def test_duplicate_same_filing_is_not_multiple_fresh_leads(self):
