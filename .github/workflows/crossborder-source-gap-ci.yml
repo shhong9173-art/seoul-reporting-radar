@@ -5,6 +5,8 @@ on:
       - 'scripts/dart_foreign_dividend_watch.py'
       - 'scripts/crossborder_source_gap_triage.py'
       - 'scripts/slovakia_official_accounts.py'
+      - 'scripts/slovak_ifrs_primary_pages.py'
+      - 'tests/test_slovak_ifrs_primary_pages.py'
       - 'scripts/czech_factory_official_identity.py'
       - 'tests/test_czech_factory_official_identity.py'
       - 'tests/test_slovakia_official_accounts.py'
@@ -37,6 +39,7 @@ jobs:
           python -m unittest discover -s tests -p 'test_crossborder_scoop_watch.py' -v
           python -m unittest discover -s tests -p 'test_crossborder_source_gap_triage.py' -v
           python -m unittest discover -s tests -p 'test_slovakia_official_accounts.py' -v
+          python -m unittest discover -s tests -p 'test_slovak_ifrs_primary_pages.py' -v
           python -m unittest discover -s tests -p 'test_czech_factory_official_identity.py' -v
           node tests/test_crossborder_source_gap_view.cjs
       - name: Saved primary-source regression output remains unapproved

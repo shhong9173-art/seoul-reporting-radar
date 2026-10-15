@@ -292,7 +292,75 @@ def attach_slovak_registry(dossier, registry):
     return dossier
 
 
-def build(safety,dividends,*,now=None,slovakia=None,czech=None):
+
+def attach_verified_slovak_pdf_clues(dossier,registry,pdf):
+    """Only PDF page references with verified official bytes; no cash inference."""
+    result={"status":"official_pdf_review_not_completed",
+            "governmentHashVerifiedReports":0,"passages":[],
+            "amountsIndependentlyAudited":False,
+            "parentCashReceiptVerified":False,
+            "distributionResolutionVerified":False}
+    dossier["slovakPdfPrimaryReview"]=result
+    if (not isinstance(pdf,dict) or not isinstance(registry,dict) or
+        pdf.get("status")!="official_slovak_ifrs_pdf_review_clues_not_validated_dividend_transfer" or
+        pdf.get("ico")!="35876832" or
+        registry.get("ico")!="35876832" or
+        pdf.get("sourceRegistryGeneratedAt")!=registry.get("generatedAt") or
+        not isinstance(pdf.get("reports"),list) or
+        any(pdf.get(k) is not False for k in
+            ("financialFiguresInterpreted","dividendDistributionResolutionVerified",
+             "koreanParentCashReceiptVerified","dividendPaymentToParentVerified",
+             "exclusiveConfirmed"))):
+        return dossier
+    expected={
+        2024:(6499422,9718744),
+        2025:(6995571,10298519)
+    }
+    known={(x.get("financialYear"),x.get("statementId"))
+           for x in registry.get("statements",[]) if isinstance(x,dict)}
+    for row in pdf["reports"]:
+        if not isinstance(row,dict):continue
+        year=row.get("year")
+        if (year not in expected or
+            (year,row.get("statementId")) not in known or
+            row.get("reportId")!=expected[year][1] or
+            row.get("pdfReadAndOfficialHashVerified") is not True or
+            not isinstance(row.get("sha256"),str) or
+            re.fullmatch(r"[a-f0-9]{64}",row["sha256"]) is None or
+            row.get("status") not in (
+                "official_pdf_text_passages_for_manual_review",
+                "verified_pdf_no_indexed_words_not_proof_of_no_dividend")):
+            continue
+        url=row.get("attachmentUrl")
+        if (not isinstance(url,str) or
+            re.fullmatch(r"https://www\.registeruz\.sk/cruz-public/domain/financialreport/attachment/[1-9]\d{3,11}",url) is None):
+            continue
+        result["governmentHashVerifiedReports"]+=1
+        for passage in row.get("pageClues",[])[:5]:
+            if (not isinstance(passage,dict) or
+                type(passage.get("page")) is not int or
+                not 1<=passage["page"]<=90 or
+                passage.get("containsFinancialAmountValidated") is not False or
+                passage.get("cashPaidOrRetainedProfitValidated") is not False):
+                continue
+            result["passages"].append({
+                "financialYear":year,"page":passage["page"],
+                "sourceTextExcerpt":str(passage.get("sourceTextExcerpt") or "")[:310],
+                "officialOriginalPdfUrl":url,
+                "documentSha256":row["sha256"],
+                "evidenceBasis":"exact_official_pdf_checksum_and_page_text_keyword",
+                "businessImpactVerified":False,
+                "companyParentCashTransferVerified":False
+            })
+    result["status"]=("verified_pdf_keyword_pages_for_manual_accounting_review"
+                      if result["passages"] else
+                      "official_pdf_verified_no_searchable_matching_phrase_not_proof_of_none"
+                      if result["governmentHashVerifiedReports"] else
+                      "not_verified")
+    return dossier
+
+
+def build(safety,dividends,*,now=None,slovakia=None,czech=None,slovak_pdf=None):
     now=now or datetime.now(KST)
     if now.utcoffset() is None:raise ValueError("timezone_required")
     if (not isinstance(safety,dict) or not isinstance(dividends,dict)
@@ -343,6 +411,7 @@ def build(safety,dividends,*,now=None,slovakia=None,czech=None):
                 "kiaslovakia" in "".join(
                    str(d["officialFact"]["recognizedFromEntity"]).lower().split())):
                 attach_slovak_registry(d,slovakia)
+                attach_verified_slovak_pdf_clues(d,slovakia,slovak_pdf)
             dossiers.append(d)
     unique={}
     for d in dossiers:
@@ -361,6 +430,8 @@ def build(safety,dividends,*,now=None,slovakia=None,czech=None):
               if isinstance(czech,dict) else None},
       "sourceHealth":source_states,
       "sourceStale48h":any((now-x).total_seconds()>48*3600 for x in source_dates),
+      "slovakPdfOriginalEvidenceGeneratedAt":(
+          slovak_pdf.get("generatedAt") if isinstance(slovak_pdf,dict) else None),
       "foreignLegalEntityLinks":{
           "kiaSlovakia":{
               "company":"Kia Slovakia s. r. o.","ico":"35876832",
@@ -398,6 +469,7 @@ def main():
     p.add_argument("--out",default="digests/crossborder_source_gap_latest.json")
     p.add_argument("--slovakia",default="digests/slovakia_official_accounts_latest.json")
     p.add_argument("--czech",default="digests/czech_factory_official_identity_latest.json")
+    p.add_argument("--slovak-pdf",default="digests/slovak_ifrs_primary_pages_latest.json")
     a=p.parse_args()
     src=lambda path:json.loads(Path(path).read_text(encoding="utf-8"))
     try:
@@ -408,8 +480,12 @@ def main():
         czech_identity=src(a.czech)
     except (OSError,ValueError):
         czech_identity=None
+    try:
+        pdf_note_index=src(a.slovak_pdf)
+    except (OSError,ValueError):
+        pdf_note_index=None
     result=build(src(a.nhtsa),src(a.dividends),slovakia=government,
-                 czech=czech_identity)
+                 czech=czech_identity,slovak_pdf=pdf_note_index)
     if result["sourceHealth"]["nhtsaOfficial"]!="checked":
         raise SystemExit("NHTSA source incomplete; preserve last good dossier")
     if result["sourceHealth"]["dartOfficialDividendNotes"]=="no_official_receipt_checked":

@@ -126,7 +126,33 @@ try{
     }else{
       line(c,"슬로바키아 공식 재무제표 API에서 해당 생산법인의 확정 연결·회계연도 자료를 확보하지 못했습니다. 미확인은 현지 공시 부재를 뜻하지 않습니다.","dim");
     }
-    line(c,"본사 실제 현금 수령·해외법인 과거 순이익·배당결의일·현지 감사 재무제표 전문·기보도는 아직 검증되지 않았습니다.","dim");
+    const pdf=x.slovakPdfPrimaryReview;
+    if(pdf){
+      if(pdf.amountsIndependentlyAudited!==false||
+         pdf.parentCashReceiptVerified!==false||
+         pdf.distributionResolutionVerified!==false)
+        throw Error("PDF 페이지 키워드 ≠ 배당금·본사 현금수령 확인");
+      line(c,"슬로바키아 정부 등록 PDF 원본 무결성 검증: "+
+           pdf.governmentHashVerifiedReports+"개 보고서 · "+
+           (pdf.passages||[]).length+"개 배당/이익 관련 단어 문맥 · 수치·실제 지급은 미판정","dim");
+      for(const entry of (pdf.passages||[]).slice(0,8)){
+         if(entry.evidenceBasis!=="exact_official_pdf_checksum_and_page_text_keyword"||
+            entry.companyParentCashTransferVerified!==false||
+            entry.businessImpactVerified!==false||
+            !/^[a-f0-9]{64}$/.test(entry.documentSha256))
+           throw Error("PDF 원문 링크 무결성 증거 부족");
+         const source=new URL(entry.officialOriginalPdfUrl);
+         if(source.protocol!=="https:"||source.host!=="www.registeruz.sk"||
+            !/^\/cruz-public\/domain\/financialreport\/attachment\/[1-9]\d{3,11}$/.test(source.pathname))
+           throw Error("현지 정부 PDF 출처 불명");
+         line(c,"현지 "+entry.financialYear+"년 IFRS 원문 "+entry.page+"쪽: "+
+              entry.sourceTextExcerpt,"small");
+         link(c,entry.officialOriginalPdfUrl,"SHA-256 검증된 정부 원본 PDF ↗");
+      }
+      if(!(pdf.passages||[]).length)
+         line(c,"현지 PDF에서 검색 가능한 배당 관련 문장을 확보하지 못했습니다. 배당이 없다는 뜻이 아닙니다.","dim");
+    }
+    line(c,"본사 실제 현금 수령·현지 배당결의의 지급 시점·기존 보도 및 주석 숫자의 정확한 회계적 의미는 아직 검증되지 않았습니다.","dim");
   }
   for(const z of x.sourceEvidence||[])link(c,z.url,z.system+" 공식 원문 ↗");
   const unknown=el("details");unknown.append(el("summary","부족한 결정적 증거·보도 전 검증 항목"));
