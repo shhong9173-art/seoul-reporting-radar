@@ -25,6 +25,11 @@ const box=(name,value,cls)=>{const n=document.createElement(name);n.textContent=
 const paragraph=(host,txt,cls)=>host.append(box("p",txt,cls));
 const names=x=>(Array.isArray(x)?x:[]).join(" · ")||"미확인";
 function render(host,item){
+ if(item.companyApplicationVerified!==false ||
+    item.industrialImpactVerified!==false ||
+    item.partnershipContractVerified!==false ||
+    item.scoopConfirmed!==false || item.approvedForPitch!==false)
+   throw Error("승인되지 않은 사업화·단독 상태값 감지");
  const card=box("article",null,"card");
  card.append(box("span",item.isRecentPublication?"최근 3일 공식 공개":"과거 공개 자료","tag"));
  card.append(box("span","취재 단계 · 단독 미확정","tag"));
