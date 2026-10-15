@@ -38,7 +38,7 @@ class SlovakOfficial(unittest.TestCase):
         self.assertEqual(v["officialEntityId"],244945)
         self.assertEqual(v["ico"],"35876832")
         self.assertEqual(v["statementAvailabilityStatus"],
-                         "individual_filing_metadata_for_both_years")
+                         "registered_annual_filing_metadata_for_both_years")
         self.assertEqual([x["financialYear"] for x in v["statements"]],[2025,2024])
         self.assertTrue(all(x["profitOrDividendAmountsParsed"] is False
                             for x in v["statements"]))
