@@ -143,7 +143,7 @@ try{
            throw Error("PDF 원문 링크 무결성 증거 부족");
          const source=new URL(entry.officialOriginalPdfUrl);
          if(source.protocol!=="https:"||source.host!=="www.registeruz.sk"||
-            !/^\\/cruz-public\\/domain\\/financialreport\\/attachment\\/[1-9]\\d{3,11}$/.test(source.pathname))
+            !/^\/cruz-public\/domain\/financialreport\/attachment\/[1-9]\d{3,11}$/.test(source.pathname))
            throw Error("현지 정부 PDF 출처 불명");
          line(c,"현지 "+entry.financialYear+"년 IFRS 원문 "+entry.page+"쪽: "+
               entry.sourceTextExcerpt,"small");
