@@ -9,7 +9,7 @@ for(const marker of [
   "UNLINKED_same_company_category_reference_date",
   "sameContractVerified!==false",
   "sameRevisionVerified!==false",
-  "articleFulltextRead",
+  "originalArticleFulltextRead",
   "revisionFirstReportedAfterPreviousCoverageVerified",
   "confirmedScoops!==0",
   "approvedArticles!==0",
