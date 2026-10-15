@@ -112,3 +112,11 @@
 - `.github/workflows/g2b-tender-official.yml`: 평일 09:35 KST, 전일 00:00~당일 23:59 등록시간 조회. 모든 자료 페이지를 수집하지 못하면 정상 결과를 덮어쓰지 않는다. 누락/키 미설정은 `digests/g2b_source_status_latest.json`에 `not_connected`/`source_error`로만 표시하고 '0건'으로 해석하지 않는다.
 - 검증된 공고 제목의 전력·변압기·에너지·전기차 관련 단어 일치를 `digests/g2b_tender_latest.json`에 보존하고 통합 연구화면 `official-leads.html`에 노출. 품명 일치는 공급사 선정/낙찰/계약금액/수주나 단독을 의미하지 않는다. 원문 공고번호와 후속 계약 서비스를 별도로 대조해야 한다.
 - NTIS 과제검색은 [국가 R&D 과제검색 서비스](https://www.data.go.kr/data/15077315/openapi.do)의 독립 인증·XML 스키마가 검증된 뒤 연동한다. NTIS과제 존재와 특정 출입기업 사업 적용 여부는 다른 사실이다.
+
+## 해외 원문 교차검증 단독 후보 연구 (2026-10-16)
+- [해외 원문 교차검증 화면](crossborder-scoops.html): **미국 NHTSA 전체 차종·연식 리콜** 및 **국내 DART 해외법인 배당 주석** 두 트랙. 특종 확정이 아니라 우선 검증 자료.
+- `scripts/crossborder_scoop_watch.py`: 기존 2026년형 4개 차종만 조회하던 누락을 해결하기 위해 NHTSA [2010년 이후 전체 리콜 공개 ZIP](https://static.nhtsa.gov/odi/ffdd/rcl/FLAT_RCL_POST_2010.zip)을 한 번 내려받아 현대차·제네시스·기아의 **모든 모델 연식**에서 최근 신고를 추출. 2015~2020년형 제네시스·G80 같은 과거 연식도 포함. 동일 캠페인을 차량 연식별로 중복 표시하지 않음. 결함요약의 화재·주차 경고는 정밀검증 우선순위에만 활용.
+- 미국 리콜 목록에는 Part 573 상세 연표와 한국 시장 시정조치 현황이 들어 있지 않음. 화면에서 반드시 **미국 Part 573 원문 → 한국 관련 문구 → 동일 부품/사양 → 자동차리콜센터 → 국토부 확인 → 기보도** 순서로 검증. 국내 조치 0건/한국 화재/단독은 자동 생성 금지.
+- `scripts/dart_foreign_dividend_watch.py`: 이미 수집한 현대자동차·기아 최신·전년동기 DART 정기보고서의 **원문 XML**에서 외국 생산법인명과 배당 관련 표가 함께 등장하는 경우만 발췌. 배당 결의·수익 인식·현금 지급을 구분하지 못한 상태에서 합계, 2.6조원 회수, 이익잉여금 감소를 단정하지 않음. 체코·슬로바키아 현지 법인등기 API는 **미연동**; 현지 재무제표 수작업 비교 필수.
+- `.github/workflows/crossborder-scoop-scout.yml`: 평일 06:40·12:20·16:30 KST 자동 수집 및 수동 실행 지원. DART 원문은 기존 `DART_API_KEY` Secret을 이용. 연결 실패·원천 자료 지연은 0건으로 기록하지 않으며 마지막 정상 JSON을 보존.
+- 검증: `python -m unittest discover -s tests -p 'test_crossborder_scoop_watch.py' -v`. 구형차 연식·동일 리콜 중복 제거·기업별 배당표 교차조합 방지 테스트 포함.
