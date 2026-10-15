@@ -23,6 +23,7 @@ select{font:inherit;padding:7px;border:1px solid #bdccd7;background:#fff;border-
 어느 경우에도 실제 매출·수주·출하·사업 영향과 기보도 여부는 별도 검증해야 합니다.</p>
 <p id="status" class="notice" role="status">공식 출입처 DART 자료 범위와 각 기업별 수집 결과 확인 중</p>
 <div id="summary" class="stats"></div>
+<p id="run-health" class="notice" role="status">공식 DART 수집 작업의 최종 실행 상태 확인 중</p>
 <h2>최근 3일 공개 공시 검토</h2>
 <p class="dim">공식 접수일을 기준으로 3일 내 자료만 우선 표시합니다. 이전에 관측하지 않은 공개 공시라고 해서 미보도 단독이 아닙니다.</p>
 <label for="beat">분야</label>
@@ -133,6 +134,12 @@ try{
  ]);
  if(!r1.ok||!r2.ok)throw Error("공식 출입처별 초깃값 미생성");
  const src=await r1.json(),changes=await r2.json();
+ let producerHealth=null;
+ try{
+   const res=await fetch("digests/dart_beat_run_health_latest.json",{cache:"no-store"});
+   if(res.ok)producerHealth=await res.json();
+ }catch(e){/* Producer status is optional; never treat missing health as success. */}
+
  if(src.status!=="industry_beat_official_receipt_review"||
     changes.status!=="official_receipt_change_review_not_exclusive"||
     changes.sourceGeneratedAt!==src.generatedAt||
@@ -142,6 +149,22 @@ try{
    throw Error("공식 출처 스냅샷 또는 단독·기업 영향 검증 수준 불일치");
  const hours=(Date.now()-Date.parse(src.generatedAt))/3600000;
  const stale=!Number.isFinite(hours)||hours>24||hours<(-1);
+ if(!producerHealth||producerHealth.status!=="dart_official_source_execution_health"){
+   $("#run-health").textContent="자동 실행 성공·실패 기록이 아직 게시되지 않았습니다. 마지막 정상 데이터와 현재 실행 성공을 구별해야 합니다.";
+ }else if(producerHealth.latestDatasetGeneratedAt!==src.generatedAt){
+   $("#run-health").textContent="자동 실행 상태 파일과 공개 DART 원문 데이터의 시각이 일치하지 않습니다. 자료가 최신이라는 판단을 보류합니다.";
+ }else if(producerHealth.newCollectionVerified!==true){
+   $("#run-health").textContent="최근 공식 DART 수집 또는 게시 실패 · 마지막 정상 원문 데이터 보존 "+
+     "(실행 "+producerHealth.generatedAt+" / 정상 데이터 "+src.generatedAt+"). "+
+     "신규 공시 0건으로 판단하면 안 됩니다.";
+ }else if(producerHealth.registryRefreshVerified!==true){
+   $("#run-health").textContent="공식 DART 공시 목록은 게시됐지만 법인 고유번호 갱신 일부 실패. "+
+     "신규법인 누락 가능성 남음 · 데이터 "+src.generatedAt;
+ }else{
+   $("#run-health").textContent="최근 공식 DART 수집·게시 성공 기록 "+
+     producerHealth.generatedAt+" · 공식 데이터 "+src.generatedAt+
+     (producerHealth.publishedDataStale24h?" · 수집 자료 24시간 초과 확인 필요":"");
+ }
  $("#status").textContent=
   "공식 자료 갱신 "+src.generatedAt+" · 공시 접수일 조회 "+src.windowStart+"~"+src.windowEnd+
   " · "+(src.sourceComplete?"조회 대상 전부 정상":"부분 조회·고유번호 누락(전체 0건 해석 금지)")+
