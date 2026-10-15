@@ -50,6 +50,13 @@ jobs:
               exit 1
             fi
           fi
+          if test -f digests/ntis_project_reverse_remaining_23_pc_latest.json; then
+            python scripts/ntis_project_reverse_validate.py digests/ntis_project_reverse_remaining_23_pc_latest.json
+            if grep -Eqi 'apprvKey|authorization|bearer |api[_-]?key|password|secret' digests/ntis_project_reverse_remaining_23_pc_latest.json; then
+              echo 'Suspected credential in NTIS remaining-23 reverse lookup import'
+              exit 1
+            fi
+          fi
   windows-full-pipeline:
     runs-on: windows-latest
     timeout-minutes: 9
