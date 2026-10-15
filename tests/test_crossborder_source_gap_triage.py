@@ -155,6 +155,50 @@ class CrossBorderDossiers(unittest.TestCase):
                          "manufacturer_official_legal_identity_only")
         self.assertFalse(result["foreignParentCashTransferVerified"])
 
+    def test_hash_verified_slovak_ifrs_page_clues_attached_but_no_dividend_amount_claim(self):
+        import hashlib
+        n,d=sources()
+        from slovakia_official_accounts import registry_evidence
+        from test_slovakia_official_accounts import api_data
+        government=registry_evidence(api_data,now=NOW)
+        checksum=hashlib.sha256(b"%PDF-1.4 official mock").hexdigest()
+        evidence={
+          "status":"official_slovak_ifrs_pdf_review_clues_not_validated_dividend_transfer",
+          "ico":"35876832","sourceRegistryGeneratedAt":government["generatedAt"],
+          "financialFiguresInterpreted":False,
+          "dividendDistributionResolutionVerified":False,
+          "koreanParentCashReceiptVerified":False,
+          "dividendPaymentToParentVerified":False,
+          "exclusiveConfirmed":False,
+          "reports":[{
+             "year":2025,"statementId":6995571,"reportId":10298519,
+             "status":"official_pdf_text_passages_for_manual_review",
+             "pdfReadAndOfficialHashVerified":True,
+             "sha256":checksum,
+             "attachmentUrl":"https://www.registeruz.sk/cruz-public/domain/financialreport/attachment/12345678",
+             "pageClues":[{
+                "page":32,"sourceTextExcerpt":"Note 19: Dividends were discussed",
+                "containsFinancialAmountValidated":False,
+                "cashPaidOrRetainedProfitValidated":False
+             }]
+          }]
+        }
+        # Synthetic registry includes distinct report IDs; metadata parent
+        # matching is re-checked at the source fetch stage.
+        got=t.build(n,d,now=NOW,slovakia=government,slovak_pdf=evidence)
+        target=next(x for x in got["items"] if
+                    x["type"]=="foreign_subsidiary_dividend_accounting")
+        p=target["slovakPdfPrimaryReview"]
+        self.assertEqual(p["governmentHashVerifiedReports"],1)
+        self.assertEqual(p["passages"][0]["page"],32)
+        self.assertFalse(p["amountsIndependentlyAudited"])
+        self.assertFalse(p["parentCashReceiptVerified"])
+        self.assertFalse(target["pitchGate"]["cashReceivedByParentVerified"])
+        evidence["sourceRegistryGeneratedAt"]="2025-01-01T00:00:00+09:00"
+        rejected=t.build(n,d,now=NOW,slovakia=government,slovak_pdf=evidence)
+        self.assertEqual(next(x for x in rejected["items"] if x["type"]==
+          "foreign_subsidiary_dividend_accounting")["slovakPdfPrimaryReview"]["governmentHashVerifiedReports"],0)
+
     def test_wrong_entity_or_total_dividend_is_not_subsidiary_amount(self):
         x=note()
         x["tableExcerpt"]="당반기 배당금수익은 1,747,732백만원입니다. Kia Slovakia 현지공장 매출 32억원"
