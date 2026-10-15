@@ -1,0 +1,66 @@
+name: Bootstrap KIPRIS Joint Patent Evidence Snapshot
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/kipris-joint-snapshot-bootstrap.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: kipris-patent-evidence
+  cancel-in-progress: false
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test scope and safely bootstrap from matching frozen official snapshots
+        run: |
+          set -e
+          python -m unittest discover -s tests -p 'test_patent_joint_verification.py' -v
+          if [ -f digests/patent_joint_verification_latest.json ]; then
+            echo "The official KIPRIS pipeline already generated this queue; do not overwrite."
+            exit 0
+          fi
+          python scripts/patent_joint_verification.py --output digests/patent_joint_verification_latest.json
+          python - <<'PY'
+          import json
+          p=json.load(open('digests/patent_joint_verification_latest.json',encoding='utf-8'))
+          assert p['confirmedScoops']==0 and p['approvedArticles']==0
+          assert p['jointRecordsRepresented']+p['unrepresentedOfficialJointRecords']==p['officialOutsideBeatJointCount']
+          assert not(p['officialSourceStale'] and p['recentCoverageComplete'])
+          PY
+      - name: Publish historical-scoped bootstrap only if missing
+        run: |
+          set -e
+          if [ ! -f digests/patent_joint_verification_latest.json ]; then
+            echo "No bootstrapped evidence to publish"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add digests/patent_joint_verification_latest.json
+          if git diff --cached --quiet; then
+            echo "Already tracked; no change"
+            exit 0
+          fi
+          git commit -m "data: bootstrap scoped KIPRIS joint-patent verification [skip ci]"
+          for attempt in 1 2 3; do
+            git pull --rebase origin main
+            # The original KIPRIS producer shares our concurrency group.
+            if git push origin HEAD:main; then exit 0; fi
+            sleep 4
+          done
+          echo "KIPRIS bootstrap publish failed" >&2
+          exit 1
