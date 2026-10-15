@@ -1,0 +1,237 @@
+{
+  "generatedAt": "2026-10-16T03:48:50+09:00",
+  "status": "crossborder_reporter_evidence_gap_not_exclusive",
+  "officialSourceGeneratedAt": {
+    "nhtsa": "2026-10-16T03:28:49.592933+09:00",
+    "dartDividend": "2026-10-16T03:28:52.607228+09:00"
+  },
+  "sourceHealth": {
+    "nhtsaOfficial": "checked",
+    "dartOfficialDividendNotes": "checked_some_receipts",
+    "koreanRecallAPI": "not_connected_permission_required",
+    "foreignSubsidiaryRegistries": "not_connected",
+    "sameAngleNewsFulltext": "not_verified"
+  },
+  "sourceStale48h": false,
+  "dossierCount": 3,
+  "usSafetyDossiers": 2,
+  "issuerExactDividendDossiers": 1,
+  "domesticRecallAbsenceVerified": false,
+  "foreignParentCashTransferVerified": false,
+  "confirmedScoops": 0,
+  "approvedArticles": 0,
+  "warning": "US recall ≠ Korea recall absence. DART dividend income recognition ≠ cash transferred; original record already public, press same angle unknown. New first-monitor observation ≠ scoop.",
+  "items": [
+    {
+      "id": "usrecall:26V588000",
+      "type": "overseas_safety_domestic_comparison",
+      "companyGroup": "현대차·기아·제네시스",
+      "headline": "미국 리콜 26V588000 · 국내 동일 부품/시정조치 대조 필요",
+      "officialPublicationDate": "2026-09-11",
+      "publicationAgeDays": 35,
+      "reportingWindowStatus": "older_public_record_background_only",
+      "reporterPriority": "background_followup",
+      "sourceEvidence": [
+        {
+          "system": "NHTSA",
+          "scope": "US vehicle recall campaign",
+          "identifier": "26V588000",
+          "url": "https://api.nhtsa.gov/recalls/campaignNumber?campaignNumber=26V588000",
+          "verifiedFact": "U.S. campaign officially published",
+          "originalDocumentRead": "archive_flat_record_only_not_Part573_chronology"
+        }
+      ],
+      "officialFact": {
+        "usCampaign": "26V588000",
+        "usModelYears": [
+          {
+            "model": "IONIQ 9",
+            "year": "2026"
+          }
+        ],
+        "usDefectSummary": "Hyundai Motor America (Hyundai) is recalling certain 2026 Ioniq 9 vehicles equipped with a Limited, Calligraphy, or Calligraphy Design trim package. The second-row power seats may fail to detect a person. As a result, the seats may continue to move after contacting a person during powered seat functions, such as automatic power fold-and-stow.",
+        "riskWordingFlagged": false
+      },
+      "criticalEvidenceNotYetVerified": [
+        "NHTSA Part 573 chronology, exact component and U.S. affected part/specification",
+        "Korea-sold variant actual part number/production range; cannot infer it from U.S. model name",
+        "Korean MOLIT/KATRI official recall and free-repair records for those exact parts",
+        "Domestic incident report or absence of recall NOT established",
+        "Previous publication of this precise Korea-US discrepancy by Korean/overseas press"
+      ],
+      "sourceAvailability": {
+        "nhtsaArchive": "available",
+        "part573Attachments": "not_collected",
+        "koreanOfficialRecall": "api_not_connected_requires_authorization",
+        "pressFulltext": "not_collected",
+        "domesticIdenticalPart": "not_verified"
+      },
+      "officialComparisonLinks": [
+        "https://api.nhtsa.gov/recalls/campaignNumber?campaignNumber=26V588000",
+        "https://www.car.go.kr/ri/stat/list.do"
+      ],
+      "pitchGate": {
+        "primaryUSRecord": true,
+        "domesticOfficialChecked": false,
+        "exactComponentMatch": false,
+        "domesticIncidentVerified": false,
+        "sameAnglePriorPressChecked": false,
+        "companyImpactVerified": false,
+        "approvedForPitch": false,
+        "exclusiveConfirmed": false
+      },
+      "questionsForPublicSources": [
+        "자동차리콜센터에서 해당 차종·연식과 실제 부품의 국내 리콜·무상수리 기록 확인",
+        "NHTSA 제조사 Part 573 보고서에서 해당 부품·제작기간과 위험 설명 확인",
+        "현대차·기아 홍보팀에 국내 판매 사양의 동일 부품 적용 여부 및 공개된 시정조치만 질의",
+        "국내외 기보도 기사 전문에서 동일한 국내 적용 쟁점이 보도됐는지 확인"
+      ],
+      "publicationAloneIsNotScoop": true
+    },
+    {
+      "id": "usrecall:26V664000",
+      "type": "overseas_safety_domestic_comparison",
+      "companyGroup": "현대차·기아·제네시스",
+      "headline": "미국 리콜 26V664000 · 국내 동일 부품/시정조치 대조 필요",
+      "officialPublicationDate": "2026-10-08",
+      "publicationAgeDays": 8,
+      "reportingWindowStatus": "recent_official_record_needs_domestic_checks",
+      "reporterPriority": "domestic_crosscheck_first",
+      "sourceEvidence": [
+        {
+          "system": "NHTSA",
+          "scope": "US vehicle recall campaign",
+          "identifier": "26V664000",
+          "url": "https://api.nhtsa.gov/recalls/campaignNumber?campaignNumber=26V664000",
+          "verifiedFact": "U.S. campaign officially published",
+          "originalDocumentRead": "archive_flat_record_only_not_Part573_chronology"
+        }
+      ],
+      "officialFact": {
+        "usCampaign": "26V664000",
+        "usModelYears": [
+          {
+            "model": "G80",
+            "year": "2017"
+          },
+          {
+            "model": "G80",
+            "year": "2018"
+          },
+          {
+            "model": "G80",
+            "year": "2019"
+          },
+          {
+            "model": "G80",
+            "year": "2020"
+          },
+          {
+            "model": "GENESIS",
+            "year": "2015"
+          },
+          {
+            "model": "GENESIS",
+            "year": "2016"
+          }
+        ],
+        "usDefectSummary": "Hyundai Motor America (Genesis) is recalling certain 2015-2016 Hyundai Genesis, and 2017-2020 Genesis G80 vehicles. The front power seat motors may overheat due to a stuck power seat control switch, which can result in a fire while parked or driving.",
+        "riskWordingFlagged": true
+      },
+      "criticalEvidenceNotYetVerified": [
+        "NHTSA Part 573 chronology, exact component and U.S. affected part/specification",
+        "Korea-sold variant actual part number/production range; cannot infer it from U.S. model name",
+        "Korean MOLIT/KATRI official recall and free-repair records for those exact parts",
+        "Domestic incident report or absence of recall NOT established",
+        "Previous publication of this precise Korea-US discrepancy by Korean/overseas press"
+      ],
+      "sourceAvailability": {
+        "nhtsaArchive": "available",
+        "part573Attachments": "not_collected",
+        "koreanOfficialRecall": "api_not_connected_requires_authorization",
+        "pressFulltext": "not_collected",
+        "domesticIdenticalPart": "not_verified"
+      },
+      "officialComparisonLinks": [
+        "https://api.nhtsa.gov/recalls/campaignNumber?campaignNumber=26V664000",
+        "https://www.car.go.kr/ri/stat/list.do"
+      ],
+      "pitchGate": {
+        "primaryUSRecord": true,
+        "domesticOfficialChecked": false,
+        "exactComponentMatch": false,
+        "domesticIncidentVerified": false,
+        "sameAnglePriorPressChecked": false,
+        "companyImpactVerified": false,
+        "approvedForPitch": false,
+        "exclusiveConfirmed": false
+      },
+      "questionsForPublicSources": [
+        "자동차리콜센터에서 해당 차종·연식과 실제 부품의 국내 리콜·무상수리 기록 확인",
+        "NHTSA 제조사 Part 573 보고서에서 해당 부품·제작기간과 위험 설명 확인",
+        "현대차·기아 홍보팀에 국내 판매 사양의 동일 부품 적용 여부 및 공개된 시정조치만 질의",
+        "국내외 기보도 기사 전문에서 동일한 국내 적용 쟁점이 보도됐는지 확인"
+      ],
+      "publicationAloneIsNotScoop": true
+    },
+    {
+      "id": "dart-dividend:20260916000427:기아:1",
+      "type": "foreign_subsidiary_dividend_accounting",
+      "companyGroup": "기아",
+      "headline": "기아 해외법인 배당수익 인식액 · 현금회수·현지 손익 교차검증",
+      "officialPublicationDate": "2026-09-16",
+      "sourceEvidence": [
+        {
+          "system": "OpenDART",
+          "identifier": "20260916000427",
+          "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
+          "scope": "issuer disclosed note; exact named entity recognition phrase",
+          "originalDocumentRead": "saved_primary_filing_excerpt_exact_statement",
+          "verifiedFact": "Issuer reported named-entity dividend income recognition, not cash remittance"
+        }
+      ],
+      "officialFact": {
+        "recognizedFromEntity": "Kia Slovakia s.r.o.(KaSK)",
+        "recognizedDividendIncomeText": "1,610,458백만원",
+        "recognizedAmountInMillionKrw": 1610458,
+        "recognizedPeriodLabel": "current",
+        "companyAccountingLine": "배당금수익",
+        "issuerOriginalPhrase": "Kia Slovakia s.r.o.(KaSK)로부터 인식한 1,610,458백만원",
+        "unit": "백만원"
+      },
+      "sourceAvailability": {
+        "dartIssuerNote": "exact_named_recognition_phrase_present",
+        "foreignLocalRegistry": "not_connected",
+        "koreanCashFlowPaymentEvidence": "not_verified",
+        "issuerSeparateVsConsolidatedNote": "not_verified",
+        "priorPressFulltext": "not_collected"
+      },
+      "criticalEvidenceNotYetVerified": [
+        "Separate vs consolidated statements and issuer's accounting period",
+        "Accounting recognition ≠ actual cash remittance; verify bank/cash-flow disclosures only if publicly available",
+        "Slovak/Czech local company distribution resolutions and retained earnings / profit period",
+        "Local currency exchange rates and any withholding taxes cannot be inferred from Korean note",
+        "Prior coverage of exact amount and overseas-to-parent remittance claim"
+      ],
+      "pitchGate": {
+        "issuerSpecificDividendRecognition": true,
+        "cashReceivedByParentVerified": false,
+        "foreignCompanyLegalAccountsVerified": false,
+        "priorProfitYearVerified": false,
+        "sameAnglePriorPressChecked": false,
+        "companyImpactVerified": false,
+        "approvedForPitch": false,
+        "exclusiveConfirmed": false
+      },
+      "questionsForPublicSources": [
+        "DART 원문의 별도/연결 재무제표 구분, 2026년 반기 배당수익 인식 계정 확인",
+        "현지 법인의 공개 배당결의·감사재무제표에서 배당의 귀속 이익연도 확인",
+        "회사 홍보팀에 공시 수치의 회계적 의미와 현금수령 여부 중 공개 가능한 자료만 확인",
+        "같은 해외 법인·금액에 관한 국내외 기보도와 최초 공개일 확인"
+      ],
+      "reporterPriority": "accounting_meaning_and_prior_press_first",
+      "reportingWindowStatus": "historical_public_filing_to_investigate",
+      "publicationAloneIsNotScoop": true
+    }
+  ]
+}
