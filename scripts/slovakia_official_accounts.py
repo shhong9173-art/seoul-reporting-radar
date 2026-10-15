@@ -121,7 +121,11 @@ def registry_evidence(fetch=json_get,*,now=None):
                 if not isinstance(period,str) or not re.fullmatch(r"20\d\d-12",period):
                     continue
                 year=int(period[:4])
-                if year not in TARGET_YEARS or r.get("konsolidovana") is not False:
+                # The RUZ API specification omits attributes with null
+                # values. Missing 'konsolidovana' is NOT true and NOT
+                # verified false; do not drop a valid annual filing solely
+                # because this optional property was omitted.
+                if year not in TARGET_YEARS or r.get("konsolidovana") is True:
                     continue
                 found.append({
                     "statementId":statement_id,
@@ -132,7 +136,10 @@ def registry_evidence(fetch=json_get,*,now=None):
                     "prepared":r.get("datumZostavenia"),
                     "approved":r.get("datumSchvalenia"),
                     "statementType":str(r.get("typ") or "")[:55],
-                    "basis":"official_registry_individual_filing_metadata",
+                    "basis":"official_registry_annual_filing_metadata",
+                    "consolidationFlag":(
+                        "explicit_non_consolidated" if r.get("konsolidovana") is False
+                        else "not_specified_by_api"),
                     "sameIcoAndLegalNameConfirmed":True,
                     "profitOrDividendAmountsParsed":False,
                     "companyRegistryUrl":COMPANY_PAGE,
@@ -150,7 +157,7 @@ def registry_evidence(fetch=json_get,*,now=None):
         if failures:
             status["statementAvailabilityStatus"]="partial_official_statement_lookup_failed"
         elif set(x["financialYear"] for x in found)==set(TARGET_YEARS):
-            status["statementAvailabilityStatus"]="individual_filing_metadata_for_both_years"
+            status["statementAvailabilityStatus"]="registered_annual_filing_metadata_for_both_years"
         elif len(all_ids)>DETAIL_LIMIT:
             status["statementAvailabilityStatus"]="bounded_recent_filing_ids_older_year_may_be_unchecked"
         else:
