@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>해외 원문 교차검증 | 자동차 산업부 취재 레이더</title>
+<style>
+:root{color-scheme:light;font:15px/1.55 system-ui,-apple-system,"Noto Sans KR",sans-serif;background:#f4f6f9;color:#23364a}
+body{margin:0}main{max-width:1080px;margin:auto;padding:20px 18px 70px}h1{font-size:25px}
+h2{font-size:19px;margin-top:28px}h3{font-size:16px;margin:6px 0}
+a{color:#12609b}.note,.card{background:white;border:1px solid #d8e1eb;border-radius:10px;padding:15px;margin:10px 0}
+.note{border-left:4px solid #cc8b3f}.dim{color:#526679;font-size:13px}
+.tag{display:inline-block;font-size:12px;background:#edf1f5;border-radius:6px;padding:2px 7px;margin:4px 6px 3px 0}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f6f8fa;padding:10px;border-radius:7px;font:13px/1.6 inherit}
+button{font:inherit;padding:6px 12px;border-radius:7px;background:#f8fafc;border:1px solid #9eb2c6;cursor:pointer}
+.small{font-size:13px}p{margin:7px 0}
+</style></head><body><main>
+<p class="dim"><a href="index.html">취재 레이더</a> / <a href="official-today.html">기존 공식자료</a></p>
+<h1>해외 원문 교차검증 단서</h1>
+<p class="note"><strong>단독 확인 0건</strong> — 이 화면은 취재 방향만 제시합니다. 미국 리콜 자체는 이미 공개됐으며, 미국 문서에서 한국 관련 사례가 확인되지 않은 경우 국내 사고·미조치를 단정하지 않습니다. DART 배당 주석의 회계상 금액과 실제 본사 현금 수령은 다릅니다. 선행보도, 현지 정부 원문, 국내 당국 및 기업 확인 후 발제를 결정하세요.</p>
+<h2>NHTSA 전체 모델·연식 신규 리콜 <small class="dim">한국 판매차와 국내 조치 별도 확인</small></h2>
+<p id="safety-state" class="dim">공식 자료 확인 중</p><div id="safety"></div>
+<h2>DART 해외 생산법인 배당 주석 <small class="dim">체코·슬로바키아 현지 등기 미연동</small></h2>
+<p id="dividend-state" class="dim">공식 자료 확인 중</p><div id="dividends"></div>
+<script>
+(async()=>{
+"use strict";
+const $=id=>document.getElementById(id);
+function el(tag,text,cls){const n=document.createElement(tag);if(text!==undefined)n.textContent=String(text);if(cls)n.className=cls;return n}
+function line(host,text,cls){host.append(el("p",text,cls))}
+function link(host,url,title){if(typeof url==="string"&&url.startsWith("https://")){const a=el("a",title);a.href=url;a.target="_blank";a.rel="noopener noreferrer";host.append(a)}}
+function card(host,title){const c=el("article",undefined,"card");c.append(el("h3",title));host.append(c);return c}
+async function load(name){const r=await fetch("digests/"+name,{cache:"no-store"});if(!r.ok)throw Error("자료 미수집 또는 접속 실패");return r.json()}
+function ageNotice(data){const time=Date.parse(data.generatedAt||"");if(!Number.isFinite(time))return "생성 시각 검증 불가";
+const hours=(Date.now()-time)/3600000;return hours>48?"자료가 48시간 이상 지났습니다. 현재 상황으로 판단 금지":"최신 자료 생성 "+data.generatedAt}
+function copyQuestions(c,questions){const b=el("button","확인 질문 복사");b.onclick=async()=>{const text=questions.map((x,i)=>(i+1)+". "+x).join("\n");try{await navigator.clipboard.writeText(text);b.textContent="복사 완료"}catch(e){b.textContent="복사 실패 · 텍스트 선택";const p=el("pre",text);c.append(p)}};c.append(b)}
+try{
+ const data=await load("crossborder_safety_latest.json");
+ if(data.status!=="official_us_recalls_to_review"||!Array.isArray(data.leads)||data.confirmedScoops!==0)throw Error("응답 구조/검증 상태 오류");
+ $("safety-state").textContent=ageNotice(data)+" · 기준 최종 접수일 "+data.archiveLatestReceived+" · 최근 미국 리콜 캠페인 "+data.campaignCount+"건 · 국내 조치 현황 미확인";
+ for(const x of data.leads){
+  if(x.exclusiveConfirmed!==false||x.koreanRecallChecked!==false||x.koreanIncidentVerified!==false)continue;
+  const c=card($("safety"),x.id+" · "+(x.makes||[]).join("/"));
+  line(c,x.officialDate+" 접수 · "+(x.models||[]).slice(0,5).map(v=>v.model+"("+v.year+")").join(", "),"dim");
+  line(c,"미국 당국 결함 설명: "+x.defect);
+  line(c,"분류: "+(x.flags||[]).join(" · "),"dim");
+  link(c,x.sourceUrl,"NHTSA 캠페인 원문");c.append(el("span"," · "));
+  link(c,x.reportSearchUrl,"보고서·차량 검색");
+  copyQuestions(c,x.mustCheck||[]);
+ }
+ if(!data.leads.length)line($("safety"),"조회 범위 내 일치 기록이 없습니다. 자료가 최신인지 확인해야 합니다.");
+}catch(e){$("safety-state").textContent="NHTSA 전체 원문 미수집 또는 오류. 신규 리콜 0건으로 간주하지 마세요."}
+try{
+ const data=await load("overseas_dividend_evidence_latest.json");
+ if(data.status!=="evidence_excerpts_not_verified_dividend_receipts"||!Array.isArray(data.leads)||data.confirmedScoops!==0)throw Error("배당 데이터 검증 상태 오류");
+ $("dividend-state").textContent=ageNotice(data)+" · 현지 법인등기 "+data.foreignRegistryStatus+" · 원문 표 후보 "+data.leads.length+"건 (현금수령·순이익 비교 미검증)";
+ for(const x of data.leads){
+   if(x.scoopConfirmed!==false||x.cashReceiptVerified!==false)continue;
+   const c=card($("dividends"),x.company+" · "+x.period+" · "+x.receiptNo);
+   line(c,"배당 관련 표 원문 발췌(금액 단위·회계처리 검증 전):");
+   c.append(el("pre",x.tableExcerpt));line(c,"표 직전 문맥: "+x.context,"dim");
+   link(c,x.filingUrl,"DART 원문 보기");c.append(el("p","현지 재무제표·배당결의서 추가 확보 전 현금 회수 단정 금지","dim"));
+   copyQuestions(c,x.verify||[]);
+ }
+ if(!data.leads.length)line($("dividends"),"같은 표에 기업명과 배당 단서가 나타난 사례가 없습니다. DART 주석 전체에 배당이 없다는 의미가 아닙니다.");
+}catch(e){$("dividend-state").textContent="DART 원문 배당주석 미수집·미연결. 배당 후보 0건으로 간주하지 마세요."}
+})();
+</script>
+</main></body></html>
