@@ -1,0 +1,60 @@
+name: Bootstrap DART Contract Media Review Dataset
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/dart-contract-followup-bootstrap.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: official-overseas-contracts
+  cancel-in-progress: false
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate original receipts and bootstrap ONLY if no live audit exists
+        run: |
+          set -e
+          python -m unittest discover -s tests -p 'test_dart_contract_followup.py' -v
+          if [ -f digests/dart_contract_followup_latest.json ]; then
+            echo 'A live/previous DART contract media dataset already exists; never overwrite it'
+            exit 0
+          fi
+          # Offline bootstrap is NOT a claim that prior news was searched.
+          python scripts/dart_contract_followup.py --no-press-network
+          python - <<'PY'
+          import json
+          d=json.load(open('digests/dart_contract_followup_latest.json',encoding='utf-8'))
+          assert d['confirmedScoops']==d['approvedArticles']==0
+          assert d['sourceItemCount']==d['reviewedEvents']
+          assert all(x['pressIndexStatus']=='press_not_searched' for x in d['items'])
+          assert all(not x['exclusiveConfirmed'] for x in d['items'])
+          print('OFFLINE FIRST BASELINE: press has NOT been searched',d['reviewedEvents'])
+          PY
+      - name: Publish only initial review state when absent
+        run: |
+          set -e
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add digests/dart_contract_followup_latest.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'data: initialize DART contract review with unsearched media status [skip ci]'
+          for attempt in 1 2 3; do
+            git pull --rebase origin main
+            if git push origin HEAD:main; then exit 0; fi
+            sleep 4
+          done
+          exit 1
