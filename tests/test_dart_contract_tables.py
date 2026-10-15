@@ -10,6 +10,37 @@ from recent_contracts import document_evidence
 from dart_contract_followup import review_one
 
 class ContractTableSourceTests(unittest.TestCase):
+    def test_official_sales_ratio_and_related_company_are_explicit_independent_fields(self):
+        doc="""
+        <TABLE>
+          <TR><TD>- 체결계약명</TD><TD>펜실베니아 연료전지 전력설비 공급 PJT</TD></TR>
+          <TR><TD rowspan="4">2. 계약내역</TD><TD>계약금액(원)</TD>
+              <TD>185,257,183,992</TD></TR>
+          <TR><TD>최근매출액(원)</TD><TD>4,965,798,552,980</TD></TR>
+          <TR><TD>매출액대비(%)</TD><TD>3.73</TD></TR>
+          <TR><TD>대규모법인여부</TD><TD>해당</TD></TR>
+          <TR><TD>3. 계약상대</TD><TD>LS ELECTRIC AMERICA Inc.</TD></TR>
+          <TR><TD>- 회사와의 관계</TD><TD>자회사</TD></TR>
+          <TR><TD>4. 판매ㆍ공급지역</TD><TD>미국</TD></TR>
+        </TABLE>"""
+        out=t.extract_contract_terms([doc])
+        fields=out["fields"]
+        self.assertEqual(fields["contract_amount"],"185,257,183,992")
+        self.assertEqual(fields["recent_sales"],"4,965,798,552,980")
+        self.assertEqual(fields["sales_ratio"],"3.73")
+        self.assertEqual(fields["counterparty"],"LS ELECTRIC AMERICA Inc.")
+        self.assertEqual(fields["counterparty_relationship"],"자회사")
+        self.assertEqual(fields["contract_subject"],"펜실베니아 연료전지 전력설비 공급 PJT")
+        self.assertEqual(fields["supply_region"],"미국")
+        self.assertNotIn("대규모법인여부",fields)
+        self.assertEqual(out["fieldEvidence"]["sales_ratio"]["basis"],
+                         "same_official_table_row")
+
+    def test_sales_ratio_never_derived_from_unknown_sales_or_wrong_units(self):
+        html="<TABLE><TR><TD>매출액대비(%)</TD><TD>approx 3.7%</TD></TR><TR><TD>최근매출액(원)</TD><TD>미정</TD></TR></TABLE>"
+        self.assertNotIn("sales_ratio",t.extract_contract_terms([html])["fields"])
+        self.assertNotIn("recent_sales",t.extract_contract_terms([html])["fields"])
+
     def test_official_three_columns_with_decorative_rowspan(self):
         doc="""
         <DOCUMENT><BODY><SECTION-1>
