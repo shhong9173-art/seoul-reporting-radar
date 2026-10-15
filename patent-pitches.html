@@ -200,6 +200,21 @@ try{
         " · 부족한 확인: "+(missing||"공개 자료상 확인 사항 기록")+
         " · 다음 취재: "+rankState.nextStep,"status");
       card.append(header,stageInfo);
+      const ntis=rankState.ntisResearchEvidence;
+      if(ntis){
+        let explanation="NTIS 번호 대조: 이번 검증 표본에 포함되지 않았거나 원천 미연결(0건 판정 불가)";
+        if(ntis.status==="keyword_only_no_frozen_kipris_application")
+          explanation="NTIS: 연관 기술어 과제 "+ntis.keywordRelatedProjectCount+"개 · 대상 특허의 공식 출원번호 대조 표본 아님";
+        else if(ntis.status==="partially_inspected_no_official_pair_observed")
+          explanation="NTIS: 과제·출원번호 직접 일치 관측 0건(확인 범위) · 미확인 과제 페이지 "+
+            ntis.uninspectedRelatedProjectCount+"개 · 성과 부존재 증거 아님";
+        else if(ntis.status==="same_official_hit_number_pair_for_human_review")
+          explanation="NTIS: 동일 공식 성과행 번호 대조 "+ntis.officialNumberPairsForHumanReview+
+            "건(인간 검토만 가능) · 회사 참여·사업화·단독은 별도 확인";
+        else if(ntis.status==="bounded_inspected_no_official_pair_observed")
+          explanation="NTIS: 확인한 공식 응답에서 정확한 출원번호·과제번호 동일 HIT 연결 미발견 · 전체 성과 부재는 아님";
+        card.append(el("p",explanation+" · 이 정보는 후보 가점이나 발제 승인이 아닙니다.","status"));
+      }
     }else card.append(header);
     const field=document.createElement("textarea");
     field.setAttribute("aria-label","발제 "+(i+1)+"번 문안 편집");

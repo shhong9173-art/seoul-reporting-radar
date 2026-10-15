@@ -142,5 +142,35 @@ class ReportingTriageTests(unittest.TestCase):
         self.assertEqual(r["finalHumanSample"],0)
         self.assertIsNone(r["observedEditorialHitRate"])
 
+    def test_dart_technical_overlap_is_not_a_patent_business_link_bonus(self):
+        a=fixtures()
+        zero=t.build(*a,now=NOW)
+        r0=next(x for x in zero["reviewQueue"] if x["publicationNumber"]==A)
+        a[1]["reviews"][0]["independentDartTechnicalOverlap"]=[{"kind":"keyword_only"}]
+        yes=t.build(*a,now=NOW)
+        r1=next(x for x in yes["reviewQueue"] if x["publicationNumber"]==A)
+        self.assertEqual(r1["evidencePriorityScore"],r0["evidencePriorityScore"])
+        self.assertFalse(r1["patentBusinessIdentityProven"])
+
+    def test_ntis_partial_coverage_does_not_verify_exclusive(self):
+        a=fixtures()
+        ntis={A:{"status":"partially_inspected_no_official_pair_observed",
+                 "frozenKiprisApplicationAvailable":True,
+                 "keywordRelatedProjectCount":5,
+                 "officialNumberPairsForHumanReview":0,
+                 "uninspectedRelatedProjectCount":1,
+                 "sourceStatus":"bounded_ntis_rpatent_reverse_not_a_business_link",
+                 "projectParticipationVerified":False,
+                 "businessApplicationVerified":False,"exclusiveProven":False}}
+        base=t.build(*a,now=NOW)
+        fresh=t.build(*a,now=NOW,ntis_evidence=ntis)
+        original=next(x for x in base["reviewQueue"] if x["publicationNumber"]==A)
+        row=next(x for x in fresh["reviewQueue"] if x["publicationNumber"]==A)
+        self.assertEqual(row["evidencePriorityScore"],original["evidencePriorityScore"])
+        self.assertEqual(row["ntisResearchEvidence"]["uninspectedRelatedProjectCount"],1)
+        self.assertFalse(row["exclusiveProven"])
+        self.assertIsNone(next(x for x in fresh["reviewQueue"]
+            if x["publicationNumber"]==B)["ntisResearchEvidence"]["officialNumberPairsForHumanReview"])
+
 if __name__=="__main__":
     unittest.main()

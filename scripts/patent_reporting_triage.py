@@ -86,7 +86,7 @@ def classify(lead,cross,verdict,checks):
     return "source_review_company_call",blocking
 
 
-def build(desk,cross,editorial,checks,quality=None,now=None,max_selected=5):
+def build(desk,cross,editorial,checks,quality=None,now=None,max_selected=5,ntis_evidence=None):
     now=now or datetime.now(KST)
     if not 1<=max_selected<=5:raise ValueError("Top-N must be 1..5")
     if (desk.get("status")!="research_priorities_only"
@@ -121,10 +121,22 @@ def build(desk,cross,editorial,checks,quality=None,now=None,max_selected=5):
         score=int(lead.get("evidencePriorityScore") or 0)
         score+=min(10,2*reviewed)
         score+=8 if verdict=="worth_reporting" else 0
-        score+=4 if crossrow.get("independentDartTechnicalOverlap") else 0
+        # Same-issuer DART technical word overlap is context, NOT proof of
+        # patent application or a reporting advantage. No automatic +4.
         score-=10*contradicted
         score-=18 if stage=="media_check_first" else 0
         score-=200 if flags else 0
+        provenance=(ntis_evidence or {}).get(pub)
+        if provenance is None:
+            provenance={"status":"outside_checked_ntis_cohort_or_source_unavailable",
+                        "frozenKiprisApplicationAvailable":False,
+                        "keywordRelatedProjectCount":None,
+                        "officialNumberPairsForHumanReview":None,
+                        "uninspectedRelatedProjectCount":None,
+                        "sourceStatus":"not_established",
+                        "projectParticipationVerified":False,
+                        "businessApplicationVerified":False,
+                        "exclusiveProven":False}
         reporter_checks={k:{
             "result":assigned.get(k,{}).get("result","not_reviewed"),
             "publicEvidenceUrl":assigned.get(k,{}).get("evidenceUrl") if
@@ -157,6 +169,7 @@ def build(desk,cross,editorial,checks,quality=None,now=None,max_selected=5):
             "publicContradictionCount":contradicted,
             "publicCheckStatuses":reporter_checks,
             "missingChecks":incomplete,
+            "ntisResearchEvidence":provenance,
             "technicalOverlapCount":len(crossrow.get("independentDartTechnicalOverlap") or []),
             "sameCompanyBackgroundCount":len(crossrow.get("sameIssuerBackgroundSources") or []),
             "companyReplyIndependentVerification":False,
@@ -198,12 +211,12 @@ def build(desk,cross,editorial,checks,quality=None,now=None,max_selected=5):
         "observedEditorialHitRate":rate(positives,len(finalized)),
         "observedFalsePositiveRate":rate(negatives,len(finalized)),
         "metricsStatus":status,
-        "rankingPolicy":"근거 점수+공개 URL 첨부한 기자 확인 진행+수동 기사 가치 판정. 자동학습/단독 확률 아님",
+        "rankingPolicy":"공식 공개특허 근거 점수+기자 확인·수동 기사 가치 판정. DART 기술어 겹침과 NTIS 키워드 과제는 자동 가점 없음; 단독 확률 아님",
         "selectionCaveat":"자발적으로 검토한 기사 후보에 대한 편의표본. 표본 0건=측정 불가; 일반화 정확도/단독 검출률 아님",
         "shortlist":chosen,
         "reviewQueue":order,
         "approvedArticles":0,"confirmedExclusives":0,
-        "notes":"브라우저 로컬 체크 상태는 서버로 전송되지 않아 본 점수에 반영되지 않음. 공개 URL 사실의 내용·업체 실제 적용은 독립 검증 미완료.",
+        "notes":"NTIS 공식 번호일치·미조회 범위는 별도 연구 근거이며 가점·단독 인증 아님. 기업 적용 및 사업화는 별도 직접 검증. 브라우저 로컬 체크는 서버 점수에 미반영.",
     }
 
 
@@ -219,7 +232,10 @@ def main():
     def load(f):return json.loads(Path(f).read_text(encoding="utf-8"))
     try:quality=load(a.quality)
     except (OSError,ValueError):quality={}
-    report=build(load(a.desk),load(a.cross),load(a.editorial),load(a.checks),quality)
+    from ntis_patent_evidence_gate import load_evidence
+    provenance=load_evidence()
+    report=build(load(a.desk),load(a.cross),load(a.editorial),load(a.checks),
+                 quality,ntis_evidence=provenance)
     out=Path(a.out);out.parent.mkdir(parents=True,exist_ok=True)
     tmp=out.with_suffix(".json.tmp")
     tmp.write_text(json.dumps(report,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")

@@ -7,6 +7,8 @@ on:
       - 'scripts/ntis_project_reverse_pc.ps1'
       - 'scripts/ntis_project_page_followup_pc.ps1'
       - 'scripts/ntis_project_page_followup_validate.py'
+      - 'scripts/ntis_patent_evidence_gate.py'
+      - 'scripts/patent_reporting_triage.py'
       - 'scripts/Run_NTIS_Project_Page_Followup.cmd'
       - 'scripts/Run_NTIS_Project_Reverse.cmd'
       - 'scripts/Run_NTIS_Project_Reverse_Remaining_23.cmd'
@@ -16,6 +18,10 @@ on:
       - 'tests/test_ntis_project_reverse_plan.py'
       - 'tests/test_ntis_project_page_followup_validate.py'
       - 'tests/test_ntis_project_page_followup_view.cjs'
+      - 'tests/test_ntis_patent_evidence_gate.py'
+      - 'tests/test_patent_reporting_triage.py'
+      - 'tests/test_patent_ntis_evidence_view.cjs'
+      - 'patent-pitches.html'
       - 'tests/test_ntis_project_reverse_validate.py'
       - 'tests/test_ntis_project_reverse_view.cjs'
       - 'tests/test_ntis_remaining_23_view.cjs'
@@ -51,6 +57,9 @@ jobs:
           node tests/test_ntis_remaining_23_view.cjs
           node tests/test_ntis_project_page_followup_view.cjs
           python -m unittest discover -s tests -p 'test_ntis_project_page_followup_validate.py' -v
+          python -m unittest discover -s tests -p 'test_ntis_patent_evidence_gate.py' -v
+          python -m unittest discover -s tests -p 'test_patent_reporting_triage.py' -v
+          node tests/test_patent_ntis_evidence_view.cjs
           if test -f digests/ntis_project_reverse_pc_latest.json; then
             python scripts/ntis_project_reverse_validate.py digests/ntis_project_reverse_pc_latest.json
             if grep -Eqi 'apprvKey|authorization|bearer |api[_-]?key|password|secret' digests/ntis_project_reverse_pc_latest.json; then
