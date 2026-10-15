@@ -33,7 +33,7 @@ def sources():
         deepDatasetGeneratedAt=stamp,confirmedScoops=0,reviews=[
           dict(publicationNumber=lead["publicationNumber"],
             currentApplication=lead["applicationNumber"],claimVerified=True,
-            claimSourceVerified=True,claim1Excerpt="가상의 청구항 1","priorComparisons=[])])
+            claimSourceVerified=True,claim1Excerpt="가상의 청구항 1",priorComparisons=[])])
     return [official,deep,story,claims]
 class JointVerification(unittest.TestCase):
     def test_recent_three_days_and_old_separate_with_coverage(self):
