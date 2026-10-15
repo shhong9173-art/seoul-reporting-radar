@@ -37,6 +37,23 @@ def feed_empty(_):
     return b'<rss version="2.0"><channel><title>No results</title></channel></rss>'
 
 class FollowupReview(unittest.TestCase):
+    def test_affiliate_counterparty_not_promoted_to_external_award(self):
+        row=item()
+        row["observedFields"]={
+            "contract_amount":"185,257,183,992",
+            "recent_sales":"4,965,798,552,980",
+            "sales_ratio":"3.73",
+            "counterparty":"LS ELECTRIC AMERICA Inc.",
+            "counterparty_relationship":"자회사",
+            "contract_subject":"펜실베니아 연료전지 전력설비 공급 PJT"
+        }
+        row["status"]="official_document_read"
+        out=m.review_one(row,search=False,now=NOW)
+        self.assertEqual(out["unambiguousCurrentDocumentFields"]["sales_ratio"],"3.73")
+        self.assertIn("외부 최종 고객",out["nextChecks"][0])
+        self.assertFalse(out["companyImpactVerified"])
+        self.assertFalse(out["exclusiveConfirmed"])
+
     def test_empty_press_index_does_not_certify_unreported(self):
         out=m.build(fixture(),now=NOW,fetch=feed_empty)
         self.assertEqual(out["reviewedEvents"],2)

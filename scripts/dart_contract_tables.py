@@ -20,11 +20,17 @@ from html.parser import HTMLParser
 ALIASES={
  "계약금액(원)":"contract_amount",
  "계약금액":"contract_amount",
+ "최근매출액(원)":"recent_sales",
+ "매출액대비(%)":"sales_ratio",
  "확정계약금액(원)":"contract_amount",
  "확정계약금액":"contract_amount",
  "계약상대방":"counterparty",
  "계약상대방명":"counterparty",
  "계약상대":"counterparty",
+ "회사와의관계":"counterparty_relationship",
+ "체결계약명":"contract_subject",
+ "판매ㆍ공급지역":"supply_region",
+ "판매·공급지역":"supply_region",
  "계약시작일":"contract_start",
  "계약종료일":"contract_end",
  "계약기간시작일":"contract_start",
@@ -41,8 +47,10 @@ ALIASES={
  "계약명":"project",
 }
 DATES={"contract_start","contract_end","production_restart"}
-AMOUNTS={"contract_amount","investment_amount"}
-COMPANY={"counterparty","production_site","project"}
+AMOUNTS={"contract_amount","investment_amount","recent_sales"}
+RATIO={"sales_ratio"}
+COMPANY={"counterparty","counterparty_relationship","contract_subject",
+         "supply_region","production_site","project"}
 SECRET_MARKERS=("비공개","비공시","공시유보","영업비밀","미공개","미정","보류","해당없음")
 BLANKS=("", "-", "－", "—", "N/A", "NA", "미기재", "미정", "없음")
 VALIDATED_FIELDS=frozenset(ALIASES.values())
@@ -55,6 +63,7 @@ def compact(s):
 def clean_label(s):
     value=compact(s).replace("：",":")
     value=re.sub(r"^(?:\d{1,2}|[가-하])[\.\-]\s*","",value)
+    value=re.sub(r"^[-ㆍ·]+","",value)
     # A direct contract label must be the whole table heading, not just
     # a substring of 'recent sales' or a correction explanation.
     return value.rstrip(":")
@@ -141,6 +150,12 @@ def _value(field,raw):
         # Unit is taken literally from a precisely named row, not guessed.
         # '원' labels are usable when the value itself is numeric.
         if not re.fullmatch(r"(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?",compact(v)):
+            return None
+    elif field in RATIO:
+        # Exact source heading includes (%). Never derive from an unrelated
+        # annual-sales row or compute an amount-to-revenue percentage.
+        number=compact(v)
+        if not re.fullmatch(r"\d{1,3}(?:\.\d{1,4})?",number):
             return None
     elif field in DATES:
         if not _date_value(v):return None

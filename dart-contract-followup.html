@@ -77,7 +77,19 @@ function render(x){
  const fields=Object.entries(x.unambiguousCurrentDocumentFields||{});
  if(fields.length){
   box.append(el("h3","공시 원문 표에서 추출된 현재 기재값"));
-  p(box,fields.map(([k,v])=>k+" : "+v).join(" / "),"dim");
+  const publicFieldLabels={
+   contract_amount:"계약금액(원)",recent_sales:"최근매출액(원)",
+   sales_ratio:"최근매출액대비(%)",counterparty:"계약상대방",
+   counterparty_relationship:"계약상대방과의 관계",
+   contract_subject:"체결계약명",supply_region:"판매·공급지역",
+   contract_start:"계약시작일",contract_end:"계약종료일",
+   investment_amount:"시설투자금액(원)",production_restart:"생산재개일",
+   production_site:"생산중단분야",project:"사업명"
+  };
+  p(box,fields.map(([k,v])=>(publicFieldLabels[k]||k)+" : "+
+    (k==="sales_ratio"?v+"%":v)).join(" / "),"dim");
+  if(["자회사","종속회사","계열회사","관계회사"].includes(x.unambiguousCurrentDocumentFields?.counterparty_relationship))
+    p(box,"공시상 계약상대가 관계회사입니다. 외부 최종 고객과 실제 납품 및 연결 매출 계상은 별도 확인해야 합니다. 관계회사 간 공급계약 자체를 외부 신규 수주로 해석하면 안 됩니다.","dim");
   for(const [key,proof] of Object.entries(x.currentDocumentFieldEvidence||{})){
    if(!proof||proof.basis!=="same_official_table_row"||
       proof.independentBusinessVerification!==false)
