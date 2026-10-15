@@ -8,6 +8,8 @@ on:
       - 'scripts/dart_foreign_dividend_watch.py'
       - 'scripts/slovakia_official_accounts.py'
       - 'scripts/slovak_ifrs_primary_pages.py'
+      - 'scripts/slovak_ifrs_accounting_columns.py'
+      - 'tests/test_slovak_ifrs_accounting_columns.py'
       - 'tests/test_slovak_ifrs_primary_pages.py'
       - 'scripts/czech_factory_official_identity.py'
       - 'scripts/nhtsa_part573_primary.py'
@@ -52,6 +54,7 @@ jobs:
           python -m unittest discover -s tests -p 'test_crossborder_source_gap_triage.py' -v
           python -m unittest discover -s tests -p 'test_slovakia_official_accounts.py' -v
           python -m unittest discover -s tests -p 'test_slovak_ifrs_primary_pages.py' -v
+          python -m unittest discover -s tests -p 'test_slovak_ifrs_accounting_columns.py' -v
           python -m unittest discover -s tests -p 'test_czech_factory_official_identity.py' -v
           python -m unittest discover -s tests -p 'test_nhtsa_part573_primary.py' -v
           node tests/test_crossborder_source_gap_view.cjs
