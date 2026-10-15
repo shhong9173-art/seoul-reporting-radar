@@ -62,7 +62,8 @@ def registry_evidence(fetch=json_get,*,now=None):
        "companyIdentityVerified":False,
        "companyIdentityStatus":"not_checked",
        "checkedYearScope":list(TARGET_YEARS),
-       "statements":[],"sourceQueriesSucceeded":0,
+       "statements":[],"statementPeriodDiagnostics":[],
+       "sourceQueriesSucceeded":0,
        "sourceQueriesFailed":0,
        "sourceErrors":[],
        "statementAvailabilityStatus":"unverified",
@@ -118,6 +119,16 @@ def registry_evidence(fetch=json_get,*,now=None):
                 if r.get("id")!=statement_id or r.get("idUJ")!=entity["id"]:
                     raise ValueError("foreign_entity_statement_mismatch")
                 period=r.get("obdobieDo")
+                # Source-schema diagnostics, not interpreted financial amounts.
+                status["statementPeriodDiagnostics"].append({
+                    "statementId":statement_id,
+                    "periodTo":str(period or "")[:12],
+                    "consolidationFlag":(
+                        "true" if r.get("konsolidovana") is True
+                        else "false" if r.get("konsolidovana") is False
+                        else "omitted"),
+                    "hasSubmissionDate":bool(r.get("datumPodania"))
+                })
                 if not isinstance(period,str) or not re.fullmatch(r"20\d\d-12",period):
                     continue
                 year=int(period[:4])
