@@ -147,11 +147,34 @@ def review_one(item,*,rss_fetch=from_rss,now=None,search=True):
     label=item["company"]+" · "+str(item.get("report") or item["category"]).strip()[:110]
     comparison, changes, original=verified_changes(item)
     current={}
+    current_proof={}
     fields=item.get("observedFields")
+    evidence=item.get("observedFieldEvidence")
+    conflicts=item.get("conflictingDocumentFields")
+    conflict_set=set(conflicts if isinstance(conflicts,list) else [])
     if not item.get("isCorrection") and item.get("status")=="official_document_read" and isinstance(fields,dict):
         for k,v in fields.items():
-            if k in FIELD_NAMES and isinstance(v,str) and 0<len(v)<=220:
+            if (k in FIELD_NAMES and k not in conflict_set
+                and isinstance(v,str) and 0<len(v)<=220):
+                proof=evidence.get(k) if isinstance(evidence,dict) else None
+                if isinstance(evidence,dict) and not (
+                    isinstance(proof,dict) and
+                    proof.get("basis")=="same_official_table_row" and
+                    proof.get("independentBusinessVerification") is False and
+                    proof.get("rowPattern") in (
+                        "two_cell_explicit_label","three_cell_explicit_label",
+                        "four_cell_independent_pair","contract_period_rowspan"
+                    )
+                ):
+                    continue
                 current[k]=v
+                if proof is not None:
+                    current_proof[k]={
+                        "sourceLabel":str(proof.get("sourceLabel") or "")[:100],
+                        "rowPattern":proof["rowPattern"],
+                        "basis":"same_official_table_row",
+                        "independentBusinessVerification":False
+                    }
     qs=queries_for(item)
     results=[rss_index(q,fetch=rss_fetch,now=now) if search else
              {"query":q,"status":"not_searched","articles":[],"errorType":None}
@@ -195,6 +218,9 @@ def review_one(item,*,rss_fetch=from_rss,now=None,search=True):
       "originalSourceUrl":source_link(original) if original else None,
       "comparisonStatus":comparison,"materialFieldChanges":changes,
       "unambiguousCurrentDocumentFields":current,
+      "currentDocumentFieldEvidence":current_proof,
+      "conflictingDocumentFields":sorted(k for k in conflict_set if k in FIELD_NAMES),
+      "documentTablesExamined":item.get("documentTablesExamined"),
       "fieldValuesAreIssuerTextNotIndependentCommercialProof":True,
       "pressIndexStatus":press,
       "pressSearchCompleted":search and not failed,
