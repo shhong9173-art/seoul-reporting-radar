@@ -24,7 +24,7 @@ for(const marker of [
   'koreanMarketIncidentIndependentlyVerified',
   'sourceIsManufacturerAllegationOnly',
   '미국 당국에 제출된 제조사 기록입니다',
-  '사고·화재 관련 단어 근접',
+  '열·화재 관련 단어 근접',
   'usManufacturerReportedAffectedCount',
   'differentPdfVersionsAffectedCountConflict',
   '미국 판매용 기준',
