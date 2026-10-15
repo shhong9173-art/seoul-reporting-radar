@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-10-16T08:40:58+09:00",
+  "generatedAt": "2026-10-16T08:46:47+09:00",
   "status": "crossborder_reporter_evidence_gap_not_exclusive",
   "officialSourceGeneratedAt": {
-    "nhtsa": "2026-10-16T04:54:21.835948+09:00",
-    "dartDividend": "2026-10-16T04:54:24.966108+09:00",
-    "slovakGovernmentRegistry": "2026-10-16T08:40:37+09:00",
-    "czechAresRegistry": "2026-10-16T08:40:57+09:00"
+    "nhtsa": "2026-10-16T08:40:22.774961+09:00",
+    "dartDividend": "2026-10-16T08:40:25.779047+09:00",
+    "slovakGovernmentRegistry": "2026-10-16T08:46:32+09:00",
+    "czechAresRegistry": "2026-10-16T08:46:46+09:00"
   },
   "sourceHealth": {
     "nhtsaOfficial": "checked",
@@ -16,7 +16,7 @@
     "sameAngleNewsFulltext": "not_verified"
   },
   "sourceStale48h": false,
-  "slovakPdfOriginalEvidenceGeneratedAt": "2026-10-16T08:40:46+09:00",
+  "slovakPdfOriginalEvidenceGeneratedAt": "2026-10-16T08:46:40+09:00",
   "foreignLegalEntityLinks": {
     "kiaSlovakia": {
       "company": "Kia Slovakia s. r. o.",
@@ -234,6 +234,8 @@
             "domesticRecallAbsentVerified": false
           }
         ],
+        "koreanMarketSourceClaims": [],
+        "koreanMarketIncidentIndependentlyVerified": false,
         "usManufacturerReportedAffectedCount": 5360,
         "usVehicleCountScope": "official_us_market_not_korean_sales",
         "differentPdfVersionsAffectedCountConflict": false,
@@ -405,6 +407,21 @@
             "domesticRecallAbsentVerified": false
           }
         ],
+        "koreanMarketSourceClaims": [
+          {
+            "pdfPage": 3,
+            "literalKoreanMarketPhrase": "Korean market",
+            "usManufacturerContext": "e confirmed in the U.S. July 2, 2026 – Hyundai received additional information related to power seat switch performance and associated thermal event allegations from the Korean market, resulting in technical review of the condition and assessment of its risk of occurrence in the U.S. October 1, 2026 Based on the investigation findings, NASO convened its NASDA and decided to conduc",
+            "incidentTermNearby": false,
+            "officialPdfUrl": "https://static.nhtsa.gov/odi/rcl/2026/RCLRPT-26V664-0680.pdf",
+            "sourcePdfSHA256": "e09c4f5d080c8c1e7e3fa8912668d23a1274e32c4ad8016118f2ead310909ae3",
+            "sourceIsManufacturerAllegationOnly": true,
+            "domesticIncidentIndependentlyVerified": false,
+            "domesticIdenticalPartVerified": false,
+            "koreanRecallAbsenceVerified": false
+          }
+        ],
+        "koreanMarketIncidentIndependentlyVerified": false,
         "usManufacturerReportedAffectedCount": 94622,
         "usVehicleCountScope": "official_us_market_not_korean_sales",
         "differentPdfVersionsAffectedCountConflict": false,
