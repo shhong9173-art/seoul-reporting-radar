@@ -6,6 +6,8 @@ ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/"scripts"))
 import dart_contract_tables as t
 from dart_lineage import tabular_fields,comparable_differences
+from recent_contracts import document_evidence
+from dart_contract_followup import review_one
 
 class ContractTableSourceTests(unittest.TestCase):
     def test_official_three_columns_with_decorative_rowspan(self):
@@ -102,6 +104,40 @@ class ContractTableSourceTests(unittest.TestCase):
             "field":"contract_amount","before":"10,000,000","after":"12,000,000",
             "basis":"independent_primary_documents","numericDelta":None,
             "needsCompanyConfirmation":True}])
+
+    def test_real_capture_and_reporter_review_keep_source_row_provenance(self):
+        doc="<TABLE><TR><TD rowspan='2'>2. 계약내역</TD><TD>계약금액(원)</TD><TD>800,000,000</TD></TR><TR><TD>계약상대방</TD><TD>한국전력공사</TD></TR></TABLE>"
+        item={"company":"엘에스일렉트릭","corpCode":"00105855",
+              "receiptNo":"20261013800054","published":"20261013",
+              "report":"단일판매ㆍ공급계약체결","category":"공급계약",
+              "sourceUrl":"https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261013800054",
+              "isCorrection":False}
+        documented=document_evidence(item,"FAKE",
+                        documents=lambda *args:[doc])
+        self.assertEqual(documented["status"],"official_document_read")
+        self.assertEqual(documented["observedFields"]["contract_amount"],"800,000,000")
+        self.assertEqual(documented["observedFields"]["counterparty"],"한국전력공사")
+        self.assertEqual(documented["documentTablesExamined"],1)
+        self.assertEqual(documented["observedFieldEvidence"]["contract_amount"]["basis"],
+                         "same_official_table_row")
+        checked=review_one(documented,search=False)
+        self.assertEqual(checked["unambiguousCurrentDocumentFields"]["contract_amount"],
+                         "800,000,000")
+        self.assertFalse(checked["currentDocumentFieldEvidence"]["contract_amount"]
+                         ["independentBusinessVerification"])
+        self.assertFalse(checked["exclusiveConfirmed"])
+
+    def test_legacy_conflict_is_never_passed_to_reporter_ui(self):
+        item={"company":"엘에스일렉트릭","corpCode":"00105855",
+              "receiptNo":"20261013800054","published":"20261013",
+              "report":"단일판매ㆍ공급계약체결","category":"공급계약",
+              "sourceUrl":"https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261013800054",
+              "isCorrection":False,"status":"official_document_read",
+              "observedFields":{"contract_amount":"500,000,000"},
+              "conflictingDocumentFields":["contract_amount"]}
+        result=review_one(item,search=False)
+        self.assertEqual(result["unambiguousCurrentDocumentFields"],{})
+        self.assertEqual(result["conflictingDocumentFields"],["contract_amount"])
 
     def test_unrecognized_arbitrary_text_not_promoted(self):
         html="<TABLE><TR><TD>금액</TD><TD>9,999,999</TD></TR><TR><TD>공급처</TD><TD>추정 회사</TD></TR></TABLE>"
