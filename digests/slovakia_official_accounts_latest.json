@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-16T04:12:58+09:00",
+  "generatedAt": "2026-10-16T04:17:09+09:00",
   "status": "official_slovak_registry_identity_and_filing_metadata",
   "registry": "Slovak Ministry of Finance Register of Financial Statements",
   "apiDocumentation": "https://registeruz.sk/cruz-public/home/api",
@@ -12,11 +12,134 @@
     2024,
     2025
   ],
-  "statements": [],
+  "statements": [
+    {
+      "statementId": 6995571,
+      "financialYear": 2025,
+      "periodFrom": "2025-01",
+      "periodTo": "2025-12",
+      "submitted": "2026-06-29",
+      "prepared": "2026-02-13",
+      "approved": "2026-05-18",
+      "statementType": "Riadna",
+      "basis": "official_registry_annual_filing_metadata",
+      "consolidationFlag": "not_specified_by_api",
+      "sameIcoAndLegalNameConfirmed": true,
+      "profitOrDividendAmountsParsed": false,
+      "companyRegistryUrl": "https://www.registeruz.sk/cruz-public/domain/accountingentity/show/244945",
+      "reportIds": [
+        10307446,
+        10307445,
+        10322763,
+        10298519
+      ]
+    },
+    {
+      "statementId": 6499422,
+      "financialYear": 2024,
+      "periodFrom": "2024-01",
+      "periodTo": "2024-12",
+      "submitted": "2025-06-26",
+      "prepared": "2025-02-03",
+      "approved": "2025-05-28",
+      "statementType": "Riadna",
+      "basis": "official_registry_annual_filing_metadata",
+      "consolidationFlag": "not_specified_by_api",
+      "sameIcoAndLegalNameConfirmed": true,
+      "profitOrDividendAmountsParsed": false,
+      "companyRegistryUrl": "https://www.registeruz.sk/cruz-public/domain/accountingentity/show/244945",
+      "reportIds": [
+        9718744,
+        9718743,
+        9718745,
+        9718742
+      ]
+    }
+  ],
+  "statementPeriodDiagnostics": [
+    {
+      "statementId": 6995571,
+      "periodTo": "2025-12",
+      "consolidationFlag": "omitted",
+      "hasSubmissionDate": true
+    },
+    {
+      "statementId": 6499422,
+      "periodTo": "2024-12",
+      "consolidationFlag": "omitted",
+      "hasSubmissionDate": true
+    },
+    {
+      "statementId": 6037725,
+      "periodTo": "2023-12",
+      "consolidationFlag": "omitted",
+      "hasSubmissionDate": true
+    },
+    {
+      "statementId": 5616681,
+      "periodTo": "2022-12",
+      "consolidationFlag": "omitted",
+      "hasSubmissionDate": true
+    },
+    {
+      "statementId": 5219935,
+      "periodTo": "2021-12",
+      "consolidationFlag": "omitted",
+      "hasSubmissionDate": true
+    },
+    {
+      "statementId": 4837991,
+      "periodTo": "2020-12",
+      "consolidationFlag": "omitted",
+      "hasSubmissionDate": true
+    },
+    {
+      "statementId": 4405777,
+      "periodTo": "2019-12",
+      "consolidationFlag": "omitted",
+      "hasSubmissionDate": true
+    },
+    {
+      "statementId": 4080871,
+      "periodTo": "2018-12",
+      "consolidationFlag": "omitted",
+      "hasSubmissionDate": true
+    },
+    {
+      "statementId": 3772123,
+      "periodTo": "2013-12",
+      "consolidationFlag": "omitted",
+      "hasSubmissionDate": true
+    },
+    {
+      "statementId": 3699317,
+      "periodTo": "2017-12",
+      "consolidationFlag": "omitted",
+      "hasSubmissionDate": true
+    },
+    {
+      "statementId": 3333932,
+      "periodTo": "2016-12",
+      "consolidationFlag": "omitted",
+      "hasSubmissionDate": true
+    },
+    {
+      "statementId": 2925851,
+      "periodTo": "2015-12",
+      "consolidationFlag": "omitted",
+      "hasSubmissionDate": true
+    },
+    {
+      "statementId": 2585590,
+      "periodTo": "2014-12",
+      "consolidationFlag": "omitted",
+      "hasSubmissionDate": true
+    }
+  ],
   "sourceQueriesSucceeded": 15,
   "sourceQueriesFailed": 0,
   "sourceErrors": [],
-  "statementAvailabilityStatus": "one_or_more_years_not_identified_in_api",
+  "statementAvailabilityStatus": "registered_annual_filing_metadata_for_both_years",
   "actualNetProfitVerified": false,
   "approvedDistributionAmountVerified": false,
   "dividendPaymentToKoreanParentVerified": false,

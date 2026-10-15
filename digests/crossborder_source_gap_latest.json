@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-10-16T04:13:08+09:00",
+  "generatedAt": "2026-10-16T04:17:19+09:00",
   "status": "crossborder_reporter_evidence_gap_not_exclusive",
   "officialSourceGeneratedAt": {
-    "nhtsa": "2026-10-16T03:48:51.363655+09:00",
-    "dartDividend": "2026-10-16T03:48:54.351030+09:00",
-    "slovakGovernmentRegistry": "2026-10-16T04:12:58+09:00",
-    "czechAresRegistry": "2026-10-16T04:13:07+09:00"
+    "nhtsa": "2026-10-16T04:12:54.802629+09:00",
+    "dartDividend": "2026-10-16T04:12:57.010740+09:00",
+    "slovakGovernmentRegistry": "2026-10-16T04:17:09+09:00",
+    "czechAresRegistry": "2026-10-16T04:17:19+09:00"
   },
   "sourceHealth": {
     "nhtsaOfficial": "checked",
@@ -256,11 +256,30 @@
       "reportingWindowStatus": "historical_public_filing_to_investigate",
       "publicationAloneIsNotScoop": true,
       "slovakGovernmentAccounts": {
-        "status": "one_or_more_years_not_identified_in_api",
+        "status": "registered_annual_filing_metadata_for_both_years",
         "officialEntityVerified": true,
         "ico": "35876832",
         "registryUrl": "https://www.registeruz.sk/cruz-public/domain/accountingentity/show/244945",
-        "individualAnnualFilings": [],
+        "individualAnnualFilings": [
+          {
+            "financialYear": 2025,
+            "periodTo": "2025-12",
+            "submitted": "2026-06-29",
+            "approved": "2026-05-18",
+            "statementType": "Riadna",
+            "statementId": 6995571,
+            "profitAndDistributionAmountsNotInspected": true
+          },
+          {
+            "financialYear": 2024,
+            "periodTo": "2024-12",
+            "submitted": "2025-06-26",
+            "approved": "2025-05-28",
+            "statementType": "Riadna",
+            "statementId": 6499422,
+            "profitAndDistributionAmountsNotInspected": true
+          }
+        ],
         "fundingSourceVerified": false,
         "dividendPaymentVerified": false,
         "companyCashReceivedVerified": false,
