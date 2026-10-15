@@ -92,6 +92,18 @@ class ForeignDividend(unittest.TestCase):
         self.assertEqual(len(rows),1)
         self.assertFalse(rows[0]["scoopConfirmed"])
 
+    def test_nearby_note_is_a_weak_signal_not_a_cash_dividend(self):
+        xml="<P>기아 회사의 관계기업에 관한 주석</P><P>Kia Slovakia s.r.o.</P>"
+        xml+=("<P>운영 관련 정보</P>"+"x"*70+"<P>배당금수익 관련 주석</P>")
+        diag={}
+        rows=d.document_tables("test","20260916000427","기아",
+            fetch=lambda u:dart_zip(xml),diagnostic=diag)
+        self.assertEqual(len(rows),1)
+        self.assertEqual(rows[0]["evidenceTier"],"low_confidence_proximity")
+        self.assertFalse(rows[0]["cashReceiptVerified"])
+        self.assertGreater(diag["entityMentions"],0)
+        self.assertGreater(diag["dividendMentions"],0)
+
     def test_missing_key_not_reported_as_zero(self):
         sample={"companies":[{"company":"기아","current":{"receiptNo":"20260916000427"}}]}
         result=d.build(sample,"",now=NOW)
