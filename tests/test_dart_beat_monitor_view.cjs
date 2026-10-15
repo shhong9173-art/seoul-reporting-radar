@@ -6,6 +6,11 @@ assert.equal(scripts.length,1);
 new Function(scripts[0][1]);
 for(const token of [
  "digests/dart_beat_monitor_latest.json",
+ "digests/dart_beat_run_health_latest.json",
+ "latestDatasetGeneratedAt",
+ "newCollectionVerified",
+ "registryRefreshVerified",
+ "수집 또는 게시 실패",
  "digests/dart_beat_changes_latest.json",
  "two_official_documents_changed_terms",
  "issuer_stated_correction_only",
