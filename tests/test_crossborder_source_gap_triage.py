@@ -100,6 +100,31 @@ class CrossBorderDossiers(unittest.TestCase):
         old=t.build(n,d,now=NOW,nhtsa_part573=official)["items"][0]
         self.assertEqual(old["nhtsaPart573Original"]["originalReportsRead"],0)
 
+    def test_part573_us_count_never_becomes_korean_vehicles_and_revision_conflict_is_withheld(self):
+        n,d=sources()
+        from nhtsa_part573_primary import scan
+        us=scan(n,now=NOW,get=lambda url:(
+             b"%PDF-1.4\\n"+(b"664" if "26V664" in url else b"588")+b"0"*2500),
+             convert=lambda pdf:[
+               "Part 573 Safety Recall Report "+("26V664" if b"664" in pdf else "26V588")+
+               " Total number of potentially involved: "+("94,622" if b"664" in pdf else "5,360")])
+        result=t.build(n,d,now=NOW,nhtsa_part573=us)
+        by={x["officialFact"]["usCampaign"]:x["nhtsaPart573Original"] for x in
+            result["items"] if x["type"]=="overseas_safety_domestic_comparison"}
+        self.assertEqual(by["26V664000"]["usManufacturerReportedAffectedCount"],94622)
+        self.assertEqual(by["26V588000"]["usManufacturerReportedAffectedCount"],5360)
+        self.assertFalse(by["26V664000"]["koreanSameComponentVerified"])
+        self.assertEqual(by["26V664000"]["usVehicleCountScope"],
+                         "official_us_market_not_korean_sales")
+        for x in us["reports"]:
+            if x["campaign"]=="26V588000":
+                x["usManufacturerReportedPotentiallyAffectedVehicles"]+=123
+                break
+        conflict=t.build(n,d,now=NOW,nhtsa_part573=us)
+        x=next(x for x in conflict["items"] if x["id"]=="usrecall:26V588000")
+        self.assertTrue(x["nhtsaPart573Original"]["differentPdfVersionsAffectedCountConflict"])
+        self.assertIsNone(x["nhtsaPart573Original"]["usManufacturerReportedAffectedCount"])
+
     def test_kia_recognized_issuer_dividend_not_cash_and_not_a_new_20261016_event(self):
         n,d=sources()
         result=t.build(n,d,now=NOW)
