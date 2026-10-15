@@ -192,6 +192,73 @@ def zip_documents(api_key, receipt, fetch_bytes=official_fetch_bytes):
     return docs
 
 
+
+AMENDMENT_MATERIAL_CATEGORIES = frozenset({
+    "amount", "contract_period", "production_schedule", "capacity", "contract_party"
+})
+
+
+def issuer_table_evidence(documents, source_url):
+    """Changes stated INSIDE the amended filing; never independently verified.
+
+    A correction's own 'before/after' table can support what the issuer said
+    changed, even when the original document receipt is unidentified. It is
+    not a comparison against two original DART source documents.
+    """
+    values={}
+    conflicted=set()
+    statuses=[]
+    skipped=0
+    for doc in documents[:12]:
+        if not isinstance(doc,str):
+            continue
+        result=compare_correction(doc,source_url)
+        statuses.append(result.get("status"))
+        skipped+=result.get("skippedRows",0)
+        for x in result.get("changes",[]):
+            category=x.get("category")
+            field=" ".join(str(x.get("field") or "").split())
+            before=" ".join(str(x.get("before") or "").split())
+            after=" ".join(str(x.get("after") or "").split())
+            if (category not in AMENDMENT_MATERIAL_CATEGORIES or not field
+                or len(field)>85 or not before or not after
+                or len(before)>220 or len(after)>220 or before==after):
+                continue
+            # If different documents/table fragments contradict each other,
+            # exclude this field rather than taking the first result.
+            k=re.sub(r"\\s+","",field)
+            comparison=(before,after,category)
+            if k in values and values[k]!=comparison:
+                conflicted.add(k)
+            else:
+                values[k]=comparison
+    changes=[]
+    for name,(before,after,category) in values.items():
+        if name in conflicted:
+            continue
+        changes.append({
+            "fieldLabel":name[:85], "before":before,"after":after,
+            "category":category,
+            "basis":"issuer_reported_amendment_table_only",
+            "amendedSourceUrl":source_url,
+            "originalReceiptIndependentlyVerified":False,
+            "commercialEffectVerified":False,
+            "sameEventPriorCoverageVerified":False,
+            "oneSideUnspecified":before in ("-","미정","미기재") or
+                                 after in ("-","미정","미기재")
+        })
+    return {
+        "status":("issuer_table_material_changes_for_review" if changes
+                  else "issuer_table_unavailable_or_nonmaterial"),
+        "changes":changes[:8],
+        "totalMaterialRows":len(changes),
+        "conflictingFieldCount":len(conflicted),
+        "skippedRows":skipped,
+        "independentOriginalDocumentCompared":False,
+        "sourceUrl":source_url
+    }
+
+
 def reference_date(documents, source_url):
     dates=set()
     for doc in documents:
@@ -211,6 +278,8 @@ def review_lineage(row, corp_codes, *, api_key, fetch_documents=zip_documents,
             "status":"not_applicable","originReceiptNo":None,
             "originalDocumentVerified":False, "changes":[],
             "candidateOrigins":[], "sourceUrl":source_link(receipt),
+            "issuerCorrectionTable":{"status":"not_examined",
+                "changes":[],"independentOriginalDocumentCompared":False},
             "questions":[]}
     if not has_correction(report):
         return answer
@@ -225,6 +294,8 @@ def review_lineage(row, corp_codes, *, api_key, fetch_documents=zip_documents,
         return answer
     try:
         amendment=fetch_documents(api_key,receipt)
+        answer["issuerCorrectionTable"]=issuer_table_evidence(
+            amendment,answer["sourceUrl"])
         origin=explicit_origin_id(amendment,receipt)
         anchor=reference_date(amendment,answer["sourceUrl"])
         answer["referencedFilingDate"]=anchor

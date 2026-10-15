@@ -7,6 +7,7 @@ on:
       - 'scripts/overseas_official.py'
       - 'scripts/recent_contracts.py'
       - 'scripts/dart_lineage.py'
+      - 'tests/test_dart_issuer_table_review.py'
       - 'scripts/dart_contract_tables.py'
       - 'tests/test_dart_contract_tables.py'
       - 'scripts/dart_contract_followup.py'
@@ -76,6 +77,7 @@ jobs:
           python -m unittest discover -s tests -p 'test_dart_contract_tables.py' -v
           python -m unittest discover -s tests -p 'test_official_foreign_contracts.py' -v
           python -m unittest discover -s tests -p 'test_dart_lineage.py' -v
+          python -m unittest discover -s tests -p 'test_dart_issuer_table_review.py' -v
           python -m unittest discover -s tests -p 'test_dart_contract_followup.py' -v
           node tests/test_dart_contract_followup_view.cjs
       - name: Audit direct-beat official contract and investment events
