@@ -1,0 +1,123 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DART 정정공시 과거 이력·기보도 대조 | 취재 레이더</title>
+<style>
+:root{font:15px/1.6 system-ui,-apple-system,"Malgun Gothic",sans-serif;background:#f5f7fa;color:#233b4d}
+*{box-sizing:border-box}body{margin:0}main{max-width:1060px;margin:auto;padding:24px 18px 65px}
+h1{font-size:25px;line-height:1.35}h2{font-size:18px;margin:10px 0}
+a{color:#145c85}.notice,.card{background:#fff;border:1px solid #d8e2e9;border-radius:10px;padding:17px;margin:13px 0}
+.warning{border-left:4px solid #a88640;background:#fffaf1}.small{color:#647a87;font-size:13px}
+.tag{display:inline-block;font-size:12px;background:#edf2f5;border-radius:5px;padding:3px 9px;margin:5px 7px 5px 0}
+.pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px;margin:10px 0}
+.pair>div{padding:10px;border-radius:7px;background:#f4f7fa;border:1px solid #e2e9f0;overflow-wrap:anywhere}
+details{border:1px solid #e0e7ed;border-radius:7px;padding:11px;margin-top:13px}
+@media(max-width:600px){.pair{grid-template-columns:1fr}}
+</style></head><body><main>
+<p class="small"><a href="index.html">산업부 취재 레이더</a> / <a href="dart-contract-followup.html">정정 공시 원문</a></p>
+<h1>DART 정정공시 과거 이력·언론색인 교차 검증</h1>
+<p class="notice warning"><strong>같은 회사·공시 유형·최초 제출일에 검색된 과거 공시 후보는 동일 계약이라고 확인된 것이 아닙니다.</strong> 원문 값이 서로 일치해도 원공시 접수번호·동일 계약명·정정 관계를 직접 확인해야 합니다. 언론 기사 색인에 날짜가 앞선 기사 제목이 있어도 이번 정정사항이 이미 보도됐다고 판단할 수 없습니다. 모든 항목은 기사 단독 미확정입니다.</p>
+<p id="status" class="notice" role="status">공식 DART 이력 자료의 시점·원공시 연결 수준 확인 중</p>
+<div id="records"></div>
+</main><script>
+(async()=>{"use strict";
+const $=q=>document.querySelector(q);
+const el=(tag,value,cls)=>{const n=document.createElement(tag);if(value!==undefined)n.textContent=String(value);if(cls)n.className=cls;return n};
+const p=(host,v,cls)=>host.append(el("p",v,cls));
+function official(host,url,label,domain){
+ try{
+  const u=new URL(url);
+  if(u.protocol!=="https:"||u.hostname!==domain||u.username||u.password)return;
+  if(domain==="dart.fss.or.kr" &&
+     !(u.pathname==="/dsaf001/main.do"&&/^rcpNo=\d{14}$/.test(u.search.slice(1))))return;
+  const a=el("a",label,"small");a.href=u.href;a.rel="noopener noreferrer";a.target="_blank";host.append(a);
+ }catch(e){}
+}
+function draw(item){
+ if(item.linkageVerified!==false||item.confirmedExclusive!==false||
+    item.approvedForPitch!==false||item.realCommercialImpactVerified!==false||
+    item.revisionFirstReportedAfterPreviousCoverageVerified!==false)
+  throw Error("동일 계약·신규 단독 확인 근거 누락");
+ const card=el("article",undefined,"card");
+ card.append(el("span",item.company,"tag"));
+ card.append(el("span",item.officialDate+" 정정 공시","tag"));
+ card.append(el("h2","접수 "+item.receiptNo));
+ official(card,item.sourceUrl,"현재 정정공시 원문 ↗","dart.fss.or.kr");
+ const found=item.priorOfficialCandidateDocuments||[];
+ p(card,"앞선 공시 후보 "+item.olderOfficialCandidateCount+
+   "건 (같은 발행회사·공시 유형·정정문 참고 제출일 검색 결과, 동일 계약 미검증)","small");
+ if(!found.length)p(card,"공식 목록에서 비교 가능한 과거 접수번호 후보를 확보하지 못함. 이전 정정·원공시가 없다는 뜻이 아님.","small");
+ for(const past of found){
+  if(past.sameContractVerified!==false||past.relationshipStatus!=="UNLINKED_same_company_category_reference_date")
+   throw Error("연결되지 않은 선행 공시를 동일 사건으로 오인");
+  const block=el("section",undefined,"notice");
+  p(block,"과거 공식 접수 후보 "+past.receiptNo+" · "+past.officialDate+" · "+past.reportTitle);
+  official(block,past.sourceUrl,"과거 후보 공시 열기 ↗","dart.fss.or.kr");
+  const state={
+   previous_candidate_official_document_inspected:"공식 후보 원문 읽기 완료 · 동일 계약 입증 아님",
+   prior_candidate_document_unavailable:"공식 후보 원문 읽기 실패 · 비교 미완료",
+   not_checked_without_DART_key:"원문 확인 미실행(승인 키 없음) · 공시 없음 아님",
+   not_checked_bounded_limit:"안전 조회횟수 상한 때문에 미검토 · 동일 계약 판정 불가"
+  };
+  p(block,state[past.status]||"과거 원문 확인 범위 미정","small");
+  for(const diff of past.unlinkedComparisons||[]){
+   if(diff.sameContractVerified!==false||diff.contractEffectVerified!==false||
+      diff.previouslyReportedInMediaVerified!==false||
+      diff.basis!=="unlinked_same_issuer_event_type_date_candidate_only")
+     throw Error("다른 공시의 문구 일치를 계약 변경으로 오인");
+   p(block,(diff.literalValuesMatch?"공시상 기재값 문자 일치":"공시상 기재값 불일치")+
+     " · "+diff.field+" · 그러나 같은 계약인지 미확인","small");
+   const side=el("div",undefined,"pair");
+   const before=el("div");before.append(el("small","과거 후보 공시 기재값"),el("p",diff.priorCandidatePublishedValue));
+   const after=el("div");after.append(el("small","이번 정정문이 밝힌 '정정 전'"),el("p",diff.currentIssuerSaidBefore));
+   side.append(before,after);block.append(side);
+  }
+  if(past.priorDocumentRetrieved===true&&!(past.unlinkedComparisons||[]).length)
+   p(block,"검토한 항목 사이에 정확히 대조할 수 있는 조건이 없었습니다. 변경 없음으로 해석 불가.","small");
+  card.append(block);
+ }
+ const press=item.pressEvidence||{};
+ const sec=el("details");
+ sec.append(el("summary","이전 언론 기사 색인 · 동일 정정사항 보도 여부 미검증"));
+ const labels={
+  index_checked_not_fulltext:"기사 색인 결과 확인 · 전문 미확인",
+  partial_or_unsearched_index:"색인 일부 실패·미실행 · 기존 보도 없음으로 판정 금지",
+  missing_or_mismatched_prior_press_snapshot:"공시와 기사 색인 출처 불일치 · 기보도 여부 미확인"
+ };
+ p(sec,labels[press.status]||"기보도 조사 범위 미정","small");
+ for(const news of press.olderIndexedArticles||[]){
+  if(news.sameRevisionVerified!==false||
+     news.sameContractVerified!==false||news.originalArticleFulltextRead!==false)
+    throw Error("기사 색인만으로 기존 보도를 확정하는 상태");
+  const n=el("p");
+  official(n,news.url,(news.title||"색인 기사")+" ↗","news.google.com");
+  p(n,"색인 게시일 "+news.indexedPublishedAt+" · 해당 계약/변경사항 기사인지 전문 대조 필요","small");
+  sec.append(n);
+ }
+ if(!(press.olderIndexedArticles||[]).length)
+  p(sec,"색인된 이전 기사 후보 없음(미보도·단독 증명 아님)","small");
+ card.append(sec);
+ p(card,"기사 검증: 정확한 원공시 접수번호 → 직전 정정문 조건 → 기사 전문에서 변경 조건 보도 여부 → 회사가 공개 확인 가능한 실제 영향의 순서로 확인","small");
+ $("#records").append(card);
+}
+try{
+ const res=await fetch("digests/dart_correction_history_latest.json",{cache:"no-store"});
+ if(!res.ok)throw Error("이전 공시 이력 데이터 미생성");
+ const d=await res.json();
+ if(d.status!=="bounded_unlinked_correction_history_for_reporter_review"||
+    !Array.isArray(d.items)||d.items.length!==d.corrections||
+    d.confirmedScoops!==0||d.approvedArticles!==0||d.verifiedSameContractHistory!==0)
+   throw Error("출처 또는 검증 수준 불일치");
+ const asof=Date.parse(d.dartSourceGeneratedAt);
+ const hours=(Date.now()-asof)/3600000;
+ const old=!Number.isFinite(hours)||hours>24||hours<(-1);
+ $("#status").textContent=
+  "DART 자료 "+d.dartSourceGeneratedAt+" · 정정공시 "+d.corrections+
+  "건 · 동일 유형 과거 공시 후보 "+d.totalHistoricalCandidateDocs+
+  "건 · 과거 원문 실조회 "+d.historicalDocumentsRetrieved+
+  "건 · 공식 동일 계약 연결 확인 0건 · 단독 확정 0건"+
+  (old?" · 자료가 24시간 이상 지나 현재 신규 정정 없음으로 해석 불가":"");
+ if(!d.items.length)p($("#records"),"비교할 정정공시 자료가 아직 없습니다. 원천 조회 범위 확인 필요.","notice");
+ for(const item of d.items)draw(item);
+}catch(e){$("#status").textContent="과거 공시/언론색인 검증 자료 오류: "+e.message+
+ " · 신규 이력 0건이나 기보도 0건으로 판단하지 않습니다.";}
+})();
+</script></body></html>
