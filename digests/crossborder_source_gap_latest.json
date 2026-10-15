@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-10-16T04:54:54+09:00",
+  "generatedAt": "2026-10-16T08:40:58+09:00",
   "status": "crossborder_reporter_evidence_gap_not_exclusive",
   "officialSourceGeneratedAt": {
-    "nhtsa": "2026-10-16T04:45:48.683672+09:00",
-    "dartDividend": "2026-10-16T04:45:51.292624+09:00",
-    "slovakGovernmentRegistry": "2026-10-16T04:54:33+09:00",
-    "czechAresRegistry": "2026-10-16T04:54:52+09:00"
+    "nhtsa": "2026-10-16T04:54:21.835948+09:00",
+    "dartDividend": "2026-10-16T04:54:24.966108+09:00",
+    "slovakGovernmentRegistry": "2026-10-16T08:40:37+09:00",
+    "czechAresRegistry": "2026-10-16T08:40:57+09:00"
   },
   "sourceHealth": {
     "nhtsaOfficial": "checked",
@@ -16,7 +16,7 @@
     "sameAngleNewsFulltext": "not_verified"
   },
   "sourceStale48h": false,
-  "slovakPdfOriginalEvidenceGeneratedAt": "2026-10-16T04:54:44+09:00",
+  "slovakPdfOriginalEvidenceGeneratedAt": "2026-10-16T08:40:46+09:00",
   "foreignLegalEntityLinks": {
     "kiaSlovakia": {
       "company": "Kia Slovakia s. r. o.",
@@ -611,7 +611,241 @@
         ],
         "amountsIndependentlyAudited": false,
         "parentCashReceiptVerified": false,
-        "distributionResolutionVerified": false
+        "distributionResolutionVerified": false,
+        "auditedCalendarYearRows": [
+          {
+            "metric": "annual_profit_cf_reconciliation",
+            "metricLabelKo": "현지법인 현금흐름표에 표시된 당기순이익",
+            "year": 2025,
+            "amountThousandEur": 451021,
+            "sourceCount": 1,
+            "annualReportComparativeConflict": false,
+            "sourceDocuments": [
+              {
+                "reportYear": 2025,
+                "sourcePdfPage": 9,
+                "reportedAs": "reporting_year",
+                "value": 451021,
+                "pdfUrl": "https://www.registeruz.sk/cruz-public/domain/financialreport/attachment/12784290",
+                "documentSha256": "cba3da044248aa4359698d10d04cf2593f286c187e64020b5dc888c2a1e0676e"
+              }
+            ],
+            "amountFromKiaParentDart2026": false,
+            "parentRecipientVerified": false,
+            "koreanCashReceiptVerified": false,
+            "year2026LocalPaymentNotYetVerified": true,
+            "humanAuditOfParsedRowCompleted": false
+          },
+          {
+            "metric": "annual_profit_cf_reconciliation",
+            "metricLabelKo": "현지법인 현금흐름표에 표시된 당기순이익",
+            "year": 2024,
+            "amountThousandEur": 682581,
+            "sourceCount": 2,
+            "annualReportComparativeConflict": false,
+            "sourceDocuments": [
+              {
+                "reportYear": 2025,
+                "sourcePdfPage": 9,
+                "reportedAs": "comparative_previous_year",
+                "value": 682581,
+                "pdfUrl": "https://www.registeruz.sk/cruz-public/domain/financialreport/attachment/12784290",
+                "documentSha256": "cba3da044248aa4359698d10d04cf2593f286c187e64020b5dc888c2a1e0676e"
+              },
+              {
+                "reportYear": 2024,
+                "sourcePdfPage": 9,
+                "reportedAs": "reporting_year",
+                "value": 682581,
+                "pdfUrl": "https://www.registeruz.sk/cruz-public/domain/financialreport/attachment/11846820",
+                "documentSha256": "0fd3729abefedf01aa4a7fe07e888512fbefb5cf1f2cdf31f958a5ddf2b5665d"
+              }
+            ],
+            "amountFromKiaParentDart2026": false,
+            "parentRecipientVerified": false,
+            "koreanCashReceiptVerified": false,
+            "year2026LocalPaymentNotYetVerified": true,
+            "humanAuditOfParsedRowCompleted": false
+          },
+          {
+            "metric": "annual_profit_cf_reconciliation",
+            "metricLabelKo": "현지법인 현금흐름표에 표시된 당기순이익",
+            "year": 2023,
+            "amountThousandEur": 390131,
+            "sourceCount": 1,
+            "annualReportComparativeConflict": false,
+            "sourceDocuments": [
+              {
+                "reportYear": 2024,
+                "sourcePdfPage": 9,
+                "reportedAs": "comparative_previous_year",
+                "value": 390131,
+                "pdfUrl": "https://www.registeruz.sk/cruz-public/domain/financialreport/attachment/11846820",
+                "documentSha256": "0fd3729abefedf01aa4a7fe07e888512fbefb5cf1f2cdf31f958a5ddf2b5665d"
+              }
+            ],
+            "amountFromKiaParentDart2026": false,
+            "parentRecipientVerified": false,
+            "koreanCashReceiptVerified": false,
+            "year2026LocalPaymentNotYetVerified": true,
+            "humanAuditOfParsedRowCompleted": false
+          },
+          {
+            "metric": "dividend_cash_outflow",
+            "metricLabelKo": "현지법인 현금흐름표의 배당 지급",
+            "year": 2025,
+            "amountThousandEur": 0,
+            "sourceCount": 1,
+            "annualReportComparativeConflict": false,
+            "sourceDocuments": [
+              {
+                "reportYear": 2025,
+                "sourcePdfPage": 9,
+                "reportedAs": "reporting_year",
+                "value": 0,
+                "pdfUrl": "https://www.registeruz.sk/cruz-public/domain/financialreport/attachment/12784290",
+                "documentSha256": "cba3da044248aa4359698d10d04cf2593f286c187e64020b5dc888c2a1e0676e"
+              }
+            ],
+            "amountFromKiaParentDart2026": false,
+            "parentRecipientVerified": false,
+            "koreanCashReceiptVerified": false,
+            "year2026LocalPaymentNotYetVerified": true,
+            "humanAuditOfParsedRowCompleted": false
+          },
+          {
+            "metric": "dividend_cash_outflow",
+            "metricLabelKo": "현지법인 현금흐름표의 배당 지급",
+            "year": 2024,
+            "amountThousandEur": 0,
+            "sourceCount": 2,
+            "annualReportComparativeConflict": false,
+            "sourceDocuments": [
+              {
+                "reportYear": 2025,
+                "sourcePdfPage": 9,
+                "reportedAs": "comparative_previous_year",
+                "value": 0,
+                "pdfUrl": "https://www.registeruz.sk/cruz-public/domain/financialreport/attachment/12784290",
+                "documentSha256": "cba3da044248aa4359698d10d04cf2593f286c187e64020b5dc888c2a1e0676e"
+              },
+              {
+                "reportYear": 2024,
+                "sourcePdfPage": 9,
+                "reportedAs": "reporting_year",
+                "value": 0,
+                "pdfUrl": "https://www.registeruz.sk/cruz-public/domain/financialreport/attachment/11846820",
+                "documentSha256": "0fd3729abefedf01aa4a7fe07e888512fbefb5cf1f2cdf31f958a5ddf2b5665d"
+              }
+            ],
+            "amountFromKiaParentDart2026": false,
+            "parentRecipientVerified": false,
+            "koreanCashReceiptVerified": false,
+            "year2026LocalPaymentNotYetVerified": true,
+            "humanAuditOfParsedRowCompleted": false
+          },
+          {
+            "metric": "dividend_cash_outflow",
+            "metricLabelKo": "현지법인 현금흐름표의 배당 지급",
+            "year": 2023,
+            "amountThousandEur": -735621,
+            "sourceCount": 1,
+            "annualReportComparativeConflict": false,
+            "sourceDocuments": [
+              {
+                "reportYear": 2024,
+                "sourcePdfPage": 9,
+                "reportedAs": "comparative_previous_year",
+                "value": -735621,
+                "pdfUrl": "https://www.registeruz.sk/cruz-public/domain/financialreport/attachment/11846820",
+                "documentSha256": "0fd3729abefedf01aa4a7fe07e888512fbefb5cf1f2cdf31f958a5ddf2b5665d"
+              }
+            ],
+            "amountFromKiaParentDart2026": false,
+            "parentRecipientVerified": false,
+            "koreanCashReceiptVerified": false,
+            "year2026LocalPaymentNotYetVerified": true,
+            "humanAuditOfParsedRowCompleted": false
+          },
+          {
+            "metric": "retained_earnings_balance",
+            "metricLabelKo": "현지법인 재무상태표의 전기이월이익잉여금",
+            "year": 2025,
+            "amountThousandEur": 2117131,
+            "sourceCount": 1,
+            "annualReportComparativeConflict": false,
+            "sourceDocuments": [
+              {
+                "reportYear": 2025,
+                "sourcePdfPage": 7,
+                "reportedAs": "reporting_year",
+                "value": 2117131,
+                "pdfUrl": "https://www.registeruz.sk/cruz-public/domain/financialreport/attachment/12784290",
+                "documentSha256": "cba3da044248aa4359698d10d04cf2593f286c187e64020b5dc888c2a1e0676e"
+              }
+            ],
+            "amountFromKiaParentDart2026": false,
+            "parentRecipientVerified": false,
+            "koreanCashReceiptVerified": false,
+            "year2026LocalPaymentNotYetVerified": true,
+            "humanAuditOfParsedRowCompleted": false
+          },
+          {
+            "metric": "retained_earnings_balance",
+            "metricLabelKo": "현지법인 재무상태표의 전기이월이익잉여금",
+            "year": 2024,
+            "amountThousandEur": 1666110,
+            "sourceCount": 2,
+            "annualReportComparativeConflict": false,
+            "sourceDocuments": [
+              {
+                "reportYear": 2025,
+                "sourcePdfPage": 7,
+                "reportedAs": "comparative_previous_year",
+                "value": 1666110,
+                "pdfUrl": "https://www.registeruz.sk/cruz-public/domain/financialreport/attachment/12784290",
+                "documentSha256": "cba3da044248aa4359698d10d04cf2593f286c187e64020b5dc888c2a1e0676e"
+              },
+              {
+                "reportYear": 2024,
+                "sourcePdfPage": 7,
+                "reportedAs": "reporting_year",
+                "value": 1666110,
+                "pdfUrl": "https://www.registeruz.sk/cruz-public/domain/financialreport/attachment/11846820",
+                "documentSha256": "0fd3729abefedf01aa4a7fe07e888512fbefb5cf1f2cdf31f958a5ddf2b5665d"
+              }
+            ],
+            "amountFromKiaParentDart2026": false,
+            "parentRecipientVerified": false,
+            "koreanCashReceiptVerified": false,
+            "year2026LocalPaymentNotYetVerified": true,
+            "humanAuditOfParsedRowCompleted": false
+          },
+          {
+            "metric": "retained_earnings_balance",
+            "metricLabelKo": "현지법인 재무상태표의 전기이월이익잉여금",
+            "year": 2023,
+            "amountThousandEur": 983529,
+            "sourceCount": 1,
+            "annualReportComparativeConflict": false,
+            "sourceDocuments": [
+              {
+                "reportYear": 2024,
+                "sourcePdfPage": 7,
+                "reportedAs": "comparative_previous_year",
+                "value": 983529,
+                "pdfUrl": "https://www.registeruz.sk/cruz-public/domain/financialreport/attachment/11846820",
+                "documentSha256": "0fd3729abefedf01aa4a7fe07e888512fbefb5cf1f2cdf31f958a5ddf2b5665d"
+              }
+            ],
+            "amountFromKiaParentDart2026": false,
+            "parentRecipientVerified": false,
+            "koreanCashReceiptVerified": false,
+            "year2026LocalPaymentNotYetVerified": true,
+            "humanAuditOfParsedRowCompleted": false
+          }
+        ],
+        "auditedYearRowConflicts": 0
       }
     }
   ]
