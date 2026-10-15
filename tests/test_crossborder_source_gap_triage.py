@@ -161,6 +161,12 @@ class CrossBorderDossiers(unittest.TestCase):
         from slovakia_official_accounts import registry_evidence
         from test_slovakia_official_accounts import api_data
         government=registry_evidence(api_data,now=NOW)
+        # Mock RUZ registry uses generic statement IDs 1001/1002. Give this
+        # explicit target year its real government parent/IFRS identifiers.
+        for statement in government["statements"]:
+            if statement["financialYear"]==2025:
+                statement["statementId"]=6995571
+                statement["reportIds"]=[10298519]
         checksum=hashlib.sha256(b"%PDF-1.4 official mock").hexdigest()
         evidence={
           "status":"official_slovak_ifrs_pdf_review_clues_not_validated_dividend_transfer",
