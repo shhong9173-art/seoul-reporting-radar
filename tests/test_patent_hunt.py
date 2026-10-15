@@ -270,6 +270,32 @@ class PatentScoutTests(unittest.TestCase):
         self.assertNotIn("secret-must-not-leak",json.dumps(report))
         self.assertEqual(report["incompleteCompanies"][0]["errorType"],"TimeoutError")
 
+    def test_provider_error_records_only_safe_result_code_and_stops_redundant_calls(self):
+        calls=[]
+        def failing(key,term,start,end):
+            calls.append(term)
+            raise RuntimeError("KIPRISPlus 응답 오류 코드 99")
+        result=p.build("fake",now=NOW,names=["현대자동차","기아"],
+                       news_limit=0,search=failing)
+        self.assertEqual(len(calls),1)
+        self.assertFalse(result["sourceWindowComplete"])
+        self.assertEqual(result["companyChecks"][0]["providerResultCode"],"99")
+        self.assertEqual(result["companyChecks"][1]["status"],"not_attempted_after_provider_error")
+        diagnostic=p.publication_diagnostics(result)
+        self.assertEqual(diagnostic["checkedCompanies"],0)
+        self.assertEqual(diagnostic["companyChecks"][0]["providerResultCode"],"99")
+        self.assertIsNone(diagnostic["companyChecks"][1]["providerResultCode"])
+
+    def test_provider_error_never_exports_url_or_key(self):
+        report=p.build("fake",now=NOW,names=["현대자동차"],
+            news_limit=0,search=lambda *a:(_ for _ in ()).throw(
+                RuntimeError("KIPRISPlus 응답 오류 코드 ServiceKey=PRIVATE")))
+        import json
+        public=json.dumps(p.publication_diagnostics(report),ensure_ascii=False)
+        self.assertNotIn("PRIVATE",public)
+        self.assertNotIn("ServiceKey=",public)
+        self.assertIsNone(report["companyChecks"][0]["providerResultCode"])
+
     def test_failed_issuer_does_not_zero_fill(self):
         report=p.build("fake",now=NOW,names=["현대자동차"],
                        search=lambda *a:(_ for _ in ()).throw(ValueError("API error")))
