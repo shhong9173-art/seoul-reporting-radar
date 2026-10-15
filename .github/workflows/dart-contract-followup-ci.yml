@@ -3,6 +3,10 @@ on:
   pull_request:
     paths:
       - 'scripts/dart_contract_followup.py'
+      - 'scripts/dart_correction_history.py'
+      - 'tests/test_dart_correction_history.py'
+      - 'tests/test_dart_correction_history_view.cjs'
+      - 'dart-correction-history.html'
       - 'tests/test_dart_issuer_table_review.py'
       - 'scripts/dart_lineage.py'
       - 'scripts/recent_contracts.py'
@@ -38,19 +42,26 @@ jobs:
           python-version: '3.12'
       - name: Verify primary DART lineage and safe prior-news status semantics
         run: |
-          python -m compileall -q scripts/dart_contract_followup.py scripts/dart_contract_tables.py scripts/dart_lineage.py scripts/recent_contracts.py
+          python -m compileall -q scripts/dart_contract_followup.py scripts/dart_contract_tables.py scripts/dart_lineage.py scripts/recent_contracts.py scripts/dart_correction_history.py
           python -m unittest discover -s tests -p 'test_dart_lineage.py' -v
           python -m unittest discover -s tests -p 'test_official_foreign_contracts.py' -v
           python -m unittest discover -s tests -p 'test_dart_contract_followup.py' -v
+          python -m unittest discover -s tests -p 'test_dart_correction_history.py' -v
+          node tests/test_dart_correction_history_view.cjs
           python -m unittest discover -s tests -p 'test_dart_issuer_table_review.py' -v
           python -m unittest discover -s tests -p 'test_dart_contract_tables.py' -v
           node tests/test_dart_contract_followup_view.cjs
       - name: Replay committed official DART snapshot with media network disabled
         run: |
           python scripts/dart_contract_followup.py --no-press-network --output /tmp/official_contract_followup_replay.json
+          python scripts/dart_correction_history.py --offline --output /tmp/official_correction_history_replay.json
           python - <<'PY'
           import json
           d=json.load(open('/tmp/official_contract_followup_replay.json',encoding='utf-8'))
+          h=json.load(open('/tmp/official_correction_history_replay.json',encoding='utf-8'))
+          assert h['confirmedScoops']==h['approvedArticles']==h['verifiedSameContractHistory']==0
+          assert h['historicalDocumentsRetrieved']==0 and h['requestsAttempted']==0
+          assert not any(x['linkageVerified'] or x['revisionFirstReportedAfterPreviousCoverageVerified'] for x in h['items'])
           assert d['sourceItemCount']>=d['reviewedEvents']
           assert d['confirmedScoops']==d['approvedArticles']==0
           assert not any(x['exclusiveConfirmed'] or x['approvedForPitch'] for x in d['items'])
