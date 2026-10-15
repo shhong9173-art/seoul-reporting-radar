@@ -48,4 +48,32 @@ class EvidenceGateTests(unittest.TestCase):
            "offlineSynthetic":True}
         with self.assertRaisesRegex(ValueError,"unverified_ntis_followup"):
             build_evidence(PLAN,PILOT,REMAINING,x)
+    def test_actual_approved_pc_last_page_closes_only_its_gap(self):
+        path=ROOT/"digests/ntis_project_page_followup_pc_latest.json"
+        self.assertTrue(path.is_file(),"Reviewed official result must be committed")
+        data=read("digests/ntis_project_page_followup_pc_latest.json")
+        from ntis_project_page_followup_validate import validate
+        pinned=read("digests/ntis_project_reverse_kipris_source.json")
+        result=validate(data,PLAN,REMAINING,pinned)
+        self.assertEqual(result["currentPageRows"],11)
+        self.assertEqual(result["reviewOnlyNumberPairs"],0)
+        self.assertFalse(result["offlineSynthetic"])
+        evidence=load_evidence(ROOT)
+        record=evidence["1020260145290"]
+        self.assertEqual(record["status"],"bounded_inspected_no_official_pair_observed")
+        self.assertEqual(record["uninspectedRelatedProjectCount"],0)
+        self.assertEqual(record["officialNumberPairsForHumanReview"],0)
+        self.assertFalse(record["projectParticipationVerified"])
+        self.assertFalse(record["exclusiveProven"])
+
+    def test_published_triage_snapshot_agrees_with_official_page_result(self):
+        raw=read("digests/patent_reporting_triage_latest.json")
+        matches=[r for r in raw["reviewQueue"] if r["publicationNumber"]=="1020260145290"]
+        self.assertEqual(len(matches),1)
+        self.assertEqual(matches[0]["ntisResearchEvidence"]["status"],
+                         "bounded_inspected_no_official_pair_observed")
+        self.assertEqual(matches[0]["ntisResearchEvidence"]["uninspectedRelatedProjectCount"],0)
+        self.assertFalse(matches[0]["exclusiveProven"])
+        self.assertEqual(raw["confirmedExclusives"],0)
+
 if __name__=="__main__":unittest.main()
