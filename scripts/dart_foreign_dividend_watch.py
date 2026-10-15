@@ -71,7 +71,7 @@ def extract_tables(markup,company,receipt):
     return out
 
 
-def document_tables(key,receipt,company,fetch=api_bytes):
+def document_tables(key,receipt,company,fetch=api_bytes,diagnostic=None):
     if not key or company not in KEYWORDS or not VALID_RECEIPT.fullmatch(str(receipt)):
         raise ValueError("missing valid corporate filing")
     url="https://opendart.fss.or.kr/api/document.xml?"+urlencode({"crtfc_key":key,"rcept_no":receipt})
@@ -79,6 +79,12 @@ def document_tables(key,receipt,company,fetch=api_bytes):
     if len(payload)>35_000_000 or not zipfile.is_zipfile(io.BytesIO(payload)):
         raise ValueError("unverified or oversized OpenDART document ZIP")
     hits=[]
+    diagnostic = diagnostic if isinstance(diagnostic,dict) else {}
+    diagnostic["documentsChecked"]=0
+    diagnostic["entityMentions"]=0
+    diagnostic["dividendMentions"]=0
+    diagnostic["nearestEntityContext"]=""
+    diagnostic["entityPatternsSearched"]=list(KEYWORDS[company])
     with zipfile.ZipFile(io.BytesIO(payload)) as arc:
         info=arc.infolist()
         if len(info)>80 or sum(x.file_size for x in info)>85_000_000:
@@ -89,7 +95,37 @@ def document_tables(key,receipt,company,fetch=api_bytes):
             if entry.file_size>MAX_DOC:
                 raise ValueError("oversized DART part")
             decoded=decode_web_bytes(arc.read(entry))
+            diagnostic["documentsChecked"]+=1
             hits.extend(extract_tables(decoded,company,receipt))
+            # An issuer's report may place the entity in the narrative preceding
+            # a different financial table. Track this explicitly as weaker
+            # proximity evidence; never parse an amount from it.
+            visible=plain(decoded)
+            normalized=re.sub(r"\\s+"," ",visible).upper()
+            aliases=KEYWORDS[company]
+            positions=sorted(set(p for alias in aliases for p in
+                                 [m.start() for m in re.finditer(re.escape(alias),normalized)]))
+            diagnostic["entityMentions"]+=len(positions)
+            diagnostic["dividendMentions"]+=len(DIVIDEND.findall(visible))
+            for pos in positions[:25]:
+                segment=visible[max(0,pos-500):min(len(visible),pos+900)]
+                if not diagnostic["nearestEntityContext"]:
+                    diagnostic["nearestEntityContext"]=segment[:360]
+                if hits or not DIVIDEND.search(segment):
+                    continue
+                hits.append({
+                    "company":company,"receiptNo":receipt,
+                    "filingUrl":"https://dart.fss.or.kr/dsaf001/main.do?rcpNo="+receipt,
+                    "tableExcerpt":segment[:1000],"context":"표 행 미대조 · 같은 주석 주변의 배당 키워드",
+                    "sourceScope":"text_proximity_only_not_same_verified_table",
+                    "evidenceTier":"low_confidence_proximity",
+                    "amountParsed":False,"cashReceiptVerified":False,
+                    "historicalNetIncomeCompared":False,"foreignRegistryVerified":False,
+                    "mediaCoverageVerified":False,"scoopConfirmed":False,
+                    "verify":["Confirm exact table row/column and subsidiary name in DART source",
+                              "Distinguish dividend income, board resolution, and cash receipt",
+                              "Compare with foreign legal-entity registry and prior press"]})
+                break
     return hits[:8]
 
 
@@ -111,9 +147,11 @@ def build(snapshot,key,fetch=api_bytes,now=None):
                 states.append({"company":company,"period":label,"status":"dart_api_key_unset","receiptNo":receipt})
                 continue
             try:
-                notes=document_tables(key,receipt,company,fetch=fetch)
+                diagnostic={}
+                notes=document_tables(key,receipt,company,fetch=fetch,diagnostic=diagnostic)
                 states.append({"company":company,"period":label,"status":"checked",
-                               "receiptNo":receipt,"candidateTables":len(notes)})
+                               "receiptNo":receipt,"candidateTables":len(notes),
+                               "diagnostics":diagnostic})
                 for n in notes:
                     n["period"]=label
                     leads.append(n)

@@ -51,6 +51,16 @@ try{
  const data=await load("overseas_dividend_evidence_latest.json");
  if(data.status!=="evidence_excerpts_not_verified_dividend_receipts"||!Array.isArray(data.leads)||data.confirmedScoops!==0)throw Error("배당 데이터 검증 상태 오류");
  $("dividend-state").textContent=ageNotice(data)+" · 현지 법인등기 "+data.foreignRegistryStatus+" · 원문 표 후보 "+data.leads.length+"건 (현금수령·순이익 비교 미검증)";
+ for(const state of data.sourceChecks||[]){
+   const diag=state.diagnostics||{};
+   const c=card($("dividends"),state.company+" · "+state.period+" · "+state.status);
+   line(c,"DART 접수번호: "+(state.receiptNo||"없음")+" · 후보 "+(state.candidateTables??"미확인")+"건","dim");
+   if(state.status==="checked"){
+     line(c,"외국법인명 탐지 "+(diag.entityMentions??"미확인")+"회 · 배당 관련 어휘 "+(diag.dividendMentions??"미확인")+"회 · 원문 파트 "+(diag.documentsChecked??"미확인")+"건","dim");
+     if(diag.nearestEntityContext)line(c,"원문 상 법인명 주변 문맥: "+diag.nearestEntityContext,"dim");
+   }
+ }
+
  for(const x of data.leads){
    if(x.scoopConfirmed!==false||x.cashReceiptVerified!==false)continue;
    const c=card($("dividends"),x.company+" · "+x.period+" · "+x.receiptNo);
