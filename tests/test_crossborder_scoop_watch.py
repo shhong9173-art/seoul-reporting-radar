@@ -104,6 +104,54 @@ class ForeignDividend(unittest.TestCase):
         self.assertGreater(diag["entityMentions"],0)
         self.assertGreater(diag["dividendMentions"],0)
 
+    def test_kia_exact_recognized_slovak_dividend_without_cash_receipt(self):
+        sentence=("당반기 및 전반기 중 종속기업 투자손익은 다음과 같습니다. "
+          "(단위 : 백만원) 구 분 제 83(당) 기 반기 배당금수익 1,747,732 "
+          "당반기 배당금수익은 Kia Slovakia s.r.o.(KaSK)로부터 인식한 "
+          "1,610,458백만원, 현대모비스로부터 인식한 82,135백만원 등으로 구성되어 있습니다.")
+        out=d.exact_dividend_income_recognition(sentence,"기아","20260916000427")
+        self.assertEqual(len(out),1)
+        x=out[0]
+        self.assertEqual(x["issuerNamedRecognitionAmount"],"1,610,458")
+        self.assertEqual(x["issuerUnit"],"백만원")
+        self.assertEqual(x["issuerRecognizedPeriod"],"current")
+        self.assertEqual(x["evidenceTier"],"exact_issuer_recognized_dividend_income")
+        self.assertTrue(x["amountParsed"])
+        self.assertFalse(x["cashReceiptVerified"])
+        self.assertFalse(x["separateFinancialStatementsVerified"])
+        self.assertFalse(x["foreignRegistryVerified"])
+        self.assertFalse(x["scoopConfirmed"])
+        xml="<P>"+sentence+"</P>"
+        rows=d.document_tables("TEST","20260916000427","기아",fetch=lambda u:dart_zip(xml))
+        self.assertEqual(len(rows),1)
+        self.assertEqual(rows[0]["issuerNamedRecognitionAmount"],"1,610,458")
+
+    def test_nearby_entity_and_unrelated_dividend_total_do_not_create_recognition(self):
+        phrase=("당반기 배당금수익 1,747,732백만원을 인식하였습니다. "
+                "해외에 Kia Slovakia s.r.o.(KaSK) 공장이 있습니다.")
+        self.assertEqual(d.exact_dividend_income_recognition(
+            phrase,"기아","20260916000427"),[])
+        opposite=("당반기 배당금수익은 Hyundai Motor Manufacturing Czech"
+                  "로부터 인식한 5,000백만원입니다.")
+        self.assertEqual(d.exact_dividend_income_recognition(
+            opposite,"기아","20260916000427"),[])
+
+    def test_conflicting_exact_recognition_in_one_document_is_suppressed(self):
+        source=("당반기 배당금수익은 Kia Slovakia s.r.o.(KaSK)로부터 "
+                "인식한 1,610,458백만원으로 구성되어 있습니다. "
+                "당반기 배당금수익은 Kia Slovakia s.r.o.(KaSK)로부터 "
+                "인식한 1,620,458백만원으로 구성되어 있습니다.")
+        self.assertEqual(d.exact_dividend_income_recognition(
+            source,"기아","20260916000427"),[])
+
+    def test_issuer_only_record_does_not_treat_accounting_as_received_cash(self):
+        sentence=("당반기 배당금수익은 Kia Slovakia s.r.o.(KaSK)로부터 "
+                  "인식한 1,610,458백만원입니다.")
+        rows=d.exact_dividend_income_recognition(sentence,"기아","20260916000427")
+        self.assertFalse(rows[0]["cashReceiptVerified"])
+        self.assertFalse(rows[0]["historicalNetIncomeCompared"])
+        self.assertNotIn("actualCashReceived",rows[0])
+
     def test_missing_key_not_reported_as_zero(self):
         sample={"companies":[{"company":"기아","current":{"receiptNo":"20260916000427"}}]}
         result=d.build(sample,"",now=NOW)
