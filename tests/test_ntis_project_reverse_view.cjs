@@ -17,7 +17,9 @@ for(const text of [
   'record.confirmedExclusives===0',
   'ntisReverseResult.completedProjects',
   'ntisReverseResult.reviewedNumberPairs',
-  'ntisReverseResult.records.filter(a=>a.publicationNumber===x.publicationNumber)',
+  '...ntisReverseResult.records',
+  '...ntisRemainingResult?.records||[]',
+  '.filter(a=>a.publicationNumber===x.publicationNumber)',
   'PC 수집 아직 미실행',
   '첫 페이지만 확인',
   '전체 NTIS 성과가 없다는 뜻은 아닙니다.'
