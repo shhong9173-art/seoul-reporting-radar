@@ -360,7 +360,62 @@ def attach_verified_slovak_pdf_clues(dossier,registry,pdf):
     return dossier
 
 
-def build(safety,dividends,*,now=None,slovakia=None,czech=None,slovak_pdf=None):
+
+def attach_nhtsa_part573_primary(dossier,source,us_archive):
+    """Connect only exact campaign, official PDF host, recognized PDF text."""
+    payload={"status":"not_downloaded_or_campaign_not_verified",
+             "originalReportsRead":0,"passages":[],
+             "koreanSameComponentVerified":False,
+             "koreanRecallAbsenceVerified":False,
+             "priorSameAngleNewsChecked":False}
+    dossier["nhtsaPart573Original"]=payload
+    if (not isinstance(source,dict) or
+        source.get("status")!="us_official_part573_pdf_passages_not_korean_recall_conclusion" or
+        source.get("sourceCampaignSnapshotAt")!=us_archive.get("generatedAt") or
+        not isinstance(source.get("reports"),list) or
+        any(source.get(field) is not False for field in (
+             "koreanEquivalentPartVerified","koreanRecallAbsenceVerified",
+             "manufacturerReportRevisionSequenceVerified",
+             "officialPartNumberVersusKoreanVehicleVerified",
+             "sameAnglePressFulltextVerified")) or
+        source.get("confirmedScoops")!=0):
+        return dossier
+    campaign=dossier["officialFact"]["usCampaign"]
+    valid_documents={
+        "26V664000":{"RCLRPT-26V664-0680.pdf"},
+        "26V588000":{"RCLRPT-26V588-5849.pdf","RCLRPT-26V588-0403.pdf"}
+    }
+    for r in source["reports"]:
+        if (not isinstance(r,dict) or r.get("campaign")!=campaign or
+            r.get("reportFile") not in valid_documents.get(campaign,set()) or
+            r.get("officialPdfUrl")!=
+              "https://static.nhtsa.gov/odi/rcl/2026/"+r["reportFile"] or
+            r.get("officialPdfDownloaded") is not True or
+            r.get("campaignNumberFoundInPdf") is not True or
+            r.get("exactKoreanVehiclePartMatched") is not False or
+            r.get("domesticRecallAbsenceVerified") is not False or
+            not isinstance(r.get("pdfContentSHA256"),str) or
+            re.fullmatch(r"[a-f0-9]{64}",r["pdfContentSHA256"]) is None):
+            continue
+        payload["originalReportsRead"]+=1
+        for z in r.get("sourcePassages",[])[:6]:
+            if not isinstance(z,dict) or not isinstance(z.get("page"),int) or not 1<=z["page"]<=90 or z.get("koreanRecallAbsenceVerified") is not False or z.get("partNumberVerifiedAgainstKoreanVehicle") is not False:
+                continue
+            payload["passages"].append({
+                "page":z["page"],"officialPart573PdfUrl":r["officialPdfUrl"],
+                "literalPdfExcerpt":str(z.get("literalPdfExcerpt") or "")[:305],
+                "sourcePdfSHA256":r["pdfContentSHA256"],
+                "basis":"nhtsa_us_manufacturer_original_pdf_unmatched_to_korea",
+                "koreanSamePartVerified":False,
+                "domesticRecallAbsentVerified":False
+            })
+    payload["status"]=(
+      "us_manufacturer_part573_pages_require_korean_spec_check"
+      if payload["originalReportsRead"] else "official_us_original_pdf_unavailable")
+    return dossier
+
+
+def build(safety,dividends,*,now=None,slovakia=None,czech=None,slovak_pdf=None,nhtsa_part573=None):
     now=now or datetime.now(KST)
     if now.utcoffset() is None:raise ValueError("timezone_required")
     if (not isinstance(safety,dict) or not isinstance(dividends,dict)
@@ -401,7 +456,9 @@ def build(safety,dividends,*,now=None,slovakia=None,czech=None,slovak_pdf=None):
     dossiers=[]
     for x in safety["leads"][:100]:
         y=safety_dossier(x,now.astimezone(KST))
-        if y:dossiers.append(y)
+        if y:
+            attach_nhtsa_part573_primary(y,nhtsa_part573,safety)
+            dossiers.append(y)
     for x in dividends["leads"][:100]:
         generated=recognized_dividend_dossiers(x)
         for d in generated:
@@ -470,6 +527,7 @@ def main():
     p.add_argument("--slovakia",default="digests/slovakia_official_accounts_latest.json")
     p.add_argument("--czech",default="digests/czech_factory_official_identity_latest.json")
     p.add_argument("--slovak-pdf",default="digests/slovak_ifrs_primary_pages_latest.json")
+    p.add_argument("--part573",default="digests/nhtsa_part573_primary_latest.json")
     a=p.parse_args()
     src=lambda path:json.loads(Path(path).read_text(encoding="utf-8"))
     try:
@@ -484,8 +542,13 @@ def main():
         pdf_note_index=src(a.slovak_pdf)
     except (OSError,ValueError):
         pdf_note_index=None
+    try:
+        manufacturer_reports=src(a.part573)
+    except (OSError,ValueError):
+        manufacturer_reports=None
     result=build(src(a.nhtsa),src(a.dividends),slovakia=government,
-                 czech=czech_identity,slovak_pdf=pdf_note_index)
+                 czech=czech_identity,slovak_pdf=pdf_note_index,
+                 nhtsa_part573=manufacturer_reports)
     if result["sourceHealth"]["nhtsaOfficial"]!="checked":
         raise SystemExit("NHTSA source incomplete; preserve last good dossier")
     if result["sourceHealth"]["dartOfficialDividendNotes"]=="no_official_receipt_checked":
