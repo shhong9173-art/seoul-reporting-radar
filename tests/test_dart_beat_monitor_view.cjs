@@ -7,7 +7,6 @@ new Function(scripts[0][1]);
 for(const token of [
  "digests/dart_beat_monitor_latest.json",
  "digests/dart_beat_run_health_latest.json",
- "lastPublished",
  "latestDatasetGeneratedAt",
  "newCollectionVerified",
  "registryRefreshVerified",
