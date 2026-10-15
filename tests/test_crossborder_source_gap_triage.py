@@ -130,6 +130,27 @@ class CrossBorderDossiers(unittest.TestCase):
         self.assertTrue(x["nhtsaPart573Original"]["differentPdfVersionsAffectedCountConflict"])
         self.assertIsNone(x["nhtsaPart573Original"]["usManufacturerReportedAffectedCount"])
 
+    def test_korean_market_in_manufacturer_pdf_awaits_official_domestic_incident_verification(self):
+        from nhtsa_part573_primary import scan
+        n,d=sources()
+        us=scan(n,now=NOW,
+                get=lambda url:b"%PDF-1.4\\n664"+b"0"*2300,
+                convert=lambda pdf:[
+                  "Part 573 Safety Recall Report 26V664 Total number of potentially involved: 94,622",
+                  "Chronology of Principal Events: One allegation of fire involving the Korean market vehicle was discussed."])
+        dossier=t.build(n,d,now=NOW,nhtsa_part573=us)
+        x=next(row for row in dossier["items"] if row["id"]=="usrecall:26V664000")
+        source=x["nhtsaPart573Original"]
+        self.assertEqual(len(source["koreanMarketSourceClaims"]),1)
+        mention=source["koreanMarketSourceClaims"][0]
+        self.assertTrue(mention["incidentTermNearby"])
+        self.assertTrue(mention["sourceIsManufacturerAllegationOnly"])
+        self.assertFalse(mention["domesticIncidentIndependentlyVerified"])
+        self.assertFalse(mention["koreanRecallAbsenceVerified"])
+        self.assertFalse(x["pitchGate"]["domesticIncidentVerified"])
+        self.assertFalse(x["pitchGate"]["exclusiveConfirmed"])
+        self.assertEqual(dossier["confirmedScoops"],0)
+
     def test_kia_recognized_issuer_dividend_not_cash_and_not_a_new_20261016_event(self):
         n,d=sources()
         result=t.build(n,d,now=NOW)
