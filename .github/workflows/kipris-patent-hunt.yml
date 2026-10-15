@@ -5,6 +5,9 @@ on:
     paths:
       - 'scripts/patent_hunt.py'
       - 'scripts/patent_deep_hunt.py'
+      - 'scripts/patent_joint_verification.py'
+      - 'tests/test_patent_joint_verification.py'
+      - 'patent-joint-verification.html'
       - 'scripts/patent_claim_review.py'
       - 'scripts/patent_story_hunt.py'
       - 'scripts/patent_editorial_desk.py'
@@ -49,9 +52,10 @@ jobs:
       - name: Check official patent identity, publication date, and exclusions
         id: checks
         run: |
-          python -m compileall -q scripts/patent_hunt.py scripts/patent_deep_hunt.py scripts/patent_story_hunt.py scripts/patent_run_health.py scripts/patent_quality_metrics.py scripts/patent_record_review.py scripts/patent_editorial_desk.py scripts/patent_cross_evidence.py scripts/patent_public_factcheck.py scripts/patent_reporting_triage.py
+          python -m compileall -q scripts/patent_hunt.py scripts/patent_deep_hunt.py scripts/patent_story_hunt.py scripts/patent_run_health.py scripts/patent_quality_metrics.py scripts/patent_record_review.py scripts/patent_editorial_desk.py scripts/patent_cross_evidence.py scripts/patent_public_factcheck.py scripts/patent_reporting_triage.py scripts/patent_joint_verification.py
           python -m unittest discover -s tests -p 'test_patent_hunt.py' -v
           python -m unittest discover -s tests -p 'test_patent_deep_hunt.py' -v
+          python -m unittest discover -s tests -p 'test_patent_joint_verification.py' -v
           python -m unittest discover -s tests -p 'test_patent_claim_review.py' -v
           python -m unittest discover -s tests -p 'test_patent_story_hunt.py' -v
           python -m unittest discover -s tests -p 'test_patent_run_health.py' -v
@@ -60,6 +64,7 @@ jobs:
           python -m unittest discover -s tests -p 'test_patent_cross_evidence.py' -v
           python -m unittest discover -s tests -p 'test_patent_reporting_triage.py' -v
           node tests/test_patent_hunt_view.cjs
+          node tests/test_patent_joint_verification_view.cjs
       - name: Query KIPRISPlus applicant publications when separately authorized
         id: source
         env:
@@ -93,6 +98,10 @@ jobs:
         id: triage
         continue-on-error: true
         run: python scripts/patent_reporting_triage.py
+      - name: Correlate fresh cofiled patents with verified claim1 and press-index review
+        id: joint_review
+        continue-on-error: true
+        run: python scripts/patent_joint_verification.py
       - name: Emit health result even if an earlier stage fails
         if: ${{ always() }}
         env:
@@ -116,6 +125,7 @@ jobs:
           if [ -f digests/patent_source_status_latest.json ]; then git add digests/patent_source_status_latest.json; fi
           if [ "${{ steps.source.outcome }}" = "success" ]; then git add digests/patent_hunt_latest.json; fi
           if [ "${{ steps.deep.outcome }}" = "success" ] && [ -f digests/patent_deep_latest.json ]; then git add digests/patent_deep_latest.json; fi
+          if [ "${{ steps.joint_review.outcome }}" = "success" ] && [ -f digests/patent_joint_verification_latest.json ]; then git add digests/patent_joint_verification_latest.json; fi
           if [ "${{ steps.claims.outcome }}" = "success" ] && [ -f digests/patent_claim_review_latest.json ]; then git add digests/patent_claim_review_latest.json; fi
           if [ "${{ steps.story.outcome }}" = "success" ] && [ -f digests/patent_story_latest.json ]; then git add digests/patent_story_latest.json; fi
           if [ "${{ steps.quality.outcome }}" = "success" ] && [ -f digests/patent_quality_latest.json ]; then git add digests/patent_quality_latest.json; fi

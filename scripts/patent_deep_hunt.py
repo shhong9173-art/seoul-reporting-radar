@@ -298,7 +298,7 @@ def build(source,key="",historical=historical_title_search,search_limit=10,now=N
         "partnerInvestigations":sorted(
             (x for x in items if x["crossOrganizationLead"]),
             key=lambda x:(-x["newsroomScore"],-int(x.get("publicationDate") or 0))
-        )[:30],
+        ),
         "invalidDuplicateNumbers":rejected,
         "sourceCoverageComplete":source.get("sourceWindowComplete",False),
         "historicalQueriesAttempted":count,

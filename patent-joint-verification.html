@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>최근 공동특허 취재 검증 | 자동차 산업부 레이더</title>
+<style>
+:root{font:15px/1.6 system-ui,-apple-system,"Malgun Gothic",sans-serif;color:#253849;background:#f5f7fa}
+*{box-sizing:border-box}body{margin:0}main{max-width:1060px;margin:auto;padding:25px 18px 70px}
+a{color:#145d88}h1{font-size:25px;margin:12px 0}h2{font-size:19px;margin:26px 0 10px}
+.notice,.card{background:white;border:1px solid #d9e2ec;border-radius:10px;padding:17px;margin:12px 0}
+.card h3{font-size:17px;margin:6px 0}
+.dim{font-size:13px;color:#637589}.warning{border-left:4px solid #aa802e;background:#fffaf2}
+.tag{display:inline-block;font-size:12px;background:#edf2f6;border-radius:5px;padding:3px 8px;margin-right:8px}
+p{margin:8px 0}
+</style></head><body><main>
+<p class="dim"><a href="index.html">산업부 레이더</a> / <a href="patents.html">특허 원문</a> / <a href="patent-rnd-dossiers.html">국가R&D 교차 조사서</a></p>
+<h1>최근 공동특허 취재 검증</h1>
+<p class="notice warning"><b>단독기사 확정 화면이 아닙니다.</b> 공식 KIPRIS 공동출원인과 공개번호가 확인돼도 기업 간 사업 제휴·계약, 청구항의 법적 신규성, 실제 양산 적용 또는 미보도 사실은 별도 검증해야 합니다. 구글뉴스 검색 0건도 미보도 증명이 아닙니다.</p>
+<p id="status" class="notice" role="status">공식 공동출원 원자료의 시점과 검증 범위 확인 중</p>
+<section><h2>최근 3일 공개 공동특허</h2><p class="dim">현재 날짜(한국시간) 기준 최근 3일 내 공개된 이종 산업·대학·연구기관 공동출원. 과거 출원일이 아니라 공식 공개일 기준입니다.</p><div id="recent"></div></section>
+<section><h2>과거 공개된 공동특허 (참고자료)</h2><p class="dim">이 항목들은 최근 3일 발제 후보가 아닙니다. 35일 수집 자료의 기보도·청구항 확인 경로로만 제공합니다.</p><div id="older"></div></section>
+</main><script>
+(async function(){
+"use strict";
+const $=s=>document.querySelector(s);
+const box=(name,value,cls)=>{const n=document.createElement(name);n.textContent=String(value??"");if(cls)n.className=cls;return n};
+const paragraph=(host,txt,cls)=>host.append(box("p",txt,cls));
+const names=x=>(Array.isArray(x)?x:[]).join(" · ")||"미확인";
+function render(host,item){
+ if(item.companyApplicationVerified!==false ||
+    item.industrialImpactVerified!==false ||
+    item.partnershipContractVerified!==false ||
+    item.scoopConfirmed!==false || item.approvedForPitch!==false)
+   throw Error("승인되지 않은 사업화·단독 상태값 감지");
+ const card=box("article",null,"card");
+ card.append(box("span",item.isRecentPublication?"최근 3일 공식 공개":"과거 공개 자료","tag"));
+ card.append(box("span","취재 단계 · 단독 미확정","tag"));
+ card.append(box("h3",item.title));
+ paragraph(card,"공개번호 "+item.publicationNumber+" · 공개일 "+item.publicationDate+
+   " · 출원번호 "+(item.applicationNumber||"미확인"),"dim");
+ paragraph(card,"출입처 공동출원인: "+names(item.coveredCompanies),"dim");
+ paragraph(card,"출입처 외 공동출원인: "+names(item.outsideBeatCoApplicants),"dim");
+ paragraph(card,"공식 청구항 1항: "+(item.claim1Status==="official_claim1_verified_text_only_no_novelty_certification"?
+  "원문 문구 확인됨(법적 신규성·기술 우월성 미확정)":"이 출원번호의 공식 청구항 미검증"),"dim");
+ if(item.claim1Excerpt)paragraph(card,"청구항 일부: "+item.claim1Excerpt,"dim");
+ const press={
+  "index_no_hits_not_proof_unreported":"기사 색인 검색 결과 미발견(미보도 증명 아님)",
+  "indexed_articles_need_fulltext_review":"유사 기사 발견·원문 비교 필요",
+  "index_checked_but_stale_recheck":"기존 뉴스 검색 오래됨·재조회 필요",
+  "not_searched_no_zero_claim":"기보도 확인 미진행",
+  "press_index_status_requires_review":"색인 결과/오류 검증 필요"
+ };
+ paragraph(card,"기보도: "+(press[item.pressIndexStatus]||"확인 범위 미정")+
+  " · 색인 검색 "+item.pressQueriesCount+"회"+(item.pressCheckedAt?" · 확인 "+item.pressCheckedAt:""),"dim");
+ const older={
+  "same_title_patent_found_review":"과거 동일 제목 공보 발견·청구항 및 패밀리 비교 필요",
+  "bounded_same_title_not_found_other_prior_unchecked":"제한적 동일 제목 검색 미발견·다른 명칭 선행기술 미확인",
+  "prior_title_lookup_failed":"과거 공보 검색 실패",
+  "not_searched_or_incomplete":"과거 공보 미조회/불완전"
+ };
+ paragraph(card,"선행특허: "+(older[item.priorSameTitleStatus]||"미확인"),"dim");
+ paragraph(card,"실제 제품·공장 적용: 확인 안 됨 · 기업별 역할·협력 계약: 확인 안 됨 · 산업 영향 수치: 확인 안 됨","dim");
+ paragraph(card,"다음 취재: "+item.nextReportingQuestion,"status");
+ const a=box("a","KIPRIS 공식 공보 검색 ↗","dim");
+ a.href="https://www.kipris.or.kr/";a.target="_blank";a.rel="noopener noreferrer";
+ card.append(a);
+ host.append(card);
+}
+try{
+ const response=await fetch("digests/patent_joint_verification_latest.json",{cache:"no-store"});
+ if(!response.ok)throw Error("최근 공동특허 검증 자료 미생성");
+ const data=await response.json();
+ if(!data.generatedAt||!data.officialSourceGeneratedAt||
+    !Array.isArray(data.recentResearchQueue)||!Array.isArray(data.olderReferenceQueue)||
+    data.confirmedScoops!==0||data.approvedArticles!==0||
+    data.recentJointInRepresentedSample<data.recentResearchQueue.length||
+    data.unrepresentedOfficialJointRecords<0)
+     throw Error("검증 자료의 출처·건수·판정 상태 불일치");
+ const now=Date.now();
+ const sourceAge=(now-Date.parse(data.officialSourceGeneratedAt))/3600000;
+ const stale=data.officialSourceStale===true||!Number.isFinite(sourceAge)||sourceAge>24||sourceAge<(-1);
+ $("#status").textContent=
+  "공식 공보 원천 "+data.officialSourceGeneratedAt+" · 최근 "+data.windowStart+"~"+data.windowEnd+
+  " · 외부 공동출원 전체 "+data.officialOutsideBeatJointCount+"건 중 검증 목록 "+
+  data.jointRecordsRepresented+"건 · 이번 3일 구간 확인 목록 "+
+  data.recentJointInRepresentedSample+"건 · 수집 목록에서 누락된 과거 공동특허 "+
+  data.unrepresentedOfficialJointRecords+"건 · "+
+  (stale?"원천 24시간 초과: 현재 신규 공개특허가 0건이라고 판단할 수 없음":
+   data.recentCoverageComplete?"대상 공식 수집 범위 기준으로 3일간 목록 검증됨":"일부 출처 범위 미확인·0건 판정 금지")+
+  " · 단독 확정 0건";
+ for(const item of data.recentResearchQueue)render($("#recent"),item);
+ if(!data.recentResearchQueue.length)
+  paragraph($("#recent"),stale?"마지막 수집 스냅샷의 최근 3일 해당 기록 없음. 현재 신규 공개 없음이라는 뜻이 아닙니다.":
+  "이번 공식 수집 범위의 최근 3일 공동출원 검토 목록 없음(다른 공식 원천·언론 미보도 여부는 별도 확인 필요).","notice");
+ for(const item of data.olderReferenceQueue)render($("#older"),item);
+ if(!data.olderReferenceQueue.length)paragraph($("#older"),"표시할 과거 공동출원 참고기록 없음","notice");
+}catch(e){
+ $("#status").textContent="공식 공동특허 검증 데이터 미수집 또는 출처 검증 오류: "+e.message+
+  " · 현재 단독 후보 0건으로 간주하지 않습니다.";
+}
+})();
+</script></body></html>
