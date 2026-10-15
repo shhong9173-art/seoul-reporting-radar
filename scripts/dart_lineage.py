@@ -25,6 +25,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from dart_numeric_extractor import decode_web_bytes, html_to_text
 from dart_corrections import Tables, compare_correction
+from dart_contract_tables import extract_contract_terms
 
 KST = timezone(timedelta(hours=9))
 RECEIPT = re.compile(r"(?<!\d)\d{14}(?!\d)")
@@ -100,30 +101,11 @@ def explicit_origin_id(documents, amended_receipt):
 
 
 def tabular_fields(documents):
-    """Strict, non-nested two-cell or paired-cell rows; duplicate conflict = unknown."""
-    gathered = defaultdict(set)
-    for document in documents:
-        parser = Tables()
-        try:
-            parser.feed(document)
-        except Exception:
-            continue
-        for table in parser.tables:
-            if table["ambiguous"]:
-                continue
-            for row in table["rows"]:
-                if any(span for _, span in row) or len(row) not in (2, 4):
-                    continue
-                cells = [str(s).strip() for s, _ in row]
-                for label, value in zip(cells[0::2], cells[1::2]):
-                    key = normal(label)
-                    key = re.sub(r"^(?:\d+|[가-하])\.", "", key)
-                    canonical = FIELDS.get(key)
-                    if not canonical or not value or len(value) > 220:
-                        continue
-                    gathered[canonical].add(normal(value))
-    # Conflicting duplicates are not silently reduced to the first value.
-    return {key: next(iter(values)) for key,values in gathered.items() if len(values) == 1}
+    """Official-value-only compatibility wrapper; ambiguous fields stay absent.
+
+    See extract_contract_terms for exact source row and conflict metadata.
+    """
+    return extract_contract_terms(documents)["fields"]
 
 
 def comparable_differences(before, after):
