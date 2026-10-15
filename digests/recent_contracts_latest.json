@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-15T12:14:49+09:00",
+  "generatedAt": "2026-10-15T12:48:04+09:00",
   "periodStart": "20260924",
   "periodEnd": "20261015",
   "source": "OpenDART 회사별 공시검색 list.json 및 조회된 경우 document.xml",
@@ -200,8 +200,46 @@
       "isCorrection": false,
       "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261013800054",
       "status": "official_document_read",
-      "evidenceStatus": "공식 접수·공시 원문 발췌; 계약 체결/금액·상대방·효력은 원문과 기업 확인 필요",
-      "observedFields": {},
+      "evidenceStatus": "공식 DART 원문 표의 동일 행 필드만 수집. 공시상 기재값이며 실제 납품·매출·효력 확인 아님",
+      "observedFields": {
+        "contract_amount": "185,257,183,992",
+        "counterparty": "LS ELECTRIC AMERICA Inc.",
+        "contract_start": "2026-10-12",
+        "contract_end": "2027-07-05"
+      },
+      "observedFieldEvidence": {
+        "contract_amount": {
+          "sourceLabel": "계약금액(원)",
+          "rowPattern": "three_cell_explicit_label",
+          "basis": "same_official_table_row",
+          "independentBusinessVerification": false,
+          "distinctDocumentRows": 1
+        },
+        "counterparty": {
+          "sourceLabel": "3. 계약상대",
+          "rowPattern": "two_cell_explicit_label",
+          "basis": "same_official_table_row",
+          "independentBusinessVerification": false,
+          "distinctDocumentRows": 1
+        },
+        "contract_start": {
+          "sourceLabel": "시작일",
+          "rowPattern": "three_cell_explicit_label",
+          "basis": "same_official_table_row",
+          "independentBusinessVerification": false,
+          "distinctDocumentRows": 2
+        },
+        "contract_end": {
+          "sourceLabel": "종료일",
+          "rowPattern": "contract_period_rowspan",
+          "basis": "same_official_table_row",
+          "independentBusinessVerification": false,
+          "distinctDocumentRows": 1
+        }
+      },
+      "conflictingDocumentFields": [],
+      "documentTablesExamined": 1,
+      "documentFieldExtractionStatus": "official_table_terms_not_business_effect",
       "scoopStatus": "기보도 및 원자료·회사 답변 확인 전 · 단독 미확정",
       "questions": [
         "원문 원계약·정정 전후 계약금액, 고객사, 적용 기간이 명시됐는가?",
@@ -219,8 +257,46 @@
       "isCorrection": false,
       "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261001800034",
       "status": "official_document_read",
-      "evidenceStatus": "공식 접수·공시 원문 발췌; 계약 체결/금액·상대방·효력은 원문과 기업 확인 필요",
-      "observedFields": {},
+      "evidenceStatus": "공식 DART 원문 표의 동일 행 필드만 수집. 공시상 기재값이며 실제 납품·매출·효력 확인 아님",
+      "observedFields": {
+        "contract_amount": "837,970,880,392",
+        "counterparty": "VIETNAM NATIONAL INDUSTRY - ENERGY GROUP (PVN)",
+        "contract_start": "2026-10-06",
+        "contract_end": "2030-10-06"
+      },
+      "observedFieldEvidence": {
+        "contract_amount": {
+          "sourceLabel": "계약금액(원)",
+          "rowPattern": "three_cell_explicit_label",
+          "basis": "same_official_table_row",
+          "independentBusinessVerification": false,
+          "distinctDocumentRows": 1
+        },
+        "counterparty": {
+          "sourceLabel": "3. 계약상대",
+          "rowPattern": "two_cell_explicit_label",
+          "basis": "same_official_table_row",
+          "independentBusinessVerification": false,
+          "distinctDocumentRows": 1
+        },
+        "contract_start": {
+          "sourceLabel": "시작일",
+          "rowPattern": "three_cell_explicit_label",
+          "basis": "same_official_table_row",
+          "independentBusinessVerification": false,
+          "distinctDocumentRows": 2
+        },
+        "contract_end": {
+          "sourceLabel": "종료일",
+          "rowPattern": "contract_period_rowspan",
+          "basis": "same_official_table_row",
+          "independentBusinessVerification": false,
+          "distinctDocumentRows": 1
+        }
+      },
+      "conflictingDocumentFields": [],
+      "documentTablesExamined": 1,
+      "documentFieldExtractionStatus": "official_table_terms_not_business_effect",
       "scoopStatus": "기보도 및 원자료·회사 답변 확인 전 · 단독 미확정",
       "questions": [
         "원문 원계약·정정 전후 계약금액, 고객사, 적용 기간이 명시됐는가?",
@@ -238,8 +314,46 @@
       "isCorrection": false,
       "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261001800079",
       "status": "official_document_read",
-      "evidenceStatus": "공식 접수·공시 원문 발췌; 계약 체결/금액·상대방·효력은 원문과 기업 확인 필요",
-      "observedFields": {},
+      "evidenceStatus": "공식 DART 원문 표의 동일 행 필드만 수집. 공시상 기재값이며 실제 납품·매출·효력 확인 아님",
+      "observedFields": {
+        "contract_amount": "181,229,274,677",
+        "counterparty": "LS ELECTRIC AMERICA Inc.",
+        "contract_start": "2026-09-30",
+        "contract_end": "2030-01-30"
+      },
+      "observedFieldEvidence": {
+        "contract_amount": {
+          "sourceLabel": "계약금액(원)",
+          "rowPattern": "three_cell_explicit_label",
+          "basis": "same_official_table_row",
+          "independentBusinessVerification": false,
+          "distinctDocumentRows": 1
+        },
+        "counterparty": {
+          "sourceLabel": "3. 계약상대",
+          "rowPattern": "two_cell_explicit_label",
+          "basis": "same_official_table_row",
+          "independentBusinessVerification": false,
+          "distinctDocumentRows": 1
+        },
+        "contract_start": {
+          "sourceLabel": "시작일",
+          "rowPattern": "three_cell_explicit_label",
+          "basis": "same_official_table_row",
+          "independentBusinessVerification": false,
+          "distinctDocumentRows": 2
+        },
+        "contract_end": {
+          "sourceLabel": "종료일",
+          "rowPattern": "contract_period_rowspan",
+          "basis": "same_official_table_row",
+          "independentBusinessVerification": false,
+          "distinctDocumentRows": 1
+        }
+      },
+      "conflictingDocumentFields": [],
+      "documentTablesExamined": 1,
+      "documentFieldExtractionStatus": "official_table_terms_not_business_effect",
       "scoopStatus": "기보도 및 원자료·회사 답변 확인 전 · 단독 미확정",
       "questions": [
         "원문 원계약·정정 전후 계약금액, 고객사, 적용 기간이 명시됐는가?",

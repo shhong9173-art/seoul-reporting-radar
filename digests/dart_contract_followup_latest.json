@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-10-15T12:15:06+09:00",
-  "dartSourceGeneratedAt": "2026-10-15T12:14:49+09:00",
+  "generatedAt": "2026-10-15T12:48:20+09:00",
+  "dartSourceGeneratedAt": "2026-10-15T12:48:04+09:00",
   "status": "reporter_review_not_exclusive",
   "sourceItemCount": 7,
   "sourceCompanyChecks": 13,
@@ -30,6 +30,9 @@
       "comparisonStatus": "original_unverified_no_comparison",
       "materialFieldChanges": [],
       "unambiguousCurrentDocumentFields": {},
+      "currentDocumentFieldEvidence": {},
+      "conflictingDocumentFields": [],
+      "documentTablesExamined": null,
       "fieldValuesAreIssuerTextNotIndependentCommercialProof": true,
       "pressIndexStatus": "indexed_possible_articles_require_fulltext",
       "pressSearchCompleted": true,
@@ -97,6 +100,9 @@
       "comparisonStatus": "original_unverified_no_comparison",
       "materialFieldChanges": [],
       "unambiguousCurrentDocumentFields": {},
+      "currentDocumentFieldEvidence": {},
+      "conflictingDocumentFields": [],
+      "documentTablesExamined": null,
       "fieldValuesAreIssuerTextNotIndependentCommercialProof": true,
       "pressIndexStatus": "indexed_possible_articles_require_fulltext",
       "pressSearchCompleted": true,
@@ -164,6 +170,9 @@
       "comparisonStatus": "original_unverified_no_comparison",
       "materialFieldChanges": [],
       "unambiguousCurrentDocumentFields": {},
+      "currentDocumentFieldEvidence": {},
+      "conflictingDocumentFields": [],
+      "documentTablesExamined": null,
       "fieldValuesAreIssuerTextNotIndependentCommercialProof": true,
       "pressIndexStatus": "indexed_possible_articles_require_fulltext",
       "pressSearchCompleted": true,
@@ -231,6 +240,9 @@
       "comparisonStatus": "original_unverified_no_comparison",
       "materialFieldChanges": [],
       "unambiguousCurrentDocumentFields": {},
+      "currentDocumentFieldEvidence": {},
+      "conflictingDocumentFields": [],
+      "documentTablesExamined": null,
       "fieldValuesAreIssuerTextNotIndependentCommercialProof": true,
       "pressIndexStatus": "indexed_possible_articles_require_fulltext",
       "pressSearchCompleted": true,
@@ -297,7 +309,40 @@
       "originalSourceUrl": null,
       "comparisonStatus": "not_a_correction",
       "materialFieldChanges": [],
-      "unambiguousCurrentDocumentFields": {},
+      "unambiguousCurrentDocumentFields": {
+        "contract_amount": "185,257,183,992",
+        "counterparty": "LS ELECTRIC AMERICA Inc.",
+        "contract_start": "2026-10-12",
+        "contract_end": "2027-07-05"
+      },
+      "currentDocumentFieldEvidence": {
+        "contract_amount": {
+          "sourceLabel": "계약금액(원)",
+          "rowPattern": "three_cell_explicit_label",
+          "basis": "same_official_table_row",
+          "independentBusinessVerification": false
+        },
+        "counterparty": {
+          "sourceLabel": "3. 계약상대",
+          "rowPattern": "two_cell_explicit_label",
+          "basis": "same_official_table_row",
+          "independentBusinessVerification": false
+        },
+        "contract_start": {
+          "sourceLabel": "시작일",
+          "rowPattern": "three_cell_explicit_label",
+          "basis": "same_official_table_row",
+          "independentBusinessVerification": false
+        },
+        "contract_end": {
+          "sourceLabel": "종료일",
+          "rowPattern": "contract_period_rowspan",
+          "basis": "same_official_table_row",
+          "independentBusinessVerification": false
+        }
+      },
+      "conflictingDocumentFields": [],
+      "documentTablesExamined": 1,
       "fieldValuesAreIssuerTextNotIndependentCommercialProof": true,
       "pressIndexStatus": "indexed_possible_articles_require_fulltext",
       "pressSearchCompleted": true,
@@ -343,7 +388,6 @@
       "exclusiveConfirmed": false,
       "approvedForPitch": false,
       "nextChecks": [
-        "공시 표 필드 자동 추출 불가: DART 원문 직접 확인",
         "기보도 전문 원문과 동일 계약 여부 확인",
         "공시 계약 상대방·금액·기간·실제 효력 별도 검증",
         "해당 출입처 사업부·납품 물량·매출 영향 직접 답변"
@@ -364,7 +408,40 @@
       "originalSourceUrl": null,
       "comparisonStatus": "not_a_correction",
       "materialFieldChanges": [],
-      "unambiguousCurrentDocumentFields": {},
+      "unambiguousCurrentDocumentFields": {
+        "contract_amount": "837,970,880,392",
+        "counterparty": "VIETNAM NATIONAL INDUSTRY - ENERGY GROUP (PVN)",
+        "contract_start": "2026-10-06",
+        "contract_end": "2030-10-06"
+      },
+      "currentDocumentFieldEvidence": {
+        "contract_amount": {
+          "sourceLabel": "계약금액(원)",
+          "rowPattern": "three_cell_explicit_label",
+          "basis": "same_official_table_row",
+          "independentBusinessVerification": false
+        },
+        "counterparty": {
+          "sourceLabel": "3. 계약상대",
+          "rowPattern": "two_cell_explicit_label",
+          "basis": "same_official_table_row",
+          "independentBusinessVerification": false
+        },
+        "contract_start": {
+          "sourceLabel": "시작일",
+          "rowPattern": "three_cell_explicit_label",
+          "basis": "same_official_table_row",
+          "independentBusinessVerification": false
+        },
+        "contract_end": {
+          "sourceLabel": "종료일",
+          "rowPattern": "contract_period_rowspan",
+          "basis": "same_official_table_row",
+          "independentBusinessVerification": false
+        }
+      },
+      "conflictingDocumentFields": [],
+      "documentTablesExamined": 1,
       "fieldValuesAreIssuerTextNotIndependentCommercialProof": true,
       "pressIndexStatus": "indexed_possible_articles_require_fulltext",
       "pressSearchCompleted": true,
@@ -410,7 +487,6 @@
       "exclusiveConfirmed": false,
       "approvedForPitch": false,
       "nextChecks": [
-        "공시 표 필드 자동 추출 불가: DART 원문 직접 확인",
         "기보도 전문 원문과 동일 계약 여부 확인",
         "공시 계약 상대방·금액·기간·실제 효력 별도 검증",
         "해당 출입처 사업부·납품 물량·매출 영향 직접 답변"
@@ -431,7 +507,40 @@
       "originalSourceUrl": null,
       "comparisonStatus": "not_a_correction",
       "materialFieldChanges": [],
-      "unambiguousCurrentDocumentFields": {},
+      "unambiguousCurrentDocumentFields": {
+        "contract_amount": "181,229,274,677",
+        "counterparty": "LS ELECTRIC AMERICA Inc.",
+        "contract_start": "2026-09-30",
+        "contract_end": "2030-01-30"
+      },
+      "currentDocumentFieldEvidence": {
+        "contract_amount": {
+          "sourceLabel": "계약금액(원)",
+          "rowPattern": "three_cell_explicit_label",
+          "basis": "same_official_table_row",
+          "independentBusinessVerification": false
+        },
+        "counterparty": {
+          "sourceLabel": "3. 계약상대",
+          "rowPattern": "two_cell_explicit_label",
+          "basis": "same_official_table_row",
+          "independentBusinessVerification": false
+        },
+        "contract_start": {
+          "sourceLabel": "시작일",
+          "rowPattern": "three_cell_explicit_label",
+          "basis": "same_official_table_row",
+          "independentBusinessVerification": false
+        },
+        "contract_end": {
+          "sourceLabel": "종료일",
+          "rowPattern": "contract_period_rowspan",
+          "basis": "same_official_table_row",
+          "independentBusinessVerification": false
+        }
+      },
+      "conflictingDocumentFields": [],
+      "documentTablesExamined": 1,
       "fieldValuesAreIssuerTextNotIndependentCommercialProof": true,
       "pressIndexStatus": "indexed_possible_articles_require_fulltext",
       "pressSearchCompleted": true,
@@ -477,7 +586,6 @@
       "exclusiveConfirmed": false,
       "approvedForPitch": false,
       "nextChecks": [
-        "공시 표 필드 자동 추출 불가: DART 원문 직접 확인",
         "기보도 전문 원문과 동일 계약 여부 확인",
         "공시 계약 상대방·금액·기간·실제 효력 별도 검증",
         "해당 출입처 사업부·납품 물량·매출 영향 직접 답변"
