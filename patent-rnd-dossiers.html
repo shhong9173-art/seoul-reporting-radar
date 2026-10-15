@@ -26,6 +26,7 @@ button{font:inherit;border:1px solid #b5c7d5;background:#edf4f8;color:#174b6d;pa
 <div id="ntis-followup-status" class="panel" role="status">NTIS 성과검색 추가 페이지·기업 기술 결합검색 결과 확인 중</div>
 <div id="ntis-project-reverse-status" class="panel" role="status">NTIS 26개 과제번호 역조회 계획·승인 PC 조회 상태 확인 중</div>
 <div id="ntis-project-id-index-control-status" class="panel" role="status">NTIS 특허 성과검색의 과제번호 인덱싱 양성 대조군 검증 대기</div>
+<div id="ntis-project-remaining-status" class="panel" role="status">NTIS 남은 과제번호 23개 역조회 상태 확인 중</div>
 <div class="panel" id="sources"><b>공식 연계 상태</b><p class="muted" id="source-status">확인 중</p>
 <a href="https://www.data.go.kr/data/15077315/openapi.do" target="_blank" rel="noopener noreferrer">NTIS 국가R&D 과제검색 API 신청·명세</a> ·
 <a href="https://www.ntis.go.kr/ThSearchProjectList.do" target="_blank" rel="noopener noreferrer">NTIS 공식 과제검색</a> ·
@@ -219,7 +220,8 @@ try{
    ntisReverseResult.rowsInspected+"건 · 정확한 과제+KIPRIS 출원번호 검토 후보 "+
    ntisReverseResult.reviewedNumberPairs+"건 · 공식 성과·사업화·단독 확정 0건 · 수집 "+
    ntisReverseResult.generatedAt+
-   " · 조회 0건은 성과 부재 증거가 아니며 첫 페이지만 확인":
+   " · 조회 0건은 성과 부재 증거가 아니며 첫 페이지만 확인"+
+   (ntisReverseResult.plannedUniqueProjects===3?" · 총 26개 중 첫 3개 시범조회(나머지 23개 별도)": ""):
    (ntisReversePlan?
    "NTIS 과제번호 → 특허 성과 역조회: 공식 과제번호 "+ntisReversePlan.projectCount+
    "개·KIPRIS 출원번호 "+ntisReversePlan.targetKiprisApplications.length+
@@ -258,6 +260,46 @@ try{
    " · "+projectIndexControl.status+" · "+projectIndexControl.generatedAt+
    " · 재현되지 않았더라도 국가R&D 특허 성과 부재 증명 아님":
    "NTIS 과제번호 인덱싱 양성 대조군 검사 대기 · 3개 과제번호에서 조회 0건이지만 과제번호 검색 자체가 검증되지 않아 나머지 23개 일괄조회 보류";
+ const confirmedIndex=projectIndexControl?.status==="some_project_search_paths_work" &&
+    projectIndexControl.exactReferenceOutcomeRecoveredInAnyMode===true &&
+    [tiControl,biControl,ti03Control].every(controlRecovered);
+ let ntisRemainingResult=null;
+ if(confirmedIndex && ntisReversePlan && ntisReverseResult &&
+    ntisReverseResult.plannedUniqueProjects===3){
+   try{
+     const res=await fetch("digests/ntis_project_reverse_remaining_23_pc_latest.json",{cache:"no-store"});
+     if(res.ok){
+       const payload=await res.json();
+       const actualIds=(payload.checks||[]).map(c=>c.projectNumber);
+       const expectedIds=ntisReversePlan.projects.slice(3).map(p=>p.projectNumber);
+       if(payload.planVersion===ntisReversePlan.planVersion &&
+          payload.planGeneratedAt===ntisReversePlan.generatedAt &&
+          payload.projectSourceGeneratedAt===ntisReversePlan.projectSourceGeneratedAt &&
+          payload.kiprisDossierGeneratedAt===ntisReversePlan.kiprisDossierGeneratedAt &&
+          payload.plannedUniqueProjects===23 &&
+          payload.maximumHttpRequests===46 &&
+          payload.actualHttpRequests<=46 &&
+          ["ready","partial_errors","incomplete"].includes(payload.status) &&
+          payload.completedProjects+payload.failedProjects===actualIds.length &&
+          actualIds.every((id,index)=>id===expectedIds[index]) &&
+          payload.verifiedPatentProjectOutcomes===0 &&
+          payload.confirmedCommercialization===0 &&
+          payload.confirmedExclusives===0 &&
+          Array.isArray(payload.records))
+          ntisRemainingResult=payload;
+     }
+   }catch(e){}
+ }
+ $("#ntis-project-remaining-status").textContent=ntisRemainingResult?
+    "NTIS 남은 23개 공식 과제 역조회: "+ntisRemainingResult.completedProjects+
+    "/23개 확인 · "+ntisRemainingResult.actualHttpRequests+"/46회 실제 요청 · "+
+    ntisRemainingResult.rowsInspected+"개 응답행 · 번호 일치 취재검토 후보 "+
+    ntisRemainingResult.reviewedNumberPairs+"건 · 수집시각 "+
+    ntisRemainingResult.generatedAt+
+    " · 성과/사업화/단독 자동 확정 없음; 0건도 성과 부재 판정 아님":
+    (confirmedIndex?
+    "NTIS 과제번호 검색 양성 대조군 실측 성공(TI·BI·TI03 동일 성과ID 재확인). 전체 26개 중 첫 3개 실조회 완료(검색 반환 0건) · 남은 23개 공식 역조회 실행 대기 · 미보도 단독 확정 아님":
+    "NTIS 양성 대조군 미확인: 남은 23개 과제번호 일괄조회 보류");
  let ntis=null;
  try{
    const reply=await fetch("digests/ntis_project_leads_latest.json",{cache:"no-store"});
@@ -423,7 +465,8 @@ try{
    if(!ntisReverseResult){
      para(reverse,"고유 과제번호 26개 역조회는 등록 PC 실측 대기. 기술어 검색만으로 특허 성과가 연결됐다고 판단하지 않습니다.","muted");
    }else{
-     const leads=ntisReverseResult.records.filter(a=>a.publicationNumber===x.publicationNumber);
+     const leads=[...ntisReverseResult.records,
+       ...(ntisRemainingResult?.records||[])].filter(a=>a.publicationNumber===x.publicationNumber);
      const relatedProjects=(ntisReversePlan?.projects||[]).filter(p=>
        Array.isArray(p.earlierKeywordMatchedPatentPublications)&&
        p.earlierKeywordMatchedPatentPublications.includes(x.publicationNumber));
