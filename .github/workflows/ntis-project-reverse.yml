@@ -6,6 +6,9 @@ on:
       - 'scripts/ntis_project_reverse_validate.py'
       - 'scripts/ntis_project_reverse_pc.ps1'
       - 'scripts/Run_NTIS_Project_Reverse.cmd'
+      - 'scripts/Run_NTIS_Project_Reverse_Remaining_23.cmd'
+      - 'digests/ntis_project_field_probe_pc_latest.json'
+      - 'digests/ntis_project_reverse_remaining_23_pc_latest.json'
       - 'tests/test_ntis_project_reverse_plan.py'
       - 'tests/test_ntis_project_reverse_validate.py'
       - 'tests/test_ntis_project_reverse_view.cjs'
@@ -58,9 +61,11 @@ jobs:
         shell: powershell
         run: |
           .\scripts\ntis_project_reverse_pc.ps1 -OfflineTest -KeepOfflineOutput -SnapshotRoot "$env:GITHUB_WORKSPACE" -MaxProjects 26
+          .\scripts\ntis_project_reverse_pc.ps1 -OfflineTest -KeepOfflineOutput -SnapshotRoot "$env:GITHUB_WORKSPACE" -MaxProjects 26 -SkipFirstProjects 3
       - name: Reject unrelated project IDs and patent registration-number false matches
         shell: powershell
         run: |
           python scripts/ntis_project_reverse_validate.py "$env:TEMP\ntis_project_reverse_offline.json"
+          python scripts/ntis_project_reverse_validate.py "$env:TEMP\ntis_project_reverse_remaining_23_offline.json"
           python -m unittest discover -s tests -p 'test_ntis_project_reverse*.py' -v
           node tests/test_ntis_project_reverse_view.cjs
