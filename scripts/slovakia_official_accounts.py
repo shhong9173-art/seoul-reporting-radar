@@ -25,6 +25,9 @@ EXPECTED_NAME="kiaslovakiasro"
 MAX_RESPONSE=800_000
 DETAIL_LIMIT=16
 TARGET_YEARS=(2024,2025)
+# Government RUZ IFRS original report details verified independently by
+# official report page (not guessed from arbitrary reporting document IDs).
+OFFICIAL_IFRS_REPORT_IDS={2024:9718744,2025:10298519}
 
 def json_get(url):
     if not isinstance(url,str) or not url.startswith(API):
@@ -155,7 +158,13 @@ def registry_evidence(fetch=json_get,*,now=None):
                     "profitOrDividendAmountsParsed":False,
                     "companyRegistryUrl":COMPANY_PAGE,
                     "reportIds":r.get("idUctovnychVykazov",[])[:6]
-                       if isinstance(r.get("idUctovnychVykazov"),list) else []
+                       if isinstance(r.get("idUctovnychVykazov"),list) else [],
+                    "officialIfrsReportDetailUrl":(
+                        "https://www.registeruz.sk/cruz-public/domain/financialreport/show/"+
+                        str(OFFICIAL_IFRS_REPORT_IDS[year])
+                        if OFFICIAL_IFRS_REPORT_IDS.get(year) in
+                          (r.get("idUctovnychVykazov") or []) else None),
+                    "auditedPdfContentRead":False
                 })
             except (ValueError,HTTPError,URLError,TimeoutError,OSError,KeyError) as err:
                 failures+=1

@@ -112,6 +112,14 @@ try{
          line(c,"공식 현지 재무제표 등록 "+y.financialYear+"년: 제출 "+(y.submitted||"미확인")+
            " · 승인 "+(y.approved||"미확인")+
            " · 회계상 순이익·배당결의·송금 확인 불가","small");
+         if(y.officialIfrsReportDetailUrl){
+           const expected="https://www.registeruz.sk/cruz-public/domain/financialreport/show/"+
+               ({2024:9718744,2025:10298519}[y.financialYear]||"invalid");
+           if(y.officialIfrsReportDetailUrl!==expected)throw Error("현지 원문 등록번호 신뢰 불일치");
+           link(c,y.officialIfrsReportDetailUrl,
+                y.financialYear+"년 현지 IFRS 재무제표 원문 등록 화면 ↗");
+           c.append(el("span"," · "));
+         }
       }
       link(c,sk.registryUrl,"슬로바키아 재무부 공식 개별 재무제표 등록부 ↗");
       line(c,"현지 등록 자료는 연도·제출/승인·회사 법인식별 정보입니다. 감사보고서 첨부 PDF의 배당 관련 주석 전문은 아직 독립 분석되지 않았습니다.","dim");

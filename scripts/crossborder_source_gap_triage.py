@@ -264,6 +264,12 @@ def attach_slovak_registry(dossier, registry):
             "submitted":x.get("submitted"),"approved":x.get("approved"),
             "statementType":x.get("statementType"),
             "statementId":x.get("statementId"),
+            "officialIfrsReportDetailUrl":(
+                x.get("officialIfrsReportDetailUrl")
+                if x.get("officialIfrsReportDetailUrl")==
+                   "https://www.registeruz.sk/cruz-public/domain/financialreport/show/"+
+                   str({2024:9718744,2025:10298519}[x["financialYear"]])
+                else None),
             "profitAndDistributionAmountsNotInspected":True
         })
     dossier["slovakGovernmentAccounts"]={
