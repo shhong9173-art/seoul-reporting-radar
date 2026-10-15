@@ -101,9 +101,10 @@ class NHTSAReport(unittest.TestCase):
         self.assertEqual(result["documentsRead"],0)
 
     def test_part573_form_labels_do_not_prove_park_outside_flag(self):
-        hints=m.passages(["☐ Park Outside ☐ Do Not Drive Description of Defect: motor"])
-        self.assertTrue(hints)
-        self.assertTrue(all(x["koreanRecallAbsenceVerified"] is False for x in hints))
-        self.assertNotIn("parkOutsideConfirmed",hints[0])
+        hints=m.passages(["☐ Park Outside ☐ Do Not Drive "
+                          "Description of safety risk, including crash, fire, death, injury"])
+        # A template label without a substantive defect/chronology paragraph
+        # must not be surfaced as a real fire or park-outside advisory.
+        self.assertEqual(hints,[])
 
 if __name__=="__main__":unittest.main()
