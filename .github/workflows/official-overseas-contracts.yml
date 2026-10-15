@@ -11,6 +11,10 @@ on:
       - 'scripts/dart_contract_tables.py'
       - 'tests/test_dart_contract_tables.py'
       - 'scripts/dart_contract_followup.py'
+      - 'scripts/dart_correction_history.py'
+      - 'tests/test_dart_correction_history.py'
+      - 'tests/test_dart_correction_history_view.cjs'
+      - 'dart-correction-history.html'
       - 'tests/test_dart_contract_followup.py'
       - 'tests/test_dart_contract_followup_view.cjs'
       - 'dart-contract-followup.html'
@@ -73,12 +77,14 @@ jobs:
           python-version: '3.12'
       - name: Unit test issuer and DART lineage source controls
         run: |
-          python -m compileall -q scripts/recent_contracts.py scripts/dart_contract_followup.py scripts/dart_contract_tables.py
+          python -m compileall -q scripts/recent_contracts.py scripts/dart_contract_followup.py scripts/dart_contract_tables.py scripts/dart_correction_history.py
           python -m unittest discover -s tests -p 'test_dart_contract_tables.py' -v
           python -m unittest discover -s tests -p 'test_official_foreign_contracts.py' -v
           python -m unittest discover -s tests -p 'test_dart_lineage.py' -v
           python -m unittest discover -s tests -p 'test_dart_issuer_table_review.py' -v
           python -m unittest discover -s tests -p 'test_dart_contract_followup.py' -v
+          python -m unittest discover -s tests -p 'test_dart_correction_history.py' -v
+          node tests/test_dart_correction_history_view.cjs
           node tests/test_dart_contract_followup_view.cjs
       - name: Audit direct-beat official contract and investment events
         env:
@@ -86,6 +92,10 @@ jobs:
         run: python scripts/recent_contracts.py --limit 9
       - name: Cross-check real DART fields with two bounded prior-news index queries per filing
         run: python scripts/dart_contract_followup.py --limit 9
+      - name: Fetch bounded historical official DART candidates and retain article-index uncertainty
+        env:
+          DART_API_KEY: ${{ secrets.DART_API_KEY }}
+        run: python scripts/dart_correction_history.py
       - name: Publish verified DART source evidence
         run: |
           set -e
@@ -93,6 +103,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add digests/recent_contracts_latest.json
           if test -f digests/dart_contract_followup_latest.json; then git add digests/dart_contract_followup_latest.json; fi
+          if test -f digests/dart_correction_history_latest.json; then git add digests/dart_correction_history_latest.json; fi
           if git diff --cached --quiet; then exit 0; fi
           git commit -m "data: refresh official contract events [skip ci]"
           for retry in 1 2 3; do
