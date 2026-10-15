@@ -365,6 +365,9 @@ def attach_nhtsa_part573_primary(dossier,source,us_archive):
     """Connect only exact campaign, official PDF host, recognized PDF text."""
     payload={"status":"not_downloaded_or_campaign_not_verified",
              "originalReportsRead":0,"passages":[],
+             "usManufacturerReportedAffectedCount":None,
+             "usVehicleCountScope":"official_us_market_not_korean_sales",
+             "differentPdfVersionsAffectedCountConflict":False,
              "koreanSameComponentVerified":False,
              "koreanRecallAbsenceVerified":False,
              "priorSameAngleNewsChecked":False}
@@ -385,6 +388,7 @@ def attach_nhtsa_part573_primary(dossier,source,us_archive):
         "26V664000":{"RCLRPT-26V664-0680.pdf"},
         "26V588000":{"RCLRPT-26V588-5849.pdf","RCLRPT-26V588-0403.pdf"}
     }
+    collected_us_counts=[]
     for r in source["reports"]:
         if (not isinstance(r,dict) or r.get("campaign")!=campaign or
             r.get("reportFile") not in valid_documents.get(campaign,set()) or
@@ -398,6 +402,11 @@ def attach_nhtsa_part573_primary(dossier,source,us_archive):
             re.fullmatch(r"[a-f0-9]{64}",r["pdfContentSHA256"]) is None):
             continue
         payload["originalReportsRead"]+=1
+        us_count=r.get("usManufacturerReportedPotentiallyAffectedVehicles")
+        if (type(us_count) is int and 0<us_count<5_000_000
+            and r.get("usVehicleCountScope")==
+              "us_market_manufacturer_part573_not_korea_sales"):
+            collected_us_counts.append(us_count)
         for z in r.get("sourcePassages",[])[:6]:
             if not isinstance(z,dict) or not isinstance(z.get("page"),int) or not 1<=z["page"]<=90 or z.get("koreanRecallAbsenceVerified") is not False or z.get("partNumberVerifiedAgainstKoreanVehicle") is not False:
                 continue
@@ -409,6 +418,11 @@ def attach_nhtsa_part573_primary(dossier,source,us_archive):
                 "koreanSamePartVerified":False,
                 "domesticRecallAbsentVerified":False
             })
+    if collected_us_counts:
+        if len(set(collected_us_counts))==1:
+            payload["usManufacturerReportedAffectedCount"]=collected_us_counts[0]
+        else:
+            payload["differentPdfVersionsAffectedCountConflict"]=True
     payload["status"]=(
       "us_manufacturer_part573_pages_require_korean_spec_check"
       if payload["originalReportsRead"] else "official_us_original_pdf_unavailable")

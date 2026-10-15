@@ -86,6 +86,11 @@ try{
          throw Error("미국 Part573 원문은 국내 부품·리콜 부재/기보도 증명이 아님");
       line(c,"미국 제조사 Part 573 원문 PDF 검토 "+
            usdoc.originalReportsRead+"건 · 공개된 미국 원문 설명과 국내 적용 여부는 별개입니다.","dim");
+      if(usdoc.differentPdfVersionsAffectedCountConflict===true)
+        line(c,"미국 제조사 보고서 버전마다 대상 대수 불일치: 수치 확정 보류","dim");
+      else if(Number.isInteger(usdoc.usManufacturerReportedAffectedCount))
+        line(c,"미국 Part 573 제조사 신고 대상 "+usdoc.usManufacturerReportedAffectedCount.toLocaleString("ko-KR")+
+         "대 · 미국 판매용 기준이며 국내 판매·동일 부품 적용 대수는 미확인","dim");
       for(const q of (usdoc.passages||[]).slice(0,9)){
         if(q.basis!=="nhtsa_us_manufacturer_original_pdf_unmatched_to_korea"||
            q.koreanSamePartVerified!==false||q.domesticRecallAbsentVerified!==false||

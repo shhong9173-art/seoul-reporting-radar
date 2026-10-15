@@ -16,6 +16,10 @@ for(const marker of [
   'pitchGate.exactComponentMatch!==false',
   'koreanModelSearchLinks',
   'nhtsaPart573Original',
+  'usManufacturerReportedAffectedCount',
+  'differentPdfVersionsAffectedCountConflict',
+  '미국 판매용 기준',
+
   'originalReportsRead',
   'priorSameAngleNewsChecked!==false',
   'NHTSA 제조사 원문 PDF',
