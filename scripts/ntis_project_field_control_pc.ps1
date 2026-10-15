@@ -26,8 +26,10 @@ function Read-Official([string]$xml){
     }
     $rows=New-Object System.Collections.ArrayList
     foreach($n in $doc.SelectNodes('/RESULT/RESULTSET/HIT')){
-        $id=[string]$n.SelectSingleNode('ProjectID').InnerText
-        $resultId=[string]$n.SelectSingleNode('ResultID').InnerText
+        $pNode=$n.SelectSingleNode('ProjectID')
+        $rNode=$n.SelectSingleNode('ResultID')
+        $id=if($null -ne $pNode){[string]$pNode.InnerText}else{''}
+        $resultId=if($null -ne $rNode){[string]$rNode.InnerText}else{''}
         [void]$rows.Add([pscustomobject]@{projectId=$id.Trim();resultId=$resultId.Trim()})
     }
     if([long]$total.InnerText -gt 0 -and $rows.Count -eq 0){throw 'INDEX_HITS_WITHOUT_RECORDS'}
