@@ -80,6 +80,31 @@ class NHTSAReport(unittest.TestCase):
                 94622 if x["campaign"]=="26V664000" else 5360)
             self.assertFalse(x["exactKoreanVehiclePartMatched"])
 
+    def test_korean_market_fire_allegation_is_literal_us_manufacturer_claim_only(self):
+        pages=[
+          "Page 1: Part 573 Safety Recall Report 26V664. Vehicles built in South Korea for sale in the U.S.",
+          "Chronology: A field report from the Korean market was reviewed after an alleged fire in a vehicle. Investigation pending."
+        ]
+        hits=m.manufacturer_korea_market_mentions(pages)
+        self.assertEqual(len(hits),1)
+        self.assertEqual(hits[0]["pdfPage"],2)
+        self.assertTrue(hits[0]["incidentTermNearby"])
+        self.assertTrue(hits[0]["sourceIsManufacturerClaimToNhtsa"])
+        self.assertFalse(hits[0]["domesticIncidentVerified"])
+        self.assertFalse(hits[0]["koreanGovernmentIncidentChecked"])
+        self.assertFalse(hits[0]["domesticRecallAbsenceVerified"])
+        self.assertFalse(hits[0]["sameAnglePressFulltextChecked"])
+
+    def test_south_korean_assembly_for_usa_and_part573_fire_form_are_not_domestic_incident(self):
+        pages=["South Korea production for sale in the United States. "
+               "Description of the safety risk, including crash, fire, death, injury. "
+               "The vehicles were assembled in South Korea and shipped to USA."]
+        self.assertEqual(m.manufacturer_korea_market_mentions(pages),[])
+        label_only=["A Korean market vehicle was mentioned. Description of the safety risk, including crash, fire, death, injury."]
+        source=m.manufacturer_korea_market_mentions(label_only)
+        self.assertEqual(len(source),1)
+        self.assertFalse(source[0]["incidentTermNearby"])
+
     def test_campaign_id_missing_from_first_pages_discard_document_evidence(self):
         d=m.scan(campaign(),now=NOW,get=get,convert=lambda b:["Wrong file 26V777","Description of defect"])
         self.assertEqual(d["documentsRead"],0)

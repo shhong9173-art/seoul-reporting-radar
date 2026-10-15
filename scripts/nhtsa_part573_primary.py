@@ -118,6 +118,49 @@ def passages(pages):
     return result[:MAX_PASSAGES]
 
 
+
+KOREA_MARKET_PHRASE=re.compile(
+    r"\b(?:Korean?\s+(?:domestic\s+)?market|Korea[- ]market"
+    r"|Korean?\s+(?:domestic\s+)?(?:customer|vehicle)\s+(?:market|case|report))\b",
+    re.I
+)
+INCIDENT_TERMS=re.compile(r"\b(?:fire|ignit(?:ion|ed)|thermal incident|"
+    r"smoke|overheat|burned|burnt|fire allegation|alleged fire)\b",re.I)
+BOILERPLATE_RISK="description of the safety risk, including crash, fire, death, injury"
+
+
+def manufacturer_korea_market_mentions(pages):
+    """Only literal source claims about Korea's market—not a verified fire.
+
+    Production in South Korea for sale in the U.S. is NOT a Korean market
+    incident. NHTSA boilerplate risk labels are not evidence of a fire.
+    """
+    if not isinstance(pages,list):raise ValueError("invalid_manufacturer_pdf_pages")
+    findings=[]
+    for i,page in enumerate(pages[:90],1):
+        if not isinstance(page,str):continue
+        text=re.sub(r"\s+"," ",page).strip()
+        for match in KOREA_MARKET_PHRASE.finditer(text):
+            snippet=text[max(0,match.start()-170):min(len(text),match.end()+200)]
+            cleaned=snippet.lower().replace(BOILERPLATE_RISK,"")
+            match_hazard=bool(INCIDENT_TERMS.search(cleaned))
+            findings.append({
+              "pdfPage":i,
+              "literalKoreanMarketPhrase":match.group(0),
+              "contextFromUsManufacturer":snippet[:410],
+              "incidentTermNearby":match_hazard,
+              "sourceIsManufacturerClaimToNhtsa":True,
+              "domesticIncidentVerified":False,
+              "koreanGovernmentIncidentChecked":False,
+              "domesticRecallAbsenceVerified":False,
+              "koreanIdenticalPartVerified":False,
+              "sameAnglePressFulltextChecked":False,
+              "basis":"literal_korean_market_reference_in_us_part573"
+            })
+            if len(findings)>=6:return findings
+    return findings
+
+
 def scan(source,*,now=None,get=fetch_pdf,convert=extract_pages):
     now=now or datetime.now(KST)
     if now.utcoffset() is None:raise ValueError("timezone_required")
@@ -142,6 +185,8 @@ def scan(source,*,now=None,get=fetch_pdf,convert=extract_pages):
                 "officialPdfDownloaded":False,
                 "campaignNumberFoundInPdf":False,
                 "pdfContentSHA256":None,"sourcePassages":[],
+                "koreanMarketMentionsInOriginalPdf":[],
+                "domesticIncidentIndependentlyVerified":False,
                 "currentAmendmentVersionVerified":False,
                 "exactKoreanVehiclePartMatched":False,
                 "domesticRecallAbsenceVerified":False,
@@ -163,6 +208,7 @@ def scan(source,*,now=None,get=fetch_pdf,convert=extract_pages):
                 d["officialPdfDownloaded"]=True
                 d["pdfContentSHA256"]=hashlib.sha256(blob).hexdigest()
                 d["sourcePassages"]=passages(pages)
+                d["koreanMarketMentionsInOriginalPdf"]=manufacturer_korea_market_mentions(pages)
                 exact=US_POPULATION.findall(first)
                 if len(exact)==1 and exact[0].replace(",","").isdigit():
                     d["usManufacturerReportedPotentiallyAffectedVehicles"]=int(exact[0].replace(",",""))

@@ -417,6 +417,8 @@ def attach_nhtsa_part573_primary(dossier,source,us_archive):
     """Connect only exact campaign, official PDF host, recognized PDF text."""
     payload={"status":"not_downloaded_or_campaign_not_verified",
              "originalReportsRead":0,"passages":[],
+             "koreanMarketSourceClaims":[],
+             "koreanMarketIncidentIndependentlyVerified":False,
              "usManufacturerReportedAffectedCount":None,
              "usVehicleCountScope":"official_us_market_not_korean_sales",
              "differentPdfVersionsAffectedCountConflict":False,
@@ -454,6 +456,31 @@ def attach_nhtsa_part573_primary(dossier,source,us_archive):
             re.fullmatch(r"[a-f0-9]{64}",r["pdfContentSHA256"]) is None):
             continue
         payload["originalReportsRead"]+=1
+        # A verified original PDF may recount an allegation *in Korea*.
+        # Quoting that source is NOT independent verification of an event.
+        for mention in (r.get("koreanMarketMentionsInOriginalPdf") or [])[:5]:
+            if (not isinstance(mention,dict) or
+                mention.get("basis")!="literal_korean_market_reference_in_us_part573"
+                or mention.get("sourceIsManufacturerClaimToNhtsa") is not True
+                or any(mention.get(k) is not False for k in (
+                  "domesticIncidentVerified","koreanGovernmentIncidentChecked",
+                  "domesticRecallAbsenceVerified","koreanIdenticalPartVerified",
+                  "sameAnglePressFulltextChecked"))
+                or type(mention.get("pdfPage")) is not int
+                or not 1<=mention["pdfPage"]<=90):
+                continue
+            payload["koreanMarketSourceClaims"].append({
+                "pdfPage":mention["pdfPage"],
+                "literalKoreanMarketPhrase":str(mention.get("literalKoreanMarketPhrase") or "")[:100],
+                "usManufacturerContext":str(mention.get("contextFromUsManufacturer") or "")[:410],
+                "incidentTermNearby":mention.get("incidentTermNearby") is True,
+                "officialPdfUrl":r["officialPdfUrl"],
+                "sourcePdfSHA256":r["pdfContentSHA256"],
+                "sourceIsManufacturerAllegationOnly":True,
+                "domesticIncidentIndependentlyVerified":False,
+                "domesticIdenticalPartVerified":False,
+                "koreanRecallAbsenceVerified":False
+            })
         us_count=r.get("usManufacturerReportedPotentiallyAffectedVehicles")
         if (type(us_count) is int and 0<us_count<5_000_000
             and r.get("usVehicleCountScope")==
