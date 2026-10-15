@@ -257,6 +257,62 @@ class CrossBorderDossiers(unittest.TestCase):
         self.assertEqual(next(x for x in rejected["items"] if x["type"]==
           "foreign_subsidiary_dividend_accounting")["slovakPdfPrimaryReview"]["governmentHashVerifiedReports"],0)
 
+    def test_original_audited_slovak_year_columns_not_conflated_with_2026_parent_income(self):
+        import hashlib
+        from test_slovak_ifrs_accounting_columns import synthetic_report
+        from slovak_ifrs_accounting_columns import reconcile
+        from slovakia_official_accounts import registry_evidence
+        from test_slovakia_official_accounts import api_data
+        n,d=sources()
+        gov=registry_evidence(api_data,now=NOW)
+        reports=[synthetic_report(2024),synthetic_report(2025)]
+        for item in gov["statements"]:
+            if item["financialYear"]==2024:
+                item["statementId"]=6499422
+                item["reportIds"]=[9718744]
+            if item["financialYear"]==2025:
+                item["statementId"]=6995571
+                item["reportIds"]=[10298519]
+        official=[]
+        for year,(statement,rid) in {2024:(6499422,9718744),2025:(6995571,10298519)}.items():
+            copy=next(x for x in reports if x["year"]==year)
+            copy["statementId"]=statement
+            copy["reportId"]=rid
+            copy["status"]="official_pdf_text_passages_for_manual_review"
+            copy["pageClues"]=[]
+            official.append(copy)
+        pdf={
+          "status":"official_slovak_ifrs_pdf_review_clues_not_validated_dividend_transfer",
+          "ico":"35876832","sourceRegistryGeneratedAt":gov["generatedAt"],
+          "financialFiguresInterpreted":False,
+          "dividendDistributionResolutionVerified":False,
+          "koreanParentCashReceiptVerified":False,
+          "dividendPaymentToParentVerified":False,
+          "exclusiveConfirmed":False,
+          "reports":official,
+          "annualAccountingMatrix":reconcile(official)
+        }
+        result=t.build(n,d,now=NOW,slovakia=gov,slovak_pdf=pdf)
+        target=next(x for x in result["items"] if x["type"]==
+                    "foreign_subsidiary_dividend_accounting")
+        evidence=target["slovakPdfPrimaryReview"]
+        self.assertEqual(evidence["governmentHashVerifiedReports"],2)
+        annual=[q for q in evidence["auditedCalendarYearRows"]
+                if q["metric"]=="dividend_cash_outflow"]
+        self.assertEqual({q["year"]:q["amountThousandEur"] for q in annual},
+                         {2023:-735621,2024:0,2025:0})
+        row24=next(q for q in annual if q["year"]==2024)
+        self.assertEqual(row24["sourceCount"],2)
+        self.assertTrue(all(not q["amountFromKiaParentDart2026"] for q in annual))
+        self.assertTrue(all(not q["koreanCashReceiptVerified"] for q in annual))
+        self.assertFalse(target["pitchGate"]["cashReceivedByParentVerified"])
+        self.assertEqual(target["officialFact"]["recognizedAmountInMillionKrw"],1610458)
+        pdf["sourceRegistryGeneratedAt"]="2025-01-01T00:00:00+09:00"
+        mismatch=t.build(n,d,now=NOW,slovakia=gov,slovak_pdf=pdf)
+        m=next(x for x in mismatch["items"] if x["type"]==
+               "foreign_subsidiary_dividend_accounting")
+        self.assertEqual(m["slovakPdfPrimaryReview"].get("auditedCalendarYearRows",[]),[])
+
     def test_wrong_entity_or_total_dividend_is_not_subsidiary_amount(self):
         x=note()
         x["tableExcerpt"]="당반기 배당금수익은 1,747,732백만원입니다. Kia Slovakia 현지공장 매출 32억원"
