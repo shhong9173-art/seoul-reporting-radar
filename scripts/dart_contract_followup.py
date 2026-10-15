@@ -144,6 +144,60 @@ def verified_changes(item):
             else "original_verified_no_comparable_material_change"),approved,before
 
 
+
+ISSUER_MATERIAL_CATEGORIES=frozenset({
+    "amount","contract_period","production_schedule","capacity","contract_party"
+})
+
+
+def issuer_stated_changes(item):
+    """Keep correction-table statements separate from two-document comparison."""
+    if item.get("isCorrection") is not True:
+        return "not_a_correction",[]
+    raw=item.get("issuerCorrectionTable")
+    if not isinstance(raw,dict):
+        return "issuer_table_not_examined",[]
+    state=raw.get("status")
+    if state!="issuer_table_material_changes_for_review":
+        return ("issuer_table_no_verified_material_rows" if
+                state=="issuer_table_unavailable_or_nonmaterial" else
+                "issuer_table_not_examined"),[]
+    values=raw.get("changes")
+    if (not isinstance(values,list) or not 1<=len(values)<=8
+        or raw.get("independentOriginalDocumentCompared") is not False
+        or not dart_receipt_link(item["receiptNo"],raw.get("sourceUrl"))):
+        return "issuer_table_invalid_evidence",[]
+    cleaned=[]
+    for x in values:
+        if not isinstance(x,dict):
+            return "issuer_table_invalid_evidence",[]
+        field=x.get("fieldLabel")
+        before=x.get("before")
+        after=x.get("after")
+        if (not isinstance(field,str) or not 1<=len(field)<=85
+            or not isinstance(before,str) or not 1<=len(before)<=220
+            or not isinstance(after,str) or not 1<=len(after)<=220
+            or before==after
+            or x.get("category") not in ISSUER_MATERIAL_CATEGORIES
+            or x.get("basis")!="issuer_reported_amendment_table_only"
+            or x.get("originalReceiptIndependentlyVerified") is not False
+            or x.get("commercialEffectVerified") is not False
+            or x.get("sameEventPriorCoverageVerified") is not False
+            or not dart_receipt_link(item["receiptNo"],x.get("amendedSourceUrl"))):
+            return "issuer_table_invalid_evidence",[]
+        cleaned.append({
+            "fieldLabel":field,"before":before,"after":after,
+            "category":x["category"],
+            "basis":"issuer_reported_amendment_table_only",
+            "amendedSourceUrl":item["sourceUrl"],
+            "originalDocumentCompared":False,
+            "commercialEffectVerified":False,
+            "sameEventPriorCoverageVerified":False,
+            "oneSideUnspecified":x.get("oneSideUnspecified") is True
+        })
+    return "issuer_table_material_changes_for_review",cleaned
+
+
 def review_one(item,*,rss_fetch=from_rss,now=None,search=True):
     now=now or datetime.now(KST)
     if not isinstance(item,dict) or not safe_document(item):
@@ -151,6 +205,17 @@ def review_one(item,*,rss_fetch=from_rss,now=None,search=True):
     receipt=item["receiptNo"]
     label=item["company"]+" · "+str(item.get("report") or item["category"]).strip()[:110]
     comparison, changes, original=verified_changes(item)
+    issuer_status,issuer_changes=issuer_stated_changes(item)
+    publication_day=datetime.strptime(item["published"],"%Y%m%d").date()
+    recent=(0<=(now.astimezone(KST).date()-publication_day).days<=2)
+    if changes:
+        followup_class=("independent_material_change_recent_needs_reporting" if recent else
+                        "independent_material_change_historical")
+    elif issuer_changes:
+        followup_class=("issuer_stated_change_recent_needs_original_and_press" if recent else
+                        "issuer_stated_change_historical_reference")
+    else:
+        followup_class="no_supported_material_revision_observed"
     current={}
     current_proof={}
     fields=item.get("observedFields")
@@ -212,6 +277,8 @@ def review_one(item,*,rss_fetch=from_rss,now=None,search=True):
             "공시상 계약상대가 관계회사: 외부 최종 고객·실제 납품/연결 매출 계상 여부 확인 (계열사간 계약 자체를 외부 신규 수주로 단정 금지)")
     if item.get("isCorrection") and original is None:
         outstanding.insert(0,"원공시 접수번호가 정정문에 명시됐는지 추가 확인(동일 날짜 추정 연결 금지)")
+        if issuer_changes:
+            outstanding.insert(0,"정정문 자체의 전후 기재 차이 발견: 실제 원공시·이전 정정문 대조 및 최초 공개 시점 확인(현재 원공시 직접 대조 미완료)")
     elif changes:
         outstanding.insert(0,"변경 전후 공시 값의 계약상 효력·실제 물량 변경 여부 확인")
     elif not current:
@@ -225,6 +292,11 @@ def review_one(item,*,rss_fetch=from_rss,now=None,search=True):
       "originalReceiptNo":original,
       "originalSourceUrl":source_link(original) if original else None,
       "comparisonStatus":comparison,"materialFieldChanges":changes,
+      "issuerCorrectionTableStatus":issuer_status,
+      "issuerDeclaredMaterialChanges":issuer_changes,
+      "revisionEditorialClass":followup_class,
+      "officialPublishedWithinLast3Days":recent,
+      "correctionDateIsNotFreshNews":not recent,
       "unambiguousCurrentDocumentFields":current,
       "currentDocumentFieldEvidence":current_proof,
       "conflictingDocumentFields":sorted(k for k in conflict_set if k in FIELD_NAMES),
@@ -275,6 +347,9 @@ def build(source,*,now=None,fetch=from_rss,search=True,max_events=9):
     issues=sum(1 for r in records if not r["pressSearchCompleted"])
     pending=sum(1 for r in records if r["comparisonStatus"]=="original_unverified_no_comparison")
     verified=sum(len(r["materialFieldChanges"]) for r in records)
+    stated=sum(len(r["issuerDeclaredMaterialChanges"]) for r in records)
+    recent_stated=sum(1 for r in records if
+          r["revisionEditorialClass"]=="issuer_stated_change_recent_needs_original_and_press")
     return {
       "generatedAt":now.isoformat(timespec="seconds"),
       "dartSourceGeneratedAt":read,
@@ -288,6 +363,8 @@ def build(source,*,now=None,fetch=from_rss,search=True,max_events=9):
       "mediaLookupFailedEvents":issues,
       "correctionsWithoutVerifiedOriginal":pending,
       "independentlyComparedMaterialFields":verified,
+      "issuerOnlyMaterialRowsForReview":stated,
+      "recentIssuerOnlyCorrectionFilings":recent_stated,
       "confirmedScoops":0,"approvedArticles":0,
       "warning":"언론 기사 검색 결과가 없는 것은 미보도 증명 아님. 정정공시 원번호/원문 독립 확인 없는 변경은 표시하지 않음. 기업 계약·실제 물량 영향은 직접 취재 필요.",
       "items":records
