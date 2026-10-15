@@ -1,5 +1,7 @@
 name: Cross-border Scoop Evidence Scout
 on:
+  pull_request:
+    branches: [main]
   push:
     branches: [main]
     paths:
@@ -36,8 +38,10 @@ jobs:
           python -m compileall -q scripts/crossborder_scoop_watch.py scripts/dart_foreign_dividend_watch.py
           python -m unittest discover -s tests -p 'test_crossborder_scoop_watch.py' -v
       - name: Download complete NHTSA post-2010 recall archive
+        if: github.event_name != 'pull_request'
         run: python scripts/crossborder_scoop_watch.py
       - name: Scan original DART subsidiary dividend notes
+        if: github.event_name != 'pull_request'
         env:
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
         run: |
@@ -47,6 +51,7 @@ jobs:
             echo "DART_API_KEY not configured; dividend source NOT CONNECTED"
           fi
       - name: Publish verified evidence only
+        if: github.event_name != 'pull_request'
         run: |
           set -e
           git config user.name "github-actions[bot]"
