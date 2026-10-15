@@ -27,6 +27,7 @@ button{font:inherit;border:1px solid #b5c7d5;background:#edf4f8;color:#174b6d;pa
 <div id="ntis-project-reverse-status" class="panel" role="status">NTIS 26개 과제번호 역조회 계획·승인 PC 조회 상태 확인 중</div>
 <div id="ntis-project-id-index-control-status" class="panel" role="status">NTIS 특허 성과검색의 과제번호 인덱싱 양성 대조군 검증 대기</div>
 <div id="ntis-project-remaining-status" class="panel" role="status">NTIS 남은 과제번호 23개 역조회 상태 확인 중</div>
+<div id="ntis-page-followup-status" class="panel" role="status">NTIS 과제 1415180715의 11번째 성과행 보완조회 미완료</div>
 <div class="panel" id="sources"><b>공식 연계 상태</b><p class="muted" id="source-status">확인 중</p>
 <a href="https://www.data.go.kr/data/15077315/openapi.do" target="_blank" rel="noopener noreferrer">NTIS 국가R&D 과제검색 API 신청·명세</a> ·
 <a href="https://www.ntis.go.kr/ThSearchProjectList.do" target="_blank" rel="noopener noreferrer">NTIS 공식 과제검색</a> ·
@@ -300,6 +301,47 @@ try{
     (confirmedIndex?
     "NTIS 과제번호 검색 양성 대조군 실측 성공(TI·BI·TI03 동일 성과ID 재확인). 전체 26개 중 첫 3개 실조회 완료(검색 반환 0건) · 남은 23개 공식 역조회 실행 대기 · 미보도 단독 확정 아님":
     "NTIS 양성 대조군 미확인: 남은 23개 과제번호 일괄조회 보류");
+ let ntisPageFollowup=null;
+ if(ntisRemainingResult && ntisReversePlan && ntisRemainingResult.generatedAt==="2026-10-15T10:52:32+09:00" &&
+    ntisRemainingResult.checks.some(c=>c.projectNumber==="1415180715" &&
+       c.primaryTotalHits===11 && c.rowsInspected===10 && c.uninspectedPagesRemain===true)){
+   try{
+     const res=await fetch("digests/ntis_project_page_followup_pc_latest.json",{cache:"no-store"});
+     if(res.ok){
+       const obj=await res.json();
+       const targets=new Set(ntisReversePlan.targetKiprisApplications.map(x=>
+          x.publicationNumber+"|"+x.applicationNumber));
+       if(obj.profile==="ntis_rpatent_single_project_page_followup_v1" &&
+          obj.collectionMethod==="approved_pc_ntis_rpatent_targeted_page_followup" &&
+          obj.offlineSynthetic===false && obj.status==="ready" &&
+          obj.sourceReverseGeneratedAt===ntisRemainingResult.generatedAt &&
+          obj.planGeneratedAt===ntisReversePlan.generatedAt &&
+          obj.projectNumber==="1415180715" &&
+          obj.currentQueryTotalHits===11 && obj.rowsInspected===11 &&
+          obj.firstPageRows===10 && obj.secondPageRows===1 &&
+          obj.actualHttpRequests===2 && obj.distinctResultIDs===11 &&
+          obj.paginationConfirmedByDisjointIds===true &&
+          obj.currentQueryFullyInspected===true &&
+          obj.verifiedPatentProjectOutcomes===0 && obj.confirmedCommercialization===0 &&
+          obj.confirmedExclusives===0 && Array.isArray(obj.records) &&
+          obj.matchedOfficialProjectApplicationRows===obj.records.length &&
+          obj.records.every(x=>x.projectNumber==="1415180715" &&
+             x.sourceProjectID==="1415180715" &&
+             targets.has(x.publicationNumber+"|"+x.applicationNumber) &&
+             x.sourceRegistType==="출원" && x.sourceRegistTypeCode==="01" &&
+             x.sameOfficialHitIdentifiers===true && x.exclusiveConfirmed===false &&
+             x.commercializationConfirmed===false &&
+             x.officialPatentProjectOutcomeVerified===false))
+         ntisPageFollowup=obj;
+     }
+   }catch(e){}
+ }
+ $("#ntis-page-followup-status").textContent=ntisPageFollowup?
+   "NTIS 과제 1415180715 보완조회(승인 PC, 실시간 자동갱신 아님): 1·2페이지 11건 재확인 · 실제 HTTP 2회 · 서로 다른 성과ID 11건 · 정확한 KIPRIS 출원번호/과제번호 검토 후보 "+
+   ntisPageFollowup.matchedOfficialProjectApplicationRows+"건 · 수집 "+
+   ntisPageFollowup.generatedAt+
+   " · 기존 10건의 당시 성과ID는 미보존이므로 과거 자료와 동일 레코드인지 확정 불가 · 단독/사업화 증명 아님":
+   "NTIS 과제 1415180715: 기존 11개 검색 성과 중 10개만 확인 · 11번째 항목 미확인 · 승인 Windows PC에서 2페이지 재조회 대기(현재 0건은 성과 부재 판정 아님)";
  let ntis=null;
  try{
    const reply=await fetch("digests/ntis_project_leads_latest.json",{cache:"no-store"});
@@ -466,7 +508,8 @@ try{
      para(reverse,"고유 과제번호 26개 역조회는 등록 PC 실측 대기. 기술어 검색만으로 특허 성과가 연결됐다고 판단하지 않습니다.","muted");
    }else{
      const leads=[...ntisReverseResult.records,
-       ...(ntisRemainingResult?.records||[])].filter(a=>a.publicationNumber===x.publicationNumber);
+       ...(ntisRemainingResult?.records||[]),
+       ...(ntisPageFollowup?.records||[])].filter(a=>a.publicationNumber===x.publicationNumber);
      const relatedProjects=(ntisReversePlan?.projects||[]).filter(p=>
        Array.isArray(p.earlierKeywordMatchedPatentPublications)&&
        p.earlierKeywordMatchedPatentPublications.includes(x.publicationNumber));
@@ -479,8 +522,12 @@ try{
          " · KIPRIS 출원번호 "+record.applicationNumber+
          " · 회사 과제참여·사업화·기보도·단독은 별도 확인","muted");
      }
+     if(relatedProjects.some(p=>p.projectNumber==="1415180715"))
+       para(reverse,ntisPageFollowup?
+         "노후전선 재제조 관련 과제 1415180715는 11개 성과행을 2페이지 재조회 완료. 같은 공식 HIT의 정확한 KIPRIS 출원번호 확인 전에는 특허·국가과제 직접 연결로 분류하지 않습니다.":
+         "노후전선 재제조 관련 과제 1415180715는 기존 11건 중 마지막 1건을 미확인. 최신 추가 결과가 없다는 이유로 특허 성과가 없다고 판단하지 않습니다.","muted");
      if(!leads.length)
-       para(reverse,"실제 확인한 첫 페이지에서 해당 특허의 정확한 과제·출원번호 쌍이 발견되지 않음. 전체 NTIS 성과가 없다는 뜻은 아닙니다.","muted");
+       para(reverse,"실제로 확인한 범위에서 해당 특허의 정확한 과제·출원번호 쌍이 발견되지 않음. 전체 NTIS 성과가 없다는 뜻은 아닙니다.","muted");
    }
    card.append(reverse);
    const detail=node("details",undefined,"sources");
