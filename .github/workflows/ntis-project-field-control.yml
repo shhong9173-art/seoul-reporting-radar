@@ -6,6 +6,7 @@ on:
       - 'scripts/Run_NTIS_Project_Field_Control.cmd'
       - 'scripts/ntis_project_field_control_validate.py'
       - 'tests/test_ntis_project_field_control.py'
+      - 'tests/test_ntis_project_field_control_view.cjs'
       - 'digests/ntis_project_reverse_pc_latest.json'
       - 'digests/ntis_project_field_probe_pc_latest.json'
       - 'patent-rnd-dossiers.html'
@@ -33,6 +34,7 @@ jobs:
       - name: Verify no identifier/secret leakage or false zero-absence claims
         run: |
           python -m unittest discover -s tests -p 'test_ntis_project_field_control.py' -v
+          node tests/test_ntis_project_field_control_view.cjs
           python scripts/ntis_project_reverse_validate.py digests/ntis_project_reverse_pc_latest.json
           if test -f digests/ntis_project_field_probe_pc_latest.json; then
             python scripts/ntis_project_field_control_validate.py digests/ntis_project_field_probe_pc_latest.json
@@ -55,3 +57,4 @@ jobs:
         run: |
           python scripts/ntis_project_field_control_validate.py "$env:TEMP\ntis_project_field_probe_offline.json"
           python -m unittest discover -s tests -p 'test_ntis_project_field_control.py' -v
+          node tests/test_ntis_project_field_control_view.cjs
