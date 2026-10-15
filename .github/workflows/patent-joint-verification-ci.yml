@@ -1,0 +1,41 @@
+name: KIPRIS Fresh Joint Patent Evidence Regression
+on:
+  pull_request:
+    paths:
+      - 'scripts/patent_hunt.py'
+      - 'scripts/patent_deep_hunt.py'
+      - 'scripts/patent_joint_verification.py'
+      - 'patent-joint-verification.html'
+      - 'patents.html'
+      - 'tests/test_patent_deep_hunt.py'
+      - 'tests/test_patent_joint_verification.py'
+      - 'tests/test_patent_joint_verification_view.cjs'
+      - '.github/workflows/kipris-patent-hunt.yml'
+      - '.github/workflows/patent-joint-verification-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/patent_joint_verification.py'
+      - 'tests/test_patent_joint_verification.py'
+      - '.github/workflows/patent-joint-verification-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check official coapplicant identity, media uncertainty, time window
+        run: |
+          python -m compileall -q scripts/patent_deep_hunt.py scripts/patent_joint_verification.py
+          python -m unittest discover -s tests -p 'test_patent_deep_hunt.py' -v
+          python -m unittest discover -s tests -p 'test_patent_joint_verification.py' -v
+          node tests/test_patent_joint_verification_view.cjs
+          node tests/test_patent_hunt_view.cjs
