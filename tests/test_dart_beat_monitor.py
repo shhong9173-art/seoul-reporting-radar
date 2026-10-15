@@ -150,6 +150,58 @@ class BeatCoverageTests(unittest.TestCase):
         self.assertEqual(second["detailsAttempted"],1)
         self.assertFalse(second["records"][0]["sourceError"])
 
+    def test_public_filed_issuer_terms_are_visible_but_affiliate_not_independent_award(self):
+        proof=lambda label:{"basis":"same_official_table_row",
+                            "sourceLabel":label,
+                            "rowPattern":"two_cell_explicit_label",
+                            "independentBusinessVerification":False}
+        row=item("현대자동차","00164742","20261015800221")
+        row.update(status="official_document_read",
+                   observedFields={
+                       "contract_amount":"116,810,902,865",
+                       "counterparty":"TAIHAN ELECTRIC USA LTD.",
+                       "counterparty_relationship":"자회사",
+                       "unknown_custom":"injected",
+                   },
+                   observedFieldEvidence={
+                       "contract_amount":proof("계약금액(원)"),
+                       "counterparty":proof("계약상대"),
+                       "counterparty_relationship":proof("- 회사와의 관계"),
+                       "unknown_custom":proof("비지원"),
+                   })
+        extracted=m.verified_official_table_terms(row)
+        self.assertEqual(extracted["contract_amount"]["value"],"116,810,902,865")
+        self.assertNotIn("unknown_custom",extracted)
+        self.assertFalse(extracted["contract_amount"]["businessEffectVerified"])
+        def source(k,n,c,s,e):
+            return {"records":[row] if n=="현대자동차" else [],
+                    "complete":True,"pagesRead":1,"totalOfficialFilings":1}
+        collected=m.collect(sparse_codes(),"key",now=NOW,query=source,
+                            detail=lambda x,key:{**x,**{
+                                k:v for k,v in row.items() if k in (
+                                  "status","observedFields","observedFieldEvidence")}})
+        signal=m.change_review(collected,now=NOW)["signals"][0]
+        self.assertTrue(signal["reportedCounterpartyIsAffiliate"])
+        self.assertFalse(signal["ultimateExternalCustomerVerified"])
+        self.assertFalse(signal["actualShipmentVerified"])
+        self.assertIn("외부 최종 고객",signal["nextCheck"])
+        self.assertFalse(signal["scoopConfirmed"])
+
+    def test_unproven_and_conflicting_value_is_withheld_from_reporter_card(self):
+        row=item("현대자동차","00164742","20261015800221")
+        row.update(status="official_document_read",
+                   observedFields={"contract_amount":"20,000,000",
+                                   "counterparty":"특정 고객"},
+                   observedFieldEvidence={
+                        "contract_amount":{"basis":"same_official_table_row",
+                           "sourceLabel":"계약금액(원)","rowPattern":"two_cell_explicit_label",
+                           "independentBusinessVerification":False},
+                        "counterparty":{"basis":"inferred_news_story",
+                           "sourceLabel":"계약상대방","rowPattern":"two_cell_explicit_label",
+                           "independentBusinessVerification":False}},
+                   conflictingDocumentFields=["contract_amount"])
+        self.assertEqual(m.verified_official_table_terms(row),{})
+
     def test_issuer_declared_material_differentiated_from_two_verified_docs(self):
         def correction(row,key):
             return {**row,"status":"original_not_verified",
