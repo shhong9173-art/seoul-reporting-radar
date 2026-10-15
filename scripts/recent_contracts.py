@@ -21,6 +21,7 @@ sys.path.insert(0,str(ROOT))
 sys.path.insert(0,str(ROOT/"scripts"))
 from business_content import api_json
 from dart_lineage import event_type,has_correction,review_lineage,zip_documents,tabular_fields
+from dart_contract_tables import extract_contract_terms
 
 KST=timezone(timedelta(hours=9))
 DIRECT=("현대자동차","기아","현대제철","세아제강",
@@ -90,11 +91,20 @@ def document_evidence(item,key,documents=zip_documents,lineage=review_lineage):
     else:
         try:
             texts=documents(key,item["receiptNo"])
-            fields=tabular_fields(texts)
+            review=extract_contract_terms(texts)
             result.update({
                 "status":"official_document_read",
-                "observedFields":fields,
-                "evidenceStatus":"공식 접수·공시 원문 발췌; 계약 체결/금액·상대방·효력은 원문과 기업 확인 필요",
+                "observedFields":review["fields"],
+                "observedFieldEvidence":review["fieldEvidence"],
+                "conflictingDocumentFields":review["conflictingFields"],
+                "documentTablesExamined":review["tablesExamined"],
+                "documentFieldExtractionStatus":review["status"],
+                "evidenceStatus":(
+                    "공식 DART 원문 표의 동일 행 필드만 수집. 공시상 기재값이며 실제 납품·매출·효력 확인 아님"
+                    if review["fields"] else
+                    "DART 공식 원문은 열었으나 계약 관련 단일 항목을 안전하게 매칭하지 못함. "
+                    "원문 직접 확인 필요(0원·계약 없음 아님)"
+                ),
             })
         except (ValueError,RuntimeError,URLError,TimeoutError,OSError) as exc:
             result.update({"status":"document_unavailable","sourceError":True,
