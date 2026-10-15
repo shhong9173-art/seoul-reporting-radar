@@ -46,25 +46,77 @@ def fetch_pdf(url):
         raise ValueError("invalid_or_oversize_official_pdf")
     return data
 
+# Semantic sections outrank the PDF form's generic headings. A label such
+# as "Description of the safety risk, including crash, fire, death, injury"
+# is printed in every Part 573 form and is NOT an actual fire allegation.
+REVIEW_SECTIONS=(
+    ("defect_description",re.compile(
+        r"Description of the defect or noncompliance\s*:",re.I)),
+    ("chronology",re.compile(
+        r"Chronology of (?:Principal )?Events\s*:?",re.I)),
+    ("remedy",re.compile(
+        r"Description of remedy program\s*:",re.I)),
+    ("production_dates",re.compile(
+        r"Production Dates\s*:",re.I)),
+    ("us_population",re.compile(
+        r"Total number of potentially involved\s*:",re.I)),
+    ("part_specification",re.compile(
+        r"Part Number\s*:|component (?:part|description)\s*:",re.I))
+)
+US_POPULATION=re.compile(r"Total number of potentially involved\s*:\s*([\d,]+)",re.I)
+
 def passages(pages):
     if not isinstance(pages,list):raise ValueError("missing_pdf_pages")
-    out=[]
-    for i,page in enumerate(pages[:90],1):
-        if not isinstance(page,str):continue
-        flat=re.sub(r"\s+"," ",page).strip()
-        for m in TERMS.finditer(flat):
-            snippet=flat[max(0,m.start()-85):m.end()+185][:305]
-            if not snippet:continue
-            out.append({
-                "page":i,"keyword":m.group(0)[:70],
-                "literalPdfExcerpt":snippet,
-                "incidentCountVerified":False,
-                "partNumberVerifiedAgainstKoreanVehicle":False,
-                "koreanRecallAbsenceVerified":False,
-                "interpretation":"literal_manufacturer_part573_text_for_manual_crosscheck"
+    flat_pages=[re.sub(r"\s+"," ",x).strip() if isinstance(x,str) else ""
+                for x in pages[:90]]
+    result=[]
+    for kind,pattern in REVIEW_SECTIONS:
+        for page_index,body in enumerate(flat_pages):
+            if not body:continue
+            match=pattern.search(body)
+            if not match:continue
+            # Preserve substantive text AFTER its specific form label, not
+            # the generic risk labels printed on empty forms.
+            text=body[max(0,match.start()-18):match.end()+315][:340]
+            if not text:continue
+            result.append({
+              "page":page_index+1,
+              "section":kind,
+              "keyword":match.group(0)[:70],
+              "literalPdfExcerpt":text,
+              "incidentCountVerified":False,
+              "partNumberVerifiedAgainstKoreanVehicle":False,
+              "koreanRecallAbsenceVerified":False,
+              "interpretation":"literal_manufacturer_part573_text_for_manual_crosscheck"
             })
-            if len(out)>=MAX_PASSAGES:return out
-    return out
+            break
+    # Once every unique substantive section had an opportunity to appear,
+    # show additional key investigation/remedy context from later pages.
+    # Limit one extra item per page. Never use generic "fire" form labels.
+    if len(result)<MAX_PASSAGES:
+        used={(x["page"],x["section"]) for x in result}
+        for page_index,body in enumerate(flat_pages):
+            if not body:continue
+            for m in re.finditer(r"\b(?:investigation|supplier|confirmed|failure|thermal|overheat|"
+                       r"software update|manufacturing records|complaints?)\b",body,re.I):
+                if (page_index+1,"additional_context") in used:break
+                # Keep a full surrounding sentence if possible.
+                excerpt=body[max(0,m.start()-110):m.end()+180][:310]
+                if "including crash, fire, death, injury" in excerpt.lower():
+                    continue
+                result.append({
+                  "page":page_index+1,"section":"additional_context",
+                  "keyword":m.group(0)[:50],"literalPdfExcerpt":excerpt,
+                  "incidentCountVerified":False,
+                  "partNumberVerifiedAgainstKoreanVehicle":False,
+                  "koreanRecallAbsenceVerified":False,
+                  "interpretation":"literal_manufacturer_part573_text_for_manual_crosscheck"
+                })
+                used.add((page_index+1,"additional_context"))
+                break
+            if len(result)>=MAX_PASSAGES:break
+    return result[:MAX_PASSAGES]
+
 
 def scan(source,*,now=None,get=fetch_pdf,convert=extract_pages):
     now=now or datetime.now(KST)
@@ -111,6 +163,10 @@ def scan(source,*,now=None,get=fetch_pdf,convert=extract_pages):
                 d["officialPdfDownloaded"]=True
                 d["pdfContentSHA256"]=hashlib.sha256(blob).hexdigest()
                 d["sourcePassages"]=passages(pages)
+                exact=US_POPULATION.findall(first)
+                if len(exact)==1 and exact[0].replace(",","").isdigit():
+                    d["usManufacturerReportedPotentiallyAffectedVehicles"]=int(exact[0].replace(",",""))
+                    d["usVehicleCountScope"]="us_market_manufacturer_part573_not_korea_sales"
                 d["status"]=(
                    "nhtsa_original_part573_pdf_passages_for_review"
                    if d["sourcePassages"] else
