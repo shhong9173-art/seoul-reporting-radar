@@ -260,6 +260,43 @@ def collect(codes,key,*,now=None,previous=None,query=fetch_official_list,
     }
 
 
+
+REPORTABLE_TERMS=(
+    "contract_subject","contract_amount","recent_sales","sales_ratio",
+    "counterparty","counterparty_relationship","supply_region",
+    "contract_start","contract_end","investment_amount","production_restart"
+)
+AFFILIATE_RELATIONS=frozenset({"자회사","종속회사","계열회사","관계회사"})
+
+
+def verified_official_table_terms(row):
+    """Exact issuer-filed cell values only, never commercial/business impact."""
+    if (row.get("status")!="official_document_read"
+        or row.get("sourceError") is True
+        or not isinstance(row.get("observedFields"),dict)
+        or not isinstance(row.get("observedFieldEvidence"),dict)):
+        return {}
+    confirmed={}
+    for key in REPORTABLE_TERMS:
+        value=row["observedFields"].get(key)
+        proof=row["observedFieldEvidence"].get(key)
+        if (isinstance(value,str) and 0<len(value)<=220
+            and isinstance(proof,dict)
+            and proof.get("basis")=="same_official_table_row"
+            and proof.get("independentBusinessVerification") is False
+            and isinstance(proof.get("sourceLabel"),str)
+            and proof.get("sourceLabel")
+            and proof.get("rowPattern") in (
+                "two_cell_explicit_label","three_cell_explicit_label",
+                "four_cell_independent_pair","contract_period_rowspan")
+            and key not in (row.get("conflictingDocumentFields") or [])):
+            confirmed[key]={"value":value,
+                            "officialTableLabel":proof["sourceLabel"][:100],
+                            "basis":"same_official_table_row",
+                            "businessEffectVerified":False}
+    return confirmed
+
+
 def change_review(current,previous=None,*,now=None):
     """Compare exact receipts and verified original references only.
 
@@ -325,6 +362,8 @@ def change_review(current,previous=None,*,now=None):
         except (ValueError,TypeError):continue
         recent=0<=(now_day-official_day).days<=2
         if not new_receipt and kind=="previously_seen_public_filing":continue
+        terms=verified_official_table_terms(row)
+        affiliate=terms.get("counterparty_relationship",{}).get("value") in AFFILIATE_RELATIONS
         # Every non-duplicate candidate has exact DART URL from upstream.
         signals.append({
             "company":row["company"],"beat":row["beat"],"receiptNo":receipt,
@@ -337,6 +376,10 @@ def change_review(current,previous=None,*,now=None):
             "originalReceiptNo":(row.get("originalReceiptNo")
                         if kind=="two_official_documents_changed_terms" else None),
             "changedTermsForReview":cited,"sourceReparseFieldKeys":changed_fields,
+            "reportedOfficialTableTerms":terms,
+            "reportedCounterpartyIsAffiliate":affiliate,
+            "ultimateExternalCustomerVerified":False,
+            "actualShipmentVerified":False,
             "businessImpactVerified":False,
             "priorNewsFulltextChecked":False,
             "scoopConfirmed":False,"approvedForPitch":False,
@@ -345,6 +388,8 @@ def change_review(current,previous=None,*,now=None):
              if kind=="same_receipt_first_document_field_recovery" else
              "같은 공시번호의 데이터 추출 차이: 공식 원문과 수집기 코드 확인 (기업 변화로 해석 금지)"
              if kind=="same_receipt_data_reparse_discrepancy" else
+             "공시 상대방이 관계회사: 외부 최종 고객/납품과 연결 매출 계상·기보도 여부 별도 검증"
+             if affiliate else
              "명시된 원공시 및 전후 공시 원문·기보도 기사 전문·실제 기업 영향 확인"
              if row.get("isCorrection") else
              "공식 접수내용/동일 사건 기보도/출입처 실제 변화를 확인")
