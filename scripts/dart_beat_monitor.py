@@ -309,6 +309,10 @@ def change_review(current,previous=None,*,now=None):
         raise ValueError("invalid_current_snapshot")
     previous=previous if valid_prior_snapshot(previous) else None
     old={x["receiptNo"]:x for x in previous["records"]} if previous else {}
+    previously_checked={x.get("company"):x.get("status")
+        for x in previous.get("sourceChecks",[]) if isinstance(x,dict)} if previous else {}
+    currently_checked={x.get("company"):x.get("status")
+        for x in current.get("sourceChecks",[]) if isinstance(x,dict)}
     now_day=now.astimezone(KST).date()
     signals=[]
     for row in current["records"]:
@@ -318,6 +322,10 @@ def change_review(current,previous=None,*,now=None):
         cited=[]
         changed_fields=[]
         new_receipt=prior is None
+        coverage_new=(new_receipt and
+            previously_checked.get(row["company"]) in (
+                "corp_code_unavailable","source_error","pagination_uninspected")
+            and currently_checked.get(row["company"])=="checked")
         if prior is not None and row.get("observedFields")!=prior.get("observedFields"):
             if row.get("observedFields") or prior.get("observedFields"):
                 changed_fields=sorted(set((row.get("observedFields") or {}).keys())
@@ -356,7 +364,8 @@ def change_review(current,previous=None,*,now=None):
                 else:
                     kind="new_observed_correction_unconfirmed_change"
         elif new_receipt:
-            kind="newly_observed_public_filing"
+            kind=("existing_public_filing_from_newly_resolved_issuer"
+                  if coverage_new else "newly_observed_public_filing")
         try:
             official_day=datetime.strptime(row["published"],"%Y%m%d").date()
         except (ValueError,TypeError):continue
@@ -371,6 +380,7 @@ def change_review(current,previous=None,*,now=None):
             "title":row["report"],"status":kind,
             "recentOfficialDocument":recent,
             "newObservation":(None if current["firstRunBaseline"] else new_receipt),
+            "firstObservedBecauseIssuerBecameCollectable":coverage_new,
             "companyInOfficialScope":True,
             "priorReceiptIndependentCompared":kind=="two_official_documents_changed_terms",
             "originalReceiptNo":(row.get("originalReceiptNo")
@@ -384,6 +394,8 @@ def change_review(current,previous=None,*,now=None):
             "priorNewsFulltextChecked":False,
             "scoopConfirmed":False,"approvedForPitch":False,
             "nextCheck":(
+             "기존에는 법인 코드/공식 자료 오류로 이 기업을 조회하지 못했으나 이번에 기존 공개자료를 처음 수집함. 공시 자체는 이미 공개됨. 공시일·기보도·실제 산업 영향 별도 확인"
+             if coverage_new else
              "이전에 목록만 확인한 같은 공시번호의 표 항목을 처음 추출함: 신규 기업 변화가 아님. 원문 확인 필요"
              if kind=="same_receipt_first_document_field_recovery" else
              "같은 공시번호의 데이터 추출 차이: 공식 원문과 수집기 코드 확인 (기업 변화로 해석 금지)"

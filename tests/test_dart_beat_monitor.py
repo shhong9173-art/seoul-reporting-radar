@@ -202,6 +202,42 @@ class BeatCoverageTests(unittest.TestCase):
                    conflictingDocumentFields=["contract_amount"])
         self.assertEqual(m.verified_official_table_terms(row),{})
 
+    def test_newly_disclosed_company_code_does_not_make_old_public_filing_new_news(self):
+        kg="20261015000414"
+        def source(key,name,code,start,end):
+            rows=([item(name,code,kg,"주요사항보고서(자기주식처분결정)")]
+                  if name=="KG스틸" else [])
+            return {"records":rows,"complete":True,
+                    "totalOfficialFilings":len(rows),"pagesRead":1}
+        prior=m.collect({"현대자동차":{"corp_code":"00164742"}},"key",
+            now=NOW,query=source,detail=fake_detail)
+        nowdata=m.collect(sparse_codes(),"key",now=NOW+timedelta(hours=1),
+            previous=prior,query=source,detail=fake_detail)
+        signal=m.change_review(nowdata,prior,now=NOW+timedelta(hours=1))["signals"][0]
+        self.assertEqual(signal["company"],"KG스틸")
+        self.assertEqual(signal["status"],"existing_public_filing_from_newly_resolved_issuer")
+        self.assertTrue(signal["firstObservedBecauseIssuerBecameCollectable"])
+        self.assertTrue(signal["newObservation"])
+        self.assertFalse(signal["priorNewsFulltextChecked"])
+        self.assertFalse(signal["businessImpactVerified"])
+        self.assertFalse(signal["scoopConfirmed"])
+        self.assertIn("기존 공개자료",signal["nextCheck"])
+
+    def test_ordinary_new_filing_in_previously_checked_company_keeps_public_receipt_label(self):
+        def zero(key,name,code,start,end):
+            return {"records":[],"complete":True,"totalOfficialFilings":0,
+                    "pagesRead":1}
+        def new(key,name,code,start,end):
+            return {"records":[item(name,code,"20261015800221")]
+                    if name=="현대자동차" else [],
+                    "complete":True,"totalOfficialFilings":1,"pagesRead":1}
+        old=m.collect(sparse_codes(),"key",now=NOW,query=zero,detail=fake_detail)
+        current=m.collect(sparse_codes(),"key",now=NOW+timedelta(hours=1),
+                          previous=old,query=new,detail=fake_detail)
+        result=m.change_review(current,old,now=NOW+timedelta(hours=1))
+        self.assertEqual(result["signals"][0]["status"],"newly_observed_public_filing")
+        self.assertFalse(result["signals"][0]["firstObservedBecauseIssuerBecameCollectable"])
+
     def test_issuer_declared_material_differentiated_from_two_verified_docs(self):
         def correction(row,key):
             return {**row,"status":"original_not_verified",
