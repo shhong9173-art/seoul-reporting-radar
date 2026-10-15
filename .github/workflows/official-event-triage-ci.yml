@@ -1,0 +1,51 @@
+name: Official Filing Event-Date Triage Regression
+on:
+  pull_request:
+    paths:
+      - 'scripts/official_event_triage.py'
+      - 'tests/test_official_event_triage.py'
+      - 'tests/test_official_event_triage_view.cjs'
+      - 'official-today.html'
+      - 'official-leads.html'
+      - '.github/workflows/industry-official-hunt.yml'
+      - '.github/workflows/official-event-triage-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/official_event_triage.py'
+      - '.github/workflows/official-event-triage-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-proof:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check event dates/official URL and prior-coverage non-claims
+        run: |
+          python -m compileall -q scripts/official_event_triage.py
+          python -m unittest discover -s tests -p 'test_official_event_triage.py' -v
+          node tests/test_official_event_triage_view.cjs
+      - name: Replay actual official snapshots without live APIs
+        run: |
+          python scripts/official_event_triage.py --output /tmp/event-date-replay.json
+          python - <<'PY'
+          import json
+          d=json.load(open('/tmp/event-date-replay.json',encoding='utf-8'))
+          assert d['confirmedScoops']==0 and d['approvedArticles']==0
+          assert d['freshOfficialReviewCount']==len(d['freshOfficialReview'])
+          assert d['status']=='official_date_triage'
+          assert all(x['officialDateInRecentWindow'] for x in d['freshOfficialReview'])
+          assert all(x['source'] in ('DART_FILING','FOREIGN_NOTICE') for x in d['freshOfficialReview'])
+          assert all(not x['exclusiveConfirmed'] and not x['approvedForPitch'] for x in d['freshOfficialReview'])
+          assert all(x['editorialBucket']=='published_background' for x in d['backgroundReference'])
+          print('PASS recorded current official dates',d['freshOfficialReviewCount'],
+                'old/reference',d['backgroundReferenceCount'],'source gaps',len(d['incompleteOrStaleFeeds']))
+          PY
