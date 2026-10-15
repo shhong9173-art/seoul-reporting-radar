@@ -15,6 +15,7 @@ import json
 import re
 from datetime import datetime,timedelta,timezone
 from pathlib import Path
+from urllib.parse import urlencode
 
 from dart_foreign_dividend_watch import exact_dividend_income_recognition
 
@@ -23,6 +24,28 @@ US_RECALL=re.compile(r"^\d{2}V\d{3,6}$")
 DART_RECEIPT=re.compile(r"^20\d{12}$")
 MAX_AGE_DAYS=45
 DOMESTIC_RECALL_URL="https://www.car.go.kr/ri/stat/list.do"
+# Known Korean names for model-name search only, never exact part mapping.
+KOREAN_QUERY_MODELS={"G80":"G80","GENESIS":"제네시스",
+                     "IONIQ 9":"아이오닉9","IONIQ9":"아이오닉9"}
+
+
+def manual_korean_model_search(models):
+    names=[]
+    for row in models[:35] if isinstance(models,list) else []:
+        if not isinstance(row,dict):continue
+        name=KOREAN_QUERY_MODELS.get(str(row.get("model") or "").strip().upper())
+        if name and name not in names:
+            names.append(name)
+    return [{
+        "searchTerm":name,
+        "officialSearchUrl":DOMESTIC_RECALL_URL+"?"+urlencode({
+            "ctype":"O","currentPageNo":"1","searchProductName":name}),
+        "searchResultRead":False,
+        "matchingRecallVerified":False,
+        "absenceOfRecallVerified":False,
+        "koreanIdenticalComponentVerified":False
+    } for name in names[:3]]
+
 
 def parsed_time(stamp):
     try:
@@ -94,6 +117,8 @@ def safety_dossier(row,now):
           "domesticIdenticalPart":"not_verified"
       },
       "officialComparisonLinks":[row["sourceUrl"],DOMESTIC_RECALL_URL],
+      "koreanModelSearchLinks":manual_korean_model_search(row.get("models") or []),
+      "domesticRecallSearchPageIsNotEvidenceOfNoRecall":True,
       "pitchGate":{
           "primaryUSRecord":True,
           "domesticOfficialChecked":False,
