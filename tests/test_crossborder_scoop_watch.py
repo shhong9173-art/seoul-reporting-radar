@@ -15,7 +15,7 @@ NOW=datetime(2026,10,16,9,tzinfo=KST)
 def rcl(campaign,make,model,year,reported="20261008",defect="The power seat switch may overheat and cause a fire."):
     cols=[""]*29
     cols[1]=campaign;cols[2]=make;cols[3]=model;cols[4]=str(year)
-    cols[6]="SEATS";cols[7]="Hyundai Motor America";cols[10]="V"
+    cols[6]="SEATS";cols[7]=("Ford Motor Company" if make=="FORD" else "Hyundai Motor America");cols[10]="V"
     cols[15]=reported;cols[16]=reported
     cols[19]=defect;cols[20]="Fire risk when parked";cols[21]="Remedy under development"
     cols[28]="Y"
