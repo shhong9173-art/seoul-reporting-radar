@@ -91,6 +91,29 @@ try{
       else if(Number.isInteger(usdoc.usManufacturerReportedAffectedCount))
         line(c,"미국 Part 573 제조사 신고 대상 "+usdoc.usManufacturerReportedAffectedCount.toLocaleString("ko-KR")+
          "대 · 미국 판매용 기준이며 국내 판매·동일 부품 적용 대수는 미확인","dim");
+      if(usdoc.koreanMarketIncidentIndependentlyVerified!==false)
+        throw Error("미국 제조사 진술만으로 국내 화재 발생 확정 불가");
+      const koreaClaims=usdoc.koreanMarketSourceClaims||[];
+      if(koreaClaims.length){
+        line(c,"미국 제조사 Part 573에서 한국 시장을 언급한 진술 "+koreaClaims.length+
+          "건. 한국 내 화재가 실제 발생했다는 독립적 조사 결과가 아니라, 미국 당국에 제출된 제조사 기록입니다.","dim");
+        for(const k of koreaClaims.slice(0,4)){
+          if(k.sourceIsManufacturerAllegationOnly!==true||
+             k.domesticIncidentIndependentlyVerified!==false||
+             k.domesticIdenticalPartVerified!==false||
+             k.koreanRecallAbsenceVerified!==false)
+            throw Error("한국 시장 사건은 미검증 주장일 뿐");
+          const src=new URL(k.officialPdfUrl);
+          if(src.hostname!=="static.nhtsa.gov"||src.protocol!=="https:"||
+             !/^\/odi\/rcl\/2026\/RCLRPT-26V(664|588)-[0-9]{4}\.pdf$/.test(src.pathname))
+             throw Error("미국 제조사 보고서 원문 출처 오류");
+          line(c,"미국 Part 573 "+k.pdfPage+"쪽, 한국 시장 원문 문맥: "+
+               k.usManufacturerContext+
+               (k.incidentTermNearby?" (사고·화재 관련 단어 근접, 실제 국내 사건 확인 전)":
+                " (한국 시장 언급, 사고 사실 미확인)"),"small");
+          link(c,k.officialPdfUrl,"해당 NHTSA PDF 원문 ↗");
+        }
+      }
       for(const q of (usdoc.passages||[]).slice(0,9)){
         if(q.basis!=="nhtsa_us_manufacturer_original_pdf_unmatched_to_korea"||
            q.koreanSamePartVerified!==false||q.domesticRecallAbsentVerified!==false||
