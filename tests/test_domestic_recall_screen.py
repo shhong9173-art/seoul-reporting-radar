@@ -46,10 +46,23 @@ class SafeIndex(unittest.TestCase):
              "<link>https://news.google.com/rss/articles/123</link>"
              "<pubDate>Thu, 15 Oct 2026 00:00:00 GMT</pubDate>"
              "</item></channel></rss>").encode()
-        r=s.parse_news(xml,NOW)
+        r=s.parse_news(xml,NOW,"26V664000")
         self.assertEqual(len(r),1)
         self.assertFalse(r[0]["fulltextRead"])
         self.assertFalse(r[0]["sameIssueVerified"])
+    def test_g80_news_excludes_ioniq_and_gv80_unrelated_article(self):
+        self.assertFalse(s.relevant_news_title("아이오닉 9 시트 리콜","26V664000"))
+        self.assertFalse(s.relevant_news_title("제네시스 GV80 CEO 의전차","26V664000"))
+        self.assertTrue(s.relevant_news_title("제네시스 G80 시트 스위치 리콜","26V664000"))
+        self.assertFalse(s.relevant_news_title("제네시스 G80 시트 리콜","26V588000"))
+        self.assertTrue(s.relevant_news_title("아이오닉 9 전동시트 국내 리콜","26V588000"))
+        unrelated=("<rss><channel><item><title>아이오닉 9 시트 리콜</title>"
+            "<link>https://news.google.com/rss/articles/123</link>"
+            "<pubDate>Thu, 15 Oct 2026 00:00:00 GMT</pubDate>"
+            "</item></channel></rss>").encode()
+        self.assertEqual(s.parse_news(unrelated,NOW,"26V664000"),[])
+        self.assertEqual(len(s.parse_news(unrelated,NOW,"26V588000")),1)
+
     def test_foreign_campaign_not_automatically_extended(self):
         c=source();c["leads"]=[{"id":"26V999000","usRecallExists":True,
            "koreanRecallChecked":False,"exclusiveConfirmed":False}]
