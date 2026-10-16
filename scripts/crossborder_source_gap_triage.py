@@ -475,6 +475,18 @@ def attach_nhtsa_part573_primary(dossier,source,us_archive):
                 "literalKoreanMarketPhrase":str(mention.get("literalKoreanMarketPhrase") or "")[:100],
                 "usManufacturerContext":str(mention.get("contextFromUsManufacturer") or "")[:410],
                 "incidentTermNearby":mention.get("incidentTermNearby") is True,
+                "incidentLanguageClassification":(
+                    mention.get("incidentLanguageClassification") if
+                    mention.get("incidentLanguageClassification") in (
+                       "thermal_event_allegation_unverified",
+                       "hazard_word_nearby_unverified",
+                       "market_reference_without_hazard_word")
+                    else "not_classified"),
+                "manufacturerInformationReceivedDateFromExactText":(
+                    "2026-07-02" if
+                    mention.get("manufacturerInformationReceivedDateFromExactText")==
+                       "2026-07-02" else None),
+                "explicitFireConfirmedByManufacturer":False,
                 "officialPdfUrl":r["officialPdfUrl"],
                 "sourcePdfSHA256":r["pdfContentSHA256"],
                 "sourceIsManufacturerAllegationOnly":True,

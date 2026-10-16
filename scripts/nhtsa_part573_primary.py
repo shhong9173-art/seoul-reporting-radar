@@ -124,8 +124,11 @@ KOREA_MARKET_PHRASE=re.compile(
     r"|Korean?\s+(?:domestic\s+)?(?:customer|vehicle)\s+(?:market|case|report))\b",
     re.I
 )
-INCIDENT_TERMS=re.compile(r"\b(?:fire|ignit(?:ion|ed)|thermal incident|"
+INCIDENT_TERMS=re.compile(r"\b(?:fire|ignit(?:ion|ed)|thermal (?:incident|event)|"
     r"smoke|overheat|burned|burnt|fire allegation|alleged fire)\b",re.I)
+THERMAL_ALLEGATION=re.compile(r"\bthermal\s+(?:event|incident)\s+allegations?\b",re.I)
+EXPLICIT_KOREAN_INFO_DATE=re.compile(
+    r"\bJuly\s+2,\s*2026\s*[-–—]\s*Hyundai\s+received\b",re.I)
 BOILERPLATE_RISK="description of the safety risk, including crash, fire, death, injury"
 
 
@@ -144,11 +147,20 @@ def manufacturer_korea_market_mentions(pages):
             snippet=text[max(0,match.start()-170):min(len(text),match.end()+200)]
             cleaned=snippet.lower().replace(BOILERPLATE_RISK,"")
             match_hazard=bool(INCIDENT_TERMS.search(cleaned))
+            alleged_thermal=bool(THERMAL_ALLEGATION.search(cleaned))
+            info_date=("2026-07-02" if alleged_thermal and
+                        EXPLICIT_KOREAN_INFO_DATE.search(snippet) else None)
             findings.append({
               "pdfPage":i,
               "literalKoreanMarketPhrase":match.group(0),
               "contextFromUsManufacturer":snippet[:410],
               "incidentTermNearby":match_hazard,
+              "incidentLanguageClassification":(
+                 "thermal_event_allegation_unverified" if alleged_thermal
+                 else "hazard_word_nearby_unverified" if match_hazard
+                 else "market_reference_without_hazard_word"),
+              "manufacturerInformationReceivedDateFromExactText":info_date,
+              "explicitFireConfirmedByManufacturer":False,
               "sourceIsManufacturerClaimToNhtsa":True,
               "domesticIncidentVerified":False,
               "koreanGovernmentIncidentChecked":False,
