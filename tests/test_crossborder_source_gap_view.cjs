@@ -38,6 +38,11 @@ for(const marker of [
   'slovakGovernmentAccounts',
   'officialIfrsReportDetailUrl',
   'slovakPdfPrimaryReview',
+  'dividendCrossPeriodGap',
+  'canCalculateParentCashTransferFromTheseRows!==false',
+  'canClaimNoDividendIn2026!==false',
+  '서로 빼거나 송금액을 계산할 수 없습니다',
+
   'auditedCalendarYearRows',
   'annualReportComparativeConflict',
   'year2026LocalPaymentNotYetVerified',

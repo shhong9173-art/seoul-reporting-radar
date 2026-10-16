@@ -5,6 +5,8 @@ on:
     paths:
       - '.github/workflows/crossborder-source-gap.yml'
       - 'scripts/crossborder_source_gap_triage.py'
+      - 'scripts/dividend_period_gap.py'
+      - 'tests/test_dividend_period_gap.py'
       - 'scripts/dart_foreign_dividend_watch.py'
       - 'scripts/slovakia_official_accounts.py'
       - 'scripts/slovak_ifrs_primary_pages.py'
@@ -52,6 +54,7 @@ jobs:
           python -m compileall -q scripts/crossborder_scoop_watch.py scripts/dart_foreign_dividend_watch.py scripts/crossborder_source_gap_triage.py
           python -m unittest discover -s tests -p 'test_crossborder_scoop_watch.py' -v
           python -m unittest discover -s tests -p 'test_crossborder_source_gap_triage.py' -v
+          python -m unittest discover -s tests -p 'test_dividend_period_gap.py' -v
           python -m unittest discover -s tests -p 'test_slovakia_official_accounts.py' -v
           python -m unittest discover -s tests -p 'test_slovak_ifrs_primary_pages.py' -v
           python -m unittest discover -s tests -p 'test_slovak_ifrs_accounting_columns.py' -v

@@ -18,6 +18,7 @@ from pathlib import Path
 from urllib.parse import urlencode
 
 from dart_foreign_dividend_watch import exact_dividend_income_recognition
+from dividend_period_gap import build_gap
 
 KST=timezone(timedelta(hours=9))
 US_RECALL=re.compile(r"^\d{2}V\d{3,6}$")
@@ -562,6 +563,7 @@ def build(safety,dividends,*,now=None,slovakia=None,czech=None,slovak_pdf=None,n
                    str(d["officialFact"]["recognizedFromEntity"]).lower().split())):
                 attach_slovak_registry(d,slovakia)
                 attach_verified_slovak_pdf_clues(d,slovakia,slovak_pdf)
+                d["dividendCrossPeriodGap"]=build_gap(d)
             dossiers.append(d)
     unique={}
     for d in dossiers:
