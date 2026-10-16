@@ -1,0 +1,27 @@
+name: Weekend Reporter Evidence Gate
+on:
+  pull_request:
+    paths:
+      - 'weekend-desk.html'
+      - 'weekend_rules.js'
+      - 'tests/test_weekend_desk.cjs'
+      - 'index.html'
+      - '.github/workflows/weekend-newsroom-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'weekend-desk.html'
+      - 'weekend_rules.js'
+      - '.github/workflows/weekend-newsroom-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  newsroom:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --check weekend_rules.js && node tests/test_weekend_desk.cjs
