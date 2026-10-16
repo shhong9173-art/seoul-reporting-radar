@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-10-16T08:46:47+09:00",
+  "generatedAt": "2026-10-16T09:17:06+09:00",
   "status": "crossborder_reporter_evidence_gap_not_exclusive",
   "officialSourceGeneratedAt": {
-    "nhtsa": "2026-10-16T08:40:22.774961+09:00",
-    "dartDividend": "2026-10-16T08:40:25.779047+09:00",
-    "slovakGovernmentRegistry": "2026-10-16T08:46:32+09:00",
-    "czechAresRegistry": "2026-10-16T08:46:46+09:00"
+    "nhtsa": "2026-10-16T08:48:12.464311+09:00",
+    "dartDividend": "2026-10-16T08:48:15.474050+09:00",
+    "slovakGovernmentRegistry": "2026-10-16T09:16:44+09:00",
+    "czechAresRegistry": "2026-10-16T09:17:04+09:00"
   },
   "sourceHealth": {
     "nhtsaOfficial": "checked",
@@ -16,7 +16,7 @@
     "sameAngleNewsFulltext": "not_verified"
   },
   "sourceStale48h": false,
-  "slovakPdfOriginalEvidenceGeneratedAt": "2026-10-16T08:46:40+09:00",
+  "slovakPdfOriginalEvidenceGeneratedAt": "2026-10-16T09:16:54+09:00",
   "foreignLegalEntityLinks": {
     "kiaSlovakia": {
       "company": "Kia Slovakia s. r. o.",
@@ -863,6 +863,39 @@
           }
         ],
         "auditedYearRowConflicts": 0
+      },
+      "dividendCrossPeriodGap": {
+        "status": "cross_period_and_accounting_basis_requires_independent_primary_docs",
+        "koreanIssuerIncomePeriod": "2026_first_half",
+        "koreanIssuerRecognizedIncomeMillionKrw": 1610458,
+        "slovakAuditedPaymentCalendarYears": [
+          {
+            "year": 2024,
+            "outflowThousandEur": 0
+          },
+          {
+            "year": 2025,
+            "outflowThousandEur": 0
+          }
+        ],
+        "differentAccountingLine": true,
+        "differentAccountingPeriod": true,
+        "differentCurrencyAndUnit": true,
+        "local2026InterimStatementChecked": false,
+        "parent2026CashStatementMatched": false,
+        "slovak2026DistributionResolutionChecked": false,
+        "parentRecipientIdentifiedInLocalDisclosure": false,
+        "koreanCashReceivedVerified": false,
+        "canCalculateParentCashTransferFromTheseRows": false,
+        "canClaimNoDividendIn2026": false,
+        "canClaimOverseasDividendIsExclusive": false,
+        "specificNextDocuments": [
+          "Kia 2026 first-half separate financial-statement dividend-income note and cash-flow statement with bank/payment timing",
+          "Kia Slovakia 2026 interim distribution decision and 2026 cash-flow/payment evidence, if published",
+          "Official legal-entity shareholder and distribution resolution identifying actual recipient",
+          "Prior Korean and Slovak press full text on the exact 2026 dividend recognition amount"
+        ],
+        "editorialWarning": "2024/2025 Slovak audited payment 0 is historical; cannot be subtracted from a 2026 Korean issuer dividend-income recognition to infer unpaid, missing, or hidden cash."
       }
     }
   ]
