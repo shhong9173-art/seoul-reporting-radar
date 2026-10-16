@@ -294,6 +294,59 @@ def press_lookup(item,fetch=None):
                 "articles":[],"query":query}
 
 
+def validated_incremental_snapshot(previous,now,lower_bound):
+    """Only a complete, recent official 35-day snapshot may seed a delta."""
+    if (not isinstance(previous,dict) or
+        previous.get("status")!="official_search_completed" or
+        previous.get("sourceWindowComplete") is not True or
+        not isinstance(previous.get("items"),list) or
+        not isinstance(previous.get("reportingWindow"),str)):
+        return None
+    try:
+        stamp=datetime.fromisoformat(previous["generatedAt"])
+        if stamp.utcoffset() is None: return None
+        age=(now.date()-stamp.astimezone(KST).date()).days
+        if not 0<=age<=30:return None
+        window=previous["reportingWindow"].split("~")
+        if len(window)!=2 or not all(DATE8.fullmatch(v) for v in window):
+            return None
+        if window[1]!=stamp.astimezone(KST).strftime("%Y%m%d"):
+            return None
+        if window[0]>lower_bound or window[1]<lower_bound:
+            return None
+        # A two-day overlap catches delayed/batch-published official records.
+        requested=max(lower_bound,(stamp.astimezone(KST).date()-timedelta(days=2)).strftime("%Y%m%d"))
+        if requested>now.strftime("%Y%m%d"):return None
+        return requested
+    except (ValueError,KeyError,TypeError):
+        return None
+
+
+def retained_verified_publications(previous,companies,lower_bound,new_start):
+    """Keep only originally verified, older-than-delta public records."""
+    ret=[]
+    for row in previous.get("items",[])[:5000]:
+        if not isinstance(row,dict):continue
+        comp=row.get("company")
+        number=row.get("publicationNumber")
+        published=row.get("publicationDate")
+        if (comp not in companies or comp not in APPLICANTS or
+            not isinstance(number,str) or not PATENT_NUMBER.fullmatch(number) or
+            not isinstance(published,str) or not DATE8.fullmatch(published) or
+            not lower_bound<=published<new_start or
+            row.get("source")!="KIPRISPlus 특허·실용 공개·등록공보 API" or
+            row.get("sourceLookup")!=LANDING or
+            row.get("lookupNumber")!=number or
+            row.get("scoopConfirmed") is not False or
+            not isinstance(row.get("applicants"),list) or
+            not applicant_matches("|".join(row["applicants"]),APPLICANTS[comp])):
+            continue
+        ret.append({**row,"previouslyObserved":True,"freshObservation":False,
+            "historicalBackfill":False,"reusedFromPriorVerifiedSnapshot":True,
+            "observationNote":"이전 검증 공개공보 유지(이번 실행 신규 조회 아님)"})
+    return ret
+
+
 def build(key,previous=None,now=None,search=search_applicant,coverage=None,
           names=None,news_limit=5):
     now=now or datetime.now(KST)
@@ -303,6 +356,7 @@ def build(key,previous=None,now=None,search=search_applicant,coverage=None,
     since=(now-timedelta(days=35)).strftime("%Y%m%d")
     until=now.strftime("%Y%m%d")
     previous=previous if isinstance(previous,dict) else {}
+    api_since=validated_incremental_snapshot(previous,now,since) or since
     old_seen=previous.get("seen",{})
     if not isinstance(old_seen,dict):
         old_seen={}
@@ -314,6 +368,10 @@ def build(key,previous=None,now=None,search=search_applicant,coverage=None,
     seen=dict(old_seen)
     checks=[]
     candidates={}
+    retained=(retained_verified_publications(previous,companies,since,api_since)
+              if api_since!=since else [])
+    for cached in retained:
+        candidates[cached["company"]+"|"+cached["publicationNumber"]]=cached
     provider_failure=None
     for company in companies:
         if provider_failure is not None:
@@ -328,10 +386,10 @@ def build(key,previous=None,now=None,search=search_applicant,coverage=None,
             # Search by distinctive legal stem; verify EXACT official legal
             # applicant name in the response (no false '현대' subsidiaries).
             stem=re.sub(r"(?:주식회사|\s)","",aliases[0])
-            result=search(key,stem,since,until)
+            result=search(key,stem,api_since,until)
             count=0
             for row in result["rows"]:
-                candidate=verified_patent(row,company,aliases,since,until)
+                candidate=verified_patent(row,company,aliases,api_since,until)
                 if candidate is None:
                     continue
                 number=candidate["publicationNumber"]
@@ -388,6 +446,11 @@ def build(key,previous=None,now=None,search=search_applicant,coverage=None,
         "status":("official_search_completed" if successes==len(companies)
                   else "official_search_partial"),
         "reportingWindow":since+"~"+until,
+        "actualApiRequestWindow":api_since+"~"+until,
+        "windowMode":("verified_snapshot_plus_overlap_delta" if api_since!=since
+                       else "full_35_day_official_recheck"),
+        "retainedPriorVerifiedDocuments":len(retained),
+        "priorVerifiedSnapshotUsed":api_since!=since,
         "applicantCount":len(companies),
         "companyChecks":checks,"candidateCount":len(leads),
         "topicMatchedCount":sum(bool(r["themeMatched"]) for r in leads),
