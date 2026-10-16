@@ -513,6 +513,8 @@ def main():
     parser=argparse.ArgumentParser()
     parser.add_argument("--out",default="digests/patent_hunt_latest.json")
     parser.add_argument("--max-news",type=int,default=5)
+    parser.add_argument("--force-provider-probe",action="store_true",
+                        help="Manual only: bypass provider cooldown, NEVER limits")
     args=parser.parse_args()
     if not 0<=args.max_news<=10:
         parser.error("검색 건수는 0~10")
@@ -536,10 +538,28 @@ def main():
     # and resultCode 22 meaning must still be checked with KIPRISPlus.
     meter=SourceRequestMeter("digests/kipris_source_request_budget_latest.json",
                              fetch=request_xml)
+    if not meter.should_probe(force=args.force_provider_probe):
+        # No network request; do not turn source failure into zero patents.
+        save_publication_diagnostics({
+            "generatedAt":datetime.now(KST).isoformat(timespec="seconds"),
+            "applicantCount":len(APPLICANTS),
+            "sourceWindowComplete":False,
+            "companyChecks":[{"company":name,"status":"provider_22_probe_cooldown",
+                              "providerResultCode":"22"} for name in APPLICANTS]})
+        meter.persist()
+        print("KIPRISPlus 제공기관 응답 22 재확인 대기: 공식 특허 이전 자료 보존")
+        raise SystemExit(2)
     try:
         report=build(key,previous=previous,news_limit=args.max_news,
                      search=lambda k,term,start,end:search_applicant(
                          k,term,start,end,fetch=meter.get))
+        codes=[str(row.get("providerResultCode"))
+               for row in report.get("companyChecks",[]) if
+               isinstance(row,dict) and row.get("status")=="source_error"]
+        if "22" in codes:
+            meter.record_provider_code("22")
+        elif report.get("sourceWindowComplete") is True:
+            meter.clear_provider_backoff()
     finally:
         meter.persist()
     save_publication_diagnostics(report)

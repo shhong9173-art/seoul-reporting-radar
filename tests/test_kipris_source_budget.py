@@ -41,6 +41,55 @@ class Budget(unittest.TestCase):
             path=Path(folder)/"budget.json";path.write_text('{"month":"2026-10"}')
             with self.assertRaises(SourceRequestBudgetExhausted):
                 SourceRequestMeter(path,now=NOW,fetch=lambda u:b"ok")
+
+    def test_provider_22_cooldown_across_runs_and_manual_probe(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path=Path(folder)/"budget.json"
+            count=[]
+            m=SourceRequestMeter(path,now=NOW,fetch=lambda u:count.append(u) or b"ok")
+            self.assertTrue(m.should_probe())
+            m.get("https://example.test")
+            self.assertTrue(m.record_provider_code("22"))
+            self.assertFalse(m.should_probe())
+            n=SourceRequestMeter(path,now=NOW+timedelta(hours=24),fetch=lambda u:
+                                 count.append(u) or b"ok")
+            self.assertFalse(n.should_probe())
+            self.assertTrue(n.should_probe(force=True))
+            with self.assertRaisesRegex(SourceRequestBudgetExhausted,"cooldown"):
+                n.get("https://example.test")
+            self.assertEqual(len(count),1)
+            renewed=SourceRequestMeter(path,now=NOW+timedelta(hours=73),
+                                       fetch=lambda u:count.append(u) or b"ok")
+            self.assertTrue(renewed.should_probe())
+            renewed.get("https://example.test")
+            self.assertEqual(len(count),2)
+            renewed.clear_provider_backoff()
+            self.assertTrue(renewed.should_probe())
+            self.assertIsNone(renewed.public()["lastProviderResultCode"])
+            self.assertEqual(renewed.public()["sourceRequestsCounted"],2)
+
+    def test_backoff_persists_across_calendar_month(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path=Path(folder)/"budget.json"
+            late=datetime(2026,10,31,23,0,tzinfo=NOW.tzinfo)
+            m=SourceRequestMeter(path,now=late,fetch=lambda u:b"ok")
+            m.record_provider_code("22")
+            november=SourceRequestMeter(path,now=late+timedelta(hours=2),
+                                        fetch=lambda u:b"ok")
+            self.assertFalse(november.should_probe())
+            self.assertEqual(november.monthly_count,0)
+
+    def test_corrupt_provider_cooldown_is_fail_closed(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path=Path(folder)/"budget.json"
+            m=SourceRequestMeter(path,now=NOW,fetch=lambda u:b"ok")
+            m.record_provider_code("22")
+            data=json.loads(path.read_text())
+            data["nextProviderProbeAt"]="not-a-date"
+            path.write_text(json.dumps(data))
+            with self.assertRaises(SourceRequestBudgetExhausted):
+                SourceRequestMeter(path,now=NOW,fetch=lambda u:b"ok")
+
     def test_failed_fetch_integration_does_not_replace_verified_dataset(self):
         with tempfile.TemporaryDirectory() as folder:
             meter=SourceRequestMeter(Path(folder)/"budget.json",now=NOW,
