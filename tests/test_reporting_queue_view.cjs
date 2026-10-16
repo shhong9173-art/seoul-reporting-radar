@@ -5,7 +5,12 @@ assert.ok(html.includes("digests/reporting_evidence_queue_latest.json"));
 for(const name of [
  "new_official_receipt_review","verified_historical_investment_delta",
  "verified_historical_numeric_delta","issuer_only_correction_unverified_original",
- "older_public_contract_reference","officialDocumentDate",
+ "older_public_contract_reference","unlinked_correction_text_followup",
+ "historicalResearchCount","unlinkedHistoryTextMatchCount",
+ "correctionHistorySourceGate","contractLinkVerified",
+ "textMatchIsNotContractContinuity","historicalNotNewIncident",
+ "원공시 역추적","동일 계약·원계약 연결·실제 계약 효력 미확정",
+ "officialDocumentDate",
  "원공시 미대조 정정","기보도 전문·사업 영향·단독성 미검증",
  "sourceCoverage","sourceHealth"
 ])assert.ok(html.includes(name),name);
@@ -13,6 +18,8 @@ assert.ok(html.includes('data.confirmedScoops!==0'));
 assert.ok(html.includes("x.approvedForPitch!==false"));
 assert.ok(html.includes("x.pressFulltextReviewed!==false"));
 assert.ok(html.includes("x.officialDateIsSourcePublicationNotScrape!==true"));
+assert.match(html,/<option value="new_official_receipt_review" selected>/);
+assert.ok(html.includes('value="all">전체 과거 자료 · 직접 선택'));
 assert.ok(!html.includes("innerHTML"));
 const scripts=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)];
 assert.equal(scripts.length,1);
