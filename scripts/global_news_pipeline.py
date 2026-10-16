@@ -8,7 +8,7 @@ import re
 
 
 def norm_title(title):
-    return re.sub(r"\\s+"," ",str(title or "").strip()).casefold()
+    return re.sub(r"\s+"," ",str(title or "").strip()).casefold()
 
 
 def shortlist(raw,*,limit=40):
