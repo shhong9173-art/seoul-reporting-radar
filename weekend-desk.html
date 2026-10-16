@@ -48,11 +48,12 @@ async function get(file){
  const json=await r.json();return json&&typeof json==="object"?json:null;
  }catch(e){return null;}
 }
-const [dart,investment,events,patent,codes,recall,overseas,kiprisSource,kiprisBudget]=await Promise.all([
+const [dart,investment,events,patent,codes,recall,overseas,kiprisSource,kiprisBudget,newsHealth]=await Promise.all([
  get("latest.json"),get("investigation_hunt_latest.json"),get("official_event_triage_latest.json"),
  get("patent_run_health_latest.json"),get("dart_corp_code_coverage_latest.json"),
  get("domestic_recall_screen_latest.json"),get("crossborder_source_gap_latest.json"),
- get("patent_source_status_latest.json"),get("kipris_source_request_budget_latest.json")]);
+ get("patent_source_status_latest.json"),get("kipris_source_request_budget_latest.json"),
+ get("auto_news_feed_health_latest.json")]);
 const today=R.todayKst();
 const h=el("health");h.replaceChildren();
 p(h,"KIPRIS 특허: "+(patent?.status||"연결상태 미확인")+" · 자료 "+(patent?.generatedAt||"미확인")+
@@ -84,6 +85,14 @@ if(kiprisBudget?.status==="source_request_counted_not_account_quota"){
 }
 p(h,"DART: "+(dart?.totalCount??"검증 불가")+"건 · 생성 "+(dart?.generatedAt||"미확인"));
 p(h,"공시투자 변경 조사서: "+(investment?.investigationCount??"원천 미확인")+"건");
+if(newsHealth&&typeof newsHealth.status==="string"){
+ p(h,"국내·해외 자동차 뉴스 RSS 상태: "+newsHealth.status+
+   " · 총 조회 "+(newsHealth.attemptedQueries??"미확인")+"/"+(newsHealth.expectedQueries??"미확인")+
+   " · 오류 "+(newsHealth.errorQueries??"미확인")+
+   " · 최근 기사 "+(newsHealth.recentArticleItemsAfterDedupe??"미확인"));
+ if(newsHealth.newsDatasetApprovedForPublish===false)
+  p(h,"자동차 뉴스 수집 미달: 기존 검증 뉴스를 유지합니다. 신규 이슈가 0건이라는 뜻이 아닙니다.");
+}else p(h,"자동차 RSS 원천 진단 파일 없음: 신규 기사 수집 여부 확인 불가");
 const gate=R.recallReadiness(recall),a=el("recall");a.replaceChildren();
 p(a,"상태: 제공기관의 이용 승인·인증 방식·실제 API 응답 명세 대기");
 p(a,"자동 수집: "+(gate.publicScreen==="first_page_clues_only"?"공개 웹 검색 첫 페이지 제목만 참고":"공개 웹 조회상태 불명"));

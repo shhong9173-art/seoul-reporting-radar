@@ -1,0 +1,56 @@
+"""Secret-free Google News RSS audit; records missing feeds, never zero-news facts."""
+from __future__ import annotations
+
+import json
+from datetime import datetime, timezone
+from pathlib import Path
+
+VALID={"checked_recent_rows","checked_no_recent_rows",
+       "transport_or_xml_error","malformed_rss"}
+
+def build(checks,*,expected,news_items,now,threshold=10):
+    if now.tzinfo is None:raise ValueError("aware_timestamp_required")
+    if (not isinstance(expected,int) or not 1<=expected<=100 or
+        not isinstance(news_items,int) or news_items<0):
+        raise ValueError("bad_count")
+    if not isinstance(checks,list) or len(checks)>expected:raise ValueError("bad_checks")
+    safe=[]
+    for row in checks:
+        if (not isinstance(row,dict) or row.get("status") not in VALID or
+            not isinstance(row.get("globalFeed"),bool) or
+            not isinstance(row.get("category"),str) or
+            not 1<=len(row["category"])<=40 or
+            not isinstance(row.get("recentRows"),int) or
+            not 0<=row["recentRows"]<=100 or
+            row.get("errorType") is not None and
+            (not isinstance(row["errorType"],str) or
+             not row["errorType"].isidentifier() or len(row["errorType"])>50)):
+            raise ValueError("invalid_row")
+        safe.append({k:row.get(k) for k in
+                ("category","globalFeed","status","recentRows","errorType")})
+    failures=sum(x["status"] in ("transport_or_xml_error","malformed_rss") for x in safe)
+    zero=sum(x["status"]=="checked_no_recent_rows" for x in safe)
+    complete=len(safe)==expected
+    status=("incomplete_queries_or_provider_errors" if failures or not complete else
+            "checked_but_insufficient_recent_news" if news_items<threshold else
+            "source_requests_completed")
+    return {
+      "generatedAt":now.isoformat(timespec="seconds"),
+      "status":status,"expectedQueries":expected,"attemptedQueries":len(safe),
+      "errorQueries":failures,"validEmptyQueries":zero,
+      "recentArticleItemsAfterDedupe":news_items,
+      "minimumPublicationItems":threshold,
+      "newsDatasetApprovedForPublish":(news_items>=threshold),
+      "allProvidersResponded":bool(complete and not failures),
+      "unknownOfficialNewsCoverage":True,
+      "zeroFetchedMeansZeroPublishedStories":False,
+      "warning":"RSS 검색/형식/기간 장애는 기사 부재를 입증하지 않습니다. 수집 미달 시 기존 data.js/data.json 유지.",
+      "checks":safe
+    }
+
+def persist(report,path):
+    target=Path(path)
+    target.parent.mkdir(parents=True,exist_ok=True)
+    temp=target.with_suffix(".json.tmp")
+    temp.write_text(json.dumps(report,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
+    temp.replace(target)

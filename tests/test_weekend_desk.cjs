@@ -34,6 +34,9 @@ for(const marker of ["주말 발제","국내 리콜 API 준비","DART 법인명"
 }
 assert.ok(html.includes("kipris_source_request_budget_latest.json"));
 assert.ok(html.includes("patent_source_status_latest.json"));
+assert.ok(html.includes('auto_news_feed_health_latest.json'));
+assert.ok(html.includes('자동차 뉴스 수집 미달'));
+
 assert.ok(html.includes("코드 의미 자동 단정 금지"));
 assert.ok(html.includes("lastProviderResultCode"));
 assert.ok(html.includes("nextProviderProbeAt"));
