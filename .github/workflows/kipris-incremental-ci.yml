@@ -1,0 +1,28 @@
+name: KIPRIS Incremental Official Snapshot Regression
+on:
+  pull_request:
+    paths:
+      - 'scripts/patent_hunt.py'
+      - 'tests/test_patent_hunt.py'
+      - 'scripts/kipris_source_budget.py'
+      - 'tests/test_kipris_source_budget.py'
+      - '.github/workflows/kipris-incremental-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/patent_hunt.py'
+      - '.github/workflows/kipris-incremental-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m compileall -q scripts/patent_hunt.py scripts/kipris_source_budget.py
+      - run: python -m unittest discover -s tests -p 'test_patent_hunt.py' -v
+      - run: python -m unittest discover -s tests -p 'test_kipris_source_budget.py' -v

@@ -188,6 +188,70 @@ class PatentScoutTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,"반복"):
             p.search_applicant("key","현대자동차","20261012","20261012",fetch=fetch)
 
+    def test_incremental_patent_lookup_retains_only_old_verified_official_publications(self):
+        oldtime=datetime(2026,10,13,8,0,tzinfo=KST)
+        newtime=datetime(2026,10,16,8,0,tzinfo=KST)
+        earlier=row(pubdate="20261009")
+        earlier["openNumber"]="10-2026-0000009"
+        current=row(pubdate="20261014")
+        current["openNumber"]="10-2026-0000014"
+        prior=p.build("fake",now=oldtime,names=["현대자동차"],news_limit=0,
+                      search=lambda *_:{"rows":[earlier],"total":1,"complete":True})
+        self.assertTrue(prior["sourceWindowComplete"])
+        windows=[]
+        def delta(k,term,start,end):
+            windows.append((start,end))
+            return {"rows":[current],"total":1,"complete":True}
+        updated=p.build("fake",previous=prior,now=newtime,
+                        names=["현대자동차"],news_limit=0,search=delta)
+        self.assertEqual(windows,[("20261011","20261016")])
+        self.assertEqual(updated["retainedPriorVerifiedDocuments"],1)
+        self.assertTrue(updated["sourceWindowComplete"])
+        self.assertEqual(updated["candidateCount"],2)
+        older=next(x for x in updated["items"] if x["publicationDate"]=="20261009")
+        self.assertTrue(older["reusedFromPriorVerifiedSnapshot"])
+        self.assertFalse(older["freshObservation"])
+        self.assertFalse(older["scoopConfirmed"])
+        newest=next(x for x in updated["items"] if x["publicationDate"]=="20261014")
+        self.assertTrue(newest["freshObservation"])
+        self.assertFalse(newest["scoopConfirmed"])
+
+    def test_new_patent_gets_press_budget_before_reused_higher_score(self):
+        oldtime=datetime(2026,10,13,8,0,tzinfo=KST)
+        newtime=datetime(2026,10,16,8,0,tzinfo=KST)
+        older=row(pubdate="20261009")
+        older["openNumber"]="10-2026-0000009"
+        newer=row(pubdate="20261014",title="차량 장치",abstract="기술 확인 대기")
+        newer["openNumber"]="10-2026-0000014"
+        prior=p.build("fake",now=oldtime,names=["현대자동차"],news_limit=0,
+              search=lambda *_:{"rows":[older],"total":1,"complete":True})
+        seen=[]
+        out=p.build("fake",previous=prior,now=newtime,
+            names=["현대자동차"],news_limit=1,
+            search=lambda *_:{"rows":[newer],"total":1,"complete":True},
+            coverage=lambda obj:(seen.append(obj["publicationNumber"]) or
+              {"status":"색인 미확인","articles":[]}))
+        self.assertEqual(seen,["10-2026-0000014"])
+        self.assertEqual(out["candidateCount"],2)
+        self.assertEqual(out["confirmedScoops"],0)
+
+    def test_unverified_previous_cache_forces_full_window_and_no_fabricated_history(self):
+        oldtime=datetime(2026,10,13,8,0,tzinfo=KST)
+        newtime=datetime(2026,10,16,8,0,tzinfo=KST)
+        prior=p.build("fake",now=oldtime,names=["현대자동차"],news_limit=0,
+                      search=lambda *_:{"rows":[row(pubdate="20261009")],
+                                       "total":1,"complete":True})
+        prior["sourceWindowComplete"]=False
+        windows=[]
+        report=p.build("fake",previous=prior,now=newtime,
+            names=["현대자동차"],news_limit=0,
+            search=lambda k,t,start,end:(
+                windows.append((start,end)) or {"rows":[],"total":0,"complete":True}))
+        self.assertEqual(windows,[("20260911","20261016")])
+        self.assertEqual(report["retainedPriorVerifiedDocuments"],0)
+        self.assertEqual(report["candidateCount"],0)
+        self.assertFalse(report["priorVerifiedSnapshotUsed"])
+
     def test_initial_baseline_not_fake_first_found(self):
         def search(key,term,start,end):
             return {"rows":[row()],"total":1,"complete":True}
