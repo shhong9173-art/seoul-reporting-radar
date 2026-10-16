@@ -1,0 +1,112 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>원문 증거 등급별 취재 대기열 | 산업부 취재 레이더</title>
+<style>
+:root{font:15px/1.55 system-ui,-apple-system,"Malgun Gothic",sans-serif;background:#f6f8fb;color:#1e3145}
+*{box-sizing:border-box}body{margin:0}
+main{max-width:1100px;margin:auto;padding:26px 18px 72px}
+h1{font-size:27px;margin:13px 0 4px}h2{font-size:19px}
+a{color:#176294}.small{color:#657688;font-size:13px}
+.warning{padding:13px 16px;border-left:4px solid #ab8236;background:#fff9ec;margin:15px 0}
+.health{padding:14px 16px;border:1px solid #dce5ed;background:#fff;border-radius:10px;margin:15px 0}
+.filters{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:20px 0 13px}
+select,input{font:inherit;border:1px solid #bfcedd;border-radius:8px;padding:8px 11px;background:white;color:inherit}
+input{flex:1;min-width:220px}
+article{background:white;border:1px solid #dce5ed;border-radius:12px;margin:12px 0;padding:16px}
+h3{font-size:16px;margin:0 0 7px}
+.date{font-size:12px;color:#657688;margin:4px 0}
+.flag{display:inline-block;font-size:12px;border-radius:5px;padding:3px 7px;background:#eaf0f5;color:#3b5670}
+.links a{display:inline-block;margin-right:12px}
+article ul{margin:8px 0;padding-left:21px}
+article li{margin:2px 0;font-size:13px}
+#queue-status{font-size:13px;color:#617486}
+@media(max-width:600px){h1{font-size:23px}.filters{display:block}.filters>*{width:100%;margin:5px 0}}
+</style></head><body><main>
+<a href="index.html">← 산업부 종합 취재 레이더</a>
+<h1>공식 원문 증거 등급별 취재 대기열</h1>
+<p class="small">수집일이 아닌 실제 공식 공시·고시일로 분류합니다. 새 원문 접수와 과거 공시 비교, 원공시 미검증 정정을 따로 보여줍니다.</p>
+<div class="warning"><strong>단독·기사화 승인 자료가 아닙니다.</strong> ‘신규 공식 접수’도 이미 공개된 사실이며, 공시 수치 차이·정정문 자체의 변경란만으로 실물 계약 변화나 기업 영향을 단정할 수 없습니다. 기존 보도 전문과 기업의 확인 가능한 공식자료를 반드시 확인하세요.</div>
+<div class="health" id="health">원천 스냅샷·수집범위 확인 중</div>
+<div class="filters">
+<label for="tier">근거 구분</label>
+<select id="tier"><option value="all">전체 자료</option>
+<option value="new_official_receipt_review">최근 3일 공식 원문</option>
+<option value="verified_historical_investment_delta">과거 투자 기재 비교</option>
+<option value="verified_historical_numeric_delta">과거 수치 비교</option>
+<option value="issuer_only_correction_unverified_original">원공시 미대조 정정</option>
+<option value="older_public_contract_reference">이전 계약 공시 참고</option>
+</select>
+<input id="query" aria-label="회사·사업·항목 검색" placeholder="회사·사업명 검색">
+</div>
+<p id="queue-status">자료 확인 중</p>
+<div id="cards"></div>
+<p class="small">지난 원문에 처음 등장한 변경이라도 **오늘 발생한 사건이라는 뜻은 아닙니다.** 원자료 조회 실패·기보도 검색 미발견은 0건이나 단독의 근거로 사용하지 않습니다.</p>
+<script>
+(async()=>{
+"use strict";
+const el=id=>document.getElementById(id);
+const add=(container,tag,value,cls)=>{
+ const x=document.createElement(tag);if(value!==undefined)x.textContent=String(value);
+ if(cls)x.className=cls;container.append(x);return x;
+};
+function officialLink(box,url){
+ try{
+  const u=new URL(url);
+  if(u.protocol!=="https:"||!["dart.fss.or.kr","www.federalregister.gov","ted.europa.eu"].includes(u.hostname))return;
+  const a=add(box,"a","공식 원문 ↗");a.href=u.href;a.target="_blank";a.rel="noopener noreferrer";
+ }catch(e){}
+}
+let data;
+try{
+ const r=await fetch("digests/reporting_evidence_queue_latest.json",{cache:"no-store"});
+ if(!r.ok)throw Error("수집파일 없음");
+ data=await r.json();
+ if(data.status!=="reporter_evidence_queue_not_exclusive"||
+    !Array.isArray(data.items)||data.confirmedScoops!==0||data.approvedArticles!==0)
+    throw Error("근거 게이트 검증 실패");
+ const health=el("health");health.replaceChildren();
+ add(health,"strong","원자료 생성 "+data.generatedAt);
+ add(health,"p","최근 3일 공식 접수 검토 "+data.checkedOfficialRecentCandidates+
+   "건 · 전체 자료 "+data.items.length+"건 · 확정 단독 0건","small");
+ if(data.sourceCoverage!=="verified_inputs_only")
+  add(health,"p","일부 공식 원천이 미수집·오래됨: 후보 0건을 실제 사건 0건으로 해석하지 마세요.","small");
+ for(const [name,x] of Object.entries(data.sourceHealth||{}))
+  add(health,"p",name+" · "+x.status+" · 자료 "+(x.generatedAt||"미확인")+
+     " · 행 "+(x.rows??"미확인"),"small");
+ function draw(){
+  const tier=el("tier").value;
+  const term=el("query").value.trim().toLocaleLowerCase("ko-KR");
+  const rows=data.items.filter(x=>(tier==="all"||x.tier===tier) &&
+    (!term||[x.company,x.title,x.evidenceSummary].some(y=>
+      String(y||"").toLocaleLowerCase("ko-KR").includes(term))));
+  el("queue-status").textContent="표시 "+rows.length+"건 · 기사 승인 0건 · 신규 발생/기보도 여부는 별도 확인";
+  const host=el("cards");host.replaceChildren();
+  if(!rows.length){
+   add(host,"p","현재 확인된 해당 등급의 조사서 없음. 원천 수집 누락이나 완전한 신규 사건 부재를 입증하지는 않습니다.","small");return;
+  }
+  for(const x of rows.slice(0,140)){
+   if(x.exclusiveConfirmed!==false||x.approvedForPitch!==false||
+      x.pressFulltextReviewed!==false||x.companyImpactVerified!==false||
+      x.officialDateIsSourcePublicationNotScrape!==true)
+     continue;
+   const card=add(host,"article");
+   add(card,"span",x.tierLabel,"flag");
+   add(card,"h3",x.title);
+   add(card,"p",x.company+" · 공식 발행·접수일 "+x.officialDocumentDate,"date");
+   add(card,"p",x.evidenceSummary);
+   add(card,"p","기보도 전문·사업 영향·단독성 미검증","small");
+   const links=add(card,"div",undefined,"links");
+   for(const u of (x.officialUrls||[]).slice(0,3))officialLink(links,u);
+   const checks=add(card,"ul");
+   for(const q of (x.nextChecks||[]).slice(0,4))add(checks,"li",q);
+  }
+ }
+ el("tier").addEventListener("change",draw);
+ el("query").addEventListener("input",draw);
+ draw();
+}catch(e){
+ el("health").textContent="공식 원문 대기열 생성/검증 상태 미확인 — 이전 자료를 오늘 단독 후보로 올리지 않습니다.";
+ el("queue-status").textContent="공식 수집 또는 품질 점검 필요";
+}
+})();
+</script>
+</main></body></html>
