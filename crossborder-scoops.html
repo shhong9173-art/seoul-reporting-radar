@@ -233,6 +233,24 @@ try{
       if(!(pdf.passages||[]).length)
          line(c,"현지 PDF에서 검색 가능한 배당 관련 문장을 확보하지 못했습니다. 배당이 없다는 뜻이 아닙니다.","dim");
     }
+    const period=x.dividendCrossPeriodGap;
+    if(period&&period.status==="cross_period_and_accounting_basis_requires_independent_primary_docs"){
+      if(period.koreanCashReceivedVerified!==false||
+         period.canCalculateParentCashTransferFromTheseRows!==false||
+         period.canClaimNoDividendIn2026!==false||
+         period.canClaimOverseasDividendIsExclusive!==false)
+         throw Error("2025 현지 0원과 2026 DART 회계상 인식액의 잘못된 직접 비교 차단");
+      line(c,"2026년 기아 반기 배당수익(백만원)과 2024~2025년 슬로바키아 법인 현금흐름(천유로)은 다른 기간·법인 회계 항목·단위여서 서로 빼거나 송금액을 계산할 수 없습니다.","dim");
+      for(const item of period.slovakAuditedPaymentCalendarYears||[])
+        line(c,item.year+"년 현지 배당현금흐름 원문 추출: "+
+          item.outflowThousandEur.toLocaleString("ko-KR")+
+          "천유로 · 2026년 배당 여부와는 무관한 역사적 수치","small");
+      const detail=el("details");
+      detail.append(el("summary","실제 단독 검증에 필요한 다음 공식자료"));
+      for(const question of period.specificNextDocuments||[])
+        line(detail,"• "+question,"small");
+      c.append(detail);
+    }
     line(c,"본사 실제 현금 수령·현지 배당결의의 지급 시점·기존 보도 및 주석 숫자의 정확한 회계적 의미는 아직 검증되지 않았습니다.","dim");
   }
   for(const z of x.sourceEvidence||[])link(c,z.url,z.system+" 공식 원문 ↗");
