@@ -434,7 +434,13 @@ def build(key,previous=None,now=None,search=search_applicant,coverage=None,
             if isinstance(ex,SourceRequestBudgetExhausted):
                 provider_failure="source_request_budget_stop"
     leads=sorted(candidates.values(),key=lambda r:(-r["priorityScore"],-int(r["publicationDate"]),r["company"]))
-    for row in leads[:news_limit]:
+    # A high-scoring reused old document must not consume the limited
+    # press-check budget ahead of newly observed public disclosures.
+    media_priority=sorted(leads,key=lambda r:(
+        r.get("reusedFromPriorVerifiedSnapshot") is True,
+        r.get("freshObservation") is not True,
+        -r["priorityScore"],-int(r["publicationDate"])))
+    for row in media_priority[:news_limit]:
         row["pressCoverage"]=(coverage or press_lookup)(row)
     # Retain only last 180 days of first-seen history, but never use the
     # first successful run to allege that the patent was just filed or new.
