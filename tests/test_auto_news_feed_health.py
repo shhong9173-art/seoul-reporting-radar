@@ -56,6 +56,21 @@ class FeedHealth(unittest.TestCase):
         with self.assertRaises(ValueError):
             build([bad],expected=1,news_items=0,now=NOW)
 
+    def test_latency_rank_does_not_expose_feed_urls_or_secrets(self):
+        rows=[
+            {**row("checked_recent_rows",count=4),"durationMs":1200},
+            {**row("transport_or_xml_error",error="TimeoutError"),"durationMs":18000},
+            {**row("checked_no_recent_rows"),"durationMs":300}
+        ]
+        result=build(rows,expected=3,news_items=12,now=NOW)
+        self.assertEqual([x["durationMs"] for x in result["slowestQueries"]],
+                         [18000,1200,300])
+        self.assertEqual(result["slowestQueries"][0]["status"],"transport_or_xml_error")
+        self.assertNotIn("https://",str(result["slowestQueries"]))
+        with self.assertRaises(ValueError):
+            build([{**rows[0],"durationMs":"18000"}],expected=1,
+                  news_items=0,now=NOW)
+
     def test_naive_clock_rejected(self):
         with self.assertRaises(ValueError):
             build([row("checked_recent_rows",count=2)],expected=1,

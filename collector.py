@@ -1,10 +1,11 @@
 from __future__ import annotations
-import hashlib, html, json, re, urllib.parse, urllib.request, xml.etree.ElementTree as ET
+import hashlib, html, json, re, time, urllib.parse, urllib.request, xml.etree.ElementTree as ET
 from datetime import datetime, timedelta
 from email.utils import parsedate_to_datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 from scripts.auto_news_feed_health import build as build_feed_health, persist as persist_feed_health
+from scripts.rss_concurrent import collect_feeds
 
 KST=ZoneInfo('Asia/Seoul'); OUT=Path('data.js'); JSON_OUT=Path('data.json')
 FEED_CHECKS=[]
@@ -75,6 +76,7 @@ def exclusive(t):
     return any(re.search(p,s,re.I) for p in pats)
 
 def parse_feed(category,query,global_feed=False,source_hint=''):
+    start=time.monotonic()
     lang,gl=('en-US','US') if global_feed else ('ko','KR')
     u='https://news.google.com/rss/search?q='+urllib.parse.quote(query)+'&hl='+lang+'&gl='+gl+'&ceid='+gl+':'+('en' if global_feed else 'ko')
     try:
@@ -85,7 +87,8 @@ def parse_feed(category,query,global_feed=False,source_hint=''):
         FEED_CHECKS.append({"category":category,"globalFeed":bool(global_feed),
             "status":"malformed_rss" if isinstance(exc,(ET.ParseError,ValueError))
                  else "transport_or_xml_error",
-            "recentRows":0,"errorType":type(exc).__name__})
+            "recentRows":0,"errorType":type(exc).__name__,
+            "durationMs":min(600000,int((time.monotonic()-start)*1000))})
         return []
     cutoff=datetime.now(KST)-timedelta(hours=72);out=[]
     for item in root.findall('./channel/item'):
@@ -103,7 +106,8 @@ def parse_feed(category,query,global_feed=False,source_hint=''):
         out.append({'category':category,'title':title,'url':link,'published':dt.isoformat(),'sourceName':source or source_hint,'summary':desc[:900],'global':global_feed})
     FEED_CHECKS.append({"category":category,"globalFeed":bool(global_feed),
         "status":"checked_recent_rows" if out else "checked_no_recent_rows",
-        "recentRows":len(out) if len(out)<101 else 100,"errorType":None})
+        "recentRows":len(out) if len(out)<101 else 100,"errorType":None,
+        "durationMs":min(600000,int((time.monotonic()-start)*1000))})
     return out
 
 def translate(text):
@@ -163,10 +167,12 @@ def enrich(items):
             x.update({'id':hashlib.sha1((x['url']+'|'+x['title']).encode()).hexdigest()[:12],'companies':companies,'tags':[x['category']]+(['글로벌'] if x.get('global') else [])+(['단독'] if ex else []),'exclusive':ex,'exclusiveScore':95 if ex else max(10,min(70,score-18)),'followUp':follow,'followScore':max(10,min(95,38+fc*9+len(companies)*5)),'priority':priority,'score':score,'whyNow':why,'points':points,'questions':['회사 또는 정부의 공식 확인은 나왔는가?','전날·전주 대비 새롭게 달라진 숫자는 무엇인가?','경쟁사 또는 공급망에 미치는 영향은 무엇인가?']+([f"관련 기업 {', '.join(companies[:3])}의 입장은 무엇인가?"] if companies else []),'publishedLabel':x['published'][:16].replace('T',' '),'clusterId':f'A{ci:03d}','clusterCount':len(members),'earliestObservedAt':earliest['published'],'earliestObservedSource':earliest.get('sourceName',''),'coveredBy':sources[:10],'coverageGap':len(sources)==1,'sourceTier':tier})
     return items
 
-raw=[]
-for cat,q in FEEDS:raw.extend(parse_feed(cat,q))
-global_items=[]
-for hint,q in GLOBAL_FEEDS:global_items.extend(parse_feed('글로벌',q,True,hint))
+def record_unexpected_feed_failure(category,global_feed,error_type):
+    FEED_CHECKS.append({'category':category,'globalFeed':bool(global_feed),
+       'status':'transport_or_xml_error','recentRows':0,'errorType':error_type})
+
+raw,global_items=collect_feeds(FEEDS,GLOBAL_FEEDS,parse_feed,
+       on_error=record_unexpected_feed_failure,workers=3)
 global_items=dedupe(global_items)[:30]
 items=enrich(dedupe(raw)+global_items);items.sort(key=lambda x:(x.get('global',False),x['priority']!='must',-x['score'],x['published']));items=items[:220]
 # Always write source diagnostics before the existing fail-closed publication gate.
