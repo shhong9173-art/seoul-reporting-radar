@@ -9,6 +9,9 @@ a{color:#145c85}.notice,.card{background:#fff;border:1px solid #d8e2e9;border-ra
 .tag{display:inline-block;font-size:12px;background:#edf2f5;border-radius:5px;padding:3px 9px;margin:5px 7px 5px 0}
 .pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px;margin:10px 0}
 .pair>div{padding:10px;border-radius:7px;background:#f4f7fa;border:1px solid #e2e9f0;overflow-wrap:anywhere}
+.timeline{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin:10px 0}
+.timeline>div{padding:9px;border:1px solid #e2e9f0;border-radius:7px;overflow-wrap:anywhere;background:#f8fafc}
+@media(max-width:850px){.timeline{grid-template-columns:repeat(2,minmax(0,1fr))}}
 details{border:1px solid #e0e7ed;border-radius:7px;padding:11px;margin-top:13px}
 @media(max-width:600px){.pair{grid-template-columns:1fr}}
 </style></head><body><main>
@@ -58,6 +61,28 @@ function draw(item){
    not_checked_bounded_limit:"안전 조회횟수 상한 때문에 미검토 · 동일 계약 판정 불가"
   };
   p(block,state[past.status]||"과거 원문 확인 범위 미정","small");
+  if(past.priorCandidateExplicitOriginReceipt){
+   if(past.currentAmendmentLinkedToThisOrigin!==false||
+      past.priorCandidateExplicitOriginVerifiedInIssuerList!==false||
+      !/^20\d{12}$/.test(past.priorCandidateExplicitOriginReceipt))
+     throw Error("이전 정정문 접수번호 단서를 현재 계약 원공시로 잘못 승격");
+   p(block,"과거 후보 문서에 명시된 더 이전 접수번호 "+
+      past.priorCandidateExplicitOriginReceipt+
+      " (발행회사 원문 목록·이번 정정공시와 연결 미검증)","small");
+   official(block,"https://dart.fss.or.kr/dsaf001/main.do?rcpNo="+
+     past.priorCandidateExplicitOriginReceipt,
+     "더 이전 원문 후보 열기 ↗","dart.fss.or.kr");
+  }
+  if(past.priorIssuerDeclaredRevisions?.length){
+   p(block,"과거 후보 정정문 자체의 전후 기재 이력(이번 정정문과 동일 계약 미확인)","small");
+   for(const amendment of past.priorIssuerDeclaredRevisions.slice(0,6)){
+    if(amendment.basis!=="issuer_reported_amendment_table_only"||
+       amendment.independentCurrentLinkageVerified!==false)
+      throw Error("발행사 과거 정정란을 원문 독립 계약 연결로 오인");
+    p(block,amendment.fieldLabel+" · 과거 후보 정정 전: "+
+       amendment.before+" · 과거 후보 정정 후: "+amendment.after,"small");
+   }
+  }
   for(const diff of past.unlinkedComparisons||[]){
    if(diff.sameContractVerified!==false||diff.contractEffectVerified!==false||
       diff.previouslyReportedInMediaVerified!==false||
@@ -65,10 +90,18 @@ function draw(item){
      throw Error("다른 공시의 문구 일치를 계약 변경으로 오인");
    p(block,(diff.literalValuesMatch?"공시상 기재값 문자 일치":"공시상 기재값 불일치")+
      " · "+diff.field+" · 그러나 같은 계약인지 미확인","small");
-   const side=el("div",undefined,"pair");
-   const before=el("div");before.append(el("small","과거 후보 공시 기재값"),el("p",diff.priorCandidatePublishedValue));
-   const after=el("div");after.append(el("small","이번 정정문이 밝힌 '정정 전'"),el("p",diff.currentIssuerSaidBefore));
-   side.append(before,after);block.append(side);
+   const side=el("div",undefined,"timeline");
+   const stages=[
+     ["과거 후보 정정 전",diff.priorCandidateSaidBefore||"원문 해당 값 미확인"],
+     ["과거 후보 정정 후/기재값",diff.priorCandidatePublishedValue],
+     ["현재 정정문 정정 전",diff.currentIssuerSaidBefore],
+     ["현재 정정문 정정 후",diff.currentIssuerSaidAfter||"해당 값 미확인"]
+   ];
+   for(const [label,value] of stages){
+    const stage=el("div");stage.append(el("small",label),el("p",value));side.append(stage);
+   }
+   block.append(side);
+   p(block,"서로 다른 두 공시의 기재값을 비교한 것으로, 같은 계약의 순차 변경이 확인된 것은 아님.","small");
   }
   if(past.priorDocumentRetrieved===true&&!(past.unlinkedComparisons||[]).length)
    p(block,"검토한 항목 사이에 정확히 대조할 수 있는 조건이 없었습니다. 변경 없음으로 해석 불가.","small");
