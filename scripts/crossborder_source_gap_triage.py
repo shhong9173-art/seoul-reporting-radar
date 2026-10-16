@@ -521,7 +521,76 @@ def attach_nhtsa_part573_primary(dossier,source,us_archive):
     return dossier
 
 
-def build(safety,dividends,*,now=None,slovakia=None,czech=None,slovak_pdf=None,nhtsa_part573=None):
+def attach_domestic_screen(dossier,screen,safety,now):
+    """The public search never changes the official-recall or editorial gates."""
+    out={"status":"not_connected_or_snapshot_mismatch","officialQueries":[],
+         "press":None,"domesticRecallAbsenceVerified":False,
+         "domesticIdenticalPartVerified":False,
+         "sameAnglePressFulltextVerified":False}
+    dossier["domesticPublicScreen"]=out
+    if (not isinstance(screen,dict) or
+        screen.get("status")!="public_search_screen_not_complete_official_or_press_audit" or
+        screen.get("sourceUsSnapshot")!=safety.get("generatedAt") or
+        screen.get("recallApiAuthorization")!="required_not_connected" or
+        screen.get("confirmedScoops")!=0 or
+        screen.get("allKoreanRecallPagesRead") is not False or
+        screen.get("sameAnglePressFulltextChecked") is not False or
+        not isinstance(screen.get("items"),list)):
+        return dossier
+    stamp=parsed_time(screen.get("generatedAt"))
+    if stamp is None or stamp>now+timedelta(minutes=20):return dossier
+    campaign=dossier["officialFact"]["usCampaign"]
+    allow={"26V664000":("G80","제네시스"),"26V588000":("아이오닉9",)}
+    matched=[i for i in screen["items"] if isinstance(i,dict)
+             and i.get("campaign")==campaign]
+    if campaign not in allow or len(matched)!=1:return dossier
+    item=matched[0]
+    if any(item.get(k) is not False for k in (
+        "domesticRecallAbsenceVerified","domesticIdenticalPartVerified",
+        "sameAnglePressFulltextVerified","exclusiveConfirmed")):
+        return dossier
+    for q in (item.get("officialQueries") or [])[:3]:
+        if not isinstance(q,dict) or q.get("term") not in allow[campaign]:
+            continue
+        expected=DOMESTIC_RECALL_URL+"?"+urlencode({
+            "ctype":"O","currentPageNo":"1","searchProductName":q["term"]})
+        if (q.get("searchUrl")!=expected or
+            q.get("status") not in (
+              "public_first_page_only_search_filter_unverified",
+              "public_page_unavailable_or_unparsed") or
+            q.get("searchFilterVerified") is not False or
+            q.get("allPagesRead") is not False or
+            q.get("exactPartVerified") is not False or
+            q.get("recallAbsenceVerified") is not False):
+            continue
+        out["officialQueries"].append({
+            "term":q["term"],"url":expected,"status":q["status"],
+            "titles":[v[:160] for v in (q.get("visibleModelTitleClues") or [])[:5]
+                     if isinstance(v,str)],
+            "searchScopeVerified":False,"samePartVerified":False,
+            "absenceOfRecallVerified":False})
+    p=item.get("press")
+    if (isinstance(p,dict) and p.get("fulltextRead") is False
+        and p.get("sameAngleCovered") is False
+        and p.get("pressAbsenceVerified") is False
+        and p.get("status") in ("headline_index_only","news_index_unavailable_or_unparsed")):
+        articles=[]
+        for z in (p.get("headlines") or [])[:4]:
+            if (not isinstance(z,dict) or z.get("fulltextRead") is not False
+                or z.get("sameIssueVerified") is not False
+                or not isinstance(z.get("indexUrl"),str)
+                or not z["indexUrl"].startswith("https://news.google.com/")):
+                continue
+            articles.append({"title":str(z.get("headline") or "")[:190],
+               "publishedAt":str(z.get("publishedAt") or "")[:32],
+               "indexUrl":z["indexUrl"],"sameIssueVerified":False})
+        out["press"]={"status":p["status"],"articles":articles,
+                      "fulltextRead":False,"pressAbsenceVerified":False}
+    out["status"]="public_search_screen_manual_verification_required"
+    return dossier
+
+
+def build(safety,dividends,*,now=None,slovakia=None,czech=None,slovak_pdf=None,nhtsa_part573=None,domestic_screen=None):
     now=now or datetime.now(KST)
     if now.utcoffset() is None:raise ValueError("timezone_required")
     if (not isinstance(safety,dict) or not isinstance(dividends,dict)
@@ -546,6 +615,11 @@ def build(safety,dividends,*,now=None,slovakia=None,czech=None,slovak_pdf=None,n
               if isinstance(x,dict))
             else "no_official_receipt_checked"),
         "koreanRecallAPI":"not_connected_permission_required",
+        "koreanPublicListScreen":("screen_only_not_api_or_exact_part" if
+            isinstance(domestic_screen,dict) and domestic_screen.get("status")==
+            "public_search_screen_not_complete_official_or_press_audit" and
+            domestic_screen.get("sourceUsSnapshot")==safety.get("generatedAt")
+            else "unavailable_or_snapshot_mismatch"),
         "foreignSubsidiaryRegistries":(
            "slovak_issuer_metadata_only" if isinstance(slovakia,dict) and
             slovakia.get("companyIdentityVerified") is True else
@@ -564,6 +638,7 @@ def build(safety,dividends,*,now=None,slovakia=None,czech=None,slovak_pdf=None,n
         y=safety_dossier(x,now.astimezone(KST))
         if y:
             attach_nhtsa_part573_primary(y,nhtsa_part573,safety)
+            attach_domestic_screen(y,domestic_screen,safety,now)
             dossiers.append(y)
     for x in dividends["leads"][:100]:
         generated=recognized_dividend_dossiers(x)
@@ -635,6 +710,7 @@ def main():
     p.add_argument("--czech",default="digests/czech_factory_official_identity_latest.json")
     p.add_argument("--slovak-pdf",default="digests/slovak_ifrs_primary_pages_latest.json")
     p.add_argument("--part573",default="digests/nhtsa_part573_primary_latest.json")
+    p.add_argument("--domestic-screen",default="digests/domestic_recall_screen_latest.json")
     a=p.parse_args()
     src=lambda path:json.loads(Path(path).read_text(encoding="utf-8"))
     try:
@@ -653,7 +729,11 @@ def main():
         manufacturer_reports=src(a.part573)
     except (OSError,ValueError):
         manufacturer_reports=None
-    result=build(src(a.nhtsa),src(a.dividends),slovakia=government,
+    try:
+        public_screen=src(a.domestic_screen)
+    except (OSError,ValueError):
+        public_screen=None
+    result=build(src(a.nhtsa),src(a.dividends),domestic_screen=public_screen,slovakia=government,
                  czech=czech_identity,slovak_pdf=pdf_note_index,
                  nhtsa_part573=manufacturer_reports)
     if result["sourceHealth"]["nhtsaOfficial"]!="checked":

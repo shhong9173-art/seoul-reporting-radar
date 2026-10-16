@@ -4,6 +4,9 @@ on:
     paths:
       - 'scripts/dart_foreign_dividend_watch.py'
       - 'scripts/crossborder_source_gap_triage.py'
+      - 'scripts/domestic_recall_screen.py'
+      - 'tests/test_domestic_recall_screen.py'
+      - 'tests/test_domestic_screen_dossier.py'
       - 'scripts/dividend_period_gap.py'
       - 'tests/test_dividend_period_gap.py'
       - 'scripts/slovakia_official_accounts.py'
@@ -26,6 +29,9 @@ on:
     branches: [main]
     paths:
       - 'scripts/crossborder_source_gap_triage.py'
+      - 'scripts/domestic_recall_screen.py'
+      - 'tests/test_domestic_recall_screen.py'
+      - 'tests/test_domestic_screen_dossier.py'
       - '.github/workflows/crossborder-source-gap-ci.yml'
   workflow_dispatch:
 permissions:
@@ -44,6 +50,8 @@ jobs:
           python -m compileall -q scripts/dart_foreign_dividend_watch.py scripts/crossborder_source_gap_triage.py
           python -m unittest discover -s tests -p 'test_crossborder_scoop_watch.py' -v
           python -m unittest discover -s tests -p 'test_crossborder_source_gap_triage.py' -v
+          python -m unittest discover -s tests -p 'test_domestic_recall_screen.py' -v
+          python -m unittest discover -s tests -p 'test_domestic_screen_dossier.py' -v
           python -m unittest discover -s tests -p 'test_dividend_period_gap.py' -v
           python -m unittest discover -s tests -p 'test_slovakia_official_accounts.py' -v
           python -m unittest discover -s tests -p 'test_slovak_ifrs_primary_pages.py' -v

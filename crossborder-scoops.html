@@ -137,6 +137,43 @@ try{
         link(c,q.officialPart573PdfUrl,"NHTSA 제조사 원문 PDF ↗");
       }
     }
+    const screening=x.domesticPublicScreen;
+    if(screening){
+      if(screening.domesticRecallAbsenceVerified!==false||
+         screening.domesticIdenticalPartVerified!==false||
+         screening.sameAnglePressFulltextVerified!==false)
+        throw Error("공개 검색·기사 색인은 국내 리콜 부재나 단독의 증거가 아님");
+      line(c,"국내 공개 리콜목록·기보도 색인: "+
+           (screening.status==="public_search_screen_manual_verification_required"?
+            "1쪽 목록·기사 제목만 확인 (리콜 부재·동일 부품·동일 사안 미검증)":
+            "수집 실패 또는 원자료 시각 불일치"),"dim");
+      for(const q of screening.officialQueries||[]){
+        if(q.searchScopeVerified!==false||q.samePartVerified!==false||
+           q.absenceOfRecallVerified!==false)throw Error("리콜 검색 결과 과신 방지");
+        line(c,"차종명 "+q.term+" 공개 목록: "+
+            (q.status==="public_first_page_only_search_filter_unverified"?
+             "첫 화면 조회":"화면 조회 실패")+
+             " · 서버 검색필터 적용 미확인","small");
+        for(const title of (q.titles||[]).slice(0,5))
+          line(c,"목록 제목 참고(동일 연식·부품 미검증): "+title,"small");
+      }
+      const press=screening.press;
+      if(press){
+        if(press.fulltextRead!==false||press.pressAbsenceVerified!==false)
+          throw Error("제목 RSS는 기사 전문 검색이 아님");
+        line(c,"뉴스 제목 색인: "+(press.status==="headline_index_only"?
+             "검색 응답 수집":"검색 실패")+
+             " · 동일 사건 기보도 여부는 기사 전문 확인 전까지 미확정","dim");
+        for(const article of (press.articles||[]).slice(0,4)){
+          if(article.sameIssueVerified!==false)throw Error("보도 동일 사건 미검증");
+          line(c,article.publishedAt+" · "+article.title,"small");
+          const url=new URL(article.indexUrl);
+          if(url.protocol!=="https:"||url.hostname!=="news.google.com")
+            throw Error("뉴스 색인 출처 오류");
+          link(c,article.indexUrl,"뉴스 색인 ↗");
+        }
+      }
+    }
     for(const q of x.koreanModelSearchLinks||[]){
       if(q.searchResultRead!==false||q.matchingRecallVerified!==false||
          q.absenceOfRecallVerified!==false||q.koreanIdenticalComponentVerified!==false)
