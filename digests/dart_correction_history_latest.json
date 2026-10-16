@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-10-16T10:19:33+09:00",
-  "dartSourceGeneratedAt": "2026-10-16T10:19:11+09:00",
-  "newsIndexSourceGeneratedAt": "2026-10-16T10:19:31+09:00",
+  "generatedAt": "2026-10-16T16:37:34+09:00",
+  "dartSourceGeneratedAt": "2026-10-16T16:37:11+09:00",
+  "newsIndexSourceGeneratedAt": "2026-10-16T16:37:32+09:00",
   "status": "bounded_unlinked_correction_history_for_reporter_review",
   "corrections": 4,
   "totalHistoricalCandidateDocs": 3,
@@ -89,6 +89,11 @@
           "unlinkedComparisons": [],
           "priorCandidateKind": "prior_amendment_issuer_table",
           "priorCandidateTableStatus": "issuer_table_unavailable_or_nonmaterial",
+          "priorCandidateExplicitOriginReferenceStatus": "no_explicit_reference",
+          "priorCandidateExplicitOriginReceipt": null,
+          "priorCandidateExplicitOriginVerifiedInIssuerList": false,
+          "currentAmendmentLinkedToThisOrigin": false,
+          "priorIssuerDeclaredRevisions": [],
           "status": "previous_candidate_official_document_inspected"
         }
       ],
@@ -165,6 +170,8 @@
               "currentAmendmentField": "2. 계약내역 - 계약금액(원)",
               "currentIssuerSaidBefore": "372,324,339,860",
               "priorCandidatePublishedValue": "372,324,339,860",
+              "priorCandidateSaidBefore": "359,775,039,360",
+              "currentIssuerSaidAfter": "383,338,819,710",
               "priorCandidateField": "2. 계약내역 - 계약금액(원)",
               "literalValuesMatch": true,
               "sameContractVerified": false,
@@ -175,6 +182,19 @@
           ],
           "priorCandidateKind": "prior_amendment_issuer_table",
           "priorCandidateTableStatus": "issuer_table_material_changes_for_review",
+          "priorCandidateExplicitOriginReferenceStatus": "no_explicit_reference",
+          "priorCandidateExplicitOriginReceipt": null,
+          "priorCandidateExplicitOriginVerifiedInIssuerList": false,
+          "currentAmendmentLinkedToThisOrigin": false,
+          "priorIssuerDeclaredRevisions": [
+            {
+              "fieldLabel": "2. 계약내역 - 계약금액(원)",
+              "before": "359,775,039,360",
+              "after": "372,324,339,860",
+              "basis": "issuer_reported_amendment_table_only",
+              "independentCurrentLinkageVerified": false
+            }
+          ],
           "status": "previous_candidate_official_document_inspected"
         }
       ],
@@ -243,6 +263,8 @@
               "currentAmendmentField": "5. 계약기간 종료일",
               "currentIssuerSaidBefore": "2026-09-30",
               "priorCandidatePublishedValue": "2026-09-30",
+              "priorCandidateSaidBefore": null,
+              "currentIssuerSaidAfter": "2026-11-30",
               "priorCandidateField": "contract_end",
               "literalValuesMatch": true,
               "sameContractVerified": false,
@@ -253,6 +275,11 @@
           ],
           "priorCandidateKind": "prior_filing_official_terms",
           "priorCandidateTableStatus": "historical_full_document_terms",
+          "priorCandidateExplicitOriginReferenceStatus": "not_an_amendment",
+          "priorCandidateExplicitOriginReceipt": null,
+          "priorCandidateExplicitOriginVerifiedInIssuerList": false,
+          "currentAmendmentLinkedToThisOrigin": false,
+          "priorIssuerDeclaredRevisions": [],
           "status": "previous_candidate_official_document_inspected"
         }
       ],
