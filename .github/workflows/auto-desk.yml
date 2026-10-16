@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths-ignore:
       - 'data.js'
+      - 'digests/auto_news_feed_health_latest.json'
       - 'data.json'
       - 'global.json'
       - 'archive.json'
@@ -157,6 +158,26 @@ jobs:
               sleep 3
             done
           fi
+      - name: Preserve RSS source health even if news collection failed
+        if: ${{ always() }}
+        run: |
+          set -e
+          if [ ! -f digests/auto_news_feed_health_latest.json ]; then
+            echo "Feed health missing; collector may have failed before diagnostics"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add digests/auto_news_feed_health_latest.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "data: RSS source health diagnostic [skip ci]"
+          for attempt in 1 2 3; do
+            git pull --rebase origin main
+            if git push origin HEAD:main; then exit 0; fi
+            sleep 3
+          done
+          echo "Failed to publish RSS diagnostic; news data was NOT overwritten" >&2
+          exit 1
   deploy:
     needs: collect
     runs-on: ubuntu-latest
