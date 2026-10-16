@@ -48,12 +48,12 @@ async function get(file){
  const json=await r.json();return json&&typeof json==="object"?json:null;
  }catch(e){return null;}
 }
-const [dart,investment,events,patent,codes,recall,overseas,kiprisSource,kiprisBudget,newsHealth]=await Promise.all([
+const [dart,investment,events,patent,codes,recall,overseas,kiprisSource,kiprisBudget,newsHealth,globalHealth]=await Promise.all([
  get("latest.json"),get("investigation_hunt_latest.json"),get("official_event_triage_latest.json"),
  get("patent_run_health_latest.json"),get("dart_corp_code_coverage_latest.json"),
  get("domestic_recall_screen_latest.json"),get("crossborder_source_gap_latest.json"),
  get("patent_source_status_latest.json"),get("kipris_source_request_budget_latest.json"),
- get("auto_news_feed_health_latest.json")]);
+ get("auto_news_feed_health_latest.json"),get("global_news_feed_health_latest.json")]);
 const today=R.todayKst();
 const h=el("health");h.replaceChildren();
 p(h,"KIPRIS 특허: "+(patent?.status||"연결상태 미확인")+" · 자료 "+(patent?.generatedAt||"미확인")+
@@ -93,6 +93,14 @@ if(newsHealth&&typeof newsHealth.status==="string"){
  if(newsHealth.newsDatasetApprovedForPublish===false)
   p(h,"자동차 뉴스 수집 미달: 기존 검증 뉴스를 유지합니다. 신규 이슈가 0건이라는 뜻이 아닙니다.");
 }else p(h,"자동차 RSS 원천 진단 파일 없음: 신규 기사 수집 여부 확인 불가");
+if(globalHealth&&typeof globalHealth.status==="string"){
+ p(h,"해외 전문매체 RSS 상태: "+globalHealth.status+
+   " · 총 조회 "+(globalHealth.attemptedQueries??"미확인")+"/"+(globalHealth.expectedQueries??"미확인")+
+   " · 오류 "+(globalHealth.errorQueries??"미확인")+
+   " · 번역 후 보존 "+(globalHealth.recentArticleItemsAfterDedupe??"미확인")+"건");
+ if(globalHealth.newsDatasetApprovedForPublish===false)
+  p(h,"해외 뉴스 미수집/번역 실패: 기존 검증 해외 뉴스 보존, 신규 소식 0건 아님");
+}else p(h,"해외 전문매체 RSS 별도 진단 파일 없음: 최신 수집 상태 미확인");
 const gate=R.recallReadiness(recall),a=el("recall");a.replaceChildren();
 p(a,"상태: 제공기관의 이용 승인·인증 방식·실제 API 응답 명세 대기");
 p(a,"자동 수집: "+(gate.publicScreen==="first_page_clues_only"?"공개 웹 검색 첫 페이지 제목만 참고":"공개 웹 조회상태 불명"));
