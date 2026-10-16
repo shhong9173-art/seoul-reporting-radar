@@ -4,6 +4,8 @@ on:
     branches: [main]
     paths:
       - 'scripts/patent_hunt.py'
+      - 'scripts/kipris_source_budget.py'
+      - 'tests/test_kipris_source_budget.py'
       - 'scripts/patent_deep_hunt.py'
       - 'scripts/patent_joint_verification.py'
       - 'tests/test_patent_joint_verification.py'
@@ -26,9 +28,9 @@ on:
       - 'scripts/patent_record_review.py'
       - '.github/workflows/kipris-patent-hunt.yml'
   schedule:
-    # Weekdays KST 06:30 / 12:30 / 17:30. GitHub may delay scheduled runs.
+    # Once each weekday at 06:30 KST instead of three full-list searches.
+    # The source-only ledger is not a substitute for account-wide usage data.
     - cron: '30 21 * * 0-4'
-    - cron: '30 3,8 * * 1-5'
   workflow_dispatch:
 
 permissions:
@@ -54,6 +56,7 @@ jobs:
         run: |
           python -m compileall -q scripts/patent_hunt.py scripts/patent_deep_hunt.py scripts/patent_story_hunt.py scripts/patent_run_health.py scripts/patent_quality_metrics.py scripts/patent_record_review.py scripts/patent_editorial_desk.py scripts/patent_cross_evidence.py scripts/patent_public_factcheck.py scripts/patent_reporting_triage.py scripts/patent_joint_verification.py
           python -m unittest discover -s tests -p 'test_patent_hunt.py' -v
+          python -m unittest discover -s tests -p 'test_kipris_source_budget.py' -v
           python -m unittest discover -s tests -p 'test_patent_deep_hunt.py' -v
           python -m unittest discover -s tests -p 'test_patent_joint_verification.py' -v
           python -m unittest discover -s tests -p 'test_patent_claim_review.py' -v
@@ -123,6 +126,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           if [ -f digests/patent_run_health_latest.json ]; then git add digests/patent_run_health_latest.json; fi
           if [ -f digests/patent_source_status_latest.json ]; then git add digests/patent_source_status_latest.json; fi
+          if [ -f digests/kipris_source_request_budget_latest.json ]; then git add digests/kipris_source_request_budget_latest.json; fi
           if [ "${{ steps.source.outcome }}" = "success" ]; then git add digests/patent_hunt_latest.json; fi
           if [ "${{ steps.deep.outcome }}" = "success" ] && [ -f digests/patent_deep_latest.json ]; then git add digests/patent_deep_latest.json; fi
           if [ "${{ steps.joint_review.outcome }}" = "success" ] && [ -f digests/patent_joint_verification_latest.json ]; then git add digests/patent_joint_verification_latest.json; fi
