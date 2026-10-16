@@ -107,10 +107,20 @@ try{
           if(src.hostname!=="static.nhtsa.gov"||src.protocol!=="https:"||
              !/^\/odi\/rcl\/2026\/RCLRPT-26V(664|588)-[0-9]{4}\.pdf$/.test(src.pathname))
              throw Error("미국 제조사 보고서 원문 출처 오류");
+          const thermalAllegation=k.incidentLanguageClassification==="thermal_event_allegation_unverified";
+          const note=thermalAllegation?
+            " (한국 시장의 열 관련 사건 '주장' 언급, 화재 발생·국내 사고 독립 확인 전)":
+            k.incidentTermNearby?
+            " (열·화재 관련 단어 근접, 실제 사건 확인 전)":
+            " (한국 시장 언급, 사고 사실 미확인)";
           line(c,"미국 Part 573 "+k.pdfPage+"쪽, 한국 시장 원문 문맥: "+
-               k.usManufacturerContext+
-               (k.incidentTermNearby?" (사고·화재 관련 단어 근접, 실제 국내 사건 확인 전)":
-                " (한국 시장 언급, 사고 사실 미확인)"),"small");
+               k.usManufacturerContext+note,"small");
+          if(thermalAllegation){
+             if(k.explicitFireConfirmedByManufacturer!==false)throw Error("열 사건 주장은 화재 확인이 아님");
+             line(c,"현대차에 한국 시장 관련 추가 정보가 접수된 원문 일자: "+
+               (k.manufacturerInformationReceivedDateFromExactText||"날짜 추출 미확인")+
+               " · 열 관련 사건 주장만 기재, 국내 화재 사실·리콜 부재 미확인","dim");
+          }
           link(c,k.officialPdfUrl,"해당 NHTSA PDF 원문 ↗");
         }
       }
