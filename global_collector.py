@@ -11,9 +11,13 @@ from datetime import datetime, timedelta
 from email.utils import parsedate_to_datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
+from scripts.rss_concurrent import collect_feeds
+from scripts.global_news_pipeline import shortlist, translate_selected
+from scripts.auto_news_feed_health import build as build_feed_health, persist as persist_feed_health
 
 KST = ZoneInfo("Asia/Seoul")
 DATA = Path("data.json")
+GLOBAL_FEED_CHECKS=[]
 
 QUERIES = [
     ("Reuters", "site:reuters.com automotive OR EV OR electric vehicle OR battery OR auto tariff OR Hyundai OR Kia OR LG Energy Solution OR Samsung SDI OR SK On OR CATL OR BYD"),
@@ -72,21 +76,21 @@ def translate(text: str) -> tuple[str, str]:
         return text, "already_ko"
 
     url = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=ko&dt=t&q=" + urllib.parse.quote(text)
-    for attempt in range(3):
+    for attempt in range(2):
         try:
-            raw = json.loads(get(url, 12))
+            raw = json.loads(get(url, 8))
             translated = "".join(part[0] for part in raw[0] if part and part[0]).strip()
             if translated and (looks_korean(translated) or not re.search(r"[A-Za-z]", text)):
                 return translated, "translated"
         except Exception:
             pass
-        time.sleep(0.7 * (attempt + 1))
+        time.sleep(0.35 * (attempt + 1))
 
     # Second provider fallback. It is intentionally only used when Google translation failed.
     try:
         q = urllib.parse.quote(text[:500])
         mm = f"https://api.mymemory.translated.net/get?q={q}&langpair=en|ko"
-        raw = json.loads(get(mm, 12))
+        raw = json.loads(get(mm, 8))
         translated = str(raw.get("responseData", {}).get("translatedText", "")).strip()
         if translated and looks_korean(translated):
             return translated, "translated_fallback"
@@ -97,10 +101,19 @@ def translate(text: str) -> tuple[str, str]:
 
 
 def parse(source: str, query: str) -> list[dict]:
+    started=time.monotonic()
     url = "https://news.google.com/rss/search?q=" + urllib.parse.quote(query) + "&hl=en-US&gl=US&ceid=US:en"
     try:
         root = ET.fromstring(get(url))
-    except Exception:
+        if root.tag!="rss" or root.find("channel") is None:
+            raise ValueError("rss_channel_missing")
+    except Exception as exc:
+        GLOBAL_FEED_CHECKS.append({
+            "category":source[:40],"globalFeed":True,
+            "status":"malformed_rss" if isinstance(exc,(ET.ParseError,ValueError))
+                    else "transport_or_xml_error",
+            "recentRows":0,"errorType":type(exc).__name__,
+            "durationMs":min(600000,int((time.monotonic()-started)*1000))})
         return []
     cutoff = datetime.now(KST) - timedelta(hours=96)
     rows = []
@@ -129,11 +142,8 @@ def parse(source: str, query: str) -> list[dict]:
         impact = sum(1 for x in HIGH_IMPACT if x in text)
         score = min(99, 45 + korea_score * 9 + min(industry_score, 5) * 4 + min(impact, 5) * 4)
 
-        ko_title, title_status = translate(title)
-        ko_summary, summary_status = translate(desc[:900])
-        # Never label an untranslated English string as translated.
-        translation_status = "translated" if title_status.startswith("translated") else title_status
-
+        # Translation happens after cross-feed headline deduplication and priority ranking.
+        # Calling external translation here multiplies latency for duplicate RSS hits.
         rows.append({
             "title": title,
             "url": link,
@@ -144,13 +154,24 @@ def parse(source: str, query: str) -> list[dict]:
             "globalSource": source,
             "summary": desc[:1000],
             "globalScore": score,
-            "koTitle": ko_title,
-            "koSummary": ko_summary,
-            "translationStatus": translation_status,
+            "koTitle": "",
+            "koSummary": "",
+            "translationStatus": "not_attempted_until_deduplication",
             "globalWhy": "한국 자동차·부품·배터리 산업과 연결되거나 글로벌 공급망·통상·생산 변화가 큰 해외 신호입니다.",
             "globalPitch": score >= 70,
         })
+    GLOBAL_FEED_CHECKS.append({
+        "category":source[:40],"globalFeed":True,
+        "status":"checked_recent_rows" if rows else "checked_no_recent_rows",
+        "recentRows":min(100,len(rows)),"errorType":None,
+        "durationMs":min(600000,int((time.monotonic()-started)*1000))})
     return rows
+
+
+def unexpected_feed_error(category,is_global,error_type):
+    GLOBAL_FEED_CHECKS.append({
+        "category":category[:40],"globalFeed":True,
+        "status":"transport_or_xml_error","recentRows":0,"errorType":error_type})
 
 
 def main() -> None:
@@ -160,30 +181,38 @@ def main() -> None:
         current = []
 
     domestic = [x for x in current if not x.get("global")]
-    globals_: list[dict] = []
-    for source, query in QUERIES:
-        globals_.extend(parse(source, query))
+    try:
+        previous_global=json.loads(Path("global.json").read_text(encoding="utf-8"))
+        if not isinstance(previous_global,list):previous_global=[]
+    except (OSError,ValueError):previous_global=[]
 
-    seen = set()
-    unique = []
-    for item in sorted(globals_, key=lambda x: x["published"], reverse=True):
-        key = re.sub(r"\s+", " ", item["title"].lower()).strip()
-        if key in seen:
-            continue
-        seen.add(key)
-        unique.append(item)
+    # Twelve independent source-bound queries: max 3 simultaneous RSS fetches.
+    _,raw_globals=collect_feeds([],QUERIES,
+        lambda cat,q,global_feed=False,source_hint="":parse(source_hint,q),
+        on_error=unexpected_feed_error,workers=3)
+    candidates=shortlist(raw_globals,limit=32)
+    unique=translate_selected(candidates,translate,
+        previous=previous_global,workers=3)
+    unique=[x for x in unique if x.get("koTitle") and
+            x.get("translationStatus")!="translation_failed"]
+    diagnostic=build_feed_health(GLOBAL_FEED_CHECKS,expected=len(QUERIES),
+        news_items=len(unique),now=datetime.now(KST),threshold=1)
+    persist_feed_health(diagnostic,Path("digests/global_news_feed_health_latest.json"))
+    # Do not overwrite previously verified worldwide stories with a blackout.
+    if not unique:
+        raise SystemExit("No translated global stories: previous news dataset preserved")
 
-    # Drop items whose title could not be translated; they are not useful for the Korean newsroom view.
-    unique = [x for x in unique if x.get("translationStatus") != "translation_failed" and x.get("koTitle")]
-    unique = sorted(unique, key=lambda x: (x.get("globalScore", 0), x["published"]), reverse=True)[:80]
     merged = domestic + unique
     merged.sort(key=lambda x: x.get("published", ""), reverse=True)
 
     DATA.write_text(json.dumps(merged, ensure_ascii=False, indent=2), encoding="utf-8")
     Path("data.js").write_text("window.ITEMS = " + json.dumps(merged, ensure_ascii=False, indent=2) + ";\n", encoding="utf-8")
     Path("global.json").write_text(json.dumps(unique, ensure_ascii=False, indent=2), encoding="utf-8")
-    failed = sum(1 for x in unique if x.get("translationStatus") == "translation_failed")
-    print(f"global radar: {len(unique)} translated records retained; {failed} translation failures dropped; total feed: {len(merged)}")
+    reused=sum(bool(x.get("translationCacheUsed")) for x in unique)
+    print(f"global radar: {len(unique)} source-filtered translated records; "
+          f"{reused} exact-title/URL/summary translations reused; "
+          f"RSS query errors {diagnostic['errorQueries']}/{len(QUERIES)}; "
+          f"total feed {len(merged)}")
 
 
 if __name__ == "__main__":
