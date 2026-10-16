@@ -4,8 +4,10 @@ from datetime import datetime, timedelta
 from email.utils import parsedate_to_datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
+from scripts.auto_news_feed_health import build as build_feed_health, persist as persist_feed_health
 
 KST=ZoneInfo('Asia/Seoul'); OUT=Path('data.js'); JSON_OUT=Path('data.json')
+FEED_CHECKS=[]
 FEEDS=[
  ('완성차','현대차 OR 기아 OR 제네시스 OR 현대자동차 OR 기아자동차'),
  ('부품','자동차부품 OR 현대모비스 OR 현대위아 OR 현대트랜시스 OR HL만도 OR 전장부품'),
@@ -75,8 +77,16 @@ def exclusive(t):
 def parse_feed(category,query,global_feed=False,source_hint=''):
     lang,gl=('en-US','US') if global_feed else ('ko','KR')
     u='https://news.google.com/rss/search?q='+urllib.parse.quote(query)+'&hl='+lang+'&gl='+gl+'&ceid='+gl+':'+('en' if global_feed else 'ko')
-    try:root=ET.fromstring(get(u))
-    except Exception:return []
+    try:
+        root=ET.fromstring(get(u))
+        if root.tag!="rss" or root.find("channel") is None:
+            raise ValueError("rss_channel_missing")
+    except Exception as exc:
+        FEED_CHECKS.append({"category":category,"globalFeed":bool(global_feed),
+            "status":"malformed_rss" if isinstance(exc,(ET.ParseError,ValueError))
+                 else "transport_or_xml_error",
+            "recentRows":0,"errorType":type(exc).__name__})
+        return []
     cutoff=datetime.now(KST)-timedelta(hours=72);out=[]
     for item in root.findall('./channel/item'):
         title=(item.findtext('title') or '').strip();link=(item.findtext('link') or '').strip();pub=(item.findtext('pubDate') or '').strip();desc=clean(item.findtext('description') or '')
@@ -91,6 +101,9 @@ def parse_feed(category,query,global_feed=False,source_hint=''):
         except Exception:dt=datetime.now(KST)
         if dt<cutoff:continue
         out.append({'category':category,'title':title,'url':link,'published':dt.isoformat(),'sourceName':source or source_hint,'summary':desc[:900],'global':global_feed})
+    FEED_CHECKS.append({"category":category,"globalFeed":bool(global_feed),
+        "status":"checked_recent_rows" if out else "checked_no_recent_rows",
+        "recentRows":len(out) if len(out)<101 else 100,"errorType":None})
     return out
 
 def translate(text):
@@ -156,7 +169,12 @@ global_items=[]
 for hint,q in GLOBAL_FEEDS:global_items.extend(parse_feed('글로벌',q,True,hint))
 global_items=dedupe(global_items)[:30]
 items=enrich(dedupe(raw)+global_items);items.sort(key=lambda x:(x.get('global',False),x['priority']!='must',-x['score'],x['published']));items=items[:220]
-if len(items)<10:raise SystemExit(f'collection returned only {len(items)} items')
+# Always write source diagnostics before the existing fail-closed publication gate.
+# Do not silently convert a failed RSS request into "no news".
+health=build_feed_health(FEED_CHECKS,expected=len(FEEDS)+len(GLOBAL_FEEDS),
+    news_items=len(items),now=datetime.now(KST),threshold=10)
+persist_feed_health(health,Path("digests/auto_news_feed_health_latest.json"))
+if len(items)<10:raise SystemExit(f'collection returned only {len(items)} items; feed health: {health["status"]}, errors {health["errorQueries"]}')
 payload=json.dumps(items,ensure_ascii=False,separators=(',',':'))
 JSON_OUT.write_text(payload,encoding='utf-8');OUT.write_text('window.ITEMS = '+payload+';\n',encoding='utf-8')
 print(f'wrote {len(items)} items including {len(global_items)} global items')
