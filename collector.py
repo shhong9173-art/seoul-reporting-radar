@@ -1,5 +1,5 @@
 from __future__ import annotations
-import hashlib, html, json, re, urllib.parse, urllib.request, xml.etree.ElementTree as ET
+import hashlib, html, json, re, time, urllib.parse, urllib.request, xml.etree.ElementTree as ET
 from datetime import datetime, timedelta
 from email.utils import parsedate_to_datetime
 from pathlib import Path
@@ -76,6 +76,7 @@ def exclusive(t):
     return any(re.search(p,s,re.I) for p in pats)
 
 def parse_feed(category,query,global_feed=False,source_hint=''):
+    start=time.monotonic()
     lang,gl=('en-US','US') if global_feed else ('ko','KR')
     u='https://news.google.com/rss/search?q='+urllib.parse.quote(query)+'&hl='+lang+'&gl='+gl+'&ceid='+gl+':'+('en' if global_feed else 'ko')
     try:
@@ -86,7 +87,8 @@ def parse_feed(category,query,global_feed=False,source_hint=''):
         FEED_CHECKS.append({"category":category,"globalFeed":bool(global_feed),
             "status":"malformed_rss" if isinstance(exc,(ET.ParseError,ValueError))
                  else "transport_or_xml_error",
-            "recentRows":0,"errorType":type(exc).__name__})
+            "recentRows":0,"errorType":type(exc).__name__,
+            "durationMs":min(600000,int((time.monotonic()-start)*1000))})
         return []
     cutoff=datetime.now(KST)-timedelta(hours=72);out=[]
     for item in root.findall('./channel/item'):
@@ -104,7 +106,8 @@ def parse_feed(category,query,global_feed=False,source_hint=''):
         out.append({'category':category,'title':title,'url':link,'published':dt.isoformat(),'sourceName':source or source_hint,'summary':desc[:900],'global':global_feed})
     FEED_CHECKS.append({"category":category,"globalFeed":bool(global_feed),
         "status":"checked_recent_rows" if out else "checked_no_recent_rows",
-        "recentRows":len(out) if len(out)<101 else 100,"errorType":None})
+        "recentRows":len(out) if len(out)<101 else 100,"errorType":None,
+        "durationMs":min(600000,int((time.monotonic()-start)*1000))})
     return out
 
 def translate(text):
