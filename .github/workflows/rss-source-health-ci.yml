@@ -1,0 +1,42 @@
+name: RSS Source Health Fail-Closed Regression
+on:
+  pull_request:
+    paths:
+      - 'collector.py'
+      - 'scripts/auto_news_feed_health.py'
+      - 'tests/test_auto_news_feed_health.py'
+      - '.github/workflows/auto-desk.yml'
+      - '.github/workflows/rss-source-health-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'collector.py'
+      - 'scripts/auto_news_feed_health.py'
+      - '.github/workflows/rss-source-health-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m compileall -q collector.py scripts/auto_news_feed_health.py
+      - run: python -m unittest discover -s tests -p 'test_auto_news_feed_health.py' -v
+      - name: Assert live collector fails closed and workflow preserves diagnostics
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          src=Path('collector.py').read_text(encoding='utf-8')
+          wf=Path('.github/workflows/auto-desk.yml').read_text(encoding='utf-8')
+          assert 'FEED_CHECKS.append(' in src
+          assert 'persist_feed_health(health' in src
+          assert src.index('persist_feed_health(health')<src.index("if len(items)<10:")
+          assert 'always()' in wf
+          assert 'git add digests/auto_news_feed_health_latest.json' in wf
+          assert '[skip ci]' in wf
+          print('PASS: no collector report 0 to newsroom data.js; RSS failures audited')
+          PY
