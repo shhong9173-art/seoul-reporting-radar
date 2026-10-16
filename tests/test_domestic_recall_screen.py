@@ -53,6 +53,8 @@ class SafeIndex(unittest.TestCase):
     def test_g80_news_excludes_ioniq_and_gv80_unrelated_article(self):
         self.assertFalse(s.relevant_news_title("아이오닉 9 시트 리콜","26V664000"))
         self.assertFalse(s.relevant_news_title("제네시스 GV80 CEO 의전차","26V664000"))
+        self.assertFalse(s.relevant_news_title("2020년식 제네시스 GV80 고압연료펌프 리콜","26V664000"))
+        self.assertTrue(s.relevant_news_title("현대 제네시스 시트 스위치 과열 신고","26V664000"))
         self.assertTrue(s.relevant_news_title("제네시스 G80 시트 스위치 리콜","26V664000"))
         self.assertFalse(s.relevant_news_title("제네시스 G80 시트 리콜","26V588000"))
         self.assertTrue(s.relevant_news_title("아이오닉 9 전동시트 국내 리콜","26V588000"))
