@@ -27,6 +27,7 @@ class SourceRequestMeter:
         self.this_run=0
         self.monthly_count=0
         self.data=None
+        self.provider_probe_override=False
         self.provider_result_code=None
         self.next_provider_probe_at=None
         if self.path.exists():
@@ -105,7 +106,7 @@ class SourceRequestMeter:
         self.persist()
 
     def get(self,url):
-        if not self.should_probe():
+        if not self.should_probe(force=self.provider_probe_override):
             raise SourceRequestBudgetExhausted("provider_22_probe_cooldown")
         if self.this_run>=self.run_limit or self.monthly_count>=self.monthly_limit:
             raise SourceRequestBudgetExhausted("source_request_budget_exhausted")
