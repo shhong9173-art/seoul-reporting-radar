@@ -77,7 +77,7 @@ def relevant_news_title(title,campaign):
     """Reject obviously unrelated model headlines; matching still is NOT press verification."""
     compact=re.sub(r"\s+","",title).upper()
     if campaign=="26V664000":
-        g80=bool(re.search(r"(?<![A-Z0-9])G80(?![A-Z0-9])",compact))
+        g80=bool(re.search(r"(?<![A-Z0-9])G80(?![A-Z0-9])",title.upper()))
         genesis_seat="제네시스" in compact and any(
             x in compact for x in ("시트","스위치","리콜","화재","과열"))
         return (g80 or genesis_seat) and any(x in compact
