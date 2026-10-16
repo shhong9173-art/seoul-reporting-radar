@@ -89,6 +89,82 @@ class EvidenceQueue(unittest.TestCase):
         corrected=next(v for v in x["items"] if v["tier"]=="issuer_only_correction_unverified_original")
         self.assertIn("최초 원공시 미대조",corrected["evidenceSummary"])
 
+    def test_three_source_unlinked_correction_is_review_not_recent_or_scoop(self):
+        s=fixtures()
+        stamp="2026-10-16T10:00:00+09:00"
+        s["officialEvents"]["freshOfficialReview"]=[]
+        amendment="20260930800924"
+        prior="20260226801263"
+        s["recentLedger"]={"generatedAt":stamp,"items":[{
+            "company":"효성중공업","receiptNo":amendment,"published":"20260930",
+            "sourceUrl":url(amendment),"isCorrection":True,
+            "status":"original_not_verified","originalReceiptNo":None
+        }]}
+        s["contracts"]={"generatedAt":stamp,"dartSourceGeneratedAt":stamp,
+            "status":"reporter_review_not_exclusive","items":[{
+                "company":"효성중공업","receiptNo":amendment,"officialSourceUrl":url(amendment),
+                "isCorrection":True,"comparisonStatus":"original_unverified_no_comparison",
+                "officialSourceStatus":"original_not_verified","originalReceiptNo":None,
+                "exclusiveConfirmed":False,"approvedForPitch":False
+            }]}
+        match={
+            "field":"contract_amount",
+            "priorCandidatePublishedValue":"372,324,339,860",
+            "currentIssuerSaidBefore":"372,324,339,860",
+            "currentIssuerSaidAfter":"383,338,819,710",
+            "literalValuesMatch":True,"sameContractVerified":False,
+            "contractEffectVerified":False,"previouslyReportedInMediaVerified":False,
+            "basis":"unlinked_same_issuer_event_type_date_candidate_only"
+        }
+        s["correctionHistory"]={"generatedAt":stamp,"status":
+            "bounded_unlinked_correction_history_for_reporter_review",
+            "dartSourceGeneratedAt":stamp,"newsIndexSourceGeneratedAt":stamp,
+            "verifiedSameContractHistory":0,"confirmedScoops":0,"approvedArticles":0,
+            "items":[{
+                "company":"효성중공업","receiptNo":amendment,"officialDate":"20260930",
+                "sourceUrl":url(amendment),"linkageVerified":False,
+                "confirmedExclusive":False,"approvedForPitch":False,
+                "priorOfficialCandidateDocuments":[{
+                    "receiptNo":prior,"officialDate":"20260226","sourceUrl":url(prior),
+                    "relationshipStatus":"UNLINKED_same_company_category_reference_date",
+                    "priorDocumentRetrieved":True,"sameContractVerified":False,
+                    "currentAmendmentLinkedToThisOrigin":False,
+                    "priorCandidateExplicitOriginVerifiedInIssuerList":False,
+                    "unlinkedComparisons":[match]
+                }]
+            }]}
+        d=q.build(s,now=NOW)
+        self.assertEqual(d["unlinkedHistoryTextMatchCount"],1)
+        self.assertEqual(d["todayOnlyCount"],0)
+        self.assertEqual(d["correctionHistorySourceGate"],"reviewed_unlinked_candidates_only")
+        item=next(r for r in d["items"] if r["tier"]=="unlinked_correction_text_followup")
+        self.assertEqual(item["officialDocumentDate"],"2026-09-30")
+        self.assertEqual(item["officialUrls"],[url(amendment),url(prior)])
+        self.assertTrue(item["textMatchIsNotContractContinuity"])
+        self.assertFalse(item["contractLinkVerified"])
+        self.assertFalse(item["exclusiveConfirmed"])
+        self.assertFalse(item["approvedForPitch"])
+        self.assertFalse(item["newsArticleFulltextVerified"])
+        self.assertIn("동일 계약 및 실제 계약 변경은 증명되지 않음",item["evidenceSummary"])
+
+        # A previous candidate belongs to a different issuer/event if the
+        # unrelated snapshots drift or issuer-given values do not match.
+        s["correctionHistory"]["newsIndexSourceGeneratedAt"]="2026-10-16T09:00:00+09:00"
+        mismatched=q.build(s,now=NOW)
+        self.assertEqual(mismatched["unlinkedHistoryTextMatchCount"],0)
+        self.assertEqual(mismatched["correctionHistorySourceGate"],
+                         "original_document_snapshot_provenance_mismatch")
+        s["correctionHistory"]["newsIndexSourceGeneratedAt"]=stamp
+        s["correctionHistory"]["items"][0]["priorOfficialCandidateDocuments"][0][
+            "unlinkedComparisons"][0]["currentIssuerSaidBefore"]="111,111,111,111"
+        self.assertEqual(q.build(s,now=NOW)["unlinkedHistoryTextMatchCount"],0)
+
+    def test_missing_history_stays_unavailable_not_zero_old_contracts(self):
+        r=q.build(fixtures(),now=NOW)
+        self.assertEqual(r["unlinkedHistoryTextMatchCount"],0)
+        self.assertEqual(r["correctionHistorySourceGate"],"missing_or_stale_related_snapshots")
+        self.assertNotEqual(r["sourceCoverage"],"verified_inputs_only")
+
     def test_empty_fresh_is_not_zero_news_coverage(self):
         s=fixtures()
         s["officialEvents"]["freshOfficialReview"]=[]

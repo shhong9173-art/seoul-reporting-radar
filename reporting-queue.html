@@ -23,13 +23,14 @@ article li{margin:2px 0;font-size:13px}
 </style></head><body><main>
 <a href="index.html">← 산업부 종합 취재 레이더</a>
 <h1>공식 원문 증거 등급별 취재 대기열</h1>
-<p class="small">수집일이 아닌 실제 공식 공시·고시일로 분류합니다. 새 원문 접수와 과거 공시 비교, 원공시 미검증 정정을 따로 보여줍니다.</p>
+<p class="small">기본 화면은 실제 접수일이 최근 3일인 공식 문서만 보여줍니다. 오래된 공시 비교와 원공시 미검증 정정은 별도 조사 탭에서 확인하세요.</p>
 <div class="warning"><strong>단독·기사화 승인 자료가 아닙니다.</strong> ‘신규 공식 접수’도 이미 공개된 사실이며, 공시 수치 차이·정정문 자체의 변경란만으로 실물 계약 변화나 기업 영향을 단정할 수 없습니다. 기존 보도 전문과 기업의 확인 가능한 공식자료를 반드시 확인하세요.</div>
 <div class="health" id="health">원천 스냅샷·수집범위 확인 중</div>
 <div class="filters">
 <label for="tier">근거 구분</label>
-<select id="tier"><option value="all">전체 자료</option>
-<option value="new_official_receipt_review">최근 3일 공식 원문</option>
+<select id="tier"><option value="new_official_receipt_review" selected>최근 3일 공식 원문 · 기본</option>
+<option value="unlinked_correction_text_followup">계약 동일성 미확인 · 원공시 역추적</option>
+<option value="all">전체 과거 자료 · 직접 선택</option>
 <option value="verified_historical_investment_delta">과거 투자 기재 비교</option>
 <option value="verified_historical_numeric_delta">과거 수치 비교</option>
 <option value="issuer_only_correction_unverified_original">원공시 미대조 정정</option>
@@ -65,8 +66,13 @@ try{
     throw Error("근거 게이트 검증 실패");
  const health=el("health");health.replaceChildren();
  add(health,"strong","원자료 생성 "+data.generatedAt);
- add(health,"p","최근 3일 공식 접수 검토 "+data.checkedOfficialRecentCandidates+
-   "건 · 전체 자료 "+data.items.length+"건 · 확정 단독 0건","small");
+ add(health,"p","최근 3일 공식 접수 "+data.checkedOfficialRecentCandidates+
+   "건 · 과거 비교/조사 자료 "+(data.historicalResearchCount??"미확인")+
+   "건 · 정정문 간 값 일치(계약 동질성 미확인) "+
+   (data.unlinkedHistoryTextMatchCount??"미확인")+"건 · 확정 단독 0건","small");
+ if(data.correctionHistorySourceGate!=="reviewed_unlinked_candidates_only")
+  add(health,"p","정정공시 원계약 추적: "+(data.correctionHistorySourceGate||"원천 검증 상태 미확인")+
+     " · 연결되지 않은 원천을 0건 또는 동일 계약으로 단정 금지","small");
  if(data.sourceCoverage!=="verified_inputs_only")
   add(health,"p","일부 공식 원천이 미수집·오래됨: 후보 0건을 실제 사건 0건으로 해석하지 마세요.","small");
  for(const [name,x] of Object.entries(data.sourceHealth||{}))
@@ -88,12 +94,18 @@ try{
       x.pressFulltextReviewed!==false||x.companyImpactVerified!==false||
       x.officialDateIsSourcePublicationNotScrape!==true)
      continue;
+   if(x.tier==="unlinked_correction_text_followup"&&(
+       x.contractLinkVerified!==false || x.textMatchIsNotContractContinuity!==true ||
+       x.newsArticleFulltextVerified!==false || x.historicalNotNewIncident!==true))
+     continue;
    const card=add(host,"article");
    add(card,"span",x.tierLabel,"flag");
    add(card,"h3",x.title);
    add(card,"p",x.company+" · 공식 발행·접수일 "+x.officialDocumentDate,"date");
    add(card,"p",x.evidenceSummary);
    add(card,"p","기보도 전문·사업 영향·단독성 미검증","small");
+   if(x.tier==="unlinked_correction_text_followup")
+    add(card,"p","과거 공시 문구 일치만 확인: 동일 계약·원계약 연결·실제 계약 효력 미확정","small");
    const links=add(card,"div",undefined,"links");
    for(const u of (x.officialUrls||[]).slice(0,3))officialLink(links,u);
    const checks=add(card,"ul");
