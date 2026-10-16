@@ -26,8 +26,13 @@ def build(checks,*,expected,news_items,now,threshold=10):
             (not isinstance(row["errorType"],str) or
              not row["errorType"].isidentifier() or len(row["errorType"])>50)):
             raise ValueError("invalid_row")
-        safe.append({k:row.get(k) for k in
-                ("category","globalFeed","status","recentRows","errorType")})
+        duration=row.get("durationMs")
+        if duration is not None and (type(duration) is not int or not 0<=duration<=600000):
+            raise ValueError("invalid_latency")
+        slim={k:row.get(k) for k in
+                ("category","globalFeed","status","recentRows","errorType")}
+        if duration is not None:slim["durationMs"]=duration
+        safe.append(slim)
     failures=sum(x["status"] in ("transport_or_xml_error","malformed_rss") for x in safe)
     zero=sum(x["status"]=="checked_no_recent_rows" for x in safe)
     complete=len(safe)==expected
@@ -38,6 +43,10 @@ def build(checks,*,expected,news_items,now,threshold=10):
       "generatedAt":now.isoformat(timespec="seconds"),
       "status":status,"expectedQueries":expected,"attemptedQueries":len(safe),
       "errorQueries":failures,"validEmptyQueries":zero,
+      "slowestQueries":[{"category":x["category"],"globalFeed":x["globalFeed"],
+                         "status":x["status"],"durationMs":x["durationMs"]}
+                        for x in sorted((s for s in safe if "durationMs" in s),
+                            key=lambda s:s["durationMs"],reverse=True)[:5]],
       "recentArticleItemsAfterDedupe":news_items,
       "minimumPublicationItems":threshold,
       "newsDatasetApprovedForPublish":(news_items>=threshold),
