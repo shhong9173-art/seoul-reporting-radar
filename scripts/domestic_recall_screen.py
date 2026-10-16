@@ -73,7 +73,21 @@ def news_query(campaign):
           else '"아이오닉9" "리콜" when:45d')
     return RSS+"?"+urlencode({"q":text,"hl":"ko","gl":"KR","ceid":"KR:ko"})
 
-def parse_news(raw,now):
+def relevant_news_title(title,campaign):
+    """Reject obviously unrelated model headlines; matching still is NOT press verification."""
+    compact=re.sub(r"\s+","",title).upper()
+    if campaign=="26V664000":
+        g80=bool(re.search(r"(?<![A-Z0-9])G80(?![A-Z0-9])",compact))
+        genesis_seat="제네시스" in compact and any(
+            x in compact for x in ("시트","스위치","리콜","화재","과열"))
+        return (g80 or genesis_seat) and any(x in compact
+            for x in ("리콜","시트","스위치","화재","과열","RECALL"))
+    if campaign=="26V588000":
+        return "아이오닉9" in compact and any(
+            x in compact for x in ("리콜","시트","RECALL"))
+    return False
+
+def parse_news(raw,now,campaign):
     root=ET.fromstring(raw)
     if root.tag!="rss" or root.find("channel") is None:
         raise ValueError("invalid_news_index")
@@ -84,7 +98,7 @@ def parse_news(raw,now):
         try:stamp=parsedate_to_datetime(item.findtext("pubDate") or "")
         except (ValueError,TypeError):continue
         u=urlsplit(link)
-        if (not title or stamp.utcoffset() is None
+        if (not title or not relevant_news_title(title,campaign) or stamp.utcoffset() is None
             or u.scheme!="https" or u.hostname!="news.google.com"
             or stamp>now+timedelta(minutes=20) or now-stamp>timedelta(days=45)):
             continue
@@ -124,7 +138,7 @@ def scan(source,*,now=None,fetch=get):
         p={"searchUrl":news_query(campaign),"status":"not_checked","headlines":[],
            "fulltextRead":False,"sameAngleCovered":False,"pressAbsenceVerified":False}
         try:
-            p["headlines"]=parse_news(fetch(p["searchUrl"]),now)
+            p["headlines"]=parse_news(fetch(p["searchUrl"]),now,campaign)
             p["status"]="headline_index_only"
         except (ValueError,TypeError,ET.ParseError,TimeoutError,URLError,HTTPError,OSError) as exc:
             p["status"]="news_index_unavailable_or_unparsed";p["errorType"]=type(exc).__name__
