@@ -78,8 +78,10 @@ def relevant_news_title(title,campaign):
     compact=re.sub(r"\s+","",title).upper()
     if campaign=="26V664000":
         g80=bool(re.search(r"(?<![A-Z0-9])G80(?![A-Z0-9])",title.upper()))
-        genesis_seat="제네시스" in compact and any(
-            x in compact for x in ("시트","스위치","리콜","화재","과열"))
+        genesis_seat=("제네시스" in compact
+            and not any(other in compact for other in
+                ("GV60","GV70","GV80","G70","G90"))
+            and any(x in compact for x in ("시트","스위치","좌석","화재","과열","발화")))
         return (g80 or genesis_seat) and any(x in compact
             for x in ("리콜","시트","스위치","화재","과열","RECALL"))
     if campaign=="26V588000":
