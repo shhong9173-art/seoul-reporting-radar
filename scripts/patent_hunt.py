@@ -538,6 +538,7 @@ def main():
     # and resultCode 22 meaning must still be checked with KIPRISPlus.
     meter=SourceRequestMeter("digests/kipris_source_request_budget_latest.json",
                              fetch=request_xml)
+    meter.provider_probe_override=args.force_provider_probe
     if not meter.should_probe(force=args.force_provider_probe):
         # No network request; do not turn source failure into zero patents.
         save_publication_diagnostics({
