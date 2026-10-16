@@ -16,6 +16,8 @@ import xml.etree.ElementTree as ET
 from collections import Counter
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+
+from kipris_source_budget import SourceRequestMeter, SourceRequestBudgetExhausted
 from urllib.parse import urlencode, quote
 from urllib.request import Request, urlopen
 
@@ -371,6 +373,8 @@ def build(key,previous=None,now=None,search=search_applicant,coverage=None,
             # Avoid another 23 identical failing official calls.
             if code is not None:
                 provider_failure=code
+            if isinstance(ex,SourceRequestBudgetExhausted):
+                provider_failure="source_request_budget_stop"
     leads=sorted(candidates.values(),key=lambda r:(-r["priorityScore"],-int(r["publicationDate"]),r["company"]))
     for row in leads[:news_limit]:
         row["pressCoverage"]=(coverage or press_lookup)(row)
@@ -456,7 +460,16 @@ def main():
                                                        for c in APPLICANTS]})
         print("KIPRIS_SERVICE_KEY 미설정: 기존 공식 특허 데이터 파일 보존")
         raise SystemExit(2)
-    report=build(key,previous=previous,news_limit=args.max_news)
+    # Safe account-independent ceiling; the official provider's actual usage
+    # and resultCode 22 meaning must still be checked with KIPRISPlus.
+    meter=SourceRequestMeter("digests/kipris_source_request_budget_latest.json",
+                             fetch=request_xml)
+    try:
+        report=build(key,previous=previous,news_limit=args.max_news,
+                     search=lambda k,term,start,end:search_applicant(
+                         k,term,start,end,fetch=meter.get))
+    finally:
+        meter.persist()
     save_publication_diagnostics(report)
     if key and not report.get("sourceWindowComplete"):
         print("KIPRISPlus 24개 출입처 공식 검색에 오류·누락·페이지 절단 발생: 이전 검증 데이터 보존")
