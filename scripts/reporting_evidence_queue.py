@@ -21,12 +21,15 @@ CATEGORIES={
     "verified_historical_numeric_delta":"과거 DART 공시 수치 비교",
     "issuer_only_correction_unverified_original":"정정문 자체 기재변경·원공시 미대조",
     "older_public_contract_reference":"이전 공식 계약 공시 참고자료",
+    "unlinked_correction_text_followup":"과거·현재 정정문 기재값 일치 · 계약 동일성 미확인",
 }
 SCOPES={
     "officialEvents":("official_date_triage", "freshOfficialReview"),
     "investment":("source_changes_detected_not_exclusive", "investigations"),
     "metrics":(None,"items"),
     "contracts":("reporter_review_not_exclusive","items"),
+    "recentLedger":(None,"items"),
+    "correctionHistory":("bounded_unlinked_correction_history_for_reporter_review","items"),
 }
 MAX_RECORDS=140
 
@@ -115,6 +118,111 @@ def record(tier,key,company,title,when,details,urls,checks):
       "approvedForPitch":False,
       "nextChecks":checks[:4],
     }
+
+
+def correction_history_followups(sources, health, today):
+    """Keep only corroborated evidence of a *text* match, not a contract.
+
+    The three official snapshots must have identical production provenance.
+    Previous same-issuer/type/date candidate can be unrelated to amended deal.
+    """
+    if any(health[k]["status"]!="source_snapshot_checked"
+           for k in ("contracts","recentLedger","correctionHistory")):
+        return [], "missing_or_stale_related_snapshots"
+    ledger=sources.get("recentLedger") or {}
+    news=sources.get("contracts") or {}
+    history=sources.get("correctionHistory") or {}
+    stamp=ledger.get("generatedAt")
+    if (not isinstance(stamp,str) or
+        news.get("dartSourceGeneratedAt")!=stamp or
+        history.get("dartSourceGeneratedAt")!=stamp or
+        history.get("newsIndexSourceGeneratedAt")!=news.get("generatedAt") or
+        history.get("verifiedSameContractHistory")!=0 or
+        history.get("confirmedScoops")!=0 or
+        history.get("approvedArticles")!=0):
+        return [], "original_document_snapshot_provenance_mismatch"
+    official={str(x.get("receiptNo")):x for x in ledger["items"]
+              if isinstance(x,dict) and isinstance(x.get("receiptNo"),str)}
+    press={str(x.get("receiptNo")):x for x in news["items"]
+           if isinstance(x,dict) and isinstance(x.get("receiptNo"),str)}
+    out=[]
+    for row in history["items"][:15]:
+        if not isinstance(row,dict) or row.get("linkageVerified") is not False or row.get("confirmedExclusive") is not False or row.get("approvedForPitch") is not False:
+            continue
+        receipt=row.get("receiptNo")
+        linked=official.get(receipt)
+        review=press.get(receipt)
+        when=date_value(row.get("officialDate"))
+        company=row.get("company")
+        if (not isinstance(company,str) or not company.strip() or
+            linked is None or review is None or
+            linked.get("company")!=company or review.get("company")!=company or
+            not isinstance(receipt,str) or when is None or
+            (today-when).days<0 or (today-when).days>180 or
+            linked.get("isCorrection") is not True or
+            linked.get("status")!="original_not_verified" or
+            linked.get("originalReceiptNo") is not None or
+            linked.get("published")!=receipt[:8] or
+            review.get("isCorrection") is not True or
+            review.get("comparisonStatus")!="original_unverified_no_comparison" or
+            not dart_url(receipt,row.get("sourceUrl")) or
+            not dart_url(receipt,linked.get("sourceUrl")) or
+            not dart_url(receipt,review.get("officialSourceUrl"))):
+            continue
+        for prior in row.get("priorOfficialCandidateDocuments",[])[:3]:
+            if not isinstance(prior,dict):continue
+            pno=prior.get("receiptNo")
+            pday=date_value(prior.get("officialDate"))
+            if (not isinstance(pno,str) or pday is None or pday>=when or
+                not dart_url(pno,prior.get("sourceUrl")) or
+                prior.get("priorDocumentRetrieved") is not True or
+                prior.get("sameContractVerified") is not False or
+                prior.get("relationshipStatus")!="UNLINKED_same_company_category_reference_date" or
+                prior.get("currentAmendmentLinkedToThisOrigin") is not False or
+                prior.get("priorCandidateExplicitOriginVerifiedInIssuerList") is not False):
+                continue
+            for line in prior.get("unlinkedComparisons",[])[:8]:
+                if not isinstance(line,dict):continue
+                old=line.get("priorCandidatePublishedValue")
+                before=line.get("currentIssuerSaidBefore")
+                after=line.get("currentIssuerSaidAfter")
+                field=line.get("field")
+                if (line.get("literalValuesMatch") is not True or
+                    line.get("sameContractVerified") is not False or
+                    line.get("contractEffectVerified") is not False or
+                    line.get("previouslyReportedInMediaVerified") is not False or
+                    line.get("basis")!="unlinked_same_issuer_event_type_date_candidate_only" or
+                    field not in ("contract_amount","contract_end","contract_start",
+                                  "production_restart","investment_amount") or
+                    not all(isinstance(v,str) and 1<=len(v)<=75
+                            for v in (old,before,after)) or
+                    old.strip().replace(",","")!=before.strip().replace(",","")):
+                    continue
+                details=(f"과거 후보 {pno}의 공시 기재값 {old}과 "
+                    f"이번 정정공시가 밝힌 '정정 전' 값 {before}의 문자 일치. "
+                    f"이번 정정 후 기재값 {after}. 단, 동일 계약 및 실제 "
+                    "계약 변경은 증명되지 않음.")
+                item=record("unlinked_correction_text_followup",
+                    receipt+":"+pno+":"+field,company,
+                    company+" · 정정공시 "+str(field)+" 원공시 연결 확인",
+                    when,details,[row["sourceUrl"],prior["sourceUrl"]],[
+                        "정정문에 명시된 원공시 접수번호와 해당 계약의 발행사 고유번호를 확인",
+                        "과거·현재 정정 공시의 계약 상대방·계약명·원공시 계보를 직접 대조",
+                        "해당 변경이 이미 보도됐는지 해당 기사 전문 확인",
+                        "확정된 변경 조건·일자만 기업에 공개 확인 요청"])
+                item.update({
+                    "contractLinkVerified":False,
+                    "textMatchIsNotContractContinuity":True,
+                    "priorOfficialReceipt":pno,
+                    "latestCorrectionReceipt":receipt,
+                    "matchField":field,
+                    "sourceProvenance":"three_matching_dart_snapshot_timestamps_unlinked",
+                    "newsArticleFulltextVerified":False,
+                    "historicalNotNewIncident":True,
+                    "editorialSection":"unlinked_deep_check_not_today_news"
+                })
+                out.append(item)
+    return out[:20], "reviewed_unlinked_candidates_only"
 
 def build(sources,*,now=None):
     now=now or datetime.now(KST)
@@ -263,6 +371,8 @@ def build(sources,*,now=None):
             records.append(record(tier,"DART:"+receipt,company,
                    str(item.get("headline") or company+" 계약 공시"),dt,
                    details,[url],checks))
+    linked, lineage_state=correction_history_followups(sources,health,today)
+    records.extend(linked)
     # One document can surface via the date engine AND contract follow-up.
     # Keep recent dated official identity; never duplicate it as a new story.
     ranks={k:i for i,k in enumerate(CATEGORIES)}
@@ -292,6 +402,10 @@ def build(sources,*,now=None):
         "countsByEvidenceTier":counts,
         "sourceDateWindow":{ "recentFrom":earliest.isoformat(),"through":today.isoformat()},
         "checkedOfficialRecentCandidates":counts["new_official_receipt_review"],
+        "todayOnlyCount":counts["new_official_receipt_review"],
+        "historicalResearchCount":len(unique)-counts["new_official_receipt_review"],
+        "unlinkedHistoryTextMatchCount":counts["unlinked_correction_text_followup"],
+        "correctionHistorySourceGate":lineage_state,
         "totalRows":len(unique[:MAX_RECORDS]),
         "excluded":skipped,
         "confirmedScoops":0,
@@ -307,13 +421,17 @@ def main():
     p.add_argument("--investments",default="digests/investigation_hunt_latest.json")
     p.add_argument("--metrics",default="digests/recent_metric_changes_latest.json")
     p.add_argument("--contracts",default="digests/dart_contract_followup_latest.json")
+    p.add_argument("--recent-ledger",default="digests/recent_contracts_latest.json")
+    p.add_argument("--correction-history",default="digests/dart_correction_history_latest.json")
     a=p.parse_args()
     def read(path):
         try:return json.loads(Path(path).read_text(encoding="utf-8"))
         except (OSError,ValueError):return None
     result=build({
         "officialEvents":read(a.official),"investment":read(a.investments),
-        "metrics":read(a.metrics),"contracts":read(a.contracts)})
+        "metrics":read(a.metrics),"contracts":read(a.contracts),
+        "recentLedger":read(a.recent_ledger),
+        "correctionHistory":read(a.correction_history)})
     output=Path(a.out);output.parent.mkdir(parents=True,exist_ok=True)
     temp=output.with_suffix(".json.tmp")
     temp.write_text(json.dumps(result,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
