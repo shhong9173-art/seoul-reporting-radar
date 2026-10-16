@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-10-15T17:37:08+09:00",
+  "generatedAt": "2026-10-16T10:19:02+09:00",
   "lookbackDays": 30,
-  "windowStart": "2026-09-15",
+  "windowStart": "2026-09-16",
   "scope": "US Federal Register 8개 검색 + EU TED 8개 검색. 회사명 검색 결과만 검토하며 주·카운티 인허가 및 EPA 시설별 환경허가는 별도 확인 필요",
   "limits": "미국 주·카운티 건축/환경 인허가, EU 각국 소액 조달, 모든 세계 공장 인허가를 망라하지 않음",
   "checks": [
@@ -81,8 +81,8 @@
       "provider": "US Federal Register",
       "query": "Hyundai Steel",
       "status": "checked",
-      "returned": 8,
-      "matched": 2,
+      "returned": 7,
+      "matched": 1,
       "unverified": 6
     },
     {
@@ -272,26 +272,9 @@
       "evidence": "연방 고시 검색 색인 일치: 기업명·사건 관계를 원문에서 확인하지 못함",
       "notProven": "지역 공장허가 취득·회사 사업 확정·직접 수주 여부 미확인",
       "exclusiveStatus": "공개 문서 취재 단서·단독 미확정"
-    },
-    {
-      "source": "US Federal Register",
-      "sourceType": "federal_notice",
-      "sourceId": "2026-18788",
-      "published": "2026-09-15",
-      "companiesMentioned": [
-        "현대제철"
-      ],
-      "companySearchTerm": "Hyundai Steel",
-      "nameVerified": true,
-      "title": "Oil Country Tubular Goods From the Republic of Korea: Final Results of Countervailing Duty Administrative Review and Rescission, in Part; 2023",
-      "abstract": "The U.S. Department of Commerce (Commerce) determines countervailable subsidies were not provided to SeAH Steel Corporation (SeAH Steel), a producer and exporter of oil country tubular goods (OCTG) from the Republic of Korea (Korea). The period of review (POR) is January 1, 2023, through December 31, 2023. In addition, Commerce is rescinding this r",
-      "sourceUrl": "https://www.federalregister.gov/documents/2026/09/15/2026-18788/oil-country-tubular-goods-from-the-republic-of-korea-final-results-of-countervailing-duty",
-      "evidence": "공식 연방 고시의 제목·요약에 기업명 등장",
-      "notProven": "지역 공장허가 취득·회사 사업 확정·직접 수주 여부 미확인",
-      "exclusiveStatus": "공개 문서 취재 단서·단독 미확정"
     }
   ],
-  "matchedCount": 2,
+  "matchedCount": 1,
   "unverifiedSearchMatches": 8,
   "sourceErrors": 0,
   "scoopConfirmed": 0
