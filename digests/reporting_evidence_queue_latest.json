@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-10-16T11:55:56+09:00",
+  "generatedAt": "2026-10-16T16:50:27+09:00",
   "status": "reporter_evidence_queue_not_exclusive",
   "sourceCoverage": "partial_source_coverage_not_zero_news",
   "sourceHealth": {
     "officialEvents": {
       "status": "source_partial_coverage",
-      "generatedAt": "2026-10-16T03:24:41+09:00",
+      "generatedAt": "2026-10-16T14:10:28+09:00",
       "rows": 0,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false,
@@ -22,15 +22,29 @@
     },
     "metrics": {
       "status": "source_snapshot_checked",
-      "generatedAt": "2026-10-16T10:41:49+09:00",
+      "generatedAt": "2026-10-16T13:30:15+09:00",
       "rows": 47,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false
     },
     "contracts": {
       "status": "source_snapshot_checked",
-      "generatedAt": "2026-10-16T10:19:31+09:00",
+      "generatedAt": "2026-10-16T16:37:32+09:00",
       "rows": 7,
+      "completeAcrossUniverse": false,
+      "zeroItemsProvesNoEvent": false
+    },
+    "recentLedger": {
+      "status": "source_snapshot_checked",
+      "generatedAt": "2026-10-16T16:37:11+09:00",
+      "rows": 7,
+      "completeAcrossUniverse": false,
+      "zeroItemsProvesNoEvent": false
+    },
+    "correctionHistory": {
+      "status": "source_snapshot_checked",
+      "generatedAt": "2026-10-16T16:37:34+09:00",
+      "rows": 4,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false
     }
@@ -40,14 +54,19 @@
     "verified_historical_investment_delta": 3,
     "verified_historical_numeric_delta": 47,
     "issuer_only_correction_unverified_original": 4,
-    "older_public_contract_reference": 3
+    "older_public_contract_reference": 3,
+    "unlinked_correction_text_followup": 2
   },
   "sourceDateWindow": {
     "recentFrom": "2026-10-14",
     "through": "2026-10-16"
   },
   "checkedOfficialRecentCandidates": 0,
-  "totalRows": 57,
+  "todayOnlyCount": 0,
+  "historicalResearchCount": 59,
+  "unlinkedHistoryTextMatchCount": 2,
+  "correctionHistorySourceGate": "reviewed_unlinked_candidates_only",
+  "totalRows": 59,
   "excluded": {
     "invalid_original_identity": 0,
     "old_and_not_relevant": 0,
@@ -1475,6 +1494,76 @@
         "기존 언론 기사와 같은 계약인지 기사 전문 검증",
         "해당 기업의 공개 사업부 자료 중 실제 실적 반영 확인"
       ]
+    },
+    {
+      "id": "unlinked_correction_text_followup:20260930800924:20260226801263:contract_amount",
+      "tier": "unlinked_correction_text_followup",
+      "tierLabel": "과거·현재 정정문 기재값 일치 · 계약 동일성 미확인",
+      "company": "효성중공업",
+      "title": "효성중공업 · 정정공시 contract_amount 원공시 연결 확인",
+      "officialDocumentDate": "2026-09-30",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "과거 후보 20260226801263의 공시 기재값 372,324,339,860과 이번 정정공시가 밝힌 '정정 전' 값 372,324,339,860의 문자 일치. 이번 정정 후 기재값 383,338,819,710. 단, 동일 계약 및 실제 계약 변경은 증명되지 않음.",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260930800924",
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260226801263"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "정정문에 명시된 원공시 접수번호와 해당 계약의 발행사 고유번호를 확인",
+        "과거·현재 정정 공시의 계약 상대방·계약명·원공시 계보를 직접 대조",
+        "해당 변경이 이미 보도됐는지 해당 기사 전문 확인",
+        "확정된 변경 조건·일자만 기업에 공개 확인 요청"
+      ],
+      "contractLinkVerified": false,
+      "textMatchIsNotContractContinuity": true,
+      "priorOfficialReceipt": "20260226801263",
+      "latestCorrectionReceipt": "20260930800924",
+      "matchField": "contract_amount",
+      "sourceProvenance": "three_matching_dart_snapshot_timestamps_unlinked",
+      "newsArticleFulltextVerified": false,
+      "historicalNotNewIncident": true,
+      "editorialSection": "unlinked_deep_check_not_today_news"
+    },
+    {
+      "id": "unlinked_correction_text_followup:20260929800608:20251223800497:contract_end",
+      "tier": "unlinked_correction_text_followup",
+      "tierLabel": "과거·현재 정정문 기재값 일치 · 계약 동일성 미확인",
+      "company": "세아제강",
+      "title": "세아제강 · 정정공시 contract_end 원공시 연결 확인",
+      "officialDocumentDate": "2026-09-29",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "과거 후보 20251223800497의 공시 기재값 2026-09-30과 이번 정정공시가 밝힌 '정정 전' 값 2026-09-30의 문자 일치. 이번 정정 후 기재값 2026-11-30. 단, 동일 계약 및 실제 계약 변경은 증명되지 않음.",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260929800608",
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20251223800497"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "정정문에 명시된 원공시 접수번호와 해당 계약의 발행사 고유번호를 확인",
+        "과거·현재 정정 공시의 계약 상대방·계약명·원공시 계보를 직접 대조",
+        "해당 변경이 이미 보도됐는지 해당 기사 전문 확인",
+        "확정된 변경 조건·일자만 기업에 공개 확인 요청"
+      ],
+      "contractLinkVerified": false,
+      "textMatchIsNotContractContinuity": true,
+      "priorOfficialReceipt": "20251223800497",
+      "latestCorrectionReceipt": "20260929800608",
+      "matchField": "contract_end",
+      "sourceProvenance": "three_matching_dart_snapshot_timestamps_unlinked",
+      "newsArticleFulltextVerified": false,
+      "historicalNotNewIncident": true,
+      "editorialSection": "unlinked_deep_check_not_today_news"
     }
   ]
 }
