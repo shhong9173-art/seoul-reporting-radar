@@ -14,6 +14,13 @@ for(const marker of [
   "confirmedScoops!==0",
   "approvedArticles!==0",
   "기보도","같은 계약","원공시","이전 언론","변경 없음",
+  "priorCandidateExplicitOriginVerifiedInIssuerList",
+  "priorCandidateExplicitOriginReceipt",
+  "priorIssuerDeclaredRevisions",
+  "currentAmendmentLinkedToThisOrigin",
+  "priorCandidateSaidBefore",
+  "currentIssuerSaidAfter",
+  "같은 계약의 순차 변경이 확인된 것은 아님",
   "24시간 이상","미보도·단독 증명 아님"
 ])assert(html.includes(marker),"Missing cautious prior amendment provenance marker: "+marker);
 assert(!html.includes("innerHTML"),"official DART/news titles must use textContent");

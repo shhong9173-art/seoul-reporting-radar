@@ -19,8 +19,8 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 from dart_lineage import (event_type, has_correction, issuer_table_evidence,
-                          source_link, tabular_fields, valid_receipt,
-                          zip_documents)
+                          explicit_origin_id, source_link, tabular_fields,
+                          valid_receipt, zip_documents)
 from official_event_triage import dart_receipt_link
 
 KST=timezone(timedelta(hours=9))
@@ -72,14 +72,15 @@ def candidate_issuer_proof(row,candidate,documents):
         prior_kind="prior_amendment_issuer_table"
         prior_after=[]
         for a in previous["changes"]:
-            prior_after.append((current_field(a),a.get("after"),a.get("fieldLabel")))
+            prior_after.append((current_field(a),a.get("after"),a.get("fieldLabel"),
+                                a.get("before")))
     else:
         # Standalone, explicit source table terms in an independently fetched
         # prior filing; not an assertion of a related contract.
         previous={"status":"historical_full_document_terms"}
         terms=tabular_fields(documents)
         prior_kind="prior_filing_official_terms"
-        prior_after=[(key,value,key) for key,value in terms.items()]
+        prior_after=[(key,value,key,None) for key,value in terms.items()]
     observations=[]
     for nowrow in current_changes[:8]:
         if (nowrow.get("basis")!="issuer_reported_amendment_table_only"
@@ -89,7 +90,7 @@ def candidate_issuer_proof(row,candidate,documents):
         key=current_field(nowrow)
         before=str(nowrow.get("before") or "")
         if not key or textkey(before) in PLACEHOLDERS:continue
-        for other_key,prior_value,other_label in prior_after:
+        for other_key,prior_value,other_label,prior_before in prior_after:
             if other_key!=key or not isinstance(prior_value,str):continue
             if textkey(prior_value) in PLACEHOLDERS:continue
             matches=textkey(prior_value)==textkey(before)
@@ -97,6 +98,8 @@ def candidate_issuer_proof(row,candidate,documents):
                 "field":key,"currentAmendmentField":nowrow.get("fieldLabel"),
                 "currentIssuerSaidBefore":before,
                 "priorCandidatePublishedValue":prior_value,
+                "priorCandidateSaidBefore":prior_before,
+                "currentIssuerSaidAfter":str(nowrow.get("after") or "")[:220],
                 "priorCandidateField":other_label,
                 "literalValuesMatch":matches,
                 "sameContractVerified":False,
@@ -104,8 +107,29 @@ def candidate_issuer_proof(row,candidate,documents):
                 "contractEffectVerified":False,
                 "basis":"unlinked_same_issuer_event_type_date_candidate_only"
             })
+    prior_reference=(explicit_origin_id(documents,candidate["receiptNo"])
+                     if has_correction(candidate.get("report",""))
+                     else {"status":"not_an_amendment","receiptNo":None})
+    candidate_origin=prior_reference.get("receiptNo")
+    if candidate_origin is not None and (
+            not valid_receipt(candidate_origin)
+            or candidate_origin==candidate["receiptNo"]
+            or candidate_origin[:8]>=candidate["receiptNo"][:8]):
+        candidate_origin=None
     return {"priorCandidateKind":prior_kind,
             "priorCandidateTableStatus":previous.get("status"),
+            "priorCandidateExplicitOriginReferenceStatus":(
+                "prior_candidate_mentions_earlier_receipt_not_current_linkage"
+                if candidate_origin else prior_reference.get("status")),
+            "priorCandidateExplicitOriginReceipt":candidate_origin,
+            "priorCandidateExplicitOriginVerifiedInIssuerList":False,
+            "currentAmendmentLinkedToThisOrigin":False,
+            "priorIssuerDeclaredRevisions":([
+                {"fieldLabel":v["fieldLabel"],"before":v["before"],
+                 "after":v["after"],"basis":"issuer_reported_amendment_table_only",
+                 "independentCurrentLinkageVerified":False}
+                for v in previous.get("changes",[])[:6]]
+                if prior_kind=="prior_amendment_issuer_table" else []),
             "priorDocumentRetrieved":True,
             "unlinkedComparisons":observations[:12],
             "matchingTextRows":sum(x["literalValuesMatch"] for x in observations),
