@@ -89,6 +89,42 @@ class ContractHistory(unittest.TestCase):
         self.assertEqual(len(item["pressEvidence"]["olderIndexedArticles"]),1)
         self.assertFalse(item["pressEvidence"]["coverageOfSameRevisionVerified"])
 
+    def test_prior_issuer_revision_three_stage_text_is_not_a_contract_link(self):
+        row=current_row()
+        prior=m.candidate_issuer_proof(row,row["unverifiedSameDateCandidates"][0],prior_doc())
+        self.assertEqual(prior["matchingTextRows"],1)
+        self.assertEqual(prior["priorIssuerDeclaredRevisions"][0]["before"],
+                         "300,000,000,000")
+        self.assertEqual(prior["priorIssuerDeclaredRevisions"][0]["after"],
+                         "372,324,339,860")
+        bridge=prior["unlinkedComparisons"][0]
+        self.assertEqual(bridge["priorCandidateSaidBefore"],"300,000,000,000")
+        self.assertEqual(bridge["priorCandidatePublishedValue"],"372,324,339,860")
+        self.assertEqual(bridge["currentIssuerSaidBefore"],"372,324,339,860")
+        self.assertEqual(bridge["currentIssuerSaidAfter"],"383,338,819,710")
+        self.assertFalse(bridge["sameContractVerified"])
+        self.assertFalse(prior["currentAmendmentLinkedToThisOrigin"])
+
+    def test_prior_candidate_explicit_origin_is_only_a_hint_until_issuer_list_verification(self):
+        row=current_row()
+        doc=prior_doc()[0]+(
+            "<p>원공시 접수번호: 20250102800011</p>")
+        candidate=m.candidate_issuer_proof(row,row["unverifiedSameDateCandidates"][0],[doc])
+        self.assertEqual(candidate["priorCandidateExplicitOriginReceipt"],
+                         "20250102800011")
+        self.assertEqual(candidate["priorCandidateExplicitOriginReferenceStatus"],
+                         "prior_candidate_mentions_earlier_receipt_not_current_linkage")
+        self.assertFalse(candidate["priorCandidateExplicitOriginVerifiedInIssuerList"])
+        self.assertFalse(candidate["currentAmendmentLinkedToThisOrigin"])
+        self.assertFalse(candidate["unlinkedComparisons"][0]["sameContractVerified"])
+
+    def test_unlabeled_old_receipt_is_not_promoted_to_origin(self):
+        row=current_row()
+        doc=prior_doc()[0]+("<p>선행 접수: 20250102800011</p>")
+        candidate=m.candidate_issuer_proof(row,row["unverifiedSameDateCandidates"][0],[doc])
+        self.assertIsNone(candidate["priorCandidateExplicitOriginReceipt"])
+        self.assertFalse(candidate["currentAmendmentLinkedToThisOrigin"])
+
     def test_previous_initial_notice_terms_are_only_candidates(self):
         row=current_row()
         row["unverifiedSameDateCandidates"][0]["report"]="단일판매ㆍ공급계약체결"
