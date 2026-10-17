@@ -14,6 +14,7 @@ from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 from pathlib import Path
 from scripts.dart_affiliate_scoop_gate import review_hold
+from scripts.dart_specific_media import exact_contract_evidence, precise_press_queries, likely_same_contract_indexed
 
 KST=timezone(timedelta(hours=9))
 DATA=Path("data.json"); DART=Path("dart.json"); NUM=Path("dart_numeric.json")
@@ -377,6 +378,10 @@ def event_match_score(x,h):
     title=(x.get("title") or "").strip()
     htitle=(h.get("title") or "").strip()
     if not title or not htitle:return 0.0
+    # High-specificity official DART subject+amount+company is stronger than
+    # vague headline similarity, but remains an unreviewed news-index hit.
+    if likely_same_contract_indexed(x.get("contractIndexEvidence"),htitle):
+        return 0.87
     xtext=title+" "+(x.get("summary") or "")
     htext=htitle+" "+(h.get("summary") or "")
     companies=target_hits(xtext)
@@ -422,6 +427,9 @@ def coverage_search(x,max_queries=2):
     raw=[w for w in re.findall(r"[가-힣A-Za-z0-9]{2,}",title) if w not in stop]
     signal_words=[w for w in raw if re.search(r"조업정지|생산중단|가동중단|공급중단|대체투입|생산라인|공급사|재고|납기|매각|인수|우선협상|거래종결|분할|합병|철수|신설|조직개편|대표이사|임원|선임|퇴임|인허가|환경영향|건축허가|착공|증설|공장|리콜|결함|조사|행정처분|소송|판결|특허|출원|등록|상표|디자인|인증|형식승인|관세|반덤핑|수주|계약|발주|입찰|낙찰|자금조달|유상증자|회사채|PRS|보조금|지원금",w,re.I)]
     queries=[]
+    evidence=x.get("contractIndexEvidence")
+    if evidence:
+        queries.extend(precise_press_queries(evidence))
     company=companies[0] if companies else ""
     core=signal_words[:4] or raw[:6]
     if company and core:
@@ -433,7 +441,9 @@ def coverage_search(x,max_queries=2):
     if company and len(core)>=1:queries.append(f'"{company}" "{core[0]}"')
     if company and len(raw)>=3:queries.append(f'"{company}" "{" ".join(raw[1:4])}"')
     out=[];seen=set()
-    for q in queries[:max_queries]:
+    # Precise DART contract searches take the existing two-query budget;
+    # do not increase external traffic or treat zero index results as no news.
+    for q in list(dict.fromkeys(queries))[:max_queries]:
         COVERAGE_SEARCH_DIAGNOSTICS['queries']+=1
         if len(q)<8:continue
         for h in google_rss("coverage",q,max_items=6,lookback_days=COVERAGE_LOOKBACK_DAYS):
@@ -1247,6 +1257,7 @@ def main():
             "summary":(d.get("signalText","")+" "+blob)[:12000],
             "official":True,"officialLabel":"DART","receiptNo":d.get("receiptNo"),
             "dartNumbers":nums,"rawReport":report,"corpName":corp_name,
+            "contractIndexEvidence":exact_contract_evidence(d,monitor) if contract_report else None,
             "detailUnavailable":detail_unavailable
         })
 
@@ -1394,7 +1405,8 @@ def main():
         prior_strong=[r for r in strong if is_prior_coverage(r)]
         if prior_strong:
             drop_stats["prior_coverage"]+=1
-            record_drop_example(drop_examples,"prior_coverage",x,"동일 사건으로 판정된 선행 보도 확인")
+            record_drop_example(drop_examples,"prior_coverage",x,
+                "선행 기사 색인에서 같은 사건에 대한 높은 정합성 관측. 기사 전문은 아직 별도 대조가 필요함")
             continue
 
         # Procurement feeds contain many welfare, education, PR, event and routine service
