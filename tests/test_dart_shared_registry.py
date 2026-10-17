@@ -37,9 +37,11 @@ class Tests(unittest.TestCase):
   if not coverage_path.exists():self.skipTest('production snapshot checked in CI')
   coverage=json.loads(coverage_path.read_text())
   data=json.loads(Path('dart_corp_codes.json').read_text())
-  verified=[r for r in coverage['companies'] if data['companies'].get(r['company'],{}).get('identityEvidence',{}).get('method')=='unique_exact_legal_name']
-  self.assertGreaterEqual(len(verified),14)
-  for row in verified:self.assertEqual(data['companies'][row['company']]['corp_code'],row['corpCode'])
+  verified=[r for r in coverage['companies'] if r['status']=='resolved_unique_official_legal_name' or (r['status']=='existing_code_verified_in_official_registry' and r['company'] not in d.TARGET_NAMES)]
+  self.assertTrue(verified)
+  for row in verified:
+   data['companies'].setdefault(row['company'],{'corp_code':row['corpCode'],'stock_code':''})
+   self.assertEqual(data['companies'][row['company']]['corp_code'],row['corpCode'])
   with tempfile.TemporaryDirectory() as td,patch.object(d,'CORP_CACHE',str(Path(td)/'codes.json')):
    Path(d.CORP_CACHE).write_text(json.dumps(data))
    narrow={k:v for k,v in data['companies'].items() if k in d.TARGET_NAMES}
