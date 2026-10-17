@@ -12,6 +12,7 @@ import re
 from datetime import datetime, date, timedelta, timezone
 from pathlib import Path
 from urllib.parse import urlsplit, parse_qs
+from valueup_first_party_crosscheck import match_official_prior
 
 KST=timezone(timedelta(hours=9))
 DART_RECEIPT=re.compile(r"20\d{12}\Z")
@@ -368,6 +369,20 @@ def build(sources,*,now=None):
                     "이전 가치제고 계획·자사주 처분/소각 공시와 수치 차이 검산",
                     "기존 매체 기사 전문 및 최초 공표 시각 대조",
                     "기업의 이미 공개된 공시 내용만 확인"])
+            comparison=match_official_prior(filing,sources.get("valueupPriors"))
+            if comparison:
+                row["crossYearPlanReview"]=comparison
+                row["evidenceSummary"]=(
+                    "2025년 회사 공식 발표: 주주환원 목표 30%, ROE 13% 이상. "
+                    "2026년 DART 기업가치제고계획 접수 제목만 확인. "
+                    "2026년 주주환원 50%·2029년 PBR 0.5배는 이미 공개된 "
+                    "언론의 공시 소개 수치이며 DART 첨부 원문은 아직 미확인. "
+                    "계산 기준·기간을 대조하기 전 20%p 확대 또는 단독 주장 불가.")
+                row["nextChecks"]=[
+                    "2026년 공식 DART 첨부 계획에서 50% 목표 및 분모·배당/자사주 범위 확인",
+                    "2025년 회사 원문 30% 목표의 적용 기간과 2026년 5개년 기준 비교",
+                    "2026년 동일 계획 언론기사 전문 확인(계획 목표 자체 기보도)",
+                    "실제 실적 변화·이행 여부는 공식 후속자료에서 별도 확인"]
             row.update({
                 "officialListTitleOnly":True,
                 "officialDocumentBodyReviewed":False,
@@ -537,6 +552,7 @@ def main():
     p.add_argument("--out",default="digests/reporting_evidence_queue_latest.json")
     p.add_argument("--official",default="digests/official_event_triage_latest.json")
     p.add_argument("--dart-beat",default="digests/dart_beat_monitor_latest.json")
+    p.add_argument("--valueup-priors",default="data/valueup_first_party_prior_evidence.json")
     p.add_argument("--investments",default="digests/investigation_hunt_latest.json")
     p.add_argument("--metrics",default="digests/recent_metric_changes_latest.json")
     p.add_argument("--contracts",default="digests/dart_contract_followup_latest.json")
@@ -548,7 +564,9 @@ def main():
         except (OSError,ValueError):return None
     result=build({
         "officialEvents":read(a.official),
-        "dartBeat":read(a.dart_beat),"investment":read(a.investments),
+        "dartBeat":read(a.dart_beat),
+        "valueupPriors":read(a.valueup_priors),
+        "investment":read(a.investments),
         "metrics":read(a.metrics),"contracts":read(a.contracts),
         "recentLedger":read(a.recent_ledger),
         "correctionHistory":read(a.correction_history)})
