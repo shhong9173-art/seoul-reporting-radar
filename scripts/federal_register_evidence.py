@@ -113,12 +113,21 @@ def build(source,request=fetch,limit=8,now=None):
     if not 1<=limit<=8:raise ValueError('document budget 1..8')
     docs=source.get('documents')
     valid=bool(source.get('generatedAt') and isinstance(docs,list))
-    eligible=[];seen=set()
+    eligible=[];seen=set();held=[]
     for row in docs if valid else []:
         if not isinstance(row,dict) or row.get('source')!='US Federal Register':continue
         key=row.get('sourceId')
         if key in seen:continue
-        seen.add(key);eligible.append(row)
+        seen.add(key)
+        try:
+            published=datetime.strptime(str(row.get('published') or ''),'%Y-%m-%d').date()
+        except ValueError:
+            held.append({'sourceId':key,'published':row.get('published'),'reason':'invalid_publication_date'})
+            continue
+        if published>now.date():
+            held.append({'sourceId':key,'published':row['published'],'reason':'not_yet_published'})
+            continue
+        eligible.append(row)
     eligible.sort(key=lambda x:str(x.get('published') or ''),reverse=True)
     items=[];checks=[]
     for row in eligible[:limit]:
@@ -134,10 +143,13 @@ def build(source,request=fetch,limit=8,now=None):
     failures=sum(c['status']=='source_error' for c in checks)
     unqueried=max(0,len(eligible)-limit)
     source_incomplete=bool(source.get('sourceErrors') or any(c.get('status')!='checked' for c in source.get('checks',[])))
-    complete=valid and not source_incomplete and not failures and not unqueried
+    invalid_dates=any(x['reason']=='invalid_publication_date' for x in held)
+    complete=valid and not source_incomplete and not invalid_dates and not failures and not unqueried
     return {'generatedAt':now.isoformat(timespec='seconds'),
         'sourceGeneratedAt':source.get('generatedAt'),'status':('checked' if complete else 'incomplete'),
         'checks':checks,'items':items,'sourceSearchIncomplete':source_incomplete,
+        'heldDocuments':held,
+        'unpublishedDocumentCount':sum(x['reason']=='not_yet_published' for x in held),
         'failedDocuments':failures,'unqueriedDocuments':unqueried,
         'verifiedDocumentCount':len(items),
         'companyMentionDocumentCount':sum(bool(x['companiesMentioned']) for x in items) if complete else None,
@@ -164,6 +176,7 @@ def main():
     tmp=out.with_suffix('.json.tmp');tmp.write_text(json.dumps(d,ensure_ascii=False,indent=2)+'\n');tmp.replace(out)
     print('FR body verification',d['status'],'checked',d['verifiedDocumentCount'],'errors',d['failedDocuments'])
     print('Document checks',json.dumps(d['checks']))
+    print('Held publication dates',json.dumps(d['heldDocuments']))
     for x in d['items']:
         print(x['sourceId'],x['published'],','.join(x['companiesMentioned']),json.dumps(x['evidence'][:1],ensure_ascii=False))
 

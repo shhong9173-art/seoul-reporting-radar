@@ -12,7 +12,7 @@
   const r=await fetch('digests/federal_register_evidence_latest.json',{cache:'no-store'});
   if(!r.ok)throw Error('unavailable');const d=await r.json();
   if(!Array.isArray(d.items)||!Array.isArray(d.checks))throw Error('schema');
-  status.textContent='본문 확인 '+d.verifiedDocumentCount+'건 · 오류 '+d.failedDocuments+'건 · 미조회 '+d.unqueriedDocuments+'건 · 단독 확정 0건'+(d.status==='checked'?'':' · 수집 미완료: 0건 판단 금지');
+  status.textContent='본문 확인 '+d.verifiedDocumentCount+'건 · 오류 '+d.failedDocuments+'건 · 미조회 '+d.unqueriedDocuments+'건 · 발행 예정 별도 보류 '+(d.unpublishedDocumentCount??'미확인')+'건 · 단독 확정 0건'+(d.status==='checked'?'':' · 수집 미완료: 0건 판단 금지');
   for(const x of d.items){
    const a=el('article');a.append(el('h2',x.title),el('small','공식 공개일 '+x.published+' · '+x.sourceId),el('p','본문 기업명: '+(x.companiesMentioned.join(', ')||'확인된 명칭 없음')));
    for(const v of x.evidence||[])a.append(el('blockquote',v.text+(v.truncated?' … [일부 발췌]':'')));

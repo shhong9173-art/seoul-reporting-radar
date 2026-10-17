@@ -1,6 +1,7 @@
 import json
 import sys
 import unittest
+from datetime import datetime
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'scripts'))
 import federal_register_evidence as f
@@ -16,6 +17,18 @@ def request(url):
             '<table><tr><td>Hyundai Steel Company</td><td>3.50</td></tr></table>').encode()
 
 class Tests(unittest.TestCase):
+    def test_actual_future_publication_does_not_consume_body_budget(self):
+        future={**ROW,'sourceId':'2026-21362','published':'2026-10-19'}
+        calls=[]
+        def fetch(url):calls.append(url);return request(url)
+        d=f.build({'generatedAt':'2026-10-17','documents':[future,ROW]},fetch,
+                  limit=1,now=datetime(2026,10,17,tzinfo=f.KST))
+        self.assertEqual(d['status'],'checked')
+        self.assertEqual(d['unpublishedDocumentCount'],1)
+        self.assertEqual(d['unqueriedDocuments'],0)
+        self.assertEqual(d['items'][0]['sourceId'],ROW['sourceId'])
+        self.assertFalse(any('2026-21362' in url for url in calls))
+
     def test_original_row_is_retained_without_inferred_duties(self):
         d=f.inspect(ROW,request)
         self.assertEqual(d['companiesMentioned'],['현대제철'])
