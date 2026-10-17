@@ -117,6 +117,36 @@ try{
       continue;
     add(card,"p","공식 DART 목록 제목·접수일만 검증됨 · 본문 수치·완료 여부 미검증 · 기보도 확인 필요","small");
    }
+   const comparison=x.crossYearPlanReview;
+   if(comparison&&comparison.kind==="historical_issuer_plan_and_new_official_title_comparison_not_equivalent"){
+    if(comparison.newOfficialAttachmentContentVerified!==false||
+       comparison.denominatorMatched!==false||
+       comparison.periodDefinitionMatched!==false||
+       comparison.canClaimTwentyPercentagePointIncrease!==false||
+       comparison.exclusiveConfirmed!==false||
+       comparison.approvedForPitch!==false||
+       comparison.alreadyReportedNewPlanHeadline!==true||
+       comparison.coverageFulltextMatched!==false)
+       continue;
+    add(card,"p","과거 회사 발표와 2026년 공시 교차검증: 2025년 주주환원 목표 "+
+      comparison.priorShareholderReturnTargetPercent+"%, ROE "+
+      comparison.priorRoeTargetAtLeastPercent+"% 이상. 2026년 "+
+      comparison.newPressReportedShareholderReturnTargetPercent+"%·"+
+      comparison.newPressReportedWindow+"·2029년 PBR "+
+      comparison.newPressReportedPbrAtLeast+"배는 기존 언론의 공시 소개 수치입니다.","small");
+    add(card,"p","두 계획의 분모·적용 기간·자사주/배당 포함범위 및 2026년 공식 첨부 내용 미대조: 목표 20%p 상향·단독이라고 단정 금지.","small");
+    const refs=add(card,"div",undefined,"links");
+    for(const [url,label,domain] of [
+     [comparison.priorIssuerSourceUrl,"2025년 KG스틸 공식 발표 ↗","www.kg-steel.co.kr"],
+     [comparison.newMediaSourceUrl,"2026년 이미 보도된 공시 소개 ↗","www.digitaltoday.co.kr"]]){
+      try{
+       const u=new URL(url);
+       if(u.protocol!=="https:"||u.hostname!==domain||u.username||u.password)continue;
+       const a=add(refs,"a",label);
+       a.href=u.href;a.target="_blank";a.rel="noopener noreferrer";
+      }catch(e){}
+    }
+   }
    if(x.officialTableTermsRetrieved===true){
     add(card,"p","공식 DART 계약 원문 표 확인 · 신규 외부 고객·실제 납품은 미확정","small");
     if(x.inGroupCounterpartyPerIssuerFiling===true)
