@@ -305,7 +305,7 @@ try{
            throw Error("현지 연도별 순이익의 공식 PDF 출처·계산 기준 미확정");
         const original=new URL(profit.sameOfficialGovernmentPdfUrl);
         if(original.protocol!=="https:"||original.hostname!=="www.registeruz.sk"||
-           !/^\\/cruz-public\\/domain\\/financialreport\\/attachment\\/[0-9]+$/.test(original.pathname)||
+           !/^\/cruz-public\/domain\/financialreport\/attachment\/[0-9]+$/.test(original.pathname)||
            !/^[a-f0-9]{64}$/.test(profit.sourcePdfSha256))
           throw Error("비공식 슬로바키아 정부 문서");
         line(c,"현지법인 2024→2025 같은 IFRS 현금흐름표 순이익 비교열: "+
