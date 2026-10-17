@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - 'scripts/dividend_period_gap.py'
+      - 'data/public_financial_metric_prior_checks.json'
       - 'tests/test_dividend_period_gap.py'
       - 'crossborder-scoops.html'
       - 'tests/test_crossborder_source_gap_view.cjs'
@@ -14,6 +15,7 @@ on:
     branches: [main]
     paths:
       - 'scripts/dividend_period_gap.py'
+      - 'data/public_financial_metric_prior_checks.json'
       - 'crossborder-scoops.html'
       - '.github/workflows/slovakia-profit-bridge-ci.yml'
   workflow_dispatch:
