@@ -1,0 +1,38 @@
+name: Federal Register Original Body Validation
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'scripts/federal_register_evidence.py'
+      - 'tests/test_federal_register_evidence.py'
+      - 'federal-register-evidence.html'
+      - '.github/workflows/federal-register-evidence-ci.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Offline source and identity regression
+        run: |
+          python -m unittest discover -s tests -p 'test_federal_register_evidence.py' -v
+          python -m unittest discover -s tests -p 'test_official_collectors.py' -v
+          node tests/test_federal_register_evidence_view.cjs
+      - name: Verify original official bodies against operational search identities
+        run: |
+          python scripts/federal_register_evidence.py --output /tmp/federal-register-evidence.json
+          python - <<'PY'
+          import json
+          d=json.load(open('/tmp/federal-register-evidence.json'))
+          assert d['verifiedDocumentCount'] > 0, 'No actual original verified; do not merge'
+          assert d['confirmedScoops']==0
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: federal-register-original-evidence
+          path: /tmp/federal-register-evidence.json

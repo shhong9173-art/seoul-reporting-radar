@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>미국 연방공보 본문 근거</title><style>body{font:16px/1.7 system-ui;background:#f4f6f9;color:#183048;margin:auto;max-width:1000px;padding:24px}article{background:white;padding:20px;border:1px solid #d8e1e9;border-radius:10px;margin:14px 0}blockquote{font-size:14px;margin:12px 0;padding:12px;background:#f3f6fa}a{color:#155d90}small{color:#526579}</style></head><body>
+<a href="official-leads.html">공식 원문 취재 대기열</a><h1>미국 연방공보 본문 근거</h1>
+<p>공식 문서번호·공개일을 대조한 본문 발췌입니다. 기업명 등장은 적용 세율·수주·국내 영향·미보도를 증명하지 않습니다. 오래된 공보는 참고로 접어 표시합니다.</p>
+<p id="status">공식 본문 확인 결과 읽는 중</p><main id="items"></main>
+<script>
+(async()=>{
+ const el=(tag,text)=>{const n=document.createElement(tag);n.textContent=text??'';return n};
+ const status=document.getElementById('status'),host=document.getElementById('items');
+ try{
+  const r=await fetch('digests/federal_register_evidence_latest.json',{cache:'no-store'});
+  if(!r.ok)throw Error('unavailable');const d=await r.json();
+  if(!Array.isArray(d.items)||!Array.isArray(d.checks))throw Error('schema');
+  status.textContent='본문 확인 '+d.verifiedDocumentCount+'건 · 오류 '+d.failedDocuments+'건 · 미조회 '+d.unqueriedDocuments+'건 · 단독 확정 0건'+(d.status==='checked'?'':' · 수집 미완료: 0건 판단 금지');
+  for(const x of d.items){
+   const a=el('article');a.append(el('h2',x.title),el('small','공식 공개일 '+x.published+' · '+x.sourceId),el('p','본문 기업명: '+(x.companiesMentioned.join(', ')||'확인된 명칭 없음')));
+   for(const v of x.evidence||[])a.append(el('blockquote',v.text+(v.truncated?' … [일부 발췌]':'')));
+   a.append(el('p',x.warning),el('p','공개 사실 질문: '+x.publicFactQuestion));
+   try{const u=new URL(x.sourceUrl);if(u.protocol==='https:'&&u.hostname==='www.federalregister.gov'){const link=el('a','공식 공보 원문');link.href=u.href;link.target='_blank';link.rel='noopener noreferrer';a.append(link)}}catch(e){}
+   const age=(Date.now()-Date.parse(x.published+'T00:00:00+09:00'))/86400000;
+   if(Number.isFinite(age)&&age>=0&&age<=3)host.append(a);
+   else{const box=el('details');box.append(el('summary','과거·날짜 미확인 참고: '+x.sourceId+' · '+x.published),a);host.append(box)}
+  }
+  if((d.retainedEvidence||[]).length)host.append(el('p','이전 정상 근거 '+d.retainedEvidence.length+'건 보존 중. 최신 조회 실패로 현재 결과에 합산하지 않았습니다.'));
+ }catch(e){status.textContent='본문 수집 결과 미확인 · 기업 언급 0건 또는 미보도로 해석 금지'}
+})();
+</script></body></html>
