@@ -57,4 +57,48 @@ class Tests(unittest.TestCase):
     with self.assertRaises(SystemExit):e.main()
    self.assertEqual(json.loads(dest.read_text()),{'prior':True})
    self.assertIsNone(json.loads(health.read_text())['candidateCount'])
+class PaginationTests(unittest.TestCase):
+ def fetcher(self,mode='ok'):
+  from urllib.parse import urlparse,parse_qs
+  calls=[]
+  def fetch(url):
+   q=parse_qs(urlparse(url).query);calls.append(q)
+   if 'returnIdsOnly' in q:
+    return {'objectIdFieldName':'OBJECTID','objectIds':list(range(1,102)) if mode!='budget' else list(range(1001))}
+   if 'objectIds' not in q:return {'features':[], 'exceededTransferLimit':True}
+   ids=list(map(int,q['objectIds'][0].split(',')))
+   if mode=='missing':ids=ids[:-1]
+   if mode=='duplicate':ids[-1]=ids[0]
+   if mode=='unexpected':ids[-1]=9999
+   if mode=='fail':raise ValueError('offline')
+   return {'features':[{'attributes':{'OBJECTID':i,'REGISTRY_ID':str(110000000000+i),
+                        'FAC_NAME':'KIA GEORGIA' if i==101 else 'NOKIAN TIRES'}} for i in ids]}
+  return fetch,calls
+ def test_recovers_match_after_first_fifty_and_excludes_nokian(self):
+  fetch,calls=self.fetcher()
+  payload=e.collect('KIA',fetch)
+  result=e.parse(payload,'기아')
+  self.assertEqual(payload['matchedIds'],101)
+  self.assertEqual(payload['unqueriedIds'],0)
+  self.assertEqual(len(calls),5)
+  self.assertEqual(result['count'],101)
+  self.assertEqual(len(result['items']),1)
+ def test_incomplete_duplicate_unexpected_and_failed_batches_fail_closed(self):
+  for mode in ('missing','duplicate','unexpected','fail'):
+   with self.subTest(mode=mode):
+    fetch,_=self.fetcher(mode)
+    with self.assertRaises(ValueError):e.collect('KIA',fetch)
+ def test_request_budget_stops_before_batches_and_reports_scope(self):
+  fetch,calls=self.fetcher('budget')
+  payload=e.collect('KIA',fetch)
+  self.assertEqual(len(calls),2)
+  self.assertEqual(payload['unqueriedIds'],1001)
+  self.assertEqual(e.parse(payload,'기아')['status'],'truncated_not_exhaustive')
+ def test_invalid_manifest_not_zero(self):
+  for ids in (None,[True],[1,1],['1']):
+   with self.subTest(ids=ids):
+    def fetch(url):
+     if 'returnIdsOnly' in url:return {'objectIds':ids,'objectIdFieldName':'OBJECTID'}
+     return {'exceededTransferLimit':True}
+    with self.assertRaises(ValueError):e.collect('KIA',fetch)
 if __name__=="__main__":unittest.main()
