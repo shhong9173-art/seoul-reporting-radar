@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - 'scripts/reporting_evidence_queue.py'
+      - 'scripts/publish_newsroom_outputs.py'
       - 'tests/test_reporting_evidence_queue.py'
       - 'tests/test_reporting_queue_view.cjs'
       - 'reporting-queue.html'
@@ -15,8 +16,9 @@ on:
       - 'reporting-queue.html'
       - '.github/workflows/reporting-evidence-queue.yml'
   schedule:
-    # 10:00 / 14:00 / 18:00 KST on weekdays; current source snapshots only.
-    - cron: '0 1,5,9 * * 1-5'
+    # 10:00 / 14:00 / 18:00 KST daily INCLUDING weekends.
+    # Only replays already-collected official documents; no extra API budget.
+    - cron: '0 1,5,9 * * *'
   workflow_dispatch:
 permissions:
   contents: write
@@ -58,20 +60,8 @@ jobs:
                 'historical and review rows',d['totalRows']-d['checkedOfficialRecentCandidates'],
                 'source completeness',d['sourceCoverage'])
           PY
-      - name: Publish date-verified newsroom digest only on main
+      - name: Publish official evidence queue atomically from latest remote main
         if: github.event_name != 'pull_request'
         run: |
-          set -e
           cp /tmp/reporting-evidence-queue.json digests/reporting_evidence_queue_latest.json
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add digests/reporting_evidence_queue_latest.json
-          if git diff --cached --quiet; then exit 0; fi
-          git commit -m "data: refresh source-date evidence review queue [skip ci]"
-          for attempt in 1 2 3; do
-            git pull --rebase origin main
-            if git push origin HEAD:main; then exit 0; fi
-            sleep 3
-          done
-          echo "Unable to publish validated source-date evidence" >&2
-          exit 1
+          python scripts/publish_newsroom_outputs.py --mode queue

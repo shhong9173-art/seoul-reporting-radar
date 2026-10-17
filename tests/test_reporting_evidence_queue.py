@@ -165,6 +165,58 @@ class EvidenceQueue(unittest.TestCase):
         self.assertEqual(r["correctionHistorySourceGate"],"missing_or_stale_related_snapshots")
         self.assertNotEqual(r["sourceCoverage"],"verified_inputs_only")
 
+    def test_live_dart_original_is_recent_without_broad_triage_completeness(self):
+        s=fixtures()
+        stamp="2026-10-16T10:00:00+09:00"
+        receipt="20261015800054"
+        fields={
+            "contract_subject":"북미 초고압 케이블 납품의 건",
+            "contract_amount":"116,810,902,865",
+            "counterparty":"TAIHAN ELECTRIC USA LTD.",
+            "counterparty_relationship":"자회사",
+            "supply_region":"미국"
+        }
+        row={"company":"대한전선","receiptNo":receipt,
+             "published":"20261015","sourceUrl":url(receipt),
+             "status":"official_document_read","detailStatus":"official_document_read",
+             "isCorrection":False,
+             "documentFieldExtractionStatus":"official_table_terms_not_business_effect",
+             "observedFields":fields,
+             "observedFieldEvidence":{k:{"basis":"same_official_table_row"}
+                                    for k in fields}}
+        s["dartBeat"]={"generatedAt":stamp,
+                       "status":"industry_beat_official_receipt_review",
+                       "sourceComplete":False,"uninspectedRelevantDetails":0,
+                       "records":[row]}
+        result=q.build(s,now=NOW)
+        self.assertEqual(result["checkedOfficialRecentCandidates"],1)
+        self.assertEqual(result["sourceHealth"]["dartBeat"]["status"],"source_partial_coverage")
+        self.assertGreaterEqual(result["excluded"]["same_receipt_merged"],2)
+        item=next(x for x in result["items"]
+                  if x["tier"]=="new_official_receipt_review")
+        self.assertEqual(item["officialDocumentDate"],"2026-10-15")
+        self.assertTrue(item["officialTableTermsRetrieved"])
+        self.assertTrue(item["inGroupCounterpartyPerIssuerFiling"])
+        self.assertFalse(item["externalNewCustomerVerified"])
+        self.assertFalse(item["pressFulltextReviewed"])
+        self.assertFalse(item["exclusiveConfirmed"])
+        self.assertIn("TAIHAN ELECTRIC USA LTD.",item["evidenceSummary"])
+        self.assertEqual(item["officialUrls"],[url(receipt)])
+        self.assertEqual(item["editorialPriority"],"related_party_reference_only")
+        # A mismatched URL, different company, or unverified field means no
+        # evidence-based promotion; generic official item is still distinct.
+        s["dartBeat"]["records"][0]["sourceUrl"]=url("20261015800055")
+        other=q.build(s,now=NOW)
+        self.assertFalse(any(x.get("officialTableTermsRetrieved") for x in other["items"]))
+        s["dartBeat"]["records"][0]["sourceUrl"]=url(receipt)
+        s["dartBeat"]["records"][0]["observedFieldEvidence"]["contract_amount"]["basis"]="inferred_from_title"
+        other=q.build(s,now=NOW)
+        self.assertFalse(any(x.get("officialTableTermsRetrieved") for x in other["items"]))
+        s["dartBeat"]["records"][0]["observedFieldEvidence"]["contract_amount"]["basis"]="same_official_table_row"
+        s["dartBeat"]["records"][0]["published"]="20261005"
+        other=q.build(s,now=NOW)
+        self.assertFalse(any(x.get("officialTableTermsRetrieved") for x in other["items"]))
+
     def test_empty_fresh_is_not_zero_news_coverage(self):
         s=fixtures()
         s["officialEvents"]["freshOfficialReview"]=[]

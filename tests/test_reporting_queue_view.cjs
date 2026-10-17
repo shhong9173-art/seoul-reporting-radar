@@ -12,7 +12,9 @@ for(const name of [
  "원공시 역추적","동일 계약·원계약 연결·실제 계약 효력 미확정",
  "officialDocumentDate",
  "원공시 미대조 정정","기보도 전문·사업 영향·단독성 미검증",
- "sourceCoverage","sourceHealth"
+ "sourceCoverage","sourceHealth",
+ "officialTableTermsRetrieved","inGroupCounterpartyPerIssuerFiling",
+ "발행사 공시상 계약 상대가 계열사","신규 외부 고객·실제 납품은 미확정"
 ])assert.ok(html.includes(name),name);
 assert.ok(html.includes('data.confirmedScoops!==0'));
 assert.ok(html.includes("x.approvedForPitch!==false"));
