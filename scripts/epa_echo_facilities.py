@@ -26,6 +26,8 @@ ALIASES={
     "고려아연":"KOREA ZINC",
 }
 REGISTRY=re.compile(r"^[A-Z0-9-]{3,30}$",re.I)
+MAX_IDS=1000
+BATCH_SIZE=50
 
 def query_url(alias):
     if alias not in ALIASES.values():raise ValueError("Unsupported legal brand query")
@@ -50,6 +52,40 @@ def request_json(uri):
     if not isinstance(obj,dict) or obj.get("error"):
         raise ValueError("EPA ECHO ArcGIS provider error") from None
     return obj
+
+def collect(alias,fetch):
+    """Resolve a truncated query through the provider's complete ID manifest.
+
+    ArcGIS returnIdsOnly is not subject to the feature response row limit.
+    Verify every requested ID, rather than trusting offsets on a changing layer.
+    """
+    first=fetch(query_url(alias))
+    if first.get('exceededTransferLimit') is not True:return first
+    manifest=fetch(API+'?'+urlencode({'where':"FAC_NAME LIKE '%"+alias+"%'",
+                                    'returnIdsOnly':'true','f':'json'}))
+    ids=manifest.get('objectIds');field=manifest.get('objectIdFieldName')
+    if (not isinstance(ids,list) or not isinstance(field,str)
+        or not re.fullmatch(r'[A-Za-z_][A-Za-z_0-9]*',field)
+        or any(type(x) is not int or x<0 for x in ids)
+        or len(set(ids))!=len(ids) or manifest.get('exceededTransferLimit') is True):
+        raise ValueError('EPA invalid ID manifest')
+    if len(ids)>MAX_IDS:
+        return {'features':[], 'exceededTransferLimit':True,
+                'matchedIds':len(ids),'unqueriedIds':len(ids)}
+    rows=[]
+    for start in range(0,len(ids),BATCH_SIZE):
+        batch=sorted(ids)[start:start+BATCH_SIZE]
+        page=fetch(API+'?'+urlencode({'objectIds':','.join(map(str,batch)),
+                    'outFields':','.join([field]+FIELDS),'returnGeometry':'false',
+                    'resultRecordCount':BATCH_SIZE,'f':'json'}))
+        features=page.get('features')
+        if not isinstance(features,list) or page.get('exceededTransferLimit') is True:
+            raise ValueError('EPA incomplete ID batch')
+        returned=[r.get('attributes',{}).get(field) if isinstance(r,dict) else None for r in features]
+        if any(type(x) is not int for x in returned) or sorted(returned)!=batch:
+            raise ValueError('EPA missing duplicate or unexpected ID')
+        rows.extend(features)
+    return {'features':rows,'matchedIds':len(ids),'unqueriedIds':0}
 
 def parse(payload,issuer):
     if not isinstance(payload,dict) or not isinstance(payload.get("features"),list):
@@ -87,9 +123,12 @@ def evaluate(fetch=request_json,now=None):
     allitems=[]
     for issuer,alias in ALIASES.items():
         try:
-            obj=parse(fetch(query_url(alias)),issuer)
+            payload=collect(alias,fetch)
+            obj=parse(payload,issuer)
             checks.append({"issuer":issuer,"status":obj["status"],
-                           "scanned":obj["count"],"facilityCandidates":len(obj["items"]) if obj['status']=='checked' else None})
+                           "scanned":obj["count"],"matchedIds":payload.get('matchedIds'),
+                           "unqueriedIds":payload.get('unqueriedIds'),
+                           "facilityCandidates":len(obj["items"]) if obj['status']=='checked' else None})
             allitems.extend(obj["items"])
         except (ValueError,OSError,TimeoutError) as e:
             reason=str(e) if re.fullmatch(r'EPA HTTP \d{3}',str(e)) else 'network_or_provider_response_error'
