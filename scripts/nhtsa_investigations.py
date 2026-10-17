@@ -6,6 +6,7 @@ established safety defects; investigative records can cover multiple models.
 """
 from __future__ import annotations
 import csv
+import hashlib
 import io
 import json
 import re
@@ -50,12 +51,23 @@ def parse_tab_data(content,now=None,lookback=100):
     return parse_rows(csv.reader(text,delimiter="\t"),now=now,lookback=lookback)
 
 
+def valid_date(value):
+    if not DATE.fullmatch(value):
+        return False
+    try:
+        datetime.strptime(value,"%Y%m%d")
+        return True
+    except ValueError:
+        return False
+
+
 def parse_rows(reader,now=None,lookback=100):
     now=now or datetime.now(KST)
     if not 1<=lookback<=365:raise ValueError("1..365 days only")
     start=(now-timedelta(days=lookback)).strftime("%Y%m%d")
     end=now.strftime("%Y%m%d")
     leads={}
+    evidence={}
     inspected=0
     for row in reader:
         if not row or len(row)!=11:continue
@@ -64,21 +76,48 @@ def parse_rows(reader,now=None,lookback=100):
         obj=dict(zip(FIELDS,(str(x or "").strip() for x in row)))
         action=obj["actionNumber"]
         opened=obj["openedDate"]
-        if not ACTION.fullmatch(action) or not DATE.fullmatch(opened):
+        closed=obj["closedDate"]
+        if (not ACTION.fullmatch(action) or not valid_date(opened) or opened>end
+            or (closed and (not valid_date(closed) or closed<opened or closed>end))):
             continue
-        if not start<=opened<=end:continue
+        if not (start<=opened<=end or (closed and start<=closed<=end)):continue
         owner=direct_make(obj["make"],obj["manufacturer"])
         if not owner:continue
         obj["coveredIssuerRelation"]=owner
         obj["sourceUrl"]=DOCS
         obj["sourceDataset"]=SOURCE
         obj["recallLinked"]=bool(obj["recallCampaign"])
+        # Hash the complete official row before bounding the displayed excerpt.
+        # Row order and repeated model rows must not manufacture a change.
+        signature=hashlib.sha256(json.dumps([obj[k] for k in FIELDS],
+                    ensure_ascii=False).encode()).hexdigest()
+        evidence.setdefault(action,set()).add(signature)
         obj["summary"]=obj["summary"][:900]
-        obj["discoveryType"]="official_us_investigation_opened"
-        obj["caution"]="미국 NHTSA 조사 개시. 결함 확정·국내 판매 모델 동일성·국내 리콜/단독 아님"
-        leads.setdefault(action,obj)
+        obj["discoveryType"]=("official_us_investigation_closed" if closed
+                              else "official_us_investigation_opened")
+        obj["officialEventDate"]=closed or opened
+        obj["caution"]="미국 NHTSA 조사 기록. 종결은 결함 없음 판정이 아니며 결함 확정·국내 판매 모델 동일성·국내 리콜/단독 아님"
+        lead=leads.setdefault(action,{**obj,"vehicles":[],"officialEventDates":[],
+                                     "recallCampaigns":[]})
+        vehicle={k:obj[k] for k in ("make","model","modelYear","manufacturer","component")}
+        if vehicle not in lead["vehicles"]:lead["vehicles"].append(vehicle)
+        dates={"openedDate":opened,"closedDate":closed}
+        if dates not in lead["officialEventDates"]:lead["officialEventDates"].append(dates)
+        if obj["recallCampaign"] and obj["recallCampaign"] not in lead["recallCampaigns"]:
+            lead["recallCampaigns"].append(obj["recallCampaign"])
+    for action,lead in leads.items():
+        lead["vehicles"].sort(key=lambda v:tuple(v[k] for k in sorted(v)))
+        lead["officialEventDates"].sort(key=lambda v:(v["openedDate"],v["closedDate"]))
+        lead["recallCampaigns"].sort()
+        lead["recallLinked"]=bool(lead["recallCampaigns"])
+        lead["eventDateConflict"]=len(lead["officialEventDates"])!=1
+        if lead["eventDateConflict"]:
+            lead["officialEventDate"]=None
+            lead["discoveryType"]="official_us_investigation_date_conflict"
+        lead["sourceFingerprintVersion"]=1
+        lead["sourceFingerprint"]=hashlib.sha256("\n".join(sorted(evidence[action])).encode()).hexdigest()
     return {"scannedRecords":inspected,"items":sorted(leads.values(),
-                    key=lambda z:(z["openedDate"],z["actionNumber"]),reverse=True)}
+                    key=lambda z:(z["officialEventDate"] or "",z["actionNumber"]),reverse=True)}
 
 
 def recent_changes(current,previous):
@@ -87,9 +126,18 @@ def recent_changes(current,previous):
         before=old.get(x["actionNumber"])
         x["firstSeenInRadar"]=before.get("firstSeenInRadar") if before else current["generatedAt"]
         x["observationState"]="first_observed_in_this_radar" if before is None else "previously_observed"
+        comparable=bool(before and x.get("sourceFingerprint") and before.get("sourceFingerprint")
+                        and x.get("sourceFingerprintVersion")==before.get("sourceFingerprintVersion")==1)
+        x["sourceContentChanged"]=(x["sourceFingerprint"]!=before["sourceFingerprint"]
+                                    if comparable else None)
+        x["changeComparisonStatus"]="compared" if comparable else "baseline_required"
+        if x["sourceContentChanged"]:
+            x["observationState"]="previously_observed_source_changed"
+        x["changeIsNewPublicationVerified"]=False
         # First observed is NOT first published nor scoop. Keep source date.
     current["newlyObserved"]=sum(x["observationState"]=="first_observed_in_this_radar"
                                   for x in current["items"])
+    current["changedObserved"]=sum(x["sourceContentChanged"] is True for x in current["items"])
     return current
 
 
