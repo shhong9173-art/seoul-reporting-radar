@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-10-16T16:37:02+09:00",
+  "generatedAt": "2026-10-17T17:16:35+09:00",
   "lookbackDays": 30,
-  "windowStart": "2026-09-16",
+  "windowStart": "2026-09-17",
   "scope": "US Federal Register 8개 검색 + EU TED 8개 검색. 회사명 검색 결과만 검토하며 주·카운티 인허가 및 EPA 시설별 환경허가는 별도 확인 필요",
   "limits": "미국 주·카운티 건축/환경 인허가, EU 각국 소액 조달, 모든 세계 공장 인허가를 망라하지 않음",
   "checks": [
@@ -33,9 +33,9 @@
       "provider": "US Federal Register",
       "query": "Korea Zinc",
       "status": "checked",
-      "returned": 1,
+      "returned": 2,
       "matched": 0,
-      "unverified": 1
+      "unverified": 2
     },
     {
       "provider": "EU TED",
@@ -135,6 +135,21 @@
     }
   ],
   "documents": [
+    {
+      "source": "US Federal Register",
+      "sourceType": "federal_notice",
+      "sourceId": "2026-21362",
+      "published": "2026-10-19",
+      "companiesMentioned": [],
+      "companySearchTerm": "Korea Zinc",
+      "nameVerified": false,
+      "title": "Certain Steel Nails From Taiwan: Final Results of Antidumping Duty Administrative Review; 2024-2025",
+      "abstract": "The U.S. Department of Commerce (Commerce) determines that certain steel nails (nails) from Taiwan were sold in the United States at less than normal value during the period of review (POR), July 1, 2024, through June 30, 2025.",
+      "sourceUrl": "https://www.federalregister.gov/documents/2026/10/19/2026-21362/certain-steel-nails-from-taiwan-final-results-of-antidumping-duty-administrative-review-2024-2025",
+      "evidence": "연방 고시 검색 색인 일치: 기업명·사건 관계를 원문에서 확인하지 못함",
+      "notProven": "지역 공장허가 취득·회사 사업 확정·직접 수주 여부 미확인",
+      "exclusiveStatus": "공개 문서 취재 단서·단독 미확정"
+    },
     {
       "source": "US Federal Register",
       "sourceType": "federal_notice",
@@ -275,7 +290,7 @@
     }
   ],
   "matchedCount": 1,
-  "unverifiedSearchMatches": 8,
+  "unverifiedSearchMatches": 9,
   "sourceErrors": 0,
   "scoopConfirmed": 0
 }
