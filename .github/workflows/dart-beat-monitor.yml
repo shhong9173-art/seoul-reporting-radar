@@ -8,7 +8,7 @@ on:
       - 'scripts/dart_corp_registry.py'
       - 'tests/test_dart_stock_identity.py'
       - 'scripts/publish_newsroom_outputs.py'
-      - 'tests/test_dart_registry_publisher.py'
+      - 'tests/test_publish_newsroom_outputs.py'
       - 'dart_collector.py'
       - 'dart_corp_codes.json'
       - 'scripts/dart_beat_run_health.py'
@@ -44,7 +44,7 @@ jobs:
           python -m compileall -q scripts/dart_beat_monitor.py scripts/dart_corp_registry.py
           python -m unittest discover -s tests -p 'test_dart_beat_monitor.py' -v
           python -m unittest discover -s tests -p 'test_dart_stock_identity.py' -v
-          python -m unittest discover -s tests -p 'test_dart_registry_publisher.py' -v
+          python -m unittest discover -s tests -p 'test_publish_newsroom_outputs.py' -v
           node tests/test_dart_beat_monitor_view.cjs
           python -m unittest discover -s tests -p 'test_dart_beat_run_health.py' -v
       - name: Refresh missing corporation IDs from official DART corporate ZIP
