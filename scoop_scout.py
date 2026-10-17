@@ -1142,7 +1142,8 @@ def main():
     primary=[]
     pattern_frequency={}
     dart_suppression={"correction":0,"outside_lookback_window":0,"contract_reports_seen":0,"contract_reports_routine":0,"contract_reports_details_unavailable":0,"contract_reports_eligible":0,"routine_equity_compensation":0,
-                       "related_party_equity":0,"intragroup_contract":0}
+                       "related_party_equity":0,"intragroup_contract":0,
+                       "related_party_goods_services_change":0}
     dart_suppression_examples={}
     for row in data:
         if row.get("global"):continue
@@ -1178,9 +1179,11 @@ def main():
         if contract_report:dart_suppression["contract_reports_seen"]+=1
         hold=review_hold(d,monitor)
         if hold is not None:
-            category=("related_party_equity" if
-                      hold["reason"]=="related_party_equity_not_new_external_business"
-                      else "intragroup_contract")
+            category={
+                "related_party_equity_not_new_external_business":"related_party_equity",
+                "official_contract_counterparty_is_affiliate":"intragroup_contract",
+                "related_party_goods_services_change_not_external_customer":"related_party_goods_services_change",
+            }.get(hold["reason"],"related_party_goods_services_change")
             dart_suppression[category]+=1
             record_drop_example(dart_suppression_examples,category,d,
                                 hold["whatVerified"]+"; "+hold["notVerified"])
