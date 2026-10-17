@@ -25,6 +25,7 @@ OUTPUTS = {
         "pitch.json", "industry.json", "dig_today.json", "dart_corp_codes.json",
     ),
     "scoop": ("pre_scoop.json", "scoop.json", "dart_numeric.json"),
+    "queue": ("digests/reporting_evidence_queue_latest.json",),
     "health": (
         "digests/auto_news_feed_health_latest.json",
         "digests/global_news_feed_health_latest.json",
@@ -88,6 +89,18 @@ def selected(root: Path, mode: str):
             obj = json.loads((root / name).read_text(encoding="utf-8"))
             if not isinstance(obj, dict) or not isinstance(obj.get("items"), list):
                 raise ValueError("invalid_scoop_output: " + name)
+    if mode == "queue":
+        doc=json.loads((root / "digests/reporting_evidence_queue_latest.json").read_text(encoding="utf-8"))
+        if (not isinstance(doc,dict) or
+            doc.get("status")!="reporter_evidence_queue_not_exclusive" or
+            doc.get("confirmedScoops")!=0 or doc.get("approvedArticles")!=0 or
+            not isinstance(doc.get("items"),list) or
+            doc.get("totalRows")!=len(doc["items"]) or
+            any(not isinstance(x,dict) or x.get("exclusiveConfirmed") is not False or
+                x.get("approvedForPitch") is not False or
+                x.get("pressFulltextReviewed") is not False
+                for x in doc["items"])):
+            raise ValueError("invalid_reporting_queue_evidence")
     if mode == "health":
         for name in files:
             obj = json.loads((root / name).read_text(encoding="utf-8"))
