@@ -95,7 +95,8 @@ class EvidenceQueue(unittest.TestCase):
         }
         data=q.build(src,now=at)
         self.assertEqual(data["recentOfficialTitleOnlyCount"],2)
-        self.assertEqual(data["checkedOfficialRecentCandidates"],2)
+        # Existing fixture already has one separate fresh Taihan official receipt.
+        self.assertEqual(data["checkedOfficialRecentCandidates"],3)
         self.assertEqual(data["sourceHealth"]["dartBeat"]["status"],
                          "source_partial_coverage")
         cards=[x for x in data["items"]
