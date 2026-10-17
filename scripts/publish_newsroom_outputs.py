@@ -31,7 +31,14 @@ OUTPUTS = {
     ),
 }
 OPTIONAL = {"dart_corp_codes.json"}
-MAX_BYTES = 12 * 1024 * 1024
+# Existing verified archive.json is ~16.2MB (2026-10-17). A blanket 12MiB
+# cap blocked already-validated news from publication. Give ONLY the long-lived
+# 90-day news archive a bounded 32MiB allowance, never all output files.
+DEFAULT_MAX_BYTES = 12 * 1024 * 1024
+ARCHIVE_MAX_BYTES = 32 * 1024 * 1024
+
+def output_size_limit(name: str) -> int:
+    return ARCHIVE_MAX_BYTES if name == "archive.json" else DEFAULT_MAX_BYTES
 
 
 def run(cwd: Path, *args: str, check: bool = True):
@@ -55,7 +62,7 @@ def selected(root: Path, mode: str):
             if mode == "health" or name in OPTIONAL:
                 continue
             raise ValueError("required_generated_output_missing: " + name)
-        if not path.is_file() or path.is_symlink() or path.stat().st_size > MAX_BYTES:
+        if not path.is_file() or path.is_symlink() or path.stat().st_size > output_size_limit(name):
             raise ValueError("invalid_generated_output: " + name)
         if name.endswith(".json"):
             try:
