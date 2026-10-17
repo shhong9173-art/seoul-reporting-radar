@@ -1,0 +1,44 @@
+name: NHTSA Investigation Delta Validation
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'scripts/nhtsa_investigations.py'
+      - 'tests/test_nhtsa_investigations.py'
+      - '.github/workflows/nhtsa-investigation-delta-ci.yml'
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Regression tests
+        run: |
+          python -m unittest discover -s tests -p 'test_nhtsa_investigations.py' -v
+          python -m unittest discover -s tests -p 'test_official_collectors.py' -v
+      - name: Isolated live official archive verification
+        run: |
+          mkdir -p /tmp/nhtsa-validation/digests
+          cp digests/nhtsa_investigations_latest.json /tmp/nhtsa-validation/baseline.json
+          cd /tmp/nhtsa-validation
+          python "$GITHUB_WORKSPACE/scripts/nhtsa_investigations.py" --out baseline.json
+          python - <<'PY'
+          import json
+          d=json.load(open('baseline.json'))
+          assert d['scannedRecords'] >= 200
+          assert d['confirmedScoops'] == 0
+          for x in d['items']:
+              print(x['actionNumber'], x['officialEventDate'], 'vehicles', len(x['vehicles']), x['observationState'])
+              assert x['changeIsNewPublicationVerified'] is False
+          print('newly observed is not newly published:', d['newlyObserved'])
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: nhtsa-investigation-validation
+          path: /tmp/nhtsa-validation/

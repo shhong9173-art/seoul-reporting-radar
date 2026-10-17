@@ -10,6 +10,53 @@ def rec(action,make="HYUNDAI",opened="20261012",mfr="HYUNDAI MOTOR COMPANY"):
     return "\t".join([action,make,"TUCSON","2026","ELECTRICAL SYSTEM",mfr,
                       opened,"","","Possible electrical issue","Review ongoing"])
 class Tests(unittest.TestCase):
+    def test_old_opening_recent_closure_and_invalid_calendar(self):
+        row=rec("DP24001",opened="20240101").split("\t")
+        row[7]="20261010"
+        invalid=rec("PE26001",opened="20260931")
+        out=n.parse_tab_data(("\t".join(row)+"\n"+invalid).encode(),NOW,lookback=7)
+        self.assertEqual(len(out["items"]),1)
+        self.assertEqual(out["items"][0]["officialEventDate"],"20261010")
+        self.assertEqual(out["items"][0]["discoveryType"],"official_us_investigation_closed")
+
+    def test_all_models_preserved_duplicates_and_order_do_not_change_fingerprint(self):
+        a=rec("PE26001")
+        b=a.replace("TUCSON","SANTA FE")
+        first=n.parse_tab_data((a+"\n"+b).encode(),NOW)
+        other=n.parse_tab_data((b+"\n"+a+"\n"+b).encode(),NOW)
+        self.assertEqual(len(first["items"]),1)
+        self.assertEqual(len(first["items"][0]["vehicles"]),2)
+        self.assertEqual(first["items"][0]["sourceFingerprint"],other["items"][0]["sourceFingerprint"])
+
+    def test_full_summary_changes_beyond_display_excerpt_are_detected(self):
+        a=rec("PE26001").replace("Review ongoing","a"*1000+"original")
+        b=a.replace("original","revised")
+        first=n.parse_tab_data(a.encode(),NOW)
+        first["generatedAt"]="2026-10-13"
+        n.recent_changes(first,{})
+        second=n.parse_tab_data(b.encode(),NOW)
+        second["generatedAt"]="2026-10-14"
+        n.recent_changes(second,first)
+        self.assertEqual(second["changedObserved"],1)
+        self.assertEqual(second["newlyObserved"],0)
+        self.assertFalse(second["items"][0]["changeIsNewPublicationVerified"])
+        self.assertEqual(first["items"][0]["summary"],second["items"][0]["summary"])
+
+    def test_legacy_snapshot_is_baseline_not_new_content(self):
+        current=n.parse_tab_data(rec("PE26001").encode(),NOW)
+        current["generatedAt"]="2026-10-13"
+        n.recent_changes(current,{"items":[{"actionNumber":"PE26001","firstSeenInRadar":"2026-10-01"}]})
+        self.assertIsNone(current["items"][0]["sourceContentChanged"])
+        self.assertEqual(current["changedObserved"],0)
+        self.assertEqual(current["newlyObserved"],0)
+
+    def test_conflicting_event_dates_are_not_single_new_date(self):
+        a=rec("PE26001")
+        b=a.replace("20261012","20261011")
+        out=n.parse_tab_data((a+"\n"+b).encode(),NOW)["items"][0]
+        self.assertTrue(out["eventDateConflict"])
+        self.assertIsNone(out["officialEventDate"])
+
     def test_real_layout_year_and_make(self):
         contents="\n".join([rec("PE26-100"),rec("PE26-101","KIA"),
            rec("PE26-102","FORD","20261012","FORD"),rec("PE26-103","NOKIAN","20261012","NOKIAN"),
