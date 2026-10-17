@@ -21,6 +21,7 @@ footer{font-size:12px;color:#718292;padding-top:30px}
 <div class="warn"><strong>이 화면은 단독 보증이 아닙니다.</strong> 공시상 값 변경은 실제 설비/생산 변경이 아니고, 조사 개시는 결함 확정이 아니며, 공개 입찰은 낙찰이 아닙니다. 원문·이전 자료·타사 선행 보도·기업 답변을 확인하고 발제하세요.</div>
 <div class="grid">
 <section class="panel" id="dart"><div class="panel-head"><h2>1. DART 공시 원문 변화</h2><a href="hunt.html">/hunt 상세 ↗</a></div><p class="muted" id="dart-status">확인 중</p><div id="dart-items"></div></section>
+<section class="panel" id="affiliate"><div class="panel-head"><h2>공시 확인 대기 · 그룹 내부 거래</h2><a href="https://dart.fss.or.kr/" target="_blank" rel="noopener noreferrer">DART 원문 ↗</a></div><p class="muted" id="affiliate-status">단독 제외 검증 원문 확인 중</p><div id="affiliate-items"></div><p class="muted">계열사 출자·내부 계약은 공식자료로 확인되더라도 신규 외부 고객 수주가 아닙니다. 계약 동일성·기업 영향·선행 보도 검증 전 단독 아님.</p></section>
 <section class="panel" id="foreign"><div class="panel-head"><h2>2. 해외 공식 고시·공공조달</h2><a href="official-watch.html">해외 문서 상세 ↗</a></div><p class="muted" id="foreign-status">확인 중</p><div id="foreign-items"></div></section>
 <section class="panel" id="nhtsa"><div class="panel-head"><h2>3. 미국 NHTSA 결함 조사</h2><a href="https://www.nhtsa.gov/nhtsa-datasets-and-apis" target="_blank" rel="noopener noreferrer">ODI 공식 원천 ↗</a></div><p class="muted" id="nhtsa-status">확인 중</p><div id="nhtsa-items"></div></section>
 <section class="panel" id="research"><div class="panel-head"><h2>4. 연구공모·나라장터 입찰</h2><a href="https://www.data.go.kr/" target="_blank" rel="noopener noreferrer">공공데이터포털 ↗</a></div><p class="muted" id="research-status">확인 중</p><div id="research-items"></div></section>
@@ -59,7 +60,7 @@ async function load(path){
    if(!r.ok)return null;const j=await r.json();return j&&j.generatedAt?j:null;
  }catch(e){return null;}
 }
-const [investment,metrics,overseas,nhtsa,government,hs,nhtsaHealth,epa]=await Promise.all([
+const [investment,metrics,overseas,nhtsa,government,hs,nhtsaHealth,epa,scoop]=await Promise.all([
  load("investigation_hunt_latest.json"),
  load("recent_metric_changes_latest.json"),
  load("overseas_official_latest.json"),
@@ -67,7 +68,8 @@ const [investment,metrics,overseas,nhtsa,government,hs,nhtsaHealth,epa]=await Pr
  load("research_procurement_latest.json"),
  load("customs_hs6_latest.json"),
  load("nhtsa_source_status_latest.json"),
- load("epa_facilities_latest.json")]);
+ load("epa_facilities_latest.json"),
+ fetch("scoop.json",{cache:"no-store"}).then(r=>r.ok?r.json():null).catch(()=>null)]);
 if(investment||metrics){
  $("dart-status").textContent="투자계획 변경 "+(investment?.verifiedChangeCount??"미확인")+
   "건 · 비교가능 공시상 수치 변동 "+(metrics?.officialChanges??"미검증")+
@@ -85,6 +87,19 @@ if(investment||metrics){
   (o.sourceUrls||[]).map((u,i)=>[u,i?"최근 원문":"전기 원문"]));
  }
 }else $("dart-status").textContent="최근 비교 원문 미생성/실행 상태 미확인 · 기존 공시 변화 0건 주장 금지";
+if(scoop&&scoop.beatScope==="direct-company-beats-only"&&Array.isArray(scoop.heldDartResearch)){
+ $("affiliate-status").textContent="원문 본문 관계 확인 후 단독 후보에서 제외 "+
+  scoop.heldDartResearch.length+"건 · 레이더 생성 "+date(scoop.generatedAt);
+ for(const r of scoop.heldDartResearch.slice(0,8)){
+  if(r.classification!=="source_review_only_not_a_scoop"||
+     r.exclusiveConfirmed!==false||r.approvedForPitch!==false||
+     r.externalNewCustomerVerified!==false)continue;
+  card("affiliate",r.company+" · "+r.reportName,
+   "공식 사실: "+r.officialFact+" · 검증 안 됨: "+r.notVerified+
+   " · "+String(r.published||"")+" · 단독 미확정",
+   [[r.sourceUrl,"관련 DART 접수 원문"]]);
+ }
+}else $("affiliate-status").textContent="그룹 거래 단독 제외 자료 미생성/검증 실패 · 실제 거래 0건이라는 뜻 아님";
 if(overseas){
  $("foreign-status").textContent="원문 "+(overseas.documents||[]).length+
  "건 · 검색상 회사명 직접 확인 "+overseas.matchedCount+

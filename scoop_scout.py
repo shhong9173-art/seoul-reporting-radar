@@ -13,6 +13,7 @@ import zipfile
 from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 from pathlib import Path
+from scripts.dart_affiliate_scoop_gate import review_hold
 
 KST=timezone(timedelta(hours=9))
 DATA=Path("data.json"); DART=Path("dart.json"); NUM=Path("dart_numeric.json")
@@ -1133,9 +1134,15 @@ def main():
     archive=json.loads(ARCHIVE.read_text(encoding="utf-8")) if ARCHIVE.exists() else []
     pre_scoop=json.loads(Path("pre_scoop.json").read_text(encoding="utf-8")).get("items",[]) if Path("pre_scoop.json").exists() else []
     now=datetime.now(KST)
+    try:
+        monitor=json.loads(Path("digests/dart_beat_monitor_latest.json").read_text(encoding="utf-8"))
+    except (OSError,ValueError):
+        monitor=None
+    held_dart_research=[]
     primary=[]
     pattern_frequency={}
-    dart_suppression={"correction":0,"outside_lookback_window":0,"contract_reports_seen":0,"contract_reports_routine":0,"contract_reports_details_unavailable":0,"contract_reports_eligible":0,"routine_equity_compensation":0}
+    dart_suppression={"correction":0,"outside_lookback_window":0,"contract_reports_seen":0,"contract_reports_routine":0,"contract_reports_details_unavailable":0,"contract_reports_eligible":0,"routine_equity_compensation":0,
+                       "related_party_equity":0,"intragroup_contract":0}
     dart_suppression_examples={}
     for row in data:
         if row.get("global"):continue
@@ -1169,6 +1176,28 @@ def main():
         material=any(k in report for k in ("회사분할","영업정지","생산중단","신규시설투자","타법인주식및출자증권취득결정","유상증자","영업양수도","합병","대표이사","임원","이사선임","소송","주요사항보고","자기주식처분결정","자기주식취득","주식소각","금전대여","채무인수","전환사채","교환사채"))
         contract_report=("단일판매ㆍ공급계약체결" in report)
         if contract_report:dart_suppression["contract_reports_seen"]+=1
+        hold=review_hold(d,monitor)
+        if hold is not None:
+            category=("related_party_equity" if
+                      hold["reason"]=="related_party_equity_not_new_external_business"
+                      else "intragroup_contract")
+            dart_suppression[category]+=1
+            record_drop_example(dart_suppression_examples,category,d,
+                                hold["whatVerified"]+"; "+hold["notVerified"])
+            held_dart_research.append({
+                "company":corp_name,"receiptNo":d.get("receiptNo"),
+                "sourceUrl":d.get("url"),"published":ddt.isoformat(),
+                "reportName":report,"classification":"source_review_only_not_a_scoop",
+                "holdReason":hold["reason"],
+                "officialFact":hold["whatVerified"],
+                "notVerified":hold["notVerified"],
+                "companyImpactVerified":False,
+                "externalNewCustomerVerified":False,
+                "pressFulltextReviewed":False,
+                "exclusiveConfirmed":False,
+                "approvedForPitch":False
+            })
+            continue
         if ("기재정정" in report or "첨부정정" in report) and not material:continue
         if not HARD_SIGNAL_RE.search(report):
             record_drop_example(dart_suppression_examples,"no_hard_signal",d,"공시 제목이 HARD_SIGNAL_RE에 해당하지 않음")
@@ -1615,6 +1644,8 @@ def main():
                 "directSourceDiagnostics":(json.loads(Path("pre_scoop.json").read_text(encoding="utf-8")).get("directSourceDiagnostics",{}) if Path("pre_scoop.json").exists() else {})
             }
         },
+        "heldDartResearch":held_dart_research[:35],
+        "heldDartResearchCount":len(held_dart_research),
         "sourceSuppressionStats":{"dart":dart_suppression},
         "sourceSuppressionExamples":{"dart":dart_suppression_examples},
         "dropExamples":drop_examples,
