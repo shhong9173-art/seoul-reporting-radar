@@ -40,6 +40,12 @@ ALIASES={
 MAX_RESPONSE=8_000_000
 MAX_XML=70_000_000
 MAX_COMPANIES=175000
+# Independent listed stock identity supplied by the official DART corpCode.xml.
+# Unlike a name alias, an exact six-digit listed ticker can distinguish two
+# records bearing the same cleaned Korean name. Never use a third-party stock
+# value as a corporation ID: verify the code *inside the official ZIP*.
+STOCK_IDENTITY={"KG스틸":"016380"}
+STOCK_KEY_PREFIX="__official_listed_stock__:"
 
 
 def issuer_name(value):
@@ -85,6 +91,15 @@ def official_index(payload,names=TARGETS):
                 code=(el.findtext("corp_code") or "").strip()
                 if name in expected and CODE.fullmatch(code):
                     found[name].add(code)
+                    # The same official XML row MUST prove both legal name
+                    # and 6-digit ticker, so an unrelated company with a
+                    # coincidental ticker is never silently connected.
+                    listed=(el.findtext("stock_code") or "").strip()
+                    for target,ticker in STOCK_IDENTITY.items():
+                        accepted={issuer_name(target)} | {
+                            issuer_name(a) for a in ALIASES.get(target,())}
+                        if name in accepted and listed==ticker:
+                            found[STOCK_KEY_PREFIX+target+":"+ticker].add(code)
                 el.clear()
     if count<1000:raise ValueError("incomplete_registry")
     return found,count
@@ -100,6 +115,10 @@ def resolve(codes,official,*,now=None,registry_count=0):
         oldcode=old.get("corp_code") if isinstance(old,dict) else None
         keys={issuer_name(name)}|{issuer_name(x) for x in ALIASES.get(name,())}
         hits=set().union(*(official.get(k,set()) for k in keys))
+        ticker=STOCK_IDENTITY.get(name)
+        ticker_hits=(official.get(STOCK_KEY_PREFIX+name+":"+ticker,set())
+                     if ticker else set())
+        ticker_hits=set(ticker_hits)&hits
         if oldcode is not None and CODE.fullmatch(str(oldcode)):
             # Name aliases may refer to MULTIPLE real registered companies.
             # If the already-verified code is one of the matching official
@@ -111,8 +130,13 @@ def resolve(codes,official,*,now=None,registry_count=0):
             final=oldcode
         elif len(hits)==1:
             final=next(iter(hits))
-            new[name]={"corp_code":final,"stock_code":""}
+            new[name]={"corp_code":final,"stock_code":ticker if final in ticker_hits else ""}
             state="resolved_unique_official_legal_name"
+        elif len(hits)>1 and len(ticker_hits)==1:
+            # Requires BOTH exact legal name and exact official ticker.
+            final=next(iter(ticker_hits))
+            new[name]={"corp_code":final,"stock_code":ticker}
+            state="resolved_unique_official_stock_and_legal_name"
         else:
             final=None
             state=("ambiguous_official_legal_name" if hits else
@@ -120,7 +144,9 @@ def resolve(codes,official,*,now=None,registry_count=0):
         lines.append({
             "company":name,"beat":group,"status":state,
             "corpCode":final,
-            "officialMatchCount":len(hits)
+            "officialMatchCount":len(hits),
+            "officialListedStockCodeProof":(
+                ticker if ticker and final is not None and final in ticker_hits else None)
         })
     return new,{
        "generatedAt":now.isoformat(timespec="seconds"),
@@ -128,13 +154,17 @@ def resolve(codes,official,*,now=None,registry_count=0):
        "officialCompanyEntriesExamined":registry_count,
        "scope":len(TARGETS),
        "knownWithCode":sum(x["corpCode"] is not None for x in lines),
-       "newUniqueCodesAdded":sum(x["status"]=="resolved_unique_official_legal_name" for x in lines),
+       "newUniqueCodesAdded":sum(x["status"] in (
+            "resolved_unique_official_legal_name",
+            "resolved_unique_official_stock_and_legal_name") for x in lines),
        "stillMissingCode":sum(x["corpCode"] is None for x in lines),
+       "listedTickerNameAmbiguitiesResolved":sum(
+            x["status"]=="resolved_unique_official_stock_and_legal_name" for x in lines),
        "manualConflicts":sum(x["status"] in (
            "ambiguous_official_legal_name",
            "existing_code_official_name_mismatch_manual_review") for x in lines),
        "companies":lines,
-       "warning":"Exact official corporate registry names only. No fuzzy alias matching and no evidence that a legally registered company files all contract information via DART. Existing IDs on official name mismatch are retained but require manual reconciliation."
+       "warning":"Exact official corporate registry names and name-matched listed stock identifiers only. No fuzzy alias matching and no evidence that a legally registered company files all contract information via DART. Existing IDs on official name mismatch are retained but require manual reconciliation."
     }
 
 
