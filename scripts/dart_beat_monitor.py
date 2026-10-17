@@ -48,6 +48,8 @@ IMPORTANT=(
  "사업보고서","반기보고서","분기보고서","주요사항보고서",
  "유상증자결정","무상증자결정","영업(잠정)실적",
  "영업실적","타법인주식및출자증권","회사분할결정","합병결정",
+ # These are filed primary-document heads, not validated performance facts.
+ "기업가치제고계획","주식소각결정",
 )
 PRIORITY_FIELDS=frozenset(("contract_amount","contract_start","contract_end",
         "investment_amount","production_restart"))
