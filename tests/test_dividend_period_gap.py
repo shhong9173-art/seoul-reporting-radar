@@ -79,6 +79,49 @@ class TimingGate(unittest.TestCase):
         source["officialFact"]["recognizedFromEntity"]="Kia Sales Slovakia"
         self.assertIsNone(build_gap(source)["slovakLocalProfitYearOnYear"])
 
+    def test_public_financial_service_already_printed_same_profits(self):
+        import copy,json
+        root=Path(__file__).resolve().parents[1]
+        source=json.loads((root/"digests/crossborder_source_gap_latest.json").read_text(encoding="utf-8"))
+        prior=json.loads((root/"data/public_financial_metric_prior_checks.json").read_text(encoding="utf-8"))
+        d=next(x for x in source["items"] if x.get("type")=="foreign_subsidiary_dividend_accounting")
+        gap=build_gap(d,prior)
+        info=gap["slovakProfitFinancialDataPriorPublic"]
+        self.assertEqual(info["status"],"exact_2025_financial_metric_visible_on_public_service")
+        self.assertEqual(info["localProfitEuro"],451021000)
+        self.assertEqual(info["roundedAnnualChangePercent"],34)
+        self.assertTrue(info["metricIsPublicNotExclusive"])
+        self.assertFalse(info["sourceOriginalPublishingDateVerified"])
+        self.assertFalse(info["koreanPressSameAngleFulltextChecked"])
+        self.assertFalse(info["actual2026DividendDecisionOrRemittanceVerified"])
+        self.assertFalse(gap["canCalculateParentCashTransferFromTheseRows"])
+
+        cases=[
+          {"url":"https://finstat.sk.evil.example/35876832"},
+          {"publishedProfitEuro":450000000},
+          {"ico":"35942894"},
+          {"originalPagePublicationDateVerified":True},
+          {"newExclusiveReportingFactConfirmed":True},
+          {"publishedProfitDecreaseApproxPercent":33},
+          {"observerCheckedDate":"not-a-date"},
+        ]
+        for change in cases:
+            fake=copy.deepcopy(prior)
+            fake["items"][0].update(change)
+            self.assertIsNone(build_gap(d,fake)["slovakProfitFinancialDataPriorPublic"],change)
+
+    def test_finstat_number_does_not_establish_2026_dividend_disbursement(self):
+        import json
+        root=Path(__file__).resolve().parents[1]
+        source=json.loads((root/"digests/crossborder_source_gap_latest.json").read_text(encoding="utf-8"))
+        prior=json.loads((root/"data/public_financial_metric_prior_checks.json").read_text(encoding="utf-8"))
+        d=next(x for x in source["items"] if x.get("type")=="foreign_subsidiary_dividend_accounting")
+        gap=build_gap(d,prior)
+        self.assertEqual(gap["koreanIssuerIncomePeriod"],"2026_first_half")
+        self.assertFalse(gap["koreanCashReceivedVerified"])
+        self.assertFalse(gap["canClaimOverseasDividendIsExclusive"])
+        self.assertTrue(gap["slovakProfitFinancialDataPriorPublic"]["metricIsPublicNotExclusive"])
+
     def test_wrong_named_entity_is_not_attached(self):
         x=fixture();x["officialFact"]["recognizedFromEntity"]="Kia Sales Slovakia"
         self.assertEqual(build_gap(x)["status"],"not_applicable_or_parent_income_not_verified")
