@@ -15,6 +15,7 @@ from email.utils import parsedate_to_datetime
 from pathlib import Path
 from scripts.dart_affiliate_scoop_gate import review_hold
 from scripts.dart_specific_media import exact_contract_evidence, precise_press_queries, likely_same_contract_indexed
+from scripts.public_reporting_questions import public_questions, public_lead_questions, validate_public_policy
 
 KST=timezone(timedelta(hours=9))
 DATA=Path("data.json"); DART=Path("dart.json"); NUM=Path("dart_numeric.json")
@@ -889,19 +890,7 @@ def build_lead_signals(primary, data, now, limit=12):
         if co in used_companies or row["sourceGroup"] in used_groups:
             diag["diversity_skip"]+=1
             continue
-        questions={
-            "노사·생산":["합의·생산조정이 확정됐나. 적용 시점과 대상 사업장은 어디인가?","생산량·근무형태·협력사 물량에 실제 변화가 있나?"],
-            "공급망":["변경 대상 부품·소재와 적용 시점은 언제인가?","기존 공급사·납기·재고 또는 생산계획에 어떤 변화가 생기나?"],
-            "사업재편":["협상·이사회·계약 단계가 어디까지 진행됐나?","대상 자산·지분·금액·종결 조건은 무엇인가?"],
-            "투자·공장":["계획이 검토·승인·착공 중 어느 단계인가?","투자액·생산능력·가동 시점이 기존 계획과 어떻게 다른가?"],
-            "인허가·규제":["원문상 대상 사업장·품목·적용 시점은 무엇인가?","해당 회사의 실제 비용·생산·수출 영향은 어느 정도인가?"],
-            "기술·제품":["출원·인증·실증이 새로 확인된 것인가. 출원일·공개일은 언제인가?","실제 제품 적용·양산·고객사 검증 단계까지 진행됐나?"],
-            "자금·거래":["조달·거래의 확정 여부와 사용 목적은 무엇인가?","금액·상대방·만기·담보 등 조건에서 기존과 달라진 점이 있나?"],
-            "수주·발주":["입찰·계약의 수요자·물량·기간·추정금액은 무엇인가?","해당 회사가 참여·수주했는지 별도 확인 가능한가?"],
-            "소송·분쟁":["당사자·청구취지·쟁점·절차 단계는 무엇인가?","생산·판매·기술 적용·손익에 직접 영향을 주는가?"],
-            "인사·조직":["인선·조직 변경이 확정됐나. 적용 시점과 담당 사업은 무엇인가?","전임자·조직 개편과 최근 투자·사업 변경이 연결되는가?"],
-            "결함·안전":["두 리콜의 대상 차종·생산기간·대수가 겹치는가?","각 공지의 결함 부품·시정개시일·조치 방법은 무엇인가?","같은 날 공지된 배경이나 공통 부품·공급망 이슈가 있는지 회사와 국토부에 확인할 수 있나?"],
-        }.get(row["kind"],["원문상 확정된 변경 사항과 적용 시점은 무엇인가?","기존 계획·생산·고객사·손익에 어떤 차이가 생기나?"])
+        questions=public_lead_questions(row["kind"])
         out.append({
             "id":hashlib.sha1((row["url"]+"|lead").encode()).hexdigest()[:12],
             "title":row["title"],"url":row["url"],"published":row["date"].isoformat(),
@@ -913,7 +902,10 @@ def build_lead_signals(primary, data, now, limit=12):
             "verification":"취재 단서 — 단독 확정 아님",
             "coverageStatus":"최근 180일 언론 검색에서 강한 동일 사건 매칭 없음. 전체 미보도 확정은 아니므로 추가 확인 필요.",
             "whyLead":("공식 리콜현황에서 같은 제조사의 리콜 공지가 최근 30일 내 복수 확인됐다. 공지 자체는 공개 정보이며 단독으로 볼 수 없다. 차종·생산기간·대수·결함 부품의 공통점이 실제로 있는지 확인할 때만 후속 기사 가치가 생긴다." if x.get("signalType")=="recall_cluster" else "구체적인 기업 변화 신호를 원자료 검색에서 포착했다. 발표 사실 자체를 단독으로 보지 말고, 기존 계획 대비 달라진 부분을 확인해야 한다."),
-            "questions":questions,"recallItems":x.get("recallItems",[]),"directSource":bool(x.get("directSource") or x.get("receiptNo")),"preScoop":bool(x.get("preScoop"))
+            "questions":questions,
+            "publicAnswerableQuestionsOnly":True,
+            "internalFutureStrategyRequested":False,
+            "recallItems":x.get("recallItems",[]),"directSource":bool(x.get("directSource") or x.get("receiptNo")),"preScoop":bool(x.get("preScoop"))
         })
         used_companies.add(co);used_groups.add(row["sourceGroup"])
         diag["surfaced"]+=1
@@ -1138,6 +1130,7 @@ def record_drop_example(store, stage, item, reason, limit=8):
 
 
 def main():
+    validate_public_policy()
     data=json.loads(DATA.read_text(encoding="utf-8")) if DATA.exists() else []
     dart=json.loads(DART.read_text(encoding="utf-8")).get("items",[]) if DART.exists() else []
     numeric=json.loads(NUM.read_text(encoding="utf-8")).get("items",[]) if NUM.exists() else []
@@ -1544,21 +1537,8 @@ def main():
         else:
             why=f"{x.get('officialLabel') or x.get('sourceName')} 원자료에서 구체적 사업 사실을 포착했습니다. 국내 언론에서 동일 사실의 강한 매칭이 없어 선점 취재 후보로 분류했습니다."
 
-        questions={
-            "결함·리콜":["결함 부위·발생 조건과 생산기간은 무엇인가?","국내 판매 차종·대수와 한국GM·벤츠·BMW 등 국내 사업자 영향은?","국내 리콜·무상수리 또는 자진시정 계획이 있는가?"],
-            "인증·형식승인":["인증 차종·파워트레인·사양은 무엇인가?","국내 판매·출시 또는 생산 계획과 연결되는가?","기존 모델 대비 변경된 인증 항목과 출시 일정은 무엇인가?"],
-            "인허가·환경":["사업지·면적·생산능력·사업자는 누구인가?","환경영향평가 단계와 실제 착공·가동 예상 시점은 언제인가?","기존 투자계획과 비교해 새로 확인되는 규모·공정·생산품은 무엇인가?"],
-            "소송·분쟁":["소송·심판·조사의 당사자와 청구내용은 무엇인가?","금액·특허·공급계약 등 핵심 쟁점은 무엇인가?","상대방 또는 감독기관은 어떤 입장인가?"],
-            "상표·디자인":["출원인·출원일·지정상품 또는 디자인 대상은 무엇인가?","새 차종·제품·브랜드 출시와 연결되는가?","국내외 동시 출원 또는 기존 브랜드와의 연관성이 있는가?"],
-            "인사":["정확한 발령일·직책·담당 사업은 무엇인가?","기존 보직과 무엇이 달라졌고 왜 지금 바뀌었나?","최근 해당 사업의 투자·수주·조직 변화와 연결되는가?"],
-            "특허·기술":["출원일·출원번호·핵심 청구항은 무엇인가?","기존 기술과 무엇이 달라졌고 실제 적용 제품은 무엇인가?","양산·상용화 계획이나 협력사가 정해져 있는가?"],
-            "정책·규제":["최종 고시·법안에서 달라진 조항은 무엇인가?","시행일과 적용 대상 기업·제품은 어디까지인가?","기업이 실제로 바꿔야 하는 절차·비용은 무엇인가?"],
-            "통상·관세":["적용 품목·국가·세율·기간은 무엇인가?","한국 기업의 수출·원가·조달에 미치는 영향은 어느 정도인가?","기업들은 가격전가·생산지 변경 등 어떤 대응을 준비하나?"],
-            "사업재편":["분할·매각·신설 대상 사업의 자산과 인력은 어떻게 이동하는가?","기존 계획과 비교해 이번 결정으로 달라지는 사업 범위는 무엇인가?","후속 일정과 생산·투자 변화는 언제 발생하는가?"],
-            "신사업·투자":["투자 대상·금액·가동 시점은 무엇인가?","기존 생산능력·사업계획에서 얼마나 달라졌는가?","신규 고객·시장 진입 효과가 있는가?"],
-            "계약·수주":["계약 상대방과 프로젝트·지역은 어디인가?","물량·기간·단가와 실제 생산능력 투입 규모는 얼마인가?","이번 계약이 신규 고객 또는 신규 시장 진입을 의미하는가?"],
-            "조달·발주":["예산·물량·납기·발주기관은 어디인가?","참여 예상 기업과 낙찰 일정은 언제인가?","기존 계획에 없던 신규 수요인지 확인할 수 있는가?"]
-        }.get(kind,["원자료의 핵심 조건은 무엇인가?","동일 사실의 언론 보도가 정말 없는가?","출입처에서 어떤 사실을 전화로 교차확인할 수 있는가?"])
+        # Press teams can confirm public filings, not unpublished decisions.
+        questions=public_questions(kind,x)
         matches=[{k:v for k,v in r.items() if k!="_sim" and k!="_event"} for r in combined[:6] if r.get("source")]
         history=[{"title":r.get("title"),"source":r.get("sourceName"),"published":r.get("published")} for _,r in archive_matches[:3]]
         sources=[{"source":x.get("sourceName"),"label":x.get("officialLabel") or x.get("sourceName"),"title":x.get("title"),"url":x.get("url"),"published":x.get("published")}]
@@ -1587,7 +1567,9 @@ def main():
             "exclusiveConfirmed":False,"approvedForPitch":False,
             "sourceGroup":source_group(x),
             "exclusivePatternHits":exclusive_pattern_hits(source_text),
-            "reportingPath":questions[:3]
+            "reportingPath":questions[:3],
+            "publicAnswerableQuestionsOnly":True,
+            "internalFutureStrategyRequested":False
         })
 
     kind_rank={"결함·리콜":10,"인증·형식승인":10,"인허가·환경":9,"소송·분쟁":9,"인사":8,"특허·기술":8,"상표·디자인":7,"사업재편":7,"정책·규제":7,"통상·관세":6,"신사업·투자":6,"조달·발주":5,"계약·수주":3}

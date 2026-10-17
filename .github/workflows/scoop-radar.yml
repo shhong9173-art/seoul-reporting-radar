@@ -45,6 +45,8 @@ jobs:
           python-version: '3.12'
       - name: Test official collector parsers offline
         run: python -m unittest discover -s tests -p 'test_official_collectors.py' -v
+      - name: Reject unanswerable press-office future strategy questions
+        run: python -m unittest discover -s tests -p 'test_public_reporting_questions.py' -v
       - name: Check issuer/counterparty DART group-transaction evidence
         run: python -m unittest discover -s tests -p 'test_dart_affiliate_scoop_gate.py' -v
       - name: Collect official-source and early signals
