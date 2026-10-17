@@ -28,6 +28,18 @@ jobs:
         run: python -m compileall -q scripts/publish_newsroom_outputs.py
       - name: Real temporary Git remotes, racing commits and dirty working tree
         run: python -m unittest discover -s tests -p 'test_publish_newsroom_outputs.py' -v
+      - name: Validate real checked-in archive and complete output budget
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from scripts.publish_newsroom_outputs import output_size_limit, selected
+          archived=Path("archive.json")
+          assert archived.exists()
+          assert archived.stat().st_size<=output_size_limit("archive.json"), "archive too large"
+          assert "archive.json" in selected(Path("."),"news")
+          print("PASS actual 90-day archive",archived.stat().st_size,
+                "bytes within dedicated",output_size_limit("archive.json"),"byte cap")
+          PY
       - name: Verify files have one publication owner and no workflow rebases
         run: |
           python - <<'PY'
