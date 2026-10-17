@@ -36,6 +36,7 @@ footer{font-size:12px;color:#718292;padding-top:30px}
 </section>
 </div>
 <footer>유효 원문 확인 건수를 우선 표시하며, 해당 데이터가 없으면 최신 확인 실패/연결 대기로 표시합니다. 공개자료와 잠정 취재 단서를 구분한 채 보관합니다.</footer>
+<script src="nhtsa-evidence-view.js"></script>
 <script>
 (async function(){
 "use strict";
@@ -108,18 +109,9 @@ if(overseas){
   card("foreign",o.title,"출처 "+o.source+" · "+o.published+
    " · "+o.evidence,[ [o.sourceUrl,"공식 문서"] ]);
 }else $("foreign-status").textContent="해외 원문 검증 상태 미확인";
-if(nhtsa){
- $("nhtsa-status").textContent="최근 "+nhtsa.lookbackDays+"일 조사 개시 "+
- (nhtsa.items||[]).length+"건 · 레이더 신규 관측 "+nhtsa.newlyObserved+
- "건 · "+date(nhtsa.generatedAt);
- for(const o of (nhtsa.items||[]).slice(0,6))
-  card("nhtsa",o.coveredIssuerRelation+" · "+o.actionNumber+" · "+o.subject,
-   "개시일 "+o.openedDate+" · 미국 차종 "+o.model+" · 부품 "+o.component+
-   " · 결함 확정/국내 적용 미확인",[[o.sourceUrl,"NHTSA 데이터 설명"]]);
-}else $("nhtsa-status").textContent=nhtsaHealth?.status==="source_error"?
- "NHTSA 공식원천 수집 실패 "+nhtsaHealth.generatedAt+
- " · "+nhtsaHealth.errorType+" · 데이터 0건으로 해석 금지":
- "NHTSA 조사 자료 미생성 또는 수집실패 · 실제 조사 0건으로 해석 금지";
+const safety=nhtsaEvidenceView.describe(nhtsa,nhtsaHealth);
+$("nhtsa-status").textContent=safety.status+' · 자료 '+date(nhtsa?.generatedAt)+' · 진단 '+date(nhtsaHealth?.generatedAt);
+for(const o of safety.rows.slice(0,12))card('nhtsa',o.title,o.text,[[o.url,'NHTSA 데이터 설명']]);
 if(government){
  $("research-status").textContent="공식 사업공고/입찰 단서 "+government.matchedItems+
  "건 · 연구공모 "+government.checks?.research?.status+
