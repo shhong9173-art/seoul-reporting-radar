@@ -147,6 +147,21 @@ try{
       }catch(e){}
     }
    }
+   if(x.officialOriginalTextRetrieved===true){
+    if(x.officialAttachmentPdfReviewed!==false||
+       x.originalTextEvidenceIsNotSameYearTargetDefinition!==true)
+      continue;
+    add(card,"p","DART 공식 원본문서 XML/HTML의 문구를 별도로 조회했습니다. 첨부 PDF·목표 산식·지난 계획 비교는 아직 확인 전입니다.","small");
+    for(const [k,examples] of Object.entries(x.officialOriginalTargetTextExcerpts||{})){
+      if(!["pbr_2029_at_least_0_5","five_year_shareholder_return_50_percent"].includes(k))continue;
+      if(!Array.isArray(examples))continue;
+      for(const value of examples.slice(0,2)){
+       if(typeof value==="string"&&value.length<=180)
+         add(card,"p","공식 원문 발췌("+k+"): "+value,"small");
+      }
+    }
+   }else if(x.originalSourceUnavailableNotZeroTargets===true)
+    add(card,"p","DART 공식 원본문서 XML 접근 불가 · 계획 목표가 0건이라는 뜻 아님 · 공식 뷰어/PDF 대조 필요","small");
    if(x.officialTableTermsRetrieved===true){
     add(card,"p","공식 DART 계약 원문 표 확인 · 신규 외부 고객·실제 납품은 미확정","small");
     if(x.inGroupCounterpartyPerIssuerFiling===true)
