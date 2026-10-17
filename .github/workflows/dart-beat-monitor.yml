@@ -5,6 +5,8 @@ on:
     paths:
       - '.github/workflows/dart-beat-monitor.yml'
       - 'scripts/dart_beat_monitor.py'
+      - 'dart_collector.py'
+      - 'dart_corp_codes.json'
       - 'scripts/dart_beat_run_health.py'
       - 'tests/test_dart_beat_run_health.py'
       - 'scripts/dart_corp_registry.py'
@@ -93,3 +95,4 @@ jobs:
           done
           echo 'Failed to publish DART run-health metadata' >&2
           exit 1
+
