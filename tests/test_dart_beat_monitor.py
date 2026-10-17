@@ -52,6 +52,35 @@ class BeatCoverageTests(unittest.TestCase):
         self.assertEqual(signals["confirmedScoops"],0)
         self.assertIsNone(signals["signals"][0]["newObservation"])
 
+    def test_live_kg_steel_valueup_and_treasury_cancellation_titles(self):
+        # Both official receipts appeared on the existing KG Steel DART list
+        # but were filtered out as generic, uninteresting disclosures.
+        self.assertEqual(m.interesting("기업가치제고계획(자율공시)"),"정기·주요공시")
+        self.assertEqual(m.interesting("주식소각결정"),"정기·주요공시")
+        self.assertEqual(m.interesting("[기재정정]기업가치제고계획(자율공시)"),
+                         "정기·주요공시")
+        self.assertIsNone(m.event_type("기업가치제고계획(자율공시)"))
+        self.assertIsNone(m.event_type("주식소각결정"))
+        looked_up=[]
+        def kg_dart(_):
+            looked_up.append(True)
+            return {"status":"000","total_page":1,"total_count":3,
+                "list":[{
+                    "corp_code":"00115676","rcept_no":"20261016800823",
+                    "rcept_dt":"20261016",
+                    "report_nm":"기업가치제고계획(자율공시)"},{
+                    "corp_code":"00115676","rcept_no":"20261015800723",
+                    "rcept_dt":"20261015","report_nm":"주식소각결정"},{
+                    "corp_code":"00115676","rcept_no":"20261015000414",
+                    "rcept_dt":"20261015",
+                    "report_nm":"주요사항보고서(자기주식처분결정)"}]}
+        out=m.fetch_official_list("key","KG스틸","00115676",
+            "20261015","20261017",get=kg_dart)
+        self.assertEqual(len(out["records"]),3)
+        self.assertEqual(out["totalOfficialFilings"],3)
+        self.assertTrue(looked_up)
+        self.assertTrue(all(not x["scoopConfirmed"] for x in out["records"]))
+
     def test_public_list_pagination_works_without_fabricating_zero(self):
         called=[]
         def fetch(uri):
