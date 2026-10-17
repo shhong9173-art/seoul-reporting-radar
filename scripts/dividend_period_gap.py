@@ -109,7 +109,7 @@ def published_metric_prior_context(profit, index):
             x.get("sameAngleNewsArticleFulltextVerified") is not False or
             x.get("originalPagePublicationDateVerified") is not False or
             not isinstance(x.get("observerCheckedDate"),str) or
-            not re.fullmatch(r"20\\d{2}-\\d{2}-\\d{2}",x["observerCheckedDate"])):
+            not re.fullmatch(r"20\d{2}-\d{2}-\d{2}",x["observerCheckedDate"])):
             continue
         return {
            "status":"exact_2025_financial_metric_visible_on_public_service",
