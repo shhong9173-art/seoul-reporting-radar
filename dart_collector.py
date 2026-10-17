@@ -8,6 +8,7 @@ import time
 import zipfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
@@ -120,7 +121,8 @@ def fetch_corp_codes():
                     xml_name=next((n for n in z.namelist() if n.lower().endswith(".xml")),z.namelist()[0])
                     found=_parse_corp_xml(z.read(xml_name))
                     if found:
-                        _write_corp_cache(found)
+                        saved=_write_corp_cache(found)
+                        found={name:saved[name] for name in found if name in saved}
                         print(f"DART corp code lookup: {len(found)} target companies resolved (attempt {attempt})")
                         return found
                     CORP_CODE_ERRORS.append("OpenDART corpCode ZIP parsed successfully but no tracked company names matched")
@@ -139,7 +141,8 @@ def fetch_corp_codes():
     # come from OpenDART. A later live OpenDART response replaces it.
     registry = _fetch_registry_codes()
     if registry:
-        _write_corp_cache(registry)
+        saved=_write_corp_cache(registry)
+        registry={name:saved[name] for name in registry if name in saved}
         CORP_CODE_ERRORS.append(f"Using public corp-code crosswalk fallback ({len(registry)} tracked issuers; dataset extraction date 2026-10-04)")
         print(f"DART corp code lookup: {len(registry)} tracked issuers resolved from public crosswalk fallback", file=sys.stderr)
         return registry
@@ -188,11 +191,30 @@ def _read_corp_cache():
         return {}
 
 def _write_corp_cache(found):
+    """Shared registry: a narrower collector must not erase other beat IDs."""
+    path=Path(CORP_CACHE)
     try:
-        with open(CORP_CACHE,"w",encoding="utf-8") as f:
-            json.dump({"updatedAt":datetime.now(timezone.utc).isoformat(),"companies":found},f,ensure_ascii=False,indent=2)
-    except Exception as e:
-        print(f"DART corp code cache write failed: {e}",file=sys.stderr)
+        old=json.loads(path.read_text(encoding='utf-8')) if path.exists() else {'companies':{}}
+        if not isinstance(old,dict) or not isinstance(old.get('companies'),dict):
+            raise ValueError('invalid existing registry')
+        merged=dict(old['companies'])
+        for name,value in found.items():
+            if not isinstance(value,dict) or not re.fullmatch(r'\d{8}',str(value.get('corp_code',''))):
+                continue
+            prior=merged.get(name)
+            if isinstance(prior,dict) and re.fullmatch(r'\d{8}',str(prior.get('corp_code',''))):
+                if prior['corp_code']!=value['corp_code']:
+                    CORP_CODE_ERRORS.append('Existing issuer ID conflict retained for manual review: '+name)
+                    continue
+                merged[name]={**value,**prior}
+            else:merged[name]=value
+        data={**old,'updatedAt':datetime.now(timezone.utc).isoformat(),'companies':merged}
+        temp=path.with_suffix(path.suffix+'.tmp')
+        temp.write_text(json.dumps(data,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+        temp.replace(path)
+        return merged
+    except (OSError,ValueError,TypeError):
+        raise ValueError('DART shared registry update failed; previous file preserved') from None
 
 def fetch_company(name, corp):
     today = datetime.now(timezone.utc).date()
@@ -306,3 +328,4 @@ def main():
     print(f"DART radar: {len(dedup)} relevant disclosures across {len(corps)} target companies")
 
 if __name__ == "__main__": main()
+

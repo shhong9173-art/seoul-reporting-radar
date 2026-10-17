@@ -1,0 +1,20 @@
+name: Shared DART Registry Preservation
+on:
+  pull_request:
+    paths:
+      - 'dart_collector.py'
+      - 'dart_corp_codes.json'
+      - 'tests/test_dart_shared_registry.py'
+      - '.github/workflows/dart-shared-registry-ci.yml'
+permissions:
+  contents: read
+jobs:
+  replay:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: python -m unittest discover -s tests -p 'test_dart_shared_registry.py' -v
+      - run: python -m unittest discover -s tests -p 'test_official_collectors.py' -v
+      - run: python -m unittest discover -s tests -p 'test_dart_beat_monitor.py' -v
