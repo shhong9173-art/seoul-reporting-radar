@@ -93,29 +93,8 @@ jobs:
               f"drop stats={scoop['dropStats']}"
           )
           PY
-      - name: Commit only isolated radar outputs
-        run: |
-          set -e
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add pre_scoop.json scoop.json dart_numeric.json
-          if git diff --cached --quiet; then
-            echo "No isolated radar output changes"
-          else
-            git commit -m "chore: refresh isolated scoop radar [skip ci]"
-            for i in 1 2 3; do
-              git fetch origin main
-              git rebase origin/main
-              if git push origin HEAD:main; then
-                break
-              fi
-              if [ "$i" = "3" ]; then
-                echo "Unable to push isolated radar update after 3 attempts"
-                exit 1
-              fi
-              sleep 3
-            done
-          fi
+      - name: Publish only validated isolated scoop radar outputs
+        run: python scripts/publish_newsroom_outputs.py --mode scoop
 
   deploy:
     needs: scout
