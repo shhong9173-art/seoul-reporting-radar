@@ -383,6 +383,38 @@ def build(sources,*,now=None):
                     "2025년 회사 원문 30% 목표의 적용 기간과 2026년 5개년 기준 비교",
                     "2026년 동일 계획 언론기사 전문 확인(계획 목표 자체 기보도)",
                     "실제 실적 변화·이행 여부는 공식 후속자료에서 별도 확인"]
+            source=filing.get("valueupPrimarySource")
+            if (filing.get("status")=="official_valueup_document_review"
+                and filing.get("sourceError") is False
+                and isinstance(source,dict)
+                and source.get("status")=="official_original_text_checked_no_inference"
+                and source.get("officialXmlOrHtmlBodyRetrieved") is True
+                and source.get("officialAttachmentPdfReviewed") is False
+                and source.get("exclusiveConfirmed") is False
+                and isinstance(source.get("targetExcerpts"),dict)):
+                cleaned={}
+                for name,detail in source["targetExcerpts"].items():
+                    if name not in ("pbr_2029_at_least_0_5",
+                                   "five_year_shareholder_return_50_percent"):
+                        continue
+                    if (not isinstance(detail,dict) or
+                        detail.get("sourceBasis")!="official_opendart_document_xml_text_only"
+                        or detail.get("issuerPdfAttachmentRead") is not False
+                        or not isinstance(detail.get("literalExcerpts"),list)):
+                        continue
+                    examples=[v[:180] for v in detail["literalExcerpts"][:2]
+                              if isinstance(v,str) and 0<len(v)<=180]
+                    if examples:cleaned[name]=examples
+                row["officialOriginalTextRetrieved"]=True
+                row["officialOriginalTargetTextExcerpts"]=cleaned
+                row["officialAttachmentPdfReviewed"]=False
+                row["originalTextEvidenceIsNotSameYearTargetDefinition"]=True
+            elif (filing.get("status")=="valueup_document_unavailable" and
+                  isinstance(source,dict) and
+                  source.get("status")=="source_unavailable_not_zero_target_facts"):
+                row["officialOriginalTextRetrieved"]=False
+                row["originalSourceUnavailableNotZeroTargets"]=True
+                row["officialAttachmentPdfReviewed"]=False
             row.update({
                 "officialListTitleOnly":True,
                 "officialDocumentBodyReviewed":False,

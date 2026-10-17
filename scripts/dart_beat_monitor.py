@@ -22,6 +22,7 @@ from urllib.request import Request,urlopen
 from business_content import api_json
 from dart_lineage import event_type,has_correction,valid_receipt,source_link
 from recent_contracts import document_evidence
+from valueup_official_document import is_current_valueup_filing, valueup_document_evidence
 from official_event_triage import dart_receipt_link
 
 KST=timezone(timedelta(hours=9))
@@ -138,7 +139,8 @@ def valid_prior_snapshot(previous):
 
 
 def collect(codes,key,*,now=None,previous=None,query=fetch_official_list,
-            detail=document_evidence,limit=MAX_DETAILS,window_days=WINDOW_DAYS):
+            detail=document_evidence,valueup_detail=valueup_document_evidence,
+            limit=MAX_DETAILS,window_days=WINDOW_DAYS):
     now=now or datetime.now(KST)
     if now.utcoffset() is None or not 1<=limit<=15 or not 3<=window_days<=45:
         raise ValueError("invalid_window_or_detail_limit")
@@ -201,7 +203,8 @@ def collect(codes,key,*,now=None,previous=None,query=fetch_official_list,
     for row in rows:
         old=old_records.get(row["receiptNo"])
         if (old and old.get("status") in
-                ("official_document_read","original_verified","original_not_verified")
+                ("official_document_read","original_verified","original_not_verified",
+                 "official_valueup_document_review")
             and old.get("sourceError") is not True
             and old.get("company")==row["company"]
             and old.get("corpCode")==row["corpCode"]
@@ -210,14 +213,19 @@ def collect(codes,key,*,now=None,previous=None,query=fetch_official_list,
             # issuer/receipt identity. Previously unread rows will be
             # processed on the next scheduled run until the backlog drains.
             by_number[row["receiptNo"]]=old
-    # Only publicly filed supply/production/investment cases get text access.
-    candidates=[r for r in rows if event_type(r["report"]) is not None
+    # DART contract/correction or issuer-submitted value-up official bodies.
+    # An unavailable origin remains retryable and never becomes zero targets.
+    candidates=[r for r in rows if (event_type(r["report"]) is not None
+                  or is_current_valueup_filing(r))
                 and r["receiptNo"] not in by_number]
     selected=candidates[:limit]
     for row in selected:
         try:
-            result=detail(dict(row),key)
-            if result.get("receiptNo")!=row["receiptNo"] or result.get("company")!=row["company"]:
+            fn=valueup_detail if is_current_valueup_filing(row) else detail
+            result=fn(dict(row),key)
+            if (result.get("receiptNo")!=row["receiptNo"] or
+                result.get("company")!=row["company"] or
+                result.get("corpCode")!=row["corpCode"]):
                 raise ValueError("detail_receipt_or_issuer_mismatch")
             by_number[row["receiptNo"]]=result
         except (ValueError,RuntimeError,URLError,TimeoutError,OSError) as exc:
@@ -251,10 +259,18 @@ def collect(codes,key,*,now=None,previous=None,query=fetch_official_list,
         "sourceComplete":all(c["status"]=="checked" for c in checks),
         "relevantFilings":official_count,
         "detailBound":limit,"detailsAttempted":len(selected),
+        "valueupOfficialDocumentAttempts":sum(is_current_valueup_filing(r) for r in selected),
+        "valueupOfficialDocumentReads":sum(
+            r.get("status")=="official_valueup_document_review" for r in detailed),
+        "valueupOfficialDocumentUnavailable":sum(
+            r.get("status")=="valueup_document_unavailable" for r in detailed),
         "detailBacklogQueued":len(candidates),
         "detailNotAttemptedThisRun":max(0,len(candidates)-len(selected)),
-        "uninspectedRelevantDetails":sum(event_type(r["report"]) is not None and
-                                          r["receiptNo"] not in by_number for r in rows),
+        "uninspectedRelevantDetails":sum(
+            (event_type(r["report"]) is not None or is_current_valueup_filing(r))
+            and (r["receiptNo"] not in by_number or
+                 by_number[r["receiptNo"]].get("sourceError") is True)
+            for r in rows),
         "firstRunBaseline":first_run,
         "sourceChecks":checks,"records":detailed,"firstSeen":first_seen,
         "confirmedScoops":0,"approvedArticles":0,
