@@ -1,0 +1,58 @@
+name: Kia Slovakia IFRS Profit Cross-Source Evidence Regression
+on:
+  pull_request:
+    paths:
+      - 'scripts/dividend_period_gap.py'
+      - 'tests/test_dividend_period_gap.py'
+      - 'crossborder-scoops.html'
+      - 'tests/test_crossborder_source_gap_view.cjs'
+      - 'scripts/publish_newsroom_outputs.py'
+      - 'tests/test_publish_newsroom_outputs.py'
+      - '.github/workflows/crossborder-source-gap.yml'
+      - '.github/workflows/slovakia-profit-bridge-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/dividend_period_gap.py'
+      - 'crossborder-scoops.html'
+      - '.github/workflows/slovakia-profit-bridge-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: python -m compileall -q scripts/dividend_period_gap.py scripts/publish_newsroom_outputs.py
+      - run: python -m unittest discover -s tests -p 'test_dividend_period_gap.py' -v
+      - run: python -m unittest discover -s tests -p 'test_publish_newsroom_outputs.py' -v
+      - run: node tests/test_crossborder_source_gap_view.cjs
+      - name: Offline genuine Korean DART and Slovak PDF accounting periods check
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from scripts.dividend_period_gap import build_gap
+          d=json.loads(Path("digests/crossborder_source_gap_latest.json").read_text(encoding="utf-8"))
+          cases=[x for x in d["items"] if x["type"]=="foreign_subsidiary_dividend_accounting" and x["companyGroup"]=="기아"]
+          assert len(cases)==1
+          x=build_gap(cases[0])
+          p=x["slovakLocalProfitYearOnYear"]
+          assert p["priorValueThousandEur"]==682581
+          assert p["currentValueThousandEur"]==451021
+          assert p["changeThousandEur"]==-231560
+          assert p["changePercent"]==-33.9
+          assert p["sourceLineManuallyReviewed"] is False
+          assert p["samePeriodAsKorean2026HalfYearDividendIncome"] is False
+          assert x["koreanCashReceivedVerified"] is False
+          assert x["canClaimOverseasDividendIsExclusive"] is False
+          print("PASS: official 2024/25 profit -33.9%; 2026 Korean dividend remains different period and unverified cash")
+          PY
