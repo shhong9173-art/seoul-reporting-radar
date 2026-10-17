@@ -1,56 +1,66 @@
 {
-  "generatedAt": "2026-10-16T18:26:38+09:00",
+  "generatedAt": "2026-10-17T18:14:31+09:00",
   "status": "reporter_evidence_queue_not_exclusive",
   "sourceCoverage": "partial_source_coverage_not_zero_news",
   "sourceHealth": {
     "officialEvents": {
       "status": "source_partial_coverage",
-      "generatedAt": "2026-10-16T14:10:28+09:00",
+      "generatedAt": "2026-10-17T17:16:38+09:00",
       "rows": 0,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false,
       "incompleteOrStaleFeeds": [
+        "recent_contracts",
+        "overseas_official",
         "nhtsa_official"
       ]
     },
+    "dartBeat": {
+      "status": "source_partial_coverage",
+      "generatedAt": "2026-10-17T17:41:29+09:00",
+      "rows": 28,
+      "completeAcrossUniverse": false,
+      "zeroItemsProvesNoEvent": false,
+      "uninspectedRelevantDetails": 0
+    },
     "investment": {
       "status": "source_snapshot_checked",
-      "generatedAt": "2026-10-16T10:41:48+09:00",
+      "generatedAt": "2026-10-17T17:11:00+09:00",
       "rows": 1,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false
     },
     "metrics": {
       "status": "source_snapshot_checked",
-      "generatedAt": "2026-10-16T13:30:15+09:00",
+      "generatedAt": "2026-10-17T17:11:01+09:00",
       "rows": 47,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false
     },
     "contracts": {
       "status": "source_snapshot_checked",
-      "generatedAt": "2026-10-16T16:37:32+09:00",
+      "generatedAt": "2026-10-17T17:40:42+09:00",
       "rows": 7,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false
     },
     "recentLedger": {
       "status": "source_snapshot_checked",
-      "generatedAt": "2026-10-16T16:37:11+09:00",
+      "generatedAt": "2026-10-17T17:40:21+09:00",
       "rows": 7,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false
     },
     "correctionHistory": {
       "status": "source_snapshot_checked",
-      "generatedAt": "2026-10-16T16:37:34+09:00",
+      "generatedAt": "2026-10-17T17:40:43+09:00",
       "rows": 4,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false
     }
   },
   "countsByEvidenceTier": {
-    "new_official_receipt_review": 0,
+    "new_official_receipt_review": 1,
     "verified_historical_investment_delta": 3,
     "verified_historical_numeric_delta": 47,
     "issuer_only_correction_unverified_original": 4,
@@ -58,15 +68,15 @@
     "unlinked_correction_text_followup": 2
   },
   "sourceDateWindow": {
-    "recentFrom": "2026-10-14",
-    "through": "2026-10-16"
+    "recentFrom": "2026-10-15",
+    "through": "2026-10-17"
   },
-  "checkedOfficialRecentCandidates": 0,
-  "todayOnlyCount": 0,
+  "checkedOfficialRecentCandidates": 1,
+  "todayOnlyCount": 1,
   "historicalResearchCount": 59,
   "unlinkedHistoryTextMatchCount": 2,
   "correctionHistorySourceGate": "reviewed_unlinked_candidates_only",
-  "totalRows": 59,
+  "totalRows": 60,
   "excluded": {
     "invalid_original_identity": 0,
     "old_and_not_relevant": 0,
@@ -77,6 +87,46 @@
   "approvedArticles": 0,
   "warning": "공식 발행일≠수집일, 투자 종료 예정월 변경≠실제 지연, 정정문 변경란≠원공시 대조, 보도 검색 0건≠미보도. 미수집/부분수집≠사건 0건.",
   "items": [
+    {
+      "id": "new_official_receipt_review:DART:20261015800054",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "대한전선",
+      "title": "대한전선 · 북미 초고압 케이블 납품의 건 (계열사 거래)",
+      "officialDocumentDate": "2026-10-15",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 원문 표 확인: 북미 초고압 케이블 납품의 건 · 계약금액 116,810,902,865원 · 상대 TAIHAN ELECTRIC USA LTD. · 관계 자회사. 실제 외부 신규고객 수주·출하·매출 실현은 미확인.",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261015800054"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "동일 계약 보도 기사 전문·첫 공시 날짜 확인",
+        "공시 표상 계약상대·관계·금액·기간 확인",
+        "공개된 최종 고객 자료와 발행법인 구분",
+        "내부 공급망 변경·장래 매출은 추정하지 않음"
+      ],
+      "officialTableTermsRetrieved": true,
+      "verifiedOfficialTableFields": {
+        "contract_subject": "북미 초고압 케이블 납품의 건",
+        "contract_amount": "116,810,902,865",
+        "counterparty": "TAIHAN ELECTRIC USA LTD.",
+        "counterparty_relationship": "자회사",
+        "supply_region": "미국",
+        "contract_start": "2026-10-14",
+        "contract_end": "2028-12-31"
+      },
+      "inGroupCounterpartyPerIssuerFiling": true,
+      "externalNewCustomerVerified": false,
+      "actualShipmentsVerified": false,
+      "pressIndexNoHitsIsNotNoCoverage": true,
+      "editorialPriority": "related_party_reference_only"
+    },
     {
       "id": "verified_historical_investment_delta:20260814003228:변압기 철심공장",
       "tier": "verified_historical_investment_delta",
