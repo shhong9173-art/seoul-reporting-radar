@@ -590,7 +590,7 @@ def attach_domestic_screen(dossier,screen,safety,now):
     return dossier
 
 
-def build(safety,dividends,*,now=None,slovakia=None,czech=None,slovak_pdf=None,nhtsa_part573=None,domestic_screen=None):
+def build(safety,dividends,*,now=None,slovakia=None,czech=None,slovak_pdf=None,nhtsa_part573=None,domestic_screen=None,prior_financial_public=None):
     now=now or datetime.now(KST)
     if now.utcoffset() is None:raise ValueError("timezone_required")
     if (not isinstance(safety,dict) or not isinstance(dividends,dict)
@@ -650,7 +650,7 @@ def build(safety,dividends,*,now=None,slovakia=None,czech=None,slovak_pdf=None,n
                    str(d["officialFact"]["recognizedFromEntity"]).lower().split())):
                 attach_slovak_registry(d,slovakia)
                 attach_verified_slovak_pdf_clues(d,slovakia,slovak_pdf)
-                d["dividendCrossPeriodGap"]=build_gap(d)
+                d["dividendCrossPeriodGap"]=build_gap(d,prior_financial_public)
             dossiers.append(d)
     unique={}
     for d in dossiers:
@@ -711,6 +711,7 @@ def main():
     p.add_argument("--slovak-pdf",default="digests/slovak_ifrs_primary_pages_latest.json")
     p.add_argument("--part573",default="digests/nhtsa_part573_primary_latest.json")
     p.add_argument("--domestic-screen",default="digests/domestic_recall_screen_latest.json")
+    p.add_argument("--prior-financial-metric",default="data/public_financial_metric_prior_checks.json")
     a=p.parse_args()
     src=lambda path:json.loads(Path(path).read_text(encoding="utf-8"))
     try:
@@ -733,9 +734,12 @@ def main():
         public_screen=src(a.domestic_screen)
     except (OSError,ValueError):
         public_screen=None
+    try:prior_financial=src(a.prior_financial_metric)
+    except (OSError,ValueError):prior_financial=None
     result=build(src(a.nhtsa),src(a.dividends),domestic_screen=public_screen,slovakia=government,
                  czech=czech_identity,slovak_pdf=pdf_note_index,
-                 nhtsa_part573=manufacturer_reports)
+                 nhtsa_part573=manufacturer_reports,
+                 prior_financial_public=prior_financial)
     if result["sourceHealth"]["nhtsaOfficial"]!="checked":
         raise SystemExit("NHTSA source incomplete; preserve last good dossier")
     if result["sourceHealth"]["dartOfficialDividendNotes"]=="no_official_receipt_checked":

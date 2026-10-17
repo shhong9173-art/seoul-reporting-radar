@@ -82,7 +82,53 @@ def _profit_year_delta(rows):
     }
 
 
-def build_gap(dossier):
+def published_metric_prior_context(profit, index):
+    """A public service's already visible number defeats an 'unpublished' claim.
+
+    Verified service availability is NOT a dated press-article/fulltext audit.
+    """
+    if (not isinstance(profit,dict) or
+        not isinstance(index,dict) or
+        index.get("status")!="manual_public_financial_service_comparison_not_press_fulltext_audit" or
+        index.get("publicationDatesIndependentlyVerified") is not False or
+        index.get("pressFulltextCoverageVerified") is not False or
+        not isinstance(index.get("items"),list)):
+        return None
+    for x in index["items"][:20]:
+        if (not isinstance(x,dict) or
+            x.get("legalEntity")!="Kia Slovakia s. r. o." or
+            x.get("ico")!="35876832" or
+            x.get("financialYear")!=2025 or
+            x.get("sourceName")!="FinStat" or
+            x.get("url")!="https://finstat.sk/35876832" or
+            x.get("publishedProfitEuro")!=profit["currentValueThousandEur"]*1000 or
+            type(x.get("publishedProfitDecreaseApproxPercent")) is not int or
+            x.get("publishedProfitDecreaseApproxPercent")!=round(abs(profit["changePercent"])) or
+            x.get("sameFinancialMetricAlreadyPublic") is not True or
+            x.get("newExclusiveReportingFactConfirmed") is not False or
+            x.get("sameAngleNewsArticleFulltextVerified") is not False or
+            x.get("originalPagePublicationDateVerified") is not False or
+            not isinstance(x.get("observerCheckedDate"),str) or
+            not re.fullmatch(r"20\d{2}-\d{2}-\d{2}",x["observerCheckedDate"])):
+            continue
+        return {
+           "status":"exact_2025_financial_metric_visible_on_public_service",
+           "sourceName":"FinStat",
+           "sourceUrl":"https://finstat.sk/35876832",
+           "sourceCheckedAt":x["observerCheckedDate"],
+           "localProfitYear":2025,
+           "localProfitEuro":profit["currentValueThousandEur"]*1000,
+           "roundedAnnualChangePercent":x["publishedProfitDecreaseApproxPercent"],
+           "metricIsPublicNotExclusive":True,
+           "sourceOriginalPublishingDateVerified":False,
+           "koreanPressSameAngleFulltextChecked":False,
+           "actual2026DividendDecisionOrRemittanceVerified":False,
+           "warning":"현지 금융정보 서비스에 동일 현지연도 순이익과 증감률이 이미 공개. 원자료 발행 이후 첫 보도 시각·국내 선행 기사 전문·2026 배당 결의는 별도 확인."
+        }
+    return None
+
+
+def build_gap(dossier, prior_public=None):
     """Strict gating. Never compare 2025 annual payment with 2026 DART income as like-for-like."""
     data=dossier.get("slovakPdfPrimaryReview") or {}
     facts=dossier.get("officialFact") or {}
@@ -105,6 +151,7 @@ def build_gap(dossier):
     # A same-PDF, same-unit local year-on-year comparison is permissible.
     # It is NOT a ratio to Kia's separate-period 2026 dividend income.
     local_profit=_profit_year_delta(rows)
+    public_prior=published_metric_prior_context(local_profit,prior_public)
     y2025=by.get(("dividend_cash_outflow",2025))
     y2024=by.get(("dividend_cash_outflow",2024))
     is_kia=(dossier.get("companyGroup")=="기아"
@@ -116,6 +163,7 @@ def build_gap(dossier):
                  if is_kia else "not_applicable_or_parent_income_not_verified",
         "koreanIssuerIncomePeriod":"2026_first_half" if is_kia else None,
         "slovakLocalProfitYearOnYear":local_profit if is_kia else None,
+        "slovakProfitFinancialDataPriorPublic":public_prior if is_kia else None,
         "koreanIssuerRecognizedIncomeMillionKrw":expected if is_kia else None,
         "slovakAuditedPaymentCalendarYears":[{"year":year,"outflowThousandEur":value}
           for year,value in ((2024,y2024),(2025,y2025)) if value is not None],
