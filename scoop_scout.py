@@ -15,6 +15,7 @@ from email.utils import parsedate_to_datetime
 from pathlib import Path
 from scripts.dart_affiliate_scoop_gate import review_hold
 from scripts.dart_specific_media import exact_contract_evidence, precise_press_queries, likely_same_contract_indexed
+from scripts.public_reporting_questions import public_questions, validate_public_policy
 
 KST=timezone(timedelta(hours=9))
 DATA=Path("data.json"); DART=Path("dart.json"); NUM=Path("dart_numeric.json")
@@ -1138,6 +1139,7 @@ def record_drop_example(store, stage, item, reason, limit=8):
 
 
 def main():
+    validate_public_policy()
     data=json.loads(DATA.read_text(encoding="utf-8")) if DATA.exists() else []
     dart=json.loads(DART.read_text(encoding="utf-8")).get("items",[]) if DART.exists() else []
     numeric=json.loads(NUM.read_text(encoding="utf-8")).get("items",[]) if NUM.exists() else []
@@ -1544,21 +1546,8 @@ def main():
         else:
             why=f"{x.get('officialLabel') or x.get('sourceName')} 원자료에서 구체적 사업 사실을 포착했습니다. 국내 언론에서 동일 사실의 강한 매칭이 없어 선점 취재 후보로 분류했습니다."
 
-        questions={
-            "결함·리콜":["결함 부위·발생 조건과 생산기간은 무엇인가?","국내 판매 차종·대수와 한국GM·벤츠·BMW 등 국내 사업자 영향은?","국내 리콜·무상수리 또는 자진시정 계획이 있는가?"],
-            "인증·형식승인":["인증 차종·파워트레인·사양은 무엇인가?","국내 판매·출시 또는 생산 계획과 연결되는가?","기존 모델 대비 변경된 인증 항목과 출시 일정은 무엇인가?"],
-            "인허가·환경":["사업지·면적·생산능력·사업자는 누구인가?","환경영향평가 단계와 실제 착공·가동 예상 시점은 언제인가?","기존 투자계획과 비교해 새로 확인되는 규모·공정·생산품은 무엇인가?"],
-            "소송·분쟁":["소송·심판·조사의 당사자와 청구내용은 무엇인가?","금액·특허·공급계약 등 핵심 쟁점은 무엇인가?","상대방 또는 감독기관은 어떤 입장인가?"],
-            "상표·디자인":["출원인·출원일·지정상품 또는 디자인 대상은 무엇인가?","새 차종·제품·브랜드 출시와 연결되는가?","국내외 동시 출원 또는 기존 브랜드와의 연관성이 있는가?"],
-            "인사":["정확한 발령일·직책·담당 사업은 무엇인가?","기존 보직과 무엇이 달라졌고 왜 지금 바뀌었나?","최근 해당 사업의 투자·수주·조직 변화와 연결되는가?"],
-            "특허·기술":["출원일·출원번호·핵심 청구항은 무엇인가?","기존 기술과 무엇이 달라졌고 실제 적용 제품은 무엇인가?","양산·상용화 계획이나 협력사가 정해져 있는가?"],
-            "정책·규제":["최종 고시·법안에서 달라진 조항은 무엇인가?","시행일과 적용 대상 기업·제품은 어디까지인가?","기업이 실제로 바꿔야 하는 절차·비용은 무엇인가?"],
-            "통상·관세":["적용 품목·국가·세율·기간은 무엇인가?","한국 기업의 수출·원가·조달에 미치는 영향은 어느 정도인가?","기업들은 가격전가·생산지 변경 등 어떤 대응을 준비하나?"],
-            "사업재편":["분할·매각·신설 대상 사업의 자산과 인력은 어떻게 이동하는가?","기존 계획과 비교해 이번 결정으로 달라지는 사업 범위는 무엇인가?","후속 일정과 생산·투자 변화는 언제 발생하는가?"],
-            "신사업·투자":["투자 대상·금액·가동 시점은 무엇인가?","기존 생산능력·사업계획에서 얼마나 달라졌는가?","신규 고객·시장 진입 효과가 있는가?"],
-            "계약·수주":["계약 상대방과 프로젝트·지역은 어디인가?","물량·기간·단가와 실제 생산능력 투입 규모는 얼마인가?","이번 계약이 신규 고객 또는 신규 시장 진입을 의미하는가?"],
-            "조달·발주":["예산·물량·납기·발주기관은 어디인가?","참여 예상 기업과 낙찰 일정은 언제인가?","기존 계획에 없던 신규 수요인지 확인할 수 있는가?"]
-        }.get(kind,["원자료의 핵심 조건은 무엇인가?","동일 사실의 언론 보도가 정말 없는가?","출입처에서 어떤 사실을 전화로 교차확인할 수 있는가?"])
+        # Press teams can confirm public filings, not unpublished decisions.
+        questions=public_questions(kind,x)
         matches=[{k:v for k,v in r.items() if k!="_sim" and k!="_event"} for r in combined[:6] if r.get("source")]
         history=[{"title":r.get("title"),"source":r.get("sourceName"),"published":r.get("published")} for _,r in archive_matches[:3]]
         sources=[{"source":x.get("sourceName"),"label":x.get("officialLabel") or x.get("sourceName"),"title":x.get("title"),"url":x.get("url"),"published":x.get("published")}]
@@ -1587,7 +1576,9 @@ def main():
             "exclusiveConfirmed":False,"approvedForPitch":False,
             "sourceGroup":source_group(x),
             "exclusivePatternHits":exclusive_pattern_hits(source_text),
-            "reportingPath":questions[:3]
+            "reportingPath":questions[:3],
+            "publicAnswerableQuestionsOnly":True,
+            "internalFutureStrategyRequested":False
         })
 
     kind_rank={"결함·리콜":10,"인증·형식승인":10,"인허가·환경":9,"소송·분쟁":9,"인사":8,"특허·기술":8,"상표·디자인":7,"사업재편":7,"정책·규제":7,"통상·관세":6,"신사업·투자":6,"조달·발주":5,"계약·수주":3}
