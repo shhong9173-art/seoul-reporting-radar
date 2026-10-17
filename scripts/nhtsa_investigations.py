@@ -30,6 +30,9 @@ FIELDS=("actionNumber","make","model","modelYear","component","manufacturer",
         "openedDate","closedDate","recallCampaign","subject","summary")
 DATE=re.compile(r"^(?:19|20)\d{6}$")
 ACTION=re.compile(r"^[A-Z0-9-]{3,14}$")
+# Include STILL-OPEN, older investigations as a comparison baseline. Publication
+# time of later changes in an old case is not given by the FLAT_INV dataset.
+LONG_OPEN_WATCH_DAYS=1461
 
 
 def direct_make(make,manufacturer):
@@ -65,6 +68,7 @@ def parse_rows(reader,now=None,lookback=100):
     now=now or datetime.now(KST)
     if not 1<=lookback<=365:raise ValueError("1..365 days only")
     start=(now-timedelta(days=lookback)).strftime("%Y%m%d")
+    oldest_open=(now-timedelta(days=LONG_OPEN_WATCH_DAYS)).strftime("%Y%m%d")
     end=now.strftime("%Y%m%d")
     leads={}
     evidence={}
@@ -80,13 +84,20 @@ def parse_rows(reader,now=None,lookback=100):
         if (not ACTION.fullmatch(action) or not valid_date(opened) or opened>end
             or (closed and (not valid_date(closed) or closed<opened or closed>end))):
             continue
-        if not (start<=opened<=end or (closed and start<=closed<=end)):continue
+        # Old still-open actions can acquire new official evidence without a
+        # new action number or recent opening date. Observe up to four years,
+        # but NEVER call their first observation a fresh opened investigation.
+        recent_event=(start<=opened<=end or (closed and start<=closed<=end))
+        old_open_watch=(not closed and oldest_open<=opened<start)
+        if not (recent_event or old_open_watch):continue
         owner=direct_make(obj["make"],obj["manufacturer"])
         if not owner:continue
         obj["coveredIssuerRelation"]=owner
         obj["sourceUrl"]=DOCS
         obj["sourceDataset"]=SOURCE
         obj["recallLinked"]=bool(obj["recallCampaign"])
+        obj["longRunningOpenReferenceOnly"]=bool(old_open_watch)
+        obj["publicationDateForSourceChangeVerified"]=False
         # Hash the complete official row before bounding the displayed excerpt.
         # Row order and repeated model rows must not manufacture a change.
         signature=hashlib.sha256(json.dumps([obj[k] for k in FIELDS],
@@ -99,6 +110,10 @@ def parse_rows(reader,now=None,lookback=100):
         obj["caution"]="미국 NHTSA 조사 기록. 종결은 결함 없음 판정이 아니며 결함 확정·국내 판매 모델 동일성·국내 리콜/단독 아님"
         lead=leads.setdefault(action,{**obj,"vehicles":[],"officialEventDates":[],
                                      "recallCampaigns":[]})
+        # Require every matched row to be an old still-open record before
+        # applying the background-only classification to this action.
+        lead["longRunningOpenReferenceOnly"]=bool(
+            lead["longRunningOpenReferenceOnly"] and old_open_watch)
         vehicle={k:obj[k] for k in ("make","model","modelYear","manufacturer","component")}
         if vehicle not in lead["vehicles"]:lead["vehicles"].append(vehicle)
         dates={"openedDate":opened,"closedDate":closed}
@@ -114,6 +129,8 @@ def parse_rows(reader,now=None,lookback=100):
         if lead["eventDateConflict"]:
             lead["officialEventDate"]=None
             lead["discoveryType"]="official_us_investigation_date_conflict"
+        if lead["longRunningOpenReferenceOnly"]:
+            lead["discoveryType"]="historical_still_open_investigation_source_watch"
         lead["sourceFingerprintVersion"]=1
         lead["sourceFingerprint"]=hashlib.sha256("\n".join(sorted(evidence[action])).encode()).hexdigest()
     return {"scannedRecords":inspected,"items":sorted(leads.values(),
@@ -125,19 +142,45 @@ def recent_changes(current,previous):
     for x in current["items"]:
         before=old.get(x["actionNumber"])
         x["firstSeenInRadar"]=before.get("firstSeenInRadar") if before else current["generatedAt"]
-        x["observationState"]="first_observed_in_this_radar" if before is None else "previously_observed"
+        old_open=bool(x.get("longRunningOpenReferenceOnly"))
+        x["observationState"]=(
+            "historical_open_baseline_not_new_event" if before is None and old_open
+            else "first_observed_in_this_radar" if before is None
+            else "previously_observed")
         comparable=bool(before and x.get("sourceFingerprint") and before.get("sourceFingerprint")
                         and x.get("sourceFingerprintVersion")==before.get("sourceFingerprintVersion")==1)
         x["sourceContentChanged"]=(x["sourceFingerprint"]!=before["sourceFingerprint"]
                                     if comparable else None)
         x["changeComparisonStatus"]="compared" if comparable else "baseline_required"
         if x["sourceContentChanged"]:
-            x["observationState"]="previously_observed_source_changed"
+            x["observationState"]=(
+                "historical_open_source_changed_publication_date_unknown" if old_open
+                else "previously_observed_source_changed")
         x["changeIsNewPublicationVerified"]=False
+        x["changeVerifiedFromTwoOfficialSnapshots"]=bool(comparable and x["sourceContentChanged"])
+        x["changeEvidenceIsNotNewPublicAnnouncement"]=True
+        x["substantiveChangeDetails"]=(
+            {
+              "vehicleScopeChanged":bool(before.get("vehicles")!=x.get("vehicles")),
+              "formalEventDatesChanged":bool(before.get("officialEventDates")!=x.get("officialEventDates")),
+              "recallReferencesChanged":bool(before.get("recallCampaigns")!=x.get("recallCampaigns")),
+              "displayedSummaryChanged":bool(before.get("summary")!=x.get("summary")),
+              "fullOfficialRowSignatureChanged":True,
+              "trueRevisionTimestampVerified":False,
+              "publicationDateUnknown":True,
+              "manufacturerOrAgencyConfirmedNewHazard":False,
+            } if x["sourceContentChanged"] else None
+        )
         # First observed is NOT first published nor scoop. Keep source date.
     current["newlyObserved"]=sum(x["observationState"]=="first_observed_in_this_radar"
                                   for x in current["items"])
     current["changedObserved"]=sum(x["sourceContentChanged"] is True for x in current["items"])
+    current["longRunningOpenBackgroundCount"]=sum(
+        x.get("longRunningOpenReferenceOnly") is True for x in current["items"])
+    current["historicalOpenSubstantiveDeltaCount"]=sum(
+        x.get("observationState")=="historical_open_source_changed_publication_date_unknown"
+        for x in current["items"])
+    current["olderBaselineIsNotNewPublication"]=True
     return current
 
 
@@ -205,7 +248,9 @@ def main():
     result.update({"generatedAt":now.isoformat(timespec="seconds"),"sourceUrl":SOURCE,
                    "scope":"US ODI formal opened investigations among matched marques, not recalls or complaint allegation totals",
                    "lookbackDays":a.lookback,
-                   "confirmedScoops":0,"domesticModelApplicabilityVerified":False})
+                   "confirmedScoops":0,"domesticModelApplicabilityVerified":False,
+                   "verifiedPublicationDateForSourceUpdates":False,
+                   "historicalOpenFirstSeenIsNotNewInvestigation":True})
     recent_changes(result,previous)
     # Empty for matched makes may be correct, but successful official scan is
     # required; neither failed download nor silent schema change means zero.

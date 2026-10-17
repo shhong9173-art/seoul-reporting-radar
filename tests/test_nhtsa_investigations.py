@@ -63,7 +63,12 @@ class Tests(unittest.TestCase):
            rec("PE25-001","HYUNDAI","20250101")])
         d=n.parse_tab_data(contents.encode(),NOW)
         self.assertEqual(d["scannedRecords"],5)
-        self.assertEqual(len(d["items"]),2)
+        self.assertEqual(len(d["items"]),3)
+        # The 2025 Hyundai action is now an old-open baseline, NOT a 2026
+        # opened investigation. Two October 2026 actions remain current.
+        historical=[x for x in d["items"] if x["longRunningOpenReferenceOnly"]]
+        self.assertEqual(len(historical),1)
+        self.assertEqual(historical[0]["actionNumber"],"PE25-001")
         self.assertTrue(all(x["caution"].find("결함 확정")>=0 for x in d["items"]))
     def test_zip_streaming_uses_identical_tab_schema_without_extracting_archive(self):
         import io,zipfile
@@ -91,6 +96,65 @@ class Tests(unittest.TestCase):
           "not a valid row",rec("PE26-111","BMW","20261012","BMW")])).encode(),NOW)
         self.assertEqual(len(d["items"]),1)
         self.assertIn("BMW코리아",d["items"][0]["coveredIssuerRelation"])
+    def test_old_still_open_action_is_background_not_new_opening(self):
+        old=rec("EA24007",opened="20240119")
+        first=n.parse_tab_data(old.encode(),NOW,lookback=100)
+        self.assertEqual(len(first["items"]),1)
+        first["generatedAt"]="2026-10-13T09:00:00+09:00"
+        n.recent_changes(first,{})
+        item=first["items"][0]
+        self.assertTrue(item["longRunningOpenReferenceOnly"])
+        self.assertEqual(item["observationState"],"historical_open_baseline_not_new_event")
+        self.assertEqual(item["discoveryType"],"historical_still_open_investigation_source_watch")
+        self.assertEqual(first["newlyObserved"],0)
+        self.assertEqual(first["longRunningOpenBackgroundCount"],1)
+        self.assertEqual(first["historicalOpenSubstantiveDeltaCount"],0)
+        self.assertFalse(item["changeIsNewPublicationVerified"])
+
+    def test_changed_old_open_action_detects_substantive_text_not_fresh_publication(self):
+        old=rec("EA24007",opened="20240119").replace("Review ongoing","a"*1100+"old finding")
+        updated=old.replace("old finding","changed finding")
+        first=n.parse_tab_data(old.encode(),NOW,lookback=100)
+        first["generatedAt"]="2026-10-13T09:00:00+09:00"
+        n.recent_changes(first,{})
+        newer=n.parse_tab_data(updated.encode(),NOW,lookback=100)
+        newer["generatedAt"]="2026-10-13T10:00:00+09:00"
+        n.recent_changes(newer,first)
+        item=newer["items"][0]
+        self.assertTrue(item["sourceContentChanged"])
+        self.assertTrue(item["changeVerifiedFromTwoOfficialSnapshots"])
+        self.assertEqual(item["observationState"],
+                         "historical_open_source_changed_publication_date_unknown")
+        self.assertEqual(newer["newlyObserved"],0)
+        self.assertEqual(newer["historicalOpenSubstantiveDeltaCount"],1)
+        self.assertFalse(item["changeIsNewPublicationVerified"])
+        self.assertTrue(item["substantiveChangeDetails"]["fullOfficialRowSignatureChanged"])
+        self.assertFalse(item["substantiveChangeDetails"]["displayedSummaryChanged"])
+        self.assertFalse(item["substantiveChangeDetails"]["trueRevisionTimestampVerified"])
+        self.assertEqual(item["firstSeenInRadar"],first["generatedAt"])
+
+    def test_old_closed_or_very_old_open_not_freshened(self):
+        too_old=rec("EA19007",opened="20191013")
+        old_closed=rec("EA24009",opened="20240119").split("\t")
+        old_closed[7]="20250819"
+        out=n.parse_tab_data((too_old+"\n"+"\t".join(old_closed)).encode(),
+                             NOW,lookback=100)
+        self.assertEqual(len(out["items"]),0)
+
+    def test_changed_recall_reference_is_official_row_not_remedy_proof(self):
+        old=rec("EA24007",opened="20240119")
+        a=n.parse_tab_data(old.encode(),NOW)
+        a["generatedAt"]="2026-10-13T09:00:00+09:00"
+        n.recent_changes(a,{})
+        changed=old.split("\t")
+        changed[8]="26V664000"
+        b=n.parse_tab_data("\t".join(changed).encode(),NOW)
+        b["generatedAt"]="2026-10-13T10:00:00+09:00"
+        n.recent_changes(b,a)
+        self.assertTrue(b["items"][0]["substantiveChangeDetails"]["recallReferencesChanged"])
+        self.assertFalse(b["items"][0]["substantiveChangeDetails"]["manufacturerOrAgencyConfirmedNewHazard"])
+        self.assertFalse(b["items"][0]["changeIsNewPublicationVerified"])
+
     def test_no_generic_mfr_false_positive(self):
         self.assertIsNone(n.direct_make("NOKIAN","NOKIAN TIRES"))
         self.assertIsNone(n.direct_make("GENERAL","KIAH COMPANY"))
