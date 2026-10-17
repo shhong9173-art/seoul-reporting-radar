@@ -5,6 +5,8 @@ on:
     paths:
       - '.github/workflows/dart-beat-monitor.yml'
       - 'scripts/dart_beat_monitor.py'
+      - 'scripts/dart_corp_registry.py'
+      - 'tests/test_dart_stock_identity.py'
       - 'dart_collector.py'
       - 'dart_corp_codes.json'
       - 'scripts/dart_beat_run_health.py'
@@ -38,6 +40,7 @@ jobs:
         run: |
           python -m compileall -q scripts/dart_beat_monitor.py scripts/dart_corp_registry.py
           python -m unittest discover -s tests -p 'test_dart_beat_monitor.py' -v
+          python -m unittest discover -s tests -p 'test_dart_stock_identity.py' -v
           node tests/test_dart_beat_monitor_view.cjs
           python -m unittest discover -s tests -p 'test_dart_beat_run_health.py' -v
       - name: Refresh missing corporation IDs from official DART corporate ZIP
