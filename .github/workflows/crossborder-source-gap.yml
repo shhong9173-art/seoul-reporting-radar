@@ -9,6 +9,8 @@ on:
       - 'tests/test_domestic_recall_screen.py'
       - 'tests/test_domestic_screen_dossier.py'
       - 'scripts/dividend_period_gap.py'
+      - 'scripts/publish_newsroom_outputs.py'
+      - 'tests/test_crossborder_source_gap_view.cjs'
       - 'tests/test_dividend_period_gap.py'
       - 'scripts/dart_foreign_dividend_watch.py'
       - 'scripts/slovakia_official_accounts.py'
@@ -78,18 +80,5 @@ jobs:
         run: python scripts/domestic_recall_screen.py
       - name: Combine already-verified official source snapshots without inferring domestic no-recall or cash remittance
         run: python scripts/crossborder_source_gap_triage.py
-      - name: Publish evidence-only newsroom dossier
-        run: |
-          set -e
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add digests/crossborder_source_gap_latest.json digests/slovakia_official_accounts_latest.json digests/czech_factory_official_identity_latest.json digests/slovak_ifrs_primary_pages_latest.json digests/nhtsa_part573_primary_latest.json digests/domestic_recall_screen_latest.json
-          if git diff --cached --quiet; then exit 0; fi
-          git commit -m 'data: overseas official source gap reporter dossier [skip ci]'
-          for n in 1 2 3; do
-            git pull --rebase origin main
-            if git push origin HEAD:main; then exit 0; fi
-            sleep 4
-          done
-          echo 'Failed to publish reporter official evidence dossier' >&2
-          exit 1
+      - name: Publish only validated overseas source dossiers without rebase conflicts
+        run: python scripts/publish_newsroom_outputs.py --mode crossborder
