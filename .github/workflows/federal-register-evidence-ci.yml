@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - 'scripts/federal_register_evidence.py'
+      - 'data/official_prior_coverage_reviews.json'
       - 'tests/test_federal_register_evidence.py'
       - 'federal-register-evidence.html'
       - '.github/workflows/federal-register-evidence-ci.yml'
@@ -30,6 +31,8 @@ jobs:
           d=json.load(open('/tmp/federal-register-evidence.json'))
           assert d['verifiedDocumentCount'] > 0, 'No actual original verified; do not merge'
           assert d['confirmedScoops']==0
+          reviewed=[x for x in d['items'] if x['sameEventPressCoverage']=='covered_facts_verified']
+          print('Verified prior-coverage source identities:',[x['sourceId'] for x in reviewed])
           PY
       - uses: actions/upload-artifact@v4
         if: always()

@@ -11,6 +11,20 @@ from urllib.request import Request, urlopen
 from overseas_official import ALIASES, exact_mention
 
 KST=timezone(timedelta(hours=9))
+REVIEWS=Path(__file__).resolve().parents[1]/'data/official_prior_coverage_reviews.json'
+
+def prior_coverage(no,source_url,body_hash):
+    try:rows=json.loads(REVIEWS.read_text(encoding='utf-8'))
+    except (OSError,ValueError):return None
+    if not isinstance(rows,list):return None
+    for row in rows:
+        if (isinstance(row,dict) and row.get('sourceId')==no
+            and row.get('sourceUrl')==source_url and row.get('bodySha256')==body_hash
+            and row.get('reviewMethod')=='article_fulltext_and_official_evidence_comparison'
+            and isinstance(row.get('coveredFacts'),list) and row['coveredFacts']
+            and isinstance(row.get('articleUrl'),str) and row['articleUrl'].startswith('https://')):
+            return row
+    return None
 
 
 def official_url(url, prefix):
@@ -57,7 +71,7 @@ def companies(text):
             # US subsidiaries and regional operations are not the parent legal entity.
             aliases=('Hyundai Motor Company',)
         if company=='포스코':
-            clean=re.sub(r'\bPOSCO\s+(?:Holdings|International|Future\s*M|Chemical)\b','',text,flags=re.I)
+            clean=re.sub(r'\bPOSCO\s+(?:Holdings|International|Future\s*M|Chemical|Coated\s*(?:&|and)\s*Color\s*Steel)\b','',text,flags=re.I)
             if exact_mention(clean,'POSCO'):found.append(company)
         elif any(exact_mention(text,a) for a in aliases):found.append(company)
     if exact_mention(text,'POSCO Holdings'):found.append('포스코홀딩스')
@@ -96,14 +110,17 @@ def inspect(row,request=fetch):
         evidence.append({'companies':hits,'text':excerpt,
                          'truncated':len(block)>450})
     all_hits=sorted({c for e in evidence for c in e['companies']})
+    body_hash=hashlib.sha256(raw).hexdigest()
+    coverage=prior_coverage(no,row['sourceUrl'],body_hash)
     return {'sourceId':no,'published':date,'sourceUrl':row['sourceUrl'],
             'bodyUrl':body_url,'title':row.get('title'),
-            'status':'body_checked','bodySha256':hashlib.sha256(raw).hexdigest(),
+            'status':'body_checked','bodySha256':body_hash,
             'companiesMentioned':all_hits,'evidence':evidence[:4],
             'evidenceBlocksTotal':len(evidence),'bodyCompanyMentionVerified':bool(all_hits),
-            'sameEventPressCoverage':'not_checked','confirmedScoop':False,
+            'sameEventPressCoverage':'covered_facts_verified' if coverage else 'not_checked',
+            'priorCoverageReview':coverage,'confirmedScoop':False,
             'companyImpactVerified':False,
-            'publicFactQuestion':'이 공식 공보에서 귀사가 명시된 항목과 적용 대상에 관해 이미 공개한 설명·정정 자료가 있습니까?',
+            'publicFactQuestion':('이 공식 공보에서 귀사가 명시된 항목과 적용 대상에 관해 이미 공개한 설명·정정 자료가 있습니까?' if all_hits else None),
             'warning':'본문 기업명과 짧은 문맥만 확인. 세율·계약·효력·국내 영향·미보도는 별도 검증'}
 
 
