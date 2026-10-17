@@ -5,6 +5,9 @@ on:
     paths:
       - 'scripts/nhtsa_investigations.py'
       - 'tests/test_nhtsa_investigations.py'
+      - 'nhtsa-evidence-view.js'
+      - 'scoop-sources.html'
+      - 'tests/test_nhtsa_evidence_view.cjs'
       - '.github/workflows/nhtsa-investigation-delta-ci.yml'
 permissions:
   contents: read
@@ -21,6 +24,17 @@ jobs:
         run: |
           python -m unittest discover -s tests -p 'test_nhtsa_investigations.py' -v
           python -m unittest discover -s tests -p 'test_official_collectors.py' -v
+          node tests/test_nhtsa_evidence_view.cjs
+          node tests/test_scoop_sources_view.cjs
+          node - <<'JS'
+          const fs=require('node:fs'),{describe}=require('./nhtsa-evidence-view.js');
+          const data=JSON.parse(fs.readFileSync('digests/nhtsa_investigations_latest.json'));
+          const health=JSON.parse(fs.readFileSync('digests/nhtsa_source_status_latest.json'));
+          const view=describe(data,health);
+          if(view.rows.length!==data.items.length)throw Error('Evidence lost in UI');
+          console.log(view.status);
+          for(const row of view.rows)console.log(row.text);
+          JS
       - name: Isolated live official archive verification
         run: |
           mkdir -p /tmp/nhtsa-validation/digests
