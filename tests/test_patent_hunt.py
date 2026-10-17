@@ -377,5 +377,30 @@ class PatentScoutTests(unittest.TestCase):
         self.assertFalse(p.tech_tags("차량의 컵홀더","컵 음료 수납"))
 
 
+class SafeDiagnosticTests(unittest.TestCase):
+    def test_message_allowlist_preserves_only_fixed_categories(self):
+        import json
+        for message,category in [
+            ('LIMITED_NUMBER_OF_SERVICE_REQUESTS_EXCEEDS_ERROR','request_limit_reported'),
+            ('unknown ServiceKey=PRIVATE https://private','unrecognized_provider_message')]:
+            def search(*args):
+                return p.parse_response(('<response><header><resultCode>22</resultCode><resultMsg>'+message+'</resultMsg></header></response>').encode())
+            report=p.build('fake',now=NOW,names=['현대자동차','기아'],news_limit=0,search=search)
+            safe=p.publication_diagnostics(report)
+            self.assertEqual(safe['companyChecks'][0]['providerMessageCategory'],category)
+            self.assertEqual(safe['companyChecks'][1]['status'],'not_attempted_after_provider_error')
+            self.assertNotIn('PRIVATE',json.dumps(safe))
+            self.assertEqual(safe['companyChecks'][0]['providerResultCode'],'22')
+    def test_code_alone_does_not_establish_quota_cause(self):
+        with self.assertRaises(p.ProviderResponseError) as caught:
+            p.parse_response(b'<response><header><resultCode>22</resultCode></header></response>')
+        self.assertEqual(caught.exception.category,'unrecognized_provider_message')
+    def test_questions_require_public_document_or_announcement(self):
+        candidate=p.verified_patent(row(),'현대자동차',p.APPLICANTS['현대자동차'],'20260908','20261013')
+        self.assertEqual(candidate['questions'],p.public_fact_questions(candidate['publicationNumber']))
+        self.assertTrue(all('공개' in q for q in candidate['questions']))
+        self.assertNotIn('현재 양산',' '.join(candidate['questions']))
+
 if __name__=="__main__":
     unittest.main()
+

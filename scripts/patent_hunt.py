@@ -82,6 +82,28 @@ def applicant_matches(raw,expected):
     return any(normalize(variant) in actual for variant in expected)
 
 
+SAFE_PROVIDER_MESSAGES={
+    'LIMITED_NUMBER_OF_SERVICE_REQUESTS_EXCEEDS_ERROR':'request_limit_reported',
+    'SERVICE_ACCESS_DENIED_ERROR':'access_denied_reported',
+    'SERVICE_KEY_IS_NOT_REGISTERED_ERROR':'key_not_registered_reported',
+    'SERVICE_KEY_IS_EXPIRED_ERROR':'key_expired_reported',
+}
+
+class ProviderResponseError(RuntimeError):
+    def __init__(self,code,message):
+        safe_code=code if re.fullmatch(r'[A-Za-z0-9_-]{1,12}',code or '') else 'unknown'
+        super().__init__('KIPRISPlus 응답 오류 코드 '+safe_code)
+        # Exact allowlist only: never retain arbitrary response text or URLs.
+        self.category=SAFE_PROVIDER_MESSAGES.get((message or '').strip(),'unrecognized_provider_message')
+
+def public_fact_questions(number):
+    return [
+        f'공개번호 {number}의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?',
+        '공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?',
+        '이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?',
+        '종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?',
+    ]
+
 def parse_response(xml_bytes):
     if isinstance(xml_bytes,str):
         xml_bytes=xml_bytes.encode("utf-8")
@@ -94,7 +116,7 @@ def parse_response(xml_bytes):
         raise ValueError("KIPRIS 공식 API XML response 루트 불일치")
     code=root.findtext("./header/resultCode")
     if code not in (None,"00","0"):
-        raise RuntimeError("KIPRISPlus 응답 오류 코드 "+str(code))
+        raise ProviderResponseError(code,root.findtext('./header/resultMsg'))
     n=root.findtext(".//count/totalCount")
     if n is None:
         n=root.findtext(".//totalCount")
@@ -253,12 +275,7 @@ def verified_patent(raw,company,aliases,start,end):
         "lookupNumber":pub_no,
         "status":"공개된 특허 문헌: 기술 방향 취재 후보",
         "notProven":"실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
-        "questions":[
-            "이 공개특허의 독립 청구항 핵심 구성과 종전 기술의 차이는 무엇인가?",
-            "기존 동일 출원인 특허·우선권·특허패밀리/해외공개와 중복되지 않는가?",
-            "해당 기술이 연구 단계인지, 현재 양산차·제품/설비에 적용되는가?",
-            "업계 경쟁제품 및 특허 관련 기보도/기업 발표와 다른 사실은 무엇인가?"
-        ],
+        "questions":public_fact_questions(pub_no),
         "scoopConfirmed":False
     }
 
@@ -341,7 +358,8 @@ def retained_verified_publications(previous,companies,lower_bound,new_start):
             not isinstance(row.get("applicants"),list) or
             not applicant_matches("|".join(row["applicants"]),APPLICANTS[comp])):
             continue
-        ret.append({**row,"previouslyObserved":True,"freshObservation":False,
+        ret.append({**row,"questions":public_fact_questions(number),
+            "previouslyObserved":True,"freshObservation":False,
             "historicalBackfill":False,"reusedFromPriorVerifiedSnapshot":True,
             "observationNote":"이전 검증 공개공보 유지(이번 실행 신규 조회 아님)"})
     return ret
@@ -426,6 +444,7 @@ def build(key,previous=None,now=None,search=search_applicant,coverage=None,
             checks.append({"company":company,"status":"source_error",
                            "errorType":type(ex).__name__,
                            "providerResultCode":code,
+                           "providerMessageCategory":ex.category if isinstance(ex,ProviderResponseError) else None,
                            "errorDetail":str(ex)[:110] if isinstance(ex,ValueError) else ""})
             # An official nonzero response header stops complete-source publication.
             # Avoid another 23 identical failing official calls.
@@ -480,11 +499,13 @@ def publication_diagnostics(report):
     """Public, secret-free capture diagnostics for incomplete issuer searches."""
     checks=report.get("companyChecks") or []
     safe=[{"company":str(row.get("company") or "")[:55],
-           "status":str(row.get("status") or "")[:25],
+           "status":str(row.get("status") or "")[:64],
            "errorType":str(row.get("errorType") or "")[:50] or None,
            "providerResultCode":(str(row.get("providerResultCode"))
               if re.fullmatch(r"[A-Za-z0-9_-]{1,12}",str(row.get("providerResultCode") or ""))
               else None),
+           "providerMessageCategory":(row.get('providerMessageCategory')
+               if row.get('providerMessageCategory') in set(SAFE_PROVIDER_MESSAGES.values())|{'unrecognized_provider_message'} else None),
            "rawTotal":row.get("rawTotal") if isinstance(row.get("rawTotal"),int) else None,
            "rawRetrieved":row.get("rawRetrieved") if isinstance(row.get("rawRetrieved"),int) else None}
           for row in checks]
@@ -578,3 +599,4 @@ def main():
 
 if __name__=="__main__":
     main()
+

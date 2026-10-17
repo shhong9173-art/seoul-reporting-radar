@@ -2,6 +2,9 @@ name: KIPRIS Incremental Official Snapshot Regression
 on:
   pull_request:
     paths:
+      - 'patents.html'
+      - 'patent-public-questions.js'
+      - 'tests/test_patent_public_questions.cjs'
       - 'scripts/patent_hunt.py'
       - 'tests/test_patent_hunt.py'
       - 'scripts/kipris_source_budget.py'
@@ -10,6 +13,9 @@ on:
   push:
     branches: [main]
     paths:
+      - 'patents.html'
+      - 'patent-public-questions.js'
+      - 'tests/test_patent_public_questions.cjs'
       - 'scripts/patent_hunt.py'
       - '.github/workflows/kipris-incremental-ci.yml'
   workflow_dispatch:
@@ -26,3 +32,25 @@ jobs:
       - run: python -m compileall -q scripts/patent_hunt.py scripts/kipris_source_budget.py
       - run: python -m unittest discover -s tests -p 'test_patent_hunt.py' -v
       - run: python -m unittest discover -s tests -p 'test_kipris_source_budget.py' -v
+
+      - run: python -m unittest discover -s tests -p 'test_official_collectors.py' -v
+      - run: node tests/test_patent_hunt_view.cjs && node tests/test_patent_public_questions.cjs
+      - name: Replay retained production snapshot without calling blocked provider
+        run: |
+          python - <<'PYCODE'
+          import json,sys
+          sys.path.insert(0,'scripts')
+          import patent_hunt as p
+          from datetime import datetime
+          d=json.load(open('digests/patent_hunt_latest.json'))
+          now=datetime.fromisoformat(d['generatedAt'])
+          def blocked(*args):raise RuntimeError('KIPRISPlus 응답 오류 코드 22')
+          result=p.build('fixture-not-a-key',previous=d,now=now,search=blocked,news_limit=0)
+          assert not result['sourceWindowComplete']
+          assert result['confirmedScoops']==0
+          assert all(not r['freshObservation'] for r in result['items'])
+          assert all(r['questions']==p.public_fact_questions(r['publicationNumber']) for r in result['items'])
+          assert all(r['scoopConfirmed'] is False for r in result['items'])
+          print('Operational snapshot',d['generatedAt'],'documents',len(d['items']),
+                'retained',len(result['items']),'sourceComplete',result['sourceWindowComplete'])
+          PYCODE
