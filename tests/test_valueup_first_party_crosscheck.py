@@ -95,7 +95,7 @@ class ValueUpCrosscheck(unittest.TestCase):
         self.assertFalse(item["exclusiveConfirmed"])
         self.assertFalse(item["approvedForPitch"])
         self.assertFalse(item["officialDocumentBodyReviewed"])
-        self.assertIn("기존 언론",item["evidenceSummary"])
+        self.assertIn("이미 공개된 언론",item["evidenceSummary"])
         src["valueupPriors"]={"status":"unavailable","records":[]}
         other=queue.build(src,now=now)
         self.assertNotIn("crossYearPlanReview",other["items"][0])
