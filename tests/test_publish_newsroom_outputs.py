@@ -156,6 +156,28 @@ class PublisherIntegration(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,"invalid_generated_output: data.json"):
             selected(self.root,"news")
 
+    def test_reporting_queue_is_single_owner_and_never_publishes_scoops(self):
+        self.assertEqual(OUTPUTS["queue"],
+                         ("digests/reporting_evidence_queue_latest.json",))
+        source=self.root/OUTPUTS["queue"][0]
+        source.parent.mkdir(parents=True,exist_ok=True)
+        item={"exclusiveConfirmed":False,"approvedForPitch":False,
+              "pressFulltextReviewed":False,"company":"대한전선"}
+        good={"status":"reporter_evidence_queue_not_exclusive",
+              "confirmedScoops":0,"approvedArticles":0,"totalRows":1,
+              "items":[item]}
+        source.write_text(json.dumps(good,ensure_ascii=False))
+        self.assertEqual(publish(self.root,"queue"),"published")
+        git(self.peer,"fetch","origin","main")
+        stored=json.loads(self.remote_file(OUTPUTS["queue"][0]))
+        self.assertEqual(stored["items"][0]["company"],"대한전선")
+        self.assertEqual(self.remote_file("scoop.json"),
+                         (self.root/"scoop.json").read_text().strip())
+        bad={**good,"items":[{**item,"exclusiveConfirmed":True}]}
+        source.write_text(json.dumps(bad))
+        with self.assertRaisesRegex(ValueError,"invalid_reporting_queue_evidence"):
+            selected(self.root,"queue")
+
     def test_inconsistent_generated_news_rejected_without_touching_remote(self):
         write_news(self.root,"wrong")
         (self.root/"data.js").write_text("window.ITEMS = [];\n")
