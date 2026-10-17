@@ -288,6 +288,34 @@ try{
          period.canClaimOverseasDividendIsExclusive!==false)
          throw Error("2025 현지 0원과 2026 DART 회계상 인식액의 잘못된 직접 비교 차단");
       line(c,"2026년 기아 반기 배당수익(백만원)과 2024~2025년 슬로바키아 법인 현금흐름(천유로)은 다른 기간·법인 회계 항목·단위여서 서로 빼거나 송금액을 계산할 수 없습니다.","dim");
+      const profit=period.slovakLocalProfitYearOnYear;
+      if(profit&&profit.status==="same_official_2025_pdf_comparative_columns_machine_extracted"){
+        if(profit.exclusiveConfirmed!==false||
+           profit.sourceLineManuallyReviewed!==false||
+           profit.koreanParentCashReceiptVerified!==false||
+           profit.samePeriodAsKorean2026HalfYearDividendIncome!==false||
+           profit.sameCurrencyAndPeriodBasisWithinLocalProfitComparison!==true||
+           profit.currency!=="EUR"||profit.unit!=="EUR_thousands"||
+           profit.priorCalendarYear!==2024||profit.currentCalendarYear!==2025||
+           !Number.isInteger(profit.priorValueThousandEur)||
+           !Number.isInteger(profit.currentValueThousandEur)||
+           !Number.isInteger(profit.changeThousandEur)||
+           !Number.isFinite(profit.changePercent)||
+           profit.currentValueThousandEur-profit.priorValueThousandEur!==profit.changeThousandEur)
+           throw Error("현지 연도별 순이익의 공식 PDF 출처·계산 기준 미확정");
+        const original=new URL(profit.sameOfficialGovernmentPdfUrl);
+        if(original.protocol!=="https:"||original.hostname!=="www.registeruz.sk"||
+           !/^\/cruz-public\/domain\/financialreport\/attachment\/[0-9]+$/.test(original.pathname)||
+           !/^[a-f0-9]{64}$/.test(profit.sourcePdfSha256))
+          throw Error("비공식 슬로바키아 정부 문서");
+        line(c,"현지법인 2024→2025 같은 IFRS 현금흐름표 순이익 비교열: "+
+           profit.priorValueThousandEur.toLocaleString("ko-KR")+" → "+
+           profit.currentValueThousandEur.toLocaleString("ko-KR")+"천유로 · 변화 "+
+           profit.changeThousandEur.toLocaleString("ko-KR")+"천유로 ("+
+           profit.changePercent.toFixed(1)+"%). 정부 등록 PDF 기계 추출치로 원문 9쪽 수동 검산 전이며 단독 확정 아님.","dim");
+        link(c,profit.sameOfficialGovernmentPdfUrl,"2025년 슬로바키아 정부 IFRS 원본 PDF ↗");
+        line(c,"2026년 기아 별도재무제표 배당수익 인식액과는 기간·단위·회계항목이 달라 현금 송금액이나 배당재원 비율을 산출할 수 없습니다.","small");
+      }
       for(const item of period.slovakAuditedPaymentCalendarYears||[])
         line(c,item.year+"년 현지 배당현금흐름 원문 추출: "+
           item.outflowThousandEur.toLocaleString("ko-KR")+
