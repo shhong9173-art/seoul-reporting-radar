@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/"scripts"))
-from publish_newsroom_outputs import OUTPUTS, publish, selected
+from publish_newsroom_outputs import OUTPUTS, publish, selected, output_size_limit
 
 
 def git(cwd,*args):
@@ -143,6 +143,18 @@ class PublisherIntegration(unittest.TestCase):
         (self.root/"scoop.json").unlink()
         with self.assertRaises(ValueError):
             selected(self.root,"scoop")
+
+    def test_actual_archive_size_is_allowed_but_oversized_other_files_fail(self):
+        # Production 90-day archive (2026-10-17) is 16,203,874 bytes.
+        self.assertGreaterEqual(output_size_limit("archive.json"),16_203_874)
+        self.assertLess(output_size_limit("data.json"),16_203_874)
+        self.assertLessEqual(output_size_limit("archive.json"),32*1024*1024)
+        payload='["'+('x'*(12*1024*1024))+'"]'
+        (self.root/"archive.json").write_text(payload,encoding="utf-8")
+        self.assertIn("archive.json",selected(self.root,"news"))
+        (self.root/"data.json").write_text(payload,encoding="utf-8")
+        with self.assertRaisesRegex(ValueError,"invalid_generated_output: data.json"):
+            selected(self.root,"news")
 
     def test_inconsistent_generated_news_rejected_without_touching_remote(self):
         write_news(self.root,"wrong")
