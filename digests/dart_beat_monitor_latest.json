@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-17T21:29:54+09:00",
+  "generatedAt": "2026-10-17T21:36:58+09:00",
   "status": "industry_beat_official_receipt_review",
   "windowStart": "20260918",
   "windowEnd": "20261017",
@@ -10,8 +10,11 @@
   "sourceComplete": false,
   "relevantFilings": 31,
   "detailBound": 12,
-  "detailsAttempted": 0,
-  "detailBacklogQueued": 0,
+  "detailsAttempted": 1,
+  "valueupOfficialDocumentAttempts": 1,
+  "valueupOfficialDocumentReads": 1,
+  "valueupOfficialDocumentUnavailable": 0,
+  "detailBacklogQueued": 1,
   "detailNotAttemptedThisRun": 0,
   "uninspectedRelevantDetails": 0,
   "firstRunBaseline": false,
@@ -413,9 +416,46 @@
       "originalDocumentVerified": false,
       "companyImpactVerified": false,
       "scoopConfirmed": false,
+      "status": "official_valueup_document_review",
+      "sourceError": false,
+      "valueupPrimarySource": {
+        "status": "official_original_text_checked_no_inference",
+        "targetExcerpts": {
+          "pbr_2029_at_least_0_5": {
+            "literalExcerpts": [
+              "를 기반으로 기업가치의 구조적 재평가 추진 [2029년 PBR 0.5배 이상] 5. 계획수립 - 수익성 중심의 사업포트폴"
+            ],
+            "matchesInRetrievedOriginalText": 1,
+            "sourceBasis": "official_opendart_document_xml_text_only",
+            "issuerPdfAttachmentRead": false,
+            "sameMetricDenominatorAndTimeWindowVerified": false
+          },
+          "five_year_shareholder_return_50_percent": {
+            "literalExcerpts": [
+              "배분 효율성 제고 - 주주환원 로드맵 수립 [5개년 목표 주주환원율 50% 환원] 6. 소통 - IR커뮤니케이션 정례화"
+            ],
+            "matchesInRetrievedOriginalText": 1,
+            "sourceBasis": "official_opendart_document_xml_text_only",
+            "issuerPdfAttachmentRead": false,
+            "sameMetricDenominatorAndTimeWindowVerified": false
+          }
+        },
+        "documentTextSha256": [
+          "0c6ab637da8d22aeaa1e12feb319950aecaef1ac6783ad189b6a90a229247bc7"
+        ],
+        "documentsExamined": 1,
+        "officialXmlOrHtmlBodyRetrieved": true,
+        "officialAttachmentPdfReviewed": false,
+        "targetAchievementVerified": false,
+        "crossYearPlanPeriodMatched": false,
+        "priorPressCoverageFulltextReviewed": false,
+        "exclusiveConfirmed": false,
+        "approvedForPitch": false,
+        "notMatchedDoesNotMeanIssuerHasNoTarget": true
+      },
       "firstObservedAt": "2026-10-17T20:49:36+09:00",
       "firstObservedThisRun": false,
-      "detailStatus": "not_inspected_bounded_detail_budget",
+      "detailStatus": "official_valueup_document_review",
       "independentContractComparisonVerified": false,
       "approvedForPitch": false
     },
