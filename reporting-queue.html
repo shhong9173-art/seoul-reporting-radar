@@ -104,6 +104,13 @@ try{
    add(card,"p",x.company+" · 공식 발행·접수일 "+x.officialDocumentDate,"date");
    add(card,"p",x.evidenceSummary);
    add(card,"p","기보도 전문·사업 영향·단독성 미검증","small");
+   if(x.officialTableTermsRetrieved===true){
+    add(card,"p","공식 DART 계약 원문 표 확인 · 신규 외부 고객·실제 납품은 미확정","small");
+    if(x.inGroupCounterpartyPerIssuerFiling===true)
+     add(card,"p","발행사 공시상 계약 상대가 계열사: 신규 외부 수주로 취급하지 않음","small");
+    if(x.editorialPriority==="new_official_filing_manual_review")
+     add(card,"p","공시상 원문 조건만 확인: 같은 사건 선행 보도 전문 확인 필요","small");
+   }
    if(x.tier==="unlinked_correction_text_followup")
     add(card,"p","과거 공시 문구 일치만 확인: 동일 계약·원계약 연결·실제 계약 효력 미확정","small");
    const links=add(card,"div",undefined,"links");
