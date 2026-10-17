@@ -4,6 +4,8 @@ on:
     paths:
       - 'scripts/dart_affiliate_scoop_gate.py'
       - 'scoop_scout.py'
+      - 'scoop-sources.html'
+      - 'tests/test_scoop_sources_view.cjs'
       - 'tests/test_dart_affiliate_scoop_gate.py'
       - '.github/workflows/dart-affiliate-scoop-gate.yml'
       - '.github/workflows/scoop-radar.yml'
@@ -26,3 +28,7 @@ jobs:
           python-version: '3.12'
       - run: python -m compileall -q scripts/dart_affiliate_scoop_gate.py scoop_scout.py
       - run: python -m unittest discover -s tests -p 'test_dart_affiliate_scoop_gate.py' -v
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node tests/test_scoop_sources_view.cjs
