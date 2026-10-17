@@ -1,0 +1,45 @@
+name: NHTSA Long-Running ODI Content Delta Regression
+on:
+  pull_request:
+    paths:
+      - 'scripts/nhtsa_investigations.py'
+      - 'tests/test_nhtsa_investigations.py'
+      - 'nhtsa-evidence-view.js'
+      - 'tests/test_nhtsa_evidence_view.cjs'
+      - '.github/workflows/nhtsa-longopen-delta-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/nhtsa_investigations.py'
+      - 'nhtsa-evidence-view.js'
+      - '.github/workflows/nhtsa-longopen-delta-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: python -m compileall -q scripts/nhtsa_investigations.py
+      - run: python -m unittest discover -s tests -p 'test_nhtsa_investigations.py' -v
+      - run: node tests/test_nhtsa_evidence_view.cjs
+      - name: Validate existing real source snapshot stays an unverified public source
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path("digests/nhtsa_investigations_latest.json")
+          d=json.loads(p.read_text(encoding="utf-8"))
+          assert d.get("confirmedScoops")==0
+          assert d.get("domesticModelApplicabilityVerified") is False
+          assert all(not x.get("changeIsNewPublicationVerified", False) for x in d.get("items",[]))
+          print("PASS: no public U.S. ODI row is converted into domestic safety outcome")
+          PY
