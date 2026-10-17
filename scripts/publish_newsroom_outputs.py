@@ -16,6 +16,7 @@ import shutil
 import subprocess
 import tempfile
 from pathlib import Path
+from datetime import datetime, timezone
 
 # Only these fixed paths may be published by this script. One file, one owner.
 OUTPUTS = {
@@ -188,6 +189,23 @@ def selected(root: Path, mode: str):
     return files
 
 
+def verified_queue_dart_source_at(source):
+    """Source collection time orders queue versions, not official event novelty."""
+    try:
+        if isinstance(source,Path):
+            source=json.loads(source.read_text(encoding="utf-8"))
+        if not isinstance(source,dict):return None
+        h=source.get("sourceHealth")
+        if not isinstance(h,dict):return None
+        d=h.get("dartBeat")
+        if not isinstance(d,dict) or d.get("status") not in (
+            "source_snapshot_checked","source_partial_coverage"):return None
+        stamp=datetime.fromisoformat(d.get("generatedAt"))
+        return stamp.astimezone(timezone.utc) if stamp.utcoffset() is not None else None
+    except (OSError,ValueError,TypeError,OverflowError):
+        return None
+
+
 def publish(root: Path, mode: str, *, attempts: int = 4, before_push=None):
     root = root.resolve()
     if attempts < 1 or attempts > 6:
@@ -211,6 +229,14 @@ def publish(root: Path, mode: str, *, attempts: int = 4, before_push=None):
                 else:
                     run(output, "reset", "--hard", "refs/remotes/origin/main")
                     run(output, "clean", "-fd")
+                if mode == "queue":
+                    incoming=verified_queue_dart_source_at(
+                        root/"digests/reporting_evidence_queue_latest.json")
+                    existing=verified_queue_dart_source_at(
+                        output/"digests/reporting_evidence_queue_latest.json")
+                    if existing is not None and (
+                        incoming is None or incoming<existing):
+                        return "skipped_stale_dart_source"
                 for name in names:
                     destination = output / name
                     destination.parent.mkdir(parents=True, exist_ok=True)
