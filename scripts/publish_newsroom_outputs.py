@@ -26,6 +26,14 @@ OUTPUTS = {
     ),
     "scoop": ("pre_scoop.json", "scoop.json", "dart_numeric.json"),
     "queue": ("digests/reporting_evidence_queue_latest.json",),
+    "crossborder": (
+        "digests/crossborder_source_gap_latest.json",
+        "digests/slovakia_official_accounts_latest.json",
+        "digests/czech_factory_official_identity_latest.json",
+        "digests/slovak_ifrs_primary_pages_latest.json",
+        "digests/nhtsa_part573_primary_latest.json",
+        "digests/domestic_recall_screen_latest.json",
+    ),
     "health": (
         "digests/auto_news_feed_health_latest.json",
         "digests/global_news_feed_health_latest.json",
@@ -101,6 +109,27 @@ def selected(root: Path, mode: str):
                 x.get("pressFulltextReviewed") is not False
                 for x in doc["items"])):
             raise ValueError("invalid_reporting_queue_evidence")
+    if mode == "crossborder":
+        doc=json.loads((root/"digests/crossborder_source_gap_latest.json").read_text(encoding="utf-8"))
+        if (not isinstance(doc,dict) or
+            doc.get("status")!="crossborder_reporter_evidence_gap_not_exclusive" or
+            doc.get("confirmedScoops")!=0 or doc.get("approvedArticles")!=0 or
+            doc.get("domesticRecallAbsenceVerified") is not False or
+            doc.get("foreignParentCashTransferVerified") is not False or
+            not isinstance(doc.get("items"),list) or
+            any(not isinstance(item,dict) or
+                item.get("pitchGate",{}).get("exclusiveConfirmed") is not False or
+                item.get("pitchGate",{}).get("approvedForPitch") is not False
+                for item in doc["items"])):
+            raise ValueError("invalid_crossborder_source_evidence")
+        for item in doc["items"]:
+            profit=(item.get("dividendCrossPeriodGap") or {}).get("slovakLocalProfitYearOnYear")
+            if profit is not None and (not isinstance(profit,dict)
+                or profit.get("exclusiveConfirmed") is not False
+                or profit.get("koreanParentCashReceiptVerified") is not False
+                or profit.get("sourceLineManuallyReviewed") is not False
+                or profit.get("samePeriodAsKorean2026HalfYearDividendIncome") is not False):
+                raise ValueError("invalid_crossborder_profit_comparison")
     if mode == "health":
         for name in files:
             obj = json.loads((root / name).read_text(encoding="utf-8"))
