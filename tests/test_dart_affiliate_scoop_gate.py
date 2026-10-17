@@ -66,6 +66,34 @@ class DARTAffiliateGate(unittest.TestCase):
         self.assertIsNone(review_hold(entry("20261015800055","대한전선","단일판매ㆍ공급계약체결"),
                                       monitor_for(contract)))
 
+    def test_actual_korea_zinc_intragroup_goods_services_change(self):
+        d=json.loads((ROOT/"dart.json").read_text(encoding="utf-8"))
+        matching=[x for x in d.get("items",[])
+                  if x.get("receiptNo")=="20261014000138"]
+        if matching:
+            hold=review_hold(matching[0],None)
+            self.assertIsNotNone(hold)
+            self.assertEqual(hold["reason"],
+                "related_party_goods_services_change_not_external_customer")
+            self.assertIn("공시 접수",hold["whatVerified"])
+            self.assertIn("신규",hold["notVerified"])
+        r=entry("20261014000138","고려아연",
+            "동일인등출자계열회사와의상품ㆍ용역거래변경")
+        hold=review_hold(r,None)
+        self.assertIsNotNone(hold)
+        self.assertEqual(hold["reason"],
+            "related_party_goods_services_change_not_external_customer")
+
+    def test_related_party_notice_does_not_hide_material_nonrelated_contracts(self):
+        r=entry("20261014000138","고려아연",
+            "동일인등출자계열회사와의상품ㆍ용역거래")
+        self.assertIsNone(review_hold(r,None))
+        r["reportName"]="주요사항보고서(신규시설투자)"
+        self.assertIsNone(review_hold(r,None))
+        r["reportName"]="동일인등출자계열회사와의상품ㆍ용역거래변경"
+        r["url"]="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261014000139"
+        self.assertIsNone(review_hold(r,None))
+
     def test_unrelated_material_equity_not_blocked(self):
         r=entry("20261016000056","한화솔루션","신규시설투자")
         self.assertIsNone(review_hold(r,None))

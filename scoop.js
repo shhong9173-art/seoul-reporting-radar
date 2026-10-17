@@ -46,7 +46,7 @@
         '<div class="card-top"><span class="badge '+(x.score>=88?'must':'follow')+'">'+esc(x.status||'단독 후보')+'</span><span class="score">'+esc(x.score||0)+'점</span></div><div class="meta" style="margin-top:-2px"><span class="tag">'+esc(x.kind||'단독 후보')+'</span></div>'+
         '<div class="meta"><b>'+esc(x.beat||'정책·통상')+'</b> · 원자료 '+esc(x.originalSource||x.firstSeenSource||'-')+' · '+esc(x.firstSeenAt||'-')+'</div>'+
         '<div class="title">'+esc(x.title||'')+'</div>'+
-        '<div class="scoop-status"><span>보도 매칭 '+(x.coverageCount===0?'없음':'△ '+esc(x.coverageCount)+'건')+'</span><span>'+esc(x.verification||'원문 확인 필요')+'</span></div>'+
+        '<div class="scoop-status"><span>관련 기사 색인 '+(x.coverageCount===0?'강한 매칭 0건 (미보도 확인 아님)':'유사 보도 '+esc(x.coverageCount)+'건 (전문 미확인)')+'</span><span>'+esc(x.verification||'원문·기보도 전문 확인 필요')+'</span></div>'+
         '<div class="scoop-block"><b>왜 후보인가?</b><p>'+esc(x.why||'')+'</p></div>'+
         '<div class="scoop-block"><b>원자료에서 확인된 사실</b><p>'+esc(x.whatConfirmed||'')+'</p></div>'+
         '<div class="scoop-pitch"><b>취재 각도</b><p>'+esc(x.pitch||'')+'</p></div>'+

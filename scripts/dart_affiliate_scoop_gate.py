@@ -43,6 +43,20 @@ def review_hold(filing,monitor):
             "sourceUrl":url,
             "counterparty":None
         }
+    # The DART *form name* explicitly states this is a goods/services
+    # transaction with a company in the same large-business group. A change
+    # filing is evidence of the issuer's stated related-party reporting change,
+    # not a new third-party customer/order or a new commercial activity.
+    if ("동일인등출자계열회사와의상품" in report and
+        ("용역거래" in report or "용역" in report) and
+        ("변경" in report or "정정" in report)):
+        return {
+            "reason":"related_party_goods_services_change_not_external_customer",
+            "whatVerified":"동일인 등 출자계열회사와의 상품·용역거래 변경 공시 접수",
+            "notVerified":"그룹 외부 신규 고객·실제 신규 매출·원거래 대비 금액 증감·미보도",
+            "sourceUrl":url,
+            "counterparty":None
+        }
     if "단일판매ㆍ공급계약체결" not in report:
         return None
     if not isinstance(monitor,dict) or monitor.get("status")!="industry_beat_official_receipt_review":
