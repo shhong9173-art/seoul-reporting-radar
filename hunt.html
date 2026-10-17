@@ -38,8 +38,8 @@ a.source{display:inline-block;margin:3px 12px 4px 0;font-size:13px}
 <div id="metric-items"></div>
 </section>
 <section class="panel"><h2>이 화면에서 확인할 것</h2>
-<p>회사는 같은 사업의 기재 종료 예정월을 왜 바꿨는가? 실제 준공·가동과의 관계는? 신규 투자 금액/현금 집행/원가·생산량이 달라졌는가?
-첫 기사 또는 증권사 리포트가 해당 숫자를 이미 언급했는가?</p>
+<p>공개 공시 두 문서의 기재값과 주석이 같은 사업을 가리키는지 확인합니다. 이미 발표한 준공·가동 사실이 있다면 발표 원문과 대조합니다.
+회사 질문은 공개 문서 확인으로 한정하며 비공개 생산·조달·고객사 계획을 요구하지 않습니다.</p>
 </section>
 <script>
 (async function(){
@@ -100,10 +100,17 @@ try{
    }
    card.append(block);
   }
-  card.append(elt("h3","데스킹 전 확인 질문"));
+  card.append(elt("h3","기자 원문·기보도 확인"));
   for(const question of item.deskChecks||[])card.append(elt("p",question,"q"));
+  card.append(elt("h3","홍보팀에 확인할 공개 사실"));
+  for(const question of item.publicFactQuestions||[])card.append(elt("p",question.question,"q"));
   card.append(elt("p",item.deskVerdict,"muted"));
-  host.append(card);
+  if(item.recentOfficialPublication===true){host.append(card)}
+  else{
+   const archive=elt("details");
+   archive.append(elt("summary","과거·날짜 미확인 원문 참고: "+item.company+" · 신규 발표 아님"));
+   archive.append(card);host.append(archive);
+  }
  }
  const missing=(data.diagnostics||[]).filter(r=>r.status!=="changed_in_official_reports");
  if(missing.length){
