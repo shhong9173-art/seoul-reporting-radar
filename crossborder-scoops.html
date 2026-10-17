@@ -316,6 +316,18 @@ try{
         link(c,profit.sameOfficialGovernmentPdfUrl,"2025년 슬로바키아 정부 IFRS 원본 PDF ↗");
         line(c,"2026년 기아 별도재무제표 배당수익 인식액과는 기간·단위·회계항목이 달라 현금 송금액이나 배당재원 비율을 산출할 수 없습니다.","small");
       }
+      const publicMetric=period.slovakProfitFinancialDataPriorPublic;
+      if(publicMetric&&
+         publicMetric.status==="exact_2025_financial_metric_visible_on_public_service"){
+        if(publicMetric.metricIsPublicNotExclusive!==true||
+           publicMetric.sourceOriginalPublishingDateVerified!==false||
+           publicMetric.koreanPressSameAngleFulltextChecked!==false||
+           publicMetric.actual2026DividendDecisionOrRemittanceVerified!==false||
+           publicMetric.sourceUrl!=="https://finstat.sk/35876832")
+          throw Error("FinStat 공개수치 선공개 증거 검증 실패");
+        line(c,"이미 공개된 현지 재무정보: FinStat가 기아 슬로바키아 2025년 순이익 4억5102만유로·약 34% 감소를 게시했습니다. 이 실적 숫자 자체는 단독이 아닙니다. 최초 게시시점 및 동일 각도 한국 기사 전문은 별도 확인이 필요합니다.","dim");
+        link(c,publicMetric.sourceUrl,"FinStat 2025년 공개 재무정보 ↗");
+      }
       for(const item of period.slovakAuditedPaymentCalendarYears||[])
         line(c,item.year+"년 현지 배당현금흐름 원문 추출: "+
           item.outflowThousandEur.toLocaleString("ko-KR")+
