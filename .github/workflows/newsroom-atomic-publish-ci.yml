@@ -1,0 +1,49 @@
+name: Newsroom Atomic Publisher Regression
+on:
+  pull_request:
+    paths:
+      - 'scripts/publish_newsroom_outputs.py'
+      - 'tests/test_publish_newsroom_outputs.py'
+      - '.github/workflows/auto-desk.yml'
+      - '.github/workflows/scoop-radar.yml'
+      - '.github/workflows/newsroom-atomic-publish-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/publish_newsroom_outputs.py'
+      - '.github/workflows/newsroom-atomic-publish-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compile isolated publisher
+        run: python -m compileall -q scripts/publish_newsroom_outputs.py
+      - name: Real temporary Git remotes, racing commits and dirty working tree
+        run: python -m unittest discover -s tests -p 'test_publish_newsroom_outputs.py' -v
+      - name: Verify files have one publication owner and no workflow rebases
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from scripts.publish_newsroom_outputs import OUTPUTS
+          assert not set(OUTPUTS["news"]) & set(OUTPUTS["scoop"])
+          assert not set(OUTPUTS["health"]) & set(OUTPUTS["news"])
+          assert not set(OUTPUTS["health"]) & set(OUTPUTS["scoop"])
+          news=Path(".github/workflows/auto-desk.yml").read_text(encoding="utf-8")
+          scoop=Path(".github/workflows/scoop-radar.yml").read_text(encoding="utf-8")
+          assert "--mode news" in news and "--mode health" in news
+          assert "--mode scoop" in scoop
+          assert "git rebase origin/main" not in news
+          assert "git rebase origin/main" not in scoop
+          assert "git pull --rebase origin main" not in news
+          assert "git pull --rebase origin main" not in scoop
+          assert "cancel-in-progress: false" in news and "cancel-in-progress: false" in scoop
+          print("PASS: single-writer files, isolated fresh-main publication, no source-tree rebase")
+          PY
