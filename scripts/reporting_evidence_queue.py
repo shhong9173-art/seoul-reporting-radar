@@ -25,6 +25,7 @@ CATEGORIES={
 }
 SCOPES={
     "officialEvents":("official_date_triage", "freshOfficialReview"),
+    "dartBeat":("industry_beat_official_receipt_review","records"),
     "investment":("source_changes_detected_not_exclusive", "investigations"),
     "metrics":(None,"items"),
     "contracts":("reporter_review_not_exclusive","items"),
@@ -92,6 +93,11 @@ def source_health(sources,now):
             "completeAcrossUniverse":False,
             "zeroItemsProvesNoEvent":False
         }
+    dart=sources.get("dartBeat") if isinstance(sources.get("dartBeat"),dict) else {}
+    if result["dartBeat"]["status"]=="source_snapshot_checked":
+        if dart.get("sourceComplete") is not True:
+            result["dartBeat"]["status"]="source_partial_coverage"
+        result["dartBeat"]["uninspectedRelevantDetails"]=dart.get("uninspectedRelevantDetails")
     event=sources.get("officialEvents") if isinstance(sources.get("officialEvents"),dict) else {}
     if result["officialEvents"]["status"]=="source_snapshot_checked":
         if event.get("sourceCompletenessVerified") is not True:
@@ -268,6 +274,62 @@ def build(sources,*,now=None):
                    "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
                    "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인",
                  ]))
+    # Public DART primary tables can be inspected even when broad triage
+    # is partial. This tier is public fact-checking, never scoop approval.
+    dart=sources.get("dartBeat") or {}
+    if health["dartBeat"]["status"] in ("source_snapshot_checked","source_partial_coverage"):
+        for filing in dart.get("records",[])[:150]:
+            if not isinstance(filing,dict):continue
+            receipt=filing.get("receiptNo")
+            url=filing.get("sourceUrl")
+            dt=date_value(filing.get("published"))
+            company=filing.get("company")
+            fields=filing.get("observedFields")
+            evidence=filing.get("observedFieldEvidence")
+            if (not isinstance(receipt,str) or not dart_url(receipt,url) or
+                dt is None or not earliest<=dt<=today or
+                not isinstance(company,str) or not company.strip() or
+                filing.get("status")!="official_document_read" or
+                filing.get("detailStatus")!="official_document_read" or
+                filing.get("isCorrection") is not False or
+                filing.get("documentFieldExtractionStatus")!="official_table_terms_not_business_effect" or
+                not isinstance(fields,dict) or not isinstance(evidence,dict)):
+                continue
+            names=("contract_subject","contract_amount","counterparty",
+                   "counterparty_relationship","supply_region",
+                   "contract_start","contract_end")
+            verified={k:str(fields[k]).strip()[:110] for k in names
+                      if (isinstance(fields.get(k),str) and fields[k].strip() and
+                          isinstance(evidence.get(k),dict) and
+                          evidence[k].get("basis")=="same_official_table_row")}
+            if "contract_subject" not in verified or "contract_amount" not in verified:
+                continue
+            rel=verified.get("counterparty_relationship")
+            internal=rel in ("자회사","종속회사","계열회사","관계회사","특수관계인")
+            subject=verified["contract_subject"]
+            desc=("공식 DART 원문 표 확인: "+subject+
+                  " · 계약금액 "+verified["contract_amount"]+"원"+
+                  (" · 상대 "+verified["counterparty"] if "counterparty" in verified else "")+
+                  (" · 관계 "+rel if rel else "")+
+                  ". 실제 외부 신규고객 수주·출하·매출 실현은 미확인.")
+            result=record("new_official_receipt_review","DART:"+receipt,
+                          company,company+" · "+subject+
+                          (" (계열사 거래)" if internal else " (공시 원문)"),
+                          dt,desc,[url],[
+                            "동일 계약 보도 기사 전문·첫 공시 날짜 확인",
+                            "공시 표상 계약상대·관계·금액·기간 확인",
+                            "공개된 최종 고객 자료와 발행법인 구분",
+                            "내부 공급망 변경·장래 매출은 추정하지 않음"])
+            result.update({"officialTableTermsRetrieved":True,
+                           "verifiedOfficialTableFields":verified,
+                           "inGroupCounterpartyPerIssuerFiling":internal,
+                           "externalNewCustomerVerified":False,
+                           "actualShipmentsVerified":False,
+                           "pressIndexNoHitsIsNotNoCoverage":True,
+                           "editorialPriority":"related_party_reference_only" if internal
+                                             else "new_official_filing_manual_review"})
+            records.append(result)
+
     investments=sources.get("investment") or {}
     if health["investment"]["status"]=="source_snapshot_checked":
         for inv in investments.get("investigations",[])[:40]:
@@ -377,7 +439,8 @@ def build(sources,*,now=None):
     # Keep recent dated official identity; never duplicate it as a new story.
     ranks={k:i for i,k in enumerate(CATEGORIES)}
     order=sorted(records,key=lambda x:(
-        ranks[x["tier"]],-int(x["officialDocumentDate"].replace("-","")),x["id"]))
+        ranks[x["tier"]],-int(x["officialDocumentDate"].replace("-","")),
+        -int(bool(x.get("officialTableTermsRetrieved"))),x["id"]))
     seen_receipt=set()
     unique=[]
     for row in order:
@@ -389,6 +452,8 @@ def build(sources,*,now=None):
             if this_receipt in seen_receipt:
                 skipped["same_receipt_merged"]+=1;continue
         if row["tier"]=="new_official_receipt_review" and this_receipt:
+            if this_receipt in seen_receipt:
+                skipped["same_receipt_merged"]+=1;continue
             seen_receipt.add(this_receipt)
         unique.append(row)
     counts={tier:sum(x["tier"]==tier for x in unique) for tier in CATEGORIES}
@@ -418,6 +483,7 @@ def main():
     p=argparse.ArgumentParser()
     p.add_argument("--out",default="digests/reporting_evidence_queue_latest.json")
     p.add_argument("--official",default="digests/official_event_triage_latest.json")
+    p.add_argument("--dart-beat",default="digests/dart_beat_monitor_latest.json")
     p.add_argument("--investments",default="digests/investigation_hunt_latest.json")
     p.add_argument("--metrics",default="digests/recent_metric_changes_latest.json")
     p.add_argument("--contracts",default="digests/dart_contract_followup_latest.json")
@@ -428,7 +494,8 @@ def main():
         try:return json.loads(Path(path).read_text(encoding="utf-8"))
         except (OSError,ValueError):return None
     result=build({
-        "officialEvents":read(a.official),"investment":read(a.investments),
+        "officialEvents":read(a.official),
+        "dartBeat":read(a.dart_beat),"investment":read(a.investments),
         "metrics":read(a.metrics),"contracts":read(a.contracts),
         "recentLedger":read(a.recent_ledger),
         "correctionHistory":read(a.correction_history)})
