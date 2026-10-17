@@ -111,6 +111,59 @@ class PublisherIntegration(unittest.TestCase):
                          "fresh news 0")
         self.assertTrue(git(self.root,"status","--porcelain"))
 
+    def test_concurrent_official_registry_survives_stale_news_refresh(self):
+        self.assertNotIn("dart_corp_codes.json",OUTPUTS["news"])
+        official={"companies":{"현대자동차":{"corp_code":"00164742","stock_code":"005380"},
+            "KG스틸":{"corp_code":"00115676","stock_code":"016380"}}}
+        # News checkout predates the issuer verification; official registry
+        # writer commits the newly validated KG Steel id to remote main.
+        (self.root/"dart_corp_codes.json").write_text(
+            json.dumps({"companies":{"현대자동차":{"corp_code":"00164742"}}}))
+        (self.peer/"dart_corp_codes.json").write_text(json.dumps(official))
+        git(self.peer,"add","dart_corp_codes.json")
+        git(self.peer,"commit","-m","Official stock plus legal issuer registry")
+        git(self.peer,"push","origin","main")
+        write_news(self.root,"headline updated")
+        self.assertEqual(publish(self.root,"news"),"published")
+        git(self.peer,"fetch","origin","main")
+        self.assertEqual(json.loads(self.remote_file("dart_corp_codes.json")),official)
+        self.assertEqual(json.loads(self.remote_file("data.json"))[0]["title"],
+                         "headline updated news 0")
+
+    def test_dart_beat_official_atomic_writer_fails_closed_on_missing_issuer(self):
+        from datetime import datetime,timezone,timedelta
+        ts=datetime.now(timezone(timedelta(hours=9))).isoformat(timespec="seconds")
+        codes={"companies":{"KG스틸":{"corp_code":"00115676","stock_code":"016380"}}}
+        coverage={"generatedAt":ts,"status":"official_corp_code_registry_checked",
+                  "scope":1,"knownWithCode":1,
+                  "companies":[{"company":"KG스틸","corpCode":"00115676",
+                      "status":"resolved_unique_official_stock_and_legal_name",
+                      "officialListedStockCodeProof":"016380"}]}
+        monitor={"generatedAt":ts,
+                 "status":"industry_beat_official_receipt_review",
+                 "scopeCompanyCount":1,"companiesCodeVerified":1,
+                 "companiesUnresolved":0,"companiesWithSourceErrors":0,
+                 "confirmedScoops":0,"approvedArticles":0}
+        changed={"sourceGeneratedAt":ts,
+                 "status":"official_receipt_change_review_not_exclusive",
+                 "confirmedScoops":0,"approvedArticles":0}
+        docs=[codes,coverage,monitor,changed]
+        for name,doc in zip(OUTPUTS["dart_beat"],docs):
+            p=self.root/name;p.parent.mkdir(parents=True,exist_ok=True)
+            p.write_text(json.dumps(doc))
+        self.assertEqual(publish(self.root,"dart_beat"),"published")
+        git(self.peer,"fetch","origin","main")
+        saved=json.loads(self.remote_file("dart_corp_codes.json"))
+        self.assertEqual(saved["companies"]["KG스틸"]["corp_code"],"00115676")
+        (self.root/"dart_corp_codes.json").write_text(json.dumps({"companies":{}}))
+        with self.assertRaisesRegex(ValueError,"official_issuer_id_missing_in_published_registry"):
+            selected(self.root,"dart_beat")
+        (self.root/"dart_corp_codes.json").write_text(json.dumps(codes))
+        coverage["companies"][0]["officialListedStockCodeProof"]="wrong"
+        (self.root/OUTPUTS["dart_beat"][1]).write_text(json.dumps(coverage))
+        with self.assertRaisesRegex(ValueError,"listed_issuer_stock_identity_unverified"):
+            selected(self.root,"dart_beat")
+
     def test_health_publishes_despite_dirty_source_and_rejects_bad_schema(self):
         report={
           "status":"incomplete_queries_or_provider_errors",

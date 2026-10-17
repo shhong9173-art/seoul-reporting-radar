@@ -22,7 +22,13 @@ OUTPUTS = {
     "news": (
         "dart_refresh_status.json", "data.js", "data.json", "global.json",
         "archive.json", "changes.json", "strategic_shifts.json", "dart.json",
-        "pitch.json", "industry.json", "dig_today.json", "dart_corp_codes.json",
+        "pitch.json", "industry.json", "dig_today.json",
+    ),
+    "dart_beat": (
+        "dart_corp_codes.json",
+        "digests/dart_corp_code_coverage_latest.json",
+        "digests/dart_beat_monitor_latest.json",
+        "digests/dart_beat_changes_latest.json",
     ),
     "scoop": ("pre_scoop.json", "scoop.json", "dart_numeric.json"),
     "queue": ("digests/reporting_evidence_queue_latest.json",),
@@ -39,7 +45,7 @@ OUTPUTS = {
         "digests/global_news_feed_health_latest.json",
     ),
 }
-OPTIONAL = {"dart_corp_codes.json"}
+OPTIONAL = set()  # A shared corporate registry has exactly one official writer.
 # Existing verified archive.json is ~16.2MB (2026-10-17). A blanket 12MiB
 # cap blocked already-validated news from publication. Give ONLY the long-lived
 # 90-day news archive a bounded 32MiB allowance, never all output files.
@@ -97,6 +103,47 @@ def selected(root: Path, mode: str):
             obj = json.loads((root / name).read_text(encoding="utf-8"))
             if not isinstance(obj, dict) or not isinstance(obj.get("items"), list):
                 raise ValueError("invalid_scoop_output: " + name)
+    if mode == "dart_beat":
+        def read_dart(name):
+            doc=json.loads((root/name).read_text(encoding="utf-8"))
+            if not isinstance(doc,dict):raise ValueError("invalid_dart_beat_"+name)
+            return doc
+        codes=read_dart("dart_corp_codes.json").get("companies")
+        coverage=read_dart("digests/dart_corp_code_coverage_latest.json")
+        monitor=read_dart("digests/dart_beat_monitor_latest.json")
+        changes=read_dart("digests/dart_beat_changes_latest.json")
+        if (not isinstance(codes,dict) or
+            coverage.get("status")!="official_corp_code_registry_checked" or
+            monitor.get("status")!="industry_beat_official_receipt_review" or
+            changes.get("status")!="official_receipt_change_review_not_exclusive" or
+            monitor.get("confirmedScoops")!=0 or monitor.get("approvedArticles")!=0 or
+            changes.get("confirmedScoops")!=0 or changes.get("approvedArticles")!=0 or
+            not isinstance(coverage.get("companies"),list) or
+            coverage.get("scope")!=monitor.get("scopeCompanyCount") or
+            coverage.get("knownWithCode")!=sum(
+                row.get("corpCode") is not None for row in coverage["companies"]
+                if isinstance(row,dict)) or
+            monitor.get("companiesCodeVerified")+
+            monitor.get("companiesUnresolved")+
+            monitor.get("companiesWithSourceErrors")!=monitor.get("scopeCompanyCount") or
+            coverage.get("generatedAt")!=monitor.get("generatedAt") or
+            changes.get("sourceGeneratedAt")!=monitor.get("generatedAt")):
+            raise ValueError("invalid_shared_dart_official_snapshot")
+        # An issuer marked verified in a new official registry run must
+        # retain the same corporation ID in the file used by the next run.
+        for row in coverage["companies"]:
+            if not isinstance(row,dict):raise ValueError("invalid_shared_dart_registry_row")
+            co=row.get("company");number=row.get("corpCode")
+            if number is None:continue
+            actual=codes.get(co)
+            if (not isinstance(actual,dict) or actual.get("corp_code")!=number):
+                raise ValueError("official_issuer_id_missing_in_published_registry")
+            if row.get("status")=="resolved_unique_official_stock_and_legal_name":
+                if (row.get("officialListedStockCodeProof") is None or
+                    actual.get("stock_code")!=row["officialListedStockCodeProof"]):
+                    raise ValueError("listed_issuer_stock_identity_unverified")
+        # Different source emitters are NOT authorized to overwrite these
+        # files; only the official-issuer production job owns the whole set.
     if mode == "queue":
         doc=json.loads((root / "digests/reporting_evidence_queue_latest.json").read_text(encoding="utf-8"))
         if (not isinstance(doc,dict) or
