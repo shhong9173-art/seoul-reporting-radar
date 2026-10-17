@@ -87,5 +87,5 @@ def likely_same_contract_indexed(evidence, headline):
     lowered=headline.lower()
     matched=sum(w.lower() in lowered for w in terms)
     return bool(company and company.lower() in lowered and len(terms)>=2 and
-                matched>=2 and similar_amount_in_headline(
+                matched>=min(3,len(terms)) and similar_amount_in_headline(
                     headline,evidence.get("amountWon")))
