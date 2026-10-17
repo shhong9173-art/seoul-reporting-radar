@@ -46,7 +46,13 @@ jobs:
           assert 'persist_feed_health(health' in src
           assert src.index('persist_feed_health(health')<src.index("if len(items)<10:")
           assert 'always()' in wf
-          assert 'git add digests/auto_news_feed_health_latest.json' in wf
-          assert '[skip ci]' in wf
+          publisher=Path('scripts/publish_newsroom_outputs.py').read_text(encoding='utf-8')
+          assert 'scripts/publish_newsroom_outputs.py --mode health' in wf
+          assert 'scripts/publish_newsroom_outputs.py --mode news' in wf
+          assert 'digests/auto_news_feed_health_latest.json' in publisher
+          assert 'digests/global_news_feed_health_latest.json' in publisher
+          assert '"news": (' in publisher and '"health": (' in publisher
+          assert '[skip ci]' in publisher
+          assert 'git rebase origin/main' not in wf
           print('PASS: no collector report 0 to newsroom data.js; RSS failures audited')
           PY
