@@ -98,6 +98,7 @@ class PublisherIntegration(unittest.TestCase):
                 git(self.peer,"add","unrelated.txt")
                 git(self.peer,"commit","-m","concurrent independent change")
                 git(self.peer,"push","origin","main")
+        source_head=git(self.root,"rev-parse","HEAD")
         self.assertEqual(publish(self.root,"news",before_push=race),"published")
         self.assertEqual(calls,[0,1])
         git(self.peer,"fetch","origin","main")
@@ -105,7 +106,10 @@ class PublisherIntegration(unittest.TestCase):
         self.assertEqual(json.loads(self.remote_file("data.json"))[0]["title"],
                          "fresh news 0")
         # No rebase/change to source checkout, even on rejected first push.
-        self.assertEqual(git(self.root,"status","--porcelain").splitlines()[0][:2]," M")
+        self.assertEqual(git(self.root,"rev-parse","HEAD"),source_head)
+        self.assertEqual(json.loads((self.root/"data.json").read_text())[0]["title"],
+                         "fresh news 0")
+        self.assertTrue(git(self.root,"status","--porcelain"))
 
     def test_health_publishes_despite_dirty_source_and_rejects_bad_schema(self):
         report={
