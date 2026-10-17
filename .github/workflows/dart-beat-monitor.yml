@@ -5,6 +5,8 @@ on:
     paths:
       - '.github/workflows/dart-beat-monitor.yml'
       - 'scripts/dart_beat_monitor.py'
+      - 'scripts/valueup_first_party_crosscheck.py'
+      - 'data/valueup_first_party_prior_evidence.json'
       - 'scripts/dart_corp_registry.py'
       - 'tests/test_dart_stock_identity.py'
       - 'scripts/publish_newsroom_outputs.py'
@@ -44,6 +46,7 @@ jobs:
           python -m compileall -q scripts/dart_beat_monitor.py scripts/dart_corp_registry.py
           python -m unittest discover -s tests -p 'test_dart_beat_monitor.py' -v
           python -m unittest discover -s tests -p 'test_dart_stock_identity.py' -v
+          python -m unittest discover -s tests -p 'test_valueup_first_party_crosscheck.py' -v
           python -m unittest discover -s tests -p 'test_publish_newsroom_outputs.py' -v
           node tests/test_dart_beat_monitor_view.cjs
           python -m unittest discover -s tests -p 'test_dart_beat_run_health.py' -v
