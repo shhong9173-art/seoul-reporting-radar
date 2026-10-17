@@ -1,5 +1,12 @@
 name: Source-Delta Investigation Hunt
 on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'scripts/investigation_hunt.py'
+      - 'tests/test_investigation_hunt.py'
+      - 'hunt.html'
+      - '.github/workflows/investigation-hunt.yml'
   push:
     branches: [main]
     paths:
@@ -26,7 +33,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: main
+          ref: ${{ github.event_name == 'pull_request' && github.head_ref || 'main' }}
           fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
@@ -38,10 +45,25 @@ jobs:
           python -m unittest discover -s tests -p 'test_investigation_hunt.py' -v
           node tests/test_hunt_view.cjs
       - name: Detect official DART investment revisions and prior coverage
+        if: github.event_name != 'pull_request'
         run: python scripts/investigation_hunt.py --max-news 4
+      - name: Replay current operational disclosures without publishing
+        if: github.event_name == 'pull_request'
+        run: |
+          python scripts/investigation_hunt.py --max-news 0 --output /tmp/investigation-replay.json
+          python - <<'PY'
+          import json
+          d=json.load(open('/tmp/investigation-replay.json'))
+          assert d['scoopConfirmed']==0
+          for card in d['investigations']:
+              print(card['company'], card['reporterStatus'], len(card['publicFactQuestions']))
+              assert card['publicFactQuestions']
+              assert all(q['sourceUrls'] for q in card['publicFactQuestions'])
+          PY
       - name: Identify conservative same-year quarter/half-year DART numeric changes
         run: python scripts/recent_metric_hunt.py
       - name: Publish verified facts and desk prompts
+        if: github.event_name != 'pull_request'
         run: |
           set -e
           git config user.name "github-actions[bot]"

@@ -71,7 +71,21 @@ class HuntTests(unittest.TestCase):
         self.assertIn("확인되지",packet["angleConditional"])
         self.assertIn("실제 준공/가동",str(packet["deskChecks"]))
         self.assertIn("발제 미확정",packet["deskVerdict"])
-        self.assertEqual(packet["reporterStatus"],"P1 원자료 변화 취재 착수")
+        self.assertEqual(packet["reporterStatus"],"과거·날짜 미확인 원문 참고")
+        self.assertFalse(packet["recentOfficialPublication"])
+        self.assertEqual(len(packet["publicFactQuestions"]),3)
+        self.assertTrue(all(q["sourceUrls"] for q in packet["publicFactQuestions"]))
+
+    def test_freshness_requires_actual_publication_and_matching_receipt(self):
+        old,new=datasets()
+        group=hunt.check_company("HD현대일렉트릭",old,new)
+        for row in group["updates"]:
+            row["toPublished"]="20261012"
+            row["currentReceipt"]="20261012000001"
+        self.assertTrue(hunt.desk_packet(group,NOW)["recentOfficialPublication"])
+        for invalid in (None,"20261014","20260230","20261011"):
+            for row in group["updates"]:row["toPublished"]=invalid
+            self.assertFalse(hunt.desk_packet(group,NOW)["recentOfficialPublication"])
 
     def test_different_project_scope_does_not_pair(self):
         old,new=datasets()

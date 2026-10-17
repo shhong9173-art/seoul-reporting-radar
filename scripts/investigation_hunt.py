@@ -201,20 +201,39 @@ def desk_packet(group,as_of):
     else:
         headline=f"{company}, 공식 투자계획 기재 변경 {len(changed)}건"
         angle=f"{company}의 최신 보고서에서 기존 투자계획 금액·예정 기간 수정이 확인됐다. 조정 배경과 사업 영향은 미확인이다."
+    ages=[]
+    for row in changed:
+        published=str(row.get("toPublished") or "")
+        try:
+            date=datetime.strptime(published,"%Y%m%d").date()
+            age=(as_of.date()-date).days
+            valid=(age>=0 and published==str(row.get("currentReceipt") or "")[:8])
+        except ValueError:
+            valid=False;age=None
+        row["officialPublicationAgeDays"]=age if valid else None
+        row["publicationDateVerified"]=valid
+        ages.append(age if valid else None)
+    recent=all(age is not None for age in ages) and any(age<=3 for age in ages)
+    questions=[]
+    for row in changed:
+        questions.append({"project":row["project"],"sourceUrls":row["originalUrls"],
+            "question":f"공개 공시의 '{row['project']}' 항목에서 종료 예정월 {row['oldPlannedEnd']}→{row['newPlannedEnd']}, 투자 예정 총액 {row['oldBudgetMillionWon']}→{row['newBudgetMillionWon']}백만원으로 읽는 것이 맞습니까? 공개 문서에서 정정하거나 함께 읽어야 할 주석이 있으면 알려주십시오.",
+            "scope":"공개 공시 기재값·주석 확인"})
     return {
         "company":company,"headline":headline,"angleConditional":angle,
         "priorityScore":score,
-        "reporterStatus":"P1 원자료 변화 취재 착수" if score>=60 else "P2 공식 변화 재확인",
+        "reporterStatus":("P1 원자료 변화 취재 착수" if score>=60 else "P2 공식 변화 재확인") if recent else "과거·날짜 미확인 원문 참고",
+        "recentOfficialPublication":recent,
+        "publicFactQuestions":questions,
         "projects":changed,
         "coverageStatus":"선행 기사 동일 사건 여부 직접 확인 필요",
         "deskChecks":[
             "원문: 전기·당기 두 자료에서 동일 사업장·품목·투자 범위/단위인가?",
             "이미 나온 보도: 사업명·이전/변경 일정·금액이 전문지나 기존 IR에 공개됐는가?",
-            "회사 확인: 투자 종료 예정월 수정과 실제 준공/가동·생산 일정 변경은 같은가?",
-            "규모·영향: 달라진 기간이 수주 소화·생산량·출하/고객사에 영향을 주는가?",
-            "반론: 일정이 아니라 회계 집행기간·인허가·신설사업 분류만 수정됐을 가능성은?",
+            "공개 사실 확인: 실제 준공/가동 완료가 이미 발표됐다면 해당 발표일·보도자료 원문과 대조한다.",
+            "원문 주석 확인: 종료 예정월이 설비공사 기간인지 회계 집행기간인지 공개 문서에 명시돼 있는가?",
         ],
-        "deskVerdict":"발제 미확정: 회사 답변·기보도 사실 확인 후 보고",
+        "deskVerdict":"발제 미확정: 공개 사실에 대한 회사 답변·기보도 확인 후 보고. 비공개 생산·조달·고객사 계획 질문 제외",
     }
 
 
