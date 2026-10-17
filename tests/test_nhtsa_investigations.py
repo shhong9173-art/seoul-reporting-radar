@@ -63,7 +63,12 @@ class Tests(unittest.TestCase):
            rec("PE25-001","HYUNDAI","20250101")])
         d=n.parse_tab_data(contents.encode(),NOW)
         self.assertEqual(d["scannedRecords"],5)
-        self.assertEqual(len(d["items"]),2)
+        self.assertEqual(len(d["items"]),3)
+        # The 2025 Hyundai action is now an old-open baseline, NOT a 2026
+        # opened investigation. Two October 2026 actions remain current.
+        historical=[x for x in d["items"] if x["longRunningOpenReferenceOnly"]]
+        self.assertEqual(len(historical),1)
+        self.assertEqual(historical[0]["actionNumber"],"PE25-001")
         self.assertTrue(all(x["caution"].find("결함 확정")>=0 for x in d["items"]))
     def test_zip_streaming_uses_identical_tab_schema_without_extracting_archive(self):
         import io,zipfile
