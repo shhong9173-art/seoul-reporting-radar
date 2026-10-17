@@ -16,7 +16,13 @@
   for(const x of d.items){
    const a=el('article');a.append(el('h2',x.title),el('small','공식 공개일 '+x.published+' · '+x.sourceId),el('p','본문 기업명: '+(x.companiesMentioned.join(', ')||'확인된 명칭 없음')));
    for(const v of x.evidence||[])a.append(el('blockquote',v.text+(v.truncated?' … [일부 발췌]':'')));
-   a.append(el('p',x.warning),el('p','공개 사실 질문: '+x.publicFactQuestion));
+   a.append(el('p',x.warning));
+   if(x.bodyCompanyMentionVerified && x.publicFactQuestion)a.append(el('p','공개 사실 질문: '+x.publicFactQuestion));
+   const review=x.priorCoverageReview;
+   if(x.sameEventPressCoverage==='covered_facts_verified' && review){
+    a.append(el('p','기보도 확인 범위: '+(review.coveredFacts||[]).join(' · ')),el('p',review.scope));
+    try{const u=new URL(review.articleUrl);if(u.protocol==='https:'){const link=el('a','대조한 국내 기사 ('+review.articlePublished+')');link.href=u.href;link.target='_blank';link.rel='noopener noreferrer';a.append(link)}}catch(e){}
+   }else a.append(el('p','동일 사실 기보도 대조 미완료 · 미보도 판정 아님'));
    try{const u=new URL(x.sourceUrl);if(u.protocol==='https:'&&u.hostname==='www.federalregister.gov'){const link=el('a','공식 공보 원문');link.href=u.href;link.target='_blank';link.rel='noopener noreferrer';a.append(link)}}catch(e){}
    const age=(Date.now()-Date.parse(x.published+'T00:00:00+09:00'))/86400000;
    if(Number.isFinite(age)&&age>=0&&age<=3)host.append(a);

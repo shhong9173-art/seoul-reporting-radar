@@ -53,6 +53,22 @@ class Tests(unittest.TestCase):
         self.assertEqual(f.companies('POSCO and Hyundai Steel Company'),['현대제철','포스코'])
         p=f.Blocks();p.feed('<script>Hyundai Steel</script><p>normal text</p>');p.flush()
         self.assertNotIn('Hyundai',str(p.blocks))
+    def test_actual_coated_color_subsidiary_not_parent(self):
+        self.assertEqual(f.companies('3. POSCO Coated & Color Steel Co., Ltd.'),[])
+        self.assertEqual(f.companies('POSCO and POSCO Coated and Color Steel Co., Ltd.'),['포스코'])
+    def test_no_mention_no_company_question(self):
+        def fetch(url):
+            if url.endswith('.json'):return json.dumps(META).encode()
+            return ('<p>'+'Unrelated official notice with no named beat company. '*4+'</p>').encode()
+        self.assertIsNone(f.inspect(ROW,fetch)['publicFactQuestion'])
+    def test_prior_coverage_requires_same_document_body_and_id(self):
+        reviews=json.loads(f.REVIEWS.read_text())
+        row=reviews[0]
+        self.assertEqual(f.prior_coverage(row['sourceId'],row['sourceUrl'],row['bodySha256']),row)
+        self.assertIsNone(f.prior_coverage(row['sourceId'],row['sourceUrl'],'changed'))
+        self.assertIsNone(f.prior_coverage('2026-00000',row['sourceUrl'],row['bodySha256']))
+        self.assertIsNone(f.prior_coverage(row['sourceId'],'https://example.com',row['bodySha256']))
+
     def test_duplicate_and_missing_source(self):
         d=f.build({'generatedAt':'2026-10-17','documents':[ROW,ROW]},request)
         self.assertEqual(len(d['items']),1)
