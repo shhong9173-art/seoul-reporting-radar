@@ -3,7 +3,11 @@ const assert=require("node:assert/strict");
 const html=fs.readFileSync("reporting-queue.html","utf8");
 assert.ok(html.includes("digests/reporting_evidence_queue_latest.json"));
 for(const name of [
- "new_official_receipt_review","verified_historical_investment_delta",
+ "new_official_receipt_review","new_official_list_heading_review",
+ "recentOfficialTitleOnlyCount","officialListTitleOnly",
+ "officialDocumentBodyReviewed","disclosedFinancialImpactVerified",
+ "공식 DART 목록 제목·접수일만 검증됨",
+ "verified_historical_investment_delta",
  "verified_historical_numeric_delta","issuer_only_correction_unverified_original",
  "older_public_contract_reference","unlinked_correction_text_followup",
  "historicalResearchCount","unlinkedHistoryTextMatchCount",
@@ -20,7 +24,10 @@ assert.ok(html.includes('data.confirmedScoops!==0'));
 assert.ok(html.includes("x.approvedForPitch!==false"));
 assert.ok(html.includes("x.pressFulltextReviewed!==false"));
 assert.ok(html.includes("x.officialDateIsSourcePublicationNotScrape!==true"));
-assert.match(html,/<option value="new_official_receipt_review" selected>/);
+assert.match(html,/<option value="recent" selected>/);
+assert.ok(html.includes('tier==="recent"'));
+assert.ok(html.includes('x.officialListTitleOnly===true'));
+assert.ok(html.includes('value="new_official_list_heading_review"'));
 assert.ok(html.includes('value="all">전체 과거 자료 · 직접 선택'));
 assert.ok(!html.includes("innerHTML"));
 const scripts=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)];

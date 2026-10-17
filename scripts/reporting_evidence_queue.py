@@ -17,6 +17,7 @@ KST=timezone(timedelta(hours=9))
 DART_RECEIPT=re.compile(r"20\d{12}\Z")
 CATEGORIES={
     "new_official_receipt_review":"최근 공식 접수 확인·본문 검증 전",
+    "new_official_list_heading_review":"최근 DART 중요 공시 · 제목만 확인",
     "verified_historical_investment_delta":"과거 DART 투자계획 기재 비교",
     "verified_historical_numeric_delta":"과거 DART 공시 수치 비교",
     "issuer_only_correction_unverified_original":"정정문 자체 기재변경·원공시 미대조",
@@ -330,6 +331,55 @@ def build(sources,*,now=None):
                                              else "new_official_filing_manual_review"})
             records.append(result)
 
+    # Selective first-party DART headings, not extracted financial facts.
+    # These important public receipts were absent from contract-only filters.
+    dart=sources.get("dartBeat") or {}
+    if health["dartBeat"]["status"] in ("source_snapshot_checked","source_partial_coverage"):
+        for filing in dart.get("records",[])[:150]:
+            if not isinstance(filing,dict):continue
+            receipt=filing.get("receiptNo")
+            url=filing.get("sourceUrl")
+            dt=date_value(filing.get("published"))
+            company=filing.get("company")
+            title=filing.get("report")
+            if (not isinstance(company,str) or not company.strip() or
+                not isinstance(title,str) or not title.strip() or
+                not isinstance(receipt,str) or not dart_url(receipt,url) or
+                not re.fullmatch(r"\d{8}",str(filing.get("corpCode") or "")) or
+                filing.get("sourceType")!="official_list_receipt" or
+                dt is None or not earliest<=dt<=today or
+                receipt[:8]!=filing["published"] or
+                filing.get("isCorrection") is not False):
+                continue
+            normalized="".join(title.split())
+            if any(x in normalized for x in ("기재정정","첨부정정","정정신고")):
+                continue
+            typ=("기업가치제고계획" if normalized.startswith("기업가치제고계획")
+                 else "주식소각결정" if normalized.startswith("주식소각결정")
+                 else None)
+            if typ is None:continue
+            row=record("new_official_list_heading_review","DART:"+receipt,
+                company,company+" · "+title.strip()[:130],dt,
+                "공식 DART 목록의 공시 제목·접수번호·접수일만 확인. "
+                "가치제고 목표·주식소각 수량·확정 재무영향은 본문 대조 전이며, "
+                "기보도·기업 답변 모두 미확인.",
+                [url],[
+                    "공식 공시 본문에서 수치·대상·결의일, 완료/예정 상태 확인",
+                    "이전 가치제고 계획·자사주 처분/소각 공시와 수치 차이 검산",
+                    "기존 매체 기사 전문 및 최초 공표 시각 대조",
+                    "기업의 이미 공개된 공시 내용만 확인"])
+            row.update({
+                "officialListTitleOnly":True,
+                "officialDocumentBodyReviewed":False,
+                "filingTypeFromOfficialTitle":typ,
+                "disclosedFinancialImpactVerified":False,
+                "priorPressArticleFulltextReviewed":False,
+                "companyResponseVerified":False,
+                "firstObservedHereNotFirstReported":True,
+                "editorialPriority":"primary_title_manual_document_review_only"
+            })
+            records.append(row)
+
     investments=sources.get("investment") or {}
     if health["investment"]["status"]=="source_snapshot_checked":
         for inv in investments.get("investigations",[])[:40]:
@@ -451,7 +501,7 @@ def build(sources,*,now=None):
         if this_receipt and row["tier"]=="older_public_contract_reference":
             if this_receipt in seen_receipt:
                 skipped["same_receipt_merged"]+=1;continue
-        if row["tier"]=="new_official_receipt_review" and this_receipt:
+        if row["tier"] in ("new_official_receipt_review","new_official_list_heading_review") and this_receipt:
             if this_receipt in seen_receipt:
                 skipped["same_receipt_merged"]+=1;continue
             seen_receipt.add(this_receipt)
@@ -459,6 +509,8 @@ def build(sources,*,now=None):
     counts={tier:sum(x["tier"]==tier for x in unique) for tier in CATEGORIES}
     overall="partial_source_coverage_not_zero_news" if any(
        x["status"]!="source_snapshot_checked" for x in health.values()) else "verified_inputs_only"
+    recent_count=(counts["new_official_receipt_review"]+
+                  counts["new_official_list_heading_review"])
     return {
         "generatedAt":now.isoformat(timespec="seconds"),
         "status":"reporter_evidence_queue_not_exclusive",
@@ -466,9 +518,10 @@ def build(sources,*,now=None):
         "sourceHealth":health,
         "countsByEvidenceTier":counts,
         "sourceDateWindow":{ "recentFrom":earliest.isoformat(),"through":today.isoformat()},
-        "checkedOfficialRecentCandidates":counts["new_official_receipt_review"],
-        "todayOnlyCount":counts["new_official_receipt_review"],
-        "historicalResearchCount":len(unique)-counts["new_official_receipt_review"],
+        "checkedOfficialRecentCandidates":recent_count,
+        "recentOfficialTitleOnlyCount":counts["new_official_list_heading_review"],
+        "todayOnlyCount":recent_count,
+        "historicalResearchCount":len(unique)-recent_count,
         "unlinkedHistoryTextMatchCount":counts["unlinked_correction_text_followup"],
         "correctionHistorySourceGate":lineage_state,
         "totalRows":len(unique[:MAX_RECORDS]),

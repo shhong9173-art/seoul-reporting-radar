@@ -67,6 +67,90 @@ def fixtures():
 
 
 class EvidenceQueue(unittest.TestCase):
+    def test_kg_steel_recent_title_only_public_filing_is_never_pitched(self):
+        src=fixtures()
+        at=datetime(2026,10,17,20,45,tzinfo=KST)
+        company="KG스틸"
+        def row(receipt,title):
+            return {"company":company,"corpCode":"00115676",
+                "receiptNo":receipt,"published":receipt[:8],
+                "sourceUrl":url(receipt),
+                "sourceType":"official_list_receipt",
+                "isCorrection":False,"report":title,
+                "status":"not_inspected_bounded_detail_budget",
+                "detailStatus":"not_inspected_bounded_detail_budget",
+                "firstObservedThisRun":False}
+        valueup=row("20261016800823","기업가치제고계획(자율공시)")
+        cancelled=row("20261015800723","주식소각결정")
+        old=row("20260930800523","기업가치제고계획(자율공시)")
+        wrong_company=row("20261016800523","기업가치제고계획(자율공시)")
+        wrong_company["corpCode"]="no-code"
+        corrected=row("20261016800524","[기재정정]기업가치제고계획(자율공시)")
+        src["dartBeat"]={
+            "generatedAt":"2026-10-17T20:39:32+09:00",
+            "status":"industry_beat_official_receipt_review",
+            "sourceComplete":False,
+            "uninspectedRelevantDetails":0,
+            "records":[valueup,cancelled,old,wrong_company,corrected],
+        }
+        data=q.build(src,now=at)
+        self.assertEqual(data["recentOfficialTitleOnlyCount"],2)
+        # Existing fixture already has one separate fresh Taihan official receipt.
+        self.assertEqual(data["checkedOfficialRecentCandidates"],3)
+        self.assertEqual(data["sourceHealth"]["dartBeat"]["status"],
+                         "source_partial_coverage")
+        cards=[x for x in data["items"]
+               if x["tier"]=="new_official_list_heading_review"]
+        self.assertEqual({x["officialDocumentDate"] for x in cards},
+                         {"2026-10-15","2026-10-16"})
+        self.assertEqual({x["filingTypeFromOfficialTitle"] for x in cards},
+                         {"기업가치제고계획","주식소각결정"})
+        for card in cards:
+            self.assertTrue(card["officialListTitleOnly"])
+            self.assertFalse(card["officialDocumentBodyReviewed"])
+            self.assertFalse(card["companyImpactVerified"])
+            self.assertFalse(card["disclosedFinancialImpactVerified"])
+            self.assertFalse(card["pressFulltextReviewed"])
+            self.assertFalse(card["exclusiveConfirmed"])
+            self.assertFalse(card["approvedForPitch"])
+            self.assertTrue(card["firstObservedHereNotFirstReported"])
+
+        # Same DART receipt from broader government triage must not double count.
+        another=q.build(src,now=at)
+        self.assertEqual(another["recentOfficialTitleOnlyCount"],2)
+        src["officialEvents"]["freshOfficialReview"][0].update({
+            "officialDate":"2026-10-16",
+            "officialReceiptNo":"20261016800823",
+            "id":"DART_FILING:20261016800823",
+            "company":"KG스틸",
+            "headline":"KG스틸 가치제고계획 공식 공시",
+            "sourceUrl":url("20261016800823")})
+        dedup=q.build(src,now=at)
+        self.assertEqual(dedup["checkedOfficialRecentCandidates"],2)
+        self.assertEqual(dedup["recentOfficialTitleOnlyCount"],1)
+        self.assertEqual(dedup["excluded"]["same_receipt_merged"],1)
+
+    def test_tampered_issuer_and_recycled_official_title_is_not_novelty(self):
+        src=fixtures()
+        at=datetime(2026,10,17,20,45,tzinfo=KST)
+        src["dartBeat"]={
+            "generatedAt":"2026-10-17T20:39:32+09:00",
+            "status":"industry_beat_official_receipt_review",
+            "sourceComplete":True,"records":[{
+                "company":"KG스틸","corpCode":"00115676",
+                "receiptNo":"20261016800823","published":"20261016",
+                "sourceUrl":"https://evil.example/disclose?rcpNo=20261016800823",
+                "sourceType":"official_list_receipt",
+                "isCorrection":False,"report":"기업가치제고계획(자율공시)"}]}
+        r=q.build(src,now=at)
+        self.assertEqual(r["recentOfficialTitleOnlyCount"],0)
+        src["dartBeat"]["records"][0]["sourceUrl"]=url("20261016800823")
+        src["dartBeat"]["records"][0]["published"]="20261015"
+        self.assertEqual(q.build(src,now=at)["recentOfficialTitleOnlyCount"],0)
+        src["dartBeat"]["records"][0]["published"]="20261016"
+        src["dartBeat"]["records"][0]["sourceType"]="rss_aggregated_not_official"
+        self.assertEqual(q.build(src,now=at)["recentOfficialTitleOnlyCount"],0)
+
     def test_real_date_tiers_cannot_be_freshened_by_snapshot_time(self):
         x=q.build(fixtures(),now=NOW)
         self.assertEqual(x["status"],"reporter_evidence_queue_not_exclusive")
