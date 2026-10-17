@@ -1582,6 +1582,9 @@ def main():
             "firstSeenSource":x.get("officialLabel") or x.get("sourceName"),
             "verification":"원문·출입처 확인 후 단독 확정",
             "evidenceTier":tier,"coverageChecked":True,
+            "coverageIndexChecked":True,"pressFulltextReviewed":False,
+            "sameEventFulltextCoverageVerified":False,
+            "exclusiveConfirmed":False,"approvedForPitch":False,
             "sourceGroup":source_group(x),
             "exclusivePatternHits":exclusive_pattern_hits(source_text),
             "reportingPath":questions[:3]
