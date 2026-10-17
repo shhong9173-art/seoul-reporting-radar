@@ -61,7 +61,7 @@ async function load(path){
    if(!r.ok)return null;const j=await r.json();return j&&j.generatedAt?j:null;
  }catch(e){return null;}
 }
-const [investment,metrics,overseas,nhtsa,government,hs,nhtsaHealth,epa,scoop]=await Promise.all([
+const [investment,metrics,overseas,nhtsa,government,hs,nhtsaHealth,epa,scoop,epaHealth]=await Promise.all([
  load("investigation_hunt_latest.json"),
  load("recent_metric_changes_latest.json"),
  load("overseas_official_latest.json"),
@@ -70,7 +70,8 @@ const [investment,metrics,overseas,nhtsa,government,hs,nhtsaHealth,epa,scoop]=aw
  load("customs_hs6_latest.json"),
  load("nhtsa_source_status_latest.json"),
  load("epa_facilities_latest.json"),
- fetch("scoop.json",{cache:"no-store"}).then(r=>r.ok?r.json():null).catch(()=>null)]);
+ fetch("scoop.json",{cache:"no-store"}).then(r=>r.ok?r.json():null).catch(()=>null),
+ load("epa_source_status_latest.json")]);
 if(investment||metrics){
  $("dart-status").textContent="투자계획 변경 "+(investment?.verifiedChangeCount??"미확인")+
   "건 · 비교가능 공시상 수치 변동 "+(metrics?.officialChanges??"미검증")+
@@ -130,7 +131,7 @@ if(hs){
 }else $("customs-status").textContent="HS6 최신 검증 자료 미생성/인증 필요 · 이전 HS4 통계와 동일시 금지";
 
 if(epa){
- $("epa-status").textContent="ECHO 시설명 검색 후보 "+epa.candidateCount+"곳 / 질의 "+epa.queries+
+ $("epa-status").textContent=(epaHealth?.status==='checked'&&epaHealth.generatedAt===epa.generatedAt?'원천 조회 확인 · ':'최신 원천 진단 미완료·이전 자료일 수 있음 · 시설 0곳으로 해석 금지 · ')+"ECHO 확인된 시설명 기록 "+(epa.observedCandidateCount??epa.candidateCount??'미확인')+"곳 / 질의 "+epa.queries+
  "개 · 자료 "+epa.generatedAt+" · 시설 이름 일치≠모기업 소유/신규 인허가";
  for(const r of (epa.facilityCandidates||[]).slice(0,6)){
   card("epa",r.facilityName,"미국 "+r.state+" "+r.city+" · EPA 등록번호 "+
