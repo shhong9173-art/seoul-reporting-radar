@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-17T20:54:41+09:00",
+  "generatedAt": "2026-10-17T21:25:49+09:00",
   "status": "reporter_evidence_queue_not_exclusive",
   "sourceCoverage": "partial_source_coverage_not_zero_news",
   "sourceHealth": {
@@ -137,7 +137,7 @@
       "title": "KG스틸 · 기업가치제고계획(자율공시)              (PBR 개선 계획 제출 기업)",
       "officialDocumentDate": "2026-10-16",
       "officialDateIsSourcePublicationNotScrape": true,
-      "evidenceSummary": "공식 DART 목록의 공시 제목·접수번호·접수일만 확인. 가치제고 목표·주식소각 수량·확정 재무영향은 본문 대조 전이며, 기보도·기업 답변 모두 미확인.",
+      "evidenceSummary": "2025년 회사 공식 발표: 주주환원 목표 30%, ROE 13% 이상. 2026년 DART 기업가치제고계획 접수 제목만 확인. 2026년 주주환원 50%·2029년 PBR 0.5배는 이미 공개된 언론의 공시 소개 수치이며 DART 첨부 원문은 아직 미확인. 계산 기준·기간을 대조하기 전 20%p 확대 또는 단독 주장 불가.",
       "officialUrls": [
         "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261016800823"
       ],
@@ -148,11 +148,37 @@
       "exclusiveConfirmed": false,
       "approvedForPitch": false,
       "nextChecks": [
-        "공식 공시 본문에서 수치·대상·결의일, 완료/예정 상태 확인",
-        "이전 가치제고 계획·자사주 처분/소각 공시와 수치 차이 검산",
-        "기존 매체 기사 전문 및 최초 공표 시각 대조",
-        "기업의 이미 공개된 공시 내용만 확인"
+        "2026년 공식 DART 첨부 계획에서 50% 목표 및 분모·배당/자사주 범위 확인",
+        "2025년 회사 원문 30% 목표의 적용 기간과 2026년 5개년 기준 비교",
+        "2026년 동일 계획 언론기사 전문 확인(계획 목표 자체 기보도)",
+        "실제 실적 변화·이행 여부는 공식 후속자료에서 별도 확인"
       ],
+      "crossYearPlanReview": {
+        "kind": "historical_issuer_plan_and_new_official_title_comparison_not_equivalent",
+        "currentDartReceiptNo": "20261016800823",
+        "priorIssuerAnnouncementDate": "2025-02-11",
+        "priorIssuerPublishedAt": "2025-02-13",
+        "priorIssuerSourceUrl": "https://www.kg-steel.co.kr/html/PR_view.html?bl=0&ml=0&no=822&pc=24&tab=C&tb=news",
+        "priorRoeTargetAtLeastPercent": 13,
+        "priorShareholderReturnTargetPercent": 30,
+        "newOfficialDartTitleVerified": true,
+        "newDartUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261016800823",
+        "newMediaSourceUrl": "https://www.digitaltoday.co.kr/disclosure/articleView.html?idxno=707878",
+        "newPressReportedShareholderReturnTargetPercent": 50,
+        "newPressReportedWindow": "5개년",
+        "newPressReportedPbrAtLeast": 0.5,
+        "newPressReportedPbrTargetYear": 2029,
+        "newOfficialAttachmentContentVerified": false,
+        "denominatorMatched": false,
+        "periodDefinitionMatched": false,
+        "canClaimTwentyPercentagePointIncrease": false,
+        "targetAchieved": false,
+        "alreadyReportedNewPlanHeadline": true,
+        "coverageFulltextMatched": false,
+        "exclusiveConfirmed": false,
+        "approvedForPitch": false,
+        "editorialNote": "2025년 회사 공식 발표는 주주환원율 30%·ROE 13% 목표. 2026년 공식 DART 접수 제목은 확인했지만 50%·2029 PBR 수치는 기존 언론의 공시 소개에 기재돼 있음. 원공시 첨부 PDF의 환원율 분모·배당/자사주 범위와 5개년 기간 일치 여부를 확인하기 전 20%p 확대 또는 단독 보도라고 하지 않음."
+      },
       "officialListTitleOnly": true,
       "officialDocumentBodyReviewed": false,
       "filingTypeFromOfficialTitle": "기업가치제고계획",
