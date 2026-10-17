@@ -1,12 +1,8 @@
 {
-  "generatedAt": "2026-10-17T17:16:48+09:00",
-  "sourceGeneratedAt": "2026-10-17T17:16:35+09:00",
-  "status": "incomplete",
+  "generatedAt": "2026-10-17T17:19:57+09:00",
+  "sourceGeneratedAt": "2026-10-17T17:19:45+09:00",
+  "status": "checked",
   "checks": [
-    {
-      "sourceId": "2026-21362",
-      "status": "body_checked"
-    },
     {
       "sourceId": "2026-20897",
       "status": "body_checked"
@@ -34,27 +30,13 @@
     {
       "sourceId": "2026-19932",
       "status": "body_checked"
+    },
+    {
+      "sourceId": "2026-19529",
+      "status": "body_checked"
     }
   ],
   "items": [
-    {
-      "sourceId": "2026-21362",
-      "published": "2026-10-19",
-      "sourceUrl": "https://www.federalregister.gov/documents/2026/10/19/2026-21362/certain-steel-nails-from-taiwan-final-results-of-antidumping-duty-administrative-review-2024-2025",
-      "bodyUrl": "https://www.federalregister.gov/documents/full_text/html/2026/10/19/2026-21362.html",
-      "title": "Certain Steel Nails From Taiwan: Final Results of Antidumping Duty Administrative Review; 2024-2025",
-      "status": "body_checked",
-      "bodySha256": "a61131388849c555f17510f5b587fc9f27c0db75c1d95c140992a867475d9001",
-      "companiesMentioned": [],
-      "evidence": [],
-      "evidenceBlocksTotal": 0,
-      "bodyCompanyMentionVerified": false,
-      "sameEventPressCoverage": "not_checked",
-      "confirmedScoop": false,
-      "companyImpactVerified": false,
-      "publicFactQuestion": "이 공식 공보에서 귀사가 명시된 항목과 적용 대상에 관해 이미 공개한 설명·정정 자료가 있습니까?",
-      "warning": "본문 기업명과 짧은 문맥만 확인. 세율·계약·효력·국내 영향·미보도는 별도 검증"
-    },
     {
       "sourceId": "2026-20897",
       "published": "2026-10-14",
@@ -314,15 +296,56 @@
       "companyImpactVerified": false,
       "publicFactQuestion": "이 공식 공보에서 귀사가 명시된 항목과 적용 대상에 관해 이미 공개한 설명·정정 자료가 있습니까?",
       "warning": "본문 기업명과 짧은 문맥만 확인. 세율·계약·효력·국내 영향·미보도는 별도 검증"
+    },
+    {
+      "sourceId": "2026-19529",
+      "published": "2026-09-24",
+      "sourceUrl": "https://www.federalregister.gov/documents/2026/09/24/2026-19529/certain-oil-country-tubular-goods-from-the-republic-of-korea-final-results-of-antidumping-duty",
+      "bodyUrl": "https://www.federalregister.gov/documents/full_text/html/2026/09/24/2026-19529.html",
+      "title": "Certain Oil Country Tubular Goods From the Republic of Korea: Final Results of Antidumping Duty Administrative Review; 2023-2024",
+      "status": "body_checked",
+      "bodySha256": "540d3ce34eeec450bcd224bedb4f41a83affc0cfa35132e387a2730ee0535046",
+      "companiesMentioned": [
+        "현대제철"
+      ],
+      "evidence": [
+        {
+          "companies": [
+            "현대제철"
+          ],
+          "text": "5. Hyundai Steel Company",
+          "truncated": false
+        },
+        {
+          "companies": [
+            "현대제철"
+          ],
+          "text": "6. Hyundai Steel Pipe Co., Ltd.",
+          "truncated": false
+        }
+      ],
+      "evidenceBlocksTotal": 2,
+      "bodyCompanyMentionVerified": true,
+      "sameEventPressCoverage": "not_checked",
+      "confirmedScoop": false,
+      "companyImpactVerified": false,
+      "publicFactQuestion": "이 공식 공보에서 귀사가 명시된 항목과 적용 대상에 관해 이미 공개한 설명·정정 자료가 있습니까?",
+      "warning": "본문 기업명과 짧은 문맥만 확인. 세율·계약·효력·국내 영향·미보도는 별도 검증"
     }
   ],
   "sourceSearchIncomplete": false,
+  "heldDocuments": [
+    {
+      "sourceId": "2026-21362",
+      "published": "2026-10-19",
+      "reason": "not_yet_published"
+    }
+  ],
+  "unpublishedDocumentCount": 1,
   "failedDocuments": 0,
-  "unqueriedDocuments": 1,
+  "unqueriedDocuments": 0,
   "verifiedDocumentCount": 8,
-  "companyMentionDocumentCount": null,
+  "companyMentionDocumentCount": 6,
   "confirmedScoops": 0,
-  "warning": "검색 목록 안의 제한된 문서 본문 대조. 원천 오류·미조회는 0건이 아니며 수집일은 발표일이 아님",
-  "retainedEvidence": [],
-  "retainedEvidenceIsCurrent": false
+  "warning": "검색 목록 안의 제한된 문서 본문 대조. 원천 오류·미조회는 0건이 아니며 수집일은 발표일이 아님"
 }
