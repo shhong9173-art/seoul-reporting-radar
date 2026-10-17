@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-17T20:49:26+09:00",
+  "generatedAt": "2026-10-17T20:54:41+09:00",
   "status": "reporter_evidence_queue_not_exclusive",
   "sourceCoverage": "partial_source_coverage_not_zero_news",
   "sourceHealth": {
@@ -17,8 +17,8 @@
     },
     "dartBeat": {
       "status": "source_partial_coverage",
-      "generatedAt": "2026-10-17T20:38:51+09:00",
-      "rows": 29,
+      "generatedAt": "2026-10-17T20:54:10+09:00",
+      "rows": 31,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false,
       "uninspectedRelevantDetails": 0
@@ -61,7 +61,7 @@
   },
   "countsByEvidenceTier": {
     "new_official_receipt_review": 1,
-    "new_official_list_heading_review": 0,
+    "new_official_list_heading_review": 2,
     "verified_historical_investment_delta": 3,
     "verified_historical_numeric_delta": 47,
     "issuer_only_correction_unverified_original": 4,
@@ -72,13 +72,13 @@
     "recentFrom": "2026-10-15",
     "through": "2026-10-17"
   },
-  "checkedOfficialRecentCandidates": 1,
-  "recentOfficialTitleOnlyCount": 0,
-  "todayOnlyCount": 1,
+  "checkedOfficialRecentCandidates": 3,
+  "recentOfficialTitleOnlyCount": 2,
+  "todayOnlyCount": 3,
   "historicalResearchCount": 59,
   "unlinkedHistoryTextMatchCount": 2,
   "correctionHistorySourceGate": "reviewed_unlinked_candidates_only",
-  "totalRows": 60,
+  "totalRows": 62,
   "excluded": {
     "invalid_original_identity": 0,
     "old_and_not_relevant": 0,
@@ -128,6 +128,72 @@
       "actualShipmentsVerified": false,
       "pressIndexNoHitsIsNotNoCoverage": true,
       "editorialPriority": "related_party_reference_only"
+    },
+    {
+      "id": "new_official_list_heading_review:DART:20261016800823",
+      "tier": "new_official_list_heading_review",
+      "tierLabel": "최근 DART 중요 공시 · 제목만 확인",
+      "company": "KG스틸",
+      "title": "KG스틸 · 기업가치제고계획(자율공시)              (PBR 개선 계획 제출 기업)",
+      "officialDocumentDate": "2026-10-16",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 목록의 공시 제목·접수번호·접수일만 확인. 가치제고 목표·주식소각 수량·확정 재무영향은 본문 대조 전이며, 기보도·기업 답변 모두 미확인.",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261016800823"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 공시 본문에서 수치·대상·결의일, 완료/예정 상태 확인",
+        "이전 가치제고 계획·자사주 처분/소각 공시와 수치 차이 검산",
+        "기존 매체 기사 전문 및 최초 공표 시각 대조",
+        "기업의 이미 공개된 공시 내용만 확인"
+      ],
+      "officialListTitleOnly": true,
+      "officialDocumentBodyReviewed": false,
+      "filingTypeFromOfficialTitle": "기업가치제고계획",
+      "disclosedFinancialImpactVerified": false,
+      "priorPressArticleFulltextReviewed": false,
+      "companyResponseVerified": false,
+      "firstObservedHereNotFirstReported": true,
+      "editorialPriority": "primary_title_manual_document_review_only"
+    },
+    {
+      "id": "new_official_list_heading_review:DART:20261015800723",
+      "tier": "new_official_list_heading_review",
+      "tierLabel": "최근 DART 중요 공시 · 제목만 확인",
+      "company": "KG스틸",
+      "title": "KG스틸 · 주식소각결정",
+      "officialDocumentDate": "2026-10-15",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 목록의 공시 제목·접수번호·접수일만 확인. 가치제고 목표·주식소각 수량·확정 재무영향은 본문 대조 전이며, 기보도·기업 답변 모두 미확인.",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261015800723"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 공시 본문에서 수치·대상·결의일, 완료/예정 상태 확인",
+        "이전 가치제고 계획·자사주 처분/소각 공시와 수치 차이 검산",
+        "기존 매체 기사 전문 및 최초 공표 시각 대조",
+        "기업의 이미 공개된 공시 내용만 확인"
+      ],
+      "officialListTitleOnly": true,
+      "officialDocumentBodyReviewed": false,
+      "filingTypeFromOfficialTitle": "주식소각결정",
+      "disclosedFinancialImpactVerified": false,
+      "priorPressArticleFulltextReviewed": false,
+      "companyResponseVerified": false,
+      "firstObservedHereNotFirstReported": true,
+      "editorialPriority": "primary_title_manual_document_review_only"
     },
     {
       "id": "verified_historical_investment_delta:20260814003228:변압기 철심공장",
