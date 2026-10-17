@@ -53,6 +53,9 @@ def companies(text):
     # Do not turn POSCO Holdings/International/Future M into POSCO steel.
     found=[]
     for company,aliases in ALIASES.items():
+        if company=='현대자동차':
+            # US subsidiaries and regional operations are not the parent legal entity.
+            aliases=('Hyundai Motor Company',)
         if company=='포스코':
             clean=re.sub(r'\bPOSCO\s+(?:Holdings|International|Future\s*M|Chemical)\b','',text,flags=re.I)
             if exact_mention(clean,'POSCO'):found.append(company)
@@ -69,7 +72,7 @@ def inspect(row,request=fetch):
     expected_path='/documents/'+date.replace('-','/')+'/'+no+'/'
     if not official_url(row.get('sourceUrl'),expected_path):raise ValueError('list identity mismatch')
     meta=json.loads(request('https://www.federalregister.gov/api/v1/documents/'+no+'.json'))
-    if (meta.get('document_number')!=no or meta.get('publication_date')!=date
+    if (not isinstance(meta,dict) or meta.get('document_number')!=no or meta.get('publication_date')!=date
         or meta.get('html_url')!=row['sourceUrl']):raise ValueError('detail identity mismatch')
     body_url=meta.get('body_html_url')
     expected='/documents/full_text/html/'+date.replace('-','/')+'/'+no+'.html'
@@ -106,6 +109,7 @@ def inspect(row,request=fetch):
 
 def build(source,request=fetch,limit=8,now=None):
     now=now or datetime.now(KST)
+    if not isinstance(source,dict):source={}
     if not 1<=limit<=8:raise ValueError('document budget 1..8')
     docs=source.get('documents')
     valid=bool(source.get('generatedAt') and isinstance(docs,list))

@@ -33,6 +33,8 @@ class Tests(unittest.TestCase):
         self.assertIsNone(d['companyMentionDocumentCount'])
         self.assertEqual(d['failedDocuments'],1)
     def test_company_identity_and_script_text(self):
+        self.assertEqual(f.companies('Hyundai Motor North America'),[])
+        self.assertEqual(f.companies('Hyundai Motor Company'),['현대자동차'])
         self.assertEqual(f.companies('POSCO Holdings and POSCO International'),['포스코홀딩스'])
         self.assertEqual(f.companies('POSCO Future M'),[])
         self.assertEqual(f.companies('POSCO and Hyundai Steel Company'),['현대제철','포스코'])
@@ -42,6 +44,9 @@ class Tests(unittest.TestCase):
         d=f.build({'generatedAt':'2026-10-17','documents':[ROW,ROW]},request)
         self.assertEqual(len(d['items']),1)
         self.assertEqual(f.build({})['status'],'incomplete')
+        self.assertEqual(f.build([])['status'],'incomplete')
+        out=f.build({'generatedAt':'2026-10-17','documents':[ROW]},lambda u:b'[]')
+        self.assertIsNone(out['companyMentionDocumentCount'])
     def test_budget_reports_unqueried(self):
         rows=[{**ROW,'sourceId':f'2026-{20000+i}'} for i in range(9)]
         d=f.build({'generatedAt':'2026-10-17','documents':rows},request)
