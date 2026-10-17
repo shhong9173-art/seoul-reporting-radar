@@ -1,0 +1,12 @@
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const {patentPublicQuestions}=require('../patent-public-questions.js');
+assert.equal(patentPublicQuestions('10-2026-0123456').length,4);
+assert(patentPublicQuestions('10-2026-0123456')[0].includes('10-2026-0123456'));
+assert(patentPublicQuestions('<script>')[0].startsWith('해당 공개 문헌'));
+assert(patentPublicQuestions().every(q=>q.includes('공개')));
+const html=fs.readFileSync('patents.html','utf8');
+assert.equal((html.match(/patentPublicQuestions\(/g)||[]).length,4);
+assert(!html.includes('실제 어느 차종'));
+assert(!html.includes('.questions||[]'));
+console.log('Retained and current patent public questions pass');

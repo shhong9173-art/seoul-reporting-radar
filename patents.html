@@ -63,6 +63,7 @@ ul{padding-left:20px}
   각 후보의 공개번호를 KIPRIS에 입력해 청구항·도면·권리 상태를 다시 확인해.
   API 키는 GitHub Secrets의 <code>KIPRIS_SERVICE_KEY</code>에 별도로 등록해야 해. 관세청 API 키와 같다고 가정하지 않아.
 </div></main>
+<script src="patent-public-questions.js"></script>
 <script>
 (async function(){
 "use strict";
@@ -129,7 +130,7 @@ try{
      " · 신규성·사업화 별도 확인","scope"));
    card.append(elt("p","취재 상태: "+item.deskStatus+
       " · 회사 답변·출시·단독 확정하지 않음","status"));
-   for(const q of (item.questions||[]))
+   for(const q of patentPublicQuestions(item.publicationNumber))
       card.append(elt("p","기업 취재 확인: "+q,"question"));
    host.append(card);
  }
@@ -256,7 +257,7 @@ try{
     box.append(textEl("p","검색식: "+q.query+" · "+q.status,"dim"));
     for(const hit of (q.articles||[]))safeLink(box,hit.url,hit.title)
   }
-  for(const q of (r.questions||[]))box.append(textEl("p","취재 확인: "+q,"question"));
+  for(const q of patentPublicQuestions(r.publicationNumber))box.append(textEl("p","취재 확인: "+q,"question"));
   if(/^[0-9-]{10,22}$/.test(r.publicationNumber||""))
     safeLink(box,"https://patents.google.com/?q="+encodeURIComponent(r.publicationNumber),
        "공개번호 원문 대조 (Google Patents · 2차 확인)");
@@ -316,7 +317,7 @@ try{
   if(/^[\d-]{10,22}$/.test(p.publicationNumber||""))
     appendLink(box,"https://patents.google.com/?q="+encodeURIComponent(p.publicationNumber),
        "Google Patents 교차 검색(2차 출처)");
-  for(const q of p.questions||[])box.append(el("p","취재 질문: "+q,"question"));
+  for(const q of patentPublicQuestions(p.publicationNumber))box.append(el("p","취재 질문: "+q,"question"));
   host.append(box);
  }
  for(const c of data.companyChecks||[]){
@@ -403,7 +404,7 @@ try{
    a.href="https://patents.google.com/?q="+encodeURIComponent(row.publicationNumber);
    a.target="_blank";a.rel="noopener noreferrer";card.append(a);
   }
-  card.append(e("p","취재 질문: 이번 특허의 독립 청구항과 2023년 이후 종전 유사 특허의 기술적 차이는 무엇인가? 실제 어느 차종·공장·장비에 적용됐는가?","question"));
+  for(const q of patentPublicQuestions(row.publicationNumber))card.append(e("p","취재 질문: "+q,"question"));
   list.append(card);
  }
 }catch(ex){
