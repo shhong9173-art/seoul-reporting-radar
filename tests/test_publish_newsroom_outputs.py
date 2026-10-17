@@ -178,6 +178,31 @@ class PublisherIntegration(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,"invalid_reporting_queue_evidence"):
             selected(self.root,"queue")
 
+    def test_real_crossborder_official_snapshot_owned_atomically(self):
+        # CI replays all official snapshots without querying Slovak API/PDF.
+        real=Path(__file__).resolve().parents[1]
+        for name in OUTPUTS["crossborder"]:
+            source=real/name
+            self.assertTrue(source.is_file(),name)
+            target=self.root/name
+            target.parent.mkdir(parents=True,exist_ok=True)
+            target.write_bytes(source.read_bytes())
+        self.assertIn("digests/crossborder_source_gap_latest.json",
+                      selected(self.root,"crossborder"))
+        self.assertEqual(publish(self.root,"crossborder"),"published")
+        git(self.peer,"fetch","origin","main")
+        published=json.loads(self.remote_file(
+            "digests/crossborder_source_gap_latest.json"))
+        self.assertEqual(published["confirmedScoops"],0)
+        self.assertFalse(published["foreignParentCashTransferVerified"])
+        self.assertEqual(self.remote_file("scoop.json"),
+                         (self.root/"scoop.json").read_text().strip())
+        path=self.root/"digests/crossborder_source_gap_latest.json"
+        forged={**published,"foreignParentCashTransferVerified":True}
+        path.write_text(json.dumps(forged))
+        with self.assertRaisesRegex(ValueError,"invalid_crossborder_source_evidence"):
+            selected(self.root,"crossborder")
+
     def test_inconsistent_generated_news_rejected_without_touching_remote(self):
         write_news(self.root,"wrong")
         (self.root/"data.js").write_text("window.ITEMS = [];\n")
