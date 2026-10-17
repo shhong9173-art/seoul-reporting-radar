@@ -61,6 +61,16 @@ jobs:
       - name: Publish exact official registry, source receipts and changes atomically
         id: publish
         run: python scripts/publish_newsroom_outputs.py --mode dart_beat
+      - name: Refresh reporting queue from newly published DART originals
+        id: queue
+        if: steps.publish.outcome == 'success'
+        run: |
+          # Reuse the exact official snapshot that was just published to main.
+          # The independent atomic queue writer refuses source-date rollback.
+          git fetch origin main
+          git reset --hard origin/main
+          python scripts/reporting_evidence_queue.py
+          python scripts/publish_newsroom_outputs.py --mode queue
       - name: Record last execution health even when official API collection fails
         if: always()
         env:

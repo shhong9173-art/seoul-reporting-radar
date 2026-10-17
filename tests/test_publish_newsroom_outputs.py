@@ -231,6 +231,50 @@ class PublisherIntegration(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,"invalid_reporting_queue_evidence"):
             selected(self.root,"queue")
 
+    def test_newer_official_dart_queue_cannot_be_rolled_back_by_old_run(self):
+        # A queued newspaper UI build can finish after a newer official
+        # DART monitor publish; only source-scan recency should decide.
+        filename=OUTPUTS["queue"][0]
+        local=self.root/filename
+        remote=self.peer/filename
+        local.parent.mkdir(parents=True,exist_ok=True)
+        remote.parent.mkdir(parents=True,exist_ok=True)
+        item={"exclusiveConfirmed":False,"approvedForPitch":False,
+              "pressFulltextReviewed":False,"company":"KG스틸"}
+        def queue(at,title):
+            return {"status":"reporter_evidence_queue_not_exclusive",
+                    "confirmedScoops":0,"approvedArticles":0,
+                    "totalRows":1,"items":[{**item,"title":title}],
+                    "sourceHealth":{"dartBeat":{
+                        "status":"source_partial_coverage","generatedAt":at}}}
+        older=queue("2026-10-17T18:00:00+09:00","old stale snapshot")
+        newer=queue("2026-10-17T20:45:00+09:00","value-up official title")
+        local.write_text(json.dumps(older))
+        remote.write_text(json.dumps(newer))
+        git(self.peer,"add",filename)
+        git(self.peer,"commit","-m","newer official DART source")
+        git(self.peer,"push","origin","main")
+        self.assertEqual(publish(self.root,"queue"),"skipped_stale_dart_source")
+        git(self.peer,"fetch","origin","main")
+        self.assertEqual(json.loads(self.remote_file(filename))["items"][0]["title"],
+                         "value-up official title")
+        # A later scanner legitimately supersedes the earlier version.
+        fresh=queue("2026-10-17T21:00:00+09:00","newer verified source")
+        local.write_text(json.dumps(fresh))
+        self.assertEqual(publish(self.root,"queue"),"published")
+        git(self.peer,"fetch","origin","main")
+        self.assertEqual(json.loads(self.remote_file(filename))["items"][0]["title"],
+                         "newer verified source")
+        # Missing source must not displace already confirmed DART coverage.
+        missing={**older,"sourceHealth":{"dartBeat":{
+            "status":"unavailable_or_schema_mismatch",
+            "generatedAt":"2026-10-17T22:00:00+09:00"}}}
+        local.write_text(json.dumps(missing))
+        self.assertEqual(publish(self.root,"queue"),"skipped_stale_dart_source")
+        git(self.peer,"fetch","origin","main")
+        self.assertEqual(json.loads(self.remote_file(filename))["items"][0]["title"],
+                         "newer verified source")
+
     def test_real_crossborder_official_snapshot_owned_atomically(self):
         # CI replays all official snapshots without querying Slovak API/PDF.
         real=Path(__file__).resolve().parents[1]

@@ -40,6 +40,24 @@ jobs:
           print("PASS actual 90-day archive",archived.stat().st_size,
                 "bytes within dedicated",output_size_limit("archive.json"),"byte cap")
           PY
+      - name: Assert fresh DART collection regenerates evidence queue
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          wf=Path(".github/workflows/dart-beat-monitor.yml").read_text(encoding="utf-8")
+          assert "Refresh reporting queue from newly published DART originals" in wf
+          assert "python scripts/reporting_evidence_queue.py" in wf
+          assert "python scripts/publish_newsroom_outputs.py --mode queue" in wf
+          assert "git fetch origin main" in wf
+          from scripts.publish_newsroom_outputs import verified_queue_dart_source_at
+          assert verified_queue_dart_source_at({"sourceHealth":{"dartBeat":{
+              "status":"source_partial_coverage",
+              "generatedAt":"2026-10-17T20:00:00+09:00"}}}) is not None
+          assert verified_queue_dart_source_at({"sourceHealth":{"dartBeat":{
+              "status":"unavailable_or_schema_mismatch",
+              "generatedAt":"2026-10-17T21:00:00+09:00"}}}) is None
+          print("PASS newer successful official DART source cannot be replaced by stale queue")
+          PY
       - name: Verify files have one publication owner and no workflow rebases
         run: |
           python - <<'PY'
