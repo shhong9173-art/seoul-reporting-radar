@@ -24,6 +24,11 @@ class Tests(unittest.TestCase):
  def test_false_short_alias_not_matched(self):
   d={"features":[{"attributes":{"REGISTRY_ID":"110045611798","FAC_NAME":"NOKIAN TIRES"}}]}
   self.assertEqual(e.parse(d,"기아")["items"],[])
+  for name in ('KIAH COMPANY','XKIA','NOKIAN'):
+   d['features'][0]['attributes']['FAC_NAME']=name
+   self.assertEqual(e.parse(d,'기아')['items'],[])
+  d['features'][0]['attributes']['FAC_NAME']='KIA GEORGIA, INC.'
+  self.assertEqual(len(e.parse(d,'기아')['items']),1)
  def test_reject_missing_features_and_unsupported_name(self):
   with self.assertRaises(ValueError):e.parse({"count":0},"기아")
   with self.assertRaises(ValueError):e.query_url("COMPANY NOT VALID")
@@ -38,6 +43,18 @@ class Tests(unittest.TestCase):
   def fetch(url):raise ValueError("provider unavailable")
   a=e.evaluate(fetch,NOW)
   self.assertEqual(a["sourceComplete"],False)
-  self.assertEqual(a["candidateCount"],0)
+  self.assertIsNone(a["candidateCount"])
+  self.assertEqual(a['observedCandidateCount'],0)
   self.assertEqual(a["checks"][0]["status"],"source_error")
+ def test_failed_main_keeps_prior_evidence_and_writes_health(self):
+  import tempfile,json
+  from unittest.mock import patch
+  with tempfile.TemporaryDirectory() as td:
+   dest=Path(td)/'evidence.json';health=Path(td)/'health.json'
+   dest.write_text('{"prior":true}')
+   failed=e.evaluate(lambda u:(_ for _ in ()).throw(ValueError('offline')),NOW)
+   with patch.object(e,'evaluate',return_value=failed),patch.object(sys,'argv',['epa','--out',str(dest),'--health',str(health)]):
+    with self.assertRaises(SystemExit):e.main()
+   self.assertEqual(json.loads(dest.read_text()),{'prior':True})
+   self.assertIsNone(json.loads(health.read_text())['candidateCount'])
 if __name__=="__main__":unittest.main()

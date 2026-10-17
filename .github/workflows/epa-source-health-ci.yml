@@ -1,0 +1,38 @@
+name: EPA Facility Identity and Source Health Validation
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'scripts/epa_echo_facilities.py'
+      - 'tests/test_epa_echo_facilities.py'
+      - '.github/workflows/epa-source-health-ci.yml'
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Identity, preserved evidence and official-source regressions
+        run: |
+          python -m unittest discover -s tests -p 'test_epa_echo_facilities.py' -v
+          python -m unittest discover -s tests -p 'test_official_collectors.py' -v
+          node tests/test_scoop_sources_view.cjs
+      - name: Isolated actual EPA query and diagnostic verification
+        run: |
+          python scripts/epa_echo_facilities.py --out /tmp/epa-evidence.json --health /tmp/epa-health.json || test -s /tmp/epa-health.json
+          python - <<'PY'
+          import json
+          d=json.load(open('/tmp/epa-health.json'))
+          assert len(d['checks'])==7
+          if d['status']!='checked':assert d['candidateCount'] is None
+          print(json.dumps(d,ensure_ascii=False))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: epa-official-validation
+          path: /tmp/epa-*.json

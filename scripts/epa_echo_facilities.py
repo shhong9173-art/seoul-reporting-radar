@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse,json,re
 from urllib.parse import urlencode
 from urllib.request import Request,urlopen
+from urllib.error import HTTPError
 from datetime import datetime,timedelta,timezone
 from pathlib import Path
 
@@ -38,6 +39,8 @@ def request_json(uri):
         with urlopen(Request(uri,headers={"User-Agent":"industry-investigative-epa-echo/1.0"}),
                      timeout=23) as r:
             content=r.read(1_500_001)
+    except HTTPError as error:
+        raise ValueError('EPA HTTP '+str(error.code)) from None
     except Exception:
         raise ValueError("EPA ArcGIS official query unavailable") from None
     if len(content)>1_500_000:raise ValueError("EPA facilities query response truncated")
@@ -60,7 +63,7 @@ def parse(payload,issuer):
         if not isinstance(a,dict):continue
         name=str(a.get("FAC_NAME") or "").strip()
         alias=ALIASES[issuer]
-        if alias not in name.upper():continue
+        if not re.search(r'(?<![A-Z0-9])'+re.escape(alias)+r'(?![A-Z0-9])',name.upper()):continue
         rid=str(a.get("REGISTRY_ID") or "").strip()
         if not REGISTRY.fullmatch(rid):continue
         result.append({
@@ -86,10 +89,11 @@ def evaluate(fetch=request_json,now=None):
         try:
             obj=parse(fetch(query_url(alias)),issuer)
             checks.append({"issuer":issuer,"status":obj["status"],
-                           "scanned":obj["count"],"facilityCandidates":len(obj["items"])})
+                           "scanned":obj["count"],"facilityCandidates":len(obj["items"]) if obj['status']=='checked' else None})
             allitems.extend(obj["items"])
         except (ValueError,OSError,TimeoutError) as e:
-            checks.append({"issuer":issuer,"status":"source_error","errorType":type(e).__name__})
+            reason=str(e) if re.fullmatch(r'EPA HTTP \d{3}',str(e)) else 'network_or_provider_response_error'
+            checks.append({"issuer":issuer,"status":"source_error","errorType":type(e).__name__,"reason":reason})
     unique={}
     for row in allitems:
         unique.setdefault(row["registryId"],row)
@@ -99,7 +103,8 @@ def evaluate(fetch=request_json,now=None):
         "queries":len(checks),
         "checks":checks,
         "facilityCandidates":list(unique.values()),
-        "candidateCount":len(unique),
+        "candidateCount":len(unique) if all(x['status']=='checked' for x in checks) else None,
+        "observedCandidateCount":len(unique),
         "sourceComplete":all(x["status"]=="checked" for x in checks),
         "verifiedNewPermits":0,"confirmedScoops":0,
         "limitations":"특정 기업과 유사 시설 이름의 원문만 검색. 실제 회사소유/신규 건축허가/환경허가의 발급일 및 공장 확대는 확인되지 않음"}
@@ -107,12 +112,27 @@ def evaluate(fetch=request_json,now=None):
 def main():
     ap=argparse.ArgumentParser()
     ap.add_argument("--out",default="digests/epa_facilities_latest.json")
+    ap.add_argument("--health",default="digests/epa_source_status_latest.json")
     a=ap.parse_args()
     result=evaluate()
+    health={'generatedAt':result['generatedAt'],
+            'status':'checked' if result['sourceComplete'] else 'incomplete',
+            'checks':result['checks'],'candidateCount':result['candidateCount'],
+            'observedCandidateCount':result['observedCandidateCount'],
+            'warning':'전체 조회 실패·일부 누락은 시설 0곳이 아님. 기존 정상 자료와 현재 원천 상태를 구분'}
+    hp=Path(a.health);hp.parent.mkdir(parents=True,exist_ok=True)
+    ht=hp.with_suffix('.json.tmp');ht.write_text(json.dumps(health,ensure_ascii=False,indent=2)+'\n',encoding='utf-8');ht.replace(hp)
     if not any(x["status"]=="checked" for x in result["checks"]):
-        print("EPA no fully checked original query; previous data preserved")
-        return
+        raise SystemExit("EPA no fully checked original query; previous data preserved, health recorded")
     target=Path(a.out);target.parent.mkdir(parents=True,exist_ok=True)
+    if not result['sourceComplete']:
+        try:prior=json.loads(target.read_text(encoding='utf-8'))
+        except (OSError,ValueError):prior={}
+        failed={x['issuer'] for x in result['checks'] if x['status']!='checked'}
+        older=prior.get('facilityCandidates',[])+prior.get('retainedPriorEvidence',[])
+        retained={x['registryId']:x for x in older if x.get('issuerSearch') in failed}
+        result['retainedPriorEvidence']=list(retained.values())
+        result['retainedEvidenceIsCurrent']=False
     temp=target.with_suffix(".json.tmp")
     temp.write_text(json.dumps(result,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
     temp.replace(target)
