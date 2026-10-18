@@ -21,6 +21,7 @@ select{padding:9px;border:1px solid #cbd5e1;border-radius:7px}
 <p class="muted">자동 발굴 후보는 모두 미검증(U)으로 시작합니다. 실제 기사 전문과 보도 이전의 공식 원자료를 기자가 대조해야 Y(완전 공개), P(부분적 공개 단서), N(사람 중심 취재)로 표시됩니다. 이 연구는 새 단독기사의 증거가 아닙니다.</p>
 <div id="notice" class="notice">역추적 목록을 불러오는 중입니다.</div>
 <div class="grid" id="summary"></div>
+<h2>보도 이전 공개 여부 검증이 필요한 DART 공시 후보</h2><div id="dart-receipt-research" class="notice">DART 공시와 기존 단독기사의 직접 비교 대기열을 확인하는 중입니다.</div>
 <h2>원문 조사 체크리스트</h2><div id="original-review-checklist" class="notice"></div>
 <h2>기사 유형별 검증 현황</h2><div id="by-kind" class="grid"></div>
 <div class="top"><h2>관측된 경쟁지 단독기사 후보</h2><label>분류 <select id="filter">
@@ -105,6 +106,62 @@ try{
     " (표본 편향·전수조사 아님)","meta"));
   $("#by-kind").append(c);
  }
+ const dartHost=$("#dart-receipt-research");
+ try{
+  const [matchesResponse,beatResponse,queueResponse]=await Promise.all([
+    fetch("digests/reverse_trace_dart_followups_latest.json",{cache:"no-store"}),
+    fetch("digests/dart_beat_monitor_latest.json",{cache:"no-store"}),
+    fetch("digests/official_event_triage_latest.json",{cache:"no-store"})
+  ]);
+  if(!matchesResponse.ok||!beatResponse.ok||!queueResponse.ok)
+    throw Error("DART source snapshots absent");
+  const [matches,beat,queue]=await Promise.all([
+    matchesResponse.json(),beatResponse.json(),queueResponse.json()
+  ]);
+  if(matches.status!=="reverse_trace_dart_receipt_reading_queue_unverified"||
+     matches.reverseTraceSourceAt!==data.generatedAt||
+     matches.dartOfficialSourceAt!==beat.generatedAt||
+     matches.dartOfficialSourceAt!==queue.beatWideDartSourceAt||
+     matches.officialQueueSourceAt!==queue.generatedAt||
+     matches.sourceCompletenessVerified!==false||
+     matches.sameFactEstablished!==false||
+     matches.humanValidatedYPN!==0||
+     matches.confirmedScoops!==0||
+     matches.approvedArticles!==0||
+     !Array.isArray(matches.items)||
+     matches.candidatePairCount!==matches.items.length)
+    throw Error("DART reverse-trace snapshot not synchronized");
+  dartHost.replaceChildren();
+  dartHost.append(el("p","관측된 기사와 DART 접수정보의 법인명·사건유형·날짜를 연결한 원문 검토 후보 "+
+    matches.candidatePairCount+"건. 같은 사실의 선행공개, 사건의 동일성, 기보도 여부는 검증되지 않았습니다.","muted small"));
+  const known=new Set(data.items.map(x=>x.articleId));
+  for(const m of matches.items.slice(0,20)){
+    if(!known.has(m.articleId)||
+       m.exclusiveConfirmed!==false||
+       m.automaticYPNDecision!==false||
+       m.publicFactOverlapVerified!==false||
+       m.publicSourceAvailableBeforePublisherVerified!==false||
+       m.publisherFirstPublishedAtVerified!==false||
+       m.officialOriginalBodyVerifiedForMatchedFact!==false||
+       typeof m.officialReceiptNo!=="string"||
+       !/^20\d{12}$/.test(m.officialReceiptNo)||
+       m.officialUrl!=="https://dart.fss.or.kr/dsaf001/main.do?rcpNo="+m.officialReceiptNo)
+      throw Error("unsafe automated DART story match");
+    const c=el("div",undefined,"card");
+    c.append(el("strong",m.issuer+" · "+m.eventType+" · 공시 "+m.officialFilingDay));
+    c.append(el("p",m.observedArticleTitle,"small"));
+    c.append(el("p","공시 원문 상태: "+m.originalEvidenceStage+
+      " · 기사 RSS 관측일과 공시일 간 "+m.calendarDaysBetweenDates+
+      "일 · 원문 사실 일치 미확인","muted small"));
+    const link=el("a","DART 접수공시 원문 확인 ↗");
+    link.href=m.officialUrl;link.target="_blank";link.rel="noopener noreferrer";
+    c.append(link);
+    dartHost.append(c);
+  }
+ }catch(dartError){
+  dartHost.textContent="DART 원천·역추적 자료의 시각 일치 및 안전검증 미완료. 기존 기사와의 유사성이 실제 선행공개나 단독을 뜻하지 않습니다.";
+ }
+
  const checklist=$("#original-review-checklist");
  for(const item of data.sourceResearchChecklist.slice(0,8)){
   if(typeof item!=="string")continue;
