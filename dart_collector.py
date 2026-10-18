@@ -8,6 +8,7 @@ import time
 import zipfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 from pathlib import Path
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
@@ -216,9 +217,23 @@ def _write_corp_cache(found):
     except (OSError,ValueError,TypeError):
         raise ValueError('DART shared registry update failed; previous file preserved') from None
 
+DART_LOCAL_TZ = ZoneInfo("Asia/Seoul")
+
+
+def official_dart_date_window(*, now=None, lookback_days=LOOKBACK_DAYS):
+    """Use DART's Korean publication date, never the UTC calendar date."""
+    instant = datetime.now(timezone.utc) if now is None else now
+    if instant.tzinfo is None or instant.utcoffset() is None:
+        raise ValueError("DART date reference must be timezone-aware")
+    if not isinstance(lookback_days, int) or not 1 <= lookback_days <= 365:
+        raise ValueError("DART lookback window out of bounds")
+    local_today = instant.astimezone(DART_LOCAL_TZ).date()
+    return (local_today - timedelta(days=lookback_days),
+            local_today)
+
+
 def fetch_company(name, corp):
-    today = datetime.now(timezone.utc).date()
-    begin = today - timedelta(days=LOOKBACK_DAYS)
+    begin, today = official_dart_date_window()
     params = {
         "crtfc_key": API_KEY,
         "corp_code": corp["corp_code"],
