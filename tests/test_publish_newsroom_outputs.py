@@ -33,6 +33,19 @@ def write_news(root,label):
             continue
         p.parent.mkdir(parents=True,exist_ok=True)
         p.write_text("[]\n" if name in ("global.json","archive.json","pitch.json") else "{}\n")
+    if "digests/reverse_trace_latest.json" in OUTPUTS["news"]:
+        history={"status":"observed_domestic_press_index_not_complete_coverage",
+                 "itemCount":0,"items":[],"generatedAt":"2026-10-18T10:00:00+09:00"}
+        reverse={"status":"automotive_industry_exclusive_reverse_trace_unverified_candidates",
+                 "pressIndexGeneratedAt":history["generatedAt"],
+                 "confirmedScoops":0,"approvedArticles":0,
+                 "reliablePopulationReachEstimated":False,
+                 "humanReviewedYPN":0,"Y":0,"P":0,"N":0,
+                 "totalObservedExclusiveHeadlines":0,"items":[]}
+        (root/"digests/press_coverage_index_latest.json").write_text(
+            json.dumps(history),encoding="utf-8")
+        (root/"digests/reverse_trace_latest.json").write_text(
+            json.dumps(reverse),encoding="utf-8")
 
 
 def write_scoop(root,title):

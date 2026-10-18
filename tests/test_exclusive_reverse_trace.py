@@ -1,0 +1,143 @@
+"""Offline reverse-trace review must not fabricate Y/P/N or source reach."""
+import copy
+import sys
+import tempfile
+import unittest
+from datetime import datetime,timezone,timedelta
+from pathlib import Path
+
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
+from scripts.exclusive_reverse_trace import build,kind_for
+
+KST=timezone(timedelta(hours=9))
+NOW=datetime(2026,10,18,22,0,tzinfo=KST)
+
+
+def article(key,title,company="현대차",date="2026-10-17T08:00:00+09:00"):
+    return {"id":key*24,"title":title,"published":date,
+            "sourceName":"경제뉴스","url":"https://news.example/articles/"+key,
+            "companies":[company],"global":False,
+            "fulltextReviewed":False,"coverageIndexOnly":True}
+
+
+def index(*rows):
+    return {"status":"observed_domestic_press_index_not_complete_coverage",
+            "generatedAt":"2026-10-18T21:10:00+09:00",
+            "itemCount":len(rows),"items":list(rows)}
+
+
+def review(item,verdict="Y"):
+    form={"articleId":item["id"],"reviewer":"현장 검증기자",
+          "reviewedByHuman":True,"articleFulltextReviewed":True,
+          "reviewedAt":"2026-10-18T21:30:00+09:00",
+          "evidenceReason":"공개 원자료의 대상 범위와 숫자를 기사 전문과 직접 대조했다.",
+          "verdict":verdict}
+    if verdict in ("Y","P"):
+        form.update(primarySourceType="vehicle_recall",
+                    primarySourceUrl="https://www.nhtsa.gov/recalls",
+                    primaryPublishedAt="2026-10-15T08:00:00+09:00",
+                    primaryTextComparedAgainstArticle=True,
+                    publicTraceOverlap="exact" if verdict=="Y" else "partial")
+    if verdict=="N":
+        form.update(multiplePublicSourcesChecked=True,
+                    reporterEvidenceReviewed=True,
+                    publicTraceOverlap="none")
+    return form
+
+
+class ExclusiveReverseTrace(unittest.TestCase):
+    def test_all_unknown_first_baseline_is_not_measured(self):
+        rows=[article("a","[단독] 현대차 전기차 리콜 9만대"),
+              article("b","[단독] 기아 신차 인증",company="기아"),
+              article("c","[단독] KIA 타이거즈 투수 명단"),
+              article("d","자동차 공장 발표")]
+        result=build(index(*rows),now=NOW)
+        self.assertEqual(result["totalObservedExclusiveHeadlines"],2)
+        self.assertEqual(result["humanReviewedYPN"],0)
+        self.assertEqual(result["unreviewedU"],2)
+        self.assertFalse(result["couldMeasureReach"])
+        self.assertFalse(result["reliablePopulationReachEstimated"])
+        self.assertTrue(all(x["publicTraceClass"]=="U" for x in result["items"]))
+        self.assertEqual(result["confirmedScoops"],0)
+        self.assertEqual(result["approvedArticles"],0)
+
+    def test_only_manually_verified_Y_P_N_count_as_reviewed(self):
+        a=article("a","[단독] 현대차 리콜"),
+        b=article("b","[단독] 기아 공장 증설",company="기아")
+        c=article("c","[단독] 포스코 공급 계약",company="포스코")
+        d=article("d","[단독] 현대모비스 신형 부품",company="현대모비스")
+        a=a[0]
+        result=build(index(a,b,c,d),[
+            review(a,"Y"),review(b,"P"),review(c,"N")],now=NOW)
+        self.assertEqual([result[x] for x in ("Y","P","N","unreviewedU")],
+                         [1,1,1,1])
+        self.assertEqual(result["humanReviewedYPN"],3)
+        self.assertFalse(result["couldMeasureReach"])
+        self.assertFalse(result["reliablePopulationReachEstimated"])
+        self.assertEqual(result["byType"]["리콜·안전"]["Y"],1)
+        self.assertIsNone(result["byType"]["리콜·안전"]["measuredSourceReach"])
+        self.assertEqual(result["verifiedPublicSourceCategories"]["vehicle_recall"],2)
+
+    def test_false_claim_exact_must_be_unknown_not_Y(self):
+        a=article("a","[단독] 현대차 리콜")
+        form=review(a)
+        form["primaryPublishedAt"]="2026-10-18T20:00:00+09:00"
+        out=build(index(a),[form],now=NOW)
+        self.assertEqual(out["items"][0]["publicTraceClass"],"U")
+        self.assertIsNone(out["items"][0]["primaryEvidence"])
+
+    def test_no_source_research_for_N_cannot_create_synthetic_N(self):
+        a=article("a","[단독] 현대차 리콜")
+        form=review(a,"N")
+        form["multiplePublicSourcesChecked"]=False
+        out=build(index(a),[form],now=NOW)
+        self.assertEqual(out["N"],0)
+        self.assertEqual(out["unreviewedU"],1)
+
+    def test_missing_article_fulltext_or_person_only_stays_unknown(self):
+        a=article("a","[단독] 현대차 리콜")
+        form=review(a,"Y")
+        form["articleFulltextReviewed"]=False
+        out=build(index(a),[form],now=NOW)
+        self.assertEqual(out["Y"],0)
+        self.assertEqual(out["items"][0]["humanReviewStatus"],
+                         "not_reviewed_or_invalid_evidence")
+
+    def test_wrong_or_ambiguous_source_must_be_unknown(self):
+        a=article("a","[단독] 현대차 리콜")
+        for wrong in [
+            {"primarySourceUrl":"https://www.nhtsa.gov.evil.example/recalls",
+             "primarySourceType":"not-a-recognized-source"},
+            {"primaryPublishedAt":"2026-10-17T08:00:00+09:00"},
+            {"publicTraceOverlap":"partial"},
+            {"primaryTextComparedAgainstArticle":False},
+            {"reviewedAt":"unknown"}]:
+            candidate=review(a,"Y")
+            candidate.update(wrong)
+            result=build(index(a),[candidate],now=NOW)
+            self.assertEqual(result["items"][0]["publicTraceClass"],"U")
+
+    def test_duplicate_human_review_rejected_and_no_unsafe_guess(self):
+        a=article("a","[단독] 현대차 리콜")
+        with self.assertRaises(ValueError):
+            build(index(a),[review(a),review(a)],now=NOW)
+
+    def test_seed_only_index_yields_no_estimated_reach(self):
+        raw=index()
+        raw["seedOnly"]=True
+        raw["generatedAt"]=None
+        result=build(raw,now=NOW)
+        self.assertEqual(result["humanReviewedYPN"],0)
+        self.assertTrue(result["pressIndexSeedOnly"])
+        self.assertFalse(result["couldMeasureReach"])
+
+    def test_reject_invalid_index_without_interpreting_as_zero_stories(self):
+        with self.assertRaises(ValueError):
+            build({"status":"unavailable","items":[]},now=NOW)
+        with self.assertRaises(ValueError):
+            build({"status":"observed_domestic_press_index_not_complete_coverage",
+                   "itemCount":1,"items":[]},now=NOW)
+
+
+if __name__=="__main__":
+    unittest.main()

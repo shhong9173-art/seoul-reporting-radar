@@ -97,6 +97,24 @@ jobs:
           assert all(not x['fulltextReviewed'] for x in index['items'])
           print('History index includes',index['itemCount'],'domestic observed headlines; no unreported claims')
           PY
+      - name: Reverse trace observed industry exclusives with evidence-only labels
+        run: |
+          python -m unittest discover -s tests -p 'test_exclusive_reverse_trace.py' -v
+          python scripts/exclusive_reverse_trace.py
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          press=json.loads(Path('digests/press_coverage_index_latest.json').read_text())
+          trace=json.loads(Path('digests/reverse_trace_latest.json').read_text())
+          assert trace['pressIndexGeneratedAt']==press['generatedAt']
+          assert trace['humanReviewedYPN']==trace['Y']+trace['P']+trace['N']
+          assert trace['totalObservedExclusiveHeadlines']==len(trace['items'])
+          assert trace['confirmedScoops']==trace['approvedArticles']==0
+          assert trace['reliablePopulationReachEstimated'] is False
+          print('reverse trace observed',trace['totalObservedExclusiveHeadlines'],
+                'human Y/P/N',trace['humanReviewedYPN'],
+                'unreviewed U',trace['unreviewedU'])
+          PY
       - name: Normalize pitch pair orientation
         run: |
           python - <<'PY'

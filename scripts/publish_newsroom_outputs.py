@@ -24,6 +24,7 @@ OUTPUTS = {
     "news": (
         "dart_refresh_status.json", "data.js", "data.json", "global.json",
         "archive.json", "digests/press_coverage_index_latest.json",
+        "digests/reverse_trace_latest.json",
         "changes.json", "strategic_shifts.json", "dart.json",
         "pitch.json", "industry.json", "dig_today.json",
     ),
@@ -101,6 +102,22 @@ def selected(root: Path, mode: str):
             raise ValueError("invalid_news_js_json") from None
         if embedded != articles:
             raise ValueError("news_js_json_mismatch")
+        history=json.loads((root/"digests/press_coverage_index_latest.json").read_text(encoding="utf-8"))
+        trace=json.loads((root/"digests/reverse_trace_latest.json").read_text(encoding="utf-8"))
+        if (not isinstance(history,dict)
+            or history.get("status")!="observed_domestic_press_index_not_complete_coverage"
+            or history.get("itemCount")!=len(history.get("items",[]))
+            or not isinstance(trace,dict)
+            or trace.get("status")!="automotive_industry_exclusive_reverse_trace_unverified_candidates"
+            or trace.get("pressIndexGeneratedAt")!=history.get("generatedAt")
+            or trace.get("confirmedScoops")!=0 or trace.get("approvedArticles")!=0
+            or trace.get("reliablePopulationReachEstimated") is not False
+            or trace.get("humanReviewedYPN")!=trace.get("Y",0)+trace.get("P",0)+trace.get("N",0)
+            or trace.get("totalObservedExclusiveHeadlines")!=len(trace.get("items",[]))
+            or any(not isinstance(x,dict) or x.get("confirmedExclusive") is not False
+                   or x.get("publicTraceClass") not in ("Y","P","N","U")
+                   for x in trace.get("items",[]))):
+            raise ValueError("unverified_reverse_trace_claim_in_news_publish")
     if mode == "scoop":
         for name in ("pre_scoop.json", "scoop.json", "dart_numeric.json"):
             obj = json.loads((root / name).read_text(encoding="utf-8"))

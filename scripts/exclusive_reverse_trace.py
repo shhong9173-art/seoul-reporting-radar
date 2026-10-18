@@ -1,0 +1,243 @@
+"""Evidence-first reverse tracing of Korean '[단독]' press to earlier sources.
+
+Candidate headline discovery is automatic. Y/P/N judgments are NEVER automatic:
+they require human-reviewed story fulltext, a documented pre-story public trace
+(Y exact fact, P partial hint) or an explicit no-public-trace research log (N).
+A title "[단독]" does not prove original reporting or exclusive story status.
+"""
+from __future__ import annotations
+import argparse
+import json
+import re
+from collections import Counter
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from urllib.parse import urlsplit
+
+KST=timezone(timedelta(hours=9))
+STATUS="automotive_industry_exclusive_reverse_trace_unverified_candidates"
+LABELS=frozenset({"Y","P","N"})
+MAX_ARTICLES=100_000
+SCOOP_MARKER=re.compile(r"^\s*(?:\[[^\]]*단독[^\]]*\]|\([^)]*단독[^)]*\)|【[^】]*단독[^】]*】)")
+SPORTS=re.compile(r"KIA\s*타이거즈|기아\s*타이거즈|현대모비스\s*(?:피버스|농구|농구단)|프로야구|야구단|프로농구|KBL|KBO|축구단|농구단",re.I)
+INDUSTRY_COMPANIES={
+    "현대차","현대자동차","기아","제네시스","현대모비스","현대위아","HL만도",
+    "한국GM","KG모빌리티","르노코리아","한국타이어","넥센타이어","금호타이어",
+    "포스코홀딩스","포스코","현대제철","KG스틸","세아제강","고려아연","영풍",
+    "HD현대일렉트릭","LS일렉트릭","엘에스일렉트릭","LS전선","대한전선",
+    "효성중공업","일진전기","두산에너빌리티","한화솔루션","OCI","OCI홀딩스",
+    "SK이노베이션","LG에너지솔루션","삼성SDI","SK온","씨에스윈드",
+}
+KINDS=(
+    ("리콜·안전",re.compile(r"리콜|결함|화재|인증\s*취소|안전성|NHTSA",re.I)),
+    ("공장·생산·증설",re.compile(r"공장|생산중단|생산계획|가동|증설|투자부지|생산라인",re.I)),
+    ("노사·인사",re.compile(r"노사|임단협|노조|파업|인사|대표이사|임원|해고",re.I)),
+    ("신차·인증·허가",re.compile(r"신차|차종|출시|전기차|인허가|형식승인|인증|환경영향평가",re.I)),
+    ("수주·입찰",re.compile(r"계약|수주|입찰|낙찰|발주|고객사|공급",re.I)),
+    ("회생·소송",re.compile(r"회생|파산|소송|법원|구조조정|채권",re.I)),
+    ("특허·상표",re.compile(r"특허|상표|디자인|지식재산",re.I)),
+    ("통상·관세",re.compile(r"관세|반덤핑|상계관세|무역구제|수출규제",re.I)),
+    ("자본·지배구조",re.compile(r"자사주|자기주식|분할|합병|배당|지분|경영권",re.I)),
+)
+SOURCE_CLASSES={
+    "company_notice","government_notice","court_ruling","regulatory_filing",
+    "patent_original","public_tender","overseas_register","corporate_registry",
+    "vehicle_recall","other_official",
+}
+
+
+def aware(value):
+    if not isinstance(value,str) or not value or len(value)>45:return None
+    try:
+        v=datetime.fromisoformat(value.replace("Z","+00:00"))
+        return v if v.tzinfo is not None and v.utcoffset() is not None else None
+    except (ValueError,TypeError,OverflowError):
+        return None
+
+
+def article_id(row):
+    if not isinstance(row,dict):return None
+    key=row.get("id")
+    return key if isinstance(key,str) and re.fullmatch(r"[a-z0-9]{24}",key) else None
+
+
+def candidate(row):
+    if (not isinstance(row,dict) or row.get("global") is True
+        or not isinstance(row.get("title"),str)
+        or not SCOOP_MARKER.search(row["title"])
+        or SPORTS.search(row["title"])):
+        return False
+    companies=row.get("companies")
+    if not isinstance(companies,list) or not any(x in INDUSTRY_COMPANIES for x in companies):
+        return False
+    return article_id(row) is not None and aware(row.get("published")) is not None
+
+
+def kind_for(headline):
+    for label,pattern in KINDS:
+        if pattern.search(headline):return label
+    return "기타·원문 분류 필요"
+
+
+def safe_public_url(url):
+    if not isinstance(url,str) or len(url)>1600:return False
+    try:
+        loc=urlsplit(url)
+        return loc.scheme=="https" and bool(loc.hostname) and not loc.username and not loc.password
+    except ValueError:
+        return False
+
+
+def validate_review(row,original):
+    """Accept only an explicit human evidence sheet; fail closed on mistakes."""
+    if not isinstance(row,dict) or row.get("articleId")!=original["id"]:
+        return None
+    verdict=row.get("verdict")
+    if verdict not in LABELS or row.get("reviewedByHuman") is not True:
+        return None
+    if row.get("articleFulltextReviewed") is not True:
+        return None
+    reviewer=row.get("reviewer")
+    notes=row.get("evidenceReason")
+    reviewed_at=aware(row.get("reviewedAt"))
+    if (not isinstance(reviewer,str) or not 2<=len(reviewer)<=80
+        or not isinstance(notes,str) or not 12<=len(notes)<=1500
+        or reviewed_at is None):
+        return None
+    if verdict in ("Y","P"):
+        source_dt=aware(row.get("primaryPublishedAt"))
+        story_dt=aware(original.get("published"))
+        source=row.get("primarySourceUrl")
+        category=row.get("primarySourceType")
+        trace=row.get("publicTraceOverlap")
+        if (not safe_public_url(source) or source_dt is None or story_dt is None
+            or source_dt >= story_dt
+            or category not in SOURCE_CLASSES
+            or trace!=("exact" if verdict=="Y" else "partial")
+            or row.get("primaryTextComparedAgainstArticle") is not True):
+            return None
+    else:
+        # 'N' is a recorded human research outcome, NOT logical proof that
+        # no public hint anywhere in the world could ever have existed.
+        if (row.get("multiplePublicSourcesChecked") is not True
+            or row.get("primarySourceUrl")
+            or row.get("publicTraceOverlap") not in (None,"none")
+            or row.get("reporterEvidenceReviewed") is not True):
+            return None
+    return {
+        "verdict":verdict, "reviewedBy":reviewer[:80],
+        "reviewedAt":reviewed_at.isoformat(),
+        "evidenceReason":notes[:1500],
+        "primarySourceType":row.get("primarySourceType") if verdict!="N" else None,
+        "primarySourceUrl":row.get("primarySourceUrl") if verdict!="N" else None,
+        "primaryPublishedAt":row.get("primaryPublishedAt") if verdict!="N" else None,
+        "publicTraceOverlap":row.get("publicTraceOverlap") if verdict!="N" else "none",
+        "humanEvidenceAssessment":True,
+        "mediaFulltextReviewed":True,
+        "priorPublicTraceProvenExhaustive":False,
+    }
+
+
+def build(press, reviews=None, *, now=None, max_candidates=400):
+    now=now or datetime.now(KST)
+    if now.utcoffset() is None:raise ValueError("need_timezone")
+    if not isinstance(press,dict) or press.get("status")!="observed_domestic_press_index_not_complete_coverage":
+        raise ValueError("press_index_missing_or_malformed")
+    if not isinstance(press.get("items"),list) or len(press["items"])>MAX_ARTICLES:
+        raise ValueError("press_index_records_invalid")
+    if press.get("itemCount")!=len(press["items"]):
+        raise ValueError("press_index_count_mismatch")
+    if not 1<=max_candidates<=600:raise ValueError("sample_cap")
+    if reviews is not None and (not isinstance(reviews,list) or len(reviews)>MAX_ARTICLES):
+        raise ValueError("invalid_review_sheet")
+    labelled={}
+    for row in reviews or []:
+        if not isinstance(row,dict) or not isinstance(row.get("articleId"),str):
+            raise ValueError("malformed_review_id")
+        aid=row["articleId"]
+        if aid in labelled:raise ValueError("duplicate_human_verdict")
+        labelled[aid]=row
+    sample=sorted((row for row in press["items"] if candidate(row)),
+                  key=lambda r:(r["published"],r["id"]),reverse=True)
+    sample=sample[:max_candidates]
+    items=[]
+    for row in sample:
+        proof=validate_review(labelled[row["id"]],row) if row["id"] in labelled else None
+        items.append({
+            "articleId":row["id"],"title":row["title"],
+            "published":row["published"],
+            "sourceName":row["sourceName"],
+            "articleUrl":row["url"],
+            "companies":list(row.get("companies") or [])[:8],
+            "kind":kind_for(row["title"]),
+            "publicTraceClass":proof["verdict"] if proof else "U",
+            "humanReviewStatus":"verified_comparison" if proof else "not_reviewed_or_invalid_evidence",
+            "primaryEvidence":proof,
+            "confirmedExclusive":False,
+            "scoopAcquiredBeforeStory":False,
+            "warning":"언론의 단독 표기는 원자료의 독점성 증명 아님; Y/P/N은 기사 전문 및 선행 원자료를 비교한 경우에만 인정",
+        })
+    valid=[x for x in items if x["primaryEvidence"] is not None]
+    by_type={}
+    for typ in sorted({x["kind"] for x in items}):
+        group=[x for x in items if x["kind"]==typ]
+        reviewed=[x for x in group if x["primaryEvidence"] is not None]
+        counts=Counter(x["publicTraceClass"] for x in reviewed)
+        by_type[typ]={
+            "articlesObserved":len(group),"reviewed":len(reviewed),
+            "Y":counts["Y"],"P":counts["P"],"N":counts["N"],
+            "unreviewed":len(group)-len(reviewed),
+            "measuredSourceReach": (
+                {"anyPublicTraceNumerator":counts["Y"]+counts["P"],
+                 "exactFactNumerator":counts["Y"],
+                 "reviewedDenominator":len(reviewed),
+                 "sampleUnrepresentativeCaution":True}
+                if len(reviewed)>=20 else None),
+        }
+    sources=Counter(x["primaryEvidence"]["primarySourceType"] for x in valid
+                    if x["publicTraceClass"] in ("Y","P"))
+    return {
+        "status":STATUS,"generatedAt":now.astimezone(KST).isoformat(timespec="seconds"),
+        "pressIndexGeneratedAt":press.get("generatedAt"),
+        "pressIndexSeedOnly":press.get("seedOnly") is True,
+        "pressIndexObservationIncomplete":True,
+        "targetHistoricalExclusiveArticles":400,
+        "totalObservedExclusiveHeadlines":len(sample),
+        "humanReviewedYPN":len(valid),
+        "unreviewedU":len(sample)-len(valid),
+        "couldMeasureReach":len(valid)>=30,
+        "reliablePopulationReachEstimated":False,
+        "Y":sum(x["publicTraceClass"]=="Y" for x in valid),
+        "P":sum(x["publicTraceClass"]=="P" for x in valid),
+        "N":sum(x["publicTraceClass"]=="N" for x in valid),
+        "byType":by_type,
+        "verifiedPublicSourceCategories":dict(sorted(sources.items())),
+        "confirmedScoops":0,
+        "approvedArticles":0,
+        "warning":"국내 산업 [단독] 전체 표본 아님. 자동 발견은 U 기준선일 뿐; 소스별 도달률 및 향후 수집기 우선순위는 수백 편의 Y/P/N 사람 검증 전 확정 불가.",
+        "items":items,
+    }
+
+
+def main():
+    p=argparse.ArgumentParser()
+    p.add_argument("--press",default="digests/press_coverage_index_latest.json")
+    p.add_argument("--reviews",default="data/reverse_trace_verified_labels.json")
+    p.add_argument("--output",default="digests/reverse_trace_latest.json")
+    args=p.parse_args()
+    press=json.loads(Path(args.press).read_text(encoding="utf-8"))
+    sheet=json.loads(Path(args.reviews).read_text(encoding="utf-8"))
+    if sheet.get("status")!="reviewer_approved_reverse_trace_labels" or not isinstance(sheet.get("items"),list):
+        raise ValueError("invalid_human_review_sheet")
+    result=build(press,sheet["items"])
+    dest=Path(args.output)
+    dest.parent.mkdir(parents=True,exist_ok=True)
+    tmp=dest.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(result,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
+    tmp.replace(dest)
+    print("reverse trace: observed",[result["totalObservedExclusiveHeadlines"]],
+          "human reviewed",result["humanReviewedYPN"],"confirmed scoops 0")
+
+
+if __name__=="__main__":
+    main()
