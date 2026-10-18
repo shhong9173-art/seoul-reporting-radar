@@ -14,6 +14,8 @@ for(const phrase of [
  "미보도 증명 아님","기존 관측 자료","오래됐으면",
  "DART_FILING","FOREIGN_NOTICE",
  "originalEvidenceStage","official_valueup_text_only_attachment_unverified",
+ "official_share_cancellation_fields_checked",
+ "issuerFiledCancellationTerms","공시상 소각 예정",
  "official_table_filing_fields_checked","official_receipt_only_original_not_checked",
  "partial_issuer_coverage","unresolvedCompanies","sourceSnapshotAt"
 ]){
