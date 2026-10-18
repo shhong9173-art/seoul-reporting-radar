@@ -130,6 +130,17 @@ class OfficialEventTriage(unittest.TestCase):
         metric=next(x for x in out["backgroundReference"] if x["source"]=="DART_METRIC")
         self.assertEqual(metric["officialDate"],"2026-08-11")
         self.assertFalse(metric["freshArticleConfirmed"])
+    def test_verification_questions_only_request_public_facts(self):
+        result=t.build(samples(),now=NOW)
+        delta=next(x for x in result["backgroundReference"] if x["source"]=="DART_DELTA")
+        metric=next(x for x in result["backgroundReference"] if x["source"]=="DART_METRIC")
+        self.assertIn("공시",delta["verification"])
+        self.assertIn("미공개 생산계획 질의 금지",delta["verification"])
+        self.assertNotIn("가동일·생산 물량",delta["verification"])
+        self.assertIn("공표 수치만",metric["verification"])
+        self.assertFalse(delta["approvedForPitch"])
+        self.assertFalse(metric["approvedForPitch"])
+
     def test_malformed_and_missing_feeds_not_zero(self):
         a=samples();a["overseas_official"]={}
         r=t.build(a,now=NOW)
