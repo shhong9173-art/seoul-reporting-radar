@@ -48,6 +48,38 @@ class HealthReport(unittest.TestCase):
         self.assertFalse(out["publishedDataStale24h"])
         self.assertEqual(out["executionResult"],"official_list_published")
 
+    def test_official_date_queue_exact_source_is_verified_separately(self):
+        queue={"status":"official_date_triage",
+               "generatedAt":"2026-10-16T03:19:00+09:00",
+               "beatWideDartSourceAt":PREVIOUS["generatedAt"],
+               "feedHealth":[{"name":"dart_beat_monitor",
+                              "sourceAt":PREVIOUS["generatedAt"],
+                              "status":"partial_issuer_coverage"}]}
+        ok=health.build(tests="success",registry="success",
+            collector="success",publisher="success",published=PREVIOUS,
+            official_queue="success",official_queue_published=queue,now=NOW)
+        self.assertTrue(ok["officialEventQueueSourceSynchronized"])
+        self.assertEqual(ok["latestOfficialEventQueueSourceAt"],
+                         PREVIOUS["generatedAt"])
+        self.assertEqual(ok["executionResult"],"official_list_published")
+        queue["beatWideDartSourceAt"]="2026-10-14T09:00:00+09:00"
+        mismatch=health.build(tests="success",registry="success",
+            collector="success",publisher="success",published=PREVIOUS,
+            official_queue="success",official_queue_published=queue,now=NOW)
+        self.assertFalse(mismatch["officialEventQueueSourceSynchronized"])
+        self.assertEqual(mismatch["executionResult"],
+                         "official_list_published_event_queue_unsynchronized")
+        self.assertTrue(mismatch["newCollectionVerified"])
+
+    def test_successful_dart_with_failed_editorial_queue_is_not_full_sync(self):
+        result=health.build(tests="success",registry="success",
+            collector="success",publisher="success",published=PREVIOUS,
+            official_queue="failure",now=NOW)
+        self.assertTrue(result["newCollectionVerified"])
+        self.assertFalse(result["officialEventQueueSourceSynchronized"])
+        self.assertEqual(result["executionResult"],
+                         "official_list_published_event_queue_unsynchronized")
+
     def test_missing_output_is_unknown_not_zero(self):
         out=health.build(tests="failure",registry="skipped",
             collector="skipped",publisher="skipped",published=None,now=NOW)
@@ -80,6 +112,8 @@ class HealthReport(unittest.TestCase):
         wf=(ROOT/".github/workflows/dart-beat-monitor.yml").read_text(encoding="utf-8")
         for literal in ("if: always()","git reset --hard origin/main",
                         "DART_COLLECT_OUTCOME:","DART_PUBLISH_OUTCOME:",
+                        "DART_OFFICIAL_QUEUE_OUTCOME:",
+                        "python scripts/dart_beat_queue_sync.py --require-official-queue-sync",
                         "dart_beat_run_health_latest.json"):
             self.assertIn(literal,wf)
         self.assertNotIn("git add -A",wf)

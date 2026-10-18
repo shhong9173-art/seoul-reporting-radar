@@ -5,6 +5,11 @@ on:
     paths:
       - '.github/workflows/dart-beat-monitor.yml'
       - 'scripts/dart_beat_monitor.py'
+      - 'scripts/dart_beat_queue_sync.py'
+      - 'scripts/official_event_triage.py'
+      - 'scripts/official_beat_triage_merge.py'
+      - 'tests/test_dart_beat_queue_sync.py'
+      - 'tests/test_official_beat_triage_merge.py'
       - 'scripts/valueup_official_document.py'
       - 'scripts/share_cancellation_official_document.py'
       - 'tests/test_share_cancellation_official_document.py'
@@ -49,6 +54,8 @@ jobs:
         run: |
           python -m compileall -q scripts/dart_beat_monitor.py scripts/dart_corp_registry.py scripts/share_cancellation_official_document.py
           python -m unittest discover -s tests -p 'test_dart_beat_monitor.py' -v
+          python -m unittest discover -s tests -p 'test_dart_beat_queue_sync.py' -v
+          python -m unittest discover -s tests -p 'test_official_beat_triage_merge.py' -v
           python -m unittest discover -s tests -p 'test_dart_stock_identity.py' -v
           python -m unittest discover -s tests -p 'test_valueup_first_party_crosscheck.py' -v
           python -m unittest discover -s tests -p 'test_valueup_official_document.py' -v
@@ -80,6 +87,32 @@ jobs:
           git reset --hard origin/main
           python scripts/reporting_evidence_queue.py
           python scripts/publish_newsroom_outputs.py --mode queue
+      - name: Refresh official event-date queue from the exact just-published DART source
+        id: official_queue
+        if: steps.queue.outcome == 'success'
+        run: |
+          set -e
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          # Fetch the newest published DART snapshot before EVERY attempt.
+          # Never rebase or push a stale event queue over a newer official run.
+          for n in 1 2 3; do
+            git fetch origin main
+            git reset --hard origin/main
+            python scripts/official_event_triage.py
+            python scripts/official_beat_triage_merge.py
+            python scripts/dart_beat_queue_sync.py --require-official-queue-sync
+            git add digests/official_event_triage_latest.json
+            if git diff --cached --quiet; then
+              echo 'Already synchronized to latest official DART snapshot'
+              exit 0
+            fi
+            git commit -m 'data: align official event-date queue to DART source [skip ci]'
+            if git push origin HEAD:main; then exit 0; fi
+            sleep 5
+          done
+          echo 'Official event-date queue sync failed: source state preserved' >&2
+          exit 1
       - name: Record last execution health even when official API collection fails
         if: always()
         env:
@@ -87,6 +120,7 @@ jobs:
           DART_REGISTRY_OUTCOME: ${{ steps.registry.outcome }}
           DART_COLLECT_OUTCOME: ${{ steps.collect.outcome }}
           DART_PUBLISH_OUTCOME: ${{ steps.publish.outcome }}
+          DART_OFFICIAL_QUEUE_OUTCOME: ${{ steps.official_queue.outcome }}
         run: |
           set -e
           # Discard unpublished partial files or unpushed failed collector commits.
