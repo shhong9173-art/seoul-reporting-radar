@@ -19,7 +19,7 @@ HISTORIC_HEADING = re.compile(
 )
 # Python's re engine has no POSIX-style [:space:] classes.
 HISTORIC_HEADING = re.compile(
-    r"(?:^|\s)(20\d{2})년도?\s*.{0,85}?"
+    r"^\s*(?:\[(?:공지|공고|자료)\]\s*)?(20\d{2})년도?\s*.{0,85}?"
     r"(?:구매계획|구매실적|사업계획|사업보고서|공시자료|"
     r"경영공시|결산보고서|실적보고서|예산서|정기보고|"
     r"연차보고서|공공데이터|연구보고서|용역보고서|"
