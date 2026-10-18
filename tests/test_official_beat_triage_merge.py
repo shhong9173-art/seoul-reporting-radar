@@ -69,6 +69,23 @@ class BeatQueueIntegration(unittest.TestCase):
         self.assertEqual(second["baseTriageGeneratedAt"],
                          "2026-10-17T17:16:38+09:00")
 
+    def test_regenerated_triage_with_seen_history_keeps_old_receipts(self):
+        b = beat()
+        b["records"] = [record(), record(receipt="20261015000414")]
+        first = merge(triage(), b, now=NOW)
+        self.assertEqual(first["beatWideDartAdded"], 2)
+        regenerated = triage()
+        regenerated["seen"] = first["seen"].copy()
+        # Main triage builder intentionally carries seen state, but rebuilds
+        # the display arrays from its own narrower source feeds.
+        second = merge(regenerated, b, now=NOW)
+        self.assertEqual(second["beatWideDartAdded"], 2)
+        self.assertEqual(second["freshOfficialReviewCount"], 1)
+        self.assertEqual(second["backgroundReferenceCount"], 1)
+        self.assertEqual(second["backgroundReference"][0]["id"],
+                         "DART_FILING:20261015000414")
+        self.assertEqual(merge(second, b, now=NOW)["beatWideDartAdded"], 0)
+
     def test_same_filing_from_contract_feed_is_not_repeated(self):
         q = triage()
         q["freshOfficialReview"] = [
