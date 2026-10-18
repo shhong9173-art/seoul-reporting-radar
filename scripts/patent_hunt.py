@@ -83,6 +83,7 @@ def applicant_matches(raw,expected):
 
 
 SAFE_PROVIDER_MESSAGES={
+    'LIMITED_NUMBER_OF_SERVICE_REQUEST_EXCEEDS_ERROR':'request_limit_reported',
     'LIMITED_NUMBER_OF_SERVICE_REQUESTS_EXCEEDS_ERROR':'request_limit_reported',
     'SERVICE_ACCESS_DENIED_ERROR':'access_denied_reported',
     'SERVICE_KEY_IS_NOT_REGISTERED_ERROR':'key_not_registered_reported',
@@ -94,7 +95,8 @@ class ProviderResponseError(RuntimeError):
         safe_code=code if re.fullmatch(r'[A-Za-z0-9_-]{1,12}',code or '') else 'unknown'
         super().__init__('KIPRISPlus 응답 오류 코드 '+safe_code)
         # Exact allowlist only: never retain arbitrary response text or URLs.
-        self.category=SAFE_PROVIDER_MESSAGES.get((message or '').strip(),'unrecognized_provider_message')
+        normalized=re.sub(r'\s+', '_', (message or '').strip()).upper()
+        self.category=SAFE_PROVIDER_MESSAGES.get(normalized,'unrecognized_provider_message')
 
 def public_fact_questions(number):
     return [
@@ -509,11 +511,20 @@ def publication_diagnostics(report):
            "rawTotal":row.get("rawTotal") if isinstance(row.get("rawTotal"),int) else None,
            "rawRetrieved":row.get("rawRetrieved") if isinstance(row.get("rawRetrieved"),int) else None}
           for row in checks]
+    provider=report.get("providerDiagnostics") or {}
+    timestamps={}
+    for field in ("lastProviderResponseAt","nextProviderProbeAt"):
+        try:
+            stamp=datetime.fromisoformat(provider.get(field) or "")
+            timestamps[field]=stamp.isoformat(timespec="seconds") if stamp.utcoffset() is not None else None
+        except (ValueError,TypeError):
+            timestamps[field]=None
     return {
         "generatedAt":report.get("generatedAt"),
         "status":("complete" if report.get("sourceWindowComplete") else "incomplete"),
         "totalCompanies":report.get("applicantCount",len(checks)),
         "checkedCompanies":sum(row["status"]=="checked" for row in safe),
+        **timestamps,
         "actualApiRequestWindow":report.get("actualApiRequestWindow"),
         "retainedPriorVerifiedDocuments":report.get("retainedPriorVerifiedDocuments"),
         "priorVerifiedSnapshotUsed":report.get("priorVerifiedSnapshotUsed") is True,
@@ -567,7 +578,10 @@ def main():
             "applicantCount":len(APPLICANTS),
             "sourceWindowComplete":False,
             "companyChecks":[{"company":name,"status":"provider_22_probe_cooldown",
-                              "providerResultCode":"22"} for name in APPLICANTS]})
+                              "providerResultCode":"22",
+                              "providerMessageCategory":meter.provider_message_category}
+                             for name in APPLICANTS],
+            "providerDiagnostics":meter.public()})
         meter.persist()
         print("KIPRISPlus 제공기관 응답 22 재확인 대기: 공식 특허 이전 자료 보존")
         raise SystemExit(2)
@@ -579,11 +593,14 @@ def main():
                for row in report.get("companyChecks",[]) if
                isinstance(row,dict) and row.get("status")=="source_error"]
         if "22" in codes:
-            meter.record_provider_code("22")
+            failure=next(row for row in report["companyChecks"]
+                         if row.get("providerResultCode")=="22")
+            meter.record_provider_code("22",failure.get("providerMessageCategory"))
         elif report.get("sourceWindowComplete") is True:
             meter.clear_provider_backoff()
     finally:
         meter.persist()
+    report["providerDiagnostics"]=meter.public()
     save_publication_diagnostics(report)
     if key and not report.get("sourceWindowComplete"):
         print("KIPRISPlus 24개 출입처 공식 검색에 오류·누락·페이지 절단 발생: 이전 검증 데이터 보존")

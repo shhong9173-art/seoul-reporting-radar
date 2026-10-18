@@ -9,6 +9,29 @@ import patent_hunt as hunt
 NOW=datetime(2026,10,16,tzinfo=timezone(timedelta(hours=9)))
 
 class Budget(unittest.TestCase):
+    def test_backoff_preserves_safe_cause_and_real_response_time(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path=Path(folder)/"budget.json"
+            meter=SourceRequestMeter(path,now=NOW,fetch=lambda _:b"ok")
+            meter.record_provider_code("22","request_limit_reported")
+            later=SourceRequestMeter(path,now=NOW+timedelta(days=1),fetch=lambda _:b"ok")
+            later.persist()
+            self.assertEqual(later.public()["lastProviderMessageCategory"],"request_limit_reported")
+            self.assertEqual(later.public()["lastProviderResponseAt"],NOW.isoformat(timespec="seconds"))
+            self.assertEqual(later.this_run,0)
+            self.assertFalse(later.public()["officialProviderUsageVerified"])
+            later.record_provider_code("22","SECRET")
+            self.assertNotIn("SECRET",path.read_text())
+
+    def test_actual_transport_is_paced(self):
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as folder, patch("kipris_source_budget.time.sleep") as sleep:
+            meter=SourceRequestMeter(Path(folder)/"budget.json",now=NOW,fetch=lambda _:b"ok")
+            meter.get("first")
+            sleep.assert_not_called()
+            meter.get("second")
+            sleep.assert_called_once_with(0.2)
+
     def test_reserve_before_22_and_stop_without_network(self):
         with tempfile.TemporaryDirectory() as folder:
             path=Path(folder)/"budget.json"

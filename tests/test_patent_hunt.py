@@ -382,6 +382,7 @@ class SafeDiagnosticTests(unittest.TestCase):
         import json
         for message,category in [
             ('LIMITED_NUMBER_OF_SERVICE_REQUESTS_EXCEEDS_ERROR','request_limit_reported'),
+            ('Limited Number Of Service Request Exceeds Error','request_limit_reported'),
             ('unknown ServiceKey=PRIVATE https://private','unrecognized_provider_message')]:
             def search(*args):
                 return p.parse_response(('<response><header><resultCode>22</resultCode><resultMsg>'+message+'</resultMsg></header></response>').encode())

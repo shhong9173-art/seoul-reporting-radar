@@ -7,8 +7,12 @@ from __future__ import annotations
 import json
 from datetime import datetime,timezone,timedelta
 from pathlib import Path
+import time
 
 KST=timezone(timedelta(hours=9))
+SAFE_CATEGORIES={"request_limit_reported","access_denied_reported",
+                 "key_not_registered_reported","key_expired_reported",
+                 "unrecognized_provider_message"}
 
 class SourceRequestBudgetExhausted(RuntimeError):
     pass
@@ -30,6 +34,8 @@ class SourceRequestMeter:
         self.provider_probe_override=False
         self.provider_result_code=None
         self.next_provider_probe_at=None
+        self.provider_message_category=None
+        self.last_provider_response_at=None
         if self.path.exists():
             try:
                 data=json.loads(self.path.read_text(encoding="utf-8"))
@@ -57,6 +63,13 @@ class SourceRequestMeter:
                         raise ValueError("invalid_backoff")
                     self.provider_result_code="22"
                     self.next_provider_probe_at=stamp
+                    category=data.get("lastProviderMessageCategory")
+                    self.provider_message_category=category if category in SAFE_CATEGORIES else None
+                    response_at=data.get("lastProviderResponseAt")
+                    if response_at:
+                        parsed=datetime.fromisoformat(response_at)
+                        if parsed.utcoffset() is None:raise ValueError("naive_provider_response")
+                        self.last_provider_response_at=parsed.isoformat(timespec="seconds")
                 self.data=data
                 if data["month"]==self.month:
                     self.monthly_count=data["sourceRequestsCounted"]
@@ -73,6 +86,8 @@ class SourceRequestMeter:
                 "includesDeepAndClaimsWorkflows":False,
                 "officialProviderUsageVerified":False,
                 "lastProviderResultCode":self.provider_result_code,
+                "lastProviderMessageCategory":self.provider_message_category,
+                "lastProviderResponseAt":self.last_provider_response_at,
                 "nextProviderProbeAt":(
                     self.next_provider_probe_at.isoformat(timespec="seconds")
                     if self.next_provider_probe_at else None),
@@ -91,17 +106,21 @@ class SourceRequestMeter:
         return (self.next_provider_probe_at is None or
                 self.now>=self.next_provider_probe_at)
 
-    def record_provider_code(self,code):
+    def record_provider_code(self,code,category=None):
         """Temporarily reduce repeat requests after repeated opaque code 22."""
         if code!="22":
             return False
         self.provider_result_code="22"
+        self.provider_message_category=category if category in SAFE_CATEGORIES else None
+        self.last_provider_response_at=self.now.isoformat(timespec="seconds")
         self.next_provider_probe_at=self.now+timedelta(hours=72)
         self.persist()
         return True
 
     def clear_provider_backoff(self):
         self.provider_result_code=None
+        self.provider_message_category=None
+        self.last_provider_response_at=None
         self.next_provider_probe_at=None
         self.persist()
 
@@ -114,4 +133,8 @@ class SourceRequestMeter:
         self.this_run+=1
         self.monthly_count+=1
         self.persist()
+        # The source fetch wrapper bypasses search_applicant's identity-based
+        # delay. Pace the actual transport here, including across applicants.
+        if self.this_run>1:
+            time.sleep(0.2)
         return self.fetch(url)
