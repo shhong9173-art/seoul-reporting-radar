@@ -47,6 +47,10 @@ try{
     data.reliablePopulationReachEstimated!==false||
     !Array.isArray(data.items)||
     data.totalObservedExclusiveHeadlines!==data.items.length||
+    data.availableObservedExclusiveHeadlinesBeforeCap<data.totalObservedExclusiveHeadlines||
+    data.candidateDisplayLimit!==400||
+    data.evidencePriorityObservedItemsRetained<0||
+    data.evidencePriorityObservedItemsRetained>data.totalObservedExclusiveHeadlines||
     data.humanReviewedYPN!==data.Y+data.P+data.N||
     data.unreviewedU!==data.items.length-data.humanReviewedYPN||
     data.items.some(x=>x.confirmedExclusive!==false||
@@ -90,6 +94,8 @@ try{
   ["연간 검색서 관측된 기사",historical.itemCount],
   ["최근 검색한 월별 창",historical.searchedWindowCountThisRun],
   ["관측된 단독 표기 기사",data.totalObservedExclusiveHeadlines],
+  ["표시 한도 전 관측된 기사",data.availableObservedExclusiveHeadlinesBeforeCap],
+  ["검증·원문 후보 보존",data.evidencePriorityObservedItemsRetained],
   ["원문·기사 전문 검증",data.humanReviewedYPN],
   ["Y · 보도 전 정확한 원문",data.Y],
   ["P · 보도 전 부분 단서",data.P],
