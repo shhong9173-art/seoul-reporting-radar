@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>산업부 단독기사 역추적 | 취재 레이더</title>
+<style>
+:root{font-family:system-ui,'Malgun Gothic',sans-serif;color-scheme:light;background:#f7f8fa;color:#17202b}
+*{box-sizing:border-box}body{margin:0}main{max-width:1130px;margin:0 auto;padding:32px 20px}
+a{color:#174f94}h1{font-size:30px;margin:12px 0}h2{font-size:21px}
+.muted{color:#596677;line-height:1.65}.small{font-size:13px}.top{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin:22px 0}
+.card{padding:18px;border:1px solid #e2e5e9;border-radius:12px;background:white}
+.metric{font-size:30px;font-weight:700;margin-top:8px}
+.notice{padding:14px 18px;background:#fff;border-left:4px solid #66788f;margin:12px 0;line-height:1.6}
+article{margin:10px 0;padding:16px;background:white;border:1px solid #e2e5e9;border-radius:10px}
+.headline{font-size:16px;font-weight:650;margin:6px 0}.meta{font-size:13px;color:#576674}
+kbd{background:#eef1f5;padding:3px 6px;border-radius:5px}
+select{padding:9px;border:1px solid #cbd5e1;border-radius:7px}
+</style></head><body>
+<main>
+<div class="top"><a href="index.html">← 취재 레이더</a><span class="muted small">단독기사 원천 역추적 — Y / P / N / U</span></div>
+<h1>과거 [단독] 기사에서 원천을 거꾸로 찾기</h1>
+<p class="muted">자동 발굴 후보는 모두 미검증(U)으로 시작합니다. 실제 기사 전문과 보도 이전의 공식 원자료를 기자가 대조해야 Y(완전 공개), P(부분적 공개 단서), N(사람 중심 취재)로 표시됩니다. 이 연구는 새 단독기사의 증거가 아닙니다.</p>
+<div id="notice" class="notice">역추적 목록을 불러오는 중입니다.</div>
+<div class="grid" id="summary"></div>
+<h2>기사 유형별 검증 현황</h2><div id="by-kind" class="grid"></div>
+<div class="top"><h2>관측된 경쟁지 단독기사 후보</h2><label>분류 <select id="filter">
+<option value="all">전체</option><option value="U">U · 미검증</option>
+<option value="Y">Y · 원문 완전</option><option value="P">P · 선행 단서</option>
+<option value="N">N · 사람 중심</option></select></label></div>
+<p class="muted small">실제 [단독] 전문과 공식 자료를 읽은 뒤 검증 결과를 <kbd>data/reverse_trace_verified_labels.json</kbd>에 기록합니다. 화면은 읽기 전용이며 임의 라벨 변경·점수 조작을 제공하지 않습니다.</p>
+<div id="articles"></div>
+<p class="muted small">검증 기준: <a href="https://github.com/shhong9173-art/seoul-reporting-radar/blob/main/docs/industry-exclusive-reverse-trace.md" target="_blank" rel="noopener noreferrer">산업부 단독 역추적 매뉴얼</a></p>
+</main>
+<script>
+(async()=>{
+"use strict";
+const el=(tag,value,className)=>{const x=document.createElement(tag);if(value!==undefined)x.textContent=String(value);if(className)x.className=className;return x};
+const $=(sel)=>document.querySelector(sel);
+const stat=(name,value)=>{const x=el("div",undefined,"card");x.append(el("div",name,"meta"),el("div",value,"metric"));$("#summary").append(x)};
+try{
+ const r=await fetch("digests/reverse_trace_latest.json",{cache:"no-store"});
+ if(!r.ok)throw Error("reverse trace snapshot not published");
+ const data=await r.json();
+ if(data.status!=="automotive_industry_exclusive_reverse_trace_unverified_candidates"||
+    data.confirmedScoops!==0||data.approvedArticles!==0||
+    data.reliablePopulationReachEstimated!==false||
+    !Array.isArray(data.items)||
+    data.totalObservedExclusiveHeadlines!==data.items.length||
+    data.humanReviewedYPN!==data.Y+data.P+data.N||
+    data.unreviewedU!==data.items.length-data.humanReviewedYPN||
+    data.items.some(x=>x.confirmedExclusive!==false||
+       !["Y","P","N","U"].includes(x.publicTraceClass)))
+   throw Error("unverified evidence or source counters");
+ const pressRes=await fetch("digests/press_coverage_index_latest.json",{cache:"no-store"});
+ if(!pressRes.ok)throw Error("missing prior-news index source");
+ const press=await pressRes.json();
+ if(data.pressIndexGeneratedAt!==press.generatedAt)
+   throw Error("source timestamp does not match press observation");
+ $("#notice").textContent=data.pressIndexSeedOnly?
+   "현재는 비어 있는 최초 수집 기준선입니다. 기사 0건은 미보도 0건을 뜻하지 않습니다.":
+   "최신 관측 "+(data.generatedAt||"미확인")+" · 국내 기사 메타데이터 일부만 수집 · 확정 단독 0건 · 원천별 도달률 미측정";
+ for(const [name,val] of [
+  ["관측된 단독 표기 기사",data.totalObservedExclusiveHeadlines],
+  ["원문·기사 전문 검증",data.humanReviewedYPN],
+  ["Y · 보도 전 정확한 원문",data.Y],
+  ["P · 보도 전 부분 단서",data.P],
+  ["N · 사람 중심 취재",data.N],
+  ["U · 아직 미검증",data.unreviewedU]])stat(name,val);
+ for(const [kind,info] of Object.entries(data.byType||{})){
+  if(!info||typeof info!=="object")continue;
+  const c=el("div",undefined,"card");
+  c.append(el("strong",kind),el("p","관측 "+info.articlesObserved+"건 · 검증 "+info.reviewed+"건","meta"),
+           el("div","Y "+info.Y+" / P "+info.P+" / N "+info.N+" / U "+info.unreviewed,"small"));
+  if(info.measuredSourceReach)c.append(el("p","잠정 분자 "+
+    info.measuredSourceReach.anyPublicTraceNumerator+
+    " / 검증 표본 "+info.measuredSourceReach.reviewedDenominator+
+    " (표본 편향·전수조사 아님)","meta"));
+  $("#by-kind").append(c);
+ }
+ const container=$("#articles");
+ const items=data.items;
+ const render=()=>{
+  container.replaceChildren();
+  const show=$("#filter").value;
+  const selected=items.filter(x=>show==="all"||x.publicTraceClass===show).slice(0,300);
+  if(!selected.length){container.append(el("p","조건에 맞는 관측 기사가 없습니다. 수집 및 검증의 미완료일 수 있습니다.","muted"));return}
+  for(const row of selected){
+   const a=el("article");a.append(
+     el("div",row.kind+" · "+row.publicTraceClass+" · "+row.humanReviewStatus,"meta"),
+     el("div",row.title,"headline"),
+     el("div",row.sourceName+" · "+row.published+" · "+(row.companies||[]).join(", "),"meta"));
+   if(typeof row.articleUrl==="string"&&/^https?:\/\//.test(row.articleUrl)){
+    const link=el("a","원문 기사 보기 ↗");
+    link.href=row.articleUrl;link.target="_blank";link.rel="noopener noreferrer";a.append(link);
+   }
+   if(row.primaryEvidence&&row.primaryEvidence.verdict!=="N")
+    a.append(el("p","원자료 유형: "+row.primaryEvidence.primarySourceType+
+       " · 사람 대조: "+row.primaryEvidence.evidenceReason,"muted small"));
+   else a.append(el("p","기사 전문·보도 전 원자료 교차검증 미완료 (또는 공개 전조 미확인 조사의 제한 있음)","muted small"));
+   container.append(a);
+  }
+ };
+ $("#filter").addEventListener("change",render);
+ render();
+}catch(e){$("#notice").textContent="검증된 역추적 JSON을 불러오지 못했습니다. 데이터 수집 실패를 단독 0건으로 해석하지 마세요."}
+})();
+</script></body></html>
