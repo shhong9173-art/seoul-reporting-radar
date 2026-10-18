@@ -572,6 +572,9 @@ def change_review(current,previous=None,*,now=None):
             "changedTermsForReview":cited,"sourceReparseFieldKeys":changed_fields,
             "reportedOfficialTableTerms":terms,
             "reportedOfficialCessationTerms":cessation_terms,
+            "possibleOverlappingCessationReceipt":row.get("possibleOverlappingCessationReceipt"),
+            "possibleSameUnderlyingCessationEvent":row.get("possibleSameUnderlyingCessationEvent") is True,
+            "underlyingCessationEventIndependentlyVerified":False,
             "businessCessationFilingRelation":(
                 row.get("businessCessationFilingRelation")
                 if row.get("status")=="official_business_cessation_document_review"
@@ -590,6 +593,8 @@ def change_review(current,previous=None,*,now=None):
              if kind=="same_receipt_first_document_field_recovery" else
              "같은 공시 접수번호의 영업정지 원문 기재값을 처음 추출함. 기보도 전문·실제 중단 실행·모자회사 중복 공시 관계 확인(새 사건 아님)"
              if kind=="same_receipt_first_cessation_original_recovery" else
+             "두 DART 원문이 동일 사업·금액·비율·일자로 확인된 모자회사 공시 후보. 동일 법인/사건 여부를 공식 원문으로 확인하기 전 2건의 별도 사업 중단으로 집계 금지"
+             if row.get("possibleSameUnderlyingCessationEvent") is True else
              "같은 공시번호의 데이터 추출 차이: 공식 원문과 수집기 코드 확인 (기업 변화로 해석 금지)"
              if kind=="same_receipt_data_reparse_discrepancy" else
              "공시 상대방이 관계회사: 외부 최종 고객/납품과 연결 매출 계상·기보도 여부 별도 검증"
