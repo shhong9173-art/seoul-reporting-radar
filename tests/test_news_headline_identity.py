@@ -35,6 +35,14 @@ class HeadlineIdentity(unittest.TestCase):
         ):
             self.assertTrue(obvious_sports_homonym(title),title)
 
+    def test_real_operating_mobis_phoebus_event_not_automotive(self):
+        headline="‘별까루 마킹’ 유니폼 소장 욕구UP!…현대모비스, 25일까지 ‘도전! 피버스 키즈 모델’ 참가자 모집 - 스포츠서울"
+        self.assertTrue(obvious_sports_homonym(headline))
+        self.assertFalse(obvious_sports_homonym(
+            "울산 현대모비스 공장 배터리 부품 증설"))
+        self.assertFalse(obvious_sports_homonym(
+            "울산 현대모비스 연간 120만대 생산능력 확대"))
+
     def test_company_automotive_industry_preserved(self):
         for title in (
             "기아 전기차 생산라인 확대",
