@@ -137,6 +137,66 @@ class BeatQueueIntegration(unittest.TestCase):
         self.assertFalse(item["exclusiveConfirmed"])
         self.assertFalse(item["approvedForPitch"])
 
+    def test_oci_parent_and_subsidiary_filing_not_two_verified_closures(self):
+        b=beat()
+        b["sourceChecks"][0]["company"]="OCI"
+        b["sourceChecks"][1]["company"]="OCI홀딩스"
+        direct=record(receipt="20260929000097",company="OCI")
+        direct.update(corpCode="00111111",
+            report="주요사항보고서(영업정지)",
+            status="official_business_cessation_document_review",
+            businessCessationFilingRelation="issuer_business_cessation")
+        parent=record(receipt="20260929800197",company="OCI홀딩스")
+        parent.update(corpCode="00122222",
+            report="주요사항보고서(영업정지)(자회사의 주요경영사항)",
+            status="official_business_cessation_document_review",
+            businessCessationFilingRelation="parent_disclosure_of_subsidiary")
+        evidence={
+            "officialXmlOrHtmlBodyRetrieved":True,
+            "observedTerms":{
+                "issuerReportedRevenueRatioPct":{
+                    "value":"5.87","basis":"same_official_table_row",
+                    "operationalShutdownVerified":False,
+                    "independentBusinessEffectVerified":False},
+                "issuerStatedCessationDate":{
+                    "value":"2026-12-18","basis":"same_official_table_row",
+                    "operationalShutdownVerified":False,
+                    "independentBusinessEffectVerified":False}}}
+        direct["businessCessationPrimarySource"]=evidence
+        parent["businessCessationPrimarySource"]=evidence
+        b["records"]=[direct,parent]
+        out=merge(triage(),b,now=NOW)
+        self.assertEqual(out["beatWideDartAdded"],2)
+        self.assertEqual(out["freshOfficialReviewCount"],0)
+        self.assertEqual(out["backgroundReferenceCount"],2)
+        self.assertEqual(out["confirmedScoops"],0)
+        records={x["company"]:x for x in out["backgroundReference"]}
+        self.assertEqual(records["OCI"]["originalEvidenceStage"],
+                         "official_business_cessation_fields_checked")
+        self.assertEqual(records["OCI"]["issuerFiledBusinessCessationTerms"],
+                         {"issuerReportedRevenueRatioPct":"5.87",
+                          "issuerStatedCessationDate":"2026-12-18"})
+        self.assertEqual(records["OCI홀딩스"]["businessCessationFilingRelation"],
+                         "parent_disclosure_of_subsidiary")
+        self.assertFalse(records["OCI홀딩스"]["uniqueUnderlyingCessationEventVerified"])
+        self.assertFalse(records["OCI홀딩스"]["companyImpactVerified"])
+        self.assertFalse(records["OCI홀딩스"]["approvedForPitch"])
+        self.assertFalse(records["OCI"]["exclusiveConfirmed"])
+
+    def test_unsupported_cessation_source_does_not_invent_figures(self):
+        b=beat()
+        b["records"][0].update(
+            status="business_cessation_document_unavailable",
+            report="주요사항보고서(영업정지)",
+            businessCessationPrimarySource={
+                "officialXmlOrHtmlBodyRetrieved":False})
+        out=merge(triage(),b,now=NOW)
+        item=out["freshOfficialReview"][0]
+        self.assertNotIn("issuerFiledBusinessCessationTerms",item)
+        self.assertEqual(item["originalEvidenceStage"],
+                         "official_receipt_only_original_not_checked")
+        self.assertFalse(item["exclusiveConfirmed"])
+
     def test_share_cancellation_official_terms_are_not_actual_execution(self):
         b = beat()
         row = record(receipt="20261015800723")
