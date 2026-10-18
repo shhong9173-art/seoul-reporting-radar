@@ -123,6 +123,8 @@ def merge(queue, beat, *, now=None):
     out["feedHealth"].append(health)
     visible = {x.get("id") for x in out["freshOfficialReview"] + out["backgroundReference"]
                if isinstance(x, dict)}
+    already_attached = set(queue.get("beatAttachedReceiptIds", [])) if queue.get("beatMergeAlreadyApplied") is True and isinstance(queue.get("beatAttachedReceiptIds"), list) else set()
+    attached_this_run = set()
     earliest = now.date() - timedelta(days=2)
     added_recent = added_background = excluded = 0
     if valid:
@@ -147,7 +149,7 @@ def merge(queue, beat, *, now=None):
                 excluded += 1
                 continue
             key = "DART_FILING:" + receipt
-            if key in visible or (key in out["seen"] and not (earliest <= dt <= now.date())):
+            if key in visible or key in already_attached:
                 continue
             previous = out["seen"].get(key)
             first_seen = str(previous or row.get("firstObservedAt") or now.isoformat())[:10]
@@ -193,6 +195,7 @@ def merge(queue, beat, *, now=None):
                 out["backgroundReference"].append(item)
                 added_background += 1
             visible.add(key)
+            attached_this_run.add(key)
             out["seen"].setdefault(key, first_seen)
     out["freshOfficialReview"].sort(key=lambda x: (x.get("officialDate", ""), x.get("id", "")), reverse=True)
     out["backgroundReference"].sort(key=lambda x: (x.get("officialDate", ""), x.get("id", "")), reverse=True)
@@ -207,6 +210,8 @@ def merge(queue, beat, *, now=None):
                                      if x.get("status") != "checked_source"]
     out["sourceCompletenessVerified"] = not out["incompleteOrStaleFeeds"]
     out["beatWideDartAdded"] = added_recent + added_background
+    out["beatMergeAlreadyApplied"] = True
+    out["beatAttachedReceiptIds"] = sorted(already_attached | attached_this_run)
     out["beatWideDartExcluded"] = excluded
     out["beatWideDartSourceAt"] = beat.get("generatedAt") if valid else None
     out["confirmedScoops"] = 0

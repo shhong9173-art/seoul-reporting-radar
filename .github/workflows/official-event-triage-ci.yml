@@ -66,3 +66,18 @@ jobs:
           assert all(x['sourceSnapshotAt'] for x in d['freshOfficialReview'])
           print('PASS beat snapshot',d['beatWideDartSourceAt'],'added',d['beatWideDartAdded'])
           PY
+      - name: Verify the next triage rebuild retains historical DART receipts
+        run: |
+          cp /tmp/event-date-replay.json /tmp/first-beat-merge.json
+          python scripts/official_event_triage.py --output /tmp/event-date-replay.json
+          python scripts/official_beat_triage_merge.py --triage /tmp/event-date-replay.json
+          python - <<'PY'
+          import json
+          before=json.load(open('/tmp/first-beat-merge.json',encoding='utf-8'))
+          after=json.load(open('/tmp/event-date-replay.json',encoding='utf-8'))
+          assert before['beatAttachedReceiptIds']==after['beatAttachedReceiptIds'], (
+              'historical DART beat references disappeared after triage rebuild')
+          assert before['beatWideDartAdded']==after['beatWideDartAdded']
+          assert before['confirmedScoops']==after['confirmedScoops']==0
+          print('PASS rebuilt and retained',len(after['beatAttachedReceiptIds']),'official receipts')
+          PY
