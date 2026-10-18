@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-18T21:24:56+09:00",
+  "generatedAt": "2026-10-18T21:34:30+09:00",
   "status": "industry_beat_official_receipt_review",
   "windowStart": "20260919",
   "windowEnd": "20261018",
@@ -10,17 +10,42 @@
   "sourceComplete": false,
   "relevantFilings": 31,
   "detailBound": 12,
-  "detailsAttempted": 2,
+  "detailsAttempted": 0,
   "valueupOfficialDocumentAttempts": 0,
   "shareCancellationDocumentAttempts": 0,
-  "businessCessationDocumentAttempts": 2,
+  "businessCessationDocumentAttempts": 0,
   "businessCessationDocumentReads": 2,
   "businessCessationDocumentUnavailable": 0,
+  "possibleParentSubsidiaryCessationOverlapCount": 1,
+  "possibleParentSubsidiaryCessationOverlapReviews": [
+    {
+      "status": "candidate_parent_subsidiary_same_event_not_verified",
+      "parentCompany": "OCI홀딩스",
+      "parentReceiptNo": "20260929800197",
+      "issuerCompany": "OCI",
+      "issuerReceiptNo": "20260929000097",
+      "filingDate": "20260929",
+      "identicalOfficialFields": [
+        "reportedBusinessScope",
+        "reportedAffectedSalesWon",
+        "reportedRecentSalesWon",
+        "issuerReportedRevenueRatioPct",
+        "issuerStatedCessationDate"
+      ],
+      "parentSubsidiaryLegalIdentityIndependentlyVerified": false,
+      "actualBusinessClosureIndependentlyVerified": false,
+      "twoSeparateBusinessEventsVerified": false,
+      "priorNewsFulltextReviewed": false,
+      "scoopConfirmed": false,
+      "approvedForPitch": false,
+      "warning": "두 DART 공시의 원문 기재값과 날짜가 동일함. 별도 독립 영업중단 2건 아님을 증명하지도, 동일 사건을 법적으로 확정하지도 않음"
+    }
+  ],
   "shareCancellationDocumentReads": 1,
   "shareCancellationDocumentUnavailable": 0,
   "valueupOfficialDocumentReads": 1,
   "valueupOfficialDocumentUnavailable": 0,
-  "detailBacklogQueued": 2,
+  "detailBacklogQueued": 0,
   "detailNotAttemptedThisRun": 0,
   "unsupportedOriginalDetailTypes": 11,
   "uninspectedListedDetails": 11,
@@ -2068,7 +2093,10 @@
       "firstObservedThisRun": false,
       "detailTypeSupported": true,
       "detailStatus": "official_business_cessation_document_review",
-      "independentContractComparisonVerified": false
+      "independentContractComparisonVerified": false,
+      "possibleOverlappingCessationReceipt": "20260929000097",
+      "possibleSameUnderlyingCessationEvent": true,
+      "underlyingCessationEventIndependentlyVerified": false
     },
     {
       "company": "OCI",
@@ -2153,7 +2181,10 @@
       "firstObservedThisRun": false,
       "detailTypeSupported": true,
       "detailStatus": "official_business_cessation_document_review",
-      "independentContractComparisonVerified": false
+      "independentContractComparisonVerified": false,
+      "possibleOverlappingCessationReceipt": "20260929800197",
+      "possibleSameUnderlyingCessationEvent": true,
+      "underlyingCessationEventIndependentlyVerified": false
     },
     {
       "company": "SK이노베이션",
