@@ -133,7 +133,7 @@ def merge_index(prior, new_items, *, now=None, horizon_days=RETENTION_DAYS):
         "newlyIndexedArticleCount": accepted,
         "priorRetainedCount": prior_count,
         "malformedOrUndatedInputCount": invalid,
-        "firstRunBaseline": prior is None,
+        "firstRunBaseline": prior is None or (prior.get("seedOnly") is True if isinstance(prior, dict) else False),
         "proofOfNoPriorCoverage": False,
         "pressFulltextReviewed": False,
         "warning": ("일부 수집된 국내 기사 제목·매체·일자 색인임. 누락·수집 실패가 존재할 수 있으므로 "
