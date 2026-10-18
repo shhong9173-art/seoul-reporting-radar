@@ -67,6 +67,11 @@ jobs:
           assert res['confirmedScoops']==res['approvedArticles']==0
           assert res['curatedLeadStatus']=='curated_official_original_candidates_chronology_unverified'
           assert res['primaryDocumentPublishedBeforeMediaVerifiedCount']==0
+          assert res['locatedSupplementaryForeignOriginalReferences']==sum(
+              len(x.get('locatedSupportingOfficialOriginals',[])) for x in res['items'])
+          assert res['distinctLocatedOfficialOriginalDocuments']>=res['locatedOriginalCandidateArticleCount']//max(1,res['locatedOriginalCandidateArticleCount'])
+          assert res['secOfficialAcceptanceTimestampChecked'] is bool(
+              res['locatedSupplementaryForeignOriginalReferences'])
           assert res['pressFulltextMatchedToOfficialOriginalCount']==0
           assert res['sourcePrioritizationEvidenceSufficient'] is False
           assert res['locatedOriginalCandidateArticleCount']==sum(
