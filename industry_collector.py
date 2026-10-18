@@ -4,9 +4,12 @@ from datetime import datetime, timedelta
 from email.utils import parsedate_to_datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
+from scripts.news_headline_identity import normalize_title
+from scripts.industry_news_guard import verified_rss_date, summarize_queries
 
 KST=ZoneInfo('Asia/Seoul')
 OUT=Path('industry.json')
+FEED_CHECKS=[]
 
 FEEDS=[
  ('철강','철강 OR 포스코 OR 포스코홀딩스 OR 현대제철 OR 동국제강 OR 세아제강 OR 열연 OR 냉연 OR 후판 OR 철근'),
@@ -62,32 +65,52 @@ def classify(title,desc):
 
 def parse_feed(category,query):
     u='https://news.google.com/rss/search?q='+urllib.parse.quote(query)+'&hl=ko&gl=KR&ceid=KR:ko'
-    try:root=ET.fromstring(get(u))
-    except Exception:return []
-    cutoff=datetime.now(KST)-timedelta(hours=72);out=[]
+    try:
+        root=ET.fromstring(get(u))
+        if root.tag!="rss" or root.find("channel") is None:
+            raise ValueError("rss_channel_missing")
+    except Exception as exc:
+        FEED_CHECKS.append({"category":category,"status":"failed",
+                            "errorType":type(exc).__name__,
+                            "recentRows":None,"rejectedUndated":None})
+        return []
+    now=datetime.now(KST);out=[];rejected_undated=0
     for item in root.findall('./channel/item'):
         title=(item.findtext('title') or '').strip();link=(item.findtext('link') or '').strip();pub=(item.findtext('pubDate') or '').strip();desc=clean(item.findtext('description') or '')
         src=item.find('source');source=(src.text or '').strip() if src is not None else ''
         if not title or not link:continue
-        try:dt=parsedate_to_datetime(pub).astimezone(KST)
-        except Exception:dt=datetime.now(KST)
-        if dt<cutoff:continue
+        dt=verified_rss_date(pub,now=now)
+        if dt is None:
+            rejected_undated+=1
+            continue
         text=(title+' '+desc).lower(); keyhits=sum(1 for k in KEY if k.lower() in text)
         if keyhits==0:continue
         exclusive,event,signal,strategy,concrete,priority=classify(title,desc)
         if event and not exclusive and signal<3:continue
         companies=company_list(title+' '+desc)
         out.append({'category':category,'title':title,'url':link,'published':dt.isoformat(),'sourceName':source or 'Google News','summary':desc[:900],'global':False,'companies':companies,'industrySource':True,'signalCount':keyhits,'exclusive':exclusive,'event':event,'strategySignalCount':strategy,'concreteNumber':concrete,'industryPriorityScore':priority})
+    FEED_CHECKS.append({"category":category,
+        "status":"checked_recent_rows" if out else "checked_no_relevant_recent",
+        "errorType":None,"recentRows":len(out),
+        "rejectedUndated":rejected_undated})
     return out
 
 all_items=[]
 for category,query in FEEDS:all_items.extend(parse_feed(category,query))
+health=summarize_queries(FEED_CHECKS,len(FEEDS))
+if not health["allFeedsHealthy"]:
+    # Do NOT overwrite yesterday's valid industry.json with an incomplete
+    # RSS sample. Publishing zero rows would look like zero news.
+    raise SystemExit("Industrial RSS source failed; previously published industry data preserved. "+
+                     "Failed categories: "+", ".join(c["category"] for c in FEED_CHECKS
+                                                        if c["status"]=="failed"))
+
 
 seen=set();items=[]
 for x in sorted(all_items,key=lambda z:(z['exclusive'],z['industryPriorityScore'],z['published']),reverse=True):
-    sig=(x['sourceName'],x['title'].split(' - ')[0].strip().lower())
+    sig=(x['sourceName'],normalize_title(x['title'],x['sourceName']))
     if sig in seen:continue
     seen.add(sig);items.append(x)
 
-OUT.write_text(json.dumps({'generatedAt':datetime.now(KST).isoformat(),'count':len(items),'items':items},ensure_ascii=False,separators=(',',':')),encoding='utf-8')
+OUT.write_text(json.dumps({'generatedAt':datetime.now(KST).isoformat(),'count':len(items),'items':items,'sourceHealth':health},ensure_ascii=False,separators=(',',':')),encoding='utf-8')
 print(f'industry radar: {len(items)} items / exclusive {sum(1 for x in items if x["exclusive"])} / event-only filtered')
