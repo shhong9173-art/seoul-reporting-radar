@@ -137,6 +137,51 @@ class BeatQueueIntegration(unittest.TestCase):
         self.assertFalse(item["exclusiveConfirmed"])
         self.assertFalse(item["approvedForPitch"])
 
+    def test_share_cancellation_official_terms_are_not_actual_execution(self):
+        b = beat()
+        row = record(receipt="20261015800723")
+        row["report"] = "주식소각결정"
+        row["status"] = "official_share_cancellation_document_review"
+        row["shareCancellationPrimarySource"] = {
+            "officialXmlOrHtmlBodyRetrieved": True,
+            "observedTerms": {
+                "preferredSharesToCancel": {
+                    "value": "678", "basis": "same_official_table_row",
+                    "completedCancellationVerified": False},
+                "scheduledCancellationDate": {
+                    "value": "2026-10-22", "basis": "same_official_table_row",
+                    "completedCancellationVerified": False}}}
+        b["records"] = [row]
+        out = merge(triage(), b, now=NOW)
+        self.assertEqual(out["beatWideDartAdded"], 1)
+        item = out["backgroundReference"][0]
+        self.assertEqual(item["originalEvidenceStage"],
+                         "official_share_cancellation_fields_checked")
+        self.assertEqual(item["issuerFiledCancellationTerms"],
+                         {"preferredSharesToCancel": "678",
+                          "scheduledCancellationDate": "2026-10-22"})
+        self.assertFalse(item["exclusiveConfirmed"])
+        self.assertFalse(item["approvedForPitch"])
+        self.assertFalse(item["companyImpactVerified"])
+        self.assertIn("완료",item["officialFact"])
+
+    def test_share_cancellation_unverified_cells_not_exported(self):
+        b = beat()
+        row = record(receipt="20261015800723")
+        row["report"] = "주식소각결정"
+        row["status"] = "official_share_cancellation_document_review"
+        row["shareCancellationPrimarySource"] = {
+            "officialXmlOrHtmlBodyRetrieved": True,
+            "observedTerms": {
+                "preferredSharesToCancel": {
+                    "value": "678", "basis": "press_story",
+                    "completedCancellationVerified": False}}}
+        b["records"] = [row]
+        out = merge(triage(), b, now=NOW)
+        item = out["backgroundReference"][0]
+        self.assertNotIn("issuerFiledCancellationTerms", item)
+        self.assertFalse(item["exclusiveConfirmed"])
+
     def test_official_table_fields_are_not_verified_shipments(self):
         b = beat()
         b["records"][0]["status"] = "official_document_read"
