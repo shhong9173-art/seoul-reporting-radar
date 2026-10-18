@@ -3,6 +3,8 @@ on:
   pull_request:
     paths:
       - 'scripts/official_event_triage.py'
+      - 'scripts/official_beat_triage_merge.py'
+      - 'tests/test_official_beat_triage_merge.py'
       - 'tests/test_official_event_triage.py'
       - 'tests/test_official_event_triage_view.cjs'
       - 'official-today.html'
@@ -13,6 +15,8 @@ on:
     branches: [main]
     paths:
       - 'scripts/official_event_triage.py'
+      - 'scripts/official_beat_triage_merge.py'
+      - 'tests/test_official_beat_triage_merge.py'
       - '.github/workflows/official-event-triage-ci.yml'
   workflow_dispatch:
 
@@ -30,7 +34,8 @@ jobs:
           python-version: '3.12'
       - name: Check event dates/official URL and prior-coverage non-claims
         run: |
-          python -m compileall -q scripts/official_event_triage.py
+          python -m compileall -q scripts/official_event_triage.py scripts/official_beat_triage_merge.py
+          python -m unittest discover -s tests -p 'test_official_beat_triage_merge.py' -v
           python -m unittest discover -s tests -p 'test_official_event_triage.py' -v
           node tests/test_official_event_triage_view.cjs
       - name: Replay actual official snapshots without live APIs
@@ -48,4 +53,16 @@ jobs:
           assert all(x['editorialBucket']=='published_background' for x in d['backgroundReference'])
           print('PASS recorded current official dates',d['freshOfficialReviewCount'],
                 'old/reference',d['backgroundReferenceCount'],'source gaps',len(d['incompleteOrStaleFeeds']))
+          PY
+      - name: Replay full beat DART receipts without claiming exclusivity
+        run: |
+          python scripts/official_beat_triage_merge.py --triage /tmp/event-date-replay.json
+          python - <<'PY'
+          import json
+          d=json.load(open('/tmp/event-date-replay.json',encoding='utf-8'))
+          assert d['confirmedScoops']==0 and d['approvedArticles']==0
+          assert any(x['name']=='dart_beat_monitor' for x in d['feedHealth'])
+          assert all(not x['exclusiveConfirmed'] and not x['approvedForPitch'] for x in d['freshOfficialReview'])
+          assert all(x['sourceSnapshotAt'] for x in d['freshOfficialReview'])
+          print('PASS beat snapshot',d['beatWideDartSourceAt'],'added',d['beatWideDartAdded'])
           PY
