@@ -4,6 +4,8 @@ on:
     paths:
       - 'scoop_scout.py'
       - 'pre_scoop_radar.py'
+      - 'scripts/official_source_observation.py'
+      - 'tests/test_official_source_observation.py'
       - 'scripts/official_publication_date_guard.py'
       - 'tests/test_official_publication_date_guard.py'
       - 'scripts/press_coverage_gate.py'
@@ -15,6 +17,8 @@ on:
     paths:
       - 'scoop_scout.py'
       - 'pre_scoop_radar.py'
+      - 'scripts/official_source_observation.py'
+      - 'tests/test_official_source_observation.py'
       - 'scripts/official_publication_date_guard.py'
       - 'tests/test_official_publication_date_guard.py'
       - 'scripts/press_coverage_gate.py'
@@ -36,6 +40,7 @@ jobs:
         run: |
           python -m compileall -q scripts/press_coverage_gate.py scoop_scout.py
           python -m unittest discover -s tests -p 'test_official_publication_date_guard.py' -v
+          python -m unittest discover -s tests -p 'test_official_source_observation.py' -v
           python -m unittest discover -s tests -p 'test_scoop_press_coverage_failclosed.py' -v
           python -m unittest discover -s tests -p 'test_press_coverage_index.py' -v
       - name: Replay real Korean news index without implying 0 press
