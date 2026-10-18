@@ -16,10 +16,12 @@ from pathlib import Path
 from scripts.dart_affiliate_scoop_gate import review_hold
 from scripts.dart_specific_media import exact_contract_evidence, precise_press_queries, likely_same_contract_indexed
 from scripts.public_reporting_questions import public_questions, public_lead_questions, validate_public_policy
+from scripts.press_coverage_gate import load_index as load_press_index, prior_coverage_candidates
 
 KST=timezone(timedelta(hours=9))
 DATA=Path("data.json"); DART=Path("dart.json"); NUM=Path("dart_numeric.json")
 ARCHIVE=Path("archive.json"); OUT=Path("scoop.json")
+PRESS_COVERAGE_INDEX=Path("digests/press_coverage_index_latest.json")
 PRIMARY_LOOKBACK_DAYS=10
 COVERAGE_LOOKBACK_DAYS=180
 
@@ -330,14 +332,26 @@ def domain_for(url):
         if host==domain or host.endswith("."+domain):return label,True
     return "",False
 
+RSS_QUERY_DIAGNOSTICS={"ok":0,"empty":0,"failed":0,"primaryFailed":0,"coverageFailed":0}
+
 def google_rss(category,query,max_items=8,lookback_days=PRIMARY_LOOKBACK_DAYS):
     now=datetime.now(KST)
     # Primary-source queries stay tight; coverage queries intentionally look much further back.
     after=(now-timedelta(days=lookback_days)).strftime("%Y-%m-%d")
     q=query+" after:"+after
     url="https://news.google.com/rss/search?q="+urllib.parse.quote(q)+"&hl=ko&gl=KR&ceid=KR:ko"
-    try:root=ET.fromstring(get(url))
-    except Exception:return []
+    try:
+        root=ET.fromstring(get(url))
+        if root.tag!="rss" or root.find("channel") is None:
+            raise ValueError("google_rss_invalid_channel")
+    except Exception:
+        RSS_QUERY_DIAGNOSTICS["failed"]+=1
+        if category=="coverage":
+            RSS_QUERY_DIAGNOSTICS["coverageFailed"]+=1
+            COVERAGE_SEARCH_DIAGNOSTICS["failedQueries"]+=1
+        else:
+            RSS_QUERY_DIAGNOSTICS["primaryFailed"]+=1
+        return []
     cutoff=now-timedelta(days=lookback_days);out=[]
     site_match=re.search(r"site:([A-Za-z0-9.-]+)",query,re.I)
     site=site_match.group(1).lower() if site_match else ""
@@ -359,6 +373,8 @@ def google_rss(category,query,max_items=8,lookback_days=PRIMARY_LOOKBACK_DAYS):
             "retrievalQuery":q
         })
         if len(out)>=max_items:break
+    RSS_QUERY_DIAGNOSTICS["ok"]+=1
+    if not out:RSS_QUERY_DIAGNOSTICS["empty"]+=1
     return out
 
 def newsroom_matches(title,data):
@@ -416,7 +432,7 @@ def event_match_score(x,h):
         return 0.70
     return 0.0
 
-COVERAGE_SEARCH_DIAGNOSTICS={"calls":0,"queries":0,"results":0}
+COVERAGE_SEARCH_DIAGNOSTICS={"calls":0,"queries":0,"results":0,"failedQueries":0,"heldCoverageUnknown":0,"priorIndexCandidateMatches":0}
 
 def coverage_search(x,max_queries=2):
     COVERAGE_SEARCH_DIAGNOSTICS["calls"]+=1
@@ -1135,6 +1151,7 @@ def main():
     dart=json.loads(DART.read_text(encoding="utf-8")).get("items",[]) if DART.exists() else []
     numeric=json.loads(NUM.read_text(encoding="utf-8")).get("items",[]) if NUM.exists() else []
     archive=json.loads(ARCHIVE.read_text(encoding="utf-8")) if ARCHIVE.exists() else []
+    press_index=load_press_index(PRESS_COVERAGE_INDEX)
     pre_scoop=json.loads(Path("pre_scoop.json").read_text(encoding="utf-8")).get("items",[]) if Path("pre_scoop.json").exists() else []
     now=datetime.now(KST)
     try:
@@ -1365,10 +1382,17 @@ def main():
             ev=event_match_score(x,{"title":r.get("title",""),"summary":r.get("summary") or "","sourceName":r.get("sourceName"),"published":r.get("published")})
             if ev>=0.72:archive_matches.append((ev,r))
         archive_matches.sort(key=lambda z:z[0],reverse=True)
+        press_index_report=prior_coverage_candidates(
+            x,press_index,event_match_score=event_match_score,companies=companies,now=now)
+        indexed_prior=press_index_report["matches"]
+        COVERAGE_SEARCH_DIAGNOSTICS["priorIndexCandidateMatches"]+=len(indexed_prior)
 
         coverage=[]
         best_news=max([event_match_score(x,r) for r in newsroom] or [0])
-        if best_news<0.78:coverage=coverage_search(x)
+        coverage_failed_before=COVERAGE_SEARCH_DIAGNOSTICS["failedQueries"]
+        coverage_queried=best_news<0.78
+        if coverage_queried:coverage=coverage_search(x)
+        coverage_failed=(COVERAGE_SEARCH_DIAGNOSTICS["failedQueries"]>coverage_failed_before)
 
         combined=[]
         for r in newsroom:
@@ -1377,6 +1401,8 @@ def main():
             combined.append({"source":r.get("sourceName"),"title":r.get("title"),"published":r.get("published"),"url":r.get("url"),"_sim":similarity(title,r.get("title","")+" "+(r.get("summary") or ""))})
         for _,r in archive_matches[:12]:
             combined.append({"source":r.get("sourceName") or "archive","title":r.get("title"),"published":r.get("published"),"url":r.get("url"),"_sim":similarity(title,r.get("title","")+" "+(r.get("summary") or ""))})
+        for r in indexed_prior:
+            combined.append({"source":r.get("sourceName"),"title":r.get("title"),"published":r.get("published"),"url":r.get("url"),"_sim":similarity(title,r.get("title",""))})
         combined.sort(key=lambda z:z.get("_sim",0),reverse=True)
         strong=[]
         for r in combined:
@@ -1400,6 +1426,13 @@ def main():
             drop_stats["prior_coverage"]+=1
             record_drop_example(drop_examples,"prior_coverage",x,
                 "선행 기사 색인에서 같은 사건에 대한 높은 정합성 관측. 기사 전문은 아직 별도 대조가 필요함")
+            continue
+
+        if coverage_failed:
+            drop_stats["coverage_search_unavailable"]=drop_stats.get("coverage_search_unavailable",0)+1
+            COVERAGE_SEARCH_DIAGNOSTICS["heldCoverageUnknown"]+=1
+            record_drop_example(drop_examples,"coverage_search_unavailable",x,
+                "국내 선행보도 RSS 검색 장애. 기사 미검색이 아니라 검증 미완료이므로 단독 유력 후보 승격 보류")
             continue
 
         # Procurement feeds contain many welfare, education, PR, event and routine service
@@ -1550,7 +1583,10 @@ def main():
             "kind":kind,"beat":beat_for(joined),"title":headline,"score":score,
             "scoreFloorApplied":score_floor_applied,
             "scoreNote":"공식 원자료의 중대 사건이나 수치 누락으로 원문 재확인이 필요함" if score_floor_applied else "일반 점수 기준 충족",
-            "status":"단독 유력" if not strong and score>=86 and tier>=3 and concrete_hooks>=2 else "단독 후보",
+            "status":"단독 유력" if (not strong and score>=86 and tier>=3 and concrete_hooks>=2
+                and coverage_queried and press_index_report["status"] not in
+                ("index_unavailable_not_no_news","event_date_unverified","company_identity_missing"))
+                else "기보도 검증 미완료",
             "originalSource":x.get("officialLabel") or x.get("sourceName"),
             "originalSourceUrl":x.get("url"),"original":True,
             "coverageCount":len(strong),"coverageSources":[r.get("source") for r in strong if r.get("source")],
@@ -1561,8 +1597,13 @@ def main():
             "questions":questions,"firstSeenAt":x.get("published"),
             "firstSeenSource":x.get("officialLabel") or x.get("sourceName"),
             "verification":"원문·출입처 확인 후 단독 확정",
-            "evidenceTier":tier,"coverageChecked":True,
-            "coverageIndexChecked":True,"pressFulltextReviewed":False,
+            "evidenceTier":tier,"coverageChecked":bool(coverage_queried and not coverage_failed),
+            "coverageIndexChecked":press_index_report["status"] not in
+                ("index_unavailable_not_no_news","event_date_unverified","company_identity_missing"),
+            "coverageIndexStatus":press_index_report["status"],
+            "coverageIndexSourceAt":press_index_report.get("sourceAt"),
+            "domesticUnreportedProved":False,
+            "pressFulltextReviewed":False,
             "sameEventFulltextCoverageVerified":False,
             "exclusiveConfirmed":False,"approvedForPitch":False,
             "sourceGroup":source_group(x),
@@ -1650,6 +1691,9 @@ def main():
         "sourceSuppressionExamples":{"dart":dart_suppression_examples},
         "dropExamples":drop_examples,
         "coverageSearchDiagnostics":COVERAGE_SEARCH_DIAGNOSTICS,
+        "rssSearchDiagnostics":RSS_QUERY_DIAGNOSTICS,
+        "pressIndexStatus":press_index.get("status"),
+        "pressIndexCount":press_index.get("itemCount",0) if press_index.get("status")=="observed_domestic_press_index_not_complete_coverage" else None,
         "dropStats":drop_stats,
         "sourceGroups":{g:sum(1 for x in final if x.get("sourceGroup")==g) for g in sorted({x.get("sourceGroup","기타") for x in final})},
         "note":"단독감은 중요 뉴스 랭킹이 아닙니다. 실제 단독 기사에서 반복되는 내부 의사결정·생산계획·공급변경·이사회·인사·거래구조·자금조달·규제/인허가 선행 신호를 찾고, 구체적 사실·최근성·원자료성·미보도 여부·실제 전화 확인 가능성을 함께 평가합니다. 일반 공지·행정규칙·행사·채용·단순 계약 규모만으로는 올리지 않습니다."

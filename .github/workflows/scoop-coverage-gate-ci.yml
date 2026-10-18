@@ -1,0 +1,53 @@
+name: Scoop Coverage Failure and Prior-Press Evidence Regression
+on:
+  pull_request:
+    paths:
+      - 'scoop_scout.py'
+      - 'scripts/press_coverage_gate.py'
+      - 'tests/test_scoop_press_coverage_failclosed.py'
+      - '.github/workflows/scoop-coverage-gate-ci.yml'
+      - '.github/workflows/scoop-radar.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scoop_scout.py'
+      - 'scripts/press_coverage_gate.py'
+      - 'tests/test_scoop_press_coverage_failclosed.py'
+      - '.github/workflows/scoop-coverage-gate-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify-coverage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify search failures stay UNKNOWN and prior press never disappears
+        run: |
+          python -m compileall -q scripts/press_coverage_gate.py scoop_scout.py
+          python -m unittest discover -s tests -p 'test_scoop_press_coverage_failclosed.py' -v
+          python -m unittest discover -s tests -p 'test_press_coverage_index.py' -v
+      - name: Replay real Korean news index without implying 0 press
+        run: |
+          python - <<'PY'
+          import json
+          from scripts.press_coverage_gate import load_index,prior_coverage_candidates
+          import scoop_scout as s
+          index=load_index('digests/press_coverage_index_latest.json')
+          assert index['status'] in (
+              'initial_baseline_without_articles',
+              'observed_domestic_press_index_not_complete_coverage')
+          if index['status']=='observed_domestic_press_index_not_complete_coverage':
+              assert index['itemCount']==len(index['items'])
+          sample={'title':'현대자동차 대규모 리콜','published':'2026-10-18T00:00:00+09:00'}
+          report=prior_coverage_candidates(sample,index,
+              event_match_score=s.event_match_score,companies=['현대차'])
+          assert report['notReportedProved'] is False
+          assert report['fulltextReviewed'] is False
+          print('PASS observed prior press index status',index['status'],
+                'no false unreported signal')
+          PY
