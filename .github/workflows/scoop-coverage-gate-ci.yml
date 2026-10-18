@@ -3,6 +3,9 @@ on:
   pull_request:
     paths:
       - 'scoop_scout.py'
+      - 'pre_scoop_radar.py'
+      - 'scripts/official_publication_date_guard.py'
+      - 'tests/test_official_publication_date_guard.py'
       - 'scripts/press_coverage_gate.py'
       - 'tests/test_scoop_press_coverage_failclosed.py'
       - '.github/workflows/scoop-coverage-gate-ci.yml'
@@ -11,6 +14,9 @@ on:
     branches: [main]
     paths:
       - 'scoop_scout.py'
+      - 'pre_scoop_radar.py'
+      - 'scripts/official_publication_date_guard.py'
+      - 'tests/test_official_publication_date_guard.py'
       - 'scripts/press_coverage_gate.py'
       - 'tests/test_scoop_press_coverage_failclosed.py'
       - '.github/workflows/scoop-coverage-gate-ci.yml'
@@ -29,6 +35,7 @@ jobs:
       - name: Verify search failures stay UNKNOWN and prior press never disappears
         run: |
           python -m compileall -q scripts/press_coverage_gate.py scoop_scout.py
+          python -m unittest discover -s tests -p 'test_official_publication_date_guard.py' -v
           python -m unittest discover -s tests -p 'test_scoop_press_coverage_failclosed.py' -v
           python -m unittest discover -s tests -p 'test_press_coverage_index.py' -v
       - name: Replay real Korean news index without implying 0 press
