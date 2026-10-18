@@ -3,6 +3,9 @@ on:
   pull_request:
     paths:
       - 'scripts/exclusive_reverse_trace.py'
+      - 'scripts/reverse_trace_source_leads.py'
+      - 'data/reverse_trace_primary_original_leads.json'
+      - 'tests/test_reverse_trace_source_leads.py'
       - 'scripts/historical_exclusive_press_collector.py'
       - 'tests/test_historical_exclusive_press_collector.py'
       - 'data/reverse_trace_verified_labels.json'
@@ -20,6 +23,9 @@ on:
     branches: [main]
     paths:
       - 'scripts/exclusive_reverse_trace.py'
+      - 'scripts/reverse_trace_source_leads.py'
+      - 'data/reverse_trace_primary_original_leads.json'
+      - 'tests/test_reverse_trace_source_leads.py'
       - 'scripts/historical_exclusive_press_collector.py'
       - 'tests/test_historical_exclusive_press_collector.py'
       - 'tests/test_exclusive_reverse_trace.py'
@@ -44,6 +50,7 @@ jobs:
           python -m unittest discover -s tests -p 'test_historical_exclusive_press_collector.py' -v
           python -m scripts.historical_exclusive_press_collector --help >/dev/null
           python -m unittest discover -s tests -p 'test_exclusive_reverse_trace.py' -v
+          python -m unittest discover -s tests -p 'test_reverse_trace_source_leads.py' -v
           python -m unittest discover -s tests -p 'test_press_coverage_index.py' -v
           python -m unittest discover -s tests -p 'test_publish_newsroom_outputs.py' -v
           node tests/test_reverse_trace_view.cjs
@@ -58,6 +65,12 @@ jobs:
           assert res['pressIndexGeneratedAt']==idx['generatedAt']
           assert res['humanReviewedYPN']==res['Y']+res['P']+res['N']
           assert res['confirmedScoops']==res['approvedArticles']==0
+          assert res['curatedLeadStatus']=='curated_official_original_candidates_chronology_unverified'
+          assert res['primaryDocumentPublishedBeforeMediaVerifiedCount']==0
+          assert res['pressFulltextMatchedToOfficialOriginalCount']==0
+          assert res['sourcePrioritizationEvidenceSufficient'] is False
+          assert res['locatedOriginalCandidateArticleCount']==sum(
+              'locatedOfficialOriginalCandidate' in x for x in res['items'])
           assert res['reliablePopulationReachEstimated'] is False
           assert all(x['publicTraceClass'] in ('U','Y','P','N') and
                      x['confirmedExclusive'] is False for x in res['items'])

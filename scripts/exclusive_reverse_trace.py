@@ -280,6 +280,7 @@ def main():
     p.add_argument("--press",default="digests/press_coverage_index_latest.json")
     p.add_argument("--history",default="digests/historical_exclusive_press_index_latest.json")
     p.add_argument("--reviews",default="data/reverse_trace_verified_labels.json")
+    p.add_argument("--original-leads",default="data/reverse_trace_primary_original_leads.json")
     p.add_argument("--output",default="digests/reverse_trace_latest.json")
     args=p.parse_args()
     press=json.loads(Path(args.press).read_text(encoding="utf-8"))
@@ -289,7 +290,11 @@ def main():
     history_path=Path(args.history)
     history=(json.loads(history_path.read_text(encoding="utf-8"))
              if history_path.exists() else None)
-    result=build(press,sheet["items"],history=history)
+    # Invoked as 'python scripts/exclusive_reverse_trace.py' by Auto Desk.
+    # A sibling import works regardless of project-root PYTHONPATH.
+    from reverse_trace_source_leads import attach_primary_original_leads
+    leads=json.loads(Path(args.original_leads).read_text(encoding="utf-8"))
+    result=attach_primary_original_leads(build(press,sheet["items"],history=history),leads)
     dest=Path(args.output)
     dest.parent.mkdir(parents=True,exist_ok=True)
     tmp=dest.with_suffix(".json.tmp")

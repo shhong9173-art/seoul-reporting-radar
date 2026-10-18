@@ -46,6 +46,13 @@ def write_news(root,label):
                  "historicalSearchIndexAt":historical["generatedAt"],
                  "historicalSearchObservedRows":0,
                  "historicalSearchAllSourcesChecked":False,
+                 "curatedLeadStatus":"curated_official_original_candidates_chronology_unverified",
+                 "curatedLeadSourceAt":"2026-10-19T00:04:00+09:00",
+                 "locatedOriginalCandidateArticleCount":0,
+                 "distinctLocatedOfficialOriginalDocuments":0,
+                 "primaryDocumentPublishedBeforeMediaVerifiedCount":0,
+                 "pressFulltextMatchedToOfficialOriginalCount":0,
+                 "sourcePrioritizationEvidenceSufficient":False,
                  "confirmedScoops":0,"approvedArticles":0,
                  "reliablePopulationReachEstimated":False,
                  "humanReviewedYPN":0,"Y":0,"P":0,"N":0,
@@ -164,6 +171,29 @@ class PublisherIntegration(unittest.TestCase):
                          "another live producer update 3")
         self.assertIn("digests/press_coverage_index_latest.json",
                       OUTPUTS["news"])
+
+    def test_curated_official_original_cannot_publish_automatic_earlier_source_claim(self):
+        trace_path=self.root/"digests/reverse_trace_latest.json"
+        trace=json.loads(trace_path.read_text(encoding="utf-8"))
+        trace["items"]=[{
+            "confirmedExclusive":False,"publicTraceClass":"U",
+            "locatedOfficialOriginalCandidate":{
+                "status":"dated_company_original_candidate_not_chronology_verified",
+                "documentUrl":"https://news.samsungsdi.com/ko/articleView?seq=371",
+                "publicationClockVerified":False,
+                "storyPublisherClockVerified":False,
+                "articleFulltextCompared":False,
+                "documentAndStoryFactsCompared":False,
+                "releasedBeforeStoryVerified":True,
+                "automaticYPNDecision":False,
+            }}]
+        trace["totalObservedExclusiveHeadlines"]=1
+        trace["locatedOriginalCandidateArticleCount"]=1
+        trace["distinctLocatedOfficialOriginalDocuments"]=1
+        trace["unreviewedU"]=1
+        trace_path.write_text(json.dumps(trace),encoding="utf-8")
+        with self.assertRaisesRegex(ValueError,"unverified_original_candidate_claim"):
+            selected(self.root,"news")
 
     def test_historical_reverse_trace_cannot_publish_stale_or_forged_source(self):
         path=self.root/"digests/historical_exclusive_press_index_latest.json"

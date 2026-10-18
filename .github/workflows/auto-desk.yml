@@ -121,6 +121,7 @@ jobs:
       - name: Reverse trace observed industry exclusives with evidence-only labels
         run: |
           python -m unittest discover -s tests -p 'test_exclusive_reverse_trace.py' -v
+          python -m unittest discover -s tests -p 'test_reverse_trace_source_leads.py' -v
           python scripts/exclusive_reverse_trace.py
           python - <<'PY'
           import json
@@ -132,6 +133,12 @@ jobs:
           assert trace['historicalSearchIndexAt']==historical['generatedAt']
           assert trace['historicalSearchObservedRows']==historical['itemCount']
           assert trace['historicalSearchAllSourcesChecked'] is False
+          assert trace['curatedLeadStatus']=='curated_official_original_candidates_chronology_unverified'
+          assert trace['locatedOriginalCandidateArticleCount']==sum(
+              'locatedOfficialOriginalCandidate' in x for x in trace['items'])
+          assert trace['primaryDocumentPublishedBeforeMediaVerifiedCount']==0
+          assert trace['pressFulltextMatchedToOfficialOriginalCount']==0
+          assert trace['sourcePrioritizationEvidenceSufficient'] is False
           assert trace['humanReviewedYPN']==trace['Y']+trace['P']+trace['N']
           assert trace['totalObservedExclusiveHeadlines']==len(trace['items'])
           assert trace['confirmedScoops']==trace['approvedArticles']==0
