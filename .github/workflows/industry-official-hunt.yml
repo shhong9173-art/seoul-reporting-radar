@@ -6,6 +6,8 @@ on:
       - 'scripts/nhtsa_public_watch.py'
       - 'scripts/industry_official_hunt.py'
       - 'scripts/official_event_triage.py'
+      - 'scripts/dart_beat_queue_sync.py'
+      - 'tests/test_dart_beat_queue_sync.py'
       - 'tests/test_official_event_triage.py'
       - 'tests/test_official_event_triage_view.cjs'
       - 'official-today.html'
@@ -37,6 +39,7 @@ jobs:
           python -m compileall -q scripts/nhtsa_public_watch.py scripts/industry_official_hunt.py
           python -m unittest discover -s tests -p 'test_industry_official_hunt.py' -v
           python -m unittest discover -s tests -p 'test_official_event_triage.py' -v
+          python -m unittest discover -s tests -p 'test_dart_beat_queue_sync.py' -v
           node tests/test_official_event_triage_view.cjs
       - name: Collect US official safety records
         continue-on-error: true
@@ -45,6 +48,9 @@ jobs:
         run: python scripts/industry_official_hunt.py
       - name: Create date-grounded official document queue without KIPRIS
         run: python scripts/official_event_triage.py
+      - name: Check DART beat snapshot versus reporting queue
+        run: |
+          python scripts/dart_beat_queue_sync.py
       - name: Publish only successful source results and explicit coverage states
         run: |
           set -e
