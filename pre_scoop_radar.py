@@ -13,6 +13,7 @@ from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 from pathlib import Path
 from html.parser import HTMLParser
+from scripts.official_publication_date_guard import resurfaced_historical_original
 
 KST = timezone(timedelta(hours=9))
 OUT = Path("pre_scoop.json")
@@ -233,6 +234,9 @@ def parse_feed(root, domain, group, now, diag=None):
         dt=parse_dt(pub)
         if dt.year<2000 or dt < now-timedelta(days=LOOKBACK_DAYS) or dt>now+timedelta(hours=6):
             reject("OutsideWindow",title)
+            continue
+        if resurfaced_historical_original(title, dt):
+            reject("HistoricalOriginalResurfaced",title)
             continue
         body=title+" "+desc
         companies=target_hits(body)
@@ -1573,6 +1577,8 @@ def main():
     for item in prior_items:
         dt=parse_dt(item.get("published"))
         if dt.year<2000 or dt<now-timedelta(days=LOOKBACK_DAYS) or dt>now+timedelta(hours=6):
+            continue
+        if resurfaced_historical_original(item.get("title"),dt):
             continue
         if item.get("signalType")=="official_recall_notice" and item.get("dateParseVersion")!="sequence-v2":
             continue
