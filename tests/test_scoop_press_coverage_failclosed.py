@@ -32,6 +32,73 @@ def press(at="2026-10-18T17:00:00+09:00",title=None):
 
 
 class DomesticNewsFailureGate(unittest.TestCase):
+    def lead(self, responder):
+        row={**event(),"title":"현대자동차 울산 공장 신규 생산중단",
+             "url":"https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261018000001",
+             "official":True,"officialLabel":"DART","sourceName":"DART"}
+        with patch.object(scout,"get",side_effect=responder):
+            leads,diag=scout.build_lead_signals([row],[],NOW)
+        self.assertEqual(len(leads),1,diag)
+        return leads[0],diag
+
+    def test_lead_failed_search_cannot_claim_no_matching_press(self):
+        lead,diag=self.lead(TimeoutError("down"))
+        self.assertFalse(lead["coverageChecked"])
+        self.assertEqual(lead["coverageSearchStatus"],"failed")
+        self.assertEqual(lead["leadStrength"],"보도 확인 대기")
+        self.assertNotIn("매칭 없음",lead["coverageStatus"])
+        self.assertEqual(diag["coverage_unknown"],1)
+
+    def test_lead_partial_search_is_not_complete(self):
+        lead,_=self.lead([b"<rss><channel /></rss>",TimeoutError("down")])
+        self.assertEqual(lead["coverageSearchStatus"],"partial")
+        self.assertEqual(lead["coverageSuccessfulQueries"],1)
+        self.assertFalse(lead["coverageChecked"])
+
+    def test_lead_valid_empty_search_retains_limited_no_match_wording(self):
+        lead,_=self.lead(lambda *args:b"<rss><channel /></rss>")
+        self.assertTrue(lead["coverageChecked"])
+        self.assertEqual(lead["coverageSearchStatus"],"complete")
+        self.assertFalse(lead["notReportedProved"])
+        self.assertFalse(lead["fulltextReviewed"])
+
+    def test_unsearchable_title_is_not_completed_empty_search(self):
+        report=scout.coverage_search_report({"title":"짧음"})
+        self.assertEqual(report["status"],"not_run")
+
+    def test_lead_uses_year_index_before_rss_even_when_dashboard_empty(self):
+        row={**event(),"title":"현대자동차 울산 공장 신규 생산중단",
+             "url":"https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261018000001",
+             "official":True,"officialLabel":"DART","sourceName":"DART"}
+        older=press("2026-09-18T17:00:00+09:00",row["title"])
+        index=merge_index(None,[older],now=NOW)
+        with patch.object(scout,"load_press_index",return_value=index), \
+             patch.object(scout,"get",side_effect=AssertionError("unneeded RSS")) as get:
+            leads,diag=scout.build_lead_signals([row],[],NOW)
+        self.assertEqual(leads,[])
+        self.assertEqual(diag["prior_index_coverage"],1)
+        get.assert_not_called()
+
+    def test_missing_index_is_unknown_and_never_proves_no_press(self):
+        with patch.object(scout,"load_press_index",return_value={"status":"missing_or_invalid_index"}):
+            lead,_=self.lead(lambda *args:b"<rss><channel /></rss>")
+        self.assertEqual(lead["coverageIndexStatus"],"index_unavailable_not_no_news")
+        self.assertFalse(lead["notReportedProved"])
+
+    def test_unexpected_search_exception_is_unknown(self):
+        with patch.object(scout,"coverage_search",side_effect=ValueError("bad")):
+            report=scout.coverage_search_report(event())
+        self.assertEqual(report["status"],"failed")
+        self.assertTrue(report["unexpectedError"])
+
+    def test_previous_failure_does_not_contaminate_next_search(self):
+        with patch.object(scout,"get",side_effect=TimeoutError("down")):
+            scout.coverage_search_report(event())
+        with patch.object(scout,"get",return_value=b"<rss><channel /></rss>"):
+            report=scout.coverage_search_report(event())
+        self.assertEqual(report["status"],"complete")
+        self.assertEqual(report["failedQueries"],0)
+
     def test_google_rss_timeout_is_failed_not_empty_news(self):
         before=dict(scout.RSS_QUERY_DIAGNOSTICS)
         errors=scout.COVERAGE_SEARCH_DIAGNOSTICS["failedQueries"]
