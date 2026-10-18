@@ -254,6 +254,16 @@ def merge(queue, beat, *, now=None):
                         item["officialFact"] = (
                             "공식 영업정지 공시 원문 표의 기재값만 확인; "
                             "실제 중단 실행·사업 영향·선행보도 및 모자회사 중복 여부 미검증")
+            peer = row.get("possibleOverlappingCessationReceipt")
+            if (row.get("status") == "official_business_cessation_document_review"
+                and row.get("possibleSameUnderlyingCessationEvent") is True
+                and row.get("underlyingCessationEventIndependentlyVerified") is False
+                and isinstance(peer, str) and RECEIPT.fullmatch(peer)
+                and peer != receipt):
+                item["possibleOverlappingCessationReceipt"] = peer
+                item["possibleSameUnderlyingCessationEvent"] = True
+                item["underlyingCessationEventIndependentlyVerified"] = False
+                item["uniqueUnderlyingCessationEventVerified"] = False
             if fresh:
                 out["freshOfficialReview"].append(item)
                 added_recent += 1

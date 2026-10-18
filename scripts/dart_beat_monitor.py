@@ -140,6 +140,92 @@ def valid_prior_snapshot(previous):
             and isinstance(previous.get("firstSeen"),dict))
 
 
+
+_CESSATION_PAIR_TERMS = (
+    "reportedBusinessScope", "reportedAffectedSalesWon",
+    "reportedRecentSalesWon", "issuerReportedRevenueRatioPct",
+    "issuerStatedCessationDate",
+)
+
+
+def _cessation_original_signature(row):
+    """Same filed values can indicate overlap, never prove corporate identity."""
+    if (not business_cessation_filing(row)
+        or row.get("status")!="official_business_cessation_document_review"
+        or row.get("sourceError") is True
+        or row.get("businessCessationFilingRelation") not in (
+            "issuer_business_cessation", "parent_disclosure_of_subsidiary")):
+        return None
+    proof=row.get("businessCessationPrimarySource")
+    if (not isinstance(proof,dict)
+        or proof.get("officialXmlOrHtmlBodyRetrieved") is not True
+        or not isinstance(proof.get("observedTerms"),dict)):
+        return None
+    values=[]
+    for name in _CESSATION_PAIR_TERMS:
+        item=proof["observedTerms"].get(name)
+        if (not isinstance(item,dict)
+            or item.get("basis")!="same_official_table_row"
+            or item.get("operationalShutdownVerified") is not False
+            or item.get("independentBusinessEffectVerified") is not False
+            or not isinstance(item.get("value"),str)
+            or not item["value"]):
+            return None
+        values.append(item["value"])
+    return (row["published"], *values)
+
+
+def mark_possible_parent_subsidiary_cessation_overlap(records):
+    """Attach *candidate* matching receipts, not verified one-event merges.
+
+    All five original-cell fields and the filing date must agree. Ambiguous
+    matches are excluded. Existing annotations are discarded on every scan,
+    preventing old matches from surviving after source corrections or losses.
+    """
+    matches={}
+    for row in records:
+        row.pop("possibleOverlappingCessationReceipt",None)
+        row.pop("possibleSameUnderlyingCessationEvent",None)
+        row.pop("underlyingCessationEventIndependentlyVerified",None)
+        signature=_cessation_original_signature(row)
+        if signature is not None:
+            matches.setdefault(signature,[]).append(row)
+    pairs=[]
+    for signature,group in matches.items():
+        parents=[r for r in group if
+            r["businessCessationFilingRelation"]=="parent_disclosure_of_subsidiary"]
+        issuers=[r for r in group if
+            r["businessCessationFilingRelation"]=="issuer_business_cessation"]
+        if len(group)!=2 or len(parents)!=1 or len(issuers)!=1:
+            continue
+        parent,issuer=parents[0],issuers[0]
+        if (parent["company"]==issuer["company"] or
+            parent["corpCode"]==issuer["corpCode"] or
+            parent["receiptNo"]==issuer["receiptNo"]):
+            continue
+        for source,other in ((parent,issuer),(issuer,parent)):
+            source["possibleOverlappingCessationReceipt"]=other["receiptNo"]
+            source["possibleSameUnderlyingCessationEvent"]=True
+            source["underlyingCessationEventIndependentlyVerified"]=False
+        pairs.append({
+            "status":"candidate_parent_subsidiary_same_event_not_verified",
+            "parentCompany":parent["company"],
+            "parentReceiptNo":parent["receiptNo"],
+            "issuerCompany":issuer["company"],
+            "issuerReceiptNo":issuer["receiptNo"],
+            "filingDate":signature[0],
+            "identicalOfficialFields":list(_CESSATION_PAIR_TERMS),
+            "parentSubsidiaryLegalIdentityIndependentlyVerified":False,
+            "actualBusinessClosureIndependentlyVerified":False,
+            "twoSeparateBusinessEventsVerified":False,
+            "priorNewsFulltextReviewed":False,
+            "scoopConfirmed":False,
+            "approvedForPitch":False,
+            "warning":"두 DART 공시의 원문 기재값과 날짜가 동일함. 별도 독립 영업중단 2건 아님을 증명하지도, 동일 사건을 법적으로 확정하지도 않음"
+        })
+    return sorted(pairs,key=lambda x:(x["filingDate"],x["parentReceiptNo"]),reverse=True)
+
+
 def collect(codes,key,*,now=None,previous=None,query=fetch_official_list,
             detail=document_evidence,valueup_detail=valueup_document_evidence,
             cancellation_detail=cancellation_document_evidence,
@@ -263,6 +349,7 @@ def collect(codes,key,*,now=None,previous=None,query=fetch_official_list,
         item["approvedForPitch"]=False
         detailed.append(item)
         first_seen.setdefault(receipt,item["firstObservedAt"])
+    candidate_pairs=mark_possible_parent_subsidiary_cessation_overlap(detailed)
     return {
         "generatedAt":now.isoformat(timespec="seconds"),
         "status":"industry_beat_official_receipt_review",
@@ -280,6 +367,8 @@ def collect(codes,key,*,now=None,previous=None,query=fetch_official_list,
         "businessCessationDocumentAttempts":sum(business_cessation_filing(r) for r in selected),
         "businessCessationDocumentReads":sum(r.get("status")=="official_business_cessation_document_review" for r in detailed),
         "businessCessationDocumentUnavailable":sum(r.get("status")=="business_cessation_document_unavailable" for r in detailed),
+        "possibleParentSubsidiaryCessationOverlapCount":len(candidate_pairs),
+        "possibleParentSubsidiaryCessationOverlapReviews":candidate_pairs[:15],
         "shareCancellationDocumentReads":sum(r.get("status")=="official_share_cancellation_document_review" for r in detailed),
         "shareCancellationDocumentUnavailable":sum(r.get("status")=="share_cancellation_document_unavailable" for r in detailed),
         "valueupOfficialDocumentReads":sum(
@@ -483,6 +572,9 @@ def change_review(current,previous=None,*,now=None):
             "changedTermsForReview":cited,"sourceReparseFieldKeys":changed_fields,
             "reportedOfficialTableTerms":terms,
             "reportedOfficialCessationTerms":cessation_terms,
+            "possibleOverlappingCessationReceipt":row.get("possibleOverlappingCessationReceipt"),
+            "possibleSameUnderlyingCessationEvent":row.get("possibleSameUnderlyingCessationEvent") is True,
+            "underlyingCessationEventIndependentlyVerified":False,
             "businessCessationFilingRelation":(
                 row.get("businessCessationFilingRelation")
                 if row.get("status")=="official_business_cessation_document_review"
@@ -501,6 +593,8 @@ def change_review(current,previous=None,*,now=None):
              if kind=="same_receipt_first_document_field_recovery" else
              "같은 공시 접수번호의 영업정지 원문 기재값을 처음 추출함. 기보도 전문·실제 중단 실행·모자회사 중복 공시 관계 확인(새 사건 아님)"
              if kind=="same_receipt_first_cessation_original_recovery" else
+             "두 DART 원문이 동일 사업·금액·비율·일자로 확인된 모자회사 공시 후보. 동일 법인/사건 여부를 공식 원문으로 확인하기 전 2건의 별도 사업 중단으로 집계 금지"
+             if row.get("possibleSameUnderlyingCessationEvent") is True else
              "같은 공시번호의 데이터 추출 차이: 공식 원문과 수집기 코드 확인 (기업 변화로 해석 금지)"
              if kind=="same_receipt_data_reparse_discrepancy" else
              "공시 상대방이 관계회사: 외부 최종 고객/납품과 연결 매출 계상·기보도 여부 별도 검증"

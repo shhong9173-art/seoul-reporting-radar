@@ -27,6 +27,7 @@ on:
       - 'scripts/dart_beat_run_health.py'
       - 'tests/test_dart_beat_run_health.py'
       - 'tests/test_dart_beat_monitor.py'
+      - 'tests/test_dart_cessation_overlap.py'
       - 'dart-beat-monitor.html'
   schedule:
     # Daily 07:45 and 17:45 Korea Standard Time, including weekends.
@@ -56,6 +57,7 @@ jobs:
         run: |
           python -m compileall -q scripts/dart_beat_monitor.py scripts/dart_corp_registry.py scripts/share_cancellation_official_document.py
           python -m unittest discover -s tests -p 'test_dart_beat_monitor.py' -v
+          python -m unittest discover -s tests -p 'test_dart_cessation_overlap.py' -v
           python -m unittest discover -s tests -p 'test_dart_beat_queue_sync.py' -v
           python -m unittest discover -s tests -p 'test_official_beat_triage_merge.py' -v
           python -m unittest discover -s tests -p 'test_dart_stock_identity.py' -v

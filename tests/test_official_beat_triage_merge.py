@@ -164,6 +164,12 @@ class BeatQueueIntegration(unittest.TestCase):
                     "independentBusinessEffectVerified":False}}}
         direct["businessCessationPrimarySource"]=evidence
         parent["businessCessationPrimarySource"]=evidence
+        direct["possibleSameUnderlyingCessationEvent"]=True
+        direct["possibleOverlappingCessationReceipt"]=parent["receiptNo"]
+        direct["underlyingCessationEventIndependentlyVerified"]=False
+        parent["possibleSameUnderlyingCessationEvent"]=True
+        parent["possibleOverlappingCessationReceipt"]=direct["receiptNo"]
+        parent["underlyingCessationEventIndependentlyVerified"]=False
         b["records"]=[direct,parent]
         out=merge(triage(),b,now=NOW)
         self.assertEqual(out["beatWideDartAdded"],2)
@@ -178,6 +184,10 @@ class BeatQueueIntegration(unittest.TestCase):
                           "issuerStatedCessationDate":"2026-12-18"})
         self.assertEqual(records["OCI홀딩스"]["businessCessationFilingRelation"],
                          "parent_disclosure_of_subsidiary")
+        self.assertFalse(records["OCI홀딩스"]["uniqueUnderlyingCessationEventVerified"])
+        self.assertTrue(records["OCI홀딩스"]["possibleSameUnderlyingCessationEvent"])
+        self.assertEqual(records["OCI홀딩스"]["possibleOverlappingCessationReceipt"],"20260929000097")
+        self.assertFalse(records["OCI홀딩스"]["underlyingCessationEventIndependentlyVerified"])
         self.assertFalse(records["OCI홀딩스"]["uniqueUnderlyingCessationEventVerified"])
         self.assertFalse(records["OCI홀딩스"]["companyImpactVerified"])
         self.assertFalse(records["OCI홀딩스"]["approvedForPitch"])
