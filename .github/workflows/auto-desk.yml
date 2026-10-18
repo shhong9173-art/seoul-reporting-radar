@@ -104,7 +104,7 @@ jobs:
       - name: Backfill historical industry [단독] headlines from rotating month×beat index queries
         run: |
           python -m unittest discover -s tests -p 'test_historical_exclusive_press_collector.py' -v
-          python scripts/historical_exclusive_press_collector.py
+          python -m scripts.historical_exclusive_press_collector
           python - <<'PY'
           import json
           from pathlib import Path
