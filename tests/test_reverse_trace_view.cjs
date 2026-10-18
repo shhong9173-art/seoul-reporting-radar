@@ -7,6 +7,10 @@ new Function(scripts[0][1]);
 for(const tag of [
  "digests/reverse_trace_latest.json",
  "digests/press_coverage_index_latest.json",
+ "digests/historical_exclusive_press_index_latest.json",
+ "data.historicalSearchIndexAt!==historical.generatedAt",
+ "row.historicalSearchHeadlineOnly",
+ "전문·원본 미확인",
  "reliablePopulationReachEstimated!==false",
  "humanReviewedYPN!==data.Y+data.P+data.N",
  "U · 아직 미검증",
