@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-18T16:52:05+09:00",
+  "generatedAt": "2026-10-18T16:57:15+09:00",
   "status": "source_requests_completed",
   "expectedQueries": 19,
   "attemptedQueries": 19,
@@ -7,34 +7,34 @@
   "validEmptyQueries": 1,
   "slowestQueries": [
     {
-      "category": "단독",
+      "category": "글로벌",
+      "globalFeed": true,
+      "status": "checked_recent_rows",
+      "durationMs": 517
+    },
+    {
+      "category": "부품",
       "globalFeed": false,
       "status": "checked_recent_rows",
-      "durationMs": 529
+      "durationMs": 495
     },
     {
       "category": "글로벌",
       "globalFeed": true,
-      "status": "checked_recent_rows",
-      "durationMs": 510
-    },
-    {
-      "category": "글로벌",
-      "globalFeed": true,
-      "status": "checked_recent_rows",
-      "durationMs": 507
-    },
-    {
-      "category": "글로벌",
-      "globalFeed": true,
-      "status": "checked_recent_rows",
-      "durationMs": 496
-    },
-    {
-      "category": "중국차",
-      "globalFeed": false,
       "status": "checked_recent_rows",
       "durationMs": 468
+    },
+    {
+      "category": "배터리",
+      "globalFeed": false,
+      "status": "checked_recent_rows",
+      "durationMs": 459
+    },
+    {
+      "category": "글로벌",
+      "globalFeed": true,
+      "status": "checked_recent_rows",
+      "durationMs": 446
     }
   ],
   "recentArticleItemsAfterDedupe": 220,
@@ -46,44 +46,28 @@
   "warning": "RSS 검색/형식/기간 장애는 기사 부재를 입증하지 않습니다. 수집 미달 시 기존 data.js/data.json 유지.",
   "checks": [
     {
-      "category": "배터리",
-      "globalFeed": false,
-      "status": "checked_recent_rows",
-      "recentRows": 17,
-      "errorType": null,
-      "durationMs": 432
-    },
-    {
       "category": "완성차",
       "globalFeed": false,
       "status": "checked_recent_rows",
       "recentRows": 99,
       "errorType": null,
-      "durationMs": 455
+      "durationMs": 440
+    },
+    {
+      "category": "배터리",
+      "globalFeed": false,
+      "status": "checked_recent_rows",
+      "recentRows": 17,
+      "errorType": null,
+      "durationMs": 459
     },
     {
       "category": "부품",
       "globalFeed": false,
       "status": "checked_recent_rows",
-      "recentRows": 72,
+      "recentRows": 71,
       "errorType": null,
-      "durationMs": 465
-    },
-    {
-      "category": "정책·관세",
-      "globalFeed": false,
-      "status": "checked_recent_rows",
-      "recentRows": 12,
-      "errorType": null,
-      "durationMs": 409
-    },
-    {
-      "category": "노조·생산",
-      "globalFeed": false,
-      "status": "checked_recent_rows",
-      "recentRows": 1,
-      "errorType": null,
-      "durationMs": 390
+      "durationMs": 495
     },
     {
       "category": "중국차",
@@ -91,7 +75,23 @@
       "status": "checked_recent_rows",
       "recentRows": 50,
       "errorType": null,
-      "durationMs": 468
+      "durationMs": 385
+    },
+    {
+      "category": "노조·생산",
+      "globalFeed": false,
+      "status": "checked_recent_rows",
+      "recentRows": 1,
+      "errorType": null,
+      "durationMs": 353
+    },
+    {
+      "category": "정책·관세",
+      "globalFeed": false,
+      "status": "checked_recent_rows",
+      "recentRows": 12,
+      "errorType": null,
+      "durationMs": 441
     },
     {
       "category": "수주·투자",
@@ -99,15 +99,7 @@
       "status": "checked_recent_rows",
       "recentRows": 3,
       "errorType": null,
-      "durationMs": 403
-    },
-    {
-      "category": "리콜·안전",
-      "globalFeed": false,
-      "status": "checked_no_recent_rows",
-      "recentRows": 0,
-      "errorType": null,
-      "durationMs": 410
+      "durationMs": 369
     },
     {
       "category": "단독",
@@ -115,7 +107,15 @@
       "status": "checked_recent_rows",
       "recentRows": 6,
       "errorType": null,
-      "durationMs": 412
+      "durationMs": 366
+    },
+    {
+      "category": "리콜·안전",
+      "globalFeed": false,
+      "status": "checked_no_recent_rows",
+      "recentRows": 0,
+      "errorType": null,
+      "durationMs": 409
     },
     {
       "category": "미국·글로벌",
@@ -123,7 +123,7 @@
       "status": "checked_recent_rows",
       "recentRows": 2,
       "errorType": null,
-      "durationMs": 348
+      "durationMs": 321
     },
     {
       "category": "단독",
@@ -131,7 +131,7 @@
       "status": "checked_recent_rows",
       "recentRows": 4,
       "errorType": null,
-      "durationMs": 529
+      "durationMs": 427
     },
     {
       "category": "글로벌",
@@ -139,7 +139,7 @@
       "status": "checked_recent_rows",
       "recentRows": 53,
       "errorType": null,
-      "durationMs": 496
+      "durationMs": 517
     },
     {
       "category": "글로벌",
@@ -147,7 +147,7 @@
       "status": "checked_recent_rows",
       "recentRows": 40,
       "errorType": null,
-      "durationMs": 422
+      "durationMs": 468
     },
     {
       "category": "글로벌",
@@ -155,7 +155,7 @@
       "status": "checked_recent_rows",
       "recentRows": 2,
       "errorType": null,
-      "durationMs": 425
+      "durationMs": 431
     },
     {
       "category": "글로벌",
@@ -163,7 +163,7 @@
       "status": "checked_recent_rows",
       "recentRows": 24,
       "errorType": null,
-      "durationMs": 507
+      "durationMs": 446
     },
     {
       "category": "글로벌",
@@ -171,15 +171,7 @@
       "status": "checked_recent_rows",
       "recentRows": 25,
       "errorType": null,
-      "durationMs": 424
-    },
-    {
-      "category": "글로벌",
-      "globalFeed": true,
-      "status": "checked_recent_rows",
-      "recentRows": 55,
-      "errorType": null,
-      "durationMs": 373
+      "durationMs": 435
     },
     {
       "category": "글로벌",
@@ -187,7 +179,15 @@
       "status": "checked_recent_rows",
       "recentRows": 8,
       "errorType": null,
-      "durationMs": 510
+      "durationMs": 379
+    },
+    {
+      "category": "글로벌",
+      "globalFeed": true,
+      "status": "checked_recent_rows",
+      "recentRows": 55,
+      "errorType": null,
+      "durationMs": 434
     },
     {
       "category": "글로벌",
@@ -195,7 +195,7 @@
       "status": "checked_recent_rows",
       "recentRows": 30,
       "errorType": null,
-      "durationMs": 424
+      "durationMs": 425
     }
   ]
 }
