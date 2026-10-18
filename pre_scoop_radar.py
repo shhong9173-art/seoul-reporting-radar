@@ -14,6 +14,7 @@ from email.utils import parsedate_to_datetime
 from pathlib import Path
 from html.parser import HTMLParser
 from scripts.official_publication_date_guard import resurfaced_historical_original
+from scripts.official_source_observation import update_source_states
 
 KST = timezone(timedelta(hours=9))
 OUT = Path("pre_scoop.json")
@@ -1564,14 +1565,18 @@ def main():
     items.extend(direct_recalls)
     by_group["자동차·결함"] = by_group.get("자동차·결함", 0) + len(direct_recalls)
 
+    freshly_collected_items = list(items)
+
     # Persist rolling official-source signals across rotating query batches.
     # Old recall records collected by the previous, date-contaminating parser are
     # deliberately discarded unless they carry the current parse-version marker.
     now=datetime.now(KST)
     prior_items=[]
+    prior_source_states=None
     try:
         previous=json.loads(OUT.read_text(encoding="utf-8"))
         prior_items=previous.get("items",[]) if isinstance(previous,dict) else []
+        prior_source_states=previous.get("sourceObservations") if isinstance(previous,dict) else None
     except Exception:
         prior_items=[]
     for item in prior_items:
@@ -1590,12 +1595,16 @@ def main():
         key = (x["sourceGroup"], re.sub(r"[^가-힣A-Za-z0-9]", "", x["title"]).lower())
         dedup[key] = x
     items = sorted(dedup.values(), key=lambda x: x["published"], reverse=True)[:80]
+    observations=update_source_states(
+        prior_source_states,SOURCE_DIAGNOSTICS,DIRECT_DIAGNOSTICS,
+        freshly_collected_items,now=now)
     payload = {
         "generatedAt": datetime.now(KST).isoformat(),
         "lookbackDays": LOOKBACK_DAYS,
         "sourceGroups": by_group,
         "sourceDiagnostics": SOURCE_DIAGNOSTICS,
         "directSourceDiagnostics": DIRECT_DIAGNOSTICS,
+        "sourceObservations": observations,
         "items": items,
     }
     OUT.write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
