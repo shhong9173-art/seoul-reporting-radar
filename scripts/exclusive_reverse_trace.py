@@ -29,15 +29,34 @@ INDUSTRY_COMPANIES={
     "SK이노베이션","LG에너지솔루션","삼성SDI","SK온","씨에스윈드",
 }
 KINDS=(
-    ("리콜·안전",re.compile(r"리콜|결함|화재|인증\s*취소|안전성|NHTSA",re.I)),
-    ("공장·생산·증설",re.compile(r"공장|생산중단|생산계획|가동|증설|투자부지|생산라인",re.I)),
-    ("노사·인사",re.compile(r"노사|임단협|노조|파업|인사|대표이사|임원|해고",re.I)),
-    ("신차·인증·허가",re.compile(r"신차|차종|출시|전기차|인허가|형식승인|인증|환경영향평가",re.I)),
-    ("수주·입찰",re.compile(r"계약|수주|입찰|낙찰|발주|고객사|공급",re.I)),
-    ("회생·소송",re.compile(r"회생|파산|소송|법원|구조조정|채권",re.I)),
-    ("특허·상표",re.compile(r"특허|상표|디자인|지식재산",re.I)),
-    ("통상·관세",re.compile(r"관세|반덤핑|상계관세|무역구제|수출규제",re.I)),
-    ("자본·지배구조",re.compile(r"자사주|자기주식|분할|합병|배당|지분|경영권",re.I)),
+    # Headline *subject* classification only. Never evidence of a realized
+    # event, source reach or exclusive reporting. More specific cues first.
+    ("리콜·안전",re.compile(
+        r"리콜|결함|화재|발화|침수|누수|빗물.{0,10}유입|"
+        r"에어백|품질불량|안전성|NHTSA|제작결함",re.I)),
+    ("정책·규제·입법",re.compile(
+        r"입법|법안|시행령|행정예고|규제|법제화|국회|"
+        r"환경기준|배출가스 기준|자율주행.{0,12}(법|제도)",re.I)),
+    ("통상·관세",re.compile(
+        r"관세|반덤핑|상계관세|무역구제|수출규제|세이프가드",re.I)),
+    ("회생·소송",re.compile(
+        r"회생|파산|소송|법원|법정관리|가처분|채권단",re.I)),
+    ("노사·인사",re.compile(
+        r"노사|임단협|노조|파업|인사|대표이사|임원|해고|"
+        r"노동자|중대재해",re.I)),
+    ("공장·생산·투자",re.compile(
+        r"공장|생산중단|생산계획|가동|증설|투자부지|생산라인|"
+        r"시설투자|\d+조\s*투자|\d+억\s*투자|"
+        r"투자.{0,12}(확대|발표|결정|착수|착공|규모|첫삽)",re.I)),
+    ("수주·입찰",re.compile(
+        r"계약|수주|입찰|낙찰|발주|고객사|공급",re.I)),
+    ("자본·지배구조",re.compile(
+        r"자사주|자기주식|분할|합병|배당|지분|경영권|인수|매각",re.I)),
+    ("신차·인증·허가",re.compile(
+        r"신차|차종|출시|전기차|인허가|형식승인|인증|환경영향평가|"
+        r"모델 출시|전동화",re.I)),
+    ("특허·상표",re.compile(
+        r"특허|상표|디자인|지식재산",re.I)),
 )
 SOURCE_CLASSES={
     "company_notice","government_notice","court_ruling","regulatory_filing",
