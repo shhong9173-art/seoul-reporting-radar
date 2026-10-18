@@ -30,6 +30,10 @@ jobs:
         run: python -m unittest discover -s tests -p 'test_publish_newsroom_outputs.py' -v
       - name: Validate real checked-in archive and complete output budget
         run: |
+          # Build the matching reverse-trace snapshot from the freshest checked-in
+          # press index; PR merge refs may combine a newly published index with
+          # an older seed artifact. Production always builds both together.
+          python scripts/exclusive_reverse_trace.py
           python - <<'PY'
           from pathlib import Path
           from scripts.publish_newsroom_outputs import output_size_limit, selected
