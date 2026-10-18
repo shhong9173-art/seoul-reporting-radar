@@ -82,6 +82,21 @@ jobs:
         run: python investigation_quality_gate.py
       - name: Build pitch score and persistent archive
         run: python archive_builder.py
+      - name: Validate unfiltered annual Korean press history index
+        run: |
+          python -m unittest discover -s tests -p 'test_press_coverage_index.py' -v
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('digests/press_coverage_index_latest.json')
+          index=json.loads(p.read_text(encoding='utf-8'))
+          assert index['retentionDays']>=365
+          assert index['status']=='observed_domestic_press_index_not_complete_coverage'
+          assert not index['proofOfNoPriorCoverage']
+          assert index['itemCount']==len(index['items'])
+          assert all(not x['fulltextReviewed'] for x in index['items'])
+          print('History index includes',index['itemCount'],'domestic observed headlines; no unreported claims')
+          PY
       - name: Normalize pitch pair orientation
         run: |
           python - <<'PY'
