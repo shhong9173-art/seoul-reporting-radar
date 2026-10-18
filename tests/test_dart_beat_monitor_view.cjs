@@ -20,7 +20,7 @@ for(const token of [
  "reportedOfficialCessationTerms","uniqueUnderlyingBusinessCessationEventsVerified",
  "possibleSameUnderlyingCessationEvent","possibleOverlappingCessationReceipt",
  "possibleParentSubsidiaryCessationOverlapCount",
- "모·자회사 중복 의심 공시 쌍","독립 영업정지",
+ "모·자회사 중복 의심 공시 쌍","두 건의 별도 영업중단",
  "영업정지 공시 원문 표에서 확인된 기재값",
  "existing_public_filing_from_newly_resolved_issuer",
  "firstObservedBecauseIssuerBecameCollectable",
