@@ -1,0 +1,62 @@
+name: Automotive and Industrial Exclusive Reverse Trace Regression
+on:
+  pull_request:
+    paths:
+      - 'scripts/exclusive_reverse_trace.py'
+      - 'data/reverse_trace_verified_labels.json'
+      - 'digests/reverse_trace_latest.json'
+      - 'tests/test_exclusive_reverse_trace.py'
+      - 'tests/test_reverse_trace_view.cjs'
+      - 'reverse-trace.html'
+      - 'index.html'
+      - 'archive_builder.py'
+      - 'scripts/publish_newsroom_outputs.py'
+      - 'tests/test_publish_newsroom_outputs.py'
+      - '.github/workflows/reverse-trace-ci.yml'
+      - '.github/workflows/auto-desk.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/exclusive_reverse_trace.py'
+      - 'tests/test_exclusive_reverse_trace.py'
+      - 'reverse-trace.html'
+      - 'tests/test_reverse_trace_view.cjs'
+      - '.github/workflows/reverse-trace-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  original-source-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate verified Y/P/N versus all unverified U, including Git publisher
+        run: |
+          python -m compileall -q scripts/exclusive_reverse_trace.py
+          python -m unittest discover -s tests -p 'test_exclusive_reverse_trace.py' -v
+          python -m unittest discover -s tests -p 'test_press_coverage_index.py' -v
+          python -m unittest discover -s tests -p 'test_publish_newsroom_outputs.py' -v
+          node tests/test_reverse_trace_view.cjs
+      - name: Replay actual indexed news without granting automatic Y/P/N
+        run: |
+          python scripts/exclusive_reverse_trace.py --output /tmp/reverse-trace-replay.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          idx=json.loads(Path('digests/press_coverage_index_latest.json').read_text(encoding='utf-8'))
+          res=json.loads(Path('/tmp/reverse-trace-replay.json').read_text(encoding='utf-8'))
+          assert res['pressIndexGeneratedAt']==idx['generatedAt']
+          assert res['humanReviewedYPN']==res['Y']+res['P']+res['N']
+          assert res['confirmedScoops']==res['approvedArticles']==0
+          assert res['reliablePopulationReachEstimated'] is False
+          assert all(x['publicTraceClass'] in ('U','Y','P','N') and
+                     x['confirmedExclusive'] is False for x in res['items'])
+          print('Observed [단독] headings',res['totalObservedExclusiveHeadlines'],
+                'human verified',res['humanReviewedYPN'],
+                'unknown',res['unreviewedU'],
+                'baseline only',res['pressIndexSeedOnly'])
+          PY
