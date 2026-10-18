@@ -36,6 +36,7 @@ select{font:inherit;padding:7px;border:1px solid #bdccd7;background:#fff;border-
  <option value="newly_observed_public_filing">공개 문서 새 관측</option>
  <option value="existing_public_filing_from_newly_resolved_issuer">기업 고유번호 신규 확인 후 기존 공시 첫 수집</option>
  <option value="same_receipt_first_document_field_recovery">기존 공시 원문 신규 해독(기업 변화 아님)</option>
+ <option value="same_receipt_first_cessation_original_recovery">영업정지 원문 새 추출(기존 공시)</option>
  <option value="source_error">오류·미연결 기업</option>
 </select>
 <div id="recent"></div>
@@ -56,6 +57,7 @@ const labels={
  existing_public_filing_from_newly_resolved_issuer:"DART 법인 고유번호/조회 장애 해소 후 첫 수집된 기존 공개공시 · 신규 사업 사실 아님",
  same_receipt_data_reparse_discrepancy:"같은 접수번호 원문 추출값 불일치 · 코드/원천 점검",
  same_receipt_first_document_field_recovery:"이전 목록만 확인한 기존 공시의 원문을 이번에 처음 분석(기업 변화 아님)",
+ same_receipt_first_cessation_original_recovery:"이전 목록만 확인한 영업정지 공시의 원문 표 신규 추출(기업 사건 발생 아님)",
  previously_seen_public_filing:"이미 관측된 공시"
 };
 function official(host,url,label,receipt){
@@ -72,7 +74,9 @@ function record(x,host){
  if(x.scoopConfirmed!==false||x.approvedForPitch!==false||
     x.businessImpactVerified!==false||x.priorNewsFulltextChecked!==false||
     (x.ultimateExternalCustomerVerified!==undefined&&x.ultimateExternalCustomerVerified!==false)||
-    (x.actualShipmentVerified!==undefined&&x.actualShipmentVerified!==false))
+    (x.actualShipmentVerified!==undefined&&x.actualShipmentVerified!==false)||
+    (x.uniqueUnderlyingBusinessCessationEventsVerified!==undefined&&
+     x.uniqueUnderlyingBusinessCessationEventsVerified!==false))
    throw Error("근거가 없는 사업 영향/단독 검증 플래그");
  const c=el("article",undefined,"card");
  c.append(el("span",x.beat,"tag"),el("span",x.officialDate+" 공개","tag"));
@@ -107,6 +111,32 @@ function record(x,host){
      p(lines,"관계회사 대상 거래입니다. 외부 최종 고객·그룹 연결 매출·납품 물량 확인 전까지 외부 신규 수주로 해석 금지.","dim");
    p(lines,"공시상 기재값일 뿐 신규 단독, 기보도 부재, 실제 납품·매출 효과 확인 자료가 아닙니다.","dim");
    c.append(lines);
+ }
+ const cessation=x.reportedOfficialCessationTerms||{};
+ if(Object.keys(cessation).length){
+  const proofbox=el("div",undefined,"notice");
+  proofbox.append(el("strong","영업정지 공시 원문 표에서 확인된 기재값"));
+  const names={
+   reportedBusinessScope:"공시상 영업정지 대상 사업",
+   reportedAffectedSalesWon:"공시상 영업정지 금액(원)",
+   reportedRecentSalesWon:"공시상 최근 매출총액(원)",
+   issuerReportedRevenueRatioPct:"공시상 최근 매출 대비(%)",
+   issuerStatedCessationDate:"공시상 영업정지 일자"
+  };
+  for(const [key,item] of Object.entries(cessation)){
+   if(!Object.prototype.hasOwnProperty.call(names,key) ||
+      item.basis!=="same_official_table_row" ||
+      item.operationalShutdownVerified!==false ||
+      item.businessEffectVerified!==false)
+    throw Error("독립 검증되지 않은 영업정지 원문 값");
+   p(proofbox,names[key]+": "+item.value+
+      (key==="issuerReportedRevenueRatioPct"?"%":"")+
+      " · 원문 표 항목: "+item.officialTableLabel,"dim");
+  }
+  if(x.businessCessationFilingRelation==="parent_disclosure_of_subsidiary")
+   p(proofbox,"모회사 명의로 제출된 자회사 관련 공시. 동일 사건의 별도 접수일 수 있으며 독립 영업정지 1건으로 추가 집계할 수 없습니다.","dim");
+  p(proofbox,"공시상 기재와 실제 생산 중단·영업손실·매출 변동은 구별하며 기보도 및 영향은 아직 검증되지 않았습니다.","dim");
+  c.append(proofbox);
  }
  if(x.originalReceiptNo && x.priorReceiptIndependentCompared){
    p(c,"검증한 원공시 접수번호 "+x.originalReceiptNo,"dim");
