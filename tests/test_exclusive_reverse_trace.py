@@ -46,6 +46,33 @@ def review(item,verdict="Y"):
 
 
 class ExclusiveReverseTrace(unittest.TestCase):
+    def test_actual_2026_industry_exclusive_titles_have_subject_categories(self):
+        actual={
+            "[단독] 현대차 새만금 9조 투자 첫삽 코앞…정부 지원 51개 중 4개 완료":
+                "공장·생산·투자",
+            "[단독]현대차 ‘R&D거점’ 찾는 與野…자율주행 입법 시동 거나":
+                "정책·규제·입법",
+            "[단독] 현대차 스타리아 EV 모터룸 빗물 유입에 ‘분통’":
+                "리콜·안전",
+            "[단독] 현대제철 철강 관세 적용 확대":
+                "통상·관세",
+            "[단독] 현대모비스 사업부 물적분할 추진":
+                "자본·지배구조",
+            "[단독] 대한전선 신규 수주 계약":
+                "수주·입찰",
+        }
+        for title,category in actual.items():
+            self.assertEqual(kind_for(title),category,title)
+        rows=[article(key,title,company="현대차")
+              for key,title in zip(("a","b","c"),list(actual)[:3])]
+        res=build(index(*rows),now=NOW)
+        self.assertEqual(res["humanReviewedYPN"],0)
+        self.assertEqual(res["unreviewedU"],3)
+        self.assertEqual(len(res["byType"]),3)
+        self.assertTrue(all(v["measuredSourceReach"] is None
+                            for v in res["byType"].values()))
+        self.assertEqual(res["confirmedScoops"],0)
+
     def test_all_unknown_first_baseline_is_not_measured(self):
         rows=[article("a","[단독] 현대차 전기차 리콜 9만대"),
               article("b","[단독] 기아 신차 인증",company="기아"),
