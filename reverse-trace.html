@@ -56,6 +56,11 @@ try{
     data.sourcePrioritizationEvidenceSufficient!==false||
     data.locatedOriginalCandidateArticleCount!==data.items.filter(x=>
        x.locatedOfficialOriginalCandidate).length||
+    data.locatedSupplementaryForeignOriginalReferences!==data.items.reduce(
+       (n,x)=>n+(Array.isArray(x.locatedSupportingOfficialOriginals)?
+       x.locatedSupportingOfficialOriginals.length:0),0)||
+    data.secOfficialAcceptanceTimestampChecked!==(
+       data.locatedSupplementaryForeignOriginalReferences>0)||
     !Array.isArray(data.sourceResearchChecklist))
    throw Error("unverified evidence or source counters");
  const pressRes=await fetch("digests/press_coverage_index_latest.json",{cache:"no-store"});
@@ -80,6 +85,7 @@ try{
  for(const [name,val] of [
   ["공식 원자료 링크 발견(기사)",data.locatedOriginalCandidateArticleCount],
   ["발견한 서로 다른 원자료",data.distinctLocatedOfficialOriginalDocuments],
+  ["연결된 SEC 해외 공시(기사)",data.locatedSupplementaryForeignOriginalReferences],
   ["연간 검색서 관측된 기사",historical.itemCount],
   ["최근 검색한 월별 창",historical.searchedWindowCountThisRun],
   ["관측된 단독 표기 기사",data.totalObservedExclusiveHeadlines],
@@ -150,6 +156,34 @@ try{
     }
     base.append(el("p","같은 날짜의 발표가 기사 최초 출고보다 빨랐다는 증거는 아닙니다. 기사 본문·발행사 문서의 최초 공개시각·타매체 선행보도를 확인해야 합니다.","muted small"));
     a.append(base);
+   }
+   if(Array.isArray(row.locatedSupportingOfficialOriginals)){
+    for(const sec of row.locatedSupportingOfficialOriginals.slice(0,4)){
+     if(!sec ||
+        sec.status!=="official_us_sec_filing_original_candidate_not_article_verified"||
+        sec.secAcceptedAtOfficialEastern!=="2025-10-30T16:15:52-04:00"||
+        sec.secAcceptedAtIsNotPressFirstPublishedAt!==true||
+        sec.firstPublicAvailabilityClockVerified!==false||
+        sec.publisherStoryFirstPublicationClockVerified!==false||
+        sec.sourceAndStoryFactsDirectlyMatched!==false||
+        sec.releasedBeforeStoryVerified!==false||
+        sec.automaticYPNDecision!==false)
+        throw Error("unverified SEC evidence presented as published-before-press");
+     const notice=el("div",undefined,"notice");
+     notice.append(el("strong","추가 해외 공식 원문 · 미국 SEC 8-K"));
+     notice.append(el("p",sec.issuer+" · "+sec.documentTitle+
+       " · 공시일 "+sec.documentDay+
+       " · SEC 수리 "+sec.secAcceptedAtOfficialEastern+" (미국 동부시간)","muted small"));
+     if(sec.documentUrl==="https://www.sec.gov/Archives/edgar/data/1844862/000110465925104388/0001104659-25-104388-index.html"){
+      const edgar=el("a","공식 SEC 원문 열기 ↗");
+      edgar.href=sec.documentUrl;edgar.target="_blank";
+      edgar.rel="noopener noreferrer";notice.append(edgar);
+     }
+     notice.append(el("p",
+       "SEC 접수일은 기사 RSS 관측일보다 하루 앞섭니다. 다만 SEC 수리시각은 언론사 최초 출고 시각이 아니며, 원문과 기사 전문 대조 및 선행보도 확인 전에는 Y/P/N을 확정하지 않습니다.",
+       "muted small"));
+     a.append(notice);
+    }
    }
    container.append(a);
   }

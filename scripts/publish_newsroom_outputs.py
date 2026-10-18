@@ -126,12 +126,34 @@ def selected(root: Path, mode: str):
                         for x in trace.get("items",[])
                         if isinstance(x,dict) and
                         isinstance(x.get("locatedOfficialOriginalCandidate"),dict)]
+        foreign_links=[]
+        for item in trace.get("items",[]):
+            if not isinstance(item,dict):
+                continue
+            linked=item.get("locatedSupportingOfficialOriginals",[])
+            if not isinstance(linked,list) or len(linked)>4:
+                raise ValueError("unsafe_supporting_primary_source_shape")
+            foreign_links.extend(linked)
         if (trace.get("curatedLeadStatus")!="curated_official_original_candidates_chronology_unverified"
             or not isinstance(trace.get("curatedLeadSourceAt"),str)
             or not trace["curatedLeadSourceAt"]
             or trace.get("locatedOriginalCandidateArticleCount")!=len(official_links)
             or trace.get("distinctLocatedOfficialOriginalDocuments")!=
-               len({x.get("documentUrl") for x in official_links})
+               len({x.get("documentUrl") for x in official_links+foreign_links})
+            or trace.get("locatedSupplementaryForeignOriginalReferences")!=len(foreign_links)
+            or trace.get("secOfficialAcceptanceTimestampChecked") is not bool(foreign_links)
+            or any(not isinstance(x,dict) or
+                   x.get("status")!="official_us_sec_filing_original_candidate_not_article_verified"
+                   or x.get("sourceType")!="regulatory_filing"
+                   or x.get("secAcceptedAtOfficialEastern")!="2025-10-30T16:15:52-04:00"
+                   or x.get("secAcceptedAtIsNotPressFirstPublishedAt") is not True
+                   or x.get("firstPublicAvailabilityClockVerified") is not False
+                   or x.get("publisherStoryFirstPublicationClockVerified") is not False
+                   or x.get("articleFulltextCompared") is not False
+                   or x.get("sourceAndStoryFactsDirectlyMatched") is not False
+                   or x.get("releasedBeforeStoryVerified") is not False
+                   or x.get("automaticYPNDecision") is not False
+                   for x in foreign_links)
             or trace.get("primaryDocumentPublishedBeforeMediaVerifiedCount")!=0
             or trace.get("pressFulltextMatchedToOfficialOriginalCount")!=0
             or trace.get("sourcePrioritizationEvidenceSufficient") is not False

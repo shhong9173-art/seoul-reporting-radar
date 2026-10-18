@@ -137,6 +137,11 @@ jobs:
           assert trace['locatedOriginalCandidateArticleCount']==sum(
               'locatedOfficialOriginalCandidate' in x for x in trace['items'])
           assert trace['primaryDocumentPublishedBeforeMediaVerifiedCount']==0
+          assert trace['locatedSupplementaryForeignOriginalReferences']==sum(
+              len(x.get('locatedSupportingOfficialOriginals',[])) for x in trace['items'])
+          assert trace['distinctLocatedOfficialOriginalDocuments']>=trace['locatedOriginalCandidateArticleCount']//max(1,trace['locatedOriginalCandidateArticleCount'])
+          assert trace['secOfficialAcceptanceTimestampChecked'] is bool(
+              trace['locatedSupplementaryForeignOriginalReferences'])
           assert trace['pressFulltextMatchedToOfficialOriginalCount']==0
           assert trace['sourcePrioritizationEvidenceSufficient'] is False
           assert trace['humanReviewedYPN']==trace['Y']+trace['P']+trace['N']
