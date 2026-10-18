@@ -26,12 +26,16 @@ def build(checks,*,expected,news_items,now,threshold=10):
             (not isinstance(row["errorType"],str) or
              not row["errorType"].isidentifier() or len(row["errorType"])>50)):
             raise ValueError("invalid_row")
+        malformed_dates=row.get("invalidPubDateRows",0)
+        if type(malformed_dates) is not int or not 0<=malformed_dates<=1000:
+            raise ValueError("bad_news_published_dates_count")
         duration=row.get("durationMs")
         if duration is not None and (type(duration) is not int or not 0<=duration<=600000):
             raise ValueError("invalid_latency")
         slim={k:row.get(k) for k in
                 ("category","globalFeed","status","recentRows","errorType")}
         if duration is not None:slim["durationMs"]=duration
+        slim["invalidPubDateRows"]=malformed_dates
         safe.append(slim)
     failures=sum(x["status"] in ("transport_or_xml_error","malformed_rss") for x in safe)
     zero=sum(x["status"]=="checked_no_recent_rows" for x in safe)
@@ -43,6 +47,7 @@ def build(checks,*,expected,news_items,now,threshold=10):
       "generatedAt":now.isoformat(timespec="seconds"),
       "status":status,"expectedQueries":expected,"attemptedQueries":len(safe),
       "errorQueries":failures,"validEmptyQueries":zero,
+      "invalidPublishedDatesSkipped":sum(x["invalidPubDateRows"] for x in safe),
       "slowestQueries":[{"category":x["category"],"globalFeed":x["globalFeed"],
                          "status":x["status"],"durationMs":x["durationMs"]}
                         for x in sorted((s for s in safe if "durationMs" in s),
