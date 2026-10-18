@@ -122,6 +122,29 @@ def selected(root: Path, mode: str):
             or trace.get("historicalSearchObservedRows")!=historical.get("itemCount")
             or trace.get("historicalSearchAllSourcesChecked") is not False):
             raise ValueError("unverified_historical_press_index_or_stale_reverse_trace")
+        official_links=[x.get("locatedOfficialOriginalCandidate")
+                        for x in trace.get("items",[])
+                        if isinstance(x,dict) and
+                        isinstance(x.get("locatedOfficialOriginalCandidate"),dict)]
+        if (trace.get("curatedLeadStatus")!="curated_official_original_candidates_chronology_unverified"
+            or not isinstance(trace.get("curatedLeadSourceAt"),str)
+            or not trace["curatedLeadSourceAt"]
+            or trace.get("locatedOriginalCandidateArticleCount")!=len(official_links)
+            or trace.get("distinctLocatedOfficialOriginalDocuments")!=
+               len({x.get("documentUrl") for x in official_links})
+            or trace.get("primaryDocumentPublishedBeforeMediaVerifiedCount")!=0
+            or trace.get("pressFulltextMatchedToOfficialOriginalCount")!=0
+            or trace.get("sourcePrioritizationEvidenceSufficient") is not False
+            or any(not isinstance(x,dict) or
+                   x.get("status")!="dated_company_original_candidate_not_chronology_verified" or
+                   x.get("publicationClockVerified") is not False or
+                   x.get("storyPublisherClockVerified") is not False or
+                   x.get("articleFulltextCompared") is not False or
+                   x.get("documentAndStoryFactsCompared") is not False or
+                   x.get("releasedBeforeStoryVerified") is not False or
+                   x.get("automaticYPNDecision") is not False
+                   for x in official_links)):
+            raise ValueError("unverified_original_candidate_claim_in_news_publish")
         if (not isinstance(history,dict)
             or history.get("status")!="observed_domestic_press_index_not_complete_coverage"
             or history.get("itemCount")!=len(history.get("items",[]))
