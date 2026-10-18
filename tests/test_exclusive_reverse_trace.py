@@ -46,6 +46,58 @@ def review(item,verdict="Y"):
 
 
 class ExclusiveReverseTrace(unittest.TestCase):
+    def test_reviewed_and_official_source_cases_survive_newest_400_limit(self):
+        rows=[]
+        for i in range(405):
+            row=article(chr(97+i%26),"[단독] 현대차 전기차 공장 %d"%i,
+                        date="2026-10-18T%02d:00:00+09:00"%(i%24))
+            row["id"]=("%024x"%(i+1))
+            rows.append(row)
+        past=rows[0]
+        manual=rows[1]
+        trace=build(index(*rows),[review(manual,"N")],now=NOW,
+                    max_candidates=400,evidence_priority_ids=[past["id"]])
+        ids={x["articleId"] for x in trace["items"]}
+        self.assertEqual(trace["totalObservedExclusiveHeadlines"],400)
+        self.assertEqual(trace["availableObservedExclusiveHeadlinesBeforeCap"],405)
+        self.assertTrue(trace["sampleIncompleteBecauseOfCap"])
+        self.assertIn(past["id"],ids)
+        self.assertIn(manual["id"],ids)
+        self.assertEqual(trace["evidencePriorityObservedItemsRetained"],2)
+        self.assertEqual(trace["humanReviewedYPN"],1)
+        self.assertEqual(trace["N"],1)
+        self.assertEqual(trace["confirmedScoops"],0)
+
+    def test_unobserved_curated_id_not_injected_as_fake_article(self):
+        rows=[article("a","[단독] 현대차 전기차 리콜")]
+        result=build(index(*rows),now=NOW,evidence_priority_ids=["f"*24])
+        self.assertEqual(result["totalObservedExclusiveHeadlines"],1)
+        self.assertEqual(result["evidencePriorityObservedItemsRetained"],0)
+        self.assertEqual(result["evidencePriorityIdsNotObserved"],1)
+        self.assertFalse(result["reliablePopulationReachEstimated"])
+
+    def test_invalid_pin_or_too_many_pins_fails_closed(self):
+        rows=[article("a","[단독] 현대차 전기차 리콜")]
+        for pins in (["not-an-article-id"],[34],list(range(700))):
+            with self.assertRaises(ValueError):
+                build(index(*rows),now=NOW,evidence_priority_ids=pins)
+
+    def test_actual_historical_sources_keep_samsung_original_ids_in_latest_sample(self):
+        import json
+        root=Path(__file__).resolve().parents[1]
+        press=json.loads((root/"digests/press_coverage_index_latest.json").read_text(encoding="utf-8"))
+        history=json.loads((root/"digests/historical_exclusive_press_index_latest.json").read_text(encoding="utf-8"))
+        leads=json.loads((root/"data/reverse_trace_primary_original_leads.json").read_text(encoding="utf-8"))
+        ids=[row["articleId"] for row in leads["items"]]
+        observed={r["id"] for r in history["items"] if r.get("id")}
+        if not set(ids).issubset(observed):
+            self.skipTest("source index has not yet observed all pinned articles; do not invent them")
+        result=build(press,history=history,now=NOW,evidence_priority_ids=ids)
+        selected={row["articleId"] for row in result["items"]}
+        self.assertTrue(set(ids).issubset(selected))
+        self.assertEqual(result["humanReviewedYPN"],0)
+        self.assertEqual(result["confirmedScoops"],0)
+
     def test_actual_2026_industry_exclusive_titles_have_subject_categories(self):
         actual={
             "[단독] 현대차 새만금 9조 투자 첫삽 코앞…정부 지원 51개 중 4개 완료":
