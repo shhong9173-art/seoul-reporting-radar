@@ -215,8 +215,10 @@ def collect(codes,key,*,now=None,previous=None,query=fetch_official_list,
             by_number[row["receiptNo"]]=old
     # DART contract/correction or issuer-submitted value-up official bodies.
     # An unavailable origin remains retryable and never becomes zero targets.
-    candidates=[r for r in rows if (event_type(r["report"]) is not None
-                  or is_current_valueup_filing(r))
+    def detail_supported(row):
+        return event_type(row["report"]) is not None or is_current_valueup_filing(row)
+
+    candidates=[r for r in rows if detail_supported(r)
                 and r["receiptNo"] not in by_number]
     selected=candidates[:limit]
     for row in selected:
@@ -236,7 +238,10 @@ def collect(codes,key,*,now=None,previous=None,query=fetch_official_list,
         item={**row,**by_number.get(receipt,{})}
         item["firstObservedAt"]=first_seen.get(receipt,now.isoformat(timespec="seconds"))
         item["firstObservedThisRun"]=(None if first_run else receipt not in first_seen)
-        item["detailStatus"]=item.get("status","not_inspected_bounded_detail_budget")
+        item["detailTypeSupported"]=detail_supported(row)
+        item["detailStatus"]=item.get("status",
+            "not_inspected_bounded_detail_budget" if item["detailTypeSupported"]
+            else "original_detail_type_unsupported")
         item["independentContractComparisonVerified"]=bool(
             item.get("status")=="original_verified" and
             isinstance(item.get("originalReceiptNo"),str) and
@@ -266,6 +271,12 @@ def collect(codes,key,*,now=None,previous=None,query=fetch_official_list,
             r.get("status")=="valueup_document_unavailable" for r in detailed),
         "detailBacklogQueued":len(candidates),
         "detailNotAttemptedThisRun":max(0,len(candidates)-len(selected)),
+        "unsupportedOriginalDetailTypes":sum(not detail_supported(r) for r in rows),
+        "uninspectedListedDetails":sum(
+            r["detailStatus"] in ("original_detail_type_unsupported",
+                "not_inspected_bounded_detail_budget","detail_source_error",
+                "document_unavailable","valueup_document_unavailable")
+            for r in detailed),
         "uninspectedRelevantDetails":sum(
             (event_type(r["report"]) is not None or is_current_valueup_filing(r))
             and (r["receiptNo"] not in by_number or
@@ -274,7 +285,7 @@ def collect(codes,key,*,now=None,previous=None,query=fetch_official_list,
         "firstRunBaseline":first_run,
         "sourceChecks":checks,"records":detailed,"firstSeen":first_seen,
         "confirmedScoops":0,"approvedArticles":0,
-        "warning":"Official list coverage excludes unresolved DART corporation IDs and unavailable/non-DART entities. Newly OBSERVED official receipts do not prove unreported or novel business events. Filing value changes, including correction-table assertions, never prove actual shipments or contract impact."
+        "warning":"Official list coverage excludes unresolved DART corporation IDs and unavailable/non-DART entities. Uninspected original-document categories are out of parser scope, not a clean zero-source result. Newly OBSERVED official receipts do not prove unreported or novel business events. Filing value changes never prove actual shipments or contract impact."
     }
 
 
