@@ -290,7 +290,9 @@ def main():
     history_path=Path(args.history)
     history=(json.loads(history_path.read_text(encoding="utf-8"))
              if history_path.exists() else None)
-    from scripts.reverse_trace_source_leads import attach_primary_original_leads
+    # Invoked as 'python scripts/exclusive_reverse_trace.py' by Auto Desk.
+    # A sibling import works regardless of project-root PYTHONPATH.
+    from reverse_trace_source_leads import attach_primary_original_leads
     leads=json.loads(Path(args.original_leads).read_text(encoding="utf-8"))
     result=attach_primary_original_leads(build(press,sheet["items"],history=history),leads)
     dest=Path(args.output)
