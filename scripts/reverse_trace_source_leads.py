@@ -12,6 +12,7 @@ from urllib.parse import parse_qs, urlsplit
 STATUS="curated_official_original_candidates_chronology_unverified"
 ALLOWED_HOST_PATH={
     ("news.samsungsdi.com","/ko/articleView"),
+    ("www.sec.gov","/Archives/edgar/data/1844862/000110465925104388/0001104659-25-104388-index.html"),
 }
 ARTICLE_ID=re.compile(r"[0-9a-f]{24}\Z")
 MAX_ITEMS=2000
@@ -29,6 +30,8 @@ def official_candidate_url(value):
             return False
         if (u.hostname,u.path)==("news.samsungsdi.com","/ko/articleView"):
             return parse_qs(u.query)=={"seq":["371"]}
+        if u.hostname=="www.sec.gov":
+            return not u.query
     except ValueError:
         return False
     return False
@@ -55,6 +58,35 @@ def _published_day(value):
         return None
 
 
+def verify_supporting_sec_original(row):
+    if not isinstance(row,dict):
+        return False
+    accepted=row.get("officialAcceptanceAt")
+    try:
+        clock=datetime.fromisoformat(accepted)
+        verified_time=(clock.utcoffset() is not None
+                       and clock.date()==_date(row.get("officialDocumentDate"))
+                       and clock.isoformat()=="2025-10-30T16:15:52-04:00")
+    except (ValueError,TypeError,OverflowError,AttributeError):
+        verified_time=False
+    return (
+        row.get("issuer")=="Solid Power, Inc."
+        and isinstance(row.get("officialDocumentTitle"),str)
+        and 15<=len(row["officialDocumentTitle"])<=200
+        and row.get("sourceType")=="regulatory_filing"
+        and row.get("officialUrl")==
+          "https://www.sec.gov/Archives/edgar/data/1844862/000110465925104388/0001104659-25-104388-index.html"
+        and official_candidate_url(row.get("officialUrl"))
+        and verified_time
+        and all(row.get(key) is False for key in (
+            "publicFirstAvailabilityTimeVerified",
+            "publisherStoryFulltextCompared",
+            "sourceFactsMatchedToMediaBody",
+            "releasedBeforeStoryVerified",
+            "humanYPNAssigned"))
+    )
+
+
 def verify_curated_lead(row):
     if not isinstance(row,dict):
         return False
@@ -79,6 +111,12 @@ def verify_curated_lead(row):
             "officialFactOverlapIndependentlyVerified",
             "primaryReleasedBeforeStoryVerified",
             "humanYPNAssigned"))):
+        return False
+    supporting=row.get("supportingOfficialOriginals",[])
+    if (not isinstance(supporting,list) or len(supporting)>4 or
+        any(not verify_supporting_sec_original(x) for x in supporting) or
+        len({x["officialUrl"] for x in supporting})!=len(supporting) or
+        any(x["officialUrl"]==row["officialUrl"] for x in supporting)):
         return False
     return True
 
@@ -174,6 +212,35 @@ def attach_primary_original_leads(trace,leads):
                     "automaticYPNDecision":False,
                     "warning":"공식 링크와 문서 날짜 확인만. 첫 게시 시각·기사 원문·이전 보도와 정확한 사실관계 미검증. Y/P/N을 자동 확정하지 않음",
                 }
+                extra=[]
+                for other in lead.get("supportingOfficialOriginals",[]):
+                    foreign_date=_date(other["officialDocumentDate"])
+                    if foreign_date is None or foreign_date>story_day:
+                        # Retain a valid curated earlier source even if a
+                        # mismatched RSS date is observed: do not claim a link.
+                        continue
+                    extra.append({
+                        "status":"official_us_sec_filing_original_candidate_not_article_verified",
+                        "issuer":other["issuer"],
+                        "documentTitle":other["officialDocumentTitle"],
+                        "documentDay":other["officialDocumentDate"],
+                        "documentUrl":other["officialUrl"],
+                        "sourceType":other["sourceType"],
+                        "secAcceptedAtOfficialEastern":other["officialAcceptanceAt"],
+                        "secAcceptedAtIsNotPressFirstPublishedAt":True,
+                        "documentCalendarDayEarlierThanIndexedRssDay":
+                            foreign_date<story_day,
+                        "firstPublicAvailabilityClockVerified":False,
+                        "publisherStoryFirstPublicationClockVerified":False,
+                        "articleFulltextCompared":False,
+                        "sourceAndStoryFactsDirectlyMatched":False,
+                        "releasedBeforeStoryVerified":False,
+                        "automaticYPNDecision":False,
+                        "warning":"미국 SEC 공식 접수 날짜·수리시각 확인. 언론사 기사의 최초 출고시각 및 핵심 사실 일치·국내 선행보도 미검증. Y/P/N 확정 아님",
+                    })
+                    actual_docs.add(other["officialUrl"])
+                if extra:
+                    record["locatedSupportingOfficialOriginals"]=extra
                 actual_docs.add(lead["officialUrl"])
                 attached+=1
         updated_items.append(record)
@@ -182,6 +249,11 @@ def attach_primary_original_leads(trace,leads):
         "items":updated_items,
         "locatedOriginalCandidateArticleCount":attached,
         "distinctLocatedOfficialOriginalDocuments":len(actual_docs),
+        "locatedSupplementaryForeignOriginalReferences":sum(
+            len(row.get("locatedSupportingOfficialOriginals",[]))
+            for row in updated_items),
+        "secOfficialAcceptanceTimestampChecked":bool(
+            any(row.get("locatedSupportingOfficialOriginals") for row in updated_items)),
         "curatedOfficialLeadRows":len(lead_by_id),
         "staleOrUnmatchedCuratedLeadRows":len(lead_by_id)-attached,
         "staleLinkageCandidateIds":sorted(mismatched),
