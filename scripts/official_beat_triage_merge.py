@@ -132,7 +132,7 @@ def merge(queue, beat, *, now=None):
                 excluded += 1
                 continue
             key = "DART_FILING:" + receipt
-            if key in visible:
+            if key in visible or (key in out["seen"] and not (earliest <= dt <= now.date())):
                 continue
             previous = out["seen"].get(key)
             first_seen = str(previous or row.get("firstObservedAt") or now.isoformat())[:10]
@@ -162,7 +162,10 @@ def merge(queue, beat, *, now=None):
                 "exclusiveConfirmed": False, "approvedForPitch": False,
                 "freshArticleConfirmed": False, "correction": False,
                 "firstObservedAt": first_seen,
-                "firstObservedThisRun": None if queue.get("firstRunBaseline") else not bool(previous),
+                "firstObservedThisRun": (None if queue.get("firstRunBaseline")
+                    else row.get("firstObservedThisRun")
+                    if isinstance(row.get("firstObservedThisRun"), bool)
+                    else not bool(previous)),
                 "publicDocumentAgeDays": (now.date() - dt).days,
                 "officialDateInRecentWindow": fresh,
                 "editorialBucket": "recent_official_filing_review" if fresh else "published_background",
