@@ -123,7 +123,7 @@ class PublisherIntegration(unittest.TestCase):
                 git(self.peer,"fetch","origin","main")
                 git(self.peer,"reset","--hard","origin/main")
                 (self.peer/"unrelated.txt").write_text(
-                    "another live producer update "+str(attempt)+"\\n")
+                    "another live producer update "+str(attempt)+"\n")
                 git(self.peer,"add","unrelated.txt")
                 git(self.peer,"commit","-m","independent producer "+str(attempt))
                 git(self.peer,"push","origin","main")
