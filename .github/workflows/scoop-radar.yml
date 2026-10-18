@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - 'pre_scoop_radar.py'
+      - 'scripts/official_publication_date_guard.py'
+      - 'tests/test_official_publication_date_guard.py'
       - 'scoop_scout.py'
       - 'scripts/press_coverage_gate.py'
       - 'tests/test_scoop_press_coverage_failclosed.py'
@@ -48,6 +50,8 @@ jobs:
           python-version: '3.12'
       - name: Test official collector parsers offline
         run: python -m unittest discover -s tests -p 'test_official_collectors.py' -v
+      - name: Reject old source notices resurfaced as new RSS timestamps
+        run: python -m unittest discover -s tests -p 'test_official_publication_date_guard.py' -v
       - name: Reject unanswerable press-office future strategy questions
         run: python -m unittest discover -s tests -p 'test_public_reporting_questions.py' -v
       - name: Reject failed press searches masquerading as no prior coverage
