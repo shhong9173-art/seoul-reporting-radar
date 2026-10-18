@@ -8,6 +8,7 @@ on:
       - 'scripts/official_event_triage.py'
       - 'scripts/dart_beat_queue_sync.py'
       - 'scripts/official_beat_triage_merge.py'
+      - 'scripts/share_cancellation_official_document.py'
       - 'tests/test_official_beat_triage_merge.py'
       - 'tests/test_dart_beat_queue_sync.py'
       - 'tests/test_official_event_triage.py'
@@ -44,6 +45,7 @@ jobs:
           python -m unittest discover -s tests -p 'test_official_event_triage.py' -v
           python -m unittest discover -s tests -p 'test_dart_beat_queue_sync.py' -v
           python -m unittest discover -s tests -p 'test_official_beat_triage_merge.py' -v
+          python -m unittest discover -s tests -p 'test_share_cancellation_official_document.py' -v
           node tests/test_official_event_triage_view.cjs
       - name: Collect US official safety records
         continue-on-error: true

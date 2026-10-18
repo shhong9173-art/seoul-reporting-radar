@@ -65,26 +65,42 @@ class BeatCoverageTests(unittest.TestCase):
                              "단일판매ㆍ공급계약체결")]
             return {"records": rows, "pagesRead": 1,
                     "complete": True, "totalOfficialFilings": len(rows)}
+        cancelled = []
+        def cancellation(row, key):
+            cancelled.append(row["receiptNo"])
+            return {**row, "status":"official_share_cancellation_document_review",
+                    "sourceError":False,
+                    "shareCancellationPrimarySource":{
+                        "officialXmlOrHtmlBodyRetrieved":True,
+                        "observedTerms":{"preferredSharesToCancel":{"value":"678"}}}}
         first = m.collect(sparse_codes(), "key", now=NOW,
-                          query=local_list, detail=fake_detail, limit=12)
+                          query=local_list, detail=fake_detail,
+                          cancellation_detail=cancellation, limit=12)
         self.assertEqual(first["relevantFilings"], 3)
-        self.assertEqual(first["unsupportedOriginalDetailTypes"], 2)
-        self.assertEqual(first["detailsAttempted"], 1)
+        self.assertEqual(first["unsupportedOriginalDetailTypes"], 1)
+        self.assertEqual(first["detailsAttempted"], 2)
+        self.assertEqual(first["shareCancellationDocumentAttempts"], 1)
+        self.assertEqual(first["shareCancellationDocumentReads"], 1)
+        self.assertEqual(cancelled, ["20261015800723"])
         self.assertEqual(first["uninspectedRelevantDetails"], 0)
-        self.assertEqual(first["uninspectedListedDetails"], 2)
+        self.assertEqual(first["uninspectedListedDetails"], 1)
         by_id = {r["receiptNo"]:r for r in first["records"]}
-        self.assertEqual(by_id["20261015800723"]["detailStatus"],
+        self.assertEqual(by_id["20261015000414"]["detailStatus"],
                          "original_detail_type_unsupported")
-        self.assertFalse(by_id["20261015800723"]["detailTypeSupported"])
-        self.assertTrue(by_id["20261015800054"]["detailTypeSupported"])
+        self.assertFalse(by_id["20261015000414"]["detailTypeSupported"])
+        self.assertTrue(by_id["20261015800723"]["detailTypeSupported"])
+        self.assertEqual(by_id["20261015800723"]["detailStatus"],
+                         "official_share_cancellation_document_review")
         self.assertEqual(by_id["20261015800054"]["detailStatus"],
                          "official_document_read")
         second = m.collect(sparse_codes(), "key", now=NOW+timedelta(hours=1),
                            query=local_list, detail=fake_detail,
+                           cancellation_detail=cancellation,
                            previous=first, limit=12)
         self.assertEqual(second["detailsAttempted"], 0)
-        self.assertEqual(second["unsupportedOriginalDetailTypes"], 2)
-        self.assertEqual(second["uninspectedListedDetails"], 2)
+        self.assertEqual(second["unsupportedOriginalDetailTypes"], 1)
+        self.assertEqual(second["uninspectedListedDetails"], 1)
+        self.assertEqual(cancelled, ["20261015800723"])
         self.assertEqual(second["confirmedScoops"], 0)
 
     def test_live_kg_steel_valueup_and_treasury_cancellation_titles(self):

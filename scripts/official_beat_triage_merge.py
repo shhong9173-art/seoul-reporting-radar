@@ -49,6 +49,14 @@ def _receipt_link(receipt, url):
 
 def evidence_stage(row):
     """What was actually read, not what a newly seen receipt might imply."""
+    cancellation = row.get("shareCancellationPrimarySource")
+    if (row.get("status") == "official_share_cancellation_document_review"
+        and isinstance(cancellation, dict)
+        and cancellation.get("officialXmlOrHtmlBodyRetrieved") is True):
+        return ("official_share_cancellation_fields_checked"
+                if isinstance(cancellation.get("observedTerms"), dict)
+                and bool(cancellation["observedTerms"])
+                else "official_share_cancellation_text_only_fields_unverified")
     valueup = row.get("valueupPrimarySource")
     if isinstance(valueup, dict) and valueup.get("officialXmlOrHtmlBodyRetrieved") is True:
         return ("official_valueup_text_and_attachment_checked"
@@ -188,6 +196,27 @@ def merge(queue, beat, *, now=None):
                 "officialDateInRecentWindow": fresh,
                 "editorialBucket": "recent_official_filing_review" if fresh else "published_background",
             }
+            shareproof = row.get("shareCancellationPrimarySource")
+            if (row.get("status") == "official_share_cancellation_document_review"
+                and isinstance(shareproof, dict)
+                and shareproof.get("officialXmlOrHtmlBodyRetrieved") is True):
+                raw_terms = shareproof.get("observedTerms")
+                if isinstance(raw_terms, dict):
+                    issuer_terms = {}
+                    for name in ("ordinarySharesToCancel", "preferredSharesToCancel",
+                                 "scheduledCancellationDate"):
+                        term = raw_terms.get(name)
+                        if (isinstance(term, dict)
+                            and term.get("basis") == "same_official_table_row"
+                            and isinstance(term.get("value"), str)
+                            and len(term["value"]) <= 20
+                            and term.get("completedCancellationVerified") is False):
+                            issuer_terms[name] = term["value"]
+                    if issuer_terms:
+                        item["issuerFiledCancellationTerms"] = issuer_terms
+                        item["officialFact"] = (
+                            "공식 주식소각결정 원문 표의 예정값 확인; "
+                            "실제 소각 완료·배당 및 주주환원 산식·기보도 미검증")
             if fresh:
                 out["freshOfficialReview"].append(item)
                 added_recent += 1

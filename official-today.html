@@ -51,10 +51,21 @@ function lead(host,x){
    official_valueup_text_only_attachment_unverified:"공시 본문 텍스트 확인 · 발행사 첨부 PDF·수치 정의 미검증",
    official_valueup_text_and_attachment_checked:"공시 본문·첨부자료 확인 · 선행보도 및 수치 비교는 별도 검증",
    official_table_filing_fields_checked:"공시 원문 표의 기재값 확인 · 실제 납품·매출 검증 아님",
+   official_share_cancellation_fields_checked:"주식소각결정 공시의 예정값 확인 · 실제 소각 완료 검증 아님",
+   official_share_cancellation_text_only_fields_unverified:"주식소각 원문 텍스트 확인 · 주식수/날짜 안전 검증 실패",
    official_receipt_only_original_not_checked:"공시 접수번호·제목만 확인 · 원문 세부항목 미검증"
  };
  if(x.source==="DART_FILING")
   line(c,"DART 원문 검증 단계: "+(evidenceStage[x.originalEvidenceStage]||"원문 세부 확인 단계 미기록"),"dim");
+ if(x.source==="DART_FILING"&&x.issuerFiledCancellationTerms){
+  const t=x.issuerFiledCancellationTerms;
+  if(typeof t.ordinarySharesToCancel==="string"&&/^\d{1,12}$/.test(t.ordinarySharesToCancel))
+   line(c,"공시상 소각 예정 보통주: "+t.ordinarySharesToCancel+"주 (완료 확인 아님)","dim");
+  if(typeof t.preferredSharesToCancel==="string"&&/^\d{1,12}$/.test(t.preferredSharesToCancel))
+   line(c,"공시상 소각 예정 우선/종류주: "+t.preferredSharesToCancel+"주 (완료 확인 아님)","dim");
+  if(typeof t.scheduledCancellationDate==="string"&&/^20\d{2}-\d{2}-\d{2}$/.test(t.scheduledCancellationDate))
+   line(c,"공시상 소각 예정일: "+t.scheduledCancellationDate+" (실행 확인 아님)","dim");
+ }
  if(x.sourceSnapshotAt)line(c,"수집 원천 생성 시각: "+x.sourceSnapshotAt,"dim");
  line(c,"취재 검증: "+x.verification,"dim");
  line(c,"기보도·제품/공장 적용·규모·업체 직접 확인 전 출고/단독 미확정","dim");
