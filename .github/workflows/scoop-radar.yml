@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - 'pre_scoop_radar.py'
+      - 'scripts/official_source_observation.py'
+      - 'tests/test_official_source_observation.py'
       - 'scripts/official_publication_date_guard.py'
       - 'tests/test_official_publication_date_guard.py'
       - 'scoop_scout.py'
@@ -58,6 +60,8 @@ jobs:
         run: python -m unittest discover -s tests -p 'test_scoop_press_coverage_failclosed.py' -v
       - name: Check issuer/counterparty DART group-transaction evidence
         run: python -m unittest discover -s tests -p 'test_dart_affiliate_scoop_gate.py' -v
+      - name: Check every official source's health, baseline and post-gap classification
+        run: python -m unittest discover -s tests -p 'test_official_source_observation.py' -v
       - name: Collect official-source and early signals
         run: python pre_scoop_radar.py
       - name: Extract numeric facts from DART originals
@@ -78,6 +82,11 @@ jobs:
           numeric=json.loads(Path('dart_numeric.json').read_text(encoding='utf-8'))
           if not isinstance(numeric,dict) or not isinstance(numeric.get('items'),list):
               raise SystemExit('dart_numeric.json schema invalid')
+          observed=pre.get('sourceObservations')
+          if not isinstance(observed,dict) or observed.get('status')!='official_source_observation_not_exclusive':
+              raise SystemExit('per-source retrieval state missing')
+          if observed.get('confirmedScoops')!=0:
+              raise SystemExit('source novelty may not assert a scoop')
           if not isinstance(pre,dict) or not isinstance(pre.get('items'),list):
               raise SystemExit('pre_scoop.json schema invalid')
           if not isinstance(scoop,dict) or not isinstance(scoop.get('items'),list):
