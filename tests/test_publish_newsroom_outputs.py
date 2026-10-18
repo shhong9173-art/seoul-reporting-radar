@@ -50,6 +50,8 @@ def write_news(root,label):
                  "curatedLeadSourceAt":"2026-10-19T00:04:00+09:00",
                  "locatedOriginalCandidateArticleCount":0,
                  "distinctLocatedOfficialOriginalDocuments":0,
+                 "locatedSupplementaryForeignOriginalReferences":0,
+                 "secOfficialAcceptanceTimestampChecked":False,
                  "primaryDocumentPublishedBeforeMediaVerifiedCount":0,
                  "pressFulltextMatchedToOfficialOriginalCount":0,
                  "sourcePrioritizationEvidenceSufficient":False,
@@ -171,6 +173,32 @@ class PublisherIntegration(unittest.TestCase):
                          "another live producer update 3")
         self.assertIn("digests/press_coverage_index_latest.json",
                       OUTPUTS["news"])
+
+    def test_sec_accepted_at_is_not_unverified_first_public_clock(self):
+        trace_path=self.root/"digests/reverse_trace_latest.json"
+        trace=json.loads(trace_path.read_text(encoding="utf-8"))
+        trace["items"]=[{
+            "confirmedExclusive":False,"publicTraceClass":"U",
+            "locatedSupportingOfficialOriginals":[{
+                "status":"official_us_sec_filing_original_candidate_not_article_verified",
+                "sourceType":"regulatory_filing",
+                "documentUrl":"https://www.sec.gov/Archives/edgar/data/1844862/000110465925104388/0001104659-25-104388-index.html",
+                "secAcceptedAtOfficialEastern":"2025-10-30T16:15:52-04:00",
+                "secAcceptedAtIsNotPressFirstPublishedAt":True,
+                "firstPublicAvailabilityClockVerified":True,
+                "publisherStoryFirstPublicationClockVerified":False,
+                "articleFulltextCompared":False,
+                "sourceAndStoryFactsDirectlyMatched":False,
+                "releasedBeforeStoryVerified":False,
+                "automaticYPNDecision":False}]}]
+        trace["totalObservedExclusiveHeadlines"]=1
+        trace["unreviewedU"]=1
+        trace["locatedSupplementaryForeignOriginalReferences"]=1
+        trace["secOfficialAcceptanceTimestampChecked"]=True
+        trace["distinctLocatedOfficialOriginalDocuments"]=1
+        trace_path.write_text(json.dumps(trace),encoding="utf-8")
+        with self.assertRaisesRegex(ValueError,"unverified_original_candidate_claim"):
+            selected(self.root,"news")
 
     def test_curated_official_original_cannot_publish_automatic_earlier_source_claim(self):
         trace_path=self.root/"digests/reverse_trace_latest.json"
