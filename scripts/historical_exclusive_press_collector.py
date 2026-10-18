@@ -102,26 +102,80 @@ def month_bounds(now,months_back):
     return start,end
 
 
-def planned_searches(now,*,batch=None,limit=QUERIES_PER_RUN):
-    if not 1<=limit<=10:
-        raise ValueError("queries_per_run_out_of_bounds")
-    slots=[(back,beat) for back in range(MONTHS) for beat in BEATS]
-    slot_count=math.ceil(len(slots)/limit)
-    if batch is None:
-        batch=int(now.timestamp()//900)%slot_count
-    if not isinstance(batch,int) or not 0<=batch<slot_count:
-        raise ValueError("invalid_search_batch")
-    selected=slots[batch*limit:(batch+1)*limit]
+def _all_month_beat_windows(now):
+    if now.tzinfo is None or now.utcoffset() is None:
+        raise ValueError("planning_requires_timezone")
     output=[]
-    for back,beat in selected:
-        begin,end=month_bounds(now,back)
-        expression='[단독] ('+BEATS[beat]+') after:'+begin.isoformat()+' before:'+end.isoformat()
-        output.append({"windowId":beat+":"+begin.isoformat(),
-                       "beat":beat,"start":begin.isoformat(),
-                       "endExclusive":end.isoformat(),
-                       "query":expression,
-                       "url":RSS_URL.format(q=urllib.parse.quote(expression))})
+    for back in range(MONTHS):
+        for beat in BEATS:
+            begin,end=month_bounds(now,back)
+            expression=('[단독] ('+BEATS[beat]+') after:'+begin.isoformat()
+                        +' before:'+end.isoformat())
+            output.append({
+                "windowId":beat+":"+begin.isoformat(),
+                "beat":beat,"start":begin.isoformat(),
+                "endExclusive":end.isoformat(),"query":expression,
+                "url":RSS_URL.format(q=urllib.parse.quote(expression)),
+            })
     return output
+
+
+def planned_searches(now,*,batch=None,limit=QUERIES_PER_RUN,previous=None):
+    """Never re-check a completed window while other windows remain untried.
+
+    Explicit --batch is a deterministic diagnostic replay override. Normal
+    production uses last-seen window health; a failed query is NOT a checked
+    source, and a 0-row success is NOT proof of no historical news.
+    """
+    if not isinstance(limit,int) or not 1<=limit<=10:
+        raise ValueError("queries_per_run_out_of_bounds")
+    _previous_valid(previous)
+    windows=_all_month_beat_windows(now)
+    if batch is not None:
+        slots=math.ceil(len(windows)/limit)
+        if not isinstance(batch,int) or not 0<=batch<slots:
+            raise ValueError("invalid_search_batch")
+        return windows[batch*limit:(batch+1)*limit]
+    health=(previous or {}).get("windowHealth",{})
+    unchecked=[r for r in windows if r["windowId"] not in health]
+    if unchecked:
+        return unchecked[:limit]
+
+    def when(v):
+        if not isinstance(v,str):
+            return None
+        try:
+            dt=datetime.fromisoformat(v)
+            return dt if dt.tzinfo is not None and dt.utcoffset() is not None else None
+        except (ValueError,OverflowError):
+            return None
+
+    # After the initial sweep, retry explicitly failed source windows if the
+    # last attempt is older than 30 minutes. Never treat 0 results as failure.
+    due_failures=[]
+    checked=[]
+    for row in windows:
+        prior=health.get(row["windowId"])
+        if not isinstance(prior,dict):
+            raise ValueError("invalid_history_window_state")
+        last_ok=when(prior.get("lastOk"))
+        last_fail=when(prior.get("lastFail"))
+        if prior.get("lastOk") is not None and last_ok is None:
+            raise ValueError("invalid_window_last_ok")
+        if prior.get("lastFail") is not None and last_fail is None:
+            raise ValueError("invalid_window_last_fail")
+        if (prior.get("lastAttemptStatus")=="failed"
+            and (last_fail is None or now-last_fail>=timedelta(minutes=30))):
+            due_failures.append(row)
+        if last_ok is not None:
+            checked.append((last_ok,row))
+    if due_failures:
+        return due_failures[:limit]
+    # All 65 already attempted: refresh the oldest successful observations
+    # rather than tie selection to a wall-clock modulo (which can skip slots
+    # when scheduled runs are cancelled or delayed).
+    checked.sort(key=lambda x:(x[0],x[1]["windowId"]))
+    return [row for _,row in checked[:limit]]
 
 
 def fetch_rss(url,timeout=12):
@@ -254,7 +308,12 @@ def merge_history(prior,observed,checks,*,now):
            or not isinstance(c.get("windowId"),str)
            or c.get("status") not in statuses for c in checks):
         raise ValueError("invalid_search_health_record")
-    window_health=dict((prior or {}).get("windowHealth",{}))
+    # Keep only the rolling 13 months; old month windows otherwise pile up
+    # indefinitely and can make a legitimate archive hit the 130-item limit.
+    live_window_ids={r["windowId"] for r in _all_month_beat_windows(now)}
+    window_health={key:value for key,value in
+                   (prior or {}).get("windowHealth",{}).items()
+                   if key in live_window_ids}
     for row in checks:
         key=row["windowId"]
         previous=window_health.get(key,{})
@@ -294,6 +353,10 @@ def merge_history(prior,observed,checks,*,now):
             and r.get("matched")==0 for r in checks),
         "searchedWindowsWithPriorSuccess":sum(bool(r.get("lastOk"))
             for r in window_health.values()),
+        "unvisitedBeatMonthWindows":len(live_window_ids)-sum(
+            bool(row.get("lastOk")) for row in window_health.values()),
+        "selectedBeatMonthWindows":[row["windowId"] for row in checks],
+        "sourceCompletenessNotEstablished":True,
         "totalPlannedBeatMonthWindows":len(BEATS)*MONTHS,
         "searchErrors":errors,
         "windowHealth":window_health,
@@ -318,7 +381,8 @@ def main():
     _previous_valid(previous)
     checks=[]
     observed=[]
-    for window in planned_searches(now,batch=args.batch,limit=args.max_queries):
+    for window in planned_searches(now,batch=args.batch,limit=args.max_queries,
+                                   previous=previous):
         try:
             result,stats=parse_observed_headlines(fetch_rss(window["url"]),window,now=now)
             observed.extend(result)
