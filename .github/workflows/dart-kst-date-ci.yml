@@ -1,0 +1,30 @@
+name: OpenDART Korean Publication-Date Regression
+on:
+  pull_request:
+    paths:
+      - 'dart_collector.py'
+      - 'tests/test_dart_kst_reporting_window.py'
+      - '.github/workflows/dart-kst-date-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'dart_collector.py'
+      - 'tests/test_dart_kst_reporting_window.py'
+      - '.github/workflows/dart-kst-date-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source-date:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify exact Korean report date near midnight UTC
+        run: |
+          python -m compileall -q dart_collector.py
+          python -m unittest discover -s tests -p 'test_dart_kst_reporting_window.py' -v
+          python -m unittest discover -s tests -p 'test_official_collectors.py' -v
