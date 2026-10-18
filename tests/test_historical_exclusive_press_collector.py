@@ -9,7 +9,7 @@ from xml.sax.saxutils import escape
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from scripts.historical_exclusive_press_collector import (
     STATUS, BEATS, MONTHS, planned_searches, parse_observed_headlines,
-    merge_history, month_bounds
+    merge_history, month_bounds, tracked_industry_companies
 )
 
 KST=timezone(timedelta(hours=9))
@@ -51,6 +51,42 @@ class HistoricalExclusiveIndexTests(unittest.TestCase):
         self.assertEqual(month_bounds(NOW,12)[0].isoformat(),"2025-10-01")
         self.assertTrue(all("after%3A" in u["url"]
                             and "before%3A" in u["url"] for u in urls))
+
+    def test_actual_2025_homonyms_are_not_auto_steel_exclusives(self):
+        misleading=[
+            "[단독]친부모 정보 없는 ‘기아호적’ 공식 확인된 것만 3만8000여건",
+            "[단독] 금호제21구역, 롯데건설·포스코이앤씨 맞대결…포스코 적극 검토 중",
+            "[단독] 제네시스 챔피언십 KPGA 출전 명단 확정",
+        ]
+        for title in misleading:
+            self.assertEqual(tracked_industry_companies(title),[],title)
+        valid=[
+            "[단독] 기아 EV6 충전 결함 원인 조사",
+            "[단독] 포스코 미국 제철소 후판 신규 공장",
+            "[단독] 포스코필바라리튬솔루션 생산 계획",
+        ]
+        for title in valid:
+            self.assertTrue(tracked_industry_companies(title),title)
+
+    def test_live_2025_false_kia_and_posco_are_removed_from_rolling_history(self):
+        a=parse_observed_headlines(rss(article()),WIN,now=NOW)[0][0]
+        prior=merge_history(None,[a],[check()],now=NOW)
+        bad=copy.deepcopy(a)
+        bad.update(id="b"*24,
+                   title="[단독] 기아호적 공식 확인 3만8000여건",
+                   companies=["기아"])
+        construction=copy.deepcopy(a)
+        construction.update(id="c"*24,
+                            title="[단독] 포스코이앤씨 건설 시공사 결정…포스코 검토",
+                            companies=["포스코"])
+        prior["items"].extend([bad,construction])
+        prior["itemCount"]=3
+        updated=merge_history(prior,[],[check(matched=0)],
+            now=NOW+timedelta(hours=1))
+        self.assertEqual(updated["discardedLegacyOffBeatHeadlinesThisRun"],2)
+        self.assertEqual(updated["itemCount"],1)
+        self.assertEqual(updated["items"][0]["id"],a["id"])
+        self.assertEqual(updated["confirmedScoops"],0)
 
     def test_historical_article_is_observed_not_claimed_unreported(self):
         result,stats=parse_observed_headlines(rss(article()),WIN,now=NOW)

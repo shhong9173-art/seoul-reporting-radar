@@ -39,6 +39,43 @@ BEATS={
 RSS_URL="https://news.google.com/rss/search?q={q}&hl=ko&gl=KR&ceid=KR:ko"
 MONTHS=13
 QUERIES_PER_RUN=5
+INDUSTRY_TERMS=re.compile(
+    r"철강|제철|후판|냉연|열연|배터리|리튬|수소|전기차|"
+    r"양극재|음극재|니켈|제련|제철소|HVDC|변압기|광산",re.I)
+CONSTRUCTION_POSCO=re.compile(
+    r"포스코(?:이앤씨|E&C|건설)|"
+    r"재건축|재개발|시공사|정비사업|도시정비|아파트",re.I)
+SPORTS_GOLF=re.compile(
+    r"KPGA|KLPGA|LPGA|프로골프|골프|선수권|"
+    r"제네시스.{0,8}챔피언십|피버스|타이거즈",re.I)
+HUNGER_KIA=re.compile(
+    r"기아\s*(?:호적|아동|문제|상태|극복|퇴치|빈곤|지수|위기|사태)|"
+    r"기아호적|기아퇴치",re.I)
+
+
+def tracked_industry_companies(title):
+    """Only classify explicit tracked industrial companies, not homonyms.
+
+    Corporate group names in construction reporting and non-automotive '기아'
+    must not inflate automotive/steel historical exclusive story counts.
+    Ambiguous names are excluded, not turned into verified company facts.
+    """
+    if not isinstance(title,str):
+        return []
+    if SPORTS.search(title) or SPORTS_GOLF.search(title):
+        return []
+    names=[name for name in sorted(INDUSTRY_COMPANIES,key=len,reverse=True)
+           if name.casefold() in title.casefold()]
+    if HUNGER_KIA.search(title):
+        names=[x for x in names if x!="기아"]
+    if CONSTRUCTION_POSCO.search(title) and not INDUSTRY_TERMS.search(title):
+        names=[x for x in names if x!="포스코"]
+    # Never silently map an explicit POSCO E&C-only mention to the
+    # separately covered steel producer POSCO.
+    if re.search(r"포스코(?:이앤씨|E&C|건설)",title,re.I) and not INDUSTRY_TERMS.search(title):
+        names=[x for x in names if x!="포스코"]
+    return names
+
 
 
 def _aware(value):
@@ -131,13 +168,9 @@ def parse_observed_headlines(raw,window,*,now):
         if not SCOOP_MARKER.search(title):
             stats["nonExclusive"]+=1
             continue
-        if SPORTS.search(title):
-            stats["offBeatOrSport"]+=1
-            continue
-        # Only title-identified industry companies. Generic topical query
-        # hits and RSS summaries cannot conjure corporate identities.
-        companies=[name for name in sorted(INDUSTRY_COMPANIES,key=len,reverse=True)
-                   if name.lower() in title.lower()]
+        # Only the original title can establish an industrial entity.
+        # Avoid KIA hunger records, POSCO E&C construction and sports.
+        companies=tracked_industry_companies(title)
         if not companies:
             stats["offBeatOrSport"]+=1
             continue
@@ -192,8 +225,14 @@ def merge_history(prior,observed,checks,*,now):
         raise ValueError("missing_query_health")
     cutoff=now-timedelta(days=HORIZON_DAYS)
     seen={}
+    discarded_legacy_offbeat=0
     for row in (prior or {}).get("items",[]):
         when=_aware(row.get("published"))
+        current_beat=set(tracked_industry_companies(row.get("title")))
+        recorded_beat=set(row.get("companies") or [])
+        if not current_beat.intersection(recorded_beat):
+            discarded_legacy_offbeat+=1
+            continue
         if when is not None and cutoff<=when<=now+timedelta(hours=3):
             seen[row["id"]]=row
     before=len(seen)
@@ -247,6 +286,7 @@ def merge_history(prior,observed,checks,*,now):
         "lookbackDays":HORIZON_DAYS,
         "itemCount":len(items),
         "newObservedHeadlineCount":max(0,len(seen)-before),
+        "discardedLegacyOffBeatHeadlinesThisRun":discarded_legacy_offbeat,
         "searchedWindowCountThisRun":len(checks),
         "successfulWindowsThisRun":count_ok,
         "failedWindowsThisRun":len(errors),
@@ -262,7 +302,7 @@ def merge_history(prior,observed,checks,*,now):
         "pressArticleFulltextsReviewed":False,
         "humanReviewedYPN":0,
         "confirmedScoops":0,
-        "warning":"Google 뉴스 RSS 월별 검색에서 관측된 [단독] 제목 후보의 불완전한 365일 색인. 빈 검색은 0건의 실제 기사가 아님. 기사 전문·실제 최초 발행일·원자료·독점성은 전부 별도 검증",
+        "warning":"Google 뉴스 RSS에서 관측된 불완전한 365일 기사 제목 색인. 기아호적·포스코이앤씨 건설·스포츠 등 동명이의어 오분류는 제외. 빈 검색은 미보도 증명 아님. 기사 전문·정확한 발행일·원자료·단독성은 별도 검증",
     }
 
 
