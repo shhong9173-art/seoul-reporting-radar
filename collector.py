@@ -6,6 +6,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 from scripts.auto_news_feed_health import build as build_feed_health, persist as persist_feed_health
 from scripts.rss_concurrent import collect_feeds
+from scripts.news_headline_identity import normalize_title, obvious_sports_homonym
 
 KST=ZoneInfo('Asia/Seoul'); OUT=Path('data.js'); JSON_OUT=Path('data.json')
 FEED_CHECKS=[]
@@ -55,8 +56,8 @@ def clean(s):
     s=re.sub(r'<script.*?</script>|<style.*?</style>|<[^>]+>',' ',s or '',flags=re.I|re.S)
     return re.sub(r'\s+',' ',html.unescape(s)).strip()
 
-def norm_title(t):
-    return re.sub(r'\s*[-|｜].*$','',t).lower()
+def norm_title(t,source_name=''):
+    return normalize_title(t,source_name)
 
 def company_list(text):return [c for c in COMPANIES if c in text]
 
@@ -95,6 +96,7 @@ def parse_feed(category,query,global_feed=False,source_hint=''):
         title=(item.findtext('title') or '').strip();link=(item.findtext('link') or '').strip();pub=(item.findtext('pubDate') or '').strip();desc=clean(item.findtext('description') or '')
         src=item.find('source');source=(src.text or '').strip() if src is not None else source_hint
         if not title or not link:continue
+        if not global_feed and obvious_sports_homonym(title,desc):continue
         # Dedicated scoop feed must stay in the automotive beat. Google News can
         # otherwise return unrelated "[단독]" articles that happen to contain
         # the generic scoop token.
@@ -127,7 +129,7 @@ def same_issue(a,b):
 def dedupe(items):
     seen=set();out=[]
     for x in sorted(items,key=lambda z:z['published'],reverse=True):
-        k=norm_title(x['title'])
+        k=norm_title(x['title'],x.get('sourceName',''))
         if k in seen:continue
         seen.add(k);out.append(x)
     return out

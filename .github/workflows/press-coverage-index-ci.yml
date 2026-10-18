@@ -3,6 +3,9 @@ on:
   pull_request:
     paths:
       - 'archive_builder.py'
+      - 'collector.py'
+      - 'scripts/news_headline_identity.py'
+      - 'tests/test_news_headline_identity.py'
       - 'scripts/press_coverage_index.py'
       - 'scripts/publish_newsroom_outputs.py'
       - 'tests/test_press_coverage_index.py'
@@ -30,6 +33,7 @@ jobs:
       - name: Check true prior-coverage memory and failclosed missing dates
         run: |
           python -m compileall -q scripts/press_coverage_index.py archive_builder.py
+          python -m unittest discover -s tests -p 'test_news_headline_identity.py' -v
           python -m unittest discover -s tests -p 'test_press_coverage_index.py' -v
           python -m unittest discover -s tests -p 'test_publish_newsroom_outputs.py' -v
       - name: Replay actual newsroom feed without writing main
