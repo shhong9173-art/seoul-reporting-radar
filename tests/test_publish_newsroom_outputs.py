@@ -111,6 +111,37 @@ class PublisherIntegration(unittest.TestCase):
                          "fresh news 0")
         self.assertTrue(git(self.root,"status","--porcelain"))
 
+    def test_news_publish_recovers_after_four_consecutive_other_main_writers(self):
+        # Regression for the 2026-10-18 real newsroom publishing failure:
+        # a validated 389-row coverage index was built, but four fast
+        # non-fast-forward push races prevented any output from reaching main.
+        write_news(self.root,"latest validated")
+        races=[]
+        delays=[]
+        def race(attempt):
+            if attempt < 4:
+                git(self.peer,"fetch","origin","main")
+                git(self.peer,"reset","--hard","origin/main")
+                (self.peer/"unrelated.txt").write_text(
+                    "another live producer update "+str(attempt)+"\n")
+                git(self.peer,"add","unrelated.txt")
+                git(self.peer,"commit","-m","independent producer "+str(attempt))
+                git(self.peer,"push","origin","main")
+                races.append(attempt)
+        result=publish(self.root,"news",attempts=6,
+                       before_push=race,retry_sleep=delays.append)
+        self.assertEqual(result,"published")
+        self.assertEqual(races,[0,1,2,3])
+        self.assertEqual(delays,[1,2,4,8])
+        git(self.peer,"fetch","origin","main")
+        self.assertEqual(
+            json.loads(self.remote_file("data.json"))[0]["title"],
+            "latest validated news 0")
+        self.assertEqual(self.remote_file("unrelated.txt"),
+                         "another live producer update 3")
+        self.assertIn("digests/press_coverage_index_latest.json",
+                      OUTPUTS["news"])
+
     def test_concurrent_official_registry_survives_stale_news_refresh(self):
         self.assertNotIn("dart_corp_codes.json",OUTPUTS["news"])
         official={"companies":{"현대자동차":{"corp_code":"00164742","stock_code":"005380"},

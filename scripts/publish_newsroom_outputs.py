@@ -15,6 +15,7 @@ import json
 import shutil
 import subprocess
 import tempfile
+import time
 from pathlib import Path
 from datetime import datetime, timezone
 
@@ -207,7 +208,7 @@ def verified_queue_dart_source_at(source):
         return None
 
 
-def publish(root: Path, mode: str, *, attempts: int = 4, before_push=None):
+def publish(root: Path, mode: str, *, attempts: int = 6, before_push=None, retry_sleep=time.sleep):
     root = root.resolve()
     if attempts < 1 or attempts > 6:
         raise ValueError("invalid_retry_count")
@@ -259,6 +260,12 @@ def publish(root: Path, mode: str, *, attempts: int = 4, before_push=None):
                              "HEAD:refs/heads/main", check=False)
                 if pushed.returncode == 0:
                     return "published"
+                # Other independently scheduled producers may publish their
+                # own unrelated changes after our fetch. Never force push or
+                # preserve the failed commit as evidence of publication.
+                # Rebuild from *fresh* main with bounded backoff.
+                if attempt+1 < attempts:
+                    retry_sleep(min(2**attempt, 8))
             raise RuntimeError("remote_changed_or_push_denied_after_retries")
         finally:
             if attached:
