@@ -91,6 +91,16 @@ function lead(host,x){
    line(c,"모회사에 제출된 자회사 관련 공시입니다. 동일 자회사 사건의 별도 접수일 수 있으며 독립 중단 사건으로 중복 집계하지 않습니다.","dim");
   line(c,"공식 공시의 영업정지 결정과 실제 사업장 가동 중단·향후 매출 실현은 다른 검증 단계입니다.","dim");
  }
+ if(x.possibleSameUnderlyingCessationEvent===true &&
+     x.underlyingCessationEventIndependentlyVerified===false){
+  line(c,"공식 원문 다섯 항목과 공시일이 일치하는 모·자회사 관련 공시 후보가 있습니다. 독립적인 영업정지 두 사건으로 합산하지 않습니다. 동일 법적 사건 여부는 미확인입니다.","dim");
+  if(typeof x.possibleOverlappingCessationReceipt==="string" &&
+     /^20\d{12}$/.test(x.possibleOverlappingCessationReceipt)){
+   const a=el("a","비교할 다른 DART 접수번호 "+x.possibleOverlappingCessationReceipt+" ↗","dim");
+   a.href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo="+x.possibleOverlappingCessationReceipt;
+   a.target="_blank";a.rel="noopener noreferrer";c.append(a);
+  }
+ }
  if(x.sourceSnapshotAt)line(c,"수집 원천 생성 시각: "+x.sourceSnapshotAt,"dim");
  line(c,"취재 검증: "+x.verification,"dim");
  line(c,"기보도·제품/공장 적용·규모·업체 직접 확인 전 출고/단독 미확정","dim");
