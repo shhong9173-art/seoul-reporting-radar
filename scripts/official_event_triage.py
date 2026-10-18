@@ -206,7 +206,7 @@ def build(sources,*,now=None,previous=None):
                  str(row.get("company") or "")+" · "+str(p.get("project") or ""),
                  str(row.get("company") or ""),
                  "과거·최근 사업보고서상 투자 종료 예정월 항목 차이(실제 준공 지연 증명 아님)",
-                 links[-1],"기업에 예상 종료월 변경 사유·가동일·생산 물량·기보도 확인")
+                 links[-1],"공개된 공시 간 예상 종료월의 차이·이후 완공 공시·기보도 확인(미공개 생산계획 질의 금지)")
             add(lead,"comparison_of_two_public_reports")
 
     # Historic filings underpin DART numeric changes; collected date is
@@ -228,7 +228,7 @@ def build(sources,*,now=None,previous=None):
                    "동일 회계기간·단위 DART 기재 수치 "+
                    str(row.get("priorValue"))+" → "+str(row.get("currentValue"))+
                    " ("+str(row.get("unit") or "")+"), 실제 제품 출하량·사업 확정 아님",
-                   urls[-1],"숫자 표모수·동일 회계기간·가동능력 대비 출하량·기보도 검증")
+                   urls[-1],"공시의 기간·단위·모수와 기보도 대조(생산·출하량은 공표 수치만 확인)")
         add(lead,"historical_official_numeric_comparison")
 
     # NHTSA model-specific searches can return January 2026 recalls in October.
