@@ -44,6 +44,7 @@ def write_news(root,label):
         reverse={"status":"automotive_industry_exclusive_reverse_trace_unverified_candidates",
                  "pressIndexGeneratedAt":history["generatedAt"],
                  "historicalSearchIndexAt":historical["generatedAt"],
+                 "generatedAt":"2026-10-18T10:03:45+09:00",
                  "historicalSearchObservedRows":0,
                  "historicalSearchAllSourcesChecked":False,
                  "curatedLeadStatus":"curated_official_original_candidates_chronology_unverified",
@@ -73,7 +74,11 @@ def write_news(root,label):
         (root/"digests/official_event_triage_latest.json").write_text(
             json.dumps({"status":"official_date_triage",
                         "generatedAt":official_at,
-                        "beatWideDartSourceAt":source_at}),encoding="utf-8")
+                        "beatWideDartSourceAt":source_at,
+                        "confirmedScoops":0,
+                        "backgroundReference":[],
+                        "freshOfficialReview":[],
+                        "incompleteOrStaleFeeds":[]}),encoding="utf-8")
         receipt_queue={
             "status":"reverse_trace_dart_receipt_reading_queue_unverified",
             "reverseTraceSourceAt":reverse.get("generatedAt"),
@@ -120,6 +125,57 @@ class PublisherIntegration(unittest.TestCase):
 
     def remote_file(self,path):
         return git(self.peer,"show","origin/main:"+path)
+
+    def test_news_publisher_rebuilds_dart_review_from_latest_remote(self):
+        # Live 2026-10-19 incident: beat and event-queue updated while the
+        # older checkout collected its normal news feed.
+        newbeat="2026-10-19T03:39:07+09:00"
+        newqueue="2026-10-19T03:39:46+09:00"
+        (self.peer/"digests/dart_beat_monitor_latest.json").write_text(
+            json.dumps({"status":"industry_beat_official_receipt_review",
+                        "generatedAt":newbeat}),encoding="utf-8")
+        (self.peer/"digests/official_event_triage_latest.json").write_text(
+            json.dumps({"status":"official_date_triage",
+                        "generatedAt":newqueue,
+                        "beatWideDartSourceAt":newbeat,
+                        "confirmedScoops":0,
+                        "backgroundReference":[],
+                        "freshOfficialReview":[],
+                        "incompleteOrStaleFeeds":[]}),encoding="utf-8")
+        git(self.peer,"add","digests/dart_beat_monitor_latest.json",
+            "digests/official_event_triage_latest.json")
+        git(self.peer,"commit","-m","independent DART official snapshot landed")
+        git(self.peer,"push","origin","main")
+        write_news(self.root,"fresh")
+        old_local=json.loads((self.root/"digests/reverse_trace_dart_followups_latest.json")
+                             .read_text())
+        self.assertNotEqual(old_local["dartOfficialSourceAt"],newbeat)
+        self.assertEqual(publish(self.root,"news"),"published")
+        git(self.peer,"fetch","origin","main")
+        current=json.loads(self.remote_file(
+            "digests/reverse_trace_dart_followups_latest.json"))
+        self.assertEqual(current["dartOfficialSourceAt"],newbeat)
+        self.assertEqual(current["officialQueueSourceAt"],newqueue)
+        self.assertEqual(current["confirmedScoops"],0)
+        self.assertFalse(current["sourceCompletenessVerified"])
+        self.assertEqual(
+            json.loads((self.root/"digests/reverse_trace_dart_followups_latest.json")
+                       .read_text())["dartOfficialSourceAt"],
+            old_local["dartOfficialSourceAt"])
+
+    def test_publisher_blocks_partially_updated_dart_and_event_queue(self):
+        (self.peer/"digests/dart_beat_monitor_latest.json").write_text(
+            json.dumps({"status":"industry_beat_official_receipt_review",
+                        "generatedAt":"2026-10-19T03:39:07+09:00"}))
+        git(self.peer,"add","digests/dart_beat_monitor_latest.json")
+        git(self.peer,"commit","-m","beat source updated without event triage")
+        git(self.peer,"push","origin","main")
+        with self.assertRaisesRegex(ValueError,"official_dart_snapshot_identity"):
+            publish(self.root,"news")
+        git(self.peer,"fetch","origin","main")
+        self.assertEqual(
+            json.loads(self.remote_file("digests/reverse_trace_dart_followups_latest.json"))
+            ["dartOfficialSourceAt"],"2026-10-18T10:03:00+09:00")
 
     def test_news_never_overwrites_scoop_and_leaves_dirty_collector_untouched(self):
         # Independent scoop writer gets a newer result just before newsroom publish.

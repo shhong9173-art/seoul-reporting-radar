@@ -337,6 +337,34 @@ def verified_queue_dart_source_at(source):
         return None
 
 
+
+def rebuild_dart_followups_from_current_remote(worktree: Path):
+    """Bind current news trace to the latest *independently published* DART.
+
+    This runs ONLY inside the disposable worktree after fetching origin/main,
+    never against the collector's dirty checkout. If independent official
+    DART and event triage snapshots disagree, fail closed instead of
+    publishing stale candidate evidence or pretending zero matches.
+    """
+    try:
+        from scripts.reverse_trace_dart_followups import build_queue
+    except ModuleNotFoundError:
+        from reverse_trace_dart_followups import build_queue
+    def read(name):
+        return json.loads((worktree / name).read_text(encoding="utf-8"))
+    result=build_queue(
+        read("digests/reverse_trace_latest.json"),
+        read("digests/official_event_triage_latest.json"),
+        read("digests/dart_beat_monitor_latest.json"),
+    )
+    path=worktree / "digests/reverse_trace_dart_followups_latest.json"
+    target=path.with_suffix(".json.tmp")
+    target.write_text(json.dumps(result,ensure_ascii=False,indent=2)+"\n",
+                      encoding="utf-8")
+    target.replace(path)
+    return result
+
+
 def publish(root: Path, mode: str, *, attempts: int = 6, before_push=None, retry_sleep=time.sleep):
     root = root.resolve()
     if attempts < 1 or attempts > 6:
@@ -372,6 +400,11 @@ def publish(root: Path, mode: str, *, attempts: int = 6, before_push=None, retry
                     destination = output / name
                     destination.parent.mkdir(parents=True, exist_ok=True)
                     shutil.copyfile(root / name, destination)
+                if mode == "news":
+                    # DART may update while Auto Desk is collecting news.
+                    # A news branch checkout must never silently publish a
+                    # research queue tied to the *older* DART snapshot.
+                    rebuild_dart_followups_from_current_remote(output)
                 run(output, "add", "--", *names)
                 changed = run(output, "diff", "--cached", "--quiet", check=False)
                 if changed.returncode == 0:
