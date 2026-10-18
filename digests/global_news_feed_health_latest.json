@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-18T22:57:38+09:00",
+  "generatedAt": "2026-10-18T23:12:57+09:00",
   "status": "source_requests_completed",
   "expectedQueries": 12,
   "attemptedQueries": 12,
@@ -7,37 +7,37 @@
   "validEmptyQueries": 6,
   "slowestQueries": [
     {
+      "category": "Automotive News",
+      "globalFeed": true,
+      "status": "checked_recent_rows",
+      "durationMs": 583
+    },
+    {
       "category": "Nikkei Asia",
       "globalFeed": true,
       "status": "checked_recent_rows",
-      "durationMs": 731
+      "durationMs": 579
     },
     {
       "category": "The Verge",
       "globalFeed": true,
       "status": "checked_no_recent_rows",
-      "durationMs": 639
+      "durationMs": 551
     },
     {
-      "category": "Bloomberg",
+      "category": "WardsAuto",
       "globalFeed": true,
       "status": "checked_no_recent_rows",
-      "durationMs": 533
+      "durationMs": 512
     },
     {
       "category": "Automotive World",
       "globalFeed": true,
       "status": "checked_no_recent_rows",
-      "durationMs": 517
-    },
-    {
-      "category": "Automotive News",
-      "globalFeed": true,
-      "status": "checked_recent_rows",
-      "durationMs": 512
+      "durationMs": 506
     }
   ],
-  "recentArticleItemsAfterDedupe": 31,
+  "recentArticleItemsAfterDedupe": 29,
   "minimumPublicationItems": 1,
   "newsDatasetApprovedForPublish": true,
   "allProvidersResponded": true,
@@ -51,7 +51,7 @@
       "status": "checked_no_recent_rows",
       "recentRows": 0,
       "errorType": null,
-      "durationMs": 382
+      "durationMs": 372
     },
     {
       "category": "Bloomberg",
@@ -59,7 +59,7 @@
       "status": "checked_no_recent_rows",
       "recentRows": 0,
       "errorType": null,
-      "durationMs": 533
+      "durationMs": 372
     },
     {
       "category": "Nikkei Asia",
@@ -67,15 +67,7 @@
       "status": "checked_recent_rows",
       "recentRows": 2,
       "errorType": null,
-      "durationMs": 731
-    },
-    {
-      "category": "Automotive News",
-      "globalFeed": true,
-      "status": "checked_recent_rows",
-      "recentRows": 4,
-      "errorType": null,
-      "durationMs": 512
+      "durationMs": 579
     },
     {
       "category": "Automotive World",
@@ -83,7 +75,15 @@
       "status": "checked_no_recent_rows",
       "recentRows": 0,
       "errorType": null,
-      "durationMs": 517
+      "durationMs": 506
+    },
+    {
+      "category": "Automotive News",
+      "globalFeed": true,
+      "status": "checked_recent_rows",
+      "recentRows": 2,
+      "errorType": null,
+      "durationMs": 583
     },
     {
       "category": "WardsAuto",
@@ -91,15 +91,15 @@
       "status": "checked_no_recent_rows",
       "recentRows": 0,
       "errorType": null,
-      "durationMs": 428
+      "durationMs": 512
     },
     {
       "category": "InsideEVs",
       "globalFeed": true,
       "status": "checked_recent_rows",
-      "recentRows": 9,
+      "recentRows": 8,
       "errorType": null,
-      "durationMs": 501
+      "durationMs": 498
     },
     {
       "category": "Electrek",
@@ -107,7 +107,7 @@
       "status": "checked_recent_rows",
       "recentRows": 5,
       "errorType": null,
-      "durationMs": 496
+      "durationMs": 498
     },
     {
       "category": "CnEVPost",
@@ -115,7 +115,7 @@
       "status": "checked_recent_rows",
       "recentRows": 11,
       "errorType": null,
-      "durationMs": 467
+      "durationMs": 454
     },
     {
       "category": "CarNewsChina",
@@ -123,7 +123,7 @@
       "status": "checked_recent_rows",
       "recentRows": 1,
       "errorType": null,
-      "durationMs": 448
+      "durationMs": 457
     },
     {
       "category": "EV.com",
@@ -131,7 +131,7 @@
       "status": "checked_no_recent_rows",
       "recentRows": 0,
       "errorType": null,
-      "durationMs": 467
+      "durationMs": 422
     },
     {
       "category": "The Verge",
@@ -139,7 +139,7 @@
       "status": "checked_no_recent_rows",
       "recentRows": 0,
       "errorType": null,
-      "durationMs": 639
+      "durationMs": 551
     }
   ]
 }
