@@ -359,7 +359,7 @@ def rebuild_dart_followups_from_current_remote(worktree: Path):
     )
     path=worktree / "digests/reverse_trace_dart_followups_latest.json"
     target=path.with_suffix(".json.tmp")
-    target.write_text(json.dumps(result,ensure_ascii=False,indent=2)+"\\n",
+    target.write_text(json.dumps(result,ensure_ascii=False,indent=2)+"\n",
                       encoding="utf-8")
     target.replace(path)
     return result
