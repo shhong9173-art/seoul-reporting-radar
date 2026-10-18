@@ -15,6 +15,9 @@ for(const phrase of [
  "DART_FILING","FOREIGN_NOTICE",
  "originalEvidenceStage","official_valueup_text_only_attachment_unverified",
  "official_share_cancellation_fields_checked",
+ "official_business_cessation_fields_checked",
+ "issuerFiledBusinessCessationTerms","businessCessationFilingRelation",
+ "영업정지 대상 사업","독립 중단 사건으로 중복 집계하지 않습니다",
  "issuerFiledCancellationTerms","공시상 소각 예정",
  "official_table_filing_fields_checked","official_receipt_only_original_not_checked",
  "partial_issuer_coverage","unresolvedCompanies","sourceSnapshotAt"
