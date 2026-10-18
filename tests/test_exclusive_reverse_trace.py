@@ -63,8 +63,8 @@ class ExclusiveReverseTrace(unittest.TestCase):
         }
         for title,category in actual.items():
             self.assertEqual(kind_for(title),category,title)
-        rows=[article("a",title,company="현대차")
-              for title in list(actual)[:3]]
+        rows=[article(key,title,company="현대차")
+              for key,title in zip(("a","b","c"),list(actual)[:3])]
         res=build(index(*rows),now=NOW)
         self.assertEqual(res["humanReviewedYPN"],0)
         self.assertEqual(res["unreviewedU"],3)
