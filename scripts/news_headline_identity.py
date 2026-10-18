@@ -17,12 +17,12 @@ SEPARATOR = re.compile(r"\s+[-|｜]\s+")
 SPORT = re.compile(
     r"프로농구|프로야구|KBO|KBL|농구단|야구단|"
     r"챔피언결정전|준플레이오프|플레이오프|"
-    r"타이거즈|농구|야구|홈런|타점|득점|리바운드|"
+    r"타이거즈|피버스|농구|야구|홈런|타점|득점|리바운드|"
     r"쿼터|역전승|[0-9]+연승|[0-9]+연패", re.I
 )
 SPORT_TEAMS = re.compile(
     r"기아\s*타이거즈|KIA\s*Tigers|현대모비스\s*피버스|"
-    r"울산\s*현대모비스|모비스\s*농구|"
+    r"모비스\s*농구|"
     r"현대캐피탈\s*스카이워커스", re.I
 )
 AUTO_CONTEXT = re.compile(
