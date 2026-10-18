@@ -180,9 +180,12 @@ try{
               ["고유번호 미확인",src.companiesUnresolved],
               ["수집 오류·페이지 누락",src.companiesWithSourceErrors],
               ["확인된 공개 공시",src.relevantFilings],
-              ["검토 대기 원문",src.uninspectedRelevantDetails],
+              ["검토 대기 원문",Number.isInteger(src.uninspectedListedDetails)?src.uninspectedListedDetails:src.uninspectedRelevantDetails],
+              ["원문 추출기 미지원 공시",src.unsupportedOriginalDetailTypes??"미확인"],
               ["최신 3일 검토",changes.recentOfficialReviewCount]];
  for(const [name,val] of cards){const c=el("div");c.append(el("span",name,"dim"),el("div",val,"num"));$("#summary").append(c)}
+ if(Number.isInteger(src.unsupportedOriginalDetailTypes)&&src.unsupportedOriginalDetailTypes>0)
+  p($("#status"),"원문 세부항목 추출 미지원 공시 "+src.unsupportedOriginalDetailTypes+"건: 수집 한도 증설로 해결되지 않으며, 보유 공시 목록 0건이나 내용 검증 완료로 취급하지 않습니다.","dim");
  const groups=[...new Set(src.sourceChecks.map(x=>x.beat))];
  for(const group of groups){const o=el("option",group);o.value=group;$("#beat").append(o)}
  function rerender(){
