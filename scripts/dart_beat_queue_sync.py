@@ -61,7 +61,10 @@ def verify_official_queue_source(beat, queue):
         return {'verified': False, 'reason': 'missing_or_duplicate_receipt_history'}
     if queue.get('confirmedScoops') != 0 or queue.get('approvedArticles') != 0:
         return {'verified': False, 'reason': 'unsupported_scoop_certification'}
-    for x in queue.get('freshOfficialReview', []) + queue.get('backgroundReference', []):
+    if (not isinstance(queue.get('freshOfficialReview'), list)
+        or not isinstance(queue.get('backgroundReference'), list)):
+        return {'verified': False, 'reason': 'malformed_editorial_queue'}
+    for x in queue['freshOfficialReview'] + queue['backgroundReference']:
         if not isinstance(x, dict) or x.get('exclusiveConfirmed') is not False:
             return {'verified': False, 'reason': 'unverified_editorial_item'}
         if (x.get('evidenceClass') == 'beat_wide_official_receipt'
@@ -77,9 +80,11 @@ if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('--require-official-queue-sync', action='store_true')
+    parser.add_argument('--beat', default='digests/dart_beat_monitor_latest.json')
+    parser.add_argument('--queue', default='digests/official_event_triage_latest.json')
     args = parser.parse_args()
-    beat = json.loads(Path('digests/dart_beat_monitor_latest.json').read_text())
-    queue = json.loads(Path('digests/official_event_triage_latest.json').read_text())
+    beat = json.loads(Path(args.beat).read_text())
+    queue = json.loads(Path(args.queue).read_text())
     result = (verify_official_queue_source(beat, queue)
               if args.require_official_queue_sync else inspect(beat, queue))
     print(json.dumps(result, ensure_ascii=False))
