@@ -317,6 +317,41 @@ REPORTABLE_TERMS=(
 AFFILIATE_RELATIONS=frozenset({"자회사","종속회사","계열회사","관계회사"})
 
 
+CESSATION_FIELDS=frozenset((
+    "reportedBusinessScope", "reportedAffectedSalesWon",
+    "reportedRecentSalesWon", "issuerReportedRevenueRatioPct",
+    "issuerStatedCessationDate"
+))
+
+
+def verified_official_cessation_terms(row):
+    """Validated issuer descriptions, not independently verified shutdowns."""
+    src=row.get("businessCessationPrimarySource")
+    if (row.get("status")!="official_business_cessation_document_review"
+        or row.get("sourceError") is True
+        or not isinstance(src,dict)
+        or src.get("officialXmlOrHtmlBodyRetrieved") is not True
+        or not isinstance(src.get("observedTerms"),dict)):
+        return {}
+    out={}
+    for name in CESSATION_FIELDS:
+        proof=src["observedTerms"].get(name)
+        if (not isinstance(proof,dict)
+            or proof.get("basis")!="same_official_table_row"
+            or proof.get("operationalShutdownVerified") is not False
+            or proof.get("independentBusinessEffectVerified") is not False
+            or not isinstance(proof.get("value"),str)
+            or not 1<=len(proof["value"])<=140
+            or not isinstance(proof.get("officialTableLabel"),str)):
+            continue
+        out[name]={"value":proof["value"],
+                   "officialTableLabel":proof["officialTableLabel"][:100],
+                   "basis":"same_official_table_row",
+                   "businessEffectVerified":False,
+                   "operationalShutdownVerified":False}
+    return out
+
+
 def verified_official_table_terms(row):
     """Exact issuer-filed cell values only, never commercial/business impact."""
     if (row.get("status")!="official_document_read"
@@ -390,6 +425,16 @@ def change_review(current,previous=None,*,now=None):
                     kind="same_receipt_first_document_field_recovery"
                 else:
                     kind="same_receipt_data_reparse_discrepancy"
+        elif (prior is not None
+              and prior.get("detailStatus") in (
+                  "original_detail_type_unsupported",
+                  "not_inspected_bounded_detail_budget",
+                  "document_unavailable", "detail_source_error")
+              and row.get("status")=="official_business_cessation_document_review"
+              and verified_official_cessation_terms(row)):
+            # Same receipt, newly extracted first-party fields. This is a
+            # collector recovery, not a fresh corporate decision or scoop.
+            kind="same_receipt_first_cessation_original_recovery"
         elif new_receipt and row.get("isCorrection"):
             source_changes=row.get("changes",[])
             original=row.get("originalReceiptNo")
@@ -421,6 +466,7 @@ def change_review(current,previous=None,*,now=None):
         if not new_receipt and kind=="previously_seen_public_filing":continue
         terms=verified_official_table_terms(row)
         affiliate=terms.get("counterparty_relationship",{}).get("value") in AFFILIATE_RELATIONS
+        cessation_terms=verified_official_cessation_terms(row)
         # Every non-duplicate candidate has exact DART URL from upstream.
         signals.append({
             "company":row["company"],"beat":row["beat"],"receiptNo":receipt,
@@ -435,6 +481,12 @@ def change_review(current,previous=None,*,now=None):
                         if kind=="two_official_documents_changed_terms" else None),
             "changedTermsForReview":cited,"sourceReparseFieldKeys":changed_fields,
             "reportedOfficialTableTerms":terms,
+            "reportedOfficialCessationTerms":cessation_terms,
+            "businessCessationFilingRelation":(
+                row.get("businessCessationFilingRelation")
+                if row.get("status")=="official_business_cessation_document_review"
+                else None),
+            "uniqueUnderlyingBusinessCessationEventsVerified":False,
             "reportedCounterpartyIsAffiliate":affiliate,
             "ultimateExternalCustomerVerified":False,
             "actualShipmentVerified":False,
@@ -446,6 +498,8 @@ def change_review(current,previous=None,*,now=None):
              if coverage_new else
              "이전에 목록만 확인한 같은 공시번호의 표 항목을 처음 추출함: 신규 기업 변화가 아님. 원문 확인 필요"
              if kind=="same_receipt_first_document_field_recovery" else
+             "같은 공시 접수번호의 영업정지 원문 기재값을 처음 추출함. 기보도 전문·실제 중단 실행·모자회사 중복 공시 관계 확인(새 사건 아님)"
+             if kind=="same_receipt_first_cessation_original_recovery" else
              "같은 공시번호의 데이터 추출 차이: 공식 원문과 수집기 코드 확인 (기업 변화로 해석 금지)"
              if kind=="same_receipt_data_reparse_discrepancy" else
              "공시 상대방이 관계회사: 외부 최종 고객/납품과 연결 매출 계상·기보도 여부 별도 검증"
