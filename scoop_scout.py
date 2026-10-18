@@ -475,6 +475,29 @@ def coverage_search(x,max_queries=2):
     scored.sort(key=lambda z:z[0],reverse=True)
     COVERAGE_SEARCH_DIAGNOSTICS['results']+=len(scored)
     return [h for _,h in scored[:8]]
+
+def coverage_search_report(x):
+    """Separate a completed index lookup from failure or an unsearchable event.
+
+    Diagnostics are per-call deltas: a failure for another company must not
+    contaminate this result. Even a completed empty RSS is not proof of novelty.
+    """
+    before_ok=RSS_QUERY_DIAGNOSTICS["ok"]
+    before_failed=COVERAGE_SEARCH_DIAGNOSTICS["failedQueries"]
+    error=False
+    try:
+        matches=coverage_search(x)
+    except Exception:
+        matches=[]
+        error=True
+    succeeded=RSS_QUERY_DIAGNOSTICS["ok"]-before_ok
+    failed=COVERAGE_SEARCH_DIAGNOSTICS["failedQueries"]-before_failed
+    status=("partial" if succeeded else "failed") if (failed or error) else (
+        "complete" if succeeded else "not_run")
+    return {"status":status,"matches":matches,"successfulQueries":succeeded,
+            "failedQueries":failed,"unexpectedError":error,
+            "fulltextReviewed":False,"notReportedProved":False}
+
 DART_DOC_CACHE={}
 
 def fetch_dart_document(receipt):
@@ -874,6 +897,7 @@ def build_lead_signals(primary, data, now, limit=12):
         if not htitle or hdate.year<2000 or hdate>now+timedelta(hours=6):
             continue
         local_rows.append(h)
+    press_index=load_press_index(PRESS_COVERAGE_INDEX)
     for row in rows[:max(limit,12)]:
         diag["coverage_checked"]+=1
         x=row["raw"]
@@ -882,6 +906,14 @@ def build_lead_signals(primary, data, now, limit=12):
         event_cutoff=source_dt-timedelta(days=COVERAGE_LOOKBACK_DAYS)
         event_ceiling=min(now+timedelta(hours=6),source_dt+timedelta(days=14))
         x_companies=set(row.get("companies") or target_hits(row["title"]+" "+str(x.get("summary") or "")))
+        index_report=prior_coverage_candidates(x,press_index,
+            event_match_score=event_match_score,companies=x_companies,now=now)
+        # Old, low-score and widely covered stories remain negative novelty
+        # evidence even when they have left the 72-hour dashboard.
+        if index_report["matches"]:
+            diag["prior_coverage"]+=1
+            diag["prior_index_coverage"]=diag.get("prior_index_coverage",0)+1
+            continue
         for h in local_rows:
             hdate=parse_dt(h.get("published") or h.get("date") or "")
             if hdate<event_cutoff or hdate>event_ceiling:
@@ -891,17 +923,19 @@ def build_lead_signals(primary, data, now, limit=12):
                 continue
             if event_match_score(x,h)>=0.76:
                 prior.append(h)
+        coverage_report={"status":"local_match","matches":prior}
         # Search coverage RSS only if already collected newsroom articles did not match.
         if not prior:
-            try:
-                prior=coverage_search(x)
-            except Exception:
-                prior=[]
+            coverage_report=coverage_search_report(x)
+            prior=coverage_report["matches"]
         # Any strong same-event media match means this is already a public story,
         # even when the article followed the original public announcement.
         if any(event_match_score(x,h)>=0.76 for h in prior):
             diag["prior_coverage"]+=1
             continue
+        coverage_complete=coverage_report["status"]=="complete"
+        if not coverage_complete:
+            diag["coverage_unknown"]=diag.get("coverage_unknown",0)+1
         co=(row["companies"][0] if row["companies"] else "공기업 조달")
         if co in used_companies or row["sourceGroup"] in used_groups:
             diag["diversity_skip"]+=1
@@ -914,9 +948,15 @@ def build_lead_signals(primary, data, now, limit=12):
             "originalSource":x.get("officialLabel") or x.get("sourceName") or "원자료 검색",
             "sourceGroup":row["sourceGroup"],"kind":row["kind"],"companies":row["companies"][:5],
             "summary":str(x.get("summary") or "")[:500],"signalTerms":row["signalTerms"][:6],"numbers":row["numbers"],
-            "leadScore":row["score"],"leadStrength":"강" if row["score"]>=24 else "보통",
+            "leadScore":row["score"],"leadStrength":("강" if row["score"]>=24 else "보통") if coverage_complete else "보도 확인 대기",
             "verification":"취재 단서 — 단독 확정 아님",
-            "coverageStatus":"최근 180일 언론 검색에서 강한 동일 사건 매칭 없음. 전체 미보도 확정은 아니므로 추가 확인 필요.",
+            "coverageStatus":("최근 180일 언론 검색에서 강한 동일 사건 매칭 없음. 전체 미보도 확정은 아니므로 추가 확인 필요." if coverage_complete else "보도 검색 실패·일부 실패 또는 조회 미실행으로 기존 보도를 확인하지 못했습니다. 미보도 여부 판단을 보류합니다."),
+            "coverageChecked":coverage_complete,"coverageSearchStatus":coverage_report["status"],
+            "coverageSuccessfulQueries":coverage_report.get("successfulQueries",0),
+            "coverageFailedQueries":coverage_report.get("failedQueries",0),
+            "coverageIndexStatus":index_report["status"],
+            "coverageIndexSourceAt":index_report.get("sourceAt"),
+            "notReportedProved":False,"fulltextReviewed":False,
             "whyLead":("공식 리콜현황에서 같은 제조사의 리콜 공지가 최근 30일 내 복수 확인됐다. 공지 자체는 공개 정보이며 단독으로 볼 수 없다. 차종·생산기간·대수·결함 부품의 공통점이 실제로 있는지 확인할 때만 후속 기사 가치가 생긴다." if x.get("signalType")=="recall_cluster" else "구체적인 기업 변화 신호를 원자료 검색에서 포착했다. 발표 사실 자체를 단독으로 보지 말고, 기존 계획 대비 달라진 부분을 확인해야 한다."),
             "questions":questions,
             "publicAnswerableQuestionsOnly":True,
