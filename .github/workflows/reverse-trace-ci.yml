@@ -42,6 +42,7 @@ jobs:
         run: |
           python -m compileall -q scripts/exclusive_reverse_trace.py
           python -m unittest discover -s tests -p 'test_historical_exclusive_press_collector.py' -v
+          python -m scripts.historical_exclusive_press_collector --help >/dev/null
           python -m unittest discover -s tests -p 'test_exclusive_reverse_trace.py' -v
           python -m unittest discover -s tests -p 'test_press_coverage_index.py' -v
           python -m unittest discover -s tests -p 'test_publish_newsroom_outputs.py' -v
