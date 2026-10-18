@@ -3,6 +3,8 @@ on:
   pull_request:
     paths:
       - 'scripts/publish_newsroom_outputs.py'
+      - 'scripts/reverse_trace_dart_followups.py'
+      - 'tests/test_reverse_trace_dart_followups.py'
       - 'tests/test_publish_newsroom_outputs.py'
       - '.github/workflows/auto-desk.yml'
       - '.github/workflows/scoop-radar.yml'
@@ -11,6 +13,8 @@ on:
     branches: [main]
     paths:
       - 'scripts/publish_newsroom_outputs.py'
+      - 'scripts/reverse_trace_dart_followups.py'
+      - 'tests/test_reverse_trace_dart_followups.py'
       - '.github/workflows/newsroom-atomic-publish-ci.yml'
   workflow_dispatch:
 permissions:
@@ -34,6 +38,7 @@ jobs:
           # press index; PR merge refs may combine a newly published index with
           # an older seed artifact. Production always builds both together.
           python scripts/exclusive_reverse_trace.py
+          python scripts/reverse_trace_dart_followups.py
           python - <<'PY'
           from pathlib import Path
           from scripts.publish_newsroom_outputs import output_size_limit, selected

@@ -152,6 +152,29 @@ jobs:
                 'human Y/P/N',trace['humanReviewedYPN'],
                 'unreviewed U',trace['unreviewedU'])
           PY
+      - name: Match already indexed industry exclusives to official DART receipt review candidates
+        run: |
+          python -m unittest discover -s tests -p 'test_reverse_trace_dart_followups.py' -v
+          python scripts/reverse_trace_dart_followups.py
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          q=json.loads(Path('digests/reverse_trace_dart_followups_latest.json').read_text(encoding='utf-8'))
+          trace=json.loads(Path('digests/reverse_trace_latest.json').read_text(encoding='utf-8'))
+          beat=json.loads(Path('digests/dart_beat_monitor_latest.json').read_text(encoding='utf-8'))
+          off=json.loads(Path('digests/official_event_triage_latest.json').read_text(encoding='utf-8'))
+          assert q['status']=='reverse_trace_dart_receipt_reading_queue_unverified'
+          assert q['reverseTraceSourceAt']==trace['generatedAt']
+          assert q['dartOfficialSourceAt']==beat['generatedAt']==off['beatWideDartSourceAt']
+          assert q['candidatePairCount']==len(q['items'])
+          assert q['humanValidatedYPN']==q['confirmedScoops']==q['approvedArticles']==0
+          assert q['sourceCompletenessVerified'] is False
+          assert all(x['automaticYPNDecision'] is False
+                     and x['publicFactOverlapVerified'] is False
+                     and x['exclusiveConfirmed'] is False for x in q['items'])
+          print('DART↔historical press original reading candidates',
+                q['candidatePairCount'],'confirmed scoops 0')
+          PY
       - name: Normalize pitch pair orientation
         run: |
           python - <<'PY'

@@ -3,6 +3,8 @@ on:
   pull_request:
     paths:
       - 'scripts/exclusive_reverse_trace.py'
+      - 'scripts/reverse_trace_dart_followups.py'
+      - 'tests/test_reverse_trace_dart_followups.py'
       - 'scripts/reverse_trace_source_leads.py'
       - 'data/reverse_trace_primary_original_leads.json'
       - 'tests/test_reverse_trace_source_leads.py'
@@ -23,6 +25,8 @@ on:
     branches: [main]
     paths:
       - 'scripts/exclusive_reverse_trace.py'
+      - 'scripts/reverse_trace_dart_followups.py'
+      - 'tests/test_reverse_trace_dart_followups.py'
       - 'scripts/reverse_trace_source_leads.py'
       - 'data/reverse_trace_primary_original_leads.json'
       - 'tests/test_reverse_trace_source_leads.py'
@@ -50,6 +54,7 @@ jobs:
           python -m unittest discover -s tests -p 'test_historical_exclusive_press_collector.py' -v
           python -m scripts.historical_exclusive_press_collector --help >/dev/null
           python -m unittest discover -s tests -p 'test_exclusive_reverse_trace.py' -v
+          python -m unittest discover -s tests -p 'test_reverse_trace_dart_followups.py' -v
           python -m unittest discover -s tests -p 'test_reverse_trace_source_leads.py' -v
           python -m unittest discover -s tests -p 'test_press_coverage_index.py' -v
           python -m unittest discover -s tests -p 'test_publish_newsroom_outputs.py' -v
@@ -57,6 +62,7 @@ jobs:
       - name: Replay actual indexed news without granting automatic Y/P/N
         run: |
           python scripts/exclusive_reverse_trace.py --output /tmp/reverse-trace-replay.json
+          python scripts/reverse_trace_dart_followups.py --trace /tmp/reverse-trace-replay.json --output /tmp/dart-followup-replay.json
           python - <<'PY'
           import json
           from pathlib import Path
@@ -65,6 +71,12 @@ jobs:
           assert res['pressIndexGeneratedAt']==idx['generatedAt']
           assert res['humanReviewedYPN']==res['Y']+res['P']+res['N']
           assert res['confirmedScoops']==res['approvedArticles']==0
+          dart_match=json.loads(Path('/tmp/dart-followup-replay.json').read_text())
+          beat=json.loads(Path('digests/dart_beat_monitor_latest.json').read_text())
+          assert dart_match['reverseTraceSourceAt']==res['generatedAt']
+          assert dart_match['dartOfficialSourceAt']==beat['generatedAt']
+          assert dart_match['candidatePairCount']==len(dart_match['items'])
+          assert dart_match['humanValidatedYPN']==dart_match['confirmedScoops']==0
           assert res['curatedLeadStatus']=='curated_official_original_candidates_chronology_unverified'
           assert res['primaryDocumentPublishedBeforeMediaVerifiedCount']==0
           assert res['locatedSupplementaryForeignOriginalReferences']==sum(
