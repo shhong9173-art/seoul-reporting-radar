@@ -55,8 +55,18 @@ def clean(s):
     s=re.sub(r'<script.*?</script>|<style.*?</style>|<[^>]+>',' ',s or '',flags=re.I|re.S)
     return re.sub(r'\s+',' ',html.unescape(s)).strip()
 
-def norm_title(t):
-    return re.sub(r'\s*[-|｜].*$','',t).lower()
+SPORTS_NOISE_RE=re.compile(
+    r"KIA\\s*타이거즈|기아\\s*타이거즈|현대모비스\\s*(?:피버스|농구단|농구)\\b|"
+    r"프로야구|프로농구|KBO\\b|KBL\\b|배구단|야구단",re.I)
+
+def norm_title(t,source_name=""):
+    """Drop only a verified trailing publisher suffix, not industry hyphens."""
+    title=re.sub(r"\\s+"," ",html.unescape(str(t or ""))).strip()
+    publisher=str(source_name or "").strip().casefold()
+    suffix=re.search(r"\\s+[-|｜]\\s+([^|｜]{2,110})$",title)
+    if suffix and publisher and suffix.group(1).strip().casefold()==publisher:
+        title=title[:suffix.start()].strip()
+    return title.casefold()
 
 def company_list(text):return [c for c in COMPANIES if c in text]
 
@@ -90,23 +100,32 @@ def parse_feed(category,query,global_feed=False,source_hint=''):
             "recentRows":0,"errorType":type(exc).__name__,
             "durationMs":min(600000,int((time.monotonic()-start)*1000))})
         return []
-    cutoff=datetime.now(KST)-timedelta(hours=72);out=[]
+    cutoff=datetime.now(KST)-timedelta(hours=72);out=[];invalid_pubdates=0
     for item in root.findall('./channel/item'):
         title=(item.findtext('title') or '').strip();link=(item.findtext('link') or '').strip();pub=(item.findtext('pubDate') or '').strip();desc=clean(item.findtext('description') or '')
         src=item.find('source');source=(src.text or '').strip() if src is not None else source_hint
         if not title or not link:continue
+        if SPORTS_NOISE_RE.search(title):continue
         # Dedicated scoop feed must stay in the automotive beat. Google News can
         # otherwise return unrelated "[단독]" articles that happen to contain
         # the generic scoop token.
         if category=='단독' and not AUTO_SCOOP_RE.search(title+' '+desc):
             continue
-        try:dt=parsedate_to_datetime(pub).astimezone(KST)
-        except Exception:dt=datetime.now(KST)
-        if dt<cutoff:continue
+        try:
+            parsed=parsedate_to_datetime(pub)
+            if parsed.tzinfo is None or parsed.utcoffset() is None:
+                raise ValueError("news_pubdate_timezone_missing")
+            dt=parsed.astimezone(KST)
+        except (ValueError,TypeError,OverflowError,IndexError):
+            invalid_pubdates+=1
+            continue
+        if dt<cutoff or dt>datetime.now(KST)+timedelta(hours=1):
+            continue
         out.append({'category':category,'title':title,'url':link,'published':dt.isoformat(),'sourceName':source or source_hint,'summary':desc[:900],'global':global_feed})
     FEED_CHECKS.append({"category":category,"globalFeed":bool(global_feed),
         "status":"checked_recent_rows" if out else "checked_no_recent_rows",
         "recentRows":len(out) if len(out)<101 else 100,"errorType":None,
+        "invalidPubDateRows":invalid_pubdates,
         "durationMs":min(600000,int((time.monotonic()-start)*1000))})
     return out
 
@@ -127,7 +146,8 @@ def same_issue(a,b):
 def dedupe(items):
     seen=set();out=[]
     for x in sorted(items,key=lambda z:z['published'],reverse=True):
-        k=norm_title(x['title'])
+        k=(str(x.get("sourceName") or "").casefold(),
+           norm_title(x["title"],x.get("sourceName") or ""))
         if k in seen:continue
         seen.add(k);out.append(x)
     return out
