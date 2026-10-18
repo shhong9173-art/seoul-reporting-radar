@@ -168,7 +168,12 @@ def selected(root: Path, mode: str):
                    x.get("automaticYPNDecision") is not False
                    for x in official_links)):
             raise ValueError("unverified_original_candidate_claim_in_news_publish")
-        from reverse_trace_dart_followups import STATUS as DART_FOLLOWUP_STATUS, official_dart_url
+        try:
+            # Imported from repository root in CI.
+            from scripts.reverse_trace_dart_followups import STATUS as DART_FOLLOWUP_STATUS, official_dart_url
+        except ModuleNotFoundError:
+            # Invoked as python scripts/publish_newsroom_outputs.py in production.
+            from reverse_trace_dart_followups import STATUS as DART_FOLLOWUP_STATUS, official_dart_url
         matched=json.loads((root/"digests/reverse_trace_dart_followups_latest.json")
                           .read_text(encoding="utf-8"))
         beat_doc=json.loads((root/"digests/dart_beat_monitor_latest.json")
