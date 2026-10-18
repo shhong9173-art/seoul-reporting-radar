@@ -35,7 +35,7 @@ def build(checks,*,expected,news_items,now,threshold=10):
         slim={k:row.get(k) for k in
                 ("category","globalFeed","status","recentRows","errorType")}
         if duration is not None:slim["durationMs"]=duration
-        slim["invalidPubDateRows"]=malformed_dates
+        if "invalidPubDateRows" in row:slim["invalidPubDateRows"]=malformed_dates
         safe.append(slim)
     failures=sum(x["status"] in ("transport_or_xml_error","malformed_rss") for x in safe)
     zero=sum(x["status"]=="checked_no_recent_rows" for x in safe)
@@ -47,7 +47,7 @@ def build(checks,*,expected,news_items,now,threshold=10):
       "generatedAt":now.isoformat(timespec="seconds"),
       "status":status,"expectedQueries":expected,"attemptedQueries":len(safe),
       "errorQueries":failures,"validEmptyQueries":zero,
-      "invalidPublishedDatesSkipped":sum(x["invalidPubDateRows"] for x in safe),
+      "invalidPublishedDatesSkipped":sum(x.get("invalidPubDateRows",0) for x in safe),
       "slowestQueries":[{"category":x["category"],"globalFeed":x["globalFeed"],
                          "status":x["status"],"durationMs":x["durationMs"]}
                         for x in sorted((s for s in safe if "durationMs" in s),
