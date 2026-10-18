@@ -26,6 +26,7 @@ OUTPUTS = {
         "archive.json", "digests/press_coverage_index_latest.json",
         "digests/historical_exclusive_press_index_latest.json",
         "digests/reverse_trace_latest.json",
+        "digests/reverse_trace_dart_followups_latest.json",
         "changes.json", "strategic_shifts.json", "dart.json",
         "pitch.json", "industry.json", "dig_today.json",
     ),
@@ -167,6 +168,49 @@ def selected(root: Path, mode: str):
                    x.get("automaticYPNDecision") is not False
                    for x in official_links)):
             raise ValueError("unverified_original_candidate_claim_in_news_publish")
+        from reverse_trace_dart_followups import STATUS as DART_FOLLOWUP_STATUS, official_dart_url
+        matched=json.loads((root/"digests/reverse_trace_dart_followups_latest.json")
+                          .read_text(encoding="utf-8"))
+        beat_doc=json.loads((root/"digests/dart_beat_monitor_latest.json")
+                           .read_text(encoding="utf-8"))
+        official_doc=json.loads((root/"digests/official_event_triage_latest.json")
+                               .read_text(encoding="utf-8"))
+        if (not isinstance(matched,dict)
+            or matched.get("status")!=DART_FOLLOWUP_STATUS
+            or not isinstance(matched.get("items"),list)
+            or matched.get("candidatePairCount")!=len(matched["items"])
+            or matched.get("reverseTraceSourceAt")!=trace.get("generatedAt")
+            or matched.get("dartOfficialSourceAt")!=beat_doc.get("generatedAt")
+            or matched.get("dartOfficialSourceAt")!=official_doc.get("beatWideDartSourceAt")
+            or matched.get("officialQueueSourceAt")!=official_doc.get("generatedAt")
+            or matched.get("confirmedScoops")!=0
+            or matched.get("approvedArticles")!=0
+            or matched.get("humanValidatedYPN")!=0
+            or matched.get("sameFactEstablished") is not False
+            or matched.get("sourceCompletenessVerified") is not False
+            or matched.get("distinctOfficialReceipts")!=len(
+                {x.get("officialReceiptNo") for x in matched["items"] if isinstance(x,dict)})
+            or matched.get("distinctObservedArticles")!=len(
+                {x.get("articleId") for x in matched["items"] if isinstance(x,dict)})
+            or any(not isinstance(x,dict)
+                   or x.get("exclusiveConfirmed") is not False
+                   or x.get("approvedForPitch") is not False
+                   or x.get("automaticYPNDecision") is not False
+                   or x.get("publicFactOverlapVerified") is not False
+                   or x.get("publicSourceAvailableBeforePublisherVerified") is not False
+                   or x.get("publisherFirstPublishedAtVerified") is not False
+                   or x.get("officialOriginalBodyVerifiedForMatchedFact") is not False
+                   or x.get("originalEvidenceStage") not in (
+                       "official_receipt_only_original_not_checked",
+                       "official_table_filing_fields_checked",
+                       "official_share_cancellation_fields_checked",
+                       "official_business_cessation_fields_checked",
+                       "official_business_cessation_text_only_fields_unverified",
+                       "official_share_cancellation_text_only_fields_unverified")
+                   or not official_dart_url(
+                       x.get("officialUrl"),x.get("officialReceiptNo"))
+                   for x in matched["items"])):
+            raise ValueError("unverified_dart_receipt_reverse_trace_in_news_publish")
         if (not isinstance(history,dict)
             or history.get("status")!="observed_domestic_press_index_not_complete_coverage"
             or history.get("itemCount")!=len(history.get("items",[]))
