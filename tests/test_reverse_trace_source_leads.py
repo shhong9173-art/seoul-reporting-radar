@@ -48,7 +48,9 @@ class SourceLeads(unittest.TestCase):
         sheet=source_sheet()
         result=attach_primary_original_leads(trace,sheet)
         self.assertEqual(result["locatedOriginalCandidateArticleCount"],2)
-        self.assertEqual(result["distinctLocatedOfficialOriginalDocuments"],1)
+        self.assertEqual(result["distinctLocatedOfficialOriginalDocuments"],2)
+        self.assertEqual(result["locatedSupplementaryForeignOriginalReferences"],2)
+        self.assertTrue(result["secOfficialAcceptanceTimestampChecked"])
         self.assertEqual(result["primaryDocumentPublishedBeforeMediaVerifiedCount"],0)
         self.assertEqual(result["pressFulltextMatchedToOfficialOriginalCount"],0)
         self.assertFalse(result["sourcePrioritizationEvidenceSufficient"])
@@ -65,6 +67,18 @@ class SourceLeads(unittest.TestCase):
             self.assertFalse(proof["publicationClockVerified"])
             self.assertFalse(proof["automaticYPNDecision"])
             self.assertEqual(item["publicTraceClass"],"U")
+            foreign=item["locatedSupportingOfficialOriginals"]
+            self.assertEqual(len(foreign),1)
+            sec=foreign[0]
+            self.assertEqual(sec["sourceType"],"regulatory_filing")
+            self.assertEqual(sec["documentDay"],"2025-10-30")
+            self.assertEqual(sec["secAcceptedAtOfficialEastern"],
+                             "2025-10-30T16:15:52-04:00")
+            self.assertTrue(sec["documentCalendarDayEarlierThanIndexedRssDay"])
+            self.assertTrue(sec["secAcceptedAtIsNotPressFirstPublishedAt"])
+            self.assertFalse(sec["releasedBeforeStoryVerified"])
+            self.assertFalse(sec["sourceAndStoryFactsDirectlyMatched"])
+            self.assertFalse(sec["automaticYPNDecision"])
             self.assertEqual(item["researchSourcePlatformsSuggested"][0],
                              "회사 공식 공개자료")
 
@@ -109,6 +123,39 @@ class SourceLeads(unittest.TestCase):
             sheet["items"][0][key]=value
             with self.assertRaises(ValueError,msg=key):
                 attach_primary_original_leads(sample_trace(),sheet)
+
+    def test_sec_source_domain_url_and_acceptance_cannot_be_forged(self):
+        sheet=source_sheet()
+        official=sheet["items"][0]["supportingOfficialOriginals"][0]
+        self.assertTrue(official_candidate_url(official["officialUrl"]))
+        for invalid in (
+            "https://www.sec.gov.attacker.example/Archives/edgar/data/1844862/000110465925104388/0001104659-25-104388-index.html",
+            "https://www.sec.gov/Archives/edgar/data/1844862/000110465925104388/0001104659-25-104388-index.html?isExclusive=true",
+            "http://www.sec.gov/Archives/edgar/data/1844862/000110465925104388/0001104659-25-104388-index.html",
+        ):
+            self.assertFalse(official_candidate_url(invalid),invalid)
+        for field,value in (
+            ("officialAcceptanceAt","2025-10-31T03:00:00+09:00"),
+            ("publicFirstAvailabilityTimeVerified",True),
+            ("publisherStoryFulltextCompared",True),
+            ("releasedBeforeStoryVerified",True),
+            ("humanYPNAssigned",True),
+            ("officialDocumentDate","2025-10-31"),
+            ("sourceType","company_notice"),
+        ):
+            tampered=source_sheet()
+            tampered["items"][0]["supportingOfficialOriginals"][0][field]=value
+            with self.assertRaisesRegex(ValueError,"unsafe_curated_official"):
+                attach_primary_original_leads(sample_trace(),tampered)
+
+    def test_sec_filing_dated_after_indexed_rss_story_not_linked(self):
+        trace=sample_trace()
+        for row in trace["items"]:
+            row["published"]="2025-10-29T16:00:00+09:00"
+        out=attach_primary_original_leads(trace,source_sheet())
+        self.assertEqual(out["locatedOriginalCandidateArticleCount"],0)
+        self.assertEqual(out["distinctLocatedOfficialOriginalDocuments"],0)
+        self.assertEqual(out["primaryDocumentPublishedBeforeMediaVerifiedCount"],0)
 
     def test_source_release_after_article_date_is_never_linked(self):
         sheet=source_sheet()
