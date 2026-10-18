@@ -116,7 +116,7 @@ def literal_cancellation_terms(documents):
             in_cancelled_shares = any("소각할주식" in k or "소각대상주식" in k
                                       for k in keys)
             for i in range(len(keys) - 1):
-                label = keys[i]
+                label = re.sub(r"^\d{1,2}[.]\s*", "", keys[i])
                 next_value = cells[i + 1]
                 if in_cancelled_shares:
                     if label in ("보통주", "보통주식"):
