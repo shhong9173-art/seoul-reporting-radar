@@ -78,8 +78,11 @@ def _health_rss(d):
 def _health_direct(d):
     if not isinstance(d,dict):
         return "unknown"
-    attempted=d.get("pagesAttempted",d.get("listPagesAttempted"))
-    fetched=d.get("pagesFetched",d.get("listPagesFetched"))
+    attempted=d.get("pagesAttempted",d.get("listPagesAttempted",
+               d.get("queriesAttempted",1 if d.get("listFetched") is True else None)))
+    fetched=d.get("pagesFetched",d.get("listPagesFetched",
+            d.get("searchPagesFetched",d.get("queriesSucceeded",
+                  1 if d.get("listFetched") is True else None))))
     # Provider-specific detail fetches can fail with a usable list.
     if type(attempted) is not int or attempted<=0 or type(fetched) is not int:
         return "unknown"
