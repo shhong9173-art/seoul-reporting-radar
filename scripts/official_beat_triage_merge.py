@@ -46,6 +46,21 @@ def _receipt_link(receipt, url):
         return False
 
 
+
+def evidence_stage(row):
+    """What was actually read, not what a newly seen receipt might imply."""
+    valueup = row.get("valueupPrimarySource")
+    if isinstance(valueup, dict) and valueup.get("officialXmlOrHtmlBodyRetrieved") is True:
+        return ("official_valueup_text_and_attachment_checked"
+                if valueup.get("officialAttachmentPdfReviewed") is True
+                else "official_valueup_text_only_attachment_unverified")
+    if (row.get("status") == "official_document_read"
+        and isinstance(row.get("observedFields"), dict)
+        and row["observedFields"]):
+        return "official_table_filing_fields_checked"
+    return "official_receipt_only_original_not_checked"
+
+
 def merge(queue, beat, *, now=None):
     now = now or datetime.now(KST)
     if now.utcoffset() is None:
@@ -151,6 +166,7 @@ def merge(queue, beat, *, now=None):
                 "verification": "공시 원문·첨부자료·국내 선행보도 전문·회사 공개 사실 답변 대조",
                 "classification": "public_official_document_not_a_scoop",
                 "evidenceClass": "beat_wide_official_receipt",
+                "originalEvidenceStage": evidence_stage(row),
                 "sourceSnapshotAt": beat["generatedAt"],
                 "originalDocumentFieldsVerified": bool(
                     row.get("status") == "official_document_read"

@@ -106,6 +106,32 @@ class BeatQueueIntegration(unittest.TestCase):
         self.assertEqual(out["feedHealth"][-1]["status"], "partial_collection")
         self.assertFalse(out["sourceCompletenessVerified"])
 
+    def test_original_document_stage_preserves_kg_attachment_gap(self):
+        b = beat()
+        b["records"][0]["valueupPrimarySource"] = {
+            "officialXmlOrHtmlBodyRetrieved": True,
+            "officialAttachmentPdfReviewed": False,
+            "priorPressCoverageFulltextReviewed": False}
+        out = merge(triage(), b, now=NOW)
+        item = out["freshOfficialReview"][0]
+        self.assertEqual(item["originalEvidenceStage"],
+                         "official_valueup_text_only_attachment_unverified")
+        self.assertFalse(item["priorMediaCoverageVerified"])
+        self.assertFalse(item["exclusiveConfirmed"])
+        self.assertFalse(item["approvedForPitch"])
+
+    def test_official_table_fields_are_not_verified_shipments(self):
+        b = beat()
+        b["records"][0]["status"] = "official_document_read"
+        b["records"][0]["observedFields"] = {"contract_amount": "116,810,902,865"}
+        out = merge(triage(), b, now=NOW)
+        item = out["freshOfficialReview"][0]
+        self.assertEqual(item["originalEvidenceStage"],
+                         "official_table_filing_fields_checked")
+        self.assertTrue(item["originalDocumentFieldsVerified"])
+        self.assertFalse(item["companyImpactVerified"])
+        self.assertFalse(item["contractTermsVerified"])
+
     def test_malformed_snapshot_not_zero_results(self):
         b = beat()
         b["companiesCodeVerified"] = 44
