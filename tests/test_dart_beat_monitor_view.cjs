@@ -26,6 +26,8 @@ for(const token of [
  "공시상 계약금액",
  "외부 최종 고객",
  "검토 대기 원문",
+ "unsupportedOriginalDetailTypes","uninspectedListedDetails",
+ "원문 추출기 미지원 공시","한도 확대만으로 해결 불가",
  "companiesCodeVerified","companiesUnresolved",
  "companiesWithSourceErrors","baselineOnly",
  "priorNewsFulltextChecked!==false",
