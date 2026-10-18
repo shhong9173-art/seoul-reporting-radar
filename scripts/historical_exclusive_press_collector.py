@@ -8,7 +8,6 @@ fulltext nor an exhaustive census; Y/P/N and source reach are NEVER inferred.
 """
 from __future__ import annotations
 import argparse
-import calendar
 import json
 import math
 import re
@@ -20,7 +19,7 @@ from email.utils import parsedate_to_datetime
 from pathlib import Path
 
 from scripts.exclusive_reverse_trace import (
-    INDUSTRY_COMPANIES, SCOOP_MARKER, SPORTS, STATUS as REVERSE_TRACE_STATUS
+    INDUSTRY_COMPANIES, SCOOP_MARKER, SPORTS
 )
 from scripts.press_coverage_index import article_id
 
@@ -119,9 +118,10 @@ def parse_observed_headlines(raw,window,*,now):
         src=item.find("source")
         source=(src.text or "").strip() if src is not None else ""
         try:
-            when=parsedate_to_datetime(pub).astimezone(KST)
+            when=parsedate_to_datetime(pub)
             if when.tzinfo is None or when.utcoffset() is None:
                 raise ValueError("naive_pubdate")
+            when=when.astimezone(KST)
         except (ValueError,TypeError,OverflowError,IndexError):
             stats["undated"]+=1
             continue
@@ -174,6 +174,7 @@ def _previous_valid(prior):
         raise ValueError("invalid_historical_corpus_preserve_previous")
     for row in prior["items"]:
         if (not isinstance(row,dict) or not isinstance(row.get("id"),str)
+            or not re.fullmatch("[0-9a-f]{24}",row["id"])
             or not isinstance(row.get("title"),str)
             or _aware(row.get("published")) is None
             or row.get("rssIndexedHeadlineOnly") is not True
