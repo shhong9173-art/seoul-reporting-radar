@@ -24,6 +24,7 @@ from dart_lineage import event_type,has_correction,valid_receipt,source_link
 from recent_contracts import document_evidence
 from valueup_official_document import is_current_valueup_filing, valueup_document_evidence
 from share_cancellation_official_document import cancellation_filing, cancellation_document_evidence
+from business_cessation_official_document import business_cessation_filing, business_cessation_document_evidence
 from official_event_triage import dart_receipt_link
 
 KST=timezone(timedelta(hours=9))
@@ -142,6 +143,7 @@ def valid_prior_snapshot(previous):
 def collect(codes,key,*,now=None,previous=None,query=fetch_official_list,
             detail=document_evidence,valueup_detail=valueup_document_evidence,
             cancellation_detail=cancellation_document_evidence,
+            cessation_detail=business_cessation_document_evidence,
             limit=MAX_DETAILS,window_days=WINDOW_DAYS):
     now=now or datetime.now(KST)
     if now.utcoffset() is None or not 1<=limit<=15 or not 3<=window_days<=45:
@@ -207,7 +209,8 @@ def collect(codes,key,*,now=None,previous=None,query=fetch_official_list,
         if (old and old.get("status") in
                 ("official_document_read","original_verified","original_not_verified",
                  "official_valueup_document_review",
-                 "official_share_cancellation_document_review")
+                 "official_share_cancellation_document_review",
+                 "official_business_cessation_document_review")
             and old.get("sourceError") is not True
             and old.get("company")==row["company"]
             and old.get("corpCode")==row["corpCode"]
@@ -221,7 +224,8 @@ def collect(codes,key,*,now=None,previous=None,query=fetch_official_list,
     def detail_supported(row):
         return (event_type(row["report"]) is not None
                 or is_current_valueup_filing(row)
-                or cancellation_filing(row))
+                or cancellation_filing(row)
+                or business_cessation_filing(row))
 
     candidates=[r for r in rows if detail_supported(r)
                 and r["receiptNo"] not in by_number]
@@ -229,7 +233,8 @@ def collect(codes,key,*,now=None,previous=None,query=fetch_official_list,
     for row in selected:
         try:
             fn=(valueup_detail if is_current_valueup_filing(row) else
-                cancellation_detail if cancellation_filing(row) else detail)
+                cancellation_detail if cancellation_filing(row) else
+                cessation_detail if business_cessation_filing(row) else detail)
             result=fn(dict(row),key)
             if (result.get("receiptNo")!=row["receiptNo"] or
                 result.get("company")!=row["company"] or
@@ -272,6 +277,9 @@ def collect(codes,key,*,now=None,previous=None,query=fetch_official_list,
         "detailBound":limit,"detailsAttempted":len(selected),
         "valueupOfficialDocumentAttempts":sum(is_current_valueup_filing(r) for r in selected),
         "shareCancellationDocumentAttempts":sum(cancellation_filing(r) for r in selected),
+        "businessCessationDocumentAttempts":sum(business_cessation_filing(r) for r in selected),
+        "businessCessationDocumentReads":sum(r.get("status")=="official_business_cessation_document_review" for r in detailed),
+        "businessCessationDocumentUnavailable":sum(r.get("status")=="business_cessation_document_unavailable" for r in detailed),
         "shareCancellationDocumentReads":sum(r.get("status")=="official_share_cancellation_document_review" for r in detailed),
         "shareCancellationDocumentUnavailable":sum(r.get("status")=="share_cancellation_document_unavailable" for r in detailed),
         "valueupOfficialDocumentReads":sum(
@@ -285,10 +293,11 @@ def collect(codes,key,*,now=None,previous=None,query=fetch_official_list,
             r["detailStatus"] in ("original_detail_type_unsupported",
                 "not_inspected_bounded_detail_budget","detail_source_error",
                 "document_unavailable","valueup_document_unavailable",
-                "share_cancellation_document_unavailable")
+                "share_cancellation_document_unavailable",
+                "business_cessation_document_unavailable")
             for r in detailed),
         "uninspectedRelevantDetails":sum(
-            (event_type(r["report"]) is not None or is_current_valueup_filing(r))
+            detail_supported(r)
             and (r["receiptNo"] not in by_number or
                  by_number[r["receiptNo"]].get("sourceError") is True)
             for r in rows),
