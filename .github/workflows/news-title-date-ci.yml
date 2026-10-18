@@ -1,0 +1,34 @@
+name: Korean News Title Identity and Publication-Date Regression
+on:
+  pull_request:
+    paths:
+      - 'collector.py'
+      - 'scripts/auto_news_feed_health.py'
+      - 'tests/test_collector_title_dates.py'
+      - '.github/workflows/auto-desk.yml'
+      - '.github/workflows/news-title-date-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'collector.py'
+      - 'scripts/auto_news_feed_health.py'
+      - 'tests/test_collector_title_dates.py'
+      - '.github/workflows/news-title-date-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  preserve-original-dates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify article dates, publisher identity and no sports
+        run: |
+          python -m compileall -q collector.py scripts/auto_news_feed_health.py
+          python -m unittest discover -s tests -p 'test_collector_title_dates.py' -v
+          python -m unittest discover -s tests -p 'test_auto_news_feed_health.py' -v
+          python -m unittest discover -s tests -p 'test_rss_concurrent.py' -v
