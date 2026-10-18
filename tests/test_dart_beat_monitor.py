@@ -52,6 +52,69 @@ class BeatCoverageTests(unittest.TestCase):
         self.assertEqual(signals["confirmedScoops"],0)
         self.assertIsNone(signals["signals"][0]["newObservation"])
 
+    def test_oci_corporate_and_parent_business_cessation_source_recovery(self):
+        docs = {
+            "OCI": item("OCI","00111111","20260929000097",
+                        "주요사항보고서(영업정지)"),
+            "OCI홀딩스": item("OCI홀딩스","00122222","20260929800197",
+                        "주요사항보고서(영업정지)(자회사의 주요경영사항)"),
+        }
+        codes={name:{"corp_code":row["corpCode"]} for name,row in docs.items()}
+        def company_list(key,name,code,start,end):
+            items=[docs[name]] if name in docs else []
+            return {"records":items,"complete":True,
+                    "pagesRead":1,"totalOfficialFilings":len(items)}
+        def unavailable(row,key):
+            return {**row,"status":"business_cessation_document_unavailable",
+                    "sourceError":True,
+                    "businessCessationPrimarySource":{
+                        "status":"source_unavailable_not_zero",
+                        "officialXmlOrHtmlBodyRetrieved":False}}
+        prior=m.collect(codes,"key",now=NOW,query=company_list,
+            cessation_detail=unavailable,limit=12)
+        self.assertEqual(prior["relevantFilings"],2)
+        self.assertEqual(prior["uninspectedRelevantDetails"],2)
+        self.assertEqual(prior["businessCessationDocumentAttempts"],2)
+        calls=[]
+        def original(row,key):
+            calls.append(row["receiptNo"])
+            return {**row,"status":"official_business_cessation_document_review",
+                "sourceError":False,
+                "businessCessationFilingRelation":(
+                    "parent_disclosure_of_subsidiary"
+                    if row["company"]=="OCI홀딩스"
+                    else "issuer_business_cessation"),
+                "businessCessationPrimarySource":{
+                    "officialXmlOrHtmlBodyRetrieved":True,
+                    "observedTerms":{"issuerReportedRevenueRatioPct":{
+                        "value":"5.87","officialTableLabel":"매출액대비(%)",
+                        "basis":"same_official_table_row",
+                        "operationalShutdownVerified":False,
+                        "independentBusinessEffectVerified":False}}}}
+        second=m.collect(codes,"key",now=NOW+timedelta(hours=1),
+            previous=prior,query=company_list,
+            cessation_detail=original,limit=12)
+        self.assertEqual(second["businessCessationDocumentAttempts"],2)
+        self.assertEqual(second["businessCessationDocumentReads"],2)
+        self.assertEqual(second["unsupportedOriginalDetailTypes"],0)
+        self.assertEqual(second["uninspectedRelevantDetails"],0)
+        self.assertEqual(len(calls),2)
+        changed=m.change_review(second,previous=prior,now=NOW+timedelta(hours=1))
+        self.assertEqual(len(changed["signals"]),2)
+        self.assertTrue(all(x["status"]==
+            "same_receipt_first_cessation_original_recovery"
+            for x in changed["signals"]))
+        self.assertTrue(all(not x["recentOfficialDocument"] for x in changed["signals"]))
+        self.assertTrue(all(not x["uniqueUnderlyingBusinessCessationEventsVerified"]
+                            and not x["scoopConfirmed"] for x in changed["signals"]))
+        self.assertEqual(changed["signals"][0]["reportedOfficialCessationTerms"]
+                         ["issuerReportedRevenueRatioPct"]["value"],"5.87")
+        third=m.collect(codes,"key",now=NOW+timedelta(hours=2),
+            previous=second,query=company_list,
+            cessation_detail=original,limit=12)
+        self.assertEqual(third["detailsAttempted"],0)
+        self.assertEqual(len(calls),2)
+
     def test_unsupported_original_detail_types_not_hidden_as_zero(self):
         def local_list(key, name, code, start, end):
             rows = []
