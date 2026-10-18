@@ -65,6 +65,27 @@ def write_news(root,label):
             json.dumps(historical),encoding="utf-8")
         (root/"digests/reverse_trace_latest.json").write_text(
             json.dumps(reverse),encoding="utf-8")
+        source_at="2026-10-18T10:03:00+09:00"
+        official_at="2026-10-18T10:03:30+09:00"
+        (root/"digests/dart_beat_monitor_latest.json").write_text(
+            json.dumps({"status":"industry_beat_official_receipt_review",
+                        "generatedAt":source_at}),encoding="utf-8")
+        (root/"digests/official_event_triage_latest.json").write_text(
+            json.dumps({"status":"official_date_triage",
+                        "generatedAt":official_at,
+                        "beatWideDartSourceAt":source_at}),encoding="utf-8")
+        receipt_queue={
+            "status":"reverse_trace_dart_receipt_reading_queue_unverified",
+            "reverseTraceSourceAt":reverse.get("generatedAt"),
+            "dartOfficialSourceAt":source_at,
+            "officialQueueSourceAt":official_at,
+            "candidatePairCount":0,"distinctOfficialReceipts":0,
+            "distinctObservedArticles":0,"humanValidatedYPN":0,
+            "confirmedScoops":0,"approvedArticles":0,
+            "sourceCompletenessVerified":False,"sameFactEstablished":False,
+            "items":[]}
+        (root/"digests/reverse_trace_dart_followups_latest.json").write_text(
+            json.dumps(receipt_queue),encoding="utf-8")
 
 
 def write_scoop(root,title):
@@ -198,6 +219,37 @@ class PublisherIntegration(unittest.TestCase):
         trace["distinctLocatedOfficialOriginalDocuments"]=1
         trace_path.write_text(json.dumps(trace),encoding="utf-8")
         with self.assertRaisesRegex(ValueError,"unverified_original_candidate_claim"):
+            selected(self.root,"news")
+
+    def test_dart_receipt_followup_source_timestamp_mismatch_fails_closed(self):
+        path=self.root/"digests/reverse_trace_dart_followups_latest.json"
+        proof=json.loads(path.read_text(encoding="utf-8"))
+        proof["dartOfficialSourceAt"]="2026-10-17T00:00:00+09:00"
+        path.write_text(json.dumps(proof),encoding="utf-8")
+        with self.assertRaisesRegex(ValueError,
+                                    "unverified_dart_receipt_reverse_trace"):
+            selected(self.root,"news")
+
+    def test_dart_receipt_followup_cannot_publish_automatic_ypn(self):
+        path=self.root/"digests/reverse_trace_dart_followups_latest.json"
+        proof=json.loads(path.read_text(encoding="utf-8"))
+        proof["candidatePairCount"]=1
+        proof["distinctOfficialReceipts"]=1
+        proof["distinctObservedArticles"]=1
+        proof["items"]=[{
+            "officialReceiptNo":"20260930000478",
+            "officialUrl":"https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260930000478",
+            "articleId":"3a34f9a7bf55c6afb1fe96d5",
+            "originalEvidenceStage":"official_receipt_only_original_not_checked",
+            "exclusiveConfirmed":False,"approvedForPitch":False,
+            "automaticYPNDecision":True,
+            "publicFactOverlapVerified":False,
+            "publicSourceAvailableBeforePublisherVerified":False,
+            "publisherFirstPublishedAtVerified":False,
+            "officialOriginalBodyVerifiedForMatchedFact":False}]
+        path.write_text(json.dumps(proof),encoding="utf-8")
+        with self.assertRaisesRegex(ValueError,
+                                    "unverified_dart_receipt_reverse_trace"):
             selected(self.root,"news")
 
     def test_curated_official_original_cannot_publish_automatic_earlier_source_claim(self):
