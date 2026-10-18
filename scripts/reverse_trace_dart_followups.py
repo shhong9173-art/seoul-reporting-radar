@@ -80,6 +80,7 @@ def build_queue(trace, official, beat, *, max_results=MAX_MATCHES):
         or trace.get("status") != "automotive_industry_exclusive_reverse_trace_unverified_candidates"
         or not isinstance(trace.get("items"), list)
         or trace.get("totalObservedExclusiveHeadlines") != len(trace["items"])
+        or _aware(trace.get("generatedAt")) is None
         or len(trace["items"]) > MAX_ARTICLES
         or trace.get("confirmedScoops") != 0
         or not isinstance(official, dict)
