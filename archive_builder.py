@@ -1,6 +1,7 @@
 import hashlib,json
 from datetime import datetime,timedelta
 from pathlib import Path
+from scripts.press_coverage_index import update_from_news
 RAW=Path('data.js').read_text(encoding='utf-8')
 items=json.loads(RAW.split('=',1)[1].strip().rstrip(';'))
 strong=['수주','계약','공급','증설','투자','공장','관세','리콜','화재','파업','임단협','배터리','자율주행','철수','매각','tariff','battery','recall','fire','investment','contract','autonomous']
@@ -43,7 +44,12 @@ for x in byid.values():
     except Exception: dt=datetime.now().astimezone()
     if dt>=cut: out.append(x)
 out.sort(key=lambda x:x.get('published',''),reverse=True)
+# This is a separate, lightweight 365-day NEGATIVE-evidence press index.
+# Do not gate this by pitchScore, exclusive, publisher count or cluster size.
+# If an earlier index is corrupt, abort rather than quietly erasing history.
+press_coverage=update_from_news(items)
 Path('archive.json').write_text(json.dumps(out,ensure_ascii=False,separators=(',',':')),encoding='utf-8')
 Path('data.json').write_text(json.dumps(items,ensure_ascii=False,separators=(',',':')),encoding='utf-8')
 Path('data.js').write_text('window.ITEMS = '+json.dumps(items,ensure_ascii=False,separators=(',',':'))+';\n',encoding='utf-8')
 print(f'archive: {len(out)} items; pitch candidates: {sum(x.get("pitchScore",0)>=70 and not x.get("exclusive") for x in items)}')
+print(f'press coverage metadata: {press_coverage["itemCount"]} records, new {press_coverage["newlyIndexedArticleCount"]}, undated {press_coverage["malformedOrUndatedInputCount"]}; no exclusive proof')
