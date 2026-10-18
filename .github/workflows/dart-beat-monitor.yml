@@ -12,6 +12,8 @@ on:
       - 'tests/test_official_beat_triage_merge.py'
       - 'scripts/valueup_official_document.py'
       - 'scripts/share_cancellation_official_document.py'
+      - 'scripts/business_cessation_official_document.py'
+      - 'tests/test_business_cessation_official_document.py'
       - 'tests/test_share_cancellation_official_document.py'
       - 'tests/test_valueup_official_document.py'
       - 'scripts/valueup_first_party_crosscheck.py'
@@ -60,6 +62,7 @@ jobs:
           python -m unittest discover -s tests -p 'test_valueup_first_party_crosscheck.py' -v
           python -m unittest discover -s tests -p 'test_valueup_official_document.py' -v
           python -m unittest discover -s tests -p 'test_share_cancellation_official_document.py' -v
+          python -m unittest discover -s tests -p 'test_business_cessation_official_document.py' -v
           python -m unittest discover -s tests -p 'test_publish_newsroom_outputs.py' -v
           node tests/test_dart_beat_monitor_view.cjs
           python -m unittest discover -s tests -p 'test_dart_beat_run_health.py' -v
