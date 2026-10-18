@@ -157,7 +157,8 @@ def validate_review(row,original):
     }
 
 
-def build(press, reviews=None, *, now=None, max_candidates=400, history=None):
+def build(press, reviews=None, *, now=None, max_candidates=400, history=None,
+          evidence_priority_ids=None):
     now=now or datetime.now(KST)
     if now.utcoffset() is None:raise ValueError("need_timezone")
     if not isinstance(press,dict) or press.get("status")!="observed_domestic_press_index_not_complete_coverage":
@@ -169,6 +170,13 @@ def build(press, reviews=None, *, now=None, max_candidates=400, history=None):
     if not 1<=max_candidates<=600:raise ValueError("sample_cap")
     if reviews is not None and (not isinstance(reviews,list) or len(reviews)>MAX_ARTICLES):
         raise ValueError("invalid_review_sheet")
+    if evidence_priority_ids is not None and (
+        not isinstance(evidence_priority_ids,(list,tuple,set))
+        or len(evidence_priority_ids)>600
+        or any(not isinstance(x,str) or
+               not re.fullmatch("[0-9a-f]{24}",x)
+               for x in evidence_priority_ids)):
+        raise ValueError("invalid_evidence_priority_ids")
     history_rows=[]
     if history is not None:
         if (not isinstance(history,dict)
@@ -205,9 +213,21 @@ def build(press, reviews=None, *, now=None, max_candidates=400, history=None):
     for row in press["items"]:
         if candidate(row):
             all_candidates[row["id"]]=row
-    sample=sorted(all_candidates.values(),
+    observed_by_date=sorted(all_candidates.values(),
                   key=lambda r:(r["published"],r["id"]),reverse=True)
-    sample=sample[:max_candidates]
+    # A rolling top-400 newsroom digest must not permanently hide manually
+    # investigated historical records as more recent headlines accumulate.
+    # Only pin IDs still present in verified ingested press history; no
+    # synthetic articles or undocumented source links are introduced.
+    priority=set(evidence_priority_ids or ())
+    priority.update(labelled)
+    selected_ids={row["id"] for row in observed_by_date if row["id"] in priority}
+    if len(selected_ids)>max_candidates:
+        raise ValueError("reviewed_or_curated_rows_exceed_display_capacity")
+    priority_rows=[row for row in observed_by_date if row["id"] in selected_ids]
+    other_rows=[row for row in observed_by_date if row["id"] not in selected_ids]
+    sample=(priority_rows+other_rows[:max_candidates-len(priority_rows)])
+    sample=sorted(sample,key=lambda r:(r["published"],r["id"]),reverse=True)
     items=[]
     for row in sample:
         proof=validate_review(labelled[row["id"]],row) if row["id"] in labelled else None
@@ -259,6 +279,11 @@ def build(press, reviews=None, *, now=None, max_candidates=400, history=None):
         "pressIndexObservationIncomplete":True,
         "targetHistoricalExclusiveArticles":400,
         "totalObservedExclusiveHeadlines":len(sample),
+        "availableObservedExclusiveHeadlinesBeforeCap":len(observed_by_date),
+        "candidateDisplayLimit":max_candidates,
+        "evidencePriorityObservedItemsRetained":len(selected_ids),
+        "evidencePriorityIdsNotObserved":len(priority-set(all_candidates)),
+        "sampleIncompleteBecauseOfCap":len(observed_by_date)>max_candidates,
         "humanReviewedYPN":len(valid),
         "unreviewedU":len(sample)-len(valid),
         "couldMeasureReach":len(valid)>=30,
@@ -294,7 +319,17 @@ def main():
     # A sibling import works regardless of project-root PYTHONPATH.
     from reverse_trace_source_leads import attach_primary_original_leads
     leads=json.loads(Path(args.original_leads).read_text(encoding="utf-8"))
-    result=attach_primary_original_leads(build(press,sheet["items"],history=history),leads)
+    # Validation belongs before priority selection: a forged curation file
+    # must never force arbitrary article IDs into the prominent sample.
+    from reverse_trace_source_leads import verify_curated_lead
+    if (not isinstance(leads,dict) or
+        not isinstance(leads.get("items"),list) or
+        any(not verify_curated_lead(row) for row in leads["items"])):
+        raise ValueError("invalid_curated_source_priorities")
+    pinned=[row["articleId"] for row in leads["items"]]
+    result=attach_primary_original_leads(
+        build(press,sheet["items"],history=history,
+              evidence_priority_ids=pinned),leads)
     dest=Path(args.output)
     dest.parent.mkdir(parents=True,exist_ok=True)
     tmp=dest.with_suffix(".json.tmp")
