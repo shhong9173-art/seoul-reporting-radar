@@ -43,6 +43,84 @@ def check(status="checked",matched=1):
 
 
 class HistoricalExclusiveIndexTests(unittest.TestCase):
+    def test_unchecked_windows_are_first_even_after_clock_jump(self):
+        first=planned_searches(NOW,previous=None)
+        self.assertEqual(len(first),5)
+        self.assertEqual({x["start"] for x in first},{"2026-10-01"})
+        checked=[{"windowId":w["windowId"],"status":"checked","matched":0}
+                 for w in first]
+        history=merge_history(None,[],checked,now=NOW)
+        next_run=planned_searches(NOW+timedelta(minutes=45),
+                                   previous=history)
+        self.assertEqual(len(next_run),5)
+        self.assertEqual({x["start"] for x in next_run},{"2026-09-01"})
+        self.assertFalse({x["windowId"] for x in first}
+                         .intersection(x["windowId"] for x in next_run))
+
+    def test_all_65_month_beat_windows_covered_before_rechecking(self):
+        history=None
+        executed=set()
+        for i in range(13):
+            now=NOW+timedelta(minutes=i*15)
+            windows=planned_searches(now,previous=history)
+            self.assertEqual(len(windows),5)
+            self.assertFalse(set(x["windowId"] for x in windows)&executed)
+            executed.update(x["windowId"] for x in windows)
+            checks=[{"windowId":x["windowId"],"status":"checked","matched":0}
+                    for x in windows]
+            history=merge_history(history,[],checks,now=now)
+        self.assertEqual(len(executed),65)
+        self.assertEqual(history["searchedWindowsWithPriorSuccess"],65)
+        self.assertEqual(history["unvisitedBeatMonthWindows"],0)
+        self.assertEqual(history["selectedBeatMonthWindows"],[
+            x["windowId"] for x in windows])
+        self.assertTrue(history["sourceCompletenessNotEstablished"])
+        self.assertFalse(history["allDomesticIndustryExclusivesCovered"])
+        refresh=planned_searches(NOW+timedelta(hours=4),
+                                 previous=history)
+        self.assertEqual(len(refresh),5)
+        self.assertEqual({x["windowId"] for x in refresh},
+                         {x["windowId"] for x in planned_searches(NOW)})
+
+    def test_gap_failure_kept_unknown_then_retried_when_due(self):
+        history=None
+        for i in range(13):
+            now=NOW+timedelta(minutes=i*15)
+            windows=planned_searches(now,previous=history)
+            checks=[{"windowId":x["windowId"],
+                     "status":"failed" if i==0 else "checked",
+                     "matched":None if i==0 else 0,
+                     **({"errorType":"TimeoutError"} if i==0 else {})}
+                    for x in windows]
+            history=merge_history(history,[],checks,now=now)
+        self.assertEqual(history["unvisitedBeatMonthWindows"],5)
+        review=planned_searches(NOW+timedelta(hours=4),previous=history)
+        self.assertEqual({w["windowId"] for w in review},
+                         {w["windowId"] for w in planned_searches(NOW)})
+        self.assertEqual(history["windowHealth"][review[0]["windowId"]]["failStreak"],1)
+        self.assertFalse(history["allDomesticIndustryExclusivesCovered"])
+
+    def test_next_month_prunes_expired_window_health_not_articles(self):
+        prior=merge_history(None,[],[
+            {"windowId":"auto:2025-10-01","status":"checked","matched":0}],
+            now=NOW)
+        after=merge_history(prior,[],[
+            {"windowId":"auto:2026-11-01","status":"checked","matched":0}],
+            now=datetime(2026,11,3,12,0,tzinfo=KST))
+        self.assertNotIn("auto:2025-10-01",after["windowHealth"])
+        self.assertIn("auto:2026-11-01",after["windowHealth"])
+        self.assertLessEqual(len(after["windowHealth"]),65)
+
+    def test_explicit_batch_is_still_bounded_and_replayable(self):
+        baseline=merge_history(None,[],[check(matched=0)],now=NOW)
+        expected=planned_searches(NOW,batch=12)
+        same=planned_searches(NOW+timedelta(minutes=5),
+                              previous=baseline,batch=12)
+        self.assertEqual([w["windowId"] for w in expected],
+                         [w["windowId"] for w in same])
+        with self.assertRaises(ValueError):
+            planned_searches(NOW,previous=baseline,batch=13)
+
     def test_real_month_windows_rotate_65_beat_month_slots(self):
         batches=[planned_searches(NOW,batch=i) for i in range(13)]
         urls=[r for part in batches for r in part]
