@@ -1,23 +1,22 @@
 {
-  "generatedAt": "2026-10-18T14:40:07+09:00",
+  "generatedAt": "2026-10-18T17:16:33+09:00",
   "status": "reporter_evidence_queue_not_exclusive",
   "sourceCoverage": "partial_source_coverage_not_zero_news",
   "sourceHealth": {
     "officialEvents": {
       "status": "source_partial_coverage",
-      "generatedAt": "2026-10-17T17:16:38+09:00",
-      "rows": 0,
+      "generatedAt": "2026-10-18T16:57:27+09:00",
+      "rows": 1,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false,
       "incompleteOrStaleFeeds": [
-        "recent_contracts",
-        "overseas_official",
-        "nhtsa_official"
+        "nhtsa_official",
+        "dart_beat_monitor"
       ]
     },
     "dartBeat": {
       "status": "source_partial_coverage",
-      "generatedAt": "2026-10-18T09:24:53+09:00",
+      "generatedAt": "2026-10-18T17:16:00+09:00",
       "rows": 31,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false,
@@ -60,8 +59,8 @@
     }
   },
   "countsByEvidenceTier": {
-    "new_official_receipt_review": 0,
-    "new_official_list_heading_review": 1,
+    "new_official_receipt_review": 1,
+    "new_official_list_heading_review": 0,
     "verified_historical_investment_delta": 3,
     "verified_historical_numeric_delta": 47,
     "issuer_only_correction_unverified_original": 4,
@@ -73,7 +72,7 @@
     "through": "2026-10-18"
   },
   "checkedOfficialRecentCandidates": 1,
-  "recentOfficialTitleOnlyCount": 1,
+  "recentOfficialTitleOnlyCount": 0,
   "todayOnlyCount": 1,
   "historicalResearchCount": 59,
   "unlinkedHistoryTextMatchCount": 2,
@@ -83,21 +82,21 @@
     "invalid_original_identity": 0,
     "old_and_not_relevant": 0,
     "unverified_correction": 0,
-    "same_receipt_merged": 0
+    "same_receipt_merged": 1
   },
   "confirmedScoops": 0,
   "approvedArticles": 0,
   "warning": "공식 발행일≠수집일, 투자 종료 예정월 변경≠실제 지연, 정정문 변경란≠원공시 대조, 보도 검색 0건≠미보도. 미수집/부분수집≠사건 0건.",
   "items": [
     {
-      "id": "new_official_list_heading_review:DART:20261016800823",
-      "tier": "new_official_list_heading_review",
-      "tierLabel": "최근 DART 중요 공시 · 제목만 확인",
+      "id": "new_official_receipt_review:DART:20261016800823",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
       "company": "KG스틸",
-      "title": "KG스틸 · 기업가치제고계획(자율공시)              (PBR 개선 계획 제출 기업)",
+      "title": "KG스틸 · 정기·주요공시 · 기업가치제고계획(자율공시)              (PBR 개선 계획 제출 기업)",
       "officialDocumentDate": "2026-10-16",
       "officialDateIsSourcePublicationNotScrape": true,
-      "evidenceSummary": "2025년 회사 공식 발표: 주주환원 목표 30%, ROE 13% 이상. 2026년 DART 기업가치제고계획 접수 제목만 확인. 2026년 주주환원 50%·2029년 PBR 0.5배는 이미 공개된 언론의 공시 소개 수치이며 DART 첨부 원문은 아직 미확인. 계산 기준·기간을 대조하기 전 20%p 확대 또는 단독 주장 불가.",
+      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
       "officialUrls": [
         "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261016800823"
       ],
@@ -108,56 +107,10 @@
       "exclusiveConfirmed": false,
       "approvedForPitch": false,
       "nextChecks": [
-        "2026년 공식 DART 첨부 계획에서 50% 목표 및 분모·배당/자사주 범위 확인",
-        "2025년 회사 원문 30% 목표의 적용 기간과 2026년 5개년 기준 비교",
-        "2026년 동일 계획 언론기사 전문 확인(계획 목표 자체 기보도)",
-        "실제 실적 변화·이행 여부는 공식 후속자료에서 별도 확인"
-      ],
-      "crossYearPlanReview": {
-        "kind": "historical_issuer_plan_and_new_official_title_comparison_not_equivalent",
-        "currentDartReceiptNo": "20261016800823",
-        "priorIssuerAnnouncementDate": "2025-02-11",
-        "priorIssuerPublishedAt": "2025-02-13",
-        "priorIssuerSourceUrl": "https://www.kg-steel.co.kr/html/PR_view.html?bl=0&ml=0&no=822&pc=24&tab=C&tb=news",
-        "priorRoeTargetAtLeastPercent": 13,
-        "priorShareholderReturnTargetPercent": 30,
-        "newOfficialDartTitleVerified": true,
-        "newDartUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261016800823",
-        "newMediaSourceUrl": "https://www.digitaltoday.co.kr/disclosure/articleView.html?idxno=707878",
-        "newPressReportedShareholderReturnTargetPercent": 50,
-        "newPressReportedWindow": "5개년",
-        "newPressReportedPbrAtLeast": 0.5,
-        "newPressReportedPbrTargetYear": 2029,
-        "newOfficialAttachmentContentVerified": false,
-        "denominatorMatched": false,
-        "periodDefinitionMatched": false,
-        "canClaimTwentyPercentagePointIncrease": false,
-        "targetAchieved": false,
-        "alreadyReportedNewPlanHeadline": true,
-        "coverageFulltextMatched": false,
-        "exclusiveConfirmed": false,
-        "approvedForPitch": false,
-        "editorialNote": "2025년 회사 공식 발표는 주주환원율 30%·ROE 13% 목표. 2026년 공식 DART 접수 제목은 확인했지만 50%·2029 PBR 수치는 기존 언론의 공시 소개에 기재돼 있음. 원공시 첨부 PDF의 환원율 분모·배당/자사주 범위와 5개년 기간 일치 여부를 확인하기 전 20%p 확대 또는 단독 보도라고 하지 않음."
-      },
-      "officialOriginalTextRetrieved": true,
-      "officialOriginalTargetTextExcerpts": {
-        "pbr_2029_at_least_0_5": [
-          "를 기반으로 기업가치의 구조적 재평가 추진 [2029년 PBR 0.5배 이상] 5. 계획수립 - 수익성 중심의 사업포트폴"
-        ],
-        "five_year_shareholder_return_50_percent": [
-          "배분 효율성 제고 - 주주환원 로드맵 수립 [5개년 목표 주주환원율 50% 환원] 6. 소통 - IR커뮤니케이션 정례화"
-        ]
-      },
-      "officialAttachmentPdfReviewed": false,
-      "originalTextEvidenceIsNotSameYearTargetDefinition": true,
-      "officialListTitleOnly": true,
-      "officialDocumentBodyReviewed": false,
-      "filingTypeFromOfficialTitle": "기업가치제고계획",
-      "disclosedFinancialImpactVerified": false,
-      "priorPressArticleFulltextReviewed": false,
-      "companyResponseVerified": false,
-      "firstObservedHereNotFirstReported": true,
-      "editorialPriority": "primary_title_manual_document_review_only"
+        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
+        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
+        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
+      ]
     },
     {
       "id": "verified_historical_investment_delta:20260814003228:변압기 철심공장",
