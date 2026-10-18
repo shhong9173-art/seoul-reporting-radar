@@ -429,7 +429,8 @@ def change_review(current,previous=None,*,now=None):
               and prior.get("detailStatus") in (
                   "original_detail_type_unsupported",
                   "not_inspected_bounded_detail_budget",
-                  "document_unavailable", "detail_source_error")
+                  "document_unavailable", "detail_source_error",
+                  "business_cessation_document_unavailable")
               and row.get("status")=="official_business_cessation_document_review"
               and verified_official_cessation_terms(row)):
             # Same receipt, newly extracted first-party fields. This is a
