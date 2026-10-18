@@ -101,6 +101,23 @@ jobs:
           assert all(not x['fulltextReviewed'] for x in index['items'])
           print('History index includes',index['itemCount'],'domestic observed headlines; no unreported claims')
           PY
+      - name: Backfill historical industry [단독] headlines from rotating month×beat index queries
+        run: |
+          python -m unittest discover -s tests -p 'test_historical_exclusive_press_collector.py' -v
+          python scripts/historical_exclusive_press_collector.py
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          h=json.loads(Path('digests/historical_exclusive_press_index_latest.json').read_text(encoding='utf-8'))
+          assert h['status']=='historical_industry_exclusive_rss_partial_index'
+          assert h['itemCount']==len(h['items'])
+          assert h['allDomesticIndustryExclusivesCovered'] is False
+          assert h['confirmedScoops']==0 and h['humanReviewedYPN']==0
+          assert all(x['fulltextReviewed'] is False and x['rssIndexedHeadlineOnly'] is True for x in h['items'])
+          print('Yearlong partial [단독] press search index',h['itemCount'],
+                'completed queries',h['successfulWindowsThisRun'],
+                'failed queries',h['failedWindowsThisRun'])
+          PY
       - name: Reverse trace observed industry exclusives with evidence-only labels
         run: |
           python -m unittest discover -s tests -p 'test_exclusive_reverse_trace.py' -v
@@ -111,6 +128,10 @@ jobs:
           press=json.loads(Path('digests/press_coverage_index_latest.json').read_text())
           trace=json.loads(Path('digests/reverse_trace_latest.json').read_text())
           assert trace['pressIndexGeneratedAt']==press['generatedAt']
+          historical=json.loads(Path('digests/historical_exclusive_press_index_latest.json').read_text())
+          assert trace['historicalSearchIndexAt']==historical['generatedAt']
+          assert trace['historicalSearchObservedRows']==historical['itemCount']
+          assert trace['historicalSearchAllSourcesChecked'] is False
           assert trace['humanReviewedYPN']==trace['Y']+trace['P']+trace['N']
           assert trace['totalObservedExclusiveHeadlines']==len(trace['items'])
           assert trace['confirmedScoops']==trace['approvedArticles']==0

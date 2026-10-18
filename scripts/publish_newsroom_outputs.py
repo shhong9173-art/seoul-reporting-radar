@@ -24,6 +24,7 @@ OUTPUTS = {
     "news": (
         "dart_refresh_status.json", "data.js", "data.json", "global.json",
         "archive.json", "digests/press_coverage_index_latest.json",
+        "digests/historical_exclusive_press_index_latest.json",
         "digests/reverse_trace_latest.json",
         "changes.json", "strategic_shifts.json", "dart.json",
         "pitch.json", "industry.json", "dig_today.json",
@@ -104,6 +105,23 @@ def selected(root: Path, mode: str):
             raise ValueError("news_js_json_mismatch")
         history=json.loads((root/"digests/press_coverage_index_latest.json").read_text(encoding="utf-8"))
         trace=json.loads((root/"digests/reverse_trace_latest.json").read_text(encoding="utf-8"))
+        historical=json.loads((root/"digests/historical_exclusive_press_index_latest.json").read_text(encoding="utf-8"))
+        if (not isinstance(historical,dict)
+            or historical.get("status")!="historical_industry_exclusive_rss_partial_index"
+            or not isinstance(historical.get("items"),list)
+            or historical.get("itemCount")!=len(historical["items"])
+            or not isinstance(historical.get("windowHealth"),dict)
+            or historical.get("confirmedScoops")!=0
+            or historical.get("allDomesticIndustryExclusivesCovered") is not False
+            or any(not isinstance(x,dict) or
+                   x.get("rssIndexedHeadlineOnly") is not True or
+                   x.get("fulltextReviewed") is not False or
+                   x.get("publisherOriginalUrlVerified") is not False
+                   for x in historical["items"])
+            or trace.get("historicalSearchIndexAt")!=historical.get("generatedAt")
+            or trace.get("historicalSearchObservedRows")!=historical.get("itemCount")
+            or trace.get("historicalSearchAllSourcesChecked") is not False):
+            raise ValueError("unverified_historical_press_index_or_stale_reverse_trace")
         if (not isinstance(history,dict)
             or history.get("status")!="observed_domestic_press_index_not_complete_coverage"
             or history.get("itemCount")!=len(history.get("items",[]))

@@ -122,6 +122,57 @@ class ExclusiveReverseTrace(unittest.TestCase):
         with self.assertRaises(ValueError):
             build(index(a),[review(a),review(a)],now=NOW)
 
+    def test_historical_september_exclusive_adds_to_current_three_without_autovalidation(self):
+        from scripts.historical_exclusive_press_collector import (
+            STATUS as HISTORY_STATUS)
+        september=article(
+            "f","[단독] 포스코 제철소 신규 투자 2026년 9월",company="포스코",
+            date="2026-09-15T08:00:00+09:00")
+        september.update(rssIndexedHeadlineOnly=True,
+            publisherOriginalUrlVerified=False,
+            publisherPublicationTimeVerified=False)
+        history={
+            "status":HISTORY_STATUS,"generatedAt":"2026-10-18T21:40:00+09:00",
+            "itemCount":1,"items":[september],"windowHealth":{},
+            "allDomesticIndustryExclusivesCovered":False,"confirmedScoops":0,
+            "failedWindowsThisRun":0}
+        current=article("a","[단독] 현대차 전기차 9만대 리콜")
+        out=build(index(current),now=NOW,history=history)
+        self.assertEqual(out["totalObservedExclusiveHeadlines"],2)
+        self.assertEqual(out["historicalSearchObservedRows"],1)
+        self.assertEqual(out["historicalSearchIndexAt"],history["generatedAt"])
+        self.assertEqual(out["unreviewedU"],2)
+        self.assertFalse(out["historicalSearchAllSourcesChecked"])
+        self.assertFalse(out["reliablePopulationReachEstimated"])
+        old=next(x for x in out["items"] if x["articleId"]==september["id"])
+        self.assertTrue(old["historicalSearchHeadlineOnly"])
+        self.assertFalse(old["publisherOriginalUrlVerifiedByCollector"])
+        self.assertFalse(old["confirmedExclusive"])
+
+    def test_duplicate_article_in_history_and_current_is_one_review_candidate(self):
+        row=article("a","[단독] 현대차 차량 리콜")
+        row.update(rssIndexedHeadlineOnly=True,
+            publisherOriginalUrlVerified=False)
+        history={
+            "status":"historical_industry_exclusive_rss_partial_index",
+            "generatedAt":"2026-10-18T21:00:00+09:00",
+            "itemCount":1,"items":[row],"windowHealth":{},
+            "allDomesticIndustryExclusivesCovered":False,"confirmedScoops":0}
+        out=build(index(row),history=history,now=NOW)
+        self.assertEqual(out["totalObservedExclusiveHeadlines"],1)
+
+    def test_invalid_historical_data_fails_instead_of_erasing_verified_history(self):
+        row=article("a","[단독] 포스코 후판 증설",company="포스코")
+        row.update(rssIndexedHeadlineOnly=True,
+            publisherOriginalUrlVerified=False)
+        history={
+            "status":"historical_industry_exclusive_rss_partial_index",
+            "itemCount":1,"items":[row],"windowHealth":{},
+            "allDomesticIndustryExclusivesCovered":False,"confirmedScoops":0}
+        history["items"][0]["fulltextReviewed"]=True
+        with self.assertRaises(ValueError):
+            build(index(),history=history,now=NOW)
+
     def test_seed_only_index_yields_no_estimated_reach(self):
         raw=index()
         raw["seedOnly"]=True

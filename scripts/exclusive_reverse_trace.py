@@ -138,7 +138,7 @@ def validate_review(row,original):
     }
 
 
-def build(press, reviews=None, *, now=None, max_candidates=400):
+def build(press, reviews=None, *, now=None, max_candidates=400, history=None):
     now=now or datetime.now(KST)
     if now.utcoffset() is None:raise ValueError("need_timezone")
     if not isinstance(press,dict) or press.get("status")!="observed_domestic_press_index_not_complete_coverage":
@@ -150,6 +150,27 @@ def build(press, reviews=None, *, now=None, max_candidates=400):
     if not 1<=max_candidates<=600:raise ValueError("sample_cap")
     if reviews is not None and (not isinstance(reviews,list) or len(reviews)>MAX_ARTICLES):
         raise ValueError("invalid_review_sheet")
+    history_rows=[]
+    if history is not None:
+        if (not isinstance(history,dict)
+            or history.get("status")!="historical_industry_exclusive_rss_partial_index"
+            or not isinstance(history.get("items"),list)
+            or not isinstance(history.get("itemCount"),int)
+            or history["itemCount"]!=len(history["items"])
+            or history["itemCount"]>8_000
+            or history.get("allDomesticIndustryExclusivesCovered") is not False
+            or history.get("confirmedScoops")!=0
+            or not isinstance(history.get("windowHealth"),dict)):
+            raise ValueError("historical_exclusive_index_invalid_preserve_previous")
+        history_rows=history["items"]
+        if any(not isinstance(x,dict) or x.get("fulltextReviewed") is not False
+               or x.get("rssIndexedHeadlineOnly") is not True
+               or x.get("publisherOriginalUrlVerified") is not False
+               or not isinstance(x.get("id"),str)
+               or not re.fullmatch("[0-9a-f]{24}",x["id"])
+               or aware(x.get("published")) is None
+               for x in history_rows):
+            raise ValueError("invalid_historical_rss_index_row")
     labelled={}
     for row in reviews or []:
         if not isinstance(row,dict) or not isinstance(row.get("articleId"),str):
@@ -157,7 +178,15 @@ def build(press, reviews=None, *, now=None, max_candidates=400):
         aid=row["articleId"]
         if aid in labelled:raise ValueError("duplicate_human_verdict")
         labelled[aid]=row
-    sample=sorted((row for row in press["items"] if candidate(row)),
+    # Never equate a 72-hour article index with a one-year press census.
+    # Historical Google RSS observations are a second, incomplete source.
+    # Prefer the independently collected press record when the same URL is
+    # present in both, preserving stable article IDs for human review sheets.
+    all_candidates={row["id"]:row for row in history_rows if candidate(row)}
+    for row in press["items"]:
+        if candidate(row):
+            all_candidates[row["id"]]=row
+    sample=sorted(all_candidates.values(),
                   key=lambda r:(r["published"],r["id"]),reverse=True)
     sample=sample[:max_candidates]
     items=[]
@@ -173,6 +202,8 @@ def build(press, reviews=None, *, now=None, max_candidates=400):
             "publicTraceClass":proof["verdict"] if proof else "U",
             "humanReviewStatus":"verified_comparison" if proof else "not_reviewed_or_invalid_evidence",
             "primaryEvidence":proof,
+            "historicalSearchHeadlineOnly":row.get("rssIndexedHeadlineOnly") is True,
+            "publisherOriginalUrlVerifiedByCollector":False,
             "confirmedExclusive":False,
             "scoopAcquiredBeforeStory":False,
             "warning":"언론의 단독 표기는 원자료의 독점성 증명 아님; Y/P/N은 기사 전문 및 선행 원자료를 비교한 경우에만 인정",
@@ -200,6 +231,12 @@ def build(press, reviews=None, *, now=None, max_candidates=400):
         "status":STATUS,"generatedAt":now.astimezone(KST).isoformat(timespec="seconds"),
         "pressIndexGeneratedAt":press.get("generatedAt"),
         "pressIndexSeedOnly":press.get("seedOnly") is True,
+        "historicalSearchIndexAt":(history.get("generatedAt") if history else None),
+        "historicalSearchIndexStatus":(history.get("status") if history else "not_connected"),
+        "historicalSearchObservedRows":len(history_rows),
+        "historicalSearchAllSourcesChecked":False,
+        "historicalSearchFailuresInLastRun":(history.get("failedWindowsThisRun") if history else None),
+
         "pressIndexObservationIncomplete":True,
         "targetHistoricalExclusiveArticles":400,
         "totalObservedExclusiveHeadlines":len(sample),
@@ -222,6 +259,7 @@ def build(press, reviews=None, *, now=None, max_candidates=400):
 def main():
     p=argparse.ArgumentParser()
     p.add_argument("--press",default="digests/press_coverage_index_latest.json")
+    p.add_argument("--history",default="digests/historical_exclusive_press_index_latest.json")
     p.add_argument("--reviews",default="data/reverse_trace_verified_labels.json")
     p.add_argument("--output",default="digests/reverse_trace_latest.json")
     args=p.parse_args()
@@ -229,7 +267,10 @@ def main():
     sheet=json.loads(Path(args.reviews).read_text(encoding="utf-8"))
     if sheet.get("status")!="reviewer_approved_reverse_trace_labels" or not isinstance(sheet.get("items"),list):
         raise ValueError("invalid_human_review_sheet")
-    result=build(press,sheet["items"])
+    history_path=Path(args.history)
+    history=(json.loads(history_path.read_text(encoding="utf-8"))
+             if history_path.exists() else None)
+    result=build(press,sheet["items"],history=history)
     dest=Path(args.output)
     dest.parent.mkdir(parents=True,exist_ok=True)
     tmp=dest.with_suffix(".json.tmp")

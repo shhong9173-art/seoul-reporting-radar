@@ -53,12 +53,25 @@ try{
  const pressRes=await fetch("digests/press_coverage_index_latest.json",{cache:"no-store"});
  if(!pressRes.ok)throw Error("missing prior-news index source");
  const press=await pressRes.json();
+ const historicalRes=await fetch("digests/historical_exclusive_press_index_latest.json",{cache:"no-store"});
+ if(!historicalRes.ok)throw Error("yearlong [단독] headline source not published");
+ const historical=await historicalRes.json();
+ if(historical.status!=="historical_industry_exclusive_rss_partial_index" ||
+    historical.itemCount!==historical.items?.length ||
+    historical.allDomesticIndustryExclusivesCovered!==false ||
+    historical.confirmedScoops!==0 ||
+    data.historicalSearchIndexAt!==historical.generatedAt ||
+    data.historicalSearchObservedRows!==historical.itemCount ||
+    data.historicalSearchAllSourcesChecked!==false)
+   throw Error("stale or unverified historical industry exclusive index");
  if(data.pressIndexGeneratedAt!==press.generatedAt)
    throw Error("source timestamp does not match press observation");
  $("#notice").textContent=data.pressIndexSeedOnly?
    "현재는 비어 있는 최초 수집 기준선입니다. 기사 0건은 미보도 0건을 뜻하지 않습니다.":
-   "최신 관측 "+(data.generatedAt||"미확인")+" · 국내 기사 메타데이터 일부만 수집 · 확정 단독 0건 · 원천별 도달률 미측정";
+   "최신 관측 "+(data.generatedAt||"미확인")+" · 연간 [단독] 기사 제목 색인 일부만 수집(총 "+historical.itemCount+"건, 현재 실행 실패 "+historical.failedWindowsThisRun+"쿼리) · 확정 단독 0건 · 원천별 도달률 미측정";
  for(const [name,val] of [
+  ["연간 검색서 관측된 기사",historical.itemCount],
+  ["최근 검색한 월별 창",historical.searchedWindowCountThisRun],
   ["관측된 단독 표기 기사",data.totalObservedExclusiveHeadlines],
   ["원문·기사 전문 검증",data.humanReviewedYPN],
   ["Y · 보도 전 정확한 원문",data.Y],
@@ -89,13 +102,15 @@ try{
      el("div",row.title,"headline"),
      el("div",row.sourceName+" · "+row.published+" · "+(row.companies||[]).join(", "),"meta"));
    if(typeof row.articleUrl==="string"&&/^https?:\/\//.test(row.articleUrl)){
-    const link=el("a","원문 기사 보기 ↗");
+    const link=el("a",row.historicalSearchHeadlineOnly?
+      "기사 색인 링크 열기 ↗ (전문·원본 미확인)":"기사 색인 링크 열기 ↗ (전문 별도 확인)");
     link.href=row.articleUrl;link.target="_blank";link.rel="noopener noreferrer";a.append(link);
    }
    if(row.primaryEvidence&&row.primaryEvidence.verdict!=="N")
     a.append(el("p","원자료 유형: "+row.primaryEvidence.primarySourceType+
        " · 사람 대조: "+row.primaryEvidence.evidenceReason,"muted small"));
    else a.append(el("p","기사 전문·보도 전 원자료 교차검증 미완료 (또는 공개 전조 미확인 조사의 제한 있음)","muted small"));
+   if(row.historicalSearchHeadlineOnly)a.append(el("p","Google 뉴스 RSS에 관측된 기사 제목입니다. 매체 원본 발행시각과 기사 전문은 별도로 확인해야 합니다.","muted small"));
    container.append(a);
   }
  };

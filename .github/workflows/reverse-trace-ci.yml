@@ -3,6 +3,8 @@ on:
   pull_request:
     paths:
       - 'scripts/exclusive_reverse_trace.py'
+      - 'scripts/historical_exclusive_press_collector.py'
+      - 'tests/test_historical_exclusive_press_collector.py'
       - 'data/reverse_trace_verified_labels.json'
       - 'digests/reverse_trace_latest.json'
       - 'tests/test_exclusive_reverse_trace.py'
@@ -18,6 +20,8 @@ on:
     branches: [main]
     paths:
       - 'scripts/exclusive_reverse_trace.py'
+      - 'scripts/historical_exclusive_press_collector.py'
+      - 'tests/test_historical_exclusive_press_collector.py'
       - 'tests/test_exclusive_reverse_trace.py'
       - 'reverse-trace.html'
       - 'tests/test_reverse_trace_view.cjs'
@@ -37,6 +41,7 @@ jobs:
       - name: Validate verified Y/P/N versus all unverified U, including Git publisher
         run: |
           python -m compileall -q scripts/exclusive_reverse_trace.py
+          python -m unittest discover -s tests -p 'test_historical_exclusive_press_collector.py' -v
           python -m unittest discover -s tests -p 'test_exclusive_reverse_trace.py' -v
           python -m unittest discover -s tests -p 'test_press_coverage_index.py' -v
           python -m unittest discover -s tests -p 'test_publish_newsroom_outputs.py' -v
