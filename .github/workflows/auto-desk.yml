@@ -56,6 +56,10 @@ jobs:
           python-version: '3.12'
       - name: Pipeline heartbeat
         run: echo "Auto Desk pipeline started at $(date -u +%FT%TZ)"
+      - name: Reject invalid RSS article dates and overbroad title deduplication
+        run: |
+          python -m unittest discover -s tests -p 'test_collector_title_dates.py' -v
+          python -m unittest discover -s tests -p 'test_auto_news_feed_health.py' -v
       - name: Collect domestic auto industry news
         run: python collector.py
       - name: Collect expanded industrial desk radar
