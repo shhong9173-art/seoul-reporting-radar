@@ -1,0 +1,53 @@
+name: Annual Unfiltered Domestic Press Coverage Index
+on:
+  pull_request:
+    paths:
+      - 'archive_builder.py'
+      - 'scripts/press_coverage_index.py'
+      - 'scripts/publish_newsroom_outputs.py'
+      - 'tests/test_press_coverage_index.py'
+      - '.github/workflows/auto-desk.yml'
+      - '.github/workflows/press-coverage-index-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'archive_builder.py'
+      - 'scripts/press_coverage_index.py'
+      - 'tests/test_press_coverage_index.py'
+      - '.github/workflows/press-coverage-index-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  coverage-memory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check true prior-coverage memory and failclosed missing dates
+        run: |
+          python -m compileall -q scripts/press_coverage_index.py archive_builder.py
+          python -m unittest discover -s tests -p 'test_press_coverage_index.py' -v
+          python -m unittest discover -s tests -p 'test_publish_newsroom_outputs.py' -v
+      - name: Replay actual newsroom feed without writing main
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from datetime import datetime,timezone
+          from scripts.press_coverage_index import merge_index
+          rows=json.loads(Path('data.json').read_text(encoding='utf-8'))
+          result=merge_index(None,rows)
+          assert len(rows)>=10
+          assert result['status']=='observed_domestic_press_index_not_complete_coverage'
+          assert result['retentionDays']==365
+          assert result['proofOfNoPriorCoverage'] is False
+          assert result['itemCount']>0
+          assert all(x['fulltextReviewed'] is False and
+                     x['coverageIndexOnly'] is True for x in result['items'])
+          print('Real feed:',len(rows),'observed; valid domestic press:',result['itemCount'],
+                'undated/malformed:',result['malformedOrUndatedInputCount'])
+          PY

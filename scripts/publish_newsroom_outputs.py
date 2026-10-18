@@ -22,7 +22,8 @@ from datetime import datetime, timezone
 OUTPUTS = {
     "news": (
         "dart_refresh_status.json", "data.js", "data.json", "global.json",
-        "archive.json", "changes.json", "strategic_shifts.json", "dart.json",
+        "archive.json", "digests/press_coverage_index_latest.json",
+        "changes.json", "strategic_shifts.json", "dart.json",
         "pitch.json", "industry.json", "dig_today.json",
     ),
     "dart_beat": (
