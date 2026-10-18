@@ -5,6 +5,8 @@ from pathlib import Path
 
 
 def inspect(beat, queue):
+    if not isinstance(beat, dict):
+        return {'status': 'source_missing_or_malformed'}
     checks = beat.get('sourceChecks')
     if not isinstance(checks, list) or not isinstance(queue, dict):
         return {'status': 'source_missing_or_malformed'}
