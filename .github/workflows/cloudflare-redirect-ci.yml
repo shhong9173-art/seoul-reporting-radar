@@ -1,0 +1,20 @@
+name: Canonical Pages Redirect Regression
+on:
+  pull_request:
+    paths: ['cloudflare/**', 'wrangler.json', 'tests/test_cloudflare_redirect.mjs', '.github/workflows/cloudflare-redirect-ci.yml']
+  push:
+    branches: [main]
+    paths: ['cloudflare/**', 'wrangler.json', 'tests/test_cloudflare_redirect.mjs', '.github/workflows/cloudflare-redirect-ci.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  redirect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/test_cloudflare_redirect.mjs
