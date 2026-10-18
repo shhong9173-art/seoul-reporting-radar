@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-19T04:13:28+09:00",
+  "generatedAt": "2026-10-19T06:32:06+09:00",
   "status": "source_requests_completed",
   "expectedQueries": 12,
   "attemptedQueries": 12,
@@ -7,37 +7,37 @@
   "validEmptyQueries": 6,
   "slowestQueries": [
     {
-      "category": "EV.com",
+      "category": "Nikkei Asia",
       "globalFeed": true,
-      "status": "checked_no_recent_rows",
-      "durationMs": 608
-    },
-    {
-      "category": "WardsAuto",
-      "globalFeed": true,
-      "status": "checked_no_recent_rows",
-      "durationMs": 585
-    },
-    {
-      "category": "Automotive World",
-      "globalFeed": true,
-      "status": "checked_no_recent_rows",
-      "durationMs": 549
+      "status": "checked_recent_rows",
+      "durationMs": 616
     },
     {
       "category": "Automotive News",
       "globalFeed": true,
       "status": "checked_recent_rows",
-      "durationMs": 516
+      "durationMs": 566
     },
     {
-      "category": "Nikkei Asia",
+      "category": "EV.com",
+      "globalFeed": true,
+      "status": "checked_no_recent_rows",
+      "durationMs": 529
+    },
+    {
+      "category": "The Verge",
+      "globalFeed": true,
+      "status": "checked_no_recent_rows",
+      "durationMs": 519
+    },
+    {
+      "category": "CnEVPost",
       "globalFeed": true,
       "status": "checked_recent_rows",
-      "durationMs": 495
+      "durationMs": 514
     }
   ],
-  "recentArticleItemsAfterDedupe": 28,
+  "recentArticleItemsAfterDedupe": 26,
   "minimumPublicationItems": 1,
   "newsDatasetApprovedForPublish": true,
   "allProvidersResponded": true,
@@ -51,7 +51,7 @@
       "status": "checked_no_recent_rows",
       "recentRows": 0,
       "errorType": null,
-      "durationMs": 320
+      "durationMs": 378
     },
     {
       "category": "Reuters",
@@ -59,7 +59,7 @@
       "status": "checked_no_recent_rows",
       "recentRows": 0,
       "errorType": null,
-      "durationMs": 323
+      "durationMs": 391
     },
     {
       "category": "Nikkei Asia",
@@ -67,15 +67,7 @@
       "status": "checked_recent_rows",
       "recentRows": 2,
       "errorType": null,
-      "durationMs": 495
-    },
-    {
-      "category": "Automotive News",
-      "globalFeed": true,
-      "status": "checked_recent_rows",
-      "recentRows": 4,
-      "errorType": null,
-      "durationMs": 516
+      "durationMs": 616
     },
     {
       "category": "Automotive World",
@@ -83,7 +75,15 @@
       "status": "checked_no_recent_rows",
       "recentRows": 0,
       "errorType": null,
-      "durationMs": 549
+      "durationMs": 504
+    },
+    {
+      "category": "Automotive News",
+      "globalFeed": true,
+      "status": "checked_recent_rows",
+      "recentRows": 4,
+      "errorType": null,
+      "durationMs": 566
     },
     {
       "category": "WardsAuto",
@@ -91,7 +91,7 @@
       "status": "checked_no_recent_rows",
       "recentRows": 0,
       "errorType": null,
-      "durationMs": 585
+      "durationMs": 464
     },
     {
       "category": "InsideEVs",
@@ -99,7 +99,7 @@
       "status": "checked_recent_rows",
       "recentRows": 7,
       "errorType": null,
-      "durationMs": 486
+      "durationMs": 503
     },
     {
       "category": "Electrek",
@@ -107,15 +107,15 @@
       "status": "checked_recent_rows",
       "recentRows": 4,
       "errorType": null,
-      "durationMs": 489
+      "durationMs": 481
     },
     {
       "category": "CnEVPost",
       "globalFeed": true,
       "status": "checked_recent_rows",
-      "recentRows": 11,
+      "recentRows": 9,
       "errorType": null,
-      "durationMs": 472
+      "durationMs": 514
     },
     {
       "category": "CarNewsChina",
@@ -131,7 +131,7 @@
       "status": "checked_no_recent_rows",
       "recentRows": 0,
       "errorType": null,
-      "durationMs": 608
+      "durationMs": 529
     },
     {
       "category": "The Verge",
@@ -139,7 +139,7 @@
       "status": "checked_no_recent_rows",
       "recentRows": 0,
       "errorType": null,
-      "durationMs": 495
+      "durationMs": 519
     }
   ]
 }
