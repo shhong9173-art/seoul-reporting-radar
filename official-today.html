@@ -51,6 +51,8 @@ function lead(host,x){
    official_valueup_text_only_attachment_unverified:"공시 본문 텍스트 확인 · 발행사 첨부 PDF·수치 정의 미검증",
    official_valueup_text_and_attachment_checked:"공시 본문·첨부자료 확인 · 선행보도 및 수치 비교는 별도 검증",
    official_table_filing_fields_checked:"공시 원문 표의 기재값 확인 · 실제 납품·매출 검증 아님",
+   official_business_cessation_fields_checked:"영업정지 공시 표의 기재값 확인 · 실제 가동 중단 검증 아님",
+   official_business_cessation_text_only_fields_unverified:"영업정지 원문 열람 · 수치와 일자 안전 추출 실패",
    official_share_cancellation_fields_checked:"주식소각결정 공시의 예정값 확인 · 실제 소각 완료 검증 아님",
    official_share_cancellation_text_only_fields_unverified:"주식소각 원문 텍스트 확인 · 주식수/날짜 안전 검증 실패",
    official_receipt_only_original_not_checked:"공시 접수번호·제목만 확인 · 원문 세부항목 미검증"
@@ -65,6 +67,29 @@ function lead(host,x){
    line(c,"공시상 소각 예정 우선/종류주: "+t.preferredSharesToCancel+"주 (완료 확인 아님)","dim");
   if(typeof t.scheduledCancellationDate==="string"&&/^20\d{2}-\d{2}-\d{2}$/.test(t.scheduledCancellationDate))
    line(c,"공시상 소각 예정일: "+t.scheduledCancellationDate+" (실행 확인 아님)","dim");
+ }
+ if(x.source==="DART_FILING" && x.issuerFiledBusinessCessationTerms){
+  const terms=x.issuerFiledBusinessCessationTerms;
+  const labels={
+   reportedBusinessScope:"공시상 영업정지 대상 사업",
+   reportedAffectedSalesWon:"공시상 영업정지 금액(원)",
+   reportedRecentSalesWon:"공시상 최근 매출총액(원)",
+   issuerReportedRevenueRatioPct:"공시상 매출 대비 비중(%)",
+   issuerStatedCessationDate:"공시상 영업정지 일자"
+  };
+  for(const [field,label] of Object.entries(labels)){
+   const v=terms[field];
+   if(typeof v!=="string" || v.length>140)continue;
+   if(field==="reportedBusinessScope" && !/^.{2,140}$/.test(v))continue;
+   if((field==="reportedAffectedSalesWon"||field==="reportedRecentSalesWon")
+     && !/^\d{1,16}$/.test(v))continue;
+   if(field==="issuerReportedRevenueRatioPct" && !/^\d{1,3}(?:\.\d{1,5})?$/.test(v))continue;
+   if(field==="issuerStatedCessationDate" && !/^20\d{2}-\d{2}-\d{2}$/.test(v))continue;
+   line(c,label+": "+v+(field==="issuerReportedRevenueRatioPct"?"%":"")+" (발행사 기재값 · 실행/사업 영향 미확인)","dim");
+  }
+  if(x.businessCessationFilingRelation==="parent_disclosure_of_subsidiary")
+   line(c,"모회사에 제출된 자회사 관련 공시입니다. 동일 자회사 사건의 별도 접수일 수 있으며 독립 중단 사건으로 중복 집계하지 않습니다.","dim");
+  line(c,"공식 공시의 영업정지 결정과 실제 사업장 가동 중단·향후 매출 실현은 다른 검증 단계입니다.","dim");
  }
  if(x.sourceSnapshotAt)line(c,"수집 원천 생성 시각: "+x.sourceSnapshotAt,"dim");
  line(c,"취재 검증: "+x.verification,"dim");
