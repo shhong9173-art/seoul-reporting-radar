@@ -1,0 +1,36 @@
+name: KIPRIS Provider Diagnostic (not collection)
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'scripts/kipris_provider_probe.py'
+      - 'tests/test_kipris_provider_probe.py'
+      - '.github/workflows/kipris-provider-diagnostic.yml'
+permissions:
+  contents: read
+concurrency:
+  group: kipris-provider-diagnostic
+  cancel-in-progress: false
+jobs:
+  diagnose:
+    # Never expose repository credentials to a fork or pull_request_target.
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test safe response classification before one live request
+        run: python -m unittest discover -s tests -p 'test_kipris_provider_probe.py' -v
+      - name: One provider request, no retries and no operational data writes
+        env:
+          KIPRIS_SERVICE_KEY: ${{ secrets.KIPRIS_SERVICE_KEY }}
+        run: python scripts/kipris_provider_probe.py --out "$RUNNER_TEMP/kipris-provider-diagnostic.json"
+      - name: Keep sanitized diagnostic; a green job does not mean collection recovered
+        uses: actions/upload-artifact@v4
+        with:
+          name: kipris-provider-diagnostic
+          path: ${{ runner.temp }}/kipris-provider-diagnostic.json
+          retention-days: 14

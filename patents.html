@@ -153,6 +153,10 @@ try{
    "출입처별 API 응답 정상("+s.checkedCompanies+"/"+s.totalCompanies+")":
    "수집 불완전 "+list.length+"개 출입처: "+list.slice(0,24).join(" / ")+
    " · 이전 정상 공보 보존(0건 아님)");
+ const categories=[...new Set(s.incompleteCompanies.map(c=>c.providerMessageCategory).filter(Boolean))];
+ if(categories.includes("request_limit_reported"))host.textContent+=" · 제공기관이 호출 제한을 응답함(계정 한도·갱신일 별도 확인)";
+ if(s.lastProviderResponseAt)host.textContent+=" · 실제 오류 응답 "+s.lastProviderResponseAt;
+ if(s.nextProviderProbeAt)host.textContent+=" · 자동 재조회 예정 "+s.nextProviderProbeAt;
 }catch(e){
  host.textContent="출입처별 API 오류 진단 미확인 · 이전 정상 공보가 최신 수집 성공을 뜻하지는 않습니다";
 }
