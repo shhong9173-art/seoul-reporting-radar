@@ -49,6 +49,14 @@ def _receipt_link(receipt, url):
 
 def evidence_stage(row):
     """What was actually read, not what a newly seen receipt might imply."""
+    cessation = row.get("businessCessationPrimarySource")
+    if (row.get("status") == "official_business_cessation_document_review"
+        and isinstance(cessation, dict)
+        and cessation.get("officialXmlOrHtmlBodyRetrieved") is True):
+        return ("official_business_cessation_fields_checked"
+                if isinstance(cessation.get("observedTerms"), dict)
+                and bool(cessation["observedTerms"])
+                else "official_business_cessation_text_only_fields_unverified")
     cancellation = row.get("shareCancellationPrimarySource")
     if (row.get("status") == "official_share_cancellation_document_review"
         and isinstance(cancellation, dict)
@@ -217,6 +225,35 @@ def merge(queue, beat, *, now=None):
                         item["officialFact"] = (
                             "공식 주식소각결정 원문 표의 예정값 확인; "
                             "실제 소각 완료·배당 및 주주환원 산식·기보도 미검증")
+            cessation = row.get("businessCessationPrimarySource")
+            if (row.get("status") == "official_business_cessation_document_review"
+                and isinstance(cessation, dict)
+                and cessation.get("officialXmlOrHtmlBodyRetrieved") is True):
+                observed = cessation.get("observedTerms")
+                if isinstance(observed, dict):
+                    verified = {}
+                    fields = ("reportedBusinessScope", "reportedAffectedSalesWon",
+                              "reportedRecentSalesWon", "issuerReportedRevenueRatioPct",
+                              "issuerStatedCessationDate")
+                    for field in fields:
+                        proof = observed.get(field)
+                        if (isinstance(proof, dict)
+                            and proof.get("basis") == "same_official_table_row"
+                            and proof.get("operationalShutdownVerified") is False
+                            and proof.get("independentBusinessEffectVerified") is False
+                            and isinstance(proof.get("value"), str)
+                            and 1 <= len(proof["value"]) <= 140):
+                            verified[field] = proof["value"]
+                    relation = row.get("businessCessationFilingRelation")
+                    if relation in ("issuer_business_cessation",
+                                    "parent_disclosure_of_subsidiary"):
+                        item["businessCessationFilingRelation"] = relation
+                    item["uniqueUnderlyingCessationEventVerified"] = False
+                    if verified:
+                        item["issuerFiledBusinessCessationTerms"] = verified
+                        item["officialFact"] = (
+                            "공식 영업정지 공시 원문 표의 기재값만 확인; "
+                            "실제 중단 실행·사업 영향·선행보도 및 모자회사 중복 여부 미검증")
             if fresh:
                 out["freshOfficialReview"].append(item)
                 added_recent += 1
