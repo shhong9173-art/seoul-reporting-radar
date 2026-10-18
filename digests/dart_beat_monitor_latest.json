@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-18T17:37:11+09:00",
+  "generatedAt": "2026-10-18T21:24:56+09:00",
   "status": "industry_beat_official_receipt_review",
   "windowStart": "20260919",
   "windowEnd": "20261018",
@@ -10,17 +10,20 @@
   "sourceComplete": false,
   "relevantFilings": 31,
   "detailBound": 12,
-  "detailsAttempted": 0,
+  "detailsAttempted": 2,
   "valueupOfficialDocumentAttempts": 0,
   "shareCancellationDocumentAttempts": 0,
+  "businessCessationDocumentAttempts": 2,
+  "businessCessationDocumentReads": 2,
+  "businessCessationDocumentUnavailable": 0,
   "shareCancellationDocumentReads": 1,
   "shareCancellationDocumentUnavailable": 0,
   "valueupOfficialDocumentReads": 1,
   "valueupOfficialDocumentUnavailable": 0,
-  "detailBacklogQueued": 0,
+  "detailBacklogQueued": 2,
   "detailNotAttemptedThisRun": 0,
-  "unsupportedOriginalDetailTypes": 13,
-  "uninspectedListedDetails": 13,
+  "unsupportedOriginalDetailTypes": 11,
+  "uninspectedListedDetails": 11,
   "uninspectedRelevantDetails": 0,
   "firstRunBaseline": false,
   "sourceChecks": [
@@ -1996,12 +1999,76 @@
       "originalDocumentVerified": false,
       "companyImpactVerified": false,
       "scoopConfirmed": false,
+      "status": "official_business_cessation_document_review",
+      "sourceError": false,
+      "businessCessationFilingRelation": "parent_disclosure_of_subsidiary",
+      "businessCessationPrimarySource": {
+        "status": "official_original_cessation_table_fields",
+        "observedTerms": {
+          "reportedBusinessScope": {
+            "value": "TDI 제조 및 판매 사업",
+            "officialTableLabel": "1. 영업정지 분야",
+            "basis": "same_official_table_row",
+            "operationalShutdownVerified": false,
+            "independentBusinessEffectVerified": false,
+            "priorPressCoverageVerified": false
+          },
+          "reportedAffectedSalesWon": {
+            "value": "117947181460",
+            "officialTableLabel": "영업정지금액 (원)",
+            "basis": "same_official_table_row",
+            "operationalShutdownVerified": false,
+            "independentBusinessEffectVerified": false,
+            "priorPressCoverageVerified": false
+          },
+          "reportedRecentSalesWon": {
+            "value": "2009429144163",
+            "officialTableLabel": "최근매출총액 (원)",
+            "basis": "same_official_table_row",
+            "operationalShutdownVerified": false,
+            "independentBusinessEffectVerified": false,
+            "priorPressCoverageVerified": false
+          },
+          "issuerReportedRevenueRatioPct": {
+            "value": "5.87",
+            "officialTableLabel": "매출액 대비(%)",
+            "basis": "same_official_table_row",
+            "operationalShutdownVerified": false,
+            "independentBusinessEffectVerified": false,
+            "priorPressCoverageVerified": false
+          },
+          "issuerStatedCessationDate": {
+            "value": "2026-12-18",
+            "officialTableLabel": "7. 영업정지일자",
+            "basis": "same_official_table_row",
+            "operationalShutdownVerified": false,
+            "independentBusinessEffectVerified": false,
+            "priorPressCoverageVerified": false
+          }
+        },
+        "conflictingFields": [],
+        "documentsExamined": 1,
+        "tableRowsExamined": 25,
+        "documentTextSha256": [
+          "019d5210b69416d6800c1ae2fd62edd7872040debb772a6613892763971aea63"
+        ],
+        "officialXmlOrHtmlBodyRetrieved": true,
+        "officialAttachmentPdfReviewed": false,
+        "operationalShutdownVerified": false,
+        "independentFinancialImpactVerified": false,
+        "subsidiaryIdentityIndependentlyLinked": false,
+        "duplicateUnderlyingEventExcludedFromUniqueCount": false,
+        "priorMediaFulltextCompared": false,
+        "exclusiveConfirmed": false,
+        "approvedForPitch": false,
+        "warning": "공시 본문 기재 사실만 확인. 실제 영업중단 실행 여부와 매출 영향, 모·자회사 중복 사건 여부, 선행보도 전문 모두 별도 검증"
+      },
+      "approvedForPitch": false,
       "firstObservedAt": "2026-10-15T18:09:23+09:00",
       "firstObservedThisRun": false,
-      "detailTypeSupported": false,
-      "detailStatus": "original_detail_type_unsupported",
-      "independentContractComparisonVerified": false,
-      "approvedForPitch": false
+      "detailTypeSupported": true,
+      "detailStatus": "official_business_cessation_document_review",
+      "independentContractComparisonVerified": false
     },
     {
       "company": "OCI",
@@ -2017,12 +2084,76 @@
       "originalDocumentVerified": false,
       "companyImpactVerified": false,
       "scoopConfirmed": false,
+      "status": "official_business_cessation_document_review",
+      "sourceError": false,
+      "businessCessationFilingRelation": "issuer_business_cessation",
+      "businessCessationPrimarySource": {
+        "status": "official_original_cessation_table_fields",
+        "observedTerms": {
+          "reportedBusinessScope": {
+            "value": "TDI 제조 및 판매 사업",
+            "officialTableLabel": "1. 영업정지 분야",
+            "basis": "same_official_table_row",
+            "operationalShutdownVerified": false,
+            "independentBusinessEffectVerified": false,
+            "priorPressCoverageVerified": false
+          },
+          "reportedAffectedSalesWon": {
+            "value": "117947181460",
+            "officialTableLabel": "영업정지금액 (원)",
+            "basis": "same_official_table_row",
+            "operationalShutdownVerified": false,
+            "independentBusinessEffectVerified": false,
+            "priorPressCoverageVerified": false
+          },
+          "reportedRecentSalesWon": {
+            "value": "2009429144163",
+            "officialTableLabel": "최근매출총액 (원)",
+            "basis": "same_official_table_row",
+            "operationalShutdownVerified": false,
+            "independentBusinessEffectVerified": false,
+            "priorPressCoverageVerified": false
+          },
+          "issuerReportedRevenueRatioPct": {
+            "value": "5.87",
+            "officialTableLabel": "매출액 대비(%)",
+            "basis": "same_official_table_row",
+            "operationalShutdownVerified": false,
+            "independentBusinessEffectVerified": false,
+            "priorPressCoverageVerified": false
+          },
+          "issuerStatedCessationDate": {
+            "value": "2026-12-18",
+            "officialTableLabel": "7. 영업정지일자",
+            "basis": "same_official_table_row",
+            "operationalShutdownVerified": false,
+            "independentBusinessEffectVerified": false,
+            "priorPressCoverageVerified": false
+          }
+        },
+        "conflictingFields": [],
+        "documentsExamined": 1,
+        "tableRowsExamined": 24,
+        "documentTextSha256": [
+          "63344292e9eb540ffdcc7cbae4b6bf64c12097e9b41bffd40fb1ce1b3079320a"
+        ],
+        "officialXmlOrHtmlBodyRetrieved": true,
+        "officialAttachmentPdfReviewed": false,
+        "operationalShutdownVerified": false,
+        "independentFinancialImpactVerified": false,
+        "subsidiaryIdentityIndependentlyLinked": false,
+        "duplicateUnderlyingEventExcludedFromUniqueCount": false,
+        "priorMediaFulltextCompared": false,
+        "exclusiveConfirmed": false,
+        "approvedForPitch": false,
+        "warning": "공시 본문 기재 사실만 확인. 실제 영업중단 실행 여부와 매출 영향, 모·자회사 중복 사건 여부, 선행보도 전문 모두 별도 검증"
+      },
+      "approvedForPitch": false,
       "firstObservedAt": "2026-10-15T18:09:23+09:00",
       "firstObservedThisRun": false,
-      "detailTypeSupported": false,
-      "detailStatus": "original_detail_type_unsupported",
-      "independentContractComparisonVerified": false,
-      "approvedForPitch": false
+      "detailTypeSupported": true,
+      "detailStatus": "official_business_cessation_document_review",
+      "independentContractComparisonVerified": false
     },
     {
       "company": "SK이노베이션",
