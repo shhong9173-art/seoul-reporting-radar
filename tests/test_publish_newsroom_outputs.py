@@ -36,14 +36,24 @@ def write_news(root,label):
     if "digests/reverse_trace_latest.json" in OUTPUTS["news"]:
         history={"status":"observed_domestic_press_index_not_complete_coverage",
                  "itemCount":0,"items":[],"generatedAt":"2026-10-18T10:00:00+09:00"}
+        historical={
+            "status":"historical_industry_exclusive_rss_partial_index",
+            "generatedAt":"2026-10-18T10:01:00+09:00",
+            "itemCount":0,"items":[],"windowHealth":{},
+            "confirmedScoops":0,"allDomesticIndustryExclusivesCovered":False}
         reverse={"status":"automotive_industry_exclusive_reverse_trace_unverified_candidates",
                  "pressIndexGeneratedAt":history["generatedAt"],
+                 "historicalSearchIndexAt":historical["generatedAt"],
+                 "historicalSearchObservedRows":0,
+                 "historicalSearchAllSourcesChecked":False,
                  "confirmedScoops":0,"approvedArticles":0,
                  "reliablePopulationReachEstimated":False,
                  "humanReviewedYPN":0,"Y":0,"P":0,"N":0,
                  "totalObservedExclusiveHeadlines":0,"items":[]}
         (root/"digests/press_coverage_index_latest.json").write_text(
             json.dumps(history),encoding="utf-8")
+        (root/"digests/historical_exclusive_press_index_latest.json").write_text(
+            json.dumps(historical),encoding="utf-8")
         (root/"digests/reverse_trace_latest.json").write_text(
             json.dumps(reverse),encoding="utf-8")
 
@@ -154,6 +164,22 @@ class PublisherIntegration(unittest.TestCase):
                          "another live producer update 3")
         self.assertIn("digests/press_coverage_index_latest.json",
                       OUTPUTS["news"])
+
+    def test_historical_reverse_trace_cannot_publish_stale_or_forged_source(self):
+        path=self.root/"digests/historical_exclusive_press_index_latest.json"
+        original=json.loads(path.read_text(encoding="utf-8"))
+        wrong=dict(original)
+        wrong["confirmedScoops"]=1
+        path.write_text(json.dumps(wrong),encoding="utf-8")
+        with self.assertRaisesRegex(ValueError,"unverified_historical_press_index"):
+            selected(self.root,"news")
+        path.write_text(json.dumps(original),encoding="utf-8")
+        reverse=self.root/"digests/reverse_trace_latest.json"
+        snapshot=json.loads(reverse.read_text(encoding="utf-8"))
+        snapshot["historicalSearchIndexAt"]="2025-01-01T00:00:00+09:00"
+        reverse.write_text(json.dumps(snapshot),encoding="utf-8")
+        with self.assertRaisesRegex(ValueError,"unverified_historical_press_index"):
+            selected(self.root,"news")
 
     def test_concurrent_official_registry_survives_stale_news_refresh(self):
         self.assertNotIn("dart_corp_codes.json",OUTPUTS["news"])
