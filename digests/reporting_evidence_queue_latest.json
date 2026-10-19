@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-10-20T01:23:31+09:00",
+  "generatedAt": "2026-10-20T02:22:24+09:00",
   "status": "reporter_evidence_queue_not_exclusive",
   "sourceCoverage": "partial_source_coverage_not_zero_news",
   "sourceHealth": {
     "officialEvents": {
       "status": "source_partial_coverage",
-      "generatedAt": "2026-10-19T14:24:34+09:00",
+      "generatedAt": "2026-10-20T01:58:25+09:00",
       "rows": 1,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false,
@@ -16,8 +16,8 @@
     },
     "dartBeat": {
       "status": "source_partial_coverage",
-      "generatedAt": "2026-10-19T09:31:25+09:00",
-      "rows": 32,
+      "generatedAt": "2026-10-20T02:21:44+09:00",
+      "rows": 34,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false,
       "uninspectedRelevantDetails": 0
@@ -59,7 +59,7 @@
     }
   },
   "countsByEvidenceTier": {
-    "new_official_receipt_review": 1,
+    "new_official_receipt_review": 2,
     "new_official_list_heading_review": 0,
     "verified_historical_investment_delta": 3,
     "verified_historical_numeric_delta": 47,
@@ -71,13 +71,13 @@
     "recentFrom": "2026-10-18",
     "through": "2026-10-20"
   },
-  "checkedOfficialRecentCandidates": 1,
+  "checkedOfficialRecentCandidates": 2,
   "recentOfficialTitleOnlyCount": 0,
-  "todayOnlyCount": 1,
+  "todayOnlyCount": 2,
   "historicalResearchCount": 59,
   "unlinkedHistoryTextMatchCount": 2,
   "correctionHistorySourceGate": "reviewed_unlinked_candidates_only",
-  "totalRows": 60,
+  "totalRows": 61,
   "excluded": {
     "invalid_original_identity": 0,
     "old_and_not_relevant": 0,
@@ -99,6 +99,46 @@
       "evidenceSummary": "공식 DART 원문 표 확인: 2027년 북미 데이터센터 전력설비 공급 PJT · 계약금액 168,871,711,050원 · 상대 LS ELECTRIC AMERICA Inc. · 관계 자회사. 실제 외부 신규고객 수주·출하·매출 실현은 미확인.",
       "officialUrls": [
         "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261019800108"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "동일 계약 보도 기사 전문·첫 공시 날짜 확인",
+        "공시 표상 계약상대·관계·금액·기간 확인",
+        "공개된 최종 고객 자료와 발행법인 구분",
+        "내부 공급망 변경·장래 매출은 추정하지 않음"
+      ],
+      "officialTableTermsRetrieved": true,
+      "verifiedOfficialTableFields": {
+        "contract_subject": "2027년 북미 데이터센터 전력설비 공급 PJT",
+        "contract_amount": "168,871,711,050",
+        "counterparty": "LS ELECTRIC AMERICA Inc.",
+        "counterparty_relationship": "자회사",
+        "supply_region": "미국",
+        "contract_start": "2026-10-16",
+        "contract_end": "2027-12-31"
+      },
+      "inGroupCounterpartyPerIssuerFiling": true,
+      "externalNewCustomerVerified": false,
+      "actualShipmentsVerified": false,
+      "pressIndexNoHitsIsNotNoCoverage": true,
+      "editorialPriority": "related_party_reference_only"
+    },
+    {
+      "id": "new_official_receipt_review:DART:20261019800111",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "LS",
+      "title": "LS · 2027년 북미 데이터센터 전력설비 공급 PJT (계열사 거래)",
+      "officialDocumentDate": "2026-10-19",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 원문 표 확인: 2027년 북미 데이터센터 전력설비 공급 PJT · 계약금액 168,871,711,050원 · 상대 LS ELECTRIC AMERICA Inc. · 관계 자회사. 실제 외부 신규고객 수주·출하·매출 실현은 미확인.",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261019800111"
       ],
       "pressFulltextReviewed": false,
       "sameAngleCoverageVerified": false,
