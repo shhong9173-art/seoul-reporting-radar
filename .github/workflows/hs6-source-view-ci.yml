@@ -1,0 +1,25 @@
+name: HS6 Source Status View Regression
+on:
+  pull_request:
+    paths:
+      - 'scoop-sources.html'
+      - 'tests/test_scoop_sources_view.cjs'
+      - '.github/workflows/hs6-source-view-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scoop-sources.html'
+      - 'tests/test_scoop_sources_view.cjs'
+      - '.github/workflows/hs6-source-view-ci.yml'
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Verify HS6 freshness and safe DOM handling
+        run: node tests/test_scoop_sources_view.cjs
