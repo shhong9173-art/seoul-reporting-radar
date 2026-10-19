@@ -19,9 +19,12 @@ FEEDS=[
  ('노조·생산','현대차 노조 OR 기아 노조 OR 자동차 파업 OR 자동차 임단협 OR 자동차 생산중단 OR 공장 휴업'),
  ('수주·투자','자동차 수주 OR 배터리 수주 OR 자동차 공급계약 OR 배터리 공급계약 OR 자동차 공장 증설 OR 배터리 공장 투자'),
  ('리콜·안전','자동차 리콜 OR 전기차 화재 OR 자동차 결함 OR 전기차 안전 OR 국토부 리콜'),
- ('단독','단독 자동차 OR 단독 현대차 OR 단독 기아 OR 단독 자동차부품 OR 단독 배터리 OR 단독 전기차'),
+ ('단독','[단독] (현대차 OR 현대자동차 OR 기아 OR 제네시스 OR 한국GM OR KG모빌리티)'),
+ ('단독','[단독] (현대모비스 OR 현대위아 OR HL만도 OR 현대트랜시스 OR 자동차부품)'),
+ ('단독','[단독] (LG에너지솔루션 OR 삼성SDI OR SK온 OR 전기차 OR 배터리)'),
+ ('단독','[단독] (BYD OR 테슬라 OR 르노코리아 OR BMW OR 벤츠)'),
  ('미국·글로벌','미국 자동차 시장 OR 미국 자동차 공장 OR 유럽 자동차 규제 OR 글로벌 자동차 공급망'),
- ('단독','현대차 단독 OR 기아 단독 OR 제네시스 단독 OR 현대모비스 단독 OR 현대위아 단독 OR 현대트랜시스 단독 OR HL만도 단독 OR LG에너지솔루션 단독 OR 삼성SDI 단독 OR SK온 단독 OR BYD 단독 OR 테슬라 단독 OR CATL 단독 OR 자동차 단독')]
+ ('단독','[단독] (현대차 OR 기아 OR 제네시스 OR 현대모비스 OR 배터리 OR 자동차)')]
 GLOBAL_FEEDS=[
  ('Reuters','site:reuters.com (automotive OR car OR EV OR battery OR tariff)'),
  ('Automotive News','site:autonews.com (automotive OR EV OR battery OR supplier)'),
