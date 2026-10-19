@@ -8,21 +8,32 @@ from datetime import datetime, timedelta
 from email.utils import parsedate_to_datetime
 
 
-def verified_rss_date(value, *, now, hours=72):
-    if not isinstance(value,str) or not value.strip():
-        return None
+def inspect_rss_date(value, *, now, hours=72):
+    """Return (usable datetime, reason), not a made-up publication timestamp.
+
+    Old timestamped records are valid observations outside the rolling window.
+    Malformed/missing/naive/future-dated records are source-health anomalies.
+    """
     if now.tzinfo is None or now.utcoffset() is None:
         raise ValueError("collector_time_requires_timezone")
+    if not isinstance(value,str) or not value.strip():
+        return None,"invalid"
     try:
         dt=parsedate_to_datetime(value.strip())
         if dt.tzinfo is None or dt.utcoffset() is None:
-            return None
+            return None,"invalid"
         local=dt.astimezone(now.tzinfo)
-        if now-timedelta(hours=hours) <= local <= now+timedelta(hours=6):
-            return local
-    except (TypeError,ValueError,OverflowError):
-        pass
-    return None
+    except (TypeError,ValueError,OverflowError,IndexError,AttributeError):
+        return None,"invalid"
+    if local>now+timedelta(minutes=5):
+        return None,"future"
+    if local<now-timedelta(hours=hours):
+        return None,"outside_window"
+    return local,"valid"
+
+
+def verified_rss_date(value, *, now, hours=72):
+    return inspect_rss_date(value,now=now,hours=hours)[0]
 
 
 def summarize_queries(checks,expected):
@@ -31,20 +42,39 @@ def summarize_queries(checks,expected):
         raise ValueError("invalid_industry_feed_diagnostics")
     states=[x.get("status") for x in checks if isinstance(x,dict)]
     if len(states)!=expected or any(x not in
-       ("checked_recent_rows","checked_no_relevant_recent","failed") for x in states):
+       ("checked_recent_rows","checked_no_relevant_recent",
+        "checked_partial_dates","failed") for x in states):
         raise ValueError("unverifiable_industry_feed_status")
     errors=sum(x=="failed" for x in states)
+    partial=sum(x=="checked_partial_dates" for x in states)
+    bad=0;future=0
+    for row in checks:
+        invalid=row.get("rejectedUndated",0)
+        later=row.get("rejectedFuture",0)
+        if invalid is None and row.get("status")=="failed":
+            continue
+        if (type(invalid) is not int or type(later) is not int
+            or not 0<=later<=invalid<=1000
+            or row["status"]=="checked_partial_dates" and invalid==0):
+            raise ValueError("invalid_industry_date_health")
+        bad+=invalid
+        future+=later
     return {
         "status":"failed_sources_preserve_previous_dataset" if errors
+                  else "partial_dated_rss_not_complete_coverage" if partial
                   else "all_feed_requests_checked_not_full_news_coverage",
         "feedsExpected":expected,
         "feedsChecked":expected-errors,
         "feedsFailed":errors,
-        "feedsWithRelevantRows":sum(x=="checked_recent_rows" for x in states),
+        "feedsPartiallyDated":partial,
+        "rejectedInvalidDates":bad,
+        "rejectedFutureDates":future,
+        "feedsWithRelevantRows":sum(x in ("checked_recent_rows","checked_partial_dates")
+                                    for x in states),
         "feedsCheckedNoRelevantRows":sum(x=="checked_no_relevant_recent" for x in states),
         "allFeedsHealthy":errors==0,
         "officialBulletinCoverageComplete":False,
         "proofOfNoIndustryNews":False,
         "domesticUnreportedProved":False,
-        "warning":"부분 RSS 검색 결과는 정부·기업 전체 원문 모집단이 아님. 수집 실패는 빈 기사 목록이나 국내 미보도를 입증하지 않음",
+        "warning":"부분 RSS 검색 결과는 정부·기업 전체 원문 모집단이 아님. 날짜 오류로 제외된 항목은 확인 실패이지 0건이 아니며 국내 미보도를 입증하지 않음",
     }

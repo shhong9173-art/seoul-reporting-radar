@@ -4,7 +4,7 @@ from datetime import datetime,timedelta,timezone
 from pathlib import Path
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/"scripts"))
-from industry_news_guard import verified_rss_date,summarize_queries
+from industry_news_guard import verified_rss_date,inspect_rss_date,summarize_queries
 from news_headline_identity import normalize_title
 
 KST=timezone(timedelta(hours=9))
@@ -23,6 +23,29 @@ class IndustrialFeedEvidence(unittest.TestCase):
         self.assertEqual(d.isoformat(),"2026-10-18T20:00:00+09:00")
         self.assertIsNone(verified_rss_date(
             "Mon, 19 Oct 2026 10:00:00 +0900",now=NOW))
+
+    def test_source_date_reason_distinguishes_old_from_invalid_and_future(self):
+        old,old_reason=inspect_rss_date(
+            "Sun, 01 Jan 2012 12:00:00 +0900",now=NOW)
+        bad,bad_reason=inspect_rss_date("wrong date",now=NOW)
+        later,later_reason=inspect_rss_date(
+            "Mon, 19 Oct 2026 05:00:00 +0900",now=NOW)
+        self.assertEqual((old,old_reason),(None,"outside_window"))
+        self.assertEqual((bad,bad_reason),(None,"invalid"))
+        self.assertEqual((later,later_reason),(None,"future"))
+
+    def test_partial_dates_are_not_clean_empty_search(self):
+        result=summarize_queries([
+            {"status":"checked_partial_dates","rejectedUndated":2,
+             "rejectedFuture":1,"recentRows":3},
+            {"status":"checked_no_relevant_recent","rejectedUndated":0,
+             "rejectedFuture":0}],2)
+        self.assertEqual(result["status"],"partial_dated_rss_not_complete_coverage")
+        self.assertEqual(result["feedsPartiallyDated"],1)
+        self.assertEqual(result["rejectedInvalidDates"],2)
+        self.assertEqual(result["rejectedFutureDates"],1)
+        self.assertEqual(result["feedsCheckedNoRelevantRows"],1)
+        self.assertFalse(result["proofOfNoIndustryNews"])
 
     def test_industrial_rss_outage_is_not_empty_source(self):
         result=summarize_queries([

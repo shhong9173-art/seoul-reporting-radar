@@ -64,7 +64,9 @@ jobs:
       - name: Collect domestic auto industry news
         run: python collector.py
       - name: Validate industry RSS date and source-failure gates
-        run: python -m unittest discover -s tests -p 'test_industry_news_guard.py' -v
+        run: |
+          python -m unittest discover -s tests -p 'test_industry_news_guard.py' -v
+          python -m unittest discover -s tests -p 'test_industry_collector_dates.py' -v
       - name: Collect expanded industrial desk radar
         run: python industry_collector.py
       - name: Merge expanded industrial desk radar
