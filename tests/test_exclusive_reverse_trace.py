@@ -30,12 +30,16 @@ def review(item,verdict="Y"):
     form={"articleId":item["id"],"reviewer":"현장 검증기자",
           "reviewedByHuman":True,"articleFulltextReviewed":True,
           "reviewedAt":"2026-10-18T21:30:00+09:00",
+          "publisherOriginalUrl":"https://business.example.com/news/123",
+          "publisherFirstPublishedAt":"2026-10-17T07:00:00+09:00",
+          "publisherPublicationTimeVerifiedByHuman":True,
           "evidenceReason":"공개 원자료의 대상 범위와 숫자를 기사 전문과 직접 대조했다.",
           "verdict":verdict}
     if verdict in ("Y","P"):
         form.update(primarySourceType="vehicle_recall",
                     primarySourceUrl="https://www.nhtsa.gov/recalls",
                     primaryPublishedAt="2026-10-15T08:00:00+09:00",
+                    primaryPublicationTimeVerifiedByHuman=True,
                     primaryTextComparedAgainstArticle=True,
                     publicTraceOverlap="exact" if verdict=="Y" else "partial")
     if verdict=="N":
@@ -156,6 +160,61 @@ class ExclusiveReverseTrace(unittest.TestCase):
         self.assertEqual(result["byType"]["리콜·안전"]["Y"],1)
         self.assertIsNone(result["byType"]["리콜·안전"]["measuredSourceReach"])
         self.assertEqual(result["verifiedPublicSourceCategories"]["vehicle_recall"],2)
+
+
+    def test_google_rss_time_does_not_prove_official_release_before_press(self):
+        # Official source falls before indexed RSS but AFTER the publisher's
+        # verified first release. Historically this could be mislabeled Y.
+        row=article("a","[단독] 현대차 전기차 리콜",
+                    date="2026-10-17T15:00:00+09:00")
+        form=review(row,"Y")
+        form["publisherFirstPublishedAt"]="2026-10-17T06:00:00+09:00"
+        form["primaryPublishedAt"]="2026-10-17T10:00:00+09:00"
+        out=build(index(row),[form],now=NOW)
+        self.assertEqual(out["Y"],0)
+        self.assertEqual(out["unreviewedU"],1)
+        self.assertIsNone(out["items"][0]["primaryEvidence"])
+
+    def test_verified_publisher_clock_is_required_even_for_N(self):
+        row=article("a","[단독] 현대차 차량 결함")
+        for missing in ("publisherFirstPublishedAt",
+                        "publisherOriginalUrl",
+                        "publisherPublicationTimeVerifiedByHuman"):
+            form=review(row,"N")
+            form.pop(missing)
+            out=build(index(row),[form],now=NOW)
+            self.assertEqual(out["N"],0,missing)
+            self.assertEqual(out["unreviewedU"],1,missing)
+
+    def test_google_news_redirect_is_not_publisher_original(self):
+        row=article("a","[단독] 기아 신차 발매",company="기아")
+        form=review(row,"P")
+        form["publisherOriginalUrl"]="https://news.google.com/rss/articles/abc"
+        out=build(index(row),[form],now=NOW)
+        self.assertEqual(out["P"],0)
+
+    def test_unverified_or_late_primary_clock_cannot_create_Y(self):
+        row=article("a","[단독] 현대차 리콜")
+        for key,value in (
+            ("primaryPublicationTimeVerifiedByHuman",False),
+            ("primaryPublishedAt","2026-10-17T07:00:00+09:00"),
+            ("primaryPublishedAt","2026-10-18T22:00:00+09:00"),
+        ):
+            form=review(row,"Y")
+            form[key]=value
+            self.assertEqual(build(index(row),[form],now=NOW)["Y"],0,key)
+
+    def test_verified_chronology_retains_reporter_evidence_not_feed_time(self):
+        row=article("a","[단독] 현대차 리콜",
+                    date="2026-10-17T21:00:00+09:00")
+        form=review(row,"Y")
+        out=build(index(row),[form],now=NOW)
+        proof=out["items"][0]["primaryEvidence"]
+        self.assertEqual(out["Y"],1)
+        self.assertFalse(proof["rssTimestampUsedForChronology"])
+        self.assertEqual(proof["publisherFirstPublishedAt"],
+                         "2026-10-17T07:00:00+09:00")
+        self.assertTrue(proof["publisherPublicationTimeVerifiedByHuman"])
 
     def test_false_claim_exact_must_be_unknown_not_Y(self):
         a=article("a","[단독] 현대차 리콜")
