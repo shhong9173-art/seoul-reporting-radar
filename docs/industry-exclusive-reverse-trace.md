@@ -28,17 +28,21 @@
   "reviewer": "검토 기자 식별명",
   "reviewedAt": "2026-10-18T22:00:00+09:00",
   "articleFulltextReviewed": true,
+  "publisherOriginalUrl": "https://business.example.com/news/123",
+  "publisherFirstPublishedAt": "2026-10-17T07:00:00+09:00",
+  "publisherPublicationTimeVerifiedByHuman": true,
   "verdict": "P",
   "evidenceReason": "해당 기사 문장/원문 쪽수 및 날짜를 교차 대조한 구체적 메모 (12자 이상)",
   "primarySourceType": "vehicle_recall",
   "primarySourceUrl": "https://www.nhtsa.gov/recalls",
   "primaryPublishedAt": "2026-10-15T08:00:00+09:00",
+  "primaryPublicationTimeVerifiedByHuman": true,
   "primaryTextComparedAgainstArticle": true,
   "publicTraceOverlap": "partial"
 }
 ```
 
-위 예시는 **형식 설명용 가상 입력**이며 실제 Y/P/N 판정 사례가 아닙니다. Y는 `publicTraceOverlap: exact`, P는 `partial`이 필요합니다. N에는 공개 원자료 URL 대신 `multiplePublicSourcesChecked:true`, `reporterEvidenceReviewed:true`, `publicTraceOverlap:"none"`을 쓰고 조사 메모를 남깁니다.
+위 예시는 **형식 설명용 가상 입력**이며 실제 Y/P/N 판정 사례가 아닙니다. 기사 최초 발행시각은 해당 언론사의 **원본 기사와 수정 이력**에서 사람에 의해 확인된 값만 입력합니다. **구글뉴스 RSS 게시시각 또는 검색 노출시각은 원본 기사 최초 발행시각의 대용으로 사용할 수 없습니다.** 원자료 최초 공개시각도 실제 확인된 경우에만 `primaryPublicationTimeVerifiedByHuman:true`로 입력합니다. 시각 중 하나라도 확인하지 못했거나, 원자료가 실제 기사 최초 발행보다 늦었다면 U로 둡니다. Y/P/N 모두 `publisherOriginalUrl`, `publisherFirstPublishedAt`, `publisherPublicationTimeVerifiedByHuman:true`가 필요합니다. Y는 `publicTraceOverlap: exact`, P는 `partial`이 필요합니다. N에는 공개 원자료 URL 대신 `multiplePublicSourcesChecked:true`, `reporterEvidenceReviewed:true`, `publicTraceOverlap:"none"`을 쓰고 조사 메모를 남깁니다.
 
 유효하지 않은 검토 행은 역추적 결과에서 U로 유지됩니다. 같은 기사에 여러 라벨이 입력되면 파이프라인은 오류로 중단합니다. 라벨 입력자는 실제 자료를 판독해야 하며 공개 URL이 있다고 해서 자동으로 그 내용의 사실성을 보증하지 않습니다.
 
