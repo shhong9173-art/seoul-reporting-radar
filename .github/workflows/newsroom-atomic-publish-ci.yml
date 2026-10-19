@@ -39,6 +39,11 @@ jobs:
           # an older seed artifact. Production always builds both together.
           python scripts/exclusive_reverse_trace.py
           python scripts/reverse_trace_dart_followups.py
+          # The new cross-index audit belongs to the current news snapshot.
+          # Synthesize it from the REAL checked-in news/historical RSS inputs
+          # before invoking the publisher; do not use an empty placeholder.
+          python -m unittest discover -s tests -p 'test_recent_exclusive_recall_audit.py' -v
+          python -m scripts.recent_exclusive_recall_audit
           python - <<'PY'
           from pathlib import Path
           from scripts.publish_newsroom_outputs import output_size_limit, selected

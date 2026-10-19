@@ -24,6 +24,9 @@ select{padding:9px;border:1px solid #cbd5e1;border-radius:7px}
 <h2>최근 72시간 관측된 경쟁지 [단독] 제목</h2>
 <div id="recent-exclusive-status" class="notice">최근 단독기사 수집 상태를 확인하고 있습니다.</div>
 <div id="recent-exclusives"></div>
+<h2>최근 단독기사 수집 경로 교차검사</h2>
+<div id="recent-index-audit" class="notice">메인 뉴스와 역추적 검색의 일치 여부를 확인하고 있습니다.</div>
+<div id="recent-index-gaps"></div>
 <h2>보도 이전 공개 여부 검증이 필요한 DART 공시 후보</h2><div id="dart-receipt-research" class="notice">DART 공시와 기존 단독기사의 직접 비교 대기열을 확인하는 중입니다.</div>
 <h2>원문 조사 체크리스트</h2><div id="original-review-checklist" class="notice"></div>
 <h2>기사 유형별 검증 현황</h2><div id="by-kind" class="grid"></div>
@@ -129,6 +132,47 @@ try{
      }
      recentHost.append(card);
    }
+ }
+ const gapNotice=$("#recent-index-audit");
+ const gapDetails=$("#recent-index-gaps");
+ try{
+   const gapResponse=await fetch("digests/recent_exclusive_recall_audit_latest.json",
+                                 {cache:"no-store"});
+   if(!gapResponse.ok)throw Error("missing recent cross-index audit");
+   const gap=await gapResponse.json();
+   if(gap.status!=="recent_exclusive_rss_cross_index_gap_not_exhaustive"||
+      gap.historySourceAt!==historical.generatedAt||
+      gap.domesticUnreportedProved!==false||
+      gap.rssCoverageExhaustive!==false||
+      gap.fullArticleTextsReviewed!==false||
+      gap.confirmedScoops!==0||
+      !Array.isArray(gap.newsOnlyExamples)||
+      !Array.isArray(gap.historyOnlyExamples)||
+      gap.newsIndexObservedExclusive!==gap.observedInBoth+gap.newsOnlyObserved||
+      gap.historyIndexObservedExclusive!==gap.observedInBoth+gap.historyOnlyObserved)
+     throw Error("stale or unsafe gap counts");
+   gapNotice.textContent="최근 72시간 RSS 제목 교차 관측: 양쪽 모두 "+
+     gap.observedInBoth+"건 / 메인 뉴스에만 "+gap.newsOnlyObserved+
+     "건 / 역추적 검색에만 "+gap.historyOnlyObserved+
+     "건. 한쪽에서 미관측된 기사는 실제 미보도 또는 새로운 단독이라는 뜻이 아닙니다.";
+   for(const [label,rows] of [
+     ["메인 뉴스에만 관측",gap.newsOnlyExamples],
+     ["역추적 검색에만 관측",gap.historyOnlyExamples]]){
+     for(const row of rows.slice(0,8)){
+       const item=el("article");
+       item.append(el("div",label+" · "+row.sourceName+" · "+row.published,"meta"),
+                   el("div",row.title,"headline"));
+       if(typeof row.url==="string"&&
+          /^https:\/\/news\.google\.com\/rss\/articles\//.test(row.url)){
+         const link=el("a","기존 보도 색인 링크 열기 ↗");
+         link.href=row.url;link.target="_blank";link.rel="noopener noreferrer";
+         item.append(link);
+       }
+       gapDetails.append(item);
+     }
+   }
+ }catch(gapError){
+   gapNotice.textContent="단독기사 수집 경로별 교차검사 자료가 없거나 시각이 일치하지 않습니다. 미관측을 0건으로 해석하지 마세요.";
  }
  $("#notice").textContent=data.pressIndexSeedOnly?
    "현재는 비어 있는 최초 수집 기준선입니다. 기사 0건은 미보도 0건을 뜻하지 않습니다.":

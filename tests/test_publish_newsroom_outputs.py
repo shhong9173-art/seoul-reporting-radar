@@ -66,6 +66,22 @@ def write_news(root,label):
             json.dumps(historical),encoding="utf-8")
         (root/"digests/reverse_trace_latest.json").write_text(
             json.dumps(reverse),encoding="utf-8")
+        (root/"digests/recent_exclusive_recall_audit_latest.json").write_text(
+            json.dumps({
+                "status":"recent_exclusive_rss_cross_index_gap_not_exhaustive",
+                "generatedAt":"2026-10-18T10:02:00+09:00",
+                "historySourceAt":historical["generatedAt"],
+                "lookbackHours":72,
+                "newsIndexObservedExclusive":0,
+                "historyIndexObservedExclusive":0,
+                "observedInBoth":0,"newsOnlyObserved":0,
+                "historyOnlyObserved":0,
+                "newsOnlyExamples":[],"historyOnlyExamples":[],
+                "fullArticleTextsReviewed":False,
+                "rssCoverageExhaustive":False,
+                "domesticUnreportedProved":False,
+                "confirmedScoops":0}),
+            encoding="utf-8")
         source_at="2026-10-18T10:03:00+09:00"
         official_at="2026-10-18T10:03:30+09:00"
         (root/"digests/dart_beat_monitor_latest.json").write_text(
