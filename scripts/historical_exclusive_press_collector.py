@@ -31,7 +31,7 @@ MAX_ENTRIES=8_000
 MAX_QUERY_ROWS=100
 BEATS={
     "auto":"현대차 OR 기아 OR 제네시스 OR KG모빌리티 OR 한국GM",
-    "parts_battery":"현대모비스 OR HL만도 OR LG에너지솔루션 OR 삼성SDI OR SK온",
+    "parts_battery":"현대모비스 OR HL만도 OR LG에너지솔루션 OR 삼성SDI OR SK온 OR 천보",
     "steel_nonferrous":"포스코 OR 현대제철 OR KG스틸 OR 세아제강 OR 고려아연",
     "power_equipment":"HD현대일렉트릭 OR LS일렉트릭 OR 대한전선 OR LS전선 OR 두산에너빌리티",
     "energy_chemicals":"OCI홀딩스 OR 한화솔루션 OR 씨에스윈드 OR 롯데케미칼 OR GS칼텍스",

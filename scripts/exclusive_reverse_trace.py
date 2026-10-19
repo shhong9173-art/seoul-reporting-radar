@@ -26,7 +26,7 @@ INDUSTRY_COMPANIES={
     "포스코홀딩스","포스코","현대제철","KG스틸","세아제강","고려아연","영풍",
     "HD현대일렉트릭","LS일렉트릭","엘에스일렉트릭","LS전선","대한전선",
     "효성중공업","일진전기","두산에너빌리티","한화솔루션","OCI","OCI홀딩스",
-    "SK이노베이션","LG에너지솔루션","삼성SDI","SK온","씨에스윈드",
+    "SK이노베이션","LG에너지솔루션","삼성SDI","SK온","천보","씨에스윈드",
 }
 KINDS=(
     # SUBJECT categories detected from article HEADLINES only. They do not
