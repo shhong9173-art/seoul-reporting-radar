@@ -1,0 +1,36 @@
+name: News RSS Publication Date and Publisher Identity
+on:
+  pull_request:
+    paths:
+      - 'collector.py'
+      - 'scripts/auto_news_feed_health.py'
+      - 'scripts/news_headline_identity.py'
+      - 'tests/test_collector_publication_dates.py'
+      - 'tests/test_auto_news_feed_health.py'
+      - '.github/workflows/news-publication-health-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'collector.py'
+      - 'scripts/auto_news_feed_health.py'
+      - 'tests/test_collector_publication_dates.py'
+      - '.github/workflows/news-publication-health-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verified-news-ingestion:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compile and verify production RSS logic
+        run: |
+          python -m compileall -q collector.py scripts/auto_news_feed_health.py
+          python -m unittest discover -s tests -p 'test_collector_publication_dates.py' -v
+          python -m unittest discover -s tests -p 'test_auto_news_feed_health.py' -v
+          python -m unittest discover -s tests -p 'test_news_headline_identity.py' -v
+          python -m unittest discover -s tests -p 'test_rss_concurrent.py' -v
