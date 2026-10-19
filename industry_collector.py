@@ -73,6 +73,7 @@ def classify(title,desc):
 
 def parse_feed(category,query):
     u='https://news.google.com/rss/search?q='+urllib.parse.quote(query)+'&hl=ko&gl=KR&ceid=KR:ko'
+    dedicated_exclusive=query.startswith("[단독]")
     try:
         root=ET.fromstring(get(u))
         if root.tag!="rss" or root.find("channel") is None:
@@ -80,7 +81,8 @@ def parse_feed(category,query):
     except Exception as exc:
         FEED_CHECKS.append({"category":category,"status":"failed",
                             "errorType":type(exc).__name__,
-                            "recentRows":None,"rejectedUndated":None})
+                            "recentRows":None,"rejectedUndated":None,
+                            "dedicatedExclusiveQuery":dedicated_exclusive})
         return []
     now=datetime.now(KST);out=[];rejected_undated=0;rejected_future=0;dated_older=0
     dated_valid=0
@@ -119,7 +121,8 @@ def parse_feed(category,query):
         "recentRows":len(out) if date_status!="failed" else None,
         "rejectedUndated":rejected_undated,
         "rejectedFuture":rejected_future,
-        "outsideWindowDatedRows":dated_older})
+        "outsideWindowDatedRows":dated_older,
+        "dedicatedExclusiveQuery":dedicated_exclusive})
     return out
 
 all_items=[]
