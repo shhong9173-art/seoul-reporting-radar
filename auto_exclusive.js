@@ -15,7 +15,18 @@
     if(!x.industrySource) return AUTO_CATS.has(x.category)&&AUTO_RE.test(t);
     return INDUSTRY_CATS.has(x.category);
   }
-  function uniquePush(arr,x){if(!arr.some(v=>v.id===x.id))arr.push(x)}
+  function uniquePush(arr,x){
+    // The industrial merger does not supply stable article IDs. Comparing
+    // undefined === undefined silently collapsed ALL industrial headlines to
+    // one displayed [단독] item, even when they came from different outlets.
+    const same=(a,b)=>{
+      if(a.id && b.id) return a.id===b.id;
+      if(a.url && b.url) return a.url===b.url;
+      return a.sourceName===b.sourceName&&a.title===b.title&&
+             a.published===b.published;
+    };
+    if(!arr.some(v=>same(v,x)))arr.push(x);
+  }
   function apply(){
     const items=Array.isArray(window.ITEMS)?window.ITEMS:[];
     const autoEx=[], industryEx=[];
