@@ -123,14 +123,29 @@ def validate_review(row,original):
         or not isinstance(notes,str) or not 12<=len(notes)<=1500
         or reviewed_at is None):
         return None
+    # Google News RSS dates are observation/index timestamps. They cannot
+    # establish when a publisher first released the article. A human must
+    # inspect the publisher's original and verify its initial publication time
+    # before ANY Y/P/N claim enters the measured denominator.
+    publisher_url=row.get("publisherOriginalUrl")
+    publisher_first=aware(row.get("publisherFirstPublishedAt"))
+    publisher_host=(urlsplit(publisher_url).hostname or "").lower() if safe_public_url(publisher_url) else ""
+    if (not publisher_first or not publisher_host
+        or publisher_host=="news.google.com"
+        or publisher_host.endswith(".google.com")
+        or row.get("publisherPublicationTimeVerifiedByHuman") is not True
+        or publisher_first>reviewed_at):
+        return None
     if verdict in ("Y","P"):
         source_dt=aware(row.get("primaryPublishedAt"))
-        story_dt=aware(original.get("published"))
+        story_dt=publisher_first
         source=row.get("primarySourceUrl")
         category=row.get("primarySourceType")
         trace=row.get("publicTraceOverlap")
         if (not safe_public_url(source) or source_dt is None or story_dt is None
             or source_dt >= story_dt
+            or row.get("primaryPublicationTimeVerifiedByHuman") is not True
+            or source_dt > reviewed_at
             or category not in SOURCE_CLASSES
             or trace!=("exact" if verdict=="Y" else "partial")
             or row.get("primaryTextComparedAgainstArticle") is not True):
@@ -146,6 +161,10 @@ def validate_review(row,original):
     return {
         "verdict":verdict, "reviewedBy":reviewer[:80],
         "reviewedAt":reviewed_at.isoformat(),
+        "publisherOriginalUrl":publisher_url,
+        "publisherFirstPublishedAt":publisher_first.isoformat(),
+        "publisherPublicationTimeVerifiedByHuman":True,
+        "rssTimestampUsedForChronology":False,
         "evidenceReason":notes[:1500],
         "primarySourceType":row.get("primarySourceType") if verdict!="N" else None,
         "primarySourceUrl":row.get("primarySourceUrl") if verdict!="N" else None,
