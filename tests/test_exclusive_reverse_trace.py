@@ -239,20 +239,23 @@ class ExclusiveReverseTrace(unittest.TestCase):
         self.assertEqual(found["confirmedScoops"],0)
         self.assertEqual(found["items"][0]["publicTraceClass"],"U")
 
-    def test_actual_operating_corpus_unknown_subject_share_reduced_without_YPN(self):
+    def test_actual_operating_corpus_subject_coverage_without_YPN(self):
         import json
         root=Path(__file__).resolve().parents[1]
         snap=json.loads((root/"digests/reverse_trace_latest.json")
                         .read_text(encoding="utf-8"))
-        observed=[x["title"] for x in snap["items"]
-                  if x.get("kind")=="기타·원문 분류 필요"]
-        if len(observed)<50:
+        rows=snap["items"]
+        if len(rows)<50:
             self.skipTest("operating corpus not sufficiently populated")
-        improved=sum(kind_for(title)!="기타·원문 분류 필요"
-                     for title in observed)
-        # This is a measurable SUBJECT-tag improvement, NOT public-source
-        # trace recovery; the former U verdicts remain U.
-        self.assertGreaterEqual(improved,40)
+        # Before PR #215, many observed stories had unknown subject kinds;
+        # after the production digest was rebuilt, those rows are no longer
+        # in the unknown subset. Do not assert 40 ALREADY-classified articles
+        # must suddenly be reclassified each time CI is run.
+        classified=sum(kind_for(x["title"])!="기타·원문 분류 필요"
+                       for x in rows)
+        self.assertGreaterEqual(classified,40)
+        # A classified SUBJECT remains independent of evidentiary Y/P/N.
+        self.assertEqual(snap["humanReviewedYPN"],snap["Y"]+snap["P"]+snap["N"])
         self.assertEqual(snap["confirmedScoops"],0)
 
     def test_false_claim_exact_must_be_unknown_not_Y(self):

@@ -9,7 +9,7 @@ from xml.sax.saxutils import escape
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from scripts.historical_exclusive_press_collector import (
     STATUS, BEATS, MONTHS, planned_searches, parse_observed_headlines,
-    merge_history, month_bounds, tracked_industry_companies
+    merge_history, month_bounds, tracked_industry_companies, recent_searches
 )
 
 KST=timezone(timedelta(hours=9))
@@ -43,6 +43,67 @@ def check(status="checked",matched=1):
 
 
 class HistoricalExclusiveIndexTests(unittest.TestCase):
+
+    def test_recent_five_beat_windows_always_run_independent_of_old_rotation(self):
+        recent=recent_searches(NOW)
+        self.assertEqual(len(recent),len(BEATS))
+        self.assertEqual({r["windowId"] for r in recent},
+                         {"recent:"+beat for beat in BEATS})
+        self.assertEqual({r["start"] for r in recent},{"2026-10-15"})
+        self.assertEqual({r["endExclusive"] for r in recent},{"2026-10-19"})
+        self.assertTrue(all("after%3A" in r["url"]
+                            and "before%3A" in r["url"] for r in recent))
+        old=merge_history(None,[],[check(matched=0)],now=NOW)
+        self.assertEqual({r["windowId"] for r in recent_searches(NOW)},
+                         {r["windowId"] for r in recent_searches(
+                             NOW+timedelta(minutes=15))})
+        self.assertIn("2026-10-15",recent_searches(NOW)[0]["start"])
+        self.assertEqual(old["recentBeatQueriesAttempted"],0)
+        self.assertFalse(old["recentBeatQueriesAllChecked"])
+
+    def test_recent_observed_corpus_and_partial_health_never_imply_zero_news(self):
+        recent=recent_searches(NOW)
+        headline=article(
+            "[단독] 현대차 오늘 전력기기 계약 검토",
+            pub="Sun, 18 Oct 2026 13:15:00 +0900",
+            link="https://news.google.com/rss/articles/recent-2026")
+        data,meta=parse_observed_headlines(rss(headline),recent[0],now=NOW)
+        self.assertEqual(len(data),1)
+        self.assertEqual(data[0]["historicalBackfillWindow"],"recent:auto")
+        checks=[{"windowId":recent[0]["windowId"],"status":"checked",**meta}]
+        checks.extend({"windowId":w["windowId"],"status":"failed",
+                       "errorType":"TimeoutError"} for w in recent[1:])
+        snapshot=merge_history(None,data,[check(matched=0)],now=NOW,
+                               recent_checks=checks)
+        self.assertEqual(snapshot["recentBeatQueriesAttempted"],5)
+        self.assertEqual(snapshot["recentBeatQueriesSucceeded"],1)
+        self.assertEqual(snapshot["recentBeatQueriesFailed"],4)
+        self.assertFalse(snapshot["recentBeatQueriesAllChecked"])
+        self.assertEqual(snapshot["recentObservedHeadlinesRetained"],1)
+        self.assertFalse(snapshot["recentSearchCoverageExhaustive"])
+        self.assertEqual(snapshot["confirmedScoops"],0)
+        self.assertEqual(snapshot["humanReviewedYPN"],0)
+        outage=merge_history(snapshot,[],[check(matched=0)],
+                             now=NOW+timedelta(minutes=15),
+                             recent_checks=[
+                                 {"windowId":w["windowId"],"status":"failed",
+                                  "errorType":"TimeoutError"} for w in recent])
+        self.assertEqual(outage["itemCount"],1)
+        self.assertEqual(outage["recentBeatQueriesFailed"],5)
+        self.assertEqual(outage["recentObservedHeadlinesRetained"],1)
+        self.assertEqual(outage["recentLastSuccessfulAt"],
+                         snapshot["recentLastSuccessfulAt"])
+
+    def test_recent_bad_inputs_do_not_modify_historical_search_health(self):
+        for broken in [
+            [{"windowId":"recent:auto","status":"checked"}]*2,
+            [{"windowId":"recent:unknown","status":"checked"}],
+            [{"windowId":"recent:auto","status":"empty"}],
+        ]:
+            with self.assertRaises(ValueError):
+                merge_history(None,[],[check(matched=0)],now=NOW,
+                              recent_checks=broken)
+
     def test_unchecked_windows_are_first_even_after_clock_jump(self):
         first=planned_searches(NOW,previous=None)
         self.assertEqual(len(first),5)

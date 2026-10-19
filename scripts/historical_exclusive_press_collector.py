@@ -39,6 +39,7 @@ BEATS={
 RSS_URL="https://news.google.com/rss/search?q={q}&hl=ko&gl=KR&ceid=KR:ko"
 MONTHS=13
 QUERIES_PER_RUN=5
+RECENT_WINDOW_DAYS=4
 INDUSTRY_TERMS=re.compile(
     r"철강|제철|후판|냉연|열연|배터리|리튬|수소|전기차|"
     r"양극재|음극재|니켈|제련|제철소|HVDC|변압기|광산",re.I)
@@ -118,6 +119,27 @@ def _all_month_beat_windows(now):
                 "url":RSS_URL.format(q=urllib.parse.quote(expression)),
             })
     return output
+
+
+def recent_searches(now):
+    """Run ALL five short-window beat queries on each normal newsroom run.
+
+    This deliberately does not participate in the 65-slot historical rotation.
+    Search results are observed headlines, not an exhaustive list of reporting.
+    """
+    if now.tzinfo is None or now.utcoffset() is None:
+        raise ValueError("timezone_required")
+    begin=(now-timedelta(days=RECENT_WINDOW_DAYS-1)).date().isoformat()
+    end=(now.date()+timedelta(days=1)).isoformat()
+    rows=[]
+    for beat,companies in BEATS.items():
+        q="[단독] ("+companies+") after:"+begin+" before:"+end
+        rows.append({
+            "windowId":"recent:"+beat,"beat":beat,
+            "start":begin,"endExclusive":end,"query":q,
+            "url":RSS_URL.format(q=urllib.parse.quote(q))
+        })
+    return rows
 
 
 def planned_searches(now,*,batch=None,limit=QUERIES_PER_RUN,previous=None):
@@ -269,7 +291,7 @@ def _previous_valid(prior):
             raise ValueError("unsafe_history_row")
 
 
-def merge_history(prior,observed,checks,*,now):
+def merge_history(prior,observed,checks,*,now,recent_checks=None):
     _previous_valid(prior)
     if now.tzinfo is None or now.utcoffset() is None:
         raise ValueError("timezone_required")
@@ -277,6 +299,14 @@ def merge_history(prior,observed,checks,*,now):
         raise ValueError("too_many_observed_rows")
     if not isinstance(checks,list) or len(checks)>10 or not checks:
         raise ValueError("missing_query_health")
+    recent_checks=[] if recent_checks is None else recent_checks
+    if (not isinstance(recent_checks,list) or len(recent_checks)>len(BEATS)
+        or any(not isinstance(c,dict)
+               or c.get("windowId") not in {"recent:"+b for b in BEATS}
+               or c.get("status") not in ("checked","failed")
+               for c in recent_checks)
+        or len({c["windowId"] for c in recent_checks})!=len(recent_checks)):
+        raise ValueError("invalid_recent_query_health")
     cutoff=now-timedelta(days=HORIZON_DAYS)
     seen={}
     discarded_legacy_offbeat=0
@@ -336,6 +366,15 @@ def merge_history(prior,observed,checks,*,now):
     errors=[{"windowId":r["windowId"],"errorType":r.get("errorType","unknown")}
             for r in checks if r["status"]=="failed"]
     count_ok=len(checks)-len(errors)
+    recent_ok=[r for r in recent_checks if r["status"]=="checked"]
+    recent_failed=[r for r in recent_checks if r["status"]=="failed"]
+    recent_new=[r for r in observed
+                if isinstance(r,dict)
+                and str(r.get("historicalBackfillWindow","")).startswith("recent:")]
+    recent_window_start=(now-timedelta(days=RECENT_WINDOW_DAYS-1)).date()
+    recent_observed=[r for r in items
+                     if _aware(r["published"]) and
+                     _aware(r["published"]).astimezone(KST).date()>=recent_window_start]
     return {
         "status":STATUS,
         "generatedAt":now.astimezone(KST).isoformat(timespec="seconds"),
@@ -347,6 +386,22 @@ def merge_history(prior,observed,checks,*,now):
         "newObservedHeadlineCount":max(0,len(seen)-before),
         "discardedLegacyOffBeatHeadlinesThisRun":discarded_legacy_offbeat,
         "searchedWindowCountThisRun":len(checks),
+        "recentBeatQueriesExpected":len(BEATS),
+        "recentBeatQueriesAttempted":len(recent_checks),
+        "recentBeatQueriesSucceeded":len(recent_ok),
+        "recentBeatQueriesFailed":len(recent_failed),
+        "recentBeatQueriesAllChecked":len(recent_ok)==len(BEATS),
+        "recentWindowDays":RECENT_WINDOW_DAYS,
+        "recentCandidateRowsFromThisRun":len(recent_new),
+        "recentObservedHeadlinesRetained":len(recent_observed),
+        "recentLatestPublishedAt":max(
+            (r["published"] for r in recent_observed),default=None),
+        "recentLastSuccessfulAt":(now.isoformat(timespec="seconds") if recent_ok
+                                  else (prior or {}).get("recentLastSuccessfulAt")),
+        "recentSearchErrors":[{"windowId":r["windowId"],
+                              "errorType":r.get("errorType","unknown")}
+                              for r in recent_failed],
+        "recentSearchCoverageExhaustive":False,
         "successfulWindowsThisRun":count_ok,
         "failedWindowsThisRun":len(errors),
         "checkedNoCandidatesThisRun":sum(r["status"]=="checked"
@@ -380,18 +435,27 @@ def main():
     previous=json.loads(path.read_text(encoding="utf-8")) if path.exists() else None
     _previous_valid(previous)
     checks=[]
+    recent_checks=[]
     observed=[]
-    for window in planned_searches(now,batch=args.batch,limit=args.max_queries,
-                                   previous=previous):
+    # A diagnostic historical --batch does not claim current-window freshness.
+    # Normal production searches every beat's current headlines BEFORE
+    # resuming the long historical rotation.
+    windows=(recent_searches(now) if args.batch is None else [])
+    windows+=planned_searches(now,batch=args.batch,limit=args.max_queries,
+                              previous=previous)
+    for window in windows:
         try:
             result,stats=parse_observed_headlines(fetch_rss(window["url"]),window,now=now)
             observed.extend(result)
-            checks.append({"windowId":window["windowId"],
+            target=recent_checks if window["windowId"].startswith("recent:") else checks
+            target.append({"windowId":window["windowId"],
                            "status":"checked",**stats})
         except (OSError,ValueError,ET.ParseError,TimeoutError) as exc:
-            checks.append({"windowId":window["windowId"],"status":"failed",
+            target=recent_checks if window["windowId"].startswith("recent:") else checks
+            target.append({"windowId":window["windowId"],"status":"failed",
                            "matched":None,"errorType":type(exc).__name__})
-    result=merge_history(previous,observed,checks,now=now)
+    result=merge_history(previous,observed,checks,now=now,
+                         recent_checks=recent_checks)
     path.parent.mkdir(parents=True,exist_ok=True)
     tmp=path.with_suffix(path.suffix+".tmp")
     tmp.write_text(json.dumps(result,ensure_ascii=False,separators=(",",":"))
@@ -401,6 +465,8 @@ def main():
           "observed; newly indexed",result["newObservedHeadlineCount"],
           "checked",result["successfulWindowsThisRun"],
           "failed",result["failedWindowsThisRun"],
+          "recent",result["recentBeatQueriesSucceeded"],"/",result["recentBeatQueriesExpected"],
+          "recent observed",result["recentObservedHeadlinesRetained"],
           "(no Y/P/N, no exclusivity claims)")
 
 
