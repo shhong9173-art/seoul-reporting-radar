@@ -128,12 +128,13 @@ def parse_feed(category,query):
 all_items=[]
 for category,query in FEEDS:all_items.extend(parse_feed(category,query))
 health=summarize_queries(FEED_CHECKS,len(FEEDS))
-if not health["allFeedsHealthy"]:
-    # Do NOT overwrite yesterday's valid industry.json with an incomplete
-    # RSS sample. Publishing zero rows would look like zero news.
-    raise SystemExit("Industrial RSS source failed; previously published industry data preserved. "+
+if not health["allCoreFeedsHealthy"]:
+    # General industry RSS failure remains blocking. Dedicated recent scoop
+    # searches are additive; their isolated failure must not stale every
+    # healthy general news category. Preserve scoop gap diagnostics.
+    raise SystemExit("Core industrial RSS source failed; previously published industry data preserved. "+
                      "Failed categories: "+", ".join(c["category"] for c in FEED_CHECKS
-                                                        if c["status"]=="failed"))
+                           if c["status"]=="failed" and not c.get("dedicatedExclusiveQuery")))
 
 
 seen=set();items=[]
