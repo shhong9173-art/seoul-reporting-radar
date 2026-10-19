@@ -191,6 +191,17 @@ class HistoricalExclusiveIndexTests(unittest.TestCase):
         self.assertTrue(all("after%3A" in u["url"]
                             and "before%3A" in u["url"] for u in urls))
 
+    def test_latest_battery_materials_company_can_be_observed_as_press_not_scoop(self):
+        title="[단독] 천보 미중 차세대 배터리 전해액 수출"
+        self.assertEqual(tracked_industry_companies(title),["천보"])
+        recent=__import__(
+            "scripts.historical_exclusive_press_collector",fromlist=["recent_searches"]
+        ).recent_searches(NOW)
+        battery=next(x for x in recent if x["beat"]=="parts_battery")
+        self.assertIn("천보",battery["query"])
+        self.assertEqual(len(recent),len(BEATS))
+        self.assertEqual(len(recent),5)
+
     def test_actual_2025_homonyms_are_not_auto_steel_exclusives(self):
         misleading=[
             "[단독]친부모 정보 없는 ‘기아호적’ 공식 확인된 것만 3만8000여건",
