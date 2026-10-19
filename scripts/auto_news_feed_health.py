@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 VALID={"checked_recent_rows","checked_no_recent_rows",
-       "transport_or_xml_error","malformed_rss"}
+       "checked_partial_dates","transport_or_xml_error","malformed_rss"}
 
 def build(checks,*,expected,news_items,now,threshold=10):
     if now.tzinfo is None:raise ValueError("aware_timestamp_required")
@@ -26,14 +26,23 @@ def build(checks,*,expected,news_items,now,threshold=10):
             (not isinstance(row["errorType"],str) or
              not row["errorType"].isidentifier() or len(row["errorType"])>50)):
             raise ValueError("invalid_row")
+        bad_dates=row.get("invalidPubDateRows",0)
+        future_dates=row.get("futurePubDateRows",0)
+        if (type(bad_dates) is not int or type(future_dates) is not int
+            or not 0<=future_dates<=bad_dates<=1000
+            or row["status"]=="checked_partial_dates" and bad_dates==0):
+            raise ValueError("invalid_published_date_diagnostics")
         duration=row.get("durationMs")
         if duration is not None and (type(duration) is not int or not 0<=duration<=600000):
             raise ValueError("invalid_latency")
         slim={k:row.get(k) for k in
                 ("category","globalFeed","status","recentRows","errorType")}
         if duration is not None:slim["durationMs"]=duration
+        if "invalidPubDateRows" in row:slim["invalidPubDateRows"]=bad_dates
+        if "futurePubDateRows" in row:slim["futurePubDateRows"]=future_dates
         safe.append(slim)
-    failures=sum(x["status"] in ("transport_or_xml_error","malformed_rss") for x in safe)
+    failures=sum(x["status"] in ("transport_or_xml_error","malformed_rss",
+                                 "checked_partial_dates") for x in safe)
     zero=sum(x["status"]=="checked_no_recent_rows" for x in safe)
     complete=len(safe)==expected
     status=("incomplete_queries_or_provider_errors" if failures or not complete else
@@ -43,6 +52,9 @@ def build(checks,*,expected,news_items,now,threshold=10):
       "generatedAt":now.isoformat(timespec="seconds"),
       "status":status,"expectedQueries":expected,"attemptedQueries":len(safe),
       "errorQueries":failures,"validEmptyQueries":zero,
+      "invalidPublishedDatesSkipped":sum(x.get("invalidPubDateRows",0) for x in safe),
+      "futurePublishedDatesSkipped":sum(x.get("futurePubDateRows",0) for x in safe),
+      "dateIncompleteQueries":sum(x["status"]=="checked_partial_dates" for x in safe),
       "slowestQueries":[{"category":x["category"],"globalFeed":x["globalFeed"],
                          "status":x["status"],"durationMs":x["durationMs"]}
                         for x in sorted((s for s in safe if "durationMs" in s),
