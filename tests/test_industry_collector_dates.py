@@ -19,12 +19,14 @@ assert len(PARSER)==1
 KST=ZoneInfo("Asia/Seoul")
 SCOPE={
     "datetime":datetime,"timedelta":timedelta,"KST":KST,
-    "ET":ET,"urllib":urllib,"FEED_CHECKS":[],
+    "ET":ET,"urllib":urllib,"re":re,"FEED_CHECKS":[],
+    "EXCLUSIVE_PATTERNS":(r"^\s*\[[^\]]*단독[^\]]*\]",),
     "inspect_rss_date":inspect_rss_date,
     "tracked_industry_companies":tracked_industry_companies,
     "KEY":("철강","변압기","공장","계약","수주"),
     "company_list":lambda text:["포스코"] if "포스코" in text else [],
-    "classify":lambda title,desc:(False,False,1,1,False,45),
+    "classify":lambda title,desc:(title.startswith("[단독]"),False,1,1,False,
+                                  60 if title.startswith("[단독]") else 45),
     "clean":lambda text:re.sub(r"<[^>]+>"," ",html.unescape(text or "")),
 }
 exec(compile(ast.Module(body=PARSER,type_ignores=[]),
