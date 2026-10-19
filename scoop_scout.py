@@ -332,7 +332,9 @@ def domain_for(url):
         if host==domain or host.endswith("."+domain):return label,True
     return "",False
 
-RSS_QUERY_DIAGNOSTICS={"ok":0,"empty":0,"failed":0,"primaryFailed":0,"coverageFailed":0}
+RSS_QUERY_DIAGNOSTICS={"ok":0,"empty":0,"failed":0,"primaryFailed":0,"coverageFailed":0,
+                       "invalidDateRows":0,"futureDateRows":0,
+                       "dateRejectedQueries":0}
 
 def google_rss(category,query,max_items=8,lookback_days=PRIMARY_LOOKBACK_DAYS):
     now=datetime.now(KST)
@@ -353,6 +355,9 @@ def google_rss(category,query,max_items=8,lookback_days=PRIMARY_LOOKBACK_DAYS):
             RSS_QUERY_DIAGNOSTICS["primaryFailed"]+=1
         return []
     cutoff=now-timedelta(days=lookback_days);out=[]
+    timestamp_valid_rows=0
+    malformed_date_rows=0
+    future_date_rows=0
     site_match=re.search(r"site:([A-Za-z0-9.-]+)",query,re.I)
     site=site_match.group(1).lower() if site_match else ""
     for item in root.findall("./channel/item"):
@@ -360,6 +365,15 @@ def google_rss(category,query,max_items=8,lookback_days=PRIMARY_LOOKBACK_DAYS):
         desc=clean(item.findtext("description") or "");src=item.find("source");source=(src.text or "").strip() if src is not None else ""
         if not title or not link:continue
         dt=parse_dt(pub)
+        # Nonempty channel entries with unusable/future pubDate are NOT
+        # successful empty media searches. A mixture of good and bad dates
+        # means PARTIAL coverage, not a conclusive query.
+        if dt.year==1 or dt>now+timedelta(minutes=5):
+            malformed_date_rows+=1
+            if dt.year!=1:
+                future_date_rows+=1
+            continue
+        timestamp_valid_rows+=1
         if dt<cutoff:continue
         # Drop clearly stale source documents that Google can re-surface with a new feed timestamp.
         stale_marker=re.search(r"(?:^|[\s\[\(])20(?:0\d|1\d|2[0-4])(?:년|년도)",title)
@@ -373,6 +387,20 @@ def google_rss(category,query,max_items=8,lookback_days=PRIMARY_LOOKBACK_DAYS):
             "retrievalQuery":q
         })
         if len(out)>=max_items:break
+    if malformed_date_rows:
+        RSS_QUERY_DIAGNOSTICS["failed"]+=1
+        RSS_QUERY_DIAGNOSTICS["invalidDateRows"]+=malformed_date_rows
+        RSS_QUERY_DIAGNOSTICS["futureDateRows"]+=future_date_rows
+        RSS_QUERY_DIAGNOSTICS["dateRejectedQueries"]+=1
+        if category=="coverage":
+            RSS_QUERY_DIAGNOSTICS["coverageFailed"]+=1
+            COVERAGE_SEARCH_DIAGNOSTICS["failedQueries"]+=1
+        else:
+            RSS_QUERY_DIAGNOSTICS["primaryFailed"]+=1
+    if not timestamp_valid_rows and malformed_date_rows:
+        # There were article rows, but none with a usable timestamp. Never
+        # record this as a checked-empty result.
+        return []
     RSS_QUERY_DIAGNOSTICS["ok"]+=1
     if not out:RSS_QUERY_DIAGNOSTICS["empty"]+=1
     return out

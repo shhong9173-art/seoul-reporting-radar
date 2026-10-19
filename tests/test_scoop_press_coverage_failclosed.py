@@ -124,6 +124,64 @@ class DomesticNewsFailureGate(unittest.TestCase):
         self.assertEqual(scout.RSS_QUERY_DIAGNOSTICS["failed"],before["failed"])
         self.assertEqual(scout.RSS_QUERY_DIAGNOSTICS["empty"],before["empty"]+1)
 
+
+    def test_malformed_rss_article_dates_fail_closed_not_empty_news(self):
+        before=dict(scout.RSS_QUERY_DIAGNOSTICS)
+        xml=(b"<rss><channel><item><title>sample</title>"
+             b"<link>https://news.example/item</link>"
+             b"<pubDate>not a date</pubDate></item></channel></rss>")
+        with patch.object(scout,"get",return_value=xml):
+            report=scout.coverage_search_report(event())
+        self.assertEqual(report["status"],"failed")
+        self.assertEqual(report["successfulQueries"],0)
+        self.assertFalse(report["notReportedProved"])
+        self.assertEqual(scout.RSS_QUERY_DIAGNOSTICS["empty"],before["empty"])
+        self.assertGreater(scout.RSS_QUERY_DIAGNOSTICS["invalidDateRows"],
+                           before["invalidDateRows"])
+
+    def test_future_rss_article_is_provider_date_error_not_new_story(self):
+        from email.utils import format_datetime
+        future=format_datetime(datetime.now(KST)+timedelta(days=9))
+        xml=("<rss><channel><item><title>산업 리콜</title>"
+             "<link>https://news.example/future</link>"
+             "<pubDate>"+future+"</pubDate></item></channel></rss>").encode()
+        before=dict(scout.RSS_QUERY_DIAGNOSTICS)
+        with patch.object(scout,"get",return_value=xml):
+            rows=scout.google_rss("coverage","현대차 리콜")
+        self.assertEqual(rows,[])
+        self.assertEqual(scout.RSS_QUERY_DIAGNOSTICS["empty"],before["empty"])
+        self.assertGreater(scout.RSS_QUERY_DIAGNOSTICS["futureDateRows"],
+                           before["futureDateRows"])
+
+    def test_mixed_rss_good_and_bad_dates_are_partial_not_complete(self):
+        from email.utils import format_datetime
+        current=format_datetime(datetime.now(KST)-timedelta(minutes=8))
+        xml=("<rss><channel>"
+             "<item><title>bad</title><link>https://news.example/bad</link>"
+             "<pubDate>???</pubDate></item>"
+             "<item><title>현대차 리콜</title><link>https://news.example/good</link>"
+             "<pubDate>"+current+"</pubDate><source>매체</source></item>"
+             "</channel></rss>").encode()
+        with patch.object(scout,"get",return_value=xml):
+            report=scout.coverage_search_report(event())
+        self.assertEqual(report["status"],"partial")
+        self.assertGreater(report["successfulQueries"],0)
+        self.assertGreater(report["failedQueries"],0)
+        self.assertFalse(report["notReportedProved"])
+
+    def test_all_old_but_dated_rss_is_clean_empty_not_failure(self):
+        from email.utils import format_datetime
+        old=format_datetime(datetime.now(KST)-timedelta(days=300))
+        xml=("<rss><channel><item><title>old article</title>"
+             "<link>https://news.example/old</link>"
+             "<pubDate>"+old+"</pubDate></item></channel></rss>").encode()
+        with patch.object(scout,"get",return_value=xml):
+            report=scout.coverage_search_report(event())
+        self.assertEqual(report["status"],"complete")
+        self.assertEqual(report["failedQueries"],0)
+        self.assertEqual(report["matches"],[])
+        self.assertFalse(report["notReportedProved"])
+
     def test_coverage_query_failure_is_reliably_recorded(self):
         before=scout.COVERAGE_SEARCH_DIAGNOSTICS["failedQueries"]
         with patch.object(scout,"get",side_effect=TimeoutError("down")):
