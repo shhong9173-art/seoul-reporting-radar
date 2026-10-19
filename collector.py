@@ -91,7 +91,9 @@ def parse_feed(category,query,global_feed=False,source_hint=''):
             "recentRows":0,"errorType":type(exc).__name__,
             "durationMs":min(600000,int((time.monotonic()-start)*1000))})
         return []
-    cutoff=datetime.now(KST)-timedelta(hours=72);out=[]
+    now=datetime.now(KST)
+    cutoff=now-timedelta(hours=72);out=[]
+    bad_dates=0;future_dates=0;valid_dates=0
     for item in root.findall('./channel/item'):
         title=(item.findtext('title') or '').strip();link=(item.findtext('link') or '').strip();pub=(item.findtext('pubDate') or '').strip();desc=clean(item.findtext('description') or '')
         src=item.find('source');source=(src.text or '').strip() if src is not None else source_hint
@@ -102,13 +104,32 @@ def parse_feed(category,query,global_feed=False,source_hint=''):
         # the generic scoop token.
         if category=='단독' and not AUTO_SCOOP_RE.search(title+' '+desc):
             continue
-        try:dt=parsedate_to_datetime(pub).astimezone(KST)
-        except Exception:dt=datetime.now(KST)
+        try:
+            if not pub:
+                raise ValueError("missing_pubdate")
+            parsed=parsedate_to_datetime(pub)
+            if parsed.tzinfo is None or parsed.utcoffset() is None:
+                raise ValueError("missing_timezone")
+            dt=parsed.astimezone(KST)
+        except (ValueError,TypeError,OverflowError,IndexError,AttributeError):
+            bad_dates+=1
+            continue
+        if dt>now+timedelta(minutes=5):
+            bad_dates+=1
+            future_dates+=1
+            continue
+        valid_dates+=1
         if dt<cutoff:continue
         out.append({'category':category,'title':title,'url':link,'published':dt.isoformat(),'sourceName':source or source_hint,'summary':desc[:900],'global':global_feed})
+    # A partial RSS response is NOT equivalent to an empty successful feed.
+    status=("checked_partial_dates" if bad_dates and valid_dates else
+            "malformed_rss" if bad_dates else
+            "checked_recent_rows" if out else "checked_no_recent_rows")
     FEED_CHECKS.append({"category":category,"globalFeed":bool(global_feed),
-        "status":"checked_recent_rows" if out else "checked_no_recent_rows",
-        "recentRows":len(out) if len(out)<101 else 100,"errorType":None,
+        "status":status,
+        "recentRows":min(100,len(out)),
+        "errorType":"InvalidPublishedDate" if bad_dates else None,
+        "invalidPubDateRows":bad_dates,"futurePubDateRows":future_dates,
         "durationMs":min(600000,int((time.monotonic()-start)*1000))})
     return out
 
@@ -129,7 +150,10 @@ def same_issue(a,b):
 def dedupe(items):
     seen=set();out=[]
     for x in sorted(items,key=lambda z:z['published'],reverse=True):
-        k=norm_title(x['title'],x.get('sourceName',''))
+        # Different newsrooms independently covering the same event are
+        # separate prior-coverage observations, not duplicate ingest rows.
+        k=(str(x.get('sourceName') or '').strip().casefold(),
+           norm_title(x['title'],x.get('sourceName','')))
         if k in seen:continue
         seen.add(k);out.append(x)
     return out
