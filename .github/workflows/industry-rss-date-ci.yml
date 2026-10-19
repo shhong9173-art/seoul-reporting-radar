@@ -1,0 +1,33 @@
+name: Industrial RSS Date Quality Regression
+on:
+  pull_request:
+    paths:
+      - 'industry_collector.py'
+      - 'scripts/industry_news_guard.py'
+      - 'tests/test_industry_collector_dates.py'
+      - 'tests/test_industry_news_guard.py'
+      - '.github/workflows/industry-rss-date-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'industry_collector.py'
+      - 'scripts/industry_news_guard.py'
+      - 'tests/test_industry_collector_dates.py'
+      - '.github/workflows/industry-rss-date-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  industrial-rss-dates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Offline actual industry parser and health tests
+        run: |
+          python -m compileall -q industry_collector.py scripts/industry_news_guard.py
+          python -m unittest discover -s tests -p 'test_industry_collector_dates.py' -v
+          python -m unittest discover -s tests -p 'test_industry_news_guard.py' -v
