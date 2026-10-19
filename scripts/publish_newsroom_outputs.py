@@ -25,6 +25,7 @@ OUTPUTS = {
         "dart_refresh_status.json", "data.js", "data.json", "global.json",
         "archive.json", "digests/press_coverage_index_latest.json",
         "digests/historical_exclusive_press_index_latest.json",
+        "digests/recent_exclusive_recall_audit_latest.json",
         "digests/reverse_trace_latest.json",
         "digests/reverse_trace_dart_followups_latest.json",
         "changes.json", "strategic_shifts.json", "dart.json",
@@ -123,6 +124,27 @@ def selected(root: Path, mode: str):
             or trace.get("historicalSearchObservedRows")!=historical.get("itemCount")
             or trace.get("historicalSearchAllSourcesChecked") is not False):
             raise ValueError("unverified_historical_press_index_or_stale_reverse_trace")
+        scoop_audit=json.loads(
+            (root/"digests/recent_exclusive_recall_audit_latest.json")
+            .read_text(encoding="utf-8"))
+        if (scoop_audit.get("status")!="recent_exclusive_rss_cross_index_gap_not_exhaustive"
+            or scoop_audit.get("historySourceAt")!=historical.get("generatedAt")
+            or scoop_audit.get("rssCoverageExhaustive") is not False
+            or scoop_audit.get("domesticUnreportedProved") is not False
+            or scoop_audit.get("fullArticleTextsReviewed") is not False
+            or scoop_audit.get("confirmedScoops")!=0
+            or any(type(scoop_audit.get(key)) is not int
+                   or not 0<=scoop_audit[key]<=35000 for key in (
+                       "newsIndexObservedExclusive","historyIndexObservedExclusive",
+                       "observedInBoth","newsOnlyObserved","historyOnlyObserved"))
+            or scoop_audit["observedInBoth"]+scoop_audit["newsOnlyObserved"]
+               !=scoop_audit["newsIndexObservedExclusive"]
+            or scoop_audit["observedInBoth"]+scoop_audit["historyOnlyObserved"]
+               !=scoop_audit["historyIndexObservedExclusive"]
+            or any(not isinstance(scoop_audit.get(key),list)
+                   or len(scoop_audit[key])>50 for key in (
+                       "newsOnlyExamples","historyOnlyExamples"))):
+            raise ValueError("stale_or_unsafe_recent_scoop_cross_index_audit")
         official_links=[x.get("locatedOfficialOriginalCandidate")
                         for x in trace.get("items",[])
                         if isinstance(x,dict) and
