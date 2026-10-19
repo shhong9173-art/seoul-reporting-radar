@@ -92,6 +92,7 @@ def parse_feed(category,query,global_feed=False,source_hint=''):
             "status":"malformed_rss" if isinstance(exc,(ET.ParseError,ValueError))
                  else "transport_or_xml_error",
             "recentRows":0,"errorType":type(exc).__name__,
+            "exclusiveQuery":category=="단독",
             "durationMs":min(600000,int((time.monotonic()-start)*1000))})
         return []
     now=datetime.now(KST)
@@ -133,6 +134,7 @@ def parse_feed(category,query,global_feed=False,source_hint=''):
         "recentRows":min(100,len(out)),
         "errorType":"InvalidPublishedDate" if bad_dates else None,
         "invalidPubDateRows":bad_dates,"futurePubDateRows":future_dates,
+        "exclusiveQuery":category=="단독",
         "durationMs":min(600000,int((time.monotonic()-start)*1000))})
     return out
 
