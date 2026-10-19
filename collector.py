@@ -106,7 +106,9 @@ def parse_feed(category,query,global_feed=False,source_hint=''):
         # Dedicated scoop feed must stay in the automotive beat. Google News can
         # otherwise return unrelated "[단독]" articles that happen to contain
         # the generic scoop token.
-        if category=='단독' and not AUTO_SCOOP_RE.search(title+' '+desc):
+        if category=='단독' and (
+            not exclusive(title) or
+            not AUTO_SCOOP_RE.search(title+' '+desc)):
             continue
         try:
             if not pub:
