@@ -21,6 +21,9 @@ select{padding:9px;border:1px solid #cbd5e1;border-radius:7px}
 <p class="muted">자동 발굴 후보는 모두 미검증(U)으로 시작합니다. 실제 기사 전문과 보도 이전의 공식 원자료를 기자가 대조해야 Y(완전 공개), P(부분적 공개 단서), N(사람 중심 취재)로 표시됩니다. 이 연구는 새 단독기사의 증거가 아닙니다.</p>
 <div id="notice" class="notice">역추적 목록을 불러오는 중입니다.</div>
 <div class="grid" id="summary"></div>
+<h2>최근 72시간 관측된 경쟁지 [단독] 제목</h2>
+<div id="recent-exclusive-status" class="notice">최근 단독기사 수집 상태를 확인하고 있습니다.</div>
+<div id="recent-exclusives"></div>
 <h2>보도 이전 공개 여부 검증이 필요한 DART 공시 후보</h2><div id="dart-receipt-research" class="notice">DART 공시와 기존 단독기사의 직접 비교 대기열을 확인하는 중입니다.</div>
 <h2>원문 조사 체크리스트</h2><div id="original-review-checklist" class="notice"></div>
 <h2>기사 유형별 검증 현황</h2><div id="by-kind" class="grid"></div>
@@ -84,6 +87,49 @@ try{
    throw Error("stale or unverified historical industry exclusive index");
  if(data.pressIndexGeneratedAt!==press.generatedAt)
    throw Error("source timestamp does not match press observation");
+ const recentHost=$("#recent-exclusives");
+ const recentStatus=$("#recent-exclusive-status");
+ const snapAt=Date.parse(historical.generatedAt||"");
+ const activeSnapshot=Number.isFinite(snapAt)&&
+   snapAt<=Date.now()+3600000&&Date.now()-snapAt<120*60000;
+ const haveRecentHealth=historical.recentBeatQueriesExpected===5&&
+   Number.isInteger(historical.recentBeatQueriesAttempted)&&
+   Number.isInteger(historical.recentBeatQueriesSucceeded)&&
+   historical.recentSearchCoverageExhaustive===false;
+ if(!haveRecentHealth){
+   recentStatus.textContent="최근 [단독] 전용 검색의 성공·실패 기록이 없습니다. 연간 누적 0건이나 전체 미보도를 의미하지 않습니다.";
+ }else{
+   const good=historical.recentBeatQueriesSucceeded;
+   const checked=historical.recentBeatQueriesAttempted;
+   const total=historical.recentBeatQueriesExpected;
+   const since=snapAt-72*3600000;
+   const recent=historical.items.filter(x=>{
+     const time=Date.parse(x.published||"");
+     return Number.isFinite(time)&&time>=since&&time<=snapAt+3600000&&
+       x.rssIndexedHeadlineOnly===true&&x.fulltextReviewed===false;
+   }).sort((a,b)=>b.published.localeCompare(a.published));
+   recentStatus.textContent=(activeSnapshot?"최근 수집 ":"수집 자료 갱신 지연 ")+
+     historical.generatedAt+" · 최근 제목 검색 "+good+"/"+total+
+     "개 산업군 성공 (시도 "+checked+"개) · 최근 72시간 관측 "+
+     recent.length+"건 · 미수집 매체·원본 기사 전문이 존재할 수 있습니다. 확정 단독 또는 국내 미보도를 뜻하지 않습니다.";
+   if(!recent.length){
+     recentHost.append(el("p",
+       "관측된 제목이 없습니다. RSS 검색 범위·장애·미색인으로 누락될 수 있으며 실제 단독기사 0건을 의미하지 않습니다.","muted"));
+   }
+   for(const x of recent.slice(0,40)){
+     const card=el("article");
+     card.append(el("div",x.title,"headline"),
+       el("p",x.sourceName+" · RSS 관측시각 "+x.published+
+         " · 제목만 관측(기사 전문/최초 발행 확인 전)","meta"));
+     if(typeof x.url==="string"&&
+        /^https:\/\/news\.google\.com\/rss\/articles\//.test(x.url)){
+       const link=el("a","기사 색인 링크 열기 ↗");
+       link.href=x.url;link.target="_blank";link.rel="noopener noreferrer";
+       card.append(link);
+     }
+     recentHost.append(card);
+   }
+ }
  $("#notice").textContent=data.pressIndexSeedOnly?
    "현재는 비어 있는 최초 수집 기준선입니다. 기사 0건은 미보도 0건을 뜻하지 않습니다.":
    "최신 관측 "+(data.generatedAt||"미확인")+" · 연간 [단독] 기사 제목 색인 일부만 수집(총 "+historical.itemCount+"건, 현재 실행 실패 "+historical.failedWindowsThisRun+"쿼리) · 확정 단독 0건 · 원천별 도달률 미측정";
