@@ -47,6 +47,41 @@ class IndustrialFeedEvidence(unittest.TestCase):
         self.assertEqual(result["feedsCheckedNoRelevantRows"],1)
         self.assertFalse(result["proofOfNoIndustryNews"])
 
+    def test_focused_scoop_search_outage_does_not_freeze_general_industry_news(self):
+        rows=[
+            {"status":"checked_recent_rows","recentRows":5,
+             "dedicatedExclusiveQuery":False},
+            {"status":"failed","recentRows":None,"rejectedUndated":None,
+             "dedicatedExclusiveQuery":True,"errorType":"TimeoutError"},
+        ]
+        result=summarize_queries(rows,2)
+        self.assertTrue(result["allCoreFeedsHealthy"])
+        self.assertFalse(result["allFeedsHealthy"])
+        self.assertEqual(result["exclusiveFeedsFailed"],1)
+        self.assertEqual(result["coreFeedsFailed"],0)
+        self.assertEqual(result["status"],
+                         "focused_exclusive_search_partial_not_complete")
+        rows[0]["status"]="failed"
+        rows[0]["rejectedUndated"]=None
+        self.assertFalse(summarize_queries(rows,2)["allCoreFeedsHealthy"])
+
+    def test_focused_exclusive_query_health_is_separate(self):
+        rows=[
+            {"status":"checked_recent_rows","recentRows":4,
+             "dedicatedExclusiveQuery":True},
+            {"status":"checked_partial_dates","recentRows":2,
+             "rejectedUndated":1,"rejectedFuture":0,
+             "dedicatedExclusiveQuery":True},
+            {"status":"checked_no_relevant_recent","recentRows":0,
+             "dedicatedExclusiveQuery":False},
+        ]
+        health=summarize_queries(rows,3)
+        self.assertEqual(health["exclusiveQueriesAttempted"],2)
+        self.assertEqual(health["exclusiveQueriesWithRows"],2)
+        self.assertEqual(health["exclusiveQueriesFailedOrPartial"],1)
+        self.assertEqual(health["exclusiveQueryObservedRows"],6)
+        self.assertFalse(health["domesticUnreportedProved"])
+
     def test_industrial_rss_outage_is_not_empty_source(self):
         result=summarize_queries([
             {"status":"checked_recent_rows"},

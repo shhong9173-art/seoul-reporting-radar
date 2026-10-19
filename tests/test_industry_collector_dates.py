@@ -10,6 +10,7 @@ from email.utils import format_datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 from scripts.industry_news_guard import inspect_rss_date,summarize_queries
+from scripts.historical_exclusive_press_collector import tracked_industry_companies
 
 ROOT=Path(__file__).resolve().parents[1]
 TREE=ast.parse((ROOT/"industry_collector.py").read_text(encoding="utf-8"))
@@ -18,11 +19,14 @@ assert len(PARSER)==1
 KST=ZoneInfo("Asia/Seoul")
 SCOPE={
     "datetime":datetime,"timedelta":timedelta,"KST":KST,
-    "ET":ET,"urllib":urllib,"FEED_CHECKS":[],
+    "ET":ET,"urllib":urllib,"re":re,"FEED_CHECKS":[],
+    "EXCLUSIVE_PATTERNS":(r"^\s*\[[^\]]*단독[^\]]*\]",),
     "inspect_rss_date":inspect_rss_date,
+    "tracked_industry_companies":tracked_industry_companies,
     "KEY":("철강","변압기","공장","계약","수주"),
     "company_list":lambda text:["포스코"] if "포스코" in text else [],
-    "classify":lambda title,desc:(False,False,1,1,False,45),
+    "classify":lambda title,desc:(title.startswith("[단독]"),False,1,1,False,
+                                  60 if title.startswith("[단독]") else 45),
     "clean":lambda text:re.sub(r"<[^>]+>"," ",html.unescape(text or "")),
 }
 exec(compile(ast.Module(body=PARSER,type_ignores=[]),
@@ -45,6 +49,16 @@ class IndustrialProductionDates(unittest.TestCase):
     def run_feed(self,entries):
         SCOPE["get"]=lambda _url:rss(entries)
         return parse_feed("철강","포스코 철강")
+
+    def test_real_scoop_headline_without_generic_industry_keyword_survives(self):
+        at=format_datetime(datetime.now(KST)-timedelta(minutes=25))
+        rows=self.run_feed([
+            ("[단독] 포스코 지배구조 개편설",at,"https://news.example/scoop"),
+            ("[단독] 시공사 포스코이앤씨 정비사업",at,
+             "https://news.example/construction")])
+        self.assertEqual(len(rows),1)
+        self.assertTrue(rows[0]["exclusive"])
+        self.assertIn("지배구조",rows[0]["title"])
 
     def test_mixed_malformed_and_real_news_marks_partial(self):
         now=format_datetime(datetime.now(KST)-timedelta(minutes=20))

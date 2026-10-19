@@ -15,7 +15,18 @@
     if(!x.industrySource) return AUTO_CATS.has(x.category)&&AUTO_RE.test(t);
     return INDUSTRY_CATS.has(x.category);
   }
-  function uniquePush(arr,x){if(!arr.some(v=>v.id===x.id))arr.push(x)}
+  function uniquePush(arr,x){
+    // The industrial merger does not supply stable article IDs. Comparing
+    // undefined === undefined silently collapsed ALL industrial headlines to
+    // one displayed [단독] item, even when they came from different outlets.
+    const same=(a,b)=>{
+      if(a.id && b.id) return a.id===b.id;
+      if(a.url && b.url) return a.url===b.url;
+      return a.sourceName===b.sourceName&&a.title===b.title&&
+             a.published===b.published;
+    };
+    if(!arr.some(v=>same(v,x)))arr.push(x);
+  }
   function apply(){
     const items=Array.isArray(window.ITEMS)?window.ITEMS:[];
     const autoEx=[], industryEx=[];
@@ -32,28 +43,28 @@
     if(autoNav){
       let el=autoNav.querySelector('#autoExclusiveCount');
       if(!el){el=document.createElement('span');el.id='autoExclusiveCount';el.className='auto-exclusive-count';autoNav.appendChild(el)}
-      el.textContent=' · 단독 '+autoEx.length;
-      el.title='최근 72시간 자동차 단독·취재 신호';
+      el.textContent=' · 단독표기 '+autoEx.length;
+      el.title='수집된 자동차 기사에 관측된 [단독] 제목 수(전체 보도 건수 아님)';
     }
     const industryNav=document.querySelector('.nav[data-view="industryMust"]');
     if(industryNav){
       let el=industryNav.querySelector('#industryExclusiveCount');
       if(!el){el=document.createElement('span');el.id='industryExclusiveCount';el.className='auto-exclusive-count';industryNav.appendChild(el)}
-      el.textContent=' · 단독 '+industryEx.length;
-      el.title='최근 72시간 산업부 단독·취재 신호';
+      el.textContent=' · 단독표기 '+industryEx.length;
+      el.title='수집된 산업부 기사에 관측된 [단독] 제목 수(전체 보도 건수 아님)';
     }
     const today=document.querySelector('#today');
     if(today){
       if(autoEx.length){
         const names=autoEx.slice(0,3).map(x=>x.sourceName).filter(Boolean);
-        today.textContent='최근 72시간 자동차 단독·취재 신호 '+autoEx.length+'건'+(names.length?' · '+names.join(' · '):'')+' | 단독은 자동차 핵심 최상단에 우선 노출합니다.';
+        today.textContent='최근 72시간 뉴스색인에 관측된 자동차 [단독] 제목 '+autoEx.length+'건'+(names.length?' · '+names.join(' · '):'')+' | 일부 매체·기사는 검색에 누락될 수 있고 실제 미보도 단독을 의미하지 않습니다.';
       }else if(/뉴스 데이터를 불러오는 중입니다|자동차는|산업부/.test(today.textContent||'')){
-        today.textContent='최근 72시간 자동차 단독·취재 신호 0건 | 새 단독이 들어오면 자동차 핵심 최상단에 우선 노출합니다.';
+        today.textContent='최근 72시간 뉴스색인에 자동차 [단독] 제목이 관측되지 않았습니다. 수집 누락 가능성이 있어 실제 단독기사 0건을 뜻하지 않습니다.';
       }
     }
     if(industryEx.length){
       const industryBtn=document.querySelector('.nav[data-view="industryMust"]');
-      if(industryBtn) industryBtn.title='최근 72시간 산업부 단독·취재 신호 '+industryEx.length+'건';
+      if(industryBtn) industryBtn.title='최근 72시간 산업부 [단독] 제목 관측 '+industryEx.length+'건 (불완전한 뉴스색인)';
     }
     const count=document.querySelector('#countMust');
     if(count){const n=items.filter(x=>!x.global&&!x.industrySource&&x.priority==='must').length;count.textContent=n;}

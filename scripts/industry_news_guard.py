@@ -46,8 +46,14 @@ def summarize_queries(checks,expected):
         "checked_partial_dates","failed") for x in states):
         raise ValueError("unverifiable_industry_feed_status")
     errors=sum(x=="failed" for x in states)
+    core_errors=sum(row["status"]=="failed" and
+                    not row.get("dedicatedExclusiveQuery",False) for row in checks)
+    focused_errors=errors-core_errors
     partial=sum(x=="checked_partial_dates" for x in states)
     bad=0;future=0
+    if any(type(c.get("dedicatedExclusiveQuery",False)) is not bool
+           for c in checks):
+        raise ValueError("bad_industry_exclusive_query_health")
     for row in checks:
         invalid=row.get("rejectedUndated",0)
         later=row.get("rejectedFuture",0)
@@ -60,13 +66,26 @@ def summarize_queries(checks,expected):
         bad+=invalid
         future+=later
     return {
-        "status":"failed_sources_preserve_previous_dataset" if errors
+        "status":"failed_sources_preserve_previous_dataset" if core_errors
+                  else "focused_exclusive_search_partial_not_complete" if focused_errors
                   else "partial_dated_rss_not_complete_coverage" if partial
                   else "all_feed_requests_checked_not_full_news_coverage",
         "feedsExpected":expected,
         "feedsChecked":expected-errors,
         "feedsFailed":errors,
+        "coreFeedsFailed":core_errors,
+        "exclusiveFeedsFailed":focused_errors,
+        "allCoreFeedsHealthy":core_errors==0,
         "feedsPartiallyDated":partial,
+        "exclusiveQueriesAttempted":sum(bool(c.get("dedicatedExclusiveQuery"))
+                                        for c in checks),
+        "exclusiveQueriesWithRows":sum(bool(c.get("dedicatedExclusiveQuery"))
+                and c["status"] in ("checked_recent_rows","checked_partial_dates")
+                and (c.get("recentRows") or 0)>0 for c in checks),
+        "exclusiveQueriesFailedOrPartial":sum(bool(c.get("dedicatedExclusiveQuery"))
+                and c["status"] in ("failed","checked_partial_dates") for c in checks),
+        "exclusiveQueryObservedRows":sum((c.get("recentRows") or 0)
+                                        for c in checks if c.get("dedicatedExclusiveQuery")),
         "rejectedInvalidDates":bad,
         "rejectedFutureDates":future,
         "feedsWithRelevantRows":sum(x in ("checked_recent_rows","checked_partial_dates")
@@ -76,5 +95,5 @@ def summarize_queries(checks,expected):
         "officialBulletinCoverageComplete":False,
         "proofOfNoIndustryNews":False,
         "domesticUnreportedProved":False,
-        "warning":"부분 RSS 검색 결과는 정부·기업 전체 원문 모집단이 아님. 날짜 오류로 제외된 항목은 확인 실패이지 0건이 아니며 국내 미보도를 입증하지 않음",
+        "warning":"일반 산업 뉴스 원천 실패 시 기존 결과 보존. 단독 전용 검색 실패만 발생하면 일반 뉴스 수집은 유지하되 단독 미관측을 0건으로 해석하지 않음. RSS는 공식 원문·국내 언론 전체 모집단이 아님",
     }

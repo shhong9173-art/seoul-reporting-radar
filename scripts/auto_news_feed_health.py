@@ -32,6 +32,9 @@ def build(checks,*,expected,news_items,now,threshold=10):
             or not 0<=future_dates<=bad_dates<=1000
             or row["status"]=="checked_partial_dates" and bad_dates==0):
             raise ValueError("invalid_published_date_diagnostics")
+        exclusive_query=row.get("exclusiveQuery",False)
+        if type(exclusive_query) is not bool:
+            raise ValueError("invalid_exclusive_query_diagnostic")
         duration=row.get("durationMs")
         if duration is not None and (type(duration) is not int or not 0<=duration<=600000):
             raise ValueError("invalid_latency")
@@ -40,6 +43,7 @@ def build(checks,*,expected,news_items,now,threshold=10):
         if duration is not None:slim["durationMs"]=duration
         if "invalidPubDateRows" in row:slim["invalidPubDateRows"]=bad_dates
         if "futurePubDateRows" in row:slim["futurePubDateRows"]=future_dates
+        if "exclusiveQuery" in row:slim["exclusiveQuery"]=exclusive_query
         safe.append(slim)
     failures=sum(x["status"] in ("transport_or_xml_error","malformed_rss",
                                  "checked_partial_dates") for x in safe)
@@ -55,6 +59,15 @@ def build(checks,*,expected,news_items,now,threshold=10):
       "invalidPublishedDatesSkipped":sum(x.get("invalidPubDateRows",0) for x in safe),
       "futurePublishedDatesSkipped":sum(x.get("futurePubDateRows",0) for x in safe),
       "dateIncompleteQueries":sum(x["status"]=="checked_partial_dates" for x in safe),
+      "exclusiveQueriesAttempted":sum(x.get("exclusiveQuery",False) for x in safe),
+      "exclusiveQueriesFailedOrPartial":sum(x.get("exclusiveQuery",False)
+                       and x["status"] in ("checked_partial_dates",
+                                          "transport_or_xml_error","malformed_rss")
+                       for x in safe),
+      "exclusiveQueriesWithRecentRows":sum(x.get("exclusiveQuery",False)
+                       and x["recentRows"]>0 for x in safe),
+      "exclusiveQueryRecentRowsBeforeDedupe":sum(x["recentRows"] for x in safe
+                                                  if x.get("exclusiveQuery",False)),
       "slowestQueries":[{"category":x["category"],"globalFeed":x["globalFeed"],
                          "status":x["status"],"durationMs":x["durationMs"]}
                         for x in sorted((s for s in safe if "durationMs" in s),

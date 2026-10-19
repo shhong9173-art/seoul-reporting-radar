@@ -6,6 +6,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 from scripts.news_headline_identity import normalize_title
 from scripts.industry_news_guard import inspect_rss_date, summarize_queries
+from scripts.historical_exclusive_press_collector import tracked_industry_companies
 
 KST=ZoneInfo('Asia/Seoul')
 OUT=Path('industry.json')
@@ -19,6 +20,13 @@ FEEDS=[
  ('에너지','두산에너빌리티 OR GS OR GS칼텍스 OR 풍력 OR 해상풍력 OR 풍력터빈 OR 풍력발전'),
  ('재생에너지','한화솔루션 OR OCI홀딩스 OR 씨에스윈드 OR 해상풍력 OR 육상풍력 OR 태양광 OR 재생에너지'),
  ('화학·소재','LG화학 OR 롯데케미칼 OR 금호석유화학 OR 효성첨단소재 OR 코오롱인더 OR 석유화학 OR 화학소재 OR 스페셜티소재 OR 합성고무'),
+ # Focused industry [단독] feeds must not compete with general searches for
+ # the same top Google RSS results. These remain *already reported* headlines.
+ ('철강','[단독] (포스코 OR 포스코홀딩스 OR 현대제철 OR KG스틸 OR 세아제강)'),
+ ('비철금속','[단독] (고려아연 OR 영풍 OR LS MnM)'),
+ ('전력기기','[단독] (HD현대일렉트릭 OR LS일렉트릭 OR 효성중공업 OR 일진전기)'),
+ ('전선·전력','[단독] (LS전선 OR 대한전선 OR HVDC OR 해저케이블)'),
+ ('에너지','[단독] (두산에너빌리티 OR 한화솔루션 OR OCI홀딩스 OR GS칼텍스)'),
 ]
 
 COMPANIES=[
@@ -65,6 +73,7 @@ def classify(title,desc):
 
 def parse_feed(category,query):
     u='https://news.google.com/rss/search?q='+urllib.parse.quote(query)+'&hl=ko&gl=KR&ceid=KR:ko'
+    dedicated_exclusive=query.startswith("[단독]")
     try:
         root=ET.fromstring(get(u))
         if root.tag!="rss" or root.find("channel") is None:
@@ -72,7 +81,8 @@ def parse_feed(category,query):
     except Exception as exc:
         FEED_CHECKS.append({"category":category,"status":"failed",
                             "errorType":type(exc).__name__,
-                            "recentRows":None,"rejectedUndated":None})
+                            "recentRows":None,"rejectedUndated":None,
+                            "dedicatedExclusiveQuery":dedicated_exclusive})
         return []
     now=datetime.now(KST);out=[];rejected_undated=0;rejected_future=0;dated_older=0
     dated_valid=0
@@ -91,7 +101,13 @@ def parse_feed(category,query):
             continue
         dated_valid+=1
         text=(title+' '+desc).lower(); keyhits=sum(1 for k in KEY if k.lower() in text)
-        if keyhits==0:continue
+        # Already-published [단독] stories can lack a list of transaction
+        # keywords (e.g. ownership or governance facts). Preserve them ONLY
+        # if the title itself explicitly names a tracked industrial entity.
+        headline_exclusive=any(re.search(p,title,re.I) for p in EXCLUSIVE_PATTERNS)
+        explicit_industry_exclusive=bool(headline_exclusive and
+                                          tracked_industry_companies(title))
+        if keyhits==0 and not explicit_industry_exclusive:continue
         exclusive,event,signal,strategy,concrete,priority=classify(title,desc)
         if event and not exclusive and signal<3:continue
         companies=company_list(title+' '+desc)
@@ -105,18 +121,20 @@ def parse_feed(category,query):
         "recentRows":len(out) if date_status!="failed" else None,
         "rejectedUndated":rejected_undated,
         "rejectedFuture":rejected_future,
-        "outsideWindowDatedRows":dated_older})
+        "outsideWindowDatedRows":dated_older,
+        "dedicatedExclusiveQuery":dedicated_exclusive})
     return out
 
 all_items=[]
 for category,query in FEEDS:all_items.extend(parse_feed(category,query))
 health=summarize_queries(FEED_CHECKS,len(FEEDS))
-if not health["allFeedsHealthy"]:
-    # Do NOT overwrite yesterday's valid industry.json with an incomplete
-    # RSS sample. Publishing zero rows would look like zero news.
-    raise SystemExit("Industrial RSS source failed; previously published industry data preserved. "+
+if not health["allCoreFeedsHealthy"]:
+    # General industry RSS failure remains blocking. Dedicated recent scoop
+    # searches are additive; their isolated failure must not stale every
+    # healthy general news category. Preserve scoop gap diagnostics.
+    raise SystemExit("Core industrial RSS source failed; previously published industry data preserved. "+
                      "Failed categories: "+", ".join(c["category"] for c in FEED_CHECKS
-                                                        if c["status"]=="failed"))
+                           if c["status"]=="failed" and not c.get("dedicatedExclusiveQuery")))
 
 
 seen=set();items=[]
