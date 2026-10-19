@@ -123,6 +123,25 @@ jobs:
                 'completed queries',h['successfulWindowsThisRun'],
                 'failed queries',h['failedWindowsThisRun'])
           PY
+      - name: Compare recent [단독] observed by newsroom and historical RSS
+        run: |
+          python -m unittest discover -s tests -p 'test_recent_exclusive_recall_audit.py' -v
+          python -m scripts.recent_exclusive_recall_audit
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          a=json.loads(Path('digests/recent_exclusive_recall_audit_latest.json').read_text(encoding='utf-8'))
+          h=json.loads(Path('digests/historical_exclusive_press_index_latest.json').read_text(encoding='utf-8'))
+          assert a['historySourceAt']==h['generatedAt']
+          assert a['status']=='recent_exclusive_rss_cross_index_gap_not_exhaustive'
+          assert a['rssCoverageExhaustive'] is False
+          assert a['domesticUnreportedProved'] is False
+          assert a['confirmedScoops']==0
+          print('Observed current RSS overlap',a['observedInBoth'],
+                'news-only',a['newsOnlyObserved'],
+                'history-only',a['historyOnlyObserved'],
+                '(source gap only, not scoop proof)')
+          PY
       - name: Reverse trace observed industry exclusives with evidence-only labels
         run: |
           python -m unittest discover -s tests -p 'test_exclusive_reverse_trace.py' -v
