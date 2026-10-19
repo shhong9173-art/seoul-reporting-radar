@@ -5,7 +5,7 @@ from email.utils import parsedate_to_datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 from scripts.news_headline_identity import normalize_title
-from scripts.industry_news_guard import verified_rss_date, summarize_queries
+from scripts.industry_news_guard import inspect_rss_date, summarize_queries
 
 KST=ZoneInfo('Asia/Seoul')
 OUT=Path('industry.json')
@@ -74,25 +74,38 @@ def parse_feed(category,query):
                             "errorType":type(exc).__name__,
                             "recentRows":None,"rejectedUndated":None})
         return []
-    now=datetime.now(KST);out=[];rejected_undated=0
+    now=datetime.now(KST);out=[];rejected_undated=0;rejected_future=0;dated_older=0
+    dated_valid=0
     for item in root.findall('./channel/item'):
         title=(item.findtext('title') or '').strip();link=(item.findtext('link') or '').strip();pub=(item.findtext('pubDate') or '').strip();desc=clean(item.findtext('description') or '')
         src=item.find('source');source=(src.text or '').strip() if src is not None else ''
         if not title or not link:continue
-        dt=verified_rss_date(pub,now=now)
+        dt,date_status=inspect_rss_date(pub,now=now)
+        if date_status=="outside_window":
+            dated_older+=1
+            dated_valid+=1
+            continue
         if dt is None:
             rejected_undated+=1
+            if date_status=="future":rejected_future+=1
             continue
+        dated_valid+=1
         text=(title+' '+desc).lower(); keyhits=sum(1 for k in KEY if k.lower() in text)
         if keyhits==0:continue
         exclusive,event,signal,strategy,concrete,priority=classify(title,desc)
         if event and not exclusive and signal<3:continue
         companies=company_list(title+' '+desc)
         out.append({'category':category,'title':title,'url':link,'published':dt.isoformat(),'sourceName':source or 'Google News','summary':desc[:900],'global':False,'companies':companies,'industrySource':True,'signalCount':keyhits,'exclusive':exclusive,'event':event,'strategySignalCount':strategy,'concreteNumber':concrete,'industryPriorityScore':priority})
+    date_status=("checked_partial_dates" if rejected_undated and dated_valid else
+                 "failed" if rejected_undated else
+                 "checked_recent_rows" if out else "checked_no_relevant_recent")
     FEED_CHECKS.append({"category":category,
-        "status":"checked_recent_rows" if out else "checked_no_relevant_recent",
-        "errorType":None,"recentRows":len(out),
-        "rejectedUndated":rejected_undated})
+        "status":date_status,
+        "errorType":"InvalidPublishedDate" if rejected_undated else None,
+        "recentRows":len(out) if date_status!="failed" else None,
+        "rejectedUndated":rejected_undated,
+        "rejectedFuture":rejected_future,
+        "outsideWindowDatedRows":dated_older})
     return out
 
 all_items=[]
