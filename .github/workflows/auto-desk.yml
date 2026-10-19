@@ -57,7 +57,10 @@ jobs:
       - name: Pipeline heartbeat
         run: echo "Auto Desk pipeline started at $(date -u +%FT%TZ)"
       - name: Validate news headline identity and sports homonym exclusions
-        run: python -m unittest discover -s tests -p 'test_news_headline_identity.py' -v
+        run: |
+          python -m unittest discover -s tests -p 'test_news_headline_identity.py' -v
+          python -m unittest discover -s tests -p 'test_collector_publication_dates.py' -v
+          python -m unittest discover -s tests -p 'test_auto_news_feed_health.py' -v
       - name: Collect domestic auto industry news
         run: python collector.py
       - name: Validate industry RSS date and source-failure gates
