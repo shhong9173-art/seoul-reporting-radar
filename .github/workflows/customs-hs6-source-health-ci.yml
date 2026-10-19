@@ -1,0 +1,36 @@
+name: Customs HS6 Source Health Regression
+on:
+  pull_request:
+    paths:
+      - 'scripts/customs_hs6.py'
+      - 'scripts/customs.py'
+      - 'scripts/customs_watch.py'
+      - 'tests/test_customs_hs6_source_health.py'
+      - 'tests/test_multisource_expansion.py'
+      - '.github/workflows/cross-source-scoop.yml'
+      - '.github/workflows/customs-hs6-source-health-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/customs_hs6.py'
+      - 'scripts/customs.py'
+      - 'scripts/customs_watch.py'
+      - 'tests/test_customs_hs6_source_health.py'
+      - '.github/workflows/customs-hs6-source-health-ci.yml'
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Dependencies
+        run: python -m pip install 'requests>=2.31,<3'
+      - name: Syntax and outage regression
+        run: |
+          python -m compileall -q scripts/customs_hs6.py
+          python -m unittest discover -s tests -p 'test_customs_hs6_source_health.py' -v
+          python -m unittest discover -s tests -p 'test_multisource_expansion.py' -v
