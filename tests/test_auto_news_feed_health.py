@@ -71,6 +71,34 @@ class FeedHealth(unittest.TestCase):
             build([{**rows[0],"durationMs":"18000"}],expected=1,
                   news_items=0,now=NOW)
 
+    def test_bad_rss_dates_are_not_verified_empty_news(self):
+        partial={**row("checked_partial_dates",count=2,error="InvalidPublishedDate"),
+                 "invalidPubDateRows":3,"futurePubDateRows":1}
+        valid=row("checked_recent_rows",count=12)
+        report=build([partial,valid],expected=2,news_items=14,now=NOW)
+        self.assertEqual(report["errorQueries"],1)
+        self.assertEqual(report["validEmptyQueries"],0)
+        self.assertEqual(report["dateIncompleteQueries"],1)
+        self.assertEqual(report["invalidPublishedDatesSkipped"],3)
+        self.assertEqual(report["futurePublishedDatesSkipped"],1)
+        self.assertFalse(report["allProvidersResponded"])
+        self.assertEqual(report["status"],"incomplete_queries_or_provider_errors")
+
+    def test_date_error_counters_are_bounded_and_consistent(self):
+        for broken in (
+            {"invalidPubDateRows":-1},
+            {"invalidPubDateRows":"2"},
+            {"invalidPubDateRows":0,"futurePubDateRows":1},
+            {"invalidPubDateRows":1,"futurePubDateRows":2},
+            {"invalidPubDateRows":1001},
+        ):
+            with self.assertRaises(ValueError):
+                build([{**row("checked_partial_dates",error="InvalidPublishedDate"),
+                        **broken}],expected=1,news_items=12,now=NOW)
+        with self.assertRaises(ValueError):
+            build([row("checked_partial_dates",error="InvalidPublishedDate")],
+                  expected=1,news_items=12,now=NOW)
+
     def test_naive_clock_rejected(self):
         with self.assertRaises(ValueError):
             build([row("checked_recent_rows",count=2)],expected=1,
