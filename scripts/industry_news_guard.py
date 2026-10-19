@@ -48,6 +48,9 @@ def summarize_queries(checks,expected):
     errors=sum(x=="failed" for x in states)
     partial=sum(x=="checked_partial_dates" for x in states)
     bad=0;future=0
+    if any(type(c.get("dedicatedExclusiveQuery",False)) is not bool
+           for c in checks):
+        raise ValueError("bad_industry_exclusive_query_health")
     for row in checks:
         invalid=row.get("rejectedUndated",0)
         later=row.get("rejectedFuture",0)
@@ -67,6 +70,15 @@ def summarize_queries(checks,expected):
         "feedsChecked":expected-errors,
         "feedsFailed":errors,
         "feedsPartiallyDated":partial,
+        "exclusiveQueriesAttempted":sum(bool(c.get("dedicatedExclusiveQuery"))
+                                        for c in checks),
+        "exclusiveQueriesWithRows":sum(bool(c.get("dedicatedExclusiveQuery"))
+                and c["status"] in ("checked_recent_rows","checked_partial_dates")
+                and (c.get("recentRows") or 0)>0 for c in checks),
+        "exclusiveQueriesFailedOrPartial":sum(bool(c.get("dedicatedExclusiveQuery"))
+                and c["status"] in ("failed","checked_partial_dates") for c in checks),
+        "exclusiveQueryObservedRows":sum((c.get("recentRows") or 0)
+                                        for c in checks if c.get("dedicatedExclusiveQuery")),
         "rejectedInvalidDates":bad,
         "rejectedFutureDates":future,
         "feedsWithRelevantRows":sum(x in ("checked_recent_rows","checked_partial_dates")
