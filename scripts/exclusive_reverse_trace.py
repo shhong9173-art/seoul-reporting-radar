@@ -29,8 +29,9 @@ INDUSTRY_COMPANIES={
     "SK이노베이션","LG에너지솔루션","삼성SDI","SK온","씨에스윈드",
 }
 KINDS=(
-    # Headline *subject* classification only. Never evidence of a realized
-    # event, source reach or exclusive reporting. More specific cues first.
+    # SUBJECT categories detected from article HEADLINES only. They do not
+    # establish whether the event occurred, which official source existed,
+    # or whether the story was an exclusive. Preserve U/Y/P/N independently.
     ("리콜·안전",re.compile(
         r"리콜|결함|화재|발화|침수|누수|빗물.{0,10}유입|"
         r"에어백|품질불량|안전성|NHTSA|제작결함",re.I)),
@@ -40,24 +41,41 @@ KINDS=(
     ("통상·관세",re.compile(
         r"관세|반덤핑|상계관세|무역구제|수출규제|세이프가드",re.I)),
     ("회생·소송",re.compile(
-        r"회생|파산|소송|법원|법정관리|가처분|채권단",re.I)),
+        r"회생|파산|소송|법원|법정관리|가처분|채권단|승소|"
+        r"배상|구상권|무혐의|검찰|피의자|과태료|세금.{0,8}분쟁|"
+        r"개인정보.{0,8}유출|담합",re.I)),
     ("노사·인사",re.compile(
-        r"노사|임단협|노조|파업|인사|대표이사|임원|해고|"
-        r"노동자|중대재해",re.I)),
+        r"노사|임단협|노조|파업|인사|대표이사|임원|해고|노동자|"
+        r"중대재해|임금협상|잠정합의|조직개편|노무조직|영입|"
+        r"선임|인재 흡수|사업총괄|경조휴가|TFT.{0,6}신설",re.I)),
+    ("자본·지배구조",re.compile(
+        r"자사주|자기주식|분할|합병|배당|지분|경영권|인수|매각|"
+        r"합작법인|공모채|회사채|자금\s*조달|"
+        r"채권.{0,7}(?:발행|승인|심의)",re.I)),
     ("공장·생산·투자",re.compile(
         r"공장|생산중단|생산계획|가동|증설|투자부지|생산라인|"
         r"시설투자|\d+조\s*투자|\d+억\s*투자|"
-        r"투자.{0,12}(확대|발표|결정|착수|착공|규모|첫삽)",re.I)),
+        r"투자.{0,12}(확대|발표|결정|착수|착공|규모|첫삽)|"
+        r"양산|증산|셧다운|생산설비|설비\s*확충|제철소|"
+        r"생산량|생산능력|투자",re.I)),
     ("수주·입찰",re.compile(
-        r"계약|수주|입찰|낙찰|발주|고객사|공급",re.I)),
-    ("자본·지배구조",re.compile(
-        r"자사주|자기주식|분할|합병|배당|지분|경영권|인수|매각",re.I)),
+        r"계약|수주|입찰|낙찰|발주|고객사|공급|납품|운영권|"
+        r"전력망.{0,7}구축|시설.{0,7}구축",re.I)),
+    ("판매·가격·서비스",re.compile(
+        r"판매|가격인상|가격인하|요금제|할인|물량\s*축소|"
+        r"단산|내수\s*판매|서비스\s*(?:출시|개시|첫선)|"
+        r"국내외\s*판매|수요\s*(?:급감|감소)",re.I)),
     ("신차·인증·허가",re.compile(
         r"신차|차종|출시|전기차|인허가|형식승인|인증|환경영향평가|"
-        r"모델 출시|전동화",re.I)),
+        r"모델 출시|전동화|사용승인|행정.{0,5}승인|상용화",re.I)),
     ("특허·상표",re.compile(
         r"특허|상표|디자인|지식재산",re.I)),
+    ("기술·연구·사업화",re.compile(
+        r"R&D|로봇|자율주행|전고체|배터리|재활용|수소환원제철|"
+        r"기술\s*(?:검증|개발|도입)|검증\s*플랫폼|"
+        r"(?<![A-Za-z])AI(?![A-Za-z])|V2C|ESS",re.I)),
 )
+
 SOURCE_CLASSES={
     "company_notice","government_notice","court_ruling","regulatory_filing",
     "patent_original","public_tender","overseas_register","corporate_registry",
