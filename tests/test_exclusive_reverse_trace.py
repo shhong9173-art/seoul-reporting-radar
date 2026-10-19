@@ -216,6 +216,45 @@ class ExclusiveReverseTrace(unittest.TestCase):
                          "2026-10-17T07:00:00+09:00")
         self.assertTrue(proof["publisherPublicationTimeVerifiedByHuman"])
 
+
+    def test_real_unclassified_headlines_gain_subject_type_not_YPN(self):
+        # These are headline SUBJECTS, not verified article fulltexts or
+        # confirmed first-party sources. Exact observed phrasing matters.
+        examples={
+            "[단독] 포스코, 운송 담합 업체들에 28억 배상 승소":"회생·소송",
+            "[단독] 한화솔루션 케미칼 사업총괄 신설, 대표 선임":"노사·인사",
+            "[단독] 삼성SDI 원통형 LFP 내년 6월 양산":"공장·생산·투자",
+            "[단독] 고려아연 공모채 시장 복귀, 3000억 자금 조달":"자본·지배구조",
+            "[단독] 현대차·티머니모빌 로보택시 운영권 확보":"수주·입찰",
+            "[단독] 제네시스 플레오스 요금제 공개":"판매·가격·서비스",
+            "[단독] 현대차 수소충전소 1년째 사용승인 지연":"신차·인증·허가",
+            "[단독] CJ-현대차 폐차 플라스틱 재활용 공동 연구":"기술·연구·사업화",
+        }
+        for title,kind in examples.items():
+            self.assertEqual(kind_for(title),kind,title)
+        # A vague forecast must not turn into a verified filing/source.
+        x=article("a","[단독] 현대차 기술 협력 확대 전망")
+        found=build(index(x),now=NOW)
+        self.assertEqual(found["humanReviewedYPN"],0)
+        self.assertEqual(found["confirmedScoops"],0)
+        self.assertEqual(found["items"][0]["publicTraceClass"],"U")
+
+    def test_actual_operating_corpus_unknown_subject_share_reduced_without_YPN(self):
+        import json
+        root=Path(__file__).resolve().parents[1]
+        snap=json.loads((root/"digests/reverse_trace_latest.json")
+                        .read_text(encoding="utf-8"))
+        observed=[x["title"] for x in snap["items"]
+                  if x.get("kind")=="기타·원문 분류 필요"]
+        if len(observed)<50:
+            self.skipTest("operating corpus not sufficiently populated")
+        improved=sum(kind_for(title)!="기타·원문 분류 필요"
+                     for title in observed)
+        # This is a measurable SUBJECT-tag improvement, NOT public-source
+        # trace recovery; the former U verdicts remain U.
+        self.assertGreaterEqual(improved,40)
+        self.assertEqual(snap["confirmedScoops"],0)
+
     def test_false_claim_exact_must_be_unknown_not_Y(self):
         a=article("a","[단독] 현대차 리콜")
         form=review(a)
