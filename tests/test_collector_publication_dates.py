@@ -18,7 +18,7 @@ from scripts.news_headline_identity import normalize_title, obvious_sports_homon
 
 ROOT=Path(__file__).resolve().parents[1]
 TREE=ast.parse((ROOT/"collector.py").read_text(encoding="utf-8"))
-NAMES={"norm_title","parse_feed","dedupe"}
+NAMES={"norm_title","parse_feed","dedupe","exclusive"}
 FUNS=[n for n in TREE.body if isinstance(n,ast.FunctionDef) and n.name in NAMES]
 assert len(FUNS)==len(NAMES)
 KST=ZoneInfo("Asia/Seoul")
@@ -54,6 +54,17 @@ class ProductionRssDateAndIdentity(unittest.TestCase):
     def run_feed(self,rows):
         NAMESPACE["get"]=lambda _url:rss(rows)
         return parse_feed("완성차","현대차")
+
+    def test_focused_scoop_query_requires_actual_article_headline_marker(self):
+        pub=format_datetime(datetime.now(KST)-timedelta(minutes=30))
+        NAMESPACE["get"]=lambda _url:rss([
+            ("현대차 단독 콘서트 안내",pub,"https://news.example/no","매체"),
+            ("[단독] 현대차 신규 계약 확인",pub,"https://news.example/yes","산업매체"),
+        ])
+        result=parse_feed("단독","[단독] 현대차")
+        self.assertEqual(len(result),1)
+        self.assertTrue(NAMESPACE["exclusive"](result[0]["title"]))
+        self.assertTrue(NAMESPACE["FEED_CHECKS"][-1]["exclusiveQuery"])
 
     def test_invalid_date_never_rewritten_as_now(self):
         dt=format_datetime(datetime.now(KST)-timedelta(minutes=20))
