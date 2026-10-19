@@ -8,6 +8,7 @@ on:
       - 'tests/test_epa_echo_facilities.py'
       - 'scripts/research_procurement.py'
       - 'scripts/customs_hs6.py'
+      - 'tests/test_customs_hs6_source_health.py'
       - 'scripts/recent_metric_hunt.py'
       - 'scoop-sources.html'
       - 'tests/test_scoop_sources_view.cjs'
@@ -149,22 +150,46 @@ jobs:
         run: |
           python -m pip install "requests>=2.31,<3"
           python -m unittest discover -s tests -p 'test_multisource_expansion.py' -v
+          python -m unittest discover -s tests -p 'test_customs_hs6_source_health.py' -v
       - name: Retrieve HS6 official country aggregates
+        id: collect_hs6
         env:
           CUSTOMS_API_KEY: ${{ secrets.CUSTOMS_API_KEY }}
         run: python scripts/customs_hs6.py
-      - name: Publish verified HS6 comparison, never firm sales
+      - name: Publish HS6 source failure status and only genuinely fresh totals
+        if: ${{ always() && steps.collect_hs6.outcome != 'skipped' }}
+        env:
+          HS6_COLLECT_OUTCOME: ${{ steps.collect_hs6.outcome }}
         run: |
           set -e
-          if [ ! -f digests/customs_hs6_latest.json ]; then
-            echo "HS6 unavailable: no false zero"
-            exit 0
+          if [ ! -f digests/customs_hs6_source_health_latest.json ]; then
+            echo "HS6 producer failed before status could be generated" >&2
+            exit 1
           fi
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          h=json.loads(Path("digests/customs_hs6_source_health_latest.json").read_text())
+          ok=os.environ["HS6_COLLECT_OUTCOME"]=="success"
+          assert h["newSnapshotVerified"] is ok
+          assert h["confirmedScoops"]==0
+          assert h["zeroRowsProvesNoTrade"] is False
+          if ok:
+              assert h["status"]=="official_hs6_checked"
+              d=json.loads(Path("digests/customs_hs6_latest.json").read_text())
+              assert d["status"]=="verified_hs6_country_trade_only"
+              assert d["items"]
+          else:
+              assert h["status"] in ("official_hs6_request_failed","official_hs6_key_missing")
+          PY
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add digests/customs_hs6_latest.json
+          git add digests/customs_hs6_source_health_latest.json
+          if [ "$HS6_COLLECT_OUTCOME" = "success" ]; then
+            git add digests/customs_hs6_latest.json
+          fi
           if git diff --cached --quiet; then exit 0; fi
-          git commit -m "data: validated customs HS6 annual comparisons [skip ci]"
+          git commit -m "data: HS6 official provider health and guarded trade snapshot [skip ci]"
           for i in 1 2 3; do
             git pull --rebase origin main
             if git push origin HEAD:main; then exit 0; fi
