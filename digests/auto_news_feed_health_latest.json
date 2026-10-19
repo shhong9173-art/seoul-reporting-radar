@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-19T23:49:44+09:00",
+  "generatedAt": "2026-10-19T23:57:34+09:00",
   "status": "source_requests_completed",
   "expectedQueries": 19,
   "attemptedQueries": 19,
@@ -10,34 +10,34 @@
   "dateIncompleteQueries": 0,
   "slowestQueries": [
     {
-      "category": "부품",
-      "globalFeed": false,
+      "category": "글로벌",
+      "globalFeed": true,
       "status": "checked_recent_rows",
-      "durationMs": 669
-    },
-    {
-      "category": "배터리",
-      "globalFeed": false,
-      "status": "checked_recent_rows",
-      "durationMs": 626
+      "durationMs": 572
     },
     {
       "category": "글로벌",
       "globalFeed": true,
       "status": "checked_recent_rows",
-      "durationMs": 612
+      "durationMs": 552
     },
     {
       "category": "글로벌",
       "globalFeed": true,
       "status": "checked_recent_rows",
-      "durationMs": 599
+      "durationMs": 535
     },
     {
       "category": "글로벌",
       "globalFeed": true,
       "status": "checked_recent_rows",
-      "durationMs": 587
+      "durationMs": 519
+    },
+    {
+      "category": "글로벌",
+      "globalFeed": true,
+      "status": "checked_recent_rows",
+      "durationMs": 513
     }
   ],
   "recentArticleItemsAfterDedupe": 220,
@@ -49,12 +49,12 @@
   "warning": "RSS 검색/형식/기간 장애는 기사 부재를 입증하지 않습니다. 수집 미달 시 기존 data.js/data.json 유지.",
   "checks": [
     {
-      "category": "완성차",
+      "category": "부품",
       "globalFeed": false,
       "status": "checked_recent_rows",
-      "recentRows": 100,
+      "recentRows": 98,
       "errorType": null,
-      "durationMs": 575,
+      "durationMs": 469,
       "invalidPubDateRows": 0,
       "futurePubDateRows": 0
     },
@@ -64,27 +64,17 @@
       "status": "checked_recent_rows",
       "recentRows": 35,
       "errorType": null,
-      "durationMs": 626,
+      "durationMs": 476,
       "invalidPubDateRows": 0,
       "futurePubDateRows": 0
     },
     {
-      "category": "부품",
+      "category": "완성차",
       "globalFeed": false,
       "status": "checked_recent_rows",
-      "recentRows": 98,
+      "recentRows": 100,
       "errorType": null,
-      "durationMs": 669,
-      "invalidPubDateRows": 0,
-      "futurePubDateRows": 0
-    },
-    {
-      "category": "정책·관세",
-      "globalFeed": false,
-      "status": "checked_recent_rows",
-      "recentRows": 7,
-      "errorType": null,
-      "durationMs": 493,
+      "durationMs": 487,
       "invalidPubDateRows": 0,
       "futurePubDateRows": 0
     },
@@ -94,7 +84,17 @@
       "status": "checked_no_recent_rows",
       "recentRows": 0,
       "errorType": null,
-      "durationMs": 424,
+      "durationMs": 376,
+      "invalidPubDateRows": 0,
+      "futurePubDateRows": 0
+    },
+    {
+      "category": "정책·관세",
+      "globalFeed": false,
+      "status": "checked_recent_rows",
+      "recentRows": 7,
+      "errorType": null,
+      "durationMs": 447,
       "invalidPubDateRows": 0,
       "futurePubDateRows": 0
     },
@@ -102,9 +102,9 @@
       "category": "중국차",
       "globalFeed": false,
       "status": "checked_recent_rows",
-      "recentRows": 45,
+      "recentRows": 44,
       "errorType": null,
-      "durationMs": 480,
+      "durationMs": 486,
       "invalidPubDateRows": 0,
       "futurePubDateRows": 0
     },
@@ -114,7 +114,17 @@
       "status": "checked_recent_rows",
       "recentRows": 2,
       "errorType": null,
-      "durationMs": 462,
+      "durationMs": 429,
+      "invalidPubDateRows": 0,
+      "futurePubDateRows": 0
+    },
+    {
+      "category": "단독",
+      "globalFeed": false,
+      "status": "checked_no_recent_rows",
+      "recentRows": 0,
+      "errorType": null,
+      "durationMs": 440,
       "invalidPubDateRows": 0,
       "futurePubDateRows": 0
     },
@@ -124,17 +134,7 @@
       "status": "checked_recent_rows",
       "recentRows": 1,
       "errorType": null,
-      "durationMs": 458,
-      "invalidPubDateRows": 0,
-      "futurePubDateRows": 0
-    },
-    {
-      "category": "단독",
-      "globalFeed": false,
-      "status": "checked_no_recent_rows",
-      "recentRows": 0,
-      "errorType": null,
-      "durationMs": 494,
+      "durationMs": 493,
       "invalidPubDateRows": 0,
       "futurePubDateRows": 0
     },
@@ -144,7 +144,7 @@
       "status": "checked_no_recent_rows",
       "recentRows": 0,
       "errorType": null,
-      "durationMs": 411,
+      "durationMs": 425,
       "invalidPubDateRows": 0,
       "futurePubDateRows": 0
     },
@@ -154,7 +154,7 @@
       "status": "checked_recent_rows",
       "recentRows": 1,
       "errorType": null,
-      "durationMs": 538,
+      "durationMs": 485,
       "invalidPubDateRows": 0,
       "futurePubDateRows": 0
     },
@@ -164,7 +164,17 @@
       "status": "checked_recent_rows",
       "recentRows": 39,
       "errorType": null,
-      "durationMs": 612,
+      "durationMs": 552,
+      "invalidPubDateRows": 0,
+      "futurePubDateRows": 0
+    },
+    {
+      "category": "글로벌",
+      "globalFeed": true,
+      "status": "checked_recent_rows",
+      "recentRows": 23,
+      "errorType": null,
+      "durationMs": 519,
       "invalidPubDateRows": 0,
       "futurePubDateRows": 0
     },
@@ -174,7 +184,7 @@
       "status": "checked_recent_rows",
       "recentRows": 2,
       "errorType": null,
-      "durationMs": 443,
+      "durationMs": 496,
       "invalidPubDateRows": 0,
       "futurePubDateRows": 0
     },
@@ -182,19 +192,9 @@
       "category": "글로벌",
       "globalFeed": true,
       "status": "checked_recent_rows",
-      "recentRows": 24,
+      "recentRows": 20,
       "errorType": null,
-      "durationMs": 599,
-      "invalidPubDateRows": 0,
-      "futurePubDateRows": 0
-    },
-    {
-      "category": "글로벌",
-      "globalFeed": true,
-      "status": "checked_recent_rows",
-      "recentRows": 21,
-      "errorType": null,
-      "durationMs": 587,
+      "durationMs": 535,
       "invalidPubDateRows": 0,
       "futurePubDateRows": 0
     },
@@ -204,7 +204,7 @@
       "status": "checked_recent_rows",
       "recentRows": 16,
       "errorType": null,
-      "durationMs": 460,
+      "durationMs": 480,
       "invalidPubDateRows": 0,
       "futurePubDateRows": 0
     },
@@ -214,7 +214,7 @@
       "status": "checked_recent_rows",
       "recentRows": 11,
       "errorType": null,
-      "durationMs": 478,
+      "durationMs": 481,
       "invalidPubDateRows": 0,
       "futurePubDateRows": 0
     },
@@ -224,7 +224,7 @@
       "status": "checked_recent_rows",
       "recentRows": 33,
       "errorType": null,
-      "durationMs": 524,
+      "durationMs": 513,
       "invalidPubDateRows": 0,
       "futurePubDateRows": 0
     },
@@ -234,7 +234,7 @@
       "status": "checked_recent_rows",
       "recentRows": 21,
       "errorType": null,
-      "durationMs": 504,
+      "durationMs": 572,
       "invalidPubDateRows": 0,
       "futurePubDateRows": 0
     }
