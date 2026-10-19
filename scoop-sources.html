@@ -61,7 +61,7 @@ async function load(path){
    if(!r.ok)return null;const j=await r.json();return j&&j.generatedAt?j:null;
  }catch(e){return null;}
 }
-const [investment,metrics,overseas,nhtsa,government,hs,nhtsaHealth,epa,scoop,epaHealth]=await Promise.all([
+const [investment,metrics,overseas,nhtsa,government,hs,nhtsaHealth,epa,scoop,epaHealth,hsHealth]=await Promise.all([
  load("investigation_hunt_latest.json"),
  load("recent_metric_changes_latest.json"),
  load("overseas_official_latest.json"),
@@ -71,7 +71,8 @@ const [investment,metrics,overseas,nhtsa,government,hs,nhtsaHealth,epa,scoop,epa
  load("nhtsa_source_status_latest.json"),
  load("epa_facilities_latest.json"),
  fetch("scoop.json",{cache:"no-store"}).then(r=>r.ok?r.json():null).catch(()=>null),
- load("epa_source_status_latest.json")]);
+ load("epa_source_status_latest.json"),
+ load("customs_hs6_source_health_latest.json")]);
 if(investment||metrics){
  $("dart-status").textContent="투자계획 변경 "+(investment?.verifiedChangeCount??"미확인")+
   "건 · 비교가능 공시상 수치 변동 "+(metrics?.officialChanges??"미검증")+
@@ -123,12 +124,31 @@ if(government){
     " · "+(o.published||o.noticeNumber)+" · 선정/낙찰/계약 미확인",
     [[o.url||o.sourceUrl,o.url?"공식 공고":"나라장터 조회"]]);
 }else $("research-status").textContent="MSIT_API_KEY/G2B_API_KEY 별도 활용 승인 필요하거나 조회 미완료 · 0건 아님";
-if(hs){
- $("customs-status").textContent="HS6 "+(hs.items||[]).length+"종 · "+hs.periodStart+
-  "~"+hs.periodEnd+" · "+date(hs.generatedAt)+" · 기업 귀속 불가";
+const hsCurrent=Boolean(
+ hs && hs.status==="verified_hs6_country_trade_only" &&
+ hsHealth && hsHealth.status==="official_hs6_checked" &&
+ hsHealth.newSnapshotVerified===true &&
+ hsHealth.sourceComplete===true &&
+ hsHealth.generatedAt &&
+ hs.generatedAt &&
+ Math.abs(Date.parse(hsHealth.generatedAt)-Date.parse(hs.generatedAt))<15*60*1000
+);
+if(hs && hs.status==="verified_hs6_country_trade_only"){
+ const past="HS6 "+(hs.items||[]).length+"종 · "+hs.periodStart+
+  "~"+hs.periodEnd+" · 자료 "+date(hs.generatedAt)+" · 기업 귀속 불가";
+ $("customs-status").textContent=hsCurrent?
+   "최신 공식 원천 조회·생성 확인 · "+past:
+   (hsHealth?.status==="official_hs6_request_failed"?
+      "관세청 API 요청 실패 · ":
+    hsHealth?.status==="official_hs6_key_missing"?
+      "관세청 API 키 미연결 · ":
+      "최신 원천 상태 미검증 · ")+
+    "이전 검증 자료(과거 참고용, 현재 실적 아님) · "+past;
  for(const o of (hs.items||[]).slice(0,6))
- card("customs",o.hs6+" · "+o.label,"국가 전체 품목군(ALL). 특정 회사 수출·실제 단가 아님",[]);
-}else $("customs-status").textContent="HS6 최신 검증 자료 미생성/인증 필요 · 이전 HS4 통계와 동일시 금지";
+ card("customs",o.hs6+" · "+o.label,
+  (hsCurrent?"국가 전체 품목군(ALL). ":"과거 공식 국가전체 통계. 최신 API 수집 확인 실패. ")+
+  "특정 회사 수출·실제 단가 아님",[]);
+}else $("customs-status").textContent="HS6 최신 원천·수치 미확인 · 0건이나 기업 수출 부재가 아님";
 
 if(epa){
  $("epa-status").textContent=(epaHealth?.status==='checked'&&epaHealth.generatedAt===epa.generatedAt?'원천 조회 확인 · ':'최신 원천 진단 미완료·이전 자료일 수 있음 · 시설 0곳으로 해석 금지 · ')+"ECHO 확인된 시설명 기록 "+(epa.observedCandidateCount??epa.candidateCount??'미확인')+"곳 / 질의 "+epa.queries+
