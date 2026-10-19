@@ -99,6 +99,24 @@ class FeedHealth(unittest.TestCase):
             build([row("checked_partial_dates",error="InvalidPublishedDate")],
                   expected=1,news_items=12,now=NOW)
 
+    def test_focused_exclusive_queries_have_dedicated_source_health(self):
+        rows=[{**row("checked_recent_rows",category="단독",count=3),
+               "exclusiveQuery":True},
+              {**row("checked_no_recent_rows",category="단독"),
+               "exclusiveQuery":True},
+              {**row("transport_or_xml_error",category="단독",error="TimeoutError"),
+               "exclusiveQuery":True},
+              row("checked_recent_rows",count=7)]
+        report=build(rows,expected=4,news_items=11,now=NOW)
+        self.assertEqual(report["exclusiveQueriesAttempted"],3)
+        self.assertEqual(report["exclusiveQueriesFailedOrPartial"],1)
+        self.assertEqual(report["exclusiveQueriesWithRecentRows"],1)
+        self.assertEqual(report["exclusiveQueryRecentRowsBeforeDedupe"],3)
+        self.assertFalse(report["allProvidersResponded"])
+        with self.assertRaises(ValueError):
+            build([{**rows[0],"exclusiveQuery":"true"}],
+                  expected=1,news_items=11,now=NOW)
+
     def test_naive_clock_rejected(self):
         with self.assertRaises(ValueError):
             build([row("checked_recent_rows",count=2)],expected=1,
