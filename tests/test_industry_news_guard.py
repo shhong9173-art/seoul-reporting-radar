@@ -47,6 +47,24 @@ class IndustrialFeedEvidence(unittest.TestCase):
         self.assertEqual(result["feedsCheckedNoRelevantRows"],1)
         self.assertFalse(result["proofOfNoIndustryNews"])
 
+    def test_focused_scoop_search_outage_does_not_freeze_general_industry_news(self):
+        rows=[
+            {"status":"checked_recent_rows","recentRows":5,
+             "dedicatedExclusiveQuery":False},
+            {"status":"failed","recentRows":None,"rejectedUndated":None,
+             "dedicatedExclusiveQuery":True,"errorType":"TimeoutError"},
+        ]
+        result=summarize_queries(rows,2)
+        self.assertTrue(result["allCoreFeedsHealthy"])
+        self.assertFalse(result["allFeedsHealthy"])
+        self.assertEqual(result["exclusiveFeedsFailed"],1)
+        self.assertEqual(result["coreFeedsFailed"],0)
+        self.assertEqual(result["status"],
+                         "focused_exclusive_search_partial_not_complete")
+        rows[0]["status"]="failed"
+        rows[0]["rejectedUndated"]=None
+        self.assertFalse(summarize_queries(rows,2)["allCoreFeedsHealthy"])
+
     def test_focused_exclusive_query_health_is_separate(self):
         rows=[
             {"status":"checked_recent_rows","recentRows":4,
