@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-20T10:21:16+09:00",
+  "generatedAt": "2026-10-20T14:25:40+09:00",
   "status": "official_date_triage",
   "windowStart": "2026-10-18",
   "windowEnd": "2026-10-20",
@@ -7,9 +7,9 @@
   "feedHealth": [
     {
       "name": "recent_contracts",
-      "status": "snapshot_older_than_24h",
-      "sourceAt": "2026-10-19T10:13:37+09:00",
-      "sourceAgeHours": 24.1,
+      "status": "checked_source",
+      "sourceAt": "2026-10-20T10:48:24+09:00",
+      "sourceAgeHours": 3.6,
       "records": 8,
       "checkedQueries": 13,
       "failedQueries": 0,
@@ -17,9 +17,9 @@
     },
     {
       "name": "overseas_official",
-      "status": "snapshot_older_than_24h",
-      "sourceAt": "2026-10-19T10:13:40+09:00",
-      "sourceAgeHours": 24.1,
+      "status": "checked_source",
+      "sourceAt": "2026-10-20T10:48:22+09:00",
+      "sourceAgeHours": 3.6,
       "records": 10,
       "checkedQueries": 16,
       "failedQueries": 0,
@@ -28,8 +28,8 @@
     {
       "name": "investigation_hunt",
       "status": "checked_source",
-      "sourceAt": "2026-10-19T10:47:28+09:00",
-      "sourceAgeHours": 23.6,
+      "sourceAt": "2026-10-20T11:08:34+09:00",
+      "sourceAgeHours": 3.3,
       "records": 1,
       "checkedQueries": null,
       "failedQueries": null,
@@ -38,8 +38,8 @@
     {
       "name": "recent_metric_changes",
       "status": "checked_source",
-      "sourceAt": "2026-10-19T23:34:57+09:00",
-      "sourceAgeHours": 10.8,
+      "sourceAt": "2026-10-20T13:48:13+09:00",
+      "sourceAgeHours": 0.6,
       "records": 47,
       "checkedQueries": null,
       "failedQueries": null,
@@ -48,8 +48,8 @@
     {
       "name": "nhtsa_official",
       "status": "partial_collection",
-      "sourceAt": "2026-10-20T01:58:25.784276+09:00",
-      "sourceAgeHours": 8.4,
+      "sourceAt": "2026-10-20T14:25:40.688904+09:00",
+      "sourceAgeHours": 0.0,
       "records": 9,
       "checkedQueries": 3,
       "failedQueries": 5,
@@ -68,8 +68,6 @@
     }
   ],
   "incompleteOrStaleFeeds": [
-    "recent_contracts",
-    "overseas_official",
     "nhtsa_official",
     "dart_beat_monitor"
   ],
@@ -247,7 +245,7 @@
       "officialDateInRecentWindow": true,
       "editorialBucket": "recent_official_filing_review",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-10-19T10:13:37+09:00"
+      "sourceSnapshotAt": "2026-10-20T10:48:24+09:00"
     }
   ],
   "backgroundReference": [
@@ -419,7 +417,7 @@
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-10-19T10:13:37+09:00"
+      "sourceSnapshotAt": "2026-10-20T10:48:24+09:00"
     },
     {
       "id": "FOREIGN_NOTICE:US Federal Register:2026-20778",
@@ -443,7 +441,7 @@
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-10-19T10:13:40+09:00"
+      "sourceSnapshotAt": "2026-10-20T10:48:22+09:00"
     },
     {
       "id": "DART_FILING:20261007000347",
@@ -638,7 +636,7 @@
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-10-19T10:13:37+09:00"
+      "sourceSnapshotAt": "2026-10-20T10:48:24+09:00"
     },
     {
       "id": "DART_FILING:20261001800034",
@@ -665,7 +663,7 @@
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-10-19T10:13:37+09:00"
+      "sourceSnapshotAt": "2026-10-20T10:48:24+09:00"
     },
     {
       "id": "DART_FILING:20260930801200",
@@ -1005,5 +1003,5 @@
   ],
   "beatWideDartExcluded": 7,
   "beatWideDartSourceAt": "2026-10-20T10:20:35+09:00",
-  "baseTriageGeneratedAt": "2026-10-20T10:21:16+09:00"
+  "baseTriageGeneratedAt": "2026-10-20T14:25:40+09:00"
 }
