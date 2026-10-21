@@ -18,7 +18,9 @@ def listing_first(url):
              '<a href="https://evil.example/auction-detail/222">Supernal fake</a>'+
              '</html>')
     if "svdisposition.com/upcoming" in url:
-        return '<html><h1>Upcoming original auctions</h1><p>No named recent OEM lot in first page</p></html>'
+        return ('<html><h1>Upcoming original auctions</h1><p>No named recent OEM lot in first page. '
+            'Independent company equipment liquidation listing includes anonymous industrial machinery '
+            'and does not establish ownership of any tracked automotive firm.</p></html>')
     return ('<html><h1>Official IPGATE insights</h1>'+
             '<a href="/blog/hyundai-legal-action">IPGATE files against Hyundai</a>'+
             '<a href="/blog/opinion-on-patents">licensing general commentary</a></html>')
