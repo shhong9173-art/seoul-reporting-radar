@@ -117,7 +117,12 @@ def selected(root: Path, mode: str):
                    x.get("originalPageRead") is not True
                    for x in candidates)):
             raise ValueError("unsafe_or_unverified_first_party_discovery")
-        from scripts.primary_document_dossiers import safe_url
+        try:
+            from scripts.primary_document_dossiers import safe_url
+        except ModuleNotFoundError:
+            # Invoking this file as a script sets sys.path[0] to /scripts.
+            # The importable package path is then absent by default.
+            from primary_document_dossiers import safe_url
         if any(not safe_url(x.get("url")) for x in candidates):
             raise ValueError("untrusted_discovered_original_url")
     if mode == "primary_dossiers":
@@ -516,7 +521,14 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--mode", choices=tuple(OUTPUTS), required=True)
     ap.add_argument("--root", default=".")
+    ap.add_argument("--check-only", action="store_true",
+                    help="Validate source output exactly as CLI would, but never git push")
     args = ap.parse_args()
+    if args.check_only:
+        files=selected(Path(args.root).resolve(),args.mode)
+        print("validated",args.mode,"outputs:",", ".join(files),
+              "(read-only; no git push)")
+        return
     outcome = publish(Path(args.root), args.mode)
     print("validated", args.mode, "publish:", outcome)
 
