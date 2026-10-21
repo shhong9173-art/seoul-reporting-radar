@@ -77,6 +77,8 @@ jobs:
           # against merging a selector that only works on synthetic fixtures.
           assert d['sourcesChecked']>=1,'all_original_listings_unreachable'
           PY
+          # Exercise the exact standalone CLI mode, not only package-import tests.
+          python scripts/publish_newsroom_outputs.py --mode primary_discovery --check-only
       - name: Fetch actual originals; record source failures, not zeros
         if: github.event_name != 'pull_request'
         run: |
@@ -99,5 +101,7 @@ jobs:
       - name: Atomic publish reporter records and official link discovery
         if: github.event_name != 'pull_request'
         run: |
+          python scripts/publish_newsroom_outputs.py --mode primary_dossiers --check-only
+          python scripts/publish_newsroom_outputs.py --mode primary_discovery --check-only
           python scripts/publish_newsroom_outputs.py --mode primary_dossiers
           python scripts/publish_newsroom_outputs.py --mode primary_discovery
