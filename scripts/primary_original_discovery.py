@@ -357,6 +357,8 @@ def main():
     print("First-party page discovery:",result["sourcesChecked"],"/",
           result["sourcesAttempted"],"source lists checked,",
           result["candidateCount"],"named official links,",
+          sum(len(x.get("eventFieldsQuotedFromOriginal",[]))
+              for x in result["candidates"]),"verbatim fields,",
           result["newlyObservedAfterBaseline"],"newly observed after baseline; scoops 0")
 
 if __name__=="__main__":main()
