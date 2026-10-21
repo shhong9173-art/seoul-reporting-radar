@@ -108,6 +108,20 @@ class OfficialListingDiscovery(unittest.TestCase):
         self.assertFalse(any("/999" in x["url"] for x in again["candidates"]))
         self.assertEqual(again["confirmedScoops"],0)
 
+    def test_auction_live_dates_with_preview_hours_between_labels(self):
+        for dates,month in (("Sep 21–23, 2026","September 21"),
+                            ("Oct 12–14, 2026","October 12")):
+            page=("Supernal official auction: Auction Dates: "+dates+
+                  " INSPECTION: "+month+", 2026 @ 9 am - 4 pm PST "
+                  "Address: 1030 Flightline, Hangar 200 & 201, Mojave, CA "
+                  "Checkout: Oct 19–20, 2026 Auctioneer Fee: 18%")
+            rows=extract_original_event_fields(page,"svd-past")
+            a={x["field"]:x["verbatimValue"] for x in rows}
+            self.assertEqual(a.get("announced_auction_dates"),dates)
+            self.assertTrue(a.get("listing_address"))
+            self.assertTrue(a.get("posted_checkout_dates"))
+            self.assertEqual(len(rows),3)
+
     def test_auction_detail_exact_dates_and_address_are_source_quoted_not_inferred(self):
         official=("Silicon Valley Disposition Supernal #2 Auction "
                   "Auction Dates: Oct 12–14, 2026 "
