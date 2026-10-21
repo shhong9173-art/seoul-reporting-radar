@@ -13,6 +13,10 @@ on:
       - 'tests/test_primary_document_publishing.py'
       - 'tests/test_primary_dossiers_view.cjs'
       - 'primary-dossiers.html'
+      - 'scoop_request.js'
+      - 'scoop-request.html'
+      - 'index.html'
+      - 'tests/test_scoop_request.cjs'
       - '.github/workflows/primary-document-dossiers.yml'
   push:
     branches: [main]
@@ -25,6 +29,10 @@ on:
       - 'tests/test_primary_original_discovery_publishing.py'
       - 'scripts/publish_newsroom_outputs.py'
       - 'primary-dossiers.html'
+      - 'scoop_request.js'
+      - 'scoop-request.html'
+      - 'index.html'
+      - 'tests/test_scoop_request.cjs'
       - '.github/workflows/primary-document-dossiers.yml'
   schedule:
     # Weekdays 08:30 and 15:00 KST
@@ -58,6 +66,30 @@ jobs:
           python -m unittest discover -s tests -p 'test_primary_original_discovery.py' -v
           python -m unittest discover -s tests -p 'test_primary_original_discovery_publishing.py' -v
           node tests/test_primary_dossiers_view.cjs
+          node tests/test_scoop_request.cjs
+      - name: Validate real checked-in four-source on-demand reporter shortlist
+        run: |
+          node - <<'NODE'
+          const {build}=require('./scoop_request.js');
+          const fs=require('node:fs');
+          const base='digests/';
+          const mapping={dossiers:'primary_research_dossiers_latest.json',
+            discovery:'primary_original_discovery_latest.json',
+            nhtsa:'nhtsa_part573_primary_latest.json',
+            queue:'reporting_evidence_queue_latest.json'};
+          const sources={};
+          for(const [key,file] of Object.entries(mapping)){
+            const path=base+file;
+            if(fs.existsSync(path))sources[key]=JSON.parse(fs.readFileSync(path,'utf8'));
+          }
+          const out=build(sources,{company:'현대차',limit:5});
+          console.log('Modern Hyundai request candidates:',out.totalCandidates,
+             'returned:',out.displayed,
+             'titles:',out.rows.map(x=>x.title));
+          if(out.confirmedScoops!==0||out.pressAbsenceProved!==false)
+            throw Error('unsafe automatic scoop state');
+          if(out.totalCandidates<3)throw Error('live source documents not arriving in shortlist');
+          NODE
       - name: Replay real official listing pages before merging (no publish)
         if: github.event_name == 'pull_request'
         run: |
