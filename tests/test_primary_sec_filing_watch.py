@@ -24,7 +24,7 @@ def response(cik,new=False):
     return {
       "cik":int(cik),"name":"Sample company",
       "filings":{"recent":{
-          "accessionNumber":[x[0] for x in rows],
+          "accessionNumber":[x[0].replace("0001104659",cik) for x in rows],
           "form":[x[1] for x in rows],
           "filingDate":[x[2] for x in rows],
           "primaryDocument":[x[3] for x in rows],
