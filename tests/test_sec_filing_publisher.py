@@ -13,7 +13,7 @@ NOW=datetime(2026,10,21,14,tzinfo=timezone.utc)
 
 def sample(cik):
     return {"cik":int(cik),"filings":{"recent":{
-        "accessionNumber":["0001104659-26-099999"],
+        "accessionNumber":[cik+"-26-099999"],
         "form":["8-K"],"filingDate":["2026-10-21"],
         "primaryDocument":["test-8k.htm"],
     }}}
