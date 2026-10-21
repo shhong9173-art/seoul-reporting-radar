@@ -129,6 +129,9 @@ def selected(root: Path, mode: str):
                    not isinstance(x.get("publicConfirmationQuestions",[]),list) or
                    len(x.get("publicConfirmationQuestions",[]))>4 or
                    any(not isinstance(q,str) or not q.endswith("?")
+                       or any(term in q for term in (
+                           "비공개 내부","내부 대응계획","생산 라인 전환 전략",
+                           "공급사 변경 계획","미확정 영향 검토"))
                        for q in x.get("publicConfirmationQuestions",[]))
                    for x in candidates)):
             raise ValueError("unsafe_or_unverified_first_party_discovery")
