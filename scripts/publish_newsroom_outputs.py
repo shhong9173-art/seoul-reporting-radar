@@ -51,6 +51,7 @@ OUTPUTS = {
         "digests/auto_news_feed_health_latest.json",
         "digests/global_news_feed_health_latest.json",
     ),
+    "primary_dossiers": ("digests/primary_research_dossiers_latest.json",),
 }
 OPTIONAL = set()  # A shared corporate registry has exactly one official writer.
 # Existing verified archive.json is ~16.2MB (2026-10-17). A blanket 12MiB
@@ -92,6 +93,34 @@ def selected(root: Path, mode: str):
             except (UnicodeError, ValueError):
                 raise ValueError("invalid_json_output: " + name) from None
         files.append(name)
+    if mode == "primary_dossiers":
+        report=json.loads((root / "digests/primary_research_dossiers_latest.json")
+                          .read_text(encoding="utf-8"))
+        cases=report.get("cases",[])
+        if (report.get("status")!="primary_original_reporter_dossiers_not_exclusive"
+            or report.get("registryIsManuallyCuratedNotAutomatedDiscovery") is not True
+            or report.get("allDomesticPressChecked") is not False
+            or report.get("confirmedScoops")!=0 or report.get("approvedArticles")!=0
+            or not isinstance(cases,list) or not 1<=len(cases)<=30
+            or report.get("caseCount")!=len(cases)
+            or type(report.get("documentRequestsAttempted")) is not int
+            or type(report.get("documentPagesMatched")) is not int
+            or type(report.get("documentPagesFailedOrUnmatched")) is not int
+            or report["documentPagesMatched"]+report["documentPagesFailedOrUnmatched"]
+               !=report["documentRequestsAttempted"]
+            or report["documentRequestsAttempted"]<len(cases)
+            or report["documentRequestsAttempted"]>150):
+            raise ValueError("unsafe_or_unverified_primary_source_dossiers")
+        if any(not isinstance(c,dict) or c.get("exclusiveConfirmed") is not False
+               or c.get("publisherFulltextCompared") is not False
+               or c.get("noPriorPressProved") is not False
+               or not isinstance(c.get("originalDocuments"),list)
+               or not isinstance(c.get("factsFromMatchedPrimaryPages"),list)
+               or c.get("originalDocumentsExpected")!=len(c["originalDocuments"])
+               or c.get("originalDocumentsVerified")!=sum(
+                   d.get("status")=="matched_original_text" for d in c["originalDocuments"])
+               for c in cases):
+            raise ValueError("primary_dossier_case_verification_failed")
     if mode == "news":
         articles = json.loads((root / "data.json").read_text(encoding="utf-8"))
         raw = (root / "data.js").read_text(encoding="utf-8").strip()

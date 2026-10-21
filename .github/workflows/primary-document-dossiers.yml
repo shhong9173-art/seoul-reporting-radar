@@ -1,0 +1,69 @@
+name: First-party Hyundai Reporter Dossiers
+on:
+  pull_request:
+    paths:
+      - 'data/primary_research_targets.json'
+      - 'scripts/primary_document_dossiers.py'
+      - 'scripts/publish_newsroom_outputs.py'
+      - 'tests/test_primary_document_dossiers.py'
+      - 'tests/test_primary_document_publishing.py'
+      - 'tests/test_primary_dossiers_view.cjs'
+      - 'primary-dossiers.html'
+      - '.github/workflows/primary-document-dossiers.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'data/primary_research_targets.json'
+      - 'scripts/primary_document_dossiers.py'
+      - 'scripts/publish_newsroom_outputs.py'
+      - 'primary-dossiers.html'
+      - '.github/workflows/primary-document-dossiers.yml'
+  schedule:
+    # Weekdays 08:30 and 15:00 KST
+    - cron: '30 23 * * 0-4'
+    - cron: '0 6 * * 1-5'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+concurrency:
+  group: first-party-reporter-dossiers
+  cancel-in-progress: false
+
+jobs:
+  source-dossiers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.head_ref || 'main' }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify source documents, editorial questions and non-exclusivity
+        run: |
+          python -m compileall -q scripts/primary_document_dossiers.py scripts/publish_newsroom_outputs.py
+          python -m unittest discover -s tests -p 'test_primary_document_dossiers.py' -v
+          python -m unittest discover -s tests -p 'test_primary_document_publishing.py' -v
+          node tests/test_primary_dossiers_view.cjs
+      - name: Fetch actual originals; record source failures, not zeros
+        if: github.event_name != 'pull_request'
+        run: |
+          python -m scripts.primary_document_dossiers
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          o=json.loads(Path("digests/primary_research_dossiers_latest.json").read_text(encoding="utf-8"))
+          assert o["status"]=="primary_original_reporter_dossiers_not_exclusive"
+          assert o["caseCount"]>=5
+          assert o["confirmedScoops"]==o["approvedArticles"]==0
+          assert o["allDomesticPressChecked"] is False
+          print("Originals matched",o["documentPagesMatched"],
+                "/",o["documentRequestsAttempted"],
+                "unavailable/mismatch",o["documentPagesFailedOrUnmatched"])
+          PY
+      - name: Atomic publish verified reporter records
+        if: github.event_name != 'pull_request'
+        run: python scripts/publish_newsroom_outputs.py --mode primary_dossiers

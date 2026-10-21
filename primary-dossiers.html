@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>해외 원문 근거 취재 조사서 | 산업부 레이더</title>
+<style>
+:root{color-scheme:light;background:#f4f6f9;font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif;color:#17243a}
+body{margin:0}main{max-width:1120px;margin:auto;padding:24px 18px 75px}
+a{color:#1757a6}header{padding:12px 0 22px}h1{font-size:30px;margin:10px 0}h2{font-size:21px;margin:0 0 10px}h3{font-size:16px;margin:18px 0 8px}
+small,.muted{color:#627086}.intro{color:#40536e;line-height:1.7}
+.topline{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.status{background:#e9edf3;border:1px solid #dce2e9;border-radius:10px;padding:12px 15px;line-height:1.6;margin:12px 0}
+.card{background:white;border:1px solid #dce3ed;border-radius:14px;padding:23px;margin:19px 0;box-shadow:0 3px 12px #162f5210}
+.kicker{font-size:12px;font-weight:700;letter-spacing:.06em;color:#456180}
+.meta{display:flex;flex-wrap:wrap;gap:10px;color:#63748b;font-size:12px;margin:10px 0 16px}
+.pill{border:1px solid #cbd5e2;border-radius:30px;padding:3px 9px;background:#f4f6fa}
+p,li{line-height:1.7}ul{margin:8px 0 16px;padding-left:22px}
+a.source{word-break:break-word;display:inline-block;margin:4px 0}
+.fact{border-left:3px solid #5280b8;padding:3px 13px;margin:12px 0;background:#f6f9fd}
+.warning{background:#faf7ef;border:1px solid #ebe1c8;border-radius:9px;padding:11px 13px;margin-top:12px}
+.warning li{line-height:1.55}.split{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media(max-width:700px){.split{grid-template-columns:1fr}h1{font-size:25px}.card{padding:16px}}
+</style></head>
+<body><main>
+<header><div class="topline"><a href="index.html">← 산업부 취재 레이더</a><small>PUBLIC ORIGINALS · HUMAN VERIFICATION REQUIRED</small></div>
+<h1>해외 1차 문서 기반 취재 조사서</h1>
+<p class="intro">경매·법원·특허권자·미 SEC·영국 기업등기소의 원문을 재조회하고, 실제 확인된 문구에만 취재 포인트를 연결합니다. <strong>다섯 건은 수집 범위 검증용 사례이며 새로 발견한 단독 다섯 건이 아닙니다.</strong> 공식 반론·선행보도·기사 전문 확인 전에는 기사 출고 판단을 하지 않습니다.</p>
+</header>
+<div id="status" class="status">공식 원문 수집 진단을 불러오는 중입니다.</div>
+<div id="cards"></div>
+</main>
+<script>
+(async()=>{
+"use strict";
+const $=s=>document.querySelector(s);
+const node=(tag,value,cls)=>{let x=document.createElement(tag);if(value!==undefined)x.textContent=String(value);if(cls)x.className=cls;return x};
+const allowed=new Set(["svdisposition.com","www.svdisposition.com","www.ipgate.ch","ipgate.ch",
+"supremecourt.gov","www.supremecourt.gov","sec.gov","www.sec.gov",
+"find-and-update.company-information.service.gov.uk"]);
+function addLink(container,url,label){
+try{let u=new URL(url);if(u.protocol!=="https:"||!allowed.has(u.hostname)||u.username||u.password)return;
+ let l=node("a",label,"source");l.href=u.href;l.target="_blank";l.rel="noopener noreferrer";container.append(l)}
+catch(_e){}
+}
+function render(caseFile){
+ if(caseFile.noPriorPressProved!==false||
+    caseFile.exclusiveConfirmed!==false||
+    caseFile.publisherFulltextCompared!==false)
+   throw Error("검증되지 않은 기사 독점성·기보도 상태");
+ const c=node("article",undefined,"card");
+ c.append(node("div","검토 순서 "+caseFile.editorialPriority+" · "+caseFile.company+" · "+caseFile.category,"kicker"),
+          node("h2",caseFile.title));
+ const meta=node("div",undefined,"meta");
+ meta.append(node("span","공식 페이지 일치 "+caseFile.originalDocumentsVerified+"/"+caseFile.originalDocumentsExpected,"pill"),
+             node("span","원문 검증 "+caseFile.status,"pill"),
+             node("span","출처 기준일 "+caseFile.sourceDate+" (입력 기준)","pill"));
+ c.append(meta,node("p",caseFile.angle));
+ const grid=node("div",undefined,"split");
+ const left=node("section"),right=node("section");
+ left.append(node("h3","실제 일치한 원문 문구의 요지"));
+ if(!caseFile.factsFromMatchedPrimaryPages.length)
+   left.append(node("p","현재 원문에서 핵심 문구를 확인하지 못했습니다. 앞서 확보한 자료가 있어도 현재 확인된 사실로 취급하지 않습니다.","muted"));
+ for(const fact of caseFile.factsFromMatchedPrimaryPages){
+   const box=node("div",undefined,"fact");
+   box.append(node("p",fact.text),node("small",fact.attribution+" · "));
+   addLink(box,fact.sourceUrl,"원문 열기 ↗");
+   left.append(box);
+ }
+ left.append(node("h3","원문 수집 상태"));
+ for(const d of caseFile.originalDocuments){
+   const unavailable=d.status==="source_unavailable"||
+                     d.status==="text_retrieved_no_expected_evidence";
+   let p=node("p",d.id+" · "+(unavailable?"원문 확인 불가 · ":"")+d.status+
+                  (d.errorType?" ("+d.errorType+")":""),"muted");
+   addLink(p,d.url,"원문 링크 ↗");left.append(p);
+ }
+ right.append(node("h3","실제로 물어볼 수 있는 공개 사실"));
+ const questions=node("ul");
+ for(const q of caseFile.questionsForPublicConfirmation){
+   questions.append(node("li",q.recipient+" — "+q.text));
+ }
+ right.append(questions,node("h3","기사화 전에 확인할 한계"));
+ const caution=node("ul",undefined,"warning");
+ for(const item of caseFile.unresolved)caution.append(node("li",item));
+ right.append(caution,node("h3","국내 선행보도 확인"));
+ right.append(node("p",caseFile.priorPressIndexStatus+
+   " · 목록에 없다는 이유로 미보도를 확인했다고 판단하지 않음","muted"));
+ for(const entry of caseFile.possiblePriorPressTitles.slice(0,4))
+   right.append(node("p","가능한 선행기사: "+entry.title,"muted"));
+ grid.append(left,right);c.append(grid);
+ c.append(node("small","원문 페이지 일부 확인과 단독 검증은 별개 · 회사/기관 확인 미완료 · 확정 단독 아님"));
+ return c;
+}
+try{
+ const response=await fetch("digests/primary_research_dossiers_latest.json",{cache:"no-store"});
+ if(!response.ok)throw Error("조사서 파일이 아직 배포되지 않았습니다");
+ const data=await response.json();
+ if(data.status!=="primary_original_reporter_dossiers_not_exclusive"||
+ data.confirmedScoops!==0||data.approvedArticles!==0||
+ data.allDomesticPressChecked!==false||
+ data.registryIsManuallyCuratedNotAutomatedDiscovery!==true||
+ !Array.isArray(data.cases)||data.caseCount!==data.cases.length)
+ throw Error("검증되지 않은 조사서 데이터");
+ $("#status").textContent="마지막 원문 조회 "+data.generatedAt+
+ " · 사례 "+data.caseCount+"건 · 원문 일치 "+data.documentPagesMatched+
+ "/"+data.documentRequestsAttempted+"건 · 실패/미일치 "+
+ data.documentPagesFailedOrUnmatched+"건 · 국내 선행보도 전체 확인 전 · 단독 확정 0건";
+ for(const c of data.cases)$("#cards").append(render(c));
+}catch(e){$("#status").textContent="조사서 갱신 상태 미확인: "+
+ (e.message||"원문 자료를 불러올 수 없습니다")+
+ " — 수집 실패를 후보 0건이나 국내 미보도로 판단하지 마세요.";}
+})();
+</script></body></html>

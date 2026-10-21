@@ -1,0 +1,283 @@
+{
+  "schemaVersion": 1,
+  "status": "manually_curated_original_source_research_targets",
+  "baselineDate": "2026-10-20",
+  "warning": "출처 URL은 검증의 출발점. 원문 재조회·국내 선행보도·양측 입장 확인 없이 단독이나 기사 출고 가능 상태로 만들지 않는다.",
+  "cases": [
+    {
+      "id": "supernal-mojave-assets",
+      "company": "슈퍼널·현대차그룹",
+      "title": "슈퍼널 모하비 격납고 200·201 자산 경매 두 차례",
+      "priority": 1,
+      "domain": "자산 경매·시험거점",
+      "sourceDate": "2026-10-14",
+      "pressTerms": [
+        "슈퍼널",
+        "모하비"
+      ],
+      "angle": "공개 경매 공고에 적힌 자산·반출 일정. 시험기지 폐쇄·철수·업무 이전은 확인되지 않음.",
+      "documents": [
+        {
+          "id": "svd-september",
+          "url": "https://svdisposition.com/auction-detail/884",
+          "evidence": [
+            {
+              "contains": [
+                "Supernal",
+                "Sep 21",
+                "Hangar 200",
+                "Mojave"
+              ],
+              "fact": "경매업체는 슈퍼널의 모하비 1030 Flightline 격납고 200·201 자산을 9월 21~23일 경매 대상으로 게시했다.",
+              "attribution": "Silicon Valley Disposition 9월 공고"
+            }
+          ]
+        },
+        {
+          "id": "svd-october",
+          "url": "https://svdisposition.com/auction-detail/891",
+          "evidence": [
+            {
+              "contains": [
+                "Supernal",
+                "Oct 12",
+                "Hangar 200",
+                "Oct 19"
+              ],
+              "fact": "같은 업체는 10월 12~14일 두 번째 슈퍼널 자산 경매를 공고하고 10월 19~20일을 반출일로 표기했다.",
+              "attribution": "Silicon Valley Disposition 10월 공고"
+            },
+            {
+              "contains": [
+                "Daniel Juliano",
+                "djuliano@svdisposition.com"
+              ],
+              "fact": "경매 공고에 공개 업무 담당자로 Daniel Juliano와 연락처가 안내됐다.",
+              "attribution": "경매업체 공고"
+            }
+          ]
+        }
+      ],
+      "questions": [
+        {
+          "recipient": "경매업체",
+          "text": "두 공고가 동일 격납고 자산에 대한 별개의 매각 회차인지, 공개 가능한 낙찰·반출 결과 자료가 있는가?"
+        },
+        {
+          "recipient": "슈퍼널·현대차그룹 홍보",
+          "text": "회사가 두 차례 경매의 자산 소유 및 실시 사실과 공식 공개 가능한 설명을 확인할 수 있는가?"
+        },
+        {
+          "recipient": "모하비 공항 운영기관",
+          "text": "격납고 200·201의 공개 임대·사용허가 상태가 이전과 달라졌는가?"
+        }
+      ],
+      "boundaries": [
+        "잉여자산 경매 공고만으로 격납고 임대 종료·시험장 폐쇄·사업 철수를 주장하지 않는다.",
+        "경매 로트 수와 개별 장비 대수를 혼동하지 않는다."
+      ]
+    },
+    {
+      "id": "ipgate-munich-brake",
+      "company": "현대차·현대모비스",
+      "title": "현대차 유럽·독일법인 독일 제동특허 소송 제기",
+      "priority": 2,
+      "domain": "해외 특허 소송",
+      "sourceDate": "2026-10-19",
+      "pressTerms": [
+        "IPGATE",
+        "현대차"
+      ],
+      "angle": "원고 측 발표에 나타난 특허번호·피고법인·모비스 상대 제안 시점은 검증 가능. 청구취지·대상 차종은 소장 확인 전 미확정.",
+      "documents": [
+        {
+          "id": "ipgate-statement",
+          "url": "https://www.ipgate.ch/blog/hyundai-legal-action",
+          "evidence": [
+            {
+              "contains": [
+                "2026-10-19",
+                "Hyundai Motor Europe",
+                "Hyundai Motor Deutschland",
+                "EP 3 145 771 B1"
+              ],
+              "fact": "IPGATE는 10월 19일 현대차 유럽·독일법인을 뮌헨 제1지방법원에 제소했다고 발표하며 특허 EP 3 145 771 B1을 특정했다.",
+              "attribution": "IPGATE 원고 측 발표"
+            },
+            {
+              "contains": [
+                "Hyundai Mobis",
+                "September 2021",
+                "license"
+              ],
+              "fact": "IPGATE는 현대모비스에 2021년 9월부터 라이선스를 제안했다고 주장했다.",
+              "attribution": "IPGATE 원고 측 주장(상대방 미확인)"
+            }
+          ]
+        }
+      ],
+      "questions": [
+        {
+          "recipient": "IPGATE·원고 대리인",
+          "text": "공개 가능한 뮌헨 제1지방법원 사건번호와 소장·청구취지·특정 대상 차종이 있는가?"
+        },
+        {
+          "recipient": "현대차·모비스 홍보",
+          "text": "원고 발표에 기재된 피고법인·특허번호·사건 진행 사실에 대한 공식 확인 및 공개 입장이 있는가?"
+        }
+      ],
+      "boundaries": [
+        "특허침해·판매금지·손해배상 청구·기술 탑재는 원고 발표만으로 확정하지 않는다.",
+        "2021년 협상 경위는 원고의 일방 주장으로 분리한다."
+      ]
+    },
+    {
+      "id": "bluelink-scotus-26a342",
+      "company": "현대차 미국법인",
+      "title": "블루링크 중재조항 분쟁, 美 대법원 심리 청구 기한 연장 절차",
+      "priority": 3,
+      "domain": "미국 대법원 사건목록",
+      "sourceDate": "2026-10-07",
+      "pressTerms": [
+        "Hageman",
+        "블루링크"
+      ],
+      "angle": "대법원 사건목록의 기한 연장 신청과 승인 여부 확인. 사건 수리·승소로 오인 금지.",
+      "documents": [
+        {
+          "id": "scotus-docket",
+          "url": "https://www.supremecourt.gov/search.aspx?filename=%2Fdocket%2Fdocketfiles%2Fhtml%2Fpublic%2F26A342.html",
+          "evidence": [
+            {
+              "contains": [
+                "26A342",
+                "Hyundai Motor America",
+                "September 14, 2026",
+                "Oct 07 2026"
+              ],
+              "fact": "미국 연방대법원 사건번호 26A342에는 현대차 미국법인의 9월 14일 기한 연장 승인과 10월 7일 추가 연장 신청이 등록돼 있다.",
+              "attribution": "미국 연방대법원 사건목록"
+            }
+          ]
+        }
+      ],
+      "questions": [
+        {
+          "recipient": "미국 연방대법원 사건목록",
+          "text": "추가 연장 신청에 대한 10월 7일 이후 결정이나 별도 certiorari 청원 접수가 갱신됐는가?"
+        },
+        {
+          "recipient": "현대차 미국법인 홍보",
+          "text": "공개 사건번호 26A342의 신청과 약관 적용 범위에 관한 회사 공식 입장이 있는가?"
+        }
+      ],
+      "boundaries": [
+        "기한 연장 신청과 연방대법원의 본안 심리 개시·사건 수리는 구별한다.",
+        "블루링크 약관이 다른 모든 결함 소송에 적용된다고 확대 해석하지 않는다."
+      ]
+    },
+    {
+      "id": "ses-hyundai-bsample",
+      "company": "현대차·SES AI",
+      "title": "SES AI 현대차 B샘플 계약의 개발 완료 후속과 EV 사업 전환",
+      "priority": 4,
+      "domain": "미국 SEC 공식 주주서한",
+      "sourceDate": "2026-03-04",
+      "pressTerms": [
+        "SES AI",
+        "현대차"
+      ],
+      "angle": "2026년 3월 SEC 서한은 개발·서비스 계약 종료 기여를 명시. 후속 계약 부재나 협력 결렬은 확인되지 않음.",
+      "documents": [
+        {
+          "id": "ses-q4-2025-letter",
+          "url": "https://www.sec.gov/Archives/edgar/data/1819142/000181914226000009/ses-20260304xex99d1.htm",
+          "evidence": [
+            {
+              "contains": [
+                "Honda and Hyundai",
+                "completed our EV development work",
+                "services agreements"
+              ],
+              "fact": "SES AI는 2026년 3월 공개 서한에서 현대차·혼다 관련 EV 개발 작업 완료와 서비스 계약의 최종 매출 기여를 설명했다.",
+              "attribution": "SES AI의 미국 SEC 제출 주주서한"
+            }
+          ]
+        },
+        {
+          "id": "ses-q1-2025-filing",
+          "url": "https://www.sec.gov/Archives/edgar/data/1819142/000181914225000035/ses-20250331x10q.htm",
+          "evidence": [
+            {
+              "contains": [
+                "Hyundai Motor Company",
+                "B-sample",
+                "December 2025"
+              ],
+              "fact": "SES AI의 과거 SEC 분기보고서에는 현대차와 B샘플 공동개발 계약의 종료 시점이 2025년 12월로 기재돼 있다.",
+              "attribution": "SES AI 2025년 1분기 SEC 보고서"
+            }
+          ]
+        }
+      ],
+      "questions": [
+        {
+          "recipient": "SES AI IR",
+          "text": "2026년 3월 서한 이후 현대차 관련 신규 공동개발 계약 또는 공급계약을 공시하거나 공개 발표한 사실이 있는가?"
+        },
+        {
+          "recipient": "현대차 홍보",
+          "text": "현대차·SES 공동개발과 관련해 현재 대외 공개된 협약·개발 단계 자료를 확인해 줄 수 있는가?"
+        }
+      ],
+      "boundaries": [
+        "개발 단계 완료와 계약 결렬은 다른 사실이다.",
+        "최신 후속계약 미발견은 계약 부재의 증명이 아니다."
+      ]
+    },
+    {
+      "id": "hcuk-uk-redress",
+      "company": "현대캐피탈 영국법인",
+      "title": "현대캐피탈 UK의 자동차금융 보상 관련 재무제표 추적",
+      "priority": 5,
+      "domain": "영국 기업등기소 재무제표",
+      "sourceDate": "2025-10-06",
+      "pressTerms": [
+        "Hyundai Capital UK",
+        "고객보상"
+      ],
+      "angle": "등기소가 2024년 회계연도 연결재무제표 제출 사실을 보여준다. 보상충당금 세부 금액은 PDF 본문 검토가 필요하다.",
+      "documents": [
+        {
+          "id": "hcuk-filing-history",
+          "url": "https://find-and-update.company-information.service.gov.uk/company/07945949/filing-history",
+          "evidence": [
+            {
+              "contains": [
+                "HYUNDAI CAPITAL UK LIMITED",
+                "06 Oct 2025",
+                "31 December 2024"
+              ],
+              "fact": "영국 기업등기소는 현대캐피탈 UK의 2024년 말 기준 연결재무제표가 2025년 10월 6일 제출됐다고 기록했다.",
+              "attribution": "영국 Companies House 제출 이력"
+            }
+          ]
+        }
+      ],
+      "questions": [
+        {
+          "recipient": "현대캐피탈 UK·재무 담당",
+          "text": "현재 공개된 최신 연차보고서의 보상 충당부채와 비교 가능한 공식 주석·수치가 있는가?"
+        },
+        {
+          "recipient": "영국 기업등기소",
+          "text": "2025년 말 연결재무제표의 신규 제출 여부와 원문 열람 링크가 갱신됐는가?"
+        }
+      ],
+      "boundaries": [
+        "3448만 파운드 충당금과 2023~2024년 배당의 인과관계는 등기 이력 페이지가 아닌 원본 PDF 검증과 별도 취재가 필요하다.",
+        "오래된 2024년 금액을 2026년 현재 부담액으로 기재하지 않는다."
+      ]
+    }
+  ]
+}
