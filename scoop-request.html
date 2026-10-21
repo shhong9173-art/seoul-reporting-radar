@@ -1,0 +1,128 @@
+<!doctype html><html lang="ko"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>단독거리 요청 · 산업부 취재 레이더</title>
+<style>
+:root{font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif;background:#f5f7fa;color:#1a283c;color-scheme:light}
+body{margin:0}main{max-width:1040px;margin:auto;padding:24px 16px 100px}
+header{border-bottom:1px solid #d9e0e9;margin-bottom:20px;padding-bottom:12px}
+h1{font-size:30px;margin:16px 0 8px}h2{font-size:21px;margin:6px 0 10px}h3{font-size:15px;margin:18px 0 6px}
+p,li{line-height:1.65}.sub{font-size:14px;color:#56647c}
+.search{display:flex;gap:10px;flex-wrap:wrap;align-items:center;padding:19px;background:#fff;border:1px solid #dce3ed;border-radius:14px}
+input{font:inherit;padding:13px;border:1px solid #a5b5c9;border-radius:8px;flex:1;min-width:180px}
+button{font:inherit;padding:12px 18px;background:#1f487c;border:0;color:white;border-radius:8px;cursor:pointer}
+button:disabled{opacity:.5}a{color:#164e8f}a:focus,button:focus,input:focus{outline:3px solid #abc4e1}
+.quick{display:flex;gap:8px;margin:11px 0 18px;flex-wrap:wrap}
+.quick button{background:#ecf1f8;color:#274b70;border:1px solid #d5dfec;padding:7px 12px;font-size:13px}
+.result{background:white;border:1px solid #dce4ed;border-radius:13px;padding:22px;margin:16px 0;box-shadow:0 3px 9px #1a344910}
+.topline{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.pill{font-size:12px;background:#edf2f7;padding:4px 9px;border-radius:22px;color:#324b64}
+strong{color:#132c4b}.evidence{border-left:3px solid #426da4;padding:8px 12px;margin:10px 0;background:#f8fafc}
+details{margin-top:12px}summary{cursor:pointer;font-weight:600}
+ul{margin:7px 0;padding-left:22px}.source{font-size:12px;word-break:break-all;display:block;padding:4px 0}
+.warning{padding:12px;border:1px solid #e5dbbf;border-radius:9px;background:#fcfaf4;margin:14px 0}
+#summary{margin-top:22px}small{color:#576882}aside{font-size:13px}
+@media(max-width:600px){h1{font-size:24px}.result{padding:15px}}
+</style></head>
+<body><main>
+<header><a href="index.html">← 레이더 홈</a>
+<h1>단독거리 찾아줘</h1>
+<p class="sub">기업명을 넣으면 공식 원문·NHTSA 제조사 보고서·DART 공시를 묶어 취재 우선순위별로 추천합니다. 동일 사건은 합치고, 근거 부족한 항목을 채워 넣지 않습니다.</p>
+</header>
+<form id="request" class="search">
+<label for="company">출입처</label><input id="company" type="search" value="현대차" maxlength="65" autocomplete="off" placeholder="예: 현대차, 기아, 고려아연">
+<button type="submit">단독거리 5건 찾아줘</button>
+</form>
+<nav class="quick" id="quick" aria-label="빠른 기업 선택"></nav>
+<div id="summary" role="status" aria-live="polite">공식 원문 자료를 확인하고 있습니다.</div>
+<div id="results"></div>
+</main>
+<script src="scoop_request.js"></script>
+<script>
+(function(){
+"use strict";
+const $=id=>document.getElementById(id);
+const el=(tag,text,cls)=>{
+ let e=document.createElement(tag);if(text!==undefined)e.textContent=String(text);
+ if(cls)e.className=cls;return e;
+};
+const knownSources=[
+ ["dossiers","digests/primary_research_dossiers_latest.json"],
+ ["discovery","digests/primary_original_discovery_latest.json"],
+ ["nhtsa","digests/nhtsa_part573_primary_latest.json"],
+ ["queue","digests/reporting_evidence_queue_latest.json"]
+];
+let data=null;
+function addSource(box,url,label){
+ try{
+  const u=new URL(url);
+  if(u.protocol!=="https:"||u.username||u.password)return;
+  if(!["svdisposition.com","www.svdisposition.com","www.ipgate.ch","ipgate.ch",
+        "www.supremecourt.gov","www.supremecourt.gov","www.sec.gov","sec.gov",
+        "find-and-update.company-information.service.gov.uk",
+        "static.nhtsa.gov","api.nhtsa.gov","dart.fss.or.kr"].includes(u.hostname))return;
+  const a=el("a",label,"source");a.href=u.href;a.target="_blank";
+  a.rel="noopener noreferrer";box.append(a);
+ }catch(_e){}
+}
+function show(company){
+ $("results").replaceChildren();
+ if(!data||!window.ScoopRequest){$("summary").textContent="원문 취재 대기열을 아직 불러올 수 없습니다.";return}
+ const result=window.ScoopRequest.build(data,{company,limit:5,now:new Date()});
+ const status=el("div",undefined,"warning");
+ status.append(el("strong",company+" · 원문 근거가 있는 서로 다른 검토 후보 "+result.totalCandidates+"건"),
+               el("p",result.gap));
+ status.append(el("small","원자료 조회 상태: "+result.sourceHealth.map(
+             s=>s.source+" "+s.status).join(" / ")+
+             " · 국내 기존 보도 전수 대조 미완료 · 확정 단독 0건"));
+ $("summary").replaceChildren(status);
+ for(let i=0;i<result.rows.length;i++){
+  const c=result.rows[i],article=el("article",undefined,"result");
+  const top=el("div",undefined,"topline");
+  top.append(el("span",String(i+1)+"순위","pill"),
+             el("span",c.reporterStage,"pill"),
+             el("span",c.sourceGroup,"pill"));
+  article.append(top,el("h2",c.title),
+      el("p","공개 문서 기준일: "+(c.officialDate||"원문 날짜 확인 필요")+
+        " · "+c.dateBasis,"sub"),
+      el("p",c.angle));
+  article.append(el("h3","원문에서 확인한 근거"));
+  for(const fact of c.facts.slice(0,4)){
+   const box=el("div",undefined,"evidence");
+   box.append(el("p",fact.text),el("small",fact.scope));
+   addSource(box,fact.sourceUrl,"해당 원문 확인 ↗");article.append(box);
+  }
+  article.append(el("h3","즉시 확인할 수 있는 질문"));
+  const qs=el("ul");for(const q of c.questions)qs.append(el("li",q));article.append(qs);
+  article.append(el("h3","국내 선행보도·확인상태"));
+  article.append(el("p",c.existingCoverage,"sub"));
+  if(c.possiblePriorTitles?.length){
+   const ul=el("ul");for(const title of c.possiblePriorTitles)ul.append(el("li",title));article.append(ul);
+  }
+  const more=el("details");more.append(el("summary","기사를 쓰기 전 반드시 확인할 사항"));
+  const ul=el("ul");for(const u of c.unresolved)ul.append(el("li",u));more.append(ul);
+  article.append(more,el("small","단독 미확정 · 실제 기업 영향·계약·시설 변경 및 국내 기보도 여부 확인 전"));
+  $("results").append(article);
+ }
+ if(!result.rows.length){
+  $("results").append(el("p",
+    "해당 기업을 확인할 수 있는 원문 근거 후보가 없습니다. 미보도 사건이 없다는 뜻이 아니며, 수집 원천을 확장해야 합니다.","warning"));
+ }
+}
+async function load(){
+ const parts=await Promise.all(knownSources.map(async ([key,url])=>{
+  try{let r=await fetch(url,{cache:"no-store"});if(!r.ok)throw Error("HTTP "+r.status);
+   let json=await r.json();return [key,json]}catch(_e){return [key,null]}
+ }));
+ data=Object.fromEntries(parts);show($("company").value.trim());
+}
+$("request").addEventListener("submit",ev=>{
+ ev.preventDefault();show($("company").value.trim());
+});
+for(const word of ["현대차","기아","현대제철","HD현대일렉트릭","LS일렉트릭","고려아연"]){
+ const b=el("button",word);b.type="button";
+ b.addEventListener("click",()=>{$("company").value=word;show(word)});
+ $("quick").append(b);
+}
+load();
+})();
+</script></body></html>
