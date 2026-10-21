@@ -70,7 +70,7 @@ class PrimaryOriginalDiscoveryPublisher(unittest.TestCase):
             selected(self.root,"primary_discovery")
         invalid["candidates"][0]["eventFieldsQuotedFromOriginal"][0]["notIndependentlyVerified"]=True
         invalid["candidates"][0]["publicConfirmationQuestions"]=[
-            "비공개 내부 대응계획과 생산 라인 전환 전략을 알려달라"]
+            "비공개 내부 대응계획과 생산 라인 전환 전략을 알려달라?"]
         self.write(invalid)
         with self.assertRaises(ValueError):
             selected(self.root,"primary_discovery")
