@@ -29,6 +29,10 @@ a.source{word-break:break-word;display:inline-block;margin:4px 0}
 <p class="muted">경매·특허권자 공식 게시판에서 확인한 링크입니다. 첫 관측을 새 공개·새 단독으로 판단하지 않습니다.</p>
 <div id="discovery-status" class="status">공식 게시판 검색 결과를 확인 중입니다.</div>
 <div id="discovered-links"></div></section>
+<section class="card"><h2>미국 SEC 공식 기업 접수 관측</h2>
+<p class="muted">배터리·자동차 관련 상장법인의 8-K·10-Q·10-K 등 SEC 접수번호와 공식 제출일을 확인합니다. 본문·첨부문서와 국내 선행보도는 별도로 검증해야 합니다.</p>
+<div id="sec-source-status" class="status">SEC 접수 목록 상태를 확인하는 중입니다.</div>
+<div id="sec-filings"></div></section>
 <div id="cards"></div>
 </main>
 <script>
@@ -108,6 +112,38 @@ try{
  "/"+data.documentRequestsAttempted+"건 · 실패/미일치 "+
  data.documentPagesFailedOrUnmatched+"건 · 국내 선행보도 전체 확인 전 · 단독 확정 0건";
  for(const c of data.cases)$("#cards").append(render(c));
+ try{
+   const secResponse=await fetch("digests/primary_sec_filing_watch_latest.json",{cache:"no-store"});
+   if(!secResponse.ok)throw Error("SEC 결과 미배포");
+   const sec=await secResponse.json();
+   if(sec.status!=="sec_edgar_filing_index_observed_not_fulltext_or_exclusive"||
+      sec.confirmedScoops!==0||sec.sourceCoverageExhaustive!==false||
+      sec.allOriginalDocumentBodiesRead!==false||
+      sec.allDomesticPressChecked!==false||
+      !Array.isArray(sec.filings)||sec.filingsObserved!==sec.filings.length)
+      throw Error("SEC 원자료 검증 상태 불일치");
+   $("#sec-source-status").textContent="SEC 공식 제출 목록 "+sec.sourcesChecked+"/"+sec.sourcesAttempted+
+      "개 법인 조회 성공 · 문서 접수 "+sec.filingsObserved+"건 · 기준선 이후 접수번호 첫 관측 "+
+      sec.newlyObservedAfterBaseline+"건 · 마지막 확인 "+sec.generatedAt+
+      ". 원문 본문·기업 간 계약·국내 미보도는 확인 전입니다.";
+   for(const filing of sec.filings.slice(0,30)){
+     if(filing.exclusiveConfirmed!==false||
+        filing.originalDocumentBodyRead!==false||
+        filing.contractOrPartnerMentionVerified!==false||
+        filing.fullTextAndPriorPressCompared!==false)continue;
+     const article=node("article",undefined,"fact");
+     article.append(node("div",filing.company+" · SEC "+filing.form+
+       " · 접수 "+filing.filingDate+(filing.newSinceCleanBaseline?" · 기준선 이후 관측":""),"kicker"),
+       node("p","접수번호 "+filing.accessionNumber+
+         " · 문서 본문 미검증 · 계약/인수/제품 적용 주장 금지"),
+       node("small","공식 제출문서 열람: "));
+     addLink(article,filing.filingOriginalUrl,"SEC 제출문서 ↗");
+     $("#sec-filings").append(article);
+   }
+ }catch(secError){
+   $("#sec-source-status").textContent="SEC 기업공시 인덱스 수집 실패 또는 미배포: "+
+     secError.message+" · 0건 수집을 공시 0건으로 간주하지 않습니다.";
+ }
  try{
    const response=await fetch("digests/primary_original_discovery_latest.json",{cache:"no-store"});
    if(!response.ok)throw Error("수집 결과 파일 미배포");
