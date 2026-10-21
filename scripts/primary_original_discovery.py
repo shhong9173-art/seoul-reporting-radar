@@ -26,23 +26,52 @@ MAX_SEEN=100
 MAX_LINKS_PER_SOURCE=12
 MAX_CANDIDATES=50
 
-class _Anchors(HTMLParser):
-    def __init__(self):
+class _ListingCards(HTMLParser):
+    """Pair a single detail link with its NEAREST short enclosing card.
+
+    Real auction listings use a company name in a sibling heading and
+    a generic "View Auction Details" anchor. Requiring the company's name
+    in the anchor alone missed those original documents. A page-wide ancestor
+    (multiple detail links) must never donate its company text to all links.
+    """
+    VOID={"area","base","br","col","embed","hr","img","input","link",
+          "meta","param","source","track","wbr"}
+    SKIP={"script","style","noscript","svg"}
+    def __init__(self,detail_prefix):
         super().__init__(convert_charrefs=True)
-        self.current=None
+        self.stack=[]
         self.results=[]
+        self.detail_prefix=detail_prefix
+
     def handle_starttag(self,tag,attrs):
-        if tag=="a":
-            self.current={"href":dict(attrs).get("href",""),"text":[]}
+        if tag in self.VOID:return
+        url=dict(attrs).get("href","") if tag=="a" else ""
+        self.stack.append({"tag":tag,"text":[],"links":[url] if
+                           isinstance(url,str) and
+                           self.detail_prefix in url else [],
+                           "skip":tag in self.SKIP})
+
     def handle_data(self,data):
-        if self.current is not None:
-            self.current["text"].append(data)
+        if self.stack and not any(x["skip"] for x in self.stack):
+            self.stack[-1]["text"].append(data[:3000])
+
     def handle_endtag(self,tag):
-        if tag=="a" and self.current is not None:
-            text=re.sub(r"\s+"," "," ".join(self.current["text"])).strip()
-            if text and self.current["href"]:
-                self.results.append((self.current["href"],text[:320]))
-            self.current=None
+        if not self.stack:return
+        pos=next((i for i in range(len(self.stack)-1,-1,-1)
+                  if self.stack[i]["tag"]==tag),None)
+        if pos is None:return
+        while len(self.stack)>pos:
+            frame=self.stack.pop()
+            caption=re.sub(r"\s+"," "," ".join(frame["text"])).strip()
+            links=list(dict.fromkeys(frame["links"]))
+            # Reject page-wide ancestors, overlong composite cards and
+            # ambiguous blocks with multiple independent original links.
+            if len(links)==1 and 3<=len(caption)<=500 and not frame["skip"]:
+                self.results.append((links[0],caption[:320]))
+            if self.stack and not frame["skip"]:
+                parent=self.stack[-1]
+                parent["text"].extend(frame["text"])
+                parent["links"].extend(frame["links"])
 
 def fetch_listing(url):
     if not safe_url(url):
@@ -134,7 +163,7 @@ def discover(config,prior=None,*,now,listing_fetcher=fetch_listing,detail_fetche
             markup=listing_fetcher(site["url"])
             if not isinstance(markup,str) or len(markup)<100:
                 raise ValueError("empty_official_listing")
-            a=_Anchors();a.feed(markup)
+            a=_ListingCards(site["pathPrefix"]);a.feed(markup)
             candidates=[]
             dedup=set()
             host=urlsplit(site["url"]).hostname
