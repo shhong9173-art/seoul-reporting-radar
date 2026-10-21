@@ -66,7 +66,10 @@ function render(caseFile){
  }
  left.append(node("h3","원문 수집 상태"));
  for(const d of caseFile.originalDocuments){
-   let p=node("p",d.id+" · "+d.status+(d.errorType?" ("+d.errorType+")":""),"muted");
+   const unavailable=d.status==="source_unavailable"||
+                     d.status==="text_retrieved_no_expected_evidence";
+   let p=node("p",d.id+" · "+(unavailable?"원문 확인 불가 · ":"")+d.status+
+                  (d.errorType?" ("+d.errorType+")":""),"muted");
    addLink(p,d.url,"원문 링크 ↗");left.append(p);
  }
  right.append(node("h3","실제로 물어볼 수 있는 공개 사실"));
