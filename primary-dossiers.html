@@ -41,6 +41,10 @@ try{let u=new URL(url);if(u.protocol!=="https:"||!allowed.has(u.hostname)||u.use
 catch(_e){}
 }
 function render(caseFile){
+ if(caseFile.noPriorPressProved!==false||
+    caseFile.exclusiveConfirmed!==false||
+    caseFile.publisherFulltextCompared!==false)
+   throw Error("검증되지 않은 기사 독점성·기보도 상태");
  const c=node("article",undefined,"card");
  c.append(node("div","검토 순서 "+caseFile.editorialPriority+" · "+caseFile.company+" · "+caseFile.category,"kicker"),
           node("h2",caseFile.title));
