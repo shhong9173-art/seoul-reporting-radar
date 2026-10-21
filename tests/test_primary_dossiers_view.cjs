@@ -20,6 +20,12 @@ for(const value of [
  "domesticNoPriorCoverageProved!==false",
  "observed.confirmedScoops!==0",
  "newlyObservedAfterCleanBaseline",
+ "eventFieldsQuotedFromOriginal",
+ "notIndependentlyVerified!==true",
+ "publicConfirmationQuestions",
+ "notRecheckedThisRun",
+ "원문 일부:",
+ "확인 가능한 취재 질문",
  "addLink(box,fact.sourceUrl",
 ])assert(html.includes(value),"Missing evidence-safe view gate: "+value);
 assert(!html.includes("innerHTML"),"Remote text must never be raw HTML");
