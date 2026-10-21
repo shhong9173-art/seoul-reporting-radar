@@ -4,6 +4,10 @@ on:
     paths:
       - 'data/primary_research_targets.json'
       - 'scripts/primary_document_dossiers.py'
+      - 'scripts/primary_original_discovery.py'
+      - 'data/primary_site_listing_watches.json'
+      - 'tests/test_primary_original_discovery.py'
+      - 'tests/test_primary_original_discovery_publishing.py'
       - 'scripts/publish_newsroom_outputs.py'
       - 'tests/test_primary_document_dossiers.py'
       - 'tests/test_primary_document_publishing.py'
@@ -15,6 +19,10 @@ on:
     paths:
       - 'data/primary_research_targets.json'
       - 'scripts/primary_document_dossiers.py'
+      - 'scripts/primary_original_discovery.py'
+      - 'data/primary_site_listing_watches.json'
+      - 'tests/test_primary_original_discovery.py'
+      - 'tests/test_primary_original_discovery_publishing.py'
       - 'scripts/publish_newsroom_outputs.py'
       - 'primary-dossiers.html'
       - '.github/workflows/primary-document-dossiers.yml'
@@ -44,9 +52,11 @@ jobs:
           python-version: '3.12'
       - name: Verify source documents, editorial questions and non-exclusivity
         run: |
-          python -m compileall -q scripts/primary_document_dossiers.py scripts/publish_newsroom_outputs.py
+          python -m compileall -q scripts/primary_document_dossiers.py scripts/primary_original_discovery.py scripts/publish_newsroom_outputs.py
           python -m unittest discover -s tests -p 'test_primary_document_dossiers.py' -v
           python -m unittest discover -s tests -p 'test_primary_document_publishing.py' -v
+          python -m unittest discover -s tests -p 'test_primary_original_discovery.py' -v
+          python -m unittest discover -s tests -p 'test_primary_original_discovery_publishing.py' -v
           node tests/test_primary_dossiers_view.cjs
       - name: Fetch actual originals; record source failures, not zeros
         if: github.event_name != 'pull_request'
@@ -64,6 +74,11 @@ jobs:
                 "/",o["documentRequestsAttempted"],
                 "unavailable/mismatch",o["documentPagesFailedOrUnmatched"])
           PY
-      - name: Atomic publish verified reporter records
+      - name: Discover newly observed named links from official listings
         if: github.event_name != 'pull_request'
-        run: python scripts/publish_newsroom_outputs.py --mode primary_dossiers
+        run: python -m scripts.primary_original_discovery
+      - name: Atomic publish reporter records and official link discovery
+        if: github.event_name != 'pull_request'
+        run: |
+          python scripts/publish_newsroom_outputs.py --mode primary_dossiers
+          python scripts/publish_newsroom_outputs.py --mode primary_discovery
