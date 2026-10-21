@@ -142,13 +142,13 @@ def extract_original_event_fields(text,source_id):
     """
     if not isinstance(text,str) or len(text)<35:
         return []
-    clean=re.sub(r"\\s+"," ",text).strip()
+    clean=re.sub(r"\s+"," ",text).strip()
     extracted=[]
     def field(kind,regex,*,max_value=145,claim_scope="original_notice_text_only"):
         match=re.search(regex,clean,re.I)
         if not match:
             return
-        value=re.sub(r"\\s+"," ",match.group(1)).strip(" :;.,")
+        value=re.sub(r"\s+"," ",match.group(1)).strip(" :;.,")
         if 3<=len(value)<=max_value:
             excerpt=clean[max(0,match.start()-32):min(len(clean),match.end()+18)]
             extracted.append({
@@ -159,22 +159,22 @@ def extract_original_event_fields(text,source_id):
             })
     if source_id in ("svd-past","svd-upcoming"):
         field("announced_auction_dates",
-              r"\\bAuction Dates:\\s*(.{3,65}?)(?=\\s+Address:|\\s+Checkout:|\\s+Auctioneer Fee:|$)")
+              r"\bAuction Dates:\s*(.{3,65}?)(?=\s+Address:|\s+Checkout:|\s+Auctioneer Fee:|$)")
         field("listing_address",
-              r"\\bAddress:\\s*(.{5,140}?)(?=\\s+Checkout:|\\s+Auctioneer Fee:|$)")
+              r"\bAddress:\s*(.{5,140}?)(?=\s+Checkout:|\s+Auctioneer Fee:|$)")
         field("posted_checkout_dates",
-              r"\\bCheckout:\\s*(.{3,75}?)(?=\\s+Auctioneer Fee:|\\s+State Compliance:|$)")
+              r"\bCheckout:\s*(.{3,75}?)(?=\s+Auctioneer Fee:|\s+State Compliance:|$)")
     elif source_id=="ipgate-insights":
         field("plaintiff_identified_patent",
-              r"\\b(EP\\s*[0-9][0-9\\s]{4,22}\\s*B1)\\b",
+              r"\b(EP\s*[0-9][0-9\s]{4,22}\s*B1)\b",
               claim_scope="plaintiff_statement_not_court_finding")
         field("plaintiff_identified_court",
-              r"\\b((?:Munich Regional Court|Landgericht München I))\\b",
+              r"\b((?:Munich Regional Court|Landgericht München I))\b",
               claim_scope="plaintiff_statement_not_court_finding")
         # Licensing timelines are claims by the patent owner, NOT an
         # independently proven negotiation or a license status.
         field("plaintiff_stated_license_proposal_date",
-              r"\\blicen[cs](?:e|ing).{0,120}?(September\\s+2021)\\b",
+              r"\blicen[cs](?:e|ing).{0,120}?(September\s+2021)\b",
               claim_scope="one_sided_plaintiff_claim")
     return extracted
 
