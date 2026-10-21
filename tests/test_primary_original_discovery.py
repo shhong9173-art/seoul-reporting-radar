@@ -4,7 +4,7 @@ from datetime import datetime,timezone,timedelta
 from pathlib import Path
 
 from scripts.primary_original_discovery import (
-    discover,valid_targets,ROOT,STATUS
+    discover,valid_targets,named,ROOT,STATUS
 )
 
 CFG=json.loads((ROOT/"data/primary_site_listing_watches.json").read_text("utf-8"))
@@ -68,6 +68,44 @@ class OfficialListingDiscovery(unittest.TestCase):
         rows=discover(CFG,now=T0,listing_fetcher=listing,
                       detail_fetcher=detail)["candidates"]
         self.assertFalse(any(x["sourceId"]=="svd-past" for x in rows))
+
+    def test_real_nvidia_tesla_gpu_auction_is_not_tesla_vehicle_business(self):
+        exact=("Bay Area Tech Co #29 Sep 22–24, 2026 Santa Clara CA "
+               "Featuring New-In-Box Dell S3248T PowerSwitches, "
+               "Nvidia Tesla GPU's, Cisco Mount Servers")
+        self.assertEqual(named(exact,["Tesla"]),[])
+        self.assertEqual(named("Nvidia Tesla V100 GPU sale",["Tesla"]),[])
+        self.assertEqual(named("Tesla Inc factory assets",["Tesla"]),["Tesla"])
+        def gpu_listing(url):
+            markup=listing_first(url)
+            if "past-auctions" in url:
+                markup=markup.replace("</html>",
+                    '<div class="auction-card"><h3>'+exact+'</h3>'
+                    '<a href="/auction-detail/999">View Auction Details</a></div>'
+                    '</html>')
+            return markup
+        def gpu_details(url):
+            if url.endswith("/999"):
+                return ("Nvidia Tesla GPU V100 semiconductor compute accelerator "
+                        "rack surplus laboratory auction, Santa Clara")
+            return detail(url)
+        observed=discover(CFG,now=T0,listing_fetcher=gpu_listing,
+                          detail_fetcher=gpu_details)
+        self.assertEqual(observed["candidateCount"],3)
+        self.assertFalse(any("/999" in x["url"] for x in observed["candidates"]))
+        # The old live false-positive must be purged from a previous digest,
+        # not cached with notRecheckedThisRun for another fortnight.
+        bad={**observed["candidates"][0],
+             "url":"https://svdisposition.com/auction-detail/999",
+             "title":exact,"sourceId":"svd-past"}
+        previous=json.loads(json.dumps(observed))
+        previous["candidates"].append(bad)
+        previous["candidateCount"]=4
+        again=discover(CFG,previous,now=T0+timedelta(minutes=30),
+                       listing_fetcher=listing_first,detail_fetcher=detail)
+        self.assertEqual(again["priorRowsRejectedByCurrentIdentityRules"],1)
+        self.assertFalse(any("/999" in x["url"] for x in again["candidates"]))
+        self.assertEqual(again["confirmedScoops"],0)
 
     def test_baseline_is_not_synthetic_new_exclusive(self):
         o=discover(CFG,now=T0,listing_fetcher=listing_first,detail_fetcher=detail)
