@@ -52,6 +52,7 @@ OUTPUTS = {
         "digests/global_news_feed_health_latest.json",
     ),
     "primary_dossiers": ("digests/primary_research_dossiers_latest.json",),
+    "primary_discovery": ("digests/primary_original_discovery_latest.json",),
 }
 OPTIONAL = set()  # A shared corporate registry has exactly one official writer.
 # Existing verified archive.json is ~16.2MB (2026-10-17). A blanket 12MiB
@@ -93,6 +94,32 @@ def selected(root: Path, mode: str):
             except (UnicodeError, ValueError):
                 raise ValueError("invalid_json_output: " + name) from None
         files.append(name)
+    if mode == "primary_discovery":
+        report=json.loads((root / "digests/primary_original_discovery_latest.json")
+                          .read_text(encoding="utf-8"))
+        sources=report.get("sources",[])
+        candidates=report.get("candidates",[])
+        if (report.get("status")!="official_listing_links_observed_not_verified_scoops"
+            or report.get("sourceCoverageExhaustive") is not False
+            or report.get("domesticNoPriorCoverageProved") is not False
+            or report.get("confirmedScoops")!=0
+            or not isinstance(sources,list) or not 1<=len(sources)<=8
+            or report.get("sourcesAttempted")!=len(sources)
+            or not isinstance(candidates,list) or len(candidates)>50
+            or report.get("candidateCount")!=len(candidates)
+            or report.get("newlyObservedAfterBaseline")!=sum(
+                x.get("newlyObservedAfterCleanBaseline") is True
+                for x in candidates)
+            or any(x.get("confirmedExclusive") is not False or
+                   x.get("publishedAtVerified") is not False or
+                   x.get("factsComparedToPublisherArticle") is not False or
+                   x.get("domesticPriorCoverageChecked") is not False or
+                   x.get("originalPageRead") is not True
+                   for x in candidates)):
+            raise ValueError("unsafe_or_unverified_first_party_discovery")
+        from scripts.primary_document_dossiers import safe_url
+        if any(not safe_url(x.get("url")) for x in candidates):
+            raise ValueError("untrusted_discovered_original_url")
     if mode == "primary_dossiers":
         report=json.loads((root / "digests/primary_research_dossiers_latest.json")
                           .read_text(encoding="utf-8"))

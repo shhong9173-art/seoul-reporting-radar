@@ -15,6 +15,11 @@ for(const value of [
  "originalDocumentsVerified",
  "noPriorPressProved",
  "source_unavailable",
+ "digests/primary_original_discovery_latest.json",
+ "sourceCoverageExhaustive!==false",
+ "domesticNoPriorCoverageProved!==false",
+ "observed.confirmedScoops!==0",
+ "newlyObservedAfterCleanBaseline",
  "addLink(box,fact.sourceUrl",
 ])assert(html.includes(value),"Missing evidence-safe view gate: "+value);
 assert(!html.includes("innerHTML"),"Remote text must never be raw HTML");
