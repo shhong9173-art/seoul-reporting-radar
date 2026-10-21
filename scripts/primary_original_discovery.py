@@ -117,6 +117,19 @@ def named(text,names):
     for name in names:
         clean=name.casefold()
         if re.search(r"(?<![a-z])"+re.escape(clean)+r"(?![a-z])",title):
+            if clean=="tesla":
+                # NVIDIA "Tesla" is a GPU product family, not necessarily
+                # Tesla, Inc. manufacturing/asset activity. A false-positive
+                # equipment sale appeared in actual 2026-10-21 production.
+                gpu=bool(re.search(
+                    r"\b(?:nvidia|nvda)\s+tesla\b|"
+                    r"\btesla\s+(?:gpu|v100|p100|k80|t4|accelerator)\b",title))
+                automotive=bool(re.search(
+                    r"\btesla\s*(?:,\s*)?(?:inc\b|motors\b|vehicles?\b|"
+                    r"model\s+[s3xy]\b|gigafactory\b|factory\b|cars?\b|"
+                    r"supercharger\b|energy\b)",title))
+                if gpu and not automotive:
+                    continue
             matches.append(name)
     return matches[:8]
 
@@ -230,10 +243,15 @@ def discover(config,prior=None,*,now,listing_fetcher=fetch_listing,detail_fetche
                           failStreak=int(status["failStreak"])+1,
                           errorType=type(e).__name__)
         source_records.append(status)
-    # Preserve previously verified links when source failed (or a paginated
-    # listing no longer shows them). Their 'current' status is NEVER asserted.
+    # Preserve previously verified links on a transient source failure, but
+    # never resurrect rows now rejected by stronger company-identity rules.
+    # A stale NVIDIA Tesla GPU auction must not remain for 14 days.
+    legacy_rejected=0
     for url,old in previous.items():
         if url in outcome:continue
+        if not named(old.get("title",""),config["trackedNames"]):
+            legacy_rejected+=1
+            continue
         seen=old.get("lastSeenAt")
         try:dt=datetime.fromisoformat(seen)
         except (ValueError,TypeError):continue
@@ -255,6 +273,7 @@ def discover(config,prior=None,*,now,listing_fetcher=fetch_listing,detail_fetche
         "candidates":rows,"candidateCount":len(rows),
         "newlyObservedAfterBaseline":sum(x["newlyObservedAfterCleanBaseline"]
                                        for x in rows),
+        "priorRowsRejectedByCurrentIdentityRules":legacy_rejected,
         "sourceCoverageExhaustive":False,"domesticNoPriorCoverageProved":False,
         "confirmedScoops":0,
         "warning":"공식 목록의 링크 첫 관측은 새로 공개된 문서 또는 미보도 단독의 증명이 아님. 회사명·원문 URL만 교차 확인했고, 본문 사실·선행보도·실제 사건 발생시점은 기자가 검증해야 함",
