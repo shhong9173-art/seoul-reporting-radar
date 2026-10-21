@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-10-21T09:59:47+09:00",
+  "generatedAt": "2026-10-21T13:44:56+09:00",
   "status": "reporter_evidence_queue_not_exclusive",
   "sourceCoverage": "partial_source_coverage_not_zero_news",
   "sourceHealth": {
     "officialEvents": {
       "status": "source_partial_coverage",
-      "generatedAt": "2026-10-21T00:00:54+09:00",
+      "generatedAt": "2026-10-21T09:59:49+09:00",
       "rows": 3,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false,
@@ -16,44 +16,44 @@
     },
     "dartBeat": {
       "status": "source_partial_coverage",
-      "generatedAt": "2026-10-21T09:59:18+09:00",
-      "rows": 34,
+      "generatedAt": "2026-10-21T13:44:15+09:00",
+      "rows": 35,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false,
       "uninspectedRelevantDetails": 0
     },
     "investment": {
       "status": "source_snapshot_checked",
-      "generatedAt": "2026-10-20T11:08:34+09:00",
+      "generatedAt": "2026-10-21T11:04:23+09:00",
       "rows": 1,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false
     },
     "metrics": {
       "status": "source_snapshot_checked",
-      "generatedAt": "2026-10-20T21:40:32+09:00",
+      "generatedAt": "2026-10-21T13:44:12+09:00",
       "rows": 47,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false
     },
     "contracts": {
       "status": "source_snapshot_checked",
-      "generatedAt": "2026-10-20T10:48:40+09:00",
-      "rows": 8,
+      "generatedAt": "2026-10-21T10:32:54+09:00",
+      "rows": 7,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false
     },
     "recentLedger": {
       "status": "source_snapshot_checked",
-      "generatedAt": "2026-10-20T10:48:24+09:00",
-      "rows": 8,
+      "generatedAt": "2026-10-21T10:32:39+09:00",
+      "rows": 7,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false
     },
     "correctionHistory": {
       "status": "source_snapshot_checked",
-      "generatedAt": "2026-10-20T10:48:42+09:00",
-      "rows": 4,
+      "generatedAt": "2026-10-21T10:32:55+09:00",
+      "rows": 3,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false
     }
@@ -63,9 +63,9 @@
     "new_official_list_heading_review": 0,
     "verified_historical_investment_delta": 3,
     "verified_historical_numeric_delta": 47,
-    "issuer_only_correction_unverified_original": 4,
+    "issuer_only_correction_unverified_original": 3,
     "older_public_contract_reference": 3,
-    "unlinked_correction_text_followup": 2
+    "unlinked_correction_text_followup": 1
   },
   "sourceDateWindow": {
     "recentFrom": "2026-10-19",
@@ -74,10 +74,10 @@
   "checkedOfficialRecentCandidates": 3,
   "recentOfficialTitleOnlyCount": 0,
   "todayOnlyCount": 3,
-  "historicalResearchCount": 59,
-  "unlinkedHistoryTextMatchCount": 2,
+  "historicalResearchCount": 57,
+  "unlinkedHistoryTextMatchCount": 1,
   "correctionHistorySourceGate": "reviewed_unlinked_candidates_only",
-  "totalRows": 62,
+  "totalRows": 60,
   "excluded": {
     "invalid_original_identity": 0,
     "old_and_not_relevant": 0,
@@ -1515,30 +1515,6 @@
       ]
     },
     {
-      "id": "issuer_only_correction_unverified_original:DART:20260929800608",
-      "tier": "issuer_only_correction_unverified_original",
-      "tierLabel": "정정문 자체 기재변경·원공시 미대조",
-      "company": "세아제강",
-      "title": "세아제강 · [기재정정]단일판매ㆍ공급계약체결",
-      "officialDocumentDate": "2026-09-29",
-      "officialDateIsSourcePublicationNotScrape": true,
-      "evidenceSummary": "정정 공시의 발행사 기재 변경란 참고 5. 계약기간 종료일. 최초 원공시 미대조. 동일 계약·실제 계약 조건의 변화는 확정되지 않음.",
-      "officialUrls": [
-        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260929800608"
-      ],
-      "pressFulltextReviewed": false,
-      "sameAngleCoverageVerified": false,
-      "companyImpactVerified": false,
-      "futurePlanVerified": false,
-      "exclusiveConfirmed": false,
-      "approvedForPitch": false,
-      "nextChecks": [
-        "최초 원공시 번호·정정 이력의 같은 계약 여부",
-        "원공시/직전 정정문의 계약조건 전후 실제 비교",
-        "동일 사건 기존 기사 전문·기업 공개 답변 확인"
-      ]
-    },
-    {
       "id": "older_public_contract_reference:DART:20261013800054",
       "tier": "older_public_contract_reference",
       "tierLabel": "이전 공식 계약 공시 참고자료",
@@ -1640,41 +1616,6 @@
       "priorOfficialReceipt": "20260226801263",
       "latestCorrectionReceipt": "20260930800924",
       "matchField": "contract_amount",
-      "sourceProvenance": "three_matching_dart_snapshot_timestamps_unlinked",
-      "newsArticleFulltextVerified": false,
-      "historicalNotNewIncident": true,
-      "editorialSection": "unlinked_deep_check_not_today_news"
-    },
-    {
-      "id": "unlinked_correction_text_followup:20260929800608:20251223800497:contract_end",
-      "tier": "unlinked_correction_text_followup",
-      "tierLabel": "과거·현재 정정문 기재값 일치 · 계약 동일성 미확인",
-      "company": "세아제강",
-      "title": "세아제강 · 정정공시 contract_end 원공시 연결 확인",
-      "officialDocumentDate": "2026-09-29",
-      "officialDateIsSourcePublicationNotScrape": true,
-      "evidenceSummary": "과거 후보 20251223800497의 공시 기재값 2026-09-30과 이번 정정공시가 밝힌 '정정 전' 값 2026-09-30의 문자 일치. 이번 정정 후 기재값 2026-11-30. 단, 동일 계약 및 실제 계약 변경은 증명되지 않음.",
-      "officialUrls": [
-        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260929800608",
-        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20251223800497"
-      ],
-      "pressFulltextReviewed": false,
-      "sameAngleCoverageVerified": false,
-      "companyImpactVerified": false,
-      "futurePlanVerified": false,
-      "exclusiveConfirmed": false,
-      "approvedForPitch": false,
-      "nextChecks": [
-        "정정문에 명시된 원공시 접수번호와 해당 계약의 발행사 고유번호를 확인",
-        "과거·현재 정정 공시의 계약 상대방·계약명·원공시 계보를 직접 대조",
-        "해당 변경이 이미 보도됐는지 해당 기사 전문 확인",
-        "확정된 변경 조건·일자만 기업에 공개 확인 요청"
-      ],
-      "contractLinkVerified": false,
-      "textMatchIsNotContractContinuity": true,
-      "priorOfficialReceipt": "20251223800497",
-      "latestCorrectionReceipt": "20260929800608",
-      "matchField": "contract_end",
       "sourceProvenance": "three_matching_dart_snapshot_timestamps_unlinked",
       "newsArticleFulltextVerified": false,
       "historicalNotNewIncident": true,
