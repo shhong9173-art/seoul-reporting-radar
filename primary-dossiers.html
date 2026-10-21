@@ -135,6 +135,27 @@ try{
       row.sourceId+" · "+row.companiesMentionedInListingAndOriginal.join(", "),"kicker"),
       node("p",row.title),node("small","첫 관측 "+row.firstSeenAt+" · 기사 전문/선행보도 확인 전 · "));
      addLink(article,row.url,"공식 페이지 열기 ↗");
+     if(row.notRecheckedThisRun===true)
+       article.append(node("p","이번 수집 주기에 원문을 다시 확인하지 못했습니다. 이전 관측 근거만 유지합니다.","muted"));
+     const fields=Array.isArray(row.eventFieldsQuotedFromOriginal)?
+       row.eventFieldsQuotedFromOriginal:[];
+     for(const field of fields.slice(0,5)){
+       if(field.notIndependentlyVerified!==true||
+          typeof field.originalQuote!=="string"||
+          typeof field.verbatimValue!=="string")continue;
+       article.append(node("p","원문 표기 · "+field.field+" : "+
+                            field.verbatimValue,"meta"));
+       article.append(node("small","원문 일부: "+field.originalQuote+
+         " · 실제 이행·법원 확인·회사 답변 전"));
+     }
+     const questions=Array.isArray(row.publicConfirmationQuestions)?
+       row.publicConfirmationQuestions:[];
+     if(questions.length){
+       article.append(node("h3","확인 가능한 취재 질문"));
+       const list=node("ul");
+       for(const q of questions.slice(0,3))list.append(node("li",q));
+       article.append(list);
+     }
      $("#discovered-links").append(article);
    }
  }catch(discoveryError){
