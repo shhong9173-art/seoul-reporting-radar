@@ -158,8 +158,12 @@ def extract_original_event_fields(text,source_id):
                 "notIndependentlyVerified":True,
             })
     if source_id in ("svd-past","svd-upcoming"):
+        # The SVD page has both the date range and *lengthy* inspection
+        # hour/location schedules before Address:. Anchor to the explicit
+        # short month/day/year range rather than assuming the entire block
+        # between labels is at most 65 characters.
         field("announced_auction_dates",
-              r"\bAuction Dates:\s*(.{3,65}?)(?=\s+Address:|\s+Checkout:|\s+Auctioneer Fee:|$)")
+              r"\bAuction Dates\s*:\s*([A-Za-z]{3,9}\s+\d{1,2}\s*[–-]\s*\d{1,2},?\s*20\d{2})")
         field("listing_address",
               r"\bAddress:\s*(.{5,140}?)(?=\s+Checkout:|\s+Auctioneer Fee:|$)")
         field("posted_checkout_dates",
