@@ -282,7 +282,20 @@ def main():
     args=ap.parse_args()
     spec=json.loads(args.registry.read_text(encoding="utf-8"))
     previous=json.loads(args.previous.read_text(encoding="utf-8")) if args.previous.exists() else None
-    result=dossier(spec,previous=previous)
+    # A known news index can provide POSITIVE possible prior reports only.
+    # Missing/failed news index NEVER becomes proof of no prior publication.
+    press=None
+    try:
+        index=json.loads((ROOT/"digests/press_coverage_index_latest.json")
+                         .read_text(encoding="utf-8"))
+        if (index.get("status")=="observed_domestic_press_index_not_complete_coverage"
+            and isinstance(index.get("items"),list)
+            and index.get("itemCount")==len(index["items"])
+            and _time(index.get("generatedAt"))):
+            press=index["items"]
+    except (OSError,ValueError,UnicodeError,AttributeError):
+        pass
+    result=dossier(spec,previous=previous,prior_press=press)
     args.output.parent.mkdir(parents=True,exist_ok=True)
     tmp=args.output.with_suffix(args.output.suffix+".tmp")
     tmp.write_text(json.dumps(result,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
