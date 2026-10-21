@@ -59,6 +59,22 @@ class PrimaryOriginalDiscoveryPublisher(unittest.TestCase):
         self.assertNotEqual(bad.returncode,0)
         self.assertIn("unsafe_or_unverified_first_party_discovery",bad.stderr)
 
+    def test_fabricated_public_document_fields_are_rejected(self):
+        invalid=json.loads(json.dumps(self.report))
+        invalid["candidates"][0]["eventFieldsQuotedFromOriginal"]=[{
+            "field":"patent_number","verbatimValue":"invented",
+            "originalQuote":"unsupported artificial phrase",
+            "notIndependentlyVerified":False}]
+        self.write(invalid)
+        with self.assertRaises(ValueError):
+            selected(self.root,"primary_discovery")
+        invalid["candidates"][0]["eventFieldsQuotedFromOriginal"][0]["notIndependentlyVerified"]=True
+        invalid["candidates"][0]["publicConfirmationQuestions"]=[
+            "비공개 내부 대응계획과 생산 라인 전환 전략을 알려달라?"]
+        self.write(invalid)
+        with self.assertRaises(ValueError):
+            selected(self.root,"primary_discovery")
+
     def test_arbitrary_external_link_is_rejected(self):
         data=json.loads(json.dumps(self.report))
         data["candidates"][0]["url"]="https://untrusted.example.com/personal"

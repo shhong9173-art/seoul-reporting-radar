@@ -4,7 +4,8 @@ from datetime import datetime,timezone,timedelta
 from pathlib import Path
 
 from scripts.primary_original_discovery import (
-    discover,valid_targets,named,ROOT,STATUS
+    discover,valid_targets,named,extract_original_event_fields,
+    public_source_followup_questions,ROOT,STATUS
 )
 
 CFG=json.loads((ROOT/"data/primary_site_listing_watches.json").read_text("utf-8"))
@@ -106,6 +107,65 @@ class OfficialListingDiscovery(unittest.TestCase):
         self.assertEqual(again["priorRowsRejectedByCurrentIdentityRules"],1)
         self.assertFalse(any("/999" in x["url"] for x in again["candidates"]))
         self.assertEqual(again["confirmedScoops"],0)
+
+    def test_auction_detail_exact_dates_and_address_are_source_quoted_not_inferred(self):
+        official=("Silicon Valley Disposition Supernal #2 Auction "
+                  "Auction Dates: Oct 12–14, 2026 "
+                  "Address: 1030 Flightline, Hangar 200 & 201, Mojave, CA, 93501 "
+                  "Checkout: Oct 19–20, 2026 "
+                  "Auctioneer Fee: 18% Buyers Premium")
+        evidence=extract_original_event_fields(official,"svd-past")
+        result={f["field"]:f for f in evidence}
+        self.assertEqual(result["announced_auction_dates"]["verbatimValue"],
+                         "Oct 12–14, 2026")
+        self.assertIn("Hangar 200 & 201",
+                      result["listing_address"]["verbatimValue"])
+        self.assertEqual(result["posted_checkout_dates"]["verbatimValue"],
+                         "Oct 19–20, 2026")
+        self.assertTrue(all(x["notIndependentlyVerified"] for x in evidence))
+        self.assertTrue(all(x["originalQuote"] in official for x in evidence))
+        self.assertTrue(any("공개" in q for q in
+                            public_source_followup_questions("svd-past")))
+
+    def test_ipgate_patent_and_court_are_one_sided_original_claims(self):
+        official=("IPGATE compelled to take legal action against Hyundai. "
+                  "Patent infringement suit before the Munich Regional Court. "
+                  "Based on the German portion of European patent EP 3 145 771 B1. "
+                  "IPGATE has been offering Hyundai Mobis a license since September 2021.")
+        fields=extract_original_event_fields(official,"ipgate-insights")
+        kinds={x["field"]:x for x in fields}
+        self.assertEqual(kinds["plaintiff_identified_patent"]["verbatimValue"],
+                         "EP 3 145 771 B1")
+        self.assertEqual(kinds["plaintiff_identified_court"]["verbatimValue"],
+                         "Munich Regional Court")
+        self.assertEqual(kinds["plaintiff_stated_license_proposal_date"]["verbatimValue"],
+                         "September 2021")
+        self.assertTrue(all(x["claimScope"].startswith(
+                         ("plaintiff_","one_sided_")) for x in fields))
+        self.assertEqual(extract_original_event_fields(
+            "A company unrelated to patents and vehicle brakes.","ipgate-insights"),[])
+        self.assertTrue(any("원고" in q for q in
+                            public_source_followup_questions("ipgate-insights")))
+
+    def test_real_discovery_emits_public_question_and_source_quotes_only(self):
+        def detailed(url):
+            if "/auction-detail/" in url:
+                return ("Official Supernal surplus auction. Auction Dates: "
+                        "Sep 21–23, 2026 Address: Hangar 200 & 201 Mojave, CA "
+                        "Checkout: Sep 24–30, 2026 Auctioneer Fee: 18%.")
+            return ("IPGATE says Hyundai uses patent EP 3 145 771 B1 "
+                    "before the Munich Regional Court. Hyundai Mobis "
+                    "was offered a license since September 2021.")
+        o=discover(CFG,now=T0,listing_fetcher=listing_first,
+                   detail_fetcher=detailed)
+        self.assertEqual(o["candidateCount"],3)
+        self.assertTrue(all(x["publicConfirmationQuestions"] for x in o["candidates"]))
+        self.assertTrue(all(x["companyActivityOrLegalOutcomeIndependentlyConfirmed"]
+                             is False for x in o["candidates"]))
+        self.assertTrue(all(x["confirmedExclusive"] is False for x in o["candidates"]))
+        self.assertTrue(any(x["eventFieldsQuotedFromOriginal"]
+                            for x in o["candidates"]))
+        self.assertEqual(o["confirmedScoops"],0)
 
     def test_baseline_is_not_synthetic_new_exclusive(self):
         o=discover(CFG,now=T0,listing_fetcher=listing_first,detail_fetcher=detail)
