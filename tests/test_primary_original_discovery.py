@@ -33,6 +33,42 @@ def detail(url):
     raise AssertionError(url)
 
 class OfficialListingDiscovery(unittest.TestCase):
+    def test_real_auction_card_company_name_is_sibling_of_generic_details_link(self):
+        def auction_listing(url):
+            if url.endswith("past-auctions"):
+                return (
+                    '<html><main><section>'
+                    '<div class="auction-card"><h3>EXTREMELY SHORT NOTICE SALE: '
+                    'Surplus Assets to the Ongoing Operations of Supernal #2</h3>'
+                    '<p>Oct 12-14 2026 Mojave CA</p>'
+                    '<a href="/auction-detail/891">View Auction Details</a></div>'
+                    '<div class="auction-card"><h3>Unrelated Solar Equipment</h3>'
+                    '<a href="/auction-detail/900">View Auction Details</a></div>'
+                    '</section></main></html>')
+            return listing_first(url)
+        result=discover(CFG,now=T0,listing_fetcher=auction_listing,
+                        detail_fetcher=detail)
+        links={x["url"] for x in result["candidates"]}
+        self.assertIn("https://svdisposition.com/auction-detail/891",links)
+        self.assertNotIn("https://svdisposition.com/auction-detail/900",links)
+        self.assertEqual(result["sourcesChecked"],3)
+        self.assertEqual(result["newlyObservedAfterBaseline"],0)
+
+    def test_parent_page_company_name_must_not_bleed_to_unrelated_cards(self):
+        def listing(url):
+            if url.endswith("past-auctions"):
+                return (
+                    '<html><h1>Supernal auctions archive</h1>'
+                    '<div><h3>Unrelated battery research laboratory</h3>'
+                    '<a href="/auction-detail/100">View Auction Details</a></div>'
+                    '<div><h3>Generic equipment in storage</h3>'
+                    '<a href="/auction-detail/101">View Auction Details</a></div>'
+                    '</html>')
+            return listing_first(url)
+        rows=discover(CFG,now=T0,listing_fetcher=listing,
+                      detail_fetcher=detail)["candidates"]
+        self.assertFalse(any(x["sourceId"]=="svd-past" for x in rows))
+
     def test_baseline_is_not_synthetic_new_exclusive(self):
         o=discover(CFG,now=T0,listing_fetcher=listing_first,detail_fetcher=detail)
         self.assertEqual(o["status"],STATUS)
