@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-21T14:52:32+09:00",
+  "generatedAt": "2026-10-21T22:08:44+09:00",
   "status": "reporter_evidence_queue_not_exclusive",
   "sourceCoverage": "partial_source_coverage_not_zero_news",
   "sourceHealth": {
@@ -16,8 +16,8 @@
     },
     "dartBeat": {
       "status": "source_partial_coverage",
-      "generatedAt": "2026-10-21T13:44:15+09:00",
-      "rows": 35,
+      "generatedAt": "2026-10-21T22:08:03+09:00",
+      "rows": 37,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false,
       "uninspectedRelevantDetails": 0
@@ -31,7 +31,7 @@
     },
     "metrics": {
       "status": "source_snapshot_checked",
-      "generatedAt": "2026-10-21T13:44:12+09:00",
+      "generatedAt": "2026-10-21T21:52:21+09:00",
       "rows": 47,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false
@@ -60,7 +60,7 @@
   },
   "countsByEvidenceTier": {
     "new_official_receipt_review": 4,
-    "new_official_list_heading_review": 0,
+    "new_official_list_heading_review": 2,
     "verified_historical_investment_delta": 3,
     "verified_historical_numeric_delta": 47,
     "issuer_only_correction_unverified_original": 3,
@@ -71,13 +71,13 @@
     "recentFrom": "2026-10-19",
     "through": "2026-10-21"
   },
-  "checkedOfficialRecentCandidates": 4,
-  "recentOfficialTitleOnlyCount": 0,
-  "todayOnlyCount": 4,
+  "checkedOfficialRecentCandidates": 6,
+  "recentOfficialTitleOnlyCount": 2,
+  "todayOnlyCount": 6,
   "historicalResearchCount": 57,
   "unlinkedHistoryTextMatchCount": 1,
   "correctionHistorySourceGate": "reviewed_unlinked_candidates_only",
-  "totalRows": 61,
+  "totalRows": 63,
   "excluded": {
     "invalid_original_identity": 0,
     "old_and_not_relevant": 0,
@@ -215,6 +215,80 @@
         "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
         "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
       ]
+    },
+    {
+      "id": "new_official_list_heading_review:DART:20261021800303",
+      "tier": "new_official_list_heading_review",
+      "tierLabel": "최근 DART 중요 공시 · 제목만 확인",
+      "company": "동국제강",
+      "title": "동국제강 · 기업가치제고계획(자율공시)              (PBR 개선 계획 제출 기업)",
+      "officialDocumentDate": "2026-10-21",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 목록의 공시 제목·접수번호·접수일만 확인. 가치제고 목표·주식소각 수량·확정 재무영향은 본문 대조 전이며, 기보도·기업 답변 모두 미확인.",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261021800303"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 공시 본문에서 수치·대상·결의일, 완료/예정 상태 확인",
+        "이전 가치제고 계획·자사주 처분/소각 공시와 수치 차이 검산",
+        "기존 매체 기사 전문 및 최초 공표 시각 대조",
+        "기업의 이미 공개된 공시 내용만 확인"
+      ],
+      "officialOriginalTextRetrieved": true,
+      "officialOriginalTargetTextExcerpts": {},
+      "officialAttachmentPdfReviewed": false,
+      "originalTextEvidenceIsNotSameYearTargetDefinition": true,
+      "officialListTitleOnly": true,
+      "officialDocumentBodyReviewed": false,
+      "filingTypeFromOfficialTitle": "기업가치제고계획",
+      "disclosedFinancialImpactVerified": false,
+      "priorPressArticleFulltextReviewed": false,
+      "companyResponseVerified": false,
+      "firstObservedHereNotFirstReported": true,
+      "editorialPriority": "primary_title_manual_document_review_only"
+    },
+    {
+      "id": "new_official_list_heading_review:DART:20261021800308",
+      "tier": "new_official_list_heading_review",
+      "tierLabel": "최근 DART 중요 공시 · 제목만 확인",
+      "company": "동국씨엠",
+      "title": "동국씨엠 · 기업가치제고계획(자율공시)              (PBR 개선 계획 제출 기업)",
+      "officialDocumentDate": "2026-10-21",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 목록의 공시 제목·접수번호·접수일만 확인. 가치제고 목표·주식소각 수량·확정 재무영향은 본문 대조 전이며, 기보도·기업 답변 모두 미확인.",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261021800308"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 공시 본문에서 수치·대상·결의일, 완료/예정 상태 확인",
+        "이전 가치제고 계획·자사주 처분/소각 공시와 수치 차이 검산",
+        "기존 매체 기사 전문 및 최초 공표 시각 대조",
+        "기업의 이미 공개된 공시 내용만 확인"
+      ],
+      "officialOriginalTextRetrieved": true,
+      "officialOriginalTargetTextExcerpts": {},
+      "officialAttachmentPdfReviewed": false,
+      "originalTextEvidenceIsNotSameYearTargetDefinition": true,
+      "officialListTitleOnly": true,
+      "officialDocumentBodyReviewed": false,
+      "filingTypeFromOfficialTitle": "기업가치제고계획",
+      "disclosedFinancialImpactVerified": false,
+      "priorPressArticleFulltextReviewed": false,
+      "companyResponseVerified": false,
+      "firstObservedHereNotFirstReported": true,
+      "editorialPriority": "primary_title_manual_document_review_only"
     },
     {
       "id": "verified_historical_investment_delta:20260814003228:변압기 철심공장",
