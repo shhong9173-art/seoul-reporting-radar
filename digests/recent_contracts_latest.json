@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-10-20T10:48:24+09:00",
-  "periodStart": "20260929",
-  "periodEnd": "20261020",
+  "generatedAt": "2026-10-21T10:32:39+09:00",
+  "periodStart": "20260930",
+  "periodEnd": "20261021",
   "source": "OpenDART 회사별 공시검색 list.json 및 조회된 경우 document.xml",
   "scope": "직접 출입처 13개사의 21일 내 공급계약·신규시설투자·생산중단·재개 공시",
   "sourceChecks": [
@@ -23,7 +23,7 @@
     {
       "company": "세아제강",
       "status": "checked",
-      "matchedContractEvents": 1
+      "matchedContractEvents": 0
     },
     {
       "company": "HD현대일렉트릭",
@@ -71,8 +71,8 @@
       "matchedContractEvents": 0
     }
   ],
-  "totalMatchingListEvents": 8,
-  "inspectedDetails": 8,
+  "totalMatchingListEvents": 7,
+  "inspectedDetails": 7,
   "allEventsInspected": true,
   "items": [
     {
@@ -214,59 +214,6 @@
           "report": "[기재정정]단일판매ㆍ공급계약체결              ",
           "date": "20260226",
           "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260226801263",
-          "status": "같은 날짜의 후보일 뿐 동일 사건 미검증"
-        }
-      ],
-      "sourceError": false,
-      "scoopStatus": "기보도 및 원자료·회사 답변 확인 전 · 단독 미확정",
-      "questions": [
-        "원문 원계약·정정 전후 계약금액, 고객사, 적용 기간이 명시됐는가?",
-        "해당 공급계약·투자에 관한 이전 DART 공시·기업 발표·전문지 보도가 있는가?",
-        "공식 계약 확정과 입찰/협약/옵션 계약의 구분 및 실제 산업 영향은 무엇인가?"
-      ]
-    },
-    {
-      "company": "세아제강",
-      "corpCode": "01325979",
-      "receiptNo": "20260929800608",
-      "published": "20260929",
-      "report": "[기재정정]단일판매ㆍ공급계약체결              ",
-      "category": "공급계약",
-      "isCorrection": true,
-      "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260929800608",
-      "status": "original_not_verified",
-      "evidenceStatus": "원문에서 원공시의 명시적 접수번호 확인 불가; 날짜·제목만으로 계약 연결 금지",
-      "originalReceiptNo": null,
-      "originalSourceUrl": null,
-      "changes": [],
-      "issuerCorrectionTable": {
-        "status": "issuer_table_material_changes_for_review",
-        "changes": [
-          {
-            "fieldLabel": "5. 계약기간 종료일",
-            "before": "2026-09-30",
-            "after": "2026-11-30",
-            "category": "contract_period",
-            "basis": "issuer_reported_amendment_table_only",
-            "amendedSourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260929800608",
-            "originalReceiptIndependentlyVerified": false,
-            "commercialEffectVerified": false,
-            "sameEventPriorCoverageVerified": false,
-            "oneSideUnspecified": false
-          }
-        ],
-        "totalMaterialRows": 1,
-        "conflictingFieldCount": 0,
-        "skippedRows": 0,
-        "independentOriginalDocumentCompared": false,
-        "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260929800608"
-      },
-      "unverifiedSameDateCandidates": [
-        {
-          "receiptNo": "20251223800497",
-          "report": "단일판매ㆍ공급계약체결              ",
-          "date": "20251223",
-          "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20251223800497",
           "status": "같은 날짜의 후보일 뿐 동일 사건 미검증"
         }
       ],
