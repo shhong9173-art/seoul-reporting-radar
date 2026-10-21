@@ -45,7 +45,7 @@ class SECOriginalPublisherTests(unittest.TestCase):
             r=json.loads(json.dumps(self.data))
             r[key]=value
             self.save(r)
-            with self.assertRaises(ValueError,key=key):
+            with self.assertRaises(ValueError,msg=key):
                 selected(self.root,"sec_filings")
         r=json.loads(json.dumps(self.data))
         r["filings"][0]["contractOrPartnerMentionVerified"]=True
