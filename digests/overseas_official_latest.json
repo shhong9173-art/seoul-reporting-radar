@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-10-21T10:32:46+09:00",
+  "generatedAt": "2026-10-22T10:29:19+09:00",
   "lookbackDays": 30,
-  "windowStart": "2026-09-21",
+  "windowStart": "2026-09-22",
   "scope": "US Federal Register 8개 검색 + EU TED 8개 검색. 회사명 검색 결과만 검토하며 주·카운티 인허가 및 EPA 시설별 환경허가는 별도 확인 필요",
   "limits": "미국 주·카운티 건축/환경 인허가, EU 각국 소액 조달, 모든 세계 공장 인허가를 망라하지 않음",
   "checks": [
@@ -49,9 +49,9 @@
       "provider": "EU TED",
       "query": "Hyosung Heavy Industries",
       "status": "checked",
-      "returned": 0,
+      "returned": 1,
       "matched": 0,
-      "unverified": 0
+      "unverified": 1
     },
     {
       "provider": "EU TED",
@@ -135,6 +135,21 @@
     }
   ],
   "documents": [
+    {
+      "source": "EU TED",
+      "sourceType": "eu_procurement_notice",
+      "sourceId": "730588-2026",
+      "published": "2026-10-22",
+      "companiesMentioned": [],
+      "companySearchTerm": "Hyosung Heavy Industries",
+      "nameVerified": false,
+      "title": "Iceland – Electrical equipment and apparatus – Gas Insulated Switchgear - Direct Award",
+      "buyer": "Landsnet hf",
+      "sourceUrl": "https://ted.europa.eu/en/notice/730588-2026/html",
+      "evidence": "TED 전문검색 일치: 공식 공고에서 해당 기업의 역할 확인 전",
+      "notProven": "낙찰·공급사 선정·계약금액·해당 회사 사업 귀속 여부 미확인",
+      "exclusiveStatus": "공개 조달 공고 취재 단서·단독 미확정"
+    },
     {
       "source": "US Federal Register",
       "sourceType": "federal_notice",
@@ -290,7 +305,7 @@
     }
   ],
   "matchedCount": 1,
-  "unverifiedSearchMatches": 9,
+  "unverifiedSearchMatches": 10,
   "sourceErrors": 0,
   "scoopConfirmed": 0
 }
