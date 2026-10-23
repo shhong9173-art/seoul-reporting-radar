@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-10-22T10:29:19+09:00",
+  "generatedAt": "2026-10-23T10:28:12+09:00",
   "lookbackDays": 30,
-  "windowStart": "2026-09-22",
+  "windowStart": "2026-09-23",
   "scope": "US Federal Register 8개 검색 + EU TED 8개 검색. 회사명 검색 결과만 검토하며 주·카운티 인허가 및 EPA 시설별 환경허가는 별도 확인 필요",
   "limits": "미국 주·카운티 건축/환경 인허가, EU 각국 소액 조달, 모든 세계 공장 인허가를 망라하지 않음",
   "checks": [
@@ -33,9 +33,9 @@
       "provider": "US Federal Register",
       "query": "Korea Zinc",
       "status": "checked",
-      "returned": 2,
+      "returned": 3,
       "matched": 0,
-      "unverified": 2
+      "unverified": 3
     },
     {
       "provider": "EU TED",
@@ -149,6 +149,21 @@
       "evidence": "TED 전문검색 일치: 공식 공고에서 해당 기업의 역할 확인 전",
       "notProven": "낙찰·공급사 선정·계약금액·해당 회사 사업 귀속 여부 미확인",
       "exclusiveStatus": "공개 조달 공고 취재 단서·단독 미확정"
+    },
+    {
+      "source": "US Federal Register",
+      "sourceType": "federal_notice",
+      "sourceId": "2026-21630",
+      "published": "2026-10-22",
+      "companiesMentioned": [],
+      "companySearchTerm": "Korea Zinc",
+      "nameVerified": false,
+      "title": "Granting of Requests for Early Termination of the Waiting Period under the Premerger Notification Rules",
+      "abstract": "",
+      "sourceUrl": "https://www.federalregister.gov/documents/2026/10/22/2026-21630/granting-of-requests-for-early-termination-of-the-waiting-period-under-the-premerger-notification",
+      "evidence": "연방 고시 검색 색인 일치: 기업명·사건 관계를 원문에서 확인하지 못함",
+      "notProven": "지역 공장허가 취득·회사 사업 확정·직접 수주 여부 미확인",
+      "exclusiveStatus": "공개 문서 취재 단서·단독 미확정"
     },
     {
       "source": "US Federal Register",
@@ -305,7 +320,7 @@
     }
   ],
   "matchedCount": 1,
-  "unverifiedSearchMatches": 10,
+  "unverifiedSearchMatches": 11,
   "sourceErrors": 0,
   "scoopConfirmed": 0
 }
