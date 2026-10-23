@@ -1,17 +1,107 @@
 {
-  "generatedAt": "2026-10-23T09:07:35.232750+09:00",
+  "generatedAt": "2026-10-23T17:41:19.515923+09:00",
   "source": "NHTSA ODI full post-2010 recall archive",
   "sourceUrl": "https://static.nhtsa.gov/odi/ffdd/rcl/FLAT_RCL_POST_2010.zip",
-  "archiveLatestReceived": "2026-10-19",
+  "archiveLatestReceived": "2026-10-20",
   "lookbackDays": 45,
-  "recentSourceRowsExamined": 1121,
-  "beatRows": 14,
-  "campaignCount": 2,
+  "recentSourceRowsExamined": 1462,
+  "beatRows": 20,
+  "campaignCount": 4,
   "status": "official_us_recalls_to_review",
   "domesticSourceStatus": "not_connected",
   "firstSeenWarning": "Initial run is a baseline, not newly published scoops",
   "confirmedScoops": 0,
   "leads": [
+    {
+      "id": "26V693000",
+      "officialDate": "20261020",
+      "makes": [
+        "HYUNDAI"
+      ],
+      "models": [
+        {
+          "model": "ELANTRA",
+          "year": "2026"
+        },
+        {
+          "model": "ELANTRA HYBRID",
+          "year": "2026"
+        },
+        {
+          "model": "ELANTRA N",
+          "year": "2026"
+        },
+        {
+          "model": "VENUE",
+          "year": "2026"
+        }
+      ],
+      "modelCount": 4,
+      "component": "WHEELS:LUGS/NUTS/BOLTS/STUDS",
+      "defect": "Hyundai Motor America (Hyundai) is recalling certain 2026 Venue, Elantra N, Elantra Hybrid, and Elantra vehicles. The wheel lug nuts may loosen and allow the wheel to detach.",
+      "consequence": "Wheel detachment can cause a loss of vehicle control or create a road hazard, increasing the risk of a crash or injury.",
+      "remedy": "Dealers will inspect and tighten the wheel assembly lug nuts, and replace the hub bearing assembly, as necessary, free of charge. Owner notification letters are expected to be mailed December 19, 2026. Owners may contact Hyundai customer service at 1-855-371-9460. Hyundai's number for this recall is 310. Vehicle Identification Numbers (VINs) involved in this recall will become searchable on NHTSA.gov on October 23, 2026.",
+      "flags": [],
+      "priorityScore": 40,
+      "sourceUrl": "https://api.nhtsa.gov/recalls/campaignNumber?campaignNumber=26V693000",
+      "reportSearchUrl": "https://www.nhtsa.gov/recalls?nhtsaId=26V693000",
+      "officialEvidence": "NHTSA US recall record only",
+      "usRecallExists": true,
+      "part573ChronologyVerified": false,
+      "koreanIncidentVerified": false,
+      "koreanPartMatchVerified": false,
+      "koreanRecallChecked": false,
+      "priorCoverageChecked": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "mustCheck": [
+        "Open complete Part 573 chronology and search Korea / thermal event; no claim until original text verified",
+        "Compare exact seat/component part numbers and specifications of Korea-sold variants",
+        "Check Korea recall and free repair in car.go.kr and ask KATRI/MOLIT if inaccessible",
+        "Check domestic/overseas news for the same angle; US recall itself is not exclusive"
+      ]
+    },
+    {
+      "id": "26V692000",
+      "officialDate": "20261020",
+      "makes": [
+        "HYUNDAI"
+      ],
+      "models": [
+        {
+          "model": "ELANTRA",
+          "year": "2026"
+        },
+        {
+          "model": "TUCSON HYBRID",
+          "year": "2026"
+        }
+      ],
+      "modelCount": 2,
+      "component": "SUSPENSION:FRONT:MACPHERSON STRUT",
+      "defect": "Hyundai Motor America (Hyundai) is recalling certain 2026 Tucson Hybrid and Elantra vehicles. The front strut assembly fasteners may not be tightened properly, which can result in a loss of vehicle steering control.",
+      "consequence": "A loss of vehicle steering control increases the risk of a crash.",
+      "remedy": "Dealers will inspect and replace the front strut assembly fasteners and perform a wheel alignment, as necessary, free of charge. Owner notification letters are expected to be mailed December 19, 2026. Owners may contact Hyundai customer service at 1-855-371-9460. Hyundai's number for this recall is 309. Vehicle Identification Numbers (VINs) involved in this recall will become searchable on NHTSA.gov on October 23, 2026.",
+      "flags": [],
+      "priorityScore": 40,
+      "sourceUrl": "https://api.nhtsa.gov/recalls/campaignNumber?campaignNumber=26V692000",
+      "reportSearchUrl": "https://www.nhtsa.gov/recalls?nhtsaId=26V692000",
+      "officialEvidence": "NHTSA US recall record only",
+      "usRecallExists": true,
+      "part573ChronologyVerified": false,
+      "koreanIncidentVerified": false,
+      "koreanPartMatchVerified": false,
+      "koreanRecallChecked": false,
+      "priorCoverageChecked": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "mustCheck": [
+        "Open complete Part 573 chronology and search Korea / thermal event; no claim until original text verified",
+        "Compare exact seat/component part numbers and specifications of Korea-sold variants",
+        "Check Korea recall and free repair in car.go.kr and ask KATRI/MOLIT if inaccessible",
+        "Check domestic/overseas news for the same angle; US recall itself is not exclusive"
+      ]
+    },
     {
       "id": "26V664000",
       "officialDate": "20261008",
