@@ -53,6 +53,7 @@ OUTPUTS = {
     ),
     "primary_dossiers": ("digests/primary_research_dossiers_latest.json",),
     "primary_discovery": ("digests/primary_original_discovery_latest.json",),
+    "sec_filings": ("digests/primary_sec_filing_watch_latest.json",),
 }
 OPTIONAL = set()  # A shared corporate registry has exactly one official writer.
 # Existing verified archive.json is ~16.2MB (2026-10-17). A blanket 12MiB
@@ -94,6 +95,34 @@ def selected(root: Path, mode: str):
             except (UnicodeError, ValueError):
                 raise ValueError("invalid_json_output: " + name) from None
         files.append(name)
+    if mode == "sec_filings":
+        report=json.loads((root / "digests/primary_sec_filing_watch_latest.json")
+                          .read_text(encoding="utf-8"))
+        sources=report.get("sources",[])
+        filings=report.get("filings",[])
+        if (report.get("status")!="sec_edgar_filing_index_observed_not_fulltext_or_exclusive"
+            or report.get("sourceCoverageExhaustive") is not False
+            or report.get("allDomesticPressChecked") is not False
+            or report.get("allOriginalDocumentBodiesRead") is not False
+            or report.get("confirmedScoops")!=0
+            or not isinstance(sources,list) or not 1<=len(sources)<=12
+            or report.get("sourcesAttempted")!=len(sources)
+            or not isinstance(filings,list) or len(filings)>80
+            or report.get("filingsObserved")!=len(filings)
+            or report.get("newlyObservedAfterBaseline")!=sum(
+                f.get("newSinceCleanBaseline") is True for f in filings)):
+            raise ValueError("unsafe_sec_primary_original_index")
+        if any(not isinstance(f,dict) or
+               f.get("exclusiveConfirmed") is not False or
+               f.get("originalDocumentBodyRead") is not False or
+               f.get("contractOrPartnerMentionVerified") is not False or
+               f.get("actualTransactionDateVerified") is not False or
+               f.get("fullTextAndPriorPressCompared") is not False or
+               not isinstance(f.get("filingOriginalUrl"),str) or
+               not f["filingOriginalUrl"].startswith(
+                   "https://www.sec.gov/Archives/edgar/data/")
+               for f in filings):
+            raise ValueError("sec_filing_unverified_evidence_cannot_publish")
     if mode == "primary_discovery":
         report=json.loads((root / "digests/primary_original_discovery_latest.json")
                           .read_text(encoding="utf-8"))
