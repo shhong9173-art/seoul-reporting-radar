@@ -18,8 +18,12 @@ from pathlib import Path
 from urllib.parse import urlsplit
 from urllib.request import Request, build_opener, HTTPRedirectHandler
 from urllib.error import URLError, HTTPError
-from scripts.candidate_press_preview import recheck
-from scripts.historical_exclusive_press_collector import fetch_rss
+try:
+    from scripts.candidate_press_preview import recheck, fetch_rss
+except ModuleNotFoundError as exc:
+    if exc.name != "scripts":
+        raise
+    from candidate_press_preview import recheck, fetch_rss
 
 ROOT=Path(__file__).resolve().parents[1]
 KST=timezone(timedelta(hours=9))

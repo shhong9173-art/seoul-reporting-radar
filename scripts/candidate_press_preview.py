@@ -3,6 +3,17 @@ import xml.etree.ElementTree as ET
 from datetime import timedelta
 from email.utils import parsedate_to_datetime
 from urllib.parse import urlencode, urlsplit
+from urllib.request import Request, urlopen
+
+
+def fetch_rss(url):
+    request = Request(url, headers={"User-Agent":"ReporterOriginalSourceRadar/1.0",
+        "Accept":"application/rss+xml,application/xml,text/xml"})
+    with urlopen(request, timeout=12) as response:
+        raw = response.read(2_500_001)
+        if len(raw) > 2_500_000:
+            raise ValueError("rss_response_oversize")
+        return raw
 
 
 def recheck(terms, *, now, fetcher):
