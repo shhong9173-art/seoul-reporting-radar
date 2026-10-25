@@ -143,7 +143,7 @@ DIRECT_BEAT_COMPANIES=frozenset({
  "르노코리아","BMW코리아","메르세데스벤츠코리아","아우디코리아",
  "폭스바겐코리아","혼다코리아","한국타이어","넥센타이어","금호타이어",
  "포스코홀딩스","포스코","현대제철","KG스틸","세아홀딩스","세아제강",
- "동국제강","고려아연","영풍","LS MnM",
+ "동국제강","동국씨엠","고려아연","영풍","LS MnM",
  "HD현대일렉트릭","LS일렉트릭","대한전선",
  "LS전선","LS지주","두산에너빌리티","GS","GS칼텍스",
  "한화솔루션","OCI","OCI홀딩스","태광","동성케미칼","DL케미칼",
@@ -151,7 +151,8 @@ DIRECT_BEAT_COMPANIES=frozenset({
  "한국전기산업진흥회","한국원자력산업협회"
 })
 # Related companies remain in TARGETS/ALIASES for monitoring, not direct beats.
-DIRECT_BEAT_REVIEW_REQUIRED=frozenset({"세아씨엠","동국씨엠","효성중공업","일진전기"})
+# 동국씨엠 was confirmed by the reporter as a direct beat on 2026-10-26.
+DIRECT_BEAT_REVIEW_REQUIRED=frozenset({"세아씨엠","효성중공업","일진전기"})
 DIRECT_BEAT_CANONICAL={"만도":"HL만도","제네시스":"현대차","LS M&M":"LS MnM"}
 
 
