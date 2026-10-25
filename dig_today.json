@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-25T19:31:52.031333+00:00",
+  "generatedAt": "2026-10-25T19:36:52.706704+00:00",
   "items": [
     {
       "kind": "공시 미보도 숫자",
@@ -8,6 +8,7 @@
       "why": "DART의 68,260백만원이 최근 기사에서 충분히 설명됐는지 확인할 가치가 있는 후보.",
       "lines": [
         "DART 특수관계인에대한출자에서 68,260백만원, 68,271백만원, 20,680백만원, 5,786백만원 확인",
+        "쿠키뉴스: 한화솔루션, 500kV 케이블 소재 검증 성공…HVDC·해저케이블로 영역 확대 - 쿠키뉴스",
         "www.ebn.co.kr: 美 태양광 관세 최고 268% 부과…한화솔루션·OCI 득실은? - www.ebn.co.kr",
         "공시 숫자를 기존 투자·생산·수주 계획과 대조해 실제 변화인지 확인",
         "원재료·전력·관세 변화를 붙여 원가와 마진 영향 확인"
@@ -18,7 +19,7 @@
         "경쟁사도 같은 방향으로 움직이는가?"
       ],
       "company": "한화솔루션",
-      "category": "재생에너지",
+      "category": "전선·전력",
       "numbers": [
         "68,260백만원",
         "68,271백만원",
@@ -29,12 +30,102 @@
       ],
       "sources": [
         "DART",
+        "쿠키뉴스",
         "www.ebn.co.kr"
       ],
       "competitors": [
-        "두산에너빌리티"
+        "LS전선",
+        "대한전선"
       ],
       "global": [],
+      "qualityGate": "pass",
+      "qualityReason": "숫자·복수 근거·사업 변화·제목의 주장까지 모두 근거로 확인된 후보"
+    },
+    {
+      "kind": "글로벌→국내",
+      "score": 94,
+      "headline": "글로벌 자동차 통상 변수 확대…현대차, 현지 생산 대응은",
+      "why": "해외 산업 변화와 국내 기업의 최근 사업 움직임을 한 기사로 연결할 수 있는 후보.",
+      "lines": [
+        "해외 주요 매체 Automotive News에서 관련 변화 확인",
+        "Automotive News: 인도의 교훈은 Akshay Mahajan이 오하이오 포드 대리점 판매를 강화하는 데 도움이 되었습니다.",
+        "한국신용신문: 현대차, 멕시코 '대양간 회랑' 정규 물류망 편입 추진…3000대 수송 - 한국신용신문",
+        "비건뉴스: 현대차 2분기 실적, 매출과 수익성은 왜 엇갈렸나 - 비건뉴스",
+        "국내 공시·수주·생산 자료와 연결해 실제 영향 확인"
+      ],
+      "questions": [
+        "해외 변화가 국내 기업의 수주·가격·생산에 실제 영향을 주는가?",
+        "국내 경쟁사도 같은 대응을 하는가?",
+        "국내 공시에서 숫자로 확인되는 변화가 있는가?"
+      ],
+      "company": "현대차",
+      "category": "완성차",
+      "numbers": [],
+      "sources": [
+        "Automotive News",
+        "InsideEVs",
+        "한국신용신문",
+        "비건뉴스"
+      ],
+      "competitors": [
+        "기아"
+      ],
+      "global": [
+        {
+          "title": "Lessons from India helped Akshay Mahajan turbocharge Ohio Ford dealership’s sales - Automotive News",
+          "url": "https://news.google.com/rss/articles/CBMigAFBVV95cUxOck05NFNCYUZKSV9pOFh6OTNpdldfM2lBX2owX2I2TWJmSW1Wb00wTGd0VU5zVVQ3N1RscGhtQTl4RU1mZUhZZWJnd0R5Q3RYNzhnM3hvaUxiRDlTckJTb2JzbUNBY1ZTbmJiMGpJalRPRnJkd1R1cUUycXFRcDlWTA?oc=5",
+          "published": "2026-10-25T17:59:00+09:00",
+          "sourceName": "Automotive News",
+          "category": "글로벌",
+          "global": true,
+          "globalSource": "Automotive News",
+          "summary": "Lessons from India helped Akshay Mahajan turbocharge Ohio Ford dealership’s sales Automotive News",
+          "globalScore": 61,
+          "koTitle": "인도의 교훈은 Akshay Mahajan이 오하이오 포드 대리점 판매를 강화하는 데 도움이 되었습니다.",
+          "koSummary": "인도의 교훈은 Akshay Mahajan이 오하이오주 Ford 대리점 판매에 힘을 실어주는 데 도움이 되었습니다.",
+          "translationStatus": "translated",
+          "globalWhy": "한국 자동차·부품·배터리 산업과 연결되거나 글로벌 공급망·통상·생산 변화가 큰 해외 신호입니다.",
+          "globalPitch": false,
+          "summaryTranslationStatus": "translated",
+          "translationCacheUsed": true
+        },
+        {
+          "title": "Europe Is Learning An Uncomfortable Truth About Local Battery Production - InsideEVs",
+          "url": "https://news.google.com/rss/articles/CBMiiwFBVV95cUxPV2VYVzRuc3QzSVNnbHd5aWF2OVZmM1FkRXYydk5iNUkzTHZVUVRIVTFrSlRfZXhBdzdDUkxubEtRREhxQ0hOQ3FMMWE0U0xMTEZpTU5UcTB0NExVUWxXR29DZUlfdTlzZFR6TjBNa3c0MDRVTHJfOERSOE5zQVl1QmN6VFYtUGF3dFJF?oc=5",
+          "published": "2026-10-25T17:06:49+09:00",
+          "sourceName": "InsideEVs",
+          "category": "글로벌",
+          "global": true,
+          "globalSource": "InsideEVs",
+          "summary": "Europe Is Learning An Uncomfortable Truth About Local Battery Production InsideEVs",
+          "globalScore": 65,
+          "koTitle": "유럽은 현지 배터리 생산에 대한 불편한 진실을 배우고 있습니다.",
+          "koSummary": "유럽은 EV 내부 배터리 생산에 대한 불편한 진실을 배우고 있습니다",
+          "translationStatus": "translated",
+          "globalWhy": "한국 자동차·부품·배터리 산업과 연결되거나 글로벌 공급망·통상·생산 변화가 큰 해외 신호입니다.",
+          "globalPitch": false,
+          "summaryTranslationStatus": "translated",
+          "translationCacheUsed": true
+        },
+        {
+          "title": "The 2027 Lexus NX Plug-In Hybrid Gets A Bigger Battery And Fast Charging - InsideEVs",
+          "url": "https://news.google.com/rss/articles/CBMilgFBVV95cUxQVGsxbzl3YVNLdGViQ0JaZ19ZRFhhdi13RGVZN2NHUWdQR0JpUTBURzJ3clJWckpiZzRZd243RHJUTk03aEg1RUpfQURvZEc1TzU2bHByLTNJak5EeV9aaWdkWjdJMzZlTXhnbHZIS2dxaW50V3lZTWxrcnpaeXRnU0tzdUdnbEVXVExMd3o4SWdIeDJQcFE?oc=5",
+          "published": "2026-10-25T13:22:57+09:00",
+          "sourceName": "InsideEVs",
+          "category": "글로벌",
+          "global": true,
+          "globalSource": "InsideEVs",
+          "summary": "The 2027 Lexus NX Plug-In Hybrid Gets A Bigger Battery And Fast Charging InsideEVs",
+          "globalScore": 61,
+          "koTitle": "2027 Lexus NX 플러그인 하이브리드는 더 큰 배터리와 빠른 충전을 제공합니다.",
+          "koSummary": "2027 Lexus NX 플러그인 하이브리드는 EV 내부에서 더 큰 배터리와 빠른 충전을 제공합니다.",
+          "translationStatus": "translated",
+          "globalWhy": "한국 자동차·부품·배터리 산업과 연결되거나 글로벌 공급망·통상·생산 변화가 큰 해외 신호입니다.",
+          "globalPitch": false,
+          "summaryTranslationStatus": "translated",
+          "translationCacheUsed": true
+        }
+      ],
       "qualityGate": "pass",
       "qualityReason": "숫자·복수 근거·사업 변화·제목의 주장까지 모두 근거로 확인된 후보"
     },
@@ -120,94 +211,6 @@
           "globalWhy": "한국 자동차·부품·배터리 산업과 연결되거나 글로벌 공급망·통상·생산 변화가 큰 해외 신호입니다.",
           "globalPitch": true,
           "summaryTranslationStatus": "translated_fallback",
-          "translationCacheUsed": true
-        }
-      ],
-      "qualityGate": "pass",
-      "qualityReason": "숫자·복수 근거·사업 변화·제목의 주장까지 모두 근거로 확인된 후보"
-    },
-    {
-      "kind": "글로벌→국내",
-      "score": 92,
-      "headline": "글로벌 자동차 통상 변수 확대…현대차, 현지 생산 대응은",
-      "why": "해외 산업 변화와 국내 기업의 최근 사업 움직임을 한 기사로 연결할 수 있는 후보.",
-      "lines": [
-        "해외 주요 매체 Automotive News에서 관련 변화 확인",
-        "Automotive News: 인도의 교훈은 Akshay Mahajan이 오하이오 포드 대리점 판매를 강화하는 데 도움이 되었습니다.",
-        "한국신용신문: 현대차, 멕시코 '대양간 회랑' 정규 물류망 편입 추진…3000대 수송 - 한국신용신문",
-        "비건뉴스: 현대차 2분기 실적, 매출과 수익성은 왜 엇갈렸나 - 비건뉴스",
-        "국내 공시·수주·생산 자료와 연결해 실제 영향 확인"
-      ],
-      "questions": [
-        "해외 변화가 국내 기업의 수주·가격·생산에 실제 영향을 주는가?",
-        "국내 경쟁사도 같은 대응을 하는가?",
-        "국내 공시에서 숫자로 확인되는 변화가 있는가?"
-      ],
-      "company": "현대차",
-      "category": "완성차",
-      "numbers": [],
-      "sources": [
-        "Automotive News",
-        "InsideEVs",
-        "한국신용신문",
-        "비건뉴스"
-      ],
-      "competitors": [
-        "기아"
-      ],
-      "global": [
-        {
-          "title": "Lessons from India helped Akshay Mahajan turbocharge Ohio Ford dealership’s sales - Automotive News",
-          "url": "https://news.google.com/rss/articles/CBMigAFBVV95cUxOck05NFNCYUZKSV9pOFh6OTNpdldfM2lBX2owX2I2TWJmSW1Wb00wTGd0VU5zVVQ3N1RscGhtQTl4RU1mZUhZZWJnd0R5Q3RYNzhnM3hvaUxiRDlTckJTb2JzbUNBY1ZTbmJiMGpJalRPRnJkd1R1cUUycXFRcDlWTA?oc=5",
-          "published": "2026-10-25T17:59:00+09:00",
-          "sourceName": "Automotive News",
-          "category": "글로벌",
-          "global": true,
-          "globalSource": "Automotive News",
-          "summary": "Lessons from India helped Akshay Mahajan turbocharge Ohio Ford dealership’s sales Automotive News",
-          "globalScore": 61,
-          "koTitle": "인도의 교훈은 Akshay Mahajan이 오하이오 포드 대리점 판매를 강화하는 데 도움이 되었습니다.",
-          "koSummary": "인도의 교훈은 Akshay Mahajan이 오하이오주 Ford 대리점 판매에 힘을 실어주는 데 도움이 되었습니다.",
-          "translationStatus": "translated",
-          "globalWhy": "한국 자동차·부품·배터리 산업과 연결되거나 글로벌 공급망·통상·생산 변화가 큰 해외 신호입니다.",
-          "globalPitch": false,
-          "summaryTranslationStatus": "translated",
-          "translationCacheUsed": true
-        },
-        {
-          "title": "Europe Is Learning An Uncomfortable Truth About Local Battery Production - InsideEVs",
-          "url": "https://news.google.com/rss/articles/CBMiiwFBVV95cUxPV2VYVzRuc3QzSVNnbHd5aWF2OVZmM1FkRXYydk5iNUkzTHZVUVRIVTFrSlRfZXhBdzdDUkxubEtRREhxQ0hOQ3FMMWE0U0xMTEZpTU5UcTB0NExVUWxXR29DZUlfdTlzZFR6TjBNa3c0MDRVTHJfOERSOE5zQVl1QmN6VFYtUGF3dFJF?oc=5",
-          "published": "2026-10-25T17:06:49+09:00",
-          "sourceName": "InsideEVs",
-          "category": "글로벌",
-          "global": true,
-          "globalSource": "InsideEVs",
-          "summary": "Europe Is Learning An Uncomfortable Truth About Local Battery Production InsideEVs",
-          "globalScore": 65,
-          "koTitle": "유럽은 현지 배터리 생산에 대한 불편한 진실을 배우고 있습니다.",
-          "koSummary": "유럽은 EV 내부 배터리 생산에 대한 불편한 진실을 배우고 있습니다",
-          "translationStatus": "translated",
-          "globalWhy": "한국 자동차·부품·배터리 산업과 연결되거나 글로벌 공급망·통상·생산 변화가 큰 해외 신호입니다.",
-          "globalPitch": false,
-          "summaryTranslationStatus": "translated",
-          "translationCacheUsed": true
-        },
-        {
-          "title": "The 2027 Lexus NX Plug-In Hybrid Gets A Bigger Battery And Fast Charging - InsideEVs",
-          "url": "https://news.google.com/rss/articles/CBMilgFBVV95cUxQVGsxbzl3YVNLdGViQ0JaZ19ZRFhhdi13RGVZN2NHUWdQR0JpUTBURzJ3clJWckpiZzRZd243RHJUTk03aEg1RUpfQURvZEc1TzU2bHByLTNJak5EeV9aaWdkWjdJMzZlTXhnbHZIS2dxaW50V3lZTWxrcnpaeXRnU0tzdUdnbEVXVExMd3o4SWdIeDJQcFE?oc=5",
-          "published": "2026-10-25T13:22:57+09:00",
-          "sourceName": "InsideEVs",
-          "category": "글로벌",
-          "global": true,
-          "globalSource": "InsideEVs",
-          "summary": "The 2027 Lexus NX Plug-In Hybrid Gets A Bigger Battery And Fast Charging InsideEVs",
-          "globalScore": 61,
-          "koTitle": "2027 Lexus NX 플러그인 하이브리드는 더 큰 배터리와 빠른 충전을 제공합니다.",
-          "koSummary": "2027 Lexus NX 플러그인 하이브리드는 EV 내부에서 더 큰 배터리와 빠른 충전을 제공합니다.",
-          "translationStatus": "translated",
-          "globalWhy": "한국 자동차·부품·배터리 산업과 연결되거나 글로벌 공급망·통상·생산 변화가 큰 해외 신호입니다.",
-          "globalPitch": false,
-          "summaryTranslationStatus": "translated",
           "translationCacheUsed": true
         }
       ],
