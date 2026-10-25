@@ -38,15 +38,37 @@ HEADING_VALUE_RE = re.compile(
     re.I | re.S,
 )
 BARE_TABLE_NUMBER_RE = re.compile(r"(?<![A-Za-z0-9])(?P<num>\d{1,3}(?:,\d{3})+|\d{1,9}(?:\.\d+)?)(?![A-Za-z0-9.,])")
+# A heading quoted inside narrative text ("'3. 처분예정금액(원)'은 … 전일(2026년 …")
+# is a reference to the field, not the field's table cell.
+HEADING_NARRATIVE_RE = re.compile(r"^\s*['\"‘’“”」』]?\s*(?:은|는|이|가|을|를|의|에|과|와|으로|로)(?![가-힣])")
+# Dates, ordinals and counters are not the field's amount (e.g. "2026년" -> "2026원").
+# Units must touch the number ("2026년", "2차"); "258,750,000 기타주식" stays a value.
+DATE_OR_COUNTER_AFTER_RE = re.compile(r"^(?:년|월|일|분기|반기|개월|호기|회차|번째|(?:차|호|회|번|시|분)(?![가-힣]))")
+
+
+def _heading_value_number(tail: str):
+    for number in BARE_TABLE_NUMBER_RE.finditer(tail):
+        before = tail[:number.start()]
+        after = tail[number.end():]
+        if DATE_OR_COUNTER_AFTER_RE.match(after):
+            continue
+        # Parts of 2026.01.01 / 2026-01-01 / 2026/01/01 style dates.
+        if re.search(r"\d\s*[.\-/]\s*$", before) or re.match(r"\s*[.\-/]\s*\d", after):
+            continue
+        return number
+    return None
+
 
 def extract_heading_values(context: str) -> list[str]:
     values = []
     for match in HEADING_VALUE_RE.finditer(context):
         tail = match.group("tail")
+        if HEADING_NARRATIVE_RE.match(tail):
+            continue
         # Keep the match in its immediate table cell; avoid another numbered
         # disclosure row or a later heading becoming the field's value.
         tail = re.split(r"(?<!\d)\b(?:[2-9]|1[0-9])\s*\.\s*(?=[가-힣])", tail, maxsplit=1)[0]
-        number = BARE_TABLE_NUMBER_RE.search(tail)
+        number = _heading_value_number(tail)
         if not number:
             continue
         unit = match.group("unit")
