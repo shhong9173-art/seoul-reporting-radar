@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-10-25T09:32:42+09:00",
+  "generatedAt": "2026-10-25T14:52:09+09:00",
   "status": "reporter_evidence_queue_not_exclusive",
   "sourceCoverage": "partial_source_coverage_not_zero_news",
   "sourceHealth": {
     "officialEvents": {
       "status": "source_partial_coverage",
-      "generatedAt": "2026-10-24T22:59:52+09:00",
+      "generatedAt": "2026-10-25T09:32:44+09:00",
       "rows": 0,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false,
@@ -27,7 +27,7 @@
       "uninspectedRelevantDetails": 0
     },
     "investment": {
-      "status": "source_snapshot_checked",
+      "status": "old_snapshot_not_a_current_scan",
       "generatedAt": "2026-10-23T11:00:45+09:00",
       "rows": 1,
       "completeAcrossUniverse": false,
@@ -65,7 +65,7 @@
   "countsByEvidenceTier": {
     "new_official_receipt_review": 0,
     "new_official_list_heading_review": 0,
-    "verified_historical_investment_delta": 3,
+    "verified_historical_investment_delta": 0,
     "verified_historical_numeric_delta": 47,
     "issuer_only_correction_unverified_original": 0,
     "older_public_contract_reference": 0,
@@ -78,10 +78,10 @@
   "checkedOfficialRecentCandidates": 0,
   "recentOfficialTitleOnlyCount": 0,
   "todayOnlyCount": 0,
-  "historicalResearchCount": 50,
+  "historicalResearchCount": 47,
   "unlinkedHistoryTextMatchCount": 0,
   "correctionHistorySourceGate": "missing_or_stale_related_snapshots",
-  "totalRows": 50,
+  "totalRows": 47,
   "excluded": {
     "invalid_original_identity": 0,
     "old_and_not_relevant": 0,
@@ -92,81 +92,6 @@
   "approvedArticles": 0,
   "warning": "공식 발행일≠수집일, 투자 종료 예정월 변경≠실제 지연, 정정문 변경란≠원공시 대조, 보도 검색 0건≠미보도. 미수집/부분수집≠사건 0건.",
   "items": [
-    {
-      "id": "verified_historical_investment_delta:20260814003228:변압기 철심공장",
-      "tier": "verified_historical_investment_delta",
-      "tierLabel": "과거 DART 투자계획 기재 비교",
-      "company": "HD현대일렉트릭",
-      "title": "변압기 철심공장 · 공시상 투자기간 변경",
-      "officialDocumentDate": "2026-08-14",
-      "officialDateIsSourcePublicationNotScrape": true,
-      "evidenceSummary": "기존 공시 계획상 종료월 2026.01 → 최근 공시 2026.11 (+10개월). 실제 준공·가동일 및 일정 지연은 검증되지 않음.",
-      "officialUrls": [
-        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260316000940",
-        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003228"
-      ],
-      "pressFulltextReviewed": false,
-      "sameAngleCoverageVerified": false,
-      "companyImpactVerified": false,
-      "futurePlanVerified": false,
-      "exclusiveConfirmed": false,
-      "approvedForPitch": false,
-      "nextChecks": [
-        "동일 사업·시작월·설비 범위 및 이전/최근 공시 원문 재확인",
-        "회사 공개자료에서 실제 준공·가동일 확인 가능 여부",
-        "해당 변화가 보도된 적 있는지 기존 기사 전문 대조"
-      ]
-    },
-    {
-      "id": "verified_historical_investment_delta:20260814003228:중저압차단기 자동화설비",
-      "tier": "verified_historical_investment_delta",
-      "tierLabel": "과거 DART 투자계획 기재 비교",
-      "company": "HD현대일렉트릭",
-      "title": "중저압차단기 자동화설비 · 공시상 투자기간 변경",
-      "officialDocumentDate": "2026-08-14",
-      "officialDateIsSourcePublicationNotScrape": true,
-      "evidenceSummary": "기존 공시 계획상 종료월 2026.05 → 최근 공시 2026.10 (+5개월). 실제 준공·가동일 및 일정 지연은 검증되지 않음.",
-      "officialUrls": [
-        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260316000940",
-        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003228"
-      ],
-      "pressFulltextReviewed": false,
-      "sameAngleCoverageVerified": false,
-      "companyImpactVerified": false,
-      "futurePlanVerified": false,
-      "exclusiveConfirmed": false,
-      "approvedForPitch": false,
-      "nextChecks": [
-        "동일 사업·시작월·설비 범위 및 이전/최근 공시 원문 재확인",
-        "회사 공개자료에서 실제 준공·가동일 확인 가능 여부",
-        "해당 변화가 보도된 적 있는지 기존 기사 전문 대조"
-      ]
-    },
-    {
-      "id": "verified_historical_investment_delta:20260814003228:청주 배전캠퍼스 신축(*)",
-      "tier": "verified_historical_investment_delta",
-      "tierLabel": "과거 DART 투자계획 기재 비교",
-      "company": "HD현대일렉트릭",
-      "title": "청주 배전캠퍼스 신축(*) · 공시상 투자기간 변경",
-      "officialDocumentDate": "2026-08-14",
-      "officialDateIsSourcePublicationNotScrape": true,
-      "evidenceSummary": "기존 공시 계획상 종료월 2026.06 → 최근 공시 2026.12 (+6개월). 실제 준공·가동일 및 일정 지연은 검증되지 않음.",
-      "officialUrls": [
-        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260316000940",
-        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003228"
-      ],
-      "pressFulltextReviewed": false,
-      "sameAngleCoverageVerified": false,
-      "companyImpactVerified": false,
-      "futurePlanVerified": false,
-      "exclusiveConfirmed": false,
-      "approvedForPitch": false,
-      "nextChecks": [
-        "동일 사업·시작월·설비 범위 및 이전/최근 공시 원문 재확인",
-        "회사 공개자료에서 실제 준공·가동일 확인 가능 여부",
-        "해당 변화가 보도된 적 있는지 기존 기사 전문 대조"
-      ]
-    },
     {
       "id": "verified_historical_numeric_delta:20260916000427:기아:productionActual:멕시코공장",
       "tier": "verified_historical_numeric_delta",
