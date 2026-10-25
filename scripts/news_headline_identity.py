@@ -23,7 +23,12 @@ SPORT = re.compile(
 SPORT_TEAMS = re.compile(
     r"기아\s*타이거즈|KIA\s*Tigers|현대모비스\s*피버스|"
     r"모비스\s*농구|"
-    r"현대캐피탈\s*스카이워커스", re.I
+    r"현대캐피탈\s*스카이워커스|"
+    # Sponsored golf events and an esports team carrying a beat brand
+    # (2026-10-25 data.json: ~25 '완성차' rows were golf results).
+    r"제네시스\s*(?:챔피언십|인비테이셔널|스코티시\s*오픈)|"
+    r"KPGA|KLPGA|DP\s*월드\s*투어|"
+    r"디플러스\s*기아|Dplus\s*KIA|LCK|롤드컵|돌드컵", re.I
 )
 AUTO_CONTEXT = re.compile(
     r"자동차|완성차|전기차|배터리|모빌리티|차량|"
