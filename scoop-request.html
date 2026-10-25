@@ -104,6 +104,11 @@ function addSource(box,url,label){
   a.rel="noopener noreferrer";box.append(a);
  }catch(_e){}
 }
+function addReviewLink(box,url,label,kind){
+ const href=ScoopRequest.reviewUrl(url,kind);if(!href)return;
+ const a=el("a",label,"source");a.href=href;a.target="_blank";
+ a.rel="noopener noreferrer";box.append(a);
+}
 function show(company){
  $("results").replaceChildren();
  $("research-groups").replaceChildren();
@@ -138,10 +143,10 @@ function show(company){
    "응답 "+p.rawItemCount+"건 / 날짜 제외 "+p.rejectedDateCount+"건"+(p.truncated?" · 일부만 표시":"")));
   for(const item of (Array.isArray(p.items)?p.items:[]).slice(0,5)){
    const line=el("p",String(item.publishedAt||"날짜 미확인")+" · "+String(item.title||""));
-   addSource(line,item.url,"보도 검색 결과 열기 ↗");box.append(line);
+   addReviewLink(line,item.url,"보도 검색 결과 열기 ↗","press");box.append(line);
   }
   box.append(el("small","검증 실행 ID: "+(check.runId||"이전 형식 · 없음")+" · 단일 검색 채널이며 국내 언론 전수 확인 아님"));
-  if(check.workflowRunUrl)addSource(box,check.workflowRunUrl,"이 재조회 실행 기록 ↗");
+  if(check.workflowRunUrl)addReviewLink(box,check.workflowRunUrl,"이 재조회 실행 기록 ↗","run");
   checks.append(box);
  }
  if(!result.rechecks.length)checks.append(el("p","이 기업의 등록 원문 재조회 기록이 없습니다. NHTSA·DART 등 다른 원천은 이 재조회 범위에 포함되지 않습니다."));

@@ -2,6 +2,13 @@ const assert=require("node:assert/strict");
 const fs=require("node:fs");
 const vm=require("node:vm");
 const {build,matches}=require("../scoop_request.js");
+const {reviewUrl}=require("../scoop_request.js");
+assert(reviewUrl("https://news.google.com/rss/articles/abc?oc=5","press"));
+assert(reviewUrl("https://github.com/shhong9173-art/seoul-reporting-radar/actions/runs/40225704947","run"));
+assert.equal(reviewUrl("https://github.com/other/repo/actions/runs/1","run"),null);
+assert.equal(reviewUrl("https://news.google.com.attacker.com/rss/articles/a","press"),null);
+assert.equal(reviewUrl("javascript:alert(1)","press"),null);
+assert.equal(reviewUrl("https://user:secret@news.google.com/rss/articles/a","press"),null);
 const report={
  status:"primary_original_reporter_dossiers_not_exclusive",
  generatedAt:"2026-10-21T22:44:02+09:00",
@@ -119,6 +126,8 @@ assert(page.includes("scoop_request.js"));
 assert(page.includes("단독거리 5건 찾아줘"));
 assert(!page.includes("innerHTML"),"No source text may be injected as raw HTML");
 assert(page.includes("textContent"));
+assert(page.includes('addReviewLink(line,item.url,"보도 검색 결과 열기 ↗","press")'));
+assert(page.includes('addReviewLink(box,check.workflowRunUrl,"이 재조회 실행 기록 ↗","run")'));
 assert(page.includes("noopener noreferrer"));
 const home=fs.readFileSync("index.html","utf8");
 assert(home.includes("scoop-request.html"));
