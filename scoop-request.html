@@ -32,6 +32,7 @@ textarea{display:block;width:100%;min-height:90px;margin:9px 0}.notes{border-top
 <h1>단독거리 찾아줘</h1>
 <p class="sub">기업명을 넣으면 공식 원문·NHTSA 제조사 보고서·DART 공시를 묶어 취재 우선순위별로 추천합니다. 동일 사건은 합치고, 근거 부족한 항목을 채워 넣지 않습니다.</p>
 <p class="sub">이 화면은 배포된 수집 자료를 조회합니다. 검색 버튼이나 원문 링크를 누르는 것만으로 원문·선행보도가 자동 재검증되지는 않습니다.</p>
+<p class="sub">등록 원문은 평일 08:30·15:00 예약 재조회합니다(실행·배포가 지연될 수 있음). <a href="https://github.com/shhong9173-art/seoul-reporting-radar/actions/workflows/primary-document-dossiers.yml" target="_blank" rel="noopener noreferrer">GitHub에서 재조회 실행·진행 확인 ↗</a> — 저장소 권한으로 Run workflow 실행 후 결과 배포를 확인하세요.</p>
 </header>
 <form id="request" class="search">
 <label for="company">출입처</label><input id="company" type="search" value="현대차" maxlength="65" autocomplete="off" placeholder="예: 현대차, 기아, 고려아연">
@@ -115,6 +116,36 @@ function show(company){
              s=>s.source+" "+s.status).join(" / ")+
              " · 국내 기존 보도 전수 대조 미완료 · 확정 단독 0건"));
  $("summary").replaceChildren(status);
+ const checks=el("details");checks.append(el("summary","등록 원문·보도 재조회 결과 (실패 포함)"));
+ const labels={text_changed_requires_review:"문서 텍스트 변경 · 실제 사업 변화인지 확인 필요",
+  text_unchanged:"직전 성공 조회와 문서 텍스트 동일",first_comparable_observation:"첫 비교 기준 확보 · 신규 발표라는 뜻 아님",
+  current_fetch_failed:"이번 원문 조회 실패 · 변경 여부 미확인",comparison_not_available:"비교 기록 없음"};
+ const pressLabels={not_queried:"재검색 미실행",search_failed:"재검색 실패 · 미보도 판단 불가",
+  possible_prior_titles:"관련 제목 발견 · 동일 사건 및 기사 전문 미확인",
+  no_usable_titles_in_response:"정상 RSS 응답에서 유효 제목 미확보 · 미보도 증거 아님"};
+ for(const check of result.rechecks){
+  const box=el("section",undefined,"evidence");box.append(el("h3",check.title));
+  for(const d of check.documents){
+   const p=el("p",(labels[d.comparisonStatus]||"변경 여부 미확인")+" · 조회: "+(d.checkedAt||"미확인")+
+    " · 원문 상태: "+d.status+(d.errorType?" / "+d.errorType:"")+
+    (d.previousSuccessfulCheckAt?" · 비교 기준: "+d.previousSuccessfulCheckAt:""));
+   addSource(p,d.url,"원문 직접 열기 ↗");box.append(p);
+  }
+  const p=check.press;
+  box.append(el("p","Google News RSS: "+(pressLabels[p.status]||"재검색 상태 미확인")+
+   " · 조회: "+(p.checkedAt||"미확인")+(p.query?" · 검색어: "+p.query:"")));
+  if(p.rawItemCount!==null&&p.rawItemCount!==undefined)box.append(el("small",
+   "응답 "+p.rawItemCount+"건 / 날짜 제외 "+p.rejectedDateCount+"건"+(p.truncated?" · 일부만 표시":"")));
+  for(const item of (Array.isArray(p.items)?p.items:[]).slice(0,5)){
+   const line=el("p",String(item.publishedAt||"날짜 미확인")+" · "+String(item.title||""));
+   addSource(line,item.url,"보도 검색 결과 열기 ↗");box.append(line);
+  }
+  box.append(el("small","검증 실행 ID: "+(check.runId||"이전 형식 · 없음")+" · 단일 검색 채널이며 국내 언론 전수 확인 아님"));
+  if(check.workflowRunUrl)addSource(box,check.workflowRunUrl,"이 재조회 실행 기록 ↗");
+  checks.append(box);
+ }
+ if(!result.rechecks.length)checks.append(el("p","이 기업의 등록 원문 재조회 기록이 없습니다. NHTSA·DART 등 다른 원천은 이 재조회 범위에 포함되지 않습니다."));
+ $("summary").append(checks);
  for(const group of result.researchGroups){
   const section=el("section",undefined,"warning");
   section.append(el("h2","같은 문서에서 나온 취재 단서"),el("p",group.relationship));

@@ -102,6 +102,16 @@ assert.equal(build(sources,{company:"포스코",now}).rows.length,0);
 assert(matches("현대차","Supernal"));
 assert(!matches("현대차","현대제철"));
 const page=fs.readFileSync("scoop-request.html","utf8");
+const failedCase={...report.cases[0],factsFromMatchedPrimaryPages:[],
+ originalDocuments:[{url:"https://svdisposition.com/auction-detail/884",status:"source_unavailable",
+  comparisonStatus:"current_fetch_failed",checkedAt:"2026-10-21T22:44:02+09:00"}],
+ pressRecheck:{status:"search_failed",items:[]}};
+const failedPreview=build({dossiers:{...report,cases:[failedCase]}},{company:"현대차",now});
+assert.equal(failedPreview.rows.length,0,"failed originals must not create candidates");
+assert.equal(failedPreview.rechecks.length,1,"failure must remain visible outside candidate list");
+assert.equal(failedPreview.rechecks[0].press.status,"search_failed");
+assert(page.includes("text_changed_requires_review"));
+assert(page.includes("정상 RSS 응답에서 유효 제목 미확보 · 미보도 증거 아님"));
 const script=page.match(/<script>\s*([\s\S]*?)<\/script>/);
 assert(script,"inline UI script not found");
 new vm.Script(script[1]);

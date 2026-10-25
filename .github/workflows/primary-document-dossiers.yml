@@ -4,6 +4,8 @@ on:
     paths:
       - 'data/primary_research_targets.json'
       - 'scripts/primary_document_dossiers.py'
+      - 'scripts/candidate_press_preview.py'
+      - 'tests/test_candidate_preview.py'
       - 'scripts/primary_original_discovery.py'
       - 'data/primary_site_listing_watches.json'
       - 'tests/test_primary_original_discovery.py'
@@ -23,6 +25,8 @@ on:
     paths:
       - 'data/primary_research_targets.json'
       - 'scripts/primary_document_dossiers.py'
+      - 'scripts/candidate_press_preview.py'
+      - 'tests/test_candidate_preview.py'
       - 'scripts/primary_original_discovery.py'
       - 'data/primary_site_listing_watches.json'
       - 'tests/test_primary_original_discovery.py'
@@ -62,6 +66,7 @@ jobs:
         run: |
           python -m compileall -q scripts/primary_document_dossiers.py scripts/primary_original_discovery.py scripts/publish_newsroom_outputs.py
           python -m unittest discover -s tests -p 'test_primary_document_dossiers.py' -v
+          python -m unittest discover -s tests -p 'test_candidate_preview.py' -v
           python -m unittest discover -s tests -p 'test_primary_document_publishing.py' -v
           python -m unittest discover -s tests -p 'test_primary_original_discovery.py' -v
           python -m unittest discover -s tests -p 'test_primary_original_discovery_publishing.py' -v

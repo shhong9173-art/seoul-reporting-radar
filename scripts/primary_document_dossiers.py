@@ -11,11 +11,15 @@ import html
 from html.parser import HTMLParser
 import json
 import re
+import os
+import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import urlsplit
 from urllib.request import Request, build_opener, HTTPRedirectHandler
 from urllib.error import URLError, HTTPError
+from scripts.candidate_press_preview import recheck
+from scripts.historical_exclusive_press_collector import fetch_rss
 
 ROOT=Path(__file__).resolve().parents[1]
 KST=timezone(timedelta(hours=9))
@@ -171,13 +175,31 @@ def validated_prior(previous):
     return old
 
 
-def dossier(spec,previous=None,*,now=None,fetcher=fetch_page,prior_press=None):
+def comparison_baseline(older, url, now):
+    """Retain hashes across outages, never across URLs or invalid chronology."""
+    if older.get("url") != url:
+        return None
+    baseline = older.get("lastSuccessfulSnapshot")
+    if baseline is None and older.get("status") == "matched_original_text":
+        baseline = {"url": url, "checkedAt": older.get("checkedAt"),
+                    "contentSha256": older.get("contentSha256"),
+                    "firstObservedAt": older.get("firstObservedAt")}
+    if not isinstance(baseline, dict) or baseline.get("url") != url:
+        return None
+    at = _time(baseline.get("checkedAt"))
+    if not at or at >= now or not re.fullmatch(r"[a-f0-9]{64}", str(baseline.get("contentSha256", ""))):
+        return None
+    return baseline
+
+
+def dossier(spec,previous=None,*,now=None,fetcher=fetch_page,prior_press=None,press_fetcher=None):
     checked_registry(spec)
     now=now or datetime.now(KST)
     if now.tzinfo is None or now.utcoffset() is None:
         raise ValueError("timezone_required")
     now_s=now.astimezone(KST).isoformat(timespec="seconds")
     old=validated_prior(previous)
+    run_id = str(uuid.uuid4())
     if prior_press is not None and not isinstance(prior_press,list):
         raise ValueError("malformed_prior_press_data")
     results=[]
@@ -191,6 +213,10 @@ def dossier(spec,previous=None,*,now=None,fetcher=fetch_page,prior_press=None):
                     "firstObservedAt":None,"contentChangedSincePriorCheck":None,
                     "baselineOnly":True}
             older=old.get((case["id"],doc["id"]),{})
+            baseline = comparison_baseline(older, doc["url"], now)
+            record.update(comparisonStatus="current_fetch_failed", previousSuccessfulCheckAt=
+                          baseline["checkedAt"] if baseline else None,
+                          lastSuccessfulSnapshot=baseline)
             try:
                 content=fetcher(doc["url"])
                 if not isinstance(content,str) or len(content)<45:
@@ -207,12 +233,16 @@ def dossier(spec,previous=None,*,now=None,fetcher=fetch_page,prior_press=None):
                 record["status"]="matched_original_text" if matched else "text_retrieved_no_expected_evidence"
                 record["verifiedFactCount"]=len(matched)
                 record["contentSha256"]=page_hash
-                was_verified=older.get("status")=="matched_original_text"
-                record["firstObservedAt"]=older.get("firstObservedAt",now_s) if was_verified else now_s
+                was_verified=baseline is not None
+                record["firstObservedAt"]=(baseline.get("firstObservedAt") or baseline["checkedAt"]) if baseline else now_s
                 record["contentChangedSincePriorCheck"]=(
-                    older.get("contentSha256")!=page_hash if was_verified
+                    baseline["contentSha256"]!=page_hash if was_verified
                     else None)
                 record["baselineOnly"]=not was_verified
+                record["comparisonStatus"]=("text_changed_requires_review" if record["contentChangedSincePriorCheck"]
+                    else "text_unchanged" if baseline else "first_comparable_observation")
+                record["lastSuccessfulSnapshot"]={"url":doc["url"], "checkedAt":now_s,
+                    "contentSha256":page_hash,"firstObservedAt":record["firstObservedAt"]}
                 facts.extend(matched)
                 if matched:
                     verified_count+=1
@@ -222,8 +252,7 @@ def dossier(spec,previous=None,*,now=None,fetcher=fetch_page,prior_press=None):
                 record["errorType"]=type(exc).__name__
                 # Prior successfully fetched facts are NOT carried forward as
                 # current verification when the source is inaccessible.
-                record["lastSuccessfulObservationAt"]=older.get("checkedAt") \
-                    if older.get("status")=="matched_original_text" else None
+                record["lastSuccessfulObservationAt"]=baseline["checkedAt"] if baseline else None
                 failed_count+=1
             docs.append(record)
         matched_documents=sum(x["status"]=="matched_original_text" for x in docs)
@@ -254,6 +283,9 @@ def dossier(spec,previous=None,*,now=None,fetcher=fetch_page,prior_press=None):
             "priorPressIndexStatus":("not_provided" if prior_press is None
                                      else "partial_index_not_fulltext_checked"),
             "possiblePriorPressTitles":press_candidates,
+            "pressRecheck":recheck(case.get("pressTerms"), now=now, fetcher=press_fetcher)
+                if press_fetcher is not None else {"status":"not_queried", "items":[],
+                    "noPriorPressProved":False,"publisherFulltextCompared":False},
             "noPriorPressProved":False,
             "questionsForPublicConfirmation":case["questions"],
             "unresolved":case["boundaries"],
@@ -261,7 +293,9 @@ def dossier(spec,previous=None,*,now=None,fetcher=fetch_page,prior_press=None):
             "publisherFulltextCompared":False,
         })
     return {
-        "status":STATUS,"generatedAt":now_s,
+        "status":STATUS,"generatedAt":now_s,"verificationRunId":run_id,
+        "workflowRunUrl":("https://github.com/shhong9173-art/seoul-reporting-radar/actions/runs/"+
+            os.environ["GITHUB_RUN_ID"] if os.environ.get("GITHUB_RUN_ID","").isdigit() else None),
         "registryBaselineDate":spec.get("baselineDate"),
         "registryIsManuallyCuratedNotAutomatedDiscovery":True,
         "cases":results,"caseCount":len(results),
@@ -295,7 +329,7 @@ def main():
             press=index["items"]
     except (OSError,ValueError,UnicodeError,AttributeError):
         pass
-    result=dossier(spec,previous=previous,prior_press=press)
+    result=dossier(spec,previous=previous,prior_press=press,press_fetcher=fetch_rss)
     args.output.parent.mkdir(parents=True,exist_ok=True)
     tmp=args.output.with_suffix(args.output.suffix+".tmp")
     tmp.write_text(json.dumps(result,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
