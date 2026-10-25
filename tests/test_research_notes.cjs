@@ -1,0 +1,53 @@
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const n=require('../research_notes.js');
+const {researchGroups,documentIdentity,build}=require('../scoop_request.js');
+let raw=null;
+const storage={getItem:()=>raw,setItem:(_k,v)=>{raw=v}};
+let book=n.load(storage);
+assert.equal(book.entries.length,0);
+book=n.save(storage,book,{id:'case:one',starred:true,state:'추가 취재 필요',note:'공개 계약 변경일 확인'},new Date('2026-10-26T01:00:00Z'));
+assert.equal(n.get(n.load(storage),'case:one').note,'공개 계약 변경일 확인');
+assert.equal(n.get(book,'case:two').starred,false,'Distinct records must not share notes');
+for(const state of n.STATES){
+ book=n.save(storage,book,{id:'case:one',starred:true,state,note:'<script>alert(1)</script>'});
+ assert.equal(n.get(book,'case:one').state,state);
+}
+const before=raw;
+assert.throws(()=>n.merge(storage,book,{version:1,entries:[{id:'bad',starred:true,state:'단독 확정'}]}));
+assert.equal(raw,before,'Malformed import must not overwrite saved data');
+assert.throws(()=>n.save({setItem:()=>{throw Error('quota')}},book,{id:'case:two',starred:false,state:'미검토',note:''}));
+assert.equal(book.entries.length,1,'Storage failure must not claim a saved note');
+assert.throws(()=>n.validate({version:1,entries:[book.entries[0],book.entries[0]]}));
+assert.throws(()=>n.validate({version:1,entries:[{...book.entries[0],note:'x'.repeat(4001)}]}));
+const newer={...book.entries[0],note:'new',updatedAt:'2030-01-01T00:00:00Z'};
+const older={...book.entries[0],note:'old',updatedAt:'2020-01-01T00:00:00Z'};
+book=n.merge(storage,book,{version:1,entries:[newer]});
+book=n.merge(storage,book,{version:1,entries:[older]});
+assert.equal(n.get(book,'case:one').note,'new');
+assert.equal(book.entries[0].note,'new');
+assert.throws(()=>n.load({getItem:()=>'{broken'}));
+assert.equal(documentIdentity('javascript:alert(1)'),null);
+assert.equal(documentIdentity('https://example.com/'),null);
+const url='https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261026000123';
+assert.equal(documentIdentity(url+'#part'),url);
+assert.equal(documentIdentity(url+'&utm_source=reader'),url);
+const rows=[{id:'a',title:'설비',officialUrls:[url]},
+ {id:'b',title:'직원',officialUrls:[url+'#employee']},
+ {id:'c',title:'비슷한 회사 다른 문서',officialUrls:[url.replace('123','124')]}];
+const groups=researchGroups(rows);
+assert.equal(groups.length,1);
+assert.deepEqual(groups[0].memberIds,['a','b']);
+assert.equal(groups[0].confirmedExclusive,false);
+assert(groups[0].relationship.includes('별도 확인'));
+assert.equal(researchGroups([rows[0],rows[0]]).length,0);
+const future=build({queue:{status:'reporter_evidence_queue_not_exclusive',generatedAt:'2030-01-01T00:00:00Z',items:[]}}, {now:new Date('2026-10-26T01:00:00Z')});
+assert.equal(future.sourceHealth.find(x=>x.source==='queue').status,'stale_or_unknown_timestamp');
+assert.equal(future.confirmedScoops,0);
+const page=fs.readFileSync('scoop-request.html','utf8');
+assert(page.includes('research_notes.js'));
+assert(page.includes('article.append(noteControls(c))'));
+assert(page.includes('원문·선행보도가 자동 재검증되지는 않습니다'));
+assert(!page.includes('innerHTML'));
+assert(!fs.readFileSync('research_notes.js','utf8').includes('fetch('));
+console.log('PASS personal note persistence/import failures, distinct IDs, document-only grouping, future timestamps and safe rendering');

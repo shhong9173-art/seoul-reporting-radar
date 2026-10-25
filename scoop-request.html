@@ -9,6 +9,7 @@ h1{font-size:30px;margin:16px 0 8px}h2{font-size:21px;margin:6px 0 10px}h3{font-
 p,li{line-height:1.65}.sub{font-size:14px;color:#56647c}
 .search{display:flex;gap:10px;flex-wrap:wrap;align-items:center;padding:19px;background:#fff;border:1px solid #dce3ed;border-radius:14px}
 input{font:inherit;padding:13px;border:1px solid #a5b5c9;border-radius:8px;flex:1;min-width:180px}
+input[type=checkbox]{min-width:0;flex:none;width:auto;padding:0}
 button{font:inherit;padding:12px 18px;background:#1f487c;border:0;color:white;border-radius:8px;cursor:pointer}
 button:disabled{opacity:.5}a{color:#164e8f}a:focus,button:focus,input:focus{outline:3px solid #abc4e1}
 .quick{display:flex;gap:8px;margin:11px 0 18px;flex-wrap:wrap}
@@ -22,21 +23,35 @@ ul{margin:7px 0;padding-left:22px}.source{font-size:12px;word-break:break-all;di
 .warning{padding:12px;border:1px solid #e5dbbf;border-radius:9px;background:#fcfaf4;margin:14px 0}
 #summary{margin-top:22px}small{color:#576882}aside{font-size:13px}
 @media(max-width:600px){h1{font-size:24px}.result{padding:15px}}
+textarea,select{font:inherit;padding:9px;border:1px solid #a5b5c9;border-radius:7px;max-width:100%;box-sizing:border-box}
+textarea{display:block;width:100%;min-height:90px;margin:9px 0}.notes{border-top:1px solid #dce4ed;margin-top:18px;padding-top:14px}
+.notes label{display:block;margin:8px 0}.notes button{padding:8px 13px}.notes-status{display:block;margin-top:8px}
 </style></head>
 <body><main>
 <header><a href="index.html">← 레이더 홈</a>
 <h1>단독거리 찾아줘</h1>
 <p class="sub">기업명을 넣으면 공식 원문·NHTSA 제조사 보고서·DART 공시를 묶어 취재 우선순위별로 추천합니다. 동일 사건은 합치고, 근거 부족한 항목을 채워 넣지 않습니다.</p>
+<p class="sub">이 화면은 배포된 수집 자료를 조회합니다. 검색 버튼이나 원문 링크를 누르는 것만으로 원문·선행보도가 자동 재검증되지는 않습니다.</p>
 </header>
 <form id="request" class="search">
 <label for="company">출입처</label><input id="company" type="search" value="현대차" maxlength="65" autocomplete="off" placeholder="예: 현대차, 기아, 고려아연">
 <button type="submit">단독거리 5건 찾아줘</button>
 </form>
 <nav class="quick" id="quick" aria-label="빠른 기업 선택"></nav>
+<section class="warning" aria-label="개인 취재 기록">
+<strong>별·메모·처리 상태</strong>
+<p class="sub">이 브라우저에만 저장됩니다. 다른 기기와 동기화되지 않으며, 서버에 전송하거나 단독 점수에 반영하지 않습니다. 브라우저 데이터 삭제 전에 백업하세요.</p>
+<button id="notes-export" type="button">메모 백업</button>
+<label>메모 복원 <input id="notes-import" type="file" accept="application/json,.json"></label>
+<label><input id="starred-only" type="checkbox"> 현재 상위 후보 중 별 표시만 보기</label>
+<div id="notes-status" role="status" aria-live="polite"></div>
+</section>
 <div id="summary" role="status" aria-live="polite">공식 원문 자료를 확인하고 있습니다.</div>
+<div id="research-groups"></div>
 <div id="results"></div>
 </main>
 <script src="scoop_request.js"></script>
+<script src="research_notes.js"></script>
 <script>
 (function(){
 "use strict";
@@ -52,6 +67,30 @@ const knownSources=[
  ["queue","digests/reporting_evidence_queue_latest.json"]
 ];
 let data=null;
+const notes=window.ResearchNotes;
+let book={version:1,entries:[]},storage=null;
+try{storage=window.localStorage;book=notes.load(storage)}
+catch(_e){$("notes-status").textContent="기존 메모를 읽을 수 없습니다. 덮어쓰지 않도록 저장을 중단했습니다.";storage=null}
+function noteControls(c){
+ const box=el("section",undefined,"notes"),current=notes.get(book,c.id);
+ const star=el("input");star.type="checkbox";star.checked=current.starred;
+ const starLabel=el("label","★ 중요 단서 ");starLabel.append(star);
+ const select=el("select");select.setAttribute("aria-label","취재 처리 상태");
+ for(const state of notes.STATES){const option=el("option",state);option.value=state;select.append(option)}
+ select.value=current.state;
+ const stateLabel=el("label","처리 상태 ");stateLabel.append(select);
+ const memo=el("textarea");memo.maxLength=4000;memo.value=current.note;
+ memo.setAttribute("aria-label","개인 취재 메모");memo.placeholder="추가 확인할 공개 사실, 문의 결과, 선행기사 링크 등";
+ const save=el("button","기록 저장");save.type="button";save.disabled=!storage;
+ const status=el("small",current.updatedAt?"저장 시각 "+current.updatedAt:"아직 저장한 기록 없음","notes-status");
+ status.setAttribute("role","status");
+ save.addEventListener("click",()=>{
+  try{book=notes.save(storage,book,{id:c.id,starred:star.checked,state:select.value,note:memo.value});
+   status.textContent="이 브라우저에 저장했습니다. 후보의 자동 검증 상태는 바뀌지 않습니다."}
+  catch(_e){status.textContent="저장 실패: 브라우저 저장 공간·권한을 확인하세요. 입력 내용은 남겨 두었습니다."}
+ });
+ box.append(starLabel,stateLabel,memo,save,status);return box;
+}
 function addSource(box,url,label){
  try{
   const u=new URL(url);
@@ -66,6 +105,7 @@ function addSource(box,url,label){
 }
 function show(company){
  $("results").replaceChildren();
+ $("research-groups").replaceChildren();
  if(!data||!window.ScoopRequest){$("summary").textContent="원문 취재 대기열을 아직 불러올 수 없습니다.";return}
  const result=window.ScoopRequest.build(data,{company,limit:5,now:new Date()});
  const status=el("div",undefined,"warning");
@@ -75,7 +115,16 @@ function show(company){
              s=>s.source+" "+s.status).join(" / ")+
              " · 국내 기존 보도 전수 대조 미완료 · 확정 단독 0건"));
  $("summary").replaceChildren(status);
+ for(const group of result.researchGroups){
+  const section=el("section",undefined,"warning");
+  section.append(el("h2","같은 문서에서 나온 취재 단서"),el("p",group.relationship));
+  const list=el("ul");for(const title of group.titles)list.append(el("li",title));section.append(list);
+  addSource(section,group.documentUrl,"공통 원문 열기 ↗");$("research-groups").append(section);
+ }
+ let visible=0;
  for(let i=0;i<result.rows.length;i++){
+  if($("starred-only").checked&&!notes.get(book,result.rows[i].id).starred)continue;
+  visible++;
   const c=result.rows[i],article=el("article",undefined,"result");
   const top=el("div",undefined,"topline");
   top.append(el("span",String(i+1)+"순위","pill"),
@@ -101,12 +150,13 @@ function show(company){
   const more=el("details");more.append(el("summary","기사를 쓰기 전 반드시 확인할 사항"));
   const ul=el("ul");for(const u of c.unresolved)ul.append(el("li",u));more.append(ul);
   article.append(more,el("small","단독 미확정 · 실제 기업 영향·계약·시설 변경 및 국내 기보도 여부 확인 전"));
-  $("results").append(article);
+  article.append(noteControls(c));$("results").append(article);
  }
  if(!result.rows.length){
   $("results").append(el("p",
     "해당 기업을 확인할 수 있는 원문 근거 후보가 없습니다. 미보도 사건이 없다는 뜻이 아니며, 수집 원천을 확장해야 합니다.","warning"));
  }
+ if(result.rows.length&&!visible)$("results").append(el("p","현재 상위 후보 중 별 표시한 단서가 없습니다. 다른 기업의 기록은 메모 백업에 보존됩니다.","warning"));
 }
 async function load(){
  const parts=await Promise.all(knownSources.map(async ([key,url])=>{
@@ -117,6 +167,25 @@ async function load(){
 }
 $("request").addEventListener("submit",ev=>{
  ev.preventDefault();show($("company").value.trim());
+});
+$("starred-only").addEventListener("change",()=>show($("company").value.trim()));
+$("notes-export").addEventListener("click",()=>{
+ if(!storage){$("notes-status").textContent="메모 읽기에 실패해 빈 백업을 만들지 않았습니다.";return}
+ const url=URL.createObjectURL(new Blob([JSON.stringify(notes.validate(book),null,2)],{type:"application/json"}));
+ const link=el("a");link.href=url;link.download="industry-research-notes.json";link.click();
+ setTimeout(()=>URL.revokeObjectURL(url),1000);
+ $("notes-status").textContent="백업 파일에는 개인 취재 메모가 포함됩니다. 안전한 곳에 보관하세요.";
+});
+$("notes-import").addEventListener("change",async ev=>{
+ try{
+  if(!storage)throw Error("storage unavailable");
+  const file=ev.target.files[0];if(!file)return;
+  if(file.size>12000000)throw Error("oversized backup");
+  book=notes.merge(storage,book,JSON.parse(await file.text()));
+  $("notes-status").textContent="복원했습니다. 같은 항목은 더 최근에 저장한 기록을 유지합니다.";
+  show($("company").value.trim());
+ }catch(_e){$("notes-status").textContent="복원 실패: 파일 형식·크기·저장 권한을 확인하세요. 기존 기록은 보존했습니다."}
+ ev.target.value="";
 });
 for(const word of ["현대차","기아","현대제철","HD현대일렉트릭","LS일렉트릭","고려아연"]){
  const b=el("button",word);b.type="button";
