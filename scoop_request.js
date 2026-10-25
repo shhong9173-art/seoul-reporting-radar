@@ -32,6 +32,15 @@ function matches(term,...values){
 function validHttps(x){
  try{const u=new URL(x);return u.protocol==="https:"&&!u.username&&!u.password&&u.hostname.indexOf(".")>0} catch{return false}
 }
+function reviewUrl(value,kind){
+ try{
+  const u=new URL(value);
+  if(u.protocol!=="https:"||u.username||u.password||u.port)return null;
+  if(kind==="press"&&u.hostname==="news.google.com"&&/^\/(?:rss\/)?articles\/[^/]+$/.test(u.pathname))return u.href;
+  if(kind==="run"&&u.hostname==="github.com"&&/^\/shhong9173-art\/seoul-reporting-radar\/actions\/runs\/\d+$/.test(u.pathname))return u.href;
+ }catch{}
+ return null;
+}
 function dateMs(text){
  if(typeof text!=="string")return null;
  const d=Date.parse(text.length===8&&/^\d{8}$/.test(text)?
@@ -278,7 +287,7 @@ function build(sources,{company="현대차",limit=5,now=new Date()}={}){
    "상단 후보는 발제 우선순위이며 단독 확정 건수가 아닙니다.";
  return meta;
 }
-const API={build,identifiers,matches,documentIdentity,researchGroups};
+const API={build,identifiers,matches,documentIdentity,researchGroups,reviewUrl};
 if(typeof module!=="undefined"&&module.exports)module.exports=API;
 root.ScoopRequest=API;
 })(typeof window!=="undefined"?window:globalThis);
