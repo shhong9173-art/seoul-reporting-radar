@@ -24,10 +24,11 @@ TARGETS={
     '두산에너빌리티','HD현대일렉트릭','LS ELECTRIC','효성중공업','일진전기','LS전선','대한전선','가온전선','대원전선',
     'GS','GS칼텍스','한화솔루션','OCI홀딩스','씨에스윈드','LG화학','롯데케미칼','금호석유화학','효성첨단소재','코오롱인더'
 }
-NOISE_RE=re.compile(r'주가|주식|증권|목표주가|급등|급락|추천|관련주|테마주|특징주|종목|증시|장중|오전장',re.I)
+# '수주가'/'외주가' are order/outsourcing wording, not share prices.
+NOISE_RE=re.compile(r'(?<![수외])주가|주식|증권|목표주가|급등|급락|추천|관련주|테마주|특징주|종목|증시|장중|오전장',re.I)
 PRESS_RE=re.compile(r'뉴스와이어|Newswire|PRNewswire|Business Wire|GlobeNewswire|EIN Presswire|PRWeb|Accesswire|Press Release|보도자료|자료제공|자료배포|뉴스룸|미디어센터|프레스센터',re.I)
 EVENT_RE=re.compile(r'인베스터데이|주주총회|설명회|세미나|포럼|엑스포|컨퍼런스|부스투어|기조연설|발표회')
-NUM_RE=re.compile(r'(?<!\\d)(?:\\d{1,3}(?:,\\d{3})+|\\d+(?:\\.\\d+)?)(?:조원|억원|만원|달러|만대|천대|대|명|%|GWh|MWh|kWh|톤|km|MW|GW)(?!\\w)',re.I)
+NUM_RE=re.compile(r'(?<!\d)(?:\d{1,3}(?:,\d{3})+|\d+(?:\.\d+)?)(?:조원|억원|만원|달러|만대|천대|대|명|%|GWh|MWh|kWh|톤|km|MW|GW)(?!\w)',re.I)
 
 THEMES={
     '가격·수요':['가격','가격 조정','가격 인상','가격 인하','유통가격','수요','재고','원가','마진','스프레드'],
@@ -55,8 +56,8 @@ def text(x):
 
 def clean_title(x):
     t=str(x.get('title') or x.get('koTitle') or '').strip()
-    t=re.sub(r'^\\s*(?:\\[[^]]+\\]|【[^】]+】)\\s*','',t)
-    t=re.sub(r'\\s+[-|｜]\\s*[^-|｜]{1,40}$','',t).strip()
+    t=re.sub(r'^\s*(?:\[[^]]+\]|【[^】]+】)\s*','',t)
+    t=re.sub(r'\s+[-|｜]\s*[^-|｜]{1,40}$','',t).strip()
     return t
 
 def nums(x):
@@ -101,6 +102,25 @@ def sources(arr):
 def evidence(arr):
     return [{'source':x.get('sourceName') or '-', 'title':clean_title(x), 'url':x.get('url'),'published':x.get('published'),'numbers':nums(x)[:6]} for x in unique_articles(arr,4)]
 
+# Fixed facts written into a template (amounts, dates, counts, model or
+# project names with digits) must appear in the evidence used for this run.
+# Otherwise an old one-off template would re-publish stale numbers as fact.
+CLAIM_TOKEN_RE=re.compile(r'[가-힣A-Za-z]*\d[\d,.]*[가-힣A-Za-z%]*')
+CLAIM_PARTICLE_RE=re.compile(r'(?:으로|에서|에게|까지|부터|이나|이며|이고|이다|으며|로|은|는|이|가|을|를|의|에|과|와|도|만|씩)$')
+
+def _claim_norm(s):
+    return re.sub(r'[\s,]','',str(s or '')).lower()
+
+def unsupported_claims(texts, arr):
+    support=_claim_norm(' '.join(text(x) for x in arr))
+    missing=[]
+    for t in texts:
+        for tok in CLAIM_TOKEN_RE.findall(str(t or '')):
+            core=_claim_norm(CLAIM_PARTICLE_RE.sub('',tok.rstrip('.,')))
+            if core and core not in support and tok not in missing:
+                missing.append(tok)
+    return missing
+
 def pitch(headline, category, co, bullets, arr, questions, score=94, angle=''):
     ev=evidence(arr)
     ns=list(dict.fromkeys([n for x in arr for n in nums(x)]))[:8]
@@ -128,7 +148,8 @@ def pitch(headline, category, co, bullets, arr, questions, score=94, angle=''):
         'dartNumericSignals':[],
         'dartNumericCount':0,
         'questions':questions,
-        'articlePlan':bullets[:]
+        'articlePlan':bullets[:],
+        'unsupportedClaims':unsupported_claims([headline,angle]+list(bullets)+list(questions),arr)
     }
 
 candidates=[]
@@ -247,6 +268,11 @@ if len(sdi)>=1:
     candidates.append(pitch('삼성SDI, 전기차 공장 ESS로 돌린다…4.4조 실탄 확보','배터리',['삼성SDI'],bullets,arr,
         ['ESS 전환 대상 공장과 생산능력은 어느 정도인가?','4.4조원 재원 중 ESS 생산·투자에 배분되는 금액은?','ESS 수주잔고와 향후 가동률·수익성 개선 효과는?'],91))
 
+rejected_claims=[{'headline':p['headline'],'unsupportedClaims':p['unsupportedClaims']} for p in candidates if p['unsupportedClaims']]
+candidates=[p for p in candidates if not p['unsupportedClaims']]
+for p in candidates:
+    p.pop('unsupportedClaims',None)
+
 # Rank by editorial usefulness rather than a generic AI score.
 # Prefer specific conflict/variable headlines and multiple concrete facts.
 def quality(p):
@@ -279,3 +305,6 @@ final=[p for p in final if len(p.get('briefBullets') or [])>=2 and len(p.get('ev
 
 OUT.write_text(json.dumps(final,ensure_ascii=False,separators=(',',':')),encoding='utf-8')
 print(f'editorial pitch builder: {len(final)} reporter-style candidates / max 3 / no generic template')
+print(f'template claims not found in current evidence (dropped): {len(rejected_claims)}')
+for r in rejected_claims:
+    print(' -',r['headline'],'::',', '.join(r['unsupportedClaims'][:8]))
