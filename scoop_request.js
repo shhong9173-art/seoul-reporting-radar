@@ -111,6 +111,7 @@ function build(sources,{company="현대차",limit=5,now=new Date()}={}){
  const meta={company,sourceHealth:[],totalCandidates:0,notFullPressCoverage:true,
    pressAbsenceProved:false,confirmedScoops:0,gap:"",generatedAt:now.toISOString()};
  const rows=[],byUrl=new Map();
+ meta.rechecks=[];
  function healthy(src,expected){
   const value=sources&&sources[src];
   if(!value||value.status!==expected){
@@ -131,6 +132,15 @@ function build(sources,{company="현대차",limit=5,now=new Date()}={}){
    if(!matches(company,c.company,c.title))continue;
    if(c.exclusiveConfirmed!==false||c.noPriorPressProved!==false||
       c.publisherFulltextCompared!==false)continue;
+   // Keep failed originals visible even when their facts cannot enter a candidate.
+   meta.rechecks.push({title:safeLine(c.title),runId:safeLine(dossiers.verificationRunId,80),
+    workflowRunUrl:validHttps(dossiers.workflowRunUrl)?dossiers.workflowRunUrl:null,
+    documents:(Array.isArray(c.originalDocuments)?c.originalDocuments:[]).filter(d=>validHttps(d.url)).map(d=>({
+     url:d.url,status:safeLine(d.status),checkedAt:safeLine(d.checkedAt),
+     comparisonStatus:safeLine(d.comparisonStatus)||"comparison_not_available",
+     previousSuccessfulCheckAt:safeLine(d.previousSuccessfulCheckAt),errorType:safeLine(d.errorType)
+    })),
+    press:c.pressRecheck||{status:"not_queried",items:[]}});
    const facts=factsFromCase(c);
    if(!facts.length)continue;
    const officialUrls=[...new Set(facts.map(f=>f.sourceUrl))];
