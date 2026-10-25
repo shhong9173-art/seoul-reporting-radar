@@ -1,0 +1,19 @@
+name: Reporter Research Notes Regression
+on:
+  pull_request:
+    paths: ['research_notes.js', 'scoop_request.js', 'scoop-request.html', 'tests/test_research_notes.cjs', '.github/workflows/research-desk-ci.yml']
+  push:
+    branches: [main]
+    paths: ['research_notes.js', 'scoop_request.js', 'scoop-request.html', 'tests/test_research_notes.cjs', '.github/workflows/research-desk-ci.yml']
+permissions:
+  contents: read
+jobs:
+  notes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node tests/test_research_notes.cjs
+      - run: node tests/test_scoop_request.cjs

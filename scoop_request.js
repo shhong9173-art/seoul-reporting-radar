@@ -78,6 +78,33 @@ function stageRank(s){
  if(s==="과거 원자료·현재 변화 재검증")return 4;
  return 5;
 }
+function documentIdentity(value){
+ if(!validHttps(value))return null;
+ const u=new URL(value);
+ // A home page is not a document. Keep all document-identifying query values.
+ if(u.pathname==="/"&&!u.search)return null;
+ u.hash="";
+ for(const key of [...u.searchParams.keys()])
+  if(/^utm_/i.test(key))u.searchParams.delete(key);
+ u.searchParams.sort();
+ return u.href;
+}
+function researchGroups(rows){
+ const documents=new Map();
+ for(const row of rows){
+  for(const url of new Set((row.officialUrls||[]).map(documentIdentity).filter(Boolean))){
+   if(!documents.has(url))documents.set(url,[]);
+   const members=documents.get(url);
+   if(!members.some(m=>m.id===row.id))members.push(row);
+  }
+ }
+ return [...documents.entries()].filter(([,members])=>members.length>1).map(([url,members])=>({
+  documentUrl:url,memberIds:members.map(r=>r.id),
+  titles:members.map(r=>r.title),
+  relationship:"동일 원문 URL에서 나온 단서 · 동일 사건·사업장 관계는 별도 확인",
+  confirmedExclusive:false
+ }));
+}
 function build(sources,{company="현대차",limit=5,now=new Date()}={}){
  if(!(now instanceof Date)||!Number.isFinite(+now))throw Error("유효한 현재시각 필요");
  limit=Math.max(1,Math.min(8,Number(limit)||5));
@@ -91,7 +118,8 @@ function build(sources,{company="현대차",limit=5,now=new Date()}={}){
    return null;
   }
   const at=dateMs(value.generatedAt);
-  meta.sourceHealth.push({source:src,status:at!==null&&(+now-at)<=3*86400000?"observed_recently":"stale_or_unknown_timestamp"});
+  meta.sourceHealth.push({source:src,generatedAt:value.generatedAt||null,
+   status:at!==null&&(+now-at)>=0&&(+now-at)<=3*86400000?"observed_recently":"stale_or_unknown_timestamp"});
   return value;
  }
  const dossiers=healthy("dossiers","primary_original_reporter_dossiers_not_exclusive");
@@ -231,6 +259,7 @@ function build(sources,{company="현대차",limit=5,now=new Date()}={}){
    ||((dateMs(b.officialDate)||0)-(dateMs(a.officialDate)||0))
    ||a.id.localeCompare(b.id));
  meta.totalCandidates=rows.length;
+ meta.researchGroups=researchGroups(rows);
  meta.displayed=Math.min(rows.length,limit);
  meta.rows=rows.slice(0,limit);
  meta.gap=rows.length<limit?
@@ -239,7 +268,7 @@ function build(sources,{company="현대차",limit=5,now=new Date()}={}){
    "상단 후보는 발제 우선순위이며 단독 확정 건수가 아닙니다.";
  return meta;
 }
-const API={build,identifiers,matches};
+const API={build,identifiers,matches,documentIdentity,researchGroups};
 if(typeof module!=="undefined"&&module.exports)module.exports=API;
 root.ScoopRequest=API;
 })(typeof window!=="undefined"?window:globalThis);
