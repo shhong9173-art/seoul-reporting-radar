@@ -1,0 +1,72 @@
+name: Claude Connector Tool Views
+# Rebuilds the small views (tools/*.json) that the Cloudflare MCP connector
+# serves to Claude. Runs after the collectors finish (workflow_run is not
+# subject to the schedule drops seen on the 15-minute crons) and hourly as a
+# fallback. Views restate published JSON only; no API keys are used here.
+on:
+  workflow_run:
+    workflows:
+      - Auto Desk News Update
+      - Scoop Radar Independent Refresh
+      - Industry Beat DART Official Disclosure Monitor
+      - Multi-source Official Reporting Radar
+      - Evidence-first Reporter Queue
+      - Reporter Morning DART Digest
+      - KONEPS Tender Official Research
+      - Official Overseas & Contract Leads
+      - Customs 10-Day Provisional Trade
+      - Patent Public DART Evidence Cross-Check
+    types: [completed]
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/radar_tool_views.py'
+      - 'tests/test_radar_tool_views.py'
+      - '.github/workflows/tool-views.yml'
+  schedule:
+    - cron: '23 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: claude-tool-views
+  cancel-in-progress: true
+
+jobs:
+  views:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test view safeguards
+        run: python -m unittest discover -s tests -p 'test_radar_tool_views.py' -v
+      - name: Build tool views from current main
+        run: python scripts/radar_tool_views.py
+      - name: Publish tool views
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tools/*.json
+          if git diff --cached --quiet; then echo "tool views unchanged"; exit 0; fi
+          git commit -m "data: refresh Claude connector tool views [skip ci]"
+          for attempt in 1 2 3 4; do
+            if git pull --rebase origin main && git push origin HEAD:main; then exit 0; fi
+            git rebase --abort 2>/dev/null || true
+            # Another writer moved main: rebuild on top of it so views match the newest data.
+            git reset --hard origin/main
+            python scripts/radar_tool_views.py
+            git add tools/*.json
+            if git diff --cached --quiet; then exit 0; fi
+            git commit -m "data: refresh Claude connector tool views [skip ci]"
+            sleep $((attempt * 5))
+          done
+          exit 1
