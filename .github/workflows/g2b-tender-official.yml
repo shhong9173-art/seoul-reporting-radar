@@ -37,7 +37,11 @@ jobs:
         id: source
         continue-on-error: true
         env:
+          # data.go.kr issues one general service key per account. When no
+          # dedicated G2B secret exists, reuse the account key already stored
+          # for the data.go.kr customs APIs (apis.data.go.kr/1220000).
           G2B_API_KEY: ${{ secrets.G2B_API_KEY }}
+          DATA_GO_KR_SHARED_KEY: ${{ secrets.CUSTOMS_API_KEY }}
         run: python scripts/g2b_tender_watch.py
       - name: Refresh multi-source research status, including provider failure
         run: python scripts/industry_official_hunt.py

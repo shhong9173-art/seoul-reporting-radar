@@ -10,6 +10,12 @@ def make(title="초고압 변압기 장비 구매",total=1):
           "bidNtceOrd":"000","bidNtceNm":title,"ntceInsttNm":"한국전력",
           "dminsttNm":"전력기관","bidNtceDtlUrl":"https://www.g2b.go.kr/"}]}}}
 class Tender(unittest.TestCase):
+ def test_key_resolution_prefers_dedicated_and_never_returns_value_as_source(self):
+  self.assertEqual(p.resolve_key({"G2B_API_KEY":" a ","DATA_GO_KR_SHARED_KEY":"b"}),("a","G2B_API_KEY"))
+  key,source=p.resolve_key({"G2B_API_KEY":"","DATA_GO_KR_SHARED_KEY":"shared-secret"})
+  self.assertEqual(key,"shared-secret")
+  self.assertNotIn("shared-secret",source)
+  self.assertEqual(p.resolve_key({}),("",None))
  def test_official_notice_is_not_award(self):
   out=p.build("fake-key",get=lambda u:make(),now=NOW)
   self.assertEqual(len(out["checks"]),2)

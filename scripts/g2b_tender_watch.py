@@ -128,12 +128,19 @@ def build(key,get=fetch,now=None,previous=None):
          "confirmedAwards":0,"confirmedContracts":0,"confirmedScoops":0,
          "warning":"공고 공개/품명 일치만 확인. 낙찰·계약·국내 출입기업 공급·독점성 모두 미확인."}
 
+def resolve_key(env):
+ """Return (key, secret name). Never the value in any output."""
+ dedicated=str(env.get("G2B_API_KEY") or "").strip()
+ if dedicated:return dedicated,"G2B_API_KEY"
+ shared=str(env.get("DATA_GO_KR_SHARED_KEY") or "").strip()
+ if shared:return shared,"CUSTOMS_API_KEY (shared data.go.kr account key)"
+ return "",None
 def main():
  p=argparse.ArgumentParser()
  p.add_argument("--out",default="digests/g2b_tender_latest.json")
  p.add_argument("--status",default="digests/g2b_source_status_latest.json")
  args=p.parse_args()
- key=os.getenv("G2B_API_KEY","").strip()
+ key,key_source=resolve_key(os.environ)
  prev=None
  out=Path(args.out);out.parent.mkdir(parents=True,exist_ok=True)
  try:
@@ -142,7 +149,10 @@ def main():
  source={"generatedAt":datetime.now(KST).isoformat(timespec="seconds"),
          "status":"not_connected" if not key else "unverified",
          "source":"PPS KONEPS dataset 15129394",
-         "note":"Missing dedicated G2B_API_KEY or API-specific service permission. No 0-count claim."}
+         "keySource":key_source,
+         "note":("No G2B_API_KEY or shared data.go.kr key in this run. No 0-count claim."
+                 if not key else
+                 "Key present; a provider error means the dataset permission is not active for this key yet. No 0-count claim.")}
  if key:
   try:
    report=build(key,previous=prev)
