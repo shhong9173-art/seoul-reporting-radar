@@ -303,9 +303,7 @@ export async function dartFilings(ctx, args) {
 }
 
 function decodeXml(bytes) {
-  const head = String.fromCharCode(...bytes.slice(0, 200));
-  const enc = (/encoding=["']([\w-]+)/i.exec(head) || [])[1]?.toLowerCase() ?? 'utf-8';
-  try { return new TextDecoder(enc).decode(bytes); } catch { return new TextDecoder('utf-8').decode(bytes); }
+  return decodeBytes(bytes, '').text;
 }
 
 export async function dartFindText(ctx, args) {

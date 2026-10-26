@@ -245,6 +245,17 @@ test('dart tools require the private connection and a key, and search inside doc
   assert.match(f.text, /조회 실패\(0건 아님\)/);
 });
 
+test('MS949 pages decode through the built-in CP949 table', async () => {
+  const { decodeBytes } = await import('../cloudflare/common.mjs');
+  const bytes = new Uint8Array([0x3c, 0x70, 0x3e, 0xb5, 0xbf, 0xb1, 0xb9, 0xbe, 0xbe, 0xbf, 0xa5, 0x20, 0x50, 0x42, 0x52, 0x3c, 0x2f, 0x70, 0x3e]);
+  const r = decodeBytes(bytes, 'text/html; charset=MS949');
+  assert.equal(r.text, '<p>동국씨엠 PBR</p>');
+  assert.match(r.charset, /CP949/);
+  const meta = new TextEncoder().encode('<meta charset="euc-kr">');
+  const mixed = new Uint8Array([...meta, 0xb0, 0xa1]);
+  assert.ok(decodeBytes(mixed, 'text/html').text.endsWith('가'));
+});
+
 test('zip reader handles stored and deflated entries', async () => {
   const entries = await readZip(makeZip('a.xml', Buffer.from('안녕 DART')));
   assert.equal(new TextDecoder().decode(entries[0].data), '안녕 DART');
