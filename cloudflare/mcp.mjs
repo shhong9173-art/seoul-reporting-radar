@@ -5,13 +5,13 @@ import { dartFilings, dartFindText, g2bBids, newsCheck, sourceDocument } from '.
 import { candidateFeedback, candidateSubmit, packageSave, scoopPackages, weeklyReview, PACKAGE_STATES } from './store.mjs';
 import { POLICY, checkCandidate, formatCheck } from './scoring.mjs';
 import { scoopScreen } from './screen.mjs';
-import { pageChanges, partnerFilings, tradeRemedies, usComments, usLitigation } from './overseas.mjs';
+import { krOfficial, pageChanges, partnerFilings, tradeRemedies, usComments, usLitigation } from './overseas.mjs';
 
 export const SUPPORTED_VERSIONS = ['2025-06-18', '2025-03-26', '2024-11-05'];
 const SERVER_INFO = { name: 'seoul-reporting-radar', title: '산업부 취재 레이더', version: '1.0.0' };
 const INSTRUCTIONS = [
   '산업부(자동차·철강·전력기기·에너지·화학) 취재 레이더. 기자는 홍성효.',
-  '순서: scoop_screen(기자 전용, 미보도 후보부터) → page_changes·us_comments·partner_filings·trade_remedies·us_litigation(기자 전용, 해외 원천) → radar_big_picture → radar_clues(days=3) → radar_stats → governance_changes → earnings_compare(실적 시즌) → dandok_monitor → scoop_packages(기자 전용).',
+  '순서: scoop_screen(기자 전용, 미보도 후보부터) → page_changes·us_comments·partner_filings·trade_remedies·us_litigation(기자 전용, 해외 원천) → kr_official(기자 전용, 공장등록·관보) → radar_big_picture → radar_clues(days=3) → radar_stats → governance_changes → earnings_compare(실적 시즌) → dandok_monitor → scoop_packages(기자 전용).',
   '후보마다: source_document 또는 dart_find_text로 원문 확인 → news_check로 보도 대조(낱말 바꿔 2~3번, 한 번에 하나씩) → candidate_check.',
   '조회 실패·미설정·일부 성공은 0건이 아니라 미확인. 색인 0건은 미보도 증거가 아님. 단계(공개 원자료 추적/취재 단서·단독 미확정/단독 후보)를 올리지 않음.',
   '최종 단독 판단은 기자가 한다. 관계자 발언을 만들지 않는다.',
@@ -125,6 +125,10 @@ export const TOOLS = [
     description: '미국 소송·ITC 337조: 출입처(미국 법인 포함)가 당사자인 연방법원 사건(CourtListener, 국제무역법원·특허·계약·반독점 우선, 소비자 소송은 접음)과 본문에 출입처 이름이 나온 ITC 337조 고시.',
     inputSchema: obj({ company: str('기업·사건명·분류 낱말'), only_new: bool('신규만'), include_routine: bool('소비자·제조물책임·개인 고용·위조품 단속 사건도 보기'),
       limit: int('줄 수', 1, 60) }) },
+  { name: 'kr_official', access: 'private', handler: krOfficial,
+    description: '국내 공식 원천: 출입처 공장등록(팩토리온) 새 공장·고용·주생산품·주소 변화와 최근 120일 등록 공장(계열사 제외), 관보 입법예고 중 출입처 업종(자동차·철강·전력·화학·통상) 관련.',
+    inputSchema: obj({ section: { type: 'string', enum: ['factory', 'gazette'] }, company: str('기업·공장·법령 낱말'),
+      days: int('공장 변화 최근 N일(기본 30)', 1, 120), show_all: bool('출입처 공장 전체 목록'), limit: int('구역별 줄 수', 1, 80) }) },
   { name: 'candidate_feedback', access: 'private', handler: candidateFeedback,
     description: '기자 판정 기록: 씀/킬/보류와 이유.',
     inputSchema: obj({ item_id: str('후보 번호(#id)·패키지 이름·단서 id'), verdict: { type: 'string', enum: ['씀', '킬', '보류'] },

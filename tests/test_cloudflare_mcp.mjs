@@ -559,6 +559,34 @@ test('us_litigation shows party cases by priority, folds routine ones, and lists
   assert.ok((await call('us_litigation', {}, PRIVATE())).isError);
 });
 
+test('kr_official shows factory changes, recent registrations and beat gazette notices', async () => {
+  const env = PRIVATE().env;
+  const recent = new Date(Date.now() - 3600000).toISOString();
+  const doc = { schema: 'kr_official/v1', generatedAt: '2026-10-27T08:10:00+09:00', rules: ['공장등록 정보는 지자체 등록 기준이다.'],
+    checks: [{ source: '공장등록 포스코', status: 'ok', returned: 4 }, { source: '관보 입법예고', status: 'failed', error: 'HTTP 500' }],
+    factories: [
+      { id: 'fac:12', company: '현대차', cmpnyNm: '현대자동차(주)울산EV공장', rnAdres: '울산광역시 북구 염포로 700', registeredOn: '2026-09-15', employees: 2000,
+        mainProductCn: '전기자동차', indutyNm: '승용차 제조업', tags: ['[최근 등록 2026-09-15]'] },
+      { id: 'fac:1', company: '포스코', cmpnyNm: '(주)포스코 포항제철소', rnAdres: '경상북도 포항시', registeredOn: '1973-07-03', employees: 8000, tags: [] }],
+    gazette: [{ id: 'gz:I2', date: '2026-10-24', org: '국토교통부', teams: ['자동차'], title: '국토교통부공고제2026-1500호(「자동차관리법 시행규칙」일부개정령안 입법예고)',
+      url: 'https://gwanbo.go.kr/ezpdf/customLayout.jsp?contentId=C', isNew: true }],
+    events: [{ id: 'fac:1:x', kind: '등록 내용 변경', company: '포스코', factoryId: 'fac:1', name: '(주)포스코 포항제철소', text: '고용 9,000→8,000명', detectedAt: recent }] };
+  const post = await worker.fetch(new Request(ORIGIN + '/ingest/kr-official', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {});
+  assert.equal(post.status, 200);
+  const opts = { path: `/mcp/${TOKEN}`, env };
+  const r = await call('kr_official', {}, opts);
+  assert.match(r.text, /질의 1\/2 정상 · 미확인\(0건 아님\): 관보 입법예고\(HTTP 500\)/);
+  assert.match(r.text, /포스코 · 등록 내용 변경\n   잡힌 사실: 고용 9,000→8,000명/);
+  assert.match(r.text, /\[최근 120일 등록 공장\] 1곳 \(출입처 공장 전체 2곳\)/);
+  assert.match(r.text, /2026-09-15 · 현대차 · 현대자동차\(주\)울산EV공장/);
+  assert.match(r.text, /\[신규\] 2026-10-24 · 국토교통부 · 자동차/);
+  assert.doesNotMatch(r.text, /포항제철소 · 경상북도/);
+  const all = await call('kr_official', { section: 'factory', show_all: true }, opts);
+  assert.match(all.text, /포스코 · \(주\)포스코 포항제철소 · 경상북도 포항시 · 고용 8000/);
+  assert.doesNotMatch(all.text, /관보 입법예고 · 출입처/);
+  assert.ok((await call('kr_official', {}, PRIVATE())).isError);
+});
+
 test('non-MCP paths keep the canonical Pages redirect', async () => {
   const r = await worker.fetch(new Request(ORIGIN + '/scoop.json?v=1'), {}, {});
   assert.equal(r.status, 307);

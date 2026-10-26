@@ -15,6 +15,7 @@ export const FEEDS = {
   'partner-filings': { blob: 'partner_filings', schema: 'partner_filings/v1', list: 'items' },
   'trade-remedy': { blob: 'trade_remedy', schema: 'trade_remedy/v1', list: 'quotas' },
   'us-litigation': { blob: 'us_litigation', schema: 'us_litigation/v1', list: 'cases' },
+  'kr-official': { blob: 'kr_official', schema: 'kr_official/v1', list: 'factories' },
 };
 
 export async function handleIngest(request, env, deps = {}) {
