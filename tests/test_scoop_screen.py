@@ -61,6 +61,17 @@ class Selection(unittest.TestCase):
         wia = next(r for r in rows if r["id"] == "clue:a2")
         self.assertEqual(wia["terms"], ["영업양도"])  # 양도 keeps its last syllable
 
+    def test_old_table_numbers_are_labelled_and_ranked_down(self):
+        rows = s.select(CLUES, STATS, now=NOW)
+        stat = next(r for r in rows if r["id"] == "stat:s1")
+        self.assertIsNone(stat.get("staleDays"))  # fixture URL has no receipt number
+        old = dict(STATS["items"][0], id="s3", sourceUrls=["https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003088"])
+        rows = s.select(CLUES, {"items": [old]}, now=NOW)
+        stale = next(r for r in rows if r["id"] == "stat:s3")
+        self.assertEqual(stale["filedOn"], "2026-08-14")
+        self.assertEqual(stale["staleDays"], 74)
+        self.assertEqual(stale["strength"], 1.5)
+
     def test_particles_and_stopwords(self):
         self.assertEqual(s.terms_from("두산에너빌리티 압력용기의 내외부를 이를", "두산에너빌리티"), ["압력용기", "내외부"])
 
