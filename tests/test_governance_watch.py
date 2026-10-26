@@ -133,7 +133,7 @@ class Governance(unittest.TestCase):
             {"rcept_no": "20261002000011", "rcept_dt": "2026-10-02", "repror": "국민연금공단", "report_tp": "일반",
              "stkrt": "9.1", "stkrt_irds": "0.10", "report_resn": "보유목적 변경(단순투자→일반투자)"},
             {"rcept_no": "20261001000012", "rcept_dt": "2026-10-01", "repror": "두산", "report_tp": "일반",
-             "stkrt": "30.4", "stkrt_irds": "0.00", "report_resn": "계약 내용의 변경"},
+             "stkrt": "30.4", "stkrt_irds": "0.00", "report_resn": "- 보유주식수 변동\n- 계약 내용의 변경"},
             {"rcept_no": "20261002000013", "rcept_dt": "2026-10-02", "repror": "기아", "report_tp": "일반",
              "stkrt": "19.4", "stkrt_irds": "0.00", "report_resn": "장내매수"},
         ]
@@ -143,6 +143,7 @@ class Governance(unittest.TestCase):
         self.assertEqual(by["20261002000010"]["tags"], [])
         self.assertFalse(by["20261002000011"]["routine"])
         self.assertIn("[사유: 계약]", by["20261001000012"]["tags"])
+        self.assertNotIn("\n", by["20261001000012"]["reason"])
         self.assertIn("[사유: 보유목적]", by["20261002000011"]["tags"])
         self.assertEqual(by["20261002000013"]["tags"], [])
         self.assertFalse(by["20261002000013"]["routine"])  # controlling-group move stays visible

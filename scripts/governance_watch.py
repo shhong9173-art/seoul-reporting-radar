@@ -112,7 +112,7 @@ def stake_item(company, team, row, start):
         return None
     reporter = str(row.get("repror") or "").strip()
     change = num(row.get("stkrt_irds"))
-    reason = str(row.get("report_resn") or "").strip()
+    reason = re.sub(r"\s+", " ", str(row.get("report_resn") or "")).strip()
     kind = str(row.get("report_tp") or "").strip()
     institution = bool(INSTITUTION.search(reporter))
     tags = []
