@@ -30,3 +30,37 @@ export async function usComments(ctx, args) {
   out.push('\n다음: 첨부 PDF는 source_document(downloads.regulations.gov)로 연다 → 같은 도켓의 규정안·마감일 확인 → news_check로 보도 대조.');
   return textResult(out.join('\n'));
 }
+
+const CAT_KO = { timing: '출시 시점', limited: '한정 물량', price: '가격', status: '판매 상태', models: '연식·차명' };
+
+export async function pageChanges(ctx, args) {
+  const doc = await readFeed(ctx, 'page-watch');
+  if (!doc) return missing('해외 공식 페이지 변경', '평일 06:30·18:30');
+  if (doc.broken) return textResult('저장된 페이지 감시 결과 형식 오류 — 미확인.', true);
+  const days = clampInt(args.days, 1, 90, 14);
+  const q = String(args.company ?? '').trim();
+  const from = new Date(ctx.now.getTime() - days * 86400000).toISOString();
+  const events = (doc.events ?? []).filter((e) => new Date(e.detectedAt).toISOString() >= from && matches(q, e.company, e.label, e.url));
+  const pages = (doc.pages ?? []).filter((p) => matches(q, p.company, p.label, p.url));
+  const failed = pages.filter((p) => p.status !== 'ok');
+  const out = [`해외 공식 페이지 변경 · 최근 ${days}일 ${events.length}건 · 페이지 ${pages.length - failed.length}/${pages.length} 열림 · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt)}`];
+  if (failed.length) out.push(`미확인(변화 없음 아님): ${failed.map((p) => `${p.label}(${p.error})`).join(', ')}`);
+  out.push(...(doc.rules ?? []).map((r) => `규칙: ${r}`));
+  for (const e of events.slice(0, clampInt(args.limit, 1, 40, 15))) {
+    out.push(`\n${String(e.detectedAt).slice(0, 16)} · ${e.label}`);
+    out.push(`   비교 기준: ${e.baselineSource}${e.baselineDate ? ` ${e.baselineDate}` : ''} → ${String(e.detectedAt).slice(0, 10)}`);
+    for (const [cat, list] of Object.entries(e.removed ?? {})) out.push(`   − ${CAT_KO[cat] ?? cat}: ${list.slice(0, 6).join(' / ')}`);
+    for (const [cat, list] of Object.entries(e.added ?? {})) out.push(`   + ${CAT_KO[cat] ?? cat}: ${list.slice(0, 6).join(' / ')}`);
+    out.push(`   원문: ${e.url}`);
+    out.push('   검증 상태: 페이지 문구 비교(자동). 공식 발표·변경 사유는 미확인 — 회사 확인과 과거 발표(보도자료·모터쇼) 대조 필요');
+  }
+  if (!events.length) out.push('\n이 기간 잡힌 문구 변화 없음(열리지 않은 페이지는 미확인).');
+  if (args.show_current === true || args.show_current === 'true') {
+    out.push('\n현재 문구:');
+    for (const p of pages.filter((x) => x.status === 'ok')) {
+      const sig = p.signals ?? {};
+      out.push(`- ${p.label}: ${['timing', 'limited', 'price', 'status'].map((k) => (sig[k] ?? []).slice(0, 3).join(' / ')).filter(Boolean).join(' · ') || '신호 문구 없음'}`);
+    }
+  }
+  return textResult(out.join('\n'));
+}

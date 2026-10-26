@@ -5,7 +5,7 @@ import { dartFilings, dartFindText, g2bBids, newsCheck, sourceDocument } from '.
 import { candidateFeedback, candidateSubmit, packageSave, scoopPackages, weeklyReview, PACKAGE_STATES } from './store.mjs';
 import { POLICY, checkCandidate, formatCheck } from './scoring.mjs';
 import { scoopScreen } from './screen.mjs';
-import { usComments } from './overseas.mjs';
+import { pageChanges, usComments } from './overseas.mjs';
 
 export const SUPPORTED_VERSIONS = ['2025-06-18', '2025-03-26', '2024-11-05'];
 const SERVER_INFO = { name: 'seoul-reporting-radar', title: '산업부 취재 레이더', version: '1.0.0' };
@@ -108,6 +108,10 @@ export const TOOLS = [
   { name: 'us_comments', access: 'private', handler: usComments,
     description: '미 연방 규제 의견서(regulations.gov): 현대차·기아·포스코·LS일렉트릭 등 출입처 명의로 NHTSA·EPA·IRS·재무부 등에 낸 의견서(최근 180일, 신규 표시, 도켓 제목·첨부 링크). 다른 단체의 인용은 제외.',
     inputSchema: obj({ company: str('기업·제출자·도켓 낱말'), only_new: bool('신규(최근 14일·처음 본 것)만'), limit: int('줄 수', 1, 60) }) },
+  { name: 'page_changes', access: 'private', handler: pageChanges,
+    description: '출입처 해외 공식 페이지 변경(현대차·기아·제네시스 미국 사이트): 출시 시점·한정 물량·가격·판매 상태·연식 문구가 직전 확인(첫 확인은 웹 아카이브 사본) 대비 바뀐 것. 공식 발표 아님 — 회사 확인 필요.',
+    inputSchema: obj({ company: str('기업·페이지 낱말'), days: int('최근 N일(기본 14)', 1, 90), limit: int('줄 수', 1, 40),
+      show_current: bool('페이지별 현재 문구도 보기') }) },
   { name: 'candidate_feedback', access: 'private', handler: candidateFeedback,
     description: '기자 판정 기록: 씀/킬/보류와 이유.',
     inputSchema: obj({ item_id: str('후보 번호(#id)·패키지 이름·단서 id'), verdict: { type: 'string', enum: ['씀', '킬', '보류'] },
