@@ -68,6 +68,37 @@ class Run(unittest.TestCase):
         self.assertEqual(changed["events"][0]["baselineSource"], "직전 확인")
         self.assertEqual(changed["events"][0]["baselineDate"], "2026-10-26")
 
+    def test_site_wide_menu_lines_are_separated_from_page_lines(self):
+        nav_old = "<nav>IONIQ 6 N Coming 2026</nav>"
+        nav_new = "<nav>IONIQ 6 N Coming 2027</nav>"
+        def page(nav, body):
+            return f"<html><body>{nav}<p>{body}</p>{PAD}</body></html>"
+        pages = [dict(PAGE, id="a", url="https://www.hyundaiusa.com/us/en/vehicles/ioniq-5-n"),
+                 dict(PAGE, id="b", url="https://www.hyundaiusa.com/us/en/vehicles/ioniq-9"),
+                 dict(PAGE, id="c", url="https://www.hyundaiusa.com/us/en/vehicles/palisade")]
+        first = w.run(pages, now=NOW, previous={"pages": [dict(p, status="ok", signals={"timing": ["Coming 2026"]}, lastOk="2026-10-20") for p in pages]},
+                      get=lambda url, **k: R(text=page(nav_new, "Starting at $59,900" if "ioniq-5-n" in url else "")), sleep=lambda s: None)
+        # transition from records that still had menu lines: the menu change is one site event, not three page events
+        site_ev = [e for e in first["events"] if e["scope"] == "site"]
+        page_ev = [e for e in first["events"] if e["scope"] == "page"]
+        self.assertEqual(len(site_ev), 1)
+        self.assertEqual(site_ev[0]["removed"]["timing"], ["Coming 2026"])
+        self.assertEqual([e["pageId"] for e in page_ev], ["a"])  # only the real page change (new price line)
+        self.assertEqual(list(page_ev[0]["added"]), ["price"])
+        self.assertNotIn("timing", page_ev[0].get("removed", {}))
+        site = first["sites"]["hyundaiusa.com"]["signals"]
+        self.assertIn("Coming 2027", site["timing"])
+        a = next(p for p in first["pages"] if p["id"] == "a")
+        self.assertTrue(a["specific"])
+        self.assertNotIn("Coming 2027", a["signals"]["timing"])
+        self.assertIn("Starting at $59,900", a["signals"]["price"])
+        second = w.run(pages, now=NOW + dt.timedelta(days=1), previous=first,
+                       get=lambda url, **k: R(text=page("<nav>IONIQ 6 N Coming Spring 2028</nav>", "Starting at $59,900" if "ioniq-5-n" in url else "")),
+                       sleep=lambda s: None)
+        new = [e for e in second["events"] if e["detectedAt"].startswith("2026-10-28")]
+        self.assertEqual([e["scope"] for e in new], ["site"])
+        self.assertIn("Coming Spring 2028", new[0]["added"]["timing"])
+
     def test_blocked_page_is_failed_and_keeps_old_signals(self):
         prev = {"pages": [{**PAGE, "status": "ok", "signals": {"timing": ["Coming 2026"]}, "lastOk": "2026-10-26T06:00:00+09:00"}]}
         doc = w.run([PAGE], now=NOW, previous=prev, get=lambda url, **k: R(403, text="Access Denied"), sleep=lambda s: None)

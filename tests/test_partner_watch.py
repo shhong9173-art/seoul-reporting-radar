@@ -94,6 +94,16 @@ class Partners(unittest.TestCase):
                     sleep=lambda s: None)
         self.assertEqual(len(doc["items"]), 1)
 
+    def test_building_name_only_mentions_are_dropped(self):
+        body = {"hits": {"hits": [{"_id": "x-1:p.htm", "_source": {"ciks": ["1509646"], "display_names": ["Phoenix New Media Ltd  (FENG)  (CIK 0001509646)"],
+                                                                  "form": "6-K", "file_date": "2026-10-20", "adsh": "x-1"}}]}}
+        def get(url, params=None, headers=None, timeout=None):
+            if "efts" in url:
+                return R(200, body)
+            return R(200, text="<p>Meeting at Floor 25, Tower B, POSCO Center, Beijing.</p>")
+        doc = w.run({"asx": [], "edgarPhrases": [["포스코", "POSCO"]]}, now=NOW, get=get, sleep=lambda s: None)
+        self.assertEqual(doc["items"], [])
+
     def test_previous_items_keep_first_seen_and_expire(self):
         prev = {"items": [{"id": "edgar:0001193125-26-111111:d111d8k.htm", "source": "EDGAR", "date": "2026-10-21", "firstSeen": "2026-10-21T07:00:00+09:00",
                            "snippet": "kept", "beat": ["현대제철"], "phrases": ["Hyundai Steel"]},

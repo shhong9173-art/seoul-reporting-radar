@@ -47,7 +47,8 @@ export async function pageChanges(ctx, args) {
   if (failed.length) out.push(`미확인(변화 없음 아님): ${failed.map((p) => `${p.label}(${p.error})`).join(', ')}`);
   out.push(...(doc.rules ?? []).map((r) => `규칙: ${r}`));
   for (const e of events.slice(0, clampInt(args.limit, 1, 40, 15))) {
-    out.push(`\n${String(e.detectedAt).slice(0, 16)} · ${e.label}`);
+    out.push(`\n${String(e.detectedAt).slice(0, 16)} · ${e.label}${e.scope === 'site' ? ' [사이트 공통]' : ''}`);
+    if (!e.scope) out.push('   주의: 사이트 공통 메뉴 문구를 걸러내기 전 기록 — 메뉴·배너 문구 변화일 수 있음');
     out.push(`   비교 기준: ${e.baselineSource}${e.baselineDate ? ` ${e.baselineDate}` : ''} → ${String(e.detectedAt).slice(0, 10)}`);
     for (const [cat, list] of Object.entries(e.removed ?? {})) out.push(`   − ${CAT_KO[cat] ?? cat}: ${list.slice(0, 6).join(' / ')}`);
     for (const [cat, list] of Object.entries(e.added ?? {})) out.push(`   + ${CAT_KO[cat] ?? cat}: ${list.slice(0, 6).join(' / ')}`);
@@ -57,6 +58,11 @@ export async function pageChanges(ctx, args) {
   if (!events.length) out.push('\n이 기간 잡힌 문구 변화 없음(열리지 않은 페이지는 미확인).');
   if (args.show_current === true || args.show_current === 'true') {
     out.push('\n현재 문구:');
+    for (const [dom, site] of Object.entries(doc.sites ?? {})) {
+      const sig = site.signals ?? {};
+      const line = ['timing', 'limited', 'price', 'status'].map((k) => (sig[k] ?? []).slice(0, 3).join(' / ')).filter(Boolean).join(' · ');
+      if (line && matches(q, site.company, dom)) out.push(`- [${dom} 공통 메뉴·배너] ${line}`);
+    }
     for (const p of pages.filter((x) => x.status === 'ok')) {
       const sig = p.signals ?? {};
       out.push(`- ${p.label}: ${['timing', 'limited', 'price', 'status'].map((k) => (sig[k] ?? []).slice(0, 3).join(' / ')).filter(Boolean).join(' · ') || '신호 문구 없음'}`);
@@ -72,12 +78,14 @@ export async function partnerFilings(ctx, args) {
   const q = String(args.company ?? '').trim();
   const src = ['ASX', 'EDGAR'].includes(args.source) ? args.source : null;
   const onlyNew = args.only_new === true || args.only_new === 'true';
-  const onlyFlagged = args.flagged_only === true || args.flagged_only === 'true';
+  // Routine ASX notices (AGM, director interests) are hidden unless asked for.
+  const onlyFlagged = !(args.include_routine === true || args.include_routine === 'true');
   const limit = clampInt(args.limit, 1, 60, 20);
   const failed = (doc.checks ?? []).filter((c) => c.status !== 'ok');
-  const rows = (doc.items ?? []).filter((x) => (!src || x.source === src) && (!onlyNew || x.isNew)
-    && (!onlyFlagged || x.source !== 'ASX' || (x.flags ?? []).length)
+  const base = (doc.items ?? []).filter((x) => (!src || x.source === src) && (!onlyNew || x.isNew)
     && matches(q, x.filer, x.title, (x.beat ?? []).join(' '), x.snippet));
+  const rows = base.filter((x) => !onlyFlagged || x.source !== 'ASX' || (x.flags ?? []).length);
+  const hiddenRoutine = base.length - rows.length;
   const out = [`해외 파트너 공시 · 최근 ${doc.windowDays}일 수집(보관 120일) · ${rows.length}건 · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt)}`,
     `질의 ${(doc.checks ?? []).length - failed.length}/${(doc.checks ?? []).length} 정상${failed.length ? ` · 미확인(0건 아님): ${failed.slice(0, 6).map((c) => `${c.target}(${c.error})`).join(', ')}` : ''}`,
     ...(doc.rules ?? []).map((r) => `규칙: ${r}`)];
@@ -92,6 +100,7 @@ export async function partnerFilings(ctx, args) {
   }
   if (rows.length > limit) out.push(`… 남은 ${rows.length - limit}건`);
   if (!rows.length) out.push('\n조건에 맞는 공시 없음(위 미확인 질의는 0건 아님).');
+  if (hiddenRoutine) out.push(`(ASX 일상 공시 ${hiddenRoutine}건 숨김 — 주총·임원 지분 등: include_routine=true)`);
   out.push('\n다음: EDGAR 원문은 source_document(sec.gov)로, ASX 공시 PDF는 브라우저로 연다 → 출입처 이름·물량·가격·조건 문구 확인 → news_check.');
   return textResult(out.join('\n'));
 }
