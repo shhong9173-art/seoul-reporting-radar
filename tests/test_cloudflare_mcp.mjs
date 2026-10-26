@@ -159,8 +159,8 @@ test('big picture, stats, dandok and health render the published views', async (
 
 test('governance_changes shows stake moves, hides routine reports and keeps failures visible', async () => {
   const r = await call('governance_changes', { days: 14 });
-  assert.match(r.text, /고려아연 \| 대량보유\(5%\) \| 영풍 -1\.45%p → 24\.1%/);
-  assert.match(r.text, /기관 약식·단순 보고 1건 숨김/);
+  assert.match(r.text, /고려아연 \| 대량보유\(5%\) \| 영풍 -1\.45%p → 보고서 기재 보유비율 24\.1%\(특별관계자 포함 가능\)/);
+  assert.match(r.text, /단순 보고 1건 숨김/);
   assert.match(r.text, /조회 실패 영풍\(0건 아님\)/);
   assert.match(r.text, /고유번호 미해결 태광/);
   assert.doesNotMatch(r.text, /국민연금공단/);
