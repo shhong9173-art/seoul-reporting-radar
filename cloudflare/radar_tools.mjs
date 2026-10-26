@@ -151,16 +151,17 @@ export async function governance(ctx, args) {
     return true;
   });
   const failed = (v.checks ?? []).filter((c) => c.status === 'failed');
-  const out = [`지분·지배구조 공시 · 최근 ${days}일 · ${rows.length}건${hidden ? ` (기관 약식·단순 보고 ${hidden}건 숨김: include_routine=true)` : ''}`,
+  const out = [`지분·지배구조 공시 · 최근 ${days}일 · ${rows.length}건${hidden ? ` (단순 보고 ${hidden}건 숨김 — 기관 단순·약식, 소액 임원 보고: include_routine=true)` : ''}`,
     `수집 ${String(v.generatedAt ?? '').slice(0, 16)} · 상태 ${v.status}` +
       (failed.length ? ` · 조회 실패 ${[...new Set(failed.map((c) => c.company))].join('·')}(0건 아님)` : '') +
       ((v.unresolvedCompanies ?? []).length ? ` · 고유번호 미해결 ${v.unresolvedCompanies.join('·')}` : '') +
       (Object.keys(v.dartSpellings ?? {}).length ? ` · DART 표기 ${Object.entries(v.dartSpellings).map(([a, b]) => `${a}→${b}`).join('·')}` : ''),
-    '규칙: 공개 공시이며 지분 변동 자체는 단독이 아님. 보고자 관계는 원문에 적힌 것만.'];
+    '규칙: 공개 공시이며 지분 변동 자체는 단독이 아님. 보고자 관계·개인별 지분은 원문 표에서 확인.'];
   for (const x of rows.slice(0, limit)) {
     const delta = typeof x.ratioChange === 'number' ? ` ${x.ratioChange > 0 ? '+' : ''}${x.ratioChange}%p`
       : (x.groupKey && typeof x.sharesChange === 'number' ? ` 순증감 ${x.sharesChange > 0 ? '+' : ''}${x.sharesChange.toLocaleString('en-US')}주` : '');
-    const ratio = typeof x.ratio === 'number' ? ` → ${x.ratio}%` : '';
+    // 5% reports state the holder group's combined ratio (보고자+특별관계자); insider reports are per person.
+    const ratio = typeof x.ratio !== 'number' ? '' : x.kind === '대량보유(5%)' ? ` → 보고서 기재 보유비율 ${x.ratio}%(특별관계자 포함 가능)` : ` → ${x.ratio}%`;
     out.push(`${x.date} | ${x.company} | ${x.kind} | ${x.reporter}${x.role ? `(${x.role})` : ''}${delta}${ratio} ${(x.tags ?? []).join('')}`);
     if (x.reason) out.push(`   사유: ${x.reason}`);
     if (x.url) out.push(`   ${x.url}`);
