@@ -1,3 +1,4 @@
+import { CP949_TABLE_B64 } from './cp949_table.mjs';
 // Shared helpers for the radar MCP connector. No secrets are ever echoed.
 export const KST_OFFSET_MS = 9 * 3600 * 1000;
 export const MAX_TEXT = 20000;
@@ -115,6 +116,36 @@ export function htmlToText(html) {
     .trim();
 }
 
+let cp949Table = null;
+function cp949() {
+  if (!cp949Table) {
+    const bin = atob(CP949_TABLE_B64);
+    cp949Table = new Uint16Array(bin.length / 2);
+    for (let i = 0; i < cp949Table.length; i++) cp949Table[i] = bin.charCodeAt(2 * i) | (bin.charCodeAt(2 * i + 1) << 8);
+  }
+  return cp949Table;
+}
+
+// Workers documents only a UTF-8 TextDecoder; DART and many go.kr pages are MS949.
+export function decodeCp949(bytes) {
+  const table = cp949();
+  const out = [];
+  let chunk = '';
+  for (let i = 0; i < bytes.length; i++) {
+    const b = bytes[i];
+    if (b < 0x80) { chunk += String.fromCharCode(b); }
+    else if (b >= 0x81 && b <= 0xfe && i + 1 < bytes.length && bytes[i + 1] >= 0x41 && bytes[i + 1] <= 0xfe) {
+      chunk += String.fromCharCode(table[(b - 0x81) * 190 + (bytes[i + 1] - 0x41)]);
+      i++;
+    } else { chunk += '\ufffd'; }
+    if (chunk.length > 8192) { out.push(chunk); chunk = ''; }
+  }
+  out.push(chunk);
+  return out.join('');
+}
+
+const KOREAN_LEGACY = new Set(['euc-kr', 'cp949', 'ms949', 'windows-949', 'x-windows-949', 'ks_c_5601-1987', 'ksc5601', 'ks_c_5601', 'uhc']);
+
 export function decodeBytes(bytes, contentType = '') {
   let charset = (/charset=([\w-]+)/i.exec(contentType) || [])[1];
   if (!charset) {
@@ -122,6 +153,7 @@ export function decodeBytes(bytes, contentType = '') {
     charset = (/<meta[^>]+charset=["']?([\w-]+)/i.exec(head) || /encoding=["']([\w-]+)["']/i.exec(head) || [])[1];
   }
   const label = (charset || 'utf-8').toLowerCase();
+  if (KOREAN_LEGACY.has(label)) return { text: decodeCp949(bytes), charset: `${label} (CP949 표)` };
   try {
     return { text: new TextDecoder(label).decode(bytes), charset: label };
   } catch {
