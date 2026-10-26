@@ -171,14 +171,27 @@ def financials(body, report):
     seen_names = sorted({re.sub(r"\s+", " ", str(r.get("account_nm") or "")).strip() for r in body.get("list") or []
                          if isinstance(r, dict) and r.get("sj_div") in ("IS", "CIS")
                          and re.search(r"판매|관리비|원가|매출|영업", str(r.get("account_nm") or ""))})
+    # Some issuers (e.g. 현대위아) show 판매비 and 관리비 as two face lines with no total line.
+    split = [(r, n, "name") for r in body.get("list") or [] if isinstance(r, dict)
+             for n in [re.sub(r"\s+", "", str(r.get("account_nm") or ""))] if n in ("판매비", "관리비")
+             and r.get("sj_div") in ("IS", "CIS") and str(r.get("account_detail") or "-").strip() in ("", "-")]
+    derived = {}
     for key, (now_slot, prior_slot) in slots.items():
         cur = {m: pick(rows, m, now_slot) for m in ACCOUNTS}
         pri = {m: pick(rows, m, prior_slot) for m in ACCOUNTS}
+        if not any(m == "sga" for _, m, _ in rows):
+            for vals, slot in ((cur, now_slot), (pri, prior_slot)):
+                sell, admin = pick(split, "판매비", slot), pick(split, "관리비", slot)
+                if sell is not None and admin is not None:
+                    vals["sga"] = sell + admin
+                    derived["sga"] = "판매비+관리비(손익계산서 두 줄 합)"
         if cur.get("revenue") is None:
             continue
         rc, rp = ratios(cur), ratios(pri)
         result[key] = {"values": cur, "prior": pri, "ratios": rc, "priorRatios": rp,
                        "deltaPp": {k: round(rc[k] - rp[k], 2) for k in rc if k in rp}}
+    if derived:
+        result["derived"] = derived
     main = result.get("quarter") or result.get("annual")
     if main:
         missing = [m for m in ("cost", "sga", "operating") if main["values"].get(m) is None]

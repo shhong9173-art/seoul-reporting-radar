@@ -136,10 +136,17 @@ class Earnings(unittest.TestCase):
         self.assertIn("3분기 보고서에 직원 현황이 없어", e["note"])
         self.assertIn(("2026", "11014"), calls)
 
-    def test_missing_metric_keeps_account_names_for_diagnosis(self):
+    def test_split_selling_and_admin_lines_add_up_and_a_lone_line_stays_unknown(self):
         body = {"status": "000", "list": [r for r in STEEL_Q3["list"] if r["account_nm"] != "판매비와관리비"] + [
             row("", "판매비", "100", "300", "90", "270"), row("", "관리비", "200", "600", "160", "530")]}
         fin, _ = ec.financials(body, "11014")
+        self.assertEqual(fin["quarter"]["values"]["sga"], 300)
+        self.assertEqual(fin["quarter"]["prior"]["sga"], 250)
+        self.assertEqual(fin["cumulative"]["values"]["sga"], 900)
+        self.assertIn("판매비+관리비", fin["derived"]["sga"])
+        self.assertNotIn("unmatched", fin)
+        only_sell = {"status": "000", "list": [r for r in body["list"] if r["account_nm"] != "관리비"]}
+        fin, _ = ec.financials(only_sell, "11014")
         self.assertNotIn("sgaRatio", fin["quarter"]["ratios"])
         self.assertEqual(fin["unmatched"]["metrics"], ["sga"])
         self.assertIn("판매비", fin["unmatched"]["accountNames"])
