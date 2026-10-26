@@ -235,6 +235,8 @@ def main():
         sys.exit("모든 질의 실패 — 이전 결과 유지(0건 아님)")
     status = private_store.put("partner-filings", doc, token)
     print(f"::notice title=partner-push::기자 전용 저장소 전송 HTTP {status}")
+    if status == 404:
+        print(f"::warning title=partner-push-token::토큰 거부 가능성 — {private_store.token_shape(token)}. GitHub Secret MCP_ACCESS_TOKEN이 Cloudflare 값과 같아야 함")
     if status != 200:
         sys.exit(1)
 

@@ -6,6 +6,7 @@ Logs must stay counts-only: this module never prints document contents.
 from __future__ import annotations
 
 import json
+import re
 
 WORKER = "https://seoul-reporting-radar.shhong9173.workers.dev"
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
@@ -14,6 +15,14 @@ FEEDS = {"scoop-screen", "us-comments", "page-watch", "partner-filings"}
 
 class StoreError(RuntimeError):
     pass
+
+
+def token_shape(token):
+    """Describe the secret's format without revealing it (length and shape only)."""
+    t = token or ""
+    return (f"길이 {len(t)}, 형식 {'정상' if re.fullmatch(r'[A-Za-z0-9_-]{16,128}', t) else '비정상'}"
+            f"{', 주소 포함' if '/' in t or 'http' in t.lower() else ''}{', 공백·줄바꿈 포함' if re.search(r'\s', t) else ''}"
+            f"{', 따옴표 포함' if re.search(r'[\"\']', t) else ''}")
 
 
 def _headers(token):
@@ -31,7 +40,8 @@ def get(name, token, *, get=None):
     if r.status_code == 204:
         return None
     if r.status_code != 200:
-        raise StoreError(f"private store GET HTTP {r.status_code}")
+        hint = f" — 토큰 거부 가능성({token_shape(token)}; Cloudflare MCP_ACCESS_TOKEN과 같아야 함)" if r.status_code == 404 else ""
+        raise StoreError(f"private store GET HTTP {r.status_code}{hint}")
     return r.json()
 
 
