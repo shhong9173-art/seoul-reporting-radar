@@ -186,9 +186,12 @@ def main():
     doc = run(pages, now=now, previous=previous)
     new_events = [e for e in doc["events"] if e["detectedAt"] == doc["generatedAt"]]
     # Public log: response codes and counts only — never the signal text or the changes.
+    # GitHub shows at most 10 notices per step: one line for all pages.
+    lines = []
     for p in doc["pages"]:
-        counts = ",".join(f"{k}{len(v)}" for k, v in (p.get("signals") or {}).items()) if p["status"] == "ok" else p.get("error")
-        print(f"::notice title=page-{p['id']}::{p['status']} · {counts} · 기준 {(p.get('baseline') or {}).get('source', '직전')}")
+        counts = "/".join(str(len(v)) for v in (p.get("signals") or {}).values()) if p["status"] == "ok" else p.get("error")
+        lines.append(f"{p['id']}={p['status']}({counts};{(p.get('baseline') or {}).get('source', '직전')})")
+    print("::notice title=page-watch-pages::신호 수 순서 timing/limited/price/status/models ;; " + " ;; ".join(lines))
     ok = sum(1 for p in doc["pages"] if p["status"] == "ok")
     print(f"::notice title=page-watch::열림 {ok}/{len(doc['pages'])} · 이번 변경 {len(new_events)}건 · 보관 변경 {len(doc['events'])}건")
     if not token:
