@@ -64,3 +64,27 @@ def put(name, doc, token, *, post=None):
     r = post(f"{WORKER}/ingest/{name}", data=json.dumps(doc, ensure_ascii=False).encode("utf-8"),
              headers=_headers(token), timeout=30)
     return getattr(r, "status_code", 0)
+
+
+RELAY_HOSTS = {"www.industry.gov.au", "www.dgtr.gov.in"}
+
+
+def relay(url, token, *, get=None, timeout=40):
+    """Fetch an allow-listed official page through the Worker (for hosts that time out from GitHub runners).
+    Returns (status, text, error); status is the upstream HTTP status the Worker saw."""
+    from urllib.parse import urlparse
+    if urlparse(url).hostname not in RELAY_HOSTS:
+        raise ValueError(url)
+    if get is None:
+        import requests
+        get = requests.get
+    try:
+        r = get(f"{WORKER}/ingest/relay", params={"url": url}, headers=_headers(token), timeout=timeout)
+    except Exception as e:
+        return 0, None, f"중계 {type(e).__name__}"
+    if r.status_code != 200:
+        return r.status_code, None, f"중계 HTTP {r.status_code}"
+    upstream = int((getattr(r, "headers", None) or {}).get("X-Relay-Status", "0") or 0)
+    if upstream != 200:
+        return upstream, None, f"원 사이트 HTTP {upstream}(중계)"
+    return upstream, r.text, None

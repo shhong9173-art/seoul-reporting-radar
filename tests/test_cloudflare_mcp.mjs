@@ -8,6 +8,7 @@ import { RadarStore } from '../cloudflare/store.mjs';
 import { checkCandidate } from '../cloudflare/scoring.mjs';
 import { readZip } from '../cloudflare/zip.mjs';
 import { allowedUrl } from '../cloudflare/live_tools.mjs';
+import { handleIngest } from '../cloudflare/screen.mjs';
 
 const ORIGIN = 'https://seoul-reporting-radar.shhong9173.workers.dev';
 const TOKEN = 'test-token-0123456789abcdef';
@@ -590,6 +591,25 @@ test('kr_official shows factory changes, recent registrations and beat gazette n
   assert.match(all.text, /포스코 · \(주\)포스코 포항제철소 · 경상북도 포항시 · 고용 8000/);
   assert.doesNotMatch(all.text, /관보 입법예고 · 출입처/);
   assert.ok((await call('kr_official', {}, PRIVATE())).isError);
+});
+
+test('relay fetches only fixed trade-remedy hosts, only with the bearer token', async () => {
+  const env = { MCP_ACCESS_TOKEN: TOKEN };
+  const seen = [];
+  const fetchMock = async (url, init) => { seen.push(url); return new Response('<table><tr><td>China, Korea</td></tr></table>', { status: 200 }); };
+  const req = (target, headers = { Authorization: `Bearer ${TOKEN}` }, method = 'GET') =>
+    new Request(`${ORIGIN}/ingest/relay?url=${encodeURIComponent(target)}`, { method, headers });
+  const ok = await handleIngest(req('https://www.industry.gov.au/australian-trade-remedies-commission/trade-remedies-notices-trns'), env, { fetch: fetchMock });
+  assert.equal(ok.status, 200);
+  assert.equal(ok.headers.get('X-Relay-Status'), '200');
+  assert.match(await ok.text(), /China, Korea/);
+  assert.equal((await handleIngest(req('https://www.industry.gov.au/x', { Authorization: 'Bearer wrong-token-0123456789' }), env, { fetch: fetchMock })).status, 404);
+  assert.equal((await handleIngest(req('https://evil.example.com/'), env, { fetch: fetchMock })).status, 403);
+  assert.equal((await handleIngest(req('http://www.industry.gov.au/x'), env, { fetch: fetchMock })).status, 403);
+  assert.equal((await handleIngest(req('https://www.industry.gov.au/x', undefined, 'POST'), env, { fetch: fetchMock })).status, 405);
+  assert.equal(seen.length, 1);
+  const down = await handleIngest(req('https://www.dgtr.gov.in/en/x'), env, { fetch: async () => { throw Object.assign(new Error('t'), { name: 'TimeoutError' }); } });
+  assert.equal(down.status, 504);
 });
 
 test('non-MCP paths keep the canonical Pages redirect', async () => {

@@ -193,6 +193,38 @@ class FederalRegister(unittest.TestCase):
         self.assertEqual(len(doc["federalRegister"]), len(first["federalRegister"]))
 
 
+class Relay(unittest.TestCase):
+    def test_relay_pages_go_through_the_worker(self):
+        seen = []
+        def get(url, params=None, headers=None, timeout=None):
+            if url.endswith("/ingest/relay"):
+                seen.append((params["url"], headers["Authorization"]))
+                r = R(text=AU_NEW)
+                r.headers = {"X-Relay-Status": "200"}
+                return r
+            if "industry.gov.au" in url:
+                raise AssertionError("direct fetch of a relay page")
+            return fake()(url, params=params, headers=headers, timeout=timeout)
+        cfg = {"pages": [dict(PAGES[0], via="relay")], "taricSeeds": []}
+        doc = w.run(cfg, now=NOW, get=get, sleep=lambda s: None, relay_token="tok-0123456789abcdef")
+        self.assertEqual(seen, [(PAGES[0]["url"], "Bearer tok-0123456789abcdef")])
+        self.assertEqual(doc["pages"][0]["status"], "ok")
+        self.assertTrue(doc["pages"][0]["lines"])
+        nort = w.run(cfg, now=NOW, get=get, sleep=lambda s: None)
+        self.assertEqual((nort["pages"][0]["status"], nort["pages"][0]["error"]), ("failed", "중계 토큰 없음"))
+
+    def test_upstream_error_seen_by_the_relay_is_a_failure(self):
+        def get(url, params=None, headers=None, timeout=None):
+            if url.endswith("/ingest/relay"):
+                r = R(text="Access Denied")
+                r.headers = {"X-Relay-Status": "403"}
+                return r
+            return fake()(url, params=params, headers=headers, timeout=timeout)
+        cfg = {"pages": [dict(PAGES[0], via="relay")], "taricSeeds": []}
+        doc = w.run(cfg, now=NOW, get=get, sleep=lambda s: None, relay_token="tok-0123456789abcdef")
+        self.assertEqual(doc["pages"][0]["error"], "원 사이트 HTTP 403(중계)")
+
+
 class Section337(unittest.TestCase):
     def test_ad_cvd_reviews_are_not_337(self):
         for title in ["Certain Hot-Rolled Steel Flat Products From the Republic of Korea: Final Results of Countervailing Duty Administrative Review; 2023",

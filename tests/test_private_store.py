@@ -41,5 +41,20 @@ class PrivateStore(unittest.TestCase):
         self.assertEqual(seen["h"]["Authorization"], f"Bearer {tok}")
 
 
+
+class RelayClient(unittest.TestCase):
+    def test_only_allow_listed_hosts(self):
+        with self.assertRaises(ValueError):
+            ps.relay("https://example.com/", "tok-0123456789abcdef", get=lambda *a, **k: None)
+
+    def test_worker_or_upstream_errors_are_errors(self):
+        class R:
+            def __init__(self, code, upstream="200", text="ok"):
+                self.status_code, self.headers, self.text = code, {"X-Relay-Status": upstream}, text
+        self.assertEqual(ps.relay("https://www.dgtr.gov.in/en/x", "t" * 20, get=lambda *a, **k: R(404))[2], "중계 HTTP 404")
+        self.assertEqual(ps.relay("https://www.dgtr.gov.in/en/x", "t" * 20, get=lambda *a, **k: R(200, "503"))[2], "원 사이트 HTTP 503(중계)")
+        self.assertEqual(ps.relay("https://www.dgtr.gov.in/en/x", "t" * 20, get=lambda *a, **k: R(200))[1], "ok")
+
+
 if __name__ == "__main__":
     unittest.main()
