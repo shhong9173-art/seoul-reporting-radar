@@ -34,6 +34,14 @@ const BROWSER_HEADERS = {
   'Accept-Language': 'ko-KR,ko;q=0.9,en;q=0.6',
 };
 
+// Korean public APIs (OpenDART, data.go.kr) can hang on header-less requests from Workers;
+// browser-like headers reach them (verified for opendart.fss.or.kr on 2026-10-26).
+const API_HEADERS = {
+  'User-Agent': BROWSER_HEADERS['User-Agent'],
+  'Accept': 'application/json,application/xml;q=0.9,*/*;q=0.8',
+  'Accept-Language': BROWSER_HEADERS['Accept-Language'],
+};
+
 async function rssChannel(ctx, url, days, mapItem = (x) => x) {
   try {
     const r = await ctx.fetch(url, { signal: signal(), headers: BROWSER_HEADERS });
@@ -281,7 +289,7 @@ export async function dartFilings(ctx, args) {
       `&bgn_de=${start}&end_de=${end}&page_no=${page}&page_count=100`;
     let body;
     try {
-      const r = await ctx.fetch(url, { signal: signal() });
+      const r = await ctx.fetch(url, { signal: signal(), headers: API_HEADERS });
       if (!r.ok) return textResult(`OpenDART HTTP ${r.status} — 조회 실패(0건 아님)`, true);
       body = await r.json();
     } catch (e) {
@@ -315,7 +323,7 @@ export async function dartFindText(ctx, args) {
   const limit = clampInt(args.limit, 1, 20, 8);
   let bytes;
   try {
-    const r = await ctx.fetch(`https://opendart.fss.or.kr/api/document.xml?crtfc_key=${encodeURIComponent(key)}&rcept_no=${rcp}`, { signal: signal() });
+    const r = await ctx.fetch(`https://opendart.fss.or.kr/api/document.xml?crtfc_key=${encodeURIComponent(key)}&rcept_no=${rcp}`, { signal: signal(), headers: API_HEADERS });
     if (!r.ok) return textResult(`OpenDART HTTP ${r.status} — 원문 미확인`, true);
     bytes = await readCapped(r, 30_000_000);
   } catch (e) {
@@ -372,7 +380,7 @@ export async function g2bBids(ctx, args) {
     for (let page = 1; page <= 5; page++) {
       const url = `${G2B_BASE}/${op}?serviceKey=${encodeURIComponent(key)}&pageNo=${page}&numOfRows=100&type=json&inqryDiv=1&inqryBgnDt=${start}&inqryEndDt=${end}`;
       try {
-        const r = await ctx.fetch(url, { signal: signal() });
+        const r = await ctx.fetch(url, { signal: signal(), headers: API_HEADERS });
         if (!r.ok) { error = `HTTP ${r.status}`; break; }
         const body = await r.json();
         const header = body?.response?.header ?? {};
