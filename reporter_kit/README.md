@@ -19,7 +19,7 @@
 
 ## 선택 도구
 - `scripts/customs.py`: HS 품목별 수출입 금액·중량. 실행 예: `python scripts/customs.py --hs 8504 --start 202501 --end 202609`. `CUSTOMS_API_KEY` 별도 필요. 관세청 원표·HS 범위 검증 필수.
-- `scripts/news_check.py`: 네이버 뉴스 검색. 실행 예: `python scripts/news_check.py "현대차 공급계약"`. `NAVER_CLIENT_ID` 및 `NAVER_CLIENT_SECRET` 별도 필요. 검색 결과 0건이 미보도 확정은 아니다.
+- `scripts/news_check.py`: 네이버 뉴스 검색. 실행 예: `python scripts/news_check.py "현대차 공급계약"`. `NAVER_CLIENT_ID` 및 `NAVER_CLIENT_SECRET` 별도 필요(NAVER API HUB 키 우선, 예전 개발자센터 키도 동작). 검색 결과 0건이 미보도 확정은 아니다.
 - `/hunt /balje /gisa /desk /check /graphic`은 파일 내용을 참고해 사용자가 입력하는 **취재 작업 지시**이지 웹사이트에서 실행되는 실제 슬래시 명령 시스템은 아니다.
 
 ## 비밀키·실행

@@ -44,7 +44,7 @@
 2. Cloudflare 대시보드에서 이 워커의 비밀값(Variables and Secrets)에 추가한다.
    - `MCP_ACCESS_TOKEN`: 32자 이상 무작위 문자열(영문·숫자·`-`·`_`). 기자 전용 주소의 열쇠.
    - `DART_API_KEY`: GitHub Secrets에 쓰는 것과 같은 OpenDART 키.
-   - `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET`: 네이버 검색 API.
+   - `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET`: 네이버 뉴스 검색. 새로 받는 키는 네이버 클라우드 플랫폼 NAVER API HUB(Application 등록에서 '뉴스' 선택 → [인증 정보])에서 발급한다. 개발자센터 신규 신청은 막혔다. 서버는 HUB 방식으로 먼저 호출하고, 거부(401·403)될 때만 예전 개발자센터 방식으로 다시 호출한다.
    - `G2B_API_KEY`(또는 `DATA_GO_KR_KEY`): 공공데이터포털 일반 인증키.
 3. Claude 설정의 커넥터에서 사용자 지정 커넥터를 추가하고 기자 전용 주소를 넣는다.
 
