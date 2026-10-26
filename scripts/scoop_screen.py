@@ -144,6 +144,8 @@ def terms_from(text, company):
             continue
         if w not in words:
             words.append(w)
+    # Korean words first: Korean headlines rarely use plant codes (HMTR) or acronyms alone.
+    words.sort(key=lambda w: 0 if re.search(r"[가-힣]", w) else 1)
     return words[:4]
 
 
@@ -212,6 +214,13 @@ def select(clues, stats, *, now, limit=MAX_CANDIDATES):
         seen.add(key)
         out.append(c)
     return out[:limit]
+
+
+def lead(terms):
+    """The more specific of the first two terms (longer Korean word wins)."""
+    korean = [t for t in terms[:2] if re.search(r"[가-힣]", t)]
+    pool = korean or terms[:1]
+    return max(pool, key=len) if pool else None
 
 
 def queries(c):
@@ -289,6 +298,7 @@ def judge(c, channels, *, now):
     since = (now - dt.timedelta(days=WINDOW_DAYS)).strftime("%Y-%m-%d")
     names = aliases(c["company"])
     terms = c["terms"]
+    key_term = lead(terms)
     evidence = {}
     for ch, res in channels.items():
         for a in res.get("items", []):
@@ -302,7 +312,8 @@ def judge(c, channels, *, now):
             title_hits = [t for t in terms if t in a.get("title", "")]
             if num_hits:
                 why, rank = f"같은 수치({', '.join(num_hits[:2])})", 2
-            elif len(term_hits) >= min(2, len(terms)) and (len(terms) > 1 or title_hits):
+            elif (len(term_hits) >= 2 or (key_term and key_term in a.get("title", ""))) and term_hits:
+                # Conservative: the lead term next to the company in a headline already counts as related coverage.
                 why, rank = f"낱말({', '.join(term_hits[:3])})", 1
             else:
                 continue

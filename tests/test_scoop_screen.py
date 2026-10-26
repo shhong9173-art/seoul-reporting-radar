@@ -56,7 +56,7 @@ class Selection(unittest.TestCase):
         self.assertIn("stat:s1", ids)
         self.assertNotIn("stat:s2", ids)
         hmtr = next(r for r in rows if r["id"] == "clue:a1")
-        self.assertEqual(s.queries(hmtr), ["현대차 HMTR", "현대차 HMTR 튀르키예"])
+        self.assertEqual(s.queries(hmtr), ["현대차 튀르키예", "현대차 튀르키예 HMTR"])
         self.assertIn("95,900", hmtr["numbers"])
         wia = next(r for r in rows if r["id"] == "clue:a2")
         self.assertEqual(wia["terms"], ["영업양도"])  # 양도 keeps its last syllable
@@ -88,6 +88,21 @@ class Judge(unittest.TestCase):
         verdict, ev = s.judge(self.c, channels([rel, other, old]), now=NOW)
         self.assertEqual(verdict, "관련 보도 있음")
         self.assertEqual([e["url"] for e in ev], ["u2"])
+
+    def test_lead_term_in_a_headline_with_the_company_counts_as_related(self):
+        art = {"title": "현대차, 튀르키예산 아이오닉3 9월 판매 6486대", "text": "", "url": "u5", "date": "2026-10-25"}
+        body_only = {"title": "현대차 유럽 전략", "text": "튀르키예 공장도 언급", "url": "u6", "date": "2026-10-25"}
+        verdict, ev = s.judge(self.c, channels([art, body_only]), now=NOW)
+        self.assertEqual(verdict, "관련 보도 있음")
+        self.assertEqual([e["url"] for e in ev], ["u5"])
+
+    def test_generic_first_word_alone_is_not_related(self):
+        c = {"company": "HD현대일렉트릭", "terms": ["변압기", "철심공장"], "numbers": [], "ratios": []}
+        self.assertEqual(s.lead(c["terms"]), "철심공장")
+        generic = {"title": "HD현대일렉트릭, 美 변압기 수주", "text": "", "url": "g1", "date": "2026-10-01"}
+        specific = {"title": "HD현대일렉트릭 철심공장 준공 연기", "text": "", "url": "g2", "date": "2026-10-01"}
+        self.assertEqual(s.judge(c, channels([generic]), now=NOW)[0], "미보도 후보")
+        self.assertEqual(s.judge(c, channels([specific]), now=NOW)[0], "관련 보도 있음")
 
     def test_not_found_only_when_naver_and_a_web_index_answered(self):
         self.assertEqual(s.judge(self.c, channels(), now=NOW)[0], "미보도 후보")
