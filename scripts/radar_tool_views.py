@@ -402,7 +402,7 @@ def from_overseas(data):
 def from_governance(data):
     out = []
     for x in (data or {}).get("items", []) or []:
-        if not isinstance(x, dict) or not x.get("receiptNo"):
+        if not isinstance(x, dict) or not (x.get("receiptNo") or x.get("groupKey")):
             continue
         companies = beats_in("", x.get("company"))
         change = x.get("ratioChange")
@@ -411,7 +411,7 @@ def from_governance(data):
         role = f"({x['role']})" if x.get("role") else ""
         row = clue(kind=None, source="DART 지분공시", title=f"{x.get('company')} · {x.get('kind')} · {who}{role}{delta}",
                    url=x.get("url"), published=x.get("date"), companies=companies, tier=TIER_PUBLIC,
-                   signal="governance", receipt=x.get("receiptNo"),
+                   signal="governance", receipt=x.get("receiptNo"), key=x.get("groupKey"),
                    note=" ".join(x.get("tags") or []) + (f" 사유: {x['reason']}" if x.get("reason") else ""))
         row["routine"] = row["routine"] or bool(x.get("routine"))
         out.append(row)

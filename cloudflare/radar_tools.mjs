@@ -154,10 +154,12 @@ export async function governance(ctx, args) {
   const out = [`지분·지배구조 공시 · 최근 ${days}일 · ${rows.length}건${hidden ? ` (기관 약식·단순 보고 ${hidden}건 숨김: include_routine=true)` : ''}`,
     `수집 ${String(v.generatedAt ?? '').slice(0, 16)} · 상태 ${v.status}` +
       (failed.length ? ` · 조회 실패 ${[...new Set(failed.map((c) => c.company))].join('·')}(0건 아님)` : '') +
-      ((v.unresolvedCompanies ?? []).length ? ` · 고유번호 미해결 ${v.unresolvedCompanies.join('·')}` : ''),
+      ((v.unresolvedCompanies ?? []).length ? ` · 고유번호 미해결 ${v.unresolvedCompanies.join('·')}` : '') +
+      (Object.keys(v.dartSpellings ?? {}).length ? ` · DART 표기 ${Object.entries(v.dartSpellings).map(([a, b]) => `${a}→${b}`).join('·')}` : ''),
     '규칙: 공개 공시이며 지분 변동 자체는 단독이 아님. 보고자 관계는 원문에 적힌 것만.'];
   for (const x of rows.slice(0, limit)) {
-    const delta = typeof x.ratioChange === 'number' ? ` ${x.ratioChange > 0 ? '+' : ''}${x.ratioChange}%p` : '';
+    const delta = typeof x.ratioChange === 'number' ? ` ${x.ratioChange > 0 ? '+' : ''}${x.ratioChange}%p`
+      : (x.groupKey && typeof x.sharesChange === 'number' ? ` 순증감 ${x.sharesChange > 0 ? '+' : ''}${x.sharesChange.toLocaleString('en-US')}주` : '');
     const ratio = typeof x.ratio === 'number' ? ` → ${x.ratio}%` : '';
     out.push(`${x.date} | ${x.company} | ${x.kind} | ${x.reporter}${x.role ? `(${x.role})` : ''}${delta}${ratio} ${(x.tags ?? []).join('')}`);
     if (x.reason) out.push(`   사유: ${x.reason}`);

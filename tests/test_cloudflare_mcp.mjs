@@ -48,6 +48,9 @@ const VIEWS = {
     items: [
       { company: '고려아연', team: '철강·비철', kind: '대량보유(5%)', date: '2026-10-20', receiptNo: '20261020000111', reporter: '영풍',
         ratio: 24.1, ratioChange: -1.45, tags: ['[지분율 -1.45%p]'], reason: '보유주식 처분', routine: false, url: 'https://dart.fss.or.kr/x' },
+      { company: 'KG스틸', team: '철강·비철', kind: '임원 집단 보고', date: '2026-10-23', receiptNo: null, groupKey: 'insider-group|KG스틸|2026-10-23',
+        reporter: '임원·주요주주 15명', role: '', sharesChange: 134222, ratioChange: null, tags: ['[같은 날 15명 보고]'],
+        reason: '매수 15명·매도 0명', routine: false, url: 'https://dart.fss.or.kr/z' },
       { company: '현대차', team: '자동차', kind: '대량보유(5%)', date: '2026-10-21', receiptNo: '20261021000222', reporter: '국민연금공단',
         ratioChange: 0.05, tags: [], reason: '단순투자', routine: true, url: 'https://dart.fss.or.kr/y' }] },
 };
@@ -161,6 +164,7 @@ test('governance_changes shows stake moves, hides routine reports and keeps fail
   assert.match(r.text, /조회 실패 영풍\(0건 아님\)/);
   assert.match(r.text, /고유번호 미해결 태광/);
   assert.doesNotMatch(r.text, /국민연금공단/);
+  assert.match(r.text, /KG스틸 \| 임원 집단 보고 \| 임원·주요주주 15명 순증감 \+134,222주 \[같은 날 15명 보고\]/);
   assert.match((await call('governance_changes', { include_routine: true })).text, /국민연금공단/);
 });
 

@@ -41,7 +41,14 @@ BEATS = [
 ]
 INSTITUTION = re.compile(r"국민연금|자산운용|투자신탁|투자자문|증권|은행|보험|공제회|BlackRock|블랙록|Vanguard|뱅가드|"
                          r"Capital|Investment|Asset|Fund|Trust|Norges|GIC|템플턴|피델리티|Fidelity", re.I)
-CONTROL = re.compile(r"경영(권|참가|참여)|보유목적|목적\s*변경|최대주주|특수관계|담보|처분|증여|상속|합병|분할")
+CONTROL = re.compile(r"경영(권|참가|참여)|보유목적|목적\s*변경|최대주주|특수관계|특별관계자|담보|처분|증여|상속|합병|분할|"
+                     r"계약|교환사채|공개매수")
+# Boilerplate reasons removed before CONTROL is applied ("단순추가취득/처분" is not a control event).
+PLAIN_REASON = re.compile(r"단순\s*(추가)?\s*취득\s*(/|및|·)?\s*(처분)?|단순\s*처분|장내\s*(매수|매도)")
+TOP_EXEC = re.compile(r"회장|부회장|사장|대표이사")
+GROUP_MIN = 5  # same company, same day, this many insider reports → one grouped line
+# Beat name → other exact spellings tried only against DART's corpCode table (never fuzzy).
+DART_SPELLINGS = {"동성케미칼": ["동성케미컬"]}
 
 
 class TransientError(RuntimeError):
@@ -107,12 +114,15 @@ def stake_item(company, team, row, start):
     change = num(row.get("stkrt_irds"))
     reason = str(row.get("report_resn") or "").strip()
     kind = str(row.get("report_tp") or "").strip()
+    institution = bool(INSTITUTION.search(reporter))
     tags = []
-    if change is not None and abs(change) >= 1:
+    # ±1%p is the legal trigger for a regular 5% report, so it only flags non-institution holders.
+    if change is not None and abs(change) >= 1 and not institution:
         tags.append(f"[지분율 {change:+.2f}%p]")
-    if CONTROL.search(reason):
-        tags.append("[보유목적·경영권 관련 사유]")
-    routine = bool(INSTITUTION.search(reporter)) or "약식" in kind
+    words = list(dict.fromkeys(re.sub(r"\s+", "", m.group(0)) for m in CONTROL.finditer(PLAIN_REASON.sub(" ", reason))))
+    if words:
+        tags.append(f"[사유: {'·'.join(words[:3])}]")  # the filing's own words, not an interpretation
+    routine = institution or "약식" in kind
     return {
         "company": company, "team": team, "kind": "대량보유(5%)", "date": date,
         "receiptNo": str(row.get("rcept_no") or ""), "reporter": reporter, "reportType": kind,
@@ -132,17 +142,25 @@ def insider_item(company, team, row, start):
                     if str(row.get(k) or "").strip() not in ("", "-"))
     change_rate = num(row.get("sp_stock_lmp_irds_rate"))
     change_cnt = num(row.get("sp_stock_lmp_irds_cnt"))
+    moved = bool(change_cnt)
     tags = []
-    if change_rate is not None and abs(change_rate) >= 0.1:
-        tags.append(f"[지분율 {change_rate:+.2f}%p]")
-    if "주요주주" in role or "10%" in role:
-        tags.append("[주요주주]")
+    if INSTITUTION.search(reporter):
+        # Institutions as 10%+ holders: same bar as 5% reports.
+        if change_rate is not None and abs(change_rate) >= 1:
+            tags.append(f"[지분율 {change_rate:+.2f}%p]")
+    else:
+        if change_rate is not None and abs(change_rate) >= 0.1:
+            tags.append(f"[지분율 {change_rate:+.2f}%p]")
+        if ("주요주주" in role or "10%" in role) and change_rate is not None and abs(change_rate) >= 0.01:
+            tags.append("[주요주주]")
+        if moved and TOP_EXEC.search(role):
+            tags.append("[최고경영진]")
     return {
         "company": company, "team": team, "kind": "임원·주요주주", "date": date,
         "receiptNo": str(row.get("rcept_no") or ""), "reporter": reporter, "role": role[:80],
         "shares": num(row.get("sp_stock_lmp_cnt")), "sharesChange": change_cnt,
         "ratio": num(row.get("sp_stock_lmp_rate")), "ratioChange": change_rate,
-        "tags": tags, "routine": not tags and (change_cnt is None or change_cnt == 0),
+        "tags": tags, "routine": not tags,
         "url": f"https://dart.fss.or.kr/dsaf001/main.do?rcpNo={row.get('rcept_no')}" if row.get("rcept_no") else None,
     }
 
@@ -157,22 +175,57 @@ def resolve_codes(names, registry, table=None):
             out[name] = entry["corp_code"]
             continue
         rows = (table or {}).get(name) or []
+        spelled = name
+        for alt in DART_SPELLINGS.get(name, []):
+            if not rows and (table or {}).get(alt):
+                rows, spelled = table[alt], alt
         listed = {r[0] for r in rows if len(r) > 1 and r[1]}
         codes = listed or {r[0] for r in rows}
         if len(codes) == 1:
             out[name] = next(iter(codes))
+            if spelled != name:
+                out.setdefault("_spellings", {})[name] = spelled
         else:
             missing.append(name)
     return out, missing
+
+
+def group_insiders(items):
+    """Same company + same day + GROUP_MIN or more insider reports → one grouped line.
+
+    Members are kept (routine unless tagged on their own); only a summary is added."""
+    buckets = {}
+    for it in items:
+        if it["kind"] == "임원·주요주주":
+            buckets.setdefault((it["company"], it["date"]), []).append(it)
+    groups = []
+    for (company, date), members in buckets.items():
+        if len(members) < GROUP_MIN:
+            continue
+        net = sum(m["sharesChange"] or 0 for m in members)
+        buyers = sum(1 for m in members if (m["sharesChange"] or 0) > 0)
+        sellers = sum(1 for m in members if (m["sharesChange"] or 0) < 0)
+        groups.append({
+            "company": company, "team": members[0]["team"], "kind": "임원 집단 보고", "date": date,
+            "receiptNo": None, "groupKey": f"insider-group|{company}|{date}",
+            "reporter": f"임원·주요주주 {len(members)}명", "role": "",
+            "sharesChange": net, "ratioChange": None, "buyers": buyers, "sellers": sellers,
+            "members": [m["receiptNo"] for m in members],
+            "reason": f"매수 {buyers}명·매도 {sellers}명 · 순증감 {net:+,.0f}주(보고서별 합계, 취득 경위는 원문 확인)",
+            "tags": [f"[같은 날 {len(members)}명 보고]"], "routine": False,
+            "url": members[0]["url"],
+        })
+    return groups
 
 
 def build(key, *, now=None, days=30, get=None, sleep=time.sleep, registry=None, table=None):
     now = now or dt.datetime.now(KST)
     start = (now - dt.timedelta(days=days)).strftime("%Y-%m-%d")
     checks, items = [], []
-    missing_all = []
+    missing_all, spellings = [], {}
     for team, names in BEATS:
         codes, missing = resolve_codes(names, registry, table)
+        spellings.update(codes.pop("_spellings", {}))
         missing_all += missing
         for name, code in codes.items():
             for endpoint, builder in (("majorstock.json", stake_item), ("elestock.json", insider_item)):
@@ -186,7 +239,7 @@ def build(key, *, now=None, days=30, get=None, sleep=time.sleep, registry=None, 
                                "rowsReturned": len(rows), "rowsInWindow": len(kept)})
                 items += kept
                 sleep(0.15)
-    items.sort(key=lambda x: (x["routine"], x["date"]), reverse=False)
+    items += group_insiders(items)
     items.sort(key=lambda x: x["date"], reverse=True)
     items.sort(key=lambda x: x["routine"])
     failed = [c for c in checks if c["status"] == "failed"]
@@ -195,10 +248,12 @@ def build(key, *, now=None, days=30, get=None, sleep=time.sleep, registry=None, 
         "source": "OpenDART 지분공시 종합정보(majorstock·elestock)",
         "status": "partial" if failed or missing_all else "complete",
         "checks": checks, "failedCount": len(failed), "unresolvedCompanies": missing_all,
+        "dartSpellings": spellings,
         "count": len(items), "items": items,
         "rules": ["공개 공시이며 지분 변동 자체는 단독이 아니다.",
                   "조회 실패·미해결 회사는 0건이 아니라 미확인이다.",
                   "routine은 기관 약식·단순 보고 등 뒤로 미룬 것이지 삭제가 아니다.",
+                  "임원 집단 보고는 같은 날 보고서의 합계일 뿐, 취득 경위(장내매수·주식보상 등)는 원문 확인 전 미확인이다.",
                   "보고자 관계(오너 일가·계열)는 원문에 적힌 것만 쓴다."],
         "confirmedScoops": 0,
     }
