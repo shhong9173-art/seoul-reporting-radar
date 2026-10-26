@@ -103,6 +103,47 @@ class Earnings(unittest.TestCase):
                                                 {"fo_bbm": "합계", "sexdstn": "남", "sm": "60"}]}), (100, None))
         self.assertEqual(ec.headcount({"list": [{"fo_bbm": "A", "sexdstn": "남", "sm": "-"}]}), (None, None))
 
+    def test_subtotal_rows_are_never_added_to_details(self):
+        body = {"list": [{"fo_bbm": "철강", "sexdstn": "남", "sm": "600"}, {"fo_bbm": "철강", "sexdstn": "여", "sm": "100"},
+                         {"fo_bbm": "철강 소계", "sexdstn": "", "sm": "700"}, {"fo_bbm": "기타", "sexdstn": "남", "sm": "50"}]}
+        total, _, how = ec.headcount(body, explain=True)
+        self.assertEqual(total, 750)
+        self.assertEqual(how["method"], "세부 행 합산")
+        body = {"list": [{"fo_bbm": "철강", "sexdstn": "합계", "sm": "700"}, {"fo_bbm": "기타", "sexdstn": "합계", "sm": "50"},
+                         {"fo_bbm": "철강", "sexdstn": "남", "sm": "600"}]}
+        self.assertEqual(ec.headcount(body), (750, None))
+
+    def test_third_quarter_without_headcount_falls_back_to_half_year(self):
+        gw_beats = gw.BEATS[:]
+        gw.BEATS[:] = [("철강·비철", ["현대제철"])]
+        try:
+            get = fake({("fnlttSinglAcntAll.json", "00145880", "CFS", None): STEEL_Q3,
+                        ("empSttus.json", "00145880", None, "2026"): R({"status": "013"}),
+                        })
+            calls = []
+            def routed(url, params, headers, timeout):
+                calls.append((params.get("bsns_year"), params.get("reprt_code")))
+                if url.endswith("empSttus.json") and params.get("reprt_code") == "11012":
+                    return R(EMP if params["bsns_year"] == "2026" else EMP_PRIOR)
+                return get(url, params, headers, timeout)
+            r = ec.build("K", year=2026, report="11014", get=routed, sleep=lambda s: None,
+                         registry={"companies": {"현대제철": {"corp_code": "00145880"}}})
+        finally:
+            gw.BEATS[:] = gw_beats
+        e = r["companies"][0]["employees"]
+        self.assertEqual((e["count"], e["priorCount"], e["changePct"]), (9500, 9000, 5.6))
+        self.assertEqual(e["report"], "2026년 반기")
+        self.assertIn("3분기 보고서에 직원 현황이 없어", e["note"])
+        self.assertIn(("2026", "11014"), calls)
+
+    def test_missing_metric_keeps_account_names_for_diagnosis(self):
+        body = {"status": "000", "list": [r for r in STEEL_Q3["list"] if r["account_nm"] != "판매비와관리비"] + [
+            row("", "판매비", "100", "300", "90", "270"), row("", "관리비", "200", "600", "160", "530")]}
+        fin, _ = ec.financials(body, "11014")
+        self.assertNotIn("sgaRatio", fin["quarter"]["ratios"])
+        self.assertEqual(fin["unmatched"]["metrics"], ["sga"])
+        self.assertIn("판매비", fin["unmatched"]["accountNames"])
+
     def test_build_marks_filed_not_filed_failed_and_flags(self):
         gw_beats = gw.BEATS[:]
         gw.BEATS[:] = [("철강·비철", ["현대제철", "고려아연", "영풍"]), ("전력·에너지", ["LS"])]

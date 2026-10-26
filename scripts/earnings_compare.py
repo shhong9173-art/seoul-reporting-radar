@@ -52,6 +52,10 @@ FLAG = {"costRatio": 3.0, "sgaRatio": 2.0, "opMargin": 3.0, "employeesPct": 5.0}
 LABEL = {"costRatio": "원가율", "sgaRatio": "판관비율", "opMargin": "영업이익률"}
 
 
+DEBUG = False  # annotate-only runs keep raw empSttus rows for checking
+EMP_FALLBACK = {"11014": lambda y: [(y, "11012")], "11013": lambda y: [(y - 1, "11011")]}
+
+
 class TransientError(RuntimeError):
     pass
 
@@ -164,6 +168,9 @@ def financials(body, report):
     slots = ({"quarter": ("thstrm_amount", "frmtrm_q_amount"), "cumulative": ("thstrm_add_amount", "frmtrm_add_amount")}
              if interim else {"annual": ("thstrm_amount", "frmtrm_amount")})
     result, receipts = {}, {str(r.get("rcept_no")) for r, _, _ in rows if r.get("rcept_no")}
+    seen_names = sorted({re.sub(r"\s+", " ", str(r.get("account_nm") or "")).strip() for r in body.get("list") or []
+                         if isinstance(r, dict) and r.get("sj_div") in ("IS", "CIS")
+                         and re.search(r"판매|관리비|원가|매출|영업", str(r.get("account_nm") or ""))})
     for key, (now_slot, prior_slot) in slots.items():
         cur = {m: pick(rows, m, now_slot) for m in ACCOUNTS}
         pri = {m: pick(rows, m, prior_slot) for m in ACCOUNTS}
@@ -172,31 +179,48 @@ def financials(body, report):
         rc, rp = ratios(cur), ratios(pri)
         result[key] = {"values": cur, "prior": pri, "ratios": rc, "priorRatios": rp,
                        "deltaPp": {k: round(rc[k] - rp[k], 2) for k in rc if k in rp}}
+    main = result.get("quarter") or result.get("annual")
+    if main:
+        missing = [m for m in ("cost", "sga", "operating") if main["values"].get(m) is None]
+        if missing:
+            result["unmatched"] = {"metrics": missing, "accountNames": seen_names[:20]}
     if interim and report != "11013" and "quarter" in result and "cumulative" in result:
         if result["quarter"]["values"]["revenue"] == result["cumulative"]["values"]["revenue"]:
             result["warning"] = "3개월·누적 매출이 같음 — 기간 구분 미확인"
     return result, sorted(receipts)
 
 
-def headcount(body):
-    """Total employees from empSttus rows, avoiding double counts of subtotal rows."""
+TOTAL_WORD = re.compile(r"\s*(합\s*계|총\s*계|계|전\s*체)\s*")
+SUBTOTAL_WORD = re.compile(r".*소\s*계.*")
+
+
+def headcount(body, *, explain=False):
+    """Total employees from empSttus rows, avoiding double counts of total/subtotal rows.
+
+    Order: grand-total row(s) by 사업부문 → per-gender total rows → detail rows without any 합계/소계 row."""
     rows = [r for r in (body.get("list") or []) if isinstance(r, dict)]
-    def total_word(x):
-        return bool(re.fullmatch(r"\s*(합\s*계|총\s*계|계|전\s*체)\s*", str(x or "")))
-    def sm(r):
-        return amount(r.get("sm"))
-    picked = [r for r in rows if total_word(r.get("fo_bbm"))]
+    def is_total(x):
+        return bool(TOTAL_WORD.fullmatch(str(x or "")))
+    def is_sub(x):
+        return bool(SUBTOTAL_WORD.fullmatch(str(x or "")))
+    picked = [r for r in rows if is_total(r.get("fo_bbm"))]
+    method = "사업부문 합계 행"
     if picked:
-        grand = [r for r in picked if total_word(r.get("sexdstn"))]
+        grand = [r for r in picked if is_total(r.get("sexdstn"))]
         picked = grand or picked
     else:
-        by_sex_total = [r for r in rows if total_word(r.get("sexdstn"))]
-        picked = by_sex_total or [r for r in rows if not total_word(r.get("sexdstn"))]
-    values = [sm(r) for r in picked]
-    if not values or any(v is None for v in values):
-        return None, None
+        picked = [r for r in rows if is_total(r.get("sexdstn")) and not is_sub(r.get("fo_bbm"))]
+        method = "성별 합계 행"
+        if not picked:
+            picked = [r for r in rows if not any(is_total(r.get(k)) or is_sub(r.get(k)) for k in ("fo_bbm", "sexdstn"))]
+            method = "세부 행 합산"
+    values = [amount(r.get("sm")) for r in picked]
     stlm = next((str(r.get("stlm_dt")) for r in rows if r.get("stlm_dt")), None)
-    return sum(values), stlm
+    total = sum(values) if values and all(v is not None for v in values) else None
+    if explain:
+        return total, stlm, {"method": method, "rowsUsed": len(picked), "rows": len(rows),
+                             "raw": [[r.get("fo_bbm"), r.get("sexdstn"), r.get("sm")] for r in rows][:40]}
+    return total, stlm
 
 
 def receipt_day(rcp):
@@ -239,21 +263,33 @@ def company_record(name, team, code, year, report, *, get, sleep):
     except (TransientError, RuntimeError) as e:
         rec.update({"status": "failed", "error": str(e)[:120]})
         return rec
-    # Employees: same report of this year vs the same report a year earlier.
-    emp = {"report": REPORTS[report]["label"]}
+    # Employees: same report of this year vs the same report a year earlier. 1분기·3분기 보고서는 직원 현황을
+    #생략하는 회사가 많아, 없으면 직전 반기(3분기)·사업보고서(1분기)끼리 비교하고 그 기준을 적는다.
+    emp = {}
     try:
-        counts = {}
-        for y in (year, year - 1):
-            sleep(0.15)
-            st, b = call("empSttus.json", {"corp_code": code, "bsns_year": str(y), "reprt_code": report}, get=get, sleep=sleep)
-            counts[y] = headcount(b) if st == "ok" else (None, None)
-        now_n, now_dt = counts[year]
-        pri_n, pri_dt = counts[year - 1]
-        emp.update({"count": now_n, "asOf": now_dt, "priorCount": pri_n, "priorAsOf": pri_dt})
-        if now_n is None:
-            emp["note"] = "이 보고서에 직원 현황 없음 또는 합계 미확인"
-        if now_n and pri_n:
-            emp["changePct"] = round((now_n - pri_n) / pri_n * 100, 1)
+        for emp_year, emp_report in [(year, report)] + EMP_FALLBACK.get(report, lambda y: [])(year):
+            counts = {}
+            for y in (emp_year, emp_year - 1):
+                sleep(0.15)
+                st, b = call("empSttus.json", {"corp_code": code, "bsns_year": str(y), "reprt_code": emp_report},
+                             get=get, sleep=sleep)
+                counts[y] = headcount(b, explain=True) if st == "ok" else (None, None, None)
+            now_n, now_dt, how = counts[emp_year]
+            pri_n, pri_dt, _ = counts[emp_year - 1]
+            emp = {"report": f"{emp_year}년 {REPORTS[emp_report]['label']}", "count": now_n, "asOf": now_dt,
+                   "priorCount": pri_n, "priorAsOf": pri_dt}
+            if how:
+                emp["method"] = how["method"]
+                if DEBUG:
+                    emp["raw"] = how["raw"]
+            if emp_report != report:
+                emp["note"] = f"{REPORTS[report]['label']} 보고서에 직원 현황이 없어 {emp['report']} 기준"
+            if now_n is not None:
+                break
+        if emp.get("count") is None:
+            emp["note"] = "직원 현황 없음 또는 합계 미확인"
+        if emp.get("count") and emp.get("priorCount"):
+            emp["changePct"] = round((emp["count"] - emp["priorCount"]) / emp["priorCount"] * 100, 1)
     except (TransientError, RuntimeError) as e:
         emp["error"] = str(e)[:120]
     rec["employees"] = emp
@@ -314,6 +350,14 @@ def annotate(report):
                      f"|직원={e.get('count')}/{e.get('priorCount')}@{e.get('asOf')}|{c.get('warning', '')}{c.get('error', '')}")
     for i in range(0, len(lines), 6):
         print("::notice title=earnings-%d::%s" % (i // 6 + 1, " ;; ".join(lines[i:i + 6])))
+    odd = []
+    for c in report["companies"]:
+        e = c.get("employees") or {}
+        if (e.get("changePct") is not None and (abs(e["changePct"]) >= 20 or e["changePct"] == 0)) or c.get("unmatched"):
+            odd.append(f"{c['company']}|{e.get('report')}|{e.get('method')}|{e.get('count')}/{e.get('priorCount')}"
+                       f"|raw={json.dumps(e.get('raw'), ensure_ascii=False)[:700]}|unmatched={json.dumps(c.get('unmatched'), ensure_ascii=False)[:400]}")
+    for i, line in enumerate(odd[:8]):
+        print(f"::warning title=earnings-check-{i + 1}::{line}")
 
 
 def main():
@@ -326,6 +370,8 @@ def main():
     key = os.environ.get("DART_API_KEY", "").strip()
     if not key:
         sys.exit("DART_API_KEY 없음 — 이전 결과 유지")
+    global DEBUG
+    DEBUG = a.annotate_only
     year, report = target_period(dt.datetime.now(KST))
     year, report = a.year or year, a.report or report
     registry = json.loads((ROOT / "dart_corp_codes.json").read_text(encoding="utf-8"))
