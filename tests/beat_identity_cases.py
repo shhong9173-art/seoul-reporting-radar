@@ -11,9 +11,29 @@ class BeatIdentityTests(unittest.TestCase):
             self.assertEqual(scoop.direct_beat_company_hits({}, name+' 공장 증설'), [name])
 
     def test_unconfirmed_beats_remain_monitoring_only(self):
-        for name in ('세아씨엠','동국씨엠','효성중공업','일진전기'):
+        for name in ('세아씨엠','효성중공업','일진전기'):
             self.assertIn(name, scoop.target_hits(name+' 공장 증설'))
             self.assertEqual(scoop.direct_beat_company_hits({},name+' 공장 증설'), [])
+
+    def test_reporter_confirmed_steel_beats(self):
+        # Confirmed by the reporter on 2026-10-26: 세아제강, 동국제강, 동국씨엠.
+        for name in ('세아제강','동국제강','동국씨엠'):
+            self.assertIn(name, scoop.DIRECT_BEAT_COMPANIES)
+            self.assertNotIn(name, scoop.DIRECT_BEAT_REVIEW_REQUIRED)
+            self.assertEqual(scoop.direct_beat_company_hits({}, name+' 공장 증설'), [name])
+        self.assertEqual(scoop.direct_beat_company_hits({}, 'Dongkuk CM 컬러강판 투자'), ['동국씨엠'])
+        self.assertEqual(scoop.direct_beat_company_hits({}, '동국씨엠은 컬러강판 증설'), ['동국씨엠'])
+
+    def test_dongkuk_steel_and_dongkuk_cm_stay_distinct(self):
+        self.assertEqual(scoop.direct_beat_company_hits({}, '동국제강 후판 감산'), ['동국제강'])
+        self.assertEqual(scoop.direct_beat_company_hits({}, '동국씨엠 도금강판 수출'), ['동국씨엠'])
+        self.assertEqual(set(scoop.direct_beat_company_hits({}, '동국제강과 동국씨엠의 공동 구매')), {'동국제강','동국씨엠'})
+        for title in ('동국홀딩스 지분 정리','동국제강그룹 인사','동국씨엠텍 투자','동국 컬러강판 투자'):
+            self.assertEqual(scoop.direct_beat_company_hits({}, title), [])
+
+    def test_seah_cm_remains_separate_from_seah_steel(self):
+        self.assertEqual(scoop.direct_beat_company_hits({}, '세아씨엠 공장 증설'), [])
+        self.assertEqual(scoop.direct_beat_company_hits({}, '세아제강 강관 수출'), ['세아제강'])
 
     def test_global_brands_are_not_korean_entities(self):
         for name in ('BMW','Audi','아우디','Volkswagen','폭스바겐'):
