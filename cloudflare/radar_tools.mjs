@@ -170,3 +170,54 @@ export async function governance(ctx, args) {
   if (!rows.length) out.push('조건에 맞는 보고 없음(위 조회 실패·미해결 회사는 미확인).');
   return textResult(out.join('\n'));
 }
+
+const pct = (v) => (typeof v === 'number' ? `${v.toFixed(1)}%` : '—');
+const pp = (v) => (typeof v === 'number' ? `${v > 0 ? '+' : ''}${v.toFixed(1)}%p` : '전년 미확인');
+
+function ratioLine(block) {
+  if (!block) return '';
+  const r = block.ratios ?? {}; const d = block.deltaPp ?? {};
+  const parts = [['costRatio', '원가율'], ['sgaRatio', '판관비율'], ['opMargin', '영업이익률']]
+    .filter(([k]) => typeof r[k] === 'number').map(([k, label]) => `${label} ${pct(r[k])}(${pp(d[k])})`);
+  return parts.join(' · ');
+}
+
+export async function earnings(ctx, args) {
+  let v;
+  try { v = await fetchJson(ctx, 'digests/earnings_compare_latest.json'); } catch {
+    return textResult('공시 시즌 비교표가 아직 없음(첫 수집 전 또는 실패) — 0이 아니라 미확인.', true);
+  }
+  const teams = teamsFromParam(args.team);
+  const flaggedOnly = args.flagged_only === true || args.flagged_only === 'true';
+  const limit = clampInt(args.limit, 1, 60, 40);
+  const c = v.counts ?? {};
+  const out = [`공시 시즌 비교표 · ${v.period?.label ?? ''} (제출 마감 ${v.period?.deadline ?? '?'}) · 제출 ${c.filed ?? 0} · 미제출 ${c.not_filed ?? 0} · 조회 실패 ${c.failed ?? 0}` +
+      ((v.unresolvedCompanies ?? []).length ? ` · 고유번호 미해결 ${v.unresolvedCompanies.join('·')}` : ''),
+    `수집 ${String(v.generatedAt ?? '').slice(0, 16)} · 상태 ${v.status}`,
+    '규칙: 같은 보고기간의 전년 동기와만 비교. 회사마다 연결/별도 기준이 다를 수 있음. 비율 변화는 취재 질문이지 원인·단독이 아님. 미제출·실패는 0이 아님.'];
+  const rows = (v.companies ?? []).filter((x) => (!teams.size || teams.has(x.team))
+    && matchesQuery(args.company ?? args.q, x.company) && (!flaggedOnly || (x.tags ?? []).length));
+  let team = null; let shown = 0;
+  for (const x of rows) {
+    if (shown >= limit) break;
+    if (x.team !== team) { team = x.team; out.push(`\n■ ${team}`); }
+    shown++;
+    if (x.status === 'not_filed') { out.push(`${x.company} — ${v.period?.label ?? ''} 보고서 미제출(아직 없음)`); continue; }
+    if (x.status === 'failed') { out.push(`${x.company} — 조회 실패(0 아님): ${x.error ?? ''}`); continue; }
+    if (x.status !== 'filed') { out.push(`${x.company} — 비교 가능한 계정 없음(${x.status})`); continue; }
+    const head = `${x.company}(${x.basis}, ${x.filedOn ?? '?'} 제출) ${(x.tags ?? []).join('')}`;
+    out.push(head);
+    if (x.quarter) out.push(`   3개월: ${ratioLine(x.quarter) || '비율 미확인'}`);
+    if (x.cumulative) out.push(`   누적: ${ratioLine(x.cumulative) || '비율 미확인'}`);
+    if (x.annual) out.push(`   연간: ${ratioLine(x.annual) || '비율 미확인'}`);
+    const e = x.employees ?? {};
+    if (typeof e.count === 'number') {
+      out.push(`   직원 ${e.count.toLocaleString('en-US')}명${typeof e.changePct === 'number' ? `(전년 같은 보고서 대비 ${e.changePct > 0 ? '+' : ''}${e.changePct}%)` : '(전년 미확인)'}${e.asOf ? ` · 기준 ${e.asOf}` : ''}`);
+    } else if (e.note || e.error) out.push(`   직원 수 미확인: ${e.note ?? e.error}`);
+    if (x.warning) out.push(`   주의: ${x.warning}`);
+    if (x.url) out.push(`   ${x.url}`);
+  }
+  if (rows.length > shown) out.push(`… 남은 ${rows.length - shown}곳`);
+  if (!rows.length) out.push('조건에 맞는 회사 없음.');
+  return textResult(out.join('\n'));
+}

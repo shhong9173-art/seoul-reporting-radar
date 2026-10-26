@@ -43,6 +43,16 @@ const VIEWS = {
   'tools/health.json': { generatedAt: '2026-10-25T23:30:00Z', rule: '0건이 아니다', problemCount: 1,
     items: [{ source: '나라장터 입찰공고', status: 'not_connected', problem: true, ageHours: 7 }] },
   'dart_corp_codes.json': { companies: { '현대제철': { corp_code: '00160500' } } },
+  'digests/earnings_compare_latest.json': { generatedAt: '2026-11-13T18:40:00+09:00', status: 'partial', unresolvedCompanies: [],
+    period: { year: 2026, report: '11014', label: '2026년 3분기', deadline: '2026-11-14' },
+    counts: { filed: 1, not_filed: 1, failed: 1, no_comparable_accounts: 0 },
+    companies: [
+      { company: '현대제철', team: '철강·비철', status: 'filed', basis: '연결', filedOn: '2026-11-13', url: 'https://dart.fss.or.kr/a',
+        quarter: { ratios: { costRatio: 92, sgaRatio: 6, opMargin: 2 }, deltaPp: { costRatio: 3.54, sgaRatio: 1.19, opMargin: -4.73 } },
+        cumulative: { ratios: { costRatio: 90.32 }, deltaPp: {} },
+        employees: { count: 9500, changePct: 5.6, asOf: '2026.09.30' }, tags: ['[원가율 +3.5%p]', '[직원 +5.6%]'] },
+      { company: '고려아연', team: '철강·비철', status: 'not_filed' },
+      { company: '영풍', team: '철강·비철', status: 'failed', error: 'HTTP 503' }] },
   'digests/governance_latest.json': { generatedAt: '2026-10-26T07:40:00+09:00', status: 'partial', unresolvedCompanies: ['태광'],
     checks: [{ company: '영풍', endpoint: 'majorstock.json', status: 'failed', error: 'HTTP 503' }],
     items: [
@@ -166,6 +176,18 @@ test('governance_changes shows stake moves, hides routine reports and keeps fail
   assert.doesNotMatch(r.text, /국민연금공단/);
   assert.match(r.text, /KG스틸 \| 임원 집단 보고 \| 임원·주요주주 15명 순증감 \+134,222주 \[같은 날 15명 보고\]/);
   assert.match((await call('governance_changes', { include_routine: true })).text, /국민연금공단/);
+});
+
+test('earnings_compare shows same-period deltas and keeps not-filed and failed apart', async () => {
+  const r = await call('earnings_compare', {});
+  assert.match(r.text, /2026년 3분기 \(제출 마감 2026-11-14\) · 제출 1 · 미제출 1 · 조회 실패 1/);
+  assert.match(r.text, /3개월: 원가율 92\.0%\(\+3\.5%p\) · 판관비율 6\.0%\(\+1\.2%p\) · 영업이익률 2\.0%\(-4\.7%p\)/);
+  assert.match(r.text, /누적: 원가율 90\.3%\(전년 미확인\)/);
+  assert.match(r.text, /직원 9,500명\(전년 같은 보고서 대비 \+5\.6%\)/);
+  assert.match(r.text, /고려아연 — 2026년 3분기 보고서 미제출/);
+  assert.match(r.text, /영풍 — 조회 실패\(0 아님\): HTTP 503/);
+  const f = await call('earnings_compare', { flagged_only: true });
+  assert.doesNotMatch(f.text, /고려아연/);
 });
 
 test('news_check: public naver is unavailable so the verdict stays 미확인', async () => {
