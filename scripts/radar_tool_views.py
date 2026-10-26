@@ -418,6 +418,25 @@ def from_governance(data):
     return out
 
 
+def from_earnings(data):
+    """Only filed companies whose same-period ratios moved past the flag lines become clues."""
+    out = []
+    period = ((data or {}).get("period") or {}).get("label") or ""
+    for x in (data or {}).get("companies", []) or []:
+        if not isinstance(x, dict) or x.get("status") != "filed" or not x.get("tags") or not x.get("url"):
+            continue
+        q = x.get("quarter") or x.get("annual") or {}
+        r = q.get("ratios") or {}
+        parts = [f"{label} {r[k]:.1f}%" for k, label in (("costRatio", "원가율"), ("sgaRatio", "판관비율"),
+                                                       ("opMargin", "영업이익률")) if isinstance(r.get(k), (int, float))]
+        row = clue(kind=None, source="DART 정기보고서", title=f"{x.get('company')} · {period} · " + " · ".join(parts),
+                   url=x.get("url"), published=x.get("filedOn"), companies=beats_in("", x.get("company")),
+                   tier=TIER_PUBLIC, signal="earnings", receipt=(x.get("receipts") or [None])[0],
+                   note=" ".join(x.get("tags") or []) + f" ({x.get('basis', '')}, 전년 동기 대비)")
+        out.append(row)
+    return out
+
+
 ADAPTERS = (
     ("scoop.json", from_scoop),
     ("pre_scoop.json", from_pre_scoop),
@@ -433,6 +452,7 @@ ADAPTERS = (
     ("digests/federal_register_evidence_latest.json", from_federal_register),
     ("digests/overseas_official_latest.json", from_overseas),
     ("digests/governance_latest.json", from_governance),
+    ("digests/earnings_compare_latest.json", from_earnings),
 )
 TIER_RANK = {TIER_CANDIDATE: 3, TIER_LEAD: 2, TIER_PUBLIC: 1}
 
@@ -814,6 +834,7 @@ HEALTH_FILES = (
     ("관세청 10일 잠정치", "digests/customs_tenday_latest.json", 24 * 12),
     ("특허 파이프라인", "digests/patent_run_health_latest.json", 72),
     ("지분공시(대량보유·임원 소유)", "digests/governance_latest.json", 96),
+    ("공시 시즌 비교표(원가율·판관비율·직원 수)", "digests/earnings_compare_latest.json", 96),
 )
 
 

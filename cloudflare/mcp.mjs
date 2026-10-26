@@ -1,6 +1,6 @@
 // Streamable-HTTP MCP endpoint (JSON responses, no SSE) for the radar.
 import { safeEqual, textResult } from './common.mjs';
-import { bigPicture, clues, dandok, governance, health, stats } from './radar_tools.mjs';
+import { bigPicture, clues, dandok, earnings, governance, health, stats } from './radar_tools.mjs';
 import { dartFilings, dartFindText, g2bBids, newsCheck, sourceDocument } from './live_tools.mjs';
 import { candidateFeedback, candidateSubmit, packageSave, scoopPackages, weeklyReview, PACKAGE_STATES } from './store.mjs';
 import { POLICY, checkCandidate, formatCheck } from './scoring.mjs';
@@ -9,7 +9,7 @@ export const SUPPORTED_VERSIONS = ['2025-06-18', '2025-03-26', '2024-11-05'];
 const SERVER_INFO = { name: 'seoul-reporting-radar', title: '산업부 취재 레이더', version: '1.0.0' };
 const INSTRUCTIONS = [
   '산업부(자동차·철강·전력기기·에너지·화학) 취재 레이더. 기자는 홍성효.',
-  '순서: radar_big_picture → radar_clues(days=3) → radar_stats → governance_changes → dandok_monitor → scoop_packages(기자 전용).',
+  '순서: radar_big_picture → radar_clues(days=3) → radar_stats → governance_changes → earnings_compare(실적 시즌) → dandok_monitor → scoop_packages(기자 전용).',
   '후보마다: source_document 또는 dart_find_text로 원문 확인 → news_check로 보도 대조(낱말 바꿔 2~3번, 한 번에 하나씩) → candidate_check.',
   '조회 실패·미설정·일부 성공은 0건이 아니라 미확인. 색인 0건은 미보도 증거가 아님. 단계(공개 원자료 추적/취재 단서·단독 미확정/단독 후보)를 올리지 않음.',
   '최종 단독 판단은 기자가 한다. 관계자 발언을 만들지 않는다.',
@@ -61,6 +61,10 @@ export const TOOLS = [
     description: '출입처 지분·지배구조 공시(5% 대량보유·임원/주요주주 소유보고) 최근 N일. 지분율 변동·공시 사유 낱말(담보·계약·특수관계 등)·최고경영진 매매·같은 날 임원 집단 보고를 표시하고, 기관의 단순 보고와 소액 임원 보고는 숨김(include_routine=true로 전체). 고려아연·영풍, LS, 포스코 등 지배구조 취재의 출발점.',
     inputSchema: obj({ company: str('기업·보고자 낱말'), team: str('팀'), days: int('최근 N일(기본 14, 최대 30)', 1, 30),
       include_routine: bool('기관 약식·단순 보고까지'), limit: int('줄 수', 1, 100) }) },
+  { name: 'earnings_compare', access: 'public', handler: earnings,
+    description: '공시 시즌 비교표: 출입처별 원가율·판관비율·영업이익률(3개월·누적)과 직원 수를 같은 보고기간 전년 동기와 비교. 제출·미제출·조회 실패를 구분. 실적 시즌 기사 재료 찾기.',
+    inputSchema: obj({ company: str('기업 낱말'), team: str('팀'), flagged_only: bool('기준선(원가율 ±3%p·판관비율 ±2%p·영업이익률 ±3%p·직원 ±5%)을 넘은 회사만'),
+      limit: int('회사 수', 1, 60) }) },
   { name: 'radar_health', access: 'public', handler: health,
     description: '원천별 수집 상태. 실패·미연결·오래된 원천에서 나온 0건은 미확인으로 적어야 한다.',
     inputSchema: obj({}) },

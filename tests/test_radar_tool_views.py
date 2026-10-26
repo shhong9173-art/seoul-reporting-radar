@@ -73,6 +73,15 @@ def fixture(root, with_index=True):
         {"company": "현대차", "team": "자동차", "kind": "대량보유(5%)", "date": "2026-10-21", "receiptNo": "20261021000222",
          "reporter": "국민연금공단", "ratioChange": 0.05, "tags": [], "reason": "단순투자", "routine": True,
          "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261021000222"}]})
+    write(root, "digests/earnings_compare_latest.json", {"generatedAt": "2026-10-25T18:40:00+09:00", "status": "complete",
+        "period": {"year": 2026, "report": "11014", "label": "2026년 3분기"}, "companies": [
+        {"company": "현대제철", "team": "철강·비철", "status": "filed", "basis": "연결", "filedOn": "2026-10-24",
+         "receipts": ["20261024000333"], "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261024000333",
+         "quarter": {"ratios": {"costRatio": 92.0, "sgaRatio": 6.0, "opMargin": 2.0}}, "tags": ["[원가율 +3.5%p]"]},
+        {"company": "기아", "team": "자동차", "status": "filed", "basis": "연결", "filedOn": "2026-10-24",
+         "receipts": ["20261024000444"], "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261024000444",
+         "quarter": {"ratios": {"costRatio": 78.0}}, "tags": []},
+        {"company": "영풍", "team": "철강·비철", "status": "not_filed"}]})
     write(root, "digests/g2b_source_status_latest.json", {"generatedAt": "2026-10-26T01:37:40+09:00",
                                                             "status": "not_connected", "note": "no key"})
 
@@ -139,6 +148,16 @@ class Views(unittest.TestCase):
         self.assertIn("-1.45%p", zinc["title"])
         self.assertFalse(zinc["routine"])
         self.assertTrue(self.clue(views, "국민연금공단")["routine"])
+
+    def test_only_flagged_filed_companies_become_earnings_clues(self):
+        views = self.build()
+        steel = self.clue(views, "현대제철 · 2026년 3분기")
+        self.assertIn("원가율 92.0%", steel["title"])
+        self.assertIn("[원가율 +3.5%p]", steel["note"])
+        self.assertEqual(steel["signal"], "earnings")
+        titles = [c["title"] for c in views["clues"]["items"]]
+        self.assertFalse(any("기아 · 2026년 3분기" in t for t in titles))
+        self.assertFalse(any(t.startswith("영풍 · 2026년") for t in titles))
 
     def test_link_less_list_rows_are_kept_with_a_note(self):
         row = self.clue(self.build(), "154kV")
