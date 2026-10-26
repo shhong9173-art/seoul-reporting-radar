@@ -120,6 +120,44 @@ class Factory(unittest.TestCase):
         self.assertEqual([c[1]["pageNo"] for c in calls if c[1].get("cmpnyNm") == "포스코"], [1, 2])
 
 
+class CommonNames(unittest.TestCase):
+    def test_industry_rule_narrows_common_names(self):
+        cfg = {"companies": [{"company": "태광", "queries": ["태광산업"], "accept": "^태광산업", "industryAccept": "화학|섬유",
+                              "nameCheck": "주소로 확인"}]}
+        rows = [fac("20", "태광산업(주) 울산공장", product="아크릴섬유", induty="합성섬유 제조업"),
+                fac("21", "태광산업", product="금형", induty="금속 가공제품 제조업")]
+        def get(url, params=None, headers=None, timeout=None):
+            if url == w.FACTORY_API:
+                return R(text=xml(rows))
+            return fake()(url, params, headers, timeout)
+        doc = w.run(cfg, "k", now=NOW, get=get, sleep=lambda s: None)
+        self.assertEqual([f["id"] for f in doc["factories"]], ["fac:20"])
+        self.assertEqual(doc["factories"][0]["nameCheck"], "주소로 확인")
+
+    def test_changed_name_rule_is_a_new_baseline_not_gone_events(self):
+        first = run()
+        cfg2 = {"companies": [dict(CFG["companies"][0], industryAccept="화학"), CFG["companies"][1]]}  # 포스코 rule narrowed
+        doc = w.run(cfg2, "k", now=NOW + dt.timedelta(days=1), previous=first, get=fake(), sleep=lambda s: None)
+        self.assertFalse(any(e["company"] == "포스코" for e in doc["events"]))
+        self.assertFalse(any(f["company"] == "포스코" for f in doc["factories"]))  # dropped by the new rule, not kept as stale
+        self.assertNotEqual(doc["ruleSigs"]["포스코"], first["ruleSigs"]["포스코"])
+        self.assertEqual(doc["ruleSigs"]["현대차"], first["ruleSigs"]["현대차"])
+
+    def test_timeout_is_retried_once_with_longer_wait(self):
+        seen = []
+        class ReadTimeout(Exception):
+            pass
+        def get(url, params=None, headers=None, timeout=None):
+            if url == w.GAZETTE_API:
+                seen.append(timeout)
+                if len(seen) == 1:
+                    raise ReadTimeout()
+            return fake()(url, params, headers, timeout)
+        doc = w.run(CFG, "k", now=NOW, get=get, sleep=lambda s: None)
+        self.assertEqual(seen, [40, 60])
+        self.assertEqual(next(c for c in doc["checks"] if c["source"] == "관보 입법예고")["status"], "ok")
+
+
 class Gazette(unittest.TestCase):
     def test_keeps_beat_notices_only(self):
         doc = run()
