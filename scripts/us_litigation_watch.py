@@ -199,10 +199,7 @@ def litigation(token, now, previous, *, get=None, sleep=time.sleep):
 
 
 def is_337(title):
-    """Section 337 notices ('Certain X; Notice of …'), not AD/CVD notices that also start with 'Certain … From <country>'."""
-    if re.search(r"Section 337|Receipt of Complaint", title, re.I):
-        return True
-    return bool(re.match(r"Certain .*;", title)) and not re.search(r"\bFrom\b", title)
+    return trw.is_337(title)
 
 
 def itc_337(now, previous, *, get=None, sleep=time.sleep):

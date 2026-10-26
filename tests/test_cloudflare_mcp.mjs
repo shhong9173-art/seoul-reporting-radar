@@ -492,7 +492,7 @@ test('partner_filings reads ASX and EDGAR items from the private feed', async ()
 test('trade_remedies shows quota exhaustion, named US notices and listing changes from the private feed', async () => {
   const env = PRIVATE().env;
   const recent = new Date(Date.now() - 3600000).toISOString();
-  const doc = { schema: 'trade_remedy/v1', generatedAt: '2026-10-27T07:40:00+09:00', quarter: '2026-10-01', rules: ["'한국 전용'과 '공동'을 구분한다."],
+  const doc = { schema: 'trade_remedy/v1', generatedAt: '2026-10-27T07:40:00+09:00', baselineSince: '2026-10-26T21:33:00+09:00', quarter: '2026-10-01', rules: ["'한국 전용'과 '공동'을 구분한다."],
     checks: [{ source: 'EU TARIC', status: 'ok', returned: 3 }, { source: '미국 관보', status: 'ok', returned: 2 },
       { source: '인도 DGTR 반덤핑 조사', status: 'failed', returned: 0, error: 'HTTP 403' }],
     quotas: [
@@ -524,6 +524,8 @@ test('trade_remedies shows quota exhaustion, named US notices and listing change
   assert.match(r.text, /본문의 현대제철\(3곳\): "Hyundai Steel Company \.\.\.\.\.\.\.\. 1\.12"/);
   assert.match(r.text, /미확인\(변화 없음 아님\): 인도 DGTR 반덤핑 조사\(HTTP 403\)/);
   assert.match(r.text, /잡힌 사실: ADN 2026\/101 Zinc coated steel from China, Korea and Taiwan/);
+  assert.match(r.text, /\[감지된 변화 · 감지일 기준 최근 30일\] 1건/);
+  assert.match(r.text, /기준선 2026-10-26 이후 새로 생긴 공고 줄·새 소진만/);
   assert.match(r.text, /공고 목록 1\/2 열림/);
   assert.match(r.text, /감시 안 함: 시험 목록\(주소 확인 전\)/);
   const quota = await call('trade_remedies', { section: 'quota', show_all: true }, opts);
@@ -563,7 +565,9 @@ test('kr_official shows factory changes, recent registrations and beat gazette n
   const env = PRIVATE().env;
   const recent = new Date(Date.now() - 3600000).toISOString();
   const doc = { schema: 'kr_official/v1', generatedAt: '2026-10-27T08:10:00+09:00', rules: ['공장등록 정보는 지자체 등록 기준이다.'],
-    checks: [{ source: '공장등록 포스코', status: 'ok', returned: 4 }, { source: '관보 입법예고', status: 'failed', error: 'HTTP 500' }],
+    baselineSince: '2026-10-26T22:24:00+09:00',
+    checks: [{ source: '공장등록 포스코', status: 'ok', returned: 4 }, { source: '관보 입법예고', status: 'failed', error: 'HTTP 500' },
+      { source: '공장등록 이름 규칙 포스코', status: 'ok', returned: 2, dropped: 2 }],
     factories: [
       { id: 'fac:12', company: '현대차', cmpnyNm: '현대자동차(주)울산EV공장', rnAdres: '울산광역시 북구 염포로 700', registeredOn: '2026-09-15', employees: 2000,
         mainProductCn: '전기자동차', indutyNm: '승용차 제조업', tags: ['[최근 등록 2026-09-15]'] },
@@ -577,7 +581,8 @@ test('kr_official shows factory changes, recent registrations and beat gazette n
   const r = await call('kr_official', {}, opts);
   assert.match(r.text, /질의 1\/2 정상 · 미확인\(0건 아님\): 관보 입법예고\(HTTP 500\)/);
   assert.match(r.text, /포스코 · 등록 내용 변경\n   잡힌 사실: 고용 9,000→8,000명/);
-  assert.match(r.text, /\[최근 120일 등록 공장\] 1곳 \(출입처 공장 전체 2곳\)/);
+  assert.match(r.text, /\[최근 120일 등록 공장 · 등록일 기준\] 1곳 \(출입처 공장 전체 2곳\)/);
+  assert.match(r.text, /\(기준선 2026-10-26 이후 감지된 새 공장/);
   assert.match(r.text, /2026-09-15 · 현대차 · 현대자동차\(주\)울산EV공장/);
   assert.match(r.text, /\[신규\] 2026-10-24 · 국토교통부 · 자동차/);
   assert.doesNotMatch(r.text, /포항제철소 · 경상북도/);

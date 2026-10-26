@@ -250,6 +250,16 @@ def stage_of(title):
     return "기타"
 
 
+def is_337(title):
+    """Section 337 (ITC IP) notices: 'Certain X; Notice of …' or complaint receipt. AD/CVD notices also start with
+    'Certain … From <country>: … Review; 2023', so anything naming a country of origin or AD/CVD is not 337."""
+    if re.search(r"Section 337|Receipt of Complaint", title, re.I):
+        return True
+    if re.search(r"\bFrom\b|Antidumping|Countervailing|Anti-Dumping|Five-Year|Sunset", title, re.I):
+        return False
+    return bool(re.match(r"Certain .*;", title))
+
+
 def named_companies(text):
     """Beat companies named in a notice body, with up to two short lines each (rate tables, respondent lists)."""
     lines = [re.sub(r"\s+", " ", ln).strip() for ln in re.split(r"[\r\n]+", text)]
@@ -292,7 +302,7 @@ def federal_register(now, previous=None, *, get=None, sleep=time.sleep):
         agency = ", ".join(a.get("name", "") for a in x.get("agencies") or [] if isinstance(a, dict))
         row = {"id": did, "date": x.get("publication_date"), "title": title, "agency": agency, "url": x.get("html_url"),
                "stage": stage_of(title), "koreaInTitle": in_title, "omnibus": not in_title,
-               "section337": bool(re.search(r"Receipt of Complaint|Institution of Investigation|^Certain .*;", title)),
+               "section337": is_337(title),
                "beatProduct": bool(BEAT_PRODUCTS.search(title))}
         old = prev.get(did) or {}
         if "named" in old:
@@ -414,6 +424,7 @@ def run(cfg, *, now, previous=None, get=None, sleep=time.sleep):
         quotas = [dict(q, stale=True) for q in previous.get("quotas", []) if isinstance(q, dict)]
     failed = [c for c in checks if c["status"] != "ok"]
     return {"schema": SCHEMA, "generatedAt": stamp, "status": "partial" if failed else "complete", "checks": checks,
+            "baselineSince": (previous or {}).get("baselineSince") or ((previous or {}).get("generatedAt") if previous else None) or stamp,
             "quarter": tinfo["periodStart"], "quotas": quotas, "quotaHistory": history, "federalRegister": fr,
             "pages": pages, "events": events[:300],
             "rules": ["쿼터 수치는 EU TARIC 집계(마지막 갱신일 기준)다. 통관 신고 정산·배정 대기 물량 배분으로 바뀔 수 있다.",
