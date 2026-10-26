@@ -5,13 +5,13 @@ import { dartFilings, dartFindText, g2bBids, newsCheck, sourceDocument } from '.
 import { candidateFeedback, candidateSubmit, packageSave, scoopPackages, weeklyReview, PACKAGE_STATES } from './store.mjs';
 import { POLICY, checkCandidate, formatCheck } from './scoring.mjs';
 import { scoopScreen } from './screen.mjs';
-import { pageChanges, partnerFilings, usComments } from './overseas.mjs';
+import { pageChanges, partnerFilings, tradeRemedies, usComments } from './overseas.mjs';
 
 export const SUPPORTED_VERSIONS = ['2025-06-18', '2025-03-26', '2024-11-05'];
 const SERVER_INFO = { name: 'seoul-reporting-radar', title: '산업부 취재 레이더', version: '1.0.0' };
 const INSTRUCTIONS = [
   '산업부(자동차·철강·전력기기·에너지·화학) 취재 레이더. 기자는 홍성효.',
-  '순서: scoop_screen(기자 전용, 미보도 후보부터) → page_changes·us_comments·partner_filings(기자 전용, 해외 원천) → radar_big_picture → radar_clues(days=3) → radar_stats → governance_changes → earnings_compare(실적 시즌) → dandok_monitor → scoop_packages(기자 전용).',
+  '순서: scoop_screen(기자 전용, 미보도 후보부터) → page_changes·us_comments·partner_filings·trade_remedies(기자 전용, 해외 원천) → radar_big_picture → radar_clues(days=3) → radar_stats → governance_changes → earnings_compare(실적 시즌) → dandok_monitor → scoop_packages(기자 전용).',
   '후보마다: source_document 또는 dart_find_text로 원문 확인 → news_check로 보도 대조(낱말 바꿔 2~3번, 한 번에 하나씩) → candidate_check.',
   '조회 실패·미설정·일부 성공은 0건이 아니라 미확인. 색인 0건은 미보도 증거가 아님. 단계(공개 원자료 추적/취재 단서·단독 미확정/단독 후보)를 올리지 않음.',
   '최종 단독 판단은 기자가 한다. 관계자 발언을 만들지 않는다.',
@@ -113,9 +113,14 @@ export const TOOLS = [
     inputSchema: obj({ company: str('기업·페이지 낱말'), days: int('최근 N일(기본 14)', 1, 90), limit: int('줄 수', 1, 40),
       show_current: bool('페이지별 현재 문구도 보기') }) },
   { name: 'partner_filings', access: 'private', handler: partnerFilings,
-    description: '해외 파트너 공시: 출입처와 계약한 해외 상장사(ASX: 아라푸라·필바라·알몬티, 관계 근거 포함)의 최근 공시와, 출입처 이름이 들어간 미국 SEC EDGAR 공시(출입처 자신의 공시 제외)·본문 발췌.',
+    description: '해외 파트너 공시: 출입처와 계약한 해외 상장사(ASX: 아라푸라·필바라, 관계 근거 포함)의 최근 공시와, 출입처 이름이 들어간 미국 SEC EDGAR 공시(출입처 자신의 공시 제외)·본문 발췌.',
     inputSchema: obj({ company: str('기업·파트너·낱말'), source: { type: 'string', enum: ['ASX', 'EDGAR'] }, only_new: bool('신규만'),
       include_routine: bool('ASX 일상 공시(주총·임원 지분 등)도 보기'), limit: int('줄 수', 1, 60) }) },
+  { name: 'trade_remedies', access: 'private', handler: tradeRemedies,
+    description: '해외 무역구제 감시: EU 철강 쿼터(TARIC) 한국 관련 분기 쿼터 소진·사용률·직전 분기 비교(한국 전용/공동 구분), 미국 상무부·ITC 고시 중 한국산(본문에 나온 출입처 이름·줄), 호주·캐나다·인도 반덤핑 공고 목록의 한국 관련 새 줄.',
+    inputSchema: obj({ section: { type: 'string', enum: ['quota', 'us', 'notices'] }, company: str('기업·품목·쿼터번호 낱말'),
+      days: int('공고 변화 최근 N일(기본 30)', 1, 120), only_new: bool('미국 고시 신규만'), show_all: bool('여유 있는 쿼터까지 전부'),
+      limit: int('구역별 줄 수', 1, 60) }) },
   { name: 'candidate_feedback', access: 'private', handler: candidateFeedback,
     description: '기자 판정 기록: 씀/킬/보류와 이유.',
     inputSchema: obj({ item_id: str('후보 번호(#id)·패키지 이름·단서 id'), verdict: { type: 'string', enum: ['씀', '킬', '보류'] },

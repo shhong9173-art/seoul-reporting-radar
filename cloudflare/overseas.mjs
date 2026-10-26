@@ -104,3 +104,76 @@ export async function partnerFilings(ctx, args) {
   out.push('\n다음: EDGAR 원문은 source_document(sec.gov)로, ASX 공시 PDF는 브라우저로 연다 → 출입처 이름·물량·가격·조건 문구 확인 → news_check.');
   return textResult(out.join('\n'));
 }
+
+const fmtT = (v) => (v == null ? '?' : `${Number(v).toLocaleString('en-US', { maximumFractionDigits: 1 })}t`);
+
+function quotaLine(q) {
+  if (q.status !== 'ok') return `${q.order} · 조회 실패(${q.error ?? '미확인'}) — 0이 아니라 미확인`;
+  const last = q.lastQuarter ? ` · 직전 분기 ${q.lastQuarter.exhaustedOn ? `소진 ${q.lastQuarter.exhaustedOn}(${q.lastQuarter.daysToExhaust + 1}일째)` : `사용 ${q.lastQuarter.usedPct}%`}` : '';
+  return `${q.order} ${q.product ?? '품목 미분류'} · ${q.scope} · 초기 ${fmtT(q.initialT)} · 잔량 ${fmtT(q.balanceT)} · 사용 ${q.usedPct}%${(q.tags ?? []).length ? ` ${q.tags.join(' ')}` : ''}${last}${q.stale ? ' · ⚠ 이번 조회 실패, 직전 값' : ''}`;
+}
+
+export async function tradeRemedies(ctx, args) {
+  const doc = await readFeed(ctx, 'trade-remedy');
+  if (!doc) return missing('해외 무역구제 감시', '평일 07:40');
+  if (doc.broken) return textResult('저장된 무역구제 결과 형식 오류 — 미확인.', true);
+  const section = ['quota', 'us', 'notices'].includes(args.section) ? args.section : null;
+  const q = String(args.company ?? '').trim();
+  const days = clampInt(args.days, 1, 120, 30);
+  const limit = clampInt(args.limit, 1, 60, 15);
+  const onlyNew = args.only_new === true || args.only_new === 'true';
+  const showAll = args.show_all === true || args.show_all === 'true';
+  const checks = doc.checks ?? [];
+  const out = [`해외 무역구제 감시 · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt)}`,
+    `원천: ${checks.map((c) => `${c.source} ${c.status}(${c.returned ?? 0}${c.error ? `, ${c.error}` : ''})`).join(' · ')}`,
+    ...(doc.rules ?? []).map((r) => `규칙: ${r}`)];
+
+  if (!section || section === 'quota') {
+    const all = (doc.quotas ?? []).filter((x) => matches(q, x.order, x.product, x.scope, (x.cn ?? []).join(' ')));
+    const rank = (x) => (x.status !== 'ok' ? 2 : (x.tags ?? []).length ? 0 : 1);
+    const sorted = [...all].sort((a, b) => rank(a) - rank(b) || (a.scope === '한국 전용' ? -1 : 0) - (b.scope === '한국 전용' ? -1 : 0)
+      || String(a.exhaustedOn ?? '9').localeCompare(String(b.exhaustedOn ?? '9')));
+    const shown = showAll ? sorted : sorted.filter((x) => rank(x) !== 1);
+    const kr = all.filter((x) => x.scope === '한국 전용').length;
+    out.push(`\n[EU 철강 쿼터 · ${doc.quarter} 분기] ${all.length}개(한국 전용 ${kr} · 공동 ${all.length - kr}) · 소진·임박·실패 ${shown.length}개${showAll ? '' : ' 표시'}`);
+    for (const x of shown.slice(0, showAll ? 60 : limit)) {
+      out.push(`- ${quotaLine(x)}`);
+      if (x.url) out.push(`   원문: ${x.url}`);
+    }
+    if (!showAll && all.length > shown.length) out.push(`(여유 있는 쿼터 ${all.length - shown.length}개 숨김 — show_all=true)`);
+    out.push('   검증 상태: EU 집계 수치(자동). 공동 쿼터는 한국 몫이 따로 없음. 업체별 물량·영향은 회사·철강협회 확인 필요');
+  }
+
+  if (!section || section === 'us') {
+    const fr = (doc.federalRegister ?? []).filter((x) => (!onlyNew || x.isNew)
+      && matches(q, x.title, (x.named ?? []).map((n) => n.company).join(' ')));
+    const rank = (x) => ((x.named ?? []).length ? 0 : x.beatProduct ? 1 : 2);
+    const sorted = [...fr].sort((a, b) => rank(a) - rank(b) || String(b.date).localeCompare(String(a.date)));
+    out.push(`\n[미국 상무부·ITC 고시 · 최근 45일] ${fr.length}건 · 본문에 출입처 이름 ${fr.filter((x) => (x.named ?? []).length).length}건`);
+    for (const x of sorted.slice(0, limit)) {
+      out.push(`- ${x.isNew ? '[신규] ' : ''}${x.date} · ${x.stage}${x.section337 ? ' · 337조' : ''} · ${x.title}`);
+      for (const n of (x.named ?? []).slice(0, 5)) out.push(`   본문의 ${n.company}(${n.mentions}곳): ${n.lines.map((l) => `"${l}"`).join(' / ')}`);
+      if (x.bodyError) out.push(`   본문 조회 실패(${x.bodyError}) — 업체명 미확인`);
+      out.push(`   원문: ${x.url}`);
+    }
+    if (sorted.length > limit) out.push(`… 남은 ${sorted.length - limit}건`);
+    out.push('   검증 상태: 관보 제목·본문 줄(자동). 세율·판정은 원문 표로 확인. 회사명 일치≠해당 회사 사건 — 조사 대상 목록 확인');
+  }
+
+  if (!section || section === 'notices') {
+    const from = new Date(ctx.now.getTime() - days * 86400000).toISOString();
+    const ev = (doc.events ?? []).filter((e) => new Date(e.detectedAt).toISOString() >= from && matches(q, e.label, e.text, e.country));
+    const pages = doc.pages ?? [];
+    const failed = pages.filter((p) => p.status !== 'ok');
+    out.push(`\n[해외 공고·쿼터 변화 · 최근 ${days}일] ${ev.length}건 · 공고 목록 ${pages.length - failed.length}/${pages.length} 열림`);
+    if (failed.length) out.push(`미확인(변화 없음 아님): ${failed.map((p) => `${p.label}(${p.error})`).join(', ')}`);
+    for (const e of ev.slice(0, limit)) {
+      out.push(`- ${String(e.detectedAt).slice(0, 16)} · ${e.country} · ${e.label}`);
+      out.push(`   잡힌 사실: ${e.text}`);
+      out.push(`   원문: ${e.url}`);
+    }
+    if (!ev.length) out.push('이 기간 새 줄·새 소진 없음(첫 확인은 기준선만 저장, 열리지 않은 목록은 미확인).');
+  }
+  out.push('\n다음: 원문은 source_document로 연다(미국 관보·EU) → 대상 품목·업체·세율·소진일 확인 → news_check로 보도 대조 → 회사·협회 확인.');
+  return textResult(out.join('\n'));
+}

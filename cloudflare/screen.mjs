@@ -13,6 +13,7 @@ export const FEEDS = {
   'us-comments': { blob: 'us_comments', schema: 'us_comments/v1', list: 'items' },
   'page-watch': { blob: 'page_watch', schema: 'page_watch/v1', list: 'pages' },
   'partner-filings': { blob: 'partner_filings', schema: 'partner_filings/v1', list: 'items' },
+  'trade-remedy': { blob: 'trade_remedy', schema: 'trade_remedy/v1', list: 'quotas' },
 };
 
 export async function handleIngest(request, env, deps = {}) {
