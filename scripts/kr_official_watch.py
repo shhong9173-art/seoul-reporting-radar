@@ -42,7 +42,7 @@ TEAMS = {
     "철강·비철": r"철강|비철|금속|제련|아연|광업|광물|희토류|고철|탄소국경|배출권",
     "전력·에너지": r"전기사업|전력|송전|변전|전력망|에너지|신재생|재생에너지|원자력|원전|수소|석유|가스|해상풍력|태양광|전기공사|ESS",
     "화학": r"화학물질|화학제품|석유화학|플라스틱|화평법|화관법|폐기물|순환경제",
-    "공통": r"통상|관세|공급망|산업안전|중대재해|하도급|외국인투자|조세특례|산업집적|산업단지|공장|첨단전략산업|소재·부품|소재부품",
+    "공통": r"통상협정|통상조약|통상교섭|무역|관세|공급망|산업안전|중대재해|하도급|외국인투자|조세특례|산업집적|산업단지|공장|첨단전략산업|소재·부품|소재부품",
 }
 BEAT_MINISTRIES = re.compile(r"산업통상|기후에너지환경부|환경부|국토교통부|고용노동부|기획재정부|재정경제부|관세청|공정거래위원회|"
                              r"원자력안전위원회|중소벤처기업부|산업부")
@@ -202,6 +202,16 @@ def factories(cfg, key, now, previous, *, get=None, sleep=time.sleep):
 
 # ---------- 관보 입법예고 ----------
 
+ORG_PREFIX = re.compile(r"^[^()（]*?공고\s*제\s*\d{4}\s*-\s*\d+\s*호\s*[(（]")
+
+
+def subject_of(title):
+    """'산업통상부공고제2026-656호(「…」 입법예고)' → the part in brackets, so the issuing body's own name
+    (산업통상부, 원자력안전위원회) does not match beat words like 통상·원자력."""
+    t = ORG_PREFIX.sub("", title or "", count=1)
+    return t[:-1] if t != title and t.endswith((")", "）")) else t
+
+
 def teams_of(text):
     return [t for t, rx in TEAMS.items() if re.search(rx, text or "")]
 
@@ -237,7 +247,7 @@ def gazette(key, now, previous, *, get=None, sleep=time.sleep):
         title = str(x.get("cntntSj") or "")
         org = str(x.get("pblcnInstNm") or "")
         reason = re.sub(r"\s+", " ", str(x.get("rvsnRsnMainCn") or "")).strip()
-        in_title = teams_of(title)
+        in_title = teams_of(subject_of(title))
         in_reason = teams_of(reason) if BEAT_MINISTRIES.search(org) else []
         teams = sorted(set(in_title) | set(in_reason))
         if not teams:
@@ -252,8 +262,13 @@ def gazette(key, now, previous, *, get=None, sleep=time.sleep):
                      "isNew": had_state and gid not in prev}
     keep_from = (now.date() - dt.timedelta(days=GAZETTE_KEEP)).isoformat()
     for gid, old in prev.items():
-        if gid not in kept and str(old.get("date") or "") >= keep_from:
-            kept[gid] = dict(old, isNew=False)
+        if gid in kept or str(old.get("date") or "") < keep_from:
+            continue
+        # re-check kept notices with the current rules (earlier runs matched issuer names such as 산업통상부)
+        teams = sorted(set(teams_of(subject_of(old.get("title")))) |
+                       set(teams_of(old.get("summary")) if BEAT_MINISTRIES.search(old.get("org") or "") else []))
+        if teams:
+            kept[gid] = dict(old, teams=teams, isNew=False)
     check = {"source": "관보 입법예고", "status": "failed" if err else "ok", "returned": len(rows), "kept": len(kept),
              **({"error": err} if err else {})}
     return sorted(kept.values(), key=lambda g: (g["date"], g["id"]), reverse=True), check
