@@ -104,6 +104,14 @@ class Partners(unittest.TestCase):
         doc = w.run({"asx": [], "edgarPhrases": [["포스코", "POSCO"]]}, now=NOW, get=get, sleep=lambda s: None)
         self.assertEqual(doc["items"], [])
 
+    def test_saved_snippets_get_the_unrelated_check_too(self):
+        prev = {"items": [{"id": "edgar:x-1:p.htm", "source": "EDGAR", "date": "2026-10-20", "firstSeen": "2026-10-20T07:00:00+09:00",
+                           "phrases": ["POSCO"], "beat": ["포스코"], "snippet": "held at Floor 25, Tower B, POSCO Center, Beijing"},
+                          {"id": "edgar:y-1:q.htm", "source": "EDGAR", "date": "2026-10-19", "firstSeen": "2026-10-19T07:00:00+09:00",
+                           "phrases": ["POSCO"], "beat": ["포스코"], "snippet": "our Memorandum of Understanding with POSCO and"}]}
+        doc = w.run({"asx": [], "edgarPhrases": []}, now=NOW, previous=prev, get=lambda *a, **k: R(404), sleep=lambda s: None)
+        self.assertEqual([x["id"] for x in doc["items"]], ["edgar:y-1:q.htm"])
+
     def test_previous_items_keep_first_seen_and_expire(self):
         prev = {"items": [{"id": "edgar:0001193125-26-111111:d111d8k.htm", "source": "EDGAR", "date": "2026-10-21", "firstSeen": "2026-10-21T07:00:00+09:00",
                            "snippet": "kept", "beat": ["현대제철"], "phrases": ["Hyundai Steel"]},

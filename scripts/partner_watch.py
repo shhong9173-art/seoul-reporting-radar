@@ -205,6 +205,14 @@ def run(cfg, *, now, previous=None, get=None, sleep=time.sleep, snippet_budget=2
             if sn:
                 it["snippet"] = sn[:700]
                 break
+    # Saved snippets from earlier runs get the same unrelated-sense check.
+    for it in items.values():
+        sn = it.get("snippet") or ""
+        if it.get("source") == "EDGAR" and sn and not it.get("noise"):
+            rel = [ph for ph in it.get("phrases", [])
+                   if len(re.findall(re.escape(ph), sn, re.I)) > (len(UNRELATED[ph].findall(sn)) if ph in UNRELATED else 0)]
+            if it.get("phrases") and not rel:
+                it["noise"] = "출입처 이름이 무관한 뜻(건물 주소 등)으로만 쓰임"
     new_from = (now - dt.timedelta(days=NEW_DAYS)).strftime("%Y-%m-%d")
     out = sorted((x for x in items.values() if not x.get("noise")), key=lambda x: (x.get("date") or "", x["id"]), reverse=True)
     for x in out:
