@@ -1,23 +1,9 @@
 {
-  "generatedAt": "2026-10-26T14:14:06+09:00",
-  "status": "source_error",
+  "generatedAt": "2026-10-26T14:27:15+09:00",
+  "status": "checked",
   "source": "PPS KONEPS dataset 15129394",
   "keySource": "G2B_API_KEY",
   "keyForm": "decoded",
   "note": "Key present; a provider error means the dataset permission is not active for this key yet. No 0-count claim.",
-  "errorType": "ProviderCallsFailed",
-  "providerChecks": [
-    {
-      "workType": "goods",
-      "status": "source_error",
-      "errorType": "ProviderError",
-      "providerMessage": "HTTP 403 30 등록되지 않은 서비스키"
-    },
-    {
-      "workType": "construction",
-      "status": "source_error",
-      "errorType": "ProviderError",
-      "providerMessage": "HTTP 403 30 등록되지 않은 서비스키"
-    }
-  ]
+  "checkedKinds": 2
 }
