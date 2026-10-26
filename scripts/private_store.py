@@ -5,6 +5,7 @@ Logs must stay counts-only: this module never prints document contents.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 
@@ -20,7 +21,9 @@ class StoreError(RuntimeError):
 def token_shape(token):
     """Describe the secret's format without revealing it (length and shape only)."""
     t = token or ""
-    return (f"길이 {len(t)}, 형식 {'정상' if re.fullmatch(r'[A-Za-z0-9_-]{16,128}', t) else '비정상'}"
+    # 8 hex chars of SHA-256: enough to tell two values apart, useless for recovering a random 43-char token.
+    fp = hashlib.sha256(t.encode()).hexdigest()[:8] if t else "-"
+    return (f"길이 {len(t)}, 지문 {fp}, 형식 {'정상' if re.fullmatch(r'[A-Za-z0-9_-]{16,128}', t) else '비정상'}"
             f"{', 주소 포함' if '/' in t or 'http' in t.lower() else ''}{', 공백·줄바꿈 포함' if re.search(r'\s', t) else ''}"
             f"{', 따옴표 포함' if re.search(r'[\"\']', t) else ''}")
 
