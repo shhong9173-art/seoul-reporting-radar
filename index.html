@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>산업부 종합 취재 레이더</title>
-<link rel="stylesheet" href="style.css?v=20261009-lead-layers">
+<link rel="stylesheet" href="style.css?v=20261027-nav">
 </head>
 <body>
 <div class="app">
@@ -14,38 +14,49 @@
       <button class="nav active" data-view="today">오늘 취재 우선순위 <span id="countMust">0</span></button>
       <button class="nav" data-view="must">자동차 핵심 <span id="countAutoMust">0</span></button>
       <button class="nav" data-view="industryMust">산업부 핵심 <span id="countIndustryMust">0</span></button>
-      <button class="nav" data-view="all">전체 모니터링 <span id="countAll">0</span></button>
-      <button class="nav pitch-nav" type="button">발제 아이템 <span id="countPitch">0</span></button>
-      <button class="nav archive-nav" type="button">단독·발제 아카이브 <span id="countArchive">0</span></button>
       <button class="nav scoop-nav" type="button">단독감·미보도 <span id="countScoop">0</span></button>
-      <a class="nav" href="scoop-request.html" style="display:block;text-decoration:none;font-weight:700">단독거리 찾아줘 · 기업명 검색 ↗</a>
-      <a class="nav" href="primary-dossiers.html" style="display:block;text-decoration:none;font-weight:700">해외 1차 문서 취재 조사서 ↗</a>
-      <a class="nav" href="reverse-trace.html" style="display:block;text-decoration:none;font-weight:700">경쟁지 단독기사 원천 역추적 Y/P/N ↗</a>
-      <a class="nav" href="reporting-queue.html" style="display:block;text-decoration:none;font-weight:700">공식 원문 증거 등급별 취재 대기열 ↗</a>
-      <a class="nav" href="weekend-desk.html" style="display:block;text-decoration:none;font-weight:700">주말 발제·공식자료 검증 대기열 ↗</a>
-      <a class="nav" href="morning.html" style="display:block;text-decoration:none">아침 공시 브리핑 ↗</a>
-      <a class="nav" href="data-lab.html" style="display:block;text-decoration:none">기업 비교·데이터 발굴 ↗</a>
-      <a class="nav" href="official-watch.html" style="display:block;text-decoration:none">해외·공급계약 공식 원문 레이더 ↗</a>
-      <a class="nav" href="dart-pitches.html" style="display:block;text-decoration:none">DART 원문 변경 발제 3줄 검토 ↗</a>
-      <a class="nav" href="official-source-research.html" style="display:block;text-decoration:none">NTIS·해외 인허가·통상조치 검색대 ↗</a>
-      <a class="nav" href="crossborder-scoops.html" style="display:block;text-decoration:none;font-weight:700">해외 리콜·법인배당 교차 검증 ↗</a>
-      <a class="nav" href="official-today.html" style="display:block;text-decoration:none">최근 3일 공식 문서 검증 ↗</a>
-      <a class="nav" href="dart-beat-monitor.html" style="display:block;text-decoration:none">전체 출입처 DART 공시·변화 검증 ↗</a>
-      <a class="nav" href="dart-contract-followup.html" style="display:block;text-decoration:none">DART 계약 변경·기보도 교차 검증 ↗</a>
-      <a class="nav" href="official-leads.html" style="display:block;text-decoration:none">특허 외 공식 원문 취재 발제 ↗</a>
-      <a class="nav" href="hunt.html" style="display:block;text-decoration:none">원문 변화 단독감 발굴 /hunt ↗</a>
-      <a class="nav" href="scoop-sources.html" style="display:block;text-decoration:none;font-weight:700">공식 단독 단서 통합 ↗</a>
-      <a class="nav" href="patent-pitches.html" style="display:block;text-decoration:none;font-weight:700">특허 취재 발제 3줄 보고 ↗</a>
-      <a class="nav" href="patent-rnd-dossiers.html" style="display:block;text-decoration:none">특허·국가과제·DART 교차 조사서 ↗</a>
-      <a class="nav" href="patents.html" style="display:block;text-decoration:none">특허청·KIPRIS 특허 단독감 /patent-hunt ↗</a>
       <button class="nav" data-view="exclusive">타사 단독·속보 <span id="countExclusive">0</span></button>
-      <button class="nav" data-view="follow">후속 취재 후보 <span id="countFollow">0</span></button>
-      <button class="nav" data-view="competition">경쟁지 선행 이슈 <span id="countCompetition">0</span></button>
-      <button class="nav" data-view="calls">오늘 전화할 곳</button>
-      <button class="nav" data-view="company">기업 타임라인</button>
-      <button class="nav" data-view="keywords">키워드 급상승</button>
-      <button class="nav" data-view="issues">이슈 타임라인</button>
-      <button class="nav" data-view="global">글로벌 레이더 <span id="countGlobal">0</span></button>
+      <button class="nav pitch-nav" type="button">발제 아이템 <span id="countPitch">0</span></button>
+      <button class="nav" data-view="all">전체 모니터링 <span id="countAll">0</span></button>
+      <span class="nav-slot-daily-end" hidden></span>
+      <div class="nav-group-label">원문 단서</div>
+      <a class="nav nav-link" href="scoop-sources.html">공식 단독 단서 통합 ↗</a>
+      <a class="nav nav-link" href="dart-beat-monitor.html">출입처 DART 공시·변화 ↗</a>
+      <a class="nav nav-link" href="official-watch.html">해외·공급계약 공식 원문 ↗</a>
+      <a class="nav nav-link" href="scoop-request.html">단독거리 찾아줘 · 기업명 검색 ↗</a>
+      <details class="nav-more">
+        <summary class="nav-more-toggle">더보기 <span>24</span></summary>
+        <div class="nav-more-body">
+          <div class="nav-group-label">화면</div>
+          <button class="nav" data-view="follow">후속 취재 후보 <span id="countFollow">0</span></button>
+          <button class="nav" data-view="competition">경쟁지 선행 이슈 <span id="countCompetition">0</span></button>
+          <button class="nav" data-view="calls">오늘 전화할 곳</button>
+          <button class="nav" data-view="company">기업 타임라인</button>
+          <button class="nav" data-view="keywords">키워드 급상승</button>
+          <button class="nav" data-view="issues">이슈 타임라인</button>
+          <button class="nav" data-view="global">글로벌 레이더 <span id="countGlobal">0</span></button>
+          <button class="nav archive-nav" type="button">단독·발제 아카이브 <span id="countArchive">0</span></button>
+          <div class="nav-group-label">공식 원문·검증 페이지</div>
+          <a class="nav nav-link" href="official-today.html">최근 3일 공식 문서 검증 ↗</a>
+          <a class="nav nav-link" href="official-leads.html">특허 외 공식 원문 발제 ↗</a>
+          <a class="nav nav-link" href="hunt.html">원문 변화 단독감 /hunt ↗</a>
+          <a class="nav nav-link" href="reporting-queue.html">증거 등급별 취재 대기열 ↗</a>
+          <a class="nav nav-link" href="weekend-desk.html">주말 발제·검증 대기열 ↗</a>
+          <a class="nav nav-link" href="primary-dossiers.html">해외 1차 문서 조사서 ↗</a>
+          <a class="nav nav-link" href="reverse-trace.html">경쟁지 단독 원천 역추적 ↗</a>
+          <a class="nav nav-link" href="crossborder-scoops.html">해외 리콜·법인배당 교차 검증 ↗</a>
+          <a class="nav nav-link" href="official-source-research.html">NTIS·해외 인허가·통상 검색대 ↗</a>
+          <div class="nav-group-label">DART·데이터</div>
+          <a class="nav nav-link" href="morning.html">아침 공시 브리핑 ↗</a>
+          <a class="nav nav-link" href="dart-pitches.html">DART 원문 변경 발제 ↗</a>
+          <a class="nav nav-link" href="dart-contract-followup.html">DART 계약 변경·기보도 대조 ↗</a>
+          <a class="nav nav-link" href="data-lab.html">기업 비교·데이터 발굴 ↗</a>
+          <div class="nav-group-label">특허</div>
+          <a class="nav nav-link" href="patent-pitches.html">특허 취재 발제 ↗</a>
+          <a class="nav nav-link" href="patent-rnd-dossiers.html">특허·국가과제·DART 조사서 ↗</a>
+          <a class="nav nav-link" href="patents.html">KIPRIS 특허 단독감 /patent-hunt ↗</a>
+        </div>
+      </details>
     </nav>
     <div class="section-label">자동차</div>
     <div class="chips">
@@ -89,7 +100,7 @@
 <script src="display_dedupe.js?v=20260828-03"></script>
 <script src="auto_exclusive.js?v=20260915-02"></script>
 <script src="cross_media_gap.js?v=20260918-02"></script>
-<script src="boss_followup.js?v=20260918-01"></script>
+<script src="boss_followup.js?v=20261027-nav"></script>
 <script src="scoop.js?v=20261009-source-health"></script>
 </body>
 </html>
