@@ -186,6 +186,27 @@ def from_stat(x):
             "strength": min(4, float(x.get("strength") or 0) / 40)}
 
 
+STALE_DAYS = 45
+
+
+def filed_on(url):
+    m = re.search(r"rcpNo=(\d{4})(\d{2})(\d{2})\d{6}", str(url or ""))
+    return f"{m.group(1)}-{m.group(2)}-{m.group(3)}" if m else None
+
+
+def age_mark(c, now):
+    """Half-year/annual table numbers lose their news hook with time: halve the weight and label the age."""
+    day = c.get("published") or filed_on(c.get("url"))
+    c["filedOn"] = filed_on(c.get("url"))
+    if not day:
+        return c
+    age = (now.date() - dt.date.fromisoformat(day)).days
+    if age > STALE_DAYS:
+        c["staleDays"] = age
+        c["strength"] = c["strength"] / 2
+    return c
+
+
 def select(clues, stats, *, now, limit=MAX_CANDIDATES):
     recent = (now - dt.timedelta(days=10)).strftime("%Y-%m-%d")
     rows = []
@@ -206,6 +227,7 @@ def select(clues, stats, *, now, limit=MAX_CANDIDATES):
         c = from_stat(x)
         if c and c["terms"]:
             rows.append(c)
+    rows = [age_mark(c, now) for c in rows]
     seen, out = set(), []
     for c in sorted(rows, key=lambda r: -r["strength"]):
         key = (c["company"], tuple(c["numbers"])) if c["numbers"] else (c["company"], tuple(c["terms"][:2]))
@@ -377,12 +399,8 @@ def report(rows, *, now, inputs):
 
 
 def push(doc, token, *, post=None):
-    if post is None:
-        import requests
-        post = requests.post
-    r = post(f"{WORKER}/ingest/scoop-screen", data=json.dumps(doc, ensure_ascii=False).encode("utf-8"),
-             headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json", "User-Agent": UA}, timeout=30)
-    return getattr(r, "status_code", 0)
+    import private_store
+    return private_store.put("scoop-screen", doc, token, post=post)
 
 
 def load(path):

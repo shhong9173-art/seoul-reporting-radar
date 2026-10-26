@@ -401,7 +401,8 @@ test('scoop screening arrives only through the bearer ingest and is read on the 
   const opts = { path: `/mcp/${TOKEN}`, env };
   const r = await call('scoop_screen', {}, opts);
   assert.match(r.text, /후보 3 · 미보도 후보 1 · 관련 보도 있음 1/);
-  assert.match(r.text, /■ 미보도 후보 \(1\)\n1\. \[자동차\] 현대자동차 · HMTR/);
+  assert.match(r.text, /■ 미보도 후보 \(1\)\n1\. \[자동차\] 현대차\n   잡힌 사실: 현대자동차 · HMTR/);
+  assert.match(r.text, /검증 상태: 자동 심사\(원문 본문·회사 확인 전\)/);
   assert.match(r.text, /네이버\(API HUB\) ok 12건 · 빙 ok 3건 · 구글 failed\(HTTP 503\)/);
   assert.match(r.text, /↳ 2026-10-20 \[naver\] 현대위아 영업양도 — 낱말\(영업양도\)/);
   await call('candidate_feedback', { item_id: 'clue:a2', verdict: '킬', reason: '이미 남' }, opts);
@@ -411,6 +412,16 @@ test('scoop screening arrives only through the bearer ingest and is read on the 
   assert.match((await call('scoop_screen', { include_killed: true }, opts)).text, /기자 판정: 킬 — 이미 남/);
   const empty = await call('scoop_screen', {}, PRIVATE());
   assert.ok(empty.isError);
+  const get = (name, headers = { Authorization: `Bearer ${TOKEN}` }) => worker.fetch(new Request(ORIGIN + `/ingest/${name}`, { headers }), env, {});
+  const stored = await get('scoop-screen');
+  assert.equal(stored.status, 200);
+  assert.equal((await stored.json()).candidates.length, 3);
+  assert.equal((await get('page-watch')).status, 204);
+  assert.equal((await get('page-watch', {})).status, 404);
+  assert.equal((await get('unknown-feed')).status, 404);
+  const wrongSchema = await worker.fetch(new Request(ORIGIN + '/ingest/us-comments', { method: 'POST',
+    headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify({ schema: 'scoop_screen/v1', candidates: [] }) }), env, {});
+  assert.equal(wrongSchema.status, 400);
 });
 
 test('non-MCP paths keep the canonical Pages redirect', async () => {
