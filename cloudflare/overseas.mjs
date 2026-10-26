@@ -1,4 +1,5 @@
-// Overseas private watches (regulations.gov comments, official page changes, partner filings).
+// Private watches: overseas sources (regulations.gov comments, page changes, partner filings, trade remedies, US litigation)
+// and domestic official sources (factory registry, gazette legislative notices).
 // Data arrives through the bearer ingest; tools read it only on the private connector path.
 import { ageNote, readFeed } from './screen.mjs';
 import { clampInt, textResult } from './common.mjs';
@@ -213,5 +214,55 @@ export async function usLitigation(ctx, args) {
     out.push(`   원문: ${x.url}`);
   }
   out.push('\n다음: 사건 페이지에서 소장(Complaint) 열람 → 청구 원인·금액·상대방 확인 → news_check로 보도 대조 → 회사 확인. ITC 고시는 source_document(federalregister.gov)로 연다.');
+  return textResult(out.join('\n'));
+}
+
+export async function krOfficial(ctx, args) {
+  const doc = await readFeed(ctx, 'kr-official');
+  if (!doc) return missing('공장등록·관보 입법예고', '평일 08:10');
+  if (doc.broken) return textResult('저장된 국내 공식 원천 결과 형식 오류 — 미확인.', true);
+  const section = ['factory', 'gazette'].includes(args.section) ? args.section : null;
+  const q = String(args.company ?? '').trim();
+  const days = clampInt(args.days, 1, 120, 30);
+  const limit = clampInt(args.limit, 1, 80, 20);
+  const checks = doc.checks ?? [];
+  const failed = checks.filter((c) => c.status !== 'ok');
+  const out = [`국내 공식 원천(공장등록·관보 입법예고) · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt)}`,
+    `질의 ${checks.length - failed.length}/${checks.length} 정상${failed.length ? ` · 미확인(0건 아님): ${failed.slice(0, 6).map((c) => `${c.source}(${c.error})`).join(', ')}` : ''}`,
+    ...(doc.rules ?? []).map((r) => `규칙: ${r}`)];
+  if (!section || section === 'factory') {
+    const from = new Date(ctx.now.getTime() - days * 86400000).toISOString();
+    const ev = (doc.events ?? []).filter((e) => new Date(e.detectedAt).toISOString() >= from && matches(q, e.company, e.name, e.text));
+    out.push(`\n[공장등록 변화 · 최근 ${days}일] ${ev.length}건`);
+    for (const e of ev.slice(0, limit)) {
+      out.push(`- ${String(e.detectedAt).slice(0, 10)} · ${e.company} · ${e.kind}`);
+      out.push(`   잡힌 사실: ${e.text}`);
+    }
+    if (!ev.length) out.push('이 기간 변화 없음(첫 확인은 기준선만 저장, 조회 실패 회사는 미확인).');
+    const facs = (doc.factories ?? []).filter((f) => matches(q, f.company, f.cmpnyNm, f.rnAdres, f.mainProductCn));
+    const recent = facs.filter((f) => (f.tags ?? []).some((t) => t.startsWith('[최근 등록')));
+    out.push(`\n[최근 120일 등록 공장] ${recent.length}곳 (출입처 공장 전체 ${facs.length}곳${q ? ', 낱말 거름' : ''})`);
+    for (const f of recent.slice(0, limit)) {
+      out.push(`- ${f.registeredOn} · ${f.company} · ${f.cmpnyNm} · ${f.rnAdres}`);
+      out.push(`   주생산품 ${f.mainProductCn || '미기재'} · 업종 ${f.indutyNm || '미기재'} · 고용 ${f.employees ?? '미기재'}명${f.irsttNm ? ` · ${f.irsttNm}` : ''}`);
+    }
+    if (args.show_all === true || args.show_all === 'true') {
+      out.push('\n[출입처 공장 목록]');
+      for (const f of facs.slice(0, 200)) out.push(`- ${f.company} · ${f.cmpnyNm} · ${f.rnAdres} · 고용 ${f.employees ?? '?'} · 등록 ${f.registeredOn ?? '?'}${f.stale ? ' · ⚠ 이번 조회 실패, 직전 값' : ''}`);
+    }
+    out.push('   검증 상태: 지자체 공장등록 신고값(자동). 가동·투자 규모는 회사·지자체 확인 필요');
+  }
+  if (!section || section === 'gazette') {
+    const gz = (doc.gazette ?? []).filter((g) => matches(q, g.title, g.org, (g.teams ?? []).join(' '), g.summary));
+    out.push(`\n[관보 입법예고 · 출입처 업종 관련] ${gz.length}건`);
+    for (const g of gz.slice(0, limit)) {
+      out.push(`- ${g.isNew ? '[신규] ' : ''}${g.date} · ${g.org} · ${(g.teams ?? []).join('·')}${g.corrected ? ' · 정정' : ''}`);
+      out.push(`   잡힌 사실: ${g.title}`);
+      if (g.summary) out.push(`   개정이유 첫머리: ${g.summary.slice(0, 200)}`);
+      out.push(`   원문: ${g.url ?? '링크 없음'}`);
+    }
+    out.push('   검증 상태: 관보 게재 목록(자동). 같은 날 보도자료가 나왔는지 news_check로 확인');
+  }
+  out.push('\n다음: 새 공장·변경은 회사·지자체에 가동 시점·투자액·인력 확인 → news_check. 입법예고는 원문(관보 PDF)에서 시행일·대상 확인.');
   return textResult(out.join('\n'));
 }
