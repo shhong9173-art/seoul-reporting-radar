@@ -28,7 +28,8 @@ export const POLICY = {
   dailyLimit: 5,
   derivedMethods: ['증감률', '차이', '비중', '합계', '단위환산'],
   verdicts: ['단독 확실', '단독 유력', '선행 있음', '이미 남', '미확인'],
-  channels: ['google', 'naver', 'dandok'],
+  // web = 구글 또는 빙(구글이 Cloudflare 출구를 503으로 막는 경우가 있어 둘 중 하나면 됨)
+  channels: ['web', 'naver', 'dandok'],
   sizeKeys: ['novelty', 'numbers', 'scale', 'beat', 'timing', 'expansion', 'exclusivity'],
   sizeLabels: { novelty: '새로움', numbers: '숫자', scale: '판', beat: '출입처', timing: '시점', expansion: '확장', exclusivity: '독점' },
 };
@@ -51,7 +52,8 @@ export function checkCandidate(input) {
   const beats = companies.filter((n) => DIRECT_BEATS.has(n));
   const title = String(c.title ?? '').trim();
   const verdict = POLICY.verdicts.includes(c.coverage?.verdict) ? c.coverage.verdict : '미확인';
-  const channelsOk = POLICY.channels.every((ch) => coverage[ch] === 'ok');
+  const channelState = (ch) => (ch === 'web' ? (coverage.google === 'ok' || coverage.bing === 'ok' || coverage.web === 'ok' ? 'ok' : coverage.google ?? coverage.bing ?? coverage.web) : coverage[ch]);
+  const channelsOk = POLICY.channels.every((ch) => channelState(ch) === 'ok');
 
   const gains = [];
   const penalties = [];
@@ -80,7 +82,8 @@ export function checkCandidate(input) {
   if (!c.source_date) hold.push('원자료 게시일 없음');
   if (!c.content_hash) hold.push('원문 내용 해시 없음(source_document로 열면 받음)');
   for (const ch of POLICY.channels) {
-    if (coverage[ch] !== 'ok') hold.push(`보도 채널 '${ch}' 조회 ${coverage[ch] ?? '안 함'} — 0건이 아니라 미확인`);
+    const state = channelState(ch);
+    if (state !== 'ok') hold.push(`보도 채널 '${ch === 'web' ? '웹 색인(구글·빙)' : ch}' 조회 ${state ?? '안 함'} — 0건이 아니라 미확인`);
   }
   if (verdict === '미확인') hold.push('이미 났나 판정이 미확인');
   if (questions.length < 2) hold.push('회사·기관에 물을 질문 2~3개 없음');

@@ -170,6 +170,42 @@ test('news_check: all channels ok and empty is not proof of non-coverage', async
   assert.match(f.text, /판정: 미확인/);
 });
 
+test('news_check: Bing stands in for Google and unwraps the original link', async () => {
+  const bingRss = `<rss><channel><item><title>동국씨엠 컬러강판 증설</title><link>https://www.bing.com/news/apiclick.aspx?ref=FexRss&amp;url=https%3a%2f%2fwww.example-news.kr%2fa%2f1&amp;c=1</link><pubDate>Fri, 24 Oct 2026 03:00:00 GMT</pubDate></item></channel></rss>`;
+  const fetch = fakeFetch({
+    'https://news.google.com/': new Response('blocked', { status: 503 }),
+    'https://www.bing.com/news/search': new Response(bingRss),
+    'https://openapi.naver.com/': Response.json({ items: [] }),
+  });
+  const r = await call('news_check', { q: '동국씨엠 컬러강판', days: 30 }, { ...PRIVATE({ NAVER_CLIENT_ID: 'i', NAVER_CLIENT_SECRET: 's' }), fetch });
+  assert.match(r.text, /구글 뉴스: failed — HTTP 503/);
+  assert.match(r.text, /빙 뉴스: 1건/);
+  assert.match(r.text, /https:\/\/www\.example-news\.kr\/a\/1/);
+  assert.match(r.text, /판정: 관련 보도 후보 1건/);
+  const bothDown = fakeFetch({ 'https://news.google.com/': new Response('x', { status: 503 }), 'https://www.bing.com/': new Response('x', { status: 503 }),
+    'https://openapi.naver.com/': Response.json({ items: [] }) });
+  const d = await call('news_check', { q: '동국씨엠 컬러강판' }, { ...PRIVATE({ NAVER_CLIENT_ID: 'i', NAVER_CLIENT_SECRET: 's' }), fetch: bothDown });
+  assert.match(d.text, /판정: 미확인 — 웹 색인\(구글·빙 모두\)/);
+});
+
+test('source_document reads the DART filing body instead of the frame page', async () => {
+  const frame = `<html><body>잠시만 기다려주세요<script>
+    node1['text'] = "기업가치제고계획(자율공시)"; node1['rcpNo'] = "20261021800308"; node1['dcmNo'] = "11111"; node1['eleId'] = "0";
+    node1['offset'] = "0"; node1['length'] = "0"; node1['dtd'] = "HTML";
+    viewDoc('20261021800308', '22222', '1', '10', '20', 'dart4.xsd', '');
+  </script></body></html>`;
+  const fetch = fakeFetch({
+    'https://dart.fss.or.kr/dsaf001/main.do': new Response(frame, { headers: { 'Content-Type': 'text/html; charset=utf-8' } }),
+    'https://dart.fss.or.kr/report/viewer.do': (url) => new Response(`<html><body><p>${url.includes('dcmNo=22222') ? '본문 PBR 1.2배 목표' : '첨부'}</p></body></html>`,
+      { headers: { 'Content-Type': 'text/html; charset=utf-8' } }),
+  });
+  const r = await call('source_document', { url: 'https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261021800308' }, { fetch });
+  assert.match(r.text, /DART 본문 문서 2개/);
+  assert.match(r.text, /본문 PBR 1\.2배 목표/);
+  assert.doesNotMatch(r.text, /잠시만 기다려주세요/);
+  assert.match(r.text, /기업가치제고계획\(자율공시\): https:\/\/dart\.fss\.or\.kr\/report\/viewer\.do\?rcpNo=20261021800308&dcmNo=11111/);
+});
+
 test('source_document only opens allowlisted hosts and returns a content hash', async () => {
   assert.equal(allowedUrl('https://evil.example/x'), null);
   assert.equal(allowedUrl('https://user:pw@dart.fss.or.kr/'), null);
@@ -230,6 +266,10 @@ test('candidate_check holds incomplete packages and recommends complete ones', a
   assert.equal(ok.status, '추천', JSON.stringify(ok.hold));
   assert.equal(ok.size.grade, '톱');
   assert.equal(checkCandidate({ ...full, coverage: { ...full.coverage, verdict: '이미 남' } }).status, '탈락');
+  const viaBing = checkCandidate({ ...full, coverage: { ...full.coverage, google: 'failed', bing: 'ok' } });
+  assert.equal(viaBing.status, '추천', JSON.stringify(viaBing.hold));
+  const noWeb = checkCandidate({ ...full, coverage: { ...full.coverage, google: 'failed', bing: 'failed' } });
+  assert.ok(noWeb.hold.some((h) => h.includes('웹 색인')));
   const failedChannel = checkCandidate({ ...full, coverage: { ...full.coverage, naver: 'failed' } });
   assert.equal(failedChannel.status, '조사대기');
   assert.ok(checkCandidate({ ...full, derived_numbers: [{ value: '2배', method: '추정' }] }).hold.some((h) => h.includes('허용되지 않은')));

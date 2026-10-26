@@ -28,21 +28,41 @@ function kstDay(value) {
   return Number.isFinite(t) ? new Date(t + 9 * 3600000).toISOString().slice(0, 10) : null;
 }
 
-async function googleNews(ctx, q, days) {
-  const url = `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=ko&gl=KR&ceid=KR:ko`;
+const BROWSER_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
+  'Accept': 'application/rss+xml,application/xml;q=0.9,*/*;q=0.8',
+  'Accept-Language': 'ko-KR,ko;q=0.9,en;q=0.6',
+};
+
+async function rssChannel(ctx, url, days, mapItem = (x) => x) {
   try {
-    const r = await ctx.fetch(url, { signal: signal(), headers: { 'User-Agent': 'Mozilla/5.0 seoul-reporting-radar' } });
+    const r = await ctx.fetch(url, { signal: signal(), headers: BROWSER_HEADERS });
     if (!r.ok) return { status: 'failed', error: `HTTP ${r.status}`, items: [] };
     const xml = await r.text();
-    if (!/<rss[\s>]/.test(xml)) return { status: 'failed', error: 'RSS 형식 아님', items: [] };
+    if (!/<rss[\s>]/.test(xml)) return { status: 'failed', error: 'RSS 형식 아님(차단·확인 페이지 가능성)', items: [] };
     const from = kstDate(ctx.now, days);
-    const all = rssItems(xml);
+    const all = rssItems(xml).map(mapItem);
     const items = all.map((x) => ({ ...x, date: kstDay(x.published) }))
       .filter((x) => x.date && x.date >= from);
     return { status: 'ok', returned: all.length, items };
   } catch (e) {
     return { status: 'failed', error: e.name === 'TimeoutError' ? '시간 초과' : String(e.message ?? e), items: [] };
   }
+}
+
+function googleNews(ctx, q, days) {
+  return rssChannel(ctx, `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=ko&gl=KR&ceid=KR:ko`, days);
+}
+
+// Google News answers 503 to many Cloudflare egress IPs, so Bing News RSS is a
+// second web index. Its links are click-tracking URLs carrying the original.
+function bingNews(ctx, q, days) {
+  return rssChannel(ctx, `https://www.bing.com/news/search?q=${encodeURIComponent(q)}&format=rss&setlang=ko-KR&cc=KR`, days, (x) => {
+    let url = x.url;
+    try { url = new URL(x.url).searchParams.get('url') || x.url; } catch { /* keep */ }
+    const host = (/^https?:\/\/(?:www\.)?([^/]+)/.exec(url) || [])[1] ?? '';
+    return { ...x, url, source: x.source || host };
+  });
 }
 
 async function naverNews(ctx, q, days) {
@@ -83,13 +103,18 @@ export async function newsCheck(ctx, args) {
   if (q.length < 2) return textResult('q(검색 낱말 2~3개)를 넣어 주세요.', true);
   const days = clampInt(args.days, 1, 365, 365);
   const limit = clampInt(args.limit, 1, 30, 10);
-  const [google, naver, dandok] = await Promise.all([googleNews(ctx, q, days), naverNews(ctx, q, days), dandokIndex(ctx, q, days)]);
-  const channels = { '구글 뉴스': google, '네이버 뉴스': naver, '[단독] 색인': dandok };
+  const [google, bing, naver, dandok] = await Promise.all([googleNews(ctx, q, days), bingNews(ctx, q, days),
+    naverNews(ctx, q, days), dandokIndex(ctx, q, days)]);
+  const channels = { '구글 뉴스': google, '빙 뉴스': bing, '네이버 뉴스': naver, '[단독] 색인': dandok };
   const out = [`보도 대조: "${q}" · 최근 ${days}일 · ${kstStamp(ctx.now)}`];
-  let hits = 0; let incomplete = [];
+  let hits = 0;
+  // Required coverage: 네이버 + 웹 색인(구글 또는 빙) + [단독] 색인.
+  const incomplete = [];
+  if (naver.status !== 'ok') incomplete.push('네이버 뉴스');
+  if (google.status !== 'ok' && bing.status !== 'ok') incomplete.push('웹 색인(구글·빙 모두)');
+  if (dandok.status !== 'ok') incomplete.push('[단독] 색인');
   for (const [name, ch] of Object.entries(channels)) {
     if (ch.status !== 'ok') {
-      incomplete.push(name);
       out.push(`\n■ ${name}: ${ch.status} — ${ch.error}`);
       continue;
     }
@@ -102,9 +127,10 @@ export async function newsCheck(ctx, args) {
     if (ch.items.length > limit) out.push(`   … 남은 ${ch.items.length - limit}건`);
   }
   const verdict = incomplete.length
-    ? `판정: 미확인 — ${incomplete.join('·')} 조회 실패·미설정(0건이 아님). 관련 후보 ${hits}건.`
+    ? `판정: 미확인 — ${incomplete.join('·')} 조회 실패·미설정(0건이 아님). 관련 후보 ${hits}건.` +
+      (hits ? ' 후보가 있으면 이미 났을 수 있으니 먼저 연다.' : '')
     : hits ? `판정: 관련 보도 후보 ${hits}건 — 같은 사건·같은 각도인지 열어 봐야 함.`
-      : '판정: 조회한 채널 모두 0건 — 미보도 증거 아님. 낱말을 바꿔 2~3번, 전문지·온라인 매체(더벨·딜사이트 등)는 웹검색으로 따로 본다.';
+      : '판정: 필수 채널(네이버·웹 색인·[단독] 색인) 모두 0건 — 미보도 증거 아님. 낱말을 바꿔 2~3번, 전문지·온라인 매체(더벨·딜사이트 등)는 웹검색으로 따로 본다.';
   out.splice(1, 0, verdict);
   return textResult(out.join('\n'));
 }
@@ -134,6 +160,36 @@ export function allowedUrl(raw) {
   return ok ? u : null;
 }
 
+// DART main.do is a frame page; the filing body lives in report/viewer.do.
+export function dartViewerDocs(html, rcpNo) {
+  const docs = [];
+  const seen = new Set();
+  const call = /viewDoc\(\s*['"]?(\d{14})['"]?\s*,\s*['"]?(\d+)['"]?\s*,\s*['"]?([\w.-]*)['"]?\s*,\s*['"]?(\d+)['"]?\s*,\s*['"]?(\d+)['"]?\s*,\s*['"]?([A-Za-z0-9_.-]+)['"]?(?:\s*,\s*['"]?([\w.-]*)['"]?)?\s*\)/gi;
+  for (const m of html.matchAll(call)) {
+    if (m[1] !== rcpNo) continue;
+    const doc = { rcpNo: m[1], dcmNo: m[2], eleId: m[3], offset: m[4], length: m[5], dtd: m[6], tocNo: m[7] || '', text: '' };
+    const key = [doc.dcmNo, doc.eleId, doc.offset, doc.length].join('|');
+    if (!seen.has(key)) { seen.add(key); docs.push(doc); }
+  }
+  const nodes = {};
+  const assign = /([A-Za-z_$][\w$]*)\s*\[\s*['"](text|rcpNo|dcmNo|eleId|offset|length|dtd|tocNo)['"]\s*\]\s*=\s*(['"])(.*?)\3\s*;/gis;
+  for (const m of html.matchAll(assign)) (nodes[m[1]] ??= {})[m[2]] = decodeEntities(m[4]).trim();
+  for (const f of Object.values(nodes)) {
+    if (f.rcpNo !== rcpNo || !['dcmNo', 'eleId', 'offset', 'length', 'dtd'].every((k) => f[k])) continue;
+    const key = [f.dcmNo, f.eleId, f.offset, f.length].join('|');
+    if (seen.has(key)) {
+      const d = docs.find((x) => [x.dcmNo, x.eleId, x.offset, x.length].join('|') === key);
+      if (d && !d.text) d.text = f.text ?? '';
+      continue;
+    }
+    seen.add(key);
+    docs.push({ rcpNo, dcmNo: f.dcmNo, eleId: f.eleId, offset: f.offset, length: f.length, dtd: f.dtd, tocNo: f.tocNo || '', text: f.text || '' });
+  }
+  return docs.map((d) => ({ ...d, viewer: 'https://dart.fss.or.kr/report/viewer.do?' + new URLSearchParams(
+    Object.fromEntries(Object.entries({ rcpNo: d.rcpNo, dcmNo: d.dcmNo, eleId: d.eleId, offset: d.offset,
+      length: d.length, dtd: d.dtd, ...(d.tocNo ? { tocNo: d.tocNo } : {}) }))).toString() }));
+}
+
 export async function sourceDocument(ctx, args) {
   let url = allowedUrl(args.url);
   if (!url) return textResult('허용된 공식·출입처 도메인(go.kr·DART·KIND·KIPRIS·.gov·EU·출입처 홈페이지 등)의 http(s) 주소만 연다.', true);
@@ -157,13 +213,37 @@ export async function sourceDocument(ctx, args) {
   if (/pdf|octet-stream|zip|image/i.test(type)) return textResult(`본문이 ${type} 형식이라 텍스트로 읽지 못함. 원문 링크: ${url.href}`, true);
   let bytes;
   try { bytes = await readCapped(response, 4_000_000); } catch (e) { return textResult(String(e.message), true); }
-  const { text: raw, charset } = decodeBytes(bytes, type);
+  let { text: raw, charset } = decodeBytes(bytes, type);
+  let sections = [];
+  const rcp = url.hostname.endsWith('dart.fss.or.kr') && /\/dsaf001\/main\.do$/.test(url.pathname)
+    ? url.searchParams.get('rcpNo') : null;
+  if (rcp && /^\d{14}$/.test(rcp)) {
+    sections = dartViewerDocs(raw, rcp);
+    if (sections.length) {
+      try {
+        const viewer = await ctx.fetch(sections[0].viewer, { signal: signal(), headers: { 'User-Agent': BROWSER_HEADERS['User-Agent'], Referer: url.href } });
+        if (viewer.ok) {
+          const vb = await readCapped(viewer, 4_000_000);
+          ({ text: raw, charset } = decodeBytes(vb, viewer.headers.get('Content-Type') ?? ''));
+          url = new URL(sections[0].viewer);
+        }
+      } catch { /* keep the frame page and say so below */ }
+    }
+  }
   const text = /html|xml/i.test(type) || /<html|<body|<\?xml/i.test(raw.slice(0, 500)) ? htmlToText(raw) : raw;
   const hash = await sha256Hex(text);
   const slice = text.slice(offset, offset + limit);
-  const out = [`원문: ${url.href}`, `받은 시각 ${kstStamp(ctx.now)} · 문자셋 ${charset} · 전체 ${text.length}자 · 내용 해시 sha256:${hash}`,
+  const out = [`원문: ${url.href}`, `받은 시각 ${kstStamp(ctx.now)} · 문자셋 ${charset} · 전체 ${text.length}자 · 내용 해시 sha256:${hash}`];
+  if (rcp && sections.length) {
+    out.push(`DART 본문 문서 ${sections.length}개 중 첫 문서를 읽음. 다른 문서는 아래 주소로 source_document를 다시 부른다:`);
+    for (const d of sections.slice(0, 12)) out.push(`- ${d.text || `문서 ${d.dcmNo}/${d.eleId}`}: ${d.viewer}`);
+  } else if (rcp) {
+    out.push('DART 틀 페이지에서 본문 문서 주소를 찾지 못함 — 아래는 틀 페이지 텍스트. dart_find_text(기자 전용)를 쓴다.');
+  }
+  out.push(
+
     `구간 ${offset}~${offset + slice.length}${offset + slice.length < text.length ? ` (다음 offset=${offset + slice.length})` : ' (끝)'}`,
-    '---', slice];
+    '---', slice);
   return textResult(out.join('\n'));
 }
 
