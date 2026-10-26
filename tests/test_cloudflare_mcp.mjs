@@ -465,6 +465,29 @@ test('page_changes shows before/after lines from the private page-watch feed', a
   assert.match(r.text, /현대차 미국 아이오닉6 N: Coming Spring 2027 · extremely limited availability/);
 });
 
+test('partner_filings reads ASX and EDGAR items from the private feed', async () => {
+  const env = PRIVATE().env;
+  const doc = { schema: 'partner_filings/v1', generatedAt: '2026-10-26T07:00:00+09:00', windowDays: 30, rules: ['파트너 공시는 그 회사의 발표다.'],
+    checks: [{ source: 'ASX', target: 'Arafura Rare Earths(ARU)', status: 'ok', returned: 30 }, { source: 'EDGAR', target: 'Taihan', status: 'failed', error: 'HTTP 403' }],
+    items: [
+      { id: 'asx:ARU:2026-10-20:x', source: 'ASX', filer: 'Arafura Rare Earths (ARU)', beat: ['현대차', '기아'], relation: 'NdPr 공급계약', relationEvidence: 'https://example/aru',
+        date: '2026-10-20', title: 'Offtake update', url: 'https://x/pdf', priceSensitive: true, flags: ['offtake'], isNew: true },
+      { id: 'asx:ARU:2026-10-10:y', source: 'ASX', filer: 'Arafura Rare Earths (ARU)', beat: ['현대차'], date: '2026-10-10', title: 'Quarterly report', flags: [], isNew: false },
+      { id: 'edgar:a:b', source: 'EDGAR', filer: 'Acme Metals Inc  (ACME)', beat: ['현대제철'], date: '2026-10-21', title: '8-K Current report',
+        url: 'https://www.sec.gov/Archives/edgar/data/1/a/b.htm', snippet: 'supply agreement with Hyundai Steel', isNew: true }] };
+  const post = await worker.fetch(new Request(ORIGIN + '/ingest/partner-filings', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {});
+  assert.equal(post.status, 200);
+  const opts = { path: `/mcp/${TOKEN}`, env };
+  const r = await call('partner_filings', {}, opts);
+  assert.match(r.text, /질의 1\/2 정상 · 미확인\(0건 아님\): Taihan\(HTTP 403\)/);
+  assert.match(r.text, /\[신규\] 2026-10-20 · ASX · Arafura Rare Earths \(ARU\) · 관련 출입처 현대차·기아/);
+  assert.match(r.text, /관계: NdPr 공급계약 \(근거 https:\/\/example\/aru\)/);
+  assert.match(r.text, /본문 발췌: …supply agreement with Hyundai Steel…/);
+  const flagged = await call('partner_filings', { flagged_only: true, source: 'ASX' }, opts);
+  assert.doesNotMatch(flagged.text, /Quarterly report/);
+  assert.match(flagged.text, /Offtake update/);
+});
+
 test('non-MCP paths keep the canonical Pages redirect', async () => {
   const r = await worker.fetch(new Request(ORIGIN + '/scoop.json?v=1'), {}, {});
   assert.equal(r.status, 307);
