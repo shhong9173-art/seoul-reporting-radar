@@ -30,6 +30,14 @@ def provider_message(text):
  found={}
  for tag,value in GATEWAY.findall(text or ""):
   found.setdefault(tag,value.strip())
+ if not found:
+  # With type=json the gateway refusal is JSON: {"OpenAPI_ServiceResponse":{"cmmMsgHeader":{...}}}
+  try:
+   header=((json.loads(text) or {}).get("OpenAPI_ServiceResponse") or {}).get("cmmMsgHeader") or {}
+  except (ValueError,AttributeError,TypeError):
+   header={}
+  for tag in ("returnReasonCode","returnAuthMsg","errMsg"):
+   if isinstance(header,dict) and header.get(tag):found[tag]=str(header[tag]).strip()[:120]
  if not found:return None
  code=found.get("returnReasonCode") or found.get("resultCode") or "?"
  msg=found.get("returnAuthMsg") or found.get("resultMsg") or found.get("errMsg") or ""
@@ -45,10 +53,13 @@ def fetch(url):
  if len(raw)>1_500_000:raise ValueError("Official response truncated")
  text=raw.decode("utf-8-sig","replace")
  try:
-  return json.loads(text)
+  payload=json.loads(text)
  except ValueError:
   # data.go.kr gateway refusals come back as XML even when type=json.
   raise ProviderError("gateway "+(provider_message(text) or "non-JSON response")) from None
+ if isinstance(payload,dict) and "OpenAPI_ServiceResponse" in payload:
+  raise ProviderError("gateway "+(provider_message(text) or "refusal"))
+ return payload
 def unpack(body):
  if not isinstance(body,dict):raise ValueError("Missing provider body")
  rows=body.get("items")
