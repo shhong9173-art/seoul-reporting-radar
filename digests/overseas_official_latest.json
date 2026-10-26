@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-10-23T10:28:12+09:00",
+  "generatedAt": "2026-10-26T10:07:53+09:00",
   "lookbackDays": 30,
-  "windowStart": "2026-09-23",
+  "windowStart": "2026-09-26",
   "scope": "US Federal Register 8개 검색 + EU TED 8개 검색. 회사명 검색 결과만 검토하며 주·카운티 인허가 및 EPA 시설별 환경허가는 별도 확인 필요",
   "limits": "미국 주·카운티 건축/환경 인허가, EU 각국 소액 조달, 모든 세계 공장 인허가를 망라하지 않음",
   "checks": [
@@ -81,17 +81,17 @@
       "provider": "US Federal Register",
       "query": "Hyundai Steel",
       "status": "checked",
-      "returned": 7,
+      "returned": 6,
       "matched": 1,
-      "unverified": 6
+      "unverified": 5
     },
     {
       "provider": "US Federal Register",
       "query": "POSCO",
       "status": "checked",
-      "returned": 4,
+      "returned": 3,
       "matched": 1,
-      "unverified": 3
+      "unverified": 2
     },
     {
       "provider": "US Federal Register",
@@ -302,25 +302,10 @@
       "evidence": "연방 고시 검색 색인 일치: 기업명·사건 관계를 원문에서 확인하지 못함",
       "notProven": "지역 공장허가 취득·회사 사업 확정·직접 수주 여부 미확인",
       "exclusiveStatus": "공개 문서 취재 단서·단독 미확정"
-    },
-    {
-      "source": "US Federal Register",
-      "sourceType": "federal_notice",
-      "sourceId": "2026-19529",
-      "published": "2026-09-24",
-      "companiesMentioned": [],
-      "companySearchTerm": "Hyundai Steel",
-      "nameVerified": false,
-      "title": "Certain Oil Country Tubular Goods From the Republic of Korea: Final Results of Antidumping Duty Administrative Review; 2023-2024",
-      "abstract": "The U.S. Department of Commerce (Commerce) determines that oil country tubular goods (OCTG) from the Republic of Korea (Korea) were sold at less than normal value (NV) during the period of review (POR) September 1, 2023, through August 31, 2024.",
-      "sourceUrl": "https://www.federalregister.gov/documents/2026/09/24/2026-19529/certain-oil-country-tubular-goods-from-the-republic-of-korea-final-results-of-antidumping-duty",
-      "evidence": "연방 고시 검색 색인 일치: 기업명·사건 관계를 원문에서 확인하지 못함",
-      "notProven": "지역 공장허가 취득·회사 사업 확정·직접 수주 여부 미확인",
-      "exclusiveStatus": "공개 문서 취재 단서·단독 미확정"
     }
   ],
   "matchedCount": 1,
-  "unverifiedSearchMatches": 11,
+  "unverifiedSearchMatches": 10,
   "sourceErrors": 0,
   "scoopConfirmed": 0
 }
