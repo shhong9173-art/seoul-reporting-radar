@@ -1,0 +1,39 @@
+name: Overseas Partner Filings Watch
+# 출입처 해외 파트너(ASX)와 출입처 이름이 들어간 미국 SEC 공시. 평일 07:00 KST.
+# 결과는 기자 전용 저장소로만. 공개 로그는 건수만.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/partner_watch.py'
+      - 'data/overseas_partners.json'
+      - 'tests/test_partner_watch.py'
+      - '.github/workflows/partner-filings.yml'
+  schedule:
+    - cron: '0 22 * * 0-4'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: partner-filings-watch
+  cancel-in-progress: false
+jobs:
+  partners:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install "requests>=2.31,<3"
+      - name: Test partner parsing
+        run: python -m unittest tests.test_partner_watch tests.test_private_store -v
+      - name: Watch partner filings (counts-only log)
+        env:
+          MCP_ACCESS_TOKEN: ${{ secrets.MCP_ACCESS_TOKEN }}
+          SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
+        run: python scripts/partner_watch.py

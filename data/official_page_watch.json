@@ -1,21 +1,110 @@
 {
   "note": "출입처 해외 공식 페이지. 출시 시점·가격·판매 상태·차종 목록 문구가 바뀌면 직전 상태(첫 실행은 웹 아카이브 사본)와 비교한다. 주소를 바꾸거나 추가할 때는 실제 열리는지 격리 실행으로 확인한다.",
   "pages": [
-    {"id": "hyundai-us-lineup", "company": "현대차", "label": "현대차 미국 차종 목록", "url": "https://www.hyundaiusa.com/us/en/vehicles", "kind": "lineup"},
-    {"id": "hyundai-us-ioniq-6-n", "company": "현대차", "label": "현대차 미국 아이오닉6 N", "url": "https://www.hyundaiusa.com/us/en/vehicles/ioniq-6-n", "kind": "model"},
-    {"id": "hyundai-us-ioniq-6", "company": "현대차", "label": "현대차 미국 아이오닉6", "url": "https://www.hyundaiusa.com/us/en/vehicles/ioniq-6", "kind": "model"},
-    {"id": "hyundai-us-ioniq-5", "company": "현대차", "label": "현대차 미국 아이오닉5", "url": "https://www.hyundaiusa.com/us/en/vehicles/ioniq-5", "kind": "model"},
-    {"id": "hyundai-us-ioniq-5-n", "company": "현대차", "label": "현대차 미국 아이오닉5 N", "url": "https://www.hyundaiusa.com/us/en/vehicles/ioniq-5-n", "kind": "model"},
-    {"id": "hyundai-us-ioniq-9", "company": "현대차", "label": "현대차 미국 아이오닉9", "url": "https://www.hyundaiusa.com/us/en/vehicles/ioniq-9", "kind": "model"},
-    {"id": "hyundai-us-palisade", "company": "현대차", "label": "현대차 미국 팰리세이드", "url": "https://www.hyundaiusa.com/us/en/vehicles/palisade", "kind": "model"},
-    {"id": "hyundai-us-santa-fe", "company": "현대차", "label": "현대차 미국 싼타페", "url": "https://www.hyundaiusa.com/us/en/vehicles/santa-fe", "kind": "model"},
-    {"id": "hyundai-us-tucson", "company": "현대차", "label": "현대차 미국 투싼", "url": "https://www.hyundaiusa.com/us/en/vehicles/tucson", "kind": "model"},
-    {"id": "kia-us-lineup", "company": "기아", "label": "기아 미국 차종 목록", "url": "https://www.kia.com/us/en/vehicles", "kind": "lineup"},
-    {"id": "kia-us-ev9", "company": "기아", "label": "기아 미국 EV9", "url": "https://www.kia.com/us/en/ev9", "kind": "model"},
-    {"id": "kia-us-ev6", "company": "기아", "label": "기아 미국 EV6", "url": "https://www.kia.com/us/en/ev6", "kind": "model"},
-    {"id": "kia-us-ev4", "company": "기아", "label": "기아 미국 EV4", "url": "https://www.kia.com/us/en/ev4", "kind": "model"},
-    {"id": "kia-us-telluride", "company": "기아", "label": "기아 미국 텔루라이드", "url": "https://www.kia.com/us/en/telluride", "kind": "model"},
-    {"id": "genesis-us-home", "company": "현대차(제네시스)", "label": "제네시스 미국 홈", "url": "https://www.genesis.com/us/en/home", "kind": "lineup"},
-    {"id": "genesis-us-gv60", "company": "현대차(제네시스)", "label": "제네시스 미국 GV60", "url": "https://www.genesis.com/us/en/models/luxury-suv-genesis/gv60", "kind": "model"}
+    {
+      "id": "hyundai-us-lineup",
+      "company": "현대차",
+      "label": "현대차 미국 차종 목록",
+      "url": "https://www.hyundaiusa.com/us/en/vehicles",
+      "kind": "lineup"
+    },
+    {
+      "id": "hyundai-us-ioniq-6-n",
+      "company": "현대차",
+      "label": "현대차 미국 아이오닉6 N",
+      "url": "https://www.hyundaiusa.com/us/en/vehicles/ioniq-6-n",
+      "kind": "model"
+    },
+    {
+      "id": "hyundai-us-ioniq-6",
+      "company": "현대차",
+      "label": "현대차 미국 아이오닉6",
+      "url": "https://www.hyundaiusa.com/us/en/vehicles/ioniq-6",
+      "kind": "model"
+    },
+    {
+      "id": "hyundai-us-ioniq-5",
+      "company": "현대차",
+      "label": "현대차 미국 아이오닉5",
+      "url": "https://www.hyundaiusa.com/us/en/vehicles/ioniq-5",
+      "kind": "model"
+    },
+    {
+      "id": "hyundai-us-ioniq-5-n",
+      "company": "현대차",
+      "label": "현대차 미국 아이오닉5 N",
+      "url": "https://www.hyundaiusa.com/us/en/vehicles/ioniq-5-n",
+      "kind": "model"
+    },
+    {
+      "id": "hyundai-us-ioniq-9",
+      "company": "현대차",
+      "label": "현대차 미국 아이오닉9",
+      "url": "https://www.hyundaiusa.com/us/en/vehicles/ioniq-9",
+      "kind": "model"
+    },
+    {
+      "id": "hyundai-us-palisade",
+      "company": "현대차",
+      "label": "현대차 미국 팰리세이드",
+      "url": "https://www.hyundaiusa.com/us/en/vehicles/palisade",
+      "kind": "model"
+    },
+    {
+      "id": "hyundai-us-santa-fe",
+      "company": "현대차",
+      "label": "현대차 미국 싼타페",
+      "url": "https://www.hyundaiusa.com/us/en/vehicles/santa-fe",
+      "kind": "model"
+    },
+    {
+      "id": "hyundai-us-tucson",
+      "company": "현대차",
+      "label": "현대차 미국 투싼",
+      "url": "https://www.hyundaiusa.com/us/en/vehicles/tucson",
+      "kind": "model"
+    },
+    {
+      "id": "kia-us-lineup",
+      "company": "기아",
+      "label": "기아 미국 차종 목록",
+      "url": "https://www.kia.com/us/en/vehicles",
+      "kind": "lineup"
+    },
+    {
+      "id": "kia-us-ev9",
+      "company": "기아",
+      "label": "기아 미국 EV9",
+      "url": "https://www.kia.com/us/en/ev9",
+      "kind": "model"
+    },
+    {
+      "id": "kia-us-ev6",
+      "company": "기아",
+      "label": "기아 미국 EV6",
+      "url": "https://www.kia.com/us/en/ev6",
+      "kind": "model"
+    },
+    {
+      "id": "kia-us-ev4",
+      "company": "기아",
+      "label": "기아 미국 EV4",
+      "url": "https://www.kia.com/us/en/ev4",
+      "kind": "model"
+    },
+    {
+      "id": "kia-us-telluride",
+      "company": "기아",
+      "label": "기아 미국 텔루라이드",
+      "url": "https://www.kia.com/us/en/telluride",
+      "kind": "model"
+    },
+    {
+      "id": "genesis-us-home",
+      "company": "현대차(제네시스)",
+      "label": "제네시스 미국 홈",
+      "url": "https://www.genesis.com/us/en/home",
+      "kind": "lineup"
+    }
   ]
 }

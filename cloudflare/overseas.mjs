@@ -64,3 +64,34 @@ export async function pageChanges(ctx, args) {
   }
   return textResult(out.join('\n'));
 }
+
+export async function partnerFilings(ctx, args) {
+  const doc = await readFeed(ctx, 'partner-filings');
+  if (!doc) return missing('해외 파트너 공시', '평일 07:00');
+  if (doc.broken) return textResult('저장된 파트너 공시 결과 형식 오류 — 미확인.', true);
+  const q = String(args.company ?? '').trim();
+  const src = ['ASX', 'EDGAR'].includes(args.source) ? args.source : null;
+  const onlyNew = args.only_new === true || args.only_new === 'true';
+  const onlyFlagged = args.flagged_only === true || args.flagged_only === 'true';
+  const limit = clampInt(args.limit, 1, 60, 20);
+  const failed = (doc.checks ?? []).filter((c) => c.status !== 'ok');
+  const rows = (doc.items ?? []).filter((x) => (!src || x.source === src) && (!onlyNew || x.isNew)
+    && (!onlyFlagged || x.source !== 'ASX' || (x.flags ?? []).length)
+    && matches(q, x.filer, x.title, (x.beat ?? []).join(' '), x.snippet));
+  const out = [`해외 파트너 공시 · 최근 ${doc.windowDays}일 수집(보관 120일) · ${rows.length}건 · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt)}`,
+    `질의 ${(doc.checks ?? []).length - failed.length}/${(doc.checks ?? []).length} 정상${failed.length ? ` · 미확인(0건 아님): ${failed.slice(0, 6).map((c) => `${c.target}(${c.error})`).join(', ')}` : ''}`,
+    ...(doc.rules ?? []).map((r) => `규칙: ${r}`)];
+  for (const x of rows.slice(0, limit)) {
+    out.push(`\n${x.isNew ? '[신규] ' : ''}${x.date} · ${x.source} · ${x.filer} · 관련 출입처 ${(x.beat ?? []).join('·')}`);
+    out.push(`   잡힌 사실: ${x.title}${x.priceSensitive ? ' (주가 민감 공시)' : ''}${(x.flags ?? []).length ? ` · 낱말 ${x.flags.join(',')}` : ''}`);
+    if (x.relation) out.push(`   관계: ${x.relation} (근거 ${x.relationEvidence})`);
+    if (x.snippet) out.push(`   본문 발췌: …${x.snippet.slice(0, 400)}…`);
+    else if (x.snippetError) out.push(`   본문 발췌 실패: ${x.snippetError}`);
+    out.push(`   원문: ${x.url ?? '링크 없음'}`);
+    out.push('   검증 상태: 파트너 측 공시 제목·발췌. 출입처와의 계약 변경 여부는 원문 전체와 출입처 확인 필요');
+  }
+  if (rows.length > limit) out.push(`… 남은 ${rows.length - limit}건`);
+  if (!rows.length) out.push('\n조건에 맞는 공시 없음(위 미확인 질의는 0건 아님).');
+  out.push('\n다음: EDGAR 원문은 source_document(sec.gov)로, ASX 공시 PDF는 브라우저로 연다 → 출입처 이름·물량·가격·조건 문구 확인 → news_check.');
+  return textResult(out.join('\n'));
+}
