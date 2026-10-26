@@ -215,6 +215,7 @@ export async function earnings(ctx, args) {
       out.push(`   직원 ${e.count.toLocaleString('en-US')}명${typeof e.changePct === 'number' ? `(전년 같은 보고서 대비 ${e.changePct > 0 ? '+' : ''}${e.changePct}%)` : '(전년 미확인)'}${e.asOf ? ` · 기준 ${e.asOf}` : ''}${e.note ? ` · ${e.note}` : ''}`);
     } else if (e.note || e.error) out.push(`   직원 수 미확인: ${e.note ?? e.error}`);
     if (x.warning) out.push(`   주의: ${x.warning}`);
+    if (x.derived?.sga) out.push(`   판관비 = ${x.derived.sga}`);
     if (x.unmatched) out.push(`   계정 못 찾음(비율 미산출): ${(x.unmatched.metrics ?? []).map((m) => ({ cost: '매출원가', sga: '판관비', operating: '영업이익' }[m] ?? m)).join('·')}`);
     if (x.url) out.push(`   ${x.url}`);
   }
