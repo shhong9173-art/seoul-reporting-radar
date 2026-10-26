@@ -11,7 +11,7 @@ import re
 
 WORKER = "https://seoul-reporting-radar.shhong9173.workers.dev"
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
-FEEDS = {"scoop-screen", "us-comments", "page-watch", "partner-filings", "trade-remedy"}
+FEEDS = {"scoop-screen", "us-comments", "page-watch", "partner-filings", "trade-remedy", "us-litigation"}
 
 
 class StoreError(RuntimeError):

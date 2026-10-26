@@ -179,3 +179,39 @@ export async function tradeRemedies(ctx, args) {
   out.push('\n다음: 원문은 source_document로 연다(미국 관보·EU) → 대상 품목·업체·세율·소진일 확인 → news_check로 보도 대조 → 회사·협회 확인.');
   return textResult(out.join('\n'));
 }
+
+export async function usLitigation(ctx, args) {
+  const doc = await readFeed(ctx, 'us-litigation');
+  if (!doc) return missing('미국 소송·ITC', '평일 07:50');
+  if (doc.broken) return textResult('저장된 소송 결과 형식 오류 — 미확인.', true);
+  const q = String(args.company ?? '').trim();
+  const onlyNew = args.only_new === true || args.only_new === 'true';
+  const routine = args.include_routine === true || args.include_routine === 'true';
+  const limit = clampInt(args.limit, 1, 60, 20);
+  const checks = doc.checks ?? [];
+  const failed = checks.filter((c) => c.status !== 'ok');
+  const base = (doc.cases ?? []).filter((x) => (!onlyNew || x.isNew) && matches(q, (x.beat ?? []).join(' '), x.caseName, x.category, x.court));
+  const rows = base.filter((x) => routine || x.priority < 3);
+  const out = [`미국 소송·ITC 337조 · 최근 ${doc.windowDays}일 수집(보관 120일) · 출입처 당사자 사건 ${rows.length}건 · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt)}`,
+    `질의 ${checks.length - failed.length}/${checks.length} 정상${failed.length ? ` · 미확인(0건 아님): ${failed.slice(0, 6).map((c) => `${c.source}(${c.error})`).join(', ')}` : ''}`,
+    ...(doc.rules ?? []).map((r) => `규칙: ${r}`)];
+  for (const x of rows.slice(0, limit)) {
+    out.push(`\n${x.isNew ? '[신규] ' : ''}${x.dateFiled} · ${x.category} · ${(x.beat ?? []).join('·')}(${x.role})`);
+    out.push(`   잡힌 사실: ${x.court ?? x.courtId} ${x.docketNumber ?? ''} 「${x.caseName}」 접수${x.dateTerminated ? ` · 종결 ${x.dateTerminated}` : ''}`);
+    out.push(`   당사자 중 출입처: ${(x.matchedParties ?? []).join(', ')}${x.suitNature ? ` · 사건 유형 ${x.suitNature}` : ''}${x.cause ? ` · 근거 ${x.cause}` : ''}`);
+    out.push(`   원문: ${x.url}`);
+    out.push('   검증 상태: 법원 사건 목록(자동). 청구 내용·금액은 소장 원문 확인, 회사 입장 확인 필요');
+  }
+  if (rows.length > limit) out.push(`… 남은 ${rows.length - limit}건`);
+  if (!rows.length) out.push('\n조건에 맞는 사건 없음(미확인 질의는 0건 아님, CourtListener 미수록 사건 가능).');
+  if (!routine && base.length > rows.length) out.push(`(일상 사건 ${base.length - rows.length}건 숨김 — 소비자·제조물책임, 개인 고용, 위조품 단속: include_routine=true)`);
+  const itc = (doc.itc ?? []).filter((x) => (!onlyNew || x.isNew) && matches(q, x.title, (x.named ?? []).map((n) => n.company).join(' ')));
+  out.push(`\n[ITC 337조 · 출입처 이름이 나온 고시] ${itc.length}건`);
+  for (const x of itc.slice(0, limit)) {
+    out.push(`- ${x.isNew ? '[신규] ' : ''}${x.date} · ${x.stage} · ${x.title}`);
+    for (const n of (x.named ?? []).slice(0, 5)) out.push(`   본문의 ${n.company}(${n.mentions}곳): ${n.lines.map((l) => `"${l}"`).join(' / ')}`);
+    out.push(`   원문: ${x.url}`);
+  }
+  out.push('\n다음: 사건 페이지에서 소장(Complaint) 열람 → 청구 원인·금액·상대방 확인 → news_check로 보도 대조 → 회사 확인. ITC 고시는 source_document(federalregister.gov)로 연다.');
+  return textResult(out.join('\n'));
+}
