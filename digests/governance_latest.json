@@ -1,0 +1,1154 @@
+{
+ "generatedAt": "2026-10-26T10:48:36+09:00",
+ "windowStart": "2026-09-26",
+ "windowDays": 30,
+ "source": "OpenDART 지분공시 종합정보(majorstock·elestock)",
+ "status": "partial",
+ "checks": [
+  {
+   "company": "현대자동차",
+   "endpoint": "majorstock.json",
+   "status": "checked",
+   "rowsReturned": 7,
+   "rowsInWindow": 0
+  },
+  {
+   "company": "현대자동차",
+   "endpoint": "elestock.json",
+   "status": "checked",
+   "rowsReturned": 548,
+   "rowsInWindow": 0
+  },
+  {
+   "company": "기아",
+   "endpoint": "majorstock.json",
+   "status": "checked",
+   "rowsReturned": 3,
+   "rowsInWindow": 0
+  },
+  {
+   "company": "기아",
+   "endpoint": "elestock.json",
+   "status": "checked",
+   "rowsReturned": 275,
+   "rowsInWindow": 0
+  },
+  {
+   "company": "현대모비스",
+   "endpoint": "majorstock.json",
+   "status": "checked",
+   "rowsReturned": 6,
+   "rowsInWindow": 0
+  },
+  {
+   "company": "현대모비스",
+   "endpoint": "elestock.json",
+   "status": "checked",
+   "rowsReturned": 75,
+   "rowsInWindow": 0
+  },
+  {
+   "company": "현대위아",
+   "endpoint": "majorstock.json",
+   "status": "checked",
+   "rowsReturned": 8,
+   "rowsInWindow": 1
+  },
+  {
+   "company": "현대위아",
+   "endpoint": "elestock.json",
+   "status": "checked",
+   "rowsReturned": 8,
+   "rowsInWindow": 0
+  },
+  {
+   "company": "HL만도",
+   "endpoint": "majorstock.json",
+   "status": "checked",
+   "rowsReturned": 9,
+   "rowsInWindow": 0
+  },
+  {
+   "company": "HL만도",
+   "endpoint": "elestock.json",
+   "status": "checked",
+   "rowsReturned": 25,
+   "rowsInWindow": 7
+  },
+  {
+   "company": "KG모빌리티",
+   "endpoint": "majorstock.json",
+   "status": "checked",
+   "rowsReturned": 8,
+   "rowsInWindow": 0
+  },
+  {
+   "company": "KG모빌리티",
+   "endpoint": "elestock.json",
+   "status": "checked",
+   "rowsReturned": 2,
+   "rowsInWindow": 0
+  },
+  {
+   "company": "한국타이어앤테크놀로지",
+   "endpoint": "majorstock.json",
+   "status": "checked",
+   "rowsReturned": 23,
+   "rowsInWindow": 0
+  },
+  {
+   "company": "한국타이어앤테크놀로지",
+   "endpoint": "elestock.json",
+   "status": "checked",
+   "rowsReturned": 1,
+   "rowsInWindow": 0
+  },
+  {
+   "company": "넥센타이어",
+   "endpoint": "majorstock.json",
+   "status": "checked",
+   "rowsReturned": 6,
+   "rowsInWindow": 0
+  },
+  {
+   "company": "넥센타이어",
+   "endpoint": "elestock.json",
+   "status": "checked",
+   "rowsReturned": 4,
+   "rowsInWindow": 0
+  },
+  {
+   "company": "금호타이어",
+   "endpoint": "majorstock.json",
+   "status": "checked",
+   "rowsReturned": 4,
+   "rowsInWindow": 0
+  },
+  {
+   "company": "금호타이어",
+   "endpoint": "elestock.json",
+   "status": "checked",
+   "rowsReturned": 1,
+   "rowsInWindow": 0
+  },
+  {
+   "company": "포스코홀딩스",
+   "endpoint": "majorstock.json",
+   "status": "checked",
+   "rowsReturned": 4,
+   "rowsInWindow": 0
+  },
+  {
+   "company": "포스코홀딩스",
+   "endpoint": "elestock.json",
+   "status": "checked",
+   "rowsReturned": 44,
+   "rowsInWindow": 0
+  },
+  {
+   "company": "현대제철",
+   "endpoint": "majorstock.json",
+   "status": "checked",
+   "rowsReturned": 13,
+   "rowsInWindow": 2
+  },
+  {
+   "company": "현대제철",
+   "endpoint": "elestock.json",
+   "status": "checked",
+   "rowsReturned": 17,
+   "rowsInWindow": 1
+  },
+  {
+   "company": "KG스틸",
+   "endpoint": "majorstock.json",
+   "status": "checked",
+   "rowsReturned": 9,
+   "rowsInWindow": 3
+  },
+  {
+   "company": "KG스틸",
+   "endpoint": "elestock.json",
+   "status": "checked",
+   "rowsReturned": 35,
+   "rowsInWindow": 16
+  },
+  {
+   "company": "세아홀딩스",
+   "endpoint": "majorstock.json",
+   "status": "checked",
+   "rowsReturned": 20,
+   "rowsInWindow": 1
+  },
+  {
+   "company": "세아홀딩스",
+   "endpoint": "elestock.json",
+   "status": "checked",
+   "rowsReturned": 5,
+   "rowsInWindow": 0
+  },
+  {
+   "company": "세아제강",
+   "endpoint": "majorstock.json",
+   "status": "checked",
+   "rowsReturned": 8,
+   "rowsInWindow": 1
+  },
+  {
+   "company": "세아제강",
+   "endpoint": "elestock.json",
+   "status": "checked",
+   "rowsReturned": 2,
+   "rowsInWindow": 0
+  },
+  {
+   "company": "동국제강",
+   "endpoint": "majorstock.json",
+   "status": "checked",
+   "rowsReturned": 13,
+   "rowsInWindow": 0
+  },
+  {
+   "company": "동국제강",
+   "endpoint": "elestock.json",
+   "status": "checked",
+   "rowsReturned": 11,
+   "rowsInWindow": 0
+  },
+  {
+   "company": "동국씨엠",
+   "endpoint": "majorstock.json",
+   "status": "checked",
+   "rowsReturned": 8,
+   "rowsInWindow": 0
+  },
+  {
+   "company": "동국씨엠",
+   "endpoint": "elestock.json",
+   "status": "checked",
+   "rowsReturned": 11,
+   "rowsInWindow": 0
+  },
+  {
+   "company": "고려아연",
+   "endpoint": "majorstock.json",
+   "status": "checked",
+   "rowsReturned": 32,
+   "rowsInWindow": 0
+  },
+  {
+   "company": "고려아연",
+   "endpoint": "elestock.json",
+   "status": "checked",
+   "rowsReturned": 12,
+   "rowsInWindow": 1
+  },
+  {
+   "company": "영풍",
+   "endpoint": "majorstock.json",
+   "status": "checked",
+   "rowsReturned": 12,
+   "rowsInWindow": 0
+  },
+  {
+   "company": "영풍",
+   "endpoint": "elestock.json",
+   "status": "checked",
+   "rowsReturned": 23,
+   "rowsInWindow": 0
+  },
+  {
+   "company": "HD현대일렉트릭",
+   "endpoint": "majorstock.json",
+   "status": "checked",
+   "rowsReturned": 2,
+   "rowsInWindow": 0
+  },
+  {
+   "company": "HD현대일렉트릭",
+   "endpoint": "elestock.json",
+   "status": "checked",
+   "rowsReturned": 34,
+   "rowsInWindow": 1
+  },
+  {
+   "company": "엘에스일렉트릭",
+   "endpoint": "majorstock.json",
+   "status": "checked",
+   "rowsReturned": 6,
+   "rowsInWindow": 0
+  },
+  {
+   "company": "엘에스일렉트릭",
+   "endpoint": "elestock.json",
+   "status": "checked",
+   "rowsReturned": 72,
+   "rowsInWindow": 0
+  },
+  {
+   "company": "대한전선",
+   "endpoint": "majorstock.json",
+   "status": "checked",
+   "rowsReturned": 2,
+   "rowsInWindow": 0
+  },
+  {
+   "company": "대한전선",
+   "endpoint": "elestock.json",
+   "status": "checked",
+   "rowsReturned": 7,
+   "rowsInWindow": 0
+  },
+  {
+   "company": "LS",
+   "endpoint": "majorstock.json",
+   "status": "checked",
+   "rowsReturned": 11,
+   "rowsInWindow": 0
+  },
+  {
+   "company": "LS",
+   "endpoint": "elestock.json",
+   "status": "checked",
+   "rowsReturned": 8,
+   "rowsInWindow": 1
+  },
+  {
+   "company": "두산에너빌리티",
+   "endpoint": "majorstock.json",
+   "status": "checked",
+   "rowsReturned": 15,
+   "rowsInWindow": 1
+  },
+  {
+   "company": "두산에너빌리티",
+   "endpoint": "elestock.json",
+   "status": "checked",
+   "rowsReturned": 121,
+   "rowsInWindow": 0
+  },
+  {
+   "company": "GS",
+   "endpoint": "majorstock.json",
+   "status": "checked",
+   "rowsReturned": 23,
+   "rowsInWindow": 2
+  },
+  {
+   "company": "GS",
+   "endpoint": "elestock.json",
+   "status": "checked",
+   "rowsReturned": 2,
+   "rowsInWindow": 0
+  },
+  {
+   "company": "한화솔루션",
+   "endpoint": "majorstock.json",
+   "status": "checked",
+   "rowsReturned": 10,
+   "rowsInWindow": 1
+  },
+  {
+   "company": "한화솔루션",
+   "endpoint": "elestock.json",
+   "status": "checked",
+   "rowsReturned": 230,
+   "rowsInWindow": 1
+  },
+  {
+   "company": "OCI",
+   "endpoint": "majorstock.json",
+   "status": "checked",
+   "rowsReturned": 7,
+   "rowsInWindow": 1
+  },
+  {
+   "company": "OCI",
+   "endpoint": "elestock.json",
+   "status": "checked",
+   "rowsReturned": 4,
+   "rowsInWindow": 0
+  },
+  {
+   "company": "OCI홀딩스",
+   "endpoint": "majorstock.json",
+   "status": "checked",
+   "rowsReturned": 6,
+   "rowsInWindow": 0
+  },
+  {
+   "company": "OCI홀딩스",
+   "endpoint": "elestock.json",
+   "status": "checked",
+   "rowsReturned": 15,
+   "rowsInWindow": 1
+  },
+  {
+   "company": "태광",
+   "endpoint": "majorstock.json",
+   "status": "checked",
+   "rowsReturned": 9,
+   "rowsInWindow": 1
+  },
+  {
+   "company": "태광",
+   "endpoint": "elestock.json",
+   "status": "checked",
+   "rowsReturned": 2,
+   "rowsInWindow": 0
+  }
+ ],
+ "failedCount": 0,
+ "unresolvedCompanies": [
+  "동성케미칼"
+ ],
+ "count": 43,
+ "items": [
+  {
+   "company": "KG스틸",
+   "team": "철강·비철",
+   "kind": "대량보유(5%)",
+   "date": "2026-10-23",
+   "receiptNo": "20261023000144",
+   "reporter": "KG에코솔루션",
+   "reportType": "일반",
+   "shares": 45368536.0,
+   "sharesChange": 101022.0,
+   "ratio": 45.36,
+   "ratioChange": 0.1,
+   "reason": "- 보유주식수 변동 및 특별관계자 추가\n- 보유주식등에 관한 계약의 변경",
+   "tags": [],
+   "routine": false,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261023000144"
+  },
+  {
+   "company": "KG스틸",
+   "team": "철강·비철",
+   "kind": "임원·주요주주",
+   "date": "2026-10-23",
+   "receiptNo": "20261023000155",
+   "reporter": "곽정현",
+   "role": "등기임원 사내이사",
+   "shares": 30450.0,
+   "sharesChange": 10000.0,
+   "ratio": 0.03,
+   "ratioChange": 0.01,
+   "tags": [],
+   "routine": false,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261023000155"
+  },
+  {
+   "company": "KG스틸",
+   "team": "철강·비철",
+   "kind": "임원·주요주주",
+   "date": "2026-10-23",
+   "receiptNo": "20261023000211",
+   "reporter": "박성희",
+   "role": "등기임원 사내이사",
+   "shares": 15450.0,
+   "sharesChange": 10000.0,
+   "ratio": 0.02,
+   "ratioChange": 0.01,
+   "tags": [],
+   "routine": false,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261023000211"
+  },
+  {
+   "company": "KG스틸",
+   "team": "철강·비철",
+   "kind": "임원·주요주주",
+   "date": "2026-10-23",
+   "receiptNo": "20261023000226",
+   "reporter": "김성일",
+   "role": "등기임원 대표이사",
+   "shares": 13450.0,
+   "sharesChange": 10000.0,
+   "ratio": 0.01,
+   "ratioChange": 0.01,
+   "tags": [],
+   "routine": false,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261023000226"
+  },
+  {
+   "company": "KG스틸",
+   "team": "철강·비철",
+   "kind": "임원·주요주주",
+   "date": "2026-10-23",
+   "receiptNo": "20261023000234",
+   "reporter": "조기연",
+   "role": "비등기임원 전무",
+   "shares": 5450.0,
+   "sharesChange": 5000.0,
+   "ratio": 0.01,
+   "ratioChange": 0.01,
+   "tags": [],
+   "routine": false,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261023000234"
+  },
+  {
+   "company": "KG스틸",
+   "team": "철강·비철",
+   "kind": "임원·주요주주",
+   "date": "2026-10-23",
+   "receiptNo": "20261023000242",
+   "reporter": "한상무",
+   "role": "비등기임원 전무",
+   "shares": 5450.0,
+   "sharesChange": 5000.0,
+   "ratio": 0.01,
+   "ratioChange": 0.01,
+   "tags": [],
+   "routine": false,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261023000242"
+  },
+  {
+   "company": "KG스틸",
+   "team": "철강·비철",
+   "kind": "임원·주요주주",
+   "date": "2026-10-23",
+   "receiptNo": "20261023000291",
+   "reporter": "이우석",
+   "role": "비등기임원 상무",
+   "shares": 5450.0,
+   "sharesChange": 5000.0,
+   "ratio": 0.01,
+   "ratioChange": 0.01,
+   "tags": [],
+   "routine": false,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261023000291"
+  },
+  {
+   "company": "KG스틸",
+   "team": "철강·비철",
+   "kind": "임원·주요주주",
+   "date": "2026-10-23",
+   "receiptNo": "20261023000296",
+   "reporter": "민영득",
+   "role": "비등기임원 상무보",
+   "shares": 5450.0,
+   "sharesChange": 5000.0,
+   "ratio": 0.01,
+   "ratioChange": 0.01,
+   "tags": [],
+   "routine": false,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261023000296"
+  },
+  {
+   "company": "KG스틸",
+   "team": "철강·비철",
+   "kind": "임원·주요주주",
+   "date": "2026-10-23",
+   "receiptNo": "20261023000305",
+   "reporter": "김성묵",
+   "role": "비등기임원 상무보",
+   "shares": 5450.0,
+   "sharesChange": 5000.0,
+   "ratio": 0.01,
+   "ratioChange": 0.01,
+   "tags": [],
+   "routine": false,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261023000305"
+  },
+  {
+   "company": "KG스틸",
+   "team": "철강·비철",
+   "kind": "임원·주요주주",
+   "date": "2026-10-23",
+   "receiptNo": "20261023000309",
+   "reporter": "박사윤",
+   "role": "비등기임원 상무보",
+   "shares": 5450.0,
+   "sharesChange": 5000.0,
+   "ratio": 0.01,
+   "ratioChange": 0.01,
+   "tags": [],
+   "routine": false,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261023000309"
+  },
+  {
+   "company": "KG스틸",
+   "team": "철강·비철",
+   "kind": "임원·주요주주",
+   "date": "2026-10-23",
+   "receiptNo": "20261023000313",
+   "reporter": "김형도",
+   "role": "비등기임원 상무보",
+   "shares": 4672.0,
+   "sharesChange": 4222.0,
+   "ratio": 0.0,
+   "ratioChange": 0.0,
+   "tags": [],
+   "routine": false,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261023000313"
+  },
+  {
+   "company": "KG스틸",
+   "team": "철강·비철",
+   "kind": "임원·주요주주",
+   "date": "2026-10-23",
+   "receiptNo": "20261023000317",
+   "reporter": "배선우",
+   "role": "비등기임원 상무보",
+   "shares": 5450.0,
+   "sharesChange": 5000.0,
+   "ratio": 0.01,
+   "ratioChange": 0.01,
+   "tags": [],
+   "routine": false,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261023000317"
+  },
+  {
+   "company": "KG스틸",
+   "team": "철강·비철",
+   "kind": "임원·주요주주",
+   "date": "2026-10-23",
+   "receiptNo": "20261023000322",
+   "reporter": "한재신",
+   "role": "비등기임원 상무보",
+   "shares": 5450.0,
+   "sharesChange": 5000.0,
+   "ratio": 0.01,
+   "ratioChange": 0.01,
+   "tags": [],
+   "routine": false,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261023000322"
+  },
+  {
+   "company": "KG스틸",
+   "team": "철강·비철",
+   "kind": "임원·주요주주",
+   "date": "2026-10-23",
+   "receiptNo": "20261023000327",
+   "reporter": "김재욱",
+   "role": "비등기임원 상무보",
+   "shares": 5450.0,
+   "sharesChange": 5000.0,
+   "ratio": 0.01,
+   "ratioChange": 0.01,
+   "tags": [],
+   "routine": false,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261023000327"
+  },
+  {
+   "company": "KG스틸",
+   "team": "철강·비철",
+   "kind": "임원·주요주주",
+   "date": "2026-10-23",
+   "receiptNo": "20261023000339",
+   "reporter": "박한규",
+   "role": "비등기임원 상무보",
+   "shares": 5450.0,
+   "sharesChange": 5000.0,
+   "ratio": 0.01,
+   "ratioChange": 0.01,
+   "tags": [],
+   "routine": false,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261023000339"
+  },
+  {
+   "company": "KG스틸",
+   "team": "철강·비철",
+   "kind": "임원·주요주주",
+   "date": "2026-10-23",
+   "receiptNo": "20261023000151",
+   "reporter": "곽재선",
+   "role": "비등기임원 회장",
+   "shares": 250450.0,
+   "sharesChange": 50000.0,
+   "ratio": 0.25,
+   "ratioChange": 0.05,
+   "tags": [],
+   "routine": false,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261023000151"
+  },
+  {
+   "company": "세아홀딩스",
+   "team": "철강·비철",
+   "kind": "대량보유(5%)",
+   "date": "2026-10-23",
+   "receiptNo": "20261023000307",
+   "reporter": "이태성",
+   "reportType": "일반",
+   "shares": 3150327.0,
+   "sharesChange": 0.0,
+   "ratio": 77.69,
+   "ratioChange": 0.0,
+   "reason": "보고자의 주식담보대출 계약 연장 및\n주식담보대출 상환 따른 변경 보고",
+   "tags": [
+    "[보유목적·경영권 관련 사유]"
+   ],
+   "routine": false,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261023000307"
+  },
+  {
+   "company": "KG스틸",
+   "team": "철강·비철",
+   "kind": "대량보유(5%)",
+   "date": "2026-10-14",
+   "receiptNo": "20261014000103",
+   "reporter": "KG에코솔루션",
+   "reportType": "일반",
+   "shares": 45267514.0,
+   "sharesChange": 100000.0,
+   "ratio": 45.26,
+   "ratioChange": 0.1,
+   "reason": "보고자의 보유주식에 관한 계약 체결 (교환사채권 인수계약),특별관계자의 장내매수",
+   "tags": [],
+   "routine": false,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261014000103"
+  },
+  {
+   "company": "KG스틸",
+   "team": "철강·비철",
+   "kind": "임원·주요주주",
+   "date": "2026-10-14",
+   "receiptNo": "20261014000125",
+   "reporter": "곽재선",
+   "role": "비등기임원 회장",
+   "shares": 200450.0,
+   "sharesChange": 100000.0,
+   "ratio": 0.2,
+   "ratioChange": 0.1,
+   "tags": [
+    "[지분율 +0.10%p]"
+   ],
+   "routine": false,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261014000125"
+  },
+  {
+   "company": "HL만도",
+   "team": "자동차",
+   "kind": "임원·주요주주",
+   "date": "2026-10-08",
+   "receiptNo": "20261008000144",
+   "reporter": "구본수",
+   "role": "비등기임원 상무보",
+   "shares": 35.0,
+   "sharesChange": 35.0,
+   "ratio": 0.0,
+   "ratioChange": 0.0,
+   "tags": [],
+   "routine": false,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261008000144"
+  },
+  {
+   "company": "HL만도",
+   "team": "자동차",
+   "kind": "임원·주요주주",
+   "date": "2026-10-08",
+   "receiptNo": "20261008000164",
+   "reporter": "한주훈",
+   "role": "비등기임원 상무보",
+   "shares": 65.0,
+   "sharesChange": 65.0,
+   "ratio": 0.0,
+   "ratioChange": 0.0,
+   "tags": [],
+   "routine": false,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261008000164"
+  },
+  {
+   "company": "HL만도",
+   "team": "자동차",
+   "kind": "임원·주요주주",
+   "date": "2026-10-08",
+   "receiptNo": "20261008000222",
+   "reporter": "이기형",
+   "role": "비등기임원 상무보",
+   "shares": 35.0,
+   "sharesChange": 35.0,
+   "ratio": 0.0,
+   "ratioChange": 0.0,
+   "tags": [],
+   "routine": false,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261008000222"
+  },
+  {
+   "company": "고려아연",
+   "team": "철강·비철",
+   "kind": "임원·주요주주",
+   "date": "2026-10-08",
+   "receiptNo": "20261008000716",
+   "reporter": "서용섭",
+   "role": "비등기임원 담당",
+   "shares": 9.0,
+   "sharesChange": 9.0,
+   "ratio": 0.0,
+   "ratioChange": 0.0,
+   "tags": [],
+   "routine": false,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261008000716"
+  },
+  {
+   "company": "HL만도",
+   "team": "자동차",
+   "kind": "임원·주요주주",
+   "date": "2026-10-07",
+   "receiptNo": "20261007000364",
+   "reporter": "정정훈",
+   "role": "비등기임원 상무보",
+   "shares": 35.0,
+   "sharesChange": 35.0,
+   "ratio": 0.0,
+   "ratioChange": 0.0,
+   "tags": [],
+   "routine": false,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261007000364"
+  },
+  {
+   "company": "HL만도",
+   "team": "자동차",
+   "kind": "임원·주요주주",
+   "date": "2026-10-07",
+   "receiptNo": "20261007000385",
+   "reporter": "남웅철",
+   "role": "비등기임원 상무보",
+   "shares": 20.0,
+   "sharesChange": 20.0,
+   "ratio": 0.0,
+   "ratioChange": 0.0,
+   "tags": [],
+   "routine": false,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261007000385"
+  },
+  {
+   "company": "HL만도",
+   "team": "자동차",
+   "kind": "임원·주요주주",
+   "date": "2026-10-07",
+   "receiptNo": "20261007000396",
+   "reporter": "이세연",
+   "role": "비등기임원 상무보",
+   "shares": 44.0,
+   "sharesChange": 44.0,
+   "ratio": 0.0,
+   "ratioChange": 0.0,
+   "tags": [],
+   "routine": false,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261007000396"
+  },
+  {
+   "company": "한화솔루션",
+   "team": "화학·소재",
+   "kind": "임원·주요주주",
+   "date": "2026-10-07",
+   "receiptNo": "20261007000044",
+   "reporter": "황일중",
+   "role": "비등기임원 임원",
+   "shares": 49.0,
+   "sharesChange": 49.0,
+   "ratio": 0.0,
+   "ratioChange": 0.0,
+   "tags": [],
+   "routine": false,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261007000044"
+  },
+  {
+   "company": "HL만도",
+   "team": "자동차",
+   "kind": "임원·주요주주",
+   "date": "2026-10-06",
+   "receiptNo": "20261006000234",
+   "reporter": "국민연금공단",
+   "role": "10%이상주주",
+   "shares": 4958264.0,
+   "sharesChange": -20749.0,
+   "ratio": 10.56,
+   "ratioChange": -0.04,
+   "tags": [
+    "[주요주주]"
+   ],
+   "routine": false,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261006000234"
+  },
+  {
+   "company": "KG스틸",
+   "team": "철강·비철",
+   "kind": "대량보유(5%)",
+   "date": "2026-10-06",
+   "receiptNo": "20261006000389",
+   "reporter": "캑터스스페셜시츄에이션제1호",
+   "reportType": "일반",
+   "shares": 13496886.0,
+   "sharesChange": 13496886.0,
+   "ratio": 13.49,
+   "ratioChange": 13.49,
+   "reason": "KG에코솔루션과의 연명보고 제외에 따른 신규 보고",
+   "tags": [
+    "[지분율 +13.49%p]"
+   ],
+   "routine": false,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261006000389"
+  },
+  {
+   "company": "LS",
+   "team": "전력·에너지",
+   "kind": "임원·주요주주",
+   "date": "2026-10-06",
+   "receiptNo": "20261006000163",
+   "reporter": "국민연금공단",
+   "role": "10%이상주주",
+   "shares": 4195210.0,
+   "sharesChange": 271655.0,
+   "ratio": 13.45,
+   "ratioChange": 0.87,
+   "tags": [
+    "[지분율 +0.87%p]",
+    "[주요주주]"
+   ],
+   "routine": false,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261006000163"
+  },
+  {
+   "company": "OCI홀딩스",
+   "team": "화학·소재",
+   "kind": "임원·주요주주",
+   "date": "2026-10-06",
+   "receiptNo": "20261006000170",
+   "reporter": "국민연금공단",
+   "role": "10%이상주주",
+   "shares": 2348215.0,
+   "sharesChange": -125862.0,
+   "ratio": 12.58,
+   "ratioChange": -0.67,
+   "tags": [
+    "[지분율 -0.67%p]",
+    "[주요주주]"
+   ],
+   "routine": false,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261006000170"
+  },
+  {
+   "company": "현대위아",
+   "team": "자동차",
+   "kind": "대량보유(5%)",
+   "date": "2026-10-02",
+   "receiptNo": "20261002000302",
+   "reporter": "국민연금공단",
+   "reportType": "약식",
+   "shares": 1701821.0,
+   "sharesChange": -286287.0,
+   "ratio": 6.26,
+   "ratioChange": -1.05,
+   "reason": "단순추가취득/처분",
+   "tags": [
+    "[지분율 -1.05%p]",
+    "[보유목적·경영권 관련 사유]"
+   ],
+   "routine": false,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261002000302"
+  },
+  {
+   "company": "현대제철",
+   "team": "철강·비철",
+   "kind": "대량보유(5%)",
+   "date": "2026-10-02",
+   "receiptNo": "20261002000213",
+   "reporter": "기아",
+   "reportType": "일반",
+   "shares": 47990648.0,
+   "sharesChange": 1000.0,
+   "ratio": 35.96,
+   "ratioChange": 0.0,
+   "reason": "장내매수",
+   "tags": [],
+   "routine": false,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261002000213"
+  },
+  {
+   "company": "현대제철",
+   "team": "철강·비철",
+   "kind": "대량보유(5%)",
+   "date": "2026-10-02",
+   "receiptNo": "20261002000518",
+   "reporter": "국민연금공단",
+   "reportType": "약식",
+   "shares": 13134604.0,
+   "sharesChange": 1340051.0,
+   "ratio": 9.84,
+   "ratioChange": 1.0,
+   "reason": "단순추가취득/처분",
+   "tags": [
+    "[지분율 +1.00%p]",
+    "[보유목적·경영권 관련 사유]"
+   ],
+   "routine": false,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261002000518"
+  },
+  {
+   "company": "현대제철",
+   "team": "철강·비철",
+   "kind": "임원·주요주주",
+   "date": "2026-10-02",
+   "receiptNo": "20261002000130",
+   "reporter": "장금주",
+   "role": "등기임원 독립이사",
+   "shares": 3000.0,
+   "sharesChange": 1000.0,
+   "ratio": 0.0,
+   "ratioChange": 0.0,
+   "tags": [],
+   "routine": false,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261002000130"
+  },
+  {
+   "company": "세아제강",
+   "team": "철강·비철",
+   "kind": "대량보유(5%)",
+   "date": "2026-10-02",
+   "receiptNo": "20261002000259",
+   "reporter": "국민연금공단",
+   "reportType": "약식",
+   "shares": 174488.0,
+   "sharesChange": 29541.0,
+   "ratio": 6.15,
+   "ratioChange": 1.04,
+   "reason": "단순추가취득/처분",
+   "tags": [
+    "[지분율 +1.04%p]",
+    "[보유목적·경영권 관련 사유]"
+   ],
+   "routine": false,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261002000259"
+  },
+  {
+   "company": "HD현대일렉트릭",
+   "team": "전력·에너지",
+   "kind": "임원·주요주주",
+   "date": "2026-10-02",
+   "receiptNo": "20261002000385",
+   "reporter": "HD현대",
+   "role": "10%이상주주",
+   "shares": 12756533.0,
+   "sharesChange": -1623.0,
+   "ratio": 35.39,
+   "ratioChange": -0.0,
+   "tags": [
+    "[주요주주]"
+   ],
+   "routine": false,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261002000385"
+  },
+  {
+   "company": "GS",
+   "team": "전력·에너지",
+   "kind": "대량보유(5%)",
+   "date": "2026-10-02",
+   "receiptNo": "20261002000155",
+   "reporter": "허창수",
+   "reportType": "일반",
+   "shares": 49365571.0,
+   "sharesChange": 19914.0,
+   "ratio": 53.14,
+   "ratioChange": 0.02,
+   "reason": "특수관계자 추가로 인한 변동",
+   "tags": [
+    "[보유목적·경영권 관련 사유]"
+   ],
+   "routine": false,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261002000155"
+  },
+  {
+   "company": "GS",
+   "team": "전력·에너지",
+   "kind": "대량보유(5%)",
+   "date": "2026-10-02",
+   "receiptNo": "20261002000380",
+   "reporter": "국민연금공단",
+   "reportType": "약식",
+   "shares": 7902843.0,
+   "sharesChange": 1029913.0,
+   "ratio": 8.51,
+   "ratioChange": 1.11,
+   "reason": "단순추가취득/처분",
+   "tags": [
+    "[지분율 +1.11%p]",
+    "[보유목적·경영권 관련 사유]"
+   ],
+   "routine": false,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261002000380"
+  },
+  {
+   "company": "한화솔루션",
+   "team": "화학·소재",
+   "kind": "대량보유(5%)",
+   "date": "2026-10-02",
+   "receiptNo": "20261002000346",
+   "reporter": "국민연금공단",
+   "reportType": "약식",
+   "shares": 14419263.0,
+   "sharesChange": 4530057.0,
+   "ratio": 6.34,
+   "ratioChange": 0.59,
+   "reason": "주식소각, 유상증자 및 단순추가취득/처분",
+   "tags": [
+    "[보유목적·경영권 관련 사유]"
+   ],
+   "routine": false,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261002000346"
+  },
+  {
+   "company": "OCI",
+   "team": "화학·소재",
+   "kind": "대량보유(5%)",
+   "date": "2026-10-02",
+   "receiptNo": "20261002000158",
+   "reporter": "국민연금공단",
+   "reportType": "약식",
+   "shares": 455874.0,
+   "sharesChange": 22445.0,
+   "ratio": 5.09,
+   "ratioChange": 0.25,
+   "reason": "단순추가취득/처분",
+   "tags": [
+    "[보유목적·경영권 관련 사유]"
+   ],
+   "routine": false,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261002000158"
+  },
+  {
+   "company": "태광",
+   "team": "화학·소재",
+   "kind": "대량보유(5%)",
+   "date": "2026-10-02",
+   "receiptNo": "20261002000168",
+   "reporter": "국민연금공단",
+   "reportType": "약식",
+   "shares": 1429994.0,
+   "sharesChange": -268492.0,
+   "ratio": 5.53,
+   "ratioChange": -1.04,
+   "reason": "단순추가취득/처분",
+   "tags": [
+    "[지분율 -1.04%p]",
+    "[보유목적·경영권 관련 사유]"
+   ],
+   "routine": false,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261002000168"
+  },
+  {
+   "company": "두산에너빌리티",
+   "team": "전력·에너지",
+   "kind": "대량보유(5%)",
+   "date": "2026-10-01",
+   "receiptNo": "20261001000182",
+   "reporter": "두산",
+   "reportType": "일반",
+   "shares": 196506795.0,
+   "sharesChange": 0.0,
+   "ratio": 30.68,
+   "ratioChange": 0.0,
+   "reason": "계약 내용의 변경",
+   "tags": [],
+   "routine": false,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261001000182"
+  }
+ ],
+ "rules": [
+  "공개 공시이며 지분 변동 자체는 단독이 아니다.",
+  "조회 실패·미해결 회사는 0건이 아니라 미확인이다.",
+  "routine은 기관 약식·단순 보고 등 뒤로 미룬 것이지 삭제가 아니다.",
+  "보고자 관계(오너 일가·계열)는 원문에 적힌 것만 쓴다."
+ ],
+ "confirmedScoops": 0
+}
