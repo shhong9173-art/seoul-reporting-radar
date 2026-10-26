@@ -424,6 +424,27 @@ test('scoop screening arrives only through the bearer ingest and is read on the 
   assert.equal(wrongSchema.status, 400);
 });
 
+test('us_comments reads the private regulations.gov feed', async () => {
+  const env = PRIVATE().env;
+  const doc = { schema: 'us_comments/v1', generatedAt: '2026-10-26T08:20:00+09:00', lookbackDays: 180, keyType: 'DEMO_KEY',
+    checks: [{ company: '현대차', phrase: 'Hyundai Motor', status: 'ok', returned: 12, own: 2 }, { company: '포스코', phrase: 'POSCO', status: 'failed', error: 'HTTP 429 호출 한도' }],
+    rules: ['제출자가 제목에 출입처로 적힌 의견서만.'],
+    items: [{ id: 'NHTSA-2026-1585-0008', company: '현대차', submitter: 'Hyundai Motor Group', agency: 'NHTSA', docketId: 'NHTSA-2026-1585',
+      docketTitle: 'Part 555 exemptions', postedDate: '2026-08-31', url: 'https://www.regulations.gov/comment/NHTSA-2026-1585-0008',
+      attachments: ['https://downloads.regulations.gov/x.pdf'], excerpt: 'Please see attached comments from Hyundai Motor Group.', isNew: true }] };
+  const post = await worker.fetch(new Request(ORIGIN + '/ingest/us-comments', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {});
+  assert.equal(post.status, 200);
+  const r = await call('us_comments', {}, { path: `/mcp/${TOKEN}`, env });
+  assert.match(r.text, /출입처 명의 1건/);
+  assert.match(r.text, /미확인\(0건 아님\): 포스코\(HTTP 429 호출 한도\)/);
+  assert.match(r.text, /\[신규\] 2026-08-31 · 현대차 · Hyundai Motor Group → NHTSA/);
+  assert.match(r.text, /도켓 「Part 555 exemptions」\(NHTSA-2026-1585\)에 의견서 제출/);
+  assert.match(r.text, /첨부 https:\/\/downloads\.regulations\.gov\/x\.pdf/);
+  assert.ok((await call('us_comments', {}, PRIVATE())).isError);
+  const pub = await rpc('tools/call', { name: 'us_comments', arguments: {} });
+  assert.match(JSON.stringify(pub.body), /Unknown tool/);
+});
+
 test('non-MCP paths keep the canonical Pages redirect', async () => {
   const r = await worker.fetch(new Request(ORIGIN + '/scoop.json?v=1'), {}, {});
   assert.equal(r.status, 307);
