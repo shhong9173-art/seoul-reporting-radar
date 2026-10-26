@@ -1,16 +1,16 @@
 {
-  "generatedAt": "2026-10-26T09:46:59+09:00",
+  "generatedAt": "2026-10-27T00:27:58+09:00",
   "status": "industry_beat_official_receipt_review",
-  "windowStart": "20260927",
-  "windowEnd": "20261026",
+  "windowStart": "20260928",
+  "windowEnd": "20261027",
   "scopeCompanyCount": 48,
   "companiesCodeVerified": 45,
   "companiesUnresolved": 3,
   "companiesWithSourceErrors": 0,
   "sourceComplete": false,
-  "relevantFilings": 35,
+  "relevantFilings": 36,
   "detailBound": 12,
-  "detailsAttempted": 0,
+  "detailsAttempted": 1,
   "valueupOfficialDocumentAttempts": 0,
   "shareCancellationDocumentAttempts": 0,
   "businessCessationDocumentAttempts": 0,
@@ -45,7 +45,7 @@
   "shareCancellationDocumentUnavailable": 0,
   "valueupOfficialDocumentReads": 3,
   "valueupOfficialDocumentUnavailable": 0,
-  "detailBacklogQueued": 0,
+  "detailBacklogQueued": 1,
   "detailNotAttemptedThisRun": 0,
   "unsupportedOriginalDetailTypes": 11,
   "uninspectedListedDetails": 11,
@@ -136,7 +136,7 @@
       "company": "금호타이어",
       "beat": "자동차·부품·타이어",
       "status": "checked",
-      "officialRows": 0,
+      "officialRows": 2,
       "relevantRows": 0,
       "pagesRead": 1
     },
@@ -301,7 +301,7 @@
       "company": "HD현대일렉트릭",
       "beat": "전력기기·전선",
       "status": "checked",
-      "officialRows": 5,
+      "officialRows": 6,
       "relevantRows": 0,
       "pagesRead": 1
     },
@@ -325,7 +325,7 @@
       "company": "효성중공업",
       "beat": "전력기기·전선",
       "status": "checked",
-      "officialRows": 4,
+      "officialRows": 6,
       "relevantRows": 1,
       "pagesRead": 1
     },
@@ -365,8 +365,8 @@
       "company": "두산에너빌리티",
       "beat": "에너지·화학",
       "status": "checked",
-      "officialRows": 7,
-      "relevantRows": 2,
+      "officialRows": 8,
+      "relevantRows": 3,
       "pagesRead": 1
     },
     {
@@ -429,12 +429,68 @@
       "company": "씨에스윈드",
       "beat": "에너지·화학",
       "status": "checked",
-      "officialRows": 3,
+      "officialRows": 4,
       "relevantRows": 1,
       "pagesRead": 1
     }
   ],
   "records": [
+    {
+      "company": "두산에너빌리티",
+      "beat": "에너지·화학",
+      "corpCode": "00159616",
+      "receiptNo": "20261026800529",
+      "published": "20261026",
+      "report": "[기재정정]단일판매ㆍ공급계약체결              ",
+      "category": "공급계약",
+      "isCorrection": true,
+      "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261026800529",
+      "sourceType": "official_list_receipt",
+      "originalDocumentVerified": false,
+      "companyImpactVerified": false,
+      "scoopConfirmed": false,
+      "status": "original_not_verified",
+      "originalReceiptNo": null,
+      "originalSourceUrl": null,
+      "changes": [],
+      "issuerCorrectionTable": {
+        "status": "issuer_table_material_changes_for_review",
+        "changes": [
+          {
+            "fieldLabel": "5. 계약기간 종료일",
+            "before": "2029-07-01",
+            "after": "2030-01-28",
+            "category": "contract_period",
+            "basis": "issuer_reported_amendment_table_only",
+            "amendedSourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261026800529",
+            "originalReceiptIndependentlyVerified": false,
+            "commercialEffectVerified": false,
+            "sameEventPriorCoverageVerified": false,
+            "oneSideUnspecified": false
+          }
+        ],
+        "totalMaterialRows": 1,
+        "conflictingFieldCount": 0,
+        "skippedRows": 0,
+        "independentOriginalDocumentCompared": false,
+        "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261026800529"
+      },
+      "unverifiedSameDateCandidates": [],
+      "evidenceStatus": "원문에서 원공시의 명시적 접수번호 확인 불가; 날짜·제목만으로 계약 연결 금지",
+      "sourceError": false,
+      "scoopStatus": "기보도 및 원자료·회사 답변 확인 전 · 단독 미확정",
+      "questions": [
+        "원문 원계약·정정 전후 계약금액, 고객사, 적용 기간이 명시됐는가?",
+        "해당 공급계약·투자에 관한 이전 DART 공시·기업 발표·전문지 보도가 있는가?",
+        "공식 계약 확정과 입찰/협약/옵션 계약의 구분 및 실제 산업 영향은 무엇인가?"
+      ],
+      "firstObservedAt": "2026-10-27T00:27:58+09:00",
+      "firstObservedThisRun": true,
+      "detailTypeSupported": true,
+      "detailStatus": "original_not_verified",
+      "independentContractComparisonVerified": false,
+      "approvedForPitch": false
+    },
     {
       "company": "동국씨엠",
       "beat": "철강",
@@ -2662,7 +2718,8 @@
     "20261019800111": "2026-10-20T02:21:44+09:00",
     "20261021800151": "2026-10-21T13:44:15+09:00",
     "20261021800308": "2026-10-21T22:08:03+09:00",
-    "20261021800303": "2026-10-21T22:08:03+09:00"
+    "20261021800303": "2026-10-21T22:08:03+09:00",
+    "20261026800529": "2026-10-27T00:27:58+09:00"
   },
   "confirmedScoops": 0,
   "approvedArticles": 0,
