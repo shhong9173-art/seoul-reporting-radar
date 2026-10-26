@@ -437,8 +437,11 @@ def main():
     if not token:
         print("::warning title=scoop-screen-push::MCP_ACCESS_TOKEN 미설정 — 결과를 기자 전용 저장소로 보내지 않음(공개 저장소에도 쓰지 않음)")
         return
+    import private_store
     status = push(doc, token)
     print(f"::notice title=scoop-screen-push::기자 전용 저장소 전송 HTTP {status}")
+    if status == 404:
+        print(f"::warning title=scoop-screen-push-token::토큰 거부 가능성 — {private_store.token_shape(token)}. GitHub Secret MCP_ACCESS_TOKEN이 Cloudflare 값과 같아야 함")
     if status != 200:
         sys.exit(1)
 
