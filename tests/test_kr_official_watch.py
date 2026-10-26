@@ -159,6 +159,25 @@ class CommonNames(unittest.TestCase):
         self.assertEqual(next(c for c in doc["checks"] if c["source"] == "관보 입법예고")["status"], "ok")
 
 
+class GazetteSubject(unittest.TestCase):
+    def test_issuing_body_name_does_not_match_beat_words(self):
+        # Both matched on 2026-10-27 only through the issuer's name (산업통상부 → 통상, 원자력안전위원회 → 원자력).
+        self.assertEqual(w.teams_of(w.subject_of("산업통상부공고제2026-656호(「산업통상부와 그 소속기관 직제 시행규칙」 일부개정령안 입법예고)")), [])
+        self.assertEqual(w.teams_of(w.subject_of("원자력안전위원회공고제2026-096호(생활주변방사선 안전관리법 시행규칙 일부개정령안 입법예고)")), [])
+        self.assertEqual(w.subject_of("국토교통부공고제2026-1500호(「자동차관리법 시행규칙」일부개정령안 입법예고)"), "「자동차관리법 시행규칙」일부개정령안 입법예고")
+        self.assertEqual(w.teams_of(w.subject_of("국토교통부공고제2026-1500호(「자동차관리법 시행규칙」일부개정령안 입법예고)")), ["자동차"])
+        self.assertEqual(w.teams_of(w.subject_of("기후에너지환경부공고제2026-77호(「국가기간 전력망 확충 특별법 시행령」 제정령안 입법예고)")), ["전력·에너지"])
+        self.assertEqual(w.subject_of("제목에 공고번호가 없는 경우"), "제목에 공고번호가 없는 경우")
+
+    def test_previously_kept_false_matches_are_dropped(self):
+        first = run()
+        first["gazette"].append({"id": "gz:old-fp", "date": NOW.date().isoformat(), "org": "산업통상부", "teams": ["공통"], "summary": "",
+                                 "title": "산업통상부공고제2026-656호(「산업통상부와 그 소속기관 직제 시행규칙」 일부개정령안 입법예고)"})
+        doc = run(previous=first)
+        self.assertNotIn("gz:old-fp", {g["id"] for g in doc["gazette"]})
+        self.assertEqual(sorted(g["id"] for g in doc["gazette"]), ["gz:I2", "gz:I3"])
+
+
 class Gazette(unittest.TestCase):
     def test_keeps_beat_notices_only(self):
         doc = run()
