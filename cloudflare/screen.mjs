@@ -18,13 +18,42 @@ export const FEEDS = {
   'kr-official': { blob: 'kr_official', schema: 'kr_official/v1', list: 'factories' },
 };
 
+// Official trade-remedy listing pages that do not answer GitHub runners (ReadTimeout). Collectors fetch them through
+// this bearer-only relay: fixed hosts, GET, https, size-capped. Not a general proxy.
+export const RELAY_HOSTS = new Set(['www.industry.gov.au', 'www.dgtr.gov.in']);
+const RELAY_MAX = 3_000_000;
+const RELAY_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
+  Accept: 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.8', 'Accept-Language': 'en-AU,en;q=0.9',
+};
+
+async function relay(request, deps) {
+  if (request.method !== 'GET') return new Response('Method not allowed', { status: 405, headers: { Allow: 'GET' } });
+  let target;
+  try { target = new URL(new URL(request.url).searchParams.get('url') ?? ''); } catch { return Response.json({ error: 'bad url' }, { status: 400 }); }
+  if (target.protocol !== 'https:' || !RELAY_HOSTS.has(target.hostname)) return Response.json({ error: 'host not allowed' }, { status: 403 });
+  const doFetch = deps.fetch ?? fetch;
+  let r;
+  try {
+    r = await doFetch(target.toString(), { headers: RELAY_HEADERS, redirect: 'follow', signal: AbortSignal.timeout(25000) });
+  } catch (e) {
+    return Response.json({ error: `upstream ${e?.name ?? 'error'}` }, { status: 504 });
+  }
+  const text = await r.text();
+  if (text.length > RELAY_MAX) return Response.json({ error: 'too large' }, { status: 413 });
+  return new Response(text, { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store',
+    'X-Relay-Status': String(r.status), 'X-Relay-Url': r.url || target.toString() } });
+}
+
 export async function handleIngest(request, env, deps = {}) {
   const { pathname } = new URL(request.url);
   const notFound = new Response('Not found', { status: 404 });
-  const feed = FEEDS[(/^\/ingest\/([a-z-]+)$/.exec(pathname) ?? [])[1]];
-  if (!feed) return notFound;
+  const name = (/^\/ingest\/([a-z-]+)$/.exec(pathname) ?? [])[1];
+  const feed = FEEDS[name];
+  if (!feed && name !== 'relay') return notFound;
   const m = /^Bearer\s+([A-Za-z0-9_-]{16,128})$/.exec(request.headers.get('Authorization') ?? '');
   if (!m || !(await safeEqual(m[1], env?.MCP_ACCESS_TOKEN))) return notFound;
+  if (name === 'relay') return relay(request, deps);
   const ctx = { env, now: deps.now ?? new Date() };
   if (request.method === 'GET') {
     const { row } = await storeOp(ctx, 'blobs.get', { name: feed.blob });

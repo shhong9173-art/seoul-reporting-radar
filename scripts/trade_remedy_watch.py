@@ -356,7 +356,7 @@ def korea_lines(raw):
     return out
 
 
-def foreign_pages(pages, previous, now, *, get=None, sleep=time.sleep):
+def foreign_pages(pages, previous, now, *, get=None, sleep=time.sleep, relay_token=None):
     prev = {p["id"]: p for p in (previous or {}).get("pages", []) if isinstance(p, dict)}
     out, events = [], []
     for p in pages:
@@ -365,10 +365,17 @@ def foreign_pages(pages, previous, now, *, get=None, sleep=time.sleep):
         if p.get("disabled"):
             out.append({**rec, "status": "disabled", "error": p["disabled"], "lines": old.get("lines", {})})
             continue
-        raw, err = get_text(p["url"], get=get, timeout=60)
-        if err in ("ReadTimeout", "ConnectTimeout", "ConnectionError"):
-            sleep(5.0)
+        if p.get("via") == "relay":
+            if not relay_token:
+                raw, err = None, "중계 토큰 없음"
+            else:
+                import private_store
+                _, raw, err = private_store.relay(p["url"], relay_token, get=get)
+        else:
             raw, err = get_text(p["url"], get=get, timeout=60)
+            if err in ("ReadTimeout", "ConnectTimeout", "ConnectionError"):
+                sleep(5.0)
+                raw, err = get_text(p["url"], get=get, timeout=60)
         sleep(1.0)
         if err:
             rec.update(status="failed", error=err, lines=old.get("lines", {}), parser=old.get("parser"))
@@ -387,7 +394,7 @@ def foreign_pages(pages, previous, now, *, get=None, sleep=time.sleep):
     return out, events
 
 
-def run(cfg, *, now, previous=None, get=None, sleep=time.sleep):
+def run(cfg, *, now, previous=None, get=None, sleep=time.sleep, relay_token=None):
     stamp = now.isoformat(timespec="seconds")
     had_state = bool(previous)
     checks = []
@@ -399,7 +406,7 @@ def run(cfg, *, now, previous=None, get=None, sleep=time.sleep):
     fr, ferr, bodies = federal_register(now, previous, get=get, sleep=sleep)
     checks.append({"source": "미국 관보", "status": "failed" if ferr else "ok", "returned": len(fr), "bodiesRead": bodies,
                    **({"error": ferr} if ferr else {})})
-    pages, page_events = foreign_pages(cfg.get("pages", []), previous, now, get=get, sleep=sleep)
+    pages, page_events = foreign_pages(cfg.get("pages", []), previous, now, get=get, sleep=sleep, relay_token=relay_token)
     for p in pages:
         if p["status"] == "disabled":
             continue
@@ -447,7 +454,7 @@ def main():
             previous = private_store.get("trade-remedy", token)
         except private_store.StoreError as e:
             print(f"::warning title=trade-state::이전 상태 조회 실패({e}) — 신규 표시는 이번 실행 기준")
-    doc = run(cfg, now=now, previous=previous)
+    doc = run(cfg, now=now, previous=previous, relay_token=token or None)
     q = [x for x in doc["quotas"] if x["status"] == "ok"]
     exhausted = sum(1 for x in q if x.get("exhaustedOn"))
     hot = sum(1 for x in q if x.get("tags"))
