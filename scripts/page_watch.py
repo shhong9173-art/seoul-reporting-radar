@@ -202,7 +202,7 @@ def main():
     status = private_store.put("page-watch", doc, token)
     print(f"::notice title=page-watch-push::기자 전용 저장소 전송 HTTP {status}")
     if status == 404:
-        print(f"::warning title=page-watch-push-token::토큰 거부 가능성 — {private_store.token_shape(token)}. GitHub Secret MCP_ACCESS_TOKEN이 Cloudflare 값과 같아야 함")
+        print(f"::warning title=page-watch-push-token::토큰 거부 가능성 — {private_store.token_shape(private_store.normalize_token(token))}. GitHub Secret MCP_ACCESS_TOKEN이 Cloudflare 값과 같아야 함")
     if status != 200:
         sys.exit(1)
 
