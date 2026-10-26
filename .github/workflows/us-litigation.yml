@@ -1,0 +1,38 @@
+name: US Litigation Watch
+# 출입처가 당사자인 미국 연방법원 사건(CourtListener)과 출입처 이름이 나온 ITC 337조 고시. 평일 07:50 KST.
+# 결과는 기자 전용 저장소로만. 공개 로그는 건수만.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/us_litigation_watch.py'
+      - 'tests/test_us_litigation_watch.py'
+      - '.github/workflows/us-litigation.yml'
+  schedule:
+    - cron: '50 22 * * 0-4'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: us-litigation-watch
+  cancel-in-progress: false
+jobs:
+  litigation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install "requests>=2.31,<3"
+      - name: Test litigation parsing
+        run: python -m unittest tests.test_us_litigation_watch tests.test_private_store -v
+      - name: Watch US litigation (counts-only log)
+        env:
+          MCP_ACCESS_TOKEN: ${{ secrets.MCP_ACCESS_TOKEN }}
+          COURTLISTENER_TOKEN: ${{ secrets.COURTLISTENER_TOKEN }}
+        run: python scripts/us_litigation_watch.py
