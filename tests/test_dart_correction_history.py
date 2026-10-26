@@ -187,13 +187,52 @@ class ContractHistory(unittest.TestCase):
             m.build(l,n,now=NOW)
 
     def test_real_committed_sources_without_key_do_not_claim_completed_research(self):
+        # The committed ledger is live operating data refreshed by the same
+        # workflow that runs this test. Pinning its daily counts made the job
+        # fail before it could refresh, freezing the ledger (2026-10-22~).
+        # Derive expectations from the ledger and assert the invariants.
         l=json.loads((ROOT/"digests/recent_contracts_latest.json").read_text(encoding="utf-8"))
         n=json.loads((ROOT/"digests/dart_contract_followup_latest.json").read_text(encoding="utf-8"))
         result=m.build(l,n,now=NOW,key="",fetch_documents=lambda *a: self.fail("offline"))
-        self.assertEqual(result["corrections"],4)
-        self.assertEqual(result["totalHistoricalCandidateDocs"],3)
+        corrections=[x for x in l["items"] if isinstance(x,dict) and x.get("isCorrection")]
+        self.assertEqual(result["corrections"],len(corrections))
+        self.assertEqual(len(result["items"]),len(corrections))
+        self.assertEqual({x["receiptNo"] for x in result["items"]},
+                         {x["receiptNo"] for x in corrections})
+        self.assertLessEqual(result["totalHistoricalCandidateDocs"],
+                             len(corrections)*m.CANDIDATE_MAX)
         self.assertEqual(result["historicalDocumentsRetrieved"],0)
+        self.assertEqual(result["requestsAttempted"],0)
+        self.assertEqual(result["verifiedSameContractHistory"],0)
         self.assertEqual(result["confirmedScoops"],0)
-        self.assertFalse(any(x["linkageVerified"] for x in result["items"]))
+        self.assertEqual(result["approvedArticles"],0)
+        for item in result["items"]:
+            self.assertFalse(item["linkageVerified"])
+            self.assertFalse(item["confirmedExclusive"])
+            self.assertFalse(item["approvedForPitch"])
+            self.assertEqual(item["retrievalsAttempted"],0)
+            for doc in item["priorOfficialCandidateDocuments"]:
+                self.assertEqual(doc["status"],"not_checked_without_DART_key")
+                self.assertFalse(doc["priorDocumentRetrieved"])
+                self.assertFalse(doc["sameContractVerified"])
+
+    def test_live_count_change_does_not_break_invariants(self):
+        # Regression for the frozen-ledger failure: dropping a correction from
+        # the rolling window must change counts, not fail the safety checks.
+        l,n=source_pair()
+        extra=current_row()
+        extra["receiptNo"]="20260929800111"
+        extra["published"]=extra["receiptNo"][:8]
+        extra["sourceUrl"]=source_link(extra["receiptNo"])
+        extra["unverifiedSameDateCandidates"]=[]
+        l["items"].append(extra)
+        n["items"].append(dict(n["items"][0],receiptNo=extra["receiptNo"]))
+        both=m.build(l,n,now=NOW,key="",fetch_documents=lambda *a: self.fail("offline"))
+        l["items"].pop(); n["items"].pop()
+        one=m.build(l,n,now=NOW,key="",fetch_documents=lambda *a: self.fail("offline"))
+        self.assertEqual((both["corrections"],one["corrections"]),(2,1))
+        for r in (both,one):
+            self.assertEqual(r["historicalDocumentsRetrieved"],0)
+            self.assertEqual(r["confirmedScoops"],0)
 
 if __name__=="__main__":unittest.main()
