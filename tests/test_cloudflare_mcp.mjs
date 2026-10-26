@@ -180,7 +180,7 @@ test('news_check: public naver is unavailable so the verdict stays 미확인', a
 test('news_check: all channels ok and empty is not proof of non-coverage', async () => {
   const fetch = fakeFetch({
     'https://news.google.com/': new Response('<rss><channel></channel></rss>'),
-    'https://openapi.naver.com/': Response.json({ items: [] }),
+    'https://naverapihub.apigw.ntruss.com/': Response.json({ items: [] }),
   });
   const r = await call('news_check', { q: '없는 사건 낱말' }, { ...PRIVATE({ NAVER_CLIENT_ID: 'i', NAVER_CLIENT_SECRET: 's' }), fetch });
   assert.match(r.text, /모두 0건 — 미보도 증거 아님/);
@@ -196,7 +196,7 @@ test('news_check: Bing stands in for Google and unwraps the original link', asyn
   const fetch = fakeFetch({
     'https://news.google.com/': new Response('blocked', { status: 503 }),
     'https://www.bing.com/news/search': new Response(bingRss),
-    'https://openapi.naver.com/': Response.json({ items: [] }),
+    'https://naverapihub.apigw.ntruss.com/': Response.json({ items: [] }),
   });
   const r = await call('news_check', { q: '동국씨엠 컬러강판', days: 30 }, { ...PRIVATE({ NAVER_CLIENT_ID: 'i', NAVER_CLIENT_SECRET: 's' }), fetch });
   assert.match(r.text, /구글 뉴스: failed — HTTP 503/);
@@ -204,9 +204,30 @@ test('news_check: Bing stands in for Google and unwraps the original link', asyn
   assert.match(r.text, /https:\/\/www\.example-news\.kr\/a\/1/);
   assert.match(r.text, /판정: 관련 보도 후보 1건/);
   const bothDown = fakeFetch({ 'https://news.google.com/': new Response('x', { status: 503 }), 'https://www.bing.com/': new Response('x', { status: 503 }),
-    'https://openapi.naver.com/': Response.json({ items: [] }) });
+    'https://naverapihub.apigw.ntruss.com/': Response.json({ items: [] }) });
   const d = await call('news_check', { q: '동국씨엠 컬러강판' }, { ...PRIVATE({ NAVER_CLIENT_ID: 'i', NAVER_CLIENT_SECRET: 's' }), fetch: bothDown });
   assert.match(d.text, /판정: 미확인 — 웹 색인\(구글·빙 모두\)/);
+});
+
+test('news_check: Naver goes through API HUB first and old Developers Center keys only when HUB refuses', async () => {
+  const env = PRIVATE({ NAVER_CLIENT_ID: 'i', NAVER_CLIENT_SECRET: 's' });
+  const hub = fakeFetch({ 'https://naverapihub.apigw.ntruss.com/search/v1/news': Response.json({ items: [
+    { title: '<b>현대제철</b> 전기로', originallink: 'https://news.example.kr/1', link: 'x', pubDate: 'Fri, 24 Oct 2026 09:00:00 +0900' }] }) });
+  const r = await call('news_check', { q: '현대제철 전기로', days: 30 }, { ...env, fetch: hub });
+  assert.match(r.text, /네이버 뉴스\(API HUB\): 1건/);
+  const naverCall = hub.calls.find((c) => c.url.startsWith('https://naverapihub'));
+  assert.equal(naverCall.init.headers['X-NCP-APIGW-API-KEY-ID'], 'i');
+  assert.ok(!hub.calls.some((c) => c.url.startsWith('https://openapi.naver.com')));
+  const legacy = fakeFetch({ 'https://naverapihub.apigw.ntruss.com/': new Response('denied', { status: 401 }),
+    'https://openapi.naver.com/v1/search/news.json': Response.json({ items: [] }) });
+  const l = await call('news_check', { q: '현대제철 전기로', days: 30 }, { ...env, fetch: legacy });
+  assert.match(l.text, /네이버 뉴스\(개발자센터\): 0건/);
+  assert.equal(legacy.calls.find((c) => c.url.startsWith('https://openapi.naver.com')).init.headers['X-Naver-Client-Id'], 'i');
+  const refused = fakeFetch({ 'https://naverapihub.apigw.ntruss.com/': new Response('denied', { status: 401 }),
+    'https://openapi.naver.com/': new Response('denied', { status: 401 }) });
+  const x = await call('news_check', { q: '현대제철 전기로', days: 30 }, { ...env, fetch: refused });
+  assert.match(x.text, /네이버 뉴스: failed — 키 거부\(API HUB HTTP 401, 개발자센터 HTTP 401\)/);
+  assert.match(x.text, /판정: 미확인/);
 });
 
 test('source_document reads the DART filing body instead of the frame page', async () => {

@@ -73,25 +73,39 @@ function bingNews(ctx, q, days) {
   });
 }
 
+// Naver news search moved to NAVER API HUB (NCP). HUB keys go first; keys from the old Developers
+// Center (still valid for apps registered before the cutoff) are tried only when HUB refuses them.
+const NAVER_ENDPOINTS = [
+  { label: 'API HUB', url: 'https://naverapihub.apigw.ntruss.com/search/v1/news',
+    headers: (id, secret) => ({ 'X-NCP-APIGW-API-KEY-ID': id, 'X-NCP-APIGW-API-KEY': secret }) },
+  { label: '개발자센터', url: 'https://openapi.naver.com/v1/search/news.json',
+    headers: (id, secret) => ({ 'X-Naver-Client-Id': id, 'X-Naver-Client-Secret': secret }) },
+];
+
 async function naverNews(ctx, q, days) {
   if (!ctx.private) return { status: 'not_available', error: '기자 전용 연결에서만', items: [] };
   const id = ctx.env?.NAVER_CLIENT_ID; const secret = ctx.env?.NAVER_CLIENT_SECRET;
   if (!id || !secret) return { status: 'not_configured', error: 'Cloudflare에 NAVER_CLIENT_ID/SECRET 미등록', items: [] };
-  try {
-    const url = `https://openapi.naver.com/v1/search/news.json?query=${encodeURIComponent(q)}&display=100&sort=date`;
-    const r = await ctx.fetch(url, { signal: signal(), headers: { 'X-Naver-Client-Id': id, 'X-Naver-Client-Secret': secret } });
-    if (!r.ok) return { status: 'failed', error: `HTTP ${r.status}`, items: [] };
-    const body = await r.json();
-    const from = kstDate(ctx.now, days);
-    const all = Array.isArray(body.items) ? body.items : [];
-    const items = all.map((x) => ({ title: stripTags(x.title), url: x.originallink || x.link,
-      published: x.pubDate, date: kstDay(x.pubDate), source: (/https?:\/\/(?:www\.)?([^/]+)/.exec(x.originallink || '') || [])[1] ?? '' }))
-      .filter((x) => x.date && x.date >= from);
-    return { status: 'ok', returned: all.length, items,
-      note: all.length === 100 && items.length === 100 ? '최신순 100건 상한에 닿음 — 더 오래된 기사는 못 봄' : '' };
-  } catch (e) {
-    return { status: 'failed', error: e.name === 'TimeoutError' ? '시간 초과' : String(e.message ?? e), items: [] };
+  const refused = [];
+  for (const ep of NAVER_ENDPOINTS) {
+    try {
+      const url = `${ep.url}?query=${encodeURIComponent(q)}&display=100&sort=date`;
+      const r = await ctx.fetch(url, { signal: signal(), headers: ep.headers(id, secret) });
+      if (r.status === 401 || r.status === 403) { refused.push(`${ep.label} HTTP ${r.status}`); continue; }
+      if (!r.ok) return { status: 'failed', error: `${ep.label} HTTP ${r.status}`, items: [] };
+      const body = await r.json();
+      const from = kstDate(ctx.now, days);
+      const all = Array.isArray(body.items) ? body.items : [];
+      const items = all.map((x) => ({ title: stripTags(x.title), url: x.originallink || x.link,
+        published: x.pubDate, date: kstDay(x.pubDate), source: (/https?:\/\/(?:www\.)?([^/]+)/.exec(x.originallink || '') || [])[1] ?? '' }))
+        .filter((x) => x.date && x.date >= from);
+      return { status: 'ok', via: ep.label, returned: all.length, items,
+        note: all.length === 100 && items.length === 100 ? '최신순 100건 상한에 닿음 — 더 오래된 기사는 못 봄' : '' };
+    } catch (e) {
+      return { status: 'failed', error: `${ep.label} ${e.name === 'TimeoutError' ? '시간 초과' : String(e.message ?? e)}`, items: [] };
+    }
   }
+  return { status: 'failed', error: `키 거부(${refused.join(', ')}) — 키 값·API 선택(뉴스) 확인`, items: [] };
 }
 
 async function dandokIndex(ctx, q, days) {
@@ -127,7 +141,7 @@ export async function newsCheck(ctx, args) {
       continue;
     }
     hits += ch.items.length;
-    out.push(`\n■ ${name}: ${ch.items.length}건 (응답 ${ch.returned}건)${ch.note ? ` · ${ch.note}` : ''}`);
+    out.push(`\n■ ${name}${ch.via ? `(${ch.via})` : ''}: ${ch.items.length}건 (응답 ${ch.returned}건)${ch.note ? ` · ${ch.note}` : ''}`);
     for (const x of ch.items.slice(0, limit)) {
       out.push(`${x.date} | ${x.source || '-'} | ${x.title}${/\[단독\]|단독/.test(x.title) ? ' ★단독' : ''}`);
       if (x.url) out.push(`   ${x.url}`);

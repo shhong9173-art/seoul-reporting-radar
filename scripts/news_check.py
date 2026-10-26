@@ -15,7 +15,6 @@ import re
 import sys
 from email.utils import parsedate_to_datetime
 
-import requests
 
 
 def main():
@@ -29,15 +28,10 @@ def main():
     if not cid or not sec:
         sys.exit("NAVER_CLIENT_ID / NAVER_CLIENT_SECRET 환경변수가 없다.")
 
-    r = requests.get(
-        "https://openapi.naver.com/v1/search/news.json",
-        params={"query": a.query, "display": min(a.n, 100), "sort": a.sort},
-        headers={"X-Naver-Client-Id": cid, "X-Naver-Client-Secret": sec},
-        timeout=20,
-    )
-    r.raise_for_status()
-    items = r.json().get("items", [])
-    print(f"'{a.query}' 검색 {len(items)}건 ({'최신순' if a.sort == 'date' else '정확도순'})\n")
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from naver_api import news_search
+    via, items = news_search(cid, sec, {"query": a.query, "display": min(a.n, 100), "sort": a.sort}, timeout=20)
+    print(f"'{a.query}' 검색 {len(items)}건 ({'최신순' if a.sort == 'date' else '정확도순'}, {via})\n")
     for it in items:
         title = html.unescape(re.sub(r"<[^>]+>", "", it["title"]))
         when = parsedate_to_datetime(it["pubDate"]).strftime("%Y-%m-%d %H:%M")

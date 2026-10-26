@@ -90,20 +90,17 @@ def naver_search(company: str, term: str):
     secret = os.environ.get("NAVER_CLIENT_SECRET", "").strip()
     if not cid or not secret:
         return {"status": "미실행: 네이버 API 키 없음", "results": []}
+    from naver_api import NaverKeyRefused, news_search
     try:
-        resp = requests.get(
-            "https://openapi.naver.com/v1/search/news.json",
-            params={"query": f"{company} {term}", "display": 20, "sort": "date"},
-            headers={"X-Naver-Client-Id": cid, "X-Naver-Client-Secret": secret},
-            timeout=12,
-        )
-        resp.raise_for_status()
-        matches = normalize_news(resp.json().get("items", []))
+        _, items = news_search(cid, secret, {"query": f"{company} {term}", "display": 20, "sort": "date"})
+        matches = normalize_news(items)
         return {
             "status": ("관련 기사 검색 결과 있음: 동일 사건 여부 미검증" if matches
                        else "검색 결과 없음: 미보도 확정 불가"),
             "results": matches,
         }
+    except NaverKeyRefused as exc:
+        return {"status": f"조회 오류: {exc}", "results": []}
     except (ValueError, requests.RequestException) as exc:
         return {"status": f"조회 오류: {type(exc).__name__}", "results": []}
 
