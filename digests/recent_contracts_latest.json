@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-10-21T10:32:39+09:00",
-  "periodStart": "20260930",
-  "periodEnd": "20261021",
+  "generatedAt": "2026-10-26T10:29:15+09:00",
+  "periodStart": "20261005",
+  "periodEnd": "20261026",
   "source": "OpenDART 회사별 공시검색 list.json 및 조회된 경우 document.xml",
   "scope": "직접 출입처 13개사의 21일 내 공급계약·신규시설투자·생산중단·재개 공시",
   "sourceChecks": [
@@ -33,17 +33,17 @@
     {
       "company": "엘에스일렉트릭",
       "status": "checked",
-      "matchedContractEvents": 3
+      "matchedContractEvents": 2
     },
     {
       "company": "효성중공업",
       "status": "checked",
-      "matchedContractEvents": 1
+      "matchedContractEvents": 0
     },
     {
       "company": "두산에너빌리티",
       "status": "checked",
-      "matchedContractEvents": 2
+      "matchedContractEvents": 1
     },
     {
       "company": "고려아연",
@@ -53,7 +53,7 @@
     {
       "company": "영풍",
       "status": "checked",
-      "matchedContractEvents": 1
+      "matchedContractEvents": 0
     },
     {
       "company": "포스코",
@@ -71,8 +71,8 @@
       "matchedContractEvents": 0
     }
   ],
-  "totalMatchingListEvents": 7,
-  "inspectedDetails": 7,
+  "totalMatchingListEvents": 3,
+  "inspectedDetails": 3,
   "allEventsInspected": true,
   "items": [
     {
@@ -124,99 +124,6 @@
         "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261006800697"
       },
       "unverifiedSameDateCandidates": [],
-      "sourceError": false,
-      "scoopStatus": "기보도 및 원자료·회사 답변 확인 전 · 단독 미확정",
-      "questions": [
-        "원문 원계약·정정 전후 계약금액, 고객사, 적용 기간이 명시됐는가?",
-        "해당 공급계약·투자에 관한 이전 DART 공시·기업 발표·전문지 보도가 있는가?",
-        "공식 계약 확정과 입찰/협약/옵션 계약의 구분 및 실제 산업 영향은 무엇인가?"
-      ]
-    },
-    {
-      "company": "영풍",
-      "corpCode": "00141307",
-      "receiptNo": "20261002800300",
-      "published": "20261002",
-      "report": "[기재정정]생산중단              ",
-      "category": "생산중단",
-      "isCorrection": true,
-      "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261002800300",
-      "status": "original_not_verified",
-      "evidenceStatus": "원문에서 원공시의 명시적 접수번호 확인 불가; 날짜·제목만으로 계약 연결 금지",
-      "originalReceiptNo": null,
-      "originalSourceUrl": null,
-      "changes": [],
-      "issuerCorrectionTable": {
-        "status": "issuer_table_unavailable_or_nonmaterial",
-        "changes": [],
-        "totalMaterialRows": 0,
-        "conflictingFieldCount": 0,
-        "skippedRows": 0,
-        "independentOriginalDocumentCompared": false,
-        "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261002800300"
-      },
-      "unverifiedSameDateCandidates": [
-        {
-          "receiptNo": "20251128800830",
-          "report": "[기재정정]생산중단              ",
-          "date": "20251128",
-          "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20251128800830",
-          "status": "같은 날짜의 후보일 뿐 동일 사건 미검증"
-        }
-      ],
-      "sourceError": false,
-      "scoopStatus": "기보도 및 원자료·회사 답변 확인 전 · 단독 미확정",
-      "questions": [
-        "원문 원계약·정정 전후 계약금액, 고객사, 적용 기간이 명시됐는가?",
-        "해당 공급계약·투자에 관한 이전 DART 공시·기업 발표·전문지 보도가 있는가?",
-        "공식 계약 확정과 입찰/협약/옵션 계약의 구분 및 실제 산업 영향은 무엇인가?"
-      ]
-    },
-    {
-      "company": "효성중공업",
-      "corpCode": "01316245",
-      "receiptNo": "20260930800924",
-      "published": "20260930",
-      "report": "[기재정정]단일판매ㆍ공급계약체결              ",
-      "category": "공급계약",
-      "isCorrection": true,
-      "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260930800924",
-      "status": "original_not_verified",
-      "evidenceStatus": "원문에서 원공시의 명시적 접수번호 확인 불가; 날짜·제목만으로 계약 연결 금지",
-      "originalReceiptNo": null,
-      "originalSourceUrl": null,
-      "changes": [],
-      "issuerCorrectionTable": {
-        "status": "issuer_table_material_changes_for_review",
-        "changes": [
-          {
-            "fieldLabel": "2. 계약내역 - 계약금액(원)",
-            "before": "372,324,339,860",
-            "after": "383,338,819,710",
-            "category": "amount",
-            "basis": "issuer_reported_amendment_table_only",
-            "amendedSourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260930800924",
-            "originalReceiptIndependentlyVerified": false,
-            "commercialEffectVerified": false,
-            "sameEventPriorCoverageVerified": false,
-            "oneSideUnspecified": false
-          }
-        ],
-        "totalMaterialRows": 1,
-        "conflictingFieldCount": 0,
-        "skippedRows": 0,
-        "independentOriginalDocumentCompared": false,
-        "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260930800924"
-      },
-      "unverifiedSameDateCandidates": [
-        {
-          "receiptNo": "20260226801263",
-          "report": "[기재정정]단일판매ㆍ공급계약체결              ",
-          "date": "20260226",
-          "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260226801263",
-          "status": "같은 날짜의 후보일 뿐 동일 사건 미검증"
-        }
-      ],
       "sourceError": false,
       "scoopStatus": "기보도 및 원자료·회사 답변 확인 전 · 단독 미확정",
       "questions": [
@@ -343,192 +250,6 @@
         "supply_region": "미국",
         "contract_start": "2026-10-12",
         "contract_end": "2027-07-05"
-      },
-      "observedFieldEvidence": {
-        "contract_subject": {
-          "sourceLabel": "- 체결계약명",
-          "rowPattern": "two_cell_explicit_label",
-          "basis": "same_official_table_row",
-          "independentBusinessVerification": false,
-          "distinctDocumentRows": 1
-        },
-        "contract_amount": {
-          "sourceLabel": "계약금액(원)",
-          "rowPattern": "three_cell_explicit_label",
-          "basis": "same_official_table_row",
-          "independentBusinessVerification": false,
-          "distinctDocumentRows": 1
-        },
-        "recent_sales": {
-          "sourceLabel": "최근매출액(원)",
-          "rowPattern": "two_cell_explicit_label",
-          "basis": "same_official_table_row",
-          "independentBusinessVerification": false,
-          "distinctDocumentRows": 1
-        },
-        "sales_ratio": {
-          "sourceLabel": "매출액대비(%)",
-          "rowPattern": "two_cell_explicit_label",
-          "basis": "same_official_table_row",
-          "independentBusinessVerification": false,
-          "distinctDocumentRows": 1
-        },
-        "counterparty": {
-          "sourceLabel": "3. 계약상대",
-          "rowPattern": "two_cell_explicit_label",
-          "basis": "same_official_table_row",
-          "independentBusinessVerification": false,
-          "distinctDocumentRows": 1
-        },
-        "counterparty_relationship": {
-          "sourceLabel": "- 회사와의 관계",
-          "rowPattern": "two_cell_explicit_label",
-          "basis": "same_official_table_row",
-          "independentBusinessVerification": false,
-          "distinctDocumentRows": 1
-        },
-        "supply_region": {
-          "sourceLabel": "4. 판매ㆍ공급지역",
-          "rowPattern": "two_cell_explicit_label",
-          "basis": "same_official_table_row",
-          "independentBusinessVerification": false,
-          "distinctDocumentRows": 1
-        },
-        "contract_start": {
-          "sourceLabel": "시작일",
-          "rowPattern": "three_cell_explicit_label",
-          "basis": "same_official_table_row",
-          "independentBusinessVerification": false,
-          "distinctDocumentRows": 2
-        },
-        "contract_end": {
-          "sourceLabel": "종료일",
-          "rowPattern": "contract_period_rowspan",
-          "basis": "same_official_table_row",
-          "independentBusinessVerification": false,
-          "distinctDocumentRows": 1
-        }
-      },
-      "conflictingDocumentFields": [],
-      "documentTablesExamined": 1,
-      "documentFieldExtractionStatus": "official_table_terms_not_business_effect",
-      "scoopStatus": "기보도 및 원자료·회사 답변 확인 전 · 단독 미확정",
-      "questions": [
-        "원문 원계약·정정 전후 계약금액, 고객사, 적용 기간이 명시됐는가?",
-        "해당 공급계약·투자에 관한 이전 DART 공시·기업 발표·전문지 보도가 있는가?",
-        "공식 계약 확정과 입찰/협약/옵션 계약의 구분 및 실제 산업 영향은 무엇인가?"
-      ]
-    },
-    {
-      "company": "두산에너빌리티",
-      "corpCode": "00159616",
-      "receiptNo": "20261001800034",
-      "published": "20261001",
-      "report": "단일판매ㆍ공급계약체결              ",
-      "category": "공급계약",
-      "isCorrection": false,
-      "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261001800034",
-      "status": "official_document_read",
-      "evidenceStatus": "공식 DART 원문 표의 동일 행 필드만 수집. 공시상 기재값이며 실제 납품·매출·효력 확인 아님",
-      "observedFields": {
-        "contract_subject": "Engineering, Procurement and Construction (EPC) of O Mon III Combined Cycle Power Plant Construction Project",
-        "contract_amount": "837,970,880,392",
-        "recent_sales": "17,057,876,465,803",
-        "sales_ratio": "4.91",
-        "counterparty": "VIETNAM NATIONAL INDUSTRY - ENERGY GROUP (PVN)",
-        "supply_region": "Vietnam, Can Tho",
-        "contract_start": "2026-10-06",
-        "contract_end": "2030-10-06"
-      },
-      "observedFieldEvidence": {
-        "contract_subject": {
-          "sourceLabel": "- 체결계약명",
-          "rowPattern": "two_cell_explicit_label",
-          "basis": "same_official_table_row",
-          "independentBusinessVerification": false,
-          "distinctDocumentRows": 1
-        },
-        "contract_amount": {
-          "sourceLabel": "계약금액(원)",
-          "rowPattern": "three_cell_explicit_label",
-          "basis": "same_official_table_row",
-          "independentBusinessVerification": false,
-          "distinctDocumentRows": 1
-        },
-        "recent_sales": {
-          "sourceLabel": "최근매출액(원)",
-          "rowPattern": "two_cell_explicit_label",
-          "basis": "same_official_table_row",
-          "independentBusinessVerification": false,
-          "distinctDocumentRows": 1
-        },
-        "sales_ratio": {
-          "sourceLabel": "매출액대비(%)",
-          "rowPattern": "two_cell_explicit_label",
-          "basis": "same_official_table_row",
-          "independentBusinessVerification": false,
-          "distinctDocumentRows": 1
-        },
-        "counterparty": {
-          "sourceLabel": "3. 계약상대",
-          "rowPattern": "two_cell_explicit_label",
-          "basis": "same_official_table_row",
-          "independentBusinessVerification": false,
-          "distinctDocumentRows": 1
-        },
-        "supply_region": {
-          "sourceLabel": "4. 판매ㆍ공급지역",
-          "rowPattern": "two_cell_explicit_label",
-          "basis": "same_official_table_row",
-          "independentBusinessVerification": false,
-          "distinctDocumentRows": 1
-        },
-        "contract_start": {
-          "sourceLabel": "시작일",
-          "rowPattern": "three_cell_explicit_label",
-          "basis": "same_official_table_row",
-          "independentBusinessVerification": false,
-          "distinctDocumentRows": 2
-        },
-        "contract_end": {
-          "sourceLabel": "종료일",
-          "rowPattern": "contract_period_rowspan",
-          "basis": "same_official_table_row",
-          "independentBusinessVerification": false,
-          "distinctDocumentRows": 1
-        }
-      },
-      "conflictingDocumentFields": [],
-      "documentTablesExamined": 1,
-      "documentFieldExtractionStatus": "official_table_terms_not_business_effect",
-      "scoopStatus": "기보도 및 원자료·회사 답변 확인 전 · 단독 미확정",
-      "questions": [
-        "원문 원계약·정정 전후 계약금액, 고객사, 적용 기간이 명시됐는가?",
-        "해당 공급계약·투자에 관한 이전 DART 공시·기업 발표·전문지 보도가 있는가?",
-        "공식 계약 확정과 입찰/협약/옵션 계약의 구분 및 실제 산업 영향은 무엇인가?"
-      ]
-    },
-    {
-      "company": "엘에스일렉트릭",
-      "corpCode": "00105855",
-      "receiptNo": "20261001800079",
-      "published": "20261001",
-      "report": "단일판매ㆍ공급계약체결              ",
-      "category": "공급계약",
-      "isCorrection": false,
-      "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261001800079",
-      "status": "official_document_read",
-      "evidenceStatus": "공식 DART 원문 표의 동일 행 필드만 수집. 공시상 기재값이며 실제 납품·매출·효력 확인 아님",
-      "observedFields": {
-        "contract_subject": "북미 Hyperscale Data Center 전력설비 공급 PJT",
-        "contract_amount": "181,229,274,677",
-        "recent_sales": "4,965,798,552,980",
-        "sales_ratio": "3.65",
-        "counterparty": "LS ELECTRIC AMERICA Inc.",
-        "counterparty_relationship": "자회사",
-        "supply_region": "미국",
-        "contract_start": "2026-09-30",
-        "contract_end": "2030-01-30"
       },
       "observedFieldEvidence": {
         "contract_subject": {
