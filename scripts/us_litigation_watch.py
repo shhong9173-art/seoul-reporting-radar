@@ -29,42 +29,33 @@ CL_API = "https://www.courtlistener.com/api/rest/v4/search/"
 CL_SITE = "https://www.courtlistener.com"
 WINDOW_DAYS = 45
 KEEP_DAYS = 120
-MAX_PAGES = 3
+MAX_PAGES = 5
 ITC_BODY_BUDGET = 40
 
-# (출입처, 검색 문구, 당사자 판정 정규식). 계열사·약어 오인을 막기 위해 당사자 이름으로 다시 확인한다.
-COMPANIES = [
-    ("현대차", '"Hyundai Motor"', r"Hyundai Motor|Genesis Motor"),
-    ("기아", '"Kia America"', r"\bKia\b"),
-    ("기아", '"Kia Corporation"', r"\bKia\b"),
-    ("기아", '"Kia Georgia"', r"\bKia\b"),
-    ("현대모비스", '"Hyundai Mobis"', r"Hyundai Mobis|\bMobis\b"),
-    ("현대모비스", '"Mobis Alabama"', r"\bMobis\b"),
-    ("현대위아", '"Hyundai WIA"', r"Hyundai WIA"),
-    ("HL만도", '"HL Mando"', r"\bMando\b"),
-    ("한국타이어", '"Hankook Tire"', r"Hankook"),
-    ("넥센타이어", '"Nexen Tire"', r"Nexen Tire"),
-    ("금호타이어", '"Kumho Tire"', r"Kumho"),
-    ("포스코", '"POSCO"', r"\bPOSCO\b(?!\s*(?:International|Future|E&C|DX))"),
-    ("현대제철", '"Hyundai Steel"', r"Hyundai Steel"),
-    ("세아제강", '"SeAH Steel"', r"SeAH"),
-    ("동국제강·동국씨엠", '"Dongkuk"', r"Dongkuk"),
-    ("고려아연", '"Korea Zinc"', r"Korea Zinc"),
-    ("HD현대일렉트릭", '"Hyundai Power Transformers"', r"Hyundai Power Transformers|HD Hyundai Electric|Hyundai Electric"),
-    ("HD현대일렉트릭", '"HD Hyundai Electric"', r"Hyundai Power Transformers|HD Hyundai Electric|Hyundai Electric"),
-    ("LS일렉트릭", '"LS Electric"', r"\bLS Electric"),
-    ("LS전선", '"LS Cable"', r"\bLS Cable|LS GreenLink"),
-    ("LS전선", '"LS GreenLink"', r"\bLS Cable|LS GreenLink"),
-    ("대한전선", '"Taihan"', r"Taihan"),
-    ("두산에너빌리티", '"Doosan Enerbility"', r"Doosan"),
-    ("한화솔루션", '"Hanwha Q Cells"', r"Hanwha|Q ?Cells"),
-    ("한화솔루션", '"Qcells"', r"Hanwha|Q ?Cells"),
-    ("OCI", '"Mission Solar"', r"Mission Solar|\bOCI\b"),
-    ("GS칼텍스", '"GS Caltex"', r"GS Caltex"),
-    ("KG모빌리티", '"KG Mobility"', r"KG Mobility|SsangYong"),
-    ("효성중공업(관련)", '"Hyosung HICO"', r"Hyosung"),
-    ("일진전기(관련)", '"Iljin Electric"', r"Iljin"),
+# CourtListener allows an authenticated account 5 requests a minute, 50 an hour and 125 a day (v4 overview, 2026-10).
+# So the company phrases are OR-ed into a few group queries, calls are spaced, and parties decide which company a case is about.
+GROUPS = [
+    ("자동차", ["Hyundai Motor", "Genesis Motor America", "Kia America", "Kia Corporation", "Kia Georgia", "Hyundai Mobis",
+              "Mobis Alabama", "Hyundai WIA", "HL Mando", "Hankook Tire", "Nexen Tire", "Kumho Tire", "KG Mobility"]),
+    ("철강·비철", ["POSCO", "Hyundai Steel", "SeAH Steel", "Dongkuk", "Korea Zinc"]),
+    ("전력·에너지·화학", ["Hyundai Power Transformers", "HD Hyundai Electric", "LS Electric", "LS Cable", "LS GreenLink", "Taihan",
+                    "Doosan Enerbility", "Hanwha Q Cells", "Qcells", "Mission Solar", "GS Caltex", "Hyosung HICO", "Iljin Electric"]),
 ]
+# (출입처, 당사자 판정 정규식). 계열사·약어 오인을 막기 위해 당사자 이름으로 확인한다.
+PARTIES = [
+    ("현대차", r"Hyundai Motor|Genesis Motor"), ("기아", r"\bKia\b"), ("현대모비스", r"Hyundai Mobis|\bMobis\b"),
+    ("현대위아", r"Hyundai WIA"), ("HL만도", r"\bMando\b"), ("한국타이어", r"Hankook"), ("넥센타이어", r"Nexen Tire"),
+    ("금호타이어", r"Kumho"), ("KG모빌리티", r"KG Mobility|SsangYong"),
+    ("포스코", r"\bPOSCO\b(?!\s*(?:International|Future|E&C|DX))"), ("현대제철", r"Hyundai Steel"), ("세아제강", r"SeAH"),
+    ("동국제강·동국씨엠", r"Dongkuk"), ("고려아연", r"Korea Zinc"),
+    ("HD현대일렉트릭", r"Hyundai Power Transformers|HD Hyundai Electric|Hyundai Electric"), ("LS일렉트릭", r"\bLS Electric"),
+    ("LS전선", r"\bLS Cable|LS GreenLink"), ("대한전선", r"Taihan"), ("두산에너빌리티", r"Doosan"), ("한화솔루션", r"Hanwha|Q ?Cells"),
+    ("OCI", r"Mission Solar|\bOCI\b"), ("GS칼텍스", r"GS Caltex"), ("효성중공업(관련)", r"Hyosung"), ("일진전기(관련)", r"Iljin"),
+]
+CALL_GAP = 13.0      # seconds between CourtListener calls (5 a minute)
+MAX_CALLS = 24       # per run (daily cap 125, hourly 50)
+MAX_RETRY_AFTER = 90
+
 
 # Nature-of-suit code → (분류, 우선순위). Lower is shown first; 3 = 일상(접힘).
 NOS = [
@@ -97,7 +88,19 @@ def classify(x):
     return "분류 없음", 2
 
 
-def cl_search(query, since, token, *, get=None, sleep=time.sleep):
+class Budget:
+    def __init__(self, n):
+        self.left = n
+
+    def take(self):
+        if self.left <= 0:
+            return False
+        self.left -= 1
+        return True
+
+
+def cl_search(query, since, token, budget, *, get=None, sleep=time.sleep):
+    """One group query, following `next` up to MAX_PAGES. Returns (rows, error, complete)."""
     if get is None:
         import requests
         get = requests.get
@@ -105,65 +108,93 @@ def cl_search(query, since, token, *, get=None, sleep=time.sleep):
                "Authorization": f"Token {token}"}
     rows, url, params = [], CL_API, {"q": query, "type": "r", "order_by": "dateFiled desc", "filed_after": since}
     for _ in range(MAX_PAGES):
-        try:
-            r = get(url, params=params, headers=headers, timeout=40)
-        except Exception as e:
-            return rows, type(e).__name__
-        finally:
-            sleep(1.0)
+        retried = False
+        while True:
+            if not budget.take():
+                return rows, "호출 예산 소진", False
+            try:
+                r = get(url, params=params, headers=headers, timeout=40)
+            except Exception as e:
+                sleep(CALL_GAP)
+                return rows, type(e).__name__, False
+            sleep(CALL_GAP)
+            if r.status_code == 429 and not retried:
+                wait = int(re.sub(r"\D", "", str((getattr(r, "headers", None) or {}).get("Retry-After", ""))) or 0)
+                if 0 < wait <= MAX_RETRY_AFTER:
+                    sleep(wait)
+                    retried = True
+                    continue
+                return rows, f"HTTP 429 호출 한도(재시도 {wait or '?'}초 뒤)", False
+            break
         if r.status_code == 401:
-            return rows, "HTTP 401 토큰 거부"
+            return rows, "HTTP 401 토큰 거부", False
         if r.status_code == 429:
-            return rows, "HTTP 429 호출 한도"
+            return rows, "HTTP 429 호출 한도", False
         if r.status_code != 200:
-            return rows, f"HTTP {r.status_code}"
+            return rows, f"HTTP {r.status_code}", False
         try:
             body = r.json()
         except ValueError:
-            return rows, "JSON 아님"
+            return rows, "JSON 아님", False
         rows += body.get("results") or []
         url, params = body.get("next"), None
         if not url:
-            break
-    return rows, None
+            return rows, None, True
+    return rows, None, False  # more pages than MAX_PAGES
+
+
+def window_start(now, previous):
+    """45 days on a first or failed run; afterwards a week before the last complete run (fewer pages, same coverage)."""
+    floor = now - dt.timedelta(days=WINDOW_DAYS)
+    try:
+        last = dt.datetime.fromisoformat(str((previous or {}).get("coveredThrough") or ""))
+    except ValueError:
+        last = None
+    if last and last.tzinfo:
+        return max(floor, last - dt.timedelta(days=7)).strftime("%Y-%m-%d")
+    return floor.strftime("%Y-%m-%d")
 
 
 def litigation(token, now, previous, *, get=None, sleep=time.sleep):
-    since = (now - dt.timedelta(days=WINDOW_DAYS)).strftime("%Y-%m-%d")
+    since = window_start(now, previous)
     prev = {x["id"]: x for x in (previous or {}).get("cases", []) if isinstance(x, dict) and x.get("id")}
     found, checks = {}, []
-    for company, query, party_rx in COMPANIES:
-        rows, err = cl_search(query, since, token, get=get, sleep=sleep)
-        if err:
-            checks.append({"source": f"CourtListener {query}", "company": company, "status": "failed", "error": err, "returned": len(rows)})
-            if "401" in err:
-                break  # a refused token fails every query the same way
-            continue
+    budget = Budget(MAX_CALLS)
+    for group, phrases in GROUPS:
+        query = " OR ".join(f'"{p}"' for p in phrases)
+        rows, err, complete = cl_search(query, since, token, budget, get=get, sleep=sleep)
         own = 0
         for x in rows:
             parties = [p for p in (x.get("party") or []) if isinstance(p, str)]
-            matched = [p for p in parties if re.search(party_rx, p, re.I)]
-            if not matched:
+            hits = [(company, [p for p in parties if re.search(rx, p, re.I)]) for company, rx in PARTIES]
+            hits = [(c, m) for c, m in hits if m]
+            if not hits:
                 continue  # the company is only mentioned in a filing of someone else's case
             did = f"cl:{x.get('docket_id')}"
             own += 1
-            item = found.get(did)
-            if item:
-                item["beat"] = sorted(set(item["beat"]) | {company})
-                item["matchedParties"] = sorted(set(item["matchedParties"]) | set(matched))[:6]
+            beat = sorted({c for c, _ in hits})
+            matched = sorted({p for _, m in hits for p in m})[:6]
+            if did in found:
+                found[did]["beat"] = sorted(set(found[did]["beat"]) | set(beat))
                 continue
             category, pri = classify(x)
             case = x.get("caseName") or ""
-            plaintiff = bool(re.match(rf"^\s*(?:{party_rx})", case, re.I))
+            plaintiff = any(re.match(rf"^\s*(?:{rx})", case, re.I) for c, rx in PARTIES if c in beat)
             found[did] = {
-                "id": did, "beat": [company], "caseName": case, "court": x.get("court"), "courtId": x.get("court_id"),
+                "id": did, "beat": beat, "group": group, "caseName": case, "court": x.get("court"), "courtId": x.get("court_id"),
                 "docketNumber": x.get("docketNumber"), "dateFiled": x.get("dateFiled"), "dateTerminated": x.get("dateTerminated"),
                 "suitNature": x.get("suitNature") or "", "cause": x.get("cause") or "", "category": category, "priority": pri,
-                "role": "원고" if plaintiff else "피고·기타 당사자", "matchedParties": matched[:6], "partyCount": len(parties),
+                "role": "원고" if plaintiff else "피고·기타 당사자", "matchedParties": matched, "partyCount": len(parties),
                 "url": CL_SITE + (x.get("docket_absolute_url") or ""),
                 "firstSeen": prev.get(did, {}).get("firstSeen") or now.isoformat(timespec="seconds"),
             }
-        checks.append({"source": f"CourtListener {query}", "company": company, "status": "ok", "returned": len(rows), "own": own})
+        status = "failed" if err and not rows else ("partial" if err or not complete else "ok")
+        checks.append({"source": f"CourtListener {group}", "status": status, "returned": len(rows), "own": own, "since": since,
+                       **({"error": err} if err else {}), **({} if complete or err else {"error": f"{MAX_PAGES}쪽 초과 — 이후 미조회"})})
+        if err and ("401" in err or "429" in err or "예산" in err):
+            for g2, _ in GROUPS[GROUPS.index((group, phrases)) + 1:]:
+                checks.append({"source": f"CourtListener {g2}", "status": "failed", "error": f"앞 질의 중단({err})", "returned": 0})
+            break
     return found, checks
 
 
@@ -243,8 +274,10 @@ def run(token, *, now, previous=None, get=None, sleep=time.sleep):
     for x in itc:
         x["isNew"] = had_state and x["id"] not in prev_itc
     failed = [c for c in checks if c["status"] != "ok"]
+    cl_ok = all(c["status"] == "ok" for c in checks if c["source"].startswith("CourtListener"))
+    covered = stamp if cl_ok else (previous or {}).get("coveredThrough")
     return {"schema": SCHEMA, "generatedAt": stamp, "windowDays": WINDOW_DAYS, "status": "partial" if failed else "complete",
-            "checks": checks, "cases": cases, "itc": itc, "itcChecked": checked,
+            "coveredThrough": covered, "checks": checks, "cases": cases, "itc": itc, "itcChecked": checked,
             "rules": ["당사자 목록에 출입처(미국 법인 포함)가 있는 사건만. 서류에 이름만 나온 남의 사건은 제외.",
                       "소장 접수는 주장일 뿐 사실 확정이 아니다. 청구 내용·금액은 소장 원문(PACER)으로 확인하고 회사 입장을 듣는다.",
                       "CourtListener에 아직 안 올라온 사건이 있을 수 있다. 0건은 소송 없음이 아니다.",

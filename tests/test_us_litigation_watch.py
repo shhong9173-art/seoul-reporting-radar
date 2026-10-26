@@ -19,18 +19,22 @@ def case(did, name, parties, date="2026-10-20", court="vaed", nos="", cause=""):
 
 
 RESULTS = {
-    '"Hyundai Motor"': [
+    "자동차": [
         case(1, "Summers v. Hyundai Motor America Inc", ["Summers", "Hyundai Motor America Inc"], cause="15:2301 Magnuson-Moss Warranty Act"),
         case(2, "Hyundai Motor Company v. The Partnerships and Unincorporated Associations Identified on Schedule A",
              ["Hyundai Motor Company", "The Partnerships and Unincorporated Associations Identified on Schedule A"], court="ilnd", nos="840 Trademark"),
         case(3, "Acme Robotics v. Hyundai Motor Manufacturing Alabama, LLC", ["Acme Robotics", "Hyundai Motor Manufacturing Alabama, LLC"],
              nos="190 Contract: Other"),
     ],
-    '"POSCO"': [case(4, "POSCO v. United States", ["POSCO", "United States"], date="2026-09-29", court="cit"),
-                case(5, "Smith v. POSCO International America", ["Smith", "POSCO International America Corp"])],
-    '"Hankook Tire"': [case(6, "Qingdao Transamerica Tire Industrial Co., Ltd. v. United States",
-                            ["Qingdao Transamerica Tire Industrial Co., Ltd.", "United States"], court="cit")],
+    "철강": [case(4, "POSCO v. United States", ["POSCO", "United States"], date="2026-09-29", court="cit"),
+            case(5, "Smith v. POSCO International America", ["Smith", "POSCO International America Corp"])],
 }
+RESULTS["자동차"].append(case(6, "Qingdao Transamerica Tire Industrial Co., Ltd. v. United States",
+                             ["Qingdao Transamerica Tire Industrial Co., Ltd.", "United States"], court="cit"))
+
+
+def group_of(q):
+    return "자동차" if '"Hyundai Motor"' in q else ("철강" if '"POSCO"' in q else "전력")
 FR = {"results": [
     {"title": "Certain Automotive Headlamps and Components Thereof; Notice of Institution of Investigation", "publication_date": "2026-10-15",
      "html_url": "https://www.federalregister.gov/d/2026-1", "document_number": "2026-1", "raw_text_url": "https://fr/full/2026-1.txt"},
@@ -44,27 +48,30 @@ BODIES = {"2026-1": "<pre>The respondents are:\nHyundai Mobis Co., Ltd., Seoul, 
 
 
 class R:
-    def __init__(self, code=200, body=None, text=""):
-        self.status_code, self.body, self.text = code, body, text
+    def __init__(self, code=200, body=None, text="", headers=None):
+        self.status_code, self.body, self.text, self.headers = code, body, text, headers or {}
 
     def json(self):
         return self.body
 
 
-def fake(cl_code=200, calls=None, pages=None):
+def fake(cl_code=200, calls=None, pages=None, throttle=None):
+    throttle = list(throttle or [])
     def get(url, params=None, headers=None, timeout=None):
         if calls is not None:
             calls.append(url)
         if url.startswith(w.CL_API) or url.startswith("https://www.courtlistener.com/api/rest/v4/search/?page"):
-            assert headers["Authorization"] == "Token t" * 1
+            assert headers["Authorization"] == "Token t"
+            if throttle:
+                return R(429, {"detail": "Request was throttled."}, headers={"Retry-After": throttle.pop(0)})
             if cl_code != 200:
                 return R(cl_code, {"detail": "x"})
             if pages and url in pages:
                 return R(body=pages[url])
-            q = params["q"]
-            if pages and q in pages:
-                return R(body=pages[q])
-            return R(body={"count": len(RESULTS.get(q, [])), "next": None, "results": RESULTS.get(q, [])})
+            g = group_of(params["q"])
+            if pages and g in pages:
+                return R(body=pages[g])
+            return R(body={"count": len(RESULTS.get(g, [])), "next": None, "results": RESULTS.get(g, [])})
         if url == w.trw.FR_API:
             return R(body=FR)
         if url.startswith("https://fr/full/"):
@@ -107,7 +114,7 @@ class Litigation(unittest.TestCase):
 
     def test_paging_follows_next(self):
         nxt = "https://www.courtlistener.com/api/rest/v4/search/?page=2"
-        pages = {'"Hyundai Motor"': {"count": 4, "next": nxt, "results": RESULTS['"Hyundai Motor"']},
+        pages = {"자동차": {"count": 4, "next": nxt, "results": RESULTS["자동차"]},
                  nxt: {"count": 4, "next": None, "results": [case(7, "Lee v. Hyundai Motor America", ["Lee", "Hyundai Motor America"])]}}
         doc = run(pages=pages)
         self.assertIn("cl:7", {x["id"] for x in doc["cases"]})
@@ -116,10 +123,38 @@ class Litigation(unittest.TestCase):
         calls = []
         doc = run(cl_code=401, calls=calls)
         cl = [c for c in doc["checks"] if c["source"].startswith("CourtListener")]
-        self.assertEqual(len(cl), 1)
+        self.assertEqual(len(cl), 3)
         self.assertEqual(cl[0]["error"], "HTTP 401 토큰 거부")
+        self.assertTrue(all(c["status"] == "failed" for c in cl))
         self.assertEqual(doc["status"], "partial")
         self.assertEqual(sum(1 for u in calls if u.startswith(w.CL_API)), 1)
+        self.assertIsNone(doc["coveredThrough"])
+
+    def test_three_group_queries_spaced_and_or_joined(self):
+        calls, sleeps = [], []
+        doc = w.run("t", now=NOW, get=fake(calls=calls), sleep=sleeps.append)
+        cl_calls = [u for u in calls if u.startswith(w.CL_API)]
+        self.assertEqual(len(cl_calls), 3)
+        self.assertEqual(sleeps.count(w.CALL_GAP), 3)
+        self.assertEqual(doc["coveredThrough"], NOW.isoformat(timespec="seconds"))
+        self.assertTrue(all(c["since"] == "2026-09-12" for c in doc["checks"] if c["source"].startswith("CourtListener")))
+
+    def test_short_retry_after_is_waited_once(self):
+        sleeps = []
+        doc = w.run("t", now=NOW, get=fake(throttle=["30"]), sleep=sleeps.append)
+        self.assertIn(30, sleeps)
+        self.assertTrue(all(c["status"] == "ok" for c in doc["checks"] if c["source"].startswith("CourtListener")))
+
+    def test_long_retry_after_stops_remaining_groups(self):
+        doc = run(throttle=["85774"])
+        cl = [c for c in doc["checks"] if c["source"].startswith("CourtListener")]
+        self.assertEqual(cl[0]["error"], "HTTP 429 호출 한도(재시도 85774초 뒤)")
+        self.assertTrue(all(c["status"] == "failed" for c in cl))
+
+    def test_window_narrows_after_a_complete_run(self):
+        self.assertEqual(w.window_start(NOW, None), "2026-09-12")
+        self.assertEqual(w.window_start(NOW, {"coveredThrough": "2026-10-26T07:50:00+09:00"}), "2026-10-19")
+        self.assertEqual(w.window_start(NOW, {"coveredThrough": "2026-01-01T07:50:00+09:00"}), "2026-09-12")
 
 
 class Itc(unittest.TestCase):
