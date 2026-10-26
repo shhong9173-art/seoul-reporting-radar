@@ -77,8 +77,9 @@ class Factory(unittest.TestCase):
         doc = run()
         names = sorted(f["cmpnyNm"] for f in doc["factories"])
         self.assertEqual(names, ["(주)포스코 광양제철소", "(주)포스코 포항제철소", "현대자동차(주)아산공장"])
-        rule = next(c for c in doc["checks"] if c["source"] == "공장등록 이름 규칙 포스코")
-        self.assertEqual((rule["returned"], rule["dropped"]), (2, 2))
+        self.assertEqual(doc["ruleCounts"]["포스코"], {"kept": 2, "dropped": 2})
+        self.assertFalse(any("이름 규칙" in c["source"] for c in doc["checks"]))  # checks are real queries only
+        self.assertEqual(doc["baselineSince"], NOW.isoformat(timespec="seconds"))
         f = next(x for x in doc["factories"] if x["id"] == "fac:10")
         self.assertEqual((f["employees"], f["registeredOn"]), (4000, "1973-07-03"))
         self.assertEqual(doc["events"], [])  # first run is a baseline

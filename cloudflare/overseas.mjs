@@ -167,7 +167,8 @@ export async function tradeRemedies(ctx, args) {
     const off = (doc.pages ?? []).filter((p) => p.status === 'disabled');
     const pages = (doc.pages ?? []).filter((p) => p.status !== 'disabled');
     const failed = pages.filter((p) => p.status !== 'ok');
-    out.push(`\n[해외 공고·쿼터 변화 · 최근 ${days}일] ${ev.length}건 · 공고 목록 ${pages.length - failed.length}/${pages.length} 열림`);
+    out.push(`\n[감지된 변화 · 감지일 기준 최근 ${days}일] ${ev.length}건 · 공고 목록 ${pages.length - failed.length}/${pages.length} 열림`);
+    out.push(`(기준선 ${String(doc.baselineSince ?? doc.generatedAt).slice(0, 10)} 이후 새로 생긴 공고 줄·새 소진만 센다. 기준선 전에 이미 소진된 쿼터는 위 쿼터 표에 있다.)`);
     if (failed.length) out.push(`미확인(변화 없음 아님): ${failed.map((p) => `${p.label}(${p.error})`).join(', ')}`);
     if (off.length) out.push(`감시 안 함: ${off.map((p) => `${p.label}(${p.error})`).join(', ')}`);
     for (const e of ev.slice(0, limit)) {
@@ -175,7 +176,7 @@ export async function tradeRemedies(ctx, args) {
       out.push(`   잡힌 사실: ${e.text}`);
       out.push(`   원문: ${e.url}`);
     }
-    if (!ev.length) out.push('이 기간 새 줄·새 소진 없음(첫 확인은 기준선만 저장, 열리지 않은 목록은 미확인).');
+    if (!ev.length) out.push('이 기간 감지된 새 공고 줄·새 소진 없음(열리지 않은 목록은 미확인).');
   }
   out.push('\n다음: 원문은 source_document로 연다(미국 관보·EU) → 대상 품목·업체·세율·소진일 확인 → news_check로 보도 대조 → 회사·협회 확인.');
   return textResult(out.join('\n'));
@@ -225,7 +226,7 @@ export async function krOfficial(ctx, args) {
   const q = String(args.company ?? '').trim();
   const days = clampInt(args.days, 1, 120, 30);
   const limit = clampInt(args.limit, 1, 80, 20);
-  const checks = doc.checks ?? [];
+  const checks = (doc.checks ?? []).filter((c) => !String(c.source).startsWith('공장등록 이름 규칙'));
   const failed = checks.filter((c) => c.status !== 'ok');
   const out = [`국내 공식 원천(공장등록·관보 입법예고) · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt)}`,
     `질의 ${checks.length - failed.length}/${checks.length} 정상${failed.length ? ` · 미확인(0건 아님): ${failed.slice(0, 6).map((c) => `${c.source}(${c.error})`).join(', ')}` : ''}`,
@@ -233,15 +234,16 @@ export async function krOfficial(ctx, args) {
   if (!section || section === 'factory') {
     const from = new Date(ctx.now.getTime() - days * 86400000).toISOString();
     const ev = (doc.events ?? []).filter((e) => new Date(e.detectedAt).toISOString() >= from && matches(q, e.company, e.name, e.text));
-    out.push(`\n[공장등록 변화 · 최근 ${days}일] ${ev.length}건`);
+    out.push(`\n[공장등록 변화 · 감지일 기준 최근 ${days}일] ${ev.length}건`);
+    out.push(`(기준선 ${String(doc.baselineSince ?? doc.generatedAt).slice(0, 10)} 이후 감지된 새 공장·고용·주생산품·업종·주소 변화만 센다. 등록일로 본 새 공장은 아래 '최근 120일 등록 공장'.)`);
     for (const e of ev.slice(0, limit)) {
       out.push(`- ${String(e.detectedAt).slice(0, 10)} · ${e.company} · ${e.kind}`);
       out.push(`   잡힌 사실: ${e.text}`);
     }
-    if (!ev.length) out.push('이 기간 변화 없음(첫 확인은 기준선만 저장, 조회 실패 회사는 미확인).');
+    if (!ev.length) out.push('이 기간 감지된 변화 없음(조회 실패 회사는 미확인).');
     const facs = (doc.factories ?? []).filter((f) => matches(q, f.company, f.cmpnyNm, f.rnAdres, f.mainProductCn));
     const recent = facs.filter((f) => (f.tags ?? []).some((t) => t.startsWith('[최근 등록')));
-    out.push(`\n[최근 120일 등록 공장] ${recent.length}곳 (출입처 공장 전체 ${facs.length}곳${q ? ', 낱말 거름' : ''})`);
+    out.push(`\n[최근 120일 등록 공장 · 등록일 기준] ${recent.length}곳 (출입처 공장 전체 ${facs.length}곳${q ? ', 낱말 거름' : ''})`);
     for (const f of recent.slice(0, limit)) {
       out.push(`- ${f.registeredOn} · ${f.company} · ${f.cmpnyNm} · ${f.rnAdres}`);
       out.push(`   주생산품 ${f.mainProductCn || '미기재'} · 업종 ${f.indutyNm || '미기재'} · 고용 ${f.employees ?? '미기재'}명${f.irsttNm ? ` · ${f.irsttNm}` : ''}${f.nameCheck ? ` · ⚠ ${f.nameCheck}` : ''}`);

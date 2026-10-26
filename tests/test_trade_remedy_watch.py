@@ -193,6 +193,24 @@ class FederalRegister(unittest.TestCase):
         self.assertEqual(len(doc["federalRegister"]), len(first["federalRegister"]))
 
 
+class Section337(unittest.TestCase):
+    def test_ad_cvd_reviews_are_not_337(self):
+        for title in ["Certain Hot-Rolled Steel Flat Products From the Republic of Korea: Final Results of Countervailing Duty Administrative Review; 2023",
+                      "Certain Steel Nails From the Republic of Korea: Preliminary Results and Rescission, in Part of Antidumping Duty Administrative Review; 2024-2025",
+                      "Certain Oil Country Tubular Goods From the Republic of Korea: Final Results of Antidumping Duty Administrative Review; 2023-2024"]:
+            self.assertFalse(w.is_337(title), title)
+        for title in ["Certain Automotive Headlamps and Components Thereof; Notice of Institution of Investigation",
+                      "Certain Wireless Earbuds; Notice of Receipt of Complaint; Solicitation of Comments Relating to the Public Interest"]:
+            self.assertTrue(w.is_337(title), title)
+        doc = run()
+        self.assertFalse(next(x for x in doc["federalRegister"] if x["id"] == "fr:2026-20698")["section337"])
+
+    def test_baseline_date_is_kept_across_runs(self):
+        first = run()
+        later = run(previous=first, now=NOW + dt.timedelta(days=2))
+        self.assertEqual(later["baselineSince"], first["generatedAt"])
+
+
 class ForeignPages(unittest.TestCase):
     def test_new_korea_line_is_an_event_with_absolute_link(self):
         first = run(au=AU_OLD)

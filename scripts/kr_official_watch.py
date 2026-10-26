@@ -115,6 +115,7 @@ def factories(cfg, key, now, previous, *, get=None, sleep=time.sleep):
     stamp = now.isoformat(timespec="seconds")
     recent_from = (now.date() - dt.timedelta(days=RECENT_DAYS)).isoformat()
     complete_companies = set()
+    rule_counts = {}
     for c in cfg["companies"]:
         accept = re.compile(c["accept"])
         # common names (e.g. 태광산업) are shared by unrelated small firms: an industry rule narrows them
@@ -162,7 +163,7 @@ def factories(cfg, key, now, previous, *, get=None, sleep=time.sleep):
                 checks.append({"source": f"공장등록 {q}", "company": c["company"], "status": "ok", "returned": got})
         if ok:
             complete_companies.add(c["company"])
-        checks.append({"source": f"공장등록 이름 규칙 {c['company']}", "company": c["company"], "status": "ok", "returned": kept, "dropped": dropped})
+        rule_counts[c["company"]] = {"kept": kept, "dropped": dropped}
     # changes against the previous private state
     for fid, f in out.items():
         old = prev.get(fid)
@@ -196,7 +197,7 @@ def factories(cfg, key, now, previous, *, get=None, sleep=time.sleep):
                            "detectedAt": stamp})
         elif fid not in out and old.get("company") not in complete_companies:
             out[fid] = dict(old, stale=True)  # query failed: keep the last record
-    return sorted(out.values(), key=lambda x: (x["company"], x.get("cmpnyNm") or "")), checks, events, sigs
+    return sorted(out.values(), key=lambda x: (x["company"], x.get("cmpnyNm") or "")), checks, events, sigs, rule_counts
 
 
 # ---------- 관보 입법예고 ----------
@@ -260,7 +261,7 @@ def gazette(key, now, previous, *, get=None, sleep=time.sleep):
 
 def run(cfg, key, *, now, previous=None, get=None, sleep=time.sleep):
     stamp = now.isoformat(timespec="seconds")
-    facs, checks, fac_events, sigs = factories(cfg, key, now, previous, get=get, sleep=sleep)
+    facs, checks, fac_events, sigs, rule_counts = factories(cfg, key, now, previous, get=get, sleep=sleep)
     gz, gcheck = gazette(key, now, previous, get=get, sleep=sleep)
     checks.append(gcheck)
     keep_from = (now - dt.timedelta(days=120)).isoformat()
@@ -270,7 +271,8 @@ def run(cfg, key, *, now, previous=None, get=None, sleep=time.sleep):
     events.sort(key=lambda e: e["detectedAt"], reverse=True)
     failed = [c for c in checks if c["status"] != "ok"]
     return {"schema": SCHEMA, "generatedAt": stamp, "status": "partial" if failed else "complete", "checks": checks,
-            "factories": facs, "ruleSigs": sigs, "gazette": gz, "events": events[:400],
+            "baselineSince": (previous or {}).get("baselineSince") or ((previous or {}).get("generatedAt") if previous else None) or stamp,
+            "factories": facs, "ruleSigs": sigs, "ruleCounts": rule_counts, "gazette": gz, "events": events[:400],
             "rules": ["공장등록 정보는 지자체 등록 기준이다. 등록일·고용인원은 신고값이라 실제 가동·채용과 다를 수 있다.",
                       "회사명 검색은 이름 규칙으로 계열사를 거른다. 이름이 비슷한 다른 회사가 섞일 수 있으니 주소·대표자로 확인한다.",
                       "'목록에서 빠짐'은 폐업·이전·이름 변경·등록 정정일 수 있다. 지자체·회사 확인 전 폐쇄로 쓰지 않는다.",
@@ -295,11 +297,11 @@ def main():
         except private_store.StoreError as e:
             print(f"::warning title=kr-official-state::이전 상태 조회 실패({e}) — 변경 비교는 다음 실행부터")
     doc = run(cfg, key, now=now, previous=previous)
-    fac_checks = [c for c in doc["checks"] if c["source"].startswith("공장등록 ") and "이름 규칙" not in c["source"]]
+    fac_checks = [c for c in doc["checks"] if c["source"].startswith("공장등록 ")]
     ok = sum(1 for c in fac_checks if c["status"] == "ok")
     recent = sum(1 for f in doc["factories"] if any(t.startswith("[최근 등록") for t in f.get("tags", [])))
     new_ev = sum(1 for e in doc["events"] if e["detectedAt"] == doc["generatedAt"])
-    rules = " ".join(f"{c['company']}={c['returned']}/{c['returned'] + c.get('dropped', 0)}" for c in doc["checks"] if "이름 규칙" in c["source"])
+    rules = " ".join(f"{co}={v['kept']}/{v['kept'] + v['dropped']}" for co, v in doc["ruleCounts"].items())
     errors = sorted({c.get("error") for c in doc["checks"] if c.get("error")})
     g = next(c for c in doc["checks"] if c["source"] == "관보 입법예고")
     print(f"::notice title=kr-official::공장등록 질의 {ok}/{len(fac_checks)} · 출입처 공장 {len(doc['factories'])}곳(최근 등록 {recent}) · "
