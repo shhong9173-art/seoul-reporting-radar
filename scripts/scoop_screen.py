@@ -58,6 +58,21 @@ BOILER = re.compile(
 STOP = {"공급계약", "공시", "회사", "국내", "해외", "기타", "합계", "제품", "사업", "부문", "대한", "관한", "통해",
         "에서", "으로", "그리고", "보고", "건", "등", "및", "의", "수", "약", "총", "이를", "위한", "통한", "있는", "하는",
         "따른", "대해", "관련된", "포함", "이상", "이하", "경우", "방법", "장치", "시스템"}
+# Procedural or always-covered filings are not scoop candidates (first real run, 10/26: 특수관계인 거래·
+# 공정거래 자율준수·밸류업 계획·대표 변경이 '미보도 후보'로 올라왔다).
+ADMIN = re.compile(r"특수관계인|공정거래자율준수|기업설명회|IR\)?개최|주주총회|최대주주등소유주식|자기주식취득결과|"
+                   r"증권발행실적|투자설명서|기업지배구조보고서|감사보고서|결산실적공시예고|조회공시|풍문|매매거래정지|"
+                   r"발행조건확정|증권신고서|영업\(잠정\)실적|잠정\)?실적|기업가치제고|대표이사|대표집행임원|사외이사|"
+                   r"주식소각|자기주식처분|자기주식취득|배당|정관변경|명의개서|전환가액|신주인수권")
+# Disclosure vocabulary → words news headlines actually use (queries use the first, matching accepts all).
+NEWS_TERMS = {
+    "중대재해발생": ["중대재해", "사망", "사고"], "중대재해": ["중대재해", "사망", "사고"],
+    "영업양도": ["영업양도", "양도", "매각"], "생산중단": ["생산 중단", "가동 중단", "생산중단"],
+    "회사분할": ["분할"], "회사합병": ["합병"], "타법인주식및출자증권취득": ["지분 인수", "인수", "취득"],
+    "유형자산취득": ["투자", "취득", "증설"], "유형자산처분": ["매각", "처분"], "신규시설투자": ["투자", "증설"],
+    "단일판매ㆍ공급계약체결": ["수주", "공급계약"], "공급계약": ["수주", "공급계약"],
+}
+PATENT_SOURCES = re.compile(r"KIPRIS|특허", re.I)
 PARTICLE = re.compile(r"(으로|에서|에게|까지|부터|의|을|를)$")  # only unambiguous endings (양도·원가·회로 stay intact)
 ACRONYM = re.compile(r"[A-Z][A-Z0-9&]{1,5}")
 
@@ -149,9 +164,25 @@ def terms_from(text, company):
     return words[:4]
 
 
+def news_terms(terms):
+    """Replace disclosure jargon with headline words; keep alternatives for matching."""
+    out, alts = [], {}
+    for t in terms:
+        key = next((k for k in NEWS_TERMS if k in t), None)
+        if key:
+            words = NEWS_TERMS[key]
+            out.append(words[0])
+            alts[words[0]] = words
+        else:
+            out.append(t)
+    return list(dict.fromkeys(out)), alts
+
+
 def from_clue(x):
     companies = [canon(c) for c in x.get("companies") or [] if c]
     if not companies:
+        return None
+    if ADMIN.search(str(x.get("title") or "")):
         return None
     company = companies[0]
     title = str(x.get("title") or "")
@@ -164,10 +195,13 @@ def from_clue(x):
         body = title[:m.start()]
     else:
         body, ratios = title, set()
-    return {"id": f"clue:{x.get('id')}", "kind": "단서", "team": x.get("team"), "company": company,
+    terms, alts = news_terms(terms_from(body, company))
+    patent = bool(PATENT_SOURCES.search(str(x.get("source") or "")))
+    return {"id": f"clue:{x.get('id')}", "kind": "특허" if patent else "단서", "team": x.get("team"), "company": company,
             "title": title, "url": x.get("url"), "published": x.get("published"), "source": x.get("source"),
-            "tier": x.get("tier"), "terms": terms_from(body, company), "numbers": sorted(nums), "ratios": sorted(ratios),
-            "strength": 3 if x.get("tier") == "취재 단서·단독 미확정" else 1}
+            "tier": x.get("tier"), "terms": terms, "alts": alts, "numbers": sorted(nums), "ratios": sorted(ratios),
+            "note": "특허 공개는 그 자체로 단독이 아니다 — 사업화·생산·수주 연결 확인 필요" if patent else None,
+            "strength": 0.5 if patent else (3 if x.get("tier") == "취재 단서·단독 미확정" else 1)}
 
 
 def from_stat(x):
@@ -320,6 +354,7 @@ def judge(c, channels, *, now):
     since = (now - dt.timedelta(days=WINDOW_DAYS)).strftime("%Y-%m-%d")
     names = aliases(c["company"])
     terms = c["terms"]
+    alts = c.get("alts") or {}
     key_term = lead(terms)
     evidence = {}
     for ch, res in channels.items():
@@ -329,12 +364,14 @@ def judge(c, channels, *, now):
             text = f"{a.get('title', '')} {a.get('text', '')}"
             if not any(n in text for n in names):
                 continue
+            def has(t, where):
+                return any(w in where for w in alts.get(t, [t]))
             num_hits = [f for f in c["numbers"] if f in text]
-            term_hits = [t for t in terms if t in text] + [f for f in c.get("ratios", []) if f in text]
-            title_hits = [t for t in terms if t in a.get("title", "")]
+            term_hits = [t for t in terms if has(t, text)] + [f for f in c.get("ratios", []) if f in text]
+            title_hits = [t for t in terms if has(t, a.get("title", ""))]
             if num_hits:
                 why, rank = f"같은 수치({', '.join(num_hits[:2])})", 2
-            elif (len(term_hits) >= 2 or (key_term and key_term in a.get("title", ""))) and term_hits:
+            elif (len(term_hits) >= 2 or (key_term and has(key_term, a.get("title", "")))) and term_hits:
                 # Conservative: the lead term next to the company in a headline already counts as related coverage.
                 why, rank = f"낱말({', '.join(term_hits[:3])})", 1
             else:

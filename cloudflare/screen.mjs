@@ -92,6 +92,7 @@ export async function scoopScreen(ctx, args) {
       out.push(`   보도 대조: 질의 ${(x.queries ?? []).map((s) => `"${s}"`).join(', ')} · ${channelLine(x.channels)}`);
       for (const e of (x.evidence ?? []).slice(0, 3)) out.push(`     ↳ ${e.date ?? '날짜?'} [${e.channel}] ${e.title} — ${e.why} ${e.url ?? ''}`);
       out.push(`   검증 상태: 자동 심사(원문 본문·회사 확인 전)${x.staleDays ? ` · 오래된 자료(접수 ${x.staleDays}일 전 — 새 시점 고리 필요)` : ''}`);
+      if (x.note) out.push(`   주의: ${x.note}`);
       out.push(`   id ${x.id}`);
     }
   }

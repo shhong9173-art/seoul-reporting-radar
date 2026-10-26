@@ -72,6 +72,30 @@ class Selection(unittest.TestCase):
         self.assertEqual(stale["staleDays"], 74)
         self.assertEqual(stale["strength"], 1.5)
 
+    def test_procedural_filings_patents_and_news_vocabulary(self):
+        clues = {"items": [
+            {"id": "m1", "team": "자동차", "published": "2026-10-22", "source": "DART", "companies": ["현대모비스"], "routine": False,
+             "tier": "공개 원자료 추적", "title": "현대모비스 · 특수관계인으로부터기타유가증권매수"},
+            {"id": "m2", "team": "철강·비철", "published": "2026-10-21", "source": "DART", "companies": ["동국제강"], "routine": False,
+             "tier": "공개 원자료 추적", "title": "동국제강 · 정기·주요공시 · 기업가치제고계획(자율공시)"},
+            {"id": "m3", "team": "전력·에너지", "published": "2026-10-21", "source": "DART", "companies": ["대한전선"], "routine": False,
+             "tier": "공개 원자료 추적", "title": "대한전선 · 대표이사(대표집행임원)변경(안내공시)"},
+            {"id": "m4", "team": "전력·에너지", "published": "2026-10-20", "source": "DART", "companies": ["HD현대일렉트릭"], "routine": False,
+             "tier": "공개 원자료 추적", "title": "HD현대일렉트릭 · 중대재해발생(종속회사의주요경영사항)"},
+            {"id": "m5", "team": "특허", "published": "2026-10-12", "source": "KIPRIS 공개특허", "companies": ["기아"], "routine": False,
+             "tier": "취재 단서·단독 미확정", "title": "고정자 냉각 장치 (기아, 현대자동차)"},
+        ]}
+        rows = {r["id"]: r for r in s.select(clues, {}, now=NOW)}
+        self.assertEqual(set(rows), {"clue:m4", "clue:m5"})
+        accident = rows["clue:m4"]
+        self.assertEqual(s.queries(accident), ["HD현대일렉트릭 중대재해"])
+        art = {"title": "HD현대일렉트릭 자회사 공장서 사망 사고", "text": "", "url": "a", "date": "2026-10-20"}
+        self.assertEqual(s.judge(accident, channels([art]), now=NOW)[0], "관련 보도 있음")
+        patent = rows["clue:m5"]
+        self.assertEqual(patent["kind"], "특허")
+        self.assertIn("단독이 아니다", patent["note"])
+        self.assertEqual(patent["strength"], 0.5)
+
     def test_particles_and_stopwords(self):
         self.assertEqual(s.terms_from("두산에너빌리티 압력용기의 내외부를 이를", "두산에너빌리티"), ["압력용기", "내외부"])
 
