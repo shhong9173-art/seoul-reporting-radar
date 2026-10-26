@@ -1,0 +1,221 @@
+"""Trade remedy watch: TARIC quota parsing (real 2026-10 page layout), Korea-only vs shared quotas, first run vs later runs,
+Federal Register title/body filtering, foreign listing diffs, failures kept as failures."""
+import datetime as dt
+import sys
+import unittest
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+import trade_remedy_watch as w  # noqa: E402
+
+KST = dt.timezone(dt.timedelta(hours=9))
+NOW = dt.datetime(2026, 10, 27, 7, 0, tzinfo=KST)
+
+
+def detail_html(order, start, end, origins, initial, balance, exhausted="", awaiting="0", codes=("7210 70 80 00", "7212 40 80 00"), critical="Yes"):
+    # Same field order and labels as quota_tariff_details.jsp on 2026-10-26.
+    origin = "<br>".join(origins)
+    rows = [("Order number", order), ("Validity period", f"{start} -  {end}"), ("Origin", origin),
+            ("Initial amount", f"{initial}  Kilogram"), ("Amount", f"{initial}  Kilogram"), ("Balance", f"{balance}  Kilogram"),
+            ("Transferred Amount", ""), ("Closed for drawing requests", "No"), ("Exhaustion date", exhausted), ("Critical", critical),
+            ("Last import date", exhausted), ("Last allocation date", "19-10-2026"),
+            ("Total awaiting allocation ( indicative )", awaiting), ("Blocking period", ""), ("Suspension period", ""),
+            ("Allocated percentage at the last allocation", "0"), ("Associated TARIC code", "<br>".join(codes))]
+    body = "".join(f"<tr><td>{k}</td><td>{v}</td></tr>" for k, v in rows)
+    return (f"<html><body><div>Tariff quota details | Last TARIC update: 23-10-2026</div><table>{body}</table>"
+            f"<div>Top Taxation and Custom Union Contact us</div></body></html>")
+
+
+def list_html(rows):
+    head = "<tr><th>Order number</th><th>Origins</th><th>Start date</th><th>End date</th><th>Balance</th></tr>"
+    body = "".join(f"<tr><td>{o}</td><td>{origin}</td><td>{s}</td><td>{e}</td><td>{b}<br>Kilogram</td><td><a href='#'>[More info]</a></td></tr>"
+                   for o, origin, s, e, b in rows)
+    return f"<html><body><table>{head}{body}</table></body></html>"
+
+
+KR_ONLY = ["European Union", "Korea, Republic of (South Korea)"]
+SHARED = ["European Union", "India", "Korea, Republic of (South Korea)", "Türkiye", "United Kingdom"]
+DETAILS = {
+    ("099843", "2026-10-01"): detail_html("099843", "01-10-2026", "31-12-2026", KR_ONLY, "41828130", "0", "10-10-2026"),
+    ("099843", "2026-07-01"): detail_html("099843", "01-07-2026", "30-09-2026", KR_ONLY, "41828130", "0", "25-07-2026"),
+    ("099854", "2026-10-01"): detail_html("099854", "01-10-2026", "31-12-2026", KR_ONLY, "136000000", "34153885", codes=("7208 51 20 00",), critical="No"),
+    ("099854", "2026-07-01"): detail_html("099854", "01-07-2026", "30-09-2026", KR_ONLY, "136000000", "0", "02-09-2026"),
+    ("099507", "2026-10-01"): detail_html("099507", "01-10-2026", "31-12-2026", SHARED, "12575710", "0", "16-10-2026", awaiting="289370", critical="No"),
+    ("099507", "2026-07-01"): detail_html("099507", "01-07-2026", "30-09-2026", SHARED, "12575710", "0", "20-07-2026", critical="No"),
+}
+LIST = list_html([("098827", "Korea, Republic of (South Korea)", "01-04-2026", "30-06-2026", "0"),
+                  ("099507", "Multiple origins", "01-10-2026", "31-12-2026", "0"),
+                  ("099507", "Multiple origins", "01-07-2026", "30-09-2026", "0"),
+                  ("099843", "Multiple origins", "01-10-2026", "31-12-2026", "0"),
+                  ("099854", "Multiple origins", "01-10-2026", "31-12-2026", "34153885")])
+FR_JSON = {"count": 4, "results": [
+    {"title": "Certain Corrosion-Resistant Steel Products From the Republic of Korea: Preliminary Results and Rescission, in Part, of Antidumping Duty Administrative Review; 2024-2025",
+     "publication_date": "2026-10-08", "html_url": "https://www.federalregister.gov/d/2026-20698", "document_number": "2026-20698",
+     "agencies": [{"name": "International Trade Administration"}], "raw_text_url": "https://www.federalregister.gov/full_text/2026-20698.txt"},
+    {"title": "Heavy-Walled Rectangular Welded Carbon Steel Pipes and Tubes From Mexico: Initiation and Expedited Preliminary Results of Changed Circumstances Review",
+     "publication_date": "2026-10-26", "html_url": "https://www.federalregister.gov/d/2026-21790", "document_number": "2026-21790",
+     "agencies": [{"name": "International Trade Administration"}], "raw_text_url": "https://www.federalregister.gov/full_text/2026-21790.txt"},
+    {"title": "Initiation of Antidumping and Countervailing Duty Administrative Reviews", "publication_date": "2026-10-01",
+     "html_url": "https://www.federalregister.gov/d/2026-20160", "document_number": "2026-20160",
+     "agencies": [{"name": "International Trade Administration"}], "raw_text_url": "https://www.federalregister.gov/full_text/2026-20160.txt"},
+    {"title": "Initiation of Five-Year (Sunset) Reviews", "publication_date": "2026-10-01",
+     "html_url": "https://www.federalregister.gov/d/2026-20161", "document_number": "2026-20161",
+     "agencies": [{"name": "International Trade Administration"}], "raw_text_url": "https://www.federalregister.gov/full_text/2026-20161.txt"},
+]}
+BODIES = {
+    "2026-20698": "<pre>Producer or exporter    Weighted-average\nHyundai Steel Company ........ 1.12\nDongkuk CM Co., Ltd. ........ 0.84\nPOSCO International Corporation ... 2.10\n</pre>",
+    "2026-20160": "<pre>Republic of Korea: Certain Hot-Rolled Steel Flat Products, A-580-883\nPOSCO\nHyundai Steel Company\n</pre>",
+    "2026-20161": "<pre>Brass Rod From Japan, A-588-..\nno beat company here\n</pre>",
+}
+AU_OLD = "<html><body><table><tr><td><a href='/adn/2026-090'>ADN 2026/090 Steel rod from Korea - initiation</a></td></tr></table></body></html>"
+AU_NEW = ("<html><body><table><tr><td><a href='/adn/2026/101'>ADN 2026/101 Zinc coated steel from China, Korea and Taiwan - initiation</a></td></tr>"
+          "<tr><td><a href='/adn/2026-090'>ADN 2026/090 Steel rod from Korea - initiation</a></td></tr></table></body></html>")
+PAGES = [{"id": "au-adn", "country": "호주", "label": "호주 반덤핑위원회 공지(ADN)", "url": "https://www.industry.gov.au/anti-dumping-commission/anti-dumping-notices-adns"}]
+
+
+class R:
+    def __init__(self, code=200, text="", body=None):
+        self.status_code, self.text, self.body = code, text, body
+
+    def json(self):
+        return self.body
+
+
+def fake(au=AU_NEW, taric_down=False, fr_down=False, calls=None):
+    def get(url, params=None, headers=None, timeout=None):
+        if calls is not None:
+            calls.append((url, dict(params) if isinstance(params, dict) else params))
+        if "quota_list.jsp" in url:
+            if taric_down:
+                return R(503)
+            return R(text=LIST if params["Origin"] == "KR" and params["Offset"] == 0 else list_html([]))
+        if "quota_tariff_details.jsp" in url:
+            if taric_down:
+                return R(503)
+            key = (params["Code"], params["StartDate"])
+            return R(text=DETAILS[key]) if key in DETAILS else R(text="<html>No data</html>")
+        if url == w.FR_API:
+            return R(500) if fr_down else R(body=FR_JSON)
+        if "full_text" in url:
+            doc = url.rsplit("/", 1)[1].replace(".txt", "")
+            return R(text=BODIES.get(doc, "<pre>nothing</pre>"))
+        if "industry.gov.au" in url:
+            return R(text=au)
+        return R(404)
+    return get
+
+
+def run(previous=None, now=NOW, **k):
+    cfg = {"pages": PAGES, "taricSeeds": ["099843", "099854", "099507"]}
+    return w.run(cfg, now=now, previous=previous, get=fake(**k), sleep=lambda s: None)
+
+
+class Taric(unittest.TestCase):
+    def test_parses_real_detail_layout(self):
+        d = w.parse_quota_detail(DETAILS[("099507", "2026-10-01")])
+        self.assertEqual(d["initialT"], 12575.7)
+        self.assertEqual(d["balanceT"], 0.0)
+        self.assertEqual(d["usedPct"], 100.0)
+        self.assertEqual(d["exhaustedOn"], "2026-10-16")
+        self.assertEqual(d["awaitingT"], 289.4)
+        self.assertEqual(d["scope"], "공동(한국 포함)")
+        self.assertEqual(d["product"], "컬러강판(유기코팅)")
+        self.assertEqual((d["periodStart"], d["periodEnd"]), ("2026-10-01", "2026-12-31"))
+        kr = w.parse_quota_detail(DETAILS[("099843", "2026-10-01")])
+        self.assertEqual(kr["scope"], "한국 전용")
+        self.assertTrue(kr["critical"])
+        plate = w.parse_quota_detail(DETAILS[("099854", "2026-10-01")])
+        self.assertEqual(plate["product"], "후판")
+        self.assertIsNone(plate["exhaustedOn"])
+        self.assertEqual(plate["usedPct"], 74.9)
+        self.assertIsNone(w.parse_quota_detail("<html>No data</html>"))
+
+    def test_discovers_current_quarter_orders_only(self):
+        orders, errors, pages = w.taric_orders(2026, dt.date(2026, 10, 1), get=fake(), sleep=lambda s: None)
+        self.assertEqual(orders, ["099507", "099843", "099854"])  # 098827 (old safeguard, Q2) left out
+        self.assertEqual(errors, [])
+        self.assertEqual(pages, 1)
+
+    def test_first_run_has_no_new_exhaustion_events_but_shows_quarter_comparison(self):
+        doc = run()
+        q = {x["order"]: x for x in doc["quotas"]}
+        self.assertEqual(doc["quarter"], "2026-10-01")
+        self.assertIn("[소진 2026-10-10 · 분기 10일째]", q["099843"]["tags"])
+        self.assertEqual(q["099843"]["lastQuarter"]["daysToExhaust"], 24)
+        self.assertIn("[직전 분기보다 15일 빨리 소진]", q["099843"]["tags"])
+        self.assertIn("[배정 대기 289.4t]", q["099507"]["tags"])
+        self.assertEqual(q["099854"]["tags"], [])
+        self.assertFalse(any(e["pageId"] == "taric" for e in doc["events"]))  # first sight is not "newly exhausted"
+        self.assertEqual(doc["quotaHistory"]["099854"]["2026-07-01"]["exhaustedOn"], "2026-09-02")
+
+    def test_later_run_flags_newly_exhausted_and_reuses_last_quarter(self):
+        first = run()
+        first["quotas"] = [dict(x, exhaustedOn=None, usedPct=50.0) if x["order"] == "099843" else x for x in first["quotas"]]
+        calls = []
+        cfg = {"pages": PAGES, "taricSeeds": ["099843", "099854", "099507"]}
+        doc = w.run(cfg, now=NOW + dt.timedelta(days=1), previous=first, get=fake(calls=calls), sleep=lambda s: None)
+        ev = [e for e in doc["events"] if e["pageId"] == "taric"]
+        self.assertEqual([e["id"] for e in ev], ["taric:099843:2026-10-01"])
+        self.assertIn("한국 전용", ev[0]["label"])
+        q = {x["order"]: x for x in doc["quotas"]}
+        self.assertIn("[직전 확인 대비 +50.0%p]", q["099843"]["tags"])
+        last_q_calls = [c for c in calls if "quota_tariff_details" in c[0] and c[1]["StartDate"] == "2026-07-01"]
+        self.assertEqual(last_q_calls, [])  # last quarter is final and cached
+
+    def test_taric_down_keeps_last_quotas_marked_stale(self):
+        first = run()
+        doc = run(previous=first, taric_down=True)
+        c = doc["checks"][0]
+        self.assertEqual(c["status"], "failed")
+        self.assertTrue(all(q.get("stale") for q in doc["quotas"]))
+        self.assertEqual(doc["status"], "partial")
+
+
+class FederalRegister(unittest.TestCase):
+    def test_title_or_named_omnibus_only_and_company_lines(self):
+        doc = run()
+        fr = {x["id"]: x for x in doc["federalRegister"]}
+        self.assertNotIn("fr:2026-21790", fr)  # Mexico case, Korea only in body
+        self.assertNotIn("fr:2026-20161", fr)  # omnibus without a beat company
+        crs = fr["fr:2026-20698"]
+        self.assertEqual(crs["stage"], "예비 판정")
+        names = {n["company"]: n for n in crs["named"]}
+        self.assertEqual(set(names), {"현대제철", "동국씨엠"})  # POSCO International is not 포스코
+        self.assertIn("Hyundai Steel Company ........ 1.12", names["현대제철"]["lines"])
+        self.assertEqual({n["company"] for n in fr["fr:2026-20160"]["named"]}, {"포스코", "현대제철"})
+        self.assertFalse(any(x["isNew"] for x in doc["federalRegister"]))  # first run
+
+    def test_failure_keeps_previous_list(self):
+        first = run()
+        doc = run(previous=first, fr_down=True)
+        c = next(c for c in doc["checks"] if c["source"] == "미국 관보")
+        self.assertEqual(c["status"], "failed")
+        self.assertEqual(len(doc["federalRegister"]), len(first["federalRegister"]))
+
+
+class ForeignPages(unittest.TestCase):
+    def test_new_korea_line_is_an_event_with_absolute_link(self):
+        first = run(au=AU_OLD)
+        self.assertEqual([e for e in first["events"] if e["pageId"] == "au-adn"], [])
+        doc = run(previous=first, au=AU_NEW, now=NOW + dt.timedelta(days=1))
+        ev = [e for e in doc["events"] if e["pageId"] == "au-adn"]
+        self.assertEqual(len(ev), 1)
+        self.assertIn("Zinc coated steel from China, Korea", ev[0]["text"])
+        self.assertEqual(ev[0]["url"], "https://www.industry.gov.au/adn/2026/101")
+        again = run(previous=doc, au=AU_NEW, now=NOW + dt.timedelta(days=2))
+        self.assertEqual(len([e for e in again["events"] if e["pageId"] == "au-adn"]), 1)
+
+    def test_blocked_page_is_failed_and_keeps_lines(self):
+        first = run(au=AU_OLD)
+        cfg = {"pages": PAGES, "taricSeeds": []}
+        def get(url, **k):
+            return R(403) if "industry.gov.au" in url else fake()(url, **k)
+        doc = w.run(cfg, now=NOW, previous=first, get=get, sleep=lambda s: None)
+        page = doc["pages"][0]
+        self.assertEqual((page["status"], page["error"]), ("failed", "HTTP 403"))
+        self.assertTrue(page["lines"])
+        self.assertEqual(doc["status"], "partial")
+
+
+if __name__ == "__main__":
+    unittest.main()
