@@ -58,7 +58,7 @@ export const TOOLS = [
     inputSchema: obj({ days: int('최근 N일(기본 7, 최대 120)', 1, 120), q: str('기업·낱말'), team: str('팀'),
       limit: int('줄 수', 1, 200) }) },
   { name: 'governance_changes', access: 'public', handler: governance,
-    description: '출입처 지분·지배구조 공시(5% 대량보유·임원/주요주주 소유보고) 최근 N일. 지분율 변동·보유목적·경영권 관련 사유 표시, 기관 약식 보고는 숨김. 고려아연·영풍, LS, 포스코 등 지배구조 취재의 출발점.',
+    description: '출입처 지분·지배구조 공시(5% 대량보유·임원/주요주주 소유보고) 최근 N일. 지분율 변동·공시 사유 낱말(담보·계약·특수관계 등)·최고경영진 매매·같은 날 임원 집단 보고를 표시하고, 기관의 단순 보고와 소액 임원 보고는 숨김(include_routine=true로 전체). 고려아연·영풍, LS, 포스코 등 지배구조 취재의 출발점.',
     inputSchema: obj({ company: str('기업·보고자 낱말'), team: str('팀'), days: int('최근 N일(기본 14, 최대 30)', 1, 30),
       include_routine: bool('기관 약식·단순 보고까지'), limit: int('줄 수', 1, 100) }) },
   { name: 'radar_health', access: 'public', handler: health,

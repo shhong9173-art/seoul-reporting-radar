@@ -74,6 +74,7 @@ class Governance(unittest.TestCase):
         self.assertEqual(r["items"][-1]["reporter"], "국민연금공단")
         young = next(x for x in r["items"] if x["reporter"] == "영풍")
         self.assertIn("[지분율 -1.45%p]", young["tags"])
+        self.assertIn("[사유: 처분]", young["tags"])
         self.assertEqual(young["sharesChange"], -300000)
         insider = next(x for x in r["items"] if x["kind"] == "임원·주요주주")
         self.assertEqual(insider["date"], "2026-10-22")
@@ -94,6 +95,63 @@ class Governance(unittest.TestCase):
         codes, missing = g.resolve_codes(["태광", "동성케미칼"], {"companies": {}},
                                          {"태광": [["00123456", "023160"]], "동성케미칼": [["1", ""], ["2", ""]]})
         self.assertEqual(codes, {"태광": "00123456"})
+        self.assertEqual(missing, ["동성케미칼"])
+
+    def test_same_day_insider_reports_become_one_group_and_small_moves_are_routine(self):
+        rows = [{"rcept_no": f"2026102300{i:04d}", "rcept_dt": "20261023", "repror": f"임원{i}",
+                 "isu_exctv_rgist_at": "비등기임원", "isu_exctv_ofcps": "상무보", "isu_main_shrholdr": "-",
+                 "sp_stock_lmp_cnt": "5,450", "sp_stock_lmp_irds_cnt": "5,000", "sp_stock_lmp_rate": "0.01",
+                 "sp_stock_lmp_irds_rate": "0.01"} for i in range(6)]
+        rows.append({"rcept_no": "20261023009999", "rcept_dt": "20261023", "repror": "회장님", "isu_exctv_rgist_at": "비등기임원",
+                     "isu_exctv_ofcps": "회장", "isu_main_shrholdr": "-", "sp_stock_lmp_cnt": "250,450",
+                     "sp_stock_lmp_irds_cnt": "50,000", "sp_stock_lmp_rate": "0.25", "sp_stock_lmp_irds_rate": "0.05"})
+        rows.append({"rcept_no": "20261006000001", "rcept_dt": "20261006", "repror": "국민연금공단", "isu_exctv_rgist_at": "-",
+                     "isu_exctv_ofcps": "-", "isu_main_shrholdr": "10%이상주주", "sp_stock_lmp_cnt": "4,195,210",
+                     "sp_stock_lmp_irds_cnt": "271,655", "sp_stock_lmp_rate": "13.0", "sp_stock_lmp_irds_rate": "0.87"})
+        rows.append({"rcept_no": "20261002000002", "rcept_dt": "20261002", "repror": "모회사", "isu_exctv_rgist_at": "-",
+                     "isu_exctv_ofcps": "-", "isu_main_shrholdr": "10%이상주주", "sp_stock_lmp_cnt": "12,756,533",
+                     "sp_stock_lmp_irds_cnt": "-1,623", "sp_stock_lmp_rate": "35.4", "sp_stock_lmp_irds_rate": "-0.00"})
+        r = self.build({("elestock.json", "00145880"): {"status": "000", "list": rows}})
+        group = [x for x in r["items"] if x["kind"] == "임원 집단 보고"]
+        self.assertEqual(len(group), 1)
+        self.assertEqual(group[0]["reporter"], "임원·주요주주 7명")
+        self.assertEqual(group[0]["sharesChange"], 80000)
+        self.assertFalse(group[0]["routine"])
+        self.assertEqual(len(group[0]["members"]), 7)
+        by = {x["reporter"]: x for x in r["items"]}
+        self.assertTrue(by["임원0"]["routine"])  # kept, behind the group line
+        self.assertIn("[최고경영진]", by["회장님"]["tags"])
+        self.assertTrue(by["국민연금공단"]["routine"])  # institution below 1%p
+        self.assertTrue(by["모회사"]["routine"])  # rounds to 0.00%p
+        flagged = [x["reporter"] for x in r["items"] if not x["routine"]]
+        self.assertEqual(set(flagged), {"임원·주요주주 7명", "회장님"})
+
+    def test_institution_stake_reports_flag_only_control_reasons(self):
+        rows = [
+            {"rcept_no": "20261002000010", "rcept_dt": "2026-10-02", "repror": "국민연금공단", "report_tp": "일반",
+             "stkrt": "8.1", "stkrt_irds": "1.05", "report_resn": "단순추가취득/처분"},
+            {"rcept_no": "20261002000011", "rcept_dt": "2026-10-02", "repror": "국민연금공단", "report_tp": "일반",
+             "stkrt": "9.1", "stkrt_irds": "0.10", "report_resn": "보유목적 변경(단순투자→일반투자)"},
+            {"rcept_no": "20261001000012", "rcept_dt": "2026-10-01", "repror": "두산", "report_tp": "일반",
+             "stkrt": "30.4", "stkrt_irds": "0.00", "report_resn": "계약 내용의 변경"},
+            {"rcept_no": "20261002000013", "rcept_dt": "2026-10-02", "repror": "기아", "report_tp": "일반",
+             "stkrt": "19.4", "stkrt_irds": "0.00", "report_resn": "장내매수"},
+        ]
+        r = self.build({("majorstock.json", "00145880"): {"status": "000", "list": rows}})
+        by = {x["receiptNo"]: x for x in r["items"]}
+        self.assertTrue(by["20261002000010"]["routine"])
+        self.assertEqual(by["20261002000010"]["tags"], [])
+        self.assertFalse(by["20261002000011"]["routine"])
+        self.assertIn("[사유: 계약]", by["20261001000012"]["tags"])
+        self.assertIn("[사유: 보유목적]", by["20261002000011"]["tags"])
+        self.assertEqual(by["20261002000013"]["tags"], [])
+        self.assertFalse(by["20261002000013"]["routine"])  # controlling-group move stays visible
+
+    def test_beat_name_tries_exact_dart_spelling_only(self):
+        codes, missing = g.resolve_codes(["동성케미칼"], {"companies": {}}, {"동성케미컬": [["00999999", "102260"]]})
+        self.assertEqual(codes["동성케미칼"], "00999999")
+        self.assertEqual(codes["_spellings"], {"동성케미칼": "동성케미컬"})
+        codes, missing = g.resolve_codes(["동성케미칼"], {"companies": {}}, {"동성케미칼홀딩스": [["1", "2"]]})
         self.assertEqual(missing, ["동성케미칼"])
 
     def test_numbers_and_dates_parse_safely(self):
