@@ -1,6 +1,6 @@
 // Streamable-HTTP MCP endpoint (JSON responses, no SSE) for the radar.
 import { safeEqual, textResult } from './common.mjs';
-import { bigPicture, clues, dandok, health, stats } from './radar_tools.mjs';
+import { bigPicture, clues, dandok, governance, health, stats } from './radar_tools.mjs';
 import { dartFilings, dartFindText, g2bBids, newsCheck, sourceDocument } from './live_tools.mjs';
 import { candidateFeedback, candidateSubmit, packageSave, scoopPackages, weeklyReview, PACKAGE_STATES } from './store.mjs';
 import { POLICY, checkCandidate, formatCheck } from './scoring.mjs';
@@ -9,7 +9,7 @@ export const SUPPORTED_VERSIONS = ['2025-06-18', '2025-03-26', '2024-11-05'];
 const SERVER_INFO = { name: 'seoul-reporting-radar', title: '산업부 취재 레이더', version: '1.0.0' };
 const INSTRUCTIONS = [
   '산업부(자동차·철강·전력기기·에너지·화학) 취재 레이더. 기자는 홍성효.',
-  '순서: radar_big_picture → radar_clues(days=3) → radar_stats → dandok_monitor → scoop_packages(기자 전용).',
+  '순서: radar_big_picture → radar_clues(days=3) → radar_stats → governance_changes → dandok_monitor → scoop_packages(기자 전용).',
   '후보마다: source_document 또는 dart_find_text로 원문 확인 → news_check로 보도 대조(낱말 바꿔 2~3번, 한 번에 하나씩) → candidate_check.',
   '조회 실패·미설정·일부 성공은 0건이 아니라 미확인. 색인 0건은 미보도 증거가 아님. 단계(공개 원자료 추적/취재 단서·단독 미확정/단독 후보)를 올리지 않음.',
   '최종 단독 판단은 기자가 한다. 관계자 발언을 만들지 않는다.',
@@ -57,6 +57,10 @@ export const TOOLS = [
     description: '최근 온라인 [단독] 기사(출입처 관련, 제목 색인). 남이 쓴 걸 새것처럼 내지 않으려고 본다.',
     inputSchema: obj({ days: int('최근 N일(기본 7, 최대 120)', 1, 120), q: str('기업·낱말'), team: str('팀'),
       limit: int('줄 수', 1, 200) }) },
+  { name: 'governance_changes', access: 'public', handler: governance,
+    description: '출입처 지분·지배구조 공시(5% 대량보유·임원/주요주주 소유보고) 최근 N일. 지분율 변동·보유목적·경영권 관련 사유 표시, 기관 약식 보고는 숨김. 고려아연·영풍, LS, 포스코 등 지배구조 취재의 출발점.',
+    inputSchema: obj({ company: str('기업·보고자 낱말'), team: str('팀'), days: int('최근 N일(기본 14, 최대 30)', 1, 30),
+      include_routine: bool('기관 약식·단순 보고까지'), limit: int('줄 수', 1, 100) }) },
   { name: 'radar_health', access: 'public', handler: health,
     description: '원천별 수집 상태. 실패·미연결·오래된 원천에서 나온 0건은 미확인으로 적어야 한다.',
     inputSchema: obj({}) },

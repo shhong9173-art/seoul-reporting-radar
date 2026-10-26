@@ -132,3 +132,38 @@ export async function health(ctx) {
   }
   return textResult(out.join('\n'));
 }
+
+export async function governance(ctx, args) {
+  let v;
+  try { v = await fetchJson(ctx, 'digests/governance_latest.json'); } catch {
+    return textResult('지분공시 수집 결과가 아직 없음(수집 전 또는 실패) — 0건이 아니라 미확인.', true);
+  }
+  const days = clampInt(args.days, 1, 30, 14);
+  const limit = clampInt(args.limit, 1, 100, 30);
+  const from = kstDate(ctx.now, days);
+  const teams = teamsFromParam(args.team);
+  const includeRoutine = args.include_routine === true || args.include_routine === 'true';
+  let hidden = 0;
+  const rows = (v.items ?? []).filter((x) => {
+    if (x.date < from || (teams.size && !teams.has(x.team))) return false;
+    if (!matchesQuery(args.company ?? args.q, x.company, x.reporter, x.role, x.reason)) return false;
+    if (x.routine && !includeRoutine) { hidden++; return false; }
+    return true;
+  });
+  const failed = (v.checks ?? []).filter((c) => c.status === 'failed');
+  const out = [`지분·지배구조 공시 · 최근 ${days}일 · ${rows.length}건${hidden ? ` (기관 약식·단순 보고 ${hidden}건 숨김: include_routine=true)` : ''}`,
+    `수집 ${String(v.generatedAt ?? '').slice(0, 16)} · 상태 ${v.status}` +
+      (failed.length ? ` · 조회 실패 ${[...new Set(failed.map((c) => c.company))].join('·')}(0건 아님)` : '') +
+      ((v.unresolvedCompanies ?? []).length ? ` · 고유번호 미해결 ${v.unresolvedCompanies.join('·')}` : ''),
+    '규칙: 공개 공시이며 지분 변동 자체는 단독이 아님. 보고자 관계는 원문에 적힌 것만.'];
+  for (const x of rows.slice(0, limit)) {
+    const delta = typeof x.ratioChange === 'number' ? ` ${x.ratioChange > 0 ? '+' : ''}${x.ratioChange}%p` : '';
+    const ratio = typeof x.ratio === 'number' ? ` → ${x.ratio}%` : '';
+    out.push(`${x.date} | ${x.company} | ${x.kind} | ${x.reporter}${x.role ? `(${x.role})` : ''}${delta}${ratio} ${(x.tags ?? []).join('')}`);
+    if (x.reason) out.push(`   사유: ${x.reason}`);
+    if (x.url) out.push(`   ${x.url}`);
+  }
+  if (rows.length > limit) out.push(`… 남은 ${rows.length - limit}건`);
+  if (!rows.length) out.push('조건에 맞는 보고 없음(위 조회 실패·미해결 회사는 미확인).');
+  return textResult(out.join('\n'));
+}

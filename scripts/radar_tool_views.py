@@ -399,6 +399,25 @@ def from_overseas(data):
     return out
 
 
+def from_governance(data):
+    out = []
+    for x in (data or {}).get("items", []) or []:
+        if not isinstance(x, dict) or not x.get("receiptNo"):
+            continue
+        companies = beats_in("", x.get("company"))
+        change = x.get("ratioChange")
+        delta = f" {change:+.2f}%p" if isinstance(change, (int, float)) else ""
+        who = x.get("reporter") or ""
+        role = f"({x['role']})" if x.get("role") else ""
+        row = clue(kind=None, source="DART 지분공시", title=f"{x.get('company')} · {x.get('kind')} · {who}{role}{delta}",
+                   url=x.get("url"), published=x.get("date"), companies=companies, tier=TIER_PUBLIC,
+                   signal="governance", receipt=x.get("receiptNo"),
+                   note=" ".join(x.get("tags") or []) + (f" 사유: {x['reason']}" if x.get("reason") else ""))
+        row["routine"] = row["routine"] or bool(x.get("routine"))
+        out.append(row)
+    return out
+
+
 ADAPTERS = (
     ("scoop.json", from_scoop),
     ("pre_scoop.json", from_pre_scoop),
@@ -413,6 +432,7 @@ ADAPTERS = (
     ("digests/g2b_tender_latest.json", from_g2b),
     ("digests/federal_register_evidence_latest.json", from_federal_register),
     ("digests/overseas_official_latest.json", from_overseas),
+    ("digests/governance_latest.json", from_governance),
 )
 TIER_RANK = {TIER_CANDIDATE: 3, TIER_LEAD: 2, TIER_PUBLIC: 1}
 
@@ -793,6 +813,7 @@ HEALTH_FILES = (
     ("계약 공시 원장", "digests/recent_contracts_latest.json", 48),
     ("관세청 10일 잠정치", "digests/customs_tenday_latest.json", 24 * 12),
     ("특허 파이프라인", "digests/patent_run_health_latest.json", 72),
+    ("지분공시(대량보유·임원 소유)", "digests/governance_latest.json", 96),
 )
 
 
