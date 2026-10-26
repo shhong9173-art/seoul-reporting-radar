@@ -612,6 +612,64 @@ test('relay fetches only fixed trade-remedy hosts, only with the bearer token', 
   assert.equal(down.status, 504);
 });
 
+test('radar_today merges the private watches, ranks new items and lists failed or stale watches first', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const post = async (feed, doc) => assert.equal((await worker.fetch(new Request(ORIGIN + `/ingest/${feed}`, { method: 'POST',
+    headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
+  // NOW is Monday 2026-10-26 09:00 KST, so the default window is 72 hours (from 2026-10-23 09:00 KST).
+  const base = '2026-10-20T21:00:00+09:00';
+  await post('scoop-screen', { schema: 'scoop_screen/v1', generatedAt: '2026-10-26T07:10:00+09:00', counts: {},
+    candidates: [{ id: 's1', verdict: '미보도 후보', team: '철강', company: '현대제철', title: '현대제철 당진 설비 변경', kind: '공시', url: 'https://dart/1' },
+      { id: 's2', verdict: '미보도 후보', company: '포스코', title: '킬한 후보', url: 'https://dart/2' },
+      { id: 's3', verdict: '관련 보도 있음', company: '기아', title: '이미 난 기사' }] });
+  await post('kr-official', { schema: 'kr_official/v1', generatedAt: '2026-10-26T08:10:00+09:00', checks: [{ source: '공장등록 포스코', status: 'ok' }],
+    factories: [{ id: 'fac:9', company: 'HL만도', cmpnyNm: '에이치엘만도(주)', rnAdres: '경기도 성남시', registeredOn: '2026-10-24', employees: 5, indutyNm: '기타 반도체소자 제조업' }],
+    events: [{ id: 'fac:5:new', kind: '새 공장', company: '포스코', factoryId: 'fac:5', text: '(주)포스코 수소환원 공장 · 포항', detectedAt: '2026-10-25T08:10:00+09:00' }],
+    gazette: [{ id: 'gz:1', date: '2026-10-24', org: '국토교통부', teams: ['자동차'], title: '「자동차관리법 시행규칙」 입법예고', firstSeen: base, url: 'https://gwanbo.go.kr/a' },
+      { id: 'gz:0', date: '2026-10-10', org: '환경부', teams: ['화학'], title: '오래된 공고', firstSeen: base }] });
+  await post('trade-remedy', { schema: 'trade_remedy/v1', generatedAt: '2026-10-26T07:40:00+09:00', checks: [{ source: '호주 TRN', status: 'failed', error: 'HTTP 520' }],
+    quotas: [], events: [{ id: 'taric:099843:2026-10-01', pageId: 'taric', country: 'EU', label: 'EU 쿼터 099843 컬러강판(한국 전용) 소진', text: '[소진 2026-10-10]', url: 'https://ec.europa.eu/q', detectedAt: '2026-10-24T07:40:00+09:00' }],
+    federalRegister: [{ id: 'fr:old', date: '2026-09-10', stage: '최종 판정', title: '오래된 고시', firstSeen: base },
+      { id: 'fr:new', date: '2026-10-22', stage: '예비 판정', title: 'Certain Steel From Korea', firstSeen: '2026-10-25T07:40:00+09:00', named: [{ company: '현대제철' }], url: 'https://fr/new' }] });
+  await post('us-litigation', { schema: 'us_litigation/v1', generatedAt: '2026-10-26T07:50:00+09:00', checks: [],
+    cases: [{ id: 'cl:old', beat: ['포스코'], caseName: 'Old v. POSCO', category: '계약', priority: 1, dateFiled: '2026-09-29', firstSeen: base, role: '피고·기타 당사자' },
+      { id: 'cl:4', beat: ['세아제강'], caseName: 'SeAH Steel Corporation v. United States', court: 'CIT', category: '국제무역법원(무역구제 소송)', priority: 0, role: '원고', dateFiled: '2026-10-23', firstSeen: '2026-10-25T10:00:00+09:00', url: 'https://cl/4' },
+      { id: 'cl:9', beat: ['현대차'], caseName: 'Lee v. Hyundai Motor America', category: '소비자·제조물책임', priority: 3, role: '피고·기타 당사자', dateFiled: '2026-10-24', firstSeen: '2026-10-25T07:50:00+09:00' }], itc: [] });
+  await post('us-comments', { schema: 'us_comments/v1', generatedAt: '2026-10-22T08:20:00+09:00', checks: [], items: [] });
+  await post('page-watch', { schema: 'page_watch/v1', generatedAt: '2026-10-26T06:30:00+09:00', pages: [],
+    events: [{ pageId: 'site:hyundaiusa.com', scope: 'site', company: '현대차', label: '현대차 미국 사이트 공통', detectedAt: '2026-10-25T18:30:00+09:00', added: { timing: ['Coming 2027'] } }] });
+  await call('candidate_feedback', { item_id: 's2', verdict: '킬', reason: '이미 확인' }, opts);
+  const r = await call('radar_today', {}, opts);
+  assert.match(r.text, /최근 72시간\(월요일: 주말 포함\)/);
+  assert.match(r.text, /\[먼저 볼 것: 수집 상태\]/);
+  assert.match(r.text, /해외 파트너 공시: 결과 없음 — 미확인/);
+  assert.match(r.text, /미 연방 의견서: ⚠ \d+시간 전 결과/);
+  assert.match(r.text, /무역구제: 일부 실패 1건\(호주 TRN\)/);
+  const a = r.text.split('[A · ')[1].split('[B · ')[0];
+  assert.match(a, /현대제철 당진 설비 변경/);
+  assert.match(a, /새 공장: \(주\)포스코 수소환원 공장/);
+  assert.match(a, /공장 등록 에이치엘만도\(주\)/);
+  assert.match(a, /EU 쿼터 099843 컬러강판\(한국 전용\) 소진/);
+  assert.match(a, /국제무역법원\(무역구제 소송\) · 원고: CIT 「SeAH Steel Corporation v\. United States」/);
+  assert.doesNotMatch(a, /킬한 후보|Old v\. POSCO/);
+  const b = r.text.split('[B · ')[1].split('[C · ')[0];
+  assert.match(b, /관보 입법예고 국토교통부/);
+  assert.match(b, /미국 관보 예비 판정: Certain Steel From Korea — 본문에 현대제철/);
+  assert.doesNotMatch(r.text, /오래된 고시|오래된 공고/);
+  assert.match(r.text, /\[C · 참고\(접힘\)\] 3건/);
+  const narrowed = await call('radar_today', { hours: 24, company: '세아' }, opts);
+  assert.match(narrowed.text, /최근 24시간/);
+  assert.match(narrowed.text, /SeAH Steel Corporation/);
+  assert.doesNotMatch(narrowed.text, /현대제철 당진/);
+  const minor = await call('radar_today', { include_minor: true }, opts);
+  assert.match(minor.text, /Lee v\. Hyundai Motor America/);
+  const pub = await rpc('tools/call', { name: 'radar_today', arguments: {} });
+  assert.match(JSON.stringify(pub.body), /Unknown tool/);  // private path only
+  const empty = await call('radar_today', {}, PRIVATE());
+  assert.match(empty.text, /단독 후보 심사: 결과 없음 — 미확인/);
+});
+
 test('non-MCP paths keep the canonical Pages redirect', async () => {
   const r = await worker.fetch(new Request(ORIGIN + '/scoop.json?v=1'), {}, {});
   assert.equal(r.status, 307);
