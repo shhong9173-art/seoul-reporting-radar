@@ -52,6 +52,23 @@ class HeadlineIdentity(unittest.TestCase):
         ):
             self.assertFalse(obvious_sports_homonym(title),title)
 
+    def test_sponsored_golf_and_esports_names_are_not_auto_news(self):
+        # Real 2026-10-25 '완성차' feed rows.
+        for title in (
+            "김시우·신상훈, 제네시스 챔피언십 공동 4위…우승은 가쓰라가와 - 뉴시스",
+            "[2026 KPGA 투어-17차] 제네시스 챔피언십 최종 순위 - 골프타임즈",
+            "“KPGA 선수들 DP월드 투어 진출 확대할 것” - 서울경제",
+            "김시우-신상훈, 제네시스 챔피언십 공동 4위...유토, 우승상금 9억+제네시스 GV80하이브리드 - 글로벌이코노믹",
+            "[돌드컵] 젠지·디플러스 기아, LCK 내전 승리로 8강행 성큼…한화생명·T1도 반격 노린다 - 조선일보",
+        ):
+            self.assertTrue(obvious_sports_homonym(title), title)
+        for title in (
+            "제네시스, GV80 하이브리드 국내 출시",
+            "기아, 美 조지아 공장 하이브리드 생산 확대",
+            "제네시스 챔피언 모델 판매 1위",
+        ):
+            self.assertFalse(obvious_sports_homonym(title), title)
+
     def test_no_company_sports_not_misclassified_as_company_news(self):
         self.assertFalse(obvious_sports_homonym("프로야구 롯데 3연승"))
 
