@@ -61,12 +61,12 @@ STAGE = [("개시", r"initiation|institution of|commencement"), ("예비 판정"
          ("철회·종료", r"revocation|termination|rescission")]
 
 
-def get_text(url, *, params=None, get=None, headers=HEADERS):
+def get_text(url, *, params=None, get=None, headers=HEADERS, timeout=40):
     if get is None:
         import requests
         get = requests.get
     try:
-        r = get(url, params=params or {}, headers=headers, timeout=40)
+        r = get(url, params=params or {}, headers=headers, timeout=timeout)
     except Exception as e:
         return None, type(e).__name__
     if r.status_code != 200:
@@ -313,18 +313,36 @@ def federal_register(now, previous=None, *, get=None, sleep=time.sleep):
 
 # ---------- Foreign listing pages ----------
 
+LINE_PARSER = 2
+BLOCK_END = re.compile(r"(?i)<br\s*/?>|</(?:p|tr|li|div|h\d|dt|dd|td|th|summary|section|article)>")
+
+
 def korea_lines(raw):
-    """Anchors and table rows that mention Korea, with their links."""
+    """Lines that mention Korea — table rows, list items, headings, paragraphs, link texts — with the first link inside."""
+    raw = re.sub(r"(?is)<(script|style|noscript|nav|header|footer)[^>]*>.*?</\1>", " ", raw)
     out = {}
     for href, inner in re.findall(r"""(?is)<a[^>]+href=["']([^"']+)["'][^>]*>(.*?)</a>""", raw):
         t = plain(inner)
         if re.search(r"korea", t, re.I) and 8 <= len(t) <= 300:
             out.setdefault(t, href)
+    # rows first so a table row keeps its link; then any other block-level line
     for row in re.findall(r"(?is)<tr[^>]*>(.*?)</tr>", raw):
         t = plain(row)
         if re.search(r"korea", t, re.I) and 8 <= len(t) <= 400:
             m = re.search(r"""href=["']([^"']+)["']""", row)
             out.setdefault(t, m.group(1) if m else None)
+    prev_text = ""
+    for chunk in BLOCK_END.split(re.sub(r"(?is)<tr[^>]*>.*?</tr>", "\n", raw)):
+        t = plain(chunk)
+        if not t:
+            continue
+        if re.search(r"korea", t, re.I) and 8 <= len(t) <= 400:
+            # a bare country list ("China, South Korea and Vietnam") is keyed with the line before it (the case name)
+            key = f"{prev_text[:120]} — {t}" if len(t) < 60 and prev_text else t
+            if not any(key in k for k in out):  # already kept as a link or table row
+                m = re.search(r"""href=["']([^"']+)["']""", chunk)
+                out.setdefault(key, m.group(1) if m else None)
+        prev_text = t
     return out
 
 
@@ -332,17 +350,24 @@ def foreign_pages(pages, previous, now, *, get=None, sleep=time.sleep):
     prev = {p["id"]: p for p in (previous or {}).get("pages", []) if isinstance(p, dict)}
     out, events = [], []
     for p in pages:
-        raw, err = get_text(p["url"], get=get)
-        sleep(1.0)
         rec = {k: p[k] for k in ("id", "country", "label", "url")}
         old = prev.get(p["id"]) or {}
+        if p.get("disabled"):
+            out.append({**rec, "status": "disabled", "error": p["disabled"], "lines": old.get("lines", {})})
+            continue
+        raw, err = get_text(p["url"], get=get, timeout=60)
+        if err in ("ReadTimeout", "ConnectTimeout", "ConnectionError"):
+            sleep(5.0)
+            raw, err = get_text(p["url"], get=get, timeout=60)
+        sleep(1.0)
         if err:
-            rec.update(status="failed", error=err, lines=old.get("lines", {}))
+            rec.update(status="failed", error=err, lines=old.get("lines", {}), parser=old.get("parser"))
             out.append(rec)
             continue
         lines = dict(list(korea_lines(raw).items())[:200])
-        rec.update(status="ok", lines=lines, checkedAt=now.isoformat(timespec="seconds"))
-        if old.get("status") == "ok" or old.get("lines"):
+        rec.update(status="ok", lines=lines, checkedAt=now.isoformat(timespec="seconds"), parser=LINE_PARSER)
+        # a baseline taken by another version of the line reader is not compared (its keys differ)
+        if old.get("parser") == LINE_PARSER and (old.get("status") == "ok" or old.get("lines")):
             new = [t for t in lines if t not in (old.get("lines") or {})]
             for t in new:
                 href = urljoin(p["url"], lines[t]) if lines[t] else None
@@ -366,6 +391,8 @@ def run(cfg, *, now, previous=None, get=None, sleep=time.sleep):
                    **({"error": ferr} if ferr else {})})
     pages, page_events = foreign_pages(cfg.get("pages", []), previous, now, get=get, sleep=sleep)
     for p in pages:
+        if p["status"] == "disabled":
+            continue
         checks.append({"source": p["label"], "status": p["status"], "returned": len(p.get("lines") or {}),
                        **({"error": p["error"]} if p["status"] != "ok" else {})})
     prev_fr = {x["id"]: x for x in (previous or {}).get("federalRegister", []) if isinstance(x, dict)}

@@ -163,10 +163,12 @@ export async function tradeRemedies(ctx, args) {
   if (!section || section === 'notices') {
     const from = new Date(ctx.now.getTime() - days * 86400000).toISOString();
     const ev = (doc.events ?? []).filter((e) => new Date(e.detectedAt).toISOString() >= from && matches(q, e.label, e.text, e.country));
-    const pages = doc.pages ?? [];
+    const off = (doc.pages ?? []).filter((p) => p.status === 'disabled');
+    const pages = (doc.pages ?? []).filter((p) => p.status !== 'disabled');
     const failed = pages.filter((p) => p.status !== 'ok');
     out.push(`\n[해외 공고·쿼터 변화 · 최근 ${days}일] ${ev.length}건 · 공고 목록 ${pages.length - failed.length}/${pages.length} 열림`);
     if (failed.length) out.push(`미확인(변화 없음 아님): ${failed.map((p) => `${p.label}(${p.error})`).join(', ')}`);
+    if (off.length) out.push(`감시 안 함: ${off.map((p) => `${p.label}(${p.error})`).join(', ')}`);
     for (const e of ev.slice(0, limit)) {
       out.push(`- ${String(e.detectedAt).slice(0, 16)} · ${e.country} · ${e.label}`);
       out.push(`   잡힌 사실: ${e.text}`);
