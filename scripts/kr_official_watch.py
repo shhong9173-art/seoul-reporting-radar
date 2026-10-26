@@ -48,16 +48,19 @@ BEAT_MINISTRIES = re.compile(r"산업통상|기후에너지환경부|환경부|�
                              r"원자력안전위원회|중소벤처기업부|산업부")
 
 
-def call(url, params, *, get=None, sleep=time.sleep):
+def call(url, params, *, get=None, sleep=time.sleep, timeout=40):
     if get is None:
         import requests
         get = requests.get
     try:
-        r = get(url, params=params, headers=UA, timeout=40)
+        r = get(url, params=params, headers=UA, timeout=timeout)
     except Exception as e:
-        return None, type(e).__name__
-    finally:
         sleep(0.4)
+        if timeout < 60 and type(e).__name__ in ("ReadTimeout", "ConnectTimeout", "ConnectionError"):
+            sleep(5.0)
+            return call(url, params, get=get, sleep=sleep, timeout=60)  # one slower retry
+        return None, type(e).__name__
+    sleep(0.4)
     if r.status_code != 200:
         return None, f"HTTP {r.status_code}"
     return r.text, None
@@ -98,15 +101,24 @@ def emp(s):
         return None
 
 
+def rule_sig(c):
+    return "|".join([",".join(c["queries"]), c["accept"], c.get("industryAccept") or ""])
+
+
 def factories(cfg, key, now, previous, *, get=None, sleep=time.sleep):
     prev = {x["id"]: x for x in (previous or {}).get("factories", []) if isinstance(x, dict) and x.get("id")}
-    had_state = bool(prev)
+    # A company is compared with the previous run only when its name rules are unchanged; otherwise this run is its new baseline.
+    sigs = {c["company"]: rule_sig(c) for c in cfg["companies"]}
+    prev_sigs = (previous or {}).get("ruleSigs") or {}
+    comparable = {co for co, sig in sigs.items() if prev and prev_sigs.get(co) == sig}
     out, checks, events = {}, [], []
     stamp = now.isoformat(timespec="seconds")
     recent_from = (now.date() - dt.timedelta(days=RECENT_DAYS)).isoformat()
     complete_companies = set()
     for c in cfg["companies"]:
         accept = re.compile(c["accept"])
+        # common names (e.g. 태광산업) are shared by unrelated small firms: an industry rule narrows them
+        industry = re.compile(c["industryAccept"]) if c.get("industryAccept") else None
         kept = dropped = 0
         ok = True
         for q in c["queries"]:
@@ -132,12 +144,13 @@ def factories(cfg, key, now, previous, *, get=None, sleep=time.sleep):
                     break
                 for it in items:
                     got += 1
-                    if not it["fctryManageNo"] or not accept.search(norm(it["cmpnyNm"])):
+                    if not it["fctryManageNo"] or not accept.search(norm(it["cmpnyNm"])) or (
+                            industry and not industry.search(f"{it['indutyNm']} {it['mainProductCn']}")):
                         dropped += 1
                         continue
                     kept += 1
                     fid = f"fac:{it['fctryManageNo']}"
-                    out[fid] = {"id": fid, "company": c["company"], **it, "registeredOn": ymd(it["frstFctryRegistDe"]),
+                    out[fid] = {"id": fid, "company": c["company"], **it, **({"nameCheck": c["nameCheck"]} if c.get("nameCheck") else {}), "registeredOn": ymd(it["frstFctryRegistDe"]),
                                 "employees": emp(it["allEmplyCo"]), "firstSeen": prev.get(fid, {}).get("firstSeen") or stamp}
                 if got >= total or not items:
                     break
@@ -157,12 +170,12 @@ def factories(cfg, key, now, previous, *, get=None, sleep=time.sleep):
         if f.get("registeredOn") and f["registeredOn"] >= recent_from:
             tags.append(f"[최근 등록 {f['registeredOn']}]")
         if old is None:
-            if had_state:
+            if f["company"] in comparable:
                 tags.append("[새로 잡힌 공장]")
                 events.append({"id": f"{fid}:new", "kind": "새 공장", "company": f["company"], "factoryId": fid, "name": f["cmpnyNm"],
                                "text": f"{f['cmpnyNm']} · {f['rnAdres']} · 주생산품 {f['mainProductCn'] or '미기재'} · 등록 {f.get('registeredOn') or '미기재'}",
                                "detectedAt": stamp})
-        else:
+        elif f["company"] in comparable:
             changes = []
             oe, ne = old.get("employees"), f.get("employees")
             if oe is not None and ne is not None and oe != ne and abs(ne - oe) >= max(20, round(oe * 0.1)):
@@ -177,13 +190,13 @@ def factories(cfg, key, now, previous, *, get=None, sleep=time.sleep):
         f["tags"] = tags
     # factories that disappeared from a company whose queries all completed
     for fid, old in prev.items():
-        if fid not in out and old.get("company") in complete_companies:
+        if fid not in out and old.get("company") in complete_companies and old.get("company") in comparable:
             events.append({"id": f"{fid}:gone:{stamp[:10]}", "kind": "목록에서 빠짐", "company": old.get("company"), "factoryId": fid,
                            "name": old.get("cmpnyNm"), "text": f"{old.get('cmpnyNm')} · {old.get('rnAdres')} — 이번 조회 목록에 없음(폐업·이전·이름 변경 가능, 확인 필요)",
                            "detectedAt": stamp})
-        elif fid not in out:
+        elif fid not in out and old.get("company") not in complete_companies:
             out[fid] = dict(old, stale=True)  # query failed: keep the last record
-    return sorted(out.values(), key=lambda x: (x["company"], x.get("cmpnyNm") or "")), checks, events
+    return sorted(out.values(), key=lambda x: (x["company"], x.get("cmpnyNm") or "")), checks, events, sigs
 
 
 # ---------- 관보 입법예고 ----------
@@ -247,7 +260,7 @@ def gazette(key, now, previous, *, get=None, sleep=time.sleep):
 
 def run(cfg, key, *, now, previous=None, get=None, sleep=time.sleep):
     stamp = now.isoformat(timespec="seconds")
-    facs, checks, fac_events = factories(cfg, key, now, previous, get=get, sleep=sleep)
+    facs, checks, fac_events, sigs = factories(cfg, key, now, previous, get=get, sleep=sleep)
     gz, gcheck = gazette(key, now, previous, get=get, sleep=sleep)
     checks.append(gcheck)
     keep_from = (now - dt.timedelta(days=120)).isoformat()
@@ -257,7 +270,7 @@ def run(cfg, key, *, now, previous=None, get=None, sleep=time.sleep):
     events.sort(key=lambda e: e["detectedAt"], reverse=True)
     failed = [c for c in checks if c["status"] != "ok"]
     return {"schema": SCHEMA, "generatedAt": stamp, "status": "partial" if failed else "complete", "checks": checks,
-            "factories": facs, "gazette": gz, "events": events[:400],
+            "factories": facs, "ruleSigs": sigs, "gazette": gz, "events": events[:400],
             "rules": ["공장등록 정보는 지자체 등록 기준이다. 등록일·고용인원은 신고값이라 실제 가동·채용과 다를 수 있다.",
                       "회사명 검색은 이름 규칙으로 계열사를 거른다. 이름이 비슷한 다른 회사가 섞일 수 있으니 주소·대표자로 확인한다.",
                       "'목록에서 빠짐'은 폐업·이전·이름 변경·등록 정정일 수 있다. 지자체·회사 확인 전 폐쇄로 쓰지 않는다.",

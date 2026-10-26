@@ -244,11 +244,11 @@ export async function krOfficial(ctx, args) {
     out.push(`\n[최근 120일 등록 공장] ${recent.length}곳 (출입처 공장 전체 ${facs.length}곳${q ? ', 낱말 거름' : ''})`);
     for (const f of recent.slice(0, limit)) {
       out.push(`- ${f.registeredOn} · ${f.company} · ${f.cmpnyNm} · ${f.rnAdres}`);
-      out.push(`   주생산품 ${f.mainProductCn || '미기재'} · 업종 ${f.indutyNm || '미기재'} · 고용 ${f.employees ?? '미기재'}명${f.irsttNm ? ` · ${f.irsttNm}` : ''}`);
+      out.push(`   주생산품 ${f.mainProductCn || '미기재'} · 업종 ${f.indutyNm || '미기재'} · 고용 ${f.employees ?? '미기재'}명${f.irsttNm ? ` · ${f.irsttNm}` : ''}${f.nameCheck ? ` · ⚠ ${f.nameCheck}` : ''}`);
     }
     if (args.show_all === true || args.show_all === 'true') {
       out.push('\n[출입처 공장 목록]');
-      for (const f of facs.slice(0, 200)) out.push(`- ${f.company} · ${f.cmpnyNm} · ${f.rnAdres} · 고용 ${f.employees ?? '?'} · 등록 ${f.registeredOn ?? '?'}${f.stale ? ' · ⚠ 이번 조회 실패, 직전 값' : ''}`);
+      for (const f of facs.slice(0, 200)) out.push(`- ${f.company} · ${f.cmpnyNm} · ${f.rnAdres} · 고용 ${f.employees ?? '?'} · 등록 ${f.registeredOn ?? '?'}${f.stale ? ' · ⚠ 이번 조회 실패, 직전 값' : ''}${f.nameCheck ? ` · ⚠ ${f.nameCheck}` : ''}`);
     }
     out.push('   검증 상태: 지자체 공장등록 신고값(자동). 가동·투자 규모는 회사·지자체 확인 필요');
   }
