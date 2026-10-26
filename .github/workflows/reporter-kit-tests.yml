@@ -8,6 +8,16 @@ on:
       - 'watchlist.txt'
       - 'morning.html'
       - 'tests/test_reporter_kit.py'
+      - 'tests/test_scoop_screen.py'
+      - 'tests/test_naver_api.py'
+      - 'tests/test_private_store.py'
+      - 'tests/test_us_comments_watch.py'
+      - 'tests/test_page_watch.py'
+      - 'tests/test_partner_watch.py'
+      - 'tests/test_earnings_compare.py'
+      - 'tests/test_governance_watch.py'
+      - 'data/official_page_watch.json'
+      - 'data/overseas_partners.json'
       - 'tests/test_review_engine.py'
       - 'tests/test_peer_financial.py'
       - 'tests/test_business_content.py'
@@ -158,6 +168,8 @@ jobs:
       - run: python -m unittest discover -s tests -p 'test_customs_watch.py' -v
       - run: python -m unittest discover -s tests -p 'test_business_metric_compare.py' -v
       - run: python -m unittest discover -s tests -p 'test_writer_lock.py' -v
+      - name: Private watches and season tools (screening, overseas, earnings, governance)
+        run: python -m unittest tests.test_scoop_screen tests.test_naver_api tests.test_private_store tests.test_us_comments_watch tests.test_page_watch tests.test_partner_watch tests.test_earnings_compare tests.test_governance_watch -v
       - run: python -m unittest discover -s tests -p 'test_official_collectors.py' -v
       - run: node tests/test_dart_health_ui.cjs
       - run: node tests/test_morning_view.cjs
