@@ -5,6 +5,7 @@ import { dartFilings, dartFindText, g2bBids, newsCheck, sourceDocument } from '.
 import { candidateFeedback, candidateSubmit, packageSave, scoopPackages, weeklyReview, PACKAGE_STATES } from './store.mjs';
 import { POLICY, checkCandidate, formatCheck } from './scoring.mjs';
 import { scoopScreen } from './screen.mjs';
+import { usComments } from './overseas.mjs';
 
 export const SUPPORTED_VERSIONS = ['2025-06-18', '2025-03-26', '2024-11-05'];
 const SERVER_INFO = { name: 'seoul-reporting-radar', title: '산업부 취재 레이더', version: '1.0.0' };
@@ -104,6 +105,9 @@ export const TOOLS = [
     description: '단독 후보 자동 심사 결과(평일 07:10·15:10). 레이더 단서·사업보고서 수치 변화를 네이버·빙·구글로 기보도 대조해 미보도 후보/관련 보도 있음/같은 수치 선행/미확인으로 나눔. 하루 시작은 여기서. 기자가 킬한 후보는 숨김.',
     inputSchema: obj({ verdict: { type: 'string', enum: ['미보도 후보', '관련 보도 있음', '미확인', '같은 수치 선행'] },
       company: str('기업·낱말'), team: str('팀'), include_killed: bool('킬한 후보도 보기'), limit: int('줄 수', 1, 60) }) },
+  { name: 'us_comments', access: 'private', handler: usComments,
+    description: '미 연방 규제 의견서(regulations.gov): 현대차·기아·포스코·LS일렉트릭 등 출입처 명의로 NHTSA·EPA·IRS·재무부 등에 낸 의견서(최근 180일, 신규 표시, 도켓 제목·첨부 링크). 다른 단체의 인용은 제외.',
+    inputSchema: obj({ company: str('기업·제출자·도켓 낱말'), only_new: bool('신규(최근 14일·처음 본 것)만'), limit: int('줄 수', 1, 60) }) },
   { name: 'candidate_feedback', access: 'private', handler: candidateFeedback,
     description: '기자 판정 기록: 씀/킬/보류와 이유.',
     inputSchema: obj({ item_id: str('후보 번호(#id)·패키지 이름·단서 id'), verdict: { type: 'string', enum: ['씀', '킬', '보류'] },
