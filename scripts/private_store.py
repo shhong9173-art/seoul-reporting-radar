@@ -25,8 +25,15 @@ def token_shape(token):
             f"{', 따옴표 포함' if re.search(r'[\"\']', t) else ''}")
 
 
+def normalize_token(token):
+    """Accept either the bare token or the whole connector URL (…/mcp/<token>) pasted into the secret."""
+    t = (token or "").strip().strip('"\'')
+    m = re.search(r"/mcp/([A-Za-z0-9_-]{16,128})/?$", t)
+    return m.group(1) if m else t
+
+
 def _headers(token):
-    return {"Authorization": f"Bearer {token}", "Content-Type": "application/json", "User-Agent": UA}
+    return {"Authorization": f"Bearer {normalize_token(token)}", "Content-Type": "application/json", "User-Agent": UA}
 
 
 def get(name, token, *, get=None):
@@ -40,7 +47,7 @@ def get(name, token, *, get=None):
     if r.status_code == 204:
         return None
     if r.status_code != 200:
-        hint = f" — 토큰 거부 가능성({token_shape(token)}; Cloudflare MCP_ACCESS_TOKEN과 같아야 함)" if r.status_code == 404 else ""
+        hint = f" — 토큰 거부 가능성({token_shape(normalize_token(token))}; Cloudflare MCP_ACCESS_TOKEN과 같아야 함)" if r.status_code == 404 else ""
         raise StoreError(f"private store GET HTTP {r.status_code}{hint}")
     return r.json()
 

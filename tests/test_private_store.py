@@ -31,6 +31,15 @@ class PrivateStore(unittest.TestCase):
             ps.get("anything", "t", get=get)
         self.assertEqual(ps.put("partner-filings", {"x": "한글"}, "t", post=lambda u, data, headers, timeout: R(200)), 200)
 
+    def test_whole_connector_url_in_the_secret_still_works(self):
+        tok = "FAKEtoken_0123456789abcdefghij-XYZ"  # not a real credential
+        self.assertEqual(ps.normalize_token(f"https://example.workers.dev/mcp/{tok}"), tok)
+        self.assertEqual(ps.normalize_token(f" {tok}\n"), tok)
+        self.assertEqual(ps.normalize_token(f'"{tok}"'), tok)
+        seen = {}
+        ps.get("page-watch", f"https://example.workers.dev/mcp/{tok}/", get=lambda u, headers, timeout: seen.update(h=headers) or R(204))
+        self.assertEqual(seen["h"]["Authorization"], f"Bearer {tok}")
+
 
 if __name__ == "__main__":
     unittest.main()

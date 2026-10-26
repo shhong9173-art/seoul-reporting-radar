@@ -193,7 +193,7 @@ def main():
     status = private_store.put("us-comments", doc, token)
     print(f"::notice title=us-comments-push::기자 전용 저장소 전송 HTTP {status}")
     if status == 404:
-        print(f"::warning title=us-comments-push-token::토큰 거부 가능성 — {private_store.token_shape(token)}. GitHub Secret MCP_ACCESS_TOKEN이 Cloudflare 값과 같아야 함")
+        print(f"::warning title=us-comments-push-token::토큰 거부 가능성 — {private_store.token_shape(private_store.normalize_token(token))}. GitHub Secret MCP_ACCESS_TOKEN이 Cloudflare 값과 같아야 함")
     if status != 200:
         sys.exit(1)
 
