@@ -7,7 +7,8 @@ from __future__ import annotations
 import argparse,json,os,re
 from datetime import datetime,timedelta,timezone
 from pathlib import Path
-from urllib.parse import urlencode,urlsplit
+from urllib.error import HTTPError
+from urllib.parse import unquote,urlencode,urlsplit
 from urllib.request import Request,urlopen
 
 KST=timezone(timedelta(hours=9))
@@ -22,12 +23,32 @@ TECH={
  "mobility":("전기버스","전기차충전","전기차 충전"),
 }
 NOTICE=re.compile(r"^[A-Za-z0-9-]{7,35}$")
+class ProviderError(ValueError):
+ """A provider/gateway refusal with its own code. Never carries the key or URL."""
+GATEWAY=re.compile(r"<(returnReasonCode|returnAuthMsg|errMsg|resultCode|resultMsg)>\s*([^<]{1,120})<")
+def provider_message(text):
+ found={}
+ for tag,value in GATEWAY.findall(text or ""):
+  found.setdefault(tag,value.strip())
+ if not found:return None
+ code=found.get("returnReasonCode") or found.get("resultCode") or "?"
+ msg=found.get("returnAuthMsg") or found.get("resultMsg") or found.get("errMsg") or ""
+ return f"{code} {msg}".strip()
 def fetch(url):
- with urlopen(Request(url,headers={"Accept":"application/json","User-Agent":"official-industry-reporter/1.0"}),
-              timeout=18) as r:
-  raw=r.read(1_500_001)
+ try:
+  with urlopen(Request(url,headers={"Accept":"application/json","User-Agent":"official-industry-reporter/1.0"}),
+               timeout=18) as r:
+   raw=r.read(1_500_001)
+ except HTTPError as e:
+  body=e.read(4000).decode("utf-8","replace") if e.fp else ""
+  raise ProviderError(f"HTTP {e.code} {provider_message(body) or ''}".strip()) from None
  if len(raw)>1_500_000:raise ValueError("Official response truncated")
- return json.loads(raw.decode("utf-8-sig"))
+ text=raw.decode("utf-8-sig","replace")
+ try:
+  return json.loads(text)
+ except ValueError:
+  # data.go.kr gateway refusals come back as XML even when type=json.
+  raise ProviderError("gateway "+(provider_message(text) or "non-JSON response")) from None
 def unpack(body):
  if not isinstance(body,dict):raise ValueError("Missing provider body")
  rows=body.get("items")
@@ -45,7 +66,7 @@ def parse_result(payload):
  if not isinstance(resp,dict):raise ValueError("Missing response")
  header=resp.get("header") or {}
  if str(header.get("resultCode")) not in ("00","000"):
-  raise ValueError("Provider status not successful")
+  raise ProviderError(f"provider {header.get('resultCode')} {str(header.get('resultMsg') or '')[:120]}".strip())
  return unpack(resp.get("body"))
 def tags(title):
  val=str(title or "").lower()
@@ -95,6 +116,10 @@ def query(kind,key,start,end,get=fetch,max_pages=10,per_page=100):
  return data,{"workType":kind,"status":"checked","total":count,
               "pages":pages,"matched":len(data)}
 
+class ProviderCallsFailed(ValueError):
+ def __init__(self,checks):
+  super().__init__("Provider calls failed; old complete snapshot must be preserved")
+  self.checks=checks
 def build(key,get=fetch,now=None,previous=None):
  now=now or datetime.now(KST)
  end=now.strftime("%Y%m%d")+"2359"
@@ -106,8 +131,10 @@ def build(key,get=fetch,now=None,previous=None):
    checks.append(check);leads.extend(rows)
   except (OSError,TimeoutError,ValueError,TypeError) as e:
    errors+=1
-   checks.append({"workType":kind,"status":"source_error","errorType":type(e).__name__})
- if errors:raise ValueError("Provider calls failed; old complete snapshot must be preserved")
+   check={"workType":kind,"status":"source_error","errorType":type(e).__name__}
+   if isinstance(e,ProviderError):check["providerMessage"]=str(e)[:160]
+   checks.append(check)
+ if errors:raise ProviderCallsFailed(checks)
  seen=set();unique=[]
  for row in leads:
   k=(row["noticeId"],row["revision"],row["workType"])
@@ -128,12 +155,26 @@ def build(key,get=fetch,now=None,previous=None):
          "confirmedAwards":0,"confirmedContracts":0,"confirmedScoops":0,
          "warning":"공고 공개/품명 일치만 확인. 낙찰·계약·국내 출입기업 공급·독점성 모두 미확인."}
 
+def normalize_key(key):
+ """data.go.kr shows an Encoding and a Decoding key. urlencode() encodes once,
+ so an Encoding key (with %2B, %3D...) would be double-encoded: decode it first."""
+ key=str(key or "").strip()
+ if re.search(r"%[0-9A-Fa-f]{2}",key):return unquote(key),"url_encoded_input_decoded"
+ return key,"decoded"
+def resolve_key(env):
+ """Return (key, secret name). Never the value in any output."""
+ dedicated=str(env.get("G2B_API_KEY") or "").strip()
+ if dedicated:return dedicated,"G2B_API_KEY"
+ shared=str(env.get("DATA_GO_KR_SHARED_KEY") or "").strip()
+ if shared:return shared,"CUSTOMS_API_KEY (shared data.go.kr account key)"
+ return "",None
 def main():
  p=argparse.ArgumentParser()
  p.add_argument("--out",default="digests/g2b_tender_latest.json")
  p.add_argument("--status",default="digests/g2b_source_status_latest.json")
  args=p.parse_args()
- key=os.getenv("G2B_API_KEY","").strip()
+ key,key_source=resolve_key(os.environ)
+ key,key_form=normalize_key(key)
  prev=None
  out=Path(args.out);out.parent.mkdir(parents=True,exist_ok=True)
  try:
@@ -142,7 +183,11 @@ def main():
  source={"generatedAt":datetime.now(KST).isoformat(timespec="seconds"),
          "status":"not_connected" if not key else "unverified",
          "source":"PPS KONEPS dataset 15129394",
-         "note":"Missing dedicated G2B_API_KEY or API-specific service permission. No 0-count claim."}
+         "keySource":key_source,
+         "keyForm":key_form if key else None,
+         "note":("No G2B_API_KEY or shared data.go.kr key in this run. No 0-count claim."
+                 if not key else
+                 "Key present; a provider error means the dataset permission is not active for this key yet. No 0-count claim.")}
  if key:
   try:
    report=build(key,previous=prev)
@@ -152,6 +197,8 @@ def main():
    source["status"]="checked";source["checkedKinds"]=len(report["checks"])
   except (ValueError,OSError,TimeoutError,TypeError) as e:
    source["status"]="source_error";source["errorType"]=type(e).__name__
+   if isinstance(e,ProviderCallsFailed):source["providerChecks"]=e.checks
+   elif isinstance(e,ProviderError):source["providerMessage"]=str(e)[:160]
  path=Path(args.status);path.parent.mkdir(parents=True,exist_ok=True)
  temp=path.with_suffix(".json.tmp")
  temp.write_text(json.dumps(source,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
