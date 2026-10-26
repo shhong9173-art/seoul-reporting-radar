@@ -1,10 +1,35 @@
 {
-  "note": "해외 무역구제 기관의 공고·조사 목록 페이지. 'Korea'가 들어간 줄이 새로 생기면 변경으로 본다. 주소를 바꾸면 격리 실행으로 열리는지 확인한다.",
-  "pages": [
-    {"id": "au-adn", "country": "호주", "label": "호주 반덤핑위원회 공지(ADN)", "url": "https://www.industry.gov.au/anti-dumping-commission/anti-dumping-notices-adns"},
-    {"id": "au-trn", "country": "호주", "label": "호주 무역구제위원회 공지(TRN)", "url": "https://www.industry.gov.au/australian-trade-remedies-commission/trade-remedies-notices-trns"},
-    {"id": "ca-cbsa", "country": "캐나다", "label": "캐나다 CBSA 덤핑·보조금 조사", "url": "https://www.cbsa-asfc.gc.ca/sima-lmsi/i-e/menu-eng.html"},
-    {"id": "in-dgtr", "country": "인도", "label": "인도 DGTR 반덤핑 조사", "url": "https://www.dgtr.gov.in/anti-dumping-cases"}
-  ],
-  "taricSeeds": ["099843", "099854", "099507"]
+ "note": "해외 무역구제 기관의 공고·조사 목록 페이지. 'Korea'가 들어간 줄이 새로 생기면 변경으로 본다. 주소를 바꾸면 격리 실행으로 열리는지 확인한다.",
+ "pages": [
+  {
+   "id": "au-adn",
+   "country": "호주",
+   "label": "호주 반덤핑위원회 공지(ADN)",
+   "url": "https://www.industry.gov.au/anti-dumping-commission/anti-dumping-notices-adns"
+  },
+  {
+   "id": "au-trn",
+   "country": "호주",
+   "label": "호주 무역구제위원회 공지(TRN)",
+   "url": "https://www.industry.gov.au/australian-trade-remedies-commission/trade-remedies-notices-trns"
+  },
+  {
+   "id": "ca-cbsa",
+   "country": "캐나다",
+   "label": "캐나다 CBSA 덤핑·보조금 조사",
+   "url": "https://www.cbsa-asfc.gc.ca/sima-lmsi/i-e/menu-eng.html"
+  },
+  {
+   "id": "in-dgtr",
+   "country": "인도",
+   "label": "인도 DGTR 반덤핑 조사",
+   "url": "https://www.dgtr.gov.in/anti-dumping-cases",
+   "disabled": "주소 404(2026-10-26 첫 실행) — 맞는 목록 주소 확인 전까지 감시 안 함"
+  }
+ ],
+ "taricSeeds": [
+  "099843",
+  "099854",
+  "099507"
+ ]
 }

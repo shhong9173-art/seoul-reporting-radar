@@ -219,3 +219,49 @@ class ForeignPages(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class KoreaLines(unittest.TestCase):
+    def test_baseline_from_an_older_line_reader_is_not_diffed(self):
+        prev = {"pages": [dict(PAGES[0], status="ok", lines={})]}  # first run, before block lines (no parser mark)
+        doc = run(previous=prev, au=AU_NEW)
+        self.assertEqual([e for e in doc["events"] if e["pageId"] == "au-adn"], [])
+        self.assertEqual(doc["pages"][0]["parser"], w.LINE_PARSER)
+
+    def test_headings_and_country_lines_with_case_context(self):
+        raw = ("<html><nav><a href='/x'>Korea trade office</a></nav><main><h2>2025</h2>"
+               "<h3>Steel Strapping: Dumping and subsidy</h3><p>China, South Korea, Türkiye and Vietnam</p><p>Concluded on 2025-12-01</p>"
+               "<h3>Oil Country Tubular Goods 5: Dumping</h3><p>China, South Korea, Türkiye and Vietnam</p>"
+               "<ul><li><a href='/sima/ctl2026.html'>Cold-rolled coil from the Republic of Korea: Notice of initiation</a></li></ul></main></html>")
+        lines = w.korea_lines(raw)
+        self.assertIn("Steel Strapping: Dumping and subsidy — China, South Korea, Türkiye and Vietnam", lines)
+        self.assertIn("Oil Country Tubular Goods 5: Dumping — China, South Korea, Türkiye and Vietnam", lines)
+        self.assertEqual(lines["Cold-rolled coil from the Republic of Korea: Notice of initiation"], "/sima/ctl2026.html")
+        self.assertFalse(any("trade office" in k for k in lines))  # navigation removed
+        self.assertEqual(len(lines), 3)
+
+    def test_disabled_page_is_not_fetched_or_counted_as_failure(self):
+        cfg = {"pages": [dict(PAGES[0], disabled="주소 확인 전")], "taricSeeds": ["099843"]}
+        seen = []
+        def get(url, **k):
+            seen.append(url)
+            return fake()(url, **k)
+        doc = w.run(cfg, now=NOW, get=get, sleep=lambda s: None)
+        self.assertFalse(any("industry.gov.au" in u for u in seen))
+        self.assertEqual(doc["pages"][0]["status"], "disabled")
+        self.assertFalse(any(c["source"] == PAGES[0]["label"] for c in doc["checks"]))
+        self.assertEqual(doc["status"], "complete")
+
+    def test_timeout_is_retried_once(self):
+        n = []
+        class ReadTimeout(Exception):
+            pass
+        def get2(url, **k):
+            if "industry.gov.au" in url:
+                n.append(k.get("timeout"))
+                if len(n) == 1:
+                    raise ReadTimeout()
+            return fake()(url, **k)
+        doc = w.run({"pages": PAGES, "taricSeeds": []}, now=NOW, get=get2, sleep=lambda s: None)
+        self.assertEqual(n, [60, 60])
+        self.assertEqual(doc["pages"][0]["status"], "ok")

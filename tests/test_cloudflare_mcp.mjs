@@ -507,7 +507,8 @@ test('trade_remedies shows quota exhaustion, named US notices and listing change
         url: 'https://www.federalregister.gov/d/2026-20698', beatProduct: true, isNew: true,
         named: [{ company: '현대제철', mentions: 3, lines: ['Hyundai Steel Company ........ 1.12'] }] },
       { id: 'fr:2026-20694', date: '2026-10-08', stage: '예비 판정', title: 'Certain Steel Nails From the Republic of Korea', url: 'https://x', named: [], isNew: false }],
-    pages: [{ id: 'in-dgtr', label: '인도 DGTR 반덤핑 조사', status: 'failed', error: 'HTTP 403' }, { id: 'au-adn', label: '호주 ADN', status: 'ok' }],
+    pages: [{ id: 'in-dgtr', label: '인도 DGTR 반덤핑 조사', status: 'failed', error: 'HTTP 403' }, { id: 'au-adn', label: '호주 ADN', status: 'ok' },
+      { id: 'xx', label: '시험 목록', status: 'disabled', error: '주소 확인 전' }],
     events: [{ id: 'au-adn:x', pageId: 'au-adn', country: '호주', label: '호주 ADN', text: 'ADN 2026/101 Zinc coated steel from China, Korea and Taiwan', url: 'https://www.industry.gov.au/adn/2026/101', detectedAt: recent }] };
   const post = await worker.fetch(new Request(ORIGIN + '/ingest/trade-remedy', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {});
   assert.equal(post.status, 200);
@@ -523,6 +524,8 @@ test('trade_remedies shows quota exhaustion, named US notices and listing change
   assert.match(r.text, /본문의 현대제철\(3곳\): "Hyundai Steel Company \.\.\.\.\.\.\.\. 1\.12"/);
   assert.match(r.text, /미확인\(변화 없음 아님\): 인도 DGTR 반덤핑 조사\(HTTP 403\)/);
   assert.match(r.text, /잡힌 사실: ADN 2026\/101 Zinc coated steel from China, Korea and Taiwan/);
+  assert.match(r.text, /공고 목록 1\/2 열림/);
+  assert.match(r.text, /감시 안 함: 시험 목록\(주소 확인 전\)/);
   const quota = await call('trade_remedies', { section: 'quota', show_all: true }, opts);
   assert.match(quota.text, /099854 후판/);
   assert.doesNotMatch(quota.text, /미국 상무부/);
