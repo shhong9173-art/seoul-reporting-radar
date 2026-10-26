@@ -43,6 +43,13 @@ const VIEWS = {
   'tools/health.json': { generatedAt: '2026-10-25T23:30:00Z', rule: '0건이 아니다', problemCount: 1,
     items: [{ source: '나라장터 입찰공고', status: 'not_connected', problem: true, ageHours: 7 }] },
   'dart_corp_codes.json': { companies: { '현대제철': { corp_code: '00160500' } } },
+  'digests/governance_latest.json': { generatedAt: '2026-10-26T07:40:00+09:00', status: 'partial', unresolvedCompanies: ['태광'],
+    checks: [{ company: '영풍', endpoint: 'majorstock.json', status: 'failed', error: 'HTTP 503' }],
+    items: [
+      { company: '고려아연', team: '철강·비철', kind: '대량보유(5%)', date: '2026-10-20', receiptNo: '20261020000111', reporter: '영풍',
+        ratio: 24.1, ratioChange: -1.45, tags: ['[지분율 -1.45%p]'], reason: '보유주식 처분', routine: false, url: 'https://dart.fss.or.kr/x' },
+      { company: '현대차', team: '자동차', kind: '대량보유(5%)', date: '2026-10-21', receiptNo: '20261021000222', reporter: '국민연금공단',
+        ratioChange: 0.05, tags: [], reason: '단순투자', routine: true, url: 'https://dart.fss.or.kr/y' }] },
 };
 
 const RSS = `<?xml version="1.0"?><rss version="2.0"><channel>
@@ -145,6 +152,16 @@ test('big picture, stats, dandok and health render the published views', async (
   assert.match((await call('radar_stats', { team: '철강' })).text, /\[급변\] 철강제품 수출/);
   assert.match((await call('dandok_monitor', { days: 7, q: '현대제철' })).text, /인천 전기로/);
   assert.match((await call('radar_health', {})).text, /⚠ 나라장터/);
+});
+
+test('governance_changes shows stake moves, hides routine reports and keeps failures visible', async () => {
+  const r = await call('governance_changes', { days: 14 });
+  assert.match(r.text, /고려아연 \| 대량보유\(5%\) \| 영풍 -1\.45%p → 24\.1%/);
+  assert.match(r.text, /기관 약식·단순 보고 1건 숨김/);
+  assert.match(r.text, /조회 실패 영풍\(0건 아님\)/);
+  assert.match(r.text, /고유번호 미해결 태광/);
+  assert.doesNotMatch(r.text, /국민연금공단/);
+  assert.match((await call('governance_changes', { include_routine: true })).text, /국민연금공단/);
 });
 
 test('news_check: public naver is unavailable so the verdict stays 미확인', async () => {

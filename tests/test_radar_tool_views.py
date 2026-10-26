@@ -66,6 +66,13 @@ def fixture(root, with_index=True):
         {"company": "현대제철", "topic": "segmentSales", "rowIdentity": ["봉형강"], "priorValue": "100", "currentValue": "104",
          "percentChange": 4.0, "unit": "백만원", "fromYear": 2025, "toYear": 2026, "sourceUrls": []},
     ]})
+    write(root, "digests/governance_latest.json", {"generatedAt": "2026-10-26T07:40:00+09:00", "status": "complete", "items": [
+        {"company": "고려아연", "team": "철강·비철", "kind": "대량보유(5%)", "date": "2026-10-20", "receiptNo": "20261020000111",
+         "reporter": "영풍", "ratioChange": -1.45, "tags": ["[지분율 -1.45%p]"], "reason": "보유주식 처분", "routine": False,
+         "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261020000111"},
+        {"company": "현대차", "team": "자동차", "kind": "대량보유(5%)", "date": "2026-10-21", "receiptNo": "20261021000222",
+         "reporter": "국민연금공단", "ratioChange": 0.05, "tags": [], "reason": "단순투자", "routine": True,
+         "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261021000222"}]})
     write(root, "digests/g2b_source_status_latest.json", {"generatedAt": "2026-10-26T01:37:40+09:00",
                                                             "status": "not_connected", "note": "no key"})
 
@@ -123,6 +130,15 @@ class Views(unittest.TestCase):
         old = {"items": [{"id": row["id"], "firstSeen": "2026-10-24T10:00:00+09:00"}]}
         second = self.build(previous=old)
         self.assertEqual(self.clue(second, "동국씨엠")["firstSeen"], "2026-10-24T10:00:00+09:00")
+
+    def test_stake_filings_become_public_clues_with_routine_flag(self):
+        views = self.build()
+        zinc = self.clue(views, "고려아연 · 대량보유(5%) · 영풍")
+        self.assertEqual(zinc["team"], "철강·비철")
+        self.assertEqual(zinc["tier"], v.TIER_PUBLIC)
+        self.assertIn("-1.45%p", zinc["title"])
+        self.assertFalse(zinc["routine"])
+        self.assertTrue(self.clue(views, "국민연금공단")["routine"])
 
     def test_link_less_list_rows_are_kept_with_a_note(self):
         row = self.clue(self.build(), "154kV")
