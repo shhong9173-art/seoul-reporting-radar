@@ -1,0 +1,183 @@
+"""Connector views restate sources; they never upgrade leads or turn 0 into 미보도."""
+import json
+import sys
+import tempfile
+import unittest
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "scripts"))
+sys.path.insert(0, str(ROOT))
+import radar_tool_views as v  # noqa: E402
+
+KST = timezone(timedelta(hours=9))
+NOW = datetime(2026, 10, 26, 9, 0, tzinfo=KST)
+
+
+def write(root, rel, data):
+    path = Path(root) / rel
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+
+
+def fixture(root, with_index=True):
+    write(root, "pre_scoop.json", {"generatedAt": "2026-10-26T08:00:00+09:00", "items": [
+        {"officialLabel": "팩토리온", "sourceGroup": "공장·산업단지", "title": "동국씨엠 부산공장 공장등록 변경",
+         "url": "https://www.factoryon.go.kr/a", "published": "2026-10-24T00:00:00+09:00", "companies": []},
+        {"officialLabel": "한전 전자조달", "sourceGroup": "공기업·조달", "title": "154kV 변압기 구매 입찰",
+         "url": "javascript:fnSelectView(1)", "published": "2026-10-23T00:00:00+09:00", "companies": []},
+        {"officialLabel": "팩토리온", "sourceGroup": "공장·산업단지", "title": "세아씨엠 군산공장 증설",
+         "url": "https://www.factoryon.go.kr/b", "published": "2026-10-24T00:00:00+09:00", "companies": []},
+    ]})
+    write(root, "digests/dart_beat_monitor_latest.json", {"generatedAt": "2026-10-26T07:00:00+09:00", "records": [
+        {"company": "엘에스일렉트릭", "receiptNo": "20261023000111", "published": "20261023",
+         "report": "단일판매ㆍ공급계약체결", "category": "공급계약", "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261023000111"},
+        {"company": "현대위아", "receiptNo": "20261022000222", "published": "20261022",
+         "report": "주주명부폐쇄기간또는기준일설정", "category": "기타", "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261022000222"},
+    ]})
+    write(root, "scoop.json", {"generatedAt": "2026-10-26T08:00:00+09:00", "items": [], "leadSignals": [],
+                               "publicSignals": [{"title": "엘에스일렉트릭 단일판매ㆍ공급계약체결", "companies": ["LS일렉트릭"],
+                                                  "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261023000111",
+                                                  "published": "2026-10-23T00:00:00+09:00", "sourceName": "DART"}],
+                               "heldDartResearch": []})
+    if with_index:
+        write(root, "digests/press_coverage_index_latest.json", {"generatedAt": "2026-10-26T06:00:00+09:00", "items": [
+            {"title": "LS일렉트릭, 북미 초고압 변압기 공급계약 체결 - 전기신문", "sourceName": "전기신문",
+             "published": "2026-10-23T11:00:00+09:00", "companies": ["LS일렉트릭"], "url": "https://news.example/1"},
+        ]})
+        write(root, "digests/historical_exclusive_press_index_latest.json", {"generatedAt": "2026-10-26T06:00:00+09:00",
+              "status": "ok", "items": [
+                  {"title": "[단독] 현대제철, 인천 전기로 신설 - 매체A", "sourceName": "매체A",
+                   "published": "2026-10-25T09:00:00+09:00", "companies": ["현대제철"], "url": "https://news.example/2"},
+                  {"title": "[단독] 오래된 기사 - 매체B", "sourceName": "매체B",
+                   "published": "2026-03-01T09:00:00+09:00", "companies": ["현대차"], "url": "https://news.example/3"},
+              ]})
+    write(root, "digests/customs_tenday_latest.json", {"generatedAt": "2026-10-21T16:00:00+09:00",
+          "observed": [{"series": "exp_item", "month": f"2026{m:02d}", "cutoff": 20,
+                        "items": [{"name": "철강제품", "amountKUsd": str(1000 + m)}]} for m in range(1, 10)],
+          "focus": [{"series": "exp_item", "item": "철강제품", "month": "202610", "cutoff": 20, "periodLabel": "01~20",
+                     "amountKUsd": "2588", "priorYearAmountKUsd": "1814", "yoyPercent": 42.6,
+                     "sourceUrl": "https://www.data.go.kr/data/15157908/openapi.do"}]})
+    write(root, "digests/recent_metric_changes_latest.json", {"generatedAt": "2026-10-23T21:00:00+09:00", "items": [
+        {"company": "엘에스일렉트릭", "topic": "productionCapacity", "rowIdentity": ["부산", "변압기"], "priorValue": "100",
+         "currentValue": "211", "percentChange": 111.0, "unit": "백만원", "period": "06", "fromYear": 2025, "toYear": 2026,
+         "sourceUrls": ["https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003088"]},
+        {"company": "현대제철", "topic": "segmentSales", "rowIdentity": ["봉형강"], "priorValue": "100", "currentValue": "104",
+         "percentChange": 4.0, "unit": "백만원", "fromYear": 2025, "toYear": 2026, "sourceUrls": []},
+    ]})
+    write(root, "digests/g2b_source_status_latest.json", {"generatedAt": "2026-10-26T01:37:40+09:00",
+                                                            "status": "not_connected", "note": "no key"})
+
+
+class Views(unittest.TestCase):
+    def build(self, with_index=True, previous=None):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        fixture(tmp.name, with_index)
+        out = Path(tmp.name) / "tools"
+        if previous:
+            write(out, "clues.json", previous)
+        v.build_all(Path(tmp.name), out, now=NOW)
+        return {name: json.loads((out / f"{name}.json").read_text(encoding="utf-8"))
+                for name in ("clues", "stats", "dandok", "health", "big_picture")}
+
+    def clue(self, views, needle):
+        return next(r for r in views["clues"]["items"] if needle in r["title"])
+
+    def test_registry_names_and_exact_beats_pick_the_team(self):
+        views = self.build()
+        self.assertEqual(self.clue(views, "엘에스일렉트릭")["team"], "전력·에너지")
+        self.assertEqual(self.clue(views, "동국씨엠")["team"], "철강·비철")
+        # 세아씨엠 is monitored but not a confirmed direct beat.
+        self.assertEqual(self.clue(views, "세아씨엠")["team"], "그 외")
+        self.assertEqual(self.clue(views, "154kV")["team"], "조달")
+
+    def test_same_receipt_merges_without_upgrading_tier(self):
+        views = self.build()
+        rows = [r for r in views["clues"]["items"] if r["receiptNo"] == "20261023000111"]
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["tier"], v.TIER_PUBLIC)
+        self.assertNotIn(v.TIER_CANDIDATE, {r["tier"] for r in views["clues"]["items"]})
+
+    def test_coverage_labels_never_claim_unreported(self):
+        views = self.build()
+        ls = self.clue(views, "엘에스일렉트릭")["coverage"]
+        self.assertEqual(ls["status"], "similar_headlines")
+        self.assertIn("같은 사건인지 원문 확인", ls["label"])
+        dk = self.clue(views, "동국씨엠")["coverage"]
+        self.assertEqual(dk["status"], "none_in_index")
+        self.assertIn("미보도 증거 아님", dk["label"])
+        self.assertEqual(self.clue(views, "154kV")["coverage"]["status"], "not_compared")
+        blob = json.dumps(views["clues"], ensure_ascii=False)
+        self.assertNotIn('"미보도"', blob)
+
+    def test_missing_index_is_unavailable_not_zero(self):
+        views = self.build(with_index=False)
+        self.assertEqual(self.clue(views, "엘에스일렉트릭")["coverage"]["status"], "index_unavailable")
+
+    def test_published_and_first_seen_are_separate_and_first_seen_persists(self):
+        first = self.build()
+        row = self.clue(first, "동국씨엠")
+        self.assertEqual(row["published"], "2026-10-24")
+        old = {"items": [{"id": row["id"], "firstSeen": "2026-10-24T10:00:00+09:00"}]}
+        second = self.build(previous=old)
+        self.assertEqual(self.clue(second, "동국씨엠")["firstSeen"], "2026-10-24T10:00:00+09:00")
+
+    def test_link_less_list_rows_are_kept_with_a_note(self):
+        row = self.clue(self.build(), "154kV")
+        self.assertIsNone(row["url"])
+        self.assertIn("원문 링크 없음", row["note"])
+
+    def test_procedural_filings_are_flagged_and_sorted_last(self):
+        views = self.build()
+        routine = self.clue(views, "주주명부폐쇄")
+        self.assertTrue(routine["routine"])
+        auto = [r for r in views["clues"]["items"] if r["team"] == "자동차"]
+        self.assertTrue(auto[-1]["routine"])
+
+    def test_stats_keep_scope_and_only_observed_maximum(self):
+        stats = self.build()["stats"]["items"]
+        steel = next(s for s in stats if s["kind"] == "customs_tenday")
+        self.assertIn("[급변]", steel["tags"])
+        self.assertTrue(any(t.startswith("[관측 구간 최대") for t in steel["tags"]))
+        self.assertNotIn("역대", json.dumps(steel["tags"], ensure_ascii=False))
+        self.assertIn("기업 실적 아님", steel["caveat"])
+        labels = [s["label"] for s in stats]
+        self.assertTrue(any("LS일렉트릭 생산능력" in x for x in labels))
+        self.assertFalse(any("봉형강" in x for x in labels))  # 4% change is not a signal
+
+    def test_dandok_strips_publisher_and_drops_old_rows(self):
+        dandok = self.build()["dandok"]
+        self.assertEqual([r["title"] for r in dandok["items"]], ["[단독] 현대제철, 인천 전기로 신설"])
+        self.assertEqual(dandok["items"][0]["team"], "철강·비철")
+
+    def test_health_marks_missing_and_not_connected_sources(self):
+        health = self.build()["health"]
+        by = {r["source"]: r for r in health["items"]}
+        self.assertTrue(by["나라장터 입찰공고"]["problem"])
+        self.assertTrue(by["자동차 뉴스 수집"]["problem"])  # file missing in fixture
+        self.assertIn("0건이 아니다", health["rule"])
+
+    def test_big_picture_has_no_private_reporter_state(self):
+        big = self.build()["big_picture"]
+        blob = json.dumps(big, ensure_ascii=False)
+        for word in ("package", "feedback", "접음", "발제함"):
+            self.assertNotIn(word, blob)
+        self.assertTrue(big["topStats"])
+        self.assertEqual(big["dandokLast7DaysByCompany"][0]["company"], "현대제철")
+
+    def test_real_operating_files_build(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            summary = v.build_all(ROOT, Path(tmp), now=NOW)
+            self.assertGreater(summary["clues"], 0)
+            clues = json.loads((Path(tmp) / "clues.json").read_text(encoding="utf-8"))
+            self.assertNotIn(v.TIER_CANDIDATE, {r["tier"] for r in clues["items"]} - {
+                r["tier"] for r in clues["items"] if r["source"] in ("레이더",)})
+            for row in clues["items"]:
+                self.assertIn(row["team"], v.TEAM_ORDER)
+                self.assertTrue(row["url"] is None or row["url"].startswith("https://"))
+
+
+if __name__ == "__main__":
+    unittest.main()
