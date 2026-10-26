@@ -49,3 +49,11 @@
 3. Claude 설정의 커넥터에서 사용자 지정 커넥터를 추가하고 기자 전용 주소를 넣는다.
 
 키 값은 응답·로그·저장소 어디에도 출력하지 않는다.
+
+## 단독 후보 자동 심사(scoop_screen, 기자 전용)
+
+- GitHub Actions `Scoop Candidate Screen`이 평일 07:10·15:10 KST에 레이더 단서(취재 단서 등급·최근 10일 비절차 공시)와 사업보고서 수치 변화(강도 60 이상)를 골라 네이버 뉴스 API·빙·구글로 기보도를 대조한다.
+- 판정: 같은 수치 선행 / 관련 보도 있음 / 미보도 후보 / 미확인. 미보도 후보는 네이버와 웹 색인이 모두 정상 응답했는데 관련 기사가 없다는 뜻일 뿐 단독 판정이 아니다.
+- 결과는 저장소에 커밋하지 않는다. `POST /ingest/scoop-screen`(Authorization: Bearer = MCP_ACCESS_TOKEN)으로 Durable Object에만 저장하고, 커넥터 기자 전용 경로의 `scoop_screen` 도구로 읽는다. 공개 로그에는 건수만 남긴다.
+- 필요한 GitHub Secrets: `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET`, `MCP_ACCESS_TOKEN`(Cloudflare 값과 같게). 토큰이 없으면 심사는 돌지만 결과를 어디에도 저장하지 않는다.
+- 기자가 `candidate_feedback`로 '킬'한 후보는 기본으로 숨긴다.

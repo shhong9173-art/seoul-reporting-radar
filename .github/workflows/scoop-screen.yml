@@ -1,0 +1,42 @@
+name: Scoop Candidate Screen
+# 단독 후보 자동 심사: 레이더 단서·수치 변화의 기보도를 네이버·빙·구글로 대조한다. 평일 07:10·15:10 KST.
+# 결과는 저장소에 커밋하지 않는다. 기자 전용 커넥터 저장소로만 보내고, 공개 로그에는 건수만 남긴다.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/scoop_screen.py'
+      - 'scripts/naver_api.py'
+      - 'tests/test_scoop_screen.py'
+      - '.github/workflows/scoop-screen.yml'
+  schedule:
+    - cron: '10 22 * * 0-4'
+    - cron: '10 6 * * 1-5'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: scoop-candidate-screen
+  cancel-in-progress: false
+jobs:
+  screen:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install HTTP client
+        run: python -m pip install "requests>=2.31,<3"
+      - name: Test screening rules
+        run: python -m unittest tests.test_scoop_screen tests.test_naver_api -v
+      - name: Screen candidates (counts-only log)
+        env:
+          NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
+          NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
+          MCP_ACCESS_TOKEN: ${{ secrets.MCP_ACCESS_TOKEN }}
+        run: python scripts/scoop_screen.py

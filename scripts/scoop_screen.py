@@ -1,0 +1,418 @@
+"""단독 후보 자동 심사: 레이더 단서·수치 변화의 기보도 여부를 네이버·빙·구글로 대조한다.
+
+결과는 공개 저장소에 쓰지 않는다. 기자 전용 커넥터 저장소(Cloudflare Durable Object)로만 보낸다.
+로그(공개)에는 건수만 남긴다.
+
+판정(후보별)
+- 같은 수치 선행: 회사명과 같은 수치가 함께 나온 기사가 있다.
+- 관련 보도 있음: 회사명과 핵심 낱말이 함께 나온 기사가 있다(같은 사건인지는 열어 봐야 한다).
+- 미보도 후보: 네이버와 웹 색인(빙 또는 구글)이 모두 정상 응답했고 관련 기사가 없다.
+  검색 범위 안에서 못 찾았다는 뜻이지 미보도 증거나 단독 판정이 아니다.
+- 미확인: 채널 조회 실패·미설정. 0건이 아니다.
+"""
+from __future__ import annotations
+
+import argparse
+import datetime as dt
+import html
+import json
+import os
+import re
+import sys
+import time
+import xml.etree.ElementTree as ET
+from email.utils import parsedate_to_datetime
+from pathlib import Path
+from urllib.parse import quote, parse_qs, urlparse
+
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "scripts"))
+
+KST = dt.timezone(dt.timedelta(hours=9))
+WORKER = "https://seoul-reporting-radar.shhong9173.workers.dev"
+UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+SCHEMA = "scoop_screen/v1"
+MAX_CANDIDATES = 45
+WINDOW_DAYS = 365
+
+# Display/common names → aliases used in articles.
+ALIASES = {
+    "현대차": ["현대차", "현대자동차"], "기아": ["기아"], "현대모비스": ["현대모비스"], "현대위아": ["현대위아"],
+    "HL만도": ["HL만도", "만도"], "KG모빌리티": ["KG모빌리티", "KGM"], "한국타이어": ["한국타이어", "한국타이어앤테크놀로지"],
+    "넥센타이어": ["넥센타이어"], "금호타이어": ["금호타이어"], "포스코홀딩스": ["포스코홀딩스", "포스코그룹"], "포스코": ["포스코"],
+    "현대제철": ["현대제철"], "KG스틸": ["KG스틸"], "세아홀딩스": ["세아홀딩스", "세아그룹"], "세아제강": ["세아제강"],
+    "동국제강": ["동국제강"], "동국씨엠": ["동국씨엠"], "고려아연": ["고려아연"], "영풍": ["영풍"],
+    "HD현대일렉트릭": ["HD현대일렉트릭", "현대일렉트릭"], "LS일렉트릭": ["LS일렉트릭", "LS ELECTRIC", "엘에스일렉트릭"],
+    "대한전선": ["대한전선"], "LS전선": ["LS전선"], "LS지주": ["LS그룹", "(주)LS", "㈜LS", "LS"], "LS MnM": ["LS MnM", "LS엠앤엠"],
+    "두산에너빌리티": ["두산에너빌리티"], "GS": ["GS그룹", "(주)GS", "㈜GS", "GS"], "GS칼텍스": ["GS칼텍스"],
+    "한화솔루션": ["한화솔루션", "한화큐셀"], "OCI": ["OCI"], "OCI홀딩스": ["OCI홀딩스"], "태광": ["태광"],
+    "동성케미칼": ["동성케미칼", "동성케미컬"], "DL케미칼": ["DL케미칼"], "효성중공업": ["효성중공업"], "일진전기": ["일진전기"],
+}
+LEGAL = {"현대자동차": "현대차", "엘에스일렉트릭": "LS일렉트릭", "한국타이어앤테크놀로지": "한국타이어", "LS": "LS지주"}
+BOILER = re.compile(
+    r"정기·주요공시|주요사항보고서|공정공시|안내공시|자율공시|자회사의\s*주요경영사항|종속회사의\s*주요경영사항|"
+    r"기재정정|첨부정정|발행조건확정|연결재무제표기준|공식|동일기간|단위|숫자|공시상|원문|보고서|결정|체결|변경|관련|"
+    r"사업의\s*내용|분기|반기|누적|전년|대비|기준|현황|정보|제출|기업|계획|PBR\s*개선|주요|단일판매ㆍ공급계약|"
+    r"단일판매·공급계약|특수관계인(?:에대한|으로부터)?|대량보유\(5%\)|임원·주요주주")
+STOP = {"공급계약", "공시", "회사", "국내", "해외", "기타", "합계", "제품", "사업", "부문", "대한", "관한", "통해",
+        "에서", "으로", "그리고", "보고", "건", "등", "및", "의", "수", "약", "총", "이를", "위한", "통한", "있는", "하는",
+        "따른", "대해", "관련된", "포함", "이상", "이하", "경우", "방법", "장치", "시스템"}
+PARTICLE = re.compile(r"(으로|에서|에게|까지|부터|의|을|를)$")  # only unambiguous endings (양도·원가·회로 stay intact)
+ACRONYM = re.compile(r"[A-Z][A-Z0-9&]{1,5}")
+
+
+def now_kst():
+    return dt.datetime.now(KST)
+
+
+def canon(name):
+    name = str(name or "").strip()
+    return LEGAL.get(name, name)
+
+
+def aliases(company):
+    return ALIASES.get(company, [company])
+
+
+# ---------- numbers ----------
+
+def num_forms(value, unit=""):
+    """Ways an article might print the same number (exact-ish; no rounding to round thousands)."""
+    try:
+        n = float(str(value).replace(",", ""))
+    except ValueError:
+        return set()
+    forms = set()
+    if n != int(n):
+        forms.add(f"{n:g}")
+        return forms
+    n = int(abs(n))
+    if n < 100:
+        return forms  # too common to be evidence
+    if unit in ("백만원", "백만 원"):
+        eok = n / 100  # 억원
+        for v in {int(eok), int(round(eok))}:
+            if v >= 10000:
+                jo, rest = divmod(v, 10000)
+                forms |= {f"{jo}조{rest}억", f"{jo}조 {rest}억", f"{jo}조{rest:,}억", f"{jo}조 {rest:,}억"} if rest else {f"{jo}조"}
+                forms.add(f"{v / 10000:.1f}조")
+            elif v >= 1:
+                forms |= {f"{v}억", f"{v:,}억"}
+        return {f for f in forms if f}
+    forms |= {f"{n:,}", str(n)}
+    if n >= 10000:
+        man, rest = divmod(n, 10000)
+        forms |= {f"{man}만{rest}", f"{man}만 {rest}"} if rest else {f"{man}만"}
+        if rest and rest % 1000 == 0:
+            forms.add(f"{man}만{rest // 1000}천")
+    return forms
+
+
+def ratio_forms(prior, current):
+    try:
+        a, b = float(prior), float(current)
+    except (TypeError, ValueError):
+        return set()
+    if a <= 0 or b <= 0:
+        return set()
+    pct = (b - a) / a * 100
+    forms = {f"{abs(pct):.1f}%"}
+    if b / a >= 1.5:
+        forms |= {f"{b / a:.1f}배"}
+        if 1.95 <= b / a <= 2.05:
+            forms |= {"두 배", "2배"}
+    return forms
+
+
+# ---------- candidates ----------
+
+def terms_from(text, company):
+    t = html.unescape(str(text or ""))
+    for a in aliases(company) + [company] + list(LEGAL):
+        t = t.replace(a, " ")
+    t = BOILER.sub(" ", t)
+    t = re.sub(r"[\[\](){}<>·ㆍ—\-–/,:;|~→+%=\"'“”‘’…]", " ", t)
+    words = []
+    for w in t.split():
+        w = w.strip(".")
+        if re.fullmatch(r"[A-Za-z][A-Za-z0-9&.]*", w) and not ACRONYM.fullmatch(w):
+            continue  # English prose words never match Korean headlines; acronyms (HMTR, HVDC, ESS) do
+        if re.search(r"[가-힣]", w) and len(w) >= 3:
+            w = PARTICLE.sub("", w)
+        if len(w) < 2 or w in STOP or re.fullmatch(r"[\d.,]+[a-zA-Z가-힣]{0,2}", w) or re.fullmatch(r"\d{4}", w):
+            continue
+        if w not in words:
+            words.append(w)
+    return words[:4]
+
+
+def from_clue(x):
+    companies = [canon(c) for c in x.get("companies") or [] if c]
+    if not companies:
+        return None
+    company = companies[0]
+    title = str(x.get("title") or "")
+    nums, unit = set(), ""
+    m = re.search(r"숫자\s*([\d,]+)\s*→\s*([\d,]+)\s*\(([^)]*)\)", title)
+    if m:
+        unit = m.group(3).strip()
+        nums |= num_forms(m.group(1), unit) | num_forms(m.group(2), unit)
+        ratios = ratio_forms(m.group(1).replace(",", ""), m.group(2).replace(",", ""))
+        body = title[:m.start()]
+    else:
+        body, ratios = title, set()
+    return {"id": f"clue:{x.get('id')}", "kind": "단서", "team": x.get("team"), "company": company,
+            "title": title, "url": x.get("url"), "published": x.get("published"), "source": x.get("source"),
+            "tier": x.get("tier"), "terms": terms_from(body, company), "numbers": sorted(nums), "ratios": sorted(ratios),
+            "strength": 3 if x.get("tier") == "취재 단서·단독 미확정" else 1}
+
+
+def from_stat(x):
+    company = canon(x.get("company"))
+    if not company:
+        return None
+    unit = str(x.get("unit") or "")
+    nums = num_forms(x.get("current"), unit) | num_forms(x.get("prior"), unit)
+    label = str(x.get("label") or "")
+    urls = x.get("sourceUrls") or []
+    return {"id": f"stat:{x.get('id')}", "kind": "수치", "team": x.get("team"), "company": company,
+            "title": f"{label} · {x.get('period', '')} {x.get('prior')}→{x.get('current')} {unit} ({x.get('changePercent')}%)",
+            "url": urls[-1] if urls else None, "published": None, "source": x.get("source"), "tier": "수치 변화",
+            "terms": terms_from(label, company), "numbers": sorted(nums),
+            "ratios": sorted(ratio_forms(x.get("prior"), x.get("current"))),
+            "strength": min(4, float(x.get("strength") or 0) / 40)}
+
+
+def select(clues, stats, *, now, limit=MAX_CANDIDATES):
+    recent = (now - dt.timedelta(days=10)).strftime("%Y-%m-%d")
+    rows = []
+    for x in clues.get("items", []) if isinstance(clues, dict) else []:
+        if not isinstance(x, dict) or x.get("routine"):
+            continue
+        strong = x.get("tier") == "취재 단서·단독 미확정"
+        fresh = (x.get("published") or "") >= recent
+        if not (strong or fresh):
+            continue
+        c = from_clue(x)
+        if c and c["terms"]:
+            c["strength"] += 1 if fresh else 0
+            rows.append(c)
+    for x in stats.get("items", []) if isinstance(stats, dict) else []:
+        if not isinstance(x, dict) or float(x.get("strength") or 0) < 60:
+            continue
+        c = from_stat(x)
+        if c and c["terms"]:
+            rows.append(c)
+    seen, out = set(), []
+    for c in sorted(rows, key=lambda r: -r["strength"]):
+        key = (c["company"], tuple(c["numbers"])) if c["numbers"] else (c["company"], tuple(c["terms"][:2]))
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(c)
+    return out[:limit]
+
+
+def queries(c):
+    a, t = c["company"], c["terms"]
+    qs = [f"{a} {t[0]}"]
+    if len(t) > 1:
+        qs.append(f"{a} {t[0]} {t[1]}")
+    return qs
+
+
+# ---------- channels ----------
+
+def strip(s):
+    return html.unescape(re.sub(r"<[^>]+>", "", str(s or ""))).strip()
+
+
+def kst_day(s):
+    try:
+        return parsedate_to_datetime(s).astimezone(KST).strftime("%Y-%m-%d")
+    except (TypeError, ValueError, IndexError):
+        return None
+
+
+def naver(q, *, get=None):
+    cid, sec = os.environ.get("NAVER_CLIENT_ID", "").strip(), os.environ.get("NAVER_CLIENT_SECRET", "").strip()
+    if not cid or not sec:
+        return {"status": "not_configured", "items": []}
+    import naver_api
+    try:
+        via, items = naver_api.news_search(cid, sec, {"query": q, "display": 50, "sort": "sim"}, timeout=15, get=get)
+    except naver_api.NaverKeyRefused as e:
+        return {"status": "failed", "error": str(e)[:100], "items": []}
+    except Exception as e:  # network/HTTP: failure, not zero
+        return {"status": "failed", "error": type(e).__name__, "items": []}
+    return {"status": "ok", "via": via, "items": [
+        {"title": strip(x.get("title")), "text": strip(x.get("description")), "url": x.get("originallink") or x.get("link"),
+         "date": kst_day(x.get("pubDate"))} for x in items]}
+
+
+def rss(url, *, get=None, unwrap=False):
+    if get is None:
+        import requests
+        get = requests.get
+    try:
+        r = get(url, headers={"User-Agent": UA, "Accept": "application/rss+xml,application/xml;q=0.9,*/*;q=0.8",
+                              "Accept-Language": "ko-KR,ko;q=0.9"}, timeout=15)
+        if getattr(r, "status_code", 200) != 200:
+            return {"status": "failed", "error": f"HTTP {r.status_code}", "items": []}
+        root = ET.fromstring(r.content)
+        if root.tag != "rss":
+            return {"status": "failed", "error": "RSS 아님", "items": []}
+    except Exception as e:
+        return {"status": "failed", "error": type(e).__name__, "items": []}
+    items = []
+    for it in root.iter("item"):
+        link = it.findtext("link") or ""
+        if unwrap:
+            link = (parse_qs(urlparse(link).query).get("url") or [link])[0]
+        items.append({"title": strip(it.findtext("title")), "text": strip(it.findtext("description")), "url": link,
+                      "date": kst_day(it.findtext("pubDate"))})
+    return {"status": "ok", "items": items}
+
+
+def bing(q, *, get=None):
+    return rss(f"https://www.bing.com/news/search?q={quote(q)}&format=rss&setlang=ko-KR&cc=KR", get=get, unwrap=True)
+
+
+def google(q, *, get=None):
+    return rss(f"https://news.google.com/rss/search?q={quote(q + ' when:365d')}&hl=ko&gl=KR&ceid=KR:ko", get=get)
+
+
+# ---------- judging ----------
+
+def judge(c, channels, *, now):
+    since = (now - dt.timedelta(days=WINDOW_DAYS)).strftime("%Y-%m-%d")
+    names = aliases(c["company"])
+    terms = c["terms"]
+    evidence = {}
+    for ch, res in channels.items():
+        for a in res.get("items", []):
+            if a.get("date") and a["date"] < since:
+                continue
+            text = f"{a.get('title', '')} {a.get('text', '')}"
+            if not any(n in text for n in names):
+                continue
+            num_hits = [f for f in c["numbers"] if f in text]
+            term_hits = [t for t in terms if t in text] + [f for f in c.get("ratios", []) if f in text]
+            title_hits = [t for t in terms if t in a.get("title", "")]
+            if num_hits:
+                why, rank = f"같은 수치({', '.join(num_hits[:2])})", 2
+            elif len(term_hits) >= min(2, len(terms)) and (len(terms) > 1 or title_hits):
+                why, rank = f"낱말({', '.join(term_hits[:3])})", 1
+            else:
+                continue
+            key = a.get("url") or a.get("title")
+            if key not in evidence or evidence[key]["rank"] < rank:
+                evidence[key] = {"title": a.get("title", "")[:160], "url": a.get("url"), "date": a.get("date"),
+                                 "channel": ch, "why": why, "rank": rank}
+    ev = sorted(evidence.values(), key=lambda e: (-e["rank"], e.get("date") or ""), reverse=False)
+    web_ok = any(channels.get(k, {}).get("status") == "ok" for k in ("bing", "google"))
+    naver_ok = channels.get("naver", {}).get("status") == "ok"
+    if any(e["rank"] == 2 for e in ev):
+        verdict = "같은 수치 선행"
+    elif ev:
+        verdict = "관련 보도 있음"
+    elif naver_ok and web_ok:
+        verdict = "미보도 후보"
+    else:
+        verdict = "미확인"
+    return verdict, [{k: v for k, v in e.items() if k != "rank"} for e in ev[:5]]
+
+
+def screen(cands, *, now, get=None, sleep=time.sleep):
+    out = []
+    for c in cands:
+        qs = queries(c)
+        channels = {"naver": {"status": "ok", "items": []}, "bing": {}, "google": {}}
+        n_status, via = [], None
+        for q in qs:
+            r = naver(q, get=get)
+            n_status.append(r["status"])
+            via = r.get("via") or via
+            channels["naver"]["items"] += r["items"]
+            sleep(0.12)
+        channels["naver"]["status"] = ("ok" if all(s == "ok" for s in n_status)
+                                       else "not_configured" if "not_configured" in n_status else "failed")
+        if via:
+            channels["naver"]["via"] = via
+        channels["bing"] = bing(qs[-1], get=get)
+        sleep(0.3)
+        channels["google"] = google(qs[-1], get=get)
+        sleep(0.3)
+        verdict, evidence = judge(c, channels, now=now)
+        out.append({**c, "queries": qs, "verdict": verdict, "evidence": evidence,
+                    "channels": {k: {"status": v.get("status"), "returned": len(v.get("items", [])),
+                                     **({"via": v["via"]} if v.get("via") else {}),
+                                     **({"error": v["error"]} if v.get("error") else {})} for k, v in channels.items()}})
+    order = {"미보도 후보": 0, "관련 보도 있음": 1, "미확인": 2, "같은 수치 선행": 3}
+    out.sort(key=lambda r: (order[r["verdict"]], -r["strength"]))
+    return out
+
+
+def report(rows, *, now, inputs):
+    counts = {v: sum(1 for r in rows if r["verdict"] == v) for v in ("미보도 후보", "관련 보도 있음", "같은 수치 선행", "미확인")}
+    return {"schema": SCHEMA, "generatedAt": now.isoformat(timespec="seconds"), "inputs": inputs,
+            "counts": counts, "windowDays": WINDOW_DAYS, "candidates": rows,
+            "rules": ["미보도 후보는 검색 범위(네이버 뉴스 API·빙·구글 최근 365일, 질의 2개) 안에서 못 찾았다는 뜻이다. 단독 판정이 아니다.",
+                      "관련 보도 있음은 회사명+낱말이 겹친 기사. 같은 사건·같은 각도인지는 열어 봐야 한다.",
+                      "같은 수치 선행은 회사명과 같은 수치가 함께 나온 기사. 새 각도가 없으면 접는다.",
+                      "미확인은 채널 실패·미설정. 0건이 아니다. 최종 단독 판단은 기자가 한다."],
+            "confirmedScoops": 0}
+
+
+def push(doc, token, *, post=None):
+    if post is None:
+        import requests
+        post = requests.post
+    r = post(f"{WORKER}/ingest/scoop-screen", data=json.dumps(doc, ensure_ascii=False).encode("utf-8"),
+             headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json", "User-Agent": UA}, timeout=30)
+    return getattr(r, "status_code", 0)
+
+
+def load(path):
+    try:
+        return json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+
+
+def main():
+    ap = argparse.ArgumentParser(description="단독 후보 자동 심사(결과는 기자 전용 저장소로만)")
+    ap.add_argument("--limit", type=int, default=MAX_CANDIDATES)
+    ap.add_argument("--out", help="로컬 확인용 파일(공개 저장소에 커밋하지 않는다)")
+    ap.add_argument("--dry-run", action="store_true", help="검색 없이 후보·질의만 만든다")
+    a = ap.parse_args()
+    now = now_kst()
+    clues, stats = load(ROOT / "tools/clues.json") or {}, load(ROOT / "tools/stats.json") or {}
+    cands = select(clues, stats, now=now, limit=a.limit)
+    inputs = {"cluesGeneratedAt": clues.get("generatedAt"), "statsGeneratedAt": stats.get("generatedAt"),
+              "selected": len(cands)}
+    if a.dry_run:
+        for c in cands:
+            print(c["company"], "|", queries(c), "|", c["numbers"][:4])
+        return
+    rows = screen(cands, now=now)
+    doc = report(rows, now=now, inputs=inputs)
+    if a.out:
+        Path(a.out).write_text(json.dumps(doc, ensure_ascii=False, indent=1), encoding="utf-8")
+    ch = {k: sum(1 for r in rows if r["channels"][k]["status"] == "ok") for k in ("naver", "bing", "google")}
+    # Public log: counts only — never titles, companies or queries.
+    print(f"::notice title=scoop-screen::후보 {len(rows)} · " + " · ".join(f"{k} {v}" for k, v in doc["counts"].items())
+          + f" · 채널 정상 naver {ch['naver']}/{len(rows)} bing {ch['bing']}/{len(rows)} google {ch['google']}/{len(rows)}")
+    token = os.environ.get("MCP_ACCESS_TOKEN", "").strip()
+    if not token:
+        print("::warning title=scoop-screen-push::MCP_ACCESS_TOKEN 미설정 — 결과를 기자 전용 저장소로 보내지 않음(공개 저장소에도 쓰지 않음)")
+        return
+    status = push(doc, token)
+    print(f"::notice title=scoop-screen-push::기자 전용 저장소 전송 HTTP {status}")
+    if status != 200:
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
