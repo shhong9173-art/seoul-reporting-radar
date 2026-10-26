@@ -103,6 +103,25 @@ class CollectorRegressionTests(unittest.TestCase):
         text = "3. 처분예정금액(원) 보통주식 258,750,000 기타주식 - 4. 처분예정기간"
         self.assertIn("258,750,000원", dart.extract_heading_values(text))
 
+    def test_dart_heading_never_reads_a_date_as_the_amount(self):
+        # Operating dart_numeric.json (2026-10-25) carried "2026원" for 씨에스윈드
+        # from a narrative reference to the heading followed by a date.
+        narrative = ("'2. 처분대상 주식가격(원)', '3. 처분예정금액(원)'은 이사회 결의일 "
+                     "전일(2026년 10월 06일) 한국거래소 정규시장 종가를 기준으로")
+        self.assertEqual(dart.extract_heading_values(narrative), [])
+        cases = {
+            "투자금액(원) 2026년 10월 1일 기준 1,000,000": ["1,000,000원"],
+            "생산능력(톤) 2027년 300,000": ["300,000톤"],
+            "계약금액(원) 2026.01.01 1,200,000": ["1,200,000원"],
+            "투자금액(원) 2026-03-31 기준 500,000,000": ["500,000,000원"],
+            "생산능력(대) 2차 증설 후 300,000": ["300,000대"],
+            "생산능력(MW) 1호기 1,400": ["1,400MW"],
+            "처분예정주식(주) 1,000 일반": ["1,000주"],
+            "계약금액(원) 2026년 10월": [],
+        }
+        for text, expected in cases.items():
+            self.assertEqual(dart.extract_heading_values(text), expected, text)
+
     def test_nlrc_dated_list_rows(self):
         recent = (datetime.now(scout.KST) - timedelta(days=1)).strftime("%Y-%m-%d")
         old = (datetime.now(scout.KST) - timedelta(days=70)).strftime("%Y-%m-%d")
