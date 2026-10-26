@@ -31,6 +31,10 @@ class Tender(unittest.TestCase):
   self.assertTrue(all(c["status"]=="source_error" for c in ctx.exception.checks))
   self.assertIn("SERVICE_KEY_IS_NOT_REGISTERED_ERROR",ctx.exception.checks[0]["providerMessage"])
   self.assertNotIn("serviceKey",json_dump(ctx.exception.checks))
+ def test_json_gateway_refusal_keeps_code(self):
+  body=json.dumps({"OpenAPI_ServiceResponse":{"cmmMsgHeader":{"errMsg":"SERVICE ERROR",
+        "returnAuthMsg":"SERVICE_KEY_IS_NOT_REGISTERED_ERROR","returnReasonCode":"30"}}})
+  self.assertEqual(p.provider_message(body),"30 SERVICE_KEY_IS_NOT_REGISTERED_ERROR")
  def test_provider_result_code_is_reported(self):
   with self.assertRaises(p.ProviderError) as ctx:
    p.parse_result({"response":{"header":{"resultCode":"12","resultMsg":"NO_OPENAPI_SERVICE_ERROR"}}})

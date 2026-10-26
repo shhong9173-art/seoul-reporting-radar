@@ -85,8 +85,15 @@ def load_corp_codes(k):
     cache = DATA / "corpcode.json"
     if cache.exists() and time.time() - cache.stat().st_mtime < 86400:
         return json.loads(cache.read_text(encoding="utf-8"))
-    r = requests.get(f"{API}/corpCode.xml", params={"crtfc_key": k}, timeout=60)
-    r.raise_for_status()
+    for attempt in range(3):
+        try:
+            r = requests.get(f"{API}/corpCode.xml", params={"crtfc_key": k}, timeout=60)
+            r.raise_for_status()
+            break
+        except requests.RequestException as e:
+            if attempt == 2:
+                sys.exit(f"DART 고유번호 표 다운로드 실패: {type(e).__name__} — 이전 브리핑 유지")
+            time.sleep(5 * (attempt + 1))
     with zipfile.ZipFile(io.BytesIO(r.content)) as z:
         xml = z.read(z.namelist()[0])
     table = {}
@@ -108,17 +115,40 @@ def pick_code(table, name):
     return next(iter(candidate_codes)) if len(candidate_codes) == 1 else None
 
 
-def filings(k, corp_code, bgn, end):
+class TransientDartError(RuntimeError):
+    """Network/5xx/DART maintenance or rate answers: worth a retry, never '0건'."""
+
+
+# 020 요청 제한 초과 · 800 시스템 점검 · 900 정의되지 않은 오류
+TRANSIENT_STATUS = {"020", "800", "900"}
+
+
+def get_json(params, *, get=None, sleep=time.sleep, attempts=3):
+    """GET list.json with bounded retries. Errors never carry the API key."""
+    get = get or requests.get
+    last = None
+    for attempt in range(attempts):
+        try:
+            r = get(f"{API}/list.json", params=params, timeout=30)
+            if getattr(r, "status_code", 200) >= 500:
+                raise TransientDartError(f"HTTP {r.status_code}")
+            r.raise_for_status()
+            j = r.json()
+            if j.get("status") in TRANSIENT_STATUS:
+                raise TransientDartError(f"DART {j.get('status')}: {j.get('message')}")
+            return j
+        except (requests.RequestException, TransientDartError, ValueError) as e:
+            last = e if isinstance(e, TransientDartError) else TransientDartError(type(e).__name__)
+            if attempt + 1 < attempts:
+                sleep(2 * (attempt + 1) ** 2)
+    raise last
+
+
+def filings(k, corp_code, bgn, end, *, get=None, sleep=time.sleep):
     out, page = [], 1
     while True:
-        r = requests.get(
-            f"{API}/list.json",
-            params={"crtfc_key": k, "corp_code": corp_code, "bgn_de": bgn, "end_de": end,
-                    "page_no": page, "page_count": 100},
-            timeout=30,
-        )
-        r.raise_for_status()
-        j = r.json()
+        j = get_json({"crtfc_key": k, "corp_code": corp_code, "bgn_de": bgn, "end_de": end,
+                      "page_no": page, "page_count": 100}, get=get, sleep=sleep)
         if j.get("status") == "013":  # 조회 결과 없음
             return out
         if j.get("status") != "000":
@@ -167,17 +197,26 @@ def main():
     seen_path = DATA / "seen.txt"
     seen = set(seen_path.read_text(encoding="utf-8").split()) if seen_path.exists() else set()
 
-    rows, missing = [], []
+    rows, missing, failed, attempted = [], [], [], 0
     for group, names in load_watchlist().items():
         for name in names:
             code = pick_code(table, name)
             if not code:
                 missing.append(name)
                 continue
-            for f in filings(k, code, bgn, end):
+            attempted += 1
+            try:
+                got = filings(k, code, bgn, end)
+            except (TransientDartError, RuntimeError) as e:
+                # One company's outage must not erase the others, and is not 0건.
+                failed.append({"company": name, "error": str(e)[:120]})
+                continue
+            for f in got:
                 tag, pri = flag_of(f["report_nm"])
                 rows.append({**f, "group": group, "tag": tag, "pri": pri, "new": f["rcept_no"] not in seen})
             time.sleep(0.2)
+    if attempted and len(failed) * 2 > attempted:
+        sys.exit(f"DART 조회 실패 {len(failed)}/{attempted}곳 — 이전 브리핑을 유지하고 중단(0건 아님).")
 
     rows.sort(key=lambda x: (x["pri"], -int(x["rcept_dt"])))  # 중요한 것 먼저, 같은 급이면 최신 먼저
 
@@ -192,6 +231,9 @@ def main():
     lines += ["", "## 나머지 (묶음별)", ""]
     for r in sorted([r for r in rows if not r["tag"]], key=lambda x: (x["group"], x["rcept_dt"])):
         lines.append(_line(r))
+    if failed:
+        lines += ["", "## 조회 실패 (공시 0건이 아님 — 다음 실행에서 다시 확인)", "",
+                  ", ".join(f"{x['company']}({x['error']})" for x in failed)]
     if missing:
         lines += ["", "## DART에서 못 찾은 이름 (watchlist.txt 고칠 것)", "", ", ".join(missing)]
 
@@ -204,6 +246,7 @@ def main():
         "date": today.isoformat(), "rangeStart": bgn, "rangeEnd": end,
         "totalCount": len(rows), "newCount": sum(r["new"] for r in rows),
         "flaggedCount": len(flagged), "missingCompanies": missing,
+        "failedCompanies": failed, "sourceComplete": not failed and not missing,
         "classification": "공개자료·단독 여부 미확정",
         "items": [
             {"company": r["corp_name"], "group": r["group"],

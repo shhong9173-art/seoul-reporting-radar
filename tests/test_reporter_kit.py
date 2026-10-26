@@ -53,5 +53,38 @@ class ReporterKitTests(unittest.TestCase):
         row={"group":"자동차","corp_name":"기아","report_nm":"단일판매ㆍ공급계약체결","rcept_dt":"20261012","rcept_no":"20261012000123","tag":"★수주","new":True}
         self.assertIn("rcpNo=20261012000123",dart_watch._line(row))
 
+class DartWatchRetry(unittest.TestCase):
+    def test_transient_status_is_retried_then_succeeds(self):
+        calls = []
+        class R:
+            def __init__(self, body, code=200): self.body, self.status_code = body, code
+            def raise_for_status(self): pass
+            def json(self): return self.body
+        answers = [R({"status": "800", "message": "점검"}), R({}, 503),
+                   R({"status": "000", "total_page": 1, "list": [{"rcept_no": "1"}]})]
+        def get(url, params, timeout):
+            calls.append(params["page_no"]); return answers.pop(0)
+        self.assertEqual(dart_watch.filings("k", "00000001", "20261020", "20261026", get=get, sleep=lambda s: None),
+                         [{"rcept_no": "1"}])
+        self.assertEqual(len(calls), 3)
+
+    def test_persistent_failure_raises_without_key(self):
+        class R:
+            status_code = 200
+            def raise_for_status(self): pass
+            def json(self): return {"status": "020", "message": "요청 제한 초과"}
+        with self.assertRaises(dart_watch.TransientDartError) as ctx:
+            dart_watch.filings("SECRETKEY", "00000001", "20261020", "20261026", get=lambda *a, **k: R(), sleep=lambda s: None)
+        self.assertNotIn("SECRETKEY", str(ctx.exception))
+        self.assertIn("020", str(ctx.exception))
+
+    def test_no_result_is_zero_not_failure(self):
+        class R:
+            status_code = 200
+            def raise_for_status(self): pass
+            def json(self): return {"status": "013", "message": "조회된 데이타가 없습니다."}
+        self.assertEqual(dart_watch.filings("k", "00000001", "20261020", "20261026", get=lambda *a, **k: R(), sleep=lambda s: None), [])
+
+
 if __name__=="__main__":
     unittest.main()
