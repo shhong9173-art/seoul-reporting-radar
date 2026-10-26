@@ -35,6 +35,9 @@ test('does not forward write requests to another origin', () => {
 test('Wrangler references the tested worker and does not upload repository assets', () => {
   const config = JSON.parse(readFileSync(new URL('../wrangler.json', import.meta.url)));
   assert.equal(config.name, 'seoul-reporting-radar');
-  assert.equal(config.main, 'cloudflare/redirect.mjs');
+  // worker.mjs serves /mcp and hands every other path to redirect.mjs
+  // (covered in test_cloudflare_mcp.mjs). Repository files are never uploaded.
+  assert.equal(config.main, 'cloudflare/worker.mjs');
   assert.equal(config.assets, undefined);
+  assert.deepEqual(config.migrations, [{ tag: 'v1', new_sqlite_classes: ['RadarStore'] }]);
 });

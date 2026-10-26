@@ -1,0 +1,321 @@
+// Live lookups: prior coverage, public originals, OpenDART and KONEPS.
+// Every channel reports ok / failed / not_configured separately: a failed or
+// unconfigured search is never reported as "0건".
+import {
+  beatName, clampInt, decodeBytes, decodeEntities, fetchJson, htmlToText, kstDate, kstStamp, matchesQuery,
+  readCapped, sha256Hex, textResult, ymd,
+} from './common.mjs';
+import { readZip } from './zip.mjs';
+
+const TIMEOUT_MS = 15000;
+const signal = () => AbortSignal.timeout(TIMEOUT_MS);
+const stripTags = (s) => decodeEntities(String(s ?? '').replace(/<[^>]+>/g, '')).trim();
+
+function rssItems(xml) {
+  const items = [];
+  for (const m of xml.matchAll(/<item>([\s\S]*?)<\/item>/g)) {
+    const get = (tag) => {
+      const r = new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`).exec(m[1]);
+      return r ? decodeEntities(r[1].replace(/^<!\[CDATA\[|\]\]>$/g, '')).trim() : '';
+    };
+    items.push({ title: get('title'), url: get('link'), published: get('pubDate'), source: get('source') });
+  }
+  return items;
+}
+
+function kstDay(value) {
+  const t = Date.parse(value);
+  return Number.isFinite(t) ? new Date(t + 9 * 3600000).toISOString().slice(0, 10) : null;
+}
+
+async function googleNews(ctx, q, days) {
+  const url = `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=ko&gl=KR&ceid=KR:ko`;
+  try {
+    const r = await ctx.fetch(url, { signal: signal(), headers: { 'User-Agent': 'Mozilla/5.0 seoul-reporting-radar' } });
+    if (!r.ok) return { status: 'failed', error: `HTTP ${r.status}`, items: [] };
+    const xml = await r.text();
+    if (!/<rss[\s>]/.test(xml)) return { status: 'failed', error: 'RSS 형식 아님', items: [] };
+    const from = kstDate(ctx.now, days);
+    const all = rssItems(xml);
+    const items = all.map((x) => ({ ...x, date: kstDay(x.published) }))
+      .filter((x) => x.date && x.date >= from);
+    return { status: 'ok', returned: all.length, items };
+  } catch (e) {
+    return { status: 'failed', error: e.name === 'TimeoutError' ? '시간 초과' : String(e.message ?? e), items: [] };
+  }
+}
+
+async function naverNews(ctx, q, days) {
+  if (!ctx.private) return { status: 'not_available', error: '기자 전용 연결에서만', items: [] };
+  const id = ctx.env?.NAVER_CLIENT_ID; const secret = ctx.env?.NAVER_CLIENT_SECRET;
+  if (!id || !secret) return { status: 'not_configured', error: 'Cloudflare에 NAVER_CLIENT_ID/SECRET 미등록', items: [] };
+  try {
+    const url = `https://openapi.naver.com/v1/search/news.json?query=${encodeURIComponent(q)}&display=100&sort=date`;
+    const r = await ctx.fetch(url, { signal: signal(), headers: { 'X-Naver-Client-Id': id, 'X-Naver-Client-Secret': secret } });
+    if (!r.ok) return { status: 'failed', error: `HTTP ${r.status}`, items: [] };
+    const body = await r.json();
+    const from = kstDate(ctx.now, days);
+    const all = Array.isArray(body.items) ? body.items : [];
+    const items = all.map((x) => ({ title: stripTags(x.title), url: x.originallink || x.link,
+      published: x.pubDate, date: kstDay(x.pubDate), source: (/https?:\/\/(?:www\.)?([^/]+)/.exec(x.originallink || '') || [])[1] ?? '' }))
+      .filter((x) => x.date && x.date >= from);
+    return { status: 'ok', returned: all.length, items,
+      note: all.length === 100 && items.length === 100 ? '최신순 100건 상한에 닿음 — 더 오래된 기사는 못 봄' : '' };
+  } catch (e) {
+    return { status: 'failed', error: e.name === 'TimeoutError' ? '시간 초과' : String(e.message ?? e), items: [] };
+  }
+}
+
+async function dandokIndex(ctx, q, days) {
+  try {
+    const v = await fetchJson(ctx, 'tools/dandok.json');
+    const from = kstDate(ctx.now, Math.min(days, 120));
+    const items = (v.items ?? []).filter((r) => r.published >= from && matchesQuery(q, r.title, r.companies))
+      .map((r) => ({ title: r.title, url: r.url, date: r.published, source: r.source }));
+    return { status: 'ok', returned: (v.items ?? []).length, items, note: `색인 범위 최근 ${Math.min(days, 120)}일 · ${v.status ?? ''}` };
+  } catch (e) {
+    return { status: 'failed', error: String(e.message ?? e), items: [] };
+  }
+}
+
+export async function newsCheck(ctx, args) {
+  const q = String(args.q ?? '').trim();
+  if (q.length < 2) return textResult('q(검색 낱말 2~3개)를 넣어 주세요.', true);
+  const days = clampInt(args.days, 1, 365, 365);
+  const limit = clampInt(args.limit, 1, 30, 10);
+  const [google, naver, dandok] = await Promise.all([googleNews(ctx, q, days), naverNews(ctx, q, days), dandokIndex(ctx, q, days)]);
+  const channels = { '구글 뉴스': google, '네이버 뉴스': naver, '[단독] 색인': dandok };
+  const out = [`보도 대조: "${q}" · 최근 ${days}일 · ${kstStamp(ctx.now)}`];
+  let hits = 0; let incomplete = [];
+  for (const [name, ch] of Object.entries(channels)) {
+    if (ch.status !== 'ok') {
+      incomplete.push(name);
+      out.push(`\n■ ${name}: ${ch.status} — ${ch.error}`);
+      continue;
+    }
+    hits += ch.items.length;
+    out.push(`\n■ ${name}: ${ch.items.length}건 (응답 ${ch.returned}건)${ch.note ? ` · ${ch.note}` : ''}`);
+    for (const x of ch.items.slice(0, limit)) {
+      out.push(`${x.date} | ${x.source || '-'} | ${x.title}${/\[단독\]|단독/.test(x.title) ? ' ★단독' : ''}`);
+      if (x.url) out.push(`   ${x.url}`);
+    }
+    if (ch.items.length > limit) out.push(`   … 남은 ${ch.items.length - limit}건`);
+  }
+  const verdict = incomplete.length
+    ? `판정: 미확인 — ${incomplete.join('·')} 조회 실패·미설정(0건이 아님). 관련 후보 ${hits}건.`
+    : hits ? `판정: 관련 보도 후보 ${hits}건 — 같은 사건·같은 각도인지 열어 봐야 함.`
+      : '판정: 조회한 채널 모두 0건 — 미보도 증거 아님. 낱말을 바꿔 2~3번, 전문지·온라인 매체(더벨·딜사이트 등)는 웹검색으로 따로 본다.';
+  out.splice(1, 0, verdict);
+  return textResult(out.join('\n'));
+}
+
+// --------------------------------------------------------------- originals
+const ALLOWED_SUFFIXES = [
+  '.go.kr', 'dart.fss.or.kr', 'opendart.fss.or.kr', 'kind.krx.co.kr', 'kipris.or.kr', 'kosis.kr', 'kepco.co.kr',
+  'khnp.co.kr', 'kpx.or.kr', 'kogas.or.kr', 'kosa.or.kr', 'koema.or.kr', 'kama.or.kr', 'kaida.co.kr',
+  'kita.net', 'bok.or.kr', '.gov', 'europa.eu', 'nhtsa.gov', 'federalregister.gov', 'sec.gov',
+  // direct-beat company and IR sites
+  'hyundai.com', 'kia.com', 'mobis.com', 'hyundai-wia.com', 'hlmando.com', 'gm-korea.co.kr', 'kg-mobility.com',
+  'renault.co.kr', 'mercedes-benz.co.kr', 'bmw.co.kr', 'volkswagen.co.kr', 'audi.co.kr', 'honda.co.kr',
+  'hankooktire.com', 'nexentire.com', 'kumhotire.com', 'posco-inc.com', 'posco.com', 'hyundai-steel.com',
+  'kg-steel.co.kr', 'seah.co.kr', 'seahsteel.co.kr', 'dongkuk.com', 'dongkukcm.com', 'koreazinc.co.kr',
+  'youngpoong.co.kr', 'hd-hyundaielectric.com', 'ls-electric.com', 'taihan.com', 'lscns.co.kr', 'lsmnm.com',
+  'lsholdings.com', 'doosanenerbility.com', 'gs.co.kr', 'gscaltex.com', 'hanwhasolutions.com', 'oci.co.kr',
+  'oci-holdings.co.kr', 'taekwang.com', 'dongsungchemical.com', 'dlchem.com',
+];
+
+export function allowedUrl(raw) {
+  let u;
+  try { u = new URL(String(raw ?? '')); } catch { return null; }
+  if (!['https:', 'http:'].includes(u.protocol) || u.username || u.password || u.port) return null;
+  const host = u.hostname.toLowerCase();
+  if (/^[\d.]+$/.test(host) || host.includes(':')) return null;
+  const ok = ALLOWED_SUFFIXES.some((s) => (s.startsWith('.') ? host.endsWith(s) : host === s || host.endsWith('.' + s)));
+  return ok ? u : null;
+}
+
+export async function sourceDocument(ctx, args) {
+  let url = allowedUrl(args.url);
+  if (!url) return textResult('허용된 공식·출입처 도메인(go.kr·DART·KIND·KIPRIS·.gov·EU·출입처 홈페이지 등)의 http(s) 주소만 연다.', true);
+  const offset = clampInt(args.offset, 0, 5_000_000, 0);
+  const limit = clampInt(args.limit, 500, 16000, 16000);
+  let response;
+  for (let hop = 0; hop < 4; hop++) {
+    try {
+      response = await ctx.fetch(url.href, { redirect: 'manual', signal: signal(),
+        headers: { 'User-Agent': 'Mozilla/5.0 seoul-reporting-radar (reporter research)', Accept: 'text/html,application/xhtml+xml,application/xml,text/plain,application/json' } });
+    } catch (e) {
+      return textResult(`원문 열기 실패: ${e.name === 'TimeoutError' ? '시간 초과' : e.message} — 원문 미확인으로 적는다.`, true);
+    }
+    if (![301, 302, 303, 307, 308].includes(response.status)) break;
+    const next = allowedUrl(new URL(response.headers.get('Location') ?? '', url).href);
+    if (!next) return textResult('허용 도메인 밖으로 이동하는 주소라 열지 않음.', true);
+    url = next;
+  }
+  if (!response.ok) return textResult(`원문 HTTP ${response.status} — 원문 미확인으로 적는다.`, true);
+  const type = response.headers.get('Content-Type') ?? '';
+  if (/pdf|octet-stream|zip|image/i.test(type)) return textResult(`본문이 ${type} 형식이라 텍스트로 읽지 못함. 원문 링크: ${url.href}`, true);
+  let bytes;
+  try { bytes = await readCapped(response, 4_000_000); } catch (e) { return textResult(String(e.message), true); }
+  const { text: raw, charset } = decodeBytes(bytes, type);
+  const text = /html|xml/i.test(type) || /<html|<body|<\?xml/i.test(raw.slice(0, 500)) ? htmlToText(raw) : raw;
+  const hash = await sha256Hex(text);
+  const slice = text.slice(offset, offset + limit);
+  const out = [`원문: ${url.href}`, `받은 시각 ${kstStamp(ctx.now)} · 문자셋 ${charset} · 전체 ${text.length}자 · 내용 해시 sha256:${hash}`,
+    `구간 ${offset}~${offset + slice.length}${offset + slice.length < text.length ? ` (다음 offset=${offset + slice.length})` : ' (끝)'}`,
+    '---', slice];
+  return textResult(out.join('\n'));
+}
+
+// ------------------------------------------------------------------- DART
+async function corpCodeFor(ctx, args) {
+  const direct = String(args.corp_code ?? '').trim();
+  if (/^\d{8}$/.test(direct)) return { code: direct, name: args.company ?? direct };
+  const want = String(args.company ?? '').trim();
+  if (!want) return null;
+  const registry = await fetchJson(ctx, 'dart_corp_codes.json');
+  const companies = registry.companies ?? {};
+  const target = beatName(want) ?? want;
+  for (const [name, entry] of Object.entries(companies)) {
+    if (name === want || name === target || beatName(name) === target) return { code: entry.corp_code, name };
+  }
+  return null;
+}
+
+function dartKey(ctx) {
+  const key = ctx.env?.DART_API_KEY;
+  return ctx.private && key ? key : null;
+}
+
+export async function dartFilings(ctx, args) {
+  const key = dartKey(ctx);
+  if (!key) return textResult('DART 조회는 기자 전용 연결에서, Cloudflare에 DART_API_KEY를 등록한 뒤에만 된다.', true);
+  const corp = await corpCodeFor(ctx, args).catch(() => null);
+  if (!corp) return textResult('회사 고유번호를 찾지 못함 — company(출입처 이름) 또는 corp_code(8자리)를 넣어 주세요. 못 찾은 것은 공시 0건이 아니다.', true);
+  const end = /^\d{8}$/.test(args.end ?? '') ? args.end : ymd(kstDate(ctx.now));
+  const start = /^\d{8}$/.test(args.start ?? '') ? args.start : ymd(kstDate(ctx.now, 90));
+  const rows = [];
+  let total = null;
+  for (let page = 1; page <= 3; page++) {
+    const url = `https://opendart.fss.or.kr/api/list.json?crtfc_key=${encodeURIComponent(key)}&corp_code=${corp.code}` +
+      `&bgn_de=${start}&end_de=${end}&page_no=${page}&page_count=100`;
+    let body;
+    try {
+      const r = await ctx.fetch(url, { signal: signal() });
+      if (!r.ok) return textResult(`OpenDART HTTP ${r.status} — 조회 실패(0건 아님)`, true);
+      body = await r.json();
+    } catch (e) {
+      return textResult(`OpenDART 조회 실패: ${e.name === 'TimeoutError' ? '시간 초과' : e.message} (0건 아님)`, true);
+    }
+    if (body.status === '013') { total = 0; break; }
+    if (body.status !== '000') return textResult(`OpenDART 상태 ${body.status}: ${body.message ?? ''} — 조회 실패(0건 아님)`, true);
+    total = body.total_count;
+    rows.push(...(body.list ?? []));
+    if (page >= (body.total_page ?? 1)) break;
+  }
+  const out = [`DART 공시 목록: ${corp.name}(${corp.code}) ${start}~${end} · ${rows.length}건${total > rows.length ? ` / 전체 ${total}건(앞 300건만)` : ''}`];
+  if (total === 0) out.push('OpenDART가 이 기간 공시 0건이라고 응답(조회 성공).');
+  for (const x of rows) {
+    out.push(`${x.rcept_dt} | ${String(x.report_nm ?? '').replace(/\s+/g, ' ').trim()} | ${x.rcept_no} | ${x.flr_nm}${x.rm ? ` | 비고 ${x.rm}` : ''}`);
+    out.push(`   https://dart.fss.or.kr/dsaf001/main.do?rcpNo=${x.rcept_no}`);
+  }
+  return textResult(out.join('\n'));
+}
+
+function decodeXml(bytes) {
+  const head = String.fromCharCode(...bytes.slice(0, 200));
+  const enc = (/encoding=["']([\w-]+)/i.exec(head) || [])[1]?.toLowerCase() ?? 'utf-8';
+  try { return new TextDecoder(enc).decode(bytes); } catch { return new TextDecoder('utf-8').decode(bytes); }
+}
+
+export async function dartFindText(ctx, args) {
+  const key = dartKey(ctx);
+  if (!key) return textResult('DART 원문 검색은 기자 전용 연결에서, Cloudflare에 DART_API_KEY를 등록한 뒤에만 된다.', true);
+  const rcp = String(args.rcp_no ?? '').trim();
+  const word = String(args.word ?? '').trim();
+  if (!/^\d{14}$/.test(rcp) || word.length < 1) return textResult('rcp_no(14자리 접수번호)와 word를 넣어 주세요.', true);
+  const limit = clampInt(args.limit, 1, 20, 8);
+  let bytes;
+  try {
+    const r = await ctx.fetch(`https://opendart.fss.or.kr/api/document.xml?crtfc_key=${encodeURIComponent(key)}&rcept_no=${rcp}`, { signal: signal() });
+    if (!r.ok) return textResult(`OpenDART HTTP ${r.status} — 원문 미확인`, true);
+    bytes = await readCapped(r, 30_000_000);
+  } catch (e) {
+    return textResult(`OpenDART 원문 실패: ${e.name === 'TimeoutError' ? '시간 초과' : e.message} — 원문 미확인`, true);
+  }
+  if (bytes[0] !== 0x50 || bytes[1] !== 0x4b) {
+    const msg = new TextDecoder('utf-8').decode(bytes.slice(0, 400));
+    return textResult(`OpenDART가 ZIP 대신 응답: ${(/<message>([^<]+)/.exec(msg) || /"message"\s*:\s*"([^"]+)/.exec(msg) || [])[1] ?? '형식 오류'} — 원문 미확인`, true);
+  }
+  let entries;
+  try { entries = await readZip(bytes); } catch (e) { return textResult(`ZIP 해제 실패: ${e.message}`, true); }
+  const out = [`DART 원문 검색: ${rcp} "${word}" · 파일 ${entries.length}개`];
+  let found = 0;
+  for (const entry of entries) {
+    const text = htmlToText(decodeXml(entry.data));
+    const hash = await sha256Hex(text);
+    const hits = [];
+    let i = text.indexOf(word);
+    while (i >= 0) { hits.push(i); i = text.indexOf(word, i + word.length); }
+    out.push(`\n■ ${entry.name} · ${text.length}자 · ${hits.length}곳 · sha256:${hash.slice(0, 16)}…`);
+    for (const at of hits.slice(0, Math.max(0, limit - found))) {
+      out.push(`… ${text.slice(Math.max(0, at - 160), at + word.length + 160).replace(/\s+/g, ' ')} …`);
+      found++;
+    }
+  }
+  out.push(`\n원문 링크: https://dart.fss.or.kr/dsaf001/main.do?rcpNo=${rcp}`);
+  if (!found) out.push('이 낱말은 원문 텍스트에서 찾지 못함(표 이미지·첨부 PDF 안의 글자는 못 봄).');
+  return textResult(out.join('\n'));
+}
+
+// -------------------------------------------------------------------- G2B
+const G2B_BASE = 'https://apis.data.go.kr/1230000/ad/BidPublicInfoService';
+const G2B_OPS = { 물품: 'getBidPblancListInfoThng', 공사: 'getBidPblancListInfoCnstwk' };
+
+export async function g2bBids(ctx, args) {
+  const q = String(args.q ?? '').trim();
+  const key = ctx.private ? (ctx.env?.G2B_API_KEY || ctx.env?.DATA_GO_KR_KEY) : null;
+  if (!key) {
+    let snap;
+    try { snap = await fetchJson(ctx, 'digests/g2b_tender_latest.json'); } catch {
+      return textResult('나라장터: 실시간 키 미등록이고 공개 스냅샷도 없음 — 미확인(0건 아님). radar_health의 나라장터 상태를 본다.', true);
+    }
+    const rows = (snap.notices ?? []).filter((x) => matchesQuery(q, x.title, x.demandAgency, x.issuingAgency));
+    const out = [`나라장터 공개 스냅샷(${snap.from}~${snap.to}, 기술 낱말로 거른 공고) · "${q}" ${rows.length}건 — 실시간 검색 아님`];
+    for (const x of rows.slice(0, 30)) out.push(`${String(x.issueDate).slice(0, 10)} | ${x.title} | ${x.demandAgency || x.issuingAgency} | ${x.noticeId}`);
+    return textResult(out.join('\n'));
+  }
+  const days = clampInt(args.days, 1, 7, 3);
+  const end = ymd(kstDate(ctx.now)) + '2359';
+  const start = ymd(kstDate(ctx.now, days)) + '0000';
+  const out = [`나라장터 입찰공고 실시간: "${q}" · ${start.slice(0, 8)}~${end.slice(0, 8)} (공고≠낙찰·계약)`];
+  for (const [label, op] of Object.entries(G2B_OPS)) {
+    const matched = []; let total = null; let read = 0; let error = null;
+    for (let page = 1; page <= 5; page++) {
+      const url = `${G2B_BASE}/${op}?serviceKey=${encodeURIComponent(key)}&pageNo=${page}&numOfRows=100&type=json&inqryDiv=1&inqryBgnDt=${start}&inqryEndDt=${end}`;
+      try {
+        const r = await ctx.fetch(url, { signal: signal() });
+        if (!r.ok) { error = `HTTP ${r.status}`; break; }
+        const body = await r.json();
+        const header = body?.response?.header ?? {};
+        if (!['00', '000'].includes(String(header.resultCode))) { error = `제공기관 코드 ${header.resultCode ?? '?'}`; break; }
+        let items = body.response.body?.items;
+        if (items && !Array.isArray(items)) items = items.item ?? [];
+        items = Array.isArray(items) ? items : items ? [items] : [];
+        total = Number(body.response.body?.totalCount ?? 0);
+        read += items.length;
+        for (const x of items) {
+          if (matchesQuery(q, x.bidNtceNm, x.dminsttNm, x.ntceInsttNm)) matched.push(x);
+        }
+        if (read >= total || !items.length) break;
+      } catch (e) { error = e.name === 'TimeoutError' ? '시간 초과' : String(e.message ?? e); break; }
+    }
+    if (error) { out.push(`\n■ ${label}: 조회 실패 ${error} — 0건 아님`); continue; }
+    out.push(`\n■ ${label}: 일치 ${matched.length}건 (읽은 ${read}/${total}건${read < total ? ' — 앞부분만 봄' : ''})`);
+    for (const x of matched.slice(0, 20)) {
+      out.push(`${String(x.bidNtceDt ?? '').slice(0, 16)} | ${x.bidNtceNm} | ${x.dminsttNm || x.ntceInsttNm} | ${x.bidNtceNo}-${x.bidNtceOrd ?? ''}`);
+      if (x.bidNtceDtlUrl) out.push(`   ${x.bidNtceDtlUrl}`);
+    }
+  }
+  return textResult(out.join('\n'));
+}
