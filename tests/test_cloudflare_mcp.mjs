@@ -483,9 +483,10 @@ test('partner_filings reads ASX and EDGAR items from the private feed', async ()
   assert.match(r.text, /\[신규\] 2026-10-20 · ASX · Arafura Rare Earths \(ARU\) · 관련 출입처 현대차·기아/);
   assert.match(r.text, /관계: NdPr 공급계약 \(근거 https:\/\/example\/aru\)/);
   assert.match(r.text, /본문 발췌: …supply agreement with Hyundai Steel…/);
-  const flagged = await call('partner_filings', { flagged_only: true, source: 'ASX' }, opts);
-  assert.doesNotMatch(flagged.text, /Quarterly report/);
-  assert.match(flagged.text, /Offtake update/);
+  assert.doesNotMatch(r.text, /Quarterly report/);
+  assert.match(r.text, /ASX 일상 공시 1건 숨김/);
+  const all = await call('partner_filings', { include_routine: true, source: 'ASX' }, opts);
+  assert.match(all.text, /Quarterly report/);
 });
 
 test('non-MCP paths keep the canonical Pages redirect', async () => {

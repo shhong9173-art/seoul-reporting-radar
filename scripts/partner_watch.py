@@ -30,6 +30,8 @@ NEW_DAYS = 7
 BROWSER = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
 SEC_UA = os.environ.get("SEC_USER_AGENT", "").strip() or "seoul-reporting-radar research (github.com/shhong9173-art/seoul-reporting-radar)"
 FORMS = "8-K,6-K,10-Q,10-K,20-F,40-F,S-1,F-1,424B4,DEF 14A"
+# Name used in an unrelated sense (first real run, 10/26: 'POSCO Center' building address in a Beijing proxy statement).
+UNRELATED = {"POSCO": re.compile(r"POSCO\s+(?:Center|Centre|Tower|Plaza|E&C\s+Tower)", re.I)}
 FLAG = re.compile(r"offtake|supply|agreement|contract|binding|conditions? precedent|amend|variation|terminat|price|pricing|"
                   r"hyundai|kia|posco|seah|korea|korean|mou|memorandum|strategic|investment|placement|financ|partner", re.I)
 
@@ -137,7 +139,7 @@ def doc_text(url, *, get=None):
 
 # ---------- run ----------
 
-def run(cfg, *, now, previous=None, get=None, sleep=time.sleep, snippet_budget=12):
+def run(cfg, *, now, previous=None, get=None, sleep=time.sleep, snippet_budget=25):
     prev = {x["id"]: x for x in (previous or {}).get("items", []) if isinstance(x, dict) and x.get("id")}
     keep_from = (now - dt.timedelta(days=KEEP_DAYS)).strftime("%Y-%m-%d")
     items = {k: v for k, v in prev.items() if (v.get("date") or "") >= keep_from}
@@ -189,13 +191,22 @@ def run(cfg, *, now, previous=None, get=None, sleep=time.sleep, snippet_budget=1
         if err:
             it["snippetError"] = err
             continue
+        related = []
         for ph in it.get("phrases", []):
-            sn = snippet(text, ph)
+            total = len(re.findall(re.escape(ph), text, re.I))
+            unrelated = len(UNRELATED[ph].findall(text)) if ph in UNRELATED else 0
+            if total and total > unrelated:
+                related.append(ph)
+        if it.get("phrases") and not related:
+            it["noise"] = "출입처 이름이 무관한 뜻(건물 주소 등)으로만 쓰임"
+            continue
+        for ph in related:
+            sn = snippet(re.sub(UNRELATED[ph].pattern, " ", text, flags=re.I) if ph in UNRELATED else text, ph)
             if sn:
                 it["snippet"] = sn[:700]
                 break
     new_from = (now - dt.timedelta(days=NEW_DAYS)).strftime("%Y-%m-%d")
-    out = sorted(items.values(), key=lambda x: (x.get("date") or "", x["id"]), reverse=True)
+    out = sorted((x for x in items.values() if not x.get("noise")), key=lambda x: (x.get("date") or "", x["id"]), reverse=True)
     for x in out:
         x["isNew"] = x["id"] not in prev or (x.get("date") or "") >= new_from
     failed = [c for c in checks if c["status"] != "ok"]

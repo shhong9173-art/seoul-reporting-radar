@@ -119,49 +119,119 @@ def wayback(url, day, *, get=None):
         return None, None
 
 
+def domain_of(url):
+    return re.sub(r"^https?://(?:www\.)?([^/]+).*$", r"\1", url)
+
+
+def common_signals(sig_list):
+    """Lines present on most pages of one site = navigation/banners, not the page's own content."""
+    sig_list = [x for x in sig_list if x]
+    if len(sig_list) < 2:
+        return {}
+    need = max(2, -(-len(sig_list) * 6 // 10))
+    out = {}
+    for cat in PATTERNS:
+        counts = {}
+        for sig in sig_list:
+            for line in {v.lower(): v for v in sig.get(cat, [])}.values():
+                counts.setdefault(line.lower(), [0, line])[0] += 1
+        keep = sorted((v[1] for v in counts.values() if v[0] >= need), key=str.lower)
+        if keep:
+            out[cat] = keep
+    return out
+
+
+def subtract(sig, common):
+    if not sig:
+        return {}
+    out = {}
+    for cat in PATTERNS:
+        drop = {x.lower() for x in (common or {}).get(cat, [])}
+        out[cat] = [x for x in sig.get(cat, []) if x.lower() not in drop]
+    return out
+
+
 def run(pages, *, now, previous=None, get=None, sleep=time.sleep):
     prev_pages = {p["id"]: p for p in (previous or {}).get("pages", []) if isinstance(p, dict)}
+    prev_sites = (previous or {}).get("sites") or {}
     keep_from = (now - dt.timedelta(days=KEEP_EVENTS_DAYS)).isoformat()
     events = [e for e in (previous or {}).get("events", []) if isinstance(e, dict) and e.get("detectedAt", "") >= keep_from]
+    stamp = now.isoformat(timespec="seconds")
+    raw, wb = {}, {}
     out_pages = []
-    for p in pages:
+    for p in pages:  # pass 1: fetch
         res = fetch(p["url"], get=get)
         sleep(1.5)
         rec = {k: p[k] for k in ("id", "company", "label", "url", "kind")}
-        rec["checkedAt"] = now.isoformat(timespec="seconds")
+        rec["checkedAt"] = stamp
         old = prev_pages.get(p["id"])
         if res["status"] != "ok":
             rec.update(status="failed", error=res["error"])
             if old and old.get("signals"):
-                rec.update(signals=old["signals"], since=old.get("since"), lastOk=old.get("lastOk"))
+                rec.update(signals=old["signals"], specific=old.get("specific", False), lastOk=old.get("lastOk"))
             out_pages.append(rec)
             continue
         text = visible_text(res["html"])
-        sig = signals(text)
-        rec.update(status="ok", signals=sig, hash=hashlib.sha256(text.encode()).hexdigest()[:16],
-                   lastOk=now.isoformat(timespec="seconds"), textLength=len(text))
-        base, base_src, base_day = None, None, None
-        if old and old.get("signals"):
-            base, base_src, base_day = old["signals"], "직전 확인", (old.get("lastOk") or old.get("checkedAt") or "")[:10]
-        else:
+        raw[p["id"]] = signals(text)
+        rec.update(status="ok", hash=hashlib.sha256(text.encode()).hexdigest()[:16], lastOk=stamp, textLength=len(text))
+        if not (old and old.get("signals")):
             day = (now - dt.timedelta(days=BASELINE_DAYS)).strftime("%Y%m%d")
             wb_day, wb_html = wayback(p["url"], day, get=get)
             sleep(1.5)
-            if wb_html:
-                base, base_src, base_day = signals(visible_text(wb_html)), "웹 아카이브 사본", wb_day
-            rec["baseline"] = {"source": base_src or "없음(첫 확인)", "date": base_day}
-        if base is not None:
-            added, removed = diff(base, sig)
-            if added or removed:
-                events.append({"pageId": p["id"], "company": p["company"], "label": p["label"], "url": p["url"],
-                               "detectedAt": now.isoformat(timespec="seconds"), "baselineSource": base_src,
-                               "baselineDate": base_day, "added": added, "removed": removed})
+            wb[p["id"]] = (wb_day, signals(visible_text(wb_html)) if wb_html else None)
         out_pages.append(rec)
+    # pass 2: separate site-wide lines (menus, banners) from each page's own lines
+    by_domain = {}
+    for rec in out_pages:
+        by_domain.setdefault(domain_of(rec["url"]), []).append(rec)
+    sites = {}
+    for dom, recs in by_domain.items():
+        ok = [r for r in recs if r["status"] == "ok"]
+        common = common_signals([raw[r["id"]] for r in ok])
+        wb_common = common_signals([wb[r["id"]][1] for r in ok if r["id"] in wb and wb[r["id"]][1]])
+        company = recs[0]["company"]
+        sites[dom] = {"company": company, "signals": common, "pages": len(ok), "checkedAt": stamp}
+        # Before site-wide separation existed, rebuild the previous site lines from the previous page records.
+        prev_recs = [prev_pages[r["id"]] for r in recs if r["id"] in prev_pages and prev_pages[r["id"]].get("signals")]
+        legacy_common = common_signals([x["signals"] for x in prev_recs if not x.get("specific")])
+        prev_common = (prev_sites.get(dom) or {}).get("signals")
+        if prev_common is None and legacy_common:
+            prev_common = legacy_common
+        if prev_common is not None and ok:
+            added, removed = diff(prev_common, common)
+            if added or removed:
+                events.append({"pageId": f"site:{dom}", "scope": "site", "company": company,
+                               "label": f"{company} {dom} 사이트 공통 문구(메뉴·배너)", "url": f"https://{dom}",
+                               "detectedAt": stamp, "baselineSource": "직전 확인",
+                               "baselineDate": ((prev_sites.get(dom) or {}).get("checkedAt") or "")[:10],
+                               "added": added, "removed": removed})
+        for rec in ok:
+            pid = rec["id"]
+            own = subtract(raw[pid], common)
+            rec.update(signals=own, specific=True)
+            old = prev_pages.get(pid)
+            base, src, day = None, None, None
+            if old and old.get("signals"):
+                # Records saved before site-wide separation still contain menu lines: strip today's common lines.
+                base = old["signals"] if old.get("specific") else subtract(subtract(old["signals"], legacy_common), common)
+                src, day = "직전 확인", (old.get("lastOk") or old.get("checkedAt") or "")[:10]
+            elif pid in wb:
+                wb_day, wb_sig = wb[pid]
+                if wb_sig:
+                    base, src, day = subtract(subtract(wb_sig, wb_common), common), "웹 아카이브 사본", wb_day
+                rec["baseline"] = {"source": src or "없음(첫 확인)", "date": day}
+            if base is not None:
+                added, removed = diff(base, own)
+                if added or removed:
+                    events.append({"pageId": pid, "scope": "page", "company": rec["company"], "label": rec["label"],
+                                   "url": rec["url"], "detectedAt": stamp, "baselineSource": src, "baselineDate": day,
+                                   "added": added, "removed": removed})
     events.sort(key=lambda e: e["detectedAt"], reverse=True)
     failed = [p for p in out_pages if p["status"] != "ok"]
-    return {"schema": SCHEMA, "generatedAt": now.isoformat(timespec="seconds"),
-            "status": "partial" if failed else "complete", "pages": out_pages, "events": events[:200],
+    return {"schema": SCHEMA, "generatedAt": stamp,
+            "status": "partial" if failed else "complete", "pages": out_pages, "sites": sites, "events": events[:200],
             "rules": ["페이지 문구 변화는 공식 발표가 아니다. 언제·왜 바뀌었는지는 회사 확인이 필요하다.",
+                      "같은 사이트 여러 페이지에 공통으로 붙은 문구(메뉴·배너)는 사이트 공통으로 따로 본다.",
                       "첫 비교 기준이 웹 아카이브 사본이면 그 사이 언제 바뀌었는지는 모른다.",
                       "열리지 않은 페이지(차단·오류)는 변화 없음이 아니라 미확인."],
             "confirmedScoops": 0}

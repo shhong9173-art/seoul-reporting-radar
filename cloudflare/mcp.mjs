@@ -115,7 +115,7 @@ export const TOOLS = [
   { name: 'partner_filings', access: 'private', handler: partnerFilings,
     description: '해외 파트너 공시: 출입처와 계약한 해외 상장사(ASX: 아라푸라·필바라·알몬티, 관계 근거 포함)의 최근 공시와, 출입처 이름이 들어간 미국 SEC EDGAR 공시(출입처 자신의 공시 제외)·본문 발췌.',
     inputSchema: obj({ company: str('기업·파트너·낱말'), source: { type: 'string', enum: ['ASX', 'EDGAR'] }, only_new: bool('신규만'),
-      flagged_only: bool('ASX는 공급·계약·조건·가격·출입처 낱말 있는 공시만'), limit: int('줄 수', 1, 60) }) },
+      include_routine: bool('ASX 일상 공시(주총·임원 지분 등)도 보기'), limit: int('줄 수', 1, 60) }) },
   { name: 'candidate_feedback', access: 'private', handler: candidateFeedback,
     description: '기자 판정 기록: 씀/킬/보류와 이유.',
     inputSchema: obj({ item_id: str('후보 번호(#id)·패키지 이름·단서 id'), verdict: { type: 'string', enum: ['씀', '킬', '보류'] },
