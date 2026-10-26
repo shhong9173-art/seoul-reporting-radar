@@ -14,6 +14,7 @@ const SCHEMA = [
      status TEXT NOT NULL, score INTEGER NOT NULL, payload TEXT NOT NULL, created_at TEXT NOT NULL)`,
   `CREATE TABLE IF NOT EXISTS feedback (id INTEGER PRIMARY KEY AUTOINCREMENT, item_id TEXT NOT NULL, verdict TEXT NOT NULL,
      reason TEXT NOT NULL, created_at TEXT NOT NULL)`,
+  `CREATE TABLE IF NOT EXISTS blobs (name TEXT PRIMARY KEY, body TEXT NOT NULL, updated_at TEXT NOT NULL)`,
 ];
 
 // Durable Object (fetch-style so it runs without the cloudflare:workers import).
@@ -61,6 +62,15 @@ export class RadarStore {
         this.sql.exec('INSERT INTO feedback (item_id, verdict, reason, created_at) VALUES (?, ?, ?, ?)',
           args.item_id, args.verdict, args.reason, at);
         return { saved: true };
+      case 'blobs.put':
+        this.sql.exec(`INSERT INTO blobs (name, body, updated_at) VALUES (?, ?, ?)
+          ON CONFLICT(name) DO UPDATE SET body = excluded.body, updated_at = excluded.updated_at`, args.name, args.body, at);
+        return { saved: true };
+      case 'blobs.get':
+        return { row: this.all('SELECT name, body, updated_at FROM blobs WHERE name = ?', args.name)[0] ?? null };
+      case 'feedback.latest':
+        return { rows: this.all(`SELECT f.item_id, f.verdict, f.reason FROM feedback f
+          JOIN (SELECT item_id, MAX(id) AS id FROM feedback GROUP BY item_id) m ON f.id = m.id`) };
       case 'feedback.since':
         return { rows: this.all('SELECT item_id, verdict, reason, created_at FROM feedback WHERE created_at >= ? ORDER BY id DESC', args.since),
           candidates: this.all('SELECT id, day, title, status, score FROM candidates WHERE created_at >= ? ORDER BY id DESC', args.since) };
@@ -68,6 +78,10 @@ export class RadarStore {
         throw new Error('unknown action');
     }
   }
+}
+
+export async function storeOp(ctx, action, args) {
+  return call(ctx, action, args);
 }
 
 async function call(ctx, action, args) {

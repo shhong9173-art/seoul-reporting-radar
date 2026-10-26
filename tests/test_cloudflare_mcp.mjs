@@ -378,6 +378,41 @@ test('packages, daily limit and feedback live in the private store', async () =>
   assert.match(review.text, /자동으로 바꾸지 않는다/);
 });
 
+test('scoop screening arrives only through the bearer ingest and is read on the private path', async () => {
+  const env = PRIVATE().env;
+  const doc = { schema: 'scoop_screen/v1', generatedAt: '2026-10-26T07:10:00+09:00',
+    counts: { '미보도 후보': 1, '관련 보도 있음': 1, '같은 수치 선행': 0, '미확인': 1 },
+    rules: ['미보도 후보는 검색 범위 안에서 못 찾았다는 뜻이다.'],
+    candidates: [
+      { id: 'clue:a1', kind: '단서', team: '자동차', company: '현대차', title: '현대자동차 · HMTR/튀르키예 117600 → 95900 (대)',
+        url: 'https://dart.fss.or.kr/x', source: 'DART_METRIC', queries: ['현대차 HMTR', '현대차 HMTR 튀르키예'], verdict: '미보도 후보',
+        channels: { naver: { status: 'ok', returned: 12, via: 'API HUB' }, bing: { status: 'ok', returned: 3 }, google: { status: 'failed', returned: 0, error: 'HTTP 503' } },
+        evidence: [] },
+      { id: 'clue:a2', kind: '단서', team: '자동차', company: '현대위아', title: '현대위아 · 영업양도결정', verdict: '관련 보도 있음',
+        queries: ['현대위아 영업양도'], channels: {}, evidence: [{ date: '2026-10-20', channel: 'naver', title: '현대위아 영업양도', why: '낱말(영업양도)', url: 'https://n/1' }] },
+      { id: 'stat:s9', kind: '수치', team: '철강·비철', company: '고려아연', title: '고려아연 황산', verdict: '미확인', queries: ['고려아연 황산'], channels: {}, evidence: [] }] };
+  const post = (headers, body = JSON.stringify(doc)) => worker.fetch(new Request(ORIGIN + '/ingest/scoop-screen', { method: 'POST', headers, body }), env, {});
+  assert.equal((await post({})).status, 404);
+  assert.equal((await post({ Authorization: 'Bearer wrong-token-0123456789' })).status, 404);
+  assert.equal((await post({ Authorization: `Bearer ${TOKEN}` }, JSON.stringify({ schema: 'x', candidates: [] }))).status, 400);
+  assert.equal((await post({ Authorization: `Bearer ${TOKEN}` })).status, 200);
+  const pub = await rpc('tools/call', { name: 'scoop_screen', arguments: {} });
+  assert.match(JSON.stringify(pub.body), /Unknown tool/);
+  const opts = { path: `/mcp/${TOKEN}`, env };
+  const r = await call('scoop_screen', {}, opts);
+  assert.match(r.text, /후보 3 · 미보도 후보 1 · 관련 보도 있음 1/);
+  assert.match(r.text, /■ 미보도 후보 \(1\)\n1\. \[자동차\] 현대자동차 · HMTR/);
+  assert.match(r.text, /네이버\(API HUB\) ok 12건 · 빙 ok 3건 · 구글 failed\(HTTP 503\)/);
+  assert.match(r.text, /↳ 2026-10-20 \[naver\] 현대위아 영업양도 — 낱말\(영업양도\)/);
+  await call('candidate_feedback', { item_id: 'clue:a2', verdict: '킬', reason: '이미 남' }, opts);
+  const after = await call('scoop_screen', {}, opts);
+  assert.doesNotMatch(after.text, /현대위아 · 영업양도결정/);
+  assert.match(after.text, /킬'로 판정한 1건 숨김/);
+  assert.match((await call('scoop_screen', { include_killed: true }, opts)).text, /기자 판정: 킬 — 이미 남/);
+  const empty = await call('scoop_screen', {}, PRIVATE());
+  assert.ok(empty.isError);
+});
+
 test('non-MCP paths keep the canonical Pages redirect', async () => {
   const r = await worker.fetch(new Request(ORIGIN + '/scoop.json?v=1'), {}, {});
   assert.equal(r.status, 307);

@@ -4,12 +4,13 @@ import { bigPicture, clues, dandok, earnings, governance, health, stats } from '
 import { dartFilings, dartFindText, g2bBids, newsCheck, sourceDocument } from './live_tools.mjs';
 import { candidateFeedback, candidateSubmit, packageSave, scoopPackages, weeklyReview, PACKAGE_STATES } from './store.mjs';
 import { POLICY, checkCandidate, formatCheck } from './scoring.mjs';
+import { scoopScreen } from './screen.mjs';
 
 export const SUPPORTED_VERSIONS = ['2025-06-18', '2025-03-26', '2024-11-05'];
 const SERVER_INFO = { name: 'seoul-reporting-radar', title: '산업부 취재 레이더', version: '1.0.0' };
 const INSTRUCTIONS = [
   '산업부(자동차·철강·전력기기·에너지·화학) 취재 레이더. 기자는 홍성효.',
-  '순서: radar_big_picture → radar_clues(days=3) → radar_stats → governance_changes → earnings_compare(실적 시즌) → dandok_monitor → scoop_packages(기자 전용).',
+  '순서: scoop_screen(기자 전용, 미보도 후보부터) → radar_big_picture → radar_clues(days=3) → radar_stats → governance_changes → earnings_compare(실적 시즌) → dandok_monitor → scoop_packages(기자 전용).',
   '후보마다: source_document 또는 dart_find_text로 원문 확인 → news_check로 보도 대조(낱말 바꿔 2~3번, 한 번에 하나씩) → candidate_check.',
   '조회 실패·미설정·일부 성공은 0건이 아니라 미확인. 색인 0건은 미보도 증거가 아님. 단계(공개 원자료 추적/취재 단서·단독 미확정/단독 후보)를 올리지 않음.',
   '최종 단독 판단은 기자가 한다. 관계자 발언을 만들지 않는다.',
@@ -97,6 +98,10 @@ export const TOOLS = [
   { name: 'candidate_submit', access: 'private', handler: candidateSubmit,
     description: `후보를 재점검해 저장(하루 추천 ${POLICY.dailyLimit}건 한도, 같은 날 중복 제목 제외).`,
     inputSchema: obj({ candidates: { type: 'array', items: CANDIDATE_SCHEMA, maxItems: 10 } }, ['candidates']) },
+  { name: 'scoop_screen', access: 'private', handler: scoopScreen,
+    description: '단독 후보 자동 심사 결과(평일 07:10·15:10). 레이더 단서·사업보고서 수치 변화를 네이버·빙·구글로 기보도 대조해 미보도 후보/관련 보도 있음/같은 수치 선행/미확인으로 나눔. 하루 시작은 여기서. 기자가 킬한 후보는 숨김.',
+    inputSchema: obj({ verdict: { type: 'string', enum: ['미보도 후보', '관련 보도 있음', '미확인', '같은 수치 선행'] },
+      company: str('기업·낱말'), team: str('팀'), include_killed: bool('킬한 후보도 보기'), limit: int('줄 수', 1, 60) }) },
   { name: 'candidate_feedback', access: 'private', handler: candidateFeedback,
     description: '기자 판정 기록: 씀/킬/보류와 이유.',
     inputSchema: obj({ item_id: str('후보 번호(#id)·패키지 이름·단서 id'), verdict: { type: 'string', enum: ['씀', '킬', '보류'] },
