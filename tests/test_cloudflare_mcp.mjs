@@ -445,6 +445,26 @@ test('us_comments reads the private regulations.gov feed', async () => {
   assert.match(JSON.stringify(pub.body), /Unknown tool/);
 });
 
+test('page_changes shows before/after lines from the private page-watch feed', async () => {
+  const env = PRIVATE().env;
+  const doc = { schema: 'page_watch/v1', generatedAt: '2026-10-26T06:30:00+09:00', status: 'partial', rules: ['페이지 문구 변화는 공식 발표가 아니다.'],
+    pages: [{ id: 'hyundai-us-ioniq-6-n', company: '현대차', label: '현대차 미국 아이오닉6 N', url: 'https://www.hyundaiusa.com/us/en/vehicles/ioniq-6-n', status: 'ok',
+      signals: { timing: ['Coming Spring 2027'], limited: ['extremely limited availability'] } },
+      { id: 'kia-us-ev4', company: '기아', label: '기아 미국 EV4', url: 'https://www.kia.com/us/en/ev4', status: 'failed', error: 'HTTP 403' }],
+    events: [{ pageId: 'hyundai-us-ioniq-6-n', company: '현대차', label: '현대차 미국 아이오닉6 N', url: 'https://www.hyundaiusa.com/us/en/vehicles/ioniq-6-n',
+      detectedAt: '2026-10-26T06:30:00+09:00', baselineSource: '웹 아카이브 사본', baselineDate: '2026-09-10',
+      added: { timing: ['Coming Spring 2027'], limited: ['extremely limited availability'] }, removed: { timing: ['Coming 2026'] } }] };
+  const post = await worker.fetch(new Request(ORIGIN + '/ingest/page-watch', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {});
+  assert.equal(post.status, 200);
+  const r = await call('page_changes', { show_current: true }, { path: `/mcp/${TOKEN}`, env });
+  assert.match(r.text, /최근 14일 1건 · 페이지 1\/2 열림/);
+  assert.match(r.text, /미확인\(변화 없음 아님\): 기아 미국 EV4\(HTTP 403\)/);
+  assert.match(r.text, /비교 기준: 웹 아카이브 사본 2026-09-10 → 2026-10-2/);
+  assert.match(r.text, /− 출시 시점: Coming 2026/);
+  assert.match(r.text, /\+ 출시 시점: Coming Spring 2027/);
+  assert.match(r.text, /현대차 미국 아이오닉6 N: Coming Spring 2027 · extremely limited availability/);
+});
+
 test('non-MCP paths keep the canonical Pages redirect', async () => {
   const r = await worker.fetch(new Request(ORIGIN + '/scoop.json?v=1'), {}, {});
   assert.equal(r.status, 307);
