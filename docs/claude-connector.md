@@ -57,3 +57,10 @@
 - 결과는 저장소에 커밋하지 않는다. `POST /ingest/scoop-screen`(Authorization: Bearer = MCP_ACCESS_TOKEN)으로 Durable Object에만 저장하고, 커넥터 기자 전용 경로의 `scoop_screen` 도구로 읽는다. 공개 로그에는 건수만 남긴다.
 - 필요한 GitHub Secrets: `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET`, `MCP_ACCESS_TOKEN`(Cloudflare 값과 같게). 토큰이 없으면 심사는 돌지만 결과를 어디에도 저장하지 않는다.
 - 기자가 `candidate_feedback`로 '킬'한 후보는 기본으로 숨긴다.
+
+## 주간 품질 점검(candidate_weekly_review, 기자 전용)
+
+- `candidate_feedback`(씀·킬·보류·봤음)를 남길 때 그 항목이 어느 감시·종류(DART는 공시 종류, 예: 채무보증)·등급(A/B/C)·일상 판정이었는지를 비공개 저장소(`feedback_meta`)에 함께 적는다. 감시 결과가 다음 실행에 바뀌어도 묶음이 유지된다.
+- `candidate_weekly_review`는 최근 N일 판정을 감시별·종류별·판정 때 등급별로 센다. 같은 항목을 여러 번 판정하면 마지막 판정만 센다.
+- 점검 후보: 5개 이상 묶음에서 킬 60% 이상, 일상(B)·C(참고)로 내렸는데 '씀'인 항목. 기자가 볼 목록일 뿐 가중치·등급 규칙은 자동으로 바꾸지 않는다.
+- 이 기능 전에 남긴 판정은 지금 감시 목록에서 찾아 표시를 붙이고, 목록에 없으면 '감시 미상'으로 둔다.

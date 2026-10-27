@@ -2,7 +2,8 @@
 import { safeEqual, textResult } from './common.mjs';
 import { bigPicture, clues, dandok, earnings, governance, health, stats } from './radar_tools.mjs';
 import { dartFilings, dartFindText, g2bBids, newsCheck, sourceDocument } from './live_tools.mjs';
-import { candidateFeedback, candidateSubmit, packageSave, scoopPackages, weeklyReview, FEEDBACK_VERDICTS, PACKAGE_STATES } from './store.mjs';
+import { candidateSubmit, packageSave, scoopPackages, FEEDBACK_VERDICTS, PACKAGE_STATES } from './store.mjs';
+import { judgeItems, weeklyReview } from './review.mjs';
 import { POLICY, checkCandidate, formatCheck } from './scoring.mjs';
 import { scoopScreen } from './screen.mjs';
 import { krOfficial, pageChanges, partnerFilings, tradeRemedies, usComments, usLitigation } from './overseas.mjs';
@@ -136,14 +137,14 @@ export const TOOLS = [
     description: '국내 공식 원천: 출입처 공장등록(팩토리온) 새 공장·고용·주생산품·주소 변화와 최근 120일 등록 공장(계열사 제외), 관보 입법예고 중 출입처 업종(자동차·철강·전력·화학·통상) 관련.',
     inputSchema: obj({ section: { type: 'string', enum: ['factory', 'gazette'] }, company: str('기업·공장·법령 낱말'),
       days: int('공장 변화 최근 N일(기본 30)', 1, 120), show_all: bool('출입처 공장 전체 목록'), limit: int('구역별 줄 수', 1, 80) }) },
-  { name: 'candidate_feedback', access: 'private', handler: candidateFeedback,
+  { name: 'candidate_feedback', access: 'private', handler: judgeItems,
     description: '기자 판정 기록: 씀/킬/보류/봤음과 이유. 판정한 항목은 radar_today에서 숨김(봤음=판단 전이지만 다시 안 보기). item_ids로 여러 건 한 번에.',
     inputSchema: obj({ item_id: str('후보 번호(#id)·패키지 이름·단서 id(radar_today 줄의 id)'),
       item_ids: strList('여러 id를 한 번에(최대 60)'), verdict: { type: 'string', enum: FEEDBACK_VERDICTS },
       reason: str('이유 한 줄(봤음은 생략 가능)') }, ['verdict']) },
   { name: 'candidate_weekly_review', access: 'private', handler: weeklyReview,
-    description: '최근 N일 판정 성과(씀·킬·보류, 킬 사유 상위). 가중치는 자동으로 바꾸지 않는다.',
-    inputSchema: obj({ days: int('최근 N일(기본 7)', 1, 60) }) },
+    description: '주간 품질 점검: 최근 N일 판정(씀·킬·보류·봤음)을 감시별·종류별(DART는 공시 종류)·판정 때 등급별로 묶고, 킬이 몰린 묶음·일상(B)/C로 내렸는데 쓴 항목을 점검 후보로 표시. 가중치는 자동으로 바꾸지 않는다.',
+    inputSchema: obj({ days: int('최근 N일(기본 7, 최대 60)', 1, 60) }) },
 ];
 
 function rpcError(id, code, message) {
