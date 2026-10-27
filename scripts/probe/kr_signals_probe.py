@@ -7,7 +7,7 @@ OUT = []
 
 
 def note(*a):
-    OUT.append(" ".join(str(x) for x in a).replace("\n", " "))
+    OUT.append(" ".join(str(x) for x in a).replace("\r", " ").replace("\n", " ").replace("%", "pct"))
 
 
 def safe(label, fn):
@@ -72,7 +72,7 @@ def reach():
             note(f"reach {name}", type(e).__name__)
 
 
-for label, fn in [("KOMIS", komis), ("FTC", ftc), ("KEPCO", kepco), ("REACH", reach)]:
+for label, fn in [("KEPCO", kepco), ("REACH", reach)]:
     safe(label, fn)
 for i in range(0, len(OUT), 6):
     print("::notice title=probe-" + str(i // 6) + "::" + " | ".join(OUT[i:i + 6])[:3800])
