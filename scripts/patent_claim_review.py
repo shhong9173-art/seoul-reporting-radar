@@ -26,6 +26,7 @@ ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/"scripts"))
 from patent_hunt import APPLICANTS,normalize,request_xml
 from patent_deep_hunt import historical_title_search,historical_summary
+from kipris_account_ledger import KiprisAccountLedger
 
 KST=timezone(timedelta(hours=9))
 DETAIL="https://plus.kipris.or.kr/kipo-api/kipi/patUtiModInfoSearchSevice/getBibliographyDetailInfoSearch"
@@ -413,8 +414,19 @@ def main():
         raise SystemExit("KIPRIS_SERVICE_KEY 누락: 이전 청구항 비교 데이터 보존")
     patents=json.loads(Path(args.patents).read_text(encoding="utf-8"))
     deep=json.loads(Path(args.deep).read_text(encoding="utf-8"))
-    report=build(deep,patents,key,limit=args.max_current,max_prior=args.max_prior,
-                 news=None if args.no_news else related_press)
+    ledger=KiprisAccountLedger()
+    if not ledger.should_probe("patent_claims"):
+        raise SystemExit("KIPRIS 제공기관 응답 22 재확인 대기: 이전 청구항 비교 데이터 보존")
+    if ledger.remaining("patent_claims")==0:
+        raise SystemExit("KIPRIS 공용 장부 월 상한 도달: 이전 청구항 비교 데이터 보존")
+    fetch=ledger.fetcher("patent_claims",request_xml)
+    try:
+        report=build(deep,patents,key,limit=args.max_current,max_prior=args.max_prior,
+                     detail=lambda k,a:official_detail(k,a,fetch=fetch),
+                     history=lambda k,t,c:historical_title_search(k,t,c,fetch=fetch),
+                     news=None if args.no_news else related_press)
+    finally:
+        ledger.persist()
     if report["currentClaimsVerified"]==0:
         # Keep the previous good source data for reporter comparison.
         raise SystemExit("공식 제1항 확인 성공 0건: 기존 결과 보존")

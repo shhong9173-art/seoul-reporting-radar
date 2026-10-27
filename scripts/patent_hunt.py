@@ -18,6 +18,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from kipris_source_budget import SourceRequestMeter, SourceRequestBudgetExhausted
+from kipris_account_ledger import KiprisAccountLedger
 from urllib.parse import urlencode, quote
 from urllib.request import Request, urlopen
 
@@ -568,10 +569,15 @@ def main():
         raise SystemExit(2)
     # Safe account-independent ceiling; the official provider's actual usage
     # and resultCode 22 meaning must still be checked with KIPRISPlus.
+    # Every KIPRIS request (patent, deep, claims, trademark) also goes through one
+    # account ledger so the shared free tier is not silently overspent.
+    ledger=KiprisAccountLedger()
     meter=SourceRequestMeter("digests/kipris_source_request_budget_latest.json",
-                             fetch=request_xml)
+                             fetch=ledger.fetcher("patent_source",request_xml,
+                                                  force=args.force_provider_probe))
     meter.provider_probe_override=args.force_provider_probe
-    if not meter.should_probe(force=args.force_provider_probe):
+    if not (meter.should_probe(force=args.force_provider_probe) and
+            ledger.should_probe("patent_source",force=args.force_provider_probe)):
         # No network request; do not turn source failure into zero patents.
         save_publication_diagnostics({
             "generatedAt":datetime.now(KST).isoformat(timespec="seconds"),
@@ -583,6 +589,7 @@ def main():
                              for name in APPLICANTS],
             "providerDiagnostics":meter.public()})
         meter.persist()
+        ledger.persist()
         print("KIPRISPlus 제공기관 응답 22 재확인 대기: 공식 특허 이전 자료 보존")
         raise SystemExit(2)
     try:
@@ -600,7 +607,9 @@ def main():
             meter.clear_provider_backoff()
     finally:
         meter.persist()
+        ledger.persist()
     report["providerDiagnostics"]=meter.public()
+    report["kiprisAccountLedger"]=ledger.public()
     save_publication_diagnostics(report)
     if key and not report.get("sourceWindowComplete"):
         print("KIPRISPlus 24개 출입처 공식 검색에 오류·누락·페이지 절단 발생: 이전 검증 데이터 보존")

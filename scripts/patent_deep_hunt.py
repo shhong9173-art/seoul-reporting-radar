@@ -23,6 +23,7 @@ from urllib.parse import urlencode
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/"scripts"))
 from patent_hunt import BASE,parse_response,request_xml,normalize,applicant_matches,APPLICANTS
+from kipris_account_ledger import KiprisAccountLedger
 
 KST=timezone(timedelta(hours=9))
 AUTO={"현대자동차","기아","현대모비스","현대위아","HL만도",
@@ -323,7 +324,20 @@ def main():
         print("KIPRIS 공식 출원인 전체 검색 미검증: 과거 심층 분석 출판 중지")
         raise SystemExit(2)
     key=os.environ.get("KIPRIS_SERVICE_KEY","").strip()
-    result=build(source,key=key,search_limit=args.max_history if key else 0)
+    limit=args.max_history if key else 0
+    historical=historical_title_search
+    if key:
+        ledger=KiprisAccountLedger()
+        if not ledger.should_probe("patent_deep"):
+            limit=0
+        limit=min(limit,ledger.remaining("patent_deep"))
+        fetch=ledger.fetcher("patent_deep",request_xml)
+        historical=lambda k,t,c:historical_title_search(k,t,c,fetch=fetch)
+        if limit<args.max_history:
+            print("KIPRIS 공용 장부: 과거 제목 검색",args.max_history,"→",limit,"건으로 제한")
+    result=build(source,key=key,historical=historical,search_limit=limit)
+    if key:
+        ledger.persist()
     out=Path(args.output);out.parent.mkdir(parents=True,exist_ok=True)
     temp=out.with_suffix(".json.tmp")
     temp.write_text(json.dumps(result,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
