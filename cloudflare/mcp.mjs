@@ -4,6 +4,7 @@ import { bigPicture, clues, dandok, earnings, governance, health, stats } from '
 import { dartFilings, dartFindText, g2bBids, newsCheck, sourceDocument } from './live_tools.mjs';
 import { candidateSubmit, packageSave, scoopPackages, FEEDBACK_VERDICTS, PACKAGE_STATES } from './store.mjs';
 import { judgeItems, weeklyReview } from './review.mjs';
+import { customsTrade, ecosData, ecosFind, kosisData, kosisFind } from './stats_live.mjs';
 import { POLICY, checkCandidate, formatCheck } from './scoring.mjs';
 import { scoopScreen } from './screen.mjs';
 import { krOfficial, krSignals, krStats, pageChanges, partnerFilings, tradeRemedies, usComments, usLitigation } from './overseas.mjs';
@@ -14,7 +15,7 @@ const SERVER_INFO = { name: 'seoul-reporting-radar', title: '산업부 취재 �
 const INSTRUCTIONS = [
   '산업부(자동차·철강·전력기기·에너지·화학) 취재 레이더. 기자는 홍성효.',
   '하루 시작은 radar_today(기자 전용): 감시 9개의 새 항목을 A(단독 후보·직접 변화)/B(확인할 공식 변화)로 모아 보여 주고, 실패·오래된 감시를 먼저 알린다. 항목마다 자세히 볼 도구가 붙어 있다.',
-  '순서: radar_today → scoop_screen(기자 전용, 미보도 후보부터) → page_changes·us_comments·partner_filings·trade_remedies·us_litigation(기자 전용, 해외 원천) → kr_official(기자 전용, 공장등록·관보) → kr_signals(기자 전용, 공정위 의결서·한전 입찰·원자재 가격) → kr_stats(기자 전용, 물가지수·철강 생산·수입차 등록) → radar_big_picture → radar_clues(days=3) → radar_stats → governance_changes → earnings_compare(실적 시즌) → dandok_monitor → scoop_packages(기자 전용).',
+  '순서: radar_today → scoop_screen(기자 전용, 미보도 후보부터) → page_changes·us_comments·partner_filings·trade_remedies·us_litigation(기자 전용, 해외 원천) → kr_official(기자 전용, 공장등록·관보) → kr_signals(기자 전용, 공정위 의결서·한전 입찰·원자재 가격) → kr_stats(기자 전용, 물가지수·철강 생산·수입차 등록; 발제 검증은 ecos_find·ecos_data·kosis_find·kosis_data·customs_trade 즉석 조회) → radar_big_picture → radar_clues(days=3) → radar_stats → governance_changes → earnings_compare(실적 시즌) → dandok_monitor → scoop_packages(기자 전용).',
   '후보마다: source_document 또는 dart_find_text로 원문 확인 → news_check로 보도 대조(낱말 바꿔 2~3번, 한 번에 하나씩) → candidate_check.',
   '조회 실패·미설정·일부 성공은 0건이 아니라 미확인. 색인 0건은 미보도 증거가 아님. 단계(공개 원자료 추적/취재 단서·단독 미확정/단독 후보)를 올리지 않음.',
   '최종 단독 판단은 기자가 한다. 관계자 발언을 만들지 않는다.',
@@ -91,6 +92,23 @@ export const TOOLS = [
   { name: 'dart_find_text', access: 'private', handler: dartFindText,
     description: 'DART 공시 원문(document.xml)에서 낱말을 찾아 앞뒤 문맥과 파일별 해시를 준다. 건설중인자산·계약상대방·생산능력 같은 확인용.',
     inputSchema: obj({ rcp_no: str('접수번호 14자리'), word: str('찾을 낱말'), limit: int('문맥 수(기본 8)', 1, 20) }, ['rcp_no', 'word']) },
+  { name: 'ecos_find', access: 'private', handler: ecosFind,
+    description: '한국은행 ECOS 통계표·항목 코드 찾기(실시간). query만 주면 통계표, stat(예: 404Y016 생산자물가 품목별)과 query를 주면 항목 코드·주기·수록 기간.',
+    inputSchema: obj({ query: str('통계표·품목 낱말(예: 생산자물가, 열연)'), stat: str('통계표 코드'), limit: int('줄 수', 1, 60) }) },
+  { name: 'ecos_data', access: 'private', handler: ecosData,
+    description: '한국은행 ECOS 값 조회(실시간): 최신값·직전·전년 같은 기간 대비, 조회 범위 안 "그때(값) 이후 최고·최저", 최근 13개. 수출입물가처럼 기준(원화·달러·계약통화)이 여러 개면 따로 보여 준다.',
+    inputSchema: obj({ stat: str('통계표 코드'), item: str('항목 코드1'), item2: str('항목 코드2(있으면)'), item3: str('항목 코드3(있으면)'),
+      cycle: { type: 'string', enum: ['M', 'Q', 'A'] }, start: str('시작(YYYYMM·YYYYQn·YYYY, 기본 10년 전)'), end: str('끝(기본 최근)') }, ['stat', 'item']) },
+  { name: 'kosis_find', access: 'private', handler: kosisFind,
+    description: 'KOSIS 국가통계포털 통계표 찾기(실시간): 낱말 → 기관 ID·통계표 ID·수록 기간.',
+    inputSchema: obj({ query: str('통계표 낱말(예: 철강 생산량, 광공업 품목별)'), limit: int('줄 수', 1, 40) }, ['query']) },
+  { name: 'kosis_data', access: 'private', handler: kosisData,
+    description: 'KOSIS 값 조회(실시간). obj1 없이 부르면 분류·항목 코드 목록, obj1·itm을 주면 계열별 최신값·전년 대비·조회 범위 안 최고·최저·최근 13개.',
+    inputSchema: obj({ org: str('기관 ID'), tbl: str('통계표 ID'), obj1: str('첫 분류 코드'), obj2: str('둘째 분류 코드'), itm: str('항목 코드(기본 ALL)'),
+      prd: { type: 'string', enum: ['M', 'Q', 'Y'] }, start: str('시작(YYYYMM 등)'), end: str('끝'), query: str('분류 이름 거르기(목록 볼 때)') }, ['org', 'tbl']) },
+  { name: 'customs_trade', access: 'private', handler: customsTrade,
+    description: '관세청 품목별·국가별 수출입실적(실시간, HS 기준): 월별 수출·수입 금액, 최신 달 전월·전년 대비, 조회 범위 안 최고·최저, 수출 단가(USD/kg). hs에 숫자 대신 변압기·전선·승용차·열연·아연괴 같은 낱말도 된다.',
+    inputSchema: obj({ hs: str('HS 코드(2~10자리) 또는 품목 낱말'), country: str('국가 코드(US, CN …, 비우면 전체)'), start: str('YYYYMM(기본 36개월 전)'), end: str('YYYYMM(기본 지난달)') }, ['hs']) },
   { name: 'g2b_bids', access: 'private', handler: g2bBids,
     description: '나라장터 입찰공고 낱말 검색(공고≠낙찰·계약). 키가 없으면 공개 스냅샷만 본다.',
     inputSchema: obj({ q: str('낱말(예: 변압기, 해저케이블)'), days: int('최근 N일(최대 7)', 1, 7) }, ['q']) },

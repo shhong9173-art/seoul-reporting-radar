@@ -922,6 +922,65 @@ test('kr_stats shows KAIDA ranks, price and production series with signals, and 
   assert.deepEqual(dueAt(new Date('2026-10-26T22:30:00Z')), ['kr-stats.yml']);  // Tue 07:30 KST
 });
 
+test('live statistics: ECOS, KOSIS and customs lookups state ranges, keep variants apart and never turn failures into zero', async () => {
+  const months = (from, n) => Array.from({ length: n }, (_, i) => { const d = new Date(Date.UTC(Number(from.slice(0, 4)), Number(from.slice(4)) - 1 + i, 1)); return `${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, '0')}`; });
+  const ecosRows = [];
+  for (const [i, m] of months('202401', 33).entries()) {
+    ecosRows.push({ STAT_NAME: '4.3.1.3. 수출물가지수(품목별)', ITEM_NAME1: '열연강대및강판', ITEM_NAME2: '원화기준', UNIT_NAME: '2020=100', TIME: m, DATA_VALUE: String(100 + i) });
+    ecosRows.push({ STAT_NAME: '4.3.1.3. 수출물가지수(품목별)', ITEM_NAME1: '열연강대및강판', ITEM_NAME2: '계약통화기준', UNIT_NAME: '2020=100', TIME: m, DATA_VALUE: String(200 - i) });
+  }
+  const customsXml = (from, to) => `<response><header><resultCode>00</resultCode><resultMsg>NORMAL SERVICE.</resultMsg></header><body><items>${
+    months(from, 12).filter((m) => m <= to).map((m) => `<item><year>${m.slice(0, 4)}.${m.slice(4)}</year><hsCd>850423</hsCd><statKor>변압기</statKor><expDlr>${m === '202609' ? 300000000 : 100000000}</expDlr><expWgt>1000000</expWgt><impDlr>5000000</impDlr><impWgt>20000</impWgt></item>`).join('')
+  }<item><year>총계</year><expDlr>1</expDlr><expWgt>1</expWgt><impDlr>1</impDlr><impWgt>1</impWgt></item></items></body></response>`;
+  const routes = {
+    'https://ecos.bok.or.kr/api/StatisticTableList/': Response.json({ StatisticTableList: { row: [
+      { STAT_CODE: '404Y016', STAT_NAME: '4.1.1.3. 생산자물가지수(품목별)', CYCLE: 'M', SRCH_YN: 'Y' }, { STAT_CODE: '402Y016', STAT_NAME: '4.3.1.3. 수출물가지수(품목별)', CYCLE: 'M', SRCH_YN: 'Y' },
+      { STAT_CODE: '0000000001', STAT_NAME: '1. 통화/금융', SRCH_YN: 'N' }] } }),
+    'https://ecos.bok.or.kr/api/StatisticItemList/': Response.json({ StatisticItemList: { row: [
+      { GRP_NAME: '계정코드', ITEM_CODE: '30712502AA', ITEM_NAME: '열연강대및강판', CYCLE: 'M', START_TIME: '197001', END_TIME: '202609', UNIT_NAME: '2020=100' },
+      { GRP_NAME: '계정코드', ITEM_CODE: '30712502AA', ITEM_NAME: '열연강대및강판', CYCLE: 'A', START_TIME: '1970', END_TIME: '2025', UNIT_NAME: '2020=100' },
+      { GRP_NAME: '계정코드', ITEM_CODE: '30713102AA', ITEM_NAME: '냉연강대', CYCLE: 'M', START_TIME: '198001', END_TIME: '202609', UNIT_NAME: '2020=100' }] } }),
+    'https://ecos.bok.or.kr/api/StatisticSearch/': (url) => (url.includes('/NOPE/') ? Response.json({ RESULT: { CODE: 'INFO-200', MESSAGE: '해당하는 데이터가 없습니다.' } })
+      : Response.json({ StatisticSearch: { list_total_count: ecosRows.length, row: ecosRows } })),
+    'https://kosis.kr/openapi/statisticsSearch.do': Response.json([{ ORG_ID: '363', TBL_ID: 'TX_36301_A000', TBL_NM: '철강 생산량', ORG_NM: '한국철강협회', STRT_PRD_DE: '2000', END_PRD_DE: '2026' }]),
+    'https://kosis.kr/openapi/statisticsData.do': (url) => (url.includes('type=PRD') ? Response.json([{ PRD_SE: '월', STRT_PRD_DE: '2000.01', END_PRD_DE: '2026.08' }])
+      : Response.json([{ OBJ_ID: 'ITEM', OBJ_NM: '항목', ITM_ID: '16363AAA0', ITM_NM: '생산량' }, { OBJ_ID: '15363AA1', OBJ_NM: '철강종류별', ITM_ID: '15363AA1AA', ITM_NM: '조강' },
+        { OBJ_ID: '15363AA1', OBJ_NM: '철강종류별', ITM_ID: '50', ITM_NM: '열연강판' }])),
+    'https://kosis.kr/openapi/Param/statisticsParameterData.do': Response.json(months('202301', 44).map((m, i) => ({ PRD_DE: m, DT: String(m === '202608' ? 4000 : 5000 + (i % 3)), UNIT_NM: '천톤', C1_NM: '조강', ITM_NM: '생산량', TBL_NM: '철강 생산량' }))),
+    'https://apis.data.go.kr/1220000/nitemtrade/getNitemtradeList': (url) => { const q = new URL(url).searchParams; return new Response(customsXml(q.get('strtYymm'), q.get('endYymm'))); },
+  };
+  const none = PRIVATE();
+  assert.match((await call('ecos_find', { query: '생산자물가' }, none)).text, /Cloudflare 비밀값 ECOS_API_KEY 미설정 — 조회하지 않음\(0건 아님\)/);
+  assert.match((await call('customs_trade', { hs: '8504' }, none)).text, /CUSTOMS_API_KEY\(또는 DATA_GO_KR_KEY\) 미설정/);
+  const opts = { ...PRIVATE({ ECOS_API_KEY: 'e', KOSIS_API_KEY: 'k', G2B_API_KEY: 'g' }), fetch: fakeFetch(routes) };
+  const tables = await call('ecos_find', { query: '물가 품목별' }, opts);
+  assert.match(tables.text, /404Y016 4\.1\.1\.3\. 생산자물가지수\(품목별\)[\s\S]*402Y016/);
+  assert.doesNotMatch(tables.text, /통화\/금융/);
+  const items = await call('ecos_find', { stat: '404y016', query: '열연' }, opts);
+  assert.match(items.text, /\[계정코드\] 30712502AA 열연강대및강판 · 단위 2020=100 · M 197001~202609, A 1970~2025/);
+  assert.doesNotMatch(items.text, /냉연강대/);
+  const data = await call('ecos_data', { stat: '402Y016', item: '30712502AA', start: '202401', end: '202609' }, opts);
+  assert.match(data.text, /■ 열연강대및강판 · 원화기준 \(단위 2020=100\)\n   최신 202609 132 · 직전\(202608\) 대비 \+0\.8% · 전년 같은 기간\(202509, 120\) 대비 \+10%\n   조회 범위\(202401~\) 최고/);
+  assert.match(data.text, /■ 열연강대및강판 · 계약통화기준[\s\S]*조회 범위\(202401~\) 최저/);  // the two bases stay separate
+  assert.match(data.text, /"역대"는 원표 전체 기간으로 다시 뜬다/);
+  const nodata = await call('ecos_data', { stat: 'NOPE', item: 'X' }, opts);
+  assert.ok(nodata.isError);
+  assert.match(nodata.text, /ECOS 값 없음\(INFO-200 해당하는 데이터가 없습니다\.\) — 미확인/);
+  assert.match((await call('kosis_find', { query: '철강 생산량' }, opts)).text, /org 363 · tbl TX_36301_A000 · 철강 생산량 \[한국철강협회\] 2000~2026/);
+  const meta = await call('kosis_data', { org: '363', tbl: 'TX_36301_A000' }, opts);
+  assert.match(meta.text, /수록 월 2000\.01~2026\.08[\s\S]*itm\(항목\)[\s\S]*16363AAA0 생산량[\s\S]*obj 15363AA1\(철강종류별\) — 2개[\s\S]*15363AA1AA 조강/);
+  const kd = await call('kosis_data', { org: '363', tbl: 'TX_36301_A000', obj1: '15363AA1AA', itm: '16363AAA0' }, opts);
+  assert.match(kd.text, /■ 조강 · 생산량 \(단위 천톤\)\n   최신 202608 4,000 · 직전\(202607\) 대비 -20% · 전년 같은 기간\(202508, 5,001\) 대비 -20%\n   조회 범위\(202301~\) 최저/);
+  const ct = await call('customs_trade', { hs: '변압기 수출', start: '202410', end: '202609' }, opts);
+  assert.match(ct.text, /HS 8504 · 전체 국가 · 202410~202609/);
+  assert.match(ct.text, /■ 수출금액\n   최신 202609 300,000,000 · 직전\(202608\) 대비 \+200% · 전년 같은 기간\(202509, 100,000,000\) 대비 \+200%\n   조회 범위\(202410~\) 최고/);
+  assert.match(ct.text, /수출 단가\(USD\/kg\): 202609 300 · 202509 100\(\+200%\)/);
+  assert.match(ct.text, /회사 실적·산업부 품목군 숫자와 섞지 않는다/);
+  assert.match((await call('customs_trade', { hs: '우주선' }, opts)).text, /HS 코드\(숫자 2~10자리\)나 다음 낱말/);
+  const pub = await rpc('tools/call', { name: 'ecos_data', arguments: { stat: 'x', item: 'y' } });
+  assert.match(JSON.stringify(pub.body), /Unknown tool/);  // private path only
+});
+
 test('non-MCP paths keep the canonical Pages redirect', async () => {
   const r = await worker.fetch(new Request(ORIGIN + '/scoop.json?v=1'), {}, {});
   assert.equal(r.status, 307);
