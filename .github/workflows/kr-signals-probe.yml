@@ -21,4 +21,4 @@ jobs:
           KEPCO_API_KEY: ${{ secrets.KEPCO_API_KEY }}
           KOSIS_API_KEY: ${{ secrets.KOSIS_API_KEY }}
           ECOS_API_KEY: ${{ secrets.ECOS_API_KEY }}
-        run: python scripts/probe/kr_stats_probe.py
+        run: python scripts/probe/kr_stats_run.py
