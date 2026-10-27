@@ -278,7 +278,7 @@ export async function krSignals(ctx, args) {
   const doc = await readFeed(ctx, 'kr-signals');
   if (!doc) return missing('공정위 의결서·한전 입찰·원자재 가격', '평일 08:30·15:20');
   if (doc.broken) return textResult('저장된 국내 신호 결과 형식 오류 — 미확인.', true);
-  const section = ['ftc', 'kepco', 'price'].includes(args.section) ? args.section : null;
+  const section = ['ftc', 'kepco', 'motir', 'price'].includes(args.section) ? args.section : null;
   const q = String(args.company ?? '').trim();
   const days = clampInt(args.days, 1, 365, 60);
   const limit = clampInt(args.limit, 1, 60, 15);
@@ -323,6 +323,23 @@ export async function krSignals(ctx, args) {
       if (!rows.length) out.push('없음');
       out.push('   검증 상태: 발주 공고(추정가격). 낙찰사·계약금액이 아니다');
     }
+  }
+  if (!section || section === 'motir') {
+    const from = new Date(ctx.now.getTime() + 9 * 3600000 - Math.min(days, 60) * 86400000).toISOString().slice(0, 10);
+    const rows = (doc.motir ?? []).filter((x) => String(x.date ?? '') >= from && matches(q, x.title, x.dept, ...(x.companies ?? [])));
+    out.push(`\n[산업통상부 보도·참고자료 · 출입처 업종 낱말·출입처 이름 · 최근 ${Math.min(days, 60)}일] ${rows.length}건`);
+    for (const x of rows.slice(0, limit)) {
+      out.push(`- ${x.isNew ? '[신규] ' : ''}${x.date} · ${x.dept} · ${x.kind}${x.embargo ? ` · 엠바고(${x.embargo})` : ''}`);
+      out.push(`   제목: ${x.title}${(x.companies ?? []).length ? ` · 출입처 이름: ${x.companies.join('·')}` : ''}`);
+      const t = x.trade;
+      if (t?.items) {
+        const parts = Object.entries(t.items).map(([k, v]) => `${k} ${v.value}억달러(${v.yoy}%)`);
+        out.push(`   ${t.period} 수출${t.exports ? ` ${t.exports.value}억달러(${t.exports.yoy}%)` : ''} · 출입처 품목: ${parts.join(' · ') || '표 해석 실패 — 원문 확인'}${t.tableError ? ` (⚠ ${t.tableError})` : ''}`);
+      } else if (t?.error) out.push(`   ⚠ 본문 조회 실패(${t.error}) — 원문 확인`);
+      out.push(`   원문: ${x.url}`);
+    }
+    if (!rows.length) out.push('없음');
+    out.push('   검증 상태: 정부 공개 발표. 단독 근거가 아니다 — 같은 날 기사 확인(news_check), 엠바고 준수');
   }
   if (!section || section === 'price') {
     const rows = (doc.prices ?? []).filter((p) => matches(q, p.name, p.id, ...(p.beats ?? [])));

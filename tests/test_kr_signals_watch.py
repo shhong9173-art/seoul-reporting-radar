@@ -311,13 +311,73 @@ class PriceSignals(unittest.TestCase):
         self.assertEqual(events, [])
 
 
+def motir_row(aid, title, dept, date, kind="보도자료", attach=None):
+    """One <tr> of the 산업통상부 보도·참고자료 board as the server sends it on 2026-10-27 (no data-cell-header labels — the page script adds them)."""
+    att = ("" if attach is None else f'<td>\n<a href="/attach/down/095a2dda/b8b95622" title="{attach} 다운로드">\n'
+           f'<img src="/images/ico/ico_file_pdf.png" alt="PDF 파일"></a></td>')
+    return (f'<tr>\n<td>\n30,162\n</td>\n<td>\t\n<span class="badge-category"><i>{kind}</i></span>\n</td>\n'
+            f'<td class="ta-l">\n<div class="board-link">\n<a href="/kor/article/ATCL3f49a5a8c/{aid}/view?mno=&amp;pageIndex=1" '
+            f'onclick="article.view(\'{aid}\'); return false;">\n<i>{title}</i>\n</a>\n<span class="badge-new"><i><img src="/images/ico/ico_new01.png" alt="새글"></i></span>\n</div>\n</td>\n<td><i>{dept}</i></td>\n'
+            f'<td>{date}</td>\n<td>579</td>\n{att}\n</tr>')
+
+
+MOTIR_PAGE = page([
+    motir_row("172335", "자동차·가전부터 한우·수산물까지...최대 50% 할인 정부, 「제2회 코리아 그랜드 페스티벌」 시작(10.29~11.15)", "유통물류과", "2026-10-27",
+              attach="1026(27석간, 27일(화) 국무회의 종료시 엠바고)유통물류과, 자동차·가전부터 한우·수산물까지.pdf"),
+    motir_row("172158", "국민이 직접 뽑은 기업 사회공헌 맛집은 어디?", "산업정책과", "2026-10-26"),
+    motir_row("172155", "무역위, 중국산 아연도금냉연, 옵셋인쇄판 덤핑조사 최종판정", "무역구제정책과", "2026-10-23"),
+    motir_row("172254", "2026년 9월 수출입 동향", "수출입과", "2026-10-01"),
+    motir_row("172300", "현대제철, 포스코와 탄소중립 공동연구 협약", "철강세라믹과", "2026-10-20")])
+TRADE_BODY = ("<div>2026년 9월 수출입 동향 담당부서수출입과 * 9월 수출 1,209.4억 달러(+83.5%), 수입 710.9억 달러(+26.0%), 수지 498.5억 달러 흑자 "
+              "【품목】9월에는 20대 주력 수출품목 중 11개 품목 수출이 증가했다. 【9월 20대 주요품목별 수출액(억달러) 및 증감률(%)】 반도체 디스플레이 무선통신기기 "
+              "컴퓨터 자동차 자동차부품 선박 603 (+263) 16 (△9) 21 (+23) 70 (+435) 61 (△5) 18 (△7) 38 (+30) 석유제품 석유화학 이차전지 일반기계 전기기기 철강 "
+              "비철금속 72 (+72) 40 (+5) 7 (+14) 41 (△3) 18 (+23) 22 (+3) 17 (+34) 농수산식품 화장품 생활용품 섬유 가전 바이오헬스 총 수출액 11 (△5) 15 (+31) "
+              "7 (△5) 9 (△7) 6 (△13) 15 (△9) 1,209 (+84) (IT) 반도체 수출(603.0억 달러, +262.8)은 … 자동차(60.5억 달러, △5.5%) 수출은 …</div>")
+
+
+def motir_routes(trade_body=TRADE_BODY):
+    return {w.MOTIR_LIST + "/172254/view": lambda m, u, kw: Resp(trade_body),
+            w.MOTIR_LIST: lambda m, u, kw: Resp(MOTIR_PAGE if (kw.get("params") or {}).get("pageIndex") == 1 else page([]))}
+
+
+class MotirWatch(unittest.TestCase):
+    def test_list_parsing_embargo_and_beat_filter(self):
+        rows = w.parse_motir_list(MOTIR_PAGE)
+        self.assertEqual(len(rows), 5)
+        self.assertEqual(rows[0]["id"], "motir:172335")
+        self.assertEqual(rows[0]["embargo"], "27석간, 27일(화) 국무회의 종료시 엠바고")
+        self.assertEqual((rows[2]["dept"], rows[2]["date"], rows[2]["kind"]), ("무역구제정책과", "2026-10-23", "보도자료"))
+        items, check = w.motir(CFG, NOW, None, http(motir_routes()))
+        ids = [x["id"] for x in items]
+        self.assertNotIn("motir:172158", ids)  # no beat topic or name
+        self.assertIn("motir:172155", ids)
+        named = next(x for x in items if x["id"] == "motir:172300")
+        self.assertEqual(named["companies"], ["포스코", "현대제철"])
+        self.assertEqual((check["status"], check["listed"]), ("ok", 5))
+
+    def test_trade_release_items_quoted_as_published(self):
+        t = w.parse_trade(TRADE_BODY)
+        self.assertEqual(t["exports"], {"value": "1,209.4", "yoy": "+83.5"})
+        self.assertEqual(t["items"]["자동차"], {"value": "61", "yoy": "-5"})
+        self.assertEqual(t["items"]["철강"], {"value": "22", "yoy": "+3"})
+        self.assertEqual(t["items"]["비철금속"], {"value": "17", "yoy": "+34"})
+        self.assertNotIn("반도체", t["items"])
+        bad = w.parse_trade(TRADE_BODY.replace("자동차부품 선박", "자동차부품"))  # names and values no longer line up
+        self.assertIn("표 해석 실패", bad["tableError"])
+        self.assertEqual(bad["items"]["자동차"], {"value": "60.5", "yoy": "-5.5", "from": "본문"})  # prose fallback
+        items, _ = w.motir(CFG, NOW, None, http(motir_routes()))
+        trade = next(x for x in items if x["id"] == "motir:172254")["trade"]
+        self.assertEqual(trade["period"], "2026-09")
+        self.assertEqual(trade["items"]["석유화학"], {"value": "40", "yoy": "+5"})
+
+
 class RunDoc(unittest.TestCase):
     def test_document_shape_and_unset_kepco_not_partial(self):
-        routes = {**ftc_routes([KUMHO]), **komis_routes({"MNRL0023": komis_series("2026-01-01", "2026-10-26")})}
+        routes = {**ftc_routes([KUMHO]), **komis_routes({"MNRL0023": komis_series("2026-01-01", "2026-10-26")}), **motir_routes()}
         doc = w.run(flat_cfg(), now=NOW, previous=None, http=http(routes), kepco_key="")
         self.assertEqual(doc["schema"], "kr_signals/v1")
         self.assertEqual(doc["status"], "complete")
-        self.assertEqual([c["source"] for c in doc["checks"]], ["공정위 의결서", "한전 전자입찰", "KOMIS 아연"])
+        self.assertEqual([c["source"] for c in doc["checks"]], ["공정위 의결서", "한전 전자입찰", "산업통상부 보도자료", "KOMIS 아연"])
         self.assertEqual(doc["confirmedScoops"], 0)
         self.assertTrue(isinstance(doc["prices"], list) and doc["prices"])
 

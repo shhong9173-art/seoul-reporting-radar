@@ -3,6 +3,8 @@
 - 공정위 의결서(case.ftc.go.kr, 열쇠 없음): 의결일 최근 120일 목록 → 처음 보는 의결서는 개방문서 전문을 읽어
   출입처·관련 기업 법인명이 피심인/발주처/본문 언급 중 어디에 나오는지와 주문 발췌를 남긴다. 이름 없는 의결서는 버린다.
 - 한전 전자입찰(전력데이터개방포털 electContract, KEPCO_API_KEY): 최근 14일 공고 중 전력기기·전선 품목만. 열쇠 없으면 '미설정'.
+- 산업통상부 보도·참고자료(motir.go.kr, 열쇠 없음): 최근 두 쪽에서 출입처 업종 낱말·출입처 이름이 제목에 있는 것. '○년 ○월 수출입 동향'은
+  본문의 주요 품목 표에서 출입처 품목(자동차·부품·철강·비철·석유화학·이차전지·전기기기 등) 수출액·증감률을 적힌 그대로 남긴다.
 - 원자재 가격(KOMIS 광물자원가격, 열쇠 없음): 설정한 광종·가격 기준(LME CASH 등)의 일별 가격·LME 재고.
   같은 기준·같은 단위로만 비교하고, 설정한 since 이전 값과는 비교하지 않는다. 'N개월 만에 최고'는 조회 범위 안의 사실만.
 - 결과는 기자 전용 저장소(kr-signals)로만. 공개 로그는 건수만. 조회 실패는 0건이 아니다.
@@ -450,6 +452,104 @@ def komis(cfg, now, previous, http):
     return prices, events, checks
 
 
+# ---------- 산업통상부 보도·참고자료 ----------
+
+MOTIR = "https://www.motir.go.kr"
+MOTIR_LIST = MOTIR + "/kor/article/ATCL3f49a5a8c"
+MOTIR_PAGES = 2
+MOTIR_KEEP_DAYS = 60
+TOPIC = re.compile(r"자동차|완성차|부품|모빌리티|미래차|전기차|수소차|철강|강판|강관|철근|아연|비철|구리|알루미늄|광물|희토류|전력|변압기|전선|케이블|송전|"
+                   r"전력망|원전|원자력|수소|석유화학|화학|배터리|이차전지|무역위|덤핑|상계|세이프가드|관세|통상|수출입|공급망|타이어|소재")
+TRADE_TITLE = re.compile(r"^(\d{4})년\s*(\d{1,2})월\s*수출입\s*동향$")
+TRADE_ITEMS = ("자동차", "자동차부품", "철강", "비철금속", "석유화학", "석유제품", "이차전지", "전기기기", "일반기계", "선박")
+
+
+def parse_motir_list(text):
+    """Server HTML of the board (the data-cell-header labels are added later by the page script, so cells are read by position:
+    번호, 분류, 제목, 담당부서, 등록일, 조회수, 첨부파일)."""
+    body = text.split("<tbody", 1)[-1].split("</tbody>", 1)[0]
+    rows = []
+    for row in re.split(r"<tr[\s>]", body)[1:]:
+        link = re.search(r'<a href="(/kor/article/ATCL3f49a5a8c/(\d+)/view)[^"]*"[^>]*>(.*?)</a>', row, re.S)
+        if not link:
+            continue
+        cells = [_norm(re.sub(r"(?s)<[^>]+>", " ", c)) for c in re.findall(r"<td[^>]*>(.*?)</td>", row, re.S)]
+        di = next((i for i, c in enumerate(cells) if re.fullmatch(r"\d{4}-\d{2}-\d{2}", c)), None)
+        kind = re.search(r'class="badge-category"[^>]*>\s*<i>([^<]+)</i>', row)
+        attach = re.search(r'<a href="/attach/down/[^"]+" title="([^"]+)"', row)
+        att = htmllib.unescape(attach.group(1)) if attach else ""
+        embargo = re.search(r"\(([^()]{0,60}(?:조간|석간|엠바고)[^()]{0,60}(?:\([^()]*\)[^()]{0,40})*)\)", att)
+        rows.append({"id": f"motir:{link.group(2)}", "title": _norm(re.sub(r"(?s)<[^>]+>", " ", link.group(3))),
+                     "kind": kind.group(1).strip() if kind else "", "dept": cells[di - 1] if di else "", "date": cells[di] if di is not None else "",
+                     "url": MOTIR + link.group(1), "embargo": embargo.group(1)[:120] if embargo else None})
+    return rows
+
+
+def parse_trade(text):
+    """'○년 ○월 수출입 동향' body: totals and the main-items table (names then '값 (증감)' cells, in the same order)."""
+    t = _norm(text)
+    out = {}
+    tot = re.search(r"\*\s*\d{1,2}월\s*수출\s*([\d,.]+)억\s*달러\(([+△\-]?[\d.]+)%\),\s*수입\s*([\d,.]+)억\s*달러\(([+△\-]?[\d.]+)%\)", t)
+    if tot:
+        out["exports"] = {"value": tot.group(1), "yoy": tot.group(2).replace("△", "-")}
+        out["imports"] = {"value": tot.group(3), "yoy": tot.group(4).replace("△", "-")}
+    seg = re.search(r"【\d{1,2}월\s*\d+대\s*주요\s*품목별\s*수출액[^】]*】(.*?)(?:\(IT\)|【)", t)
+    items = {}
+    if seg:
+        chunk = seg.group(1).replace("총 수출액", "총수출액")
+        names = re.findall(r"[가-힣]+", re.sub(r"[\d,.]+\s*\([+△\-]?[\d.]+\)", " ", chunk))
+        vals = re.findall(r"([\d,.]+)\s*\(([+△\-]?[\d.]+)\)", chunk)
+        if names and len(names) == len(vals):
+            for n, (v, y) in zip(names, vals):
+                if n in TRADE_ITEMS:
+                    items[n] = {"value": v, "yoy": y.replace("△", "-")}
+        else:
+            out["tableError"] = f"표 해석 실패(이름 {len(names)}·값 {len(vals)})"
+    for n in TRADE_ITEMS:  # prose fallback: '자동차(60.5억 달러, △5.5%)'
+        if n in items:
+            continue
+        m = re.search(rf"(?<![가-힣]){n}\(([\d,.]+)억\s*달러,\s*([+△\-]?[\d.]+)%\)", t)
+        if m:
+            items[n] = {"value": m.group(1), "yoy": m.group(2).replace("△", "-"), "from": "본문"}
+    out["items"] = items
+    return out
+
+
+def motir(cfg, now, previous, http):
+    prev = {x["id"]: x for x in (previous or {}).get("motir", []) if isinstance(x, dict) and x.get("id")}
+    stamp = now.isoformat(timespec="seconds")
+    patterns = company_patterns(cfg)
+    rows, err = [], None
+    for page in range(1, MOTIR_PAGES + 1):
+        r, err = http.call("GET", MOTIR_LIST, params={"pageIndex": page})
+        if err:
+            break
+        got = parse_motir_list(r.text)
+        if not got:
+            if page == 1:
+                err = "목록 형식(행 없음)"  # the first page always has rows; later pages may simply end
+            break
+        rows += got
+    kept = dict(prev)
+    for x in rows:
+        trade = TRADE_TITLE.match(x["title"])
+        names = sorted({c for c, rx, _ in patterns if rx.search(x["title"])})
+        if not (trade or names or TOPIC.search(x["title"])):
+            continue
+        old = prev.get(x["id"])
+        row = {**x, "companies": names, "trade": (old or {}).get("trade"), "firstSeen": (old or {}).get("firstSeen") or stamp,
+               "isNew": bool(previous) and old is None}
+        if trade and not row["trade"]:
+            d, e = http.call("GET", x["url"])
+            row["trade"] = {"period": f"{trade.group(1)}-{int(trade.group(2)):02d}", **(parse_trade(re.sub(r"(?s)<[^>]+>", " ", d.text)) if not e else {"error": e})}
+        kept[x["id"]] = row
+    keep_from = (now.date() - dt.timedelta(days=MOTIR_KEEP_DAYS)).isoformat()
+    items = sorted((x for x in kept.values() if str(x.get("date") or "") >= keep_from), key=lambda x: (x.get("date") or "", x["id"]), reverse=True)
+    status = "failed" if err and not rows else ("partial" if err else "ok")
+    return items, {"source": "산업통상부 보도자료", "status": status, "listed": len(rows), "kept": sum(1 for x in items if x["id"] in {r["id"] for r in rows}),
+                   **({"error": err} if err else {})}
+
+
 # ---------- run ----------
 
 def run(cfg, *, now, previous=None, http=None, kepco_key=""):
@@ -458,7 +558,8 @@ def run(cfg, *, now, previous=None, http=None, kepco_key=""):
     decisions, seen, fcheck = ftc(cfg, now, previous, http)
     bids, bid_events, kcheck = kepco(cfg, kepco_key, now, previous, http)
     prices, px_events, pchecks = komis(cfg, now, previous, http)
-    checks = [fcheck, kcheck, *pchecks]
+    releases, mcheck = motir(cfg, now, previous, http)
+    checks = [fcheck, kcheck, mcheck, *pchecks]
     keep_from = (now - dt.timedelta(days=EVENT_KEEP_DAYS)).isoformat()
     events = [e for e in (previous or {}).get("events", []) if isinstance(e, dict) and e.get("detectedAt", "") >= keep_from]
     have = {e.get("id") for e in events}
@@ -467,11 +568,12 @@ def run(cfg, *, now, previous=None, http=None, kepco_key=""):
     failed = [c for c in checks if c["status"] not in ("ok", "unset")]
     return {"schema": SCHEMA, "generatedAt": stamp, "status": "partial" if failed else "complete", "checks": checks,
             "baselineSince": (previous or {}).get("baselineSince") or stamp,
-            "decisions": decisions, "ftcSeen": seen, "kepco": bids, "prices": prices, "events": events[:400],
+            "decisions": decisions, "ftcSeen": seen, "kepco": bids, "motir": releases, "prices": prices, "events": events[:400],
             "rules": ["공정위 의결서는 의결일과 파일 등록(파일번호 앞자리)이 다르다. 보도자료는 보통 의결 전후에 먼저 나오니 news_check로 선행 보도를 본다.",
                       "'발주처'는 출입처가 입찰을 낸 쪽(피해·구매자)이라는 뜻이다. 제재 대상(피심인)과 섞어 쓰지 않는다.",
                       "주문 발췌의 금액은 의결서에 적힌 그대로다. 합계·감경 전후는 원문에서 확인한다.",
                       "한전 공고의 추정가격은 발주 예정 금액이다. 낙찰 금액·낙찰사가 아니다.",
+                      "산업통상부 보도자료는 공개 발표다. 단독 근거가 아니라 확인할 공식 변화이며, 첨부 파일명의 엠바고(조간·석간)를 지킨다.",
                       "원자재 가격은 KOMIS 게시값(같은 가격 기준·단위)이다. '이후 최고'는 조회 범위 안의 사실이고, 역대 최고가 아니다.",
                       "조회 실패는 0건이 아니라 미확인."],
             "confirmedScoops": 0}
@@ -495,10 +597,11 @@ def main():
     f = next(c for c in doc["checks"] if c["source"] == "공정위 의결서")
     k = next(c for c in doc["checks"] if c["source"] == "한전 전자입찰")
     p = [c for c in doc["checks"] if c["source"].startswith("KOMIS ")]
+    m = next(c for c in doc["checks"] if c["source"] == "산업통상부 보도자료")
     new_ev = sum(1 for e in doc["events"] if e["detectedAt"] == doc["generatedAt"])
     print(f"::notice title=kr-signals::공정위 의결서 {f['status']} 목록 {f.get('listed', 0)}건·의결 {f.get('decisions', 0)}건·전문 {f.get('read', 0)}건 읽음·"
           f"대기 {f.get('pending', 0)}·출입처 관련 {f.get('kept', 0)}건 · 한전 {k['status']} {k.get('kept', 0)}/{k.get('returned', 0)} · "
-          f"원자재 {sum(1 for c in p if c['status'] == 'ok')}/{len(p)} · 새 이벤트 {new_ev}")
+          f"산업부 {m['status']} {m.get('kept', 0)}/{m.get('listed', 0)} · 원자재 {sum(1 for c in p if c['status'] == 'ok')}/{len(p)} · 새 이벤트 {new_ev}")
     errors = sorted({c.get("error") for c in doc["checks"] if c.get("error")})
     if errors:
         print(f"::notice title=kr-signals-errors::{', '.join(errors)[:400]}")
