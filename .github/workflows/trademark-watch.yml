@@ -1,0 +1,52 @@
+name: Trademark Watch
+# 출입처 상표 출원(KIPRIS Plus 상표 출원 속보). 월요일 07:10 KST 주 1회.
+# 무료 한도(월 1,000회)를 특허와 나눠 쓰므로 병합(push) 때는 돌지 않는다. 모든 호출은 KIPRIS 공용 장부(상표 몫 월 150회)를 거친다.
+# 결과는 기자 전용 저장소로만. 공개 저장소에는 호출 건수 장부만 남는다.
+on:
+  schedule:
+    - cron: '10 22 * * 0'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  # 특허 감시와 같은 KIPRIS 키 · 같은 장부 — 차례로 돈다.
+  group: kipris-account
+  cancel-in-progress: false
+jobs:
+  trademarks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install "requests>=2.31,<3"
+      - name: Test parsing and budget before any request
+        run: python -m unittest tests.test_trademark_watch tests.test_kipris_account_ledger tests.test_private_store -v
+      - name: Watch beat-company trademark applications (counts-only log)
+        id: watch
+        env:
+          MCP_ACCESS_TOKEN: ${{ secrets.MCP_ACCESS_TOKEN }}
+          KIPRIS_SERVICE_KEY: ${{ secrets.KIPRIS_SERVICE_KEY }}
+        run: python scripts/trademark_watch.py
+      - name: Publish KIPRIS request ledger (counts only)
+        if: ${{ always() }}
+        run: |
+          set -e
+          if [ ! -f digests/kipris_account_ledger_latest.json ]; then exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add digests/kipris_account_ledger_latest.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "data: KIPRIS request ledger after trademark watch [skip ci]"
+          for attempt in 1 2 3; do
+            git pull --rebase origin main
+            if git push origin HEAD:main; then exit 0; fi
+            sleep 4
+          done
+          echo "KIPRIS ledger publication failed" >&2
+          exit 1

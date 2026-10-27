@@ -23,10 +23,10 @@
 `source_document`, `candidate_check`
 
 기자 전용: `dart_filings`, `dart_find_text`, `g2b_bids`, `scoop_packages`, `package_save`, `candidate_submit`,
-`candidate_feedback`, `candidate_weekly_review`
+`candidate_feedback`, `candidate_weekly_review`, `trademarks`
 
 선배 도구 중 옮기지 않은 것: `paper_db`(지면 DB — 지면 원천 데이터가 없음), 식품안전나라·CJ 지배구조·
-가맹·상표 도구(식품팀 전용), KOSIS·ECOS·SGIS(이 레이더에 수집기가 아직 없음).
+가맹 도구(식품팀 전용), SGIS. 상표는 출입처 출원 주간 감시(`trademarks`)로 옮김 — 임의 상표명 즉석 검색은 무료 호출 한도 때문에 아직 없음.
 
 ## 원칙(코드로 강제)
 
@@ -80,6 +80,14 @@
 - KOSIS: 철강협회 강종별 생산(363/TX_36301_A000, 조강·전기로강·열연·냉연·후판·철근·강관·컬러·용융아연도)과 광공업동향 품목별 생산·재고(101/DT_1F02012, 나동선·칼라강판·에틸렌·폴리에틸렌).
 - KAIDA 수입 승용차 브랜드별 신규등록(회원사 기준, 첫 실행 49개월 소급, 이후 최신 두 달만 다시 읽음): 순위·점유·전년 대비. 출입처 브랜드(벤츠·BMW·폭스바겐·아우디·혼다)의 순위 변화와 다른 브랜드에 추월당한 경우를 신호로.
 - 신호(새 달이 처음 보일 때만, 첫 실행은 기준선): '그 달(값) 이후 최고/최저 — N개월 만'(12개월 이상)·조회 범위(2016-01~) 최고/최저 → B, 전년 같은 달 대비 큰 변동(물가 10%, 생산 15%, 재고 25%, 수입차 30%)·연속 증감(6개월 이상)·하위권 순위 변화 → C. '역대'는 판정하지 않는다.
+
+## 상표 출원(trademarks, 기자 전용)
+
+- GitHub Actions `Trademark Watch`가 월요일 07:10 KST 주 1회 실행(병합 때는 돌지 않음). 결과는 `trademarks` 비공개 저장소로만. Secrets: `KIPRIS_SERVICE_KEY`(특허와 같은 키), `MCP_ACCESS_TOKEN`.
+- KIPRIS Plus 상표 출원 속보 `trademarkInfoSearchService/getAdvancedSearch`를 출원인 이름(특허 수집과 같은 법인명)·출원일 최근 90일로 회사당 1회(500건 넘으면 2쪽까지). 출입처 28곳(효성중공업·일진전기는 관련 기업, 최고 C). KG모빌리티·르노코리아·한국GM·GS칼텍스 이름은 첫 실제 조회 전까지 미확인.
+- 호출은 `KIPRIS 공용 장부`(docs/kipris-account-ledger.md)를 거친다. 무료 월 1,000회 중 상표 몫 150회, 실행당 34회. 응답 22면 상표만 72시간 대기 — radar_today에 '대기'(실패·0건 아님)로 표시.
+- 처음 보는 출원번호만 새 출원(첫 성공 실행은 기준선). 같은 날 같은 이름의 여러 상품류는 한 건. 처음 보는 이름+업종 핵심 상품류(완성차 12·7·9류 등) → B, 나머지 → C. radar_today에는 처음 본 날부터 7일 보인다.
+- 상표 출원은 출원 사실이다. 출시·사업 진출·차명 확정으로 쓰지 않는다. 견본 이미지 주소는 저장하지 않으니 KIPRIS에서 출원번호로 확인.
 
 ## 주간 품질 점검(candidate_weekly_review, 기자 전용)
 
