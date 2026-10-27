@@ -313,8 +313,9 @@ export async function krSignals(ctx, args) {
     const k = checks.find((c) => c.source === '한전 전자입찰');
     if (k?.status === 'unset') out.push('\n[한전 전자입찰] 미설정 — GitHub Secrets에 KEPCO_API_KEY(전력데이터개방포털 40자리 키) 필요. 0건이 아니라 미확인.');
     else {
-      const rows = (doc.kepco ?? []).filter((x) => matches(q, x.name, x.company, x.place));
-      out.push(`\n[한전 전자입찰 · 전력기기·전선 품목 · 공고일 기준] ${rows.length}건`);
+      const rows = (doc.kepco ?? []).filter((x) => matches(q, x.name, x.company, x.place))
+        .sort((a, b) => (b.price ?? 0) - (a.price ?? 0) || String(b.noticeDate).localeCompare(String(a.noticeDate)));
+      out.push(`\n[한전 전자입찰 · 전력기기·전선 자재구매(+HVDC·765kV급 공사) · 추정가격 큰 순] ${rows.length}건`);
       for (const x of rows.slice(0, limit)) {
         out.push(`- ${x.isNew ? '[신규] ' : ''}공고 ${ymd8(x.noticeDate)} · ${x.company} · ${x.state}${x.big ? ' · 대형' : ''} · 추정가격 ${eok(x.price)}`);
         out.push(`   입찰건명: ${x.name}${x.closeAt ? ` · 신청 마감 ${ymd8(x.closeAt)}` : ''}`);

@@ -233,7 +233,17 @@ class KepcoWatch(unittest.TestCase):
              "progressState": state, "purchaseType": "Product", "competitionType": "Open", "bidType": "LowestPrice", "placeName": "한국전력공사",
              "filename1": "공고_구매규격서.pdf"},
             {"companyId": "COM04", "no": "R26-2", "name": "사옥 청소 용역", "presumedPrice": "300000000", "noticeDate": "20261024", "progressState": "Close"},
-            {"companyId": "COM05", "no": "R26-3", "name": "배전용 변압기 단가계약", "presumedPrice": "900000000", "noticeDate": "20261023", "progressState": "Close"}]}
+            {"companyId": "COM05", "no": "R26-3", "name": "배전용 변압기 단가계약", "presumedPrice": "900000000", "noticeDate": "20261023", "progressState": "Close",
+             "purchaseType": "Product"},
+            # live examples from 2026-10-26 that are construction or services, not equipment purchases
+            {"companyId": "COM01", "no": "E1", "name": "154kV 남광명분기 지중T/L 건설공사", "presumedPrice": "1969674000", "noticeDate": "20261026",
+             "progressState": "PreAttendProgress", "purchaseType": "ConstructionService"},
+            {"companyId": "COM01", "no": "E2", "name": "인제 다미뷔페~회전교차로 지중화공사 감리용역", "presumedPrice": "200701931", "noticeDate": "20261026",
+             "progressState": "AttendProgress", "purchaseType": "ConstructionService"},
+            {"companyId": "COM01", "no": "E3", "name": "보호배전반,SHUNT REACTOR용,345/154/23KV 1면 (서서울2SS) - 지역제한", "presumedPrice": "35000000",
+             "noticeDate": "20261026", "progressState": "AttendProgress", "purchaseType": "Product"},
+            {"companyId": "COM01", "no": "E4", "name": "서해안 HVDC 해저케이블 건설공사", "presumedPrice": "250000000000", "noticeDate": "20261025",
+             "progressState": "PreAttendProgress", "purchaseType": "ConstructionService"}]}
 
     def test_unset_key_is_not_a_failure_and_not_zero(self):
         rows, events, check = w.kepco(CFG, "", NOW, None, http({}))
@@ -242,10 +252,13 @@ class KepcoWatch(unittest.TestCase):
     def test_keeps_power_equipment_marks_big_and_tracks_state(self):
         routes = {w.KEPCO_API: lambda m, u, kw: Resp(payload=self.data())}
         rows, events, check = w.kepco(CFG, "k" * 40, NOW, None, http(routes))
-        self.assertEqual([r["name"] for r in rows], ["154kV 지중 전력케이블 구매", "배전용 변압기 단가계약"])
-        self.assertEqual((rows[0]["price"], rows[0]["big"], rows[0]["state"], rows[0]["company"]), (12_300_000_000, True, "공고진행", "한국전력공사"))
-        self.assertFalse(rows[1]["big"])
-        self.assertEqual((check["returned"], check["kept"]), (3, 2))
+        self.assertEqual(sorted(r["name"] for r in rows), sorted(["154kV 지중 전력케이블 구매", "배전용 변압기 단가계약",
+                                                                  "보호배전반,SHUNT REACTOR용,345/154/23KV 1면 (서서울2SS) - 지역제한", "서해안 HVDC 해저케이블 건설공사"]))
+        rows = sorted(rows, key=lambda r: r["name"])  # equipment purchases plus HVDC-class projects; plain construction and 감리 dropped
+        cable = next(r for r in rows if r["name"].startswith("154kV 지중"))
+        self.assertEqual((cable["price"], cable["big"], cable["state"], cable["company"]), (12_300_000_000, True, "공고진행", "한국전력공사"))
+        self.assertFalse(next(r for r in rows if r["name"].startswith("배전용"))["big"])
+        self.assertEqual((check["returned"], check["kept"]), (7, 4))
         routes2 = {w.KEPCO_API: lambda m, u, kw: Resp(payload=self.data("Fail"))}
         rows2, events2, _ = w.kepco(CFG, "k" * 40, NOW + dt.timedelta(days=1), {"kepco": rows}, http(routes2))
         self.assertEqual(len(events2), 1)
