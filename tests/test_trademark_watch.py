@@ -179,6 +179,7 @@ class Watch(unittest.TestCase):
     def test_no_key_is_unset_and_no_baseline(self):
         doc = tw.run(CFG, now=NOW, key="", ledger=None, fetch=None)
         self.assertEqual({c["status"] for c in doc["checks"]}, {"unset"})
+        self.assertEqual(doc["status"], "unset")
         self.assertIsNone(doc["baselineSince"])
         again = tw.run(CFG, now=NOW + timedelta(days=7), previous=doc, key="", ledger=None, fetch=None)
         self.assertIsNone(again["baselineSince"])

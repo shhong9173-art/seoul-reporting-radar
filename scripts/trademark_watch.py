@@ -245,7 +245,9 @@ def run(cfg, *, now, previous=None, key="", ledger=None, fetch=None):
     any_ok = any(c["status"] in ("ok", "partial") for c in checks)
     doc = {
         "schema": SCHEMA, "generatedAt": stamp, "source": SOURCE,
-        "status": "complete" if not bad and not waiting and any_ok else ("waiting" if waiting and not any_ok else "partial"),
+        "status": ("unset" if all(c["status"] == "unset" for c in checks) else
+                   "complete" if not bad and not waiting and any_ok else
+                   "waiting" if waiting and not any_ok and not bad else "partial"),
         "window": {"from": start.isoformat(), "to": end.isoformat(), "field": "출원일"},
         "baselineSince": (prev or {}).get("baselineSince") or (stamp if any_ok else None),
         "checks": checks, "filings": filings[:1500], "fresh": fresh,
