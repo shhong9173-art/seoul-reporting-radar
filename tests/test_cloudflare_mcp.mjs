@@ -739,7 +739,7 @@ test('DART lead facts and prior comparison show in scoop_screen, and routine fil
         routine: '같은 자회사 채무자 반복 보증 · 자기자본 대비 2.63%' } },
     { id: 'clue:kz', verdict: '미보도 후보', team: '철강', company: '고려아연', title: '고려아연 · 소송등의판결ㆍ결정', kind: '단서',
       url: 'https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261023801005', channels: {}, queries: [],
-      filing: { type: '소송판결', facts: [['사건의명칭', '주주대표소송(손해배상)'], ['판결ㆍ결정일자', '2026-10-22']], related: '2026-06-10 소송 등의 제기ㆍ신청(경영권 분쟁 소송)',
+      filing: { type: '소송판결', facts: [['사건의명칭', '주주대표소송(손해배상)'], ['판결ㆍ결정내용', '[주문] 1. 원고 공동소송참가인의 공동소송참가신청을 각하한다. 2. 원고의 주위적 및 예비적 청구를 모두 기각한다.'], ['판결ㆍ결정일자', '2026-10-22']], related: '2026-06-10 소송 등의 제기ㆍ신청(경영권 분쟁 소송)',
         compare: ['최근 3년 같은 종류 공시 4건(정정 포함, 목록 기준)'], routine: null } }] };
   assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/scoop-screen', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
   const s = await call('scoop_screen', {}, opts);
@@ -751,6 +751,8 @@ test('DART lead facts and prior comparison show in scoop_screen, and routine fil
   const a = r.text.split('[A · ')[1].split('[B · ')[0];
   const b = r.text.split('[B · ')[1].split('[C · ')[0];
   assert.match(a, /고려아연 · 소송등의판결ㆍ결정 \(단서\) — 보도 대조 '미보도 후보' · 사건의명칭 주주대표소송\(손해배상\)/);
+  assert.match(a, /판결ㆍ결정내용 \[주문\] 1\. 원고 공동소송참가인의 공동소송참가신청을 각하한다\. 2\. 원고의 주위적 및 예비적 청구를 모두… · 판결ㆍ결정일자/);  // clipped in the digest
+  assert.match(s.text, /2\. 원고의 주위적 및 예비적 청구를 모두 기각한다\./);  // full in scoop_screen
   assert.doesNotMatch(a, /HD현대일렉트릭/);
   assert.match(b, /HD현대일렉트릭 · 타인에대한채무보증결정 — 일상 공시로 보임\(같은 자회사 채무자 반복 보증/);
 });

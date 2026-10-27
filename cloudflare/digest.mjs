@@ -57,7 +57,9 @@ function collect(docs, cut, cutDay, { all = false } = {}) {
   const scoop = docs['scoop-screen'];
   for (const c of scoop?.candidates ?? []) {
     const fl = c.filing;
-    const brief = fl && !fl.error && (fl.facts ?? []).length ? ` · ${fl.facts.slice(0, 4).map(([k, v]) => `${k} ${v}`).join(' · ')}` : '';
+    // one line per item: long cells (판결 주문, 당사자 목록) are clipped here; scoop_screen shows them in full
+    const clip = (v) => { const t = String(v ?? '').replace(/\s+/g, ' ').trim(); return t.length > 60 ? `${t.slice(0, 60).trimEnd()}…` : t; };
+    const brief = fl && !fl.error && (fl.facts ?? []).length ? ` · ${fl.facts.slice(0, 4).map(([k, v]) => `${k} ${clip(v)}`).join(' · ')}` : '';
     const cmp = fl && (fl.compare ?? []).length ? ` · ${fl.compare[0]}` : '';
     const kind = scoopKind(c);
     const flag = fl?.routine ? '일상' : '';
