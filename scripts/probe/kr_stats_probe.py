@@ -42,20 +42,51 @@ def ecos_tables(pat):
     note("ECOS tables", pat, " ; ".join(f"{x.get('STAT_CODE')}={x.get('STAT_NAME')}({x.get('CYCLE')})" for x in hit[:20]))
 
 
-for q in ["광업제조업동향", "자동차 생산 내수 수출", "조강 생산", "철강 생산", "전선", "수입차", "산업별 생산지수"]:
+def kosis_meta(org, tbl, pat):
+    r = requests.get("https://kosis.kr/openapi/statisticsData.do", params={"method": "getMeta", "apiKey": KOSIS, "format": "json", "jsonVD": "Y",
+                     "type": "ITM", "orgId": org, "tblId": tbl}, headers=UA, timeout=60)
+    try:
+        j = r.json()
+    except ValueError:
+        note("KOSIS meta", tbl, r.status_code, r.text[:150])
+        return
+    if isinstance(j, dict):
+        note("KOSIS meta", tbl, str(j)[:200])
+        return
+    objs = {}
+    for x in j:
+        objs.setdefault(x.get("OBJ_ID"), []).append(x)
+    note("KOSIS meta", tbl, "objs", {k: (len(v), v[0].get("OBJ_NM")) for k, v in objs.items()})
+    hit = [x for x in j if re.search(pat, str(x.get("ITM_NM", "")))]
+    note("KOSIS meta hits", tbl, " ; ".join(f"{x.get('OBJ_ID')}:{x.get('ITM_ID')}={x.get('ITM_NM')}({x.get('UNIT_NM', '')})" for x in hit[:40]))
+
+
+def kosis_prd(org, tbl):
+    r = requests.get("https://kosis.kr/openapi/statisticsData.do", params={"method": "getMeta", "apiKey": KOSIS, "format": "json", "jsonVD": "Y",
+                     "type": "PRD", "orgId": org, "tblId": tbl}, headers=UA, timeout=60)
+    note("KOSIS prd", tbl, r.text[:300])
+
+
+PRODUCTS = r"승용|자동차|화물|타이어|열연|냉연|후판|강판|선재|철근|형강|강관|조강|선철|전기로|아연|동|전선|케이블|변압기|차단기|전동기|발전기|축전지|폴리|에틸렌|합성수지|조선|계"
+for org, tbl in [("101", "DT_1F02012"), ("363", "TX_36301_A000")]:
+    for fn in (lambda: kosis_meta(org, tbl, PRODUCTS), lambda: kosis_prd(org, tbl)):
+        try:
+            fn()
+        except Exception as e:  # noqa: BLE001
+            note("KOSIS", tbl, type(e).__name__)
+for q in ["자동차 내수판매", "자동차산업 동향", "완성차 판매"]:
     try:
         kosis_search(q)
     except Exception as e:  # noqa: BLE001
         note("KOSIS", q, type(e).__name__)
-for pat in ["생산자물가", "수출물가", "수입물가"]:
+PAT = r"철강|열연|냉연|후판|도금|선재|철근|봉강|강관|동괴|동선|나동|구리|아연|알루미늄|전선|케이블|변압기|전동기|발전기|개폐|승용차|화물자동차|자동차부품|타이어|축전지"
+for code in ["404Y016", "402Y016", "401Y017"]:
     try:
-        ecos_tables(pat)
-    except Exception as e:  # noqa: BLE001
-        note("ECOS tables", pat, type(e).__name__)
-for code in ["404Y014", "402Y014", "401Y015"]:
-    try:
-        ecos_items(code, r"철강|열연|냉연|후판|강판|선재|철근|동|구리|아연|알루미늄|전선|케이블|변압기|전동기|발전기|승용차|자동차|타이어|폴리|합성수지|원유")
+        r = requests.get(f"https://ecos.bok.or.kr/api/StatisticItemList/{ECOS}/json/kr/1/5000/{code}", headers=UA, timeout=60)
+        rows = (r.json().get("StatisticItemList") or {}).get("row") or []
+        hit = [x for x in rows if re.search(PAT, x.get("ITEM_NAME", "")) and x.get("CYCLE") == "M"]
+        note("ECOS", code, len(rows), "hits", len(hit), " ; ".join(f"{x.get('ITEM_CODE')}={x.get('ITEM_NAME')}({x.get('START_TIME')}-{x.get('END_TIME')},{x.get('UNIT_NAME')})" for x in hit[:45]))
     except Exception as e:  # noqa: BLE001
         note("ECOS", code, type(e).__name__)
-for i in range(0, len(OUT), 3):
-    print(f"::notice title=stats-{i // 3:02d}::" + " | ".join(OUT[i:i + 3])[:3900])
+for i in range(0, len(OUT), 2):
+    print(f"::notice title=stats-{i // 2:02d}::" + " | ".join(OUT[i:i + 2])[:3900])
