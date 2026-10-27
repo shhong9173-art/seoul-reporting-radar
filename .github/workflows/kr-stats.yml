@@ -1,6 +1,6 @@
 name: KR Stats Watch
-# 한국은행 ECOS 품목별 물가지수·KOSIS(철강협회 생산·광공업동향 품목)·KAIDA 수입 승용차 브랜드별 신규등록. 평일 07:30 KST(Cloudflare 요청, GitHub 예약은 예비).
-# 결과는 기자 전용 저장소로만. 공개 로그는 건수만. 실행당 ECOS 약 23회·KOSIS 약 17회·KAIDA 2회(첫 실행 49회).
+# 한국은행 ECOS 품목별 물가지수·KOSIS(철강협회 생산·광공업동향 품목)·KAIDA 수입 승용차 브랜드별 신규등록·미국 Census 한국산 수입액(품목 14개). 평일 07:30 KST(Cloudflare 요청, GitHub 예약은 예비).
+# 결과는 기자 전용 저장소로만. 공개 로그는 건수만. 실행당 ECOS 약 23회·KOSIS 약 17회·Census 14회·KAIDA 2회(첫 실행 49회).
 on:
   push:
     branches: [main]
@@ -37,4 +37,5 @@ jobs:
           MCP_ACCESS_TOKEN: ${{ secrets.MCP_ACCESS_TOKEN }}
           ECOS_API_KEY: ${{ secrets.ECOS_API_KEY }}
           KOSIS_API_KEY: ${{ secrets.KOSIS_API_KEY }}
+          CENSUS_API_KEY: ${{ secrets.CENSUS_API_KEY }}
         run: python scripts/kr_stats_watch.py

@@ -368,7 +368,7 @@ export async function krStats(ctx, args) {
   const doc = await readFeed(ctx, 'kr-stats');
   if (!doc) return missing('국내 월간 통계(ECOS·KOSIS·KAIDA)', '평일 07:30');
   if (doc.broken) return textResult('저장된 국내 월간 통계 형식 오류 — 미확인.', true);
-  const section = ['kaida', 'price', 'production'].includes(args.section) ? args.section : null;
+  const section = ['kaida', 'price', 'production', 'us_imports'].includes(args.section) ? args.section : null;
   const q = String(args.company ?? '').trim();
   const limit = clampInt(args.limit, 1, 60, 12);
   const onlySignals = !(args.show_all === true || args.show_all === 'true');
@@ -403,6 +403,7 @@ export async function krStats(ctx, args) {
   };
   if (!section || section === 'price') showSeries('price', '물가지수 · 한국은행 ECOS 품목별(생산자·수출·수입물가)');
   if (!section || section === 'production') showSeries('volume', '생산·재고 · KOSIS(철강협회·광공업동향)');
-  out.push('\n다음: 신호가 있으면 원표(ECOS·KOSIS)에서 같은 기준·기간으로 다시 뜬다 → news_check(품목·숫자) → 회사에 판가·가동·재고 대응 확인. 지수는 수준이 아니라 변화다.');
+  if (!section || section === 'us_imports') showSeries('trade', '미국 수입(한국산) · US Census 품목별 월간 일반수입액');
+  out.push('\n다음: 신호가 있으면 원표(ECOS·KOSIS·Census)에서 같은 기준·기간으로 다시 뜬다 → news_check(품목·숫자) → 회사에 판가·가동·재고 대응 확인. 지수는 수준이 아니라 변화다.');
   return textResult(out.join('\n'));
 }
