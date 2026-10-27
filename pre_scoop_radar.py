@@ -5,6 +5,7 @@ import html
 import os
 import json
 import re
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -443,7 +444,7 @@ def parse_ntis_detail(markup):
     return title, fields, "\n".join(line for line in lines if line)
 
 
-def fetch_direct_ntis_announcements(max_items=12, query_terms=None, max_details=8):
+def fetch_direct_ntis_announcements(max_items=12, query_terms=None, max_details=8, prior_items=None):
     """Bounded official-source collection; round-robin prevents first-term starvation."""
     now = datetime.now(KST)
     cutoff = now - timedelta(days=LOOKBACK_DAYS)
@@ -455,6 +456,7 @@ def fetch_direct_ntis_announcements(max_items=12, query_terms=None, max_details=
             "detailPagesAttempted": 0, "detailPagesFetched": 0, "datedRecords": 0,
             "recentRecords": 0, "retained": 0, "httpAttempts": 0, "retries": 0,
             "queryTerms": active_terms, "queryDiagnostics": [], "errors": [],
+            "detailReused": 0, "detailDeferred": 0, "detailCircuitOpen": False,
             "exclusions": {}, "sampleRows": [], "coverageLimited": False}
     DIRECT_DIAGNOSTICS["ntis-announcements"] = diag
     if max_items < 1 or max_details < 1 or not active_terms:
@@ -513,16 +515,42 @@ def fetch_direct_ntis_announcements(max_items=12, query_terms=None, max_details=
             seen.add(url)
             ordered.append((qdiag, url, title))
     diag["announcementLinks"] = len(ordered)
-    out = []
-    for qdiag, url, listed_title in ordered[:max_details]:
+    # A detail read in an earlier run (same official id, same listed title) is reused, not re-read.
+    cache = {it.get("url"): it for it in (prior_items or [])
+             if isinstance(it, dict) and it.get("signalType") == "ntis_rnd_announcement" and it.get("url")}
+    out, fresh = [], []
+    for qdiag, url, listed_title in ordered:
+        hit = cache.get(url)
+        if hit and _ntis_title_key(hit.get("title")) == _ntis_title_key(listed_title):
+            published = parse_dt(hit.get("published"))
+            if cutoff <= published <= now + timedelta(hours=6):
+                diag["detailReused"] += 1
+                diag["datedRecords"] += 1
+                diag["recentRecords"] += 1
+                out.append(dict(hit))
+            continue
+        fresh.append((qdiag, url, listed_title))
+    ordered = fresh
+    failures_in_row = 0
+    for index, (qdiag, url, listed_title) in enumerate(ordered[:max_details]):
         if len(out) >= max_items:
             break
+        if failures_in_row >= DETAIL_BREAKER:
+            diag["detailCircuitOpen"] = True
+            for _, later, _ in ordered[index:max_details]:
+                exclude("detail_deferred_after_timeouts", later)
+                diag["detailDeferred"] += 1
+            break
+        if diag["detailPagesAttempted"]:
+            time.sleep(DETAIL_GAP_SECONDS)
         diag["detailPagesAttempted"] += 1
         qdiag["detailPagesAttempted"] += 1
         markup = _ntis_fetch(url, diag, "detail")
         if markup is None:
+            failures_in_row += 1
             exclude("detail_fetch_failed", url)
             continue
+        failures_in_row = 0
         diag["detailPagesFetched"] += 1
         qdiag["detailPagesFetched"] += 1
         title, fields, body = parse_ntis_detail(markup)
@@ -555,11 +583,11 @@ def fetch_direct_ntis_announcements(max_items=12, query_terms=None, max_details=
                     "verification": "공개 원자료 추적 — 기업 참여·선정 및 단독 여부 미확인",
                     "evidenceLimitations": ["첨부문서는 수집하지 않음", "공모 자체는 기업 참여의 증거가 아님"]})
     diag["retained"] = len(out)
-    diag["detailsSkippedByLimit"] = len(ordered) - diag["detailPagesAttempted"]
+    diag["detailsSkippedByLimit"] = max(0, len(ordered) - diag["detailPagesAttempted"] - diag["detailDeferred"])
     diag["coverageLimited"] |= bool(diag["detailsSkippedByLimit"])
     diag["status"] = ("search_fetch_or_parse_failed" if not diag["searchPagesParsed"] else
                       "empty_official_search" if not ordered else
-                      "detail_fetch_failed" if not diag["detailPagesFetched"] else
+                      "detail_fetch_failed" if not diag["detailPagesFetched"] and not diag["detailReused"] else
                       "detail_parse_failed" if not diag["datedRecords"] else
                       "no_recent_publications_in_checked_details" if not diag["recentRecords"] else
                       "recent_announcements_checked")
@@ -571,6 +599,11 @@ def fetch_direct_ntis_announcements(max_items=12, query_terms=None, max_details=
 
 
 IRIS_BASE = "https://www.iris.go.kr"
+# 2026-10 운영: 상세 30건 중 21건 시간초과가 58회 연속. 같은 공고를 매번 다시 읽고(재사용 없음),
+# 실패가 이어져도 끝까지 시도해 실행마다 수 분씩 기다렸다. 이미 읽은 공고는 재사용하고,
+# 목록의 날짜·제목으로 걸러지는 공고는 상세를 열지 않으며, 연속 실패 3번이면 나머지는 다음 실행으로 미룬다.
+DETAIL_GAP_SECONDS = 0.6
+DETAIL_BREAKER = 3
 IRIS_LIST_PATH = "/contents/retrieveBsnsAncmBtinSituList.do"
 
 
@@ -665,7 +698,7 @@ def _iris_company_mentions(text):
         for alias in aliases.get(name, (name,)))]
 
 
-def fetch_direct_iris_announcements(max_items=10, max_pages=2, max_details=30):
+def fetch_direct_iris_announcements(max_items=10, max_pages=2, max_details=30, prior_items=None):
     """Read official JSON lists and labelled detail HTML; never infer newness.
 
     Both open and closed calls are checked. Limits are reported as incomplete
@@ -678,6 +711,7 @@ def fetch_direct_iris_announcements(max_items=10, max_pages=2, max_details=30):
             "invalidIds": 0, "detailPagesAttempted": 0, "detailPagesFetched": 0,
             "datedRecords": 0, "recentRecords": 0, "materialRecords": 0,
             "companyMentionRecords": 0, "retained": 0, "retries": 0,
+            "detailReused": 0, "listPrefiltered": 0, "detailDeferred": 0, "detailCircuitOpen": False,
             "exclusions": {}, "errors": [], "sampleRows": [], "tabs": {},
             "listUsesJsOrAjax": True, "listTransport": "official_form_post_json",
             "coverageLimited": False}
@@ -738,18 +772,57 @@ def fetch_direct_iris_announcements(max_items=10, max_pages=2, max_details=30):
     diag["detailIdsSeen"] = len(announcements)
     # Prioritize actual list announcement dates, never application deadlines.
     ordered = sorted(announcements.items(), key=lambda pair: parse_dt(pair[1][1].get("ancmDe")), reverse=True)
-    if len(ordered) > max_details:
-        diag["coverageLimited"] = True
-    diag["detailsSkippedByLimit"] = max(0, len(ordered) - max_details)
     material_re = re.compile(r"자동차|모빌리티|전기차|배터리|이차전지|철강|강관|소재|부품|장비|변압기|전력망|케이블|풍력|태양광|재생에너지|에너지|전력|수소|원전|원자력|SMR|탄소|희소금속|비철|화학|산업기술|제조|실증", re.I)
-    out = []
-    for ann_id, (tab, listed) in ordered[:max_details]:
+    # Earlier verified rows (same id, same listed title and date) are reused instead of re-reading the page.
+    cache = {it.get("announcementId"): it for it in (prior_items or [])
+             if isinstance(it, dict) and it.get("signalType") == "iris_rnd_announcement" and it.get("announcementId")}
+    out, to_fetch = [], []
+    for ann_id, (tab, listed) in ordered:
+        listed_title = clean(listed.get("ancmTl") or "")
+        listed_dt = parse_dt(listed["ancmDe"]) if listed.get("ancmDe") else None
+        # The list date only decides what NOT to open; the published date always comes from the detail page.
+        if listed_dt and listed_dt.year >= 2000 and listed_dt < cutoff - timedelta(days=1):
+            exclude("outside_lookback", ann_id)
+            diag["listPrefiltered"] += 1
+            continue
+        if listed_title and not _iris_company_mentions(listed_title) and not material_re.search(listed_title):
+            exclude("no_company_or_industry_in_title", ann_id)
+            diag["listPrefiltered"] += 1
+            continue
+        hit = cache.get(ann_id)
+        if (hit and listed_title and hit.get("title") == listed_title and listed_dt
+                and str(hit.get("published", ""))[:10] == listed_dt.date().isoformat()):
+            diag["detailReused"] += 1
+            diag["datedRecords"] += 1
+            diag["recentRecords"] += 1
+            diag["materialRecords"] += 1
+            if hit.get("mentionedCompanies"):
+                diag["companyMentionRecords"] += 1
+            out.append(dict(hit))
+            continue
+        to_fetch.append((ann_id, tab, listed))
+    diag["detailCandidates"] = len(to_fetch) + diag["detailReused"]
+    if len(to_fetch) > max_details:
+        diag["coverageLimited"] = True
+    diag["detailsSkippedByLimit"] = max(0, len(to_fetch) - max_details)
+    failures_in_row = 0
+    for index, (ann_id, tab, listed) in enumerate(to_fetch[:max_details]):
+        if failures_in_row >= DETAIL_BREAKER:
+            diag["detailCircuitOpen"] = True
+            for later_id, _, _ in to_fetch[index:max_details]:
+                exclude("detail_deferred_after_timeouts", later_id)
+                diag["detailDeferred"] += 1
+            break
         url = IRIS_BASE + "/contents/retrieveBsnsAncmView.do?" + urllib.parse.urlencode({"ancmId": ann_id, "ancmPrg": tab})
+        if diag["detailPagesAttempted"]:
+            time.sleep(DETAIL_GAP_SECONDS)
         diag["detailPagesAttempted"] += 1
         markup = _iris_fetch(url, None, diag, f"detail:{ann_id}")
         if markup is None:
+            failures_in_row += 1
             exclude("detail_fetch_failed", ann_id)
             continue
+        failures_in_row = 0
         diag["detailPagesFetched"] += 1
         fields, body = parse_iris_detail(markup)
         title = fields.get("공고명", "")
@@ -804,7 +877,9 @@ def fetch_direct_iris_announcements(max_items=10, max_pages=2, max_details=30):
         status = "list_fetch_or_parse_failed"
     elif not announcements:
         status = "invalid_detail_ids" if diag["invalidIds"] else "empty_official_list"
-    elif not diag["detailPagesFetched"]:
+    elif not diag["detailCandidates"]:
+        status = "no_recent_publications_in_checked_list"
+    elif not diag["detailPagesFetched"] and not diag["detailReused"]:
         status = "detail_fetch_failed"
     elif not diag["datedRecords"]:
         status = "detail_parse_failed"
@@ -1537,11 +1612,17 @@ def main():
     items.extend(direct_court)
     by_group["법원·분쟁"] = by_group.get("법원·분쟁", 0) + len(direct_court)
 
-    direct_iris = fetch_direct_iris_announcements()
+    try:
+        earlier = json.loads(OUT.read_text(encoding="utf-8"))
+        earlier_items = earlier.get("items", []) if isinstance(earlier, dict) else []
+    except Exception:
+        earlier_items = []
+
+    direct_iris = fetch_direct_iris_announcements(prior_items=earlier_items)
     items.extend(direct_iris)
     by_group["R&D·기술"] = by_group.get("R&D·기술", 0) + len(direct_iris)
 
-    direct_ntis = fetch_direct_ntis_announcements()
+    direct_ntis = fetch_direct_ntis_announcements(prior_items=earlier_items)
     items.extend(direct_ntis)
     by_group["R&D·기술"] = by_group.get("R&D·기술", 0) + len(direct_ntis)
 

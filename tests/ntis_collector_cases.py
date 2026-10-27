@@ -97,6 +97,26 @@ class NtisCollectorTests(unittest.TestCase):
         self.assertEqual(diag["status"], "detail_fetch_failed")
         self.assertEqual(diag["exclusions"]["detail_fetch_failed"], 1)
 
+    def test_earlier_verified_detail_is_reused_not_reread(self):
+        rows, _, _ = self.run_collector()
+        again, diag, requests = self.run_collector(prior_items=rows)
+        self.assertEqual(again, rows)
+        self.assertEqual([u for u, _ in requests if "ThSearch" not in u], [])
+        self.assertEqual(diag["detailReused"], 1)
+
+    def test_consecutive_detail_failures_stop_and_defer(self):
+        ids = tuple(str(1260364 + i) for i in range(6))
+        def response(url):
+            if "ThSearch" in url:
+                return self.listing(ids).encode()
+            raise TimeoutError("detail timeout")
+        with patch.object(scout, "DETAIL_GAP_SECONDS", 0):
+            rows, diag, requests = self.run_collector(response=response)
+        self.assertEqual(rows, [])
+        self.assertEqual(len([u for u, _ in requests if "ThSearch" not in u]), scout.DETAIL_BREAKER * 2)
+        self.assertTrue(diag["detailCircuitOpen"])
+        self.assertEqual(diag["detailDeferred"], 6 - scout.DETAIL_BREAKER)
+
     def test_403_not_retried(self):
         def response(url):
             raise urllib.error.HTTPError(url, 403, "Forbidden", {}, None)
