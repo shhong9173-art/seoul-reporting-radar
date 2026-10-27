@@ -9,6 +9,7 @@ import { checkCandidate } from '../cloudflare/scoring.mjs';
 import { readZip } from '../cloudflare/zip.mjs';
 import { allowedUrl } from '../cloudflare/live_tools.mjs';
 import { handleIngest } from '../cloudflare/screen.mjs';
+import { dueAt, runSchedule } from '../cloudflare/dispatch.mjs';
 
 const ORIGIN = 'https://seoul-reporting-radar.shhong9173.workers.dev';
 const TOKEN = 'test-token-0123456789abcdef';
@@ -668,6 +669,62 @@ test('radar_today merges the private watches, ranks new items and lists failed o
   assert.match(JSON.stringify(pub.body), /Unknown tool/);  // private path only
   const empty = await call('radar_today', {}, PRIVATE());
   assert.match(empty.text, /단독 후보 심사: 결과 없음 — 미확인/);
+});
+
+test('radar_today ranks EDGAR mentions by deal words and hides items the reporter already judged', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const post = async (feed, doc) => assert.equal((await worker.fetch(new Request(ORIGIN + `/ingest/${feed}`, { method: 'POST',
+    headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
+  await post('partner-filings', { schema: 'partner_filings/v1', generatedAt: '2026-10-26T07:00:00+09:00', windowDays: 30, checks: [],
+    items: [{ id: 'edgar:hig', source: 'EDGAR', filer: 'HARTFORD INSURANCE GROUP', beat: ['현대차'], date: '2026-10-25', title: '8-K EX-99.2',
+        snippet: 'Corporate bonds: Hyundai Motor Manufacturing 4.3% 2031 ... fair value', url: 'https://sec/hig' },
+      { id: 'edgar:acme', source: 'EDGAR', filer: 'ACME METALS', beat: ['현대제철'], date: '2026-10-25', title: '8-K',
+        snippet: 'entered into a long-term supply agreement with Hyundai Steel Company', url: 'https://sec/acme' }] });
+  await post('scoop-screen', { schema: 'scoop_screen/v1', generatedAt: '2026-10-26T07:10:00+09:00', counts: {},
+    candidates: [{ id: 'p1', verdict: '미보도 후보', company: '기아', title: '고정자 냉각 장치', kind: '특허' },
+      { id: 'p2', verdict: '미보도 후보', company: '현대제철', title: '판재 냉각 제어', kind: '특허' }] });
+  const r = await call('radar_today', {}, opts);
+  const a = r.text.split('[A · ')[1].split('[B · ')[0];
+  const b = r.text.split('[B · ')[1].split('[C · ')[0];
+  assert.match(a, /ACME METALS: 8-K/);
+  assert.match(b, /HARTFORD INSURANCE GROUP: 8-K EX-99\.2 — 발췌에 계약·공급·합작 낱말 없음/);
+  assert.match(a, /id p1/);
+  const fb = await call('candidate_feedback', { verdict: '봤음', item_ids: ['p1', 'edgar:hig'] }, opts);
+  assert.match(fb.text, /기록: \[봤음\] 2건 — 확인함\(판단 전\)/);
+  await call('candidate_feedback', { item_id: 'p2', verdict: '보류', reason: '새 사실 붙으면' }, opts);
+  const after = await call('radar_today', {}, opts);
+  assert.doesNotMatch(after.text, /고정자 냉각 장치|HARTFORD|판재 냉각 제어/);
+  assert.match(after.text, /판정한 3건 숨김: (봤음 2 · 보류 1|보류 1 · 봤음 2)/);
+  const all = await call('radar_today', { include_judged: true }, opts);
+  assert.match(all.text, /고정자 냉각 장치[\s\S]*id p1 〔판정: 봤음〕/);
+  assert.ok((await call('candidate_feedback', { verdict: '씀' }, opts)).isError);  // ids and reason still required
+});
+
+test('Cloudflare cron asks GitHub to run each watch at its KST weekday slot and logs the result', async () => {
+  assert.deepEqual(dueAt(new Date('2026-10-26T22:40:05Z')), ['trade-remedy.yml']);        // Tue 07:40 KST
+  assert.deepEqual(dueAt(new Date('2026-10-26T22:10:30Z')), ['scoop-screen.yml']);
+  assert.deepEqual(dueAt(new Date('2026-10-27T06:10:00Z')), ['scoop-screen.yml']);        // 15:10 KST
+  assert.deepEqual(dueAt(new Date('2026-10-26T22:20:00Z')), []);                          // no slot
+  assert.deepEqual(dueAt(new Date('2026-10-31T22:40:00Z')), []);                          // Sun 07:40 KST
+  const opts = PRIVATE({ GITHUB_DISPATCH_TOKEN: 'ghp_test' });
+  const seen = [];
+  const fetchMock = async (url, init) => { seen.push({ url, init }); return new Response(null, { status: 204 }); };
+  const res = await runSchedule(opts.env, new Date('2026-10-26T22:40:05Z'), { fetch: fetchMock });
+  assert.deepEqual(res.map((e) => [e.workflow, e.status]), [['trade-remedy.yml', 'ok']]);
+  assert.equal(seen[0].url, 'https://api.github.com/repos/shhong9173-art/seoul-reporting-radar/actions/workflows/trade-remedy.yml/dispatches');
+  assert.equal(seen[0].init.headers.Authorization, 'Bearer ghp_test');
+  assert.deepEqual(JSON.parse(seen[0].init.body), { ref: 'main' });
+  const fail = await runSchedule(opts.env, new Date('2026-10-26T22:50:00Z'), { fetch: async () => new Response('{}', { status: 403 }) });
+  assert.deepEqual(fail.map((e) => e.status), ['HTTP 403']);
+  const none = PRIVATE();
+  // Mon 2026-10-26 07:40 KST — the same KST day as the test clock (09:00 KST)
+  const skipped = await runSchedule(none.env, new Date('2026-10-25T22:40:00Z'), { fetch: async () => { throw new Error('must not call'); } });
+  assert.deepEqual(skipped.map((e) => e.status), ['no-token']);
+  const today = await call('radar_today', {}, none);
+  assert.match(today.text, /예약 요청\(Cloudflare\): 토큰 없음 — GitHub 예약만 사용 중\(지연 가능\)/);
+  const fresh = await call('radar_today', {}, PRIVATE());
+  assert.match(fresh.text, /예약 요청\(Cloudflare\): 기록 없음/);
 });
 
 test('non-MCP paths keep the canonical Pages redirect', async () => {

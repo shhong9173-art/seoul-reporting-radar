@@ -2,7 +2,7 @@
 import { safeEqual, textResult } from './common.mjs';
 import { bigPicture, clues, dandok, earnings, governance, health, stats } from './radar_tools.mjs';
 import { dartFilings, dartFindText, g2bBids, newsCheck, sourceDocument } from './live_tools.mjs';
-import { candidateFeedback, candidateSubmit, packageSave, scoopPackages, weeklyReview, PACKAGE_STATES } from './store.mjs';
+import { candidateFeedback, candidateSubmit, packageSave, scoopPackages, weeklyReview, FEEDBACK_VERDICTS, PACKAGE_STATES } from './store.mjs';
 import { POLICY, checkCandidate, formatCheck } from './scoring.mjs';
 import { scoopScreen } from './screen.mjs';
 import { krOfficial, pageChanges, partnerFilings, tradeRemedies, usComments, usLitigation } from './overseas.mjs';
@@ -104,9 +104,10 @@ export const TOOLS = [
     description: `후보를 재점검해 저장(하루 추천 ${POLICY.dailyLimit}건 한도, 같은 날 중복 제목 제외).`,
     inputSchema: obj({ candidates: { type: 'array', items: CANDIDATE_SCHEMA, maxItems: 10 } }, ['candidates']) },
   { name: 'radar_today', access: 'private', handler: radarToday,
-    description: '오늘의 레이더(하루 시작): 기자 전용 감시 7개(단독 후보 심사, 공장등록·관보, 무역구제, 미국 소송, 해외 파트너 공시, 미 의견서, 해외 페이지)에서 최근 N시간(기본 24, 월요일 72) 새 항목만 모아 A(단독 후보·직접 변화)/B(확인할 공식 변화)/C(참고)로 정렬. 실패·오래된 감시를 맨 위에 표시. 기자가 킬한 항목은 숨김.',
+    description: '오늘의 레이더(하루 시작): 기자 전용 감시 7개(단독 후보 심사, 공장등록·관보, 무역구제, 미국 소송, 해외 파트너 공시, 미 의견서, 해외 페이지)에서 최근 N시간(기본 24, 월요일 72) 새 항목만 모아 A(단독 후보·직접 변화)/B(확인할 공식 변화)/C(참고)로 정렬. 실패·오래된 감시를 맨 위에 표시. 기자가 판정(씀·킬·보류·봤음)한 항목은 숨김, 줄마다 id.',
     inputSchema: obj({ hours: int('최근 N시간(기본 24, 월요일 72)', 1, 336), company: str('기업·낱말로 거르기'),
-      include_minor: bool('C(참고)도 펼쳐 보기'), limit: int('등급별 줄 수(기본 15)', 1, 60) }) },
+      include_minor: bool('C(참고)도 펼쳐 보기'), include_judged: bool('씀·킬·보류·봤음으로 판정한 항목도 보기'),
+      limit: int('등급별 줄 수(기본 15)', 1, 60) }) },
   { name: 'scoop_screen', access: 'private', handler: scoopScreen,
     description: '단독 후보 자동 심사 결과(평일 07:10·15:10). 레이더 단서·사업보고서 수치 변화를 네이버·빙·구글로 기보도 대조해 미보도 후보/관련 보도 있음/같은 수치 선행/미확인으로 나눔. 하루 시작은 여기서. 기자가 킬한 후보는 숨김.',
     inputSchema: obj({ verdict: { type: 'string', enum: ['미보도 후보', '관련 보도 있음', '미확인', '같은 수치 선행'] },
@@ -136,9 +137,10 @@ export const TOOLS = [
     inputSchema: obj({ section: { type: 'string', enum: ['factory', 'gazette'] }, company: str('기업·공장·법령 낱말'),
       days: int('공장 변화 최근 N일(기본 30)', 1, 120), show_all: bool('출입처 공장 전체 목록'), limit: int('구역별 줄 수', 1, 80) }) },
   { name: 'candidate_feedback', access: 'private', handler: candidateFeedback,
-    description: '기자 판정 기록: 씀/킬/보류와 이유.',
-    inputSchema: obj({ item_id: str('후보 번호(#id)·패키지 이름·단서 id'), verdict: { type: 'string', enum: ['씀', '킬', '보류'] },
-      reason: str('이유 한 줄') }, ['item_id', 'verdict', 'reason']) },
+    description: '기자 판정 기록: 씀/킬/보류/봤음과 이유. 판정한 항목은 radar_today에서 숨김(봤음=판단 전이지만 다시 안 보기). item_ids로 여러 건 한 번에.',
+    inputSchema: obj({ item_id: str('후보 번호(#id)·패키지 이름·단서 id(radar_today 줄의 id)'),
+      item_ids: strList('여러 id를 한 번에(최대 60)'), verdict: { type: 'string', enum: FEEDBACK_VERDICTS },
+      reason: str('이유 한 줄(봤음은 생략 가능)') }, ['verdict']) },
   { name: 'candidate_weekly_review', access: 'private', handler: weeklyReview,
     description: '최근 N일 판정 성과(씀·킬·보류, 킬 사유 상위). 가중치는 자동으로 바꾸지 않는다.',
     inputSchema: obj({ days: int('최근 N일(기본 7)', 1, 60) }) },

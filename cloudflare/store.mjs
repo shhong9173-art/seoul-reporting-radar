@@ -5,7 +5,7 @@ import { POLICY, checkCandidate, formatCheck } from './scoring.mjs';
 import { clampInt, kstDate, kstStamp, textResult } from './common.mjs';
 
 export const PACKAGE_STATES = ['미발제·확인 필요', '발제함', '보류', '접음'];
-export const FEEDBACK_VERDICTS = ['씀', '킬', '보류'];
+export const FEEDBACK_VERDICTS = ['씀', '킬', '보류', '봤음'];
 
 const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS packages (name TEXT PRIMARY KEY, title TEXT NOT NULL, state TEXT NOT NULL,
@@ -148,11 +148,13 @@ export async function candidateSubmit(ctx, args) {
 
 export async function candidateFeedback(ctx, args) {
   const verdict = FEEDBACK_VERDICTS.includes(args.verdict) ? args.verdict : null;
-  const item = String(args.item_id ?? '').trim().slice(0, 120);
-  const reason = String(args.reason ?? '').trim().slice(0, 1000);
-  if (!verdict || !item || !reason) return textResult(`item_id·reason과 verdict(${FEEDBACK_VERDICTS.join('/')})가 필요하다.`, true);
-  await call(ctx, 'feedback.add', { item_id: item, verdict, reason });
-  return textResult(`기록: [${verdict}] ${item} — ${reason}`);
+  // one id, or several at once (e.g. marking today's radar_today items as 봤음)
+  const ids = [...new Set([args.item_id, ...(Array.isArray(args.item_ids) ? args.item_ids : [])]
+    .map((x) => String(x ?? '').trim().slice(0, 160)).filter(Boolean))].slice(0, 60);
+  const reason = String(args.reason ?? '').trim().slice(0, 1000) || (verdict === '봤음' ? '확인함(판단 전)' : '');
+  if (!verdict || !ids.length || !reason) return textResult(`item_id(또는 item_ids)·reason과 verdict(${FEEDBACK_VERDICTS.join('/')})가 필요하다. 봤음은 reason 생략 가능.`, true);
+  for (const item of ids) await call(ctx, 'feedback.add', { item_id: item, verdict, reason });
+  return textResult(ids.length === 1 ? `기록: [${verdict}] ${ids[0]} — ${reason}` : `기록: [${verdict}] ${ids.length}건 — ${reason}\n${ids.join('\n')}`);
 }
 
 export async function weeklyReview(ctx, args) {
@@ -161,7 +163,7 @@ export async function weeklyReview(ctx, args) {
   const { rows, candidates } = await call(ctx, 'feedback.since', { since });
   const count = (v) => rows.filter((r) => r.verdict === v).length;
   const out = [`최근 ${days}일 판정 · ${kstStamp(ctx.now)}`,
-    `제출 후보 ${candidates.length}건(추천 ${candidates.filter((c) => c.status === '추천').length}) · 판정 씀 ${count('씀')} / 킬 ${count('킬')} / 보류 ${count('보류')}`];
+    `제출 후보 ${candidates.length}건(추천 ${candidates.filter((c) => c.status === '추천').length}) · 판정 씀 ${count('씀')} / 킬 ${count('킬')} / 보류 ${count('보류')} / 봤음 ${count('봤음')}`];
   const reasons = {};
   for (const r of rows.filter((x) => x.verdict === '킬')) reasons[r.reason] = (reasons[r.reason] ?? 0) + 1;
   const top = Object.entries(reasons).sort((a, b) => b[1] - a[1]).slice(0, 5);
