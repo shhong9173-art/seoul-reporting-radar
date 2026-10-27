@@ -1,0 +1,566 @@
+{
+ "note": "국내 월간 통계 감시 설정. ECOS(한국은행 물가지수, 품목별·지수 기준은 품목마다 다름 — 같은 품목 안에서만 비교), KOSIS(철강협회 생산, 광공업동향 품목), KAIDA(수입 승용차 브랜드별 신규등록). since 이전과는 비교하지 않는다.",
+ "since": "2016-01",
+ "ecos": [
+  {
+   "id": "ppi-hot-rolled",
+   "stat": "404Y016",
+   "item": "30712502AA",
+   "label": "생산자물가 열연강대및강판",
+   "beats": [
+    "포스코",
+    "현대제철"
+   ],
+   "kind": "price",
+   "yoyPct": 10
+  },
+  {
+   "id": "ppi-cold-rolled",
+   "stat": "404Y016",
+   "item": "30713102AA",
+   "label": "생산자물가 냉연강대",
+   "beats": [
+    "포스코",
+    "현대제철"
+   ],
+   "kind": "price",
+   "yoyPct": 10
+  },
+  {
+   "id": "ppi-plate",
+   "stat": "404Y016",
+   "item": "30712401AA",
+   "label": "생산자물가 중후판",
+   "beats": [
+    "포스코",
+    "현대제철",
+    "동국제강"
+   ],
+   "kind": "price",
+   "yoyPct": 10
+  },
+  {
+   "id": "ppi-galvanized",
+   "stat": "404Y016",
+   "item": "30714101AA",
+   "label": "생산자물가 아연도금강판",
+   "beats": [
+    "동국씨엠",
+    "KG스틸",
+    "포스코"
+   ],
+   "kind": "price",
+   "yoyPct": 10
+  },
+  {
+   "id": "ppi-rebar",
+   "stat": "404Y016",
+   "item": "30712101AA",
+   "label": "생산자물가 일반철근",
+   "beats": [
+    "현대제철",
+    "동국제강"
+   ],
+   "kind": "price",
+   "yoyPct": 10
+  },
+  {
+   "id": "ppi-welded-pipe",
+   "stat": "404Y016",
+   "item": "30712702AA",
+   "label": "생산자물가 용접강관",
+   "beats": [
+    "세아제강"
+   ],
+   "kind": "price",
+   "yoyPct": 10
+  },
+  {
+   "id": "ppi-copper-wire",
+   "stat": "404Y016",
+   "item": "30722102AA",
+   "label": "생산자물가 나동선",
+   "beats": [
+    "LS MnM",
+    "LS전선",
+    "대한전선"
+   ],
+   "kind": "price",
+   "yoyPct": 10
+  },
+  {
+   "id": "ppi-zinc",
+   "stat": "404Y016",
+   "item": "30721302AA",
+   "label": "생산자물가 아연1차정련품",
+   "beats": [
+    "고려아연",
+    "영풍"
+   ],
+   "kind": "price",
+   "yoyPct": 10
+  },
+  {
+   "id": "ppi-aluminium",
+   "stat": "404Y016",
+   "item": "30721202AA",
+   "label": "생산자물가 알루미늄1차정련품",
+   "beats": [
+    "현대차",
+    "LS전선"
+   ],
+   "kind": "price",
+   "yoyPct": 10
+  },
+  {
+   "id": "ppi-transformer",
+   "stat": "404Y016",
+   "item": "31012101AA",
+   "label": "생산자물가 송배전변압기",
+   "beats": [
+    "HD현대일렉트릭",
+    "LS일렉트릭",
+    "효성중공업"
+   ],
+   "kind": "price",
+   "yoyPct": 10
+  },
+  {
+   "id": "ppi-switchgear",
+   "stat": "404Y016",
+   "item": "31012303AA",
+   "label": "생산자물가 전기개폐용스위치",
+   "beats": [
+    "LS일렉트릭",
+    "HD현대일렉트릭"
+   ],
+   "kind": "price",
+   "yoyPct": 10
+  },
+  {
+   "id": "ppi-car-tire",
+   "stat": "404Y016",
+   "item": "30581101AA",
+   "label": "생산자물가 승용차타이어",
+   "beats": [
+    "한국타이어",
+    "넥센타이어",
+    "금호타이어"
+   ],
+   "kind": "price",
+   "yoyPct": 10
+  },
+  {
+   "id": "xp-hot-rolled",
+   "stat": "402Y016",
+   "item": "30712502AA",
+   "variant": "W",
+   "label": "수출물가(원화) 열연강대및강판",
+   "beats": [
+    "포스코",
+    "현대제철"
+   ],
+   "kind": "price",
+   "yoyPct": 10
+  },
+  {
+   "id": "xp-zinc",
+   "stat": "402Y016",
+   "item": "30721302AA",
+   "variant": "W",
+   "label": "수출물가(원화) 아연정련품",
+   "beats": [
+    "고려아연",
+    "영풍"
+   ],
+   "kind": "price",
+   "yoyPct": 10
+  },
+  {
+   "id": "xp-copper-wire",
+   "stat": "402Y016",
+   "item": "30722102AA",
+   "variant": "W",
+   "label": "수출물가(원화) 나동선",
+   "beats": [
+    "LS MnM"
+   ],
+   "kind": "price",
+   "yoyPct": 10
+  },
+  {
+   "id": "xp-transformer",
+   "stat": "402Y016",
+   "item": "31012101AA",
+   "variant": "W",
+   "label": "수출물가(원화) 송배전변압기",
+   "beats": [
+    "HD현대일렉트릭",
+    "LS일렉트릭",
+    "효성중공업"
+   ],
+   "kind": "price",
+   "yoyPct": 10
+  },
+  {
+   "id": "xp-insulated-wire",
+   "stat": "402Y016",
+   "item": "31014101AA",
+   "variant": "W",
+   "label": "수출물가(원화) 절연전선",
+   "beats": [
+    "LS전선",
+    "대한전선"
+   ],
+   "kind": "price",
+   "yoyPct": 10
+  },
+  {
+   "id": "xp-mid-car",
+   "stat": "402Y016",
+   "item": "31211103AA",
+   "variant": "W",
+   "label": "수출물가(원화) 중형승용차",
+   "beats": [
+    "현대차",
+    "기아"
+   ],
+   "kind": "price",
+   "yoyPct": 10
+  },
+  {
+   "id": "xp-large-car",
+   "stat": "402Y016",
+   "item": "31211104AA",
+   "variant": "W",
+   "label": "수출물가(원화) 대형승용차",
+   "beats": [
+    "현대차",
+    "기아"
+   ],
+   "kind": "price",
+   "yoyPct": 10
+  },
+  {
+   "id": "xp-ev",
+   "stat": "402Y016",
+   "item": "31211107AA",
+   "variant": "W",
+   "label": "수출물가(원화) 전기승용차",
+   "beats": [
+    "현대차",
+    "기아"
+   ],
+   "kind": "price",
+   "yoyPct": 10
+  },
+  {
+   "id": "xp-car-tire",
+   "stat": "402Y016",
+   "item": "30581101AA",
+   "variant": "W",
+   "label": "수출물가(원화) 승용차타이어",
+   "beats": [
+    "한국타이어",
+    "넥센타이어",
+    "금호타이어"
+   ],
+   "kind": "price",
+   "yoyPct": 10
+  },
+  {
+   "id": "mp-hot-rolled",
+   "stat": "401Y017",
+   "item": "30712502AA",
+   "variant": "W",
+   "label": "수입물가(원화) 열연강대및강판",
+   "beats": [
+    "포스코",
+    "현대제철"
+   ],
+   "kind": "price",
+   "yoyPct": 10
+  },
+  {
+   "id": "mp-zinc-ore",
+   "stat": "401Y017",
+   "item": "20121203AA",
+   "variant": "W",
+   "label": "수입물가(원화) 아연광석",
+   "beats": [
+    "고려아연",
+    "영풍"
+   ],
+   "kind": "price",
+   "yoyPct": 10
+  }
+ ],
+ "kosis": [
+  {
+   "id": "steel-15363aa1aa",
+   "org": "363",
+   "tbl": "TX_36301_A000",
+   "obj": "15363AA1AA",
+   "itm": "16363AAA0",
+   "label": "철강 생산 조강(철강협회)",
+   "beats": [
+    "포스코",
+    "현대제철"
+   ],
+   "kind": "volume",
+   "yoyPct": 15
+  },
+  {
+   "id": "steel-15363aa1ac",
+   "org": "363",
+   "tbl": "TX_36301_A000",
+   "obj": "15363AA1AC",
+   "itm": "16363AAA0",
+   "label": "철강 생산 전기로강(철강협회)",
+   "beats": [
+    "현대제철",
+    "동국제강"
+   ],
+   "kind": "volume",
+   "yoyPct": 15
+  },
+  {
+   "id": "steel-50",
+   "org": "363",
+   "tbl": "TX_36301_A000",
+   "obj": "50",
+   "itm": "16363AAA0",
+   "label": "철강 생산 열연강판(철강협회)",
+   "beats": [
+    "포스코",
+    "현대제철"
+   ],
+   "kind": "volume",
+   "yoyPct": 15
+  },
+  {
+   "id": "steel-60",
+   "org": "363",
+   "tbl": "TX_36301_A000",
+   "obj": "60",
+   "itm": "16363AAA0",
+   "label": "철강 생산 냉연강판(철강협회)",
+   "beats": [
+    "포스코",
+    "현대제철"
+   ],
+   "kind": "volume",
+   "yoyPct": 15
+  },
+  {
+   "id": "steel-40",
+   "org": "363",
+   "tbl": "TX_36301_A000",
+   "obj": "40",
+   "itm": "16363AAA0",
+   "label": "철강 생산 중후판(철강협회)",
+   "beats": [
+    "포스코",
+    "현대제철",
+    "동국제강"
+   ],
+   "kind": "volume",
+   "yoyPct": 15
+  },
+  {
+   "id": "steel-30",
+   "org": "363",
+   "tbl": "TX_36301_A000",
+   "obj": "30",
+   "itm": "16363AAA0",
+   "label": "철강 생산 철근(철강협회)",
+   "beats": [
+    "현대제철",
+    "동국제강"
+   ],
+   "kind": "volume",
+   "yoyPct": 15
+  },
+  {
+   "id": "steel-70",
+   "org": "363",
+   "tbl": "TX_36301_A000",
+   "obj": "70",
+   "itm": "16363AAA0",
+   "label": "철강 생산 강관(철강협회)",
+   "beats": [
+    "세아제강"
+   ],
+   "kind": "volume",
+   "yoyPct": 15
+  },
+  {
+   "id": "steel-a0",
+   "org": "363",
+   "tbl": "TX_36301_A000",
+   "obj": "A0",
+   "itm": "16363AAA0",
+   "label": "철강 생산 컬러강판(철강협회)",
+   "beats": [
+    "동국씨엠",
+    "KG스틸"
+   ],
+   "kind": "volume",
+   "yoyPct": 15
+  },
+  {
+   "id": "steel-80",
+   "org": "363",
+   "tbl": "TX_36301_A000",
+   "obj": "80",
+   "itm": "16363AAA0",
+   "label": "철강 생산 용융아연도강판(철강협회)",
+   "beats": [
+    "동국씨엠",
+    "KG스틸",
+    "포스코"
+   ],
+   "kind": "volume",
+   "yoyPct": 15
+  },
+  {
+   "id": "mm-24224208-prod",
+   "org": "101",
+   "tbl": "DT_1F02012",
+   "obj": "24224208",
+   "itm": "T40",
+   "label": "나동선 생산량(광공업동향)",
+   "beats": [
+    "LS MnM",
+    "LS전선",
+    "대한전선"
+   ],
+   "kind": "volume",
+   "yoyPct": 15
+  },
+  {
+   "id": "mm-24224208-stock",
+   "org": "101",
+   "tbl": "DT_1F02012",
+   "obj": "24224208",
+   "itm": "T42",
+   "label": "나동선 재고량(광공업동향)",
+   "beats": [
+    "LS MnM",
+    "LS전선",
+    "대한전선"
+   ],
+   "kind": "volume",
+   "yoyPct": 25
+  },
+  {
+   "id": "mm-24124126-prod",
+   "org": "101",
+   "tbl": "DT_1F02012",
+   "obj": "24124126",
+   "itm": "T40",
+   "label": "칼라강판 생산량(광공업동향)",
+   "beats": [
+    "동국씨엠",
+    "KG스틸"
+   ],
+   "kind": "volume",
+   "yoyPct": 15
+  },
+  {
+   "id": "mm-24124126-stock",
+   "org": "101",
+   "tbl": "DT_1F02012",
+   "obj": "24124126",
+   "itm": "T42",
+   "label": "칼라강판 재고량(광공업동향)",
+   "beats": [
+    "동국씨엠",
+    "KG스틸"
+   ],
+   "kind": "volume",
+   "yoyPct": 25
+  },
+  {
+   "id": "mm-20120102-prod",
+   "org": "101",
+   "tbl": "DT_1F02012",
+   "obj": "20120102",
+   "itm": "T40",
+   "label": "에틸렌 생산량(광공업동향)",
+   "beats": [
+    "한화솔루션",
+    "GS칼텍스",
+    "DL케미칼"
+   ],
+   "kind": "volume",
+   "yoyPct": 15
+  },
+  {
+   "id": "mm-20120102-stock",
+   "org": "101",
+   "tbl": "DT_1F02012",
+   "obj": "20120102",
+   "itm": "T42",
+   "label": "에틸렌 재고량(광공업동향)",
+   "beats": [
+    "한화솔루션",
+    "GS칼텍스",
+    "DL케미칼"
+   ],
+   "kind": "volume",
+   "yoyPct": 25
+  },
+  {
+   "id": "mm-20220202-prod",
+   "org": "101",
+   "tbl": "DT_1F02012",
+   "obj": "20220202",
+   "itm": "T40",
+   "label": "폴리에틸렌 생산량(광공업동향)",
+   "beats": [
+    "한화솔루션",
+    "DL케미칼"
+   ],
+   "kind": "volume",
+   "yoyPct": 15
+  },
+  {
+   "id": "mm-20220202-stock",
+   "org": "101",
+   "tbl": "DT_1F02012",
+   "obj": "20220202",
+   "itm": "T42",
+   "label": "폴리에틸렌 재고량(광공업동향)",
+   "beats": [
+    "한화솔루션",
+    "DL케미칼"
+   ],
+   "kind": "volume",
+   "yoyPct": 25
+  }
+ ],
+ "kaida": {
+  "months": 49,
+  "beats": {
+   "Mercedes-Benz": "메르세데스-벤츠 코리아",
+   "BMW": "BMW코리아",
+   "Volkswagen": "폭스바겐코리아",
+   "Audi": "아우디코리아",
+   "Honda": "혼다코리아"
+  },
+  "watch": [
+   "BYD",
+   "Tesla",
+   "Volvo",
+   "Lexus",
+   "Toyota",
+   "Porsche",
+   "MINI"
+  ]
+ },
+ "signals": {
+  "recordGapMonths": 12,
+  "streakMonths": 6
+ }
+}
