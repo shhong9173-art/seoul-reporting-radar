@@ -464,24 +464,24 @@ TRADE_TITLE = re.compile(r"^(\d{4})년\s*(\d{1,2})월\s*수출입\s*동향$")
 TRADE_ITEMS = ("자동차", "자동차부품", "철강", "비철금속", "석유화학", "석유제품", "이차전지", "전기기기", "일반기계", "선박")
 
 
-def _cells(row, header):
-    m = re.search(rf'data-cell-header="{header}"[^>]*>(.*?)</td>', row, re.S)
-    return _norm(re.sub(r"(?s)<[^>]+>", " ", m.group(1))) if m else ""
-
-
 def parse_motir_list(text):
+    """Server HTML of the board (the data-cell-header labels are added later by the page script, so cells are read by position:
+    번호, 분류, 제목, 담당부서, 등록일, 조회수, 첨부파일)."""
     body = text.split("<tbody", 1)[-1].split("</tbody>", 1)[0]
     rows = []
     for row in re.split(r"<tr[\s>]", body)[1:]:
-        link = re.search(r'href="(/kor/article/ATCL3f49a5a8c/(\d+)/view)[^"]*"', row)
+        link = re.search(r'<a href="(/kor/article/ATCL3f49a5a8c/(\d+)/view)[^"]*"[^>]*>(.*?)</a>', row, re.S)
         if not link:
             continue
-        title = _cells(row, "제목")
+        cells = [_norm(re.sub(r"(?s)<[^>]+>", " ", c)) for c in re.findall(r"<td[^>]*>(.*?)</td>", row, re.S)]
+        di = next((i for i, c in enumerate(cells) if re.fullmatch(r"\d{4}-\d{2}-\d{2}", c)), None)
+        kind = re.search(r'class="badge-category"[^>]*>\s*<i>([^<]+)</i>', row)
         attach = re.search(r'<a href="/attach/down/[^"]+" title="([^"]+)"', row)
         att = htmllib.unescape(attach.group(1)) if attach else ""
         embargo = re.search(r"\(([^()]{0,60}(?:조간|석간|엠바고)[^()]{0,60}(?:\([^()]*\)[^()]{0,40})*)\)", att)
-        rows.append({"id": f"motir:{link.group(2)}", "title": title, "kind": _cells(row, "분류"), "dept": _cells(row, "담당부서"),
-                     "date": _cells(row, "등록일"), "url": MOTIR + link.group(1), "embargo": embargo.group(1)[:120] if embargo else None})
+        rows.append({"id": f"motir:{link.group(2)}", "title": _norm(re.sub(r"(?s)<[^>]+>", " ", link.group(3))),
+                     "kind": kind.group(1).strip() if kind else "", "dept": cells[di - 1] if di else "", "date": cells[di] if di is not None else "",
+                     "url": MOTIR + link.group(1), "embargo": embargo.group(1)[:120] if embargo else None})
     return rows
 
 
