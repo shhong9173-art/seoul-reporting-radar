@@ -106,6 +106,14 @@ function collect(docs, cut, cutDay, { all = false } = {}) {
     push(x.big ? 'B' : 'C', W['kr-signals'], { kind: '한전 입찰', id: x.id, date: nd, company: x.company,
       fact: `한전 전자입찰 ${x.company} 「${x.name}」 · 추정가격 ${x.price ? `약 ${Math.round(x.price / 1e8).toLocaleString('en-US')}억원` : '미기재'} · ${x.state}` });
   }
+  for (const x of ks?.motir ?? []) {
+    if (!(all || String(x.date ?? '') >= cutDay)) continue;
+    const t = x.trade;
+    const strong = (x.companies ?? []).length || /무역위|덤핑|상계|세이프가드/.test(x.title ?? '') || t;
+    const tradeLine = t?.items ? ` — ${t.period} 수출${t.exports ? ` ${t.exports.value}억달러(${t.exports.yoy}%)` : ''} · ${Object.entries(t.items).slice(0, 6).map(([k, v]) => `${k} ${v.value}억달러(${v.yoy}%)`).join(' · ')}` : '';
+    push(strong ? 'B' : 'C', W['kr-signals'], { kind: '산업부 발표', id: x.id, date: x.date, company: (x.companies ?? []).join('·') || x.dept,
+      fact: `산업통상부 ${x.kind}: ${x.title}${x.embargo ? ` (엠바고: ${x.embargo})` : ''}${tradeLine}`, url: x.url });
+  }
   for (const e of ks?.events ?? []) {
     if (!recent(e.detectedAt)) continue;
     const tier = e.kind === '원자재 가격' ? (/최고|최저/.test(e.signal ?? '') ? 'B' : 'C') : 'B';
