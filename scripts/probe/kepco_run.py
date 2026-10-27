@@ -33,7 +33,9 @@ if key:
                 OUT.append("sample " + json.dumps({x: str(data[0].get(x))[:50] for x in ("companyId", "no", "name", "presumedPrice", "presumedAmount", "noticeDate", "progressState", "purchaseType", "competitionType", "bidType", "placeName")}, ensure_ascii=False))
     rows, events, check = k.kepco(json.loads(k.CONFIG.read_text(encoding="utf-8")), key, now, None, h)
     OUT.append(json.dumps(check, ensure_ascii=False))
-    for x in rows[:12]:
+    rows = sorted(rows, key=lambda x: -(x["price"] or 0))
+    OUT.append(f"big {sum(1 for x in rows if x['big'])} product {sum(1 for x in rows if x.get('purchaseType') == 'Product')}")
+    for x in rows[:14]:
         OUT.append(f"{x['noticeDate']} {x['company']} {x['state']} {x['price']} big={x['big']} | {x['name'][:70]}")
 clean = [o.replace("\r", " ").replace("\n", " ").replace("%", "pct").replace("::", ": :") for o in OUT]
 for i in range(0, len(clean), 4):
