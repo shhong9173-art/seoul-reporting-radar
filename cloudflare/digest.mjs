@@ -3,11 +3,14 @@
 // their silence is "미확인", not "nothing new".
 import { readFeed } from './screen.mjs';
 import { storeOp } from './store.mjs';
+import { dispatchHealth } from './dispatch.mjs';
 import { clampInt, textResult } from './common.mjs';
 
 const KST_MS = 9 * 3600000;
 const kstDate = (ms) => new Date(ms + KST_MS).toISOString().slice(0, 10);
 const kstStamp = (v) => { const t = Date.parse(v); return Number.isFinite(t) ? new Date(t + KST_MS).toISOString().slice(5, 16).replace('T', ' ') : String(v ?? '').slice(0, 16); };
+// EDGAR hits count as direct changes only when the excerpt reads like a deal with the beat company.
+const DEAL_WORDS = /\b(agreement|supply|offtake|off-take|joint venture|\bJV\b|memorandum|MOU|partnership|collaborat\w*|acquisition|acquire[sd]?|merger|purchase order|contract\w*|guarantee\w*|licen[cs]e|investment in|strategic|customer|order[s]? from)\b/i;
 const has = (q, ...fields) => !q || fields.some((f) => String(f ?? '').toLowerCase().includes(q.toLowerCase()));
 
 const WATCHES = [
@@ -87,8 +90,11 @@ function collect(docs, cut, cutDay) {
   const pfBase = baselineOf(pf?.items ?? []);
   for (const x of pf?.items ?? []) {
     if (!isFresh(x, cut, cutDay, pfBase, 'date')) continue;
-    const routine = x.source === 'ASX' && !(x.flags ?? []).length;
-    push(routine ? 'C' : 'A', W['partner-filings'], { id: x.id, date: x.date, company: (x.beat ?? []).join('·'), fact: `${x.source} ${x.filer}: ${x.title}${(x.flags ?? []).length ? ` (낱말 ${x.flags.join(',')})` : ''}`, url: x.url });
+    let tier;
+    if (x.source === 'ASX') tier = (x.flags ?? []).length ? 'A' : 'C';
+    else tier = DEAL_WORDS.test(String(x.snippet ?? '')) ? 'A' : 'B';
+    const deal = x.source !== 'ASX' && tier === 'B' ? ' — 발췌에 계약·공급·합작 낱말 없음(이름만 언급일 수 있음)' : '';
+    push(tier, W['partner-filings'], { id: x.id, date: x.date, company: (x.beat ?? []).join('·'), fact: `${x.source} ${x.filer}: ${x.title}${(x.flags ?? []).length ? ` (낱말 ${x.flags.join(',')})` : ''}${deal}`, url: x.url });
   }
 
   const uc = docs['us-comments'];
@@ -133,12 +139,22 @@ export async function radarToday(ctx, args) {
   const showC = args.include_minor === true || args.include_minor === 'true';
   const docs = Object.fromEntries(await Promise.all(WATCHES.map(async (w) => [w.feed, await readFeed(ctx, w.feed)])));
   const { rows: fb } = await storeOp(ctx, 'feedback.latest', {});
-  const killed = new Set(fb.filter((r) => r.verdict === '킬').map((r) => r.item_id));
-  const all = collect(docs, cut, cutDay).filter((x) => !killed.has(x.id) && has(q, x.company, x.fact, x.watch));
+  const judged = new Map(fb.map((r) => [r.item_id, r.verdict]));
+  const showJudged = args.include_judged === true || args.include_judged === 'true';
+  const found = collect(docs, cut, cutDay).filter((x) => has(q, x.company, x.fact, x.watch));
+  const hiddenBy = {};
+  const all = found.filter((x) => {
+    const v = judged.get(x.id);
+    if (!v || showJudged) return true;
+    hiddenBy[v] = (hiddenBy[v] ?? 0) + 1;
+    return false;
+  });
   const byTier = (t) => all.filter((x) => x.tier === t).sort((a, b) => String(b.date ?? '').localeCompare(String(a.date ?? '')));
 
   const out = [`오늘의 레이더 · ${kstStamp(ctx.now.toISOString())} KST 기준 최근 ${hours}시간${monday && !args.hours ? '(월요일: 주말 포함)' : ''} · 기자 전용 감시 ${WATCHES.length}개`];
   const h = health(ctx, docs);
+  const dh = await dispatchHealth(ctx);
+  if (dh) h.unshift(`- ${dh}`);
   out.push(h.length ? `\n[먼저 볼 것: 수집 상태]\n${h.join('\n')}` : '\n[수집 상태] 7개 감시 모두 최근 정상');
   const tiers = [['A', '단독 후보·직접 변화 — 원문·보도 대조부터'], ['B', '확인할 공식 변화'], ['C', '참고(접힘)']];
   for (const [t, title] of tiers) {
@@ -151,12 +167,14 @@ export async function radarToday(ctx, args) {
     for (const x of rows.slice(0, limit)) {
       out.push(`- ${x.date ? `${String(x.date).length > 10 ? kstStamp(x.date) : x.date} · ` : ''}${x.watch}${x.company ? ` · ${x.company}` : ''}`);
       out.push(`   ${x.fact}`);
-      out.push(`   ${x.url ? `원문: ${x.url} · ` : ''}자세히: ${x.tool}`);
+      out.push(`   ${x.url ? `원문: ${x.url} · ` : ''}자세히: ${x.tool} · id ${x.id}${judged.get(x.id) ? ` 〔판정: ${judged.get(x.id)}〕` : ''}`);
     }
     if (rows.length > limit) out.push(`… 남은 ${rows.length - limit}건(limit 또는 company로 좁히기)`);
     if (!rows.length) out.push('없음');
   }
-  if (killed.size) out.push(`\n(기자가 '킬'로 판정한 항목은 숨김)`);
+  const hiddenN = Object.values(hiddenBy).reduce((a, b) => a + b, 0);
+  if (hiddenN) out.push(`\n(판정한 ${hiddenN}건 숨김: ${Object.entries(hiddenBy).map(([v, n]) => `${v} ${n}`).join(' · ')} — include_judged=true로 보기)`);
+  out.push('정리: 다 본 항목은 candidate_feedback(verdict=봤음, item_ids=[…])로 표시하면 다음부터 안 뜬다.');
   out.push('\n규칙: 모두 자동 수집 단계다. A도 단독 확정이 아니다 — 원문 확인 → news_check(낱말 바꿔 2~3번) → 회사 확인 → candidate_check. 첫 실행에 잡힌 기존 항목은 자기 날짜가 최근일 때만 새 항목으로 센다.');
   return textResult(out.join('\n'));
 }

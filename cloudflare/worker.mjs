@@ -2,6 +2,7 @@
 import redirect from './redirect.mjs';
 import { handleMcp } from './mcp.mjs';
 import { handleIngest } from './screen.mjs';
+import { runSchedule } from './dispatch.mjs';
 export { RadarStore } from './store.mjs';
 
 export default {
@@ -10,5 +11,9 @@ export default {
     if (pathname === '/mcp' || pathname.startsWith('/mcp/')) return handleMcp(request, env);
     if (pathname.startsWith('/ingest/')) return handleIngest(request, env);
     return redirect.fetch(request, env, ctx);
+  },
+  // Cloudflare cron (wrangler.json triggers): ask GitHub to run the morning watches on time.
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(runSchedule(env, new Date(event.scheduledTime)));
   },
 };
