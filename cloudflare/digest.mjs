@@ -100,12 +100,20 @@ function collect(docs, cut, cutDay, { all = false } = {}) {
     push(tier, W['kr-signals'], { kind: `공정위 ${lead?.role ?? '언급'}`, id: d.id, date: fd || d.decidedOn, company: [...new Set(ms.map((m) => m.company))].join('·'),
       fact: `공정위 의결서(${d.action}${(d.flags ?? []).length ? ` · ${d.flags.join('·')}` : ''}, 의결 ${d.decidedOn}): ${d.name} — ${ms.map((m) => `${m.company} ${m.role}`).join(', ')}`, url: d.url });
   }
+  // one line per tender: lots of the same notice ('…-01(일반)', '…-02(일반)') are grouped
+  const lots = new Map();
   for (const x of ks?.kepco ?? []) {
     const nd = ymd8(x.noticeDate);
     if (!(all || nd >= cutDay)) continue;
     if (!all && !x.big && !((x.price ?? 0) >= 1e9)) continue;  // small lots stay in kr_signals only
-    push(x.big ? 'B' : 'C', W['kr-signals'], { kind: '한전 입찰', id: x.id, date: nd, company: x.company,
-      fact: `한전 전자입찰 ${x.company} 「${x.name}」 · 추정가격 ${x.price ? `약 ${Math.round(x.price / 1e8).toLocaleString('en-US')}억원` : '미기재'} · ${x.state}` });
+    const key = `${x.company}|${nd}|${String(x.name).replace(/-\d{1,2}(\([^)]*\))?\s*$/, '')}`;
+    const g = lots.get(key);
+    if (g) { g.n += 1; g.sum += x.price ?? 0; g.big = g.big || x.big; } else lots.set(key, { x, nd, n: 1, sum: x.price ?? 0, big: x.big });
+  }
+  for (const { x, nd, n, sum, big } of lots.values()) {
+    const won = (v) => `약 ${Math.round(v / 1e8).toLocaleString('en-US')}억원`;
+    push(big ? 'B' : 'C', W['kr-signals'], { kind: '한전 입찰', id: x.id, date: nd, company: x.company,
+      fact: `한전 전자입찰 ${x.company} 「${x.name}」${n > 1 ? ` 외 같은 공고 ${n - 1}건(합계 ${won(sum)})` : ''} · 추정가격 ${x.price ? won(x.price) : '미기재'} · ${x.state}` });
   }
   for (const x of ks?.motir ?? []) {
     if (!(all || String(x.date ?? '') >= cutDay)) continue;

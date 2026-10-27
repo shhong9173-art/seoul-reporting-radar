@@ -825,7 +825,9 @@ test('kr_signals shows FTC decisions by role, KEPCO bids and commodity prices, a
         action: '인용', decidedOn: '2026-10-10', fileDate: '2026-10-23 09:00', flags: ['과징금 납부기한 연장·분할납부', '이의신청 재결'], note: '개방문서 없음(PDF만) — 사건명만 대조',
         url: 'https://case.ftc.go.kr/ocp/co/ltfr.do?caseNo=2026기결0100', mentions: [{ company: '현대제철', role: '사건명 언급', related: false }] }],
     kepco: [{ id: 'kepco:COM01:R26-1', no: 'R26-1', company: '한국전력공사', name: '154kV 지중 전력케이블 구매', price: 12300000000, big: true, noticeDate: '20261024', state: '공고진행' },
-      { id: 'kepco:COM05:R26-3', no: 'R26-3', company: '한국중부발전', name: '배전용 변압기 단가계약', price: 900000000, big: false, noticeDate: '20261023', state: '마감' }],
+      { id: 'kepco:COM05:R26-3', no: 'R26-3', company: '한국중부발전', name: '배전용 변압기 단가계약', price: 900000000, big: false, noticeDate: '20261023', state: '마감' },
+      ...[1, 2, 3].map((i) => ({ id: `kepco:COM01:L${i}`, no: `L${i}`, company: '한국전력공사', name: `(연간단가)고효율주상변압기,50KVA(광유)-2,338대-0${i}(일반)`,
+        price: 4967081000, big: false, noticeDate: '20261024', state: '공고진행' }))],
     motir: [{ id: 'motir:172155', title: '무역위, 중국산 아연도금냉연, 옵셋인쇄판 덤핑조사 최종판정', kind: '보도자료', dept: '무역구제정책과', date: '2026-10-23',
         url: 'https://www.motir.go.kr/kor/article/ATCL3f49a5a8c/172155/view', embargo: null, companies: [] },
       { id: 'motir:172254', title: '2026년 9월 수출입 동향', kind: '보도자료', dept: '수출입과', date: '2026-10-24', url: 'https://www.motir.go.kr/x', companies: [],
@@ -869,6 +871,9 @@ test('kr_signals shows FTC decisions by role, KEPCO bids and commodity prices, a
   assert.match(b, /산업통상부 보도자료: 2026년 9월 수출입 동향 — 2026-09 수출 1,209\.4억달러\(\+83\.5%\) · 자동차 61억달러\(-5%\) · 철강 22억달러\(\+3%\)/);
   assert.doesNotMatch(b, /한우·수산물/);  // topic word only (자동차 in a sale campaign) → C
   assert.doesNotMatch(a + b, /롯데케미칼|배전용 변압기|재고 \+37\.3%/);  // body mention, small bid, stock move → C
+  const minor = await call('radar_today', { include_minor: true }, opts);
+  assert.match(minor.text, /「\(연간단가\)고효율주상변압기,50KVA\(광유\)-2,338대-0\d\(일반\)」 외 같은 공고 2건\(합계 약 149억원\) · 추정가격 약 50억원/);
+  assert.equal((minor.text.match(/고효율주상변압기/g) ?? []).length, 1);  // three lots, one line
   assert.match(r.text, /기자 전용 감시 9개/);
   assert.deepEqual(dueAt(new Date('2026-10-26T23:30:00Z')), ['kr-signals.yml']);  // Tue 08:30 KST
   assert.deepEqual(dueAt(new Date('2026-10-27T06:20:00Z')), ['kr-signals.yml']);  // Tue 15:20 KST
