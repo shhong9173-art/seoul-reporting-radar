@@ -135,7 +135,7 @@
     b.type = 'button';
     b.innerHTML = `부장 대응·팔로업 <span id="countBossFollowup">0</span>`;
     b.onclick = () => { view='bossFollowup'; cat=''; company=''; query=''; syncNav(); renderBoss(); };
-    const anchor = nav.querySelector('.cross-media-gap-nav') || nav.querySelector('.nav-slot-daily-end');
+    const anchor = nav.querySelector('.nav-slot-daily-end') || nav.querySelector('.cross-media-gap-nav');
     if (anchor) anchor.insertAdjacentElement('beforebegin', b); else nav.appendChild(b);
   }
 
