@@ -1,0 +1,20 @@
+name: KR Signals Probe (isolated, branch only)
+# 격리 탐색: KOMIS 광물가격·공정위 의결서·한전 전자입찰 응답 형식, 국내 통계 사이트 접속 가능 여부. 저장소·기자 전용 저장소에 쓰지 않음. probe/ 브랜치 push에서만.
+on:
+  push:
+    branches: ['probe/**']
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install "requests>=2.31,<3"
+      - run: python scripts/probe/kr_signals_probe.py
