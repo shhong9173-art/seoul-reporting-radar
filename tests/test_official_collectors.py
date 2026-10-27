@@ -202,10 +202,46 @@ class IrisRegressionTests(unittest.TestCase):
     def test_old_announcement_not_refreshed_by_deadline(self):
         old = (IRIS_FIXTURES / "old-detail.html").read_text(encoding="utf-8")
         record = next(r for r in self.listing["listBsnsAncmBtinSitu"] if r["ancmId"] == "024199")
-        rows, diag, _ = self.run_collector(detail=old, records=[record])
+        rows, diag, requests = self.run_collector(detail=old, records=[record])
         self.assertEqual(rows, [])
         self.assertEqual(diag["exclusions"]["outside_lookback"], 1)
-        self.assertEqual(diag["status"], "no_recent_publications_in_checked_details")
+        # The old list date only decides not to open the page; nothing is published from the list.
+        self.assertEqual(sum(data is None for _, data in requests), 0)
+        self.assertEqual(diag["listPrefiltered"], 1)
+        self.assertEqual(diag["status"], "no_recent_publications_in_checked_list")
+
+    def test_earlier_verified_detail_is_reused_not_reread(self):
+        rows, _, _ = self.run_collector()
+        again, diag, requests = self.run_collector(prior_items=rows)
+        self.assertEqual(again, rows)
+        self.assertEqual(sum(data is None for _, data in requests), 0)
+        self.assertEqual(diag["detailReused"], 1)
+        self.assertEqual(diag["status"], "recent_announcements_checked")
+        # A changed listed title is a different document: read again.
+        changed = [{**rows[0], "title": "다른 제목"}]
+        _, diag, requests = self.run_collector(prior_items=changed)
+        self.assertEqual((diag["detailReused"], sum(data is None for _, data in requests)), (0, 1))
+
+    def test_unrelated_listed_title_is_not_opened(self):
+        rows, diag, requests = self.run_collector(records=[{**self.record, "ancmTl": "2026년 보건의료 인력양성 사업 공고"}])
+        self.assertEqual(rows, [])
+        self.assertEqual(sum(data is None for _, data in requests), 0)
+        self.assertEqual(diag["exclusions"]["no_company_or_industry_in_title"], 1)
+
+    def test_consecutive_timeouts_stop_and_defer_the_rest(self):
+        records = [{**self.record, "ancmId": f"0242{i:02d}"} for i in range(6)]
+        def response(url, data):
+            if data is not None:
+                return self.page(records)
+            raise TimeoutError("test detail timeout")
+        with patch.object(scout, "DETAIL_GAP_SECONDS", 0):
+            rows, diag, requests = self.run_collector(responder=response)
+        self.assertEqual(rows, [])
+        self.assertEqual(sum(data is None for _, data in requests), scout.DETAIL_BREAKER * 2)
+        self.assertTrue(diag["detailCircuitOpen"])
+        self.assertEqual(diag["detailDeferred"], 6 - scout.DETAIL_BREAKER)
+        self.assertEqual(diag["status"], "detail_fetch_failed")
+        self.assertFalse(diag["collectionComplete"])
 
     def test_missing_invalid_future_dates_not_today(self):
         for date in ("", "2026-02-30", "2026-12-01"):

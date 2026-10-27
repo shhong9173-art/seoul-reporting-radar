@@ -66,7 +66,8 @@ class OriginObservationTest(unittest.TestCase):
         d={"iris-rnd-announcements":{"listPagesAttempted":4,"listPagesFetched":3,
                                      "collectionComplete":False,"errors":["retry"]},
            "ntis-announcements":{"queriesAttempted":2,"searchPagesFetched":2,
-                                 "coverageLimited":True,"errors":[]},
+                                 "coverageLimited":True,"errors":[],
+                                 "exclusions":{"detail_fetch_failed":2}},
            "kepco-enc":{"listFetched":True,"errors":[]}}
         out=update_source_states(None,{},d,[],now=NOW)
         self.assertEqual(out["sources"]["direct:iris-rnd-announcements"]["status"],"partial")
@@ -74,6 +75,21 @@ class OriginObservationTest(unittest.TestCase):
         self.assertEqual(out["sources"]["direct:kepco-enc"]["status"],
                          "checked_list_not_exhaustive")
         self.assertIn("direct:iris-rnd-announcements",out["partiallyCollectedSources"])
+
+    def test_design_coverage_limit_is_not_a_repeating_failure(self):
+        # First search page only / detail cap, every page that was opened was read: not exhaustive, not failed.
+        limited={"queriesAttempted":3,"searchPagesFetched":3,"coverageLimited":True,"collectionComplete":False,
+                 "errors":[{"stage":"detail","attempt":1,"error":"timed out","retry":True}],
+                 "exclusions":{"outside_lookback":6}}
+        out=update_source_states(None,{},{"ntis-announcements":limited},[],now=NOW)
+        self.assertEqual(out["sources"]["direct:ntis-announcements"]["status"],"checked_list_not_exhaustive")
+        self.assertEqual(out["sources"]["direct:ntis-announcements"]["failStreak"],0)
+        for extra in ({"errors":[{"stage":"detail","attempt":2,"error":"timed out","retry":False}]},
+                      {"exclusions":{"detail_deferred_after_timeouts":4}}, {"detailCircuitOpen":True},
+                      {"exclusions":{"list_detail_title_mismatch":1}}, {"invalidLinks":2}):
+            with self.subTest(extra=extra):
+                out=update_source_states(None,{},{"ntis-announcements":{**limited,**extra}},[],now=NOW)
+                self.assertEqual(out["sources"]["direct:ntis-announcements"]["status"],"partial")
 
     def test_corrupt_last_success_state_is_not_silently_reset(self):
         good={"car-recalls":{"queriesAttempted":1,"queriesSucceeded":1,"errors":[]}}

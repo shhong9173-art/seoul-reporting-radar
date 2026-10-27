@@ -75,6 +75,11 @@ def _health_rss(d):
     return "index_partial" if errors else "index_responded"
 
 
+# Exclusions that mean a page could not be read or did not look like the official page.
+BROKEN_EXCLUSIONS={"detail_fetch_failed","detail_deferred_after_timeouts","detail_structure_or_title_missing",
+                   "list_detail_title_mismatch","list_detail_date_mismatch","announcement_date_missing_or_invalid"}
+
+
 def _health_direct(d):
     if not isinstance(d,dict):
         return "unknown"
@@ -93,7 +98,17 @@ def _health_direct(d):
         errors=[]
     if fetched==0:
         return "failed"
-    if fetched<attempted or errors or d.get("coverageLimited") is True or d.get("collectionComplete") is False:
+    # A retried request that then succeeded is not a failure; its first attempt
+    # is logged with retry=True. Everything else (final attempts, plain strings) is.
+    final_errors=[e for e in errors if not (isinstance(e,dict) and e.get("retry") is True)]
+    exclusions=d.get("exclusions") if isinstance(d.get("exclusions"),dict) else {}
+    broken=sum(int(v) for k,v in exclusions.items() if k in BROKEN_EXCLUSIONS and type(v) is int)
+    invalid=sum(int(d.get(k) or 0) for k in ("invalidLinks","invalidIds") if type(d.get(k) or 0) is int)
+    if fetched<attempted or final_errors or broken or invalid or d.get("detailCircuitOpen") is True:
+        return "partial"
+    # Coverage limits by design (first search page, page/detail caps) are recorded in the
+    # diagnostics and named here as "not exhaustive" — not a failure that repeats every run.
+    if d.get("collectionComplete") is False and d.get("coverageLimited") is not True:
         return "partial"
     return "checked_list_not_exhaustive"
 
