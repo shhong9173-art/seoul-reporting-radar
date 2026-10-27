@@ -286,6 +286,17 @@ def kepco(cfg, key, now, previous, http):
         return list(prev.values()), [], {"source": "한전 전자입찰", "status": "unset", "error": "KEPCO_API_KEY 미설정"}
     kc = cfg["kepco"]
     rx = re.compile(kc["keywords"], re.I)
+    project = re.compile(kc.get("projectKeywords") or r"(?!)", re.I)
+    skip = re.compile(kc.get("exclude") or r"(?!)")
+
+    def wanted(d):
+        """Equipment purchases (자재구매) for power-equipment and cable makers; construction only for HVDC/765kV-class projects."""
+        name = str(d.get("name") or "")
+        if skip.search(name):
+            return False
+        if str(d.get("purchaseType")) == "Product":
+            return bool(rx.search(name))
+        return bool(project.search(name))
     stamp = now.isoformat(timespec="seconds")
     fr = (now.date() - dt.timedelta(days=kc.get("windowDays", 14))).strftime("%Y%m%d")
     r, err = http.call("GET", KEPCO_API, params={"noticeBeginDate": fr, "noticeEndDate": now.date().strftime("%Y%m%d"), "apiKey": key,
@@ -302,7 +313,7 @@ def kepco(cfg, key, now, previous, http):
         return list(prev.values()), [], {"source": "한전 전자입찰", "status": "failed", "error": "응답 형식(data 목록 없음)"}
     for d in data:
         name = re.sub(r"\s+", " ", str(d.get("name") or "")).strip()
-        if not rx.search(name):
+        if not wanted(d):
             continue
         iid = f"kepco:{d.get('companyId')}:{d.get('no')}"
         price = won(d.get("presumedPrice")) or won(d.get("presumedAmount"))
@@ -321,7 +332,7 @@ def kepco(cfg, key, now, previous, http):
         kept[iid] = row
     keep_from = (now.date() - dt.timedelta(days=EVENT_KEEP_DAYS)).strftime("%Y%m%d")
     rows = sorted((x for x in kept.values() if (x.get("noticeDate") or "") >= keep_from), key=lambda x: x.get("noticeDate") or "", reverse=True)
-    return rows, events, {"source": "한전 전자입찰", "status": "ok", "returned": len(data), "kept": sum(1 for d in data if rx.search(str(d.get("name") or "")))}
+    return rows, events, {"source": "한전 전자입찰", "status": "ok", "returned": len(data), "kept": sum(1 for d in data if wanted(d))}
 
 
 # ---------- 원자재 가격(KOMIS) ----------

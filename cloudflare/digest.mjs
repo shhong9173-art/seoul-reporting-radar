@@ -103,6 +103,7 @@ function collect(docs, cut, cutDay, { all = false } = {}) {
   for (const x of ks?.kepco ?? []) {
     const nd = ymd8(x.noticeDate);
     if (!(all || nd >= cutDay)) continue;
+    if (!all && !x.big && !((x.price ?? 0) >= 1e9)) continue;  // small lots stay in kr_signals only
     push(x.big ? 'B' : 'C', W['kr-signals'], { kind: '한전 입찰', id: x.id, date: nd, company: x.company,
       fact: `한전 전자입찰 ${x.company} 「${x.name}」 · 추정가격 ${x.price ? `약 ${Math.round(x.price / 1e8).toLocaleString('en-US')}억원` : '미기재'} · ${x.state}` });
   }
