@@ -12,11 +12,10 @@ KEY = os.environ["DART_API_KEY"].strip()
 OUT = []
 def say(*a): OUT.append(" ".join(str(x) for x in a))
 
-TYPES = ["타인에대한채무보증", "소송등의판결", "소송등의제기", "단일판매ㆍ공급계약체결", "유형자산취득결정", "타법인주식및출자증권취득결정",
-         "신규시설투자", "영업양도", "특정증권등거래계획", "자기주식취득결정", "유상증자결정", "회사합병결정"]
+TYPES = ["유형자산취득결정", "타법인주식및출자증권취득결정", "신규시설투자", "영업양도", "타법인주식및출자증권처분결정", "유형자산처분결정"]
 CORPS = {"현대자동차": "00164742", "엘에스일렉트릭": "00105855", "한화솔루션": "00162461", "포스코홀딩스": "00155319", "현대제철": "00145880",
          "고려아연": "00102858", "대한전선": "00113207", "HD현대일렉트릭": "01205851", "GS": "00500254", "두산에너빌리티": "00159616"}
-GIVEN = ["20261026800468", "20261023801005", "20261023000362"]
+GIVEN = []
 
 def rows_of(docs):
     out = []
@@ -63,10 +62,10 @@ for t, (rc, lab) in picked.items():
 
 chunks, cur = [], ""
 for line in OUT:
-    if len(cur) + len(line) > 3400:
+    if len(cur) + len(line) > 1800:
         chunks.append(cur); cur = ""
     cur += line + " ;; "
 chunks.append(cur)
-for i, c in enumerate(chunks[:10]):
+for i, c in enumerate(chunks[:12]):
     builtins.print(f"::notice title=dart-{i}::{c}")
 builtins.print(f"::notice title=dart-total::chunks {len(chunks)}")
