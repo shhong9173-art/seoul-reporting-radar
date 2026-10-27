@@ -123,5 +123,60 @@ class Partners(unittest.TestCase):
         self.assertNotIn("asx:OLD", [x["id"] for x in doc["items"]])
 
 
+class EdgarNoise(unittest.TestCase):
+    HARTFORD = ("Basic industry 1,198 1,151 1.8 % Transportation 907 844 1.3 % Other 617 610 0.9 % Total $ 25,618 $ 24,052 37.2 % "
+                "Top Ten Exposures by Issuer [1] TPG Partners X $ 309 $ 308 0.5 % Goldman Sachs Group Inc. 196 178 0.3 % "
+                "Hyundai Motor Company 182 178 0.3 % Duke Energy Corporation 183 175 0.3 %")
+    KT = ("to provide financial support as an operating investor during the operating period with respect to K Defense Co., Ltd. "
+          "(12) The Company has an agreement related to a stock sale contract with HYUNDAI MOBIS Co., Ltd. and HYUNDAI MOTOR COMPANY. "
+          "If the Company intends to dispose of the acquired stocks to a third party")
+    DEAL = "On October 20, 2026 the Company entered into a binding supply agreement with Hyundai Motor Company for battery cells."
+
+    def item(self, iid, date, snippet, filer="Filer", form="8-K", url="https://www.sec.gov/Archives/edgar/data/1/x/d.htm"):
+        return {"id": iid, "source": "EDGAR", "date": date, "firstSeen": date + "T07:00:00+09:00", "filer": filer, "form": form,
+                "url": url, "phrases": ["Hyundai Motor Company"], "beat": ["현대차"], "snippet": snippet}
+
+    def run_with(self, items, previous_extra=None):
+        prev = {"items": items, **(previous_extra or {})}
+        return w.run({"asx": [], "edgarPhrases": []}, now=NOW, previous=prev, get=lambda *a, **k: R(404), sleep=lambda s: None)
+
+    def test_holdings_table_is_routine_and_deal_text_is_not(self):
+        doc = self.run_with([self.item("edgar:a-1:ex992.htm", "2026-10-26", self.HARTFORD, filer="HARTFORD INSURANCE GROUP"),
+                             self.item("edgar:b-1:d8k.htm", "2026-10-21", self.DEAL, filer="Cell Maker Inc")])
+        by = {x["id"]: x for x in doc["items"]}
+        self.assertIn("투자 보유", by["edgar:a-1:ex992.htm"]["routine"])
+        self.assertNotIn("routine", by["edgar:b-1:d8k.htm"])
+        self.assertNotIn("finNote", by["edgar:b-1:d8k.htm"])
+
+    def test_financial_statement_note_is_flagged_not_hidden(self):
+        doc = self.run_with([self.item("edgar:k-1:a2q26_seperatexreviewrep.htm", "2026-10-23", self.KT, filer="KT CORP", form="6-K/A")])
+        it = doc["items"][0]
+        self.assertIn("재무제표 주석", it["finNote"])
+        self.assertNotIn("routine", it)
+
+    def test_same_sentence_repeats_within_filing_and_across_filings(self):
+        q1 = self.item("edgar:k-0:q1.htm", "2026-08-14", self.KT.replace("(12)", "(11)"), filer="KT CORP", form="6-K")
+        ex1 = self.item("edgar:k-1:ex991.htm", "2026-10-23", self.KT, filer="KT CORP", form="6-K/A")
+        ex2 = self.item("edgar:k-1:ex992.htm", "2026-10-23", self.KT, filer="KT CORP", form="6-K/A")
+        doc = self.run_with([q1, ex1, ex2])
+        by = {x["id"]: x for x in doc["items"]}
+        self.assertNotIn("routine", by["edgar:k-0:q1.htm"])
+        self.assertIn("이전 공시(2026-08-14)와 같은 문구", by["edgar:k-1:ex991.htm"]["routine"])
+        self.assertEqual(by["edgar:k-1:ex991.htm"]["repeatOf"], "edgar:k-0:q1.htm")
+        # Remembered after the earlier filing leaves the 120-day item store.
+        later = self.run_with([ex1], previous_extra={"textSeen": doc["textSeen"]})
+        self.assertIn("반복 기재", later["items"][0]["routine"])
+        # Same sentence by a different filer is not a repeat.
+        other = self.run_with([q1, self.item("edgar:z-1:x.htm", "2026-10-23", self.KT, filer="OTHER CORP")])
+        self.assertNotIn("routine", {x["id"]: x for x in other["items"]}["edgar:z-1:x.htm"])
+
+    def test_same_exhibits_in_one_filing(self):
+        ex1 = self.item("edgar:k-1:ex991.htm", "2026-10-23", self.DEAL, filer="KT CORP")
+        ex2 = self.item("edgar:k-1:ex992.htm", "2026-10-23", self.DEAL, filer="KT CORP")
+        by = {x["id"]: x for x in self.run_with([ex1, ex2])["items"]}
+        self.assertEqual(by["edgar:k-1:ex992.htm"]["routine"], "같은 제출의 다른 문서와 같은 문구")
+        self.assertNotIn("routine", by["edgar:k-1:ex991.htm"])
+
+
 if __name__ == "__main__":
     unittest.main()

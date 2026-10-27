@@ -168,8 +168,10 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
     if (!fresh(x, pfBase, 'date')) continue;
     let tier;
     if (x.source === 'ASX') tier = (x.flags ?? []).length ? 'A' : 'C';
-    else tier = DEAL_WORDS.test(String(x.snippet ?? '')) ? 'A' : 'B';
-    const deal = x.source !== 'ASX' && tier === 'B' ? ' — 발췌에 계약·공급·합작 낱말 없음(이름만 언급일 수 있음)' : '';
+    else if (x.routine) tier = 'C';
+    else tier = DEAL_WORDS.test(String(x.snippet ?? '')) && !x.finNote ? 'A' : 'B';
+    const deal = x.source === 'ASX' ? '' : x.routine ? ` — ${x.routine}` : x.finNote ? ` — ${x.finNote}`
+      : tier === 'B' ? ' — 발췌에 계약·공급·합작 낱말 없음(이름만 언급일 수 있음)' : '';
     push(tier, W['partner-filings'], { kind: x.source ?? '공시', id: x.id, date: x.date, company: (x.beat ?? []).join('·'), fact: `${x.source} ${x.filer}: ${x.title}${(x.flags ?? []).length ? ` (낱말 ${x.flags.join(',')})` : ''}${deal}`, url: x.url });
   }
 

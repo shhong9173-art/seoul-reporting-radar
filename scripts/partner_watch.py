@@ -32,6 +32,40 @@ SEC_UA = os.environ.get("SEC_USER_AGENT", "").strip() or "seoul-reporting-radar 
 FORMS = "8-K,6-K,10-Q,10-K,20-F,40-F,S-1,F-1,424B4,DEF 14A"
 # Name used in an unrelated sense (first real run, 10/26: 'POSCO Center' building address in a Beijing proxy statement).
 UNRELATED = {"POSCO": re.compile(r"POSCO\s+(?:Center|Centre|Tower|Plaza|E&C\s+Tower)", re.I)}
+# EDGAR hits that name a beat company without any dealing with it (첫 실운영 10/27: 미국 보험사 투자 보유 표의
+# 'Top Ten Exposures by Issuer … Hyundai Motor Company', KT 분기 재무제표 주석의 기존 지분 약정 문구).
+HOLDINGS = re.compile(r"top\s+(?:ten|10)\s+(?:exposures|holdings|issuers)|exposures?\s+by\s+issuer|fixed\s+maturit|schedule\s+of\s+investments|"
+                      r"portfolio\s+holdings|corporate\s+(?:bonds|debt\s+securities)|%\s+of\s+(?:total|net\s+assets|invested)|amortized\s+cost|"
+                      r"unrealized\s+(?:gains?|loss)|principal\s+amount\s+held", re.I)
+FIN_NOTE = re.compile(r"\(\d{1,2}\)\s+the\s+(?:company|group)\s+(?:has|had|have|is|entered)|commitments\s+and\s+contingenc|"
+                      r"\bnote\s+\d{1,2}\b|review\s+report|separate\s+financial\s+statements|consolidated\s+financial\s+statements", re.I)
+FIN_DOC = re.compile(r"(?:review|financ|consolidat|separate|interim|10-?q|annual|20-?f)", re.I)
+
+
+def classify(it):
+    """routine: no dealing with the beat company (holdings tables) → C. finNote: periodic financial-statement
+    notes, often restating an existing arrangement → never A. Text only; the original decides."""
+    sn = it.get("snippet") or ""
+    it.pop("routine", None)
+    it.pop("finNote", None)
+    digits = sum(ch.isdigit() for ch in sn)
+    if HOLDINGS.search(sn) or (len(sn) > 200 and digits / len(sn) > 0.18):
+        it["routine"] = "투자 보유 목록(채권·주식 보유 표) — 출입처와의 거래 아님"
+    elif FIN_NOTE.search(sn) or (FIN_DOC.search(str(it.get("url") or "")) and str(it.get("form") or "").upper() in ("6-K", "6-K/A", "10-Q", "10-K", "20-F")
+                                 and re.search(r"\bthe\s+(?:company|group)\s+has\b", sn, re.I)):
+        it["finNote"] = "재무제표 주석 — 이미 있던 약정을 다시 적은 것일 수 있음(이전 분기 보고서와 대조)"
+
+
+def fingerprint(it):
+    """Same sentence in another filing of the same filer (amounts and dates ignored)."""
+    sn = re.sub(r"[\d,.%$₩]+", " ", (it.get("snippet") or "").lower())
+    sn = re.sub(r"\s+", " ", sn).strip()
+    if len(sn) < 80:
+        return None
+    import hashlib
+    return hashlib.sha1(f"{(it.get('filer') or '').lower()}|{sn}".encode()).hexdigest()[:16]
+
+
 FLAG = re.compile(r"offtake|supply|agreement|contract|binding|conditions? precedent|amend|variation|terminat|price|pricing|"
                   r"hyundai|kia|posco|seah|korea|korean|mou|memorandum|strategic|investment|placement|financ|partner", re.I)
 
@@ -213,15 +247,34 @@ def run(cfg, *, now, previous=None, get=None, sleep=time.sleep, snippet_budget=2
             total = sum(len(re.findall(re.escape(ph), sn, re.I)) for ph in it.get("phrases", []))
             if unrelated and total == unrelated:  # only when the unrelated sense is actually visible
                 it["noise"] = "출입처 이름이 무관한 뜻(건물 주소 등)으로만 쓰임"
+    # Classify every EDGAR item with a snippet, then mark repeats of the same sentence by the same filer.
+    text_seen = {k: v for k, v in ((previous or {}).get("textSeen") or {}).items()
+                 if isinstance(v, dict) and (v.get("date") or "") >= (now - dt.timedelta(days=400)).strftime("%Y-%m-%d")}
+    for it in sorted(items.values(), key=lambda x: (x.get("date") or "", x["id"])):
+        if it.get("source") != "EDGAR" or not it.get("snippet") or it.get("noise"):
+            continue
+        classify(it)
+        fp = fingerprint(it)
+        if not fp:
+            continue
+        first = text_seen.get(fp)
+        if first and first.get("id") != it["id"]:
+            same_filing = first["id"].split(":")[1:2] == it["id"].split(":")[1:2]
+            it["routine"] = it.get("routine") or ("같은 제출의 다른 문서와 같은 문구" if same_filing else
+                                                 f"같은 회사 이전 공시({first.get('date')})와 같은 문구 — 반복 기재")
+            it["repeatOf"] = first["id"]
+        else:
+            text_seen.setdefault(fp, {"id": it["id"], "date": it.get("date")})
     new_from = (now - dt.timedelta(days=NEW_DAYS)).strftime("%Y-%m-%d")
     out = sorted((x for x in items.values() if not x.get("noise")), key=lambda x: (x.get("date") or "", x["id"]), reverse=True)
     for x in out:
         x["isNew"] = x["id"] not in prev or (x.get("date") or "") >= new_from
     failed = [c for c in checks if c["status"] != "ok"]
     return {"schema": SCHEMA, "generatedAt": stamp, "windowDays": WINDOW_DAYS, "status": "partial" if failed else "complete",
-            "checks": checks, "items": out[:400],
+            "checks": checks, "items": out[:400], "textSeen": dict(list(text_seen.items())[-3000:]),
             "rules": ["파트너 공시는 그 회사의 발표다. 출입처와의 계약 변경인지는 문구로만 판단하지 않고 출입처 확인이 필요하다.",
                       "ASX는 관계 근거가 확인된 회사만 본다. EDGAR는 출입처 이름이 들어간 공시 전반(출입처 자신의 공시 제외).",
+                      "EDGAR 투자 보유 표·같은 회사의 반복 문구는 일상으로 접고, 재무제표 주석은 기존 약정일 수 있어 A로 올리지 않는다(문구 분류일 뿐 원문이 기준).",
                       "조회 실패는 0건이 아니라 미확인."],
             "confirmedScoops": 0}
 
