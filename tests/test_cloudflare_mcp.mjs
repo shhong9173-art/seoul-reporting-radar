@@ -376,7 +376,8 @@ test('packages, daily limit and feedback live in the private store', async () =>
   await call('candidate_feedback', { item_id: '#1', verdict: '킬', reason: '이미 남' }, opts);
   await call('candidate_feedback', { item_id: '#2', verdict: '씀', reason: '지면 박스' }, opts);
   const review = await call('candidate_weekly_review', {}, opts);
-  assert.match(review.text, /씀 1 \/ 킬 1/);
+  assert.match(review.text, /판정한 항목 2개: 씀 1 · 킬 1/);
+  assert.match(review.text, /- 제출 후보 2 — 씀 1 · 킬 1/);
   assert.match(review.text, /자동으로 바꾸지 않는다/);
 });
 
@@ -752,6 +753,53 @@ test('DART lead facts and prior comparison show in scoop_screen, and routine fil
   assert.match(a, /고려아연 · 소송등의판결ㆍ결정 \(단서\) — 보도 대조 '미보도 후보' · 사건의명칭 주주대표소송\(손해배상\)/);
   assert.doesNotMatch(a, /HD현대일렉트릭/);
   assert.match(b, /HD현대일렉트릭 · 타인에대한채무보증결정 — 일상 공시로 보임\(같은 자회사 채무자 반복 보증/);
+});
+
+test('weekly review groups judgments by watch and DART filing type, and keeps labels after the feed rolls over', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const post = async (feed, doc) => assert.equal((await worker.fetch(new Request(ORIGIN + `/ingest/${feed}`, { method: 'POST',
+    headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
+  const empty = await call('candidate_weekly_review', {}, opts);
+  assert.match(empty.text, /판정 기록이 없다/);
+  await call('candidate_feedback', { item_id: 'clue:late', verdict: '봤음' }, opts);  // judged before it was in any feed
+  const guarantee = (n) => ({ id: `clue:g${n}`, verdict: '미보도 후보', company: 'HD현대일렉트릭', title: `HD현대일렉트릭 · 타인에대한채무보증결정 ${n}`, kind: '단서',
+    url: `https://dart.fss.or.kr/dsaf001/main.do?rcpNo=2026102680046${n}`, filing: { type: '채무보증', facts: [], compare: [], routine: '같은 자회사 채무자 반복 보증 · 자기자본 대비 2.63%' } });
+  await post('scoop-screen', { schema: 'scoop_screen/v1', generatedAt: '2026-10-26T07:10:00+09:00', counts: {}, candidates: [
+    guarantee(1), guarantee(2), guarantee(3), guarantee(4), guarantee(5),
+    { id: 'clue:kz', verdict: '미보도 후보', company: '고려아연', title: '고려아연 · 소송등의판결ㆍ결정', kind: '단서', url: 'https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261023801005',
+      filing: { type: '소송판결', facts: [], compare: [], routine: null } },
+    { id: 'clue:pd', verdict: '미보도 후보', company: 'GS', title: 'GS · [기재정정]주요사항보고서(유상증자결정)', kind: '단서', url: 'https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261020000111' },
+    { id: 'clue:late', verdict: '미보도 후보', company: '기아', title: '고정자 냉각 장치', kind: '특허' }] });
+  await post('partner-filings', { schema: 'partner_filings/v1', generatedAt: '2026-10-26T07:00:00+09:00', windowDays: 30, checks: [],
+    items: [{ id: 'edgar:hig', source: 'EDGAR', filer: 'HARTFORD', beat: ['현대차'], date: '2026-10-25', title: '8-K', snippet: 'bonds', url: 'https://sec/hig' }] });
+  const one = await call('candidate_feedback', { item_id: 'clue:g4', verdict: '보류', reason: '나중에' }, opts);
+  assert.match(one.text, /기록: \[보류\] clue:g4 \(단독 후보 심사 · DART 채무보증 · B\) — 나중에/);
+  await call('candidate_feedback', { item_ids: ['clue:g1', 'clue:g2', 'clue:g3', 'clue:g4'], verdict: '킬', reason: '자회사 보증 갱신' }, opts);
+  await call('candidate_feedback', { item_id: 'clue:g5', verdict: '씀', reason: '보증 잔액 급증 박스' }, opts);
+  await call('candidate_feedback', { item_id: 'clue:kz', verdict: '씀', reason: '판결 단신' }, opts);
+  await call('candidate_feedback', { item_id: 'clue:pd', verdict: '보류', reason: '증자 규모 확인' }, opts);
+  await call('candidate_feedback', { verdict: '봤음', item_ids: ['edgar:hig', 'gone:1'] }, opts);
+  const r = await call('candidate_weekly_review', {}, opts);
+  assert.match(r.text, /판정한 항목 10개: 씀 2 · 킬 4 · 보류 1 · 봤음 3 \(기록 11건, 같은 항목은 마지막 판정만 셈\)/);
+  assert.match(r.text, /- 단독 후보 심사 8 — 씀 2 · 킬 4 · 보류 1 · 봤음 1 \| A 3\(씀 1 · 보류 1 · 봤음 1\) · B 5\(씀 1 · 킬 4\)/);
+  assert.match(r.text, /- 해외 파트너 공시 1 — 봤음 1 \| B 1\(봤음 1\)/);
+  assert.match(r.text, /- 감시 미상\(지금 목록에 없음\) 1 — 봤음 1/);
+  assert.match(r.text, /- 단독 후보 심사 · DART 채무보증 5 — 씀 1 · 킬 4 \| 일상\(B\) 5: 씀 1 · 킬 4/);
+  assert.match(r.text, /- 단독 후보 심사 · DART 소송판결 1 — 씀 1/);
+  assert.match(r.text, /- 단독 후보 심사 · DART 주요사항보고서\(유상증자결정\) 1 — 보류 1/);  // unsupported type grouped by report name
+  assert.match(r.text, /- 단독 후보 심사 · 특허 1 — 봤음 1/);                           // labelled from the current list
+  assert.match(r.text, /\[점검 후보\][\s\S]*단독 후보 심사 · DART 채무보증: 5개 중 킬 4 — 등급·문턱 점검 후보/);
+  assert.match(r.text, /일상\(B\)으로 내렸는데 씀: HD현대일렉트릭 · 타인에대한채무보증결정 5 — 일상 판정 규칙 점검 후보/);
+  assert.match(r.text, /킬 사유 상위: 자회사 보증 갱신\(4\)/);
+  assert.match(r.text, /\[씀\] 단독 후보 심사 · DART 소송판결 · A · 고려아연 · 소송등의판결ㆍ결정 \(단서\) — 판결 단신 \(id clue:kz\)/);
+  assert.match(r.text, /일부 항목은 판정 때 표시가 없어 지금 목록 기준/);
+  assert.match(r.text, /자동으로 바꾸지 않는다/);
+  // the scoop feed is replaced on the next run; stored labels stay, the never-labelled one falls back
+  await post('scoop-screen', { schema: 'scoop_screen/v1', generatedAt: '2026-10-26T15:10:00+09:00', counts: {}, candidates: [] });
+  const later = await call('candidate_weekly_review', {}, opts);
+  assert.match(later.text, /- 단독 후보 심사 · DART 채무보증 5 — 씀 1 · 킬 4/);
+  assert.match(later.text, /- 감시 미상\(지금 목록에 없음\) 2 — 봤음 2/);
 });
 
 test('non-MCP paths keep the canonical Pages redirect', async () => {

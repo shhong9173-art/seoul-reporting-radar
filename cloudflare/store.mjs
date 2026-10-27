@@ -2,7 +2,7 @@
 // feedback. Lives in a SQLite-backed Durable Object behind the access token,
 // never in the public repository or GitHub Pages.
 import { POLICY, checkCandidate, formatCheck } from './scoring.mjs';
-import { clampInt, kstDate, kstStamp, textResult } from './common.mjs';
+import { kstDate, textResult } from './common.mjs';
 
 export const PACKAGE_STATES = ['미발제·확인 필요', '발제함', '보류', '접음'];
 export const FEEDBACK_VERDICTS = ['씀', '킬', '보류', '봤음'];
@@ -15,6 +15,9 @@ const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS feedback (id INTEGER PRIMARY KEY AUTOINCREMENT, item_id TEXT NOT NULL, verdict TEXT NOT NULL,
      reason TEXT NOT NULL, created_at TEXT NOT NULL)`,
   `CREATE TABLE IF NOT EXISTS blobs (name TEXT PRIMARY KEY, body TEXT NOT NULL, updated_at TEXT NOT NULL)`,
+  // what a judged item was when it was judged (watch, kind, tier) — feeds roll over, the weekly review still needs it
+  `CREATE TABLE IF NOT EXISTS feedback_meta (item_id TEXT PRIMARY KEY, watch TEXT NOT NULL, kind TEXT NOT NULL,
+     tier TEXT NOT NULL, flag TEXT NOT NULL, title TEXT NOT NULL, updated_at TEXT NOT NULL)`,
 ];
 
 // Durable Object (fetch-style so it runs without the cloudflare:workers import).
@@ -58,10 +61,18 @@ export class RadarStore {
           args.day, args.title, args.status, args.score, args.payload, at);
         return { id: this.all('SELECT last_insert_rowid() AS id')[0].id };
       }
-      case 'feedback.add':
+      case 'feedback.add': {
         this.sql.exec('INSERT INTO feedback (item_id, verdict, reason, created_at) VALUES (?, ?, ?, ?)',
           args.item_id, args.verdict, args.reason, at);
+        const m = args.meta;
+        if (m?.watch) {
+          this.sql.exec(`INSERT INTO feedback_meta (item_id, watch, kind, tier, flag, title, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(item_id) DO UPDATE SET watch = excluded.watch, kind = excluded.kind, tier = excluded.tier,
+            flag = excluded.flag, title = excluded.title, updated_at = excluded.updated_at`,
+          args.item_id, String(m.watch), String(m.kind ?? ''), String(m.tier ?? ''), String(m.flag ?? ''), String(m.title ?? '').slice(0, 160), at);
+        }
         return { saved: true };
+      }
       case 'blobs.put':
         this.sql.exec(`INSERT INTO blobs (name, body, updated_at) VALUES (?, ?, ?)
           ON CONFLICT(name) DO UPDATE SET body = excluded.body, updated_at = excluded.updated_at`, args.name, args.body, at);
@@ -72,7 +83,8 @@ export class RadarStore {
         return { rows: this.all(`SELECT f.item_id, f.verdict, f.reason FROM feedback f
           JOIN (SELECT item_id, MAX(id) AS id FROM feedback GROUP BY item_id) m ON f.id = m.id`) };
       case 'feedback.since':
-        return { rows: this.all('SELECT item_id, verdict, reason, created_at FROM feedback WHERE created_at >= ? ORDER BY id DESC', args.since),
+        return { rows: this.all(`SELECT f.item_id, f.verdict, f.reason, f.created_at, m.watch, m.kind, m.tier, m.flag, m.title
+            FROM feedback f LEFT JOIN feedback_meta m ON m.item_id = f.item_id WHERE f.created_at >= ? ORDER BY f.id DESC`, args.since),
           candidates: this.all('SELECT id, day, title, status, score FROM candidates WHERE created_at >= ? ORDER BY id DESC', args.since) };
       default:
         throw new Error('unknown action');
@@ -146,29 +158,16 @@ export async function candidateSubmit(ctx, args) {
   return textResult(out.join('\n'));
 }
 
-export async function candidateFeedback(ctx, args) {
+// index: id → { watch, kind, tier, flag, title } from radar_today's view (review.mjs), so the weekly review can group.
+export async function candidateFeedback(ctx, args, index = null) {
   const verdict = FEEDBACK_VERDICTS.includes(args.verdict) ? args.verdict : null;
   // one id, or several at once (e.g. marking today's radar_today items as 봤음)
   const ids = [...new Set([args.item_id, ...(Array.isArray(args.item_ids) ? args.item_ids : [])]
     .map((x) => String(x ?? '').trim().slice(0, 160)).filter(Boolean))].slice(0, 60);
   const reason = String(args.reason ?? '').trim().slice(0, 1000) || (verdict === '봤음' ? '확인함(판단 전)' : '');
   if (!verdict || !ids.length || !reason) return textResult(`item_id(또는 item_ids)·reason과 verdict(${FEEDBACK_VERDICTS.join('/')})가 필요하다. 봤음은 reason 생략 가능.`, true);
-  for (const item of ids) await call(ctx, 'feedback.add', { item_id: item, verdict, reason });
-  return textResult(ids.length === 1 ? `기록: [${verdict}] ${ids[0]} — ${reason}` : `기록: [${verdict}] ${ids.length}건 — ${reason}\n${ids.join('\n')}`);
-}
-
-export async function weeklyReview(ctx, args) {
-  const days = clampInt(args.days, 1, 60, 7);
-  const since = new Date(ctx.now.getTime() - days * 86400000).toISOString();
-  const { rows, candidates } = await call(ctx, 'feedback.since', { since });
-  const count = (v) => rows.filter((r) => r.verdict === v).length;
-  const out = [`최근 ${days}일 판정 · ${kstStamp(ctx.now)}`,
-    `제출 후보 ${candidates.length}건(추천 ${candidates.filter((c) => c.status === '추천').length}) · 판정 씀 ${count('씀')} / 킬 ${count('킬')} / 보류 ${count('보류')} / 봤음 ${count('봤음')}`];
-  const reasons = {};
-  for (const r of rows.filter((x) => x.verdict === '킬')) reasons[r.reason] = (reasons[r.reason] ?? 0) + 1;
-  const top = Object.entries(reasons).sort((a, b) => b[1] - a[1]).slice(0, 5);
-  if (top.length) out.push('킬 사유 상위: ' + top.map(([k, v]) => `${k}(${v})`).join(' / '));
-  for (const r of rows.slice(0, 20)) out.push(`- ${String(r.created_at).slice(0, 10)} [${r.verdict}] ${r.item_id}: ${r.reason}`);
-  out.push('가중치는 자동으로 바꾸지 않는다. 바꿀지는 기자가 정한다.');
-  return textResult(out.join('\n'));
+  for (const item of ids) await call(ctx, 'feedback.add', { item_id: item, verdict, reason, meta: index?.get(item) ?? null });
+  const label = (id) => { const m = index?.get(id); return m ? ` (${m.watch}${m.kind ? ` · ${m.kind}` : ''} · ${m.tier})` : ''; };
+  return textResult(ids.length === 1 ? `기록: [${verdict}] ${ids[0]}${label(ids[0])} — ${reason}`
+    : `기록: [${verdict}] ${ids.length}건 — ${reason}\n${ids.map((id) => id + label(id)).join('\n')}`);
 }
