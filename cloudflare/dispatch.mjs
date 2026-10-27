@@ -71,16 +71,36 @@ export async function runSchedule(env, when, deps = {}) {
   return entries;
 }
 
-// One line for radar_today: how the morning requests went (or that the token is missing).
+// The next KST weekday slot after `when` (for telling the reporter when the first request will go out).
+export function nextSlot(when) {
+  for (let i = 1; i <= 7 * 24 * 6; i++) {
+    const t = new Date(when.getTime() + i * 600000);
+    const due = dueAt(t);
+    if (due.length) {
+      const k = new Date(t.getTime() + KST_MS);
+      return `${k.toISOString().slice(5, 10)} ${String(k.getUTCHours()).padStart(2, '0')}:${String(Math.floor(k.getUTCMinutes() / 10) * 10).padStart(2, '0')} ${due.join(',')}`;
+    }
+  }
+  return null;
+}
+
+// One line for radar_today: how the requests went, and whether the worker can see the token right now
+// (only presence is checked — the value is never read out).
 export async function dispatchHealth(ctx) {
+  const hasToken = Boolean(ctx.env?.GITHUB_DISPATCH_TOKEN);
+  const missingNow = '지금도 워커에서 GITHUB_DISPATCH_TOKEN이 보이지 않음 — Cloudflare → Workers → seoul-reporting-radar → Settings → Variables and Secrets(Build 아님)에 종류 Secret, 이름 정확히 확인';
   const { row } = await storeOp(ctx, 'blobs.get', { name: LOG_BLOB });
-  if (!row) return '예약 요청(Cloudflare): 기록 없음 — GitHub 예약만 사용 중(지연 가능)';
+  if (!row) return hasToken ? null : `예약 요청(Cloudflare): 기록 없음 · ${missingNow}`;
   let log = [];
   try { log = JSON.parse(row.body); } catch { return '예약 요청(Cloudflare): 기록 형식 오류'; }
   const day = new Date(ctx.now.getTime() + KST_MS).toISOString().slice(0, 10);
   const today = log.filter((e) => new Date(Date.parse(e.at) + KST_MS).toISOString().slice(0, 10) === day);
-  if (!today.length) return null;
-  if (today.every((e) => e.status === 'no-token')) return '예약 요청(Cloudflare): 토큰 없음 — GitHub 예약만 사용 중(지연 가능). Cloudflare에 GITHUB_DISPATCH_TOKEN 필요';
+  if (!today.length) return hasToken ? null : `예약 요청(Cloudflare): ${missingNow}`;
+  if (today.every((e) => e.status === 'no-token')) {
+    return hasToken
+      ? `예약 요청(Cloudflare): 오늘 앞선 칸은 토큰 없이 지나감 · 지금은 토큰 보임 — 다음 칸(${nextSlot(ctx.now) ?? '?'})부터 요청`
+      : `예약 요청(Cloudflare): 토큰 없음 — GitHub 예약만 사용 중(지연 가능) · ${missingNow}`;
+  }
   const bad = today.filter((e) => e.status !== 'ok');
   return bad.length ? `예약 요청(Cloudflare): 오늘 ${today.length}건 중 실패 ${bad.length}건(${bad.slice(0, 3).map((e) => `${e.workflow} ${e.status}`).join(', ')})` : null;
 }
