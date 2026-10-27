@@ -23,7 +23,7 @@
 `source_document`, `candidate_check`
 
 기자 전용: `dart_filings`, `dart_find_text`, `g2b_bids`, `scoop_packages`, `package_save`, `candidate_submit`,
-`candidate_feedback`, `candidate_weekly_review`, `trademarks`
+`candidate_feedback`, `candidate_weekly_review`, `trademarks`, `assembly_bills`
 
 선배 도구 중 옮기지 않은 것: `paper_db`(지면 DB — 지면 원천 데이터가 없음), 식품안전나라·CJ 지배구조·
 가맹 도구(식품팀 전용), SGIS. 상표는 출입처 출원 주간 감시(`trademarks`)로 옮김 — 임의 상표명 즉석 검색은 무료 호출 한도 때문에 아직 없음.
@@ -88,6 +88,13 @@
 - 호출은 `KIPRIS 공용 장부`(docs/kipris-account-ledger.md)를 거친다. 무료 월 1,000회 중 상표 몫 150회, 실행당 34회. 응답 22면 상표만 72시간 대기 — radar_today에 '대기'(실패·0건 아님)로 표시.
 - 처음 보는 출원번호만 새 출원(첫 성공 실행은 기준선). 같은 날 같은 이름의 여러 상품류는 한 건. 처음 보는 이름+업종 핵심 상품류(완성차 12·7·9류 등) → B, 나머지 → C. radar_today에는 처음 본 날부터 7일 보인다.
 - 상표 출원은 출원 사실이다. 출시·사업 진출·차명 확정으로 쓰지 않는다. 견본 이미지 주소는 저장하지 않으니 KIPRIS에서 출원번호로 확인.
+
+## 국회 법안(assembly_bills, 기자 전용)
+
+- GitHub Actions `Assembly Bills Watch`가 평일 08:40·17:40 KST(Cloudflare 요청, GitHub 예약은 예비)에 실행. 결과는 `assembly-bills` 비공개 저장소로만. Secrets: `ASSEMBLY_API_KEY`(열린국회정보 인증키).
+- 열린국회정보 '국회의원 발의법률안'(nzmimeepazxkubdpn, 22대)을 최신순으로 최근 14일치(최대 8쪽) 읽고 법안 이름으로 고른다. 출입처 직결 법(자동차관리법·친환경자동차·철강산업 특별법·핵심광물·전기사업법·전력망·분산에너지·해상풍력·원자력·화학물질·석유화학·관세법·불공정무역·산업기술·탄소중립·배출권·노조법·중대재해 등) → B, 관련 낱말(자동차·전력·화학·통상 등) → C. 자동차손해배상·전기통신 등은 뺀다.
+- 잡은 법안은 의안ID로 다시 조회해 단계(소관위 회부·상정·처리, 법사위 회부·상정·처리, 본회의)가 바뀌면 이벤트. 첫 실행은 기준선.
+- 같은 법을 같은 날 여러 의원이 낸 것은 한 줄. 정부 제출 법안·위원장 대안은 이 목록에 없을 수 있다. 내용은 의안 원문의 제안이유로 확인.
 
 ## 주간 품질 점검(candidate_weekly_review, 기자 전용)
 
