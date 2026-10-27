@@ -25,6 +25,8 @@ CONFIG = ROOT / "data" / "kr_stats.json"
 UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"}
 ECOS_API = "https://ecos.bok.or.kr/api/StatisticSearch"
 KOSIS_API = "https://kosis.kr/openapi/Param/statisticsParameterData.do"
+CENSUS_API = "https://api.census.gov/data/timeseries/intltrade/imports/hs"
+KOREA = "5800"  # Census country code: KOREA, SOUTH (probe 2026-10-28)
 KAIDA_PAGE = "https://www.kaida.co.kr/ko/statistics/NewRegistList.do"
 KAIDA_API = "https://www.kaida.co.kr/ko/statistics/NewRegistListAjax.do"
 KEEP_POINTS = 60
@@ -175,6 +177,31 @@ def kaida(cfg, now, previous, http):
 
 # ---------- signals ----------
 
+def census_series(s, key, since, now, http):
+    """US general imports from Korea, monthly value (GEN_VAL_MO, USD) → million USD. One call per HS code."""
+    r, err = http.call("GET", CENSUS_API, params={"get": "GEN_VAL_MO,CTY_CODE,I_COMMODITY", "time": f"from {since}",
+                                                  "CTY_CODE": KOREA, "COMM_LVL": s.get("level", "HS4"), "I_COMMODITY": s["hs"], "key": key}, timeout=60)
+    if err:
+        raise RuntimeError(err)
+    text = (r.text or "").strip()
+    if not text:
+        raise RuntimeError("값 없음")
+    try:
+        rows = r.json()
+    except ValueError:
+        raise RuntimeError("JSON 아님(키 확인 필요)")
+    if not isinstance(rows, list) or len(rows) < 2 or "time" not in rows[0] or "GEN_VAL_MO" not in rows[0]:
+        raise RuntimeError("응답 형식")
+    head = rows[0]
+    it, iv, ic = head.index("time"), head.index("GEN_VAL_MO"), head.index("CTY_CODE")
+    pts = []
+    for x in rows[1:]:
+        v = num(x[iv])
+        if x[ic] == KOREA and v is not None:
+            pts.append({"p": ym(x[it]), "v": round(v / 1e6, 2)})
+    return [p for p in pts if p["p"]], "백만달러", f"US Census 수입 {s.get('level', 'HS4')} {s['hs']} · KOREA, SOUTH · GEN_VAL_MO"
+
+
 def series_signals(pts, rules, yoy_pct):
     """pts oldest→newest. Statements about the newest month only, each with the dates and values it rests on."""
     if len(pts) < 2:
@@ -256,7 +283,7 @@ def kaida_signals(months, cfg, rules):
 
 # ---------- run ----------
 
-def run(cfg, *, now, previous=None, http=None, ecos_key="", kosis_key=""):
+def run(cfg, *, now, previous=None, http=None, ecos_key="", kosis_key="", census_key=""):
     http = http or Http()
     stamp = now.isoformat(timespec="seconds")
     rules = cfg.get("signals", {})
@@ -267,7 +294,8 @@ def run(cfg, *, now, previous=None, http=None, ecos_key="", kosis_key=""):
     have = {e.get("id") for e in events}
     baseline = previous is None
     series, checks = [], []
-    for src, items, key, fetch in (("ECOS", cfg.get("ecos", []), ecos_key, ecos_series), ("KOSIS", cfg.get("kosis", []), kosis_key, kosis_series)):
+    for src, items, key, fetch in (("ECOS", cfg.get("ecos", []), ecos_key, ecos_series), ("KOSIS", cfg.get("kosis", []), kosis_key, kosis_series),
+                                   ("CENSUS", cfg.get("census", []), census_key, census_series)):
         if not key:
             checks.append({"source": f"{src} 통계", "status": "unset", "error": f"{src}_API_KEY 미설정"})
             series += [{**prev_series[s["id"]], "stale": True} for s in items if s["id"] in prev_series]
@@ -290,11 +318,11 @@ def run(cfg, *, now, previous=None, http=None, ecos_key="", kosis_key=""):
             summary, sig = series_signals(pts, rules, s.get("yoyPct", 10))
             old = prev_series.get(s["id"])
             fresh = not old or (old.get("summary") or {}).get("period") != summary.get("period")
-            row = {"id": s["id"], "source": src, "label": s["label"], "officialName": name, "unit": unit, "kind": s.get("kind"),
+            row = {"id": s["id"], "source": src, "label": s["label"], "officialName": name, "unit": unit, "kind": s.get("kind") or ("trade" if src == "CENSUS" else None),
                    "beats": s.get("beats", []), "summary": summary, "signals": sig, "points": pts[-KEEP_POINTS:],
                    "updatedAt": stamp if fresh else (old or {}).get("updatedAt", stamp)}
             series.append(row)
-            if fresh and not baseline:
+            if fresh and not baseline and old is not None:
                 for x in sig:
                     eid = f"st:{s['id']}:{summary['period']}:{x['kind']}"
                     if eid not in have:
@@ -326,6 +354,7 @@ def run(cfg, *, now, previous=None, http=None, ecos_key="", kosis_key=""):
                       "'그 달 이후 최고·최저'는 조회 범위(설정 시작월 이후) 안의 사실이다. '역대'는 원 통계표 전체 이력으로 따로 확인한다.",
                       "수출입물가는 원화 기준(환율 효과 포함)이다. 계약통화 기준은 한국은행 원표에서 확인한다.",
                       "KAIDA는 수입 승용차 신규등록(회원사 기준)이다. 테슬라 등 비회원 브랜드는 빠질 수 있다.",
+                      "미국 수입(Census)은 한국산 일반수입액(GEN_VAL_MO, 달러 명목)이다. 물량·단가·관세 영향은 따로 확인하고, 월별 변동이 크니 누적·전년 대비로 본다.",
                       "통계 발표 날 보도자료가 함께 나오는 경우가 많다. 같은 수치 기사는 news_check로 먼저 본다.",
                       "조회 실패·미설정은 0건이 아니라 미확인."],
             "confirmedScoops": 0}
@@ -346,7 +375,7 @@ def main():
     if private_store.late_scheduled_duplicate(previous, now):
         return
     doc = run(cfg, now=now, previous=previous, ecos_key=os.environ.get("ECOS_API_KEY", "").strip(),
-              kosis_key=os.environ.get("KOSIS_API_KEY", "").strip())
+              kosis_key=os.environ.get("KOSIS_API_KEY", "").strip(), census_key=os.environ.get("CENSUS_API_KEY", "").strip())
     new_ev = sum(1 for e in doc["events"] if e["detectedAt"] == doc["generatedAt"])
     parts = [f"{c['source']} {c['status']}" + (f" {c.get('ok', 0)}/{c.get('ok', 0) + c.get('failed', 0)}" if "ok" in c else "") +
              (f" 최신 {c.get('latest')}" if c.get("latest") else "") for c in doc["checks"]]

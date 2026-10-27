@@ -183,7 +183,7 @@ class RunDoc(unittest.TestCase):
 
     def small_cfg(self):
         cfg = json.loads(json.dumps(CFG))
-        cfg["ecos"], cfg["kosis"] = cfg["ecos"][:1], cfg["kosis"][:1]
+        cfg["ecos"], cfg["kosis"], cfg["census"] = cfg["ecos"][:1], cfg["kosis"][:1], cfg["census"][:1]
         return cfg
 
     def test_first_run_is_baseline_then_events_only_for_a_new_month(self):
@@ -195,7 +195,7 @@ class RunDoc(unittest.TestCase):
         d1 = w.run(cfg, now=NOW, previous=None, http=http(self.route(ecos_vals, kosis_vals, table)), ecos_key="e", kosis_key="k")
         self.assertEqual(d1["events"], [])
         self.assertEqual(d1["status"], "complete")
-        self.assertEqual([c["source"] for c in d1["checks"]], ["ECOS 통계", "KOSIS 통계", "KAIDA 수입 승용차 신규등록"])
+        self.assertEqual([c["source"] for c in d1["checks"]], ["ECOS 통계", "KOSIS 통계", "CENSUS 통계", "KAIDA 수입 승용차 신규등록"])
         # same month again: nothing new
         d2 = w.run(cfg, now=NOW + dt.timedelta(days=1), previous=d1, http=http(self.route(ecos_vals, kosis_vals, table)), ecos_key="e", kosis_key="k")
         self.assertEqual(d2["events"], [])
@@ -230,6 +230,51 @@ class RunDoc(unittest.TestCase):
         self.assertEqual((ecos["status"], ecos["failed"]), ("failed", 1))
         self.assertIn("HTTP 500", ecos["error"])
         self.assertTrue(next(s for s in d2["series"] if s["id"] == cfg["ecos"][0]["id"])["stale"])
+
+
+def census_rows(values, cty="5800", hs="8504"):
+    head = ["GEN_VAL_MO", "CTY_CODE", "I_COMMODITY", "time", "CTY_CODE", "COMM_LVL", "I_COMMODITY"]
+    return [head] + [[str(v), cty, hs, p, cty, "HS4", hs] for p, v in values]
+
+
+class Census(unittest.TestCase):
+    def test_monthly_value_in_million_dollars(self):
+        vals = [("2026-07", 173209330), ("2026-08", 169833727)]  # live probe 2026-10-28 (HS 8504, KOREA, SOUTH)
+        sess = Session(lambda m, u, kw: Resp(json.dumps(census_rows(vals))))
+        pts, unit, name = w.census_series({"hs": "8504"}, "key", "2016-01", NOW, w.Http(sess, sleep=lambda s: None, gap=0))
+        self.assertEqual(pts, [{"p": "2026-07", "v": 173.21}, {"p": "2026-08", "v": 169.83}])
+        self.assertEqual(unit, "백만달러")
+        self.assertIn("KOREA, SOUTH", name)
+        params = sess.calls[0][2]
+        self.assertEqual((params["CTY_CODE"], params["COMM_LVL"], params["I_COMMODITY"], params["time"]), ("5800", "HS4", "8504", "from 2016-01"))
+
+    def test_empty_and_html_replies_are_errors(self):
+        for body, msg in (("", "값 없음"), ("<html>Invalid Key</html>", "JSON 아님")):
+            h = http(lambda m, u, kw, b=body: Resp(b))
+            with self.assertRaisesRegex(RuntimeError, msg):
+                w.census_series({"hs": "8504"}, "k", "2016-01", NOW, h)
+
+    def test_series_added_to_an_existing_feed_starts_as_baseline(self):
+        cfg = json.loads(json.dumps(CFG))
+        cfg["ecos"], cfg["kosis"], cfg["census"] = [], [], cfg["census"][:1]
+        table = {p: [("BMW", 6000)] for p in months("2022-10", "2026-08")}
+        ps = months("2016-01", "2026-07")
+        vals = [(p, 100_000_000) for p in ps] + [("2026-08", 400_000_000)]  # a jump that would be a record
+
+        def route(values):
+            def fn(method, url, kw):
+                if url.startswith(w.CENSUS_API):
+                    return Resp(json.dumps(census_rows(values)))
+                return kaida_months(table)(method, url, kw)
+            return fn
+        before = w.run(cfg | {"census": []}, now=NOW, previous=None, http=http(route(vals)))
+        added = w.run(cfg, now=NOW + dt.timedelta(days=1), previous=before, http=http(route(vals)), census_key="c")
+        self.assertEqual([e for e in added["events"] if e["series"] == cfg["census"][0]["id"]], [])
+        row = next(s for s in added["series"] if s["id"] == cfg["census"][0]["id"])
+        self.assertEqual((row["kind"], row["unit"], row["summary"]["value"]), ("trade", "백만달러", 400.0))
+        nxt = w.run(cfg, now=NOW + dt.timedelta(days=30), previous=added, http=http(route(vals + [("2026-09", 500_000_000)])), census_key="c")
+        texts = [e["text"] for e in nxt["events"] if e.get("series") == cfg["census"][0]["id"]]
+        self.assertTrue(any(t.startswith("미국 수입(한국산) 변압기·전력변환기(HS 8504) 2026-09 500(백만달러) · 2016-01 이후 최고") for t in texts), texts)
 
 
 if __name__ == "__main__":

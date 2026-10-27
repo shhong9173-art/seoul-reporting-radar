@@ -895,7 +895,8 @@ test('kr_stats shows KAIDA ranks, price and production series with signals, and 
     rules: ['같은 품목·같은 지수 기준·같은 단위 안에서만 비교한다.'],
     series: [series('ppi-plate', '생산자물가 중후판', 'price', '2020=100', '2026-09', 150.84, 3.02, 12.38, [{ kind: '최고(기간)', text: '2023-10(153.04) 이후 최고 — 35개월 만' }], ['포스코', '현대제철']),
       series('ppi-switch', '생산자물가 전기개폐용스위치', 'price', '2020=100', '2026-09', 123.74, 0, 4.15, [], ['LS일렉트릭']),
-      series('steel-80', '철강 생산 용융아연도강판(철강협회)', 'volume', '천톤', '2026-08', 789, 4.37, 17.76, [{ kind: '조회 범위 최고', text: '2016-01 이후 최고(조회 범위 안)' }], ['동국씨엠'])],
+      series('steel-80', '철강 생산 용융아연도강판(철강협회)', 'volume', '천톤', '2026-08', 789, 4.37, 17.76, [{ kind: '조회 범위 최고', text: '2016-01 이후 최고(조회 범위 안)' }], ['동국씨엠']),
+      series('us-imp-8504', '미국 수입(한국산) 변압기·전력변환기(HS 8504)', 'trade', '백만달러', '2026-08', 169.83, -1.95, 31.2, [{ kind: '전년 대비 큰 변동', text: '전년 같은 달(2025-08, 129.4) 대비 +31.2%' }], ['HD현대일렉트릭', 'LS일렉트릭'])],
     kaidaMonths: {},
     kaida: { period: '2026-09', total: 34904, brands: [{ brand: 'Tesla', units: 12372, share: 35.45, rank: 1, prevRank: 1, yoy: 36.42 },
       { brand: 'BMW', beat: 'BMW코리아', units: 6066, share: 17.38, rank: 2, prevRank: 2, yoy: -8.23 },
@@ -919,6 +920,9 @@ test('kr_stats shows KAIDA ranks, price and production series with signals, and 
   assert.doesNotMatch(k.text, /전기개폐용스위치/);
   assert.match((await call('kr_stats', { section: 'price', show_all: true }, opts)).text, /전기개폐용스위치/);
   assert.match(k.text, /\[생산·재고 · KOSIS\(철강협회·광공업동향\)\] 1개 계열[\s\S]*용융아연도강판[\s\S]*2016-01 이후 최고\(조회 범위 안\)/);
+  const us = await call('kr_stats', { section: 'us_imports' }, opts);
+  assert.match(us.text, /\[미국 수입\(한국산\) · US Census 품목별 월간 일반수입액\] 1개 계열[\s\S]*변압기·전력변환기\(HS 8504\) · 2026-08 169\.83\(백만달러\)[\s\S]*\+31\.2%/);
+  assert.doesNotMatch(us.text, /용융아연도강판/);
   const r = await call('radar_today', {}, opts);
   const b = r.text.split('[B · ')[1].split('[C · ')[0];
   assert.match(b, /월간 통계: 생산자물가 중후판 2026-09 150\.84\(2020=100\) · 2023-10\(153\.04\) 이후 최고/);
