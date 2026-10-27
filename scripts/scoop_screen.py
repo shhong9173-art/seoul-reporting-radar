@@ -463,6 +463,20 @@ def main():
             print(c["company"], "|", queries(c), "|", c["numbers"][:4])
         return
     rows = screen(cands, now=now)
+    dart_key = os.environ.get("DART_API_KEY", "").strip()
+    if dart_key:
+        # Original filing facts and same-company prior comparison for DART leads that could reach the reporter.
+        import requests
+        import dart_filing_facts
+        from dart_lineage import zip_documents
+        targets = [r for r in rows if r.get("verdict") in ("미보도 후보", "미확인")]
+        dart_filing_facts.enrich(targets, dart_key, dart_filing_facts.load_corp_codes(), fetch_documents=zip_documents, get=requests.get)
+        got = [r["filing"] for r in targets if r.get("filing")]
+        inputs["filingFacts"] = {"read": sum(1 for x in got if x.get("facts") is not None and not x.get("error")),
+                                 "routine": sum(1 for x in got if x.get("routine")), "failed": sum(1 for x in got if x.get("error"))}
+        print(f"::notice title=scoop-screen-filings::DART 원문 요점 {inputs['filingFacts']['read']}건 · 일상 {inputs['filingFacts']['routine']}건 · 실패 {inputs['filingFacts']['failed']}건")
+    else:
+        print("::warning title=scoop-screen-filings::DART_API_KEY 미설정 — 원문 요점·직전 비교 생략")
     doc = report(rows, now=now, inputs=inputs)
     if a.out:
         Path(a.out).write_text(json.dumps(doc, ensure_ascii=False, indent=1), encoding="utf-8")

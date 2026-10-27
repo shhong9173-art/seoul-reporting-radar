@@ -39,4 +39,5 @@ jobs:
           NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
           NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
           MCP_ACCESS_TOKEN: ${{ secrets.MCP_ACCESS_TOKEN }}
+          DART_API_KEY: ${{ secrets.DART_API_KEY }}
         run: python scripts/scoop_screen.py
