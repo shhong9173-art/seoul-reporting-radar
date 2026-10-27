@@ -5,8 +5,10 @@ Logs must stay counts-only: this module never prints document contents.
 """
 from __future__ import annotations
 
+import datetime as dt
 import hashlib
 import json
+import os
 import re
 
 WORKER = "https://seoul-reporting-radar.shhong9173.workers.dev"
@@ -88,3 +90,25 @@ def relay(url, token, *, get=None, timeout=40):
     if upstream != 200:
         return upstream, None, f"원 사이트 HTTP {upstream}(중계)"
     return upstream, r.text, None
+
+
+LATE_HOURS = 6
+
+
+def late_scheduled_duplicate(previous, now, *, hours=LATE_HOURS, env=None):
+    """True when this is a GitHub cron run arriving after the same watch already ran (normally the on-time
+    Cloudflare request). GitHub's cron is often hours late; the late copy is skipped. Manual, push and
+    Cloudflare-requested runs (workflow_dispatch) never skip, and a missing or old result never skips —
+    so GitHub's cron still covers a failed Cloudflare request."""
+    env = os.environ if env is None else env
+    if env.get("GITHUB_EVENT_NAME") != "schedule" or not isinstance(previous, dict):
+        return False
+    try:
+        last = dt.datetime.fromisoformat(str(previous.get("generatedAt")))
+        age = (now - last).total_seconds() / 3600
+    except (TypeError, ValueError):
+        return False
+    if 0 <= age < hours:
+        print(f"::notice title=skip-late-schedule::직전 결과가 {age:.1f}시간 전 — 늦게 도착한 GitHub 예약 실행이라 건너뜀(결과 유지)")
+        return True
+    return False

@@ -238,6 +238,8 @@ def main():
             previous = private_store.get("partner-filings", token)
         except private_store.StoreError as e:
             print(f"::warning title=partner-state::이전 상태 조회 실패({e}) — 신규 표시는 이번 실행 기준")
+    if private_store.late_scheduled_duplicate(previous, now):
+        return
     doc = run(cfg, now=now, previous=previous)
     by = {}
     for c in doc["checks"]:

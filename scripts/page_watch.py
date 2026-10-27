@@ -253,6 +253,8 @@ def main():
             previous = private_store.get("page-watch", token)
         except private_store.StoreError as e:
             sys.exit(f"이전 상태 조회 실패({e}) — 비교 기준이 없어 중단(변경 없음으로 처리하지 않음)")
+    if private_store.late_scheduled_duplicate(previous, now):
+        return
     doc = run(pages, now=now, previous=previous)
     new_events = [e for e in doc["events"] if e["detectedAt"] == doc["generatedAt"]]
     # Public log: response codes and counts only — never the signal text or the changes.

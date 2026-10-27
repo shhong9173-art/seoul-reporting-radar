@@ -454,6 +454,14 @@ def main():
     ap.add_argument("--dry-run", action="store_true", help="검색 없이 후보·질의만 만든다")
     a = ap.parse_args()
     now = now_kst()
+    token = os.environ.get("MCP_ACCESS_TOKEN", "").strip()
+    if token and os.environ.get("GITHUB_EVENT_NAME") == "schedule" and not a.dry_run:
+        import private_store
+        try:
+            if private_store.late_scheduled_duplicate(private_store.get("scoop-screen", token), now):
+                return
+        except private_store.StoreError:
+            pass  # cannot tell — run
     clues, stats = load(ROOT / "tools/clues.json") or {}, load(ROOT / "tools/stats.json") or {}
     cands = select(clues, stats, now=now, limit=a.limit)
     inputs = {"cluesGeneratedAt": clues.get("generatedAt"), "statsGeneratedAt": stats.get("generatedAt"),
