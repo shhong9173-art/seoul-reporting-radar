@@ -804,6 +804,63 @@ test('weekly review groups judgments by watch and DART filing type, and keeps la
   assert.match(later.text, /- 감시 미상\(지금 목록에 없음\) 2 — 봤음 2/);
 });
 
+test('kr_signals shows FTC decisions by role, KEPCO bids and commodity prices, and radar_today ranks them', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const doc = { schema: 'kr_signals/v1', generatedAt: '2026-10-26T08:30:00+09:00', baselineSince: '2026-10-20T08:30:00+09:00',
+    checks: [{ source: '공정위 의결서', status: 'partial', listed: 68, decisions: 64, read: 40, pending: 24, kept: 4 },
+      { source: '한전 전자입찰', status: 'unset', error: 'KEPCO_API_KEY 미설정' }, { source: 'KOMIS 아연', status: 'ok', rows: 714 }],
+    rules: ['공정위 의결서는 의결일과 파일 등록이 다르다.'],
+    decisions: [
+      { id: 'ftc:약식2026-129', decisionNo: '약식2026-129', caseNos: ['2023유대1720'], name: '금호타이어(주)의 대리점법 등 위반행위에 대한 건', action: '시정명령',
+        decidedOn: '2026-10-12', fileDate: '2026-10-24 10:59', flags: [], isNew: true, url: 'https://case.ftc.go.kr/ocp/co/openDocView.do?docTy=LTFR&docId=1',
+        mentions: [{ company: '금호타이어', role: '피심인', related: false, snippet: '금호타이어 주식회사 광주광역시 광산구', orderAmounts: [] }], orderExcerpt: '1. 피심인은 …' },
+      { id: 'ftc:의결2026-200', decisionNo: '의결2026-200', caseNos: ['2025국카2422'], name: '현대자동차(주) 및 기아(주) 발주 차량용 내장재 표면처리 입찰 관련 3개 사업자의 부당한 공동행위에 대한 건',
+        action: '과징금', decidedOn: '2026-09-30', fileDate: '2026-10-23 10:00', flags: [], url: 'https://case.ftc.go.kr/x2',
+        mentions: [{ company: '현대차', role: '발주처', related: false }, { company: '기아', role: '발주처', related: false }] },
+      { id: 'ftc:의결2026-179', decisionNo: '의결2026-179', caseNos: ['2026국결1580'], name: '롯데케미칼 주식회사 등 4개 사업자의 기업결합 제한규정 위반행위에 대한 건',
+        action: '시정명령', decidedOn: '2026-08-31', fileDate: '2026-10-24 14:10', flags: ['기업결합'], url: 'https://case.ftc.go.kr/x3',
+        mentions: [{ company: '한화솔루션', role: '본문 언급', related: false }] },
+      { id: 'ftc:결정2026-040', decisionNo: '결정2026-040', caseNos: ['2026기결0100'], name: '6개 강관 제조사의 부당한 공동행위에 대한 건 관련 현대제철(주)의 과징금 납부기한 연장 및 분할납부 신청에 대한 건',
+        action: '인용', decidedOn: '2026-10-10', fileDate: '2026-10-23 09:00', flags: ['과징금 납부기한 연장·분할납부', '이의신청 재결'], note: '개방문서 없음(PDF만) — 사건명만 대조',
+        url: 'https://case.ftc.go.kr/ocp/co/ltfr.do?caseNo=2026기결0100', mentions: [{ company: '현대제철', role: '사건명 언급', related: false }] }],
+    kepco: [{ id: 'kepco:COM01:R26-1', no: 'R26-1', company: '한국전력공사', name: '154kV 지중 전력케이블 구매', price: 12300000000, big: true, noticeDate: '20261024', state: '공고진행' },
+      { id: 'kepco:COM05:R26-3', no: 'R26-3', company: '한국중부발전', name: '배전용 변압기 단가계약', price: 900000000, big: false, noticeDate: '20261023', state: '마감' }],
+    prices: [{ id: 'zinc', name: '아연', basis: 'LME CASH', unit: 'USD/ton', beats: ['고려아연', '영풍'], since: '2024-01-01',
+      summary: { date: '2026-10-23', price: 3900, day: 2.9, week: 3.28, month: -3.94, monthFrom: '2026-09-25', ytd: 25.56, ytdFrom: '2026-01-02', stock: 166950, stockMonth: 37.29,
+        high: { date: '2026-09-09', price: 4186 }, low: { date: '2024-02-14', price: 2285.5 }, span: ['2024-01-02', '2026-10-23'] },
+      signals: [{ kind: 'LME 재고 큰 변동', text: '재고 121,600 → 166,950(+37.3%, 2026-09-25 대비)' }] }],
+    events: [{ id: 'px:zinc:최고(기간):2026-10-23', kind: '원자재 가격', signal: '최고(기간)', commodity: 'zinc', company: '고려아연·영풍', detectedAt: '2026-10-25T15:20:00+09:00', text: '아연(LME CASH, USD/ton) 3,900.00 · 2025-03-03(4,000.00) 이후 최고 — 230일 만' },
+      { id: 'px:zinc:LME 재고 큰 변동:2026-10-23', kind: '원자재 가격', signal: 'LME 재고 큰 변동', commodity: 'zinc', company: '고려아연·영풍', detectedAt: '2026-10-25T15:20:00+09:00', text: '아연 재고 +37.3%' }],
+    confirmedScoops: 0 };
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/kr-signals', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
+  const k = await call('kr_signals', {}, opts);
+  assert.match(k.text, /질의 1\/3 정상 · 미확인\(0건 아님\): 공정위 의결서\(partial, 전문 대기 24건\), 한전 전자입찰\(KEPCO_API_KEY 미설정\)/);
+  assert.match(k.text, /\[공정위 의결서 · 의결일 또는 파일 등록 최근 60일 · 출입처가 피심인·발주처·사건명에 있는 것\] 3건/);
+  assert.match(k.text, /\[신규\] 의결 2026-10-12 · 파일 등록 2026-10-24 10:59 · 시정명령[\s\S]*출입처: 금호타이어 피심인[\s\S]*원문 발췌: 금호타이어 주식회사/);
+  assert.match(k.text, /출입처: 현대차 발주처 \/ 기아 발주처/);
+  assert.doesNotMatch(k.text, /롯데케미칼/);  // body-only mention needs include_mentions
+  assert.match((await call('kr_signals', { section: 'ftc', include_mentions: true }, opts)).text, /롯데케미칼/);
+  assert.match(k.text, /⚠ 개방문서 없음\(PDF만\)/);
+  assert.match(k.text, /\[한전 전자입찰\] 미설정 — GitHub Secrets에 KEPCO_API_KEY/);
+  assert.match(k.text, /- 아연 LME CASH\(USD\/ton\) · 2026-10-23 3,900\n   전일 \+2\.9% · 1주 \+3\.28% · 한 달\(2026-09-25~\) -3\.94% · 연초\(2026-01-02~\) \+25\.56% · LME 재고 166,950\(한 달 \+37\.29%\)/);
+  assert.match(k.text, /조회 범위\(2024-01-02~2026-10-23\) 최고 2026-09-09 4,186 · 최저 2024-02-14 2,285\.5/);
+  const r = await call('radar_today', {}, opts);
+  assert.match(r.text, /공정위·한전·원자재: 미설정 한전 전자입찰\(KEPCO_API_KEY 미설정\) · 공정위 의결서 원문 대기 24건\(실행당 읽기 한도, 다음 실행에서 읽음\)/);
+  assert.doesNotMatch(r.text, /공정위·한전·원자재: 일부 실패/);
+  const a = r.text.split('[A · ')[1].split('[B · ')[0];
+  const b = r.text.split('[B · ')[1].split('[C · ')[0];
+  assert.match(a, /공정위 의결서\(시정명령, 의결 2026-10-12\): 금호타이어\(주\)의 대리점법 등 위반행위에 대한 건 — 금호타이어 피심인/);
+  assert.match(a, /현대제철\(주\)의 과징금 납부기한 연장 및 분할납부 신청/);  // installment request by a beat company
+  assert.match(b, /현대자동차\(주\) 및 기아\(주\) 발주[\s\S]*현대차 발주처, 기아 발주처/);
+  assert.match(b, /한전 전자입찰 한국전력공사 「154kV 지중 전력케이블 구매」 · 추정가격 약 123억원 · 공고진행/);
+  assert.match(b, /원자재 가격: 아연\(LME CASH, USD\/ton\) 3,900\.00 · 2025-03-03\(4,000\.00\) 이후 최고/);
+  assert.doesNotMatch(a + b, /롯데케미칼|배전용 변압기|재고 \+37\.3%/);  // body mention, small bid, stock move → C
+  assert.match(r.text, /기자 전용 감시 8개/);
+  assert.deepEqual(dueAt(new Date('2026-10-26T23:30:00Z')), ['kr-signals.yml']);  // Tue 08:30 KST
+  assert.deepEqual(dueAt(new Date('2026-10-27T06:20:00Z')), ['kr-signals.yml']);  // Tue 15:20 KST
+});
+
 test('non-MCP paths keep the canonical Pages redirect', async () => {
   const r = await worker.fetch(new Request(ORIGIN + '/scoop.json?v=1'), {}, {});
   assert.equal(r.status, 307);

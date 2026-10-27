@@ -1,0 +1,326 @@
+"""KR signals watch: FTC decision list/text parsing (live layout of case.ftc.go.kr, 2026-10-27), whole-name matching
+(포스코 vs 포스코이앤씨, 발주처 vs 피심인), KEPCO bid filtering and state changes, KOMIS price signals (range records with
+dates, one-month moves, LME stock), baseline and budget handling, failures kept as failures."""
+import datetime as dt
+import json
+import sys
+import unittest
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+import kr_signals_watch as w  # noqa: E402
+
+KST = dt.timezone(dt.timedelta(hours=9))
+NOW = dt.datetime(2026, 10, 27, 15, 20, tzinfo=KST)
+CFG = json.loads((Path(__file__).resolve().parents[1] / "data" / "kr_signals.json").read_text(encoding="utf-8"))
+
+
+def row(csno, blno, name, action, apdate, file_id, doc=None):
+    """One <tr> of ltfr.do as served on 2026-10-27 (hidden inputs, then PDF and open-document cells)."""
+    view = ("" if doc is None else
+            f'<td><a class="down_files html" href="#view" onclick="javascript:fn_htmlView(this);" title="{name} 개방문서를 미리보기 합니다"></a>\n'
+            f'    \t                    <input type="hidden" value="{doc[0]}">\n        \t                <input type="hidden" value="{doc[1]}">\n'
+            f'        \t                <input type="hidden" value="{doc[2]}">\n                        </td>')
+    return (f'<tr>\n<td class="rwd_hidden">{csno}</td>\n<td class="rwd_hidden">{blno}</td>\n'
+            f'<td><a href="#link" onclick="javascript:fn_ltfrView(this);">{name}</a>\n'
+            f'<input type="hidden" name="csno" value="{csno}">\n<input type="hidden" name="blno" value="{blno}">\n'
+            f'<input type="hidden" name="csname" value="{name}">\n<input type="hidden" name="ttcnts" value="{action}">\n'
+            f'<input type="hidden" name="apdate" value="{apdate}">\n<input type="hidden" name="fileId" value="{file_id}">\n'
+            f'<input type="hidden" name="fileSn" value="2">\n<input type="hidden" name="fileNm" value="의결서.pdf">\n</td>\n'
+            f'<td>{action}</td>\n<td class="rwd_hidden">{apdate}</td>\n<td><a class="down_files pdf" href="#down"></a></td>\n{view}\n</tr>')
+
+
+def page(rows):
+    return f"<html><table><thead><tr><th>사건명</th></tr></thead><tbody>{''.join(rows)}</tbody></table></html>"
+
+
+KUMHO = row("2023유대1720", "약식2025-129", "금호타이어(주)의 대리점법 등 위반행위에 대한 건", "시정명령", "2026-10-12", "20261021105938510993",
+            ("20261021105938510993", "15089", "OCPLTFR1"))
+POSCO = row("2024구사0058", "약식2025-053", "(주)포스코 및 포스코홀딩스(주)의 부당한 광고행위에 대한 건", "과징금", "2026-10-02", "20261020141800570306",
+            ("20261020141800570306", "14879", "OCPLTFR2"))
+BUYER = row("2025국카2422", "의결2026-200", "현대자동차(주) 및 기아(주) 발주 차량용 내장재 표면처리 입찰 관련 3개 사업자의 부당한 공동행위에 대한 건",
+            "과징금", "2026-09-30", "20261015100000000001", ("20261015100000000001", "15001", "OCPLTFR3"))
+POSCO_ENC = row("2025서카0001", "의결2026-150", "㈜포스코이앤씨 발주 시스템 가구 입찰 관련 9개 사업자의 부당한 공동행위에 대한 건", "고발", "2026-09-01",
+                "20261001100000000002", ("20261001100000000002", "15002", "OCPLTFR4"))
+SCHOOL = [row(f"2026입담{n}", "의결2026-204", "용인시 영문중학교 발주 교복 학교주관구매 입찰 관련 4개 사업자의 부당한 공동행위에 대한 건", "과징금",
+              "2026-10-01", "20261016105000140602", ("20261016105000140602", "15417", "OCPLTFR5")) for n in ("1265", "0347")]
+INSTALL = row("2026기결0100", "결정2026-040", "6개 강관 제조사의 부당한 공동행위에 대한 건 관련 현대제철(주)의 과징금 납부기한 연장 및 분할납부 신청에 대한 건",
+              "인용", "2026-10-10", "20261022090000000003")  # no open document (PDF only)
+
+DOCS = {
+    "15089": "<html><script>var x=1;</script><div>목차 주요사항 주문 이유 1. 기초사실 4 피심인의 대리점은 전부 비전속</div><div>주요사항 공 정 거 래 위 원 회 "
+             "사건번호2023유대1720 사건명금호타이어(주)의 대리점법 등 위반행위에 대한 건 피 심 인금호타이어 주식회사 광주광역시 광산구 어등대로 658 "
+             "대표이사 정ㅇㅇ 심 의 종 결 일2025. 9. 27. 주문 1. 피심인은 대리점에게 판매금액 정보를 제공하도록 요구하는 행위를 다시 하여서는 아니 된다. "
+             "이유 1. 기초사실 가. 피심인 적격성</div></html>",
+    "14879": "<div>사건명(주)포스코 및 포스코홀딩스(주)의 부당한 광고행위에 대한 건 피 심 인1. 주식회사 포스코 포항시 남구 동해안로6261 대표이사 이○○ "
+             "2. 포스코홀딩스 주식회사 포항시 남구 동해안로6261 심의종결일2025. 4. 7. 주문 1. 피심인 주식회사 포스코는 거짓·과장의 광고 행위를 다시 하여서는 "
+             "아니 된다. 2. 피심인 주식회사 포스코는 과징금 1,234백만원을 납부하여야 한다. 이유 1. 기초사실 가. 포스코퓨처엠과 포스코인터내셔널은 이 사건과 무관</div>",
+    "15001": "<div>사건명현대자동차(주) 및 기아(주) 발주 차량용 내장재 표면처리 입찰 관련 3개 사업자의 부당한 공동행위에 대한 건 피 심 인1. 주식회사 갑을 2. 을병(주) "
+             "심의종결일2026. 9. 1. 주문 1. 피심인들은 다시 하여서는 아니 된다. 이유 1. 기초사실 현대자동차 주식회사와 기아 주식회사가 발주한</div>",
+    "15002": "<div>사건명㈜포스코이앤씨 발주 시스템 가구 입찰 관련 9개 사업자의 부당한 공동행위에 대한 건 피 심 인1. 가구(주) 심의종결일2026. 8. 1. "
+             "주문 1. 피심인은 아니 된다. 이유 1. 기초사실 포스코이앤씨가 발주한</div>",
+    "15417": "<div>사건명용인시 처인구 소재 8개 중고등학교 발주 교복 입찰 관련 4개 사업자의 부당한 공동행위에 대한 건 피 심 인1. ㅇㅇㅇ(스마트학생복 대표) "
+             "심의종결일2026. 9. 4. 주문 피심인 ㅇㅇㅇ는 과징금 39,000,000원 이유 1. 기초사실</div>",
+}
+
+
+class Resp:
+    def __init__(self, text="", status=200, payload=None):
+        self.text, self.status_code, self._payload = text, status, payload
+
+    def json(self):
+        if self._payload is None:
+            return json.loads(self.text)
+        return self._payload
+
+
+class FakeSession:
+    def __init__(self, routes):
+        self.routes, self.calls = routes, []
+
+    def request(self, method, url, *, timeout=None, **kw):
+        self.calls.append((method, url, kw.get("params") or kw.get("data")))
+        for prefix, fn in self.routes.items():
+            if url.startswith(prefix):
+                out = fn(method, url, kw)
+                if isinstance(out, Exception):
+                    raise out
+                return out
+        return Resp("blocked", 599)
+
+
+def ftc_routes(rows, docs=DOCS, fail_list=False):
+    def lst(method, url, kw):
+        if fail_list:
+            return Resp("", 503)
+        p = int((kw.get("params") or {}).get("pageIndex", 1))
+        return Resp(page(rows if p == 1 else []))  # page 2 is empty: end of list
+
+    def doc(method, url, kw):
+        return Resp(docs.get(kw["params"]["docCnvrMnNo"], ""))
+    return {w.FTC_LIST: lst, w.FTC_TEXT: doc}
+
+
+def komis_series(start, end, step=1.0, base=3000.0, stock=200000.0, stock_step=0.0):
+    """Daily rows newest first, like getMnrlPrcByMnrkndUnqCd (crtrYmd, cmercPrc, invt)."""
+    rows, d, v, s = [], dt.date.fromisoformat(start), base, stock
+    while d <= dt.date.fromisoformat(end):
+        if d.weekday() < 5:
+            rows.append({"crtrYmd": d.strftime("%Y%m%d"), "cmercPrc": f"{v:.2f}", "invt": f"{s:.2f}"})
+            v += step
+            s += stock_step
+        d += dt.timedelta(days=1)
+    return list(reversed(rows))
+
+
+def komis_routes(series_by_code, fail=()):
+    def crtr(method, url, kw):
+        code = kw["data"]["mnrkndUnqCd"]
+        basis = next(c["basis"] for c in CFG["commodities"] if c["code"] == code)
+        return Resp(payload={"data": [{"cdVal": basis + " suffix", "cdKey": 500}, {"cdVal": "LME 3개월", "cdKey": 503}]})
+
+    def price(method, url, kw):
+        code = kw["data"]["srchMnrkndUnqCd"]
+        if code in fail:
+            return Resp("", 500)
+        return Resp(payload={"dataAvg": {"INFO": {"prcUnitCdNm": "USD", "weigUnitCd": "ton", "prcCrtr": "LME CASH", "archNm": "광물자원공사"}},
+                             "data": {"defaultMnrl": series_by_code.get(code, [])}})
+    return {w.KOMIS_PAGE: lambda *a: Resp("<html></html>"), w.KOMIS_CRTR: crtr, w.KOMIS_PRICE: price}
+
+
+def http(routes):
+    return w.Http(FakeSession(routes), sleep=lambda s: None, gap=0)
+
+
+def flat_cfg(**over):
+    cfg = json.loads(json.dumps(CFG))
+    cfg["commodities"] = over.get("commodities", cfg["commodities"][:1])
+    return cfg
+
+
+class NameMatching(unittest.TestCase):
+    def setUp(self):
+        self.pats = w.company_patterns(CFG)
+
+    def who(self, name, text=""):
+        return [(m["company"], m["role"]) for m in w.mentions(w._norm(name), w.doc_text(text) if text else "", self.pats)]
+
+    def test_whole_names_only(self):
+        self.assertEqual(self.who("(주)포스코에이앤씨건축사사무소 발주 빌트인 특판가구"), [])
+        self.assertEqual(self.who("㈜포스코이앤씨 발주 시스템 가구 입찰"), [])
+        self.assertEqual(self.who("(주)GS리테일의 가맹사업법 위반"), [])
+        self.assertEqual(self.who("GS25 가맹점"), [])
+        self.assertEqual(self.who("엘에스 기업집단 계열회사의 부당한 지원행위"), [])  # LS지주 only by legal form
+        self.assertEqual(self.who("주식회사 엘에스의 부당 지원"), [("LS지주", "사건명 언급")])
+        self.assertEqual(self.who("현대제철이 발주한"), [("현대제철", "발주처")])
+
+    def test_buyer_is_not_respondent(self):
+        found = self.who(BUYER.split('name="csname" value="')[1].split('"')[0], DOCS["15001"])
+        self.assertEqual(sorted(found), [("기아", "발주처"), ("현대차", "발주처")])
+
+    def test_respondent_block_skips_table_of_contents(self):
+        resp, order = w.sections(w.doc_text(DOCS["15089"]))
+        self.assertTrue(resp.startswith("금호타이어 주식회사 광주광역시"))
+        self.assertTrue(order.startswith("1. 피심인은 대리점에게"))
+        m = w.mentions(w._norm("금호타이어(주)의 대리점법 등 위반행위에 대한 건"), w.doc_text(DOCS["15089"]), self.pats)
+        self.assertEqual([(x["company"], x["role"]) for x in m], [("금호타이어", "피심인")])
+        self.assertTrue(m[0]["snippet"].startswith("금호타이어 주식회사"))
+
+    def test_order_amount_is_quoted_not_computed(self):
+        m = {x["company"]: x for x in w.mentions(w._norm("(주)포스코 및 포스코홀딩스(주)의 부당한 광고행위에 대한 건"), w.doc_text(DOCS["14879"]), self.pats)}
+        self.assertEqual(m["포스코"]["role"], "피심인")
+        self.assertEqual(m["포스코홀딩스"]["role"], "피심인")
+        self.assertEqual(m["포스코"]["orderAmounts"], ["1,234백만원"])
+        self.assertNotIn("포스코퓨처엠", m)
+
+
+class FtcWatch(unittest.TestCase):
+    def test_list_parsing_groups_case_numbers_and_reads_open_document_ids(self):
+        rows, last = w.parse_ftc_list(page([KUMHO, *SCHOOL, INSTALL]))
+        self.assertEqual(len(rows), 4)
+        self.assertEqual(rows[0]["doc"], {"docId": "20261021105938510993", "docCnvrMnNo": "15089", "id": "OCPLTFR1"})
+        self.assertIsNone(rows[3]["doc"])
+        self.assertEqual(w.file_date("20261016105000140602"), "2026-10-16 10:50")
+
+    def test_first_run_is_baseline_keeps_only_named_decisions(self):
+        h = http(ftc_routes([KUMHO, POSCO, BUYER, POSCO_ENC, *SCHOOL, INSTALL]))
+        decisions, seen, check = w.ftc(CFG, NOW, None, h)
+        ids = {d["id"]: d for d in decisions}
+        self.assertEqual(sorted(ids), ["ftc:결정2026-040", "ftc:약식2025-053", "ftc:약식2025-129", "ftc:의결2026-200"])
+        self.assertTrue(all(not d["isNew"] for d in decisions))
+        self.assertEqual(check["status"], "ok")
+        self.assertEqual((check["listed"], check["decisions"], check["read"]), (7, 6, 5))  # school case: 2 case numbers, 1 decision
+        install = ids["ftc:결정2026-040"]
+        self.assertEqual(install["flags"], ["과징금 납부기한 연장·분할납부", "이의신청 재결"])
+        self.assertEqual(install["mentions"][0]["company"], "현대제철")
+        self.assertIn("개방문서 없음", install["note"])
+        self.assertTrue(install["url"].endswith("caseNo=2026기결0100"))
+        self.assertEqual(ids["ftc:약식2025-129"]["fileDate"], "2026-10-21 10:59")
+        self.assertIn("openDocView.do?docTy=LTFR&docId=20261021105938510993", ids["ftc:약식2025-129"]["url"])
+        self.assertIn("ftc:의결2026-204", seen)  # read once, never again
+
+    def test_next_run_reads_only_new_decisions_and_marks_them_new(self):
+        h1 = http(ftc_routes([KUMHO, *SCHOOL]))
+        d1, seen, _ = w.ftc(CFG, NOW, None, h1)
+        prev = {"decisions": d1, "ftcSeen": seen}
+        s2 = FakeSession(ftc_routes([POSCO, KUMHO, *SCHOOL]))
+        d2, _, check = w.ftc(CFG, NOW + dt.timedelta(hours=7), prev, w.Http(s2, sleep=lambda s: None, gap=0))
+        docs_read = [c for c in s2.calls if c[1].startswith(w.FTC_TEXT)]
+        self.assertEqual(len(docs_read), 1)
+        new = {d["id"]: d for d in d2}
+        self.assertTrue(new["ftc:약식2025-053"]["isNew"])
+        self.assertFalse(new["ftc:약식2025-129"]["isNew"])
+        self.assertEqual(check["read"], 1)
+
+    def test_budget_leaves_rest_pending_and_list_failure_is_not_zero(self):
+        old = w.FTC_DOC_BUDGET
+        w.FTC_DOC_BUDGET = 1
+        try:
+            _, seen, check = w.ftc(CFG, NOW, None, http(ftc_routes([KUMHO, POSCO])))
+        finally:
+            w.FTC_DOC_BUDGET = old
+        self.assertEqual((check["status"], check["pending"]), ("partial", 1))
+        self.assertNotIn("ftc:약식2025-053", seen)  # retried next run
+        decisions, _, check = w.ftc(CFG, NOW, None, http(ftc_routes([], fail_list=True)))
+        self.assertEqual((check["status"], check["error"]), ("failed", "HTTP 503"))
+        self.assertEqual(decisions, [])
+
+
+class KepcoWatch(unittest.TestCase):
+    def data(self, state="PreAttendProgress"):
+        return {"data": [
+            {"companyId": "COM01", "no": "R26-1", "name": "154kV 지중 전력케이블 구매", "presumedPrice": "12,300,000,000", "noticeDate": "20261024103000",
+             "progressState": state, "purchaseType": "Product", "competitionType": "Open", "bidType": "LowestPrice", "placeName": "한국전력공사",
+             "filename1": "공고_구매규격서.pdf"},
+            {"companyId": "COM04", "no": "R26-2", "name": "사옥 청소 용역", "presumedPrice": "300000000", "noticeDate": "20261024", "progressState": "Close"},
+            {"companyId": "COM05", "no": "R26-3", "name": "배전용 변압기 단가계약", "presumedPrice": "900000000", "noticeDate": "20261023", "progressState": "Close"}]}
+
+    def test_unset_key_is_not_a_failure_and_not_zero(self):
+        rows, events, check = w.kepco(CFG, "", NOW, None, http({}))
+        self.assertEqual((check["status"], rows, events), ("unset", [], []))
+
+    def test_keeps_power_equipment_marks_big_and_tracks_state(self):
+        routes = {w.KEPCO_API: lambda m, u, kw: Resp(payload=self.data())}
+        rows, events, check = w.kepco(CFG, "k" * 40, NOW, None, http(routes))
+        self.assertEqual([r["name"] for r in rows], ["154kV 지중 전력케이블 구매", "배전용 변압기 단가계약"])
+        self.assertEqual((rows[0]["price"], rows[0]["big"], rows[0]["state"], rows[0]["company"]), (12_300_000_000, True, "공고진행", "한국전력공사"))
+        self.assertFalse(rows[1]["big"])
+        self.assertEqual((check["returned"], check["kept"]), (3, 2))
+        routes2 = {w.KEPCO_API: lambda m, u, kw: Resp(payload=self.data("Fail"))}
+        rows2, events2, _ = w.kepco(CFG, "k" * 40, NOW + dt.timedelta(days=1), {"kepco": rows}, http(routes2))
+        self.assertEqual(len(events2), 1)
+        self.assertIn("공고진행 → 유찰", events2[0]["text"])
+
+    def test_bad_answer_keeps_previous_rows(self):
+        prev = {"kepco": [{"id": "kepco:COM01:X", "noticeDate": "20261020", "name": "x"}]}
+        rows, _, check = w.kepco(CFG, "k" * 40, NOW, prev, http({w.KEPCO_API: lambda m, u, kw: Resp(payload={"errCd": 401})}))
+        self.assertEqual(check["status"], "failed")
+        self.assertEqual([r["id"] for r in rows], ["kepco:COM01:X"])
+
+
+class PriceSignals(unittest.TestCase):
+    def test_range_record_and_month_move_with_dates(self):
+        zinc = komis_series("2024-01-01", "2026-10-26", step=1.0)  # steady rise: latest is the highest since 2024-01-01
+        cfg = flat_cfg()
+        prices, events, checks = w.komis(cfg, NOW, None, http(komis_routes({"MNRL0023": zinc})))
+        p = prices[0]
+        self.assertEqual(checks[0]["status"], "ok")
+        self.assertEqual(p["summary"]["date"], "2026-10-26")
+        self.assertEqual(p["basis"], "LME CASH suffix")
+        self.assertEqual(p["unit"], "USD/ton")
+        kinds = {s["kind"]: s["text"] for s in p["signals"]}
+        self.assertIn("조회 범위 최고", kinds)
+        self.assertEqual(kinds["조회 범위 최고"], "2024-01-01 이후 최고(조회 범위 안)")
+        self.assertNotIn("한 달 큰 변동", kinds)  # ~21/3700 per month, far below 10%
+        self.assertEqual(len(events), 1)
+        self.assertIn("아연(LME CASH suffix, USD/ton)", events[0]["text"])
+
+    def test_since_date_with_gap_and_no_repeat_within_two_weeks(self):
+        rows = komis_series("2024-01-01", "2026-10-26", step=0.0, base=3000.0)
+        for r in rows:  # one old spike above today's level, then flat, then a jump today
+            if r["crtrYmd"] == "20250303":
+                r["cmercPrc"] = "4000.00"
+        rows[0]["cmercPrc"] = "3600.00"
+        cfg = flat_cfg()
+        prices, events, _ = w.komis(cfg, NOW, None, http(komis_routes({"MNRL0023": rows})))
+        texts = [s["text"] for s in prices[0]["signals"]]
+        self.assertTrue(any(t.startswith("2025-03-03(4,000.00) 이후 최고") for t in texts), texts)
+        self.assertTrue(any(t.startswith("2026-09-25 대비 +20.0%") for t in texts), texts)
+        prices2, events2, _ = w.komis(cfg, NOW + dt.timedelta(days=1), {"prices": prices, "events": events}, http(komis_routes({"MNRL0023": rows})))
+        self.assertEqual(events2, [])  # same signals within repeatDays are not new events
+
+    def test_new_source_items_compare_only_after_since_and_lme_stock_move(self):
+        cfg = flat_cfg(commodities=[c for c in CFG["commodities"] if c["id"] in ("iron-ore", "copper")])
+        old_and_new = komis_series("2025-06-01", "2026-10-26", step=0.0, base=100.0)
+        copper = komis_series("2024-01-01", "2026-10-26", step=0.0, base=9000.0, stock=100000.0)
+        copper[0]["invt"] = "140000.00"  # LME stock +40% against 21 trading days earlier
+        prices, _, _ = w.komis(cfg, NOW, None, http(komis_routes({"MNRL1011": old_and_new, "MNRL0008": copper})))
+        iron = next(p for p in prices if p["id"] == "iron-ore")
+        self.assertEqual(iron["summary"]["span"][0], "2026-01-05")
+        self.assertIn("자료원", iron["sinceNote"])
+        cu = next(p for p in prices if p["id"] == "copper")
+        self.assertEqual([s["text"] for s in cu["signals"] if s["kind"] == "LME 재고 큰 변동"], ["재고 100,000 → 140,000(+40.0%, 2026-09-25 대비)"])
+        self.assertEqual(cu["summary"]["stockMonth"], 40.0)
+
+    def test_failure_keeps_previous_value_marked_stale(self):
+        cfg = flat_cfg()
+        prev = {"prices": [{"id": "zinc", "name": "아연", "summary": {"date": "2026-10-20"}}]}
+        prices, events, checks = w.komis(cfg, NOW, prev, http(komis_routes({}, fail=("MNRL0023",))))
+        self.assertEqual(checks[0]["status"], "failed")
+        self.assertTrue(prices[0]["stale"])
+        self.assertEqual(events, [])
+
+
+class RunDoc(unittest.TestCase):
+    def test_document_shape_and_unset_kepco_not_partial(self):
+        routes = {**ftc_routes([KUMHO]), **komis_routes({"MNRL0023": komis_series("2026-01-01", "2026-10-26")})}
+        doc = w.run(flat_cfg(), now=NOW, previous=None, http=http(routes), kepco_key="")
+        self.assertEqual(doc["schema"], "kr_signals/v1")
+        self.assertEqual(doc["status"], "complete")
+        self.assertEqual([c["source"] for c in doc["checks"]], ["공정위 의결서", "한전 전자입찰", "KOMIS 아연"])
+        self.assertEqual(doc["confirmedScoops"], 0)
+        self.assertTrue(isinstance(doc["prices"], list) and doc["prices"])
+
+
+if __name__ == "__main__":
+    unittest.main()

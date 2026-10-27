@@ -16,6 +16,7 @@ export const FEEDS = {
   'trade-remedy': { blob: 'trade_remedy', schema: 'trade_remedy/v1', list: 'quotas' },
   'us-litigation': { blob: 'us_litigation', schema: 'us_litigation/v1', list: 'cases' },
   'kr-official': { blob: 'kr_official', schema: 'kr_official/v1', list: 'factories' },
+  'kr-signals': { blob: 'kr_signals', schema: 'kr_signals/v1', list: 'prices' },
 };
 
 // Official trade-remedy listing pages that do not answer GitHub runners (ReadTimeout). Collectors fetch them through
