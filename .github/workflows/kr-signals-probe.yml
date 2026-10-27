@@ -21,4 +21,5 @@ jobs:
           KEPCO_API_KEY: ${{ secrets.KEPCO_API_KEY }}
           KOSIS_API_KEY: ${{ secrets.KOSIS_API_KEY }}
           ECOS_API_KEY: ${{ secrets.ECOS_API_KEY }}
-        run: python scripts/probe/kepco_run.py
+          KIPRIS_SERVICE_KEY: ${{ secrets.KIPRIS_SERVICE_KEY }}
+        run: python scripts/probe/trademark_probe.py
