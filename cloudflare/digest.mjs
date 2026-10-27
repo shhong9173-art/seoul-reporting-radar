@@ -1,4 +1,4 @@
-// radar_today: one private digest over the eight private watches. It reads what the collectors already stored
+// radar_today: one private digest over the nine private watches. It reads what the collectors already stored
 // (no new fetching), keeps what is new since a cutoff, and ranks it. Failed or stale watches are listed first:
 // their silence is "미확인", not "nothing new".
 import { readFeed } from './screen.mjs';
@@ -18,6 +18,7 @@ export const WATCHES = [
   { feed: 'scoop-screen', label: '단독 후보 심사', tool: 'scoop_screen', schedule: '평일 07:10·15:10' },
   { feed: 'kr-official', label: '공장등록·관보', tool: 'kr_official', schedule: '평일 08:10' },
   { feed: 'kr-signals', label: '공정위·한전·원자재', tool: 'kr_signals', schedule: '평일 08:30·15:20' },
+  { feed: 'kr-stats', label: '월간 통계(물가·생산·수입차)', tool: 'kr_stats', schedule: '평일 07:30' },
   { feed: 'trade-remedy', label: '무역구제', tool: 'trade_remedies', schedule: '평일 07:40' },
   { feed: 'us-litigation', label: '미국 소송·ITC', tool: 'us_litigation', schedule: '평일 07:50' },
   { feed: 'partner-filings', label: '해외 파트너 공시', tool: 'partner_filings', schedule: '평일 07:00' },
@@ -109,6 +110,13 @@ function collect(docs, cut, cutDay, { all = false } = {}) {
     if (!recent(e.detectedAt)) continue;
     const tier = e.kind === '원자재 가격' ? (/최고|최저/.test(e.signal ?? '') ? 'B' : 'C') : 'B';
     push(tier, W['kr-signals'], { kind: e.kind === '원자재 가격' ? `원자재 ${e.signal}` : e.kind, id: e.id, date: e.detectedAt, company: e.company, fact: `${e.kind}: ${e.text}` });
+  }
+
+  for (const e of docs['kr-stats']?.events ?? []) {
+    if (!recent(e.detectedAt)) continue;
+    const record = /최고|최저/.test(e.signal ?? '');
+    const tier = e.kind === '수입차 등록' ? (e.top ? 'B' : 'C') : record ? 'B' : 'C';
+    push(tier, W['kr-stats'], { kind: `${e.kind === '수입차 등록' ? '수입차' : '통계'} ${e.signal}`, id: e.id, date: e.detectedAt, company: e.company, fact: `${e.kind}: ${e.text}` });
   }
 
   const tr = docs['trade-remedy'];

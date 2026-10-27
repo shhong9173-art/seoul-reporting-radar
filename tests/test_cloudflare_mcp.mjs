@@ -856,9 +856,52 @@ test('kr_signals shows FTC decisions by role, KEPCO bids and commodity prices, a
   assert.match(b, /한전 전자입찰 한국전력공사 「154kV 지중 전력케이블 구매」 · 추정가격 약 123억원 · 공고진행/);
   assert.match(b, /원자재 가격: 아연\(LME CASH, USD\/ton\) 3,900\.00 · 2025-03-03\(4,000\.00\) 이후 최고/);
   assert.doesNotMatch(a + b, /롯데케미칼|배전용 변압기|재고 \+37\.3%/);  // body mention, small bid, stock move → C
-  assert.match(r.text, /기자 전용 감시 8개/);
+  assert.match(r.text, /기자 전용 감시 9개/);
   assert.deepEqual(dueAt(new Date('2026-10-26T23:30:00Z')), ['kr-signals.yml']);  // Tue 08:30 KST
   assert.deepEqual(dueAt(new Date('2026-10-27T06:20:00Z')), ['kr-signals.yml']);  // Tue 15:20 KST
+});
+
+test('kr_stats shows KAIDA ranks, price and production series with signals, and radar_today ranks records above routine moves', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const series = (id, label, kind, unit, period, value, mom, yoy, signals, beats) => ({ id, source: kind === 'price' ? 'ECOS' : 'KOSIS', label, officialName: label.split(' ').pop(),
+    unit, kind, beats, summary: { period, value, mom, yoy, high: { p: '2021-09', v: 169.92 }, low: { p: '2016-02', v: 70.56 }, span: ['2016-01', period] }, signals, points: [] });
+  const doc = { schema: 'kr_stats/v1', generatedAt: '2026-10-26T07:30:00+09:00', checks: [{ source: 'ECOS 통계', status: 'ok', ok: 23, failed: 0 },
+      { source: 'KOSIS 통계', status: 'ok', ok: 17, failed: 0 }, { source: 'KAIDA 수입 승용차 신규등록', status: 'ok', read: 2, months: 49, latest: '2026-09' }],
+    rules: ['같은 품목·같은 지수 기준·같은 단위 안에서만 비교한다.'],
+    series: [series('ppi-plate', '생산자물가 중후판', 'price', '2020=100', '2026-09', 150.84, 3.02, 12.38, [{ kind: '최고(기간)', text: '2023-10(153.04) 이후 최고 — 35개월 만' }], ['포스코', '현대제철']),
+      series('ppi-switch', '생산자물가 전기개폐용스위치', 'price', '2020=100', '2026-09', 123.74, 0, 4.15, [], ['LS일렉트릭']),
+      series('steel-80', '철강 생산 용융아연도강판(철강협회)', 'volume', '천톤', '2026-08', 789, 4.37, 17.76, [{ kind: '조회 범위 최고', text: '2016-01 이후 최고(조회 범위 안)' }], ['동국씨엠'])],
+    kaidaMonths: {},
+    kaida: { period: '2026-09', total: 34904, brands: [{ brand: 'Tesla', units: 12372, share: 35.45, rank: 1, prevRank: 1, yoy: 36.42 },
+      { brand: 'BMW', beat: 'BMW코리아', units: 6066, share: 17.38, rank: 2, prevRank: 2, yoy: -8.23 },
+      { brand: 'Mercedes-Benz', beat: '메르세데스-벤츠 코리아', units: 5477, share: 15.69, rank: 3, prevRank: 3, yoy: -20.67 }],
+      signals: [{ brand: 'BMW', kind: '최저(기간)', text: 'BMW 신규등록 6,066대 · 2025-01(5,960) 이후 최저 — 20개월 만', top: true }] },
+    events: [{ id: 'st:ppi-plate:2026-09:최고(기간)', kind: '월간 통계', signal: '최고(기간)', series: 'ppi-plate', period: '2026-09', company: '포스코·현대제철',
+        detectedAt: '2026-10-25T07:30:00+09:00', text: '생산자물가 중후판 2026-09 150.84(2020=100) · 2023-10(153.04) 이후 최고 — 35개월 만' },
+      { id: 'st:ppi-plate:2026-09:전년 대비 큰 변동', kind: '월간 통계', signal: '전년 대비 큰 변동', series: 'ppi-plate', period: '2026-09', company: '포스코·현대제철',
+        detectedAt: '2026-10-25T07:30:00+09:00', text: '생산자물가 중후판 2026-09 150.84(2020=100) · 전년 같은 달 대비 +12.4%' },
+      { id: 'kaida:2026-09:BMW:최저(기간)', kind: '수입차 등록', signal: '최저(기간)', top: true, period: '2026-09', company: 'BMW코리아', detectedAt: '2026-10-25T07:30:00+09:00',
+        text: 'KAIDA 2026-09 · BMW 신규등록 6,066대 · 2025-01(5,960) 이후 최저 — 20개월 만' },
+      { id: 'kaida:2026-09:Volkswagen:순위 역전', kind: '수입차 등록', signal: '순위 역전', top: false, period: '2026-09', company: '폭스바겐코리아', detectedAt: '2026-10-25T07:30:00+09:00',
+        text: 'KAIDA 2026-09 · 순위 역전: Polestar 10위 · Volkswagen 13위(2026-09)' }],
+    confirmedScoops: 0 };
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/kr-stats', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
+  const k = await call('kr_stats', {}, opts);
+  assert.match(k.text, /\[수입 승용차 신규등록 · KAIDA 2026-09 · 전체 34,904대 · 출입처와 주요 브랜드\]\n- 1위 Tesla 12,372대 · 점유 35\.45% · 직전 달 1위 · 전년 같은 달 대비 \+36\.4%\n- 2위 BMW\(BMW코리아\) 6,066대/);
+  assert.match(k.text, /출입처 신호: BMW 신규등록 6,066대 · 2025-01\(5,960\) 이후 최저 — 20개월 만/);
+  assert.match(k.text, /\[물가지수 · 한국은행 ECOS 품목별\(생산자·수출·수입물가\)\] 1개 계열\(신호 있는 것만, show_all=true로 전부\)\n- 생산자물가 중후판 · 2026-09 150\.84\(2020=100\) · 전월 \+3\.0% · 전년 같은 달 \+12\.4%/);
+  assert.match(k.text, /신호: 2023-10\(153\.04\) 이후 최고 — 35개월 만/);
+  assert.doesNotMatch(k.text, /전기개폐용스위치/);
+  assert.match((await call('kr_stats', { section: 'price', show_all: true }, opts)).text, /전기개폐용스위치/);
+  assert.match(k.text, /\[생산·재고 · KOSIS\(철강협회·광공업동향\)\] 1개 계열[\s\S]*용융아연도강판[\s\S]*2016-01 이후 최고\(조회 범위 안\)/);
+  const r = await call('radar_today', {}, opts);
+  const b = r.text.split('[B · ')[1].split('[C · ')[0];
+  assert.match(b, /월간 통계: 생산자물가 중후판 2026-09 150\.84\(2020=100\) · 2023-10\(153\.04\) 이후 최고/);
+  assert.match(b, /수입차 등록: KAIDA 2026-09 · BMW 신규등록 6,066대 · 2025-01\(5,960\) 이후 최저/);
+  assert.doesNotMatch(b, /전년 같은 달 대비 \+12\.4%|Polestar/);  // routine moves and low-rank swaps → C
+  assert.match(r.text, /\[C · 참고\(접힘\)\] 2건/);
+  assert.deepEqual(dueAt(new Date('2026-10-26T22:30:00Z')), ['kr-stats.yml']);  // Tue 07:30 KST
 });
 
 test('non-MCP paths keep the canonical Pages redirect', async () => {

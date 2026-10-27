@@ -340,3 +340,50 @@ export async function krSignals(ctx, args) {
   out.push('\n다음: 공정위는 원문(개방문서)에서 피심인·주문·과징금 확인 → news_check(사건명 낱말·회사명) → 회사 확인. 가격은 출입처 실적·판가 영향은 회사·IR로 확인.');
   return textResult(out.join('\n'));
 }
+
+const pct2 = (v) => (v === null || v === undefined ? '?' : `${v > 0 ? '+' : ''}${Number(v).toFixed(1)}%`);
+const fmtN = (v) => (v === null || v === undefined ? '?' : Number(v).toLocaleString('en-US', { maximumFractionDigits: 2 }));
+
+// 국내 월간 통계: ECOS 품목별 물가지수 · KOSIS(철강협회 생산·광공업동향) · KAIDA 수입 승용차 브랜드별 신규등록
+export async function krStats(ctx, args) {
+  const doc = await readFeed(ctx, 'kr-stats');
+  if (!doc) return missing('국내 월간 통계(ECOS·KOSIS·KAIDA)', '평일 07:30');
+  if (doc.broken) return textResult('저장된 국내 월간 통계 형식 오류 — 미확인.', true);
+  const section = ['kaida', 'price', 'production'].includes(args.section) ? args.section : null;
+  const q = String(args.company ?? '').trim();
+  const limit = clampInt(args.limit, 1, 60, 12);
+  const onlySignals = !(args.show_all === true || args.show_all === 'true');
+  const checks = doc.checks ?? [];
+  const bad = checks.filter((c) => c.status !== 'ok');
+  const out = [`국내 월간 통계(한국은행 ECOS 물가·KOSIS 생산·KAIDA 수입차) · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt, 60)}`,
+    `질의 ${checks.length - bad.length}/${checks.length} 정상${bad.length ? ` · 미확인(0건 아님): ${bad.map((c) => `${c.source}(${c.error ?? c.status})`).join(', ')}` : ''}`,
+    ...(doc.rules ?? []).map((r) => `규칙: ${r}`)];
+  if (!section || section === 'kaida') {
+    const k = doc.kaida ?? {};
+    const rows = (k.brands ?? []).filter((b) => matches(q, b.brand, b.beat));
+    out.push(`\n[수입 승용차 신규등록 · KAIDA ${k.period ?? '?'} · 전체 ${fmtN(k.total)}대 · 출입처와 주요 브랜드]`);
+    for (const b of rows.slice(0, limit)) {
+      out.push(`- ${b.rank}위 ${b.brand}${b.beat ? `(${b.beat})` : ''} ${fmtN(b.units)}대 · 점유 ${fmtN(b.share)}% · 직전 달 ${b.prevRank ?? '?'}위 · 전년 같은 달 대비 ${pct2(b.yoy)}`);
+    }
+    const sig = (k.signals ?? []).filter((s) => matches(q, s.brand, s.text));
+    if (sig.length) out.push(`   출입처 신호: ${sig.map((s) => s.text).join(' / ')}`);
+    out.push('   검증 상태: KAIDA 회원사 신규등록(월 1회 공개). 같은 날 협회 보도자료가 나온다 — 순위·기록은 보도 대조 필수');
+  }
+  const showSeries = (kind, title) => {
+    const rows = (doc.series ?? []).filter((s) => s.kind === kind && matches(q, s.label, ...(s.beats ?? [])))
+      .filter((s) => !onlySignals || (s.signals ?? []).length);
+    out.push(`\n[${title}] ${rows.length}개 계열${onlySignals ? '(신호 있는 것만, show_all=true로 전부)' : ''}`);
+    for (const s of rows.slice(0, limit)) {
+      const m = s.summary ?? {};
+      out.push(`- ${s.label} · ${m.period ?? '?'} ${fmtN(m.value)}(${s.unit}) · 전월 ${pct2(m.mom)} · 전년 같은 달 ${pct2(m.yoy)}${s.stale ? ' · ⚠ 이번 조회 실패, 직전 값' : ''}`);
+      if (m.high && m.low) out.push(`   조회 범위(${(m.span ?? []).join('~')}) 최고 ${m.high.p} ${fmtN(m.high.v)} · 최저 ${m.low.p} ${fmtN(m.low.v)}`);
+      if ((s.signals ?? []).length) out.push(`   신호: ${s.signals.map((x) => x.text).join(' / ')}`);
+      out.push(`   관련 출입처: ${(s.beats ?? []).join('·')} · 원표: ${s.source}${s.officialName ? ` 「${s.officialName}」` : ''}`);
+    }
+    if (!rows.length) out.push('없음');
+  };
+  if (!section || section === 'price') showSeries('price', '물가지수 · 한국은행 ECOS 품목별(생산자·수출·수입물가)');
+  if (!section || section === 'production') showSeries('volume', '생산·재고 · KOSIS(철강협회·광공업동향)');
+  out.push('\n다음: 신호가 있으면 원표(ECOS·KOSIS)에서 같은 기준·기간으로 다시 뜬다 → news_check(품목·숫자) → 회사에 판가·가동·재고 대응 확인. 지수는 수준이 아니라 변화다.');
+  return textResult(out.join('\n'));
+}
