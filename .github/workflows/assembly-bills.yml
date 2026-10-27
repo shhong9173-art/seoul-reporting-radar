@@ -1,0 +1,40 @@
+name: Assembly Bills Watch
+# 국회의원 발의법률안(열린국회정보) 중 출입 업종 법안: 새 발의와 단계 변화. 평일 08:40·17:40 KST(Cloudflare 요청, GitHub 예약은 예비).
+# 결과는 기자 전용 저장소로만. 공개 로그는 건수만. 요청 제한(일 20만 회) 대비 실행당 최대 8쪽 + 단계 재확인 60건.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/assembly_watch.py'
+      - 'data/assembly_bills.json'
+      - 'tests/test_assembly_watch.py'
+      - '.github/workflows/assembly-bills.yml'
+  schedule:
+    - cron: '40 23 * * 0-4'
+    - cron: '40 8 * * 1-5'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: assembly-bills-watch
+  cancel-in-progress: false
+jobs:
+  bills:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install "requests>=2.31,<3"
+      - name: Test parsing
+        run: python -m unittest tests.test_assembly_watch tests.test_private_store -v
+      - name: Watch beat-related bills (counts-only log)
+        env:
+          MCP_ACCESS_TOKEN: ${{ secrets.MCP_ACCESS_TOKEN }}
+          ASSEMBLY_API_KEY: ${{ secrets.ASSEMBLY_API_KEY }}
+        run: python scripts/assembly_watch.py

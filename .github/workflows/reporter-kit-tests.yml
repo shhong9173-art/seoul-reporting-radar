@@ -22,6 +22,7 @@ on:
       - 'tests/test_kr_signals_watch.py'
       - 'tests/test_kr_stats_watch.py'
       - 'tests/test_trademark_watch.py'
+      - 'tests/test_assembly_watch.py'
       - 'tests/test_kipris_account_ledger.py'
       - 'tests/test_dart_filing_facts.py'
       - 'data/factory_watch.json'
@@ -30,6 +31,7 @@ on:
       - 'data/kr_signals.json'
       - 'data/kr_stats.json'
       - 'data/trademark_watch.json'
+      - 'data/assembly_bills.json'
       - 'data/overseas_partners.json'
       - 'tests/test_review_engine.py'
       - 'tests/test_peer_financial.py'
@@ -182,7 +184,7 @@ jobs:
       - run: python -m unittest discover -s tests -p 'test_business_metric_compare.py' -v
       - run: python -m unittest discover -s tests -p 'test_writer_lock.py' -v
       - name: Private watches and season tools (screening, overseas, earnings, governance)
-        run: python -m unittest tests.test_scoop_screen tests.test_naver_api tests.test_private_store tests.test_us_comments_watch tests.test_page_watch tests.test_partner_watch tests.test_earnings_compare tests.test_governance_watch tests.test_trade_remedy_watch tests.test_us_litigation_watch tests.test_kr_official_watch tests.test_kr_signals_watch tests.test_kr_stats_watch tests.test_trademark_watch tests.test_kipris_account_ledger tests.test_dart_filing_facts -v
+        run: python -m unittest tests.test_scoop_screen tests.test_naver_api tests.test_private_store tests.test_us_comments_watch tests.test_page_watch tests.test_partner_watch tests.test_earnings_compare tests.test_governance_watch tests.test_trade_remedy_watch tests.test_us_litigation_watch tests.test_kr_official_watch tests.test_kr_signals_watch tests.test_kr_stats_watch tests.test_trademark_watch tests.test_assembly_watch tests.test_kipris_account_ledger tests.test_dart_filing_facts -v
       - run: python -m unittest discover -s tests -p 'test_official_collectors.py' -v
       - run: node tests/test_dart_health_ui.cjs
       - run: node tests/test_morning_view.cjs

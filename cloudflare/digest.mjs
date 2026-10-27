@@ -1,4 +1,4 @@
-// radar_today: one private digest over the ten private watches. It reads what the collectors already stored
+// radar_today: one private digest over the eleven private watches. It reads what the collectors already stored
 // (no new fetching), keeps what is new since a cutoff, and ranks it. Failed or stale watches are listed first:
 // their silence is "미확인", not "nothing new".
 import { readFeed } from './screen.mjs';
@@ -6,6 +6,7 @@ import { storeOp } from './store.mjs';
 import { dispatchHealth } from './dispatch.mjs';
 import { clampInt, textResult } from './common.mjs';
 import { classLabel, waitReason } from './trademarks.mjs';
+import { billLine, groupBillEvents } from './assembly.mjs';
 
 const KST_MS = 9 * 3600000;
 const kstDate = (ms) => new Date(ms + KST_MS).toISOString().slice(0, 10);
@@ -26,6 +27,7 @@ export const WATCHES = [
   { feed: 'us-comments', label: '미 연방 의견서', tool: 'us_comments', schedule: '평일 08:20' },
   { feed: 'page-watch', label: '해외 공식 페이지', tool: 'page_changes', schedule: '평일 06:30·18:30' },
   { feed: 'trademarks', label: '상표 출원', tool: 'trademarks', schedule: '월 07:10', staleHours: 192 },
+  { feed: 'assembly-bills', label: '국회 법안', tool: 'assembly_bills', schedule: '평일 08:40·17:40' },
 ];
 
 // Items first seen in a watch's very first run are a baseline, not news: they only count when their own date is recent.
@@ -189,6 +191,13 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
     const classes = (f.classes ?? []).map(classLabel).join(', ');
     push(f.tier === 'B' ? 'B' : 'C', W.trademarks, { kind: f.titleNew ? '상표 새 이름' : '상표 출원', id: f.id, date: f.applicationDate, company: f.company,
       fact: `상표 출원 「${f.title}」 ${classes}${f.addedClassesAt ? ' — 같은 이름 상품류 추가' : ''}${f.titleNew ? ' — 감시 시작 이후 처음 보는 이름' : ''} (출원 ${f.applicationDate}, 출원번호 ${(f.applicationNumbers ?? [])[0] ?? '?'}${(f.applicationNumbers ?? []).length > 1 ? ` 외 ${f.applicationNumbers.length - 1}` : ''})` });
+  }
+
+  const ab = docs['assembly-bills'];
+  for (const g of groupBillEvents(ab, { all: true })) {
+    if (!recent(g.detectedAt)) continue;
+    push(g.core ? 'B' : 'C', W['assembly-bills'], { kind: g.kind === '발의' ? '법안 발의' : `법안 ${g.kind}`, id: g.id, date: g.date,
+      company: g.core ?? '', fact: billLine(g), url: g.urls[0] });
   }
 
   const pw = docs['page-watch'];

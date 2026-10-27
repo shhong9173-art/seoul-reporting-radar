@@ -880,7 +880,7 @@ test('kr_signals shows FTC decisions by role, KEPCO bids and commodity prices, a
   const minor = await call('radar_today', { include_minor: true }, opts);
   assert.match(minor.text, /「\(연간단가\)고효율주상변압기,50KVA\(광유\)-2,338대-0\d\(일반\)」 외 같은 공고 2건\(합계 약 149억원\) · 추정가격 약 50억원/);
   assert.equal((minor.text.match(/고효율주상변압기/g) ?? []).length, 1);  // three lots, one line
-  assert.match(r.text, /기자 전용 감시 10개/);
+  assert.match(r.text, /기자 전용 감시 11개/);
   assert.deepEqual(dueAt(new Date('2026-10-26T23:30:00Z')), ['kr-signals.yml']);  // Tue 08:30 KST
   assert.deepEqual(dueAt(new Date('2026-10-27T06:20:00Z')), ['kr-signals.yml']);  // Tue 15:20 KST
 });
@@ -952,6 +952,40 @@ test('partner filings: EDGAR holdings tables and repeated text fold to C, financ
   assert.match((await call('partner_filings', { include_routine: true }, opts)).text, /HARTFORD[\s\S]*분류: 투자 보유 목록/);
 });
 
+test('assembly bills: same-law same-day filings are one line, core laws are B, stage changes show the previous step', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const b = (id, name, law, date, extra = {}) => ({ id, no: id.slice(4), name, law, committee: null, proposedOn: date, proposer: 'x의원 등 10인', lead: extra.lead ?? '홍길동',
+    core: extra.core ?? null, matched: [], stageIndex: extra.stageIndex ?? 0, stage: extra.stage ?? '발의', stageAt: date,
+    url: `https://likms.assembly.go.kr/bill/billDetail.do?billId=${id}`, firstSeen: '2026-10-25T08:40:00+09:00', lastChecked: '2026-10-26T08:40:00+09:00', isNew: true });
+  const doc = { schema: 'assembly_bills/v1', generatedAt: '2026-10-26T08:40:00+09:00', status: 'complete', baselineSince: '2026-10-20T08:40:00+09:00',
+    checks: [{ source: '열린국회정보 발의법률안', status: 'ok', pages: 4, listed: 400, kept: 12 }, { source: '열린국회정보 단계 재확인', status: 'ok', checked: 30, tracked: 30 }],
+    bills: [b('PRC_A1', '전기사업법 일부개정법률안', '전기사업법', '2026-10-25', { core: '전력·에너지', lead: '김갑동' }),
+      b('PRC_A2', '전기사업법 일부개정법률안', '전기사업법', '2026-10-25', { core: '전력·에너지', lead: '이을동' }),
+      b('PRC_S1', '철강산업 경쟁력 강화 및 탄소중립 전환을 위한 특별법 일부개정법률안', '철강산업 경쟁력 강화 및 탄소중립 전환을 위한 특별법', '2026-10-01',
+        { core: '철강·비철', stageIndex: 2, stage: '소관위 상정', lead: '박병동' }),
+      b('PRC_K1', '산업안전보건법 일부개정법률안', '산업안전보건법', '2026-10-25')],
+    events: [{ id: 'bill:PRC_A1:발의', billId: 'PRC_A1', kind: '발의', detectedAt: '2026-10-26T08:40:00+09:00', date: '2026-10-25', core: '전력·에너지', law: '전기사업법', lead: '김갑동' },
+      { id: 'bill:PRC_A2:발의', billId: 'PRC_A2', kind: '발의', detectedAt: '2026-10-26T08:40:00+09:00', date: '2026-10-25', core: '전력·에너지', law: '전기사업법', lead: '이을동' },
+      { id: 'bill:PRC_S1:소관위 상정', billId: 'PRC_S1', kind: '소관위 상정', detectedAt: '2026-10-26T08:40:00+09:00', date: '2026-10-26', core: '철강·비철',
+        law: '철강산업 경쟁력 강화 및 탄소중립 전환을 위한 특별법', lead: '박병동', from: '소관위 회부' },
+      { id: 'bill:PRC_K1:발의', billId: 'PRC_K1', kind: '발의', detectedAt: '2026-10-26T08:40:00+09:00', date: '2026-10-25', core: null, law: '산업안전보건법', lead: '홍길동' }],
+    rules: ['국회의원 발의법률안(열린국회정보)이다.'], confirmedScoops: 0 };
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/assembly-bills', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
+  const t = await call('assembly_bills', {}, opts);
+  assert.match(t.text, /\[새 발의 · 최근 14일 · 출입처 직결 법\(core\)\] 1묶음\n- 2026-10-25 · \[전력·에너지\] 법안 발의: 전기사업법 일부개정법률안 등 2건 — 김갑동·이을동 대표발의/);
+  assert.match(t.text, /\[단계 변화 · 최근 14일\] 1건\n- 2026-10-26 · \[철강·비철\] 법안 소관위 상정: 철강산업 경쟁력 강화 및 탄소중립 전환을 위한 특별법 일부개정법률안 \(직전 소관위 회부\) — 박병동 대표발의/);
+  assert.doesNotMatch(t.text, /산업안전보건법 일부개정/);
+  assert.match((await call('assembly_bills', { include_related: true }, opts)).text, /산업안전보건법 일부개정법률안/);
+  const r = await call('radar_today', { include_minor: true }, opts);
+  const bsec = r.text.split('[B · ')[1].split('[C · ')[0];
+  assert.match(bsec, /국회 법안 · 전력·에너지\n   법안 발의: 전기사업법 일부개정법률안 등 2건/);
+  assert.match(bsec, /법안 소관위 상정: 철강산업/);
+  assert.match(r.text.split('[C · ')[1], /법안 발의: 산업안전보건법 일부개정법률안/);
+  assert.deepEqual(dueAt(new Date('2026-10-27T23:40:00Z')), ['assembly-bills.yml']);  // Wed 08:40 KST
+  assert.deepEqual(dueAt(new Date('2026-10-28T08:40:00Z')), ['assembly-bills.yml']);  // Wed 17:40 KST
+});
+
 test('trademarks: weekly filings grouped by name, new names in core classes are B, waits are not failures and radar_today keeps them a week', async () => {
   const opts = PRIVATE();
   const env = opts.env;
@@ -983,7 +1017,7 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   assert.doesNotMatch((await call('trademarks', { name: 'aero' }, opts)).text, /NUTRIMACY/);
   assert.doesNotMatch((await call('trademarks', { class: '35' }, opts)).text, /NUTRIMACY/);
   const r = await call('radar_today', {}, opts);
-  assert.match(r.text, /기자 전용 감시 10개/);
+  assert.match(r.text, /기자 전용 감시 11개/);
   assert.match(r.text, /- 상표 출원: 대기 1곳\(제공기관 응답 22 뒤 72시간 대기\) — 해당 부분 0건은 미확인/);
   assert.doesNotMatch(r.text, /상표 출원: [^\n]*시간 전 결과/);
   const b = r.text.split('[B · ')[1].split('[C · ')[0];
@@ -993,7 +1027,7 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   assert.match(minor.text, /상표 출원 「NUTRIMACY」[^\n]* — 같은 이름 상품류 추가/);
   const list = await rpc('tools/list', {}, { path: `/mcp/${TOKEN}`, env });
   assert.ok(list.body.result.tools.some((x) => x.name === 'trademarks'));
-  assert.match(list.body.result.tools.find((x) => x.name === 'radar_today').description, /감시 10개\([^)]*상표 출원\)/);
+  assert.match(list.body.result.tools.find((x) => x.name === 'radar_today').description, /감시 11개\([^)]*상표 출원, 국회 법안\)/);
   assert.ok(!(await rpc('tools/list', {}, { env })).body.result.tools.some((x) => x.name === 'trademarks'));  // private only
 });
 
