@@ -213,13 +213,15 @@ def compare(kind, cur, prev_docs, n_listed):
             change = ": " + won(f"{a_prev:,}") + " → " + won(f"{a_now:,}") + f"({pct:+.0f}%)"
         lines.append(f"{SAME_LABEL.get(kind, '같은 상대')} 직전 공시 {day_of(m['date'])}(접수 {m['rcept_no']}){change}")
     elif me and prev_docs:
-        lines.append(f"최근 {YEARS_BACK}년 같은 종류 공시 {n_listed}건 중 원문 {len(prev_docs)}건 확인 — {SAME_LABEL.get(kind, '같은 상대')} 없음(확인한 범위 안)")
+        lines.append(f"최근 {YEARS_BACK}년 같은 종류 공시 {n_listed}건(정정 포함, 목록 기준) 중 원문 {len(prev_docs)}건 확인 — {SAME_LABEL.get(kind, '같은 상대')} 없음(확인한 범위 안)")
+    counted = bool(me and prev_docs and not same)
     if prev_docs and not same:
         m, t = prev_docs[0]
         a_prev = amount(t, kind)
         money = " · 금액 " + won(f"{a_prev:,}") if a_prev else ""
         lines.append(f"직전 같은 종류 공시 {day_of(m['date'])}(접수 {m['rcept_no']}){money}")
-    lines.append(f"최근 {YEARS_BACK}년 같은 종류 공시 {n_listed}건(정정 포함, 목록 기준)")
+    if not counted:
+        lines.append(f"최근 {YEARS_BACK}년 같은 종류 공시 {n_listed}건(정정 포함, 목록 기준)")
     r = ratio(cur, kind)
     rel = (cur or {}).get("회사와의관계", "")
     if kind == "채무보증" and same and SUBSIDIARY.search(rel) and r is not None and r < 5:

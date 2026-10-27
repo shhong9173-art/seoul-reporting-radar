@@ -125,8 +125,9 @@ class Enrich(unittest.TestCase):
         listing = {"status": "000", "total_page": 1, "list": [{"rcept_no": "20260601800100", "rcept_dt": "20260601", "report_nm": "타인에대한채무보증결정"}]}
         fl = self.run_enrich({"20261026800468": HDE, "20260601800100": OTHER_PREV}, listing)
         self.assertIsNone(fl["routine"])
-        self.assertIn("최근 3년 같은 종류 공시 1건 중 원문 1건 확인 — 같은 채무자 없음(확인한 범위 안)", fl["compare"])
-        self.assertIn("직전 같은 종류 공시 2026-06-01(접수 20260601800100) · 금액 120,000,000,000원(약 1,200억원)", fl["compare"])
+        self.assertEqual(fl["compare"], [
+            "최근 3년 같은 종류 공시 1건(정정 포함, 목록 기준) 중 원문 1건 확인 — 같은 채무자 없음(확인한 범위 안)",
+            "직전 같은 종류 공시 2026-06-01(접수 20260601800100) · 금액 120,000,000,000원(약 1,200억원)"])  # count said once
 
     def test_no_previous_and_list_failure_and_doc_failure(self):
         fl = self.run_enrich({"20261026800468": HDE}, {"status": "013", "message": "조회된 데이타가 없습니다."})
