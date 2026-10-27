@@ -17,4 +17,8 @@ jobs:
         with:
           python-version: '3.12'
       - run: python -m pip install "requests>=2.31,<3"
-      - run: python scripts/probe/kr_signals_probe.py
+      - env:
+          KEPCO_API_KEY: ${{ secrets.KEPCO_API_KEY }}
+          KOSIS_API_KEY: ${{ secrets.KOSIS_API_KEY }}
+          ECOS_API_KEY: ${{ secrets.ECOS_API_KEY }}
+        run: python scripts/probe/kr_signals_probe.py

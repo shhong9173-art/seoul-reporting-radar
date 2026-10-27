@@ -1,4 +1,5 @@
 """One-off isolated probe (no repo writes, no private store). Prints status codes, counts and field names only."""
+import os
 import re
 import requests
 
@@ -54,10 +55,51 @@ def ftc():
         note("FTC doc: no htmlView ids")
 
 
+def shape(name):
+    v = os.environ.get(name, "").strip()
+    return f"{name} {'set' if v else 'missing'} len={len(v)}"
+
+
 def kepco():
-    r = requests.get("https://bigdata.kepco.co.kr/openapi/v1/electContract.do", params={"noticeBeginDate": "20261020", "noticeEndDate": "20261027", "returnType": "json"},
-                     headers=UA, timeout=30)
-    note("KEPCO no key", r.status_code, r.headers.get("content-type"), r.text[:200])
+    key = os.environ.get("KEPCO_API_KEY", "").strip()
+    note(shape("KEPCO_API_KEY"))
+    if not key:
+        return
+    r = requests.get("https://bigdata.kepco.co.kr/openapi/v1/electContract.do", params={"noticeBeginDate": "20261020", "noticeEndDate": "20261027",
+                     "apiKey": key, "returnType": "json"}, headers=UA, timeout=60)
+    try:
+        j = r.json()
+    except ValueError:
+        note("KEPCO", r.status_code, "not json", len(r.text), re.sub(r"[A-Za-z0-9]{30,}", "<long>", r.text[:160]))
+        return
+    data = j.get("data") if isinstance(j, dict) else None
+    if not isinstance(data, list):
+        note("KEPCO", r.status_code, "keys", list(j)[:8] if isinstance(j, dict) else type(j).__name__, str(j)[:200])
+        return
+    first = data[0] if data else {}
+    note("KEPCO", r.status_code, "rows", len(data), "fields", sorted(first)[:60])
+    note("KEPCO sample", {k: str(first.get(k))[:60] for k in ("companyId", "no", "name", "presumedPrice", "presumedAmount", "noticeDate", "progressState", "purchaseType", "placeName", "competitionType", "bidType")})
+    hit = [d for d in data if re.search(r"변압기|차단기|케이블|전선|GIS|개폐", str(d.get("name")))]
+    note("KEPCO keyword rows", len(hit), [(str(d.get("name"))[:50], d.get("presumedPrice"), d.get("progressState")) for d in hit[:5]])
+
+
+def kosis():
+    key = os.environ.get("KOSIS_API_KEY", "").strip()
+    note(shape("KOSIS_API_KEY"))
+    if not key:
+        return
+    r = requests.get("https://kosis.kr/openapi/statisticsList.do", params={"method": "getList", "apiKey": key, "vwCd": "MT_ZTITLE", "parentListId": "",
+                     "format": "json", "jsonVD": "Y"}, headers=UA, timeout=40)
+    note("KOSIS list", r.status_code, len(r.text), re.sub(r"[A-Za-z0-9+/=]{30,}", "<long>", r.text[:200]))
+
+
+def ecos():
+    key = os.environ.get("ECOS_API_KEY", "").strip()
+    note(shape("ECOS_API_KEY"))
+    if not key:
+        return
+    r = requests.get(f"https://ecos.bok.or.kr/api/StatisticTableList/{key}/json/kr/1/3/", headers=UA, timeout=40)
+    note("ECOS list", r.status_code, len(r.text), re.sub(r"[A-Za-z0-9]{20,}", "<long>", r.text[:240]))
 
 
 def reach():
@@ -72,7 +114,7 @@ def reach():
             note(f"reach {name}", type(e).__name__)
 
 
-for label, fn in [("KEPCO", kepco), ("REACH", reach)]:
+for label, fn in [("KEPCO", kepco), ("KOSIS", kosis), ("ECOS", ecos)]:
     safe(label, fn)
 for i in range(0, len(OUT), 6):
     print("::notice title=probe-" + str(i // 6) + "::" + " | ".join(OUT[i:i + 6])[:3800])
