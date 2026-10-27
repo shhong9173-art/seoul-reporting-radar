@@ -487,7 +487,7 @@ test('partner_filings reads ASX and EDGAR items from the private feed', async ()
   assert.match(r.text, /관계: NdPr 공급계약 \(근거 https:\/\/example\/aru\)/);
   assert.match(r.text, /본문 발췌: …supply agreement with Hyundai Steel…/);
   assert.doesNotMatch(r.text, /Quarterly report/);
-  assert.match(r.text, /ASX 일상 공시 1건 숨김/);
+  assert.match(r.text, /일상 공시 1건 숨김 — ASX 주총·임원 지분/);
   const all = await call('partner_filings', { include_routine: true, source: 'ASX' }, opts);
   assert.match(all.text, /Quarterly report/);
 });
@@ -926,6 +926,30 @@ test('kr_stats shows KAIDA ranks, price and production series with signals, and 
   assert.doesNotMatch(b, /전년 같은 달 대비 \+12\.4%|Polestar/);  // routine moves and low-rank swaps → C
   assert.match(r.text, /\[C · 참고\(접힘\)\] 2건/);
   assert.deepEqual(dueAt(new Date('2026-10-26T22:30:00Z')), ['kr-stats.yml']);  // Tue 07:30 KST
+});
+
+test('partner filings: EDGAR holdings tables and repeated text fold to C, financial-statement notes never reach A', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const ed = (id, filer, snippet, extra = {}) => ({ id, source: 'EDGAR', filer, form: '6-K', date: '2026-10-25', firstSeen: '2026-10-26T07:00:00+09:00', isNew: true,
+    beat: ['현대차'], title: '6-K EX-99.1', url: `https://www.sec.gov/Archives/edgar/data/1/${id}.htm`, snippet, ...extra });
+  const doc = { schema: 'partner_filings/v1', generatedAt: '2026-10-26T07:00:00+09:00', windowDays: 30, checks: [{ source: 'EDGAR', target: 'Hyundai Motor Company', status: 'ok' }],
+    items: [ed('h1', 'HARTFORD INSURANCE GROUP', 'Top Ten Exposures by Issuer … Hyundai Motor Company 182 178 0.3 %', { routine: '투자 보유 목록(채권·주식 보유 표) — 출입처와의 거래 아님' }),
+      ed('k1', 'KT CORP', '(12) The Company has an agreement related to a stock sale contract with HYUNDAI MOTOR COMPANY.', { finNote: '재무제표 주석 — 이미 있던 약정을 다시 적은 것일 수 있음(이전 분기 보고서와 대조)' }),
+      ed('c1', 'CELL MAKER INC', 'entered into a binding supply agreement with Hyundai Motor Company for battery cells.')],
+    confirmedScoops: 0 };
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/partner-filings', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
+  const r = await call('radar_today', { include_minor: true, limit: 60 }, opts);
+  const sec = (t) => r.text.split(`[${t} · `)[1].split(/\n\[[ABC] · /)[0];
+  assert.match(sec('A'), /CELL MAKER INC/);
+  assert.match(sec('B'), /KT CORP: 6-K EX-99\.1 — 재무제표 주석/);
+  assert.match(sec('C'), /HARTFORD INSURANCE GROUP: 6-K EX-99\.1 — 투자 보유 목록/);
+  assert.doesNotMatch(sec('A'), /KT CORP|HARTFORD/);
+  const t = await call('partner_filings', {}, opts);
+  assert.doesNotMatch(t.text, /HARTFORD/);
+  assert.match(t.text, /분류: 재무제표 주석/);
+  assert.match(t.text, /일상 공시 1건 숨김 — ASX 주총·임원 지분, EDGAR 투자 보유 표·반복 문구/);
+  assert.match((await call('partner_filings', { include_routine: true }, opts)).text, /HARTFORD[\s\S]*분류: 투자 보유 목록/);
 });
 
 test('trademarks: weekly filings grouped by name, new names in core classes are B, waits are not failures and radar_today keeps them a week', async () => {

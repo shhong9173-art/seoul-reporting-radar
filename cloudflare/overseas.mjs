@@ -85,7 +85,7 @@ export async function partnerFilings(ctx, args) {
   const failed = (doc.checks ?? []).filter((c) => c.status !== 'ok');
   const base = (doc.items ?? []).filter((x) => (!src || x.source === src) && (!onlyNew || x.isNew)
     && matches(q, x.filer, x.title, (x.beat ?? []).join(' '), x.snippet));
-  const rows = base.filter((x) => !onlyFlagged || x.source !== 'ASX' || (x.flags ?? []).length);
+  const rows = base.filter((x) => !onlyFlagged || (x.source === 'ASX' ? (x.flags ?? []).length : !x.routine));
   const hiddenRoutine = base.length - rows.length;
   const out = [`해외 파트너 공시 · 최근 ${doc.windowDays}일 수집(보관 120일) · ${rows.length}건 · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt)}`,
     `질의 ${(doc.checks ?? []).length - failed.length}/${(doc.checks ?? []).length} 정상${failed.length ? ` · 미확인(0건 아님): ${failed.slice(0, 6).map((c) => `${c.target}(${c.error})`).join(', ')}` : ''}`,
@@ -94,6 +94,7 @@ export async function partnerFilings(ctx, args) {
     out.push(`\n${x.isNew ? '[신규] ' : ''}${x.date} · ${x.source} · ${x.filer} · 관련 출입처 ${(x.beat ?? []).join('·')}`);
     out.push(`   잡힌 사실: ${x.title}${x.priceSensitive ? ' (주가 민감 공시)' : ''}${(x.flags ?? []).length ? ` · 낱말 ${x.flags.join(',')}` : ''}`);
     if (x.relation) out.push(`   관계: ${x.relation} (근거 ${x.relationEvidence})`);
+    if (x.routine || x.finNote) out.push(`   분류: ${x.routine ?? x.finNote}`);
     if (x.snippet) out.push(`   본문 발췌: …${x.snippet.slice(0, 400)}…`);
     else if (x.snippetError) out.push(`   본문 발췌 실패: ${x.snippetError}`);
     out.push(`   원문: ${x.url ?? '링크 없음'}`);
@@ -101,7 +102,7 @@ export async function partnerFilings(ctx, args) {
   }
   if (rows.length > limit) out.push(`… 남은 ${rows.length - limit}건`);
   if (!rows.length) out.push('\n조건에 맞는 공시 없음(위 미확인 질의는 0건 아님).');
-  if (hiddenRoutine) out.push(`(ASX 일상 공시 ${hiddenRoutine}건 숨김 — 주총·임원 지분 등: include_routine=true)`);
+  if (hiddenRoutine) out.push(`(일상 공시 ${hiddenRoutine}건 숨김 — ASX 주총·임원 지분, EDGAR 투자 보유 표·반복 문구: include_routine=true)`);
   out.push('\n다음: EDGAR 원문은 source_document(sec.gov)로, ASX 공시 PDF는 브라우저로 연다 → 출입처 이름·물량·가격·조건 문구 확인 → news_check.');
   return textResult(out.join('\n'));
 }
