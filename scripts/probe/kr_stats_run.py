@@ -11,7 +11,7 @@ cfg = json.loads(k.CONFIG.read_text(encoding="utf-8"))
 now = k.now_kst()
 doc = k.run(cfg, now=now, previous=None, ecos_key=os.environ.get("ECOS_API_KEY", "").strip(), kosis_key=os.environ.get("KOSIS_API_KEY", "").strip())
 OUT = [json.dumps(c, ensure_ascii=False) for c in doc["checks"]]
-for s in doc["series"]:
+for s in []:
     m = s.get("summary") or {}
     OUT.append(f"S {s['label']} [{s['officialName']}|{s['unit']}] {m.get('period')} {m.get('value')} mom{m.get('mom')} yoy{m.get('yoy')} hi {m.get('high')} lo {m.get('low')} sig={[x['text'] for x in s['signals']]}")
 kd = doc["kaida"]
