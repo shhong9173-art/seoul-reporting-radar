@@ -1,32 +1,7 @@
 name: Official KIPRIS Patent Hunt
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'scripts/patent_hunt.py'
-      - 'scripts/kipris_source_budget.py'
-      - 'tests/test_kipris_source_budget.py'
-      - 'scripts/patent_deep_hunt.py'
-      - 'scripts/patent_joint_verification.py'
-      - 'tests/test_patent_joint_verification.py'
-      - 'patent-joint-verification.html'
-      - 'scripts/patent_claim_review.py'
-      - 'scripts/patent_story_hunt.py'
-      - 'scripts/patent_editorial_desk.py'
-      - 'scripts/patent_cross_evidence.py'
-      - 'scripts/patent_reporting_triage.py'
-      - 'tests/test_patent_reporting_triage.py'
-      - 'scripts/patent_public_factcheck.py'
-      - 'tests/test_patent_cross_evidence.py'
-      - 'data/patent_reporting_checks.json'
-      - 'tests/test_patent_editorial_desk.py'
-      - 'tests/test_patent_story_hunt.py'
-      - 'tests/test_patent_run_health.py'
-      - 'tests/test_patent_hunt_view.cjs'
-      - 'scripts/patent_run_health.py'
-      - 'scripts/patent_quality_metrics.py'
-      - 'scripts/patent_record_review.py'
-      - '.github/workflows/kipris-patent-hunt.yml'
+  # 병합(push)마다 실제 호출하던 것을 없앤다: 10월에 48번 중 33번이 병합으로 돌았다.
+  # 코드 검사는 PR 검사가 맡고, 실제 호출은 정해진 시각과 수동 실행만.
   schedule:
     # Once each weekday at 06:30 KST instead of three full-list searches.
     # The source-only ledger is not a substitute for account-wide usage data.
@@ -41,7 +16,8 @@ on:
 permissions:
   contents: write
 concurrency:
-  group: kipris-patent-evidence
+  # 상표 감시 등 같은 KIPRIS 키를 쓰는 작업과 차례로 돌아 공용 장부가 엇갈리지 않게 한다.
+  group: kipris-account
   cancel-in-progress: false
 
 jobs:
@@ -62,6 +38,7 @@ jobs:
           python -m compileall -q scripts/patent_hunt.py scripts/patent_deep_hunt.py scripts/patent_story_hunt.py scripts/patent_run_health.py scripts/patent_quality_metrics.py scripts/patent_record_review.py scripts/patent_editorial_desk.py scripts/patent_cross_evidence.py scripts/patent_public_factcheck.py scripts/patent_reporting_triage.py scripts/patent_joint_verification.py
           python -m unittest discover -s tests -p 'test_patent_hunt.py' -v
           python -m unittest discover -s tests -p 'test_kipris_source_budget.py' -v
+          python -m unittest discover -s tests -p 'test_kipris_account_ledger.py' -v
           python -m unittest discover -s tests -p 'test_patent_deep_hunt.py' -v
           python -m unittest discover -s tests -p 'test_patent_joint_verification.py' -v
           python -m unittest discover -s tests -p 'test_patent_claim_review.py' -v
@@ -132,6 +109,7 @@ jobs:
           if [ -f digests/patent_run_health_latest.json ]; then git add digests/patent_run_health_latest.json; fi
           if [ -f digests/patent_source_status_latest.json ]; then git add digests/patent_source_status_latest.json; fi
           if [ -f digests/kipris_source_request_budget_latest.json ]; then git add digests/kipris_source_request_budget_latest.json; fi
+          if [ -f digests/kipris_account_ledger_latest.json ]; then git add digests/kipris_account_ledger_latest.json; fi
           if [ "${{ steps.source.outcome }}" = "success" ]; then git add digests/patent_hunt_latest.json; fi
           if [ "${{ steps.deep.outcome }}" = "success" ] && [ -f digests/patent_deep_latest.json ]; then git add digests/patent_deep_latest.json; fi
           if [ "${{ steps.joint_review.outcome }}" = "success" ] && [ -f digests/patent_joint_verification_latest.json ]; then git add digests/patent_joint_verification_latest.json; fi

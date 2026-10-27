@@ -9,6 +9,11 @@ on:
       - 'tests/test_patent_hunt.py'
       - 'scripts/kipris_source_budget.py'
       - 'tests/test_kipris_source_budget.py'
+      - 'scripts/kipris_account_ledger.py'
+      - 'tests/test_kipris_account_ledger.py'
+      - 'scripts/patent_deep_hunt.py'
+      - 'scripts/patent_claim_review.py'
+      - '.github/workflows/kipris-patent-hunt.yml'
       - '.github/workflows/kipris-incremental-ci.yml'
   push:
     branches: [main]
@@ -29,9 +34,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: python -m compileall -q scripts/patent_hunt.py scripts/kipris_source_budget.py
+      - run: python -m compileall -q scripts/patent_hunt.py scripts/kipris_source_budget.py scripts/kipris_account_ledger.py scripts/patent_deep_hunt.py scripts/patent_claim_review.py
       - run: python -m unittest discover -s tests -p 'test_patent_hunt.py' -v
       - run: python -m unittest discover -s tests -p 'test_kipris_source_budget.py' -v
+      - run: python -m unittest discover -s tests -p 'test_kipris_account_ledger.py' -v
+      - run: python -m unittest discover -s tests -p 'test_patent_deep_hunt.py' -v
+      - run: python -m unittest discover -s tests -p 'test_patent_claim_review.py' -v
 
       - run: python -m unittest discover -s tests -p 'test_official_collectors.py' -v
       - run: node tests/test_patent_hunt_view.cjs && node tests/test_patent_public_questions.cjs
