@@ -727,6 +727,33 @@ test('Cloudflare cron asks GitHub to run each watch at its KST weekday slot and 
   assert.match(fresh.text, /예약 요청\(Cloudflare\): 기록 없음/);
 });
 
+test('DART lead facts and prior comparison show in scoop_screen, and routine filings drop to B in radar_today', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const doc = { schema: 'scoop_screen/v1', generatedAt: '2026-10-26T07:10:00+09:00', counts: { '미보도 후보': 2 }, candidates: [
+    { id: 'clue:hde', verdict: '미보도 후보', team: '전력', company: 'HD현대일렉트릭', title: 'HD현대일렉트릭 · 타인에대한채무보증결정', kind: '단서',
+      url: 'https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261026800468', channels: {}, queries: [],
+      filing: { type: '채무보증', rcept_no: '20261026800468', facts: [['채무자', '유럽법인(HD Hyundai Electric Europe GmbH)'], ['채무보증금액(원)', '53,417,160,000원(약 534억원)'], ['자기자본대비(%)', '2.63']],
+        related: null, compare: ['같은 채무자 직전 공시 2025-11-03(접수 20251103800200): 48,000,000,000원(약 480억원) → 53,417,160,000원(약 534억원)(+11%)'],
+        routine: '같은 자회사 채무자 반복 보증 · 자기자본 대비 2.63%' } },
+    { id: 'clue:kz', verdict: '미보도 후보', team: '철강', company: '고려아연', title: '고려아연 · 소송등의판결ㆍ결정', kind: '단서',
+      url: 'https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261023801005', channels: {}, queries: [],
+      filing: { type: '소송판결', facts: [['사건의명칭', '주주대표소송(손해배상)'], ['판결ㆍ결정일자', '2026-10-22']], related: '2026-06-10 소송 등의 제기ㆍ신청(경영권 분쟁 소송)',
+        compare: ['최근 3년 같은 종류 공시 4건(정정 포함, 목록 기준)'], routine: null } }] };
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/scoop-screen', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
+  const s = await call('scoop_screen', {}, opts);
+  assert.match(s.text, /원문 요점\(채무보증\): 채무자 유럽법인\(HD Hyundai Electric Europe GmbH\) · 채무보증금액\(원\) 53,417,160,000원\(약 534억원\) · 자기자본대비\(%\) 2\.63/);
+  assert.match(s.text, /직전 비교: 같은 채무자 직전 공시 2025-11-03/);
+  assert.match(s.text, /일상 공시로 보임: 같은 자회사 채무자 반복 보증/);
+  assert.match(s.text, /회사가 적은 관련공시: 2026-06-10 소송 등의 제기ㆍ신청/);
+  const r = await call('radar_today', {}, opts);
+  const a = r.text.split('[A · ')[1].split('[B · ')[0];
+  const b = r.text.split('[B · ')[1].split('[C · ')[0];
+  assert.match(a, /고려아연 · 소송등의판결ㆍ결정 \(단서\) — 보도 대조 '미보도 후보' · 사건의명칭 주주대표소송\(손해배상\)/);
+  assert.doesNotMatch(a, /HD현대일렉트릭/);
+  assert.match(b, /HD현대일렉트릭 · 타인에대한채무보증결정 — 일상 공시로 보임\(같은 자회사 채무자 반복 보증/);
+});
+
 test('non-MCP paths keep the canonical Pages redirect', async () => {
   const r = await worker.fetch(new Request(ORIGIN + '/scoop.json?v=1'), {}, {});
   assert.equal(r.status, 307);

@@ -43,7 +43,11 @@ function collect(docs, cut, cutDay) {
 
   const scoop = docs['scoop-screen'];
   for (const c of scoop?.candidates ?? []) {
-    if (c.verdict === '미보도 후보') push('A', W['scoop-screen'], { id: c.id, date: c.published ?? c.filedOn, company: c.company, fact: `${c.title} (${c.kind ?? ''}) — 보도 대조 '미보도 후보'`, url: c.url });
+    const fl = c.filing;
+    const brief = fl && !fl.error && (fl.facts ?? []).length ? ` · ${fl.facts.slice(0, 4).map(([k, v]) => `${k} ${v}`).join(' · ')}` : '';
+    const cmp = fl && (fl.compare ?? []).length ? ` · ${fl.compare[0]}` : '';
+    if (c.verdict === '미보도 후보' && fl?.routine) push('B', W['scoop-screen'], { id: c.id, date: c.published ?? c.filedOn, company: c.company, fact: `${c.title} — 일상 공시로 보임(${fl.routine})${brief}`, url: c.url });
+    else if (c.verdict === '미보도 후보') push('A', W['scoop-screen'], { id: c.id, date: c.published ?? c.filedOn, company: c.company, fact: `${c.title} (${c.kind ?? ''}) — 보도 대조 '미보도 후보'${brief}${cmp}`, url: c.url });
     else if (c.verdict === '미확인') push('B', W['scoop-screen'], { id: c.id, date: c.published ?? c.filedOn, company: c.company, fact: `${c.title} — 보도 대조 미확인(채널 실패)`, url: c.url });
     else push('C', W['scoop-screen'], { id: c.id, company: c.company, fact: `${c.verdict}: ${c.title}` });
   }
