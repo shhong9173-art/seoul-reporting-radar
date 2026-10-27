@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-27T10:41:08+09:00",
+  "generatedAt": "2026-10-27T23:58:12+09:00",
   "status": "industry_beat_official_receipt_review",
   "windowStart": "20260928",
   "windowEnd": "20261027",
@@ -8,9 +8,9 @@
   "companiesUnresolved": 3,
   "companiesWithSourceErrors": 0,
   "sourceComplete": false,
-  "relevantFilings": 37,
+  "relevantFilings": 40,
   "detailBound": 12,
-  "detailsAttempted": 1,
+  "detailsAttempted": 2,
   "valueupOfficialDocumentAttempts": 0,
   "shareCancellationDocumentAttempts": 0,
   "businessCessationDocumentAttempts": 0,
@@ -45,10 +45,10 @@
   "shareCancellationDocumentUnavailable": 0,
   "valueupOfficialDocumentReads": 3,
   "valueupOfficialDocumentUnavailable": 0,
-  "detailBacklogQueued": 1,
+  "detailBacklogQueued": 2,
   "detailNotAttemptedThisRun": 0,
-  "unsupportedOriginalDetailTypes": 11,
-  "uninspectedListedDetails": 11,
+  "unsupportedOriginalDetailTypes": 12,
+  "uninspectedListedDetails": 12,
   "uninspectedRelevantDetails": 0,
   "firstRunBaseline": false,
   "sourceChecks": [
@@ -80,7 +80,7 @@
       "company": "현대위아",
       "beat": "자동차·부품·타이어",
       "status": "checked",
-      "officialRows": 8,
+      "officialRows": 10,
       "relevantRows": 0,
       "pagesRead": 1
     },
@@ -136,7 +136,7 @@
       "company": "금호타이어",
       "beat": "자동차·부품·타이어",
       "status": "checked",
-      "officialRows": 2,
+      "officialRows": 3,
       "relevantRows": 0,
       "pagesRead": 1
     },
@@ -229,7 +229,7 @@
       "company": "KG스틸",
       "beat": "철강",
       "status": "checked",
-      "officialRows": 26,
+      "officialRows": 27,
       "relevantRows": 3,
       "pagesRead": 1
     },
@@ -301,8 +301,8 @@
       "company": "HD현대일렉트릭",
       "beat": "전력기기·전선",
       "status": "checked",
-      "officialRows": 6,
-      "relevantRows": 0,
+      "officialRows": 10,
+      "relevantRows": 2,
       "pagesRead": 1
     },
     {
@@ -325,8 +325,8 @@
       "company": "효성중공업",
       "beat": "전력기기·전선",
       "status": "checked",
-      "officialRows": 6,
-      "relevantRows": 1,
+      "officialRows": 7,
+      "relevantRows": 2,
       "pagesRead": 1
     },
     {
@@ -365,7 +365,7 @@
       "company": "두산에너빌리티",
       "beat": "에너지·화학",
       "status": "checked",
-      "officialRows": 8,
+      "officialRows": 9,
       "relevantRows": 3,
       "pagesRead": 1
     },
@@ -435,6 +435,132 @@
     }
   ],
   "records": [
+    {
+      "company": "효성중공업",
+      "beat": "전력기기·전선",
+      "corpCode": "01316245",
+      "receiptNo": "20261027800518",
+      "published": "20261027",
+      "report": "[기재정정]단일판매ㆍ공급계약체결              ",
+      "category": "공급계약",
+      "isCorrection": true,
+      "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261027800518",
+      "sourceType": "official_list_receipt",
+      "originalDocumentVerified": false,
+      "companyImpactVerified": false,
+      "scoopConfirmed": false,
+      "status": "original_not_verified",
+      "originalReceiptNo": null,
+      "originalSourceUrl": null,
+      "changes": [],
+      "issuerCorrectionTable": {
+        "status": "issuer_table_material_changes_for_review",
+        "changes": [
+          {
+            "fieldLabel": "2. 계약내역 - 계약금액(원)",
+            "before": "113,586,046,173",
+            "after": "113,044,698,813",
+            "category": "amount",
+            "basis": "issuer_reported_amendment_table_only",
+            "amendedSourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261027800518",
+            "originalReceiptIndependentlyVerified": false,
+            "commercialEffectVerified": false,
+            "sameEventPriorCoverageVerified": false,
+            "oneSideUnspecified": false
+          }
+        ],
+        "totalMaterialRows": 1,
+        "conflictingFieldCount": 0,
+        "skippedRows": 0,
+        "independentOriginalDocumentCompared": false,
+        "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261027800518"
+      },
+      "unverifiedSameDateCandidates": [
+        {
+          "receiptNo": "20260210801094",
+          "report": "[기재정정]단일판매ㆍ공급계약체결              ",
+          "date": "20260210",
+          "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260210801094",
+          "status": "같은 날짜의 후보일 뿐 동일 사건 미검증"
+        },
+        {
+          "receiptNo": "20260210800044",
+          "report": "단일판매ㆍ공급계약체결              ",
+          "date": "20260210",
+          "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260210800044",
+          "status": "같은 날짜의 후보일 뿐 동일 사건 미검증"
+        }
+      ],
+      "evidenceStatus": "원문에서 원공시의 명시적 접수번호 확인 불가; 날짜·제목만으로 계약 연결 금지",
+      "sourceError": false,
+      "scoopStatus": "기보도 및 원자료·회사 답변 확인 전 · 단독 미확정",
+      "questions": [
+        "원문 원계약·정정 전후 계약금액, 고객사, 적용 기간이 명시됐는가?",
+        "해당 공급계약·투자에 관한 이전 DART 공시·기업 발표·전문지 보도가 있는가?",
+        "공식 계약 확정과 입찰/협약/옵션 계약의 구분 및 실제 산업 영향은 무엇인가?"
+      ],
+      "firstObservedAt": "2026-10-27T23:58:12+09:00",
+      "firstObservedThisRun": true,
+      "detailTypeSupported": true,
+      "detailStatus": "original_not_verified",
+      "independentContractComparisonVerified": false,
+      "approvedForPitch": false
+    },
+    {
+      "company": "HD현대일렉트릭",
+      "beat": "전력기기·전선",
+      "corpCode": "01205851",
+      "receiptNo": "20261027800235",
+      "published": "20261027",
+      "report": "신규시설투자등              ",
+      "category": "신규시설투자",
+      "isCorrection": false,
+      "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261027800235",
+      "sourceType": "official_list_receipt",
+      "originalDocumentVerified": false,
+      "companyImpactVerified": false,
+      "scoopConfirmed": false,
+      "status": "official_document_read",
+      "observedFields": {},
+      "observedFieldEvidence": {},
+      "conflictingDocumentFields": [],
+      "documentTablesExamined": 1,
+      "documentFieldExtractionStatus": "official_table_terms_not_business_effect",
+      "evidenceStatus": "DART 공식 원문은 열었으나 계약 관련 단일 항목을 안전하게 매칭하지 못함. 원문 직접 확인 필요(0원·계약 없음 아님)",
+      "scoopStatus": "기보도 및 원자료·회사 답변 확인 전 · 단독 미확정",
+      "questions": [
+        "원문 원계약·정정 전후 계약금액, 고객사, 적용 기간이 명시됐는가?",
+        "해당 공급계약·투자에 관한 이전 DART 공시·기업 발표·전문지 보도가 있는가?",
+        "공식 계약 확정과 입찰/협약/옵션 계약의 구분 및 실제 산업 영향은 무엇인가?"
+      ],
+      "firstObservedAt": "2026-10-27T23:58:12+09:00",
+      "firstObservedThisRun": true,
+      "detailTypeSupported": true,
+      "detailStatus": "official_document_read",
+      "independentContractComparisonVerified": false,
+      "approvedForPitch": false
+    },
+    {
+      "company": "HD현대일렉트릭",
+      "beat": "전력기기·전선",
+      "corpCode": "01205851",
+      "receiptNo": "20261027800226",
+      "published": "20261027",
+      "report": "연결재무제표기준영업(잠정)실적(공정공시)              ",
+      "category": "정기·주요공시",
+      "isCorrection": false,
+      "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261027800226",
+      "sourceType": "official_list_receipt",
+      "originalDocumentVerified": false,
+      "companyImpactVerified": false,
+      "scoopConfirmed": false,
+      "firstObservedAt": "2026-10-27T23:58:12+09:00",
+      "firstObservedThisRun": true,
+      "detailTypeSupported": false,
+      "detailStatus": "original_detail_type_unsupported",
+      "independentContractComparisonVerified": false,
+      "approvedForPitch": false
+    },
     {
       "company": "대한전선",
       "beat": "전력기기·전선",
@@ -537,7 +663,7 @@
         "공식 계약 확정과 입찰/협약/옵션 계약의 구분 및 실제 산업 영향은 무엇인가?"
       ],
       "firstObservedAt": "2026-10-27T10:41:08+09:00",
-      "firstObservedThisRun": true,
+      "firstObservedThisRun": false,
       "detailTypeSupported": true,
       "detailStatus": "official_document_read",
       "independentContractComparisonVerified": false,
@@ -2828,7 +2954,10 @@
     "20261021800308": "2026-10-21T22:08:03+09:00",
     "20261021800303": "2026-10-21T22:08:03+09:00",
     "20261026800529": "2026-10-27T00:27:58+09:00",
-    "20261027800037": "2026-10-27T10:41:08+09:00"
+    "20261027800037": "2026-10-27T10:41:08+09:00",
+    "20261027800518": "2026-10-27T23:58:12+09:00",
+    "20261027800235": "2026-10-27T23:58:12+09:00",
+    "20261027800226": "2026-10-27T23:58:12+09:00"
   },
   "confirmedScoops": 0,
   "approvedArticles": 0,
