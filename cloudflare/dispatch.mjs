@@ -17,7 +17,9 @@ export const SLOTS = [
   { at: '07:50', workflow: 'us-litigation.yml' },
   { at: '08:10', workflow: 'kr-official.yml' },
   { at: '08:20', workflow: 'us-comments.yml' },
+  { at: '08:30', workflow: 'kr-signals.yml' },
   { at: '15:10', workflow: 'scoop-screen.yml' },
+  { at: '15:20', workflow: 'kr-signals.yml' },
   { at: '18:30', workflow: 'page-watch.yml' },
 ];
 

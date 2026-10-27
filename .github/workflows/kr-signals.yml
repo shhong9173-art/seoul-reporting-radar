@@ -1,0 +1,40 @@
+name: KR Signals Watch
+# 공정위 의결서(출입처 이름)·한전 전자입찰(전력기기·전선)·원자재 가격(KOMIS). 평일 08:30·15:20 KST(Cloudflare 요청, GitHub 예약은 예비).
+# 결과는 기자 전용 저장소로만. 공개 로그는 건수만. 공정위 전문은 실행당 최대 40건, 목록은 최대 30쪽.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/kr_signals_watch.py'
+      - 'data/kr_signals.json'
+      - 'tests/test_kr_signals_watch.py'
+      - '.github/workflows/kr-signals.yml'
+  schedule:
+    - cron: '30 23 * * 0-4'
+    - cron: '20 6 * * 1-5'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: kr-signals-watch
+  cancel-in-progress: false
+jobs:
+  signals:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install "requests>=2.31,<3"
+      - name: Test parsing
+        run: python -m unittest tests.test_kr_signals_watch tests.test_private_store -v
+      - name: Watch FTC decisions, KEPCO bids and commodity prices (counts-only log)
+        env:
+          MCP_ACCESS_TOKEN: ${{ secrets.MCP_ACCESS_TOKEN }}
+          KEPCO_API_KEY: ${{ secrets.KEPCO_API_KEY }}
+        run: python scripts/kr_signals_watch.py

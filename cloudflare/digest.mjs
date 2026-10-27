@@ -1,4 +1,4 @@
-// radar_today: one private digest over the seven private watches. It reads what the collectors already stored
+// radar_today: one private digest over the eight private watches. It reads what the collectors already stored
 // (no new fetching), keeps what is new since a cutoff, and ranks it. Failed or stale watches are listed first:
 // their silence is "미확인", not "nothing new".
 import { readFeed } from './screen.mjs';
@@ -11,11 +11,13 @@ const kstDate = (ms) => new Date(ms + KST_MS).toISOString().slice(0, 10);
 const kstStamp = (v) => { const t = Date.parse(v); return Number.isFinite(t) ? new Date(t + KST_MS).toISOString().slice(5, 16).replace('T', ' ') : String(v ?? '').slice(0, 16); };
 // EDGAR hits count as direct changes only when the excerpt reads like a deal with the beat company.
 const DEAL_WORDS = /\b(agreement|supply|offtake|off-take|joint venture|\bJV\b|memorandum|MOU|partnership|collaborat\w*|acquisition|acquire[sd]?|merger|purchase order|contract\w*|guarantee\w*|licen[cs]e|investment in|strategic|customer|order[s]? from)\b/i;
+const ymd8 = (v) => (/^\d{8}/.test(String(v ?? '')) ? `${String(v).slice(0, 4)}-${String(v).slice(4, 6)}-${String(v).slice(6, 8)}` : String(v ?? '').slice(0, 10));
 const has = (q, ...fields) => !q || fields.some((f) => String(f ?? '').toLowerCase().includes(q.toLowerCase()));
 
 export const WATCHES = [
   { feed: 'scoop-screen', label: '단독 후보 심사', tool: 'scoop_screen', schedule: '평일 07:10·15:10' },
   { feed: 'kr-official', label: '공장등록·관보', tool: 'kr_official', schedule: '평일 08:10' },
+  { feed: 'kr-signals', label: '공정위·한전·원자재', tool: 'kr_signals', schedule: '평일 08:30·15:20' },
   { feed: 'trade-remedy', label: '무역구제', tool: 'trade_remedies', schedule: '평일 07:40' },
   { feed: 'us-litigation', label: '미국 소송·ITC', tool: 'us_litigation', schedule: '평일 07:50' },
   { feed: 'partner-filings', label: '해외 파트너 공시', tool: 'partner_filings', schedule: '평일 07:00' },
@@ -81,6 +83,32 @@ function collect(docs, cut, cutDay, { all = false } = {}) {
   const gzBase = baselineOf(kr?.gazette ?? []);
   for (const g of kr?.gazette ?? []) {
     if (fresh(g, gzBase, 'date')) push('B', W['kr-official'], { kind: '관보 입법예고', id: g.id, date: g.date, company: (g.teams ?? []).join('·'), fact: `관보 입법예고 ${g.org}: ${g.title}`, url: g.url });
+  }
+
+  const ks = docs['kr-signals'];
+  const ksBase = baselineOf(ks?.decisions ?? []);
+  for (const d of ks?.decisions ?? []) {
+    const fd = String(d.fileDate ?? '').slice(0, 10);  // file registration = when the decision went up
+    if (!(all || (fd ? fd >= cutDay : isFresh(d, cut, cutDay, ksBase, 'decidedOn')))) continue;
+    const ms = d.mentions ?? [];
+    const direct = ms.filter((m) => !m.related);
+    const named = direct.filter((m) => m.role !== '본문 언급');
+    const installment = (d.flags ?? []).some((f) => f.startsWith('과징금 납부기한'));
+    const tier = direct.some((m) => m.role === '피심인') || (installment && named.length) ? 'A' : named.length ? 'B' : 'C';
+    const lead = direct.find((m) => m.role === '피심인') ?? named[0] ?? ms[0];
+    push(tier, W['kr-signals'], { kind: `공정위 ${lead?.role ?? '언급'}`, id: d.id, date: fd || d.decidedOn, company: [...new Set(ms.map((m) => m.company))].join('·'),
+      fact: `공정위 의결서(${d.action}${(d.flags ?? []).length ? ` · ${d.flags.join('·')}` : ''}, 의결 ${d.decidedOn}): ${d.name} — ${ms.map((m) => `${m.company} ${m.role}`).join(', ')}`, url: d.url });
+  }
+  for (const x of ks?.kepco ?? []) {
+    const nd = ymd8(x.noticeDate);
+    if (!(all || nd >= cutDay)) continue;
+    push(x.big ? 'B' : 'C', W['kr-signals'], { kind: '한전 입찰', id: x.id, date: nd, company: x.company,
+      fact: `한전 전자입찰 ${x.company} 「${x.name}」 · 추정가격 ${x.price ? `약 ${Math.round(x.price / 1e8).toLocaleString('en-US')}억원` : '미기재'} · ${x.state}` });
+  }
+  for (const e of ks?.events ?? []) {
+    if (!recent(e.detectedAt)) continue;
+    const tier = e.kind === '원자재 가격' ? (/최고|최저/.test(e.signal ?? '') ? 'B' : 'C') : 'B';
+    push(tier, W['kr-signals'], { kind: e.kind === '원자재 가격' ? `원자재 ${e.signal}` : e.kind, id: e.id, date: e.detectedAt, company: e.company, fact: `${e.kind}: ${e.text}` });
   }
 
   const tr = docs['trade-remedy'];
@@ -153,10 +181,14 @@ function health(ctx, docs) {
     if (!d) { lines.push(`- ${w.label}: 결과 없음 — 미확인(${w.schedule} 실행 확인)`); continue; }
     if (d.broken) { lines.push(`- ${w.label}: 저장 형식 오류 — 미확인`); continue; }
     const ageH = (ctx.now.getTime() - Date.parse(d.generatedAt)) / 3600000;
-    const failed = (d.checks ?? []).filter((c) => c.status && c.status !== 'ok' && !String(c.source ?? '').startsWith('공장등록 이름 규칙'));
+    const waiting = (d.checks ?? []).filter((c) => c.status === 'partial' && !c.error && c.pending);  // read budget, not a failure
+    const failed = (d.checks ?? []).filter((c) => c.status && !['ok', 'unset'].includes(c.status) && !waiting.includes(c) && !String(c.source ?? '').startsWith('공장등록 이름 규칙'));
+    const unset = (d.checks ?? []).filter((c) => c.status === 'unset');
     const issues = [];
     if (Number.isFinite(ageH) && ageH > 36) issues.push(`⚠ ${Math.round(ageH)}시간 전 결과`);
     if (failed.length) issues.push(`일부 실패 ${failed.length}건(${failed.slice(0, 3).map((c) => c.source ?? c.company ?? c.target).join(', ')})`);
+    if (unset.length) issues.push(`미설정 ${unset.map((c) => `${c.source}(${c.error ?? '열쇠 없음'})`).join(', ')}`);
+    if (waiting.length) issues.push(`${waiting.map((c) => `${c.source} 원문 대기 ${c.pending}건`).join(', ')}(실행당 읽기 한도, 다음 실행에서 읽음)`);
     if (issues.length) lines.push(`- ${w.label}: ${issues.join(' · ')} — 해당 부분 0건은 미확인`);
   }
   return lines;
@@ -189,7 +221,7 @@ export async function radarToday(ctx, args) {
   const h = health(ctx, docs);
   const dh = await dispatchHealth(ctx);
   if (dh) h.unshift(`- ${dh}`);
-  out.push(h.length ? `\n[먼저 볼 것: 수집 상태]\n${h.join('\n')}` : '\n[수집 상태] 7개 감시 모두 최근 정상');
+  out.push(h.length ? `\n[먼저 볼 것: 수집 상태]\n${h.join('\n')}` : `\n[수집 상태] ${WATCHES.length}개 감시 모두 최근 정상`);
   const tiers = [['A', '단독 후보·직접 변화 — 원문·보도 대조부터'], ['B', '확인할 공식 변화'], ['C', '참고(접힘)']];
   for (const [t, title] of tiers) {
     const rows = byTier(t);

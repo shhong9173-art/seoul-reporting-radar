@@ -268,3 +268,75 @@ export async function krOfficial(ctx, args) {
   out.push('\n다음: 새 공장·변경은 회사·지자체에 가동 시점·투자액·인력 확인 → news_check. 입법예고는 원문(관보 PDF)에서 시행일·대상 확인.');
   return textResult(out.join('\n'));
 }
+
+const eok = (v) => (Number.isFinite(v) && v > 0 ? `${v.toLocaleString('en-US')}원(약 ${(v / 1e8).toLocaleString('en-US', { maximumFractionDigits: v >= 1e10 ? 0 : 1 })}억원)` : '미기재');
+const signed = (v) => (v === null || v === undefined ? '?' : `${v > 0 ? '+' : ''}${v}%`);
+const ymd8 = (s) => (/^\d{8}/.test(String(s ?? '')) ? `${String(s).slice(0, 4)}-${String(s).slice(4, 6)}-${String(s).slice(6, 8)}` : String(s ?? ''));
+
+// 국내 신호: 공정위 의결서(출입처 이름) · 한전 전자입찰(전력기기·전선) · 원자재 가격(KOMIS)
+export async function krSignals(ctx, args) {
+  const doc = await readFeed(ctx, 'kr-signals');
+  if (!doc) return missing('공정위 의결서·한전 입찰·원자재 가격', '평일 08:30·15:20');
+  if (doc.broken) return textResult('저장된 국내 신호 결과 형식 오류 — 미확인.', true);
+  const section = ['ftc', 'kepco', 'price'].includes(args.section) ? args.section : null;
+  const q = String(args.company ?? '').trim();
+  const days = clampInt(args.days, 1, 365, 60);
+  const limit = clampInt(args.limit, 1, 60, 15);
+  const checks = doc.checks ?? [];
+  const bad = checks.filter((c) => c.status !== 'ok');
+  const out = [`국내 신호(공정위 의결서·한전 전자입찰·원자재 가격) · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt)}`,
+    `질의 ${checks.length - bad.length}/${checks.length} 정상${bad.length ? ` · 미확인(0건 아님): ${bad.slice(0, 6).map((c) => `${c.source}(${c.error ?? c.status}${c.pending ? `, 전문 대기 ${c.pending}건` : ''})`).join(', ')}` : ''}`,
+    ...(doc.rules ?? []).map((r) => `규칙: ${r}`)];
+  if (!section || section === 'ftc') {
+    const from = new Date(ctx.now.getTime() + 9 * 3600000 - days * 86400000).toISOString().slice(0, 10);
+    const rows = (doc.decisions ?? []).filter((d) => String(d.decidedOn ?? '') >= from || String(d.fileDate ?? '') >= from)
+      .filter((d) => matches(q, d.name, ...(d.mentions ?? []).map((m) => m.company)))
+      .filter((d) => args.include_mentions === true || args.include_mentions === 'true' || (d.mentions ?? []).some((m) => m.role !== '본문 언급' && !m.related));
+    const f = checks.find((c) => c.source === '공정위 의결서');
+    out.push(`\n[공정위 의결서 · 의결일 또는 파일 등록 최근 ${days}일 · 출입처가 피심인·발주처·사건명에 있는 것] ${rows.length}건${f ? ` (목록 ${f.listed ?? '?'}건, 전문 읽음 ${f.read ?? 0}·대기 ${f.pending ?? 0})` : ''}`);
+    out.push('(본문에만 이름이 나오는 의결서는 include_mentions=true로 본다 — 시장점유율 표·경쟁사 언급이 대부분)');
+    for (const d of rows.slice(0, limit)) {
+      const roles = (d.mentions ?? []).map((m) => `${m.company} ${m.role}${m.related ? '(관련 기업)' : ''}${(m.orderAmounts ?? []).length ? ` · 주문 금액 ${m.orderAmounts.join(', ')}` : ''}`).join(' / ');
+      out.push(`- ${d.isNew ? '[신규] ' : ''}의결 ${d.decidedOn} · 파일 등록 ${d.fileDate ?? '?'} · ${d.action}${(d.flags ?? []).length ? ` · ${d.flags.join('·')}` : ''}`);
+      out.push(`   사건명: ${d.name}`);
+      out.push(`   출입처: ${roles}`);
+      const resp = (d.mentions ?? []).find((m) => m.role === '피심인');
+      if (resp?.snippet) out.push(`   원문 발췌: ${resp.snippet.slice(0, 220)}`);
+      else if (d.orderExcerpt && (d.mentions ?? []).some((m) => m.role !== '본문 언급')) out.push(`   주문 첫머리: ${d.orderExcerpt.slice(0, 200)}`);
+      if (d.note) out.push(`   ⚠ ${d.note}`);
+      out.push(`   원문: ${d.url} · ${d.decisionNo} · 사건번호 ${(d.caseNos ?? []).join(', ')}`);
+    }
+    if (!rows.length) out.push('없음(전문 대기·목록 실패분은 미확인)');
+    out.push('   검증 상태: 공정위 공개 의결서(자동 대조). 보도자료·선행 기사 여부는 news_check, 금액·감경은 원문에서 확인');
+  }
+  if (!section || section === 'kepco') {
+    const k = checks.find((c) => c.source === '한전 전자입찰');
+    if (k?.status === 'unset') out.push('\n[한전 전자입찰] 미설정 — GitHub Secrets에 KEPCO_API_KEY(전력데이터개방포털 40자리 키) 필요. 0건이 아니라 미확인.');
+    else {
+      const rows = (doc.kepco ?? []).filter((x) => matches(q, x.name, x.company, x.place));
+      out.push(`\n[한전 전자입찰 · 전력기기·전선 품목 · 공고일 기준] ${rows.length}건`);
+      for (const x of rows.slice(0, limit)) {
+        out.push(`- ${x.isNew ? '[신규] ' : ''}공고 ${ymd8(x.noticeDate)} · ${x.company} · ${x.state}${x.big ? ' · 대형' : ''} · 추정가격 ${eok(x.price)}`);
+        out.push(`   입찰건명: ${x.name}${x.closeAt ? ` · 신청 마감 ${ymd8(x.closeAt)}` : ''}`);
+        out.push(`   공고번호 ${x.no}${(x.files ?? []).length ? ` · 첨부 ${x.files.slice(0, 2).join(', ')}` : ''} (원문: 한전 전자조달 srm.kepco.net에서 공고번호로)`);
+      }
+      if (!rows.length) out.push('없음');
+      out.push('   검증 상태: 발주 공고(추정가격). 낙찰사·계약금액이 아니다');
+    }
+  }
+  if (!section || section === 'price') {
+    const rows = (doc.prices ?? []).filter((p) => matches(q, p.name, p.id, ...(p.beats ?? [])));
+    out.push(`\n[원자재 가격 · KOMIS 게시값 · 같은 기준·단위만 비교] ${rows.length}종`);
+    for (const p of rows) {
+      const s = p.summary ?? {};
+      out.push(`- ${p.name} ${p.basis}(${p.unit}) · ${s.date ?? '?'} ${Number(s.price ?? 0).toLocaleString('en-US')}${p.stale ? ' · ⚠ 이번 조회 실패, 직전 값' : ''}`);
+      out.push(`   전일 ${signed(s.day)} · 1주 ${signed(s.week)} · 한 달(${s.monthFrom ?? '?'}~) ${signed(s.month)} · 연초(${s.ytdFrom ?? '?'}~) ${signed(s.ytd)}${s.stock ? ` · LME 재고 ${Number(s.stock).toLocaleString('en-US')}(한 달 ${signed(s.stockMonth)})` : ''}`);
+      if (s.high && s.low) out.push(`   조회 범위(${(s.span ?? []).join('~')}) 최고 ${s.high.date} ${Number(s.high.price).toLocaleString('en-US')} · 최저 ${s.low.date} ${Number(s.low.price).toLocaleString('en-US')}${p.sinceNote ? ` · ${p.sinceNote}` : ''}`);
+      if ((p.signals ?? []).length) out.push(`   신호: ${p.signals.map((x) => x.text).join(' / ')}`);
+      out.push(`   관련 출입처: ${(p.beats ?? []).join('·')}`);
+    }
+    out.push('   검증 상태: KOMIS(한국광해광업공단) 게시 가격. 기사에 쓸 땐 같은 기준(LME CASH 등)·날짜를 그대로, "역대"는 쓰지 않는다');
+  }
+  out.push('\n다음: 공정위는 원문(개방문서)에서 피심인·주문·과징금 확인 → news_check(사건명 낱말·회사명) → 회사 확인. 가격은 출입처 실적·판가 영향은 회사·IR로 확인.');
+  return textResult(out.join('\n'));
+}
