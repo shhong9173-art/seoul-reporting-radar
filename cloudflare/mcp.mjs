@@ -8,14 +8,15 @@ import { customsTrade, ecosData, ecosFind, kosisData, kosisFind } from './stats_
 import { POLICY, checkCandidate, formatCheck } from './scoring.mjs';
 import { scoopScreen } from './screen.mjs';
 import { krOfficial, krSignals, krStats, pageChanges, partnerFilings, tradeRemedies, usComments, usLitigation } from './overseas.mjs';
+import { trademarks } from './trademarks.mjs';
 import { radarToday } from './digest.mjs';
 
 export const SUPPORTED_VERSIONS = ['2025-06-18', '2025-03-26', '2024-11-05'];
 const SERVER_INFO = { name: 'seoul-reporting-radar', title: '산업부 취재 레이더', version: '1.0.0' };
 const INSTRUCTIONS = [
   '산업부(자동차·철강·전력기기·에너지·화학) 취재 레이더. 기자는 홍성효.',
-  '하루 시작은 radar_today(기자 전용): 감시 9개의 새 항목을 A(단독 후보·직접 변화)/B(확인할 공식 변화)로 모아 보여 주고, 실패·오래된 감시를 먼저 알린다. 항목마다 자세히 볼 도구가 붙어 있다.',
-  '순서: radar_today → scoop_screen(기자 전용, 미보도 후보부터) → page_changes·us_comments·partner_filings·trade_remedies·us_litigation(기자 전용, 해외 원천) → kr_official(기자 전용, 공장등록·관보) → kr_signals(기자 전용, 공정위 의결서·한전 입찰·원자재 가격) → kr_stats(기자 전용, 물가지수·철강 생산·수입차 등록; 발제 검증은 ecos_find·ecos_data·kosis_find·kosis_data·customs_trade 즉석 조회) → radar_big_picture → radar_clues(days=3) → radar_stats → governance_changes → earnings_compare(실적 시즌) → dandok_monitor → scoop_packages(기자 전용).',
+  '하루 시작은 radar_today(기자 전용): 감시 10개의 새 항목을 A(단독 후보·직접 변화)/B(확인할 공식 변화)로 모아 보여 주고, 실패·오래된 감시를 먼저 알린다. 항목마다 자세히 볼 도구가 붙어 있다.',
+  '순서: radar_today → scoop_screen(기자 전용, 미보도 후보부터) → page_changes·us_comments·partner_filings·trade_remedies·us_litigation(기자 전용, 해외 원천) → kr_official(기자 전용, 공장등록·관보) → kr_signals(기자 전용, 공정위 의결서·한전 입찰·원자재 가격) → kr_stats(기자 전용, 물가지수·철강 생산·수입차 등록; 발제 검증은 ecos_find·ecos_data·kosis_find·kosis_data·customs_trade 즉석 조회) → trademarks(기자 전용, 출입처 상표 출원 주 1회) → radar_big_picture → radar_clues(days=3) → radar_stats → governance_changes → earnings_compare(실적 시즌) → dandok_monitor → scoop_packages(기자 전용).',
   '후보마다: source_document 또는 dart_find_text로 원문 확인 → news_check로 보도 대조(낱말 바꿔 2~3번, 한 번에 하나씩) → candidate_check.',
   '조회 실패·미설정·일부 성공은 0건이 아니라 미확인. 색인 0건은 미보도 증거가 아님. 단계(공개 원자료 추적/취재 단서·단독 미확정/단독 후보)를 올리지 않음.',
   '최종 단독 판단은 기자가 한다. 관계자 발언을 만들지 않는다.',
@@ -163,6 +164,10 @@ export const TOOLS = [
     description: '국내 월간 통계: 한국은행 ECOS 품목별 생산자·수출·수입물가(열연·냉연·후판·도금·철근·강관·나동선·아연·알루미늄·변압기·개폐기·승용차·타이어), KOSIS 철강협회 강종별 생산·광공업동향 품목(나동선·칼라강판·에틸렌·폴리에틸렌 생산·재고), KAIDA 수입 승용차 브랜드별 신규등록(순위·점유). 새 달 수치의 조회 범위 안 최고·최저(날짜·값), 전년 대비, 연속 증감, 출입처 브랜드 순위 변화.',
     inputSchema: obj({ section: { type: 'string', enum: ['kaida', 'price', 'production'] }, company: str('기업·품목·브랜드 낱말'),
       show_all: bool('신호 없는 계열도 보기'), limit: int('구역별 줄 수', 1, 60) }) },
+  { name: 'trademarks', access: 'private', handler: trademarks,
+    description: '출입처 상표 출원(KIPRIS Plus, 주 1회 월요일 수집): 새로 본 출원을 회사·상표명·상품류로 묶어 보여 줌(같은 날 같은 이름은 한 건). 처음 보는 이름+업종 핵심 상품류는 B. 저장된 결과만 읽고 KIPRIS를 새로 부르지 않음. 출원은 출시·진출 확정이 아님.',
+    inputSchema: obj({ company: str('회사 낱말'), name: str('상표명 낱말'), class: str('상품류 번호(예: 12)'),
+      days: int('최근 N일(기본 30)', 1, 120), show_all: bool('기존(기준선) 출원도 보기'), limit: int('줄 수', 1, 80) }) },
   { name: 'candidate_feedback', access: 'private', handler: judgeItems,
     description: '기자 판정 기록: 씀/킬/보류/봤음과 이유. 판정한 항목은 radar_today에서 숨김(봤음=판단 전이지만 다시 안 보기). item_ids로 여러 건 한 번에.',
     inputSchema: obj({ item_id: str('후보 번호(#id)·패키지 이름·단서 id(radar_today 줄의 id)'),

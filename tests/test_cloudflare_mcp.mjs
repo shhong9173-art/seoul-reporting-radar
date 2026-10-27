@@ -880,7 +880,7 @@ test('kr_signals shows FTC decisions by role, KEPCO bids and commodity prices, a
   const minor = await call('radar_today', { include_minor: true }, opts);
   assert.match(minor.text, /「\(연간단가\)고효율주상변압기,50KVA\(광유\)-2,338대-0\d\(일반\)」 외 같은 공고 2건\(합계 약 149억원\) · 추정가격 약 50억원/);
   assert.equal((minor.text.match(/고효율주상변압기/g) ?? []).length, 1);  // three lots, one line
-  assert.match(r.text, /기자 전용 감시 9개/);
+  assert.match(r.text, /기자 전용 감시 10개/);
   assert.deepEqual(dueAt(new Date('2026-10-26T23:30:00Z')), ['kr-signals.yml']);  // Tue 08:30 KST
   assert.deepEqual(dueAt(new Date('2026-10-27T06:20:00Z')), ['kr-signals.yml']);  // Tue 15:20 KST
 });
@@ -926,6 +926,50 @@ test('kr_stats shows KAIDA ranks, price and production series with signals, and 
   assert.doesNotMatch(b, /전년 같은 달 대비 \+12\.4%|Polestar/);  // routine moves and low-rank swaps → C
   assert.match(r.text, /\[C · 참고\(접힘\)\] 2건/);
   assert.deepEqual(dueAt(new Date('2026-10-26T22:30:00Z')), ['kr-stats.yml']);  // Tue 07:30 KST
+});
+
+test('trademarks: weekly filings grouped by name, new names in core classes are B, waits are not failures and radar_today keeps them a week', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const filing = (company, title, date, classes, extra = {}) => ({ id: `tm:${company}:${title.toLowerCase().replace(/\W/g, '')}:${date.replace(/-/g, '')}`, company, related: false, title,
+    applicationDate: date, applicationNumbers: classes.map((c, i) => `40202601${c}${String(i).padStart(3, '0')}`), newNumbers: [], classes, coreClasses: classes.filter((c) => ['12', '09'].includes(c)),
+    statuses: ['출원'], agent: '대리인', applicants: '현대자동차주식회사', isNew: false, titleNew: false, tier: null, firstSeen: '2026-10-19T07:10:00+09:00', ...extra });
+  const doc = { schema: 'trademarks/v1', generatedAt: '2026-10-26T07:10:00+09:00', source: 'KIPRIS Plus 상표 출원 속보(getAdvancedSearch)', status: 'partial',
+    window: { from: '2026-07-28', to: '2026-10-26', field: '출원일' }, baselineSince: '2026-10-19T07:10:00+09:00',
+    checks: [{ source: '상표 현대자동차', status: 'ok', rawTotal: 4, kept: 4, filings: 3, requests: 1 },
+      { source: '상표 KG모빌리티', status: 'ok', rawTotal: 0, kept: 0, filings: 0, requests: 1, nameVerified: false },
+      { source: '상표 포스코', status: 'waiting', reason: 'provider_22_cooldown', until: '2026-10-29T07:10:00+09:00' }],
+    filings: [filing('현대자동차', 'AERO DRIVE', '2026-10-20', ['12', '35'], { isNew: true, titleNew: true, tier: 'B', firstSeen: '2026-10-26T07:10:00+09:00' }),
+      filing('현대자동차', 'NUTRIMACY', '2026-09-10', ['07', '09', '12'], { isNew: true, tier: 'C', addedClassesAt: '2026-10-26T07:10:00+09:00' }),
+      filing('현대자동차', 'PLEOS', '2026-08-01', ['09']),
+      filing('현대자동차', 'OLDNEW', '2026-10-01', ['12'], { isNew: true, titleNew: true, tier: 'B', firstSeen: '2026-10-12T07:10:00+09:00' })],
+    fresh: [], seen: {}, titles: {},
+    kipris: { month: '2026-10', counted: 40, monthlyLimit: 900, groupUsed: { patent: 30, trademark: 10, diagnostic: 0 }, groupLimits: { patent: 730, trademark: 150, diagnostic: 20 } },
+    rules: ['상표 출원은 출원 사실이다. 제품 출시·사업 진출·차명 확정이 아니다(방어 출원·예비 출원이 흔함).'], confirmedScoops: 0 };
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/trademarks', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
+  const t = await call('trademarks', {}, opts);
+  assert.match(t.text, /조회 정상 2\/3 · 대기 1곳\(제공기관 응답 22 뒤 72시간 대기, 2026-10-29T07:10부터 재시도\)/);
+  assert.match(t.text, /KIPRIS 호출 장부\(2026-10\): 상표 10\/150 · 전체 40\/900 — 이 저장소가 센 수, 계정 실제 사용량 아님/);
+  assert.match(t.text, /출원인 이름 미확인 \+ 0건: KG모빌리티/);
+  assert.match(t.text, /- \[B · 처음 보는 이름\] 현대자동차 · 「AERO DRIVE」 · 출원 2026-10-20\n   상품류: 12류\(차량·부품\), 35류\(광고·사업관리\) · 업종 핵심 12류/);
+  assert.match(t.text, /\[C · 상품류 추가\] 현대자동차 · 「NUTRIMACY」/);
+  assert.match(t.text, /「OLDNEW」/);  // 14 days ago is inside the tool's 30-day default
+  assert.doesNotMatch(t.text, /PLEOS/);  // baseline filings only with show_all
+  assert.match((await call('trademarks', { show_all: true, days: 120 }, opts)).text, /PLEOS/);
+  assert.doesNotMatch((await call('trademarks', { name: 'aero' }, opts)).text, /NUTRIMACY/);
+  assert.doesNotMatch((await call('trademarks', { class: '35' }, opts)).text, /NUTRIMACY/);
+  const r = await call('radar_today', {}, opts);
+  assert.match(r.text, /기자 전용 감시 10개/);
+  assert.match(r.text, /- 상표 출원: 대기 1곳\(제공기관 응답 22 뒤 72시간 대기\) — 해당 부분 0건은 미확인/);
+  assert.doesNotMatch(r.text, /상표 출원: [^\n]*시간 전 결과/);
+  const b = r.text.split('[B · ')[1].split('[C · ')[0];
+  assert.match(b, /상표 출원 · 현대자동차\n   상표 출원 「AERO DRIVE」 12류\(차량·부품\), 35류\(광고·사업관리\) — 감시 시작 이후 처음 보는 이름 \(출원 2026-10-20, 출원번호 [0-9]+ 외 1\)/);
+  assert.doesNotMatch(r.text, /OLDNEW/);  // first seen two weeks ago: off the digest
+  const minor = await call('radar_today', { include_minor: true }, opts);
+  assert.match(minor.text, /상표 출원 「NUTRIMACY」[^\n]* — 같은 이름 상품류 추가/);
+  const list = await rpc('tools/list', {}, { path: `/mcp/${TOKEN}`, env });
+  assert.ok(list.body.result.tools.some((x) => x.name === 'trademarks'));
+  assert.ok(!(await rpc('tools/list', {}, { env })).body.result.tools.some((x) => x.name === 'trademarks'));  // private only
 });
 
 test('live statistics: ECOS, KOSIS and customs lookups state ranges, keep variants apart and never turn failures into zero', async () => {

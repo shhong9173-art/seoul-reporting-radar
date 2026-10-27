@@ -1,10 +1,11 @@
-// radar_today: one private digest over the nine private watches. It reads what the collectors already stored
+// radar_today: one private digest over the ten private watches. It reads what the collectors already stored
 // (no new fetching), keeps what is new since a cutoff, and ranks it. Failed or stale watches are listed first:
 // their silence is "미확인", not "nothing new".
 import { readFeed } from './screen.mjs';
 import { storeOp } from './store.mjs';
 import { dispatchHealth } from './dispatch.mjs';
 import { clampInt, textResult } from './common.mjs';
+import { classLabel, waitReason } from './trademarks.mjs';
 
 const KST_MS = 9 * 3600000;
 const kstDate = (ms) => new Date(ms + KST_MS).toISOString().slice(0, 10);
@@ -24,6 +25,7 @@ export const WATCHES = [
   { feed: 'partner-filings', label: '해외 파트너 공시', tool: 'partner_filings', schedule: '평일 07:00' },
   { feed: 'us-comments', label: '미 연방 의견서', tool: 'us_comments', schedule: '평일 08:20' },
   { feed: 'page-watch', label: '해외 공식 페이지', tool: 'page_changes', schedule: '평일 06:30·18:30' },
+  { feed: 'trademarks', label: '상표 출원', tool: 'trademarks', schedule: '월 07:10', staleHours: 192 },
 ];
 
 // Items first seen in a watch's very first run are a baseline, not news: they only count when their own date is recent.
@@ -50,7 +52,7 @@ function scoopKind(c) {
 }
 
 // all=true: every stored item regardless of date (used to label judgments), same tiers as the digest.
-function collect(docs, cut, cutDay, { all = false } = {}) {
+function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
   const items = [];
   const push = (tier, w, x) => items.push({ tier, watch: w.label, tool: w.tool, ...x });
   const W = Object.fromEntries(WATCHES.map((w) => [w.feed, w]));
@@ -177,6 +179,16 @@ function collect(docs, cut, cutDay, { all = false } = {}) {
     if (fresh(x, ucBase, 'postedDate')) push('B', W['us-comments'], { kind: `의견서${x.agency ? ` ${x.agency}` : ''}`, id: x.id, date: x.postedDate, company: x.company, fact: `${x.submitter} → ${x.agency} 의견서${x.docketTitle ? ` 「${x.docketTitle}」` : ''}`, url: x.url });
   }
 
+  // Weekly feed: a new filing stays on the digest for 7 days from first sighting (or until judged).
+  for (const f of docs.trademarks?.filings ?? []) {
+    if (!f.isNew) continue;
+    const at = f.addedClassesAt ?? f.firstSeen;
+    if (!all && !(Date.parse(at) >= Math.min(cut, now - 7 * 86400000))) continue;
+    const classes = (f.classes ?? []).map(classLabel).join(', ');
+    push(f.tier === 'B' ? 'B' : 'C', W.trademarks, { kind: f.titleNew ? '상표 새 이름' : '상표 출원', id: f.id, date: f.applicationDate, company: f.company,
+      fact: `상표 출원 「${f.title}」 ${classes}${f.addedClassesAt ? ' — 같은 이름 상품류 추가' : ''}${f.titleNew ? ' — 감시 시작 이후 처음 보는 이름' : ''} (출원 ${f.applicationDate}, 출원번호 ${(f.applicationNumbers ?? [])[0] ?? '?'}${(f.applicationNumbers ?? []).length > 1 ? ` 외 ${f.applicationNumbers.length - 1}` : ''})` });
+  }
+
   const pw = docs['page-watch'];
   for (const e of pw?.events ?? []) {
     if (!recent(e.detectedAt)) continue;
@@ -207,13 +219,15 @@ function health(ctx, docs) {
     if (d.broken) { lines.push(`- ${w.label}: 저장 형식 오류 — 미확인`); continue; }
     const ageH = (ctx.now.getTime() - Date.parse(d.generatedAt)) / 3600000;
     const waiting = (d.checks ?? []).filter((c) => c.status === 'partial' && !c.error && c.pending);  // read budget, not a failure
-    const failed = (d.checks ?? []).filter((c) => c.status && !['ok', 'unset'].includes(c.status) && !waiting.includes(c) && !String(c.source ?? '').startsWith('공장등록 이름 규칙'));
+    const paused = (d.checks ?? []).filter((c) => c.status === 'waiting');  // call budget or provider cooldown: 미확인, not a failure
+    const failed = (d.checks ?? []).filter((c) => c.status && !['ok', 'unset', 'waiting'].includes(c.status) && !waiting.includes(c) && !String(c.source ?? '').startsWith('공장등록 이름 규칙'));
     const unset = (d.checks ?? []).filter((c) => c.status === 'unset');
     const issues = [];
-    if (Number.isFinite(ageH) && ageH > 36) issues.push(`⚠ ${Math.round(ageH)}시간 전 결과`);
+    if (Number.isFinite(ageH) && ageH > (w.staleHours ?? 36)) issues.push(`⚠ ${Math.round(ageH)}시간 전 결과`);
     if (failed.length) issues.push(`일부 실패 ${failed.length}건(${failed.slice(0, 3).map((c) => c.source ?? c.company ?? c.target).join(', ')})`);
     if (unset.length) issues.push(`미설정 ${unset.map((c) => `${c.source}(${c.error ?? '열쇠 없음'})`).join(', ')}`);
     if (waiting.length) issues.push(`${waiting.map((c) => `${c.source} 원문 대기 ${c.pending}건`).join(', ')}(실행당 읽기 한도, 다음 실행에서 읽음)`);
+    if (paused.length) issues.push(`대기 ${paused.length}곳(${[...new Set(paused.map((c) => waitReason(c.reason)))].join(', ')})`);
     if (issues.length) lines.push(`- ${w.label}: ${issues.join(' · ')} — 해당 부분 0건은 미확인`);
   }
   return lines;
@@ -232,7 +246,7 @@ export async function radarToday(ctx, args) {
   const { rows: fb } = await storeOp(ctx, 'feedback.latest', {});
   const judged = new Map(fb.map((r) => [r.item_id, r.verdict]));
   const showJudged = args.include_judged === true || args.include_judged === 'true';
-  const found = collect(docs, cut, cutDay).filter((x) => has(q, x.company, x.fact, x.watch));
+  const found = collect(docs, cut, cutDay, { now: nowMs }).filter((x) => has(q, x.company, x.fact, x.watch));
   const hiddenBy = {};
   const all = found.filter((x) => {
     const v = judged.get(x.id);
