@@ -56,5 +56,21 @@ class RelayClient(unittest.TestCase):
         self.assertEqual(ps.relay("https://www.dgtr.gov.in/en/x", "t" * 20, get=lambda *a, **k: R(200))[1], "ok")
 
 
+
+class LateSchedule(unittest.TestCase):
+    def test_only_late_cron_copies_skip(self):
+        import datetime as dt
+        kst = dt.timezone(dt.timedelta(hours=9))
+        now = dt.datetime(2026, 10, 28, 10, 40, tzinfo=kst)
+        prev = {"generatedAt": "2026-10-28T07:42:10+09:00"}  # the on-time Cloudflare-requested run
+        self.assertTrue(ps.late_scheduled_duplicate(prev, now, env={"GITHUB_EVENT_NAME": "schedule"}))
+        self.assertFalse(ps.late_scheduled_duplicate(prev, now, env={"GITHUB_EVENT_NAME": "workflow_dispatch"}))
+        self.assertFalse(ps.late_scheduled_duplicate(prev, now, env={"GITHUB_EVENT_NAME": "push"}))
+        old = {"generatedAt": "2026-10-27T07:42:10+09:00"}  # Cloudflare request failed: yesterday's result
+        self.assertFalse(ps.late_scheduled_duplicate(old, now, env={"GITHUB_EVENT_NAME": "schedule"}))
+        self.assertFalse(ps.late_scheduled_duplicate(None, now, env={"GITHUB_EVENT_NAME": "schedule"}))
+        self.assertFalse(ps.late_scheduled_duplicate({"generatedAt": "bad"}, now, env={"GITHUB_EVENT_NAME": "schedule"}))
+
+
 if __name__ == "__main__":
     unittest.main()

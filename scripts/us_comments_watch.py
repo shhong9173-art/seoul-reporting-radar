@@ -181,6 +181,8 @@ def main():
             previous = private_store.get("us-comments", token)
         except private_store.StoreError as e:
             print(f"::warning title=us-comments-state::이전 상태 조회 실패({e}) — 신규 표시는 이번 실행 기준")
+    if private_store.late_scheduled_duplicate(previous, now):
+        return
     doc = collect(key, now=now, previous=previous)
     ok = sum(1 for c in doc["checks"] if c["status"] == "ok")
     new = sum(1 for x in doc["items"] if x["isNew"])

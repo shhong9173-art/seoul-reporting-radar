@@ -454,6 +454,8 @@ def main():
             previous = private_store.get("trade-remedy", token)
         except private_store.StoreError as e:
             print(f"::warning title=trade-state::이전 상태 조회 실패({e}) — 신규 표시는 이번 실행 기준")
+    if private_store.late_scheduled_duplicate(previous, now):
+        return
     doc = run(cfg, now=now, previous=previous, relay_token=token or None)
     q = [x for x in doc["quotas"] if x["status"] == "ok"]
     exhausted = sum(1 for x in q if x.get("exhaustedOn"))

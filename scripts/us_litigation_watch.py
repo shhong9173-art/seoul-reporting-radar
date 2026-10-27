@@ -297,6 +297,8 @@ def main():
             previous = private_store.get("us-litigation", token)
         except private_store.StoreError as e:
             print(f"::warning title=us-litigation-state::이전 상태 조회 실패({e}) — 신규 표시는 이번 실행 기준")
+    if private_store.late_scheduled_duplicate(previous, now):
+        return
     doc = run(cl_token, now=now, previous=previous)
     ok = sum(1 for c in doc["checks"] if c["status"] == "ok")
     shown = sum(1 for x in doc["cases"] if x["priority"] < 3)

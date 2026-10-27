@@ -311,6 +311,8 @@ def main():
             previous = private_store.get("kr-official", token)
         except private_store.StoreError as e:
             print(f"::warning title=kr-official-state::이전 상태 조회 실패({e}) — 변경 비교는 다음 실행부터")
+    if private_store.late_scheduled_duplicate(previous, now):
+        return
     doc = run(cfg, key, now=now, previous=previous)
     fac_checks = [c for c in doc["checks"] if c["source"].startswith("공장등록 ")]
     ok = sum(1 for c in fac_checks if c["status"] == "ok")
