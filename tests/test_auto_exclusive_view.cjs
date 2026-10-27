@@ -40,7 +40,7 @@ vm.runInNewContext(source,{
   document,
 });
 assert.equal(industryNav.items.length,1);
-assert.equal(industryNav.items[0].textContent," · 단독표기 2",
+assert.equal(industryNav.items[0].textContent,"단독표기 2",
              "Distinct industry [단독] articles without id cannot collapse into one");
 assert(first.exclusive&&second.exclusive);
 console.log("PASS safe wording and distinct industrial headlines without IDs");

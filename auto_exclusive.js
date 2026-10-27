@@ -43,14 +43,14 @@
     if(autoNav){
       let el=autoNav.querySelector('#autoExclusiveCount');
       if(!el){el=document.createElement('span');el.id='autoExclusiveCount';el.className='auto-exclusive-count';autoNav.appendChild(el)}
-      el.textContent=' · 단독표기 '+autoEx.length;
+      el.textContent='단독표기 '+autoEx.length;
       el.title='수집된 자동차 기사에 관측된 [단독] 제목 수(전체 보도 건수 아님)';
     }
     const industryNav=document.querySelector('.nav[data-view="industryMust"]');
     if(industryNav){
       let el=industryNav.querySelector('#industryExclusiveCount');
       if(!el){el=document.createElement('span');el.id='industryExclusiveCount';el.className='auto-exclusive-count';industryNav.appendChild(el)}
-      el.textContent=' · 단독표기 '+industryEx.length;
+      el.textContent='단독표기 '+industryEx.length;
       el.title='수집된 산업부 기사에 관측된 [단독] 제목 수(전체 보도 건수 아님)';
     }
     const today=document.querySelector('#today');
