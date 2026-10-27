@@ -67,26 +67,33 @@ def kosis_prd(org, tbl):
     note("KOSIS prd", tbl, r.text[:300])
 
 
-PRODUCTS = r"승용|자동차|화물|타이어|열연|냉연|후판|강판|선재|철근|형강|강관|조강|선철|전기로|아연|동|전선|케이블|변압기|차단기|전동기|발전기|축전지|폴리|에틸렌|합성수지|조선|계"
-for org, tbl in [("101", "DT_1F02012"), ("363", "TX_36301_A000")]:
-    for fn in (lambda: kosis_meta(org, tbl, PRODUCTS), lambda: kosis_prd(org, tbl)):
-        try:
-            fn()
-        except Exception as e:  # noqa: BLE001
-            note("KOSIS", tbl, type(e).__name__)
-for q in ["자동차 내수판매", "자동차산업 동향", "완성차 판매"]:
+def ecos_data(stat, item):
+    r = requests.get(f"https://ecos.bok.or.kr/api/StatisticSearch/{ECOS}/json/kr/1/400/{stat}/M/202401/202612/{item}", headers=UA, timeout=60)
+    j = r.json()
+    rows = (j.get("StatisticSearch") or {}).get("row") or []
+    note("ECOS data", stat, item, r.status_code, "rows", len(rows), "keys", sorted(rows[0]) if rows else str(j)[:150], "last", rows[-1] if rows else None)
+
+
+def kosis_data(org, tbl, obj, itm="ALL", start="202401", end="202612"):
+    r = requests.get("https://kosis.kr/openapi/Param/statisticsParameterData.do", params={"method": "getList", "apiKey": KOSIS, "itmId": itm, "objL1": obj,
+                     "format": "json", "jsonVD": "Y", "prdSe": "M", "startPrdDe": start, "endPrdDe": end, "orgId": org, "tblId": tbl}, headers=UA, timeout=60)
     try:
-        kosis_search(q)
-    except Exception as e:  # noqa: BLE001
-        note("KOSIS", q, type(e).__name__)
-PAT = r"철강|열연|냉연|후판|도금|선재|철근|봉강|강관|동괴|동선|나동|구리|아연|알루미늄|전선|케이블|변압기|전동기|발전기|개폐|승용차|화물자동차|자동차부품|타이어|축전지"
-for code in ["404Y016", "402Y016", "401Y017"]:
+        j = r.json()
+    except ValueError:
+        note("KOSIS data", tbl, obj, r.status_code, r.text[:160])
+        return
+    if isinstance(j, dict):
+        note("KOSIS data", tbl, obj, str(j)[:200])
+        return
+    note("KOSIS data", tbl, obj, "rows", len(j), "keys", sorted(j[0]) if j else None, "first", {k: j[0].get(k) for k in ("PRD_DE", "DT", "UNIT_NM", "C1_NM", "ITM_ID", "ITM_NM")} if j else None,
+         "items", sorted({(x.get("ITM_ID"), x.get("ITM_NM")) for x in j})[:8], "last", j[-1].get("PRD_DE") if j else None)
+
+
+for fn in (lambda: ecos_data("404Y016", "30712502AA"), lambda: ecos_data("402Y016", "31211107AA"), lambda: kosis_data("363", "TX_36301_A000", "15363AA1AA"),
+           lambda: kosis_data("101", "DT_1F02012", "24224208"), lambda: kosis_meta("101", "DT_1F02012", r".")):
     try:
-        r = requests.get(f"https://ecos.bok.or.kr/api/StatisticItemList/{ECOS}/json/kr/1/5000/{code}", headers=UA, timeout=60)
-        rows = (r.json().get("StatisticItemList") or {}).get("row") or []
-        hit = [x for x in rows if re.search(PAT, x.get("ITEM_NAME", "")) and x.get("CYCLE") == "M"]
-        note("ECOS", code, len(rows), "hits", len(hit), " ; ".join(f"{x.get('ITEM_CODE')}={x.get('ITEM_NAME')}({x.get('START_TIME')}-{x.get('END_TIME')},{x.get('UNIT_NAME')})" for x in hit[:45]))
+        fn()
     except Exception as e:  # noqa: BLE001
-        note("ECOS", code, type(e).__name__)
+        note("ERR", type(e).__name__, str(e)[:120])
 for i in range(0, len(OUT), 2):
     print(f"::notice title=stats-{i // 2:02d}::" + " | ".join(OUT[i:i + 2])[:3900])
