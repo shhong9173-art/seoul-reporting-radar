@@ -124,6 +124,14 @@ class Watch(unittest.TestCase):
         self.assertEqual(kia["supplierBox"], "NIDEC MOBILITY KOREA CORPORATION (Korea, Republic Of)")
         self.assertIn({"role": "부품 공급사(원보고서, 한국 소재)", "beat": None, "name": "NIDEC MOBILITY KOREA CORPORATION"}, kia["why"])
 
+    def test_page_break_header_is_not_part_of_the_supplier(self):
+        # 26V663 (Honda) as extracted on 10-28: the next page's form header sits between Name and Address.
+        text = ("Component Manufacturer Tier of Supplier: Tier 1 Supplier Type: OEM Name: TEK CORPORATION Part 573 Safety Recall Report 26V663 "
+                "The information contained in this report was submitted pursuant to 49 CFR Address: 1-2-3 Osaka Country: Japan Involved Components")
+        doc = self.go(pdf_text=text)
+        honda_like = next(x for x in doc["recalls"] if x["campaign"] == "26V698000")
+        self.assertEqual(honda_like["suppliers"], [{"name": "TEK CORPORATION", "country": "Japan"}])
+
     def test_reports_are_read_once_and_new_items_marked(self):
         first = self.go()
         first["recalls"] = [x for x in first["recalls"] if x["campaign"] != "26V700000"]

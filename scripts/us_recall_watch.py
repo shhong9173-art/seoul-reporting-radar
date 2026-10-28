@@ -165,7 +165,9 @@ def part573(campaign, *, get, sleep):
     sups = []
     for m in re.finditer(r"Component Manufacturer\s+Tier of Supplier:.*?Name:\s*(.+?)\s+Address:.*?Country:\s*(.+?)(?=\s+(?:Involved Components|Component Manufacturer|"
                          r"Part 573|U\.S\. Department)|$)", text, re.S):
-        sup = {"name": m.group(1).strip()[:120], "country": m.group(2).strip()[:60]}
+        # A page break between the boxes inserts the form header ('Part 573 Safety Recall Report 26V663 The information …') — cut it.
+        cut = lambda v: re.split(r"\s+(?:Part 573 Safety Recall Report|U\.S\. Department of Transportation|The information contained)", v)[0].strip()  # noqa: E731
+        sup = {"name": cut(m.group(1))[:120], "country": cut(m.group(2))[:60]}
         if sup not in sups:
             sups.append(sup)
     box = " / ".join(f"{x['name']} ({x['country']})" for x in sups[:3]) or None
