@@ -45,6 +45,10 @@ EIA_KINDS = [  # (분류, urlString, viewName) — 누리집 검색 화면이 �
     ("소규모환경영향평가", "&alias=2&perssGubn=M&completeFl=&businessExquery=%3CCHOAN%3Acontains%3AY%3E%20%7C%20(%3CBONAN%3Acontains%3AY%3E%20"
      "%3CBIZ_TYPE_CD%3Acontains%3A0%7CA%7CB%3E)&orgnCd=", "/eiass/user/biz/base/info/searchListPer_searchApi"),
 ]
+# 평일 08:10 실행이 10-28·10-29 연속 워크플로 20분 제한에 걸려 취소됐다(결과 저장 전). 같은 날 새벽 push 실행은 4분.
+# 아침에 공장등록 API가 느린 것으로 본다(가설). 시간 상한을 넘으면 남은 회사는 건너뛰고(이전 기록 유지) 저장한다.
+FACTORY_BUDGET = 12 * 60
+EIA_BUDGET = 16 * 60
 EIA_DAYS = 400       # 접수일이 이보다 오래된 행은 새 단계로 세지 않는다
 EIA_KEEP = 180
 # 계열사·동명 회사는 출입처가 아니다(AGENTS: 포스코퓨처엠·포스코인터내셔널은 포스코가 아니다).
@@ -120,7 +124,7 @@ def rule_sig(c):
     return "|".join([",".join(c["queries"]), c["accept"], c.get("industryAccept") or ""])
 
 
-def factories(cfg, key, now, previous, *, get=None, sleep=time.sleep):
+def factories(cfg, key, now, previous, *, get=None, sleep=time.sleep, deadline=None):
     prev = {x["id"]: x for x in (previous or {}).get("factories", []) if isinstance(x, dict) and x.get("id")}
     # A company is compared with the previous run only when its name rules are unchanged; otherwise this run is its new baseline.
     sigs = {c["company"]: rule_sig(c) for c in cfg["companies"]}
@@ -131,7 +135,16 @@ def factories(cfg, key, now, previous, *, get=None, sleep=time.sleep):
     recent_from = (now.date() - dt.timedelta(days=RECENT_DAYS)).isoformat()
     complete_companies = set()
     rule_counts = {}
-    for c in cfg["companies"]:
+    companies = list(cfg["companies"])
+    if deadline is not None and companies:  # 시간 상한에 걸려도 매일 같은 회사가 빠지지 않게 시작점을 돌린다
+        k = now.toordinal() % len(companies)
+        companies = companies[k:] + companies[:k]
+    for c in companies:
+        if deadline is not None and time.monotonic() > deadline:
+            for q in c["queries"]:
+                checks.append({"source": f"공장등록 {q}", "company": c["company"], "status": "partial", "error": "실행 시간 상한 — 다음 실행에서 조회"})
+            rule_counts[c["company"]] = {"kept": 0, "dropped": 0}
+            continue
         accept = re.compile(c["accept"])
         # common names (e.g. 태광산업) are shared by unrelated small firms: an industry rule narrows them
         industry = re.compile(c["industryAccept"]) if c.get("industryAccept") else None
@@ -322,7 +335,7 @@ def eia_name_rx(c):
     return re.compile(rf"(?:^|[\s(（㈜·,\[]){'(?:(?:주식회사|\\(주\\)|㈜)\\s*)?'}(?:{alt})", re.I)
 
 
-def eia(cfg, now, previous, *, post=None, get=None, sleep=time.sleep):
+def eia(cfg, now, previous, *, post=None, get=None, sleep=time.sleep, deadline=None):
     """출입처 이름이 사업명에 든 환경영향평가·소규모 평가의 새 단계. 회사마다 첫 검색어 1개 × 분류 2개."""
     if post is None or get is None:
         import requests
@@ -341,6 +354,9 @@ def eia(cfg, now, previous, *, post=None, get=None, sleep=time.sleep):
     checks, ok, failed = [], 0, []
     ids_now = set()
     for c in cfg["companies"]:
+        if deadline is not None and time.monotonic() > deadline:
+            failed.append(f"실행 시간 상한 — {c['company']}부터 다음 실행에서")
+            break
         rx, q = eia_name_rx(c), c["queries"][0]
         for kind, ext, view in EIA_KINDS:
             data = {"query": q, "collection": "business", "urlString": ext, "viewName": view, "currentPage": 1, "sort": "DATE/DESC", "listCount": 10}
@@ -373,13 +389,16 @@ def eia(cfg, now, previous, *, post=None, get=None, sleep=time.sleep):
     return kept[:200], sorted(seen | ids_now), checks
 
 
-def run(cfg, key, *, now, previous=None, get=None, sleep=time.sleep, post=None):
+def run(cfg, key, *, now, previous=None, get=None, sleep=time.sleep, post=None, budget=False):
     stamp = now.isoformat(timespec="seconds")
-    facs, checks, fac_events, sigs, rule_counts = factories(cfg, key, now, previous, get=get, sleep=sleep)
+    t0 = time.monotonic()
+    facs, checks, fac_events, sigs, rule_counts = factories(cfg, key, now, previous, get=get, sleep=sleep,
+                                                            deadline=t0 + FACTORY_BUDGET if budget else None)
     gz, gcheck = gazette(key, now, previous, get=get, sleep=sleep)
     checks.append(gcheck)
     if get is None or post is not None:  # 시험에서 get만 넘기면 EIASS는 건드리지 않는다
-        eia_items, eia_seen, eia_checks = eia(cfg, now, previous, post=post, get=get, sleep=sleep)
+        eia_items, eia_seen, eia_checks = eia(cfg, now, previous, post=post, get=get, sleep=sleep,
+                                              deadline=t0 + EIA_BUDGET if budget else None)
         checks += eia_checks
     else:
         eia_items, eia_seen = list((previous or {}).get("eia") or []), list((previous or {}).get("eiaSeen") or [])
@@ -419,7 +438,10 @@ def main():
             print(f"::warning title=kr-official-state::이전 상태 조회 실패({e}) — 변경 비교는 다음 실행부터")
     if private_store.late_scheduled_duplicate(previous, now):
         return
-    doc = run(cfg, key, now=now, previous=previous)
+    t0 = time.monotonic()
+    doc = run(cfg, key, now=now, previous=previous, budget=True)
+    print(f"::notice title=kr-official-time::실행 {round(time.monotonic() - t0)}초 · 시간 상한으로 건너뛴 질의 "
+          f"{sum(1 for c in doc['checks'] if '시간 상한' in str(c.get('error')))}건")
     fac_checks = [c for c in doc["checks"] if c["source"].startswith("공장등록 ")]
     ok = sum(1 for c in fac_checks if c["status"] == "ok")
     recent = sum(1 for f in doc["factories"] if any(t.startswith("[최근 등록") for t in f.get("tags", [])))
