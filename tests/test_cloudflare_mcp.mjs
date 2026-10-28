@@ -1273,7 +1273,8 @@ test('radar-items hands hinted A/B items to the press checker; radar_today shows
     { id: 'cl:4', verdict: '관련 보도 있음', since: '2026-10-22', queries: ['세아제강 국제무역법원', '세아제강 국제무역법원 소송'],
       evidence: [{ date: '2026-10-25', channel: 'naver', title: '세아제강, 美 국제무역법원에 반덤핑 소송', url: 'https://n/1', why: '낱말' }],
       channels: { naver: { status: 'ok', returned: 3 } }, firstVerdict: '미보도 후보', firstCheckedAt: '2026-10-25T18:50:00+09:00' },
-    { id: 'cl:7', verdict: '미보도 후보', since: '2026-10-20', queries: ['LS일렉트릭 항소', 'LS일렉트릭 항소 특허'], evidence: [],
+    { id: 'cl:7', verdict: '미보도 후보', since: '2026-10-20', queries: ['LS일렉트릭 항소', 'LS일렉트릭 항소 특허'],
+      evidence: [{ date: '2026-10-24', channel: 'naver', title: '전력기기 업계 美 소송 잇따라', url: 'https://n/2', why: '본문에만 회사·낱말(항소, 특허) — 제목 불일치, 같은 사건 가능성 낮음' }],
       channels: { naver: { status: 'ok', returned: 0 }, bing: { status: 'ok', returned: 0 }, google: { status: 'ok', returned: 0 } } },
     { id: 'fac:1:x', verdict: '미확인', since: '2026-10-22', queries: ['KG스틸 인력'], evidence: [],
       channels: { naver: { status: 'failed', error: 'ConnectTimeout' }, bing: { status: 'ok', returned: 0 } } }] });
@@ -1284,7 +1285,8 @@ test('radar-items hands hinted A/B items to the press checker; radar_today shows
   assert.ok(order.every((i) => i > 0) && order[0] < order[1] && order[1] < order[2], a);
   assert.match(a, /보도 대조\(자동 10-26 08:50\): 미보도 후보 — "LS일렉트릭 항소", "LS일렉트릭 항소 특허"로 2026-10-20 이후 관련 기사 못 찾음\(검색 범위 결과, 단독 판정 아님\)/);
   assert.match(a, /보도 대조\(자동 10-26 08:50\): 관련 보도 있음 — "세아제강 국제무역법원", "세아제강 국제무역법원 소송" · 처음\(10-25 18:50\) 미보도 후보/);
-  assert.match(a, /↳ 2026-10-25 \[naver\] 세아제강, 美 국제무역법원에 반덤핑 소송 https:\/\/n\/1/);
+  assert.match(a, /↳ 2026-10-25 \[naver\] 세아제강, 美 국제무역법원에 반덤핑 소송 https:\/\/n\/1\n/);
+  assert.match(a, /↳ 2026-10-24 \[naver\] 전력기기 업계 美 소송 잇따라 https:\/\/n\/2 \(약한 근거: 본문에만, 제목 불일치\)/);
   assert.match(a, /보도 대조\(자동 10-26 08:50\): 미확인 — 채널 naver failed\(ConnectTimeout\)\(0건 아님\)/);
   assert.match(r.text, /보도 대조\(자동\)는 네이버 뉴스 API·빙·구글에서 항목 날짜 3일 전부터 찾은 결과다/);
   assert.doesNotMatch(r.text, /보도 대조\(자동\): 결과 없음/);
