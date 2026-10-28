@@ -10,5 +10,5 @@ for(const phrase of ["digests/overseas_official_latest.json",
   assert(page.includes(phrase),"official source evidence missing: "+phrase);
 }
 assert(!page.includes('innerHTML'),'never put public API text into HTML markup');
-assert(fs.readFileSync('index.html','utf8').includes('official-watch.html'));
+assert(fs.readFileSync('pages.html','utf8').includes('official-watch.html'));  // 메뉴에서 뺐지만 모든 페이지 목록에서 열린다
 console.log('Official overseas and contract source evidence UI passed');
