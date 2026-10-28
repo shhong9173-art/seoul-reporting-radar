@@ -114,5 +114,19 @@ class Watch(unittest.TestCase):
         self.assertEqual(doc["status"], "failed")
 
 
+    def test_second_account_key_is_tried_when_first_is_refused(self):
+        xml = "<OpenAPI_ServiceResponse><cmmMsgHeader><returnAuthMsg>SERVICE_KEY_IS_NOT_REGISTERED_ERROR</returnAuthMsg><returnReasonCode>30</returnReasonCode></cmmMsgHeader></OpenAPI_ServiceResponse>"
+        ok = api(BASE)
+
+        def get(url, params=None, headers=None, timeout=None):
+            return Resp(xml) if params["serviceKey"] == "a" else ok(url, params=params, headers=headers, timeout=timeout)
+        keys = k.resolve_keys({"CUSTOMS_API_KEY": "a", "G2B_API_KEY": "b%2B"})
+        self.assertEqual(keys, [("a", "CUSTOMS_API_KEY"), ("b+", "G2B_API_KEY")])
+        doc, name, refused = k.run_any(keys, now=NOW, previous=None, get=get, sleep=lambda s: None)
+        self.assertEqual((doc["status"], name, refused), ("complete", "G2B_API_KEY", ["CUSTOMS_API_KEY"]))
+        doc2, name2, refused2 = k.run_any([("a", "CUSTOMS_API_KEY")], now=NOW, previous=None, get=get, sleep=lambda s: None)
+        self.assertEqual((doc2["status"], name2, refused2), ("unset", None, ["CUSTOMS_API_KEY"]))
+
+
 if __name__ == "__main__":
     unittest.main()

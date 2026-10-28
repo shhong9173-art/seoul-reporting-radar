@@ -129,6 +129,9 @@ def fetch_all(key, *, get, sleep=time.sleep):
                 sleep(5)
         if r.status_code in (401, 403):
             msg = " ".join(f"{a} {b}" for a, b in GATEWAY.findall(r.text or ""))[:80]
+            plain = (r.text or "").strip()
+            if not msg and re.fullmatch(r"[A-Za-z _.]{1,40}", plain):  # 'Forbidden' 같은 짧은 문구만(키·주소 없음)
+                msg = plain
             raise NotApproved(f"HTTP {r.status_code} {msg}".strip())
         if r.status_code != 200:
             raise RuntimeError(f"HTTP {r.status_code}")
@@ -225,19 +228,35 @@ RULES = ["에너지공단 자동차 표시연비 목록(공공데이터포털)�
          "연비 신고는 출시 확정이 아니다. 출시 시점·가격은 회사 확인. 조회 실패·활용신청 전은 0건이 아니라 미확인."]
 
 
-def resolve_key(env):
+def resolve_keys(env):
+    """Every configured data.go.kr account key, in order (several accounts may exist; the dataset may be approved on only one)."""
+    out, seen = [], set()
     for name in ("DATA_GO_KR_KEY", "CUSTOMS_API_KEY", "G2B_API_KEY"):
         v = str(env.get(name) or "").strip()
         if v:
-            return (unquote(v) if re.search(r"%[0-9A-Fa-f]{2}", v) else v), name
-    return "", None
+            v = unquote(v) if re.search(r"%[0-9A-Fa-f]{2}", v) else v
+            if v not in seen:
+                seen.add(v)
+                out.append((v, name))
+    return out
+
+
+def run_any(keys, **kw):
+    """Try each key until one is not refused for this dataset. Returns (doc, key name, refused names)."""
+    refused = []
+    for key, name in keys:
+        doc = run(key, **kw)
+        if doc["status"] != "unset":
+            return doc, name, refused
+        refused.append(name)
+    return (doc if keys else run("", **kw)), None, refused
 
 
 def main():
     import private_store
     now = dt.datetime.now(KST)
     token = os.environ.get("MCP_ACCESS_TOKEN", "").strip()
-    key, key_name = resolve_key(os.environ)
+    keys = resolve_keys(os.environ)
     previous = None
     if token:
         try:
@@ -246,13 +265,15 @@ def main():
             print(f"::warning title=kr-fuel-state::이전 상태 조회 실패({e}) — 이번 실행은 기준선")
     if private_store.late_scheduled_duplicate(previous, now):
         return
-    doc = run(key, now=now, previous=previous)
+    doc, key_name, refused = run_any(keys, now=now, previous=previous)
+    if refused:
+        doc["checks"][0]["keysRefused"] = refused  # 이름만(값 없음)
     kinds = {}
     for v in doc["vehicles"]:
         if v.get("isNew"):
             kinds[v["kind"]] = kinds.get(v["kind"], 0) + 1
     c = doc["checks"][0]
-    print(f"::notice title=kr-fuel::상태 {doc['status']} · 키 {key_name or '없음'} · 전체 {c.get('rows')}행 · 출입처 {c.get('beatRows')}행 · "
+    print(f"::notice title=kr-fuel::상태 {doc['status']} · 키 {key_name or '없음'}{f' (거부: {refused})' if refused else ''} · 전체 {c.get('rows')}행 · 출입처 {c.get('beatRows')}행 · "
           f"새 신고 {kinds}{' · 일괄 갱신' if doc.get('bulk') else ''}{' · ' + c['error'] if c.get('error') else ''}")
     if not token:
         print("::warning title=kr-fuel-push::MCP_ACCESS_TOKEN 미설정 — 결과를 저장하지 않음")
