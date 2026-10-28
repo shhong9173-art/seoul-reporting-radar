@@ -259,6 +259,30 @@ export async function scoopReverse(ctx, args) {
   return textResult(out.join('\n'));
 }
 
+export async function usEpa(ctx, args) {
+  const doc = await readFeed(ctx, 'us-epa');
+  if (!doc) return missing('미국 EPA 인증', '매일 06:20');
+  if (doc.broken) return textResult('저장된 EPA 결과 형식 오류 — 미확인.', true);
+  const q = String(args.company ?? '').trim();
+  const kind = ['새 모델', '주행거리 변화', '연식 변경'].includes(args.kind) ? args.kind : null;
+  const limit = clampInt(args.limit, 1, 60, 20);
+  const failed = (doc.checks ?? []).filter((c) => c.status !== 'ok');
+  const rows = (doc.vehicles ?? []).filter((v) => (!kind || v.kind === kind) && matches(q, v.company, v.make, v.model, v.baseModel));
+  const out = [`미국 EPA 인증(fueleconomy.gov) · 현대차·기아·제네시스 새 등록 ${rows.length}건 · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt, 60)}`,
+    failed.length ? `미확인(0건 아님): ${failed.map((c) => `${c.source}(${c.error})`).join(', ')}` : `파일 정상 · 갱신 ${(doc.checks ?? [])[0]?.fileModified ?? '?'}`,
+    ...(doc.rules ?? []).map((r) => `규칙: ${r}`)];
+  for (const v of rows.slice(0, limit)) {
+    out.push(`\n${v.isNew ? '[신규] ' : ''}${v.created ?? '?'} · ${v.kind} · ${v.year} ${v.make} ${v.model}`);
+    out.push(`   잡힌 사실: ${v.vclass ?? ''} · ${v.drive ?? ''} · ${v.trany ?? ''}${v.atvType ? ` · ${v.atvType}` : ''}${v.evMotor ? ` · 모터 ${v.evMotor}` : ''}${v.range ? ` · 주행거리 ${v.range}마일` : ''}${v.comb ? ` · 복합 ${v.comb}${v.atvType === 'EV' ? 'MPGe' : 'mpg'}` : ''}`);
+    if (v.compare) out.push(`   비교: 직전 ${v.compare.previousYear}년형 주행거리 ${v.compare.previousRanges.join('/')}마일`);
+    out.push(`   원문: ${v.url}`);
+  }
+  if (rows.length > limit) out.push(`… 남은 ${rows.length - limit}건`);
+  if (!rows.length) out.push('\n새 등록 없음(첫 실행은 기준선, 조회 실패면 미확인).');
+  out.push('\n다음: 미국 사양이다 — 국내 출시·인증 여부와 사양은 회사 확인. 새 모델·주행거리 변화는 news_check로 보도 대조.');
+  return textResult(out.join('\n'));
+}
+
 export async function usLitigation(ctx, args) {
   const doc = await readFeed(ctx, 'us-litigation');
   if (!doc) return missing('미국 소송·ITC', '평일 07:50');

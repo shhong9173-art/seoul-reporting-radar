@@ -1,0 +1,37 @@
+name: US EPA Certification Watch
+# 미국 EPA 인증 연비·전기차 주행거리 파일(fueleconomy.gov)의 현대차·기아·제네시스 새 등록(새 모델·주행거리 변화). 매일 06:20 KST.
+# 국내 연비 신고(에너지공단)는 해외 러너 접속이 거부돼 대신 본다. 결과는 기자 전용 저장소로만, 공개 로그는 건수만.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/us_epa_watch.py'
+      - 'tests/test_us_epa_watch.py'
+      - '.github/workflows/us-epa.yml'
+  schedule:
+    - cron: '20 21 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: us-epa-watch
+  cancel-in-progress: false
+jobs:
+  epa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install "requests>=2.31,<3"
+      - name: Test EPA parsing
+        run: python -m unittest tests.test_us_epa_watch tests.test_private_store -v
+      - name: Watch EPA certifications (counts-only log)
+        env:
+          MCP_ACCESS_TOKEN: ${{ secrets.MCP_ACCESS_TOKEN }}
+        run: python scripts/us_epa_watch.py

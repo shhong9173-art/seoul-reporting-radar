@@ -126,6 +126,12 @@
 - 원천별로 먼저 잡은 건수와 몇 시간 앞섰는지(중간값)를 보여 준다 — 어떤 원천을 늘릴지 정하는 근거.
 - 사람 판정 Y/P/N(`exclusive_reverse_trace.py`, 기사 전문·원자료 비교)과 별개이며 그 수를 바꾸지 않는다. 지금 저장된 결과만 기억이라 보관 기간이 지난 항목은 '없음'으로 나올 수 있다.
 
+## 미국 EPA 인증(us_epa, 기자 전용)
+
+- 국내 신차 연비 신고(한국에너지공단 수송에너지 누리집)는 GitHub 러너(미국)에서 접속이 거부된다(탐침 10-28, http·https 모두 ConnectionError). 공공데이터포털에서도 연비 신고 API를 찾지 못했다. 국내 인증 자료는 국내 접속 경로(기자 PC 등)가 있어야 한다.
+- 대신 미국 EPA 인증 파일(fueleconomy.gov vehicles.csv.zip)을 매일 06:20 KST에 본다. 현대차·기아·제네시스의 처음 보는 차량 ID만 새 등록(첫 실행 기준선).
+- 같은 회사에 이전 연식이 없는 모델 = 새 모델(A), 전기차 직전 연식 대비 EPA 주행거리 변화(B), 나머지 연식 변경(C). 미국 사양이라 국내 출시·인증과 다를 수 있다.
+
 ## 레이더 항목 자동 보도 대조(radar_today, 기자 전용)
 
 - GitHub Actions `Radar Press Check`가 평일 08:50·18:50 KST(Cloudflare 요청, GitHub 예약은 예비)에 실행. Worker `/ingest/radar-items`(Bearer `MCP_ACCESS_TOKEN`)에서 A·B 항목 중 대조 낱말이 붙은 것(최근 72시간, 씀·킬·봤음 제외, 최대 40개, A 먼저)을 받는다. 결과는 `radar-check` 비공개 저장소로만. Secrets: `NAVER_CLIENT_ID`·`NAVER_CLIENT_SECRET`·`MCP_ACCESS_TOKEN`(단독 후보 심사와 같음).

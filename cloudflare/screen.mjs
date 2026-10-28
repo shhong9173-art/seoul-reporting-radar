@@ -23,6 +23,7 @@ export const FEEDS = {
   'radar-check': { blob: 'radar_check', schema: 'radar_check/v1', list: 'items' },
   'us-recalls': { blob: 'us_recalls', schema: 'us_recalls/v1', list: 'recalls' },
   'reverse-check': { blob: 'reverse_check', schema: 'reverse_check/v1', list: 'articles' },
+  'us-epa': { blob: 'us_epa', schema: 'us_epa/v1', list: 'vehicles' },
 };
 
 // Official trade-remedy listing pages that do not answer GitHub runners (ReadTimeout). Collectors fetch them through
