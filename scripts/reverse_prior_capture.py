@@ -173,6 +173,12 @@ def _epa(d, add):
                 f"{' 주행거리 range ' + str(v.get('range')) if v.get('range') else ''}", v.get("firstSeen"), v.get("url")))
 
 
+def _vin(d, add):
+    for v in d.get("vpicModels") or []:
+        add(mem("us-epa", v.get("id"), [v.get("company")], f"VIN 새 모델명 등록 {v.get('make')} {v.get('model')} {' '.join(str(y) for y in v.get('years') or [])} 연식",
+                v.get("firstSeen"), v.get("url")))
+
+
 def _fuel(d, add):
     for v in d.get("vehicles") or []:
         add(mem("kr-fuel", v.get("id"), [v.get("company")], f"연비 신고 표시연비 {v.get('kind')} {v.get('maker')} {v.get('model')} {v.get('year')}년 {v.get('fuel') or ''}"
@@ -191,7 +197,7 @@ def _clues(d, add):
 
 ADAPTERS = [("us-litigation", _litigation), ("partner-filings", _partners), ("trade-remedy", _trade), ("kr-official", _official),
             ("kr-signals", _signals), ("us-comments", _comments), ("page-watch", _pages), ("trademarks", _marks),
-            ("us-recalls", _recalls), ("scoop-screen", _screen), ("us-epa", _epa), ("kr-fuel", _fuel), ("clues", _clues)]
+            ("us-recalls", _recalls), ("scoop-screen", _screen), ("us-epa", _epa), ("us-epa", _vin), ("kr-fuel", _fuel), ("clues", _clues)]
 
 
 def nouns(title):

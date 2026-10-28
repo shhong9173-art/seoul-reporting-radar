@@ -74,5 +74,33 @@ class Epa(unittest.TestCase):
         self.assertIsNone(w.created("bad"))
 
 
+    def test_vpic_new_model_names_after_baseline(self):
+        import json as _json
+        models = {498: ["Elantra", "Ioniq 5"], 499: ["EV3", "K4"], 5083: ["GV70"]}
+
+        class J:
+            def __init__(self, mid, names):
+                self.status_code = 200
+                self._j = {"Results": [{"Make_ID": mid, "Model_Name": n} for n in names] + [{"Make_ID": 6840, "Model_Name": "Tahoe"}]}
+
+            def json(self):
+                return self._j
+
+        def get(url, **k):
+            if "vpic" in url:
+                mid = int(url.split("/makeId/")[1].split("/")[0])
+                return J(mid, models[mid])
+            return R(200, zipped(BASE))
+        first = w.run(now=NOW, previous=None, get=get)
+        self.assertEqual((first["vpicModels"], first["checks"][1]["status"]), ([], "ok"))
+        self.assertIn("kia|ev3", first["vpicSeen"])
+        self.assertNotIn("genesis|tahoe", " ".join(first["vpicSeen"]))  # 동명 RV 업체 제외
+        models[499] = ["EV3", "K4", "EV4"]
+        second = w.run(now=NOW, previous=first, get=get)
+        self.assertEqual([(x["company"], x["model"], x["kind"], x["isNew"]) for x in second["vpicModels"]], [("기아", "EV4", "VIN 모델명 등록", True)])
+        third = w.run(now=NOW, previous=second, get=get)
+        self.assertEqual([x["isNew"] for x in third["vpicModels"]], [False])
+
+
 if __name__ == "__main__":
     unittest.main()
