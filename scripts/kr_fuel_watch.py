@@ -130,8 +130,17 @@ def fetch_all(key, *, get, sleep=time.sleep):
         if r.status_code in (401, 403):
             msg = " ".join(f"{a} {b}" for a, b in GATEWAY.findall(r.text or ""))[:80]
             plain = (r.text or "").strip()
+            if not msg and plain.startswith("{"):
+                # apis.data.go.kr의 새 게이트웨이는 403 거부를 JSON으로 준다(10-28 국내 접속 확인: 30 등록되지 않은 서비스키).
+                try:
+                    h = (json.loads(plain).get("OpenAPI_ServiceResponse") or {}).get("cmmMsgHeader") or {}
+                    msg = f"{h.get('returnReasonCode', '')} {h.get('errMsg') or h.get('returnAuthMsg') or ''}".strip()[:80]
+                except (ValueError, AttributeError):
+                    msg = ""
             if not msg and re.fullmatch(r"[A-Za-z _.]{1,40}", plain):  # 'Forbidden' 같은 짧은 문구만(키·주소 없음)
                 msg = plain
+            if not msg:
+                msg = f"본문 형식 미상({len(plain)}자)"  # 해외 접속 차단 등 다른 거부와 구분하려고 길이만
             raise NotApproved(f"HTTP {r.status_code} {msg}".strip())
         if r.status_code != 200:
             raise RuntimeError(f"HTTP {r.status_code}")
