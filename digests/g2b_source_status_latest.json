@@ -1,9 +1,21 @@
 {
-  "generatedAt": "2026-10-27T14:32:06+09:00",
-  "status": "checked",
+  "generatedAt": "2026-10-28T15:14:24+09:00",
+  "status": "source_error",
   "source": "PPS KONEPS dataset 15129394",
   "keySource": "G2B_API_KEY",
   "keyForm": "decoded",
   "note": "Key present; a provider error means the dataset permission is not active for this key yet. No 0-count claim.",
-  "checkedKinds": 2
+  "errorType": "ProviderCallsFailed",
+  "providerChecks": [
+    {
+      "workType": "goods",
+      "status": "source_error",
+      "errorType": "ValueError"
+    },
+    {
+      "workType": "construction",
+      "status": "source_error",
+      "errorType": "ValueError"
+    }
+  ]
 }
