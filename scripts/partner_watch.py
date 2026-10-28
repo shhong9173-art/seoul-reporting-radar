@@ -122,6 +122,49 @@ def asx(partner, *, get=None):
     return {"status": "failed", "error": "; ".join(tried), "items": []}
 
 
+# ---------- HKEX ----------
+# Hong Kong-listed partners (운영 10-22 경쟁지 [단독] 'BAIC, 현대차 합작 금융사 지분 정리' — BAIC Motor(01958)가 전날
+# 10-21 18:33 HKEX에 'MAJOR TRANSACTION - EXIT OF BAIC INVESTMENT FROM ITS INVESTMENT IN BHAF'를 냈다).
+HKEX_SEARCH = "https://www1.hkexnews.hk/search/titleSearchServlet.do"
+HKEX_SITE = "https://www1.hkexnews.hk"
+HKEX_DEAL = re.compile(r"major transaction|very substantial|discloseable|connected transaction|disposal|acquisition|exit|transfer|"
+                       r"joint venture|equity interest|capital (?:increase|injection)|subscription|framework agreement|termination|"
+                       r"hyundai|kia|posco", re.I)
+HKEX_ROUTINE = re.compile(r"monthly return|next day disclosure|notice of board meeting|interim report|annual report|"
+                          r"proxy form|form of proxy|date of board meeting|list of directors|poll results|"
+                          r"change of company secretary|corporate governance|esg report|environmental, social", re.I)
+
+
+def hkex_rows(body):
+    """titleSearchServlet answers {'result': '<JSON string of rows>', ...}. Rows: DATE_TIME 'dd/mm/yyyy HH:MM' (HKT), TITLE, FILE_LINK."""
+    import json as _json
+    try:
+        rows = _json.loads(body.get("result") or "[]") if isinstance(body, dict) else []
+    except ValueError:
+        return None
+    out = []
+    for x in rows if isinstance(rows, list) else []:
+        m = re.match(r"(\d{2})/(\d{2})/(\d{4})(?:\s+(\d{2}:\d{2}))?", str(x.get("DATE_TIME") or ""))
+        out.append({"date": f"{m.group(3)}-{m.group(2)}-{m.group(1)}" if m else "", "time": (m.group(4) if m else None),
+                    "title": re.sub(r"\s+", " ", str(x.get("TITLE") or "")).strip(), "category": re.sub(r"<[^>]+>", " ", str(x.get("LONG_TEXT") or "")).strip()[:200],
+                    "url": HKEX_SITE + x["FILE_LINK"] if str(x.get("FILE_LINK") or "").startswith("/") else x.get("FILE_LINK"),
+                    "newsId": str(x.get("NEWS_ID") or "")})
+    return out
+
+
+def hkex(partner, start, end, *, get=None):
+    params = {"sortDir": 0, "sortByOptions": "DateTime", "category": 0, "market": "SEHK", "stockId": partner["stockId"], "documentType": -1,
+              "fromDate": start.replace("-", ""), "toDate": end.replace("-", ""), "title": "", "searchType": 0, "t1code": -2, "t2Gcode": -2,
+              "t2code": -2, "rowRange": 100, "lang": "E"}
+    status, body = get_json(HKEX_SEARCH, params=params, get=get)
+    if status != "ok":
+        return {"status": "failed", "error": body, "items": []}
+    rows = hkex_rows(body)
+    if rows is None:
+        return {"status": "failed", "error": "결과 형식 불일치", "items": []}
+    return {"status": "ok", "items": rows}
+
+
 # ---------- EDGAR ----------
 
 def edgar_search(phrase, start, end, *, get=None):
@@ -195,6 +238,22 @@ def run(cfg, *, now, previous=None, get=None, sleep=time.sleep, snippet_budget=2
                           "date": a["date"], "title": a["headline"], "url": a["url"], "priceSensitive": a["priceSensitive"],
                           "flags": flags, "firstSeen": items.get(iid, {}).get("firstSeen") or stamp}
     end = now.strftime("%Y-%m-%d")
+    for p in cfg.get("hkex", []):
+        res = hkex(p, start, end, get=get)
+        sleep(1.0)
+        checks.append({"source": "HKEX", "target": f"{p['name']}({p['code']})", "status": res["status"],
+                       **({"returned": len(res["items"])} if res["status"] == "ok" else {"error": res["error"]})})
+        for a in res["items"]:
+            if not a["date"] or a["date"] < start or not a["title"]:
+                continue
+            iid = f"hkex:{p['code']}:{a['newsId'] or a['date'] + ':' + a['title'][:60]}"
+            old = items.get(iid, {})
+            routine = "정기·형식 공시(월간 증권 변동·이사회 일정·정기보고서 등)" if HKEX_ROUTINE.search(a["title"]) else None
+            flags = [] if routine else sorted({m.group(0).lower() for m in HKEX_DEAL.finditer(a["title"])})
+            items[iid] = {**old, "id": iid, "source": "HKEX", "filer": f"{p['name']} ({p['code']})", "beat": p["beat"],
+                          "relation": p["relation"], "relationEvidence": p["evidence"], "date": a["date"], "time": a["time"],
+                          "title": a["title"], "category": a["category"], "url": a["url"], "flags": flags,
+                          **({"routine": routine} if routine else {}), "firstSeen": old.get("firstSeen") or stamp}
     for beat, phrase in cfg.get("edgarPhrases", []):
         status, body = edgar_search(phrase, start, end, get=get)
         sleep(0.4)
@@ -273,7 +332,8 @@ def run(cfg, *, now, previous=None, get=None, sleep=time.sleep, snippet_budget=2
     return {"schema": SCHEMA, "generatedAt": stamp, "windowDays": WINDOW_DAYS, "status": "partial" if failed else "complete",
             "checks": checks, "items": out[:400], "textSeen": dict(list(text_seen.items())[-3000:]),
             "rules": ["파트너 공시는 그 회사의 발표다. 출입처와의 계약 변경인지는 문구로만 판단하지 않고 출입처 확인이 필요하다.",
-                      "ASX는 관계 근거가 확인된 회사만 본다. EDGAR는 출입처 이름이 들어간 공시 전반(출입처 자신의 공시 제외).",
+                      "ASX·HKEX는 관계 근거가 확인된 회사만 본다. EDGAR는 출입처 이름이 들어간 공시 전반(출입처 자신의 공시 제외).",
+                      "HKEX 제목의 거래 낱말(주요 거래·처분·합작 등)은 제목 분류일 뿐이다. 거래 상대·지분·금액은 공시 PDF에서 확인한다.",
                       "EDGAR 투자 보유 표·같은 회사의 반복 문구는 일상으로 접고, 재무제표 주석은 기존 약정일 수 있어 A로 올리지 않는다(문구 분류일 뿐 원문이 기준).",
                       "조회 실패는 0건이 아니라 미확인."],
             "confirmedScoops": 0}

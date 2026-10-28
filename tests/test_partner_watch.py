@@ -1,5 +1,6 @@
 """Partner filings: ASX (two JSON shapes) and EDGAR hits, own filings dropped, failures recorded, snippets budgeted."""
 import datetime as dt
+import json
 import sys
 import unittest
 from pathlib import Path
@@ -180,3 +181,49 @@ class EdgarNoise(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# Row shape of HKEX titleSearchServlet on 2026-10-28 (probe): result is a JSON string.
+HKEX_BODY = {"hasNextRow": False, "recordCnt": 3, "result": json.dumps([
+    {"DATE_TIME": "21/10/2026 18:33", "TITLE": "MAJOR TRANSACTION - EXIT OF BAIC INVESTMENT FROM ITS INVESTMENT IN BHAF",
+     "FILE_LINK": "/listedco/listconews/sehk/2026/1021/2026102100777.pdf", "NEWS_ID": "11906001", "LONG_TEXT": "Announcements and Notices - [Major Transaction]",
+     "STOCK_CODE": "01958", "STOCK_NAME": "BAIC MOTOR"},
+    {"DATE_TIME": "16/10/2026 16:44", "TITLE": "NOTICE OF BOARD MEETING", "FILE_LINK": "/listedco/listconews/sehk/2026/1016/2026101600428.pdf",
+     "NEWS_ID": "11900002", "LONG_TEXT": "Announcements and Notices - [Date of Board Meeting]"},
+    {"DATE_TIME": "02/09/2026 16:45", "TITLE": "Monthly Return of Equity Issuer", "FILE_LINK": "/x.pdf", "NEWS_ID": "1"}])}
+HKEX_CFG = {"asx": [], "edgarPhrases": [], "hkex": [{"code": "01958", "stockId": 116122, "name": "BAIC Motor", "beat": ["현대차"],
+                                                    "relation": "베이징현대 합작 상대", "evidence": "https://example/baic"}]}
+
+
+class Hkex(unittest.TestCase):
+    def test_partner_titles_with_deal_words_and_routine_folding(self):
+        seen = []
+
+        def get(url, params=None, headers=None, timeout=None):
+            seen.append(params)
+            return R(200, HKEX_BODY) if "hkexnews" in url else R(404)
+        doc = w.run(HKEX_CFG, now=NOW, get=get, sleep=lambda s: None)
+        self.assertEqual((seen[0]["stockId"], seen[0]["fromDate"], seen[0]["toDate"]), (116122, "20260927", "20261027"))
+        items = {x["id"]: x for x in doc["items"] if x["source"] == "HKEX"}
+        self.assertEqual(sorted(items), ["hkex:01958:11900002", "hkex:01958:11906001"])  # 09-02 is outside the 30-day window
+        exit_ = items["hkex:01958:11906001"]
+        self.assertEqual((exit_["date"], exit_["time"], exit_["beat"]), ("2026-10-21", "18:33", ["현대차"]))
+        self.assertEqual(exit_["url"], "https://www1.hkexnews.hk/listedco/listconews/sehk/2026/1021/2026102100777.pdf")
+        self.assertIn("major transaction", exit_["flags"])
+        self.assertIn("exit", exit_["flags"])
+        board = items["hkex:01958:11900002"]
+        self.assertEqual(board["flags"], [])
+        self.assertIn("정기·형식", board["routine"])
+        self.assertEqual(next(c for c in doc["checks"] if c["source"] == "HKEX")["status"], "ok")
+
+    def test_failure_and_bad_shape_are_not_zero(self):
+        doc = w.run(HKEX_CFG, now=NOW, get=lambda *a, **k: R(503), sleep=lambda s: None)
+        c = next(c for c in doc["checks"] if c["source"] == "HKEX")
+        self.assertEqual((c["status"], c["error"]), ("failed", "HTTP 503"))
+        doc = w.run(HKEX_CFG, now=NOW, get=lambda *a, **k: R(200, {"result": "not json"}), sleep=lambda s: None)
+        self.assertEqual(next(c for c in doc["checks"] if c["source"] == "HKEX")["error"], "결과 형식 불일치")
+
+    def test_config_partner_has_relation_evidence(self):
+        cfg = json.loads(w.PARTNERS.read_text(encoding="utf-8"))
+        for p in cfg["hkex"]:
+            self.assertTrue(p["relation"] and p["evidence"].startswith("https://") and isinstance(p["stockId"], int))

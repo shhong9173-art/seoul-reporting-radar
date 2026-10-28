@@ -1,5 +1,5 @@
 {
-  "note": "출입처와 계약·합작 관계가 공개 자료로 확인된 해외 상장사만 넣는다. relation·evidence(관계 근거 URL) 없는 회사는 넣지 않는다. 미국 상장사 전반은 EDGAR 전문 검색(edgarPhrases)으로 넓게 본다.",
+  "note": "출입처와 계약·합작 관계가 공개 자료로 확인된 해외 상장사만 넣는다(ASX·HKEX). relation·evidence(관계 근거 URL) 없는 회사는 넣지 않는다. 미국 상장사 전반은 EDGAR 전문 검색(edgarPhrases)으로 넓게 본다.",
   "asx": [
     {
       "code": "ARU",
@@ -109,5 +109,17 @@
   ],
   "notes": [
     "알몬티(세아그룹 몰리브덴 공급계약, 근거 https://www.businesswire.com/news/home/20250129315431/en/)는 2026-10-26 ASX 조회가 두 경로 모두 실패(HTTP 400·404)해 ASX 목록에서 뺐다. 상장 시장 확인 전까지 EDGAR 'SeAH' 검색으로 본다."
+  ],
+  "hkex": [
+    {
+      "code": "01958",
+      "stockId": 116122,
+      "name": "BAIC Motor",
+      "beat": [
+        "현대차"
+      ],
+      "relation": "베이징현대(北京现代) 합작 상대 — BAIC Motor와 현대차가 두 모회사",
+      "evidence": "https://autonews.gasgoo.com/articles/news/beijing-hyundai-secures-9422-million-capital-increase-from-two-parent-firms-70019931"
+    }
   ]
 }

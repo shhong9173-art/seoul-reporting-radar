@@ -57,9 +57,10 @@ const ALT = {
   공정위: ['공정위', '공정거래위원회'], 과징금: ['과징금', '제재', '시정명령', '고발', '경고'], 한전: ['한전', '한국전력'],
   수주: ['수주', '입찰', '낙찰', '공급', '계약'], 관세: ['관세', '반덤핑', '상계관세', '덤핑'], 판정: ['판정', '예비', '최종', '재심', '연례재심'],
   계약: ['계약', '협약', '합의', '공급', '합작', 'MOU'], 의견서: ['의견서', '의견', '제출', '요청'], 상표: ['상표', '출원', '브랜드', '명칭'],
-  개정안: ['개정안', '발의', '법안', '개정', '대표발의'], 가격: ['가격', '판매가', '출고가', 'MSRP', '값'], 미국: ['미국', '美'],
+  개정안: ['개정안', '발의', '법안', '개정', '대표발의'], BAIC: ['BAIC', '베이징자동차', '베이징기차', '北汽'],
+  합작: ['합작', '지분', '매각', '정리', '철수', '계약', '합작사'], 가격: ['가격', '판매가', '출고가', 'MSRP', '값'], 미국: ['미국', '美'],
 };
-const ASX_KO = { PLS: '필바라', ARU: '아라푸라' };
+const ASX_KO = { PLS: '필바라', ARU: '아라푸라', '01958': 'BAIC' };
 export function hint(who, terms) {
   const subject = String(who ?? '').split('·')[0].replace(/\(.*?\)/g, '').trim();
   const t = [...new Set(terms.filter(Boolean).map(String))];
@@ -234,14 +235,15 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
   for (const x of pf?.items ?? []) {
     if (!fresh(x, pfBase, 'date')) continue;
     let tier;
-    if (x.source === 'ASX') tier = (x.flags ?? []).length ? 'A' : 'C';
-    else if (x.routine) tier = 'C';
+    if (x.routine) tier = 'C';
+    else if (x.source === 'ASX' || x.source === 'HKEX') tier = (x.flags ?? []).length ? 'A' : 'C';
     else tier = DEAL_WORDS.test(String(x.snippet ?? '')) && !x.finNote ? 'A' : 'B';
-    const deal = x.source === 'ASX' ? '' : x.routine ? ` — ${x.routine}` : x.finNote ? ` — ${x.finNote}`
+    const deal = x.routine ? ` — ${x.routine}` : x.source === 'ASX' || x.source === 'HKEX' ? '' : x.finNote ? ` — ${x.finNote}`
       : tier === 'B' ? ' — 발췌에 계약·공급·합작 낱말 없음(이름만 언급일 수 있음)' : '';
     const partner = ASX_KO[(/\(([A-Z0-9]{2,5})\)\s*$/.exec(String(x.filer ?? '')) ?? [])[1]] ?? String(x.filer ?? '').split(/[\s,(]/)[0];
-    push(tier, W['partner-filings'], { kind: x.source ?? '공시', id: x.id, date: x.date, company: (x.beat ?? []).join('·'), fact: `${x.source} ${x.filer}: ${x.title}${(x.flags ?? []).length ? ` (낱말 ${x.flags.join(',')})` : ''}${deal}`, url: x.url,
-      check: hint((x.beat ?? [])[0], [partner, '계약']) });
+    const when = x.source === 'HKEX' && x.time ? ` ${x.time} 홍콩시각` : '';
+    push(tier, W['partner-filings'], { kind: x.source ?? '공시', id: x.id, date: x.date, company: (x.beat ?? []).join('·'), fact: `${x.source} ${x.filer}${when}: ${x.title}${(x.flags ?? []).length ? ` (낱말 ${x.flags.join(',')})` : ''}${deal}`, url: x.url,
+      check: hint((x.beat ?? [])[0], [partner, x.source === 'HKEX' ? '합작' : '계약']) });
   }
 
   const uc = docs['us-comments'];
