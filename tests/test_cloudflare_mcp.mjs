@@ -872,7 +872,7 @@ test('Cloudflare cron asks GitHub to run each watch at its KST weekday slot and 
   // the reporter adds the secret after the morning slots: the line says so before the next slot comes round
   const later = await call('radar_today', {}, { ...none, env: { ...none.env, GITHUB_DISPATCH_TOKEN: 'ghp_test' } });
   assert.match(later.text, /예약 요청\(Cloudflare\): 오늘 앞선 칸은 토큰 없이 지나감 · 지금은 토큰 보임 — 다음 칸\(10-26 15:00 scoop-radar\.yml\)부터 요청/);
-  assert.equal(nextSlot(new Date('2026-10-30T10:00:00Z')), '11-02 06:30 page-watch.yml');  // Fri 19:00 KST → Mon 06:30
+  assert.equal(nextSlot(new Date('2026-10-30T10:00:00Z')), '11-02 06:10 kr-fuel.yml');  // Fri 19:00 KST → Mon 06:30
   const fresh = await call('radar_today', {}, PRIVATE());
   assert.match(fresh.text, /예약 요청\(Cloudflare\): 기록 없음 · 지금도 워커에서 GITHUB_DISPATCH_TOKEN이 보이지 않음/);
   const freshWithToken = await call('radar_today', {}, PRIVATE({ GITHUB_DISPATCH_TOKEN: 'ghp_test' }));
@@ -1025,7 +1025,7 @@ test('kr_signals shows FTC decisions by role, KEPCO bids and commodity prices, a
   const minor = await call('radar_today', { include_minor: true }, opts);
   assert.match(minor.text, /「\(연간단가\)고효율주상변압기,50KVA\(광유\)-2,338대-0\d\(일반\)」 외 같은 공고 2건\(합계 약 149억원\) · 추정가격 약 50억원/);
   assert.equal((minor.text.match(/고효율주상변압기/g) ?? []).length, 1);  // three lots, one line
-  assert.match(r.text, /기자 전용 감시 13개/);
+  assert.match(r.text, /기자 전용 감시 14개/);
   assert.deepEqual(dueAt(new Date('2026-10-26T23:30:00Z')), ['kr-signals.yml']);  // Tue 08:30 KST
   assert.deepEqual(dueAt(new Date('2026-10-27T06:20:00Z')), ['kr-signals.yml']);  // Tue 15:20 KST
 });
@@ -1166,7 +1166,7 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   assert.doesNotMatch((await call('trademarks', { name: 'aero' }, opts)).text, /NUTRIMACY/);
   assert.doesNotMatch((await call('trademarks', { class: '35' }, opts)).text, /NUTRIMACY/);
   const r = await call('radar_today', {}, opts);
-  assert.match(r.text, /기자 전용 감시 13개/);
+  assert.match(r.text, /기자 전용 감시 14개/);
   assert.match(r.text, /- 상표 출원: 대기 1곳\(제공기관 응답 22 뒤 72시간 대기\) — 해당 부분 0건은 미확인/);
   assert.doesNotMatch(r.text, /상표 출원: [^\n]*시간 전 결과/);
   const b = r.text.split('[B · ')[1].split('[C · ')[0];
@@ -1176,7 +1176,7 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   assert.match(minor.text, /상표 출원 「NUTRIMACY」[^\n]* — 같은 이름 상품류 추가/);
   const list = await rpc('tools/list', {}, { path: `/mcp/${TOKEN}`, env });
   assert.ok(list.body.result.tools.some((x) => x.name === 'trademarks'));
-  assert.match(list.body.result.tools.find((x) => x.name === 'radar_today').description, /감시 13개\([^)]*상표 출원, 국회 법안, 미국 리콜, 미국 EPA 인증\)/);
+  assert.match(list.body.result.tools.find((x) => x.name === 'radar_today').description, /감시 14개\([^)]*상표 출원, 국회 법안, 미국 리콜, 미국 EPA 인증, 국내 연비 신고\)/);
   assert.ok(!(await rpc('tools/list', {}, { env })).body.result.tools.some((x) => x.name === 'trademarks'));  // private only
 });
 
@@ -1350,6 +1350,7 @@ test('press check is dispatched after the morning watches and after the evening 
   assert.deepEqual(dueAt(new Date('2026-10-29T06:00:00Z')), ['scoop-radar.yml']);  // Thu 15:00 KST
   assert.deepEqual(dueAt(new Date('2026-10-29T09:00:00Z')), ['scoop-radar.yml']);  // Thu 18:00 KST
   assert.deepEqual(dueAt(new Date('2026-10-31T23:00:00Z')), []);                   // Sun 08:00 KST
+  assert.deepEqual(dueAt(new Date('2026-10-28T21:10:00Z')), ['kr-fuel.yml']);      // Thu 06:10 KST
   assert.deepEqual(dueAt(new Date('2026-10-28T09:50:00Z')), ['radar-press-check.yml']);  // Wed 18:50 KST
 });
 
@@ -1447,4 +1448,35 @@ test('us_epa: a new model is A, an EV range change B, carryover C; tool shows EP
   const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
   assert.deepEqual(items.items.find((x) => x.id === 'epa:6').check.terms, ['GV90', 'EPA']);
   assert.ok(!items.items.find((x) => x.id === 'epa:4'));
+});
+
+test('kr_fuel: a new model name is A, an EV range change B, other rows C; unset key is 미확인', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const v = (id, kind, extra = {}) => ({ id, company: '현대차', maker: '현대자동차(주)', model: '아반떼 N 2.0 터보', year: '2027', carKind: '승용', carType: '준중형',
+    fuel: '휘발유', displacement: '1998', gear: '자동 8단', eff: '10.6', urban: '9.4', highway: '12.6', co2: '160', grade: '4', range: '', registered: '2026-10-25',
+    kind, bulk: false, url: 'https://www.data.go.kr/data/15139827/openapi.do', firstSeen: '2026-10-26T06:10:00+09:00', isNew: true, ...extra });
+  const doc = { schema: 'kr_fuel/v1', generatedAt: '2026-10-26T06:10:00+09:00', status: 'complete', dataset: 'https://www.data.go.kr/data/15139827/openapi.do',
+    checks: [{ source: '에너지공단 자동차 표시연비(공공데이터포털 15139827)', status: 'ok', rows: 9000, beatRows: 3100 }],
+    vehicles: [v('kf:1', '새 모델명'),
+      v('kf:2', '주행거리 변화', { company: '기아', maker: '기아(주)', model: 'EV3 롱레인지', fuel: '전기', displacement: '', eff: '5.6', range: '525', compare: { previousRanges: [501] } }),
+      v('kf:3', '사양·연식 추가', { model: '아반떼 1.6 가솔린', eff: '15.0' })], rules: ['연비 신고는 출시 확정이 아니다.'] };
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/kr-fuel', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
+  const r = await call('radar_today', { hours: 72, include_minor: true }, opts);
+  const sec = (t) => r.text.split(`[${t} · `)[1].split(/\n\[[ABC] · /)[0];
+  assert.match(sec('A'), /국내 연비 신고\(새 모델명\): 현대자동차\(주\) 아반떼 N 2\.0 터보 · 2027년 · 휘발유 1998cc · 표시연비 10\.6km\/L · 등록 2026-10-25/);
+  assert.match(sec('B'), /국내 연비 신고\(주행거리 변화\): 기아\(주\) EV3 롱레인지 · 2027년 · 전기 · 표시연비 5\.6km\/kWh · 1회 충전 525km \(같은 모델명 이전 501km\)/);
+  assert.match(sec('C'), /국내 연비 신고\(사양·연식 추가\): 현대자동차\(주\) 아반떼 1\.6 가솔린/);
+  const t = await call('kr_fuel', { kind: '주행거리 변화' }, opts);
+  assert.match(t.text, /목록 정상 · 전체 9000행 · 출입처 3100행/);
+  assert.match(t.text, /비교: 같은 모델명 이전 행 1회 충전 501km/);
+  const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
+  assert.deepEqual(items.items.find((x) => x.id === 'kf:1').check.terms, ['아반떼', '연비']);
+  assert.ok(!items.items.find((x) => x.id === 'kf:3'));
+  // before the dataset is approved for the key: the watch says 미설정, not 0건
+  const unset = { ...doc, status: 'unset', vehicles: [], checks: [{ source: '에너지공단 자동차 표시연비(공공데이터포털 15139827)', status: 'unset', error: '공공데이터포털 활용신청 필요(15139827) — 응답 30 SERVICE_KEY_IS_NOT_REGISTERED_ERROR' }] };
+  await worker.fetch(new Request(ORIGIN + '/ingest/kr-fuel', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(unset) }), env, {});
+  const r2 = await call('radar_today', { hours: 72 }, opts);
+  assert.match(r2.text, /- 국내 연비 신고: 미설정 에너지공단 자동차 표시연비\(공공데이터포털 15139827\)\(공공데이터포털 활용신청 필요/);
+  assert.match((await call('kr_fuel', {}, opts)).text, /미확인\(0건 아님\): 공공데이터포털 활용신청 필요/);
 });

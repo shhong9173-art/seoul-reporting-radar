@@ -31,6 +31,7 @@ export const WATCHES = [
   { feed: 'assembly-bills', label: '국회 법안', tool: 'assembly_bills', schedule: '평일 08:40·17:40' },
   { feed: 'us-recalls', label: '미국 리콜(NHTSA 전체)', tool: 'us_recalls', schedule: '평일 17:10' },
   { feed: 'us-epa', label: '미국 EPA 인증', tool: 'us_epa', schedule: '매일 06:20', staleHours: 60 },
+  { feed: 'kr-fuel', label: '국내 연비 신고', tool: 'kr_fuel', schedule: '매일 06:10', staleHours: 60 },
 ];
 
 // Items first seen in a watch's very first run are a baseline, not news: they only count when their own date is recent.
@@ -263,6 +264,19 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
     push(tier, W['us-epa'], { kind: `EPA ${v.kind}`, id: v.id, date: v.created ?? v.firstSeen, company: v.company,
       fact: `미국 EPA 등록(${v.kind}): ${v.year} ${v.make} ${v.model}${v.atvType ? ` · ${v.atvType}` : ''}${range}${cmp}${v.comb ? ` · 복합 ${v.comb}${v.atvType === 'EV' ? 'MPGe' : 'mpg'}` : ''} · 등록 ${v.created ?? '?'}`,
       url: v.url, check: tier === 'C' ? undefined : hint(v.company, [String(v.baseModel ?? '').split(' ')[0], 'EPA']) });
+  }
+
+  // Korean fuel-economy filings (에너지공단 표시연비): a model name new to the maker is A, an EV range change B, other rows C.
+  // A bulk reload of the list (many rows at once) is reference only.
+  for (const v of docs['kr-fuel']?.vehicles ?? []) {
+    if (!recent(v.firstSeen) && !(all || String(v.registered ?? '') >= cutDay)) continue;
+    const tier = v.bulk ? 'C' : v.kind === '새 모델명' ? 'A' : v.kind === '주행거리 변화' ? 'B' : 'C';
+    const eff = v.eff ? ` · 표시연비 ${v.eff}${/전기/.test(v.fuel ?? '') ? 'km/kWh' : 'km/L'}` : '';
+    const range = v.range ? ` · 1회 충전 ${v.range}km` : '';
+    const cmp = v.compare ? ` (같은 모델명 이전 ${v.compare.previousRanges.join('/')}km)` : '';
+    push(tier, W['kr-fuel'], { kind: `연비 신고 ${v.kind}`, id: v.id, date: v.registered ?? v.firstSeen, company: v.company,
+      fact: `국내 연비 신고(${v.kind}${v.bulk ? ', 일괄 갱신' : ''}): ${v.maker} ${v.model} · ${v.year}년 · ${v.fuel}${v.displacement ? ` ${v.displacement}cc` : ''}${eff}${range}${cmp} · 등록 ${v.registered ?? '?'}`,
+      url: v.url, check: tier === 'C' ? undefined : hint(v.company, [String(v.model ?? '').split(/\s+/)[0], '연비']) });
   }
 
   const pf = docs['partner-filings'];

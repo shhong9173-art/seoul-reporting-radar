@@ -1,0 +1,40 @@
+name: Korea Fuel Economy Filings Watch
+# 국내 자동차 표시연비 신고(에너지공단 공공데이터 15139827)의 출입처 브랜드 새 신고(새 모델명·전기차 주행거리 변화). 매일 06:10 KST.
+# 에너지공단 누리집은 해외 러너 접속이 안 돼 공공데이터포털 API를 쓴다. 키가 이 데이터에 활용신청돼 있어야 한다(없으면 '미설정').
+# 결과는 기자 전용 저장소로만, 공개 로그는 건수만.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/kr_fuel_watch.py'
+      - 'tests/test_kr_fuel_watch.py'
+      - '.github/workflows/kr-fuel.yml'
+  schedule:
+    - cron: '10 21 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: kr-fuel-watch
+  cancel-in-progress: false
+jobs:
+  fuel:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install "requests>=2.31,<3"
+      - name: Test fuel-economy parsing
+        run: python -m unittest tests.test_kr_fuel_watch tests.test_private_store -v
+      - name: Watch Korean fuel-economy filings (counts-only log)
+        env:
+          MCP_ACCESS_TOKEN: ${{ secrets.MCP_ACCESS_TOKEN }}
+          CUSTOMS_API_KEY: ${{ secrets.CUSTOMS_API_KEY }}
+          G2B_API_KEY: ${{ secrets.G2B_API_KEY }}
+        run: python scripts/kr_fuel_watch.py
