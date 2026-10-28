@@ -51,7 +51,15 @@ def flat_zip(lines):
     return b.getvalue()
 
 
-def fake(calls=None, flat=None, issues=SAFETY, pdf_text="Supplier Identification: Component Manufacturer Name: SK On Co., Ltd. Address: Seoul Korea Chronology: ..."):
+# Supplier box text as pypdf extracts it from RCLRPT-26V698-3069.pdf (probe 10-28).
+P573 = ("A technical defect may not be immediately detectable. Component Manufacturer Tier of Supplier: Supplier Type: Name: SK Battery "
+        "Manufacturing Kft. Address: Irinyi János utca 9 Komárom Foreign States, 2903 Country: Hungary Involved Components Component Name 1: "
+        "High Voltage Battery Module")
+P573_KR = ("Component Manufacturer Tier of Supplier: Tier 1 Supplier Type: OEM Name: NIDEC MOBILITY KOREA CORPORATION Address: 790-12, "
+           "Bogaewonsam-ro Gyeonggi-do Foreign States, 17507 Country: Korea, Republic Of Involved Components Component Name 1: SWITCH ASSY")
+
+
+def fake(calls=None, flat=None, issues=SAFETY, pdf_text=P573):
     import pypdf  # noqa: F401  (patched below)
 
     def get(url, params=None, headers=None, timeout=None):
@@ -103,11 +111,18 @@ class Watch(unittest.TestCase):
         doc = self.go(calls=calls)
         audi = next(x for x in doc["recalls"] if x["campaign"] == "26V698000")
         self.assertEqual(audi["report"], "https://static.nhtsa.gov/odi/rcl/2026/RCLRPT-26V698-3069.pdf")
-        self.assertIn("SK On Co., Ltd.", audi["supplierBox"])
+        self.assertEqual(audi["supplierBox"], "SK Battery Manufacturing Kft. (Hungary)")
+        self.assertEqual(audi["suppliers"], [{"name": "SK Battery Manufacturing Kft.", "country": "Hungary"}])
         self.assertEqual(audi["supplierKorean"], ["SK온"])
         self.assertIn({"role": "부품 공급사(원보고서, 출입처 아님)", "beat": None, "name": "SK온"}, audi["why"])
         self.assertIn(("https://api.nhtsa.gov/safetyIssues/byNhtsaId", {"filter": "recalls", "nhtsaId": "26V698000"}), calls)
         self.assertLessEqual(sum(1 for u, _ in calls if u.startswith(w.PDF_ROOT)), w.PDF_BUDGET)
+
+    def test_supplier_located_in_korea_is_named_even_if_not_listed(self):
+        doc = self.go(pdf_text=P573_KR)
+        kia = next(x for x in doc["recalls"] if x["campaign"] == "26V700000")
+        self.assertEqual(kia["supplierBox"], "NIDEC MOBILITY KOREA CORPORATION (Korea, Republic Of)")
+        self.assertIn({"role": "부품 공급사(원보고서, 한국 소재)", "beat": None, "name": "NIDEC MOBILITY KOREA CORPORATION"}, kia["why"])
 
     def test_reports_are_read_once_and_new_items_marked(self):
         first = self.go()

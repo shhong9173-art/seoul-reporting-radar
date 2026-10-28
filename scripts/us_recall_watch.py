@@ -49,7 +49,7 @@ TIRES = {"HANKOOK": "한국타이어", "NEXEN": "넥센타이어", "KUMHO": "금
 # (pattern, Korean name, beat?) — names that appear in defect text, component fields or the Part 573 supplier box.
 SUPPLIERS = [(r"Hyundai Mobis|\bMobis\b", "현대모비스", True), (r"\bHL Mando\b|\bMando\b", "HL만도", True), (r"Hyundai WIA", "현대위아", True),
              (r"Hankook", "한국타이어", True), (r"Nexen", "넥센타이어", True), (r"Kumho", "금호타이어", True),
-             (r"\bLS (?:Cable|Electric|Automotive)", "LS", True), (r"\bSK On\b|SK Battery America|\bSK Innovation", "SK온", False),
+             (r"\bLS (?:Cable|Electric|Automotive)", "LS", True), (r"\bSK On\b|SK Battery|\bSK Innovation", "SK온", False),
              (r"LG Energy Solution|\bLGES\b|LG Chem", "LG에너지솔루션", False), (r"Samsung SDI", "삼성SDI", False),
              (r"Hanon Systems|\bHanon\b", "한온시스템", False), (r"Hyundai Transys", "현대트랜시스", False), (r"Hyundai Kefico|KEFICO", "현대케피코", False),
              (r"Seoyon E-?Hwa", "서연이화", False), (r"SL Corporation|\bSL Corp\b", "SL", False)]
@@ -160,9 +160,18 @@ def part573(campaign, *, get, sleep):
         text = re.sub(r"\s+", " ", " ".join((pg.extract_text() or "") for pg in reader.pages[:8]))
     except Exception as e:
         return {"report": url}, f"PDF {type(e).__name__}"
-    m = re.search(r"Supplier Identification:?(.{0,500}?)(?:Chronology|Description of Remedy|Recall Schedule|$)", text, re.I)
-    box = re.sub(r"\s+", " ", m.group(1)).strip()[:400] if m else None
-    return {"report": url, "supplierBox": box, "supplierKorean": [ko for ko, _ in suppliers_in(box or "")]}, None
+    # Part 573 form (checked 2026-10-28 on 26V698·26V664): 'Component Manufacturer Tier of Supplier: … Supplier Type: … Name: …
+    # Address: … Country: …' then 'Involved Components'. Several boxes are possible.
+    sups = []
+    for m in re.finditer(r"Component Manufacturer\s+Tier of Supplier:.*?Name:\s*(.+?)\s+Address:.*?Country:\s*(.+?)(?=\s+(?:Involved Components|Component Manufacturer|"
+                         r"Part 573|U\.S\. Department)|$)", text, re.S):
+        sup = {"name": m.group(1).strip()[:120], "country": m.group(2).strip()[:60]}
+        if sup not in sups:
+            sups.append(sup)
+    box = " / ".join(f"{x['name']} ({x['country']})" for x in sups[:3]) or None
+    korean = [ko for ko, _ in suppliers_in(" ".join(x["name"] for x in sups))]
+    korean += [x["name"] for x in sups if re.search(r"Korea", x["country"], re.I) and not suppliers_in(x["name"])]
+    return {"report": url, "supplierBox": box, "suppliers": sups[:3], "supplierKorean": korean}, None
 
 
 def run(*, now, previous=None, get=None, sleep=time.sleep):
@@ -201,7 +210,7 @@ def run(*, now, previous=None, get=None, sleep=time.sleep):
                     "affected": c["affected"], "defect": c["defect"][:700], "consequence": c["consequence"][:400], "remedy": c["remedy"][:300],
                     "parts": sorted(c["parts"])[:5], "doNotDrive": c["doNotDrive"], "parkOutside": c["parkOutside"],
                     "why": why, "beat": sorted({w["beat"] for w in why if w["beat"]}), "url": PAGE + camp[:6],
-                    **{k: old[k] for k in ("report", "supplierBox", "supplierKorean", "reportError") if k in old},
+                    **{k: old[k] for k in ("report", "supplierBox", "suppliers", "supplierKorean", "reportError") if k in old},
                     "firstSeen": old.get("firstSeen") or stamp}
     # Part 573 supplier box for new matches, beat makers first, budgeted.
     budget, read, errs = PDF_BUDGET, 0, 0
@@ -223,9 +232,10 @@ def run(*, now, previous=None, get=None, sleep=time.sleep):
             read += 1
             x.pop("reportError", None)
             for ko in x.get("supplierKorean") or []:
-                beat = next((b for _, k, b in SUPPLIERS if k == ko), False)
+                known = next(((k, b) for _, k, b in SUPPLIERS if k == ko), None)
+                role = ("부품 공급사(원보고서)" if known[1] else "부품 공급사(원보고서, 출입처 아님)") if known else "부품 공급사(원보고서, 한국 소재)"
                 if not any(w["name"] == ko for w in x["why"]):
-                    x["why"].append({"role": "부품 공급사(원보고서)" if beat else "부품 공급사(원보고서, 출입처 아님)", "beat": ko if beat else None, "name": ko})
+                    x["why"].append({"role": role, "beat": ko if known and known[1] else None, "name": ko})
             x["beat"] = sorted({w["beat"] for w in x["why"] if w["beat"]})
     checks.append({"source": "NHTSA 원보고서(Part 573)", "status": "ok" if not errs else ("partial" if read else "failed"),
                    "read": read, "errors": errs, "pending": sum(1 for x in out.values() if "report" not in x and not x.get("reportError"))})
