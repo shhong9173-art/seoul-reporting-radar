@@ -1452,6 +1452,13 @@ test('us_epa: a new model is A, an EV range change B, carryover C; tool shows EP
   assert.match(sec('C'), /미국 EPA 등록\(연식 변경\): 2027 Kia Sorento AWD/);
   const t = await call('us_epa', { kind: '주행거리 변화' }, opts);
   assert.match(t.text, /비교: 직전 2025년형 주행거리 303마일/);
+  // NHTSA vPIC new model name → A
+  const withVin = { ...doc, generatedAt: '2026-10-26T06:20:00+09:00', vpicModels: [{ id: 'vin:kia|ev4', company: '기아', make: 'Kia', model: 'EV4', years: [2027, 2028],
+    kind: 'VIN 모델명 등록', url: 'https://vpic.nhtsa.dot.gov/api/vehicles/GetModelsForMakeIdYear/makeId/499/modelyear/2027?format=json', firstSeen: '2026-10-26T06:20:00+09:00', isNew: true }] };
+  await worker.fetch(new Request(ORIGIN + '/ingest/us-epa', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(withVin) }), env, {});
+  const r3 = await call('radar_today', { hours: 72 }, opts);
+  assert.match(r3.text.split('[A · ')[1].split('[B · ')[0], /미국 NHTSA에 새 모델명 등록\(VIN 해독\): Kia 'EV4' · 2027·2028년형 — 출시·국내 도입은 미확인/);
+  assert.match((await call('us_epa', {}, opts)).text, /\[NHTSA vPIC 새 모델명\(VIN 등록\)\] 1건\n- \[신규\] 2026-10-26 · Kia 'EV4' · 2027·2028년형/);
   const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
   assert.deepEqual(items.items.find((x) => x.id === 'epa:6').check.terms, ['GV90', 'EPA']);
   assert.ok(!items.items.find((x) => x.id === 'epa:4'));

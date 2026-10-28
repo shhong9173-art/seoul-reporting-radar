@@ -279,7 +279,12 @@ export async function usEpa(ctx, args) {
   }
   if (rows.length > limit) out.push(`… 남은 ${rows.length - limit}건`);
   if (!rows.length) out.push('\n새 등록 없음(첫 실행은 기준선, 조회 실패면 미확인).');
-  out.push('\n다음: 미국 사양이다 — 국내 출시·인증 여부와 사양은 회사 확인. 새 모델·주행거리 변화는 news_check로 보도 대조.');
+  const vins = (doc.vpicModels ?? []).filter((v) => matches(q, v.company, v.make, v.model));
+  if (vins.length) {
+    out.push(`\n[NHTSA vPIC 새 모델명(VIN 등록)] ${vins.length}건`);
+    for (const v of vins.slice(0, limit)) out.push(`- ${v.isNew ? '[신규] ' : ''}${String(v.firstSeen).slice(0, 10)} · ${v.make} '${v.model}' · ${(v.years ?? []).join('·')}년형 · ${v.url}`);
+  }
+  out.push('\n다음: 미국 사양이다 — 국내 출시·인증 여부와 사양은 회사 확인. 새 모델·주행거리 변화·새 모델명은 news_check로 보도 대조.');
   return textResult(out.join('\n'));
 }
 

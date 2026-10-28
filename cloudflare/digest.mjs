@@ -266,6 +266,14 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
       url: v.url, check: tier === 'C' ? undefined : hint(v.company, [String(v.baseModel ?? '').split(' ')[0], 'EPA']) });
   }
 
+  // NHTSA vPIC: a model name new to Hyundai/Kia/Genesis (VIN decoding registered before launch) is A.
+  for (const v of docs['us-epa']?.vpicModels ?? []) {
+    if (!recent(v.firstSeen) && !all) continue;
+    push('A', W['us-epa'], { kind: 'VIN 모델명 등록', id: v.id, date: v.firstSeen, company: v.company,
+      fact: `미국 NHTSA에 새 모델명 등록(VIN 해독): ${v.make} '${v.model}' · ${(v.years ?? []).join('·')}년형 — 출시·국내 도입은 미확인`,
+      url: v.url, check: hint(v.company, [String(v.model ?? ''), '미국']) });
+  }
+
   // Korean fuel-economy filings (에너지공단 표시연비): a model name new to the maker is A, an EV range change B, other rows C.
   // A bulk reload of the list (many rows at once) is reference only.
   for (const v of docs['kr-fuel']?.vehicles ?? []) {
