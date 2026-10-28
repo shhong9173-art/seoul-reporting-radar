@@ -34,7 +34,8 @@ class NtisCollectorTests(unittest.TestCase):
             if "ThSearch" in url:
                 return (self.listing() if listing is None else listing).encode()
             return (self.detail if detail is None else detail).encode()
-        with patch.object(scout, "get", side_effect=get), patch.object(scout, "datetime") as clock, redirect_stdout(io.StringIO()):
+        with patch.object(scout, "get", side_effect=get), patch.object(scout, "datetime") as clock, \
+                patch.object(scout, "NTIS_LATE_PAUSE", 0), redirect_stdout(io.StringIO()):
             clock.now.return_value = self.now
             clock.strptime = datetime.strptime
             clock.fromisoformat = datetime.fromisoformat
@@ -93,10 +94,31 @@ class NtisCollectorTests(unittest.TestCase):
             raise TimeoutError("unavailable")
         rows, diag, requests = self.run_collector(response=response)
         self.assertEqual(rows, [])
-        self.assertEqual(diag["httpAttempts"], 3)
+        self.assertEqual(diag["httpAttempts"], 4)  # 목록 1 + 본문 2 + 끝에서 한 번 더 1
+        self.assertEqual(diag["lateRetries"], 1)
         self.assertEqual(diag["detailPagesFetched"], 0)
         self.assertEqual(diag["status"], "detail_fetch_failed")
         self.assertEqual(diag["exclusions"]["detail_fetch_failed"], 1)
+
+    def test_late_retry_recovers_and_is_not_partial(self):
+        attempts = []
+        def response(url):
+            if "ThSearch" in url:
+                return self.listing().encode()
+            attempts.append(url)
+            if len(attempts) <= 2:
+                raise urllib.error.URLError(TimeoutError("timeout"))
+            return self.detail.encode()
+        rows, diag, requests = self.run_collector(response=response)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(diag["lateRetryOk"], 1)
+        self.assertTrue(all(e["retry"] for e in diag["errors"]))
+        self.assertNotIn("detail_fetch_failed", diag["exclusions"])
+        self.assertEqual([t for _, t in requests], [12, 12, 25, 25])
+        import sys
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+        import official_source_observation as obs
+        self.assertNotEqual(obs._health_direct(diag), "partial")
 
     def test_earlier_verified_detail_is_reused_not_reread(self):
         rows, _, _ = self.run_collector()

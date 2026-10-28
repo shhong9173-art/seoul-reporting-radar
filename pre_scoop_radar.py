@@ -382,6 +382,8 @@ def _ntis_detail_url(href):
 
 
 NTIS_RETRY_TIMEOUT = 25
+NTIS_LATE_RETRIES = 2
+NTIS_LATE_PAUSE = 3
 
 
 def _ntis_fetch(url, diag, stage, timeout=12):
@@ -550,7 +552,45 @@ def fetch_direct_ntis_announcements(max_items=12, query_terms=None, max_details=
             continue
         fresh.append((qdiag, url, listed_title))
     ordered = fresh
+    def handle(qdiag, url, listed_title, markup):
+        diag["detailPagesFetched"] += 1
+        qdiag["detailPagesFetched"] += 1
+        title, fields, body = parse_ntis_detail(markup)
+        if not title:
+            exclude("detail_structure_or_title_missing", url)
+            return
+        if _ntis_title_key(title) != _ntis_title_key(listed_title):
+            exclude("list_detail_title_mismatch", url)
+            return
+        date = re.sub(r"\s+", "", fields.get("공고일", ""))
+        dt = parse_dt(date)
+        if not re.fullmatch(r"20\d{2}[./-]\d{1,2}[./-]\d{1,2}", date) or dt.year < 2000:
+            exclude("announcement_date_missing_or_invalid", url)
+            return
+        diag["datedRecords"] += 1
+        known.pop(url, None)
+        known[url] = {"t": _ntis_title_key(title), "d": dt.date().isoformat()}
+        while len(known) > DETAIL_DATES_MAX:
+            known.pop(next(iter(known)))
+        if dt < cutoff or dt > now + timedelta(hours=6):
+            exclude("outside_lookback", url)
+            return
+        diag["recentRecords"] += 1
+        if not body or body == "공고내용":
+            exclude("body_missing", url)
+            return
+        out.append({"sourceName": "NTIS 국가R&D통합공고", "officialLabel": "NTIS",
+                    "querySite": "ntis.go.kr", "sourceGroup": "R&D·기술", "title": title,
+                    "url": url, "published": dt.isoformat(), "summary": body[:3500], "bodyText": body,
+                    "official": True, "preScoop": True, "directSource": True, "policySignal": True,
+                    "category": "정책·규제", "companies": target_hits(title),
+                    "signalType": "ntis_rnd_announcement", "dateSource": "NTIS 공고일",
+                    "announcementFields": fields, "programName": fields.get("사업명", ""),
+                    "verification": "공개 원자료 추적 — 기업 참여·선정 및 단독 여부 미확인",
+                    "evidenceLimitations": ["첨부문서는 수집하지 않음", "공모 자체는 기업 참여의 증거가 아님"]})
+
     failures_in_row = 0
+    failed = []
     for index, (qdiag, url, listed_title) in enumerate(ordered[:max_details]):
         if len(out) >= max_items:
             break
@@ -567,44 +607,34 @@ def fetch_direct_ntis_announcements(max_items=12, query_terms=None, max_details=
         markup = _ntis_fetch(url, diag, "detail")
         if markup is None:
             failures_in_row += 1
-            exclude("detail_fetch_failed", url)
+            failed.append((qdiag, url, listed_title))
             continue
         failures_in_row = 0
-        diag["detailPagesFetched"] += 1
-        qdiag["detailPagesFetched"] += 1
-        title, fields, body = parse_ntis_detail(markup)
-        if not title:
-            exclude("detail_structure_or_title_missing", url)
+        handle(qdiag, url, listed_title, markup)
+    # 두 번 다 끊긴 본문은 다른 본문을 다 읽은 뒤 한 번 더(최대 NTIS_LATE_RETRIES건, 차단이 열리면 안 함).
+    # 운영 10-28 22:04·22:13: 1차 끊김 7건 중 6건이 바로 다시 받기로 살아남 — 시간 간격을 두면 대부분 받힌다.
+    late = [] if diag["detailCircuitOpen"] else failed[:NTIS_LATE_RETRIES]
+    for qdiag, url, listed_title in failed:
+        markup = None
+        if (qdiag, url, listed_title) in late and len(out) < max_items:
+            time.sleep(NTIS_LATE_PAUSE)
+            diag["httpAttempts"] += 1
+            diag["lateRetries"] = diag.get("lateRetries", 0) + 1
+            try:
+                markup = decode_web_bytes(get(url, timeout=NTIS_RETRY_TIMEOUT))
+            except (OSError, urllib.error.URLError) as exc:
+                diag["errors"].append({"stage": "detail-late", "url": url, "attempt": 3,
+                                       "error": f"{type(exc).__name__}: {exc}"[:240], "retry": False})
+        if markup is None:
+            exclude("detail_fetch_failed", url)
             continue
-        if _ntis_title_key(title) != _ntis_title_key(listed_title):
-            exclude("list_detail_title_mismatch", url)
-            continue
-        date = re.sub(r"\s+", "", fields.get("공고일", ""))
-        dt = parse_dt(date)
-        if not re.fullmatch(r"20\d{2}[./-]\d{1,2}[./-]\d{1,2}", date) or dt.year < 2000:
-            exclude("announcement_date_missing_or_invalid", url)
-            continue
-        diag["datedRecords"] += 1
-        known.pop(url, None)
-        known[url] = {"t": _ntis_title_key(title), "d": dt.date().isoformat()}
-        while len(known) > DETAIL_DATES_MAX:
-            known.pop(next(iter(known)))
-        if dt < cutoff or dt > now + timedelta(hours=6):
-            exclude("outside_lookback", url)
-            continue
-        diag["recentRecords"] += 1
-        if not body or body == "공고내용":
-            exclude("body_missing", url)
-            continue
-        out.append({"sourceName": "NTIS 국가R&D통합공고", "officialLabel": "NTIS",
-                    "querySite": "ntis.go.kr", "sourceGroup": "R&D·기술", "title": title,
-                    "url": url, "published": dt.isoformat(), "summary": body[:3500], "bodyText": body,
-                    "official": True, "preScoop": True, "directSource": True, "policySignal": True,
-                    "category": "정책·규제", "companies": target_hits(title),
-                    "signalType": "ntis_rnd_announcement", "dateSource": "NTIS 공고일",
-                    "announcementFields": fields, "programName": fields.get("사업명", ""),
-                    "verification": "공개 원자료 추적 — 기업 참여·선정 및 단독 여부 미확인",
-                    "evidenceLimitations": ["첨부문서는 수집하지 않음", "공모 자체는 기업 참여의 증거가 아님"]})
+        diag["lateRetryOk"] = diag.get("lateRetryOk", 0) + 1
+        # 앞선 두 번의 실패는 '다시 받아 회복'으로 바꿔 적는다(기록은 남긴다).
+        for e in diag["errors"]:
+            if e.get("url") == url and e.get("stage") == "detail" and e.get("retry") is False:
+                e["retry"] = True
+                e["recoveredLater"] = True
+        handle(qdiag, url, listed_title, markup)
     diag["retained"] = len(out)
     diag["detailsSkippedByLimit"] = max(0, len(ordered) - diag["detailPagesAttempted"] - diag["detailDeferred"])
     diag["coverageLimited"] |= bool(diag["detailsSkippedByLimit"])
@@ -614,7 +644,8 @@ def fetch_direct_ntis_announcements(max_items=12, query_terms=None, max_details=
                       "detail_parse_failed" if not diag["datedRecords"] else
                       "no_recent_publications_in_checked_details" if not diag["recentRecords"] else
                       "recent_announcements_checked")
-    diag["collectionComplete"] = not (diag["coverageLimited"] or diag["errors"] or diag["invalidLinks"]
+    final_errors = [e for e in diag["errors"] if not (isinstance(e, dict) and e.get("retry") is True)]
+    diag["collectionComplete"] = not (diag["coverageLimited"] or final_errors or diag["invalidLinks"]
         or any(reason != "outside_lookback" for reason in diag["exclusions"]))
     print(f"direct NTIS announcement scout: diagnostics={diag}")
     return out
