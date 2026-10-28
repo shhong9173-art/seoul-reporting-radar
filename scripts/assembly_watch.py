@@ -40,15 +40,24 @@ class ApiError(RuntimeError):
     pass
 
 
-def call(params, key, *, get=None):
-    """One page. Returns (rows, total). INFO-200 (no data) is an empty page, any other code raises."""
+TRANSIENT = ("ConnectTimeout", "ReadTimeout", "ConnectionError", "Timeout", "TimeoutError")
+
+
+def call(params, key, *, get=None, sleep=time.sleep):
+    """One page. Returns (rows, total). INFO-200 (no data) is an empty page, any other code raises.
+    A connection/read timeout is retried once, slower (운영 10-28 08:40: ConnectTimeout으로 실행 실패)."""
     if get is None:
         import requests
         get = requests.get
-    try:
-        r = get(URL, params={"KEY": key, "Type": "json", **params}, timeout=40)
-    except Exception as e:  # never the URL (it carries the key)
-        raise ApiError(type(e).__name__)
+    for attempt in (1, 2):
+        try:
+            r = get(URL, params={"KEY": key, "Type": "json", **params}, timeout=40 if attempt == 1 else 70)
+            break
+        except Exception as e:  # never the URL (it carries the key)
+            if attempt == 1 and type(e).__name__ in TRANSIENT:
+                sleep(8)
+                continue
+            raise ApiError(type(e).__name__)
     if r.status_code != 200:
         raise ApiError(f"HTTP {r.status_code}")
     try:
@@ -166,7 +175,7 @@ def run(cfg, *, now, previous=None, key="", get=None, sleep=time.sleep):
     total = None
     try:
         for page in range(1, int(cfg.get("maxPages", 8)) + 1):
-            rows, total = call({"pIndex": page, "pSize": 100, "AGE": cfg["age"]}, key, get=get)
+            rows, total = call({"pIndex": page, "pSize": 100, "AGE": cfg["age"]}, key, get=get, sleep=sleep)
             pages += 1
             listed += len(rows)
             for row in rows:
@@ -197,7 +206,7 @@ def run(cfg, *, now, previous=None, key="", get=None, sleep=time.sleep):
     if checks[0]["status"] != "failed":
         for b in todo[:budget]:
             try:
-                rows, _ = call({"pIndex": 1, "pSize": 1, "AGE": cfg["age"], "BILL_ID": b["id"]}, key, get=get)
+                rows, _ = call({"pIndex": 1, "pSize": 1, "AGE": cfg["age"], "BILL_ID": b["id"]}, key, get=get, sleep=sleep)
             except ApiError as e:
                 failed += 1
                 err = str(e)

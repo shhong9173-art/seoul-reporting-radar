@@ -134,6 +134,26 @@ class Bills(unittest.TestCase):
         unset = go(Fake([]), key="")
         self.assertEqual(unset["status"], "unset")
 
+    def test_one_slower_retry_after_a_timeout(self):
+        class ConnectTimeout(Exception):
+            pass
+        fake = Fake([PAGE1, PAGE2])
+        state = {"n": 0}
+
+        def flaky(url, params=None, timeout=None):
+            state["n"] += 1
+            if state["n"] == 1:
+                raise ConnectTimeout()
+            return fake(url, params, timeout)
+        doc = go(flaky)
+        self.assertEqual(doc["checks"][0]["status"], "ok")
+        self.assertEqual(state["n"], 3)  # timeout, retry of page 1, page 2
+
+        def dead(url, params=None, timeout=None):
+            raise ConnectTimeout()
+        doc = go(dead)
+        self.assertEqual((doc["checks"][0]["status"], doc["checks"][0]["error"]), ("failed", "ConnectTimeout"))
+
     def test_page_cap_is_partial(self):
         recent = [bill(2222114 - i, "전기사업법 일부개정법률안", "2026-10-27") for i in range(3)]
         cfg = {**CFG, "maxPages": 2}
