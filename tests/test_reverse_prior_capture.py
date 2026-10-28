@@ -74,5 +74,33 @@ class Capture(unittest.TestCase):
         self.assertEqual(r.parse_time("20261021").isoformat(), "2026-10-21T00:00:00+09:00")
 
 
+    def test_feed_with_no_stored_result_is_named_separately_from_failures(self):
+        import io
+        import os
+        from contextlib import redirect_stdout
+        from unittest.mock import patch
+        import private_store
+        sent = {}
+
+        def fake_get(name, token, **_):
+            if name == "trademarks":
+                return None  # 204: 아직 저장된 결과 없음
+            if name == "kr-signals":
+                raise private_store.StoreError("private store GET HTTP 500")
+            return {}
+
+        def fake_put(name, doc, token, **_):
+            sent["doc"] = doc
+            return 200
+        buf = io.StringIO()
+        with patch.object(private_store, "get", fake_get), patch.object(private_store, "put", fake_put), \
+                patch.dict(os.environ, {"MCP_ACCESS_TOKEN": "x" * 20}), redirect_stdout(buf):
+            r.main()
+        self.assertEqual(sent["doc"]["feedsEmpty"], ["trademarks"])
+        self.assertEqual(sent["doc"]["feedsFailed"], ["kr-signals:StoreError"])
+        self.assertIn("저장 결과 없음 ['trademarks']", buf.getvalue())
+        self.assertIn("감시 읽음 9/11", buf.getvalue())
+
+
 if __name__ == "__main__":
     unittest.main()

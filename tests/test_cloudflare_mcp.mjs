@@ -1403,7 +1403,7 @@ test('scoop_reverse shows automatic prior-capture candidates by source with lead
   const opts = PRIVATE();
   const env = opts.env;
   const art = (id, title, verdict, best, published = '2026-10-26T08:00:00+09:00') => ({ articleId: id, title, published, source: '뉴스저널리즘', companies: ['LS일렉트릭'], verdict, best, sameCompanyItems: best ? 1 : 0 });
-  const doc = { schema: 'reverse_check/v1', generatedAt: '2026-10-26T19:20:00+09:00', windowDays: 30, memoryItems: 812, feedsLoaded: { 'us-litigation': true, 'partner-filings': true }, feedsFailed: [],
+  const doc = { schema: 'reverse_check/v1', generatedAt: '2026-10-26T19:20:00+09:00', windowDays: 30, memoryItems: 812, feedsLoaded: { 'us-litigation': true, 'partner-filings': true, trademarks: false }, feedsFailed: [], feedsEmpty: ['trademarks'],
     counts: {}, rules: ['자동 후보다. 사람 판정 Y/P/N과 다르다.'],
     articles: [
       art('a1', '[단독] LS일렉트릭, 미국 전기차 충전 특허 거절에 불복…연방항소법원 항소', '먼저 잡은 후보',
@@ -1412,7 +1412,7 @@ test('scoop_reverse shows automatic prior-capture candidates by source with lead
       art('a2', '[단독] LG그룹, 현대차 로봇사업 수장 품었다', '없음', null, '2026-10-23T09:00:00+09:00')] };
   assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/reverse-check', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
   const r = await call('scoop_reverse', {}, opts);
-  assert.match(r.text, /먼저 잡은 후보 1 · 같은 회사 항목만 0 · 없음 1 · 회사 미상 0 \(레이더 기억 812건, 감시 2\/2 읽음\)/);
+  assert.match(r.text, /먼저 잡은 후보 1 · 같은 회사 항목만 0 · 없음 1 · 회사 미상 0 \(레이더 기억 812건, 감시 2\/3 읽음, 저장 결과 없음 trademarks — 그 감시 항목은 대조 못 함\)/);
   assert.match(r.text, /원천별 먼저 잡은 후보: 미국 소송·판결 1건\(중간 48시간 앞\)/);
   assert.match(r.text, /레이더: 10-24 07:50 미국 소송·판결 — In re: LS Electric/);
   assert.match(r.text, /48\.2시간 앞, 겹친 낱말 소송·판결·특허·상표\) · id cl:75019340/);

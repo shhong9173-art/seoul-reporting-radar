@@ -242,7 +242,7 @@ export async function scoopReverse(ctx, args) {
   const med = (a) => { const s = [...a].sort((p, q2) => p - q2); return s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2; };
   const loaded = Object.values(doc.feedsLoaded ?? {}).filter(Boolean).length;
   const out = [`경쟁지 [단독] 자동 역추적 · 최근 ${days}일 ${rows.length}건 · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt, 48)}`,
-    `먼저 잡은 후보 ${n('먼저 잡은 후보')} · 같은 회사 항목만 ${n('같은 회사 항목만')} · 없음 ${n('없음')} · 회사 미상 ${n('회사 미상')} (레이더 기억 ${doc.memoryItems}건, 감시 ${loaded}/${Object.keys(doc.feedsLoaded ?? {}).length} 읽음${(doc.feedsFailed ?? []).length ? `, 실패 ${doc.feedsFailed.join('·')} — 미확인` : ''})`,
+    `먼저 잡은 후보 ${n('먼저 잡은 후보')} · 같은 회사 항목만 ${n('같은 회사 항목만')} · 없음 ${n('없음')} · 회사 미상 ${n('회사 미상')} (레이더 기억 ${doc.memoryItems}건, 감시 ${loaded}/${Object.keys(doc.feedsLoaded ?? {}).length} 읽음${(doc.feedsFailed ?? []).length ? `, 실패 ${doc.feedsFailed.join('·')} — 미확인` : ''}${(doc.feedsEmpty ?? []).length ? `, 저장 결과 없음 ${doc.feedsEmpty.join('·')} — 그 감시 항목은 대조 못 함` : ''})`,
     `원천별 먼저 잡은 후보: ${Object.entries(by).sort((a, b) => b[1].length - a[1].length).map(([k, v]) => `${k} ${v.length}건(중간 ${Math.round(med(v))}시간 앞)`).join(' · ') || '없음'}`,
     ...(doc.rules ?? []).map((r) => `규칙: ${r}`)];
   for (const v of want ? [want] : ['먼저 잡은 후보', '같은 회사 항목만', '없음']) {
