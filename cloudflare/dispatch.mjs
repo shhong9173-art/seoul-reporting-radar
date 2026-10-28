@@ -23,6 +23,7 @@ export const SLOTS = [
   { at: '08:50', workflow: 'radar-press-check.yml' },
   { at: '15:10', workflow: 'scoop-screen.yml' },
   { at: '15:20', workflow: 'kr-signals.yml' },
+  { at: '17:10', workflow: 'us-recalls.yml' },
   { at: '17:40', workflow: 'assembly-bills.yml' },
   { at: '18:30', workflow: 'page-watch.yml' },
   { at: '18:50', workflow: 'radar-press-check.yml' },

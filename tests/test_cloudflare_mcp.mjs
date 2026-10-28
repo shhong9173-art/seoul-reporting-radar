@@ -1025,7 +1025,7 @@ test('kr_signals shows FTC decisions by role, KEPCO bids and commodity prices, a
   const minor = await call('radar_today', { include_minor: true }, opts);
   assert.match(minor.text, /「\(연간단가\)고효율주상변압기,50KVA\(광유\)-2,338대-0\d\(일반\)」 외 같은 공고 2건\(합계 약 149억원\) · 추정가격 약 50억원/);
   assert.equal((minor.text.match(/고효율주상변압기/g) ?? []).length, 1);  // three lots, one line
-  assert.match(r.text, /기자 전용 감시 11개/);
+  assert.match(r.text, /기자 전용 감시 12개/);
   assert.deepEqual(dueAt(new Date('2026-10-26T23:30:00Z')), ['kr-signals.yml']);  // Tue 08:30 KST
   assert.deepEqual(dueAt(new Date('2026-10-27T06:20:00Z')), ['kr-signals.yml']);  // Tue 15:20 KST
 });
@@ -1166,7 +1166,7 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   assert.doesNotMatch((await call('trademarks', { name: 'aero' }, opts)).text, /NUTRIMACY/);
   assert.doesNotMatch((await call('trademarks', { class: '35' }, opts)).text, /NUTRIMACY/);
   const r = await call('radar_today', {}, opts);
-  assert.match(r.text, /기자 전용 감시 11개/);
+  assert.match(r.text, /기자 전용 감시 12개/);
   assert.match(r.text, /- 상표 출원: 대기 1곳\(제공기관 응답 22 뒤 72시간 대기\) — 해당 부분 0건은 미확인/);
   assert.doesNotMatch(r.text, /상표 출원: [^\n]*시간 전 결과/);
   const b = r.text.split('[B · ')[1].split('[C · ')[0];
@@ -1176,7 +1176,7 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   assert.match(minor.text, /상표 출원 「NUTRIMACY」[^\n]* — 같은 이름 상품류 추가/);
   const list = await rpc('tools/list', {}, { path: `/mcp/${TOKEN}`, env });
   assert.ok(list.body.result.tools.some((x) => x.name === 'trademarks'));
-  assert.match(list.body.result.tools.find((x) => x.name === 'radar_today').description, /감시 11개\([^)]*상표 출원, 국회 법안\)/);
+  assert.match(list.body.result.tools.find((x) => x.name === 'radar_today').description, /감시 12개\([^)]*상표 출원, 국회 법안, 미국 리콜\)/);
   assert.ok(!(await rpc('tools/list', {}, { env })).body.result.tools.some((x) => x.name === 'trademarks'));  // private only
 });
 
@@ -1364,4 +1364,37 @@ test('trade remedies: an unusual decision-memo topic in a notice naming a beat c
   assert.match(t.text, /결정문 목차 — 출입처 이름\(관보 부록 원문\): "Comment 6: Whether to Modify POSCO's KEXIM OICP Loan Benchmark"/);
   const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
   assert.deepEqual(items.items.find((x) => x.id === 'fr:2026-20778').check.terms, ['관세', '보조금']);
+});
+
+test('us_recalls: NHTSA full-file recalls with Korean links reach A; imports alone are B; tool shows supplier box', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const doc = { schema: 'us_recalls/v1', generatedAt: '2026-10-25T17:10:00+09:00', windowDays: 21, baselineSince: '2026-10-20T17:10:00+09:00',
+    checks: [{ source: 'NHTSA 전체 리콜 파일', status: 'ok', rows: 246908 }, { source: 'NHTSA 원보고서(Part 573)', status: 'ok', read: 2, errors: 0 }],
+    rules: ['미국 리콜이 국내 판매 차량에 해당하는지는 이 자료로 알 수 없다.'],
+    recalls: [
+      { id: 'nhtsa:26V698000', campaign: '26V698000', received: '2026-10-24', makes: ['AUDI'], models: 'Q4 E-TRON 2024~2025', component: 'ELECTRICAL SYSTEM:PROPULSION',
+        affected: 9048, parkOutside: true, defect: 'The high voltage battery may fail and cause a fire.', supplierBox: 'Component Manufacturer Name: SK On Co., Ltd.',
+        report: 'https://static.nhtsa.gov/odi/rcl/2026/RCLRPT-26V698-3069.pdf', url: 'https://www.nhtsa.gov/recalls?nhtsaId=26V698',
+        why: [{ role: '제조사(출입처 브랜드)', beat: '아우디코리아', name: '아우디' }, { role: '부품 공급사(원보고서, 출입처 아님)', beat: null, name: 'SK온' }],
+        firstSeen: '2026-10-25T17:10:00+09:00', isNew: true },
+      { id: 'nhtsa:26V701000', campaign: '26V701000', received: '2026-10-24', makes: ['BMW'], models: 'X5 2026', component: 'BRAKES', affected: 300,
+        defect: 'Brake hose.', url: 'https://www.nhtsa.gov/recalls?nhtsaId=26V701', why: [{ role: '제조사(출입처 브랜드)', beat: 'BMW코리아', name: 'BMW' }],
+        firstSeen: '2026-10-25T17:10:00+09:00', isNew: true }] };
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/us-recalls', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
+  const t = await call('us_recalls', {}, opts);
+  assert.match(t.text, /\[신규\] 2026-10-24 · 26V698000 · 아우디\(제조사\(출입처 브랜드\)\) · SK온\(부품 공급사\(원보고서, 출입처 아님\)\)/);
+  assert.match(t.text, /잡힌 사실: AUDI Q4 E-TRON 2024~2025 · ELECTRICAL SYSTEM:PROPULSION · 대상 9,048대 · 실외 주차 권고/);
+  assert.match(t.text, /원보고서 공급사 칸\(원문\): Component Manufacturer Name: SK On Co\., Ltd\./);
+  assert.match(t.text, /국내 판매 차량 해당 여부·국내 리콜 계획은 회사·국토부 확인 필요/);
+  const r = await call('radar_today', { hours: 72 }, opts);
+  const a = r.text.split('[A · ')[1].split('[B · ')[0];
+  const b = r.text.split('[B · ')[1].split('[C · ')[0];
+  assert.match(a, /미국 리콜 26V698000 접수 2026-10-24 · Q4 E-TRON 2024~2025 · ELECTRICAL SYSTEM:PROPULSION · 대상 9,048대 · 실외 주차 권고 — 아우디\(제조사\(출입처 브랜드\)\)·SK온/);
+  assert.match(b, /미국 리콜 26V701000/);
+  const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
+  const hit = items.items.find((x) => x.id === 'nhtsa:26V698000');
+  assert.deepEqual([hit.check.who, hit.check.terms], ['SK온', ['리콜', '아우디']]);
+  assert.deepEqual(items.items.find((x) => x.id === 'nhtsa:26V701000').check.terms, ['리콜', '미국']);
+  assert.deepEqual(dueAt(new Date('2026-10-28T08:10:00Z')), ['us-recalls.yml']);  // Wed 17:10 KST
 });

@@ -21,6 +21,7 @@ export const FEEDS = {
   trademarks: { blob: 'trademarks', schema: 'trademarks/v1', list: 'filings' },
   'assembly-bills': { blob: 'assembly_bills', schema: 'assembly_bills/v1', list: 'bills' },
   'radar-check': { blob: 'radar_check', schema: 'radar_check/v1', list: 'items' },
+  'us-recalls': { blob: 'us_recalls', schema: 'us_recalls/v1', list: 'recalls' },
 };
 
 // Official trade-remedy listing pages that do not answer GitHub runners (ReadTimeout). Collectors fetch them through
