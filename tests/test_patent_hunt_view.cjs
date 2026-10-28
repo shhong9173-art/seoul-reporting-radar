@@ -9,5 +9,5 @@ for(const token of ['digests/patent_desk_latest.json','patent-desk-status','pate
   assert(html.includes(token),'missing KIPRIS audit label '+token);
 }
 assert(!html.includes('innerHTML'),'official patent fields must not be injected as HTML');
-assert(fs.readFileSync('index.html','utf8').includes('patents.html'));
+assert((fs.readFileSync('index.html','utf8')+fs.readFileSync('pages.html','utf8')).includes('patents.html'));  // 홈 메뉴 또는 모든 페이지 목록
 console.log('KIPRIS official patent reader UI passes');

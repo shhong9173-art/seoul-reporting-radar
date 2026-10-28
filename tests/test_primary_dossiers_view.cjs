@@ -4,7 +4,7 @@ const html=fs.readFileSync("primary-dossiers.html","utf8");
 const snippets=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)];
 assert.equal(snippets.length,1);
 new Function(snippets[0][1]);
-const home=fs.readFileSync("index.html","utf8");
+const home=fs.readFileSync("index.html","utf8")+fs.readFileSync("pages.html","utf8");  // 홈 메뉴 또는 모든 페이지 목록
 assert(home.includes('href="primary-dossiers.html"'));
 for(const value of [
  "digests/primary_research_dossiers_latest.json",

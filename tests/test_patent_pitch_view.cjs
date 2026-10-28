@@ -6,7 +6,7 @@ const context={module:{exports:{}},Intl,Date};
 vm.runInNewContext(code,context,{timeout:1000,filename:"pitch-format.js"});
 const f=context.module.exports;
 const page=fs.readFileSync("patent-pitches.html","utf8");
-const home=fs.readFileSync("index.html","utf8");
+const home=fs.readFileSync("index.html","utf8")+fs.readFileSync("pages.html","utf8");  // 홈 메뉴 또는 모든 페이지 목록
 const patents=fs.readFileSync("patents.html","utf8");
 assert(page.includes('src="pitch-format.js"'));
 assert(home.includes('href="patent-pitches.html"'));
