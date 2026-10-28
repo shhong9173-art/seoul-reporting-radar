@@ -104,6 +104,23 @@ class NtisCollectorTests(unittest.TestCase):
         self.assertEqual([u for u, _ in requests if "ThSearch" not in u], [])
         self.assertEqual(diag["detailReused"], 1)
 
+    def test_old_announcement_dates_are_remembered_not_reopened(self):
+        old = self.detail.replace("2026.04.23", "2026.01.05")
+        if old == self.detail:
+            self.skipTest("fixture date format changed")
+        rows, diag, requests = self.run_collector(detail=old)
+        self.assertEqual(rows, [])
+        self.assertEqual(diag["exclusions"]["outside_lookback"], 1)
+        known = dict(scout.DETAIL_DATES["ntis"])
+        self.assertEqual(list(known.values())[0]["d"], "2026-01-05")
+        rows, diag, requests = self.run_collector(detail=old, known_dates=known)
+        self.assertEqual([u for u, _ in requests if "ThSearch" not in u], [])
+        self.assertEqual(diag["knownOldSkipped"], 1)
+        # A changed listed title is a different document: read it again.
+        changed = {u: {**v, "t": "다른제목"} for u, v in known.items()}
+        _, diag, requests = self.run_collector(detail=old, known_dates=changed)
+        self.assertEqual(len([u for u, _ in requests if "ThSearch" not in u]), 1)
+
     def test_consecutive_detail_failures_stop_and_defer(self):
         ids = tuple(str(1260364 + i) for i in range(6))
         def response(url):
