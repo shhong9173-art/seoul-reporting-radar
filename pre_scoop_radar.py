@@ -918,7 +918,7 @@ def fetch_direct_iris_announcements(max_items=10, max_pages=2, max_details=30, p
 
 
 
-def fetch_direct_court(max_items=12):
+def fetch_direct_court(max_items=12, prior_items=None):
     """Collect date-stamped Supreme Court releases and industry-related disputes."""
     base="https://www.scourt.go.kr"
     page_paths=[
@@ -931,6 +931,10 @@ def fetch_direct_court(max_items=12):
           "recentRows":0,"detailPagesAttempted":0,"detailPagesFetched":0,"retained":0,
           "errors":[],"sampleRows":[]}
     DIRECT_DIAGNOSTICS["scourt-case-releases"]=diag
+    # 이전 실행에서 본문까지 읽어 남긴 보도자료(같은 주소·제목·게시일)는 다시 열지 않는다.
+    # 운영 10-28: 같은 본문 한 쪽('경매 임차인 통지서 전면 개선')이 세 번 중 두 번 Connection reset.
+    cache={it.get("url"):it for it in (prior_items or [])
+           if isinstance(it,dict) and it.get("signalType")=="supreme_court_case_release" and it.get("url")}
     out=[];seen=set()
     date_re=re.compile(r"20\d{2}\s*[-./]\s*\d{1,2}\s*[-./]\s*\d{1,2}")
     anchor_re=re.compile(r'<a\b[^>]+href=["\']([^"\']+)["\'][^>]*>(.*?)</a>',re.I|re.S)
@@ -993,6 +997,12 @@ def fetch_direct_court(max_items=12):
             if href in seen or ignore_title_re.search(title): continue
             diag["recentRows"]+=1
             seen.add(href)
+            hit=cache.get(href)
+            if hit and hit.get("title")==title and str(hit.get("published",""))[:10]==dt.date().isoformat():
+                diag["detailReused"]=diag.get("detailReused",0)+1
+                out.append(dict(hit))
+                if len(out)>=max_items: break
+                continue
             detail=""
             title_companies=target_hits(title)
             if not title_companies and diag["detailPagesAttempted"]<8:
@@ -1648,16 +1658,16 @@ def main():
         items.extend(hits)
         by_group[group] = by_group.get(group, 0) + len(hits)
 
-    direct_court = fetch_direct_court()
-    items.extend(direct_court)
-    by_group["법원·분쟁"] = by_group.get("법원·분쟁", 0) + len(direct_court)
-
     try:
         earlier = json.loads(OUT.read_text(encoding="utf-8"))
         earlier_items = earlier.get("items", []) if isinstance(earlier, dict) else []
         earlier_dates = ((earlier.get("detailDates") or {}).get("ntis") or {}) if isinstance(earlier, dict) else {}
     except Exception:
         earlier_items, earlier_dates = [], {}
+
+    direct_court = fetch_direct_court(prior_items=earlier_items)
+    items.extend(direct_court)
+    by_group["법원·분쟁"] = by_group.get("법원·분쟁", 0) + len(direct_court)
 
     direct_iris = fetch_direct_iris_announcements(prior_items=earlier_items)
     items.extend(direct_iris)
