@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-10-28T11:36:31+09:00",
-  "sourceGeneratedAt": "2026-10-28T10:44:56+09:00",
+  "generatedAt": "2026-10-28T13:03:43+09:00",
+  "sourceGeneratedAt": "2026-10-28T11:06:27+09:00",
   "sourcePeriod": 2026,
-  "officialChanges": 47,
+  "officialChanges": 52,
   "items": [
     {
       "company": "엘에스일렉트릭",
@@ -11,6 +11,7 @@
         "부산",
         "초고압변압기, 배전변압기, HVDC Valve, FACTS"
       ],
+      "reportingEntity": "LSELECTRIC",
       "priorValue": "228651",
       "currentValue": "484052",
       "diff": "255401",
@@ -55,6 +56,7 @@
         "베트남",
         "배전반"
       ],
+      "reportingEntity": "LSELECTRICVietnam",
       "priorValue": "44881",
       "currentValue": "76935",
       "diff": "32054",
@@ -95,12 +97,13 @@
     },
     {
       "company": "엘에스일렉트릭",
-      "topic": "productionActual",
+      "topic": "productionCapacity",
       "rowIdentity": [
         "전력",
         "청주",
         "EV-Relay"
       ],
+      "reportingEntity": "LS이모빌리티솔루션",
       "priorValue": "17159",
       "currentValue": "25579",
       "diff": "8420",
@@ -140,12 +143,107 @@
       "priority": "business_document_diff_reporter_review"
     },
     {
+      "company": "엘에스일렉트릭",
+      "topic": "productionActual",
+      "rowIdentity": [
+        "전력",
+        "청주",
+        "EV-Relay"
+      ],
+      "reportingEntity": "LS이모빌리티솔루션",
+      "priorValue": "14200",
+      "currentValue": "20217",
+      "diff": "6017",
+      "percentChange": 42.37,
+      "unit": "백만원",
+      "period": "06",
+      "fromYear": 2025,
+      "toYear": 2026,
+      "originalReceipts": [
+        "20250814001952",
+        "20260814003088"
+      ],
+      "sourceUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250814001952",
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003088"
+      ],
+      "sourceRows": [
+        [
+          "전력",
+          "청주",
+          "EV-Relay",
+          "14,200",
+          "38,873",
+          "41,225"
+        ],
+        [
+          "전력",
+          "청주",
+          "EV-Relay",
+          "20,217",
+          "32,755",
+          "38,873"
+        ]
+      ],
+      "evidenceStatus": "동일 기업·분기/반기·표시단위·행명 일치 검증",
+      "reportingStatus": "공시상 숫자 변동만 확인; 생산 물량·실제 사업영향·기보도/단독 미확인",
+      "priority": "business_document_diff_reporter_review"
+    },
+    {
+      "company": "엘에스일렉트릭",
+      "topic": "productionActual",
+      "rowIdentity": [
+        "전력",
+        "베트남",
+        "배전반"
+      ],
+      "reportingEntity": "LSELECTRICVietnam",
+      "priorValue": "48472",
+      "currentValue": "68703",
+      "diff": "20231",
+      "percentChange": 41.74,
+      "unit": "백만원",
+      "period": "06",
+      "fromYear": 2025,
+      "toYear": 2026,
+      "originalReceipts": [
+        "20250814001952",
+        "20260814003088"
+      ],
+      "sourceUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250814001952",
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003088"
+      ],
+      "sourceRows": [
+        [
+          "전력",
+          "베트남",
+          "배전반",
+          "48,472",
+          "79,465",
+          "68,887"
+        ],
+        [
+          "전력",
+          "베트남",
+          "배전반",
+          "68,703",
+          "109,945",
+          "79,465"
+        ]
+      ],
+      "evidenceStatus": "동일 기업·분기/반기·표시단위·행명 일치 검증",
+      "reportingStatus": "공시상 숫자 변동만 확인; 생산 물량·실제 사업영향·기보도/단독 미확인",
+      "priority": "business_document_diff_reporter_review"
+    },
+    {
       "company": "일진전기",
       "topic": "productionActual",
       "rowIdentity": [
         "변압기",
         "홍성"
       ],
+      "reportingEntity": "",
       "priorValue": "178900",
       "currentValue": "251813",
       "diff": "72913",
@@ -191,6 +289,7 @@
         "변압기, 차단기전동기 등",
         "창원,Nantong(중국), Pune(인도),Memphis(미국) 등"
       ],
+      "reportingEntity": "",
       "priorValue": "1516460",
       "currentValue": "1979213",
       "diff": "462753",
@@ -238,6 +337,7 @@
         "청주2",
         "배전반, 초고압GIS, 변압기, 철도/SE등"
       ],
+      "reportingEntity": "LSELECTRIC",
       "priorValue": "804233",
       "currentValue": "1029202",
       "diff": "224969",
@@ -275,12 +375,57 @@
       "priority": "business_document_diff_reporter_review"
     },
     {
+      "company": "엘에스일렉트릭",
+      "topic": "productionActual",
+      "rowIdentity": [
+        "청주2",
+        "배전반, 초고압GIS, 변압기 철도/SE 등"
+      ],
+      "reportingEntity": "LSELECTRIC",
+      "priorValue": "719346",
+      "currentValue": "918975",
+      "diff": "199629",
+      "percentChange": 27.75,
+      "unit": "백만원",
+      "period": "06",
+      "fromYear": 2025,
+      "toYear": 2026,
+      "originalReceipts": [
+        "20250814001952",
+        "20260814003088"
+      ],
+      "sourceUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250814001952",
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003088"
+      ],
+      "sourceRows": [
+        [
+          "청주2",
+          "배전반, 초고압GIS, 변압기 철도/SE 등",
+          "719,346",
+          "1,239,454",
+          "1,180,502"
+        ],
+        [
+          "청주2",
+          "배전반, 초고압GIS, 변압기 철도/SE 등",
+          "918,975",
+          "1,566,607",
+          "1,239,454"
+        ]
+      ],
+      "evidenceStatus": "동일 기업·분기/반기·표시단위·행명 일치 검증",
+      "reportingStatus": "공시상 숫자 변동만 확인; 생산 물량·실제 사업영향·기보도/단독 미확인",
+      "priority": "business_document_diff_reporter_review"
+    },
+    {
       "company": "효성중공업",
       "topic": "segmentSales",
       "rowIdentity": [
         "건설",
         "주상복합, 아파트, 오피스텔 등"
       ],
+      "reportingEntity": "",
       "priorValue": "793315",
       "currentValue": "1011988",
       "diff": "218673",
@@ -324,6 +469,7 @@
         "변압기",
         "홍성"
       ],
+      "reportingEntity": "",
       "priorValue": "201012",
       "currentValue": "250000",
       "diff": "48988",
@@ -369,6 +515,7 @@
         "변압기, 차단기전동기 등",
         "창원,Nantong(중국), Pune(인도),Memphis(미국) 등"
       ],
+      "reportingEntity": "",
       "priorValue": "1539659",
       "currentValue": "1894093",
       "diff": "354434",
@@ -415,6 +562,7 @@
       "rowIdentity": [
         "생산설비"
       ],
+      "reportingEntity": "",
       "priorValue": "42195",
       "currentValue": "32806",
       "diff": "-9389",
@@ -455,6 +603,7 @@
       "rowIdentity": [
         "생산설비"
       ],
+      "reportingEntity": "",
       "priorValue": "61098",
       "currentValue": "48275",
       "diff": "-12823",
@@ -495,6 +644,7 @@
       "rowIdentity": [
         "황산"
       ],
+      "reportingEntity": "",
       "priorValue": "758995",
       "currentValue": "606139",
       "diff": "-152856",
@@ -537,6 +687,7 @@
         "천안",
         "PLC, INV, 자동화시스템 등"
       ],
+      "reportingEntity": "LSELECTRIC",
       "priorValue": "223557",
       "currentValue": "181414",
       "diff": "-42143",
@@ -582,6 +733,7 @@
         "HMTR",
         "튀르키예"
       ],
+      "reportingEntity": "",
       "priorValue": "117600",
       "currentValue": "95900",
       "diff": "-21700",
@@ -625,6 +777,7 @@
         "공임",
         "차량정비 등"
       ],
+      "reportingEntity": "",
       "priorValue": "11957",
       "currentValue": "14084",
       "diff": "2127",
@@ -668,6 +821,7 @@
         "전력 및 절연선",
         "화성"
       ],
+      "reportingEntity": "",
       "priorValue": "178950",
       "currentValue": "209809",
       "diff": "30859",
@@ -711,6 +865,7 @@
         "통신선",
         "당진"
       ],
+      "reportingEntity": "",
       "priorValue": "84",
       "currentValue": "98",
       "diff": "14",
@@ -754,6 +909,7 @@
         "HMI",
         "인도"
       ],
+      "reportingEntity": "",
       "priorValue": "398700",
       "currentValue": "464400",
       "diff": "65700",
@@ -797,6 +953,7 @@
         "전력 및 절연선",
         "화성"
       ],
+      "reportingEntity": "",
       "priorValue": "178848",
       "currentValue": "207731",
       "diff": "28883",
@@ -839,6 +996,7 @@
       "rowIdentity": [
         "전력기기"
       ],
+      "reportingEntity": "",
       "priorValue": "1279698",
       "currentValue": "1476122",
       "diff": "196424",
@@ -879,6 +1037,7 @@
       "rowIdentity": [
         "슬로박공장"
       ],
+      "reportingEntity": "",
       "priorValue": "175950",
       "currentValue": "149437",
       "diff": "-26513",
@@ -920,6 +1079,7 @@
         "통신선",
         "당진"
       ],
+      "reportingEntity": "",
       "priorValue": "93",
       "currentValue": "106",
       "diff": "13",
@@ -963,6 +1123,7 @@
         "후판",
         "당진"
       ],
+      "reportingEntity": "",
       "priorValue": "438403",
       "currentValue": "498272",
       "diff": "59869",
@@ -1006,6 +1167,7 @@
         "기 타",
         "당진"
       ],
+      "reportingEntity": "",
       "priorValue": "258",
       "currentValue": "293",
       "diff": "35",
@@ -1048,6 +1210,7 @@
       "rowIdentity": [
         "제 품"
       ],
+      "reportingEntity": "",
       "priorValue": "1912484",
       "currentValue": "2170118",
       "diff": "257634",
@@ -1090,6 +1253,7 @@
         "변압기 外",
         "울 산 外"
       ],
+      "reportingEntity": "",
       "priorValue": "1920887",
       "currentValue": "2178313",
       "diff": "257426",
@@ -1135,6 +1299,7 @@
         "인도",
         "제품, 상품, 기타매출"
       ],
+      "reportingEntity": "",
       "priorValue": "504864",
       "currentValue": "572034",
       "diff": "67170",
@@ -1178,6 +1343,7 @@
         "중공업",
         "변압기, 차단기, 전동기, 감속기 등"
       ],
+      "reportingEntity": "",
       "priorValue": "1792247",
       "currentValue": "2017762",
       "diff": "225515",
@@ -1220,6 +1386,7 @@
       "rowIdentity": [
         "회전기기"
       ],
+      "reportingEntity": "",
       "priorValue": "312748",
       "currentValue": "351638",
       "diff": "38890",
@@ -1255,11 +1422,59 @@
       "priority": "business_document_diff_reporter_review"
     },
     {
+      "company": "엘에스일렉트릭",
+      "topic": "productionActual",
+      "rowIdentity": [
+        "전력",
+        "무석",
+        "저압기기 등"
+      ],
+      "reportingEntity": "락성전기(무석)유한공사",
+      "priorValue": "21533",
+      "currentValue": "24026",
+      "diff": "2493",
+      "percentChange": 11.58,
+      "unit": "백만원",
+      "period": "06",
+      "fromYear": 2025,
+      "toYear": 2026,
+      "originalReceipts": [
+        "20250814001952",
+        "20260814003088"
+      ],
+      "sourceUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250814001952",
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003088"
+      ],
+      "sourceRows": [
+        [
+          "전력",
+          "무석",
+          "저압기기 등",
+          "21,533",
+          "45,060",
+          "45,827"
+        ],
+        [
+          "전력",
+          "무석",
+          "저압기기 등",
+          "24,026",
+          "43,170",
+          "45,060"
+        ]
+      ],
+      "evidenceStatus": "동일 기업·분기/반기·표시단위·행명 일치 검증",
+      "reportingStatus": "공시상 숫자 변동만 확인; 생산 물량·실제 사업영향·기보도/단독 미확인",
+      "priority": "business_document_diff_reporter_review"
+    },
+    {
       "company": "금호타이어",
       "topic": "segmentSales",
       "rowIdentity": [
         "유럽"
       ],
+      "reportingEntity": "",
       "priorValue": "680197",
       "currentValue": "758239",
       "diff": "78042",
@@ -1302,6 +1517,7 @@
         "제품",
         "타이어"
       ],
+      "reportingEntity": "",
       "priorValue": "4703367",
       "currentValue": "5210227",
       "diff": "506860",
@@ -1348,6 +1564,7 @@
         "탈산제",
         "알루미늄공장"
       ],
+      "reportingEntity": "",
       "priorValue": "21358",
       "currentValue": "19352",
       "diff": "-2006",
@@ -1392,6 +1609,7 @@
       "rowIdentity": [
         "유럽"
       ],
+      "reportingEntity": "",
       "priorValue": "2904713",
       "currentValue": "3173921",
       "diff": "269208",
@@ -1433,6 +1651,7 @@
         "기타",
         "제품, 상품, 기타매출"
       ],
+      "reportingEntity": "",
       "priorValue": "983610",
       "currentValue": "1073980",
       "diff": "90370",
@@ -1476,6 +1695,7 @@
         "중국",
         "제품, 상품, 기타매출"
       ],
+      "reportingEntity": "",
       "priorValue": "1040262",
       "currentValue": "1134119",
       "diff": "93857",
@@ -1514,11 +1734,12 @@
     },
     {
       "company": "엘에스일렉트릭",
-      "topic": "productionActual",
+      "topic": "productionCapacity",
       "rowIdentity": [
         "장항/부산",
         "STS관"
       ],
+      "reportingEntity": "LS메탈",
       "priorValue": "42397",
       "currentValue": "46158",
       "diff": "3761",
@@ -1561,6 +1782,7 @@
       "rowIdentity": [
         "멕시코공장"
       ],
+      "reportingEntity": "",
       "priorValue": "143080",
       "currentValue": "155100",
       "diff": "12020",
@@ -1601,6 +1823,7 @@
       "rowIdentity": [
         "아시아"
       ],
+      "reportingEntity": "",
       "priorValue": "416280",
       "currentValue": "381352",
       "diff": "-34928",
@@ -1642,6 +1865,7 @@
         "HMB",
         "브라질"
       ],
+      "reportingEntity": "",
       "priorValue": "98700",
       "currentValue": "106800",
       "diff": "8100",
@@ -1685,6 +1909,7 @@
         "기 타",
         "당진"
       ],
+      "reportingEntity": "",
       "priorValue": "323",
       "currentValue": "349",
       "diff": "26",
@@ -1722,11 +1947,56 @@
       "priority": "business_document_diff_reporter_review"
     },
     {
+      "company": "엘에스일렉트릭",
+      "topic": "productionActual",
+      "rowIdentity": [
+        "장항/부산",
+        "STS관"
+      ],
+      "reportingEntity": "LS메탈",
+      "priorValue": "29729",
+      "currentValue": "32000",
+      "diff": "2271",
+      "percentChange": 7.64,
+      "unit": "백만원",
+      "period": "06",
+      "fromYear": 2025,
+      "toYear": 2026,
+      "originalReceipts": [
+        "20250814001952",
+        "20260814003088"
+      ],
+      "sourceUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250814001952",
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003088"
+      ],
+      "sourceRows": [
+        [
+          "장항/부산",
+          "STS관",
+          "29,729",
+          "71,300",
+          "88,600"
+        ],
+        [
+          "장항/부산",
+          "STS관",
+          "32,000",
+          "61,721",
+          "71,300"
+        ]
+      ],
+      "evidenceStatus": "동일 기업·분기/반기·표시단위·행명 일치 검증",
+      "reportingStatus": "공시상 숫자 변동만 확인; 생산 물량·실제 사업영향·기보도/단독 미확인",
+      "priority": "business_document_diff_reporter_review"
+    },
+    {
       "company": "기아",
       "topic": "productionActual",
       "rowIdentity": [
         "인도공장"
       ],
+      "reportingEntity": "",
       "priorValue": "158831",
       "currentValue": "170116",
       "diff": "11285",
@@ -1767,6 +2037,7 @@
       "rowIdentity": [
         "중남미"
       ],
+      "reportingEntity": "",
       "priorValue": "103760",
       "currentValue": "111090",
       "diff": "7330",
@@ -1807,6 +2078,7 @@
       "rowIdentity": [
         "배전기기 外"
       ],
+      "reportingEntity": "",
       "priorValue": "328441",
       "currentValue": "350553",
       "diff": "22112",
@@ -1848,6 +2120,7 @@
         "미국",
         "제품, 상품, 기타매출"
       ],
+      "reportingEntity": "",
       "priorValue": "860567",
       "currentValue": "808233",
       "diff": "-52334",
@@ -1890,6 +2163,7 @@
       "rowIdentity": [
         "금"
       ],
+      "reportingEntity": "",
       "priorValue": "5.54",
       "currentValue": "5.22",
       "diff": "-0.32",
@@ -1930,6 +2204,7 @@
       "rowIdentity": [
         "동"
       ],
+      "reportingEntity": "",
       "priorValue": "16150",
       "currentValue": "17066",
       "diff": "916",
@@ -1970,6 +2245,7 @@
       "rowIdentity": [
         "은"
       ],
+      "reportingEntity": "",
       "priorValue": "1040.70",
       "currentValue": "1095.92",
       "diff": "55.22",
@@ -2015,8 +2291,8 @@
     {
       "company": "엘에스일렉트릭",
       "status": "same_period_rows_checked",
-      "rowsCompared": 7,
-      "changes": 6
+      "rowsCompared": 13,
+      "changes": 11
     },
     {
       "company": "효성중공업",

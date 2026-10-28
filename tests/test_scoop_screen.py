@@ -239,8 +239,8 @@ class Screen(unittest.TestCase):
         with patch.dict(os.environ, {"NAVER_CLIENT_ID": "i", "NAVER_CLIENT_SECRET": "k"}):
             out, n = s.recheck_lawsuits([row], now=NOW, get=get, sleep=lambda x: None)
         self.assertEqual(n, 1)
-        self.assertEqual(out[0]["verdict"], "관련 보도 있음")
-        self.assertEqual(out[0]["queries"], ["고려아연 주주대표소송", "고려아연 주주대표소송 기각"])
+        self.assertEqual(out[0]["verdict"], "미확인")
+        self.assertEqual(out[0]["queries"], ["고려아연 2025가합10683", "고려아연 주주대표소송"])
         self.assertEqual((out[0]["firstVerdict"], out[0]["firstQueries"]), ("미보도 후보", ["고려아연 소송등의판결"]))
         self.assertEqual(out[0]["filing"]["type"], "소송판결")
 

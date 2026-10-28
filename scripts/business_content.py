@@ -27,6 +27,7 @@ from dart_corrections import Tables
 from dart_numeric_extractor import decode_web_bytes, html_to_text
 
 KST=timezone(timedelta(hours=9))
+EXTRACTION_VERSION="heading-scope-v2"
 # Direct beat companies with verified legal corp codes in dart_corp_codes.json.
 # Missing company codes and source failures remain explicit non-results.
 CORPS=("HD현대일렉트릭","엘에스일렉트릭","효성중공업",
@@ -216,24 +217,52 @@ def table_rows(table):
 def evidence_tables(section,receipt):
     evidence=[]
     counts=defaultdict(int)
+    position=0
+    heading=""
+    topic=None
+    owner=""
     for match in TABLE_RE.finditer(section):
+        # Read structural headings outside tables. Footnotes belong to the
+        # preceding table and cannot rename the next subsidiary's metric.
+        gap=section[position:match.start()]
+        position=match.end()
+        lines=re.split(r"</?(?:p|title|br)\b[^>]*>",gap,flags=re.I)
+        for line in lines:
+            text=plain(line)
+            owners=re.findall(r"\[([^\[\]]{2,70})\]",text)
+            if owners:
+                owner=re.sub(r"\s+","",owners[-1])
+            title=re.sub(r"^(?:[가-힣A-Za-z0-9]+[.)]|\([가-힣A-Za-z0-9]+\))\s*","",text).strip()
+            title=re.sub(r"\s*\[.*?\]\s*$","",title)
+            title=re.sub(r"\s*\(?단위\s*[:：].*$","",title).strip()
+            if not title or len(title)>65 or re.match(r"(?:주\d*\)|※|작성기준|산출근거)",text):
+                continue
+            compact=re.sub(r"\s+","",title)
+            topics=[t for t,words in TOPICS.items() if any(w in compact for w in words)]
+            if topics and (re.match(r"^(?:생산능력|생산실적|당.*가동률|평균가동률|가동률|매출|수주|진행|향후|설비)",compact)):
+                topic=topics[0] if len(topics)==1 else None
+                heading=title
+            elif re.match(r"^(?:[가-힣A-Za-z0-9]+[.)]|\([가-힣A-Za-z0-9]+\))\s",text):
+                topic=None
+                heading=""
         chunk=match.group(0)
         if len(chunk)>160_000 or re.search(r"<table\b",chunk[6:],re.I):
             continue
         context=plain(section[max(0,match.start()-500):match.start()])
-        topic=classify_table(chunk,context[-300:])
-        if not topic or counts[topic]>=4:
+        if not topic or counts[(topic,owner)]>=4:
             continue
         rows=table_rows(chunk)
         if not rows:
             continue
         # Only accept a unit if it is explicitly present and unambiguous.
         unit=explicit_table_unit(context,chunk)
-        count_key=topic
+        count_key=(topic,owner)
         counts[count_key]+=1
         evidence.append({"topic":topic,"topicName":LABELS[topic],
                          "receiptNo":receipt,"unit":unit,
-                         "context":context[-210:],
+                         "context":heading+" "+("["+owner+"] " if owner else "")+("(단위: "+unit+")" if unit else ""),
+                         "reportingEntity":owner,"classificationHeading":heading,
+                         "extractionVersion":EXTRACTION_VERSION,
                          "rows":rows,
                          "comparisonStatus":"표 발췌 · 표 항목/기간/단위 재확인 필요"})
     return evidence

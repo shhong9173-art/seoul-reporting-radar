@@ -19,7 +19,7 @@ from urllib.parse import urlencode
 
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/"scripts"))
-from business_content import (api_json,fetch_report,evidence_tables,CORPS)
+from business_content import (api_json,fetch_report,evidence_tables,CORPS,EXTRACTION_VERSION)
 from business_coverage import check_one
 
 KST=timezone(timedelta(hours=9))
@@ -186,7 +186,7 @@ def signals_from_company(company,old,current,period):
 
 def scan_company(company,corp_code,key,year,list_fetch=reports_for_year,
                  doc_fetch=fetch_report,cache_record=None):
-    item={"company":company,"corpCode":corp_code,"status":"not_checked",
+    item={"company":company,"corpCode":corp_code,"status":"not_checked","extractionVersion":EXTRACTION_VERSION,
           "current":None,"priorSamePeriod":None,"signals":[],"topicCounts":{}}
     try:
         current_reports=list_fetch(key,corp_code,year)
@@ -204,6 +204,7 @@ def scan_company(company,corp_code,key,year,list_fetch=reports_for_year,
         # Revisit the API list every weekday so new reports/corrections are
         # noticed immediately, while avoiding redundant large ZIP downloads.
         if (isinstance(cache_record,dict)
+            and cache_record.get("extractionVersion")==EXTRACTION_VERSION
             and cache_record.get("corpCode")==corp_code
             and cache_record.get("status")=="official_sections_retrieved"
             and (cache_record.get("current") or {}).get("receiptNo")==latest["receiptNo"]
