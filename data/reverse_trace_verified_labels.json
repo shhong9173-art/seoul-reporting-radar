@@ -1,7 +1,26 @@
 {
   "status": "reviewer_approved_reverse_trace_labels",
-  "lastReviewedAt": null,
-  "reviewedArticleCount": 0,
+  "lastReviewedAt": "2026-10-29T00:50:00+09:00",
+  "reviewedArticleCount": 1,
   "warning": "Y/P/N must be assigned only after journalist manually reads story fulltext and verifies dated primary material. Never infer from headlines, RSS search emptiness, or AI guesses. N is investigated no-identified-prior-trace, not universal proof of absence.",
-  "items": []
+  "items": [
+    {
+      "articleId": "fbf71fa100d931346d555300",
+      "verdict": "Y",
+      "reviewedByHuman": true,
+      "articleFulltextReviewed": true,
+      "reviewer": "홍성효",
+      "reviewedAt": "2026-10-29T00:50:00+09:00",
+      "evidenceReason": "뉴스저널리즘 10-28 10:50(입력) 「[단독] 포스코, 미국 상계관세 소송서 패소」는 미국 국제무역법원(CIT) POSCO v. United States(Court No. 24-00006, Slip Op. 26-131, 2026-10-27, Restani 판사) 판결을 다룬다. 판결 요지(한국산 후판 상계관세 심사에서 상무부의 두 번째 재검토 결정 유지)와 기사 핵심(배출권 추가 무상할당을 보조금으로 본 판단 유지)이 같다. 판결문은 CIT 누리집 슬립 오피니언 목록에 10/27/2026로 올라 있고, PDF 서버 Last-Modified는 2026-10-27 14:57:43 GMT(=10-27 23:57 KST, 기사 약 11시간 전). 레이더 자동 역추적이 묶은 미국 관보 열연강판 최종결과(2026-20778)는 제품·심사연도·절차가 달라 원천이 아니다. 레이더는 이 판결을 기사 뒤 10-28 14:55에 처음 봤다.",
+      "publisherOriginalUrl": "https://www.ngetnews.com/news/articleView.html?idxno=555206",
+      "publisherFirstPublishedAt": "2026-10-28T10:50:00+09:00",
+      "publisherPublicationTimeVerifiedByHuman": true,
+      "primarySourceType": "court_ruling",
+      "primarySourceUrl": "https://www.cit.uscourts.gov/sites/cit/files/26-131.pdf",
+      "primaryPublishedAt": "2026-10-27T14:57:43+00:00",
+      "primaryPublicationTimeVerifiedByHuman": true,
+      "publicTraceOverlap": "exact",
+      "primaryTextComparedAgainstArticle": true
+    }
+  ]
 }
