@@ -381,11 +381,16 @@ def _ntis_detail_url(href):
     return "https://www.ntis.go.kr/rndgate/eg/un/ra/view.do?" + urllib.parse.urlencode({"roRndUid": ids[0]})
 
 
+NTIS_RETRY_TIMEOUT = 25
+
+
 def _ntis_fetch(url, diag, stage, timeout=12):
+    # NTIS 본문은 실행마다 8건 중 1~3건이 12초 안에 안 온다(10-23~10-28 운영, 매번 다른 쪽 → 사이트 지연).
+    # 다시 받을 때는 기다리는 시간을 늘린다. 시도 횟수(2회)와 연속 실패 차단(DETAIL_BREAKER)은 그대로.
     for attempt in range(2):
         diag["httpAttempts"] += 1
         try:
-            return decode_web_bytes(get(url, timeout=timeout))
+            return decode_web_bytes(get(url, timeout=timeout if attempt == 0 else max(timeout, NTIS_RETRY_TIMEOUT)))
         except (OSError, urllib.error.URLError) as exc:
             retry = attempt == 0 and (not isinstance(exc, urllib.error.HTTPError)
                                      or exc.code == 429 or exc.code >= 500)
