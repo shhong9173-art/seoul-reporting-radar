@@ -99,7 +99,19 @@ class Capture(unittest.TestCase):
         self.assertEqual(sent["doc"]["feedsEmpty"], ["trademarks"])
         self.assertEqual(sent["doc"]["feedsFailed"], ["kr-signals:StoreError"])
         self.assertIn("저장 결과 없음 ['trademarks']", buf.getvalue())
-        self.assertIn("감시 읽음 9/11", buf.getvalue())
+        self.assertIn("감시 읽음 11/13", buf.getvalue())
+
+
+    def test_new_car_filing_before_the_article(self):
+        trace = {"generatedAt": "2026-10-28T15:00:00+09:00", "items": [
+            {"articleId": "n1", "title": "[단독] 현대차, 아반떼 N 2027년형 투입…연비 인증 마쳐", "published": "2026-10-23T08:00:00+09:00",
+             "sourceName": "X", "companies": ["현대차"]}]}
+        docs = {"kr-fuel": {"vehicles": [{"id": "kf:1", "company": "현대차", "maker": "현대자동차(주)", "model": "아반떼 N 2.0 터보", "year": "2027",
+                                           "fuel": "휘발유", "kind": "새 모델명", "firstSeen": "2026-10-21T06:10:00+09:00"}]}}
+        doc = r.run(trace, docs, {"items": []}, now=NOW)
+        a = doc["articles"][0]
+        self.assertEqual(a["verdict"], "먼저 잡은 후보")
+        self.assertEqual(a["best"]["label"], "국내 연비 신고")
 
 
 if __name__ == "__main__":

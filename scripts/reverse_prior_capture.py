@@ -24,10 +24,11 @@ SCHEMA = "reverse_check/v1"
 WINDOW_DAYS = 30
 LOOKBACK_DAYS = 60   # how far before an article a radar item can count
 FEEDS = ["us-litigation", "partner-filings", "trade-remedy", "kr-official", "kr-signals", "us-comments", "page-watch",
-         "trademarks", "assembly-bills", "us-recalls", "scoop-screen"]
+         "trademarks", "assembly-bills", "us-recalls", "scoop-screen", "us-epa", "kr-fuel"]
 LABEL = {"us-litigation": "미국 소송·판결", "partner-filings": "해외 파트너 공시", "trade-remedy": "무역구제·미국 관보",
          "kr-official": "공장등록·관보", "kr-signals": "공정위·한전·산업부", "us-comments": "미 연방 의견서", "page-watch": "해외 공식 페이지",
          "trademarks": "상표 출원", "assembly-bills": "국회 법안", "us-recalls": "미국 리콜", "scoop-screen": "단독 후보 심사",
+         "us-epa": "미국 EPA 인증", "kr-fuel": "국내 연비 신고",
          "clues": "공개 원자료 단서(DART 등)"}
 # Group-level names: an article about 포스코 and a radar item about 포스코홀딩스 concern the same group.
 GROUP = {"현대자동차": "현대차", "제네시스": "현대차", "현대차(제네시스)": "현대차", "포스코홀딩스": "포스코", "엘에스일렉트릭": "LS일렉트릭",
@@ -46,6 +47,7 @@ CONCEPTS = [
     ("보육·복지", r"어린이집|보육|직장", r"nursery|child ?care|daycare|어린이집"),
     ("가격", r"가격|값|인상|인하", r"MSRP|price|\$\s?\d|가격"),
     ("배터리", r"배터리|셀|전지", r"battery|cell|배터리"),
+    ("신차·인증", r"신차|출시|투입|연식|연비|인증|주행거리|부분변경|신형|트림", r"EPA|연비|새 모델|model year|range|주행거리|1회 충전|연식"),
 ]
 STOP = {"단독", "기자", "업계", "관계자", "국내", "최대", "최초", "올해", "내년", "전략", "본격", "사업", "추진", "확대", "주목", "위해",
         "이유", "속도", "결국", "다시", "직접", "모두", "현대", "그룹"}
@@ -158,6 +160,18 @@ def _recalls(d, add):
                 f"recall 리콜 {x.get('models')} {x.get('component')} {x.get('defect') or ''} {x.get('supplierBox') or ''}", x.get("firstSeen") or x.get("received"), x.get("url")))
 
 
+def _epa(d, add):
+    for v in d.get("vehicles") or []:
+        add(mem("us-epa", v.get("id"), [v.get("company")], f"EPA 연비 인증 {v.get('kind')} {v.get('year')} {v.get('make')} {v.get('model')} {v.get('baseModel') or ''}"
+                f"{' 주행거리 range ' + str(v.get('range')) if v.get('range') else ''}", v.get("firstSeen"), v.get("url")))
+
+
+def _fuel(d, add):
+    for v in d.get("vehicles") or []:
+        add(mem("kr-fuel", v.get("id"), [v.get("company")], f"연비 신고 표시연비 {v.get('kind')} {v.get('maker')} {v.get('model')} {v.get('year')}년 {v.get('fuel') or ''}"
+                f"{' 1회 충전 주행거리 ' + str(v.get('range')) if v.get('range') else ''}", v.get("firstSeen"), v.get("url")))
+
+
 def _screen(d, add):
     for x in d.get("candidates") or []:
         add(mem("scoop-screen", x.get("id"), split_names(x.get("company")), x.get("title"), x.get("published") or x.get("filedOn"), x.get("url")))
@@ -170,7 +184,7 @@ def _clues(d, add):
 
 ADAPTERS = [("us-litigation", _litigation), ("partner-filings", _partners), ("trade-remedy", _trade), ("kr-official", _official),
             ("kr-signals", _signals), ("us-comments", _comments), ("page-watch", _pages), ("trademarks", _marks),
-            ("us-recalls", _recalls), ("scoop-screen", _screen), ("clues", _clues)]
+            ("us-recalls", _recalls), ("scoop-screen", _screen), ("us-epa", _epa), ("kr-fuel", _fuel), ("clues", _clues)]
 
 
 def nouns(title):
