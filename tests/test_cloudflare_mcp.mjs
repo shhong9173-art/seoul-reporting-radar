@@ -591,6 +591,31 @@ test('partner_filings reads ASX and EDGAR items from the private feed', async ()
   assert.match(all.text, /Quarterly report/);
 });
 
+test('partner filings: HKEX partner deal titles reach A with Hong Kong time; routine HKEX notices fold', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const doc = { schema: 'partner_filings/v1', generatedAt: '2026-10-26T07:00:00+09:00', windowDays: 30, checks: [{ source: 'HKEX', target: 'BAIC Motor(01958)', status: 'ok', returned: 3 }],
+    items: [
+      { id: 'hkex:01958:11906001', source: 'HKEX', filer: 'BAIC Motor (01958)', beat: ['현대차'], relation: '베이징현대 합작 상대', relationEvidence: 'https://example/baic',
+        date: '2026-10-25', time: '18:33', title: 'MAJOR TRANSACTION - EXIT OF BAIC INVESTMENT FROM ITS INVESTMENT IN BHAF', url: 'https://www1.hkexnews.hk/x.pdf',
+        flags: ['exit', 'major transaction'], firstSeen: '2026-10-25T19:00:00+09:00', isNew: true },
+      { id: 'hkex:01958:1', source: 'HKEX', filer: 'BAIC Motor (01958)', beat: ['현대차'], date: '2026-10-25', time: '16:44', title: 'NOTICE OF BOARD MEETING',
+        flags: [], routine: '정기·형식 공시(월간 증권 변동·이사회 일정·정기보고서 등)', firstSeen: '2026-10-25T19:00:00+09:00', isNew: true }] };
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/partner-filings', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
+  const r = await call('partner_filings', { source: 'HKEX' }, opts);
+  assert.match(r.text, /\[신규\] 2026-10-25 18:33\(홍콩시각\) · HKEX · BAIC Motor \(01958\) · 관련 출입처 현대차/);
+  assert.doesNotMatch(r.text, /NOTICE OF BOARD MEETING/);
+  assert.match(r.text, /HKEX 월간 증권 변동·이사회 일정/);
+  const today = await call('radar_today', { hours: 72 }, opts);
+  const a = today.text.split('[A · ')[1].split('[B · ')[0];
+  assert.match(a, /HKEX BAIC Motor \(01958\) 18:33 홍콩시각: MAJOR TRANSACTION - EXIT OF BAIC INVESTMENT FROM ITS INVESTMENT IN BHAF \(낱말 exit,major transaction\)/);
+  assert.doesNotMatch(a, /NOTICE OF BOARD MEETING/);
+  const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
+  const hk = items.items.find((x) => x.id === 'hkex:01958:11906001');
+  assert.deepEqual(hk.check.terms, ['BAIC', '합작']);
+  assert.deepEqual(hk.check.alts.BAIC, ['BAIC', '베이징자동차', '베이징기차', '北汽']);
+});
+
 test('trade_remedies shows quota exhaustion, named US notices and listing changes from the private feed', async () => {
   const env = PRIVATE().env;
   const recent = new Date(Date.now() - 3600000).toISOString();
@@ -1072,7 +1097,7 @@ test('partner filings: EDGAR holdings tables and repeated text fold to C, financ
   const t = await call('partner_filings', {}, opts);
   assert.doesNotMatch(t.text, /HARTFORD/);
   assert.match(t.text, /분류: 재무제표 주석/);
-  assert.match(t.text, /일상 공시 1건 숨김 — ASX 주총·임원 지분, EDGAR 투자 보유 표·반복 문구/);
+  assert.match(t.text, /일상 공시 1건 숨김 — ASX 주총·임원 지분, HKEX 월간 증권 변동·이사회 일정·정기보고서, EDGAR 투자 보유 표·반복 문구/);
   assert.match((await call('partner_filings', { include_routine: true }, opts)).text, /HARTFORD[\s\S]*분류: 투자 보유 목록/);
 });
 
