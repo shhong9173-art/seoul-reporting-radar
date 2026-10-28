@@ -59,6 +59,13 @@ class Capture(unittest.TestCase):
         self.assertEqual(doc["bySource"]["해외 파트너 공시"]["leadHours"] if "leadHours" in doc["bySource"]["해외 파트너 공시"] else
                          doc["bySource"]["해외 파트너 공시"]["leadHoursMedian"], 11.3)
 
+    def test_one_feed_with_an_unexpected_shape_does_not_stop_the_others(self):
+        bad = {**DOCS, "kr-signals": {"decisions": [{"id": "d1", "mentions": ["포스코"], "name": "x", "fileDate": "2026-10-01"}]},
+               "page-watch": {"events": [{"pageId": "p", "company": ["not", "a", "string"], "added": ["Coming 2027"], "detectedAt": "2026-10-20T06:30:00+09:00"}]}}
+        doc = r.run(TRACE, bad, CLUES, now=NOW)
+        self.assertEqual(doc["adapterErrors"], {"kr-signals": "AttributeError"})
+        self.assertEqual(doc["counts"]["먼저 잡은 후보"], 3)  # litigation and partner filings still read
+
     def test_group_names_and_missing_times(self):
         self.assertEqual(r.canon("포스코홀딩스"), "포스코")
         self.assertEqual(r.canon("효성중공업(관련)"), "효성중공업")

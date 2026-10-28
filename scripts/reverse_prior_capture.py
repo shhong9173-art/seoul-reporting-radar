@@ -73,7 +73,7 @@ def parse_time(v):
 
 def mem(source, iid, companies, text, seen, url=None):
     when = parse_time(seen)
-    names = sorted({canon(c) for c in companies if c})
+    names = sorted({canon(c) for c in companies if isinstance(c, str) and c.strip()})
     if not when or not names:
         return None
     return {"source": source, "id": str(iid), "companies": names, "text": re.sub(r"\s+", " ", str(text or ""))[:500], "seen": when, "url": url}
@@ -83,51 +83,94 @@ def split_names(v):
     return [x for x in re.split(r"[·,/]", str(v or "")) if x.strip()]
 
 
-def memory(docs, clues):
-    """Radar items with the time the radar first had them. Each adapter reads one stored feed shape."""
+def memory(docs, clues, errors=None):
+    """Radar items with the time the radar first had them. Each feed is read by its own adapter; a shape surprise in one feed
+    is recorded (feed name and exception type only) and does not stop the others."""
     out = []
-    add = lambda m: m and out.append(m)  # noqa: E731
-    d = docs.get("us-litigation") or {}
+    for name, fn in ADAPTERS:
+        try:
+            got = []
+            fn(docs.get(name) or {} if name != "clues" else clues or {}, lambda m: m and got.append(m))
+            out += got
+        except Exception as e:  # noqa: BLE001 — one feed's shape must not stop the measurement
+            if errors is not None:
+                errors[name] = type(e).__name__
+    return out
+
+
+def _litigation(d, add):
     for x in d.get("cases") or []:
         add(mem("us-litigation", x.get("id"), x.get("beat") or [], f"{x.get('caseName')} {x.get('summary') or ''} {x.get('category') or ''}", x.get("firstSeen") or x.get("dateFiled"), x.get("url")))
     for x in d.get("opinions") or []:
         add(mem("us-litigation", x.get("id"), x.get("beat") or [], f"{x.get('caseName')} opinion {x.get('holding') or ''}", x.get("firstSeen") or x.get("dateFiled"), x.get("url")))
     for x in d.get("itc") or []:
         add(mem("us-litigation", x.get("id"), [n.get("company") for n in x.get("named") or []], f"ITC 337 patent {x.get('title')}", x.get("firstSeen") or x.get("date"), x.get("url")))
-    for x in (docs.get("partner-filings") or {}).get("items") or []:
+
+
+def _partners(d, add):
+    for x in d.get("items") or []:
         add(mem("partner-filings", x.get("id"), x.get("beat") or [], f"{x.get('filer')} {x.get('title')} {x.get('snippet') or ''}", x.get("firstSeen") or x.get("date"), x.get("url")))
-    d = docs.get("trade-remedy") or {}
+
+
+def _trade(d, add):
     for x in d.get("federalRegister") or []:
         add(mem("trade-remedy", x.get("id"), [n.get("company") for n in x.get("named") or []],
                 f"{x.get('title')} duty {' '.join(x.get('memoTopics') or [])}", x.get("firstSeen") or x.get("date"), x.get("url")))
-    d = docs.get("kr-official") or {}
+
+
+def _official(d, add):
     for x in d.get("events") or []:
         add(mem("kr-official", x.get("id"), [x.get("company")], f"공장 {x.get('kind')} {x.get('text')}", x.get("detectedAt"), None))
     for x in d.get("factories") or []:
         if x.get("registeredOn"):
             add(mem("kr-official", x.get("id"), [x.get("company")], f"공장 새 등록 {x.get('cmpnyNm')} {x.get('mainProductCn') or ''}", x.get("firstSeen") or x.get("registeredOn"), None))
-    d = docs.get("kr-signals") or {}
+
+
+def _signals(d, add):
     for x in d.get("decisions") or []:
         add(mem("kr-signals", x.get("id"), [m.get("company") for m in x.get("mentions") or []], f"공정위 {x.get('name')} {x.get('action') or ''}", x.get("fileDate") or x.get("decidedOn"), x.get("url")))
     for x in d.get("kepco") or []:
         add(mem("kr-signals", x.get("id"), [x.get("company")], f"한전 입찰 {x.get('name')}", x.get("noticeDate"), None))
     for x in d.get("motir") or []:
         add(mem("kr-signals", x.get("id"), x.get("companies") or [], f"산업부 {x.get('title')}", x.get("date"), x.get("url")))
-    for x in (docs.get("us-comments") or {}).get("items") or []:
+
+
+def _comments(d, add):
+    for x in d.get("items") or []:
         add(mem("us-comments", x.get("id"), [x.get("company")], f"{x.get('agency')} 의견서 {x.get('docketTitle') or ''}", x.get("firstSeen") or x.get("postedDate"), x.get("url")))
-    for x in (docs.get("page-watch") or {}).get("events") or []:
-        added = " ".join(str(v) for vs in (x.get("added") or {}).values() for v in (vs if isinstance(vs, list) else [vs]))
+
+
+def _pages(d, add):
+    for x in d.get("events") or []:
+        a = x.get("added") or {}
+        added = " ".join(str(v) for vs in (a.values() if isinstance(a, dict) else [a]) for v in (vs if isinstance(vs, list) else [vs]))
         add(mem("page-watch", f"{x.get('pageId')}:{x.get('detectedAt')}", [x.get("company")], f"{x.get('label')} {added}", x.get("detectedAt"), x.get("url")))
-    for x in (docs.get("trademarks") or {}).get("filings") or []:
+
+
+def _marks(d, add):
+    for x in d.get("filings") or []:
         add(mem("trademarks", x.get("id"), [x.get("company")], f"상표 {x.get('title')}", x.get("firstSeen") or x.get("applicationDate"), None))
-    for x in (docs.get("us-recalls") or {}).get("recalls") or []:
+
+
+def _recalls(d, add):
+    for x in d.get("recalls") or []:
         add(mem("us-recalls", x.get("id"), [w.get("name") for w in x.get("why") or []] + [w.get("beat") for w in x.get("why") or []],
                 f"recall 리콜 {x.get('models')} {x.get('component')} {x.get('defect') or ''} {x.get('supplierBox') or ''}", x.get("firstSeen") or x.get("received"), x.get("url")))
-    for x in (docs.get("scoop-screen") or {}).get("candidates") or []:
+
+
+def _screen(d, add):
+    for x in d.get("candidates") or []:
         add(mem("scoop-screen", x.get("id"), split_names(x.get("company")), x.get("title"), x.get("published") or x.get("filedOn"), x.get("url")))
-    for x in (clues or {}).get("items") or []:
+
+
+def _clues(d, add):
+    for x in d.get("items") or []:
         add(mem("clues", x.get("id"), x.get("companies") or [], x.get("title"), x.get("firstSeen") or x.get("published"), x.get("url")))
-    return out
+
+
+ADAPTERS = [("us-litigation", _litigation), ("partner-filings", _partners), ("trade-remedy", _trade), ("kr-official", _official),
+            ("kr-signals", _signals), ("us-comments", _comments), ("page-watch", _pages), ("trademarks", _marks),
+            ("us-recalls", _recalls), ("scoop-screen", _screen), ("clues", _clues)]
 
 
 def nouns(title):
@@ -169,7 +212,8 @@ def match(article, items):
 
 def run(trace, docs, clues, *, now):
     since = now - dt.timedelta(days=WINDOW_DAYS)
-    items = memory(docs, clues)
+    adapter_errors = {}
+    items = memory(docs, clues, adapter_errors)
     rows = []
     for a in trace.get("items") or []:
         pub = parse_time(a.get("published"))
@@ -190,7 +234,7 @@ def run(trace, docs, clues, *, now):
     counts = {v: sum(1 for r in rows if r["verdict"] == v) for v in ("먼저 잡은 후보", "같은 회사 항목만", "없음", "회사 미상")}
     loaded = {f: f in docs for f in FEEDS}
     return {"schema": SCHEMA, "generatedAt": now.isoformat(timespec="seconds"), "windowDays": WINDOW_DAYS, "articles": rows, "counts": counts,
-            "bySource": summary, "memoryItems": len(items), "feedsLoaded": loaded, "traceGeneratedAt": trace.get("generatedAt"),
+            "bySource": summary, "memoryItems": len(items), "feedsLoaded": loaded, "adapterErrors": adapter_errors, "traceGeneratedAt": trace.get("generatedAt"),
             "rules": ["자동 후보다. 사람이 기사 전문과 원자료를 비교하는 Y/P/N 판정(역추적 기록)과 다르고, 그 수를 바꾸지 않는다.",
                       "'먼저 잡은 후보'는 같은 회사(그룹) 항목을 기사 60일 전~직전에 레이더가 처음 봤고, 사건 낱말(한·영 대응)이 겹친 경우다. 같은 사건인지는 열어 봐야 한다.",
                       "레이더 기억은 지금 저장된 결과뿐이다(보관 기간이 지나 지워진 항목·저장 실패한 감시는 '없음'으로 나올 수 있다 — 0건 아님).",
@@ -210,15 +254,20 @@ def main():
     for f in FEEDS:
         try:
             d = private_store.get(f, token)
-            if d:
+            if isinstance(d, dict):
                 docs[f] = d
-        except private_store.StoreError:
-            failed.append(f)
+        except Exception as e:  # noqa: BLE001 — network, HTTP or JSON: this feed is 미확인, the rest still count
+            failed.append(f"{f}:{type(e).__name__}")
     doc = run(trace, docs, clues, now=now)
     doc["feedsFailed"] = failed
+    # Public log: counts, feed names and exception types only.
     print(f"::notice title=reverse-check::경쟁지 단독 {len(doc['articles'])}건 · {json.dumps(doc['counts'], ensure_ascii=False)} · "
-          f"레이더 기억 {doc['memoryItems']}건 · 감시 읽음 {len(docs)}/{len(FEEDS)}" + (f" · 실패 {len(failed)}" if failed else ""))
-    status = private_store.put("reverse-check", doc, token)
+          f"레이더 기억 {doc['memoryItems']}건 · 감시 읽음 {len(docs)}/{len(FEEDS)}" + (f" · 조회 실패 {failed}" if failed else "")
+          + (f" · 읽기 오류 {doc['adapterErrors']}" if doc["adapterErrors"] else ""))
+    try:
+        status = private_store.put("reverse-check", doc, token)
+    except Exception as e:  # noqa: BLE001
+        sys.exit(f"저장 실패: {type(e).__name__}")
     print(f"::notice title=reverse-check-push::기자 전용 저장소 전송 HTTP {status}")
     if status != 200:
         sys.exit(1)
