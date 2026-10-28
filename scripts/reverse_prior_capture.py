@@ -49,6 +49,9 @@ CONCEPTS = [
     ("배터리", r"배터리|셀|전지", r"battery|cell|배터리"),
     ("신차·인증", r"신차|출시|투입|연식|연비|인증|주행거리|부분변경|신형|트림", r"EPA|연비|새 모델|model year|range|주행거리|1회 충전|연식"),
 ]
+# 출입 업종에서 너무 흔한 사건 낱말: 이것 하나만 겹치면 같은 사건 근거로 약하다(10-28 첫 실행: '배터리'·'공장'만 겹친 오탐 2건).
+WEAK_CONCEPTS = {"공장·생산", "배터리", "가격"}
+GENERIC_WORDS = {"공장", "배터리", "미국", "생산", "가격", "투자", "계약", "중국", "한국", "글로벌", "사업", "신규"}
 STOP = {"단독", "기자", "업계", "관계자", "국내", "최대", "최초", "올해", "내년", "전략", "본격", "사업", "추진", "확대", "주목", "위해",
         "이유", "속도", "결국", "다시", "직접", "모두", "현대", "그룹"}
 
@@ -203,10 +206,12 @@ def match(article, items):
     words = nouns(title) - comps
     same = [m for m in items if comps & set(m["companies"]) and pub - dt.timedelta(days=LOOKBACK_DAYS) <= m["seen"] < pub]
     best, best_score = None, 0
+    concept_words = {w for w in words if any(name in concepts and re.search(ko, w) for name, ko, _ in CONCEPTS)}
     for m in same:
         hit_c = sorted(name for name, _, rx in CONCEPTS if name in concepts and re.search(rx, m["text"], re.I))
-        hit_w = sorted(w for w in words if w in m["text"])
-        score = 2 * len(hit_c) + len(hit_w)
+        # 사건 낱말로 이미 센 단어·흔한 단어는 따로 세지 않는다
+        hit_w = sorted(w for w in words - concept_words - GENERIC_WORDS if w in m["text"])
+        score = sum(1 if c in WEAK_CONCEPTS else 2 for c in hit_c) + len(hit_w)
         if score > best_score or (score == best_score and best and m["seen"] > best["seen"]):
             best, best_score = {**m, "why": hit_c + hit_w}, score
     if best and best_score >= 2:
@@ -229,10 +234,16 @@ def run(trace, docs, clues, *, now):
     adapter_errors = {}
     items = memory(docs, clues, adapter_errors)
     rows = []
+    seen_titles = set()
     for a in trace.get("items") or []:
         pub = parse_time(a.get("published"))
         if not pub or pub < since or pub > now:
             continue
+        # 같은 기사가 색인에 두 번 들어온 경우(같은 제목·같은 날) 한 번만 센다
+        tkey = (re.sub(r"\s+", "", re.sub(r"\s+-\s+[^-]{1,40}$", "", a.get("title") or "")), pub.date().isoformat())
+        if tkey in seen_titles:
+            continue
+        seen_titles.add(tkey)
         verdict, best, n = match(a, items)
         rows.append({"articleId": a.get("articleId"), "title": re.sub(r"\s+-\s+[^-]{1,40}$", "", a.get("title") or "")[:200], "published": a.get("published"),
                      "source": a.get("sourceName"), "companies": a.get("companies") or [], "kind": a.get("kind"), "verdict": verdict,
