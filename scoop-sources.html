@@ -84,7 +84,8 @@ if(investment||metrics){
    (project?.originalUrls||[]).map((u,i)=>[u,i?"변경 후":"변경 전"]));
  }
  for(const o of (metrics?.items||[]).slice(0,5)){
-  card("dart",o.company+" · "+(o.rowIdentity||[]).join(" / "),
+  const topic=({productionCapacity:"생산능력",productionActual:"생산실적",orderBacklog:"수주잔고",segmentSales:"부문 매출"})[o.topic]||"지표 미확인";
+  card("dart",o.company+" · "+(o.reportingEntity?o.reportingEntity+" · ":"")+topic+" · "+(o.rowIdentity||[]).join(" / "),
   "공시상 "+o.fromYear+"년 "+o.priorValue+"→"+o.toYear+"년 "+o.currentValue+
   " ("+o.unit+") · "+o.percentChange+"% · 효과/기보도 미확인",
   (o.sourceUrls||[]).map((u,i)=>[u,i?"최근 원문":"전기 원문"]));

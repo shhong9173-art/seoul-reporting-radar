@@ -150,7 +150,8 @@ try{
   "건 · 출고/단독 확정 "+data.scoopConfirmed+"건";
  for(const row of data.items.slice(0,12)){
   const c=make("article",undefined,"project");
-  c.append(make("strong",row.company+" · "+row.rowIdentity.join(" / ")));
+  const topic=({productionCapacity:"생산능력",productionActual:"생산실적",orderBacklog:"수주잔고",segmentSales:"부문 매출"})[row.topic]||"지표 미확인";
+  c.append(make("strong",row.company+" · "+(row.reportingEntity?row.reportingEntity+" · ":"")+topic+" · "+row.rowIdentity.join(" / ")));
   c.append(make("p","공시상 "+row.fromYear+"년 "+row.priorValue+
   " → "+row.toYear+"년 "+row.currentValue+" ("+row.unit+
   ") · "+row.percentChange+"%"));
