@@ -193,6 +193,63 @@ class FederalRegister(unittest.TestCase):
         self.assertEqual(len(doc["federalRegister"]), len(first["federalRegister"]))
 
 
+# Appendix of FR 2026-20778 (10-09, hot-rolled CVD final results) as published — line breaks as in the FR text.
+HR_APPENDIX = """<pre>Appendix
+List of Topics Discussed in the Issues and Decision Memorandum
+I. Summary
+II. Background
+III. Scope of the Order
+IV. Subsidies Valuation Information
+V. Analysis of Programs
+VI. Discussion of the Issues
+Comment 1: Whether the Provision of Electricity Is Subsidized by
+the Government of Korea (GOK)
+Comment 2: Whether the Provision of Korea Emissions Trading
+System (K-ETS) Permits is Countervailable
+Comment 3: Whether Commerce Incorrectly Attributed Electricity
+for More than Adequate Remuneration (MTAR) Benefits Received by
+POSCO International Corporation (POSCO International) to POSCO
+Comment 6: Whether to Modify POSCO's KEXIM OICP Loan Benchmark
+Comment 8: Whether the Constructing and Operation of Workplace
+Nursery Program is Countervailable
+VII. Recommendation
+[FR Doc. 2026-20778 Filed 10-8-26; 8:45 am]
+BILLING CODE 3510-DS-P
+</pre>"""
+
+
+class MemoTopics(unittest.TestCase):
+    def test_appendix_topics_named_and_unusual(self):
+        topics = w.memo_topics(w.text_lines(HR_APPENDIX))
+        self.assertEqual(topics[0], "Comment 1: Whether the Provision of Electricity Is Subsidized by the Government of Korea (GOK)")
+        self.assertIn("Comment 8: Whether the Constructing and Operation of Workplace Nursery Program is Countervailable", topics)
+        self.assertFalse(any(t.startswith(("I.", "VII.")) for t in topics))  # boilerplate headings dropped
+        named, unusual = w.topic_flags(topics)
+        self.assertEqual([t[:10] for t in named], ["Comment 3:", "Comment 6:"])
+        self.assertEqual(unusual, ["Comment 8: Whether the Constructing and Operation of Workplace Nursery Program is Countervailable"])
+        self.assertIsNone(w.memo_topics("no appendix here"))
+
+    def test_results_notice_body_carries_topics_once(self):
+        fr = {"results": [{"title": "Certain Hot-Rolled Steel Flat Products From the Republic of Korea: Final Results of Countervailing Duty Administrative Review; 2024",
+                           "publication_date": "2026-10-09", "html_url": "https://www.federalregister.gov/d/2026-20778", "document_number": "2026-20778",
+                           "agencies": [{"name": "International Trade Administration"}], "raw_text_url": "https://www.federalregister.gov/full_text/2026-20778.txt"}]}
+        calls = []
+
+        def get(url, params=None, headers=None, timeout=None):
+            calls.append(url)
+            if url == w.FR_API:
+                return R(body=fr)
+            return R(text=HR_APPENDIX) if "full_text" in url else R(404)
+        rows, err, read = w.federal_register(NOW, None, get=get, sleep=lambda s: None)
+        row = rows[0]
+        self.assertEqual((err, read), (None, 1))
+        self.assertEqual(len(row["memoUnusual"]), 1)
+        self.assertIn("포스코", [n["company"] for n in row["named"]])
+        self.assertEqual([t[:10] for t in row["memoNamed"]], ["Comment 3:", "Comment 6:"])
+        again, _, read2 = w.federal_register(NOW, {"federalRegister": rows}, get=get, sleep=lambda s: None)
+        self.assertEqual((read2, again[0]["memoUnusual"]), (0, row["memoUnusual"]))  # cached, body not read again
+
+
 class Relay(unittest.TestCase):
     def test_relay_pages_go_through_the_worker(self):
         seen = []

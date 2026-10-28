@@ -271,6 +271,51 @@ def named_companies(text):
     return out
 
 
+# Decision memo topics are public in the FR notice itself ('List of Topics Discussed in the … Decision Memorandum' appendix);
+# the memo PDFs moved behind a script-rendered ACCESS page (탐침 10-28: 옛 PDF 주소 404). 운영 근거: 10-09 열연 상계관세 최종
+# 판정 부록 'Comment 8: Whether the Constructing and Operation of Workplace Nursery Program is Countervailable' → 10-23
+# 경쟁지 [단독] '애들 보육비가 철강 보조금?…포스코·현대제철 직장어린이집까지 겨눈 美'.
+TOPICS_HEAD = re.compile(r"List of Topics Discussed in the (?:Preliminary |Final )?(?:Issues and )?Decision Memorandum", re.I)
+TOPIC_START = re.compile(r"^(?:[IVX]{1,5}\.|[A-Z]\.|\d{1,2}\.|Comment \d+[A-Za-z]?:)\s")
+BOILER = re.compile(r"^(?:[IVX]{1,5}\.)\s+(?:Summary|Background|Scope|Period of|Recommendation|Subsidies Valuation|Analysis of Programs|"
+                    r"Discussion of the|Currency Conversion|Discussion of the Methodology|Affiliation|Methodology|Use of Facts|"
+                    r"Non-Selected|Rate for|Diversification|Changes Since|Margin|Attribution of Subsidies|Final Determination|Preliminary)", re.I)
+# Programs and arguments that come up in most Korean steel CVD reviews; a topic with none of these words is shown as unusual.
+COMMON = re.compile(r"electricity|K-?ETS|emission|KEXIM|Export-Import|KDB|Korea Development Bank|IBK|KORES|KEPCO|benchmark|interest rate|"
+                    r"tax|RSTA|Restriction of Special|loan|cross-own|attribut|LTAR|MTAR|adequate remuneration|uncreditworth|equityworth|"
+                    r"debt|grant|R&D|research|port|harbor|land|industrial complex|guarantee|insurance|K-?SURE|currency|exchange rate|"
+                    r"sales denominator|de minimis|specificity|financial contribution|facts available|AFA|verification|respondent|"
+                    r"rate|scope|ministerial|clerical|sampl|duty absorption|cash deposit|liquidat", re.I)
+
+
+def memo_topics(text):
+    """Substantive topics (programs, comments) of the decision-memo appendix, wrapped lines joined. None when there is no appendix."""
+    m = TOPICS_HEAD.search(text or "")
+    if not m:
+        return None
+    seg = re.split(r"\[FR Doc\.|BILLING CODE|\nAppendix I{1,3}\b", text[m.end(): m.end() + 8000])[0]
+    items, cur = [], ""
+    for ln in (re.sub(r"\s+", " ", x).strip() for x in seg.splitlines()):
+        if not ln:
+            continue
+        if TOPIC_START.match(ln + " "):
+            if cur:
+                items.append(cur)
+            cur = ln
+        else:
+            cur = f"{cur} {ln}".strip()
+    if cur:
+        items.append(cur)
+    return [t[:300] for t in items if not BOILER.match(t)][:40]
+
+
+def topic_flags(topics):
+    """(beat-named topics, unusual topics) — word tests on the appendix text only."""
+    named = [t for t in topics if any(re.search(rx, t, re.I) for _, rx in BEAT_NAMES)]
+    unusual = [t for t in topics if re.match(r"(?:Comment \d|\d{1,2}\.|[A-Z]\.)", t) and not COMMON.search(t)]
+    return named[:6], unusual[:6]
+
+
 def federal_register(now, previous=None, *, get=None, sleep=time.sleep):
     """ITA·ITC notices from the last FR_DAYS that name Korea in the title, plus omnibus notices (review initiations,
     337 complaints) — bodies are scanned once for beat company names and the result is cached by document number."""
@@ -305,14 +350,23 @@ def federal_register(now, previous=None, *, get=None, sleep=time.sleep):
                "section337": is_337(title),
                "beatProduct": bool(BEAT_PRODUCTS.search(title))}
         old = prev.get(did) or {}
-        if "named" in old:
-            row["named"] = old["named"]
-        elif x.get("raw_text_url") and budget > 0:
+        for k in ("named", "memoTopics", "memoNamed", "memoUnusual"):
+            if k in old:
+                row[k] = old[k]
+        wants_memo = in_title and bool(re.search(r"Results|Determination", title)) and "memoTopics" not in row
+        if ("named" not in row or wants_memo) and x.get("raw_text_url") and budget > 0:
             budget -= 1
             body, err = get_text(x["raw_text_url"], get=get, headers={"User-Agent": UA, "Accept": "text/plain,text/html"})
             sleep(0.5)
             if body is not None:
-                row["named"] = named_companies(text_lines(body))
+                lines = text_lines(body)
+                row["named"] = named_companies(lines)
+                topics = memo_topics(lines)
+                if topics is not None:
+                    row["memoTopics"] = topics
+                    row["memoNamed"], row["memoUnusual"] = topic_flags(topics)
+                elif wants_memo:
+                    row["memoTopics"] = []
             else:
                 row["bodyError"] = err
         if row["omnibus"] and "named" in row and not row["named"]:

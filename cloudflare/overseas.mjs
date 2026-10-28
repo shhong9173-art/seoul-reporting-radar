@@ -155,11 +155,13 @@ export async function tradeRemedies(ctx, args) {
     for (const x of sorted.slice(0, limit)) {
       out.push(`- ${x.isNew ? '[신규] ' : ''}${x.date} · ${x.stage}${x.section337 ? ' · 337조' : ''} · ${x.title}`);
       for (const n of (x.named ?? []).slice(0, 5)) out.push(`   본문의 ${n.company}(${n.mentions}곳): ${n.lines.map((l) => `"${l}"`).join(' / ')}`);
+      for (const t of (x.memoUnusual ?? []).slice(0, 3)) out.push(`   결정문 목차 — 흔치 않은 항목(관보 부록 원문): "${t}"`);
+      for (const t of (x.memoNamed ?? []).slice(0, 3)) out.push(`   결정문 목차 — 출입처 이름(관보 부록 원문): "${t}"`);
       if (x.bodyError) out.push(`   본문 조회 실패(${x.bodyError}) — 업체명 미확인`);
       out.push(`   원문: ${x.url}`);
     }
     if (sorted.length > limit) out.push(`… 남은 ${sorted.length - limit}건`);
-    out.push('   검증 상태: 관보 제목·본문 줄(자동). 세율·판정은 원문 표로 확인. 회사명 일치≠해당 회사 사건 — 조사 대상 목록 확인');
+    out.push('   검증 상태: 관보 제목·본문 줄(자동). 세율·판정은 원문 표로 확인. 회사명 일치≠해당 회사 사건 — 조사 대상 목록 확인. 결정문 목차는 쟁점 제목일 뿐 결론이 아니다(\'흔치 않은\'은 자주 나오는 보조금 낱말이 없다는 뜻)');
   }
 
   if (!section || section === 'notices') {
