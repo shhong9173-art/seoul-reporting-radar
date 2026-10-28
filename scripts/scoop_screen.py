@@ -265,6 +265,8 @@ def select(clues, stats, *, now, limit=MAX_CANDIDATES):
     seen, out = set(), []
     for c in sorted(rows, key=lambda r: -r["strength"]):
         key = (c["company"], tuple(c["numbers"])) if c["numbers"] else (c["company"], tuple(c["terms"][:2]))
+        if is_lawsuit(c):
+            key=(c["company"],c.get("url") or c["id"])
         if key in seen:
             continue
         seen.add(key)
@@ -282,6 +284,28 @@ def lead(terms):
 # Lawsuit filings name the case and the outcome; headlines use those words, not the filing type
 # (운영 10-28: '고려아연 소송등의판결'로 찾아 '미보도 후보' — 같은 날 '주주대표소송 1심 기각' 속보가 여러 건 있었다).
 OUTCOME_WORDS = ["기각", "각하", "인용", "승소", "패소", "판결", "선고"]
+
+CASE_NUMBER = re.compile(r"(?<!\d)(20\d{2})\s*(가합|가단|가소|카합|카단|구합|구단|나|다|누|두|허|마)\s*(\d{2,9})(?!\d)")
+
+
+def case_numbers(text):
+    return {"".join(m.groups()) for m in CASE_NUMBER.finditer(str(text or ""))}
+
+
+def is_lawsuit(c):
+    return ((c.get("filing") or {}).get("type") in ("소송판결", "소송제기")
+            or bool(re.search(r"소송\s*등의\s*(?:판결|제기)", c.get("title", ""))))
+
+
+def case_identity(c):
+    f=c.get("filing") or {}
+    got=dict(f.get("facts") or [])
+    numbers=case_numbers(got.get("사건번호")) if not f.get("error") else set()
+    plaintiff=re.split(r"원고공동|공동소송|피고|신청인",got.get("원고ㆍ신청인", ""))[0]
+    plaintiff=re.sub(r"^(?:원고\s*[:：]?\s*)?(?:주식회사\s*|\(주\)\s*)?", "", plaintiff).strip()
+    if not re.fullmatch(r"[A-Za-z가-힣][A-Za-z가-힣0-9 ]{1,60}",plaintiff):
+        plaintiff=""
+    return numbers,plaintiff
 
 
 def lawsuit_terms(c):
@@ -326,6 +350,12 @@ def recheck_lawsuits(rows, *, now, get=None, sleep=time.sleep):
 
 def queries(c):
     a, t = c["company"], c["terms"]
+    if is_lawsuit(c):
+        numbers,plaintiff=case_identity(c)
+        if numbers:
+            better=lawsuit_terms(c)
+            name=better[0][0] if better else "소송"
+            return [f"{a} {sorted(numbers)[0]}", f"{a} {plaintiff} {name}".replace("  "," ")]
     qs = [f"{a} {t[0]}"]
     if len(t) > 1:
         qs.append(f"{a} {t[0]} {t[1]}")
@@ -421,6 +451,11 @@ def judge(c, channels, *, now):
     key_term = lead(terms)
     evidence = {}
     invalid_dates = False
+    ambiguous_case = False
+    lawsuit=is_lawsuit(c)
+    expected,plaintiff=case_identity(c)
+    if lawsuit and not expected:
+        return "미확인", []
     for ch, res in channels.items():
         if res.get("status") != "ok":
             continue  # partial/failed channel items cannot certify absence or precedence
@@ -434,12 +469,25 @@ def judge(c, channels, *, now):
             text = f"{a.get('title', '')} {a.get('text', '')}"
             if not company_in_text(c["company"], text):
                 continue
+            if lawsuit:
+                observed=case_numbers(text)
+                # Same issuer, date and generic case name cannot identify a
+                # lawsuit. An article can cover multiple cases; require this
+                # case's number or named plaintiff in its actual snippet.
+                exact=bool(expected & observed)
+                party_match=bool(plaintiff and company_in_text(plaintiff,text))
+                if observed and not exact:
+                    continue
+                if not exact and not party_match:
+                    if any(w in text for w in ("소송","판결","기각","승소")):
+                        ambiguous_case=True
+                    continue
             def has(t, where):
                 return any(w in where for w in alts.get(t, [t]))
             # Numbers alone are never evidence of the same event. Preserve
             # related coverage for human review even without period/unit proof.
             term_hits = [t for t in terms if has(t, text)]
-            related = len(term_hits) >= 2 or (key_term and has(key_term, a.get("title", "")))
+            related = (lawsuit and (exact or party_match)) or len(term_hits) >= 2 or (key_term and has(key_term, a.get("title", "")))
             if not related:
                 continue
             unit = re.sub(r"\s+", "", c.get("unit") or "")
@@ -451,7 +499,9 @@ def judge(c, channels, *, now):
             specific = [t for t in term_hits if t not in {"투자", "공장", "생산", "수주", "계약", "매출", "수출", "판매", "증설", "변압기"}]
             same_context = (len(term_hits) >= 2 and specific and period and period in text
                             and unit not in ("백만원", "백만 원"))
-            if num_hits and same_context:
+            if lawsuit:
+                why,rank=("사건번호 일치 — 기사 원문 최종 확인 필요" if exact else "원고 일치 — 사건번호·거래 대상 추가 확인 필요"),1
+            elif num_hits and same_context:
                 why, rank = f"같은 수치·단위·기간 및 사건 낱말({', '.join(num_hits[:2])}; {period}) — 동일 사건 최종 확인 필요", 2
             else:
                 why, rank = f"낱말({', '.join(term_hits[:3])}) — 동일 사건 미확정", 1
@@ -466,7 +516,7 @@ def judge(c, channels, *, now):
         verdict = "같은 수치 선행"
     elif ev:
         verdict = "관련 보도 있음"
-    elif naver_ok and web_ok and not invalid_dates:
+    elif naver_ok and web_ok and not invalid_dates and not ambiguous_case:
         verdict = "미보도 후보"
     else:
         verdict = "미확인"
@@ -550,23 +600,28 @@ def main():
         for c in cands:
             print(c["company"], "|", queries(c), "|", c["numbers"][:4])
         return
-    rows = screen(cands, now=now)
     dart_key = os.environ.get("DART_API_KEY", "").strip()
     if dart_key:
         # Original filing facts and same-company prior comparison for DART leads that could reach the reporter.
         import requests
         import dart_filing_facts
         from dart_lineage import zip_documents
-        targets = [r for r in rows if r.get("verdict") in ("미보도 후보", "미확인")]
+        # Fetch identity before any news query. A generic lawsuit title is
+        # never enough to certify either prior reporting or its absence.
+        targets = sorted(cands,key=lambda r:not is_lawsuit(r))
         dart_filing_facts.enrich(targets, dart_key, dart_filing_facts.load_corp_codes(), fetch_documents=zip_documents, get=requests.get)
-        rows, rechecked = recheck_lawsuits(rows, now=now)
-        inputs["lawsuitRechecked"] = rechecked
-        got = [r["filing"] for r in rows if r.get("filing")]
+        for c in cands:
+            better=lawsuit_terms(c)
+            if better:
+                c["terms"],c["alts"]=better
+        inputs["lawsuitIdentityRead"] = sum(bool(case_identity(c)[0]) for c in cands if is_lawsuit(c))
+        got = [r["filing"] for r in cands if r.get("filing")]
         inputs["filingFacts"] = {"read": sum(1 for x in got if x.get("facts") is not None and not x.get("error")),
                                  "routine": sum(1 for x in got if x.get("routine")), "failed": sum(1 for x in got if x.get("error"))}
         print(f"::notice title=scoop-screen-filings::DART 원문 요점 {inputs['filingFacts']['read']}건 · 일상 {inputs['filingFacts']['routine']}건 · 실패 {inputs['filingFacts']['failed']}건")
     else:
         print("::warning title=scoop-screen-filings::DART_API_KEY 미설정 — 원문 요점·직전 비교 생략")
+    rows = screen(cands, now=now)
     doc = report(rows, now=now, inputs=inputs)
     if a.out:
         Path(a.out).write_text(json.dumps(doc, ensure_ascii=False, indent=1), encoding="utf-8")

@@ -39,11 +39,12 @@ def rows(tables):
             if len(labels)<2 and labels[0] in {
                 "소계","총계","합계","합계액","기타","전체","계","내수","수출"
             }:continue
-            key=(table["topic"],table["unit"],labels)
+            key=(table["topic"],table["unit"],norm(table.get("reportingEntity")),labels)
             if key in found:duplicates.add(key)
             else:found[key]={"value":metrics[0],"priorYear":metrics[1],
                              "sourceRow":values,"unit":table["unit"],
-                             "topic":table["topic"],"labels":values[:-3]}
+                             "topic":table["topic"],"labels":values[:-3],
+                             "reportingEntity":table.get("reportingEntity","")}
     for key in duplicates:found.pop(key,None)
     return found
 
@@ -82,6 +83,7 @@ def evaluate(source,now=None):
             matched+=1
             report.append({
                 "company":company,"topic":after["topic"],"rowIdentity":after["labels"],
+                "reportingEntity":after["reportingEntity"],
                 "priorValue":str(before["value"]),"currentValue":str(after["value"]),
                 "diff":str(shift),"percentChange":pct,
                 "unit":after["unit"],

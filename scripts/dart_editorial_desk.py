@@ -44,6 +44,8 @@ def evaluate(source,metric,now=None,top=8):
   mode="reported_money" if unit in MONETARY else "reported_quantity_unit"
   direction="증가" if new>old else "감소"
   target="·".join(labels[:3])[:96]
+  if delta.get("reportingEntity"):
+   target=str(delta["reportingEntity"])+" · "+target
   period={"03":"1분기","06":"반기","09":"3분기"}[str(delta["period"])]
   years=str(delta.get("fromYear"))+"년·"+str(delta.get("toYear"))+"년 "+period
   title=company+", "+target+" "+CATEGORIES[topic].replace("공시상 ","")+" "+direction

@@ -742,6 +742,9 @@ def from_metric_changes(data, kind, source, items_key):
         if change is None or abs(change) < 10:
             continue
         row = " / ".join(str(v) for v in (x.get("rowIdentity") or []))
+        entity = str(x.get("reportingEntity") or "")
+        if entity:
+            row = entity + " / " + row
         topic = TOPIC_LABEL.get(x.get("topic"), x.get("topic"))
         period = (f"{x.get('fromYear')}→{x.get('toYear')}" + (f" {x.get('period')}월 누적" if x.get("period") else ""))
         out.append(stat(kind=kind, label=f"{company or x.get('company')} {topic} ({row})", team=team_for([company] if company else []),

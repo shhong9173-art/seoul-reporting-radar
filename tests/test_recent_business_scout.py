@@ -137,7 +137,7 @@ class InterimBusinessTests(unittest.TestCase):
         prior=example("06",2025,"20250814000002")
         def listing(key,corp,year): return [current] if year==2026 else [prior]
         previous={
-            "company":"HD현대일렉트릭","corpCode":COMPANY,
+            "company":"HD현대일렉트릭","corpCode":COMPANY,"extractionVersion":scout.EXTRACTION_VERSION,
             "status":"official_sections_retrieved",
             "current":{**current,"status":"evidence_found","tables":[]},
             "priorSamePeriod":{**prior,"status":"evidence_found","tables":[]},
@@ -152,7 +152,7 @@ class InterimBusinessTests(unittest.TestCase):
         current=example("06",2026,"20260915000008")
         prior=example("06",2025,"20250814000002")
         oldcache={
-            "company":"HD현대일렉트릭","corpCode":COMPANY,
+            "company":"HD현대일렉트릭","corpCode":COMPANY,"extractionVersion":scout.EXTRACTION_VERSION,
             "status":"official_sections_retrieved",
             "current":{**example(),"status":"evidence_found","tables":[]},
             "priorSamePeriod":{**prior,"status":"evidence_found","tables":[]},
