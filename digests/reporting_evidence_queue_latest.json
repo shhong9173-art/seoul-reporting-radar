@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-10-28T00:16:32+09:00",
+  "generatedAt": "2026-10-28T15:46:21+09:00",
   "status": "reporter_evidence_queue_not_exclusive",
   "sourceCoverage": "partial_source_coverage_not_zero_news",
   "sourceHealth": {
     "officialEvents": {
       "status": "source_partial_coverage",
-      "generatedAt": "2026-10-27T23:58:59+09:00",
+      "generatedAt": "2026-10-28T15:22:39+09:00",
       "rows": 3,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false,
@@ -24,35 +24,35 @@
     },
     "investment": {
       "status": "source_snapshot_checked",
-      "generatedAt": "2026-10-27T11:27:05+09:00",
+      "generatedAt": "2026-10-28T11:36:31+09:00",
       "rows": 1,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false
     },
     "metrics": {
       "status": "source_snapshot_checked",
-      "generatedAt": "2026-10-27T22:07:45+09:00",
-      "rows": 47,
+      "generatedAt": "2026-10-28T14:39:57+09:00",
+      "rows": 52,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false
     },
     "contracts": {
       "status": "source_snapshot_checked",
-      "generatedAt": "2026-10-27T11:03:08+09:00",
-      "rows": 4,
+      "generatedAt": "2026-10-28T11:13:00+09:00",
+      "rows": 5,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false
     },
     "recentLedger": {
       "status": "source_snapshot_checked",
-      "generatedAt": "2026-10-27T11:02:52+09:00",
-      "rows": 4,
+      "generatedAt": "2026-10-28T11:12:45+09:00",
+      "rows": 5,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false
     },
     "correctionHistory": {
       "status": "source_snapshot_checked",
-      "generatedAt": "2026-10-27T11:03:09+09:00",
+      "generatedAt": "2026-10-28T11:13:01+09:00",
       "rows": 2,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false
@@ -62,10 +62,10 @@
     "new_official_receipt_review": 3,
     "new_official_list_heading_review": 0,
     "verified_historical_investment_delta": 3,
-    "verified_historical_numeric_delta": 47,
+    "verified_historical_numeric_delta": 52,
     "issuer_only_correction_unverified_original": 2,
     "older_public_contract_reference": 2,
-    "unlinked_correction_text_followup": 0
+    "unlinked_correction_text_followup": 1
   },
   "sourceDateWindow": {
     "recentFrom": "2026-10-26",
@@ -74,15 +74,15 @@
   "checkedOfficialRecentCandidates": 3,
   "recentOfficialTitleOnlyCount": 0,
   "todayOnlyCount": 3,
-  "historicalResearchCount": 54,
-  "unlinkedHistoryTextMatchCount": 0,
+  "historicalResearchCount": 60,
+  "unlinkedHistoryTextMatchCount": 1,
   "correctionHistorySourceGate": "reviewed_unlinked_candidates_only",
-  "totalRows": 57,
+  "totalRows": 63,
   "excluded": {
     "invalid_original_identity": 0,
     "old_and_not_relevant": 0,
     "unverified_correction": 0,
-    "same_receipt_merged": 1
+    "same_receipt_merged": 2
   },
   "confirmedScoops": 0,
   "approvedArticles": 0,
@@ -160,7 +160,7 @@
       "title": "HD현대일렉트릭 · 신규시설투자 · 신규시설투자등",
       "officialDocumentDate": "2026-10-27",
       "officialDateIsSourcePublicationNotScrape": true,
-      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
+      "evidenceSummary": "DART 공식 접수번호와 공시 제목 확인 · 계약금액·거래 상대방·기간은 별도 원문 확인",
       "officialUrls": [
         "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261027800235"
       ],
@@ -384,7 +384,57 @@
       "title": "장항/부산 / STS관 · productionActual 공시 수치 비교",
       "officialDocumentDate": "2026-08-14",
       "officialDateIsSourcePublicationNotScrape": true,
-      "evidenceSummary": "2025년 → 2026년 동일표 행값 42397 → 46158 (백만원). 공시 표기 수치이며 실제 출하·생산량은 별도 검증 필요.",
+      "evidenceSummary": "2025년 → 2026년 동일표 행값 29729 → 32000 (백만원). 공시 표기 수치이며 실제 출하·생산량은 별도 검증 필요.",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250814001952",
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003088"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "회계연도·기간·단위·세그먼트의 정확한 모수 재확인",
+        "동일 분기/반기 수치 변경인지 공시 원문 대조",
+        "기존 보도 전문과 기업 공개 IR 자료 확인"
+      ]
+    },
+    {
+      "id": "verified_historical_numeric_delta:20260814003088:엘에스일렉트릭:productionActual:전력 / 무석",
+      "tier": "verified_historical_numeric_delta",
+      "tierLabel": "과거 DART 공시 수치 비교",
+      "company": "엘에스일렉트릭",
+      "title": "전력 / 무석 · productionActual 공시 수치 비교",
+      "officialDocumentDate": "2026-08-14",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "2025년 → 2026년 동일표 행값 21533 → 24026 (백만원). 공시 표기 수치이며 실제 출하·생산량은 별도 검증 필요.",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250814001952",
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003088"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "회계연도·기간·단위·세그먼트의 정확한 모수 재확인",
+        "동일 분기/반기 수치 변경인지 공시 원문 대조",
+        "기존 보도 전문과 기업 공개 IR 자료 확인"
+      ]
+    },
+    {
+      "id": "verified_historical_numeric_delta:20260814003088:엘에스일렉트릭:productionActual:전력 / 베트남",
+      "tier": "verified_historical_numeric_delta",
+      "tierLabel": "과거 DART 공시 수치 비교",
+      "company": "엘에스일렉트릭",
+      "title": "전력 / 베트남 · productionActual 공시 수치 비교",
+      "officialDocumentDate": "2026-08-14",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "2025년 → 2026년 동일표 행값 48472 → 68703 (백만원). 공시 표기 수치이며 실제 출하·생산량은 별도 검증 필요.",
       "officialUrls": [
         "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250814001952",
         "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003088"
@@ -409,7 +459,32 @@
       "title": "전력 / 청주 · productionActual 공시 수치 비교",
       "officialDocumentDate": "2026-08-14",
       "officialDateIsSourcePublicationNotScrape": true,
-      "evidenceSummary": "2025년 → 2026년 동일표 행값 17159 → 25579 (백만원). 공시 표기 수치이며 실제 출하·생산량은 별도 검증 필요.",
+      "evidenceSummary": "2025년 → 2026년 동일표 행값 14200 → 20217 (백만원). 공시 표기 수치이며 실제 출하·생산량은 별도 검증 필요.",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250814001952",
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003088"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "회계연도·기간·단위·세그먼트의 정확한 모수 재확인",
+        "동일 분기/반기 수치 변경인지 공시 원문 대조",
+        "기존 보도 전문과 기업 공개 IR 자료 확인"
+      ]
+    },
+    {
+      "id": "verified_historical_numeric_delta:20260814003088:엘에스일렉트릭:productionActual:청주2 / 배전반, 초고압GIS, 변압기 철도/SE 등",
+      "tier": "verified_historical_numeric_delta",
+      "tierLabel": "과거 DART 공시 수치 비교",
+      "company": "엘에스일렉트릭",
+      "title": "청주2 / 배전반, 초고압GIS, 변압기 철도/SE 등 · productionActual 공시 수치 비교",
+      "officialDocumentDate": "2026-08-14",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "2025년 → 2026년 동일표 행값 719346 → 918975 (백만원). 공시 표기 수치이며 실제 출하·생산량은 별도 검증 필요.",
       "officialUrls": [
         "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250814001952",
         "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003088"
@@ -477,6 +552,31 @@
       ]
     },
     {
+      "id": "verified_historical_numeric_delta:20260814003088:엘에스일렉트릭:productionCapacity:장항/부산 / STS관",
+      "tier": "verified_historical_numeric_delta",
+      "tierLabel": "과거 DART 공시 수치 비교",
+      "company": "엘에스일렉트릭",
+      "title": "장항/부산 / STS관 · productionCapacity 공시 수치 비교",
+      "officialDocumentDate": "2026-08-14",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "2025년 → 2026년 동일표 행값 42397 → 46158 (백만원). 공시 표기 수치이며 실제 출하·생산량은 별도 검증 필요.",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250814001952",
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003088"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "회계연도·기간·단위·세그먼트의 정확한 모수 재확인",
+        "동일 분기/반기 수치 변경인지 공시 원문 대조",
+        "기존 보도 전문과 기업 공개 IR 자료 확인"
+      ]
+    },
+    {
       "id": "verified_historical_numeric_delta:20260814003088:엘에스일렉트릭:productionCapacity:전력 / 베트남",
       "tier": "verified_historical_numeric_delta",
       "tierLabel": "과거 DART 공시 수치 비교",
@@ -485,6 +585,31 @@
       "officialDocumentDate": "2026-08-14",
       "officialDateIsSourcePublicationNotScrape": true,
       "evidenceSummary": "2025년 → 2026년 동일표 행값 44881 → 76935 (백만원). 공시 표기 수치이며 실제 출하·생산량은 별도 검증 필요.",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250814001952",
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003088"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "회계연도·기간·단위·세그먼트의 정확한 모수 재확인",
+        "동일 분기/반기 수치 변경인지 공시 원문 대조",
+        "기존 보도 전문과 기업 공개 IR 자료 확인"
+      ]
+    },
+    {
+      "id": "verified_historical_numeric_delta:20260814003088:엘에스일렉트릭:productionCapacity:전력 / 청주",
+      "tier": "verified_historical_numeric_delta",
+      "tierLabel": "과거 DART 공시 수치 비교",
+      "company": "엘에스일렉트릭",
+      "title": "전력 / 청주 · productionCapacity 공시 수치 비교",
+      "officialDocumentDate": "2026-08-14",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "2025년 → 2026년 동일표 행값 17159 → 25579 (백만원). 공시 표기 수치이며 실제 출하·생산량은 별도 검증 필요.",
       "officialUrls": [
         "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250814001952",
         "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003088"
@@ -1427,16 +1552,16 @@
       ]
     },
     {
-      "id": "issuer_only_correction_unverified_original:DART:20261026800529",
+      "id": "issuer_only_correction_unverified_original:DART:20261027800518",
       "tier": "issuer_only_correction_unverified_original",
       "tierLabel": "정정문 자체 기재변경·원공시 미대조",
-      "company": "두산에너빌리티",
-      "title": "두산에너빌리티 · [기재정정]단일판매ㆍ공급계약체결",
-      "officialDocumentDate": "2026-10-26",
+      "company": "효성중공업",
+      "title": "효성중공업 · [기재정정]단일판매ㆍ공급계약체결",
+      "officialDocumentDate": "2026-10-27",
       "officialDateIsSourcePublicationNotScrape": true,
-      "evidenceSummary": "정정 공시의 발행사 기재 변경란 참고 5. 계약기간 종료일. 최초 원공시 미대조. 동일 계약·실제 계약 조건의 변화는 확정되지 않음.",
+      "evidenceSummary": "정정 공시의 발행사 기재 변경란 참고 2. 계약내역 - 계약금액(원). 최초 원공시 미대조. 동일 계약·실제 계약 조건의 변화는 확정되지 않음.",
       "officialUrls": [
-        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261026800529"
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261027800518"
       ],
       "pressFulltextReviewed": false,
       "sameAngleCoverageVerified": false,
@@ -1451,16 +1576,16 @@
       ]
     },
     {
-      "id": "issuer_only_correction_unverified_original:DART:20261006800697",
+      "id": "issuer_only_correction_unverified_original:DART:20261026800529",
       "tier": "issuer_only_correction_unverified_original",
       "tierLabel": "정정문 자체 기재변경·원공시 미대조",
       "company": "두산에너빌리티",
       "title": "두산에너빌리티 · [기재정정]단일판매ㆍ공급계약체결",
-      "officialDocumentDate": "2026-10-06",
+      "officialDocumentDate": "2026-10-26",
       "officialDateIsSourcePublicationNotScrape": true,
-      "evidenceSummary": "정정 공시의 발행사 기재 변경란 참고 2. 계약내역 계약금액(원)·5. 계약기간 종료일. 최초 원공시 미대조. 동일 계약·실제 계약 조건의 변화는 확정되지 않음.",
+      "evidenceSummary": "정정 공시의 발행사 기재 변경란 참고 5. 계약기간 종료일. 최초 원공시 미대조. 동일 계약·실제 계약 조건의 변화는 확정되지 않음.",
       "officialUrls": [
-        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261006800697"
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261026800529"
       ],
       "pressFulltextReviewed": false,
       "sameAngleCoverageVerified": false,
@@ -1521,6 +1646,41 @@
         "기존 언론 기사와 같은 계약인지 기사 전문 검증",
         "해당 기업의 공개 사업부 자료 중 실제 실적 반영 확인"
       ]
+    },
+    {
+      "id": "unlinked_correction_text_followup:20261027800518:20260210801094:contract_amount",
+      "tier": "unlinked_correction_text_followup",
+      "tierLabel": "과거·현재 정정문 기재값 일치 · 계약 동일성 미확인",
+      "company": "효성중공업",
+      "title": "효성중공업 · 정정공시 contract_amount 원공시 연결 확인",
+      "officialDocumentDate": "2026-10-27",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "과거 후보 20260210801094의 공시 기재값 113,586,046,173과 이번 정정공시가 밝힌 '정정 전' 값 113,586,046,173의 문자 일치. 이번 정정 후 기재값 113,044,698,813. 단, 동일 계약 및 실제 계약 변경은 증명되지 않음.",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261027800518",
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260210801094"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "정정문에 명시된 원공시 접수번호와 해당 계약의 발행사 고유번호를 확인",
+        "과거·현재 정정 공시의 계약 상대방·계약명·원공시 계보를 직접 대조",
+        "해당 변경이 이미 보도됐는지 해당 기사 전문 확인",
+        "확정된 변경 조건·일자만 기업에 공개 확인 요청"
+      ],
+      "contractLinkVerified": false,
+      "textMatchIsNotContractContinuity": true,
+      "priorOfficialReceipt": "20260210801094",
+      "latestCorrectionReceipt": "20261027800518",
+      "matchField": "contract_amount",
+      "sourceProvenance": "three_matching_dart_snapshot_timestamps_unlinked",
+      "newsArticleFulltextVerified": false,
+      "historicalNotNewIncident": true,
+      "editorialSection": "unlinked_deep_check_not_today_news"
     }
   ]
 }
