@@ -7,6 +7,7 @@ import { handleMcp, TOOLS } from '../cloudflare/mcp.mjs';
 import { RadarStore } from '../cloudflare/store.mjs';
 import { checkCandidate } from '../cloudflare/scoring.mjs';
 import { readZip } from '../cloudflare/zip.mjs';
+import { publicationDate, verifyEvidence } from '../cloudflare/evidence.mjs';
 import { allowedUrl } from '../cloudflare/live_tools.mjs';
 import { handleIngest } from '../cloudflare/screen.mjs';
 import { dueAt, nextSlot, runSchedule } from '../cloudflare/dispatch.mjs';
@@ -330,31 +331,109 @@ test('zip reader handles stored and deflated entries', async () => {
   assert.equal(new TextDecoder().decode(entries[0].data), '안녕 DART');
 });
 
-test('candidate_check holds incomplete packages and recommends complete ones', async () => {
+// Synthetic official response: never uploaded as an operating candidate.
+async function verifiedFixture(opts, { date = '2026-10-24', news = {}, body = null } = {}) {
+  const url = 'https://www.motie.go.kr/evidence-test';
+  const fact = '현대제철 인천 전기로 투자금액 100억원을 공개했다.';
+  const html = body ?? `<html><body>게시일: ${date}<p>${fact}</p></body></html>`;
+  opts.fetch = fakeFetch({
+    [url]: new Response(html, { headers: { 'Content-Type': 'text/html; charset=utf-8' } }),
+    'https://news.google.com/': new Response('<rss><channel></channel></rss>'),
+    'https://www.bing.com/': new Response('<rss><channel></channel></rss>'),
+    'https://naverapihub.': Response.json({ items: [] }),
+    [DATA + 'tools/dandok.json']: Response.json({ ...VIEWS['tools/dandok.json'], items: [] }), ...news,
+  });
+  const original = await call('source_document', { url }, opts);
+  const id = (r) => /검증 기록 ID: ([0-9a-f-]{36})/.exec(r.text)?.[1];
+  const ids = [];
+  for (const q of ['현대제철 인천 전기로', '현대제철 전기로 투자']) ids.push(id(await call('news_check', { q, days: 365 }, opts)));
+  return { title: '현대제철 인천 전기로 100억원 투자 확인', companies: ['현대제철'], source_url: url,
+    source_date: date, content_hash: /sha256:([0-9a-f]{64})/.exec(original.text)?.[1], source_evidence_id: id(original),
+    news_evidence_ids: ids, event_terms: ['인천', '전기로'], facts: [fact], numbers: ['100억원'],
+    coverage: { google: 'ok', naver: 'ok', dandok: 'ok', verdict: '단독 확실' },
+    company_disclosed: false, comparison: '이전 자료와 비교할 항목', impact: '공급 영향 추가 확인', questions: ['일정?', '공개된 투자 범위?'] };
+}
+const evidencePrivate = () => PRIVATE({ NAVER_CLIENT_ID: 'test-id', NAVER_CLIENT_SECRET: 'test-secret' });
+
+test('candidate_check refuses caller assertions and uses real tool receipts', async () => {
   const thin = checkCandidate({ title: '현대제철, 전기로 2배 확대', companies: ['현대제철'] });
   assert.equal(thin.status, '조사대기');
-  assert.ok(thin.hold.some((h) => h.includes('원문 URL')));
   assert.ok(thin.hold.some((h) => h.includes('제목 숫자 근거 없음')));
-  const full = {
-    title: 'LS일렉트릭, 부산 변압기 생산능력 2배로', companies: ['엘에스일렉트릭'], source_url: 'https://dart.fss.or.kr/x',
-    source_date: '2026-08-14', content_hash: 'ab', facts: ['부산 생산능력 2,286억원→4,840억원'], numbers: ['2,286억원', '4,840억원'],
-    derived_numbers: [{ value: '2배', method: '증감률' }], coverage: { google: 'ok', naver: 'ok', dandok: 'ok', verdict: '단독 유력' },
-    company_disclosed: false, comparison: 'HD현대일렉트릭 같은 기간 생산능력', impact: '북미 수주 대응', questions: ['증설 완료 시점?', '라인 수?'],
-    size_scores: { novelty: 2, numbers: 2, scale: 1, beat: 2, timing: 1, expansion: 1, exclusivity: 2 },
-  };
-  const ok = checkCandidate(full);
-  assert.equal(ok.status, '추천', JSON.stringify(ok.hold));
-  assert.equal(ok.size.grade, '톱');
-  assert.equal(checkCandidate({ ...full, coverage: { ...full.coverage, verdict: '이미 남' } }).status, '탈락');
-  const viaBing = checkCandidate({ ...full, coverage: { ...full.coverage, google: 'failed', bing: 'ok' } });
-  assert.equal(viaBing.status, '추천', JSON.stringify(viaBing.hold));
-  const noWeb = checkCandidate({ ...full, coverage: { ...full.coverage, google: 'failed', bing: 'failed' } });
-  assert.ok(noWeb.hold.some((h) => h.includes('웹 색인')));
-  const failedChannel = checkCandidate({ ...full, coverage: { ...full.coverage, naver: 'failed' } });
-  assert.equal(failedChannel.status, '조사대기');
-  assert.ok(checkCandidate({ ...full, derived_numbers: [{ value: '2배', method: '추정' }] }).hold.some((h) => h.includes('허용되지 않은')));
-  const viaTool = await call('candidate_check', { candidate: full });
-  assert.match(viaTool.text, /판정: 추천/);
+  const opts = evidencePrivate();
+  const c = await verifiedFixture(opts);
+  assert.equal(checkCandidate(c).status, '조사대기'); // raw fields cannot bypass validation
+  const good = await call('candidate_check', { candidate: c }, opts);
+  assert.match(good.text, /판정: 추천/);
+  assert.match(good.text, /단독 미확정/);
+  assert.doesNotMatch(good.text, /단독 확실/);
+  assert.match((await call('candidate_check', { candidate: c })).text, /판정: 조사대기/); // private receipt cannot be read publicly
+  assert.match((await call('candidate_check', { candidate: { ...c, coverage: { verdict: '이미 남' } } }, opts)).text, /판정: 탈락/);
+});
+
+test('receipts bind source URL, hash, dates, excerpts, company and search queries', async () => {
+  const opts = evidencePrivate();
+  const c = await verifiedFixture(opts);
+  const mutations = [
+    { source_url: 'https://example.com/not-verified' }, { content_hash: 'not-a-real-hash' },
+    { source_evidence_id: crypto.randomUUID() }, { source_date: '2000-01-01' }, { source_date: '2030-01-01' },
+    { facts: ['현대제철 인천 전기로 999억원 투자라는 없는 문장'] }, { numbers: ['999억원'] },
+    { title: '현대제철 전기로 999억원', numbers: ['100억원'] },
+    { companies: ['포스코'] }, { news_evidence_ids: [c.news_evidence_ids[0], c.news_evidence_ids[0]] },
+    { event_terms: ['기부'] }, { derived_numbers: [{ value: '2배', method: '증감률' }] },
+  ];
+  for (const patch of mutations) {
+    const r = await call('candidate_check', { candidate: { ...c, ...patch } }, opts);
+    assert.match(r.text, /판정: 조사대기/, JSON.stringify(patch) + r.text);
+  }
+  const ctx = { private: true, env: opts.env, now: new Date('2026-10-28T00:00:00Z') };
+  assert.equal((await verifyEvidence(ctx, c)).sourceOk, false); // expired
+  const sub = await call('candidate_submit', { candidates: [{ ...c, source_evidence_id: 'fake' }] }, opts);
+  assert.match(sub.text, /\[조사대기\]/);
+  assert.doesNotMatch(sub.text, /\[추천\]/);
+});
+
+test('old, missing and future publication dates do not get refreshed by retrieval', async () => {
+  for (const date of ['2000-01-01', '2030-01-01', '2026-02-30']) {
+    const opts = evidencePrivate();
+    const c = await verifiedFixture(opts, { date });
+    assert.match((await call('candidate_check', { candidate: c }, opts)).text, /판정: 조사대기/);
+  }
+  const opts = evidencePrivate();
+  const c = await verifiedFixture(opts, { body: '접수 마감일: 2026-10-24 현대제철 인천 전기로 투자금액 100억원을 공개했다.' });
+  assert.match((await call('candidate_check', { candidate: c }, opts)).text, /게시일을 원문에서 확인하지 못했거나/);
+  assert.equal(publicationDate('접수 마감일: 2026-10-24', 'https://www.motie.go.kr/a'), null);
+  assert.equal(publicationDate('게시일: 2026.10.24 마감일: 2026.11.30', 'https://www.motie.go.kr/a'), '2026-10-24');
+});
+
+test('self-reported ok cannot override actual failed, malformed, stale or nonzero searches', async () => {
+  for (const news of [
+    { 'https://naverapihub.': new Response('failure', { status: 500 }) },
+    { 'https://naverapihub.': Response.json({ error: 'not items' }) },
+    { 'https://naverapihub.': Response.json({ items: [{ title: '현대제철 전기로 투자', pubDate: 'Tue, 01 Jan 2030 09:00:00 +0900' }] }) },
+    { 'https://news.google.com/': new Response('<rss><channel><item><title>날짜 없음</title></item></channel></rss>'),
+      'https://www.bing.com/': new Response('<rss><channel><item><title>날짜 없음</title></item></channel></rss>') },
+    { [DATA + 'tools/dandok.json']: Response.json({ status: 'ok', sourceGeneratedAt: '2026-01-01', items: [] }) },
+    { 'https://naverapihub.': Response.json({ items: [{ title: '현대제철 전기로 투자', pubDate: 'Sun, 25 Oct 2026 09:00:00 +0900', link: 'https://news.example/1' }] }) },
+  ]) {
+    const opts = evidencePrivate();
+    const c = await verifiedFixture(opts, { news });
+    assert.match((await call('candidate_check', { candidate: c }, opts)).text, /판정: 조사대기/);
+  }
+});
+
+test('DART frame failures issue no source proof; document ZIP gives full hash and receipt', async () => {
+  const opts = evidencePrivate();
+  const url = 'https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261024000001';
+  opts.fetch = fakeFetch({ [url]: new Response(`<html><script>viewDoc('20261024000001','1','0','0','100','dart3.xsd');</script>틀 페이지</html>`,
+    { headers: { 'Content-Type': 'text/html' } }) });
+  const frame = await call('source_document', { url }, opts);
+  assert.match(frame.text, /본문 조회 실패/);
+  assert.doesNotMatch(frame.text, /검증 기록 ID:/);
+  opts.env.DART_API_KEY = 'test-dart-key';
+  opts.fetch = fakeFetch({ 'https://opendart.fss.or.kr/api/document.xml': new Response(makeZip('a.xml', Buffer.from('<DOC>현대제철 인천 전기로 투자 100억원</DOC>'))) });
+  const doc = await call('dart_find_text', { rcp_no: '20261024000001', word: '전기로' }, opts);
+  assert.match(doc.text, /sha256:[0-9a-f]{64}/);
+  assert.match(doc.text, /검증 기록 ID: [0-9a-f-]{36}/);
 });
 
 test('packages, daily limit and feedback live in the private store', async () => {
@@ -365,9 +444,8 @@ test('packages, daily limit and feedback live in the private store', async () =>
   assert.match(list.text, /\[발제함\] ls-부산-capa/);
   assert.match((await call('scoop_packages', { name: 'ls-부산-capa' }, opts)).text, /근거2/);
   assert.ok((await call('package_save', { name: 'x', title: 't', state: '모름', body: 'b' }, opts)).isError);
-  const base = { companies: ['현대제철'], source_url: 'https://dart.fss.or.kr/x', source_date: '2026-10-24', content_hash: 'h',
-    facts: ['f'], numbers: ['1건'], coverage: { google: 'ok', naver: 'ok', dandok: 'ok', verdict: '단독 확실' }, company_disclosed: false,
-    comparison: 'c', impact: 'i', questions: ['q1', 'q2'] };
+  Object.assign(opts.env, { NAVER_CLIENT_ID: 'test-id', NAVER_CLIENT_SECRET: 'test-secret' });
+  const base = await verifiedFixture(opts);
   const many = Array.from({ length: 7 }, (_, i) => ({ ...base, title: `후보 ${i}` }));
   const sub = await call('candidate_submit', { candidates: many }, opts);
   assert.equal((sub.text.match(/\[추천\]/g) ?? []).length, 5);

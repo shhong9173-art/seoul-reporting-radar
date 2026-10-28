@@ -5,6 +5,7 @@ import {
   beatName, clampInt, decodeBytes, decodeEntities, fetchJson, htmlToText, kstDate, kstStamp, matchesQuery,
   readCapped, sha256Hex, textResult, ymd,
 } from './common.mjs';
+import { issueEvidence, publicationDate } from './evidence.mjs';
 import { readZip } from './zip.mjs';
 
 const TIMEOUT_MS = 15000;
@@ -47,12 +48,13 @@ async function rssChannel(ctx, url, days, mapItem = (x) => x) {
     const r = await ctx.fetch(url, { signal: signal(), headers: BROWSER_HEADERS });
     if (!r.ok) return { status: 'failed', error: `HTTP ${r.status}`, items: [] };
     const xml = await r.text();
-    if (!/<rss[\s>]/.test(xml)) return { status: 'failed', error: 'RSS 형식 아님(차단·확인 페이지 가능성)', items: [] };
+    if (!/<rss[\s>]/.test(xml) || !/<channel[\s>]/.test(xml)) return { status: 'failed', error: 'RSS 형식 아님(차단·확인 페이지 가능성)', items: [] };
     const from = kstDate(ctx.now, days);
     const all = rssItems(xml).map(mapItem);
     const items = all.map((x) => ({ ...x, date: kstDay(x.published) }))
-      .filter((x) => x.date && x.date >= from);
-    return { status: 'ok', returned: all.length, items };
+      .filter((x) => x.date && x.date >= from && x.date <= kstDate(ctx.now));
+    const invalid = all.filter((x) => !kstDay(x.published) || kstDay(x.published) > kstDate(ctx.now)).length;
+    return { status: invalid ? 'partial' : 'ok', error: invalid ? `기사 날짜 누락·미래 ${invalid}건` : '', returned: all.length, items };
   } catch (e) {
     return { status: 'failed', error: e.name === 'TimeoutError' ? '시간 초과' : String(e.message ?? e), items: [] };
   }
@@ -95,11 +97,15 @@ async function naverNews(ctx, q, days) {
       if (!r.ok) return { status: 'failed', error: `${ep.label} HTTP ${r.status}`, items: [] };
       const body = await r.json();
       const from = kstDate(ctx.now, days);
-      const all = Array.isArray(body.items) ? body.items : [];
+      if (!Array.isArray(body.items)) return { status: 'failed', error: '뉴스 items 배열 없음', items: [] };
+      const all = body.items;
       const items = all.map((x) => ({ title: stripTags(x.title), url: x.originallink || x.link,
         published: x.pubDate, date: kstDay(x.pubDate), source: (/https?:\/\/(?:www\.)?([^/]+)/.exec(x.originallink || '') || [])[1] ?? '' }))
-        .filter((x) => x.date && x.date >= from);
-      return { status: 'ok', via: ep.label, returned: all.length, items,
+        .filter((x) => x.date && x.date >= from && x.date <= kstDate(ctx.now));
+      const invalid = all.filter((x) => !kstDay(x.pubDate) || kstDay(x.pubDate) > kstDate(ctx.now)).length;
+      return { status: invalid || all.length === 100 ? 'partial' : 'ok',
+        error: invalid ? `기사 날짜 누락·미래 ${invalid}건` : all.length === 100 ? '최신순 100건 상한 — 전체 기간 미조회' : '',
+        via: ep.label, returned: all.length, items,
         note: all.length === 100 && items.length === 100 ? '최신순 100건 상한에 닿음 — 더 오래된 기사는 못 봄' : '' };
     } catch (e) {
       return { status: 'failed', error: `${ep.label} ${e.name === 'TimeoutError' ? '시간 초과' : String(e.message ?? e)}`, items: [] };
@@ -111,8 +117,11 @@ async function naverNews(ctx, q, days) {
 async function dandokIndex(ctx, q, days) {
   try {
     const v = await fetchJson(ctx, 'tools/dandok.json');
+    const age = ctx.now.getTime() - Date.parse(v.sourceGeneratedAt);
+    if (v.status !== 'ok' || !Array.isArray(v.items) || !Number.isFinite(age) || age < 0 || age > 48 * 3600000)
+      return { status: 'failed', error: '단독 색인 실패·오래됨·생성일 미확인', items: [] };
     const from = kstDate(ctx.now, Math.min(days, 120));
-    const items = (v.items ?? []).filter((r) => r.published >= from && matchesQuery(q, r.title, r.companies))
+    const items = (v.items ?? []).filter((r) => r.published >= from && r.published <= kstDate(ctx.now) && matchesQuery(q, r.title, r.companies))
       .map((r) => ({ title: r.title, url: r.url, date: r.published, source: r.source }));
     return { status: 'ok', returned: (v.items ?? []).length, items, note: `색인 범위 최근 ${Math.min(days, 120)}일 · ${v.status ?? ''}` };
   } catch (e) {
@@ -153,7 +162,8 @@ export async function newsCheck(ctx, args) {
       (hits ? ' 후보가 있으면 이미 났을 수 있으니 먼저 연다.' : '')
     : hits ? `판정: 관련 보도 후보 ${hits}건 — 같은 사건·같은 각도인지 열어 봐야 함.`
       : '판정: 필수 채널(네이버·웹 색인·[단독] 색인) 모두 0건 — 미보도 증거 아님. 낱말을 바꿔 2~3번, 전문지·온라인 매체(더벨·딜사이트 등)는 웹검색으로 따로 본다.';
-  out.splice(1, 0, verdict);
+  out.splice(1, 0, verdict, await issueEvidence(ctx, 'news', { q, days, complete: !incomplete.length,
+    hits, matches: Object.values(channels).flatMap((r) => r.items.slice(0, 30).map((x) => ({ url: x.url, date: x.date, title: x.title }))), channels: Object.fromEntries(Object.entries(channels).map(([name, r]) => [name, { status: r.status, returned: r.returned, hits: r.items.length }])) }));
   return textResult(out.join('\n'));
 }
 
@@ -237,9 +247,11 @@ export async function sourceDocument(ctx, args) {
   try { bytes = await readCapped(response, 4_000_000); } catch (e) { return textResult(String(e.message), true); }
   let { text: raw, charset } = decodeBytes(bytes, type);
   let sections = [];
+  let frameOnly = false;
   const rcp = url.hostname.endsWith('dart.fss.or.kr') && /\/dsaf001\/main\.do$/.test(url.pathname)
     ? url.searchParams.get('rcpNo') : null;
   if (rcp && /^\d{14}$/.test(rcp)) {
+    frameOnly = true;
     sections = dartViewerDocs(raw, rcp);
     if (sections.length) {
       try {
@@ -248,6 +260,7 @@ export async function sourceDocument(ctx, args) {
           const vb = await readCapped(viewer, 4_000_000);
           ({ text: raw, charset } = decodeBytes(vb, viewer.headers.get('Content-Type') ?? ''));
           url = new URL(sections[0].viewer);
+          frameOnly = false;
         }
       } catch { /* keep the frame page and say so below */ }
     }
@@ -256,11 +269,15 @@ export async function sourceDocument(ctx, args) {
   const hash = await sha256Hex(text);
   const slice = text.slice(offset, offset + limit);
   const out = [`원문: ${url.href}`, `받은 시각 ${kstStamp(ctx.now)} · 문자셋 ${charset} · 전체 ${text.length}자 · 내용 해시 sha256:${hash}`];
-  if (rcp && sections.length) {
+  out.push(`검증 게시일: ${frameOnly ? '미확인' : publicationDate(raw, url.href) ?? '미확인(명시된 게시일을 찾지 못함)'}`);
+  if (!frameOnly && slice.trim()) out.splice(1, 0, await issueEvidence(ctx, 'source', {
+    url: url.href, hash, date: publicationDate(raw, url.href), excerpt: slice,
+  }));
+  if (rcp && sections.length && !frameOnly) {
     out.push(`DART 본문 문서 ${sections.length}개 중 첫 문서를 읽음. 다른 문서는 아래 주소로 source_document를 다시 부른다:`);
     for (const d of sections.slice(0, 12)) out.push(`- ${d.text || `문서 ${d.dcmNo}/${d.eleId}`}: ${d.viewer}`);
   } else if (rcp) {
-    out.push('DART 틀 페이지에서 본문 문서 주소를 찾지 못함 — 아래는 틀 페이지 텍스트. dart_find_text(기자 전용)를 쓴다.');
+    out.push('DART 본문 주소 추출 또는 본문 조회 실패 — 아래는 틀 페이지 텍스트. dart_find_text(기자 전용)를 쓴다.');
   }
   out.push(
 
@@ -357,7 +374,11 @@ export async function dartFindText(ctx, args) {
     const hits = [];
     let i = text.indexOf(word);
     while (i >= 0) { hits.push(i); i = text.indexOf(word, i + word.length); }
-    out.push(`\n■ ${entry.name} · ${text.length}자 · ${hits.length}곳 · sha256:${hash.slice(0, 16)}…`);
+    out.push(`\n■ ${entry.name} · ${text.length}자 · ${hits.length}곳 · sha256:${hash}`);
+    const excerpt = hits.slice(0, Math.max(0, limit - found)).map((at) => text.slice(Math.max(0, at - 160), at + word.length + 160)).join('\n');
+    const sourceUrl = `https://dart.fss.or.kr/dsaf001/main.do?rcpNo=${rcp}`;
+    if (excerpt) out.push(await issueEvidence(ctx, 'source', { url: sourceUrl, hash,
+      date: publicationDate('', sourceUrl), excerpt }));
     for (const at of hits.slice(0, Math.max(0, limit - found))) {
       out.push(`… ${text.slice(Math.max(0, at - 160), at + word.length + 160).replace(/\s+/g, ' ')} …`);
       found++;

@@ -1,13 +1,14 @@
 // Private reporter state: scoop packages, submitted candidates, keep/kill
 // feedback. Lives in a SQLite-backed Durable Object behind the access token,
 // never in the public repository or GitHub Pages.
-import { POLICY, checkCandidate, formatCheck } from './scoring.mjs';
+import { POLICY, checkVerifiedCandidate, formatCheck } from './scoring.mjs';
 import { kstDate, textResult } from './common.mjs';
 
 export const PACKAGE_STATES = ['미발제·확인 필요', '발제함', '보류', '접음'];
 export const FEEDBACK_VERDICTS = ['씀', '킬', '보류', '봤음'];
 
 const SCHEMA = [
+  `CREATE TABLE IF NOT EXISTS evidence (id TEXT PRIMARY KEY, body TEXT NOT NULL, created_at TEXT NOT NULL)`,
   `CREATE TABLE IF NOT EXISTS packages (name TEXT PRIMARY KEY, title TEXT NOT NULL, state TEXT NOT NULL,
      body TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)`,
   `CREATE TABLE IF NOT EXISTS candidates (id INTEGER PRIMARY KEY AUTOINCREMENT, day TEXT NOT NULL, title TEXT NOT NULL,
@@ -43,6 +44,14 @@ export class RadarStore {
   run({ action, args = {}, now }) {
     const at = now ?? new Date().toISOString();
     switch (action) {
+      case 'evidence.put':
+        // Bounded private excerpts, 24-hour retention. No public ingest route.
+        this.sql.exec('DELETE FROM evidence WHERE created_at < ?', new Date(Date.parse(at) - 86400000).toISOString());
+        this.sql.exec('INSERT INTO evidence (id, body, created_at) VALUES (?, ?, ?)', args.id, args.body, at);
+        this.sql.exec('DELETE FROM evidence WHERE id NOT IN (SELECT id FROM evidence ORDER BY created_at DESC LIMIT 1000)');
+        return { saved: true };
+      case 'evidence.get':
+        return { row: this.all('SELECT body, created_at FROM evidence WHERE id = ?', args.id)[0] ?? null };
       case 'packages.list':
         return { rows: this.all('SELECT name, title, state, updated_at FROM packages ORDER BY updated_at DESC LIMIT 200') };
       case 'packages.get':
@@ -144,7 +153,7 @@ export async function candidateSubmit(ctx, args) {
   let used = rows.filter((r) => r.status === '추천').length;
   const out = [`후보 제출 · ${day} · 오늘 추천 저장 ${used}/${POLICY.dailyLimit}`];
   for (const c of list) {
-    const result = checkCandidate(c);
+    const result = await checkVerifiedCandidate(ctx, c);
     if (rows.some((r) => r.title === result.title)) { out.push(`\n- 중복(오늘 이미 제출): ${result.title}`); continue; }
     let status = result.status;
     if (status === '추천' && used >= POLICY.dailyLimit) status = '조사대기(하루 한도 초과)';
