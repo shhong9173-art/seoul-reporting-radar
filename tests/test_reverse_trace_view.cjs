@@ -57,6 +57,6 @@ for(const tag of [
  assert(page.includes(tag),"Missing Y/P/N safety display marker: "+tag);
 }
 assert(!page.includes("innerHTML"),"Untrusted press headlines must be rendered only with textContent");
-const index=fs.readFileSync("index.html","utf8");
+const index=fs.readFileSync("index.html","utf8")+fs.readFileSync("pages.html","utf8");  // 홈 메뉴 또는 모든 페이지 목록
 assert(index.includes('href="reverse-trace.html"'));
 console.log("PASS reverse trace source, verified label gating, and safe DOM view");
