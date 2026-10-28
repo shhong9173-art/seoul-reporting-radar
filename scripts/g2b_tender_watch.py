@@ -226,6 +226,7 @@ def main():
    temp.write_text(json.dumps(report,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
    temp.replace(out)
    source["status"]="checked";source["checkedKinds"]=len(report["checks"])
+   source["note"]="Provider answered for every work type in the window; notices are not awards or contracts."
   except (ValueError,OSError,TimeoutError,TypeError) as e:
    source["status"]="source_error";source["errorType"]=type(e).__name__
    if isinstance(e,ProviderCallsFailed):source["providerChecks"]=e.checks

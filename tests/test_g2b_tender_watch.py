@@ -106,4 +106,15 @@ class Tender(unittest.TestCase):
   note=p.failure_note({"providerChecks":checks})
   self.assertIn("not a key-permission signal",note)
   self.assertIn("refused the key",p.failure_note({"providerChecks":[{"providerMessage":"HTTP 403 30 등록되지 않은 서비스키"}]}))
+ def test_success_status_does_not_carry_failure_note(self):
+  import os,tempfile
+  from unittest.mock import patch
+  with tempfile.TemporaryDirectory() as d:
+   out=os.path.join(d,"t.json");st=os.path.join(d,"s.json")
+   with patch.dict(os.environ,{"G2B_API_KEY":"fake-key"}),patch.object(p,"build",lambda key,previous=None:{"checks":[{},{}]}),\
+        patch.object(sys,"argv",["x","--out",out,"--status",st]):
+    p.main()
+   status=json.loads(Path(st).read_text(encoding="utf-8"))
+  self.assertEqual(status["status"],"checked")
+  self.assertNotIn("permission",status["note"])
 if __name__=="__main__":unittest.main()
