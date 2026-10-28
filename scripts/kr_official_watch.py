@@ -3,6 +3,8 @@
 - 공장등록(15087611, getFctryPrdctnService_v2): 출입처 회사명으로 등록 공장 목록을 받아, 이름 규칙(data/factory_watch.json)에 맞는
   공장만 남긴다(계열사 제외). 직전 확인 대비 새 공장·고용인원 변화·주생산품·업종·주소 변화와, 등록일이 최근 120일인 공장을 표시.
 - 관보 입법예고(15109162, getApiPblancLgsltList): 최근 발행분에서 출입처 업종 낱말이 제목(또는 소관 부처 + 개정이유)에 있는 것만.
+- 환경영향평가(EIASS 평가정보조회): 출입처 이름이 사업명에 든 환경영향평가·소규모환경영향평가 사업의 새 단계(초안·본안·변경협의 등).
+  공장 신·증설은 보도자료보다 평가서 접수가 먼저인 경우가 많다. EIASS는 중간 인증서를 보내지 않아 Sectigo 중간 인증서를 받아 붙인다.
 - 결과는 기자 전용 저장소(kr-official)로만. 공개 로그는 건수만. 조회 실패는 0건이 아니다.
 """
 from __future__ import annotations
@@ -34,6 +36,19 @@ GAZETTE_DAYS = 7
 GAZETTE_KEEP = 60
 FACTORY_FIELDS = ("fctryManageNo", "cmpnyNm", "rnAdres", "rprsntvNm", "cvplChrgOrgnztNm", "allEmplyCo", "frstFctryRegistDe",
                   "indutyNm", "mainProductCn", "rprsntvIndutyCode", "irsttNm")
+EIASS = "https://www.eiass.go.kr/searchApi/search.do"
+EIASS_PAGE = "https://www.eiass.go.kr/biz/base/info/searchListNew.do?menu=biz&biz_gubn="
+EIASS_CA = "http://crt.sectigo.com/SectigoRSADomainValidationSecureServerCA.crt"
+EIA_KINDS = [  # (분류, urlString, viewName) — 누리집 검색 화면이 보내는 값 그대로(10-29 열람)
+    ("환경영향평가", "&alias=1&businessExquery=%3CCHOAN%3Acontains%3AY%3E%20%7C%20(%3CBONAN%3Acontains%3AY%3E%20%3CBIZ_TYPE_CD%3Acontains%3AA%7CB%7CC%3E)"
+     "%20%7C%20%3CBYUN%3Acontains%3AY%3E&orgnCd=", "/eiass/user/biz/base/info/searchListEia_searchApi"),
+    ("소규모환경영향평가", "&alias=2&perssGubn=M&completeFl=&businessExquery=%3CCHOAN%3Acontains%3AY%3E%20%7C%20(%3CBONAN%3Acontains%3AY%3E%20"
+     "%3CBIZ_TYPE_CD%3Acontains%3A0%7CA%7CB%3E)&orgnCd=", "/eiass/user/biz/base/info/searchListPer_searchApi"),
+]
+EIA_DAYS = 400       # 접수일이 이보다 오래된 행은 새 단계로 세지 않는다
+EIA_KEEP = 180
+# 계열사·동명 회사는 출입처가 아니다(AGENTS: 포스코퓨처엠·포스코인터내셔널은 포스코가 아니다).
+EIA_REJECT = re.compile(r"포스코(?:퓨처엠|인터내셔널|이앤씨|E&C|DX|플로우|엠텍|스틸리온|모빌리티솔루션|와이드|청암재단)|영풍문고|현대자동차(?:써비스|정비|판매)")
 LEGAL = re.compile(r"\(주\)|㈜|주식회사|\(유\)|유한회사|\(합\)|\s+")
 
 # 관보 입법예고: 팀별 낱말. 제목에 있으면 남기고, 개정이유에만 있으면 소관 부처가 출입처 관련일 때만 남긴다.
@@ -274,11 +289,100 @@ def gazette(key, now, previous, *, get=None, sleep=time.sleep):
     return sorted(kept.values(), key=lambda g: (g["date"], g["id"]), reverse=True), check
 
 
-def run(cfg, key, *, now, previous=None, get=None, sleep=time.sleep):
+def eiass_verify(get):
+    """certifi + Sectigo 중간 인증서(서버가 사슬을 보내지 않음). 검증을 끄지 않는다."""
+    import certifi
+    import ssl
+    import tempfile
+    r = get(EIASS_CA, headers=UA, timeout=20)
+    pem = ssl.DER_cert_to_PEM_cert(r.content) if not r.content.startswith(b"-----") else r.content.decode()
+    path = Path(tempfile.gettempdir()) / "eiass_ca_bundle.pem"
+    path.write_text(Path(certifi.where()).read_text() + "\n" + pem)
+    return str(path)
+
+
+def eia_rows(html):
+    """PC 표(disPc) 행: 사업코드·사업구분·사업명·접수일·완료일·진행현황."""
+    m = re.search(r'<table class="tbl01 disPc">(.*?)</table>', html, re.S)
+    out = []
+    for tr in re.findall(r"<tr>(.*?)</tr>", m.group(1) if m else "", re.S):
+        cell = {}
+        for head, body in re.findall(r'data-cell-header="([^":]+?)\s*:\s*"[^>]*>(.*?)</td>', tr, re.S):
+            cell[head.strip()] = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", body)).strip()
+        t = re.search(r'data-cell-header="사업구분 : "\s*title="([^"]*)"', tr)
+        if cell.get("사업코드") and cell.get("사업명"):
+            out.append({"code": cell["사업코드"], "category": (t.group(1) if t else cell.get("사업구분", "")), "name": cell["사업명"],
+                        "received": cell.get("접수일", "").replace(".", "-"), "completed": cell.get("완료일", "").replace(".", "-"),
+                        "stage": cell.get("진행현황", "")})
+    return out
+
+
+def eia_name_rx(c):
+    alt = "|".join(re.escape(q) for q in c["queries"])
+    return re.compile(rf"(?:^|[\s(（㈜·,\[]){'(?:(?:주식회사|\\(주\\)|㈜)\\s*)?'}(?:{alt})", re.I)
+
+
+def eia(cfg, now, previous, *, post=None, get=None, sleep=time.sleep):
+    """출입처 이름이 사업명에 든 환경영향평가·소규모 평가의 새 단계. 회사마다 첫 검색어 1개 × 분류 2개."""
+    if post is None or get is None:
+        import requests
+        post, get = post or requests.post, get or requests.get
+    prev = previous or {}
+    seen = set(prev.get("eiaSeen") or [])
+    baseline = "eiaSeen" not in prev
+    stamp = now.isoformat(timespec="seconds")
+    try:
+        verify = eiass_verify(get)
+    except Exception as e:  # noqa: BLE001
+        return [x for x in prev.get("eia") or [] if isinstance(x, dict)], sorted(seen), [{"source": "환경영향평가(EIASS)", "status": "failed",
+                                                                                        "error": f"인증서 사슬 {type(e).__name__}"}]
+    since = (now - dt.timedelta(days=EIA_DAYS)).strftime("%Y-%m-%d")
+    items = {x["id"]: x for x in prev.get("eia") or [] if isinstance(x, dict) and x.get("id")}
+    checks, ok, failed = [], 0, []
+    ids_now = set()
+    for c in cfg["companies"]:
+        rx, q = eia_name_rx(c), c["queries"][0]
+        for kind, ext, view in EIA_KINDS:
+            data = {"query": q, "collection": "business", "urlString": ext, "viewName": view, "currentPage": 1, "sort": "DATE/DESC", "listCount": 10}
+            try:
+                r = post(EIASS, data=data, headers={**UA, "X-Requested-With": "XMLHttpRequest", "Referer": EIASS_PAGE}, timeout=30, verify=verify)
+                if r.status_code != 200:
+                    raise RuntimeError(f"HTTP {r.status_code}")
+                rows = eia_rows(r.text)
+                ok += 1
+            except Exception as e:  # noqa: BLE001
+                failed.append(f"{c['company']}·{kind}:{str(e)[:30] or type(e).__name__}")
+                sleep(0.5)
+                continue
+            for x in rows:
+                if not rx.search(x["name"]) or EIA_REJECT.search(x["name"]):
+                    continue
+                eid = f"eia:{x['code']}:{x['received']}:{x['stage']}"
+                ids_now.add(eid)
+                if eid in seen or baseline or eid in items or x["received"] < since:
+                    continue
+                items[eid] = {"id": eid, "company": c["company"], "kind": kind, **x, "url": EIASS_PAGE, "firstSeen": stamp}
+            sleep(0.4)
+    total = len(cfg["companies"]) * len(EIA_KINDS)
+    checks.append({"source": "환경영향평가(EIASS)", "status": "ok" if ok == total else ("partial" if ok else "failed"),
+                   "returned": ok, **({"error": "; ".join(failed[:4])} if failed else {})})
+    keep_from = (now - dt.timedelta(days=EIA_KEEP)).isoformat()
+    kept = sorted((v for v in items.values() if str(v.get("firstSeen")) >= keep_from), key=lambda v: (v.get("received") or "", v["id"]), reverse=True)
+    for v in kept:
+        v["isNew"] = v["firstSeen"] == stamp
+    return kept[:200], sorted(seen | ids_now), checks
+
+
+def run(cfg, key, *, now, previous=None, get=None, sleep=time.sleep, post=None):
     stamp = now.isoformat(timespec="seconds")
     facs, checks, fac_events, sigs, rule_counts = factories(cfg, key, now, previous, get=get, sleep=sleep)
     gz, gcheck = gazette(key, now, previous, get=get, sleep=sleep)
     checks.append(gcheck)
+    if get is None or post is not None:  # 시험에서 get만 넘기면 EIASS는 건드리지 않는다
+        eia_items, eia_seen, eia_checks = eia(cfg, now, previous, post=post, get=get, sleep=sleep)
+        checks += eia_checks
+    else:
+        eia_items, eia_seen = list((previous or {}).get("eia") or []), list((previous or {}).get("eiaSeen") or [])
     keep_from = (now - dt.timedelta(days=120)).isoformat()
     events = [e for e in (previous or {}).get("events", []) if isinstance(e, dict) and e.get("detectedAt", "") >= keep_from]
     seen = {e.get("id") for e in events}
@@ -288,10 +392,12 @@ def run(cfg, key, *, now, previous=None, get=None, sleep=time.sleep):
     return {"schema": SCHEMA, "generatedAt": stamp, "status": "partial" if failed else "complete", "checks": checks,
             "baselineSince": (previous or {}).get("baselineSince") or ((previous or {}).get("generatedAt") if previous else None) or stamp,
             "factories": facs, "ruleSigs": sigs, "ruleCounts": rule_counts, "gazette": gz, "events": events[:400],
+            "eia": eia_items, "eiaSeen": eia_seen,
             "rules": ["공장등록 정보는 지자체 등록 기준이다. 등록일·고용인원은 신고값이라 실제 가동·채용과 다를 수 있다.",
                       "회사명 검색은 이름 규칙으로 계열사를 거른다. 이름이 비슷한 다른 회사가 섞일 수 있으니 주소·대표자로 확인한다.",
                       "'목록에서 빠짐'은 폐업·이전·이름 변경·등록 정정일 수 있다. 지자체·회사 확인 전 폐쇄로 쓰지 않는다.",
                       "관보 입법예고는 공개 공고다. 보도자료와 같은 날 나오는 경우가 많으니 단독 근거로 쓰지 않는다.",
+                      "환경영향평가는 사업명에 출입처 이름이 든 것만이다. 평가서 접수·초안은 계획 단계라 착공·투자 확정이 아니다. 규모·일정은 평가서 원문과 회사로 확인한다.",
                       "조회 실패는 0건이 아니라 미확인."],
             "confirmedScoops": 0}
 

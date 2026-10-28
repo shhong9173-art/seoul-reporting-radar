@@ -1494,3 +1494,20 @@ test('kr_fuel: a new model name is A, an EV range change B, other rows C; unset 
   assert.match(r2.text, /- 국내 연비 신고: 미설정 에너지공단 자동차 표시연비\(공공데이터포털 15139827\)\(공공데이터포털 활용신청 필요/);
   assert.match((await call('kr_fuel', {}, opts)).text, /미확인\(0건 아님\): 공공데이터포털 활용신청 필요/);
 });
+
+test('kr_official: 환경영향평가 new stage of a beat project is A and listed in the tool', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const doc = { schema: 'kr_official/v1', generatedAt: '2026-10-26T08:10:00+09:00', checks: [{ source: '환경영향평가(EIASS)', status: 'ok', returned: 66 }],
+    factories: [], events: [], gazette: [], eiaSeen: [],
+    eia: [{ id: 'eia:ND2026O009:2026-10-25:초안(진행)', company: '고려아연', kind: '환경영향평가', code: 'ND2026O009', category: '폐기물처리시설',
+      name: '고려아연(주) 온산제련소 제2 폐기물처리시설 증설', received: '2026-10-25', completed: '', stage: '초안(진행)',
+      url: 'https://www.eiass.go.kr/biz/base/info/searchListNew.do?menu=biz&biz_gubn=', firstSeen: '2026-10-26T08:10:00+09:00', isNew: true }] };
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/kr-official', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
+  const r = await call('radar_today', { hours: 72 }, opts);
+  assert.match(r.text.split('[A · ')[1].split('[B · ')[0], /환경영향평가\(환경영향평가\) 초안\(진행\): 고려아연\(주\) 온산제련소 제2 폐기물처리시설 증설 · 폐기물처리시설 · 접수 2026-10-25 — 계획 단계, 착공·투자 확정 아님/);
+  const t = await call('kr_official', {}, opts);
+  assert.match(t.text, /\[환경영향평가 · 사업명에 출입처 이름 · 새 단계\] 1건\n- \[신규\] 2026-10-25 접수 · 고려아연 · 환경영향평가 초안\(진행\)/);
+  const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
+  assert.deepEqual(items.items.find((x) => x.id.startsWith('eia:')).check.terms, ['온산제련소', '환경영향평가']);
+});
