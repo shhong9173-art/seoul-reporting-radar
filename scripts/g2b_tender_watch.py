@@ -90,7 +90,8 @@ def official_link(value):
   return None
  return value[:450]
 
-def query(kind,key,start,end,get=fetch,max_pages=10,per_page=100):
+# 일일 공고가 많은 날은 이틀 창이 1,000건을 넘는다(10-27 물품 921건). 상한 20쪽(2,000건), 하루 1회 실행.
+def query(kind,key,start,end,get=fetch,max_pages=20,per_page=100):
  if kind not in OPERATIONS or not key:raise ValueError("Provider kind/key missing")
  if not re.fullmatch(r"20\d{10}",start) or not re.fullmatch(r"20\d{10}",end) or end<start:
   raise ValueError("Invalid 12-digit period")
@@ -127,23 +128,36 @@ def query(kind,key,start,end,get=fetch,max_pages=10,per_page=100):
  return data,{"workType":kind,"status":"checked","total":count,
               "pages":pages,"matched":len(data)}
 
+# Fixed messages raised by this module (no key, no URL): safe to keep in the public status file.
+SAFE_MESSAGES={"Official response truncated","Missing provider body","Unexpected provider items structure",
+               "Provider totalCount invalid","Provider totalCount negative","Invalid provider response",
+               "Missing response","Official totalCount changed mid-pagination","Provider pagination ended prematurely",
+               "Official result truncated by pagination cap","Provider kind/key missing","Invalid 12-digit period",
+               "Excessive provider pagination"}
 class ProviderCallsFailed(ValueError):
  def __init__(self,checks):
   super().__init__("Provider calls failed; old complete snapshot must be preserved")
   self.checks=checks
 def build(key,get=fetch,now=None,previous=None):
  now=now or datetime.now(KST)
- end=now.strftime("%Y%m%d")+"2359"
+ # 창 끝을 '오늘 23:59'가 아니라 실행 5분 전으로: 넘기는 사이 새 공고가 붙어 totalCount가 바뀌는 일을 줄인다.
+ end=(now-timedelta(minutes=5)).strftime("%Y%m%d%H%M")
  start=(now-timedelta(days=1)).strftime("%Y%m%d")+"0000"
  checks=[];leads=[];errors=0
  for kind in OPERATIONS:
   try:
-   rows,check=query(kind,key,start,end,get=get)
+   try:
+    rows,check=query(kind,key,start,end,get=get)
+   except ValueError as e:
+    if str(e)!="Official totalCount changed mid-pagination":raise
+    rows,check=query(kind,key,start,end,get=get)  # 한 번만 처음부터 다시
+    check["restarted"]=True
    checks.append(check);leads.extend(rows)
   except (OSError,TimeoutError,ValueError,TypeError) as e:
    errors+=1
    check={"workType":kind,"status":"source_error","errorType":type(e).__name__}
    if isinstance(e,ProviderError):check["providerMessage"]=str(e)[:160]
+   elif str(e) in SAFE_MESSAGES:check["errorMessage"]=str(e)
    checks.append(check)
  if errors:raise ProviderCallsFailed(checks)
  seen=set();unique=[]
@@ -179,6 +193,12 @@ def resolve_key(env):
  shared=str(env.get("DATA_GO_KR_SHARED_KEY") or "").strip()
  if shared:return shared,"CUSTOMS_API_KEY (shared data.go.kr account key)"
  return "",None
+def failure_note(source):
+ """Say what the failure actually was; a key-permission note only when the provider said so."""
+ texts=[str(c.get("providerMessage") or "") for c in source.get("providerChecks") or []]+[str(source.get("providerMessage") or "")]
+ if any(re.search(r"(^|\D)30(\D|$)|등록되지 않은|SERVICE_KEY|SERVICE ACCESS DENIED",t) for t in texts):
+  return "Provider refused the key for this dataset (permission not active or key not registered). No 0-count claim."
+ return "Provider call failed (see providerChecks errorType/errorMessage); not a key-permission signal by itself. No 0-count claim."
 def main():
  p=argparse.ArgumentParser()
  p.add_argument("--out",default="digests/g2b_tender_latest.json")
@@ -210,6 +230,7 @@ def main():
    source["status"]="source_error";source["errorType"]=type(e).__name__
    if isinstance(e,ProviderCallsFailed):source["providerChecks"]=e.checks
    elif isinstance(e,ProviderError):source["providerMessage"]=str(e)[:160]
+   source["note"]=failure_note(source)
  path=Path(args.status);path.parent.mkdir(parents=True,exist_ok=True)
  temp=path.with_suffix(".json.tmp")
  temp.write_text(json.dumps(source,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")

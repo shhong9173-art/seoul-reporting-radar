@@ -70,4 +70,40 @@ class Tender(unittest.TestCase):
    if "Cnstwk" in uri:raise OSError("provider failure")
    return make()
   with self.assertRaises(ValueError):p.build("fake-key",get=fake,now=NOW)
+ def test_window_ends_before_run_time_not_midnight(self):
+  seen=[]
+  def fake(uri):
+   seen.append(uri);return make()
+  out=p.build("fake-key",get=fake,now=NOW)
+  self.assertEqual(out["to"],"202610131455")
+  self.assertIn("inqryEndDt=202610131455",seen[0])
+ def test_total_changing_mid_pagination_restarts_once(self):
+  calls={"n":0}
+  def fake(uri):
+   calls["n"]+=1
+   if "Cnstwk" in uri:return make()
+   # 1차: 1쪽 total 150 → 2쪽 total 151(새 공고) → 처음부터 다시: 150, 150
+   totals=[150,151,150,150]
+   total=totals[min(calls["n"]-1,3)]
+   return make(total=total) if calls["n"] in (1,3) else {"response":{"header":{"resultCode":"00"},"body":{"totalCount":total,"items":[
+     {"bidNtceNo":f"R26BK00{i:06d}","bidNtceOrd":"000","bidNtceNm":"사무용품","bidNtceDtlUrl":"https://www.g2b.go.kr/"} for i in range(149)]}}}
+  out=p.build("fake-key",get=fake,now=NOW)
+  goods=[c for c in out["checks"] if c["workType"]=="goods"][0]
+  self.assertTrue(goods["restarted"])
+  self.assertEqual(goods["total"],150)
+ def test_more_than_1000_rows_fit_in_20_pages(self):
+  page={"response":{"header":{"resultCode":"00"},"body":{"totalCount":1500,"items":[
+    {"bidNtceNo":f"R26BK00{i:06d}","bidNtceOrd":"000","bidNtceNm":"사무용품"} for i in range(100)]}}}
+  rows,check=p.query("goods","fake","202610130000","202610131455",get=lambda _:page)
+  self.assertEqual(check["pages"],15)
+ def test_failure_records_fixed_message_and_honest_note(self):
+  def fake(uri):
+   return {"response":{"header":{"resultCode":"00"},"body":{"totalCount":5000,"items":[
+     {"bidNtceNo":f"R26BK00{i:06d}","bidNtceOrd":"000","bidNtceNm":"사무용품"} for i in range(100)]}}}
+  with self.assertRaises(p.ProviderCallsFailed) as ctx:p.build("fake-key",get=fake,now=NOW)
+  checks=ctx.exception.checks
+  self.assertEqual(checks[0]["errorMessage"],"Official result truncated by pagination cap")
+  note=p.failure_note({"providerChecks":checks})
+  self.assertIn("not a key-permission signal",note)
+  self.assertIn("refused the key",p.failure_note({"providerChecks":[{"providerMessage":"HTTP 403 30 등록되지 않은 서비스키"}]}))
 if __name__=="__main__":unittest.main()
