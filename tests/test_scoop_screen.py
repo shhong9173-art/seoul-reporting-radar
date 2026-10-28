@@ -110,11 +110,11 @@ class Judge(unittest.TestCase):
         self.c = s.select(CLUES, STATS, now=NOW)[0] if False else next(
             r for r in s.select(CLUES, STATS, now=NOW) if r["id"] == "clue:a1")
 
-    def test_same_number_beats_related(self):
+    def test_same_number_without_period_is_only_related(self):
         art = {"title": "현대차 튀르키예 공장 생산 9만5900대로 감소", "text": "", "url": "u1", "date": "2026-09-01"}
         verdict, ev = s.judge(self.c, channels([art]), now=NOW)
-        self.assertEqual(verdict, "같은 수치 선행")
-        self.assertIn("9만5900", ev[0]["why"])
+        self.assertEqual(verdict, "관련 보도 있음")
+        self.assertIn("동일 사건 미확정", ev[0]["why"])
 
     def test_related_needs_company_and_terms(self):
         rel = {"title": "현대차 HMTR 튀르키예 공장 감산", "text": "", "url": "u2", "date": "2026-09-01"}
@@ -147,6 +147,33 @@ class Judge(unittest.TestCase):
         both_web_down["bing"]["status"] = "failed"
         both_web_down["google"]["status"] = "failed"
         self.assertEqual(s.judge(self.c, both_web_down, now=NOW)[0], "미확인")
+
+    def test_entity_number_and_date_false_positives(self):
+        c = {"company": "포스코", "terms": ["투자", "공장"], "numbers": ["100억원"], "ratios": []}
+        for title in ["포스코인터내셔널 공장 투자 100억원", "포스코 기부 100억원", "포스코퓨처엠 투자 100억원"]:
+            with self.subTest(title=title):
+                art = {"title": title, "date": "2026-10-26", "url": "test"}
+                self.assertEqual(s.judge(c, channels([art]), now=NOW), ("미보도 후보", []))
+        for date in ["2030-01-01", None, "2026-02-30", "bad"]:
+            art = {"title": "포스코 공장 투자 100억원", "date": date, "url": "test"}
+            self.assertEqual(s.judge(c, channels([art]), now=NOW), ("미확인", []))
+
+    def test_legal_entities_and_particles(self):
+        for company, wrong in [("LS지주", "LS전선"), ("GS", "GS칼텍스"), ("OCI", "OCI홀딩스"),
+                               ("세아제강", "세아제강지주"), ("태광", "태광산업"), ("현대차", "현대차그룹")]:
+            self.assertFalse(s.company_in_text(company, wrong + " 투자"))
+        self.assertTrue(s.company_in_text("포스코", "포스코는 공장에 투자했다"))
+        self.assertTrue(s.company_in_text("현대차", "현대자동차, 공장 증설"))
+        self.assertFalse(s.company_in_text("기아", "기아차량부품회사"))
+
+    def test_matching_numbers_need_unit_period_and_event_context(self):
+        c = {**self.c, "terms": ["튀르키예", "생산"], "period": "2026년 상반기", "unit": "대"}
+        art = {"title": "현대차 2026년 상반기 튀르키예 생산 9만5900대", "date": "2026-10-26", "url": "test"}
+        self.assertEqual(s.judge(c, channels([art]), now=NOW)[0], "같은 수치 선행")
+        for title in [art["title"].replace("대", "억원"), art["title"].replace("2026년", "2025년"),
+                      art["title"].replace("9만5900대", "19만5900대")]:
+            self.assertNotEqual(s.judge(c, channels([{**art, "title": title}]), now=NOW)[0], "같은 수치 선행")
+        self.assertEqual(s.judge(c, channels([art], naver_status="failed"), now=NOW)[0], "미확인")
 
 
 class R:

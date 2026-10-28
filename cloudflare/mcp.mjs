@@ -5,7 +5,7 @@ import { dartFilings, dartFindText, g2bBids, newsCheck, sourceDocument } from '.
 import { candidateSubmit, packageSave, scoopPackages, FEEDBACK_VERDICTS, PACKAGE_STATES } from './store.mjs';
 import { judgeItems, weeklyReview } from './review.mjs';
 import { customsTrade, ecosData, ecosFind, kosisData, kosisFind } from './stats_live.mjs';
-import { POLICY, checkCandidate, formatCheck } from './scoring.mjs';
+import { POLICY, checkVerifiedCandidate, formatCheck } from './scoring.mjs';
 import { scoopScreen } from './screen.mjs';
 import { krOfficial, krSignals, krStats, pageChanges, partnerFilings, tradeRemedies, usComments, usLitigation } from './overseas.mjs';
 import { trademarks } from './trademarks.mjs';
@@ -20,6 +20,7 @@ const INSTRUCTIONS = [
   '순서: radar_today → scoop_screen(기자 전용, 미보도 후보부터) → page_changes·us_comments·partner_filings·trade_remedies·us_litigation(기자 전용, 해외 원천) → kr_official(기자 전용, 공장등록·관보) → kr_signals(기자 전용, 공정위 의결서·한전 입찰·원자재 가격) → kr_stats(기자 전용, 물가지수·철강 생산·수입차 등록; 발제 검증은 ecos_find·ecos_data·kosis_find·kosis_data·customs_trade 즉석 조회) → trademarks(기자 전용, 출입처 상표 출원 주 1회) → assembly_bills(기자 전용, 출입 업종 국회 법안 발의·단계) → radar_big_picture → radar_clues(days=3) → radar_stats → governance_changes → earnings_compare(실적 시즌) → dandok_monitor → scoop_packages(기자 전용).',
   '후보마다: source_document 또는 dart_find_text로 원문 확인 → news_check로 보도 대조(낱말 바꿔 2~3번, 한 번에 하나씩) → candidate_check.',
   '조회 실패·미설정·일부 성공은 0건이 아니라 미확인. 색인 0건은 미보도 증거가 아님. 단계(공개 원자료 추적/취재 단서·단독 미확정/단독 후보)를 올리지 않음.',
+  '추천 심사에는 기자 전용 원문·보도 조회의 검증 기록 ID가 필요하다. facts는 원문 직접 인용, 게시일은 명시된 공개일만. 오래된 원문·검색된 기사·파생 계산은 추가 확인 전 조사대기다.',
   '최종 단독 판단은 기자가 한다. 관계자 발언을 만들지 않는다.',
   '후보 보고 형식(후보마다): 잡힌 사실(원문에 적힌 것만, 날짜·수치 그대로) / 기사 가치(지금 왜, 무엇이 새로운가, 약점) / 확인 질문(회사에 물을 2~3개, 공개자료로 답할 수 있는 건 먼저 찾아본 뒤 남는 것만) / 원문(URL·접수번호·게시일·열람일) / 판단(추천·취재 착수·보류·접음과 이유).',
   '후보마다 붙일 것: 보도 대조(채널별 결과·질의·선행 기사) / 검증 상태(원문 확인·원문 미확인·회사 확인 필요·외부 자료 정정 — 다른 시스템·자료·제보의 주장이 원문과 다르면 무엇이 다른지).',
@@ -37,7 +38,10 @@ const CANDIDATE_SCHEMA = obj({
   source_url: str('원자료 URL'),
   source_date: str('원자료 게시일 YYYY-MM-DD'),
   content_hash: str('source_document·dart_find_text가 준 sha256'),
-  facts: strList('원문으로 확인한 사실 문장'),
+  source_evidence_id: str('기자 전용 원문 도구가 발급한 검증 기록 ID(24시간)'),
+  news_evidence_ids: strList('news_check가 발급한 서로 다른 질의의 검증 기록 ID 2~5개(365일 조회)'),
+  event_terms: strList('원문 인용과 검색 질의 양쪽에 있는 구체적 사건·사업장 낱말'),
+  facts: strList('실제 조회 구간의 직접 인용. 해석·요약은 impact에 구분'),
   numbers: strList('원문에 적힌 수치 그대로(예: 1,812억원)'),
   derived_numbers: { type: 'array', items: obj({ value: str('계산값'), method: str(POLICY.derivedMethods.join('/')) }, ['value', 'method']) },
   coverage: obj({ google: str('ok/failed/not_checked'), bing: str('ok/failed/not_checked'), naver: str('ok/failed/not_configured'), dandok: str('ok/failed'),
@@ -84,7 +88,7 @@ export const TOOLS = [
   { name: 'source_document', access: 'public', handler: sourceDocument,
     description: '공식 원문(go.kr·DART·KIND·KIPRIS·.gov·EU·출입처 홈페이지)을 열어 텍스트 구간과 내용 해시(sha256)를 돌려준다. DART 공시 링크는 틀 대신 본문 문서를 읽고 다른 첨부 문서 주소도 준다. 긴 문서는 offset으로 이어 읽는다.',
     inputSchema: obj({ url: str('원문 주소'), offset: int('시작 글자 위치', 0, 5000000), limit: int('읽을 글자 수(최대 16000)', 500, 16000) }, ['url']) },
-  { name: 'candidate_check', access: 'public', handler: async (ctx, args) => textResult(formatCheck(checkCandidate(args.candidate ?? args))),
+  { name: 'candidate_check', access: 'public', handler: async (ctx, args) => textResult(formatCheck(await checkVerifiedCandidate(ctx, args.candidate ?? args))),
     description: '후보 하나를 점수 정책으로 점검: 가점·감점, 추천/조사대기/탈락, 채울 것(원문·해시·보도 채널·질문·비교), 제목 숫자 근거, 지면감(톱/박스/단신). 저장하지 않는다.',
     inputSchema: obj({ candidate: CANDIDATE_SCHEMA }, ['candidate']) },
   { name: 'dart_filings', access: 'private', handler: dartFilings,

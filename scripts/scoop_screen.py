@@ -4,7 +4,7 @@
 로그(공개)에는 건수만 남긴다.
 
 판정(후보별)
-- 같은 수치 선행: 회사명과 같은 수치가 함께 나온 기사가 있다.
+- 같은 수치 선행: 기업·사건 낱말·수치 단위·기간이 함께 일치한 기사다(동일 사건 최종 확인 필요).
 - 관련 보도 있음: 회사명과 핵심 낱말이 함께 나온 기사가 있다(같은 사건인지는 열어 봐야 한다).
 - 미보도 후보: 네이버와 웹 색인(빙 또는 구글)이 모두 정상 응답했고 관련 기사가 없다.
   검색 범위 안에서 못 찾았다는 뜻이지 미보도 증거나 단독 판정이 아니다.
@@ -40,13 +40,13 @@ WINDOW_DAYS = 365
 ALIASES = {
     "현대차": ["현대차", "현대자동차"], "기아": ["기아"], "현대모비스": ["현대모비스"], "현대위아": ["현대위아"],
     "HL만도": ["HL만도", "만도"], "KG모빌리티": ["KG모빌리티", "KGM"], "한국타이어": ["한국타이어", "한국타이어앤테크놀로지"],
-    "넥센타이어": ["넥센타이어"], "금호타이어": ["금호타이어"], "포스코홀딩스": ["포스코홀딩스", "포스코그룹"], "포스코": ["포스코"],
-    "현대제철": ["현대제철"], "KG스틸": ["KG스틸"], "세아홀딩스": ["세아홀딩스", "세아그룹"], "세아제강": ["세아제강"],
+    "넥센타이어": ["넥센타이어"], "금호타이어": ["금호타이어"], "포스코홀딩스": ["포스코홀딩스"], "포스코": ["포스코"],
+    "현대제철": ["현대제철"], "KG스틸": ["KG스틸"], "세아홀딩스": ["세아홀딩스"], "세아제강": ["세아제강"],
     "동국제강": ["동국제강"], "동국씨엠": ["동국씨엠"], "고려아연": ["고려아연"], "영풍": ["영풍"],
     "HD현대일렉트릭": ["HD현대일렉트릭", "현대일렉트릭"], "LS일렉트릭": ["LS일렉트릭", "LS ELECTRIC", "엘에스일렉트릭"],
-    "대한전선": ["대한전선"], "LS전선": ["LS전선"], "LS지주": ["LS그룹", "(주)LS", "㈜LS", "LS"], "LS MnM": ["LS MnM", "LS엠앤엠"],
-    "두산에너빌리티": ["두산에너빌리티"], "GS": ["GS그룹", "(주)GS", "㈜GS", "GS"], "GS칼텍스": ["GS칼텍스"],
-    "한화솔루션": ["한화솔루션", "한화큐셀"], "OCI": ["OCI"], "OCI홀딩스": ["OCI홀딩스"], "태광": ["태광"],
+    "대한전선": ["대한전선"], "LS전선": ["LS전선"], "LS지주": ["LS지주", "(주)LS", "㈜LS", "LS"], "LS MnM": ["LS MnM", "LS엠앤엠"],
+    "두산에너빌리티": ["두산에너빌리티"], "GS": ["(주)GS", "㈜GS", "GS"], "GS칼텍스": ["GS칼텍스"],
+    "한화솔루션": ["한화솔루션"], "OCI": ["OCI"], "OCI홀딩스": ["OCI홀딩스"], "태광": ["태광"],
     "동성케미칼": ["동성케미칼", "동성케미컬"], "DL케미칼": ["DL케미칼"], "효성중공업": ["효성중공업"], "일진전기": ["일진전기"],
 }
 LEGAL = {"현대자동차": "현대차", "엘에스일렉트릭": "LS일렉트릭", "한국타이어앤테크놀로지": "한국타이어", "LS": "LS지주"}
@@ -199,7 +199,7 @@ def from_clue(x):
     patent = bool(PATENT_SOURCES.search(str(x.get("source") or "")))
     return {"id": f"clue:{x.get('id')}", "kind": "특허" if patent else "단서", "team": x.get("team"), "company": company,
             "title": title, "url": x.get("url"), "published": x.get("published"), "source": x.get("source"),
-            "tier": x.get("tier"), "terms": terms, "alts": alts, "numbers": sorted(nums), "ratios": sorted(ratios),
+            "tier": x.get("tier"), "terms": terms, "alts": alts, "unit": unit, "numbers": sorted(nums), "ratios": sorted(ratios),
             "note": "특허 공개는 그 자체로 단독이 아니다 — 사업화·생산·수주 연결 확인 필요" if patent else None,
             "strength": 0.5 if patent else (3 if x.get("tier") == "취재 단서·단독 미확정" else 1)}
 
@@ -215,7 +215,7 @@ def from_stat(x):
     return {"id": f"stat:{x.get('id')}", "kind": "수치", "team": x.get("team"), "company": company,
             "title": f"{label} · {x.get('period', '')} {x.get('prior')}→{x.get('current')} {unit} ({x.get('changePercent')}%)",
             "url": urls[-1] if urls else None, "published": None, "source": x.get("source"), "tier": "수치 변화",
-            "terms": terms_from(label, company), "numbers": sorted(nums),
+            "terms": terms_from(label, company), "unit": unit, "period": str(x.get("period") or ""), "numbers": sorted(nums),
             "ratios": sorted(ratio_forms(x.get("prior"), x.get("current"))),
             "strength": min(4, float(x.get("strength") or 0) / 40)}
 
@@ -350,44 +350,78 @@ def google(q, *, get=None):
 
 # ---------- judging ----------
 
+def company_in_text(company, text):
+    # Legal entity boundaries: 포스코 != 포스코인터내셔널; LS != LS전선.
+    # Permit Korean particles only at a token end, not arbitrary suffixes.
+    for name in aliases(company):
+        pattern = r"(?<![A-Za-z0-9가-힣])" + re.escape(name) + r"(?:(?:에서는|으로|에서|에게|까지|부터|은|는|이|가|의|을|를|와|과|도))?(?![A-Za-z0-9가-힣])"
+        if re.search(pattern, text, re.I):
+            return True
+    return False
+
+
+def article_day(value):
+    try:
+        if not isinstance(value, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+            return None
+        return dt.date.fromisoformat(value)
+    except ValueError:
+        return None
+
+
 def judge(c, channels, *, now):
-    since = (now - dt.timedelta(days=WINDOW_DAYS)).strftime("%Y-%m-%d")
-    names = aliases(c["company"])
+    since = (now - dt.timedelta(days=WINDOW_DAYS)).date()
     terms = c["terms"]
     alts = c.get("alts") or {}
     key_term = lead(terms)
     evidence = {}
+    invalid_dates = False
     for ch, res in channels.items():
+        if res.get("status") != "ok":
+            continue  # partial/failed channel items cannot certify absence or precedence
         for a in res.get("items", []):
-            if a.get("date") and a["date"] < since:
+            day = article_day(a.get("date"))
+            if not day or day > now.date():
+                invalid_dates = True
+                continue
+            if day < since:
                 continue
             text = f"{a.get('title', '')} {a.get('text', '')}"
-            if not any(n in text for n in names):
+            if not company_in_text(c["company"], text):
                 continue
             def has(t, where):
                 return any(w in where for w in alts.get(t, [t]))
-            num_hits = [f for f in c["numbers"] if f in text]
-            term_hits = [t for t in terms if has(t, text)] + [f for f in c.get("ratios", []) if f in text]
-            title_hits = [t for t in terms if has(t, a.get("title", ""))]
-            if num_hits:
-                why, rank = f"같은 수치({', '.join(num_hits[:2])})", 2
-            elif (len(term_hits) >= 2 or (key_term and has(key_term, a.get("title", "")))) and term_hits:
-                # Conservative: the lead term next to the company in a headline already counts as related coverage.
-                why, rank = f"낱말({', '.join(term_hits[:3])})", 1
-            else:
+            # Numbers alone are never evidence of the same event. Preserve
+            # related coverage for human review even without period/unit proof.
+            term_hits = [t for t in terms if has(t, text)]
+            related = len(term_hits) >= 2 or (key_term and has(key_term, a.get("title", "")))
+            if not related:
                 continue
+            unit = re.sub(r"\s+", "", c.get("unit") or "")
+            period = c.get("period") or ""
+            num_hits = [f for f in c["numbers"] if re.search(
+                r"(?<![\d,.])" + re.escape(f) + r"\s*" + re.escape(unit) + r"(?![A-Za-z0-9])", text)] if unit else []
+            # Require an explicit reporting period and multiple event terms.
+            # Approximate money conversions in num_forms are search hints only.
+            specific = [t for t in term_hits if t not in {"투자", "공장", "생산", "수주", "계약", "매출", "수출", "판매", "증설", "변압기"}]
+            same_context = (len(term_hits) >= 2 and specific and period and period in text
+                            and unit not in ("백만원", "백만 원"))
+            if num_hits and same_context:
+                why, rank = f"같은 수치·단위·기간 및 사건 낱말({', '.join(num_hits[:2])}; {period}) — 동일 사건 최종 확인 필요", 2
+            else:
+                why, rank = f"낱말({', '.join(term_hits[:3])}) — 동일 사건 미확정", 1
             key = a.get("url") or a.get("title")
             if key not in evidence or evidence[key]["rank"] < rank:
                 evidence[key] = {"title": a.get("title", "")[:160], "url": a.get("url"), "date": a.get("date"),
                                  "channel": ch, "why": why, "rank": rank}
-    ev = sorted(evidence.values(), key=lambda e: (-e["rank"], e.get("date") or ""), reverse=False)
+    ev = sorted(evidence.values(), key=lambda e: (-e["rank"], e.get("date") or ""))
     web_ok = any(channels.get(k, {}).get("status") == "ok" for k in ("bing", "google"))
     naver_ok = channels.get("naver", {}).get("status") == "ok"
     if any(e["rank"] == 2 for e in ev):
         verdict = "같은 수치 선행"
     elif ev:
         verdict = "관련 보도 있음"
-    elif naver_ok and web_ok:
+    elif naver_ok and web_ok and not invalid_dates:
         verdict = "미보도 후보"
     else:
         verdict = "미확인"
@@ -417,6 +451,7 @@ def screen(cands, *, now, get=None, sleep=time.sleep):
         verdict, evidence = judge(c, channels, now=now)
         out.append({**c, "queries": qs, "verdict": verdict, "evidence": evidence,
                     "channels": {k: {"status": v.get("status"), "returned": len(v.get("items", [])),
+                                     "invalidDates": sum(article_day(a.get("date")) is None or article_day(a.get("date")) > now.date() for a in v.get("items", [])),
                                      **({"via": v["via"]} if v.get("via") else {}),
                                      **({"error": v["error"]} if v.get("error") else {})} for k, v in channels.items()}})
     order = {"미보도 후보": 0, "관련 보도 있음": 1, "미확인": 2, "같은 수치 선행": 3}
@@ -430,8 +465,8 @@ def report(rows, *, now, inputs):
             "counts": counts, "windowDays": WINDOW_DAYS, "candidates": rows,
             "rules": ["미보도 후보는 검색 범위(네이버 뉴스 API·빙·구글 최근 365일, 질의 2개) 안에서 못 찾았다는 뜻이다. 단독 판정이 아니다.",
                       "관련 보도 있음은 회사명+낱말이 겹친 기사. 같은 사건·같은 각도인지는 열어 봐야 한다.",
-                      "같은 수치 선행은 회사명과 같은 수치가 함께 나온 기사. 새 각도가 없으면 접는다.",
-                      "미확인은 채널 실패·미설정. 0건이 아니다. 최종 단독 판단은 기자가 한다."],
+                      "같은 수치 선행은 기업·사건 낱말·수치 단위·기간이 함께 일치한 기사. 동일 사건인지는 원문 확인 전 미확정이다.",
+                      "미확인은 채널 실패·미설정 또는 기사 날짜 오류. 0건이 아니다. 최종 단독 판단은 기자가 한다."],
             "confirmedScoops": 0}
 
 

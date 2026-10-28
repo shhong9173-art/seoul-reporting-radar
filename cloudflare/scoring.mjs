@@ -1,13 +1,14 @@
 // Candidate policy for the industry desk, adapted from the senior's
 // scoring.json (식품팀) to 자동차·철강·전력·화학 beats. This only scores what
-// Claude already verified; it never decides 단독 — the reporter does.
+// server-side source/search receipts verify; novelty still needs the reporter.
+import { verifyEvidence } from './evidence.mjs';
 import { DIRECT_BEATS, beatName } from './common.mjs';
 
 export const POLICY = {
-  version: '2026-10-26',
+  version: '2026-10-28',
   gains: [
-    { key: 'new_fact', points: 30, label: '원문으로 확인한 새 사실' },
-    { key: 'unreported_after_channels', points: 20, label: '보도 채널 대조 후 미발견(단독 확실·유력)' },
+    { key: 'new_fact', points: 30, label: '실제 원문 인용 확인(신규성 별도 검토)' },
+    { key: 'unreported_after_channels', points: 20, label: '실제 보도 조회 범위 내 미발견·단독 미확정' },
     { key: 'impact', points: 15, label: '향후 영향(실적·공급망·가격·고용·규제)' },
     { key: 'direct_beat', points: 10, label: '직접 출입처 기업' },
     { key: 'comparison', points: 10, label: '이전 발표·경쟁사와의 같은 기준 비교' },
@@ -27,7 +28,7 @@ export const POLICY = {
   alertAt: 70,
   dailyLimit: 5,
   derivedMethods: ['증감률', '차이', '비중', '합계', '단위환산'],
-  verdicts: ['단독 확실', '단독 유력', '선행 있음', '이미 남', '미확인'],
+  verdicts: ['검색 범위 내 미발견·단독 미확정', '선행 있음', '이미 남', '미확인'],
   // web = 구글 또는 빙(구글이 Cloudflare 출구를 503으로 막는 경우가 있어 둘 중 하나면 됨)
   channels: ['web', 'naver', 'dandok'],
   sizeKeys: ['novelty', 'numbers', 'scale', 'beat', 'timing', 'expansion', 'exclusivity'],
@@ -41,7 +42,12 @@ function list(value) {
   return Array.isArray(value) ? value.map((v) => String(v ?? '').trim()).filter(Boolean) : [];
 }
 
-export function checkCandidate(input) {
+export async function checkVerifiedCandidate(ctx, input) {
+  const c = input && typeof input === 'object' ? input : {};
+  return checkCandidate(c, await verifyEvidence(ctx, c));
+}
+
+export function checkCandidate(input, evidence = {}) {
   const c = input && typeof input === 'object' ? input : {};
   const flags = c.flags && typeof c.flags === 'object' ? c.flags : {};
   const coverage = c.coverage && typeof c.coverage === 'object' ? c.coverage : {};
@@ -51,31 +57,32 @@ export function checkCandidate(input) {
   const companies = list(c.companies).map((n) => beatName(n) ?? n);
   const beats = companies.filter((n) => DIRECT_BEATS.has(n));
   const title = String(c.title ?? '').trim();
-  const verdict = POLICY.verdicts.includes(c.coverage?.verdict) ? c.coverage.verdict : '미확인';
+  const verdict = c.coverage?.verdict === '이미 남' ? '이미 남' : (evidence.verdict ?? '미확인');
   const channelState = (ch) => (ch === 'web' ? (coverage.google === 'ok' || coverage.bing === 'ok' || coverage.web === 'ok' ? 'ok' : coverage.google ?? coverage.bing ?? coverage.web) : coverage[ch]);
-  const channelsOk = POLICY.channels.every((ch) => channelState(ch) === 'ok');
+  const channelsOk = evidence.channelsOk === true;
 
   const gains = [];
   const penalties = [];
-  const hold = [];
+  const hold = evidence.hold ? [...evidence.hold] : ['실제 원문·보도 조회 검증 기록 없음'];
   const reject = [];
   const add = (arr, key) => arr.push((POLICY.gains.find((g) => g.key === key) ?? POLICY.penalties.find((p) => p.key === key)));
 
   if (!title) hold.push('제목 없음');
-  if (facts.length && c.source_url && !flags.original_unverified) add(gains, 'new_fact');
-  if (['단독 확실', '단독 유력'].includes(verdict) && channelsOk) add(gains, 'unreported_after_channels');
+  if (flags.original_unverified) hold.push('원문 미확인 표시 — 확인 전 추천하지 않음');
+  if (evidence.sourceOk && facts.length && !flags.original_unverified) add(gains, 'new_fact');
+  if (evidence.unreported && channelsOk) add(gains, 'unreported_after_channels');
   if (String(c.impact ?? '').trim()) add(gains, 'impact');
   if (beats.length) add(gains, 'direct_beat');
   if (String(c.comparison ?? '').trim()) add(gains, 'comparison');
-  if (numbers.length) add(gains, 'original_numbers');
+  if (evidence.sourceOk && numbers.length) add(gains, 'original_numbers');
   if (Number(c.size_scores?.timing) >= 1) add(gains, 'timing');
 
   for (const p of POLICY.penalties) {
     if (p.key === 'non_beat') continue;
     if (flags[p.key]) add(penalties, p.key);
   }
-  if (!beats.length) add(penalties, 'non_beat');
-  if (!c.source_url && !flags.original_unverified) add(penalties, 'original_unverified');
+  if (!beats.length) { add(penalties, 'non_beat'); hold.push('직접 출입처 확인 안 됨'); }
+  if (!evidence.sourceOk && !flags.original_unverified) add(penalties, 'original_unverified');
 
   // 조사대기: the evidence package is incomplete.
   if (!c.source_url) hold.push('원문 URL 없음');
@@ -96,12 +103,9 @@ export function checkCandidate(input) {
   if (c.company_disclosed === true && verdict !== '선행 있음') hold.push('회사가 이미 공개 — 단독 아님 또는 약함');
 
   // Title numbers must come from the original (or an allowed derivation).
-  const allowed = new Set([...numbers, ...facts.flatMap((f) => f.match(NUMBER_RE) ?? [])].map(norm));
-  for (const d of Array.isArray(c.derived_numbers) ? c.derived_numbers : []) {
-    if (d && POLICY.derivedMethods.includes(d.method)) allowed.add(norm(d.value));
-  }
+  const allowed = new Set((evidence.quotes ?? []).flatMap((f) => f.match(NUMBER_RE) ?? []).map(norm));
   const unsupported = (title.match(NUMBER_RE) ?? []).filter((n) => !allowed.has(norm(n)));
-  if (unsupported.length) hold.push(`제목 숫자 근거 없음: ${unsupported.join(', ')} (원문 수치 또는 허용 계산 5종만)`);
+  if (unsupported.length) hold.push(`제목 숫자 근거 없음: ${unsupported.join(', ')} (실제 조회 원문 인용 수치만)`);
   for (const d of Array.isArray(c.derived_numbers) ? c.derived_numbers : []) {
     if (d && !POLICY.derivedMethods.includes(d.method)) hold.push(`허용되지 않은 파생 계산: ${d.method}`);
   }
