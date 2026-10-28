@@ -22,6 +22,11 @@ OUT = Path("pre_scoop.json")
 LOOKBACK_DAYS = 21
 SOURCE_DIAGNOSTICS = {}
 DIRECT_DIAGNOSTICS = {}
+# Dates of NTIS announcements already read (url → title key, 공고일). An announcement whose own 공고일 is
+# outside the lookback never becomes recent again, so it is not reopened every run (2026-10-28: 5 of 8 detail
+# reads per run were old announcements, and their timeouts kept the source 'partial' 60 runs in a row).
+DETAIL_DATES = {"ntis": {}}
+DETAIL_DATES_MAX = 800
 # Bing's fallback repeatedly returned off-domain results across official sources.
 # It is opt-in until source-level result quality is independently revalidated.
 ENABLE_BING_FALLBACK = os.environ.get("ENABLE_BING_FALLBACK", "").strip() == "1"
@@ -444,7 +449,7 @@ def parse_ntis_detail(markup):
     return title, fields, "\n".join(line for line in lines if line)
 
 
-def fetch_direct_ntis_announcements(max_items=12, query_terms=None, max_details=8, prior_items=None):
+def fetch_direct_ntis_announcements(max_items=12, query_terms=None, max_details=8, prior_items=None, known_dates=None):
     """Bounded official-source collection; round-robin prevents first-term starvation."""
     now = datetime.now(KST)
     cutoff = now - timedelta(days=LOOKBACK_DAYS)
@@ -456,7 +461,7 @@ def fetch_direct_ntis_announcements(max_items=12, query_terms=None, max_details=
             "detailPagesAttempted": 0, "detailPagesFetched": 0, "datedRecords": 0,
             "recentRecords": 0, "retained": 0, "httpAttempts": 0, "retries": 0,
             "queryTerms": active_terms, "queryDiagnostics": [], "errors": [],
-            "detailReused": 0, "detailDeferred": 0, "detailCircuitOpen": False,
+            "detailReused": 0, "detailDeferred": 0, "detailCircuitOpen": False, "knownOldSkipped": 0,
             "exclusions": {}, "sampleRows": [], "coverageLimited": False}
     DIRECT_DIAGNOSTICS["ntis-announcements"] = diag
     if max_items < 1 or max_details < 1 or not active_terms:
@@ -518,8 +523,17 @@ def fetch_direct_ntis_announcements(max_items=12, query_terms=None, max_details=
     # A detail read in an earlier run (same official id, same listed title) is reused, not re-read.
     cache = {it.get("url"): it for it in (prior_items or [])
              if isinstance(it, dict) and it.get("signalType") == "ntis_rnd_announcement" and it.get("url")}
+    known = {k: v for k, v in (known_dates or {}).items() if isinstance(v, dict)}
+    DETAIL_DATES["ntis"] = known
     out, fresh = [], []
     for qdiag, url, listed_title in ordered:
+        seen_before = known.get(url)
+        if (seen_before and seen_before.get("t") == _ntis_title_key(listed_title)
+                and re.fullmatch(r"20\d{2}-\d{2}-\d{2}", str(seen_before.get("d", "")))
+                and parse_dt(seen_before["d"]) < cutoff):
+            diag["knownOldSkipped"] += 1
+            exclude("outside_lookback", url)
+            continue
         hit = cache.get(url)
         if hit and _ntis_title_key(hit.get("title")) == _ntis_title_key(listed_title):
             published = parse_dt(hit.get("published"))
@@ -566,6 +580,10 @@ def fetch_direct_ntis_announcements(max_items=12, query_terms=None, max_details=
             exclude("announcement_date_missing_or_invalid", url)
             continue
         diag["datedRecords"] += 1
+        known.pop(url, None)
+        known[url] = {"t": _ntis_title_key(title), "d": dt.date().isoformat()}
+        while len(known) > DETAIL_DATES_MAX:
+            known.pop(next(iter(known)))
         if dt < cutoff or dt > now + timedelta(hours=6):
             exclude("outside_lookback", url)
             continue
@@ -1615,14 +1633,16 @@ def main():
     try:
         earlier = json.loads(OUT.read_text(encoding="utf-8"))
         earlier_items = earlier.get("items", []) if isinstance(earlier, dict) else []
+        earlier_dates = ((earlier.get("detailDates") or {}).get("ntis") or {}) if isinstance(earlier, dict) else {}
     except Exception:
-        earlier_items = []
+        earlier_items, earlier_dates = [], {}
 
     direct_iris = fetch_direct_iris_announcements(prior_items=earlier_items)
     items.extend(direct_iris)
     by_group["R&D·기술"] = by_group.get("R&D·기술", 0) + len(direct_iris)
 
-    direct_ntis = fetch_direct_ntis_announcements(prior_items=earlier_items)
+    direct_ntis = fetch_direct_ntis_announcements(prior_items=earlier_items,
+                                                  known_dates=earlier_dates if isinstance(earlier_dates, dict) else {})
     items.extend(direct_ntis)
     by_group["R&D·기술"] = by_group.get("R&D·기술", 0) + len(direct_ntis)
 
@@ -1685,6 +1705,7 @@ def main():
         "sourceGroups": by_group,
         "sourceDiagnostics": SOURCE_DIAGNOSTICS,
         "directSourceDiagnostics": DIRECT_DIAGNOSTICS,
+        "detailDates": DETAIL_DATES,
         "sourceObservations": observations,
         "items": items,
     }
