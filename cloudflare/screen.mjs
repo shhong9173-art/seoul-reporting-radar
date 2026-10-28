@@ -134,6 +134,7 @@ export async function scoopScreen(ctx, args) {
         if (fl.routine) out.push(`   일상 공시로 보임: ${fl.routine} — 오늘의 레이더에서는 B`);
       }
       out.push(`   보도 대조: 질의 ${(x.queries ?? []).map((s) => `"${s}"`).join(', ')} · ${channelLine(x.channels)}`);
+      if (x.firstQueries) out.push(`   재대조: 처음 질의 ${x.firstQueries.map((s) => `"${s}"`).join(', ')}(→ ${x.firstVerdict}) 대신 원문 사건명·결과로 다시 찾음`);
       for (const e of (x.evidence ?? []).slice(0, 3)) out.push(`     ↳ ${e.date ?? '날짜?'} [${e.channel}] ${e.title} — ${e.why} ${e.url ?? ''}`);
       out.push(`   검증 상태: 자동 심사(원문 본문·회사 확인 전)${x.staleDays ? ` · 오래된 자료(접수 ${x.staleDays}일 전 — 새 시점 고리 필요)` : ''}`);
       if (x.note) out.push(`   주의: ${x.note}`);

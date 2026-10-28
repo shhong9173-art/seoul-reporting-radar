@@ -470,7 +470,8 @@ test('scoop screening arrives only through the bearer ingest and is read on the 
         channels: { naver: { status: 'ok', returned: 12, via: 'API HUB' }, bing: { status: 'ok', returned: 3 }, google: { status: 'failed', returned: 0, error: 'HTTP 503' } },
         evidence: [] },
       { id: 'clue:a2', kind: '단서', team: '자동차', company: '현대위아', title: '현대위아 · 영업양도결정', verdict: '관련 보도 있음',
-        queries: ['현대위아 영업양도'], channels: {}, evidence: [{ date: '2026-10-20', channel: 'naver', title: '현대위아 영업양도', why: '낱말(영업양도)', url: 'https://n/1' }] },
+        queries: ['현대위아 영업양도'], firstQueries: ['현대위아 영업양도결정'], firstVerdict: '미보도 후보', channels: {},
+        evidence: [{ date: '2026-10-20', channel: 'naver', title: '현대위아 영업양도', why: '낱말(영업양도)', url: 'https://n/1' }] },
       { id: 'stat:s9', kind: '수치', team: '철강·비철', company: '고려아연', title: '고려아연 황산', verdict: '미확인', queries: ['고려아연 황산'], channels: {}, evidence: [] }] };
   const post = (headers, body = JSON.stringify(doc)) => worker.fetch(new Request(ORIGIN + '/ingest/scoop-screen', { method: 'POST', headers, body }), env, {});
   assert.equal((await post({})).status, 404);
@@ -486,6 +487,7 @@ test('scoop screening arrives only through the bearer ingest and is read on the 
   assert.match(r.text, /검증 상태: 자동 심사\(원문 본문·회사 확인 전\)/);
   assert.match(r.text, /네이버\(API HUB\) ok 12건 · 빙 ok 3건 · 구글 failed\(HTTP 503\)/);
   assert.match(r.text, /↳ 2026-10-20 \[naver\] 현대위아 영업양도 — 낱말\(영업양도\)/);
+  assert.match(r.text, /재대조: 처음 질의 "현대위아 영업양도결정"\(→ 미보도 후보\) 대신 원문 사건명·결과로 다시 찾음/);
   await call('candidate_feedback', { item_id: 'clue:a2', verdict: '킬', reason: '이미 남' }, opts);
   const after = await call('scoop_screen', {}, opts);
   assert.doesNotMatch(after.text, /현대위아 · 영업양도결정/);
