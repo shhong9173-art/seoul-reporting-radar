@@ -250,19 +250,23 @@ def main():
         sys.exit("MCP_ACCESS_TOKEN 미설정 — 레이더 기억을 읽을 수 없음(미확인)")
     trace = json.loads((ROOT / "digests" / "reverse_trace_latest.json").read_text(encoding="utf-8"))
     clues = json.loads((ROOT / "tools" / "clues.json").read_text(encoding="utf-8"))
-    docs, failed = {}, []
+    docs, failed, empty = {}, [], []
     for f in FEEDS:
         try:
             d = private_store.get(f, token)
             if isinstance(d, dict):
                 docs[f] = d
+            else:
+                empty.append(f)  # 저장된 결과가 아직 없음(첫 실행 전 등) — 조회 실패와 구분
         except Exception as e:  # noqa: BLE001 — network, HTTP or JSON: this feed is 미확인, the rest still count
             failed.append(f"{f}:{type(e).__name__}")
     doc = run(trace, docs, clues, now=now)
     doc["feedsFailed"] = failed
+    doc["feedsEmpty"] = empty
     # Public log: counts, feed names and exception types only.
     print(f"::notice title=reverse-check::경쟁지 단독 {len(doc['articles'])}건 · {json.dumps(doc['counts'], ensure_ascii=False)} · "
           f"레이더 기억 {doc['memoryItems']}건 · 감시 읽음 {len(docs)}/{len(FEEDS)}" + (f" · 조회 실패 {failed}" if failed else "")
+          + (f" · 저장 결과 없음 {empty}" if empty else "")
           + (f" · 읽기 오류 {doc['adapterErrors']}" if doc["adapterErrors"] else ""))
     try:
         status = private_store.put("reverse-check", doc, token)
