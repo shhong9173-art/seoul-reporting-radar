@@ -16,7 +16,7 @@ DETAIL_PAGE = """<table><tr><td><a href="/portal/news/NewsViewAction.work?seqnum
 
 
 class Retry(unittest.TestCase):
-    def run_with(self, outcomes, page=PAGE):
+    def run_with(self, outcomes, page=PAGE, prior=None):
         calls = []
         day = psr.datetime.now(psr.KST).strftime("%Y-%m-%d")
 
@@ -27,7 +27,7 @@ class Retry(unittest.TestCase):
                 raise TimeoutError("timed out")
             return page.format(day=day).encode()
         with patch.object(psr, "get", fake_get), patch.object(psr.time, "sleep", lambda s: None):
-            psr.fetch_direct_court(max_items=1)
+            psr.fetch_direct_court(max_items=1, prior_items=prior)
         return psr.DIRECT_DIAGNOSTICS["scourt-case-releases"], calls
 
     def test_one_failure_is_retried_with_a_longer_timeout(self):
@@ -57,6 +57,27 @@ class Retry(unittest.TestCase):
         self.assertEqual(diag["detailPagesFetched"], 0)
         self.assertEqual(len(diag["errors"]), 1)
         self.assertTrue(diag["errors"][0].startswith("detail "))
+
+
+    def test_detail_read_in_an_earlier_run_is_reused_not_reopened(self):
+        day = psr.datetime.now(psr.KST).strftime("%Y-%m-%d")
+        prior = [{"signalType": "supreme_court_case_release", "title": "경매 임차인 통지서 전면 개선 안내",
+                  "url": "https://www.scourt.go.kr/portal/news/NewsViewAction.work?seqnum=2",
+                  "published": day + "T00:00:00+09:00", "companies": [], "summary": "본문"}]
+        diag, calls = self.run_with(["ok", "fail", "fail"], page=DETAIL_PAGE, prior=prior)
+        self.assertEqual(diag["detailReused"], 1)
+        self.assertEqual(diag["detailPagesAttempted"], 0)
+        self.assertEqual(diag["errors"], [])
+        self.assertEqual(len(calls), 1)  # 목록 한 쪽만 열고 본문은 열지 않음
+        self.assertEqual(psr.DIRECT_DIAGNOSTICS["scourt-case-releases"]["retained"], 1)
+
+    def test_changed_title_is_reopened(self):
+        day = psr.datetime.now(psr.KST).strftime("%Y-%m-%d")
+        prior = [{"signalType": "supreme_court_case_release", "title": "다른 제목",
+                  "url": "https://www.scourt.go.kr/portal/news/NewsViewAction.work?seqnum=2", "published": day + "T00:00:00+09:00"}]
+        diag, _ = self.run_with(["ok", "ok"], page=DETAIL_PAGE, prior=prior)
+        self.assertEqual(diag.get("detailReused", 0), 0)
+        self.assertEqual(diag["detailPagesAttempted"], 1)
 
 
 if __name__ == "__main__":
