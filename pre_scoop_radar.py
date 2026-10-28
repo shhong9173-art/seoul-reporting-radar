@@ -992,12 +992,19 @@ def fetch_direct_court(max_items=12):
             title_companies=target_hits(title)
             if not title_companies and diag["detailPagesAttempted"]<8:
                 diag["detailPagesAttempted"]+=1
-                try:
-                    detail=clean(decode_web_bytes(get(href,timeout=8)))[:12000]
-                    diag["detailPagesFetched"]+=1
-                except Exception as exc:
-                    if len(diag["errors"])<4:
-                        diag["errors"].append(f"detail {title[:50]}: {type(exc).__name__}: {exc}"[:240])
+                # 본문 쪽도 같은 연결 끊김이 난다(운영 10-28 20:36: 목록 2/2 성공, 본문 1건 Connection reset). 한 번만 더.
+                for attempt,timeout in ((1,8),(2,15)):
+                    try:
+                        detail=clean(decode_web_bytes(get(href,timeout=timeout)))[:12000]
+                        diag["detailPagesFetched"]+=1
+                        if attempt>1:
+                            diag["retriedOk"]=diag.get("retriedOk",0)+1
+                        break
+                    except Exception as exc:
+                        if attempt==2 and len(diag["errors"])<4:
+                            diag["errors"].append(f"detail {title[:50]}: {type(exc).__name__}: {exc}"[:240])
+                        if attempt==1:
+                            time.sleep(2)
             body=title+" "+detail
             companies=target_hits(body)
             if not SIGNAL_TERMS.search(body): continue

@@ -11,8 +11,12 @@ PAGE = """<table><tr><td><a href="/supreme/news/NewsViewAction.work?seqnum=1">�
 <td>{day}</td></tr></table>"""
 
 
+DETAIL_PAGE = """<table><tr><td><a href="/portal/news/NewsViewAction.work?seqnum=2">경매 임차인 통지서 전면 개선 안내</a></td>
+<td>{day}</td></tr></table>"""
+
+
 class Retry(unittest.TestCase):
-    def run_with(self, outcomes):
+    def run_with(self, outcomes, page=PAGE):
         calls = []
         day = psr.datetime.now(psr.KST).strftime("%Y-%m-%d")
 
@@ -21,7 +25,7 @@ class Retry(unittest.TestCase):
             o = outcomes.pop(0) if outcomes else "ok"
             if o == "fail":
                 raise TimeoutError("timed out")
-            return PAGE.format(day=day).encode()
+            return page.format(day=day).encode()
         with patch.object(psr, "get", fake_get), patch.object(psr.time, "sleep", lambda s: None):
             psr.fetch_direct_court(max_items=1)
         return psr.DIRECT_DIAGNOSTICS["scourt-case-releases"], calls
@@ -38,6 +42,21 @@ class Retry(unittest.TestCase):
         self.assertEqual(diag["pagesFetched"], 0)
         self.assertEqual(len(diag["errors"]), 2)
         self.assertIn("TimeoutError", diag["errors"][0])
+
+    def test_detail_page_reset_is_retried(self):
+        # 목록(성공) → 본문 1차 끊김 → 본문 2차 성공. 목록 두 번째 쪽은 그다음.
+        diag, calls = self.run_with(["ok", "fail", "ok"], page=DETAIL_PAGE)
+        self.assertEqual(diag["detailPagesAttempted"], 1)
+        self.assertEqual(diag["detailPagesFetched"], 1)
+        self.assertEqual(diag["retriedOk"], 1)
+        self.assertEqual(diag["errors"], [])
+        self.assertEqual([t for _, t in calls[1:3]], [8, 15])
+
+    def test_detail_page_two_failures_are_reported(self):
+        diag, _ = self.run_with(["ok", "fail", "fail"], page=DETAIL_PAGE)
+        self.assertEqual(diag["detailPagesFetched"], 0)
+        self.assertEqual(len(diag["errors"]), 1)
+        self.assertTrue(diag["errors"][0].startswith("detail "))
 
 
 if __name__ == "__main__":
