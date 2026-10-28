@@ -223,6 +223,42 @@ export async function usRecalls(ctx, args) {
   return textResult(out.join('\n'));
 }
 
+const kmd = (v) => { const t = Date.parse(v); return Number.isFinite(t) ? new Date(t + 9 * 3600000).toISOString().slice(5, 16).replace('T', ' ') : String(v ?? '').slice(5, 16); };
+
+// Competitor exclusives checked against what the radar had seen before them (reverse_prior_capture.py). Automatic candidates only.
+export async function scoopReverse(ctx, args) {
+  const doc = await readFeed(ctx, 'reverse-check');
+  if (!doc) return missing('경쟁지 단독 자동 역추적', '매일 19:20');
+  if (doc.broken) return textResult('저장된 역추적 결과 형식 오류 — 미확인.', true);
+  const q = String(args.company ?? '').trim();
+  const want = ['먼저 잡은 후보', '같은 회사 항목만', '없음', '회사 미상'].includes(args.verdict) ? args.verdict : null;
+  const days = clampInt(args.days, 1, 30, 14);
+  const limit = clampInt(args.limit, 1, 60, 15);
+  const from = Date.parse(doc.generatedAt) - days * 86400000;
+  const rows = (doc.articles ?? []).filter((x) => Date.parse(x.published) >= from && matches(q, x.title, (x.companies ?? []).join(' ')));
+  const n = (v) => rows.filter((x) => x.verdict === v).length;
+  const by = {};
+  for (const x of rows) if (x.verdict === '먼저 잡은 후보') (by[x.best.label] ??= []).push(x.best.leadHours);
+  const med = (a) => { const s = [...a].sort((p, q2) => p - q2); return s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2; };
+  const loaded = Object.values(doc.feedsLoaded ?? {}).filter(Boolean).length;
+  const out = [`경쟁지 [단독] 자동 역추적 · 최근 ${days}일 ${rows.length}건 · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt, 48)}`,
+    `먼저 잡은 후보 ${n('먼저 잡은 후보')} · 같은 회사 항목만 ${n('같은 회사 항목만')} · 없음 ${n('없음')} · 회사 미상 ${n('회사 미상')} (레이더 기억 ${doc.memoryItems}건, 감시 ${loaded}/${Object.keys(doc.feedsLoaded ?? {}).length} 읽음${(doc.feedsFailed ?? []).length ? `, 실패 ${doc.feedsFailed.join('·')} — 미확인` : ''})`,
+    `원천별 먼저 잡은 후보: ${Object.entries(by).sort((a, b) => b[1].length - a[1].length).map(([k, v]) => `${k} ${v.length}건(중간 ${Math.round(med(v))}시간 앞)`).join(' · ') || '없음'}`,
+    ...(doc.rules ?? []).map((r) => `규칙: ${r}`)];
+  for (const v of want ? [want] : ['먼저 잡은 후보', '같은 회사 항목만', '없음']) {
+    const g = rows.filter((x) => x.verdict === v);
+    if (!g.length) continue;
+    out.push(`\n[${v}] ${g.length}건`);
+    for (const x of g.slice(0, v === '없음' && !want ? Math.min(limit, 8) : limit)) {
+      out.push(`- ${kmd(x.published)} · ${x.source ?? ''} 「${x.title}」(${(x.companies ?? []).join('·')})`);
+      if (x.best) out.push(`   레이더: ${kmd(x.best.seen)} ${x.best.label} — ${x.best.text.slice(0, 140)} (${x.best.leadHours}시간 앞${x.best.why?.length ? `, 겹친 낱말 ${x.best.why.join('·')}` : ''}) · id ${x.best.id}`);
+    }
+    if (g.length > limit) out.push(`… 남은 ${g.length - limit}건`);
+  }
+  out.push('\n다음: 먼저 잡은 후보는 기사 전문과 레이더 원문을 열어 같은 사건인지 확인한다(사람 판정 Y/P/N은 역추적 기록에 따로). 없음이 많은 종류(인사·일정·내부 계획)는 공개 원천으로 앞서기 어렵다.');
+  return textResult(out.join('\n'));
+}
+
 export async function usLitigation(ctx, args) {
   const doc = await readFeed(ctx, 'us-litigation');
   if (!doc) return missing('미국 소송·ITC', '평일 07:50');

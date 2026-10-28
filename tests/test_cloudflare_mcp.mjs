@@ -1398,3 +1398,25 @@ test('us_recalls: NHTSA full-file recalls with Korean links reach A; imports alo
   assert.deepEqual(items.items.find((x) => x.id === 'nhtsa:26V701000').check.terms, ['리콜', '미국']);
   assert.deepEqual(dueAt(new Date('2026-10-28T08:10:00Z')), ['us-recalls.yml']);  // Wed 17:10 KST
 });
+
+test('scoop_reverse shows automatic prior-capture candidates by source with lead time, separate from human Y/P/N', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const art = (id, title, verdict, best, published = '2026-10-26T08:00:00+09:00') => ({ articleId: id, title, published, source: '뉴스저널리즘', companies: ['LS일렉트릭'], verdict, best, sameCompanyItems: best ? 1 : 0 });
+  const doc = { schema: 'reverse_check/v1', generatedAt: '2026-10-26T19:20:00+09:00', windowDays: 30, memoryItems: 812, feedsLoaded: { 'us-litigation': true, 'partner-filings': true }, feedsFailed: [],
+    counts: {}, rules: ['자동 후보다. 사람 판정 Y/P/N과 다르다.'],
+    articles: [
+      art('a1', '[단독] LS일렉트릭, 미국 전기차 충전 특허 거절에 불복…연방항소법원 항소', '먼저 잡은 후보',
+        { source: 'us-litigation', label: '미국 소송·판결', id: 'cl:75019340', text: 'In re: LS Electric Co., Ltd. LS일렉트릭, 미국 특허청 특허심판원(PTAB) 결정에 불복해 연방순회항소법원에 항소',
+          seen: '2026-10-24T07:50+09:00', leadHours: 48.2, why: ['소송·판결', '특허·상표'] }),
+      art('a2', '[단독] LG그룹, 현대차 로봇사업 수장 품었다', '없음', null, '2026-10-23T09:00:00+09:00')] };
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/reverse-check', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
+  const r = await call('scoop_reverse', {}, opts);
+  assert.match(r.text, /먼저 잡은 후보 1 · 같은 회사 항목만 0 · 없음 1 · 회사 미상 0 \(레이더 기억 812건, 감시 2\/2 읽음\)/);
+  assert.match(r.text, /원천별 먼저 잡은 후보: 미국 소송·판결 1건\(중간 48시간 앞\)/);
+  assert.match(r.text, /레이더: 10-24 07:50 미국 소송·판결 — In re: LS Electric/);
+  assert.match(r.text, /48\.2시간 앞, 겹친 낱말 소송·판결·특허·상표\) · id cl:75019340/);
+  assert.match(r.text, /\[없음\] 1건\n- 10-23 09:00 · 뉴스저널리즘 「\[단독\] LG그룹, 현대차 로봇사업 수장 품었다」/);
+  assert.match(r.text, /사람 판정 Y\/P\/N은 역추적 기록에 따로/);
+  assert.ok((await call('scoop_reverse', {}, PRIVATE())).isError);
+});

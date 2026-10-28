@@ -1,0 +1,228 @@
+"""경쟁지 [단독] 자동 역추적: 레이더가 기사보다 먼저 같은 회사·같은 사건 낱말을 잡았는지(자동 후보, 미검토).
+
+- 입력: digests/reverse_trace_latest.json(업종 [단독] 제목 색인)과 레이더 기억 — 기자 전용 저장소의 감시 결과(처음 본 시각)와
+  tools/clues.json(공개 원자료 단서, 게시일).
+- 판정은 사람이 하는 Y/P/N(exclusive_reverse_trace.py, 기사 전문·원자료 비교)과 다르다. 여기서는 '먼저 잡은 후보 있음 /
+  같은 회사 항목만 / 없음'만 자동으로 세고, 원천별로 몇 건을 몇 시간 먼저 잡았는지 모은다. 같은 사건인지는 열어 봐야 한다.
+- 결과는 기자 전용 저장소(reverse-check)로만(레이더 기억에 비공개 항목이 있다). 공개 로그는 건수만.
+"""
+from __future__ import annotations
+
+import datetime as dt
+import json
+import os
+import re
+import sys
+from pathlib import Path
+from statistics import median
+
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "scripts"))
+
+KST = dt.timezone(dt.timedelta(hours=9))
+SCHEMA = "reverse_check/v1"
+WINDOW_DAYS = 30
+LOOKBACK_DAYS = 60   # how far before an article a radar item can count
+FEEDS = ["us-litigation", "partner-filings", "trade-remedy", "kr-official", "kr-signals", "us-comments", "page-watch",
+         "trademarks", "assembly-bills", "us-recalls", "scoop-screen"]
+LABEL = {"us-litigation": "미국 소송·판결", "partner-filings": "해외 파트너 공시", "trade-remedy": "무역구제·미국 관보",
+         "kr-official": "공장등록·관보", "kr-signals": "공정위·한전·산업부", "us-comments": "미 연방 의견서", "page-watch": "해외 공식 페이지",
+         "trademarks": "상표 출원", "assembly-bills": "국회 법안", "us-recalls": "미국 리콜", "scoop-screen": "단독 후보 심사",
+         "clues": "공개 원자료 단서(DART 등)"}
+# Group-level names: an article about 포스코 and a radar item about 포스코홀딩스 concern the same group.
+GROUP = {"현대자동차": "현대차", "제네시스": "현대차", "현대차(제네시스)": "현대차", "포스코홀딩스": "포스코", "엘에스일렉트릭": "LS일렉트릭",
+         "아우디코리아": "아우디", "폭스바겐코리아": "폭스바겐", "BMW코리아": "BMW", "메르세데스-벤츠 코리아": "벤츠", "혼다코리아": "혼다",
+         "효성중공업(관련)": "효성중공업", "일진전기(관련)": "일진전기", "OCI홀딩스": "OCI", "세아홀딩스": "세아제강", "LS지주": "LS"}
+# (concept, Korean headline words, words in radar items — Korean or English)
+CONCEPTS = [
+    ("소송·판결", r"소송|제소|항소|불복|패소|승소|판결|법원|배상", r"v\. United States|\bIn re\b|lawsuit|complaint|appeal|opinion|court|소송|판결|항소|법원|Sustaining|Remand"),
+    ("관세·무역구제", r"관세|상계|반덤핑|덤핑|무역구제|세이프가드|보조금", r"countervail|anti-?dumping|duty|tariff|subsid|관세|덤핑|쿼터|quota"),
+    ("리콜·결함", r"리콜|결함|화재|발화|시정조치", r"recall|defect|fire|리콜|결함"),
+    ("특허·상표", r"특허|상표|브랜드|명칭", r"patent|PTAB|trademark|상표|특허"),
+    ("지분·합작·거래", r"지분|합작|매각|인수|철수|정리|양도|합병", r"equity|joint venture|disposal|acquisition|exit|transaction|investment in|양도|합병|지분|merger"),
+    ("공장·생산", r"공장|증설|감산|생산|가동|라인|투자", r"plant|factory|공장|고용|주생산품|production|capacity"),
+    ("수주·입찰", r"수주|낙찰|입찰|공급계약|계약", r"tender|award|bid|입찰|낙찰|supply agreement|contract|offtake"),
+    ("입법·규제", r"법안|입법|개정안|국회|규제|시행령|입법예고", r"법률안|개정안|입법예고|bill|regulation|rule"),
+    ("보육·복지", r"어린이집|보육|직장", r"nursery|child ?care|daycare|어린이집"),
+    ("가격", r"가격|값|인상|인하", r"MSRP|price|\$\s?\d|가격"),
+    ("배터리", r"배터리|셀|전지", r"battery|cell|배터리"),
+]
+STOP = {"단독", "기자", "업계", "관계자", "국내", "최대", "최초", "올해", "내년", "전략", "본격", "사업", "추진", "확대", "주목", "위해",
+        "이유", "속도", "결국", "다시", "직접", "모두", "현대", "그룹"}
+
+
+def canon(name):
+    n = re.sub(r"\(.*?\)", "", str(name or "")).strip()
+    return GROUP.get(str(name or "").strip(), GROUP.get(n, n))
+
+
+def parse_time(v):
+    v = str(v or "").strip()
+    if not v:
+        return None
+    try:
+        if re.fullmatch(r"\d{8}", v):
+            return dt.datetime(int(v[:4]), int(v[4:6]), int(v[6:8]), tzinfo=KST)
+        if re.fullmatch(r"\d{4}-\d{2}-\d{2}", v):
+            return dt.datetime.fromisoformat(v).replace(tzinfo=KST)
+        t = dt.datetime.fromisoformat(v.replace("Z", "+00:00"))
+        return t if t.tzinfo else t.replace(tzinfo=KST)
+    except ValueError:
+        return None
+
+
+def mem(source, iid, companies, text, seen, url=None):
+    when = parse_time(seen)
+    names = sorted({canon(c) for c in companies if c})
+    if not when or not names:
+        return None
+    return {"source": source, "id": str(iid), "companies": names, "text": re.sub(r"\s+", " ", str(text or ""))[:500], "seen": when, "url": url}
+
+
+def split_names(v):
+    return [x for x in re.split(r"[·,/]", str(v or "")) if x.strip()]
+
+
+def memory(docs, clues):
+    """Radar items with the time the radar first had them. Each adapter reads one stored feed shape."""
+    out = []
+    add = lambda m: m and out.append(m)  # noqa: E731
+    d = docs.get("us-litigation") or {}
+    for x in d.get("cases") or []:
+        add(mem("us-litigation", x.get("id"), x.get("beat") or [], f"{x.get('caseName')} {x.get('summary') or ''} {x.get('category') or ''}", x.get("firstSeen") or x.get("dateFiled"), x.get("url")))
+    for x in d.get("opinions") or []:
+        add(mem("us-litigation", x.get("id"), x.get("beat") or [], f"{x.get('caseName')} opinion {x.get('holding') or ''}", x.get("firstSeen") or x.get("dateFiled"), x.get("url")))
+    for x in d.get("itc") or []:
+        add(mem("us-litigation", x.get("id"), [n.get("company") for n in x.get("named") or []], f"ITC 337 patent {x.get('title')}", x.get("firstSeen") or x.get("date"), x.get("url")))
+    for x in (docs.get("partner-filings") or {}).get("items") or []:
+        add(mem("partner-filings", x.get("id"), x.get("beat") or [], f"{x.get('filer')} {x.get('title')} {x.get('snippet') or ''}", x.get("firstSeen") or x.get("date"), x.get("url")))
+    d = docs.get("trade-remedy") or {}
+    for x in d.get("federalRegister") or []:
+        add(mem("trade-remedy", x.get("id"), [n.get("company") for n in x.get("named") or []],
+                f"{x.get('title')} duty {' '.join(x.get('memoTopics') or [])}", x.get("firstSeen") or x.get("date"), x.get("url")))
+    d = docs.get("kr-official") or {}
+    for x in d.get("events") or []:
+        add(mem("kr-official", x.get("id"), [x.get("company")], f"공장 {x.get('kind')} {x.get('text')}", x.get("detectedAt"), None))
+    for x in d.get("factories") or []:
+        if x.get("registeredOn"):
+            add(mem("kr-official", x.get("id"), [x.get("company")], f"공장 새 등록 {x.get('cmpnyNm')} {x.get('mainProductCn') or ''}", x.get("firstSeen") or x.get("registeredOn"), None))
+    d = docs.get("kr-signals") or {}
+    for x in d.get("decisions") or []:
+        add(mem("kr-signals", x.get("id"), [m.get("company") for m in x.get("mentions") or []], f"공정위 {x.get('name')} {x.get('action') or ''}", x.get("fileDate") or x.get("decidedOn"), x.get("url")))
+    for x in d.get("kepco") or []:
+        add(mem("kr-signals", x.get("id"), [x.get("company")], f"한전 입찰 {x.get('name')}", x.get("noticeDate"), None))
+    for x in d.get("motir") or []:
+        add(mem("kr-signals", x.get("id"), x.get("companies") or [], f"산업부 {x.get('title')}", x.get("date"), x.get("url")))
+    for x in (docs.get("us-comments") or {}).get("items") or []:
+        add(mem("us-comments", x.get("id"), [x.get("company")], f"{x.get('agency')} 의견서 {x.get('docketTitle') or ''}", x.get("firstSeen") or x.get("postedDate"), x.get("url")))
+    for x in (docs.get("page-watch") or {}).get("events") or []:
+        added = " ".join(str(v) for vs in (x.get("added") or {}).values() for v in (vs if isinstance(vs, list) else [vs]))
+        add(mem("page-watch", f"{x.get('pageId')}:{x.get('detectedAt')}", [x.get("company")], f"{x.get('label')} {added}", x.get("detectedAt"), x.get("url")))
+    for x in (docs.get("trademarks") or {}).get("filings") or []:
+        add(mem("trademarks", x.get("id"), [x.get("company")], f"상표 {x.get('title')}", x.get("firstSeen") or x.get("applicationDate"), None))
+    for x in (docs.get("us-recalls") or {}).get("recalls") or []:
+        add(mem("us-recalls", x.get("id"), [w.get("name") for w in x.get("why") or []] + [w.get("beat") for w in x.get("why") or []],
+                f"recall 리콜 {x.get('models')} {x.get('component')} {x.get('defect') or ''} {x.get('supplierBox') or ''}", x.get("firstSeen") or x.get("received"), x.get("url")))
+    for x in (docs.get("scoop-screen") or {}).get("candidates") or []:
+        add(mem("scoop-screen", x.get("id"), split_names(x.get("company")), x.get("title"), x.get("published") or x.get("filedOn"), x.get("url")))
+    for x in (clues or {}).get("items") or []:
+        add(mem("clues", x.get("id"), x.get("companies") or [], x.get("title"), x.get("firstSeen") or x.get("published"), x.get("url")))
+    return out
+
+
+def nouns(title):
+    t = re.sub(r"\[[^\]]*\]|\([^)]*\)|\s+-\s+[^-]{1,40}$", " ", title)
+    return {w for w in re.findall(r"[가-힣A-Za-z0-9]{2,}", t) if w not in STOP and not re.fullmatch(r"\d+", w)}
+
+
+def match(article, items):
+    """Best radar item for an article: same group company first seen before publication, ranked by event overlap."""
+    pub = parse_time(article.get("published"))
+    comps = {canon(c) for c in article.get("companies") or []}
+    if not pub or not comps:
+        return "회사 미상", None, 0
+    title = article.get("title") or ""
+    concepts = {name for name, ko, _ in CONCEPTS if re.search(ko, title)}
+    words = nouns(title) - comps
+    same = [m for m in items if comps & set(m["companies"]) and pub - dt.timedelta(days=LOOKBACK_DAYS) <= m["seen"] < pub]
+    best, best_score = None, 0
+    for m in same:
+        hit_c = sorted(name for name, _, rx in CONCEPTS if name in concepts and re.search(rx, m["text"], re.I))
+        hit_w = sorted(w for w in words if w in m["text"])
+        score = 2 * len(hit_c) + len(hit_w)
+        if score > best_score or (score == best_score and best and m["seen"] > best["seen"]):
+            best, best_score = {**m, "why": hit_c + hit_w}, score
+    if best and best_score >= 2:
+        verdict = "먼저 잡은 후보"
+    elif same:
+        verdict = "같은 회사 항목만"
+        best = max(same, key=lambda m: m["seen"])
+        best = {**best, "why": []}
+    else:
+        verdict = "없음"
+    if best:
+        best = {"source": best["source"], "label": LABEL.get(best["source"], best["source"]), "id": best["id"], "text": best["text"][:240],
+                "seen": best["seen"].isoformat(timespec="minutes"), "url": best.get("url"), "why": best["why"][:6],
+                "leadHours": round((pub - best["seen"]).total_seconds() / 3600, 1)}
+    return verdict, best, len(same)
+
+
+def run(trace, docs, clues, *, now):
+    since = now - dt.timedelta(days=WINDOW_DAYS)
+    items = memory(docs, clues)
+    rows = []
+    for a in trace.get("items") or []:
+        pub = parse_time(a.get("published"))
+        if not pub or pub < since or pub > now:
+            continue
+        verdict, best, n = match(a, items)
+        rows.append({"articleId": a.get("articleId"), "title": re.sub(r"\s+-\s+[^-]{1,40}$", "", a.get("title") or "")[:200], "published": a.get("published"),
+                     "source": a.get("sourceName"), "companies": a.get("companies") or [], "kind": a.get("kind"), "verdict": verdict,
+                     "best": best, "sameCompanyItems": n})
+    rows.sort(key=lambda r: r["published"] or "", reverse=True)
+    by_source = {}
+    for r in rows:
+        if r["verdict"] == "먼저 잡은 후보":
+            s = by_source.setdefault(r["best"]["label"], {"caught": 0, "lead": []})
+            s["caught"] += 1
+            s["lead"].append(r["best"]["leadHours"])
+    summary = {k: {"caught": v["caught"], "leadHoursMedian": median(v["lead"])} for k, v in sorted(by_source.items(), key=lambda t: -t[1]["caught"])}
+    counts = {v: sum(1 for r in rows if r["verdict"] == v) for v in ("먼저 잡은 후보", "같은 회사 항목만", "없음", "회사 미상")}
+    loaded = {f: f in docs for f in FEEDS}
+    return {"schema": SCHEMA, "generatedAt": now.isoformat(timespec="seconds"), "windowDays": WINDOW_DAYS, "articles": rows, "counts": counts,
+            "bySource": summary, "memoryItems": len(items), "feedsLoaded": loaded, "traceGeneratedAt": trace.get("generatedAt"),
+            "rules": ["자동 후보다. 사람이 기사 전문과 원자료를 비교하는 Y/P/N 판정(역추적 기록)과 다르고, 그 수를 바꾸지 않는다.",
+                      "'먼저 잡은 후보'는 같은 회사(그룹) 항목을 기사 60일 전~직전에 레이더가 처음 봤고, 사건 낱말(한·영 대응)이 겹친 경우다. 같은 사건인지는 열어 봐야 한다.",
+                      "레이더 기억은 지금 저장된 결과뿐이다(보관 기간이 지나 지워진 항목·저장 실패한 감시는 '없음'으로 나올 수 있다 — 0건 아님).",
+                      "경쟁지 [단독] 목록은 구글 뉴스 제목 색인이라 일부다."],
+            "confirmedScoops": 0}
+
+
+def main():
+    import private_store
+    now = dt.datetime.now(KST)
+    token = os.environ.get("MCP_ACCESS_TOKEN", "").strip()
+    if not token:
+        sys.exit("MCP_ACCESS_TOKEN 미설정 — 레이더 기억을 읽을 수 없음(미확인)")
+    trace = json.loads((ROOT / "digests" / "reverse_trace_latest.json").read_text(encoding="utf-8"))
+    clues = json.loads((ROOT / "tools" / "clues.json").read_text(encoding="utf-8"))
+    docs, failed = {}, []
+    for f in FEEDS:
+        try:
+            d = private_store.get(f, token)
+            if d:
+                docs[f] = d
+        except private_store.StoreError:
+            failed.append(f)
+    doc = run(trace, docs, clues, now=now)
+    doc["feedsFailed"] = failed
+    print(f"::notice title=reverse-check::경쟁지 단독 {len(doc['articles'])}건 · {json.dumps(doc['counts'], ensure_ascii=False)} · "
+          f"레이더 기억 {doc['memoryItems']}건 · 감시 읽음 {len(docs)}/{len(FEEDS)}" + (f" · 실패 {len(failed)}" if failed else ""))
+    status = private_store.put("reverse-check", doc, token)
+    print(f"::notice title=reverse-check-push::기자 전용 저장소 전송 HTTP {status}")
+    if status != 200:
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
