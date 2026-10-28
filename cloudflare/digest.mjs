@@ -58,7 +58,8 @@ const ALT = {
   수주: ['수주', '입찰', '낙찰', '공급', '계약'], 관세: ['관세', '반덤핑', '상계관세', '덤핑'], 판정: ['판정', '예비', '최종', '재심', '연례재심'],
   계약: ['계약', '협약', '합의', '공급', '합작', 'MOU'], 의견서: ['의견서', '의견', '제출', '요청'], 상표: ['상표', '출원', '브랜드', '명칭'],
   개정안: ['개정안', '발의', '법안', '개정', '대표발의'], BAIC: ['BAIC', '베이징자동차', '베이징기차', '北汽'],
-  합작: ['합작', '지분', '매각', '정리', '철수', '계약', '합작사'], 가격: ['가격', '판매가', '출고가', 'MSRP', '값'], 미국: ['미국', '美'],
+  합작: ['합작', '지분', '매각', '정리', '철수', '계약', '합작사'], 보조금: ['보조금', '상계관세', '어린이집', '직장', '지원'],
+  가격: ['가격', '판매가', '출고가', 'MSRP', '값'], 미국: ['미국', '美'],
 };
 const ASX_KO = { PLS: '필바라', ARU: '아라푸라', '01958': 'BAIC' };
 export function hint(who, terms) {
@@ -203,8 +204,13 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
   for (const x of tr?.federalRegister ?? []) {
     if (!fresh(x, frBase, 'date')) continue;
     const names = (x.named ?? []).map((n) => n.company);
-    push(names.length ? 'B' : 'C', W['trade-remedy'], { kind: '미국 관보', id: x.id, date: x.date, company: names.join('·'), fact: `미국 관보 ${x.stage}: ${x.title}${names.length ? ` — 본문에 ${names.join('·')}` : ''}`, url: x.url,
-      check: hint(names[0], ['관세', '판정']) });
+    // An unusual topic in the decision-memo appendix of a notice naming a beat company is the story (10-09 열연 'Workplace Nursery' → 10-23 [단독]).
+    const odd = names.length ? (x.memoUnusual ?? []) : [];
+    const memo = odd.length ? ` · 결정문 목차에 흔치 않은 항목(관보 부록 원문): "${String(odd[0]).slice(0, 160)}"${odd.length > 1 ? ` 외 ${odd.length - 1}` : ''}`
+      : (x.memoNamed ?? []).length ? ` · 결정문 목차에 출입처: "${String(x.memoNamed[0]).slice(0, 120)}"` : '';
+    push(odd.length ? 'A' : names.length ? 'B' : 'C', W['trade-remedy'], { kind: odd.length ? '미국 관보 결정문 목차' : '미국 관보', id: x.id, date: x.date, company: names.join('·'),
+      fact: `미국 관보 ${x.stage}: ${x.title}${names.length ? ` — 본문에 ${names.join('·')}` : ''}${memo}`, url: x.url,
+      check: hint(names[0], ['관세', odd.length ? '보조금' : '판정']) });
   }
 
   const lit = docs['us-litigation'];

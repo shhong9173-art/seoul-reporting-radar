@@ -1346,3 +1346,22 @@ test('press check is dispatched after the morning watches and after the evening 
   assert.deepEqual(dueAt(new Date('2026-10-27T23:50:00Z')), ['radar-press-check.yml']);  // Wed 08:50 KST
   assert.deepEqual(dueAt(new Date('2026-10-28T09:50:00Z')), ['radar-press-check.yml']);  // Wed 18:50 KST
 });
+
+test('trade remedies: an unusual decision-memo topic in a notice naming a beat company reaches A with the appendix line', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const odd = 'Comment 8: Whether the Constructing and Operation of Workplace Nursery Program is Countervailable';
+  await worker.fetch(new Request(ORIGIN + '/ingest/trade-remedy', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify({
+    schema: 'trade_remedy/v1', generatedAt: '2026-10-25T07:40:00+09:00', checks: [], quotas: [], events: [],
+    federalRegister: [{ id: 'fr:2026-20778', date: '2026-10-24', stage: '최종 판정', title: 'Certain Hot-Rolled Steel Flat Products From the Republic of Korea: Final Results of Countervailing Duty Administrative Review',
+      url: 'https://www.federalregister.gov/d/2026-20778', named: [{ company: '포스코', mentions: 2, lines: ['POSCO'] }, { company: '현대제철', mentions: 1, lines: ['Hyundai Steel'] }],
+      memoTopics: [odd], memoUnusual: [odd], memoNamed: ["Comment 6: Whether to Modify POSCO's KEXIM OICP Loan Benchmark"], firstSeen: '2026-10-25T07:40:00+09:00' }] }) }), env, {});
+  const r = await call('radar_today', { hours: 72 }, opts);
+  const a = r.text.split('[A · ')[1].split('[B · ')[0];
+  assert.match(a, /미국 관보 최종 판정: Certain Hot-Rolled Steel Flat Products From the Republic of Korea: Final Results of Countervailing Duty Administrative Review — 본문에 포스코·현대제철 · 결정문 목차에 흔치 않은 항목\(관보 부록 원문\): "Comment 8: Whether the Constructing and Operation of Workplace Nursery Program is Countervailable"/);
+  const t = await call('trade_remedies', { section: 'us' }, opts);
+  assert.match(t.text, /결정문 목차 — 흔치 않은 항목\(관보 부록 원문\): "Comment 8: Whether the Constructing/);
+  assert.match(t.text, /결정문 목차 — 출입처 이름\(관보 부록 원문\): "Comment 6: Whether to Modify POSCO's KEXIM OICP Loan Benchmark"/);
+  const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
+  assert.deepEqual(items.items.find((x) => x.id === 'fr:2026-20778').check.terms, ['관세', '보조금']);
+});

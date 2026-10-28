@@ -104,6 +104,13 @@
 - 근거 사례(가설): 10-21 18:33(홍콩) BAIC Motor 'MAJOR TRANSACTION - EXIT OF BAIC INVESTMENT FROM ITS INVESTMENT IN BHAF' → 10-22 경쟁지 [단독] 'BAIC, 합작 금융사 지분 정리'.
 - 제목 분류일 뿐이다. 거래 상대·지분·금액은 공시 PDF로 확인한다.
 
+## 미국 상무부 결정문 목차(trade_remedies, 기자 전용)
+
+- 상무부 결정문(IDM) PDF는 ACCESS가 스크립트로 그리는 페이지로 옮겨 직접 읽기 어렵다(탐침 10-28: 옛 PDF 주소 404). 대신 관보 고시 본문 끝 부록 'List of Topics Discussed in the … Decision Memorandum'(쟁점·보조금 프로그램 목록)을 읽는다.
+- 한국산 판정 고시(제목에 Korea, Results·Determination)는 본문을 한 번 읽어 목차를 남긴다. 출입처 이름이 든 항목과, 자주 나오는 보조금 낱말(전기·배출권·KEXIM·세금·대출 등)이 하나도 없는 '흔치 않은 항목'을 따로 표시한다.
+- 본문에 출입처가 나오는 고시에 흔치 않은 항목이 있으면 radar_today A. 근거 사례: 10-09 열연 상계관세 최종 판정 부록 'Comment 8: … Workplace Nursery Program is Countervailable' → 10-23 경쟁지 [단독](직장어린이집).
+- 목차는 쟁점 제목일 뿐 결론이 아니다. 결론·세율은 결정문 원문으로 확인한다.
+
 ## 레이더 항목 자동 보도 대조(radar_today, 기자 전용)
 
 - GitHub Actions `Radar Press Check`가 평일 08:50·18:50 KST(Cloudflare 요청, GitHub 예약은 예비)에 실행. Worker `/ingest/radar-items`(Bearer `MCP_ACCESS_TOKEN`)에서 A·B 항목 중 대조 낱말이 붙은 것(최근 72시간, 씀·킬·봤음 제외, 최대 40개, A 먼저)을 받는다. 결과는 `radar-check` 비공개 저장소로만. Secrets: `NAVER_CLIENT_ID`·`NAVER_CLIENT_SECRET`·`MCP_ACCESS_TOKEN`(단독 후보 심사와 같음).
