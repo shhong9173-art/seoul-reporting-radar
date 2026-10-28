@@ -7,7 +7,7 @@ import { judgeItems, weeklyReview } from './review.mjs';
 import { customsTrade, ecosData, ecosFind, kosisData, kosisFind } from './stats_live.mjs';
 import { POLICY, checkVerifiedCandidate, formatCheck } from './scoring.mjs';
 import { scoopScreen } from './screen.mjs';
-import { krOfficial, krSignals, krStats, pageChanges, partnerFilings, tradeRemedies, usComments, usLitigation, usRecalls } from './overseas.mjs';
+import { krOfficial, krSignals, krStats, pageChanges, partnerFilings, scoopReverse, tradeRemedies, usComments, usLitigation, usRecalls } from './overseas.mjs';
 import { trademarks } from './trademarks.mjs';
 import { assemblyBills } from './assembly.mjs';
 import { radarToday } from './digest.mjs';
@@ -156,6 +156,10 @@ export const TOOLS = [
   { name: 'us_recalls', access: 'private', handler: usRecalls,
     description: '미국 리콜(NHTSA 전체 리콜 파일, 매일): 출입처 브랜드(현대차·기아·제네시스·아우디·폭스바겐·BMW·미니·벤츠·혼다), 한국GM 생산 차종(트랙스·트레일블레이저·엔비스타·앙코르 GX), 한국 타이어 3사, 결함 설명·원보고서(Part 573) 공급사 칸에 한국 부품사(모비스·만도·위아·SK온·LG에너지솔루션·삼성SDI 등) 이름이 나온 새 리콜. 대상 대수·부품·결함 원문.',
     inputSchema: obj({ company: str('브랜드·회사·차종·부품 낱말'), only_new: bool('신규만'), limit: int('줄 수', 1, 60) }) },
+  { name: 'scoop_reverse', access: 'private', handler: scoopReverse,
+    description: '경쟁지 [단독] 자동 역추적(매일): 최근 30일 업종 [단독] 기사마다 레이더가 기사 전에 같은 회사(그룹)·같은 사건 낱말 항목을 잡았는지 — 먼저 잡은 후보/같은 회사 항목만/없음, 원천별 건수와 몇 시간 앞섰는지. 자동 후보일 뿐 사람 판정(Y/P/N)과 별개.',
+    inputSchema: obj({ verdict: { type: 'string', enum: ['먼저 잡은 후보', '같은 회사 항목만', '없음', '회사 미상'] }, company: str('기업·낱말'),
+      days: int('최근 N일(기본 14, 최대 30)', 1, 30), limit: int('구역별 줄 수', 1, 60) }) },
   { name: 'us_litigation', access: 'private', handler: usLitigation,
     description: '미국 소송·ITC 337조: 국제무역법원·연방순회항소법원 판결 중 출입처가 당사자로 적힌 것(판결문 첫머리 요지 원문·낱말 풀이), 출입처(미국 법인 포함)가 당사자인 연방법원 사건 접수(CourtListener, 국제무역법원·특허·계약·반독점 우선, 연방순회항소법원 사건은 원심·유형 한 줄, 소비자 소송은 접음)와 본문에 출입처 이름이 나온 ITC 337조 고시.',
     inputSchema: obj({ company: str('기업·사건명·분류 낱말'), only_new: bool('신규만'), include_routine: bool('소비자·제조물책임·개인 고용·위조품 단속 사건도 보기'),

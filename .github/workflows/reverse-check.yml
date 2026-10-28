@@ -1,0 +1,37 @@
+name: Reverse Prior Capture
+# 경쟁지 [단독] 자동 역추적: 레이더가 기사 전에 같은 회사·사건 낱말 항목을 잡았는지(자동 후보, 사람 판정 Y/P/N과 별개). 매일 19:20 KST.
+# 레이더 기억에 기자 전용 항목이 있어 결과는 기자 전용 저장소로만. 공개 로그는 건수만.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/reverse_prior_capture.py'
+      - 'tests/test_reverse_prior_capture.py'
+      - '.github/workflows/reverse-check.yml'
+  schedule:
+    - cron: '20 10 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: reverse-prior-capture
+  cancel-in-progress: false
+jobs:
+  reverse:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install "requests>=2.31,<3"
+      - name: Test matching rules
+        run: python -m unittest tests.test_reverse_prior_capture tests.test_private_store -v
+      - name: Check competitor exclusives against radar memory (counts-only log)
+        env:
+          MCP_ACCESS_TOKEN: ${{ secrets.MCP_ACCESS_TOKEN }}
+        run: python scripts/reverse_prior_capture.py

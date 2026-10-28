@@ -119,6 +119,13 @@
 - radar_today: 현대차·기아·한국GM·한국 타이어·한국 부품사 이름이 있으면 A, 수입 브랜드만이면 B. 보도 대조 낱말은 회사(또는 부품사)+리콜(+브랜드).
 - 국내 판매 차량 해당 여부는 이 자료로 알 수 없다(회사·국토부 확인). 첫 실행은 기준선. 기존 `nhtsa_public_watch`(현대·기아 4개 차종)는 그대로 둔다.
 
+## 경쟁지 단독 자동 역추적(scoop_reverse, 기자 전용)
+
+- GitHub Actions `Reverse Prior Capture`가 매일 19:20 KST에 `digests/reverse_trace_latest.json`(업종 [단독] 제목 색인)의 최근 30일 기사마다 레이더 기억(기자 전용 감시 11개 저장 결과의 처음 본 시각 + `tools/clues.json` 단서 게시일)을 대조한다. 결과는 `reverse-check` 비공개 저장소로만.
+- '먼저 잡은 후보': 같은 회사(그룹: 포스코홀딩스=포스코, 제네시스=현대차 등) 항목을 기사 60일 전~직전에 처음 봤고, 사건 낱말이 겹친 경우(한·영 대응: 소송↔v. United States·appeal, 지분·합작↔equity·exit·transaction, 보육↔nursery 등). '같은 회사 항목만', '없음', '회사 미상'으로 나머지를 센다.
+- 원천별로 먼저 잡은 건수와 몇 시간 앞섰는지(중간값)를 보여 준다 — 어떤 원천을 늘릴지 정하는 근거.
+- 사람 판정 Y/P/N(`exclusive_reverse_trace.py`, 기사 전문·원자료 비교)과 별개이며 그 수를 바꾸지 않는다. 지금 저장된 결과만 기억이라 보관 기간이 지난 항목은 '없음'으로 나올 수 있다.
+
 ## 레이더 항목 자동 보도 대조(radar_today, 기자 전용)
 
 - GitHub Actions `Radar Press Check`가 평일 08:50·18:50 KST(Cloudflare 요청, GitHub 예약은 예비)에 실행. Worker `/ingest/radar-items`(Bearer `MCP_ACCESS_TOKEN`)에서 A·B 항목 중 대조 낱말이 붙은 것(최근 72시간, 씀·킬·봤음 제외, 최대 40개, A 먼저)을 받는다. 결과는 `radar-check` 비공개 저장소로만. Secrets: `NAVER_CLIENT_ID`·`NAVER_CLIENT_SECRET`·`MCP_ACCESS_TOKEN`(단독 후보 심사와 같음).
