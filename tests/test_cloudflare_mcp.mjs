@@ -680,12 +680,12 @@ test('kr_official shows factory changes, recent registrations and beat gazette n
   const opts = { path: `/mcp/${TOKEN}`, env };
   const r = await call('kr_official', {}, opts);
   assert.match(r.text, /질의 1\/2 정상 · 미확인\(0건 아님\): 관보 입법예고\(HTTP 500\)/);
-  assert.match(r.text, /포스코 · 등록 내용 변경\n   잡힌 사실: 고용 9,000→8,000명/);
+  assert.match(r.text, /포스코 · 등록 내용 변경\n   잡힌 사실: \(주\)포스코 포항제철소 · 경상북도 포항시 — 고용 9,000→8,000명/);
   assert.match(r.text, /\[최근 120일 등록 공장 · 등록일 기준\] 1곳 \(출입처 공장 전체 2곳\)/);
   assert.match(r.text, /\(기준선 2026-10-26 이후 감지된 새 공장/);
   assert.match(r.text, /2026-09-15 · 현대차 · 현대자동차\(주\)울산EV공장/);
   assert.match(r.text, /\[신규\] 2026-10-24 · 국토교통부 · 자동차/);
-  assert.doesNotMatch(r.text, /포항제철소 · 경상북도/);
+  assert.doesNotMatch(r.text.split('[최근 120일 등록 공장')[1].split('[관보')[0], /포항제철소/);  // 1973 registration is not recent
   const all = await call('kr_official', { section: 'factory', show_all: true }, opts);
   assert.match(all.text, /포스코 · \(주\)포스코 포항제철소 · 경상북도 포항시 · 고용 8000/);
   assert.doesNotMatch(all.text, /관보 입법예고 · 출입처/);
@@ -1245,9 +1245,10 @@ test('radar-items hands hinted A/B items to the press checker; radar_today shows
         summary: 'LS일렉트릭, 미국 특허청 특허심판원(PTAB) 결정에 불복해 연방순회항소법원에 항소', url: 'https://cl/7' },
       { id: 'cl:9', beat: ['현대차'], caseName: 'Lee v. Hyundai Motor America', category: '소비자·제조물책임', priority: 3, role: '피고·기타 당사자',
         dateFiled: '2026-10-24', firstSeen: '2026-10-25T07:50:00+09:00' }] });
-  await post('kr-official', { schema: 'kr_official/v1', generatedAt: '2026-10-26T08:10:00+09:00', checks: [], factories: [], gazette: [],
+  await post('kr-official', { schema: 'kr_official/v1', generatedAt: '2026-10-26T08:10:00+09:00', checks: [], gazette: [],
+    factories: [{ id: 'fac:1', company: 'KG스틸', cmpnyNm: 'KG스틸(주)당진공장', rnAdres: '충청남도 당진시 송악읍 북부산업로 1', employees: 690 }],
     events: [
-      { id: 'fac:1:x', kind: '등록 내용 변경', company: 'KG스틸', factoryId: 'fac:1', text: '고용 856→690명', detectedAt: '2026-10-25T11:09:00+09:00' },
+      { id: 'fac:1:x', kind: '등록 내용 변경', company: 'KG스틸', factoryId: 'fac:1', name: 'KG스틸(주)', text: '고용 856→690명', detectedAt: '2026-10-25T11:09:00+09:00' },
       { id: 'fac:2:gone', kind: '목록에서 빠짐', company: '현대위아', factoryId: 'fac:2', text: '현대위아(주)창원2공장 · 경상남도 창원시 성산구 정동로 154 — 이번 조회 목록에 없음', detectedAt: '2026-10-25T11:09:00+09:00' },
       { id: 'fac:3:x', kind: '등록 내용 변경', company: '효성중공업(관련)', factoryId: 'fac:3', text: "업종 'a 외 13 종'→'a 외 14 종'", detectedAt: '2026-10-25T11:09:00+09:00' }] });
   await call('candidate_feedback', { item_id: 'cl:5', verdict: '봤음', reason: '확인' }, opts);
@@ -1262,6 +1263,10 @@ test('radar-items hands hinted A/B items to the press checker; radar_today shows
   assert.deepEqual(by['cl:4'].check, { who: '세아제강', terms: ['국제무역법원', '소송'], alts: { 국제무역법원: ['국제무역법원', '무역법원', 'CIT'], 소송: ['소송', '제소', '판결', '항소', '불복'] } });
   assert.deepEqual(by['cl:7'].check.terms, ['항소', '특허']);
   assert.deepEqual(by['fac:1:x'].check.terms, ['인력', '감축']);
+  assert.equal(by['fac:1:x'].fact, '등록 내용 변경: KG스틸(주)당진공장 · 충청남도 당진시 송악읍 북부산업로 1 — 고용 856→690명');
+  assert.equal(by['fac:2:gone'].fact.split(' — ')[0], '목록에서 빠짐: 현대위아(주)창원2공장 · 경상남도 창원시 성산구 정동로 154');  // already named: unchanged
+  const ko = await call('kr_official', { section: 'factory', company: 'KG스틸' }, opts);
+  assert.match(ko.text, /잡힌 사실: KG스틸\(주\)당진공장 · 충청남도 당진시 송악읍 북부산업로 1 — 고용 856→690명/);
   assert.deepEqual(by['fac:2:gone'].check.terms, ['창원', '공장', '폐쇄']);
   assert.ok(!by['cl:5'], 'judged 봤음 is not checked again');
   assert.ok(!by['cl:9'], 'C tier is not checked');

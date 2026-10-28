@@ -183,6 +183,15 @@ export async function tradeRemedies(ctx, args) {
   return textResult(out.join('\n'));
 }
 
+// Change events carry only the changed fields; name·address come from the stored factory row (운영 10-28: 'KG스틸 고용
+// 856→690명'만 떠서 어느 공장인지 몰랐다). Text that already names the plant is left as it is.
+export function factoryEventText(doc, e) {
+  const f = (doc?.factories ?? []).find((x) => x.id === e.factoryId);
+  const name = f?.cmpnyNm ?? e.name;
+  if (!name || String(e.text ?? '').includes(name)) return e.text;
+  return `${name}${f?.rnAdres ? ` · ${f.rnAdres}` : ''} — ${e.text}`;
+}
+
 export async function usLitigation(ctx, args) {
   const doc = await readFeed(ctx, 'us-litigation');
   if (!doc) return missing('미국 소송·ITC', '평일 07:50');
@@ -251,7 +260,7 @@ export async function krOfficial(ctx, args) {
     out.push(`(기준선 ${String(doc.baselineSince ?? doc.generatedAt).slice(0, 10)} 이후 감지된 새 공장·고용·주생산품·업종·주소 변화만 센다. 등록일로 본 새 공장은 아래 '최근 120일 등록 공장'.)`);
     for (const e of ev.slice(0, limit)) {
       out.push(`- ${String(e.detectedAt).slice(0, 10)} · ${e.company} · ${e.kind}`);
-      out.push(`   잡힌 사실: ${e.text}`);
+      out.push(`   잡힌 사실: ${factoryEventText(doc, e)}`);
     }
     if (!ev.length) out.push('이 기간 감지된 변화 없음(조회 실패 회사는 미확인).');
     const facs = (doc.factories ?? []).filter((f) => matches(q, f.company, f.cmpnyNm, f.rnAdres, f.mainProductCn));

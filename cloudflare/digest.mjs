@@ -7,6 +7,7 @@ import { dispatchHealth } from './dispatch.mjs';
 import { clampInt, safeEqual, textResult } from './common.mjs';
 import { classLabel, waitReason } from './trademarks.mjs';
 import { billLine, groupBillEvents } from './assembly.mjs';
+import { factoryEventText } from './overseas.mjs';
 
 const KST_MS = 9 * 3600000;
 const kstDate = (ms) => new Date(ms + KST_MS).toISOString().slice(0, 10);
@@ -126,8 +127,9 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
   const kr = docs['kr-official'];
   for (const e of kr?.events ?? []) {
     if (!recent(e.detectedAt)) continue;
-    push(e.kind === '목록에서 빠짐' ? 'B' : 'A', W['kr-official'], { kind: `공장 ${e.kind}`, id: e.id, date: e.detectedAt, company: e.company, fact: `${e.kind}: ${e.text}`,
-      check: factoryHint(e.company, e.kind, e.text) });
+    const text = factoryEventText(kr, e);
+    push(e.kind === '목록에서 빠짐' ? 'B' : 'A', W['kr-official'], { kind: `공장 ${e.kind}`, id: e.id, date: e.detectedAt, company: e.company, fact: `${e.kind}: ${text}`,
+      check: factoryHint(e.company, e.kind, text) });
   }
   const evFactories = all ? new Set() : new Set((kr?.events ?? []).filter((e) => Date.parse(e.detectedAt) >= cut).map((e) => e.factoryId));
   for (const f of kr?.factories ?? []) {
