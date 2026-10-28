@@ -126,6 +126,48 @@ class Run(unittest.TestCase):
         self.assertEqual(doc["counts"]["미보도 후보"], 0)
 
 
+def art(title, day, text=""):
+    return dict(article(title, day), description=text)
+
+
+class HeadlineRule(unittest.TestCase):
+    """Production 10-28: body-only mentions pushed unreported items down as '관련 보도 있음'."""
+
+    def one(self, item, arts):
+        with patch.dict(os.environ, {"NAVER_CLIENT_ID": "i", "NAVER_CLIENT_SECRET": "k"}):
+            return rpc.run([item], now=NOW, get=channels({"": arts}), sleep=lambda s: None)["items"][0]
+
+    def test_company_only_in_someone_elses_story_is_weak(self):
+        item = {"tier": "A", "watch": "미국 소송·ITC", "id": "cl:75015895", "date": "2026-10-23", "company": "현대제철",
+                "check": {"who": "현대제철", "terms": ["국제무역법원", "소송"], "alts": SUIT}}
+        r = self.one(item, [art("[단독] 포스코, 미국 상계관세 소송서 패소", "2026-10-28",
+                                "포스코가 미국 국제무역법원 소송에서 졌다. 현대제철도 같은 법원에 소송을 냈다.")])
+        self.assertEqual(r["verdict"], "미보도 후보")
+        self.assertTrue(r["evidence"][0]["why"].startswith("본문에만"))
+
+    def test_generic_words_do_not_mark_a_price_change_covered(self):
+        item = {"tier": "A", "watch": "해외 공식 페이지", "id": "p1", "date": "2026-10-28T06:31:10+09:00", "company": "현대차",
+                "check": {"who": "현대차", "terms": ["가격", "미국"], "alts": {"가격": ["가격", "판매가", "MSRP"], "미국": ["미국", "美"]}}}
+        r = self.one(item, [art('"아우디도 美 공장 짓는다"…현대차·도요타 이어 현지화 속도', "2026-10-26")])
+        self.assertEqual(r["verdict"], "미보도 후보")
+        r = self.one(item, [art("현대차, 美 판매가 동결…투싼 2만7600달러", "2026-10-28")])
+        self.assertEqual(r["verdict"], "관련 보도 있음")
+
+    def test_headline_with_company_and_event_word_is_covered(self):
+        item = {"tier": "A", "watch": "미국 소송·ITC", "id": "op:1", "date": "2026-10-27", "company": "포스코",
+                "check": {"who": "포스코", "terms": ["국제무역법원", "판결", "상계관세"],
+                          "alts": {**SUIT, "판결": ["판결", "패소", "승소"], "상계관세": ["상계관세"]}}}
+        r = self.one(item, [art("[단독] 포스코, 미국 상계관세 소송서 패소", "2026-10-28")])
+        self.assertEqual(r["verdict"], "관련 보도 있음")
+        self.assertTrue(r["evidence"][0]["why"].startswith("제목에 회사·낱말"))
+
+    def test_bills_match_the_law_name_in_the_text(self):
+        item = ITEMS[2] | {"check": {"who": "노동조합 및 노동관계조정법", "terms": ["개정안", "이종배"], "alts": {"개정안": ["개정안", "발의"]}}}
+        r = self.one(item, [art("노동조합 불법행위 규율 신설…국힘 이종배 의원, 관련법 개정안 발의", "2026-10-27",
+                                "이종배 의원이 노동조합 및 노동관계조정법 일부개정법률안을 대표발의했다.")])
+        self.assertEqual(r["verdict"], "관련 보도 있음")
+
+
 class Fetch(unittest.TestCase):
     def test_items_endpoint_uses_bearer_and_fails_loudly(self):
         seen = {}

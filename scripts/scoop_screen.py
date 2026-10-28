@@ -472,6 +472,26 @@ def judge(c, channels, *, now):
             text = f"{a.get('title', '')} {a.get('text', '')}"
             if not company_in_text(c["company"], text):
                 continue
+            if c.get("strict"):
+                # Radar items (radar_press_check): the company and an event word must be in the headline. Body-only
+                # matches are kept as weak evidence and do not make an item 'covered' (운영 10-28: 현대제철 국제무역법원
+                # 소송이 포스코 판결 기사 본문에 이름이 나와 '관련 보도 있음'으로 내려갔다).
+                generic = set(c.get("generic") or [])
+                title = a.get("title", "")
+                words = [t for t in terms if t not in generic]
+                t_hits = [t for t in words if any(w in title for w in alts.get(t, [t]))]
+                x_hits = [t for t in words if any(w in text for w in alts.get(t, [t]))]
+                if company_in_text(c["company"], title) and (t_hits or len(x_hits) >= 2):
+                    why, rank = f"제목에 회사·낱말({', '.join((t_hits or x_hits)[:3])}) — 동일 사건 미확정", 1
+                elif len(x_hits) >= 2:
+                    why, rank = f"본문에만 회사·낱말({', '.join(x_hits[:3])}) — 제목 불일치, 같은 사건 가능성 낮음", 0
+                else:
+                    continue
+                key = a.get("url") or a.get("title")
+                if key not in evidence or evidence[key]["rank"] < rank:
+                    evidence[key] = {"title": a.get("title", "")[:160], "url": a.get("url"), "date": a.get("date"),
+                                     "channel": ch, "why": why, "rank": rank}
+                continue
             if lawsuit:
                 observed=case_numbers(text)
                 # Same issuer, date and generic case name cannot identify a
@@ -517,7 +537,7 @@ def judge(c, channels, *, now):
     naver_ok = channels.get("naver", {}).get("status") == "ok"
     if any(e["rank"] == 2 for e in ev):
         verdict = "같은 수치 선행"
-    elif ev:
+    elif any(e["rank"] >= 1 for e in ev):
         verdict = "관련 보도 있음"
     elif naver_ok and web_ok and not invalid_dates and not ambiguous_case:
         verdict = "미보도 후보"
