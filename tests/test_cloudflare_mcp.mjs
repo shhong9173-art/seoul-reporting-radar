@@ -217,6 +217,24 @@ test('news_check: all channels ok and empty is not proof of non-coverage', async
   assert.match(f.text, /판정: 미확인/);
 });
 
+test('news_check: the collector status of the [단독] index counts as healthy; unknown or stale ones fail', async () => {
+  // Production tools/dandok.json since 10-26: status is the collector's constant, not 'ok' (운영 10-28: 모든 보도 대조가 미확인).
+  const index = (status, sourceGeneratedAt = '2026-10-25T22:00:00+09:00') => fakeFetch({
+    'https://news.google.com/': new Response('<rss><channel></channel></rss>'),
+    'https://naverapihub.apigw.ntruss.com/': Response.json({ items: [] }),
+    [DATA + 'tools/dandok.json']: Response.json({ status, sourceGeneratedAt, items: [] }),
+  });
+  const env = PRIVATE({ NAVER_CLIENT_ID: 'i', NAVER_CLIENT_SECRET: 's' });
+  const real = await call('news_check', { q: '없는 사건 낱말' }, { ...env, fetch: index('historical_industry_exclusive_rss_partial_index') });
+  assert.match(real.text, /\[단독\] 색인: 0건/);
+  assert.match(real.text, /모두 0건 — 미보도 증거 아님/);
+  for (const bad of [index('broken'), index('historical_industry_exclusive_rss_partial_index', '2026-10-20T00:00:00+09:00')]) {
+    const r = await call('news_check', { q: '없는 사건 낱말' }, { ...env, fetch: bad });
+    assert.match(r.text, /\[단독\] 색인: failed — 단독 색인 실패·오래됨·생성일 미확인/);
+    assert.match(r.text, /판정: 미확인/);
+  }
+});
+
 test('news_check: Bing stands in for Google and unwraps the original link', async () => {
   const bingRss = `<rss><channel><item><title>동국씨엠 컬러강판 증설</title><link>https://www.bing.com/news/apiclick.aspx?ref=FexRss&amp;url=https%3a%2f%2fwww.example-news.kr%2fa%2f1&amp;c=1</link><pubDate>Fri, 24 Oct 2026 03:00:00 GMT</pubDate></item></channel></rss>`;
   const fetch = fakeFetch({

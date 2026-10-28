@@ -114,11 +114,15 @@ async function naverNews(ctx, q, days) {
   return { status: 'failed', error: `키 거부(${refused.join(', ')}) — 키 값·API 선택(뉴스) 확인`, items: [] };
 }
 
+// The collector (historical_exclusive_press_collector.py) marks a healthy index with this status — the index is
+// partial by design (Google News titles only). Other statuses, a stale or undated index stay failures.
+const DANDOK_OK = new Set(['ok', 'historical_industry_exclusive_rss_partial_index']);
+
 async function dandokIndex(ctx, q, days) {
   try {
     const v = await fetchJson(ctx, 'tools/dandok.json');
     const age = ctx.now.getTime() - Date.parse(v.sourceGeneratedAt);
-    if (v.status !== 'ok' || !Array.isArray(v.items) || !Number.isFinite(age) || age < 0 || age > 48 * 3600000)
+    if (!DANDOK_OK.has(v.status) || !Array.isArray(v.items) || !Number.isFinite(age) || age < 0 || age > 48 * 3600000)
       return { status: 'failed', error: '단독 색인 실패·오래됨·생성일 미확인', items: [] };
     const from = kstDate(ctx.now, Math.min(days, 120));
     const items = (v.items ?? []).filter((r) => r.published >= from && r.published <= kstDate(ctx.now) && matchesQuery(q, r.title, r.companies))
