@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-28T21:52:35+09:00",
+  "generatedAt": "2026-10-28T22:15:55+09:00",
   "status": "source_requests_completed",
   "expectedQueries": 12,
   "attemptedQueries": 12,
@@ -14,34 +14,34 @@
   "exclusiveQueryRecentRowsBeforeDedupe": 0,
   "slowestQueries": [
     {
+      "category": "Nikkei Asia",
+      "globalFeed": true,
+      "status": "checked_recent_rows",
+      "durationMs": 601
+    },
+    {
       "category": "The Verge",
       "globalFeed": true,
       "status": "checked_no_recent_rows",
-      "durationMs": 593
+      "durationMs": 551
     },
     {
-      "category": "CarNewsChina",
+      "category": "Automotive News",
       "globalFeed": true,
       "status": "checked_recent_rows",
-      "durationMs": 557
+      "durationMs": 547
     },
     {
       "category": "Electrek",
       "globalFeed": true,
       "status": "checked_recent_rows",
-      "durationMs": 537
-    },
-    {
-      "category": "Automotive World",
-      "globalFeed": true,
-      "status": "checked_recent_rows",
-      "durationMs": 515
+      "durationMs": 522
     },
     {
       "category": "CnEVPost",
       "globalFeed": true,
       "status": "checked_recent_rows",
-      "durationMs": 514
+      "durationMs": 504
     }
   ],
   "recentArticleItemsAfterDedupe": 32,
@@ -58,15 +58,7 @@
       "status": "checked_no_recent_rows",
       "recentRows": 0,
       "errorType": null,
-      "durationMs": 387
-    },
-    {
-      "category": "Nikkei Asia",
-      "globalFeed": true,
-      "status": "checked_recent_rows",
-      "recentRows": 1,
-      "errorType": null,
-      "durationMs": 427
+      "durationMs": 413
     },
     {
       "category": "Bloomberg",
@@ -74,23 +66,15 @@
       "status": "checked_no_recent_rows",
       "recentRows": 0,
       "errorType": null,
-      "durationMs": 433
+      "durationMs": 475
     },
     {
-      "category": "WardsAuto",
+      "category": "Nikkei Asia",
       "globalFeed": true,
       "status": "checked_recent_rows",
       "recentRows": 1,
       "errorType": null,
-      "durationMs": 341
-    },
-    {
-      "category": "Automotive News",
-      "globalFeed": true,
-      "status": "checked_recent_rows",
-      "recentRows": 3,
-      "errorType": null,
-      "durationMs": 450
+      "durationMs": 601
     },
     {
       "category": "Automotive World",
@@ -98,7 +82,23 @@
       "status": "checked_recent_rows",
       "recentRows": 3,
       "errorType": null,
-      "durationMs": 515
+      "durationMs": 439
+    },
+    {
+      "category": "Automotive News",
+      "globalFeed": true,
+      "status": "checked_recent_rows",
+      "recentRows": 2,
+      "errorType": null,
+      "durationMs": 547
+    },
+    {
+      "category": "WardsAuto",
+      "globalFeed": true,
+      "status": "checked_recent_rows",
+      "recentRows": 1,
+      "errorType": null,
+      "durationMs": 374
     },
     {
       "category": "InsideEVs",
@@ -106,31 +106,23 @@
       "status": "checked_recent_rows",
       "recentRows": 11,
       "errorType": null,
-      "durationMs": 431
-    },
-    {
-      "category": "Electrek",
-      "globalFeed": true,
-      "status": "checked_recent_rows",
-      "recentRows": 4,
-      "errorType": null,
-      "durationMs": 537
+      "durationMs": 474
     },
     {
       "category": "CnEVPost",
       "globalFeed": true,
       "status": "checked_recent_rows",
-      "recentRows": 8,
+      "recentRows": 9,
       "errorType": null,
-      "durationMs": 514
+      "durationMs": 504
     },
     {
-      "category": "EV.com",
+      "category": "Electrek",
       "globalFeed": true,
-      "status": "checked_no_recent_rows",
-      "recentRows": 0,
+      "status": "checked_recent_rows",
+      "recentRows": 6,
       "errorType": null,
-      "durationMs": 369
+      "durationMs": 522
     },
     {
       "category": "CarNewsChina",
@@ -138,7 +130,15 @@
       "status": "checked_recent_rows",
       "recentRows": 3,
       "errorType": null,
-      "durationMs": 557
+      "durationMs": 417
+    },
+    {
+      "category": "EV.com",
+      "globalFeed": true,
+      "status": "checked_no_recent_rows",
+      "recentRows": 0,
+      "errorType": null,
+      "durationMs": 354
     },
     {
       "category": "The Verge",
@@ -146,7 +146,7 @@
       "status": "checked_no_recent_rows",
       "recentRows": 0,
       "errorType": null,
-      "durationMs": 593
+      "durationMs": 551
     }
   ]
 }
