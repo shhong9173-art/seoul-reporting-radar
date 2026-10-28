@@ -123,6 +123,7 @@ test('initialize echoes a supported protocol version and gives instructions', as
   const { body } = await rpc('initialize', { protocolVersion: '2025-03-26', capabilities: {}, clientInfo: { name: 'claude' } });
   assert.equal(body.result.protocolVersion, '2025-03-26');
   assert.equal(body.result.serverInfo.name, 'seoul-reporting-radar');
+  assert.match(body.result.serverInfo.version, /^1\.\d+\.0$/);
   assert.match(body.result.instructions, /0건이 아니라 미확인/);
   const unknown = await rpc('initialize', { protocolVersion: '1999-01-01' });
   assert.equal(unknown.body.result.protocolVersion, '2025-06-18');
