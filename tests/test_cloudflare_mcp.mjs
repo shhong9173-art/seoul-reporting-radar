@@ -625,7 +625,15 @@ test('us_litigation shows party cases by priority, folds routine ones, and lists
       { id: 'cl:4', beat: ['포스코'], caseName: 'POSCO v. United States', court: 'CIT', courtId: 'cit', docketNumber: '1:26-00123', dateFiled: '2026-09-29',
         category: '국제무역법원(무역구제 소송)', priority: 0, role: '원고', matchedParties: ['POSCO'], url: 'https://www.courtlistener.com/docket/4/x/', isNew: true },
       { id: 'cl:1', beat: ['현대차'], caseName: 'Summers v. Hyundai Motor America Inc', court: 'VAED', dateFiled: '2026-10-21', category: '소비자·제조물책임',
-        priority: 3, role: '피고·기타 당사자', matchedParties: ['Hyundai Motor America Inc'], cause: '15:2301 Magnuson-Moss Warranty Act', url: 'https://x/1', isNew: false }],
+        priority: 3, role: '피고·기타 당사자', matchedParties: ['Hyundai Motor America Inc'], cause: '15:2301 Magnuson-Moss Warranty Act', url: 'https://x/1', isNew: false },
+      { id: 'cl:75019340', beat: ['LS일렉트릭'], caseName: 'In re: LS Electric Co., Ltd.', court: 'CAFC', courtId: 'cafc', docketNumber: '27-1067', dateFiled: '2026-10-22',
+        category: '연방순회항소법원', priority: 0, role: '원고', matchedParties: ['LS Electric Co., Ltd.'], url: 'https://cl/75019340', isNew: true,
+        appealFrom: 'United States Patent and Trademark Office', caseType: 'BCA or PTO, Patent Trial and Appeal Board',
+        summary: 'LS일렉트릭, 미국 특허청 특허심판원(PTAB) 결정에 불복해 연방순회항소법원에 항소(사건 27-1067, 2026-10-22 접수)' }],
+    opinions: [{ id: 'op:11046079', beat: ['포스코'], courtId: 'cit', caseName: 'POSCO v. United States', docketNumber: '24-00006', dateFiled: '2026-10-27',
+      role: '원고', url: 'https://www.courtlistener.com/opinion/11046079/posco-v-united-states/', pdf: 'https://www.cit.uscourts.gov/x.pdf', isNew: true,
+      holding: "Sustaining the Department of Commerce's second remand redetermination in its countervailing duty order review of certain carbon and alloy steel cut-to-length plate from the Republic of Korea.",
+      holdingKo: '유지', reading: '원고 쪽 청구가 받아들여지지 않았다는 뜻으로 읽힘(판결문 본문 확인 전)' }],
     itc: [{ id: 'fr:2026-1', date: '2026-10-15', stage: '조사 개시', title: 'Certain Automotive Headlamps; Notice of Institution of Investigation',
       url: 'https://www.federalregister.gov/d/2026-1', named: [{ company: '현대모비스', mentions: 1, lines: ['Hyundai Mobis Co., Ltd., Seoul, Republic of Korea'] }], isNew: true }] };
   const post = await worker.fetch(new Request(ORIGIN + '/ingest/us-litigation', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {});
@@ -635,6 +643,14 @@ test('us_litigation shows party cases by priority, folds routine ones, and lists
   assert.match(r.text, /질의 1\/2 정상 · 미확인\(0건 아님\): CourtListener "Taihan"\(HTTP 429 호출 한도\)/);
   assert.match(r.text, /\[신규\] 2026-09-29 · 국제무역법원\(무역구제 소송\) · 포스코\(원고\)/);
   assert.match(r.text, /잡힌 사실: CIT 1:26-00123 「POSCO v\. United States」 접수/);
+  assert.match(r.text, /\[판결 · 국제무역법원·연방순회항소법원[^\]]*\] 1건/);
+  assert.match(r.text, /\[신규\] 2026-10-27 · 국제무역법원 · 포스코\(원고\)/);
+  assert.match(r.text, /요지\(판결문 원문\): "Sustaining the Department of Commerce's second remand redetermination[^"]*" → 낱말 풀이: 유지/);
+  assert.match(r.text, /읽기\(가설\): 원고 쪽 청구가 받아들여지지 않았다는 뜻으로 읽힘\(판결문 본문 확인 전\)/);
+  assert.match(r.text, /PDF https:\/\/www\.cit\.uscourts\.gov\/x\.pdf/);
+  assert.ok(r.text.indexOf('[판결 ·') < r.text.indexOf('[사건 접수 ·'));
+  assert.match(r.text, /한 줄: LS일렉트릭, 미국 특허청 특허심판원\(PTAB\) 결정에 불복해 연방순회항소법원에 항소\(사건 27-1067, 2026-10-22 접수\)/);
+  assert.match(r.text, /원심 United States Patent and Trademark Office · 유형 BCA or PTO, Patent Trial and Appeal Board/);
   assert.doesNotMatch(r.text, /Summers/);
   assert.match(r.text, /일상 사건 1건 숨김/);
   assert.match(r.text, /\[신규\] 2026-10-15 · 조사 개시 · Certain Automotive Headlamps/);
@@ -717,7 +733,11 @@ test('radar_today merges the private watches, ranks new items and lists failed o
   await post('us-litigation', { schema: 'us_litigation/v1', generatedAt: '2026-10-26T07:50:00+09:00', checks: [],
     cases: [{ id: 'cl:old', beat: ['포스코'], caseName: 'Old v. POSCO', category: '계약', priority: 1, dateFiled: '2026-09-29', firstSeen: base, role: '피고·기타 당사자' },
       { id: 'cl:4', beat: ['세아제강'], caseName: 'SeAH Steel Corporation v. United States', court: 'CIT', category: '국제무역법원(무역구제 소송)', priority: 0, role: '원고', dateFiled: '2026-10-23', firstSeen: '2026-10-25T10:00:00+09:00', url: 'https://cl/4' },
-      { id: 'cl:9', beat: ['현대차'], caseName: 'Lee v. Hyundai Motor America', category: '소비자·제조물책임', priority: 3, role: '피고·기타 당사자', dateFiled: '2026-10-24', firstSeen: '2026-10-25T07:50:00+09:00' }], itc: [] });
+      { id: 'cl:9', beat: ['현대차'], caseName: 'Lee v. Hyundai Motor America', category: '소비자·제조물책임', priority: 3, role: '피고·기타 당사자', dateFiled: '2026-10-24', firstSeen: '2026-10-25T07:50:00+09:00' }], itc: [],
+    opinions: [{ id: 'op:1', beat: ['포스코'], courtId: 'cit', caseName: 'POSCO v. United States', role: '원고', dateFiled: '2026-10-25', firstSeen: '2026-10-26T07:50:00+09:00',
+      holding: "Sustaining the Department of Commerce's second remand redetermination in its countervailing duty order review.", holdingKo: '유지',
+      reading: '원고 쪽 청구가 받아들여지지 않았다는 뜻으로 읽힘(판결문 본문 확인 전)', url: 'https://cl/op1' },
+      { id: 'op:0', beat: ['현대제철'], courtId: 'cafc', caseName: 'Old v. United States', role: '피고·참가인 등', dateFiled: '2026-10-01', firstSeen: base }] });
   await post('us-comments', { schema: 'us_comments/v1', generatedAt: '2026-10-22T08:20:00+09:00', checks: [], items: [] });
   await post('page-watch', { schema: 'page_watch/v1', generatedAt: '2026-10-26T06:30:00+09:00', pages: [],
     events: [{ pageId: 'site:hyundaiusa.com', scope: 'site', company: '현대차', label: '현대차 미국 사이트 공통', detectedAt: '2026-10-25T18:30:00+09:00', added: { timing: ['Coming 2027'] } }] });
@@ -734,7 +754,8 @@ test('radar_today merges the private watches, ranks new items and lists failed o
   assert.match(a, /공장 등록 에이치엘만도\(주\)/);
   assert.match(a, /EU 쿼터 099843 컬러강판\(한국 전용\) 소진/);
   assert.match(a, /국제무역법원\(무역구제 소송\) · 원고: CIT 「SeAH Steel Corporation v\. United States」/);
-  assert.doesNotMatch(a, /킬한 후보|Old v\. POSCO/);
+  assert.doesNotMatch(a, /킬한 후보|Old v\. POSCO|Old v\. United States/);
+  assert.match(a, /국제무역법원 판결 「POSCO v\. United States」\(포스코 원고\) — 요지\(원문\) "Sustaining the Department of Commerce's second remand[^"]*" \(풀이: 유지\) · 원고 쪽 청구가/);
   const b = r.text.split('[B · ')[1].split('[C · ')[0];
   assert.match(b, /관보 입법예고 국토교통부/);
   assert.match(b, /미국 관보 예비 판정: Certain Steel From Korea — 본문에 현대제철/);

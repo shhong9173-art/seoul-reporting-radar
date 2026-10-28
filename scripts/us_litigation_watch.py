@@ -4,6 +4,10 @@
   본문에 이름만 나오는 다른 회사 사건은 버린다.
 - 분류: 국제무역법원(CIT)·연방순회항소법원(CAFC) 사건, 특허·계약·반독점·증권·노동 등은 먼저 보여 주고,
   소비자 제조물책임·개인 고용 소송·위조품 단속(Schedule A)은 '일상'으로 접는다.
+- 판결(10-28 추가): 국제무역법원·연방순회항소법원 판결 검색(type=o, court=cit cafc, 최근 21일)에서 사건명·판결문 첫머리
+  당사자 줄(OPINION 앞)에 출입처가 있을 때만 남긴다(판례로 인용만 한 판결은 버림). 새 판결은 판결문을 한 번 읽어
+  국제무역법원은 첫머리 괄호 요지, 연방순회항소법원은 끝의 대문자 주문(AFFIRMED 등)을 원문 그대로 붙이고 낱말 풀이를 단다.
+- 새 연방순회항소법원 사건은 사건 상세(원심·사건 유형)를 한 번 읽어 사실만으로 한 줄 설명을 만든다.
 - ITC 337조: 미국 관보에서 ITC 고시 중 'Certain …' 337조 사건(제소 접수·조사 개시·판정)을 찾아 본문을 한 번 읽고
   출입처 영문명이 나오면 남긴다(문서번호로 캐시).
 - 결과는 기자 전용 저장소(us-litigation)로만. 공개 로그는 건수만. 조회 실패는 0건이 아니다.
@@ -27,6 +31,21 @@ KST = dt.timezone(dt.timedelta(hours=9))
 SCHEMA = "us_litigation/v1"
 CL_API = "https://www.courtlistener.com/api/rest/v4/search/"
 CL_SITE = "https://www.courtlistener.com"
+CL_BASE = "https://www.courtlistener.com/api/rest/v4"
+# Rulings: a new filing is a claim, a ruling is the news (운영 10-28: CIT 'POSCO v. United States' 판결 10-27 →
+# 경쟁지 [단독] 10-28 오전). Trade court and Federal Circuit opinions naming a beat party are read every run.
+OPINION_COURTS = ("cit", "cafc")
+OPINION_DAYS = 21
+OPINION_SOURCE = "CourtListener 판결(국제무역법원·연방순회항소법원)"
+DETAIL_BUDGET = 3   # docket details (원심·사건 유형) of new Federal Circuit cases per run
+TEXT_BUDGET = 3     # opinion texts (판결 요지 한 줄) per run
+HOLDING = re.compile(r"\[\s*((?:Sustain|Remand|Grant|Den(?:y|ie)|Affirm|Revers|Vacat|Dismiss)[^\]]{0,600})\]", re.I)
+# Federal Circuit opinions end with the disposition in capitals ("AFFIRMED", "REVERSED AND REMANDED").
+_D = r"(?:AFFIRMED|REVERSED|VACATED|DISMISSED|REMANDED)(?:-IN-PART| IN PART)?"
+DISPOSITION = re.compile(rf"^[ \t]*({_D}(?:(?:,[ \t]*|[ \t]+)(?:AND[ \t]+)?{_D})*)[ \t]*\.?[ \t]*$", re.M)
+VERB = re.compile(r"(Sustain|Remand|Grant|Den(?:y|ie)|Affirm|Revers|Vacat|Dismiss)\w*(\s*-?\s*in\s*-?\s*part)?", re.I)
+VERB_KO = {"sustain": "유지", "remand": "재검토 환송", "grant": "신청 인용", "deny": "신청 기각", "denie": "신청 기각",
+           "affirm": "원심 확정", "revers": "원심 파기", "vacat": "취소", "dismiss": "기각·각하"}
 WINDOW_DAYS = 45
 KEEP_DAYS = 120
 MAX_PAGES = 5
@@ -91,6 +110,7 @@ def classify(x):
 class Budget:
     def __init__(self, n):
         self.left = n
+        self.stop = None   # set when a refused token / long throttle should end every later CourtListener call
 
     def take(self):
         if self.left <= 0:
@@ -143,6 +163,146 @@ def cl_search(query, since, token, budget, *, get=None, sleep=time.sleep):
     return rows, None, False  # more pages than MAX_PAGES
 
 
+def cl_call(url, token, budget, *, params=None, get=None, sleep=time.sleep):
+    """One CourtListener API call with the same spacing and 429 handling as the searches. Returns (body, error)."""
+    if get is None:
+        import requests
+        get = requests.get
+    headers = {"User-Agent": "seoul-reporting-radar (github.com/shhong9173-art)", "Accept": "application/json",
+               "Authorization": f"Token {token}"}
+    for attempt in (1, 2):
+        if not budget.take():
+            return None, "호출 예산 소진"
+        try:
+            r = get(url, params=params, headers=headers, timeout=40)
+        except Exception as e:
+            sleep(CALL_GAP)
+            return None, type(e).__name__
+        sleep(CALL_GAP)
+        if r.status_code == 429 and attempt == 1:
+            wait = int(re.sub(r"\D", "", str((getattr(r, "headers", None) or {}).get("Retry-After", ""))) or 0)
+            if 0 < wait <= MAX_RETRY_AFTER:
+                sleep(wait)
+                continue
+        if r.status_code != 200:
+            return None, f"HTTP {r.status_code}" + (" 토큰 거부" if r.status_code == 401 else "")
+        try:
+            return r.json(), None
+        except ValueError:
+            return None, "JSON 아님"
+    return None, "HTTP 429 호출 한도"
+
+
+def clean_text(v, n=400):
+    return re.sub(r"\s+", " ", re.sub(r"[\x00-\x08\x0b-\x1f\x7f]", "", str(v or ""))).strip()[:n]
+
+
+def beat_in(text):
+    return sorted({c for c, rx in PARTIES if re.search(rx, text or "", re.I)})
+
+
+def explain(x):
+    """One factual line from docket fields (원심·사건 유형·역할). None when the fields say nothing more than the title."""
+    court, src, kind = x.get("courtId"), x.get("appealFrom") or "", x.get("caseType") or ""
+    who = "·".join(x.get("beat") or [])
+    if court == "cafc":
+        if re.search(r"Patent and Trademark", src, re.I):
+            board = "특허심판원(PTAB) " if re.search(r"Patent Trial", kind, re.I) else ""
+            return f"{who}, 미국 특허청 {board}결정에 불복해 연방순회항소법원에 항소(사건 {x.get('docketNumber')}, {x.get('dateFiled')} 접수)"
+        if re.search(r"International Trade Commission", src, re.I):
+            return f"{who}, 미국 ITC 결정 관련 연방순회항소법원 항소(사건 {x.get('docketNumber')}, {x.get('dateFiled')} 접수)"
+        if re.search(r"Court of International Trade", src, re.I):
+            return f"{who}, 국제무역법원 판결 관련 연방순회항소법원 항소(사건 {x.get('docketNumber')}, {x.get('dateFiled')} 접수)"
+        if src:
+            return f"{who}, 연방순회항소법원 항소(원심: {src[:60]}, {x.get('dateFiled')} 접수)"
+        return None
+    if court == "cit" and x.get("role") == "원고" and re.search(r"\bv\.?\s+United States", x.get("caseName") or "", re.I):
+        return f"{who}, 미국 정부를 상대로 국제무역법원에 소송 제기({x.get('dateFiled')} 접수, 다툰 판정은 소장에서 확인)"
+    return None
+
+
+def gloss(holding):
+    """Word-for-word gloss of the ruling verbs that open a clause ('Sustaining in part and remanding in part …' →
+    '일부 유지·일부 재검토 환송'). A verb inside the object ('… motion to dismiss') is not read."""
+    text, out = holding or "", []
+    for m in VERB.finditer(text):
+        before = text[:m.start()].rstrip()
+        word = re.match(r"[A-Za-z]+", m.group(0)).group(0)
+        if before and not re.search(r"(?:\band|[,;])$", before, re.I):
+            continue
+        if not (word.isupper() or re.search(r"(?:ing|ed)$", word, re.I)):
+            continue
+        ko = ("일부 " if m.group(2) else "") + VERB_KO[m.group(1).lower()]
+        if ko not in out:
+            out.append(ko)
+    return "·".join(out) or None
+
+
+def reading(row):
+    """What the gloss implies for a beat plaintiff against the government — labelled as a reading, never as the result."""
+    ko, h = row.get("holdingKo") or "", row.get("holding") or ""
+    if row.get("courtId") != "cit" or row.get("role") != "원고" or not ko:
+        return None
+    agency = re.search(r"Commerce|Commission|\bITC\b|Customs|agency", h, re.I)
+    if ko == "유지" and agency:
+        return "원고 쪽 청구가 받아들여지지 않았다는 뜻으로 읽힘(판결문 본문 확인 전)"
+    if "재검토 환송" in ko and agency:
+        return "원고 주장 일부 이상을 받아들여 기관에 재검토를 돌려보냈다는 뜻으로 읽힘(판결문 본문 확인 전)"
+    return None
+
+
+def opinions(token, now, previous, budget, *, get=None, sleep=time.sleep):
+    """Trade court / Federal Circuit opinions of the last OPINION_DAYS naming a beat party (case name or caption)."""
+    since = (now - dt.timedelta(days=OPINION_DAYS)).strftime("%Y-%m-%d")
+    query = " OR ".join(f'"{p}"' for _, phrases in GROUPS for p in phrases)
+    prev = {x["id"]: x for x in (previous or {}).get("opinions", []) if isinstance(x, dict) and x.get("id")}
+    if budget.stop:
+        return list(prev.values()), {"source": OPINION_SOURCE, "kind": "opinions", "status": "failed", "error": f"앞 질의 중단({budget.stop})"}
+    body, err = cl_call(CL_API, token, budget, params={"q": query, "type": "o", "order_by": "dateFiled desc", "filed_after": since,
+                                                     "court": " ".join(OPINION_COURTS)}, get=get, sleep=sleep)
+    if err:
+        return list(prev.values()), {"source": OPINION_SOURCE, "kind": "opinions", "status": "failed", "error": err}
+    rows, texts = [], TEXT_BUDGET
+    for x in body.get("results") or []:
+        if (x.get("court_id") or "").lower() not in OPINION_COURTS:
+            continue
+        op = (x.get("opinions") or [{}])[0] or {}
+        # Parties come from the caption only: a slip opinion that merely cites 'POSCO v. United States' is not POSCO's case.
+        caption = re.split(r"\bOPINION\b|\bDated:|\bBefore:", clean_text(op.get("snippet"), 600))[0]
+        beat = beat_in(f"{x.get('caseName') or ''} {x.get('caseNameFull') or ''} {caption}")
+        if not beat:
+            continue
+        oid = f"op:{x.get('cluster_id')}"
+        old = prev.get(oid, {})
+        plaintiff = any(re.match(rf"^\s*(?:{rx})", x.get("caseName") or "", re.I) for c, rx in PARTIES if c in beat)
+        slip = re.search(r"Slip Op\.?\s*(\d{2}-\d{1,3})", caption)
+        row = {"id": oid, "beat": beat, "court": x.get("court"), "courtId": (x.get("court_id") or "").lower(),
+               "caseName": x.get("caseName") or "", "docketNumber": x.get("docketNumber"), "dateFiled": x.get("dateFiled"),
+               "slipOp": slip.group(1) if slip else old.get("slipOp"), "role": "원고" if plaintiff else "피고·참가인 등",
+               "url": CL_SITE + (x.get("absolute_url") or ""), "pdf": op.get("download_url"),
+               "holding": old.get("holding"), "holdingKo": old.get("holdingKo"), "reading": old.get("reading"),
+               "firstSeen": old.get("firstSeen") or now.isoformat(timespec="seconds")}
+        if not old and texts > 0 and op.get("id") and not budget.stop:
+            texts -= 1
+            got, terr = cl_call(f"{CL_BASE}/opinions/{op['id']}/", token, budget, params={"fields": "plain_text"}, get=get, sleep=sleep)
+            raw = str((got or {}).get("plain_text") or "")
+            m = HOLDING.search(clean_text(raw[:8000], 8000)) if row["courtId"] == "cit" else None
+            d = DISPOSITION.findall(raw[-6000:]) if row["courtId"] == "cafc" else []
+            if m or d:
+                row["holding"] = clean_text(m.group(1) if m else d[-1], 300)
+                row["holdingKo"] = gloss(row["holding"])
+                row["reading"] = reading(row)
+            elif terr:
+                row["holdingError"] = terr
+        rows.append(row)
+    keep_from = (now - dt.timedelta(days=KEEP_DAYS)).strftime("%Y-%m-%d")
+    have = {r["id"] for r in rows}
+    rows += [x for x in prev.values() if x["id"] not in have and str(x.get("dateFiled") or "") >= keep_from]
+    rows.sort(key=lambda r: str(r.get("dateFiled") or ""), reverse=True)
+    return rows, {"source": OPINION_SOURCE, "kind": "opinions", "status": "ok", "returned": len(body.get("results") or []),
+                  "own": len(have), "since": since}
+
+
 def window_start(now, previous):
     """45 days on a first or failed run; afterwards a week before the last complete run (fewer pages, same coverage)."""
     floor = now - dt.timedelta(days=WINDOW_DAYS)
@@ -155,11 +315,11 @@ def window_start(now, previous):
     return floor.strftime("%Y-%m-%d")
 
 
-def litigation(token, now, previous, *, get=None, sleep=time.sleep):
+def litigation(token, now, previous, *, get=None, sleep=time.sleep, budget=None):
     since = window_start(now, previous)
     prev = {x["id"]: x for x in (previous or {}).get("cases", []) if isinstance(x, dict) and x.get("id")}
     found, checks = {}, []
-    budget = Budget(MAX_CALLS)
+    budget = budget or Budget(MAX_CALLS)
     for group, phrases in GROUPS:
         query = " OR ".join(f'"{p}"' for p in phrases)
         rows, err, complete = cl_search(query, since, token, budget, get=get, sleep=sleep)
@@ -180,11 +340,13 @@ def litigation(token, now, previous, *, get=None, sleep=time.sleep):
             category, pri = classify(x)
             case = x.get("caseName") or ""
             plaintiff = any(re.match(rf"^\s*(?:{rx})", case, re.I) for c, rx in PARTIES if c in beat)
+            # 'In re: LS Electric Co., Ltd.' at the Federal Circuit is the company's own appeal (e.g. from the patent board).
+            in_re = any(re.match(rf"^\s*In re:?\s*(?:{rx})", case, re.I) for c, rx in PARTIES if c in beat)
             found[did] = {
                 "id": did, "beat": beat, "group": group, "caseName": case, "court": x.get("court"), "courtId": x.get("court_id"),
                 "docketNumber": x.get("docketNumber"), "dateFiled": x.get("dateFiled"), "dateTerminated": x.get("dateTerminated"),
                 "suitNature": x.get("suitNature") or "", "cause": x.get("cause") or "", "category": category, "priority": pri,
-                "role": "원고" if plaintiff else "피고·기타 당사자", "matchedParties": matched, "partyCount": len(parties),
+                "role": "원고" if plaintiff else "신청·항소인(In re)" if in_re else "피고·기타 당사자", "matchedParties": matched, "partyCount": len(parties),
                 "url": CL_SITE + (x.get("docket_absolute_url") or ""),
                 "firstSeen": prev.get(did, {}).get("firstSeen") or now.isoformat(timespec="seconds"),
             }
@@ -194,7 +356,23 @@ def litigation(token, now, previous, *, get=None, sleep=time.sleep):
         if err and ("401" in err or "429" in err or "예산" in err):
             for g2, _ in GROUPS[GROUPS.index((group, phrases)) + 1:]:
                 checks.append({"source": f"CourtListener {g2}", "status": "failed", "error": f"앞 질의 중단({err})", "returned": 0})
+            budget.stop = err
             break
+    # Origin and case type of new Federal Circuit dockets (one call each, budgeted). CIT dockets say it in the caption.
+    details = DETAIL_BUDGET
+    for did, x in found.items():
+        old = prev.get(did) or {}
+        for k in ("appealFrom", "caseType"):
+            if old.get(k) and not x.get(k):
+                x[k] = old[k]
+        if x.get("courtId") == "cafc" and not old and details > 0 and not budget.stop:
+            details -= 1
+            got, err = cl_call(f"{CL_BASE}/dockets/{did.split(':', 1)[1]}/", token, budget,
+                               params={"fields": "appeal_from_str,appellate_case_type_information,nature_of_suit"}, get=get, sleep=sleep)
+            if got:
+                x["appealFrom"] = clean_text(got.get("appeal_from_str"), 120) or None
+                x["caseType"] = clean_text(got.get("appellate_case_type_information"), 120) or None
+        x["summary"] = explain(x)
     return found, checks
 
 
@@ -253,7 +431,13 @@ def itc_337(now, previous, *, get=None, sleep=time.sleep):
 def run(token, *, now, previous=None, get=None, sleep=time.sleep):
     stamp = now.isoformat(timespec="seconds")
     had_state = bool(previous)
-    found, checks = litigation(token, now, previous, get=get, sleep=sleep)
+    budget = Budget(MAX_CALLS)
+    found, checks = litigation(token, now, previous, get=get, sleep=sleep, budget=budget)
+    rulings, ocheck = opinions(token, now, previous, budget, get=get, sleep=sleep)
+    checks.append(ocheck)
+    prev_ops = {x["id"] for x in (previous or {}).get("opinions", []) if isinstance(x, dict)}
+    for x in rulings:
+        x["isNew"] = bool((previous or {}).get("opinions") is not None and had_state and x["id"] not in prev_ops)
     itc, ierr, checked = itc_337(now, previous, get=get, sleep=sleep)
     checks.append({"source": "미국 관보 ITC 337조", "status": "failed" if ierr else "ok", "returned": len(itc), **({"error": ierr} if ierr else {})})
     keep_from = (now - dt.timedelta(days=KEEP_DAYS)).strftime("%Y-%m-%d")
@@ -271,14 +455,15 @@ def run(token, *, now, previous=None, get=None, sleep=time.sleep):
     for x in itc:
         x["isNew"] = had_state and x["id"] not in prev_itc
     failed = [c for c in checks if c["status"] != "ok"]
-    cl_ok = all(c["status"] == "ok" for c in checks if c["source"].startswith("CourtListener"))
+    cl_ok = all(c["status"] == "ok" for c in checks if c["source"].startswith("CourtListener") and c.get("kind") != "opinions")
     covered = stamp if cl_ok else (previous or {}).get("coveredThrough")
     return {"schema": SCHEMA, "generatedAt": stamp, "windowDays": WINDOW_DAYS, "status": "partial" if failed else "complete",
-            "coveredThrough": covered, "checks": checks, "cases": cases, "itc": itc, "itcChecked": checked,
+            "coveredThrough": covered, "checks": checks, "cases": cases, "opinions": rulings, "itc": itc, "itcChecked": checked,
             "rules": ["당사자 목록에 출입처(미국 법인 포함)가 있는 사건만. 서류에 이름만 나온 남의 사건은 제외.",
                       "소장 접수는 주장일 뿐 사실 확정이 아니다. 청구 내용·금액은 소장 원문(PACER)으로 확인하고 회사 입장을 듣는다.",
                       "CourtListener에 아직 안 올라온 사건이 있을 수 있다. 0건은 소송 없음이 아니다.",
                       "ITC 337조 고시의 회사명은 제소인·피제소인·제3자일 수 있다. 원문에서 역할을 확인한다.",
+                      "판결 요지는 판결문 첫머리 괄호 줄(원문)이다. '결정 유지'·'환송' 같은 풀이는 그 낱말의 뜻일 뿐, 승패와 세율은 판결문 본문에서 확인한다.",
                       "조회 실패는 0건이 아니라 미확인."],
             "confirmedScoops": 0}
 
@@ -304,7 +489,9 @@ def main():
     shown = sum(1 for x in doc["cases"] if x["priority"] < 3)
     errors = sorted({c.get("error") for c in doc["checks"] if c.get("error")})
     print(f"::notice title=us-litigation::질의 정상 {ok}/{len(doc['checks'])} · 출입처 당사자 사건 {len(doc['cases'])}건(우선 {shown}, "
-          f"신규 {sum(1 for x in doc['cases'] if x['isNew'])}) · ITC 337조 출입처 이름 {len(doc['itc'])}건"
+          f"신규 {sum(1 for x in doc['cases'] if x['isNew'])}, 한 줄 설명 {sum(1 for x in doc['cases'] if x.get('summary'))}) · "
+          f"판결 {len(doc['opinions'])}건(신규 {sum(1 for x in doc['opinions'] if x['isNew'])}, 요지 {sum(1 for x in doc['opinions'] if x.get('holding'))}) · "
+          f"ITC 337조 출입처 이름 {len(doc['itc'])}건"
           f"{' · 오류 ' + ', '.join(errors) if errors else ''}")
     if not token:
         print("::warning title=us-litigation-push::MCP_ACCESS_TOKEN 미설정 — 결과를 저장하지 않음")

@@ -154,7 +154,7 @@ export const TOOLS = [
       days: int('공고 변화 최근 N일(기본 30)', 1, 120), only_new: bool('미국 고시 신규만'), show_all: bool('여유 있는 쿼터까지 전부'),
       limit: int('구역별 줄 수', 1, 60) }) },
   { name: 'us_litigation', access: 'private', handler: usLitigation,
-    description: '미국 소송·ITC 337조: 출입처(미국 법인 포함)가 당사자인 연방법원 사건(CourtListener, 국제무역법원·특허·계약·반독점 우선, 소비자 소송은 접음)과 본문에 출입처 이름이 나온 ITC 337조 고시.',
+    description: '미국 소송·ITC 337조: 국제무역법원·연방순회항소법원 판결 중 출입처가 당사자로 적힌 것(판결문 첫머리 요지 원문·낱말 풀이), 출입처(미국 법인 포함)가 당사자인 연방법원 사건 접수(CourtListener, 국제무역법원·특허·계약·반독점 우선, 연방순회항소법원 사건은 원심·유형 한 줄, 소비자 소송은 접음)와 본문에 출입처 이름이 나온 ITC 337조 고시.',
     inputSchema: obj({ company: str('기업·사건명·분류 낱말'), only_new: bool('신규만'), include_routine: bool('소비자·제조물책임·개인 고용·위조품 단속 사건도 보기'),
       limit: int('줄 수', 1, 60) }) },
   { name: 'kr_official', access: 'private', handler: krOfficial,
