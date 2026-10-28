@@ -1,6 +1,78 @@
 {
-  "scannedRecords": 154453,
+  "scannedRecords": 154455,
   "items": [
+    {
+      "actionNumber": "DP26009",
+      "make": "BMW",
+      "model": "540I",
+      "modelYear": "2021",
+      "component": "POWER TRAIN:DRIVELINE:DRIVESHAFT",
+      "manufacturer": "BMW of North America, LLC",
+      "openedDate": "20260914",
+      "closedDate": "20261026",
+      "recallCampaign": "",
+      "subject": "Driveshaft to rear differential connection failure",
+      "summary": "The Office of Defects Investigation (ODI) received a petition on September 1, 2026 (dated August 5, 2026), requesting an investigation into an alleged defect in BMW rear differential assemblies. The petitioner alleges Model Year (MY) 2022 BMW 540i vehicles are experiencing a sudden mechanical failure that severs the drive connection between the driveshaft and the rear wheels. On August 12, 2026, BMW filed Safety Recall 26V525, which addresses the same condition raised in the petition. and covers certain 2022-2026 840i, 840i xDrive, 2021-2023 540i, 540i xDrive, M550i xDrive, and 2024-2026 750e xDrive vehicles.  This safety recall addresses potential wear in the connection between the rear driveshaft and rear differential, which could cause the connection to fail. The Vehicle Identification Number included in the petition falls within BMW’s recall scope and subject to BMW’s reimbursement p",
+      "coveredIssuerRelation": "BMW코리아 관련(미국 판매차)",
+      "sourceUrl": "https://www.nhtsa.gov/nhtsa-datasets-and-apis",
+      "sourceDataset": "https://static.nhtsa.gov/odi/ffdd/inv/FLAT_INV.zip",
+      "recallLinked": false,
+      "longRunningOpenReferenceOnly": false,
+      "publicationDateForSourceChangeVerified": false,
+      "discoveryType": "official_us_investigation_closed",
+      "officialEventDate": "20261026",
+      "caution": "미국 NHTSA 조사 기록. 종결은 결함 없음 판정이 아니며 결함 확정·국내 판매 모델 동일성·국내 리콜/단독 아님",
+      "vehicles": [
+        {
+          "make": "BMW",
+          "model": "540I",
+          "modelYear": "2021",
+          "manufacturer": "BMW of North America, LLC",
+          "component": "POWER TRAIN:DRIVELINE:DRIVESHAFT"
+        },
+        {
+          "make": "BMW",
+          "model": "540I",
+          "modelYear": "2022",
+          "manufacturer": "BMW of North America, LLC",
+          "component": "POWER TRAIN:DRIVELINE:DRIVESHAFT"
+        },
+        {
+          "make": "BMW",
+          "model": "840I",
+          "modelYear": "2022",
+          "manufacturer": "BMW of North America, LLC",
+          "component": "POWER TRAIN:DRIVELINE:DRIVESHAFT"
+        }
+      ],
+      "officialEventDates": [
+        {
+          "openedDate": "20260914",
+          "closedDate": "20261026"
+        }
+      ],
+      "recallCampaigns": [],
+      "eventDateConflict": false,
+      "sourceFingerprintVersion": 1,
+      "sourceFingerprint": "23c8d737d58b2b5095657237b7c2934d831f386208c7db76507a01a5c5af805b",
+      "firstSeenInRadar": "2026-10-13T15:12:59+09:00",
+      "observationState": "previously_observed_source_changed",
+      "sourceContentChanged": true,
+      "changeComparisonStatus": "compared",
+      "changeIsNewPublicationVerified": false,
+      "changeVerifiedFromTwoOfficialSnapshots": true,
+      "changeEvidenceIsNotNewPublicAnnouncement": true,
+      "substantiveChangeDetails": {
+        "vehicleScopeChanged": true,
+        "formalEventDatesChanged": true,
+        "recallReferencesChanged": false,
+        "displayedSummaryChanged": true,
+        "fullOfficialRowSignatureChanged": true,
+        "trueRevisionTimestampVerified": false,
+        "publicationDateUnknown": true,
+        "manufacturerOrAgencyConfirmedNewHazard": false
+      }
+    },
     {
       "actionNumber": "PE25017",
       "make": "HONDA",
@@ -77,22 +149,13 @@
       "sourceFingerprintVersion": 1,
       "sourceFingerprint": "6a6fa77cabaec5576905a35c698c7afc58a4f831b2c4d3b3b1395547ae03400b",
       "firstSeenInRadar": "2026-10-17T18:32:53+09:00",
-      "observationState": "previously_observed_source_changed",
-      "sourceContentChanged": true,
+      "observationState": "previously_observed",
+      "sourceContentChanged": false,
       "changeComparisonStatus": "compared",
       "changeIsNewPublicationVerified": false,
-      "changeVerifiedFromTwoOfficialSnapshots": true,
+      "changeVerifiedFromTwoOfficialSnapshots": false,
       "changeEvidenceIsNotNewPublicAnnouncement": true,
-      "substantiveChangeDetails": {
-        "vehicleScopeChanged": false,
-        "formalEventDatesChanged": false,
-        "recallReferencesChanged": false,
-        "displayedSummaryChanged": true,
-        "fullOfficialRowSignatureChanged": true,
-        "trueRevisionTimestampVerified": false,
-        "publicationDateUnknown": true,
-        "manufacturerOrAgencyConfirmedNewHazard": false
-      }
+      "substantiveChangeDetails": null
     },
     {
       "actionNumber": "DP26005",
@@ -338,55 +401,6 @@
       "sourceFingerprintVersion": 1,
       "sourceFingerprint": "11c4e7e14c8e519e2021b6bf01f19c50bfd64f7c7a8782e82c9b3b2e0109198a",
       "firstSeenInRadar": "2026-10-17T17:08:38+09:00",
-      "observationState": "previously_observed",
-      "sourceContentChanged": false,
-      "changeComparisonStatus": "compared",
-      "changeIsNewPublicationVerified": false,
-      "changeVerifiedFromTwoOfficialSnapshots": false,
-      "changeEvidenceIsNotNewPublicAnnouncement": true,
-      "substantiveChangeDetails": null
-    },
-    {
-      "actionNumber": "DP26009",
-      "make": "BMW",
-      "model": "540I",
-      "modelYear": "2022",
-      "component": "POWER TRAIN:DRIVELINE:DRIVESHAFT",
-      "manufacturer": "BMW of North America, LLC",
-      "openedDate": "20260914",
-      "closedDate": "",
-      "recallCampaign": "",
-      "subject": "Driveshaft to rear differential connection failure",
-      "summary": "The Office of Defects Investigation (ODI) received on September 1, 2026 a defect petition dated August 5, 2026, requesting an investigation into an alleged defect in BMW rear differential assemblies. The petitioner alleges Model year (MY) 2022 BMW 540i vehicles are experiencing a sudden mechanical failure that severs the drive connection between the driveshaft and the rear wheels. This defect petition has been opened to evaluate the issue and determine whether to grant or deny the petition. BMW filed Safety Recall 26V525 on August 12, 2026. The petition can be reviewed at NHTSA.gov under ODI number 11761650.",
-      "coveredIssuerRelation": "BMW코리아 관련(미국 판매차)",
-      "sourceUrl": "https://www.nhtsa.gov/nhtsa-datasets-and-apis",
-      "sourceDataset": "https://static.nhtsa.gov/odi/ffdd/inv/FLAT_INV.zip",
-      "recallLinked": false,
-      "longRunningOpenReferenceOnly": false,
-      "publicationDateForSourceChangeVerified": false,
-      "discoveryType": "official_us_investigation_opened",
-      "officialEventDate": "20260914",
-      "caution": "미국 NHTSA 조사 기록. 종결은 결함 없음 판정이 아니며 결함 확정·국내 판매 모델 동일성·국내 리콜/단독 아님",
-      "vehicles": [
-        {
-          "make": "BMW",
-          "model": "540I",
-          "modelYear": "2022",
-          "manufacturer": "BMW of North America, LLC",
-          "component": "POWER TRAIN:DRIVELINE:DRIVESHAFT"
-        }
-      ],
-      "officialEventDates": [
-        {
-          "openedDate": "20260914",
-          "closedDate": ""
-        }
-      ],
-      "recallCampaigns": [],
-      "eventDateConflict": false,
-      "sourceFingerprintVersion": 1,
-      "sourceFingerprint": "b93d8dd71dce68c2e6d7119309f8fcd692268600457da3fbe90c2b9a0ea4593d",
-      "firstSeenInRadar": "2026-10-13T15:12:59+09:00",
       "observationState": "previously_observed",
       "sourceContentChanged": false,
       "changeComparisonStatus": "compared",
@@ -4339,7 +4353,7 @@
       "substantiveChangeDetails": null
     }
   ],
-  "generatedAt": "2026-10-27T13:52:10+09:00",
+  "generatedAt": "2026-10-28T13:07:36+09:00",
   "sourceUrl": "https://static.nhtsa.gov/odi/ffdd/inv/FLAT_INV.zip",
   "scope": "US ODI formal opened investigations among matched marques, not recalls or complaint allegation totals",
   "lookbackDays": 100,
