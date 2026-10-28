@@ -194,6 +194,35 @@ export function factoryEventText(doc, e) {
   return `${name}${f?.rnAdres ? ` · ${f.rnAdres}` : ''} — ${e.text}`;
 }
 
+export async function usRecalls(ctx, args) {
+  const doc = await readFeed(ctx, 'us-recalls');
+  if (!doc) return missing('미국 리콜(NHTSA 전체)', '평일 17:10');
+  if (doc.broken) return textResult('저장된 미국 리콜 결과 형식 오류 — 미확인.', true);
+  const q = String(args.company ?? '').trim();
+  const onlyNew = args.only_new === true || args.only_new === 'true';
+  const limit = clampInt(args.limit, 1, 60, 20);
+  const checks = doc.checks ?? [];
+  const failed = checks.filter((c) => c.status !== 'ok');
+  const rows = (doc.recalls ?? []).filter((x) => (!onlyNew || x.isNew)
+    && matches(q, (x.why ?? []).map((w) => `${w.name} ${w.beat ?? ''}`).join(' '), x.makes?.join(' '), x.models, x.component, x.defect, x.supplierBox));
+  const out = [`미국 리콜(NHTSA 전체 리콜 파일) · 접수 최근 ${doc.windowDays ?? 21}일 수집(보관 120일) · 출입처 관련 ${rows.length}건 · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt)}`,
+    `점검 ${checks.length - failed.length}/${checks.length} 정상${failed.length ? ` · 미확인(0건 아님): ${failed.map((c) => `${c.source}(${c.error ?? `${c.errors}건 실패`})`).join(', ')}` : ''}`,
+    ...(doc.rules ?? []).map((r) => `규칙: ${r}`)];
+  for (const x of rows.slice(0, limit)) {
+    out.push(`\n${x.isNew ? '[신규] ' : ''}${x.received} · ${x.campaign} · ${(x.why ?? []).map((w) => `${w.name}(${w.role})`).join(' · ')}`);
+    out.push(`   잡힌 사실: ${(x.makes ?? []).join('·')} ${x.models} · ${x.component} · 대상 ${Number(x.affected ?? 0).toLocaleString('en-US')}대${x.doNotDrive ? ' · 운행 중지 권고' : ''}${x.parkOutside ? ' · 실외 주차 권고' : ''}`);
+    out.push(`   결함(원문): ${String(x.defect ?? '').slice(0, 300)}`);
+    if (x.supplierBox) out.push(`   원보고서 공급사 칸(원문): ${x.supplierBox}`);
+    else if (x.reportError) out.push(`   원보고서: ${x.reportError}`);
+    out.push(`   원문: ${x.url}${x.report ? ` · Part 573 ${x.report}` : ''}`);
+    out.push('   검증 상태: NHTSA 공개 자료(자동). 국내 판매 차량 해당 여부·국내 리콜 계획은 회사·국토부 확인 필요');
+  }
+  if (rows.length > limit) out.push(`… 남은 ${rows.length - limit}건`);
+  if (!rows.length) out.push('\n조건에 맞는 리콜 없음(점검 실패면 미확인).');
+  out.push('\n다음: NHTSA 리콜 페이지·원보고서(source_document, nhtsa.gov)로 대상 차대·부품·공급사 확인 → 국내 판매 여부·자동차리콜센터 → news_check.');
+  return textResult(out.join('\n'));
+}
+
 export async function usLitigation(ctx, args) {
   const doc = await readFeed(ctx, 'us-litigation');
   if (!doc) return missing('미국 소송·ITC', '평일 07:50');

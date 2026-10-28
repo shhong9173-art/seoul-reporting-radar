@@ -111,6 +111,14 @@
 - 본문에 출입처가 나오는 고시에 흔치 않은 항목이 있으면 radar_today A. 근거 사례: 10-09 열연 상계관세 최종 판정 부록 'Comment 8: … Workplace Nursery Program is Countervailable' → 10-23 경쟁지 [단독](직장어린이집).
 - 목차는 쟁점 제목일 뿐 결론이 아니다. 결론·세율은 결정문 원문으로 확인한다.
 
+## 미국 리콜 — NHTSA 전체(us_recalls, 기자 전용)
+
+- GitHub Actions `US Recalls Watch`가 평일 17:10 KST(Cloudflare 요청, NHTSA 파일은 한국시각 16시 무렵 갱신)에 NHTSA 전체 리콜 파일(FLAT_RCL_POST_2010.zip, 29칸)을 내려받아 접수일 최근 21일 리콜을 본다. 결과는 `us-recalls` 비공개 저장소로만.
+- 고르는 기준: 출입처 브랜드(현대차·기아·제네시스·아우디·폭스바겐·BMW·미니·벤츠·혼다), 한국GM 생산 차종(트랙스·트레일블레이저·엔비스타·앙코르 GX), 타이어 리콜 제조사가 한국 타이어 3사, 결함 설명·부품 칸에 한국 부품사 이름.
+- 원보고서(Part 573): 고른 리콜 중 실행당 8건은 NHTSA safetyIssues API로 보고서 파일을 찾아 PDF의 공급사 칸을 읽는다(전체 파일의 부품 칸은 부품 이름이지 공급사가 아니다). 예: 26V698000 아우디 Q4 e-트론 9,048대.
+- radar_today: 현대차·기아·한국GM·한국 타이어·한국 부품사 이름이 있으면 A, 수입 브랜드만이면 B. 보도 대조 낱말은 회사(또는 부품사)+리콜(+브랜드).
+- 국내 판매 차량 해당 여부는 이 자료로 알 수 없다(회사·국토부 확인). 첫 실행은 기준선. 기존 `nhtsa_public_watch`(현대·기아 4개 차종)는 그대로 둔다.
+
 ## 레이더 항목 자동 보도 대조(radar_today, 기자 전용)
 
 - GitHub Actions `Radar Press Check`가 평일 08:50·18:50 KST(Cloudflare 요청, GitHub 예약은 예비)에 실행. Worker `/ingest/radar-items`(Bearer `MCP_ACCESS_TOKEN`)에서 A·B 항목 중 대조 낱말이 붙은 것(최근 72시간, 씀·킬·봤음 제외, 최대 40개, A 먼저)을 받는다. 결과는 `radar-check` 비공개 저장소로만. Secrets: `NAVER_CLIENT_ID`·`NAVER_CLIENT_SECRET`·`MCP_ACCESS_TOKEN`(단독 후보 심사와 같음).

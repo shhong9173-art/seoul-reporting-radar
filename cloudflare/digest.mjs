@@ -29,6 +29,7 @@ export const WATCHES = [
   { feed: 'page-watch', label: '해외 공식 페이지', tool: 'page_changes', schedule: '평일 06:30·18:30' },
   { feed: 'trademarks', label: '상표 출원', tool: 'trademarks', schedule: '월 07:10', staleHours: 192 },
   { feed: 'assembly-bills', label: '국회 법안', tool: 'assembly_bills', schedule: '평일 08:40·17:40' },
+  { feed: 'us-recalls', label: '미국 리콜(NHTSA 전체)', tool: 'us_recalls', schedule: '평일 17:10' },
 ];
 
 // Items first seen in a watch's very first run are a baseline, not news: they only count when their own date is recent.
@@ -59,7 +60,7 @@ const ALT = {
   계약: ['계약', '협약', '합의', '공급', '합작', 'MOU'], 의견서: ['의견서', '의견', '제출', '요청'], 상표: ['상표', '출원', '브랜드', '명칭'],
   개정안: ['개정안', '발의', '법안', '개정', '대표발의'], BAIC: ['BAIC', '베이징자동차', '베이징기차', '北汽'],
   합작: ['합작', '지분', '매각', '정리', '철수', '계약', '합작사'], 보조금: ['보조금', '상계관세', '어린이집', '직장', '지원'],
-  가격: ['가격', '판매가', '출고가', 'MSRP', '값'], 미국: ['미국', '美'],
+  리콜: ['리콜', '결함', '시정조치', '화재 위험'], 가격: ['가격', '판매가', '출고가', 'MSRP', '값'], 미국: ['미국', '美'],
 };
 const ASX_KO = { PLS: '필바라', ARU: '아라푸라', '01958': 'BAIC' };
 export function hint(who, terms) {
@@ -234,6 +235,21 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
   for (const x of lit?.itc ?? []) {
     if (fresh(x, itcBase, 'date')) push('A', W['us-litigation'], { kind: 'ITC 337조', id: x.id, date: x.date, company: (x.named ?? []).map((n) => n.company).join('·'), fact: `ITC 337조 ${x.stage}: ${x.title}`, url: x.url,
       check: hint((x.named ?? [])[0]?.company, ['ITC', '특허침해']) });
+  }
+
+  // US recalls (NHTSA full file): Korean brands, GM Korea models, Korean tires and Korean supplier names are direct; imports alone are B.
+  const ur = docs['us-recalls'];
+  const urBase = baselineOf(ur?.recalls ?? []);
+  for (const x of ur?.recalls ?? []) {
+    if (!fresh(x, urBase, 'received')) continue;
+    const why = x.why ?? [];
+    const direct = why.some((w) => ['현대차', '기아', '한국GM'].includes(w.beat) || w.role === '타이어 제조사' || String(w.role).startsWith('부품'));
+    const lead = why.find((w) => String(w.role).startsWith('부품')) ?? why[0] ?? {};
+    const brand = why.find((w) => String(w.role).startsWith('제조사'))?.name;
+    const roles = why.map((w) => `${w.name}(${w.role})`).join('·');
+    push(direct ? 'A' : 'B', W['us-recalls'], { kind: 'NHTSA 리콜', id: x.id, date: x.received, company: [...new Set(why.map((w) => w.name))].join('·'),
+      fact: `미국 리콜 ${x.campaign} 접수 ${x.received} · ${x.models} · ${x.component} · 대상 ${Number(x.affected ?? 0).toLocaleString('en-US')}대${x.parkOutside ? ' · 실외 주차 권고' : ''} — ${roles}${x.supplierBox ? ` · 원보고서 공급사 칸: ${String(x.supplierBox).slice(0, 80)}` : ''}`,
+      url: x.url, check: hint(lead.name, ['리콜', String(lead.role).startsWith('부품') ? brand : '미국']) });
   }
 
   const pf = docs['partner-filings'];

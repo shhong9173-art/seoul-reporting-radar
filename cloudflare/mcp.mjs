@@ -7,7 +7,7 @@ import { judgeItems, weeklyReview } from './review.mjs';
 import { customsTrade, ecosData, ecosFind, kosisData, kosisFind } from './stats_live.mjs';
 import { POLICY, checkVerifiedCandidate, formatCheck } from './scoring.mjs';
 import { scoopScreen } from './screen.mjs';
-import { krOfficial, krSignals, krStats, pageChanges, partnerFilings, tradeRemedies, usComments, usLitigation } from './overseas.mjs';
+import { krOfficial, krSignals, krStats, pageChanges, partnerFilings, tradeRemedies, usComments, usLitigation, usRecalls } from './overseas.mjs';
 import { trademarks } from './trademarks.mjs';
 import { assemblyBills } from './assembly.mjs';
 import { radarToday } from './digest.mjs';
@@ -16,8 +16,8 @@ export const SUPPORTED_VERSIONS = ['2025-06-18', '2025-03-26', '2024-11-05'];
 const SERVER_INFO = { name: 'seoul-reporting-radar', title: '산업부 취재 레이더', version: '1.0.0' };
 const INSTRUCTIONS = [
   '산업부(자동차·철강·전력기기·에너지·화학) 취재 레이더. 기자는 홍성효.',
-  '하루 시작은 radar_today(기자 전용): 감시 11개의 새 항목을 A(단독 후보·직접 변화)/B(확인할 공식 변화)로 모아 보여 주고, 실패·오래된 감시를 먼저 알린다. 항목마다 자세히 볼 도구가 붙어 있다.',
-  '순서: radar_today → scoop_screen(기자 전용, 미보도 후보부터) → page_changes·us_comments·partner_filings·trade_remedies·us_litigation(기자 전용, 해외 원천) → kr_official(기자 전용, 공장등록·관보) → kr_signals(기자 전용, 공정위 의결서·한전 입찰·원자재 가격) → kr_stats(기자 전용, 물가지수·철강 생산·수입차 등록; 발제 검증은 ecos_find·ecos_data·kosis_find·kosis_data·customs_trade 즉석 조회) → trademarks(기자 전용, 출입처 상표 출원 주 1회) → assembly_bills(기자 전용, 출입 업종 국회 법안 발의·단계) → radar_big_picture → radar_clues(days=3) → radar_stats → governance_changes → earnings_compare(실적 시즌) → dandok_monitor → scoop_packages(기자 전용).',
+  '하루 시작은 radar_today(기자 전용): 감시 12개의 새 항목을 A(단독 후보·직접 변화)/B(확인할 공식 변화)로 모아 보여 주고, 실패·오래된 감시를 먼저 알린다. 항목마다 자세히 볼 도구가 붙어 있다.',
+  '순서: radar_today → scoop_screen(기자 전용, 미보도 후보부터) → page_changes·us_comments·partner_filings·trade_remedies·us_litigation·us_recalls(기자 전용, 해외 원천) → kr_official(기자 전용, 공장등록·관보) → kr_signals(기자 전용, 공정위 의결서·한전 입찰·원자재 가격) → kr_stats(기자 전용, 물가지수·철강 생산·수입차 등록; 발제 검증은 ecos_find·ecos_data·kosis_find·kosis_data·customs_trade 즉석 조회) → trademarks(기자 전용, 출입처 상표 출원 주 1회) → assembly_bills(기자 전용, 출입 업종 국회 법안 발의·단계) → radar_big_picture → radar_clues(days=3) → radar_stats → governance_changes → earnings_compare(실적 시즌) → dandok_monitor → scoop_packages(기자 전용).',
   '후보마다: source_document 또는 dart_find_text로 원문 확인 → news_check로 보도 대조(낱말 바꿔 2~3번, 한 번에 하나씩) → candidate_check.',
   '조회 실패·미설정·일부 성공은 0건이 아니라 미확인. 색인 0건은 미보도 증거가 아님. 단계(공개 원자료 추적/취재 단서·단독 미확정/단독 후보)를 올리지 않음.',
   '추천 심사에는 기자 전용 원문·보도 조회의 검증 기록 ID가 필요하다. facts는 원문 직접 인용, 게시일은 명시된 공개일만. 오래된 원문·검색된 기사·파생 계산은 추가 확인 전 조사대기다.',
@@ -129,7 +129,7 @@ export const TOOLS = [
     description: `후보를 재점검해 저장(하루 추천 ${POLICY.dailyLimit}건 한도, 같은 날 중복 제목 제외).`,
     inputSchema: obj({ candidates: { type: 'array', items: CANDIDATE_SCHEMA, maxItems: 10 } }, ['candidates']) },
   { name: 'radar_today', access: 'private', handler: radarToday,
-    description: '오늘의 레이더(하루 시작): 기자 전용 감시 11개(단독 후보 심사, 공장등록·관보, 공정위·한전·원자재, 월간 통계, 무역구제, 미국 소송, 해외 파트너 공시, 미 의견서, 해외 페이지, 상표 출원, 국회 법안)에서 최근 N시간(기본 24, 월요일 72) 새 항목만 모아 A(단독 후보·직접 변화)/B(확인할 공식 변화)/C(참고)로 정렬. A·B 항목마다 자동 보도 대조 결과(평일 08:50·18:50, 항목 날짜 3일 전 이후 네이버·빙·구글: 미보도 후보·관련 보도 있음·미확인)를 붙이고 미보도 후보를 먼저 보여 줌. 실패·오래된 감시를 맨 위에 표시. 기자가 판정(씀·킬·보류·봤음)한 항목은 숨김, 줄마다 id.',
+    description: '오늘의 레이더(하루 시작): 기자 전용 감시 12개(단독 후보 심사, 공장등록·관보, 공정위·한전·원자재, 월간 통계, 무역구제, 미국 소송, 해외 파트너 공시, 미 의견서, 해외 페이지, 상표 출원, 국회 법안, 미국 리콜)에서 최근 N시간(기본 24, 월요일 72) 새 항목만 모아 A(단독 후보·직접 변화)/B(확인할 공식 변화)/C(참고)로 정렬. A·B 항목마다 자동 보도 대조 결과(평일 08:50·18:50, 항목 날짜 3일 전 이후 네이버·빙·구글: 미보도 후보·관련 보도 있음·미확인)를 붙이고 미보도 후보를 먼저 보여 줌. 실패·오래된 감시를 맨 위에 표시. 기자가 판정(씀·킬·보류·봤음)한 항목은 숨김, 줄마다 id.',
     inputSchema: obj({ hours: int('최근 N시간(기본 24, 월요일 72)', 1, 336), company: str('기업·낱말로 거르기'),
       include_minor: bool('C(참고)도 펼쳐 보기'), include_judged: bool('씀·킬·보류·봤음으로 판정한 항목도 보기'),
       limit: int('등급별 줄 수(기본 15)', 1, 60) }) },
@@ -153,6 +153,9 @@ export const TOOLS = [
     inputSchema: obj({ section: { type: 'string', enum: ['quota', 'us', 'notices'] }, company: str('기업·품목·쿼터번호 낱말'),
       days: int('공고 변화 최근 N일(기본 30)', 1, 120), only_new: bool('미국 고시 신규만'), show_all: bool('여유 있는 쿼터까지 전부'),
       limit: int('구역별 줄 수', 1, 60) }) },
+  { name: 'us_recalls', access: 'private', handler: usRecalls,
+    description: '미국 리콜(NHTSA 전체 리콜 파일, 매일): 출입처 브랜드(현대차·기아·제네시스·아우디·폭스바겐·BMW·미니·벤츠·혼다), 한국GM 생산 차종(트랙스·트레일블레이저·엔비스타·앙코르 GX), 한국 타이어 3사, 결함 설명·원보고서(Part 573) 공급사 칸에 한국 부품사(모비스·만도·위아·SK온·LG에너지솔루션·삼성SDI 등) 이름이 나온 새 리콜. 대상 대수·부품·결함 원문.',
+    inputSchema: obj({ company: str('브랜드·회사·차종·부품 낱말'), only_new: bool('신규만'), limit: int('줄 수', 1, 60) }) },
   { name: 'us_litigation', access: 'private', handler: usLitigation,
     description: '미국 소송·ITC 337조: 국제무역법원·연방순회항소법원 판결 중 출입처가 당사자로 적힌 것(판결문 첫머리 요지 원문·낱말 풀이), 출입처(미국 법인 포함)가 당사자인 연방법원 사건 접수(CourtListener, 국제무역법원·특허·계약·반독점 우선, 연방순회항소법원 사건은 원심·유형 한 줄, 소비자 소송은 접음)와 본문에 출입처 이름이 나온 ITC 337조 고시.',
     inputSchema: obj({ company: str('기업·사건명·분류 낱말'), only_new: bool('신규만'), include_routine: bool('소비자·제조물책임·개인 고용·위조품 단속 사건도 보기'),
