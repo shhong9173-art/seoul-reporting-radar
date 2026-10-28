@@ -46,6 +46,12 @@ DISPOSITION = re.compile(rf"^[ \t]*({_D}(?:(?:,[ \t]*|[ \t]+)(?:AND[ \t]+)?{_D})
 VERB = re.compile(r"(Sustain|Remand|Grant|Den(?:y|ie)|Affirm|Revers|Vacat|Dismiss)\w*(\s*-?\s*in\s*-?\s*part)?", re.I)
 VERB_KO = {"sustain": "유지", "remand": "재검토 환송", "grant": "신청 인용", "deny": "신청 기각", "denie": "신청 기각",
            "affirm": "원심 확정", "revers": "원심 파기", "vacat": "취소", "dismiss": "기각·각하"}
+# The court's own list is same-day (POSCO 26-131: PDF 10-27 14:57 GMT, 경쟁지 [단독] 10-28 10:50 KST). One GET a run.
+CIT_LIST = "https://www.cit.uscourts.gov/content/slip-opinions-{year}"
+CIT_SITE = "https://www.cit.uscourts.gov"
+CIT_SOURCE = "국제무역법원 누리집 판결 목록"
+CIT_ROW = re.compile(r"<tr>\s*<td[^>]*>\s*<a href=\"([^\"]+\.pdf)\">\s*(\d{2}-\d{1,3})\s*</a>\s*</td>\s*<td[^>]*>(.*?)</td>\s*"
+                     r"<td[^>]*>\s*(\d{1,2}/\d{1,2}/\d{4})\s*</td>\s*<td[^>]*>(.*?)</td>\s*<td[^>]*>(.*?)</td>", re.S | re.I)
 WINDOW_DAYS = 45
 KEEP_DAYS = 120
 MAX_PAGES = 5
@@ -305,6 +311,65 @@ def opinions(token, now, previous, budget, *, get=None, sleep=time.sleep):
                   "own": len(have), "since": since}
 
 
+def cit_direct(now, previous, *, get=None):
+    """Beat-party rulings from the trade court's own slip-opinion list (same day; CourtListener can lag)."""
+    if get is None:
+        import requests
+        get = requests.get
+    since = (now - dt.timedelta(days=OPINION_DAYS)).date()
+    prev = {x.get("slipOp"): x for x in (previous or {}).get("opinions", []) if isinstance(x, dict) and x.get("slipOp")}
+    years = [now.year - 1, now.year] if now.month == 1 else [now.year]
+    rows = []
+    for y in years:
+        try:
+            r = get(CIT_LIST.format(year=y), headers={"User-Agent": "Mozilla/5.0 seoul-reporting-radar"}, timeout=40)
+        except Exception as e:  # noqa: BLE001
+            return rows, {"source": CIT_SOURCE, "kind": "opinions-direct", "status": "failed", "error": type(e).__name__}
+        if r.status_code != 200:
+            return rows, {"source": CIT_SOURCE, "kind": "opinions-direct", "status": "failed", "error": f"HTTP {r.status_code}"}
+        for pdf, slip, caption, date, court_no, judge in CIT_ROW.findall(r.text):
+            caption = clean_text(re.sub(r"<[^>]+>", " ", caption), 300)
+            try:
+                filed = dt.datetime.strptime(date, "%m/%d/%Y").date()
+            except ValueError:
+                continue
+            if filed < since:
+                continue
+            beat = beat_in(caption)
+            if not beat:
+                continue
+            old = prev.get(slip, {})
+            plaintiff = any(re.match(rf"^\s*(?:{rx})", caption, re.I) for c, rx in PARTIES if c in beat)
+            rows.append({"id": f"cit:{slip}", "beat": beat, "court": "Court of International Trade", "courtId": "cit", "caseName": caption,
+                         "docketNumber": clean_text(re.sub(r"<[^>]+>", " ", court_no), 40), "dateFiled": filed.isoformat(), "slipOp": slip,
+                         "judge": clean_text(re.sub(r"<[^>]+>", " ", judge), 40), "role": "원고" if plaintiff else "피고·참가인 등",
+                         "url": CIT_SITE + pdf if pdf.startswith("/") else pdf, "pdf": CIT_SITE + pdf if pdf.startswith("/") else pdf,
+                         "holding": old.get("holding"), "holdingKo": old.get("holdingKo"), "reading": old.get("reading"),
+                         "firstSeen": old.get("firstSeen") or now.isoformat(timespec="seconds"), "via": "cit"})
+    return rows, {"source": CIT_SOURCE, "kind": "opinions-direct", "status": "ok", "own": len(rows)}
+
+
+def merge_opinions(cl_rows, cit_rows):
+    """One row per slip opinion: the CourtListener row (holding text) wins, but keeps the earliest firstSeen."""
+    by_slip = {r["slipOp"]: r for r in cit_rows if r.get("slipOp")}
+    out = []
+    for r in cl_rows:
+        c = by_slip.pop(r.get("slipOp"), None) if r.get("slipOp") else None
+        if c:
+            r = {**r, "firstSeen": min(str(r.get("firstSeen") or "9"), str(c.get("firstSeen") or "9")), "citPdf": c.get("pdf"), "judge": c.get("judge")}
+        out.append(r)
+    out += list(by_slip.values())
+    # a CIT-list row seen earlier and now matched by CourtListener under another id must not appear twice
+    seen, uniq = set(), []
+    for r in sorted(out, key=lambda r: (str(r.get("dateFiled") or ""), r["id"].startswith("op:")), reverse=True):
+        k = r.get("slipOp") or r["id"]
+        if k in seen:
+            continue
+        seen.add(k)
+        uniq.append(r)
+    return uniq
+
+
 def window_start(now, previous):
     """45 days on a first or failed run; afterwards a week before the last complete run (fewer pages, same coverage)."""
     floor = now - dt.timedelta(days=WINDOW_DAYS)
@@ -443,9 +508,14 @@ def run(token, *, now, previous=None, get=None, sleep=time.sleep):
     found, checks = litigation(token, now, previous, get=get, sleep=sleep, budget=budget)
     rulings, ocheck = opinions(token, now, previous, budget, get=get, sleep=sleep)
     checks.append(ocheck)
+    cit_rows, ccheck = cit_direct(now, previous, get=get)
+    checks.append(ccheck)
+    rulings = merge_opinions(rulings, cit_rows)
     prev_ops = {x["id"] for x in (previous or {}).get("opinions", []) if isinstance(x, dict)}
+    prev_slips = {x.get("slipOp") for x in (previous or {}).get("opinions", []) if isinstance(x, dict) and x.get("slipOp")}
     for x in rulings:
-        x["isNew"] = bool((previous or {}).get("opinions") is not None and had_state and x["id"] not in prev_ops)
+        x["isNew"] = bool((previous or {}).get("opinions") is not None and had_state and x["id"] not in prev_ops
+                          and not (x.get("slipOp") and x["slipOp"] in prev_slips))
     itc, ierr, checked = itc_337(now, previous, get=get, sleep=sleep)
     checks.append({"source": "미국 관보 ITC 337조", "status": "failed" if ierr else "ok", "returned": len(itc), **({"error": ierr} if ierr else {})})
     keep_from = (now - dt.timedelta(days=KEEP_DAYS)).strftime("%Y-%m-%d")

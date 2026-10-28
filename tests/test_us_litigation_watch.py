@@ -342,5 +342,65 @@ class Itc(unittest.TestCase):
         self.assertEqual(w.beat_in("KG Mobility America"), ["KG모빌리티"])
 
 
+    def test_cit_slip_opinion_list_same_day(self):
+        # 실제 CIT 목록 행 형식(10-29 열람)
+        html = """<table><tr><th>Number</th></tr>
+<tr>
+<td class="rtecenter"><a href="/sites/cit/files/26-132.pdf">26-132</a></td>
+<td style="vertical-align:middle">In re Raj K. Patel</td>
+<td class="rtecenter">10/27/2026</td>
+<td class="rtecenter">26-04703</td>
+<td class="rtecenter">Restani</td>
+<td class="rtecenter">1581(i)</td>
+</tr>
+<tr>
+<td class="rtecenter"><a href="/sites/cit/files/26-131.pdf">26-131</a></td>
+<td style="vertical-align:middle">POSCO v. United States</td>
+<td class="rtecenter">10/27/2026</td>
+<td class="rtecenter">24-00006</td>
+<td class="rtecenter">Restani</td>
+<td class="rtecenter">1581(c)</td>
+</tr>
+<tr>
+<td class="rtecenter"><a href="/sites/cit/files/26-130.pdf">26-130</a></td>
+<td style="vertical-align:middle">KG Dongbu Steel Co. v. United States</td>
+<td class="rtecenter">10/20/2026</td>
+<td class="rtecenter">22-00047</td>
+<td class="rtecenter">Choe-Groves</td>
+<td class="rtecenter">1581(c)</td>
+</tr>
+<tr>
+<td class="rtecenter"><a href="/sites/cit/files/26-12.pdf">26-12</a></td>
+<td style="vertical-align:middle">Hyundai Steel Co. v. United States</td>
+<td class="rtecenter">01/20/2026</td>
+<td class="rtecenter">23-00001</td>
+<td class="rtecenter">Barnett</td>
+<td class="rtecenter">1581(c)</td>
+</tr></table>"""
+
+        class R:
+            status_code, text = 200, html
+        now = dt.datetime(2026, 10, 28, 7, 50, tzinfo=w.KST)
+        rows, check = w.cit_direct(now, None, get=lambda *a, **k: R())
+        self.assertEqual(check["status"], "ok")
+        by = {r["slipOp"]: r for r in rows}
+        self.assertEqual(sorted(by), ["26-130", "26-131"])  # 사건 당사자만, 21일 안만
+        self.assertEqual((by["26-131"]["beat"], by["26-131"]["role"], by["26-131"]["dateFiled"]), (["포스코"], "원고", "2026-10-27"))
+        self.assertEqual(by["26-131"]["pdf"], "https://www.cit.uscourts.gov/sites/cit/files/26-131.pdf")
+        self.assertEqual(by["26-130"]["beat"], ["KG스틸"])
+        # CourtListener가 나중에 같은 판결을 주면 한 줄로, 먼저 본 시각 유지
+        cl = [{"id": "op:9", "slipOp": "26-131", "dateFiled": "2026-10-27", "holding": "Sustaining ...", "firstSeen": "2026-10-28T14:55:00+09:00"}]
+        merged = w.merge_opinions(cl, rows)
+        posco = [r for r in merged if r.get("slipOp") == "26-131"]
+        self.assertEqual(len(posco), 1)
+        self.assertEqual((posco[0]["id"], posco[0]["firstSeen"], posco[0]["holding"]), ("op:9", "2026-10-28T07:50:00+09:00", "Sustaining ..."))
+
+    def test_cit_list_failure_is_reported_not_zero(self):
+        class R:
+            status_code, text = 503, ""
+        rows, check = w.cit_direct(dt.datetime(2026, 10, 28, tzinfo=w.KST), None, get=lambda *a, **k: R())
+        self.assertEqual((rows, check["status"], check["error"]), ([], "failed", "HTTP 503"))
+
+
 if __name__ == "__main__":
     unittest.main()
