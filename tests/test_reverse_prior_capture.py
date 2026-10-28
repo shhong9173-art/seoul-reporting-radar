@@ -46,7 +46,8 @@ class Capture(unittest.TestCase):
         self.assertIn("소송·판결", ls["best"]["why"])
         self.assertIn("특허·상표", ls["best"]["why"])
         posco = by["a2"]
-        self.assertEqual((posco["verdict"], posco["best"]["id"]), ("먼저 잡은 후보", "cl:74869986"))  # the ruling was seen after the article
+        # 패소(판결) 기사: 기사 뒤에 본 판결은 빼고, 먼저 본 것은 다른 사건번호일 수 있는 소송 접수뿐 → 같은 회사 항목만
+        self.assertEqual((posco["verdict"], posco["best"]["id"]), ("같은 회사 항목만", "cl:74869986"))
         baic = by["a3"]
         self.assertEqual((baic["verdict"], baic["best"]["label"]), ("먼저 잡은 후보", "해외 파트너 공시"))
         self.assertIn("지분·합작·거래", baic["best"]["why"])
@@ -54,8 +55,8 @@ class Capture(unittest.TestCase):
         self.assertEqual(robot["verdict"], "같은 회사 항목만")  # 현대차 items exist but nothing about a hire
         self.assertEqual(robot["best"]["why"], [])
         self.assertEqual(by["a5"]["verdict"], "없음")
-        self.assertEqual(doc["counts"], {"먼저 잡은 후보": 3, "같은 회사 항목만": 1, "없음": 1, "회사 미상": 0})
-        self.assertEqual(doc["bySource"]["미국 소송·판결"]["caught"], 2)
+        self.assertEqual(doc["counts"], {"먼저 잡은 후보": 2, "같은 회사 항목만": 2, "없음": 1, "회사 미상": 0})
+        self.assertEqual(doc["bySource"]["미국 소송·판결"]["caught"], 1)
         self.assertEqual(doc["bySource"]["해외 파트너 공시"]["leadHours"] if "leadHours" in doc["bySource"]["해외 파트너 공시"] else
                          doc["bySource"]["해외 파트너 공시"]["leadHoursMedian"], 11.3)
 
@@ -64,7 +65,7 @@ class Capture(unittest.TestCase):
                "page-watch": {"events": [{"pageId": "p", "company": ["not", "a", "string"], "added": ["Coming 2027"], "detectedAt": "2026-10-20T06:30:00+09:00"}]}}
         doc = r.run(TRACE, bad, CLUES, now=NOW)
         self.assertEqual(doc["adapterErrors"], {"kr-signals": "AttributeError"})
-        self.assertEqual(doc["counts"]["먼저 잡은 후보"], 3)  # litigation and partner filings still read
+        self.assertEqual(doc["counts"]["먼저 잡은 후보"], 2)  # litigation and partner filings still read
 
     def test_group_names_and_missing_times(self):
         self.assertEqual(r.canon("포스코홀딩스"), "포스코")
@@ -126,6 +127,14 @@ class Capture(unittest.TestCase):
         doc = r.run(trace, docs, {"items": []}, now=NOW)
         self.assertEqual(len(doc["articles"]), 2)
         self.assertEqual({a["articleId"]: a["verdict"] for a in doc["articles"]}, {"m1": "같은 회사 항목만", "h1": "같은 회사 항목만"})
+
+
+    def test_ruling_article_counts_a_ruling_seen_before_it(self):
+        docs = {"us-litigation": {"cases": [], "opinions": [{"id": "op:1", "beat": ["포스코"], "caseName": "POSCO v. United States",
+                "holding": "Sustaining the Department of Commerce's second remand redetermination", "firstSeen": "2026-10-28T07:50:00+09:00"}]}}
+        trace = {"items": [TRACE["items"][1]]}
+        a = r.run(trace, docs, {"items": []}, now=NOW)["articles"][0]
+        self.assertEqual((a["verdict"], a["best"]["id"]), ("먼저 잡은 후보", "op:1"))
 
 
 if __name__ == "__main__":

@@ -49,6 +49,10 @@ CONCEPTS = [
     ("배터리", r"배터리|셀|전지", r"battery|cell|배터리"),
     ("신차·인증", r"신차|출시|투입|연식|연비|인증|주행거리|부분변경|신형|트림", r"EPA|연비|새 모델|model year|range|주행거리|1회 충전|연식"),
 ]
+# 판결 기사(패소·승소 등)는 판결 항목만 같은 사건으로 센다. 같은 회사의 다른 소송 접수는 다른 사건번호일 수 있다
+# (10-28: 포스코 패소 기사 = 국제무역법원 24-00006 판결(Slip Op. 26-131), 레이더가 먼저 본 것은 1:26-cv-04229 접수).
+RULING_TITLE = re.compile(r"패소|승소|판결|기각|인용|선고")
+RULING_ITEM = re.compile(r"\bopinion\b|Sustain|Remand|Affirm|Revers|holding|판결|결정 유지|환송", re.I)
 # 출입 업종에서 너무 흔한 사건 낱말: 이것 하나만 겹치면 같은 사건 근거로 약하다(10-28 첫 실행: '배터리'·'공장'만 겹친 오탐 2건).
 WEAK_CONCEPTS = {"공장·생산", "배터리", "가격"}
 GENERIC_WORDS = {"공장", "배터리", "미국", "생산", "가격", "투자", "계약", "중국", "한국", "글로벌", "사업", "신규"}
@@ -209,6 +213,8 @@ def match(article, items):
     concept_words = {w for w in words if any(name in concepts and re.search(ko, w) for name, ko, _ in CONCEPTS)}
     for m in same:
         hit_c = sorted(name for name, _, rx in CONCEPTS if name in concepts and re.search(rx, m["text"], re.I))
+        if "소송·판결" in hit_c and RULING_TITLE.search(title) and not RULING_ITEM.search(m["text"]):
+            hit_c.remove("소송·판결")
         # 사건 낱말로 이미 센 단어·흔한 단어는 따로 세지 않는다
         hit_w = sorted(w for w in words - concept_words - GENERIC_WORDS if w in m["text"])
         score = sum(1 if c in WEAK_CONCEPTS else 2 for c in hit_c) + len(hit_w)
