@@ -218,6 +218,42 @@ class Screen(unittest.TestCase):
             rows = s.screen(s.select(CLUES, STATS, now=NOW), now=NOW, get=get, sleep=lambda x: None)
         self.assertTrue(all(r["verdict"] == "미확인" for r in rows))
 
+    def test_lawsuit_filing_is_rechecked_with_case_name_and_outcome(self):
+        facts = [["사건의명칭", "주주대표소송(손해배상)"], ["사건번호", "2025가합10683"],
+                 ["판결ㆍ결정내용", "[주문] 1. 원고 공동소송참가인의 공동소송참가신청을 각하한다. 2. 원고의 주위적 및 예비적 청구를 모두 기각한다."]]
+        row = {"id": "clue:kz", "kind": "단서", "company": "고려아연", "title": "고려아연 · 소송등의판결ㆍ결정", "terms": ["소송등의판결"],
+               "alts": {}, "numbers": [], "ratios": [], "unit": "", "strength": 3, "verdict": "미보도 후보",
+               "queries": ["고려아연 소송등의판결"], "filing": {"type": "소송판결", "facts": facts}}
+        terms, alts = s.lawsuit_terms(row)
+        self.assertEqual(terms, ["주주대표소송", "기각"])  # 기각 is the main ruling here; 각하 was only for the joint-party motion
+        self.assertIn("손해배상", alts["주주대표소송"])
+        self.assertIn("승소", alts["기각"])
+
+        def get(url, params=None, headers=None, timeout=None):
+            if "naverapihub" in url:
+                hit = "주주대표소송" in params["query"]
+                items = [{"title": "고려아연 8300억 주주대표소송 1심 기각…영풍, 즉각 항소", "description": "", "originallink": "https://n/kz",
+                          "pubDate": "Thu, 22 Oct 2026 15:00:00 +0900"}] if hit else []
+                return R(200, {"items": items})
+            return R(200, content=b"<rss><channel></channel></rss>")
+        with patch.dict(os.environ, {"NAVER_CLIENT_ID": "i", "NAVER_CLIENT_SECRET": "k"}):
+            out, n = s.recheck_lawsuits([row], now=NOW, get=get, sleep=lambda x: None)
+        self.assertEqual(n, 1)
+        self.assertEqual(out[0]["verdict"], "관련 보도 있음")
+        self.assertEqual(out[0]["queries"], ["고려아연 주주대표소송", "고려아연 주주대표소송 기각"])
+        self.assertEqual((out[0]["firstVerdict"], out[0]["firstQueries"]), ("미보도 후보", ["고려아연 소송등의판결"]))
+        self.assertEqual(out[0]["filing"]["type"], "소송판결")
+
+    def test_lawsuit_filing_variants_and_non_lawsuits(self):
+        sue = {"filing": {"type": "소송제기", "facts": [["사건의명칭", "손해배상청구의 소"]]}}
+        self.assertEqual(s.lawsuit_terms(sue)[0], ["손해배상청구", "소송"])
+        paid = {"filing": {"type": "소송판결", "facts": [["사건의명칭", "물품대금"], ["판결ㆍ결정내용", "피고는 원고에게 10억원을 지급하라."]]}}
+        self.assertEqual(s.lawsuit_terms(paid)[0], ["물품대금", "인용"])
+        self.assertIsNone(s.lawsuit_terms({"filing": {"type": "채무보증", "facts": []}}))
+        self.assertIsNone(s.lawsuit_terms({"filing": {"type": "소송판결", "facts": [["사건의명칭", "()"]]}}))
+        rows, n = s.recheck_lawsuits([{"id": "x", "terms": ["a"], "verdict": "미보도 후보", "strength": 1}], now=NOW, get=None)
+        self.assertEqual(n, 0)
+
     def test_push_sends_bearer_token_to_private_ingest(self):
         seen = {}
         def post(url, data, headers, timeout):

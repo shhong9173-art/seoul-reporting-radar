@@ -279,6 +279,51 @@ def lead(terms):
     return max(pool, key=len) if pool else None
 
 
+# Lawsuit filings name the case and the outcome; headlines use those words, not the filing type
+# (운영 10-28: '고려아연 소송등의판결'로 찾아 '미보도 후보' — 같은 날 '주주대표소송 1심 기각' 속보가 여러 건 있었다).
+OUTCOME_WORDS = ["기각", "각하", "인용", "승소", "패소", "판결", "선고"]
+
+
+def lawsuit_terms(c):
+    """(terms, alts) from the filing's own case name and outcome, or None when this is not a lawsuit filing."""
+    f = c.get("filing") or {}
+    if f.get("type") not in ("소송판결", "소송제기"):
+        return None
+    got = {k: v for k, v in (f.get("facts") or []) if isinstance(k, str)}
+    name = str(got.get("사건의명칭") or "")
+    main = re.sub(r"\s*의\s*소$", "", re.sub(r"\(.*?\)", "", name)).strip()
+    inner = [w.strip() for w in re.findall(r"\((.*?)\)", name) if len(w.strip()) >= 2]
+    if len(main) < 2:
+        return None
+    alts = {main: [main] + inner}
+    if f["type"] == "소송판결":
+        text = str(got.get("판결ㆍ결정내용") or "")
+        outcome = next((w for w in ("기각", "각하", "인용") if w in text), "판결")
+        if outcome == "판결" and re.search(r"지급하라|이행하라", text):
+            outcome = "인용"
+        alts[outcome] = [outcome] + [w for w in OUTCOME_WORDS if w != outcome]
+        return [main, outcome], alts
+    alts["소송"] = ["소송", "소 제기", "제기", "청구"]
+    return [main, "소송"], alts
+
+
+def recheck_lawsuits(rows, *, now, get=None, sleep=time.sleep):
+    """Screen lawsuit filings again with the case words read from the original filing."""
+    redo = []
+    for r in rows:
+        better = lawsuit_terms(r)
+        if better and better[0] != r.get("terms"):
+            redo.append({**r, "terms": better[0], "alts": {**(r.get("alts") or {}), **better[1]},
+                         "firstQueries": r.get("queries"), "firstVerdict": r.get("verdict")})
+    if not redo:
+        return rows, 0
+    again = {x["id"]: x for x in screen(redo, now=now, get=get, sleep=sleep)}
+    out = [again.get(r["id"], r) for r in rows]
+    order = {"미보도 후보": 0, "관련 보도 있음": 1, "미확인": 2, "같은 수치 선행": 3}
+    out.sort(key=lambda r: (order[r["verdict"]], -r["strength"]))
+    return out, len(redo)
+
+
 def queries(c):
     a, t = c["company"], c["terms"]
     qs = [f"{a} {t[0]}"]
@@ -514,7 +559,9 @@ def main():
         from dart_lineage import zip_documents
         targets = [r for r in rows if r.get("verdict") in ("미보도 후보", "미확인")]
         dart_filing_facts.enrich(targets, dart_key, dart_filing_facts.load_corp_codes(), fetch_documents=zip_documents, get=requests.get)
-        got = [r["filing"] for r in targets if r.get("filing")]
+        rows, rechecked = recheck_lawsuits(rows, now=now)
+        inputs["lawsuitRechecked"] = rechecked
+        got = [r["filing"] for r in rows if r.get("filing")]
         inputs["filingFacts"] = {"read": sum(1 for x in got if x.get("facts") is not None and not x.get("error")),
                                  "routine": sum(1 for x in got if x.get("routine")), "failed": sum(1 for x in got if x.get("error"))}
         print(f"::notice title=scoop-screen-filings::DART 원문 요점 {inputs['filingFacts']['read']}건 · 일상 {inputs['filingFacts']['routine']}건 · 실패 {inputs['filingFacts']['failed']}건")
