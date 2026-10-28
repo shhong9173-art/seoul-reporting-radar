@@ -135,6 +135,12 @@ def _official(d, add):
             add(mem("kr-official", x.get("id"), [x.get("company")], f"공장 새 등록 {x.get('cmpnyNm')} {x.get('mainProductCn') or ''}", x.get("firstSeen") or x.get("registeredOn"), None))
 
 
+def _eia(d, add):
+    for x in d.get("eia") or []:
+        add(mem("kr-official", x.get("id"), [x.get("company")], f"공장 환경영향평가 {x.get('stage')} {x.get('name')} {x.get('category') or ''} 증설 투자",
+                x.get("firstSeen"), x.get("url")))
+
+
 def _signals(d, add):
     for x in d.get("decisions") or []:
         add(mem("kr-signals", x.get("id"), [m.get("company") for m in x.get("mentions") or []], f"공정위 {x.get('name')} {x.get('action') or ''}", x.get("fileDate") or x.get("decidedOn"), x.get("url")))
@@ -195,7 +201,7 @@ def _clues(d, add):
         add(mem("clues", x.get("id"), x.get("companies") or [], x.get("title"), x.get("firstSeen") or x.get("published"), x.get("url")))
 
 
-ADAPTERS = [("us-litigation", _litigation), ("partner-filings", _partners), ("trade-remedy", _trade), ("kr-official", _official),
+ADAPTERS = [("us-litigation", _litigation), ("partner-filings", _partners), ("trade-remedy", _trade), ("kr-official", _official), ("kr-official", _eia),
             ("kr-signals", _signals), ("us-comments", _comments), ("page-watch", _pages), ("trademarks", _marks),
             ("us-recalls", _recalls), ("scoop-screen", _screen), ("us-epa", _epa), ("us-epa", _vin), ("kr-fuel", _fuel), ("clues", _clues)]
 

@@ -406,7 +406,13 @@ export async function krOfficial(ctx, args) {
     }
     out.push('   검증 상태: 관보 게재 목록(자동). 같은 날 보도자료가 나왔는지 news_check로 확인');
   }
-  out.push('\n다음: 새 공장·변경은 회사·지자체에 가동 시점·투자액·인력 확인 → news_check. 입법예고는 원문(관보 PDF)에서 시행일·대상 확인.');
+  if (!section) {
+    const eia = (doc.eia ?? []).filter((x) => matches(q, x.company, x.name, x.category));
+    out.push(`\n[환경영향평가 · 사업명에 출입처 이름 · 새 단계] ${eia.length}건`);
+    for (const x of eia.slice(0, limit)) out.push(`- ${x.isNew ? '[신규] ' : ''}${x.received} 접수 · ${x.company} · ${x.kind} ${x.stage}\n   ${x.name} · ${x.category}${x.completed ? ` · 완료 ${x.completed}` : ''} · 사업코드 ${x.code}`);
+    if (!eia.length) out.push('새 단계 없음(첫 실행은 기준선, 조회 실패면 미확인).');
+  }
+  out.push('\n다음: 새 공장·변경은 회사·지자체에 가동 시점·투자액·인력 확인 → news_check. 입법예고는 원문(관보 PDF)에서 시행일·대상 확인. 환경영향평가는 EIASS에서 사업코드로 평가서 원문(규모·일정) 확인.');
   return textResult(out.join('\n'));
 }
 

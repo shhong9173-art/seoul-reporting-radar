@@ -198,5 +198,73 @@ class Gazette(unittest.TestCase):
         self.assertEqual(len(doc["gazette"]), 2)
 
 
+EIA_HTML = """<h4 class="conH1 allPage">환경영향평가</h4>
+<table class="tbl01 disPc"><caption>게시판 리스트</caption><thead><tr><th scope="col">사업코드</th></tr></thead>
+<tbody>
+<tr>
+<td data-cell-header="사업코드 : ">ND2026O009</td>
+<td data-cell-header="사업구분 : " title="폐기물처리시설">폐기물처리시</td>
+<td data-cell-header="사업명 : " class="title" title="고려아연(주) 온산제련소 제2 폐기물처리시설 증설">
+<a href="javascript:view('eia', 'ND2026O009', '45901');">고려아연(주) 온산제련소 제2 폐기물처리시설 증설</a></td>
+<td data-cell-header="접수일 : ">2026.10.27</td>
+<td data-cell-header="완료일 : "></td>
+<td data-cell-header="진행현황 : "><span class="btn_item btn_white round">초안(진행)</span></td>
+</tr>
+<tr>
+<td data-cell-header="사업코드 : ">ND2021O002</td>
+<td data-cell-header="사업구분 : " title="폐기물처리시설">폐기물처리시</td>
+<td data-cell-header="사업명 : " class="title" title="고려아연(주) 온산제련소 폐기물처리시설 설치">
+<a href="javascript:view('eia', 'ND2021O002', '1');">고려아연(주) 온산제련소 폐기물처리시설 설치</a></td>
+<td data-cell-header="접수일 : ">2021.09.15</td>
+<td data-cell-header="완료일 : ">2022.01.06</td>
+<td data-cell-header="진행현황 : "><span class="btn_item btn_white round">본협의(완료)</span></td>
+</tr>
+<tr>
+<td data-cell-header="사업코드 : ">ME2026X001</td>
+<td data-cell-header="사업구분 : " title="산업단지">산업단지</td>
+<td data-cell-header="사업명 : " class="title" title="포스코퓨처엠 광양 양극재 공장 증설">
+<a href="#">포스코퓨처엠 광양 양극재 공장 증설</a></td>
+<td data-cell-header="접수일 : ">2026.10.27</td>
+<td data-cell-header="완료일 : "></td>
+<td data-cell-header="진행현황 : "><span>초안(진행)</span></td>
+</tr>
+</tbody></table><table class="tbl01 table_tm disTm"><tbody></tbody></table>"""
+
+
+class Eia(unittest.TestCase):
+    def setUp(self):
+        self.cfg = {"companies": [{"company": "고려아연", "queries": ["고려아연"]}, {"company": "포스코", "queries": ["포스코"]}]}
+        self.now = w.dt.datetime(2026, 10, 29, 8, 10, tzinfo=w.KST)
+
+    def fake(self, html=EIA_HTML, status=200):
+        class R:
+            def __init__(self, text="", content=b"-----BEGIN CERTIFICATE-----\nX\n-----END CERTIFICATE-----\n"):
+                self.status_code, self.text, self.content = status, text, content
+        posts = []
+        return (lambda url, **kw: (posts.append(kw["data"]["query"]), R(html))[1]), (lambda url, **kw: R()), posts
+
+    def test_rows_and_new_stage_after_baseline(self):
+        rows = w.eia_rows(EIA_HTML)
+        self.assertEqual(rows[0], {"code": "ND2026O009", "category": "폐기물처리시설", "name": "고려아연(주) 온산제련소 제2 폐기물처리시설 증설",
+                                   "received": "2026-10-27", "completed": "", "stage": "초안(진행)"})
+        post, get, posts = self.fake()
+        first, seen, checks = w.eia(self.cfg, self.now, None, post=post, get=get, sleep=lambda s: None)
+        self.assertEqual((first, checks[0]["status"], checks[0]["returned"]), ([], "ok", 4))
+        self.assertEqual(posts, ["고려아연", "고려아연", "포스코", "포스코"])
+        self.assertIn("eia:ND2026O009:2026-10-27:초안(진행)", seen)
+        self.assertFalse(any("ME2026X001" in x for x in seen))  # 포스코퓨처엠은 포스코가 아님
+        newer = EIA_HTML.replace("초안(진행)</span></td>\n</tr>\n<tr>\n<td data-cell-header=\"사업코드 : \">ND2021O002", "본안(진행)</span></td>\n</tr>\n<tr>\n<td data-cell-header=\"사업코드 : \">ND2021O002", 1)
+        post2, get2, _ = self.fake(newer)
+        items, _, _ = w.eia(self.cfg, self.now, {"eiaSeen": seen, "eia": []}, post=post2, get=get2, sleep=lambda s: None)
+        self.assertEqual([(x["company"], x["stage"], x["kind"], x["isNew"]) for x in items], [("고려아연", "본안(진행)", "환경영향평가", True)])
+
+    def test_site_failure_is_not_zero(self):
+        post, get, _ = self.fake(status=503)
+        items, _, checks = w.eia(self.cfg, self.now, {"eiaSeen": [], "eia": [{"id": "eia:x", "firstSeen": "2026-10-28T08:10:00+09:00"}]},
+                                 post=post, get=get, sleep=lambda s: None)
+        self.assertEqual(checks[0]["status"], "failed")
+        self.assertEqual([x["id"] for x in items], ["eia:x"])
+
+
 if __name__ == "__main__":
     unittest.main()

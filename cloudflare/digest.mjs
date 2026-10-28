@@ -142,6 +142,14 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
     if (f.registeredOn && (all || f.registeredOn >= cutDay) && !evFactories.has(f.id)) push('A', W['kr-official'], { kind: '공장 새 등록', id: f.id, date: f.registeredOn, company: f.company, fact: `공장 등록 ${f.cmpnyNm} · ${f.rnAdres} · 주생산품 ${f.mainProductCn || '미기재'} · 업종 ${f.indutyNm || '미기재'} · 고용 ${f.employees ?? '?'}명${f.nameCheck ? ` (⚠ ${f.nameCheck})` : ''}`,
       check: factoryHint(f.company, '새 등록', f.rnAdres) });
   }
+  // 환경영향평가: a new stage (초안·본안·변경협의) of a project whose name carries a beat company — plans before announcements.
+  for (const x of kr?.eia ?? []) {
+    if (!recent(x.firstSeen) && !all) continue;
+    const words = String(x.name ?? '').replace(/\(주\)|㈜|주식회사/g, ' ').split(/\s+/).filter((w) => w.length >= 2 && !w.includes(String(x.company ?? '').slice(0, 2)));
+    push('A', W['kr-official'], { kind: `환경영향평가 ${x.stage}`, id: x.id, date: x.received || x.firstSeen, company: x.company,
+      fact: `환경영향평가(${x.kind}) ${x.stage}: ${x.name} · ${x.category} · 접수 ${x.received}${x.completed ? ` · 완료 ${x.completed}` : ''} — 계획 단계, 착공·투자 확정 아님`,
+      url: x.url, check: hint(x.company, [words[0] ?? '환경영향평가', '환경영향평가']) });
+  }
   const gzBase = baselineOf(kr?.gazette ?? []);
   for (const g of kr?.gazette ?? []) {
     if (fresh(g, gzBase, 'date')) push('B', W['kr-official'], { kind: '관보 입법예고', id: g.id, date: g.date, company: (g.teams ?? []).join('·'), fact: `관보 입법예고 ${g.org}: ${g.title}`, url: g.url });
