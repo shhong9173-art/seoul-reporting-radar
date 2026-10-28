@@ -1,18 +1,154 @@
 {
-  "generatedAt": "2026-10-27T11:03:09+09:00",
-  "dartSourceGeneratedAt": "2026-10-27T11:02:52+09:00",
-  "newsIndexSourceGeneratedAt": "2026-10-27T11:03:08+09:00",
+  "generatedAt": "2026-10-28T11:13:01+09:00",
+  "dartSourceGeneratedAt": "2026-10-28T11:12:45+09:00",
+  "newsIndexSourceGeneratedAt": "2026-10-28T11:13:00+09:00",
   "status": "bounded_unlinked_correction_history_for_reporter_review",
   "corrections": 2,
-  "totalHistoricalCandidateDocs": 0,
-  "historicalDocumentsRetrieved": 0,
+  "totalHistoricalCandidateDocs": 2,
+  "historicalDocumentsRetrieved": 2,
   "requestBound": 8,
-  "requestsAttempted": 0,
+  "requestsAttempted": 2,
   "verifiedSameContractHistory": 0,
   "confirmedScoops": 0,
   "approvedArticles": 0,
   "limitations": "Past same-company/type/date filings are UNLINKED candidates, not contract continuity. Matching amounts are not legal identity. Google News indexes do not constitute article fulltext/same-revision prior reporting proof. All past corrections remain published, not current scoops.",
   "items": [
+    {
+      "id": "DART:20261027800518",
+      "receiptNo": "20261027800518",
+      "company": "효성중공업",
+      "officialDate": "20261027",
+      "category": "공급계약",
+      "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261027800518",
+      "referenceDateFromCorrection": "20260210",
+      "historyScope": "official_same_issuer_event_type_on_filing_reference_date_ONLY",
+      "linkageVerified": false,
+      "olderOfficialCandidateCount": 2,
+      "candidateCountInvalidOrRejected": 0,
+      "retrievalsAttempted": 2,
+      "priorOfficialCandidateDocuments": [
+        {
+          "receiptNo": "20260210801094",
+          "officialDate": "20260210",
+          "reportTitle": "[기재정정]단일판매ㆍ공급계약체결              ",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260210801094",
+          "relationshipStatus": "UNLINKED_same_company_category_reference_date",
+          "sameContractVerified": false,
+          "priorDocumentRetrieved": true,
+          "matchingTextRows": 1,
+          "conflictingTextRows": 0,
+          "unlinkedComparisons": [
+            {
+              "field": "contract_amount",
+              "currentAmendmentField": "2. 계약내역 - 계약금액(원)",
+              "currentIssuerSaidBefore": "113,586,046,173",
+              "priorCandidatePublishedValue": "113,586,046,173",
+              "priorCandidateSaidBefore": "113,589,314,333",
+              "currentIssuerSaidAfter": "113,044,698,813",
+              "priorCandidateField": "2. 계약내역 - 계약금액(원)",
+              "literalValuesMatch": true,
+              "sameContractVerified": false,
+              "previouslyReportedInMediaVerified": false,
+              "contractEffectVerified": false,
+              "basis": "unlinked_same_issuer_event_type_date_candidate_only"
+            }
+          ],
+          "priorCandidateKind": "prior_amendment_issuer_table",
+          "priorCandidateTableStatus": "issuer_table_material_changes_for_review",
+          "priorCandidateExplicitOriginReferenceStatus": "no_explicit_reference",
+          "priorCandidateExplicitOriginReceipt": null,
+          "priorCandidateExplicitOriginVerifiedInIssuerList": false,
+          "currentAmendmentLinkedToThisOrigin": false,
+          "priorIssuerDeclaredRevisions": [
+            {
+              "fieldLabel": "2. 계약내역 - 계약금액(원)",
+              "before": "113,589,314,333",
+              "after": "113,586,046,173",
+              "basis": "issuer_reported_amendment_table_only",
+              "independentCurrentLinkageVerified": false
+            }
+          ],
+          "status": "previous_candidate_official_document_inspected"
+        },
+        {
+          "receiptNo": "20260210800044",
+          "officialDate": "20260210",
+          "reportTitle": "단일판매ㆍ공급계약체결              ",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260210800044",
+          "relationshipStatus": "UNLINKED_same_company_category_reference_date",
+          "sameContractVerified": false,
+          "priorDocumentRetrieved": true,
+          "matchingTextRows": 0,
+          "conflictingTextRows": 1,
+          "unlinkedComparisons": [
+            {
+              "field": "contract_amount",
+              "currentAmendmentField": "2. 계약내역 - 계약금액(원)",
+              "currentIssuerSaidBefore": "113,586,046,173",
+              "priorCandidatePublishedValue": "787,063,743,500",
+              "priorCandidateSaidBefore": null,
+              "currentIssuerSaidAfter": "113,044,698,813",
+              "priorCandidateField": "contract_amount",
+              "literalValuesMatch": false,
+              "sameContractVerified": false,
+              "previouslyReportedInMediaVerified": false,
+              "contractEffectVerified": false,
+              "basis": "unlinked_same_issuer_event_type_date_candidate_only"
+            }
+          ],
+          "priorCandidateKind": "prior_filing_official_terms",
+          "priorCandidateTableStatus": "historical_full_document_terms",
+          "priorCandidateExplicitOriginReferenceStatus": "not_an_amendment",
+          "priorCandidateExplicitOriginReceipt": null,
+          "priorCandidateExplicitOriginVerifiedInIssuerList": false,
+          "currentAmendmentLinkedToThisOrigin": false,
+          "priorIssuerDeclaredRevisions": [],
+          "status": "previous_candidate_official_document_inspected"
+        }
+      ],
+      "pressEvidence": {
+        "status": "index_checked_not_fulltext",
+        "olderIndexedArticles": [
+          {
+            "title": "효성중공업, 미국 빅테크와 초고압 변압기 공급계약…3865억 규모 - Chosunbiz",
+            "url": "https://news.google.com/rss/articles/CBMihAFBVV95cUxNelNXaENodmRuNWI0Rmg2Sm9fUk5rWkhCc2txbTVoTjVzTmhJSTJGWURVQnQwUHJ5QmIzdG5IREdXVzRmWjZTNkdYNDE5anRFejFkMEh6VDdZWTRGX0NrV0lYajNUQldSUF9RdmtyWGlzaVUzUmNMTmpKdzJ0WEV2d0xJU0jSAZgBQVVfeXFMTVlQQVBNMkNaSERHUDVBaHZmXzIzT3ZWdy13aXoxWjQ5X0xpSmJUckM0N2dDRkpoRV9FUEEtWF9YRS1wX0VLYTNwVkdBZVNBT0p6RWZrTFV3QzdGMkxYN0xiR0xOeFZTcC1KS2JzMHYybEYtS0VxZWtCc2V2SVJRMXhsYW5OblF5aTEwVTVPcjBRdm9UYTNWOEk?oc=5",
+            "indexedPublishedAt": "2026-09-15T16:00:00+09:00",
+            "sameRevisionVerified": false,
+            "sameContractVerified": false,
+            "originalArticleFulltextRead": false
+          },
+          {
+            "title": "효성중공업, 호주서 3100억원 규모 장기 공급계약 체결 “북미 넘어 호주로” - 경향신문",
+            "url": "https://news.google.com/rss/articles/CBMiWkFVX3lxTE51S2hucmFXYVdvbDZteTRtWTdEdU95VDRaQVB1N21vUm0xaDE3ME85cnlLeC12eXY0OUxZVWtjVHNjOXloaXEyZEQwaXAtQWtIbXNCNmF0c2otQdIBX0FVX3lxTFBIU3BjdHMyR05xOHk0X1JjMnB4eVduVG1OVzVqQlVhaUlGOE1OaW5xRDNPRU00WnlMUUNRcDRIN3JscXNCcERhSEZMd0dTd1QzWTlGNGJTSllVcGxBcmEw?oc=5",
+            "indexedPublishedAt": "2026-07-02T16:00:00+09:00",
+            "sameRevisionVerified": false,
+            "sameContractVerified": false,
+            "originalArticleFulltextRead": false
+          },
+          {
+            "title": "효성중공업, 미 빅테크 2곳과 3865억 공급계약 - 중앙일보",
+            "url": "https://news.google.com/rss/articles/CBMiVkFVX3lxTE1weHM2eFVYeGtJY1cteFBWMjVMQ2Ztd0Z1X1pIMkUtQ2NFT0FSMlAyeURvQzJfMUpLZFM4dVpkdGE0MDJqZzRZbVJjbnpZa0IxZWZQWnRB?oc=5",
+            "indexedPublishedAt": "2026-09-15T16:00:00+09:00",
+            "sameRevisionVerified": false,
+            "sameContractVerified": false,
+            "originalArticleFulltextRead": false
+          }
+        ],
+        "coverageOfSameRevisionVerified": false,
+        "articleFulltextRead": false
+      },
+      "editorialStatus": "previous_candidate_values_review_only",
+      "revisionFirstReportedAfterPreviousCoverageVerified": false,
+      "realCommercialImpactVerified": false,
+      "confirmedExclusive": false,
+      "approvedForPitch": false,
+      "nextVerification": [
+        "해당 회사·공시 유형의 다른 문서는 동일 계약이 아닐 수 있으므로 원공시 접수번호·동일 계약명·정정 근거를 먼저 확인",
+        "정정문이 밝힌 전후 금액·기간이 과거 어느 정정 시점의 기재인지 공시 이력 원문으로 검증",
+        "색인 기사 후보의 전문을 읽어 이번 변경 내용까지 기보도됐는지 확인",
+        "실제 발생한 계약조건·납품 실적·기업 영향에 대해 홍보팀이 확인 가능한 공개 사실만 질문"
+      ]
+    },
     {
       "id": "DART:20261026800529",
       "receiptNo": "20261026800529",
@@ -47,50 +183,9 @@
             "originalArticleFulltextRead": false
           },
           {
-            "title": "두산에너빌리티, 올해 4033억 공장 투자 '2021년 이후 최대 규모'…AI 전력시장 공략 - 필드뉴스",
-            "url": "https://news.google.com/rss/articles/CBMiaEFVX3lxTE16TEI0dWt2QTE1VllaTlpXLS11bmFieU94ZF82QmVSaW1JamhqNjZMcTdqYjhndnVLOFBSZ1NqdnBuRFQyNy00ZVdPWDBKenRnV1lBcF9pYzdQaW5fOG9HcU5BY3Qycktf0gFsQVVfeXFMUEhfTE93OU4xeDllekxZOFR1d2RIeVZ5U19lellyM0RnbkpMbEp0MFVVcmFGalhucWJ0YnBBdEkzTHhWRFk0dGNsTDM5QlBMeVdUajdqSTFqZzUzVjV6V2M4bmJoRFBqR2xSb1Zt?oc=5",
-            "indexedPublishedAt": "2026-10-20T06:30:00+09:00",
-            "sameRevisionVerified": false,
-            "sameContractVerified": false,
-            "originalArticleFulltextRead": false
-          }
-        ],
-        "coverageOfSameRevisionVerified": false,
-        "articleFulltextRead": false
-      },
-      "editorialStatus": "no_verified_prior_event_candidate",
-      "revisionFirstReportedAfterPreviousCoverageVerified": false,
-      "realCommercialImpactVerified": false,
-      "confirmedExclusive": false,
-      "approvedForPitch": false,
-      "nextVerification": [
-        "해당 회사·공시 유형의 다른 문서는 동일 계약이 아닐 수 있으므로 원공시 접수번호·동일 계약명·정정 근거를 먼저 확인",
-        "정정문이 밝힌 전후 금액·기간이 과거 어느 정정 시점의 기재인지 공시 이력 원문으로 검증",
-        "색인 기사 후보의 전문을 읽어 이번 변경 내용까지 기보도됐는지 확인",
-        "실제 발생한 계약조건·납품 실적·기업 영향에 대해 홍보팀이 확인 가능한 공개 사실만 질문"
-      ]
-    },
-    {
-      "id": "DART:20261006800697",
-      "receiptNo": "20261006800697",
-      "company": "두산에너빌리티",
-      "officialDate": "20261006",
-      "category": "공급계약",
-      "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261006800697",
-      "referenceDateFromCorrection": null,
-      "historyScope": "official_same_issuer_event_type_on_filing_reference_date_ONLY",
-      "linkageVerified": false,
-      "olderOfficialCandidateCount": 0,
-      "candidateCountInvalidOrRejected": 0,
-      "retrievalsAttempted": 0,
-      "priorOfficialCandidateDocuments": [],
-      "pressEvidence": {
-        "status": "index_checked_not_fulltext",
-        "olderIndexedArticles": [
-          {
-            "title": "범한메카텍, 두산에너빌리티와 고정자 장기공급 계약 - 경남일보",
-            "url": "https://news.google.com/rss/articles/CBMia0FVX3lxTE9lU0lNUzRKUlI0TS1sZ2tIQWx0MVpHTml0c0lraWVkZUt5WTl6cVliZU9BTnA1Ni1PTEgyR21tWjBTMzFsaUJTcVZNMUVVbU8tUUgwNFJCV05CZDhOYU5hNjBfa2ZvSF9WVEZF?oc=5",
-            "indexedPublishedAt": "2026-09-27T16:00:00+09:00",
+            "title": "'가스복합 3.9조 수주' 두산에너빌리티, 네팔·美 원전 숙제 안고 3분기 맞는다 - 스마트투데이",
+            "url": "https://news.google.com/rss/articles/CBMiX0FVX3lxTE5zbXhheTgzdk4wV0ZSZTlUSUVOb0JVQUdFdjVrLVQwVVVHdVNRUl9vN1E4ZjBmXzNzOVVIOExNSUh5akRqenN0ck5FbUNpU2YyaG9qZG9pVFMzRkxoY0c0?oc=5",
+            "indexedPublishedAt": "2026-10-09T07:00:00+09:00",
             "sameRevisionVerified": false,
             "sameContractVerified": false,
             "originalArticleFulltextRead": false
