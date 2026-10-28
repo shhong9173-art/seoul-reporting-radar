@@ -358,22 +358,28 @@ def litigation(token, now, previous, *, get=None, sleep=time.sleep, budget=None)
                 checks.append({"source": f"CourtListener {g2}", "status": "failed", "error": f"앞 질의 중단({err})", "returned": 0})
             budget.stop = err
             break
-    # Origin and case type of new Federal Circuit dockets (one call each, budgeted). CIT dockets say it in the caption.
+    return found, checks
+
+
+def enrich(cases, prev_cases, token, budget, *, get=None, sleep=time.sleep):
+    """Origin and case type of Federal Circuit dockets (one call each, DETAIL_BUDGET per run), and the one-line summary
+    for every kept case — including ones carried over from earlier runs (운영 10-28: 기존 사건은 설명 없이 남았다)."""
     details = DETAIL_BUDGET
-    for did, x in found.items():
-        old = prev.get(did) or {}
-        for k in ("appealFrom", "caseType"):
+    for x in cases:
+        old = prev_cases.get(x["id"]) or {}
+        for k in ("appealFrom", "caseType", "detailTried"):
             if old.get(k) and not x.get(k):
                 x[k] = old[k]
-        if x.get("courtId") == "cafc" and not old and details > 0 and not budget.stop:
+        if x.get("courtId") == "cafc" and not x.get("detailTried") and details > 0 and not budget.stop:
             details -= 1
-            got, err = cl_call(f"{CL_BASE}/dockets/{did.split(':', 1)[1]}/", token, budget,
+            got, err = cl_call(f"{CL_BASE}/dockets/{x['id'].split(':', 1)[1]}/", token, budget,
                                params={"fields": "appeal_from_str,appellate_case_type_information,nature_of_suit"}, get=get, sleep=sleep)
             if got:
                 x["appealFrom"] = clean_text(got.get("appeal_from_str"), 120) or None
                 x["caseType"] = clean_text(got.get("appellate_case_type_information"), 120) or None
+            if got or (err or "").startswith("HTTP 404"):
+                x["detailTried"] = True  # timeouts and throttling are tried again next run
         x["summary"] = explain(x)
-    return found, checks
 
 
 def is_337(title):
@@ -449,6 +455,7 @@ def run(token, *, now, previous=None, get=None, sleep=time.sleep):
     cases = sorted(found.values(), key=lambda x: (x["priority"], -int(re.sub(r"\D", "", x.get("dateFiled") or "0") or 0)))
     for x in cases:
         x["isNew"] = had_state and x["id"] not in prev_cases
+    enrich(cases, prev_cases, token, budget, get=get, sleep=sleep)
     prev_itc = {x["id"] for x in (previous or {}).get("itc", []) if isinstance(x, dict)}
     if ierr:
         itc = list((previous or {}).get("itc") or [])

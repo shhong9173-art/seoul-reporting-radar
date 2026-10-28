@@ -279,6 +279,37 @@ class Explain(unittest.TestCase):
         self.assertNotIn("appealFrom", posco)  # no detail call for trade-court dockets
         self.assertIsNone(next(x for x in doc["cases"] if x["id"] == "cl:3")["summary"])
 
+    def test_cases_kept_from_earlier_runs_get_details_and_summaries(self):
+        # State as stored before summaries existed: no appealFrom/detailTried/summary on any case.
+        first = run()
+        bare = {**first, "cases": [{k: v for k, v in x.items() if k not in ("appealFrom", "caseType", "detailTried", "summary")}
+                                   for x in first["cases"]]}
+        bare["cases"].append({"id": "cl:77", "beat": ["포스코"], "caseName": "POSCO v. United States", "courtId": "cit", "court": "CIT",
+                              "docketNumber": "1:26-cv-04229", "dateFiled": "2026-09-29", "category": "국제무역법원(무역구제 소송)",
+                              "priority": 0, "role": "원고", "url": "https://cl/77", "firstSeen": "2026-09-30T07:50:00+09:00"})
+        log = []
+        doc = w.run("t", now=NOW + dt.timedelta(hours=1), previous=bare, get=fake(log=log), sleep=lambda s: None)
+        by = {x["id"]: x for x in doc["cases"]}
+        self.assertEqual(sum(1 for u, _ in log if "/dockets/" in u), 1)
+        self.assertTrue(by["cl:8"]["summary"].startswith("LS일렉트릭, 미국 특허청 특허심판원(PTAB) 결정에 불복해"))
+        self.assertEqual(by["cl:77"]["summary"], "포스코, 미국 정부를 상대로 국제무역법원에 소송 제기(2026-09-29 접수, 다툰 판정은 소장에서 확인)")
+
+    def test_failed_detail_is_tried_again_but_missing_docket_is_not(self):
+        def flaky(status):
+            base = fake()
+
+            def get(url, params=None, headers=None, timeout=None):
+                if "/dockets/" in url:
+                    return R(status, {"detail": "x"})
+                return base(url, params, headers, timeout)
+            return get
+        doc = w.run("t", now=NOW, get=flaky(500), sleep=lambda s: None)
+        ls = next(x for x in doc["cases"] if x["id"] == "cl:8")
+        self.assertFalse(ls.get("detailTried"))
+        self.assertIsNone(ls["summary"])
+        gone = w.run("t", now=NOW, get=flaky(404), sleep=lambda s: None)
+        self.assertTrue(next(x for x in gone["cases"] if x["id"] == "cl:8")["detailTried"])
+
     def test_details_are_read_once(self):
         first = run()
         log = []
