@@ -1426,6 +1426,12 @@ test('scoop_reverse shows automatic prior-capture candidates by source with lead
   assert.match(r.text, /48\.2시간 앞, 겹친 낱말 소송·판결·특허·상표\) · id cl:75019340/);
   assert.match(r.text, /\[없음\] 1건\n- 10-23 09:00 · 뉴스저널리즘 「\[단독\] LG그룹, 현대차 로봇사업 수장 품었다」/);
   assert.match(r.text, /사람 판정 Y\/P\/N은 역추적 기록에 따로/);
+  // radar_today shows the same automatic candidates (for chats whose connector list lacks scoop_reverse)
+  const today = await call('radar_today', { hours: 72 }, opts);
+  assert.match(today.text, /\[경쟁지 단독 역추적 · 자동 후보, 사람 판정\(Y\/P\/N\) 전\] 최근 14일 레이더가 먼저 잡은 후보 1건/);
+  assert.match(today.text, /- 기사 10-26 08:00 · 뉴스저널리즘 「\[단독\] LS일렉트릭, 미국 전기차 충전 특허 거절에 불복…연방항소법원 항소」 · 기사 id a1/);
+  assert.match(today.text, /레이더: 10-24 07:50 미국 소송·판결 — In re: LS Electric[^\n]*\(48\.2시간 앞, 겹친 낱말 소송·판결·특허·상표\) · id cl:75019340/);
+  assert.doesNotMatch((await call('radar_today', { hours: 72, company: '포스코' }, opts)).text, /경쟁지 단독 역추적/);
   assert.ok((await call('scoop_reverse', {}, PRIVATE())).isError);
 });
 

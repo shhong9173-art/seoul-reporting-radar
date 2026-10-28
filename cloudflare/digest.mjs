@@ -458,6 +458,24 @@ export async function radarToday(ctx, args) {
     if (rows.length > limit) out.push(`… 남은 ${rows.length - limit}건(limit 또는 company로 좁히기)`);
     if (!rows.length) out.push('없음');
   }
+  // Competitor exclusives the radar had first (reverse_prior_capture.py). Shown here too, so the reporter can prepare Y/P/N
+  // judgments even when the chat's connector list is stale and scoop_reverse is not offered.
+  const rev = await readFeed(ctx, 'reverse-check');
+  if (rev && !rev.broken) {
+    const from = Date.parse(rev.generatedAt) - 14 * 86400000;
+    const firsts = (rev.articles ?? []).filter((a) => a.verdict === '먼저 잡은 후보' && Date.parse(a.published) >= from && a.best
+      && (!q || has(q, a.title, (a.companies ?? []).join(' '), a.best.text)))
+      .sort((a, b) => String(b.published).localeCompare(String(a.published)));
+    if (firsts.length) {
+      out.push(`\n[경쟁지 단독 역추적 · 자동 후보, 사람 판정(Y/P/N) 전] 최근 14일 레이더가 먼저 잡은 후보 ${firsts.length}건 · 확인 ${kstStamp(rev.generatedAt)}`);
+      for (const a of firsts.slice(0, 5)) {
+        out.push(`- 기사 ${kstStamp(a.published)} · ${a.source ?? '?'} 「${String(a.title ?? '').slice(0, 70)}」 · 기사 id ${a.articleId}`);
+        out.push(`   레이더: ${kstStamp(a.best.seen)} ${a.best.label} — ${String(a.best.text ?? '').slice(0, 90)} (${a.best.leadHours}시간 앞${(a.best.why ?? []).length ? `, 겹친 낱말 ${a.best.why.join('·')}` : ''}) · id ${a.best.id}`);
+      }
+      if (firsts.length > 5) out.push(`… 남은 ${firsts.length - 5}건`);
+      out.push('판정은 기자가 한다: 기사 원문(매체 사이트)·최초 게재 시각과 레이더 원천 원문을 열어 같은 사실인지 본다. 자세히: scoop_reverse.');
+    }
+  }
   const hiddenN = Object.values(hiddenBy).reduce((a, b) => a + b, 0);
   if (hiddenN) out.push(`\n(판정한 ${hiddenN}건 숨김: ${Object.entries(hiddenBy).map(([v, n]) => `${v} ${n}`).join(' · ')} — include_judged=true로 보기)`);
   out.push('정리: 다 본 항목은 candidate_feedback(verdict=봤음, item_ids=[…])로 표시하면 다음부터 안 뜬다.');
