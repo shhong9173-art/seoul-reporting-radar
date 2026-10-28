@@ -83,7 +83,8 @@ class NtisCollectorTests(unittest.TestCase):
         self.assertEqual(diag["retries"], 1)
         self.assertEqual(diag["httpAttempts"], 3)
         self.assertTrue(diag["errors"][0]["retry"])
-        self.assertTrue(all(timeout == 12 for _, timeout in requests))
+        # 목록·첫 본문은 12초, 다시 받는 본문만 25초
+        self.assertEqual([timeout for _, timeout in requests], [12, 12, 25])
 
     def test_persistent_timeout_is_bounded_and_not_empty_success(self):
         def response(url):
