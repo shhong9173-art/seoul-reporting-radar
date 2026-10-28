@@ -941,12 +941,22 @@ def fetch_direct_court(max_items=12):
         if len(out)>=max_items: break
         page_url=base+path
         diag["pagesAttempted"]+=1
-        try:
-            page=decode_web_bytes(get(page_url,timeout=10))
-            diag["pagesFetched"]+=1
-        except Exception as exc:
-            if len(diag["errors"])<4:
-                diag["errors"].append(f"{path}: {type(exc).__name__}: {exc}"[:240])
+        page=None
+        # scourt.go.kr drops some runner connections (운영 10-28: 14:28 두 쪽 모두 timed out, 직후 탐침은 1~2초에 200,
+        # 6번 중 1번 ConnectionError). One slower retry before calling the page failed.
+        for attempt,timeout in ((1,10),(2,20)):
+            try:
+                page=decode_web_bytes(get(page_url,timeout=timeout))
+                diag["pagesFetched"]+=1
+                if attempt>1:
+                    diag["retriedOk"]=diag.get("retriedOk",0)+1
+                break
+            except Exception as exc:
+                if attempt==2 and len(diag["errors"])<4:
+                    diag["errors"].append(f"{path}: {type(exc).__name__}: {exc}"[:240])
+                if attempt==1:
+                    time.sleep(3)
+        if page is None:
             continue
         rows=re.findall(r"<tr\b[^>]*>.*?</tr>",page,re.I|re.S)
         for row in rows:
