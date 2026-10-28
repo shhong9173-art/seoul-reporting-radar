@@ -1025,7 +1025,7 @@ test('kr_signals shows FTC decisions by role, KEPCO bids and commodity prices, a
   const minor = await call('radar_today', { include_minor: true }, opts);
   assert.match(minor.text, /「\(연간단가\)고효율주상변압기,50KVA\(광유\)-2,338대-0\d\(일반\)」 외 같은 공고 2건\(합계 약 149억원\) · 추정가격 약 50억원/);
   assert.equal((minor.text.match(/고효율주상변압기/g) ?? []).length, 1);  // three lots, one line
-  assert.match(r.text, /기자 전용 감시 12개/);
+  assert.match(r.text, /기자 전용 감시 13개/);
   assert.deepEqual(dueAt(new Date('2026-10-26T23:30:00Z')), ['kr-signals.yml']);  // Tue 08:30 KST
   assert.deepEqual(dueAt(new Date('2026-10-27T06:20:00Z')), ['kr-signals.yml']);  // Tue 15:20 KST
 });
@@ -1166,7 +1166,7 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   assert.doesNotMatch((await call('trademarks', { name: 'aero' }, opts)).text, /NUTRIMACY/);
   assert.doesNotMatch((await call('trademarks', { class: '35' }, opts)).text, /NUTRIMACY/);
   const r = await call('radar_today', {}, opts);
-  assert.match(r.text, /기자 전용 감시 12개/);
+  assert.match(r.text, /기자 전용 감시 13개/);
   assert.match(r.text, /- 상표 출원: 대기 1곳\(제공기관 응답 22 뒤 72시간 대기\) — 해당 부분 0건은 미확인/);
   assert.doesNotMatch(r.text, /상표 출원: [^\n]*시간 전 결과/);
   const b = r.text.split('[B · ')[1].split('[C · ')[0];
@@ -1176,7 +1176,7 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   assert.match(minor.text, /상표 출원 「NUTRIMACY」[^\n]* — 같은 이름 상품류 추가/);
   const list = await rpc('tools/list', {}, { path: `/mcp/${TOKEN}`, env });
   assert.ok(list.body.result.tools.some((x) => x.name === 'trademarks'));
-  assert.match(list.body.result.tools.find((x) => x.name === 'radar_today').description, /감시 12개\([^)]*상표 출원, 국회 법안, 미국 리콜\)/);
+  assert.match(list.body.result.tools.find((x) => x.name === 'radar_today').description, /감시 13개\([^)]*상표 출원, 국회 법안, 미국 리콜, 미국 EPA 인증\)/);
   assert.ok(!(await rpc('tools/list', {}, { env })).body.result.tools.some((x) => x.name === 'trademarks'));  // private only
 });
 
@@ -1419,4 +1419,26 @@ test('scoop_reverse shows automatic prior-capture candidates by source with lead
   assert.match(r.text, /\[없음\] 1건\n- 10-23 09:00 · 뉴스저널리즘 「\[단독\] LG그룹, 현대차 로봇사업 수장 품었다」/);
   assert.match(r.text, /사람 판정 Y\/P\/N은 역추적 기록에 따로/);
   assert.ok((await call('scoop_reverse', {}, PRIVATE())).isError);
+});
+
+test('us_epa: a new model is A, an EV range change B, carryover C; tool shows EPA facts', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const v = (id, kind, extra = {}) => ({ id, company: '제네시스', make: 'Genesis', year: '2027', model: 'GV90 AWD', baseModel: 'GV90', atvType: 'EV', range: 300, comb: 88,
+    vclass: 'Standard Sport Utility Vehicle 4WD', drive: 'All-Wheel Drive', trany: 'Automatic (A1)', created: '2026-10-25', kind, url: 'https://www.fueleconomy.gov/x',
+    firstSeen: '2026-10-26T06:20:00+09:00', isNew: true, ...extra });
+  const doc = { schema: 'us_epa/v1', generatedAt: '2026-10-26T06:20:00+09:00', checks: [{ source: 'EPA fueleconomy.gov 차량 파일', status: 'ok', fileModified: 'Tue, 29 Sep 2026 19:47:00 GMT' }],
+    vehicles: [v('epa:6', '새 모델'), v('epa:5', '주행거리 변화', { company: '현대차', make: 'Hyundai', model: 'Ioniq 5', baseModel: 'Ioniq 5', range: 318, compare: { previousYear: 2025, previousRanges: [303] } }),
+      v('epa:4', '연식 변경', { company: '기아', make: 'Kia', model: 'Sorento AWD', baseModel: 'Sorento', atvType: '', range: null, comb: 26 })], rules: ['미국 사양이다.'] };
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/us-epa', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
+  const r = await call('radar_today', { hours: 72, include_minor: true }, opts);
+  const sec = (t) => r.text.split(`[${t} · `)[1].split(/\n\[[ABC] · /)[0];
+  assert.match(sec('A'), /미국 EPA 등록\(새 모델\): 2027 Genesis GV90 AWD · EV · EPA 주행거리 300마일 · 복합 88MPGe · 등록 2026-10-25/);
+  assert.match(sec('B'), /미국 EPA 등록\(주행거리 변화\): 2027 Hyundai Ioniq 5 · EV · EPA 주행거리 318마일 \(직전 2025년형 303마일\)/);
+  assert.match(sec('C'), /미국 EPA 등록\(연식 변경\): 2027 Kia Sorento AWD/);
+  const t = await call('us_epa', { kind: '주행거리 변화' }, opts);
+  assert.match(t.text, /비교: 직전 2025년형 주행거리 303마일/);
+  const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
+  assert.deepEqual(items.items.find((x) => x.id === 'epa:6').check.terms, ['GV90', 'EPA']);
+  assert.ok(!items.items.find((x) => x.id === 'epa:4'));
 });

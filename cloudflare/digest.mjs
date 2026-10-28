@@ -30,6 +30,7 @@ export const WATCHES = [
   { feed: 'trademarks', label: '상표 출원', tool: 'trademarks', schedule: '월 07:10', staleHours: 192 },
   { feed: 'assembly-bills', label: '국회 법안', tool: 'assembly_bills', schedule: '평일 08:40·17:40' },
   { feed: 'us-recalls', label: '미국 리콜(NHTSA 전체)', tool: 'us_recalls', schedule: '평일 17:10' },
+  { feed: 'us-epa', label: '미국 EPA 인증', tool: 'us_epa', schedule: '매일 06:20', staleHours: 60 },
 ];
 
 // Items first seen in a watch's very first run are a baseline, not news: they only count when their own date is recent.
@@ -61,6 +62,7 @@ const ALT = {
   개정안: ['개정안', '발의', '법안', '개정', '대표발의'], BAIC: ['BAIC', '베이징자동차', '베이징기차', '北汽'],
   합작: ['합작', '지분', '매각', '정리', '철수', '계약', '합작사'], 보조금: ['보조금', '상계관세', '어린이집', '직장', '지원'],
   리콜: ['리콜', '결함', '시정조치', '화재 위험'], 가격: ['가격', '판매가', '출고가', 'MSRP', '값'], 미국: ['미국', '美'],
+  EPA: ['EPA', '환경보호청', '인증', '주행거리', '연비'],
 };
 const ASX_KO = { PLS: '필바라', ARU: '아라푸라', '01958': 'BAIC' };
 export function hint(who, terms) {
@@ -250,6 +252,17 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
     push(direct ? 'A' : 'B', W['us-recalls'], { kind: 'NHTSA 리콜', id: x.id, date: x.received, company: [...new Set(why.map((w) => w.name))].join('·'),
       fact: `미국 리콜 ${x.campaign} 접수 ${x.received} · ${x.models} · ${x.component} · 대상 ${Number(x.affected ?? 0).toLocaleString('en-US')}대${x.parkOutside ? ' · 실외 주차 권고' : ''} — ${roles}${x.supplierBox ? ` · 원보고서 공급사 칸: ${String(x.supplierBox).slice(0, 80)}` : ''}`,
       url: x.url, check: hint(lead.name, ['리콜', String(lead.role).startsWith('부품') ? brand : '미국']) });
+  }
+
+  // US EPA certification file: a model new to the company is A, an EV range change B, model-year carryover C.
+  for (const v of docs['us-epa']?.vehicles ?? []) {
+    if (!recent(v.firstSeen) && !(all || String(v.created ?? '') >= cutDay)) continue;  // first seen in the window, or registered in it
+    const tier = v.kind === '새 모델' ? 'A' : v.kind === '주행거리 변화' ? 'B' : 'C';
+    const range = v.range ? ` · EPA 주행거리 ${v.range}마일` : '';
+    const cmp = v.compare ? ` (직전 ${v.compare.previousYear}년형 ${v.compare.previousRanges.join('/')}마일)` : '';
+    push(tier, W['us-epa'], { kind: `EPA ${v.kind}`, id: v.id, date: v.created ?? v.firstSeen, company: v.company,
+      fact: `미국 EPA 등록(${v.kind}): ${v.year} ${v.make} ${v.model}${v.atvType ? ` · ${v.atvType}` : ''}${range}${cmp}${v.comb ? ` · 복합 ${v.comb}${v.atvType === 'EV' ? 'MPGe' : 'mpg'}` : ''} · 등록 ${v.created ?? '?'}`,
+      url: v.url, check: tier === 'C' ? undefined : hint(v.company, [String(v.baseModel ?? '').split(' ')[0], 'EPA']) });
   }
 
   const pf = docs['partner-filings'];
