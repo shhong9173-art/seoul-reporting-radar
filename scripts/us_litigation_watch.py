@@ -56,7 +56,7 @@ ITC_BODY_BUDGET = 40
 GROUPS = [
     ("자동차", ["Hyundai Motor", "Genesis Motor America", "Kia America", "Kia Corporation", "Kia Georgia", "Hyundai Mobis",
               "Mobis Alabama", "Hyundai WIA", "HL Mando", "Hankook Tire", "Nexen Tire", "Kumho Tire", "KG Mobility"]),
-    ("철강·비철", ["POSCO", "Hyundai Steel", "SeAH Steel", "Dongkuk", "Korea Zinc"]),
+    ("철강·비철", ["POSCO", "Hyundai Steel", "SeAH Steel", "Dongkuk", "Korea Zinc", "KG Dongbu Steel", "KG Steel"]),
     ("전력·에너지·화학", ["Hyundai Power Transformers", "HD Hyundai Electric", "LS Electric", "LS Cable", "LS GreenLink", "Taihan",
                     "Doosan Enerbility", "Hanwha Q Cells", "Qcells", "Mission Solar", "GS Caltex", "Hyosung HICO", "Iljin Electric"]),
 ]
@@ -67,6 +67,8 @@ PARTIES = [
     ("금호타이어", r"Kumho"), ("KG모빌리티", r"KG Mobility|SsangYong"),
     ("포스코", r"\bPOSCO\b(?!\s*(?:International|Future|E&C|DX))"), ("현대제철", r"Hyundai Steel"), ("세아제강", r"SeAH"),
     ("동국제강·동국씨엠", r"Dongkuk"), ("고려아연", r"Korea Zinc"),
+    # KG스틸(옛 동부제철): CIT 사건명은 'KG Dongbu Steel Co. v. United States'(Slip Op. 26-130, 10-20) — 10-29까지 빠져 있었다.
+    ("KG스틸", r"\bKG (?:Dongbu )?Steel\b|\bKG Dongbu\b|\bDongbu Steel\b"),
     ("HD현대일렉트릭", r"Hyundai Power Transformers|HD Hyundai Electric|Hyundai Electric"), ("LS일렉트릭", r"\bLS Electric"),
     ("LS전선", r"\bLS Cable|LS GreenLink"), ("대한전선", r"Taihan"), ("두산에너빌리티", r"Doosan"), ("한화솔루션", r"Hanwha|Q ?Cells"),
     ("OCI", r"Mission Solar|\bOCI\b"), ("GS칼텍스", r"GS Caltex"), ("효성중공업(관련)", r"Hyosung"), ("일진전기(관련)", r"Iljin"),
