@@ -128,5 +128,15 @@ class Watch(unittest.TestCase):
         self.assertEqual((doc2["status"], name2, refused2), ("unset", None, ["CUSTOMS_API_KEY"]))
 
 
+    def test_json_403_refusal_keeps_the_gateway_code(self):
+        body = json.dumps({"OpenAPI_ServiceResponse": {"cmmMsgHeader": {"errMsg": "SERVICE_KEY_IS_NOT_REGISTERED_ERROR",
+                                                                        "returnAuthMsg": "등록되지 않은 서비스키", "returnReasonCode": "30"}}}, ensure_ascii=False)
+        doc = k.run("key", now=NOW, previous=None, get=lambda *a, **kw: Resp(body, 403), sleep=lambda s: None)
+        self.assertEqual(doc["status"], "unset")
+        self.assertIn("HTTP 403 30 SERVICE_KEY_IS_NOT_REGISTERED_ERROR", doc["checks"][0]["error"])
+        html = k.run("key", now=NOW, previous=None, get=lambda *a, **kw: Resp("<html>blocked</html>", 403), sleep=lambda s: None)
+        self.assertIn("본문 형식 미상(20자)", html["checks"][0]["error"])
+
+
 if __name__ == "__main__":
     unittest.main()
