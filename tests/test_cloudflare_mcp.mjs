@@ -11,6 +11,7 @@ import { publicationDate, verifyEvidence } from '../cloudflare/evidence.mjs';
 import { allowedUrl } from '../cloudflare/live_tools.mjs';
 import { handleIngest } from '../cloudflare/screen.mjs';
 import { dueAt, nextSlot, runSchedule } from '../cloudflare/dispatch.mjs';
+import { hint, radarItems } from '../cloudflare/digest.mjs';
 
 const ORIGIN = 'https://seoul-reporting-radar.shhong9173.workers.dev';
 const TOKEN = 'test-token-0123456789abcdef';
@@ -1227,3 +1228,71 @@ function crc32(buf) {
   for (const b of buf) { c ^= b; for (let k = 0; k < 8; k++) c = (c >>> 1) ^ (0xedb88320 & -(c & 1)); }
   return ~c >>> 0;
 }
+
+test('radar-items hands hinted A/B items to the press checker; radar_today shows verdicts, unreported first', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const post = async (feed, doc) => assert.equal((await worker.fetch(new Request(ORIGIN + `/ingest/${feed}`, { method: 'POST',
+    headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
+  await post('us-litigation', { schema: 'us_litigation/v1', generatedAt: '2026-10-26T07:50:00+09:00', checks: [], itc: [], opinions: [],
+    cases: [
+      { id: 'cl:4', beat: ['세아제강'], caseName: 'SeAH Steel Corporation v. United States', court: 'CIT', courtId: 'cit', category: '국제무역법원(무역구제 소송)',
+        priority: 0, role: '원고', dateFiled: '2026-10-25', firstSeen: '2026-10-25T10:00:00+09:00', url: 'https://cl/4' },
+      { id: 'cl:5', beat: ['포스코'], caseName: 'POSCO v. United States', court: 'CIT', courtId: 'cit', category: '국제무역법원(무역구제 소송)',
+        priority: 0, role: '원고', dateFiled: '2026-10-24', firstSeen: '2026-10-25T10:00:00+09:00', url: 'https://cl/5' },
+      { id: 'cl:7', beat: ['LS일렉트릭'], caseName: 'In re: LS Electric Co., Ltd.', court: 'CAFC', courtId: 'cafc', category: '연방순회항소법원', priority: 0,
+        role: '신청·항소인(In re)', dateFiled: '2026-10-23', firstSeen: '2026-10-25T10:00:00+09:00', appealFrom: 'United States Patent and Trademark Office',
+        summary: 'LS일렉트릭, 미국 특허청 특허심판원(PTAB) 결정에 불복해 연방순회항소법원에 항소', url: 'https://cl/7' },
+      { id: 'cl:9', beat: ['현대차'], caseName: 'Lee v. Hyundai Motor America', category: '소비자·제조물책임', priority: 3, role: '피고·기타 당사자',
+        dateFiled: '2026-10-24', firstSeen: '2026-10-25T07:50:00+09:00' }] });
+  await post('kr-official', { schema: 'kr_official/v1', generatedAt: '2026-10-26T08:10:00+09:00', checks: [], factories: [], gazette: [],
+    events: [
+      { id: 'fac:1:x', kind: '등록 내용 변경', company: 'KG스틸', factoryId: 'fac:1', text: '고용 856→690명', detectedAt: '2026-10-25T11:09:00+09:00' },
+      { id: 'fac:2:gone', kind: '목록에서 빠짐', company: '현대위아', factoryId: 'fac:2', text: '현대위아(주)창원2공장 · 경상남도 창원시 성산구 정동로 154 — 이번 조회 목록에 없음', detectedAt: '2026-10-25T11:09:00+09:00' },
+      { id: 'fac:3:x', kind: '등록 내용 변경', company: '효성중공업(관련)', factoryId: 'fac:3', text: "업종 'a 외 13 종'→'a 외 14 종'", detectedAt: '2026-10-25T11:09:00+09:00' }] });
+  await call('candidate_feedback', { item_id: 'cl:5', verdict: '봤음', reason: '확인' }, opts);
+
+  const wrong = await worker.fetch(new Request(ORIGIN + '/ingest/radar-items', { headers: { Authorization: 'Bearer wrong-token-0123456789' } }), env, {});
+  assert.equal(wrong.status, 404);
+  const res = await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW });
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.hours, 72);
+  const by = Object.fromEntries(body.items.map((x) => [x.id, x]));
+  assert.deepEqual(by['cl:4'].check, { who: '세아제강', terms: ['국제무역법원', '소송'], alts: { 국제무역법원: ['국제무역법원', '무역법원', 'CIT'], 소송: ['소송', '제소', '판결', '항소', '불복'] } });
+  assert.deepEqual(by['cl:7'].check.terms, ['항소', '특허']);
+  assert.deepEqual(by['fac:1:x'].check.terms, ['인력', '감축']);
+  assert.deepEqual(by['fac:2:gone'].check.terms, ['창원', '공장', '폐쇄']);
+  assert.ok(!by['cl:5'], 'judged 봤음 is not checked again');
+  assert.ok(!by['cl:9'], 'C tier is not checked');
+  assert.ok(!by['fac:3:x'], 'no hint when the change has no search words');
+  assert.equal(hint('효성중공업(관련)·일진전기', ['공장', null]).who, '효성중공업');
+  assert.equal(hint('', ['x']), undefined);
+
+  await post('radar-check', { schema: 'radar_check/v1', generatedAt: '2026-10-26T08:50:00+09:00', items: [
+    { id: 'cl:4', verdict: '관련 보도 있음', since: '2026-10-22', queries: ['세아제강 국제무역법원', '세아제강 국제무역법원 소송'],
+      evidence: [{ date: '2026-10-25', channel: 'naver', title: '세아제강, 美 국제무역법원에 반덤핑 소송', url: 'https://n/1', why: '낱말' }],
+      channels: { naver: { status: 'ok', returned: 3 } }, firstVerdict: '미보도 후보', firstCheckedAt: '2026-10-25T18:50:00+09:00' },
+    { id: 'cl:7', verdict: '미보도 후보', since: '2026-10-20', queries: ['LS일렉트릭 항소', 'LS일렉트릭 항소 특허'], evidence: [],
+      channels: { naver: { status: 'ok', returned: 0 }, bing: { status: 'ok', returned: 0 }, google: { status: 'ok', returned: 0 } } },
+    { id: 'fac:1:x', verdict: '미확인', since: '2026-10-22', queries: ['KG스틸 인력'], evidence: [],
+      channels: { naver: { status: 'failed', error: 'ConnectTimeout' }, bing: { status: 'ok', returned: 0 } } }] });
+  const r = await call('radar_today', {}, opts);
+  const a = r.text.split('[A · ')[1].split('[B · ')[0];
+  assert.match(a, /\(보도 대조 자동 10-26 08:50: 미보도 후보 1 · 관련 보도 있음 1 · 미확인 1 · 대조 안 함 1 — 미보도 후보부터\)/);
+  const order = ['In re: LS Electric', 'KG스틸', 'SeAH Steel'].map((w) => a.indexOf(w));
+  assert.ok(order.every((i) => i > 0) && order[0] < order[1] && order[1] < order[2], a);
+  assert.match(a, /보도 대조\(자동 10-26 08:50\): 미보도 후보 — "LS일렉트릭 항소", "LS일렉트릭 항소 특허"로 2026-10-20 이후 관련 기사 못 찾음\(검색 범위 결과, 단독 판정 아님\)/);
+  assert.match(a, /보도 대조\(자동 10-26 08:50\): 관련 보도 있음 — "세아제강 국제무역법원", "세아제강 국제무역법원 소송" · 처음\(10-25 18:50\) 미보도 후보/);
+  assert.match(a, /↳ 2026-10-25 \[naver\] 세아제강, 美 국제무역법원에 반덤핑 소송 https:\/\/n\/1/);
+  assert.match(a, /보도 대조\(자동 10-26 08:50\): 미확인 — 채널 naver failed\(ConnectTimeout\)\(0건 아님\)/);
+  assert.match(r.text, /보도 대조\(자동\)는 네이버 뉴스 API·빙·구글에서 항목 날짜 3일 전부터 찾은 결과다/);
+  assert.doesNotMatch(r.text, /보도 대조\(자동\): 결과 없음/);
+  const none = await call('radar_today', {}, PRIVATE());
+  assert.match(none.text, /보도 대조\(자동\): 결과 없음 — 미확인\(평일 08:50·18:50 실행 확인\)/);
+});
+
+test('press check is dispatched after the morning watches and after the evening page watch', () => {
+  assert.deepEqual(dueAt(new Date('2026-10-27T23:50:00Z')), ['radar-press-check.yml']);  // Wed 08:50 KST
+  assert.deepEqual(dueAt(new Date('2026-10-28T09:50:00Z')), ['radar-press-check.yml']);  // Wed 18:50 KST
+});

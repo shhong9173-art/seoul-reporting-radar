@@ -446,6 +446,9 @@ def article_day(value):
 
 def judge(c, channels, *, now):
     since = (now - dt.timedelta(days=WINDOW_DAYS)).date()
+    if article_day(c.get("since")):
+        # A dated event (radar item): articles from before it cannot be reports of it.
+        since = max(since, article_day(c.get("since")))
     terms = c["terms"]
     alts = c.get("alts") or {}
     key_term = lead(terms)

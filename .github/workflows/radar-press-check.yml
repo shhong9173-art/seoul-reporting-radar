@@ -1,0 +1,42 @@
+name: Radar Press Check
+# 오늘의 레이더 A·B 항목 자동 보도 대조(네이버 뉴스 API·빙·구글, 항목 날짜 3일 전 이후). 평일 08:50·18:50 KST.
+# 시간은 Cloudflare가 workflow_dispatch로 맞춘다. 아래 cron은 그 요청이 실패했을 때의 대비(늦게 오면 건너뜀).
+# 결과는 저장소에 커밋하지 않는다. 기자 전용 커넥터 저장소로만 보내고, 공개 로그에는 건수만 남긴다.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/radar_press_check.py'
+      - 'tests/test_radar_press_check.py'
+      - '.github/workflows/radar-press-check.yml'
+  schedule:
+    - cron: '50 23 * * 0-4'
+    - cron: '50 9 * * 1-5'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: radar-press-check
+  cancel-in-progress: false
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install HTTP client
+        run: python -m pip install "requests>=2.31,<3"
+      - name: Test press-check rules
+        run: python -m unittest tests.test_radar_press_check tests.test_scoop_screen -v
+      - name: Check radar items against the press (counts-only log)
+        env:
+          NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
+          NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
+          MCP_ACCESS_TOKEN: ${{ secrets.MCP_ACCESS_TOKEN }}
+        run: python scripts/radar_press_check.py
