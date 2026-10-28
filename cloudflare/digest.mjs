@@ -157,7 +157,16 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
   for (const x of lit?.cases ?? []) {
     if (!fresh(x, litBase, 'dateFiled')) continue;
     const tier = x.priority <= 1 ? 'A' : x.priority === 2 ? 'B' : 'C';
-    push(tier, W['us-litigation'], { kind: x.category ?? '소송', id: x.id, date: x.dateFiled, company: (x.beat ?? []).join('·'), fact: `${x.category} · ${x.role}: ${x.court ?? x.courtId} 「${x.caseName}」 접수`, url: x.url });
+    const what = x.summary ? `${x.summary} 「${x.caseName}」` : `${x.category} · ${x.role}: ${x.court ?? x.courtId} 「${x.caseName}」 접수`;
+    push(tier, W['us-litigation'], { kind: x.category ?? '소송', id: x.id, date: x.dateFiled, company: (x.beat ?? []).join('·'), fact: what, url: x.url });
+  }
+  // Rulings of the trade court / Federal Circuit in a beat party's case are the news itself (POSCO CIT 10-27 → [단독] 10-28).
+  const opBase = baselineOf(lit?.opinions ?? []);
+  for (const x of lit?.opinions ?? []) {
+    if (!fresh(x, opBase, 'dateFiled')) continue;
+    const h = x.holding ? ` — 요지(원문) "${x.holding.length > 140 ? `${x.holding.slice(0, 140).trimEnd()}…` : x.holding}"${x.holdingKo ? ` (풀이: ${x.holdingKo})` : ''}` : ' — 요지 미추출(판결문 확인)';
+    push('A', W['us-litigation'], { kind: '미국 법원 판결', id: x.id, date: x.dateFiled, company: (x.beat ?? []).join('·'),
+      fact: `${x.courtId === 'cit' ? '국제무역법원' : '연방순회항소법원'} 판결 「${x.caseName}」(${(x.beat ?? []).join('·')} ${x.role})${h}${x.reading ? ` · ${x.reading}` : ''}`, url: x.url });
   }
   const itcBase = baselineOf(lit?.itc ?? []);
   for (const x of lit?.itc ?? []) {

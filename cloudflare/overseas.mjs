@@ -198,9 +198,21 @@ export async function usLitigation(ctx, args) {
   const out = [`미국 소송·ITC 337조 · 최근 ${doc.windowDays}일 수집(보관 120일) · 출입처 당사자 사건 ${rows.length}건 · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt)}`,
     `질의 ${checks.length - failed.length}/${checks.length} 정상${failed.length ? ` · 미확인(0건 아님): ${failed.slice(0, 6).map((c) => `${c.source}(${c.error})`).join(', ')}` : ''}`,
     ...(doc.rules ?? []).map((r) => `규칙: ${r}`)];
+  const ops = (doc.opinions ?? []).filter((x) => (!onlyNew || x.isNew) && matches(q, (x.beat ?? []).join(' '), x.caseName, x.holding));
+  out.push(`\n[판결 · 국제무역법원·연방순회항소법원, 출입처가 당사자로 적힌 것 최근 21일 조회·120일 보관] ${ops.length}건`);
+  for (const x of ops.slice(0, limit)) {
+    out.push(`- ${x.isNew ? '[신규] ' : ''}${x.dateFiled} · ${x.courtId === 'cit' ? '국제무역법원' : '연방순회항소법원'} · ${(x.beat ?? []).join('·')}(${x.role})`);
+    out.push(`   잡힌 사실: 「${x.caseName}」 사건 ${x.docketNumber ?? '?'}${x.slipOp ? ` · Slip Op. ${x.slipOp}` : ''} 판결 등록`);
+    out.push(x.holding ? `   요지(판결문 원문): "${x.holding}"${x.holdingKo ? ` → 낱말 풀이: ${x.holdingKo}` : ''}` : `   요지: 미추출${x.holdingError ? `(${x.holdingError})` : ''} — 판결문에서 확인`);
+    if (x.reading) out.push(`   읽기(가설): ${x.reading}`);
+    out.push(`   원문: ${x.url}${x.pdf ? ` · PDF ${x.pdf}` : ''}`);
+  }
+  if (!ops.length) out.push(doc.opinions ? '최근 판결 없음(판결 질의 실패면 미확인).' : '판결 감시 결과 없음 — 다음 수집(평일 07:50) 이후.');
+  out.push(`\n[사건 접수 · 출입처 당사자] ${rows.length}건`);
   for (const x of rows.slice(0, limit)) {
     out.push(`\n${x.isNew ? '[신규] ' : ''}${x.dateFiled} · ${x.category} · ${(x.beat ?? []).join('·')}(${x.role})`);
-    out.push(`   잡힌 사실: ${x.court ?? x.courtId} ${x.docketNumber ?? ''} 「${x.caseName}」 접수${x.dateTerminated ? ` · 종결 ${x.dateTerminated}` : ''}`);
+    if (x.summary) out.push(`   한 줄: ${x.summary}`);
+    out.push(`   잡힌 사실: ${x.court ?? x.courtId} ${x.docketNumber ?? ''} 「${x.caseName}」 접수${x.dateTerminated ? ` · 종결 ${x.dateTerminated}` : ''}${x.appealFrom ? ` · 원심 ${x.appealFrom}` : ''}${x.caseType ? ` · 유형 ${x.caseType}` : ''}`);
     out.push(`   당사자 중 출입처: ${(x.matchedParties ?? []).join(', ')}${x.suitNature ? ` · 사건 유형 ${x.suitNature}` : ''}${x.cause ? ` · 근거 ${x.cause}` : ''}`);
     out.push(`   원문: ${x.url}`);
     out.push('   검증 상태: 법원 사건 목록(자동). 청구 내용·금액은 소장 원문 확인, 회사 입장 확인 필요');
@@ -215,7 +227,7 @@ export async function usLitigation(ctx, args) {
     for (const n of (x.named ?? []).slice(0, 5)) out.push(`   본문의 ${n.company}(${n.mentions}곳): ${n.lines.map((l) => `"${l}"`).join(' / ')}`);
     out.push(`   원문: ${x.url}`);
   }
-  out.push('\n다음: 사건 페이지에서 소장(Complaint) 열람 → 청구 원인·금액·상대방 확인 → news_check로 보도 대조 → 회사 확인. ITC 고시는 source_document(federalregister.gov)로 연다.');
+  out.push('\n다음: 판결은 PDF(원문)에서 결론·세율·당사자 주장 확인 → news_check로 보도 대조. 사건은 소장(Complaint) 열람 → 청구 원인·금액·상대방 확인 → 회사 확인. ITC 고시는 source_document(federalregister.gov)로 연다.');
   return textResult(out.join('\n'));
 }
 
