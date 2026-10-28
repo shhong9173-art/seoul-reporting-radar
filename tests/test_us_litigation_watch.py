@@ -335,5 +335,12 @@ class Itc(unittest.TestCase):
         self.assertFalse(any(u.startswith("https://fr/full/") for u in calls))
 
 
+    def test_kg_steel_old_and_new_names(self):
+        self.assertEqual(w.beat_in("KG Dongbu Steel Co. v. United States"), ["KG스틸"])
+        self.assertEqual(w.beat_in("Dongbu Steel Co., Ltd. v. United States"), ["KG스틸"])
+        self.assertEqual(w.beat_in("KG Steel Corporation"), ["KG스틸"])
+        self.assertEqual(w.beat_in("KG Mobility America"), ["KG모빌리티"])
+
+
 if __name__ == "__main__":
     unittest.main()
