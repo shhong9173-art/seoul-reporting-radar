@@ -216,7 +216,8 @@ async function handleMessage(msg, ctx) {
     return { jsonrpc: '2.0', id, result: {
       protocolVersion: SUPPORTED_VERSIONS.includes(requested) ? requested : SUPPORTED_VERSIONS[0],
       capabilities: { tools: { listChanged: false } },
-      serverInfo: SERVER_INFO,
+      // 도구가 늘면 버전도 바뀌게(1.<도구 수>.0): 버전으로 도구 목록을 기억하는 클라이언트가 다시 받도록.
+      serverInfo: { ...SERVER_INFO, version: `1.${TOOLS.length}.0` },
       instructions: INSTRUCTIONS + (ctx.private ? '' : '\n(공개 연결: DART·네이버·나라장터 실시간·패키지 도구는 기자 전용 연결에서만)'),
     } };
   }
