@@ -114,5 +114,19 @@ class Capture(unittest.TestCase):
         self.assertEqual(a["best"]["label"], "국내 연비 신고")
 
 
+    def test_one_generic_word_is_not_enough_and_duplicates_count_once(self):
+        # 10-28 첫 운영 실행의 오탐 2건(실제 제목): '배터리'·'공장'만 겹침
+        trace = {"generatedAt": "2026-10-28T15:00:00+09:00", "items": [
+            {"articleId": "m1", "title": "[단독] 폭스바겐 멈춘 배터리 불량…현대모비스 스페인 수장 교체", "published": "2026-10-28T11:24:00+09:00", "companies": ["현대모비스"]},
+            {"articleId": "h1", "title": "[단독] '회장 4년차' 이재용, 사장단과 현대차 美공장 방문", "published": "2026-10-27T09:00:00+09:00", "companies": ["현대차"]},
+            {"articleId": "h2", "title": "[단독] '회장 4년차' 이재용, 사장단과 현대차 美공장 방문", "published": "2026-10-27T09:00:00+09:00", "companies": ["현대차"]}]}
+        docs = {"kr-official": {"factories": [
+            {"id": "fac:312002020516159", "company": "현대모비스", "registeredOn": "2026-10-20", "cmpnyNm": "(주)현대모비스", "mainProductCn": "배터리 모듈/팩", "firstSeen": "2026-10-26T22:18:00+09:00"},
+            {"id": "fac:442002005098935", "company": "현대차", "registeredOn": "2026-10-20", "cmpnyNm": "(주)현대자동차 충청써비스", "mainProductCn": "건설장비 수리", "firstSeen": "2026-10-26T22:18:00+09:00"}]}}
+        doc = r.run(trace, docs, {"items": []}, now=NOW)
+        self.assertEqual(len(doc["articles"]), 2)
+        self.assertEqual({a["articleId"]: a["verdict"] for a in doc["articles"]}, {"m1": "같은 회사 항목만", "h1": "같은 회사 항목만"})
+
+
 if __name__ == "__main__":
     unittest.main()
