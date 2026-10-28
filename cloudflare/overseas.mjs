@@ -283,6 +283,29 @@ export async function usEpa(ctx, args) {
   return textResult(out.join('\n'));
 }
 
+export async function krFuel(ctx, args) {
+  const doc = await readFeed(ctx, 'kr-fuel');
+  if (!doc) return missing('국내 연비 신고', '매일 06:10');
+  if (doc.broken) return textResult('저장된 연비 신고 결과 형식 오류 — 미확인.', true);
+  const q = String(args.company ?? '').trim();
+  const kind = ['새 모델명', '주행거리 변화', '사양·연식 추가'].includes(args.kind) ? args.kind : null;
+  const limit = clampInt(args.limit, 1, 60, 20);
+  const c = (doc.checks ?? [])[0] ?? {};
+  const rows = (doc.vehicles ?? []).filter((v) => (!kind || v.kind === kind) && matches(q, v.company, v.maker, v.model));
+  const out = [`국내 자동차 표시연비 신고(에너지공단, 공공데이터포털) · 출입처 브랜드 새 신고 ${rows.length}건 · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt, 60)}`,
+    c.status === 'ok' ? `목록 정상 · 전체 ${c.rows}행 · 출입처 ${c.beatRows}행${c.note ? ` · ${c.note}` : ''}` : `미확인(0건 아님): ${c.error ?? c.status}${c.status === 'unset' ? ` — ${doc.dataset ?? ''}` : ''}`,
+    ...(doc.rules ?? []).map((r) => `규칙: ${r}`)];
+  for (const v of rows.slice(0, limit)) {
+    out.push(`\n${v.isNew ? '[신규] ' : ''}${v.registered ?? '?'} · ${v.kind}${v.bulk ? '(일괄 갱신)' : ''} · ${v.company} · ${v.maker} ${v.model}`);
+    out.push(`   잡힌 사실: ${v.year}년 · ${v.carKind ?? ''} ${v.carType ?? ''} · ${v.fuel ?? ''}${v.displacement ? ` ${v.displacement}cc` : ''}${v.gear ? ` · ${v.gear}` : ''} · 표시연비 ${v.eff ?? '?'}(도심 ${v.urban ?? '?'}·고속 ${v.highway ?? '?'})${v.co2 ? ` · CO2 ${v.co2}g/km` : ''}${v.grade ? ` · ${v.grade}등급` : ''}${v.range ? ` · 1회 충전 ${v.range}km` : ''}`);
+    if (v.compare) out.push(`   비교: 같은 모델명 이전 행 1회 충전 ${v.compare.previousRanges.join('/')}km`);
+  }
+  if (rows.length > limit) out.push(`… 남은 ${rows.length - limit}건`);
+  if (!rows.length) out.push('\n새 신고 없음(첫 실행은 기준선, 조회 실패·활용신청 전이면 미확인).');
+  out.push('\n다음: 연비 신고는 출시 확정이 아니다 — 출시 시점·가격·사양은 회사 확인. 새 모델명은 news_check로 보도 대조.');
+  return textResult(out.join('\n'));
+}
+
 export async function usLitigation(ctx, args) {
   const doc = await readFeed(ctx, 'us-litigation');
   if (!doc) return missing('미국 소송·ITC', '평일 07:50');
