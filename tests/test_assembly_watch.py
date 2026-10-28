@@ -75,6 +75,17 @@ class Bills(unittest.TestCase):
         self.assertEqual(aw.law_of("철강산업 경쟁력 강화 및 탄소중립 전환을 위한 특별법안"), "철강산업 경쟁력 강화 및 탄소중립 전환을 위한 특별법")
         self.assertEqual(aw.law_of("전기사업법 일부개정법률안"), "전기사업법")
 
+    def test_start_anchored_pattern_and_rejudging_stored_bills(self):
+        self.assertEqual(aw.match("산업발전법 일부개정법률안", CFG), ("통상·산업", ["산업발전법"]))
+        self.assertEqual(aw.match("대중문화예술산업발전법 일부개정법률안", CFG)[0], None)
+        first = go(Fake([PAGE1, PAGE2]))
+        wrong = {**first, "bills": first["bills"] + [{**first["bills"][0], "id": "PRC_X", "name": "대중문화예술산업발전법 일부개정법률안",
+                                                       "law": "대중문화예술산업발전법", "core": "통상·산업"}],
+                 "events": [{"id": "bill:PRC_X:발의", "billId": "PRC_X", "kind": "발의", "detectedAt": NOW.isoformat(), "core": "통상·산업"}]}
+        doc = go(Fake([PAGE1, PAGE2]), previous=wrong, now=NOW + dt.timedelta(hours=9))
+        self.assertNotIn("PRC_X", [b["id"] for b in doc["bills"]])
+        self.assertEqual([e for e in doc["events"] if e["billId"] == "PRC_X"], [])
+
     def test_baseline_reads_to_lookback_and_keeps_only_beat_bills(self):
         fake = Fake([PAGE1, PAGE2])
         doc = go(fake)

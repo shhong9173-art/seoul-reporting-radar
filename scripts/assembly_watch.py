@@ -93,7 +93,7 @@ def match(name, cfg):
     """(core label or None, matched words) — by bill name only."""
     text = str(name or "")
     for group in cfg["core"]:
-        hit = [p for p in group["patterns"] if p in text]
+        hit = [p.lstrip("^") for p in group["patterns"] if (text.startswith(p[1:]) if p.startswith("^") else p in text)]
         if hit:
             return group["label"], hit
     if any(x in text for x in cfg.get("exclude", [])):
@@ -141,8 +141,18 @@ def run(cfg, *, now, previous=None, key="", get=None, sleep=time.sleep):
     prev = previous if isinstance(previous, dict) and previous.get("schema") == SCHEMA else None
     baseline = not (prev or {}).get("baselineSince")
     bills = {b["id"]: b for b in (prev or {}).get("bills", []) if isinstance(b, dict) and b.get("id")}
-    events = [e for e in (prev or {}).get("events", []) if isinstance(e, dict)
+    # Stored bills are re-judged with the current rules: a bill that no longer matches (rule fixed) is dropped
+    # with its events; a changed core label is updated.
+    for bid, b in list(bills.items()):
+        core, words = match(b.get("name"), cfg)
+        if not core and not words:
+            bills.pop(bid)
+        else:
+            b["core"], b["matched"] = core, words
+    events = [e for e in (prev or {}).get("events", []) if isinstance(e, dict) and e.get("billId") in bills
               and str(e.get("detectedAt", "")) >= (now - dt.timedelta(days=EVENT_KEEP_DAYS)).isoformat()]
+    for e in events:
+        e["core"] = bills[e["billId"]].get("core")
     have = {e.get("id") for e in events}
     checks = []
     if not key:
