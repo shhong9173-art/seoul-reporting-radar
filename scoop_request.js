@@ -186,6 +186,12 @@ function build(sources,{company="현대차",limit=5,now=new Date()}={}){
    const earlier=byUrl.get(url);
    if(earlier){
     // Enrich an already registered event; do not show the same auction twice.
+    if(!Array.isArray(earlier.originalFieldProvenance))earlier.originalFieldProvenance=[];
+    for(const f of (c.eventFieldsQuotedFromOriginal||[])){
+      if(f.notIndependentlyVerified!==true||typeof f.verbatimValue!=="string")continue;
+      earlier.originalFieldProvenance.push({sourceUrl:url,
+        field:safeLine(f.field,70),value:safeLine(f.verbatimValue,140)});
+    }
     earlier.facts.push(...quotations);
     earlier.facts=earlier.facts.slice(0,9);
     if(c.notRecheckedThisRun)earlier.unresolved.push("이 공식 링크는 이번 수집에서 재확인되지 않음");
@@ -262,6 +268,26 @@ function build(sources,{company="현대차",limit=5,now=new Date()}={}){
   }
  }
  for(const item of rows){
+   // Only compare separately recorded official fields; don't claim that
+   // company facilities or operations changed because the notices differ.
+   item.originalDocumentComparisons=[];
+   const fields=Array.isArray(item.originalFieldProvenance)?
+      item.originalFieldProvenance:[];
+   const grouped=new Map();
+   for(const f of fields){
+     if(!validHttps(f.sourceUrl)||!f.field||!f.value)continue;
+     if(!grouped.has(f.field))grouped.set(f.field,new Map());
+     grouped.get(f.field).set(f.sourceUrl,f.value);
+   }
+   for(const [field,values] of grouped){
+     if(values.size<2||new Set(values.values()).size<2)continue;
+     item.originalDocumentComparisons.push({
+       field,records:[...values].slice(0,4).map(([url,value])=>({url,value})),
+       wording:"동일 항목의 서로 다른 공개 문서 표기 비교",
+       actualCompanyOperationalChangeVerified:false,
+       originalPublicationOrderVerified:false
+     });
+   }
    item.reporterStage=statuses(item,+now);
    item.exclusivity="단독 미확정";
    item.reporterAction="검증된 원문 범위를 먼저 확인한 후 공개 사실만 취재";

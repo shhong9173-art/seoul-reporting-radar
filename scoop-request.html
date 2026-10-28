@@ -166,10 +166,25 @@ function show(company){
   top.append(el("span",String(i+1)+"순위","pill"),
              el("span",c.reporterStage,"pill"),
              el("span",c.sourceGroup,"pill"));
+  if(c.registeredHistoricalCase===true)
+    top.append(el("span","기존 등록 조사 사례 · 새 단독 발견 아님","pill"));
   article.append(top,el("h2",c.title),
       el("p","공개 문서 기준일: "+(c.officialDate||"원문 날짜 확인 필요")+
         " · "+c.dateBasis,"sub"),
       el("p",c.angle));
+  if(c.originalDocumentComparisons?.length){
+    article.append(el("h3","공식 문서 사이의 표기 변화"));
+    for(const comparison of c.originalDocumentComparisons.slice(0,3)){
+      const box=el("div",undefined,"evidence");
+      box.append(el("p",comparison.wording+" · "+comparison.field));
+      for(const r of comparison.records){
+        box.append(el("p",r.value,"sub"));
+        addSource(box,r.url,"비교 공고 원문 ↗");
+      }
+      box.append(el("small","문서상 표기 변화일 뿐 시설·사업·계약 변경 여부는 아직 검증되지 않았습니다."));
+      article.append(box);
+    }
+  }
   article.append(el("h3","원문에서 확인한 근거"));
   for(const fact of c.facts.slice(0,4)){
    const box=el("div",undefined,"evidence");
