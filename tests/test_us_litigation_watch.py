@@ -271,6 +271,7 @@ class Explain(unittest.TestCase):
     def test_federal_circuit_appeal_from_patent_board(self):
         doc = run()
         ls = next(x for x in doc["cases"] if x["id"] == "cl:8")
+        self.assertEqual(ls["role"], "신청·항소인(In re)")
         self.assertEqual((ls["appealFrom"], ls["caseType"]), ("United States Patent and Trademark Office", "BCA or PTO, Patent Trial and Appeal Board"))
         self.assertEqual(ls["summary"], "LS일렉트릭, 미국 특허청 특허심판원(PTAB) 결정에 불복해 연방순회항소법원에 항소(사건 1:26-cv-8, 2026-10-22 접수)")
         posco = next(x for x in doc["cases"] if x["id"] == "cl:4")

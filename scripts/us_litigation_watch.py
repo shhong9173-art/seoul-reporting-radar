@@ -340,11 +340,13 @@ def litigation(token, now, previous, *, get=None, sleep=time.sleep, budget=None)
             category, pri = classify(x)
             case = x.get("caseName") or ""
             plaintiff = any(re.match(rf"^\s*(?:{rx})", case, re.I) for c, rx in PARTIES if c in beat)
+            # 'In re: LS Electric Co., Ltd.' at the Federal Circuit is the company's own appeal (e.g. from the patent board).
+            in_re = any(re.match(rf"^\s*In re:?\s*(?:{rx})", case, re.I) for c, rx in PARTIES if c in beat)
             found[did] = {
                 "id": did, "beat": beat, "group": group, "caseName": case, "court": x.get("court"), "courtId": x.get("court_id"),
                 "docketNumber": x.get("docketNumber"), "dateFiled": x.get("dateFiled"), "dateTerminated": x.get("dateTerminated"),
                 "suitNature": x.get("suitNature") or "", "cause": x.get("cause") or "", "category": category, "priority": pri,
-                "role": "원고" if plaintiff else "피고·기타 당사자", "matchedParties": matched, "partyCount": len(parties),
+                "role": "원고" if plaintiff else "신청·항소인(In re)" if in_re else "피고·기타 당사자", "matchedParties": matched, "partyCount": len(parties),
                 "url": CL_SITE + (x.get("docket_absolute_url") or ""),
                 "firstSeen": prev.get(did, {}).get("firstSeen") or now.isoformat(timespec="seconds"),
             }
