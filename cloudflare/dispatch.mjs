@@ -21,6 +21,8 @@ export const SLOTS = [
   { at: '06:50', workflow: 'overseas-awards.yml' },
   { at: '07:00', workflow: 'partner-filings.yml' },
   { at: '07:10', workflow: 'scoop-screen.yml' },
+  // 협력사 회생·파산(대법원 공고): 아침에 전날 공고, 저녁에 그날 공고.
+  { at: '07:20', workflow: 'kr-insolvency.yml' },
   { at: '07:30', workflow: 'kr-stats.yml' },
   { at: '07:40', workflow: 'trade-remedy.yml' },
   { at: '07:50', workflow: 'us-litigation.yml' },
@@ -34,6 +36,7 @@ export const SLOTS = [
   { at: '15:10', workflow: 'scoop-screen.yml' },
   { at: '15:20', workflow: 'kr-signals.yml' },
   { at: '17:10', workflow: 'us-recalls.yml' },
+  { at: '17:20', workflow: 'kr-insolvency.yml' },
   { at: '17:30', workflow: 'overseas-awards.yml' },
   { at: '17:40', workflow: 'assembly-bills.yml' },
   { at: '18:00', workflow: 'scoop-radar.yml' },

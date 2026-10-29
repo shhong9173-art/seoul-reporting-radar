@@ -403,12 +403,46 @@ export async function usLitigation(ctx, args) {
   return textResult(out.join('\n'));
 }
 
+// Court insolvency notices of beat-industry manufacturers (kr-insolvency feed), shown under kr_official (no new connector tool).
+async function insolvencySection(ctx, q, days, limit) {
+  const doc = await readFeed(ctx, 'kr-insolvency');
+  if (!doc) return ['\n[협력사 회생·파산] 결과 없음 — 미확인(평일 07:20·17:20 실행 확인)'];
+  if (doc.broken) return ['\n[협력사 회생·파산] 저장 형식 오류 — 미확인'];
+  const checks = doc.checks ?? [];
+  const courts = checks.filter((c) => !/^(회생회사|공장등록)/.test(String(c.source)));
+  const bad = courts.filter((c) => c.status !== 'ok');
+  const other = checks.filter((c) => /^(회생회사|공장등록)/.test(String(c.source)));
+  const from = new Date(ctx.now.getTime() - days * 86400000).toISOString().slice(0, 10);
+  const all = (doc.events ?? []).filter((e) => String(e.posted ?? e.firstSeen).slice(0, 10) >= from
+    && matches(q, e.company, e.court, e.kind, e.industry?.label, e.industry?.product, e.industry?.industry, e.watch?.beat));
+  const rank = { A: 0, B: 1, C: 2 };
+  const rows = all.filter((e) => q || e.tier !== 'C').sort((a, b) => (rank[a.tier] ?? 3) - (rank[b.tier] ?? 3)
+    || String(b.posted ?? '').localeCompare(String(a.posted ?? '')));
+  const minor = all.length - rows.length;
+  const out = [`\n[협력사 회생·파산 · 대법원 회생·파산 공고(법원 ${courts.length}곳 목록)·회생회사 M&A 공고 · 공고 최근 ${days}일] 출입 업종 ${rows.length}건${minor ? ` · 이름 낱말만 ${minor}건(company 낱말로 보기)` : ''} · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt)}`,
+    `원천: 법원 목록 ${courts.length - bad.length}/${courts.length} 정상${bad.length ? `(미확인: ${bad.slice(0, 4).map((c) => `${c.source}(${c.error ?? c.status})`).join(', ')})` : ''} · ${other.map((c) => `${c.source} ${c.status}${c.pending ? `(업종 조회 대기 ${c.pending}곳 — 다음 실행)` : ''}${c.error ? `(${c.error})` : ''}`).join(' · ')}${doc.watchlistSize ? ` · 협력사 명단 ${doc.watchlistSize}곳` : ' · 협력사 명단 비어 있음'}`,
+    ...(doc.rules ?? []).map((r) => `규칙: ${r}`)];
+  for (const e of rows.slice(0, limit)) {
+    const ind = e.industry ?? {};
+    out.push(`\n${e.isNew ? '[신규] ' : ''}${e.posted ?? '게시일 미상'} · ${e.kind} · ${e.company} · ${e.court}${e.caseNo ? ` ${e.caseNo}` : ''}${e.division ? `(${e.division})` : ''}`);
+    out.push(`   잡힌 사실: 공고 「${e.title}」${ind.label ? ` · 공장등록 업종 ${ind.label}${ind.code ? `(${ind.code}${ind.industry ? ` ${ind.industry}` : ''})` : ''}` : ''}${ind.product ? ` · 주생산품 ${ind.product}` : ''}${ind.employees != null ? ` · 종업원 ${ind.employees}명` : ''}${ind.address ? ` · ${ind.address}` : ''}${ind.factories > 1 ? ` · 등록 공장 ${ind.factories}곳` : ''}${e.watch ? ` · 협력사 명단: ${[e.watch.beat, e.watch.relation, e.watch.evidence].filter(Boolean).join(' · ')}` : ''}${!ind.label && !e.watch ? ' · 공장등록 없음(이름 낱말만)' : ''}`);
+    out.push(`   원문: ${e.url ?? e.listUrl}${e.url && e.listUrl ? ` (안 열리면 ${e.listUrl} 에서 법원·사건번호로 검색)` : ''}`);
+    out.push('   검증 상태: 법원 공고(절차 단계). 같은 이름의 다른 회사일 수 있음(주소·대표자 대조). 출입처와의 거래·납품 영향은 회사·출입처 확인 필요');
+  }
+  if (rows.length > limit) out.push(`… 남은 ${rows.length - limit}건`);
+  if (!rows.length) out.push('조건에 맞는 출입 업종 회생·파산 공고 없음(위 미확인 법원·업종 조회 대기는 0건 아님).');
+  return out;
+}
+
 export async function krOfficial(ctx, args) {
-  const doc = await readFeed(ctx, 'kr-official');
-  if (!doc) return missing('공장등록·관보 입법예고', '평일 08:10');
-  if (doc.broken) return textResult('저장된 국내 공식 원천 결과 형식 오류 — 미확인.', true);
-  const section = ['factory', 'gazette'].includes(args.section) ? args.section : null;
+  const section = ['factory', 'gazette', 'insolvency'].includes(args.section) ? args.section : null;
   const q = String(args.company ?? '').trim();
+  const insolvency = !section || section === 'insolvency'
+    ? await insolvencySection(ctx, q, clampInt(args.days, 1, 120, 30), clampInt(args.limit, 1, 80, 20)) : [];
+  if (section === 'insolvency') return textResult(insolvency.join('\n').trim());
+  const doc = await readFeed(ctx, 'kr-official');
+  if (!doc) return insolvency.length ? textResult([missing('공장등록·관보 입법예고', '평일 08:10').content[0].text, ...insolvency].join('\n'), true) : missing('공장등록·관보 입법예고', '평일 08:10');
+  if (doc.broken) return textResult(['저장된 국내 공식 원천 결과 형식 오류 — 미확인.', ...insolvency].join('\n'), true);
   const days = clampInt(args.days, 1, 120, 30);
   const limit = clampInt(args.limit, 1, 80, 20);
   const checks = (doc.checks ?? []).filter((c) => !String(c.source).startsWith('공장등록 이름 규칙'));
@@ -456,7 +490,9 @@ export async function krOfficial(ctx, args) {
     for (const x of eia.slice(0, limit)) out.push(`- ${x.isNew ? '[신규] ' : ''}${x.received} 접수 · ${x.company} · ${x.kind} ${x.stage}\n   ${x.name} · ${x.category}${x.completed ? ` · 완료 ${x.completed}` : ''} · 사업코드 ${x.code}`);
     if (!eia.length) out.push('새 단계 없음(첫 실행은 기준선, 조회 실패면 미확인).');
   }
-  out.push('\n다음: 새 공장·변경은 회사·지자체에 가동 시점·투자액·인력 확인 → news_check. 입법예고는 원문(관보 PDF)에서 시행일·대상 확인. 환경영향평가는 EIASS에서 사업코드로 평가서 원문(규모·일정) 확인.');
+  out.push(...insolvency);
+  out.push('\n다음: 새 공장·변경은 회사·지자체에 가동 시점·투자액·인력 확인 → news_check. 입법예고는 원문(관보 PDF)에서 시행일·대상 확인. 환경영향평가는 EIASS에서 사업코드로 평가서 원문(규모·일정) 확인.'
+    + (insolvency.length ? ' 회생·파산은 공고 원문(관리인·신청일)과 공장 주소 대조 → 출입처 DART 사업보고서 주요 매입처·협력사 확인(dart_find_text) → 회사·출입처에 거래 규모·대체 공급 확인 → news_check.' : ''));
   return textResult(out.join('\n'));
 }
 

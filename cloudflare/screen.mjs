@@ -26,6 +26,7 @@ export const FEEDS = {
   'us-epa': { blob: 'us_epa', schema: 'us_epa/v1', list: 'vehicles' },
   'kr-fuel': { blob: 'kr_fuel', schema: 'kr_fuel/v1', list: 'vehicles' },
   'overseas-awards': { blob: 'overseas_awards', schema: 'overseas_awards/v1', list: 'items' },
+  'kr-insolvency': { blob: 'kr_insolvency', schema: 'kr_insolvency/v1', list: 'events' },
 };
 
 // Official trade-remedy listing pages that do not answer GitHub runners (ReadTimeout). Collectors fetch them through
