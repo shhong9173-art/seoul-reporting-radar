@@ -1,12 +1,12 @@
 {
-  "generatedAt": "2026-10-30T00:37:04+09:00",
+  "generatedAt": "2026-10-30T00:59:43+09:00",
   "status": "reporter_evidence_queue_not_exclusive",
   "sourceCoverage": "partial_source_coverage_not_zero_news",
   "sourceHealth": {
     "officialEvents": {
       "status": "source_partial_coverage",
-      "generatedAt": "2026-10-29T15:33:07+09:00",
-      "rows": 7,
+      "generatedAt": "2026-10-30T00:37:06+09:00",
+      "rows": 13,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false,
       "incompleteOrStaleFeeds": [
@@ -59,8 +59,8 @@
     }
   },
   "countsByEvidenceTier": {
-    "new_official_receipt_review": 4,
-    "new_official_list_heading_review": 1,
+    "new_official_receipt_review": 13,
+    "new_official_list_heading_review": 0,
     "verified_historical_investment_delta": 3,
     "verified_historical_numeric_delta": 20,
     "issuer_only_correction_unverified_original": 2,
@@ -71,23 +71,47 @@
     "recentFrom": "2026-10-28",
     "through": "2026-10-30"
   },
-  "checkedOfficialRecentCandidates": 5,
-  "recentOfficialTitleOnlyCount": 1,
-  "todayOnlyCount": 5,
+  "checkedOfficialRecentCandidates": 13,
+  "recentOfficialTitleOnlyCount": 0,
+  "todayOnlyCount": 13,
   "historicalResearchCount": 29,
   "unlinkedHistoryTextMatchCount": 1,
   "correctionHistorySourceGate": "reviewed_unlinked_candidates_only",
-  "totalRows": 34,
+  "totalRows": 42,
   "excluded": {
     "invalid_original_identity": 0,
-    "old_and_not_relevant": 3,
+    "old_and_not_relevant": 0,
     "unverified_correction": 0,
-    "same_receipt_merged": 0
+    "same_receipt_merged": 1
   },
   "confirmedScoops": 0,
   "approvedArticles": 0,
   "warning": "공식 발행일≠수집일, 투자 종료 예정월 변경≠실제 지연, 정정문 변경란≠원공시 대조, 보도 검색 0건≠미보도. 미수집/부분수집≠사건 0건.",
   "items": [
+    {
+      "id": "new_official_receipt_review:DART:20261029000247",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "현대자동차",
+      "title": "현대자동차 · 정기·주요공시 · 주요사항보고서(자기주식처분결정)",
+      "officialDocumentDate": "2026-10-29",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261029000247"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
+        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
+        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
+      ]
+    },
     {
       "id": "new_official_receipt_review:DART:20261029800138",
       "tier": "new_official_receipt_review",
@@ -99,6 +123,198 @@
       "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
       "officialUrls": [
         "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261029800138"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
+        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
+        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
+      ]
+    },
+    {
+      "id": "new_official_receipt_review:DART:20261029800228",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "현대자동차",
+      "title": "현대자동차 · 정기·주요공시 · 연결재무제표기준영업(잠정)실적(공정공시)",
+      "officialDocumentDate": "2026-10-29",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261029800228"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
+        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
+        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
+      ]
+    },
+    {
+      "id": "new_official_receipt_review:DART:20261029800240",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "현대자동차",
+      "title": "현대자동차 · 정기·주요공시 · [기재정정]영업실적등에대한전망(공정공시)",
+      "officialDocumentDate": "2026-10-29",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261029800240"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
+        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
+        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
+      ]
+    },
+    {
+      "id": "new_official_receipt_review:DART:20261029800252",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "한화솔루션",
+      "title": "한화솔루션 · 정기·주요공시 · 연결재무제표기준영업(잠정)실적(공정공시)",
+      "officialDocumentDate": "2026-10-29",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261029800252"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
+        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
+        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
+      ]
+    },
+    {
+      "id": "new_official_receipt_review:DART:20261029800311",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "OCI홀딩스",
+      "title": "OCI홀딩스 · 정기·주요공시 · 주식소각결정",
+      "officialDocumentDate": "2026-10-29",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 주식소각결정 원문 표의 예정값 확인; 실제 소각 완료·배당 및 주주환원 산식·기보도 미검증",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261029800311"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
+        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
+        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
+      ]
+    },
+    {
+      "id": "new_official_receipt_review:DART:20261029800321",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "대한전선",
+      "title": "대한전선 · 정기·주요공시 · 연결재무제표기준영업(잠정)실적(공정공시)",
+      "officialDocumentDate": "2026-10-29",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261029800321"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
+        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
+        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
+      ]
+    },
+    {
+      "id": "new_official_receipt_review:DART:20261029800325",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "OCI홀딩스",
+      "title": "OCI홀딩스 · 정기·주요공시 · 연결재무제표기준영업(잠정)실적(공정공시)",
+      "officialDocumentDate": "2026-10-29",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261029800325"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
+        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
+        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
+      ]
+    },
+    {
+      "id": "new_official_receipt_review:DART:20261029800381",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "두산에너빌리티",
+      "title": "두산에너빌리티 · 정기·주요공시 · 연결재무제표기준영업(잠정)실적(공정공시)",
+      "officialDocumentDate": "2026-10-29",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261029800381"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
+        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
+        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
+      ]
+    },
+    {
+      "id": "new_official_receipt_review:DART:20261029800635",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "금호타이어",
+      "title": "금호타이어 · 정기·주요공시 · 연결재무제표기준영업(잠정)실적(공정공시)",
+      "officialDocumentDate": "2026-10-29",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261029800635"
       ],
       "pressFulltextReviewed": false,
       "sameAngleCoverageVerified": false,
@@ -183,39 +399,6 @@
         "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
         "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
       ]
-    },
-    {
-      "id": "new_official_list_heading_review:DART:20261029800311",
-      "tier": "new_official_list_heading_review",
-      "tierLabel": "최근 DART 중요 공시 · 제목만 확인",
-      "company": "OCI홀딩스",
-      "title": "OCI홀딩스 · 주식소각결정",
-      "officialDocumentDate": "2026-10-29",
-      "officialDateIsSourcePublicationNotScrape": true,
-      "evidenceSummary": "공식 DART 목록의 공시 제목·접수번호·접수일만 확인. 가치제고 목표·주식소각 수량·확정 재무영향은 본문 대조 전이며, 기보도·기업 답변 모두 미확인.",
-      "officialUrls": [
-        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261029800311"
-      ],
-      "pressFulltextReviewed": false,
-      "sameAngleCoverageVerified": false,
-      "companyImpactVerified": false,
-      "futurePlanVerified": false,
-      "exclusiveConfirmed": false,
-      "approvedForPitch": false,
-      "nextChecks": [
-        "공식 공시 본문에서 수치·대상·결의일, 완료/예정 상태 확인",
-        "이전 가치제고 계획·자사주 처분/소각 공시와 수치 차이 검산",
-        "기존 매체 기사 전문 및 최초 공표 시각 대조",
-        "기업의 이미 공개된 공시 내용만 확인"
-      ],
-      "officialListTitleOnly": true,
-      "officialDocumentBodyReviewed": false,
-      "filingTypeFromOfficialTitle": "주식소각결정",
-      "disclosedFinancialImpactVerified": false,
-      "priorPressArticleFulltextReviewed": false,
-      "companyResponseVerified": false,
-      "firstObservedHereNotFirstReported": true,
-      "editorialPriority": "primary_title_manual_document_review_only"
     },
     {
       "id": "verified_historical_investment_delta:20260814003228:변압기 철심공장",
