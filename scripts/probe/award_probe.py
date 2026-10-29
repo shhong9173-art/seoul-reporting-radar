@@ -44,8 +44,12 @@ KIA = {"sigunguCd": "41210", "bjdongCd": "10400", "platGbCd": "0", "bun": "0781"
 PK = "1000000000000001012244"
 dong = []
 for page in range(1, 4):
-    rows, total, line = get("getApDongOulnInfo", KIA, 100, page)
-    out.append(line)
+    for attempt in range(4):
+        rows, total, line = get("getApDongOulnInfo", KIA, 50, page)
+        out.append(line)
+        if rows is not None:
+            break
+        time.sleep(3 + 3 * attempt)
     if rows is None:
         break
     dong += rows
@@ -59,14 +63,6 @@ if dong:
         out.append("DONG " + clean(json.dumps({k: v for k, v in x.items() if str(v).strip() not in ("", "0", "0.0", " ")}, ensure_ascii=False))[:600])
     if not c.get(PK):
         out.append("SAMPLE " + clean(json.dumps(dong[0], ensure_ascii=False))[:600])
-
-# (2) empty-body pattern on parcels that came back empty in probe 13
-for label, p in (("LS 송정동1", {"sigunguCd": "43113", "bjdongCd": "11600", "platGbCd": "0", "bun": "0001"}),
-                 ("모비스 매암동393", {"sigunguCd": "31140", "bjdongCd": "11900", "platGbCd": "0", "bun": "0393"}),
-                 ("동국 송동리857", {"sigunguCd": "47111", "bjdongCd": "31026", "platGbCd": "0", "bun": "0857"})):
-    for size in (100, 100, 30, 10):
-        _, _, line = get("getApBasisOulnInfo", p, size)
-        out.append(f"{label} {line}")
 
 packs, cur = [], ""
 for n in out:
