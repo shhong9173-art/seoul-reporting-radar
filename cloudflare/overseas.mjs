@@ -289,6 +289,17 @@ export async function usRecalls(ctx, args) {
   }
   if (rows.length > limit) out.push(`… 남은 ${rows.length - limit}건`);
   if (!rows.length) out.push('\n조건에 맞는 리콜 없음(점검 실패면 미확인).');
+  const invs = (doc.investigations ?? []).filter((x) => (!onlyNew || x.isNew)
+    && matches(q, (x.why ?? []).map((w) => `${w.name} ${w.beat ?? ''}`).join(' '), x.models, x.component, x.subject, x.summary, x.action));
+  const invCheck = checks.find((c) => c.source === 'NHTSA 결함조사(ODI)');
+  out.push(`\n[결함조사(ODI) · 최근 ${doc.invLookbackDays ?? 120}일 개시·종결] 출입처 관련 ${invs.length}건${invCheck && invCheck.status !== 'ok' ? ' — 조회 실패, 미확인(0건 아님)' : ''}${doc.investigations ? '' : ' — 아직 수집 전'}`);
+  for (const x of invs.slice(0, limit)) {
+    out.push(`${x.isNew ? '[신규] ' : ''}${x.closed ?? x.opened} · ${x.action} ${x.type} ${x.kind} · ${(x.why ?? []).map((w) => `${w.name}(${w.role})`).join(' · ')}`);
+    out.push(`   잡힌 사실: ${x.models} · ${x.component} · 「${x.subject}」 · 개시 ${x.opened}${x.closed ? ` · 종결 ${x.closed}` : ''}${(x.recallCampaigns ?? []).length ? ` · 연결 리콜 ${x.recallCampaigns.join(',')}` : ''}`);
+    if (x.summary) out.push(`   요약(원문): ${String(x.summary).slice(0, 300)}`);
+    out.push(`   원문: ${x.url}`);
+    out.push('   검증 상태: NHTSA 공개 자료(자동). 조사 개시는 결함 확정이 아니고 종결은 결함 없음 판정이 아님. 국내 판매 차량 해당 여부는 회사·국토부 확인');
+  }
   out.push('\n다음: NHTSA 리콜 페이지·원보고서(source_document, nhtsa.gov)로 대상 차대·부품·공급사 확인 → 국내 판매 여부·자동차리콜센터 → news_check.');
   return textResult(out.join('\n'));
 }

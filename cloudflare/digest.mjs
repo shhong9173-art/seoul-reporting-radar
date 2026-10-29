@@ -287,6 +287,15 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
       fact: `미국 리콜 ${x.campaign} 접수 ${x.received} · ${x.models} · ${x.component} · 대상 ${Number(x.affected ?? 0).toLocaleString('en-US')}대${x.parkOutside ? ' · 실외 주차 권고' : ''} — ${roles}${x.supplierBox ? ` · 원보고서 공급사 칸: ${String(x.supplierBox).slice(0, 80)}` : ''}`,
       url: x.url, check: hint(lead.name, ['리콜', String(lead.role).startsWith('부품') ? brand : '미국']) });
   }
+  // NHTSA defect investigations (ODI) on beat cars or naming a Korean supplier: opened on 현대·기아·한국GM 차종 A, closed B.
+  const invBase = baselineOf(ur?.investigations ?? []);
+  for (const x of ur?.investigations ?? []) {
+    if (!fresh(x, invBase, x.closed ? 'closed' : 'opened') && !(x.changedAt && recent(x.changedAt))) continue;
+    const who = [...new Set((x.why ?? []).map((w) => w.name))].join('·');
+    push(x.tier ?? 'B', W['us-recalls'], { kind: `NHTSA 결함조사 ${x.kind}`, id: x.id, date: x.closed ?? x.opened, company: who,
+      fact: `미국 NHTSA ${x.type} ${x.action} ${x.kind} · ${x.models} · ${x.component} · 「${x.subject}」 · 개시 ${x.opened}${x.closed ? ` · 종결 ${x.closed}` : ''}${(x.recallCampaigns ?? []).length ? ` · 연결 리콜 ${x.recallCampaigns.join(',')}` : ''} — 조사 개시는 결함 확정 아님`,
+      url: x.url, check: x.tier === 'C' ? undefined : hint((x.why ?? [])[0]?.name, ['미국', '조사']) });
+  }
 
   // US EPA certification file: a model new to the company is A, an EV range change B, model-year carryover C.
   for (const v of docs['us-epa']?.vehicles ?? []) {
