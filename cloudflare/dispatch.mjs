@@ -30,6 +30,8 @@ export const SLOTS = [
   { at: '08:10', workflow: 'kr-official.yml' },
   { at: '08:20', workflow: 'us-comments.yml' },
   { at: '08:30', workflow: 'kr-signals.yml' },
+  // KIPRIS 특허 공보: GitHub 예약 06:30이 10-29에 10시까지 오지 않아 22 재조회(08:25 이후)가 밀렸다. 늦은 예약 실행은 워크플로가 건너뛴다.
+  { at: '08:30', workflow: 'kipris-patent-hunt.yml' },
   { at: '08:40', workflow: 'assembly-bills.yml' },
   { at: '08:50', workflow: 'radar-press-check.yml' },
   { at: '15:00', workflow: 'scoop-radar.yml' },
