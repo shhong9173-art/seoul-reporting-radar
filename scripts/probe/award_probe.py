@@ -15,17 +15,20 @@ def text_of(html):
     return re.sub(r"(\s*¦\s*)+", " ¦ ", re.sub(r"\s+", " ", t))
 
 
-s = requests.Session()
-base = "https://eminwon.dangjin.go.kr/emwp/gov/mogaha/ntis/web/ofr/action/OfrAction.do"
-r = s.get(base + "?method=selectListOfrNotAncmt&methodnm=selectListOfrNotAncmtHomepage&homepage_pbs_yn=Y&subCheck=Y&ofr_pageSize=10&not_ancmt_se_code=01,02,03,04,05&initValue=Y&countYn=Y&list_gubun=A", headers=UA, timeout=30)
-out.append(f"dangjin GET body={re.sub(chr(10), ' ', r.text)[:1300]!r}")
-data = {"method": "selectListOfrNotAncmt", "methodnm": "selectListOfrNotAncmtHomepage", "homepage_pbs_yn": "Y", "subCheck": "Y",
-        "ofr_pageSize": "10", "not_ancmt_se_code": "01,02,03,04,05", "initValue": "Y", "countYn": "Y", "list_gubun": "A", "pageIndex": "1",
-        "jndinm": "OfrNotAncmtEJB", "context": "NTIS", "method_type": ""}
-r2 = s.post(base, data=data, headers={**UA, "Referer": base}, timeout=30)
-t = text_of(r2.text)
-out.append(f"dangjin POST HTTP {r2.status_code} len={len(r2.text)} text={t[:1500]}")
-time.sleep(1)
+try:
+    s = requests.Session()
+    base = "https://eminwon.dangjin.go.kr/emwp/gov/mogaha/ntis/web/ofr/action/OfrAction.do"
+    r = s.get(base + "?method=selectListOfrNotAncmt&methodnm=selectListOfrNotAncmtHomepage&homepage_pbs_yn=Y&subCheck=Y&ofr_pageSize=10&not_ancmt_se_code=01,02,03,04,05&initValue=Y&countYn=Y&list_gubun=A", headers=UA, timeout=30)
+    out.append(f"dangjin GET body={re.sub(chr(10), ' ', r.text)[:1300]!r}")
+    data = {"method": "selectListOfrNotAncmt", "methodnm": "selectListOfrNotAncmtHomepage", "homepage_pbs_yn": "Y", "subCheck": "Y",
+            "ofr_pageSize": "10", "not_ancmt_se_code": "01,02,03,04,05", "initValue": "Y", "countYn": "Y", "list_gubun": "A", "pageIndex": "1",
+            "jndinm": "OfrNotAncmtEJB", "context": "NTIS", "method_type": ""}
+    r2 = s.post(base, data=data, headers={**UA, "Referer": base}, timeout=30)
+    t = text_of(r2.text)
+    out.append(f"dangjin POST HTTP {r2.status_code} len={len(r2.text)} text={t[:1500]}")
+    time.sleep(1)
+except Exception as e:  # noqa: BLE001
+    out.append(f'eminwon EXC {type(e).__name__} {str(e)[:80]}')
 # BSE variations
 H = {"Referer": "https://www.bseindia.com/", "Origin": "https://www.bseindia.com", "Accept": "application/json, text/plain, */*", **UA}
 for q in ("pageno=1&strCat=-1&strPrevDate=20260901&strScrip=544274&strSearch=P&strToDate=20261030&strType=C&subcategory=-1",
