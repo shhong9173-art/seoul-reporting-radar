@@ -39,7 +39,11 @@ try:
     import html as h
     html = h.unescape(html)
     out.append(f"records={pager.group(1) if pager else None} contentLen={len(html)}")
-    out.append("content=" + text_of(html)[:3000])
+    out.append("raw=" + re.sub(r"\s+", " ", html)[:3300])
+    ev = sorted(set(re.findall(r"on\w+=\"([^\"]{0,120})\"", html)))[:10]
+    out.append(f"events={ev}")
+    funcs = sorted(set(re.findall(r"function\s+(\w+)\s*\(", b)))
+    out.append(f"page funcs={funcs[:60]}")
     links = sorted(set(re.findall(r'href="([^"]+)"', html)))[:10]
     out.append(f"links={links}")
 except Exception as e:  # noqa: BLE001
