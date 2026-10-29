@@ -69,6 +69,16 @@ class Registry(unittest.TestCase):
         again = w.run("k", now=NOW + dt.timedelta(days=1), previous=bad, get=fake(res, {}), sleep=lambda s: None)
         self.assertTrue(all(x["baseline"] and not x["isNew"] for x in again["companies"]))
 
+    def test_parent_name_without_psc_is_b(self):
+        res = {"nexen": [co("16848629", "NEXEN TYRE U.K. LIMITED"), co("16967581", "NEXEN STRATEGY LIMITED")]}
+        doc = w.run("k", now=NOW, previous=None, get=fake(res, {"16967581": ["Mr Nauman Safdar"]}), sleep=lambda s: None)
+        got = {x["number"]: x["tier"] for x in doc["companies"]}
+        self.assertEqual(got, {"16848629": "B", "16967581": "C"})
+        # a stored row graded before this rule, now outside the search window, is re-graded
+        old = dict(doc, companies=[dict(x, tier="C") for x in doc["companies"]])
+        again = w.run("k", now=NOW + dt.timedelta(days=30), previous=old, get=fake({}, {}), sleep=lambda s: None)
+        self.assertEqual({x["number"]: x["tier"] for x in again["companies"]}, {"16848629": "B", "16967581": "C"})
+
     def test_missing_or_refused_key_is_unset(self):
         self.assertEqual(w.run("", now=NOW)["status"], "unset")
         doc = w.run("k", now=NOW, previous=None, get=fake({}, {}, status=401), sleep=lambda s: None)

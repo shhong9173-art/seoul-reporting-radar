@@ -120,7 +120,10 @@ async function registrySection(ctx, q, onlyNew, limit) {
   const bad = checks.filter((c) => c.status !== 'ok');
   const all = (doc.companies ?? []).filter((x) => (!onlyNew || x.isNew) && matches(q, x.company, x.name, (x.psc ?? []).join(' '), x.address));
   const rows = all.filter((x) => q || x.tier !== 'C');
-  const out = [`\n[해외 법인 등기 · 영국 Companies House · 설립 ${doc.windowStart ?? '?'} 이후] 출입처 지배 주주 ${rows.length}건${all.length - rows.length ? ` · 이름만 같은 법인 ${all.length - rows.length}건(company 낱말로 보기)` : ''} · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt)}`,
+  const nA = all.filter((x) => x.tier === 'A').length;
+  const nB = all.filter((x) => x.tier === 'B').length;
+  const nC = all.length - nA - nB;
+  const out = [`\n[해외 법인 등기 · 영국 Companies House · 설립 ${doc.windowStart ?? '?'} 이후] 출입처 지배 주주 ${nA}건 · 지배 주주 미기재·본사 이름 ${nB}건 · 이름만 같은 법인 ${nC}건${q ? ` · 낱말 '${q}'로 ${rows.length}건 표시` : nC ? '(company 낱말로 보기)' : ''} · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt)}`,
     `원천: 질의 ${checks.length - bad.length}/${checks.length} 정상${bad.length ? `(미확인: ${bad.slice(0, 3).map((c) => `${c.source}(${c.error ?? c.status})`).join(', ')})` : ''}`,
     ...(doc.rules ?? []).map((r) => `규칙: ${r}`)];
   for (const x of rows.slice(0, limit)) {
@@ -130,6 +133,7 @@ async function registrySection(ctx, q, onlyNew, limit) {
   }
   if (rows.length > limit) out.push(`… 남은 ${rows.length - limit}건`);
   if (!rows.length) out.push('출입처가 지배 주주인 새 법인 없음(위 미설정·실패는 0건 아님).');
+  else if (!nA) out.push('(지배 주주가 출입처 본사로 확인된 법인은 없음 — 위 줄은 이름만 같거나 지배 주주 미기재)');
   return out;
 }
 

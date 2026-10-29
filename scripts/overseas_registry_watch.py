@@ -42,15 +42,15 @@ COMPANIES = [
     ("현대제철", "hyundai steel", r"\bhyundai\s+steel", r"hyundai\s+steel"),
     ("한화솔루션", "hanwha", r"\bhanwha\b", r"hanwha\s+(?:solutions|q\s*cells|qcells)"),
     ("고려아연", "korea zinc", r"\bkorea\s+zinc", r"korea\s+zinc"),
-    ("한국타이어", "hankook", r"\bhankook\b", r"hankook\s+(?:tire|&\s*company)"),
-    ("넥센타이어", "nexen", r"\bnexen\b", r"nexen\s+tire"),
-    ("금호타이어", "kumho", r"\bkumho\b", r"kumho\s+tire"),
+    ("한국타이어", "hankook", r"\bhankook\b", r"hankook\s+(?:t[iy]re|&\s*company)"),
+    ("넥센타이어", "nexen", r"\bnexen\b", r"nexen\s+t[iy]re"),
+    ("금호타이어", "kumho", r"\bkumho\b", r"kumho\s+t[iy]re"),
     ("GS칼텍스", "gs caltex", r"\bgs\s+caltex", r"gs\s+caltex"),
     ("OCI", "oci", r"^oci\b", r"\boci\s+(?:holdings|company|co\b)"),
     ("세아", "seah", r"\bseah\b", r"seah"),
 ]
 RULES = [
-    "영국 법인 설립 등기다. 출입처 본사가 지배 주주(PSC)로 적힌 것만 A. 이름만 같은 회사(딜러·무관 회사)는 C.",
+    "영국 법인 설립 등기다. 출입처 본사가 지배 주주(PSC)로 적힌 것만 A. 지배 주주가 아직 없고 이름이 본사 전체 이름(예: NEXEN TYRE)이면 B, 그 밖에 이름만 같은 회사(딜러·무관 회사)는 C.",
     "설립 목적(SIC 코드)·주소는 등기 그대로. 사업 내용·투자 규모는 회사 확인.",
     "다른 나라(미국 주 등기 등)는 다루지 않는다.",
 ]
@@ -98,6 +98,16 @@ def search(client, term, since):
 def psc_names(client, number):
     d = client.json(f"/company/{number}/persons-with-significant-control")
     return [norm_space(x.get("name")) for x in d.get("items") or [] if x.get("name")]
+
+
+PSC_RX = {beat: psc_rx for beat, _, _, psc_rx in COMPANIES}
+
+
+def grade(rec, psc_rx):
+    rec["pscMatch"] = any(re.search(psc_rx, p, re.I) for p in rec.get("psc") or [])
+    # no PSC filed yet but the name is the parent's full name (e.g. 'NEXEN TYRE U.K. LIMITED'): check it
+    rec["nameStrong"] = not rec.get("psc") and bool(re.search(psc_rx, rec.get("name") or "", re.I))
+    rec["tier"] = "A" if rec["pscMatch"] else "B" if rec["nameStrong"] else "C"
 
 
 def run(key, *, now, previous=None, get=None, sleep=time.sleep):
@@ -152,8 +162,7 @@ def run(key, *, now, previous=None, get=None, sleep=time.sleep):
                     rec["psc"] = psc_names(client, num)
                 except Exception as e:  # noqa: BLE001
                     rec["psc"], rec["pscError"] = [], str(e)[:40]
-            rec["pscMatch"] = any(re.search(psc_rx, p, re.I) for p in rec["psc"])
-            rec["tier"] = "A" if rec["pscMatch"] else "C"
+            grade(rec, psc_rx)
             rec["firstSeen"] = prev["firstSeen"] if prev else stamp
             rec["baseline"] = bool(prev.get("baseline")) if prev else baseline
             rec["isNew"] = not prev and not baseline
@@ -163,6 +172,8 @@ def run(key, *, now, previous=None, get=None, sleep=time.sleep):
     for cid, x in out.items():
         if cid in old and x is old[cid]:
             x["isNew"] = False
+            if x.get("company") in PSC_RX:  # stored rows outside the search window follow the current rules too
+                grade(x, PSC_RX[x["company"]])
     companies = sorted(out.values(), key=lambda x: (str(x.get("created") or ""), x["id"]), reverse=True)[:KEEP_MAX]
     failed = [c for c in checks if c["status"] == "failed"]
     status = "failed" if checks and len(failed) == len(checks) else "partial" if failed else "complete"
