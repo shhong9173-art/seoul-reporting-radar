@@ -106,6 +106,9 @@ function factoryHint(company, kind, text) {
   if (m) return Number(m[2]) < Number(m[1]) ? hint(company, ['인력', '감축']) : hint(company, ['채용', '증원']);
   return undefined;  // 업종·주생산품 문구 변경: 기사 낱말을 정할 수 없음
 }
+// 공장등록 변화 중 고용인원 한 칸만 바뀐 것: A가 아니라 B(확인할 공식 변화)로 내리고 아래 주의를 붙인다.
+const STAFF_ONLY = /^고용 [\d,]+→[\d,]+명$/;
+const STAFF_ONLY_NOTE = ' — 고용인원만 바뀜: 정식 변경등록이 아니라 조사·구두 답변 갱신일 수 있어 산단공·회사 확인 전 감원·채용으로 보지 않음';
 function caseHint(x) {
   const who = (x.beat ?? [])[0];
   if (x.courtId === 'cafc') return hint(who, ['항소', /Patent/i.test(`${x.appealFrom ?? ''} ${x.caseType ?? ''}`) ? '특허' : '소송']);
@@ -159,7 +162,10 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
   for (const e of kr?.events ?? []) {
     if (!recent(e.detectedAt)) continue;
     const text = factoryEventText(kr, e);
-    push(e.kind === '목록에서 빠짐' ? 'B' : 'A', W['kr-official'], { kind: `공장 ${e.kind}`, id: e.id, date: e.detectedAt, company: e.company, fact: `${e.kind}: ${text}`,
+    // 고용인원만 바뀐 변화는 정식 변경등록이 아니라 산단공 조사·구두 답변 갱신일 수 있다(2026-10 KG스틸 당진: 856→690, 감원 없음).
+    const staffOnly = e.kind === '등록 내용 변경' && STAFF_ONLY.test(String(e.text ?? '').trim());
+    push(e.kind === '목록에서 빠짐' || staffOnly ? 'B' : 'A', W['kr-official'], { kind: `공장 ${e.kind}`, id: e.id, date: e.detectedAt, company: e.company,
+      fact: `${e.kind}: ${text}${staffOnly ? STAFF_ONLY_NOTE : ''}`,
       check: factoryHint(e.company, e.kind, text) });
   }
   const evFactories = all ? new Set() : new Set((kr?.events ?? []).filter((e) => Date.parse(e.detectedAt) >= cut).map((e) => e.factoryId));
