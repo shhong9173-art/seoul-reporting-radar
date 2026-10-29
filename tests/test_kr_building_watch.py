@@ -100,6 +100,23 @@ class Building(unittest.TestCase):
         done = b.run([("K", "good")], facs, now=NOW + dt.timedelta(days=7), previous=cut, get=later, sleep=lambda s: None)
         self.assertEqual(done["parcelsResolved"], 3)
         self.assertEqual(sum(1 for u, _ in later.calls if u == b.EPOST), 1)  # only the one left over
+
+    def test_parcel_seen_first_after_the_baseline_is_its_own_baseline(self):
+        # run 1 resolves only 현대차's parcel (time limit); run 2 adds KG스틸's: its existing permits are not 'new'
+        t = iter([0, 0] + [b.ADDR_BUDGET_S + 1] * 30)
+        facs = [FACS[1], FACS[0]]
+        first = b.run([("K", "good")], facs, now=NOW, previous=None, get=fake({"0196": [permit("P9")]}), sleep=lambda s: None, clock=lambda: next(t))
+        self.assertEqual(first["parcelsResolved"], 1)
+        second = b.run([("K", "good")], facs, now=NOW + dt.timedelta(days=7), previous=first,
+                       get=fake({"0196": [permit("P9"), permit("P10", day="20261105")], "0001": [permit("P1")]}), sleep=lambda s: None)
+        got = {x["id"]: (x["baseline"], x["isNew"]) for x in second["permits"]}
+        self.assertEqual(got["bld:P1"], (True, False))   # first look at KG스틸's parcel
+        self.assertEqual(got["bld:P10"], (False, True))  # really new at a parcel already watched
+        # TTL re-resolution of the same parcel keeps its first-look stamp
+        aged = dict(second, parcels={k: dict(v, checkedAt="2026-01-01T00:00:00+09:00") for k, v in second["parcels"].items()})
+        third = b.run([("K", "good")], facs, now=NOW + dt.timedelta(days=14), previous=aged,
+                      get=fake({"0196": [permit("P9"), permit("P10", day="20261105")], "0001": [permit("P1"), permit("P2", day="20261110")]}), sleep=lambda s: None)
+        self.assertEqual(next(x for x in third["permits"] if x["id"] == "bld:P2")["isNew"], True)
         t2 = iter([0] * 4 + [b.TOTAL_BUDGET_S + 1] * 20)
         arch_cut = b.run([("K", "good")], FACS, now=NOW, previous=None, get=fake({}), sleep=lambda s: None, clock=lambda: next(t2))
         self.assertIn("남은", arch_cut["checks"][1]["error"])

@@ -225,7 +225,10 @@ def run(keys, factories, *, now, previous=None, get=None, sleep=time.sleep, cloc
             addr_left += 1  # done next run (resolved parcels are kept)
             continue
         try:
-            parcels[fid] = parcel_for(f, caller, stamp, regions)
+            fresh = parcel_for(f, caller, stamp, regions)
+            if p and p.get("archFirst") and all(p.get(k) == fresh.get(k) for k in ("sigunguCd", "bjdongCd", "platGbCd", "bun")):
+                fresh["archFirst"] = p["archFirst"]  # same parcel re-resolved after the TTL: not a first look
+            parcels[fid] = fresh
             addr_ok += 0 if parcels[fid].get("error") else 1
             addr_fail += 1 if parcels[fid].get("error") else 0
         except Refused as e:
@@ -267,6 +270,11 @@ def run(keys, factories, *, now, previous=None, get=None, sleep=time.sleep, cloc
         except Exception:  # noqa: BLE001
             fail += 1
             continue
+        # permits at a parcel looked at for the first time (first run, a parcel left over by the time limit,
+        # a newly registered plant) are its baseline, not new
+        first_look = baseline or any(not (parcels.get(f["id"]) or {}).get("archFirst") for f in facs)
+        for f in facs:
+            parcels[f["id"]].setdefault("archFirst", stamp)
         for r in rows:
             pk = str(r.get("mgmPmsrgstPk") or "")
             if not pk:
@@ -283,8 +291,8 @@ def run(keys, factories, *, now, previous=None, get=None, sleep=time.sleep, cloc
             prev = old.get(pid)
             rec["kind"] = "새 허가"
             rec["firstSeen"] = prev["firstSeen"] if prev else stamp
-            rec["baseline"] = bool(prev.get("baseline")) if prev else baseline
-            rec["isNew"] = not prev and not baseline
+            rec["baseline"] = bool(prev.get("baseline")) if prev else first_look
+            rec["isNew"] = not prev and not first_look
             rec["tier"] = tier_of(rec)
             if prev and rec["useApproved"] and not prev.get("useApproved"):
                 rec["kind"], rec["isNew"], rec["tier"], rec["changedAt"] = "사용승인(준공)", True, "B", stamp
