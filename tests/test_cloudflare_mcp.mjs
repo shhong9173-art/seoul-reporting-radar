@@ -1637,7 +1637,7 @@ test('overseas registry: a new UK company with a beat parent as PSC is A; a miss
   assert.match(sec('C'), /HYUNDAI OF BRISTOL LIMITED[^\n]*출입처 본사 지배 주주 아님\(이름만 같음\)/);
   assert.match(sec('B'), /NEXEN TYRE U\.K\. LIMITED\(16848629\)[^\n]*지배 주주 미기재 — 지배 주주 아직 미기재, 이름이 본사 전체 이름/);
   const t = await call('partner_filings', {}, opts);
-  assert.match(t.text, /\[해외 법인 등기 · 영국 Companies House · 설립 2025-10-25 이후\] 출입처 지배 주주 1건 · 지배 주주 미기재·본사 이름 1건 · 이름만 같은 법인 1건\(company 낱말로 보기\)/);
+  assert.match(t.text, /\[해외 법인 등기 · 영국 Companies House · 보관 3곳\(첫 실행은 1년 전 설립부터, 이번 조회는 설립 2025-10-25 이후\)\] 출입처 지배 주주 1건 · 지배 주주 미기재·본사 이름 1건 · 이름만 같은 법인 1건\(company 낱말로 보기\)/);
   assert.match(t.text, /- \[신규\] 2026-10-24 설립 · 효성중공업\(관련\) · HYOSUNG HEAVY INDUSTRIES UK LTD \(16000001, active\)/);
   const unset = { ...doc, status: 'unset', companies: [], checks: [{ source: '영국 Companies House', status: 'unset', error: 'COMPANIES_HOUSE_API_KEY 없음(무료 발급)' }] };
   await worker.fetch(new Request(ORIGIN + '/ingest/overseas-registry', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(unset) }), env, {});

@@ -123,7 +123,7 @@ async function registrySection(ctx, q, onlyNew, limit) {
   const nA = all.filter((x) => x.tier === 'A').length;
   const nB = all.filter((x) => x.tier === 'B').length;
   const nC = all.length - nA - nB;
-  const out = [`\n[해외 법인 등기 · 영국 Companies House · 설립 ${doc.windowStart ?? '?'} 이후] 출입처 지배 주주 ${nA}건 · 지배 주주 미기재·본사 이름 ${nB}건 · 이름만 같은 법인 ${nC}건${q ? ` · 낱말 '${q}'로 ${rows.length}건 표시` : nC ? '(company 낱말로 보기)' : ''} · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt)}`,
+  const out = [`\n[해외 법인 등기 · 영국 Companies House · 보관 ${(doc.companies ?? []).length}곳(첫 실행은 1년 전 설립부터, 이번 조회는 설립 ${doc.windowStart ?? '?'} 이후)] 출입처 지배 주주 ${nA}건 · 지배 주주 미기재·본사 이름 ${nB}건 · 이름만 같은 법인 ${nC}건${q ? ` · 낱말 '${q}'로 ${rows.length}건 표시` : nC ? '(company 낱말로 보기)' : ''} · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt)}`,
     `원천: 질의 ${checks.length - bad.length}/${checks.length} 정상${bad.length ? `(미확인: ${bad.slice(0, 3).map((c) => `${c.source}(${c.error ?? c.status})`).join(', ')})` : ''}`,
     ...(doc.rules ?? []).map((r) => `규칙: ${r}`)];
   for (const x of rows.slice(0, limit)) {
