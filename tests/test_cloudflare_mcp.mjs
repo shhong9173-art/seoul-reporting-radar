@@ -1410,7 +1410,16 @@ test('us_recalls: NHTSA full-file recalls with Korean links reach A; imports alo
         firstSeen: '2026-10-25T17:10:00+09:00', isNew: true },
       { id: 'nhtsa:26V701000', campaign: '26V701000', received: '2026-10-24', makes: ['BMW'], models: 'X5 2026', component: 'BRAKES', affected: 300,
         defect: 'Brake hose.', url: 'https://www.nhtsa.gov/recalls?nhtsaId=26V701', why: [{ role: '제조사(출입처 브랜드)', beat: 'BMW코리아', name: 'BMW' }],
-        firstSeen: '2026-10-25T17:10:00+09:00', isNew: true }] };
+        firstSeen: '2026-10-25T17:10:00+09:00', isNew: true }],
+    invLookbackDays: 120,
+    investigations: [
+      { id: 'odi:PE26010', action: 'PE26010', type: '예비조사(PE)', kind: '조사 개시', opened: '2026-10-24', closed: null, models: 'HYUNDAI TUCSON 2025',
+        component: 'ELECTRICAL', subject: 'ICCU failure', summary: 'Loss of drive power.', recallCampaigns: [], tier: 'A',
+        why: [{ role: '제조사(출입처 브랜드)', beat: '현대차', name: '현대차' }], beat: ['현대차'], url: 'https://www.nhtsa.gov/recalls?nhtsaId=PE26010',
+        firstSeen: '2026-10-25T17:10:00+09:00', isNew: true },
+      { id: 'odi:EA25001', action: 'EA25001', type: '공학분석(EA, 격상 단계)', kind: '조사 개시', opened: '2026-07-01', closed: null, models: 'KIA EV6 2023',
+        component: 'SEATS', subject: 'Old probe', summary: '', recallCampaigns: [], tier: 'A', why: [{ role: '제조사(출입처 브랜드)', beat: '기아', name: '기아' }],
+        url: 'https://www.nhtsa.gov/recalls?nhtsaId=EA25001', firstSeen: '2026-10-20T17:10:00+09:00', isNew: false }] };
   assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/us-recalls', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
   const t = await call('us_recalls', {}, opts);
   assert.match(t.text, /\[신규\] 2026-10-24 · 26V698000 · 아우디\(제조사\(출입처 브랜드\)\) · SK온\(부품 공급사\(원보고서, 출입처 아님\)\)/);
@@ -1422,6 +1431,10 @@ test('us_recalls: NHTSA full-file recalls with Korean links reach A; imports alo
   const b = r.text.split('[B · ')[1].split('[C · ')[0];
   assert.match(a, /미국 리콜 26V698000 접수 2026-10-24 · Q4 E-TRON 2024~2025 · ELECTRICAL SYSTEM:PROPULSION · 대상 9,048대 · 실외 주차 권고 — 아우디\(제조사\(출입처 브랜드\)\)·SK온/);
   assert.match(b, /미국 리콜 26V701000/);
+  assert.match(a, /미국 NHTSA 예비조사\(PE\) PE26010 조사 개시 · HYUNDAI TUCSON 2025 · ELECTRICAL · 「ICCU failure」 · 개시 2026-10-24 — 조사 개시는 결함 확정 아님/);
+  assert.doesNotMatch(r.text, /Old probe/);  // first-read baseline with an old date
+  assert.match(t.text, /\[결함조사\(ODI\) · 최근 120일 개시·종결\] 출입처 관련 2건/);
+  assert.match(t.text, /\[신규\] 2026-10-24 · PE26010 예비조사\(PE\) 조사 개시 · 현대차\(제조사\(출입처 브랜드\)\)/);
   const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
   const hit = items.items.find((x) => x.id === 'nhtsa:26V698000');
   assert.deepEqual([hit.check.who, hit.check.terms], ['SK온', ['리콜', '아우디']]);

@@ -7,6 +7,9 @@
 - 원보고서(Part 573): 고른 리콜 중 실행당 PDF_BUDGET건은 NHTSA safetyIssues API로 보고서 파일 이름을 찾아 PDF를 열고
   '부품 공급사(Supplier Identification)' 칸을 읽는다(전체 리콜 파일의 부품 칸은 부품 이름이지 공급사가 아니다).
 - 미국 리콜이 국내 판매 차량에 해당하는지는 이 자료로 알 수 없다. 회사·국토부 확인 대상이다.
+- 결함조사(ODI): NHTSA 결함조사 파일(FLAT_INV.zip)에서 최근 120일에 열리거나 닫힌 조사 중 출입처 브랜드·한국GM 생산 차종·
+  한국 부품사 이름이 나온 것. 리콜보다 먼저 나오는 신호다(예비조사 PE → 공학분석 EA 격상 → 리콜 적정성 RQ).
+  조사 개시는 결함 확정이 아니고, 종결은 결함 없음 판정이 아니다.
 - 결과는 기자 전용 저장소(us-recalls)로만. 공개 로그는 건수만. 조회 실패는 0건이 아니다.
 """
 from __future__ import annotations
@@ -27,11 +30,16 @@ KST = dt.timezone(dt.timedelta(hours=9))
 SCHEMA = "us_recalls/v1"
 FLAT = "https://static.nhtsa.gov/odi/ffdd/rcl/FLAT_RCL_POST_2010.zip"
 ISSUES = "https://api.nhtsa.gov/safetyIssues/byNhtsaId"
+INV_FLAT = "https://static.nhtsa.gov/odi/ffdd/inv/FLAT_INV.zip"
 PDF_ROOT = "https://static.nhtsa.gov/odi/rcl"
 PAGE = "https://www.nhtsa.gov/recalls?nhtsaId="
 WINDOW_DAYS = 21
 KEEP_DAYS = 120
 PDF_BUDGET = 8
+INV_LOOKBACK = 120
+INV_TYPES = {"PE": "예비조사(PE)", "EA": "공학분석(EA, 격상 단계)", "RQ": "리콜 적정성 조사(RQ)", "DP": "결함 청원 검토(DP)",
+             "AQ": "감사 질의(AQ)", "RP": "리콜 청원 검토(RP)", "IR": "정보 요청(IR)"}
+DIRECT = {"현대차", "기아", "한국GM"}
 UA = "seoul-reporting-radar (github.com/shhong9173-art/seoul-reporting-radar)"
 # Field order of FLAT_RCL (RCL.txt, checked 2026-10-28: 29 fields).
 FIELDS = ("RECORD_ID CAMPNO MAKETXT MODELTXT YEARTXT MFGCAMPNO COMPNAME MFGNAME BGMAN ENDMAN RCLTYPECD POTAFF ODATE INFLUENCED_BY "
@@ -176,6 +184,107 @@ def part573(campaign, *, get, sleep):
     return {"report": url, "supplierBox": box, "suppliers": sups[:3], "supplierKorean": korean}, None
 
 
+def investigation_rows(lead):
+    """Beat relations of one ODI action across all its vehicles (the action's first row alone can hide a Hyundai model)."""
+    why = []
+    for v in lead.get("vehicles") or []:
+        make = str(v.get("make") or "").upper()
+        if make in BRANDS:
+            beat, name = BRANDS[make]
+            item = {"role": "제조사(출입처 브랜드)", "beat": beat, "name": name}
+        elif make in ("CHEVROLET", "BUICK") and GM_KOREA.match(str(v.get("model") or "")):
+            item = {"role": "한국GM 생산 차종", "beat": "한국GM", "name": f"{make.title()} {str(v.get('model')).title()}"}
+        else:
+            continue
+        if item not in why:
+            why.append(item)
+    for name, beat in suppliers_in(" ".join([lead.get("summary") or "", lead.get("subject") or "", lead.get("component") or "",
+                                             *(lead.get("manufacturers") or [])])):
+        item = {"role": "부품사(조사 요약)" if beat else "부품사(조사 요약, 출입처 아님)", "beat": name if beat else None, "name": name}
+        if item not in why:
+            why.append(item)
+    return why
+
+
+INV_FIELDS = ("action", "make", "model", "year", "component", "manufacturer", "opened", "closed", "campaign", "subject", "summary")
+
+
+def parse_inv(raw, since, until):
+    """ODI actions opened or closed between since and until (YYYYMMDD) whose rows name a beat make, a GM Korea model or a
+    Korean supplier. The file is ~4 MB zipped / 150k tab rows; it is streamed."""
+    import csv
+    leads = {}
+    with zipfile.ZipFile(io.BytesIO(raw)) as z:
+        names = [n for n in z.namelist() if n.lower().endswith((".txt", ".lst"))]
+        if len(names) != 1:
+            raise RuntimeError("결함조사 파일 형식 미상")
+        with z.open(names[0]) as f, io.TextIOWrapper(f, encoding="utf-8-sig", errors="replace", newline="") as fh:
+            csv.field_size_limit(15_000)
+            scanned = 0
+            for row in csv.reader(fh, delimiter="\t"):
+                if len(row) != 11:
+                    continue
+                scanned += 1
+                r = dict(zip(INV_FIELDS, (str(x or "").strip() for x in row)))
+                if not re.fullmatch(r"[A-Z0-9-]{3,14}", r["action"]) or not re.fullmatch(r"\d{8}", r["opened"]):
+                    continue
+                if not (since <= r["opened"] <= until or (re.fullmatch(r"\d{8}", r["closed"]) and since <= r["closed"] <= until)):
+                    continue
+                make = r["make"].upper()
+                text = " ".join([r["summary"], r["subject"], r["component"], r["manufacturer"]])
+                if not (make in BRANDS or (make in ("CHEVROLET", "BUICK") and GM_KOREA.match(r["model"])) or suppliers_in(text)):
+                    continue
+                lead = leads.setdefault(r["action"], {"actionNumber": r["action"], "openedDate": r["opened"], "closedDate": r["closed"],
+                                                       "component": r["component"], "subject": r["subject"], "summary": r["summary"],
+                                                       "vehicles": [], "recallCampaigns": [], "manufacturers": []})
+                if r["manufacturer"] and r["manufacturer"] not in lead["manufacturers"]:
+                    lead["manufacturers"].append(r["manufacturer"])
+                v = {"make": r["make"], "model": r["model"], "modelYear": r["year"]}
+                if v not in lead["vehicles"]:
+                    lead["vehicles"].append(v)
+                if r["campaign"] and r["campaign"] not in lead["recallCampaigns"]:
+                    lead["recallCampaigns"].append(r["campaign"])
+                lead["closedDate"] = lead["closedDate"] or r["closed"]
+    return list(leads.values()), scanned
+
+
+def investigations(raw, *, now, previous, had_state):
+    """ODI actions opened or closed in the last INV_LOOKBACK days that touch a beat company."""
+    items, scanned = parse_inv(raw, (now - dt.timedelta(days=INV_LOOKBACK)).strftime("%Y%m%d"), now.strftime("%Y%m%d"))
+    stamp = now.isoformat(timespec="seconds")
+    prev = {x["id"]: x for x in previous if isinstance(x, dict) and x.get("id")}
+    out = []
+    for lead in items:
+        why = investigation_rows(lead)
+        if not why:
+            continue
+        action = lead["actionNumber"]
+        iid = f"odi:{action}"
+        old = prev.get(iid, {})
+        opened, closed = kdate(lead.get("openedDate")), kdate(lead.get("closedDate"))
+        direct = any(w["beat"] in DIRECT or (str(w["role"]) == "부품사(조사 요약)") for w in why)
+        rec = {"id": iid, "action": action, "type": INV_TYPES.get(action[:2], action[:2]), "kind": "조사 종결" if closed else "조사 개시",
+               "opened": opened, "closed": closed,
+               "models": model_line([(f"{v.get('make')} {v.get('model')}".strip(), str(v.get("modelYear") or "")) for v in lead.get("vehicles") or []]),
+               "component": str(lead.get("component") or "")[:160], "subject": str(lead.get("subject") or "")[:200],
+               "summary": str(lead.get("summary") or "")[:600], "recallCampaigns": lead.get("recallCampaigns") or [],
+               "why": why, "beat": sorted({w["beat"] for w in why if w["beat"]}), "url": PAGE + action,
+               # A: a probe opened (or escalated) on a Hyundai/Kia/GM Korea car or naming a Korean supplier; its close is B;
+               # imported brands' probes are B when opened, C when closed
+               "tier": ("A" if not closed else "B") if direct else ("B" if not closed else "C"),
+               "firstSeen": old.get("firstSeen") or stamp}
+        rec["isNew"] = bool(had_state and iid not in prev)
+        if old and closed and not old.get("closed"):
+            rec["isNew"], rec["changedAt"] = True, stamp  # a watched probe was closed
+        elif old.get("changedAt"):
+            rec["changedAt"] = old["changedAt"]
+        out.append(rec)
+    keep_from = (now - dt.timedelta(days=KEEP_DAYS)).strftime("%Y-%m-%d")
+    ids = {x["id"] for x in out}
+    out += [dict(x, isNew=False) for x in prev.values() if x["id"] not in ids and str(x.get("closed") or x.get("opened") or "") >= keep_from]
+    return sorted(out, key=lambda x: (x.get("closed") or x.get("opened") or "", x["id"]), reverse=True), scanned
+
+
 def run(*, now, previous=None, get=None, sleep=time.sleep):
     if get is None:
         import requests
@@ -248,14 +357,26 @@ def run(*, now, previous=None, get=None, sleep=time.sleep):
     recalls = sorted(out.values(), key=lambda x: (x["received"], x["affected"]), reverse=True)
     for x in recalls:
         x["isNew"] = bool(had_state and x["id"] not in prev)
+    # ODI defect investigations: the first run that reads them is their baseline
+    inv_prev = (previous or {}).get("investigations")
+    try:
+        r = get(INV_FLAT, headers={"User-Agent": UA}, timeout=180)
+        if r.status_code != 200:
+            raise RuntimeError(f"HTTP {r.status_code}")
+        invs, scanned = investigations(r.content, now=now, previous=inv_prev or [], had_state=inv_prev is not None)
+        checks.append({"source": "NHTSA 결함조사(ODI)", "status": "ok", "rows": scanned, "matched": len(invs)})
+    except Exception as e:  # noqa: BLE001
+        invs = [dict(x, isNew=False) for x in inv_prev or []]
+        checks.append({"source": "NHTSA 결함조사(ODI)", "status": "failed", "error": str(e)[:80] or type(e).__name__})
     return {"schema": SCHEMA, "generatedAt": stamp, "status": "complete" if all(c["status"] == "ok" for c in checks) else "partial",
-            "windowDays": WINDOW_DAYS, "checks": checks, "recalls": recalls,
+            "windowDays": WINDOW_DAYS, "checks": checks, "recalls": recalls, "investigations": invs, "invLookbackDays": INV_LOOKBACK,
             "baselineSince": (previous or {}).get("baselineSince") or stamp, "rules": RULES, "confirmedScoops": 0}
 
 
 RULES = ["NHTSA 전체 리콜 파일에서 접수일 최근 21일 리콜 중 출입처 브랜드·한국GM 생산 차종·한국 타이어 3사·한국 부품사 이름이 나온 것만.",
          "부품사 이름은 결함 설명·부품 칸·원보고서(Part 573) 공급사 칸에 적힌 경우만이다. 원인 제공자라는 뜻은 아니다.",
          "미국 리콜이 국내 판매 차량에 해당하는지는 이 자료로 알 수 없다. 회사·국토부(자동차리콜센터) 확인 대상이다.",
+         "결함조사(ODI)는 최근 120일에 열리거나 닫힌 조사다. 조사 개시는 결함 확정이 아니고, 종결은 결함 없음 판정이 아니다.",
          "첫 실행은 기준선이다. 조회 실패는 0건이 아니라 미확인."]
 
 
@@ -276,7 +397,9 @@ def main():
     for x in doc["recalls"]:
         for w in x["why"]:
             roles[w["role"]] = roles.get(w["role"], 0) + 1
+    invs = doc.get("investigations") or []
     print(f"::notice title=us-recalls::상태 {doc['status']} · 출입처 관련 리콜 {len(doc['recalls'])}건(신규 {sum(1 for x in doc['recalls'] if x['isNew'])}) · "
+          f"결함조사 {len(invs)}건(신규·종결 {sum(1 for x in invs if x.get('isNew'))}, A {sum(1 for x in invs if x.get('tier') == 'A')}) · "
           f"분류 {roles} · 점검 {[(c['source'], c['status']) for c in doc['checks']]}")
     if not token:
         print("::warning title=us-recalls-push::MCP_ACCESS_TOKEN 미설정 — 결과를 저장하지 않음")
