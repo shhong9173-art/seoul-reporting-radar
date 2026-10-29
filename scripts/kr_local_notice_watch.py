@@ -144,20 +144,38 @@ def detail_url(base, mgt):
             "&homepage_pbs_yn=Y&subCheck=Y&jndinm=OfrNotAncmtEJB&context=NTIS")
 
 
+def fetch_page(base, page, post, sleep):
+    last = None
+    for attempt in range(2):  # 10-30: 포항은 같은 날 33초에 응답하다가 75초도 넘기기도 했다 — 한 번 더
+        try:
+            r = post(base + PATH, data={**LIST, "pageIndex": str(page)}, headers={**UA, "Referer": base + PATH}, timeout=TIMEOUT)
+            if r.status_code != 200:
+                raise RuntimeError(f"HTTP {r.status_code}")
+            return r.text
+        except Exception as e:  # noqa: BLE001
+            last = e
+            sleep(5.0)
+    raise last
+
+
 def fetch_city(city, base, post, sleep):
+    """Rows of the first PAGES pages, and a note when a later page failed (the first page's rows are kept)."""
     rows = []
     for page in range(1, PAGES + 1):
-        r = post(base + PATH, data={**LIST, "pageIndex": str(page)}, headers={**UA, "Referer": base + PATH}, timeout=TIMEOUT)
-        if r.status_code != 200:
-            raise RuntimeError(f"HTTP {r.status_code}")
-        got = parse_rows(r.text)
+        try:
+            text = fetch_page(base, page, post, sleep)
+        except Exception as e:  # noqa: BLE001
+            if page == 1:
+                raise
+            return rows, f"{page}쪽 {error_kind(e)} — 최신 {len(rows)}건만 봄"
+        got = parse_rows(text)
         if not got:
             if page == 1:
                 raise RuntimeError("목록 형식 미상")
             break
         rows += got
         sleep(0.5)
-    return rows
+    return rows, None
 
 
 def error_kind(e):
@@ -179,7 +197,8 @@ def run(*, now, previous=None, post=None, sleep=time.sleep, cities=CITIES):
     def one(c):
         city, base, plants = c
         try:
-            return c, fetch_city(city, base, post, sleep), None
+            rows, note = fetch_city(city, base, post, sleep)
+            return c, rows, note
         except Exception as e:  # noqa: BLE001
             return c, None, error_kind(e)
 
@@ -209,8 +228,9 @@ def run(*, now, previous=None, post=None, sleep=time.sleep, cities=CITIES):
         order = [r["mgt"] for r in rows] + [m for m in seen.get(city) or [] if m not in {r["mgt"] for r in rows}]
         seen[city] = order[:SEEN_MAX]
         oldest_seen_reached = any(r["mgt"] in set(prev.get("seen", {}).get(city) or []) for r in rows) or baseline
-        checks.append({"source": city, "status": "ok" if oldest_seen_reached else "partial", "returned": len(rows), "matched": new,
-                       **({} if oldest_seen_reached else {"error": f"최신 {len(rows)}건 안에 지난 실행 공고가 없음 — 그 사이 공고 일부 미확인"})})
+        notes = [n for n in (err, None if oldest_seen_reached else f"최신 {len(rows)}건 안에 지난 실행 공고가 없음 — 그 사이 공고 일부 미확인") if n]
+        checks.append({"source": city, "status": "partial" if notes else "ok", "returned": len(rows), "matched": new,
+                       **({"error": "; ".join(notes)} if notes else {})})
     for iid, x in out.items():
         if iid in old and x is old[iid]:
             x["isNew"] = False

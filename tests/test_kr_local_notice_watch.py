@@ -92,6 +92,19 @@ class Local(unittest.TestCase):
         self.assertIn("울주군", second["seen"])  # 실패한 시·군의 기억은 유지
         self.assertTrue(any(x["id"].startswith("local:울주군") for x in second["items"]))
 
+    def test_page_two_failure_keeps_page_one(self):
+        calls = {"n": 0}
+
+        def post(url, data=None, headers=None, timeout=None):
+            if data["pageIndex"] == "2":
+                return Resp("", 400)
+            return Resp(page(DJ1, TD_ROW))
+        doc = w.run(now=NOW, previous=None, post=post, sleep=lambda s: None, cities=CITIES[:1])
+        self.assertEqual(doc["checks"][0]["status"], "partial")
+        self.assertIn("2쪽 HTTP 400", doc["checks"][0]["error"])
+        self.assertEqual(doc["checks"][0]["returned"], 2)
+        self.assertEqual(doc["status"], "partial")
+
     def test_gap_is_reported(self):
         first = w.run(now=NOW, previous=None, post=fake({"https://eminwon.dangjin.go.kr": page(DJ1, TD_ROW)}), sleep=lambda s: None, cities=CITIES[:1])
         later = [(str(60000 + i), str(400 + i), f"공고 {i}", "2026-11-05") for i in range(3)]
