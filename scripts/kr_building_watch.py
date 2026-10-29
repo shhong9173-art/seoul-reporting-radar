@@ -297,6 +297,17 @@ def run(keys, factories, *, now, previous=None, get=None, sleep=time.sleep, cloc
             for p in parcels.values():
                 if p.get("sigunguCd"):
                     p.setdefault("archFirst", previous.get("generatedAt"))
+    if isinstance(previous, dict) and previous.get("pagedMarked") and not previous.get("archPagedMarked"):
+        # 10-29 17:50: lots that failed in the first paged run were paged for the first time in the next one and their
+        # page-2+ permits were stored as new (20). Those rows are a baseline; lots paged cleanly then are marked as paged.
+        for x in previous.get("permits") or []:
+            if x.get("isNew") and x.get("firstSeen") == previous.get("generatedAt") and x.get("kind") == "새 허가":
+                x["baseline"], x["isNew"] = True, False
+        failed = {str(x.get("parcel")) for x in previous.get("archFailed") or []}
+        bad_groups = {(p.get("sigunguCd"), p.get("bjdongCd"), p.get("platGbCd"), p.get("bun")) for p in parcels.values() if str(p.get("jibun") or p.get("road")) in failed}
+        for p in parcels.values():
+            if p.get("sigunguCd") and p.get("archFirst") and (p.get("sigunguCd"), p.get("bjdongCd"), p.get("platGbCd"), p.get("bun")) not in bad_groups:
+                p.setdefault("archPaged", previous.get("generatedAt"))
     ttl = (now - dt.timedelta(days=PARCEL_TTL_DAYS)).isoformat()
     checks, refused = [], None
     addr_ok = addr_fail = addr_left = streak = 0
@@ -319,6 +330,8 @@ def run(keys, factories, *, now, previous=None, get=None, sleep=time.sleep, cloc
             fresh = parcel_for(f, juso, stamp)
             if p and p.get("archFirst") and all(p.get(k) == fresh.get(k) for k in ("sigunguCd", "bjdongCd", "platGbCd", "bun")):
                 fresh["archFirst"] = p["archFirst"]  # same parcel re-resolved after the TTL: not a first look
+                if p.get("archPaged"):
+                    fresh["archPaged"] = p["archPaged"]
             parcels[fid] = fresh
             streak = 0
             if fresh.get("error"):
@@ -383,9 +396,11 @@ def run(keys, factories, *, now, previous=None, get=None, sleep=time.sleep, cloc
         own_lots = {(int((parcels.get(f["id"]) or {}).get("bun") or 0), int((parcels.get(f["id"]) or {}).get("ji") or 0)) for f in facs}
         # permits at a parcel looked at for the first time (first run, a parcel left over by the time limit,
         # a newly registered plant) are its baseline, not new
-        first_look = baseline or any(not (parcels.get(f["id"]) or {}).get("archFirst") for f in facs)
+        # a lot is fully seen only after one clean query of all its pages (archPaged): until then its rows are a baseline
+        first_look = baseline or any(not (parcels.get(f["id"]) or {}).get("archPaged") for f in facs)
         for f in facs:
             parcels[f["id"]].setdefault("archFirst", stamp)
+            parcels[f["id"]].setdefault("archPaged", stamp)
         for r in rows:
             pk = str(r.get("mgmPmsrgstPk") or "")
             if not pk:
@@ -435,7 +450,7 @@ def run(keys, factories, *, now, previous=None, get=None, sleep=time.sleep, cloc
             "rules": RULES, "plants": len(factories), "archFailed": arch_failed[:80],
             "unresolved": [{"company": f["company"], "plant": f.get("cmpnyNm"), "road": road_query(f.get("rnAdres")),
                             "error": (parcels.get(f["id"]) or {}).get("error") or "미조회"}
-                           for f in factories if not (parcels.get(f["id"]) or {}).get("sigunguCd")][:80], "parcelsResolved": sum(1 for p in parcels.values() if p.get("sigunguCd")), "baselineMarked": True, "archFirstMarked": True, "pagedMarked": True,
+                           for f in factories if not (parcels.get(f["id"]) or {}).get("sigunguCd")][:80], "parcelsResolved": sum(1 for p in parcels.values() if p.get("sigunguCd")), "baselineMarked": True, "archFirstMarked": True, "pagedMarked": True, "archPagedMarked": True,
             "baselineSince": (previous or {}).get("baselineSince") or (stamp if status != "unset" else None)}
 
 
