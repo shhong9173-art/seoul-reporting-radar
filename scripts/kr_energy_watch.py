@@ -342,8 +342,10 @@ def run(*, now, previous=None, get=None, post=None, sleep=time.sleep, nssc_sessi
         it["baseline"] = bool(prev.get("baseline")) if prev else baseline
         it["isNew"] = not prev and not baseline
         if prev and it.get("result") and it.get("result") != prev.get("result"):
-            it["resultSeen"] = stamp  # 의결 결과가 새로 붙음
-            it["isNew"] = not baseline
+            # 의결 결과가 새로 붙음. 회의가 1주보다 오래됐으면 읽는 규칙이 늘어 채워진 것(예: '재상정')이라 조용히 고친다.
+            recent_meeting = str(it.get("held") or "") >= (now - dt.timedelta(days=7)).date().isoformat()
+            it["resultSeen"] = stamp if recent_meeting else prev.get("resultSeen")
+            it["isNew"] = not baseline and recent_meeting
         elif prev:
             it["resultSeen"] = prev.get("resultSeen")
         items[it["id"]] = it
