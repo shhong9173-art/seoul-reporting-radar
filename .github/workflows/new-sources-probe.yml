@@ -8,7 +8,7 @@ permissions:
 jobs:
   probe:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
         with:
@@ -21,4 +21,5 @@ jobs:
           ASSEMBLY_API_KEY: ${{ secrets.ASSEMBLY_API_KEY }}
           CENSUS_API_KEY: ${{ secrets.CENSUS_API_KEY }}
           COURTLISTENER_TOKEN: ${{ secrets.COURTLISTENER_TOKEN }}
+          CUSTOMS_API_KEY: ${{ secrets.CUSTOMS_API_KEY }}
         run: python scripts/probe/award_probe.py
