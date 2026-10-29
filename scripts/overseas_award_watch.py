@@ -62,10 +62,10 @@ COMPANIES = [
     ("세아제강", r"\bseah\s+steel", "SeAH", "SeAH"),
     ("한국수력원자력", r"korea\s+hydro\s*(?:&|and)\s*nuclear|\bkhnp\b", "Korea Hydro", "Korea Hydro"),
     ("한국전력", r"korea\s+electric\s+power|\bkepco\b", "KEPCO", "KEPCO"),
-    ("한화", r"\bhanwha\s+(?:q\s*cells|solutions|ocean|aerospace|energy)", "Hanwha", "Hanwha"),
+    ("한화솔루션", r"\bhanwha\s+(?:q\s*cells|solutions|energy)", "Hanwha", "Hanwha"),  # 방산·조선(에어로스페이스·오션)은 출입처 밖
     ("현대차", r"\bhyundai\s+motor", "Hyundai Motor", None),
     ("기아", r"\bkia\s+(?:corporation|motors?|europe|slovakia|deutschland|uk|ireland|sweden|austria|belgique|belgium|nederland|"
-            r"czech|polska|iberia|italia|france|portugal|hungary|slovenija)", "Kia", None),
+            r"czech|polska|iberia|italia|france|portugal|hungary|slovenija)", None, None),  # 'Kia' 전문 검색은 잡음(10-29 탐침 851건 중 0건)
     ("현대모비스", r"\bhyundai\s+mobis", "Hyundai Mobis", None),
     ("현대로템", r"\bhyundai\s+rotem", "Hyundai Rotem", "Hyundai Rotem"),
     ("고려아연", r"\bkorea\s+zinc", "Korea Zinc", None),
@@ -91,10 +91,14 @@ def norm_space(s):
 
 
 def beat_of(name):
+    name = str(name or "").replace("_", " ")  # TED joins a country prefix: 'DE_POONGSAN CORPORATION'
     for ko, rx in COMPANY_RX:
-        if rx.search(name or ""):
+        if rx.search(name):
             return ko
     return None
+
+
+AUTOMAKERS = {"현대차", "기아"}
 
 
 def ted_text(v):
@@ -434,7 +438,10 @@ def bahrain(previous_seen, *, get=None):
                 raise RuntimeError(f"HTTP {pr.status_code}")
             if len(pr.content) > BH_MAX_BYTES:
                 raise RuntimeError("파일이 너무 큼")
-            got = bh_items(pdf_text(pr.content), rep["subject"], rep["href"])
+            text = pdf_text(pr.content)
+            if len(text.strip()) < 500:
+                raise RuntimeError(f"PDF 글자 추출 {len(text.strip())}자 — 스캔 이미지일 수 있음(0건 아님)")
+            got = bh_items(text, rep["subject"], rep["href"])
             items += got
             seen.append(rep["href"])
             checks.append({"source": "바레인 입찰위원회", "query": rep["subject"], "status": "ok", "returned": 1, "matched": len(got)})
@@ -449,7 +456,12 @@ def bahrain(previous_seen, *, get=None):
 def tier_of(it):
     if not it.get("company"):
         return "C"
-    return "B" if it.get("kind") == "계약 변경" or it.get("source") == "바레인 입찰위원회" else "A"
+    if it.get("kind") == "계약 변경" or it.get("source") == "바레인 입찰위원회":
+        return "B"
+    # 완성차 현지 판매법인(예: Hyundai Motor Czech)의 관용차 납품은 본사 수주가 아니다.
+    if it["company"] in AUTOMAKERS and "KOR" not in (it.get("winnerCountry") or []) and not KOREA_RX.search(" ".join(it.get("winnerCountry") or [])):
+        return "B"
+    return "A"
 
 
 def since_of(previous, now):
