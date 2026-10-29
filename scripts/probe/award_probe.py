@@ -1,4 +1,4 @@
-"""격리 탐침 27: 새올 고시공고(POST 목록)가 출입처 공장이 있는 시·군에서 되는지 — 주소별 HTTP·전체 건수·첫 제목."""
+"""격리 탐침 28: 새올 고시공고 제목 검색 — 출입처 이름이 고시·공고 제목에 얼마나·언제 나오는지(당진·아산·여수·울주·군산·서산·동해)."""
 import re
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -8,21 +8,16 @@ import requests
 UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
       "Accept-Language": "ko-KR,ko;q=0.9"}
 PATH = "/emwp/gov/mogaha/ntis/web/ofr/action/OfrAction.do"
-DATA = {"method": "selectListOfrNotAncmt", "methodnm": "selectListOfrNotAncmtHomepage", "homepage_pbs_yn": "Y", "subCheck": "Y",
+BASE = {"method": "selectListOfrNotAncmt", "methodnm": "selectListOfrNotAncmtHomepage", "homepage_pbs_yn": "Y", "subCheck": "Y",
         "ofr_pageSize": "10", "not_ancmt_se_code": "01,02,03,04,05", "initValue": "Y", "countYn": "Y", "list_gubun": "A", "pageIndex": "1",
         "jndinm": "OfrNotAncmtEJB", "context": "NTIS", "method_type": ""}
-HOSTS = {
-    "당진": ["eminwon.dangjin.go.kr"], "포항": ["eminwon.pohang.go.kr"], "광양": ["eminwon.gwangyang.go.kr"], "아산": ["eminwon.asan.go.kr"],
-    "여수": ["eminwon.yeosu.go.kr"], "창원": ["eminwon.changwon.go.kr"], "군산": ["eminwon.gunsan.go.kr"], "익산": ["eminwon.iksan.go.kr"],
-    "평택": ["eminwon.pyeongtaek.go.kr"], "화성": ["eminwon.hscity.go.kr", "eminwon.hwaseong.go.kr"], "광명": ["eminwon.gm.go.kr", "eminwon.gwangmyeong.go.kr"],
-    "서산": ["eminwon.seosan.go.kr"], "보령": ["eminwon.brcn.go.kr", "eminwon.boryeong.go.kr"], "금산": ["eminwon.geumsan.go.kr"],
-    "청주": ["eminwon.cheongju.go.kr"], "천안": ["eminwon.cheonan.go.kr"], "동해": ["eminwon.dh.go.kr", "eminwon.donghae.go.kr"],
-    "양산": ["eminwon.yangsan.go.kr"], "창녕": ["eminwon.cng.go.kr", "eminwon.changnyeong.go.kr"], "곡성": ["eminwon.gokseong.go.kr"],
-    "봉화": ["eminwon.bonghwa.go.kr"], "구미": ["eminwon.gumi.go.kr"], "울주": ["eminwon.ulju.ulsan.kr", "eminwon.ulju.go.kr"],
-    "울산남구": ["eminwon.ulsannamgu.go.kr", "eminwon.namgu.ulsan.kr"], "울산북구": ["eminwon.bukgu.ulsan.kr"], "울산동구": ["eminwon.donggu.ulsan.kr"],
-    "인천부평": ["eminwon.icbp.go.kr"], "부산강서": ["eminwon.bsgangseo.go.kr"], "광주광산": ["eminwon.gwangsan.go.kr"], "대전대덕": ["eminwon.daedeok.go.kr"],
-    "온산(울주)": [], "영주": ["eminwon.yeongju.go.kr"], "진천": ["eminwon.jincheon.go.kr"], "음성": ["eminwon.eumseong.go.kr"],
-}
+CITIES = {"당진": ("https://eminwon.dangjin.go.kr", ["현대제철", "KG스틸", "케이지스틸", "동국제강", "현대", "제철", "공장"]),
+          "아산": ("https://eminwon.asan.go.kr", ["현대자동차", "현대", "공장"]),
+          "여수": ("https://eminwon.yeosu.go.kr", ["GS칼텍스", "지에스칼텍스", "한화솔루션", "디엘케미칼", "DL", "공장"]),
+          "울주": ("http://eminwon.ulju.ulsan.kr", ["고려아연", "엘에스엠앤엠", "LS", "온산", "공장"]),
+          "군산": ("https://eminwon.gunsan.go.kr", ["세아", "OCI", "오씨아이", "공장"]),
+          "서산": ("https://eminwon.seosan.go.kr", ["현대", "한화", "공장"]),
+          "동해": ("https://eminwon.dh.go.kr", ["LS", "엘에스", "공장"])}
 
 
 def text_of(html):
@@ -31,31 +26,28 @@ def text_of(html):
     return re.sub(r"(\s*¦\s*)+", " ¦ ", re.sub(r"\s+", " ", t))
 
 
-def try_city(item):
-    city, hosts = item
+def city(item):
+    name, (host, kws) = item
     res = []
-    for h in hosts:
-        for scheme in ("https", "http"):
-            t0 = time.time()
-            try:
-                r = requests.post(f"{scheme}://{h}{PATH}", data=DATA, headers={**UA, "Referer": f"{scheme}://{h}{PATH}"}, timeout=20)
-                t = text_of(r.text)
-                total = re.search(r"전체게시물\s*:\s*([\d,]+)", t)
-                first = re.search(r"(고시|공고)\s*제[\d-]+호 ¦ ([^¦]{0,60})", t)
-                res.append(f"{city} {scheme}://{h} HTTP {r.status_code} {time.time()-t0:.1f}s total={total.group(1) if total else None} first={first.group(2).strip() if first else None}")
-                if total:
-                    return res
-                break
-            except Exception as e:  # noqa: BLE001
-                res.append(f"{city} {scheme}://{h} EXC {type(e).__name__} {time.time()-t0:.1f}s")
+    for kw in kws:
+        t0 = time.time()
+        try:
+            r = requests.post(host + PATH, data={**BASE, "not_ancmt_sj": kw, "searchKeyword": kw}, headers={**UA, "Referer": host + PATH}, timeout=40)
+            t = text_of(r.text)
+            total = re.search(r"전체게시물\s*:\s*([\d,]+)", t)
+            rows = re.findall(r"((?:고시|공고)\s*제[\d-]+호) ¦ ([^¦]{0,70}) ¦ ([^¦]{0,15}) ¦ (\d{4}-\d{2}-\d{2})", t)
+            res.append(f"{name}/{kw} HTTP {r.status_code} {time.time()-t0:.0f}s total={total.group(1) if total else None} :: "
+                       + " ; ".join(f"{d} {ttl.strip()[:55]}" for _, ttl, _, d in rows[:4]))
+        except Exception as e:  # noqa: BLE001
+            res.append(f"{name}/{kw} EXC {type(e).__name__}")
+        time.sleep(0.7)
     return res
 
 
 out = []
-with ThreadPoolExecutor(6) as ex:
-    for lines in ex.map(try_city, HOSTS.items()):
+with ThreadPoolExecutor(4) as ex:
+    for lines in ex.map(city, CITIES.items()):
         out.extend(lines)
-
 packs, cur = [], ""
 for x in out:
     x = x.replace("\n", " ").replace("::", ": :").replace("%", "pct")
