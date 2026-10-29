@@ -100,8 +100,21 @@ class Capture(unittest.TestCase):
         self.assertEqual(sent["doc"]["feedsEmpty"], ["trademarks"])
         self.assertEqual(sent["doc"]["feedsFailed"], ["kr-signals:StoreError"])
         self.assertIn("저장 결과 없음 ['trademarks']", buf.getvalue())
-        self.assertIn("감시 읽음 12/14", buf.getvalue())
+        self.assertIn("감시 읽음 16/18", buf.getvalue())
 
+
+    def test_plant_permit_before_the_article(self):
+        trace = {"generatedAt": "2026-11-20T15:00:00+09:00", "items": [
+            {"articleId": "b1", "title": "[단독] LS전선, 구미에 희토류 영구자석 공장 증설", "published": "2026-11-18T08:00:00+09:00",
+             "sourceName": "X", "companies": ["LS전선"]}]}
+        docs = {"kr-building": {"permits": [
+            {"id": "bld:1", "company": "LS전선", "companies": ["LS전선"], "archGbCdNm": "신축", "mainPurpsCdNm": "공장", "plot": "경상북도 구미시 공단동 1",
+             "tier": "A", "firstSeen": "2026-11-02T07:45:00+09:00", "permitted": "2026-10-20"},
+            {"id": "bld:2", "company": "LS전선", "companies": ["LS전선"], "archGbCdNm": "증축", "tier": "C", "firstSeen": "2026-11-02T07:45:00+09:00"}]}}
+        doc = r.run(trace, docs, {"items": []}, now=dt.datetime(2026, 11, 20, 19, 20, tzinfo=r.KST))
+        a = doc["articles"][0]
+        self.assertEqual(a["verdict"], "먼저 잡은 후보")
+        self.assertEqual((a["best"]["label"], a["best"]["id"]), ("공장 부지 건축허가", "bld:1"))
 
     def test_new_car_filing_before_the_article(self):
         trace = {"generatedAt": "2026-10-28T15:00:00+09:00", "items": [
