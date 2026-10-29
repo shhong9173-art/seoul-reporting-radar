@@ -72,13 +72,53 @@ export async function pageChanges(ctx, args) {
   return textResult(out.join('\n'));
 }
 
+const AWARD_DAYS = 120;
+
+// Overseas public-buyer award notices (overseas-awards feed), shown under partner_filings so no new connector tool is needed.
+async function awardSection(ctx, q, onlyNew, limit) {
+  const doc = await readFeed(ctx, 'overseas-awards');
+  if (!doc) return ['\n[해외 발주처 낙찰] 결과 없음 — 미확인(평일 06:50·17:30 실행 확인)'];
+  if (doc.broken) return ['\n[해외 발주처 낙찰] 저장 형식 오류 — 미확인'];
+  const by = {};
+  for (const c of doc.checks ?? []) {
+    const b = (by[c.source] ??= { ok: 0, all: 0, failed: [] });
+    b.all += 1;
+    if (c.status === 'failed') b.failed.push(`${c.query}(${c.error ?? '실패'})`); else b.ok += 1;
+    if (c.note && /미확인/.test(c.note)) b.failed.push(`${c.query}(${c.note})`);
+  }
+  const from = new Date(ctx.now.getTime() - AWARD_DAYS * 86400000).toISOString().slice(0, 10);
+  const all = (doc.items ?? []).filter((x) => String(x.published ?? x.firstSeen).slice(0, 10) >= from && (!onlyNew || x.isNew)
+    && matches(q, x.company, (x.winners ?? []).join(' '), x.buyer, x.title, x.buyerCountry));
+  const rank = { A: 0, B: 1, C: 2 };
+  const rows = all.filter((x) => q || x.tier !== 'C').sort((a, b) => (rank[a.tier] ?? 3) - (rank[b.tier] ?? 3)
+    || String(b.published ?? '').localeCompare(String(a.published ?? '')));
+  const others = all.length - rows.length;
+  const out = [`\n[해외 발주처 낙찰 · ${doc.coverage ?? 'EU TED·영국 FTS·세계은행·바레인'} · 공고 최근 ${AWARD_DAYS}일] 출입처 ${rows.length}건${others ? ` · 출입처 밖 한국 기업 ${others}건(company 낱말로 보기)` : ''} · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt)}`,
+    `원천: ${Object.entries(by).map(([k, b]) => `${k} ${b.ok}/${b.all} 정상${b.failed.length ? `(미확인: ${b.failed.slice(0, 3).join(', ')})` : ''}`).join(' · ')}`,
+    ...(doc.rules ?? []).map((r) => `규칙: ${r}`)];
+  for (const x of rows.slice(0, limit)) {
+    const value = x.value ? `${x.currency ?? ''} ${Number(x.value).toLocaleString('en-US', { maximumFractionDigits: 0 })}` : '금액 미기재';
+    const ids = (x.winnerIds ?? []).length ? `, 식별번호 ${x.winnerIds.join('·')}` : '';
+    out.push(`\n${x.isNew ? '[신규] ' : ''}${x.published ?? '공고일 미기재'} · ${x.source} ${x.kind} · ${x.company ?? '출입처 밖 한국 기업'} · 발주 ${x.buyer}${x.buyerCountry ? `(${x.buyerCountry})` : ''}`);
+    out.push(`   잡힌 사실: 낙찰자 ${(x.winners ?? []).join(' / ') || '보고서 줄 참조'}${(x.winnerCountry ?? []).length ? `(${x.winnerCountry.join('·')}${ids})` : ''} · ${x.title} · ${value}${x.priceKind ? `(${x.priceKind})` : ''}${x.concluded ? ` · 계약 ${x.concluded}` : ''}${x.report ? ` · ${x.report}` : ''}`);
+    out.push(`   원문: ${x.url ?? '링크 없음'}`);
+    out.push(`   검증 상태: 공고의 낙찰자 칸${x.source === '바레인 입찰위원회' ? '(월간 보고서 줄 — 발주처·금액은 PDF 원문 확인)' : ''}. 계약 범위·금액·출입처 공시·보도 여부는 원문과 news_check로 확인`);
+  }
+  if (rows.length > limit) out.push(`… 남은 ${rows.length - limit}건`);
+  if (!rows.length) out.push('조건에 맞는 출입처 낙찰 없음(위 미확인 원천은 0건 아님).');
+  return out;
+}
+
 export async function partnerFilings(ctx, args) {
-  const doc = await readFeed(ctx, 'partner-filings');
-  if (!doc) return missing('해외 파트너 공시', '평일 07:00');
-  if (doc.broken) return textResult('저장된 파트너 공시 결과 형식 오류 — 미확인.', true);
   const q = String(args.company ?? '').trim();
+  const onlyNewArg = args.only_new === true || args.only_new === 'true';
+  const limitArg = clampInt(args.limit, 1, 60, 20);
   const src = ['ASX', 'HKEX', 'EDGAR'].includes(args.source) ? args.source : null;
-  const onlyNew = args.only_new === true || args.only_new === 'true';
+  const awards = src ? [] : await awardSection(ctx, q, onlyNewArg, limitArg);
+  const doc = await readFeed(ctx, 'partner-filings');
+  if (!doc) return awards.length ? textResult([missing('해외 파트너 공시', '평일 07:00').content[0].text, ...awards].join('\n')) : missing('해외 파트너 공시', '평일 07:00');
+  if (doc.broken) return textResult(['저장된 파트너 공시 결과 형식 오류 — 미확인.', ...awards].join('\n'), true);
+  const onlyNew = onlyNewArg;
   // Routine ASX notices (AGM, director interests) are hidden unless asked for.
   const onlyFlagged = !(args.include_routine === true || args.include_routine === 'true');
   const limit = clampInt(args.limit, 1, 60, 20);
@@ -103,7 +143,9 @@ export async function partnerFilings(ctx, args) {
   if (rows.length > limit) out.push(`… 남은 ${rows.length - limit}건`);
   if (!rows.length) out.push('\n조건에 맞는 공시 없음(위 미확인 질의는 0건 아님).');
   if (hiddenRoutine) out.push(`(일상 공시 ${hiddenRoutine}건 숨김 — ASX 주총·임원 지분, HKEX 월간 증권 변동·이사회 일정·정기보고서, EDGAR 투자 보유 표·반복 문구: include_routine=true)`);
-  out.push('\n다음: EDGAR 원문은 source_document(sec.gov)로, ASX·HKEX 공시 PDF는 브라우저로 연다 → 출입처 이름·지분·물량·가격·조건 문구 확인 → news_check.');
+  out.push(...awards);
+  out.push('\n다음: EDGAR 원문은 source_document(sec.gov)로, ASX·HKEX 공시 PDF는 브라우저로 연다 → 출입처 이름·지분·물량·가격·조건 문구 확인 → news_check.'
+    + (awards.length ? ' 해외 낙찰은 공고 원문(TED·FTS·세계은행)에서 낙찰자·금액·계약일 확인 → 출입처 DART 단일판매·공급계약 공시 여부(dart_find_text) → news_check.' : ''));
   return textResult(out.join('\n'));
 }
 

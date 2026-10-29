@@ -146,6 +146,14 @@
 - 키: `CUSTOMS_API_KEY`(공장등록·관보와 같은 공공데이터포털 계정 키) → `G2B_API_KEY`. **이 데이터에 활용신청이 돼 있어야 한다.** 안 돼 있으면 radar_today에 '미설정(활용신청 필요)'으로 뜬다 — 0건이 아니다.
 - 연비 신고는 출시 확정이 아니다. 출시 시점·가격·사양은 회사 확인.
 
+## 해외 발주처 낙찰(partner_filings 안, 기자 전용)
+
+- 원천: EU TED 낙찰 공고(can-*)의 낙찰자 이름·국가·식별번호 칸(한국 국적 낙찰자 질의 1번 + 출입처 영문명 질의), 영국 Find a Tender 낙찰 단계 OCDS 릴리스의 공급사, 세계은행 'Contract Award' 공고의 'Awarded Bidder(s)' 칸(탈락·평가 명단은 버림), 바레인 입찰위원회 월간 낙찰 보고서(PDF).
+- GitHub Actions `Overseas Award Notices Watch`가 평일 06:50·17:30 KST(Cloudflare 요청)에 돈다. 첫 실행은 최근 120일 기준선, 그 뒤로는 직전 성공 3일 전부터 다시 본다. 결과는 `overseas-awards` 비공개 저장소로만, 공개 로그는 건수만.
+- radar_today: 출입처가 낙찰자 = A(완성차 현지 판매법인 납품은 B), 계약 변경 공고·바레인 보고서 줄 = B, 출입처 밖 한국 기업 = C. 자세히는 `partner_filings`(source를 비울 때) 아래 '[해외 발주처 낙찰]'.
+- TED 공고는 계약 뒤 몇 주~몇 달 늦게 올라온다. 금액이 1·2·-1 같은 형식값이면 '금액 미기재'.
+- 다루지 않는 것: 사우디전력(SEC)·DEWA·카타르 카라마·쿠웨이트 전력부 자체 조달(공개 낙찰 목록 없음), 쿠웨이트 중앙입찰청(봇 확인 화면 — 우회하지 않음), 카타르 Monaqasat(해외 러너 SSL 거부). 바레인 2026년 8월 보고서는 스캔 이미지라 자동 판독 불가(그 달은 미확인으로 표시).
+
 ## 레이더 항목 자동 보도 대조(radar_today, 기자 전용)
 
 - GitHub Actions `Radar Press Check`가 평일 08:50·18:50 KST(Cloudflare 요청, GitHub 예약은 예비)에 실행. Worker `/ingest/radar-items`(Bearer `MCP_ACCESS_TOKEN`)에서 A·B 항목 중 대조 낱말이 붙은 것(최근 72시간, 씀·킬·봤음 제외, 최대 40개, A 먼저)을 받는다. 결과는 `radar-check` 비공개 저장소로만. Secrets: `NAVER_CLIENT_ID`·`NAVER_CLIENT_SECRET`·`MCP_ACCESS_TOKEN`(단독 후보 심사와 같음).

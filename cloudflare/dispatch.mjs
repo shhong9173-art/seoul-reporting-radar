@@ -17,6 +17,8 @@ export const SLOTS = [
   // 공식 원자료 직접 수집(pre_scoop.json: 대법원·NTIS·IRIS 등). GitHub 예약 '7,37 * * * *'은 10-28에 4번만 돌았다.
   // 07:10 단독 후보 심사·08:50 보도 대조·08:57 아침 발제 전에 한 번씩 새로 받는다.
   { at: '06:40', workflow: 'scoop-radar.yml' },
+  // 해외 발주처 낙찰(TED는 평일 17시께 KST에 그날 공고를 낸다): 아침에 밤사이 FTS·세계은행, 저녁에 그날 TED.
+  { at: '06:50', workflow: 'overseas-awards.yml' },
   { at: '07:00', workflow: 'partner-filings.yml' },
   { at: '07:10', workflow: 'scoop-screen.yml' },
   { at: '07:30', workflow: 'kr-stats.yml' },
@@ -32,6 +34,7 @@ export const SLOTS = [
   { at: '15:10', workflow: 'scoop-screen.yml' },
   { at: '15:20', workflow: 'kr-signals.yml' },
   { at: '17:10', workflow: 'us-recalls.yml' },
+  { at: '17:30', workflow: 'overseas-awards.yml' },
   { at: '17:40', workflow: 'assembly-bills.yml' },
   { at: '18:00', workflow: 'scoop-radar.yml' },
   { at: '18:30', workflow: 'page-watch.yml' },

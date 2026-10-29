@@ -32,6 +32,7 @@ export const WATCHES = [
   { feed: 'us-recalls', label: '미국 리콜(NHTSA 전체)', tool: 'us_recalls', schedule: '평일 17:10' },
   { feed: 'us-epa', label: '미국 EPA 인증', tool: 'us_epa', schedule: '매일 06:20', staleHours: 60 },
   { feed: 'kr-fuel', label: '국내 연비 신고', tool: 'kr_fuel', schedule: '매일 06:10', staleHours: 60 },
+  { feed: 'overseas-awards', label: '해외 발주처 낙찰', tool: 'partner_filings', schedule: '평일 06:50·17:30' },
 ];
 
 // Items first seen in a watch's very first run are a baseline, not news: they only count when their own date is recent.
@@ -66,6 +67,15 @@ const ALT = {
   EPA: ['EPA', '환경보호청', '인증', '주행거리', '연비'],
 };
 const ASX_KO = { PLS: '필바라', ARU: '아라푸라', '01958': 'BAIC' };
+const COUNTRY_KO = {
+  DNK: '덴마크', SWE: '스웨덴', FIN: '핀란드', NOR: '노르웨이', ESP: '스페인', PRT: '포르투갈', GBR: '영국', DEU: '독일', NLD: '네덜란드', BEL: '벨기에',
+  FRA: '프랑스', ITA: '이탈리아', IRL: '아일랜드', AUT: '오스트리아', POL: '폴란드', CZE: '체코', SVK: '슬로바키아', HUN: '헝가리', ROU: '루마니아',
+  BGR: '불가리아', GRC: '그리스', HRV: '크로아티아', SVN: '슬로베니아', EST: '에스토니아', LVA: '라트비아', LTU: '리투아니아', CHE: '스위스', BHR: '바레인',
+  Iraq: '이라크', Jordan: '요르단', 'Egypt, Arab Republic of': '이집트', Morocco: '모로코', Tunisia: '튀니지', Lebanon: '레바논', Uzbekistan: '우즈베키스탄',
+  Kazakhstan: '카자흐스탄', India: '인도', Bangladesh: '방글라데시', Pakistan: '파키스탄', 'Viet Nam': '베트남', Philippines: '필리핀', Indonesia: '인도네시아',
+  Ukraine: '우크라이나', 'South Africa': '남아공', Kenya: '케냐', Nigeria: '나이지리아', Ethiopia: '에티오피아', Turkiye: '튀르키예', Mongolia: '몽골',
+};
+export const countryKo = (c) => COUNTRY_KO[String(c ?? '').trim()];
 export function hint(who, terms) {
   const subject = String(who ?? '').split('·')[0].replace(/\(.*?\)/g, '').trim();
   const t = [...new Set(terms.filter(Boolean).map(String))];
@@ -309,6 +319,21 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
     const when = x.source === 'HKEX' && x.time ? ` ${x.time} 홍콩시각` : '';
     push(tier, W['partner-filings'], { kind: x.source ?? '공시', id: x.id, date: x.date, company: (x.beat ?? []).join('·'), fact: `${x.source} ${x.filer}${when}: ${x.title}${(x.flags ?? []).length ? ` (낱말 ${x.flags.join(',')})` : ''}${deal}`, url: x.url,
       check: hint((x.beat ?? [])[0], [partner, x.source === 'HKEX' ? '합작' : '계약']) });
+  }
+
+  // Overseas public-buyer award notices (EU TED·영국 FTS·세계은행·바레인 월간 보고서): a beat company in the winner field is A;
+  // contract modifications and Bahrain report lines B; other Korean winners C. TED notices trail the contract by weeks.
+  const oa = docs['overseas-awards'];
+  const oaBase = baselineOf(oa?.items ?? []);
+  for (const x of oa?.items ?? []) {
+    if (!fresh(x, oaBase, 'published')) continue;
+    const tier = x.tier ?? (x.company ? 'A' : 'C');
+    const value = x.value ? ` · ${x.currency ?? ''} ${Number(x.value).toLocaleString('en-US', { maximumFractionDigits: 0 })}` : ' · 금액 미기재';
+    const who = (x.winners ?? []).slice(0, 2).join('·') || '보고서 줄 참조';
+    const where = countryKo(x.buyerCountry);
+    push(tier, W['overseas-awards'], { kind: `${x.source} ${x.kind}`, id: x.id, date: x.published ?? x.firstSeen, company: x.company ?? '',
+      fact: `해외 ${x.kind}(${x.source}): ${where ? `${where} ` : ''}${x.buyer} ← ${who} · ${String(x.title ?? '').slice(0, 120)}${value}${x.concluded ? ` · 계약 ${x.concluded}` : ''} · 공고 ${x.published ?? '?'}`,
+      url: x.url, check: tier === 'C' ? undefined : hint(x.company, [where, '수주']) });
   }
 
   const uc = docs['us-comments'];
