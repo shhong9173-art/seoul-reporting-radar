@@ -1,4 +1,4 @@
-"""격리 탐침 38: 무역위원회 — 진행 사건 상세(viewInvest.do)의 단계·일정, 위원회 일정·보도자료의 행 링크와 상세 본문."""
+"""격리 탐침 39: 무역위원회 — 위원회 일정 행 링크·상세 안건, 진척된 사건의 진행일정 표, 보도자료 상세 날짜."""
 import re
 
 import requests
@@ -14,43 +14,31 @@ def text(b):
     return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", b)).strip()
 
 
+def after(t, key, n):
+    i = t.find(key)
+    return t[i:i + n] if i >= 0 else f"[{key} 없음]"
+
+
 s = requests.Session()
 s.get(SITE + "/", headers=UA, timeout=40)
 H = {**UA, "Referer": SITE + "/"}
-r = s.post(SITE + "/proInvestList.do", data={"menuId": "11"}, headers=H, timeout=40)
+r = s.post(SITE + "/noticeScheduleList.do", data={"menuId": "24"}, headers=H, timeout=40)
 tr = [t for t in re.findall(r"<tr[^>]*>[\s\S]*?</tr>", r.text) if "<td" in t]
-out.append("row0 raw=" + re.sub(r"\s+", " ", tr[0])[:700])
-calls = re.findall(r"viewInvest\(\s*'([^']+)'\s*,\s*'([^']+)'\s*\)", r.text)
-out.append(f"viewInvest calls={calls[:12]}")
-vf = re.search(r'<form[^>]*id="viewForm"[\s\S]*?</form>', r.text)
-out.append("viewForm=" + (re.sub(r"\s+", " ", vf.group(0))[:500] if vf else "없음"))
-if calls:
-    mid, code = calls[0]
+a = re.search(r"<a [^>]*>", tr[0])
+out.append("sched row0 a=" + (a.group(0)[:400] if a else re.sub(r"\s+", " ", tr[0])[:400]))
+href = re.search(r'href="(/[^"]+)"', tr[0])
+if href:
+    d = s.get(SITE + href.group(1).replace("&amp;", "&"), headers=H, timeout=40)
+    t = text(d.text)
+    out.append(f"sched detail HTTP {d.status_code} " + after(t, "제478차", 1400))
+for mid, code in (("00000789", "10100002"), ("00000845", "10100002"), ("00000868", "10100001")):
     d = s.post(SITE + "/viewInvest.do", data={"menuId": "11", "masterId": mid, "invstg_type_code": code}, headers=H, timeout=40)
     t = text(d.text)
-    i = t.find("조사")
-    out.append(f"viewInvest HTTP {d.status_code} len={len(d.text)} text=" + t[max(0, i - 200):i + 2600])
-for path, mid in (("/noticeScheduleList.do", "24"), ("/reportNewsList.do", "57")):
-    r = s.post(SITE + path, data={"menuId": mid}, headers=H, timeout=40)
-    tr = [t for t in re.findall(r"<tr[^>]*>[\s\S]*?</tr>", r.text) if "<td" in t]
-    out.append(f"{path} row0 raw=" + re.sub(r"\s+", " ", tr[0])[:700])
-    fns = sorted(set(re.findall(r"function\s+([A-Za-z_]+)\s*\(", r.text)))
-    out.append(f"{path} fns={fns[:30]}")
-    forms = [re.sub(r"\s+", " ", f)[:300] for f in re.findall(r"<form[^>]*>", r.text)]
-    out.append(f"{path} forms={forms}")
-    m = re.search(r"onclick=\"([A-Za-z_]+)\(([^)]*)\)", tr[0])
-    if m:
-        fn = m.group(1)
-        body = re.search(r"function\s+" + fn + r"\s*\([^)]*\)\s*\{[\s\S]{0,500}", r.text)
-        out.append(f"{path} {fn}=" + (re.sub(r"\s+", " ", body.group(0))[:500] if body else "본문 없음"))
-packs, cur = [], ""
-for x in out:
+    out.append(f"inv {mid} " + after(t, "조사번호 구제", 260) + " ‖ " + after(t, "진행단계 진행일", 260) + " ‖ " + after(t, "단계 처리내역 공개자료", 700))
+d = s.get(SITE + "/boardView.do?bbs_id=00002297&menuId=57&pageIndex=1&searchCondition=&searchKeyword=", headers=H, timeout=40)
+t = text(d.text)
+out.append(f"news detail HTTP {d.status_code} " + after(t, "무역위, 중국산 아연도금냉연", 600))
+for i, x in enumerate(out):
     x = x.replace("\n", " ").replace("::", ": :").replace("%", "pct")
-    while x:
-        room = 3800 - len(cur) - 3
-        if room < 200:
-            packs.append(cur); cur = ""; continue
-        cur += (" ‖ " if cur else "") + x[:room]; x = x[room:]
-packs.append(cur)
-for i, p in enumerate(packs[:12]):
-    print(f"::notice title=aw-{i:02d}::{p}")
+    for j in range(0, min(len(x), 3600), 1200):
+        print(f"::notice title=aw-{i:02d}-{j // 1200}::{x[j:j + 1200]}")
