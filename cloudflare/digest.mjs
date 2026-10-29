@@ -7,7 +7,7 @@ import { dispatchHealth } from './dispatch.mjs';
 import { clampInt, safeEqual, textResult } from './common.mjs';
 import { classLabel, waitReason } from './trademarks.mjs';
 import { billLine, groupBillEvents } from './assembly.mjs';
-import { factoryEventText } from './overseas.mjs';
+import { factoryEventText, identityNote } from './overseas.mjs';
 
 const KST_MS = 9 * 3600000;
 const kstDate = (ms) => new Date(ms + KST_MS).toISOString().slice(0, 10);
@@ -85,7 +85,7 @@ export function insolvencyLine(e) {
     : ind.label ? `공장등록 업종 ${ind.label}${ind.product ? ` · 주생산품 ${String(ind.product).slice(0, 40)}` : ''}${ind.employees != null ? ` · 종업원 ${ind.employees}명` : ''}`
       : '공장등록 없음 — 이름 낱말만';
   const where = ind.address ? ` · ${String(ind.address).split(/\s+/).slice(0, 2).join(' ')}` : '';
-  return `${e.company} (${e.court}${e.caseNo ? ` ${e.caseNo}` : ''}) · ${what}${where}`;
+  return `${e.company} (${e.court}${e.caseNo ? ` ${e.caseNo}` : ''}) · ${what}${where}${identityNote(ind)}`;
 }
 export function hint(who, terms) {
   const subject = String(who ?? '').split('·')[0].replace(/\(.*?\)/g, '').trim();

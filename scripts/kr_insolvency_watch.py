@@ -76,6 +76,7 @@ RULES = [
     "법원 공고의 회사 이름을 공장등록에서 같은 이름으로 찾아 업종을 붙인다. 이름이 같은 다른 회사일 수 있다(주소·대표자 확인).",
     "포괄적 금지명령 = 회생 신청 직후(개시 전). 개시·파산선고가 가장 이른 확정 단계. 거래 관계·납품 차질은 회사·출입처 확인 전에는 모른다.",
     "공장등록이 없는 회사는 이름 낱말만으로 C(참고). 출입처 협력사 명단(data/kr_supplier_watchlist.json)에 있으면 A.",
+    "같은 이름 공장이 관할 법원 지역 밖에만 있거나 대표자가 3명 이상이면 다른 회사일 수 있어 한 단계 내린다.",
 ]
 
 
@@ -206,37 +207,74 @@ def ma_notices(*, get=None, sleep=time.sleep):
 
 
 # ---------------------------------------------------------------- industry lookup
+CACHE_VERSION = 2
+# 법인 회생·파산 관할(본점 소재지). 서울회생법원은 전국 큰 회사도 받으므로 지역을 보지 않는다.
+REGION_BY_COURT = [("서울", None), ("의정부", r"경기"), ("인천", r"인천|경기도\s*(?:부천|김포)"), ("수원", r"경기"), ("춘천", r"강원"),
+                   ("강릉", r"강원"), ("대전", r"대전|세종|충청남도|충남"), ("청주", r"충청북도|충북"), ("대구", r"대구|경상북도|경북"),
+                   ("부산", r"부산"), ("울산", r"울산|경상남도\s*양산"), ("창원", r"경상남도|경남"), ("광주", r"광주|전라남도|전남"),
+                   ("전주", r"전라북도|전북|전북특별자치도"), ("제주", r"제주")]
+
+
+def region_rx(court):
+    for city, rx in REGION_BY_COURT:
+        if city in str(court or ""):
+            return re.compile(rx) if rx else None
+    return None
+
+
+def factory_match(f):
+    code = re.sub(r"\D", "", f.get("rprsntvIndutyCode") or "")
+    text = f"{f.get('indutyNm') or ''} {f.get('mainProductCn') or ''}"
+    for p, name in CORE.items():
+        if code.startswith(p):
+            return "core", name
+    for p, name in sorted(RELATED.items(), key=lambda kv: -len(kv[0])):
+        if code.startswith(p):
+            return ("product" if PRODUCT.search(text) else "related"), name
+    if PRODUCT.search(text):
+        return "product", "주생산품 낱말"
+    return None, None
+
+
+RANK = {"core": 0, "product": 1, "related": 2}
+
+
 def classify_factories(facs):
-    """Best industry match among a company's registered factories: core > related > product word."""
-    best = None
+    """Same-name factories, beat-relevant ones kept as candidates (best first); the notice's court picks among them."""
+    if not facs:
+        return {"v": CACHE_VERSION, "match": None, "factories": 0}
+    owners = len({norm(f.get("rprsntvNm")) for f in facs if f.get("rprsntvNm")})
+    cands = []
     for f in facs:
-        code = re.sub(r"\D", "", f.get("rprsntvIndutyCode") or "")
-        text = f"{f.get('indutyNm') or ''} {f.get('mainProductCn') or ''}"
-        match, label = None, None
-        for p, name in CORE.items():
-            if code.startswith(p):
-                match, label = "core", name
-                break
-        if not match:
-            for p, name in sorted(RELATED.items(), key=lambda kv: -len(kv[0])):
-                if code.startswith(p):
-                    match, label = ("product" if PRODUCT.search(text) else "related"), name
-                    break
-        if not match and PRODUCT.search(text):
-            match, label = "product", "주생산품 낱말"
-        rank = {"core": 0, "product": 1, "related": 2}.get(match, 9)
-        if best is None or rank < best[0]:
-            best = (rank, match, label, f)
-    if not best or best[1] is None:
-        f = facs[0] if facs else {}
-        if not facs:
-            return {"match": None, "factories": 0}
-        return {"match": "factory-other", "label": None, "code": re.sub(r"\D", "", f.get("rprsntvIndutyCode") or "") or None,
-                "industry": (f.get("indutyNm") or "")[:40] or None, "factories": len(facs)}
-    _, match, label, f = best
-    return {"match": match, "label": label, "code": re.sub(r"\D", "", f.get("rprsntvIndutyCode") or "") or None,
-            "industry": (f.get("indutyNm") or "")[:40] or None, "product": (f.get("mainProductCn") or "")[:60] or None,
-            "employees": emp(f.get("allEmplyCo")), "address": (f.get("rnAdres") or "")[:60] or None, "factories": len(facs)}
+        m, label = factory_match(f)
+        if m:
+            cands.append({"m": m, "l": label, "c": re.sub(r"\D", "", f.get("rprsntvIndutyCode") or "") or None,
+                          "i": (f.get("indutyNm") or "")[:40] or None, "p": (f.get("mainProductCn") or "")[:60] or None,
+                          "e": emp(f.get("allEmplyCo")), "a": (f.get("rnAdres") or "")[:60] or None})
+    cands.sort(key=lambda c: (RANK[c["m"]], -(c["e"] or 0)))
+    if not cands:
+        f = facs[0]
+        return {"v": CACHE_VERSION, "match": "factory-other", "code": re.sub(r"\D", "", f.get("rprsntvIndutyCode") or "") or None,
+                "industry": (f.get("indutyNm") or "")[:40] or None, "factories": len(facs), "owners": owners}
+    return {"v": CACHE_VERSION, "match": cands[0]["m"], "factories": len(facs), "owners": owners, "cands": cands[:5]}
+
+
+def pick(info, court):
+    """Industry for one notice: a same-name factory inside the court's region first. Outside it → regionMismatch."""
+    if not info or not info.get("cands"):
+        return info
+    rx = region_rx(court)
+    cands = info["cands"]
+    local = [c for c in cands if rx and rx.search(c.get("a") or "")]
+    best = local[0] if local else cands[0]
+    return {"match": best["m"], "label": best["l"], "code": best["c"], "industry": best["i"], "product": best["p"], "employees": best["e"],
+            "address": best["a"], "factories": info.get("factories"), "owners": info.get("owners"),
+            "regionMismatch": bool(rx) and not local}
+
+
+def doubtful(ind):
+    """Name may belong to another company: factory outside the court's region, or 3+ owners under the same name."""
+    return bool(ind) and (bool(ind.get("regionMismatch")) or (ind.get("owners") or 0) >= 3)
 
 
 def lookup(name, key, *, get=None, sleep=time.sleep):
@@ -265,9 +303,14 @@ def load_watchlist(path=WATCHLIST):
 
 
 # ---------------------------------------------------------------- run
-def tier_of(stage, match, watch):
+def tier_of(stage, match, watch, ind=None):
     if watch:
         return "A"
+    t = _tier(stage, match)
+    return {"A": "B", "B": "C"}.get(t, t) if t and doubtful(ind) else t
+
+
+def _tier(stage, match):
     if match == "core":
         return "A" if stage == "start" else "B" if stage == "end" else "C"
     if match in ("product", "related"):
@@ -311,12 +354,16 @@ def run(key, *, now, previous=None, post=None, get=None, sleep=time.sleep, watch
 
     cache = dict((previous or {}).get("industryCache") or {})
     fresh_cut = (now - dt.timedelta(days=LOOKUP_TTL_DAYS)).isoformat()
-    order = sorted({firm_key(x.get("btprtNm")) for x, _, st in cands if st != "late"} | {firm_key(r["company"]) for r in ma_new},
+    stale = {firm_key(e.get("company")) for e in (previous or {}).get("events") or []
+             if (cache.get(firm_key(e.get("company"))) or {}).get("match") in RANK and (cache.get(firm_key(e.get("company"))) or {}).get("v") != CACHE_VERSION}
+    order = sorted({firm_key(x.get("btprtNm")) for x, _, st in cands if st != "late"} | {firm_key(r["company"]) for r in ma_new} | stale,
                    key=lambda k: (0 if NAME_HINT.search(k) else 1, k))
     lookups, pending, lookup_errors = 0, 0, []
     if key:
         for k in order:
-            if not k or (k in cache and str(cache[k].get("checkedAt")) >= fresh_cut) or k in watch:
+            c = cache.get(k)
+            current = c and str(c.get("checkedAt")) >= fresh_cut and (c.get("v") == CACHE_VERSION or c.get("match") not in RANK)
+            if not k or current or k in watch:
                 continue
             if lookups >= LOOKUP_BUDGET or (deadline and time.monotonic() > deadline):
                 pending += 1
@@ -333,9 +380,9 @@ def run(key, *, now, previous=None, post=None, get=None, sleep=time.sleep, watch
                    **({"error": f"{len(lookup_errors)}건 실패({lookup_errors[0]})"} if lookup_errors else {}),
                    **({"error": "DATA_GO_KR_KEY·CUSTOMS_API_KEY 미설정 — 업종 미확인"} if not key else {})})
 
-    def industry_for(name):
+    def industry_for(name, court):
         k = firm_key(name)
-        info = cache.get(k)
+        info = pick(cache.get(k), court)
         w = watch.get(k)
         match = (info or {}).get("match")
         if match in (None, "factory-other") and NAME_HINT.search(k):
@@ -346,8 +393,8 @@ def run(key, *, now, previous=None, post=None, get=None, sleep=time.sleep, watch
     events = dict(old)
     found = set()
     for x, kind, stage in cands:
-        k, info, w, match = industry_for(x.get("btprtNm"))
-        tier = tier_of(stage, match, w)
+        k, info, w, match = industry_for(x.get("btprtNm"), x.get("_court"))
+        tier = tier_of(stage, match, w, info)
         if not tier:
             continue
         eid = f"ins:{x.get('cortCd')}:{x.get('csNo')}:{x.get('inetPbancDvsCd')}:{x.get('inetPbancSeq')}"
@@ -363,12 +410,12 @@ def run(key, *, now, previous=None, post=None, get=None, sleep=time.sleep, watch
             "isNew": not prev and not baseline,
         }
     for r in ma:
-        k, info, w, match = industry_for(r["company"])
+        k, info, w, match = industry_for(r["company"], r["court"])
         eid = f"ma:{r['seq']}"
         prev = old.get(eid)
         if r["seq"] in seen_ma and not prev:
             continue  # seen earlier and not kept
-        tier = "A" if w else "B" if match in ("core", "product", "related") else "C" if match == "name" else None
+        tier = "A" if w else ("C" if doubtful(info) else "B") if match in RANK else "C" if match == "name" else None
         if not tier:
             continue
         found.add(eid)
@@ -386,10 +433,10 @@ def run(key, *, now, previous=None, post=None, get=None, sleep=time.sleep, watch
     # an industry looked up after the notice was stored: refresh the stored events' industry and tier
     for e in events.values():
         if e["source"] == "대법원 회생·파산 공고" and e["id"] not in found:
-            k, info, w, match = industry_for(e["company"])
-            if info and not e.get("industry"):
+            k, info, w, match = industry_for(e["company"], e.get("court"))
+            if info and (not e.get("industry") or "regionMismatch" not in (e.get("industry") or {})):
                 e["industry"], e["match"] = info, match
-                e["tier"] = tier_of(e["stage"], match, w) or e["tier"]
+                e["tier"] = tier_of(e["stage"], match, w, info) or e["tier"]
 
     cut = (now - dt.timedelta(days=KEEP_DAYS)).date().isoformat()
     kept = sorted((e for e in events.values() if str(e.get("posted") or e["firstSeen"])[:10] >= cut),
