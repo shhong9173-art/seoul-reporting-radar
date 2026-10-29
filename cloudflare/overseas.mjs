@@ -185,18 +185,57 @@ function quotaLine(q) {
   return `${q.order} ${q.product ?? '품목 미분류'} · ${q.scope} · 초기 ${fmtT(q.initialT)} · 잔량 ${fmtT(q.balanceT)} · 사용 ${q.usedPct}%${(q.tags ?? []).length ? ` ${q.tags.join(' ')}` : ''}${last}${q.stale ? ' · ⚠ 이번 조회 실패, 직전 값' : ''}`;
 }
 
+// 국내 무역위원회(ktc_watch.py): 회의 약 1주 전에 올라오는 개요 PDF의 안건, 2019년 이후 개시한 진행 사건과 마지막 진행일정,
+// 진행 목록에서 빠진 사건. 진행 목록에는 2000년대 옛 불공정무역행위 사건도 '조사실행'으로 남아 있어(10-30 44건 중 20건) 숨긴다.
+export function ktcSection(k, q = '', limit = 15) {
+  if (!k) return ['\n[국내 무역위원회] 아직 수집 전 — 미확인'];
+  const out = [];
+  const lastStep = (c) => (c.timeline ?? []).at(-1) ?? null;
+  const live = (k.cases ?? []).filter((c) => !c.stale);
+  const cases = (k.cases ?? []).filter((c) => matches(q, c.title, c.product, c.no, c.country, c.kind));
+  const active = cases.filter((c) => String(c.opened ?? '') >= '2019-01-01');
+  out.push(`\n[국내 무역위원회 · 확인 ${String(k.checkedAt).slice(0, 16)}${k.stale ? ' · ⚠ 이번 조회 실패, 직전 목록' : ''}] 진행 목록 ${live.length}건`
+    + ` · 2019년 이후 개시 ${active.length}건(출입 업종 품목 ${active.filter((c) => c.beat).length})${k.listComplete === false ? ' · 목록 일부만 읽음' : ''}`);
+  for (const m of (k.meetings ?? []).filter((m) => !q || matches(q, m.title, (m.agenda ?? []).map((a) => a.text).join(' '))).slice(0, 2)) {
+    out.push(`- 회의: ${m.title}${m.meetingOn ? ` · 개최 ${m.meetingOn}` : ''}${m.posted ? ` · 게시 ${m.posted}` : ''}${m.summary ? ` · 안건 ${m.summary}` : ''}`);
+    if (m.agenda) for (const a of m.agenda.slice(0, 8)) out.push(`   ${a.kind}${a.beat ? '(출입 업종 품목)' : ''}: ${a.text}`);
+    else out.push(`   안건 미확인(${m.agendaError ?? '읽지 않음'}) — 0건 아님`);
+    out.push(`   원문: ${m.url}`);
+  }
+  const key = (c) => String(lastStep(c)?.[1] ?? c.opened ?? '');
+  const sorted = [...active].sort((a, b) => Number(Boolean(b.beat)) - Number(Boolean(a.beat)) || key(b).localeCompare(key(a)));
+  for (const c of sorted.slice(0, limit)) {
+    const ls = lastStep(c);
+    out.push(`- ${c.no} · ${c.title} · ${c.country || '대상국 미기재'} · ${c.kind ?? '유형 미상'}${c.review ? `/${c.review}` : ''} · 개시 ${c.opened ?? '?'}`
+      + `${ls ? ` · 최근 ${ls[0]} ${ls[1]}` : ''}${(c.pending ?? []).length ? ` · 남은 단계 ${c.pending.join('·')}` : ''}${c.beat ? ' · 출입 업종 품목' : ''}`
+      + `${c.detailError ? ` · ${c.detailError}` : ''}${c.stale ? ' · 이번 목록에서 확인 못 함' : ''}`);
+    out.push(`   원문: ${c.url}`);
+  }
+  if (sorted.length > limit) out.push(`… 남은 ${sorted.length - limit}건`);
+  const old = cases.length - active.length;
+  if (old) out.push(`(2019년 전 개시 ${old}건은 목록에 '조사실행'으로 남은 옛 사건 — 숨김)`);
+  for (const x of (k.left ?? []).filter((x) => matches(q, x.title, x.product)).slice(0, 5)) {
+    out.push(`- 진행 목록에서 빠짐 ${String(x.leftAt).slice(0, 10)}: ${x.no} ${x.title}${x.result ? ` · 판정결과 ${x.result}` : ''}`);
+  }
+  const news = (k.news ?? []).filter((n) => matches(q, n.title)).slice(0, 5);
+  if (news.length) out.push(`- 최근 보도자료: ${news.map((n) => `${n.title}${n.posted ? `(${n.posted})` : ''}`).join(' / ')}`);
+  out.push('   검증 상태: 무역위 누리집 목록·상세·회의 개요 PDF(자동). 신청인(국내 생산자)·피신청인 이름은 누리집에 대개 없어 회사 확인 필요. '
+    + '회의 안건은 결과가 아니다 — 판정·세율은 회의 뒤 보도자료·의결서로 확인');
+  return out;
+}
+
 export async function tradeRemedies(ctx, args) {
   const doc = await readFeed(ctx, 'trade-remedy');
-  if (!doc) return missing('해외 무역구제 감시', '평일 07:40');
+  if (!doc) return missing('무역구제 감시(해외·국내 무역위원회)', '평일 07:40');
   if (doc.broken) return textResult('저장된 무역구제 결과 형식 오류 — 미확인.', true);
-  const section = ['quota', 'us', 'notices'].includes(args.section) ? args.section : null;
+  const section = ['quota', 'us', 'notices', 'ktc'].includes(args.section) ? args.section : null;
   const q = String(args.company ?? '').trim();
   const days = clampInt(args.days, 1, 120, 30);
   const limit = clampInt(args.limit, 1, 60, 15);
   const onlyNew = args.only_new === true || args.only_new === 'true';
   const showAll = args.show_all === true || args.show_all === 'true';
   const checks = doc.checks ?? [];
-  const out = [`해외 무역구제 감시 · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt)}`,
+  const out = [`무역구제 감시(해외·국내 무역위원회) · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt)}`,
     `원천: ${checks.map((c) => `${c.source} ${c.status}(${c.returned ?? 0}${c.error ? `, ${c.error}` : ''})`).join(' · ')}`,
     ...(doc.rules ?? []).map((r) => `규칙: ${r}`)];
 
@@ -234,6 +273,8 @@ export async function tradeRemedies(ctx, args) {
     out.push('   검증 상태: 관보 제목·본문 줄(자동). 세율·판정은 원문 표로 확인. 회사명 일치≠해당 회사 사건 — 조사 대상 목록 확인. 결정문 목차는 쟁점 제목일 뿐 결론이 아니다(\'흔치 않은\'은 자주 나오는 보조금 낱말이 없다는 뜻)');
   }
 
+  if (!section || section === 'ktc') out.push(...ktcSection(doc.ktc, q, limit));
+
   if (!section || section === 'notices') {
     const from = new Date(ctx.now.getTime() - days * 86400000).toISOString();
     const ev = (doc.events ?? []).filter((e) => new Date(e.detectedAt).toISOString() >= from && matches(q, e.label, e.text, e.country));
@@ -251,7 +292,7 @@ export async function tradeRemedies(ctx, args) {
     }
     if (!ev.length) out.push('이 기간 감지된 새 공고 줄·새 소진 없음(열리지 않은 목록은 미확인).');
   }
-  out.push('\n다음: 원문은 source_document로 연다(미국 관보·EU) → 대상 품목·업체·세율·소진일 확인 → news_check로 보도 대조 → 회사·협회 확인.');
+  out.push('\n다음: 원문은 source_document로 연다(미국 관보·EU·무역위 상세) → 대상 품목·업체·세율·소진일·회의 안건 확인 → news_check로 보도 대조 → 회사·협회 확인.');
   return textResult(out.join('\n'));
 }
 

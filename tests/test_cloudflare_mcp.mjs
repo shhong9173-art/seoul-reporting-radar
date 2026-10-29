@@ -683,6 +683,57 @@ test('trade_remedies shows quota exhaustion, named US notices and listing change
   assert.ok((await call('trade_remedies', {}, PRIVATE())).isError);
 });
 
+test('trade_remedies ktc: meeting agenda before the meeting, recent cases with last step, old cases hidden; radar_today tiers by beat product', async () => {
+  const env = PRIVATE().env;
+  const recent = new Date(Date.now() - 3600000).toISOString();
+  const ktc = { checkedAt: '2026-10-30T07:40:00+09:00', listComplete: true,
+    cases: [
+      { id: '00000845', no: '구제 4-1-2025-1', title: '커넥티드 전기자동차 특허권 침해 불공정무역행위 조사', product: '커넥티드 전기자동차', opened: '2025-06-30', stage: '조사실행',
+        kind: '불공정무역행위', review: '원심', country: null, beat: true, timeline: [['조사개시', '2025-06-30'], ['판정시한 2차 연장', '2026-02-25']], pending: [],
+        url: 'https://www.ktc.go.kr/viewInvest.do?menuId=11&masterId=00000845&invstg_type_code=10100002' },
+      { id: '00000875', no: '구제 23-2026-9호', title: '중국산 무계목강관의 덤핑사실 및 국내산업피해 유무 조사', product: '무계목강관', opened: '2026-10-08', stage: '조사실행',
+        kind: '반덤핑조사', review: '원심', country: '중국', beat: true, timeline: [['조사개시', '2026-10-08']], pending: ['예비조사', '공청회', '최종판정'], url: 'https://www.ktc.go.kr/v?875' },
+      { id: '00000859', no: '구제 23-2025-13호', title: '중국산 인쇄제판용 평면모양 사진플레이트', product: '인쇄제판용 평면모양 사진플레이트', opened: '2026-01-08', stage: '조사실행',
+        kind: '반덤핑조사', review: '재심', country: '중국', beat: false, timeline: [['조사개시', '2026-01-08']], pending: ['최종판정'], url: 'https://www.ktc.go.kr/v?859' },
+      { id: '00000493', no: '제 4-1-2008-6', title: '낚싯대케이스', product: '낚싯대케이스', opened: '2008-07-23', stage: '조사실행', beat: false, url: 'https://www.ktc.go.kr/v?493' }],
+    left: [{ id: '00000868', no: '구제23-2026-5호', title: '중국산 석도강판의 덤핑사실 및 국내산업피해 유무', product: '석도강판', leftAt: '2026-10-30T07:40:00+09:00', result: '부정 · 조사종결' }],
+    meetings: [{ id: '00000312', title: '제479차 11월 무역위원회 개최 안내', posted: '2026-11-13', meetingOn: '2026-11-20', summary: '3건(정기보고1, 의결2)',
+      url: 'https://www.ktc.go.kr/noticeScheduleView.do?dltnc_id=00000312&menuId=24',
+      agenda: [{ kind: '의결', no: '2026-27', text: '중국산 석도강판의 덤핑사실및국내산업피해유무 예비판정(원심)', beat: true },
+        { kind: '보고', no: '2026-21', text: '화장품 상표권 침해 조사개시 보고', beat: false }] },
+      { id: '00000311', title: '제478차 10월 무역위원회 개최 안내', posted: '2026-10-16', agenda: null, agendaError: 'PDF 받기 실패' }],
+    news: [{ id: '00002297', title: '무역위, 중국산 아연도금냉연, 옵셋인쇄판 덤핑조사 최종판정', posted: '2026-10-26' }] };
+  const doc = { schema: 'trade_remedy/v1', generatedAt: '2026-10-30T07:40:00+09:00', quarter: '2026-10-01', rules: [], quotas: [], federalRegister: [], pages: [],
+    checks: [{ source: '무역위원회', status: 'ok', returned: 4 }], ktc,
+    events: [
+      { id: 'ktc:meeting:00000312', pageId: 'ktc', country: 'KR', label: '무역위원회 회의 안내(개최 2026-11-20)', text: '제479차 — 의결: 중국산 석도강판 예비판정', url: 'https://k/m', detectedAt: recent, tier: 'B', beat: true, ktcKind: 'meeting' },
+      { id: 'ktc:case:00000900', pageId: 'ktc', country: 'KR', label: '무역위 새 조사 · 구제 4-2-2026-2', text: '플라스틱 필름 원산지 표시위반', url: 'https://k/c', detectedAt: recent, tier: 'C', beat: false, ktcKind: 'case', product: '플라스틱 필름' },
+      { id: 'ktc:news:00002297', pageId: 'ktc', country: 'KR', label: '무역위 보도자료', text: '무역위, 중국산 아연도금냉연 덤핑조사 최종판정', url: 'https://k/n', detectedAt: recent, tier: 'C', beat: true, ktcKind: 'news' }] };
+  const post = await worker.fetch(new Request(ORIGIN + '/ingest/trade-remedy', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {});
+  assert.equal(post.status, 200);
+  const opts = { path: `/mcp/${TOKEN}`, env };
+  const r = await call('trade_remedies', { section: 'ktc' }, opts);
+  assert.match(r.text, /\[국내 무역위원회 · 확인 2026-10-30T07:40\] 진행 목록 4건 · 2019년 이후 개시 3건\(출입 업종 품목 2\)/);
+  assert.match(r.text, /- 회의: 제479차 11월 무역위원회 개최 안내 · 개최 2026-11-20 · 게시 2026-11-13 · 안건 3건\(정기보고1, 의결2\)\n   의결\(출입 업종 품목\): 중국산 석도강판/);
+  assert.match(r.text, /안건 미확인\(PDF 받기 실패\) — 0건 아님/);
+  assert.match(r.text, /구제 4-1-2025-1 · 커넥티드 전기자동차 특허권 침해 불공정무역행위 조사 · 대상국 미기재 · 불공정무역행위\/원심 · 개시 2025-06-30 · 최근 판정시한 2차 연장 2026-02-25 · 출입 업종 품목/);
+  assert.ok(r.text.indexOf('무계목강관') < r.text.indexOf('커넥티드'));  // beat products, latest step first
+  assert.ok(r.text.indexOf('커넥티드') < r.text.indexOf('사진플레이트'));  // non-beat after beat
+  assert.match(r.text, /남은 단계 예비조사·공청회·최종판정/);
+  assert.match(r.text, /2019년 전 개시 1건은 목록에 '조사실행'으로 남은 옛 사건 — 숨김/);
+  assert.doesNotMatch(r.text, /낚싯대케이스/);
+  assert.match(r.text, /진행 목록에서 빠짐 2026-10-30: 구제23-2026-5호 중국산 석도강판의 덤핑사실 및 국내산업피해 유무 · 판정결과 부정 · 조사종결/);
+  assert.match(r.text, /최근 보도자료: 무역위, 중국산 아연도금냉연, 옵셋인쇄판 덤핑조사 최종판정\(2026-10-26\)/);
+  assert.doesNotMatch(r.text, /EU 철강 쿼터/);
+  const steel = await call('trade_remedies', { section: 'ktc', company: '석도' }, opts);
+  assert.doesNotMatch(steel.text, /커넥티드/);
+  assert.match(steel.text, /제479차/);
+  const today = await call('radar_today', { include_minor: true }, opts);
+  const b = today.text.split('[B · ')[1].split('[C · ')[0];
+  assert.match(b, /무역구제\n   무역위원회 회의 안내\(개최 2026-11-20\): 제479차 — 의결: 중국산 석도강판 예비판정/);
+  assert.doesNotMatch(b, /플라스틱 필름|아연도금냉연 덤핑조사 최종판정/);
+});
+
 test('us_litigation shows party cases by priority, folds routine ones, and lists ITC 337 names', async () => {
   const env = PRIVATE().env;
   const doc = { schema: 'us_litigation/v1', generatedAt: '2026-10-27T07:50:00+09:00', windowDays: 45, rules: ['당사자 목록에 출입처가 있는 사건만.'],

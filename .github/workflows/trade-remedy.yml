@@ -1,11 +1,13 @@
 name: Trade Remedy Watch
-# EU 철강 쿼터(TARIC) 한국 관련 소진, 미국 상무부·ITC 한국산 고시, 호주·캐나다·인도 반덤핑 공고 목록. 평일 07:40 KST.
+# EU 철강 쿼터(TARIC) 한국 관련 소진, 미국 상무부·ITC 한국산 고시, 호주·캐나다·인도 반덤핑 공고 목록, 국내 무역위원회. 평일 07:40 KST.
 # 결과는 기자 전용 저장소로만. 공개 로그는 건수·원천별 상태만.
 on:
   push:
     branches: [main]
     paths:
       - 'scripts/trade_remedy_watch.py'
+      - 'scripts/ktc_watch.py'
+      - 'tests/test_ktc_watch.py'
       - 'data/trade_remedy_pages.json'
       - 'tests/test_trade_remedy_watch.py'
       - '.github/workflows/trade-remedy.yml'
@@ -29,9 +31,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: python -m pip install "requests>=2.31,<3"
+      - run: python -m pip install "requests>=2.31,<3" "pypdf>=4,<7"
       - name: Test trade remedy parsing
-        run: python -m unittest tests.test_trade_remedy_watch tests.test_private_store -v
+        run: python -m unittest tests.test_trade_remedy_watch tests.test_ktc_watch tests.test_private_store -v
       - name: Watch trade remedies (counts-only log)
         env:
           MCP_ACCESS_TOKEN: ${{ secrets.MCP_ACCESS_TOKEN }}
