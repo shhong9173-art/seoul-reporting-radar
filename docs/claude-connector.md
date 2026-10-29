@@ -179,6 +179,13 @@
 - 건축허가에는 건축주 이름이 없다. '공장과 같은 번지'일 뿐 — 건축주·용도·투자 규모는 회사·지자체 건축과 확인. 큰 공장의 다른 번지 허가는 못 볼 수 있다.
 - 매주 월 07:45 KST. 결과는 `kr-building` 비공개 저장소로만. `kr_official`(section 비우거나 `building`) 아래 '[공장 부지 건축허가]'.
 
+## 해외 법인 등기 — 영국(partner_filings 안, 기자 전용)
+
+- 영국 Companies House 공개 API: 출입처 영문명(Hyundai·Kia·Hyosung·LS Cable·Taihan·Doosan·POSCO·Hanwha·Hankook 등)이 회사명에 든 새 법인을 설립일로 찾고, 처음 본 법인은 지배 주주(PSC)를 읽는다. 출입처 본사·계열 법인이 지배 주주 = A, 이름만 같은 법인(딜러 등) = C.
+- **키: GitHub Secret `COMPANIES_HOUSE_API_KEY`**(developer.company-information.service.gov.uk 가입 → 'REST API key' 무료 발급). 없으면 radar_today에 '미설정'.
+- 평일 06:00 KST, 첫 실행은 최근 1년 기준선. 결과는 `overseas-registry` 비공개 저장소로만. `partner_filings`(source 비울 때) 아래 '[해외 법인 등기]'.
+- 미국 주(州) 등기는 무료로 묶어 볼 공식 API가 없어 다루지 않는다.
+
 ## 레이더 항목 자동 보도 대조(radar_today, 기자 전용)
 
 - GitHub Actions `Radar Press Check`가 평일 08:50·18:50 KST(Cloudflare 요청, GitHub 예약은 예비)에 실행. Worker `/ingest/radar-items`(Bearer `MCP_ACCESS_TOKEN`)에서 A·B 항목 중 대조 낱말이 붙은 것(최근 72시간, 씀·킬·봤음 제외, 최대 40개, A 먼저)을 받는다. 결과는 `radar-check` 비공개 저장소로만. Secrets: `NAVER_CLIENT_ID`·`NAVER_CLIENT_SECRET`·`MCP_ACCESS_TOKEN`(단독 후보 심사와 같음).

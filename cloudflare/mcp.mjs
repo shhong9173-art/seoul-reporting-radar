@@ -16,8 +16,8 @@ export const SUPPORTED_VERSIONS = ['2025-06-18', '2025-03-26', '2024-11-05'];
 const SERVER_INFO = { name: 'seoul-reporting-radar', title: '산업부 취재 레이더', version: '1.0.0' };
 const INSTRUCTIONS = [
   '산업부(자동차·철강·전력기기·에너지·화학) 취재 레이더. 기자는 홍성효.',
-  '하루 시작은 radar_today(기자 전용): 감시 18개의 새 항목을 A(단독 후보·직접 변화)/B(확인할 공식 변화)로 모아 보여 주고, 실패·오래된 감시를 먼저 알린다. 항목마다 자세히 볼 도구가 붙어 있다.',
-  '순서: radar_today → scoop_screen(기자 전용, 미보도 후보부터) → page_changes·us_comments·partner_filings(해외 낙찰 포함)·trade_remedies·us_litigation·us_recalls·us_epa(기자 전용, 해외 원천) → kr_official(기자 전용, 공장등록·관보·협력사 회생·파산·공장 부지 건축허가) → kr_fuel(기자 전용, 국내 연비 신고) → kr_signals(기자 전용, 공정위 의결서·한전 입찰·원자재 가격·전기위원회 발전사업 허가·원안위 안건) → kr_stats(기자 전용, 물가지수·철강 생산·수입차 등록; 발제 검증은 ecos_find·ecos_data·kosis_find·kosis_data·customs_trade 즉석 조회) → trademarks(기자 전용, 출입처 상표 출원 주 1회) → assembly_bills(기자 전용, 출입 업종 국회 법안 발의·단계) → radar_big_picture → radar_clues(days=3) → radar_stats → governance_changes → earnings_compare(실적 시즌) → dandok_monitor → scoop_packages(기자 전용).',
+  '하루 시작은 radar_today(기자 전용): 감시 19개의 새 항목을 A(단독 후보·직접 변화)/B(확인할 공식 변화)로 모아 보여 주고, 실패·오래된 감시를 먼저 알린다. 항목마다 자세히 볼 도구가 붙어 있다.',
+  '순서: radar_today → scoop_screen(기자 전용, 미보도 후보부터) → page_changes·us_comments·partner_filings(해외 낙찰·영국 법인 등기 포함)·trade_remedies·us_litigation·us_recalls·us_epa(기자 전용, 해외 원천) → kr_official(기자 전용, 공장등록·관보·협력사 회생·파산·공장 부지 건축허가) → kr_fuel(기자 전용, 국내 연비 신고) → kr_signals(기자 전용, 공정위 의결서·한전 입찰·원자재 가격·전기위원회 발전사업 허가·원안위 안건) → kr_stats(기자 전용, 물가지수·철강 생산·수입차 등록; 발제 검증은 ecos_find·ecos_data·kosis_find·kosis_data·customs_trade 즉석 조회) → trademarks(기자 전용, 출입처 상표 출원 주 1회) → assembly_bills(기자 전용, 출입 업종 국회 법안 발의·단계) → radar_big_picture → radar_clues(days=3) → radar_stats → governance_changes → earnings_compare(실적 시즌) → dandok_monitor → scoop_packages(기자 전용).',
   '후보마다: source_document 또는 dart_find_text로 원문 확인 → news_check로 보도 대조(낱말 바꿔 2~3번, 한 번에 하나씩) → candidate_check.',
   '조회 실패·미설정·일부 성공은 0건이 아니라 미확인. 색인 0건은 미보도 증거가 아님. 단계(공개 원자료 추적/취재 단서·단독 미확정/단독 후보)를 올리지 않음.',
   '추천 심사에는 기자 전용 원문·보도 조회의 검증 기록 ID가 필요하다. facts는 원문 직접 인용, 게시일은 명시된 공개일만. 오래된 원문·검색된 기사·파생 계산은 추가 확인 전 조사대기다.',
@@ -129,7 +129,7 @@ export const TOOLS = [
     description: `후보를 재점검해 저장(하루 추천 ${POLICY.dailyLimit}건 한도, 같은 날 중복 제목 제외).`,
     inputSchema: obj({ candidates: { type: 'array', items: CANDIDATE_SCHEMA, maxItems: 10 } }, ['candidates']) },
   { name: 'radar_today', access: 'private', handler: radarToday,
-    description: '오늘의 레이더(하루 시작): 기자 전용 감시 18개(단독 후보 심사, 공장등록·관보, 공정위·한전·원자재, 월간 통계, 무역구제, 미국 소송, 해외 파트너 공시, 미 의견서, 해외 페이지, 상표 출원, 국회 법안, 미국 리콜, 미국 EPA 인증, 국내 연비 신고, 해외 발주처 낙찰, 협력사 회생·파산, 전기위·원안위, 공장 부지 건축허가)에서 최근 N시간(기본 24, 월요일 72) 새 항목만 모아 A(단독 후보·직접 변화)/B(확인할 공식 변화)/C(참고)로 정렬. A·B 항목마다 자동 보도 대조 결과(평일 08:50·18:50, 항목 날짜 3일 전 이후 네이버·빙·구글: 미보도 후보·관련 보도 있음·미확인)를 붙이고 미보도 후보를 먼저 보여 줌. 실패·오래된 감시를 맨 위에 표시. 기자가 판정(씀·킬·보류·봤음)한 항목은 숨김, 줄마다 id.',
+    description: '오늘의 레이더(하루 시작): 기자 전용 감시 19개(단독 후보 심사, 공장등록·관보, 공정위·한전·원자재, 월간 통계, 무역구제, 미국 소송, 해외 파트너 공시, 미 의견서, 해외 페이지, 상표 출원, 국회 법안, 미국 리콜, 미국 EPA 인증, 국내 연비 신고, 해외 발주처 낙찰, 협력사 회생·파산, 전기위·원안위, 공장 부지 건축허가, 해외 법인 등기)에서 최근 N시간(기본 24, 월요일 72) 새 항목만 모아 A(단독 후보·직접 변화)/B(확인할 공식 변화)/C(참고)로 정렬. A·B 항목마다 자동 보도 대조 결과(평일 08:50·18:50, 항목 날짜 3일 전 이후 네이버·빙·구글: 미보도 후보·관련 보도 있음·미확인)를 붙이고 미보도 후보를 먼저 보여 줌. 실패·오래된 감시를 맨 위에 표시. 기자가 판정(씀·킬·보류·봤음)한 항목은 숨김, 줄마다 id.',
     inputSchema: obj({ hours: int('최근 N시간(기본 24, 월요일 72)', 1, 336), company: str('기업·낱말로 거르기'),
       include_minor: bool('C(참고)도 펼쳐 보기'), include_judged: bool('씀·킬·보류·봤음으로 판정한 항목도 보기'),
       limit: int('등급별 줄 수(기본 15)', 1, 60) }) },
@@ -145,7 +145,7 @@ export const TOOLS = [
     inputSchema: obj({ company: str('기업·페이지 낱말'), days: int('최근 N일(기본 14)', 1, 90), limit: int('줄 수', 1, 40),
       show_current: bool('페이지별 현재 문구도 보기') }) },
   { name: 'partner_filings', access: 'private', handler: partnerFilings,
-    description: '해외 파트너 공시: 출입처와 계약·합작한 해외 상장사(ASX: 아라푸라·필바라, HKEX: BAIC Motor(베이징현대 합작 상대), 관계 근거 포함)의 최근 공시와, 출입처 이름이 들어간 미국 SEC EDGAR 공시(출입처 자신의 공시 제외)·본문 발췌. 아래에 해외 발주처 낙찰 공고(EU TED·영국 Find a Tender·세계은행·바레인 월간 보고서에서 출입처가 낙찰자 칸에 적힌 것, 금액·계약일; source를 비울 때만)도 붙인다.',
+    description: '해외 파트너 공시: 출입처와 계약·합작한 해외 상장사(ASX: 아라푸라·필바라, HKEX: BAIC Motor(베이징현대 합작 상대), 관계 근거 포함)의 최근 공시와, 출입처 이름이 들어간 미국 SEC EDGAR 공시(출입처 자신의 공시 제외)·본문 발췌. 아래에 해외 발주처 낙찰 공고(EU TED·영국 Find a Tender·세계은행·바레인 월간 보고서에서 출입처가 낙찰자 칸에 적힌 것, 금액·계약일)와 영국 법인 설립 등기(Companies House, 출입처 본사가 지배 주주인 새 법인; 키 COMPANIES_HOUSE_API_KEY)도 붙인다(source를 비울 때만).',
     inputSchema: obj({ company: str('기업·파트너·낱말'), source: { type: 'string', enum: ['ASX', 'HKEX', 'EDGAR'] }, only_new: bool('신규만'),
       include_routine: bool('일상 공시도 보기(ASX 주총·임원 지분, HKEX 월간 증권 변동·이사회 일정, EDGAR 투자 보유 표·같은 회사 반복 문구)'), limit: int('줄 수', 1, 60) }) },
   { name: 'trade_remedies', access: 'private', handler: tradeRemedies,

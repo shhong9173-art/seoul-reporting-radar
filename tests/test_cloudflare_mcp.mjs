@@ -852,7 +852,7 @@ test('Cloudflare cron asks GitHub to run each watch at its KST weekday slot and 
   assert.deepEqual(dueAt(new Date('2026-10-26T22:40:05Z')), ['trade-remedy.yml']);        // Tue 07:40 KST
   assert.deepEqual(dueAt(new Date('2026-10-26T22:10:30Z')), ['scoop-screen.yml']);
   assert.deepEqual(dueAt(new Date('2026-10-27T06:10:00Z')), ['scoop-screen.yml']);        // 15:10 KST
-  assert.deepEqual(dueAt(new Date('2026-10-26T21:00:00Z')), []);                          // no slot (06:00 KST)
+  assert.deepEqual(dueAt(new Date('2026-10-27T07:00:00Z')), []);                          // no slot (16:00 KST)
   assert.deepEqual(dueAt(new Date('2026-10-31T22:40:00Z')), []);                          // Sun 07:40 KST
   const opts = PRIVATE({ GITHUB_DISPATCH_TOKEN: 'ghp_test' });
   const seen = [];
@@ -873,7 +873,7 @@ test('Cloudflare cron asks GitHub to run each watch at its KST weekday slot and 
   // the reporter adds the secret after the morning slots: the line says so before the next slot comes round
   const later = await call('radar_today', {}, { ...none, env: { ...none.env, GITHUB_DISPATCH_TOKEN: 'ghp_test' } });
   assert.match(later.text, /예약 요청\(Cloudflare\): 오늘 앞선 칸은 토큰 없이 지나감 · 지금은 토큰 보임 — 다음 칸\(10-26 15:00 scoop-radar\.yml\)부터 요청/);
-  assert.equal(nextSlot(new Date('2026-10-30T10:00:00Z')), '11-02 06:10 kr-fuel.yml');  // Fri 19:00 KST → Mon 06:30
+  assert.equal(nextSlot(new Date('2026-10-30T10:00:00Z')), '11-02 06:00 overseas-registry.yml');  // Fri 19:00 KST → Mon 06:00
   const fresh = await call('radar_today', {}, PRIVATE());
   assert.match(fresh.text, /예약 요청\(Cloudflare\): 기록 없음 · 지금도 워커에서 GITHUB_DISPATCH_TOKEN이 보이지 않음/);
   const freshWithToken = await call('radar_today', {}, PRIVATE({ GITHUB_DISPATCH_TOKEN: 'ghp_test' }));
@@ -1026,7 +1026,7 @@ test('kr_signals shows FTC decisions by role, KEPCO bids and commodity prices, a
   const minor = await call('radar_today', { include_minor: true }, opts);
   assert.match(minor.text, /「\(연간단가\)고효율주상변압기,50KVA\(광유\)-2,338대-0\d\(일반\)」 외 같은 공고 2건\(합계 약 149억원\) · 추정가격 약 50억원/);
   assert.equal((minor.text.match(/고효율주상변압기/g) ?? []).length, 1);  // three lots, one line
-  assert.match(r.text, /기자 전용 감시 18개/);
+  assert.match(r.text, /기자 전용 감시 19개/);
   assert.deepEqual(dueAt(new Date('2026-10-26T23:30:00Z')), ['kr-signals.yml', 'kipris-patent-hunt.yml']);  // Tue 08:30 KST
   assert.deepEqual(dueAt(new Date('2026-10-27T06:20:00Z')), ['kr-signals.yml']);  // Tue 15:20 KST
 });
@@ -1167,7 +1167,7 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   assert.doesNotMatch((await call('trademarks', { name: 'aero' }, opts)).text, /NUTRIMACY/);
   assert.doesNotMatch((await call('trademarks', { class: '35' }, opts)).text, /NUTRIMACY/);
   const r = await call('radar_today', {}, opts);
-  assert.match(r.text, /기자 전용 감시 18개/);
+  assert.match(r.text, /기자 전용 감시 19개/);
   assert.match(r.text, /- 상표 출원: 대기 1곳\(제공기관 응답 22 뒤 72시간 대기\) — 해당 부분 0건은 미확인/);
   assert.doesNotMatch(r.text, /상표 출원: [^\n]*시간 전 결과/);
   const b = r.text.split('[B · ')[1].split('[C · ')[0];
@@ -1177,7 +1177,7 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   assert.match(minor.text, /상표 출원 「NUTRIMACY」[^\n]* — 같은 이름 상품류 추가/);
   const list = await rpc('tools/list', {}, { path: `/mcp/${TOKEN}`, env });
   assert.ok(list.body.result.tools.some((x) => x.name === 'trademarks'));
-  assert.match(list.body.result.tools.find((x) => x.name === 'radar_today').description, /감시 18개\([^)]*상표 출원, 국회 법안, 미국 리콜, 미국 EPA 인증, 국내 연비 신고, 해외 발주처 낙찰, 협력사 회생·파산, 전기위·원안위, 공장 부지 건축허가\)/);
+  assert.match(list.body.result.tools.find((x) => x.name === 'radar_today').description, /감시 19개\([^)]*상표 출원, 국회 법안, 미국 리콜, 미국 EPA 인증, 국내 연비 신고, 해외 발주처 낙찰, 협력사 회생·파산, 전기위·원안위, 공장 부지 건축허가, 해외 법인 등기\)/);
   assert.ok(!(await rpc('tools/list', {}, { env })).body.result.tools.some((x) => x.name === 'trademarks'));  // private only
 });
 
@@ -1618,6 +1618,29 @@ test('kr building: a permit on a beat factory parcel is A; unset datasets show a
     { source: '건축인허가', status: 'unset', error: '조회할 번지 없음 — 주소 변환 활용신청 후' }] };
   await worker.fetch(new Request(ORIGIN + '/ingest/kr-building', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(unset) }), env, {});
   assert.match((await call('radar_today', { hours: 72 }, opts)).text, /- 공장 부지 건축허가: 미설정 주소 변환\(활용신청 필요\(15000124 우체국 도로명주소, 15077871 법정동코드\)\)/);
+});
+
+test('overseas registry: a new UK company with a beat parent as PSC is A; a missing key is 미설정', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const c = (id, extra) => ({ id, company: '효성중공업(관련)', name: 'HYOSUNG HEAVY INDUSTRIES UK LTD', number: '16000001', status: 'active', type: 'ltd',
+    created: '2026-10-24', sic: ['27110'], address: '1 Grid Way, London', url: 'https://find-and-update.company-information.service.gov.uk/company/16000001',
+    psc: ['Hyosung Heavy Industries Corporation'], pscMatch: true, tier: 'A', firstSeen: '2026-10-25T06:00:00+09:00', baseline: false, isNew: true, ...extra });
+  const doc = { schema: 'overseas_registry/v1', generatedAt: '2026-10-25T06:00:00+09:00', status: 'complete', windowStart: '2025-10-25', rules: ['PSC로 판단.'],
+    checks: [{ source: '영국 Companies House hyosung', status: 'ok', returned: 3, matched: 1 }],
+    companies: [c('ch:16000001'), c('ch:16000002', { company: '현대차', name: 'HYUNDAI OF BRISTOL LIMITED', number: '16000002', psc: ['John Smith'], pscMatch: false, tier: 'C' })] };
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/overseas-registry', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
+  const r = await call('radar_today', { hours: 72, include_minor: true }, opts);
+  const sec = (t) => r.text.split(`[${t} · `)[1].split(/\n\[[ABC] · /)[0];
+  assert.match(sec('A'), /영국 법인 설립 등기: HYOSUNG HEAVY INDUSTRIES UK LTD\(16000001\) · 설립 2026-10-24 · SIC 27110 · 지배 주주 Hyosung Heavy Industries Corporation/);
+  assert.match(sec('C'), /HYUNDAI OF BRISTOL LIMITED[^\n]*출입처 본사 지배 주주 아님\(이름만 같음\)/);
+  const t = await call('partner_filings', {}, opts);
+  assert.match(t.text, /\[해외 법인 등기 · 영국 Companies House · 설립 2025-10-25 이후\] 출입처 지배 주주 1건 · 이름만 같은 법인 1건/);
+  assert.match(t.text, /- \[신규\] 2026-10-24 설립 · 효성중공업\(관련\) · HYOSUNG HEAVY INDUSTRIES UK LTD \(16000001, active\)/);
+  const unset = { ...doc, status: 'unset', companies: [], checks: [{ source: '영국 Companies House', status: 'unset', error: 'COMPANIES_HOUSE_API_KEY 없음(무료 발급)' }] };
+  await worker.fetch(new Request(ORIGIN + '/ingest/overseas-registry', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(unset) }), env, {});
+  assert.match((await call('radar_today', { hours: 72 }, opts)).text, /- 해외 법인 등기\(영국\): 미설정 영국 Companies House\(COMPANIES_HOUSE_API_KEY 없음\(무료 발급\)\)/);
+  assert.deepEqual(dueAt(new Date('2026-10-28T21:00:00Z')), ['overseas-registry.yml']);  // Thu 06:00 KST
 });
 
 test('kr_official: 환경영향평가 new stage of a beat project is A and listed in the tool', async () => {

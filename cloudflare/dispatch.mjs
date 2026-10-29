@@ -10,6 +10,8 @@ const LOG_KEEP = 200;
 
 // KST weekday (Mon–Fri) slots, matching each workflow's GitHub cron.
 export const SLOTS = [
+  // 영국 Companies House: 영국 업무일이 끝난 뒤.
+  { at: '06:00', workflow: 'overseas-registry.yml' },
   { at: '06:10', workflow: 'kr-fuel.yml' },
   // EPA·vPIC: GitHub 예약('20 21 * * *')이 10-29 아침에 돌지 않았다.
   { at: '06:20', workflow: 'us-epa.yml' },
