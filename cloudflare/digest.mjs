@@ -33,6 +33,7 @@ export const WATCHES = [
   { feed: 'us-epa', label: '미국 EPA 인증', tool: 'us_epa', schedule: '매일 06:20', staleHours: 60 },
   { feed: 'kr-fuel', label: '국내 연비 신고', tool: 'kr_fuel', schedule: '매일 06:10', staleHours: 60 },
   { feed: 'overseas-awards', label: '해외 발주처 낙찰', tool: 'partner_filings', schedule: '평일 06:50·17:30' },
+  { feed: 'kr-insolvency', label: '협력사 회생·파산', tool: 'kr_official', schedule: '평일 07:20·17:20' },
 ];
 
 // Items first seen in a watch's very first run are a baseline, not news: they only count when their own date is recent.
@@ -65,6 +66,7 @@ const ALT = {
   합작: ['합작', '지분', '매각', '정리', '철수', '계약', '합작사'], 보조금: ['보조금', '상계관세', '어린이집', '직장', '지원'],
   리콜: ['리콜', '결함', '시정조치', '화재 위험'], 가격: ['가격', '판매가', '출고가', 'MSRP', '값'], 미국: ['미국', '美'],
   EPA: ['EPA', '환경보호청', '인증', '주행거리', '연비'],
+  회생: ['회생', '법정관리', '파산', '기업회생', '워크아웃'],
 };
 const ASX_KO = { PLS: '필바라', ARU: '아라푸라', '01958': 'BAIC' };
 const COUNTRY_KO = {
@@ -76,6 +78,15 @@ const COUNTRY_KO = {
   Ukraine: '우크라이나', 'South Africa': '남아공', Kenya: '케냐', Nigeria: '나이지리아', Ethiopia: '에티오피아', Turkiye: '튀르키예', Mongolia: '몽골',
 };
 export const countryKo = (c) => COUNTRY_KO[String(c ?? '').trim()];
+export const firmName = (n) => String(n ?? '').replace(/주식회사|\(주\)|㈜|\(\d{3}-\d{2}-\d{5}\)/g, '').trim();
+export function insolvencyLine(e) {
+  const ind = e.industry ?? {};
+  const what = e.watch ? `출입처 협력사 명단(${[e.watch.beat, e.watch.relation].filter(Boolean).join(' · ')})`
+    : ind.label ? `공장등록 업종 ${ind.label}${ind.product ? ` · 주생산품 ${String(ind.product).slice(0, 40)}` : ''}${ind.employees != null ? ` · 종업원 ${ind.employees}명` : ''}`
+      : '공장등록 없음 — 이름 낱말만';
+  const where = ind.address ? ` · ${String(ind.address).split(/\s+/).slice(0, 2).join(' ')}` : '';
+  return `${e.company} (${e.court}${e.caseNo ? ` ${e.caseNo}` : ''}) · ${what}${where}`;
+}
 export function hint(who, terms) {
   const subject = String(who ?? '').split('·')[0].replace(/\(.*?\)/g, '').trim();
   const t = [...new Set(terms.filter(Boolean).map(String))];
@@ -335,6 +346,17 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
     push(tier, W['overseas-awards'], { kind: `${x.source} ${x.kind}`, id: x.id, date: x.published ?? x.firstSeen, company: x.company ?? '',
       fact: `해외 ${x.kind}(${x.source}): ${where ? `${where} ` : ''}${x.buyer} ← ${who} · ${String(x.title ?? '').slice(0, 120)}${value}${x.concluded ? ` · 계약 ${x.concluded}` : ''} · 공고 ${x.published ?? '?'}`,
       url: x.url, check: tier === 'C' ? undefined : hint(x.company, [where, '수주']) });
+  }
+
+  // Court insolvency notices (대법원 회생·파산 공고, 회생회사 M&A 공고): a beat-industry manufacturer (공장등록 업종) entering
+  // proceedings is A, a related industry or a 폐지 B, name words only C. A court notice is a procedure, not a supply effect.
+  const ins = docs['kr-insolvency'];
+  const insBase = baselineOf(ins?.events ?? []);
+  for (const e of ins?.events ?? []) {
+    if (!fresh(e, insBase, 'posted')) continue;
+    push(e.tier ?? 'C', W['kr-insolvency'], { kind: e.kind, id: e.id, date: e.posted ?? e.firstSeen, company: e.company,
+      fact: `${e.kind}: ${insolvencyLine(e)} · 공고 ${e.posted ?? '?'} — 거래 관계·납품 영향 미확인`, url: e.url ?? e.listUrl,
+      check: e.tier === 'C' ? undefined : hint(firmName(e.company), ['회생']) });
   }
 
   const uc = docs['us-comments'];

@@ -852,7 +852,7 @@ test('Cloudflare cron asks GitHub to run each watch at its KST weekday slot and 
   assert.deepEqual(dueAt(new Date('2026-10-26T22:40:05Z')), ['trade-remedy.yml']);        // Tue 07:40 KST
   assert.deepEqual(dueAt(new Date('2026-10-26T22:10:30Z')), ['scoop-screen.yml']);
   assert.deepEqual(dueAt(new Date('2026-10-27T06:10:00Z')), ['scoop-screen.yml']);        // 15:10 KST
-  assert.deepEqual(dueAt(new Date('2026-10-26T22:20:00Z')), []);                          // no slot
+  assert.deepEqual(dueAt(new Date('2026-10-26T21:00:00Z')), []);                          // no slot (06:00 KST)
   assert.deepEqual(dueAt(new Date('2026-10-31T22:40:00Z')), []);                          // Sun 07:40 KST
   const opts = PRIVATE({ GITHUB_DISPATCH_TOKEN: 'ghp_test' });
   const seen = [];
@@ -1026,7 +1026,7 @@ test('kr_signals shows FTC decisions by role, KEPCO bids and commodity prices, a
   const minor = await call('radar_today', { include_minor: true }, opts);
   assert.match(minor.text, /「\(연간단가\)고효율주상변압기,50KVA\(광유\)-2,338대-0\d\(일반\)」 외 같은 공고 2건\(합계 약 149억원\) · 추정가격 약 50억원/);
   assert.equal((minor.text.match(/고효율주상변압기/g) ?? []).length, 1);  // three lots, one line
-  assert.match(r.text, /기자 전용 감시 15개/);
+  assert.match(r.text, /기자 전용 감시 16개/);
   assert.deepEqual(dueAt(new Date('2026-10-26T23:30:00Z')), ['kr-signals.yml']);  // Tue 08:30 KST
   assert.deepEqual(dueAt(new Date('2026-10-27T06:20:00Z')), ['kr-signals.yml']);  // Tue 15:20 KST
 });
@@ -1167,7 +1167,7 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   assert.doesNotMatch((await call('trademarks', { name: 'aero' }, opts)).text, /NUTRIMACY/);
   assert.doesNotMatch((await call('trademarks', { class: '35' }, opts)).text, /NUTRIMACY/);
   const r = await call('radar_today', {}, opts);
-  assert.match(r.text, /기자 전용 감시 15개/);
+  assert.match(r.text, /기자 전용 감시 16개/);
   assert.match(r.text, /- 상표 출원: 대기 1곳\(제공기관 응답 22 뒤 72시간 대기\) — 해당 부분 0건은 미확인/);
   assert.doesNotMatch(r.text, /상표 출원: [^\n]*시간 전 결과/);
   const b = r.text.split('[B · ')[1].split('[C · ')[0];
@@ -1177,7 +1177,7 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   assert.match(minor.text, /상표 출원 「NUTRIMACY」[^\n]* — 같은 이름 상품류 추가/);
   const list = await rpc('tools/list', {}, { path: `/mcp/${TOKEN}`, env });
   assert.ok(list.body.result.tools.some((x) => x.name === 'trademarks'));
-  assert.match(list.body.result.tools.find((x) => x.name === 'radar_today').description, /감시 15개\([^)]*상표 출원, 국회 법안, 미국 리콜, 미국 EPA 인증, 국내 연비 신고, 해외 발주처 낙찰\)/);
+  assert.match(list.body.result.tools.find((x) => x.name === 'radar_today').description, /감시 16개\([^)]*상표 출원, 국회 법안, 미국 리콜, 미국 EPA 인증, 국내 연비 신고, 해외 발주처 낙찰, 협력사 회생·파산\)/);
   assert.ok(!(await rpc('tools/list', {}, { env })).body.result.tools.some((x) => x.name === 'trademarks'));  // private only
 });
 
@@ -1527,6 +1527,41 @@ test('overseas awards: a beat company in the TED winner field is A; other Korean
   assert.deepEqual(items.items.find((x) => x.id === 'ted:545946-2026').check.terms, ['덴마크', '수주']);
   assert.deepEqual(dueAt(new Date('2026-10-28T21:50:00Z')), ['overseas-awards.yml']);  // Thu 06:50 KST
   assert.deepEqual(dueAt(new Date('2026-10-29T08:30:00Z')), ['overseas-awards.yml']);  // Thu 17:30 KST
+});
+
+test('kr insolvency: a beat-industry manufacturer entering court proceedings is A and listed under kr_official', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const ev = (id, extra = {}) => ({ id, source: '대법원 회생·파산 공고', kind: '회생 개시', stage: 'start', title: '회생절차 개시결정 공고', company: '주식회사 엠디스틸',
+    court: '서울회생법원', task: '법인회생', caseNo: '2026회합 1129', division: '제17부', posted: '2026-10-25',
+    industry: { match: 'core', label: '1차 철강', code: '24121', industry: '냉간 압연 및 압출 제품 제조업', product: '냉연강판', employees: 85, address: '경기도 화성시 팔탄면 …', factories: 1 },
+    match: 'core', watch: null, tier: 'A', url: 'https://ecfs.scourt.go.kr/sgvo/websquare/websquare.html?w2xPath=/sgvo/ui/sgvo200/SGVO201M01.xml?paramData=e30=',
+    listUrl: 'https://www.scourt.go.kr/portal/notice/insolvency/insolvency.jsp', firstSeen: '2026-10-25T17:20:00+09:00', baseline: false, isNew: true, ...extra });
+  const doc = { schema: 'kr_insolvency/v1', generatedAt: '2026-10-25T17:20:00+09:00', status: 'partial', watchlistSize: 0, rules: ['법원 공고는 절차 단계다.'],
+    checks: [{ source: '서울회생법원 법인회생', status: 'ok', returned: 40 }, { source: '부산회생법원 법인회생', status: 'failed', error: 'ConnectTimeout' },
+      { source: '회생회사 M&A 공고 제조업(기계,금속,중공업)', status: 'ok', returned: 21 }, { source: '공장등록 업종 조회', status: 'partial', returned: 120, pending: 68 }],
+    events: [ev('ins:1'),
+      ev('ins:2', { kind: '포괄적 금지명령', company: '주식회사 한빛오토텍', tier: 'B', match: 'product', industry: { match: 'product', label: '금속가공제품', code: '25912', product: '자동차 차체 프레스 부품', employees: 120, address: '충청남도 아산시 …', factories: 1 } }),
+      ev('ins:3', { company: '주식회사 메탈153', tier: 'C', match: 'name', industry: { match: null, factories: 0 } })] };
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/kr-insolvency', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
+  const r = await call('radar_today', { hours: 72, include_minor: true }, opts);
+  const sec = (t) => r.text.split(`[${t} · `)[1].split(/\n\[[ABC] · /)[0];
+  assert.match(sec('A'), /회생 개시: 주식회사 엠디스틸 \(서울회생법원 2026회합 1129\) · 공장등록 업종 1차 철강 · 주생산품 냉연강판 · 종업원 85명 · 경기도 화성시 · 공고 2026-10-25 — 거래 관계·납품 영향 미확인/);
+  assert.match(sec('B'), /포괄적 금지명령: 주식회사 한빛오토텍 \(서울회생법원 2026회합 1129\) · 공장등록 업종 금속가공제품 · 주생산품 자동차 차체 프레스 부품/);
+  assert.match(sec('C'), /주식회사 메탈153 [^\n]*공장등록 없음 — 이름 낱말만/);
+  assert.match(r.text, /- 협력사 회생·파산: 일부 실패 1건\(부산회생법원 법인회생\)/);
+  const t = await call('kr_official', { section: 'insolvency' }, opts);
+  assert.match(t.text, /\[협력사 회생·파산 · 대법원 회생·파산 공고\(법원 2곳 목록\)·회생회사 M&A 공고 · 공고 최근 30일\] 출입 업종 2건 · 이름 낱말만 1건/);
+  assert.match(t.text, /원천: 법원 목록 1\/2 정상\(미확인: 부산회생법원 법인회생\(ConnectTimeout\)\) · 회생회사 M&A 공고 제조업\(기계,금속,중공업\) ok · 공장등록 업종 조회 partial\(업종 조회 대기 68곳 — 다음 실행\) · 협력사 명단 비어 있음/);
+  assert.match(t.text, /\[신규\] 2026-10-25 · 회생 개시 · 주식회사 엠디스틸 · 서울회생법원 2026회합 1129\(제17부\)\n   잡힌 사실: 공고 「회생절차 개시결정 공고」 · 공장등록 업종 1차 철강\(24121 냉간 압연 및 압출 제품 제조업\) · 주생산품 냉연강판 · 종업원 85명/);
+  assert.doesNotMatch(t.text, /메탈153/);
+  assert.match((await call('kr_official', { section: 'insolvency', company: '메탈' }, opts)).text, /주식회사 메탈153/);
+  // without the kr-official feed the insolvency section still shows
+  assert.match((await call('kr_official', {}, opts)).text, /공장등록·관보 입법예고 결과가 아직 없음[\s\S]*\[협력사 회생·파산/);
+  const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
+  assert.deepEqual(items.items.find((x) => x.id === 'ins:1').check, { who: '엠디스틸', terms: ['회생'], alts: { 회생: ['회생', '법정관리', '파산', '기업회생', '워크아웃'] } });
+  assert.deepEqual(dueAt(new Date('2026-10-28T22:20:00Z')), ['kr-insolvency.yml']);  // Thu 07:20 KST
+  assert.deepEqual(dueAt(new Date('2026-10-29T08:20:00Z')), ['kr-insolvency.yml']);  // Thu 17:20 KST
 });
 
 test('kr_official: 환경영향평가 new stage of a beat project is A and listed in the tool', async () => {
