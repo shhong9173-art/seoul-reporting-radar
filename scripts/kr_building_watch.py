@@ -36,6 +36,9 @@ DATASETS = {"epost": "15000124 우체국 도로명주소", "region": "15077871 �
 PARCEL_TTL_DAYS = 180
 SHOW_DAYS = 400
 KEEP_MAX = 600
+# GitHub job timeout is 30 min: stop looking up addresses at 13 min and permits at 25 min, save what was done
+ADDR_BUDGET_S = 13 * 60
+TOTAL_BUDGET_S = 25 * 60
 BIG_AREA = 1000.0
 SMALL_AREA = 300.0
 RULES = [
@@ -146,7 +149,7 @@ def region_code(text, dong):
     return None
 
 
-def parcel_for(fac, caller, now):
+def parcel_for(fac, caller, now, regions=None):
     road = road_query(fac.get("rnAdres"))
     if not road:
         return {"road": "", "error": "주소 없음", "checkedAt": now}
@@ -156,7 +159,10 @@ def parcel_for(fac, caller, now):
     j = split_jibun(lnm)
     if not j:
         return {"road": road, "jibun": lnm, "error": "지번 형식 미상", "checkedAt": now}
-    code = region_code(caller.call("region", REGION, {"locatadd_nm": j["dong"], "type": "json", "numOfRows": 20, "pageNo": 1}), j["dong"])
+    regions = {} if regions is None else regions
+    if j["dong"] not in regions:  # many plants share one dong
+        regions[j["dong"]] = region_code(caller.call("region", REGION, {"locatadd_nm": j["dong"], "type": "json", "numOfRows": 20, "pageNo": 1}), j["dong"])
+    code = regions[j["dong"]]
     if not code:
         return {"road": road, "jibun": lnm, "error": "법정동코드 못 찾음", "checkedAt": now}
     return {"road": road, "jibun": lnm, "sigunguCd": code[:5], "bjdongCd": code[5:], "platGbCd": j["platGbCd"],
@@ -191,7 +197,7 @@ def tier_of(p):
     return "A" if p.get("archGbCdNm") in ("신축", "증축") and a >= BIG_AREA else "B"
 
 
-def run(keys, factories, *, now, previous=None, get=None, sleep=time.sleep):
+def run(keys, factories, *, now, previous=None, get=None, sleep=time.sleep, clock=time.monotonic):
     stamp = now.isoformat(timespec="seconds")
     # a stored '미설정' result (datasets not approved yet) is not a baseline: the first run that really queries is
     baseline = not (isinstance(previous, dict) and previous.get("baselineSince"))
@@ -208,14 +214,18 @@ def run(keys, factories, *, now, previous=None, get=None, sleep=time.sleep):
     parcels = dict((previous or {}).get("parcels") or {})
     ttl = (now - dt.timedelta(days=PARCEL_TTL_DAYS)).isoformat()
     checks, refused = [], None
-    addr_ok = addr_fail = 0
+    addr_ok = addr_fail = addr_left = 0
+    start, regions = clock(), {}
     for f in factories:
         fid = f["id"]
         p = parcels.get(fid)
         if p and p.get("road") == road_query(f.get("rnAdres")) and str(p.get("checkedAt")) >= ttl and not p.get("error"):
             continue
+        if clock() - start > ADDR_BUDGET_S:
+            addr_left += 1  # done next run (resolved parcels are kept)
+            continue
         try:
-            parcels[fid] = parcel_for(f, caller, stamp)
+            parcels[fid] = parcel_for(f, caller, stamp, regions)
             addr_ok += 0 if parcels[fid].get("error") else 1
             addr_fail += 1 if parcels[fid].get("error") else 0
         except Refused as e:
@@ -227,6 +237,9 @@ def run(keys, factories, *, now, previous=None, get=None, sleep=time.sleep):
     if refused:
         missing = [DATASETS[d] for d in ("epost", "region") if d in caller.refused and d not in caller.chosen]
         checks.append({"source": "주소 변환", "status": "unset", "error": f"활용신청 필요({', '.join(missing) or refused})"})
+    elif addr_left:
+        checks.append({"source": "주소 변환", "status": "partial", "returned": addr_ok, "failed": addr_fail,
+                       "error": f"시간 한도 — 남은 {addr_left}곳은 다음 실행"})
     else:
         checks.append({"source": "주소 변환", "status": "ok", "returned": addr_ok, "failed": addr_fail})
 
@@ -237,10 +250,13 @@ def run(keys, factories, *, now, previous=None, get=None, sleep=time.sleep):
         p = parcels.get(f["id"]) or {}
         if p.get("sigunguCd"):
             by_parcel.setdefault((p["sigunguCd"], p["bjdongCd"], p["platGbCd"], p["bun"]), []).append(f)
-    queried = fail = 0
+    queried = fail = arch_left = 0
     arch_refused = None
     show_cut = (now - dt.timedelta(days=SHOW_DAYS)).date().isoformat()
     for (sg, bj, gb, bun), facs in by_parcel.items():
+        if clock() - start > TOTAL_BUDGET_S:
+            arch_left += 1
+            continue
         try:
             text = caller.call("arch", ARCH, {"sigunguCd": sg, "bjdongCd": bj, "platGbCd": gb, "bun": bun, "numOfRows": 100, "pageNo": 1, "_type": "json"})
             rows = permits(text)
@@ -282,8 +298,8 @@ def run(keys, factories, *, now, previous=None, get=None, sleep=time.sleep):
     elif arch_refused:
         checks.append({"source": "건축인허가", "status": "unset", "error": f"활용신청 필요({DATASETS['arch']})"})
     else:
-        checks.append({"source": "건축인허가", "status": "ok" if not fail else "partial", "returned": queried,
-                       **({"error": f"{fail}개 번지 조회 실패"} if fail else {})})
+        err = "; ".join(e for e in (f"{fail}개 번지 조회 실패" if fail else "", f"시간 한도 — 남은 {arch_left}개 번지 미조회" if arch_left else "") if e)
+        checks.append({"source": "건축인허가", "status": "ok" if not err else "partial", "returned": queried, **({"error": err} if err else {})})
     for pid, x in out.items():
         if pid in old and x is old[pid]:
             x["isNew"] = False
