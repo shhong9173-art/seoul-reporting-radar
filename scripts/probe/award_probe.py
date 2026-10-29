@@ -1,32 +1,46 @@
-"""격리 탐침 30: 새올 고시공고 데이터 행 원본 HTML(당진·울주·여수·화성), 상세 GET 주소가 열리는지."""
+"""격리 탐침 31: 국민연금 가입 사업장(공공데이터 3046071) — 활용신청 반영 여부, 연산 이름·인자·응답 칸(키 값 미출력)."""
+import json
+import os
 import re
+import time
 
 import requests
 
-UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
-      "Accept-Language": "ko-KR,ko;q=0.9"}
-PATH = "/emwp/gov/mogaha/ntis/web/ofr/action/OfrAction.do"
-LIST = {"method": "selectListOfrNotAncmt", "methodnm": "selectListOfrNotAncmtHomepage", "homepage_pbs_yn": "Y", "subCheck": "Y",
-        "ofr_pageSize": "30", "not_ancmt_se_code": "01,02,03,04,05", "initValue": "Y", "countYn": "Y", "list_gubun": "A",
-        "jndinm": "OfrNotAncmtEJB", "context": "NTIS", "method_type": "", "pageIndex": "1"}
+key = ""
+for name in ("KR_FUEL_API_KEY", "DATA_GO_KR_KEY", "CUSTOMS_API_KEY", "G2B_API_KEY"):
+    key = key or (os.environ.get(name) or "").strip()
+BASE = "https://apis.data.go.kr/B552015/NpsBplcInfoInqireServiceV2/"
 out = []
-for base in ("https://eminwon.dangjin.go.kr", "https://eminwon.asan.go.kr", "https://eminwon.yeosu.go.kr"):
+
+
+def call(op, params):
+    t0 = time.time()
+    r = requests.get(BASE + op, params={"serviceKey": key, "pageNo": 1, "numOfRows": 3, "dataType": "json", **params}, timeout=40)
+    body = r.text.replace(key, "<KEY>") if key else r.text
+    code = re.search(r'"(?:resultCode|returnReasonCode)"\s*:\s*"?([^",}\s]+)', body) or re.search(r"<(?:resultCode|returnReasonCode)>([^<]+)", body)
+    out.append(f"{op} {params} HTTP {r.status_code} {time.time()-t0:.1f}s code={code.group(1) if code else None} body={re.sub(chr(10), ' ', body[:900])!r}")
+    time.sleep(0.5)
     try:
-        r = requests.post(base + PATH, data=LIST, headers={**UA, "Referer": base + PATH}, timeout=45)
-        trs = re.findall(r"<tr[^>]*>[\s\S]*?</tr>", r.text)
-        data = [t for t in trs if "<td" in t]
-        rows_with = [t for t in data if re.search(r"\d{4}-\d{2}-\d{2}", t)]
-        out.append(f"{base} trs={len(trs)} datarows={len(data)} dated={len(rows_with)} row=" + re.sub(r"\s+", " ", rows_with[0] if rows_with else "")[:900])
-        m = re.search(r"searchDetail\(\s*['\"]([0-9A-Za-z_-]+)['\"]", r.text)
-        if m:
-            mgt = m.group(1)
-            u = (f"{base}{PATH}?method=selectOfrNotAncmt&methodnm=selectOfrNotAncmtRegst&not_ancmt_mgt_no={mgt}"
-                 "&homepage_pbs_yn=Y&subCheck=Y&jndinm=OfrNotAncmtEJB&context=NTIS")
-            d = requests.get(u, headers=UA, timeout=45)
-            t = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", d.text))
-            out.append(f"detail GET mgt={mgt} HTTP {d.status_code} len={len(d.text)} err={'장애' in d.text} text={t[t.find('제목'):t.find('제목')+400]}")
-    except Exception as e:  # noqa: BLE001
-        out.append(f"{base} EXC {type(e).__name__}")
+        return r.json()
+    except ValueError:
+        return None
+
+
+d = call("getBassInfoSearchV2", {"wkplNm": "현대자동차"})
+items = []
+try:
+    items = d["response"]["body"]["items"]["item"]
+    items = items if isinstance(items, list) else [items]
+except Exception:  # noqa: BLE001
+    pass
+if items:
+    seq = items[0].get("seq")
+    out.append(f"first item keys={sorted(items[0].keys())}")
+    call("getDetailInfoSearchV2", {"seq": seq})
+    call("getPdAcctoSttusInfoSearchV2", {"seq": seq})
+else:
+    call("getBassInfoSearchV2", {"wkpl_nm": "현대자동차"})
+
 packs, cur = [], ""
 for x in out:
     x = x.replace("\n", " ").replace("::", ": :").replace("%", "pct")
