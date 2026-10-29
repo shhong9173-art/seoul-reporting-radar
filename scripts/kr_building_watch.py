@@ -29,11 +29,12 @@ sys.path.insert(0, str(ROOT / "scripts"))
 KST = dt.timezone(dt.timedelta(hours=9))
 SCHEMA = "kr_building/v1"
 JUSO = "https://business.juso.go.kr/addrlink/addrLinkApi.do"
+REGION = "https://apis.data.go.kr/1741000/StanReginCd/getStanReginCdList"
 JUSO_HELP = "JUSO_CONFM_KEY 없음 — 도로명주소 검색API 승인키(business.juso.go.kr) 필요"
 ARCH = "https://apis.data.go.kr/1613000/ArchPmsHubService/getApBasisOulnInfo"
 UA = {"User-Agent": "newsroom-official-research/1.0", "Accept": "application/json, application/xml"}
 KEY_NAMES = ("KR_FUEL_API_KEY", "DATA_GO_KR_KEY", "CUSTOMS_API_KEY", "G2B_API_KEY")
-DATASETS = {"arch": "15136267 건축인허가"}
+DATASETS = {"arch": "15136267 건축인허가", "region": "15077871 법정동코드"}
 CONNECT_STREAK = 3  # this many connection failures in a row: the address service is unreachable, stop
 PARCEL_TTL_DAYS = 180
 SHOW_DAYS = 400
@@ -126,12 +127,22 @@ class Juso:
         self.get = get
 
     def lookup(self, road):
-        r = self.get(JUSO, params={"confmKey": self.key, "currentPage": 1, "countPerPage": 10, "keyword": road, "resultType": "json"},
-                     headers=UA, timeout=30)
-        if r.status_code != 200:
-            raise RuntimeError(f"도로명주소 HTTP {r.status_code}")
-        self.sleep(0.15)  # development key: 10 requests a second
-        return juso_pick(r.text, road)
+        # the plant registry writes the 2026 merged province ('전남광주통합특별시 …'); if the full address finds nothing,
+        # the address without its province is tried (matched on the end of the road address)
+        tries = [road]
+        parts = road.split(" ")
+        if len(parts) > 3:
+            tries.append(" ".join(parts[1:]))
+        for q in tries:
+            r = self.get(JUSO, params={"confmKey": self.key, "currentPage": 1, "countPerPage": 10, "keyword": q, "resultType": "json"},
+                         headers=UA, timeout=30)
+            if r.status_code != 200:
+                raise RuntimeError(f"도로명주소 HTTP {r.status_code}")
+            self.sleep(0.15)  # development key: 10 requests a second
+            x = juso_pick(r.text, q)
+            if x:
+                return x
+        return None
 
 
 def juso_pick(text, road):
@@ -146,7 +157,7 @@ def juso_pick(text, road):
     if code != "0":
         raise RuntimeError(f"도로명주소 {code} {common.get('errorMessage') or ''}".strip()[:60])
     rows = [x for x in res.get("juso") or [] if len(str(x.get("admCd") or "")) == 10 and str(x.get("lnbrMnnm") or "").strip("0")]
-    exact = [x for x in rows if norm_space(x.get("roadAddrPart1")) == road]
+    exact = [x for x in rows if norm_space(x.get("roadAddrPart1")) == road or norm_space(x.get("roadAddrPart1")).endswith(" " + road)]
     pick = exact or rows
     if not pick:
         return None
@@ -155,10 +166,67 @@ def juso_pick(text, road):
     return pick[0]
 
 
-def parcel_for(fac, juso, now):
-    road = road_query(fac.get("rnAdres"))
+# Some plants are registered with a lot address ('여수시 화치동 48-26번지', '청천동 199번지 외27필지', '신평리 산 12-10'):
+# the lot is read from the address and only the 법정동코드 is looked up (행정표준코드, 15077871).
+JIBUN_ADDR = re.compile(r"^(?P<area>.*?[가-힣0-9]+(?:동|리|가))\s*(?P<mt>산\s*)?(?P<bun>\d+)(?:\s*-\s*(?P<ji>\d+))?(?:\s*번지)?(?=\s|$|외|,)")
+NO_LOT = re.compile(r"(?<![\d-])0(?:-0)?\s*번지")
+
+
+def jibun_parts(addr):
+    a = norm_space(re.sub(r"\(.*?\)", " ", str(addr or "")))
+    if re.search(r"\S+(?:로|길)\s*\d+", a):
+        return None  # a road address
+    m = JIBUN_ADDR.match(a)
+    if not m:
+        return None
+    return {"area": norm_space(m["area"]), "mt": bool(m["mt"]), "bun": m["bun"], "ji": m["ji"] or "0"}
+
+
+def region_pick(text, q):
+    try:
+        d = json.loads(text)
+    except ValueError:
+        raise RuntimeError("법정동코드 응답 형식 미상")
+    rows = []
+    for part in d.get("StanReginCd") or []:
+        rows += part.get("row") or []
+    codes = {str(r.get("region_cd")) for r in rows if len(str(r.get("region_cd") or "")) == 10
+             and (norm_space(r.get("locatadd_nm")) == q or norm_space(r.get("locatadd_nm")).endswith(" " + q))}
+    if len(codes) > 1:
+        raise RuntimeError(f"법정동코드 후보 {len(codes)}개")
+    return codes.pop() if codes else None
+
+
+def region_lookup(caller, area, cache):
+    if area not in cache:
+        tries = [area]
+        parts = area.split(" ")
+        if len(parts) > 2:
+            tries.append(" ".join(parts[1:]))  # '전남광주통합특별시 여수시 화치동' → '여수시 화치동'
+        code = None
+        for q in tries:
+            code = region_pick(caller.call("region", REGION, {"locatadd_nm": q, "type": "json", "numOfRows": 50, "pageNo": 1}), q)
+            if code:
+                break
+        cache[area] = code
+    return cache[area]
+
+
+def parcel_for(fac, juso, now, caller=None, regions=None):
+    addr = fac.get("rnAdres")
+    road = road_query(addr)
     if not road:
         return {"road": "", "error": "주소 없음", "checkedAt": now}
+    if NO_LOT.search(norm_space(addr)):
+        return {"road": road, "error": "주소에 번지 없음(0번지)", "checkedAt": now}
+    jp = jibun_parts(addr)
+    if jp and caller is not None:
+        code = region_lookup(caller, jp["area"], {} if regions is None else regions)
+        if not code:
+            return {"road": road, "error": "법정동코드 못 찾음", "checkedAt": now}
+        lot = f"{jp['area']} {'산 ' if jp['mt'] else ''}{jp['bun']}{'-' + jp['ji'] if jp['ji'] != '0' else ''}"
+        return {"road": road, "jibun": lot, "sigunguCd": code[:5], "bjdongCd": code[5:], "platGbCd": "1" if jp["mt"] else "0",
+                "bun": jp["bun"].zfill(4), "ji": jp["ji"].zfill(4), "checkedAt": now, "from": "지번 주소"}
     x = juso.lookup(road)
     if not x:
         return {"road": road, "error": "지번 못 찾음", "checkedAt": now}
@@ -315,6 +383,7 @@ def run(keys, factories, *, now, previous=None, get=None, sleep=time.sleep, cloc
     unreachable = False
     start = clock()
     juso = Juso(juso_key, get=get, sleep=sleep) if juso_key else None
+    regions = {}
     for f in factories if juso else []:
         fid = f["id"]
         p = parcels.get(fid)
@@ -327,7 +396,7 @@ def run(keys, factories, *, now, previous=None, get=None, sleep=time.sleep, cloc
             addr_left += 1
             continue
         try:
-            fresh = parcel_for(f, juso, stamp)
+            fresh = parcel_for(f, juso, stamp, caller, regions)
             if p and p.get("archFirst") and all(p.get(k) == fresh.get(k) for k in ("sigunguCd", "bjdongCd", "platGbCd", "bun")):
                 fresh["archFirst"] = p["archFirst"]  # same parcel re-resolved after the TTL: not a first look
                 if p.get("archPaged"):
@@ -439,9 +508,17 @@ def run(keys, factories, *, now, previous=None, get=None, sleep=time.sleep, cloc
         kinds = ", ".join(f"{k} {n}" for k, n in sorted(errs.items(), key=lambda kv: -kv[1])[:3])
         err = "; ".join(e for e in (f"{fail}개 번지 조회 실패({kinds})" if fail else "", f"시간 한도 — 남은 {arch_left}개 번지 미조회" if arch_left else "") if e)
         checks.append({"source": "건축인허가", "status": "ok" if not err else "partial", "returned": queried, **({"error": err} if err else {})})
+    current = {f["id"] for f in factories}
     for pid, x in out.items():
         if pid in old and x is old[pid]:
             x["isNew"] = False
+        # a plant dropped from the plant list (closed, renamed, or a name rule tightened — 10-29 '한국지엠디'):
+        # its permits are kept (so they never come back as new) but hidden
+        if current:
+            if x.get("factoryId") in current:
+                x.pop("orphan", None)
+            else:
+                x["orphan"] = True
     kept = sorted(out.values(), key=lambda x: (str(x.get("permitted") or ""), x["id"]), reverse=True)[:KEEP_MAX]
     statuses = {c["status"] for c in checks}
     status = ("unset" if statuses == {"unset"} else "failed" if statuses <= {"failed", "unset"} and "failed" in statuses
@@ -477,6 +554,8 @@ def main():
                        + (f" 이번 {c['returned']}·실패 {c['failed']}" if "failed" in c else "")
                        + (f" {c['errors']}" if c.get("errors") else "") for c in doc["checks"])
           + f" · 다른 필지(같은 본번) {sum(1 for x in doc['permits'] if x.get('sameLot') is False)}"
+          + f" · 공장 목록에서 빠짐(숨김) {sum(1 for x in doc['permits'] if x.get('orphan'))}"
+          + f" · 지번 주소로 번지 확인 {sum(1 for p in doc.get('parcels', {}).values() if p.get('from') == '지번 주소')}"
           + f" · 새 허가 {len(new)} · 보관 {len(doc['permits'])}")
     if doc["status"] == "failed":
         sys.exit("건축인허가 조회 실패 — 이전 결과 유지(0건 아님)")

@@ -446,7 +446,7 @@ async function buildingSection(ctx, q, days, limit) {
   if (doc.broken) return ['\n[공장 부지 건축허가] 저장 형식 오류 — 미확인'];
   const checks = doc.checks ?? [];
   const from = new Date(ctx.now.getTime() + 9 * 3600000 - days * 86400000).toISOString().slice(0, 10);
-  const all = (doc.permits ?? []).filter((x) => (String(x.permitted ?? '') >= from || String(x.changedAt ?? '').slice(0, 10) >= from)
+  const all = (doc.permits ?? []).filter((x) => !x.orphan && (String(x.permitted ?? '') >= from || String(x.changedAt ?? '').slice(0, 10) >= from)
     && matches(q, x.company, x.factory, x.plot, x.mainPurpsCdNm, x.bldNm));
   const rank = { A: 0, B: 1, C: 2 };
   const rows = all.filter((x) => q || x.tier !== 'C').sort((a, b) => (rank[a.tier] ?? 3) - (rank[b.tier] ?? 3)

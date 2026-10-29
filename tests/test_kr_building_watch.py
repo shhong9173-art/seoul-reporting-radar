@@ -12,7 +12,9 @@ KST = dt.timezone(dt.timedelta(hours=9))
 NOW = dt.datetime(2026, 11, 2, 7, 45, tzinfo=KST)
 FACS = [{"id": "fac:1", "company": "KG스틸", "cmpnyNm": "케이지스틸 주식회사", "rnAdres": "충청남도 당진시 송악읍 북부산업로 1228"},
         {"id": "fac:2", "company": "현대차", "cmpnyNm": "현대자동차(주) 아산공장", "rnAdres": "충청남도 아산시 인주면 현대로 1077 (금성리)"}]
-JUSO_DB = {"충청남도 당진시 송악읍 북부산업로 1228": ("충청남도 당진시 송악읍 고대리 1-1", "4427025031", "0", "1", "1"),
+REGION_DB = {"여수시 화치동": [{"region_cd": "4613012000", "locatadd_nm": "전라남도 여수시 화치동"}]}
+JUSO_DB = {"광산구 벽계길 17": ("광주광역시 광산구 하남동 1", "2920012300", "0", "1", "0"),
+           "충청남도 당진시 송악읍 북부산업로 1228": ("충청남도 당진시 송악읍 고대리 1-1", "4427025031", "0", "1", "1"),
            "충청남도 아산시 인주면 현대로 1077": ("충청남도 아산시 인주면 금성리 196", "4420034022", "0", "196", "0")}
 
 
@@ -37,9 +39,13 @@ def fake(permits_by_bun, refuse=(), down=False):
             if params["confmKey"] == "bad":
                 return Resp(json.dumps({"results": {"common": {"errorCode": "E0001", "errorMessage": "승인되지 않은 KEY 입니다."}, "juso": None}}, ensure_ascii=False))
             hit = JUSO_DB.get(params["keyword"])
-            rows = [] if not hit else [{"roadAddrPart1": params["keyword"], "jibunAddr": hit[0], "admCd": hit[1], "mtYn": hit[2], "lnbrMnnm": hit[3], "lnbrSlno": hit[4]}]
+            road = ("광주광역시 " + params["keyword"]) if params["keyword"] == "광산구 벽계길 17" else params["keyword"]
+            rows = [] if not hit else [{"roadAddrPart1": road, "jibunAddr": hit[0], "admCd": hit[1], "mtYn": hit[2], "lnbrMnnm": hit[3], "lnbrSlno": hit[4]}]
             return Resp(json.dumps({"results": {"common": {"errorCode": "0", "totalCount": str(len(rows))}, "juso": rows}}, ensure_ascii=False))
         key = params["serviceKey"]
+        if url == b.REGION:
+            rows = REGION_DB.get(params["locatadd_nm"], [])
+            return Resp(json.dumps({"StanReginCd": [{"head": [{"totalCount": len(rows)}]}, {"row": rows}]}, ensure_ascii=False))
         if url == b.ARCH:
             if "arch" in refuse or key == "bad":
                 return Resp('{"response":{"header":{"resultCode":"30"}}}', 403)
@@ -168,6 +174,21 @@ class Building(unittest.TestCase):
         self.assertFalse(got["bld:P7"])  # stored as new by the bad run: repaired
         self.assertFalse(got["bld:P5"])  # KG스틸 lot failed in that run: first clean paging is its baseline
         self.assertTrue(got["bld:H2"])   # 현대차 lot was paged cleanly: really new
+
+    def test_lot_addresses_merged_province_and_dropped_plants(self):
+        facs = FACS + [{"id": "fac:5", "company": "DL케미칼", "cmpnyNm": "디엘케미칼(주) 여수 HDPE공장", "rnAdres": "전남광주통합특별시 여수시 화치동 48-26번지"},
+                       {"id": "fac:6", "company": "현대모비스", "cmpnyNm": "현대모비스(주)", "rnAdres": "전남광주통합특별시 광산구 벽계길 17"},
+                       {"id": "fac:7", "company": "넥센타이어", "cmpnyNm": "넥센타이어", "rnAdres": "서울특별시 강서구 가양동 0번지"}]
+        get = fake({"0048": [permit("D1")], "0001": [permit("P1")]})
+        doc = go([("K", "good")], facs, now=NOW, previous=None, get=get, sleep=lambda s: None)
+        p5, p6, p7 = (doc["parcels"][k] for k in ("fac:5", "fac:6", "fac:7"))
+        self.assertEqual((p5["sigunguCd"], p5["bjdongCd"], p5["bun"], p5["ji"], p5["from"]), ("46130", "12000", "0048", "0026", "지번 주소"))
+        self.assertEqual((p6["sigunguCd"], p6["bun"]), ("29200", "0001"))  # found without the merged province name
+        self.assertEqual(p7["error"], "주소에 번지 없음(0번지)")
+        self.assertFalse(any(u == b.JUSO and "화치동" in p["keyword"] for u, p in get.calls))  # lot address: no juso call
+        # a plant dropped from the list: its permits stay stored but are marked
+        later = go([("K", "good")], FACS[1:], now=NOW + dt.timedelta(days=7), previous=doc, get=fake({}), sleep=lambda s: None)
+        self.assertTrue(next(x for x in later["permits"] if x["id"] == "bld:P1")["orphan"])
 
     def test_unresolved_plants_are_listed(self):
         facs = FACS + [{"id": "fac:9", "company": "세아", "cmpnyNm": "세아베스틸", "rnAdres": "전라북도 군산시 없는로 1"}]
