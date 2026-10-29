@@ -387,13 +387,13 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
       check: x.tier === 'C' ? undefined : hint(x.company, [cityOf(x.plot), '공장', x.archGbCdNm === '신축' ? '신설' : '증설']) });
   }
 
-  // 영국 Companies House 새 법인: 출입처 본사가 지배 주주(PSC)로 적히면 A, 이름만 같으면 C.
+  // 영국 Companies House 새 법인: 출입처 본사가 지배 주주(PSC)로 적히면 A, 지배 주주 미기재·본사 전체 이름이면 B, 이름만 같으면 C.
   const rg = docs['overseas-registry'];
   const rgBase = baselineOf(rg?.companies ?? []);
   for (const x of rg?.companies ?? []) {
     if (!fresh(x, rgBase, 'created')) continue;
     push(x.tier ?? 'C', W['overseas-registry'], { kind: '영국 법인 설립', id: x.id, date: x.created ?? x.firstSeen, company: x.company,
-      fact: `영국 법인 설립 등기: ${x.name}(${x.number}) · 설립 ${x.created ?? '?'} · SIC ${(x.sic ?? []).join(',') || '미기재'}${(x.psc ?? []).length ? ` · 지배 주주 ${x.psc.slice(0, 2).join(', ')}` : ' · 지배 주주 미기재'}${x.pscMatch ? '' : ' — 출입처 본사 지배 주주 아님(이름만 같음)'}`,
+      fact: `영국 법인 설립 등기: ${x.name}(${x.number}) · 설립 ${x.created ?? '?'} · SIC ${(x.sic ?? []).join(',') || '미기재'}${(x.psc ?? []).length ? ` · 지배 주주 ${x.psc.slice(0, 2).join(', ')}` : ' · 지배 주주 미기재'}${x.pscMatch ? '' : x.tier === 'B' ? ' — 지배 주주 아직 미기재, 이름이 본사 전체 이름(본사 법인인지 확인)' : ' — 출입처 본사 지배 주주 아님(이름만 같음)'}`,
       url: x.url, check: x.tier === 'C' ? undefined : hint(x.company, ['영국', '법인']) });
   }
 

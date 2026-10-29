@@ -1628,14 +1628,16 @@ test('overseas registry: a new UK company with a beat parent as PSC is A; a miss
     psc: ['Hyosung Heavy Industries Corporation'], pscMatch: true, tier: 'A', firstSeen: '2026-10-25T06:00:00+09:00', baseline: false, isNew: true, ...extra });
   const doc = { schema: 'overseas_registry/v1', generatedAt: '2026-10-25T06:00:00+09:00', status: 'complete', windowStart: '2025-10-25', rules: ['PSC로 판단.'],
     checks: [{ source: '영국 Companies House hyosung', status: 'ok', returned: 3, matched: 1 }],
-    companies: [c('ch:16000001'), c('ch:16000002', { company: '현대차', name: 'HYUNDAI OF BRISTOL LIMITED', number: '16000002', psc: ['John Smith'], pscMatch: false, tier: 'C' })] };
+    companies: [c('ch:16000001'), c('ch:16000002', { company: '현대차', name: 'HYUNDAI OF BRISTOL LIMITED', number: '16000002', psc: ['John Smith'], pscMatch: false, tier: 'C' }),
+      c('ch:16848629', { company: '넥센타이어', name: 'NEXEN TYRE U.K. LIMITED', number: '16848629', psc: [], pscMatch: false, nameStrong: true, tier: 'B' })] };
   assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/overseas-registry', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
   const r = await call('radar_today', { hours: 72, include_minor: true }, opts);
   const sec = (t) => r.text.split(`[${t} · `)[1].split(/\n\[[ABC] · /)[0];
   assert.match(sec('A'), /영국 법인 설립 등기: HYOSUNG HEAVY INDUSTRIES UK LTD\(16000001\) · 설립 2026-10-24 · SIC 27110 · 지배 주주 Hyosung Heavy Industries Corporation/);
   assert.match(sec('C'), /HYUNDAI OF BRISTOL LIMITED[^\n]*출입처 본사 지배 주주 아님\(이름만 같음\)/);
+  assert.match(sec('B'), /NEXEN TYRE U\.K\. LIMITED\(16848629\)[^\n]*지배 주주 미기재 — 지배 주주 아직 미기재, 이름이 본사 전체 이름/);
   const t = await call('partner_filings', {}, opts);
-  assert.match(t.text, /\[해외 법인 등기 · 영국 Companies House · 설립 2025-10-25 이후\] 출입처 지배 주주 1건 · 이름만 같은 법인 1건/);
+  assert.match(t.text, /\[해외 법인 등기 · 영국 Companies House · 설립 2025-10-25 이후\] 출입처 지배 주주 1건 · 지배 주주 미기재·본사 이름 1건 · 이름만 같은 법인 1건\(company 낱말로 보기\)/);
   assert.match(t.text, /- \[신규\] 2026-10-24 설립 · 효성중공업\(관련\) · HYOSUNG HEAVY INDUSTRIES UK LTD \(16000001, active\)/);
   const unset = { ...doc, status: 'unset', companies: [], checks: [{ source: '영국 Companies House', status: 'unset', error: 'COMPANIES_HOUSE_API_KEY 없음(무료 발급)' }] };
   await worker.fetch(new Request(ORIGIN + '/ingest/overseas-registry', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(unset) }), env, {});
