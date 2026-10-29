@@ -437,7 +437,7 @@ def run(key, *, now, previous=None, post=None, get=None, sleep=time.sleep, watch
     for e in events.values():
         if e["source"] == "대법원 회생·파산 공고" and e["id"] not in found:
             k, info, w, match = industry_for(e["company"], e.get("court"))
-            if info and (not e.get("industry") or "regionMismatch" not in (e.get("industry") or {})):
+            if info:  # stored notices follow the current cache and region rules
                 e["industry"], e["match"] = info, match
                 e["tier"] = tier_of(e["stage"], match, w, info) or e["tier"]
 
