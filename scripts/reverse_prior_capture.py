@@ -24,11 +24,13 @@ SCHEMA = "reverse_check/v1"
 WINDOW_DAYS = 30
 LOOKBACK_DAYS = 60   # how far before an article a radar item can count
 FEEDS = ["us-litigation", "partner-filings", "trade-remedy", "kr-official", "kr-signals", "us-comments", "page-watch",
-         "trademarks", "assembly-bills", "us-recalls", "scoop-screen", "us-epa", "kr-fuel", "overseas-awards"]
+         "trademarks", "assembly-bills", "us-recalls", "scoop-screen", "us-epa", "kr-fuel", "overseas-awards",
+         "kr-insolvency", "kr-energy", "kr-building", "overseas-registry"]
 LABEL = {"us-litigation": "미국 소송·판결", "partner-filings": "해외 파트너 공시", "trade-remedy": "무역구제·미국 관보",
          "kr-official": "공장등록·관보", "kr-signals": "공정위·한전·산업부", "us-comments": "미 연방 의견서", "page-watch": "해외 공식 페이지",
          "trademarks": "상표 출원", "assembly-bills": "국회 법안", "us-recalls": "미국 리콜", "scoop-screen": "단독 후보 심사",
          "us-epa": "미국 EPA 인증", "kr-fuel": "국내 연비 신고", "overseas-awards": "해외 발주처 낙찰",
+         "kr-insolvency": "협력사 회생·파산", "kr-energy": "전기위·원안위", "kr-building": "공장 부지 건축허가", "overseas-registry": "해외 법인 등기",
          "clues": "공개 원자료 단서(DART 등)"}
 # Group-level names: an article about 포스코 and a radar item about 포스코홀딩스 concern the same group.
 GROUP = {"현대자동차": "현대차", "제네시스": "현대차", "현대차(제네시스)": "현대차", "포스코홀딩스": "포스코", "엘에스일렉트릭": "LS일렉트릭",
@@ -43,6 +45,10 @@ CONCEPTS = [
     ("지분·합작·거래", r"지분|합작|매각|인수|철수|정리|양도|합병", r"equity|joint venture|disposal|acquisition|exit|transaction|investment in|양도|합병|지분|merger"),
     ("공장·생산", r"공장|증설|감산|생산|가동|라인|투자", r"plant|factory|공장|고용|주생산품|production|capacity"),
     ("수주·입찰", r"수주|낙찰|입찰|공급계약|계약", r"tender|award|bid|입찰|낙찰|supply agreement|contract|offtake"),
+    ("건축·증설", r"증설|신설|착공|짓는다|짓기로|신축|증축|새 공장", r"건축허가|신축|증축"),
+    ("회생·파산", r"회생|파산|법정관리|부도|워크아웃", r"회생|파산|포괄적 금지명령"),
+    ("허가·원전", r"허가|원전|원자력|발전사업|해상풍력|계속운전|원안위", r"허가|원자력|발전사업|해상풍력|계속운전|원안의결|심의"),
+    ("법인 설립", r"법인|현지법인|자회사|설립", r"법인 설립|incorporat|Companies House|LIMITED|LTD"),
     ("입법·규제", r"법안|입법|개정안|국회|규제|시행령|입법예고", r"법률안|개정안|입법예고|bill|regulation|rule"),
     ("보육·복지", r"어린이집|보육|직장", r"nursery|child ?care|daycare|어린이집"),
     ("가격", r"가격|값|인상|인하", r"MSRP|price|\$\s?\d|가격"),
@@ -200,6 +206,44 @@ def _awards(d, add):
                 x.get("firstSeen"), x.get("url")))
 
 
+def _investigations(d, add):
+    for x in d.get("investigations") or []:
+        add(mem("us-recalls", x.get("id"), [w.get("name") for w in x.get("why") or []] + [w.get("beat") for w in x.get("why") or []],
+                f"NHTSA 결함조사 defect investigation {x.get('kind')} {x.get('models')} {x.get('component')} {x.get('subject') or ''} 결함 조사",
+                x.get("firstSeen") or x.get("opened"), x.get("url")))
+
+
+def _insolvency(d, add):
+    for x in d.get("events") or []:
+        if x.get("tier") == "C":
+            continue
+        add(mem("kr-insolvency", x.get("id"), [x.get("company"), (x.get("watch") or {}).get("beat")],
+                f"회생 파산 {x.get('kind')} {x.get('company')} {(x.get('industry') or {}).get('product') or ''}", x.get("firstSeen") or x.get("posted"), x.get("url")))
+
+
+def _energy(d, add):
+    for x in d.get("items") or []:
+        add(mem("kr-energy", x.get("id"), [x.get("company")], f"허가 {x.get('source')} {x.get('kind')} {x.get('title')} {x.get('result') or ''}",
+                x.get("firstSeen") or x.get("held"), x.get("url")))
+
+
+def _building(d, add):
+    for x in d.get("permits") or []:
+        if x.get("orphan") or x.get("tier") == "C":
+            continue  # a plant gone from the list, or a small/neighbouring-lot permit
+        add(mem("kr-building", x.get("id"), x.get("companies") or [x.get("company")],
+                f"공장 건축허가 {x.get('archGbCdNm') or ''} {x.get('mainPurpsCdNm') or ''} {x.get('plot') or ''} 증설 신축 plant factory",
+                x.get("firstSeen") or x.get("permitted"), None))
+
+
+def _registry(d, add):
+    for x in d.get("companies") or []:
+        if x.get("tier") not in ("A", "B"):
+            continue  # name-only companies (dealers, unrelated firms)
+        add(mem("overseas-registry", x.get("id"), [x.get("company")], f"영국 법인 설립 Companies House {x.get('name')} LIMITED",
+                x.get("firstSeen") or x.get("created"), x.get("url")))
+
+
 def _screen(d, add):
     for x in d.get("candidates") or []:
         add(mem("scoop-screen", x.get("id"), split_names(x.get("company")), x.get("title"), x.get("published") or x.get("filedOn"), x.get("url")))
@@ -212,7 +256,9 @@ def _clues(d, add):
 
 ADAPTERS = [("us-litigation", _litigation), ("partner-filings", _partners), ("trade-remedy", _trade), ("kr-official", _official), ("kr-official", _eia),
             ("kr-signals", _signals), ("us-comments", _comments), ("page-watch", _pages), ("trademarks", _marks),
-            ("us-recalls", _recalls), ("scoop-screen", _screen), ("us-epa", _epa), ("us-epa", _vin), ("kr-fuel", _fuel), ("overseas-awards", _awards), ("clues", _clues)]
+            ("us-recalls", _recalls), ("scoop-screen", _screen), ("us-epa", _epa), ("us-epa", _vin), ("kr-fuel", _fuel), ("overseas-awards", _awards),
+            ("us-recalls", _investigations), ("kr-insolvency", _insolvency), ("kr-energy", _energy), ("kr-building", _building),
+            ("overseas-registry", _registry), ("clues", _clues)]
 
 
 def nouns(title):
