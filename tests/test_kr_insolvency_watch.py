@@ -142,6 +142,13 @@ class Insolvency(unittest.TestCase):
         self.assertEqual((ev["주식회사 서우"]["tier"], ev["주식회사 서우"]["industry"]["address"]), ("A", "경기도 화성시"))  # 관할 안 공장을 고른다
         self.assertEqual((ev["주식회사 세명테크"]["tier"], ev["주식회사 세명테크"]["industry"]["owners"]), ("B", 3))  # 같은 이름 대표자 3명
 
+    def test_rehabilitation_courts_cover_their_high_court_area(self):
+        self.assertTrue(k.region_rx("부산회생법원").search("울산광역시 남구 용연로"))
+        self.assertTrue(k.region_rx("광주회생법원").search("전북특별자치도 완주군"))
+        self.assertFalse(k.region_rx("울산지방법원").search("경기도 용인시"))
+        self.assertIsNone(k.region_rx("서울회생법원"))
+        self.assertTrue(k.region_rx("대전지방법원").search("세종특별자치시"))
+
     def test_lookup_budget_leaves_pending(self):
         many = [notice("000221", f"2026292000{i:04d}", f"주식회사 스틸{i}", "회생절차 개시결정 공고", "26", seq=i) for i in range(5)]
         post, get, calls = fakes(rows_by_court={"000221/4": many}, factories={})
