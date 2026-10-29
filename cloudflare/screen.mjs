@@ -25,6 +25,7 @@ export const FEEDS = {
   'reverse-check': { blob: 'reverse_check', schema: 'reverse_check/v1', list: 'articles' },
   'us-epa': { blob: 'us_epa', schema: 'us_epa/v1', list: 'vehicles' },
   'kr-fuel': { blob: 'kr_fuel', schema: 'kr_fuel/v1', list: 'vehicles' },
+  'overseas-awards': { blob: 'overseas_awards', schema: 'overseas_awards/v1', list: 'items' },
 };
 
 // Official trade-remedy listing pages that do not answer GitHub runners (ReadTimeout). Collectors fetch them through

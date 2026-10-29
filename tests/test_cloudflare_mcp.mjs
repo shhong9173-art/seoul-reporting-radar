@@ -1026,7 +1026,7 @@ test('kr_signals shows FTC decisions by role, KEPCO bids and commodity prices, a
   const minor = await call('radar_today', { include_minor: true }, opts);
   assert.match(minor.text, /「\(연간단가\)고효율주상변압기,50KVA\(광유\)-2,338대-0\d\(일반\)」 외 같은 공고 2건\(합계 약 149억원\) · 추정가격 약 50억원/);
   assert.equal((minor.text.match(/고효율주상변압기/g) ?? []).length, 1);  // three lots, one line
-  assert.match(r.text, /기자 전용 감시 14개/);
+  assert.match(r.text, /기자 전용 감시 15개/);
   assert.deepEqual(dueAt(new Date('2026-10-26T23:30:00Z')), ['kr-signals.yml']);  // Tue 08:30 KST
   assert.deepEqual(dueAt(new Date('2026-10-27T06:20:00Z')), ['kr-signals.yml']);  // Tue 15:20 KST
 });
@@ -1167,7 +1167,7 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   assert.doesNotMatch((await call('trademarks', { name: 'aero' }, opts)).text, /NUTRIMACY/);
   assert.doesNotMatch((await call('trademarks', { class: '35' }, opts)).text, /NUTRIMACY/);
   const r = await call('radar_today', {}, opts);
-  assert.match(r.text, /기자 전용 감시 14개/);
+  assert.match(r.text, /기자 전용 감시 15개/);
   assert.match(r.text, /- 상표 출원: 대기 1곳\(제공기관 응답 22 뒤 72시간 대기\) — 해당 부분 0건은 미확인/);
   assert.doesNotMatch(r.text, /상표 출원: [^\n]*시간 전 결과/);
   const b = r.text.split('[B · ')[1].split('[C · ')[0];
@@ -1177,7 +1177,7 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   assert.match(minor.text, /상표 출원 「NUTRIMACY」[^\n]* — 같은 이름 상품류 추가/);
   const list = await rpc('tools/list', {}, { path: `/mcp/${TOKEN}`, env });
   assert.ok(list.body.result.tools.some((x) => x.name === 'trademarks'));
-  assert.match(list.body.result.tools.find((x) => x.name === 'radar_today').description, /감시 14개\([^)]*상표 출원, 국회 법안, 미국 리콜, 미국 EPA 인증, 국내 연비 신고\)/);
+  assert.match(list.body.result.tools.find((x) => x.name === 'radar_today').description, /감시 15개\([^)]*상표 출원, 국회 법안, 미국 리콜, 미국 EPA 인증, 국내 연비 신고, 해외 발주처 낙찰\)/);
   assert.ok(!(await rpc('tools/list', {}, { env })).body.result.tools.some((x) => x.name === 'trademarks'));  // private only
 });
 
@@ -1494,6 +1494,39 @@ test('kr_fuel: a new model name is A, an EV range change B, other rows C; unset 
   const r2 = await call('radar_today', { hours: 72 }, opts);
   assert.match(r2.text, /- 국내 연비 신고: 미설정 에너지공단 자동차 표시연비\(공공데이터포털 15139827\)\(공공데이터포털 활용신청 필요/);
   assert.match((await call('kr_fuel', {}, opts)).text, /미확인\(0건 아님\): 공공데이터포털 활용신청 필요/);
+});
+
+test('overseas awards: a beat company in the TED winner field is A; other Korean winners stay in the tool', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const a = (id, extra = {}) => ({ id, source: 'EU TED', published: '2026-10-25', kind: '낙찰', buyer: 'Energinet Eltransmission A/S', buyerCountry: 'DNK',
+    winners: ['Hyosung Heavy Industires Corporation'], winnerCountry: ['KOR'], winnerIds: ['578-87-00896'], company: '효성중공업', companies: ['효성중공업'],
+    title: '400/220 kV Autotransformers for SLF02', value: 15923696, currency: 'EUR', concluded: '2026-06-19', noticeType: 'can-standard',
+    url: 'https://ted.europa.eu/en/notice/-/detail/545946-2026', firstSeen: '2026-10-25T17:30:00+09:00', isNew: true, tier: 'A', ...extra });
+  const doc = { schema: 'overseas_awards/v1', generatedAt: '2026-10-25T17:30:00+09:00', status: 'partial', coverage: 'EU TED · 영국 Find a Tender · 세계은행 · 바레인',
+    checks: [{ source: 'EU TED', query: '한국 국적 낙찰자', status: 'ok', returned: 20, matched: 3 }, { source: '세계은행 조달', query: 'LS Cable', status: 'failed', error: 'HTTP 503' }],
+    rules: ['낙찰자 칸에 이름이 있을 때만 잡는다.'],
+    items: [a('ted:545946-2026'),
+      a('ted:546637-2026', { kind: '계약 변경', tier: 'B', company: 'HD현대일렉트릭', winners: ['HD Hyundai Electric Europe GmbH'], winnerCountry: ['DEU'], winnerIds: [], value: null, concluded: null }),
+      a('ted:721359-2026', { tier: 'C', company: null, companies: [], winners: ['Nano Co., Ltd.'], buyer: 'Enea Elektrownia Połaniec', buyerCountry: 'POL', value: null })] };
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/overseas-awards', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
+  const r = await call('radar_today', { hours: 72, include_minor: true }, opts);
+  const sec = (t) => r.text.split(`[${t} · `)[1].split(/\n\[[ABC] · /)[0];
+  assert.match(sec('A'), /해외 낙찰\(EU TED\): 덴마크 Energinet Eltransmission A\/S ← Hyosung Heavy Industires Corporation · 400\/220 kV Autotransformers for SLF02 · EUR 15,923,696 · 계약 2026-06-19 · 공고 2026-10-25/);
+  assert.match(sec('B'), /해외 계약 변경\(EU TED\): 덴마크 Energinet Eltransmission A\/S ← HD Hyundai Electric Europe GmbH · 400\/220 kV Autotransformers for SLF02 · 금액 미기재/);
+  assert.match(sec('C'), /폴란드 Enea Elektrownia Połaniec ← Nano Co\., Ltd\./);
+  assert.match(r.text, /- 해외 발주처 낙찰: 일부 실패 1건\(세계은행 조달\)/);
+  const t = await call('partner_filings', {}, opts);
+  assert.match(t.text, /\[해외 발주처 낙찰 · EU TED · 영국 Find a Tender · 세계은행 · 바레인 · 공고 최근 120일\] 출입처 2건 · 출입처 밖 한국 기업 1건/);
+  assert.match(t.text, /원천: EU TED 1\/1 정상 · 세계은행 조달 0\/1 정상\(미확인: LS Cable\(HTTP 503\)\)/);
+  assert.match(t.text, /\[신규\] 2026-10-25 · EU TED 낙찰 · 효성중공업 · 발주 Energinet Eltransmission A\/S\(DNK\)\n   잡힌 사실: 낙찰자 Hyosung Heavy Industires Corporation\(KOR, 식별번호 578-87-00896\) · 400\/220 kV Autotransformers for SLF02 · EUR 15,923,696 · 계약 2026-06-19/);
+  assert.doesNotMatch(t.text, /Nano Co/);
+  assert.match((await call('partner_filings', { company: 'Nano' }, opts)).text, /출입처 밖 한국 기업 · 발주 Enea/);
+  assert.doesNotMatch((await call('partner_filings', { source: 'EDGAR' }, opts)).text, /해외 발주처 낙찰/);
+  const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
+  assert.deepEqual(items.items.find((x) => x.id === 'ted:545946-2026').check.terms, ['덴마크', '수주']);
+  assert.deepEqual(dueAt(new Date('2026-10-28T21:50:00Z')), ['overseas-awards.yml']);  // Thu 06:50 KST
+  assert.deepEqual(dueAt(new Date('2026-10-29T08:30:00Z')), ['overseas-awards.yml']);  // Thu 17:30 KST
 });
 
 test('kr_official: 환경영향평가 new stage of a beat project is A and listed in the tool', async () => {
