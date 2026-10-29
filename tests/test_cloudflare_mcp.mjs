@@ -1328,7 +1328,9 @@ test('radar-items hands hinted A/B items to the press checker; radar_today shows
   assert.deepEqual(by['cl:4'].check, { who: '세아제강', terms: ['국제무역법원', '소송'], alts: { 국제무역법원: ['국제무역법원', '무역법원', 'CIT'], 소송: ['소송', '제소', '판결', '항소', '불복'] } });
   assert.deepEqual(by['cl:7'].check.terms, ['항소', '특허']);
   assert.deepEqual(by['fac:1:x'].check.terms, ['인력', '감축']);
-  assert.equal(by['fac:1:x'].fact, '등록 내용 변경: KG스틸(주)당진공장 · 충청남도 당진시 송악읍 북부산업로 1 — 고용 856→690명');
+  assert.equal(by['fac:1:x'].tier, 'B');  // 고용인원만 바뀜: A가 아니라 B, 보도 대조는 그대로
+  assert.equal(by['fac:1:x'].fact.split(' — 고용인원만')[0], '등록 내용 변경: KG스틸(주)당진공장 · 충청남도 당진시 송악읍 북부산업로 1 — 고용 856→690명');
+  assert.match(by['fac:1:x'].fact, / — 고용인원만 바뀜: 정식 변경등록이 아니라 조사·구두 답변 갱신일 수 있어/);
   assert.equal(by['fac:2:gone'].fact.split(' — ')[0], '목록에서 빠짐: 현대위아(주)창원2공장 · 경상남도 창원시 성산구 정동로 154');  // already named: unchanged
   const ko = await call('kr_official', { section: 'factory', company: 'KG스틸' }, opts);
   assert.match(ko.text, /잡힌 사실: KG스틸\(주\)당진공장 · 충청남도 당진시 송악읍 북부산업로 1 — 고용 856→690명/);
@@ -1350,18 +1352,40 @@ test('radar-items hands hinted A/B items to the press checker; radar_today shows
       channels: { naver: { status: 'failed', error: 'ConnectTimeout' }, bing: { status: 'ok', returned: 0 } } }] });
   const r = await call('radar_today', {}, opts);
   const a = r.text.split('[A · ')[1].split('[B · ')[0];
-  assert.match(a, /\(보도 대조 자동 10-26 08:50: 미보도 후보 1 · 관련 보도 있음 1 · 미확인 1 · 대조 안 함 1 — 미보도 후보부터\)/);
-  const order = ['In re: LS Electric', 'KG스틸', 'SeAH Steel'].map((w) => a.indexOf(w));
-  assert.ok(order.every((i) => i > 0) && order[0] < order[1] && order[1] < order[2], a);
+  const b = r.text.split('[B · ')[1].split('[C · ')[0];
+  assert.match(a, /\(보도 대조 자동 10-26 08:50: 미보도 후보 1 · 관련 보도 있음 1 · 미확인 0 · 대조 안 함 1 — 미보도 후보부터\)/);
+  const order = ['In re: LS Electric', 'SeAH Steel'].map((w) => a.indexOf(w));
+  assert.ok(order.every((i) => i > 0) && order[0] < order[1], a);
+  assert.ok(!a.includes('KG스틸') && b.includes('KG스틸'), 'staff-only factory change sits in B, not A');
   assert.match(a, /보도 대조\(자동 10-26 08:50\): 미보도 후보 — "LS일렉트릭 항소", "LS일렉트릭 항소 특허"로 2026-10-20 이후 관련 기사 못 찾음\(검색 범위 결과, 단독 판정 아님\)/);
   assert.match(a, /보도 대조\(자동 10-26 08:50\): 관련 보도 있음 — "세아제강 국제무역법원", "세아제강 국제무역법원 소송" · 처음\(10-25 18:50\) 미보도 후보/);
   assert.match(a, /↳ 2026-10-25 \[naver\] 세아제강, 美 국제무역법원에 반덤핑 소송 https:\/\/n\/1\n/);
   assert.match(a, /↳ 2026-10-24 \[naver\] 전력기기 업계 美 소송 잇따라 https:\/\/n\/2 \(약한 근거: 본문에만, 제목 불일치\)/);
-  assert.match(a, /보도 대조\(자동 10-26 08:50\): 미확인 — 채널 naver failed\(ConnectTimeout\)\(0건 아님\)/);
+  assert.match(b, /보도 대조\(자동 10-26 08:50\): 미확인 — 채널 naver failed\(ConnectTimeout\)\(0건 아님\)/);
   assert.match(r.text, /보도 대조\(자동\)는 네이버 뉴스 API·빙·구글에서 항목 날짜 3일 전부터 찾은 결과다/);
   assert.doesNotMatch(r.text, /보도 대조\(자동\): 결과 없음/);
   const none = await call('radar_today', {}, PRIVATE());
   assert.match(none.text, /보도 대조\(자동\): 결과 없음 — 미확인\(평일 08:50·18:50 실행 확인\)/);
+});
+
+test('kr_official: a staff-count-only factory change is B with a caution; staff plus product or industry stays A', async () => {
+  // 2026-10 KG스틸 당진: 공장등록 고용 856→690은 정식 변경등록이 아니라 전화 문의에 대략 답한 공장 기술직 수가 반영된 값이었다(감원 없음).
+  const opts = PRIVATE();
+  const ev = (id, text) => ({ id, kind: '등록 내용 변경', company: 'KG스틸', factoryId: id.split(':x')[0], name: '케이지스틸 주식회사', text, detectedAt: '2026-10-25T11:09:00+09:00' });
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/kr-official', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` },
+    body: JSON.stringify({ schema: 'kr_official/v1', generatedAt: '2026-10-26T08:10:00+09:00', checks: [], gazette: [], factories: [],
+      events: [ev('fac:1:x', '고용 856→690명'), ev('fac:2:x', '고용 1,200→1,050명'), ev('fac:3:x', "고용 856→690명 · 주생산품 '냉연'→'-'"),
+        ev('fac:4:x', "업종 'a 외 7 종'→'a 외 8 종'")] }) }), opts.env, {})).status, 200);
+  const r = await call('radar_today', { include_minor: true }, opts);
+  const a = r.text.split('[A · ')[1].split('[B · ')[0];
+  const b = r.text.split('[B · ')[1].split('[C · ')[0];
+  assert.match(b, /등록 내용 변경: 케이지스틸 주식회사 — 고용 856→690명 — 고용인원만 바뀜: 정식 변경등록이 아니라 조사·구두 답변 갱신일 수 있어 산단공·회사 확인 전 감원·채용으로 보지 않음/);
+  assert.match(b, /고용 1,200→1,050명 — 고용인원만 바뀜/);  // 천 단위 쉼표도 같은 규칙
+  assert.match(b, /id fac:1:x/);
+  assert.match(b, /id fac:2:x/);
+  assert.match(a, /id fac:3:x/);  // 주생산품도 함께 바뀜: A 그대로
+  assert.match(a, /id fac:4:x/);  // 업종 문구 변경: A 그대로
+  assert.doesNotMatch(a, /고용인원만 바뀜/);
 });
 
 test('press check is dispatched after the morning watches and after the evening page watch', () => {
