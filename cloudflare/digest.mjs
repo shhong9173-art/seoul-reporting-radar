@@ -382,6 +382,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
   const bdBase = baselineOf(bd?.permits ?? []);
   for (const x of bd?.permits ?? []) {
     // a lot looked at for the first time after the first run (new plant, a lot left over, more pages) is its own baseline
+    if (x.orphan) continue;  // its plant left the plant list
     if (x.baseline && !(x.changedAt && recent(x.changedAt))) continue;
     if (!fresh(x, bdBase, 'permitted') && !(x.changedAt && recent(x.changedAt))) continue;
     push(x.tier ?? 'C', W['kr-building'], { kind: `건축 ${x.kind}`, id: x.id, date: x.changedAt ? String(x.changedAt).slice(0, 10) : x.permitted ?? x.firstSeen, company: x.company,
