@@ -10,14 +10,15 @@ LIST = {"method": "selectListOfrNotAncmt", "methodnm": "selectListOfrNotAncmtHom
         "ofr_pageSize": "30", "not_ancmt_se_code": "01,02,03,04,05", "initValue": "Y", "countYn": "Y", "list_gubun": "A",
         "jndinm": "OfrNotAncmtEJB", "context": "NTIS", "method_type": "", "pageIndex": "1"}
 out = []
-for base in ("https://eminwon.dangjin.go.kr", "http://eminwon.ulju.ulsan.kr", "https://eminwon.yeosu.go.kr", "https://eminwon.hscity.go.kr"):
+for base in ("https://eminwon.dangjin.go.kr", "https://eminwon.asan.go.kr"):
     try:
         r = requests.post(base + PATH, data=LIST, headers={**UA, "Referer": base + PATH}, timeout=45)
         trs = re.findall(r"<tr[^>]*>[\s\S]*?</tr>", r.text)
         data = [t for t in trs if "<td" in t]
-        out.append(f"{base} trs={len(trs)} datarows={len(data)} row1=" + re.sub(r"\s+", " ", data[1] if len(data) > 1 else (data[0] if data else ""))[:700])
-        m = re.search(r"searchDetail\(\s*['\"]?([0-9A-Za-z_-]+)", r.text)
-        if m and "dangjin" in base:
+        rows_with = [t for t in data if re.search(r"\d{4}-\d{2}-\d{2}", t)]
+        out.append(f"{base} trs={len(trs)} datarows={len(data)} dated={len(rows_with)} row=" + re.sub(r"\s+", " ", rows_with[0] if rows_with else "")[:900])
+        m = re.search(r"searchDetail\(\s*['\"]([0-9A-Za-z_-]+)['\"]", r.text)
+        if m:
             mgt = m.group(1)
             u = (f"{base}{PATH}?method=selectOfrNotAncmt&methodnm=selectOfrNotAncmtRegst&not_ancmt_mgt_no={mgt}"
                  "&homepage_pbs_yn=Y&subCheck=Y&jndinm=OfrNotAncmtEJB&context=NTIS")
