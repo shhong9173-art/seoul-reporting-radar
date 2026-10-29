@@ -110,7 +110,7 @@ class Award(unittest.TestCase):
         self.assertIsNone(items["ted:721359-2026"]["company"])  # Korean but not a beat company
 
     def test_names_tiers_and_scanned_pdf(self):
-        self.assertEqual(w.beat_of("DE_POONGSAN CORPORATION"), "풍산")
+        self.assertEqual(w.beat_of("DE_HYOSUNG HEAVY INDUSTRIES CORPORATION"), "효성중공업")  # TED 국가 접두어
         self.assertIsNone(w.beat_of("Hanwha Aerospace Co., Ltd."))  # 방산은 출입처 밖
         local = dict(TED_HYOSUNG, **{"publication-number": "700001-2026", "winner-name": {"ces": ["Hyundai Motor Czech s.r.o."]}, "winner-country": ["CZE"]})
         hq = dict(TED_HYOSUNG, **{"publication-number": "700002-2026", "winner-name": {"eng": ["Hyundai Motor Company"]}, "winner-country": ["KOR"]})
@@ -128,6 +128,26 @@ class Award(unittest.TestCase):
         old = dict(WB_AWARD, id="OP00999", notice_text="Awarded Bidder(s): LS CABLE & SYSTEM LTD Country: Korea, Republic of Signed Contract Price USD 12,000,000.00")
         x = w.wb_items([old], "2026-07-01")[0]
         self.assertEqual((x["company"], x["winners"], x["value"]), ("LS전선", ["LS CABLE & SYSTEM LTD"], 12000000.0))
+
+    def test_winners_in_every_language_and_restored_rules(self):
+        multi = dict(TED_HYOSUNG, **{"publication-number": "558048-2026", "winner-name": {"swe": ["Koncar D&ST", "Hyosung Heavy Industries Corporation"],
+                                                                                         "eng": ["Hyosung Heavy Industries Corporation"]},
+                                     "winner-country": ["HRV", "KOR"], "winner-identifier": ["080100322", "578-87-00896"]})
+        x = w.ted_items([multi])[0]
+        self.assertEqual((x["winners"], x["winnerCount"], x["winnerIds"]), (["Hyosung Heavy Industries Corporation", "Koncar D&ST"], 2, []))
+        coin = dict(TED_OTHER_KR, **{"publication-number": "552963-2026", "winner-name": {"fra": ["FR_POONGSAN CORPORATION"]}})
+        self.assertIsNone(w.ted_items([coin])[0]["company"])  # 풍산: 출입처 밖
+        big = dict(TED_HYOSUNG, **{"publication-number": "741234-2026", "winner-name": {"ces": ["Hyundai Motor Czech s.r.o."]}, "winner-country": ["CZE"],
+                                   "result-value-notice": "400000000", "result-value-cur-notice": "CZK"})
+        small = dict(big, **{"publication-number": "741235-2026", "result-value-notice": "4002056"})
+        self.assertEqual({i["id"]: w.tier_of(i) for i in w.ted_items([big, small])}, {"ted:741234-2026": "B", "ted:741235-2026": "C"})
+        # a stored item from an older rule set is re-derived even when not found again
+        get, post, _ = fakes(ted_rows=())
+        prev = {"items": [dict(w.ted_items([coin])[0], company="풍산", companies=["풍산"], tier="A", firstSeen="2026-10-01T00:00:00+09:00")],
+                "generatedAt": "2026-10-28T17:30:00+09:00", "bahrainSeen": ["x"]}
+        doc = w.run(now=NOW, previous=prev, get=get, post=post, sleep=lambda s: None)
+        stored = next(i for i in doc["items"] if i["id"] == "ted:552963-2026")
+        self.assertEqual((stored["company"], stored["tier"]), (None, "C"))
 
     def test_world_bank_awarded_block_only(self):
         got = {x["id"]: x for x in w.wb_items([WB_AWARD, WB_REJECTED, WB_OLD], "2026-07-01")}

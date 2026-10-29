@@ -329,7 +329,8 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
     if (!fresh(x, oaBase, 'published')) continue;
     const tier = x.tier ?? (x.company ? 'A' : 'C');
     const value = x.value ? ` · ${x.currency ?? ''} ${Number(x.value).toLocaleString('en-US', { maximumFractionDigits: 0 })}` : ' · 금액 미기재';
-    const who = (x.winners ?? []).slice(0, 2).join('·') || '보고서 줄 참조';
+    const more = (x.winnerCount ?? (x.winners ?? []).length) - Math.min(2, (x.winners ?? []).length);
+    const who = ((x.winners ?? []).slice(0, 2).join('·') + (more > 0 ? ` 외 ${more}곳` : '')) || '보고서 줄 참조';
     const where = countryKo(x.buyerCountry);
     push(tier, W['overseas-awards'], { kind: `${x.source} ${x.kind}`, id: x.id, date: x.published ?? x.firstSeen, company: x.company ?? '',
       fact: `해외 ${x.kind}(${x.source}): ${where ? `${where} ` : ''}${x.buyer} ← ${who} · ${String(x.title ?? '').slice(0, 120)}${value}${x.concluded ? ` · 계약 ${x.concluded}` : ''} · 공고 ${x.published ?? '?'}`,

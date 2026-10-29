@@ -100,7 +100,9 @@ async function awardSection(ctx, q, onlyNew, limit) {
     const value = x.value ? `${x.currency ?? ''} ${Number(x.value).toLocaleString('en-US', { maximumFractionDigits: 0 })}` : '금액 미기재';
     const ids = (x.winnerIds ?? []).length ? `, 식별번호 ${x.winnerIds.join('·')}` : '';
     out.push(`\n${x.isNew ? '[신규] ' : ''}${x.published ?? '공고일 미기재'} · ${x.source} ${x.kind} · ${x.company ?? '출입처 밖 한국 기업'} · 발주 ${x.buyer}${x.buyerCountry ? `(${x.buyerCountry})` : ''}`);
-    out.push(`   잡힌 사실: 낙찰자 ${(x.winners ?? []).join(' / ') || '보고서 줄 참조'}${(x.winnerCountry ?? []).length ? `(${x.winnerCountry.join('·')}${ids})` : ''} · ${x.title} · ${value}${x.priceKind ? `(${x.priceKind})` : ''}${x.concluded ? ` · 계약 ${x.concluded}` : ''}${x.report ? ` · ${x.report}` : ''}`);
+    const more = (x.winnerCount ?? (x.winners ?? []).length) - Math.min(2, (x.winners ?? []).length);
+    const who = (x.winners ?? []).slice(0, 2).join(' / ') + (more > 0 ? ` 외 ${more}곳` : '');
+    out.push(`   잡힌 사실: 낙찰자 ${who || '보고서 줄 참조'}${(x.winnerCountry ?? []).length ? `(${more > 0 ? '낙찰자 전체 국가 ' : ''}${x.winnerCountry.join('·')}${ids})` : ''} · ${x.title} · ${value}${x.priceKind ? `(${x.priceKind})` : ''}${x.concluded ? ` · 계약 ${x.concluded}` : ''}${x.report ? ` · ${x.report}` : ''}`);
     out.push(`   원문: ${x.url ?? '링크 없음'}`);
     out.push(`   검증 상태: 공고의 낙찰자 칸${x.source === '바레인 입찰위원회' ? '(월간 보고서 줄 — 발주처·금액은 PDF 원문 확인)' : ''}. 계약 범위·금액·출입처 공시·보도 여부는 원문과 news_check로 확인`);
   }
