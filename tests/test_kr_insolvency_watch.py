@@ -121,6 +121,27 @@ class Insolvency(unittest.TestCase):
         self.assertGreater(n_calls, 0)
         self.assertEqual(second["windowStart"], "2026-10-27")
 
+    def test_same_name_elsewhere_is_downgraded(self):
+        suwon = [notice("000249", "20262920000227", "삼보산업 주식회사", "회생절차 개시결정 공고", "26"),
+                 notice("000249", "20262920000228", "주식회사 서우", "회생절차 개시결정 공고", "26"),
+                 notice("000249", "20262920000229", "주식회사 세명테크", "회생절차 개시결정 공고", "26")]
+        fac = {
+            "삼보산업": [{"fctryManageNo": "9", "cmpnyNm": "삼보산업(주)", "rnAdres": "대구광역시 서구 염색공단천로", "allEmplyCo": "22", "rprsntvNm": "김",
+                       "rprsntvIndutyCode": "30332", "indutyNm": "자동차 부품", "mainProductCn": "자동차부품"}],
+            "서우": [{"fctryManageNo": "10", "cmpnyNm": "(주)서우", "rnAdres": "대구광역시 달서구", "allEmplyCo": "60", "rprsntvNm": "박", "rprsntvIndutyCode": "30332",
+                     "indutyNm": "자동차 부품", "mainProductCn": "시트"},
+                    {"fctryManageNo": "11", "cmpnyNm": "주식회사 서우", "rnAdres": "경기도 화성시", "allEmplyCo": "6", "rprsntvNm": "이", "rprsntvIndutyCode": "30332",
+                     "indutyNm": "자동차 부품", "mainProductCn": "브레이크"}],
+            "세명테크": [{"fctryManageNo": str(20 + i), "cmpnyNm": "세명테크", "rnAdres": "경기도 안산시", "allEmplyCo": "10", "rprsntvNm": n, "rprsntvIndutyCode": "30399",
+                       "indutyNm": "자동차 부품", "mainProductCn": "부품"} for i, n in enumerate("가나다")],
+        }
+        post, get, _ = fakes(rows_by_court={"000249/4": suwon}, factories=fac)
+        doc = k.run("key", now=NOW, previous={"events": [], "generatedAt": "2026-10-28T17:20:00+09:00"}, post=post, get=get, sleep=lambda s: None, watchlist={})
+        ev = {e["company"]: e for e in doc["events"]}
+        self.assertEqual((ev["삼보산업 주식회사"]["tier"], ev["삼보산업 주식회사"]["industry"]["regionMismatch"]), ("B", True))  # 수원 법원, 대구 공장
+        self.assertEqual((ev["주식회사 서우"]["tier"], ev["주식회사 서우"]["industry"]["address"]), ("A", "경기도 화성시"))  # 관할 안 공장을 고른다
+        self.assertEqual((ev["주식회사 세명테크"]["tier"], ev["주식회사 세명테크"]["industry"]["owners"]), ("B", 3))  # 같은 이름 대표자 3명
+
     def test_lookup_budget_leaves_pending(self):
         many = [notice("000221", f"2026292000{i:04d}", f"주식회사 스틸{i}", "회생절차 개시결정 공고", "26", seq=i) for i in range(5)]
         post, get, calls = fakes(rows_by_court={"000221/4": many}, factories={})

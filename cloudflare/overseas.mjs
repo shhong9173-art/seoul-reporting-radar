@@ -403,6 +403,9 @@ export async function usLitigation(ctx, args) {
   return textResult(out.join('\n'));
 }
 
+// Same-name doubt for a court notice's company (kr_insolvency_watch.pick): factory outside the court's region, several owners.
+export const identityNote = (ind) => `${ind?.regionMismatch ? ' · ⚠ 공장 주소가 관할 법원 지역 밖(다른 회사일 수 있음)' : ''}${(ind?.owners ?? 0) >= 2 ? ` · 같은 이름 공장 대표자 ${ind.owners}명` : ''}`;
+
 // Court insolvency notices of beat-industry manufacturers (kr-insolvency feed), shown under kr_official (no new connector tool).
 async function insolvencySection(ctx, q, days, limit) {
   const doc = await readFeed(ctx, 'kr-insolvency');
@@ -425,7 +428,7 @@ async function insolvencySection(ctx, q, days, limit) {
   for (const e of rows.slice(0, limit)) {
     const ind = e.industry ?? {};
     out.push(`\n${e.isNew ? '[신규] ' : ''}${e.posted ?? '게시일 미상'} · ${e.kind} · ${e.company} · ${e.court}${e.caseNo ? ` ${e.caseNo}` : ''}${e.division ? `(${e.division})` : ''}`);
-    out.push(`   잡힌 사실: 공고 「${e.title}」${ind.label ? ` · 공장등록 업종 ${ind.label}${ind.code ? `(${ind.code}${ind.industry ? ` ${ind.industry}` : ''})` : ''}` : ''}${ind.product ? ` · 주생산품 ${ind.product}` : ''}${ind.employees != null ? ` · 종업원 ${ind.employees}명` : ''}${ind.address ? ` · ${ind.address}` : ''}${ind.factories > 1 ? ` · 등록 공장 ${ind.factories}곳` : ''}${e.watch ? ` · 협력사 명단: ${[e.watch.beat, e.watch.relation, e.watch.evidence].filter(Boolean).join(' · ')}` : ''}${!ind.label && !e.watch ? ' · 공장등록 없음(이름 낱말만)' : ''}`);
+    out.push(`   잡힌 사실: 공고 「${e.title}」${ind.label ? ` · 공장등록 업종 ${ind.label}${ind.code ? `(${ind.code}${ind.industry ? ` ${ind.industry}` : ''})` : ''}` : ''}${ind.product ? ` · 주생산품 ${ind.product}` : ''}${ind.employees != null ? ` · 종업원 ${ind.employees}명` : ''}${ind.address ? ` · ${ind.address}` : ''}${ind.factories > 1 ? ` · 같은 이름 등록 공장 ${ind.factories}곳` : ''}${identityNote(ind)}${e.watch ? ` · 협력사 명단: ${[e.watch.beat, e.watch.relation, e.watch.evidence].filter(Boolean).join(' · ')}` : ''}${!ind.label && !e.watch ? ' · 공장등록 없음(이름 낱말만)' : ''}`);
     out.push(`   원문: ${e.url ?? e.listUrl}${e.url && e.listUrl ? ` (안 열리면 ${e.listUrl} 에서 법원·사건번호로 검색)` : ''}`);
     out.push('   검증 상태: 법원 공고(절차 단계). 같은 이름의 다른 회사일 수 있음(주소·대표자 대조). 출입처와의 거래·납품 영향은 회사·출입처 확인 필요');
   }
