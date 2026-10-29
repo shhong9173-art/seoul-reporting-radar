@@ -308,9 +308,12 @@ def wb_awarded(text):
         stop = WB_STOP.search(seg)
         if stop:
             seg = seg[: stop.start()]
-        for nm in WB_NAME.finditer(seg):
-            name = norm_space(nm.group(1)).strip(" ,.-")
-            rest = seg[nm.end(): nm.end() + 300]
+        found = [(norm_space(nm.group(1)).strip(" ,.-"), seg[nm.end(): nm.end() + 300]) for nm in WB_NAME.finditer(seg)]
+        if not found:  # older notices: 'Awarded Bidder(s): NAME Country: X' without the vendor number
+            for chunk in re.finditer(r"\s*(.{3,160}?)\s+(country\s*:.{0,60})", seg, re.I):
+                found.append((norm_space(chunk.group(1)).strip(" ,.-"), chunk.group(2)))
+                break
+        for name, rest in found:
             c = re.search(r"country\s*:?\s*([A-Za-z ,.'()-]{3,40}?)(?=\s+(?:bid|evaluated|signed|duration|$)|$)", rest, re.I)
             out.append({"name": name, "country": norm_space(c.group(1)) if c else ""})
         prices = list(WB_PRICE.finditer(seg)) or list(WB_PRICE.finditer(t))
@@ -439,11 +442,14 @@ def bahrain(previous_seen, *, get=None):
             if len(pr.content) > BH_MAX_BYTES:
                 raise RuntimeError("파일이 너무 큼")
             text = pdf_text(pr.content)
+            seen.append(rep["href"])
             if len(text.strip()) < 500:
-                raise RuntimeError(f"PDF 글자 추출 {len(text.strip())}자 — 스캔 이미지일 수 있음(0건 아님)")
+                # 10-29: August 2026 report (8.7MB) is a scanned image — 9 characters. Not retried; the report stays unread.
+                checks.append({"source": "바레인 입찰위원회", "query": rep["subject"], "status": "ok", "returned": 1, "matched": None,
+                               "note": "스캔 이미지 PDF — 자동 판독 불가, 이 보고서는 미확인(원문 직접 확인)", "url": BH_SITE + rep["href"].replace(" ", "%20")})
+                continue
             got = bh_items(text, rep["subject"], rep["href"])
             items += got
-            seen.append(rep["href"])
             checks.append({"source": "바레인 입찰위원회", "query": rep["subject"], "status": "ok", "returned": 1, "matched": len(got)})
         except Exception as e:  # noqa: BLE001
             checks.append({"source": "바레인 입찰위원회", "query": rep["subject"], "status": "failed", "error": str(e)[:80] or type(e).__name__})
