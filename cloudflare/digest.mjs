@@ -17,6 +17,9 @@ const DEAL_WORDS = /\b(agreement|supply|offtake|off-take|joint venture|\bJV\b|me
 const ymd8 = (v) => (/^\d{8}/.test(String(v ?? '')) ? `${String(v).slice(0, 4)}-${String(v).slice(4, 6)}-${String(v).slice(6, 8)}` : String(v ?? '').slice(0, 10));
 const has = (q, ...fields) => !q || fields.some((f) => String(f ?? '').toLowerCase().includes(q.toLowerCase()));
 
+const KTC_KIND = { case: '무역위 새 조사', step: '무역위 진행일정', left: '무역위 진행 목록에서 빠짐', meeting: '무역위 회의 안건', agenda: '무역위 회의 안건',
+  news: '무역위 보도자료' };
+
 export const WATCHES = [
   { feed: 'scoop-screen', label: '단독 후보 심사', tool: 'scoop_screen', schedule: '평일 07:10·15:10' },
   { feed: 'kr-official', label: '공장등록·관보', tool: 'kr_official', schedule: '평일 08:10' },
@@ -236,6 +239,13 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
   const tr = docs['trade-remedy'];
   for (const e of tr?.events ?? []) {
     if (!recent(e.detectedAt)) continue;
+    if (e.pageId === 'ktc') {
+      // 국내 무역위원회: 공식 변화(B)는 출입 업종 품목만. 보도자료는 이미 공개된 뉴스(C). 회사 이름은 누리집에 대개 없다.
+      push(e.tier === 'B' ? 'B' : 'C', W['trade-remedy'], { kind: KTC_KIND[e.ktcKind] ?? '무역위원회', id: e.id, date: e.detectedAt,
+        company: e.product ?? '', fact: `${e.label}: ${e.text}`, url: e.url,
+        check: e.ktcKind === 'news' ? undefined : '품목의 국내 생산자(신청인)를 협회·회사에 확인 → 판정·세율은 회의 뒤 의결서·보도자료로' });
+      continue;
+    }
     push(e.pageId === 'taric' && /한국 전용/.test(e.label) ? 'A' : 'B', W['trade-remedy'], { kind: e.pageId === 'taric' ? 'EU 쿼터(TARIC)' : `해외 조사 ${e.pageId}`, id: e.id, date: e.detectedAt, company: e.country, fact: `${e.label}: ${e.text}`, url: e.url });
   }
   const frBase = baselineOf(tr?.federalRegister ?? []);
