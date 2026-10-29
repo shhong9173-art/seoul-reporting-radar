@@ -193,7 +193,13 @@ def tier_of(p):
 
 def run(keys, factories, *, now, previous=None, get=None, sleep=time.sleep):
     stamp = now.isoformat(timespec="seconds")
-    baseline = not (isinstance(previous, dict) and previous.get("permits") is not None)
+    # a stored '미설정' result (datasets not approved yet) is not a baseline: the first run that really queries is
+    baseline = not (isinstance(previous, dict) and previous.get("baselineSince"))
+    if (isinstance(previous, dict) and previous.get("permits") and not previous.get("baselineMarked")
+            and not any(x.get("baseline") for x in previous["permits"]) and len({x.get("firstSeen") for x in previous["permits"]}) == 1):
+        # 10-29: the first real run came after a '미설정' result and stored its existing permits as new
+        for x in previous["permits"]:
+            x["baseline"], x["isNew"] = True, False
     if not keys:
         return {"schema": SCHEMA, "generatedAt": stamp, "status": "unset", "permits": (previous or {}).get("permits") or [],
                 "parcels": (previous or {}).get("parcels") or {}, "rules": RULES,
@@ -286,7 +292,7 @@ def run(keys, factories, *, now, previous=None, get=None, sleep=time.sleep):
     status = ("unset" if statuses == {"unset"} else "failed" if statuses <= {"failed", "unset"} and "failed" in statuses
               else "partial" if statuses - {"ok"} else "complete")
     return {"schema": SCHEMA, "generatedAt": stamp, "status": status, "checks": checks, "permits": kept, "parcels": parcels,
-            "rules": RULES, "plants": len(factories), "parcelsResolved": sum(1 for p in parcels.values() if p.get("sigunguCd")),
+            "rules": RULES, "plants": len(factories), "parcelsResolved": sum(1 for p in parcels.values() if p.get("sigunguCd")), "baselineMarked": True,
             "baselineSince": (previous or {}).get("baselineSince") or (stamp if status != "unset" else None)}
 
 

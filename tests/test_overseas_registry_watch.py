@@ -59,6 +59,16 @@ class Registry(unittest.TestCase):
         self.assertFalse(any("/company/1001/" in u for u in get2.calls))  # PSC는 처음 볼 때만 읽는다
         self.assertEqual(second["windowStart"], (NOW - dt.timedelta(days=w.OVERLAP_DAYS)).date().isoformat())  # 직전 성공 7일 전부터
 
+    def test_first_real_run_after_unset_is_baseline(self):
+        unset = w.run("", now=NOW)
+        res = {"hyundai": [co("2001", "HYUNDAI OF BRISTOL LIMITED")]}
+        doc = w.run("k", now=NOW, previous=unset, get=fake(res, {}), sleep=lambda s: None)
+        self.assertTrue(all(x["baseline"] and not x["isNew"] for x in doc["companies"]))
+        # repair of the 10-29 state: one batch stored as new right after '미설정'
+        bad = dict(doc, baselineMarked=None, companies=[dict(x, baseline=False, isNew=True) for x in doc["companies"]])
+        again = w.run("k", now=NOW + dt.timedelta(days=1), previous=bad, get=fake(res, {}), sleep=lambda s: None)
+        self.assertTrue(all(x["baseline"] and not x["isNew"] for x in again["companies"]))
+
     def test_missing_or_refused_key_is_unset(self):
         self.assertEqual(w.run("", now=NOW)["status"], "unset")
         doc = w.run("k", now=NOW, previous=None, get=fake({}, {}, status=401), sleep=lambda s: None)

@@ -102,7 +102,13 @@ def psc_names(client, number):
 
 def run(key, *, now, previous=None, get=None, sleep=time.sleep):
     stamp = now.isoformat(timespec="seconds")
-    baseline = not (isinstance(previous, dict) and previous.get("companies") is not None)
+    # a stored '미설정' result (no key yet) is not a baseline: the first run that really queries is
+    baseline = not (isinstance(previous, dict) and previous.get("lastSuccess"))
+    if (isinstance(previous, dict) and previous.get("companies") and not previous.get("baselineMarked")
+            and not any(x.get("baseline") for x in previous["companies"]) and len({x.get("firstSeen") for x in previous["companies"]}) == 1):
+        # 10-29: the first real run came after a '미설정' result and marked its 21 existing companies as new
+        for x in previous["companies"]:
+            x["baseline"], x["isNew"] = True, False
     if not key:
         return {"schema": SCHEMA, "generatedAt": stamp, "status": "unset", "companies": (previous or {}).get("companies") or [], "rules": RULES,
                 "checks": [{"source": "영국 Companies House", "status": "unset", "error": "COMPANIES_HOUSE_API_KEY 없음(무료 발급)"}]}
@@ -161,7 +167,7 @@ def run(key, *, now, previous=None, get=None, sleep=time.sleep):
     failed = [c for c in checks if c["status"] == "failed"]
     status = "failed" if checks and len(failed) == len(checks) else "partial" if failed else "complete"
     return {"schema": SCHEMA, "generatedAt": stamp, "status": status, "checks": checks, "companies": companies, "rules": RULES,
-            "windowStart": since, "lastSuccess": stamp if status != "failed" else (previous or {}).get("lastSuccess")}
+            "windowStart": since, "lastSuccess": stamp if status != "failed" else (previous or {}).get("lastSuccess"), "baselineMarked": True}
 
 
 def main():

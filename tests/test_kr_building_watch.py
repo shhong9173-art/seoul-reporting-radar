@@ -80,6 +80,12 @@ class Building(unittest.TestCase):
         self.assertEqual((new["bld:P2"]["kind"], new["bld:P2"]["tier"]), ("새 허가", "B"))
         self.assertFalse(any(u == b.EPOST for u, _ in get2.calls))  # 번지는 저장분 재사용
 
+    def test_first_real_run_after_unset_is_baseline(self):
+        unset = b.run([("K", "bad")], FACS, now=NOW, previous=None, get=fake({}), sleep=lambda s: None)
+        self.assertEqual(unset["status"], "unset")
+        doc = b.run([("K", "good")], FACS, now=NOW, previous=unset, get=fake({"0001": [permit("P1")]}), sleep=lambda s: None)
+        self.assertTrue(all(x["baseline"] and not x["isNew"] for x in doc["permits"]))
+
     def test_refused_key_is_unset_and_next_key_is_tried(self):
         get = fake({"0001": [permit("P1")]})
         doc = b.run([("CUSTOMS_API_KEY", "bad"), ("G2B_API_KEY", "good")], FACS, now=NOW, previous=None, get=get, sleep=lambda s: None)
