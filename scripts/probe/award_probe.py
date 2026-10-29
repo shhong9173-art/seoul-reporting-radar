@@ -1,82 +1,89 @@
-"""격리 탐침 11: 건축허가 감시의 주소 변환이 왜 0건인지. 공개 공장 주소 3곳으로 우체국·법정동·건축HUB를 한 번씩.
-키 값은 출력하지 않는다(키 이름·HTTP 상태·응답 코드·소요 시간·공개 주소만). 응답 일부는 키 값을 지운 뒤 앞부분만."""
+"""격리 탐침 12: 우체국 openapi.epost.go.kr:80 이 러너(해외 IP)에서 연결 시간 초과. 대안 확인.
+(a) 공장등록 API 응답에 지번 주소 칸이 있는지(태그 이름만 + 공개 주소 1건)
+(b) 접속 가능 여부만: epost https, 도로명주소(juso.go.kr) 검색 API(키 없이 → 오류 코드면 접속 가능), 브이월드
+(c) 법정동코드·건축HUB를 키로 1회씩(응답 코드·건수만)
+키 값은 출력하지 않는다."""
 import os
 import re
 import sys
 import time
+import xml.etree.ElementTree as ET
 
 sys.path.insert(0, "scripts")
 import kr_building_watch as b
+import kr_official_watch as o
 import requests
 
 KEYS = b.resolve_keys(os.environ)
 SECRETS = [v for _, v in KEYS] + [requests.utils.quote(v, safe="") for _, v in KEYS]
-ROADS = ["충청남도 아산시 인주면 현대로 1077", "충청남도 당진시 송악읍 북부산업로 1228", "경상북도 포항시 남구 동해안로 6261"]
 out = [f"keys={[n for n, _ in KEYS]}"]
 
 
-def clean(t, n=220):
+def clean(t, n=200):
     t = t or ""
     for s in SECRETS:
         if s:
             t = t.replace(s, "<KEY>")
-    t = re.sub(r"serviceKey=[^&\s\"'<]+", "serviceKey=<KEY>", t)
+    t = re.sub(r"(serviceKey|confmKey|key)=[^&\s\"'<]+", r"\1=<KEY>", t)
     return re.sub(r"\s+", " ", t)[:n]
 
 
-def hit(name, key, url, params):
+def reach(label, url, params=None, timeout=20):
     t0 = time.time()
     try:
-        r = requests.get(url, params={"serviceKey": key, **params}, headers=b.UA, timeout=40)
-        return r, f"{name} HTTP {r.status_code} {time.time()-t0:.1f}s code={b.gateway_code(r.text)} ctype={r.headers.get('content-type','')[:30]} body={clean(r.text)}"
+        r = requests.get(url, params=params, headers=b.UA, timeout=timeout)
+        out.append(f"reach {label}: HTTP {r.status_code} {time.time()-t0:.1f}s body={clean(r.text, 160)}")
     except Exception as e:  # noqa: BLE001
-        return None, f"{name} EXC {type(e).__name__} {time.time()-t0:.1f}s {clean(str(e), 120)}"
+        out.append(f"reach {label}: EXC {type(e).__name__} {time.time()-t0:.1f}s")
 
 
-lnm = {}
-for name, key in KEYS:
-    for road in ROADS[:1]:
-        _, line = hit(name, key, b.EPOST, {"searchSe": "road", "srchwrd": road, "countPerPage": 5, "currentPage": 1})
-        out.append(f"epost[{road[-12:]}] {line}")
 name, key = KEYS[0] if KEYS else ("", "")
-for road in ROADS:
-    for q in (road, re.sub(r"^\S+\s+\S+\s+(?:\S+[읍면]\s+)?", "", road)):
-        r, line = hit(name, key, b.EPOST, {"searchSe": "road", "srchwrd": q, "countPerPage": 5, "currentPage": 1})
-        found = None
-        if r is not None and r.status_code == 200:
-            try:
-                found = b.epost_jibun(r.text)
-            except Exception as e:  # noqa: BLE001
-                found = f"ERR {e}"
-        out.append(f"epost q='{q}' → lnm={found} :: {line[:160]}")
-        if found and not str(found).startswith("ERR"):
-            lnm[road] = found
-            break
-for road, j in lnm.items():
-    sp = b.split_jibun(j)
-    out.append(f"split {j} → {sp}")
-    if not sp:
-        continue
-    for name, key in KEYS:
-        r, line = hit(name, key, b.REGION, {"locatadd_nm": sp["dong"], "type": "json", "numOfRows": 20, "pageNo": 1})
-        code = None
-        if r is not None and r.status_code == 200:
-            try:
-                code = b.region_code(r.text, sp["dong"])
-            except Exception as e:  # noqa: BLE001
-                code = f"ERR {e}"
-        out.append(f"region {sp['dong']} → {code} :: {line[:200]}")
-        if code and not str(code).startswith("ERR"):
-            r2, line2 = hit(name, key, b.ARCH, {"sigunguCd": code[:5], "bjdongCd": code[5:], "platGbCd": sp["platGbCd"], "bun": sp["bun"].zfill(4), "numOfRows": 5, "pageNo": 1, "_type": "json"})
-            n = None
-            if r2 is not None and r2.status_code == 200:
-                try:
-                    n = len(b.permits(r2.text))
-                except Exception as e:  # noqa: BLE001
-                    n = f"ERR {e}"
-            out.append(f"arch {code} bun={sp['bun']} rows={n} :: {line2[:200]}")
-            break
-    break  # one parcel is enough for the shape
+# (a) factory API: every tag name in the first item
+try:
+    r = requests.get(o.FACTORY_API, params={"serviceKey": key, "pageNo": 1, "numOfRows": 3, "type": "json", "cmpnyNm": "현대자동차"}, headers=b.UA, timeout=60)
+    t = r.text.strip()
+    tags = set()
+    if t.startswith("{"):
+        import json
+        d = json.loads(t)
+        items = (((d.get("response") or d).get("body") or {}).get("items") or {}).get("item") or []
+        items = items if isinstance(items, list) else [items]
+        if items:
+            tags = set(items[0].keys())
+            out.append("factory first item address-like: " + clean(str({k: v for k, v in items[0].items() if re.search(r"adres|addr|lnm|jibun|lc|ctprvn|signgu|emd|li|pnu", k, re.I)}), 400))
+    else:
+        root = ET.fromstring(t)
+        it = next(root.iter("item"), None)
+        if it is not None:
+            tags = {c.tag for c in it}
+            out.append("factory first item address-like: " + clean(str({c.tag: c.text for c in it if re.search(r"adres|addr|lnm|jibun|lc|ctprvn|signgu|emd|li|pnu", c.tag, re.I)}), 400))
+    out.append(f"factory HTTP {r.status_code} tags={sorted(tags)}")
+except Exception as e:  # noqa: BLE001
+    out.append(f"factory EXC {type(e).__name__} {clean(str(e), 100)}")
+
+# (b) reachability only
+reach("epost https", "https://openapi.epost.go.kr/postal/retrieveNewAdressAreaCdService/retrieveNewAdressAreaCdService/getNewAddressListAreaCd")
+reach("juso addrLinkApi (no key)", "https://business.juso.go.kr/addrlink/addrLinkApi.do", {"confmKey": "x", "currentPage": 1, "countPerPage": 1, "keyword": "현대로 1077", "resultType": "json"})
+reach("vworld (no key)", "https://api.vworld.kr/req/address", {"service": "address", "request": "getcoord", "type": "road", "address": "충청남도 아산시 인주면 현대로 1077", "key": "x", "format": "json"})
+
+# (c) region code + permits with the key
+dong = "경상북도 포항시 남구 괴동동"
+t0 = time.time()
+try:
+    r = requests.get(b.REGION, params={"serviceKey": key, "locatadd_nm": dong, "type": "json", "numOfRows": 20, "pageNo": 1}, headers=b.UA, timeout=40)
+    code = b.region_code(r.text, dong) if r.status_code == 200 else None
+    out.append(f"region HTTP {r.status_code} {time.time()-t0:.1f}s gw={b.gateway_code(r.text)} code={code} body={clean(r.text, 120) if not code else ''}")
+except Exception as e:  # noqa: BLE001
+    code = None
+    out.append(f"region EXC {type(e).__name__} {time.time()-t0:.1f}s")
+if code:
+    t0 = time.time()
+    try:
+        r = requests.get(b.ARCH, params={"serviceKey": key, "sigunguCd": code[:5], "bjdongCd": code[5:], "platGbCd": "0", "bun": "0001", "numOfRows": 5, "pageNo": 1, "_type": "json"}, headers=b.UA, timeout=40)
+        n = len(b.permits(r.text)) if r.status_code == 200 and r.text.strip().startswith("{") else None
+        out.append(f"arch HTTP {r.status_code} {time.time()-t0:.1f}s gw={b.gateway_code(r.text)} rows={n} body={clean(r.text, 160) if n is None else ''}")
+    except Exception as e:  # noqa: BLE001
+        out.append(f"arch EXC {type(e).__name__} {time.time()-t0:.1f}s")
 
 packs, cur = [], ""
 for n in out:
