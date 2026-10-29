@@ -86,6 +86,25 @@ class Building(unittest.TestCase):
         doc = b.run([("K", "good")], FACS, now=NOW, previous=unset, get=fake({"0001": [permit("P1")]}), sleep=lambda s: None)
         self.assertTrue(all(x["baseline"] and not x["isNew"] for x in doc["permits"]))
 
+    def test_time_budget_saves_progress_and_region_is_cached(self):
+        facs = FACS + [dict(FACS[0], id="fac:3")]
+        get = fake({"0001": [permit("P1")]})
+        doc = b.run([("K", "good")], facs, now=NOW, previous=None, get=get, sleep=lambda s: None)
+        self.assertEqual(sum(1 for u, _ in get.calls if u == b.REGION), 2)  # fac:1 and fac:3 share 고대리
+        t = iter([0, 0, 0, b.ADDR_BUDGET_S + 1] + [b.ADDR_BUDGET_S + 1] * 20)
+        cut = b.run([("K", "good")], facs, now=NOW, previous=None, get=fake({"0001": [permit("P1")]}), sleep=lambda s: None, clock=lambda: next(t))
+        self.assertEqual(cut["status"], "partial")
+        self.assertIn("남은 1곳", cut["checks"][0]["error"])
+        self.assertEqual(cut["parcelsResolved"], 2)
+        later = fake({"0001": [permit("P1")]})
+        done = b.run([("K", "good")], facs, now=NOW + dt.timedelta(days=7), previous=cut, get=later, sleep=lambda s: None)
+        self.assertEqual(done["parcelsResolved"], 3)
+        self.assertEqual(sum(1 for u, _ in later.calls if u == b.EPOST), 1)  # only the one left over
+        t2 = iter([0] * 4 + [b.TOTAL_BUDGET_S + 1] * 20)
+        arch_cut = b.run([("K", "good")], FACS, now=NOW, previous=None, get=fake({}), sleep=lambda s: None, clock=lambda: next(t2))
+        self.assertIn("남은", arch_cut["checks"][1]["error"])
+        self.assertEqual(arch_cut["status"], "partial")
+
     def test_refused_key_is_unset_and_next_key_is_tried(self):
         get = fake({"0001": [permit("P1")]})
         doc = b.run([("CUSTOMS_API_KEY", "bad"), ("G2B_API_KEY", "good")], FACS, now=NOW, previous=None, get=get, sleep=lambda s: None)
