@@ -258,6 +258,18 @@ class Eia(unittest.TestCase):
         items, _, _ = w.eia(self.cfg, self.now, {"eiaSeen": seen, "eia": []}, post=post2, get=get2, sleep=lambda s: None)
         self.assertEqual([(x["company"], x["stage"], x["kind"], x["isNew"]) for x in items], [("고려아연", "본안(진행)", "환경영향평가", True)])
 
+    def test_one_timeout_is_retried(self):
+        post, get, posts = self.fake()
+        fails = {"n": 0}
+
+        def flaky(url, **kw):
+            if kw["data"]["query"] == "포스코" and not fails["n"]:
+                fails["n"] += 1
+                raise type("ConnectTimeout", (Exception,), {})("HTTPSConnectionPool(host='www.eiass.go.kr') url /x")
+            return post(url, **kw)
+        _, _, checks = w.eia(self.cfg, self.now, None, post=flaky, get=get, sleep=lambda s: None)
+        self.assertEqual((checks[0]["status"], checks[0]["returned"]), ("ok", 4))
+
     def test_site_failure_is_not_zero(self):
         post, get, _ = self.fake(status=503)
         items, _, checks = w.eia(self.cfg, self.now, {"eiaSeen": [], "eia": [{"id": "eia:x", "firstSeen": "2026-10-28T08:10:00+09:00"}]},

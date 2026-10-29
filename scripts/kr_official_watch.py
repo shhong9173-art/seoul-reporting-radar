@@ -360,16 +360,22 @@ def eia(cfg, now, previous, *, post=None, get=None, sleep=time.sleep, deadline=N
         rx, q = eia_name_rx(c), c["queries"][0]
         for kind, ext, view in EIA_KINDS:
             data = {"query": q, "collection": "business", "urlString": ext, "viewName": view, "currentPage": 1, "sort": "DATE/DESC", "listCount": 10}
-            try:
-                r = post(EIASS, data=data, headers={**UA, "X-Requested-With": "XMLHttpRequest", "Referer": EIASS_PAGE}, timeout=30, verify=verify)
-                if r.status_code != 200:
-                    raise RuntimeError(f"HTTP {r.status_code}")
-                rows = eia_rows(r.text)
-                ok += 1
-            except Exception as e:  # noqa: BLE001
-                failed.append(f"{c['company']}·{kind}:{str(e)[:30] or type(e).__name__}")
-                sleep(0.5)
+            rows, err = None, None
+            for attempt in range(2):  # 10-29: one company's two queries timed out once, fine on the next run
+                try:
+                    r = post(EIASS, data=data, headers={**UA, "X-Requested-With": "XMLHttpRequest", "Referer": EIASS_PAGE}, timeout=30, verify=verify)
+                    if r.status_code != 200:
+                        raise RuntimeError(f"HTTP {r.status_code}")
+                    rows = eia_rows(r.text)
+                    break
+                except Exception as e:  # noqa: BLE001
+                    err = e
+                    sleep(5.0 if attempt == 0 else 0.5)
+            if rows is None:
+                name = type(err).__name__
+                failed.append(f"{c['company']}·{kind}:{name if name in ('ConnectTimeout', 'ReadTimeout', 'ConnectionError', 'SSLError') else (str(err)[:30] or name)}")
                 continue
+            ok += 1
             for x in rows:
                 if not rx.search(x["name"]) or EIA_REJECT.search(x["name"]):
                     continue
