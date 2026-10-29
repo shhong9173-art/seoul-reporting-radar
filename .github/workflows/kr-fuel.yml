@@ -35,6 +35,7 @@ jobs:
       - name: Watch Korean fuel-economy filings (counts-only log)
         env:
           MCP_ACCESS_TOKEN: ${{ secrets.MCP_ACCESS_TOKEN }}
+          KR_FUEL_API_KEY: ${{ secrets.KR_FUEL_API_KEY }}
           CUSTOMS_API_KEY: ${{ secrets.CUSTOMS_API_KEY }}
           G2B_API_KEY: ${{ secrets.G2B_API_KEY }}
         run: python scripts/kr_fuel_watch.py

@@ -11,6 +11,8 @@ const LOG_KEEP = 200;
 // KST weekday (Mon–Fri) slots, matching each workflow's GitHub cron.
 export const SLOTS = [
   { at: '06:10', workflow: 'kr-fuel.yml' },
+  // EPA·vPIC: GitHub 예약('20 21 * * *')이 10-29 아침에 돌지 않았다.
+  { at: '06:20', workflow: 'us-epa.yml' },
   { at: '06:30', workflow: 'page-watch.yml' },
   // 공식 원자료 직접 수집(pre_scoop.json: 대법원·NTIS·IRIS 등). GitHub 예약 '7,37 * * * *'은 10-28에 4번만 돌았다.
   // 07:10 단독 후보 심사·08:50 보도 대조·08:57 아침 발제 전에 한 번씩 새로 받는다.
