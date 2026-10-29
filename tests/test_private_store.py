@@ -63,7 +63,14 @@ class LateSchedule(unittest.TestCase):
         kst = dt.timezone(dt.timedelta(hours=9))
         now = dt.datetime(2026, 10, 28, 10, 40, tzinfo=kst)
         prev = {"generatedAt": "2026-10-28T07:42:10+09:00"}  # the on-time Cloudflare-requested run
-        self.assertTrue(ps.late_scheduled_duplicate(prev, now, env={"GITHUB_EVENT_NAME": "schedule"}))
+        # The skip notice is captured: printed in a real run's test step it showed up as a false
+        # 'skip-late-schedule' annotation on every collector run (10-29 점검에서 헷갈림).
+        import contextlib
+        import io
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            self.assertTrue(ps.late_scheduled_duplicate(prev, now, env={"GITHUB_EVENT_NAME": "schedule"}))
+        self.assertIn("title=skip-late-schedule::직전 결과가 3.0시간 전", buf.getvalue())
         self.assertFalse(ps.late_scheduled_duplicate(prev, now, env={"GITHUB_EVENT_NAME": "workflow_dispatch"}))
         self.assertFalse(ps.late_scheduled_duplicate(prev, now, env={"GITHUB_EVENT_NAME": "push"}))
         old = {"generatedAt": "2026-10-27T07:42:10+09:00"}  # Cloudflare request failed: yesterday's result
