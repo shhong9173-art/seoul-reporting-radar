@@ -1,4 +1,4 @@
-"""격리 탐침 29: 새올 고시공고 행 HTML(상세 열기 인자), 상세 주소 형식, 쪽 크기 30 허용 여부(울주·당진)."""
+"""격리 탐침 30: 새올 고시공고 데이터 행 원본 HTML(당진·울주·여수·화성), 상세 GET 주소가 열리는지."""
 import re
 
 import requests
@@ -6,25 +6,26 @@ import requests
 UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
       "Accept-Language": "ko-KR,ko;q=0.9"}
 PATH = "/emwp/gov/mogaha/ntis/web/ofr/action/OfrAction.do"
-BASE = {"method": "selectListOfrNotAncmt", "methodnm": "selectListOfrNotAncmtHomepage", "homepage_pbs_yn": "Y", "subCheck": "Y",
-        "ofr_pageSize": "30", "not_ancmt_se_code": "01,02,03,04,05", "initValue": "Y", "countYn": "Y", "list_gubun": "A", "pageIndex": "1",
-        "jndinm": "OfrNotAncmtEJB", "context": "NTIS", "method_type": ""}
+LIST = {"method": "selectListOfrNotAncmt", "methodnm": "selectListOfrNotAncmtHomepage", "homepage_pbs_yn": "Y", "subCheck": "Y",
+        "ofr_pageSize": "30", "not_ancmt_se_code": "01,02,03,04,05", "initValue": "Y", "countYn": "Y", "list_gubun": "A",
+        "jndinm": "OfrNotAncmtEJB", "context": "NTIS", "method_type": "", "pageIndex": "1"}
 out = []
-for host, kw in (("http://eminwon.ulju.ulsan.kr", "고려아연"), ("https://eminwon.dangjin.go.kr", "")):
+for base in ("https://eminwon.dangjin.go.kr", "http://eminwon.ulju.ulsan.kr", "https://eminwon.yeosu.go.kr", "https://eminwon.hscity.go.kr"):
     try:
-        r = requests.post(host + PATH, data={**BASE, "not_ancmt_sj": kw}, headers={**UA, "Referer": host + PATH}, timeout=40)
-        b = r.text
-        rows = re.findall(r"<tr[^>]*>([\s\S]*?)</tr>", b)
-        body_rows = [x for x in rows if "제" in x and "호" in x]
-        out.append(f"{host} kw={kw} HTTP {r.status_code} rows={len(body_rows)}")
-        if body_rows:
-            out.append("row0=" + re.sub(r"\s+", " ", body_rows[0])[:900])
-        js = sorted(set(re.findall(r"(?:href|onclick)=\"(javascript:[^\"]{0,120})\"", b)))[:8]
-        out.append(f"js={js}")
-        fn = re.search(r"function\s+(searchDetail|goDetail|fn_detail|viewDetail)\s*\([^)]*\)\s*\{([\s\S]{0,700})", b)
-        out.append("fn=" + (re.sub(r"\s+", " ", fn.group(0))[:700] if fn else "none"))
+        r = requests.post(base + PATH, data=LIST, headers={**UA, "Referer": base + PATH}, timeout=45)
+        trs = re.findall(r"<tr[^>]*>[\s\S]*?</tr>", r.text)
+        data = [t for t in trs if "<td" in t]
+        out.append(f"{base} trs={len(trs)} datarows={len(data)} row1=" + re.sub(r"\s+", " ", data[1] if len(data) > 1 else (data[0] if data else ""))[:700])
+        m = re.search(r"searchDetail\(\s*['\"]?([0-9A-Za-z_-]+)", r.text)
+        if m and "dangjin" in base:
+            mgt = m.group(1)
+            u = (f"{base}{PATH}?method=selectOfrNotAncmt&methodnm=selectOfrNotAncmtRegst&not_ancmt_mgt_no={mgt}"
+                 "&homepage_pbs_yn=Y&subCheck=Y&jndinm=OfrNotAncmtEJB&context=NTIS")
+            d = requests.get(u, headers=UA, timeout=45)
+            t = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", d.text))
+            out.append(f"detail GET mgt={mgt} HTTP {d.status_code} len={len(d.text)} err={'장애' in d.text} text={t[t.find('제목'):t.find('제목')+400]}")
     except Exception as e:  # noqa: BLE001
-        out.append(f"{host} EXC {type(e).__name__}")
+        out.append(f"{base} EXC {type(e).__name__}")
 packs, cur = [], ""
 for x in out:
     x = x.replace("\n", " ").replace("::", ": :").replace("%", "pct")
