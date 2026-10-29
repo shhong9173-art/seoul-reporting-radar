@@ -381,6 +381,8 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
   const bd = docs['kr-building'];
   const bdBase = baselineOf(bd?.permits ?? []);
   for (const x of bd?.permits ?? []) {
+    // a lot looked at for the first time after the first run (new plant, a lot left over, more pages) is its own baseline
+    if (x.baseline && !(x.changedAt && recent(x.changedAt))) continue;
     if (!fresh(x, bdBase, 'permitted') && !(x.changedAt && recent(x.changedAt))) continue;
     push(x.tier ?? 'C', W['kr-building'], { kind: `건축 ${x.kind}`, id: x.id, date: x.changedAt ? String(x.changedAt).slice(0, 10) : x.permitted ?? x.firstSeen, company: x.company,
       fact: `${buildingLine(x)} — 건축주 미표기(${x.sameLot === false ? `공장과 본번만 같은 다른 필지${x.bldNm ? `, 건물명 '${x.bldNm}'` : ''}` : '공장과 같은 번지'})`,

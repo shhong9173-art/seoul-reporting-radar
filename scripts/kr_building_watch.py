@@ -278,6 +278,12 @@ def run(keys, factories, *, now, previous=None, get=None, sleep=time.sleep, cloc
         # 10-29: the first real run came after a '미설정' result and stored its existing permits as new
         for x in previous["permits"]:
             x["baseline"], x["isNew"] = True, False
+    if isinstance(previous, dict) and previous.get("permits") and previous.get("baselineSince") and not previous.get("pagedMarked"):
+        # 10-29 17:20: the first paged run (#362) saw pages 2+ of big lots for the first time and stored 248 existing
+        # permits as new. Rows first seen in that run are a baseline.
+        for x in previous["permits"]:
+            if x.get("isNew") and x.get("firstSeen") == previous.get("generatedAt") and x.get("kind") == "새 허가":
+                x["baseline"], x["isNew"] = True, False
     if not keys:
         return {"schema": SCHEMA, "generatedAt": stamp, "status": "unset", "permits": (previous or {}).get("permits") or [],
                 "parcels": (previous or {}).get("parcels") or {}, "rules": RULES,
@@ -429,7 +435,7 @@ def run(keys, factories, *, now, previous=None, get=None, sleep=time.sleep, cloc
             "rules": RULES, "plants": len(factories), "archFailed": arch_failed[:80],
             "unresolved": [{"company": f["company"], "plant": f.get("cmpnyNm"), "road": road_query(f.get("rnAdres")),
                             "error": (parcels.get(f["id"]) or {}).get("error") or "미조회"}
-                           for f in factories if not (parcels.get(f["id"]) or {}).get("sigunguCd")][:80], "parcelsResolved": sum(1 for p in parcels.values() if p.get("sigunguCd")), "baselineMarked": True, "archFirstMarked": True,
+                           for f in factories if not (parcels.get(f["id"]) or {}).get("sigunguCd")][:80], "parcelsResolved": sum(1 for p in parcels.values() if p.get("sigunguCd")), "baselineMarked": True, "archFirstMarked": True, "pagedMarked": True,
             "baselineSince": (previous or {}).get("baselineSince") or (stamp if status != "unset" else None)}
 
 
