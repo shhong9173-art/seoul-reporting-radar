@@ -37,24 +37,32 @@ def listing(s, page=1, ministry="0", number=""):
 
 s = requests.Session()
 s.get(PAGE, headers=UA, timeout=40)
-rows = listing(s, 1, "Central Stores Directorate - EWA")[:2] + listing(s, 1, "Electricity and Water Authority")[:2]
-out.append(f"rows={[(r['no'][:60], r['opened'], r['buyer']) for r in rows]}")
-for r in rows[:3]:
-    if not r["link"]:
-        continue
-    d = s.get(SITE + r["link"], headers=UA, timeout=60)
-    t = text_of(d.text)
-    i = t.find("Bidder") if "Bidder" in t else t.find("Supplier")
-    out.append(f"detail {r['no'][:40]} HTTP {d.status_code} len={len(d.text)} text={t[max(0, i-300):i+1800]}")
-    time.sleep(1)
-for q in ("Taihan", "LS Cable", "Iljin", "Hyosung", "Hyundai"):
-    try:
-        got = listing(s, 1, "0", q)
-        out.append(f"search {q}: {[(g['no'][:50], g['opened'], g['buyer']) for g in got[:3]]}")
-    except Exception as e:  # noqa: BLE001
-        out.append(f"search {q}: EXC {type(e).__name__}")
-    time.sleep(1)
-
+KR = re.compile(r"LS CABLE|LS ELECTRIC|\bLS\b|TAIHAN|HYOSUNG|HYUNDAI|DOOSAN|POSCO|SEAH|ILJIN|GAON|KEPCO|KOREA|SAMSUNG|DAEWOO|HANWHA|KOLON|LG ", re.I)
+POWER = re.compile(r"cable|transmission|kv\b|substation|transformer|switchgear|overhead|grid|GIS|power", re.I)
+seen = 0
+for ministry in ("Electricity and Water Authority", "Ministry Of Electricity And Water Affairs", "Electricity and Water Authority (Saudi Fund for Development)"):
+    for page in range(1, 6):
+        try:
+            rows = listing(s, page, ministry)
+        except Exception as e:  # noqa: BLE001
+            out.append(f"{ministry} p{page} EXC {type(e).__name__}")
+            break
+        if not rows:
+            break
+        for r in rows:
+            if not POWER.search(r["no"]) or not r["link"]:
+                continue
+            d = s.get(SITE + r["link"], headers=UA, timeout=60)
+            seen += 1
+            t = text_of(d.text)
+            i = t.find("Bidder's Name")
+            j = t.find("Notice:")
+            bids = t[i:j] if i >= 0 else ""
+            kr = sorted(set(m.group(0) for m in KR.finditer(bids)))
+            out.append(f"{r['opened']} {r['buyer'][:25]} {r['no'][:70]} :: KR={kr} :: {bids[:400] if kr else bids[:120]}")
+            time.sleep(0.8)
+        time.sleep(0.8)
+out.append(f"details opened={seen}")
 packs, cur = [], ""
 for x in out:
     x = x.replace("\n", " ").replace("::", ": :").replace("%", "pct")
