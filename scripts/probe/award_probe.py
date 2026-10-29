@@ -1,4 +1,4 @@
-"""격리 탐침 18: 바레인 입찰위원회 — 낙찰 보고서 외에 '개찰 결과(입찰자·가격)' 공개 페이지가 있는지, 일진전기·LS·대한전선 이름이 보이는지."""
+"""격리 탐침 19: 바레인 입찰위원회 /Tenders/OpenedBids/ — 목록 형식, 상세(입찰자·가격) 링크, 한국 회사 이름."""
 import re
 import time
 
@@ -8,36 +8,40 @@ UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.3
 out = []
 
 
-def page(label, url):
-    t0 = time.time()
-    try:
-        r = requests.get(url, headers=UA, timeout=40)
-        body = r.text
-        title = (re.search(r"<title[^>]*>([\s\S]*?)</title>", body) or [None, ""])[1].strip()[:60]
-        links = sorted(set(re.findall(r'href="(/Tenders/[^"#?]{3,80})', body)))[:40]
-        hits = re.findall(r"[^<>]{0,80}(?:ILJIN|Iljin|LS Cable|Taihan|TAIHAN|LS CABLE|Hyosung|HYOSUNG|Hyundai|HYUNDAI)[^<>]{0,80}", body)[:5]
-        out.append(f"{label}: HTTP {r.status_code} {time.time()-t0:.1f}s len={len(body)} title={title!r} links={links} hits={hits}")
-        return body
-    except Exception as e:  # noqa: BLE001
-        out.append(f"{label}: EXC {type(e).__name__} {time.time()-t0:.1f}s")
-        return ""
+def text_of(html):
+    t = re.sub(r"<script[\s\S]*?</script>|<style[\s\S]*?</style>", " ", html)
+    return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " | ", t))
 
 
-home = page("home", "https://www.tenderboard.gov.bh/")
-for label, url in [("awarded", "https://www.tenderboard.gov.bh/Tenders/AwardedTenders/"),
-                   ("opened", "https://www.tenderboard.gov.bh/Tenders/OpenedTenders/"),
-                   ("opened2", "https://www.tenderboard.gov.bh/Tenders/Opened%20Tenders/"),
-                   ("bids", "https://www.tenderboard.gov.bh/Tenders/TenderBids/"),
-                   ("public", "https://www.tenderboard.gov.bh/Tenders/Public%20Tenders/")]:
-    page(label, url)
-    time.sleep(1)
+r = requests.get("https://www.tenderboard.gov.bh/Tenders/OpenedBids/", headers=UA, timeout=40)
+b = r.text
+out.append(f"list HTTP {r.status_code} len={len(b)}")
+hrefs = sorted(set(re.findall(r'href="([^"]*(?:Opened|Bid|Tender|tender|bid)[^"]*)"', b)))[:40]
+out.append(f"hrefs={hrefs}")
+forms = re.findall(r"<form[^>]*>", b)[:5]
+out.append(f"forms={forms}")
+ajax = sorted(set(re.findall(r"['\"](/[A-Za-z/]*(?:api|Api|Handler|ashx|svc|json)[^'\"]*)['\"]", b)))[:20]
+out.append(f"ajax={ajax}")
+t = text_of(b)
+i = t.find("Tender")
+out.append("text=" + t[i:i + 2500])
+detail = next((h for h in hrefs if re.search(r"\d", h)), None)
+if detail:
+    url = detail if detail.startswith("http") else "https://www.tenderboard.gov.bh" + detail
+    d = requests.get(url, headers=UA, timeout=40)
+    dt_ = text_of(d.text)
+    out.append(f"detail {url} HTTP {d.status_code} len={len(d.text)} text={dt_[dt_.find('Tender'):][:2500]}")
+for name in ("ILJIN", "Iljin", "LS Cable", "Taihan", "Hyosung", "HYUNDAI", "Hyundai", "Doosan", "Korea"):
+    if name in b:
+        k = b.find(name)
+        out.append(f"hit {name}: {text_of(b[max(0, k-300):k+300])}")
 
 packs, cur = [], ""
 for s in out:
     s = s.replace("\n", " ").replace("::", ": :").replace("%", "pct")
     if len(cur) + len(s) + 3 > 3800:
         packs.append(cur); cur = ""
-    cur += (" | " if cur else "") + s
+    cur += (" ¦ " if cur else "") + s
 packs.append(cur)
 for i, p in enumerate(packs[:10]):
     print(f"::notice title=aw-{i:02d}::{p}")
