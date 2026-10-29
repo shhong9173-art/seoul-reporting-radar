@@ -142,6 +142,17 @@ class Building(unittest.TestCase):
         finally:
             b.KEEP_MAX = keep
 
+    def test_repair_of_the_first_paged_run(self):
+        first = go([("K", "good")], FACS, now=NOW, previous=None, get=fake({"0001": [permit("P1")]}), sleep=lambda s: None)
+        stamp = (NOW + dt.timedelta(hours=1)).isoformat(timespec="seconds")
+        bad = dict(first, generatedAt=stamp, pagedMarked=None,
+                   permits=first["permits"] + [dict(first["permits"][0], id="bld:P8", firstSeen=stamp, baseline=False, isNew=True)])
+        again = go([("K", "good")], FACS, now=NOW + dt.timedelta(hours=2), previous=bad,
+                   get=fake({"0001": [permit("P1"), permit("P8")]}), sleep=lambda s: None)
+        p8 = next(x for x in again["permits"] if x["id"] == "bld:P8")
+        self.assertEqual((p8["baseline"], p8["isNew"]), (True, False))
+        self.assertTrue(again["pagedMarked"])
+
     def test_unresolved_plants_are_listed(self):
         facs = FACS + [{"id": "fac:9", "company": "세아", "cmpnyNm": "세아베스틸", "rnAdres": "전라북도 군산시 없는로 1"}]
         doc = go([("K", "good")], facs, now=NOW, previous=None, get=fake({}), sleep=lambda s: None)
