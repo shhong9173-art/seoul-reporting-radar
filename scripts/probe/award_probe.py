@@ -1,12 +1,16 @@
-"""격리 탐침 23: 바레인 개찰 결과 웹서비스(GetOpenedTenderF) — 기본 인자로 1쪽, 결과 HTML 형식·입찰자·가격, EWA 발주처 값."""
+"""격리 탐침 24: 바레인 개찰 결과 상세(/OpenedTenderDetails/) — 입찰자·가격 칸. EWA 계열 최근 3건 + 이름 검색(Taihan, LS, Iljin, Hyosung)."""
+import html as H
 import json
 import re
+import time
 
 import requests
 
 UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"}
-PAGE = "https://www.tenderboard.gov.bh/Tenders/OpenedBids/"
-WS = "https://www.tenderboard.gov.bh/Templates/TenderBoardWebService.aspx/"
+SITE = "https://www.tenderboard.gov.bh"
+PAGE = SITE + "/Tenders/OpenedBids/"
+WS = SITE + "/Templates/TenderBoardWebService.aspx/"
+HJ = {**UA, "Content-Type": "application/json; charset=utf-8", "X-Requested-With": "XMLHttpRequest", "Referer": PAGE}
 out = []
 
 
@@ -16,38 +20,40 @@ def text_of(html):
     return re.sub(r"(\s*¦\s*)+", " ¦ ", re.sub(r"\s+", " ", t))
 
 
-s = requests.Session()
-b = s.get(PAGE, headers=UA, timeout=40).text
-for sel in ("ddlTendertype", "ddlSortingType"):
-    m = re.search(sel + r'"[^>]*>([\s\S]*?)</select>', b)
-    out.append(f"{sel} options={re.findall(r'value=\"([^\"]*)\"[^>]*>([^<]*)<', m.group(1))[:12] if m else None}")
-init = re.findall(r"var\s+(selectedMinistry|selectedSection)\s*=\s*([^;]+);", b)
-out.append(f"init={init}")
-H = {**UA, "Content-Type": "application/json; charset=utf-8", "X-Requested-With": "XMLHttpRequest", "Referer": PAGE}
-mins = s.post(WS + "GetAllMinistries", data="", headers=H, timeout=40)
-ms = re.findall(r"<OptionValue>([^<]*)</OptionValue>\s*<OptionText>([^<]*)</OptionText>", mins.json().get("d", "")) if mins.ok else []
-out.append(f"ministries HTTP {mins.status_code} n={len(ms)} ewa={[m for m in ms if 'Electricity' in m[1]]}")
-body = {"tenderNumber": "", "ministry": "0", "category": "0", "tendertype": "0", "openedDate_filter": "", "endDate_filter": "",
-        "sortingType": "0", "pageIndex": "1", "sectionName": "0"}
-r = s.post(WS + "GetOpenedTenderF", data=json.dumps(body).replace('"', "'"), headers=H, timeout=60)
-out.append(f"GetOpenedTenderF HTTP {r.status_code} len={len(r.text)}")
-try:
+def listing(s, page=1, ministry="0", number=""):
+    body = {"tenderNumber": number, "ministry": ministry, "category": "0", "tendertype": "0", "openedDate_filter": "", "endDate_filter": "",
+            "sortingType": "0", "pageIndex": str(page), "sectionName": "0"}
+    r = s.post(WS + "GetOpenedTenderF", data=json.dumps(body).replace('"', "'"), headers=HJ, timeout=60)
     d = r.json().get("d", "")
-    pager = re.search(r"<RecordCount>([^<]*)</RecordCount>", d)
-    content = re.search(r"<Content>([\s\S]*?)</Content>", d)
-    html = content.group(1) if content else ""
-    import html as h
-    html = h.unescape(html)
-    out.append(f"records={pager.group(1) if pager else None} contentLen={len(html)}")
-    out.append("raw=" + re.sub(r"\s+", " ", html)[:3300])
-    ev = sorted(set(re.findall(r"on\w+=\"([^\"]{0,120})\"", html)))[:10]
-    out.append(f"events={ev}")
-    funcs = sorted(set(re.findall(r"function\s+(\w+)\s*\(", b)))
-    out.append(f"page funcs={funcs[:60]}")
-    links = sorted(set(re.findall(r'href="([^"]+)"', html)))[:10]
-    out.append(f"links={links}")
-except Exception as e:  # noqa: BLE001
-    out.append(f"parse EXC {type(e).__name__} head={r.text[:300]!r}")
+    content = H.unescape((re.search(r"<Content>([\s\S]*?)</Content>", d) or [None, ""])[1])
+    rows = []
+    for m in re.finditer(r"<div data-ref='(\d+)' class='rows'>([\s\S]*?)</div></div></div>", content):
+        cells = dict(re.findall(r"data-label='([^']+)'>([\s\S]*?)</div>", m.group(2)))
+        link = re.search(r"href='([^']+)'", m.group(2))
+        rows.append({"ref": m.group(1), "no": re.sub(r"<[^>]+>", " ", cells.get("No./Tender Subject", ""))[:120].strip(),
+                     "opened": cells.get("Date Opened"), "buyer": cells.get("Purchasing Authority"), "link": H.unescape(link.group(1)) if link else None})
+    return rows
+
+
+s = requests.Session()
+s.get(PAGE, headers=UA, timeout=40)
+rows = listing(s, 1, "Central Stores Directorate - EWA")[:2] + listing(s, 1, "Electricity and Water Authority")[:2]
+out.append(f"rows={[(r['no'][:60], r['opened'], r['buyer']) for r in rows]}")
+for r in rows[:3]:
+    if not r["link"]:
+        continue
+    d = s.get(SITE + r["link"], headers=UA, timeout=60)
+    t = text_of(d.text)
+    i = t.find("Bidder") if "Bidder" in t else t.find("Supplier")
+    out.append(f"detail {r['no'][:40]} HTTP {d.status_code} len={len(d.text)} text={t[max(0, i-300):i+1800]}")
+    time.sleep(1)
+for q in ("Taihan", "LS Cable", "Iljin", "Hyosung", "Hyundai"):
+    try:
+        got = listing(s, 1, "0", q)
+        out.append(f"search {q}: {[(g['no'][:50], g['opened'], g['buyer']) for g in got[:3]]}")
+    except Exception as e:  # noqa: BLE001
+        out.append(f"search {q}: EXC {type(e).__name__}")
+    time.sleep(1)
 
 packs, cur = [], ""
 for x in out:
