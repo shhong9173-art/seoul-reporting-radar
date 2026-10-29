@@ -434,7 +434,7 @@ export const identityNote = (ind) => `${ind?.regionMismatch ? ' · ⚠ 공장 �
 
 // Building permits on the same parcel as a beat company's registered factory (kr-building feed), shown under kr_official.
 export function buildingLine(x) {
-  const area = x.totArea ? `연면적 ${Number(x.totArea).toLocaleString('en-US', { maximumFractionDigits: 0 })}㎡` : '연면적 미기재';
+  const area = x.totArea ? `연면적 ${Number(x.totArea).toLocaleString('en-US', { maximumFractionDigits: 0 })}㎡${x.archGbCdNm === '증축' ? '(건물 전체일 수 있음, 증축분 아님)' : ''}` : '연면적 미기재';
   const what = [x.archGbCdNm, x.mainPurpsCdNm].filter(Boolean).join(' ') || '용도 미기재';
   const where = x.sameLot === false ? `${x.factory ?? x.company} 부지와 같은 본번의 다른 필지(${x.plot})` : `${x.factory ?? x.company} 부지(${x.plot})`;
   return `${x.kind === '새 허가' ? '건축허가' : x.kind}: ${where} · ${what} · ${area} · 허가 ${x.permitted ?? '?'}`

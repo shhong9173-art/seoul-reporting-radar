@@ -377,7 +377,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
       url: x.url, check: x.tier === 'C' ? undefined : hint(who, [nssc ? '원안위' : '허가']) });
   }
 
-  // 출입처 공장과 같은 번지의 건축인허가(건축주 비공개): 신축·증축 1,000㎡ 이상 A, 사용승인(준공)·그 밖 B, 300㎡ 미만 C.
+  // 출입처 공장과 같은 번지의 건축인허가(건축주 비공개): 신축 1,000㎡ 이상 A, 증축·사용승인(준공)·그 밖 B, 300㎡ 미만 C.
   const bd = docs['kr-building'];
   const bdBase = baselineOf(bd?.permits ?? []);
   for (const x of bd?.permits ?? []) {
