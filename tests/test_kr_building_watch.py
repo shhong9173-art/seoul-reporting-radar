@@ -153,6 +153,22 @@ class Building(unittest.TestCase):
         self.assertEqual((p8["baseline"], p8["isNew"]), (True, False))
         self.assertTrue(again["pagedMarked"])
 
+    def test_second_repair_marks_cleanly_paged_lots(self):
+        first = go([("K", "good")], FACS, now=NOW, previous=None, get=fake({"0001": [permit("P1")], "0196": [permit("H1")]}), sleep=lambda s: None)
+        stamp = (NOW + dt.timedelta(hours=1)).isoformat(timespec="seconds")
+        kg = first["parcels"]["fac:1"]
+        prev = dict(first, generatedAt=stamp, archPagedMarked=None,
+                    parcels={k: {kk: vv for kk, vv in v.items() if kk != "archPaged"} for k, v in first["parcels"].items()},
+                    archFailed=[{"company": "KG스틸", "plant": "케이지스틸 주식회사", "parcel": kg["jibun"], "error": "빈 응답"}],
+                    permits=first["permits"] + [dict(first["permits"][0], id="bld:P7", firstSeen=stamp, baseline=False, isNew=True)])
+        nxt = go([("K", "good")], FACS, now=NOW + dt.timedelta(days=4), previous=prev,
+                 get=fake({"0001": [permit("P1"), permit("P7"), permit("P5", day="20261101")], "0196": [permit("H1"), permit("H2", day="20261101")]}),
+                 sleep=lambda s: None)
+        got = {x["id"]: x["isNew"] for x in nxt["permits"]}
+        self.assertFalse(got["bld:P7"])  # stored as new by the bad run: repaired
+        self.assertFalse(got["bld:P5"])  # KG스틸 lot failed in that run: first clean paging is its baseline
+        self.assertTrue(got["bld:H2"])   # 현대차 lot was paged cleanly: really new
+
     def test_unresolved_plants_are_listed(self):
         facs = FACS + [{"id": "fac:9", "company": "세아", "cmpnyNm": "세아베스틸", "rnAdres": "전라북도 군산시 없는로 1"}]
         doc = go([("K", "good")], facs, now=NOW, previous=None, get=fake({}), sleep=lambda s: None)
