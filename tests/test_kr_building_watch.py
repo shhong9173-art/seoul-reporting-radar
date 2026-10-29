@@ -76,7 +76,7 @@ class Building(unittest.TestCase):
         self.assertEqual(first["parcels"]["fac:1"]["bun"], "0001")
         self.assertTrue(all(x["baseline"] and not x["isNew"] for x in first["permits"]))
         p1 = next(x for x in first["permits"] if x["id"] == "bld:P1")
-        self.assertEqual((p1["tier"], p1["company"], p1["totArea"], p1["permitted"]), ("A", "KG스틸", 12500.5, "2026-10-20"))
+        self.assertEqual((p1["tier"], p1["company"], p1["totArea"], p1["permitted"]), ("B", "KG스틸", 12500.5, "2026-10-20"))
         self.assertEqual(next(x for x in first["permits"] if x["id"] == "bld:P9")["tier"], "C")  # 300㎡ 미만
 
         get2 = fake({"0001": [permit("P1", use="20261030"), permit("P2", kind="대수선", area="900", day="20261028")]})
@@ -92,8 +92,10 @@ class Building(unittest.TestCase):
         other = dict(permit("P3"), platPlc="충청남도 당진시 송악읍 고대리 1-7번지")
         doc = go([("K", "good")], FACS, now=NOW, previous=None, get=fake({"0001": [own, other]}), sleep=lambda s: None)
         got = {x["id"]: (x["sameLot"], x["tier"]) for x in doc["permits"]}
-        self.assertEqual(got["bld:P1"], (True, "A"))
-        self.assertEqual(got["bld:P3"], (False, "B"))
+        self.assertEqual(got["bld:P1"], (True, "B"))   # 증축: the area is the whole building
+        self.assertEqual(got["bld:P3"], (False, "C"))
+        self.assertEqual(b.tier_of({"archGbCdNm": "신축", "totArea": 5000.0, "sameLot": True}), "A")
+        self.assertEqual(b.tier_of({"archGbCdNm": "증축", "totArea": 66680.0, "sameLot": True}), "B")
         self.assertEqual(b.lot_of({"bun": "0001", "ji": "0007"}), (1, 7))
 
         calls = {"n": 0}
