@@ -1,12 +1,13 @@
 """출입처 공장 부지 건축인허가 감시: 공장 증축·신축 허가는 공장등록 변경보다 몇 달 앞선다.
 
 - 출입처 공장 목록은 kr-official(공장등록) 결과에서 읽는다(회사·공장명·도로명주소).
-- 도로명주소 → 지번(우체국 도로명주소 조회) → 법정동코드(행정표준코드) → 건축인허가 기본개요(국토부 건축HUB)를
+- 도로명주소 → 법정동코드·지번(행정안전부 도로명주소 검색API, business.juso.go.kr) → 건축인허가 기본개요(국토부 건축HUB)를
   같은 번지(본번 기준, 부번 전체)로 조회한다. 주소 변환 결과는 180일 재사용.
+  (우체국 도로명주소 API는 GitHub 러너 같은 해외 서버에서 접속이 안 돼(10-29 연결 시간 초과) 쓰지 않는다.)
 - 새 허가(관리허가대장 PK 처음 봄): 신축·증축이고 연면적 1,000㎡ 이상 = A, 그 밖 = B, 300㎡ 미만 = C.
   이미 본 허가에 사용승인일이 새로 붙으면 B(준공).
-- 공공데이터포털 활용신청(15136267 건축인허가, 15000124 우체국 도로명주소, 15077871 법정동코드)이 된 키여야 한다.
-  키는 KR_FUEL_API_KEY → DATA_GO_KR_KEY → CUSTOMS_API_KEY → G2B_API_KEY 순서로 데이터마다 시도한다.
+- 키: 주소는 JUSO_CONFM_KEY(도로명주소 검색API 승인키), 건축인허가는 공공데이터포털 활용신청(15136267)이 된 키.
+  공공데이터포털 키는 KR_FUEL_API_KEY → DATA_GO_KR_KEY → CUSTOMS_API_KEY → G2B_API_KEY 순서로 시도한다.
 - 건축허가는 회사 이름이 없다(건축주 비공개). 같은 번지 = 그 공장 부지라는 뜻일 뿐, 건축주·용도는 회사·지자체 확인.
 - 결과는 기자 전용 저장소(kr-building)로만. 공개 로그는 건수만. 조회 실패·미설정은 0건이 아니다.
 """
@@ -19,7 +20,6 @@ import re
 import sys
 import time
 import urllib.parse
-import xml.etree.ElementTree as ET
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -27,12 +27,13 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 KST = dt.timezone(dt.timedelta(hours=9))
 SCHEMA = "kr_building/v1"
-EPOST = "http://openapi.epost.go.kr/postal/retrieveNewAdressAreaCdService/retrieveNewAdressAreaCdService/getNewAddressListAreaCd"
-REGION = "https://apis.data.go.kr/1741000/StanReginCd/getStanReginCdList"
+JUSO = "https://business.juso.go.kr/addrlink/addrLinkApi.do"
+JUSO_HELP = "JUSO_CONFM_KEY 없음 — 도로명주소 검색API 승인키(business.juso.go.kr) 필요"
 ARCH = "https://apis.data.go.kr/1613000/ArchPmsHubService/getApBasisOulnInfo"
 UA = {"User-Agent": "newsroom-official-research/1.0", "Accept": "application/json, application/xml"}
 KEY_NAMES = ("KR_FUEL_API_KEY", "DATA_GO_KR_KEY", "CUSTOMS_API_KEY", "G2B_API_KEY")
-DATASETS = {"epost": "15000124 우체국 도로명주소", "region": "15077871 법정동코드", "arch": "15136267 건축인허가"}
+DATASETS = {"arch": "15136267 건축인허가"}
+CONNECT_STREAK = 3  # this many connection failures in a row: the address service is unreachable, stop
 PARCEL_TTL_DAYS = 180
 SHOW_DAYS = 400
 KEEP_MAX = 600
@@ -103,9 +104,6 @@ class Caller:
 
 
 # ---------------------------------------------------------------- address → parcel
-JIBUN = re.compile(r"^(.*?[가-힣0-9]+(?:동|리|가))\s+(산\s*)?(\d+)(?:-(\d+))?")
-
-
 def road_query(road):
     """'충청남도 당진시 송악읍 북부산업로 1228 (고대리)' → '충청남도 당진시 송악읍 북부산업로 1228'."""
     q = re.sub(r"\(.*?\)", " ", str(road or ""))
@@ -114,59 +112,57 @@ def road_query(road):
     return norm_space(m.group(1) if m else q)
 
 
-def epost_jibun(text):
+class Juso:
+    """도로명주소 검색API: one call gives the 법정동코드(admCd) and the lot number of a road address."""
+
+    def __init__(self, key, get=None, sleep=time.sleep):
+        self.key, self.sleep = key, sleep
+        if get is None:
+            import requests
+            get = requests.get
+        self.get = get
+
+    def lookup(self, road):
+        r = self.get(JUSO, params={"confmKey": self.key, "currentPage": 1, "countPerPage": 10, "keyword": road, "resultType": "json"},
+                     headers=UA, timeout=30)
+        if r.status_code != 200:
+            raise RuntimeError(f"도로명주소 HTTP {r.status_code}")
+        self.sleep(0.15)  # development key: 10 requests a second
+        return juso_pick(r.text, road)
+
+
+def juso_pick(text, road):
     try:
-        root = ET.fromstring(text)
-    except ET.ParseError:
-        raise RuntimeError("우체국 응답 형식 미상")
-    if (root.findtext(".//successYN") or "Y").strip() == "N" and (root.findtext(".//returnCode") or "") not in ("", "00"):
-        raise RuntimeError(f"우체국 {root.findtext('.//returnCode')} {root.findtext('.//errMsg')}")
-    for it in root.iter("newAddressListAreaCd"):
-        lnm = norm_space(it.findtext("lnmAdres"))
-        if lnm:
-            return lnm
-    return None
-
-
-def split_jibun(lnm):
-    m = JIBUN.match(re.sub(r"\s*\(.*$", "", lnm or ""))
-    if not m:
-        return None
-    return {"dong": norm_space(m.group(1)), "platGbCd": "1" if m.group(2) else "0", "bun": m.group(3), "ji": m.group(4) or "0"}
-
-
-def region_code(text, dong):
-    try:
-        d = json.loads(text)
+        res = json.loads(text).get("results") or {}
     except ValueError:
-        raise RuntimeError("법정동코드 응답 형식 미상")
-    rows = []
-    for part in d.get("StanReginCd") or []:
-        rows += part.get("row") or []
-    for r in rows:
-        if norm_space(r.get("locatadd_nm")) == dong and len(str(r.get("region_cd") or "")) == 10:
-            return str(r["region_cd"])
-    return None
+        raise RuntimeError("도로명주소 응답 형식 미상")
+    common = res.get("common") or {}
+    code = str(common.get("errorCode") or "0")
+    if code in ("E0001", "E0014"):  # key not approved / development key expired
+        raise Refused(f"도로명주소 승인키 거부({code} {common.get('errorMessage') or ''})".strip())
+    if code != "0":
+        raise RuntimeError(f"도로명주소 {code} {common.get('errorMessage') or ''}".strip()[:60])
+    rows = [x for x in res.get("juso") or [] if len(str(x.get("admCd") or "")) == 10 and str(x.get("lnbrMnnm") or "").strip("0")]
+    exact = [x for x in rows if norm_space(x.get("roadAddrPart1")) == road]
+    pick = exact or rows
+    if not pick:
+        return None
+    if len({(x["admCd"], x.get("mtYn"), x.get("lnbrMnnm")) for x in pick}) > 1:
+        raise RuntimeError(f"도로명 주소 후보 {len(pick)}개 — 번지 특정 불가")
+    return pick[0]
 
 
-def parcel_for(fac, caller, now, regions=None):
+def parcel_for(fac, juso, now):
     road = road_query(fac.get("rnAdres"))
     if not road:
         return {"road": "", "error": "주소 없음", "checkedAt": now}
-    lnm = epost_jibun(caller.call("epost", EPOST, {"searchSe": "road", "srchwrd": road, "countPerPage": 5, "currentPage": 1}))
-    if not lnm:
+    x = juso.lookup(road)
+    if not x:
         return {"road": road, "error": "지번 못 찾음", "checkedAt": now}
-    j = split_jibun(lnm)
-    if not j:
-        return {"road": road, "jibun": lnm, "error": "지번 형식 미상", "checkedAt": now}
-    regions = {} if regions is None else regions
-    if j["dong"] not in regions:  # many plants share one dong
-        regions[j["dong"]] = region_code(caller.call("region", REGION, {"locatadd_nm": j["dong"], "type": "json", "numOfRows": 20, "pageNo": 1}), j["dong"])
-    code = regions[j["dong"]]
-    if not code:
-        return {"road": road, "jibun": lnm, "error": "법정동코드 못 찾음", "checkedAt": now}
-    return {"road": road, "jibun": lnm, "sigunguCd": code[:5], "bjdongCd": code[5:], "platGbCd": j["platGbCd"],
-            "bun": j["bun"].zfill(4), "ji": j["ji"].zfill(4), "checkedAt": now}
+    adm = str(x["admCd"])
+    return {"road": road, "jibun": norm_space(x.get("jibunAddr")), "sigunguCd": adm[:5], "bjdongCd": adm[5:],
+            "platGbCd": "1" if str(x.get("mtYn")) == "1" else "0", "bun": str(x["lnbrMnnm"]).zfill(4),
+            "ji": str(x.get("lnbrSlno") or "0").zfill(4), "checkedAt": now}
 
 
 # ---------------------------------------------------------------- permits
@@ -197,7 +193,7 @@ def tier_of(p):
     return "A" if p.get("archGbCdNm") in ("신축", "증축") and a >= BIG_AREA else "B"
 
 
-def run(keys, factories, *, now, previous=None, get=None, sleep=time.sleep, clock=time.monotonic):
+def run(keys, factories, *, now, previous=None, get=None, sleep=time.sleep, clock=time.monotonic, juso_key=None):
     stamp = now.isoformat(timespec="seconds")
     # a stored '미설정' result (datasets not approved yet) is not a baseline: the first run that really queries is
     baseline = not (isinstance(previous, dict) and previous.get("baselineSince"))
@@ -221,9 +217,11 @@ def run(keys, factories, *, now, previous=None, get=None, sleep=time.sleep, cloc
                     p.setdefault("archFirst", previous.get("generatedAt"))
     ttl = (now - dt.timedelta(days=PARCEL_TTL_DAYS)).isoformat()
     checks, refused = [], None
-    addr_ok = addr_fail = addr_left = 0
-    start, regions = clock(), {}
-    for f in factories:
+    addr_ok = addr_fail = addr_left = streak = 0
+    unreachable = False
+    start = clock()
+    juso = Juso(juso_key, get=get, sleep=sleep) if juso_key else None
+    for f in factories if juso else []:
         fid = f["id"]
         p = parcels.get(fid)
         if p and p.get("road") == road_query(f.get("rnAdres")) and str(p.get("checkedAt")) >= ttl and not p.get("error"):
@@ -231,22 +229,34 @@ def run(keys, factories, *, now, previous=None, get=None, sleep=time.sleep, cloc
         if clock() - start > ADDR_BUDGET_S:
             addr_left += 1  # done next run (resolved parcels are kept)
             continue
+        if unreachable:
+            addr_left += 1
+            continue
         try:
-            fresh = parcel_for(f, caller, stamp, regions)
+            fresh = parcel_for(f, juso, stamp)
             if p and p.get("archFirst") and all(p.get(k) == fresh.get(k) for k in ("sigunguCd", "bjdongCd", "platGbCd", "bun")):
                 fresh["archFirst"] = p["archFirst"]  # same parcel re-resolved after the TTL: not a first look
             parcels[fid] = fresh
+            streak = 0
             addr_ok += 0 if parcels[fid].get("error") else 1
             addr_fail += 1 if parcels[fid].get("error") else 0
         except Refused as e:
             refused = refused or str(e)
             break
         except Exception as e:  # noqa: BLE001
-            parcels[fid] = {"road": road_query(f.get("rnAdres")), "error": str(e)[:60] or type(e).__name__, "checkedAt": stamp}
+            # requests' connection errors carry the request URL: keep the class name only
+            conn = type(e).__name__ in ("ConnectTimeout", "ConnectionError", "ReadTimeout", "Timeout")
+            parcels[fid] = {"road": road_query(f.get("rnAdres")), "error": type(e).__name__ if conn else (str(e)[:60] or type(e).__name__), "checkedAt": stamp}
             addr_fail += 1
-    if refused:
-        missing = [DATASETS[d] for d in ("epost", "region") if d in caller.refused and d not in caller.chosen]
-        checks.append({"source": "주소 변환", "status": "unset", "error": f"활용신청 필요({', '.join(missing) or refused})"})
+            streak = streak + 1 if conn else 0
+            unreachable = streak >= CONNECT_STREAK
+    if not juso:
+        checks.append({"source": "주소 변환", "status": "unset", "error": JUSO_HELP})
+    elif refused:
+        checks.append({"source": "주소 변환", "status": "unset", "error": refused})
+    elif unreachable:
+        checks.append({"source": "주소 변환", "status": "failed", "returned": addr_ok, "failed": addr_fail,
+                       "error": f"도로명주소 API 접속 실패(연속 {CONNECT_STREAK}회) — 남은 {addr_left}곳은 다음 실행"})
     elif addr_left:
         checks.append({"source": "주소 변환", "status": "partial", "returned": addr_ok, "failed": addr_fail,
                        "error": f"시간 한도 — 남은 {addr_left}곳은 다음 실행"})
@@ -308,8 +318,8 @@ def run(keys, factories, *, now, previous=None, get=None, sleep=time.sleep, cloc
             out[pid] = rec
     if not by_parcel:
         # nothing to query is not '0 permits': the parcels are unknown
-        checks.append({"source": "건축인허가", "status": "unset" if refused else "failed",
-                       "error": "조회할 번지 없음 — 주소 변환 " + ("활용신청 후" if refused else "실패")})
+        checks.append({"source": "건축인허가", "status": "unset" if refused or not juso else "failed",
+                       "error": "조회할 번지 없음 — 주소 변환 " + ("승인키 등록 후" if refused or not juso else "실패")})
     elif arch_refused:
         checks.append({"source": "건축인허가", "status": "unset", "error": f"활용신청 필요({DATASETS['arch']})"})
     else:
@@ -343,7 +353,7 @@ def main():
         print(f"::warning title=kr-building-state::이전 상태 조회 실패({e}) — 이번 실행은 기준선")
     if private_store.late_scheduled_duplicate(previous, now):
         return
-    doc = run(resolve_keys(), factories, now=now, previous=previous)
+    doc = run(resolve_keys(), factories, now=now, previous=previous, juso_key=os.environ.get("JUSO_CONFM_KEY", "").strip() or None)
     new = [x for x in doc["permits"] if x.get("isNew")]
     print(f"::notice title=kr-building::상태 {doc['status']} · 공장 {doc.get('plants')} · 번지 확인 {doc.get('parcelsResolved')} · "
           + " · ".join(f"{c['source']} {c['status']}{('(' + c['error'] + ')') if c.get('error') else ''}" for c in doc["checks"])
