@@ -1047,7 +1047,7 @@ test('kr_signals shows FTC decisions by role, KEPCO bids and commodity prices, a
   const minor = await call('radar_today', { include_minor: true }, opts);
   assert.match(minor.text, /「\(연간단가\)고효율주상변압기,50KVA\(광유\)-2,338대-0\d\(일반\)」 외 같은 공고 2건\(합계 약 149억원\) · 추정가격 약 50억원/);
   assert.equal((minor.text.match(/고효율주상변압기/g) ?? []).length, 1);  // three lots, one line
-  assert.match(r.text, /기자 전용 감시 19개/);
+  assert.match(r.text, /기자 전용 감시 20개/);
   assert.deepEqual(dueAt(new Date('2026-10-26T23:30:00Z')), ['kr-signals.yml', 'kipris-patent-hunt.yml']);  // Tue 08:30 KST
   assert.deepEqual(dueAt(new Date('2026-10-27T06:20:00Z')), ['kr-signals.yml']);  // Tue 15:20 KST
 });
@@ -1188,7 +1188,7 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   assert.doesNotMatch((await call('trademarks', { name: 'aero' }, opts)).text, /NUTRIMACY/);
   assert.doesNotMatch((await call('trademarks', { class: '35' }, opts)).text, /NUTRIMACY/);
   const r = await call('radar_today', {}, opts);
-  assert.match(r.text, /기자 전용 감시 19개/);
+  assert.match(r.text, /기자 전용 감시 20개/);
   assert.match(r.text, /- 상표 출원: 대기 1곳\(제공기관 응답 22 뒤 72시간 대기\) — 해당 부분 0건은 미확인/);
   assert.doesNotMatch(r.text, /상표 출원: [^\n]*시간 전 결과/);
   const b = r.text.split('[B · ')[1].split('[C · ')[0];
@@ -1198,7 +1198,7 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   assert.match(minor.text, /상표 출원 「NUTRIMACY」[^\n]* — 같은 이름 상품류 추가/);
   const list = await rpc('tools/list', {}, { path: `/mcp/${TOKEN}`, env });
   assert.ok(list.body.result.tools.some((x) => x.name === 'trademarks'));
-  assert.match(list.body.result.tools.find((x) => x.name === 'radar_today').description, /감시 19개\([^)]*상표 출원, 국회 법안, 미국 리콜, 미국 EPA 인증, 국내 연비 신고, 해외 발주처 낙찰, 협력사 회생·파산, 전기위·원안위, 공장 부지 건축허가, 해외 법인 등기\)/);
+  assert.match(list.body.result.tools.find((x) => x.name === 'radar_today').description, /감시 20개\([^)]*상표 출원, 국회 법안, 미국 리콜, 미국 EPA 인증, 국내 연비 신고, 해외 발주처 낙찰, 협력사 회생·파산, 전기위·원안위, 공장 부지 건축허가, 해외 법인 등기, 지자체 고시·공고\)/);
   assert.ok(!(await rpc('tools/list', {}, { env })).body.result.tools.some((x) => x.name === 'trademarks'));  // private only
 });
 
@@ -1705,4 +1705,30 @@ test('kr_official: 환경영향평가 new stage of a beat project is A and liste
   assert.match(t.text, /\[환경영향평가 · 사업명에 출입처 이름 · 새 단계\] 1건\n- \[신규\] 2026-10-25 접수 · 고려아연 · 환경영향평가 초안\(진행\)/);
   const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
   assert.deepEqual(items.items.find((x) => x.id.startsWith('eia:')).check.terms, ['온산제련소', '환경영향평가']);
+});
+
+test('kr local notices: a beat plant notice in a city is A, a city baseline is hidden, kr_official section=local lists it', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const it = (id, extra) => ({ id, city: '울주군', plants: '고려아연·LS MnM·현대차', no: '울산광역시 울주군 공고 제2026-2727호',
+    title: "건설공사 안전점검 수행기관 지정 공고[온산 고려아연(주), Ga' 2차 ...", dept: '건축과', date: '2026-10-25', companies: ['고려아연'], company: '고려아연',
+    tier: 'A', url: 'http://eminwon.ulju.ulsan.kr/emwp/gov/mogaha/ntis/web/ofr/action/OfrAction.do?method=selectOfrNotAncmt&not_ancmt_mgt_no=68118',
+    firstSeen: '2026-10-25T06:30:00+09:00', baseline: false, isNew: true, ...extra });
+  const doc = { schema: 'kr_local/v1', generatedAt: '2026-10-25T06:30:00+09:00', status: 'partial', rules: ['제목만 본다.'],
+    checks: [{ source: '울주군', status: 'ok', returned: 60 }, { source: '포항시', status: 'failed', error: 'ReadTimeout' }],
+    items: [it('local:울주군:68118'),
+      it('local:당진시:1', { city: '당진시', title: '현대제철 옛 공고', company: '현대제철', companies: ['현대제철'], baseline: true, isNew: false }),
+      it('local:여수시:2', { city: '여수시', title: '여수국가산업단지 계획 변경 승인 고시', company: null, companies: [], tier: 'C' })] };
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/kr-local', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
+  const r = await call('radar_today', { hours: 72 }, opts);
+  assert.match(r.text.split('[A · ')[1].split('[B · ')[0], /울주군 울산광역시 울주군 공고 제2026-2727호 「건설공사 안전점검 수행기관 지정 공고\[온산 고려아연\(주\), Ga' 2차 \.\.\.」 · 건축과 · 등록 2026-10-25 — 제목만 확인/);
+  assert.doesNotMatch(r.text, /현대제철 옛 공고/);
+  assert.match(r.text, /지자체 고시·공고: 일부 실패 1건\(포항시\)|지자체 고시·공고: 일부/);
+  const t = await call('kr_official', { section: 'local' }, opts);
+  assert.match(t.text, /\[지자체 고시·공고 · 출입처 공장 시·군 2곳 새올 목록 · 처음 본 날 최근 30일\] 출입처 관련 2건 · 참고\(제철소·산업단지 계획 등\) 1건/);
+  assert.match(t.text, /- \[첫 조회 기준선\] 2026-10-25 · 당진시 · 현대제철 · A/);
+  assert.match(t.text, /미확인\(0건 아님\): 포항시\(ReadTimeout\)/);
+  assert.match(t.text, /이 시·군의 출입처 공장: 고려아연·LS MnM·현대차/);
+  assert.deepEqual(dueAt(new Date('2026-10-26T21:30:00Z')), ['page-watch.yml', 'kr-local.yml']);  // Tue 06:30 KST
+  assert.deepEqual(dueAt(new Date('2026-10-27T07:20:00Z')), ['kr-local.yml']);                    // Tue 16:20 KST
 });
