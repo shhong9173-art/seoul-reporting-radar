@@ -171,6 +171,14 @@
 - 원자력안전위원회 '일정/회의결과/회의록': 회의 며칠 전 올라오는 상정 안건과 뒤에 붙는 의결 결과(원안의결·수정의결·보류 등). 건설허가·운영허가·표준설계인가·SMR = A, 계속운전·사용후핵연료 등 = B. 결과가 새로 붙으면 radar_today에 다시 뜬다.
 - GitHub Actions `Power Permits & Nuclear Agenda Watch` 평일 15:40·18:10 KST. 결과는 `kr-energy` 비공개 저장소로만. `kr_signals`(section 비우거나 `energy`) 아래 '[전기위원회·원안위]'.
 
+## 공장 부지 건축허가(kr_official 안, 기자 전용)
+
+- 출입처 공장 목록(공장등록 결과)의 도로명주소 → 지번(우체국 도로명주소) → 법정동코드(행정표준코드) → 국토부 건축인허가 기본개요를 같은 번지(본번, 부번 전체)로 조회한다. 공장 증축·신축 허가는 공장등록 변경보다 몇 달 앞선다.
+- 새 허가: 신축·증축이고 연면적 1,000㎡ 이상 A, 그 밖 B, 300㎡ 미만 C. 이미 본 허가에 사용승인일이 붙으면 B(준공). 첫 실행 기준선.
+- **공공데이터포털 활용신청(자동승인) 3개가 필요하다: 15136267 건축인허가, 15000124 우체국 도로명주소, 15077871 법정동코드.** 키는 KR_FUEL_API_KEY → DATA_GO_KR_KEY → CUSTOMS_API_KEY → G2B_API_KEY 순서로 데이터마다 시도한다. 안 돼 있으면 radar_today에 '미설정(활용신청 필요 …)'.
+- 건축허가에는 건축주 이름이 없다. '공장과 같은 번지'일 뿐 — 건축주·용도·투자 규모는 회사·지자체 건축과 확인. 큰 공장의 다른 번지 허가는 못 볼 수 있다.
+- 매주 월 07:45 KST. 결과는 `kr-building` 비공개 저장소로만. `kr_official`(section 비우거나 `building`) 아래 '[공장 부지 건축허가]'.
+
 ## 레이더 항목 자동 보도 대조(radar_today, 기자 전용)
 
 - GitHub Actions `Radar Press Check`가 평일 08:50·18:50 KST(Cloudflare 요청, GitHub 예약은 예비)에 실행. Worker `/ingest/radar-items`(Bearer `MCP_ACCESS_TOKEN`)에서 A·B 항목 중 대조 낱말이 붙은 것(최근 72시간, 씀·킬·봤음 제외, 최대 40개, A 먼저)을 받는다. 결과는 `radar-check` 비공개 저장소로만. Secrets: `NAVER_CLIENT_ID`·`NAVER_CLIENT_SECRET`·`MCP_ACCESS_TOKEN`(단독 후보 심사와 같음).

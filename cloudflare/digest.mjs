@@ -7,7 +7,7 @@ import { dispatchHealth } from './dispatch.mjs';
 import { clampInt, safeEqual, textResult } from './common.mjs';
 import { classLabel, waitReason } from './trademarks.mjs';
 import { billLine, groupBillEvents } from './assembly.mjs';
-import { factoryEventText, identityNote } from './overseas.mjs';
+import { buildingLine, factoryEventText, identityNote } from './overseas.mjs';
 
 const KST_MS = 9 * 3600000;
 const kstDate = (ms) => new Date(ms + KST_MS).toISOString().slice(0, 10);
@@ -35,6 +35,7 @@ export const WATCHES = [
   { feed: 'overseas-awards', label: '해외 발주처 낙찰', tool: 'partner_filings', schedule: '평일 06:50·17:30' },
   { feed: 'kr-insolvency', label: '협력사 회생·파산', tool: 'kr_official', schedule: '평일 07:20·17:20' },
   { feed: 'kr-energy', label: '전기위·원안위', tool: 'kr_signals', schedule: '평일 15:40·18:10' },
+  { feed: 'kr-building', label: '공장 부지 건축허가', tool: 'kr_official', schedule: '월 07:45', staleHours: 192 },
 ];
 
 // Items first seen in a watch's very first run are a baseline, not news: they only count when their own date is recent.
@@ -373,6 +374,16 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
     push(x.tier ?? 'C', W['kr-energy'], { kind: `${x.source} ${x.kind}`, id: x.id, date: x.held ?? x.posted ?? x.firstSeen, company: x.company ?? '',
       fact: `${x.source}${x.meeting && !nssc ? ` ${x.meeting}` : ''} ${x.kind}: ${String(x.title ?? '').slice(0, 140)}${res}${x.held ? ` · ${nssc ? '회의' : '회의·허가일'} ${x.held}` : ''}`,
       url: x.url, check: x.tier === 'C' ? undefined : hint(who, [nssc ? '원안위' : '허가']) });
+  }
+
+  // 출입처 공장과 같은 번지의 건축인허가(건축주 비공개): 신축·증축 1,000㎡ 이상 A, 사용승인(준공)·그 밖 B, 300㎡ 미만 C.
+  const bd = docs['kr-building'];
+  const bdBase = baselineOf(bd?.permits ?? []);
+  for (const x of bd?.permits ?? []) {
+    if (!fresh(x, bdBase, 'permitted') && !(x.changedAt && recent(x.changedAt))) continue;
+    push(x.tier ?? 'C', W['kr-building'], { kind: `건축 ${x.kind}`, id: x.id, date: x.changedAt ? String(x.changedAt).slice(0, 10) : x.permitted ?? x.firstSeen, company: x.company,
+      fact: `${buildingLine(x)} — 건축주 미표기(공장과 같은 번지)`,
+      check: x.tier === 'C' ? undefined : hint(x.company, [cityOf(x.plot), '공장', x.archGbCdNm === '신축' ? '신설' : '증설']) });
   }
 
   const uc = docs['us-comments'];

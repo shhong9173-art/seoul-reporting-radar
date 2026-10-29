@@ -1,0 +1,42 @@
+name: Factory Parcel Building Permits Watch
+# 출입처 공장(공장등록 kr-official 목록)과 같은 번지의 건축인허가(국토부 건축HUB): 신축·증축·사용승인.
+# 매주 월 07:45 KST(건축인허가 자료는 월 단위 갱신). 결과는 기자 전용 저장소로만, 공개 로그는 건수만.
+# 공공데이터포털 활용신청 필요: 15136267 건축인허가, 15000124 우체국 도로명주소, 15077871 법정동코드(키마다 데이터별 시도).
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/kr_building_watch.py'
+      - 'tests/test_kr_building_watch.py'
+      - '.github/workflows/kr-building.yml'
+  schedule:
+    - cron: '45 22 * * 0'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: kr-building-watch
+  cancel-in-progress: false
+jobs:
+  building:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install "requests>=2.31,<3"
+      - name: Test parcel and permit parsing
+        run: python -m unittest tests.test_kr_building_watch tests.test_private_store -v
+      - name: Watch factory parcel building permits (counts-only log)
+        env:
+          MCP_ACCESS_TOKEN: ${{ secrets.MCP_ACCESS_TOKEN }}
+          KR_FUEL_API_KEY: ${{ secrets.KR_FUEL_API_KEY }}
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
+          CUSTOMS_API_KEY: ${{ secrets.CUSTOMS_API_KEY }}
+          G2B_API_KEY: ${{ secrets.G2B_API_KEY }}
+        run: python scripts/kr_building_watch.py
