@@ -87,6 +87,27 @@ class Building(unittest.TestCase):
         self.assertEqual((new["bld:P2"]["kind"], new["bld:P2"]["tier"]), ("새 허가", "B"))
         self.assertFalse(any(u == b.JUSO for u, _ in get2.calls))  # 번지는 저장분 재사용
 
+    def test_other_lot_on_same_bun_is_one_tier_lower_and_errors_are_counted(self):
+        own = permit("P1")  # 고대리 1-1번지 = KG스틸 parcel 1-1
+        other = dict(permit("P3"), platPlc="충청남도 당진시 송악읍 고대리 1-7번지")
+        doc = go([("K", "good")], FACS, now=NOW, previous=None, get=fake({"0001": [own, other]}), sleep=lambda s: None)
+        got = {x["id"]: (x["sameLot"], x["tier"]) for x in doc["permits"]}
+        self.assertEqual(got["bld:P1"], (True, "A"))
+        self.assertEqual(got["bld:P3"], (False, "B"))
+        self.assertEqual(b.lot_of({"bun": "0001", "ji": "0007"}), (1, 7))
+
+        calls = {"n": 0}
+        base = fake({"0001": [own]})
+
+        def flaky(url, params=None, headers=None, timeout=None):
+            if url == b.ARCH and params["bun"] == "0196":
+                calls["n"] += 1
+                return Resp("<OpenAPI_ServiceResponse><cmmMsgHeader><returnReasonCode>22</returnReasonCode></cmmMsgHeader></OpenAPI_ServiceResponse>")
+            return base(url, params=params, headers=headers, timeout=timeout)
+        doc2 = go([("K", "good")], FACS, now=NOW, previous=None, get=flaky, sleep=lambda s: None)
+        self.assertEqual(calls["n"], 2)  # retried once
+        self.assertIn("1개 번지 조회 실패(응답 코드 22 1)", doc2["checks"][1]["error"])
+
     def test_first_real_run_after_unset_is_baseline(self):
         unset = go([("K", "good")], FACS, juso=None, now=NOW, previous=None, get=fake({}), sleep=lambda s: None)
         self.assertEqual(unset["status"], "unset")

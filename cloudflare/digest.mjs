@@ -383,7 +383,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
   for (const x of bd?.permits ?? []) {
     if (!fresh(x, bdBase, 'permitted') && !(x.changedAt && recent(x.changedAt))) continue;
     push(x.tier ?? 'C', W['kr-building'], { kind: `건축 ${x.kind}`, id: x.id, date: x.changedAt ? String(x.changedAt).slice(0, 10) : x.permitted ?? x.firstSeen, company: x.company,
-      fact: `${buildingLine(x)} — 건축주 미표기(공장과 같은 번지)`,
+      fact: `${buildingLine(x)} — 건축주 미표기(${x.sameLot === false ? `공장과 본번만 같은 다른 필지${x.bldNm ? `, 건물명 '${x.bldNm}'` : ''}` : '공장과 같은 번지'})`,
       check: x.tier === 'C' ? undefined : hint(x.company, [cityOf(x.plot), '공장', x.archGbCdNm === '신축' ? '신설' : '증설']) });
   }
 

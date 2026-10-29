@@ -1606,12 +1606,15 @@ test('kr building: a permit on a beat factory parcel is A; unset datasets show a
   const doc = { schema: 'kr_building/v1', generatedAt: '2026-10-26T07:45:00+09:00', status: 'complete', plants: 286, parcelsResolved: 240, rules: ['건축주 비공개.'],
     checks: [{ source: '주소 변환', status: 'ok', returned: 240 }, { source: '건축인허가', status: 'ok', returned: 200 }],
     permits: [p('bld:1'), p('bld:2', { archGbCdNm: '대수선', totArea: 150, tier: 'C' }),
-      p('bld:0', { permitted: '2026-08-01', firstSeen: '2026-10-19T07:45:00+09:00', baseline: true, isNew: false })] };  // 지난주 기준선
+      p('bld:0', { permitted: '2026-08-01', firstSeen: '2026-10-19T07:45:00+09:00', baseline: true, isNew: false }),  // 지난주 기준선
+      p('bld:3', { plot: '충청남도 당진시 송악읍 고대리 1-7번지', bldNm: '이웃산업(주) 공장', sameLot: false, tier: 'B' })] };
   assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/kr-building', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
   const r = await call('radar_today', { hours: 72 }, opts);
   assert.match(r.text.split('[A · ')[1].split('[B · ')[0], /건축허가: 케이지스틸 주식회사 부지\(충청남도 당진시 송악읍 고대리 1-1번지\) · 증축 공장 · 연면적 12,501㎡ · 허가 2026-10-20 · 착공예정 2026-12-01 — 건축주 미표기\(공장과 같은 번지\)/);
+  assert.match(r.text.split('[B · ')[1], /케이지스틸 주식회사 부지와 같은 본번의 다른 필지\(충청남도 당진시 송악읍 고대리 1-7번지\)[^\n]*건축주 미표기\(공장과 본번만 같은 다른 필지, 건물명 '이웃산업\(주\) 공장'\)/);
   const t = await call('kr_official', { section: 'building' }, opts);
-  assert.match(t.text, /\[공장 부지 건축허가 · 출입처 공장 286곳 중 번지 확인 240곳 · 허가일 최근 90일\] 2건 · 소규모 1건/);
+  assert.match(t.text, /\[공장 부지 건축허가 · 출입처 공장 286곳 중 번지 확인 240곳 · 허가일 최근 90일\] 3건 · 소규모 1건/);
+  assert.match(t.text, /검증 상태: 건축주 미표기 — 공장과 본번만 같은 다른 필지라 이웃 회사 건물일 수 있음\(건물명 '이웃산업\(주\) 공장'\)/);
   const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
   assert.deepEqual(items.items.find((x) => x.id === 'bld:1').check.terms, ['당진', '공장', '증설']);
   const unset = { ...doc, status: 'unset', permits: [], checks: [{ source: '주소 변환', status: 'unset', error: 'JUSO_CONFM_KEY 없음 — 도로명주소 검색API 승인키(business.juso.go.kr) 필요' },

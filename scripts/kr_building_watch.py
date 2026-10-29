@@ -45,7 +45,8 @@ SMALL_AREA = 300.0
 RULES = [
     "건축인허가에는 건축주 이름이 없다. '출입처 공장과 같은 번지'일 뿐 — 건축주·용도·투자 규모는 회사·지자체 확인.",
     "허가는 착공·준공이 아니다(착공예정일·실제착공일·사용승인일 칸 확인). 첫 실행에 있던 허가는 기준선.",
-    "같은 번지(본번)의 부번 전체를 본다. 큰 공장은 여러 번지에 걸쳐 있어 다른 번지의 허가는 못 볼 수 있다.",
+    "같은 번지(본번)의 부번 전체를 본다. 공장과 부번까지 같은 필지면 그대로, 본번만 같은 다른 필지면 한 등급 낮춘다(이웃 회사 건물일 수 있음).",
+    "큰 공장은 여러 번지에 걸쳐 있어 다른 번지의 허가는 못 볼 수 있다.",
 ]
 
 
@@ -186,11 +187,55 @@ def area(v):
         return None
 
 
+OK_CODES = {None, "00", "0", "000", "INFO-0", "NORMAL_SERVICE"}
+
+
+def error_kind(e):
+    """A short, fixed label for a failure (requests' own messages can carry the request URL with the key)."""
+    name = type(e).__name__
+    if name in ("ConnectTimeout", "ConnectionError", "ReadTimeout", "Timeout", "SSLError"):
+        return name
+    if isinstance(e, ValueError) and not isinstance(e, RuntimeError):
+        return "응답 형식(JSON 아님)"
+    return str(e)[:40] if isinstance(e, RuntimeError) else name
+
+
+def arch_rows(caller, params, sleep):
+    """One permit query, retried once after 2 s (gateway rate limits and timeouts are often momentary)."""
+    for attempt in (1, 2):
+        try:
+            text = caller.call("arch", ARCH, params)
+            code = gateway_code(text)
+            if code == "03":  # NODATA
+                return []
+            if code not in OK_CODES:
+                raise RuntimeError(f"응답 코드 {code}")
+            return permits(text)
+        except Refused:
+            raise
+        except Exception:  # noqa: BLE001
+            if attempt == 2:
+                raise
+            sleep(2.0)
+
+
+def lot_of(r):
+    """(본번, 부번) of a permit row: the bun/ji fields, else the end of 대지위치."""
+    bun, ji = str(r.get("bun") or "").strip(), str(r.get("ji") or "").strip()
+    if bun.isdigit():
+        return int(bun), int(ji) if ji.isdigit() else 0
+    m = re.search(r"(\d+)(?:-(\d+))?\s*번지\s*$", norm_space(r.get("platPlc")))
+    return (int(m.group(1)), int(m.group(2) or 0)) if m else None
+
+
 def tier_of(p):
     a = p.get("totArea") or 0
     if a < SMALL_AREA:
         return "C"
-    return "A" if p.get("archGbCdNm") in ("신축", "증축") and a >= BIG_AREA else "B"
+    t = "A" if p.get("archGbCdNm") in ("신축", "증축") and a >= BIG_AREA else "B"
+    if p.get("sameLot") is False:  # same 본번, another 부번: may be a neighbour's building
+        t = {"A": "B", "B": "C"}[t]
+    return t
 
 
 def run(keys, factories, *, now, previous=None, get=None, sleep=time.sleep, clock=time.monotonic, juso_key=None):
@@ -218,6 +263,7 @@ def run(keys, factories, *, now, previous=None, get=None, sleep=time.sleep, cloc
     ttl = (now - dt.timedelta(days=PARCEL_TTL_DAYS)).isoformat()
     checks, refused = [], None
     addr_ok = addr_fail = addr_left = streak = 0
+    addr_errs = {}
     unreachable = False
     start = clock()
     juso = Juso(juso_key, get=get, sleep=sleep) if juso_key else None
@@ -238,6 +284,8 @@ def run(keys, factories, *, now, previous=None, get=None, sleep=time.sleep, cloc
                 fresh["archFirst"] = p["archFirst"]  # same parcel re-resolved after the TTL: not a first look
             parcels[fid] = fresh
             streak = 0
+            if fresh.get("error"):
+                addr_errs[fresh["error"]] = addr_errs.get(fresh["error"], 0) + 1
             addr_ok += 0 if parcels[fid].get("error") else 1
             addr_fail += 1 if parcels[fid].get("error") else 0
         except Refused as e:
@@ -247,6 +295,8 @@ def run(keys, factories, *, now, previous=None, get=None, sleep=time.sleep, cloc
             # requests' connection errors carry the request URL: keep the class name only
             conn = type(e).__name__ in ("ConnectTimeout", "ConnectionError", "ReadTimeout", "Timeout")
             parcels[fid] = {"road": road_query(f.get("rnAdres")), "error": type(e).__name__ if conn else (str(e)[:60] or type(e).__name__), "checkedAt": stamp}
+            k = error_kind(e)
+            addr_errs[k] = addr_errs.get(k, 0) + 1
             addr_fail += 1
             streak = streak + 1 if conn else 0
             unreachable = streak >= CONNECT_STREAK
@@ -261,7 +311,8 @@ def run(keys, factories, *, now, previous=None, get=None, sleep=time.sleep, cloc
         checks.append({"source": "주소 변환", "status": "partial", "returned": addr_ok, "failed": addr_fail,
                        "error": f"시간 한도 — 남은 {addr_left}곳은 다음 실행"})
     else:
-        checks.append({"source": "주소 변환", "status": "ok", "returned": addr_ok, "failed": addr_fail})
+        checks.append({"source": "주소 변환", "status": "ok", "returned": addr_ok, "failed": addr_fail,
+                       **({"errors": dict(sorted(addr_errs.items(), key=lambda kv: -kv[1])[:5])} if addr_errs else {})})
 
     old = {x["id"]: x for x in (previous or {}).get("permits") or []}
     out = dict(old)
@@ -271,22 +322,24 @@ def run(keys, factories, *, now, previous=None, get=None, sleep=time.sleep, cloc
         if p.get("sigunguCd"):
             by_parcel.setdefault((p["sigunguCd"], p["bjdongCd"], p["platGbCd"], p["bun"]), []).append(f)
     queried = fail = arch_left = 0
-    arch_refused = None
+    arch_refused, errs = None, {}
     show_cut = (now - dt.timedelta(days=SHOW_DAYS)).date().isoformat()
     for (sg, bj, gb, bun), facs in by_parcel.items():
         if clock() - start > TOTAL_BUDGET_S:
             arch_left += 1
             continue
         try:
-            text = caller.call("arch", ARCH, {"sigunguCd": sg, "bjdongCd": bj, "platGbCd": gb, "bun": bun, "numOfRows": 100, "pageNo": 1, "_type": "json"})
-            rows = permits(text)
+            rows = arch_rows(caller, {"sigunguCd": sg, "bjdongCd": bj, "platGbCd": gb, "bun": bun, "numOfRows": 100, "pageNo": 1, "_type": "json"}, sleep)
             queried += 1
         except Refused as e:
             arch_refused = str(e)
             break
-        except Exception:  # noqa: BLE001
+        except Exception as e:  # noqa: BLE001
             fail += 1
+            k = error_kind(e)
+            errs[k] = errs.get(k, 0) + 1
             continue
+        own_lots = {(int((parcels.get(f["id"]) or {}).get("bun") or 0), int((parcels.get(f["id"]) or {}).get("ji") or 0)) for f in facs}
         # permits at a parcel looked at for the first time (first run, a parcel left over by the time limit,
         # a newly registered plant) are its baseline, not new
         first_look = baseline or any(not (parcels.get(f["id"]) or {}).get("archFirst") for f in facs)
@@ -303,6 +356,8 @@ def run(keys, factories, *, now, previous=None, get=None, sleep=time.sleep, cloc
                    "mainPurpsCdNm": norm_space(r.get("mainPurpsCdNm")) or None, "totArea": area(r.get("totArea")),
                    "archArea": area(r.get("archArea")), "permitted": ymd(r.get("archPmsDay")), "startPlanned": ymd(r.get("stcnsSchedDay")),
                    "started": ymd(r.get("realStcnsDay")), "useApproved": ymd(r.get("useAprDay"))}
+            lot = lot_of(r)
+            rec["sameLot"] = None if lot is None else lot in own_lots
             if (rec["permitted"] or "0000") < show_cut and pid not in old:
                 continue  # old permits are not kept
             prev = old.get(pid)
@@ -323,7 +378,8 @@ def run(keys, factories, *, now, previous=None, get=None, sleep=time.sleep, cloc
     elif arch_refused:
         checks.append({"source": "건축인허가", "status": "unset", "error": f"활용신청 필요({DATASETS['arch']})"})
     else:
-        err = "; ".join(e for e in (f"{fail}개 번지 조회 실패" if fail else "", f"시간 한도 — 남은 {arch_left}개 번지 미조회" if arch_left else "") if e)
+        kinds = ", ".join(f"{k} {n}" for k, n in sorted(errs.items(), key=lambda kv: -kv[1])[:3])
+        err = "; ".join(e for e in (f"{fail}개 번지 조회 실패({kinds})" if fail else "", f"시간 한도 — 남은 {arch_left}개 번지 미조회" if arch_left else "") if e)
         checks.append({"source": "건축인허가", "status": "ok" if not err else "partial", "returned": queried, **({"error": err} if err else {})})
     for pid, x in out.items():
         if pid in old and x is old[pid]:
@@ -356,7 +412,10 @@ def main():
     doc = run(resolve_keys(), factories, now=now, previous=previous, juso_key=os.environ.get("JUSO_CONFM_KEY", "").strip() or None)
     new = [x for x in doc["permits"] if x.get("isNew")]
     print(f"::notice title=kr-building::상태 {doc['status']} · 공장 {doc.get('plants')} · 번지 확인 {doc.get('parcelsResolved')} · "
-          + " · ".join(f"{c['source']} {c['status']}{('(' + c['error'] + ')') if c.get('error') else ''}" for c in doc["checks"])
+          + " · ".join(f"{c['source']} {c['status']}{('(' + c['error'] + ')') if c.get('error') else ''}"
+                       + (f" 이번 {c['returned']}·실패 {c['failed']}" if "failed" in c else "")
+                       + (f" {c['errors']}" if c.get("errors") else "") for c in doc["checks"])
+          + f" · 다른 필지(같은 본번) {sum(1 for x in doc['permits'] if x.get('sameLot') is False)}"
           + f" · 새 허가 {len(new)} · 보관 {len(doc['permits'])}")
     if doc["status"] == "failed":
         sys.exit("건축인허가 조회 실패 — 이전 결과 유지(0건 아님)")
