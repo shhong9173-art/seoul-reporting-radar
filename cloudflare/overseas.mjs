@@ -436,7 +436,8 @@ export const identityNote = (ind) => `${ind?.regionMismatch ? ' · ⚠ 공장 �
 export function buildingLine(x) {
   const area = x.totArea ? `연면적 ${Number(x.totArea).toLocaleString('en-US', { maximumFractionDigits: 0 })}㎡` : '연면적 미기재';
   const what = [x.archGbCdNm, x.mainPurpsCdNm].filter(Boolean).join(' ') || '용도 미기재';
-  return `${x.kind === '새 허가' ? '건축허가' : x.kind}: ${x.factory ?? x.company} 부지(${x.plot}) · ${what} · ${area} · 허가 ${x.permitted ?? '?'}`
+  const where = x.sameLot === false ? `${x.factory ?? x.company} 부지와 같은 본번의 다른 필지(${x.plot})` : `${x.factory ?? x.company} 부지(${x.plot})`;
+  return `${x.kind === '새 허가' ? '건축허가' : x.kind}: ${where} · ${what} · ${area} · 허가 ${x.permitted ?? '?'}`
     + `${x.startPlanned ? ` · 착공예정 ${x.startPlanned}` : ''}${x.started ? ` · 착공 ${x.started}` : ''}${x.useApproved ? ` · 사용승인 ${x.useApproved}` : ''}`;
 }
 async function buildingSection(ctx, q, days, limit) {
@@ -456,7 +457,9 @@ async function buildingSection(ctx, q, days, limit) {
   for (const x of rows.slice(0, limit)) {
     out.push(`- ${x.isNew ? '[신규] ' : ''}${x.permitted ?? '?'} · ${x.company} · ${x.kind}${x.bldNm ? ` · ${x.bldNm}` : ''}`);
     out.push(`   잡힌 사실: ${buildingLine(x)}`);
-    out.push('   검증 상태: 건축주 미표기 — 같은 번지의 허가일 뿐. 건축주·용도·투자 규모는 회사·지자체(건축과) 확인');
+    out.push(x.sameLot === false
+      ? `   검증 상태: 건축주 미표기 — 공장과 본번만 같은 다른 필지라 이웃 회사 건물일 수 있음${x.bldNm ? `(건물명 '${x.bldNm}')` : ''}. 건축주는 지자체(건축과) 확인`
+      : '   검증 상태: 건축주 미표기 — 같은 번지의 허가일 뿐. 건축주·용도·투자 규모는 회사·지자체(건축과) 확인');
   }
   if (rows.length > limit) out.push(`… 남은 ${rows.length - limit}건`);
   if (!rows.length) out.push('조건에 맞는 허가 없음(위 미설정·실패는 0건 아님).');
