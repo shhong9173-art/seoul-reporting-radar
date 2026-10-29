@@ -1,7 +1,5 @@
-"""격리 탐침 28: 새올 고시공고 제목 검색 — 출입처 이름이 고시·공고 제목에 얼마나·언제 나오는지(당진·아산·여수·울주·군산·서산·동해)."""
+"""격리 탐침 29: 새올 고시공고 행 HTML(상세 열기 인자), 상세 주소 형식, 쪽 크기 30 허용 여부(울주·당진)."""
 import re
-import time
-from concurrent.futures import ThreadPoolExecutor
 
 import requests
 
@@ -9,45 +7,24 @@ UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.3
       "Accept-Language": "ko-KR,ko;q=0.9"}
 PATH = "/emwp/gov/mogaha/ntis/web/ofr/action/OfrAction.do"
 BASE = {"method": "selectListOfrNotAncmt", "methodnm": "selectListOfrNotAncmtHomepage", "homepage_pbs_yn": "Y", "subCheck": "Y",
-        "ofr_pageSize": "10", "not_ancmt_se_code": "01,02,03,04,05", "initValue": "Y", "countYn": "Y", "list_gubun": "A", "pageIndex": "1",
+        "ofr_pageSize": "30", "not_ancmt_se_code": "01,02,03,04,05", "initValue": "Y", "countYn": "Y", "list_gubun": "A", "pageIndex": "1",
         "jndinm": "OfrNotAncmtEJB", "context": "NTIS", "method_type": ""}
-CITIES = {"당진": ("https://eminwon.dangjin.go.kr", ["현대제철", "KG스틸", "케이지스틸", "동국제강", "현대", "제철", "공장"]),
-          "아산": ("https://eminwon.asan.go.kr", ["현대자동차", "현대", "공장"]),
-          "여수": ("https://eminwon.yeosu.go.kr", ["GS칼텍스", "지에스칼텍스", "한화솔루션", "디엘케미칼", "DL", "공장"]),
-          "울주": ("http://eminwon.ulju.ulsan.kr", ["고려아연", "엘에스엠앤엠", "LS", "온산", "공장"]),
-          "군산": ("https://eminwon.gunsan.go.kr", ["세아", "OCI", "오씨아이", "공장"]),
-          "서산": ("https://eminwon.seosan.go.kr", ["현대", "한화", "공장"]),
-          "동해": ("https://eminwon.dh.go.kr", ["LS", "엘에스", "공장"])}
-
-
-def text_of(html):
-    t = re.sub(r"<script[\s\S]*?</script>|<style[\s\S]*?</style>", " ", html)
-    t = re.sub(r"<[^>]+>", " ¦ ", t)
-    return re.sub(r"(\s*¦\s*)+", " ¦ ", re.sub(r"\s+", " ", t))
-
-
-def city(item):
-    name, (host, kws) = item
-    res = []
-    for kw in kws:
-        t0 = time.time()
-        try:
-            r = requests.post(host + PATH, data={**BASE, "not_ancmt_sj": kw, "searchKeyword": kw}, headers={**UA, "Referer": host + PATH}, timeout=40)
-            t = text_of(r.text)
-            total = re.search(r"전체게시물\s*:\s*([\d,]+)", t)
-            rows = re.findall(r"((?:고시|공고)\s*제[\d-]+호) ¦ ([^¦]{0,70}) ¦ ([^¦]{0,15}) ¦ (\d{4}-\d{2}-\d{2})", t)
-            res.append(f"{name}/{kw} HTTP {r.status_code} {time.time()-t0:.0f}s total={total.group(1) if total else None} :: "
-                       + " ; ".join(f"{d} {ttl.strip()[:55]}" for _, ttl, _, d in rows[:4]))
-        except Exception as e:  # noqa: BLE001
-            res.append(f"{name}/{kw} EXC {type(e).__name__}")
-        time.sleep(0.7)
-    return res
-
-
 out = []
-with ThreadPoolExecutor(4) as ex:
-    for lines in ex.map(city, CITIES.items()):
-        out.extend(lines)
+for host, kw in (("http://eminwon.ulju.ulsan.kr", "고려아연"), ("https://eminwon.dangjin.go.kr", "")):
+    try:
+        r = requests.post(host + PATH, data={**BASE, "not_ancmt_sj": kw}, headers={**UA, "Referer": host + PATH}, timeout=40)
+        b = r.text
+        rows = re.findall(r"<tr[^>]*>([\s\S]*?)</tr>", b)
+        body_rows = [x for x in rows if "제" in x and "호" in x]
+        out.append(f"{host} kw={kw} HTTP {r.status_code} rows={len(body_rows)}")
+        if body_rows:
+            out.append("row0=" + re.sub(r"\s+", " ", body_rows[0])[:900])
+        js = sorted(set(re.findall(r"(?:href|onclick)=\"(javascript:[^\"]{0,120})\"", b)))[:8]
+        out.append(f"js={js}")
+        fn = re.search(r"function\s+(searchDetail|goDetail|fn_detail|viewDetail)\s*\([^)]*\)\s*\{([\s\S]{0,700})", b)
+        out.append("fn=" + (re.sub(r"\s+", " ", fn.group(0))[:700] if fn else "none"))
+    except Exception as e:  # noqa: BLE001
+        out.append(f"{host} EXC {type(e).__name__}")
 packs, cur = [], ""
 for x in out:
     x = x.replace("\n", " ").replace("::", ": :").replace("%", "pct")
