@@ -1,32 +1,36 @@
-"""격리 탐침 17: NHTSA 결함조사(ODI) 파일 — 최근 120일 출입처 브랜드 조사와 조사 원문 링크 형식. 공개 자료만."""
-import datetime as dt
-import sys
+"""격리 탐침 18: 바레인 입찰위원회 — 낙찰 보고서 외에 '개찰 결과(입찰자·가격)' 공개 페이지가 있는지, 일진전기·LS·대한전선 이름이 보이는지."""
+import re
 import time
 
 import requests
 
-sys.path.insert(0, "scripts")
-import nhtsa_investigations as n
-
+UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"}
 out = []
-t0 = time.time()
-raw = n.fetch_zip()
-data = n.parse_zip_data(raw, lookback=120)
-out.append(f"zip={len(raw)} scanned={data['scannedRecords']} items={len(data['items'])} secs={time.time()-t0:.0f}")
-for x in data["items"][:25]:
-    models = sorted({f"{v['make']} {v['model']} {v['modelYear']}" for v in x["vehicles"]})[:4]
-    out.append(f"{x['actionNumber']} open={x['openedDate']} close={x['closedDate']} ref={x['longRunningOpenReferenceOnly']} type={x['discoveryType'][-20:]} "
-               f"owner={x['coveredIssuerRelation'][:12]} comp={x['component'][:40]} subj={x['subject'][:80]} models={models} camp={x['recallCampaigns'][:2]}")
-act = next((x["actionNumber"] for x in data["items"] if not x["longRunningOpenReferenceOnly"]), None)
-if act:
-    for label, url in [("page", f"https://www.nhtsa.gov/recalls?nhtsaId={act}"),
-                       ("issues", f"https://api.nhtsa.gov/safetyIssues/byNhtsaId?nhtsaId={act}"),
-                       ("inv api", f"https://api.nhtsa.gov/investigations?nhtsaId={act}")]:
-        try:
-            r = requests.get(url, timeout=30, headers={"User-Agent": "seoul-reporting-radar"})
-            out.append(f"{label} {act}: HTTP {r.status_code} len={len(r.text)} head={r.text[:300]!r}")
-        except Exception as e:  # noqa: BLE001
-            out.append(f"{label}: EXC {type(e).__name__}")
+
+
+def page(label, url):
+    t0 = time.time()
+    try:
+        r = requests.get(url, headers=UA, timeout=40)
+        body = r.text
+        title = (re.search(r"<title[^>]*>([\s\S]*?)</title>", body) or [None, ""])[1].strip()[:60]
+        links = sorted(set(re.findall(r'href="(/Tenders/[^"#?]{3,80})', body)))[:40]
+        hits = re.findall(r"[^<>]{0,80}(?:ILJIN|Iljin|LS Cable|Taihan|TAIHAN|LS CABLE|Hyosung|HYOSUNG|Hyundai|HYUNDAI)[^<>]{0,80}", body)[:5]
+        out.append(f"{label}: HTTP {r.status_code} {time.time()-t0:.1f}s len={len(body)} title={title!r} links={links} hits={hits}")
+        return body
+    except Exception as e:  # noqa: BLE001
+        out.append(f"{label}: EXC {type(e).__name__} {time.time()-t0:.1f}s")
+        return ""
+
+
+home = page("home", "https://www.tenderboard.gov.bh/")
+for label, url in [("awarded", "https://www.tenderboard.gov.bh/Tenders/AwardedTenders/"),
+                   ("opened", "https://www.tenderboard.gov.bh/Tenders/OpenedTenders/"),
+                   ("opened2", "https://www.tenderboard.gov.bh/Tenders/Opened%20Tenders/"),
+                   ("bids", "https://www.tenderboard.gov.bh/Tenders/TenderBids/"),
+                   ("public", "https://www.tenderboard.gov.bh/Tenders/Public%20Tenders/")]:
+    page(label, url)
+    time.sleep(1)
 
 packs, cur = [], ""
 for s in out:
