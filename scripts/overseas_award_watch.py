@@ -69,7 +69,6 @@ COMPANIES = [
     ("현대모비스", r"\bhyundai\s+mobis", "Hyundai Mobis", None),
     ("현대로템", r"\bhyundai\s+rotem", "Hyundai Rotem", "Hyundai Rotem"),
     ("고려아연", r"\bkorea\s+zinc", "Korea Zinc", None),
-    ("풍산", r"\bpoongsan\b", None, None),
 ]
 COMPANY_RX = [(ko, re.compile(rx, re.I)) for ko, rx, _, _ in COMPANIES]
 KOREA_RX = re.compile(r"\bkorea\b(?!\s*,?\s*(?:democratic|dprk|north))|\bkor\b|republic\s+of\s+korea", re.I)
@@ -118,6 +117,22 @@ def as_list(v):
     if v is None:
         return []
     return [str(x) for x in (v if isinstance(v, list) else [v])]
+
+
+def all_names(v):
+    """Winner names across every language key: TED lists some lots' winners only under the buyer's language."""
+    if isinstance(v, dict):
+        out = []
+        for val in v.values():
+            out += val if isinstance(val, list) else [val]
+        return [str(x) for x in out if x]
+    return as_list(v)
+
+
+# Rough EUR rates for the automaker-subsidiary threshold only (never shown).
+TO_EUR = {"EUR": 1, "CZK": 0.04, "PLN": 0.23, "HUF": 0.0025, "RON": 0.2, "BGN": 0.51, "SEK": 0.088, "DKK": 0.134, "NOK": 0.085,
+          "CHF": 1.05, "GBP": 1.17, "USD": 0.92, "ISK": 0.0066}
+LOCAL_FLEET_EUR = 10_000_000
 
 
 def money(value, cur):
@@ -173,10 +188,12 @@ def ted_items(rows):
         num = str(n.get("publication-number") or "")
         if not re.fullmatch(r"\d{1,9}-20\d{2}", num):
             continue
-        winners = [norm_space(w) for w in as_list(n.get("winner-name"))]
+        names = {}
+        for w in all_names(n.get("winner-name")):
+            names.setdefault(norm_space(w).lower(), norm_space(w))
+        uniq = sorted(names.values(), key=lambda w: (beat_of(w) is None, w))  # beat companies first
         countries = as_list(n.get("winner-country"))
         ids = as_list(n.get("winner-identifier"))
-        uniq = list(dict.fromkeys(winners))
         beat = [b for b in (beat_of(w) for w in uniq) if b]
         korean = beat or "KOR" in countries
         if not korean:
@@ -193,8 +210,8 @@ def ted_items(rows):
             "id": f"ted:{num}", "source": "EU TED", "published": str(n.get("publication-date") or "")[:10],
             "kind": "계약 변경" if typ == "can-modif" else "낙찰",
             "buyer": norm_space(" / ".join(dict.fromkeys(as_list(n.get("buyer-name")))))[:160],
-            "buyerCountry": bc[0] if bc else None, "winners": uniq[:6],
-            "winnerCountry": sorted(set(countries))[:4], "winnerIds": sorted(set(ids))[:4],
+            "buyerCountry": bc[0] if bc else None, "winners": uniq[:6], "winnerCount": len(uniq),
+            "winnerCountry": sorted(set(countries))[:4], "winnerIds": sorted(set(ids))[:2] if len(uniq) == 1 else [],
             "company": beat[0] if beat else None, "companies": sorted(set(beat)),
             "title": norm_space(" / ".join(dict.fromkeys(titles)))[:240], "value": value, "currency": cur,
             "concluded": concluded[-1] if concluded else None, "noticeType": typ,
@@ -464,9 +481,10 @@ def tier_of(it):
         return "C"
     if it.get("kind") == "계약 변경" or it.get("source") == "바레인 입찰위원회":
         return "B"
-    # 완성차 현지 판매법인(예: Hyundai Motor Czech)의 관용차 납품은 본사 수주가 아니다.
+    # 완성차 현지 판매법인(예: Hyundai Motor Czech)의 관용차 납품은 본사 수주가 아니다. 큰 물량(약 1천만 유로 이상)만 B.
     if it["company"] in AUTOMAKERS and "KOR" not in (it.get("winnerCountry") or []) and not KOREA_RX.search(" ".join(it.get("winnerCountry") or [])):
-        return "B"
+        eur = (it.get("value") or 0) * TO_EUR.get(it.get("currency") or "", 0)
+        return "B" if eur >= LOCAL_FLEET_EUR else "C"
     return "A"
 
 
@@ -501,9 +519,15 @@ def run(*, now, previous=None, get=None, post=None, sleep=time.sleep):
         it["isNew"] = not prev and not baseline
         it["tier"] = tier_of(it)
         items[it["id"]] = it
+    found_ids = {i["id"] for i in found}
     for k, x in list(items.items()):
-        if k not in {i["id"] for i in found}:
+        if k not in found_ids:
             x["isNew"] = False
+            # stored items follow the current name and tier rules (e.g. a company dropped from the beat list)
+            if x.get("source") != "바레인 입찰위원회":
+                beat = sorted({b for b in (beat_of(w) for w in x.get("winners") or []) if b})
+                x["company"], x["companies"] = (beat[0] if beat else None), beat
+            x["tier"] = tier_of(x)
     cut = (now - dt.timedelta(days=KEEP_DAYS)).date().isoformat()
     kept = [x for x in items.values() if str(x.get("published") or x.get("firstSeen"))[:10] >= cut]
     kept.sort(key=lambda x: (str(x.get("published") or x["firstSeen"][:10]), x["id"]), reverse=True)
