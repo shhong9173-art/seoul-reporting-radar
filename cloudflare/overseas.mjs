@@ -406,6 +406,37 @@ export async function usLitigation(ctx, args) {
 // Same-name doubt for a court notice's company (kr_insolvency_watch.pick): factory outside the court's region, several owners.
 export const identityNote = (ind) => `${ind?.regionMismatch ? ' · ⚠ 공장 주소가 관할 법원 지역 밖(다른 회사일 수 있음)' : ''}${(ind?.owners ?? 0) >= 2 ? ` · 같은 이름 공장 대표자 ${ind.owners}명` : ''}`;
 
+// Building permits on the same parcel as a beat company's registered factory (kr-building feed), shown under kr_official.
+export function buildingLine(x) {
+  const area = x.totArea ? `연면적 ${Number(x.totArea).toLocaleString('en-US', { maximumFractionDigits: 0 })}㎡` : '연면적 미기재';
+  const what = [x.archGbCdNm, x.mainPurpsCdNm].filter(Boolean).join(' ') || '용도 미기재';
+  return `${x.kind === '새 허가' ? '건축허가' : x.kind}: ${x.factory ?? x.company} 부지(${x.plot}) · ${what} · ${area} · 허가 ${x.permitted ?? '?'}`
+    + `${x.startPlanned ? ` · 착공예정 ${x.startPlanned}` : ''}${x.started ? ` · 착공 ${x.started}` : ''}${x.useApproved ? ` · 사용승인 ${x.useApproved}` : ''}`;
+}
+async function buildingSection(ctx, q, days, limit) {
+  const doc = await readFeed(ctx, 'kr-building');
+  if (!doc) return ['\n[공장 부지 건축허가] 결과 없음 — 미확인(월 07:45 실행 확인)'];
+  if (doc.broken) return ['\n[공장 부지 건축허가] 저장 형식 오류 — 미확인'];
+  const checks = doc.checks ?? [];
+  const from = new Date(ctx.now.getTime() + 9 * 3600000 - days * 86400000).toISOString().slice(0, 10);
+  const all = (doc.permits ?? []).filter((x) => (String(x.permitted ?? '') >= from || String(x.changedAt ?? '').slice(0, 10) >= from)
+    && matches(q, x.company, x.factory, x.plot, x.mainPurpsCdNm, x.bldNm));
+  const rank = { A: 0, B: 1, C: 2 };
+  const rows = all.filter((x) => q || x.tier !== 'C').sort((a, b) => (rank[a.tier] ?? 3) - (rank[b.tier] ?? 3)
+    || String(b.permitted ?? '').localeCompare(String(a.permitted ?? '')));
+  const out = [`\n[공장 부지 건축허가 · 출입처 공장 ${doc.plants ?? '?'}곳 중 번지 확인 ${doc.parcelsResolved ?? 0}곳 · 허가일 최근 ${days}일] ${rows.length}건${all.length - rows.length ? ` · 소규모 ${all.length - rows.length}건` : ''} · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt)}`,
+    `원천: ${checks.map((c) => `${c.source} ${c.status}${c.error ? `(${c.error})` : ''}`).join(' · ')}`,
+    ...(doc.rules ?? []).map((r) => `규칙: ${r}`)];
+  for (const x of rows.slice(0, limit)) {
+    out.push(`- ${x.isNew ? '[신규] ' : ''}${x.permitted ?? '?'} · ${x.company} · ${x.kind}${x.bldNm ? ` · ${x.bldNm}` : ''}`);
+    out.push(`   잡힌 사실: ${buildingLine(x)}`);
+    out.push('   검증 상태: 건축주 미표기 — 같은 번지의 허가일 뿐. 건축주·용도·투자 규모는 회사·지자체(건축과) 확인');
+  }
+  if (rows.length > limit) out.push(`… 남은 ${rows.length - limit}건`);
+  if (!rows.length) out.push('조건에 맞는 허가 없음(위 미설정·실패는 0건 아님).');
+  return out;
+}
+
 // Court insolvency notices of beat-industry manufacturers (kr-insolvency feed), shown under kr_official (no new connector tool).
 async function insolvencySection(ctx, q, days, limit) {
   const doc = await readFeed(ctx, 'kr-insolvency');
@@ -438,11 +469,15 @@ async function insolvencySection(ctx, q, days, limit) {
 }
 
 export async function krOfficial(ctx, args) {
-  const section = ['factory', 'gazette', 'insolvency'].includes(args.section) ? args.section : null;
+  const section = ['factory', 'gazette', 'insolvency', 'building'].includes(args.section) ? args.section : null;
   const q = String(args.company ?? '').trim();
   const insolvency = !section || section === 'insolvency'
     ? await insolvencySection(ctx, q, clampInt(args.days, 1, 120, 30), clampInt(args.limit, 1, 80, 20)) : [];
   if (section === 'insolvency') return textResult(insolvency.join('\n').trim());
+  const building = !section || section === 'building'
+    ? await buildingSection(ctx, q, clampInt(args.days, 1, 400, 90), clampInt(args.limit, 1, 80, 20)) : [];
+  if (section === 'building') return textResult(building.join('\n').trim());
+  insolvency.push(...building);
   const doc = await readFeed(ctx, 'kr-official');
   if (!doc) return insolvency.length ? textResult([missing('공장등록·관보 입법예고', '평일 08:10').content[0].text, ...insolvency].join('\n'), true) : missing('공장등록·관보 입법예고', '평일 08:10');
   if (doc.broken) return textResult(['저장된 국내 공식 원천 결과 형식 오류 — 미확인.', ...insolvency].join('\n'), true);
