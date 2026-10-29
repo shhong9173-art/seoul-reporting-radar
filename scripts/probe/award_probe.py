@@ -1,12 +1,14 @@
-"""격리 탐침: 해외 낙찰·계약 공개 원천의 응답 형식만 본다. 저장하지 않고, 공개 자료의 건수·형식·낙찰사 이름만 출력한다."""
+"""격리 탐침 2: TED 낙찰 필드·통화, 바레인 낙찰 목록, 영국 FTS 하루 분량, 대법원 회생·파산 공고 목록(해외 IP 접속), 세계은행.
+저장하지 않는다. 공개 자료의 건수·형식만 출력한다(회생·파산은 건수·공고 종류만, 회사 이름은 출력하지 않음)."""
 import json
 import re
+import time
 
 import requests
 
 UA = {"User-Agent": "newsroom-official-research/1.0 (award probe)", "Accept": "application/json, text/html;q=0.8"}
 out = []
-KR = re.compile(r"hyosung|hyundai|ls cable|ls electric|taihan|doosan|posco|iljin|korea|kepco|samsung c&t|hanwha|lsis|daewoo|sk ecoplant|kia\b", re.I)
+KR = re.compile(r"hyosung|hyundai|ls cable|ls electric|taihan|doosan|posco|iljin|korea|samsung c&t|hanwha|seah|kia\b", re.I)
 
 
 def note(tag, msg):
@@ -17,112 +19,128 @@ def short(s, n=160):
     return re.sub(r"\s+", " ", str(s or ""))[:n]
 
 
-def ted(term, fields):
-    q = f'FT~"{term}" AND publication-date>=20250101 SORT BY publication-date DESC'
-    body = {"query": q, "fields": fields, "limit": 20, "scope": "ALL", "paginationMode": "PAGE_NUMBER", "page": 1}
-    r = requests.post("https://api.ted.europa.eu/v3/notices/search", json=body, headers=UA, timeout=40)
-    if r.status_code != 200:
-        note("TED", f"{term} fields={fields[-2:]} HTTP {r.status_code} {short(r.text, 400)}")
-        return None
-    d = r.json()
-    rows = d.get("notices") or []
-    note("TED", f"{term} total={d.get('totalNoticeCount')} returned={len(rows)}")
-    for n in rows[:20]:
-        typ = n.get("notice-type")
-        win = n.get("winner-name") or n.get("organisation-name-tenderer")
-        if win or str(typ).startswith("can"):
-            note("TED-row", f"{n.get('publication-number')} {n.get('publication-date')} type={typ} buyer={short(json.dumps(n.get('buyer-name'), ensure_ascii=False), 90)} winner={short(json.dumps(win, ensure_ascii=False), 160)} val={short(n.get('tender-value') or n.get('result-value-notice'), 60)}")
-    return d
+TED = "https://api.ted.europa.eu/v3/notices/search"
 
 
-for term in ("Hyosung", "Hyundai Electric", "LS Cable", "Taihan"):
+def ted(query, fields, limit=5):
+    body = {"query": query, "fields": fields, "limit": limit, "scope": "ALL", "paginationMode": "PAGE_NUMBER", "page": 1}
+    return requests.post(TED, json=body, headers=UA, timeout=40)
+
+
+# 1) which extra fields exist (one notice we already know: 545946-2026, Energinet ← Hyosung)
+base = ["publication-number", "notice-type"]
+for f in ("winner-country", "tender-value-cur", "result-value-notice", "result-value-cur-notice", "total-value", "total-value-cur",
+          "notice-title", "title-lot", "winner-decision-date", "contract-conclusion-date", "buyer-country", "description-lot", "classification-cpv",
+          "deadline-receipt-tender-date-lot", "winner-identifier", "organisation-name-tenderer", "links"):
     try:
-        base = ["publication-number", "publication-date", "notice-type", "buyer-name", "buyer-country"]
-        if ted(term, base + ["winner-name", "tender-value"]) is None:
-            ted(term, base + ["organisation-name-tenderer"])
+        r = ted("publication-number=545946-2026", base + [f], 1)
+        if r.status_code == 200:
+            n = (r.json().get("notices") or [{}])[0]
+            note("TEDf", f"{f} ok={short(json.dumps(n.get(f), ensure_ascii=False), 220)}")
+        else:
+            note("TEDf", f"{f} HTTP {r.status_code} {short(r.text, 160)}")
     except Exception as e:  # noqa: BLE001
-        note("TED", f"{term} {type(e).__name__} {short(e)}")
+        note("TEDf", f"{f} {type(e).__name__}")
+    time.sleep(0.3)
 
-# World Bank Major Contract Awards (Socrata, public)
+# 2) query syntax: award types only, winner-name field search
+for q in ('winner-name~"Hyosung" AND publication-date>=20250101',
+          'notice-type IN (can-standard can-social can-modif can-desg can-tran) AND FT~"Hyosung" AND publication-date>=20250101',
+          'notice-type=can-standard AND FT~"Hyundai" AND publication-date>=20260901'):
+    try:
+        r = ted(q + " SORT BY publication-date DESC", ["publication-number", "notice-type", "winner-name"], 50)
+        if r.status_code == 200:
+            d = r.json()
+            types = {}
+            for n in d.get("notices") or []:
+                types[n.get("notice-type")] = types.get(n.get("notice-type"), 0) + 1
+            wins = sorted({w for n in d.get("notices") or [] for v in (n.get("winner-name") or {}).values() for w in v if KR.search(w)})
+            note("TEDq", f"[{q[:70]}] total={d.get('totalNoticeCount')} types={types} krWinners={short('; '.join(wins), 300)}")
+        else:
+            note("TEDq", f"[{q[:70]}] HTTP {r.status_code} {short(r.text, 220)}")
+    except Exception as e:  # noqa: BLE001
+        note("TEDq", f"{type(e).__name__}")
+    time.sleep(0.3)
+
+# 3) Bahrain Tender Board awarded tenders
 try:
-    url = "https://finances.worldbank.org/resource/kdui-wcs3.json"
-    params = {"$where": "supplier_country like '%Korea%'", "$order": "contract_signing_date DESC", "$limit": 25}
-    r = requests.get(url, params=params, headers=UA, timeout=40)
-    note("WB", f"HTTP {r.status_code} ctype={r.headers.get('content-type','')[:40]}")
-    if r.status_code == 200:
-        rows = r.json()
-        if rows:
-            note("WB-keys", ",".join(sorted(rows[0].keys())))
-        for x in rows[:25]:
-            note("WB-row", f"{short(x.get('contract_signing_date'),10)} {short(x.get('supplier'),60)} | {short(x.get('borrower_country'),20)} | {short(x.get('project_name'),60)} | {short(x.get('contract_description'),80)} | {x.get('total_contract_amount_usd') or x.get('supplier_contract_amount_usd')} | asof={short(x.get('as_of_date'),10)}")
-    else:
-        note("WB", short(r.text, 300))
+    r = requests.get("https://www.tenderboard.gov.bh/Tenders/AwardedTenders/", headers={**UA, "Accept": "text/html"}, timeout=40)
+    html = r.text
+    forms = " ".join(re.findall(r'<form[^>]*action="([^"]*)"', html))
+    note("BH", f"HTTP {r.status_code} bytes={len(r.content)} tables={html.count('<table')} rows={html.count('<tr')} forms={short(forms, 200)}")
+    heads = re.findall(r"<th[^>]*>(.*?)</th>", html, re.S)
+    note("BH-th", short(" / ".join(re.sub(r"<[^>]+>", "", h).strip() for h in heads[:20]), 400))
+    rows = re.findall(r"<tr[^>]*>(.*?)</tr>", html, re.S)
+    for row in rows[1:6]:
+        cells = [short(re.sub(r"<[^>]+>", " ", c), 70) for c in re.findall(r"<td[^>]*>(.*?)</td>", row, re.S)]
+        note("BH-row", " | ".join(cells))
+    links = sorted(set(re.findall(r'href="([^"]*(?:Award|award|Tender|tender)[^"]*)"', html)))[:15]
+    note("BH-links", short(" ".join(links), 600))
+    scripts = re.findall(r'(?:url|ajax|fetch)\s*[:(]\s*["\']([^"\']+)["\']', html)
+    note("BH-ajax", short(" ".join(scripts[:10]), 400))
 except Exception as e:  # noqa: BLE001
-    note("WB", f"{type(e).__name__} {short(e)}")
+    note("BH", f"{type(e).__name__} {short(e)}")
 
-# UK Find a Tender OCDS award releases (public)
+# 4) UK FTS: how many award pages in one day
 try:
     url = "https://www.find-tender.service.gov.uk/api/1.0/ocdsReleasePackages"
-    r = requests.get(url, params={"stages": "award", "updatedFrom": "2026-10-26T00:00:00", "limit": 100}, headers=UA, timeout=60)
-    note("FTS", f"HTTP {r.status_code} ctype={r.headers.get('content-type','')[:40]} bytes={len(r.content)}")
-    if r.status_code == 200:
+    params = {"stages": "award", "updatedFrom": "2026-10-27T00:00:00", "updatedTo": "2026-10-28T00:00:00", "limit": 100}
+    pages, releases, kr, grid, t0 = 0, 0, set(), set(), time.time()
+    nxt = None
+    while pages < 25:
+        r = requests.get(nxt or url, params=None if nxt else params, headers=UA, timeout=60)
+        if r.status_code != 200:
+            note("FTS", f"page {pages} HTTP {r.status_code} {short(r.text, 150)}")
+            break
         d = r.json()
+        pages += 1
         rel = d.get("releases") or []
-        sup = []
+        releases += len(rel)
         for x in rel:
-            for a in x.get("awards") or []:
-                for s in a.get("suppliers") or []:
-                    sup.append(s.get("name") or "")
             for p in x.get("parties") or []:
-                if "supplier" in (p.get("roles") or []):
-                    sup.append(p.get("name") or "")
-        note("FTS", f"releases={len(rel)} supplierNames={len(sup)} next={'links' in d and bool((d.get('links') or {}).get('next'))} keys={','.join(sorted(d.keys()))}")
-        hits = sorted({s for s in sup if KR.search(s)})
-        note("FTS-kr", short("; ".join(hits), 600) or "none")
-        buyers = sorted({(p.get('name') or '') for x in rel for p in (x.get('parties') or []) if 'buyer' in (p.get('roles') or [])})
-        grid = [b for b in buyers if re.search(r"grid|electric|power|energy|transmission|SSE|scottish", b, re.I)]
-        note("FTS-gridbuyers", short("; ".join(grid), 500) or "none")
-    else:
-        note("FTS", short(r.text, 300))
+                roles = p.get("roles") or []
+                if "supplier" in roles and KR.search(p.get("name") or ""):
+                    kr.add(p.get("name"))
+                if "buyer" in roles and re.search(r"national grid|ssen|scottish (?:hydro|power)|electricity north|ukpn|uk power networks|northern powergrid|western power|nged|sp energy|energy networks", p.get("name") or "", re.I):
+                    grid.add(p.get("name"))
+        nxt = (d.get("links") or {}).get("next")
+        if not nxt or not rel:
+            break
+        time.sleep(0.5)
+    note("FTS", f"day=10-27 pages={pages} releases={releases} secs={time.time()-t0:.0f} more={bool(nxt)} kr={short('; '.join(sorted(kr)), 300)} gridBuyers={short('; '.join(sorted(grid)), 300)}")
 except Exception as e:  # noqa: BLE001
     note("FTS", f"{type(e).__name__} {short(e)}")
 
-# USAspending federal contracts (public)
-for name in ("HYOSUNG", "HYUNDAI POWER TRANSFORMERS", "LS ELECTRIC", "LS CABLE"):
-    try:
-        body = {"filters": {"recipient_search_text": [name], "award_type_codes": ["A", "B", "C", "D"],
-                            "time_period": [{"start_date": "2024-10-01", "end_date": "2026-10-29"}]},
-                "fields": ["Award ID", "Recipient Name", "Award Amount", "Awarding Agency", "Awarding Sub Agency", "Start Date", "Description"],
-                "limit": 10, "page": 1, "sort": "Start Date", "order": "desc"}
-        r = requests.post("https://api.usaspending.gov/api/v2/search/spending_by_award/", json=body, headers=UA, timeout=60)
+# 5) 대법원 회생·파산 공고 목록 from a non-Korean runner (counts and notice kinds only)
+try:
+    s = requests.Session()
+    s.headers.update({"User-Agent": "Mozilla/5.0", "Accept": "application/json", "Content-Type": "application/json; charset=UTF-8",
+                      "Referer": "https://ssgo.scourt.go.kr/ssgo/ssgo930/rhblBnkp.on"})
+    for task, cort in (("4", "000221"), ("5", "000443")):
+        body = {"dma_search": {"taskDvs": task, "srchType": "pstgBgng", "cortCd": cort, "pstgDvs": "999", "csYr": "", "csDvsCd": "",
+                               "csSrno": "", "debtrNm": "", "jdbnCd": ""},
+                "dma_pageInfo": {"pageNo": 1, "pageSize": 50, "totalYn": "Y"}}
+        r = s.post("https://ssgo.scourt.go.kr/ssgo/ssgo930/selectRhblBnkpPbancLst.on", data=json.dumps(body), timeout=40)
         if r.status_code != 200:
-            note("USA", f"{name} HTTP {r.status_code} {short(r.text, 200)}")
+            note("SC", f"{task}/{cort} HTTP {r.status_code} {short(r.text, 150)}")
             continue
-        rows = r.json().get("results") or []
-        note("USA", f"{name} rows={len(rows)}")
-        for x in rows[:6]:
-            note("USA-row", f"{x.get('Start Date')} {short(x.get('Recipient Name'),50)} | {short(x.get('Awarding Sub Agency') or x.get('Awarding Agency'),45)} | {x.get('Award Amount')} | {short(x.get('Description'),80)}")
-    except Exception as e:  # noqa: BLE001
-        note("USA", f"{name} {type(e).__name__} {short(e)}")
+        d = r.json().get("data") or {}
+        rows = d.get("dlt_pbancLst") or []
+        kinds = {}
+        for x in rows:
+            kinds[x.get("inetPbancDvsCd")] = kinds.get(x.get("inetPbancDvsCd"), 0) + 1
+        note("SC", f"{task}/{cort} rows={len(rows)} total={(d.get('dma_pageInfo') or {}).get('totalCnt')} first={rows[0].get('pbancBgngYmd') if rows else ''} kinds={kinds}")
+        time.sleep(1)
+except Exception as e:  # noqa: BLE001
+    note("SC", f"{type(e).__name__} {short(e)}")
 
-# Gulf public tender boards: reachability and page shape only
-for tag, url in (("BH", "https://www.tenderboard.gov.bh/"),
-                 ("QA", "https://monaqasat.mof.gov.qa/TendersOnlineServices/AwardedTenders/1"),
-                 ("OM", "https://etendering.tenderboard.gov.om/product/publicDash?viewFlag=AwardedTenders"),
-                 ("SA", "https://tenders.etimad.sa/Tender/AllTendersForVisitor"),
-                 ("KW", "https://capt.gov.kw/en/"),
-                 ("ADB", "https://www.adb.org/projects/tenders/group/contracts-awarded"),
-                 ("EBRD", "https://ecepp.ebrd.com/delta/noticeSearchResults.html?noticeType=CA")):
+# 6) World Bank contract awards
+for tag, url in (("WB1", "https://search.worldbank.org/api/v2/contractdata?format=json&rows=3&supplier_country_name=Korea,%20Republic%20of"),
+                 ("WB2", "https://search.worldbank.org/api/v2/procnotices?format=json&rows=3&notice_type=Contract%20Award&qterm=Hyosung"),
+                 ("WB3", "https://finances.worldbank.org/api/views/kdui-wcs3.json")):
     try:
-        r = requests.get(url, headers={**UA, "Accept": "text/html"}, timeout=30)
-        html = r.text
-        title = short(re.search(r"<title[^>]*>(.*?)</title>", html, re.S | re.I).group(1), 80) if re.search(r"<title", html, re.I) else ""
-        links = re.findall(r'href="([^"]*(?:[Aa]ward|Result|result|AwardedTenders|contract)[^"]*)"', html)[:8]
-        note(tag, f"HTTP {r.status_code} final={short(r.url,90)} bytes={len(r.content)} title={title} awardLinks={short(' '.join(links), 400)}")
-        if tag in ("QA", "OM", "ADB", "EBRD") and r.status_code == 200:
-            text = re.sub(r"<script.*?</script>|<style.*?</style>", " ", html, flags=re.S | re.I)
-            text = re.sub(r"<[^>]+>", " ", text)
-            note(tag + "-text", short(text, 700))
+        r = requests.get(url, headers=UA, timeout=40)
+        note(tag, f"HTTP {r.status_code} ctype={r.headers.get('content-type','')[:30]} final={short(r.url, 80)} head={short(r.text, 400)}")
     except Exception as e:  # noqa: BLE001
         note(tag, f"{type(e).__name__} {short(e)}")
 
