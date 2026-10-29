@@ -25,12 +25,12 @@ WINDOW_DAYS = 30
 LOOKBACK_DAYS = 60   # how far before an article a radar item can count
 FEEDS = ["us-litigation", "partner-filings", "trade-remedy", "kr-official", "kr-signals", "us-comments", "page-watch",
          "trademarks", "assembly-bills", "us-recalls", "scoop-screen", "us-epa", "kr-fuel", "overseas-awards",
-         "kr-insolvency", "kr-energy", "kr-building", "overseas-registry"]
+         "kr-insolvency", "kr-energy", "kr-building", "overseas-registry", "kr-local"]
 LABEL = {"us-litigation": "미국 소송·판결", "partner-filings": "해외 파트너 공시", "trade-remedy": "무역구제·미국 관보",
          "kr-official": "공장등록·관보", "kr-signals": "공정위·한전·산업부", "us-comments": "미 연방 의견서", "page-watch": "해외 공식 페이지",
          "trademarks": "상표 출원", "assembly-bills": "국회 법안", "us-recalls": "미국 리콜", "scoop-screen": "단독 후보 심사",
          "us-epa": "미국 EPA 인증", "kr-fuel": "국내 연비 신고", "overseas-awards": "해외 발주처 낙찰",
-         "kr-insolvency": "협력사 회생·파산", "kr-energy": "전기위·원안위", "kr-building": "공장 부지 건축허가", "overseas-registry": "해외 법인 등기",
+         "kr-insolvency": "협력사 회생·파산", "kr-energy": "전기위·원안위", "kr-building": "공장 부지 건축허가", "overseas-registry": "해외 법인 등기", "kr-local": "지자체 고시·공고",
          "clues": "공개 원자료 단서(DART 등)"}
 # Group-level names: an article about 포스코 and a radar item about 포스코홀딩스 concern the same group.
 GROUP = {"현대자동차": "현대차", "제네시스": "현대차", "현대차(제네시스)": "현대차", "포스코홀딩스": "포스코", "엘에스일렉트릭": "LS일렉트릭",
@@ -244,6 +244,14 @@ def _registry(d, add):
                 x.get("firstSeen") or x.get("created"), x.get("url")))
 
 
+def _local(d, add):
+    for x in d.get("items") or []:
+        if x.get("tier") == "C" or not x.get("companies"):
+            continue
+        add(mem("kr-local", x.get("id"), x.get("companies") or [], f"지자체 고시 공고 {x.get('city')} {x.get('title')} 공장 증설 신축",
+                x.get("firstSeen") or x.get("date"), x.get("url")))
+
+
 def _screen(d, add):
     for x in d.get("candidates") or []:
         add(mem("scoop-screen", x.get("id"), split_names(x.get("company")), x.get("title"), x.get("published") or x.get("filedOn"), x.get("url")))
@@ -258,7 +266,7 @@ ADAPTERS = [("us-litigation", _litigation), ("partner-filings", _partners), ("tr
             ("kr-signals", _signals), ("us-comments", _comments), ("page-watch", _pages), ("trademarks", _marks),
             ("us-recalls", _recalls), ("scoop-screen", _screen), ("us-epa", _epa), ("us-epa", _vin), ("kr-fuel", _fuel), ("overseas-awards", _awards),
             ("us-recalls", _investigations), ("kr-insolvency", _insolvency), ("kr-energy", _energy), ("kr-building", _building),
-            ("overseas-registry", _registry), ("clues", _clues)]
+            ("overseas-registry", _registry), ("kr-local", _local), ("clues", _clues)]
 
 
 def nouns(title):

@@ -515,9 +515,35 @@ async function insolvencySection(ctx, q, days, limit) {
   return out;
 }
 
+// Notices of the cities and counties where beat plants are (kr-local feed, 새올 고시·공고), shown under kr_official.
+async function localSection(ctx, q, days, limit) {
+  const doc = await readFeed(ctx, 'kr-local');
+  if (!doc) return ['\n[지자체 고시·공고] 결과 없음 — 미확인(평일 06:30·16:20 실행 확인)'];
+  if (doc.broken) return ['\n[지자체 고시·공고] 저장 형식 오류 — 미확인'];
+  const checks = doc.checks ?? [];
+  const bad = checks.filter((c) => c.status !== 'ok');
+  const from = new Date(ctx.now.getTime() - days * 86400000).toISOString();
+  const all = (doc.items ?? []).filter((x) => String(x.firstSeen) >= from && matches(q, x.city, x.title, x.company, x.dept, x.plants));
+  const rank = { A: 0, B: 1, C: 2 };
+  const rows = all.filter((x) => q || x.tier !== 'C').sort((a, b) => (rank[a.tier] ?? 3) - (rank[b.tier] ?? 3)
+    || String(b.date ?? '').localeCompare(String(a.date ?? '')));
+  const out = [`\n[지자체 고시·공고 · 출입처 공장 시·군 ${checks.length}곳 새올 목록 · 처음 본 날 최근 ${days}일] 출입처 관련 ${rows.length}건${all.length - rows.length ? ` · 참고(제철소·산업단지 계획 등) ${all.length - rows.length}건(company 낱말로 보기)` : ''} · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt)}`,
+    `원천: 시·군 ${checks.length - bad.length}/${checks.length} 정상${bad.length ? ` · 미확인(0건 아님): ${bad.slice(0, 8).map((c) => `${c.source}(${c.status === 'failed' ? c.error ?? '실패' : '일부'})`).join(', ')}` : ''}`,
+    ...(doc.rules ?? []).map((r) => `규칙: ${r}`)];
+  for (const x of rows.slice(0, limit)) {
+    out.push(`- ${x.isNew ? '[신규] ' : x.baseline ? '[첫 조회 기준선] ' : ''}${x.date ?? '?'} · ${x.city} · ${x.company ?? '출입처 이름 없음'} · ${x.tier}`);
+    out.push(`   잡힌 사실: ${x.no ?? ''} 「${x.title}」 · ${x.dept ?? '담당 부서 미기재'}${x.plants ? ` (이 시·군의 출입처 공장: ${x.plants})` : ''}`);
+    out.push(`   원문: ${x.url}`);
+  }
+  if (rows.length > limit) out.push(`… 남은 ${rows.length - limit}건`);
+  if (!rows.length) out.push('조건에 맞는 고시·공고 없음(위 미확인 시·군은 0건 아님).');
+  return out;
+}
+
 export async function krOfficial(ctx, args) {
-  const section = ['factory', 'gazette', 'insolvency', 'building'].includes(args.section) ? args.section : null;
+  const section = ['factory', 'gazette', 'insolvency', 'building', 'local'].includes(args.section) ? args.section : null;
   const q = String(args.company ?? '').trim();
+  if (section === 'local') return textResult((await localSection(ctx, q, clampInt(args.days, 1, 120, 30), clampInt(args.limit, 1, 80, 20))).join('\n').trim());
   const insolvency = !section || section === 'insolvency'
     ? await insolvencySection(ctx, q, clampInt(args.days, 1, 120, 30), clampInt(args.limit, 1, 80, 20)) : [];
   if (section === 'insolvency') return textResult(insolvency.join('\n').trim());
@@ -525,6 +551,7 @@ export async function krOfficial(ctx, args) {
     ? await buildingSection(ctx, q, clampInt(args.days, 1, 400, 90), clampInt(args.limit, 1, 80, 20)) : [];
   if (section === 'building') return textResult(building.join('\n').trim());
   insolvency.push(...building);
+  if (!section) insolvency.push(...await localSection(ctx, q, clampInt(args.days, 1, 120, 30), clampInt(args.limit, 1, 80, 20)));
   const doc = await readFeed(ctx, 'kr-official');
   if (!doc) return insolvency.length ? textResult([missing('공장등록·관보 입법예고', '평일 08:10').content[0].text, ...insolvency].join('\n'), true) : missing('공장등록·관보 입법예고', '평일 08:10');
   if (doc.broken) return textResult(['저장된 국내 공식 원천 결과 형식 오류 — 미확인.', ...insolvency].join('\n'), true);

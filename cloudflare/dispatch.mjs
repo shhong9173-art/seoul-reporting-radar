@@ -16,6 +16,8 @@ export const SLOTS = [
   // EPA·vPIC: GitHub 예약('20 21 * * *')이 10-29 아침에 돌지 않았다.
   { at: '06:20', workflow: 'us-epa.yml' },
   { at: '06:30', workflow: 'page-watch.yml' },
+  // 지자체 고시·공고(새올): 아침·오후 한 번씩.
+  { at: '06:30', workflow: 'kr-local.yml' },
   // 공식 원자료 직접 수집(pre_scoop.json: 대법원·NTIS·IRIS 등). GitHub 예약 '7,37 * * * *'은 10-28에 4번만 돌았다.
   // 07:10 단독 후보 심사·08:50 보도 대조·08:57 아침 발제 전에 한 번씩 새로 받는다.
   { at: '06:40', workflow: 'scoop-radar.yml' },
@@ -41,6 +43,7 @@ export const SLOTS = [
   { at: '15:20', workflow: 'kr-signals.yml' },
   // 전기위원회 개최결과(오후 게시)·원안위 안건(회의 며칠 전 아침 게시).
   { at: '15:40', workflow: 'kr-energy.yml' },
+  { at: '16:20', workflow: 'kr-local.yml' },
   { at: '17:10', workflow: 'us-recalls.yml' },
   { at: '17:20', workflow: 'kr-insolvency.yml' },
   { at: '17:30', workflow: 'overseas-awards.yml' },
