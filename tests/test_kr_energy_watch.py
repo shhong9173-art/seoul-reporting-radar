@@ -72,6 +72,9 @@ class Energy(unittest.TestCase):
         agenda_only = '<p>○ 안건 : (심의∙의결 제1호) 새울 3·4호기 운영허가(안) ○ 결과 및 안건담당자 구 분 안건 제목 결과</p>'
         _, items2 = k.nssc_post_items("제2026-18회(11.10) 원자력안전위원회", agenda_only)
         self.assertEqual(items2[0]["result"], None)
+        resub = ('<p>○ 안건 : (심의∙의결 제3호) 고리 원자력발전소 3·4호기 계속운전 허가(안) ○ 결과 및 안건 담당자 구 분 안건 제목 결과 '
+                 '제3호 고리 원자력발전소 3·4호기 계속운전 허가(안) 재상정 원자력안전위원회</p>')
+        self.assertEqual(k.nssc_post_items("제2026-16회(10.15) 원자력안전위원회", resub)[1][0]["result"], "재상정")
 
     def test_run_baseline_then_new_meeting_and_result(self):
         calls = {"pdf": []}
@@ -112,7 +115,7 @@ class Energy(unittest.TestCase):
             self.assertTrue(all(x["baseline"] and not x["isNew"] for x in first["items"]))
             ids = {x["id"]: x for x in first["items"]}
             gs = next(x for x in first["items"] if x["title"] == "GS 당진 바이오 발전사업" and x["meeting"] == "제329차")
-            self.assertEqual((gs["tier"], gs["company"], gs["held"]), ("A", "GS", "2026-10-08"))
+            self.assertEqual((gs["tier"], gs["company"], gs["held"], gs["url"]), ("A", "GS", "2026-10-08", k.KOREC_RESULTS))
             wind = next(x for x in first["items"] if x["title"] == "신안 우이 해상풍력 발전사업")
             self.assertEqual(wind["tier"], "B")
             ledger = [x for x in first["items"] if x["source"] == "전기위원회 허가대장"]
