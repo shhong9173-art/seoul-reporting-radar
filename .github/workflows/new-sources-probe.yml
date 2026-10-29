@@ -22,4 +22,7 @@ jobs:
           CENSUS_API_KEY: ${{ secrets.CENSUS_API_KEY }}
           COURTLISTENER_TOKEN: ${{ secrets.COURTLISTENER_TOKEN }}
           CUSTOMS_API_KEY: ${{ secrets.CUSTOMS_API_KEY }}
+          G2B_API_KEY: ${{ secrets.G2B_API_KEY }}
+          KR_FUEL_API_KEY: ${{ secrets.KR_FUEL_API_KEY }}
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
         run: python scripts/probe/award_probe.py
