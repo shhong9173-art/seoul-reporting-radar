@@ -1,0 +1,38 @@
+name: Overseas Company Registry Watch (UK)
+# 영국 Companies House: 출입처 영문명이 들어간 새 영국 법인과 지배 주주(PSC). 평일 06:00 KST(Cloudflare 요청).
+# 키: COMPANIES_HOUSE_API_KEY(무료 발급). 없으면 미설정으로 저장. 결과는 기자 전용 저장소로만, 공개 로그는 건수만.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/overseas_registry_watch.py'
+      - 'tests/test_overseas_registry_watch.py'
+      - '.github/workflows/overseas-registry.yml'
+  schedule:
+    - cron: '0 21 * * 0-4'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: overseas-registry-watch
+  cancel-in-progress: false
+jobs:
+  registry:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install "requests>=2.31,<3"
+      - name: Test registry parsing
+        run: python -m unittest tests.test_overseas_registry_watch tests.test_private_store -v
+      - name: Watch UK company registry (counts-only log)
+        env:
+          MCP_ACCESS_TOKEN: ${{ secrets.MCP_ACCESS_TOKEN }}
+          COMPANIES_HOUSE_API_KEY: ${{ secrets.COMPANIES_HOUSE_API_KEY }}
+        run: python scripts/overseas_registry_watch.py

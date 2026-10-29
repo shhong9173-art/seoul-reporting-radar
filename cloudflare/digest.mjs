@@ -36,6 +36,7 @@ export const WATCHES = [
   { feed: 'kr-insolvency', label: '협력사 회생·파산', tool: 'kr_official', schedule: '평일 07:20·17:20' },
   { feed: 'kr-energy', label: '전기위·원안위', tool: 'kr_signals', schedule: '평일 15:40·18:10' },
   { feed: 'kr-building', label: '공장 부지 건축허가', tool: 'kr_official', schedule: '월 07:45', staleHours: 192 },
+  { feed: 'overseas-registry', label: '해외 법인 등기(영국)', tool: 'partner_filings', schedule: '평일 06:00' },
 ];
 
 // Items first seen in a watch's very first run are a baseline, not news: they only count when their own date is recent.
@@ -69,7 +70,7 @@ const ALT = {
   리콜: ['리콜', '결함', '시정조치', '화재 위험'], 가격: ['가격', '판매가', '출고가', 'MSRP', '값'], 미국: ['미국', '美'],
   EPA: ['EPA', '환경보호청', '인증', '주행거리', '연비'],
   회생: ['회생', '법정관리', '파산', '기업회생', '워크아웃'],
-  허가: ['허가', '인가', '승인', '전기위원회'], 원안위: ['원안위', '원자력안전위원회', '의결', '심의'],
+  허가: ['허가', '인가', '승인', '전기위원회'], 법인: ['법인', '현지법인', '자회사', '설립'], 영국: ['영국', 'UK'], 원안위: ['원안위', '원자력안전위원회', '의결', '심의'],
 };
 const ASX_KO = { PLS: '필바라', ARU: '아라푸라', '01958': 'BAIC' };
 const COUNTRY_KO = {
@@ -384,6 +385,16 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
     push(x.tier ?? 'C', W['kr-building'], { kind: `건축 ${x.kind}`, id: x.id, date: x.changedAt ? String(x.changedAt).slice(0, 10) : x.permitted ?? x.firstSeen, company: x.company,
       fact: `${buildingLine(x)} — 건축주 미표기(공장과 같은 번지)`,
       check: x.tier === 'C' ? undefined : hint(x.company, [cityOf(x.plot), '공장', x.archGbCdNm === '신축' ? '신설' : '증설']) });
+  }
+
+  // 영국 Companies House 새 법인: 출입처 본사가 지배 주주(PSC)로 적히면 A, 이름만 같으면 C.
+  const rg = docs['overseas-registry'];
+  const rgBase = baselineOf(rg?.companies ?? []);
+  for (const x of rg?.companies ?? []) {
+    if (!fresh(x, rgBase, 'created')) continue;
+    push(x.tier ?? 'C', W['overseas-registry'], { kind: '영국 법인 설립', id: x.id, date: x.created ?? x.firstSeen, company: x.company,
+      fact: `영국 법인 설립 등기: ${x.name}(${x.number}) · 설립 ${x.created ?? '?'} · SIC ${(x.sic ?? []).join(',') || '미기재'}${(x.psc ?? []).length ? ` · 지배 주주 ${x.psc.slice(0, 2).join(', ')}` : ' · 지배 주주 미기재'}${x.pscMatch ? '' : ' — 출입처 본사 지배 주주 아님(이름만 같음)'}`,
+      url: x.url, check: x.tier === 'C' ? undefined : hint(x.company, ['영국', '법인']) });
   }
 
   const uc = docs['us-comments'];

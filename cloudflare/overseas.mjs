@@ -111,12 +111,34 @@ async function awardSection(ctx, q, onlyNew, limit) {
   return out;
 }
 
+// UK Companies House new incorporations (overseas-registry feed), shown under partner_filings.
+async function registrySection(ctx, q, onlyNew, limit) {
+  const doc = await readFeed(ctx, 'overseas-registry');
+  if (!doc) return ['\n[해외 법인 등기(영국)] 결과 없음 — 미확인(평일 06:00 실행 확인)'];
+  if (doc.broken) return ['\n[해외 법인 등기(영국)] 저장 형식 오류 — 미확인'];
+  const checks = doc.checks ?? [];
+  const bad = checks.filter((c) => c.status !== 'ok');
+  const all = (doc.companies ?? []).filter((x) => (!onlyNew || x.isNew) && matches(q, x.company, x.name, (x.psc ?? []).join(' '), x.address));
+  const rows = all.filter((x) => q || x.tier !== 'C');
+  const out = [`\n[해외 법인 등기 · 영국 Companies House · 설립 ${doc.windowStart ?? '?'} 이후] 출입처 지배 주주 ${rows.length}건${all.length - rows.length ? ` · 이름만 같은 법인 ${all.length - rows.length}건(company 낱말로 보기)` : ''} · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt)}`,
+    `원천: 질의 ${checks.length - bad.length}/${checks.length} 정상${bad.length ? `(미확인: ${bad.slice(0, 3).map((c) => `${c.source}(${c.error ?? c.status})`).join(', ')})` : ''}`,
+    ...(doc.rules ?? []).map((r) => `규칙: ${r}`)];
+  for (const x of rows.slice(0, limit)) {
+    out.push(`- ${x.isNew ? '[신규] ' : ''}${x.created ?? '?'} 설립 · ${x.company} · ${x.name} (${x.number}, ${x.status ?? '상태 미상'})`);
+    out.push(`   잡힌 사실: 지배 주주 ${(x.psc ?? []).join(', ') || '미기재'} · SIC ${(x.sic ?? []).join(',') || '미기재'} · 등기 주소 ${x.address || '미기재'}`);
+    out.push(`   원문: ${x.url}`);
+  }
+  if (rows.length > limit) out.push(`… 남은 ${rows.length - limit}건`);
+  if (!rows.length) out.push('출입처가 지배 주주인 새 법인 없음(위 미설정·실패는 0건 아님).');
+  return out;
+}
+
 export async function partnerFilings(ctx, args) {
   const q = String(args.company ?? '').trim();
   const onlyNewArg = args.only_new === true || args.only_new === 'true';
   const limitArg = clampInt(args.limit, 1, 60, 20);
   const src = ['ASX', 'HKEX', 'EDGAR'].includes(args.source) ? args.source : null;
-  const awards = src ? [] : await awardSection(ctx, q, onlyNewArg, limitArg);
+  const awards = src ? [] : [...await awardSection(ctx, q, onlyNewArg, limitArg), ...await registrySection(ctx, q, onlyNewArg, limitArg)];
   const doc = await readFeed(ctx, 'partner-filings');
   if (!doc) return awards.length ? textResult([missing('해외 파트너 공시', '평일 07:00').content[0].text, ...awards].join('\n')) : missing('해외 파트너 공시', '평일 07:00');
   if (doc.broken) return textResult(['저장된 파트너 공시 결과 형식 오류 — 미확인.', ...awards].join('\n'), true);
