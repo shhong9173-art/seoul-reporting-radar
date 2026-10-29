@@ -454,6 +454,13 @@ async function buildingSection(ctx, q, days, limit) {
   const out = [`\n[공장 부지 건축허가 · 출입처 공장 ${doc.plants ?? '?'}곳 중 번지 확인 ${doc.parcelsResolved ?? 0}곳 · 허가일 최근 ${days}일] ${rows.length}건${all.length - rows.length ? ` · 소규모 ${all.length - rows.length}건` : ''} · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt)}`,
     `원천: ${checks.map((c) => `${c.source} ${c.status}${c.error ? `(${c.error})` : ''}`).join(' · ')}`,
     ...(doc.rules ?? []).map((r) => `규칙: ${r}`)];
+  // Coverage gaps: plants whose lot is unknown and lots whose query failed have unknown permits, not none.
+  const gap = (label, list, fmt) => {
+    const hit = (list ?? []).filter((x) => matches(q, x.company, x.plant, x.road, x.parcel));
+    if (hit.length) out.push(`${label} ${hit.length}곳(허가 미확인): ${hit.slice(0, q ? 20 : 5).map(fmt).join(' · ')}${hit.length > (q ? 20 : 5) ? ' …' : ''}`);
+  };
+  gap('번지 못 찾은 공장', doc.unresolved, (x) => `${x.company} ${x.plant ?? ''}(${x.road ?? '?'}, ${x.error ?? '?'})`);
+  gap('조회 실패 번지', doc.archFailed, (x) => `${x.company} ${x.plant ?? ''}(${x.parcel ?? '?'}, ${x.error ?? '?'})`);
   for (const x of rows.slice(0, limit)) {
     out.push(`- ${x.isNew ? '[신규] ' : ''}${x.permitted ?? '?'} · ${x.company} · ${x.kind}${x.bldNm ? ` · ${x.bldNm}` : ''}`);
     out.push(`   잡힌 사실: ${buildingLine(x)}`);

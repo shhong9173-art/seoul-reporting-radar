@@ -37,7 +37,7 @@ DATASETS = {"arch": "15136267 건축인허가"}
 CONNECT_STREAK = 3  # this many connection failures in a row: the address service is unreachable, stop
 PARCEL_TTL_DAYS = 180
 SHOW_DAYS = 400
-KEEP_MAX = 600
+KEEP_MAX = 2000  # a full run keeps ~600 (10-29); trimmed rows are told apart from new ones by date (see run)
 # GitHub job timeout is 30 min: stop looking up addresses at 13 min and permits at 25 min, save what was done
 ADDR_BUDGET_S = 13 * 60
 TOTAL_BUDGET_S = 25 * 60
@@ -170,11 +170,23 @@ def parcel_for(fac, juso, now):
 
 # ---------------------------------------------------------------- permits
 def permits(text):
+    return permits_page(text)[0]
+
+
+def permits_page(text):
+    """(rows, totalCount) of one 건축HUB JSON page."""
+    if not (text or "").strip():
+        raise RuntimeError("빈 응답")  # 10-29: HTTP 200 with an empty body, gone on an immediate retry
     d = json.loads(text)
     body = (d.get("response") or {}).get("body") or {}
     items = (body.get("items") or {}) if isinstance(body.get("items"), dict) else {}
     rows = items.get("item") or []
-    return rows if isinstance(rows, list) else [rows]
+    rows = rows if isinstance(rows, list) else [rows]
+    try:
+        total = int(body.get("totalCount") or 0)
+    except (TypeError, ValueError):
+        total = 0
+    return rows, total
 
 
 def ymd(s):
@@ -202,23 +214,40 @@ def error_kind(e):
     return str(e)[:40] if isinstance(e, RuntimeError) else name
 
 
-def arch_rows(caller, params, sleep):
-    """One permit query, retried once after 2 s (gateway rate limits and timeouts are often momentary)."""
-    for attempt in (1, 2):
+ARCH_PAGE = 100
+ARCH_MAX_PAGES = 5
+RETRY_WAITS = (2.0, 5.0)  # empty bodies, 503s and timeouts were momentary on 10-29
+
+
+def arch_page(caller, params, page, sleep):
+    for attempt in range(len(RETRY_WAITS) + 1):
         try:
-            text = caller.call("arch", ARCH, params)
+            text = caller.call("arch", ARCH, {**params, "numOfRows": ARCH_PAGE, "pageNo": page, "_type": "json"})
             code = gateway_code(text)
             if code == "03":  # NODATA
-                return []
+                return [], 0
             if code not in OK_CODES:
                 raise RuntimeError(f"응답 코드 {code}")
-            return permits(text)
+            return permits_page(text)
         except Refused:
             raise
         except Exception:  # noqa: BLE001
-            if attempt == 2:
+            if attempt == len(RETRY_WAITS):
                 raise
-            sleep(2.0)
+            sleep(RETRY_WAITS[attempt])
+
+
+def arch_rows(caller, params, sleep):
+    """Every permit at one parcel (본번): a big plant's lot can hold more than one page (LS일렉트릭 청주 송정동 1 = 140)."""
+    rows, total = arch_page(caller, params, 1, sleep)
+    page = 1
+    while len(rows) < total and page < ARCH_MAX_PAGES:
+        page += 1
+        more, _ = arch_page(caller, params, page, sleep)
+        if not more:
+            break
+        rows += more
+    return rows
 
 
 def lot_of(r):
@@ -324,14 +353,16 @@ def run(keys, factories, *, now, previous=None, get=None, sleep=time.sleep, cloc
         if p.get("sigunguCd"):
             by_parcel.setdefault((p["sigunguCd"], p["bjdongCd"], p["platGbCd"], p["bun"]), []).append(f)
     queried = fail = arch_left = 0
-    arch_refused, errs = None, {}
+    arch_refused, errs, arch_failed = None, {}, []
+    # rows trimmed at KEEP_MAX were the oldest: one older than everything kept is not new when it shows up again
+    trim_floor = min((str(x.get("permitted") or "") for x in old.values()), default="") if len(old) >= KEEP_MAX else ""
     show_cut = (now - dt.timedelta(days=SHOW_DAYS)).date().isoformat()
     for (sg, bj, gb, bun), facs in by_parcel.items():
         if clock() - start > TOTAL_BUDGET_S:
             arch_left += 1
             continue
         try:
-            rows = arch_rows(caller, {"sigunguCd": sg, "bjdongCd": bj, "platGbCd": gb, "bun": bun, "numOfRows": 100, "pageNo": 1, "_type": "json"}, sleep)
+            rows = arch_rows(caller, {"sigunguCd": sg, "bjdongCd": bj, "platGbCd": gb, "bun": bun}, sleep)
             queried += 1
         except Refused as e:
             arch_refused = str(e)
@@ -340,6 +371,8 @@ def run(keys, factories, *, now, previous=None, get=None, sleep=time.sleep, cloc
             fail += 1
             k = error_kind(e)
             errs[k] = errs.get(k, 0) + 1
+            p0 = parcels.get(facs[0]["id"]) or {}
+            arch_failed.append({"company": facs[0]["company"], "plant": facs[0].get("cmpnyNm"), "parcel": p0.get("jibun") or p0.get("road"), "error": k})
             continue
         own_lots = {(int((parcels.get(f["id"]) or {}).get("bun") or 0), int((parcels.get(f["id"]) or {}).get("ji") or 0)) for f in facs}
         # permits at a parcel looked at for the first time (first run, a parcel left over by the time limit,
@@ -362,6 +395,8 @@ def run(keys, factories, *, now, previous=None, get=None, sleep=time.sleep, cloc
             rec["sameLot"] = None if lot is None else lot in own_lots
             if (rec["permitted"] or "0000") < show_cut and pid not in old:
                 continue  # old permits are not kept
+            if pid not in old and trim_floor and (rec["permitted"] or "0000") < trim_floor:
+                continue  # trimmed at KEEP_MAX before, not new
             prev = old.get(pid)
             rec["kind"] = "새 허가"
             rec["firstSeen"] = prev["firstSeen"] if prev else stamp
@@ -391,7 +426,10 @@ def run(keys, factories, *, now, previous=None, get=None, sleep=time.sleep, cloc
     status = ("unset" if statuses == {"unset"} else "failed" if statuses <= {"failed", "unset"} and "failed" in statuses
               else "partial" if statuses - {"ok"} else "complete")
     return {"schema": SCHEMA, "generatedAt": stamp, "status": status, "checks": checks, "permits": kept, "parcels": parcels,
-            "rules": RULES, "plants": len(factories), "parcelsResolved": sum(1 for p in parcels.values() if p.get("sigunguCd")), "baselineMarked": True, "archFirstMarked": True,
+            "rules": RULES, "plants": len(factories), "archFailed": arch_failed[:80],
+            "unresolved": [{"company": f["company"], "plant": f.get("cmpnyNm"), "road": road_query(f.get("rnAdres")),
+                            "error": (parcels.get(f["id"]) or {}).get("error") or "미조회"}
+                           for f in factories if not (parcels.get(f["id"]) or {}).get("sigunguCd")][:80], "parcelsResolved": sum(1 for p in parcels.values() if p.get("sigunguCd")), "baselineMarked": True, "archFirstMarked": True,
             "baselineSince": (previous or {}).get("baselineSince") or (stamp if status != "unset" else None)}
 
 

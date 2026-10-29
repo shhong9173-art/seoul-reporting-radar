@@ -1604,6 +1604,8 @@ test('kr building: a permit on a beat factory parcel is A; unset datasets show a
     bldNm: '제강공장', archGbCdNm: '신축', mainPurpsCdNm: '공장', totArea: 12500.5, permitted: '2026-10-20', startPlanned: '2026-12-01', started: null, useApproved: null,
     kind: '새 허가', tier: 'A', firstSeen: '2026-10-26T07:45:00+09:00', baseline: false, isNew: true, ...extra });
   const doc = { schema: 'kr_building/v1', generatedAt: '2026-10-26T07:45:00+09:00', status: 'complete', plants: 286, parcelsResolved: 240, rules: ['건축주 비공개.'],
+    unresolved: [{ company: '세아', plant: '세아베스틸', road: '전북특별자치도 군산시 동장산로 1', error: '지번 못 찾음' }],
+    archFailed: [{ company: 'LS일렉트릭', plant: '엘에스일렉트릭(주)청주1공장', parcel: '충청북도 청주시 흥덕구 송정동 1', error: '빈 응답' }],
     checks: [{ source: '주소 변환', status: 'ok', returned: 240 }, { source: '건축인허가', status: 'ok', returned: 200 }],
     permits: [p('bld:1'), p('bld:2', { archGbCdNm: '대수선', totArea: 150, tier: 'C' }),
       p('bld:0', { permitted: '2026-08-01', firstSeen: '2026-10-19T07:45:00+09:00', baseline: true, isNew: false }),  // 지난주 기준선
@@ -1614,6 +1616,8 @@ test('kr building: a permit on a beat factory parcel is A; unset datasets show a
   assert.match(r.text.split('[B · ')[1], /케이지스틸 주식회사 부지와 같은 본번의 다른 필지\(충청남도 당진시 송악읍 고대리 1-7번지\) · 증축 공장 · 연면적 12,501㎡\(건물 전체일 수 있음, 증축분 아님\)[^\n]*건축주 미표기\(공장과 본번만 같은 다른 필지, 건물명 '이웃산업\(주\) 공장'\)/);
   const t = await call('kr_official', { section: 'building' }, opts);
   assert.match(t.text, /\[공장 부지 건축허가 · 출입처 공장 286곳 중 번지 확인 240곳 · 허가일 최근 90일\] 3건 · 소규모 1건/);
+  assert.match(t.text, /번지 못 찾은 공장 1곳\(허가 미확인\): 세아 세아베스틸\(전북특별자치도 군산시 동장산로 1, 지번 못 찾음\)/);
+  assert.match(t.text, /조회 실패 번지 1곳\(허가 미확인\): LS일렉트릭 엘에스일렉트릭\(주\)청주1공장\(충청북도 청주시 흥덕구 송정동 1, 빈 응답\)/);
   assert.match(t.text, /검증 상태: 건축주 미표기 — 공장과 본번만 같은 다른 필지라 이웃 회사 건물일 수 있음\(건물명 '이웃산업\(주\) 공장'\)/);
   const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
   assert.deepEqual(items.items.find((x) => x.id === 'bld:1').check.terms, ['당진', '공장', '신설']);
