@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-10-28T14:36:31+09:00",
+  "generatedAt": "2026-10-29T14:43:40+09:00",
   "status": "official_slovak_ifrs_pdf_review_clues_not_validated_dividend_transfer",
-  "sourceRegistryGeneratedAt": "2026-10-28T14:36:23+09:00",
+  "sourceRegistryGeneratedAt": "2026-10-29T14:43:28+09:00",
   "company": "Kia Slovakia s. r. o.",
   "ico": "35876832",
   "governmentApi": "https://registeruz.sk/cruz-public/home/api",
@@ -130,134 +130,23 @@
       "statementId": 6499422,
       "reportId": 9718744,
       "reportDetailUrl": "https://www.registeruz.sk/cruz-public/domain/financialreport/show/9718744",
-      "status": "official_pdf_text_passages_for_manual_review",
-      "pdfReadAndOfficialHashVerified": true,
-      "attachmentUrl": "https://www.registeruz.sk/cruz-public/domain/financialreport/attachment/11846820",
-      "sha256": "0fd3729abefedf01aa4a7fe07e888512fbefb5cf1f2cdf31f958a5ddf2b5665d",
-      "pageClues": [
-        {
-          "page": 7,
-          "keyword": "Nerozdelený zisk",
-          "sourceTextExcerpt": "tok celkom 3 838 581 2 957 845 Vlastné imanie Základné imanie 21 433 323 433 323 Zákonný rezervný fond 21 43 332 43 332 Nerozdelený zisk minulých období 1 666 110 983 529 Vlastné imanie celkom 2 142 765 1 460 184 Záväzky Úročené úvery a pôžičky 22 2 699 2 944 Rezervy 15 326 521 251 303 Závä",
-          "containsFinancialAmountValidated": false,
-          "cashPaidOrRetainedProfitValidated": false,
-          "interpretation": "literal_pdf_keyword_passage_only_requires_manual_note_and_period_review"
-        },
-        {
-          "page": 8,
-          "keyword": "Nerozdelený zisk",
-          "sourceTextExcerpt": "akia s. r. o. Výkaz zmien vo vlastnom imaní za rok končiaci sa 31. decembrom 2024 V tisícoch EUR Pozn. Základné Zákonný Nerozdelený zisk Celkom imanie rezervný fond minulých období (Pozn. 21) (Pozn. 21) Stav k 1. januáru 2023 433 323 43 332 1 329 019 1 805 674 Komplexný výsledok 0 0 390 131",
-          "containsFinancialAmountValidated": false,
-          "cashPaidOrRetainedProfitValidated": false,
-          "interpretation": "literal_pdf_keyword_passage_only_requires_manual_note_and_period_review"
-        },
-        {
-          "page": 8,
-          "keyword": "dividend",
-          "sourceTextExcerpt": "k 1. januáru 2023 433 323 43 332 1 329 019 1 805 674 Komplexný výsledok 0 0 390 131 390 131 hospodárenia za rok Výplata dividend 0 0 -735 621 -735 621 Stav k 31. decembru 2023 433 323 43 332 983 529 1 460 184 Stav k 1. januáru 2024 433 323 43 332 983 529 1 460 184 Komplexný výsledok",
-          "containsFinancialAmountValidated": false,
-          "cashPaidOrRetainedProfitValidated": false,
-          "interpretation": "literal_pdf_keyword_passage_only_requires_manual_note_and_period_review"
-        },
-        {
-          "page": 9,
-          "keyword": "dividend",
-          "sourceTextExcerpt": "oužité v investičnej činnosti -839 328 -282 563 Peňažné toky z finančnej činnosti Lízingové splátky -244 -242 Splatenie dividend 4 0 -735 621 Čisté peňažné toky použité vo finančnej činnosti -244 -735 863 Čistý (úbytok) / prírastok peňažných prostriedkov a peňažných -70 798 49 368 e",
-          "containsFinancialAmountValidated": false,
-          "cashPaidOrRetainedProfitValidated": false,
-          "interpretation": "literal_pdf_keyword_passage_only_requires_manual_note_and_period_review"
-        },
-        {
-          "page": 32,
-          "keyword": "dividendy",
-          "sourceTextExcerpt": "433 323 tisíc EUR). Základné imanie je plne splatené. Jediný spoločník Spoločnosti má plné hlasovacie právo a právo na dividendy. Zákonný rezervný fond Spoločnosť je povinná na základe slovenských právnych predpisov tvoriť zákonný rezervný fond v minimálnej výške 5 % z čistého zisku",
-          "containsFinancialAmountValidated": false,
-          "cashPaidOrRetainedProfitValidated": false,
-          "interpretation": "literal_pdf_keyword_passage_only_requires_manual_note_and_period_review"
-        },
-        {
-          "page": 34,
-          "keyword": "Dividendy",
-          "sourceTextExcerpt": "j majetku 0 3 Nákup materiálu -57 883 -68 676 Nákup služieb -786 -571 Nákup nehnuteľností, strojov a zariadení -5 486 0 Dividendy 0 -735 621 Licenčné poplatky -373 395 -372 926 Transakcie s ostatnými spoločnosťami skupiny HYUNDAI 31. december 2024 31. december 2023 MOTOR GROUP V tisí",
-          "containsFinancialAmountValidated": false,
-          "cashPaidOrRetainedProfitValidated": false,
-          "interpretation": "literal_pdf_keyword_passage_only_requires_manual_note_and_period_review"
-        }
-      ],
+      "status": "official_metadata_or_attachment_error",
+      "pdfReadAndOfficialHashVerified": false,
+      "attachmentUrl": null,
+      "sha256": null,
+      "pageClues": [],
       "financialFiguresInterpreted": false,
       "dividendCashRemittanceVerified": false,
-      "auditedStatementRows": {
-        "retained_earnings_balance": {
-          "status": "two_period_official_statement_row_extracted",
-          "unit": "EUR_thousands",
-          "reportYear": 2024,
-          "columnYears": [
-            2024,
-            2023
-          ],
-          "sourceLine": "Nerozdelený zisk minulých období 1 666 110 983 529",
-          "values": [
-            1666110,
-            983529
-          ],
-          "manualSourceTableReviewConfirmed": false,
-          "parentRecipientVerified": false,
-          "cashReceivedInKoreaVerified": false,
-          "currentYearWasNotConfusedWithComparative": true,
-          "sourcePdfPage": 7,
-          "statementRowType": "retained_earnings_balance",
-          "rowScope": "현지법인 재무상태표의 전기이월이익잉여금"
-        },
-        "annual_profit_cf_reconciliation": {
-          "status": "two_period_official_statement_row_extracted",
-          "unit": "EUR_thousands",
-          "reportYear": 2024,
-          "columnYears": [
-            2024,
-            2023
-          ],
-          "sourceLine": "Zisk za účtovné obdobie 682 581 390 131",
-          "values": [
-            682581,
-            390131
-          ],
-          "manualSourceTableReviewConfirmed": false,
-          "parentRecipientVerified": false,
-          "cashReceivedInKoreaVerified": false,
-          "currentYearWasNotConfusedWithComparative": true,
-          "sourcePdfPage": 9,
-          "statementRowType": "annual_profit_cf_reconciliation",
-          "rowScope": "현지법인 현금흐름표에 표시된 당기순이익"
-        },
-        "dividend_cash_outflow": {
-          "status": "two_period_official_statement_row_extracted",
-          "unit": "EUR_thousands",
-          "reportYear": 2024,
-          "columnYears": [
-            2024,
-            2023
-          ],
-          "sourceLine": "Splatenie dividend 4 0 -735 621",
-          "values": [
-            0,
-            -735621
-          ],
-          "manualSourceTableReviewConfirmed": false,
-          "parentRecipientVerified": false,
-          "cashReceivedInKoreaVerified": false,
-          "currentYearWasNotConfusedWithComparative": true,
-          "sourcePdfPage": 9,
-          "statementRowType": "dividend_cash_outflow",
-          "rowScope": "현지법인 현금흐름표의 배당 지급"
-        }
-      }
+      "errorType": "RemoteDisconnected"
     }
   ],
   "reportCount": 2,
-  "verifiedPdfCount": 2,
-  "verifiedPageExcerpts": 11,
-  "sourceQueriesFailed": 0,
-  "errors": [],
+  "verifiedPdfCount": 1,
+  "verifiedPageExcerpts": 5,
+  "sourceQueriesFailed": 1,
+  "errors": [
+    "RemoteDisconnected"
+  ],
   "financialFiguresInterpreted": false,
   "directStatementYearColumnsExtracted": true,
   "annualAccountingMatrix": [
@@ -300,39 +189,6 @@
           "value": 682581,
           "pdfUrl": "https://www.registeruz.sk/cruz-public/domain/financialreport/attachment/12784290",
           "documentSha256": "cba3da044248aa4359698d10d04cf2593f286c187e64020b5dc888c2a1e0676e"
-        },
-        {
-          "reportYear": 2024,
-          "sourcePdfPage": 9,
-          "reportedAs": "reporting_year",
-          "value": 682581,
-          "pdfUrl": "https://www.registeruz.sk/cruz-public/domain/financialreport/attachment/11846820",
-          "documentSha256": "0fd3729abefedf01aa4a7fe07e888512fbefb5cf1f2cdf31f958a5ddf2b5665d"
-        }
-      ],
-      "sourceDocumentCount": 2,
-      "comparisonAcrossAnnualReportsConsistent": true,
-      "annualValueWithheldBecauseContradiction": false,
-      "annualReportDisclosureObserved": true,
-      "manualSourceTableReviewConfirmed": false,
-      "koreanParentCashReceiptVerified": false,
-      "samePeriodAs2026KiaDartDividendIncome": false,
-      "notNew2026Distribution": true
-    },
-    {
-      "metric": "annual_profit_cf_reconciliation",
-      "metricLabelKo": "현지법인 현금흐름표에 표시된 당기순이익",
-      "calendarYear": 2023,
-      "unit": "EUR_thousands",
-      "value": 390131,
-      "sourceDocuments": [
-        {
-          "reportYear": 2024,
-          "sourcePdfPage": 9,
-          "reportedAs": "comparative_previous_year",
-          "value": 390131,
-          "pdfUrl": "https://www.registeruz.sk/cruz-public/domain/financialreport/attachment/11846820",
-          "documentSha256": "0fd3729abefedf01aa4a7fe07e888512fbefb5cf1f2cdf31f958a5ddf2b5665d"
         }
       ],
       "sourceDocumentCount": 1,
@@ -383,39 +239,6 @@
           "value": 0,
           "pdfUrl": "https://www.registeruz.sk/cruz-public/domain/financialreport/attachment/12784290",
           "documentSha256": "cba3da044248aa4359698d10d04cf2593f286c187e64020b5dc888c2a1e0676e"
-        },
-        {
-          "reportYear": 2024,
-          "sourcePdfPage": 9,
-          "reportedAs": "reporting_year",
-          "value": 0,
-          "pdfUrl": "https://www.registeruz.sk/cruz-public/domain/financialreport/attachment/11846820",
-          "documentSha256": "0fd3729abefedf01aa4a7fe07e888512fbefb5cf1f2cdf31f958a5ddf2b5665d"
-        }
-      ],
-      "sourceDocumentCount": 2,
-      "comparisonAcrossAnnualReportsConsistent": true,
-      "annualValueWithheldBecauseContradiction": false,
-      "annualReportDisclosureObserved": true,
-      "manualSourceTableReviewConfirmed": false,
-      "koreanParentCashReceiptVerified": false,
-      "samePeriodAs2026KiaDartDividendIncome": false,
-      "notNew2026Distribution": true
-    },
-    {
-      "metric": "dividend_cash_outflow",
-      "metricLabelKo": "현지법인 현금흐름표의 배당 지급",
-      "calendarYear": 2023,
-      "unit": "EUR_thousands",
-      "value": -735621,
-      "sourceDocuments": [
-        {
-          "reportYear": 2024,
-          "sourcePdfPage": 9,
-          "reportedAs": "comparative_previous_year",
-          "value": -735621,
-          "pdfUrl": "https://www.registeruz.sk/cruz-public/domain/financialreport/attachment/11846820",
-          "documentSha256": "0fd3729abefedf01aa4a7fe07e888512fbefb5cf1f2cdf31f958a5ddf2b5665d"
         }
       ],
       "sourceDocumentCount": 1,
@@ -466,39 +289,6 @@
           "value": 1666110,
           "pdfUrl": "https://www.registeruz.sk/cruz-public/domain/financialreport/attachment/12784290",
           "documentSha256": "cba3da044248aa4359698d10d04cf2593f286c187e64020b5dc888c2a1e0676e"
-        },
-        {
-          "reportYear": 2024,
-          "sourcePdfPage": 7,
-          "reportedAs": "reporting_year",
-          "value": 1666110,
-          "pdfUrl": "https://www.registeruz.sk/cruz-public/domain/financialreport/attachment/11846820",
-          "documentSha256": "0fd3729abefedf01aa4a7fe07e888512fbefb5cf1f2cdf31f958a5ddf2b5665d"
-        }
-      ],
-      "sourceDocumentCount": 2,
-      "comparisonAcrossAnnualReportsConsistent": true,
-      "annualValueWithheldBecauseContradiction": false,
-      "annualReportDisclosureObserved": true,
-      "manualSourceTableReviewConfirmed": false,
-      "koreanParentCashReceiptVerified": false,
-      "samePeriodAs2026KiaDartDividendIncome": false,
-      "notNew2026Distribution": true
-    },
-    {
-      "metric": "retained_earnings_balance",
-      "metricLabelKo": "현지법인 재무상태표의 전기이월이익잉여금",
-      "calendarYear": 2023,
-      "unit": "EUR_thousands",
-      "value": 983529,
-      "sourceDocuments": [
-        {
-          "reportYear": 2024,
-          "sourcePdfPage": 7,
-          "reportedAs": "comparative_previous_year",
-          "value": 983529,
-          "pdfUrl": "https://www.registeruz.sk/cruz-public/domain/financialreport/attachment/11846820",
-          "documentSha256": "0fd3729abefedf01aa4a7fe07e888512fbefb5cf1f2cdf31f958a5ddf2b5665d"
         }
       ],
       "sourceDocumentCount": 1,
