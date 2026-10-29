@@ -240,7 +240,8 @@ RULES = ["에너지공단 자동차 표시연비 목록(공공데이터포털)�
 def resolve_keys(env):
     """Every configured data.go.kr account key, in order (several accounts may exist; the dataset may be approved on only one)."""
     out, seen = [], set()
-    for name in ("DATA_GO_KR_KEY", "CUSTOMS_API_KEY", "G2B_API_KEY"):
+    # KR_FUEL_API_KEY: 연비 자료만 다른 공공데이터포털 계정에서 승인받았을 때(다른 감시의 키는 건드리지 않음)
+    for name in ("KR_FUEL_API_KEY", "DATA_GO_KR_KEY", "CUSTOMS_API_KEY", "G2B_API_KEY"):
         v = str(env.get(name) or "").strip()
         if v:
             v = unquote(v) if re.search(r"%[0-9A-Fa-f]{2}", v) else v

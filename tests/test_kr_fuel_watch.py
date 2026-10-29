@@ -120,6 +120,7 @@ class Watch(unittest.TestCase):
 
         def get(url, params=None, headers=None, timeout=None):
             return Resp(xml) if params["serviceKey"] == "a" else ok(url, params=params, headers=headers, timeout=timeout)
+        self.assertEqual(k.resolve_keys({"KR_FUEL_API_KEY": "z", "CUSTOMS_API_KEY": "a"})[0], ("z", "KR_FUEL_API_KEY"))
         keys = k.resolve_keys({"CUSTOMS_API_KEY": "a", "G2B_API_KEY": "b%2B"})
         self.assertEqual(keys, [("a", "CUSTOMS_API_KEY"), ("b+", "G2B_API_KEY")])
         doc, name, refused = k.run_any(keys, now=NOW, previous=None, get=get, sleep=lambda s: None)
