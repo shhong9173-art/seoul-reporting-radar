@@ -164,6 +164,13 @@
 - 법원 공고는 절차 단계다. 같은 이름의 다른 회사일 수 있다(주소·대표자 대조). 출입처와의 거래·납품 영향은 회사·출입처 확인 전에는 모른다.
 - `kr_official`(section 비우거나 `insolvency`) 아래 '[협력사 회생·파산]'. 새 커넥터 도구는 없다.
 
+## 전기위원회·원안위(kr_signals 안, 기자 전용)
+
+- 전기위원회(기후에너지환경부) '위원회 개최결과' PDF: 회차마다 허가·조건부 허가·변경허가·허가 취소·심의 보류된 발전사업 이름. 사업명에 출입처 그룹 이름(GS·한화·두산·OCI·LS·포스코·현대 등)이 있으면 A, 해상풍력 허가는 B(전선·변압기 수요와의 연결은 가설), 나머지 C.
+- '3MW 초과 발전사업 허가대장'(분기, 860쪽대 PDF): 새 판이 올라오면 최근 120일 허가·변경일 줄 중 출입처 그룹 상호만 B.
+- 원자력안전위원회 '일정/회의결과/회의록': 회의 며칠 전 올라오는 상정 안건과 뒤에 붙는 의결 결과(원안의결·수정의결·보류 등). 건설허가·운영허가·표준설계인가·SMR = A, 계속운전·사용후핵연료 등 = B. 결과가 새로 붙으면 radar_today에 다시 뜬다.
+- GitHub Actions `Power Permits & Nuclear Agenda Watch` 평일 15:40·18:10 KST. 결과는 `kr-energy` 비공개 저장소로만. `kr_signals`(section 비우거나 `energy`) 아래 '[전기위원회·원안위]'.
+
 ## 레이더 항목 자동 보도 대조(radar_today, 기자 전용)
 
 - GitHub Actions `Radar Press Check`가 평일 08:50·18:50 KST(Cloudflare 요청, GitHub 예약은 예비)에 실행. Worker `/ingest/radar-items`(Bearer `MCP_ACCESS_TOKEN`)에서 A·B 항목 중 대조 낱말이 붙은 것(최근 72시간, 씀·킬·봤음 제외, 최대 40개, A 먼저)을 받는다. 결과는 `radar-check` 비공개 저장소로만. Secrets: `NAVER_CLIENT_ID`·`NAVER_CLIENT_SECRET`·`MCP_ACCESS_TOKEN`(단독 후보 심사와 같음).

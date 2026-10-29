@@ -504,10 +504,41 @@ const signed = (v) => (v === null || v === undefined ? '?' : `${v > 0 ? '+' : ''
 const ymd8 = (s) => (/^\d{8}/.test(String(s ?? '')) ? `${String(s).slice(0, 4)}-${String(s).slice(4, 6)}-${String(s).slice(6, 8)}` : String(s ?? ''));
 
 // 국내 신호: 공정위 의결서(출입처 이름) · 한전 전자입찰(전력기기·전선) · 원자재 가격(KOMIS)
+// 전기위원회 발전사업 허가·원안위 안건(kr-energy feed), shown under kr_signals (no new connector tool).
+async function energySection(ctx, q, days, limit) {
+  const doc = await readFeed(ctx, 'kr-energy');
+  if (!doc) return ['\n[전기위원회·원안위] 결과 없음 — 미확인(평일 15:40·18:10 실행 확인)'];
+  if (doc.broken) return ['\n[전기위원회·원안위] 저장 형식 오류 — 미확인'];
+  const from = new Date(ctx.now.getTime() + 9 * 3600000 - days * 86400000).toISOString().slice(0, 10);
+  const all = (doc.items ?? []).filter((x) => String(x.held ?? x.posted ?? x.firstSeen).slice(0, 10) >= from
+    && matches(q, x.title, x.company, x.meeting, x.kind, x.source));
+  const rank = { A: 0, B: 1, C: 2 };
+  const rows = all.filter((x) => q || x.tier !== 'C').sort((a, b) => (rank[a.tier] ?? 3) - (rank[b.tier] ?? 3)
+    || String(b.held ?? b.posted ?? '').localeCompare(String(a.held ?? a.posted ?? '')));
+  const minor = all.length - rows.length;
+  const checks = doc.checks ?? [];
+  const out = [`\n[전기위원회·원안위 · 최근 ${days}일] 출입처·주요 ${rows.length}건${minor ? ` · 기타 ${minor}건(company 낱말로 보기)` : ''} · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt)}`,
+    `원천: ${checks.map((c) => `${c.source} ${c.status}${c.error ? `(${c.error})` : c.note ? `(${c.note})` : ''}`).join(' · ')}`,
+    ...(doc.rules ?? []).map((r) => `규칙: ${r}`)];
+  for (const x of rows.slice(0, limit)) {
+    const nssc = x.source === '원자력안전위원회';
+    out.push(`- ${x.isNew ? '[신규] ' : ''}${x.held ?? x.posted ?? '날짜 미상'} · ${x.source}${x.meeting ? ` ${x.meeting}` : ''} · ${x.kind}${x.company ? ` · ${x.company}` : ''}`);
+    out.push(`   잡힌 사실: ${x.title}${nssc ? (x.result ? ` → 결과 ${x.result}` : ' (상정 — 의결 결과 전)') : ''}${x.ledger ? ` · ${x.ledger}` : ''}`);
+    out.push(`   원문: ${x.url ?? '링크 없음'}`);
+  }
+  if (rows.length > limit) out.push(`… 남은 ${rows.length - limit}건`);
+  if (!rows.length) out.push('조건에 맞는 항목 없음(위 실패 원천은 0건 아님).');
+  return out;
+}
+
 export async function krSignals(ctx, args) {
+  const energyQ = String(args.company ?? '').trim();
+  const energy = !args.section || args.section === 'energy'
+    ? await energySection(ctx, energyQ, clampInt(args.days, 1, 365, 60), clampInt(args.limit, 1, 60, 15)) : [];
+  if (args.section === 'energy') return textResult(energy.join('\n').trim());
   const doc = await readFeed(ctx, 'kr-signals');
-  if (!doc) return missing('공정위 의결서·한전 입찰·원자재 가격', '평일 08:30·15:20');
-  if (doc.broken) return textResult('저장된 국내 신호 결과 형식 오류 — 미확인.', true);
+  if (!doc) return energy.length ? textResult([missing('공정위 의결서·한전 입찰·원자재 가격', '평일 08:30·15:20').content[0].text, ...energy].join('\n'), true) : missing('공정위 의결서·한전 입찰·원자재 가격', '평일 08:30·15:20');
+  if (doc.broken) return textResult(['저장된 국내 신호 결과 형식 오류 — 미확인.', ...energy].join('\n'), true);
   const section = ['ftc', 'kepco', 'motir', 'price'].includes(args.section) ? args.section : null;
   const q = String(args.company ?? '').trim();
   const days = clampInt(args.days, 1, 365, 60);
@@ -585,7 +616,9 @@ export async function krSignals(ctx, args) {
     }
     out.push('   검증 상태: KOMIS(한국광해광업공단) 게시 가격. 기사에 쓸 땐 같은 기준(LME CASH 등)·날짜를 그대로, "역대"는 쓰지 않는다');
   }
-  out.push('\n다음: 공정위는 원문(개방문서)에서 피심인·주문·과징금 확인 → news_check(사건명 낱말·회사명) → 회사 확인. 가격은 출입처 실적·판가 영향은 회사·IR로 확인.');
+  out.push(...energy);
+  out.push('\n다음: 공정위는 원문(개방문서)에서 피심인·주문·과징금 확인 → news_check(사건명 낱말·회사명) → 회사 확인. 가격은 출입처 실적·판가 영향은 회사·IR로 확인.'
+    + (energy.length ? ' 전기위원회 허가는 개최결과 PDF·허가대장에서 사업자·용량 확인 → 사업자·지자체 확인. 원안위는 안건 원문(PDF)과 결과 확인.' : ''));
   return textResult(out.join('\n'));
 }
 

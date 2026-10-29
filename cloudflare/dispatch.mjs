@@ -37,11 +37,14 @@ export const SLOTS = [
   { at: '15:00', workflow: 'scoop-radar.yml' },
   { at: '15:10', workflow: 'scoop-screen.yml' },
   { at: '15:20', workflow: 'kr-signals.yml' },
+  // 전기위원회 개최결과(오후 게시)·원안위 안건(회의 며칠 전 아침 게시).
+  { at: '15:40', workflow: 'kr-energy.yml' },
   { at: '17:10', workflow: 'us-recalls.yml' },
   { at: '17:20', workflow: 'kr-insolvency.yml' },
   { at: '17:30', workflow: 'overseas-awards.yml' },
   { at: '17:40', workflow: 'assembly-bills.yml' },
   { at: '18:00', workflow: 'scoop-radar.yml' },
+  { at: '18:10', workflow: 'kr-energy.yml' },
   { at: '18:30', workflow: 'page-watch.yml' },
   { at: '18:50', workflow: 'radar-press-check.yml' },
 ];

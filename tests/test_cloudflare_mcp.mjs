@@ -1026,7 +1026,7 @@ test('kr_signals shows FTC decisions by role, KEPCO bids and commodity prices, a
   const minor = await call('radar_today', { include_minor: true }, opts);
   assert.match(minor.text, /「\(연간단가\)고효율주상변압기,50KVA\(광유\)-2,338대-0\d\(일반\)」 외 같은 공고 2건\(합계 약 149억원\) · 추정가격 약 50억원/);
   assert.equal((minor.text.match(/고효율주상변압기/g) ?? []).length, 1);  // three lots, one line
-  assert.match(r.text, /기자 전용 감시 16개/);
+  assert.match(r.text, /기자 전용 감시 17개/);
   assert.deepEqual(dueAt(new Date('2026-10-26T23:30:00Z')), ['kr-signals.yml', 'kipris-patent-hunt.yml']);  // Tue 08:30 KST
   assert.deepEqual(dueAt(new Date('2026-10-27T06:20:00Z')), ['kr-signals.yml']);  // Tue 15:20 KST
 });
@@ -1167,7 +1167,7 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   assert.doesNotMatch((await call('trademarks', { name: 'aero' }, opts)).text, /NUTRIMACY/);
   assert.doesNotMatch((await call('trademarks', { class: '35' }, opts)).text, /NUTRIMACY/);
   const r = await call('radar_today', {}, opts);
-  assert.match(r.text, /기자 전용 감시 16개/);
+  assert.match(r.text, /기자 전용 감시 17개/);
   assert.match(r.text, /- 상표 출원: 대기 1곳\(제공기관 응답 22 뒤 72시간 대기\) — 해당 부분 0건은 미확인/);
   assert.doesNotMatch(r.text, /상표 출원: [^\n]*시간 전 결과/);
   const b = r.text.split('[B · ')[1].split('[C · ')[0];
@@ -1177,7 +1177,7 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   assert.match(minor.text, /상표 출원 「NUTRIMACY」[^\n]* — 같은 이름 상품류 추가/);
   const list = await rpc('tools/list', {}, { path: `/mcp/${TOKEN}`, env });
   assert.ok(list.body.result.tools.some((x) => x.name === 'trademarks'));
-  assert.match(list.body.result.tools.find((x) => x.name === 'radar_today').description, /감시 16개\([^)]*상표 출원, 국회 법안, 미국 리콜, 미국 EPA 인증, 국내 연비 신고, 해외 발주처 낙찰, 협력사 회생·파산\)/);
+  assert.match(list.body.result.tools.find((x) => x.name === 'radar_today').description, /감시 17개\([^)]*상표 출원, 국회 법안, 미국 리콜, 미국 EPA 인증, 국내 연비 신고, 해외 발주처 낙찰, 협력사 회생·파산, 전기위·원안위\)/);
   assert.ok(!(await rpc('tools/list', {}, { env })).body.result.tools.some((x) => x.name === 'trademarks'));  // private only
 });
 
@@ -1565,6 +1565,36 @@ test('kr insolvency: a beat-industry manufacturer entering court proceedings is 
   assert.deepEqual(items.items.find((x) => x.id === 'ins:1').check, { who: '엠디스틸', terms: ['회생'], alts: { 회생: ['회생', '법정관리', '파산', '기업회생', '워크아웃'] } });
   assert.deepEqual(dueAt(new Date('2026-10-28T22:20:00Z')), ['kr-insolvency.yml']);  // Thu 07:20 KST
   assert.deepEqual(dueAt(new Date('2026-10-29T08:20:00Z')), ['kr-insolvency.yml']);  // Thu 17:20 KST
+});
+
+test('kr energy: beat-group power permits and nuclear agenda results show in radar_today and kr_signals', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const it = (id, extra) => ({ id, source: '전기위원회', kind: '조건부 허가', title: 'GS 당진 바이오 발전사업', meeting: '제329차', held: '2026-10-24', posted: '2026-10-25',
+    company: 'GS', tier: 'A', url: 'https://www.korec.go.kr/commonfile/fileDownLoad.do?x', firstSeen: '2026-10-25T18:10:00+09:00', baseline: false, isNew: true, ...extra });
+  const doc = { schema: 'kr_energy/v1', generatedAt: '2026-10-25T18:10:00+09:00', status: 'complete', rules: ['허가는 착공이 아니다.'],
+    checks: [{ source: '전기위원회 개최결과', status: 'ok', returned: 11, read: 1 }, { source: '원자력안전위원회 회의', status: 'ok', returned: 15 }],
+    items: [it('korec:329:gs'),
+      it('korec:329:wind', { title: '신안 우이 해상풍력 발전사업', company: null, tier: 'B' }),
+      it('korec:329:sun', { title: '고흥 가야신양해밀솔라 태양광 발전사업', company: null, tier: 'C' }),
+      it('nssc:1:1', { source: '원자력안전위원회', kind: '심의·의결 안건', title: '고리 원자력발전소 3·4호기 계속운전 허가(안)', meeting: '제2026-17회(10.27) 원자력안전위원회',
+        held: '2026-10-27', posted: '2026-10-21', company: null, tier: 'B', result: '원안의결', firstSeen: '2026-10-21T18:10:00+09:00', resultSeen: '2026-10-25T18:10:00+09:00' })] };
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/kr-energy', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
+  const r = await call('radar_today', { hours: 72, include_minor: true }, opts);
+  const sec = (t) => r.text.split(`[${t} · `)[1].split(/\n\[[ABC] · /)[0];
+  assert.match(sec('A'), /전기위원회 제329차 조건부 허가: GS 당진 바이오 발전사업 · 회의·허가일 2026-10-24/);
+  assert.match(sec('B'), /전기위원회 제329차 조건부 허가: 신안 우이 해상풍력 발전사업/);
+  assert.match(sec('B'), /원자력안전위원회 심의·의결 안건: 고리 원자력발전소 3·4호기 계속운전 허가\(안\) → 원안의결 · 회의 2026-10-27/);  // 결과가 새로 붙어 다시 올라옴
+  assert.match(sec('C'), /고흥 가야신양해밀솔라/);
+  const t = await call('kr_signals', { section: 'energy' }, opts);
+  assert.match(t.text, /\[전기위원회·원안위 · 최근 60일\] 출입처·주요 3건 · 기타 1건/);
+  assert.match(t.text, /- \[신규\] 2026-10-24 · 전기위원회 제329차 · 조건부 허가 · GS\n   잡힌 사실: GS 당진 바이오 발전사업/);
+  assert.match(t.text, /고리 원자력발전소 3·4호기 계속운전 허가\(안\) → 결과 원안의결/);
+  assert.match((await call('kr_signals', {}, opts)).text, /공정위 의결서·한전 입찰·원자재 가격 결과가 아직 없음[\s\S]*\[전기위원회·원안위/);
+  const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
+  assert.deepEqual(items.items.find((x) => x.id === 'korec:329:gs').check.terms, ['허가']);
+  assert.deepEqual(dueAt(new Date('2026-10-29T06:40:00Z')), ['kr-energy.yml']);  // Thu 15:40 KST
+  assert.deepEqual(dueAt(new Date('2026-10-29T09:10:00Z')), ['kr-energy.yml']);  // Thu 18:10 KST
 });
 
 test('kr_official: 환경영향평가 new stage of a beat project is A and listed in the tool', async () => {

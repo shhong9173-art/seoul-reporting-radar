@@ -34,6 +34,7 @@ export const WATCHES = [
   { feed: 'kr-fuel', label: '국내 연비 신고', tool: 'kr_fuel', schedule: '매일 06:10', staleHours: 60 },
   { feed: 'overseas-awards', label: '해외 발주처 낙찰', tool: 'partner_filings', schedule: '평일 06:50·17:30' },
   { feed: 'kr-insolvency', label: '협력사 회생·파산', tool: 'kr_official', schedule: '평일 07:20·17:20' },
+  { feed: 'kr-energy', label: '전기위·원안위', tool: 'kr_signals', schedule: '평일 15:40·18:10' },
 ];
 
 // Items first seen in a watch's very first run are a baseline, not news: they only count when their own date is recent.
@@ -67,6 +68,7 @@ const ALT = {
   리콜: ['리콜', '결함', '시정조치', '화재 위험'], 가격: ['가격', '판매가', '출고가', 'MSRP', '값'], 미국: ['미국', '美'],
   EPA: ['EPA', '환경보호청', '인증', '주행거리', '연비'],
   회생: ['회생', '법정관리', '파산', '기업회생', '워크아웃'],
+  허가: ['허가', '인가', '승인', '전기위원회'], 원안위: ['원안위', '원자력안전위원회', '의결', '심의'],
 };
 const ASX_KO = { PLS: '필바라', ARU: '아라푸라', '01958': 'BAIC' };
 const COUNTRY_KO = {
@@ -357,6 +359,20 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
     push(e.tier ?? 'C', W['kr-insolvency'], { kind: e.kind, id: e.id, date: e.posted ?? e.firstSeen, company: e.company,
       fact: `${e.kind}: ${insolvencyLine(e)} · 공고 ${e.posted ?? '?'} — 거래 관계·납품 영향 미확인`, url: e.url ?? e.listUrl,
       check: e.tier === 'C' ? undefined : hint(firmName(e.company), ['회생']) });
+  }
+
+  // 전기위원회 발전사업 허가(회차 개최결과·허가대장)·원안위 안건: 출입처 그룹 사업명·원전 건설/운영허가·SMR A, 해상풍력 허가·계속운전 B.
+  // 원안위 안건은 의결 결과가 새로 붙을 때 다시 올린다.
+  const en = docs['kr-energy'];
+  const enBase = baselineOf(en?.items ?? []);
+  for (const x of en?.items ?? []) {
+    if (!fresh(x, enBase, 'posted') && !(x.resultSeen && recent(x.resultSeen))) continue;
+    const nssc = x.source === '원자력안전위원회';
+    const res = x.result ? ` → ${x.result}` : nssc ? ' (상정 — 의결 결과 전)' : '';
+    const who = x.company || String(x.title ?? '').replace(/\(안\)|발전사업/g, '').split(/\s+/).slice(0, 3).join(' ');
+    push(x.tier ?? 'C', W['kr-energy'], { kind: `${x.source} ${x.kind}`, id: x.id, date: x.held ?? x.posted ?? x.firstSeen, company: x.company ?? '',
+      fact: `${x.source}${x.meeting && !nssc ? ` ${x.meeting}` : ''} ${x.kind}: ${String(x.title ?? '').slice(0, 140)}${res}${x.held ? ` · ${nssc ? '회의' : '회의·허가일'} ${x.held}` : ''}`,
+      url: x.url, check: x.tier === 'C' ? undefined : hint(who, [nssc ? '원안위' : '허가']) });
   }
 
   const uc = docs['us-comments'];
