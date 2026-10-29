@@ -43,8 +43,10 @@ def fake(permits_by_bun, refuse=(), down=False):
         if url == b.ARCH:
             if "arch" in refuse or key == "bad":
                 return Resp('{"response":{"header":{"resultCode":"30"}}}', 403)
-            rows = permits_by_bun.get(params["bun"], [])
-            return Resp(json.dumps({"response": {"header": {"resultCode": "00"}, "body": {"items": {"item": rows}, "totalCount": len(rows)}}}, ensure_ascii=False))
+            allrows = permits_by_bun.get(params["bun"], [])
+            n, pg = int(params.get("numOfRows", 100)), int(params.get("pageNo", 1))
+            rows = allrows[(pg - 1) * n: pg * n]
+            return Resp(json.dumps({"response": {"header": {"resultCode": "00"}, "body": {"items": {"item": rows}, "totalCount": len(allrows)}}}, ensure_ascii=False))
         raise AssertionError(url)
     get.calls = calls
     return get
@@ -107,8 +109,43 @@ class Building(unittest.TestCase):
                 return Resp("<OpenAPI_ServiceResponse><cmmMsgHeader><returnReasonCode>22</returnReasonCode></cmmMsgHeader></OpenAPI_ServiceResponse>")
             return base(url, params=params, headers=headers, timeout=timeout)
         doc2 = go([("K", "good")], FACS, now=NOW, previous=None, get=flaky, sleep=lambda s: None)
-        self.assertEqual(calls["n"], 2)  # retried once
+        self.assertEqual(calls["n"], 3)  # retried twice
         self.assertIn("1개 번지 조회 실패(응답 코드 22 1)", doc2["checks"][1]["error"])
+        self.assertEqual([(x["company"], x["error"]) for x in doc2["archFailed"]], [("현대차", "응답 코드 22")])
+
+    def test_big_parcel_is_paged_and_empty_body_is_retried(self):
+        many = [permit(f"Q{i}", day="20261001") for i in range(140)]
+        base = fake({"0001": many})
+        seen = {"empty": 0}
+
+        def get(url, params=None, headers=None, timeout=None):
+            if url == b.ARCH and params["bun"] == "0001" and params["pageNo"] == 1 and not seen["empty"]:
+                seen["empty"] += 1
+                return Resp("")  # HTTP 200, no body
+            return base(url, params=params, headers=headers, timeout=timeout)
+        doc = go([("K", "good")], FACS, now=NOW, previous=None, get=get, sleep=lambda s: None)
+        self.assertEqual(sum(1 for x in doc["permits"] if x["id"].startswith("bld:Q")), 140)
+        self.assertEqual(doc["checks"][1]["status"], "ok")
+        self.assertEqual(b.error_kind(RuntimeError("빈 응답")), "빈 응답")
+
+    def test_rows_trimmed_at_keep_max_do_not_come_back_as_new(self):
+        keep = b.KEEP_MAX
+        b.KEEP_MAX = 2
+        try:
+            first = go([("K", "good")], FACS, now=NOW, previous=None,
+                       get=fake({"0001": [permit("A1", day="20261001"), permit("A2", day="20261005"), permit("A0", day="20260901")]}), sleep=lambda s: None)
+            self.assertEqual({x["id"] for x in first["permits"]}, {"bld:A1", "bld:A2"})  # A0 trimmed
+            second = go([("K", "good")], FACS, now=NOW + dt.timedelta(days=7), previous=first,
+                        get=fake({"0001": [permit("A1", day="20261001"), permit("A2", day="20261005"), permit("A0", day="20260901"),
+                                           permit("A3", day="20261030")]}), sleep=lambda s: None)
+            self.assertEqual([x["id"] for x in second["permits"] if x["isNew"]], ["bld:A3"])
+        finally:
+            b.KEEP_MAX = keep
+
+    def test_unresolved_plants_are_listed(self):
+        facs = FACS + [{"id": "fac:9", "company": "세아", "cmpnyNm": "세아베스틸", "rnAdres": "전라북도 군산시 없는로 1"}]
+        doc = go([("K", "good")], facs, now=NOW, previous=None, get=fake({}), sleep=lambda s: None)
+        self.assertEqual(doc["unresolved"], [{"company": "세아", "plant": "세아베스틸", "road": "전라북도 군산시 없는로 1", "error": "지번 못 찾음"}])
 
     def test_first_real_run_after_unset_is_baseline(self):
         unset = go([("K", "good")], FACS, juso=None, now=NOW, previous=None, get=fake({}), sleep=lambda s: None)
