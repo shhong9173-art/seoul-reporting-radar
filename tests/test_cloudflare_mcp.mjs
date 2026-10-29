@@ -254,6 +254,27 @@ test('news_check: Bing stands in for Google and unwraps the original link', asyn
   assert.match(d.text, /판정: 미확인 — 웹 색인\(구글·빙 모두\)/);
 });
 
+test('news_check: Naver pages past the newest 100 until the window is covered', async () => {
+  const env = PRIVATE({ NAVER_CLIENT_ID: 'i', NAVER_CLIENT_SECRET: 's' });
+  const item = (i, day) => ({ title: `기아 광명 ${i}`, originallink: `https://news.example.kr/${i}`, link: 'x', pubDate: `${day} 09:00:00 +0900` });
+  const page = (url) => {
+    const start = Number(new URL(url).searchParams.get('start'));
+    if (start === 1) return Response.json({ items: Array.from({ length: 100 }, (_, i) => item(i, 'Fri, 23 Oct 2026')) });
+    return Response.json({ items: Array.from({ length: 30 }, (_, i) => item(100 + i, 'Mon, 01 Jun 2026')) });
+  };
+  const fetch = fakeFetch({ 'https://news.google.com/': new Response('<rss><channel></channel></rss>'), 'https://naverapihub.apigw.ntruss.com/': page });
+  const r = await call('news_check', { q: '기아 광명 증축', days: 180 }, { ...env, fetch });
+  assert.match(r.text, /네이버 뉴스\(API HUB\): 130건 \(응답 130건\) · 최신순 130건까지 읽음/);
+  assert.doesNotMatch(r.text, /100건 상한/);
+  assert.equal(fetch.calls.filter((c) => c.url.startsWith('https://naverapihub')).length, 2);
+  // every page full and inside the window: stops at the API limit and says so
+  const full = fakeFetch({ 'https://news.google.com/': new Response('<rss><channel></channel></rss>'),
+    'https://naverapihub.apigw.ntruss.com/': () => Response.json({ items: Array.from({ length: 100 }, (_, i) => item(i, 'Fri, 23 Oct 2026')) }) });
+  const f = await call('news_check', { q: '기아', days: 30 }, { ...env, fetch: full });
+  assert.match(f.text, /네이버 뉴스: partial — 최신순 1000건 상한 — 그 이전 기사는 못 봄/);
+  assert.equal(full.calls.filter((c) => c.url.startsWith('https://naverapihub')).length, 10);
+});
+
 test('news_check: Naver goes through API HUB first and old Developers Center keys only when HUB refuses', async () => {
   const env = PRIVATE({ NAVER_CLIENT_ID: 'i', NAVER_CLIENT_SECRET: 's' });
   const hub = fakeFetch({ 'https://naverapihub.apigw.ntruss.com/search/v1/news': Response.json({ items: [
