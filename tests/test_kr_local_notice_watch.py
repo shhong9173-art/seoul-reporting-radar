@@ -67,6 +67,13 @@ class Local(unittest.TestCase):
         self.assertEqual(w.classify(DJ1[1][2]), (None, []))  # 담배 소매인 지정은 버림
         self.assertEqual(w.classify("포스코퓨처엠 광양 양극재 공장 증설"), ("C", []))  # 포스코퓨처엠은 포스코가 아님(공장 증설만 C)
 
+    def test_namgu_layout_without_notice_number(self):
+        row = ('<tr> <td >40994</td> <td class="left"> <div class="list_subject"> <div class="link"> <a href="emwp/gov/mogaha/ntis/web/ofr/action/'
+               'OfrAction.do?not_ancmt_mgt_no=54887&amp;subCheck=Y" onclick="searchDetail(\'54887\');return false;" onkeypress="">'
+               '현대모비스(주) 울산공장 증설 관련 도시관리계획 결정 고시</a> </div> </div> </td> <td>도시과</td> <td>2026-10-30</td> <td>3</td> </tr>')
+        self.assertEqual(w.parse_rows("<table>" + row + "</table>"),
+                         [{"mgt": "54887", "no": None, "title": "현대모비스(주) 울산공장 증설 관련 도시관리계획 결정 고시", "dept": "도시과", "date": "2026-10-30"}])
+
     def test_baseline_then_new_and_failures(self):
         first = w.run(now=NOW, previous=None, post=fake({"https://eminwon.dangjin.go.kr": page(DJ1, TD_ROW), "http://eminwon.ulju.ulsan.kr": page(UJ1, A_ROW)}),
                       sleep=lambda s: None, cities=CITIES)

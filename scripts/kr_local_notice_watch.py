@@ -8,7 +8,7 @@
 - 등급: 출입처 이름 + 사업 낱말(증설·신설·설치·건설·공장·환경영향평가·매립·산업단지 등) = A, 출입처 이름만 = B,
   출입처 이름 없이 제철소·제련소·산업단지 계획·발전사업 = C. 담배 소매인 지정 같은 생활 공고는 버린다.
 - 고시·공고 제목만 본다(첨부 HWP·PDF는 열지 않는다). 사업 규모·내용은 첨부 원문과 회사 확인.
-- 해외 IP에서 응답이 느린 시·군(포항·광양·창원 등)은 시간 초과면 '실패'로 남긴다 — 0건이 아니라 미확인.
+- 해외 IP에서 응답이 느린 시·군(포항 33초·평택 57초)은 75초까지 기다린다. 그래도 시간 초과면 '실패' — 0건이 아니라 미확인.
 - 결과는 기자 전용 저장소(kr-local)로만. 공개 로그는 건수만.
 """
 from __future__ import annotations
@@ -34,7 +34,7 @@ LIST = {"method": "selectListOfrNotAncmt", "methodnm": "selectListOfrNotAncmtHom
         "ofr_pageSize": "30", "not_ancmt_se_code": "01,02,03,04,05", "initValue": "Y", "countYn": "Y", "list_gubun": "A",
         "jndinm": "OfrNotAncmtEJB", "context": "NTIS", "method_type": ""}
 PAGES = 2
-TIMEOUT = 45
+TIMEOUT = 75  # 10-30 탐침: 포항 33초·평택 57초 걸려 응답(45초에선 시간 초과)
 KEEP_DAYS = 120
 KEEP_MAX = 500
 SEEN_MAX = 400  # management numbers kept per city
@@ -113,12 +113,18 @@ def parse_rows(page):
             continue
         cells = [cell_text(c) for c in re.findall(r"<td[^>]*>([\s\S]*?)</td>", tr)]
         i = next((k for k, c in enumerate(cells) if NOTICE_NO.search(c)), None)
-        if i is None or i + 1 >= len(cells):
-            continue
-        title = cells[i + 1]
-        dept = cells[i + 2] if i + 2 < len(cells) and not DATE.fullmatch(cells[i + 2]) else None
-        date = next((c for c in cells[i + 1:] if DATE.fullmatch(c)), None)
-        out.append({"mgt": m.group(1), "no": cells[i], "title": title[:200], "dept": dept, "date": date})
+        if i is not None and i + 1 < len(cells):
+            no, t = cells[i], i + 1
+        else:
+            # 울산 남구 형식(10-30): 번호, 제목, 담당부서, 등록일, 조회수 — 공고번호 칸이 없다
+            no = None
+            t = next((k for k, c in enumerate(cells) if c and not re.fullmatch(r"[\d,]+", c) and not DATE.fullmatch(c)), None)
+            if t is None:
+                continue
+        title = cells[t]
+        dept = cells[t + 1] if t + 1 < len(cells) and not DATE.fullmatch(cells[t + 1]) and not re.fullmatch(r"[\d,]+", cells[t + 1]) else None
+        date = next((c for c in cells[t + 1:] if DATE.fullmatch(c)), None)
+        out.append({"mgt": m.group(1), "no": no, "title": title[:200], "dept": dept, "date": date})
     return out
 
 
