@@ -266,5 +266,25 @@ class Eia(unittest.TestCase):
         self.assertEqual([x["id"] for x in items], ["eia:x"])
 
 
+class Deadline(unittest.TestCase):
+    def test_time_limit_skips_remaining_companies_and_keeps_their_records(self):
+        cfg = {"companies": [{"company": "고려아연", "queries": ["고려아연"], "accept": "^고려아연"},
+                             {"company": "영풍", "queries": ["영풍"], "accept": "^영풍"}]}
+        now = w.dt.datetime(2026, 10, 29, 8, 10, tzinfo=w.KST)
+        prev = {"factories": [{"id": "fac:9", "company": "영풍", "cmpnyNm": "영풍 석포제련소"}], "ruleSigs": {}}
+        calls = []
+
+        def get(url, params=None, **kw):
+            calls.append(params["cmpnyNm"])
+            raise AssertionError("시간 상한을 넘었으면 부르지 않는다")
+        facs, checks, events, sigs, counts = w.factories(cfg, "k", now, prev, get=get, sleep=lambda s: None, deadline=w.time.monotonic() - 1)
+        self.assertEqual(calls, [])
+        self.assertEqual({c["status"] for c in checks}, {"partial"})
+        self.assertTrue(all("시간 상한" in c["error"] for c in checks))
+        self.assertEqual([f["id"] for f in facs], ["fac:9"])  # 조회 못 한 회사의 이전 기록 유지
+        self.assertTrue(facs[0]["stale"])
+        self.assertEqual(events, [])  # '목록에서 빠짐'으로 오판하지 않음
+
+
 if __name__ == "__main__":
     unittest.main()
