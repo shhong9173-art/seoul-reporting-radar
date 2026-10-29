@@ -1,68 +1,66 @@
-"""격리 탐침 14: (1) 동별개요에서 기아 소하동 781-1 증축 허가(PK)의 동 행이 있는지 — 전체 쪽, 칸 이름, PK별 행 수
-(2) 빈 응답(HTTP 200·본문 없음)이 큰 응답 때문인지 — 같은 번지를 numOfRows 100/30/10으로 반복. 키 값은 출력하지 않는다."""
+"""격리 탐침 16: 키 없는 새 원천 후보의 접속·형식.
+(a) 무공해차 통합누리집(ev.or.kr) 보조금 차종 페이지 (b) USAspending 연방 계약(출입처 미국 법인)
+(c) 한수원 전자조달 (d) EU Safety Gate. 저장하지 않음, 공개 자료만."""
 import json
-import os
 import re
-import sys
 import time
-from collections import Counter
 
-sys.path.insert(0, "scripts")
-import kr_building_watch as b
 import requests
 
-KEYS = b.resolve_keys(os.environ)
-name, key = KEYS[0] if KEYS else ("", "")
-BASE = "https://apis.data.go.kr/1613000/ArchPmsHubService/"
-out = [f"keys={[n for n, _ in KEYS]}"]
+UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+      "Accept-Language": "ko-KR,ko;q=0.9,en;q=0.6"}
+out = []
 
 
-def clean(t):
-    t = str(t or "")
-    for _, v in KEYS:
-        t = t.replace(v, "<KEY>")
-    return re.sub(r"\s+", " ", t)
+def text_of(html):
+    t = re.sub(r"<script[\s\S]*?</script>|<style[\s\S]*?</style>", " ", html)
+    return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", t))
 
 
-def get(op, params, size=100, page=1):
+def page(label, url, method="GET", **kw):
     t0 = time.time()
-    r = requests.get(BASE + op, params={"serviceKey": key, "_type": "json", "numOfRows": size, "pageNo": page, **params}, headers=b.UA, timeout=60)
-    time.sleep(0.5)
-    dt_ = time.time() - t0
     try:
+        r = requests.request(method, url, headers={**UA, **kw.pop("headers", {})}, timeout=30, **kw)
+        body = r.text
+        title = (re.search(r"<title[^>]*>([\s\S]*?)</title>", body) or [None, ""])[1].strip()[:60]
+        hits = [m.start() for m in re.finditer(r"현대|기아|아이오닉|EV[0-9]|코나|니로", body)][:1]
+        snip = text_of(body[max(0, hits[0] - 300): hits[0] + 600])[:300] if hits else ""
+        out.append(f"{label}: HTTP {r.status_code} {time.time()-t0:.1f}s len={len(body)} title={title!r} ctype={r.headers.get('content-type','')[:30]} snip={snip!r}")
+        return r
+    except Exception as e:  # noqa: BLE001
+        out.append(f"{label}: EXC {type(e).__name__} {time.time()-t0:.1f}s")
+
+
+# (a) ev.or.kr
+for label, url in [("ev main", "https://ev.or.kr/nportal/main.do"),
+                   ("ev subsidy car", "https://ev.or.kr/nportal/buySupprt/initSubsidyPaymentCheckAction.do"),
+                   ("ev local price", "https://ev.or.kr/nportal/buySupprt/initPsLocalCarPirceAction.do"),
+                   ("ev car list", "https://ev.or.kr/nportal/evcarInfo/initEvcarCarInfoAction.do")]:
+    page(label, url)
+    time.sleep(1)
+
+# (b) USAspending: contracts to beat companies' US entities, last 12 months
+for q in ["HYOSUNG", "HD HYUNDAI ELECTRIC", "LS ELECTRIC", "LS CABLE", "HYUNDAI MOTOR", "KIA", "HANWHA QCELLS", "POSCO", "SEAH", "DOOSAN"]:
+    body = {"filters": {"recipient_search_text": [q], "time_period": [{"start_date": "2025-10-01", "end_date": "2026-10-29"}],
+                        "award_type_codes": ["A", "B", "C", "D"]},
+            "fields": ["Award ID", "Recipient Name", "Award Amount", "Awarding Agency", "Start Date", "Description"],
+            "limit": 5, "page": 1, "sort": "Award Amount", "order": "desc"}
+    t0 = time.time()
+    try:
+        r = requests.post("https://api.usaspending.gov/api/v2/search/spending_by_award/", json=body, timeout=40)
         d = r.json()
-    except ValueError:
-        return None, None, f"{op} n={size} p={page} HTTP {r.status_code} {dt_:.1f}s len={len(r.content)} non-json head={clean(r.text[:80])}"
-    body = (d.get("response") or {}).get("body") or {}
-    items = (body.get("items") or {}) if isinstance(body.get("items"), dict) else {}
-    rows = items.get("item") or []
-    rows = rows if isinstance(rows, list) else [rows]
-    return rows, int(body.get("totalCount") or 0), f"{op} n={size} p={page} HTTP {r.status_code} {dt_:.1f}s len={len(r.content)} total={body.get('totalCount')} rows={len(rows)}"
+        rows = d.get("results") or []
+        out.append(f"usasp {q}: HTTP {r.status_code} {time.time()-t0:.1f}s n={len(rows)} " +
+                   " ; ".join(f"{x.get('Recipient Name')}|{x.get('Awarding Agency')}|{x.get('Award Amount')}|{x.get('Start Date')}|{str(x.get('Description'))[:50]}" for x in rows[:3]))
+    except Exception as e:  # noqa: BLE001
+        out.append(f"usasp {q}: EXC {type(e).__name__}")
+    time.sleep(1)
 
-
-KIA = {"sigunguCd": "41210", "bjdongCd": "10400", "platGbCd": "0", "bun": "0781"}
-PK = "1000000000000001012244"
-dong = []
-for page in range(1, 4):
-    for attempt in range(4):
-        rows, total, line = get("getApDongOulnInfo", KIA, 50, page)
-        out.append(line)
-        if rows is not None:
-            break
-        time.sleep(3 + 3 * attempt)
-    if rows is None:
-        break
-    dong += rows
-    if len(dong) >= (total or 0):
-        break
-if dong:
-    out.append("dong keys=" + ",".join(sorted(dong[0].keys())))
-    c = Counter(str(x.get("mgmPmsrgstPk")) for x in dong)
-    out.append(f"dong rows={len(dong)} pks={len(c)} target={c.get(PK, 0)} top={c.most_common(3)}")
-    for x in [x for x in dong if str(x.get("mgmPmsrgstPk")) == PK][:6]:
-        out.append("DONG " + clean(json.dumps({k: v for k, v in x.items() if str(v).strip() not in ("", "0", "0.0", " ")}, ensure_ascii=False))[:600])
-    if not c.get(PK):
-        out.append("SAMPLE " + clean(json.dumps(dong[0], ensure_ascii=False))[:600])
+# (c) 한수원 전자조달
+page("khnp", "https://cyber.khnp.co.kr/")
+page("khnp bid", "https://www.khnp.co.kr/main/contents.do?key=1494")
+# (d) EU Safety Gate (motor vehicles)
+page("safety gate", "https://ec.europa.eu/safety-gate-alerts/public/api/notification/carousel/?language=en")
 
 packs, cur = [], ""
 for n in out:
