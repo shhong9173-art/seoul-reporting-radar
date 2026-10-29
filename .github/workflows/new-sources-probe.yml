@@ -1,0 +1,24 @@
+name: New Sources Probe (isolated, branch only)
+# 격리 탐색: 해외 낙찰·계약 공개 원천 형식(TED·세계은행·영국 FTS·USAspending·걸프 조달). 저장하지 않음. probe/ 브랜치 push에서만.
+on:
+  push:
+    branches: ['probe/new-sources']
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install "requests>=2.31,<3" pypdf
+      - env:
+          ASSEMBLY_API_KEY: ${{ secrets.ASSEMBLY_API_KEY }}
+          CENSUS_API_KEY: ${{ secrets.CENSUS_API_KEY }}
+          COURTLISTENER_TOKEN: ${{ secrets.COURTLISTENER_TOKEN }}
+        run: python scripts/probe/award_probe.py
