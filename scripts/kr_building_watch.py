@@ -211,7 +211,14 @@ def run(keys, factories, *, now, previous=None, get=None, sleep=time.sleep, cloc
                 "parcels": (previous or {}).get("parcels") or {}, "rules": RULES,
                 "checks": [{"source": "건축인허가", "status": "unset", "error": "공공데이터포털 키 없음"}]}
     caller = Caller(keys, get=get, sleep=sleep)
-    parcels = dict((previous or {}).get("parcels") or {})
+    parcels = {k: dict(v) for k, v in ((previous or {}).get("parcels") or {}).items()}
+    if isinstance(previous, dict) and previous.get("baselineSince") and not previous.get("archFirstMarked"):
+        # state written before first-look stamps: a clean permit check means every resolved parcel was looked at
+        arch = next((c for c in previous.get("checks") or [] if c.get("source") == "건축인허가"), {})
+        if arch.get("status") == "ok":
+            for p in parcels.values():
+                if p.get("sigunguCd"):
+                    p.setdefault("archFirst", previous.get("generatedAt"))
     ttl = (now - dt.timedelta(days=PARCEL_TTL_DAYS)).isoformat()
     checks, refused = [], None
     addr_ok = addr_fail = addr_left = 0
@@ -316,7 +323,7 @@ def run(keys, factories, *, now, previous=None, get=None, sleep=time.sleep, cloc
     status = ("unset" if statuses == {"unset"} else "failed" if statuses <= {"failed", "unset"} and "failed" in statuses
               else "partial" if statuses - {"ok"} else "complete")
     return {"schema": SCHEMA, "generatedAt": stamp, "status": status, "checks": checks, "permits": kept, "parcels": parcels,
-            "rules": RULES, "plants": len(factories), "parcelsResolved": sum(1 for p in parcels.values() if p.get("sigunguCd")), "baselineMarked": True,
+            "rules": RULES, "plants": len(factories), "parcelsResolved": sum(1 for p in parcels.values() if p.get("sigunguCd")), "baselineMarked": True, "archFirstMarked": True,
             "baselineSince": (previous or {}).get("baselineSince") or (stamp if status != "unset" else None)}
 
 

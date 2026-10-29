@@ -117,6 +117,13 @@ class Building(unittest.TestCase):
         third = b.run([("K", "good")], facs, now=NOW + dt.timedelta(days=14), previous=aged,
                       get=fake({"0196": [permit("P9"), permit("P10", day="20261105")], "0001": [permit("P1"), permit("P2", day="20261110")]}), sleep=lambda s: None)
         self.assertEqual(next(x for x in third["permits"] if x["id"] == "bld:P2")["isNew"], True)
+
+    def test_state_before_first_look_stamps(self):
+        first = b.run([("K", "good")], FACS, now=NOW, previous=None, get=fake({"0001": [permit("P1")]}), sleep=lambda s: None)
+        old = dict(first, archFirstMarked=None, parcels={k: {kk: vv for kk, vv in v.items() if kk != "archFirst"} for k, v in first["parcels"].items()})
+        second = b.run([("K", "good")], FACS, now=NOW + dt.timedelta(days=4), previous=old,
+                       get=fake({"0001": [permit("P1"), permit("P2", day="20261101")]}), sleep=lambda s: None)
+        self.assertTrue(next(x for x in second["permits"] if x["id"] == "bld:P2")["isNew"])
         t2 = iter([0] * 4 + [b.TOTAL_BUDGET_S + 1] * 20)
         arch_cut = b.run([("K", "good")], FACS, now=NOW, previous=None, get=fake({}), sleep=lambda s: None, clock=lambda: next(t2))
         self.assertIn("남은", arch_cut["checks"][1]["error"])
