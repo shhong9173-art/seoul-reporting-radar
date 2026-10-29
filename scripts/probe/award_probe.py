@@ -10,7 +10,7 @@ LIST = {"method": "selectListOfrNotAncmt", "methodnm": "selectListOfrNotAncmtHom
         "ofr_pageSize": "30", "not_ancmt_se_code": "01,02,03,04,05", "initValue": "Y", "countYn": "Y", "list_gubun": "A",
         "jndinm": "OfrNotAncmtEJB", "context": "NTIS", "method_type": "", "pageIndex": "1"}
 out = []
-for base in ("https://eminwon.dangjin.go.kr", "https://eminwon.asan.go.kr"):
+for base in ("https://eminwon.dangjin.go.kr", "https://eminwon.asan.go.kr", "https://eminwon.yeosu.go.kr"):
     try:
         r = requests.post(base + PATH, data=LIST, headers={**UA, "Referer": base + PATH}, timeout=45)
         trs = re.findall(r"<tr[^>]*>[\s\S]*?</tr>", r.text)
