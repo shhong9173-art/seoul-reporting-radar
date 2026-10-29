@@ -1,4 +1,4 @@
-"""격리 탐침 35: 무역위원회 goMenu·goViewMainBbs 함수(실제 주소), 위원회일정·진행 사건 목록."""
+"""격리 탐침 36: 무역위원회 menuMap(메뉴 번호→주소)과 진행 사건·위원회 일정·보도자료·의결서 목록 형식."""
 import re
 
 import requests
@@ -17,16 +17,21 @@ def text_of(html):
 
 s = requests.Session()
 b = s.get(SITE + "/", headers=UA, timeout=40).text
-srcs = [SITE + x if x.startswith("/") else x for x in re.findall(r'<script[^>]*src="([^"]+)"', b)]
-found = {}
-for blob in [b] + [s.get(u, headers=UA, timeout=30).text for u in srcs if "ktc" in u or u.startswith(SITE)][:12]:
-    for fn in ("goMenu", "goViewMainBbs", "mainBbsTab"):
-        m = re.search(r"function\s+" + fn + r"\s*\([^)]*\)\s*\{[\s\S]{0,700}", blob)
-        if m and fn not in found:
-            found[fn] = re.sub(r"\s+", " ", m.group(0))[:700]
-out.append(f"funcs={found}")
-forms = re.findall(r"<form[^>]*>", b)[:5]
-out.append(f"forms={forms}")
+mm = dict(re.findall(r"menuMap\.(?:put|set)\(\s*['\"]?(\d+)['\"]?\s*,\s*\[\s*['\"]([^'\"]+)['\"]", b))
+out.append(f"menuMap n={len(mm)} sel={ {k: mm.get(k) for k in ('11', '12', '14', '15', '16', '23', '24', '45', '46', '57', '109')} }")
+for mid in ("11", "24", "57", "16"):
+    u = mm.get(mid)
+    if not u:
+        continue
+    try:
+        r = s.post(SITE + u, data={"menuId": mid}, headers={**UA, "Referer": SITE + "/"}, timeout=40)
+        t = text_of(r.text)
+        i = t.find("번호") if "번호" in t else 0
+        js = sorted(set(re.findall(r"(?:href|onclick)=\"(javascript:[^\"]{0,90})\"", r.text)))
+        js = [j for j in js if re.search(r"View|view|Detail|detail", j)][:4]
+        out.append(f"menu {mid} {u} HTTP {r.status_code} len={len(r.text)} js={js} :: {t[i:i+1500]}")
+    except Exception as e:  # noqa: BLE001
+        out.append(f"menu {mid} EXC {type(e).__name__}")
 packs, cur = [], ""
 for x in out:
     x = x.replace("\n", " ").replace("::", ": :").replace("%", "pct")
