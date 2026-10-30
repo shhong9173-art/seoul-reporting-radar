@@ -82,7 +82,7 @@ const ASX_KO = { PLS: '필바라', ARU: '아라푸라', '01958': 'BAIC' };
 const COUNTRY_KO = {
   DNK: '덴마크', SWE: '스웨덴', FIN: '핀란드', NOR: '노르웨이', ESP: '스페인', PRT: '포르투갈', GBR: '영국', DEU: '독일', NLD: '네덜란드', BEL: '벨기에',
   FRA: '프랑스', ITA: '이탈리아', IRL: '아일랜드', AUT: '오스트리아', POL: '폴란드', CZE: '체코', SVK: '슬로바키아', HUN: '헝가리', ROU: '루마니아',
-  BGR: '불가리아', GRC: '그리스', HRV: '크로아티아', SVN: '슬로베니아', EST: '에스토니아', LVA: '라트비아', LTU: '리투아니아', CHE: '스위스', BHR: '바레인',
+  BGR: '불가리아', GRC: '그리스', HRV: '크로아티아', SVN: '슬로베니아', EST: '에스토니아', LVA: '라트비아', LTU: '리투아니아', CHE: '스위스', BHR: '바레인', TWN: '대만',
   Iraq: '이라크', Jordan: '요르단', 'Egypt, Arab Republic of': '이집트', Morocco: '모로코', Tunisia: '튀니지', Lebanon: '레바논', Uzbekistan: '우즈베키스탄',
   Kazakhstan: '카자흐스탄', India: '인도', Bangladesh: '방글라데시', Pakistan: '파키스탄', 'Viet Nam': '베트남', Philippines: '필리핀', Indonesia: '인도네시아',
   Ukraine: '우크라이나', 'South Africa': '남아공', Kenya: '케냐', Nigeria: '나이지리아', Ethiopia: '에티오피아', Turkiye: '튀르키예', Mongolia: '몽골',
@@ -365,7 +365,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
       check: hint((x.beat ?? [])[0], [partner, x.source === 'HKEX' ? '합작' : '계약']) });
   }
 
-  // Overseas public-buyer award notices (EU TED·영국 FTS·세계은행·바레인 월간 보고서): a beat company in the winner field is A;
+  // Overseas public-buyer award notices (EU TED·영국 FTS·세계은행·바레인 월간 보고서·대만 PCC): a beat company in the winner field is A;
   // contract modifications and Bahrain report lines B; other Korean winners C. TED notices trail the contract by weeks.
   const oa = docs['overseas-awards'];
   const oaBase = baselineOf(oa?.items ?? []);

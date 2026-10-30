@@ -6,6 +6,11 @@
 - 세계은행 조달 공고(Contract Award): 'Awarded Bidder(s)' 칸에 적힌 회사만. 탈락·평가 명단에 있는 이름은 버린다.
   (이라크·요르단·이집트·모로코 등 중동·북아프리카와 중앙아시아·남아시아 전력망 사업)
 - 바레인 입찰위원회 월간 낙찰 보고서(PDF): 새 달 보고서에서 출입처 영문명이 나온 줄만.
+- 대만 정부전자조달망(PCC) 결정 공고: g0v 공개 미러 API(pcc-api.openfun.app, 매일 갱신)에서 출입처 이름(영문·중문)으로 찾고,
+  공고의 득표·탈락 구분 칸(name_key)에서 '得標廠商'(낙찰자)으로 적힌 것만. 대만전력(台灣電力) 전선·광섬유지선 등
+  (10-30 탐침: LS Cable & System 2026-02 복합광섬유지선 NT$131,601,032, 2025-09 ZTACIR 품목 NT$276,084,986 등).
+  새로 본 공고는 상세(tender API)를 한 번 읽어 출입처 품목의 결정 금액·원산지·결정일을 붙인다. 링크는 g0v 열람기(공고 이력·원문 링크)와
+  대만 정부전자조달망 원문 주소(10-30 한국에서 열리지 않은 적 있음).
 - 결과는 기자 전용 저장소(overseas-awards)로만. 공개 로그는 건수만. 조회 실패는 0건이 아니다.
 
 다루지 않는 것: 사우디전력(SEC)·두바이수전력청(DEWA)·카타르 카라마·쿠웨이트 전력부 자체 조달(공개 낙찰 목록 없음 또는
@@ -82,6 +87,7 @@ RULES = [
     "유럽 TED 공고는 계약 체결 뒤 몇 주~몇 달 늦게 올라온다 — '공고일'이 새것이어도 계약은 예전일 수 있다(계약일 칸 확인).",
     "현지 판매법인(예: 현대차 체코·기아 유럽) 낙찰은 본사 수주와 다르다. 이름 그대로 보고 판단.",
     "중동 걸프 전력회사(SEC·DEWA·카라마·쿠웨이트 전력부) 자체 조달은 공개 낙찰 목록이 없어 다루지 않는다.",
+    "대만 PCC는 g0v 공개 미러로 찾고 원문 링크는 대만 정부전자조달망이다. 금액은 대만달러(NT$). 공고 전체 금액은 다른 낙찰자 품목을 포함할 수 있어, 상세를 읽으면 출입처 품목 금액으로 바꾼다.",
 ]
 
 
@@ -475,6 +481,162 @@ def bahrain(previous_seen, *, get=None):
     return items, checks, seen[-60:]
 
 
+# ---------------------------------------------------------------- Taiwan PCC (g0v mirror of web.pcc.gov.tw)
+PCC_SEARCH = "https://pcc-api.openfun.app/api/searchbycompanyname"
+PCC_TENDER = "https://pcc-api.openfun.app/api/tender"
+PCC_OFFICIAL = "https://web.pcc.gov.tw/prkms/tender/common/noticeDate/redirectPublic?ds={date}&fn={fn}.xml"
+PCC_VIEWER = "https://openfunltd.github.io/pcc-viewer/tender.html?unit_id={unit}&job_number={job}"  # 10-30 브라우저로 열림 확인(공고 이력·원문 링크)
+PCC_SOURCE = "대만 정부조달(PCC)"
+# (출입처, 검색어) — 영문은 COMPANIES 규칙으로, 중문은 PCC_ZH로 출입처를 정한다. 'LS Electric'은 대만 지사가 중문 이름(韓商樂星電氣)으로 나온다.
+PCC_TERMS = [("LS전선", "LS Cable"), ("대한전선", "Taihan"), ("대한전선", "大韓電線"), ("LS일렉트릭", "樂星電氣"), ("LS일렉트릭", "LS Electric"),
+             ("LS일렉트릭", "LS Industrial"), ("HD현대일렉트릭", "Hyundai Electric"), ("효성중공업", "Hyosung"), ("효성중공업", "曉星"),
+             ("두산에너빌리티", "Doosan"), ("일진전기", "Iljin"), ("현대제철", "Hyundai Steel"), ("포스코", "POSCO"), ("한화솔루션", "Hanwha"),
+             ("세아제강", "SeAH"), ("한국전력", "KEPCO"), ("한국수력원자력", "Korea Hydro")]
+PCC_ZH = [("LS일렉트릭", re.compile(r"樂星電氣|樂星產電")), ("LS전선", re.compile(r"樂星電纜")), ("대한전선", re.compile(r"大韓電線")),
+          ("효성중공업", re.compile(r"韓商曉星|曉星重工")), ("HD현대일렉트릭", re.compile(r"現代電氣|現代電機能源")), ("현대로템", re.compile(r"現代樂鐵"))]
+PCC_TYPES = {"決標公告": "낙찰", "更正決標公告": "계약 변경"}  # 更正決標公告(낙찰 정정·변경)는 B
+WIN_KEY = re.compile(r"^決標品項:第(\d+)品項:得標廠商(\d+):得標廠商$")
+PCC_DETAIL_MAX = 12  # 실행당 새 공고 상세 읽기 상한
+PCC_GAP = 2.0        # 호출 사이 대기(10-30 탐침: 대기 없이 11번 부르자 HTTP 429)
+PCC_EVERY_HOURS = 20  # 하루 한 번(아침 실행). 오후 실행은 건너뛴다
+
+
+class RateLimited(RuntimeError):
+    pass
+
+
+def pcc_beat(name):
+    return beat_of(name) or next((ko for ko, rx in PCC_ZH if rx.search(str(name or ""))), None)
+
+
+def pcc_winners(rec):
+    """공고 회사 칸 가운데 낙찰자(得標廠商)로 적힌 이름. '未得標廠商'(탈락)은 뺀다."""
+    keys = (((rec.get("brief") or {}).get("companies") or {}).get("name_key")) or {}
+    return [n for n, ks in keys.items() if any(re.search(r"(?<!未)得標廠商\d*:得標廠商$", k) for k in (ks or []))]
+
+
+def roc_date(s):
+    m = re.match(r"^\s*(\d{2,3})/(\d{1,2})/(\d{1,2})", str(s or ""))
+    return f"{int(m.group(1)) + 1911:04d}-{int(m.group(2)):02d}-{int(m.group(3)):02d}" if m else None
+
+
+def twd(s):
+    t = re.sub(r"[^\d]", "", str(s or ""))
+    return int(t) if t else None
+
+
+def pcc_items(records, since_day):
+    out = []
+    for rec in records:
+        b = rec.get("brief") or {}
+        kind = PCC_TYPES.get(b.get("type"))
+        d = str(rec.get("date") or "")
+        if not kind or len(d) != 8:
+            continue
+        day = f"{d[:4]}-{d[4:6]}-{d[6:]}"
+        if day < since_day:
+            continue
+        winners = pcc_winners(rec)
+        beat_w = [w for w in winners if pcc_beat(w)]
+        if not beat_w:
+            continue  # 탈락 명단·이름만 나온 공고는 버림
+        beat = sorted({pcc_beat(w) for w in beat_w})
+        fn = str(rec.get("filename") or "")
+        if re.search(r"契約變更", str(b.get("title") or "")):
+            kind = "계약 변경"  # 결정 공고라도 제목이 'N차 계약 변경'이면 새 수주가 아니다(10-30 탐침: 臺鐵 SJ01 號誌 第1次契約變更)
+        out.append({
+            "id": f"pcc:{rec.get('unit_id')}:{rec.get('job_number')}:{fn}", "source": PCC_SOURCE, "published": day, "kind": kind,
+            "buyer": norm_space(rec.get("unit_name"))[:160], "buyerCountry": "TWN", "winners": beat_w[:6], "winnerCount": len(winners),
+            "winnerCountry": [], "winnerIds": [], "company": beat[0], "companies": beat, "title": norm_space(b.get("title"))[:240],
+            "value": rec.get("award_amount") or None, "currency": "TWD", "priceKind": "공고 전체 결정 금액(품목이 여럿이면 합계)" if rec.get("award_amount") else None,
+            "concluded": None, "noticeType": b.get("type"),
+            "url": PCC_VIEWER.format(unit=rec.get("unit_id"), job=rec.get("job_number")),
+            "official": PCC_OFFICIAL.format(date=d, fn=fn) if fn else None,
+            "tenderApi": rec.get("tender_api_url"), "unitId": rec.get("unit_id"), "jobNumber": rec.get("job_number"), "filename": fn,
+        })
+    return out
+
+
+def pcc_detail(item, *, get=None):
+    """새 공고 한 번: 출입처가 낙찰한 품목의 결정 금액·원산지, 결정일, 표적 분류."""
+    r = _get(get, PCC_TENDER, params={"unit_id": item.get("unitId"), "job_number": item.get("jobNumber")})
+    if r.status_code == 429:
+        raise RateLimited("HTTP 429")
+    if r.status_code != 200:
+        raise RuntimeError(f"HTTP {r.status_code}")
+    rec = next((x for x in (r.json().get("records") or []) if str(x.get("filename")) == item.get("filename")), None)
+    if not rec:
+        raise RuntimeError("상세 없음")
+    det = rec.get("detail") or {}
+    lines, total = [], 0
+    for k, v in det.items():
+        m = WIN_KEY.match(k)
+        if not m or not pcc_beat(v):
+            continue
+        pre = k.rsplit(":", 1)[0]
+        amt = twd(det.get(pre + ":決標金額"))
+        origin = norm_space(det.get(pre + ":原產地國別:原產地國別"))
+        item_name = norm_space(det.get(f"決標品項:第{m.group(1)}品項:品項名稱"))
+        if item_name and item_name == norm_space(item.get("title")):
+            item_name = ""  # 품목이 하나면 품목명이 공고 제목과 같다(10-30 실제 공고)
+        total += amt or 0
+        lines.append(f"{m.group(1)}번 품목{f' {item_name}' if item_name else ''} {v} NT${amt:,}" if amt else f"{m.group(1)}번 품목 {v} 금액 미기재")
+        if origin:
+            lines[-1] += f"(원산지 {origin})"
+    return {"lines": lines, "beatTotal": total or None, "concluded": roc_date(det.get("決標資料:決標日期")),
+            "category": norm_space(det.get("採購資料:標的分類"))[:80] or None}
+
+
+def pcc(since, previous_ids, *, get=None, sleep=time.sleep):
+    """미러 호출 제한(429)이 오면 이번 실행의 나머지 검색·상세는 하지 않는다(다시 부르지 않음, 남은 검색은 미확인)."""
+    items, checks, since_day = {}, [], since.date().isoformat()
+    limited = False
+    for i, (ko, term) in enumerate(PCC_TERMS):
+        if limited:
+            checks.append({"source": PCC_SOURCE, "query": f"{ko}({term})", "status": "failed", "error": "HTTP 429 뒤 이번 실행 중단"})
+            continue
+        if i:
+            sleep(PCC_GAP)
+        try:
+            r = _get(get, PCC_SEARCH, params={"query": term})
+            if r.status_code == 429:
+                limited = True
+                raise RuntimeError("HTTP 429")
+            if r.status_code != 200:
+                raise RuntimeError(f"HTTP {r.status_code}")
+            recs = r.json().get("records")
+            if not isinstance(recs, list):
+                raise RuntimeError("응답 형식 미상")
+            got = pcc_items(recs, since_day)
+            for it in got:
+                items.setdefault(it["id"], it)
+            checks.append({"source": PCC_SOURCE, "query": f"{ko}({term})", "status": "ok", "returned": len(recs), "matched": len(got)})
+        except Exception as e:  # noqa: BLE001
+            checks.append({"source": PCC_SOURCE, "query": f"{ko}({term})", "status": "failed", "error": str(e)[:80] or type(e).__name__})
+    read = 0
+    for it in sorted(items.values(), key=lambda x: x["published"], reverse=True):
+        if it["id"] in previous_ids:
+            continue
+        if limited or read >= PCC_DETAIL_MAX:
+            it["detailError"] = "HTTP 429(상세 다음에)" if limited else "상세 상한(다음에)"
+            continue
+        read += 1
+        sleep(PCC_GAP)
+        try:
+            d = pcc_detail(it, get=get)
+            if d["lines"]:
+                it["title"] = f"{it['title']} — {' · '.join(d['lines'])}"[:400]
+            if d["beatTotal"]:
+                it["value"], it["priceKind"] = d["beatTotal"], "출입처 낙찰 품목 결정 금액 합"
+            it["concluded"], it["category"] = d["concluded"], d["category"]
+        except RateLimited:
+            limited = True
+            it["detailError"] = "HTTP 429(상세 다음에)"
+        except Exception as e:  # noqa: BLE001 — 상세 실패는 목록 값만 남긴다
+            it["detailError"] = str(e)[:60] or type(e).__name__
+    return list(items.values()), checks
+
+
 # ---------------------------------------------------------------- run
 def tier_of(it):
     if not it.get("company"):
@@ -510,6 +672,28 @@ def run(*, now, previous=None, get=None, post=None, sleep=time.sleep):
     bh_got, bh_checks, bh_seen = bahrain((previous or {}).get("bahrainSeen"), get=get)
     found += bh_got
     checks += bh_checks
+    known = {x.get("id") for x in (previous or {}).get("items") or []
+             if isinstance(x, dict) and not re.search(r"다음에", str(x.get("detailError") or ""))}  # 429·상한으로 못 읽은 상세는 다음 실행에
+    pcc_last = (previous or {}).get("pccLastRun")
+    try:
+        pcc_due = not pcc_last or (now - dt.datetime.fromisoformat(pcc_last)).total_seconds() >= PCC_EVERY_HOURS * 3600
+    except (TypeError, ValueError):
+        pcc_due = True
+    if pcc_due:
+        pcc_got, pcc_checks = pcc(since if pcc_last else max(since, now - dt.timedelta(days=BASELINE_DAYS)), known, get=get, sleep=sleep)
+        pcc_last = stamp
+    else:
+        pcc_got, pcc_checks = [], [{"source": PCC_SOURCE, "query": "출입처 이름 검색", "status": "ok", "returned": 0, "matched": 0,
+                                    "note": f"하루 한 번(마지막 {str(pcc_last)[:16]}) — 이번 실행은 건너뜀"}]
+    old_by = {x.get("id"): x for x in (previous or {}).get("items") or [] if isinstance(x, dict)}
+    for it in pcc_got:  # 상세는 처음 볼 때만 읽으니, 다시 잡힌 공고는 저장된 상세(금액·결정일)를 그대로 쓴다(이번에 다시 읽은 것은 제외)
+        o = old_by.get(it["id"]) if it["id"] in known else None
+        if o:
+            for k in ("title", "value", "priceKind", "concluded", "category", "detailError"):
+                if k in o:
+                    it[k] = o[k]
+    found += pcc_got
+    checks += pcc_checks
     old = {x["id"]: x for x in (previous or {}).get("items") or []}
     items = dict(old)
     for it in found:
@@ -525,7 +709,7 @@ def run(*, now, previous=None, get=None, post=None, sleep=time.sleep):
             x["isNew"] = False
             # stored items follow the current name and tier rules (e.g. a company dropped from the beat list)
             if x.get("source") != "바레인 입찰위원회":
-                beat = sorted({b for b in (beat_of(w) for w in x.get("winners") or []) if b})
+                beat = sorted({b for b in ((pcc_beat if x.get("source") == PCC_SOURCE else beat_of)(w) for w in x.get("winners") or []) if b})
                 x["company"], x["companies"] = (beat[0] if beat else None), beat
             x["tier"] = tier_of(x)
     cut = (now - dt.timedelta(days=KEEP_DAYS)).date().isoformat()
@@ -537,8 +721,8 @@ def run(*, now, previous=None, get=None, post=None, sleep=time.sleep):
         "schema": SCHEMA, "generatedAt": stamp, "status": status,
         "lastSuccess": stamp if status != "failed" else (previous or {}).get("lastSuccess"),
         "baselineSince": (previous or {}).get("baselineSince") or stamp, "windowStart": since.date().isoformat(),
-        "checks": checks, "items": kept[:KEEP_MAX], "bahrainSeen": bh_seen, "rules": RULES,
-        "coverage": "EU TED(유럽 공공·유틸리티) · 영국 Find a Tender · 세계은행 낙찰 공고 · 바레인 입찰위원회 월간 낙찰 보고서",
+        "checks": checks, "items": kept[:KEEP_MAX], "bahrainSeen": bh_seen, "pccLastRun": pcc_last, "rules": RULES,
+        "coverage": "EU TED(유럽 공공·유틸리티) · 영국 Find a Tender · 세계은행 낙찰 공고 · 바레인 입찰위원회 월간 낙찰 보고서 · 대만 정부조달(PCC)",
     }
 
 
