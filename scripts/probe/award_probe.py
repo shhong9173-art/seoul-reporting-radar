@@ -1,30 +1,34 @@
-"""probe: 빈 칸을 빼는 파서로 기존 형식 시·군(당진·울주·울산 남구·아산·여수)과 광명 1쪽 다시 읽기 — 회귀 확인(공개 자료)."""
+"""probe: 무역협회 수입규제DB 실제 목록·상세를 kita_watch 파서로(공개 자료, robots 허용). 목록 1 + 상세 최대 10회."""
+import datetime as dt
 import sys
-import time
-from concurrent.futures import ThreadPoolExecutor
+import traceback
 from pathlib import Path
 
-import requests
-
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-import kr_local_notice_watch as w  # noqa: E402
+import kita_watch as k  # noqa: E402
 
-PICK = ["당진시", "울주군", "울산 남구", "아산시", "여수시", "광주 서구", "광명시"]
-
-
-def one(c):
-    city, base, _ = c
-    try:
-        t = w.fetch_page(base, 1, requests.post, time.sleep)
-        rows = w.parse_rows(t)
-        bad = [r for r in rows if not r["title"] or not r["date"]]
-        return f"{city}: rows {len(rows)} bad {len(bad)} no {sum(1 for r in rows if r['no'])} dept {sum(1 for r in rows if r['dept'])} | {rows[0]['title'][:30] if rows else '-'} | {rows[0]['dept'] if rows else '-'} | {rows[0]['date'] if rows else '-'}"
-    except Exception as e:  # noqa: BLE001
-        return f"{city}: ERR {type(e).__name__}"
-
-
-with ThreadPoolExecutor(7) as ex:
-    out = list(ex.map(one, [c for c in w.CITIES if c[0] in PICK]))
+out = []
+try:
+    http = k.Http()
+    cards = k.parse_cards(http.post(k.LIST, {"pageIndex": "1", "pageUnit": "50", "searchOrder": "2"}))
+    out.append(f"cards {len(cards)}")
+    for c in cards[:8]:
+        out.append(f"  {c}")
+    now = dt.datetime.now(dt.timezone(dt.timedelta(hours=9)))
+    s1, ev1, c1 = k.collect(None, now, http)
+    out.append(f"baseline check {c1} events {len(ev1)} cases {len(s1['cases'])}")
+    prev = {**s1, "cases": dict(s1["cases"])}
+    # 시뮬레이션: 위에서 셋은 '처음 본 사건', 다음 다섯은 '갱신일이 바뀐 사건'으로
+    for c in cards[:3]:
+        prev["cases"].pop(c["tirId"], None)
+    for c in cards[3:8]:
+        prev["cases"][c["tirId"]] = dict(prev["cases"][c["tirId"]], updated="2000-01-01")
+    s2, ev2, c2 = k.collect(prev, now, http)
+    out.append(f"sim check {c2} events {len(ev2)}")
+    for e in ev2:
+        out.append(f"  {e['tier']} {e['kitaKind']} | {e['text'][:420]} | {e['url']}")
+except Exception:  # noqa: BLE001
+    out.append("ERR " + traceback.format_exc()[-1500:])
 blob = "\n".join(out)
 open("/tmp/probe_out.txt", "w").write(blob)
 print("total chars", len(blob))
