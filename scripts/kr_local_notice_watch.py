@@ -64,6 +64,15 @@ CITIES = [
     ("평택시", "https://eminwon.pyeongtaek.go.kr", "KG모빌리티"),
     ("천안시", "https://eminwon.cheonan.go.kr", "LS일렉트릭"),
     ("양산시", "https://eminwon.yangsan.go.kr", "넥센타이어"),
+    # 10-30 추가(탐침으로 목록 30줄 확인): 출입처 공장이 있는데 빠져 있던 시·군
+    ("울산 북구", "https://eminwon.bukgu.ulsan.kr", "현대차·현대모비스"),
+    ("울산 동구", "http://eminwon.donggu.ulsan.kr", "HD현대일렉트릭"),
+    ("완주군", "https://eminwon.wanju.go.kr", "현대차(전주공장)"),
+    ("봉화군", "https://eminwon.bonghwa.go.kr", "영풍(석포제련소)"),
+    ("부산 강서구", "https://eminwon.bsgangseo.go.kr", "르노코리아"),
+    ("부산 사하구", "https://eminwon.saha.go.kr", "동국씨엠·동성케미컬"),
+    ("원주시", "https://eminwon.wonju.go.kr", "HL만도"),
+    ("예산군", "https://eminwon.yesan.go.kr", "현대제철"),
 ]
 
 # (출입처, 제목 규칙)
@@ -77,7 +86,7 @@ COMPANIES = [
     ("HD현대일렉트릭", r"HD현대일렉트릭|에이치디현대일렉트릭|현대일렉트릭"), ("LS일렉트릭", r"LS일렉트릭|엘에스일렉트릭"),
     ("대한전선", r"대한전선"), ("LS전선", r"LS전선|엘에스전선"), ("LS MnM", r"LS\s*MnM|엘에스엠앤엠|LS엠앤엠"),
     ("두산에너빌리티", r"두산에너빌리티"), ("GS칼텍스", r"GS칼텍스|지에스칼텍스"), ("한화솔루션", r"한화솔루션"),
-    ("OCI", r"OCI(?![A-Za-z])|오씨아이"), ("태광", r"태광산업"), ("동성케미칼", r"동성케미칼"), ("DL케미칼", r"DL케미칼|디엘케미칼"),
+    ("OCI", r"OCI(?![A-Za-z])|오씨아이"), ("태광", r"태광산업"), ("동성케미칼", r"동성케미[칼컬]"), ("DL케미칼", r"DL케미칼|디엘케미칼"),
     ("효성중공업(관련)", r"효성중공업"),
 ]
 PROJECT = re.compile(r"증설|신설|신규|설치|건설|건립|공장|라인|환경영향평가|매립|산업단지|착공|확장|이전|안전점검|사업")
