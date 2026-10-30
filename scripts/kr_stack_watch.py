@@ -182,6 +182,12 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep):
     fresh, errors, ok_terms, seen_sites = [], [], 0, set()
     day = now.date().isoformat()
 
+    def settle(prefix, note):
+        """목록에서 빠졌다던 것이 다시 나타나면 그 이벤트를 C로 내리고 '다시 나타남'을 붙인다(일시적 누락)."""
+        for e in fresh + events:
+            if str(e.get("id", "")).startswith(prefix) and e.get("tier") != "C":
+                e["tier"], e["text"] = "C", (e.get("text") or "") + note
+
     def emit(eid, kind, tier, company, site, text):
         if eid not in known:
             known.add(eid)
@@ -229,6 +235,8 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep):
                     continue
                 present.add(code)
                 st = stacks.get(code)
+                if st is not None and st.get("missing", 0) >= MISSING_RUNS:
+                    settle(f"stk:gone:{sid}:{code}:", f" — 이후 다시 나타남(측정 {x.get('mesure_dt')}, 일시적 누락)")
                 if st is None:
                     st = {"firstSeen": stamp, "obs": []}
                     stacks[code] = st
@@ -276,7 +284,8 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep):
             for code, st in stacks.items():
                 if code not in present:
                     st["missing"] = st.get("missing", 0) + 1
-                    if st["missing"] == MISSING_RUNS and not first:
+                    # 6번 넘게 관측된 배출구만(초기에는 측정 자료가 늦게 들어와 목록이 들쑥날쑥하다)
+                    if st["missing"] == MISSING_RUNS and not first and len(st.get("obs") or []) >= MIN_OBS:
                         emit(f"stk:gone:{sid}:{code}:{day}", "배출구 목록에서 빠짐", "B", comp["company"], name,
                              f"{name} 배출구 {code}번이 굴뚝 자동측정 목록에서 {MISSING_RUNS}번 연속 빠짐 — 설비 폐쇄·측정 대상 변경일 수 있음(회사 확인)")
 
@@ -310,10 +319,16 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep):
     for sid, s in sites.items():
         if sid not in seen_sites and s["company"] in scanned:
             s["missingRuns"] = s.get("missingRuns", 0) + 1
+            if s.get("runs", 0) < MATURE_RUNS:  # 예전 규칙으로 B가 된 이른 사업장의 '빠짐'도 C로(10-30 엘에스엠앤엠)
+                settle(f"stk:sitegone:{sid}", f" — 이 사업장을 {s.get('runs', 0) or '몇'}번만 봐서 일시적 누락일 수 있음")
             if s["missingRuns"] == MISSING_RUNS and not first:
-                emit(f"stk:sitegone:{sid}", "사업장 목록에서 빠짐(굴뚝 측정)", "B", s["company"], s["name"],
-                     f"{s['name']}이 굴뚝 자동측정 목록에서 {MISSING_RUNS}번 연속 빠짐 — 폐쇄·이름 변경·측정 대상 제외 확인")
+                mature = s.get("runs", 0) >= MATURE_RUNS
+                emit(f"stk:sitegone:{sid}", "사업장 목록에서 빠짐(굴뚝 측정)", "B" if mature else "C", s["company"], s["name"],
+                     f"{s['name']}이 굴뚝 자동측정 목록에서 {MISSING_RUNS}번 연속 빠짐 — "
+                     + ("폐쇄·이름 변경·측정 대상 제외 확인" if mature else f"이 사업장을 {s.get('runs', 0)}번만 봐서 일시적 누락일 수 있음"))
         elif sid in seen_sites:
+            if s.get("missingRuns", 0) >= MISSING_RUNS:
+                settle(f"stk:sitegone:{sid}", f" — 이후 다시 나타남({stamp[:16]}, 일시적 누락)")
             s["missingRuns"] = 0
 
     total_terms = sum(len(c["terms"]) for c in cfg["companies"])

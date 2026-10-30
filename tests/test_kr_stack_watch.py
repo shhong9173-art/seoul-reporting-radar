@@ -139,6 +139,33 @@ class StackTest(unittest.TestCase):
         doc = w.run(CFG_SMALL, now=t, previous=doc, key="k", get=Api(world(t, extra=extra)), sleep=lambda s: None)
         self.assertEqual([(e["kind"], e["tier"]) for e in doc["events"] if e["detectedAt"] == doc["generatedAt"]], [("배출구 목록 보강", "C")])
 
+    def test_site_gone_needs_maturity_and_reappearance_settles_it(self):
+        # 10-30 14:36 운영: 첫날 엘에스엠앤엠(주)이 2번 빠져 B — 이른 감시의 일시적 누락일 수 있다
+        def drop_yp(t):
+            return [x for x in world(t) if x["fact_manage_nm"] != "㈜영풍석포제련소"]
+        doc = series(2)
+        for k in range(2):
+            t = T0 + dt.timedelta(hours=6 + 3 * k)
+            doc = w.run(CFG_SMALL, now=t, previous=doc, key="k", get=Api(drop_yp(t)), sleep=lambda s: None)
+        gone = [e for e in doc["events"] if e["kind"].startswith("사업장 목록에서 빠짐")]
+        self.assertEqual([e["tier"] for e in gone], ["C"])
+        self.assertIn("일시적 누락일 수 있음", gone[0]["text"])
+        # 예전 규칙으로 저장된 B도 다음 실행에 C로
+        gone[0]["tier"] = "B"
+        t = T0 + dt.timedelta(hours=12)
+        doc = w.run(CFG_SMALL, now=t, previous=doc, key="k", get=Api(drop_yp(t)), sleep=lambda s: None)
+        self.assertEqual([e["tier"] for e in doc["events"] if e["kind"].startswith("사업장 목록에서 빠짐")], ["C"])
+        doc = series(8)
+        for k in range(2):
+            t = T0 + dt.timedelta(hours=24 + 3 * k)
+            doc = w.run(CFG_SMALL, now=t, previous=doc, key="k", get=Api(drop_yp(t)), sleep=lambda s: None)
+        self.assertEqual([e["tier"] for e in doc["events"] if e["kind"].startswith("사업장 목록에서 빠짐")], ["B"])
+        t = T0 + dt.timedelta(hours=30)
+        doc = w.run(CFG_SMALL, now=t, previous=doc, key="k", get=Api(world(t)), sleep=lambda s: None)
+        back = [e for e in doc["events"] if e["kind"].startswith("사업장 목록에서 빠짐")]
+        self.assertEqual([e["tier"] for e in back], ["C"])
+        self.assertIn("이후 다시 나타남", back[0]["text"])
+
     def test_stored_burst_of_new_stack_A_is_collapsed(self):
         at = "2026-10-30T13:36:00+09:00"
         burst = [{"id": f"stk:newstack:고려아연:x:{c}", "kind": "새 배출구", "tier": "A", "company": "고려아연", "site": "고려아연㈜온산제련소",
