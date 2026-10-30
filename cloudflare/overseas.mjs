@@ -626,11 +626,38 @@ export async function workforceSection(ctx, q, days, limit) {
   return out;
 }
 
+// Stack monitoring of beat plants (kr-stacks feed, 굴뚝 자동측정 TMS): which plants have stacks that stopped, and recent events.
+export async function stacksSection(ctx, q, days, limit) {
+  const doc = await readFeed(ctx, 'kr-stacks');
+  if (!doc) return ['\n[굴뚝 측정(공장 가동 신호)] 결과 없음 — 미확인(3시간마다 실행 확인)'];
+  if (doc.broken) return ['\n[굴뚝 측정(공장 가동 신호)] 저장 형식 오류 — 미확인'];
+  const sites = (doc.sites ?? []).filter((s) => matches(q, s.company, s.name, s.area));
+  const stacks = sites.reduce((n, s) => n + Object.keys(s.stacks ?? {}).length, 0);
+  const obsOf = (s) => Math.max(0, ...Object.values(s.stacks ?? {}).map((st) => (st.obs ?? []).length));
+  const out = [`\n[굴뚝 측정(공장 가동 신호) · 출입처 사업장 ${sites.length}곳 · 배출구 ${stacks}개 · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt)}]`,
+    `원천: ${(doc.checks ?? []).map((c) => `${c.source} ${c.status}(${c.returned ?? 0}${c.terms ? `, 검색 ${c.terms}` : ''}${c.error ? `, ${c.error}` : ''})`).join(' · ')} · 기준선 ${String(doc.baselineSince ?? '').slice(0, 10)}`,
+    ...(doc.rules ?? []).map((r) => `규칙: ${r}`)];
+  const down = sites.filter((s) => (s.stopped ?? []).length).sort((a, b) => (b.stopped.length / Math.max(1, b.meaningful ?? 1)) - (a.stopped.length / Math.max(1, a.meaningful ?? 1)));
+  out.push(`- 지금 멈춤으로 판단한 배출구가 있는 사업장 ${down.length}곳(관측 6번 전 사업장은 판단 안 함)`);
+  for (const s of down.slice(0, limit)) {
+    out.push(`  ${s.company} · ${s.name}(${s.area ?? '지역 미상'}) · 평소 움직이던 배출구 ${s.meaningful ?? '?'}개 중 멈춤 ${s.stopped.length}개: ${s.stopped.slice(0, 8).map((c) => `${c}번(측정 ${s.stacks?.[c]?.lastDt ?? '?'})`).join(', ')}`);
+  }
+  const young = sites.filter((s) => obsOf(s) < 6).length;
+  if (young) out.push(`  (관측이 아직 6번이 안 된 사업장 ${young}곳 — 판단 전)`);
+  const from = new Date(ctx.now.getTime() - days * 86400000).toISOString();
+  const ev = (doc.events ?? []).filter((e) => String(e.detectedAt) >= from && matches(q, e.company, e.site, e.text));
+  out.push(`- 감지된 변화 · 최근 ${days}일 ${ev.length}건`);
+  for (const e of ev.slice(0, limit)) out.push(`  ${e.tier} · ${String(e.detectedAt).slice(0, 16)} · ${e.kind} · ${e.company}: ${e.text}`);
+  out.push('   검증 상태: 한국환경공단 굴뚝 자동측정 실시간 값(자동)을 이 감시가 쌓은 이력. 배출구 이름·설비 종류 없음, 값 하락은 정지·정비·점검 중 무엇인지 모름 — 회사 확인 전 미확인');
+  return out;
+}
+
 export async function krOfficial(ctx, args) {
-  const section = ['factory', 'gazette', 'insolvency', 'building', 'local', 'workforce'].includes(args.section) ? args.section : null;
+  const section = ['factory', 'gazette', 'insolvency', 'building', 'local', 'workforce', 'stacks'].includes(args.section) ? args.section : null;
   const q = String(args.company ?? '').trim();
   if (section === 'local') return textResult((await localSection(ctx, q, clampInt(args.days, 1, 120, 30), clampInt(args.limit, 1, 80, 20))).join('\n').trim());
   if (section === 'workforce') return textResult((await workforceSection(ctx, q, clampInt(args.days, 1, 120, 45), clampInt(args.limit, 1, 80, 20))).join('\n').trim());
+  if (section === 'stacks') return textResult((await stacksSection(ctx, q, clampInt(args.days, 1, 60, 14), clampInt(args.limit, 1, 80, 20))).join('\n').trim());
   const insolvency = !section || section === 'insolvency'
     ? await insolvencySection(ctx, q, clampInt(args.days, 1, 120, 30), clampInt(args.limit, 1, 80, 20)) : [];
   if (section === 'insolvency') return textResult(insolvency.join('\n').trim());
@@ -640,6 +667,7 @@ export async function krOfficial(ctx, args) {
   insolvency.push(...building);
   if (!section) insolvency.push(...await localSection(ctx, q, clampInt(args.days, 1, 120, 30), clampInt(args.limit, 1, 80, 20)));
   if (!section) insolvency.push(...await workforceSection(ctx, q, clampInt(args.days, 1, 120, 45), clampInt(args.limit, 1, 80, 10)));
+  if (!section) insolvency.push(...await stacksSection(ctx, q, clampInt(args.days, 1, 60, 14), clampInt(args.limit, 1, 80, 10)));
   const doc = await readFeed(ctx, 'kr-official');
   if (!doc) return insolvency.length ? textResult([missing('공장등록·관보 입법예고', '평일 08:10').content[0].text, ...insolvency].join('\n'), true) : missing('공장등록·관보 입법예고', '평일 08:10');
   if (doc.broken) return textResult(['저장된 국내 공식 원천 결과 형식 오류 — 미확인.', ...insolvency].join('\n'), true);

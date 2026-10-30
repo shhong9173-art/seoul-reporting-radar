@@ -776,6 +776,32 @@ test('kr_official workforce: member counts ranked by monthly drop with year-ago,
   assert.match(b, /기아 이름이 든 새 공사 3건/);
 });
 
+test('kr_official stacks: plants with stopped stacks first, events, young sites not judged; radar_today A for a plant-wide stop', async () => {
+  const env = PRIVATE().env;
+  const recent = new Date(Date.now() - 3600000).toISOString();
+  const doc = { schema: 'kr_stacks/v1', generatedAt: '2026-10-31T09:20:00+09:00', status: 'complete', baselineSince: '2026-10-30T12:20:00+09:00',
+    checks: [{ source: '굴뚝 자동측정(CleanSYS)', status: 'ok', returned: 3, terms: '24/24' }], rules: ['배출구 이름·설비 종류는 자료에 없다(번호만).'],
+    sites: [
+      { id: 'a', company: '현대제철', name: '현대제철㈜포항2공장', area: '경상북도', meaningful: 2, stopped: ['1', '2'],
+        stacks: { 1: { lastDt: '2026-10-31 09:00', obs: Array(9).fill(['x', 0]) }, 2: { lastDt: '2026-10-31 09:00', obs: Array(9).fill(['x', 0]) } } },
+      { id: 'b', company: '포스코', name: '㈜포스코 광양제철소', area: '전라남도', meaningful: 150, stopped: ['17'], stacks: { 17: { lastDt: '2026-10-31 09:00', obs: Array(9).fill(['x', 0]) } } },
+      { id: 'c', company: '고려아연', name: '고려아연㈜온산제련소', area: '울산광역시', meaningful: 0, stopped: [], stacks: { 11: { obs: [['x', 5]] } } }],
+    events: [{ id: 'stk:down:a:2026-10-31', kind: '사업장 가동 중단 신호', tier: 'A', company: '현대제철', site: '현대제철㈜포항2공장', detectedAt: recent,
+      text: '현대제철㈜포항2공장: 평소 움직이던 배출구 2개 중 2개가 3번 연속 평소의 10% 아래' }] };
+  const post = await worker.fetch(new Request(ORIGIN + '/ingest/kr-stacks', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {});
+  assert.equal(post.status, 200);
+  const opts = { path: `/mcp/${TOKEN}`, env };
+  const r = await call('kr_official', { section: 'stacks' }, opts);
+  assert.match(r.text, /\[굴뚝 측정\(공장 가동 신호\) · 출입처 사업장 3곳 · 배출구 4개/);
+  assert.match(r.text, /멈춤으로 판단한 배출구가 있는 사업장 2곳/);
+  assert.ok(r.text.indexOf('포항2공장(경상북도)') < r.text.indexOf('광양제철소(전라남도)'));  // 멈춘 비율 높은 순
+  assert.match(r.text, /평소 움직이던 배출구 2개 중 멈춤 2개: 1번\(측정 2026-10-31 09:00\), 2번/);
+  assert.match(r.text, /관측이 아직 6번이 안 된 사업장 1곳/);
+  assert.match(r.text, /A · .* · 사업장 가동 중단 신호 · 현대제철/);
+  const a = (await call('radar_today', {}, opts)).text.split('[A · ')[1].split('[B · ')[0];
+  assert.match(a, /굴뚝 측정\(공장 가동 신호\)[\s\S]*포항2공장: 평소 움직이던 배출구 2개 중 2개/);
+});
+
 test('us_litigation shows party cases by priority, folds routine ones, and lists ITC 337 names', async () => {
   const env = PRIVATE().env;
   const doc = { schema: 'us_litigation/v1', generatedAt: '2026-10-27T07:50:00+09:00', windowDays: 45, rules: ['당사자 목록에 출입처가 있는 사건만.'],
@@ -1140,7 +1166,7 @@ test('kr_signals shows FTC decisions by role, KEPCO bids and commodity prices, a
   const minor = await call('radar_today', { include_minor: true }, opts);
   assert.match(minor.text, /「\(연간단가\)고효율주상변압기,50KVA\(광유\)-2,338대-0\d\(일반\)」 외 같은 공고 2건\(합계 약 149억원\) · 추정가격 약 50억원/);
   assert.equal((minor.text.match(/고효율주상변압기/g) ?? []).length, 1);  // three lots, one line
-  assert.match(r.text, /기자 전용 감시 21개/);
+  assert.match(r.text, /기자 전용 감시 22개/);
   assert.deepEqual(dueAt(new Date('2026-10-26T23:30:00Z')), ['kr-signals.yml', 'kipris-patent-hunt.yml']);  // Tue 08:30 KST
   assert.deepEqual(dueAt(new Date('2026-10-27T06:20:00Z')), ['kr-signals.yml']);  // Tue 15:20 KST
 });
@@ -1281,7 +1307,7 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   assert.doesNotMatch((await call('trademarks', { name: 'aero' }, opts)).text, /NUTRIMACY/);
   assert.doesNotMatch((await call('trademarks', { class: '35' }, opts)).text, /NUTRIMACY/);
   const r = await call('radar_today', {}, opts);
-  assert.match(r.text, /기자 전용 감시 21개/);
+  assert.match(r.text, /기자 전용 감시 22개/);
   assert.match(r.text, /- 상표 출원: 대기 1곳\(제공기관 응답 22 뒤 72시간 대기\) — 해당 부분 0건은 미확인/);
   assert.doesNotMatch(r.text, /상표 출원: [^\n]*시간 전 결과/);
   const b = r.text.split('[B · ')[1].split('[C · ')[0];
@@ -1291,7 +1317,7 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   assert.match(minor.text, /상표 출원 「NUTRIMACY」[^\n]* — 같은 이름 상품류 추가/);
   const list = await rpc('tools/list', {}, { path: `/mcp/${TOKEN}`, env });
   assert.ok(list.body.result.tools.some((x) => x.name === 'trademarks'));
-  assert.match(list.body.result.tools.find((x) => x.name === 'radar_today').description, /감시 21개\([^)]*상표 출원, 국회 법안, 미국 리콜, 미국 EPA 인증, 국내 연비 신고, 해외 발주처 낙찰, 협력사 회생·파산, 전기위·원안위, 공장 부지 건축허가, 해외 법인 등기, 지자체 고시·공고, 사업장 인력\)/);
+  assert.match(list.body.result.tools.find((x) => x.name === 'radar_today').description, /감시 22개\([^)]*상표 출원, 국회 법안, 미국 리콜, 미국 EPA 인증, 국내 연비 신고, 해외 발주처 낙찰, 협력사 회생·파산, 전기위·원안위, 공장 부지 건축허가, 해외 법인 등기, 지자체 고시·공고, 사업장 인력, 굴뚝 측정\)/);
   assert.ok(!(await rpc('tools/list', {}, { env })).body.result.tools.some((x) => x.name === 'trademarks'));  // private only
 });
 

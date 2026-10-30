@@ -100,7 +100,7 @@ class Capture(unittest.TestCase):
         self.assertEqual(sent["doc"]["feedsEmpty"], ["trademarks"])
         self.assertEqual(sent["doc"]["feedsFailed"], ["kr-signals:StoreError"])
         self.assertIn("저장 결과 없음 ['trademarks']", buf.getvalue())
-        self.assertIn("감시 읽음 18/20", buf.getvalue())
+        self.assertIn("감시 읽음 19/21", buf.getvalue())
 
 
     def test_plant_permit_before_the_article(self):

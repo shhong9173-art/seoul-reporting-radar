@@ -42,6 +42,7 @@ export const WATCHES = [
   { feed: 'overseas-registry', label: '해외 법인 등기(영국)', tool: 'partner_filings', schedule: '평일 06:00' },
   { feed: 'kr-local', label: '지자체 고시·공고', tool: 'kr_official', schedule: '평일 06:30·16:20' },
   { feed: 'kr-workforce', label: '사업장 인력(국민연금)', tool: 'kr_official', schedule: '평일 15:50', staleHours: 80 },
+  { feed: 'kr-stacks', label: '굴뚝 측정(공장 가동 신호)', tool: 'kr_official', schedule: '3시간마다', staleHours: 12 },
 ];
 
 // Items first seen in a watch's very first run are a baseline, not news: they only count when their own date is recent.
@@ -424,6 +425,13 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
     if (!recent(e.detectedAt)) continue;
     push(e.tier ?? 'B', W['kr-workforce'], { kind: e.kind, id: e.id, date: e.detectedAt, company: e.company, fact: e.text,
       check: hint(e.company, /공사 현장/.test(e.kind) ? ['공사', '착공'] : /새 자사/.test(e.kind) ? ['공장', '신설'] : ['인력', '감원']) });
+  }
+
+  // 굴뚝 자동측정(TMS): 사업장 가동 중단 신호·새 배출구·새 사업장 A, 배출구 멈춤·목록에서 빠짐·재가동 B. 측정값만으로는 정지·정비·점검을 가르지 못한다.
+  for (const e of docs['kr-stacks']?.events ?? []) {
+    if (!recent(e.detectedAt)) continue;
+    push(e.tier ?? 'B', W['kr-stacks'], { kind: e.kind, id: e.id, date: e.detectedAt, company: e.company, fact: e.text,
+      check: hint(e.company, /재가동/.test(e.kind) ? ['재가동'] : /새/.test(e.kind) ? ['신설', '가동'] : ['가동 중단', '정비']) });
   }
 
   // 영국 Companies House 새 법인: 출입처 본사가 지배 주주(PSC)로 적히면 A, 지배 주주 미기재·본사 전체 이름이면 B, 이름만 같으면 C.

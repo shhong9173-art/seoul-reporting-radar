@@ -32,6 +32,7 @@ export const FEEDS = {
   'kr-building': { blob: 'kr_building', schema: 'kr_building/v1', list: 'permits' },
   'overseas-registry': { blob: 'overseas_registry', schema: 'overseas_registry/v1', list: 'companies' },
   'kr-workforce': { blob: 'kr_workforce', schema: 'kr_workforce/v1', list: 'sites' },
+  'kr-stacks': { blob: 'kr_stacks', schema: 'kr_stacks/v1', list: 'sites' },
 };
 
 // Official trade-remedy listing pages that do not answer GitHub runners (ReadTimeout). Collectors fetch them through
