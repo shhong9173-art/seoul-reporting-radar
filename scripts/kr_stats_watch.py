@@ -357,6 +357,13 @@ def run(cfg, *, now, previous=None, http=None, ecos_key="", kosis_key="", census
         if e["id"] not in have:
             events.append(e)
             have.add(e["id"])
+    # 등급 규칙이 바뀐 뒤에도 같은 달 신호는 다시 이벤트로 만들지 않는다 — 저장된 이벤트의 등급·문장만 지금 규칙으로 맞춘다
+    # (10-30: 공장 합계 60% 넘게 감소 A 신설, 현대차 HMGMA 2026-09 이벤트는 B로 저장돼 있었다).
+    now_sig = {x["id"]: x for x in (cars or {}).get("signals") or [] if isinstance(x, dict) and x.get("id")}
+    for e in events:
+        x = now_sig.get(e.get("id"))
+        if e.get("kind") == "모델별 판매" and x and x.get("tier") != e.get("tier"):
+            e.update(tier=x["tier"], text=f"{x['text']} (IR 엑셀)", retiered=stamp)
     events.sort(key=lambda e: e["detectedAt"], reverse=True)
     failed = [c for c in checks if c["status"] not in ("ok", "unset")]
     return {"schema": SCHEMA, "generatedAt": stamp, "status": "partial" if failed else "complete", "checks": checks,

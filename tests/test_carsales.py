@@ -240,6 +240,16 @@ class Signals(unittest.TestCase):
         self.assertIn(("Avante (CN7)", "급감"), m)  # CN8 1대는 세대 교체 근거가 아니다
         self.assertNotIn(("Avante (CN7)", "세대 교체로 보임"), m)
 
+    def test_plant_total_deep_drop_is_a(self):
+        # 운영 10-30: 현대차 HMGMA 2026-09 1,121대 — 직전 3개월 평균 3,707·전년 같은 달 4,027
+        hmgma = ser("미국 조지아(HMGMA) 공장", "공장 합계", [4027] + [3700] * 9 + [3600, 3821, 1121], start="2025-09", total=True, kind="plant")
+        mild = ser("체코 공장", "공장 합계", [25000] * 12 + [15000], start="2025-09", total=True, kind="plant")
+        got = {(x["scope"], x["signal"], x["tier"]) for x in cs.signals([hmgma, mild], "hmc", "plant", "2026-09")}
+        self.assertIn(("미국 조지아(HMGMA) 공장", "공장 급감", "A"), got)
+        self.assertIn(("체코 공장", "공장 급감", "B"), got)  # 60%: 30% 넘게 줄었지만 40% 아래는 아님
+        a = next(x for x in cs.signals([hmgma], "hmc", "plant", "2026-09"))
+        self.assertTrue(a["text"].endswith("공장 합계가 평소의 40% 아래"))
+
     def test_ramp_up_of_last_years_new_model_is_not_a_surge(self):
         rows = [ser("국내 공장 수출", "Palisade (LX3 HEV)", [229] + [5000] * 11 + [11484]), ser("국내 공장 수출", "GV70 (JK)", [1700] * 12 + [3797])]
         got = {(x["label"], x["signal"]) for x in cs.signals(rows, "hmc", "model", "2026-08")}
