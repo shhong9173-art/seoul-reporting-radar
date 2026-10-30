@@ -26,8 +26,13 @@ def rows_of(frag):
         out.append({"href": html.unescape(href.group(1)) if href else None, "cols": [re.sub(r"\s+", " ", c) for c in cols]})
     return out
 
-allrows = []
-for page in range(1, 41):
+r0 = S.post(w.BH_SITE + "/Templates/TenderBoardWebService.aspx/GetOpenedTender", data="{}", headers=H, timeout=60)
+f0 = r0.json().get("d") or ""
+out.append(f"GetOpenedTender rows {len(rows_of(f0))} raw rows-tag count {f0.count('rows')} sample {rows_of(f0)[:3]}")
+rf = S.post(w.BH_SITE + "/Templates/TenderBoardWebService.aspx/GetOpenedTenderF", data=json.dumps({"tenderNumber": "", "ministry": "", "category": "", "tendertype": "", "openedDate_filter": "", "endDate_filter": "", "sortingType": "", "pageIndex": "2", "sectionName": ""}), headers=H, timeout=60)
+out.append(f"F raw HTTP {rf.status_code} len {len(rf.text)}: {rf.text[:700]}")
+allrows = rows_of(f0)
+for page in range(2, 41):
     payload = {"tenderNumber": "", "ministry": "", "category": "", "tendertype": "", "openedDate_filter": "", "endDate_filter": "",
                "sortingType": "", "pageIndex": str(page), "sectionName": ""}
     try:
@@ -40,7 +45,7 @@ for page in range(1, 41):
     if page <= 2:
         out.append(f"page {page} HTTP {r.status_code} rows {len(rs)} sample: {rs[:2]}")
     if not rs:
-        out.append(f"page {page}: no rows (stop)")
+        out.append(f"page {page}: no rows (stop) raw {frag[:300]!r}")
         break
     allrows += rs
     time.sleep(0.5)
