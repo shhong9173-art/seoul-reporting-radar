@@ -76,6 +76,17 @@ class Local(unittest.TestCase):
         self.assertEqual(w.parse_rows("<table>" + row + "</table>"),
                          [{"mgt": "54887", "no": None, "title": "현대모비스(주) 울산공장 증설 관련 도시관리계획 결정 고시", "dept": "도시과", "date": "2026-10-30"}])
 
+    def test_gwangsan_layout_management_number_in_link(self):
+        # 10-30 광주 광산구 실제 목록 모양: 번호, 제목(<img> + <a href="…not_ancmt_mgt_no=…">), 담당부서, 등록일
+        row = ('<tr class="row-data"> <td scope="row">43769</td> <td class="title"><img src="x.gif" alt="일반글" /> '
+               '<a href="/emwp/gov/mogaha/ntis/web/ofr/action/OfrAction.do?pageIndex=1&amp;method=selectOfrNotAncmt&amp;not_ancmt_mgt_no=56345&amp;list_gubun=A" '
+               'title="이동합니다">금호타이어㈜ 광주공장 이전부지 도시관리계획(용도지역) 결정(변경) 열람 공고</a></td> <td>도시계획과</td> <td>2026-10-30</td> </tr>')
+        rows = w.parse_rows("<table><tbody>" + row + "</tbody></table>")
+        self.assertEqual(rows, [{"mgt": "56345", "no": None, "title": "금호타이어㈜ 광주공장 이전부지 도시관리계획(용도지역) 결정(변경) 열람 공고",
+                                 "dept": "도시계획과", "date": "2026-10-30"}])
+        self.assertEqual(w.classify(rows[0]["title"])[0], "A")
+        self.assertIn(("광주 광산구", "https://eminwon.gwangsan.go.kr", "금호타이어(광주공장)"), w.CITIES)
+
     def test_baseline_then_new_and_failures(self):
         first = w.run(now=NOW, previous=None, post=fake({"https://eminwon.dangjin.go.kr": page(DJ1, TD_ROW), "http://eminwon.ulju.ulsan.kr": page(UJ1, A_ROW)}),
                       sleep=lambda s: None, cities=CITIES)
