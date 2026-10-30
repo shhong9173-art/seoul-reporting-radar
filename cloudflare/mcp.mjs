@@ -11,7 +11,7 @@ import { krFuel, krOfficial, krSignals, krStats, pageChanges, partnerFilings, sc
 import { trademarks } from './trademarks.mjs';
 import { assemblyBills } from './assembly.mjs';
 import { radarToday } from './digest.mjs';
-import { BROWSER_CITIES, localNoticeSubmit } from './local_browser.mjs';
+import { BROWSER_CITIES, BROWSER_PAGES, localNoticeSubmit } from './local_browser.mjs';
 
 export const SUPPORTED_VERSIONS = ['2025-06-18', '2025-03-26', '2024-11-05'];
 const SERVER_INFO = { name: 'seoul-reporting-radar', title: '산업부 취재 레이더', version: '1.0.0' };
@@ -130,12 +130,16 @@ export const TOOLS = [
     description: `후보를 재점검해 저장(하루 추천 ${POLICY.dailyLimit}건 한도, 같은 날 중복 제목 제외).`,
     inputSchema: obj({ candidates: { type: 'array', items: CANDIDATE_SCHEMA, maxItems: 10 } }, ['candidates']) },
   { name: 'local_notice_submit', access: 'private', handler: localNoticeSubmit,
-    description: `기자 컴퓨터 브라우저로 읽은 새올 고시·공고 목록 올리기(예약 작업용). 해외 IP에서 막히는 시·군(${Object.keys(BROWSER_CITIES).join('·')})만 받는다. 목록 첫 쪽 줄마다 관리번호(searchDetail 안 숫자)와 칸 글자만 보낸다 — 제목을 고치거나 요약하지 말 것. 읽지 못한 시·군은 rows 없이 error에 이유. 저장 뒤 지자체 고시·공고 감시를 한 번 실행 요청(1시간 안 재요청 없음).`,
-    inputSchema: obj({ cities: { type: 'array', maxItems: 20, items: obj({
+    description: `기자 컴퓨터 브라우저로 읽은 목록 올리기(예약 작업용). cities: 해외 IP에서 막히는 시·군 새올 고시·공고(${Object.keys(BROWSER_CITIES).join('·')}) — 목록 첫 쪽 줄마다 관리번호(searchDetail 안 숫자)와 칸 글자만, 저장 뒤 지자체 고시·공고 감시를 한 번 실행 요청(1시간 안 재요청 없음). pages: 해외 IP에서 막히는 무역구제 공고 목록(${Object.keys(BROWSER_PAGES).join('·')}) — 한국이 든 줄의 칸 글자와 그 줄 링크(같은 사이트)만, 다음 정기 무역구제 감시에 반영. 글자를 고치거나 요약하지 말 것. 읽지 못한 곳은 rows 없이 error에 이유.`,
+    inputSchema: obj({ pages: { type: 'array', maxItems: 5, items: obj({ id: { type: 'string', enum: Object.keys(BROWSER_PAGES) },
+      rows: { type: 'array', maxItems: 200, items: obj({ cells: { type: 'array', maxItems: 10, items: { type: 'string' } },
+        links: { type: 'array', maxItems: 4, items: { type: 'string' } } }, ['cells']) },
+      error: str('읽지 못했을 때 이유') }, ['id']) },
+    cities: { type: 'array', maxItems: 20, items: obj({
       city: { type: 'string', enum: Object.keys(BROWSER_CITIES) },
       rows: { type: 'array', maxItems: 60, items: obj({ mgt: str('관리번호(searchDetail(\'…\') 안의 값)'),
         cells: { type: 'array', maxItems: 14, items: { type: 'string' }, description: '그 줄 칸 글자(빈 칸 빼고 화면 순서대로)' } }, ['mgt', 'cells']) },
-      error: str('읽지 못했을 때 이유(예: TypeError: Failed to fetch)') }, ['city']) } }, ['cities']) },
+      error: str('읽지 못했을 때 이유(예: TypeError: Failed to fetch)') }, ['city']) } }) },
   { name: 'radar_today', access: 'private', handler: radarToday,
     description: '오늘의 레이더(하루 시작): 기자 전용 감시 22개(단독 후보 심사, 공장등록·관보, 공정위·한전·원자재, 월간 통계, 무역구제, 미국 소송, 해외 파트너 공시, 미 의견서, 해외 페이지, 상표 출원, 국회 법안, 미국 리콜, 미국 EPA 인증, 국내 연비 신고, 해외 발주처 낙찰, 협력사 회생·파산, 전기위·원안위, 공장 부지 건축허가, 해외 법인 등기, 지자체 고시·공고, 사업장 인력, 굴뚝 측정)에서 최근 N시간(기본 24, 월요일 72) 새 항목만 모아 A(단독 후보·직접 변화)/B(확인할 공식 변화)/C(참고)로 정렬. A·B 항목마다 자동 보도 대조 결과(평일 08:50·18:50, 항목 날짜 3일 전 이후 네이버·빙·구글: 미보도 후보·관련 보도 있음·미확인)를 붙이고 미보도 후보를 먼저 보여 줌. 실패·오래된 감시를 맨 위에 표시. 기자가 판정(씀·킬·보류·봤음)한 항목은 숨김, 줄마다 id.',
     inputSchema: obj({ hours: int('최근 N시간(기본 24, 월요일 72)', 1, 336), company: str('기업·낱말로 거르기'),

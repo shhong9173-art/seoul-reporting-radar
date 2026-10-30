@@ -2042,6 +2042,19 @@ test('local_notice_submit: the reporter computer posts browser-read 새올 rows 
   const got2 = await (await worker.fetch(new Request(ORIGIN + '/ingest/kr-local-browser', { headers: { Authorization: `Bearer ${TOKEN}` } }), opts.env, {})).json();
   assert.deepEqual(got2.cities.map((c) => [c.city, c.rows.length]).sort(), [['구미시', 1], ['인천 부평구', 1]]);
   assert.ok((await call('local_notice_submit', { cities: [{ city: '서울 강남구' }] }, opts)).isError);
+  // 무역구제 목록(호주 TRN): 한국 줄 칸 글자 + 같은 사이트 링크만, 감시는 따로 돌리지 않음
+  const pg = await call('local_notice_submit', { pages: [{ id: 'au-trn', rows: [
+    { cells: ['2026/141 [PDF 270.2 KB]', '706', 'Zinc coated (galvanised) steel', 'Extension of time for SEF and Final Report', 'Korea, Vietnam', '02/10/2026'],
+      links: ['/sites/default/files/atrc/public-record/2026-10/706-22.pdf', 'https://evil.example/x', 'https://www.industry.gov.au/australian-trade-remedies-commission/current-cases-and-electronic-public-record-epr/706'] }] },
+  { id: 'xx-page', rows: [] }] }, opts);
+  assert.equal(pg.isError, false);
+  assert.match(pg.text, /- 무역구제 au-trn: 한국 줄 1/);
+  assert.match(pg.text, /받지 않은 목록\(허용 밖\): xx-page/);
+  assert.equal(seen.length, 1);  // 무역구제는 실행 요청 없음
+  const tb = await (await worker.fetch(new Request(ORIGIN + '/ingest/trade-remedy-browser', { headers: { Authorization: `Bearer ${TOKEN}` } }), opts.env, {})).json();
+  assert.deepEqual(tb.pages[0].rows[0].links, ['/sites/default/files/atrc/public-record/2026-10/706-22.pdf',
+    '/australian-trade-remedies-commission/current-cases-and-electronic-public-record-epr/706']);  // 다른 사이트 링크는 버림
+  assert.ok((await call('local_notice_submit', {}, opts)).isError);
   // kr_official names the cities read on the reporter's computer
   const doc = { schema: 'kr_local/v1', generatedAt: '2026-10-26T08:50:00+09:00', status: 'complete', items: [],
     checks: [{ source: '인천 부평구', status: 'ok', returned: 30, via: '기자 컴퓨터 브라우저 수집 2026-10-25T23:45' }, { source: '당진시', status: 'ok', returned: 60 }] };
