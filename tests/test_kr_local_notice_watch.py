@@ -66,6 +66,8 @@ class Local(unittest.TestCase):
         self.assertEqual(w.classify("여수국가산업단지 계획 변경 승인 고시"), ("C", []))
         self.assertEqual(w.classify(DJ1[1][2]), (None, []))  # 담배 소매인 지정은 버림
         self.assertEqual(w.classify("포스코퓨처엠 광양 양극재 공장 증설"), ("C", []))  # 포스코퓨처엠은 포스코가 아님(공장 증설만 C)
+        self.assertEqual(w.classify("(주)동성케미컬 신평공장 증설 관련 건축허가 공고"), ("A", ["동성케미칼"]))  # 법인 이름은 '케미컬'
+        self.assertTrue(any(c == "울산 북구" for c, _, _ in w.CITIES))
 
     def test_namgu_layout_without_notice_number(self):
         row = ('<tr> <td >40994</td> <td class="left"> <div class="list_subject"> <div class="link"> <a href="emwp/gov/mogaha/ntis/web/ofr/action/'
