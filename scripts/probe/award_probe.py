@@ -1,6 +1,6 @@
-"""probe: 광주 서구 새올 목록 — 표가 어디에 어떤 모양으로 있는지(공개 자료)."""
-import re
+"""probe: 고친 파서로 광주 서구·광산구 2쪽 실제 읽기(공개 자료)."""
 import sys
+import time
 from pathlib import Path
 
 import requests
@@ -9,18 +9,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import kr_local_notice_watch as w  # noqa: E402
 
 out = []
-base = "https://eminwon.seogu.gwangju.kr"
-try:
-    r = requests.post(base + w.PATH, data={**w.LIST, "pageIndex": "1"}, headers={**w.UA, "Referer": base + w.PATH}, timeout=75)
-    t = r.text
-    out.append(f"HTTP {r.status_code} len {len(t)} tr {len(re.findall('<tr', t))} td {len(re.findall('<td', t))}")
-    for kw in ("not_ancmt_mgt_no", "searchDetail", "javascript:", "<table", "srchList", "고시", "2026-10"):
-        idx = [m.start() for m in re.finditer(re.escape(kw), t)][:3]
-        out.append(f"{kw}: {len(re.findall(re.escape(kw), t))} at {idx}")
-    k = t.find("searchDetail", 11000)
-    out.append("rows: " + re.sub(r"\s+", " ", t[k - 1200:k + 2200]))
-except Exception as e:  # noqa: BLE001
-    out.append(f"ERR {type(e).__name__}")
+for city, base in (("광주 서구", "https://eminwon.seogu.gwangju.kr"), ("광주 광산구", "https://eminwon.gwangsan.go.kr")):
+    try:
+        rows, note = w.fetch_city(city, base, requests.post, time.sleep)
+        out.append(f"== {city} rows {len(rows)} note {note} empty-title {sum(1 for r in rows if not r['title'])} dates {sorted({r['date'] for r in rows})[-3:]}")
+        for r in rows[:4]:
+            out.append(f"  {r['mgt']} | {r['no']} | {r['title'][:50]} | {r['dept']} | {r['date']} | {w.classify(r['title'])}")
+        hits = [(r["title"][:60], w.classify(r["title"])) for r in rows if w.classify(r["title"])[0]]
+        out.append(f"  graded {len(hits)}: {hits[:5]}")
+    except Exception as e:  # noqa: BLE001
+        out.append(f"ERR {city} {type(e).__name__} {str(e)[:80]}")
 blob = "\n".join(out)
 open("/tmp/probe_out.txt", "w").write(blob)
 print("total chars", len(blob))
