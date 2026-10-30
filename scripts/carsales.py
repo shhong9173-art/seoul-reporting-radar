@@ -43,6 +43,22 @@ NEW_MIN = 20           # 첫 판매: 이 대수 이상일 때만(시험·관용 
 PLANT_BASE = 1000      # 공장 합계 급감 하한
 PLANT_DROP = 0.7       # 공장 합계: 평균·전년 같은 달의 70% 아래(30% 넘게 감소)
 
+# 보도 대조 검색어(영문 모델명 → 국문 차명). 모르는 이름은 영문 그대로.
+KO = {"avante": "아반떼", "elantra": "아반떼", "sonata": "쏘나타", "grandeur": "그랜저", "santa-fe": "싼타페", "santa fe": "싼타페", "tucson": "투싼",
+      "palisade": "팰리세이드", "kona": "코나", "casper": "캐스퍼", "venue": "베뉴", "ioniq": "아이오닉", "nexo": "넥쏘", "staria": "스타리아",
+      "porter": "포터", "creta": "크레타", "exter": "엑스터", "stargazer": "스타게이저", "verna": "베르나", "i10": "i10", "i20": "i20", "i30": "i30",
+      "morning": "모닝", "picanto": "모닝", "ray": "레이", "k3": "K3", "k4": "K4", "k5": "K5", "k8": "K8", "k9": "K9", "sorento": "쏘렌토",
+      "sportage": "스포티지", "carnival": "카니발", "seltos": "셀토스", "niro": "니로", "bongo": "봉고", "tasman": "타스만", "telluride": "텔루라이드",
+      "sonet": "쏘넷", "syros": "시로스", "carens": "카렌스", "stonic": "스토닉", "pegas": "페가스", "mohave": "모하비", "pv5": "PV5",
+      "ev3": "EV3", "ev4": "EV4", "ev5": "EV5", "ev6": "EV6", "ev9": "EV9", "ev2": "EV2", "gv60": "GV60", "gv70": "GV70", "gv80": "GV80",
+      "g70": "G70", "g80": "G80", "g90": "G90", "hb20": "HB20"}
+
+
+def keyword(label):
+    w = re.split(r"[\s(]", label.strip().lower(), maxsplit=1)[0]
+    return KO.get(w, KO.get(w.replace("-", " "), label.split(" (")[0]))
+
+
 MONTH_RX = re.compile(r"^(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\.?$|^(1[0-2]|[1-9])\s*월$", re.I)
 MONTH_NO = {m: i + 1 for i, m in enumerate(["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"])}
 AGGREGATE = re.compile(r"^(sub-?total|total|grand total|ordinary vehicle|special vehicle)$", re.I)
@@ -244,52 +260,91 @@ def already_low(mo, ym):
     return p1 is not None and None not in pb and sum(pb) > 0 and p1 < (sum(pb) / 3) * DROP_RATIO
 
 
+def _base(mo, ym):
+    prev = [mo.get(ym_add(ym, -i)) for i in (1, 2, 3)]
+    return prev, (sum(prev) / 3 if None not in prev else None), mo.get(ym_add(ym, -12))
+
+
+def _ratio(v, ref):
+    return f"{v / ref:.0%}" if ref else "-"
+
+
+def scope_totals(rows):
+    """구분(국내 판매·수출·공장별 현지 판매 등)마다 모델 행을 더한 달별 합계."""
+    tot = {}
+    for s in rows:
+        if s.get("total"):
+            continue
+        t = tot.setdefault(s["scope"], {})
+        for k, v in s["months"].items():
+            t[k] = t.get(k, 0) + (v or 0)
+    return tot
+
+
 def signals(series, maker, kind, ym):
-    """그 달 신호. 같은 회사·구분 안에서만 비교."""
+    """그 달 신호. 같은 회사·구분 안에서만 비교한다.
+    구분 전체가 함께 줄어든 달(파업·휴가·선적 일정)은 모델마다 띄우지 않고 '구분 전체 급감' 한 줄로 묶는다 — 구분 전체보다 확실히 더 줄어든 모델만 따로."""
     rows = [s for s in series if s["maker"] == maker and s["kind"] == kind]
     by_scope = {}
     for s in rows:
         by_scope.setdefault(s["scope"], []).append(s)
-    out = []
+    totals = scope_totals(rows)
+    scope_ratio, out = {}, []
+    for scope, mo in totals.items():
+        prev, base, yoy = _base(mo, ym)
+        v = mo.get(ym) if ym in mo else None
+        if v is None or not base:
+            continue
+        scope_ratio[scope] = v / base
+        n = sum(1 for s in by_scope[scope] if not s.get("total") and (s["months"].get(ym) or 0) > 0)
+        if kind == "model" and n >= 3 and base >= PLANT_BASE and v < base * PLANT_DROP and (yoy is None or v < yoy * PLANT_DROP) and not already_low(mo, ym):
+            out.append({"id": f"cs:{maker}:{kind}:{scope}:{ym}:구분 전체 급감", "series": f"{maker}:{kind}:{scope}", "maker": MAKERS[maker],
+                        "signal": "구분 전체 급감", "tier": "B", "period": ym, "scope": scope, "label": "전체", "value": v, "base": round(base), "yoy": yoy,
+                        "text": f"{MAKERS[maker]} {scope} 전체(모델 {n}개 합) {ym} {fmt(v)}대 — 직전 3개월 평균 {fmt(base)}대의 {_ratio(v, base)}"
+                                + (f", 전년 같은 달 {fmt(yoy)}대({_ratio(v, yoy)})" if yoy else ", 전년 같은 달 값 없음")
+                                + ". 모델 대부분이 함께 줄었다(파업·휴가·선적 일정 여부는 회사 확인)"})
     for s in rows:
         mo = s["months"]
         v = mo.get(ym)
         if v is None:
             continue
-        prev = [mo.get(ym_add(ym, -i)) for i in (1, 2, 3)]
-        base = sum(prev) / 3 if None not in prev else None
-        yoy = mo.get(ym_add(ym, -12))
+        prev, base, yoy = _base(mo, ym)
         name = f"{MAKERS[maker]} {s['scope']} · {s['label']} {ym} {fmt(v)}대"
         ytxt = f", 전년 같은 달 {fmt(yoy)}대" if yoy is not None else ", 전년 같은 달 값 없음"
         sig = None
         fam = family(s["label"])
         sib = [o for o in by_scope.get(s["scope"], []) if o is not s and not o.get("total") and family(o["label"]) == fam
-               and (o["months"].get(ym) or 0) > 0
+               and (o["months"].get(ym) or 0) >= max(NEW_MIN, (base or 0) * 0.1)
                and sum(o["months"].get(ym_add(ym, -i)) or 0 for i in (2, 3, 4)) <= (o["months"].get(ym) or 0) * 0.2]
         newer = max(sib, key=lambda o: o["months"].get(ym) or 0) if sib else None
         swap = (f"같은 이름 {newer['label']}이 {fmt(newer['months'][ym])}대로 늘어남 — 세대 교체로 보임" if newer else "")
         low_before = already_low(mo, ym)
+        whole = scope_ratio.get(s["scope"])
+        with_whole = whole is not None and whole < 0.8 and base and v / base >= whole * 0.7  # 구분 전체와 같이 줄었다
+        export = "수출" in s["scope"]
         if s.get("total"):
             if low_before:
                 pass
             elif base and base >= PLANT_BASE and v <= base * STOP_RATIO and prev[0] >= base * 0.2:
                 sig = ("공장 출고 멈춤", "A", f"{name} — 직전 3개월 평균 {fmt(base)}대{ytxt}. 공장 전체 판매·출고가 거의 멈춤")
             elif base and base >= PLANT_BASE and v < base * PLANT_DROP and (yoy is None or v < yoy * PLANT_DROP):
-                sig = ("공장 급감", "B", f"{name} — 직전 3개월 평균 {fmt(base)}대의 {v / base:.0%}{ytxt}"
-                       + (f"({v / yoy:.0%})" if yoy else ""))
+                sig = ("공장 급감", "B", f"{name} — 직전 3개월 평균 {fmt(base)}대의 {_ratio(v, base)}{ytxt}" + (f"({_ratio(v, yoy)})" if yoy else ""))
         elif low_before and v < (base or 0):
             pass
         elif base is not None and base >= STOP_BASE and v <= base * STOP_RATIO and prev[0] >= base * 0.2:
             if newer:
                 sig = ("세대 교체로 보임", "B", f"{name} — 직전 3개월 평균 {fmt(base)}대에서 끊김. {swap}")
             else:
-                sig = ("판매 끊김", "A", f"{name} — 직전 3개월 평균 {fmt(base)}대{ytxt}. 판매(출고)가 거의 끊김 — 단종·생산 중단·물량 조정 여부는 회사 확인")
-        elif base is not None and base >= DROP_BASE and v < base * DROP_RATIO and (
+                big = base >= PLANT_BASE and not export  # 수출은 선적 일정으로 한 달 비는 일이 잦다
+                sig = ("판매 끊김", "A" if big else "B", f"{name} — 직전 3개월 평균 {fmt(base)}대{ytxt}. 판매(출고)가 거의 끊김 — 단종·생산 중단·물량 조정 여부는 회사 확인")
+        elif base is not None and base >= DROP_BASE and v < base * DROP_RATIO and not (with_whole and not newer) and (
                 (yoy is not None and v < yoy * DROP_RATIO) or (yoy is None and v < base * DROP_RATIO_NO_YOY)):
-            detail = f"{name} — 직전 3개월 평균 {fmt(base)}대의 {v / base:.0%}{ytxt}" + (f"({v / yoy:.0%})" if yoy else "")
+            detail = f"{name} — 직전 3개월 평균 {fmt(base)}대의 {_ratio(v, base)}{ytxt}" + (f"({_ratio(v, yoy)})" if yoy else "")
+            if whole is not None and whole < 0.8:
+                detail += f" · 같은 구분 전체는 {whole:.0%}"
             sig = ("세대 교체로 보임", "B", f"{detail}. {swap}") if newer else ("급감", "B", detail)
         elif (base is not None and base >= SURGE_BASE and min(prev) > 0 and v >= SURGE_MIN and v > base * SURGE_RATIO
-              and (yoy is None or (yoy > 0 and v > yoy * SURGE_RATIO))):  # 막 나온 모델이 늘어나는 것은 급증이 아니다
+              and (yoy is None or (yoy >= SURGE_BASE and v > yoy * SURGE_RATIO))):  # 막 나온 모델이 늘어나는 것(전년 소량)은 급증이 아니다
             sig = ("급증", "B", f"{name} — 직전 3개월 평균 {fmt(base)}대의 {v / base:.1f}배{ytxt}")
         elif v >= NEW_MIN and all((mo.get(k) or 0) == 0 for k in mo if k < ym) and any(k < ym for k in mo):
             sig = ("첫 판매", "B", f"{name} — 이 구분에서 처음 판매(앞선 {sum(1 for k in mo if k < ym)}개월 0)")
@@ -404,7 +459,8 @@ def collect(prev, now, http, *, baseline):
         if not baseline and prev_latest and ym > prev_latest.get(key, ""):
             for x in cur:
                 events.append({"id": x["id"], "kind": "모델별 판매", "signal": x["signal"], "tier": x["tier"], "period": ym,
-                               "company": x["maker"], "detectedAt": stamp, "text": f"{x['text']} (IR 엑셀)", "url": PAGES[maker]})
+                               "company": x["maker"], "detectedAt": stamp, "text": f"{x['text']} (IR 엑셀)", "url": PAGES[maker],
+                               "keyword": "공장" if x["label"] == "공장 합계" else keyword(x["label"])})
     status = "ok" if not fails and not errors else ("failed" if not ok else "partial")
     check = {"source": "완성차 판매(현대차·기아 IR)", "status": status, "ok": ok, "failed": fails,
              "latest": " · ".join(f"{MAKERS[k.split(':')[0]]} {'모델' if k.endswith('model') else '공장'} {v}" for k, v in sorted(latest.items())),

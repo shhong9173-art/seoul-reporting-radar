@@ -27,7 +27,7 @@ try:
             m = cs.ym_add(ym, -back)
             sig = cs.signals(block["series"], maker, kind, m)
             out.append(f"== {key} {m}: {len(sig)}")
-            for x in sig[:12]:
+            for x in sig[:9]:
                 out.append(f"  {x['tier']} {x['signal']} | {x['text']}")
 except Exception:  # noqa: BLE001
     out.append("ERR " + traceback.format_exc()[-1200:])
