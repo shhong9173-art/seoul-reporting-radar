@@ -855,13 +855,13 @@ export async function krStats(ctx, args) {
   const doc = await readFeed(ctx, 'kr-stats');
   if (!doc) return missing('국내 월간 통계(ECOS·KOSIS·KAIDA)', '평일 07:30');
   if (doc.broken) return textResult('저장된 국내 월간 통계 형식 오류 — 미확인.', true);
-  const section = ['kaida', 'price', 'production', 'us_imports'].includes(args.section) ? args.section : null;
+  const section = ['kaida', 'price', 'production', 'us_imports', 'carsales'].includes(args.section) ? args.section : null;
   const q = String(args.company ?? '').trim();
   const limit = clampInt(args.limit, 1, 60, 12);
   const onlySignals = !(args.show_all === true || args.show_all === 'true');
   const checks = doc.checks ?? [];
   const bad = checks.filter((c) => c.status !== 'ok');
-  const out = [`국내 월간 통계(한국은행 ECOS 물가·KOSIS 생산·KAIDA 수입차) · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt, 60)}`,
+  const out = [`국내 월간 통계(한국은행 ECOS 물가·KOSIS 생산·KAIDA 수입차·현대차·기아 판매) · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt, 60)}`,
     `질의 ${checks.length - bad.length}/${checks.length} 정상${bad.length ? ` · 미확인(0건 아님): ${bad.map((c) => `${c.source}(${c.error ?? c.status})`).join(', ')}` : ''}`,
     ...(doc.rules ?? []).map((r) => `규칙: ${r}`)];
   if (!section || section === 'kaida') {
@@ -891,6 +891,32 @@ export async function krStats(ctx, args) {
   if (!section || section === 'price') showSeries('price', '물가지수 · 한국은행 ECOS 품목별(생산자·수출·수입물가)');
   if (!section || section === 'production') showSeries('volume', '생산·재고 · KOSIS(철강협회·광공업동향)');
   if (!section || section === 'us_imports') showSeries('trade', '미국 수입(한국산) · US Census 품목별 월간 일반수입액');
-  out.push('\n다음: 신호가 있으면 원표(ECOS·KOSIS·Census)에서 같은 기준·기간으로 다시 뜬다 → news_check(품목·숫자) → 회사에 판가·가동·재고 대응 확인. 지수는 수준이 아니라 변화다.');
+  if (!section || section === 'carsales') {
+    const cs = doc.carSales ?? {};
+    const name = { 'hmc:model': '현대차 모델별(국내 판매·국내 공장 수출)', 'hmc:plant': '현대차 해외 공장별', 'kia:model': '기아 모델별(국내 판매·국내 공장 수출)', 'kia:plant': '기아 해외 공장별 출고' };
+    const files = Object.values(cs.files ?? {});
+    const lm = (key) => files.filter((f) => `${f.maker}:${f.kind}` === key).map((f) => f.lastModified).filter(Boolean).sort().pop();
+    out.push(`\n[완성차 모델별·공장별 판매 · 현대차·기아 IR 엑셀] 최신 ${Object.entries(cs.latest ?? {}).map(([k, v]) => `${name[k] ?? k} ${v}`).join(' · ') || '없음(아직 수집 전)'}`);
+    for (const r of cs.rules ?? []) out.push(`   규칙: ${r}`);
+    const sig = (cs.signals ?? []).filter((x) => matches(q, x.maker, x.label, x.scope, x.text));
+    if (sig.length) {
+      out.push(`   최신 달 신호 ${sig.length}건(A 먼저):`);
+      for (const x of sig.slice(0, limit)) out.push(`   - ${x.tier} · ${x.signal}: ${x.text}`);
+    } else out.push('   최신 달 신호 없음(급감·끊김·급증·첫 판매 조건에 든 계열 없음)');
+    if (q || !onlySignals) {
+      const rows = (cs.series ?? []).filter((x) => matches(q, x.label, x.scope, x.maker === 'hmc' ? '현대차' : '기아'));
+      out.push(`   계열 ${rows.length}개${rows.length > limit ? `(앞 ${limit}개)` : ''} — 최근 6개월:`);
+      for (const x of rows.slice(0, limit)) {
+        const ms = Object.keys(x.months ?? {}).sort().slice(-6);
+        out.push(`   - ${x.maker === 'hmc' ? '현대차' : '기아'} ${x.scope} · ${x.label}: ${ms.map((m) => `${m.slice(2)} ${fmtN(x.months[m])}`).join(' / ')}`);
+      }
+    }
+    const src = Object.keys(name).filter((k) => lm(k)).map((k) => `${name[k]} 엑셀 최종수정 ${lm(k)}`);
+    if (src.length) out.push(`   원천: ${src.join(' · ')} — 현대차 ${'https://www.hyundai.com/worldwide/ko/company/ir/ir-resources/sales-results'} · 기아 ${'https://worldwide.kia.com/ko/company/investor-relations/library/performance-and-plans'}`);
+    out.push('   검증 상태: 회사 IR 공개 엑셀(잠정치). 이유는 엑셀에 없다 — 단종·생산 중단·물량 조정·재고 조정은 회사 확인. 국내 모델별 수치는 매달 1일 보도자료로 이미 났을 수 있다(news_check).');
+  }
+  out.push(section === 'carsales'
+    ? '\n다음: 신호가 있으면 IR 엑셀 원본에서 같은 행·같은 달을 다시 본다 → news_check(회사+차명+감산·단종·생산 중단) → 회사에 생산·물량 계획 확인. 이유를 짐작해 쓰지 않는다.'
+    : '\n다음: 신호가 있으면 원표(ECOS·KOSIS·Census)에서 같은 기준·기간으로 다시 뜬다 → news_check(품목·숫자) → 회사에 판가·가동·재고 대응 확인. 지수는 수준이 아니라 변화다.');
   return textResult(out.join('\n'));
 }

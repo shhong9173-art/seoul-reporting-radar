@@ -24,7 +24,7 @@ export const WATCHES = [
   { feed: 'scoop-screen', label: '단독 후보 심사', tool: 'scoop_screen', schedule: '평일 07:10·15:10' },
   { feed: 'kr-official', label: '공장등록·관보', tool: 'kr_official', schedule: '평일 08:10' },
   { feed: 'kr-signals', label: '공정위·한전·원자재', tool: 'kr_signals', schedule: '평일 08:30·15:20' },
-  { feed: 'kr-stats', label: '월간 통계(물가·생산·수입차)', tool: 'kr_stats', schedule: '평일 07:30' },
+  { feed: 'kr-stats', label: '월간 통계(물가·생산·수입차·완성차 판매)', tool: 'kr_stats', schedule: '평일 07:30' },
   { feed: 'trade-remedy', label: '무역구제', tool: 'trade_remedies', schedule: '평일 07:40' },
   { feed: 'us-litigation', label: '미국 소송·ITC', tool: 'us_litigation', schedule: '평일 07:50' },
   { feed: 'partner-filings', label: '해외 파트너 공시', tool: 'partner_filings', schedule: '평일 07:00' },
@@ -235,6 +235,11 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
 
   for (const e of docs['kr-stats']?.events ?? []) {
     if (!recent(e.detectedAt)) continue;
+    if (e.kind === '모델별 판매') {  // 현대차·기아 IR 엑셀: 끊김·공장 멈춤 A, 급감·급증·첫 판매·세대 교체 B(이유는 회사 확인)
+      push(['A', 'B'].includes(e.tier) ? e.tier : 'C', W['kr-stats'], { kind: `판매 ${e.signal}`, id: e.id, date: e.detectedAt, company: e.company,
+        fact: `모델별 판매: ${e.text}`, url: e.url, check: hint(e.company, [e.keyword ?? '판매', /급증|첫/.test(e.signal ?? '') ? '판매' : '감산']) });
+      continue;
+    }
     const record = /최고|최저/.test(e.signal ?? '');
     const tier = e.kind === '수입차 등록' ? (e.top ? 'B' : 'C') : record ? 'B' : 'C';
     push(tier, W['kr-stats'], { kind: `${e.kind === '수입차 등록' ? '수입차' : '통계'} ${e.signal}`, id: e.id, date: e.detectedAt, company: e.company, fact: `${e.kind}: ${e.text}` });
