@@ -172,6 +172,9 @@ def lower(tier):
     return {"A": "B", "B": "C"}.get(tier, tier)
 
 
+OLD_REG_NOTE = " — 오래전 등록된 공장이 이번에 처음 잡힘(이름 변경·조회 범위 변화 가능)"
+
+
 def dedupe_list(s):
     """'액슬 등 구동부품, 액슬 등 구동부품, …, 화포 및 함포' → 같은 항목은 한 번만(원래 순서·글자 유지)."""
     seen, out = set(), []
@@ -196,6 +199,10 @@ def settle_reappearances(events):
                 g.update(tier="C", settled=True, text=str(g.get("text") or "") + f" — {str(e.get('detectedAt'))[:10]} 다시 나옴(조회 목록에서 잠깐 빠진 것으로 보임)")
             if e.get("kind") == "새 공장" or not e.get("settled"):
                 e.update(kind="목록에 다시 나옴", tier="C", settled=True)
+    for e in events:  # 다시 나온 공장 문장: '처음 잡힘' 설명은 맞지 않고, 주생산품 반복은 한 번만(여러 번 돌아도 같은 결과)
+        if e.get("kind") == "목록에 다시 나옴":
+            text = str(e.get("text") or "").replace(OLD_REG_NOTE, "")
+            e["text"] = re.sub(r"주생산품 (.*?) · 등록", lambda m: f"주생산품 {dedupe_list(m.group(1))} · 등록", text, count=1)
     return events
 
 
@@ -215,7 +222,7 @@ def retier(e):
             return e
         tier = "B" if m and m.group(1) < cut else "A"
         return dict(e, tier=lower(tier) if str(e.get("company") or "").endswith("(관련)") else tier,
-                    text=text + (" — 오래전 등록된 공장이 이번에 처음 잡힘(이름 변경·조회 범위 변화 가능)" if tier == "B" else ""))
+                    text=text + (OLD_REG_NOTE if tier == "B" else ""))
     tiers = ["A"] if re.search(r"(^|· )고용 [\d,]+→[\d,]+명", text) else []
     for label, old, new in SEGMENT.findall(text):
         ch = field_change(label, old, new)
@@ -313,7 +320,7 @@ def factories(cfg, key, now, previous, *, get=None, sleep=time.sleep, deadline=N
                 tier = "A" if fresh_reg or not f.get("registeredOn") else "B"
                 events.append({"id": f"{fid}:new", "kind": "새 공장", "company": f["company"], "factoryId": fid, "name": f["cmpnyNm"],
                                "text": f"{f['cmpnyNm']} · {f['rnAdres']} · 주생산품 {dedupe_list(f['mainProductCn']) or '미기재'} · 등록 {f.get('registeredOn') or '미기재'}"
-                                       + ("" if tier == "A" else " — 오래전 등록된 공장이 이번에 처음 잡힘(이름 변경·조회 범위 변화 가능)"),
+                                       + ("" if tier == "A" else OLD_REG_NOTE),
                                "registeredOn": f.get("registeredOn"), "tier": lower(tier) if f["company"].endswith("(관련)") else tier,
                                "detectedAt": stamp})
         elif f["company"] in comparable:
