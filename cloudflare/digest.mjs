@@ -560,6 +560,29 @@ const SITE_PLACE = [[/현대제철㈜(?![가-힣])|현대제철주식회사(?![�
   [/엘에스엠앤엠/, '울산'], [/동국제강㈜(?![가-힣\s]*공장)/, '인천'], [/르노코리아 주식회사/, '부산'], [/케이지모빌리티 주식회사/, '평택'], [/한국지엠주식회사/, '인천']];
 const canonCompany = (c) => String(c ?? '').replace(/\s+|\(주\)|㈜|주식회사/g, '').replace(/^현대자동차$/, '현대차').replace(/^기아자동차$/, '기아');
 
+// 묶음의 배경: 새 항목은 아니지만 같은 곳에서 이미 진행 중인 것(국민연금 공사 현장 A·B, 120일 안 건축허가, 지금 멈춘 굴뚝).
+export function background(docs, nowMs) {
+  const out = [];
+  const W = Object.fromEntries(WATCHES.map((w) => [w.feed, w]));
+  for (const p of docs['kr-workforce']?.projects ?? []) {
+    if (p.tier === 'C' || !p.company) continue;
+    out.push({ id: `bg:wf:${p.id}`, background: true, tier: p.tier, tool: 'kr_official', watch: W['kr-workforce'].label, company: p.company, date: p.firstSeen,
+      fact: `국민연금 공사 현장 「${p.title ?? p.name ?? ''}」 현장 ${p.sites ?? 1}곳${p.addr ? ` · ${p.addr}` : ''}` });
+  }
+  const from = new Date(nowMs - 120 * 86400000).toISOString().slice(0, 10);
+  for (const x of docs['kr-building']?.permits ?? []) {
+    if (x.orphan || x.tier === 'C' || !x.company || String(x.permitted ?? '') < from) continue;
+    out.push({ id: `bg:bd:${x.id}`, background: true, tier: x.tier, tool: 'kr_official', watch: W['kr-building'].label, company: x.company, date: x.permitted,
+      fact: `건축 ${x.kind ?? ''} ${buildingLine(x)}` });
+  }
+  for (const s of docs['kr-stacks']?.sites ?? []) {
+    if (!(s.stopped ?? []).length) continue;
+    out.push({ id: `bg:stk:${s.id}`, background: true, tier: 'B', tool: 'kr_official', watch: W['kr-stacks'].label, company: s.company, date: docs['kr-stacks'].generatedAt,
+      fact: `${s.name} 굴뚝 배출구 멈춤 ${s.stopped.length}개(평소 움직이던 ${s.meaningful ?? '?'}개 중)` });
+  }
+  return out;
+}
+
 export function convergence(items, { cut } = {}) {
   const groups = new Map();
   for (const x of items) {
@@ -577,10 +600,13 @@ export function convergence(items, { cut } = {}) {
   const out = [];
   for (const g of groups.values()) {
     const watches = [...new Set(g.items.map((x) => x.watch))];
-    if (watches.length < 2) continue;
+    // 배경(기준선 공사 현장·최근 허가·지금 멈춘 굴뚝)만으로는 묶지 않는다 — 최근 14일 A·B 항목이 하나는 있어야 한다
+    if (watches.length < 2 || !g.items.some((x) => !x.background)) continue;
     const times = g.items.map((x) => Date.parse(x.date)).filter(Number.isFinite);
     const latest = times.length ? Math.max(...times) : null;
-    out.push({ ...g, watches, latest, fresh: cut != null && g.items.some((x) => { const t = Date.parse(x.date); return Number.isFinite(t) && t >= cut; }),
+    // 날짜만 있는 항목(공고일·허가일)은 한국 날짜로 견준다
+    const isNew = (x) => { if (x.background || cut == null) return false; const d = String(x.date ?? ''); if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d >= kstDate(cut); const t = Date.parse(d); return Number.isFinite(t) && t >= cut; };
+    out.push({ ...g, watches, latest, fresh: g.items.some(isNew),
       hasA: g.items.some((x) => x.tier === 'A') });
   }
   return out.sort((a, b) => b.watches.length - a.watches.length || Number(b.fresh) - Number(a.fresh) || Number(b.hasA) - Number(a.hasA) || (b.latest ?? 0) - (a.latest ?? 0));
@@ -627,13 +653,14 @@ export async function radarToday(ctx, args) {
   }
   out.push(h.length ? `\n[먼저 볼 것: 수집 상태]\n${h.join('\n')}` : `\n[수집 상태] ${WATCHES.length}개 감시 모두 최근 정상`);
   const span = nowMs - 14 * 86400000;
-  const conv = convergence(collect(docs, span, kstDate(span), { now: nowMs }).filter((x) => has(q, x.company, x.fact, x.watch) && !(judged.get(x.id) && !showJudged)), { cut });
+  const conv = convergence([...collect(docs, span, kstDate(span), { now: nowMs }).filter((x) => !(judged.get(x.id) && !showJudged)), ...background(docs, nowMs)]
+    .filter((x) => has(q, x.company, x.fact, x.watch)), { cut });
   if (conv.length) {
-    out.push(`\n[겹친 신호 · 최근 14일 같은 출입처·같은 시군을 감시 여러 곳이 가리킴] ${conv.length}곳 — 하나씩은 공개 자료, 함께 보면 투자·가동 변화 단서`);
+    out.push(`\n[겹친 신호 · 최근 14일 같은 출입처·같은 시군을 감시 여러 곳이 가리킴] ${conv.length}곳 — 하나씩은 공개 자료, 함께 보면 투자·가동 변화 단서(배경: 국민연금 공사 현장·120일 안 건축허가·지금 멈춘 굴뚝)`);
     for (const g of conv.slice(0, 5)) {
       out.push(`- ${g.fresh ? '[새 항목 포함] ' : ''}${g.company} · ${g.place} — 감시 ${g.watches.length}곳(${g.watches.join(', ')})`);
       const lines = [...g.items].sort((a, b) => String(b.date ?? '').localeCompare(String(a.date ?? ''))).slice(0, 4);
-      for (const x of lines) out.push(`   ${x.tier} · ${x.date ? `${String(x.date).length > 10 ? kstStamp(x.date) : x.date} · ` : ''}${x.watch}: ${String(x.fact ?? '').slice(0, 110)} · id ${x.id}`);
+      for (const x of lines) out.push(`   ${x.background ? '(배경) ' : `${x.tier} · `}${x.date ? `${String(x.date).length > 10 ? kstStamp(x.date) : x.date} · ` : ''}${x.watch}: ${String(x.fact ?? '').slice(0, 110)} · id ${x.id}`);
       if (g.items.length > 4) out.push(`   … 같은 묶음 ${g.items.length - 4}건 더`);
     }
     if (conv.length > 5) out.push(`… 남은 ${conv.length - 5}곳(company로 좁히기)`);
