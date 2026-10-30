@@ -710,7 +710,7 @@ export async function krOfficial(ctx, args) {
     out.push(`\n[공장등록 변화 · 감지일 기준 최근 ${days}일] ${ev.length}건`);
     out.push(`(기준선 ${String(doc.baselineSince ?? doc.generatedAt).slice(0, 10)} 이후 감지된 새 공장·고용·주생산품·업종·주소 변화만 센다. 등록일로 본 새 공장은 아래 '최근 120일 등록 공장'.)`);
     for (const e of ev.slice(0, limit)) {
-      out.push(`- ${String(e.detectedAt).slice(0, 10)} · ${e.company} · ${e.kind}`);
+      out.push(`- ${String(e.detectedAt).slice(0, 10)} · ${e.company} · ${e.kind}${e.tier ? ` · ${e.tier}` : ''}`);
       out.push(`   잡힌 사실: ${factoryEventText(doc, e)}`);
     }
     if (!ev.length) out.push('이 기간 감지된 변화 없음(조회 실패 회사는 미확인).');
