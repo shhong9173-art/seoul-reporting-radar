@@ -6,6 +6,11 @@
 - 세계은행 조달 공고(Contract Award): 'Awarded Bidder(s)' 칸에 적힌 회사만. 탈락·평가 명단에 있는 이름은 버린다.
   (이라크·요르단·이집트·모로코 등 중동·북아프리카와 중앙아시아·남아시아 전력망 사업)
 - 바레인 입찰위원회 월간 낙찰 보고서(PDF): 새 달 보고서에서 출입처 영문명이 나온 줄만.
+- 바레인 입찰위원회 개찰 결과(Opened Tenders): 개찰 당일 공개되는 응찰 회사·응찰가·상태. 새 개찰마다 상세를 한 번 읽어
+  출입처 응찰을 잡고 응찰가 순위를 붙인다(낙찰 아님). 10-30 탐침: 바레인 전력수도청(EWA) 4669/2025/5100 '400kV·220kV
+  Feeder Cable Works(새 시트라 400kV 변전소)' 2026-04-13 개찰 — ILJIN ELECTRIC BHD 35,004,118.330, LS CABLE AND SYSTEM
+  BHD 46,659,985.550, TAIHAN ELECTRIC WIRE 옵션1 BHD 45,648,300.000. 더구루는 개찰 나흘 뒤(04-17) '1500억 규모 3각 경쟁',
+  10-20 '일진전기 최종 낙찰'([단독])을 냈다 — 레이더는 월간 보고서만 봐서 둘 다 못 잡았다.
 - 대만 정부전자조달망(PCC) 결정 공고: g0v 공개 미러 API(pcc-api.openfun.app, 매일 갱신)에서 출입처 이름(영문·중문)으로 찾고,
   공고의 득표·탈락 구분 칸(name_key)에서 '得標廠商'(낙찰자)으로 적힌 것만. 대만전력(台灣電力) 전선·광섬유지선 등
   (10-30 탐침: LS Cable & System 2026-02 복합광섬유지선 NT$131,601,032, 2025-09 ZTACIR 품목 NT$276,084,986 등).
@@ -87,6 +92,7 @@ RULES = [
     "유럽 TED 공고는 계약 체결 뒤 몇 주~몇 달 늦게 올라온다 — '공고일'이 새것이어도 계약은 예전일 수 있다(계약일 칸 확인).",
     "현지 판매법인(예: 현대차 체코·기아 유럽) 낙찰은 본사 수주와 다르다. 이름 그대로 보고 판단.",
     "중동 걸프 전력회사(SEC·DEWA·카라마·쿠웨이트 전력부) 자체 조달은 공개 낙찰 목록이 없어 다루지 않는다.",
+    "바레인 개찰 결과는 응찰가 공개일 뿐 낙찰이 아니다. 최저가 응찰도 기술 평가·협상으로 뒤집힐 수 있다 — '최저가 응찰'까지만 쓰고 낙찰은 입찰위원회 결정·월간 보고서·회사로 확인. 옵션 응찰은 가장 낮은 옵션 값으로 순위를 매긴다.",
     "대만 PCC는 g0v 공개 미러로 찾고 원문 링크는 대만 정부전자조달망이다. 금액은 대만달러(NT$). 공고 전체 금액은 다른 낙찰자 품목을 포함할 수 있어, 상세를 읽으면 출입처 품목 금액으로 바꾼다.",
 ]
 
@@ -481,6 +487,172 @@ def bahrain(previous_seen, *, get=None):
     return items, checks, seen[-60:]
 
 
+# ---------------------------------------------------------------- Bahrain Tender Board opened bids (개찰 결과)
+# 월간 낙찰 보고서는 두세 달 늦고(10-29 최신이 8월, 스캔 이미지) 일진전기 바레인 송전망(더구루 10-20 '최종 낙찰')도 없었다.
+# 입찰위원회 누리집의 '개찰 결과'(Opened Tenders)는 개찰 당일 응찰 회사 이름·응찰가·상태를 공개한다(10-30 탐침, robots.txt 없음).
+# 개찰은 낙찰이 아니다: 최저가 응찰까지만 잡고 낙찰 여부는 입찰위원회 결정·월간 보고서·회사로 확인한다.
+BH_OPEN_API = BH_SITE + "/Templates/TenderBoardWebService.aspx/GetOpenedTenderF"
+BH_OPEN_SOURCE = "바레인 입찰위원회 개찰"
+BH_OPEN_PAGES = 4         # 실행당 목록 쪽수(쪽당 10건, 최신순)
+BH_OPEN_FIRST_PAGES = 12  # 첫 실행
+BH_OPEN_DETAIL_MAX = 40   # 실행당 새 개찰 상세 읽기 상한(남은 것은 다음 실행에)
+BH_OPEN_GAP = 1.0
+BH_OPEN_ROW = re.compile(r"""<div data-ref=['"](\d+)['"] class=['"]rows['"]>(.*?)(?=<div data-ref=|$)""", re.S)
+BH_OPEN_COL = re.compile(r"""<div class=['"]column['"][^>]*>(.*?)</div>""", re.S)
+BH_ROWS_SPLIT = re.compile(r"""<div class=['"]rows['"]>""")
+BH_CELL = r"""data-label=['"]{}['"]>(.*?)</div>"""
+BH_AMOUNT = re.compile(r"\b([A-Z]{3})\s*([\d,]+(?:\.\d+)?)")
+BH_OPEN_A_BHD = 1_000_000  # 약 265만 달러
+BH_TO_BHD = {"BHD": 1, "USD": 0.376, "EUR": 0.41, "GBP": 0.48, "SAR": 0.1, "AED": 0.102}
+BH_OUT = re.compile(r"reject|withdr|disqual|exclud|not\s+accept|cancel", re.I)
+
+
+def _bh_payload(page):
+    # 빈 문자열을 category·tendertype·sortingType에 넣으면 서버가 SQL 오류를 낸다(10-30 탐침) — '0'이 기본값.
+    return {"tenderNumber": "", "ministry": "", "category": "0", "tendertype": "0", "openedDate_filter": "", "endDate_filter": "",
+            "sortingType": "0", "pageIndex": str(page), "sectionName": ""}
+
+
+def bh_open_rows(d):
+    """GetOpenedTenderF 응답의 d(XML 안에 HTML이 엔터티로 들어 있음) → 개찰 목록 줄."""
+    c = re.search(r"<Content>(.*?)</Content>", d or "", re.S)
+    content = htmlmod.unescape(c.group(1)) if c else ""
+    rows = []
+    for ref, block in BH_OPEN_ROW.findall(content):
+        cols = [norm_space(htmlmod.unescape(re.sub(r"<[^>]+>", " ", x))) for x in BH_OPEN_COL.findall(block)]
+        no = re.search(r"<span>(.*?)</span>", block, re.S)
+        href = re.search(r"""href=['"]([^'"]+)['"]""", block)
+        if len(cols) < 5 or not href:
+            continue
+        tender_no = norm_space(htmlmod.unescape(re.sub(r"<[^>]+>", " ", no.group(1)))) if no else ""
+        subject = cols[1]
+        if tender_no and subject.startswith(tender_no):
+            subject = subject[len(tender_no):].strip()
+        try:
+            opened = dt.datetime.strptime(cols[3].replace(" ", ""), "%d%b,%Y").date().isoformat()
+        except ValueError:
+            opened = None
+        bids = re.sub(r"\D", "", cols[5]) if len(cols) > 5 else ""
+        rows.append({"ref": ref, "tenderNo": tender_no, "subject": subject, "tenderType": cols[2], "opened": opened,
+                     "authority": cols[4], "bids": int(bids) if bids else None, "href": htmlmod.unescape(href.group(1))})
+    return rows
+
+
+def _bh_text(s):
+    return norm_space(htmlmod.unescape(re.sub(r"<[^>]+>", " ", s or "")))
+
+
+def bh_bidders(html):
+    """개찰 상세의 응찰 표: 회사 이름·응찰가(옵션이 여럿이면 모두)·상태. 10-30 탐침 형식:
+    <div class='rows'>…data-label='Bidder Name'>회사</div><div class='column bidvalue' data-label='Bidder Value'><span>BHD 1.000</span>
+    (옵션 응찰은 <div>(Opt. 1) <span>BHD …</span></div><div>(Opt. 2) …)… data-label='Status'>Accepted</div></div>"""
+    out = []
+    for block in BH_ROWS_SPLIT.split(html or "")[1:]:
+        name = re.search(BH_CELL.format("Bidder Name"), block, re.S)
+        if not name:
+            continue
+        status = re.search(BH_CELL.format("Status"), block, re.S)
+        start = block.find("Bidder Value")
+        stop = min([i for i in (block.find("Remarks", start), block.find("Status", start)) if i > 0] or [len(block)])
+        amounts = []
+        for cur, num in BH_AMOUNT.findall(_bh_text(block[start:stop])) if start >= 0 else []:
+            try:
+                amounts.append((float(num.replace(",", "")), cur))
+            except ValueError:
+                pass
+        curs = {c for _, c in amounts}
+        low = min(amounts) if amounts and len(curs) == 1 else (amounts[0] if amounts else (None, None))
+        out.append({"name": _bh_text(name.group(1)), "value": low[0], "currency": low[1], "options": len(amounts),
+                    "status": _bh_text(status.group(1)) if status else ""})
+    return out
+
+
+def bh_open_items(row, bidders):
+    """출입처(또는 이름에 Korea가 든 회사) 응찰마다 한 줄. 응찰가 순위는 같은 통화·탈락 아닌 응찰 안에서만(옵션 응찰은 가장 낮은 값)."""
+    priced = [b for b in bidders if b["value"] is not None and not BH_OUT.search(b["status"] or "")]
+    one_cur = len({b["currency"] for b in priced}) == 1
+    order = sorted(priced, key=lambda b: b["value"]) if one_cur else []
+    env = re.search(r"envelope=([A-Za-z]+)", row["href"])
+    out = []
+    for b in bidders:
+        beat = beat_of(b["name"])
+        if not beat and not KOREA_RX.search(b["name"]):
+            continue
+        ranked = one_cur and any(o is b for o in priced)
+        rank = 1 + sum(1 for o in priced if o["value"] < b["value"]) if ranked else None
+        low = order[0] if order and order[0] is not b and rank != 1 else None
+        out.append({
+            "id": f"bhopen:{row['ref']}:{beat or b['name'][:30]}", "source": BH_OPEN_SOURCE, "published": row["opened"], "kind": "개찰(응찰)",
+            "buyer": row["authority"] or "바레인 정부 발주처", "buyerCountry": "BHR", "winners": [], "winnerCountry": [], "winnerIds": [],
+            "company": beat, "companies": [beat] if beat else [], "title": f"{row['tenderNo']} {row['subject']}".strip()[:300],
+            "bidder": b["name"], "bidStatus": b["status"], "value": b["value"], "currency": b["currency"], "options": b.get("options") or 0,
+            "rank": rank, "priced": len(priced) if ranked else None, "bidCount": len(bidders) or row.get("bids"), "lowest": rank == 1,
+            "others": [{"name": o["name"], "value": o["value"]} for o in order if o is not b][:3],
+            "lowestBid": {"name": low["name"], "value": low["value"]} if low else None,
+            "tenderType": row["tenderType"], "envelope": env.group(1).upper() if env else None, "concluded": None,
+            "noticeType": "opened-bids", "url": BH_SITE + row["href"].replace(" ", "%20"),
+        })
+    return out
+
+
+def bahrain_opened(previous_seen, *, get=None, post=None, sleep=time.sleep):
+    first = previous_seen is None
+    seen = list(previous_seen or [])
+    rows, checks = [], []
+    pages = BH_OPEN_FIRST_PAGES if first else BH_OPEN_PAGES
+    for page in range(1, pages + 1):
+        try:
+            if post is None:
+                import requests
+                post = requests.post
+            r = post(BH_OPEN_API, data=json.dumps(_bh_payload(page)), timeout=60,
+                     headers={**UA, "Content-Type": "application/json; charset=utf-8", "X-Requested-With": "XMLHttpRequest"})
+            if r.status_code != 200:
+                raise RuntimeError(f"HTTP {r.status_code}")
+            got = bh_open_rows(r.json().get("d"))
+            if not got and page == 1:
+                raise RuntimeError("목록 형식 미상(0줄)")
+        except Exception as e:  # noqa: BLE001
+            checks.append({"source": BH_OPEN_SOURCE, "query": f"개찰 목록 {page}쪽", "status": "failed", "error": str(e)[:80] or type(e).__name__})
+            break
+        if not got:  # 목록 끝
+            break
+        have = {x["ref"] for x in rows}
+        rows += [x for x in got if x["ref"] not in have]  # 쪽을 넘기는 사이 새 개찰이 붙으면 같은 줄이 다음 쪽에 또 나온다
+        if page < pages:
+            sleep(BH_OPEN_GAP)
+    if not rows:
+        return [], checks, previous_seen
+    fresh = [x for x in rows if x["ref"] not in seen]
+    items, read, errors = [], 0, []
+    for row in fresh[:BH_OPEN_DETAIL_MAX]:
+        try:
+            r = _get(get, BH_SITE + row["href"].replace(" ", "%20"), headers={**UA, "Accept": "text/html"})
+            if r.status_code != 200:
+                raise RuntimeError(f"HTTP {r.status_code}")
+            bidders = bh_bidders(r.text)
+            if not bidders and "Bidder Name" not in r.text and (row.get("bids") or 0) > 0:
+                raise RuntimeError("응찰 표 형식 미상")
+            items += bh_open_items(row, bidders)
+            seen.append(row["ref"])
+            read += 1
+        except Exception as e:  # noqa: BLE001
+            errors.append(f"{row['tenderNo'] or row['ref']}({str(e)[:40] or type(e).__name__})")
+        sleep(BH_OPEN_GAP)
+    left = len(fresh) - read - len(errors)
+    if first:  # 첫 실행: 상한 밖 예전 개찰은 읽지 않고 기억만 한다(다음 실행에 새 소식으로 나오지 않게)
+        seen += [x["ref"] for x in fresh if x["ref"] not in seen]
+    status = "partial" if errors or checks else "ok"
+    note = [f"목록 {len(rows)}건(개찰 {rows[-1]['opened'] or '?'}~{rows[0]['opened'] or '?'}) · 새 개찰 {len(fresh)} · 상세 {read}"]
+    if left > 0:
+        note.append(f"첫 실행 기준선 — 예전 개찰 {left}건은 읽지 않음" if first else f"남은 {left}건은 다음 실행에")
+    if errors:
+        note.append(f"상세 미확인 {len(errors)}: {', '.join(errors[:3])}")
+    checks.append({"source": BH_OPEN_SOURCE, "query": "개찰 결과(응찰 회사·응찰가)", "status": status, "returned": len(rows),
+                   "matched": len(items), "note": " · ".join(note)})
+    return items, checks, seen[-600:]
+
+
 # ---------------------------------------------------------------- Taiwan PCC (g0v mirror of web.pcc.gov.tw)
 PCC_SEARCH = "https://pcc-api.openfun.app/api/searchbycompanyname"
 PCC_TENDER = "https://pcc-api.openfun.app/api/tender"
@@ -643,6 +815,10 @@ def tier_of(it):
         return "C"
     if it.get("kind") == "계약 변경" or it.get("source") == "바레인 입찰위원회":
         return "B"
+    if it.get("source") == BH_OPEN_SOURCE:
+        # 개찰은 낙찰이 아니다. 출입처가 최저가로 응찰한 큰 입찰(약 100만 BHD 이상)만 A, 그 밖의 출입처 응찰은 B.
+        bhd = (it.get("value") or 0) * BH_TO_BHD.get(it.get("currency") or "", 0)
+        return "A" if it.get("lowest") and bhd >= BH_OPEN_A_BHD else "B"
     # 완성차 현지 판매법인(예: Hyundai Motor Czech)의 관용차 납품은 본사 수주가 아니다. 큰 물량(약 1천만 유로 이상)만 B.
     if it["company"] in AUTOMAKERS and "KOR" not in (it.get("winnerCountry") or []) and not KOREA_RX.search(" ".join(it.get("winnerCountry") or [])):
         eur = (it.get("value") or 0) * TO_EUR.get(it.get("currency") or "", 0)
@@ -672,6 +848,13 @@ def run(*, now, previous=None, get=None, post=None, sleep=time.sleep):
     bh_got, bh_checks, bh_seen = bahrain((previous or {}).get("bahrainSeen"), get=get)
     found += bh_got
     checks += bh_checks
+    open_prev = (previous or {}).get("bahrainOpenSeen")
+    bo_got, bo_checks, bo_seen = bahrain_opened(open_prev, get=get, post=post, sleep=sleep)
+    open_first = open_prev is None  # 이 원천의 첫 실행: 이미 개찰된 것은 기준선(새 소식 아님)
+    for it in bo_got:
+        it["_first"] = open_first
+    found += bo_got
+    checks += bo_checks
     known = {x.get("id") for x in (previous or {}).get("items") or []
              if isinstance(x, dict) and not re.search(r"다음에", str(x.get("detailError") or ""))}  # 429·상한으로 못 읽은 상세는 다음 실행에
     pcc_last = (previous or {}).get("pccLastRun")
@@ -698,9 +881,10 @@ def run(*, now, previous=None, get=None, post=None, sleep=time.sleep):
     items = dict(old)
     for it in found:
         prev = old.get(it["id"])
+        first = baseline or it.pop("_first", False)
         it["firstSeen"] = prev["firstSeen"] if prev else stamp
-        it["baseline"] = bool(prev.get("baseline")) if prev else baseline
-        it["isNew"] = not prev and not baseline
+        it["baseline"] = bool(prev.get("baseline")) if prev else first
+        it["isNew"] = not prev and not first
         it["tier"] = tier_of(it)
         items[it["id"]] = it
     found_ids = {i["id"] for i in found}
@@ -708,7 +892,10 @@ def run(*, now, previous=None, get=None, post=None, sleep=time.sleep):
         if k not in found_ids:
             x["isNew"] = False
             # stored items follow the current name and tier rules (e.g. a company dropped from the beat list)
-            if x.get("source") != "바레인 입찰위원회":
+            if x.get("source") == BH_OPEN_SOURCE:
+                beat = beat_of(x.get("bidder"))
+                x["company"], x["companies"] = beat, [beat] if beat else []
+            elif x.get("source") != "바레인 입찰위원회":
                 beat = sorted({b for b in ((pcc_beat if x.get("source") == PCC_SOURCE else beat_of)(w) for w in x.get("winners") or []) if b})
                 x["company"], x["companies"] = (beat[0] if beat else None), beat
             x["tier"] = tier_of(x)
@@ -721,8 +908,8 @@ def run(*, now, previous=None, get=None, post=None, sleep=time.sleep):
         "schema": SCHEMA, "generatedAt": stamp, "status": status,
         "lastSuccess": stamp if status != "failed" else (previous or {}).get("lastSuccess"),
         "baselineSince": (previous or {}).get("baselineSince") or stamp, "windowStart": since.date().isoformat(),
-        "checks": checks, "items": kept[:KEEP_MAX], "bahrainSeen": bh_seen, "pccLastRun": pcc_last, "rules": RULES,
-        "coverage": "EU TED(유럽 공공·유틸리티) · 영국 Find a Tender · 세계은행 낙찰 공고 · 바레인 입찰위원회 월간 낙찰 보고서 · 대만 정부조달(PCC)",
+        "checks": checks, "items": kept[:KEEP_MAX], "bahrainSeen": bh_seen, "bahrainOpenSeen": bo_seen, "pccLastRun": pcc_last, "rules": RULES,
+        "coverage": "EU TED(유럽 공공·유틸리티) · 영국 Find a Tender · 세계은행 낙찰 공고 · 바레인 입찰위원회 월간 낙찰 보고서·개찰 결과 · 대만 정부조달(PCC)",
     }
 
 

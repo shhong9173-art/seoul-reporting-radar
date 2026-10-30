@@ -377,15 +377,25 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
 
   // Overseas public-buyer award notices (EU TED·영국 FTS·세계은행·바레인 월간 보고서·대만 PCC): a beat company in the winner field is A;
   // contract modifications and Bahrain report lines B; other Korean winners C. TED notices trail the contract by weeks.
+  // 바레인 개찰(응찰가 공개): a beat company's lowest bid on a big tender is A, its other bids B — never an award.
   const oa = docs['overseas-awards'];
   const oaBase = baselineOf(oa?.items ?? []);
+  // A source added later (바레인 개찰) marks its own first run as baseline: those rows count only by their own date.
   for (const x of oa?.items ?? []) {
-    if (!fresh(x, oaBase, 'published')) continue;
+    if (!fresh(x, x.baseline ? Date.parse(x.firstSeen) : oaBase, 'published')) continue;
     const tier = x.tier ?? (x.company ? 'A' : 'C');
-    const value = x.value ? ` · ${x.currency ?? ''} ${Number(x.value).toLocaleString('en-US', { maximumFractionDigits: 0 })}` : ' · 금액 미기재';
+    const money = (v) => `${x.currency ?? ''} ${Number(v).toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
+    const value = x.value ? ` · ${money(x.value)}` : ' · 금액 미기재';
+    const where = countryKo(x.buyerCountry);
+    if (x.bidder) {  // 개찰(응찰가 공개) — 낙찰 아님
+      const rank = x.rank ? `응찰가 ${x.rank}위/${x.priced}곳${x.lowest ? '(최저가)' : x.lowestBid ? ` · 최저 ${x.lowestBid.name} ${money(x.lowestBid.value)}` : ''}` : '응찰가 순위 없음(가격 미공개·탈락)';
+      push(tier, W['overseas-awards'], { kind: `${x.source} ${x.kind}`, id: x.id, date: x.published ?? x.firstSeen, company: x.company ?? '',
+        fact: `해외 개찰(${x.source}): ${where ? `${where} ` : ''}${x.buyer} · ${String(x.title ?? '').slice(0, 120)} — ${x.bidder}${x.value ? ` ${money(x.value)}` : ' 응찰가 미공개'} · ${rank} · 개찰 ${x.published ?? '?'} · 낙찰 아님`,
+        url: x.url, check: tier === 'C' ? undefined : hint(x.company, [where, '입찰']) });
+      continue;
+    }
     const more = (x.winnerCount ?? (x.winners ?? []).length) - Math.min(2, (x.winners ?? []).length);
     const who = ((x.winners ?? []).slice(0, 2).join('·') + (more > 0 ? ` 외 ${more}곳` : '')) || '보고서 줄 참조';
-    const where = countryKo(x.buyerCountry);
     push(tier, W['overseas-awards'], { kind: `${x.source} ${x.kind}`, id: x.id, date: x.published ?? x.firstSeen, company: x.company ?? '',
       fact: `해외 ${x.kind}(${x.source}): ${where ? `${where} ` : ''}${x.buyer} ← ${who} · ${String(x.title ?? '').slice(0, 120)}${value}${x.concluded ? ` · 계약 ${x.concluded}` : ''} · 공고 ${x.published ?? '?'}`,
       url: x.url, check: tier === 'C' ? undefined : hint(x.company, [where, '수주']) });

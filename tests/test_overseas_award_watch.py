@@ -1,4 +1,4 @@
-"""해외 발주처 낙찰 감시: TED 낙찰자 필드, 영국 FTS 공급사, 세계은행 'Awarded Bidder' 칸만, 바레인 월간 보고서, 기준선·새 항목·실패 보존."""
+"""해외 발주처 낙찰 감시: TED 낙찰자 필드, 영국 FTS 공급사, 세계은행 'Awarded Bidder' 칸만, 바레인 월간 보고서·개찰 결과, 기준선·새 항목·실패 보존."""
 import datetime as dt
 import json
 import sys
@@ -90,12 +90,55 @@ PCC_DETAIL = {"records": [{"filename": "TIQ-1-1", "detail": {}}, {"filename": "B
     "決標資料:決標日期": "115/10/24", "採購資料:標的分類": "<財物類>463絕緣電線,電纜及光纖電纜"}}]}
 
 
+# 바레인 입찰위원회 개찰 결과(10-30 탐침에서 본 형식): 목록은 웹 메서드 응답 d 안 XML의 <Content>에 HTML이 엔터티로 들어 있다.
+def bh_open_row(ref, no, subject, opened, authority, bids, envelope="PB"):
+    href = f"/OpenedTenderDetails/?id={no.replace('/', '%2f')}&amp;source=New&amp;envelope={envelope}&amp;type=1"
+    return (f"<div data-ref='{ref}' class='rows'><div class='column' data-label='#'>1</div><div class='column' data-label='Subject'>"
+            f"<a href='{href}'><span>{no}</span>{subject}</a></div><div class='column' data-label='Type'>External</div>"
+            f"<div class='column' data-label='Date'>{opened}</div><div class='column' data-label='Authority'>{authority}</div>"
+            f"<div class='column' data-label='Bids'>{bids}</div></div>")
+
+
+BH_OPEN_ROWS = [
+    bh_open_row("9001", "4669/2025/5100", "400kV and 220kV Feeder Cable Works for Establishment of New Sitra 400kV Grid Substation",
+                "13 Apr,2026", "Electricity and Water Authority (Planning)", 3),
+    bh_open_row("9002", "SES-26/0015", "JETTING CLEANING OF SEWER AND STORM WATER SYSTEM", "29 Oct,2026", "Ministry of Works", 2),
+    bh_open_row("9003", "PT/CSD/AS/2026/019", "Supply of 66KV Switchgear", "28 Oct,2026", "Central Stores Directorate - EWA", 2, envelope="TQ"),
+]
+
+
+def bh_open_page(rows):
+    content = "".join(rows).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    return {"d": f"<NewDataSet><Pager><PageIndex>1</PageIndex><PageSize>10</PageSize><RecordCount>9124</RecordCount>"
+                 f"<Content>{content}</Content></Pager></NewDataSet>"}
+
+
+def bidder(n, name, value_html, status="Accepted"):
+    return (f"<div class='rows'><div class='column' data-label='#'>{n}</div><div class='column' data-label='Bidder Name'>{name}</div>"
+            f"<div class='column bidvalue' data-label='Bidder Value'>{value_html}</div><div class='column' data-label='Remarks On Opened Bid'>"
+            f"<div><p class='remarks'></p></div></div><div status='{status}' class='column' data-label='Status'>{status}</div></div>")
+
+
+BH_DETAILS = {
+    "9001": "<dl><dt>Issued by</dt><dd>EWA</dd></dl><div class='rows header'><div class='column'>Bidder Name</div></div>"
+            + bidder(1, "TAIHAN ELECTRIC WIRE CO LTD", "<div>(Opt. 1) <span>BHD 45,648,300.000</span></div><div>(Opt. 2) <span>BHD 47,022,441.000</span></div>")
+            + bidder(2, "LS CABLE AND SYSTEM LTD", "<span>BHD 46,659,985.550</span>")
+            + bidder(3, "ILJIN ELECTRIC", "<span>BHD 35,004,118.330</span>"),
+    "9002": bidder(1, "ALMOAYYED CONTRACTING W.L.L.", "<span>BHD 120,000.000</span>") + bidder(2, "GULF CLEANING CO", "<span>BHD 99,500.000</span>"),
+    "9003": bidder(1, "LS ELECTRIC CO., LTD.", "<span></span>") + bidder(2, "HYOSUNG HEAVY INDUSTRIES CORPORATION", "<span></span>", "Rejected"),
+}
+
+
 def fakes(ted_rows=(TED_HYOSUNG, TED_FRAMEWORK, TED_SUBSIDIARY, TED_OTHER_KR, TED_NOT_KR), wb_rows=(WB_AWARD, WB_REJECTED, WB_OLD),
           fts_rels=(FTS_REL, FTS_UK_ONLY), bh_text="Tender 12/2026 EWA 400kV transformers HYOSUNG HEAVY INDUSTRIES BHD 4,200,000",
-          pcc_rows=(PCC_LS, PCC_LOSER, PCC_LSE, PCC_FIBER, PCC_OLD)):
-    calls = {"ted": 0, "wb": 0, "fts": 0, "bh_pdf": 0, "pcc": 0, "pcc_detail": 0}
+          pcc_rows=(PCC_LS, PCC_LOSER, PCC_LSE, PCC_FIBER, PCC_OLD), bh_open=tuple(BH_OPEN_ROWS)):
+    calls = {"ted": 0, "wb": 0, "fts": 0, "bh_pdf": 0, "pcc": 0, "pcc_detail": 0, "bh_open": 0, "bh_open_detail": 0}
 
-    def post(url, json=None, headers=None, timeout=None):
+    def post(url, json=None, headers=None, timeout=None, data=None):
+        if url == w.BH_OPEN_API:
+            calls["bh_open"] += 1
+            page = int(__import__("json").loads(data)["pageIndex"])
+            return Resp(bh_open_page(list(bh_open) if page == 1 else []))
         calls["ted"] += 1
         return Resp({"notices": list(ted_rows), "totalNoticeCount": len(ted_rows)})
 
@@ -108,6 +151,10 @@ def fakes(ted_rows=(TED_HYOSUNG, TED_FRAMEWORK, TED_SUBSIDIARY, TED_OTHER_KR, TE
             return Resp({"releases": list(fts_rels), "links": {}})
         if url == w.BH_LIST:
             return Resp(text=BH_HTML)
+        if url.startswith(w.BH_SITE + "/OpenedTenderDetails/"):
+            calls["bh_open_detail"] += 1
+            ref = {"4669": "9001", "SES-": "9002", "PT%2": "9003"}[url.split("id=")[1][:4]]
+            return Resp(text=BH_DETAILS[ref])
         if url.endswith(".pdf"):
             calls["bh_pdf"] += 1
             return Resp(text="", content=b"%PDF")
@@ -286,6 +333,83 @@ class Award(unittest.TestCase):
         self.assertEqual(len(doc["items"]), len(first["items"]))
         self.assertTrue(all(c["status"] == "failed" for c in doc["checks"]))
         self.assertEqual(doc["lastSuccess"], first["lastSuccess"])
+
+    def test_bahrain_opened_bids_rank_and_tiers(self):
+        rows = w.bh_open_rows(bh_open_page(BH_OPEN_ROWS)["d"])
+        self.assertEqual(len(rows), 3)
+        r = rows[0]
+        self.assertEqual((r["ref"], r["tenderNo"], r["opened"], r["authority"], r["bids"]),
+                         ("9001", "4669/2025/5100", "2026-04-13", "Electricity and Water Authority (Planning)", 3))
+        self.assertTrue(r["subject"].startswith("400kV and 220kV Feeder Cable Works"))
+        self.assertEqual(r["href"], "/OpenedTenderDetails/?id=4669%2f2025%2f5100&source=New&envelope=PB&type=1")
+        bids = w.bh_bidders(BH_DETAILS["9001"])
+        self.assertEqual([(b["name"], b["value"], b["options"]) for b in bids],
+                         [("TAIHAN ELECTRIC WIRE CO LTD", 45648300.0, 2), ("LS CABLE AND SYSTEM LTD", 46659985.55, 1), ("ILJIN ELECTRIC", 35004118.33, 1)])
+        got = {x["company"]: x for x in w.bh_open_items(r, bids)}
+        self.assertEqual(set(got), {"일진전기", "LS전선", "대한전선"})
+        il, ls, th = got["일진전기"], got["LS전선"], got["대한전선"]
+        self.assertEqual((il["rank"], il["priced"], il["lowest"], il["lowestBid"], w.tier_of(il)), (1, 3, True, None, "A"))
+        self.assertEqual([o["name"] for o in il["others"]], ["TAIHAN ELECTRIC WIRE CO LTD", "LS CABLE AND SYSTEM LTD"])
+        self.assertEqual((ls["rank"], ls["lowestBid"], w.tier_of(ls)), (3, {"name": "ILJIN ELECTRIC", "value": 35004118.33}, "B"))
+        self.assertEqual((th["rank"], th["options"], th["value"]), (2, 2, 45648300.0))  # 옵션 응찰은 낮은 옵션 값
+        self.assertEqual((il["kind"], il["winners"], il["envelope"], il["currency"]), ("개찰(응찰)", [], "PB", "BHD"))
+        self.assertEqual(il["url"], "https://www.tenderboard.gov.bh/OpenedTenderDetails/?id=4669%2f2025%2f5100&source=New&envelope=PB&type=1")
+        # 응찰가 없는 단계(기술·자격)와 탈락 응찰: 순위 없음, 출입처라도 B
+        tq = {x["company"]: x for x in w.bh_open_items(rows[2], w.bh_bidders(BH_DETAILS["9003"]))}
+        self.assertEqual((tq["LS일렉트릭"]["rank"], tq["LS일렉트릭"]["lowest"], w.tier_of(tq["LS일렉트릭"])), (None, False, "B"))
+        self.assertEqual((tq["효성중공업"]["bidStatus"], tq["효성중공업"]["rank"]), ("Rejected", None))
+        self.assertEqual(w.bh_open_items(rows[1], w.bh_bidders(BH_DETAILS["9002"])), [])  # 한국 응찰 없음
+        small = dict(il, value=80000.0)
+        self.assertEqual(w.tier_of(small), "B")  # 최저가라도 작은 입찰은 B
+
+    def test_bahrain_opened_first_run_is_baseline_then_new(self):
+        prev = {"items": [], "generatedAt": (NOW - dt.timedelta(days=1)).isoformat(), "bahrainSeen": ["x"], "pccLastRun": NOW.isoformat()}
+        get, post, calls = fakes(bh_open=BH_OPEN_ROWS[1:])
+        first = w.run(now=NOW, previous=prev, get=get, post=post, sleep=lambda s: None)
+        self.assertEqual((calls["bh_open"], calls["bh_open_detail"]), (2, 2))  # 2쪽은 비어 목록 끝
+        ls = next(x for x in first["items"] if x["source"] == w.BH_OPEN_SOURCE and x["company"] == "LS일렉트릭")
+        self.assertEqual((ls["baseline"], ls["isNew"]), (True, False))  # 이 원천의 첫 실행은 기준선
+        self.assertEqual(sorted(first["bahrainOpenSeen"]), ["9002", "9003"])
+        chk = next(c for c in first["checks"] if c["source"] == w.BH_OPEN_SOURCE)
+        self.assertEqual((chk["status"], chk["returned"], chk["matched"]), ("ok", 2, 2))
+        self.assertIn("바레인 입찰위원회 월간 낙찰 보고서·개찰 결과", first["coverage"])
+        get2, post2, calls2 = fakes()
+        second = w.run(now=NOW + dt.timedelta(hours=10), previous=first, get=get2, post=post2, sleep=lambda s: None)
+        self.assertEqual(calls2["bh_open"], 2)  # 2쪽에서 목록 끝
+        self.assertEqual(calls2["bh_open_detail"], 1)  # 새 개찰(9001)만 상세를 읽는다
+        new = [x for x in second["items"] if x["isNew"]]
+        self.assertEqual(sorted(x["company"] for x in new), ["LS전선", "대한전선", "일진전기"])
+        il = next(x for x in new if x["company"] == "일진전기")
+        self.assertEqual((il["tier"], il["published"]), ("A", "2026-04-13"))
+        # 다시 봐도 상세를 다시 읽지 않고, 저장된 응찰 항목은 응찰자 이름으로 출입처를 유지한다(낙찰자 칸이 비어 있어도)
+        get3, post3, calls3 = fakes()
+        third = w.run(now=NOW + dt.timedelta(hours=21), previous=second, get=get3, post=post3, sleep=lambda s: None)
+        self.assertEqual(calls3["bh_open_detail"], 0)
+        il3 = next(x for x in third["items"] if x["id"] == il["id"])
+        self.assertEqual((il3["company"], il3["tier"], il3["isNew"]), ("일진전기", "A", False))
+
+    def test_bahrain_opened_first_run_cap_remembers_the_rest(self):
+        cap = w.BH_OPEN_DETAIL_MAX
+        w.BH_OPEN_DETAIL_MAX = 1
+        try:
+            get, post, calls = fakes()
+            _, checks, seen = w.bahrain_opened(None, get=get, post=post, sleep=lambda s: None)
+            self.assertEqual((calls["bh_open_detail"], sorted(seen)), (1, ["9001", "9002", "9003"]))
+            self.assertIn("첫 실행 기준선 — 예전 개찰 2건은 읽지 않음", checks[0]["note"])
+            _, checks2, seen2 = w.bahrain_opened(["9001"], get=get, post=post, sleep=lambda s: None)
+            self.assertEqual((sorted(seen2), checks2[0]["note"].split(" · ")[-1]), (["9001", "9002"], "남은 1건은 다음 실행에"))
+        finally:
+            w.BH_OPEN_DETAIL_MAX = cap
+
+    def test_bahrain_opened_list_failure_is_not_zero(self):
+        prev = {"items": [], "generatedAt": (NOW - dt.timedelta(days=1)).isoformat(), "bahrainSeen": ["x"], "bahrainOpenSeen": ["9002"],
+                "pccLastRun": NOW.isoformat()}
+        get, post, _ = fakes(bh_open=())
+        doc = w.run(now=NOW, previous=prev, get=get, post=post, sleep=lambda s: None)
+        chk = [c for c in doc["checks"] if c["source"] == w.BH_OPEN_SOURCE]
+        self.assertEqual((chk[0]["status"], chk[0]["error"]), ("failed", "목록 형식 미상(0줄)"))
+        self.assertEqual(doc["bahrainOpenSeen"], ["9002"])  # 기억은 그대로
+        self.assertEqual(doc["status"], "partial")
 
     def test_ted_429_waits_once(self):
         state = {"n": 0}

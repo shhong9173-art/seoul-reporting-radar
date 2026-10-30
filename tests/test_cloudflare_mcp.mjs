@@ -1842,6 +1842,38 @@ test('overseas awards: a beat company in the TED winner field is A; other Korean
   assert.deepEqual(dueAt(new Date('2026-10-29T08:30:00Z')), ['overseas-awards.yml']);  // Thu 17:30 KST
 });
 
+test('overseas awards: a Bahrain opened bid is a bid, not an award — lowest big bid A, others B, its first run a baseline', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const b = (id, extra = {}) => ({ id, source: '바레인 입찰위원회 개찰', published: '2026-10-25', kind: '개찰(응찰)', buyer: 'Electricity and Water Authority (Planning)',
+    buyerCountry: 'BHR', winners: [], winnerCountry: [], winnerIds: [], company: '일진전기', companies: ['일진전기'],
+    title: '4669/2025/5100 400kV and 220kV Feeder Cable Works for Establishment of New Sitra 400kV Grid Substation', bidder: 'ILJIN ELECTRIC',
+    bidStatus: 'Accepted', value: 35004118.33, currency: 'BHD', options: 1, rank: 1, priced: 3, bidCount: 3, lowest: true,
+    others: [{ name: 'TAIHAN ELECTRIC WIRE CO LTD', value: 45648300 }, { name: 'LS CABLE AND SYSTEM LTD', value: 46659985.55 }], lowestBid: null,
+    url: 'https://www.tenderboard.gov.bh/OpenedTenderDetails/?id=4669%2f2025%2f5100&source=New&envelope=PB&type=1',
+    firstSeen: '2026-10-25T17:30:00+09:00', isNew: true, baseline: false, tier: 'A', ...extra });
+  const doc = { schema: 'overseas_awards/v1', generatedAt: '2026-10-25T17:30:00+09:00', status: 'complete', coverage: 'EU TED · 바레인 입찰위원회 월간 낙찰 보고서·개찰 결과',
+    checks: [{ source: '바레인 입찰위원회 개찰', query: '개찰 결과(응찰 회사·응찰가)', status: 'ok', returned: 40, matched: 3 }], rules: [],
+    items: [b('bhopen:9001:일진전기'),
+      b('bhopen:9001:LS전선', { company: 'LS전선', companies: ['LS전선'], bidder: 'LS CABLE AND SYSTEM LTD', value: 46659985.55, rank: 3, lowest: false, tier: 'B',
+        lowestBid: { name: 'ILJIN ELECTRIC', value: 35004118.33 } }),
+      b('bhopen:8001:LS일렉트릭', { company: 'LS일렉트릭', companies: ['LS일렉트릭'], bidder: 'LS ELECTRIC CO., LTD.', published: '2026-09-01', value: null,
+        rank: null, priced: null, lowest: false, isNew: false, baseline: true, tier: 'B', title: 'PT/CSD/AS/2026/019 Supply of 66KV Switchgear' })] };
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/overseas-awards', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
+  const r = await call('radar_today', { hours: 72, include_minor: true }, opts);
+  const sec = (t) => r.text.split(`[${t} · `)[1].split(/\n\[[ABC] · /)[0];
+  assert.match(sec('A'), /해외 개찰\(바레인 입찰위원회 개찰\): 바레인 Electricity and Water Authority \(Planning\) · 4669\/2025\/5100 400kV[^\n]* — ILJIN ELECTRIC BHD 35,004,118 · 응찰가 1위\/3곳\(최저가\) · 개찰 2026-10-25 · 낙찰 아님/);
+  assert.match(sec('B'), /— LS CABLE AND SYSTEM LTD BHD 46,659,986 · 응찰가 3위\/3곳 · 최저 ILJIN ELECTRIC BHD 35,004,118/);
+  assert.doesNotMatch(r.text, /66KV Switchgear/);  // 이 원천 첫 실행의 예전 개찰(기준선)은 오늘 항목이 아니다
+  const t = await call('partner_filings', { company: '일진' }, opts);
+  assert.match(t.text, /\[신규\] 2026-10-25 · 바레인 입찰위원회 개찰 개찰\(응찰\) · 일진전기 · 발주 Electricity and Water Authority \(Planning\)\(BHR\)\n   잡힌 사실: 응찰 ILJIN ELECTRIC BHD 35,004,118\.33 · 상태 Accepted · 응찰가 1위\/3곳\(최저가\) · 응찰 3곳 · 다른 응찰 TAIHAN ELECTRIC WIRE CO LTD BHD 45,648,300 \/ LS CABLE AND SYSTEM LTD BHD 46,659,985\.55/);
+  assert.match(t.text, /검증 상태: 입찰위원회 개찰 결과\(응찰가 공개\) — 낙찰 아님/);
+  const all = await call('partner_filings', {}, opts);
+  assert.match(all.text, /2026-09-01 · 바레인 입찰위원회 개찰 개찰\(응찰\) · LS일렉트릭[^\n]*\n   잡힌 사실: 응찰 LS ELECTRIC CO\., LTD\. 응찰가 미공개 · 상태 Accepted · 응찰가 순위 없음/);
+  const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
+  assert.deepEqual(items.items.find((x) => x.id === 'bhopen:9001:일진전기').check.terms, ['바레인', '입찰']);
+});
+
 test('kr insolvency: a beat-industry manufacturer entering court proceedings is A and listed under kr_official', async () => {
   const opts = PRIVATE();
   const env = opts.env;
