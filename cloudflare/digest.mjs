@@ -438,7 +438,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
   for (const e of docs['kr-stacks']?.events ?? []) {
     if (!recent(e.detectedAt)) continue;
     push(e.tier ?? 'B', W['kr-stacks'], { kind: e.kind, id: e.id, date: e.detectedAt, company: e.company, fact: e.text,
-      check: hint(e.company, /재가동/.test(e.kind) ? ['재가동'] : /새/.test(e.kind) ? ['신설', '가동'] : ['가동 중단', '정비']) });
+      check: hint(e.company, /배출허용기준/.test(e.kind) ? ['배출허용기준', '초과'] : /재가동/.test(e.kind) ? ['재가동'] : /새/.test(e.kind) ? ['신설', '가동'] : ['가동 중단', '정비']) });
   }
 
   // 영국 Companies House 새 법인: 출입처 본사가 지배 주주(PSC)로 적히면 A, 지배 주주 미기재·본사 전체 이름이면 B, 이름만 같으면 C.

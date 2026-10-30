@@ -784,10 +784,13 @@ test('kr_official stacks: plants with stopped stacks first, events, young sites 
     sites: [
       { id: 'a', company: '현대제철', name: '현대제철㈜포항2공장', area: '경상북도', meaningful: 2, stopped: ['1', '2'],
         stacks: { 1: { lastDt: '2026-10-31 09:00', obs: Array(9).fill(['x', 0]) }, 2: { lastDt: '2026-10-31 09:00', obs: Array(9).fill(['x', 0]) } } },
-      { id: 'b', company: '포스코', name: '㈜포스코 광양제철소', area: '전라남도', meaningful: 150, stopped: ['17'], stacks: { 17: { lastDt: '2026-10-31 09:00', obs: Array(9).fill(['x', 0]) } } },
+      { id: 'b', company: '포스코', name: '㈜포스코 광양제철소', area: '전라남도', meaningful: 150, stopped: ['17'], stacks: { 17: { lastDt: '2026-10-31 09:00', obs: Array(9).fill(['x', 0]) } },
+        exceedLog: [{ stack: '40', pollutant: 'nox', value: 61.2, limit: 50, at: '2026-10-31 06:00' }, { stack: '40', pollutant: 'nox', value: 70.5, limit: 50, at: '2026-10-31 09:00' }] },
       { id: 'c', company: '고려아연', name: '고려아연㈜온산제련소', area: '울산광역시', meaningful: 0, stopped: [], stacks: { 11: { obs: [['x', 5]] } } }],
     events: [{ id: 'stk:down:a:2026-10-31', kind: '사업장 가동 중단 신호', tier: 'A', company: '현대제철', site: '현대제철㈜포항2공장', detectedAt: recent,
-      text: '현대제철㈜포항2공장: 평소 움직이던 배출구 2개 중 2개가 3번 연속 평소의 10% 아래' }] };
+      text: '현대제철㈜포항2공장: 평소 움직이던 배출구 2개 중 2개가 3번 연속 평소의 10% 아래' },
+      { id: 'stk:exceed2:b:40:nox:2026-10-31 06:00', kind: '배출허용기준 초과 지속', tier: 'A', company: '포스코', site: '㈜포스코 광양제철소', detectedAt: recent,
+        text: '㈜포스코 광양제철소 배출구 40번 질소산화물 측정값 70.5이 배출허용기준 50을 넘음(기준의 1.4배, 측정 2026-10-31 09:00) — 2026-10-31 06:00 측정부터 이 감시의 실행 2번 연속 초과(처음 61.2)' }] };
   const post = await worker.fetch(new Request(ORIGIN + '/ingest/kr-stacks', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {});
   assert.equal(post.status, 200);
   const opts = { path: `/mcp/${TOKEN}`, env };
@@ -798,8 +801,12 @@ test('kr_official stacks: plants with stopped stacks first, events, young sites 
   assert.match(r.text, /평소 움직이던 배출구 2개 중 멈춤 2개: 1번\(측정 2026-10-31 09:00\), 2번/);
   assert.match(r.text, /관측이 아직 6번이 안 된 사업장 1곳/);
   assert.match(r.text, /A · .* · 사업장 가동 중단 신호 · 현대제철/);
-  const a = (await call('radar_today', {}, opts)).text.split('[A · ')[1].split('[B · ')[0];
+  assert.match(r.text, /- 배출허용기준 넘은 측정값\(이 감시가 본 것, 사업장마다 최근 20건\) 2건\n  2026-10-31 09:00 · 포스코 · ㈜포스코 광양제철소 배출구 40번 질소산화물 70\.5\(기준 50\)/);
+  assert.match(r.text, /기준 초과 값은 확정 전 실시간 값/);
+  const today = (await call('radar_today', {}, opts)).text;
+  const a = today.split('[A · ')[1].split('[B · ')[0];
   assert.match(a, /굴뚝 측정\(공장 가동 신호\)[\s\S]*포항2공장: 평소 움직이던 배출구 2개 중 2개/);
+  assert.match(a, /광양제철소 배출구 40번 질소산화물 측정값 70\.5이 배출허용기준 50을 넘음/);
 });
 
 test('radar_today: scoop candidates count as new only when first screened inside the window', async () => {

@@ -89,6 +89,27 @@ def peak(x):
     return max(vals) if vals else None
 
 
+POL_KO = {"tsp": "먼지", "sox": "황산화물", "nox": "질소산화물", "hcl": "염화수소", "hf": "불화수소", "nh3": "암모니아", "co": "일산화탄소"}
+EXCEED_KEEP = 20
+
+
+def fnum(v):
+    try:
+        return float(str(v).replace(",", ""))
+    except (TypeError, ValueError):
+        return None
+
+
+def exceedances(x):
+    """측정값이 그 배출구의 배출허용기준(같은 줄의 *_exhst_perm_stdr_value)을 넘은 오염물질: [(물질, 측정값, 기준)]."""
+    out = []
+    for p in POLLUTANTS:
+        m, s = fnum(x.get(f"{p}_mesure_value")), fnum(x.get(f"{p}_exhst_perm_stdr_value"))
+        if m is not None and s is not None and s > 0 and m > s:
+            out.append((p, m, s))
+    return out
+
+
 def norm(name):
     return re.sub(r"\s+", "", str(name or "").replace("（", "(").replace("）", ")").replace("㈜", "(주)"))
 
@@ -195,6 +216,28 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep):
                     continue  # 측정 시각이 그대로면 같은 관측을 두 번 쌓지 않는다
                 st["obs"] = (st.get("obs") or [])[-(OBS_KEEP - 1):] + [[mdt, peak(x)]]
                 st["lastDt"], st["missing"] = mdt, 0
+                # 배출허용기준 초과: 새 측정 시각마다 한 번. 처음 넘으면 B, 다음 측정(이 감시의 다음 실행)에도 넘으면 A(지속)
+                over = {p: (m, lim) for p, m, lim in exceedances(x)}
+                runs = st.setdefault("exceed", {})
+                for p in list(runs):
+                    if p not in over:
+                        del runs[p]
+                for p, (m, lim) in over.items():
+                    ep = runs.get(p) or {"start": mdt, "count": 0, "first": [m, lim]}
+                    ep["count"] += 1
+                    runs[p] = ep
+                    s.setdefault("exceedLog", [])
+                    s["exceedLog"] = (s["exceedLog"] + [{"stack": code, "pollutant": p, "value": m, "limit": lim, "at": mdt}])[-EXCEED_KEEP:]
+                    odd = " — 기준의 20배 넘는 값이라 측정기 이상값일 수 있음" if m > lim * 20 else ""
+                    what = f"{name} 배출구 {code}번 {POL_KO[p]} 측정값 {m:g}이 배출허용기준 {lim:g}을 넘음(기준의 {m / lim:.1f}배, 측정 {mdt}){odd}"
+                    tail = " · 실시간 자동측정 값(확정 전). 측정기 점검·교정 중 값일 수 있음 — 초과 판정·행정처분은 한국환경공단·관할 지자체 확인"
+                    if first:
+                        continue
+                    if ep["count"] == 1:
+                        emit(f"stk:exceed:{sid}:{code}:{p}:{ep['start']}", "배출허용기준 초과(측정값)", "B", comp["company"], name, what + tail)
+                    elif ep["count"] == 2:
+                        emit(f"stk:exceed2:{sid}:{code}:{p}:{ep['start']}", "배출허용기준 초과 지속", "A", comp["company"], name,
+                             f"{what} — {ep['start']} 측정부터 이 감시의 실행 2번 연속 초과(처음 {ep['first'][0]:g})" + tail)
             for code, st in stacks.items():
                 if code not in present:
                     st["missing"] = st.get("missing", 0) + 1
@@ -248,6 +291,7 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep):
             "rules": ["굴뚝 자동측정(TMS) 실시간 값을 이 감시가 3시간마다 쌓은 이력이다. 배출구 이름·설비 종류는 자료에 없다(번호만).",
                       "측정값이 평소의 10% 아래로 떨어진 것은 설비 정지·정비·측정기 점검·연료 전환일 수 있다. 가동 중단은 회사 확인 전 미확인.",
                       "평소 값이 1 미만인 배출구(원래 거의 0)는 멈춤 판단을 하지 않는다. 관측이 6번 모이기 전에는 판단하지 않는다.",
+                      "배출허용기준 초과는 같은 줄에 실린 그 배출구의 물질별 기준과 실시간 측정값을 비교한 것이다. 처음 넘으면 B, 다음 실행에도 넘으면 A. 측정기 점검·교정 값일 수 있고 초과 판정·처분은 환경공단·지자체 확인.",
                       "조회 실패는 0이 아니라 미확인."],
             "confirmedScoops": 0}
 
