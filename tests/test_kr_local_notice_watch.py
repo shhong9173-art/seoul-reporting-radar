@@ -87,6 +87,21 @@ class Local(unittest.TestCase):
         self.assertEqual(w.classify(rows[0]["title"])[0], "A")
         self.assertIn(("광주 광산구", "https://eminwon.gwangsan.go.kr", "금호타이어(광주공장)"), w.CITIES)
 
+    def test_seogu_list_layout(self):
+        # 10-30 광주 서구 실제 모양: 표가 아니라 <div class="dbody"><ul><li>…</li></ul>
+        ul = ('<ul> <li class="col01"> <a href="#" onclick="javaScript:searchDetail(\'56380\')">44849</a> </li> '
+              '<li class="col02 blind"> <a href="#" onclick="javaScript:searchDetail(\'56380\')">서구 공고 제2026-2094호</a> </li> '
+              '<li class="title"> <a href="#" onclick="javaScript:searchDetail(\'56380\')">기아 오토랜드 광주 2공장 증설 건축 허가 사항 공고</a> </li> '
+              '<li class="col03"> <a href="#" onclick="javaScript:searchDetail(\'56380\')">건축과</a> </li> '
+              '<li class="col04"> <a href="#" onclick="javaScript:searchDetail(\'56380\')">2026-10-30</a> </li> '
+              '<li class="col05"> <a href="#" onclick="javaScript:searchDetail(\'56380\')">11</a> </li> </ul>')
+        head = '<div class="dhead"> <ul> <li class="col01">번호</li> <li class="title">제목</li> </ul> </div>'
+        page_html = f'<table><tr><td>1</td></tr></table><div class="tstyle_list">{head}<div class="dbody">{ul}</div></div>'
+        rows = w.parse_rows(page_html)
+        self.assertEqual(rows, [{"mgt": "56380", "no": "서구 공고 제2026-2094호", "title": "기아 오토랜드 광주 2공장 증설 건축 허가 사항 공고",
+                                 "dept": "건축과", "date": "2026-10-30"}])
+        self.assertEqual(w.classify(rows[0]["title"]), ("A", ["기아"]))
+
     def test_baseline_then_new_and_failures(self):
         first = w.run(now=NOW, previous=None, post=fake({"https://eminwon.dangjin.go.kr": page(DJ1, TD_ROW), "http://eminwon.ulju.ulsan.kr": page(UJ1, A_ROW)}),
                       sleep=lambda s: None, cities=CITIES)
