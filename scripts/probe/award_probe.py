@@ -1,33 +1,75 @@
-"""격리 탐침 49d: 수질TMS 배출량 API — 변수 조합(연도·분기·날짜 형식·사업장명)으로 결과 코드 91 피하기(키 값 미출력)."""
-import os
-import re
-import time
-from urllib.parse import quote
+"""probe: 완성차 모델별·공장별 월간 판매 원천(현대차 IR 엑셀, 기아 IR 엑셀) 접근·형식. 공개 자료, 키 없음. 저장하지 않음."""
+import io
+import json
+import sys
+import traceback
 
 import requests
+from openpyxl import load_workbook
 
-key = (os.environ.get("KR_FUEL_API_KEY") or "").strip()
+UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"}
 out = []
-TRY = [
-    {"returnType": "json"},
-    {"returnType": "JSON"},
-    {"returnType": "json", "msrmtYr": "2026"},
-    {"returnType": "json", "msrmtYr": "2026", "msrmtQtr": "3"},
-    {"returnType": "json", "msrmtYr": "2026", "msrmtQtr": "4"},
-    {"returnType": "json", "msrmtYr": "2026", "msrmtQtr": "3", "bplcNm": "현대제철"},
-    {"returnType": "json", "msrmtDt": "2026-10-28"},
-    {"returnType": "json", "msrmtDt": "20261028"},
-    {"returnType": "json", "msrmtYr": "2025", "msrmtQtr": "4"},
-    {"returnType": "xml", "msrmtYr": "2026", "msrmtQtr": "3"},
-]
-for p in TRY:
+
+
+def say(*a):
+    out.append(" ".join(str(x) for x in a))
+
+
+def sheet_dump(name, content, max_rows=90, cols=18):
+    wb = load_workbook(io.BytesIO(content), read_only=True, data_only=True)
+    say(f"## {name} sheets={wb.sheetnames}")
+    for ws in wb.worksheets[:6]:
+        rows = list(ws.iter_rows(values_only=True))
+        say(f"# sheet '{ws.title}' rows={len(rows)} cols={max((len(r) for r in rows), default=0)}")
+        for i, r in enumerate(rows[:max_rows]):
+            cells = [("" if v is None else (f"{v:.0f}" if isinstance(v, float) else str(v)).strip()) for v in r[:cols]]
+            if any(cells):
+                say(f"{i}|" + "|".join(cells))
+
+
+def hmc():
+    s = requests.Session()
+    s.headers.update(UA)
+    for year in ("2026", "2025"):
+        r = s.post("https://www.hyundai.com/wsvc/ww/salesPerformance.list.do", data={"lang": "ko", "year": year}, timeout=30)
+        say("HMC list", year, r.status_code, len(r.text))
+        lst = (r.json().get("data") or {}).get("list") or []
+        for x in lst:
+            say("  files", {k: v for k, v in x.items() if k.startswith("attr")})
+        if year == "2026" and lst:
+            x = lst[0]
+            for key, rows in (("attrSalesModelValue", 90), ("attrGlobalPlantValue", 60)):
+                url = "https://www.hyundai.com" + x[key]
+                f = s.get(url, timeout=60)
+                say("HMC file", key, f.status_code, len(f.content), f.headers.get("last-modified"))
+                if f.status_code == 200:
+                    sheet_dump(key, f.content, max_rows=rows)
+    r = s.post("https://www.hyundai.com/wsvc/ww/salesPerformanceSummary.item.do", data={"lang": "ko", "year": "2026"}, timeout=30)
+    say("HMC summary", r.status_code, r.text[:300])
+
+
+def kia():
+    r = requests.get("https://worldwide.kia.com/api/investors/business-sales-results", params={"year": 0, "page": 0, "language": "ko"}, headers=UA, timeout=30)
+    say("KIA list", r.status_code, len(r.text))
+    lst = [x for x in (r.json().get("data") or {}).get("list") or [] if x.get("type") == "sales"]
+    for x in lst[:3]:
+        say("  sales", x.get("year"), x.get("month"), x.get("title"), x.get("publicatedAt"), [f["title"] for f in x.get("files") or []])
+    if lst:
+        for f in lst[0]["files"]:
+            if "차종별" in f["title"] or "해외공장" in f["title"]:
+                g = requests.get("https://worldwide.kia.com/files/" + f["path"], headers=UA, timeout=60)
+                say("KIA file", f["title"], g.status_code, len(g.content), g.headers.get("last-modified"))
+                if g.status_code == 200 and "해외공장" in f["title"]:
+                    sheet_dump(f["title"], g.content, max_rows=45)
+
+
+for fn in (hmc, kia):
     try:
-        r = requests.get("https://apis.data.go.kr/B552584/waterTmsService/getList", params={"serviceKey": key, "pageNo": "1", "numOfRows": "3", **p}, timeout=60)
-        body = r.text.replace(key, "<KEY>").replace(quote(key, safe=""), "<KEY>")
-        out.append(f"{p} HTTP {r.status_code} {re.sub(r'\\s+', ' ', body)[:700]}")
-    except Exception as e:  # noqa: BLE001
-        out.append(f"{p} {type(e).__name__}")
-    time.sleep(0.5)
-blob = " ¶ ".join(x.replace("\n", " ").replace("::", ": :").replace("%", "pct") for x in out)
-for i in range(0, min(len(blob), 13000), 1300):
-    print(f"::notice title=aw-{i // 1300:02d}::{blob[i:i + 1300]}")
+        fn()
+    except Exception:  # noqa: BLE001
+        say("ERR", fn.__name__, traceback.format_exc()[-600:])
+
+blob = "\n".join(out)
+open("/tmp/probe_out.txt", "w").write(blob)
+print("total chars", len(blob))
+part = int(sys.argv[1]) if len(sys.argv) > 1 else 0
