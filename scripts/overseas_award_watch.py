@@ -497,6 +497,12 @@ PCC_ZH = [("LS일렉트릭", re.compile(r"樂星電氣|樂星產電")), ("LS전�
 PCC_TYPES = {"決標公告": "낙찰", "更正決標公告": "계약 변경"}  # 更正決標公告(낙찰 정정·변경)는 B
 WIN_KEY = re.compile(r"^決標品項:第(\d+)品項:得標廠商(\d+):得標廠商$")
 PCC_DETAIL_MAX = 12  # 실행당 새 공고 상세 읽기 상한
+PCC_GAP = 2.0        # 호출 사이 대기(10-30 탐침: 대기 없이 11번 부르자 HTTP 429)
+PCC_EVERY_HOURS = 20  # 하루 한 번(아침 실행). 오후 실행은 건너뛴다
+
+
+class RateLimited(RuntimeError):
+    pass
 
 
 def pcc_beat(name):
@@ -536,6 +542,8 @@ def pcc_items(records, since_day):
             continue  # 탈락 명단·이름만 나온 공고는 버림
         beat = sorted({pcc_beat(w) for w in beat_w})
         fn = str(rec.get("filename") or "")
+        if re.search(r"契約變更", str(b.get("title") or "")):
+            kind = "계약 변경"  # 결정 공고라도 제목이 'N차 계약 변경'이면 새 수주가 아니다(10-30 탐침: 臺鐵 SJ01 號誌 第1次契約變更)
         out.append({
             "id": f"pcc:{rec.get('unit_id')}:{rec.get('job_number')}:{fn}", "source": PCC_SOURCE, "published": day, "kind": kind,
             "buyer": norm_space(rec.get("unit_name"))[:160], "buyerCountry": "TWN", "winners": beat_w[:6], "winnerCount": len(winners),
@@ -552,6 +560,8 @@ def pcc_items(records, since_day):
 def pcc_detail(item, *, get=None):
     """새 공고 한 번: 출입처가 낙찰한 품목의 결정 금액·원산지, 결정일, 표적 분류."""
     r = _get(get, PCC_TENDER, params={"unit_id": item.get("unitId"), "job_number": item.get("jobNumber")})
+    if r.status_code == 429:
+        raise RateLimited("HTTP 429")
     if r.status_code != 200:
         raise RuntimeError(f"HTTP {r.status_code}")
     rec = next((x for x in (r.json().get("records") or []) if str(x.get("filename")) == item.get("filename")), None)
@@ -576,10 +586,20 @@ def pcc_detail(item, *, get=None):
 
 
 def pcc(since, previous_ids, *, get=None, sleep=time.sleep):
+    """미러 호출 제한(429)이 오면 이번 실행의 나머지 검색·상세는 하지 않는다(다시 부르지 않음, 남은 검색은 미확인)."""
     items, checks, since_day = {}, [], since.date().isoformat()
-    for ko, term in PCC_TERMS:
+    limited = False
+    for i, (ko, term) in enumerate(PCC_TERMS):
+        if limited:
+            checks.append({"source": PCC_SOURCE, "query": f"{ko}({term})", "status": "failed", "error": "HTTP 429 뒤 이번 실행 중단"})
+            continue
+        if i:
+            sleep(PCC_GAP)
         try:
             r = _get(get, PCC_SEARCH, params={"query": term})
+            if r.status_code == 429:
+                limited = True
+                raise RuntimeError("HTTP 429")
             if r.status_code != 200:
                 raise RuntimeError(f"HTTP {r.status_code}")
             recs = r.json().get("records")
@@ -591,12 +611,15 @@ def pcc(since, previous_ids, *, get=None, sleep=time.sleep):
             checks.append({"source": PCC_SOURCE, "query": f"{ko}({term})", "status": "ok", "returned": len(recs), "matched": len(got)})
         except Exception as e:  # noqa: BLE001
             checks.append({"source": PCC_SOURCE, "query": f"{ko}({term})", "status": "failed", "error": str(e)[:80] or type(e).__name__})
-        sleep(1)
     read = 0
     for it in sorted(items.values(), key=lambda x: x["published"], reverse=True):
-        if it["id"] in previous_ids or read >= PCC_DETAIL_MAX:
+        if it["id"] in previous_ids:
+            continue
+        if limited or read >= PCC_DETAIL_MAX:
+            it["detailError"] = "HTTP 429(상세 다음에)" if limited else "상세 상한(다음에)"
             continue
         read += 1
+        sleep(PCC_GAP)
         try:
             d = pcc_detail(it, get=get)
             if d["lines"]:
@@ -604,9 +627,11 @@ def pcc(since, previous_ids, *, get=None, sleep=time.sleep):
             if d["beatTotal"]:
                 it["value"], it["priceKind"] = d["beatTotal"], "출입처 낙찰 품목 결정 금액 합"
             it["concluded"], it["category"] = d["concluded"], d["category"]
+        except RateLimited:
+            limited = True
+            it["detailError"] = "HTTP 429(상세 다음에)"
         except Exception as e:  # noqa: BLE001 — 상세 실패는 목록 값만 남긴다
             it["detailError"] = str(e)[:60] or type(e).__name__
-        sleep(1)
     return list(items.values()), checks
 
 
@@ -645,11 +670,22 @@ def run(*, now, previous=None, get=None, post=None, sleep=time.sleep):
     bh_got, bh_checks, bh_seen = bahrain((previous or {}).get("bahrainSeen"), get=get)
     found += bh_got
     checks += bh_checks
-    known = {x.get("id") for x in (previous or {}).get("items") or [] if isinstance(x, dict)}
-    pcc_got, pcc_checks = pcc(since, known, get=get, sleep=sleep)
+    known = {x.get("id") for x in (previous or {}).get("items") or []
+             if isinstance(x, dict) and not re.search(r"다음에", str(x.get("detailError") or ""))}  # 429·상한으로 못 읽은 상세는 다음 실행에
+    pcc_last = (previous or {}).get("pccLastRun")
+    try:
+        pcc_due = not pcc_last or (now - dt.datetime.fromisoformat(pcc_last)).total_seconds() >= PCC_EVERY_HOURS * 3600
+    except (TypeError, ValueError):
+        pcc_due = True
+    if pcc_due:
+        pcc_got, pcc_checks = pcc(since if pcc_last else max(since, now - dt.timedelta(days=BASELINE_DAYS)), known, get=get, sleep=sleep)
+        pcc_last = stamp
+    else:
+        pcc_got, pcc_checks = [], [{"source": PCC_SOURCE, "query": "출입처 이름 검색", "status": "ok", "returned": 0, "matched": 0,
+                                    "note": f"하루 한 번(마지막 {str(pcc_last)[:16]}) — 이번 실행은 건너뜀"}]
     old_by = {x.get("id"): x for x in (previous or {}).get("items") or [] if isinstance(x, dict)}
-    for it in pcc_got:  # 상세는 처음 볼 때만 읽으니, 다시 잡힌 공고는 저장된 상세(금액·결정일)를 그대로 쓴다
-        o = old_by.get(it["id"])
+    for it in pcc_got:  # 상세는 처음 볼 때만 읽으니, 다시 잡힌 공고는 저장된 상세(금액·결정일)를 그대로 쓴다(이번에 다시 읽은 것은 제외)
+        o = old_by.get(it["id"]) if it["id"] in known else None
         if o:
             for k in ("title", "value", "priceKind", "concluded", "category", "detailError"):
                 if k in o:
@@ -683,7 +719,7 @@ def run(*, now, previous=None, get=None, post=None, sleep=time.sleep):
         "schema": SCHEMA, "generatedAt": stamp, "status": status,
         "lastSuccess": stamp if status != "failed" else (previous or {}).get("lastSuccess"),
         "baselineSince": (previous or {}).get("baselineSince") or stamp, "windowStart": since.date().isoformat(),
-        "checks": checks, "items": kept[:KEEP_MAX], "bahrainSeen": bh_seen, "rules": RULES,
+        "checks": checks, "items": kept[:KEEP_MAX], "bahrainSeen": bh_seen, "pccLastRun": pcc_last, "rules": RULES,
         "coverage": "EU TED(유럽 공공·유틸리티) · 영국 Find a Tender · 세계은행 낙찰 공고 · 바레인 입찰위원회 월간 낙찰 보고서 · 대만 정부조달(PCC)",
     }
 

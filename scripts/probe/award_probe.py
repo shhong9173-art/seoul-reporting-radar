@@ -10,7 +10,7 @@ import overseas_award_watch as w  # noqa: E402
 out = []
 try:
     now = dt.datetime.now(w.KST)
-    items, checks = w.pcc(now - dt.timedelta(days=400), set(), sleep=lambda s: None)
+    import time; items, checks = w.pcc(now - dt.timedelta(days=400), set(), sleep=time.sleep)
     out.append("checks " + "; ".join(f"{c['query']} {c['status']} {c.get('returned', c.get('error'))}/{c.get('matched', '')}" for c in checks))
     for it in sorted(items, key=lambda x: x["published"], reverse=True):
         out.append(f"{it['published']} {w.tier_of(it)} {it['kind']} {it['company']} | {it['buyer']} | {it['title'][:200]} | {it['currency']} {it['value']} ({it.get('priceKind')}) "
