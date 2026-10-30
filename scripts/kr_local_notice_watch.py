@@ -73,6 +73,9 @@ CITIES = [
     ("부산 사하구", "https://eminwon.saha.go.kr", "동국씨엠·동성케미컬"),
     ("원주시", "https://eminwon.wonju.go.kr", "HL만도"),
     ("예산군", "https://eminwon.yesan.go.kr", "현대제철"),
+    # 10-30 오후 탐침: 광주 광산구는 목록 형식이 달라(제목 링크에 관리번호) 파서를 넓혀 붙인다. 광주 서구(기아 오토랜드 광주)는 목록을
+    # 스크립트로 따로 불러 이 요청으로는 비어 있고, 부평(한국GM)·구미·순천·경주·시흥·양산은 접속 시간 초과, 청주·인천 동구는 SSL 오류 — 빼 둔다.
+    ("광주 광산구", "https://eminwon.gwangsan.go.kr", "금호타이어(광주공장)"),
 ]
 
 # (출입처, 제목 규칙)
@@ -117,7 +120,8 @@ def parse_rows(page):
     (울주·아산). Cells run 번호, 공고번호, 제목, 담당부서, 등록일(, 게재기간, 조회수)."""
     out = []
     for tr in re.findall(r"<tr[^>]*>([\s\S]*?)</tr>", page or ""):
-        m = re.search(r"searchDetail\(\s*['\"]([0-9A-Za-z_-]+)['\"]\s*\)", tr)
+        m = (re.search(r"searchDetail\(\s*['\"]([0-9A-Za-z_-]+)['\"]\s*\)", tr)
+             or re.search(r"not_ancmt_mgt_no=([0-9A-Za-z_-]+)", tr))  # 광주 광산구 형식(10-30): 제목 <a href="…not_ancmt_mgt_no=56345…">
         if not m:
             continue
         cells = [cell_text(c) for c in re.findall(r"<td[^>]*>([\s\S]*?)</td>", tr)]
@@ -131,6 +135,8 @@ def parse_rows(page):
             if t is None:
                 continue
         title = cells[t]
+        if not title:
+            continue
         dept = cells[t + 1] if t + 1 < len(cells) and not DATE.fullmatch(cells[t + 1]) and not re.fullmatch(r"[\d,]+", cells[t + 1]) else None
         date = next((c for c in cells[t + 1:] if DATE.fullmatch(c)), None)
         out.append({"mgt": m.group(1), "no": no, "title": title[:200], "dept": dept, "date": date})
