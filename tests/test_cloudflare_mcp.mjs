@@ -1578,7 +1578,9 @@ test('radar-items hands hinted A/B items to the press checker; radar_today shows
     events: [
       { id: 'fac:1:x', kind: '등록 내용 변경', company: 'KG스틸', factoryId: 'fac:1', name: 'KG스틸(주)', text: '고용 856→690명', detectedAt: '2026-10-25T11:09:00+09:00' },
       { id: 'fac:2:gone', kind: '목록에서 빠짐', company: '현대위아', factoryId: 'fac:2', text: '현대위아(주)창원2공장 · 경상남도 창원시 성산구 정동로 154 — 이번 조회 목록에 없음', detectedAt: '2026-10-25T11:09:00+09:00' },
-      { id: 'fac:3:x', kind: '등록 내용 변경', company: '효성중공업(관련)', factoryId: 'fac:3', text: "업종 'a 외 13 종'→'a 외 14 종'", detectedAt: '2026-10-25T11:09:00+09:00' }] });
+      { id: 'fac:3:x', kind: '등록 내용 변경', company: '효성중공업(관련)', factoryId: 'fac:3', text: "업종 'a 외 13 종'→'a 외 14 종'", detectedAt: '2026-10-25T11:09:00+09:00' },
+      // 10-30부터 수집기가 등급을 붙인다: 순서만 바뀐 주생산품은 C(보도 대조 안 함)
+      { id: 'fac:4:x', kind: '등록 내용 변경', company: 'LS일렉트릭', factoryId: 'fac:4', tier: 'C', text: "주생산품 'a, b'→'b, a' — 순서·표기만 바뀜", detectedAt: '2026-10-25T11:09:00+09:00' }] });
   await call('candidate_feedback', { item_id: 'cl:5', verdict: '봤음', reason: '확인' }, opts);
 
   const wrong = await worker.fetch(new Request(ORIGIN + '/ingest/radar-items', { headers: { Authorization: 'Bearer wrong-token-0123456789' } }), env, {});
@@ -1598,6 +1600,7 @@ test('radar-items hands hinted A/B items to the press checker; radar_today shows
   assert.deepEqual(by['fac:2:gone'].check.terms, ['창원', '공장', '폐쇄']);
   assert.ok(!by['cl:5'], 'judged 봤음 is not checked again');
   assert.ok(!by['cl:9'], 'C tier is not checked');
+  assert.ok(!by['fac:4:x'], 'a factory change the collector graded C is not checked');
   assert.ok(!by['fac:3:x'], 'no hint when the change has no search words');
   assert.equal(hint('효성중공업(관련)·일진전기', ['공장', null]).who, '효성중공업');
   assert.equal(hint('', ['x']), undefined);

@@ -101,6 +101,43 @@ class Factory(unittest.TestCase):
         self.assertIn("주생산품 '열연강판'→'열연강판, 전기강판'", ch["text"])
         self.assertNotIn("fac:10", {e["factoryId"] for e in doc["events"]})
 
+    def test_reordered_or_reformatted_fields_are_not_changes(self):
+        # 운영 10-29: LS일렉트릭 청주1공장 주생산품이 순서만 바뀐 것이 A로 떴다
+        old = [fac("1", "(주)포스코 포항제철소", product="전기부품, 고압접촉기, 전력량계, 누전차단기, 개폐기 등, 진공접촉기, Ev-Relay",
+                   induty="제철업 외 13 종", addr="경상북도 포항시 남구 동해안로 6261(괴동동, 포스코(주)포항제철소)")]
+        first = run(posco=old)
+        same = [fac("1", "(주)포스코 포항제철소", product="Ev-Relay, 전력량계, 전기부품, 고압접촉기, 진공접촉기, 누전차단기, 개폐기 등",
+                    induty="제철업 외 13 종", addr="경상북도 포항시 남구 동해안로 6261 (괴동동)")]
+        doc = run(previous=first, posco=same, now=NOW + dt.timedelta(days=1))
+        self.assertEqual([e for e in doc["events"] if e["kind"] == "등록 내용 변경"], [])
+        more = [fac("1", "(주)포스코 포항제철소", product="Ev-Relay, 전력량계, 전기부품, 고압접촉기, 진공접촉기, 누전차단기, 개폐기 등, ESS용 PCS",
+                    induty="제철업 외 14 종")]
+        doc = run(previous=first, posco=more, now=NOW + dt.timedelta(days=1))
+        ch = next(e for e in doc["events"] if e["kind"] == "등록 내용 변경")
+        self.assertEqual(ch["tier"], "A")  # 새 품목
+        self.assertIn("(추가 ESS용 PCS)", ch["text"])
+        self.assertIn("업종 수 14→15종", ch["text"])
+        fewer = [fac("1", "(주)포스코 포항제철소", product="전기부품, 고압접촉기", induty="제철업 외 14 종")]
+        doc = run(previous=first, posco=fewer, now=NOW + dt.timedelta(days=1))
+        self.assertEqual(next(e for e in doc["events"] if e["kind"] == "등록 내용 변경")["tier"], "B")  # 빠지기만 함·업종 수
+
+    def test_stored_events_without_tier_are_rejudged_and_related_companies_are_lower(self):
+        prev = run()
+        reorder = {"id": "fac:x:2026-10-29", "kind": "등록 내용 변경", "company": "LS일렉트릭", "factoryId": "fac:x", "detectedAt": "2026-10-29T08:10:00+09:00",
+                   "text": "주생산품 '전기부품, 고압접촉기, 개폐기 등, Ev-Relay'→'Ev-Relay, 전기부품, 고압접촉기, 개폐기 등'"}
+        kinds = {"id": "fac:y:2026-10-28", "kind": "등록 내용 변경", "company": "효성중공업(관련)", "factoryId": "fac:y", "detectedAt": "2026-10-28T08:10:00+09:00",
+                 "text": "업종 '육상 금속 골조 구조재 제조업 외 13 종'→'육상 금속 골조 구조재 제조업 외 14 종'"}
+        staff = {"id": "fac:z:2026-10-28", "kind": "등록 내용 변경", "company": "KG스틸", "factoryId": "fac:z", "detectedAt": "2026-10-28T08:10:00+09:00",
+                 "text": "고용 856→690명"}
+        prev["events"] = [reorder, kinds, staff]
+        doc = run(previous=prev, now=NOW + dt.timedelta(days=3))
+        by = {e["id"]: e for e in doc["events"]}
+        self.assertEqual(by["fac:x:2026-10-29"]["tier"], "C")
+        self.assertIn("순서·표기만 바뀜", by["fac:x:2026-10-29"]["text"])
+        self.assertEqual(by["fac:y:2026-10-28"]["tier"], "C")  # 업종 수만(B) + 관련 기업 한 단계 아래
+        self.assertEqual(by["fac:z:2026-10-28"]["tier"], "A")
+        self.assertEqual(w.retier(by["fac:x:2026-10-29"]), by["fac:x:2026-10-29"])  # 두 번 판정하지 않음
+
     def test_failed_query_keeps_records_and_does_not_report_gone(self):
         first = run()
         doc = run(previous=first, factory_code=500, now=NOW + dt.timedelta(days=1))

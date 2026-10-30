@@ -167,7 +167,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
   for (const e of kr?.events ?? []) {
     if (!recent(e.detectedAt)) continue;
     const text = factoryEventText(kr, e);
-    push(e.kind === '목록에서 빠짐' ? 'B' : 'A', W['kr-official'], { kind: `공장 ${e.kind}`, id: e.id, date: e.detectedAt, company: e.company, fact: `${e.kind}: ${text}`,
+    push(e.tier ?? (e.kind === '목록에서 빠짐' ? 'B' : 'A'), W['kr-official'], { kind: `공장 ${e.kind}`, id: e.id, date: e.detectedAt, company: e.company, fact: `${e.kind}: ${text}`,
       check: factoryHint(e.company, e.kind, text) });
   }
   const evFactories = all ? new Set() : new Set((kr?.events ?? []).filter((e) => Date.parse(e.detectedAt) >= cut).map((e) => e.factoryId));
