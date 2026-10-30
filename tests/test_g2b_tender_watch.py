@@ -69,7 +69,28 @@ class Tender(unittest.TestCase):
   def fake(uri):
    if "Cnstwk" in uri:raise OSError("provider failure")
    return make()
-  with self.assertRaises(ValueError):p.build("fake-key",get=fake,now=NOW)
+  with self.assertRaises(ValueError):p.build("fake-key",get=fake,now=NOW,sleep=lambda s:None)
+ def test_connection_error_is_retried_once_but_a_refusal_is_not(self):
+  # 10-30 운영: 공사 목록이 URLError로 한 번 실패해 그날 상태 source_error
+  from urllib.error import URLError
+  calls=[];waits=[]
+  def flaky(uri):
+   calls.append(uri)
+   if "Cnstwk" in uri and sum("Cnstwk" in c for c in calls)==1:raise URLError("timed out")
+   return make()
+  out=p.build("fake-key",get=flaky,now=NOW,sleep=waits.append)
+  self.assertEqual([c["status"] for c in out["checks"]],["checked","checked"])
+  self.assertEqual(waits,[p.RETRY_WAIT])
+  def down(uri):
+   if "Cnstwk" in uri:raise URLError("timed out")
+   return make()
+  with self.assertRaises(p.ProviderCallsFailed) as ctx:p.build("fake-key",get=down,now=NOW,sleep=lambda s:None)
+  self.assertEqual(ctx.exception.checks[-1]["errorType"],"URLError")
+  refusals=[]
+  def refused(uri):
+   refusals.append(uri);raise p.ProviderError("HTTP 403")
+  with self.assertRaises(p.ProviderCallsFailed):p.build("fake-key",get=refused,now=NOW,sleep=lambda s:None)
+  self.assertEqual(len(refusals),2)  # 물품·공사 한 번씩만(거절은 다시 부르지 않음)
  def test_window_ends_before_run_time_not_midnight(self):
   seen=[]
   def fake(uri):
