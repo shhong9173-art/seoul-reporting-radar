@@ -12,6 +12,7 @@ BEAT_AT="2026-10-19T00:28:06+09:00"
 QUE_AT="2026-10-19T00:28:38+09:00"
 TRACE_AT="2026-10-19T03:27:18+09:00"
 ARTICLE="3a34f9a7bf55c6afb1fe96d5"
+ORIGINAL_SPLIT_RECEIPT="20260930000478"
 
 
 def inputs():
@@ -140,10 +141,16 @@ class DARTTitleReview(unittest.TestCase):
             self.assertFalse(row["automaticYPNDecision"])
             self.assertEqual(row["officialReceiptNo"][:8],
                              row["officialFilingDay"].replace("-",""))
-        # May age out after 365 days, but the current known example should
-        # be in today's October 2026 replay when still in the index.
-        if any(a["articleId"]==ARTICLE for a in trace["items"]):
+            self.assertGreaterEqual(row["calendarDaysBetweenDates"],0)  # filing never after the article
+        # The known example replays only while BOTH ends are still in their windows: the article in the
+        # reverse-trace index and its original filing (2026-09-30 회사분할결정) in the DART beat window.
+        # 10-30 the beat window rolled to start 10-01; only the 10-28 [기재정정] (filed after the
+        # 10-12 article) remained, so no pair is correct — that is data ageing, not a matching failure.
+        rows=official["backgroundReference"]+official["freshOfficialReview"]
+        if (any(a["articleId"]==ARTICLE for a in trace["items"])
+                and any(r.get("officialReceiptNo")==ORIGINAL_SPLIT_RECEIPT for r in rows)):
             self.assertTrue(any(a["articleId"]==ARTICLE for a in out["items"]))
+        self.assertFalse(any(a["articleId"]==ARTICLE and a["officialFilingDay"]>"2026-10-12" for a in out["items"]))
 
 
 if __name__=="__main__":
