@@ -547,6 +547,45 @@ function health(ctx, docs) {
   return lines;
 }
 
+// 겹친 신호: 공장·부지에 닿는 감시(공장등록·건축허가·지자체 고시·국민연금 사업장·굴뚝 측정·단독 후보·전기위)가 14일 안에
+// 같은 출입처·같은 시군을 가리키면 묶는다. 하나씩은 공개 자료여도, 여러 감시가 한곳을 가리키면 투자·가동 변화일 가능성이 커진다.
+// 장소는 항목 문장에서 시군 이름(공장 이름 포함)을 찾는다 — 못 찾으면 묶지 않는다.
+const PLACE_WATCHES = new Set(['kr_official', 'kr_signals', 'scoop_screen']);
+const PLACES = [['당진'], ['아산'], ['화성'], ['광양'], ['포항'], ['울산', /울산|온산|울주/], ['여수'], ['순천'], ['인천', /인천|부평/], ['창원'],
+  ['평택'], ['군산', /군산|새만금/], ['익산'], ['서산', /서산|대산/], ['대전', /대전|대덕/], ['금산'], ['곡성'], ['함평'], ['광주', /광주(?:광역시|1공장|2공장|\s*기아|공장)|AutoLand\s*광주|광산구/],
+  ['완주', /완주|전주공장/], ['봉화', /봉화|석포/], ['구미'], ['청주'], ['원주'], ['예산'], ['진천'], ['음성'], ['동해'], ['부산'], ['양산'],
+  ['창녕'], ['안성'], ['광명'], ['천안'], ['영주'], ['삼척'], ['김해'], ['세종']].map(([name, rx]) => [name, rx ?? new RegExp(name)]);
+// 사업장 이름에 시군이 없는 큰 공장(굴뚝 측정·국민연금 이름 그대로)
+const SITE_PLACE = [[/현대제철㈜(?![가-힣])|현대제철주식회사(?![가-힣])/, '당진'], [/지에스칼텍스㈜|GS칼텍스주식회사/, '여수'], [/두산에너빌리티\(주\)/, '창원'],
+  [/엘에스엠앤엠/, '울산'], [/동국제강㈜(?![가-힣\s]*공장)/, '인천'], [/르노코리아 주식회사/, '부산'], [/케이지모빌리티 주식회사/, '평택'], [/한국지엠주식회사/, '인천']];
+const canonCompany = (c) => String(c ?? '').replace(/\s+|\(주\)|㈜|주식회사/g, '').replace(/^현대자동차$/, '현대차').replace(/^기아자동차$/, '기아');
+
+export function convergence(items, { cut } = {}) {
+  const groups = new Map();
+  for (const x of items) {
+    if (x.tier === 'C' || !x.company || !PLACE_WATCHES.has(x.tool)) continue;
+    const text = `${x.fact ?? ''} ${x.company ?? ''}`;
+    const places = new Set(PLACES.filter(([, rx]) => rx.test(text)).map(([name]) => name));
+    for (const [rx, name] of SITE_PLACE) if (rx.test(text)) places.add(name);
+    for (const place of places) {
+      const key = `${canonCompany(x.company)}|${place}`;
+      if (!groups.has(key)) groups.set(key, { company: canonCompany(x.company), place, items: [] });
+      const g = groups.get(key);
+      if (!g.items.some((y) => y.id === x.id)) g.items.push(x);
+    }
+  }
+  const out = [];
+  for (const g of groups.values()) {
+    const watches = [...new Set(g.items.map((x) => x.watch))];
+    if (watches.length < 2) continue;
+    const times = g.items.map((x) => Date.parse(x.date)).filter(Number.isFinite);
+    const latest = times.length ? Math.max(...times) : null;
+    out.push({ ...g, watches, latest, fresh: cut != null && g.items.some((x) => { const t = Date.parse(x.date); return Number.isFinite(t) && t >= cut; }),
+      hasA: g.items.some((x) => x.tier === 'A') });
+  }
+  return out.sort((a, b) => b.watches.length - a.watches.length || Number(b.fresh) - Number(a.fresh) || Number(b.hasA) - Number(a.hasA) || (b.latest ?? 0) - (a.latest ?? 0));
+}
+
 export async function radarToday(ctx, args) {
   const nowMs = ctx.now.getTime();
   const monday = new Date(nowMs + KST_MS).getUTCDay() === 1;
@@ -587,6 +626,19 @@ export async function radarToday(ctx, args) {
     if (Number.isFinite(ageH) && ageH > 36) h.push(`- 보도 대조(자동): ⚠ ${Math.round(ageH)}시간 전 결과 — 이후 항목은 대조 전`);
   }
   out.push(h.length ? `\n[먼저 볼 것: 수집 상태]\n${h.join('\n')}` : `\n[수집 상태] ${WATCHES.length}개 감시 모두 최근 정상`);
+  const span = nowMs - 14 * 86400000;
+  const conv = convergence(collect(docs, span, kstDate(span), { now: nowMs }).filter((x) => has(q, x.company, x.fact, x.watch) && !(judged.get(x.id) && !showJudged)), { cut });
+  if (conv.length) {
+    out.push(`\n[겹친 신호 · 최근 14일 같은 출입처·같은 시군을 감시 여러 곳이 가리킴] ${conv.length}곳 — 하나씩은 공개 자료, 함께 보면 투자·가동 변화 단서`);
+    for (const g of conv.slice(0, 5)) {
+      out.push(`- ${g.fresh ? '[새 항목 포함] ' : ''}${g.company} · ${g.place} — 감시 ${g.watches.length}곳(${g.watches.join(', ')})`);
+      const lines = [...g.items].sort((a, b) => String(b.date ?? '').localeCompare(String(a.date ?? ''))).slice(0, 4);
+      for (const x of lines) out.push(`   ${x.tier} · ${x.date ? `${String(x.date).length > 10 ? kstStamp(x.date) : x.date} · ` : ''}${x.watch}: ${String(x.fact ?? '').slice(0, 110)} · id ${x.id}`);
+      if (g.items.length > 4) out.push(`   … 같은 묶음 ${g.items.length - 4}건 더`);
+    }
+    if (conv.length > 5) out.push(`… 남은 ${conv.length - 5}곳(company로 좁히기)`);
+    out.push('   읽는 법: 같은 시군 이름이 문장에 있으면 묶는다(같은 공장·같은 사업이라는 확인이 아님). 각 원문을 열어 같은 부지·사업인지 본다.');
+  }
   const tiers = [['A', '단독 후보·직접 변화 — 원문·보도 대조부터'], ['B', '확인할 공식 변화'], ['C', '참고(접힘)']];
   for (const [t, title] of tiers) {
     const rows = byTier(t);
