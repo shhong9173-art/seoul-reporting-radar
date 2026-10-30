@@ -172,14 +172,50 @@ def lower(tier):
     return {"A": "B", "B": "C"}.get(tier, tier)
 
 
+def dedupe_list(s):
+    """'액슬 등 구동부품, 액슬 등 구동부품, …, 화포 및 함포' → 같은 항목은 한 번만(원래 순서·글자 유지)."""
+    seen, out = set(), []
+    for part, key in list_parts(s):
+        if key not in seen:
+            seen.add(key)
+            out.append(part)
+    return ", ".join(out) if out else (s or "")
+
+
+def settle_reappearances(events):
+    """'목록에서 빠짐' 뒤에 같은 공장이 다시 잡히면 둘 다 C: 조회 목록에서 잠깐 빠졌던 것(운영 10-28 빠짐 → 10-30
+    '새 공장': 현대위아 창원2공장, 등록 1993-08-18). 다시 판정한 것은 표시를 남겨 두 번 고치지 않는다."""
+    gone = {}
+    for e in sorted(events, key=lambda e: e.get("detectedAt") or ""):
+        fid = e.get("factoryId")
+        if e.get("kind") == "목록에서 빠짐":
+            gone[fid] = e
+        elif e.get("kind") in ("새 공장", "목록에 다시 나옴") and fid in gone:
+            g = gone.pop(fid)
+            if not g.get("settled"):
+                g.update(tier="C", settled=True, text=str(g.get("text") or "") + f" — {str(e.get('detectedAt'))[:10]} 다시 나옴(조회 목록에서 잠깐 빠진 것으로 보임)")
+            if e.get("kind") == "새 공장" or not e.get("settled"):
+                e.update(kind="목록에 다시 나옴", tier="C", settled=True)
+    return events
+
+
 SEGMENT = re.compile(r"(주생산품|업종|주소) '(.*?)'→'(.*?)'(?= · |$)")
 
 
 def retier(e):
-    """등급 없이 저장된 예전 '등록 내용 변경'(10-30 이전)을 같은 기준으로 다시 판정한다."""
-    if e.get("kind") != "등록 내용 변경" or e.get("tier"):
+    """등급 없이 저장된 예전 '등록 내용 변경'·'새 공장'(10-30 이전)을 같은 기준으로 다시 판정한다."""
+    if e.get("tier") or e.get("kind") not in ("등록 내용 변경", "새 공장"):
         return e
     text = str(e.get("text") or "")
+    if e.get("kind") == "새 공장":
+        m = re.search(r"등록 (\d{4}-\d{2}-\d{2})", text)
+        try:
+            cut = (dt.datetime.fromisoformat(str(e.get("detectedAt"))).date() - dt.timedelta(days=RECENT_DAYS)).isoformat()
+        except ValueError:
+            return e
+        tier = "B" if m and m.group(1) < cut else "A"
+        return dict(e, tier=lower(tier) if str(e.get("company") or "").endswith("(관련)") else tier,
+                    text=text + (" — 오래전 등록된 공장이 이번에 처음 잡힘(이름 변경·조회 범위 변화 가능)" if tier == "B" else ""))
     tiers = ["A"] if re.search(r"(^|· )고용 [\d,]+→[\d,]+명", text) else []
     for label, old, new in SEGMENT.findall(text):
         ch = field_change(label, old, new)
@@ -272,8 +308,13 @@ def factories(cfg, key, now, previous, *, get=None, sleep=time.sleep, deadline=N
         if old is None:
             if f["company"] in comparable:
                 tags.append("[새로 잡힌 공장]")
+                # 등록일이 최근 120일보다 오래된 공장은 새 공장이 아니라 '처음 잡힌 기존 공장'(이름 변경·조회 범위 변화일 수 있음): B
+                fresh_reg = bool(f.get("registeredOn")) and f["registeredOn"] >= recent_from
+                tier = "A" if fresh_reg or not f.get("registeredOn") else "B"
                 events.append({"id": f"{fid}:new", "kind": "새 공장", "company": f["company"], "factoryId": fid, "name": f["cmpnyNm"],
-                               "text": f"{f['cmpnyNm']} · {f['rnAdres']} · 주생산품 {f['mainProductCn'] or '미기재'} · 등록 {f.get('registeredOn') or '미기재'}",
+                               "text": f"{f['cmpnyNm']} · {f['rnAdres']} · 주생산품 {dedupe_list(f['mainProductCn']) or '미기재'} · 등록 {f.get('registeredOn') or '미기재'}"
+                                       + ("" if tier == "A" else " — 오래전 등록된 공장이 이번에 처음 잡힘(이름 변경·조회 범위 변화 가능)"),
+                               "registeredOn": f.get("registeredOn"), "tier": lower(tier) if f["company"].endswith("(관련)") else tier,
                                "detectedAt": stamp})
         elif f["company"] in comparable:
             changes = []
@@ -489,6 +530,7 @@ def run(cfg, key, *, now, previous=None, get=None, sleep=time.sleep, post=None, 
     events = [retier(e) for e in (previous or {}).get("events", []) if isinstance(e, dict) and e.get("detectedAt", "") >= keep_from]
     seen = {e.get("id") for e in events}
     events += [e for e in fac_events if e["id"] not in seen]
+    settle_reappearances(events)
     events.sort(key=lambda e: e["detectedAt"], reverse=True)
     failed = [c for c in checks if c["status"] != "ok"]
     return {"schema": SCHEMA, "generatedAt": stamp, "status": "partial" if failed else "complete", "checks": checks,
