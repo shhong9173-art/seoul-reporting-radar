@@ -89,6 +89,12 @@ def get_json(url, *, params=None, headers=None, get=None):
         return "failed", "JSON 아님"
 
 
+def transient(err):
+    """다시 해 볼 만한 일시 오류: 연결 끊김·시간 초과·서버 5xx. 4xx·형식 오류는 다시 해도 같다."""
+    e = str(err or "")
+    return bool(re.match(r"HTTP 5\d\d$", e)) or e in ("ConnectionError", "ReadTimeout", "ConnectTimeout", "Timeout", "ChunkedEncodingError")
+
+
 # ---------- ASX ----------
 
 def asx_items(body):
@@ -260,6 +266,10 @@ def run(cfg, *, now, previous=None, get=None, sleep=time.sleep, snippet_budget=2
     for beat, phrase in cfg.get("edgarPhrases", []):
         status, body = edgar_search(phrase, start, end, get=get)
         sleep(0.4)
+        if status != "ok" and transient(body):
+            # 10-30 'OCI Holdings' 한 질의만 HTTP 500(앞뒤 실행은 정상): 일시 오류는 한 번만 다시
+            sleep(5.0)
+            status, body = edgar_search(phrase, start, end, get=get)
         if status != "ok":
             checks.append({"source": "EDGAR", "target": phrase, "status": "failed", "error": body})
             continue
