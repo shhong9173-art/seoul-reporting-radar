@@ -84,23 +84,31 @@ export async function runSchedule(env, when, deps = {}) {
   }
   const doFetch = deps.fetch ?? fetch;
   const entries = [];
-  for (const workflow of due) {
-    let status;
-    try {
-      const r = await doFetch(`https://api.github.com/repos/${REPO}/actions/workflows/${workflow}/dispatches`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${env.GITHUB_DISPATCH_TOKEN}`, Accept: 'application/vnd.github+json',
-          'X-GitHub-Api-Version': '2022-11-28', 'User-Agent': 'seoul-reporting-radar-cron', 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ref: 'main' }),
-      });
-      status = r.status === 204 ? 'ok' : `HTTP ${r.status}`;
-    } catch (e) {
-      status = e?.name ?? 'error';
-    }
-    entries.push({ at: stamp, workflow, status });
-  }
+  for (const workflow of due) entries.push({ at: stamp, workflow, status: await requestRun(env, workflow, doFetch) });
   await appendLog(ctx, entries);
   return entries;
+}
+
+async function requestRun(env, workflow, doFetch) {
+  try {
+    const r = await doFetch(`https://api.github.com/repos/${REPO}/actions/workflows/${workflow}/dispatches`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${env.GITHUB_DISPATCH_TOKEN}`, Accept: 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28', 'User-Agent': 'seoul-reporting-radar-cron', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ref: 'main' }),
+    });
+    return r.status === 204 ? 'ok' : `HTTP ${r.status}`;
+  } catch (e) {
+    return e?.name ?? 'error';
+  }
+}
+
+// One run asked outside the slots (e.g. right after the reporter's computer submitted browser-read notices). Logged like
+// the slot requests, with who asked.
+export async function dispatchNow(ctx, workflow, by) {
+  const status = ctx.env?.GITHUB_DISPATCH_TOKEN ? await requestRun(ctx.env, workflow, ctx.fetch ?? fetch) : 'no-token';
+  await appendLog(ctx, [{ at: ctx.now.toISOString(), workflow, status, by }]);
+  return status;
 }
 
 // The next KST weekday slot after `when` (for telling the reporter when the first request will go out).

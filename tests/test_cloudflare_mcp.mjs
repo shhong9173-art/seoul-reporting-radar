@@ -2002,3 +2002,40 @@ test('kr local notices: a beat plant notice in a city is A, a city baseline is h
   assert.deepEqual(dueAt(new Date('2026-10-26T21:30:00Z')), ['page-watch.yml', 'kr-local.yml']);  // Tue 06:30 KST
   assert.deepEqual(dueAt(new Date('2026-10-27T07:20:00Z')), ['kr-local.yml']);                    // Tue 16:20 KST
 });
+
+test('local_notice_submit: the reporter computer posts browser-read 새올 rows for fixed cities, kr-local runs once an hour at most', async () => {
+  const seen = [];
+  const fetch = async (url, init) => { seen.push({ url, init }); return new Response(null, { status: 204 }); };
+  const opts = { ...PRIVATE({ GITHUB_DISPATCH_TOKEN: 'ghp_test' }), fetch };
+  assert.ok(!(await rpc('tools/list')).body.result.tools.some((x) => x.name === 'local_notice_submit'));  // private only
+  const r = await call('local_notice_submit', { cities: [
+    { city: '인천 부평구', rows: [
+      { mgt: '91001', cells: ['120', '부평구 공고 제2026-1500호', '  한국지엠 부평공장\n도장공장 증축 건축허가 사항 공고 ', '건축과', '2026-10-29', '7', ''] },
+      { mgt: "1');alert(1", cells: ['x'] },
+      { mgt: '91001', cells: ['중복'] }] },
+    { city: '구미시', error: 'TypeError: Failed to fetch' },
+    { city: '서울 강남구', rows: [{ mgt: '1', cells: ['x'] }] }] }, opts);
+  assert.equal(r.isError, false);
+  assert.match(r.text, /- 인천 부평구: 1줄 · 버린 줄 2/);
+  assert.match(r.text, /- 구미시: 미확인\(TypeError: Failed to fetch\)/);
+  assert.match(r.text, /받지 않은 이름\(허용 목록 밖\): 서울 강남구/);
+  assert.match(r.text, /지자체 고시·공고 감시\(kr-local\) 실행 요청함/);
+  assert.deepEqual(seen.map((x) => x.url), ['https://api.github.com/repos/shhong9173-art/seoul-reporting-radar/actions/workflows/kr-local.yml/dispatches']);
+  // the watch reads it back through the bearer ingest path
+  const got = await (await worker.fetch(new Request(ORIGIN + '/ingest/kr-local-browser', { headers: { Authorization: `Bearer ${TOKEN}` } }), opts.env, {})).json();
+  assert.equal(got.schema, 'kr_local_browser/v1');
+  assert.deepEqual(got.cities.find((c) => c.city === '인천 부평구').rows,
+    [{ mgt: '91001', cells: ['120', '부평구 공고 제2026-1500호', '한국지엠 부평공장 도장공장 증축 건축허가 사항 공고', '건축과', '2026-10-29', '7'] }]);
+  // a second submit in the same hour keeps the other cities and does not ask GitHub again
+  const again = await call('local_notice_submit', { cities: [{ city: '구미시', rows: [{ mgt: '7', cells: ['구미시 공고', '도로 공고', '2026-10-30'] }] }] }, opts);
+  assert.match(again.text, /이미 함 — 다시 요청하지 않음/);
+  assert.equal(seen.length, 1);
+  const got2 = await (await worker.fetch(new Request(ORIGIN + '/ingest/kr-local-browser', { headers: { Authorization: `Bearer ${TOKEN}` } }), opts.env, {})).json();
+  assert.deepEqual(got2.cities.map((c) => [c.city, c.rows.length]).sort(), [['구미시', 1], ['인천 부평구', 1]]);
+  assert.ok((await call('local_notice_submit', { cities: [{ city: '서울 강남구' }] }, opts)).isError);
+  // kr_official names the cities read on the reporter's computer
+  const doc = { schema: 'kr_local/v1', generatedAt: '2026-10-26T08:50:00+09:00', status: 'complete', items: [],
+    checks: [{ source: '인천 부평구', status: 'ok', returned: 30, via: '기자 컴퓨터 브라우저 수집 2026-10-25T23:45' }, { source: '당진시', status: 'ok', returned: 60 }] };
+  await worker.fetch(new Request(ORIGIN + '/ingest/kr-local', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), opts.env, {});
+  assert.match((await call('kr_official', { section: 'local' }, opts)).text, /기자 컴퓨터 브라우저로 읽은 곳\(해외 IP 차단\): 인천 부평구\(2026-10-25 23:45\)/);
+});

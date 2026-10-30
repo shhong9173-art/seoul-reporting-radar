@@ -80,6 +80,46 @@ CITIES = [
     ("광명시", "https://eminwon.gm.go.kr", "기아(오토랜드 광명)"),  # 칸 사이 빈 <td> 형식(10-30), 접속이 들쑥날쑥(시간 초과면 미확인)
 ]
 
+# 해외 IP(GitHub 러너)에서는 접속 시간 초과지만 국내 컴퓨터에서는 열리는 시·군(10-30 기자 컴퓨터 브라우저로 확인: 부평 목록 30줄 5초,
+# 나머지 0.4초 안 접속). 기자 컴퓨터의 브라우저로 읽는 예약 작업이 sdds `local_notice_submit`으로 칸 글자를 올리면(kr-local-browser),
+# 이 감시가 같은 규칙으로 읽는다. 브라우저 수집이 30시간 넘게 없으면 미확인(컴퓨터·앱이 꺼졌을 수 있음).
+BROWSER_CITIES = [
+    ("인천 부평구", "https://eminwon.icbp.go.kr", "한국GM(부평공장)"),
+    ("구미시", "https://eminwon.gumi.go.kr", "LS전선(구미)"),
+    ("청주시", "https://eminwon.cheongju.go.kr", "LS일렉트릭(청주)"),
+    ("순천시", "https://eminwon.suncheon.go.kr", "현대제철(순천)"),
+    ("함평군", "https://eminwon.hampyeong.go.kr", "금호타이어(함평 이전 공장)"),
+]
+BROWSER_BACKUP = {"양산시", "광주 광산구"}  # GitHub에서 들쑥날쑥한 곳: 직접 조회가 실패하면 브라우저 수집으로 대신
+BROWSER_FRESH_HOURS = 30
+BROWSER_FRESH_MONDAY = 78  # 예약 작업은 평일 오전뿐: 월요일 오전 실행은 금요일 수집(약 70시간 전)까지 받아 준다
+
+
+def browser_limit(now):
+    return BROWSER_FRESH_MONDAY if now.weekday() == 0 and now.hour < 12 else BROWSER_FRESH_HOURS
+
+
+def browser_rows(browser, city, now):
+    """브라우저 수집 문서에서 그 시·군 줄(파싱 뒤)과 수집 시각. 없거나 오래됐으면 (None, 이유)."""
+    for c in (browser or {}).get("cities") or []:
+        if not isinstance(c, dict) or c.get("city") != city:
+            continue
+        try:
+            at = dt.datetime.fromisoformat(str(c.get("fetchedAt")))
+            age = (now - at).total_seconds() / 3600
+        except (TypeError, ValueError):
+            return None, "브라우저 수집 시각 미상"
+        if age > browser_limit(now):
+            return None, f"브라우저 수집이 {age:.0f}시간 전 — 컴퓨터·앱이 꺼졌을 수 있음"
+        if c.get("error"):
+            return None, f"브라우저 수집 실패({str(c['error'])[:40]})"
+        rows = [r for r in (parse_cells(x.get("mgt"), x.get("cells") or []) for x in c.get("rows") or [] if isinstance(x, dict)) if r]
+        if not rows:  # 빈 목록으로 기준선을 만들면 다음 수집 때 첫 쪽 전체가 '신규'가 된다
+            return None, "브라우저 수집 0줄(형식 변경 가능)"
+        return rows, at.astimezone(KST).strftime("%Y-%m-%dT%H:%M") + " KST"
+    return None, "브라우저 수집 없음(예약 작업 전이거나 컴퓨터·앱이 꺼짐)"
+
+
 # (출입처, 제목 규칙)
 COMPANIES = [
     ("현대차", r"현대자동차|현대차(?!증권)"), ("기아", r"기아(?:\s*\(주\)|㈜|자동차|\s*오토랜드)"), ("현대모비스", r"현대모비스"),
@@ -133,23 +173,31 @@ def parse_rows(page):
         if not m:
             continue
         # 빈 칸은 뺀다: 광명시 형식(10-30)은 칸 사이마다 빈 <td>가 있다(번호 없이 공고번호·제목·부서·등록일·조회수)
-        cells = [c for c in (cell_text(c) for c in re.findall(r"<td[^>]*>([\s\S]*?)</td>", tr)) if c]
-        i = next((k for k, c in enumerate(cells) if NOTICE_NO.search(c)), None)
-        if i is not None and i + 1 < len(cells):
-            no, t = cells[i], i + 1
-        else:
-            # 울산 남구 형식(10-30): 번호, 제목, 담당부서, 등록일, 조회수 — 공고번호 칸이 없다
-            no = None
-            t = next((k for k, c in enumerate(cells) if c and not re.fullmatch(r"[\d,]+", c) and not DATE.fullmatch(c)), None)
-            if t is None:
-                continue
-        title = cells[t]
-        if not title:
-            continue
-        dept = cells[t + 1] if t + 1 < len(cells) and not DATE.fullmatch(cells[t + 1]) and not re.fullmatch(r"[\d,]+", cells[t + 1]) else None
-        date = next((c for c in cells[t + 1:] if DATE.fullmatch(c)), None)
-        out.append({"mgt": m.group(1), "no": no, "title": title[:200], "dept": dept, "date": date})
+        row = parse_cells(m.group(1), [cell_text(c) for c in re.findall(r"<td[^>]*>([\s\S]*?)</td>", tr)])
+        if row:
+            out.append(row)
     return out
+
+
+def parse_cells(mgt, cells):
+    """한 줄의 칸 글자들 → {관리번호, 공고번호, 제목, 부서, 등록일}. 브라우저 수집(local_notice_submit)도 칸 글자만 보내 같은 규칙으로 읽는다."""
+    cells = [re.sub(r"\s+", " ", str(c or "")).strip() for c in cells]
+    cells = [c for c in cells if c]
+    i = next((k for k, c in enumerate(cells) if NOTICE_NO.search(c)), None)
+    if i is not None and i + 1 < len(cells):
+        no, t = cells[i], i + 1
+    else:
+        # 울산 남구 형식(10-30): 번호, 제목, 담당부서, 등록일, 조회수 — 공고번호 칸이 없다
+        no = None
+        t = next((k for k, c in enumerate(cells) if c and not re.fullmatch(r"[\d,]+", c) and not DATE.fullmatch(c)), None)
+        if t is None:
+            return None
+    title = cells[t]
+    if not title or not re.fullmatch(r"[0-9A-Za-z_-]{1,40}", str(mgt or "")):
+        return None
+    dept = cells[t + 1] if t + 1 < len(cells) and not DATE.fullmatch(cells[t + 1]) and not re.fullmatch(r"[\d,]+", cells[t + 1]) else None
+    date = next((c for c in cells[t + 1:] if DATE.fullmatch(c)), None)
+    return {"mgt": str(mgt), "no": no, "title": title[:200], "dept": dept, "date": date}
 
 
 def classify(title):
@@ -207,7 +255,7 @@ def error_kind(e):
     return name if name in ("ConnectTimeout", "ReadTimeout", "ConnectionError", "SSLError", "Timeout") else (str(e)[:40] or name)
 
 
-def run(*, now, previous=None, post=None, sleep=time.sleep, cities=CITIES):
+def run(*, now, previous=None, post=None, sleep=time.sleep, cities=CITIES, browser=None, browser_cities=BROWSER_CITIES):
     if post is None:
         import requests
         post = requests.post
@@ -228,6 +276,18 @@ def run(*, now, previous=None, post=None, sleep=time.sleep, cities=CITIES):
 
     with ThreadPoolExecutor(6) as ex:
         results = list(ex.map(one, cities))
+    sources = {}
+    for i, ((city, base, plants), rows, err) in enumerate(results):
+        if rows is None and city in BROWSER_BACKUP:
+            brows, note = browser_rows(browser, city, now)
+            if brows is not None:
+                results[i] = ((city, base, plants), brows, None)
+                sources[city] = f"직접 조회 실패({err}) — 기자 컴퓨터 브라우저 수집 {note}"
+    for c in browser_cities:
+        brows, note = browser_rows(browser, c[0], now)
+        results.append((c, brows, None if brows is not None else note))
+        if brows is not None:
+            sources[c[0]] = f"기자 컴퓨터 브라우저 수집 {note}"
     for (city, base, plants), rows, err in results:
         if rows is None:
             checks.append({"source": city, "status": "failed", "error": err})
@@ -254,7 +314,7 @@ def run(*, now, previous=None, post=None, sleep=time.sleep, cities=CITIES):
         oldest_seen_reached = any(r["mgt"] in set(prev.get("seen", {}).get(city) or []) for r in rows) or baseline
         notes = [n for n in (err, None if oldest_seen_reached else f"최신 {len(rows)}건 안에 지난 실행 공고가 없음 — 그 사이 공고 일부 미확인") if n]
         checks.append({"source": city, "status": "partial" if notes else "ok", "returned": len(rows), "matched": new,
-                       **({"error": "; ".join(notes)} if notes else {})})
+                       **({"via": sources[city]} if city in sources else {}), **({"error": "; ".join(notes)} if notes else {})})
     for iid, x in out.items():
         if iid in old and x is old[iid]:
             x["isNew"] = False
@@ -264,7 +324,7 @@ def run(*, now, previous=None, post=None, sleep=time.sleep, cities=CITIES):
     failed = [c for c in checks if c["status"] == "failed"]
     status = "failed" if len(failed) == len(checks) else "partial" if any(c["status"] != "ok" for c in checks) else "complete"
     return {"schema": SCHEMA, "generatedAt": stamp, "status": status, "checks": checks, "items": items, "seen": seen,
-            "rules": RULES, "cities": len(cities)}
+            "rules": RULES, "cities": len(cities) + len(browser_cities)}
 
 
 def main():
@@ -279,7 +339,13 @@ def main():
             print(f"::warning title=kr-local-state::이전 상태 조회 실패({e}) — 이번 실행은 기준선")
     if private_store.late_scheduled_duplicate(previous, now):
         return
-    doc = run(now=now, previous=previous)
+    browser = None
+    if token:
+        try:
+            browser = private_store.get("kr-local-browser", token)
+        except private_store.StoreError as e:
+            print(f"::warning title=kr-local-browser::브라우저 수집 문서 조회 실패({e}) — 그 시·군은 미확인")
+    doc = run(now=now, previous=previous, browser=browser)
     new = [x for x in doc["items"] if x.get("isNew")]
     tiers = {t: sum(1 for x in new if x["tier"] == t) for t in "ABC"}
     ok = [c["source"] for c in doc["checks"] if c["status"] == "ok"]

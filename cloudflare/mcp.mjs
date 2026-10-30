@@ -11,6 +11,7 @@ import { krFuel, krOfficial, krSignals, krStats, pageChanges, partnerFilings, sc
 import { trademarks } from './trademarks.mjs';
 import { assemblyBills } from './assembly.mjs';
 import { radarToday } from './digest.mjs';
+import { BROWSER_CITIES, localNoticeSubmit } from './local_browser.mjs';
 
 export const SUPPORTED_VERSIONS = ['2025-06-18', '2025-03-26', '2024-11-05'];
 const SERVER_INFO = { name: 'seoul-reporting-radar', title: '산업부 취재 레이더', version: '1.0.0' };
@@ -128,6 +129,13 @@ export const TOOLS = [
   { name: 'candidate_submit', access: 'private', handler: candidateSubmit,
     description: `후보를 재점검해 저장(하루 추천 ${POLICY.dailyLimit}건 한도, 같은 날 중복 제목 제외).`,
     inputSchema: obj({ candidates: { type: 'array', items: CANDIDATE_SCHEMA, maxItems: 10 } }, ['candidates']) },
+  { name: 'local_notice_submit', access: 'private', handler: localNoticeSubmit,
+    description: `기자 컴퓨터 브라우저로 읽은 새올 고시·공고 목록 올리기(예약 작업용). 해외 IP에서 막히는 시·군(${Object.keys(BROWSER_CITIES).join('·')})만 받는다. 목록 첫 쪽 줄마다 관리번호(searchDetail 안 숫자)와 칸 글자만 보낸다 — 제목을 고치거나 요약하지 말 것. 읽지 못한 시·군은 rows 없이 error에 이유. 저장 뒤 지자체 고시·공고 감시를 한 번 실행 요청(1시간 안 재요청 없음).`,
+    inputSchema: obj({ cities: { type: 'array', maxItems: 20, items: obj({
+      city: { type: 'string', enum: Object.keys(BROWSER_CITIES) },
+      rows: { type: 'array', maxItems: 60, items: obj({ mgt: str('관리번호(searchDetail(\'…\') 안의 값)'),
+        cells: { type: 'array', maxItems: 14, items: { type: 'string' }, description: '그 줄 칸 글자(빈 칸 빼고 화면 순서대로)' } }, ['mgt', 'cells']) },
+      error: str('읽지 못했을 때 이유(예: TypeError: Failed to fetch)') }, ['city']) } }, ['cities']) },
   { name: 'radar_today', access: 'private', handler: radarToday,
     description: '오늘의 레이더(하루 시작): 기자 전용 감시 22개(단독 후보 심사, 공장등록·관보, 공정위·한전·원자재, 월간 통계, 무역구제, 미국 소송, 해외 파트너 공시, 미 의견서, 해외 페이지, 상표 출원, 국회 법안, 미국 리콜, 미국 EPA 인증, 국내 연비 신고, 해외 발주처 낙찰, 협력사 회생·파산, 전기위·원안위, 공장 부지 건축허가, 해외 법인 등기, 지자체 고시·공고, 사업장 인력, 굴뚝 측정)에서 최근 N시간(기본 24, 월요일 72) 새 항목만 모아 A(단독 후보·직접 변화)/B(확인할 공식 변화)/C(참고)로 정렬. A·B 항목마다 자동 보도 대조 결과(평일 08:50·18:50, 항목 날짜 3일 전 이후 네이버·빙·구글: 미보도 후보·관련 보도 있음·미확인)를 붙이고 미보도 후보를 먼저 보여 줌. 실패·오래된 감시를 맨 위에 표시. 기자가 판정(씀·킬·보류·봤음)한 항목은 숨김, 줄마다 id.',
     inputSchema: obj({ hours: int('최근 N시간(기본 24, 월요일 72)', 1, 336), company: str('기업·낱말로 거르기'),
@@ -171,7 +179,7 @@ export const TOOLS = [
     inputSchema: obj({ company: str('기업·사건명·분류 낱말'), only_new: bool('신규만'), include_routine: bool('소비자·제조물책임·개인 고용·위조품 단속 사건도 보기'),
       limit: int('줄 수', 1, 60) }) },
   { name: 'kr_official', access: 'private', handler: krOfficial,
-    description: '국내 공식 원천: 출입처 공장등록(팩토리온) 새 공장·고용·주생산품·주소 변화와 최근 120일 등록 공장(계열사 제외), 관보 입법예고 중 출입처 업종(자동차·철강·전력·화학·통상) 관련, 협력사 회생·파산 공고(대법원 회생·파산 공고 15개 법원·회생회사 M&A 공고에서 공장등록 업종이 철강·비철·자동차 부품·전기장비·화학인 제조사; 업종·주생산품·종업원 수 붙임), 출입처 공장과 같은 번지의 건축인허가(신축·증축·사용승인, 연면적·허가일·착공예정일; 건축주는 비공개; section=building), 출입처 공장이 있는 시·군(당진·아산·여수·울주·울산 북구·포항·광양·완주·봉화·광주 광산·서구·광명 등 34곳)의 고시·공고 중 제목에 출입처 이름·공장 사업이 나온 것(건설공사 안전점검 수행기관 지정·환경영향평가 공람·산업단지 계획·공유수면 등; section=local), 출입처 사업장 인력(국민연금 가입 사업장 월 자료: 자사 본사·공장의 가입자 수 지난달·1년 전 대비, 그달 신규 취득·상실, 탈퇴·새 사업장, 시공사가 출입처 이름을 넣어 만든 새 공사·용역 현장(신설·증설 낱말); section=workforce), 출입처 공장 굴뚝 자동측정(TMS) 가동 신호(배출구별 측정값을 3시간마다 쌓아 평소 움직이던 배출구가 멈춘 사업장·새 배출구·목록에서 빠진 배출구, 그 배출구 배출허용기준을 넘은 측정값; section=stacks).',
+    description: '국내 공식 원천: 출입처 공장등록(팩토리온) 새 공장·고용·주생산품·주소 변화와 최근 120일 등록 공장(계열사 제외), 관보 입법예고 중 출입처 업종(자동차·철강·전력·화학·통상) 관련, 협력사 회생·파산 공고(대법원 회생·파산 공고 15개 법원·회생회사 M&A 공고에서 공장등록 업종이 철강·비철·자동차 부품·전기장비·화학인 제조사; 업종·주생산품·종업원 수 붙임), 출입처 공장과 같은 번지의 건축인허가(신축·증축·사용승인, 연면적·허가일·착공예정일; 건축주는 비공개; section=building), 출입처 공장이 있는 시·군(당진·아산·여수·울주·울산 북구·포항·광양·완주·봉화·광주 광산·서구·광명·인천 부평·구미·청주·순천·함평 등 39곳 — 부평·구미·청주·순천·함평은 해외 IP 차단으로 기자 컴퓨터 브라우저 예약 수집)의 고시·공고 중 제목에 출입처 이름·공장 사업이 나온 것(건설공사 안전점검 수행기관 지정·환경영향평가 공람·산업단지 계획·공유수면 등; section=local), 출입처 사업장 인력(국민연금 가입 사업장 월 자료: 자사 본사·공장의 가입자 수 지난달·1년 전 대비, 그달 신규 취득·상실, 탈퇴·새 사업장, 시공사가 출입처 이름을 넣어 만든 새 공사·용역 현장(신설·증설 낱말); section=workforce), 출입처 공장 굴뚝 자동측정(TMS) 가동 신호(배출구별 측정값을 3시간마다 쌓아 평소 움직이던 배출구가 멈춘 사업장·새 배출구·목록에서 빠진 배출구, 그 배출구 배출허용기준을 넘은 측정값; section=stacks).',
     inputSchema: obj({ section: { type: 'string', enum: ['factory', 'gazette', 'insolvency', 'building', 'local', 'workforce', 'stacks'] }, company: str('기업·공장·법령·회생 회사 낱말'),
       days: int('공장 변화 최근 N일(기본 30)', 1, 120), show_all: bool('출입처 공장 전체 목록'), limit: int('구역별 줄 수', 1, 80) }) },
   { name: 'kr_signals', access: 'private', handler: krSignals,

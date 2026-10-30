@@ -33,6 +33,8 @@ export const FEEDS = {
   'overseas-registry': { blob: 'overseas_registry', schema: 'overseas_registry/v1', list: 'companies' },
   'kr-workforce': { blob: 'kr_workforce', schema: 'kr_workforce/v1', list: 'sites' },
   'kr-stacks': { blob: 'kr_stacks', schema: 'kr_stacks/v1', list: 'sites' },
+  // 기자 컴퓨터 브라우저로 읽은 새올 목록(local_notice_submit이 쓰고, kr-local 감시가 GET으로 읽는다).
+  'kr-local-browser': { blob: 'kr_local_browser', schema: 'kr_local_browser/v1', list: 'cities' },
 };
 
 // Official trade-remedy listing pages that do not answer GitHub runners (ReadTimeout). Collectors fetch them through
