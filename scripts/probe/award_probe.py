@@ -1,71 +1,22 @@
-"""격리 탐침 47c: 굴뚝 측정 — 출입처별 사업장 이름·배출구 수, 측정 시각 분포(멈춘 배출구), 0값 배출구, 쪽 넘김(키 값 미출력)."""
+"""격리 탐침 47d: kr_stack_watch.run 실제 조회 한 번(저장 안 함, 키 값 미출력) — 잡힌 사업장·배출구 수·시간."""
 import datetime as dt
-import re
 import json
 import os
+import sys
 import time
-from collections import Counter, defaultdict
-from urllib.parse import quote
+from pathlib import Path
 
-import requests
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import kr_stack_watch as w  # noqa: E402
 
-key = (os.environ.get("KR_FUEL_API_KEY") or "").strip()
-BASE = "https://apis.data.go.kr/B552584/cleansys/rltmMesureResult"
 KST = dt.timezone(dt.timedelta(hours=9))
-now = dt.datetime.now(KST)
-out = []
-
-
-def get(params):
-    r = requests.get(BASE, params={"serviceKey": key, "type": "json", **params}, timeout=60)
-    d = json.loads(r.text)
-    b = (d.get("response") or {}).get("body") or {}
-    items = b.get("items") or []
-    items = items.get("item") if isinstance(items, dict) else items
-    return (d.get("response") or {}).get("header", {}).get("totalCount") or b.get("totalCount"), items if isinstance(items, list) else []
-
-
-try:
-    tot, a = get({"factManageNm": "현대제철", "numOfRows": 20, "pageNo": 1})
-    tot2, a2 = get({"factManageNm": "현대제철", "numOfRows": 20, "pageNo": 2})
-    out.append(f"쪽 넘김: total={tot} p1={len(a)} p2={len(a2)} 겹침={len({(x['fact_manage_nm'], x['stack_code']) for x in a} & {(x['fact_manage_nm'], x['stack_code']) for x in a2})}")
-except Exception as e:  # noqa: BLE001
-    out.append(f"쪽 넘김 오류 {type(e).__name__}: {str(e)[:200]}")
-for term in ("현대제철", "포스코", "동국제강", "동국씨엠", "세아", "고려아연", "영풍", "엘에스엠앤엠", "LS", "오씨아이", "OCI", "한화솔루션", "지에스칼텍스", "GS칼텍스",
-             "태광산업", "금호타이어", "한국타이어", "넥센타이어", "현대자동차", "기아", "케이지스틸", "KG스틸", "두산에너빌리티", "현대모비스", "디엘케미칼", "동성케미컬"):
-    try:
-        try:
-            t0 = time.time()
-            _, items = get({"factManageNm": term, "numOfRows": 500, "pageNo": 1})
-        except Exception as e:  # noqa: BLE001
-            out.append(f"{term}: {type(e).__name__}")
-            continue
-        if not isinstance(items, list):
-            out.append(f"{term}: 형식 {type(items).__name__}")
-            continue
-        by = defaultdict(list)
-        for x in items:
-            by[x.get("fact_manage_nm")].append(x)
-        parts = []
-        for name, xs in sorted(by.items(), key=lambda kv: str(kv[0])):
-            ages = Counter()
-            zero = 0
-            for x in xs:
-                try:
-                    age = (now - dt.datetime.strptime(x.get("mesure_dt") or "", "%Y-%m-%d %H:%M").replace(tzinfo=KST)).total_seconds() / 3600
-                except (TypeError, ValueError):
-                    age = 9999
-                ages["<3h" if age < 3 else "<24h" if age < 24 else "<7d" if age < 168 else ">=7d"] += 1
-                vals = [x.get(f"{p}_mesure_value") for p in ("tsp", "sox", "nox", "hcl", "hf", "nh3", "co")]
-                nums = [float(v) for v in vals if v not in (None, "") and re.fullmatch(r"-?[0-9.]+", str(v))]
-                if nums and max(nums) < 0.5:
-                    zero += 1
-            oldest = min((x["mesure_dt"] for x in xs if x.get("mesure_dt")), default=None)
-            parts.append(f"{name}[{xs[0].get('area_nm')}] 배출구 {len(xs)} 시각 {dict(ages)} 0값 {zero} 가장오래 {oldest}")
-        out.append(f"{term} ({time.time() - t0:.0f}s): " + " | ".join(parts[:10]))
-
-    except Exception as e:  # noqa: BLE001
-        out.append(f"{term}: 처리 오류 {type(e).__name__}: {str(e)[:120]}")
+cfg = json.loads((Path(__file__).resolve().parents[2] / "data" / "stack_watch.json").read_text(encoding="utf-8"))
+t0 = time.time()
+doc = w.run(cfg, now=dt.datetime.now(KST), key=(os.environ.get("KR_FUEL_API_KEY") or "").strip())
+out = [f"{time.time() - t0:.0f}s 상태 {doc['status']} checks={doc['checks']} 크기 {len(json.dumps(doc, ensure_ascii=False)) // 1024}KB",
+       "사업장 " + " | ".join(f"{s['company']}:{s['name']}[{len(s['stacks'])}]" for s in doc["sites"])]
+missing = [c["company"] for c in cfg["companies"] if c["company"] not in {s["company"] for s in doc["sites"]}]
+out.append(f"못 찾음 {missing}")
 blob = " ¶ ".join(x.replace("\n", " ").replace("::", ": :").replace("%", "pct") for x in out)
 for i in range(0, min(len(blob), 13000), 1300):
     print(f"::notice title=aw-{i // 1300:02d}::{blob[i:i + 1300]}")
