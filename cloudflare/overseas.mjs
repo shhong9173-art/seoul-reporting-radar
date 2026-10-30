@@ -615,11 +615,12 @@ export async function workforceSection(ctx, q, days, limit) {
   const ev = (doc.events ?? []).filter((e) => String(e.detectedAt) >= from && matches(q, e.company, e.text));
   out.push(`- 감지된 변화 · 최근 ${days}일 ${ev.length}건`);
   for (const e of ev.slice(0, limit)) out.push(`  ${e.tier} · ${String(e.detectedAt).slice(0, 10)} · ${e.kind} · ${e.company}: ${e.text}`);
-  const pj = (doc.projects ?? []).filter((p) => !p.baseline && matches(q, p.company, p.name));
-  const base = (doc.projects ?? []).filter((p) => p.baseline && matches(q, p.company, p.name));
-  out.push(`- 출입처 이름이 든 공사·용역 현장: 새로 잡힌 ${pj.length}곳 · 첫 조회 기준선 ${base.length}곳(투자 낱말 ${base.filter((p) => p.tier === 'A').length})`);
-  for (const p of [...pj, ...base.filter((x) => x.tier === 'A')].slice(0, limit)) {
-    out.push(`  ${p.baseline ? '[기준선] ' : ''}${p.tier} · ${p.company} · 「${p.name}」 · ${ymLabel(p.month)} 자료${p.adptDt ? ` · 적용 ${p.adptDt}` : ''}${p.members != null ? ` · 가입자 ${p.members}명` : ''}`);
+  const pj = (doc.projects ?? []).filter((p) => !p.baseline && matches(q, p.company, p.title, (p.names ?? []).join(' ')));
+  const base = (doc.projects ?? []).filter((p) => p.baseline && matches(q, p.company, p.title, (p.names ?? []).join(' ')));
+  out.push(`- 출입처 이름이 든 공사(시공사 현장 사업장을 공사 이름으로 묶음): 새로 잡힌 ${pj.length}건 · 첫 조회 기준선 ${base.length}건(투자 낱말 ${base.filter((p) => p.tier === 'A').length})`);
+  const bySites = (a, b) => (b.sites ?? 1) - (a.sites ?? 1);
+  for (const p of [...pj.sort(bySites), ...base.filter((x) => x.tier === 'A').sort(bySites)].slice(0, limit)) {
+    out.push(`  ${p.baseline ? '[기준선] ' : ''}${p.tier} · ${p.company} · 「${p.title}」 · 현장 ${p.sites ?? 1}곳 · ${ymLabel(p.month)} 자료${p.adptDt ? ` · 첫 현장 적용 ${p.adptDt}` : ''}${p.members != null ? ` · 가입자 ${p.members}명` : ''}`);
   }
   out.push('   검증 상태: 국민연금 공개 자료(자동). 가입자 수≠전체 직원 수, 본사 일괄 신고는 공장별 수치 아님. 증감 이유·공사 규모는 회사 확인 전 미확인');
   return out;

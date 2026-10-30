@@ -79,7 +79,8 @@ def world(oct_data=False):
               rec(3103, "202610", "삼우기전/상용/기아 오토랜드 화성 PBV 2공장 신축공사 전기", "41", "591"),
               rec(3104, "202610", "청소나라/용역/현대제철 당진 사무동 청소", "44", "270"),
               rec(3105, "202610", "현대제철 순천공장", "12", "150"),
-              rec(3106, "202610", "거명이앤씨(주)/일용/(기계공사)당진 현대제철 1고로 원료 집진설비 개선 PJT", "44", "270")]
+              rec(3106, "202610", "거명이앤씨(주)/일용/(기계공사)당진 현대제철 1고로 원료 집진설비 개선 PJT", "44", "270"),
+              rec(3107, "202610", "대선이엔씨(주)/일용/현대제철 당진제철소 LNG 자가발전 사업/전기 공사", "44", "270")]
         d[3101], d[3102], d[3103] = det(41, "20261005", "기계장비 설치"), det(12, "20260912", "전기공사업"), det(77, "20261002", "전기공사업")
         d[3105] = det(310, "20260901", "냉간 압연")
         # 당진공장이 10월에 '현대제철주식회사 당진제철소'로 이름이 바뀐 것처럼 10월 줄을 빼 본다
@@ -108,10 +109,22 @@ class WorkforceTest(unittest.TestCase):
         self.assertFalse(own["포스코"].search("(주)포스코퓨처엠") or own["포스코"].search("주식회사 포스코지와이알테크"))
         self.assertTrue(own["현대차"].search("현대자동차(주)"))
         self.assertFalse(own["현대차"].search("현대자동차(주)노동조합") or own["현대차"].search("방축점현대자동차(주)"))
-        self.assertEqual(w.project_tier("(주)대한건설/일용/현대제철 당진 전기로 신설공사 기계설치"), "A")
-        self.assertEqual(w.project_tier("거명이앤씨(주)/일용/(기계공사)당진 현대제철 1고로 원료 집진설비 개선 PJT"), "C")  # 개선(보수 낱말)
-        self.assertEqual(w.project_tier("영일전설(주)/일용/2026 당진 현대제철 전기공사"), "B")
-        self.assertEqual(w.project_tier("청소나라/용역/현대제철 당진 사무동 청소"), "C")
+        import re
+        car, steel = re.compile("(?<![가-힣])현대(?:자동차|차)(?!운전|학원|공업|해체|운수)"), re.compile("현대제철")
+        # 10-30 실제 이름: 한 공사에 시공사·공종별 현장이 여럿 — 공사 이름으로 묶는다
+        for n in ("(주)디투엔지니어링/일용/현대자동차 0-프로젝트 건설공사 중 일반전기공사(HOOK-UP조립)", "주식회사 디와이시/일용/현대자동차 0-프로젝트 건설공사",
+                  "두양건축(주)/상용/현대자동차 0-프로젝트 건설공사 중 인테리어공사(2공구)", "（주）동영산업/일용/현대자동차 0-프로젝트 건설공사 / 철재창호"):
+            self.assertEqual(w.project_key(n, car), "현대자동차 0-프로젝트 건설공사", n)
+        self.assertEqual(w.project_key("더원종합건설 주식회사-(일용)현대자동차 인증중고차 군산센터 신축공사", car), "현대자동차 인증중고차 군산센터 신축공사")
+        self.assertEqual(w.project_key("디씨티준오 주식회사/일용/23년 현대제철 1,2연주기 ASTC확대적용, 전기설치공사", steel), "현대제철 1,2연주기 ASTC확대적용, 전기설치공사")
+        self.assertEqual(w.project_key("거명이앤씨(주)/일용/(기계공사)당진 현대제철 1고로 원료 집진설비 개선 PJT", steel), "당진 현대제철 1고로 원료 집진설비 개선 PJT")
+        self.assertEqual(w.project_tier("현대자동차 0-프로젝트 건설공사"), "A")
+        self.assertEqual(w.project_tier("현대제철 당진 전기로 신설공사 기계설치"), "A")
+        self.assertEqual(w.project_tier("현대자동차 인증중고차 군산센터 신축공사"), "B")  # 서비스·판매 시설 신축은 공장 투자가 아님
+        self.assertEqual(w.project_tier("현대자동차 남양연구소 기숙사 신축"), "B")
+        self.assertEqual(w.project_tier("당진 현대제철 1고로 원료 집진설비 개선 PJT"), "C")  # 개선(보수 낱말)
+        self.assertEqual(w.project_tier("당진 현대제철 전기공사"), "B")
+        self.assertEqual(w.project_tier("현대제철 당진 사무동 청소"), "C")
         self.assertEqual(w.month_before("202601"), "202512")
 
     def test_baseline_backfill_then_delta(self):
@@ -126,7 +139,8 @@ class WorkforceTest(unittest.TestCase):
         self.assertEqual(pohang["history"], {"202609": {"members": 1150, "acq": 4, "loss": 106}, "202608": {"members": 1252, "acq": 6, "loss": 10}})
         self.assertEqual(pohang["backfilledMonth"], "202609")
         # 공사 현장: 9월 기준선, 아파트 보수·'경기아트센터'는 빠지고 보수·개선(C)은 보관 안 함
-        self.assertEqual([(x["company"], x["tier"], x["baseline"]) for x in first["projects"]], [("현대제철", "B", True)])
+        self.assertEqual([(x["company"], x["title"], x["tier"], x["baseline"]) for x in first["projects"]],
+                         [("현대제철", "현대제철 당진제철소 LNG 자가발전 사업", "A", True)])
         self.assertEqual(len(first["projectSeen"]), 2)
         # 같은 달 다음 실행: 검색을 다시 하지 않고 지난달 대비 변화만 낸다(포항 -102명 -8.1% → A, 화성 -26명 → 없음)
         api2 = FakeApi(r, d, p)
@@ -149,15 +163,19 @@ class WorkforceTest(unittest.TestCase):
                                       ("A", "새 자사 사업장", "현대제철"), ("B", "자사 사업장 목록에서 빠짐", "현대제철"),
                                       ("B", "인력 변동", "기아")]))  # 포항 1,150→1,140(-10)은 기준 미달
         ev = {e["kind"] + e["company"]: e["text"] for e in doc["events"]}
-        self.assertIn("「(주)대한건설/일용/현대제철 당진 전기로 신설공사 기계설치」 · 충남 시군구코드 270 · 적용 2026-10-05 · 가입자 41명 · 업종 기계장비 설치",
+        self.assertIn("「현대제철 당진 전기로 신설공사 기계설치」 · 충남 시군구코드 270 · 첫 현장 적용 2026-10-05 · 가입자 41명 · 현장 이름 예 「(주)대한건설/일용/",
                       ev["새 공사 현장현대제철"])
         self.assertIn("기아 오토랜드 화성 PBV 2공장 신축공사", ev["새 공사 현장기아"])
-        self.assertIn("현대제철 이름이 든 새 공사·용역 현장 1곳(2026-10 자료): 「영일전설(주)/일용/2026 당진 현대제철 전기공사」(적용 2026-09-12, 가입자 12명)",
+        self.assertIn("현대제철 이름이 든 새 공사 1건(2026-10 자료): 「당진 현대제철 전기공사」(첫 현장 적용 2026-09-12, 가입자 12명)",
                       ev["새 공사 현장 묶음현대제철"])
         self.assertIn("현대제철 순천공장", ev["새 자사 사업장현대제철"])
         self.assertIn("2026-09에 있던 사업장이 2026-10 검색 결과에 없음", ev["자사 사업장 목록에서 빠짐현대제철"])
         self.assertIn("11,560→11,300명(-260명, -2.2%)", ev["인력 변동기아"])
         self.assertNotIn("청소", json.dumps(doc["events"], ensure_ascii=False))
+        # 이미 아는 공사(9월 기준선 'LNG 자가발전 사업')에 시공사 현장이 하나 더 생기면 이벤트 없이 현장 수만 는다
+        self.assertNotIn("자가발전", json.dumps(doc["events"], ensure_ascii=False))
+        lng = next(x for x in doc["projects"] if "자가발전" in x["title"])
+        self.assertEqual((lng["sites"], lng["baseline"]), (2, True))
 
     def test_failures_are_unconfirmed(self):
         r, d, p = world()

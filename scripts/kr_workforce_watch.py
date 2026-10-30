@@ -40,9 +40,13 @@ SIDO = {"11": "서울", "26": "부산", "27": "대구", "28": "인천", "29": "�
 # 시공사·용역사가 출입처 이름을 넣어 만든 현장 사업장의 모양
 PROJECT_SHAPE = re.compile(r"/|-\s*\((?:일용|상용)\)|\((?:일용|상용)\)|현장|공사|PJT|프로젝트", re.I)
 HOUSING = re.compile(r"아파트|더샵|주택|재개발|재건축|오피스텔|힐스테이트|자이|푸르지오|래미안|어린이집|학교")
-INVEST = re.compile(r"신설|증설|신축|신공장|신규\s*(?:공장|라인|설비)|공장\s*건설|건설공사|구축|프로젝트|PJT|라인", re.I)
+INVEST = re.compile(r"신설|증설|신축|신공장|신규\s*(?:공장|라인|설비)|공장\s*건설|건설공사|구축|프로젝트|PJT|자가발전|발전소|발전사업", re.I)
+# 투자 낱말이 있어도 공장·설비 쪽이어야 A(대리점·서비스센터·기숙사·사옥 신축은 B)
+PLANT = re.compile(r"공장|제철소|제련소|라인|플랜트|프로젝트|PJT|설비|전기로|고로|공정|발전|배터리|전지|연구소|생산|사업장|단지|부지|소재|기지|터미널", re.I)
+SERVICE = re.compile(r"서비스|쎈터|센터|대리점|판매|전시장|사옥|기숙사|사택|휴게|식당|주차|인증중고차|체험관|홍보관")
 MAINT = re.compile(r"보수|개선|교체|정비|유지|철거|해체|청소|도장|단가|보강|이설|수리|점검|관리|용역|방수|조경|석면|폐기물|경비|미화|급식")
-CONSTRUCTION = re.compile(r"공사|설치|PJT|프로젝트|건설|구축|현장", re.I)
+CONSTRUCTION = re.compile(r"공사|설치|PJT|프로젝트|건설|구축|현장|신축|신설|증설", re.I)
+SPLIT = re.compile(r"/|-?\s*\((?:일용|상용)\)\s*")
 
 
 class ApiError(RuntimeError):
@@ -127,11 +131,23 @@ def num(v):
         return None
 
 
-def project_tier(name):
-    """공사·용역 현장 이름의 등급: 투자 낱말(보수·정비 없이) A, 그 밖 공사 B, 용역·관리 C."""
-    if INVEST.search(name) and not MAINT.search(name):
+def project_key(name, word_rx):
+    """현장 사업장 이름에서 공사 이름만: '시공사/일용/현대자동차 0-프로젝트 건설공사 중 일반전기공사' → '현대자동차 0-프로젝트 건설공사'.
+    한 공사에 시공사·공종별 현장이 여럿 생기므로(10-30 '0-프로젝트' 20곳 넘음) 이 이름으로 묶는다."""
+    parts = [p.strip() for p in SPLIT.split(name) if p and p.strip()]
+    seg = next((p for p in parts if word_rx.search(p)), None)
+    if not seg:
+        return None
+    seg = re.sub(r"\s+중\s+.*$|\s*[(（][^)）]*공구[)）]\s*$", "", seg)
+    seg = re.sub(r"^(?:\[?\d{2,4}년\]?\s*|\d{4}\s+|\([^)]*공사\)\s*)+", "", seg)
+    return re.sub(r"\s+", " ", seg).strip(" ,-·") or None
+
+
+def project_tier(title):
+    """공사 이름의 등급: 투자 낱말과 공장·설비 낱말이 있고 보수·정비·서비스센터 낱말이 없으면 A, 그 밖 공사 B, 용역·관리 C."""
+    if INVEST.search(title) and PLANT.search(title) and not MAINT.search(title) and not SERVICE.search(title):
         return "A"
-    if CONSTRUCTION.search(name) and not MAINT.search(name):
+    if CONSTRUCTION.search(title) and not MAINT.search(title):
         return "B"
     return "C"
 
@@ -235,13 +251,24 @@ def run(cfg, *, now, previous=None, api, clock=time.monotonic, budget=BUDGET_S):
                             if pid in seen_projects:
                                 continue
                             seen_projects.add(pid)
-                            tier = project_tier(name)
-                            rec = {"id": pid, "company": comp["company"], "name": name, "region": region, "addr": (x.get("wkplRoadNmDtlAddr") or "").strip() or None,
-                                   "seq": x.get("seq"), "month": latest, "tier": tier, "firstSeen": stamp, "baseline": first}
-                            if tier != "C":
-                                projects[pid] = rec
-                                if not first:
-                                    by_company_new.setdefault(comp["company"], []).append(rec)
+                            title = project_key(name, word_rx)
+                            if not title:
+                                continue
+                            key = f"{comp['company']}:{norm(title)}:{region[:2]}"
+                            if key in projects:  # 이미 아는 공사에 시공사·공종 현장이 하나 더
+                                pr = projects[key]
+                                pr["sites"] = pr.get("sites", 1) + 1
+                                pr["names"] = (pr.get("names") or [])[:9] + [name]
+                                continue
+                            tier = project_tier(title)
+                            if tier == "C":
+                                continue
+                            rec = {"id": key, "company": comp["company"], "title": title, "names": [name], "sites": 1, "region": region,
+                                   "addr": (x.get("wkplRoadNmDtlAddr") or "").strip() or None, "seq": x.get("seq"), "month": latest, "tier": tier,
+                                   "firstSeen": stamp, "baseline": first}
+                            projects[key] = rec
+                            if not first:
+                                by_company_new.setdefault(comp["company"], []).append(rec)
                     if len(cur) < len(items) or len(items) < ROWS:
                         break
                 else:
@@ -257,7 +284,7 @@ def run(cfg, *, now, previous=None, api, clock=time.monotonic, budget=BUDGET_S):
             if latest in s["history"]:
                 continue
             if left() < 90:
-                errors.append("시간 한도 — 자사 사업장 일부는 다음 실행에서")
+                errors.append("시간 한도 — 자사 사업장 상세 일부는 다음 실행에서")
                 break
             try:
                 _, d = api.call("getDetailInfoSearchV2", {"seq": s["seqs"][latest]}, rows=1)
@@ -308,20 +335,21 @@ def run(cfg, *, now, previous=None, api, clock=time.monotonic, budget=BUDGET_S):
                 bs = [r for r in recs if r["tier"] == "B"]
                 if bs:
                     emit(f"wf:projs:{company}:{latest}:{len(bs)}", "새 공사 현장 묶음", "B", company, latest,
-                         f"{company} 이름이 든 새 공사·용역 현장 {len(bs)}곳({ym_label(latest)} 자료): "
+                         f"{company} 이름이 든 새 공사 {len(bs)}건({ym_label(latest)} 자료): "
                          + " / ".join(_project_line(r, short=True) for r in bs[:6]) + (f" 외 {len(bs) - 6}곳" if len(bs) > 6 else ""))
         for s in sites.values():
             s.pop("_new", None)
             s.pop("_was", None)
         checks.append({"source": "국민연금 사업장(출입처 검색)", "status": "ok" if not failed_terms else ("partial" if scanned_companies else "failed"),
                        "returned": len(seen_now), **({"error": "; ".join(failed_terms[:5])} if failed_terms else {})})
-        scan_status = "complete" if not failed_terms and not any("시간 한도" in e for e in errors) else "partial"
+        # 검색을 다 읽었으면 완료(자사 사업장 상세가 시간 한도로 남으면 아래 채우기가 이어 받는다 — 검색을 되풀이하지 않는다)
+        scan_status = "complete" if not failed_terms else "partial"
     else:
         checks.append({"source": "국민연금 사업장(출입처 검색)", "status": "ok", "returned": 0, "note": f"새 달 없음({ym_label(latest)} 그대로)"})
 
     # 3) 남는 시간: 자사 사업장 지난 12개월 채우기(이름으로 다시 찾아 달별 seq → 상세). 처음 채워진 지난달 비교도 이벤트로(첫 수집 표시)
     filled = 0
-    for s in sorted(sites.values(), key=lambda s: (s.get("backfilledMonth") == month, len(s.get("history") or {}))):
+    for s in sorted(sites.values(), key=lambda s: (month in (s.get("history") or {}), s.get("backfilledMonth") == month, len(s.get("history") or {}))):
         if s.get("backfilledMonth") == month or left() < 75:
             continue
         try:
@@ -376,16 +404,19 @@ def run(cfg, *, now, previous=None, api, clock=time.monotonic, budget=BUDGET_S):
 
 def _project_line(r, short=False):
     adpt = str(r.get("adptDt") or "")
-    when = f"적용 {adpt[:4]}-{adpt[4:6]}-{adpt[6:8]}" if len(adpt) == 8 else "적용일 미확인"
+    when = f"첫 현장 적용 {adpt[:4]}-{adpt[4:6]}-{adpt[6:8]}" if len(adpt) == 8 else "적용일 미확인"
     members = r["members"] if r.get("members") is not None else "?"
+    sites = f", 현장 {r['sites']}곳" if r.get("sites", 1) > 1 else ""
     if short:
-        return f"「{r['name']}」({when}, 가입자 {members}명)"
-    return (f"「{r['name']}」 · {region_label(r.get('region', ''), r.get('addr'))} · {when} · 가입자 {members}명 · 업종 {r.get('industry') or '미상'}"
-            f" — {ym_label(r.get('month'))} 자료, 현장 이름만 확인(사업 규모·발주 내용은 회사 확인)")
+        return f"「{r['title']}」({when}, 가입자 {members}명{sites})"
+    return (f"「{r['title']}」 · {region_label(r.get('region', ''), r.get('addr'))} · {when} · 가입자 {members}명{sites} · 현장 이름 예 「{r['names'][0]}」"
+            f" — {ym_label(r.get('month'))} 자료, 시공사가 붙인 현장 이름만 확인(사업 규모·발주 내용은 회사 확인)")
 
 
 def _doc(prev, stamp, status, checks, month, scan_status, sites, projects, seen_projects, events, api):
     keep = sorted(projects.values(), key=lambda p: (p.get("month") or "", p.get("firstSeen") or ""), reverse=True)[:KEEP_PROJECTS]
+    for p in keep:
+        p["names"] = (p.get("names") or [])[:10]
     return {"schema": SCHEMA, "generatedAt": stamp, "status": status, "checks": checks, "month": month, "scanStatus": scan_status,
             "baselineSince": prev.get("baselineSince") or stamp, "apiCalls": api.calls,
             "sites": sorted(sites.values(), key=lambda s: (s["company"], s["name"])), "projects": keep,
