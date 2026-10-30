@@ -16,14 +16,17 @@ if m:
         sw = json.loads(m.group(1))
         for path, ops in sw.get("paths", {}).items():
             for verb, op in ops.items():
+                if not isinstance(op, dict):
+                    out.append(f"path {path} {verb} {str(op)[:300]}")
+                    continue
                 params = [(p.get("name"), p.get("required"), (p.get("description") or "")[:40]) for p in op.get("parameters", [])]
                 out.append(f"path {path} {verb} params={params}")
         defs = sw.get("definitions") or {}
         for name, d in defs.items():
             props = d.get("properties") or {}
             out.append(f"def {name}: " + ", ".join(f"{k}({(v.get('description') or '')[:20]})" for k, v in props.items()))
-    except ValueError as e:
-        out.append(f"swagger 해석 실패 {e}")
+    except Exception as e:  # noqa: BLE001
+        out.append(f"swagger 해석 실패 {type(e).__name__} {str(e)[:100]} 원문 {m.group(1)[:2500]}")
 else:
     out.append("swagger 없음")
 for params in ({}, {"fact_nm": "현대"}, {"factNm": "현대"}):
