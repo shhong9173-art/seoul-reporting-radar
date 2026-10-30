@@ -104,12 +104,13 @@ def pdf_text(raw):
     return "\n".join((p.extract_text() or "") for p in PdfReader(io.BytesIO(raw)).pages)
 
 
-def korec_file(name, *, post=None):
+def korec_file(name, *, post=None, page=KOREC_RESULTS):
+    """The download only answers a POST from the page, so the link given to the reporter is the list page."""
     url = KOREC_FILE + "?" + urllib.parse.urlencode({"attachingFilePath": "/notice", "attachingFileNm": name})
     r = _post(post, url, timeout=150)
     if r.status_code != 200 or r.content[:4] != b"%PDF":
         raise RuntimeError(f"PDF HTTP {r.status_code}")
-    return r.content, url
+    return r.content, page
 
 
 # ---------------------------------------------------------------- 전기위원회 개최결과
@@ -144,13 +145,17 @@ def meeting_items(text):
             continue
         end = marks[i + 1][0] if i + 1 < len(marks) else len(flat)
         for m in PROJECT.finditer(flat[start:end]):
-            name = norm_space(re.sub(r"^[\d\.\s]+|^[①-⑳]\s*", "", m.group(1)))
-            name = re.sub(r"^(?:건\s*\(\s*\d+\s*\)\s*)", "", name).strip()
+            raw = norm_space(m.group(1))
+            held_back = bool(re.search(r"보류", raw))
+            # the regex span can start inside the previous sentence: keep what follows the last 허가/보류/건(n)/후
+            name = re.sub(r"^.*(?:허가|보류|건\s*\(\s*\d+\s*\)|확인\s*후|후)\s+", "", raw)
+            name = norm_space(re.sub(r"^[\d\.\s()]+|^[①-⑳]\s*", "", name))
             if len(name) < 5 or name in seen:
                 continue
             seen.add(name)
             act = norm_space(m.group(2) or "허가")
-            kind = "허가 취소" if sec == "허가 취소" or "취소" in act else ("변경허가" if "변경" in act else sec)
+            kind = ("심의 보류" if held_back else "허가 취소" if sec == "허가 취소" or "취소" in act
+                    else "변경허가" if "변경" in act else sec)
             items.append({"project": name, "kind": kind})
     return held, counts, items
 
@@ -173,13 +178,14 @@ def korec_meetings(previous, *, get=None, post=None, sleep=time.sleep):
         meeting = f"제{no.group(1)}차" if no else title
         read.append(name)
         summary = " · ".join(f"{k} {v}" for k, v in counts.items())
-        out.append({"id": f"korec:{meeting}", "source": "전기위원회", "kind": "개최결과", "title": f"{meeting} 전기위원회 개최결과" + (f" — {summary}" if summary else ""),
+        out.append({"id": f"korec:{meeting}", "source": "전기위원회", "kind": "개최결과", "file": name, "title": f"{meeting} 전기위원회 개최결과" + (f" — {summary}" if summary else ""),
                     "meeting": meeting, "held": held, "posted": posted, "company": None, "tier": "C", "url": url})
         for it in items:
             grp = group_of(it["project"])
-            tier = "A" if grp else "B" if OFFSHORE.search(it["project"]) and it["kind"] != "허가 취소" else "C"
+            tier = "A" if grp else "B" if OFFSHORE.search(it["project"]) and it["kind"] not in ("허가 취소", "심의 보류") else "C"
             out.append({"id": f"korec:{meeting}:{hashlib.sha1(it['project'].encode()).hexdigest()[:10]}", "source": "전기위원회", "kind": it["kind"],
-                        "title": it["project"], "meeting": meeting, "held": held, "posted": posted, "company": grp, "tier": tier, "url": url})
+                        "title": it["project"], "meeting": meeting, "held": held, "posted": posted, "company": grp, "tier": tier, "url": url,
+                        "file": name})
         sleep(1)
     keep = sorted(seen | set(read) | ({x[2] for x in rows[FIRST_RUN_MEETINGS:]} if first else set()))
     return out, {"source": "전기위원회 개최결과", "status": "ok", "returned": len(rows), "read": len(read)}, keep[-60:]
@@ -220,7 +226,7 @@ def korec_ledger(previous, now, *, get=None, post=None):
     name = files[0]
     if name == seen:
         return [], {"source": "전기위원회 허가대장", "status": "ok", "returned": 1, "note": "새 판 없음"}, name
-    raw, url = korec_file(name, post=post)
+    raw, url = korec_file(name, post=post, page=KOREC_NOTICES)
     since = (now - dt.timedelta(days=LEDGER_DAYS)).date().isoformat()
     rows = ledger_rows(pdf_text(raw), since)
     out = []
@@ -235,22 +241,30 @@ def korec_ledger(previous, now, *, get=None, post=None):
 
 
 # ---------------------------------------------------------------- 원자력안전위원회
-AGENDA = re.compile(r"\(\s*(심의\s*[∙·ㆍ]?\s*의결|보고)\s*제\s*(\d+)\s*호\s*\)\s*(.+?)(?=\s*-\s*\(\s*(?:심의|보고)|\s*○|$)")
-RESULT_WORDS = r"원안\s*의결|수정\s*의결|조건부\s*의결|보류|부결|철회|보고\s*접수|접수"
+AGENDA = re.compile(r"\(\s*(심의\s*[∙·ㆍ‧]?\s*의결|보고)\s*제\s*(\d+)\s*호\s*\)\s*(.+?)(?=\s*-\s*\(\s*(?:심의|보고)|\s*[○ㅇ]\s|\s*구\s*분\s*안건|$)")
+RESULTS = ("원안의결", "수정의결", "조건부의결", "재상정", "심의계속", "계속심의", "보류", "부결", "철회", "보고접수", "접수")
+SPLIT_RESULT = re.compile(r"[○ㅇ]\s*결과")
+
+
+def compact(s):
+    return re.sub(r"[\s·‧∙ㆍ•()（）「」｢｣\[\]]", "", s or "")
 
 
 def nssc_post_items(subject, contents):
     text = norm_space(htmlmod.unescape(re.sub(r"<[^>]+>", " ", contents or "")))
-    head = text.split("○ 결과")[0]
-    tail = text.split("○ 결과", 1)[1] if "○ 결과" in text else ""
+    parts = SPLIT_RESULT.split(text, maxsplit=1)
+    head, tail = parts[0], (parts[1] if len(parts) > 1 else "")
+    ctail = compact(tail)
     items = []
     for kind, no, title in AGENDA.findall(head):
         title = norm_space(title).rstrip(" -")
         res = None
-        if tail:
-            key = re.escape(title[:20])
-            m = re.search(key + r".{0,120}?(" + RESULT_WORDS + ")", tail)
-            res = norm_space(m.group(1)) if m else None
+        key = compact(title)[:18]
+        i = ctail.find(key) if key and ctail else -1
+        if i >= 0:
+            window = ctail[i + len(key): i + len(key) + 90]
+            hits = [(window.find(w), w) for w in RESULTS if window.find(w) >= 0]
+            res = min(hits)[1] if hits else None
         items.append({"no": int(no), "kind": "보고" if kind.startswith("보고") else "심의·의결", "title": title[:200], "result": res})
     md = re.search(r"\((\d{1,2})\.(\d{1,2})\)", subject or "")
     return md, items
@@ -316,6 +330,9 @@ def run(*, now, previous=None, get=None, post=None, sleep=time.sleep, nssc_sessi
         checks.append({"source": "원자력안전위원회 회의", "status": "failed", "error": str(e)[:80] or type(e).__name__})
 
     old = {x["id"]: x for x in (previous or {}).get("items") or []}
+    for x in old.values():  # links stored before 10-29 pointed at the POST-only download
+        if str(x.get("url") or "").startswith(KOREC_FILE):
+            x["url"] = KOREC_NOTICES if x.get("source") == "전기위원회 허가대장" else KOREC_RESULTS
     items = dict(old)
     found_ids = set()
     for it in found:
@@ -325,8 +342,10 @@ def run(*, now, previous=None, get=None, post=None, sleep=time.sleep, nssc_sessi
         it["baseline"] = bool(prev.get("baseline")) if prev else baseline
         it["isNew"] = not prev and not baseline
         if prev and it.get("result") and it.get("result") != prev.get("result"):
-            it["resultSeen"] = stamp  # 의결 결과가 새로 붙음
-            it["isNew"] = not baseline
+            # 의결 결과가 새로 붙음. 회의가 1주보다 오래됐으면 읽는 규칙이 늘어 채워진 것(예: '재상정')이라 조용히 고친다.
+            recent_meeting = str(it.get("held") or "") >= (now - dt.timedelta(days=7)).date().isoformat()
+            it["resultSeen"] = stamp if recent_meeting else prev.get("resultSeen")
+            it["isNew"] = not baseline and recent_meeting
         elif prev:
             it["resultSeen"] = prev.get("resultSeen")
         items[it["id"]] = it
