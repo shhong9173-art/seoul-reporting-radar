@@ -1,4 +1,5 @@
-"""Probe 11: 오만 Esnad 공개 화면(진행 중·낙찰 목록)의 실제 주소·표 칸 — 공개 자료, 저장하지 않음. 추측 주소는 더 부르지 않는다."""
+"""Probe 12: 오만 Esnad 개찰 현황 공개 보고서(showOpeningStatus_public)·낙찰 목록(CompletedTendersForPublic, 화면 양식 그대로 POST) — 공개 자료, 저장하지 않음."""
+import html
 import re
 import time
 import requests
@@ -9,56 +10,55 @@ S.headers.update({"User-Agent": "newsroom-official-research/1.0 (github.com/shho
 BASE = "https://etendering.tenderboard.gov.om"
 
 
-def get(url):
+def req(method, url, **kw):
     try:
-        r = S.get(url, timeout=40)
-        out.append(f"\n## {url} -> HTTP {r.status_code} len {len(r.text)}")
+        r = S.request(method, url, timeout=40, **kw)
+        out.append(f"\n## {method} {url} -> HTTP {r.status_code} len {len(r.text)}")
         return r.text
     except Exception as e:  # noqa: BLE001
-        out.append(f"\n## {url} -> {type(e).__name__} {str(e)[:120]}")
+        out.append(f"\n## {method} {url} -> {type(e).__name__} {str(e)[:120]}")
         return ""
     finally:
         time.sleep(1.5)
 
 
 def func(src, name):
-    m = re.search(r"function\s+" + name + r"\s*\([^)]*\)\s*\{(.{0,900}?)\n\s*\}", src, re.S)
-    return re.sub(r"\s+", " ", m.group(1))[:600] if m else "(없음)"
+    m = re.search(r"function\s+" + name + r"\s*\([^)]*\)\s*\{(.{0,1500}?)\n\s*\}", src, re.S)
+    return re.sub(r"\s+", " ", m.group(0))[:1200] if m else "(없음)"
 
 
-def table(t, label):
+def text(t, n):
     body = re.sub(r"<script.*?</script>|<style.*?</style>", " ", t, flags=re.S)
-    heads = [re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", h)).strip() for h in re.findall(r"<th[^>]*>(.*?)</th>", body, re.S)]
-    out.append(f"[{label}] th: {heads[:30]}")
-    rows = re.findall(r"<tr[^>]*>(.*?)</tr>", body, re.S)
-    shown = 0
-    for row in rows:
-        cells = [re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", c)).strip() for c in re.findall(r"<td[^>]*>(.*?)</td>", row, re.S)]
-        if len([c for c in cells if c]) >= 4:
-            links = re.findall(r"""(?:href|onclick)=['"]([^'"]{4,200})""", row)
-            out.append(f"  row: {cells[:12]} links: {links[:4]}")
-            shown += 1
-            if shown >= 4:
-                break
-    out.append(f"  rows total {len(rows)} · forms: {re.findall(r'<form[^>]*>', t)[:4]}")
-    out.append("  paging/js: " + " | ".join(sorted(set(re.findall(r"(?:pageNo|pageIndex|page=|getPage|goToPage|nextPage|fetch\w*\(|\.action\?[\w=&]*)", t)))[:30]))
+    return re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " | ", body)))[:n]
 
 
-home = get(BASE + "/product/publicDash")
-for name in ["ViewInProcessTenders", "ViewNewTenders", "getCompletedTenders", "getCanceledTenders", "showOpenData"]:
-    out.append(f"{name}: {func(home, name)}")
-for flag in ["InProcessTenders", "NewTenders"]:
-    t = get(BASE + f"/product/publicDash?viewFlag={flag}")
-    table(t, flag)
-    for name in ["getTenderDetails", "viewTender", "ViewTenderDetails", "showDetails", "getOpening", "viewBid", "openingDetails"]:
-        f = func(t, name)
-        if f != "(없음)":
-            out.append(f"  {flag} js {name}: {f}")
-    out.append("  functions: " + " | ".join(sorted(set(re.findall(r"function\s+(\w+)\s*\(", t)))[:80]))
-m = re.search(r"getCompletedTenders\(\)\s*\{[^}]*?['\"](/product/[^'\"]+)['\"]", home, re.S)
-if m:
-    t = get(BASE + m.group(1))
-    table(t, "Completed")
-    out.append("  functions: " + " | ".join(sorted(set(re.findall(r"function\s+(\w+)\s*\(", t)))[:80]))
+def hidden(t, form):
+    m = re.search(r'<form[^>]*name="' + form + r'".*?</form>', t, re.S)
+    f = m.group(0) if m else t
+    return {a: b for a, b in re.findall(r"""<input[^>]*type=['"]hidden['"][^>]*name=['"]([^'"]+)['"][^>]*value=['"]([^'"]*)['"]""", f)}
+
+
+ip = req("GET", BASE + "/product/publicDash?viewFlag=InProcessTenders")
+for name in ["showOpeningStatus_Report", "showParticipated", "getNit", "ShowPage", "submitPage", "formSubmit"]:
+    out.append(f"{name}: {func(ip, name)}")
+calls = re.findall(r"showOpeningStatus_Report\(([^)]*)\)", ip)
+out.append(f"opening calls {len(calls)}: {calls[:4]}")
+out.append(f"participated calls: {re.findall(r'showParticipated[(]([^)]*)[)]', ip)[:3]}")
+out.append(f"hidden fields: {list(hidden(ip, 'bDashboard').items())[:30]}")
+m = re.search(r"['\"](/product/[^'\"]*callAction=showOpeningStatus_public[^'\"]*)['\"]", ip)
+out.append(f"opening url pattern: {m.group(1) if m else None}")
+# 개찰 보고서: 화면 함수가 여는 주소 그대로 처음 2건
+for c in calls[:2]:
+    args = [a.strip().strip("'\"") for a in c.split(",")]
+    if m:
+        url = BASE + m.group(1) + (args[0] if args else "")
+        t = req("GET", url)
+        out.append(text(t, 2500))
+# 낙찰 목록: 대시보드 양식 그대로 POST
+home = req("GET", BASE + "/product/publicDash")
+fields = hidden(home, "bDashboard")
+t = req("POST", BASE + "/product/CompletedTendersForPublic", data=fields, headers={"Referer": BASE + "/product/publicDash"})
+out.append(text(t, 3000))
+out.append("links: " + " | ".join(sorted(set(re.findall(r"""(?:href|onclick)=['"]([^'"]{4,200})""", t)))[:20]))
 open("/tmp/probe_out.txt", "w").write("\n".join(out))
 print("\n".join(out)[:400])
