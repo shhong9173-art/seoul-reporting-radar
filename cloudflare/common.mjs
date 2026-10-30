@@ -195,3 +195,16 @@ export function matchesQuery(q, ...fields) {
   const hay = fields.flat().map((f) => String(f ?? '').toLowerCase()).join(' ');
   return terms.every((t) => hay.includes(t));
 }
+
+// 공장등록 주생산품처럼 같은 항목이 되풀이된 목록('액슬 등 구동부품, 액슬 등 구동부품, …')을 한 번씩만(순서·글자 유지).
+export function uniqueList(text) {
+  const seen = new Set();
+  const out = [];
+  for (const part of String(text ?? '').split(/\s*[,，、]\s*/)) {
+    const key = part.replace(/\s+/g, '').replace(/등$/, '').toLowerCase();
+    if (!part.trim() || seen.has(key)) continue;
+    seen.add(key);
+    out.push(part.trim());
+  }
+  return out.join(', ');
+}

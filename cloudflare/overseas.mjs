@@ -2,7 +2,7 @@
 // and domestic official sources (factory registry, gazette legislative notices).
 // Data arrives through the bearer ingest; tools read it only on the private connector path.
 import { ageNote, readFeed } from './screen.mjs';
-import { clampInt, textResult } from './common.mjs';
+import { clampInt, textResult, uniqueList } from './common.mjs';
 
 const missing = (what, when) => textResult(`${what} 결과가 아직 없음 — GitHub Secrets의 MCP_ACCESS_TOKEN 설정과 다음 정기 실행(${when})을 확인. 0건이 아니라 미확인.`, true);
 const matches = (q, ...fields) => !q || fields.some((f) => String(f ?? '').toLowerCase().includes(q.toLowerCase()));
@@ -568,7 +568,7 @@ async function insolvencySection(ctx, q, days, limit) {
   for (const e of rows.slice(0, limit)) {
     const ind = e.industry ?? {};
     out.push(`\n${e.isNew ? '[신규] ' : ''}${e.posted ?? '게시일 미상'} · ${e.kind} · ${e.company} · ${e.court}${e.caseNo ? ` ${e.caseNo}` : ''}${e.division ? `(${e.division})` : ''}`);
-    out.push(`   잡힌 사실: 공고 「${e.title}」${ind.label ? ` · 공장등록 업종 ${ind.label}${ind.code ? `(${ind.code}${ind.industry ? ` ${ind.industry}` : ''})` : ''}` : ''}${ind.product ? ` · 주생산품 ${ind.product}` : ''}${ind.employees != null ? ` · 종업원 ${ind.employees}명` : ''}${ind.address ? ` · ${ind.address}` : ''}${ind.factories > 1 ? ` · 같은 이름 등록 공장 ${ind.factories}곳` : ''}${identityNote(ind)}${e.watch ? ` · 협력사 명단: ${[e.watch.beat, e.watch.relation, e.watch.evidence].filter(Boolean).join(' · ')}` : ''}${!ind.label && !e.watch ? ' · 공장등록 없음(이름 낱말만)' : ''}`);
+    out.push(`   잡힌 사실: 공고 「${e.title}」${ind.label ? ` · 공장등록 업종 ${ind.label}${ind.code ? `(${ind.code}${ind.industry ? ` ${ind.industry}` : ''})` : ''}` : ''}${ind.product ? ` · 주생산품 ${uniqueList(ind.product)}` : ''}${ind.employees != null ? ` · 종업원 ${ind.employees}명` : ''}${ind.address ? ` · ${ind.address}` : ''}${ind.factories > 1 ? ` · 같은 이름 등록 공장 ${ind.factories}곳` : ''}${identityNote(ind)}${e.watch ? ` · 협력사 명단: ${[e.watch.beat, e.watch.relation, e.watch.evidence].filter(Boolean).join(' · ')}` : ''}${!ind.label && !e.watch ? ' · 공장등록 없음(이름 낱말만)' : ''}`);
     out.push(`   원문: ${e.url ?? e.listUrl}${e.url && e.listUrl ? ` (안 열리면 ${e.listUrl} 에서 법원·사건번호로 검색)` : ''}`);
     out.push('   검증 상태: 법원 공고(절차 단계). 같은 이름의 다른 회사일 수 있음(주소·대표자 대조). 출입처와의 거래·납품 영향은 회사·출입처 확인 필요');
   }
@@ -719,7 +719,7 @@ export async function krOfficial(ctx, args) {
     out.push(`\n[최근 120일 등록 공장 · 등록일 기준] ${recent.length}곳 (출입처 공장 전체 ${facs.length}곳${q ? ', 낱말 거름' : ''})`);
     for (const f of recent.slice(0, limit)) {
       out.push(`- ${f.registeredOn} · ${f.company} · ${f.cmpnyNm} · ${f.rnAdres}`);
-      out.push(`   주생산품 ${f.mainProductCn || '미기재'} · 업종 ${f.indutyNm || '미기재'} · 고용 ${f.employees ?? '미기재'}명${f.irsttNm ? ` · ${f.irsttNm}` : ''}${f.nameCheck ? ` · ⚠ ${f.nameCheck}` : ''}`);
+      out.push(`   주생산품 ${uniqueList(f.mainProductCn) || '미기재'} · 업종 ${f.indutyNm || '미기재'} · 고용 ${f.employees ?? '미기재'}명${f.irsttNm ? ` · ${f.irsttNm}` : ''}${f.nameCheck ? ` · ⚠ ${f.nameCheck}` : ''}`);
     }
     if (args.show_all === true || args.show_all === 'true') {
       out.push('\n[출입처 공장 목록]');

@@ -1854,14 +1854,14 @@ test('kr insolvency: a beat-industry manufacturer entering court proceedings is 
     checks: [{ source: '서울회생법원 법인회생', status: 'ok', returned: 40 }, { source: '부산회생법원 법인회생', status: 'failed', error: 'ConnectTimeout' },
       { source: '회생회사 M&A 공고 제조업(기계,금속,중공업)', status: 'ok', returned: 21 }, { source: '공장등록 업종 조회', status: 'partial', returned: 120, pending: 68 }],
     events: [ev('ins:1'),
-      ev('ins:2', { kind: '포괄적 금지명령', company: '주식회사 한빛오토텍', tier: 'B', match: 'product', industry: { match: 'product', label: '금속가공제품', code: '25912', product: '자동차 차체 프레스 부품', employees: 120, address: '충청남도 아산시 …', factories: 1 } }),
+      ev('ins:2', { kind: '포괄적 금지명령', company: '주식회사 한빛오토텍', tier: 'B', match: 'product', industry: { match: 'product', label: '금속가공제품', code: '25912', product: '자동차 차체 프레스 부품, 자동차 차체 프레스 부품, 자동차 차체 프레스 부품', employees: 120, address: '충청남도 아산시 …', factories: 1 } }),
       ev('ins:3', { company: '주식회사 메탈153', tier: 'C', match: 'name', industry: { match: null, factories: 0 } }),
       ev('ins:4', { company: '삼보산업 주식회사', court: '수원회생법원', tier: 'B', industry: { match: 'core', label: '자동차 부품', code: '30332', product: '자동차부품', employees: 22, address: '대구광역시 서구 염색공단천로', factories: 13, owners: 4, regionMismatch: true } })] };
   assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/kr-insolvency', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
   const r = await call('radar_today', { hours: 72, include_minor: true }, opts);
   const sec = (t) => r.text.split(`[${t} · `)[1].split(/\n\[[ABC] · /)[0];
   assert.match(sec('A'), /회생 개시: 주식회사 엠디스틸 \(서울회생법원 2026회합 1129\) · 공장등록 업종 1차 철강 · 주생산품 냉연강판 · 종업원 85명 · 경기도 화성시 · 공고 2026-10-25 — 거래 관계·납품 영향 미확인/);
-  assert.match(sec('B'), /포괄적 금지명령: 주식회사 한빛오토텍 \(서울회생법원 2026회합 1129\) · 공장등록 업종 금속가공제품 · 주생산품 자동차 차체 프레스 부품/);
+  assert.match(sec('B'), /포괄적 금지명령: 주식회사 한빛오토텍 \(서울회생법원 2026회합 1129\) · 공장등록 업종 금속가공제품 · 주생산품 자동차 차체 프레스 부품 · 종업원 120명/);  // 같은 항목 반복은 한 번만
   assert.match(sec('C'), /주식회사 메탈153 [^\n]*공장등록 없음 — 이름 낱말만/);
   assert.match(sec('B'), /삼보산업 주식회사 \(수원회생법원 2026회합 1129\) · 공장등록 업종 자동차 부품 [^\n]*· 대구광역시 서구 · ⚠ 공장 주소가 관할 법원 지역 밖\(다른 회사일 수 있음\) · 같은 이름 공장 대표자 4명/);
   assert.match(r.text, /- 협력사 회생·파산: 일부 실패 1건\(부산회생법원 법인회생\)/);

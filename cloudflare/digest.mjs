@@ -4,7 +4,7 @@
 import { readFeed } from './screen.mjs';
 import { storeOp } from './store.mjs';
 import { dispatchHealth } from './dispatch.mjs';
-import { clampInt, safeEqual, textResult } from './common.mjs';
+import { clampInt, safeEqual, textResult, uniqueList } from './common.mjs';
 import { classLabel, waitReason } from './trademarks.mjs';
 import { billLine, groupBillEvents } from './assembly.mjs';
 import { buildingLine, factoryEventText, identityNote } from './overseas.mjs';
@@ -92,7 +92,7 @@ export const firmName = (n) => String(n ?? '').replace(/주식회사|\(주\)|㈜
 export function insolvencyLine(e) {
   const ind = e.industry ?? {};
   const what = e.watch ? `출입처 협력사 명단(${[e.watch.beat, e.watch.relation].filter(Boolean).join(' · ')})`
-    : ind.label ? `공장등록 업종 ${ind.label}${ind.product ? ` · 주생산품 ${String(ind.product).slice(0, 40)}` : ''}${ind.employees != null ? ` · 종업원 ${ind.employees}명` : ''}`
+    : ind.label ? `공장등록 업종 ${ind.label}${ind.product ? ` · 주생산품 ${uniqueList(ind.product).slice(0, 40)}` : ''}${ind.employees != null ? ` · 종업원 ${ind.employees}명` : ''}`
       : '공장등록 없음 — 이름 낱말만';
   const where = ind.address ? ` · ${String(ind.address).split(/\s+/).slice(0, 2).join(' ')}` : '';
   return `${e.company} (${e.court}${e.caseNo ? ` ${e.caseNo}` : ''}) · ${what}${where}${identityNote(ind)}`;
@@ -172,7 +172,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
   }
   const evFactories = all ? new Set() : new Set((kr?.events ?? []).filter((e) => Date.parse(e.detectedAt) >= cut).map((e) => e.factoryId));
   for (const f of kr?.factories ?? []) {
-    if (f.registeredOn && (all || f.registeredOn >= cutDay) && !evFactories.has(f.id)) push('A', W['kr-official'], { kind: '공장 새 등록', id: f.id, date: f.registeredOn, company: f.company, fact: `공장 등록 ${f.cmpnyNm} · ${f.rnAdres} · 주생산품 ${f.mainProductCn || '미기재'} · 업종 ${f.indutyNm || '미기재'} · 고용 ${f.employees ?? '?'}명${f.nameCheck ? ` (⚠ ${f.nameCheck})` : ''}`,
+    if (f.registeredOn && (all || f.registeredOn >= cutDay) && !evFactories.has(f.id)) push('A', W['kr-official'], { kind: '공장 새 등록', id: f.id, date: f.registeredOn, company: f.company, fact: `공장 등록 ${f.cmpnyNm} · ${f.rnAdres} · 주생산품 ${uniqueList(f.mainProductCn) || '미기재'} · 업종 ${f.indutyNm || '미기재'} · 고용 ${f.employees ?? '?'}명${f.nameCheck ? ` (⚠ ${f.nameCheck})` : ''}`,
       check: factoryHint(f.company, '새 등록', f.rnAdres) });
   }
   // 환경영향평가: a new stage (초안·본안·변경협의) of a project whose name carries a beat company — plans before announcements.
