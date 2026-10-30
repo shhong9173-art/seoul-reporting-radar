@@ -1,56 +1,35 @@
-"""probe: CleanSYS 실시간 측정(rltmMesureResult) 응답 칸 전부·배출허용기준 칸·기준 초과 행(공개 자료). 키 값은 출력하지 않는다. 호출 3회."""
+"""probe: 대만 정부전자조달(PCC) 낙찰 공고 — g0v 미러 API(pcc-api.openfun.app)에서 출입처 이름 검색, 최신성, 금액 칸. 공개 자료, 키 없음."""
 import json
-import os
-import re
+import time
 
 import requests
 
-KEY = (os.environ.get("DATA_GO_KR_KEY") or os.environ.get("KR_FUEL_API_KEY") or "").strip()
-API = "https://apis.data.go.kr/B552584/cleansys/rltmMesureResult"
+API = "https://pcc-api.openfun.app/api/searchbycompanyname"
+UA = {"User-Agent": "newsroom-official-research/1.0 (github.com/shhong9173-art/seoul-reporting-radar)"}
 out = []
-P = ("tsp", "sox", "nox", "hcl", "hf", "nh3", "co")
-
-
-def num(v):
+TERMS = ["樂星", "LS Electric", "LS Cable", "曉星", "Hyosung", "現代電", "HYUNDAI ELECTRIC", "HD HYUNDAI", "大韓電線", "Taihan", "TAIHAN",
+         "斗山", "Doosan", "浦項", "POSCO", "高麗亞鉛", "韓商"]
+for q in TERMS:
     try:
-        return float(str(v).replace(",", ""))
-    except (TypeError, ValueError):
-        return None
-
-
-for term in ("영풍", "현대제철", "고려아연"):
-    try:
-        r = requests.get(API, params={"serviceKey": KEY, "type": "json", "numOfRows": 1000, "pageNo": 1, "factManageNm": term}, timeout=60)
-        d = json.loads(r.text)
-        items = ((d.get("response") or {}).get("body") or {}).get("items") or []
-        out.append(f"== {term} HTTP {r.status_code} items {len(items)}")
-        if items:
-            out.append("keys " + ", ".join(sorted(items[0].keys())))
-            out.append("row0 " + json.dumps({k: v for k, v in items[0].items()}, ensure_ascii=False)[:900])
-            nonnull = {}
-            for x in items:
-                for k, v in x.items():
-                    if v not in (None, "", "-"):
-                        nonnull[k] = nonnull.get(k, 0) + 1
-            out.append("nonnull " + json.dumps(nonnull, ensure_ascii=False))
-            vals = {}
-            for x in items:
-                for k, v in x.items():
-                    if not re.search(r"_(mesure_value|stdr_value)$", k) and k not in ("fact_manage_nm", "stack_code", "area_nm", "mesure_dt"):
-                        vals.setdefault(k, set()).add(str(v)[:20])
-            out.append("other-values " + json.dumps({k: sorted(v)[:8] for k, v in vals.items()}, ensure_ascii=False))
-            exc = []
-            for x in items:
-                for p in P:
-                    m, s = num(x.get(f"{p}_mesure_value")), num(x.get(f"{p}_exhst_perm_stdr_value"))
-                    if m is not None and s and m > s:
-                        exc.append(f"{x.get('fact_manage_nm')} #{x.get('stack_code')} {p} {m}>{s} @{x.get('mesure_dt')}")
-            out.append(f"exceed {len(exc)}: " + " | ".join(exc[:10]))
-            near = sorted(((num(x.get(f'{p}_mesure_value')) or 0) / (num(x.get(f'{p}_exhst_perm_stdr_value')) or 1e9), p, x.get('fact_manage_nm'), x.get('stack_code'))
-                          for x in items for p in P if num(x.get(f"{p}_exhst_perm_stdr_value")))
-            out.append("top ratios " + "; ".join(f"{a:.2f} {p} {n} #{c}" for a, p, n, c in near[-6:]))
+        r = requests.get(API, params={"query": q}, headers=UA, timeout=40)
+        d = r.json()
+        recs = d.get("records") or []
+        dates = sorted((str(x.get("date")) for x in recs), reverse=True)
+        out.append(f"== {q}: HTTP {r.status_code} total {d.get('total_records')} pages {d.get('total_pages')} latest {dates[:3]}")
+        for x in sorted(recs, key=lambda x: str(x.get("date")), reverse=True)[:4]:
+            b = x.get("brief") or {}
+            names = (b.get("companies") or {}).get("names") or []
+            out.append(f"  {x.get('date')} {b.get('type')} | {x.get('unit_name')} | {str(b.get('title'))[:60]} | {'; '.join(map(str, names))[:120]} | amt {x.get('award_amount')} | {x.get('url')}")
     except Exception as e:  # noqa: BLE001
-        out.append(f"ERR {term} {type(e).__name__} {str(e)[:120]}".replace(KEY, "***") if KEY else f"ERR {term} {type(e).__name__}")
-blob = "\n".join(out).replace(KEY, "***") if KEY else "\n".join(out)
+        out.append(f"ERR {q} {type(e).__name__} {str(e)[:100]}")
+    time.sleep(1.0)
+# 최신성: 어제 날짜 목록
+for path in ("https://pcc-api.openfun.app/api/listbydate?date=20261029", "https://pcc-api.openfun.app/api/getinfo"):
+    try:
+        r = requests.get(path, headers=UA, timeout=40)
+        out.append(f"== {path.split('/api/')[1]}: HTTP {r.status_code} {r.text[:400]}")
+    except Exception as e:  # noqa: BLE001
+        out.append(f"ERR {path} {type(e).__name__}")
+blob = "\n".join(out)
 open("/tmp/probe_out.txt", "w").write(blob)
 print("total chars", len(blob))
