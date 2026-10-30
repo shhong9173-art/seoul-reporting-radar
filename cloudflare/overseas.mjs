@@ -224,11 +224,31 @@ export function ktcSection(k, q = '', limit = 15) {
   return out;
 }
 
+// 무역협회 대한 수입규제DB(kita_watch.py): 세계 각국의 한국산 조치를 한 곳에 — 새 사건·진행 단계(업체 마진)를 감지 이벤트로, 최근 갱신 사건을 목록으로.
+export function kitaSection(ki, events, q = '', limit = 15, fromIso = '') {
+  if (!ki) return ['\n[대한 수입규제 · 무역협회 수입규제DB] 아직 수집 전 — 미확인'];
+  const out = [];
+  const ev = (events ?? []).filter((e) => e.pageId === 'kita' && String(e.detectedAt) >= fromIso && matches(q, e.label, e.text, e.country, (e.companies ?? []).join(' ')));
+  const rank = { A: 0, B: 1, C: 2 };
+  out.push(`\n[대한 수입규제 · 무역협회 수입규제DB · 확인 ${String(ki.checkedAt).slice(0, 16)}${ki.stale ? ' · ⚠ 이번 조회 실패, 직전 목록' : ''}] 아는 사건 ${Object.keys(ki.cases ?? {}).length}건 · 감지 ${ev.length}건(기준선 ${String(ki.baselineSince ?? '').slice(0, 10)} 이후)`);
+  for (const e of [...ev].sort((a, b) => (rank[a.tier] ?? 3) - (rank[b.tier] ?? 3) || String(b.detectedAt).localeCompare(String(a.detectedAt))).slice(0, limit)) {
+    out.push(`- ${e.tier} · ${String(e.detectedAt).slice(0, 10)} · ${e.kitaKind} · ${e.text}`);
+    out.push(`   원문: ${e.url}`);
+  }
+  const recent = (ki.recent ?? []).map((id) => ({ id, ...(ki.cases ?? {})[id] })).filter((c) => matches(q, c.country, c.item, c.type, c.category));
+  out.push(`- 최근 갱신 사건(갱신순) ${Math.min(recent.length, limit)}/${recent.length}:`);
+  for (const c of recent.slice(0, limit)) {
+    out.push(`  ${c.updated ?? '?'} · ${c.country} ${c.type} · ${c.item} · ${c.status}${c.category ? ` · ${c.category}` : ''}${c.latestStage ? ` · 최신 ${String(c.latestStage).replace('|', ' ')}` : ''}`);
+  }
+  out.push('   검증 상태: 무역협회가 각국 조치를 정리한 2차 자료(자동). 마진·판정·대상 업체는 단계마다 붙은 원문(관보·WTO 통보 등)으로 확인. 미국 사건은 관보 감시가 먼저 잡는다');
+  return out;
+}
+
 export async function tradeRemedies(ctx, args) {
   const doc = await readFeed(ctx, 'trade-remedy');
   if (!doc) return missing('무역구제 감시(해외·국내 무역위원회)', '평일 07:40');
   if (doc.broken) return textResult('저장된 무역구제 결과 형식 오류 — 미확인.', true);
-  const section = ['quota', 'us', 'notices', 'ktc'].includes(args.section) ? args.section : null;
+  const section = ['quota', 'us', 'notices', 'ktc', 'kita'].includes(args.section) ? args.section : null;
   const q = String(args.company ?? '').trim();
   const days = clampInt(args.days, 1, 120, 30);
   const limit = clampInt(args.limit, 1, 60, 15);
@@ -274,6 +294,7 @@ export async function tradeRemedies(ctx, args) {
   }
 
   if (!section || section === 'ktc') out.push(...ktcSection(doc.ktc, q, limit));
+  if (!section || section === 'kita') out.push(...kitaSection(doc.kita, doc.events, q, limit, new Date(ctx.now.getTime() - days * 86400000).toISOString()));
 
   if (!section || section === 'notices') {
     const from = new Date(ctx.now.getTime() - days * 86400000).toISOString();

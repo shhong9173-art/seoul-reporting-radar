@@ -1,5 +1,5 @@
 """무역구제 감시: EU 철강 쿼터(TARIC) 한국 몫 소진, 미국 관보의 한국산 무역구제·ITC 고시, 호주·캐나다·인도 공고 목록,
-국내 무역위원회(진행 사건·진행일정·회의 안건·보도자료, scripts/ktc_watch.py).
+국내 무역위원회(진행 사건·진행일정·회의 안건·보도자료, scripts/ktc_watch.py), 무역협회 대한 수입규제DB(세계 각국, scripts/kita_watch.py).
 
 - EU TARIC: 이번 분기 한국 관련 관세쿼터(09xxxx) 초기 물량·잔량·소진일·CN 코드. 사용률 80% 이상·소진을 표시하고
   직전 확인 대비 사용률 변화를 남긴다.
@@ -453,7 +453,7 @@ def foreign_pages(pages, previous, now, *, get=None, sleep=time.sleep, relay_tok
     return out, events
 
 
-def run(cfg, *, now, previous=None, get=None, sleep=time.sleep, relay_token=None, ktc_http=None):
+def run(cfg, *, now, previous=None, get=None, sleep=time.sleep, relay_token=None, ktc_http=None, kita_http=None):
     stamp = now.isoformat(timespec="seconds")
     had_state = bool(previous)
     checks = []
@@ -478,6 +478,11 @@ def run(cfg, *, now, previous=None, get=None, sleep=time.sleep, relay_token=None
         if kcheck["status"] == "failed" and (previous or {}).get("ktc"):
             ktc = dict(previous["ktc"], stale=True)  # 누리집이 안 열리면 지난 목록을 그대로(0건 아님)
         checks.append(kcheck)
+    kita, kita_events = (previous or {}).get("kita"), []
+    if kita_http is not None:
+        import kita_watch
+        kita, kita_events, kcheck2 = kita_watch.collect(kita, now, kita_http, sleep=sleep)
+        checks.append(kcheck2)
     prev_fr = {x["id"]: x for x in (previous or {}).get("federalRegister", []) if isinstance(x, dict)}
     if ferr:  # keep the last good list rather than showing an empty one
         fr = list(prev_fr.values())
@@ -487,7 +492,7 @@ def run(cfg, *, now, previous=None, get=None, sleep=time.sleep, relay_token=None
     keep_from = (now - dt.timedelta(days=KEEP_DAYS)).isoformat()
     events = [e for e in (previous or {}).get("events", []) if isinstance(e, dict) and e.get("detectedAt", "") >= keep_from]
     seen = {e.get("id") for e in events}
-    fresh = page_events + ktc_events + [
+    fresh = page_events + ktc_events + kita_events + [
         {"id": f"taric:{q['order']}:{q['periodStart']}", "pageId": "taric", "country": "EU",
          "label": f"EU 쿼터 {q['order']} {q.get('product') or ''}({q['scope']}) 소진", "text": " ".join(q["tags"]),
          "url": q["url"], "detectedAt": stamp} for q in ok_q if q.get("newlyExhausted")]
@@ -499,13 +504,14 @@ def run(cfg, *, now, previous=None, get=None, sleep=time.sleep, relay_token=None
     return {"schema": SCHEMA, "generatedAt": stamp, "status": "partial" if failed else "complete", "checks": checks,
             "baselineSince": (previous or {}).get("baselineSince") or ((previous or {}).get("generatedAt") if previous else None) or stamp,
             "quarter": tinfo["periodStart"], "quotas": quotas, "quotaHistory": history, "federalRegister": fr,
-            "pages": pages, "events": events[:300], **({"ktc": ktc} if ktc else {}),
+            "pages": pages, "events": events[:300], **({"ktc": ktc} if ktc else {}), **({"kita": kita} if kita else {}),
             "rules": ["쿼터 수치는 EU TARIC 집계(마지막 갱신일 기준)다. 통관 신고 정산·배정 대기 물량 배분으로 바뀔 수 있다.",
                       "'한국 전용'은 원산지가 한국만인 쿼터, '공동'은 인도·튀르키예 등과 나눠 쓰는 쿼터다. 공동 쿼터 소진을 한국 물량 소진으로 쓰지 않는다.",
                       "쿼터 소진이 곧 수출 타격은 아니다(선적 시점 조정·선계약). 업체별 물량·영향은 회사 확인이 필요하다.",
                       "미국 고시에 업체명이 나와도 판정 결과·세율은 원문 표에서 직접 확인한다. 회사명 일치만으로 해당 회사 사건으로 단정하지 않는다.",
                       "무역위원회 누리집에는 신청인(국내 생산자)·피신청인 이름이 대개 없다. 품목이 출입 업종이어도 회사 사건으로 단정하지 않는다.",
                       "무역위 회의 안건은 회의 전 공개 개요다. 판정 결과(긍정·부정·세율)는 회의 뒤 보도자료·의결서로 확인한다.",
+                      "무역협회 수입규제DB는 각국 조치를 무역협회가 정리한 2차 자료다. 마진·판정은 단계마다 붙은 원문 링크(관보·WTO 통보 등)로 확인한다.",
                       "조회 실패는 0건이 아니라 미확인."],
             "confirmedScoops": 0}
 
@@ -524,8 +530,9 @@ def main():
             print(f"::warning title=trade-state::이전 상태 조회 실패({e}) — 신규 표시는 이번 실행 기준")
     if private_store.late_scheduled_duplicate(previous, now):
         return
+    import kita_watch
     import ktc_watch
-    doc = run(cfg, now=now, previous=previous, relay_token=token or None, ktc_http=ktc_watch.Http())
+    doc = run(cfg, now=now, previous=previous, relay_token=token or None, ktc_http=ktc_watch.Http(), kita_http=kita_watch.Http())
     q = [x for x in doc["quotas"] if x["status"] == "ok"]
     exhausted = sum(1 for x in q if x.get("exhaustedOn"))
     hot = sum(1 for x in q if x.get("tags"))
@@ -539,6 +546,10 @@ def main():
     kev = [e for e in doc["events"] if e.get("pageId") == "ktc" and e["detectedAt"] == doc["generatedAt"]]
     print(f"::notice title=trade-remedy-ktc::무역위 진행 사건 {len([c for c in k.get('cases', []) if not c.get('stale')])} · "
           f"회의 {len(k.get('meetings', []))}(안건 읽음 {sum(1 for m in k.get('meetings', []) if m.get('agenda'))}) · 보도자료 {len(k.get('news', []))} · 이번 이벤트 {len(kev)}")
+    ki = doc.get("kita") or {}
+    kiev = [e for e in doc["events"] if e.get("pageId") == "kita" and e["detectedAt"] == doc["generatedAt"]]
+    print(f"::notice title=trade-remedy-kita::무역협회 수입규제DB 사건 {len(ki.get('cases', {}))} · 이번 이벤트 {len(kiev)}"
+          f"({', '.join(sorted({e['tier'] for e in kiev}))})")
     if not token:
         print("::warning title=trade-remedy-push::MCP_ACCESS_TOKEN 미설정 — 결과를 저장하지 않음")
         return
