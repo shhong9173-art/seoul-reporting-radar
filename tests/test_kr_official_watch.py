@@ -149,6 +149,11 @@ class Factory(unittest.TestCase):
         self.assertEqual(by[("목록에 다시 나옴", "fac:4")]["tier"], "C")
         self.assertEqual(by[("목록에서 빠짐", "fac:4")]["tier"], "C")
         self.assertIn("다시 나옴(조회 목록에서 잠깐 빠진 것으로 보임)", by[("목록에서 빠짐", "fac:4")]["text"])
+        # 10-30 운영 저장분 모양: 예전 규칙이 붙인 '처음 잡힘' 설명·주생산품 반복이 있는 '새 공장' → 다시 나옴 문장은 깔끔하게
+        stored = dict(by[("목록에 다시 나옴", "fac:4")], kind="새 공장", settled=False,
+                      text="(주)포스코 광양제철소 · 전라남도 광양시 · 주생산품 액슬 등 구동부품, 액슬 등 구동부품, 화포 및 함포 · 등록 1973-07-03" + w.OLD_REG_NOTE)
+        cleaned = w.settle_reappearances([next(e for e in back["events"] if e["kind"] == "목록에서 빠짐" and e["factoryId"] == "fac:4"), stored])
+        self.assertEqual(cleaned[1]["text"], "(주)포스코 광양제철소 · 전라남도 광양시 · 주생산품 액슬 등 구동부품, 화포 및 함포 · 등록 1973-07-03")
         again = run(previous=back, now=NOW + dt.timedelta(days=4))  # 다시 판정하지 않음(문장이 두 번 붙지 않음)
         g = next(e for e in again["events"] if e["kind"] == "목록에서 빠짐" and e["factoryId"] == "fac:4")
         self.assertEqual(g["text"].count("다시 나옴"), 1)
