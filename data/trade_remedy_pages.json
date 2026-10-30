@@ -1,5 +1,5 @@
 {
- "note": "해외 무역구제 기관의 공고·조사 목록 페이지. 'Korea'가 들어간 줄이 새로 생기면 변경으로 본다. 주소를 바꾸면 격리 실행으로 열리는지 확인한다. via=relay는 GitHub 실행 서버에서 응답이 없는 곳이라 Worker 중계(/ingest/relay, 허용 호스트 고정)로 받는다. 호주 ADN 주소는 2026-10 기준 TRN 페이지로 넘어가(반덤핑위원회→무역구제위원회 개칭) 하나로 합침.",
+ "note": "해외 무역구제 기관의 공고·조사 목록 페이지. 'Korea'가 들어간 줄이 새로 생기면 변경으로 본다. 주소를 바꾸면 격리 실행으로 열리는지 확인한다. via=relay는 GitHub 실행 서버에서 응답이 없는 곳이라 Worker 중계(/ingest/relay, 허용 호스트 고정)로 받는다. 호주 ADN 주소는 2026-10 기준 TRN 페이지로 넘어가(반덤핑위원회→무역구제위원회 개칭) 하나로 합침. 10-30 추가: 영국 TRA·인도네시아 KADI·베트남 TRAV(베트남어 'Hàn Quốc'). 말레이시아·태국·튀르키예·브라질·멕시코·GCC·EU TRON은 목록에 한국 줄이 없거나 주소가 달라(스크립트로 그리는 화면 등) 넣지 않았다.",
  "pages": [
   {
    "id": "au-trn",
@@ -26,6 +26,26 @@
    "country": "인도",
    "label": "인도 DGTR 상계관세 조사",
    "url": "https://www.dgtr.gov.in/en/countervailing-duty-investigation"
+  },
+  {
+   "id": "uk-tra",
+   "country": "영국",
+   "label": "영국 무역구제청(TRA) 조사 목록",
+   "url": "https://www.trade-remedies.service.gov.uk/public/cases/"
+  },
+  {
+   "id": "id-kadi",
+   "country": "인도네시아",
+   "label": "인도네시아 반덤핑위원회(KADI) 소식",
+   "url": "https://kadi.kemendag.go.id/"
+  },
+  {
+   "id": "vn-trav",
+   "country": "베트남",
+   "label": "베트남 무역구제청(TRAV) 소식",
+   "url": "https://www.trav.gov.vn/",
+   "pattern": "hàn quốc|korea",
+   "note": "베트남어 'Hàn Quốc'(한국). 한국이 다른 나라에 건 조치 기사도 섞인다 — 베트남의 한국산 조사인지 원문 확인"
   }
  ],
  "taricSeeds": [

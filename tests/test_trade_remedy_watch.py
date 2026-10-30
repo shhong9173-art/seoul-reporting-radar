@@ -372,3 +372,15 @@ class KoreaLines(unittest.TestCase):
         doc = w.run({"pages": PAGES, "taricSeeds": []}, now=NOW, get=get2, sleep=lambda s: None)
         self.assertEqual(n, [60, 60])
         self.assertEqual(doc["pages"][0]["status"], "ok")
+
+
+class PagePattern(unittest.TestCase):
+    def test_vietnamese_word_for_korea(self):
+        import re
+        raw = ('<ul><li><a href="/tin/1">Khởi xướng điều tra chống bán phá giá thép mạ từ Trung Quốc và Hàn Quốc</a></li>'
+               '<li><a href="/tin/2">Hội thảo về phòng vệ thương mại</a></li></ul>')
+        lines = w.korea_lines(raw, re.compile("hàn quốc|korea", re.I))
+        self.assertEqual(list(lines), ["Khởi xướng điều tra chống bán phá giá thép mạ từ Trung Quốc và Hàn Quốc"])
+        self.assertEqual(w.korea_lines(raw), {})  # 기본 'korea'로는 안 잡힌다
+        uk = '<table><tr><td><a href="/public/case/AD0099/">Case Hot-rolled steel plate from South Korea</a></td><td>Initiated</td></tr></table>'
+        self.assertTrue(any("Hot-rolled steel plate from South Korea" in k for k in w.korea_lines(uk)))

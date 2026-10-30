@@ -149,7 +149,7 @@ export const TOOLS = [
     inputSchema: obj({ company: str('기업·파트너·낱말'), source: { type: 'string', enum: ['ASX', 'HKEX', 'EDGAR'] }, only_new: bool('신규만'),
       include_routine: bool('일상 공시도 보기(ASX 주총·임원 지분, HKEX 월간 증권 변동·이사회 일정, EDGAR 투자 보유 표·같은 회사 반복 문구)'), limit: int('줄 수', 1, 60) }) },
   { name: 'trade_remedies', access: 'private', handler: tradeRemedies,
-    description: '무역구제 감시: EU 철강 쿼터(TARIC) 한국 관련 분기 쿼터 소진·사용률·직전 분기 비교(한국 전용/공동 구분), 미국 상무부·ITC 고시 중 한국산(본문에 나온 출입처 이름·줄), 호주·캐나다·인도 반덤핑 공고 목록의 한국 관련 새 줄, 국내 무역위원회(section=ktc: 회의 약 1주 전 공개되는 안건(개요 PDF의 의결·보고 목록), 2019년 이후 개시한 진행 사건의 진행일정 새 줄·판정시한 연장·진행 목록에서 빠짐, 보도자료).',
+    description: '무역구제 감시: EU 철강 쿼터(TARIC) 한국 관련 분기 쿼터 소진·사용률·직전 분기 비교(한국 전용/공동 구분), 미국 상무부·ITC 고시 중 한국산(본문에 나온 출입처 이름·줄), 캐나다·인도·영국·인도네시아·베트남 무역구제 기관 목록의 한국 관련 새 줄, 국내 무역위원회(section=ktc: 회의 약 1주 전 공개되는 안건(개요 PDF의 의결·보고 목록), 2019년 이후 개시한 진행 사건의 진행일정 새 줄·판정시한 연장·진행 목록에서 빠짐, 보도자료).',
     inputSchema: obj({ section: { type: 'string', enum: ['quota', 'us', 'notices', 'ktc'] }, company: str('기업·품목·쿼터번호 낱말'),
       days: int('공고 변화 최근 N일(기본 30)', 1, 120), only_new: bool('미국 고시 신규만'), show_all: bool('여유 있는 쿼터까지 전부'),
       limit: int('구역별 줄 수', 1, 60) }) },
