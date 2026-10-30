@@ -105,6 +105,27 @@ class Partners(unittest.TestCase):
         doc = w.run({"asx": [], "edgarPhrases": [["포스코", "POSCO"]]}, now=NOW, get=get, sleep=lambda s: None)
         self.assertEqual(doc["items"], [])
 
+    def test_seah_surname_is_not_seah_steel(self):
+        # 10-29 Global Engine Group 20-F: 'Seah'(사람 성씨)만 있어 세아로 잡혔다 — 'SeAH'만 세아
+        body = {"hits": {"hits": [{"_id": "g-1:ex4.htm", "_source": {"ciks": ["1908705"], "display_names": ["Global Engine Group Holding Ltd  (GLE)  (CIK 0001908705)"],
+                                                                    "form": "20-F", "file_date": "2026-10-29", "adsh": "g-1"}}]}}
+        def get(url, params=None, headers=None, timeout=None):
+            if "efts" in url:
+                return R(200, body)
+            return R(200, text="<p>Signed by Mr. Seah Kok Wah, Director, and SEAH Holdings Sdn Bhd.</p>")
+        doc = w.run({"asx": [], "edgarPhrases": [["세아", "SeAH"]]}, now=NOW, get=get, sleep=lambda s: None)
+        self.assertEqual(doc["items"], [])
+        def get2(url, params=None, headers=None, timeout=None):
+            if "efts" in url:
+                return R(200, body)
+            return R(200, text="<p>Mr. Seah Kok Wah signed a supply agreement with SeAH Steel Corporation for API pipes.</p>")
+        doc = w.run({"asx": [], "edgarPhrases": [["세아", "SeAH"]]}, now=NOW, get=get2, sleep=lambda s: None)
+        self.assertIn("SeAH Steel Corporation", doc["items"][0]["snippet"])
+        prev = {"items": [{"id": "edgar:g-1:ex4.htm", "source": "EDGAR", "date": "2026-10-29", "firstSeen": "2026-10-29T07:00:00+09:00",
+                           "phrases": ["SeAH"], "beat": ["세아"], "snippet": "agreement signed by Seah Kok Wah, director"}]}
+        doc = w.run({"asx": [], "edgarPhrases": []}, now=NOW, previous=prev, get=lambda *a, **k: R(404), sleep=lambda s: None)
+        self.assertEqual(doc["items"], [])  # 저장된 발췌도 같은 기준
+
     def test_saved_snippets_get_the_unrelated_check_too(self):
         prev = {"items": [{"id": "edgar:x-1:p.htm", "source": "EDGAR", "date": "2026-10-20", "firstSeen": "2026-10-20T07:00:00+09:00",
                            "phrases": ["POSCO"], "beat": ["포스코"], "snippet": "held at Floor 25, Tower B, POSCO Center, Beijing"},
