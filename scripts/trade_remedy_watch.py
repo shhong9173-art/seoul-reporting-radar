@@ -380,21 +380,24 @@ def federal_register(now, previous=None, *, get=None, sleep=time.sleep):
 # ---------- Foreign listing pages ----------
 
 LINE_PARSER = 2
+KOREA_RX = re.compile(r"korea", re.I)
 BLOCK_END = re.compile(r"(?i)<br\s*/?>|</(?:p|tr|li|div|h\d|dt|dd|td|th|summary|section|article)>")
 
 
-def korea_lines(raw):
-    """Lines that mention Korea — table rows, list items, headings, paragraphs, link texts — with the first link inside."""
+def korea_lines(raw, rx=None):
+    """Lines that mention Korea — table rows, list items, headings, paragraphs, link texts — with the first link inside.
+    rx: the page's own word for Korea (베트남 'Hàn Quốc' 등); default 'korea'."""
+    rx = rx or KOREA_RX
     raw = re.sub(r"(?is)<(script|style|noscript|nav|header|footer)[^>]*>.*?</\1>", " ", raw)
     out = {}
     for href, inner in re.findall(r"""(?is)<a[^>]+href=["']([^"']+)["'][^>]*>(.*?)</a>""", raw):
         t = plain(inner)
-        if re.search(r"korea", t, re.I) and 8 <= len(t) <= 300:
+        if rx.search(t) and 8 <= len(t) <= 300:
             out.setdefault(t, href)
     # rows first so a table row keeps its link; then any other block-level line
     for row in re.findall(r"(?is)<tr[^>]*>(.*?)</tr>", raw):
         t = plain(row)
-        if re.search(r"korea", t, re.I) and 8 <= len(t) <= 400:
+        if rx.search(t) and 8 <= len(t) <= 400:
             m = re.search(r"""href=["']([^"']+)["']""", row)
             out.setdefault(t, m.group(1) if m else None)
     prev_text = ""
@@ -402,7 +405,7 @@ def korea_lines(raw):
         t = plain(chunk)
         if not t:
             continue
-        if re.search(r"korea", t, re.I) and 8 <= len(t) <= 400:
+        if rx.search(t) and 8 <= len(t) <= 400:
             # a bare country list ("China, South Korea and Vietnam") is keyed with the line before it (the case name)
             key = f"{prev_text[:120]} — {t}" if len(t) < 60 and prev_text else t
             if not any(key in k for k in out):  # already kept as a link or table row
@@ -437,7 +440,7 @@ def foreign_pages(pages, previous, now, *, get=None, sleep=time.sleep, relay_tok
             rec.update(status="failed", error=err, lines=old.get("lines", {}), parser=old.get("parser"))
             out.append(rec)
             continue
-        lines = dict(list(korea_lines(raw).items())[:200])
+        lines = dict(list(korea_lines(raw, re.compile(p["pattern"], re.I) if p.get("pattern") else None).items())[:200])
         rec.update(status="ok", lines=lines, checkedAt=now.isoformat(timespec="seconds"), parser=LINE_PARSER)
         # a baseline taken by another version of the line reader is not compared (its keys differ)
         if old.get("parser") == LINE_PARSER and (old.get("status") == "ok" or old.get("lines")):
