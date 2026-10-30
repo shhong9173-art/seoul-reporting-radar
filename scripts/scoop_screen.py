@@ -63,7 +63,10 @@ STOP = {"공급계약", "공시", "회사", "국내", "해외", "기타", "합�
 ADMIN = re.compile(r"특수관계인|공정거래자율준수|기업설명회|IR\)?개최|주주총회|최대주주등소유주식|자기주식취득결과|"
                    r"증권발행실적|투자설명서|기업지배구조보고서|감사보고서|결산실적공시예고|조회공시|풍문|매매거래정지|"
                    r"발행조건확정|증권신고서|영업\(잠정\)실적|잠정\)?실적|기업가치제고|대표이사|대표집행임원|사외이사|"
-                   r"주식소각|자기주식처분|자기주식취득|배당|정관변경|명의개서|전환가액|신주인수권")
+                   r"주식소각|자기주식처분|자기주식취득|배당|정관변경|명의개서|전환가액|신주인수권|"
+                   # 10-30 radar_today A에 매일 올라온 형식 공시: 공정거래법 계열사 상품·용역거래 이사회 의결, 주총 의결권 권유,
+                   # 실적 발표와 함께 나오는 실적 전망 공정공시(정정 포함), 기업집단 현황
+                   r"동일인등출자계열회사|상품ㆍ?용역거래|의결권대리행사권유|영업실적등에대한전망|기업집단현황")
 # Disclosure vocabulary → words news headlines actually use (queries use the first, matching accepts all).
 NEWS_TERMS = {
     "중대재해발생": ["중대재해", "사망", "사고"], "중대재해": ["중대재해", "사망", "사고"],
@@ -577,6 +580,17 @@ def screen(cands, *, now, get=None, sleep=time.sleep):
     return out
 
 
+def carry_first_seen(rows, previous, now):
+    """후보마다 처음 심사한 시각을 남긴다 — radar_today는 이 시각이 최근인 후보만 '새 항목'으로 센다(10-30: 10-07·10-12 특허 후보가
+    판정 전까지 매일 A에 다시 올라옴). 이전 결과에 시각이 없으면 이전 실행 시각을 쓴다."""
+    prev = previous if isinstance(previous, dict) else {}
+    seen = {c.get("id"): c.get("firstSeen") or prev.get("generatedAt") for c in prev.get("candidates") or [] if isinstance(c, dict)}
+    stamp = now.isoformat(timespec="seconds")
+    for r in rows:
+        r["firstSeen"] = seen.get(r.get("id")) or stamp
+    return rows
+
+
 def report(rows, *, now, inputs):
     counts = {v: sum(1 for r in rows if r["verdict"] == v) for v in ("미보도 후보", "관련 보도 있음", "같은 수치 선행", "미확인")}
     return {"schema": SCHEMA, "generatedAt": now.isoformat(timespec="seconds"), "inputs": inputs,
@@ -608,13 +622,15 @@ def main():
     a = ap.parse_args()
     now = now_kst()
     token = os.environ.get("MCP_ACCESS_TOKEN", "").strip()
-    if token and os.environ.get("GITHUB_EVENT_NAME") == "schedule" and not a.dry_run:
+    previous = None
+    if token and not a.dry_run:
         import private_store
         try:
-            if private_store.late_scheduled_duplicate(private_store.get("scoop-screen", token), now):
-                return
+            previous = private_store.get("scoop-screen", token)
         except private_store.StoreError:
-            pass  # cannot tell — run
+            previous = None  # cannot tell — run; first-seen times start now
+        if os.environ.get("GITHUB_EVENT_NAME") == "schedule" and private_store.late_scheduled_duplicate(previous, now):
+            return
     clues, stats = load(ROOT / "tools/clues.json") or {}, load(ROOT / "tools/stats.json") or {}
     cands = select(clues, stats, now=now, limit=a.limit)
     inputs = {"cluesGeneratedAt": clues.get("generatedAt"), "statsGeneratedAt": stats.get("generatedAt"),
@@ -644,7 +660,7 @@ def main():
         print(f"::notice title=scoop-screen-filings::DART 원문 요점 {inputs['filingFacts']['read']}건 · 일상 {inputs['filingFacts']['routine']}건 · 실패 {inputs['filingFacts']['failed']}건")
     else:
         print("::warning title=scoop-screen-filings::DART_API_KEY 미설정 — 원문 요점·직전 비교 생략")
-    rows = screen(cands, now=now)
+    rows = carry_first_seen(screen(cands, now=now), previous, now)
     doc = report(rows, now=now, inputs=inputs)
     if a.out:
         Path(a.out).write_text(json.dumps(doc, ensure_ascii=False, indent=1), encoding="utf-8")

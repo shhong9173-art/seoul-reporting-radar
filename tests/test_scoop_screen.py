@@ -85,6 +85,14 @@ class Selection(unittest.TestCase):
             {"id": "m5", "team": "특허", "published": "2026-10-12", "source": "KIPRIS 공개특허", "companies": ["기아"], "routine": False,
              "tier": "취재 단서·단독 미확정", "title": "고정자 냉각 장치 (기아, 현대자동차)"},
         ]}
+        # 10-30 radar_today A에 매일 올라온 형식 공시(계열사 상품·용역거래, 의결권 권유, 실적 전망 정정)
+        clues["items"] += [
+            {"id": "m6", "team": "화학", "published": "2026-10-29", "source": "DART", "companies": ["한화솔루션"], "routine": False,
+             "tier": "취재 단서·단독 미확정", "title": "한화솔루션 · 동일인등출자계열회사와의상품ㆍ용역거래변경"},
+            {"id": "m7", "team": "자동차", "published": "2026-10-28", "source": "DART", "companies": ["현대모비스"], "routine": False,
+             "tier": "취재 단서·단독 미확정", "title": "현대모비스 · 의결권대리행사권유참고서류"},
+            {"id": "m8", "team": "자동차", "published": "2026-10-29", "source": "DART", "companies": ["현대차"], "routine": False,
+             "tier": "취재 단서·단독 미확정", "title": "현대자동차 · 정기·주요공시 · [기재정정]영업실적등에대한전망(공정공시)"}]
         rows = {r["id"]: r for r in s.select(clues, {}, now=NOW)}
         self.assertEqual(set(rows), {"clue:m4", "clue:m5"})
         accident = rows["clue:m4"]
@@ -95,6 +103,16 @@ class Selection(unittest.TestCase):
         self.assertEqual(patent["kind"], "특허")
         self.assertIn("단독이 아니다", patent["note"])
         self.assertEqual(patent["strength"], 0.5)
+
+    def test_first_seen_is_carried_so_old_candidates_are_not_new(self):
+        rows = [{"id": "clue:a"}, {"id": "clue:b"}, {"id": "clue:c"}]
+        prev = {"generatedAt": "2026-10-29T07:10:00+09:00",
+                "candidates": [{"id": "clue:a", "firstSeen": "2026-10-12T07:10:00+09:00"}, {"id": "clue:b"}]}
+        out = {r["id"]: r["firstSeen"] for r in s.carry_first_seen(rows, prev, NOW)}
+        self.assertEqual(out["clue:a"], "2026-10-12T07:10:00+09:00")
+        self.assertEqual(out["clue:b"], "2026-10-29T07:10:00+09:00")  # 이전 결과에 시각이 없으면 이전 실행 시각
+        self.assertEqual(out["clue:c"], NOW.isoformat(timespec="seconds"))
+        self.assertEqual(s.carry_first_seen([{"id": "x"}], None, NOW)[0]["firstSeen"], NOW.isoformat(timespec="seconds"))
 
     def test_particles_and_stopwords(self):
         self.assertEqual(s.terms_from("두산에너빌리티 압력용기의 내외부를 이를", "두산에너빌리티"), ["압력용기", "내외부"])

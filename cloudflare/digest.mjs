@@ -148,6 +148,8 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
 
   const scoop = docs['scoop-screen'];
   for (const c of scoop?.candidates ?? []) {
+    // 후보 목록은 판정 전까지 매 실행 다시 실린다 — 처음 심사한 때가 창 밖이면 새 항목이 아니다(scoop_screen에서는 계속 보임).
+    if (c.firstSeen && !recent(c.firstSeen)) continue;
     const fl = c.filing;
     // one line per item: long cells (판결 주문, 당사자 목록) are clipped here; scoop_screen shows them in full
     const clip = (v) => { const t = String(v ?? '').replace(/\s+/g, ' ').trim(); return t.length > 60 ? `${t.slice(0, 60).trimEnd()}…` : t; };
