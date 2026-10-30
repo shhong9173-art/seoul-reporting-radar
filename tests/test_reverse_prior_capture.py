@@ -128,6 +128,25 @@ class Capture(unittest.TestCase):
         self.assertEqual(a["best"]["label"], "국내 연비 신고")
 
 
+    def test_epa_rule_docket_is_not_a_new_car_capture(self):
+        # 10-30 운영: 신차 낱말 하나로 EPA 규제 의견서와 묶인 오탐(실제 제목·의견서 이름)
+        trace = {"generatedAt": "2026-10-30T12:55:00+09:00", "items": [
+            {"articleId": "c4", "title": "[단독]현대차 미래항공·새만금 사업 가속..신차로 본업 경쟁력↑ - 머니투데이", "published": "2026-10-29T18:10:00+09:00",
+             "sourceName": "머니투데이", "companies": ["현대차"]}]}
+        docs = {"us-comments": {"items": [{"id": "EPA-HQ-OAR-2025-3297-0160", "company": "현대차", "agency": "EPA",
+                                           "docketTitle": "Revision of Tier 4 Phase-in Schedule for Light-Duty and Medium-Duty Vehicles",
+                                           "firstSeen": "2026-10-26T21:04:00+09:00"}]},
+                "us-epa": {"vehicles": [{"id": "epa:1", "company": "현대차", "kind": "새 모델", "year": "2027", "make": "Hyundai", "model": "IONIQ 6 N",
+                                         "range": 250, "firstSeen": "2026-10-20T06:20:00+09:00"}]}}
+        doc = r.run(trace, docs, {"items": []}, now=dt.datetime(2026, 10, 30, 13, 0, tzinfo=r.KST))
+        a = doc["articles"][0]
+        self.assertEqual(a["verdict"], "같은 회사 항목만")
+        # 차량 항목은 여전히 신차 낱말로 묶인다(EPA 연비 인증 새 모델)
+        trace["items"][0]["title"] = "[단독] 현대차, 아이오닉 6 N 美 출시 임박…EPA 인증 마쳐"
+        trace["items"][0]["articleId"] = "c5"
+        b = r.run(trace, docs, {"items": []}, now=dt.datetime(2026, 10, 30, 13, 0, tzinfo=r.KST))["articles"][0]
+        self.assertEqual((b["verdict"], b["best"]["id"]), ("먼저 잡은 후보", "epa:1"))
+
     def test_one_generic_word_is_not_enough_and_duplicates_count_once(self):
         # 10-28 첫 운영 실행의 오탐 2건(실제 제목): '배터리'·'공장'만 겹침
         trace = {"generatedAt": "2026-10-28T15:00:00+09:00", "items": [
