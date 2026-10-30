@@ -1,4 +1,4 @@
-"""Probe: 바레인 입찰위원회 낙찰 목록·보고서에서 일진전기(Iljin) — 공개 자료. 저장하지 않음."""
+"""Probe 2: 바레인 입찰위원회 — 개찰 결과(입찰사·가격)·위원회 결정 페이지 형식, robots, 일진전기(Iljin) 흔적. 공개 자료, 저장하지 않음."""
 import re
 import sys
 from pathlib import Path
@@ -7,30 +7,29 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import overseas_award_watch as w  # noqa: E402
 
 out = []
-try:
-    r = w._get(None, w.BH_LIST, headers={**w.UA, "Accept": "text/html"})
-    html = r.text
-    out.append(f"list HTTP {r.status_code} len {len(html)}")
-    reps = w.bh_reports(html)
-    out.append("reports: " + " | ".join(f"{x['subject'][:60]} -> {x['href'][-70:]}" for x in reps[:8]))
-    # other links on the page (per-tender award pages? search forms?)
-    links = sorted(set(re.findall(r'href="([^"#]+)"', html)))
-    out.append("page links sample: " + " | ".join(l for l in links if re.search(r"award|tender|result|session|opening", l, re.I))[:1500])
-    out.append("iljin on list page: " + str(bool(re.search(r"iljin", html, re.I))))
-    for rep in reps[:4]:
-        url = w.BH_SITE + rep["href"].replace(" ", "%20")
-        try:
-            pr = w._get(None, url, headers={**w.UA, "Accept": "application/pdf"}, timeout=120)
-            size = len(pr.content)
-            text = w.pdf_text(pr.content) if pr.status_code == 200 and size <= w.BH_MAX_BYTES else ""
-            hits = [m.start() for m in re.finditer(r"iljin|korea|transmission|400\s*kv|220\s*kv|cable", text, re.I)]
-            out.append(f"\n== {rep['subject'][:70]} HTTP {pr.status_code} bytes {size} text {len(text.strip())} hits {len(hits)}")
-            out.append("   head: " + re.sub(r"\s+", " ", text[:600]))
-            for h in hits[:8]:
-                out.append("   ctx: " + re.sub(r"\s+", " ", text[max(0, h - 200): h + 250]))
-        except Exception as e:  # noqa: BLE001
-            out.append(f"   {rep['subject'][:50]} error {type(e).__name__}: {str(e)[:120]}")
-except Exception as e:  # noqa: BLE001
-    out.append(f"error {type(e).__name__}: {str(e)[:200]}")
+def get(url, **kw):
+    return w._get(None, url, headers={**w.UA, "Accept": "text/html,application/json"}, **kw)
+
+for path in ["/robots.txt", "/", "/Tenders/OpenedTenders/", "/Tenders/TenderBoardDecisions/", "/Tenders/Decisions/", "/Tenders/PublicTenders/", "/Tenders/AwardedTenders/"]:
+    try:
+        r = get(w.BH_SITE + path, timeout=60)
+        t = r.text
+        out.append(f"\n== {path} HTTP {r.status_code} len {len(t)} final {getattr(r, 'url', '')}")
+        if path == "/robots.txt":
+            out.append(t[:800])
+            continue
+        links = sorted(set(re.findall(r'href="([^"#]+)"', t)))
+        out.append("links: " + " | ".join(l for l in links if re.search(r"tender|award|open|decision|result|session|search", l, re.I))[:1800])
+        forms = re.findall(r"<form[^>]*>", t, re.I)
+        out.append("forms: " + " | ".join(forms[:5])[:600])
+        apis = sorted(set(re.findall(r"""['"](/[A-Za-z/]*(?:api|Api|Handler|Service)[^'"]{0,80})['"]""", t)))
+        out.append("api-like: " + " | ".join(apis[:20])[:800])
+        if re.search(r"iljin", t, re.I):
+            i = re.search(r"iljin", t, re.I).start()
+            out.append("ILJIN ctx: " + re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", t[max(0, i - 600): i + 400])))
+        body = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", re.sub(r"(?is)<(script|style)[^>]*>.*?</\1>", " ", t)))
+        out.append("text: " + body[:900])
+    except Exception as e:  # noqa: BLE001
+        out.append(f"== {path} error {type(e).__name__}: {str(e)[:150]}")
 open("/tmp/probe_out.txt", "w").write("\n".join(out))
-print("\n".join(out)[:600])
+print("\n".join(out)[:500])
