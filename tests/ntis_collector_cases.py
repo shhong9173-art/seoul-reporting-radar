@@ -230,6 +230,18 @@ class NtisCollectorTests(unittest.TestCase):
         self.assertEqual(len(rows), 1)
         self.assertNotIn("list_detail_title_mismatch", diag["exclusions"])
 
+    def test_observed_rd_before_hangul_and_quote_marks(self):
+        # 10-30 탐침 실제 제목: 목록 'RD사업'·곧은 따옴표, 상세 'R&D사업'·굽은 따옴표
+        pairs = [("2027년 산업기술 RD사업(디스플레이, 스마트전자, 배터리 분야) 추가 기술수요조사",
+                  "2027년 산업기술 R&amp;D사업(디스플레이, 스마트전자, 배터리 분야) 추가 기술수요조사"),
+                 ("국제개발협력센터[입찰재공고] 헝가리 정책자문사업: '한국-헝가리 배터리 협력연구센터 설립 지원' 용역입찰 재공고",
+                  "국제개발협력센터[입찰재공고] 헝가리 정책자문사업: ‘한국-헝가리 배터리협력연구센터 설립 지원’ 용역입찰 재공고")]
+        for listed, detailed in pairs:
+            rows, diag, _ = self.run_collector(detail=self.detail.replace(self.title, detailed), listing=self.listing(title=listed))
+            self.assertNotIn("list_detail_title_mismatch", diag["exclusions"], listed)
+        self.assertNotEqual(scout._ntis_title_key("R&D사업"), scout._ntis_title_key("RFD사업"))
+        self.assertEqual(scout._ntis_title_key("HR&DX 과제"), "HR&DX과제")  # 다른 낱말 속 R&D는 바꾸지 않음
+
     def test_unrelated_company_and_menu_do_not_become_leads(self):
         for company in ("삼성전기", "포스코퓨처엠", "포스코인터내셔널"):
             title = company + " 신규 기술개발 과제 공고"
