@@ -17,10 +17,8 @@ try:
     for kw in ("not_ancmt_mgt_no", "searchDetail", "javascript:", "<table", "srchList", "고시", "2026-10"):
         idx = [m.start() for m in re.finditer(re.escape(kw), t)][:3]
         out.append(f"{kw}: {len(re.findall(re.escape(kw), t))} at {idx}")
-    i = t.find("function srchList")
-    out.append("srchList: " + re.sub(r"\s+", " ", t[i:i + 900]))
-    j = t.find("<table")
-    out.append("table: " + re.sub(r"\s+", " ", t[j:j + 1500]))
+    k = t.find("searchDetail", 11000)
+    out.append("rows: " + re.sub(r"\s+", " ", t[k - 1200:k + 2200]))
 except Exception as e:  # noqa: BLE001
     out.append(f"ERR {type(e).__name__}")
 blob = "\n".join(out)
