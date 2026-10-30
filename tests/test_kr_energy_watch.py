@@ -59,6 +59,26 @@ class Energy(unittest.TestCase):
         self.assertEqual(k.group_of("GS 당진 바이오 발전사업"), "GS")
         self.assertIsNone(k.group_of("무안큐파워솔라팜 태양광 발전사업"))
 
+    def test_written_meeting_date_is_not_the_next_meeting(self):
+        # 제330차(10-29 서면회의) PDF 실제 글자: 일시 줄이 '` 목26. 10. 29.'(요일이 숫자 앞), 끝에 차기 회의 '`26. 11. 13.'
+        text = ("제 차 전기위원회330「 서면회의( ) 개최결과」\n- \n 목 전기위원회 사무국26. 10. 29.( ) -\n회의□ \n ( ) 개요 \n"
+                "ㅇ 일 시 : ` 목26. 10. 29.( )\nㅇ 서면심의위원 위원 명 : 9\n회의 결과□ 총 건( 1 )\nㅇ 보고안건 건(1 )\n"
+                "ㅇ 심의안건 건(1 )\n인가 건 - : 1\n심의 내용□ \n인가 건 (1 )\n변압기 재생 계통연계 용량 상향을 위한 송 배전용전기설비 1. 154kV e ·\n"
+                "이용규정 개정 안( )\n차기 제 차 전기위원회 개최 계획( 331 ) □ \nㅇ 일정 금 장소 미정 끝 : `26. 11. 13.( ) / : . .")
+        held, counts, items = k.meeting_items(text)
+        self.assertEqual((held, counts, items), ("2026-10-29", {"인가": 1}, []))
+        # 차기 회의 날짜만 있는 글자는 회의일 미상
+        self.assertIsNone(k.meeting_items("회의 결과 총 건(1)\n차기 제 차 전기위원회 개최 계획( 331 )\nㅇ 일정 : `26. 11. 13.( )")[0])
+
+    def test_stored_meeting_dated_after_its_posting_is_cleared(self):
+        prev = {"items": [{"id": "korec:제330차", "source": "전기위원회", "kind": "개최결과", "title": "제330차 전기위원회 개최결과", "meeting": "제330차",
+                           "held": "2026-11-13", "posted": "2026-10-29", "tier": "C", "firstSeen": "2026-10-30T10:03:00+09:00",
+                           "url": k.KOREC_RESULTS}], "korecSeen": [], "baselineSince": "2026-10-29T15:40:00+09:00"}
+        doc = k.run(now=NOW + dt.timedelta(days=1), previous=prev, get=lambda *a, **kw: Resp("", 503), post=lambda *a, **kw: Resp("", 503),
+                    sleep=lambda s: None, nssc_session=None)
+        x = next(i for i in doc["items"] if i["id"] == "korec:제330차")
+        self.assertIsNone(x["held"])
+
     def test_ledger_recent_rows_joined_across_lines(self):
         rows = k.ledger_rows(LEDGER_TEXT, "2026-07-01")
         self.assertEqual([r["day"] for r in rows], ["2026-10-13", "2026-09-01"])

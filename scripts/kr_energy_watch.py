@@ -135,8 +135,12 @@ def meeting_items(text):
     t = re.sub(r"[ \t]+", " ", text)
     t = re.sub(r"\s*\n\s*", "\n", t)
     flat = t.replace("\n", " ")
-    counts = {norm_space(k): int(v) for k, v in re.findall(r"ㅇ\s*(조건부\s*허가|조건부\s*인가|허가\s*취소|허가|인가|승인)\s*건\s*:\s*(\d+)", flat)}
-    md = re.search(r"[`'‘’]\s*(\d{2})\.\s*(\d{1,2})\.\s*(\d{1,2})\.", flat)
+    # 차기 회의 일정('차기 제331차 … `26. 11. 13.')은 이 회의 날짜가 아니다. 제330차(10-29 서면회의)는 일시 줄이
+    # '` 목26. 10. 29.'(요일이 숫자 앞)이라 첫 날짜 규칙이 다음 회의 날짜를 잡았다.
+    body = re.split(r"차기\s*(?:제\s*\d*\s*차\s*)?(?:제\s*차\s*)?전기위원회", flat, maxsplit=1)[0]
+    counts = {norm_space(k): int(v) for k, v in re.findall(r"(?:ㅇ\s*)?(조건부\s*허가|조건부\s*인가|허가\s*취소|허가|인가|승인)\s*건\s*-?\s*:\s*(\d+)", body)}
+    md = (re.search(r"일\s*시\s*:\s*[`'‘’]?\s*(?:[월화수목금토일]\s*)?(\d{2})\.\s*(\d{1,2})\.\s*(\d{1,2})\.", body)
+          or re.search(r"[`'‘’]\s*(?:[월화수목금토일]\s*)?(\d{2})\.\s*(\d{1,2})\.\s*(\d{1,2})\.", body))
     held = f"20{md.group(1)}-{int(md.group(2)):02d}-{int(md.group(3)):02d}" if md else None
     marks = [(m.start(), norm_space(m.group(1))) for m in SECTION.finditer(flat)]
     items, seen = [], set()
@@ -174,6 +178,8 @@ def korec_meetings(previous, *, get=None, post=None, sleep=time.sleep):
     for title, posted, name in todo:
         raw, url = korec_file(name, post=post)
         held, counts, items = meeting_items(pdf_text(raw))
+        if held and posted and held > posted:  # 회의는 결과 게시보다 앞선다
+            held = None
         no = re.search(r"제\s*(\d+)\s*차", title)
         meeting = f"제{no.group(1)}차" if no else title
         read.append(name)
@@ -333,6 +339,9 @@ def run(*, now, previous=None, get=None, post=None, sleep=time.sleep, nssc_sessi
     for x in old.values():  # links stored before 10-29 pointed at the POST-only download
         if str(x.get("url") or "").startswith(KOREC_FILE):
             x["url"] = KOREC_NOTICES if x.get("source") == "전기위원회 허가대장" else KOREC_RESULTS
+        # 10-30 이전 저장분: 차기 회의 날짜를 회의일로 잡은 것(제330차 '2026-11-13', 게시 10-29)은 지운다
+        if x.get("source") == "전기위원회" and x.get("held") and x.get("posted") and str(x["held"]) > str(x["posted"]):
+            x["held"] = None
     items = dict(old)
     found_ids = set()
     for it in found:
