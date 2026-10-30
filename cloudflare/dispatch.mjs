@@ -43,6 +43,8 @@ export const SLOTS = [
   { at: '15:20', workflow: 'kr-signals.yml' },
   // 전기위원회 개최결과(오후 게시)·원안위 안건(회의 며칠 전 아침 게시).
   { at: '15:40', workflow: 'kr-energy.yml' },
+  // 국민연금 사업장(월 자료): 표지 조회로 새 달만 전체를 읽고, 남는 시간에 지난 12개월을 채운다(최대 22분).
+  { at: '15:50', workflow: 'kr-workforce.yml' },
   { at: '16:20', workflow: 'kr-local.yml' },
   { at: '17:10', workflow: 'us-recalls.yml' },
   { at: '17:20', workflow: 'kr-insolvency.yml' },

@@ -18,6 +18,8 @@ on:
       - 'tests/test_governance_watch.py'
       - 'tests/test_trade_remedy_watch.py'
       - 'tests/test_ktc_watch.py'
+      - 'tests/test_kr_workforce_watch.py'
+      - 'data/workforce_watch.json'
       - 'tests/test_us_litigation_watch.py'
       - 'tests/test_kr_official_watch.py'
       - 'tests/test_kr_signals_watch.py'
@@ -186,7 +188,7 @@ jobs:
       - run: python -m unittest discover -s tests -p 'test_business_metric_compare.py' -v
       - run: python -m unittest discover -s tests -p 'test_writer_lock.py' -v
       - name: Private watches and season tools (screening, overseas, earnings, governance)
-        run: python -m unittest tests.test_scoop_screen tests.test_naver_api tests.test_private_store tests.test_us_comments_watch tests.test_page_watch tests.test_partner_watch tests.test_earnings_compare tests.test_governance_watch tests.test_trade_remedy_watch tests.test_ktc_watch tests.test_us_litigation_watch tests.test_kr_official_watch tests.test_kr_signals_watch tests.test_kr_stats_watch tests.test_trademark_watch tests.test_assembly_watch tests.test_kipris_account_ledger tests.test_dart_filing_facts -v
+        run: python -m unittest tests.test_scoop_screen tests.test_naver_api tests.test_private_store tests.test_us_comments_watch tests.test_page_watch tests.test_partner_watch tests.test_earnings_compare tests.test_governance_watch tests.test_trade_remedy_watch tests.test_ktc_watch tests.test_kr_workforce_watch tests.test_us_litigation_watch tests.test_kr_official_watch tests.test_kr_signals_watch tests.test_kr_stats_watch tests.test_trademark_watch tests.test_assembly_watch tests.test_kipris_account_ledger tests.test_dart_filing_facts -v
       - run: python -m unittest discover -s tests -p 'test_official_collectors.py' -v
       - run: node tests/test_dart_health_ui.cjs
       - run: node tests/test_morning_view.cjs
