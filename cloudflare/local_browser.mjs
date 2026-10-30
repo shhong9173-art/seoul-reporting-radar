@@ -10,7 +10,7 @@ import { dispatchNow } from './dispatch.mjs';
 export const BROWSER_CITIES = {
   '인천 부평구': 'https://eminwon.icbp.go.kr',
   구미시: 'https://eminwon.gumi.go.kr',
-  청주시: 'https://eminwon.cheongju.go.kr',
+  청주시: 'https://www.cheongju.go.kr',  // 새올 목록이 국내에서도 시간 초과 → 홈페이지 고시공고 게시판
   순천시: 'https://eminwon.suncheon.go.kr',
   함평군: 'https://eminwon.hampyeong.go.kr',
   // GitHub에서 들쑥날쑥한 곳: 직접 조회가 실패한 날만 이 수집으로 대신한다.

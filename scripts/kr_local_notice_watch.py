@@ -86,7 +86,7 @@ CITIES = [
 BROWSER_CITIES = [
     ("인천 부평구", "https://eminwon.icbp.go.kr", "한국GM(부평공장)"),
     ("구미시", "https://eminwon.gumi.go.kr", "LS전선(구미)"),
-    ("청주시", "https://eminwon.cheongju.go.kr", "LS일렉트릭(청주)"),
+    ("청주시", "https://www.cheongju.go.kr", "LS일렉트릭(청주)"),  # 홈페이지 고시공고 게시판(HOMEPAGE_BOARDS)
     ("순천시", "https://eminwon.suncheon.go.kr", "현대제철(순천)"),
     ("함평군", "https://eminwon.hampyeong.go.kr", "금호타이어(함평 이전 공장)"),
 ]
@@ -211,7 +211,22 @@ def classify(title):
     return None, []
 
 
+# 새올 목록이 기자 컴퓨터에서도 시간 초과인 곳은 시·군 홈페이지의 고시공고 게시판(같은 새올 관리번호)을 읽는다.
+# 10-30 청주: eminwon.cheongju.go.kr 목록 POST·GET 모두 90초·40초 시간 초과, www.cheongju.go.kr/www/selectEminwonNoticeList.do는
+# 1초 안 200(robots.txt가 /www/ 허용).
+HOMEPAGE_BOARDS = {
+    "https://www.cheongju.go.kr": ("/www/selectEminwonNoticeList.do?key=281&pageUnit=60",
+                                   "/www/selectEminwonNoticeView.do?key=281&notAncmtMgtNo={mgt}"),
+}
+
+
+def list_url(base):
+    return base + (HOMEPAGE_BOARDS[base][0] if base in HOMEPAGE_BOARDS else PATH)
+
+
 def detail_url(base, mgt):
+    if base in HOMEPAGE_BOARDS:
+        return base + HOMEPAGE_BOARDS[base][1].format(mgt=mgt)
     return (f"{base}{PATH}?method=selectOfrNotAncmt&methodnm=selectOfrNotAncmtRegst&not_ancmt_mgt_no={mgt}"
             "&homepage_pbs_yn=Y&subCheck=Y&jndinm=OfrNotAncmtEJB&context=NTIS")
 
@@ -307,7 +322,7 @@ def run(*, now, previous=None, post=None, sleep=time.sleep, cities=CITIES, brows
                 continue
             out[iid] = {"id": iid, "city": city, "plants": plants, "no": r["no"], "title": r["title"], "dept": r["dept"], "date": r["date"],
                         "companies": hits, "company": hits[0] if hits else None, "tier": tier, "url": detail_url(base, r["mgt"]),
-                        "listUrl": base + PATH, "firstSeen": stamp, "baseline": baseline, "isNew": not baseline}
+                        "listUrl": list_url(base), "firstSeen": stamp, "baseline": baseline, "isNew": not baseline}
             new += 1
         order = [r["mgt"] for r in rows] + [m for m in seen.get(city) or [] if m not in {r["mgt"] for r in rows}]
         seen[city] = order[:SEEN_MAX]

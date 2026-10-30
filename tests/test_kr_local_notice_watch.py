@@ -160,7 +160,7 @@ class Local(unittest.TestCase):
     def test_browser_cities(self):
         # 기자 컴퓨터 브라우저 수집(local_notice_submit): 칸 글자만 오고, 같은 규칙으로 읽는다
         bp = [("인천 부평구", "https://eminwon.icbp.go.kr", "한국GM(부평공장)"), ("구미시", "https://eminwon.gumi.go.kr", "LS전선(구미)"),
-              ("청주시", "https://eminwon.cheongju.go.kr", "LS일렉트릭(청주)")]
+              ("청주시", "https://www.cheongju.go.kr", "LS일렉트릭(청주)")]
         fresh = (NOW - dt.timedelta(hours=2)).isoformat()
         browser = {"cities": [
             {"city": "인천 부평구", "fetchedAt": fresh, "rows": [
@@ -207,6 +207,18 @@ class Local(unittest.TestCase):
         del browser["cities"][0]["error"]
         browser["cities"][0]["rows"] = [{"mgt": "bad id", "cells": ["제목"]}]
         self.assertEqual(w.browser_rows(browser, "양산시", NOW + dt.timedelta(hours=8)), (None, "브라우저 수집 0줄(형식 변경 가능)"))
+
+    def test_cheongju_homepage_board(self):
+        # 10-30 청주 홈페이지 고시공고 게시판 실제 모양(번호·공고번호·제목·부서·등록일)
+        bp = [("청주시", "https://www.cheongju.go.kr", "LS일렉트릭(청주)")]
+        browser = {"cities": [{"city": "청주시", "fetchedAt": NOW.isoformat(), "rows": [
+            {"mgt": "161030", "cells": ["14781", "청주시 공고 제2026-3000호", "LS일렉트릭 청주사업장 증축 건축허가 사항 공고", "건축디자인과", "2026-10-30"]},
+            {"mgt": "161028", "cells": ["14780", "청주시 흥덕구 공고 제2026-1005호", "덕촌3지구 경계결정통지 공시송달 공고", "민원지적과", "2026-10-30"]}]}]}
+        doc = w.run(now=NOW, previous=None, post=fake({}), sleep=lambda s: None, cities=[], browser=browser, browser_cities=bp)
+        x = doc["items"][0]
+        self.assertEqual((x["company"], x["tier"]), ("LS일렉트릭", "A"))
+        self.assertEqual(x["url"], "https://www.cheongju.go.kr/www/selectEminwonNoticeView.do?key=281&notAncmtMgtNo=161030")
+        self.assertEqual(x["listUrl"], "https://www.cheongju.go.kr/www/selectEminwonNoticeList.do?key=281&pageUnit=60")
 
     def test_parse_cells(self):
         self.assertEqual(w.parse_cells("1", ["", " 10 ", "울산 남구 공고", "건축과", "2026-10-30", "3"])["title"], "울산 남구 공고")
