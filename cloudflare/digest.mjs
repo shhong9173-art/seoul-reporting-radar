@@ -41,6 +41,7 @@ export const WATCHES = [
   { feed: 'kr-building', label: '공장 부지 건축허가', tool: 'kr_official', schedule: '월 07:45', staleHours: 192 },
   { feed: 'overseas-registry', label: '해외 법인 등기(영국)', tool: 'partner_filings', schedule: '평일 06:00' },
   { feed: 'kr-local', label: '지자체 고시·공고', tool: 'kr_official', schedule: '평일 06:30·16:20' },
+  { feed: 'kr-workforce', label: '사업장 인력(국민연금)', tool: 'kr_official', schedule: '평일 15:50', staleHours: 80 },
 ];
 
 // Items first seen in a watch's very first run are a baseline, not news: they only count when their own date is recent.
@@ -416,6 +417,13 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
     push(x.tier ?? 'C', W['kr-local'], { kind: '지자체 고시·공고', id: x.id, date: x.date ?? String(x.firstSeen).slice(0, 10), company: x.company ?? x.city,
       fact: `${x.city} ${x.no ?? ''} 「${x.title}」 · ${x.dept ?? '담당 부서 미기재'} · 등록 ${x.date ?? '?'} — 제목만 확인(첨부 원문·규모는 지자체·회사 확인)`,
       url: x.url, check: x.tier === 'C' || !x.company ? undefined : hint(x.company, [String(x.city).replace(/(시|군|구)$/, ''), '공장']) });
+  }
+
+  // 국민연금 사업장(월 자료): 자사 사업장 가입자 급감·탈퇴·새 사업장·투자 낱말 공사 현장 A, 급증·변동·목록에서 빠짐·공사 현장 묶음 B.
+  for (const e of docs['kr-workforce']?.events ?? []) {
+    if (!recent(e.detectedAt)) continue;
+    push(e.tier ?? 'B', W['kr-workforce'], { kind: e.kind, id: e.id, date: e.detectedAt, company: e.company, fact: e.text,
+      check: hint(e.company, /공사 현장/.test(e.kind) ? ['공사', '착공'] : /새 자사/.test(e.kind) ? ['공장', '신설'] : ['인력', '감원']) });
   }
 
   // 영국 Companies House 새 법인: 출입처 본사가 지배 주주(PSC)로 적히면 A, 지배 주주 미기재·본사 전체 이름이면 B, 이름만 같으면 C.

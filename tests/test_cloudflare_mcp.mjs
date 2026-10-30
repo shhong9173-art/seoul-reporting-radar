@@ -734,6 +734,48 @@ test('trade_remedies ktc: meeting agenda before the meeting, recent cases with l
   assert.doesNotMatch(b, /플라스틱 필름|아연도금냉연 덤핑조사 최종판정/);
 });
 
+test('kr_official workforce: member counts ranked by monthly drop with year-ago, events and new construction sites; radar_today tiers', async () => {
+  const env = PRIVATE().env;
+  const recent = new Date(Date.now() - 3600000).toISOString();
+  const doc = { schema: 'kr_workforce/v1', generatedAt: '2026-10-31T15:50:00+09:00', status: 'partial', month: '202609', scanStatus: 'complete',
+    checks: [{ source: '국민연금 사업장(출입처 검색)', status: 'ok', returned: 58 }, { source: '국민연금 사업장(지난 12개월 채우기)', status: 'ok', returned: 120, pending: 12 }],
+    rules: ['국민연금 가입자 수는 사업장 전체 직원 수가 아니다.'],
+    sites: [
+      { id: 's1', company: '현대제철', name: '현대제철(주)포항1공장', region: '47111', status: '1',
+        history: { 202609: { members: 1150, acq: 4, loss: 106 }, 202608: { members: 1252 }, 202509: { members: 1300 } } },
+      { id: 's2', company: '기아', name: '기아(주)AutoLand화성', region: '41591', status: '1', history: { 202609: { members: 11560, acq: 49, loss: 75 }, 202608: { members: 11586 } } },
+      { id: 's3', company: '현대제철', name: '현대제철 순천공장', region: '12150', status: '1', history: { 202609: { members: 310 } } }],
+    projects: [
+      { id: 'p1', company: '현대제철', title: '현대제철 당진 전기로 신설공사', names: ['(주)대한건설/일용/현대제철 당진 전기로 신설공사'], sites: 1, month: '202609', tier: 'A', adptDt: '20260905', members: 41, baseline: false },
+      { id: 'p2', company: '기아', title: '기아 오토랜드 화성 PBV 2공장 신축공사', names: ['삼우기전/상용/기아 오토랜드 화성 PBV 2공장 신축공사'], sites: 7, month: '202609', tier: 'A', baseline: true },
+      { id: 'p3', company: '기아', title: '기아 화성 전기공사', names: ['영일전설/일용/기아 화성 전기공사'], sites: 1, month: '202609', tier: 'B', baseline: true }],
+    events: [
+      { id: 'wf:delta:s1:202609', kind: '인력 감소', tier: 'A', company: '현대제철', month: '202609', detectedAt: recent,
+        text: '현대제철(주)포항1공장(경북 시군구코드 111) 국민연금 가입자 1,252→1,150명(-102명, -8.1%) · 그달 신규 취득 4·상실 106 — 2026-09 자료' },
+      { id: 'wf:projs:기아:202609:3', kind: '새 공사 현장 묶음', tier: 'B', company: '기아', month: '202609', detectedAt: recent, text: '기아 이름이 든 새 공사 3건' }] };
+  const post = await worker.fetch(new Request(ORIGIN + '/ingest/kr-workforce', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {});
+  assert.equal(post.status, 200);
+  const opts = { path: `/mcp/${TOKEN}`, env };
+  const r = await call('kr_official', { section: 'workforce' }, opts);
+  assert.match(r.text, /\[사업장 인력\(국민연금 가입 사업장\) · 자료 2026-09/);
+  assert.match(r.text, /남은 채우기 12곳/);
+  assert.match(r.text, /자사 사업장 3곳\(지난달 비교 가능 2곳 · 1년 전 비교 가능 1곳\)/);
+  assert.match(r.text, /현대제철 · 현대제철\(주\)포항1공장 · 가입자 1,150명 \(지난달 -102, -8\.1%\) · 1년 전 1,300명 대비 -11\.5% · 그달 취득 4·상실 106 · 3개월 보관/);
+  assert.ok(r.text.indexOf('포항1공장 · 가입자') < r.text.indexOf('AutoLand화성 · 가입자'));
+  assert.match(r.text, /현대제철 순천공장 · 가입자 310명 \(지난달 미수집\)/);
+  assert.match(r.text, /새로 잡힌 1건 · 첫 조회 기준선 2건\(투자 낱말 1\)/);
+  assert.match(r.text, /A · 현대제철 · 「현대제철 당진 전기로 신설공사」 · 현장 1곳 · 2026-09 자료 · 첫 현장 적용 20260905 · 가입자 41명/);
+  assert.match(r.text, /\[기준선\] A · 기아 · 「기아 오토랜드 화성 PBV 2공장 신축공사」 · 현장 7곳/);
+  assert.doesNotMatch(r.text, /기아 화성 전기공사/);
+  const kia = await call('kr_official', { section: 'workforce', company: '기아' }, opts);
+  assert.doesNotMatch(kia.text, /포항1공장/);
+  const today = await call('radar_today', {}, opts);
+  const a = today.text.split('[A · ')[1].split('[B · ')[0];
+  assert.match(a, /사업장 인력\(국민연금\)[\s\S]*국민연금 가입자 1,252→1,150명/);
+  const b = today.text.split('[B · ')[1].split('[C · ')[0];
+  assert.match(b, /기아 이름이 든 새 공사 3건/);
+});
+
 test('us_litigation shows party cases by priority, folds routine ones, and lists ITC 337 names', async () => {
   const env = PRIVATE().env;
   const doc = { schema: 'us_litigation/v1', generatedAt: '2026-10-27T07:50:00+09:00', windowDays: 45, rules: ['당사자 목록에 출입처가 있는 사건만.'],
@@ -1098,7 +1140,7 @@ test('kr_signals shows FTC decisions by role, KEPCO bids and commodity prices, a
   const minor = await call('radar_today', { include_minor: true }, opts);
   assert.match(minor.text, /「\(연간단가\)고효율주상변압기,50KVA\(광유\)-2,338대-0\d\(일반\)」 외 같은 공고 2건\(합계 약 149억원\) · 추정가격 약 50억원/);
   assert.equal((minor.text.match(/고효율주상변압기/g) ?? []).length, 1);  // three lots, one line
-  assert.match(r.text, /기자 전용 감시 20개/);
+  assert.match(r.text, /기자 전용 감시 21개/);
   assert.deepEqual(dueAt(new Date('2026-10-26T23:30:00Z')), ['kr-signals.yml', 'kipris-patent-hunt.yml']);  // Tue 08:30 KST
   assert.deepEqual(dueAt(new Date('2026-10-27T06:20:00Z')), ['kr-signals.yml']);  // Tue 15:20 KST
 });
@@ -1239,7 +1281,7 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   assert.doesNotMatch((await call('trademarks', { name: 'aero' }, opts)).text, /NUTRIMACY/);
   assert.doesNotMatch((await call('trademarks', { class: '35' }, opts)).text, /NUTRIMACY/);
   const r = await call('radar_today', {}, opts);
-  assert.match(r.text, /기자 전용 감시 20개/);
+  assert.match(r.text, /기자 전용 감시 21개/);
   assert.match(r.text, /- 상표 출원: 대기 1곳\(제공기관 응답 22 뒤 72시간 대기\) — 해당 부분 0건은 미확인/);
   assert.doesNotMatch(r.text, /상표 출원: [^\n]*시간 전 결과/);
   const b = r.text.split('[B · ')[1].split('[C · ')[0];
@@ -1249,7 +1291,7 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   assert.match(minor.text, /상표 출원 「NUTRIMACY」[^\n]* — 같은 이름 상품류 추가/);
   const list = await rpc('tools/list', {}, { path: `/mcp/${TOKEN}`, env });
   assert.ok(list.body.result.tools.some((x) => x.name === 'trademarks'));
-  assert.match(list.body.result.tools.find((x) => x.name === 'radar_today').description, /감시 20개\([^)]*상표 출원, 국회 법안, 미국 리콜, 미국 EPA 인증, 국내 연비 신고, 해외 발주처 낙찰, 협력사 회생·파산, 전기위·원안위, 공장 부지 건축허가, 해외 법인 등기, 지자체 고시·공고\)/);
+  assert.match(list.body.result.tools.find((x) => x.name === 'radar_today').description, /감시 21개\([^)]*상표 출원, 국회 법안, 미국 리콜, 미국 EPA 인증, 국내 연비 신고, 해외 발주처 낙찰, 협력사 회생·파산, 전기위·원안위, 공장 부지 건축허가, 해외 법인 등기, 지자체 고시·공고, 사업장 인력\)/);
   assert.ok(!(await rpc('tools/list', {}, { env })).body.result.tools.some((x) => x.name === 'trademarks'));  // private only
 });
 

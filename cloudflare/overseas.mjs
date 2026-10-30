@@ -581,10 +581,56 @@ async function localSection(ctx, q, days, limit) {
   return out;
 }
 
+// Beat companies' workplaces in the national pension (국민연금 가입 사업장, kr-workforce feed): monthly member counts of own
+// sites and construction sites that carry a beat company's name. Shown under kr_official.
+const ymLabel = (ym) => (ym ? `${String(ym).slice(0, 4)}-${String(ym).slice(4, 6)}` : '?');
+const monthBefore = (ym, n = 1) => { let y = Number(String(ym).slice(0, 4)); let m = Number(String(ym).slice(4, 6)) - n; while (m <= 0) { y -= 1; m += 12; } return `${y}${String(m).padStart(2, '0')}`; };
+export async function workforceSection(ctx, q, days, limit) {
+  const doc = await readFeed(ctx, 'kr-workforce');
+  if (!doc) return ['\n[사업장 인력(국민연금)] 결과 없음 — 미확인(평일 15:50 실행 확인)'];
+  if (doc.broken) return ['\n[사업장 인력(국민연금)] 저장 형식 오류 — 미확인'];
+  const m = doc.month;
+  const out = [`\n[사업장 인력(국민연금 가입 사업장) · 자료 ${ymLabel(m)} · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt)}]`,
+    `원천: ${(doc.checks ?? []).map((c) => `${c.source} ${c.status}(${c.returned ?? 0}${c.error ? `, ${c.error}` : ''}${c.note ? `, ${c.note}` : ''}${c.pending ? `, 남은 채우기 ${c.pending}곳` : ''})`).join(' · ')}`,
+    ...(doc.rules ?? []).map((r) => `규칙: ${r}`)];
+  const fmt = (n) => (n == null ? '?' : Number(n).toLocaleString('en-US'));
+  const rows = (doc.sites ?? []).filter((s) => matches(q, s.company, s.name, s.addr, s.industry)).map((s) => {
+    const h = s.history ?? {};
+    const cur = h[m]?.members; const prev = h[monthBefore(m)]?.members; const year = h[monthBefore(m, 12)]?.members;
+    return { s, cur, prev, year, d: cur != null && prev ? cur - prev : null, pct: cur != null && prev ? ((cur - prev) / prev) * 100 : null,
+      ypct: cur != null && year ? ((cur - year) / year) * 100 : null };
+  });
+  rows.sort((a, b) => (a.pct ?? 0) - (b.pct ?? 0) || (b.cur ?? 0) - (a.cur ?? 0));
+  const months = (s) => Object.keys(s.history ?? {}).length;
+  out.push(`- 자사 사업장 ${rows.length}곳(지난달 비교 가능 ${rows.filter((r) => r.d != null).length}곳 · 1년 전 비교 가능 ${rows.filter((r) => r.ypct != null).length}곳) — 지난달 대비 많이 줄어든 순`);
+  for (const r of rows.slice(0, limit)) {
+    const h = r.s.history?.[m] ?? {};
+    out.push(`  ${r.s.company} · ${r.s.name}${r.s.status === '2' ? ' · 탈퇴' : ''} · 가입자 ${fmt(r.cur)}명`
+      + `${r.d != null ? ` (지난달 ${r.d >= 0 ? '+' : ''}${fmt(r.d)}, ${r.pct >= 0 ? '+' : ''}${r.pct.toFixed(1)}%)` : ' (지난달 미수집)'}`
+      + `${r.ypct != null ? ` · 1년 전 ${fmt(r.year)}명 대비 ${r.ypct >= 0 ? '+' : ''}${r.ypct.toFixed(1)}%` : ''}`
+      + `${h.acq != null ? ` · 그달 취득 ${h.acq}·상실 ${h.loss}` : ''} · ${months(r.s)}개월 보관`);
+  }
+  if (rows.length > limit) out.push(`  … 남은 ${rows.length - limit}곳(company 낱말로 좁히기)`);
+  const from = new Date(ctx.now.getTime() - days * 86400000).toISOString();
+  const ev = (doc.events ?? []).filter((e) => String(e.detectedAt) >= from && matches(q, e.company, e.text));
+  out.push(`- 감지된 변화 · 최근 ${days}일 ${ev.length}건`);
+  for (const e of ev.slice(0, limit)) out.push(`  ${e.tier} · ${String(e.detectedAt).slice(0, 10)} · ${e.kind} · ${e.company}: ${e.text}`);
+  const pj = (doc.projects ?? []).filter((p) => !p.baseline && matches(q, p.company, p.title, (p.names ?? []).join(' ')));
+  const base = (doc.projects ?? []).filter((p) => p.baseline && matches(q, p.company, p.title, (p.names ?? []).join(' ')));
+  out.push(`- 출입처 이름이 든 공사(시공사 현장 사업장을 공사 이름으로 묶음): 새로 잡힌 ${pj.length}건 · 첫 조회 기준선 ${base.length}건(투자 낱말 ${base.filter((p) => p.tier === 'A').length})`);
+  const bySites = (a, b) => (b.sites ?? 1) - (a.sites ?? 1);
+  for (const p of [...pj.sort(bySites), ...base.filter((x) => x.tier === 'A').sort(bySites)].slice(0, limit)) {
+    out.push(`  ${p.baseline ? '[기준선] ' : ''}${p.tier} · ${p.company} · 「${p.title}」 · 현장 ${p.sites ?? 1}곳 · ${ymLabel(p.month)} 자료${p.adptDt ? ` · 첫 현장 적용 ${p.adptDt}` : ''}${p.members != null ? ` · 가입자 ${p.members}명` : ''}`);
+  }
+  out.push('   검증 상태: 국민연금 공개 자료(자동). 가입자 수≠전체 직원 수, 본사 일괄 신고는 공장별 수치 아님. 증감 이유·공사 규모는 회사 확인 전 미확인');
+  return out;
+}
+
 export async function krOfficial(ctx, args) {
-  const section = ['factory', 'gazette', 'insolvency', 'building', 'local'].includes(args.section) ? args.section : null;
+  const section = ['factory', 'gazette', 'insolvency', 'building', 'local', 'workforce'].includes(args.section) ? args.section : null;
   const q = String(args.company ?? '').trim();
   if (section === 'local') return textResult((await localSection(ctx, q, clampInt(args.days, 1, 120, 30), clampInt(args.limit, 1, 80, 20))).join('\n').trim());
+  if (section === 'workforce') return textResult((await workforceSection(ctx, q, clampInt(args.days, 1, 120, 45), clampInt(args.limit, 1, 80, 20))).join('\n').trim());
   const insolvency = !section || section === 'insolvency'
     ? await insolvencySection(ctx, q, clampInt(args.days, 1, 120, 30), clampInt(args.limit, 1, 80, 20)) : [];
   if (section === 'insolvency') return textResult(insolvency.join('\n').trim());
@@ -593,6 +639,7 @@ export async function krOfficial(ctx, args) {
   if (section === 'building') return textResult(building.join('\n').trim());
   insolvency.push(...building);
   if (!section) insolvency.push(...await localSection(ctx, q, clampInt(args.days, 1, 120, 30), clampInt(args.limit, 1, 80, 20)));
+  if (!section) insolvency.push(...await workforceSection(ctx, q, clampInt(args.days, 1, 120, 45), clampInt(args.limit, 1, 80, 10)));
   const doc = await readFeed(ctx, 'kr-official');
   if (!doc) return insolvency.length ? textResult([missing('공장등록·관보 입법예고', '평일 08:10').content[0].text, ...insolvency].join('\n'), true) : missing('공장등록·관보 입법예고', '평일 08:10');
   if (doc.broken) return textResult(['저장된 국내 공식 원천 결과 형식 오류 — 미확인.', ...insolvency].join('\n'), true);
