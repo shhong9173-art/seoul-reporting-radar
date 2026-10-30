@@ -140,12 +140,22 @@ def fetch_page(task, cort, page, *, post=None, sleep=time.sleep):
     raise last
 
 
+DOWN_AFTER = 4  # 처음부터 이만큼 연달아 접속이 안 되면 대법원 사이트가 내려간 것으로 보고 나머지를 건너뛴다
+
+
 def court_notices(since_day, *, post=None, sleep=time.sleep, deadline=None):
+    """since_day: 날짜 문자열 하나, 또는 원천 이름(법원 업무)을 받아 그 법원 업무의 조회 시작일을 돌려주는 함수."""
+    since_for = since_day if callable(since_day) else (lambda source: since_day)
     notices, checks = [], []
     for cort, cname in COURTS:
         for task, tname in TASKS:
+            source = f"{cname} {tname}"
+            since_day = since_for(source)
             if deadline and time.monotonic() > deadline:
-                checks.append({"source": f"{cname} {tname}", "status": "partial", "error": "실행 시간 상한 — 다음 실행에서 조회"})
+                checks.append({"source": source, "status": "partial", "error": "실행 시간 상한 — 다음 실행에서 조회"})
+                continue
+            if len(checks) >= DOWN_AFTER and all(c["status"] == "failed" for c in checks):
+                checks.append({"source": source, "status": "failed", "error": f"대법원 사이트 접속 불가(앞 {DOWN_AFTER}곳 연속 실패) — 다음 실행에서 조회"})
                 continue
             got, pages, total = 0, 0, None
             try:
@@ -162,9 +172,9 @@ def court_notices(since_day, *, post=None, sleep=time.sleep, deadline=None):
                     if len(rows) < PAGE_SIZE or oldest < since_day:
                         break
                     sleep(0.8)
-                checks.append({"source": f"{cname} {tname}", "status": "ok", "returned": got, "pages": pages, "total": total})
+                checks.append({"source": source, "status": "ok", "returned": got, "pages": pages, "total": total, "since": since_day})
             except Exception as e:  # noqa: BLE001
-                checks.append({"source": f"{cname} {tname}", "status": "failed", "error": str(e)[:80] or type(e).__name__})
+                checks.append({"source": source, "status": "failed", "error": str(e)[:80] or type(e).__name__})
             sleep(0.8)
     return notices, checks
 
@@ -332,12 +342,28 @@ def since_of(previous, now):
         return floor.date().isoformat()
 
 
+def court_since(previous, now, source):
+    """법원 업무별 조회 시작일: 그 법원 업무를 마지막으로 다 읽은 때 − 겹침(10-30 07:20 대법원 접속 불가 실행이 전체 성공 시각을
+    앞당겨 다음 실행 범위가 줄 수 있었다). 기록이 없으면 전체 기준(since_of)."""
+    last = ((previous or {}).get("courtLastOk") or {}).get(source)
+    if not last:
+        return since_of(previous, now)
+    floor = now - dt.timedelta(days=BASELINE_DAYS)
+    try:
+        return max(floor, dt.datetime.fromisoformat(str(last)) - dt.timedelta(days=OVERLAP_DAYS)).date().isoformat()
+    except (TypeError, ValueError):
+        return since_of(previous, now)
+
+
 def run(key, *, now, previous=None, post=None, get=None, sleep=time.sleep, watchlist=None, deadline=None):
     stamp = now.isoformat(timespec="seconds")
     baseline = not (isinstance(previous, dict) and previous.get("events") is not None)
     since_day = since_of(None if baseline else previous, now)
     watch = load_watchlist() if watchlist is None else watchlist
-    notices, checks = court_notices(since_day, post=post, sleep=sleep, deadline=deadline)
+    notices, checks = court_notices(lambda source: since_day if baseline else court_since(previous, now, source), post=post, sleep=sleep, deadline=deadline)
+    court_last = dict((previous or {}).get("courtLastOk") or {})
+    court_last.update({c["source"]: stamp for c in checks if c["status"] == "ok"})
+    since_day = min([c["since"] for c in checks if c.get("since")] or [since_day])
     ma, ma_checks = ma_notices(get=get, sleep=sleep)
     checks += ma_checks
 
@@ -449,11 +475,12 @@ def run(key, *, now, previous=None, post=None, get=None, sleep=time.sleep, watch
     court_checks = [c for c in checks if not c["source"].startswith(("회생회사", "공장등록"))]
     court_failed = [c for c in court_checks if c["status"] == "failed"]
     failed = [c for c in checks if c["status"] == "failed"]
-    status = ("failed" if len(court_failed) == len(court_checks) else
+    court_ok = [c for c in court_checks if c["status"] == "ok"]
+    status = ("failed" if len(court_failed) == len(court_checks) or not court_ok else
               "partial" if failed or any(c["status"] == "partial" for c in checks) else "complete")
     return {
         "schema": SCHEMA, "generatedAt": stamp, "status": status,
-        "lastSuccess": stamp if status != "failed" else (previous or {}).get("lastSuccess"),
+        "lastSuccess": stamp if status != "failed" else (previous or {}).get("lastSuccess"), "courtLastOk": court_last,
         "baselineSince": (previous or {}).get("baselineSince") or stamp, "windowStart": since_day,
         "checks": checks, "events": kept, "industryCache": cache, "maSeen": sorted({r["seq"] for r in ma} | seen_ma)[-500:],
         "counts": {"notices": len(notices), "keyKinds": kinds_count, "firms": len(cands), "lookups": lookups, "pending": pending},

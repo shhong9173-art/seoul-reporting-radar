@@ -171,6 +171,26 @@ class Insolvency(unittest.TestCase):
         self.assertEqual(doc["status"], "partial")
         self.assertTrue(any(c["source"] == "부산회생법원 법인회생" and c["status"] == "failed" for c in doc["checks"]))
 
+    def test_site_down_fails_fast_and_court_windows_keep_the_gap(self):
+        post, get, calls = fakes()
+        first = k.run("key", now=NOW, previous=None, post=post, get=get, sleep=lambda s: None, watchlist={})
+        self.assertEqual(set(first["courtLastOk"]), {f"{c} {t}" for _, c in k.COURTS for _, t in k.TASKS})
+        # 10-30 07:20처럼 대법원 사이트가 통째로 안 열리면: 앞 4곳만 시도하고 나머지는 건너뛰고, 실패로 끝나 저장하지 않는다
+        post2, get2, calls2 = fakes(fail_courts={c for c, _ in k.COURTS})
+        down = k.run("key", now=NOW + dt.timedelta(days=1), previous=first, post=post2, get=get2, sleep=lambda s: None, watchlist={})
+        self.assertEqual(down["status"], "failed")
+        self.assertEqual(calls2["list"], k.DOWN_AFTER * 2)  # 법원마다 두 번(20초·45초) 시도
+        self.assertIn("대법원 사이트 접속 불가", next(c for c in down["checks"] if c["source"] == "부산회생법원 법인회생")["error"])
+        # 한 법원만 며칠 실패하면 그 법원은 마지막으로 다 읽은 날부터 다시 본다(다른 법원은 평소대로)
+        post3, get3, _ = fakes(fail_courts={"000443"})
+        part = k.run("key", now=NOW + dt.timedelta(days=1), previous=first, post=post3, get=get3, sleep=lambda s: None, watchlist={})
+        post4, get4, _ = fakes()
+        later = k.run("key", now=NOW + dt.timedelta(days=5), previous=part, post=post4, get=get4, sleep=lambda s: None, watchlist={})
+        since = {c["source"]: c.get("since") for c in later["checks"]}
+        self.assertEqual(since["부산회생법원 법인회생"], "2026-10-27")  # 첫 실행(10-29) − 2일
+        self.assertEqual(since["서울회생법원 법인회생"], "2026-10-28")  # 10-30 성공 − 2일
+        self.assertEqual(later["windowStart"], "2026-10-27")
+
     def test_no_key_marks_industry_unset(self):
         post, get, calls = fakes()
         doc = k.run("", now=NOW, previous=None, post=post, get=get, sleep=lambda s: None, watchlist={})
