@@ -1,25 +1,39 @@
-"""격리 탐침 49: 수질TMS 배출량 API(15164812) 요청 주소 찾기 — 데이터 페이지 HTML의 swagger·apis 주소, odcloud 문서."""
+"""격리 탐침 49b: 수질TMS 배출량 API — 페이지 swagger의 요청 변수·응답 칸, 실제 호출(키 값 미출력)."""
+import json
+import os
 import re
+from urllib.parse import quote
 
 import requests
 
 UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"}
+key = (os.environ.get("KR_FUEL_API_KEY") or "").strip()
 out = []
-r = requests.get("https://www.data.go.kr/data/15164812/openapi.do", headers=UA, timeout=40)
-b = r.text
-out.append(f"page HTTP {r.status_code} len={len(b)}")
-for pat in (r"https?://apis\.data\.go\.kr/[A-Za-z0-9_/\-.]+", r"swagger[^\"' ]{0,200}", r"infuser\.odcloud\.kr[^\"' ]{0,120}", r"publicDataDetailPk[^\"']{0,60}",
-            r"oprtinUrl[^\n]{0,200}", r"/B552584/[A-Za-z0-9_/]+", r"oprtinSeqNo[^\n]{0,80}", r"swaggerJson[^\n]{0,300}", r"var\s+swagger[^\n]{0,300}"):
-    hits = sorted(set(re.findall(pat, b)))[:8]
-    out.append(f"{pat[:30]} → {hits}")
-i = b.find("swagger")
-out.append("ctx " + re.sub(r"\s+", " ", b[max(0, i - 300):i + 600]) if i >= 0 else "swagger 없음")
-for u in ("https://infuser.odcloud.kr/oas/docs?namespace=15164812/v1", "https://www.data.go.kr/catalog/15164812/openapi.json"):
+b = requests.get("https://www.data.go.kr/data/15164812/openapi.do", headers=UA, timeout=40).text
+m = re.search(r"swaggerJson = `(\{.*?\})`", b, re.S)
+if m:
     try:
-        g = requests.get(u, headers=UA, timeout=40)
-        out.append(f"{u} HTTP {g.status_code} {re.sub(r'\\s+', ' ', g.text)[:900]}")
+        sw = json.loads(m.group(1))
+        for path, ops in sw.get("paths", {}).items():
+            for verb, op in ops.items():
+                params = [(p.get("name"), p.get("required"), (p.get("description") or "")[:40]) for p in op.get("parameters", [])]
+                out.append(f"path {path} {verb} params={params}")
+        defs = sw.get("definitions") or {}
+        for name, d in defs.items():
+            props = d.get("properties") or {}
+            out.append(f"def {name}: " + ", ".join(f"{k}({(v.get('description') or '')[:20]})" for k, v in props.items()))
+    except ValueError as e:
+        out.append(f"swagger 해석 실패 {e}")
+else:
+    out.append("swagger 없음")
+for params in ({}, {"fact_nm": "현대"}, {"factNm": "현대"}):
+    try:
+        r = requests.get("https://apis.data.go.kr/B552584/waterTmsService/getList",
+                         params={"serviceKey": key, "pageNo": 1, "numOfRows": 3, "returnType": "json", "type": "json", **params}, timeout=60)
+        body = r.text.replace(key, "<KEY>").replace(quote(key, safe=""), "<KEY>")
+        out.append(f"call {params} HTTP {r.status_code} {re.sub(r'\\s+', ' ', body)[:900]}")
     except Exception as e:  # noqa: BLE001
-        out.append(f"{u} {type(e).__name__}")
+        out.append(f"call {params} {type(e).__name__}")
 blob = " ¶ ".join(x.replace("\n", " ").replace("::", ": :").replace("%", "pct") for x in out)
 for i in range(0, min(len(blob), 13000), 1300):
     print(f"::notice title=aw-{i // 1300:02d}::{blob[i:i + 1300]}")
