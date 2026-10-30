@@ -88,7 +88,7 @@ async function awardSection(ctx, q, onlyNew, limit) {
   }
   const from = new Date(ctx.now.getTime() - AWARD_DAYS * 86400000).toISOString().slice(0, 10);
   const all = (doc.items ?? []).filter((x) => String(x.published ?? x.firstSeen).slice(0, 10) >= from && (!onlyNew || x.isNew)
-    && matches(q, x.company, (x.winners ?? []).join(' '), x.buyer, x.title, x.buyerCountry));
+    && matches(q, x.company, (x.winners ?? []).join(' '), x.bidder, x.buyer, x.title, x.buyerCountry));
   const rank = { A: 0, B: 1, C: 2 };
   const rows = all.filter((x) => q || x.tier !== 'C').sort((a, b) => (rank[a.tier] ?? 3) - (rank[b.tier] ?? 3)
     || String(b.published ?? '').localeCompare(String(a.published ?? '')));
@@ -100,6 +100,15 @@ async function awardSection(ctx, q, onlyNew, limit) {
     const value = x.value ? `${x.currency ?? ''} ${Number(x.value).toLocaleString('en-US', { maximumFractionDigits: 0 })}` : '금액 미기재';
     const ids = (x.winnerIds ?? []).length ? `, 식별번호 ${x.winnerIds.join('·')}` : '';
     out.push(`\n${x.isNew ? '[신규] ' : ''}${x.published ?? '공고일 미기재'} · ${x.source} ${x.kind} · ${x.company ?? '출입처 밖 한국 기업'} · 발주 ${x.buyer}${x.buyerCountry ? `(${x.buyerCountry})` : ''}`);
+    if (x.bidder) {  // 바레인 개찰: 응찰 회사·응찰가 공개(낙찰 아님)
+      const money = (v) => `${x.currency ?? ''} ${Number(v).toLocaleString('en-US', { maximumFractionDigits: 3 })}`;
+      const rank = x.rank ? `응찰가 ${x.rank}위/${x.priced}곳${x.lowest ? '(최저가)' : ''}` : '응찰가 순위 없음(가격 미공개 단계이거나 탈락)';
+      const others = (x.others ?? []).map((o) => `${o.name} ${money(o.value)}`).join(' / ');
+      out.push(`   잡힌 사실: 응찰 ${x.bidder} ${x.value ? money(x.value) : '응찰가 미공개'}${x.options > 1 ? `(옵션 ${x.options}개 중 낮은 값)` : ''} · 상태 ${x.bidStatus || '미기재'} · ${rank} · 응찰 ${x.bidCount ?? '?'}곳${others ? ` · 다른 응찰 ${others}` : ''} · ${x.title}`);
+      out.push(`   원문: ${x.url ?? '링크 없음'}`);
+      out.push('   검증 상태: 입찰위원회 개찰 결과(응찰가 공개) — 낙찰 아님. 최저가도 기술 평가·협상으로 바뀔 수 있다. 낙찰 여부는 입찰위원회 결정·월간 낙찰 보고서·회사로, 보도 여부는 news_check로 확인');
+      continue;
+    }
     const more = (x.winnerCount ?? (x.winners ?? []).length) - Math.min(2, (x.winners ?? []).length);
     const who = (x.winners ?? []).slice(0, 2).join(' / ') + (more > 0 ? ` 외 ${more}곳` : '');
     out.push(`   잡힌 사실: 낙찰자 ${who || '보고서 줄 참조'}${(x.winnerCountry ?? []).length ? `(${more > 0 ? '낙찰자 전체 국가 ' : ''}${x.winnerCountry.join('·')}${ids})` : ''} · ${x.title} · ${value}${x.priceKind ? `(${x.priceKind})` : ''}${x.concluded ? ` · 계약 ${x.concluded}` : ''}${x.report ? ` · ${x.report}` : ''}`);
