@@ -102,6 +102,16 @@ class Local(unittest.TestCase):
                                  "dept": "건축과", "date": "2026-10-30"}])
         self.assertEqual(w.classify(rows[0]["title"]), ("A", ["기아"]))
 
+    def test_gwangmyeong_layout_with_spacer_cells(self):
+        # 10-30 광명시 실제 모양: 칸 사이마다 빈 <td>, 번호 칸 없이 공고번호부터
+        row = ('<tr> <td></td> <td align="center" class="num">광명시 공고 제2026-2301호</td> <td></td> <td class="bbs_list_title">'
+               '<a href="javaScript:searchDetail(\'68617\')">기아 오토랜드 광명 EVO플랜트 증축 건축허가 사항 공고</a></td> <td></td> '
+               '<td align="center">건축과</td> <td></td> <td align="center" class="num">2026-10-30</td> <td></td> <td align="center" class="num">1</td> <td></td> </tr>')
+        spacer = '<tr> <td height="1" colspan="13"></td> </tr>'
+        rows = w.parse_rows("<table>" + spacer + row + spacer + "</table>")
+        self.assertEqual(rows, [{"mgt": "68617", "no": "광명시 공고 제2026-2301호", "title": "기아 오토랜드 광명 EVO플랜트 증축 건축허가 사항 공고",
+                                 "dept": "건축과", "date": "2026-10-30"}])
+
     def test_baseline_then_new_and_failures(self):
         first = w.run(now=NOW, previous=None, post=fake({"https://eminwon.dangjin.go.kr": page(DJ1, TD_ROW), "http://eminwon.ulju.ulsan.kr": page(UJ1, A_ROW)}),
                       sleep=lambda s: None, cities=CITIES)
