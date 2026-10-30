@@ -74,8 +74,9 @@ CITIES = [
     ("원주시", "https://eminwon.wonju.go.kr", "HL만도"),
     ("예산군", "https://eminwon.yesan.go.kr", "현대제철"),
     # 10-30 오후 탐침: 광주 광산구는 목록 형식이 달라(제목 링크에 관리번호) 파서를 넓혀 붙인다. 광주 서구(기아 오토랜드 광주)는 목록을
-    # 스크립트로 따로 불러 이 요청으로는 비어 있고, 부평(한국GM)·구미·순천·경주·시흥·양산은 접속 시간 초과, 청주·인천 동구는 SSL 오류 — 빼 둔다.
+    # <ul><li> 목록 형식이라 따로 읽고(아래), 부평(한국GM)·구미·순천·경주·시흥·양산은 접속 시간 초과, 청주·인천 동구는 SSL 오류 — 빼 둔다.
     ("광주 광산구", "https://eminwon.gwangsan.go.kr", "금호타이어(광주공장)"),
+    ("광주 서구", "https://eminwon.seogu.gwangju.kr", "기아(오토랜드 광주)"),  # 목록이 표가 아니라 <ul><li> 형식(10-30)
 ]
 
 # (출입처, 제목 규칙)
@@ -119,7 +120,13 @@ def parse_rows(page):
     """Rows of one 새올 list page. Two layouts (10-30): onclick on each <td> (당진·여수) or an <a onclick> inside each <td>
     (울주·아산). Cells run 번호, 공고번호, 제목, 담당부서, 등록일(, 게재기간, 조회수)."""
     out = []
-    for tr in re.findall(r"<tr[^>]*>([\s\S]*?)</tr>", page or ""):
+    blocks = re.findall(r"<tr[^>]*>([\s\S]*?)</tr>", page or "")
+    if "dbody" in (page or ""):
+        # 광주 서구 형식(10-30): <div class="dbody"><ul><li class="col01">번호</li><li class="col02 blind">공고번호</li>
+        # <li class="title">제목</li><li class="col03">부서</li><li class="col04">등록일</li>… — 표 대신 목록, 칸마다 searchDetail('…')
+        body = page[page.find("dbody"):]
+        blocks += [re.sub(r"<(/?)li\b", r"<\1td", ul) for ul in re.findall(r"<ul[^>]*>([\s\S]*?)</ul>", body)]
+    for tr in blocks:
         m = (re.search(r"searchDetail\(\s*['\"]([0-9A-Za-z_-]+)['\"]\s*\)", tr)
              or re.search(r"not_ancmt_mgt_no=([0-9A-Za-z_-]+)", tr))  # 광주 광산구 형식(10-30): 제목 <a href="…not_ancmt_mgt_no=56345…">
         if not m:
