@@ -255,6 +255,14 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
         check: e.ktcKind === 'news' ? undefined : '품목의 국내 생산자(신청인)를 협회·회사에 확인 → 판정·세율은 회의 뒤 의결서·보도자료로' });
       continue;
     }
+    if (e.pageId === 'kita') {
+      // 무역협회 대한 수입규제DB: 출입처 업체가 최신 단계(마진)에 나오면 A(새 사건)·B(진행), 출입 업종 품목 B·C, 미국은 관보 감시가 먼저라 한 단계 낮춤(수집기에서).
+      const firms = e.companies ?? [];
+      push(['A', 'B'].includes(e.tier) ? e.tier : 'C', W['trade-remedy'], { kind: e.kitaKind ?? '대한 수입규제', id: e.id, date: e.detectedAt,
+        company: firms.join('·') || e.country, fact: `${e.kitaKind ?? '대한 수입규제'}(무역협회 DB): ${e.text}`, url: e.url,
+        check: firms.length ? hint(firms[0], [e.country, '관세']) : undefined });
+      continue;
+    }
     push(e.pageId === 'taric' && /한국 전용/.test(e.label) ? 'A' : 'B', W['trade-remedy'], { kind: e.pageId === 'taric' ? 'EU 쿼터(TARIC)' : `해외 조사 ${e.pageId}`, id: e.id, date: e.detectedAt, company: e.country, fact: `${e.label}: ${e.text}`, url: e.url });
   }
   const frBase = baselineOf(tr?.federalRegister ?? []);

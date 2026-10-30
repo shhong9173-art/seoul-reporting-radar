@@ -1334,6 +1334,34 @@ test('kr_stats carsales: latest-month signals A first, model months on query, ra
   assert.match(b, /모델별 판매: 현대차 국내 판매 · Sonata \(DN8\) 2026-10 400대/);
 });
 
+test('trade_remedies kita: KITA import-regulation events A/B/C in radar_today, recent cases listed, section filter', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const recent = new Date(Date.now() - 3600000).toISOString();
+  const ev = (id, tier, kind, text, companies = [], country = 'EAEU') => ({ id, pageId: 'kita', country, tier, kitaKind: kind, label: `${country} 사건`, text, companies,
+    url: 'https://docs.wto.org/dol2fe/Pages/SS/directdoc2.aspx?filename=Q%3a%2fG%2fSG%2fN6RUS10.pdf&Open=True', kitaId: id.split(':')[1], detectedAt: recent });
+  const doc = { schema: 'trade_remedy/v1', generatedAt: recent, status: 'complete', checks: [{ source: '무역협회 수입규제DB', status: 'ok', returned: 50, detailsRead: 3 }],
+    quotas: [], federalRegister: [], pages: [], rules: [],
+    kita: { checkedAt: recent, baselineSince: '2026-10-30T07:40:00+09:00', recent: ['ROIL2026100002', 'ROIL2026100006'],
+      cases: { ROIL2026100002: { country: 'EAEU', item: '폴리머코팅 평판압연(Flat Steel Products with Polymer Coating)', type: '세이프가드', status: '조사중', updated: '2026-10-27', category: '철강/금속', latestStage: '조사개시|2026-09-07' },
+        ROIL2026100006: { country: '마다가스카르', item: '현미(Husked Rice)', type: '세이프가드', status: '조사중', updated: '2026-10-29' } } },
+    events: [ev('kita:ROIL2026100010:조사개시|2026-10-20', 'A', '새 대한 수입규제', '튀르키예 반덤핑 · 열연강판(Hot-rolled) — 조사개시 2026-10-20 · 출입처: 포스코·현대제철', ['포스코', '현대제철'], '튀르키예'),
+      ev('kita:ROIL2026100002:new', 'B', '새 대한 수입규제', 'EAEU 세이프가드 · 폴리머코팅 평판압연 — 조사개시 2026-09-07 · 품목 분류 철강/금속'),
+      ev('kita:ROIL2026100006:new', 'C', '새 대한 수입규제', '마다가스카르 세이프가드 · 현미 — 조사개시 2026-08-31', [], '마다가스카르')] };
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/trade-remedy', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
+  const r = await call('radar_today', { include_minor: true }, opts);
+  const sec = (t) => r.text.split(`[${t} · `)[1].split(/\n\[[ABC] · /)[0];
+  assert.match(sec('A'), /새 대한 수입규제[\s\S]*튀르키예 반덤핑 · 열연강판\(Hot-rolled\) — 조사개시 2026-10-20 · 출입처: 포스코·현대제철/);
+  assert.match(sec('B'), /EAEU 세이프가드 · 폴리머코팅 평판압연/);
+  assert.match(sec('C'), /마다가스카르 세이프가드 · 현미/);
+  const t = await call('trade_remedies', { section: 'kita' }, opts);
+  assert.match(t.text, /\[대한 수입규제 · 무역협회 수입규제DB · 확인 [^\]]*\] 아는 사건 2건 · 감지 3건\(기준선 2026-10-30 이후\)\n- A · /);
+  assert.match(t.text, /최근 갱신 사건\(갱신순\) 2\/2:\n  2026-10-27 · EAEU 세이프가드 · 폴리머코팅 평판압연\(Flat Steel Products with Polymer Coating\) · 조사중 · 철강\/금속 · 최신 조사개시 2026-09-07/);
+  assert.doesNotMatch(t.text, /EU 철강 쿼터|미국 상무부/);
+  const q = await call('trade_remedies', { section: 'kita', company: '포스코' }, opts);
+  assert.match(q.text, /감지 1건/);
+});
+
 test('partner filings: EDGAR holdings tables and repeated text fold to C, financial-statement notes never reach A', async () => {
   const opts = PRIVATE();
   const env = opts.env;
