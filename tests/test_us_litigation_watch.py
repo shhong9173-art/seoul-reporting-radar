@@ -398,8 +398,29 @@ class Itc(unittest.TestCase):
     def test_cit_list_failure_is_reported_not_zero(self):
         class R:
             status_code, text = 503, ""
-        rows, check = w.cit_direct(dt.datetime(2026, 10, 28, tzinfo=w.KST), None, get=lambda *a, **k: R())
+        calls, waits = [], []
+        rows, check = w.cit_direct(dt.datetime(2026, 10, 28, tzinfo=w.KST), None, get=lambda *a, **k: calls.append(1) or R(), sleep=waits.append)
         self.assertEqual((rows, check["status"], check["error"]), ([], "failed", "HTTP 503"))
+        self.assertEqual((len(calls), waits), (2, [10.0]))  # 5xx는 한 번만 다시
+
+    def test_cit_connection_error_retried_once_then_ok(self):
+        class R:
+            status_code, text = 200, "<table></table>"
+        state = {"n": 0}
+
+        def flaky(*a, **k):
+            state["n"] += 1
+            if state["n"] == 1:
+                raise type("ConnectionError", (Exception,), {})("reset")
+            return R()
+        rows, check = w.cit_direct(dt.datetime(2026, 10, 28, tzinfo=w.KST), None, get=flaky, sleep=lambda s: None)
+        self.assertEqual((check["status"], state["n"]), ("ok", 2))
+        # 404 같은 4xx는 다시 하지 않는다
+        class N:
+            status_code, text = 404, ""
+        calls = []
+        _, check = w.cit_direct(dt.datetime(2026, 10, 28, tzinfo=w.KST), None, get=lambda *a, **k: calls.append(1) or N(), sleep=lambda s: None)
+        self.assertEqual((check["error"], len(calls)), ("HTTP 404", 1))
 
 
 if __name__ == "__main__":

@@ -87,6 +87,27 @@ class Partners(unittest.TestCase):
         self.assertTrue(all(c["status"] == "failed" and c["error"] == "HTTP 503" for c in edgar_fail))
         self.assertEqual(doc["status"], "partial")
 
+    def test_edgar_transient_error_retried_once(self):
+        # 10-30 'OCI Holdings' 한 질의만 HTTP 500(앞뒤 실행 정상) — 5xx·연결 오류만 한 번 다시, 4xx는 그대로 실패
+        body = {"hits": {"hits": []}}
+        seen = {}
+
+        def get(url, params=None, headers=None, timeout=None):
+            q = (params or {}).get("q", "")
+            seen[q] = seen.get(q, 0) + 1
+            if q == '"Hyundai Steel"' and seen[q] == 1:
+                return R(500)
+            if q == '"POSCO"':
+                return R(429)
+            return R(200, body)
+        waits = []
+        doc = w.run({"asx": [], "edgarPhrases": CFG["edgarPhrases"]}, now=NOW, get=get, sleep=waits.append)
+        st = {c["target"]: c["status"] for c in doc["checks"] if c["source"] == "EDGAR"}
+        self.assertEqual(st, {"Hyundai Steel": "ok", "POSCO": "failed"})
+        self.assertEqual((seen['"Hyundai Steel"'], seen['"POSCO"']), (2, 1))
+        self.assertIn(5.0, waits)
+        self.assertTrue(w.transient("HTTP 502") and w.transient("ConnectionError") and not w.transient("HTTP 404") and not w.transient("JSON 아님"))
+
     def test_own_filing_filter_needs_the_whole_phrase(self):
         body = {"hits": {"hits": [{"_id": "a:b.htm", "_source": {"ciks": ["1"], "display_names": ["Wells Fargo & Co  (WFC)  (CIK 0000072971)"],
                                                                 "form": "8-K", "file_date": "2026-10-20", "adsh": "a"}}]}}
