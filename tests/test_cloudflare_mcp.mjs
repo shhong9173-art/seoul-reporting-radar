@@ -1777,7 +1777,12 @@ test('overseas awards: a beat company in the TED winner field is A; other Korean
     rules: ['낙찰자 칸에 이름이 있을 때만 잡는다.'],
     items: [a('ted:545946-2026'),
       a('ted:546637-2026', { kind: '계약 변경', tier: 'B', company: 'HD현대일렉트릭', winners: ['HD Hyundai Electric Europe GmbH'], winnerCountry: ['DEU'], winnerIds: [], value: null, concluded: null }),
-      a('ted:721359-2026', { tier: 'C', company: null, companies: [], winners: ['Nano Co., Ltd.'], buyer: 'Enea Elektrownia Połaniec', buyerCountry: 'POL', value: null })] };
+      a('ted:721359-2026', { tier: 'C', company: null, companies: [], winners: ['Nano Co., Ltd.'], buyer: 'Enea Elektrownia Połaniec', buyerCountry: 'POL', value: null }),
+      a('pcc:3.13.31:0081520071:BDM-1-71300001', { source: '대만 정부조달(PCC)', published: '2026-10-24', buyer: '台灣電力股份有限公司', buyerCountry: 'TWN', company: 'LS전선', companies: ['LS전선'],
+        winners: ['LS Cable & System Ltd.'], winnerCount: 2, winnerCountry: [], winnerIds: [], value: 276084986, currency: 'TWD', priceKind: '출입처 낙찰 품목 결정 금액 합',
+        title: '115年度超耐熱鋼心鋁線 — 2번 품목 LS Cable & System Ltd. NT$276,084,986(원산지 南韓(Republic of Korea))', concluded: '2026-10-24',
+        url: 'https://openfunltd.github.io/pcc-viewer/tender.html?unit_id=3.13.31&job_number=0081520071',
+        official: 'https://web.pcc.gov.tw/prkms/tender/common/noticeDate/redirectPublic?ds=20261024&fn=BDM-1-71300001.xml' })] };
   assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/overseas-awards', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
   const r = await call('radar_today', { hours: 72, include_minor: true }, opts);
   const sec = (t) => r.text.split(`[${t} · `)[1].split(/\n\[[ABC] · /)[0];
@@ -1785,8 +1790,10 @@ test('overseas awards: a beat company in the TED winner field is A; other Korean
   assert.match(sec('B'), /해외 계약 변경\(EU TED\): 덴마크 Energinet Eltransmission A\/S ← HD Hyundai Electric Europe GmbH · 400\/220 kV Autotransformers for SLF02 · 금액 미기재/);
   assert.match(sec('C'), /폴란드 Enea Elektrownia Połaniec ← Nano Co\., Ltd\./);
   assert.match(r.text, /- 해외 발주처 낙찰: 일부 실패 1건\(세계은행 조달\)/);
+  assert.match(sec('A'), /해외 낙찰\(대만 정부조달\(PCC\)\): 대만 台灣電力股份有限公司 ← LS Cable & System Ltd\. 외 1곳 · 115年度超耐熱鋼心鋁線 — 2번 품목[^\n]* · TWD 276,084,986 · 계약 2026-10-24/);
   const t = await call('partner_filings', {}, opts);
-  assert.match(t.text, /\[해외 발주처 낙찰 · EU TED · 영국 Find a Tender · 세계은행 · 바레인 · 공고 최근 120일\] 출입처 2건 · 출입처 밖 한국 기업 1건/);
+  assert.match(t.text, /\[해외 발주처 낙찰 · EU TED · 영국 Find a Tender · 세계은행 · 바레인 · 공고 최근 120일\] 출입처 3건 · 출입처 밖 한국 기업 1건/);
+  assert.match(t.text, /원문: https:\/\/openfunltd\.github\.io\/pcc-viewer\/tender\.html\?unit_id=3\.13\.31&job_number=0081520071 · 정부전자조달망 https:\/\/web\.pcc\.gov\.tw\/[^\n]*\n   검증 상태: 공고의 낙찰자 칸\(대만 PCC 공고의 得標廠商/);
   assert.match(t.text, /원천: EU TED 1\/1 정상 · 세계은행 조달 0\/1 정상\(미확인: LS Cable\(HTTP 503\)\)/);
   assert.match(t.text, /\[신규\] 2026-10-25 · EU TED 낙찰 · 효성중공업 · 발주 Energinet Eltransmission A\/S\(DNK\)\n   잡힌 사실: 낙찰자 Hyosung Heavy Industires Corporation\(KOR, 식별번호 578-87-00896\) · 400\/220 kV Autotransformers for SLF02 · EUR 15,923,696 · 계약 2026-06-19/);
   assert.doesNotMatch(t.text, /Nano Co/);

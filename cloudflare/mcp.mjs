@@ -145,7 +145,7 @@ export const TOOLS = [
     inputSchema: obj({ company: str('기업·페이지 낱말'), days: int('최근 N일(기본 14)', 1, 90), limit: int('줄 수', 1, 40),
       show_current: bool('페이지별 현재 문구도 보기') }) },
   { name: 'partner_filings', access: 'private', handler: partnerFilings,
-    description: '해외 파트너 공시: 출입처와 계약·합작한 해외 상장사(ASX: 아라푸라·필바라, HKEX: BAIC Motor(베이징현대 합작 상대), 관계 근거 포함)의 최근 공시와, 출입처 이름이 들어간 미국 SEC EDGAR 공시(출입처 자신의 공시 제외)·본문 발췌. 아래에 해외 발주처 낙찰 공고(EU TED·영국 Find a Tender·세계은행·바레인 월간 보고서에서 출입처가 낙찰자 칸에 적힌 것, 금액·계약일)와 영국 법인 설립 등기(Companies House, 출입처 본사가 지배 주주인 새 법인; 키 COMPANIES_HOUSE_API_KEY)도 붙인다(source를 비울 때만).',
+    description: '해외 파트너 공시: 출입처와 계약·합작한 해외 상장사(ASX: 아라푸라·필바라, HKEX: BAIC Motor(베이징현대 합작 상대), 관계 근거 포함)의 최근 공시와, 출입처 이름이 들어간 미국 SEC EDGAR 공시(출입처 자신의 공시 제외)·본문 발췌. 아래에 해외 발주처 낙찰 공고(EU TED·영국 Find a Tender·세계은행·바레인 월간 보고서·대만 정부조달(대만전력 등)에서 출입처가 낙찰자 칸에 적힌 것, 금액·계약일)와 영국 법인 설립 등기(Companies House, 출입처 본사가 지배 주주인 새 법인; 키 COMPANIES_HOUSE_API_KEY)도 붙인다(source를 비울 때만).',
     inputSchema: obj({ company: str('기업·파트너·낱말'), source: { type: 'string', enum: ['ASX', 'HKEX', 'EDGAR'] }, only_new: bool('신규만'),
       include_routine: bool('일상 공시도 보기(ASX 주총·임원 지분, HKEX 월간 증권 변동·이사회 일정, EDGAR 투자 보유 표·같은 회사 반복 문구)'), limit: int('줄 수', 1, 60) }) },
   { name: 'trade_remedies', access: 'private', handler: tradeRemedies,

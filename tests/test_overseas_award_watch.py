@@ -65,9 +65,35 @@ BH_HTML = ('<table><tr><th>No</th><th>Subject</th></tr>'
            '<tr><td>2</td><td>Awarded Tenders Report - August 2026</td><td><a href="/MediaHandler/GenericHandler/Pdf/Awarded/Awarded Tenders 2026-08.pdf">PDF</a></td></tr></table>')
 
 
+def pcc_rec(date, fn, typ, title, name_key, amount, job="0081520071", unit="3.13.31", buyer="台灣電力股份有限公司"):
+    """10-30 탐침 모양(g0v 미러 searchbycompanyname 레코드)."""
+    return {"date": date, "filename": fn, "brief": {"type": typ, "title": title, "companies": {"ids": [], "names": list(name_key), "id_key": {}, "name_key": name_key}},
+            "job_number": job, "unit_id": unit, "unit_name": buyer, "award_amount": amount, "budget_amount": None,
+            "url": f"/index/case/{unit}/{job}/{date}/{fn}", "tender_api_url": f"http://pcc-api.openfun.app/api/tender?unit_id={unit}&job_number={job}"}
+
+
+PCC_LS = pcc_rec(20261028, "BDM-1-71300001", "決標公告", "115年度供電單位複合光纖地線暨附屬器材統購案",
+                 {"LS Cable & System Ltd.": ["投標廠商:投標廠商1:廠商名稱", "決標品項:第2品項:得標廠商1:得標廠商"],
+                  "中華電線電纜股份有限公司": ["投標廠商:投標廠商3:廠商名稱", "決標品項:第1品項:得標廠商1:得標廠商"],
+                  "Tratos Cavi Germany GmbH": ["投標廠商:投標廠商2:廠商名稱", "決標品項:第2品項:未得標廠商1:未得標廠商"]}, 858849686)
+PCC_LOSER = pcc_rec(20261027, "BDM-1-71300002", "決標公告", "161kV電纜", {"LS Cable & System Ltd.": ["決標品項:第1品項:未得標廠商1:未得標廠商"],
+                                                                     "華新麗華股份有限公司": ["決標品項:第1品項:得標廠商1:得標廠商"]}, 5000000, job="X2")
+PCC_LSE = pcc_rec(20261020, "BDM-2-71290000", "更正決標公告", "臺鐵號誌電子聯鎖系統工程第2次契約變更",
+                  {"韓商樂星電氣股份有限公司臺灣分公司": ["投標廠商:投標廠商1:廠商名稱", "決標品項:第1品項:得標廠商1:得標廠商"]}, 38204450,
+                  job="SJ01-CCO-02", unit="A.15.5.1", buyer="交通部鐵道局北部工程分局")
+PCC_FIBER = pcc_rec(20261015, "BDM-1-71280000", "決標公告", "鋁包鋼線一批", {"TAIHAN FIBEROPTICS CO., LTD.": ["決標品項:第1品項:得標廠商1:得標廠商"]}, 17883620, job="X3")
+PCC_OLD = pcc_rec(20250923, "BDM-1-70925493", "更正決標公告", "超耐熱鋼心鋁線", {"LS Cable & System Ltd.": ["決標品項:第2品項:得標廠商1:得標廠商"]}, 858849686, job="X4")
+PCC_DETAIL = {"records": [{"filename": "TIQ-1-1", "detail": {}}, {"filename": "BDM-1-71300001", "detail": {
+    "決標品項:第1品項:得標廠商1:得標廠商": "中華電線電纜股份有限公司", "決標品項:第1品項:得標廠商1:決標金額": "582,764,700元",
+    "決標品項:第2品項:品項名稱": "超耐熱鋼心鋁線ZTACIR 260mm2", "決標品項:第2品項:得標廠商1:得標廠商": "LS Cable & System Ltd.",
+    "決標品項:第2品項:得標廠商1:決標金額": "276,084,986元", "決標品項:第2品項:得標廠商1:原產地國別:原產地國別": "南韓(Republic of Korea)",
+    "決標資料:決標日期": "115/10/24", "採購資料:標的分類": "<財物類>463絕緣電線,電纜及光纖電纜"}}]}
+
+
 def fakes(ted_rows=(TED_HYOSUNG, TED_FRAMEWORK, TED_SUBSIDIARY, TED_OTHER_KR, TED_NOT_KR), wb_rows=(WB_AWARD, WB_REJECTED, WB_OLD),
-          fts_rels=(FTS_REL, FTS_UK_ONLY), bh_text="Tender 12/2026 EWA 400kV transformers HYOSUNG HEAVY INDUSTRIES BHD 4,200,000"):
-    calls = {"ted": 0, "wb": 0, "fts": 0, "bh_pdf": 0}
+          fts_rels=(FTS_REL, FTS_UK_ONLY), bh_text="Tender 12/2026 EWA 400kV transformers HYOSUNG HEAVY INDUSTRIES BHD 4,200,000",
+          pcc_rows=(PCC_LS, PCC_LOSER, PCC_LSE, PCC_FIBER, PCC_OLD)):
+    calls = {"ted": 0, "wb": 0, "fts": 0, "bh_pdf": 0, "pcc": 0, "pcc_detail": 0}
 
     def post(url, json=None, headers=None, timeout=None):
         calls["ted"] += 1
@@ -85,6 +111,12 @@ def fakes(ted_rows=(TED_HYOSUNG, TED_FRAMEWORK, TED_SUBSIDIARY, TED_OTHER_KR, TE
         if url.endswith(".pdf"):
             calls["bh_pdf"] += 1
             return Resp(text="", content=b"%PDF")
+        if url == w.PCC_SEARCH:
+            calls["pcc"] += 1
+            return Resp({"query": params["query"], "page": 1, "total_records": len(pcc_rows), "records": list(pcc_rows)})
+        if url == w.PCC_TENDER:
+            calls["pcc_detail"] += 1
+            return Resp(PCC_DETAIL if params.get("job_number") == "0081520071" else {"records": []})
         raise AssertionError(url)
     return get, post, calls
 
@@ -163,6 +195,63 @@ class Award(unittest.TestCase):
         self.assertEqual(x["company"], "LS전선")
         self.assertIn("Some Korean Engineering Co", x["winners"])
         self.assertEqual((x["value"], x["currency"], x["url"]), (250000000.0, "GBP", "https://www.find-tender.service.gov.uk/Notice/102400-2026"))
+
+    def test_taiwan_pcc_winners_only_and_detail_once(self):
+        got = {x["id"]: x for x in w.pcc_items([PCC_LS, PCC_LOSER, PCC_LSE, PCC_FIBER, PCC_OLD], "2026-07-01")}
+        # 탈락(未得標廠商)만인 공고·대한광통신(TAIHAN FIBEROPTICS, 출입처 아님)·창 밖 공고는 버린다
+        self.assertEqual(set(got), {"pcc:3.13.31:0081520071:BDM-1-71300001", "pcc:A.15.5.1:SJ01-CCO-02:BDM-2-71290000"})
+        ls = got["pcc:3.13.31:0081520071:BDM-1-71300001"]
+        self.assertEqual((ls["company"], ls["winners"], ls["winnerCount"], ls["kind"], ls["currency"]), ("LS전선", ["LS Cable & System Ltd."], 2, "낙찰", "TWD"))
+        self.assertEqual(ls["url"], "https://openfunltd.github.io/pcc-viewer/tender.html?unit_id=3.13.31&job_number=0081520071")
+        self.assertEqual(ls["official"], "https://web.pcc.gov.tw/prkms/tender/common/noticeDate/redirectPublic?ds=20261028&fn=BDM-1-71300001.xml")
+        lse = got["pcc:A.15.5.1:SJ01-CCO-02:BDM-2-71290000"]
+        self.assertEqual((lse["company"], lse["kind"], w.tier_of(lse)), ("LS일렉트릭", "계약 변경", "B"))  # 중문 대만 지사 이름, 更正決標公告는 B
+        self.assertEqual(w.tier_of(ls), "A")
+        get, post, calls = fakes()
+        first = w.run(now=NOW, previous={"items": [], "generatedAt": (NOW - dt.timedelta(days=10)).isoformat()}, get=get, post=post, sleep=lambda s: None)
+        x = next(i for i in first["items"] if i["id"] == ls["id"])
+        self.assertTrue(x["isNew"])
+        self.assertEqual((x["value"], x["priceKind"], x["concluded"]), (276084986, "출입처 낙찰 품목 결정 금액 합", "2026-10-24"))
+        self.assertIn("2번 품목 超耐熱鋼心鋁線ZTACIR 260mm2 LS Cable & System Ltd. NT$276,084,986(원산지 南韓(Republic of Korea))", x["title"])
+        self.assertNotIn("582,764,700", x["title"])  # 다른 낙찰자(중화전선) 품목 금액은 넣지 않는다
+        self.assertEqual(calls["pcc_detail"], 2)  # 새 공고 두 건만(LS일렉트릭 공고는 상세 없음 → 목록 값 유지)
+        lse2 = next(i for i in first["items"] if i["id"] == lse["id"])
+        self.assertEqual((lse2["value"], lse2.get("detailError")), (38204450, "상세 없음"))
+        self.assertEqual(sum(1 for c in first["checks"] if c["source"] == w.PCC_SOURCE and c["status"] == "ok"), len(w.PCC_TERMS))
+        get2, post2, calls2 = fakes()
+        second = w.run(now=NOW + dt.timedelta(hours=10), previous=first, get=get2, post=post2, sleep=lambda s: None)
+        self.assertEqual((calls2["pcc"], calls2["pcc_detail"]), (0, 0))  # 하루 한 번: 오후 실행은 건너뜀(저장된 공고는 그대로)
+        self.assertIn("이번 실행은 건너뜀", next(c for c in second["checks"] if c["source"] == w.PCC_SOURCE)["note"])
+        get3, post3, calls3 = fakes()
+        third = w.run(now=NOW + dt.timedelta(hours=21), previous=second, get=get3, post=post3, sleep=lambda s: None)
+        self.assertEqual((calls3["pcc"], calls3["pcc_detail"]), (len(w.PCC_TERMS), 0))  # 이미 본 공고는 상세를 다시 읽지 않고 저장된 금액을 쓴다
+        y = next(i for i in third["items"] if i["id"] == ls["id"])
+        self.assertEqual((y["value"], y["isNew"], y["concluded"]), (276084986, False, "2026-10-24"))
+
+    def test_taiwan_pcc_rate_limit_stops_the_run_and_contract_change_title(self):
+        calls, waits = [], []
+
+        def get(url, params=None, headers=None, timeout=None):
+            calls.append(params.get("query"))
+            if len(calls) == 3:
+                return Resp({}, status=429)
+            return Resp({"records": [PCC_LS]})
+        items, checks = w.pcc(NOW - dt.timedelta(days=30), set(), get=get, sleep=waits.append)
+        self.assertEqual(len(calls), 3)  # 429 뒤로는 부르지 않는다(상세도)
+        st = [c["status"] for c in checks]
+        self.assertEqual((st[:2], st[2], set(st[3:])), (["ok", "ok"], "failed", {"failed"}))
+        self.assertEqual(checks[3]["error"], "HTTP 429 뒤 이번 실행 중단")
+        self.assertEqual(waits[:2], [w.PCC_GAP, w.PCC_GAP])
+        self.assertEqual(items[0].get("detailError"), "HTTP 429(상세 다음에)")  # 상세는 시도하지 않고 다음 실행에 다시
+        # 다음 실행: 못 읽은 상세를 이번엔 읽고, 저장된 옛 값으로 덮어쓰지 않는다
+        prev = {"items": [dict(items[0], firstSeen="2026-10-28T06:50:00+09:00", tier="A")], "generatedAt": (NOW - dt.timedelta(days=1)).isoformat(),
+                "pccLastRun": (NOW - dt.timedelta(days=1)).isoformat(), "bahrainSeen": ["x"]}
+        g, p, c = fakes(pcc_rows=(PCC_LS,))
+        doc = w.run(now=NOW, previous=prev, get=g, post=p, sleep=lambda s: None)
+        z = next(i for i in doc["items"] if i["id"] == items[0]["id"])
+        self.assertEqual((c["pcc_detail"], z["value"], z.get("detailError")), (1, 276084986, None))
+        cco = w.pcc_items([dict(PCC_LS, brief=dict(PCC_LS["brief"], title="臺鐵SJ01標號誌電子聯鎖系統工程第1次契約變更"))], "2026-07-01")[0]
+        self.assertEqual((cco["kind"], w.tier_of(cco)), ("계약 변경", "B"))
 
     def test_baseline_then_new(self):
         get, post, calls = fakes()
