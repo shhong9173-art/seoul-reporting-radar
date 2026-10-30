@@ -25,13 +25,13 @@ WINDOW_DAYS = 30
 LOOKBACK_DAYS = 60   # how far before an article a radar item can count
 FEEDS = ["us-litigation", "partner-filings", "trade-remedy", "kr-official", "kr-signals", "us-comments", "page-watch",
          "trademarks", "assembly-bills", "us-recalls", "scoop-screen", "us-epa", "kr-fuel", "overseas-awards",
-         "kr-insolvency", "kr-energy", "kr-building", "overseas-registry", "kr-local", "kr-workforce"]
+         "kr-insolvency", "kr-energy", "kr-building", "overseas-registry", "kr-local", "kr-workforce", "kr-stacks"]
 LABEL = {"us-litigation": "미국 소송·판결", "partner-filings": "해외 파트너 공시", "trade-remedy": "무역구제·미국 관보",
          "kr-official": "공장등록·관보", "kr-signals": "공정위·한전·산업부", "us-comments": "미 연방 의견서", "page-watch": "해외 공식 페이지",
          "trademarks": "상표 출원", "assembly-bills": "국회 법안", "us-recalls": "미국 리콜", "scoop-screen": "단독 후보 심사",
          "us-epa": "미국 EPA 인증", "kr-fuel": "국내 연비 신고", "overseas-awards": "해외 발주처 낙찰",
          "kr-insolvency": "협력사 회생·파산", "kr-energy": "전기위·원안위", "kr-building": "공장 부지 건축허가", "overseas-registry": "해외 법인 등기", "kr-local": "지자체 고시·공고",
-         "kr-workforce": "사업장 인력(국민연금)", "clues": "공개 원자료 단서(DART 등)"}
+         "kr-workforce": "사업장 인력(국민연금)", "kr-stacks": "굴뚝 측정(가동 신호)", "clues": "공개 원자료 단서(DART 등)"}
 # Group-level names: an article about 포스코 and a radar item about 포스코홀딩스 concern the same group.
 GROUP = {"현대자동차": "현대차", "제네시스": "현대차", "현대차(제네시스)": "현대차", "포스코홀딩스": "포스코", "엘에스일렉트릭": "LS일렉트릭",
          "아우디코리아": "아우디", "폭스바겐코리아": "폭스바겐", "BMW코리아": "BMW", "메르세데스-벤츠 코리아": "벤츠", "혼다코리아": "혼다",
@@ -50,6 +50,7 @@ CONCEPTS = [
     ("허가·원전", r"허가|원전|원자력|발전사업|해상풍력|계속운전|원안위", r"허가|원자력|발전사업|해상풍력|계속운전|원안의결|심의"),
     ("법인 설립", r"법인|현지법인|자회사|설립", r"법인 설립|incorporat|Companies House|LIMITED|LTD"),
     ("인력·고용", r"인력|감원|희망퇴직|구조조정|채용|고용|직원|인원|감축", r"국민연금 가입자|인력 감소|인력 증가|취득|상실"),
+    ("가동·중단", r"가동|중단|셧다운|정지|휴업|멈춰|멈춘|재가동|조업", r"가동 중단|멈춤|재가동|새 배출구|배출구"),
     ("입법·규제", r"법안|입법|개정안|국회|규제|시행령|입법예고", r"법률안|개정안|입법예고|bill|regulation|rule"),
     ("보육·복지", r"어린이집|보육|직장", r"nursery|child ?care|daycare|어린이집"),
     ("가격", r"가격|값|인상|인하", r"MSRP|price|\$\s?\d|가격"),
@@ -260,6 +261,12 @@ def _workforce(d, add):
         add(mem("kr-workforce", e.get("id"), [e.get("company")], f"{e.get('kind')} {e.get('text')} {words}", e.get("detectedAt"), None))
 
 
+def _stacks(d, add):
+    # 굴뚝 측정 가동 신호(사업장 가동 중단·배출구 멈춤·새 배출구·재가동)
+    for e in d.get("events") or []:
+        add(mem("kr-stacks", e.get("id"), [e.get("company")], f"{e.get('kind')} {e.get('text')} 공장 가동", e.get("detectedAt"), None))
+
+
 def _screen(d, add):
     for x in d.get("candidates") or []:
         add(mem("scoop-screen", x.get("id"), split_names(x.get("company")), x.get("title"), x.get("published") or x.get("filedOn"), x.get("url")))
@@ -274,7 +281,7 @@ ADAPTERS = [("us-litigation", _litigation), ("partner-filings", _partners), ("tr
             ("kr-signals", _signals), ("us-comments", _comments), ("page-watch", _pages), ("trademarks", _marks),
             ("us-recalls", _recalls), ("scoop-screen", _screen), ("us-epa", _epa), ("us-epa", _vin), ("kr-fuel", _fuel), ("overseas-awards", _awards),
             ("us-recalls", _investigations), ("kr-insolvency", _insolvency), ("kr-energy", _energy), ("kr-building", _building),
-            ("overseas-registry", _registry), ("kr-local", _local), ("kr-workforce", _workforce), ("clues", _clues)]
+            ("overseas-registry", _registry), ("kr-local", _local), ("kr-workforce", _workforce), ("kr-stacks", _stacks), ("clues", _clues)]
 
 
 def nouns(title):
