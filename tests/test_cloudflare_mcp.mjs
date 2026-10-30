@@ -802,6 +802,25 @@ test('kr_official stacks: plants with stopped stacks first, events, young sites 
   assert.match(a, /굴뚝 측정\(공장 가동 신호\)[\s\S]*포항2공장: 평소 움직이던 배출구 2개 중 2개/);
 });
 
+test('radar_today: scoop candidates count as new only when first screened inside the window', async () => {
+  const env = PRIVATE().env;
+  const now = Date.now();
+  const iso = (h) => new Date(now - h * 3600000).toISOString();
+  const doc = { schema: 'scoop_screen/v1', generatedAt: iso(1), counts: {}, candidates: [
+    { id: 'clue:old', kind: '특허', company: '현대제철', title: '상변태 기반 판재 냉각 제어 장치 및 방법 (현대제철)', verdict: '미보도 후보', published: '2026-10-07', firstSeen: iso(24 * 9) },
+    { id: 'clue:new', kind: '단서', company: '기아', title: '기아 · 신규시설투자등', verdict: '미보도 후보', published: '2026-10-30', firstSeen: iso(2) },
+    { id: 'clue:legacy', kind: '단서', company: '포스코', title: '포스코 · 단일판매ㆍ공급계약체결', verdict: '미보도 후보', published: '2026-10-29' }] };
+  const post = await worker.fetch(new Request(ORIGIN + '/ingest/scoop-screen', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {});
+  assert.equal(post.status, 200);
+  const r = await call('radar_today', {}, { path: `/mcp/${TOKEN}`, env });
+  const a = r.text.split('[A · ')[1].split('[B · ')[0];
+  assert.match(a, /기아 · 신규시설투자등/);
+  assert.match(a, /포스코 · 단일판매ㆍ공급계약체결/);  // 시각이 없는 옛 결과는 그대로 보인다
+  assert.doesNotMatch(a, /상변태 기반 판재 냉각/);
+  const s = await call('scoop_screen', {}, { path: `/mcp/${TOKEN}`, env });
+  assert.match(s.text, /상변태 기반 판재 냉각/);  // 후보 목록에는 남는다
+});
+
 test('us_litigation shows party cases by priority, folds routine ones, and lists ITC 337 names', async () => {
   const env = PRIVATE().env;
   const doc = { schema: 'us_litigation/v1', generatedAt: '2026-10-27T07:50:00+09:00', windowDays: 45, rules: ['당사자 목록에 출입처가 있는 사건만.'],
