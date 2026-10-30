@@ -77,6 +77,7 @@ CITIES = [
     # <ul><li> 목록 형식이라 따로 읽고(아래), 부평(한국GM)·구미·순천·경주·시흥·양산은 접속 시간 초과, 청주·인천 동구는 SSL 오류 — 빼 둔다.
     ("광주 광산구", "https://eminwon.gwangsan.go.kr", "금호타이어(광주공장)"),
     ("광주 서구", "https://eminwon.seogu.gwangju.kr", "기아(오토랜드 광주)"),  # 목록이 표가 아니라 <ul><li> 형식(10-30)
+    ("광명시", "https://eminwon.gm.go.kr", "기아(오토랜드 광명)"),  # 칸 사이 빈 <td> 형식(10-30), 접속이 들쑥날쑥(시간 초과면 미확인)
 ]
 
 # (출입처, 제목 규칙)
@@ -131,7 +132,8 @@ def parse_rows(page):
              or re.search(r"not_ancmt_mgt_no=([0-9A-Za-z_-]+)", tr))  # 광주 광산구 형식(10-30): 제목 <a href="…not_ancmt_mgt_no=56345…">
         if not m:
             continue
-        cells = [cell_text(c) for c in re.findall(r"<td[^>]*>([\s\S]*?)</td>", tr)]
+        # 빈 칸은 뺀다: 광명시 형식(10-30)은 칸 사이마다 빈 <td>가 있다(번호 없이 공고번호·제목·부서·등록일·조회수)
+        cells = [c for c in (cell_text(c) for c in re.findall(r"<td[^>]*>([\s\S]*?)</td>", tr)) if c]
         i = next((k for k, c in enumerate(cells) if NOTICE_NO.search(c)), None)
         if i is not None and i + 1 < len(cells):
             no, t = cells[i], i + 1
