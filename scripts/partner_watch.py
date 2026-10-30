@@ -45,12 +45,31 @@ FIN_NOTE = re.compile(r"\(\d{1,2}\)\s+the\s+(?:company|group)\s+(?:has|had|have|
 FIN_DOC = re.compile(r"(?:review|financ|consolidat|separate|interim|10-?q|annual|20-?f)", re.I)
 
 
+# 계약 낱말은 출입처 이름이 든 문장 안에 있어야 거래 문구로 본다(운영 10-29: Nexa Resources 3분기 실적 6-K의
+# 'annually negotiated contracts'(제3자 공급사 일반 서술)와 '…reportedly agreed between Korea Zinc and Teck…'(업계 기준가
+# 보도 인용)이 한 발췌에 있어 A로 떴다). 낱말 목록은 cloudflare/digest.mjs DEAL_WORDS와 같다.
+DEAL = re.compile(r"\b(agreement|supply|offtake|off-take|joint venture|JV|memorandum|MOU|partnership|collaborat\w*|acquisition|"
+                  r"acquire[sd]?|merger|purchase order|contract\w*|guarantee\w*|licen[cs]e|investment in|strategic|customer|order[s]? from)\b", re.I)
+HEARSAY = re.compile(r"\breportedly\b|\baccording to (?:media|press|news|industry|market) reports?\b|\bas reported (?:by|in)\b|\bit was reported\b", re.I)
+SENTENCE = re.compile(r"(?<=[.;!?])\s+(?=[A-Z0-9(\"'“])")
+
+
+def beat_sentences(sn, phrases):
+    return [x for x in SENTENCE.split(sn) if any(ph.lower() in x.lower() for ph in phrases)]
+
+
 def classify(it):
     """routine: no dealing with the beat company (holdings tables) → C. finNote: periodic financial-statement
-    notes, often restating an existing arrangement → never A. Text only; the original decides."""
+    notes, often restating an existing arrangement → never A. dealNear: a deal word in a sentence that names the
+    beat company. hearsay: that sentence cites press reports. Text only; the original decides."""
     sn = it.get("snippet") or ""
-    it.pop("routine", None)
-    it.pop("finNote", None)
+    for k in ("routine", "finNote", "dealNear", "hearsay"):
+        it.pop(k, None)
+    sents = beat_sentences(sn, it.get("phrases") or [])
+    if sents:  # 발췌가 잘려 이름이 안 보이면 판단하지 않는다(예전 규칙: 발췌 전체의 낱말)
+        it["dealNear"] = any(DEAL.search(x) for x in sents)
+        if any(HEARSAY.search(x) for x in sents):
+            it["hearsay"] = "출입처 이름이 보도 인용 문장(reportedly 등)에만 나옴 — 두 회사 간 거래 공시가 아님"
     digits = sum(ch.isdigit() for ch in sn)
     if HOLDINGS.search(sn) or (len(sn) > 200 and digits / len(sn) > 0.18):
         it["routine"] = "투자 보유 목록(채권·주식 보유 표) — 출입처와의 거래 아님"
