@@ -92,7 +92,9 @@ class Selection(unittest.TestCase):
             {"id": "m7", "team": "자동차", "published": "2026-10-28", "source": "DART", "companies": ["현대모비스"], "routine": False,
              "tier": "취재 단서·단독 미확정", "title": "현대모비스 · 의결권대리행사권유참고서류"},
             {"id": "m8", "team": "자동차", "published": "2026-10-29", "source": "DART", "companies": ["현대차"], "routine": False,
-             "tier": "취재 단서·단독 미확정", "title": "현대자동차 · 정기·주요공시 · [기재정정]영업실적등에대한전망(공정공시)"}]
+             "tier": "취재 단서·단독 미확정", "title": "현대자동차 · 정기·주요공시 · [기재정정]영업실적등에대한전망(공정공시)"},
+            {"id": "m9", "team": "자동차", "published": "2026-10-29", "source": "DART", "companies": ["현대모비스"], "routine": False,
+             "tier": "취재 단서·단독 미확정", "title": "현대모비스 · 약관에의한금융거래시계열금융회사의거래상대방의공시"}]
         rows = {r["id"]: r for r in s.select(clues, {}, now=NOW)}
         self.assertEqual(set(rows), {"clue:m4", "clue:m5"})
         accident = rows["clue:m4"]
