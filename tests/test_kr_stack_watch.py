@@ -108,19 +108,53 @@ class StackTest(unittest.TestCase):
         self.assertEqual([(e["kind"], e["tier"]) for e in ev], [("배출구 멈춤 신호", "B")])  # 사업장에서 가장 큰 배출구
 
     def test_new_stack_and_missing_stack(self):
-        doc = series(2)
-        t = T0 + dt.timedelta(hours=6)
+        doc = series(7)  # 사업장을 7번 지켜본 뒤라야 새 번호를 새 설비 신호로 본다
+        t = T0 + dt.timedelta(hours=21)
         doc = w.run(CFG_SMALL, now=t, previous=doc, key="k", get=Api(world(t, new_stack=True)), sleep=lambda s: None)
         new = [e for e in doc["events"] if e["kind"] == "새 배출구"]
         self.assertEqual([(e["tier"], e["site"]) for e in new], [("A", "현대제철㈜")])
         self.assertIn("새 배출구 99번", new[0]["text"])
+        self.assertIn("이 사업장 7번 실행 동안 없던 번호", new[0]["text"])
         for k in range(2):  # 포항2공장 2번 배출구가 두 번 연속 빠짐 → B 한 번
-            t = T0 + dt.timedelta(hours=9 + 3 * k)
+            t = T0 + dt.timedelta(hours=24 + 3 * k)
             rows = [x for x in world(t, new_stack=True) if not (x["fact_manage_nm"] == "현대제철㈜포항2공장" and x["stack_code"] == "2")]
             doc = w.run(CFG_SMALL, now=t, previous=doc, key="k", get=Api(rows), sleep=lambda s: None)
         gone = [e for e in doc["events"] if e["kind"] == "배출구 목록에서 빠짐"]
         self.assertEqual(len(gone), 1)
         self.assertIn("포항2공장 배출구 2번", gone[0]["text"])
+
+    def test_new_numbers_early_or_in_bulk_are_list_fill_C_not_new_plant(self):
+        # 10-30 13:36 운영: 첫 실행 기준선 때 고려아연 온산 배출구가 7개만 보였다가 다음 실행에 24개가 더 보여 모두 A로 뜸
+        doc = series(2)
+        t = T0 + dt.timedelta(hours=6)
+        extra = [row("현대제철㈜", "충청남도", str(100 + i), t, 5.0) for i in range(5)]
+        doc = w.run(CFG_SMALL, now=t, previous=doc, key="k", get=Api(world(t, extra=extra)), sleep=lambda s: None)
+        got = [(e["kind"], e["tier"]) for e in doc["events"] if e["detectedAt"] == doc["generatedAt"]]
+        self.assertEqual(got, [("배출구 목록 보강", "C")])
+        self.assertIn("배출구 5개가 새로 보임(100, 101, 102, 103, 104) — 한꺼번에 여러 개라", doc["events"][0]["text"])
+        # 성숙한 사업장이라도 한 번에 3개 이상이면 목록 보강
+        doc = series(8)
+        t = T0 + dt.timedelta(hours=24)
+        extra = [row("현대제철㈜", "충청남도", str(200 + i), t, 5.0) for i in range(3)]
+        doc = w.run(CFG_SMALL, now=t, previous=doc, key="k", get=Api(world(t, extra=extra)), sleep=lambda s: None)
+        self.assertEqual([(e["kind"], e["tier"]) for e in doc["events"] if e["detectedAt"] == doc["generatedAt"]], [("배출구 목록 보강", "C")])
+
+    def test_stored_burst_of_new_stack_A_is_collapsed(self):
+        at = "2026-10-30T13:36:00+09:00"
+        burst = [{"id": f"stk:newstack:고려아연:x:{c}", "kind": "새 배출구", "tier": "A", "company": "고려아연", "site": "고려아연㈜온산제련소",
+                  "detectedAt": at, "text": f"고려아연㈜온산제련소 굴뚝 자동측정에 새 배출구 {c}번이 생김"} for c in ("1", "16", "2", "20")]
+        lone = {"id": "stk:newstack:현대제철:y:9", "kind": "새 배출구", "tier": "A", "company": "현대제철", "site": "현대제철㈜", "detectedAt": at,
+                "text": "현대제철㈜ 굴뚝 자동측정에 새 배출구 9번이 생김"}
+        out = w.collapse_bursts(burst + [lone])
+        self.assertEqual(sorted((e["kind"], e["tier"]) for e in out), [("배출구 목록 보강", "C"), ("새 배출구", "A")])
+        c = next(e for e in out if e["tier"] == "C")
+        self.assertIn("배출구 4개가 한꺼번에 새로 보임(1, 16, 2, 20)", c["text"])
+        self.assertIn("처음엔 A로 띄웠다가 바로잡음", c["text"])
+        prev = series(2)
+        prev["events"] = burst + prev["events"]
+        t = T0 + dt.timedelta(hours=6)
+        doc = w.run(CFG_SMALL, now=t, previous=prev, key="k", get=Api(world(t)), sleep=lambda s: None)
+        self.assertFalse(any(e["kind"] == "새 배출구" for e in doc["events"]))
 
     def test_emission_standard_exceedance_B_then_sustained_A_and_new_episode(self):
         # 같은 줄의 sox_exhst_perm_stdr_value(140)를 넘는 측정값: 처음 B, 다음 실행도 넘으면 A, 내려왔다 다시 넘으면 새 B

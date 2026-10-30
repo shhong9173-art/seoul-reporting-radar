@@ -30,6 +30,8 @@ API = "https://apis.data.go.kr/B552584/cleansys/rltmMesureResult"
 POLLUTANTS = ("tsp", "sox", "nox", "hcl", "hf", "nh3", "co")
 OBS_KEEP = 24          # 3시간 간격이면 3일치
 MIN_OBS = 6            # 평소 값을 정할 최소 관측 수(첫 실행 뒤 하루쯤)
+MATURE_RUNS = 6        # 새 배출구·새 사업장을 '새것'으로 볼 만큼 그 사업장(감시)을 지켜본 실행 수
+BURST = 3              # 한 실행에 이만큼 이상 새로 보이면 새 설비가 아니라 목록 보강으로 본다(10-30 고려아연 온산 24개)
 STOP_RUNS = 3          # 연달아 이만큼 낮으면 멈춤(3시간 간격이면 9시간)
 MEANINGFUL = 1.0       # 평소 값이 이보다 작으면 멈춤 판단을 하지 않는다(원래 거의 0인 배출구)
 LOW_ABS = 0.3
@@ -110,6 +112,25 @@ def exceedances(x):
     return out
 
 
+def collapse_bursts(events):
+    """저장된 '새 배출구' 이벤트 가운데 같은 사업장·같은 실행에 BURST개 이상이면 C '배출구 목록 보강' 한 줄로 바꾼다
+    (10-30 13:36: 고려아연 온산제련소 배출구 24개가 한꺼번에 A로 뜸 — 첫 실행 기준선 때 일부 배출구 값이 아직 없었던 것)."""
+    groups = {}
+    for e in events:
+        if e.get("kind") == "새 배출구":
+            groups.setdefault((e.get("company"), e.get("site"), e.get("detectedAt")), []).append(e)
+    drop, add = set(), []
+    for (company, site, at), es in groups.items():
+        if len(es) < BURST:
+            continue
+        drop |= {e["id"] for e in es}
+        codes = sorted((re.search(r"새 배출구 (\S+)번", e.get("text") or "") or [None, "?"])[1] for e in es)
+        add.append({"id": f"stk:burst:{company}:{site}:{at}", "kind": "배출구 목록 보강", "tier": "C", "company": company, "site": site, "detectedAt": at,
+                    "text": f"{site} 굴뚝 자동측정 목록에 배출구 {len(es)}개가 한꺼번에 새로 보임({', '.join(codes[:12])}{' 외' if len(codes) > 12 else ''}) — "
+                            "측정 자료가 늦게 들어온 것일 수 있어 새 설비로 보지 않음(처음엔 A로 띄웠다가 바로잡음)"})
+    return [e for e in events if e["id"] not in drop] + add
+
+
 def norm(name):
     return re.sub(r"\s+", "", str(name or "").replace("（", "(").replace("）", ")").replace("㈜", "(주)"))
 
@@ -156,7 +177,7 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep):
     first = not prev.get("sites")
     sites = {s["id"]: s for s in prev.get("sites") or [] if isinstance(s, dict) and s.get("id")}
     keep_from = (now - dt.timedelta(days=KEEP_EVENTS_DAYS)).isoformat()
-    events = [e for e in prev.get("events") or [] if isinstance(e, dict) and e.get("detectedAt", "") >= keep_from]
+    events = collapse_bursts([e for e in prev.get("events") or [] if isinstance(e, dict) and e.get("detectedAt", "") >= keep_from])
     known = {e["id"] for e in events}
     fresh, errors, ok_terms, seen_sites = [], [], 0, set()
     day = now.date().isoformat()
@@ -192,12 +213,16 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep):
             if s is None:
                 s = {"id": sid, "company": comp["company"], "name": name, "area": xs[0].get("area_nm"), "firstSeen": stamp, "stacks": {}}
                 sites[sid] = s
+                watched = (now - dt.datetime.fromisoformat(prev["baselineSince"])).total_seconds() / 3600 if prev.get("baselineSince") else 0
                 if not first:
-                    emit(f"stk:newsite:{sid}", "새 사업장(굴뚝 측정)", "A", comp["company"], name,
+                    # 감시를 하루 넘게 돌린 뒤에 처음 나타난 사업장만 A(초기에는 검색 결과가 덜 찬 것일 수 있어 C)
+                    emit(f"stk:newsite:{sid}", "새 사업장(굴뚝 측정)", "A" if watched >= 24 else "C", comp["company"], name,
                          f"{name}({xs[0].get('area_nm') or '지역 미상'}) 굴뚝 자동측정 목록에 새로 나타남 — 배출구 {len(xs)}개. 새 공장·설비 가동 또는 이름 변경일 수 있음(회사 확인)")
             s.update(name=name, area=xs[0].get("area_nm") or s.get("area"), lastSeen=stamp)
             stacks = s.setdefault("stacks", {})
-            present = set()
+            # 이 사업장을 본 실행 수(예전 저장본에는 없으니 배출구 관측 수 가운데 가장 큰 값으로 시작)
+            s["runs"] = s.get("runs", max([len(v.get("obs") or []) for v in stacks.values()] or [0])) + 1
+            present, new_codes = set(), []
             for x in xs:
                 code = str(x.get("stack_code") or "").strip()
                 if not code:
@@ -208,8 +233,7 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep):
                     st = {"firstSeen": stamp, "obs": []}
                     stacks[code] = st
                     if not first and not s.get("firstSeen") == stamp:
-                        emit(f"stk:newstack:{sid}:{code}", "새 배출구", "A", comp["company"], name,
-                             f"{name} 굴뚝 자동측정에 새 배출구 {code}번이 생김(측정 {x.get('mesure_dt')}, 가장 큰 측정값 {peak(x)}) — 새 설비 가동 가능성, 어떤 설비인지는 회사 확인")
+                        new_codes.append((code, x))
                 mdt = x.get("mesure_dt")
                 if st.get("lastDt") == mdt and st.get("obs"):
                     st["missing"] = 0
@@ -238,6 +262,17 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep):
                     elif ep["count"] == 2:
                         emit(f"stk:exceed2:{sid}:{code}:{p}:{ep['start']}", "배출허용기준 초과 지속", "A", comp["company"], name,
                              f"{what} — {ep['start']} 측정부터 이 감시의 실행 2번 연속 초과(처음 {ep['first'][0]:g})" + tail)
+            if new_codes:
+                if s["runs"] > MATURE_RUNS and len(new_codes) < BURST:
+                    for code, x in new_codes:
+                        emit(f"stk:newstack:{sid}:{code}", "새 배출구", "A", comp["company"], name,
+                             f"{name} 굴뚝 자동측정에 새 배출구 {code}번이 생김(측정 {x.get('mesure_dt')}, 가장 큰 측정값 {peak(x)}, 이 사업장 {s['runs'] - 1}번 실행 동안 없던 번호) — 새 설비 가동 가능성, 어떤 설비인지는 회사 확인")
+                else:
+                    codes = [c for c, _ in new_codes]
+                    emit(f"stk:burst:{comp['company']}:{name}:{stamp}", "배출구 목록 보강", "C", comp["company"], name,
+                         f"{name} 굴뚝 자동측정 목록에 배출구 {len(codes)}개가 새로 보임({', '.join(codes[:12])}{' 외' if len(codes) > 12 else ''}) — "
+                         + ("한꺼번에 여러 개라 " if len(codes) >= BURST else f"이 사업장을 {s['runs'] - 1}번만 봐서 ")
+                         + "측정 자료가 늦게 들어온 것일 수 있어 새 설비로 보지 않음")
             for code, st in stacks.items():
                 if code not in present:
                     st["missing"] = st.get("missing", 0) + 1
