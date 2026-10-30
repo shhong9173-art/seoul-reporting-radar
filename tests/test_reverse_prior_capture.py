@@ -152,3 +152,21 @@ class Capture(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class GroupsAndSuppliers(unittest.TestCase):
+    def test_audi_recall_with_sk_battery_counts_for_a_vw_sk_on_article(self):
+        # 10-26 '[단독] 아우디, 미국서 Q4 e-트론 9048대 리콜…SK온 배터리 화재 우려'(회사 분류: SK온·폭스바겐) ← 레이더 10-21 NHTSA 26V698000
+        trace = {"items": [{"articleId": "audi", "title": "[단독] 아우디, 미국서 Q4 e-트론 9048대 리콜…SK온 배터리 화재 우려 - 한국신용신문",
+                            "published": "2026-10-26T10:17:00+09:00", "sourceName": "한국신용신문", "companies": ["SK온", "폭스바겐"]}]}
+        docs = {"us-recalls": {"recalls": [{"id": "26V698000", "why": [{"name": "AUDI", "beat": "아우디"}], "models": "Q4 E-TRON",
+                                            "component": "ELECTRICAL SYSTEM:PROPULSION SYSTEM:TRACTION BATTERY",
+                                            "defect": "The high voltage battery may fail and cause a fire.", "supplierBox": "SK Battery Manufacturing Kft. (Hungary)",
+                                            "firstSeen": "2026-10-21T17:10:00+09:00", "url": "https://www.nhtsa.gov/recalls?nhtsaId=26V698"}]}}
+        doc = r.run(trace, docs, {}, now=NOW)
+        row = doc["articles"][0]
+        self.assertEqual(row["verdict"], "먼저 잡은 후보")
+        self.assertEqual(row["best"]["id"], "26V698000")
+        self.assertGreater(row["best"]["leadHours"], 100)
+        self.assertEqual(r.suppliers_in("SK On Co., Ltd.", "LG Energy Solution Michigan"), ["SK온", "LG에너지솔루션"])
+        self.assertEqual(r.canon("아우디코리아"), "폭스바겐")

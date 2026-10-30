@@ -35,7 +35,21 @@ LABEL = {"us-litigation": "미국 소송·판결", "partner-filings": "해외 �
 # Group-level names: an article about 포스코 and a radar item about 포스코홀딩스 concern the same group.
 GROUP = {"현대자동차": "현대차", "제네시스": "현대차", "현대차(제네시스)": "현대차", "포스코홀딩스": "포스코", "엘에스일렉트릭": "LS일렉트릭",
          "아우디코리아": "아우디", "폭스바겐코리아": "폭스바겐", "BMW코리아": "BMW", "메르세데스-벤츠 코리아": "벤츠", "혼다코리아": "혼다",
-         "효성중공업(관련)": "효성중공업", "일진전기(관련)": "일진전기", "OCI홀딩스": "OCI", "세아홀딩스": "세아제강", "LS지주": "LS"}
+         "효성중공업(관련)": "효성중공업", "일진전기(관련)": "일진전기", "OCI홀딩스": "OCI", "세아홀딩스": "세아제강", "LS지주": "LS",
+         # 아우디는 폭스바겐그룹 브랜드: 10-26 '[단독] 아우디, 미국서 Q4 e-트론 9048대 리콜…SK온 배터리'는 회사가 '폭스바겐·SK온'으로
+         # 분류돼, 레이더가 10-21에 잡은 같은 리콜(아우디)이 '없음'으로 나왔다. 대조에서는 한 그룹으로 본다.
+         "아우디": "폭스바겐", "아우디코리아": "폭스바겐"}
+# 리콜 원보고서 공급사 칸·결함 설명의 한국 부품사 영문 이름 → 대조용 회사 이름(기사 회사 분류는 부품사 이름으로도 붙는다)
+SUPPLIERS = [(re.compile(r"SK\s*(?:On|Battery|Innovation)", re.I), "SK온"), (re.compile(r"LG\s*(?:Energy\s*Solution|Chem)", re.I), "LG에너지솔루션"),
+             (re.compile(r"Samsung\s*SDI", re.I), "삼성SDI"), (re.compile(r"Hyundai\s*Mobis|\bMobis\b", re.I), "현대모비스"),
+             (re.compile(r"\bMando\b", re.I), "HL만도"), (re.compile(r"Hyundai\s*Wia", re.I), "현대위아"), (re.compile(r"Hyundai\s*Transys", re.I), "현대트랜시스"),
+             (re.compile(r"Hankook", re.I), "한국타이어"), (re.compile(r"Kumho", re.I), "금호타이어"), (re.compile(r"Nexen", re.I), "넥센타이어"),
+             (re.compile(r"LS\s*(?:Cable|Electric)", re.I), "LS"), (re.compile(r"POSCO", re.I), "포스코")]
+
+
+def suppliers_in(*texts):
+    t = " ".join(str(x or "") for x in texts)
+    return [name for rx, name in SUPPLIERS if rx.search(t)]
 # (concept, Korean headline words, words in radar items — Korean or English)
 CONCEPTS = [
     ("소송·판결", r"소송|제소|항소|불복|패소|승소|판결|법원|배상", r"v\. United States|\bIn re\b|lawsuit|complaint|appeal|opinion|court|소송|판결|항소|법원|Sustaining|Remand"),
@@ -177,7 +191,8 @@ def _marks(d, add):
 
 def _recalls(d, add):
     for x in d.get("recalls") or []:
-        add(mem("us-recalls", x.get("id"), [w.get("name") for w in x.get("why") or []] + [w.get("beat") for w in x.get("why") or []],
+        add(mem("us-recalls", x.get("id"), [w.get("name") for w in x.get("why") or []] + [w.get("beat") for w in x.get("why") or []]
+                + suppliers_in(x.get("supplierBox"), x.get("defect"), x.get("component")),
                 f"recall 리콜 {x.get('models')} {x.get('component')} {x.get('defect') or ''} {x.get('supplierBox') or ''}", x.get("firstSeen") or x.get("received"), x.get("url")))
 
 
