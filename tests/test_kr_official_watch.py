@@ -138,6 +138,34 @@ class Factory(unittest.TestCase):
         self.assertEqual(by["fac:z:2026-10-28"]["tier"], "A")
         self.assertEqual(w.retier(by["fac:x:2026-10-29"]), by["fac:x:2026-10-29"])  # 두 번 판정하지 않음
 
+    def test_factory_that_comes_back_is_not_a_new_factory(self):
+        # 운영 10-28 '목록에서 빠짐' → 10-30 '새 공장': 현대위아(주)창원2공장(등록 1993-08-18)
+        first = run()
+        gone = run(previous=first, posco=[f for f in POSCO if f["fctryManageNo"] != "4"], now=NOW + dt.timedelta(days=1))
+        self.assertIn(("목록에서 빠짐", "fac:4"), {(e["kind"], e["factoryId"]) for e in gone["events"]})
+        back = run(previous=gone, now=NOW + dt.timedelta(days=3))
+        by = {(e["kind"], e["factoryId"]): e for e in back["events"]}
+        self.assertNotIn(("새 공장", "fac:4"), by)
+        self.assertEqual(by[("목록에 다시 나옴", "fac:4")]["tier"], "C")
+        self.assertEqual(by[("목록에서 빠짐", "fac:4")]["tier"], "C")
+        self.assertIn("다시 나옴(조회 목록에서 잠깐 빠진 것으로 보임)", by[("목록에서 빠짐", "fac:4")]["text"])
+        again = run(previous=back, now=NOW + dt.timedelta(days=4))  # 다시 판정하지 않음(문장이 두 번 붙지 않음)
+        g = next(e for e in again["events"] if e["kind"] == "목록에서 빠짐" and e["factoryId"] == "fac:4")
+        self.assertEqual(g["text"].count("다시 나옴"), 1)
+
+    def test_old_registration_first_seen_is_b_and_products_are_deduplicated(self):
+        first = run()
+        more = POSCO + [fac("7", "(주)포스코 광양 제2공장", reg="19930818", product="액슬 등 구동부품, 액슬 등 구동부품, 화포 및 함포"),
+                        fac("8", "(주)포스코 광양 수소공장", reg="20260901")]
+        doc = run(previous=first, posco=more, now=NOW + dt.timedelta(days=1))
+        by = {e["factoryId"]: e for e in doc["events"] if e["kind"] == "새 공장"}
+        self.assertEqual((by["fac:7"]["tier"], by["fac:8"]["tier"]), ("B", "A"))
+        self.assertIn("주생산품 액슬 등 구동부품, 화포 및 함포 · 등록 1993-08-18 — 오래전 등록된 공장이 이번에 처음 잡힘", by["fac:7"]["text"])
+        old = {"id": "fac:9:new", "kind": "새 공장", "company": "현대위아", "factoryId": "fac:9", "detectedAt": "2026-10-28T08:10:00+09:00",
+               "text": "현대위아(주)창원3공장 · 경남 · 주생산품 x · 등록 2001-05-01"}
+        self.assertEqual(w.retier(old)["tier"], "B")
+        self.assertEqual(w.retier(dict(old, text="… · 등록 2026-09-01"))["tier"], "A")
+
     def test_failed_query_keeps_records_and_does_not_report_gone(self):
         first = run()
         doc = run(previous=first, factory_code=500, now=NOW + dt.timedelta(days=1))
