@@ -11,7 +11,7 @@ import { publicationDate, verifyEvidence } from '../cloudflare/evidence.mjs';
 import { allowedUrl } from '../cloudflare/live_tools.mjs';
 import { handleIngest } from '../cloudflare/screen.mjs';
 import { dueAt, nextSlot, runSchedule } from '../cloudflare/dispatch.mjs';
-import { hint, radarItems } from '../cloudflare/digest.mjs';
+import { convergence, hint, radarItems } from '../cloudflare/digest.mjs';
 
 const ORIGIN = 'https://seoul-reporting-radar.shhong9173.workers.dev';
 const TOKEN = 'test-token-0123456789abcdef';
@@ -819,6 +819,39 @@ test('radar_today: scoop candidates count as new only when first screened inside
   assert.doesNotMatch(a, /상변태 기반 판재 냉각/);
   const s = await call('scoop_screen', {}, { path: `/mcp/${TOKEN}`, env });
   assert.match(s.text, /상변태 기반 판재 냉각/);  // 후보 목록에는 남는다
+});
+
+test('converging signals: same beat company and same city from two or more watches, place from the text, C and other tools ignored', () => {
+  const t = (h) => new Date(Date.parse('2026-10-30T03:00:00Z') - h * 3600000).toISOString();
+  const items = [
+    { id: 'b1', tier: 'B', tool: 'kr_official', watch: '공장 부지 건축허가', company: '기아', date: '2026-10-22', fact: '건축허가: 기아 부지(경기도 화성시 우정읍) · 신축 공장' },
+    { id: 'l1', tier: 'A', tool: 'kr_official', watch: '지자체 고시·공고', company: '기아', date: '2026-10-29', fact: '화성시 고시 「기아 오토랜드 화성 PBV 2공장 도시계획시설 결정」' },
+    { id: 'w1', tier: 'A', tool: 'kr_official', watch: '사업장 인력(국민연금)', company: '기아', date: t(2), fact: '「AutoLand 화성 기아 LW 프로젝트」 · 첫 현장 적용 2026-10-05' },
+    { id: 's1', tier: 'B', tool: 'kr_official', watch: '굴뚝 측정(공장 가동 신호)', company: '현대제철', date: t(3), fact: '현대제철㈜: 배출구 2개가 3번 연속 평소의 10% 아래' },
+    { id: 'l2', tier: 'B', tool: 'kr_official', watch: '지자체 고시·공고', company: '현대제철', date: '2026-10-25', fact: '당진시 공고 「현대제철㈜ 전기로 설치 관련 공유수면 점용」' },
+    { id: 'c1', tier: 'C', tool: 'kr_official', watch: '지자체 고시·공고', company: '포스코', date: '2026-10-25', fact: '포항시 고시 「영일만 산업단지」' },
+    { id: 'p1', tier: 'B', tool: 'kr_official', watch: '공장 부지 건축허가', company: '포스코', date: '2026-10-25', fact: '건축허가: 포스코 부지(경상북도 포항시)' },
+    { id: 'x1', tier: 'A', tool: 'us_recalls', watch: '미국 리콜', company: '기아', date: '2026-10-29', fact: '화성 공장 생산 차량 리콜' },
+    { id: 'n1', tier: 'B', tool: 'kr_official', watch: '공장등록·관보', company: '현대차', date: '2026-10-29', fact: '공장 등록 내용 변경(주소 없음)' }];
+  const g = convergence(items, { cut: Date.parse('2026-10-29T15:00:00Z') });
+  assert.deepEqual(g.map((x) => [x.company, x.place, x.watches.length, x.fresh]), [['기아', '화성', 3, true], ['현대제철', '당진', 2, true]]);
+  assert.ok(!g[0].items.some((x) => x.id === 'x1'));  // 미국 리콜은 장소 묶음 대상이 아님
+  assert.ok(!g.some((x) => x.company === '포스코'));  // C는 세지 않아 감시 한 곳뿐
+});
+
+test('radar_today shows converging signals above the tiers', async () => {
+  const env = PRIVATE().env;
+  const recent = new Date(Date.now() - 2 * 3600000).toISOString();
+  const older = new Date(Date.now() - 5 * 86400000).toISOString();
+  const post = (feed, doc) => worker.fetch(new Request(ORIGIN + `/ingest/${feed}`, { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {});
+  await post('kr-local', { schema: 'kr_local/v1', generatedAt: recent, checks: [], items: [
+    { id: 'local:화성시:1', city: '화성시', company: '기아', tier: 'A', title: '기아 오토랜드 화성 공장 증설 관련 도시관리계획 결정', date: older.slice(0, 10), firstSeen: older, url: 'https://e/1' }] });
+  await post('kr-workforce', { schema: 'kr_workforce/v1', generatedAt: recent, month: '202610', sites: [], projects: [], checks: [], events: [
+    { id: 'wf:proj:x', kind: '새 공사 현장', tier: 'A', company: '기아', month: '202610', detectedAt: recent, text: '「AutoLand 화성 기아 LW 프로젝트」 · 첫 현장 적용 2026-10-05' }] });
+  const r = await call('radar_today', {}, { path: `/mcp/${TOKEN}`, env });
+  assert.match(r.text, /\[겹친 신호 · 최근 14일 같은 출입처·같은 시군을 감시 여러 곳이 가리킴\] 1곳/);
+  assert.match(r.text, /- \[새 항목 포함\] 기아 · 화성 — 감시 2곳\((사업장 인력\(국민연금\), 지자체 고시·공고|지자체 고시·공고, 사업장 인력\(국민연금\))\)/);
+  assert.ok(r.text.indexOf('[겹친 신호') < r.text.indexOf('[A · '));
 });
 
 test('us_litigation shows party cases by priority, folds routine ones, and lists ITC 337 names', async () => {
