@@ -156,7 +156,8 @@ if __name__ == "__main__":
 
 class GroupsAndSuppliers(unittest.TestCase):
     def test_audi_recall_with_sk_battery_counts_for_a_vw_sk_on_article(self):
-        # 10-26 '[단독] 아우디, 미국서 Q4 e-트론 9048대 리콜…SK온 배터리 화재 우려'(회사 분류: SK온·폭스바겐) ← 레이더 10-21 NHTSA 26V698000
+        # 10-26 '[단독] 아우디, 미국서 Q4 e-트론 9048대 리콜…SK온 배터리 화재 우려'(회사 분류: SK온·폭스바겐)와 NHTSA 26V698000(접수 10-21).
+        # 가정: 레이더가 기사 전에 이 리콜을 봤다면(firstSeen은 가상 — 실제 감시는 10-28에 생겨 운영 판정 '없음'이 맞다) 회사가 이어져야 한다.
         trace = {"items": [{"articleId": "audi", "title": "[단독] 아우디, 미국서 Q4 e-트론 9048대 리콜…SK온 배터리 화재 우려 - 한국신용신문",
                             "published": "2026-10-26T10:17:00+09:00", "sourceName": "한국신용신문", "companies": ["SK온", "폭스바겐"]}]}
         docs = {"us-recalls": {"recalls": [{"id": "26V698000", "why": [{"name": "AUDI", "beat": "아우디"}], "models": "Q4 E-TRON",
