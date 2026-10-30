@@ -122,6 +122,25 @@ class StackTest(unittest.TestCase):
         self.assertEqual(len(gone), 1)
         self.assertIn("포항2공장 배출구 2번", gone[0]["text"])
 
+    def test_emission_standard_exceedance_B_then_sustained_A_and_new_episode(self):
+        # 같은 줄의 sox_exhst_perm_stdr_value(140)를 넘는 측정값: 처음 B, 다음 실행도 넘으면 A, 내려왔다 다시 넘으면 새 B
+        self.assertEqual(w.exceedances(row("x", "y", "1", T0, 150.0)), [("sox", 150.0, 140.0)])
+        self.assertEqual(w.exceedances({"sox_mesure_value": "9", "sox_exhst_perm_stdr_value": None, "nox_mesure_value": "-", "nox_exhst_perm_stdr_value": "0"}), [])
+        doc = series(2)
+        seq = [150.0, 160.0, 155.0, 30.0, 151.0]
+        kinds = []
+        for i, v in enumerate(seq):
+            t = T0 + dt.timedelta(hours=6 + 3 * i)
+            doc = w.run(CFG_SMALL, now=t + dt.timedelta(minutes=20), previous=doc, key="k", get=Api(world(t, dangjin=(v, 8.0, 0.1))), sleep=lambda s: None)
+            kinds.append([(e["kind"], e["tier"]) for e in doc["events"] if "배출허용기준" in e["kind"] and e["detectedAt"] == doc["generatedAt"]])
+        self.assertEqual(kinds, [[("배출허용기준 초과(측정값)", "B")], [("배출허용기준 초과 지속", "A")], [], [], [("배출허용기준 초과(측정값)", "B")]])
+        a = next(e for e in doc["events"] if e["kind"] == "배출허용기준 초과 지속")
+        self.assertIn("현대제철㈜ 배출구 1번 황산화물 측정값 160이 배출허용기준 140을 넘음(기준의 1.1배, 측정 2026-10-30 21:00)", a["text"])
+        self.assertIn("2026-10-30 18:00 측정부터 이 감시의 실행 2번 연속 초과(처음 150)", a["text"])
+        self.assertIn("초과 판정·행정처분은 한국환경공단·관할 지자체 확인", a["text"])
+        site = next(s for s in doc["sites"] if s["name"] == "현대제철㈜")
+        self.assertEqual([x["value"] for x in site["exceedLog"]], [150.0, 160.0, 155.0, 151.0])
+
     def test_failures_are_unconfirmed(self):
         doc = w.run(CFG_SMALL, now=T0, key="k", get=Api(world(T0), key_error=True), sleep=lambda s: None)
         self.assertEqual(doc["status"], "failed")

@@ -644,11 +644,15 @@ export async function stacksSection(ctx, q, days, limit) {
   }
   const young = sites.filter((s) => obsOf(s) < 6).length;
   if (young) out.push(`  (관측이 아직 6번이 안 된 사업장 ${young}곳 — 판단 전)`);
+  const KO = { tsp: '먼지', sox: '황산화물', nox: '질소산화물', hcl: '염화수소', hf: '불화수소', nh3: '암모니아', co: '일산화탄소' };
+  const over = sites.flatMap((s) => (s.exceedLog ?? []).map((x) => ({ ...x, site: s.name, company: s.company }))).sort((a, b) => String(b.at).localeCompare(String(a.at)));
+  out.push(`- 배출허용기준 넘은 측정값(이 감시가 본 것, 사업장마다 최근 20건) ${over.length}건${over.length ? '' : ' — 없음'}`);
+  for (const x of over.slice(0, limit)) out.push(`  ${x.at} · ${x.company} · ${x.site} 배출구 ${x.stack}번 ${KO[x.pollutant] ?? x.pollutant} ${x.value}(기준 ${x.limit})`);
   const from = new Date(ctx.now.getTime() - days * 86400000).toISOString();
   const ev = (doc.events ?? []).filter((e) => String(e.detectedAt) >= from && matches(q, e.company, e.site, e.text));
   out.push(`- 감지된 변화 · 최근 ${days}일 ${ev.length}건`);
   for (const e of ev.slice(0, limit)) out.push(`  ${e.tier} · ${String(e.detectedAt).slice(0, 16)} · ${e.kind} · ${e.company}: ${e.text}`);
-  out.push('   검증 상태: 한국환경공단 굴뚝 자동측정 실시간 값(자동)을 이 감시가 쌓은 이력. 배출구 이름·설비 종류 없음, 값 하락은 정지·정비·점검 중 무엇인지 모름 — 회사 확인 전 미확인');
+  out.push('   검증 상태: 한국환경공단 굴뚝 자동측정 실시간 값(자동)을 이 감시가 쌓은 이력. 배출구 이름·설비 종류 없음, 값 하락은 정지·정비·점검 중 무엇인지 모름 — 회사 확인 전 미확인. 기준 초과 값은 확정 전 실시간 값(측정기 점검·교정 가능) — 초과 판정·처분은 환경공단·지자체 확인');
   return out;
 }
 
