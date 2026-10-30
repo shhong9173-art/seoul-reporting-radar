@@ -114,11 +114,22 @@ class WorkforceTest(unittest.TestCase):
         # 10-30 실제 이름: 한 공사에 시공사·공종별 현장이 여럿 — 공사 이름으로 묶는다
         for n in ("(주)디투엔지니어링/일용/현대자동차 0-프로젝트 건설공사 중 일반전기공사(HOOK-UP조립)", "주식회사 디와이시/일용/현대자동차 0-프로젝트 건설공사",
                   "두양건축(주)/상용/현대자동차 0-프로젝트 건설공사 중 인테리어공사(2공구)", "（주）동영산업/일용/현대자동차 0-프로젝트 건설공사 / 철재창호"):
-            self.assertEqual(w.project_key(n, car), "현대자동차 0-프로젝트 건설공사", n)
+            self.assertEqual(w.project_key(n, car), "현대자동차 0-프로젝트", n)
+        kia = re.compile("(?<![가-힣])기아(?!대책|타이거즈|오토큐|현대특장)")
+        for n in ("A/일용/AutoLand 화성 기아 LW 프로젝트 부대토목공사 (차체공장)", "B/상용/AutoLand 화성 기아 LW 프로젝트중일반전기공사(프레스선진화)"):
+            self.assertEqual(w.project_key(n, kia), "AutoLand 화성 기아 LW 프로젝트", n)
+        self.assertEqual(w.project_key("C/일용/현대제철 당진 LNG 자가발전사업, 수처리 기계설치공사", steel), "현대제철 당진 LNG 자가발전사업")
+        posco = re.compile(next(c["word"] for c in json.loads(w.CONFIG.read_text(encoding="utf-8"))["companies"] if c["company"] == "포스코"))
+        self.assertTrue(posco.search("D/일용/포스코(광양)#1 전기로 신설_400톤 이상 크레인") and posco.search("E/일용/포스코광양제철소 3고로"))
+        self.assertFalse(posco.search("광양 포스코중타이에어솔루션 희귀가스공장 건설공사") or posco.search("포스코이앤씨/일용/아파트")
+                         or posco.search("포스코서리풀 업무복합시설"))
         self.assertEqual(w.project_key("더원종합건설 주식회사-(일용)현대자동차 인증중고차 군산센터 신축공사", car), "현대자동차 인증중고차 군산센터 신축공사")
         self.assertEqual(w.project_key("디씨티준오 주식회사/일용/23년 현대제철 1,2연주기 ASTC확대적용, 전기설치공사", steel), "현대제철 1,2연주기 ASTC확대적용, 전기설치공사")
         self.assertEqual(w.project_key("거명이앤씨(주)/일용/(기계공사)당진 현대제철 1고로 원료 집진설비 개선 PJT", steel), "당진 현대제철 1고로 원료 집진설비 개선 PJT")
-        self.assertEqual(w.project_tier("현대자동차 0-프로젝트 건설공사"), "A")
+        self.assertEqual(w.project_tier("현대자동차 0-프로젝트"), "A")
+        self.assertEqual(w.project_tier("현대제철:순천냉연공장 계근대 사무실 신축공사"), "B")
+        self.assertEqual(w.project_tier("포스코(광양)전기로 철도건널목 Smart CCTV 시스템 구축"), "B")
+        self.assertEqual(w.project_tier("대한전선(주) 당진해저케이블 2공장 신축공사"), "A")
         self.assertEqual(w.project_tier("현대제철 당진 전기로 신설공사 기계설치"), "A")
         self.assertEqual(w.project_tier("현대자동차 인증중고차 군산센터 신축공사"), "B")  # 서비스·판매 시설 신축은 공장 투자가 아님
         self.assertEqual(w.project_tier("현대자동차 남양연구소 기숙사 신축"), "B")

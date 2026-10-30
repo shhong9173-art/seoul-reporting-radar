@@ -43,7 +43,10 @@ HOUSING = re.compile(r"아파트|더샵|주택|재개발|재건축|오피스텔|
 INVEST = re.compile(r"신설|증설|신축|신공장|신규\s*(?:공장|라인|설비)|공장\s*건설|건설공사|구축|프로젝트|PJT|자가발전|발전소|발전사업", re.I)
 # 투자 낱말이 있어도 공장·설비 쪽이어야 A(대리점·서비스센터·기숙사·사옥 신축은 B)
 PLANT = re.compile(r"공장|제철소|제련소|라인|플랜트|프로젝트|PJT|설비|전기로|고로|공정|발전|배터리|전지|연구소|생산|사업장|단지|부지|소재|기지|터미널", re.I)
-SERVICE = re.compile(r"서비스|쎈터|센터|대리점|판매|전시장|사옥|기숙사|사택|휴게|식당|주차|인증중고차|체험관|홍보관")
+SERVICE = re.compile(r"서비스|쎈터|센터(?!\w*건설)|대리점|판매|전시장|사옥|기숙사|사택|휴게|식당|주차|인증중고차|체험관|홍보관|업무|복합시설|오피스|호텔|상가|"
+                     r"사무실|사무동|계근대|경비실|화장실|창고|CCTV|시스템|통신|전산|보안", re.I)
+# 공사 이름 끝: 첫 '프로젝트·PJT'(없으면 첫 '건설공사·사업') 뒤의 공종·공구 설명은 같은 공사로 본다
+PROJECT_END = re.compile(r"^(.*?(?:프로젝트|PJT))|^(.*?(?:건설공사|사업(?![소장])))", re.I)
 MAINT = re.compile(r"보수|개선|교체|정비|유지|철거|해체|청소|도장|단가|보강|이설|수리|점검|관리|용역|방수|조경|석면|폐기물|경비|미화|급식")
 CONSTRUCTION = re.compile(r"공사|설치|PJT|프로젝트|건설|구축|현장|신축|신설|증설", re.I)
 SPLIT = re.compile(r"/|-?\s*\((?:일용|상용)\)\s*")
@@ -140,7 +143,10 @@ def project_key(name, word_rx):
         return None
     seg = re.sub(r"\s+중\s+.*$|\s*[(（][^)）]*공구[)）]\s*$", "", seg)
     seg = re.sub(r"^(?:\[?\d{2,4}년\]?\s*|\d{4}\s+|\([^)]*공사\)\s*)+", "", seg)
-    return re.sub(r"\s+", " ", seg).strip(" ,-·") or None
+    m = PROJECT_END.match(seg)
+    if m:
+        seg = m.group(1) or m.group(2)
+    return re.sub(r"\s+", " ", seg).strip(" ,-·_") or None
 
 
 def project_tier(title):
@@ -254,7 +260,7 @@ def run(cfg, *, now, previous=None, api, clock=time.monotonic, budget=BUDGET_S):
                             title = project_key(name, word_rx)
                             if not title:
                                 continue
-                            key = f"{comp['company']}:{norm(title)}:{region[:2]}"
+                            key = f"{comp['company']}:{norm(title).lower()}:{region[:2]}"
                             if key in projects:  # 이미 아는 공사에 시공사·공종 현장이 하나 더
                                 pr = projects[key]
                                 pr["sites"] = pr.get("sites", 1) + 1
