@@ -6,6 +6,11 @@
 - 세계은행 조달 공고(Contract Award): 'Awarded Bidder(s)' 칸에 적힌 회사만. 탈락·평가 명단에 있는 이름은 버린다.
   (이라크·요르단·이집트·모로코 등 중동·북아프리카와 중앙아시아·남아시아 전력망 사업)
 - 바레인 입찰위원회 월간 낙찰 보고서(PDF): 새 달 보고서에서 출입처 영문명이 나온 줄만.
+- 대만 정부전자조달망(PCC) 결정 공고: g0v 공개 미러 API(pcc-api.openfun.app, 매일 갱신)에서 출입처 이름(영문·중문)으로 찾고,
+  공고의 득표·탈락 구분 칸(name_key)에서 '得標廠商'(낙찰자)으로 적힌 것만. 대만전력(台灣電力) 전선·광섬유지선 등
+  (10-30 탐침: LS Cable & System 2026-02 복합광섬유지선 NT$131,601,032, 2025-09 ZTACIR 품목 NT$276,084,986 등).
+  새로 본 공고는 상세(tender API)를 한 번 읽어 출입처 품목의 결정 금액·원산지·결정일을 붙인다. 링크는 g0v 열람기(공고 이력·원문 링크)와
+  대만 정부전자조달망 원문 주소(10-30 한국에서 열리지 않은 적 있음).
 - 결과는 기자 전용 저장소(overseas-awards)로만. 공개 로그는 건수만. 조회 실패는 0건이 아니다.
 
 다루지 않는 것: 사우디전력(SEC)·두바이수전력청(DEWA)·카타르 카라마·쿠웨이트 전력부 자체 조달(공개 낙찰 목록 없음 또는
@@ -69,7 +74,6 @@ COMPANIES = [
     ("현대모비스", r"\bhyundai\s+mobis", "Hyundai Mobis", None),
     ("현대로템", r"\bhyundai\s+rotem", "Hyundai Rotem", "Hyundai Rotem"),
     ("고려아연", r"\bkorea\s+zinc", "Korea Zinc", None),
-    ("풍산", r"\bpoongsan\b", None, None),
 ]
 COMPANY_RX = [(ko, re.compile(rx, re.I)) for ko, rx, _, _ in COMPANIES]
 KOREA_RX = re.compile(r"\bkorea\b(?!\s*,?\s*(?:democratic|dprk|north))|\bkor\b|republic\s+of\s+korea", re.I)
@@ -83,6 +87,7 @@ RULES = [
     "유럽 TED 공고는 계약 체결 뒤 몇 주~몇 달 늦게 올라온다 — '공고일'이 새것이어도 계약은 예전일 수 있다(계약일 칸 확인).",
     "현지 판매법인(예: 현대차 체코·기아 유럽) 낙찰은 본사 수주와 다르다. 이름 그대로 보고 판단.",
     "중동 걸프 전력회사(SEC·DEWA·카라마·쿠웨이트 전력부) 자체 조달은 공개 낙찰 목록이 없어 다루지 않는다.",
+    "대만 PCC는 g0v 공개 미러로 찾고 원문 링크는 대만 정부전자조달망이다. 금액은 대만달러(NT$). 공고 전체 금액은 다른 낙찰자 품목을 포함할 수 있어, 상세를 읽으면 출입처 품목 금액으로 바꾼다.",
 ]
 
 
@@ -118,6 +123,22 @@ def as_list(v):
     if v is None:
         return []
     return [str(x) for x in (v if isinstance(v, list) else [v])]
+
+
+def all_names(v):
+    """Winner names across every language key: TED lists some lots' winners only under the buyer's language."""
+    if isinstance(v, dict):
+        out = []
+        for val in v.values():
+            out += val if isinstance(val, list) else [val]
+        return [str(x) for x in out if x]
+    return as_list(v)
+
+
+# Rough EUR rates for the automaker-subsidiary threshold only (never shown).
+TO_EUR = {"EUR": 1, "CZK": 0.04, "PLN": 0.23, "HUF": 0.0025, "RON": 0.2, "BGN": 0.51, "SEK": 0.088, "DKK": 0.134, "NOK": 0.085,
+          "CHF": 1.05, "GBP": 1.17, "USD": 0.92, "ISK": 0.0066}
+LOCAL_FLEET_EUR = 10_000_000
 
 
 def money(value, cur):
@@ -173,10 +194,12 @@ def ted_items(rows):
         num = str(n.get("publication-number") or "")
         if not re.fullmatch(r"\d{1,9}-20\d{2}", num):
             continue
-        winners = [norm_space(w) for w in as_list(n.get("winner-name"))]
+        names = {}
+        for w in all_names(n.get("winner-name")):
+            names.setdefault(norm_space(w).lower(), norm_space(w))
+        uniq = sorted(names.values(), key=lambda w: (beat_of(w) is None, w))  # beat companies first
         countries = as_list(n.get("winner-country"))
         ids = as_list(n.get("winner-identifier"))
-        uniq = list(dict.fromkeys(winners))
         beat = [b for b in (beat_of(w) for w in uniq) if b]
         korean = beat or "KOR" in countries
         if not korean:
@@ -193,8 +216,8 @@ def ted_items(rows):
             "id": f"ted:{num}", "source": "EU TED", "published": str(n.get("publication-date") or "")[:10],
             "kind": "계약 변경" if typ == "can-modif" else "낙찰",
             "buyer": norm_space(" / ".join(dict.fromkeys(as_list(n.get("buyer-name")))))[:160],
-            "buyerCountry": bc[0] if bc else None, "winners": uniq[:6],
-            "winnerCountry": sorted(set(countries))[:4], "winnerIds": sorted(set(ids))[:4],
+            "buyerCountry": bc[0] if bc else None, "winners": uniq[:6], "winnerCount": len(uniq),
+            "winnerCountry": sorted(set(countries))[:4], "winnerIds": sorted(set(ids))[:2] if len(uniq) == 1 else [],
             "company": beat[0] if beat else None, "companies": sorted(set(beat)),
             "title": norm_space(" / ".join(dict.fromkeys(titles)))[:240], "value": value, "currency": cur,
             "concluded": concluded[-1] if concluded else None, "noticeType": typ,
@@ -458,15 +481,145 @@ def bahrain(previous_seen, *, get=None):
     return items, checks, seen[-60:]
 
 
+# ---------------------------------------------------------------- Taiwan PCC (g0v mirror of web.pcc.gov.tw)
+PCC_SEARCH = "https://pcc-api.openfun.app/api/searchbycompanyname"
+PCC_TENDER = "https://pcc-api.openfun.app/api/tender"
+PCC_OFFICIAL = "https://web.pcc.gov.tw/prkms/tender/common/noticeDate/redirectPublic?ds={date}&fn={fn}.xml"
+PCC_VIEWER = "https://openfunltd.github.io/pcc-viewer/tender.html?unit_id={unit}&job_number={job}"  # 10-30 브라우저로 열림 확인(공고 이력·원문 링크)
+PCC_SOURCE = "대만 정부조달(PCC)"
+# (출입처, 검색어) — 영문은 COMPANIES 규칙으로, 중문은 PCC_ZH로 출입처를 정한다. 'LS Electric'은 대만 지사가 중문 이름(韓商樂星電氣)으로 나온다.
+PCC_TERMS = [("LS전선", "LS Cable"), ("대한전선", "Taihan"), ("대한전선", "大韓電線"), ("LS일렉트릭", "樂星電氣"), ("LS일렉트릭", "LS Electric"),
+             ("LS일렉트릭", "LS Industrial"), ("HD현대일렉트릭", "Hyundai Electric"), ("효성중공업", "Hyosung"), ("효성중공업", "曉星"),
+             ("두산에너빌리티", "Doosan"), ("일진전기", "Iljin"), ("현대제철", "Hyundai Steel"), ("포스코", "POSCO"), ("한화솔루션", "Hanwha"),
+             ("세아제강", "SeAH"), ("한국전력", "KEPCO"), ("한국수력원자력", "Korea Hydro")]
+PCC_ZH = [("LS일렉트릭", re.compile(r"樂星電氣|樂星產電")), ("LS전선", re.compile(r"樂星電纜")), ("대한전선", re.compile(r"大韓電線")),
+          ("효성중공업", re.compile(r"韓商曉星|曉星重工")), ("HD현대일렉트릭", re.compile(r"現代電氣|現代電機能源")), ("현대로템", re.compile(r"現代樂鐵"))]
+PCC_TYPES = {"決標公告": "낙찰", "更正決標公告": "계약 변경"}  # 更正決標公告(낙찰 정정·변경)는 B
+WIN_KEY = re.compile(r"^決標品項:第(\d+)品項:得標廠商(\d+):得標廠商$")
+PCC_DETAIL_MAX = 12  # 실행당 새 공고 상세 읽기 상한
+
+
+def pcc_beat(name):
+    return beat_of(name) or next((ko for ko, rx in PCC_ZH if rx.search(str(name or ""))), None)
+
+
+def pcc_winners(rec):
+    """공고 회사 칸 가운데 낙찰자(得標廠商)로 적힌 이름. '未得標廠商'(탈락)은 뺀다."""
+    keys = (((rec.get("brief") or {}).get("companies") or {}).get("name_key")) or {}
+    return [n for n, ks in keys.items() if any(re.search(r"(?<!未)得標廠商\d*:得標廠商$", k) for k in (ks or []))]
+
+
+def roc_date(s):
+    m = re.match(r"^\s*(\d{2,3})/(\d{1,2})/(\d{1,2})", str(s or ""))
+    return f"{int(m.group(1)) + 1911:04d}-{int(m.group(2)):02d}-{int(m.group(3)):02d}" if m else None
+
+
+def twd(s):
+    t = re.sub(r"[^\d]", "", str(s or ""))
+    return int(t) if t else None
+
+
+def pcc_items(records, since_day):
+    out = []
+    for rec in records:
+        b = rec.get("brief") or {}
+        kind = PCC_TYPES.get(b.get("type"))
+        d = str(rec.get("date") or "")
+        if not kind or len(d) != 8:
+            continue
+        day = f"{d[:4]}-{d[4:6]}-{d[6:]}"
+        if day < since_day:
+            continue
+        winners = pcc_winners(rec)
+        beat_w = [w for w in winners if pcc_beat(w)]
+        if not beat_w:
+            continue  # 탈락 명단·이름만 나온 공고는 버림
+        beat = sorted({pcc_beat(w) for w in beat_w})
+        fn = str(rec.get("filename") or "")
+        out.append({
+            "id": f"pcc:{rec.get('unit_id')}:{rec.get('job_number')}:{fn}", "source": PCC_SOURCE, "published": day, "kind": kind,
+            "buyer": norm_space(rec.get("unit_name"))[:160], "buyerCountry": "TWN", "winners": beat_w[:6], "winnerCount": len(winners),
+            "winnerCountry": [], "winnerIds": [], "company": beat[0], "companies": beat, "title": norm_space(b.get("title"))[:240],
+            "value": rec.get("award_amount") or None, "currency": "TWD", "priceKind": "공고 전체 결정 금액(품목이 여럿이면 합계)" if rec.get("award_amount") else None,
+            "concluded": None, "noticeType": b.get("type"),
+            "url": PCC_VIEWER.format(unit=rec.get("unit_id"), job=rec.get("job_number")),
+            "official": PCC_OFFICIAL.format(date=d, fn=fn) if fn else None,
+            "tenderApi": rec.get("tender_api_url"), "unitId": rec.get("unit_id"), "jobNumber": rec.get("job_number"), "filename": fn,
+        })
+    return out
+
+
+def pcc_detail(item, *, get=None):
+    """새 공고 한 번: 출입처가 낙찰한 품목의 결정 금액·원산지, 결정일, 표적 분류."""
+    r = _get(get, PCC_TENDER, params={"unit_id": item.get("unitId"), "job_number": item.get("jobNumber")})
+    if r.status_code != 200:
+        raise RuntimeError(f"HTTP {r.status_code}")
+    rec = next((x for x in (r.json().get("records") or []) if str(x.get("filename")) == item.get("filename")), None)
+    if not rec:
+        raise RuntimeError("상세 없음")
+    det = rec.get("detail") or {}
+    lines, total = [], 0
+    for k, v in det.items():
+        m = WIN_KEY.match(k)
+        if not m or not pcc_beat(v):
+            continue
+        pre = k.rsplit(":", 1)[0]
+        amt = twd(det.get(pre + ":決標金額"))
+        origin = norm_space(det.get(pre + ":原產地國別:原產地國別"))
+        item_name = norm_space(det.get(f"決標品項:第{m.group(1)}品項:品項名稱"))
+        total += amt or 0
+        lines.append(f"{m.group(1)}번 품목{f' {item_name}' if item_name else ''} {v} NT${amt:,}" if amt else f"{m.group(1)}번 품목 {v} 금액 미기재")
+        if origin:
+            lines[-1] += f"(원산지 {origin})"
+    return {"lines": lines, "beatTotal": total or None, "concluded": roc_date(det.get("決標資料:決標日期")),
+            "category": norm_space(det.get("採購資料:標的分類"))[:80] or None}
+
+
+def pcc(since, previous_ids, *, get=None, sleep=time.sleep):
+    items, checks, since_day = {}, [], since.date().isoformat()
+    for ko, term in PCC_TERMS:
+        try:
+            r = _get(get, PCC_SEARCH, params={"query": term})
+            if r.status_code != 200:
+                raise RuntimeError(f"HTTP {r.status_code}")
+            recs = r.json().get("records")
+            if not isinstance(recs, list):
+                raise RuntimeError("응답 형식 미상")
+            got = pcc_items(recs, since_day)
+            for it in got:
+                items.setdefault(it["id"], it)
+            checks.append({"source": PCC_SOURCE, "query": f"{ko}({term})", "status": "ok", "returned": len(recs), "matched": len(got)})
+        except Exception as e:  # noqa: BLE001
+            checks.append({"source": PCC_SOURCE, "query": f"{ko}({term})", "status": "failed", "error": str(e)[:80] or type(e).__name__})
+        sleep(1)
+    read = 0
+    for it in sorted(items.values(), key=lambda x: x["published"], reverse=True):
+        if it["id"] in previous_ids or read >= PCC_DETAIL_MAX:
+            continue
+        read += 1
+        try:
+            d = pcc_detail(it, get=get)
+            if d["lines"]:
+                it["title"] = f"{it['title']} — {' · '.join(d['lines'])}"[:400]
+            if d["beatTotal"]:
+                it["value"], it["priceKind"] = d["beatTotal"], "출입처 낙찰 품목 결정 금액 합"
+            it["concluded"], it["category"] = d["concluded"], d["category"]
+        except Exception as e:  # noqa: BLE001 — 상세 실패는 목록 값만 남긴다
+            it["detailError"] = str(e)[:60] or type(e).__name__
+        sleep(1)
+    return list(items.values()), checks
+
+
 # ---------------------------------------------------------------- run
 def tier_of(it):
     if not it.get("company"):
         return "C"
     if it.get("kind") == "계약 변경" or it.get("source") == "바레인 입찰위원회":
         return "B"
-    # 완성차 현지 판매법인(예: Hyundai Motor Czech)의 관용차 납품은 본사 수주가 아니다.
+    # 완성차 현지 판매법인(예: Hyundai Motor Czech)의 관용차 납품은 본사 수주가 아니다. 큰 물량(약 1천만 유로 이상)만 B.
     if it["company"] in AUTOMAKERS and "KOR" not in (it.get("winnerCountry") or []) and not KOREA_RX.search(" ".join(it.get("winnerCountry") or [])):
-        return "B"
+        eur = (it.get("value") or 0) * TO_EUR.get(it.get("currency") or "", 0)
+        return "B" if eur >= LOCAL_FLEET_EUR else "C"
     return "A"
 
 
@@ -492,6 +645,17 @@ def run(*, now, previous=None, get=None, post=None, sleep=time.sleep):
     bh_got, bh_checks, bh_seen = bahrain((previous or {}).get("bahrainSeen"), get=get)
     found += bh_got
     checks += bh_checks
+    known = {x.get("id") for x in (previous or {}).get("items") or [] if isinstance(x, dict)}
+    pcc_got, pcc_checks = pcc(since, known, get=get, sleep=sleep)
+    old_by = {x.get("id"): x for x in (previous or {}).get("items") or [] if isinstance(x, dict)}
+    for it in pcc_got:  # 상세는 처음 볼 때만 읽으니, 다시 잡힌 공고는 저장된 상세(금액·결정일)를 그대로 쓴다
+        o = old_by.get(it["id"])
+        if o:
+            for k in ("title", "value", "priceKind", "concluded", "category", "detailError"):
+                if k in o:
+                    it[k] = o[k]
+    found += pcc_got
+    checks += pcc_checks
     old = {x["id"]: x for x in (previous or {}).get("items") or []}
     items = dict(old)
     for it in found:
@@ -501,9 +665,15 @@ def run(*, now, previous=None, get=None, post=None, sleep=time.sleep):
         it["isNew"] = not prev and not baseline
         it["tier"] = tier_of(it)
         items[it["id"]] = it
+    found_ids = {i["id"] for i in found}
     for k, x in list(items.items()):
-        if k not in {i["id"] for i in found}:
+        if k not in found_ids:
             x["isNew"] = False
+            # stored items follow the current name and tier rules (e.g. a company dropped from the beat list)
+            if x.get("source") != "바레인 입찰위원회":
+                beat = sorted({b for b in ((pcc_beat if x.get("source") == PCC_SOURCE else beat_of)(w) for w in x.get("winners") or []) if b})
+                x["company"], x["companies"] = (beat[0] if beat else None), beat
+            x["tier"] = tier_of(x)
     cut = (now - dt.timedelta(days=KEEP_DAYS)).date().isoformat()
     kept = [x for x in items.values() if str(x.get("published") or x.get("firstSeen"))[:10] >= cut]
     kept.sort(key=lambda x: (str(x.get("published") or x["firstSeen"][:10]), x["id"]), reverse=True)
@@ -514,7 +684,7 @@ def run(*, now, previous=None, get=None, post=None, sleep=time.sleep):
         "lastSuccess": stamp if status != "failed" else (previous or {}).get("lastSuccess"),
         "baselineSince": (previous or {}).get("baselineSince") or stamp, "windowStart": since.date().isoformat(),
         "checks": checks, "items": kept[:KEEP_MAX], "bahrainSeen": bh_seen, "rules": RULES,
-        "coverage": "EU TED(유럽 공공·유틸리티) · 영국 Find a Tender · 세계은행 낙찰 공고 · 바레인 입찰위원회 월간 낙찰 보고서",
+        "coverage": "EU TED(유럽 공공·유틸리티) · 영국 Find a Tender · 세계은행 낙찰 공고 · 바레인 입찰위원회 월간 낙찰 보고서 · 대만 정부조달(PCC)",
     }
 
 
