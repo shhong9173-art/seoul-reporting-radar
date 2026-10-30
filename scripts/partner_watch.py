@@ -31,7 +31,10 @@ BROWSER = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, 
 SEC_UA = os.environ.get("SEC_USER_AGENT", "").strip() or "seoul-reporting-radar research (github.com/shhong9173-art/seoul-reporting-radar)"
 FORMS = "8-K,6-K,10-Q,10-K,20-F,40-F,S-1,F-1,424B4,DEF 14A"
 # Name used in an unrelated sense (first real run, 10/26: 'POSCO Center' building address in a Beijing proxy statement).
-UNRELATED = {"POSCO": re.compile(r"POSCO\s+(?:Center|Centre|Tower|Plaza|E&C\s+Tower)", re.I)}
+UNRELATED = {"POSCO": re.compile(r"POSCO\s+(?:Center|Centre|Tower|Plaza|E&C\s+Tower)", re.I),
+             # EDGAR 전문 검색은 대소문자를 가리지 않아 말레이시아·싱가포르 성씨 'Seah'도 걸린다(10-29 Global Engine Group 20-F → '세아' A).
+             # 세아는 'SeAH'로만 쓴다 — 다른 대소문자 'Seah·SEAH'는 무관한 뜻으로 센다.
+             "SeAH": re.compile(r"\b(?!SeAH\b)[Ss][Ee][Aa][Hh]\b")}
 # EDGAR hits that name a beat company without any dealing with it (첫 실운영 10/27: 미국 보험사 투자 보유 표의
 # 'Top Ten Exposures by Issuer … Hyundai Motor Company', KT 분기 재무제표 주석의 기존 지분 약정 문구).
 HOLDINGS = re.compile(r"top\s+(?:ten|10)\s+(?:exposures|holdings|issuers)|exposures?\s+by\s+issuer|fixed\s+maturit|schedule\s+of\s+investments|"
@@ -294,7 +297,7 @@ def run(cfg, *, now, previous=None, get=None, sleep=time.sleep, snippet_budget=2
             it["noise"] = "출입처 이름이 무관한 뜻(건물 주소 등)으로만 쓰임"
             continue
         for ph in related:
-            sn = snippet(re.sub(UNRELATED[ph].pattern, " ", text, flags=re.I) if ph in UNRELATED else text, ph)
+            sn = snippet(UNRELATED[ph].sub(" ", text) if ph in UNRELATED else text, ph)
             if sn:
                 it["snippet"] = sn[:700]
                 break
