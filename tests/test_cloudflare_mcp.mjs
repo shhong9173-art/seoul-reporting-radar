@@ -1853,7 +1853,8 @@ test('overseas awards: a Bahrain opened bid is a bid, not an award — lowest bi
     url: 'https://www.tenderboard.gov.bh/OpenedTenderDetails/?id=4669%2f2025%2f5100&source=New&envelope=PB&type=1',
     firstSeen: '2026-10-25T17:30:00+09:00', isNew: true, baseline: false, tier: 'A', ...extra });
   const doc = { schema: 'overseas_awards/v1', generatedAt: '2026-10-25T17:30:00+09:00', status: 'complete', coverage: 'EU TED · 바레인 입찰위원회 월간 낙찰 보고서·개찰 결과',
-    checks: [{ source: '바레인 입찰위원회 개찰', query: '개찰 결과(응찰 회사·응찰가)', status: 'ok', returned: 40, matched: 3 }], rules: [],
+    checks: [{ source: '바레인 입찰위원회 개찰', query: '개찰 결과(응찰 회사·응찰가)', status: 'ok', returned: 40, matched: 3,
+      note: '목록 40건(개찰 2026-10-01~2026-10-25) · 새 개찰 3 · 상세 3' }], rules: [],
     items: [b('bhopen:9001:일진전기'),
       b('bhopen:9001:LS전선', { company: 'LS전선', companies: ['LS전선'], bidder: 'LS CABLE AND SYSTEM LTD', value: 46659985.55, rank: 3, lowest: false, tier: 'B',
         lowestBid: { name: 'ILJIN ELECTRIC', value: 35004118.33 } }),
@@ -1868,6 +1869,7 @@ test('overseas awards: a Bahrain opened bid is a bid, not an award — lowest bi
   const t = await call('partner_filings', { company: '일진' }, opts);
   assert.match(t.text, /\[신규\] 2026-10-25 · 바레인 입찰위원회 개찰 개찰\(응찰\) · 일진전기 · 발주 Electricity and Water Authority \(Planning\)\(BHR\)\n   잡힌 사실: 응찰 ILJIN ELECTRIC BHD 35,004,118\.33 · 상태 Accepted · 응찰가 1위\/3곳\(최저가\) · 응찰 3곳 · 다른 응찰 TAIHAN ELECTRIC WIRE CO LTD BHD 45,648,300 \/ LS CABLE AND SYSTEM LTD BHD 46,659,985\.55/);
   assert.match(t.text, /검증 상태: 입찰위원회 개찰 결과\(응찰가 공개\) — 낙찰 아님/);
+  assert.match(t.text, /\n범위: 바레인 입찰위원회 개찰 — 목록 40건\(개찰 2026-10-01~2026-10-25\) · 새 개찰 3 · 상세 3\n/);
   const all = await call('partner_filings', {}, opts);
   assert.match(all.text, /2026-09-01 · 바레인 입찰위원회 개찰 개찰\(응찰\) · LS일렉트릭[^\n]*\n   잡힌 사실: 응찰 LS ELECTRIC CO\., LTD\. 응찰가 미공개 · 상태 Accepted · 응찰가 순위 없음/);
   const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();

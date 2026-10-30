@@ -85,6 +85,7 @@ async function awardSection(ctx, q, onlyNew, limit) {
     b.all += 1;
     if (c.status === 'failed') b.failed.push(`${c.query}(${c.error ?? '실패'})`); else b.ok += 1;
     if (c.note && /미확인/.test(c.note)) b.failed.push(`${c.query}(${c.note})`);
+    else if (c.note && c.source === '바레인 입찰위원회 개찰') b.scope = c.note;  // 읽은 개찰 범위(0건이 어디까지인지)
   }
   const from = new Date(ctx.now.getTime() - AWARD_DAYS * 86400000).toISOString().slice(0, 10);
   const all = (doc.items ?? []).filter((x) => String(x.published ?? x.firstSeen).slice(0, 10) >= from && (!onlyNew || x.isNew)
@@ -95,6 +96,7 @@ async function awardSection(ctx, q, onlyNew, limit) {
   const others = all.length - rows.length;
   const out = [`\n[해외 발주처 낙찰 · ${doc.coverage ?? 'EU TED·영국 FTS·세계은행·바레인'} · 공고 최근 ${AWARD_DAYS}일] 출입처 ${rows.length}건${others ? ` · 출입처 밖 한국 기업 ${others}건(company 낱말로 보기)` : ''} · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt)}`,
     `원천: ${Object.entries(by).map(([k, b]) => `${k} ${b.ok}/${b.all} 정상${b.failed.length ? `(미확인: ${b.failed.slice(0, 3).join(', ')})` : ''}`).join(' · ')}`,
+    ...Object.entries(by).filter(([, b]) => b.scope).map(([k, b]) => `범위: ${k} — ${b.scope}`),
     ...(doc.rules ?? []).map((r) => `규칙: ${r}`)];
   for (const x of rows.slice(0, limit)) {
     const value = x.value ? `${x.currency ?? ''} ${Number(x.value).toLocaleString('en-US', { maximumFractionDigits: 0 })}` : '금액 미기재';
