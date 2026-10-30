@@ -19,10 +19,10 @@ GRID = re.compile(r"400\s*kv|220\s*kv|132\s*kv|66\s*kv|cable|transmission|substa
 
 def rows_of(frag):
     out = []
-    for m in re.finditer(r"<div class='rows'>(.*?)(?=<div class='rows'>|$)", frag, re.S):
+    for m in re.finditer(r"""<div class=['"]rows['"][^>]*>(.*?)(?=<div class=['"]rows['"]|</Content>|$)""", frag, re.S):
         block = m.group(1)
-        href = re.search(r"href='([^']+)'", block)
-        cols = [html.unescape(re.sub(r"<[^>]+>", " ", c)).strip() for c in re.findall(r"<div class='column'[^>]*>(.*?)</div>", block, re.S)]
+        href = re.search(r"""href=['"]([^'"]+)['"]""", block)
+        cols = [html.unescape(re.sub(r"<[^>]+>", " ", c)).strip() for c in re.findall(r"""<div class=['"]column['"][^>]*>(.*?)</div>""", block, re.S)]
         out.append({"href": html.unescape(href.group(1)) if href else None, "cols": [re.sub(r"\s+", " ", c) for c in cols]})
     return out
 
@@ -32,7 +32,7 @@ out.append(f"GetOpenedTender rows {len(rows_of(f0))} raw rows-tag count {f0.coun
 rf = S.post(w.BH_SITE + "/Templates/TenderBoardWebService.aspx/GetOpenedTenderF", data=json.dumps({"tenderNumber": "", "ministry": "", "category": "0", "tendertype": "0", "openedDate_filter": "", "endDate_filter": "", "sortingType": "0", "pageIndex": "2", "sectionName": ""}), headers=H, timeout=60)
 out.append(f"F raw HTTP {rf.status_code} len {len(rf.text)}: {rf.text[:500]}")
 allrows = rows_of(f0)
-for page in range(2, 41):
+for page in range(1, 61):
     payload = {"tenderNumber": "", "ministry": "", "category": "0", "tendertype": "0", "openedDate_filter": "", "endDate_filter": "",
                "sortingType": "0", "pageIndex": str(page), "sectionName": ""}
     try:
@@ -52,14 +52,17 @@ for page in range(2, 41):
 out.append(f"total rows {len(allrows)}; dates first/last: {allrows[0]['cols'][3:4] if allrows else ''} / {allrows[-1]['cols'][3:4] if allrows else ''}")
 grid = [x for x in allrows if GRID.search(" ".join(x["cols"]))]
 out.append(f"grid-like rows {len(grid)}: " + " || ".join(" | ".join(x["cols"][1:5]) for x in grid[:25]))
-for x in grid[:8]:
+for x in grid[:10]:
     if not x["href"]:
         continue
     try:
         d = S.get(w.BH_SITE + x["href"].replace(" ", "%20"), timeout=60).text
         text = re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", re.sub(r"(?is)<(script|style)[^>]*>.*?</\1>", " ", d))))
-        i = text.find("Bidder") if "Bidder" in text else text.find("Company")
-        out.append(f"\n-- detail {x['cols'][1][:60]} len {len(d)} kr {bool(KR.search(text))}: " + text[max(0, i - 200): i + 1400])
+        i = max(text.find("Bidder"), text.find("Company"), text.find("Supplier"), 0)
+        k = KR.search(text)
+        out.append(f"\n-- detail {x['cols'][1][:60]} | {x['cols'][3:5]} len {len(d)} kr {bool(k)}: " + text[max(0, i - 200): i + 1200])
+        if k:
+            out.append("   KR ctx: " + text[max(0, k.start() - 300): k.start() + 300])
         time.sleep(0.5)
     except Exception as e:  # noqa: BLE001
         out.append(f"detail error {type(e).__name__}")
