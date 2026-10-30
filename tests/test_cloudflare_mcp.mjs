@@ -1294,7 +1294,8 @@ test('kr_stats carsales: latest-month signals A first, model months on query, ra
   const doc = { schema: 'kr_stats/v1', generatedAt: '2026-11-16T07:30:00+09:00', checks: [{ source: '완성차 판매(현대차·기아 IR)', status: 'ok', ok: 8, failed: 0, latest: '현대차 모델 2026-10' }],
     rules: [], series: [], kaidaMonths: {}, kaida: {},
     carSales: { latest: { 'hmc:model': '2026-10', 'hmc:plant': '2026-10', 'kia:model': '2026-08' },
-      files: { a: { maker: 'hmc', kind: 'model', year: 2026, latest: '2026-10', lastModified: 'Fri, 13 Nov 2026 11:28:08 GMT' } },
+      files: { a: { maker: 'hmc', kind: 'model', year: 2026, latest: '2026-10', lastModified: 'Fri, 13 Nov 2026 11:28:08 GMT' },
+        b: { maker: 'hmc', kind: 'model', year: 2025, latest: '2025-12', lastModified: 'Mon, 26 Jan 2026 06:37:47 GMT' } },
       rules: ['현대차·기아 IR 엑셀(회사 발표 잠정치).'],
       signals: [sig('B', '급감', 'Sonata (DN8)', '국내 판매', '현대차 국내 판매 · Sonata (DN8) 2026-10 400대 — 직전 3개월 평균 2,198대의 18%, 전년 같은 달 2,500대(16%)'),
         sig('A', '판매 끊김', 'Santa-Fe (MX5a)', '미국 앨라배마 공장 현지 판매', '현대차 미국 앨라배마 공장 현지 판매 · Santa-Fe (MX5a) 2026-10 100대 — 직전 3개월 평균 7,526대, 전년 같은 달 7,000대. 판매(출고)가 거의 끊김')],
@@ -1312,7 +1313,8 @@ test('kr_stats carsales: latest-month signals A first, model months on query, ra
   assert.match(k.text, /\[완성차 모델별·공장별 판매 · 현대차·기아 IR 엑셀\] 최신 현대차 모델별\(국내 판매·국내 공장 수출\) 2026-10 · 현대차 해외 공장별 2026-10 · 기아 모델별\(국내 판매·국내 공장 수출\) 2026-08/);
   assert.match(k.text, /최신 달 신호 2건\(A 먼저\):\n   - B · 급감: 현대차 국내 판매 · Sonata/);  // 저장 순서 그대로(수집기가 A 먼저 정렬)
   assert.doesNotMatch(k.text, /계열 \d+개/);  // 낱말 없이 부르면 계열 값은 안 펼침
-  assert.match(k.text, /현대차 모델별\(국내 판매·국내 공장 수출\) 엑셀 최종수정 Fri, 13 Nov 2026/);
+  assert.match(k.text, /현대차 모델별\(국내 판매·국내 공장 수출\) 엑셀 최종수정 Fri, 13 Nov 2026/);  // 지난해 파일(Mon, 26 Jan)이 아니라 최신 달 파일
+  assert.doesNotMatch(k.text, /26 Jan 2026/);
   assert.doesNotMatch(k.text, /\[수입 승용차|\[물가지수/);
   assert.match(k.text, /다음: 신호가 있으면 IR 엑셀 원본에서/);
   const q = await call('kr_stats', { section: 'carsales', company: 'Sonata' }, opts);

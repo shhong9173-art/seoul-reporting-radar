@@ -895,7 +895,8 @@ export async function krStats(ctx, args) {
     const cs = doc.carSales ?? {};
     const name = { 'hmc:model': '현대차 모델별(국내 판매·국내 공장 수출)', 'hmc:plant': '현대차 해외 공장별', 'kia:model': '기아 모델별(국내 판매·국내 공장 수출)', 'kia:plant': '기아 해외 공장별 출고' };
     const files = Object.values(cs.files ?? {});
-    const lm = (key) => files.filter((f) => `${f.maker}:${f.kind}` === key).map((f) => f.lastModified).filter(Boolean).sort().pop();
+    // 최신 달을 실은 파일(올해 파일)의 최종수정 — Last-Modified 문자열은 요일로 시작해 정렬로 고르면 안 된다
+    const lm = (key) => files.find((f) => `${f.maker}:${f.kind}` === key && f.latest === (cs.latest ?? {})[key])?.lastModified;
     out.push(`\n[완성차 모델별·공장별 판매 · 현대차·기아 IR 엑셀] 최신 ${Object.entries(cs.latest ?? {}).map(([k, v]) => `${name[k] ?? k} ${v}`).join(' · ') || '없음(아직 수집 전)'}`);
     for (const r of cs.rules ?? []) out.push(`   규칙: ${r}`);
     const sig = (cs.signals ?? []).filter((x) => matches(q, x.maker, x.label, x.scope, x.text));
