@@ -1,4 +1,5 @@
-"""국내 월간 통계 감시: 한국은행 ECOS 품목별 물가지수, KOSIS(철강협회 철강 생산·광공업동향 품목), KAIDA 수입 승용차 브랜드별 신규등록.
+"""국내 월간 통계 감시: 한국은행 ECOS 품목별 물가지수, KOSIS(철강협회 철강 생산·광공업동향 품목), KAIDA 수입 승용차 브랜드별 신규등록,
+현대차·기아 IR 모델별·해외 공장별 월간 판매 엑셀(carsales.py).
 
 - 같은 계열(같은 품목·같은 지수 기준·같은 단위) 안에서만 비교한다. 지수 기준(2020=100, 2022.12=100)이 다른 품목끼리 비교하지 않는다.
 - 새 달 수치가 처음 보이면 그 달 기준으로 신호를 만든다: '그 달(값) 이후 최고/최저 — N개월 만'(12개월 이상), 전년 같은 달 대비 큰 변동,
@@ -44,7 +45,7 @@ class Http:
             session = requests.Session()
         self.s, self.sleep, self.gap = session, sleep, gap
 
-    def call(self, method, url, *, timeout=40, **kw):
+    def call(self, method, url, *, timeout=40, ok=(200,), **kw):
         kw.setdefault("headers", UA)
         for attempt in (1, 2):
             try:
@@ -56,7 +57,7 @@ class Http:
                     continue
                 return None, type(e).__name__
             self.sleep(self.gap)
-            if r.status_code != 200:
+            if r.status_code not in ok:
                 return None, f"HTTP {r.status_code}"
             return r, None
         return None, "error"
@@ -283,7 +284,7 @@ def kaida_signals(months, cfg, rules):
 
 # ---------- run ----------
 
-def run(cfg, *, now, previous=None, http=None, ecos_key="", kosis_key="", census_key=""):
+def run(cfg, *, now, previous=None, http=None, ecos_key="", kosis_key="", census_key="", car_sales=True):
     http = http or Http()
     stamp = now.isoformat(timespec="seconds")
     rules = cfg.get("signals", {})
@@ -344,11 +345,24 @@ def run(cfg, *, now, previous=None, http=None, ecos_key="", kosis_key="", census
                 events.append({"id": eid, "kind": "수입차 등록", "signal": x["kind"], "top": x.get("top", False), "period": latest,
                                "company": cfg["kaida"]["beats"].get(x["brand"], x["brand"]), "detectedAt": stamp, "text": f"KAIDA {latest} · {x['text']}"})
                 have.add(eid)
+    cars, car_events = (previous or {}).get("carSales") or {}, []
+    if car_sales:
+        import carsales
+        try:
+            cars, car_events, ccheck = carsales.collect(cars, now, http, baseline=baseline)
+        except Exception as e:  # noqa: BLE001 — 판매 엑셀 실패가 다른 통계를 막지 않게(직전 블록 유지, 미확인)
+            ccheck = {"source": "완성차 판매(현대차·기아 IR)", "status": "failed", "ok": 0, "failed": 1, "error": f"{type(e).__name__}: {str(e)[:80]}"}
+        checks.append(ccheck)
+    for e in car_events:
+        if e["id"] not in have:
+            events.append(e)
+            have.add(e["id"])
     events.sort(key=lambda e: e["detectedAt"], reverse=True)
     failed = [c for c in checks if c["status"] not in ("ok", "unset")]
     return {"schema": SCHEMA, "generatedAt": stamp, "status": "partial" if failed else "complete", "checks": checks,
             "baselineSince": (previous or {}).get("baselineSince") or stamp, "series": series, "kaidaMonths": months,
             "kaida": {"period": latest, "total": months[latest]["total"] if latest else None, "brands": brands, "signals": ksig},
+            "carSales": cars,
             "events": events[:600],
             "rules": ["같은 품목·같은 지수 기준·같은 단위 안에서만 비교한다. 지수는 수준이 아니라 기준 시점 대비 변화다.",
                       "'그 달 이후 최고·최저'는 조회 범위(설정 시작월 이후) 안의 사실이다. '역대'는 원 통계표 전체 이력으로 따로 확인한다.",
@@ -386,7 +400,7 @@ def main():
     if not token:
         print("::warning title=kr-stats-push::MCP_ACCESS_TOKEN 미설정 — 결과를 저장하지 않음")
         return
-    if not doc["series"] and not doc["kaidaMonths"]:
+    if not doc["series"] and not doc["kaidaMonths"] and not (doc.get("carSales") or {}).get("series"):
         sys.exit("모든 질의 실패 — 이전 결과 유지(0건 아님)")
     status = private_store.put("kr-stats", doc, token)
     print(f"::notice title=kr-stats-push::기자 전용 저장소 전송 HTTP {status}")
