@@ -11,7 +11,7 @@ import { publicationDate, verifyEvidence } from '../cloudflare/evidence.mjs';
 import { allowedUrl } from '../cloudflare/live_tools.mjs';
 import { handleIngest } from '../cloudflare/screen.mjs';
 import { dueAt, nextSlot, runSchedule } from '../cloudflare/dispatch.mjs';
-import { convergence, hint, radarItems } from '../cloudflare/digest.mjs';
+import { background, convergence, hint, radarItems } from '../cloudflare/digest.mjs';
 
 const ORIGIN = 'https://seoul-reporting-radar.shhong9173.workers.dev';
 const TOKEN = 'test-token-0123456789abcdef';
@@ -837,6 +837,23 @@ test('converging signals: same beat company and same city from two or more watch
   assert.deepEqual(g.map((x) => [x.company, x.place, x.watches.length, x.fresh]), [['기아', '화성', 3, true], ['현대제철', '당진', 2, true]]);
   assert.ok(!g[0].items.some((x) => x.id === 'x1'));  // 미국 리콜은 장소 묶음 대상이 아님
   assert.ok(!g.some((x) => x.company === '포스코'));  // C는 세지 않아 감시 한 곳뿐
+});
+
+test('converging signals: background (workforce project, recent permit, stopped stack) joins a fresh item but never forms a group alone', () => {
+  const now = Date.parse('2026-10-30T03:00:00Z');
+  const docs = {
+    'kr-workforce': { projects: [{ id: 'p1', company: '기아', title: 'AutoLand 화성 기아 LW 프로젝트', sites: 46, tier: 'A', firstSeen: '2026-10-30T09:43:00+09:00' },
+      { id: 'p2', company: '현대제철', title: '현대제철 당진 유틸리티설비 증설공사', sites: 3, tier: 'A', firstSeen: '2026-10-30T09:43:00+09:00' }] },
+    'kr-building': { permits: [{ id: 'bd1', company: '현대제철', kind: '새 허가', tier: 'B', permitted: '2026-09-22', plot: '전남광주통합특별시 순천시 해룡면 신성리 897번지', archGbCdNm: '신축' }] },
+    'kr-stacks': { generatedAt: '2026-10-30T12:20:00+09:00', sites: [{ id: 's1', company: '현대제철', name: '현대제철㈜', stopped: ['1', '2'], meaningful: 60 }] } };
+  const bg = background(docs, now);
+  assert.equal(bg.length, 4);
+  const fresh = [{ id: 'l1', tier: 'A', tool: 'kr_official', watch: '지자체 고시·공고', company: '기아', date: '2026-10-29', fact: '화성시 고시 「기아 오토랜드 화성 PBV 2공장」' }];
+  const g = convergence([...fresh, ...bg], { cut: Date.parse('2026-10-29T03:00:00Z') });  // 10-29 12:00 KST(24시간 창)
+  assert.deepEqual(g.map((x) => [x.company, x.place, x.watches.length, x.fresh]), [['기아', '화성', 2, true]]);
+  assert.equal(convergence([...fresh, ...bg], { cut: Date.parse('2026-10-29T15:00:00Z') })[0].fresh, false);  // 10-30 00:00 KST부터면 10-29 공고는 새 항목 아님
+  // 당진: 공사 현장 + 멈춘 굴뚝은 둘 다 배경이라 묶지 않는다
+  assert.ok(!g.some((x) => x.place === '당진'));
 });
 
 test('radar_today shows converging signals above the tiers', async () => {
