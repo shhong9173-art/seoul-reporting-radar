@@ -213,5 +213,16 @@ class StackTest(unittest.TestCase):
         self.assertEqual(next(s for s in doc["sites"] if s["name"] == "㈜영풍석포제련소").get("missingRuns", 0), 0)  # 검색 실패는 빠짐이 아님
 
 
+class GatewayRetry(unittest.TestCase):
+    def test_gateway_timeout_retried_once(self):
+        timeout = R(200, '{"OpenAPI_ServiceResponse":{"cmmMsgHeader":{"returnReasonCode":"05"}}}')
+        ok = R(200, json.dumps({"response": {"header": {"resultCode": "00"}, "body": {"items": []}}}))
+        replies = [timeout, ok]
+        w.fetch("고려아연", "k", get=lambda *a, **k: replies.pop(0), sleep=lambda s: None)
+        self.assertEqual(replies, [])
+        with self.assertRaisesRegex(w.ApiError, "코드 30"):
+            w.fetch("고려아연", "k", get=lambda *a, **k: R(403, '{"OpenAPI_ServiceResponse":{"cmmMsgHeader":{"returnReasonCode":"30"}}}'), sleep=lambda s: None)
+
+
 if __name__ == "__main__":
     unittest.main()

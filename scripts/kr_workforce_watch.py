@@ -52,6 +52,9 @@ CONSTRUCTION = re.compile(r"공사|설치|PJT|프로젝트|건설|구축|현장|
 SPLIT = re.compile(r"/|-?\s*\((?:일용|상용)\)\s*")
 
 
+# 공공데이터포털 게이트웨이 코드 중 일시 오류: 04 HTTP_ERROR, 05 SERVICE_TIMEOUT_ERROR. 키·권한·한도(20·22·30 등)는 다시 부르지 않는다.
+TRANSIENT_GATEWAY = {"04", "05"}
+
 class ApiError(RuntimeError):
     pass
 
@@ -79,6 +82,9 @@ class Api:
                 continue
             text = r.text or ""
             code = re.search(r'"returnReasonCode"\s*:\s*"?(\d+)', text)
+            if code and code.group(1) in TRANSIENT_GATEWAY:  # 게이트웨이 시간 초과·연결 오류(10-30 '코드 05'): 한 번 더
+                err = f"코드 {code.group(1)}"
+                continue
             if code:  # 게이트웨이 오류(키 미등록·한도 초과 등): 다시 불러도 같다
                 raise ApiError(f"코드 {code.group(1)}")
             if r.status_code != 200:

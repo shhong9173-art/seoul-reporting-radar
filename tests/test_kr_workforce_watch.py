@@ -217,5 +217,29 @@ class WorkforceTest(unittest.TestCase):
         self.assertEqual(doc["scanStatus"], "complete")
 
 
+
+class GatewayRetry(unittest.TestCase):
+    def test_gateway_timeout_is_retried_once_but_key_errors_are_not(self):
+        # 10-30 운영: '지난 달 채우기 코드 05'(SERVICE_TIMEOUT)로 그 실행 검색이 일부 실패
+        class Resp:
+            def __init__(self, text, status=200):
+                self.text, self.status_code = text, status
+        timeout = '{"OpenAPI_ServiceResponse":{"cmmMsgHeader":{"returnAuthMsg":"SERVICE_TIMEOUT_ERROR","returnReasonCode":"05"}}}'
+        ok = '{"response":{"header":{"resultCode":"00"},"body":{"totalCount":1,"items":{"item":[{"seq":"1"}]}}}}'
+        replies, waits = [Resp(timeout), Resp(ok)], []
+        api = w.Api("k", get=lambda *a, **k: replies.pop(0), sleep=waits.append)
+        self.assertEqual(api.call("getBassInfoSearchV2", {}), (1, [{"seq": "1"}]))
+        self.assertEqual((api.calls, waits[0]), (2, 3.0))
+        api = w.Api("k", get=lambda *a, **k: Resp(timeout), sleep=lambda s: None)
+        with self.assertRaisesRegex(w.ApiError, "코드 05"):
+            api.call("getBassInfoSearchV2", {})
+        self.assertEqual(api.calls, 2)
+        denied = '{"OpenAPI_ServiceResponse":{"cmmMsgHeader":{"returnReasonCode":"30"}}}'
+        api = w.Api("k", get=lambda *a, **k: Resp(denied), sleep=lambda s: None)
+        with self.assertRaisesRegex(w.ApiError, "코드 30"):
+            api.call("getBassInfoSearchV2", {})
+        self.assertEqual(api.calls, 1)  # 키 오류는 다시 부르지 않음
+
+
 if __name__ == "__main__":
     unittest.main()
