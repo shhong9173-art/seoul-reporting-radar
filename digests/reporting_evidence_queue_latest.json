@@ -1,12 +1,12 @@
 {
-  "generatedAt": "2026-10-30T11:10:25+09:00",
+  "generatedAt": "2026-10-30T15:57:17+09:00",
   "status": "reporter_evidence_queue_not_exclusive",
   "sourceCoverage": "partial_source_coverage_not_zero_news",
   "sourceHealth": {
     "officialEvents": {
       "status": "source_partial_coverage",
-      "generatedAt": "2026-10-30T01:54:23+09:00",
-      "rows": 13,
+      "generatedAt": "2026-10-30T15:32:56+09:00",
+      "rows": 15,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false,
       "incompleteOrStaleFeeds": [
@@ -24,42 +24,42 @@
     },
     "investment": {
       "status": "source_snapshot_checked",
-      "generatedAt": "2026-10-29T11:55:54+09:00",
+      "generatedAt": "2026-10-30T11:59:58+09:00",
       "rows": 1,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false
     },
     "metrics": {
       "status": "source_snapshot_checked",
-      "generatedAt": "2026-10-30T11:10:06+09:00",
+      "generatedAt": "2026-10-30T14:46:00+09:00",
       "rows": 20,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false
     },
     "contracts": {
       "status": "source_snapshot_checked",
-      "generatedAt": "2026-10-29T11:25:13+09:00",
+      "generatedAt": "2026-10-30T11:35:23+09:00",
       "rows": 5,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false
     },
     "recentLedger": {
       "status": "source_snapshot_checked",
-      "generatedAt": "2026-10-29T11:24:57+09:00",
+      "generatedAt": "2026-10-30T11:35:05+09:00",
       "rows": 5,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false
     },
     "correctionHistory": {
       "status": "source_snapshot_checked",
-      "generatedAt": "2026-10-29T11:25:14+09:00",
+      "generatedAt": "2026-10-30T11:35:24+09:00",
       "rows": 2,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false
     }
   },
   "countsByEvidenceTier": {
-    "new_official_receipt_review": 13,
+    "new_official_receipt_review": 15,
     "new_official_list_heading_review": 0,
     "verified_historical_investment_delta": 3,
     "verified_historical_numeric_delta": 20,
@@ -71,13 +71,13 @@
     "recentFrom": "2026-10-28",
     "through": "2026-10-30"
   },
-  "checkedOfficialRecentCandidates": 13,
+  "checkedOfficialRecentCandidates": 15,
   "recentOfficialTitleOnlyCount": 0,
-  "todayOnlyCount": 13,
+  "todayOnlyCount": 15,
   "historicalResearchCount": 29,
   "unlinkedHistoryTextMatchCount": 1,
   "correctionHistorySourceGate": "reviewed_unlinked_candidates_only",
-  "totalRows": 42,
+  "totalRows": 44,
   "excluded": {
     "invalid_original_identity": 0,
     "old_and_not_relevant": 0,
@@ -88,6 +88,54 @@
   "approvedArticles": 0,
   "warning": "공식 발행일≠수집일, 투자 종료 예정월 변경≠실제 지연, 정정문 변경란≠원공시 대조, 보도 검색 0건≠미보도. 미수집/부분수집≠사건 0건.",
   "items": [
+    {
+      "id": "new_official_receipt_review:DART:20261030800221",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "현대모비스",
+      "title": "현대모비스 · 정기·주요공시 · 연결재무제표기준영업(잠정)실적(공정공시)",
+      "officialDocumentDate": "2026-10-30",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261030800221"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
+        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
+        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
+      ]
+    },
+    {
+      "id": "new_official_receipt_review:DART:20261030800265",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "현대오토에버",
+      "title": "현대오토에버 · 정기·주요공시 · 타법인주식및출자증권취득결정",
+      "officialDocumentDate": "2026-10-30",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261030800265"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
+        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
+        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
+      ]
+    },
     {
       "id": "new_official_receipt_review:DART:20261029000247",
       "tier": "new_official_receipt_review",
