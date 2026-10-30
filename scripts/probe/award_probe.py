@@ -1,4 +1,5 @@
-"""probe: 고친 파서로 광주 서구·광산구 2쪽 실제 읽기(공개 자료)."""
+"""probe: 광명시 새올 목록 모양(공개 자료) — 두 번까지."""
+import re
 import sys
 import time
 from pathlib import Path
@@ -9,16 +10,19 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import kr_local_notice_watch as w  # noqa: E402
 
 out = []
-for city, base in (("광주 서구", "https://eminwon.seogu.gwangju.kr"), ("광주 광산구", "https://eminwon.gwangsan.go.kr")):
+base = "https://eminwon.gm.go.kr"
+for attempt in range(2):
     try:
-        rows, note = w.fetch_city(city, base, requests.post, time.sleep)
-        out.append(f"== {city} rows {len(rows)} note {note} empty-title {sum(1 for r in rows if not r['title'])} dates {sorted({r['date'] for r in rows})[-3:]}")
-        for r in rows[:4]:
-            out.append(f"  {r['mgt']} | {r['no']} | {r['title'][:50]} | {r['dept']} | {r['date']} | {w.classify(r['title'])}")
-        hits = [(r["title"][:60], w.classify(r["title"])) for r in rows if w.classify(r["title"])[0]]
-        out.append(f"  graded {len(hits)}: {hits[:5]}")
+        t0 = time.time()
+        r = requests.post(base + w.PATH, data={**w.LIST, "pageIndex": "1"}, headers={**w.UA, "Referer": base + w.PATH}, timeout=75)
+        t = r.text
+        rows = w.parse_rows(t)
+        out.append(f"HTTP {r.status_code} {time.time() - t0:.0f}s len {len(t)} rows {len(rows)} sample {[(x['mgt'], x['no'], x['title'][:30], x['date']) for x in rows[:3]]}")
+        k = t.find("searchDetail", 9000)
+        out.append(re.sub(r"\s+", " ", t[k - 600:k + 1800]))
+        break
     except Exception as e:  # noqa: BLE001
-        out.append(f"ERR {city} {type(e).__name__} {str(e)[:80]}")
+        out.append(f"ERR {type(e).__name__} {time.time() - t0:.0f}s")
 blob = "\n".join(out)
 open("/tmp/probe_out.txt", "w").write(blob)
 print("total chars", len(blob))
