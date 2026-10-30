@@ -191,6 +191,24 @@ class EdgarNoise(unittest.TestCase):
         self.assertNotIn("routine", by["edgar:b-1:d8k.htm"])
         self.assertNotIn("finNote", by["edgar:b-1:d8k.htm"])
 
+    def test_deal_word_must_share_a_sentence_with_the_beat_name(self):
+        # 운영 10-29 Nexa Resources 3분기 6-K: 계약 낱말은 제3자 공급사 일반 서술, 고려아연은 업계 기준가 보도 인용 문장에만
+        nexa = ("For internal transfers between mining and smelting segments, we apply our internal benchmark treatment charge (TC). "
+                "For third-party suppliers, TCs are based on the annual benchmark TC, spot TCs, or annually negotiated contracts. "
+                "The 2026 benchmark TC, reportedly agreed between Korea Zinc and Teck Resources in March 2026, was set at US$85/t of "
+                "concentrate, up 6% from US$80/t in 2025.")
+        it = self.item("edgar:n-1:ex99-1.htm", "2026-10-29", nexa, filer="Nexa Resources S.A. (NEXA)", form="6-K")
+        it["phrases"], it["beat"] = ["Korea Zinc"], ["고려아연"]
+        doc = self.run_with([it, self.item("edgar:b-1:d8k.htm", "2026-10-21", self.DEAL, filer="Cell Maker Inc")])
+        by = {x["id"]: x for x in doc["items"]}
+        self.assertIs(by["edgar:n-1:ex99-1.htm"]["dealNear"], False)
+        self.assertIn("보도 인용", by["edgar:n-1:ex99-1.htm"]["hearsay"])
+        self.assertIs(by["edgar:b-1:d8k.htm"]["dealNear"], True)
+        self.assertNotIn("hearsay", by["edgar:b-1:d8k.htm"])
+        # 발췌에 이름이 안 보이면(잘림) 판단하지 않는다
+        cut = self.item("edgar:c-1:x.htm", "2026-10-21", "The Company entered into a supply agreement for cells with a customer in Asia.")
+        self.assertNotIn("dealNear", self.run_with([cut])["items"][0])
+
     def test_financial_statement_note_is_flagged_not_hidden(self):
         doc = self.run_with([self.item("edgar:k-1:a2q26_seperatexreviewrep.htm", "2026-10-23", self.KT, filer="KT CORP", form="6-K/A")])
         it = doc["items"][0]

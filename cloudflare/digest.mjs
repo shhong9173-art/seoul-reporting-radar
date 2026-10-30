@@ -364,8 +364,10 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
     let tier;
     if (x.routine) tier = 'C';
     else if (x.source === 'ASX' || x.source === 'HKEX') tier = (x.flags ?? []).length ? 'A' : 'C';
-    else tier = DEAL_WORDS.test(String(x.snippet ?? '')) && !x.finNote ? 'A' : 'B';
-    const deal = x.routine ? ` — ${x.routine}` : x.source === 'ASX' || x.source === 'HKEX' ? '' : x.finNote ? ` — ${x.finNote}`
+    // dealNear(수집기): 계약 낱말이 출입처 이름과 같은 문장에 있나. 예전 저장분은 발췌 전체로 본다.
+    else tier = !x.hearsay && (x.dealNear ?? DEAL_WORDS.test(String(x.snippet ?? ''))) && !x.finNote ? 'A' : 'B';
+    const deal = x.routine ? ` — ${x.routine}` : x.source === 'ASX' || x.source === 'HKEX' ? '' : x.hearsay ? ` — ${x.hearsay}` : x.finNote ? ` — ${x.finNote}`
+      : tier === 'B' && x.dealNear === false && DEAL_WORDS.test(String(x.snippet ?? '')) ? ' — 계약·공급 낱말이 출입처 이름과 다른 문장에 있음(업계 일반 서술일 수 있음)'
       : tier === 'B' ? ' — 발췌에 계약·공급·합작 낱말 없음(이름만 언급일 수 있음)' : '';
     const partner = ASX_KO[(/\(([A-Z0-9]{2,5})\)\s*$/.exec(String(x.filer ?? '')) ?? [])[1]] ?? String(x.filer ?? '').split(/[\s,(]/)[0];
     const when = x.source === 'HKEX' && x.time ? ` ${x.time} 홍콩시각` : '';

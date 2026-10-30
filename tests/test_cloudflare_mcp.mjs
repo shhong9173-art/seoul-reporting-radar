@@ -1370,7 +1370,11 @@ test('partner filings: EDGAR holdings tables and repeated text fold to C, financ
   const doc = { schema: 'partner_filings/v1', generatedAt: '2026-10-26T07:00:00+09:00', windowDays: 30, checks: [{ source: 'EDGAR', target: 'Hyundai Motor Company', status: 'ok' }],
     items: [ed('h1', 'HARTFORD INSURANCE GROUP', 'Top Ten Exposures by Issuer … Hyundai Motor Company 182 178 0.3 %', { routine: '투자 보유 목록(채권·주식 보유 표) — 출입처와의 거래 아님' }),
       ed('k1', 'KT CORP', '(12) The Company has an agreement related to a stock sale contract with HYUNDAI MOTOR COMPANY.', { finNote: '재무제표 주석 — 이미 있던 약정을 다시 적은 것일 수 있음(이전 분기 보고서와 대조)' }),
-      ed('c1', 'CELL MAKER INC', 'entered into a binding supply agreement with Hyundai Motor Company for battery cells.')],
+      ed('c1', 'CELL MAKER INC', 'entered into a binding supply agreement with Hyundai Motor Company for battery cells.', { dealNear: true }),
+      // 10-30: 계약 낱말이 출입처 이름과 다른 문장(업계 일반 서술), 보도 인용 문장에만 이름 → A가 아니다
+      ed('n1', 'NEXA RESOURCES', 'For third-party suppliers, TCs are based on annually negotiated contracts. The 2026 benchmark TC, reportedly agreed between Hyundai Motor Company and X, was set at US$85/t.',
+        { dealNear: false, hearsay: '출입처 이름이 보도 인용 문장(reportedly 등)에만 나옴 — 두 회사 간 거래 공시가 아님' }),
+      ed('m1', 'MINER CORP', 'Our supply contracts are with steel mills. Hyundai Motor Company is one of the largest automakers.', { dealNear: false })],
     confirmedScoops: 0 };
   assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/partner-filings', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
   const r = await call('radar_today', { include_minor: true, limit: 60 }, opts);
@@ -1378,7 +1382,9 @@ test('partner filings: EDGAR holdings tables and repeated text fold to C, financ
   assert.match(sec('A'), /CELL MAKER INC/);
   assert.match(sec('B'), /KT CORP: 6-K EX-99\.1 — 재무제표 주석/);
   assert.match(sec('C'), /HARTFORD INSURANCE GROUP: 6-K EX-99\.1 — 투자 보유 목록/);
-  assert.doesNotMatch(sec('A'), /KT CORP|HARTFORD/);
+  assert.doesNotMatch(sec('A'), /KT CORP|HARTFORD|NEXA|MINER/);
+  assert.match(sec('B'), /NEXA RESOURCES: 6-K EX-99\.1 — 출입처 이름이 보도 인용 문장/);
+  assert.match(sec('B'), /MINER CORP: 6-K EX-99\.1 — 계약·공급 낱말이 출입처 이름과 다른 문장에 있음/);
   const t = await call('partner_filings', {}, opts);
   assert.doesNotMatch(t.text, /HARTFORD/);
   assert.match(t.text, /분류: 재무제표 주석/);

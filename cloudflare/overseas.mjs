@@ -162,7 +162,7 @@ export async function partnerFilings(ctx, args) {
     out.push(`\n${x.isNew ? '[신규] ' : ''}${x.date}${x.time ? ` ${x.time}(홍콩시각)` : ''} · ${x.source} · ${x.filer} · 관련 출입처 ${(x.beat ?? []).join('·')}`);
     out.push(`   잡힌 사실: ${x.title}${x.priceSensitive ? ' (주가 민감 공시)' : ''}${(x.flags ?? []).length ? ` · 낱말 ${x.flags.join(',')}` : ''}`);
     if (x.relation) out.push(`   관계: ${x.relation} (근거 ${x.relationEvidence})`);
-    if (x.routine || x.finNote) out.push(`   분류: ${x.routine ?? x.finNote}`);
+    if (x.routine || x.finNote || x.hearsay) out.push(`   분류: ${x.routine ?? x.hearsay ?? x.finNote}`);
     if (x.snippet) out.push(`   본문 발췌: …${x.snippet.slice(0, 400)}…`);
     else if (x.snippetError) out.push(`   본문 발췌 실패: ${x.snippetError}`);
     out.push(`   원문: ${x.url ?? '링크 없음'}`);
