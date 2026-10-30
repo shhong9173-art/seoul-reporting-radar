@@ -27,10 +27,60 @@ const DISPATCH_GAP_MS = 60 * 60000;  // 같은 시간 안에 다시 올려도 kr
 
 const clean = (s, n) => String(s ?? '').replace(/\s+/g, ' ').trim().slice(0, n);
 
+// 무역구제 공고 목록 중 해외 IP에서 막히는 곳(10-27: 호주 TRN은 GitHub 응답 없음·Cloudflare 중계 HTTP 520, 10-30 기자 컴퓨터에서는
+// 0.3초 안 200, 101줄 중 한국 22줄, robots.txt 허용). 한국이 든 줄의 칸 글자와 그 줄 링크(같은 사이트 경로만)만 받는다.
+// trade_remedy_watch.py가 다음 정기 실행(평일 07:40)에 읽는다 — 감시를 따로 다시 돌리지 않는다.
+export const BROWSER_PAGES = {
+  'au-trn': { host: 'www.industry.gov.au', url: 'https://www.industry.gov.au/australian-trade-remedies-commission/trade-remedies-notices-trns' },
+};
+const PAGES_BLOB = 'trade_remedy_browser';
+const PAGES_SCHEMA = 'trade_remedy_browser/v1';
+const MAX_PAGE_ROWS = 200;
+
+function pageLink(host, href) {
+  const h = String(href ?? '').trim();
+  if (/^\/[^/]/.test(h)) return h.slice(0, 400);
+  try { const u = new URL(h); return u.protocol === 'https:' && u.hostname === host ? u.pathname + u.search : null; } catch { return null; }
+}
+
+async function submitPages(ctx, given, nowIso) {
+  const accepted = [];
+  const refused = [];
+  for (const p of given.slice(0, 5)) {
+    const id = clean(p?.id, 30);
+    const def = BROWSER_PAGES[id];
+    if (!def) { refused.push(id || '(이름 없음)'); continue; }
+    if (accepted.some((x) => x.id === id)) continue;
+    const error = clean(p?.error, 120);
+    const rows = [];
+    let dropped = 0;
+    for (const r of Array.isArray(p?.rows) ? p.rows : []) {
+      const cells = (Array.isArray(r?.cells) ? r.cells : []).slice(0, 10).map((x) => clean(x, MAX_CELL)).filter(Boolean);
+      const links = (Array.isArray(r?.links) ? r.links : []).slice(0, 4).map((x) => pageLink(def.host, x)).filter(Boolean);
+      if (!cells.length || rows.length >= MAX_PAGE_ROWS) { dropped += 1; continue; }
+      rows.push({ cells, links });
+    }
+    accepted.push({ id, fetchedAt: nowIso, rows, dropped, ...(error ? { error } : {}),
+      ...(!error && !rows.length ? { error: '한국 줄 0줄(사이트 형식 변경 또는 빈 응답) — 0건 아님' } : {}) });
+  }
+  if (!accepted.length) return { lines: refused.length ? [`받지 않은 목록(허용 밖): ${refused.join(', ')}`] : [] };
+  const { row } = await storeOp(ctx, 'blobs.get', { name: PAGES_BLOB });
+  let prev = {};
+  try { prev = row ? JSON.parse(row.body) : {}; } catch { prev = {}; }
+  const keep = (Array.isArray(prev.pages) ? prev.pages : []).filter((x) => BROWSER_PAGES[x?.id] && !accepted.some((a) => a.id === x.id));
+  await storeOp(ctx, 'blobs.put', { name: PAGES_BLOB, body: JSON.stringify({ schema: PAGES_SCHEMA, updatedAt: nowIso, pages: [...accepted, ...keep] }) });
+  return { lines: [...accepted.map((x) => `- 무역구제 ${x.id}: ${x.error ? `미확인(${x.error})` : `한국 줄 ${x.rows.length}`}${x.dropped ? ` · 버린 줄 ${x.dropped}` : ''}`),
+    ...(refused.length ? [`받지 않은 목록(허용 밖): ${refused.join(', ')}`] : []),
+    '무역구제 목록은 다음 정기 감시(평일 07:40)에 반영 — 따로 실행 요청하지 않음'] };
+}
+
 export async function localNoticeSubmit(ctx, args) {
   const given = Array.isArray(args.cities) ? args.cities : [];
-  if (!given.length) return textResult('cities가 비었음 — 저장하지 않음.', true);
+  const pages = Array.isArray(args.pages) ? args.pages : [];
+  if (!given.length && !pages.length) return textResult('cities·pages가 비었음 — 저장하지 않음.', true);
   const nowIso = ctx.now.toISOString();
+  const pageResult = pages.length ? await submitPages(ctx, pages, nowIso) : { lines: [] };
+  if (!given.length) return textResult([`브라우저 수집 저장 · ${nowIso.slice(0, 16)}Z`, ...pageResult.lines].join('\n'));
   const accepted = [];
   const refused = [];
   for (const c of given.slice(0, 20)) {
@@ -50,7 +100,9 @@ export async function localNoticeSubmit(ctx, args) {
     accepted.push({ city, fetchedAt: nowIso, rows, dropped, ...(error ? { error } : {}),
       ...(!error && !rows.length ? { error: '목록 0줄(사이트 형식 변경 또는 빈 응답) — 0건 아님' } : {}) });
   }
-  if (!accepted.length) return textResult(`허용된 시·군이 없음(받지 않음: ${refused.join(', ')}) — 저장하지 않음.`, true);
+  if (!accepted.length) {
+    return textResult([`허용된 시·군이 없음(받지 않음: ${refused.join(', ')}) — 시·군은 저장하지 않음.`, ...pageResult.lines].join('\n'), !pageResult.lines.length);
+  }
   const { row } = await storeOp(ctx, 'blobs.get', { name: BLOB });
   let prev = {};
   try { prev = row ? JSON.parse(row.body) : {}; } catch { prev = {}; }
@@ -74,6 +126,6 @@ export async function localNoticeSubmit(ctx, args) {
   const lines = [`브라우저 수집 저장 · ${nowIso.slice(0, 16)}Z · 시·군 ${accepted.length}곳 (정상 ${ok.length})`,
     ...accepted.map((x) => `- ${x.city}: ${x.error ? `미확인(${x.error})` : `${x.rows.length}줄`}${x.dropped ? ` · 버린 줄 ${x.dropped}` : ''}`),
     ...(refused.length ? [`받지 않은 이름(허용 목록 밖): ${refused.join(', ')}`] : []),
-    dispatch];
+    dispatch, ...pageResult.lines];
   return textResult(lines.join('\n'));
 }

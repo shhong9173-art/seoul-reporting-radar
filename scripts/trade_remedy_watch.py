@@ -415,7 +415,43 @@ def korea_lines(raw, rx=None):
     return out
 
 
-def foreign_pages(pages, previous, now, *, get=None, sleep=time.sleep, relay_token=None):
+# 해외 IP에서 막히는 목록(via=browser): 기자 컴퓨터 예약 작업이 브라우저로 한국 줄의 칸 글자·링크만 올린다(trade-remedy-browser).
+# 평일 08:40·16:40 수집 → 이 감시(평일 07:40)는 전날 16:40 것을 읽는다. 30시간(월요일 오전은 금요일 수집까지 78시간)보다 오래되면 미확인.
+BROWSER_PARSER = "browser-v1"
+BROWSER_FRESH_HOURS = 30
+BROWSER_FRESH_MONDAY = 78
+
+
+def browser_lines(doc, page, now):
+    """(lines, None) 또는 (None, 이유). lines: 한국이 든 줄 글자 → 링크(그 사이트 경로, PDF 먼저)."""
+    entry = next((x for x in (doc or {}).get("pages") or [] if isinstance(x, dict) and x.get("id") == page["id"]), None)
+    if not entry:
+        return None, "브라우저 수집 없음(예약 작업 전이거나 컴퓨터·앱이 꺼짐)"
+    try:
+        age = (now - dt.datetime.fromisoformat(str(entry.get("fetchedAt")))).total_seconds() / 3600
+    except (TypeError, ValueError):
+        return None, "브라우저 수집 시각 미상"
+    limit = BROWSER_FRESH_MONDAY if now.weekday() == 0 and now.hour < 12 else BROWSER_FRESH_HOURS
+    if age > limit:
+        return None, f"브라우저 수집이 {age:.0f}시간 전 — 컴퓨터·앱이 꺼졌을 수 있음"
+    if entry.get("error"):
+        return None, f"브라우저 수집 실패({str(entry['error'])[:40]})"
+    rx = re.compile(page["pattern"], re.I) if page.get("pattern") else KOREA_RX
+    lines = {}
+    for r in entry.get("rows") or []:
+        if not isinstance(r, dict):
+            continue
+        t = re.sub(r"\s+", " ", " ".join(str(c) for c in r.get("cells") or [])).strip()
+        if not rx.search(t) or not 8 <= len(t) <= 400:
+            continue
+        links = [str(x) for x in r.get("links") or [] if isinstance(x, str) and x.startswith("/")]
+        lines.setdefault(t, next((x for x in links if x.lower().endswith(".pdf")), links[0] if links else None))
+    if not lines:
+        return None, "브라우저 수집에 한국 줄 0줄(형식 변경 가능)"
+    return dict(list(lines.items())[:200]), None
+
+
+def foreign_pages(pages, previous, now, *, get=None, sleep=time.sleep, relay_token=None, browser=None):
     prev = {p["id"]: p for p in (previous or {}).get("pages", []) if isinstance(p, dict)}
     out, events = [], []
     for p in pages:
@@ -423,6 +459,20 @@ def foreign_pages(pages, previous, now, *, get=None, sleep=time.sleep, relay_tok
         old = prev.get(p["id"]) or {}
         if p.get("disabled"):
             out.append({**rec, "status": "disabled", "error": p["disabled"], "lines": old.get("lines", {})})
+            continue
+        if p.get("via") == "browser":
+            lines, err = browser_lines(browser, p, now)
+            if err:
+                rec.update(status="failed", error=err, lines=old.get("lines", {}), parser=old.get("parser"))
+                out.append(rec)
+                continue
+            rec.update(status="ok", lines=lines, checkedAt=now.isoformat(timespec="seconds"), parser=BROWSER_PARSER, via="기자 컴퓨터 브라우저")
+            if old.get("parser") == BROWSER_PARSER and old.get("lines"):
+                for t in [t for t in lines if t not in old["lines"]]:
+                    href = urljoin(p["url"], lines[t]) if lines[t] else None
+                    events.append({"id": f"{p['id']}:{t[:80]}", "pageId": p["id"], "country": p["country"], "label": p["label"],
+                                   "text": t, "url": href or p["url"], "detectedAt": now.isoformat(timespec="seconds")})
+            out.append(rec)
             continue
         if p.get("via") == "relay":
             if not relay_token:
@@ -453,7 +503,7 @@ def foreign_pages(pages, previous, now, *, get=None, sleep=time.sleep, relay_tok
     return out, events
 
 
-def run(cfg, *, now, previous=None, get=None, sleep=time.sleep, relay_token=None, ktc_http=None, kita_http=None):
+def run(cfg, *, now, previous=None, get=None, sleep=time.sleep, relay_token=None, ktc_http=None, kita_http=None, browser=None):
     stamp = now.isoformat(timespec="seconds")
     had_state = bool(previous)
     checks = []
@@ -465,7 +515,7 @@ def run(cfg, *, now, previous=None, get=None, sleep=time.sleep, relay_token=None
     fr, ferr, bodies = federal_register(now, previous, get=get, sleep=sleep)
     checks.append({"source": "미국 관보", "status": "failed" if ferr else "ok", "returned": len(fr), "bodiesRead": bodies,
                    **({"error": ferr} if ferr else {})})
-    pages, page_events = foreign_pages(cfg.get("pages", []), previous, now, get=get, sleep=sleep, relay_token=relay_token)
+    pages, page_events = foreign_pages(cfg.get("pages", []), previous, now, get=get, sleep=sleep, relay_token=relay_token, browser=browser)
     for p in pages:
         if p["status"] == "disabled":
             continue
@@ -530,9 +580,16 @@ def main():
             print(f"::warning title=trade-state::이전 상태 조회 실패({e}) — 신규 표시는 이번 실행 기준")
     if private_store.late_scheduled_duplicate(previous, now):
         return
+    browser = None
+    if token and any(p.get("via") == "browser" for p in cfg.get("pages", [])):
+        try:
+            browser = private_store.get("trade-remedy-browser", token)
+        except private_store.StoreError as e:
+            print(f"::warning title=trade-remedy-browser::브라우저 수집 문서 조회 실패({e}) — 그 목록은 미확인")
     import kita_watch
     import ktc_watch
-    doc = run(cfg, now=now, previous=previous, relay_token=token or None, ktc_http=ktc_watch.Http(), kita_http=kita_watch.Http())
+    doc = run(cfg, now=now, previous=previous, relay_token=token or None, ktc_http=ktc_watch.Http(), kita_http=kita_watch.Http(),
+              browser=browser)
     q = [x for x in doc["quotas"] if x["status"] == "ok"]
     exhausted = sum(1 for x in q if x.get("exhaustedOn"))
     hot = sum(1 for x in q if x.get("tags"))
