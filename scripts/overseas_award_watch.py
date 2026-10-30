@@ -577,6 +577,8 @@ def pcc_detail(item, *, get=None):
         amt = twd(det.get(pre + ":決標金額"))
         origin = norm_space(det.get(pre + ":原產地國別:原產地國別"))
         item_name = norm_space(det.get(f"決標品項:第{m.group(1)}品項:品項名稱"))
+        if item_name and item_name == norm_space(item.get("title")):
+            item_name = ""  # 품목이 하나면 품목명이 공고 제목과 같다(10-30 실제 공고)
         total += amt or 0
         lines.append(f"{m.group(1)}번 품목{f' {item_name}' if item_name else ''} {v} NT${amt:,}" if amt else f"{m.group(1)}번 품목 {v} 금액 미기재")
         if origin:
