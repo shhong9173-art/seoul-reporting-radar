@@ -114,14 +114,14 @@ class Local(unittest.TestCase):
 
     def test_baseline_then_new_and_failures(self):
         first = w.run(now=NOW, previous=None, post=fake({"https://eminwon.dangjin.go.kr": page(DJ1, TD_ROW), "http://eminwon.ulju.ulsan.kr": page(UJ1, A_ROW)}),
-                      sleep=lambda s: None, cities=CITIES)
+                      sleep=lambda s: None, cities=CITIES, browser_cities=())
         self.assertEqual(first["status"], "complete")
         self.assertEqual([(x["city"], x["tier"], x["isNew"]) for x in first["items"]], [("울주군", "A", False)])  # 기준선
         self.assertEqual(sorted(first["seen"]), ["당진시", "울주군"])
         dj2 = [("57850", "306", "현대제철(주) 당진제철소 전기로 신설 관련 공유수면 점용 허가 고시", "2026-10-31")] + DJ1
         second = w.run(now=NOW + dt.timedelta(days=1), previous=first,
                        post=fake({"https://eminwon.dangjin.go.kr": page(dj2, TD_ROW), "http://eminwon.ulju.ulsan.kr": page(UJ1, A_ROW)},
-                                 down=("http://eminwon.ulju.ulsan.kr",)), sleep=lambda s: None, cities=CITIES)
+                                 down=("http://eminwon.ulju.ulsan.kr",)), sleep=lambda s: None, cities=CITIES, browser_cities=())
         new = [x for x in second["items"] if x["isNew"]]
         self.assertEqual([(x["city"], x["company"], x["tier"], x["date"]) for x in new], [("당진시", "현대제철", "A", "2026-10-31")])
         self.assertIn("not_ancmt_mgt_no=57850", new[0]["url"])
@@ -137,25 +137,81 @@ class Local(unittest.TestCase):
             if data["pageIndex"] == "2":
                 return Resp("", 400)
             return Resp(page(DJ1, TD_ROW))
-        doc = w.run(now=NOW, previous=None, post=post, sleep=lambda s: None, cities=CITIES[:1])
+        doc = w.run(now=NOW, previous=None, post=post, sleep=lambda s: None, cities=CITIES[:1], browser_cities=())
         self.assertEqual(doc["checks"][0]["status"], "partial")
         self.assertIn("2쪽 HTTP 400", doc["checks"][0]["error"])
         self.assertEqual(doc["checks"][0]["returned"], 2)
         self.assertEqual(doc["status"], "partial")
 
     def test_gap_is_reported(self):
-        first = w.run(now=NOW, previous=None, post=fake({"https://eminwon.dangjin.go.kr": page(DJ1, TD_ROW)}), sleep=lambda s: None, cities=CITIES[:1])
+        first = w.run(now=NOW, previous=None, post=fake({"https://eminwon.dangjin.go.kr": page(DJ1, TD_ROW)}), sleep=lambda s: None, cities=CITIES[:1], browser_cities=())
         later = [(str(60000 + i), str(400 + i), f"공고 {i}", "2026-11-05") for i in range(3)]
         doc = w.run(now=NOW + dt.timedelta(days=6), previous=first, post=fake({"https://eminwon.dangjin.go.kr": page(later, TD_ROW)}),
-                    sleep=lambda s: None, cities=CITIES[:1])
+                    sleep=lambda s: None, cities=CITIES[:1], browser_cities=())
         self.assertIn("지난 실행 공고가 없음", doc["checks"][0]["error"])
         self.assertEqual((doc["checks"][0]["status"], doc["status"]), ("partial", "partial"))
 
     def test_all_down_is_failed(self):
         doc = w.run(now=NOW, previous=None, post=fake({"https://eminwon.dangjin.go.kr": "", "http://eminwon.ulju.ulsan.kr": ""},
                                                       down=("https://eminwon.dangjin.go.kr", "http://eminwon.ulju.ulsan.kr")),
-                    sleep=lambda s: None, cities=CITIES)
+                    sleep=lambda s: None, cities=CITIES, browser_cities=())
         self.assertEqual(doc["status"], "failed")
+
+    def test_browser_cities(self):
+        # 기자 컴퓨터 브라우저 수집(local_notice_submit): 칸 글자만 오고, 같은 규칙으로 읽는다
+        bp = [("인천 부평구", "https://eminwon.icbp.go.kr", "한국GM(부평공장)"), ("구미시", "https://eminwon.gumi.go.kr", "LS전선(구미)"),
+              ("청주시", "https://eminwon.cheongju.go.kr", "LS일렉트릭(청주)")]
+        fresh = (NOW - dt.timedelta(hours=2)).isoformat()
+        browser = {"cities": [
+            {"city": "인천 부평구", "fetchedAt": fresh, "rows": [
+                {"mgt": "91001", "cells": ["120", "부평구 공고 제2026-1500호", "한국지엠 부평공장 도장공장 증축 건축허가 사항 공고", "건축과", "2026-10-29", "7"]},
+                {"mgt": "91000", "cells": ["119", "부평구 공고 제2026-1499호", "도로점용 허가 공고", "건설과", "2026-10-29", "3"]},
+                {"mgt": "x y", "cells": ["주입", "제목"]}]},
+            {"city": "구미시", "fetchedAt": (NOW - dt.timedelta(hours=40)).isoformat(), "rows": []},
+            {"city": "모르는 곳", "fetchedAt": fresh, "rows": []}]}
+        doc = w.run(now=NOW, previous=None, post=fake({"https://eminwon.dangjin.go.kr": page(DJ1, TD_ROW)}), sleep=lambda s: None,
+                    cities=CITIES[:1], browser=browser, browser_cities=bp)
+        by = {c["source"]: c for c in doc["checks"]}
+        self.assertEqual((by["인천 부평구"]["status"], by["인천 부평구"]["returned"]), ("ok", 2))  # 관리번호가 이상한 줄은 버림
+        self.assertIn("기자 컴퓨터 브라우저 수집", by["인천 부평구"]["via"])
+        self.assertEqual(by["구미시"]["status"], "failed")
+        self.assertIn("40시간 전", by["구미시"]["error"])
+        self.assertIn("브라우저 수집 없음", by["청주시"]["error"])
+        self.assertEqual(doc["status"], "partial")
+        self.assertEqual(doc["cities"], 4)
+        self.assertEqual(sorted(doc["seen"]), ["당진시", "인천 부평구"])  # 실패한 곳은 기준선을 만들지 않음
+        gm = [x for x in doc["items"] if x["city"] == "인천 부평구"]
+        self.assertEqual([(x["company"], x["isNew"], x["url"].startswith("https://eminwon.icbp.go.kr")) for x in gm], [("한국GM", False, True)])
+        # 다음 날 새 공고 → 새 항목
+        browser["cities"][0]["fetchedAt"] = (NOW + dt.timedelta(hours=22)).isoformat()
+        browser["cities"][0]["rows"].insert(0, {"mgt": "91010", "cells": ["121", "부평구 고시 제2026-300호", "한국GM 부평공장 부지 지구단위계획 결정 고시", "도시계획과", "2026-10-30", "1"]})
+        doc2 = w.run(now=NOW + dt.timedelta(days=1), previous=doc, post=fake({"https://eminwon.dangjin.go.kr": page(DJ1, TD_ROW)}),
+                     sleep=lambda s: None, cities=CITIES[:1], browser=browser, browser_cities=bp)
+        self.assertEqual([x["id"] for x in doc2["items"] if x["isNew"]], ["local:인천 부평구:91010"])
+
+    def test_browser_backup_and_monday(self):
+        cities = [("양산시", "https://eminwon.yangsan.go.kr", "넥센타이어(양산)")]
+        browser = {"cities": [{"city": "양산시", "fetchedAt": "2026-10-30T08:45:00+09:00",
+                               "rows": [{"mgt": "5001", "cells": ["양산시 공고 제2026-10호", "넥센타이어 양산공장 증축 공고", "건축과", "2026-10-30"]}]}]}
+        doc = w.run(now=NOW + dt.timedelta(hours=8), previous=None, post=fake({"https://eminwon.yangsan.go.kr": ""}, down=("https://eminwon.yangsan.go.kr",)),
+                    sleep=lambda s: None, cities=cities, browser=browser, browser_cities=())
+        c = doc["checks"][0]
+        self.assertEqual((c["status"], c["returned"]), ("ok", 1))
+        self.assertIn("직접 조회 실패(ReadTimeout)", c["via"])
+        # 월요일 오전은 금요일 수집까지 받는다, 화요일은 아니다
+        monday, tuesday = dt.datetime(2026, 11, 2, 6, 30, tzinfo=KST), dt.datetime(2026, 11, 3, 6, 30, tzinfo=KST)
+        self.assertIsNotNone(w.browser_rows(browser, "양산시", monday)[0])
+        self.assertIsNone(w.browser_rows(browser, "양산시", tuesday)[0])
+        browser["cities"][0]["error"] = "TypeError: Failed to fetch"
+        self.assertIn("브라우저 수집 실패", w.browser_rows(browser, "양산시", NOW + dt.timedelta(hours=8))[1])
+        del browser["cities"][0]["error"]
+        browser["cities"][0]["rows"] = [{"mgt": "bad id", "cells": ["제목"]}]
+        self.assertEqual(w.browser_rows(browser, "양산시", NOW + dt.timedelta(hours=8)), (None, "브라우저 수집 0줄(형식 변경 가능)"))
+
+    def test_parse_cells(self):
+        self.assertEqual(w.parse_cells("1", ["", " 10 ", "울산 남구 공고", "건축과", "2026-10-30", "3"])["title"], "울산 남구 공고")
+        self.assertIsNone(w.parse_cells("1", ["", "  "]))
+        self.assertIsNone(w.parse_cells("<script>", ["제목"]))
 
 
 if __name__ == "__main__":

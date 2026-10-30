@@ -591,6 +591,7 @@ async function localSection(ctx, q, days, limit) {
     || String(b.date ?? '').localeCompare(String(a.date ?? '')));
   const out = [`\n[지자체 고시·공고 · 출입처 공장 시·군 ${checks.length}곳 새올 목록 · 처음 본 날 최근 ${days}일] 출입처 관련 ${rows.length}건${all.length - rows.length ? ` · 참고(제철소·산업단지 계획 등) ${all.length - rows.length}건(company 낱말로 보기)` : ''} · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt)}`,
     `원천: 시·군 ${checks.length - bad.length}/${checks.length} 정상${bad.length ? ` · 미확인(0건 아님): ${bad.slice(0, 8).map((c) => `${c.source}(${c.status === 'failed' ? c.error ?? '실패' : '일부'})`).join(', ')}` : ''}`,
+    ...(checks.some((c) => c.via) ? [`기자 컴퓨터 브라우저로 읽은 곳(해외 IP 차단): ${checks.filter((c) => c.via).map((c) => `${c.source}(${String(c.via).match(/\d{4}-\d\d-\d\dT\d\d:\d\d/)?.[0]?.replace('T', ' ') ?? '?'})`).join(', ')}`] : []),
     ...(doc.rules ?? []).map((r) => `규칙: ${r}`)];
   for (const x of rows.slice(0, limit)) {
     out.push(`- ${x.isNew ? '[신규] ' : x.baseline ? '[첫 조회 기준선] ' : ''}${x.date ?? '?'} · ${x.city} · ${x.company ?? '출입처 이름 없음'} · ${x.tier}`);
