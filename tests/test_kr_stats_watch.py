@@ -285,3 +285,24 @@ class Census(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CarEventTier(unittest.TestCase):
+    def test_stored_car_event_takes_the_current_tier(self):
+        # 10-30: 공장 합계 60% 넘게 감소 A 신설 — 이미 B로 저장된 같은 달 HMGMA 이벤트는 등급·문장만 지금 규칙으로
+        from unittest import mock
+        import carsales
+        sid = "cs:hmc:plant:미국 조지아(HMGMA) 공장:공장 합계:2026-09:공장 급감"
+        sig = {"id": sid, "tier": "A", "text": "현대차 미국 조지아(HMGMA) 공장 · 공장 합계 2026-09 1,121대 — … 공장 합계가 평소의 40% 아래"}
+        prev = {"events": [{"id": sid, "kind": "모델별 판매", "signal": "공장 급감", "tier": "B", "text": "옛 문장 (IR 엑셀)",
+                            "detectedAt": "2026-10-30T13:15:00+09:00"},
+                           {"id": "cs:kia:model:x", "kind": "모델별 판매", "tier": "B", "text": "그대로", "detectedAt": "2026-10-30T13:15:00+09:00"}],
+                "carSales": {"latest": {"hmc:plant": "2026-09"}}}
+        sess = Session(lambda m, u, kw: Resp("", 503))
+        with mock.patch.object(carsales, "collect", return_value=({"signals": [sig], "latest": {"hmc:plant": "2026-09"}}, [],
+                                                                    {"source": "완성차 판매(현대차·기아 IR)", "status": "ok"})):
+            doc = w.run(CFG, now=NOW, previous=prev, http=w.Http(sess, sleep=lambda s: None, gap=0), car_sales=True)
+        by = {e["id"]: e for e in doc["events"]}
+        self.assertEqual(by[sid]["tier"], "A")
+        self.assertTrue(by[sid]["text"].endswith("평소의 40% 아래 (IR 엑셀)"))
+        self.assertEqual((by["cs:kia:model:x"]["tier"], by["cs:kia:model:x"]["text"]), ("B", "그대로"))
