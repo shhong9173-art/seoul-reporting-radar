@@ -1,35 +1,32 @@
-"""격리 탐침 31i: 국민연금 공사 현장 상세 — 기아 'LW 프로젝트'·KGM커머셜 '적층 2공정'·현대차 '0-프로젝트'·태광 'N-PJT' 등 현장 적용일·가입자(키 값 미출력)."""
+"""격리 탐침 47b: 굴뚝자동측정기기(CleanSYS) 반영 확인·응답 칸 — 출입처 사업장 이름 검색, 배출구·측정 시각(키 값 미출력)."""
+import json
 import os
-import sys
-from pathlib import Path
+import re
+from urllib.parse import quote
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-import kr_workforce_watch as w  # noqa: E402
+import requests
 
-api = w.Api((os.environ.get("KR_FUEL_API_KEY") or "").strip())
+key = (os.environ.get("KR_FUEL_API_KEY") or "").strip()
+BASE = "https://apis.data.go.kr/B552584/cleansys/rltmMesureResult"
 out = []
-for term in ("LW 프로젝트", "LW프로젝트", "적층 2공정", "0-프로젝트", "O-프로젝트", "N-PJT", "GS칼텍스 프로젝트", "유틸리티설비 증설"):
+for params in ({"factManageNm": "현대제철"}, {"factManageNm": "고려아연"}, {"factManageNm": "영풍"}, {"areaNm": "충남", "factManageNm": "현대제철"}):
     try:
-        total, items = api.call("getBassInfoSearchV2", {"wkplNm": term})
-    except w.ApiError as e:
-        out.append(f"{term}: {e}")
-        continue
-    latest = max((x["dataCrtYm"] for x in items), default=None)
-    months = sorted({x["dataCrtYm"] for x in items})
-    cur = [x for x in items if x["dataCrtYm"] == latest]
-    rows = []
-    adpts = []
-    for x in cur[:40]:
+        r = requests.get(BASE, params={"serviceKey": key, "type": "json", "numOfRows": 100, "pageNo": 1, **params}, timeout=60)
+        body = r.text.replace(key, "<KEY>").replace(quote(key, safe=""), "<KEY>")
+        code = re.search(r'"(?:resultCode|returnReasonCode)"\s*:\s*"?([^",}\s]+)', body)
         try:
-            _, d = api.call("getDetailInfoSearchV2", {"seq": x["seq"]}, rows=1)
-        except w.ApiError:
-            continue
-        d0 = d[0] if d else {}
-        adpts.append(d0.get("adptDt") or "")
-        rows.append((d0.get("adptDt"), d0.get("jnngpCnt"), x["wkplNm"][:70], w.region_of(x), (x.get("wkplRoadNmDtlAddr") or "")[:25]))
-    rows.sort()
-    members = sum((r[1] or 0) for r in rows)
-    out.append(f"{term}: 전체 {total}줄 · 달 {months[:1]}~{months[-1:]} · 최신 {latest} {len(cur)}곳 · 가입자 합 {members} · 적용 첫 {min(adpts) if adpts else None} 끝 {max(adpts) if adpts else None} · 예 {rows[:4]}")
+            d = json.loads(body)
+            b = (d.get("response") or {}).get("body") or {}
+            items = b.get("items") or []
+            items = items.get("item") if isinstance(items, dict) else items
+            items = items if isinstance(items, list) else ([items] if items else [])
+        except ValueError:
+            b, items = {}, []
+        names = sorted({(x.get("fact_manage_nm"), x.get("area_nm")) for x in items})[:12]
+        stacks = sorted({(x.get("fact_manage_nm"), x.get("stack_code")) for x in items})
+        out.append(f"{params} HTTP {r.status_code} code={code.group(1) if code else None} total={b.get('totalCount')} n={len(items)} 사업장={names} 배출구수={len(stacks)} 첫줄={json.dumps(items[0], ensure_ascii=False)[:700] if items else body[:300]}")
+    except Exception as e:  # noqa: BLE001
+        out.append(f"{params} {type(e).__name__}")
 blob = " ¶ ".join(x.replace("\n", " ").replace("::", ": :").replace("%", "pct") for x in out)
 for i in range(0, min(len(blob), 13000), 1300):
     print(f"::notice title=aw-{i // 1300:02d}::{blob[i:i + 1300]}")
