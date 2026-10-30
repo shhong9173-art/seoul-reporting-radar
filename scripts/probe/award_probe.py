@@ -1,42 +1,38 @@
-"""격리 탐침 31f: 국민연금 사업장 V2 — 대리점·정비점이 많은 출입처의 최신 달 자사 사업장 이름 찾기(키 값 미출력)."""
+"""격리 탐침 31g: kr_workforce_watch.run 실제 조회(저장 안 함) — 첫 실행(기준선)과 이어 실행(채우기·지난달 비교). 키 값 미출력."""
+import datetime as dt
 import json
 import os
-import re
+import sys
 import time
-from urllib.parse import quote
+from pathlib import Path
 
-import requests
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import kr_workforce_watch as w  # noqa: E402
 
-key = (os.environ.get("KR_FUEL_API_KEY") or "").strip()
-BASE = "https://apis.data.go.kr/B552015/NpsBplcInfoInqireServiceV2/getBassInfoSearchV2"
+KST = dt.timezone(dt.timedelta(hours=9))
+cfg = json.loads((Path(__file__).resolve().parents[2] / "data" / "workforce_watch.json").read_text(encoding="utf-8"))
+api = w.Api((os.environ.get("KR_FUEL_API_KEY") or "").strip())
 out = []
-DEALER = re.compile(r"/|-\(|\(일용\)|\(상용\)|점|대리점|서비스|써비스|정비|오토큐|판매|총판|부품|영업소|어린이집|새마을금고|신용협동조합|의원|식당|센터|센타|지정|카센|모터스|상사|공업사|아파트|더샵|주택|재개발|문고|건설")
-
-
-def search(name, page):
-    try:
-        r = requests.get(BASE, params={"serviceKey": key, "pageNo": page, "numOfRows": 100, "dataType": "json", "wkplNm": name}, timeout=60)
-        b = (json.loads(r.text.replace(key, "<KEY>").replace(quote(key, safe=""), "<KEY>")).get("response") or {}).get("body") or {}
-    except Exception as e:  # noqa: BLE001
-        return None, [], type(e).__name__
-    time.sleep(0.4)
-    items = (b.get("items") or {}).get("item") if isinstance(b.get("items"), dict) else b.get("items")
-    return b.get("totalCount"), (items if isinstance(items, list) else ([items] if items else [])), None
-
-
-for term, maxp in (("현대자동차", 5), ("기아", 6), ("포스코", 3), ("한국지엠", 2), ("케이지모빌리티", 2), ("르노코리아", 2), ("한국타이어", 2), ("영풍", 2),
-                   ("GS칼텍스", 1), ("지에스칼텍스", 1), ("OCI", 1), ("오씨아이홀딩스", 1), ("엘에스", 2), ("세아홀딩스", 1), ("에이치엘", 1), ("HL만도", 1)):
-    names, latest, total, err = set(), None, None, None
-    for p in range(1, maxp + 1):
-        total, it, err = search(term, p)
-        if not it:
-            break
-        latest = latest or it[0]["dataCrtYm"]
-        cur = [x for x in it if x["dataCrtYm"] == latest]
-        names |= {f"{x['wkplNm']}[{x['ldongAddrMgplDgCd']}{x['ldongAddrMgplSgguCd']}{'' if x['wkplJnngStcd'] == '1' else ',탈퇴'}]" for x in cur if not DEALER.search(x["wkplNm"])}
-        if len(cur) < len(it):
-            break
-    out.append(f"{term}: total={total} 최신 {latest} 쪽 {p} err={err} 자사 후보 {sorted(names)[:30]}")
+t0 = time.time()
+now = dt.datetime.now(KST)
+doc = w.run(cfg, now=now, previous=None, api=api, budget=11 * 60)
+out.append(f"1차 {time.time() - t0:.0f}s 상태 {doc['status']} 자료 {doc['month']} scan {doc['scanStatus']} API {doc['apiCalls']} checks={doc['checks']}")
+by = {}
+for s in doc["sites"]:
+    by.setdefault(s["company"], []).append(f"{s['name'][:22]}[{s['region']}]{(s['history'].get(doc['month']) or {}).get('members')}명/{len(s['history'])}달")
+out.append("자사 " + " ‖ ".join(f"{c}: {', '.join(v[:5])}{' 외 ' + str(len(v) - 5) if len(v) > 5 else ''}" for c, v in by.items()))
+missing = [c["company"] for c in cfg["companies"] if c["company"] not in by]
+out.append(f"자사 못 찾음 {missing}")
+tiers = {}
+for p in doc["projects"]:
+    tiers.setdefault(p["tier"], []).append(f"{p['company']}:{p['name'][:60]}")
+out.append(f"공사 현장 보관 {len(doc['projects'])} 본 이름 {len(doc['projectSeen'])} A {len(tiers.get('A', []))} B {len(tiers.get('B', []))}")
+out.append("A 예 " + " ‖ ".join(tiers.get("A", [])[:25]))
+t1 = time.time()
+doc2 = w.run(cfg, now=now + dt.timedelta(hours=1), previous=doc, api=api, budget=6 * 60)
+filled = sum(1 for s in doc2["sites"] if len(s["history"]) >= 2)
+out.append(f"2차 {time.time() - t1:.0f}s 상태 {doc2['status']} API 누적 {doc2['apiCalls']} 2달 이상 {filled}/{len(doc2['sites'])} checks={doc2['checks']}")
+out.append("이벤트 " + " ‖ ".join(f"{e['tier']} {e['kind']} {e['text'][:160]}" for e in doc2["events"][:12]))
 blob = " ¶ ".join(x.replace("\n", " ").replace("::", ": :").replace("%", "pct") for x in out)
 for i in range(0, min(len(blob), 13000), 1300):
     print(f"::notice title=aw-{i // 1300:02d}::{blob[i:i + 1300]}")
