@@ -58,14 +58,17 @@ def kia():
         say("  sales", x.get("year"), x.get("month"), x.get("title"), x.get("publicatedAt"), [f["title"] for f in x.get("files") or []])
     if lst:
         for f in lst[0]["files"]:
-            if "차종별" in f["title"] or "해외공장" in f["title"]:
+            import unicodedata
+            title = unicodedata.normalize("NFC", f["title"])
+            say("  title nfc", title, "raw==nfc", title == f["title"])
+            if "해외공장" in title:
                 g = requests.get("https://worldwide.kia.com/files/" + f["path"], headers=UA, timeout=60)
-                say("KIA file", f["title"], g.status_code, len(g.content), g.headers.get("last-modified"))
-                if g.status_code == 200 and "해외공장" in f["title"]:
-                    sheet_dump(f["title"], g.content, max_rows=200, labels_only=True)
+                say("KIA file", title, g.status_code, len(g.content), g.headers.get("last-modified"))
+                if g.status_code == 200:
+                    sheet_dump(title, g.content, max_rows=200, cols=16)
 
 
-for fn in (hmc, kia):
+for fn in (kia,):
     try:
         fn()
     except Exception:  # noqa: BLE001
