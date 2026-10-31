@@ -240,6 +240,12 @@ def rule_sig(c):
 
 def factories(cfg, key, now, previous, *, get=None, sleep=time.sleep, deadline=None):
     prev = {x["id"]: x for x in (previous or {}).get("factories", []) if isinstance(x, dict) and x.get("id")}
+    # 앞 값을 저장하기 전(10-31 이전)에 생긴 고용 변경은 저장된 사건 글에서 앞 값을 읽는다('고용 856→690명')
+    for e in sorted((previous or {}).get("events") or [], key=lambda e: str(e.get("detectedAt") or "") if isinstance(e, dict) else ""):
+        m = re.search(r"(?:^|· )고용 ([\d,]+)→([\d,]+)명", str(e.get("text") or "")) if isinstance(e, dict) else None
+        old_f = prev.get(e.get("factoryId")) if m else None
+        if old_f is not None and old_f.get("employeesBefore") is None and old_f.get("employees") == int(m.group(2).replace(",", "")):
+            prev[e["factoryId"]] = dict(old_f, employeesBefore=int(m.group(1).replace(",", "")), employeesChangedOn=str(e.get("detectedAt") or "")[:10] or None)
     # A company is compared with the previous run only when its name rules are unchanged; otherwise this run is its new baseline.
     sigs = {c["company"]: rule_sig(c) for c in cfg["companies"]}
     prev_sigs = (previous or {}).get("ruleSigs") or {}
@@ -326,8 +332,17 @@ def factories(cfg, key, now, previous, *, get=None, sleep=time.sleep, deadline=N
         elif f["company"] in comparable:
             changes = []
             oe, ne = old.get("employees"), f.get("employees")
+            # 직전 고용 변경 앞의 값을 들고 다닌다 — 값이 그 앞 값으로 돌아가면 '되돌림'(정정)이다
+            # (10-29 기자 판정 킬: KG스틸 당진 고용 856→690명은 정식 변경등록이 아니라 전화 문의 구두 답변이 반영된 값, 정정 요청 예정)
+            if old.get("employeesBefore") is not None:
+                f["employeesBefore"], f["employeesChangedOn"] = old["employeesBefore"], old.get("employeesChangedOn")
             if oe is not None and ne is not None and oe != ne and abs(ne - oe) >= max(20, round(oe * 0.1)):
-                changes.append((f"고용 {oe:,}→{ne:,}명", "A"))
+                if old.get("employeesBefore") == ne:
+                    changes.append((f"고용 {oe:,}→{ne:,}명(직전 변경 {old.get('employeesChangedOn') or '?'} {ne:,}→{oe:,}명을 되돌림 — "
+                                    f"지난 값이 정정된 것일 수 있음)", "B"))
+                else:
+                    changes.append((f"고용 {oe:,}→{ne:,}명", "A"))
+                f["employeesBefore"], f["employeesChangedOn"] = oe, stamp[:10]
             for k, label in (("mainProductCn", "주생산품"), ("indutyNm", "업종"), ("rnAdres", "주소")):
                 if (old.get(k) or "") != (f.get(k) or "") and old.get(k) is not None:
                     ch = field_change(label, old.get(k), f.get(k))
