@@ -189,6 +189,16 @@ export function stackHint(e) {
 // 같은 사건으로 치지 않는다(10-31 운영: 포스코 포항 가입자 +866명 ↔ '현대제철·포스코 美 제철소 1000명 채용' 기사로 '관련 보도 있음')
 // 정정사유를 큰 변경 옆에 붙인다 — 날짜가 크게 당겨진 이유가 '취득완료'인지 '계약 해지'인지 줄에서 바로 보이게
 // (10-31 운영: 금호타이어 함평 부지 취득 정정 '취득예정일자 -36개월'은 사유가 '취득완료(취득가액 및 취득일자 확정)에 따른 정정')
+// 정정 내용 보도 대조(scoop_screen check_corrections): 원 공시 기사와 따로, 변경 낱말(연장·감액·해지 등)로 찾은 결과
+export function correctionNote(cc) {
+  const base = "원 공시 보도 대조 '관련 보도 있음'은 원 계약 기사일 수 있음";
+  if (!cc || !cc.verdict) return `${base}(정정 내용 보도 여부는 따로 확인)`;
+  const q = (cc.queries ?? []).map((x) => `"${x}"`).join(', ');
+  const top = (cc.evidence ?? []).find((e) => !e.before && /동일 사건 미확정/.test(e.why ?? ''));
+  if (cc.verdict === '관련 보도 있음' && top) return `정정 내용 보도 대조: 관련 보도 있음 — ${top.date ?? ''} 「${String(top.title ?? '').slice(0, 60)}」(같은 내용인지 열어 볼 것)`;
+  if (cc.verdict === '미보도 후보') return `정정 내용 보도 대조: 미보도 후보 — ${q}로 ${cc.since} 이후 '${cc.word}' 기사 못 찾음(검색 범위 결과, 단독 판정 아님) · ${base}`;
+  return `정정 내용 보도 대조: ${cc.verdict}(채널 실패 등) · ${base}`;
+}
 const fixReason = (r) => (r ? ` · 사유 '${String(r).length > 40 ? `${String(r).slice(0, 39)}…` : r}'` : '');
 export function workforceHint(e) {
   if (/공사 현장/.test(e.kind)) return hint(e.company, ['공사', '착공']);
@@ -264,7 +274,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
     // 정정 중 큰 변경(금액 ±10%·기간 90일+·해지): '관련 보도 있음'이어도 그 기사는 원 계약 기사일 수 있다 — B로 올린다
     // (10-31 두산에너빌리티 영광 야월 해상풍력 EPC 정정: 계약기간 종료일 2029-07-01 → 2030-01-28, 보도 대조는 다른 기사)
     else if (c.verdict === '관련 보도 있음' && (fl?.correction?.material ?? []).length) push('B', W['scoop-screen'], { kind, flag: '정정', verdict: c.verdict, id: c.id, date: c.published ?? c.filedOn, company: c.company,
-      fact: `${c.title} — 정정 중 큰 변경(${fl.correction.material.join(', ')}${fixReason(fl.correction.reason)})${brief}${cmp} · 보도 대조 '관련 보도 있음'은 원 계약 기사일 수 있음(정정 내용 보도 여부는 따로 확인)`, url: c.url });
+      fact: `${c.title} — 정정 중 큰 변경(${fl.correction.material.join(', ')}${fixReason(fl.correction.reason)})${brief}${cmp} · ${correctionNote(c.correctionCheck)}`, url: c.url });
     else push('C', W['scoop-screen'], { kind, id: c.id, company: c.company, fact: `${c.verdict}: ${c.title}` });
   }
 
