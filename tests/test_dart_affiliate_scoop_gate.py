@@ -85,9 +85,12 @@ class DARTAffiliateGate(unittest.TestCase):
             "related_party_goods_services_change_not_external_customer")
 
     def test_related_party_notice_does_not_hide_material_nonrelated_contracts(self):
+        # 처음 공시도 같은 계열사 간 거래 양식이라 보류(10-31 운영: GS칼텍스 매출 대비 0.02~0.03%가 '단독 유력' 87점)
         r=entry("20261014000138","고려아연",
             "동일인등출자계열회사와의상품ㆍ용역거래")
-        self.assertIsNone(review_hold(r,None))
+        hold=review_hold(r,None)
+        self.assertEqual(hold["reason"],"related_party_goods_services_change_not_external_customer")
+        self.assertEqual(hold["whatVerified"],"동일인 등 출자계열회사와의 상품·용역거래 공시 접수")
         r["reportName"]="주요사항보고서(신규시설투자)"
         self.assertIsNone(review_hold(r,None))
         r["reportName"]="동일인등출자계열회사와의상품ㆍ용역거래변경"
