@@ -115,7 +115,7 @@ class GlobalCollectorBeatTests(unittest.TestCase):
             gc.worker_translate = lambda t: (calls.append(("ai", t)) or "고려아연, 미국 제련소 검토 착수")
             self.assertEqual(gc.translate("Korea Zinc starts US smelter study"), ("고려아연, 미국 제련소 검토 착수", "translated_ai"))
             gc.worker_translate = lambda t: ""   # 워커 실패 → 구글 → 보조
-            def fake_get(url, timeout=15):
+            def fake_get(url, timeout=15, ua=None):
                 if "googleapis" in url:
                     raise OSError("blocked")
                 return '{"responseData":{"translatedText":"보조 번역"}}'.encode()
@@ -186,7 +186,7 @@ class GlobalCollectorBeatTests(unittest.TestCase):
              "</channel></rss>").encode()
         orig=gc.get
         try:
-            gc.get=lambda url,timeout=15: xml
+            gc.get=lambda url,timeout=15,ua=None: xml
             rows=gc.parse_publisher("Electrek","https://electrek.co/feed/")
             strict=gc.parse_publisher("Utility Dive","https://www.utilitydive.com/feeds/news/")
         finally:

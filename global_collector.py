@@ -93,10 +93,13 @@ def title_only(summary: str, title: str) -> bool:
     return not s or (bool(t) and s.startswith(t) and len(s) - len(t) <= 60)
 
 
-def get(url: str, timeout: int = 15) -> bytes:
+FEED_UA = "seoul-reporting-radar RSS reader (+https://github.com/shhong9173-art/seoul-reporting-radar)"
+
+
+def get(url: str, timeout: int = 15, ua: str = "Mozilla/5.0 AutoIndustryGlobalRadar/1.1") -> bytes:
     req = urllib.request.Request(
         url,
-        headers={"User-Agent": "Mozilla/5.0 AutoIndustryGlobalRadar/1.1", "Accept": "application/rss+xml,application/xml,text/xml,*/*"},
+        headers={"User-Agent": ua, "Accept": "application/rss+xml,application/xml,text/xml,*/*"},
     )
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return r.read()
@@ -207,7 +210,8 @@ def score_text(text: str):
 def parse_publisher(source: str, url: str) -> list[dict]:
     started = time.monotonic()
     try:
-        root = ET.fromstring(get(url, 20))
+        # 매체 RSS는 레이더 이름을 밝힌 요청으로 읽는다(11-01 탐침 65·66: Automotive News RSS가 브라우저 흉내 이름 요청은 거절, 이 이름은 200)
+        root = ET.fromstring(get(url, 20, ua=FEED_UA))
     except Exception as exc:
         GLOBAL_FEED_CHECKS.append({"category": source[:40], "globalFeed": True, "status": "transport_or_xml_error", "recentRows": 0,
                                    "errorType": type(exc).__name__, "durationMs": min(600000, int((time.monotonic() - started) * 1000))})
