@@ -210,6 +210,23 @@ def employee_equity_grant(text):
 
 HARD_SIGNAL_RE=re.compile(r"정책|규제|시행|고시|법안|입법|예고|결정고시|행정처분|관세|반덤핑|상계관세|특허|출원|등록|특허심판|심판|상표|디자인|대표이사|임원|사내이사|사외이사|선임|취임|퇴임|조직개편|신설|투자|출자|증설|공장|법인|합병|분할|인수|매각|철수|수주|계약|공급|발주|입찰|낙찰|생산|가동|감산|가격|원가|마진|배터리|ESS|HVDC|변압기|해저케이블|해상풍력|자율주행|리콜|결함|제작결함|무상수리|조사개시|인증|형식승인|환경영향|환경성평가|건축허가|사업계획승인|산업단지|소송|제소|가처분|판결|행정심판|자기주식|자사주|주식처분|주식소각|전환사채|교환사채|신주인수권부사채|금전대여|채무인수|담보제공|보증제공|영업정지|영업양수도",re.I)
 TOPIC_RE=re.compile(r"자동차|전기차|하이브리드|PBV|자율주행|ADAS|타이어|배터리|철강|열연|냉연|후판|강관|비철|구리|아연|니켈|전력|변압기|HVDC|케이블|해저케이블|풍력|태양광|ESS|에너지|LNG|원전|수소|석유화학|화학|소재|공장|수출|관세|산업단지|데이터센터|재생에너지",re.I)
+# 제목의 돈 액수(조·억·만, '원' 생략·쉼표 차이 무시) — '1,980억원'(공시 제목)과 '1980억'(기사 제목)을 같은 값으로 본다.
+MONEY_RE=re.compile(r"(?<![\d.,])(\d{1,3}(?:,\d{3})+|\d+(?:\.\d+)?)\s*(조|억|만)\s*(?:원)?")
+
+
+def money_amounts(text):
+    """1억 이상 액수를 백만원 단위 정수로(제목끼리 같은 사건 비교용)."""
+    out=set()
+    for n,u in MONEY_RE.findall(str(text or "")):
+        try:
+            v=float(n.replace(",",""))*{"조":1e12,"억":1e8,"만":1e4}[u]
+        except ValueError:
+            continue
+        if v>=1e8:
+            out.add(round(v/1e6))
+    return out
+
+
 NUM_RE=re.compile(r"(?<!\d)(?:\d{1,3}(?:,\d{3})+|\d+(?:\.\d+)?)(?:조원|억원|만원|달러|만대|천대|대|명|%|GWh|MWh|kWh|톤|km|MW|GW)(?!\w)",re.I)
 
 PRIMARY_QUERY_SETS=[
@@ -458,6 +475,11 @@ def event_match_score(x,h):
     specific_pattern=re.compile(r"물적분할|인적분할|회사분할|영업정지|생산중단|조업정지|가동중단|영업양수도|합병|인수|매각|철수|우선협상|거래종결|가처분|소송제기|특허심판|반덤핑|상계관세",re.I)
     shared_specific=set(specific_pattern.findall(title)) & set(specific_pattern.findall(htitle))
     if same_company and shared_specific and tsim>=0.28:
+        return 0.80
+    # 같은 회사 + 같은 사건 낱말 + 제목의 같은 액수(1억 이상)는 같은 사건으로 본다. 레이더 제목은 공시 이름을 길게 이어 붙여
+    # 기사 제목과 글자 유사도가 낮다(10-31 운영: HD현대일렉트릭 '…1,980억원 증설 투자…'가 '청주 배전캠퍼스 … 증설에 1980억 투자' 등
+    # 10-27 기사 여러 건과 유사도 0.1 안팎이라 '기보도 검증 미완료'로 단독 후보 칸에 남았다).
+    if same_company and shared_terms>=1 and money_amounts(title)&money_amounts(htitle):
         return 0.80
     # Companyless regulatory/market-wide notices still need exact event matching.
     # Require near-identical titles plus a shared event term; topic-only matches stay weak.
