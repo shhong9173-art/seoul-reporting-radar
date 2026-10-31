@@ -3,6 +3,39 @@
   if(!nav||!cards)return;
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   let doc={items:[]};
+  // 기자 전용 레이더(워커 /b/<읽기 전용 열쇠>) — 공개 저장소에는 단서를 올리지 않고, 연결한 기기 브라우저에서만 불러온다.
+  // 열쇠는 기자 전용 화면(/r/…) 맨 아래 '홈페이지에 연결'이 #rk=… 로 넘겨 준다(주소 조각은 서버·Referer로 안 간다).
+  const RB_API='https://seoul-reporting-radar.shhong9173.workers.dev/b/';
+  const rbKey=()=>{try{return localStorage.getItem('radarBoardKey')||'';}catch(e){return '';}};
+  const rbSave=k=>{try{localStorage.setItem('radarBoardKey',k);}catch(e){}};
+  const rbForget=()=>{try{localStorage.removeItem('radarBoardKey');}catch(e){}};
+  let rbHours='',rbOpen=false;
+  (function(){if(typeof location==='undefined')return;const m=/[#&]rk=([A-Za-z0-9_-]{16,64})/.exec(location.hash||'');if(!m)return;rbSave(m[1]);rbOpen=true;try{history.replaceState(null,'',location.pathname+location.search);}catch(e){location.hash='';}})();
+  function loadPrivate(){
+    const k=rbKey();if(!k||typeof fetch!=='function')return Promise.resolve({state:'none'});
+    return fetch(RB_API+encodeURIComponent(k)+(rbHours?'?hours='+rbHours:''),{cache:'no-store',credentials:'omit'})
+      .then(r=>r.status===404?{state:'bad'}:r.ok?r.text().then(html=>({state:'ok',html})):{state:'error',error:'HTTP '+r.status})
+      .catch(e=>({state:'error',error:String(e&&e.message||e)}));
+  }
+  function setCount(html){const m=/data-a="(\d+)" data-b="(\d+)"/.exec(html||'');const c=document.querySelector('#countScoop');if(m&&c)c.textContent=String(Number(m[1])+Number(m[2]));}
+  function privateBox(){
+    return '<section class="rb-home"><h2 class="scoop-section-title">기자 전용 레이더 <span>오늘의 A·B와 자동 보도 대조(미보도 후보) · 이 기기에서만 불러옴</span></h2>'+
+      '<div class="rb-home-tools" style="display:flex;gap:8px;margin:6px 0 10px"><select id="rbHours"><option value="">기본(24시간, 월요일 72시간)</option><option value="72">72시간</option><option value="168">7일</option></select> <button type="button" id="rbForget" class="secondary">이 기기 연결 끊기</button></div>'+
+      '<div id="rbBody"><div class="card"><div class="summary">불러오는 중…</div></div></div></section>';
+  }
+  function fillPrivate(){
+    const body=document.querySelector('#rbBody');if(!body)return;
+    const sel=document.querySelector('#rbHours');if(sel){sel.value=rbHours;sel.onchange=()=>{rbHours=sel.value;fillPrivate();};}
+    const fg=document.querySelector('#rbForget');if(fg)fg.onclick=()=>{rbForget();fillPrivate();};
+    if(fg&&fg.style)fg.style.display=rbKey()?'':'none';if(sel&&sel.style)sel.style.display=rbKey()?'':'none';
+    loadPrivate().then(r=>{
+      if(r.state==='ok'){body.innerHTML=r.html;setCount(r.html);return;}
+      if(r.state==='none'){body.innerHTML='<div class="card"><div class="summary"><b>이 기기는 아직 연결 안 됨.</b> 기자 전용 감시(해외 리콜·소송·OSHA·ITC·법제처·국내 공문서 등)의 단서는 누구나 보는 이 공개 홈페이지에 올리지 않습니다. '+
+        '기자 전용 화면(Claude 커넥터 주소의 <code>/mcp/</code>를 <code>/r/</code>로 바꾼 주소) 맨 아래 <b>‘홈페이지에 연결’</b>을 한 번 누르면, 이 기기에서 이 자리에 오늘의 A·B와 미보도 후보가 뜹니다.</div></div>';return;}
+      if(r.state==='bad'){body.innerHTML='<div class="card"><div class="summary"><b>연결 열쇠가 맞지 않습니다</b>(열쇠가 바뀌었을 수 있음). 기자 전용 화면에서 ‘홈페이지에 연결’을 다시 누르세요.</div></div>';return;}
+      body.innerHTML='<div class="card"><div class="summary"><b>기자 전용 레이더를 불러오지 못했습니다</b>('+esc(r.error)+') — 미확인이지 0건이 아닙니다.</div></div>';
+    });
+  }
   function load(){return fetch('scoop.json?v='+Date.now(),{cache:'no-store'}).then(r=>r.ok?r.json():{items:[]}).then(x=>{doc=x||{items:[]};});}
   function render(){
     document.querySelectorAll('.nav').forEach(n=>n.classList.remove('active'));nav.classList.add('active');
@@ -10,8 +43,8 @@
     const items=doc.items||[];
     const leads=(doc.leadSignals||[]).filter(l=>!items.some(x=>(x.originalSourceUrl&&x.originalSourceUrl===l.url)||(x.whatConfirmed&&x.whatConfirmed===l.title)));
     const publicSignals=doc.publicSignals||[];
-    result.textContent=items.length+'건 단독 후보 · '+leads.length+'건 미확정 단서 · '+publicSignals.length+'건 공개 원자료';
-    const count=document.querySelector('#countScoop');if(count)count.textContent=items.length;
+    result.textContent='공개 수집기: '+items.length+'건 단독 후보 · '+leads.length+'건 미확정 단서 · '+publicSignals.length+'건 공개 원자료';
+    const count=document.querySelector('#countScoop');if(count&&!rbKey())count.textContent=items.length;
     const c=doc.counts||{};
     const leadCards=leads.map(x=>{
       const numbers=(x.numbers||[]).slice(0,4), qs=(x.questions||[]).slice(0,3);
@@ -60,6 +93,8 @@
         '</details></article>';
     }).join('');
     cards.innerHTML=
+      privateBox()+
+      '<h2 class="scoop-section-title" style="margin-top:28px">참고: 공개 수집기 결과 <span>누구나 보는 공개 자료 · 단독 후보 관문을 통과한 것만 후보로 표시</span></h2>'+
       '<div class="scoop-overview">'+
       '<div><b>원자료 탐색</b><span>'+esc(c.primaryHits||0)+'건</span></div>'+
       '<div><b>공개 원자료 추적</b><span>'+esc(publicSignals.length)+'건</span></div>'+
@@ -67,9 +102,8 @@
       '<div><b>단독 후보</b><span>'+esc(c.candidates||0)+'건</span></div>'+
       '</div>'+
       '<div class="scoop-rule">구분 원칙: ‘취재 단서’는 확인이 필요한 신호일 뿐 단독이 아닙니다. ‘단독 후보’도 원문·보도 여부·출입처 확인 전에는 확정하지 않습니다.</div>'+
-      '<div class="scoop-rule"><b>이 탭은 공개 수집기(scoop_scout) 결과만 보여 줍니다.</b> 기자 전용 감시(해외 리콜·소송·OSHA·ITC·법제처·국내 공문서 등)의 A·B와 자동 보도 대조(‘미보도 후보’)는 누구나 보는 공개 홈페이지에 싣지 않고, 기자 전용 화면(비밀 주소)과 Claude 커넥터 radar_today에서만 봅니다.</div>'+
       (doc.sourceHealth&&doc.sourceHealth.dart&&['error','partial'].includes(doc.sourceHealth.dart.status)?'<div class="scoop-rule" style="border-left:3px solid #b66a00;padding:10px 12px;background:#fffaf0"><b>소스 상태 경고 · DART</b><p>공시 원자료 수집이 정상 작동하지 않습니다. '+esc((doc.sourceHealth.dart.errors||[]).map(e=>e.error||e.message||JSON.stringify(e)).join(' / ')||'공시 데이터 0건')+'</p></div>':'')+
-      (doc.sourceHealth&&doc.sourceHealth.dartNumeric&&doc.sourceHealth.dartNumeric.errorCount>0?'<div class="scoop-rule" style="border-left:3px solid #b66a00;padding:10px 12px;background:#fffaf0"><b>원문 수치 추출 경고 · DART</b><p>원문 추출 대상 '+esc(doc.sourceHealth.dartNumeric.count||0)+'건 중 원문 수치 추출 '+esc(doc.sourceHealth.dartNumeric.errorCount||0)+'건 실패, 시스템 점검 응답 '+esc(doc.sourceHealth.dartNumeric.maintenanceCount||0)+'건. 상세 숫자는 복구 전까지 취재 사실로 사용하지 않습니다.</p><p>'+esc((doc.sourceHealth.dartNumeric.errors||[]).map(e=>(e.company||'')+' '+(e.error||'')).join(' / '))+'</p></div>':'')+
+      (doc.sourceHealth&&doc.sourceHealth.dartNumeric&&doc.sourceHealth.dartNumeric.errorCount>0?'<details class="pitch-details"><summary>DART 원문 수치 추출: '+esc(doc.sourceHealth.dartNumeric.count||0)+'건 중 '+esc(doc.sourceHealth.dartNumeric.errorCount||0)+'건 숫자 못 뽑음'+(doc.sourceHealth.dartNumeric.maintenanceCount?' · 시스템 점검 응답 '+esc(doc.sourceHealth.dartNumeric.maintenanceCount)+'건':'')+' (숫자가 없는 공시일 수 있음 — 해당 공시 숫자는 원문으로 확인)</summary><p class="muted">'+esc((doc.sourceHealth.dartNumeric.errors||[]).map(e=>(e.company||'')+' '+(e.report||'')).join(' / '))+'</p></details>':'')+
       (doc.sourceHealth&&(doc.sourceHealth.dartCandidateAlignment!=='current'||doc.sourceHealth.dartNumeric?.sourceAlignment!=='current')?'<div class="scoop-rule"><b>DART 자료 갱신 확인 필요</b><p>현재 공시 파일과 이 후보·수치 분석에 사용한 자료가 일치하는지 확인되지 않았습니다. 아래 후보는 이전 분석 결과일 수 있습니다.</p></div>':'')+
       (doc.sourceHealth&&doc.sourceHealth.dart?.status==='empty'?'<div class="scoop-rule">DART 목록 조회 완료 · 해당 조회 범위의 관련 공시 0건</div>':'')+
       (doc.sourceHealth?.dartRefresh?.status==='error'?'<div class="scoop-rule"><b>DART 갱신 실패 · 이전 자료 표시 중</b><p>최근 조회에 실패해 기존 자료를 유지했습니다. 새 공시가 없다는 뜻이 아닙니다. 마지막 자료 생성: '+esc(doc.sourceHealth.dart?.generatedAt||'미확인')+' / 조회 시도: '+esc(doc.sourceHealth.dartRefresh.attemptedAt||'미확인')+'</p></div>':'')+
@@ -81,6 +115,10 @@
       (items.length?candidateCards:'<div class="card"><div class="summary">현재 검증 관문을 통과한 단독 후보가 없습니다. 숫자를 채우기 위해 공개 발표를 단독 후보로 올리지 않습니다.</div></div>')+
       (doc.dropStats?'<details class="pitch-details"><summary>레이더 진단 · 탈락 사유</summary><div class="signal-row">'+Object.entries(doc.dropStats).map(([k,v])=>'<span class="signal">'+esc(k)+' '+esc(v)+'</span>').join('')+'</div></details>':'');
   }
-  nav.addEventListener('click',async e=>{e.preventDefault();await load();render();});
-  load().then(()=>{const count=document.querySelector('#countScoop');if(count)count.textContent=(doc.items||[]).length;});
+  nav.addEventListener('click',async e=>{e.preventDefault();await load();render();fillPrivate();});
+  load().then(()=>{
+    const count=document.querySelector('#countScoop');if(count)count.textContent=(doc.items||[]).length;
+    if(rbKey())loadPrivate().then(r=>{if(r.state==='ok')setCount(r.html);});   // 연결한 기기는 탭 숫자를 오늘의 A+B로
+    if(rbOpen)nav.click();
+  });
 })();
