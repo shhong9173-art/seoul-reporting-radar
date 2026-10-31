@@ -72,7 +72,9 @@ ADMIN = re.compile(r"특수관계인|공정거래자율준수|기업설명회|IR
                    # 실적 발표와 함께 나오는 실적 전망 공정공시(정정 포함), 기업집단 현황
                    r"동일인등출자계열회사|상품ㆍ?용역거래|의결권대리행사권유|영업실적등에대한전망|기업집단현황|"
                    # 금융 계열사와의 약관 거래 상대방 공시(공정거래법 정기 형식, 10-29 현대차·현대모비스)
-                   r"약관에의한금융거래")
+                   r"약관에의한금융거래|"
+                   # 임원·주요주주 소유상황 보고 원본(사람·증감은 지분공시 단서가 따로 붙인다 — 10-26 효성중공업 형식명만)
+                   r"특정증권등소유상황보고서")
 # Disclosure vocabulary → words news headlines actually use (queries use the first, matching accepts all).
 NEWS_TERMS = {
     "중대재해발생": ["중대재해", "사망", "사고"], "중대재해": ["중대재해", "사망", "사고"],
@@ -92,7 +94,10 @@ NEWS_TERMS = {
 # 원문은 2024년 자기주식 취득·소각 계획의 이행 완료 정정, '현대차 장래사업'은 2026년 가이던스 하향 정정).
 BODY_TITLE_FORMS = re.compile(r"수시공시의무\s*관련\s*사항|장래사업\s*[ㆍ·]?\s*경영\s*계획|기타\s*경영\s*사항|"
                               r"투자판단\s*관련\s*주요\s*경영\s*사항")
-BODY_TITLE_KEYS = ("공시제목", "장래계획사항", "제목")
+BODY_TITLE_KEYS = ("공시제목", "장래계획사항", "제목", "체결계약명")
+# 단일판매ㆍ공급계약 공시는 제목 낱말이 모두 상투어라 낱말이 비어 심사에서 빠졌다(10-31: 대한전선 10-27·두산에너빌리티
+# 10-26 공급계약이 단독 후보 심사·오늘의 레이더 어디에도 없었다). 원문 체결계약명으로 질의한다.
+CONTRACT_FORM = re.compile(r"단일판매\s*[ㆍ·]?\s*공급계약")
 PATENT_SOURCES = re.compile(r"KIPRIS|특허", re.I)
 PARTICLE = re.compile(r"(으로|에서|에게|까지|부터|의|을|를)$")  # only unambiguous endings (양도·원가·회로 stay intact)
 ACRONYM = re.compile(r"[A-Z][A-Z0-9&]{1,5}")
@@ -165,7 +170,8 @@ def ratio_forms(prior, current):
 
 def terms_from(text, company):
     t = html.unescape(str(text or ""))
-    for a in aliases(company) + [company] + list(LEGAL):
+    # 긴 이름부터 지운다: '한국타이어'를 먼저 지우면 '한국타이어앤테크놀로지'에서 '앤테크놀로지'가 낱말로 남는다
+    for a in sorted(set(aliases(company) + [company] + list(LEGAL)), key=len, reverse=True):
         t = t.replace(a, " ")
     t = BOILER.sub(" ", t)
     t = re.sub(r"[\[\](){}<>·ㆍ—\-–/,:;|~→+%=\"'“”‘’…]", " ", t)
@@ -202,17 +208,21 @@ def news_terms(terms):
 def from_clue(x):
     companies = [canon(c) for c in x.get("companies") or [] if c]
     if not companies:
+        # 단서 목록이 회사 칸을 비운 DART 공시('그 외' 팀): 제목 앞 회사 이름이 심사 대상 회사면 그 회사로 본다
+        # (10-31: 효성중공업 10-27·일진전기 10-02 공급계약이 회사 칸이 비어 빠졌다)
+        # 사건 공시만(DART). 사업보고서 수치 단서(DART_METRIC)는 그 팀 선정 그대로 둔다.
+        lead = canon(str(x.get("title") or "").split(" · ")[0].strip())
+        if x.get("source") == "DART" and "dart.fss.or.kr" in str(x.get("url") or "") and lead in ALIASES:
+            companies = [lead]
+    if not companies:
         return None
     if ADMIN.search(str(x.get("title") or "")):
         return None
     company = companies[0]
     title = str(x.get("title") or "")
-    if BODY_TITLE_FORMS.search(title) and re.search(r"rcpNo=\d{14}", str(x.get("url") or "")):
-        # 원문 제목을 읽기 전에는 질의 낱말이 없다 — main()이 DART 원문을 읽은 뒤 채우고, 못 읽으면 심사하지 않는다.
-        return {"id": f"clue:{x.get('id')}", "kind": "단서", "team": x.get("team"), "company": company, "title": title,
-                "url": x.get("url"), "published": x.get("published"), "source": x.get("source"), "tier": x.get("tier"),
-                "terms": [], "alts": {}, "unit": "", "numbers": [], "ratios": [], "note": None, "bodyTitle": True,
-                "strength": 3 if x.get("tier") == "취재 단서·단독 미확정" else 1}
+    dart = bool(re.search(r"rcpNo=\d{14}", str(x.get("url") or "")))
+    if BODY_TITLE_FORMS.search(title) and dart:
+        return body_pending(x, company, title)
     nums, unit = set(), ""
     m = re.search(r"숫자\s*([\d,]+)\s*→\s*([\d,]+)\s*\(([^)]*)\)", title)
     if m:
@@ -223,12 +233,23 @@ def from_clue(x):
     else:
         body, ratios = title, set()
     terms, alts = news_terms(terms_from(body, company))
+    if not terms and dart and CONTRACT_FORM.search(title):
+        return body_pending(x, company, title)
     patent = bool(PATENT_SOURCES.search(str(x.get("source") or "")))
     return {"id": f"clue:{x.get('id')}", "kind": "특허" if patent else "단서", "team": x.get("team"), "company": company,
             "title": title, "url": x.get("url"), "published": x.get("published"), "source": x.get("source"),
             "tier": x.get("tier"), "terms": terms, "alts": alts, "unit": unit, "numbers": sorted(nums), "ratios": sorted(ratios),
             "note": "특허 공개는 그 자체로 단독이 아니다 — 사업화·생산·수주 연결 확인 필요" if patent else None,
             "strength": 0.5 if patent else (3 if x.get("tier") == "취재 단서·단독 미확정" else 1)}
+
+
+def body_pending(x, company, title):
+    """원문 제목(공시제목·장래계획 사항·제목·체결계약명)을 읽기 전에는 질의 낱말이 없다 — main()이 DART 원문을 읽은 뒤
+    apply_body_titles로 채우고, 못 읽으면 심사하지 않는다."""
+    return {"id": f"clue:{x.get('id')}", "kind": "단서", "team": x.get("team"), "company": company, "title": title,
+            "url": x.get("url"), "published": x.get("published"), "source": x.get("source"), "tier": x.get("tier"),
+            "terms": [], "alts": {}, "unit": "", "numbers": [], "ratios": [], "note": None, "bodyTitle": True,
+            "strength": 3 if x.get("tier") == "취재 단서·단독 미확정" else 1}
 
 
 def from_stat(x):
@@ -789,7 +810,8 @@ def main():
         from dart_lineage import zip_documents
         # Fetch identity before any news query. A generic lawsuit title is
         # never enough to certify either prior reporting or its absence.
-        targets = sorted(cands,key=lambda r:not is_lawsuit(r))
+        # 원문 제목·계약명이 있어야 심사할 수 있는 후보(bodyTitle)는 소송 다음으로 먼저 읽는다(예산 40건)
+        targets = sorted(cands, key=lambda r: (not is_lawsuit(r), not r.get("bodyTitle")))
         dart_filing_facts.enrich(targets, dart_key, dart_filing_facts.load_corp_codes(), fetch_documents=zip_documents, get=requests.get)
         for c in cands:
             better=lawsuit_terms(c) or holder_terms(c)
