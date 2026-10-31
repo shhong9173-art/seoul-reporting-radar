@@ -544,6 +544,8 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
     else tier = (x.dealNear ?? DEAL_WORDS.test(String(x.snippet ?? ''))) && !x.finNote ? 'A' : 'B';
     const deal = x.routine ? ` — ${x.routine}` : x.source === 'ASX' || x.source === 'HKEX' ? '' : x.hearsay ? ` — ${x.hearsay}` : x.boilerplate ? ` — ${x.boilerplate}` : x.finNote ? ` — ${x.finNote}`
       : tier === 'B' && x.dealNear === false && DEAL_WORDS.test(String(x.snippet ?? '')) ? ' — 계약·공급 낱말이 출입처 이름과 다른 문장에 있음(업계 일반 서술일 수 있음)'
+      // 소송·특허 서술은 '계약 낱말 없음'이 아니라 절차 서술이다 — 단계(청원·답변 기한·철회)는 원문으로(10-31: FSLR 10-Q의 USITC 청원 문단)
+      : tier === 'B' && LITIGATION.test(String(x.snippet ?? '')) ? ' — 소송·특허 절차 서술(진행 단계·당사자는 원문 확인)'
       : tier === 'B' ? ' — 발췌에 계약·공급·합작 낱말 없음(이름만 언급일 수 있음)' : '';
     const ticker = (/\(([A-Z0-9]{1,5})(?:,[^)]*)?\)\s*$/.exec(String(x.filer ?? '')) ?? [])[1];
     const partner = x.source === 'EDGAR' ? EDGAR_KO[ticker] : ASX_KO[ticker] ?? String(x.filer ?? '').split(/[\s,(]/)[0];
