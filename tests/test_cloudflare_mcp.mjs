@@ -9,7 +9,7 @@ import { checkCandidate } from '../cloudflare/scoring.mjs';
 import { readZip } from '../cloudflare/zip.mjs';
 import { publicationDate, verifyEvidence } from '../cloudflare/evidence.mjs';
 import { allowedUrl } from '../cloudflare/live_tools.mjs';
-import { handleIngest } from '../cloudflare/screen.mjs';
+import { ageNote, handleIngest, weekdayHours } from '../cloudflare/screen.mjs';
 import { dueAt, nextSlot, runSchedule } from '../cloudflare/dispatch.mjs';
 import { background, billHint, clipAt, convergence, convergenceRows, countForms, hint, insolvencyWord, usRecallHint, usRecallModels, kepcoHint, localWord, radarItems, siteCity, stackHint, workforceHint } from '../cloudflare/digest.mjs';
 
@@ -107,10 +107,10 @@ function storeBinding() {
   return { idFromName: (n) => n, get: () => ({ fetch: (url, init) => store.fetch(new Request(url, init)) }) };
 }
 
-async function rpc(method, params = {}, { path = '/mcp', env = {}, fetch = fakeFetch(), id = 1 } = {}) {
+async function rpc(method, params = {}, { path = '/mcp', env = {}, fetch = fakeFetch(), id = 1, now = NOW } = {}) {
   const request = new Request(ORIGIN + path, { method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ jsonrpc: '2.0', id, method, params }) });
-  const response = await handleMcp(request, env, { fetch, now: NOW });
+  const response = await handleMcp(request, env, { fetch, now });
   return { status: response.status, body: response.status === 200 ? await response.json() : null };
 }
 const call = async (name, args, opts) => {
@@ -2429,6 +2429,22 @@ test('us_litigation osha: OSHA inspections ranked fatality first, routine hidden
   const sec = (k) => r.text.split(`[${k} · `)[1].split(/\n\[[ABC] · /)[0];
   assert.match(sec('A'), /OSHA 위반 통지 2026-10-30 · 1건\(반복\)[^\n]*회사 책임 확정 아님/);
   assert.match(sec('C'), /OSHA 점검 개시 2026-10-29/);
+});
+
+test('weekday watches are not stale over the weekend (11-01: 미국 소송·ITC 37시간 전 경고 on a Sunday)', async () => {
+  const fri = Date.parse('2026-10-30T13:33:00+09:00');
+  assert.equal(Math.round(weekdayHours(fri, Date.parse('2026-11-01T02:50:00+09:00')) * 10) / 10, 10.5);  // Fri 13:33 → Sat 00:00 only
+  assert.equal(weekdayHours(fri, Date.parse('2026-11-02T07:00:00+09:00')), 10.45 + 7);
+  assert.equal(ageNote({ now: new Date('2026-11-01T02:50:00+09:00') }, '2026-10-30T13:33:00+09:00'), '');
+  assert.match(ageNote({ now: new Date('2026-11-01T02:50:00+09:00') }, '2026-10-30T13:33:00+09:00', 36, true), /⚠ 37시간 전/);  // daily watch
+  assert.match(ageNote({ now: new Date('2026-11-03T09:00:00+09:00') }, '2026-10-30T13:33:00+09:00'), /⚠ 91시간 전/);  // Mon run missed too
+  const opts = PRIVATE();
+  const doc = { schema: 'us_litigation/v1', generatedAt: '2026-10-30T13:33:00+09:00', windowDays: 45, checks: [{ source: 'CourtListener', status: 'ok', returned: 1 }], cases: [], decisions: [], itc: [] };
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/us-litigation', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), opts.env, {})).status, 200);
+  const sun = await call('radar_today', { hours: 48 }, { ...opts, now: new Date('2026-11-01T02:50:00+09:00') });
+  assert.doesNotMatch(sun.text, /미국 소송·ITC: ⚠/);
+  const tue = await call('radar_today', { hours: 48 }, { ...opts, now: new Date('2026-11-03T09:00:00+09:00') });
+  assert.match(tue.text, /미국 소송·ITC: ⚠ 91시간 전 결과/);
 });
 
 test('bill hints: formal law names are searched by the short name headlines use', () => {

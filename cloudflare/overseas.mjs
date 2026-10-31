@@ -484,7 +484,7 @@ export async function usEpa(ctx, args) {
   const limit = clampInt(args.limit, 1, 60, 20);
   const failed = (doc.checks ?? []).filter((c) => c.status !== 'ok');
   const rows = (doc.vehicles ?? []).filter((v) => (!kind || v.kind === kind) && matches(q, v.company, v.make, v.model, v.baseModel));
-  const out = [`미국 EPA 인증(fueleconomy.gov) · 현대차·기아·제네시스 새 등록 ${rows.length}건 · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt, 60)}`,
+  const out = [`미국 EPA 인증(fueleconomy.gov) · 현대차·기아·제네시스 새 등록 ${rows.length}건 · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt, 60, true)}`,
     failed.length ? `미확인(0건 아님): ${failed.map((c) => `${c.source}(${c.error})`).join(', ')}` : `파일 정상 · 갱신 ${(doc.checks ?? [])[0]?.fileModified ?? '?'}`,
     ...(doc.rules ?? []).map((r) => `규칙: ${r}`)];
   for (const v of rows.slice(0, limit)) {
@@ -513,7 +513,7 @@ export async function krFuel(ctx, args) {
   const limit = clampInt(args.limit, 1, 60, 20);
   const c = (doc.checks ?? [])[0] ?? {};
   const rows = (doc.vehicles ?? []).filter((v) => (!kind || v.kind === kind) && matches(q, v.company, v.maker, v.model));
-  const out = [`국내 자동차 표시연비 신고(에너지공단, 공공데이터포털) · 출입처 브랜드 새 신고 ${rows.length}건 · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt, 60)}`,
+  const out = [`국내 자동차 표시연비 신고(에너지공단, 공공데이터포털) · 출입처 브랜드 새 신고 ${rows.length}건 · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt, 60, true)}`,
     c.status === 'ok' ? `목록 정상 · 전체 ${c.rows}행 · 출입처 ${c.beatRows}행${c.note ? ` · ${c.note}` : ''}` : `미확인(0건 아님): ${c.error ?? c.status}${c.status === 'unset' ? ` — ${doc.dataset ?? ''}` : ''}`,
     ...(doc.rules ?? []).map((r) => `규칙: ${r}`)];
   for (const v of rows.slice(0, limit)) {
@@ -589,7 +589,7 @@ export function oshaSection(doc, q = '', limit = 20, onlyNew = false, routine = 
       : ['B', 'C'].includes(x.type) || (x.violations ?? []).length ? 2 : 3);
   const all = (doc.inspections ?? []).filter((x) => (!onlyNew || x.isNew) && matches(q, x.company, x.estab, x.city, x.state));
   const rows = all.filter((x) => routine || weight(x) < 3).sort((a, b) => weight(a) - weight(b) || String(b.opened).localeCompare(String(a.opened)));
-  const out = [`\n[미국 OSHA 점검·위반 · 출입처 미국 법인·공장 · 개시 ${String(doc.since ?? '').slice(0, 10)} 이후 · 확인 ${String(doc.generatedAt).slice(0, 16)}${ctx ? ageNote(ctx, doc.generatedAt, 60) : ''}] `
+  const out = [`\n[미국 OSHA 점검·위반 · 출입처 미국 법인·공장 · 개시 ${String(doc.since ?? '').slice(0, 10)} 이후 · 확인 ${String(doc.generatedAt).slice(0, 16)}${ctx ? ageNote(ctx, doc.generatedAt, 60, true) : ''}] `
     + `${rows.length}건${routine ? '' : ` · 정기·후속·모니터링만 있는 점검 ${all.length - rows.length}건 숨김(include_routine=true)`} · 원천 ${c.status ?? '?'}${c.error ? `(${c.error})` : ''}`];
   for (const x of rows.slice(0, limit)) {
     const v = x.violations ?? [];
