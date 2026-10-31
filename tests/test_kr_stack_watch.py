@@ -1,5 +1,5 @@
 """굴뚝 측정(가동 신호): 10-30 실제 응답 칸 모양의 가짜 API로 출입처 사업장 이름 규칙(계열사·동명 회사 제외), 첫 실행 기준선,
-관측이 쌓이기 전 판단 안 함, 사업장 대부분 멈춤 A·일부 멈춤 B·작은 배출구 하나는 이벤트 없음, 측정 시각 멈춤, 새 배출구 A, 빠진 배출구 B,
+관측이 쌓이기 전 판단 안 함, 사업장 대부분 멈춤 A·일부 멈춤 B·작은 배출구 하나는 이벤트 없음, 측정 시각 멈춤, 새 배출구는 지켜본 기간대로(14일 A·7일 B·그 전 C), 빠진 배출구 B,
 재가동 B, 조회 실패는 미확인."""
 import datetime as dt
 import json
@@ -65,6 +65,15 @@ def series(n, start=T0, **kw):
     return doc
 
 
+def aged(doc, days):
+    """감시를 days일 전부터 돌린 것처럼(사업장 firstSeen·기준선을 앞당김)."""
+    back = dt.timedelta(days=days)
+    for site in doc["sites"]:
+        site["firstSeen"] = (dt.datetime.fromisoformat(site["firstSeen"]) - back).isoformat(timespec="seconds")
+    doc["baselineSince"] = (dt.datetime.fromisoformat(doc["baselineSince"]) - back).isoformat(timespec="seconds")
+    return doc
+
+
 class StackTest(unittest.TestCase):
     def test_names_and_baseline(self):
         doc = w.run(CFG_SMALL, now=T0, key="k", get=Api(world(T0)), sleep=lambda s: None)
@@ -108,13 +117,13 @@ class StackTest(unittest.TestCase):
         self.assertEqual([(e["kind"], e["tier"]) for e in ev], [("배출구 멈춤 신호", "B")])  # 사업장에서 가장 큰 배출구
 
     def test_new_stack_and_missing_stack(self):
-        doc = series(7)  # 사업장을 7번 지켜본 뒤라야 새 번호를 새 설비 신호로 본다
+        doc = aged(series(7), 15)  # 사업장을 14일 넘게(7번 넘게) 지켜본 뒤라야 새 번호를 새 설비 신호(A)로 본다
         t = T0 + dt.timedelta(hours=21)
         doc = w.run(CFG_SMALL, now=t, previous=doc, key="k", get=Api(world(t, new_stack=True)), sleep=lambda s: None)
         new = [e for e in doc["events"] if e["kind"] == "새 배출구"]
         self.assertEqual([(e["tier"], e["site"]) for e in new], [("A", "현대제철㈜")])
         self.assertIn("새 배출구 99번", new[0]["text"])
-        self.assertIn("이 사업장 7번 실행 동안 없던 번호", new[0]["text"])
+        self.assertIn("이 사업장을 16일·7번 지켜보는 동안 없던 번호) — 새 설비 가동 또는 오래 쉬던 설비 재가동 가능성", new[0]["text"])
         for k in range(2):  # 포항2공장 2번 배출구가 두 번 연속 빠짐 → B 한 번
             t = T0 + dt.timedelta(hours=24 + 3 * k)
             rows = [x for x in world(t, new_stack=True) if not (x["fact_manage_nm"] == "현대제철㈜포항2공장" and x["stack_code"] == "2")]
@@ -122,6 +131,37 @@ class StackTest(unittest.TestCase):
         gone = [e for e in doc["events"] if e["kind"] == "배출구 목록에서 빠짐"]
         self.assertEqual(len(gone), 1)
         self.assertIn("포항2공장 배출구 2번", gone[0]["text"])
+
+    def test_new_number_tier_follows_how_long_the_site_was_watched(self):
+        # 10-31 운영: 영풍 석포 5·6번이 감시 하루(7번째 실행) 만에 A '새 설비 가동 가능성'으로 떴다 — 쉬던 설비가 다시 측정된 것일 수 있다
+        def one(days):
+            doc = aged(series(7), days)
+            t = T0 + dt.timedelta(hours=21)
+            doc = w.run(CFG_SMALL, now=t, previous=doc, key="k", get=Api(world(t, new_stack=True)), sleep=lambda s: None)
+            return [(e["kind"], e["tier"], e["text"]) for e in doc["events"] if e["detectedAt"] == doc["generatedAt"]]
+        got = one(0)
+        self.assertEqual([(k, t) for k, t, _ in got], [("배출구 목록 보강", "C")])
+        self.assertIn("이 사업장을 0.9일·7번만 봐서 간헐 가동·측정 자료 지연일 수 있어 새 설비로 보지 않음", got[0][2])
+        got = one(8)
+        self.assertEqual([(k, t) for k, t, _ in got], [("새 배출구", "B")])
+        self.assertIn("간헐 가동 설비가 다시 측정된 것일 수 있음(새 설비 여부 미확인)", got[0][2])
+
+    def test_stored_early_new_stack_A_is_lowered(self):
+        doc = series(7)
+        at = (T0 + dt.timedelta(hours=18, minutes=20)).isoformat(timespec="seconds")
+        doc["events"] = [{"id": "stk:newstack:영풍:㈜영풍석포제련소:5", "kind": "새 배출구", "tier": "A", "company": "영풍", "site": "㈜영풍석포제련소",
+                          "detectedAt": at, "text": "㈜영풍석포제련소 굴뚝 자동측정에 새 배출구 5번이 생김"}] + doc["events"]
+        t = T0 + dt.timedelta(hours=21)
+        out = w.run(CFG_SMALL, now=t, previous=doc, key="k", get=Api(world(t)), sleep=lambda s: None)
+        e = next(e for e in out["events"] if e["id"] == "stk:newstack:영풍:㈜영풍석포제련소:5")
+        self.assertEqual(e["tier"], "C")
+        self.assertIn("이 사업장을 0.8일만 지켜본 때라 간헐 가동·측정 자료 지연일 수 있어 C로 바로잡음", e["text"])
+        again = w.run(CFG_SMALL, now=t + dt.timedelta(hours=3), previous=out, key="k", get=Api(world(t)), sleep=lambda s: None)
+        e2 = next(x for x in again["events"] if x["id"] == "stk:newstack:영풍:㈜영풍석포제련소:5")
+        self.assertEqual(e2["text"].count("바로잡음"), 1)  # 한 번만 붙인다
+        site = {"id": "stk:newsite:한화솔루션:x", "kind": "새 사업장(굴뚝 측정)", "tier": "A", "company": "한화솔루션", "site": "x", "detectedAt": at, "text": "x"}
+        w.retier_new([site], {}, T0.isoformat())
+        self.assertEqual(site["tier"], "C")
 
     def test_new_numbers_early_or_in_bulk_are_list_fill_C_not_new_plant(self):
         # 10-30 13:36 운영: 첫 실행 기준선 때 고려아연 온산 배출구가 7개만 보였다가 다음 실행에 24개가 더 보여 모두 A로 뜸
