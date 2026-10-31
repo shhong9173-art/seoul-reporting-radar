@@ -337,6 +337,38 @@ class Screen(unittest.TestCase):
         self.assertEqual((out[0]["firstVerdict"], out[0]["firstQueries"]), ("미보도 후보", ["고려아연 소송등의판결"]))
         self.assertEqual(out[0]["filing"]["type"], "소송판결")
 
+    def test_asset_filing_is_searched_by_its_place(self):
+        # 금호타이어 20261027800641 [기재정정]유형자산취득결정(자율공시) — 10-31 운영 원문 요점 그대로
+        facts = [["취득물건구분", "토지 및 건물"], ["취득물건명", "전라남도 함평군 빛그린국가산업단지 2단계 사업구역 소재 토지"],
+                 ["취득가액(원)", "116,081,801,890"], ["거래상대", "한국토지주택공사(LH)"], ["취득목적", "금호타이어 광주공장 이전 신부지 확보"]]
+        row = {"id": "clue:kt", "kind": "단서", "company": "금호타이어", "title": "금호타이어 · [기재정정]유형자산취득결정(자율공시)",
+               "terms": ["투자"], "alts": {"투자": ["투자", "취득", "증설"]}, "numbers": [], "ratios": [], "unit": "", "strength": 1,
+               "published": "2026-10-27", "filing": {"type": "유형자산취득", "facts": facts}}
+        terms, alts = s.asset_terms(row)
+        self.assertEqual(terms, ["부지", "함평", "투자"])
+        row.update(terms=terms, alts=alts)
+        self.assertEqual(s.queries(row), ["금호타이어 부지", "금호타이어 부지 함평"])
+        hit = {"title": "금호타이어 함평 이전 부지 1160억원에 취득 완료", "text": "", "url": "v", "date": "2026-10-28"}
+        report = {"title": "[리포트 브리핑]금호타이어, '마진 방어 상에서 EU 반덤핑 관세 영향이라는 변수' 목표가 8,300원",
+                  "text": "투자 의견", "url": "r", "date": "2026-10-30"}
+        verdict, ev = s.judge(row, channels([report, hit]), now=dt.datetime(2026, 10, 31, 7, 10, tzinfo=KST))
+        self.assertEqual((verdict, [e["url"] for e in ev]), ("관련 보도 있음", ["v"]))  # 리포트 기사는 근거가 아님
+        # 시·군을 못 읽으면 그대로, 토지가 아니면 제목 낱말 + 시·군
+        self.assertIsNone(s.asset_terms({**row, "filing": {"type": "유형자산취득", "facts": [["취득물건명", "기계장치"]]}}))
+        plant = {**row, "terms": ["투자"], "filing": {"type": "신규시설투자", "facts": [["투자구분", "신규시설투자"],
+                 ["투자대상", "충청북도 청주시 흥덕구 배전 공장 증설"], ["투자목적", "생산능력 확대"]]}}
+        self.assertEqual(s.asset_terms(plant)[0], ["투자", "청주"])
+        self.assertEqual(s.asset_terms({**plant, "filing": {"type": "유형자산처분", "facts": [["처분물건구분", "토지"],
+                         ["처분물건명", "광주광역시 광산구 소촌동 공장 부지"]]}})[0], ["부지", "광주", "투자"])
+        self.assertIsNone(s.asset_terms({**row, "filing": {"type": "공급계약", "facts": facts}}))
+        # '투자'는 증권사 이름·투자의견 속에서 맞지 않는다(그 전에는 '금호타이어 투자' 질의의 근거가 이 리포트 기사였다)
+        plain_row = {**row, "terms": ["투자"], "alts": {"투자": ["투자", "취득", "증설"]}}
+        broker = {"title": "[리포트 브리핑]금호타이어, 목표가 8,300원 - 한화투자증권 - 뉴스핌", "text": "투자의견 매수", "url": "b", "date": "2026-10-30"}
+        self.assertEqual(s.judge(plain_row, channels([broker]), now=dt.datetime(2026, 10, 31, 7, 10, tzinfo=KST))[1], [])
+        real = {"title": "금호타이어, 함평 신공장에 4천억 투자", "text": "", "url": "i", "date": "2026-10-30"}
+        self.assertEqual([e["url"] for e in s.judge(plain_row, channels([broker, real]), now=dt.datetime(2026, 10, 31, 7, 10, tzinfo=KST))[1]], ["i"])
+        self.assertEqual(s.event_text("투자자산 투자자 보호"), "투자자산 · 보호")
+
     def test_trade_plan_is_searched_by_the_reporting_holder(self):
         row = {"id": "clue:yp", "kind": "단서", "company": "영풍", "title": "영풍 · 임원ㆍ주요주주특정증권등거래계획보고서",
                "terms": ["거래계획"], "alts": {}, "numbers": [], "ratios": [], "unit": "", "strength": 1,
