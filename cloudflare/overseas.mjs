@@ -611,7 +611,11 @@ async function localSection(ctx, q, days, limit) {
     ...(doc.rules ?? []).map((r) => `규칙: ${r}`)];
   for (const x of rows.slice(0, limit)) {
     out.push(`- ${x.isNew ? '[신규] ' : x.baseline ? '[첫 조회 기준선] ' : ''}${x.date ?? '?'} · ${x.city} · ${x.company ?? '출입처 이름 없음'} · ${x.tier}`);
-    out.push(`   잡힌 사실: ${x.no ?? ''} 「${x.title}」 · ${x.dept ?? '담당 부서 미기재'}${x.plants ? ` (이 시·군의 출입처 공장: ${x.plants})` : ''}`);
+    out.push(`   잡힌 사실: ${x.no ?? ''} 「${x.detail?.title ?? x.title}」 · ${x.dept ?? '담당 부서 미기재'}${x.plants ? ` (이 시·군의 출입처 공장: ${x.plants})` : ''}`);
+    if (x.detail?.body) out.push(`   본문 앞부분(상세 페이지): ${x.detail.body}`);
+    if ((x.detail?.files ?? []).length) out.push(`   첨부 파일(열지 않음): ${x.detail.files.join(' · ')}`);
+    if (x.listTier) out.push(`   등급: 목록 제목으로 ${x.listTier} → 전체 제목으로 ${x.tier}`);
+    if (x.detailError) out.push(`   상세 페이지: 못 읽음(${x.detailError}) — 제목만 확인`);
     out.push(`   원문: ${x.url}`);
   }
   if (rows.length > limit) out.push(`… 남은 ${rows.length - limit}건`);

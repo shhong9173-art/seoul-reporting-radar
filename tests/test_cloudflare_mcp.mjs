@@ -2119,8 +2119,10 @@ test('bill hints: formal law names are searched by the short name headlines use'
 });
 
 test('press-check hints: place words narrow the search but are marked, workforce words follow the direction, local notices use the project word', () => {
-  const h = hint('고려아연', ['울주', localWord("건설공사 안전점검 수행기관 지정 공고[온산 고려아연(주), #2ASU O..."), '공장'], ['울주']);
+  const h = hint('고려아연', ['울주', localWord("건설공사 안전점검 수행기관 지정 공고[온산 고려아연(주), Ga' 2차 ..."), '공장'], ['울주']);
   assert.deepEqual([h.terms, h.places, Object.keys(h.alts)], [['울주', '신설', '공장'], ['울주'], ['신설', '공장']]);
+  // 산소공장(ASU): 기사는 '산소공장 증설'(10-20 전자신문) — '#2ASU'처럼 숫자가 붙어도, 'CASUAL' 같은 낱말 속은 아님
+  assert.deepEqual(["…[온산 고려아연(주), #2ASU O2 COMPRESSOR ROOM 토건공사]", '산소플랜트 증설', 'CASUAL 공장'].map(localWord), ['산소공장', '산소공장', '신설']);
   assert.equal(hint('LS전선', ['입찰'], ['바레인']).places, undefined);  // a place not among the terms is dropped
   assert.equal(hint('LS전선', ['바레인', '입찰']).places, undefined);
   assert.deepEqual(['온산제련소 환경영향평가 초안 공람', '○○ 일반산업단지 계획 변경', '공장 이전 부지', '폐기물 매립시설'].map(localWord),
@@ -2163,6 +2165,22 @@ test('kr local notices: a beat plant notice in a city is A, a city baseline is h
   assert.match(t.text, /- \[첫 조회 기준선\] 2026-10-25 · 당진시 · 현대제철 · A/);
   assert.match(t.text, /미확인\(0건 아님\): 포항시\(ReadTimeout\)/);
   assert.match(t.text, /이 시·군의 출입처 공장: 고려아연·LS MnM·현대차/);
+  // 상세 페이지를 읽은 공고: 전체 제목·본문 앞부분·첨부 파일 이름, 대조 낱말은 전체 제목에서(10-31 울주 68156)
+  doc.items.push(it('local:울주군:68156', { no: '울산광역시 울주군 공고 제2026-2760호', title: '건설공사 안전점검 수행기관 지정 공고[온산 고려아연(주), #2ASU O...',
+    detail: { title: '건설공사 안전점검 수행기관 지정 공고[온산 고려아연(주), #2ASU O2 COMPRESSOR ROOM 토건공사]',
+      body: '우리 군 온산읍 원산리 892번지 일원 상 공장 용도의 건축공사에 대하여 건설공사 안전점검 수행기관을 지정하고자 다음과 같이 모집 공고합니다.',
+      files: ['예정공정표.pdf'] } }),
+  it('local:울주군:68157', { title: '고려아연(주) 온산제련소 ...', tier: 'B', detailError: 'ReadTimeout' }));
+  await worker.fetch(new Request(ORIGIN + '/ingest/kr-local', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {});
+  const r2 = await call('radar_today', { hours: 72 }, opts);
+  assert.match(r2.text, /「건설공사 안전점검 수행기관 지정 공고\[온산 고려아연\(주\), #2ASU O2 COMPRESSOR ROOM 토건공사\]」 · 건축과 · 등록 2026-10-25 · 본문: 우리 군 온산읍 원산리 892번지 일원 상 공장 용도의 건축공사/);
+  assert.match(r2.text, /토건공사\]」[^\n]*— 제목·본문 앞부분 확인/);
+  const t2 = await call('kr_official', { section: 'local' }, opts);
+  assert.match(t2.text, /본문 앞부분\(상세 페이지\): 우리 군 온산읍 원산리 892번지/);
+  assert.match(t2.text, /첨부 파일\(열지 않음\): 예정공정표\.pdf/);
+  assert.match(t2.text, /상세 페이지: 못 읽음\(ReadTimeout\) — 제목만 확인/);
+  const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=168', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: new Date('2026-10-26T01:00:00Z') })).json();
+  assert.deepEqual(items.items.find((x) => x.id === 'local:울주군:68156').check.terms, ['울주', '산소공장', '공장']);
   assert.deepEqual(dueAt(new Date('2026-10-26T21:30:00Z')), ['page-watch.yml', 'kr-local.yml']);  // Tue 06:30 KST
   assert.deepEqual(dueAt(new Date('2026-10-27T07:20:00Z')), ['kr-local.yml']);                    // Tue 16:20 KST
 });

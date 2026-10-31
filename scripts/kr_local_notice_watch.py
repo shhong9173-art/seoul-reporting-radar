@@ -138,7 +138,8 @@ PROJECT = re.compile(r"증설|신설|신규|설치|건설|건립|공장|라인|�
 GENERIC = re.compile(r"제철소|제련소|공장\s*(?:증설|신설|설립)|공장증설|산업단지\s*계획|일반산업단지|국가산업단지|산업단지.{0,12}(?:지정|변경|승인)|발전사업|전기사업|발전소\s*(?:건설|설치)")
 NOISE = re.compile(r"담배\s*소매|소매인\s*지정|일자리\s*박람회|채용|봉사자|도로명주소")
 RULES = [
-    "지자체 고시·공고 제목만 본다(첨부 원문은 열지 않음). 사업 규모·내용은 첨부와 회사·지자체 확인.",
+    "지자체 고시·공고 목록 제목을 본다. 출입처 이름이 든 새 공고(A·B)는 상세 페이지의 전체 제목·본문 앞부분·첨부 파일 이름까지 읽는다"
+    "(첨부 원문은 열지 않음). 사업 규모·내용은 첨부와 회사·지자체 확인.",
     "출입처 이름 + 사업 낱말 = A, 출입처 이름만 = B, 출입처 이름 없이 제철소·제련소·산업단지 계획·발전사업 = C.",
     "건설공사 안전점검 수행기관 지정 공고는 공사가 정해졌다는 뜻이지 착공·완공이 아니다.",
     "첫 실행은 기준선. 시간 초과·실패한 시·군은 0건이 아니라 미확인.",
@@ -198,6 +199,39 @@ def parse_cells(mgt, cells):
     dept = cells[t + 1] if t + 1 < len(cells) and not DATE.fullmatch(cells[t + 1]) and not re.fullmatch(r"[\d,]+", cells[t + 1]) else None
     date = next((c for c in cells[t + 1:] if DATE.fullmatch(c)), None)
     return {"mgt": str(mgt), "no": no, "title": title[:200], "dept": dept, "date": date}
+
+
+DETAIL_MAX = 8  # 실행당 상세 페이지(새 A·B만)
+DETAIL_TIMEOUT = 45
+BODY_CHARS = 400
+FILE_EXT = re.compile(r"\.(?:pdf|hwpx?|docx?|xlsx?|zip|jpg|png)$", re.I)
+BODY_END = re.compile(r"^(?:첨부\s*파일|목록\s*보기|목록|이전\s*글|다음\s*글)\b")
+
+
+def parse_detail(page, title):
+    """새올 상세 페이지 → 전체 제목·본문 앞부분·첨부 파일 이름. 목록 제목은 길면 '...'로 잘린다(10-31 탐침: 울주 68156 목록
+    「…[온산 고려아연(주), #2ASU O...」 → 상세 「…[온산 고려아연(주), #2ASU O2 COMPRESSOR ROOM 토건공사]」, 본문 '온산읍 원산리
+    892번지 일원 상 공장 용도의 건축공사'). 제목을 못 찾으면 None — 형식을 짐작해 채우지 않는다."""
+    html = re.sub(r"<(script|style)\b[\s\S]*?</\1>", " ", page or "", flags=re.I)
+    nodes = [norm_space(htmllib.unescape(t)) for t in re.findall(r">([^<]+)<", html)]
+    nodes = [t for t in nodes if t]
+    prefix = re.sub(r"(?:\.{2,}|…)\s*$", "", norm_space(title)).strip()[:30]
+    if len(prefix) < 6:
+        return None
+    i = next((k for k, t in enumerate(nodes) if prefix in t), None)
+    if i is None:
+        return None
+    full = nodes[i][:300]
+    body, files = [], []
+    for t in nodes[i + 1:]:
+        if BODY_END.match(t):
+            break
+        body.append(t)
+    for t in nodes[i + 1:]:  # 첨부 파일은 링크마다 한 덩어리(이름에 띄어쓰기·괄호가 있다)
+        if FILE_EXT.search(t) and t not in files:
+            files.append(t[:120])
+    text = norm_space(" ".join(body))
+    return {"title": full, "body": text[:BODY_CHARS] + ("…" if len(text) > BODY_CHARS else ""), "files": files[:6]}
 
 
 def classify(title):
@@ -270,7 +304,33 @@ def error_kind(e):
     return name if name in ("ConnectTimeout", "ReadTimeout", "ConnectionError", "SSLError", "Timeout") else (str(e)[:40] or name)
 
 
-def run(*, now, previous=None, post=None, sleep=time.sleep, cities=CITIES, browser=None, browser_cities=BROWSER_CITIES):
+def read_details(items, get, sleep, budget=DETAIL_MAX):
+    """새 A·B 공고의 상세 페이지를 읽어 전체 제목으로 다시 매긴다. 실패는 detailError로 남긴다(제목만 확인한 상태 그대로)."""
+    read = failed = 0
+    for x in items[:budget]:
+        try:
+            r = get(x["url"], headers={**UA, "Referer": x["url"].split("?")[0]}, timeout=DETAIL_TIMEOUT)
+            if r.status_code != 200:
+                raise RuntimeError(f"HTTP {r.status_code}")
+            d = parse_detail(r.text, x["title"])
+            if not d:
+                raise RuntimeError("상세 형식 미상")
+        except Exception as e:  # noqa: BLE001
+            x["detailError"] = error_kind(e)
+            failed += 1
+            continue
+        x["detail"] = d
+        read += 1
+        tier, hits = classify(d["title"])
+        if tier and (tier, hits) != (x["tier"], x["companies"]):
+            x["listTier"] = x["tier"]
+            x["tier"], x["companies"] = tier, hits or x["companies"]
+            x["company"] = x["companies"][0] if x["companies"] else None
+        sleep(1.0)
+    return {"read": read, "failed": failed, "skipped": max(0, len(items) - budget)}
+
+
+def run(*, now, previous=None, post=None, sleep=time.sleep, cities=CITIES, browser=None, browser_cities=BROWSER_CITIES, get=None):
     if post is None:
         import requests
         post = requests.post
@@ -333,13 +393,18 @@ def run(*, now, previous=None, post=None, sleep=time.sleep, cities=CITIES, brows
     for iid, x in out.items():
         if iid in old and x is old[iid]:
             x["isNew"] = False
+    # 새 A·B 공고는 상세 페이지까지(기자 컴퓨터 브라우저로 읽은 시·군과 홈페이지 게시판은 GitHub에서 상세가 안 열려 뺀다)
+    via_browser = {c[0] for c in browser_cities} | set(sources)
+    fresh = [x for x in out.values() if x.get("isNew") and x["tier"] in ("A", "B") and x["city"] not in via_browser
+             and not any(x["url"].startswith(b) for b in HOMEPAGE_BOARDS)]
+    details = read_details(fresh, get, sleep) if get and fresh else None
     keep_from = (now - dt.timedelta(days=KEEP_DAYS)).isoformat()
     items = sorted((x for x in out.values() if str(x.get("firstSeen")) >= keep_from),
                    key=lambda x: (str(x.get("date") or ""), x["id"]), reverse=True)[:KEEP_MAX]
     failed = [c for c in checks if c["status"] == "failed"]
     status = "failed" if len(failed) == len(checks) else "partial" if any(c["status"] != "ok" for c in checks) else "complete"
     return {"schema": SCHEMA, "generatedAt": stamp, "status": status, "checks": checks, "items": items, "seen": seen,
-            "rules": RULES, "cities": len(cities) + len(browser_cities)}
+            "rules": RULES, "cities": len(cities) + len(browser_cities), **({"details": details} if details else {})}
 
 
 def main():
@@ -360,12 +425,15 @@ def main():
             browser = private_store.get("kr-local-browser", token)
         except private_store.StoreError as e:
             print(f"::warning title=kr-local-browser::브라우저 수집 문서 조회 실패({e}) — 그 시·군은 미확인")
-    doc = run(now=now, previous=previous, browser=browser)
+    import requests
+    doc = run(now=now, previous=previous, browser=browser, get=requests.get)
     new = [x for x in doc["items"] if x.get("isNew")]
     tiers = {t: sum(1 for x in new if x["tier"] == t) for t in "ABC"}
     ok = [c["source"] for c in doc["checks"] if c["status"] == "ok"]
     bad = [f"{c['source']}({c.get('error') if c['status'] == 'failed' else '일부'})" for c in doc["checks"] if c["status"] != "ok"]
+    det = doc.get("details") or {}
     print(f"::notice title=kr-local::상태 {doc['status']} · 시·군 {len(ok)}/{len(doc['checks'])} 정상 · 새 고시·공고 {tiers} · 보관 {len(doc['items'])}"
+          + (f" · 상세 읽음 {det.get('read', 0)}·실패 {det.get('failed', 0)}" if det else "")
           + (f" · 미확인 {', '.join(bad)}" if bad else ""))
     if not token:
         print("::warning title=kr-local-push::MCP_ACCESS_TOKEN 미설정 — 결과를 저장하지 않음")
