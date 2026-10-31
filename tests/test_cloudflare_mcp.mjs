@@ -2278,7 +2278,7 @@ test('local_notice_submit: the reporter computer posts browser-read 새올 rows 
   const got2 = await (await worker.fetch(new Request(ORIGIN + '/ingest/kr-local-browser', { headers: { Authorization: `Bearer ${TOKEN}` } }), opts.env, {})).json();
   assert.deepEqual(got2.cities.map((c) => [c.city, c.rows.length]).sort(), [['구미시', 1], ['인천 부평구', 1]]);
   assert.ok((await call('local_notice_submit', { cities: [{ city: '서울 강남구' }] }, opts)).isError);
-  // 무역구제 목록(호주 TRN): 한국 줄 칸 글자 + 같은 사이트 링크만, 감시는 따로 돌리지 않음
+  // 무역구제 목록(호주 TRN): 한국 줄 칸 글자 + 같은 사이트 링크만, 받은 날 처음 한 번 무역구제 감시를 돌린다(하루 한 번까지)
   const pg = await call('local_notice_submit', { pages: [{ id: 'au-trn', rows: [
     { cells: ['2026/141 [PDF 270.2 KB]', '706', 'Zinc coated (galvanised) steel', 'Extension of time for SEF and Final Report', 'Korea, Vietnam', '02/10/2026'],
       links: ['/sites/default/files/atrc/public-record/2026-10/706-22.pdf', 'https://evil.example/x', 'https://www.industry.gov.au/australian-trade-remedies-commission/current-cases-and-electronic-public-record-epr/706'] }] },
@@ -2286,10 +2286,16 @@ test('local_notice_submit: the reporter computer posts browser-read 새올 rows 
   assert.equal(pg.isError, false);
   assert.match(pg.text, /- 무역구제 au-trn: 한국 줄 1/);
   assert.match(pg.text, /받지 않은 목록\(허용 밖\): xx-page/);
-  assert.equal(seen.length, 1);  // 무역구제는 실행 요청 없음
+  assert.match(pg.text, /무역구제 감시\(trade-remedy\) 실행 요청함/);
+  assert.deepEqual(seen.map((x) => x.url.split('/').slice(-2)[0]), ['kr-local.yml', 'trade-remedy.yml']);
   const tb = await (await worker.fetch(new Request(ORIGIN + '/ingest/trade-remedy-browser', { headers: { Authorization: `Bearer ${TOKEN}` } }), opts.env, {})).json();
   assert.deepEqual(tb.pages[0].rows[0].links, ['/sites/default/files/atrc/public-record/2026-10/706-22.pdf',
     '/australian-trade-remedies-commission/current-cases-and-electronic-public-record-epr/706']);  // 다른 사이트 링크는 버림
+  const pg2 = await call('local_notice_submit', { pages: [{ id: 'au-trn', rows: [{ cells: ['2026/142', 'Korea', 'x'] }] }] }, opts);
+  assert.match(pg2.text, /이미 함\(하루 한 번\)/);  // 같은 날 오후 수집은 요청하지 않음
+  const pg3 = await call('local_notice_submit', { pages: [{ id: 'au-trn', error: 'HTTP 503' }] }, opts);
+  assert.match(pg3.text, /- 무역구제 au-trn: 미확인\(HTTP 503\)[\s\S]*실행 요청 안 함\(한국 줄을 받은 목록 없음\)/);
+  assert.equal(seen.length, 2);
   assert.ok((await call('local_notice_submit', {}, opts)).isError);
   // kr_official names the cities read on the reporter's computer
   const doc = { schema: 'kr_local/v1', generatedAt: '2026-10-26T08:50:00+09:00', status: 'complete', items: [],
