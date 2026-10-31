@@ -256,6 +256,10 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
     else if (c.verdict === '미보도 후보' && c.kind === '특허') push('B', W['scoop-screen'], { kind, verdict: c.verdict, id: c.id, date: c.published ?? c.filedOn, company: c.company, fact: `${c.title} (특허) — 보도 대조 '미보도 후보' · 특허 공개만으로는 단독이 아님(사업화·생산·수주 연결 확인)`, url: c.url });
     else if (c.verdict === '미보도 후보') push('A', W['scoop-screen'], { kind, verdict: c.verdict, id: c.id, date: c.published ?? c.filedOn, company: c.company, fact: `${c.title} (${c.kind ?? ''}) — 보도 대조 '미보도 후보'${brief}${cmp}`, url: c.url });
     else if (c.verdict === '미확인') push('B', W['scoop-screen'], { kind, verdict: c.verdict, id: c.id, date: c.published ?? c.filedOn, company: c.company, fact: `${c.title} — 보도 대조 미확인(채널 실패)`, url: c.url });
+    // 정정 중 큰 변경(금액 ±10%·기간 90일+·해지): '관련 보도 있음'이어도 그 기사는 원 계약 기사일 수 있다 — B로 올린다
+    // (10-31 두산에너빌리티 영광 야월 해상풍력 EPC 정정: 계약기간 종료일 2029-07-01 → 2030-01-28, 보도 대조는 다른 기사)
+    else if (c.verdict === '관련 보도 있음' && (fl?.correction?.material ?? []).length) push('B', W['scoop-screen'], { kind, flag: '정정', verdict: c.verdict, id: c.id, date: c.published ?? c.filedOn, company: c.company,
+      fact: `${c.title} — 정정 중 큰 변경(${fl.correction.material.join(', ')})${brief}${cmp} · 보도 대조 '관련 보도 있음'은 원 계약 기사일 수 있음(정정 내용 보도 여부는 따로 확인)`, url: c.url });
     else push('C', W['scoop-screen'], { kind, id: c.id, company: c.company, fact: `${c.verdict}: ${c.title}` });
   }
 

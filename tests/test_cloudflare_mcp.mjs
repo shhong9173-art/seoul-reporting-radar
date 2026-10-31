@@ -876,6 +876,18 @@ test('scoop candidates: a correction filing shows what changed before the same-c
   const r = await call('radar_today', {}, { path: `/mcp/${TOKEN}`, env });
   assert.match(r.text, /효성중공업 · \[기재정정\]단일판매ㆍ공급계약체결 \(단서\) — 보도 대조 '미보도 후보' · 체결계약명 420kV 변압기 등 공급계약 · 정정: 계약금액 1,136억→1,130억\(-0\.5%\) · 매출액대비 3\.24→3\.22 · 문구 1곳/);
   assert.match(r.text, /· 같은 계약상대의 다른 계약 직전 공시 2026-09-30/);
+  // 정정 중 큰 변경은 '관련 보도 있음'이어도 B(10-31 두산 영광 야월 EPC 종료일 +7개월)
+  doc.candidates.push({ id: 'clue:ds', kind: '단서', company: '두산에너빌리티', title: '두산에너빌리티 [기재정정]단일판매ㆍ공급계약체결', verdict: '관련 보도 있음',
+    published: '2026-10-26', firstSeen: iso(2), url: 'https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261026800529',
+    filing: { type: '공급계약', facts: [['체결계약명', '영광 야월 해상풍력 발전소 설계 구매 시공 (EPC) 계약']], correctionShort: '정정: 계약기간종료일 2029-07-01→2030-01-28',
+      correction: { reason: '계약기간 종료일 변경', changes: [['계약기간종료일', '2029-07-01', '2030-01-28']], material: ['계약기간종료일 +7개월'] } } },
+  { id: 'clue:hy2', kind: '단서', company: '효성중공업', title: '효성중공업 · 작은 정정', verdict: '관련 보도 있음', published: '2026-10-27', firstSeen: iso(2),
+    filing: { type: '공급계약', facts: [], correction: { reason: 'x', changes: [] } } });
+  await worker.fetch(new Request(ORIGIN + '/ingest/scoop-screen', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {});
+  const r2 = await call('radar_today', { include_minor: true }, { path: `/mcp/${TOKEN}`, env });
+  const b2 = r2.text.split('[B · ')[1].split('[C · ')[0];
+  assert.match(b2, /두산에너빌리티 \[기재정정\]단일판매ㆍ공급계약체결 — 정정 중 큰 변경\(계약기간종료일 \+7개월\)[^\n]*정정: 계약기간종료일 2029-07-01→2030-01-28[^\n]*원 계약 기사일 수 있음/);
+  assert.match(r2.text.split('[C · ')[1], /관련 보도 있음: 효성중공업 · 작은 정정/);
 });
 
 test('converging signals: same beat company and same city from two or more watches, place from the text, C and other tools ignored', () => {

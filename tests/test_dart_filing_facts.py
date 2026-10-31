@@ -127,6 +127,17 @@ class Facts(unittest.TestCase):
         self.assertNotIn("correction", f.facts("단일판매ㆍ공급계약체결", [LSE]))  # 정정 공시가 아니면 없음
         self.assertEqual(dict(x["facts"])["체결계약명"], "420kV 변압기 등 공급계약")  # 본문 표는 그대로
 
+    def test_material_corrections(self):
+        self.assertNotIn("material", f.facts("[기재정정]단일판매ㆍ공급계약체결", [HYO_FIX + HYO_BODY])["correction"])  # -0.5%
+        # 두산에너빌리티 20261026800529(10-31 운영): 계약기간 종료일 2029-07-01 → 2030-01-28
+        dsn = table([["3. 정정사유", "계약기간 종료일 변경"], ["정정항목", "정정전", "정정후"], ["5. 계약기간 - 종료일", "2029-07-01", "2030-01-28"]])
+        self.assertEqual(f.correction([dsn])["material"], ["종료일 +7개월"])
+        cut = table([["3. 정정사유", "발주처 요청에 따른 계약 일부 해지"], ["정정항목", "정정전", "정정후"],
+                     ["2. 계약내역 - 계약금액(원)", "100,000,000,000", "60,000,000,000"]])
+        self.assertEqual(f.correction([cut])["material"], ["사유에 해지·취소", "계약금액 -40%"])
+        small = table([["정정항목", "정정전", "정정후"], ["5. 계약기간 - 종료일", "2029-07-01", "2029-08-15"]])
+        self.assertNotIn("material", f.correction([small]))
+
     def test_same_counterparty_other_contract_is_not_a_change(self):
         # 10-31 운영: 9-30 다른 Statnett 계약(3,833억)과 비교해 '-71%'로 보였다 — 계약일·계약명이 다르면 다른 계약
         cur = f.facts("[기재정정]단일판매ㆍ공급계약체결", [HYO_FIX + HYO_BODY])["raw"]

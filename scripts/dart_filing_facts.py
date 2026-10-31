@@ -158,7 +158,38 @@ def correction(documents):
                         changes.append([item[:60], clip(before), clip(after)])
     if not reason and not changes:
         return None
-    return {"reason": reason, "changes": changes[:8]}
+    out = {"reason": reason, "changes": changes[:8]}
+    big = material(out)
+    if big:
+        out["material"] = big
+    return out
+
+
+MATERIAL_PCT = 10
+MATERIAL_DAYS = 90
+CANCEL = re.compile(r"해지|해제|취소|중단|철회|파기")
+
+
+def material(fix):
+    """정정 중 큰 변경: 금액 ±10% 이상, 기간·종료일·예정일 90일 이상 이동, 사유에 해지·취소. 원 계약 기사가 이미 있어도
+    이 변경은 새 사실일 수 있다(10-31 두산에너빌리티 영광 야월 해상풍력 EPC 정정: 계약기간 종료일 2029-07-01 → 2030-01-28)."""
+    out = []
+    if CANCEL.search(fix.get("reason") or ""):
+        out.append("사유에 해지·취소")
+    for item, before, after in fix.get("changes") or []:
+        name = item.split(" - ")[-1]
+        b, a = re.sub(r"[,\s]", "", before), re.sub(r"[,\s]", "", after)
+        if name.endswith("(원)") and re.fullmatch(r"\d+", b) and re.fullmatch(r"\d+", a) and int(b):
+            pct = (int(a) - int(b)) / int(b) * 100
+            if abs(pct) >= MATERIAL_PCT:
+                out.append(f"{name[:-3]} {pct:+.0f}%")
+            continue
+        d1, d2 = re.fullmatch(r"(\d{4})-(\d{2})-(\d{2})", before), re.fullmatch(r"(\d{4})-(\d{2})-(\d{2})", after)
+        if d1 and d2 and re.search(r"종료일|기간|예정일|완료", name):
+            days = (dt.date(*map(int, d2.groups())) - dt.date(*map(int, d1.groups()))).days
+            if abs(days) >= MATERIAL_DAYS:
+                out.append(f"{name} {'+' if days > 0 else '-'}{round(abs(days) / 30.4)}개월")
+    return out
 
 
 def correction_line(fix, kind=None):
