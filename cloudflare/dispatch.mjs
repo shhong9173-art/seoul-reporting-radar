@@ -16,6 +16,8 @@ export const SLOTS = [
   // EPA·vPIC: GitHub 예약('20 21 * * *')이 10-29 아침에 돌지 않았다.
   { at: '06:20', workflow: 'us-epa.yml' },
   { at: '06:30', workflow: 'page-watch.yml' },
+  // 미국 OSHA: 노동부 API는 매일 적재. 호출 간 12초라 2~3분.
+  { at: '06:40', workflow: 'us-osha.yml' },
   // 지자체 고시·공고(새올): 아침·오후 한 번씩.
   { at: '06:30', workflow: 'kr-local.yml' },
   // 공식 원자료 직접 수집(pre_scoop.json: 대법원·NTIS·IRIS 등). GitHub 예약 '7,37 * * * *'은 10-28에 4번만 돌았다.
