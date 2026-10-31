@@ -339,7 +339,13 @@ def from_scoop(data):
             match = re.search(r"rcpNo=(\d{14})", str(x.get("url") or ""))
             if match:
                 receipt = match.group(1)
-            out.append(clue(kind=None, source=x.get("sourceName") or "레이더", title=x.get("title"),
+            title = x.get("title")
+            details = [re.sub(r"\s+", " ", str(d)).strip() for d in x.get("details") or [] if str(d).strip()]
+            if details and x.get("kind") == "공개 리콜 공지":
+                # 묶음 제목('기아, 10월 30일 리콜 공지 1건')만으로는 차종·부품을 모른다 — 첫 공지 줄을 붙인다
+                # (10-31 운영: 쏘렌토 저압연료라인 리콜이 '기아 리콜'로 찾아져 ICCU 리콜 기사가 근거로 붙었다)
+                title = f"{title} — {details[0]}" + (f" 외 {len(details) - 1}건" if len(details) > 1 else "")
+            out.append(clue(kind=None, source=x.get("sourceName") or "레이더", title=title,
                             url=x.get("url"), published=x.get("published"), companies=companies,
                             tier=tier, signal=x.get("signalGroup") or x.get("kind") or bucket,
                             note=x.get("verification") or x.get("coverageStatus") or "", receipt=receipt,

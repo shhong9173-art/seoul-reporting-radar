@@ -1150,7 +1150,8 @@ test('radar_today ranks EDGAR mentions by deal words and hides items the reporte
         snippet: 'entered into a long-term supply agreement with Hyundai Steel Company', url: 'https://sec/acme' }] });
   await post('scoop-screen', { schema: 'scoop_screen/v1', generatedAt: '2026-10-26T07:10:00+09:00', counts: {},
     candidates: [{ id: 'p1', verdict: '미보도 후보', company: '기아', title: '고정자 냉각 장치', kind: '특허' },
-      { id: 'p2', verdict: '미보도 후보', company: '현대제철', title: '판재 냉각 제어', kind: '특허' }] });
+      { id: 'p2', verdict: '미보도 후보', company: '현대제철', title: '판재 냉각 제어', kind: '특허' },
+      { id: 'rc1', verdict: '미보도 후보', company: '기아', title: '기아, 10월 30일 리콜 공지 1건 — [기아] 쏘렌토 - 저압연료라인 어셈블리 관련 리콜', kind: '리콜' }] });
   const r = await call('radar_today', {}, opts);
   const a = r.text.split('[A · ')[1].split('[B · ')[0];
   const b = r.text.split('[B · ')[1].split('[C · ')[0];
@@ -1159,6 +1160,8 @@ test('radar_today ranks EDGAR mentions by deal words and hides items the reporte
   assert.match(b, /id p1/);  // 특허 공개 미보도 후보는 B(그 자체로 단독 아님, 10-31)
   assert.doesNotMatch(a, /고정자 냉각 장치/);
   assert.match(b, /고정자 냉각 장치 \(특허\) — 보도 대조 '미보도 후보' · 특허 공개만으로는 단독이 아님/);
+  assert.doesNotMatch(a, /쏘렌토/);  // 국내 리콜 공지 미보도 후보도 B(공개 공지, 10-31)
+  assert.match(b, /\[기아\] 쏘렌토 - 저압연료라인 어셈블리 관련 리콜 — 보도 대조 '미보도 후보' · 리콜 공지만으로는 단독이 아님/);
   const fb = await call('candidate_feedback', { verdict: '봤음', item_ids: ['p1', 'edgar:hig'] }, opts);
   assert.match(fb.text, /기록: \[봤음\] 2건 — 확인함\(판단 전\)/);
   await call('candidate_feedback', { item_id: 'p2', verdict: '보류', reason: '새 사실 붙으면' }, opts);
