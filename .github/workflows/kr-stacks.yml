@@ -8,6 +8,7 @@ on:
     paths:
       - 'scripts/kr_stack_watch.py'
       - 'data/stack_watch.json'
+      - 'data/kr_holidays.json'
       - 'tests/test_kr_stack_watch.py'
       - '.github/workflows/kr-stacks.yml'
   schedule:

@@ -163,6 +163,47 @@ class StackTest(unittest.TestCase):
         w.retier_new([site], {}, T0.isoformat())
         self.assertEqual(site["tier"], "C")
 
+    def test_weekday_plant_weekend_is_not_a_stop(self):
+        # 10-31(토) 09:09 운영: 현대차 울산 배출구 7개·기아 화성 2개 '멈춤', 기아 광주2공장 '목록에서 빠짐'이 B로 뜸 — 주말 휴무
+        cfg = {"companies": [c for c in CFG["companies"] if c["company"] == "기아"]}
+        self.assertEqual(cfg["companies"][0].get("schedule"), "weekday")
+        start = dt.datetime(2026, 10, 29, 7, 0, tzinfo=KST)  # 목요일
+
+        def kia(t, monday_off=False, gwangju=True):
+            on = w.working(t) and not (monday_off and t.date() >= dt.date(2026, 11, 2))
+            rows = [row("기아㈜화성공장", "경기도", str(c), t, 20.0 if on else 0.0) for c in (1, 2, 3)]
+            if gwangju and (w.working(t) or t.weekday() < 5):
+                rows.append(row("기아㈜ 광주2공장", "광주광역시", "1", t, 15.0 if on else 0.0))
+            return rows
+
+        def week(monday_off=False):
+            doc, events = None, []
+            for i in range(0, 36):  # 목 07:00 ~ 월 16:00(3시간 간격)
+                t = start + dt.timedelta(hours=3 * i)
+                doc = w.run(cfg, now=t + dt.timedelta(minutes=20), previous=doc, key="k", get=Api(kia(t, monday_off)), sleep=lambda s: None)
+            return doc
+        doc = week()
+        bad = [(e["kind"], e["tier"], e["detectedAt"]) for e in doc["events"] if e["kind"] in w.OFFHOUR_KINDS]
+        self.assertEqual(bad, [])  # 주말·밤에 멈추고 평일 아침에 돌아오면 신호 없음(광주2공장이 주말에 목록에서 빠져도)
+        doc = week(monday_off=True)
+        down = [e for e in doc["events"] if e["kind"] in ("사업장 가동 중단 신호", "배출구 멈춤 신호") and "화성" in e["site"]]
+        self.assertEqual([(e["kind"], e["tier"]) for e in down], [("사업장 가동 중단 신호", "A")])
+        at = dt.datetime.fromisoformat(down[0]["detectedAt"])
+        self.assertEqual((at.date().isoformat(), at.hour >= 7), ("2026-11-02", True))  # 월요일 일하는 시간 관측 3번 뒤
+
+    def test_offhour_stored_stops_of_weekday_plants_are_lowered(self):
+        sat = "2026-10-31T09:09:00+09:00"
+        ev = [{"id": "stk:stop:현대차:x:2026-10-31", "kind": "배출구 멈춤 신호", "tier": "B", "company": "현대차", "site": "현대자동차㈜ 울산공장", "detectedAt": sat, "text": "멈춤"},
+              {"id": "stk:sitegone:기아:y", "kind": "사업장 목록에서 빠짐(굴뚝 측정)", "tier": "B", "company": "기아", "site": "기아㈜ 광주2공장", "detectedAt": sat, "text": "빠짐"},
+              {"id": "stk:stop:포스코:z:2026-10-31", "kind": "배출구 멈춤 신호", "tier": "B", "company": "포스코", "site": "포항", "detectedAt": sat, "text": "멈춤"},
+              {"id": "stk:stop:기아:w:2026-11-02", "kind": "배출구 멈춤 신호", "tier": "B", "company": "기아", "site": "화성", "detectedAt": "2026-11-02T10:20:00+09:00", "text": "멈춤"}]
+        w.retier_offhours(ev, {"현대차", "기아"})
+        self.assertEqual([e["tier"] for e in ev], ["C", "C", "B", "B"])  # 연속 가동(포스코)·평일 낮은 그대로
+        self.assertIn("주말·휴일·밤에 잡힌 것이라 휴무일 수 있어 C로 바로잡음", ev[0]["text"])
+        self.assertFalse(w.working(dt.datetime(2026, 12, 25, 10, 0, tzinfo=KST)))  # 공휴일 목록
+        self.assertFalse(w.working(dt.datetime(2026, 11, 2, 6, 30, tzinfo=KST)))   # 월요일 새벽
+        self.assertTrue(w.working(dt.datetime(2026, 11, 2, 7, 30, tzinfo=KST)))
+
     def test_new_numbers_early_or_in_bulk_are_list_fill_C_not_new_plant(self):
         # 10-30 13:36 운영: 첫 실행 기준선 때 고려아연 온산 배출구가 7개만 보였다가 다음 실행에 24개가 더 보여 모두 A로 뜸
         doc = series(2)

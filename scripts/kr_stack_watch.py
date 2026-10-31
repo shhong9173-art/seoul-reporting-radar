@@ -7,6 +7,8 @@
 - 새 배출구 번호·새 사업장: 실시간 값만 오는 자료라 쉬던 설비가 다시 측정되기 시작해도 '새 번호'로 보인다. 그 사업장을 14일 넘게
   지켜본 뒤 처음 보인 번호만 A(새 설비 또는 오래 쉬던 설비 재가동), 7~14일 B, 그 전은 C(간헐 가동·자료 지연일 수 있음).
   (10-31 운영: 영풍 석포 5·6번이 감시 하루 만에 A로 떴다.) 목록에서 빠진 배출구(두 번 연속) B. 멈췄던 사업장이 다시 움직이면 B.
+- 평일 교대 공장(설정 schedule=weekday: 완성차·타이어·전선·변압기·중공업)은 주말·공휴일·밤(0~7시) 관측을 멈춤 판단과 평소 값에서 빼고,
+  그 시간에는 목록에서 빠짐도 세지 않는다(10-31 토요일: 현대차 울산·기아 화성 '멈춤', 기아 광주2공장 '빠짐'이 B로 뜸 — 주말 휴무).
 - 측정값 0 근처는 설비 정지·정비·측정기 점검·연료 전환일 수 있다. 어느 설비인지(배출구 이름)는 자료에 없다 — 회사 확인.
 - 키는 공공데이터 공유 키(DATA_GO_KR_KEY). 키 값은 출력하지 않는다. 조회 실패는 0이 아니라 미확인.
 """
@@ -28,9 +30,10 @@ sys.path.insert(0, str(ROOT / "scripts"))
 KST = dt.timezone(dt.timedelta(hours=9))
 SCHEMA = "kr_stacks/v1"
 CONFIG = ROOT / "data" / "stack_watch.json"
+HOLIDAYS_FILE = ROOT / "data" / "kr_holidays.json"
 API = "https://apis.data.go.kr/B552584/cleansys/rltmMesureResult"
 POLLUTANTS = ("tsp", "sox", "nox", "hcl", "hf", "nh3", "co")
-OBS_KEEP = 24          # 3시간 간격이면 3일치
+OBS_KEEP = 32          # 3시간 간격이면 4일치(평일 교대 공장은 주말을 빼고도 평소 값을 정할 만큼)
 MIN_OBS = 6            # 평소 값을 정할 최소 관측 수(첫 실행 뒤 하루쯤)
 MATURE_RUNS = 6        # 새 배출구·새 사업장을 '새것'으로 볼 만큼 그 사업장(감시)을 지켜본 실행 수
 NEW_A_DAYS = 14        # 새 배출구·새 사업장 A: 그 사업장(새 사업장은 감시)을 이만큼 지켜본 뒤 처음 보인 것
@@ -51,6 +54,41 @@ class ApiError(RuntimeError):
     pass
 
 
+def load_holidays(path=HOLIDAYS_FILE):
+    try:
+        return frozenset(json.loads(Path(path).read_text(encoding="utf-8")).get("dates") or [])
+    except (OSError, ValueError):
+        return frozenset()
+
+
+HOLIDAYS = load_holidays()
+WORK_FROM_HOUR = 7  # 평일 교대 공장: 이 시각 전(밤)은 쉬는 시간으로 본다
+
+
+def working(t, holidays=None):
+    """평일 교대 공장이 도는 시간인가: 월~금, 공휴일 아님, 7시 이후(KST)."""
+    hol = HOLIDAYS if holidays is None else holidays
+    t = t.astimezone(KST) if t.tzinfo else t.replace(tzinfo=KST)
+    return t.weekday() < 5 and t.date().isoformat() not in hol and t.hour >= WORK_FROM_HOUR
+
+
+def obs_time(mdt):
+    try:
+        return dt.datetime.strptime(str(mdt), "%Y-%m-%d %H:%M").replace(tzinfo=KST)
+    except ValueError:
+        return None
+
+
+def working_hours_between(start, end, judge):
+    """start~end 사이 judge가 참인 시간 수(시간 단위로 셈)."""
+    hours, t = 0, start
+    while t < end and hours < 24 * 14:
+        if judge(t):
+            hours += 1
+        t += dt.timedelta(hours=1)
+    return hours
+
+
 def age_days(since, now):
     try:
         return (now - dt.datetime.fromisoformat(str(since))).total_seconds() / 86400
@@ -60,6 +98,24 @@ def age_days(since, now):
 
 def new_tier(days):
     return "A" if days >= NEW_A_DAYS else "B" if days >= NEW_B_DAYS else "C"
+
+
+OFFHOUR_KINDS = ("배출구 멈춤 신호", "사업장 가동 중단 신호", "사업장 목록에서 빠짐(굴뚝 측정)", "배출구 목록에서 빠짐")
+
+
+def retier_offhours(events, weekday_companies, judge=None):
+    """평일 교대 공장의 멈춤·빠짐 이벤트가 쉬는 시간(주말·공휴일·밤)에 잡혔으면 C로 내린다(예전 규칙으로 토요일에 B가 된 것)."""
+    judge = judge or working
+    for e in events:
+        if e.get("company") not in weekday_companies or e.get("kind") not in OFFHOUR_KINDS or e.get("tier") == "C":
+            continue
+        try:
+            at = dt.datetime.fromisoformat(str(e.get("detectedAt")))
+        except (TypeError, ValueError):
+            continue
+        if not judge(at):
+            e["tier"] = "C"
+            e["text"] = (e.get("text") or "") + " — 평일 교대 공장의 주말·휴일·밤에 잡힌 것이라 휴무일 수 있어 C로 바로잡음"
 
 
 def retier_new(events, sites, baseline_since):
@@ -177,6 +233,13 @@ def norm(name):
     return re.sub(r"\s+", "", str(name or "").replace("（", "(").replace("）", ")").replace("㈜", "(주)"))
 
 
+def judged_obs(obs, judge):
+    """평일 교대 공장은 일하는 시간에 잰 관측만(판단 창·평소 값 모두)."""
+    if judge is None:
+        return obs
+    return [o for o in obs if (lambda t: t is not None and judge(t))(obs_time(o[0]))]
+
+
 def baseline(obs):
     """멈춤 판단 창(마지막 STOP_RUNS개) 앞의 관측 중앙값. 관측이 모자라면 None."""
     prior = [v for _, v in obs[:-STOP_RUNS] if v is not None]
@@ -190,21 +253,21 @@ def is_low(v, base):
 STALE_HOURS = 12
 
 
-def stack_state(st, now=None):
-    """'stopped' | 'running' | 'unknown'(관측 부족·원래 거의 0). 측정 시각이 STALE_HOURS 넘게 그대로면(값이 안 들어옴) 멈춤으로 본다."""
-    obs = st.get("obs") or []
+def stack_state(st, now=None, judge=None):
+    """'stopped' | 'running' | 'unknown'(관측 부족·원래 거의 0). 측정 시각이 STALE_HOURS 넘게 그대로면(값이 안 들어옴) 멈춤으로 본다.
+    judge가 있으면(평일 교대 공장) 일하는 시간 관측만 보고, 측정 시각 멈춤도 일하는 시간으로 센다."""
+    obs = judged_obs(st.get("obs") or [], judge)
     prior = baseline(obs)
     vals = [v for _, v in obs if v is not None]
     base = prior if prior is not None else (statistics.median(vals) if len(vals) >= MIN_OBS else None)
     if base is None or base < MEANINGFUL:
         return "unknown", base
     if now is not None and st.get("lastDt"):
-        try:
-            age = (now - dt.datetime.strptime(st["lastDt"], "%Y-%m-%d %H:%M").replace(tzinfo=KST)).total_seconds() / 3600
+        last_t = obs_time(st["lastDt"])
+        if last_t is not None:
+            age = working_hours_between(last_t, now, judge) if judge else (now - last_t).total_seconds() / 3600
             if age > STALE_HOURS:
                 return "stopped", base
-        except ValueError:
-            pass
     last = [v for _, v in obs[-STOP_RUNS:]]
     if prior is not None and len(last) == STOP_RUNS and all(is_low(v, base) for v in last):
         return "stopped", base
@@ -221,6 +284,8 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep):
     keep_from = (now - dt.timedelta(days=KEEP_EVENTS_DAYS)).isoformat()
     events = collapse_bursts([e for e in prev.get("events") or [] if isinstance(e, dict) and e.get("detectedAt", "") >= keep_from])
     retier_new(events, sites, prev.get("baselineSince"))
+    weekday_companies = {c["company"] for c in cfg["companies"] if c.get("schedule") == "weekday"}
+    retier_offhours(events, weekday_companies)
     known = {e["id"] for e in events}
     fresh, errors, ok_terms, seen_sites = [], [], 0, set()
     day = now.date().isoformat()
@@ -239,6 +304,8 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep):
     scanned = set()
     for comp in cfg["companies"]:
         own = re.compile(comp["own"])
+        judge = working if comp.get("schedule") == "weekday" else None
+        off = judge is not None and not judge(now)  # 평일 교대 공장의 쉬는 시간: 빠짐을 세지 않는다
         rows, ok = [], True
         for term in comp["terms"]:
             try:
@@ -332,7 +399,7 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep):
                          + ("한꺼번에 여러 개라 " if len(codes) >= BURST else f"이 사업장을 {days:.1f}일·{s['runs'] - 1}번만 봐서 ")
                          + "간헐 가동·측정 자료 지연일 수 있어 새 설비로 보지 않음")
             for code, st in stacks.items():
-                if code not in present:
+                if code not in present and not off:
                     st["missing"] = st.get("missing", 0) + 1
                     # 6번 넘게 관측된 배출구만(초기에는 측정 자료가 늦게 들어와 목록이 들쑥날쑥하다)
                     if st["missing"] == MISSING_RUNS and not first and len(st.get("obs") or []) >= MIN_OBS:
@@ -340,7 +407,7 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep):
                              f"{name} 배출구 {code}번이 굴뚝 자동측정 목록에서 {MISSING_RUNS}번 연속 빠짐 — 설비 폐쇄·측정 대상 변경일 수 있음(회사 확인)")
 
             # 사업장 가동 판단: 평소 움직이던 배출구 가운데 멈춘 것
-            judged = {code: stack_state(st, now) for code, st in stacks.items() if code in present}
+            judged = {code: stack_state(st, now, judge) for code, st in stacks.items() if code in present}
             meaningful = {c: b for c, (state, b) in judged.items() if state in ("running", "stopped")}
             stopped = sorted((c for c, (state, _) in judged.items() if state == "stopped"), key=lambda c: -(judged[c][1] or 0))
             was = set(s.get("stopped") or [])
@@ -368,6 +435,8 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep):
     # 목록에서 사라진 사업장(그 회사 검색을 다 읽었을 때만): 배출구 누락 횟수로 센다
     for sid, s in sites.items():
         if sid not in seen_sites and s["company"] in scanned:
+            if s["company"] in weekday_companies and not working(now):
+                continue  # 평일 교대 공장은 쉬는 시간에 목록에서 빠져도 세지 않는다(값이 없으면 목록에 안 나온다)
             s["missingRuns"] = s.get("missingRuns", 0) + 1
             if s.get("runs", 0) < MATURE_RUNS:  # 예전 규칙으로 B가 된 이른 사업장의 '빠짐'도 C로(10-30 엘에스엠앤엠)
                 settle(f"stk:sitegone:{sid}", f" — 이 사업장을 {s.get('runs', 0) or '몇'}번만 봐서 일시적 누락일 수 있음")
@@ -391,6 +460,7 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep):
             "rules": ["굴뚝 자동측정(TMS) 실시간 값을 이 감시가 3시간마다 쌓은 이력이다. 배출구 이름·설비 종류는 자료에 없다(번호만).",
                       "측정값이 평소의 10% 아래로 떨어진 것은 설비 정지·정비·측정기 점검·연료 전환일 수 있다. 가동 중단은 회사 확인 전 미확인.",
                       "평소 값이 1 미만인 배출구(원래 거의 0)는 멈춤 판단을 하지 않는다. 관측이 6번 모이기 전에는 판단하지 않는다.",
+                      "평일 교대 공장(완성차·타이어·전선·변압기·중공업)은 주말·공휴일·밤(0~7시) 관측을 멈춤 판단·평소 값에서 빼고, 그 시간의 목록 빠짐도 세지 않는다. 제철·제련·석유화학 같은 연속 가동 사업장은 주말 멈춤도 그대로 본다.",
                       f"새 배출구 번호·새 사업장은 쉬던 설비가 다시 측정돼도 생긴다. 그 사업장을 {NEW_A_DAYS}일 넘게 지켜본 뒤 처음 보인 것만 A, {NEW_B_DAYS}~{NEW_A_DAYS}일 B, 그 전은 C.",
                       "배출허용기준 초과는 같은 줄에 실린 그 배출구의 물질별 기준과 실시간 측정값을 비교한 것이다. 처음 넘으면 B, 다음 실행에도 넘으면 A. 측정기 점검·교정 값일 수 있고 초과 판정·처분은 환경공단·지자체 확인.",
                       "조회 실패는 0이 아니라 미확인."],
