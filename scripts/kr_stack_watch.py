@@ -143,6 +143,24 @@ def retier_new(events, sites, baseline_since):
             e["text"] = (e.get("text") or "") + f" — 이 사업장을 {days:.1f}일만 지켜본 때라 간헐 가동·측정 자료 지연일 수 있어 {tier}로 바로잡음"
 
 
+EXCEED_TEXT = re.compile(r"측정값 ([\d.]+)이 배출허용기준 ([\d.]+)을 넘음")
+
+
+def retier_marginal(events):
+    """저장된 배출허용기준 초과 이벤트 중 기준을 5% 안쪽으로 넘은 것을 한 단계 내린다(예전 규칙으로 B·A가 된 것 바로잡기)."""
+    lower = {"배출허용기준 초과(측정값)": ("B", "C"), "배출허용기준 초과 지속": ("A", "B")}
+    for e in events:
+        pair = lower.get(e.get("kind"))
+        if not pair or e.get("tier") != pair[0] or "한 단계 낮춤" in str(e.get("text")):
+            continue
+        vals = [(float(a), float(b)) for a, b in EXCEED_TEXT.findall(str(e.get("text") or "")) if float(b) > 0]
+        first = re.search(r"\(처음 ([\d.]+)\)", str(e.get("text") or ""))
+        ratios = [a / b for a, b in vals] + ([float(first.group(1)) / vals[0][1]] if first and vals else [])
+        if ratios and max(ratios) < MARGINAL:
+            e["tier"] = pair[1]
+            e["text"] = (e.get("text") or "") + f" — 기준을 {MARGINAL - 1:.0%} 안쪽으로 넘은 값이라 {pair[1]}로 바로잡음"
+
+
 def fetch(term, key, *, get=None, sleep=time.sleep):
     """사업장명 포함 검색 한 번(이 API는 한 번에 전체를 준다). 실패는 한 번 더."""
     if get is None:
@@ -202,6 +220,9 @@ def fnum(v):
         return float(str(v).replace(",", ""))
     except (TypeError, ValueError):
         return None
+
+
+MARGINAL = 1.05  # 측정값/기준이 이 아래면 '조금 넘은 값'
 
 
 def exceedances(x):
@@ -290,6 +311,7 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep):
     retier_new(events, sites, prev.get("baselineSince"))
     weekday_companies = {c["company"] for c in cfg["companies"] if c.get("schedule") == "weekday"}
     retier_offhours(events, weekday_companies)
+    retier_marginal(events)
     known = {e["id"] for e in events}
     fresh, errors, ok_terms, seen_sites = [], [], 0, set()
     day = now.date().isoformat()
@@ -381,11 +403,16 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep):
                     tail = " · 실시간 자동측정 값(확정 전). 측정기 점검·교정 중 값일 수 있음 — 초과 판정·행정처분은 한국환경공단·관할 지자체 확인"
                     if first:
                         continue
+                    # 기준을 5% 안쪽으로 넘은 값은 한 단계 낮춘다(처음 C, 지속 B) — 실시간 값의 반올림·교정 오차 범위일 수 있다
+                    # (10-31 운영: 고려아연 온산제련소 77번 황산화물 141.58/140, 기준의 1.01배 한 번이 B로 떴다).
+                    small = max(m / lim, ep["first"][0] / ep["first"][1]) < MARGINAL
+                    note = f" — 기준을 {MARGINAL - 1:.0%} 안쪽으로 넘은 값이라 한 단계 낮춤" if small else ""
                     if ep["count"] == 1:
-                        emit(f"stk:exceed:{sid}:{code}:{p}:{ep['start']}", "배출허용기준 초과(측정값)", "B", comp["company"], name, what + tail)
+                        emit(f"stk:exceed:{sid}:{code}:{p}:{ep['start']}", "배출허용기준 초과(측정값)", "C" if small else "B", comp["company"], name,
+                             what + note + tail)
                     elif ep["count"] == 2:
-                        emit(f"stk:exceed2:{sid}:{code}:{p}:{ep['start']}", "배출허용기준 초과 지속", "A", comp["company"], name,
-                             f"{what} — {ep['start']} 측정부터 이 감시의 실행 2번 연속 초과(처음 {ep['first'][0]:g})" + tail)
+                        emit(f"stk:exceed2:{sid}:{code}:{p}:{ep['start']}", "배출허용기준 초과 지속", "B" if small else "A", comp["company"], name,
+                             f"{what} — {ep['start']} 측정부터 이 감시의 실행 2번 연속 초과(처음 {ep['first'][0]:g}){note}" + tail)
             if new_codes:
                 days = age_days(s.get("firstSeen"), now)
                 tier = new_tier(days)
@@ -480,7 +507,7 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep):
                       "배출구 멈춤 B는 새로 멈춘 배출구가 사업장 평소 움직이던 배출구의 5%(최소 2개) 이상, 큰 배출구(평소 값 상위 3), 또는 평소 값 합의 10% 이상일 때. 큰 제철소의 배출구 한두 개는 일상 정비일 수 있어 화면 목록에만 보인다.",
                       "평일 교대 공장(완성차·타이어·전선·변압기·중공업)은 주말·공휴일·밤(0~7시) 관측을 멈춤 판단·평소 값에서 빼고, 그 시간의 목록 빠짐도 세지 않는다. 제철·제련·석유화학 같은 연속 가동 사업장은 주말 멈춤도 그대로 본다.",
                       f"새 배출구 번호·새 사업장은 쉬던 설비가 다시 측정돼도 생긴다. 그 사업장을 {NEW_A_DAYS}일 넘게 지켜본 뒤 처음 보인 것만 A, {NEW_B_DAYS}~{NEW_A_DAYS}일 B, 그 전은 C.",
-                      "배출허용기준 초과는 같은 줄에 실린 그 배출구의 물질별 기준과 실시간 측정값을 비교한 것이다. 처음 넘으면 B, 다음 실행에도 넘으면 A. 측정기 점검·교정 값일 수 있고 초과 판정·처분은 환경공단·지자체 확인.",
+                      "배출허용기준 초과는 같은 줄에 실린 그 배출구의 물질별 기준과 실시간 측정값을 비교한 것이다. 처음 넘으면 B, 다음 실행에도 넘으면 A(기준을 5% 안쪽으로 넘은 값은 한 단계 낮춰 C·B). 측정기 점검·교정 값일 수 있고 초과 판정·처분은 환경공단·지자체 확인.",
                       "조회 실패는 0이 아니라 미확인."],
             "confirmedScoops": 0}
 
