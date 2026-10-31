@@ -1009,6 +1009,24 @@ test('radar_today shows converging signals above the tiers', async () => {
   assert.match(r.text, /\[겹친 신호 · 최근 14일 같은 출입처·같은 시군을 감시 여러 곳이 가리킴\] 1곳/);
   assert.match(r.text, /- \[새 항목 포함\] 기아 · 화성 — 감시 2곳\((사업장 인력\(국민연금\), 지자체 고시·공고|지자체 고시·공고, 사업장 인력\(국민연금\))\)/);
   assert.ok(r.text.indexOf('[겹친 신호') < r.text.indexOf('[A · '));
+  // 새 신호가 모두 이미 보도된 묶음은 뒤로, 줄마다 보도 대조 결과(10-31 운영: 금호타이어 함평 부지 취득 완료 정정)
+  await post('kr-local', { schema: 'kr_local/v1', generatedAt: recent, checks: [], items: [
+    { id: 'local:화성시:1', city: '화성시', company: '기아', tier: 'A', title: '기아 오토랜드 화성 공장 증설 관련 도시관리계획 결정', date: older.slice(0, 10), firstSeen: older, url: 'https://e/1' },
+    { id: 'local:당진시:2', city: '당진시', company: '현대제철', tier: 'A', title: '현대제철㈜ 당진 전기로 설치 공유수면 점용 허가', date: recent.slice(0, 10), firstSeen: recent, url: 'https://e/2' }] });
+  await post('kr-workforce', { schema: 'kr_workforce/v1', generatedAt: recent, month: '202610', sites: [], projects: [], checks: [], events: [
+    { id: 'wf:proj:x', kind: '새 공사 현장', tier: 'A', company: '기아', month: '202610', detectedAt: recent, text: '「AutoLand 화성 기아 LW 프로젝트」 · 첫 현장 적용 2026-10-05' },
+    { id: 'wf:proj:y', kind: '새 공사 현장', tier: 'A', company: '현대제철', month: '202610', detectedAt: older, text: '「현대제철 당진 전기로 신설공사」 · 첫 현장 적용 2026-10-05' }] });
+  await post('radar-check', { schema: 'radar_check/v1', generatedAt: recent, items: [
+    { id: 'local:화성시:1', verdict: '관련 보도 있음', since: '2026-10-20', queries: ['기아 화성'], evidence: [], channels: {} },
+    { id: 'wf:proj:x', verdict: '관련 보도 있음', since: '2026-10-20', queries: ['기아 화성'], evidence: [], channels: {} },
+    { id: 'local:당진시:2', verdict: '미보도 후보', since: '2026-10-28', queries: ['현대제철 당진'], evidence: [], channels: {} }] });
+  const r2 = await call('radar_today', {}, { path: `/mcp/${TOKEN}`, env });
+  const conv = r2.text.split('[겹친 신호')[1].split('[A · ')[0];
+  assert.ok(conv.indexOf('현대제철 · 당진') < conv.indexOf('기아 · 화성'));
+  assert.match(conv, /기아 · 화성 — 감시 2곳\([^)]*\)\) · 새 신호는 모두 관련 보도 있음\(같은 사건인지 열어 볼 것\)/);
+  assert.match(conv, /A · \[미보도 후보\] \d{4}-\d\d-\d\d · 지자체 고시·공고: 당진시/);
+  assert.match(conv, /A · \[관련 보도 있음\] [^\n]*지자체 고시·공고: 화성시/);
+  assert.doesNotMatch(conv, /현대제철 · 당진 — [^\n]*관련 보도 있음/);
   // 한 줄 요약은 ' · ' 구분에서 자른다(10-31 운영: '… · 취 · id')
   const line = "금호타이어 · [기재정정]유형자산취득결정(자율공시) — 정정 중 큰 변경(취득예정일자 -36개월 · 사유 '취득완료(취득가액 및 취득일자 확정)에 따른 정정') · 취득물건구분 토지 및 건물 · 취득물건명 전라남도 함평군 빛그린국가산업단지";
   assert.equal(clipAt(line, 110), "금호타이어 · [기재정정]유형자산취득결정(자율공시) — 정정 중 큰 변경(취득예정일자 -36개월 · 사유 '취득완료(취득가액 및 취득일자 확정)에 따른 정정') · 취득물건구분 토지 및 건물 …");
