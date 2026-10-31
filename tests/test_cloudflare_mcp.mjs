@@ -11,6 +11,7 @@ import { publicationDate, verifyEvidence } from '../cloudflare/evidence.mjs';
 import { allowedUrl } from '../cloudflare/live_tools.mjs';
 import { ageNote, handleIngest, weekdayHours } from '../cloudflare/screen.mjs';
 import { dueAt, nextSlot, runSchedule } from '../cloudflare/dispatch.mjs';
+import { boardHtml, lineHtml } from '../cloudflare/board.mjs';
 import { background, billHint, clipAt, convergence, convergenceRows, countForms, hint, insolvencyWord, usRecallHint, usRecallModels, kepcoHint, localWord, radarItems, siteCity, stackHint, workforceHint } from '../cloudflare/digest.mjs';
 
 const ORIGIN = 'https://seoul-reporting-radar.shhong9173.workers.dev';
@@ -2098,6 +2099,40 @@ test('us_recalls: NHTSA manufacturer communications by campaign — powertrain w
   const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
   const tl = items.items.find((x) => x.id === 'tsb:KIA:WTY052').check;
   assert.deepEqual([tl.who, tl.terms, tl.places, tl.alts['무상수리'].includes('보증 연장')], ['기아', ['텔루라이드', '무상수리'], ['텔루라이드'], true]);
+});
+
+test('reporter board /r/<token>: secret path only, no scripts, no referrer, radar_today content with unreported marked', async () => {
+  const env = { MCP_ACCESS_TOKEN: TOKEN, STORE: storeBinding() };
+  const get = (path, init) => worker.fetch(new Request(ORIGIN + path, init), env, {});
+  assert.equal((await get('/r/wrong-token-0123456789abc')).status, 404);
+  assert.equal((await get('/r/short')).status, 404);
+  assert.equal((await get(`/r/${TOKEN}`, { method: 'POST' })).status, 405);
+  const recent = new Date(Date.now() - 3600000).toISOString();
+  const post = (name, doc) => worker.fetch(new Request(ORIGIN + `/ingest/${name}`, { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {});
+  assert.equal((await post('kr-local', { schema: 'kr_local/v1', generatedAt: recent, checks: [], items: [
+    { id: 'local:당진시:2', city: '당진시', company: '현대제철', tier: 'A', title: '현대제철㈜ 당진 전기로 설치 공유수면 점용 허가 <b>', date: recent.slice(0, 10), firstSeen: recent,
+      url: 'https://www.dangjin.go.kr/a?b=1&c=2' }] })).status, 200);
+  assert.equal((await post('radar-check', { schema: 'radar_check/v1', generatedAt: recent, items: [
+    { id: 'local:당진시:2', verdict: '미보도 후보', since: '2026-10-28', queries: ['현대제철 당진'], evidence: [], channels: {} }] })).status, 200);
+  const r = await get(`/r/${TOKEN}?hours=72`);
+  assert.equal(r.status, 200);
+  assert.equal(r.headers.get('Referrer-Policy'), 'no-referrer');
+  assert.match(r.headers.get('X-Robots-Tag'), /noindex/);
+  assert.match(r.headers.get('Cache-Control'), /no-store/);
+  assert.match(r.headers.get('Content-Security-Policy'), /default-src 'none'/);
+  const html = await r.text();
+  assert.doesNotMatch(html, /<script/i);
+  assert.doesNotMatch(html, new RegExp(TOKEN));      // 토큰은 화면에 안 찍는다(링크는 ?hours= 상대 주소)
+  assert.match(html, /<h2 class="tA">A · 단독 후보·직접 변화/);
+  assert.match(html, /<mark>미보도 후보<\/mark>/);
+  assert.match(html, /공유수면 점용 허가 &lt;b&gt;/);  // 원문 글자는 이스케이프
+  assert.match(html, /<a href="https:\/\/www\.dangjin\.go\.kr\/a\?b=1&amp;c=2" target="_blank" rel="noopener noreferrer">/);
+  assert.match(html, /<a class="chip on" href="\?hours=72">72시간<\/a>/);
+  assert.equal((await get(`/r/${TOKEN}/?q=${encodeURIComponent('없는회사')}`)).status, 200);
+  // 끝 구두점은 링크 밖, 괄호 든 주소는 그대로
+  assert.equal(lineHtml('원문: https://e.gov/x). 끝'), '원문: <a href="https://e.gov/x" target="_blank" rel="noopener noreferrer">https://e.gov/x</a>). 끝');
+  assert.match(lineHtml('https://e.gov/a_(b)'), /href="https:\/\/e\.gov\/a_\(b\)"/);
+  assert.match(boardHtml('머리\n[B · 확인할 공식 변화] 0건\n없음', { hours: undefined, q: '', minor: false }), /<h2 class="tB">B · 확인할 공식 변화<small> 0건<\/small><\/h2>/);
 });
 
 test('scoop_reverse shows automatic prior-capture candidates by source with lead time, separate from human Y/P/N', async () => {
