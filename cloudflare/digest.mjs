@@ -245,7 +245,9 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
     // one line per item: long cells (판결 주문, 당사자 목록) are clipped here; scoop_screen shows them in full
     const clip = (v) => { const t = String(v ?? '').replace(/\s+/g, ' ').trim(); return t.length > 60 ? `${t.slice(0, 60).trimEnd()}…` : t; };
     const brief = fl && !fl.error && (fl.facts ?? []).length ? ` · ${fl.facts.slice(0, 4).map(([k, v]) => `${k} ${clip(v)}`).join(' · ')}` : '';
-    const cmp = fl && (fl.compare ?? []).length ? ` · ${fl.compare[0]}` : '';
+    // 정정 공시는 무엇이 바뀌었는지가 먼저다(10-31 효성중공업 Statnett 정정: 계약금액 1,135.9억 → 1,130.4억, -0.5%)
+    const fix = fl?.correctionShort ?? (fl?.correctionLine ? clip(fl.correctionLine) : '');
+    const cmp = (fix ? ` · ${fix}` : '') + (fl && (fl.compare ?? []).length ? ` · ${fl.compare[0]}` : '');
     const kind = scoopKind(c);
     const flag = fl?.routine ? '일상' : '';
     if (c.verdict === '미보도 후보' && fl?.routine) push('B', W['scoop-screen'], { kind, flag, verdict: c.verdict, id: c.id, date: c.published ?? c.filedOn, company: c.company, fact: `${c.title} — 일상 공시로 보임(${fl.routine})${brief}`, url: c.url });
