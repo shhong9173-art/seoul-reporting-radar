@@ -3,7 +3,7 @@ import sys
 import unittest
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/"scripts"))
-from global_news_pipeline import shortlist,translate_selected
+from global_news_pipeline import shortlist,summarize_selected,translate_selected
 
 
 def item(title,url,score=70,published="2026-10-16T09:00:00+09:00",summary="Original context"):
@@ -147,6 +147,53 @@ class GlobalCollectorBeatTests(unittest.TestCase):
         old.pop("translationVersion")   # 예전 규칙(v1) AI 번역은 다시 번역
         out=translate_selected([item("Korean EV signal","https://news.example/a",summary="")],lambda t:("다시","translated_ai"),previous=[old],workers=1)
         self.assertEqual((out[0]["koTitle"],out[0]["translationCacheUsed"],out[0]["translationVersion"]),("다시",False,2))
+
+    def test_publisher_rss_text_attaches_to_google_rows_and_direct_url(self):
+        g=[item("Hyundai to invest US$450m in Alabama plant for new Tucson - Automotive World","https://news.google.com/rss/articles/x",summary="")]
+        p=[{**item("Hyundai to invest US$450m in Alabama plant for new Tucson","https://www.automotiveworld.com/news/hyundai-tucson/",summary=""),
+            "articleText":"Hyundai Motor Manufacturing Alabama will invest US$450m ...","summarySource":"Automotive World RSS"},
+           {**item("CATL opens Hungary plant","https://cnevpost.com/catl-hungary/",summary=""),"articleText":"CATL said ...","summarySource":"CnEVPost RSS"}]
+        out=gc.attach_publisher_text(g,p)
+        self.assertEqual(len(out),2)
+        self.assertEqual((out[0]["url"],out[0]["summarySource"]),("https://www.automotiveworld.com/news/hyundai-tucson/","Automotive World RSS"))
+        self.assertIn("invest US$450m",out[0]["articleText"])
+        self.assertEqual(out[1]["url"],"https://cnevpost.com/catl-hungary/")   # 구글 뉴스에 없던 매체 기사도 후보로
+
+    def test_summaries_only_from_article_text_cached_and_english_text_dropped(self):
+        rows=[{**item("A","https://e/a",summary=""),"articleText":"Body A text."},{**item("B","https://e/b",summary=""),"articleText":""}]
+        calls=[]
+        def summarizer(title,text):
+            calls.append((title,text))
+            return "현대차가 앨라배마 공장에 4억5000만달러를 투자한다."
+        out=summarize_selected(rows,summarizer,previous=[],workers=1)
+        self.assertEqual(calls,[("A","Body A text.")])                          # 본문 없는 항목은 요약하지 않는다
+        self.assertEqual((out[0]["summaryTranslationStatus"],out[0]["summaryVersion"]),("summarized_ai",1))
+        self.assertNotIn("articleText",out[0]); self.assertNotIn("articleText",out[1])   # 영어 본문은 저장하지 않는다
+        self.assertFalse(out[1].get("koSummary"))
+        again=summarize_selected([{**item("A","https://e/a",summary=""),"articleText":"Body A text."}],summarizer,previous=out,workers=1)
+        self.assertEqual((len(calls),again[0]["koSummary"]),(1,"현대차가 앨라배마 공장에 4억5000만달러를 투자한다."))   # 같은 주소·제목이면 다시 쓴다
+        failed=summarize_selected([{**item("C","https://e/c",summary=""),"articleText":"x"}],lambda t,x:"",previous=[],workers=1)
+        self.assertNotIn("summaryTranslationStatus",failed[0])
+
+    def test_publisher_feed_parsing_scoring_and_strict_korea(self):
+        import datetime as _dt
+        now=_dt.datetime.now(gc.KST).strftime("%a, %d %b %Y %H:%M:%S +0900")
+        xml=("<rss><channel>"
+             f"<item><title>Hyundai Mobis wins battery system order from European OEM</title><link>https://example.com/a</link><pubDate>{now}</pubDate>"
+             "<description>Hyundai Mobis said it won an order for battery systems worth $1 billion.</description></item>"
+             f"<item><title>Utility rate case in Ohio</title><link>https://example.com/b</link><pubDate>{now}</pubDate><description>grid transformer price</description></item>"
+             "<item><title>No date battery plant</title><link>https://example.com/c</link><description>battery plant</description></item>"
+             "</channel></rss>").encode()
+        orig=gc.get
+        try:
+            gc.get=lambda url,timeout=15: xml
+            rows=gc.parse_publisher("Electrek","https://electrek.co/feed/")
+            strict=gc.parse_publisher("Utility Dive","https://www.utilitydive.com/feeds/news/")
+        finally:
+            gc.get=orig
+        self.assertEqual([r["url"] for r in rows],["https://example.com/a","https://example.com/b"])   # 날짜 없는 항목은 뺀다
+        self.assertIn("battery systems",rows[0]["articleText"])
+        self.assertEqual([r["url"] for r in strict],["https://example.com/a"])   # 전력 전문지는 한국 회사 이름이 있을 때만
 
     def test_fallback_translation_is_not_reused_and_empty_summary_not_translated(self):
         old=item("Korean EV signal","https://news.example/a",summary="")
