@@ -403,7 +403,7 @@ def holder_terms(c):
     if f.get("type") != "거래계획" or f.get("error"):
         return None
     got = {k: v for k, v in (f.get("facts") or []) if isinstance(k, str)}
-    for key in ("보고자", "성명"):
+    for key in ("보고자",):  # '성명' 칸은 연락 담당자일 수 있다(10-31 운영: 영풍 거래계획 '성명 권순광')
         name = re.sub(r"\s+", " ", str(got.get(key) or "")).strip()
         if re.fullmatch(r"\(?\s*성\s*명\s*\)?", name) or not re.fullmatch(r"[가-힣A-Za-z][가-힣A-Za-z0-9&.() ]{1,40}", name):
             continue
@@ -622,7 +622,19 @@ def judge(c, channels, *, now):
             if key not in evidence or evidence[key]["rank"] < rank:
                 evidence[key] = {"title": a.get("title", "")[:160], "url": a.get("url"), "date": a.get("date"),
                                  "channel": ch, "why": why, "rank": rank}
-    ev = sorted(evidence.values(), key=lambda e: (-e["rank"], e.get("date") or ""))
+    # 같은 등급 안에서는 항목 날짜(레이더 항목 since, 공시 게시·접수일) 이후 기사를 먼저(먼저 난 순), 그 전 기사는 최근 순.
+    # 365일 창의 단서 심사에서 몇 달 전 다른 사건 기사가 앞을 채워 이번 공시 기사가 잘리던 것(10-31 운영: 영풍 장세환 거래계획 —
+    # 10-29 페로타임즈 기사 대신 3~4월 지분 공시 기사 3건이 보였다).
+    anchor = article_day(c.get("since")) or article_day(c.get("published")) or article_day(filed_on(c.get("url")))
+
+    def order(e):
+        d = article_day(e.get("date"))
+        if not d:
+            return (-e["rank"], 2, 0)
+        if anchor and d < anchor:
+            return (-e["rank"], 1, -d.toordinal())
+        return (-e["rank"], 0, d.toordinal())
+    ev = sorted(evidence.values(), key=order)
     web_ok = any(channels.get(k, {}).get("status") == "ok" for k in ("bing", "google"))
     naver_ok = channels.get("naver", {}).get("status") == "ok"
     if any(e["rank"] == 2 for e in ev):
