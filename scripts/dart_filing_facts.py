@@ -221,18 +221,23 @@ def correction_line(fix, kind=None):
     """'정정(사유): 항목 전 → 후(±%)' 한 줄. 금액 칸은 억원과 증감률을 붙인다."""
     if not fix:
         return None
-    parts = []
+    # 값이 바뀐 칸을 먼저(금액·날짜·짧은 값), 문구·표만 바뀐 칸은 끝에 이름만 모은다(10-31 LS전선 교환사채 정정: 각주 칸이
+    # 앞에 끼어 납입일·공정위 신고대상 변경이 4칸 제한에 잘렸다)
+    parts, texts = [], []
     for item, before, after in fix.get("changes") or []:
         b, a = re.sub(r"[,\s]", "", before), re.sub(r"[,\s]", "", after)
         if item.endswith("(원)") and re.fullmatch(r"\d+", b) and re.fullmatch(r"\d+", a) and int(b):
             pct = (int(a) - int(b)) / int(b) * 100
             parts.append(f"{item} {won(before)} → {won(after)}({pct:+.1f}%)")
         elif len(before) <= 40 and len(after) <= 40 and not FOOTNOTE.match(before) and not before.startswith("(표"):
-            parts.append(f"{item} {before or '-'} → {after or '-'}")
-        else:
-            parts.append(f"{item} 문구 변경")
+            d1, d2 = as_date(before), as_date(after)
+            parts.append(f"{item} {d1.isoformat() if d1 else before or '-'} → {d2.isoformat() if d2 and d1 else after or '-'}")
+        elif item not in texts:
+            texts.append(item)
     head = f"정정({fix['reason']})" if fix.get("reason") else "정정"
-    return f"{head}: " + (" · ".join(parts[:4]) if parts else "바뀐 항목 표 없음")
+    tail = [f"문구·표 변경 {len(texts)}곳({', '.join(texts[:3])}{' 등' if len(texts) > 3 else ''})"] if texts else []
+    body = parts[:5] + tail
+    return f"{head}: " + (" · ".join(body) if body else "바뀐 항목 표 없음")
 
 
 def correction_short(fix):
