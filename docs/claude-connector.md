@@ -271,7 +271,7 @@
 
 ## 해외 법인 등기 — 영국(partner_filings 안, 기자 전용)
 
-- 영국 Companies House 공개 API: 출입처 영문명(Hyundai·Kia·Hyosung·LS Cable·Taihan·Doosan·POSCO·Hanwha·Hankook 등)이 회사명에 든 새 법인을 설립일로 찾고, 처음 본 법인은 지배 주주(PSC)를 읽는다. 출입처 본사·계열 법인이 지배 주주 = A, 지배 주주가 아직 미기재이고 이름이 본사 전체 이름(예: NEXEN TYRE U.K. LIMITED) = B, 이름만 같은 법인(딜러 등) = C.
+- 영국 Companies House 공개 API: 출입처 영문명(Hyundai·Kia·Hyosung·LS Cable·Taihan·Doosan·POSCO·Hanwha·Hankook 등)이 회사명에 든 새 법인을 설립일로 찾고, 처음 본 법인은 지배 주주(PSC)를 읽는다. 출입처 본사·계열 법인이 지배 주주 = A, 지배 주주가 아직 미기재이고 이름이 본사 전체 이름(예: NEXEN TYRE U.K. LIMITED) = B, 이름만 같은 법인(딜러 등) = C. 출입처 이름으로 시작해도 다른 법인인 계열사(POSCO INTERNATIONAL·POSCO FUTURE M·POSCO E&C 등)는 '출입처 아님 — 별도 법인'으로 C, 지배 주주 규칙도 출입처 법인만 본다(포스코=POSCO·POSCO Holdings, HD현대일렉트릭=HD Hyundai Electric, 효성중공업=Hyosung Heavy) — 10-31 운영: POSCO INTERNATIONAL DEUTSCHLAND GMBH가 '포스코' B로 보였다.
 - **키: GitHub Secret `COMPANIES_HOUSE_API_KEY`**(developer.company-information.service.gov.uk 가입 → 'REST API key' 무료 발급). 없으면 radar_today에 '미설정'.
 - 평일 06:00 KST, 첫 실행은 최근 1년 기준선. 결과는 `overseas-registry` 비공개 저장소로만. `partner_filings`(source 비울 때) 아래 '[해외 법인 등기]'.
 - 미국 주(州) 등기는 무료로 묶어 볼 공식 API가 없어 다루지 않는다.
