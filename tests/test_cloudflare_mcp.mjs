@@ -877,7 +877,7 @@ test('scoop candidates: a correction filing shows what changed before the same-c
   assert.match(r.text, /효성중공업 · \[기재정정\]단일판매ㆍ공급계약체결 \(단서\) — 보도 대조 '미보도 후보' · 체결계약명 420kV 변압기 등 공급계약 · 정정: 계약금액 1,136억→1,130억\(-0\.5%\) · 매출액대비 3\.24→3\.22 · 문구 1곳/);
   assert.match(r.text, /· 같은 계약상대의 다른 계약 직전 공시 2026-09-30/);
   // 정정 중 큰 변경은 '관련 보도 있음'이어도 B(10-31 두산 영광 야월 EPC 종료일 +7개월)
-  doc.candidates.push({ id: 'clue:ds', kind: '단서', company: '두산에너빌리티', title: '두산에너빌리티 [기재정정]단일판매ㆍ공급계약체결', verdict: '관련 보도 있음',
+  doc.candidates.push({ id: 'clue:ds', kind: '단서', company: '두산에너빌리티', title: '두산에너빌리티 [기재정정]단일판매ㆍ공급계약체결 — 변경 항목 대조 필요', verdict: '관련 보도 있음',
     published: '2026-10-26', firstSeen: iso(2), url: 'https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261026800529',
     filing: { type: '공급계약', facts: [['체결계약명', '영광 야월 해상풍력 발전소 설계 구매 시공 (EPC) 계약']], correctionShort: '정정: 계약기간종료일 2029-07-01→2030-01-28',
       correction: { reason: '계약기간 종료일 변경', changes: [['계약기간종료일', '2029-07-01', '2030-01-28']], material: ['계약기간종료일 +7개월'] } } },
@@ -896,7 +896,9 @@ test('scoop candidates: a correction filing shows what changed before the same-c
   const r3 = await call('radar_today', {}, { path: `/mcp/${TOKEN}`, env });
   assert.match(r3.text, /정정 내용 보도 대조: 미보도 후보 — "두산에너빌리티 영광 야월", "두산에너빌리티 야월 연장"로 2026-10-26 이후 '연장' 기사 못 찾음\(검색 범위 결과, 단독 판정 아님\)/);
   assert.doesNotMatch(r3.text, /정정 내용 보도 여부는 따로 확인/);
+  assert.doesNotMatch(r3.text, /변경 항목 대조 필요/);  // 정정 표를 읽었으면 단서 제목 꼬리는 뺀다
   const s3 = await call('scoop_screen', { company: '두산' }, { path: `/mcp/${TOKEN}`, env });
+  assert.match(s3.text, /잡힌 사실: 두산에너빌리티 \[기재정정\]단일판매ㆍ공급계약체결 \(단서/);
   assert.match(s3.text, /정정 내용 보도 대조\(정정 중 큰 변경 → '연장' 낱말\): 미보도 후보 — 질의 "두산에너빌리티 영광 야월", "두산에너빌리티 야월 연장" · 2026-10-26 이후 · 제목에 회사·'연장', 제목·요약에 영광·야월/);
   assert.match(s3.text, /↳ 2026-10-27 \[naver\] 두산에너빌리티 해상풍력 공사기간 연장 — 제목에 회사·낱말\(연장\)이 있으나 영광·야월 없음/);
   doc.candidates[1].correctionCheck = { ...doc.candidates[1].correctionCheck, verdict: '관련 보도 있음', evidence: [{ title: '두산에너빌리티, 영광 야월 해상풍력 계약기간 7개월 연장',

@@ -259,23 +259,25 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
     const fl = c.filing;
     // one line per item: long cells (판결 주문, 당사자 목록) are clipped here; scoop_screen shows them in full
     const clip = (v) => { const t = String(v ?? '').replace(/\s+/g, ' ').trim(); return t.length > 60 ? `${t.slice(0, 60).trimEnd()}…` : t; };
+    // 정정 표를 읽었으면 단서 제목의 '변경 항목 대조 필요'는 이미 답이 있다(정정: … 줄)
+    const title = fl?.correction ? String(c.title ?? '').replace(/\s*—\s*변경 항목 대조 필요$/, '') : c.title;
     const brief = fl && !fl.error && (fl.facts ?? []).length ? ` · ${fl.facts.slice(0, 4).map(([k, v]) => `${k} ${clip(v)}`).join(' · ')}` : '';
     // 정정 공시는 무엇이 바뀌었는지가 먼저다(10-31 효성중공업 Statnett 정정: 계약금액 1,135.9억 → 1,130.4억, -0.5%)
     const fix = fl?.correctionShort ?? (fl?.correctionLine ? clip(fl.correctionLine) : '');
     const cmp = (fix ? ` · ${fix}` : '') + (fl && (fl.compare ?? []).length ? ` · ${fl.compare[0]}` : '');
     const kind = scoopKind(c);
     const flag = fl?.routine ? '일상' : '';
-    if (c.verdict === '미보도 후보' && fl?.routine) push('B', W['scoop-screen'], { kind, flag, verdict: c.verdict, id: c.id, date: c.published ?? c.filedOn, company: c.company, fact: `${c.title} — 일상 공시로 보임(${fl.routine})${brief}`, url: c.url });
+    if (c.verdict === '미보도 후보' && fl?.routine) push('B', W['scoop-screen'], { kind, flag, verdict: c.verdict, id: c.id, date: c.published ?? c.filedOn, company: c.company, fact: `${title} — 일상 공시로 보임(${fl.routine})${brief}`, url: c.url });
     // 특허 공개는 거의 기사가 안 나므로 '미보도 후보'가 늘 나온다 — 그 자체로 단독이 아니고 사업화·생산·수주 연결을 확인할 B
     // (10-31 운영: 10-07·10-12 공개특허 두 건이 A에 남아 A 3건 중 2건)
-    else if (c.verdict === '미보도 후보' && c.kind === '특허') push('B', W['scoop-screen'], { kind, verdict: c.verdict, id: c.id, date: c.published ?? c.filedOn, company: c.company, fact: `${c.title} (특허) — 보도 대조 '미보도 후보' · 특허 공개만으로는 단독이 아님(사업화·생산·수주 연결 확인)`, url: c.url });
-    else if (c.verdict === '미보도 후보') push('A', W['scoop-screen'], { kind, verdict: c.verdict, id: c.id, date: c.published ?? c.filedOn, company: c.company, fact: `${c.title} (${c.kind ?? ''}) — 보도 대조 '미보도 후보'${brief}${cmp}`, url: c.url });
-    else if (c.verdict === '미확인') push('B', W['scoop-screen'], { kind, verdict: c.verdict, id: c.id, date: c.published ?? c.filedOn, company: c.company, fact: `${c.title} — 보도 대조 미확인(채널 실패)`, url: c.url });
+    else if (c.verdict === '미보도 후보' && c.kind === '특허') push('B', W['scoop-screen'], { kind, verdict: c.verdict, id: c.id, date: c.published ?? c.filedOn, company: c.company, fact: `${title} (특허) — 보도 대조 '미보도 후보' · 특허 공개만으로는 단독이 아님(사업화·생산·수주 연결 확인)`, url: c.url });
+    else if (c.verdict === '미보도 후보') push('A', W['scoop-screen'], { kind, verdict: c.verdict, id: c.id, date: c.published ?? c.filedOn, company: c.company, fact: `${title} (${c.kind ?? ''}) — 보도 대조 '미보도 후보'${brief}${cmp}`, url: c.url });
+    else if (c.verdict === '미확인') push('B', W['scoop-screen'], { kind, verdict: c.verdict, id: c.id, date: c.published ?? c.filedOn, company: c.company, fact: `${title} — 보도 대조 미확인(채널 실패)`, url: c.url });
     // 정정 중 큰 변경(금액 ±10%·기간 90일+·해지): '관련 보도 있음'이어도 그 기사는 원 계약 기사일 수 있다 — B로 올린다
     // (10-31 두산에너빌리티 영광 야월 해상풍력 EPC 정정: 계약기간 종료일 2029-07-01 → 2030-01-28, 보도 대조는 다른 기사)
     else if (c.verdict === '관련 보도 있음' && (fl?.correction?.material ?? []).length) push('B', W['scoop-screen'], { kind, flag: '정정', verdict: c.verdict, id: c.id, date: c.published ?? c.filedOn, company: c.company,
-      fact: `${c.title} — 정정 중 큰 변경(${fl.correction.material.join(', ')}${fixReason(fl.correction.reason)})${brief}${cmp} · ${correctionNote(c.correctionCheck)}`, url: c.url });
-    else push('C', W['scoop-screen'], { kind, id: c.id, company: c.company, fact: `${c.verdict}: ${c.title}` });
+      fact: `${title} — 정정 중 큰 변경(${fl.correction.material.join(', ')}${fixReason(fl.correction.reason)})${brief}${cmp} · ${correctionNote(c.correctionCheck)}`, url: c.url });
+    else push('C', W['scoop-screen'], { kind, id: c.id, company: c.company, fact: `${c.verdict}: ${title}` });
   }
 
   const kr = docs['kr-official'];
