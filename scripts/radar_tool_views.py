@@ -291,7 +291,17 @@ def from_crossborder(data):
             if isinstance(ev, dict) and https_url(ev.get("url")):
                 url = ev["url"]
                 break
-        out.append(clue(kind="해외", source="해외 원자료", title=x.get("headline"), url=url,
+        title = str(x.get("headline") or "")
+        models = []
+        for m in (x.get("officialFact") or {}).get("usModelYears") or []:
+            name = re.sub(r"\s+", " ", str((m or {}).get("model") or "")).strip().upper() if isinstance(m, dict) else ""
+            if name and name not in models:
+                models.append(name)
+        if models:
+            # 미국 리콜 단서 제목에 차종을 붙인다 — 캠페인 번호만으로는 보도 대조가 '{회사} 미국 리콜'이 된다(10-31 운영:
+            # 26V692000 아반떼·투싼 하이브리드 스트럿 ↔ 투싼 에어백 남아공 기사)
+            title = re.sub(r"^(미국 리콜 \S+)", lambda mm: f"{mm.group(1)} · {'·'.join(models[:3])}{' 외' if len(models) > 3 else ''}", title, count=1)
+        out.append(clue(kind="해외", source="해외 원자료", title=title, url=url,
                         published=x.get("officialPublicationDate"), companies=companies,
                         tier=TIER_LEAD, signal=x.get("type") or "", key=x.get("id"),
                         note=x.get("reporterPriority") or ""))

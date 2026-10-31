@@ -253,8 +253,42 @@ RECALL_ROW = re.compile(r"\[[^\]]+\]\s*(?P<model>[^\[\]]+?)\s+[-–]\s+(?P<rest>
 RECALL_STOP = {"관련", "리콜", "제작결함", "결함", "중대리콜", "화재위험", "어셈블리"}
 
 
+# 미국 리콜(NHTSA) 단서: 차종 미국 이름 → 국내 기사가 쓰는 이름(digest.mjs US_MODEL_KO와 같은 표)
+US_MODEL_KO = {"elantra": ["아반떼", "엘란트라"], "sonata": ["쏘나타"], "tucson": ["투싼"], "santa fe": ["싼타페"], "santa cruz": ["싼타크루즈"],
+               "palisade": ["팰리세이드"], "kona": ["코나"], "venue": ["베뉴"], "ioniq": ["아이오닉"], "nexo": ["넥쏘"], "sorento": ["쏘렌토"],
+               "sportage": ["스포티지"], "telluride": ["텔루라이드"], "carnival": ["카니발"], "forte": ["포르테", "K3"], "soul": ["쏘울"],
+               "niro": ["니로"], "seltos": ["셀토스"], "trax": ["트랙스"], "trailblazer": ["트레일블레이저"], "envista": ["엔비스타"], "encore": ["앙코르"]}
+US_BRANDS = {"HYUNDAI", "KIA", "GENESIS", "AUDI", "VOLKSWAGEN", "VW", "BMW", "MINI", "MERCEDES-BENZ", "MERCEDES", "HONDA", "ACURA",
+             "CHEVROLET", "BUICK", "GMC"}
+US_RECALL_TITLE = re.compile(r"^미국 리콜 (\d{2}V\d{6}) · (?P<models>.+?) · 국내")
+
+
+def us_recall_models(models):
+    s = f" {str(models or '').lower()} "
+    out = [ko for k, v in US_MODEL_KO.items() if re.search(rf"[^a-z0-9]{re.escape(k)}[^a-z0-9]", s) for ko in v]
+    if not out:
+        w = next((t for t in re.split(r"[\s,·]+", str(models or "")) if re.fullmatch(r"[A-Z0-9][A-Z0-9.-]{1,9}", t, re.I)
+                  and t.upper() not in US_BRANDS and not re.fullmatch(r"\d{4}(~\d{4})?", t)), None)
+        out = [w.upper()] if w else []
+    return list(dict.fromkeys(out))
+
+
 def recall_candidate(x, company, title):
     url = str(x.get("url") or "")
+    us = US_RECALL_TITLE.match(title)
+    if us:
+        models = us_recall_models(us.group("models"))
+        if not models:
+            return None
+        day = article_day(x.get("published"))
+        # 미국 리콜 기사는 차종 국문·미국 이름을 쓴다. 제목에 회사·'리콜', 제목·요약에 차종이 있어야 같은 리콜(us_recalls 보도 대조와 같은 규칙)
+        return {"id": f"clue:{x.get('id')}", "kind": "리콜", "team": x.get("team"), "company": company, "title": title,
+                "url": url, "published": x.get("published"), "source": x.get("source"), "tier": x.get("tier"),
+                "terms": [models[0], "리콜"], "alts": {"리콜": ["리콜", "시정조치"]}, "unit": "", "numbers": [], "ratios": [],
+                "strict": True, "generic": [models[0]], "must": models,
+                **({"since": (day - dt.timedelta(days=3)).isoformat()} if day else {}),
+                "note": "미국 리콜은 국내 판매 차량 해당 여부를 알 수 없다 — 국내 같은 부품·시정조치는 회사·국토부 확인",
+                "strength": 1}
     if "car.go.kr" not in url and "리콜센터" not in str(x.get("source") or ""):
         return None
     q = parse_qs(urlparse(url).query).get("searchProductName") or []

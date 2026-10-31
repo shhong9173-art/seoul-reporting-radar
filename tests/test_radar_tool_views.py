@@ -112,6 +112,14 @@ class Views(unittest.TestCase):
         self.assertEqual([r["title"] for r in rows], ["기아, 10월 30일 리콜 공지 1건 — [기아] 쏘렌토 - 저압연료라인 어셈블리 관련 리콜 중대리콜(화재위험)",
                                                      "현대차, 10월 14일 리콜 공지 2건 — [현대] 아이오닉9 - 전동시트 제어기 관련 리콜 외 1건"])
 
+    def test_us_recall_clue_title_names_the_models(self):
+        rows = v.from_crossborder({"items": [{"id": "usrecall:26V692000", "type": "overseas_safety_domestic_comparison",
+            "companyGroup": "현대차·기아·제네시스", "headline": "미국 리콜 26V692000 · 국내 동일 부품/시정조치 대조 필요",
+            "officialPublicationDate": "2026-10-20", "reporterPriority": "background_followup",
+            "sourceEvidence": [{"url": "https://api.nhtsa.gov/recalls/campaignNumber?campaignNumber=26V692000"}],
+            "officialFact": {"usModelYears": [{"model": "ELANTRA", "year": "2026"}, {"model": "TUCSON HYBRID", "year": "2026"}, {"model": "ELANTRA", "year": "2026"}]}}]})
+        self.assertEqual(rows[0]["title"], "미국 리콜 26V692000 · ELANTRA·TUCSON HYBRID · 국내 동일 부품/시정조치 대조 필요")
+
     def test_registry_names_and_exact_beats_pick_the_team(self):
         views = self.build()
         self.assertEqual(self.clue(views, "엘에스일렉트릭")["team"], "전력·에너지")
