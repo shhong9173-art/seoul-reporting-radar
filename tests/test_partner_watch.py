@@ -215,6 +215,23 @@ class EdgarNoise(unittest.TestCase):
         got = {x["id"]: x for x in self.run_with([c, self.item("edgar:b-1:d8k.htm", "2026-10-21", self.DEAL, filer="Cell Maker Inc")])["items"]}
         self.assertIn("전망·위험 고지", got["edgar:clf-1:ex991.htm"]["boilerplate"])
         self.assertNotIn("boilerplate", got["edgar:b-1:d8k.htm"])
+        # 정기 보고서 앞머리 용어·약어 풀이(10-31 운영 Cleveland-Cliffs 10-Q 발췌 그대로)
+        gl = ("…steel IAM International Association of Machinists and Aerospace Workers Long ton (lt) 2,240 pounds Metric ton (mt) 2,205 pounds "
+              "MMBtu Million British Thermal Units Net ton (nt) 2,000 pounds NOES Non-oriented electrical steel N/M Not meaningful OPEB Other "
+              "postretirement benefits POSCO POSCO Holdings Inc., a publicly traded South Korean steel manufacturer headquartered in Pohang, "
+              "South Korea RCRA Re…")
+        g = self.item("edgar:clf-2:10q.htm", "2026-10-20", gl, filer="CLEVELAND-CLIFFS INC. (CLF)", form="10-Q")
+        g["phrases"], g["beat"] = ["POSCO"], ["포스코"]
+        got = {x["id"]: x for x in self.run_with([g, self.item("edgar:b-1:d8k.htm", "2026-10-21", self.DEAL, filer="Cell Maker Inc")])["items"]}
+        self.assertIn("용어·약어 풀이나 이름 나열", got["edgar:clf-2:10q.htm"]["routine"])
+        # 공급사 이름 나열 표(10-13 VME Companies S-1 EXHIBIT 10.5)도 문장 없는 나열
+        vme = ("…g and Fittings Type of Supply Supplier SDSS Piping & Fittings Europe, Singapore GRE Piping & Fittings NOV Amerstrand Malaysia, "
+               "Future Pipe Indonesia/Dubai HDPE, PVC, PVDF George Fisher FRP Piping & Fittings Yunku FRP Alloy/CS Pipe Benteler, Kobe Steel, "
+               "Kobelco, NSSMC, Outokumpu, Posco, Seah, Schoeller Bleckmann, Tubacex, Tubos Reuni dos, Vallourec_Brazil/Europe, Zhejiang Jiuli, AMSA, Anhui, APC, A…")
+        v = self.item("edgar:vme-1:ex10-5.htm", "2026-10-13", vme, filer="VME Companies, Inc.", form="S-1/A")
+        v["phrases"], v["beat"] = ["Posco", "Seah"], ["포스코", "세아"]
+        self.assertIn("이름 나열", self.run_with([v])["items"][0]["routine"])
+        self.assertNotIn("routine", got["edgar:b-1:d8k.htm"])
         # 발췌에 이름이 안 보이면(잘림) 판단하지 않는다
         cut = self.item("edgar:c-1:x.htm", "2026-10-21", "The Company entered into a supply agreement for cells with a customer in Asia.")
         self.assertNotIn("dealNear", self.run_with([cut])["items"][0])

@@ -62,6 +62,17 @@ def beat_sentences(sn, phrases):
     return [x for x in SENTENCE.split(sn) if any(ph.lower() in x.lower() for ph in phrases)]
 
 
+# 정기 보고서 앞머리의 용어·약어 풀이 목록(10-31 운영: Cleveland-Cliffs 10-Q 'NOES Non-oriented electrical steel N/M Not meaningful
+# OPEB Other postretirement benefits POSCO POSCO Holdings Inc., a publicly traded South Korean steel manufacturer…'가 B)
+GLOSS_ENTRY = re.compile(r"\b[A-Z][A-Z0-9&/]{1,7}\s+(?:[A-Z][a-z]+|[A-Z][A-Z0-9&]+\s+[A-Z][a-z]+)")
+
+
+def glossary(sn, phrases):
+    if any(re.search(rf"\b{re.escape(ph)}\s+{re.escape(ph)}\b", sn, re.I) for ph in phrases):  # 'POSCO POSCO Holdings Inc.'
+        return True
+    return len(GLOSS_ENTRY.findall(sn)) >= 6 and not re.search(r"[a-z]{3,}\.\s+[A-Z][a-z]", sn)  # 문장 없이 풀이만 이어짐
+
+
 def classify(it):
     """routine: no dealing with the beat company (holdings tables) → C. finNote: periodic financial-statement
     notes, often restating an existing arrangement → never A. dealNear: a deal word in a sentence that names the
@@ -79,6 +90,8 @@ def classify(it):
     digits = sum(ch.isdigit() for ch in sn)
     if HOLDINGS.search(sn) or (len(sn) > 200 and digits / len(sn) > 0.18):
         it["routine"] = "투자 보유 목록(채권·주식 보유 표) — 출입처와의 거래 아님"
+    elif glossary(sn, it.get("phrases") or []):
+        it["routine"] = "용어·약어 풀이나 이름 나열(문장 없음) — 출입처와의 거래 문구 아님"
     elif FIN_NOTE.search(sn) or (FIN_DOC.search(str(it.get("url") or "")) and str(it.get("form") or "").upper() in ("6-K", "6-K/A", "10-Q", "10-K", "20-F")
                                  and re.search(r"\bthe\s+(?:company|group)\s+has\b", sn, re.I)):
         it["finNote"] = "재무제표 주석 — 이미 있던 약정을 다시 적은 것일 수 있음(이전 분기 보고서와 대조)"
