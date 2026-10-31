@@ -784,6 +784,79 @@ def screen(cands, *, now, get=None, sleep=time.sleep):
     return out
 
 
+# 정정 중 큰 변경(dart_filing_facts.material)의 보도 대조: 원 공시 기사가 있어도 정정 내용(기간 연장·감액·해지)은 새 사실일 수
+# 있다(10-31 운영: 두산에너빌리티 영광 야월 해상풍력 EPC 정정 — 계약기간 종료일 +7개월, 기자가 따로 '야월 해상풍력 두산에너빌리티
+# 계약기간'으로 찾아야 했다). 제목에 회사와 변경 낱말, 제목·요약에 그 사업 낱말이 함께 있어야 정정 내용 기사로 센다.
+CHANGE_WORDS = {
+    "해지": ["해지", "해제", "취소", "무산", "철회", "중단", "파기"],
+    "감액": ["감액", "축소", "하향", "삭감", "줄어", "줄여", "줄인", "조정"],
+    "증액": ["증액", "확대", "상향", "늘어", "늘려", "늘린", "조정"],
+    "연장": ["연장", "연기", "지연", "늘어", "늘려", "미뤄", "변경"],
+    "완료": ["완료", "마무리", "조기", "앞당"],
+    "단축": ["단축", "앞당", "조기", "변경"],
+}
+NOT_SUBJECT = {"투자", "공장", "생산", "수주", "계약", "공급계약", "매출", "수출", "판매", "증설", "취득", "변압기"}
+MAX_CORRECTION_CHECKS = 6
+
+
+def change_word(fix):
+    """큰 변경 목록 → 기사가 쓰는 변경 낱말(해지 > 금액 > 기간). 없으면 None."""
+    big = (fix or {}).get("material") or []
+    if any("해지" in m for m in big):
+        return "해지"
+    for m in big:
+        x = re.search(r"([+-])\d+%$", m)
+        if x:
+            return "증액" if x.group(1) == "+" else "감액"
+    for m in big:
+        x = re.search(r"([+-])\d+개월$", m)
+        if x:
+            return "연장" if x.group(1) == "+" else "완료" if "완료" in str(fix.get("reason") or "") else "단축"
+    return None
+
+
+def correction_check_of(c):
+    """정정 내용 보도 대조용 후보(심사 함수에 그대로 넣는다). 큰 변경·사업 낱말이 없으면 None."""
+    fix = (c.get("filing") or {}).get("correction")
+    word = change_word(fix)
+    subject = [t for t in (c.get("terms") or [])[:3] if t not in NOT_SUBJECT and t not in CHANGE_WORDS][:2]
+    since = article_day(c.get("published")) or article_day(filed_on(c.get("url")))
+    if not word or not subject or not since:
+        return None
+    qs = [f"{c['company']} {' '.join(subject)}", f"{c['company']} {subject[-1]} {word}"]
+    return {"id": c["id"], "company": c["company"], "title": c.get("title", ""), "kind": c.get("kind"), "terms": [word],
+            "alts": {word: CHANGE_WORDS[word]}, "strict": True, "must": subject, "generic": [], "names": [], "numbers": [],
+            "unit": "", "since": since.isoformat(), "queries": qs}
+
+
+def check_corrections(rows, *, now, get=None, sleep=time.sleep, limit=MAX_CORRECTION_CHECKS):
+    """정정 중 큰 변경이 있는데 원 공시 대조가 '관련 보도 있음'인 후보만 정정 내용으로 한 번 더 찾는다. (rows, 대조 수)"""
+    n = 0
+    for r in rows:
+        if n >= limit or r.get("verdict") == "미보도 후보":
+            continue
+        cc = correction_check_of(r)
+        if not cc:
+            continue
+        n += 1
+        channels = {"naver": {"status": "ok", "items": []}}
+        for q in cc["queries"]:
+            got = naver(q, get=get)
+            if got["status"] != "ok":
+                channels["naver"]["status"] = got["status"]
+            channels["naver"]["items"] += got["items"]
+            sleep(0.12)
+        channels["bing"] = bing(cc["queries"][-1], get=get)
+        sleep(0.3)
+        channels["google"] = google(cc["queries"][-1], get=get)
+        sleep(0.3)
+        verdict, evidence = judge(cc, channels, now=now)
+        r["correctionCheck"] = {"word": cc["terms"][0], "subject": cc["must"], "since": cc["since"], "queries": cc["queries"],
+                                "verdict": verdict, "evidence": evidence[:3],
+                                "channels": {k: v.get("status") for k, v in channels.items()}}
+    return rows, n
+
+
 def carry_first_seen(rows, previous, now):
     """후보마다 처음 심사한 시각을 남긴다 — radar_today는 이 시각이 최근인 후보만 '새 항목'으로 센다(10-30: 10-07·10-12 특허 후보가
     판정 전까지 매일 A에 다시 올라옴). 이전 결과에 시각이 없으면 이전 실행 시각을 쓴다."""
@@ -871,6 +944,9 @@ def main():
         print(f"::notice title=scoop-screen-body-titles::형식 공시명 후보 원문 제목 읽음 {b['read']} · 형식 공시라 뺌 {b['procedural']}"
               f" · 원문 제목 못 읽어 심사 안 함(미확인) {b['unread']}")
     rows = carry_first_seen(screen(cands, now=now), previous, now)
+    rows, inputs["correctionChecks"] = check_corrections(rows, now=now)
+    if inputs["correctionChecks"]:
+        print(f"::notice title=scoop-screen-corrections::정정 중 큰 변경 {inputs['correctionChecks']}건 정정 내용으로 다시 대조")
     doc = report(rows, now=now, inputs=inputs)
     if a.out:
         Path(a.out).write_text(json.dumps(doc, ensure_ascii=False, indent=1), encoding="utf-8")

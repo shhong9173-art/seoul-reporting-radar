@@ -888,6 +888,22 @@ test('scoop candidates: a correction filing shows what changed before the same-c
   const b2 = r2.text.split('[B · ')[1].split('[C · ')[0];
   assert.match(b2, /두산에너빌리티 \[기재정정\]단일판매ㆍ공급계약체결 — 정정 중 큰 변경\(계약기간종료일 \+7개월 · 사유 '계약기간 종료일 변경'\)[^\n]*정정: 계약기간종료일 2029-07-01→2030-01-28[^\n]*원 계약 기사일 수 있음/);
   assert.match(r2.text.split('[C · ')[1], /관련 보도 있음: 효성중공업 · 작은 정정/);
+  // 정정 내용 보도 대조(scoop_screen check_corrections) 결과가 있으면 그 결과로 바꿔 적는다
+  doc.candidates[1].correctionCheck = { word: '연장', subject: ['영광', '야월'], since: '2026-10-26', verdict: '미보도 후보',
+    queries: ['두산에너빌리티 영광 야월', '두산에너빌리티 야월 연장'], evidence: [{ title: '두산에너빌리티 해상풍력 공사기간 연장', date: '2026-10-27',
+      channel: 'naver', url: 'https://n/other', why: '제목에 회사·낱말(연장)이 있으나 영광·야월 없음 — 다른 사업장·다른 건 기사일 수 있음' }], channels: { naver: 'ok' } };
+  await worker.fetch(new Request(ORIGIN + '/ingest/scoop-screen', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {});
+  const r3 = await call('radar_today', {}, { path: `/mcp/${TOKEN}`, env });
+  assert.match(r3.text, /정정 내용 보도 대조: 미보도 후보 — "두산에너빌리티 영광 야월", "두산에너빌리티 야월 연장"로 2026-10-26 이후 '연장' 기사 못 찾음\(검색 범위 결과, 단독 판정 아님\)/);
+  assert.doesNotMatch(r3.text, /정정 내용 보도 여부는 따로 확인/);
+  const s3 = await call('scoop_screen', { company: '두산' }, { path: `/mcp/${TOKEN}`, env });
+  assert.match(s3.text, /정정 내용 보도 대조\(정정 중 큰 변경 → '연장' 낱말\): 미보도 후보 — 질의 "두산에너빌리티 영광 야월", "두산에너빌리티 야월 연장" · 2026-10-26 이후 · 제목에 회사·'연장', 제목·요약에 영광·야월/);
+  assert.match(s3.text, /↳ 2026-10-27 \[naver\] 두산에너빌리티 해상풍력 공사기간 연장 — 제목에 회사·낱말\(연장\)이 있으나 영광·야월 없음/);
+  doc.candidates[1].correctionCheck = { ...doc.candidates[1].correctionCheck, verdict: '관련 보도 있음', evidence: [{ title: '두산에너빌리티, 영광 야월 해상풍력 계약기간 7개월 연장',
+    date: '2026-10-29', channel: 'naver', url: 'https://n/hit', why: '제목에 회사·낱말(연장) — 동일 사건 미확정' }] };
+  await worker.fetch(new Request(ORIGIN + '/ingest/scoop-screen', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {});
+  const r4 = await call('radar_today', {}, { path: `/mcp/${TOKEN}`, env });
+  assert.match(r4.text, /정정 내용 보도 대조: 관련 보도 있음 — 2026-10-29 「두산에너빌리티, 영광 야월 해상풍력 계약기간 7개월 연장」\(같은 내용인지 열어 볼 것\)/);
 });
 
 test('converging signals: same beat company and same city from two or more watches, place from the text, C and other tools ignored', () => {

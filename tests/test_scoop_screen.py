@@ -304,6 +304,53 @@ class Screen(unittest.TestCase):
         self.assertEqual(doc["confirmedScoops"], 0)
         self.assertEqual(sum(doc["counts"].values()), len(rows))
 
+    def test_material_correction_is_checked_for_its_own_coverage(self):
+        # 두산에너빌리티 20261026800529(10-31 운영): 원 계약 기사는 있으나 정정(계약기간 종료일 +7개월) 기사는 따로 찾아야 했다
+        now = dt.datetime(2026, 10, 31, 7, 10, tzinfo=KST)
+        fix = {"reason": "계약기간 종료일 변경", "changes": [["계약기간 - 종료일", "2029-07-01", "2030-01-28"]], "material": ["종료일 +7개월"]}
+        row = {"id": "clue:ds", "kind": "단서", "company": "두산에너빌리티", "title": "두산에너빌리티 [기재정정]단일판매ㆍ공급계약체결",
+               "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261026800529", "published": "2026-10-26",
+               "terms": ["영광", "야월", "해상풍력"], "alts": {}, "verdict": "관련 보도 있음", "filing": {"type": "공급계약", "correction": fix}}
+        cc = s.correction_check_of(row)
+        self.assertEqual((cc["terms"], cc["must"], cc["since"], cc["queries"]),
+                         (["연장"], ["영광", "야월"], "2026-10-26", ["두산에너빌리티 영광 야월", "두산에너빌리티 야월 연장"]))
+        seen = []
+
+        def get(url, params=None, headers=None, timeout=None):
+            if "naverapihub" in url:
+                seen.append(params["query"])
+                return R(200, {"items": [
+                    {"title": "두산에너빌리티, 영광 야월 해상풍력 EPC 5750억 수주", "description": "", "originallink": "https://n/old",
+                     "pubDate": "Wed, 31 Dec 2025 09:00:00 +0900"},
+                    {"title": "두산에너빌리티 해상풍력 공사기간 연장", "description": "신안 우이 해상풍력", "originallink": "https://n/other",
+                     "pubDate": "Tue, 27 Oct 2026 09:00:00 +0900"}]})
+            return R(200, content=b"<rss><channel></channel></rss>")
+        with patch.dict(os.environ, {"NAVER_CLIENT_ID": "i", "NAVER_CLIENT_SECRET": "k"}):
+            rows, n = s.check_corrections([row], now=now, get=get, sleep=lambda x: None)
+        got = rows[0]["correctionCheck"]
+        self.assertEqual((n, seen, got["word"], got["verdict"]), (1, cc["queries"], "연장", "미보도 후보"))
+        # 원 계약 기사(정정 전)는 판정에 안 세고, 다른 해상풍력(신안 우이) 연장 기사는 사업 낱말이 없어 약한 근거
+        self.assertEqual([e["url"] for e in got["evidence"]], ["https://n/other"])
+        self.assertIn("영광·야월 없음", got["evidence"][0]["why"])
+
+        def hit(url, params=None, headers=None, timeout=None):
+            if "naverapihub" in url:
+                return R(200, {"items": [{"title": "두산에너빌리티, 영광 야월 해상풍력 계약기간 7개월 연장", "description": "",
+                                          "originallink": "https://n/hit", "pubDate": "Thu, 29 Oct 2026 09:00:00 +0900"}]})
+            return R(200, content=b"<rss><channel></channel></rss>")
+        row.pop("correctionCheck")
+        with patch.dict(os.environ, {"NAVER_CLIENT_ID": "i", "NAVER_CLIENT_SECRET": "k"}):
+            rows, _ = s.check_corrections([row], now=now, get=hit, sleep=lambda x: None)
+        self.assertEqual(rows[0]["correctionCheck"]["verdict"], "관련 보도 있음")
+        # 낱말 고르기: 해지 > 금액 > 기간, 취득완료로 당겨지면 '완료'
+        self.assertEqual(s.change_word({"material": ["계약금액 -40%", "사유에 해지·취소"]}), "해지")
+        self.assertEqual(s.change_word({"material": ["예상투자금액 -10%"]}), "감액")
+        self.assertEqual(s.change_word({"material": ["취득예정일자 -36개월"], "reason": "취득완료(취득가액 및 취득일자 확정)에 따른 정정"}), "완료")
+        self.assertIsNone(s.change_word({"changes": [["a", "1", "2"]]}))
+        # 미보도 후보(원 공시도 못 찾음)·큰 변경 없음·사업 낱말 없음은 다시 찾지 않는다
+        for other in ({**row, "verdict": "미보도 후보"}, {**row, "filing": {"correction": {"material": []}}}, {**row, "terms": ["수주", "공급계약"]}):
+            self.assertEqual(s.check_corrections([dict(other)], now=now, get=get, sleep=lambda x: None)[1], 0)
+
     def test_without_naver_everything_is_unconfirmed(self):
         def get(url, params=None, headers=None, timeout=None):
             return R(200, content=b"<rss><channel></channel></rss>")
