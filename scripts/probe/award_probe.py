@@ -1,35 +1,33 @@
-"""Probe 17: 새올 지자체 고시·공고 상세 페이지 형식 — 목록 제목이 '...'로 잘리는 공고의 전체 제목·본문이 상세에 있는지. robots.txt 먼저. 공개 자료, 저장하지 않음."""
+"""Probe 18: 현대모비스 20261028000138 정정 표 '분할반대의사통지 접수기간' 칸의 원문 XML — '09일종료일'처럼 붙는 까닭(칸 안 줄바꿈 표기).
+OpenDART document.xml(공개 원문). 키는 출력하지 않는다. 저장하지 않음."""
+import io
+import os
 import re
-import sys
-import time
-from pathlib import Path
+import zipfile
 import requests
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-import kr_local_notice_watch as w  # noqa: E402
-
 out = []
-for base, mgt in [("http://eminwon.ulju.ulsan.kr", "68156"), ("https://eminwon.wanju.go.kr", "44869")]:
+key = os.environ.get("DART_API_KEY", "").strip()
+if not key:
+    out.append("DART_API_KEY 없음")
+else:
+    r = requests.get("https://opendart.fss.or.kr/api/document.xml", params={"crtfc_key": key, "rcept_no": "20261028000138"}, timeout=60)
+    out.append(f"HTTP {r.status_code} len {len(r.content)} type {r.headers.get('content-type')}")
     try:
-        rb = requests.get(base + "/robots.txt", headers=w.UA, timeout=30)
-        out.append(f"== {base} robots {rb.status_code}: {rb.text[:300]!r}")
-    except Exception as e:  # noqa: BLE001
-        out.append(f"== {base} robots {type(e).__name__}")
-    url = w.detail_url(base, mgt)
-    try:
-        r = requests.get(url, headers={**w.UA, "Referer": base + w.PATH}, timeout=75)
-        html = r.text
-        out.append(f"detail {mgt} HTTP {r.status_code} len {len(html)} charset {r.encoding}")
-        # 표 칸(th/td) 쌍과 본문
-        cells = [w.cell_text(c) for c in re.findall(r"<t[hd][^>]*>([\s\S]*?)</t[hd]>", html)]
-        out.append("cells: " + " | ".join(c[:160] for c in cells if c)[:2500])
-        text = w.cell_text(re.sub(r"<(script|style)[\s\S]*?</\1>", " ", html))
-        i = text.find("고려아연") if "고려아연" in text else text.find("공고")
-        out.append("text@: " + text[max(0, i - 300):i + 1500])
-        files = re.findall(r"(?:fileDown|download|atchFile)[^\"'<>]{0,200}", html)[:5]
-        out.append("files: " + " ;; ".join(files))
-    except Exception as e:  # noqa: BLE001
-        out.append(f"detail {mgt} {type(e).__name__}: {str(e)[:120]}")
-    time.sleep(2)
+        z = zipfile.ZipFile(io.BytesIO(r.content))
+        for name in z.namelist():
+            raw = z.read(name)
+            text = raw.decode("utf-8", "replace")
+            out.append(f"== {name} {len(raw)} bytes")
+            for word in ("분할반대의사통지 접수기간", "반대의사통지"):
+                i = text.find(word)
+                if i >= 0:
+                    seg = text[i - 200:i + 900]
+                    out.append("raw@" + word + ": " + repr(seg))
+                    break
+            out.append("entities: " + repr(sorted(set(re.findall(r"&[A-Za-z#0-9]+;", text)))[:20]))
+            out.append("tags: " + repr(sorted(set(t.upper() for t in re.findall(r"</?([A-Za-z][A-Za-z0-9_-]*)", text)))[:60]))
+    except zipfile.BadZipFile:
+        out.append("not zip: " + r.text[:200])
 open("/tmp/probe_out.txt", "w").write("\n".join(out))
-print("\n".join(out)[:500])
+print("\n".join(out)[:300])
