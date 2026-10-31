@@ -20,7 +20,9 @@ WINDOW_DAYS = 28
 BASE_DAYS = 168          # 기준: 최근 28일 앞 24주
 MIN_RECENT = 8           # 부품별 최근 28일 신고가 이보다 적으면 보지 않음
 RATIO = 2.5              # 기준(28일당 평균, 최소 1건) 대비 배수
-FIRE_MIN = 3             # 같은 차종 화재 신고(FIRE=Y)가 28일에 이 이상이고 기준의 2배 이상이면 따로 본다
+FIRE_MIN = 3             # 같은 차종 화재 신고(FIRE=Y)가 28일에 이 이상이고 기준의 2배 이상이면 따로 본다(참고 C)
+FIRE_B = 5               # 화재 신고만 몰린 차종은 이 이상·기준 3배 이상일 때만 B
+FIRE_LABEL = "화재 신고(FIRE=Y)"
 RECALL_DAYS = 60         # 같은 차종·같은 부품 리콜이 이 안에 있으면 리콜 뒤 신고일 수 있어 C
 KEEP_DAYS = 45
 # 칸 번호(0부터, COMPLAINTS_RECEIVED 51칸): 신고번호·제조사명·차명·연식·충돌·화재·부상·사망·부품·접수일·내용
@@ -141,6 +143,11 @@ def recent_recalls(recall_rows, now):
     return {k: sorted(v.values(), key=lambda r: r["received"], reverse=True) for k, v in out.items()}
 
 
+def fire_only(parts):
+    """화재 신고만으로 걸렸고 FIRE_B건·기준 3배에 못 미치면 True."""
+    return all(c == FIRE_LABEL for c, *_ in parts) and not any(n >= FIRE_B and n >= 3 * max(b, 0.5) for _, n, b, _ in parts)
+
+
 def spikes(window, agg, recalls):
     """부품별로 튄 것을 차종 하나로 묶는다(신고 한 건이 부품 여러 칸에 걸리므로 차종당 한 줄)."""
     by_model = collections.defaultdict(list)
@@ -155,7 +162,7 @@ def spikes(window, agg, recalls):
             merged = {"recent": f["recent"], "base": f["base"], "fire": f["recent"], "crash": set(), "injured": set(), "deaths": set(),
                       "yearOf": {k: v for _, a in parts for k, v in a["yearOf"].items() if k in f["recent"]},
                       "samples": {k: v for _, a in parts for k, v in a["samples"].items() if k in f["recent"]}}
-            by_model[(make, model)].append(("화재 신고(FIRE=Y)", n, base, merged))
+            by_model[(make, model)].append((FIRE_LABEL, n, base, merged))
     out = []
     for (make, model), parts in by_model.items():
         beat, name = brand_of(make, model)
@@ -181,7 +188,9 @@ def spikes(window, agg, recalls):
             "years": "·".join(f"{y}({c})" for y, c in years.most_common(3)), "samples": samples,
             "recentRecalls": rec[:4], "sameComponentRecall": [r["campaign"] for r in same],
             # 같은 부품 리콜이 60일 안에 있으면 리콜 공지를 보고 낸 신고일 수 있어 참고(C). 신고는 결함 확정이 아니라 A로 올리지 않는다.
-            "tier": "C" if same else "B",
+            # 화재 신고만 몰린 차종은 참고(C) — 10-31 첫 실행: 싼타페(2018·2019·2023년형)·포르테(2011·2017·2023년형, 한 건은
+            # 타이어 파열 뒤 배선 마찰) 각 3건이 B로 떴다. 연식이 흩어진 화재 몇 건은 원인이 서로 다를 수 있다.
+            "tier": "C" if same or fire_only(parts) else "B",
             "url": API.format(make=make, model=model.replace(" ", "%20"), year=top_year),
         })
     return sorted(out, key=lambda x: (x["tier"], -x["complaints"]))
@@ -233,5 +242,6 @@ def collect(now, previous, recall_rows, *, get):
 
 RULES = ["소비자 결함 신고는 소비자가 NHTSA에 낸 것이고 결함 확정이 아니다. 최근 28일 신고를 그 앞 24주(28일당 평균)와 견줘 부품별로 "
          f"{MIN_RECENT}건 이상·{RATIO}배 이상 튄 차종만 본다(신고 한 건이 부품 여러 칸에 걸려 부품별 합은 신고 수보다 크다).",
-         f"같은 차종·같은 부품 리콜이 {RECALL_DAYS}일 안에 있으면 리콜 공지를 보고 낸 신고일 수 있어 참고(C).",
+         f"같은 차종·같은 부품 리콜이 {RECALL_DAYS}일 안에 있으면 리콜 공지를 보고 낸 신고일 수 있어 참고(C). 화재 신고만 몰린 차종은 "
+         f"{FIRE_B}건·평소 3배 넘을 때만 B, 그 밖에는 참고(C) — 연식이 흩어진 화재 몇 건은 원인이 다를 수 있다.",
          "신고 원문 발췌는 소비자 서술이다. 사실 확인·국내 판매 차량 해당 여부는 회사·국토부(자동차리콜센터) 확인 대상이다."]

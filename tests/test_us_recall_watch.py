@@ -276,8 +276,15 @@ class Complaints(unittest.TestCase):
         so = by["SORENTO"]
         self.assertEqual((so["tier"], so["sameComponentRecall"], so["crash"]), ("C", ["26V700000"], 1))  # 같은 부품 리콜 뒤
         tv = by["TRAX"]
-        self.assertEqual((tv["beat"], tv["fire"], tv["parts"][0]["component"]), ("한국GM", 4, "화재 신고(FIRE=Y)"))
+        self.assertEqual((tv["beat"], tv["fire"], tv["parts"][0]["component"], tv["tier"]), ("한국GM", 4, "화재 신고(FIRE=Y)", "C"))  # 화재만 4건 → 참고
         self.assertFalse(any(x["isNew"] for x in doc["spikes"]))  # 첫 실행은 신규 표시 안 함
+
+    def test_fire_only_cluster_is_B_only_when_large(self):
+        lines = [cmpl(f"FV{i}", "KIA", "FORTE", "2023", "ENGINE", day(i), fire="Y") for i in range(1, 7)]
+        doc, _ = cm.collect(NOW, None, [], get=cget(cmpl_zip(lines)))
+        self.assertEqual(doc["spikes"][0]["tier"], "B")  # 6건, 평소 0
+        doc, _ = cm.collect(NOW, None, [], get=cget(cmpl_zip(lines[:3])))
+        self.assertEqual(doc["spikes"][0]["tier"], "C")
 
     def test_continuing_spike_keeps_first_seen_and_failure_keeps_previous(self):
         first, _ = cm.collect(NOW, None, RECALL_ROWS, get=cget())
