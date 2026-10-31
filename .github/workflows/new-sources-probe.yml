@@ -26,8 +26,7 @@ jobs:
           KR_FUEL_API_KEY: ${{ secrets.KR_FUEL_API_KEY }}
           DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
-          EDIS_USERNAME: ${{ secrets.EDIS_USERNAME }}
-          EDIS_PASSWORD: ${{ secrets.EDIS_PASSWORD }}
+          EDIS_API_TOKEN: ${{ secrets.EDIS_API_TOKEN }}
         run: python scripts/probe/award_probe.py
       - run: python scripts/probe/print_part.py 0
       - run: python scripts/probe/print_part.py 1
