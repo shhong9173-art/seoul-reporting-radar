@@ -641,6 +641,22 @@ def company_in_text(company, text):
     return False
 
 
+# 여러 회사를 한 제목에 묶을 때 쓰는 줄임(「…세아·현대, 국제무역법원 제소」 — 10-28 아이뉴스24, 10-31 운영에서 세아제강·현대제철
+# 국제무역법원 소송이 '본문에만'으로 미보도 후보 A에 남았다). 줄임은 제목에서 낱말로 떨어져 있고(뒤에 한글이 붙지 않음) 본문·요약에
+# 정식 이름이 있을 때만 그 회사로 본다 — '현대'만으로 현대차·현대모비스와 섞이지 않게.
+SHORT_NAMES = {"세아제강": ["세아"], "세아홀딩스": ["세아"], "현대제철": ["현대"], "동국제강": ["동국"], "동국씨엠": ["동국"],
+               "한화솔루션": ["한화"], "두산에너빌리티": ["두산"], "효성중공업": ["효성"], "LS일렉트릭": ["LS"], "LS전선": ["LS"],
+               "현대모비스": ["모비스"], "현대위아": ["위아"], "금호타이어": ["금호"], "넥센타이어": ["넥센"], "KG스틸": ["KG"]}
+
+
+def company_in_title(company, title, text):
+    if company_in_text(company, title):
+        return True
+    shorts = SHORT_NAMES.get(company) or []
+    return any(re.search(r"(?<![A-Za-z0-9가-힣])" + re.escape(x) + r"(?![A-Za-z0-9가-힣])", title) for x in shorts) \
+        and company_in_text(company, text)
+
+
 def article_day(value):
     try:
         if not isinstance(value, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
@@ -704,11 +720,11 @@ def judge(c, channels, *, now):
                 t_hits = [t for t in words if any(w in title_e for w in alts.get(t, [t]))]
                 x_hits = [t for t in words if any(w in text_e for w in alts.get(t, [t]))]
                 must = [m for m in c.get("must") or [] if m]
-                if company_in_text(c["company"], title) and (t_hits or len(x_hits) >= 2) and must and not any(m in text for m in must):
+                if company_in_title(c["company"], title, text) and (t_hits or len(x_hits) >= 2) and must and not any(m in text for m in must):
                     # 사업장이 여럿인 회사: 그 사업장 지명이 없는 기사는 다른 사업장 이야기일 수 있다(10-31 포스코 광양 ↔ 포항 기사).
                     # 해외 파트너 공시: 공시 회사 이름(퍼스트솔라 등)이 없는 기사는 다른 건이다(10-31 한화솔루션 특허 기사).
                     why, rank = f"제목에 회사·낱말({', '.join((t_hits or x_hits)[:3])})이 있으나 {'·'.join(must)} 없음 — 다른 사업장·다른 건 기사일 수 있음", 0
-                elif company_in_text(c["company"], title) and (t_hits or len(x_hits) >= 2):
+                elif company_in_title(c["company"], title, text) and (t_hits or len(x_hits) >= 2):
                     why, rank = f"제목에 회사·낱말({', '.join((t_hits or x_hits)[:3])}) — 동일 사건 미확정", 1
                 elif len(x_hits) >= 2:
                     why, rank = f"본문에만 회사·낱말({', '.join(x_hits[:3])}) — 제목 불일치, 같은 사건 가능성 낮음", 0
@@ -808,7 +824,7 @@ def earlier_coverage(c, earlier, limit=2):
     for ch, day, a in sorted(earlier, key=lambda x: x[1], reverse=True):
         title, text = a.get("title", ""), f"{a.get('title', '')} {a.get('text', '')}"
         key = a.get("url") or title
-        if key in seen or not company_in_text(c["company"], title):
+        if key in seen or not company_in_title(c["company"], title, text):
             continue
         hits = [t for t in words if any(w in event_text(title) for w in alts.get(t, [t]))]
         if not hits or (must and not any(m in text for m in must)):
