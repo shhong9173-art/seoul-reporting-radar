@@ -196,6 +196,18 @@ def direct_beat_company_hits(x,title):
 
 NOISE_RE=re.compile(r"주가|증권|목표주가|급등|급락|관련주|테마주|특징주|장중|종목|추천주|리포트|기재정정|첨부정정",re.I)
 WEAK_RE=re.compile(r"사회공헌|기부|봉사|채용|수상|캠페인|축제|전시|세미나|포럼|강연|홍보대사|혜택|이벤트|모먼트|스토리|재단|장학|펠로|양궁|칵테일|아트워크|우수조",re.I)
+# 직원에게 회사 주식을 주는 자기주식 처분(임단협·성과금)은 지배구조·사업 변화가 아니다 — 금액과 상관없이 단독 후보로 올리지 않는다.
+# 10-31 운영: 현대차(직원 61,159명)·현대모비스('2026년 단체교섭에 따른 회사주식 지급')가 '단독 유력' 91·87점으로 올랐는데,
+# 같은 날 '현대차·기아·모비스, 직원들에 4955억 규모 자사주 지급'(뉴스핌) 등 이미 보도됐고, 금액이 100억 넘어 소액 상여 규칙에 안 걸렸다.
+EMPLOYEE_GRANT_RE=re.compile(
+    r"처분\s*목적\s*[^.。]{0,40}?(?:단체\s*교섭|임금\s*협상|임단협|노사\s*합의|성과\s*[급금]|상여|임직원\s*보상|주식\s*보상|우리사주)"
+    r"|처분\s*상대방\s*(?:회사|당사)?\s*(?:임원|직원|임직원|우리사주)")
+
+
+def employee_equity_grant(text):
+    return bool(EMPLOYEE_GRANT_RE.search(str(text or "")))
+
+
 HARD_SIGNAL_RE=re.compile(r"정책|규제|시행|고시|법안|입법|예고|결정고시|행정처분|관세|반덤핑|상계관세|특허|출원|등록|특허심판|심판|상표|디자인|대표이사|임원|사내이사|사외이사|선임|취임|퇴임|조직개편|신설|투자|출자|증설|공장|법인|합병|분할|인수|매각|철수|수주|계약|공급|발주|입찰|낙찰|생산|가동|감산|가격|원가|마진|배터리|ESS|HVDC|변압기|해저케이블|해상풍력|자율주행|리콜|결함|제작결함|무상수리|조사개시|인증|형식승인|환경영향|환경성평가|건축허가|사업계획승인|산업단지|소송|제소|가처분|판결|행정심판|자기주식|자사주|주식처분|주식소각|전환사채|교환사채|신주인수권부사채|금전대여|채무인수|담보제공|보증제공|영업정지|영업양수도",re.I)
 TOPIC_RE=re.compile(r"자동차|전기차|하이브리드|PBV|자율주행|ADAS|타이어|배터리|철강|열연|냉연|후판|강관|비철|구리|아연|니켈|전력|변압기|HVDC|케이블|해저케이블|풍력|태양광|ESS|에너지|LNG|원전|수소|석유화학|화학|소재|공장|수출|관세|산업단지|데이터센터|재생에너지",re.I)
 NUM_RE=re.compile(r"(?<!\d)(?:\d{1,3}(?:,\d{3})+|\d+(?:\.\d+)?)(?:조원|억원|만원|달러|만대|천대|대|명|%|GWh|MWh|kWh|톤|km|MW|GW)(?!\w)",re.I)
@@ -1324,9 +1336,10 @@ def main():
         # not industrial scoops. Keep material ownership/control changes for later verification.
         routine_comp_amount=won_amount_value(blob)
         if (re.search(r"자기주식|자사주",report)
-            and re.search(r"임원.*상여|상여금|임직원.*보상",joined_dart)
-            and routine_comp_amount is not None
-            and routine_comp_amount<10_000_000_000):
+            and ((re.search(r"임원.*상여|상여금|임직원.*보상",joined_dart)
+                  and routine_comp_amount is not None
+                  and routine_comp_amount<10_000_000_000)
+                 or employee_equity_grant(joined_dart))):
             dart_suppression["routine_equity_compensation"]+=1
             record_drop_example(dart_suppression_examples,"routine_equity_compensation",d,"소액 임직원 보상 목적의 자사주 처분으로 분류됨")
             continue
