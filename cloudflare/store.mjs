@@ -16,6 +16,8 @@ const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS feedback (id INTEGER PRIMARY KEY AUTOINCREMENT, item_id TEXT NOT NULL, verdict TEXT NOT NULL,
      reason TEXT NOT NULL, created_at TEXT NOT NULL)`,
   `CREATE TABLE IF NOT EXISTS blobs (name TEXT PRIMARY KEY, body TEXT NOT NULL, updated_at TEXT NOT NULL)`,
+  // 홈페이지 로그인 실패 기록(아이피별·전체 1시간 잠금 계산용, 하루 지나면 지움)
+  `CREATE TABLE IF NOT EXISTS login_fail (ip TEXT NOT NULL, at TEXT NOT NULL)`,
   // what a judged item was when it was judged (watch, kind, tier) — feeds roll over, the weekly review still needs it
   `CREATE TABLE IF NOT EXISTS feedback_meta (item_id TEXT PRIMARY KEY, watch TEXT NOT NULL, kind TEXT NOT NULL,
      tier TEXT NOT NULL, flag TEXT NOT NULL, title TEXT NOT NULL, updated_at TEXT NOT NULL)`,
@@ -88,6 +90,15 @@ export class RadarStore {
         return { saved: true };
       case 'blobs.get':
         return { row: this.all('SELECT name, body, updated_at FROM blobs WHERE name = ?', args.name)[0] ?? null };
+      case 'login.count': {
+        this.sql.exec('DELETE FROM login_fail WHERE at < ?', args.purgeBefore);
+        const ip = this.all('SELECT COUNT(*) AS n FROM login_fail WHERE ip = ? AND at >= ?', args.ip, args.since)[0]?.n ?? 0;
+        const all = this.all('SELECT COUNT(*) AS n FROM login_fail WHERE at >= ?', args.since)[0]?.n ?? 0;
+        return { ip, all };
+      }
+      case 'login.fail':
+        this.sql.exec('INSERT INTO login_fail (ip, at) VALUES (?, ?)', String(args.ip ?? '?').slice(0, 64), at);
+        return { saved: true };
       case 'feedback.latest':
         return { rows: this.all(`SELECT f.item_id, f.verdict, f.reason FROM feedback f
           JOIN (SELECT item_id, MAX(id) AS id FROM feedback GROUP BY item_id) m ON f.id = m.id`) };
