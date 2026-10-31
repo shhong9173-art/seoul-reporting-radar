@@ -328,10 +328,18 @@ def small(ind):
     return isinstance(n, int) and n < SMALL_FIRM
 
 
+def no_staff(ind):
+    """공장등록 종업원 0명: 등록만 남은 공장(휴·폐업 상태일 수 있음)이라 출입처 공급망 단서로 보지 않는다
+    (11-01 운영: 남양테크(PLC판넬, 종업원 0명·같은 이름 대표자 6명) 파산 선고가 B)."""
+    return (ind or {}).get("employees") == 0
+
+
 def tier_of(stage, match, watch, ind=None):
     if watch:
         return "A"
     t = _tier(stage, match)
+    if t and no_staff(ind):
+        return "C"
     if t and doubtful(ind):
         return {"A": "B", "B": "C"}.get(t, t)
     return "B" if t == "A" and small(ind) else t

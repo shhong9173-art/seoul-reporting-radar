@@ -156,6 +156,9 @@ class Insolvency(unittest.TestCase):
         self.assertEqual(k.tier_of("start", "core", {"beat": "현대차"}, ind), "A")  # 협력사 명단은 A
         self.assertEqual(k.tier_of("end", "core", None, ind), "B")  # 이미 B인 단계는 그대로
         self.assertEqual(k.tier_of("start", "core", None, {"employees": 17, "owners": 3}), "B")  # 이름 의심과 겹쳐도 한 단계만
+        # 11-01 운영: 종업원 0명(등록만 남은 공장) 파산 선고가 B — 공급망 단서 아님
+        self.assertEqual(k.tier_of("start", "core", None, {"employees": 0, "owners": 6}), "C")
+        self.assertEqual(k.tier_of("start", "core", {"beat": "현대차"}, {"employees": 0}), "A")  # 협력사 명단은 그대로
 
     def test_rehabilitation_courts_cover_their_high_court_area(self):
         self.assertTrue(k.region_rx("부산회생법원").search("울산광역시 남구 용연로"))
