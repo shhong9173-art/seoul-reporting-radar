@@ -35,7 +35,8 @@ def same_text_identity(new,old):
     return (isinstance(old,dict) and
         all(new.get(k)==old.get(k) for k in ("title","url","summary")) and
         isinstance(old.get("koTitle"),str) and old["koTitle"].strip() and
-        old.get("translationStatus") in ("translated","translated_fallback","already_ko") and
+        # 보조 번역기(MyMemory) 결과는 다시 쓰지 않고 다음 실행에 주 번역기로 다시 번역한다(11-01: 품질이 낮았다)
+        old.get("translationStatus") in ("translated","already_ko") and
         isinstance(old.get("koSummary"),str))
 
 
@@ -57,7 +58,9 @@ def translate_selected(rows,translator,*,previous=None,workers=3):
             ko_title,title_status=translator(out["title"])
             if title_status=="translation_failed" or not ko_title:
                 return None
-            ko_summary,summary_status=translator((out.get("summary") or "")[:900])
+            summary=(out.get("summary") or "")[:900]
+            # 본문 설명이 없는 항목(구글 뉴스는 제목뿐)은 요약을 번역하지 않는다 — 제목 번역을 요약처럼 되풀이하지 않게
+            ko_summary,summary_status=translator(summary) if summary.strip() else ("","no_summary")
         except Exception:
             return None
         out["koTitle"]=ko_title
