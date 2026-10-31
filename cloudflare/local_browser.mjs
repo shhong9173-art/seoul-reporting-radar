@@ -29,10 +29,12 @@ const clean = (s, n) => String(s ?? '').replace(/\s+/g, ' ').trim().slice(0, n);
 
 // 무역구제 공고 목록 중 해외 IP에서 막히는 곳(10-27: 호주 TRN은 GitHub 응답 없음·Cloudflare 중계 HTTP 520, 10-30 기자 컴퓨터에서는
 // 0.3초 안 200, 101줄 중 한국 22줄, robots.txt 허용). 한국이 든 줄의 칸 글자와 그 줄 링크(같은 사이트 경로만)만 받는다.
-// trade_remedy_watch.py가 다음 정기 실행(평일 07:40)에 읽는다 — 감시를 따로 다시 돌리지 않는다.
+// trade_remedy_watch.py가 읽는다. 한국 줄을 받은 날 처음 한 번만 무역구제 감시를 바로 돌린다(하루 한 번까지) — 정기 실행(평일
+// 07:40)은 전날 16:40 수집을 읽어, 처음 올린 날(10-30 금요일 TRN 추가 뒤 첫 수집은 월요일 08:40)엔 하루 넘게 '미확인'으로 남았다.
 export const BROWSER_PAGES = {
   'au-trn': { host: 'www.industry.gov.au', url: 'https://www.industry.gov.au/australian-trade-remedies-commission/trade-remedies-notices-trns' },
 };
+const PAGES_DISPATCH_GAP_MS = 20 * 3600000;  // 무역구제 감시는 하루 한 번까지(아침 수집 뒤)
 const PAGES_BLOB = 'trade_remedy_browser';
 const PAGES_SCHEMA = 'trade_remedy_browser/v1';
 const MAX_PAGE_ROWS = 200;
@@ -68,10 +70,22 @@ async function submitPages(ctx, given, nowIso) {
   let prev = {};
   try { prev = row ? JSON.parse(row.body) : {}; } catch { prev = {}; }
   const keep = (Array.isArray(prev.pages) ? prev.pages : []).filter((x) => BROWSER_PAGES[x?.id] && !accepted.some((a) => a.id === x.id));
-  await storeOp(ctx, 'blobs.put', { name: PAGES_BLOB, body: JSON.stringify({ schema: PAGES_SCHEMA, updatedAt: nowIso, pages: [...accepted, ...keep] }) });
+  const doc = { schema: PAGES_SCHEMA, updatedAt: nowIso, pages: [...accepted, ...keep], lastDispatchAt: prev.lastDispatchAt ?? null };
+  let dispatch = '무역구제 감시 실행 요청 안 함(한국 줄을 받은 목록 없음) — 다음 정기 감시(평일 07:40)에 반영';
+  if (accepted.some((x) => !x.error)) {
+    const last = Date.parse(prev.lastDispatchAt ?? '');
+    if (Number.isFinite(last) && ctx.now.getTime() - last < PAGES_DISPATCH_GAP_MS) {
+      dispatch = `무역구제 감시 실행 요청은 ${Math.round((ctx.now.getTime() - last) / 3600000)}시간 전에 이미 함(하루 한 번) — 다음 정기 감시(평일 07:40)에 반영`;
+    } else {
+      const status = await dispatchNow(ctx, 'trade-remedy.yml', 'browser');
+      if (status === 'ok') doc.lastDispatchAt = nowIso;
+      dispatch = status === 'ok' ? '무역구제 감시(trade-remedy) 실행 요청함 — 몇 분 뒤 trade_remedies에 반영'
+        : `무역구제 감시 실행 요청 실패(${status}) — 다음 정기 감시(평일 07:40)에 반영`;
+    }
+  }
+  await storeOp(ctx, 'blobs.put', { name: PAGES_BLOB, body: JSON.stringify(doc) });
   return { lines: [...accepted.map((x) => `- 무역구제 ${x.id}: ${x.error ? `미확인(${x.error})` : `한국 줄 ${x.rows.length}`}${x.dropped ? ` · 버린 줄 ${x.dropped}` : ''}`),
-    ...(refused.length ? [`받지 않은 목록(허용 밖): ${refused.join(', ')}`] : []),
-    '무역구제 목록은 다음 정기 감시(평일 07:40)에 반영 — 따로 실행 요청하지 않음'] };
+    ...(refused.length ? [`받지 않은 목록(허용 밖): ${refused.join(', ')}`] : []), dispatch] };
 }
 
 export async function localNoticeSubmit(ctx, args) {
