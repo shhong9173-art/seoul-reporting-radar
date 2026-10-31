@@ -112,14 +112,47 @@ export function insolvencyLine(e) {
 // places: search words that narrow the query (시·군, 나라) but cannot mark a story alone — a headline with the company and
 // its city is often another story (10-31: 고려아연 울주 안전점검 공고가 '고려아연 온산제련소 지원 울주군 집수리' 기사로 '관련 보도 있음').
 // must: an article has to name one of these (title or text) to count — for a site of a company with several (포스코 광양·포항).
-export function hint(who, terms, places = [], must = []) {
+export function hint(who, terms, places = [], must = [], names = []) {
   const subject = String(who ?? '').split('·')[0].replace(/\(.*?\)/g, '').trim();
   const t = [...new Set(terms.filter(Boolean).map(String))];
   if (!subject || !t.length) return undefined;
   const p = [...new Set(places.filter(Boolean).map(String))].filter((w) => t.includes(w));
   const m = [...new Set(must.filter(Boolean).map(String))];
+  const n = [...new Set(names.filter(Boolean).map(String))];
   return { who: subject, terms: t, alts: Object.fromEntries(t.filter((w) => ALT[w]).map((w) => [w, ALT[w]])),
-    ...(p.length ? { places: p } : {}), ...(m.length ? { must: m } : {}) };
+    ...(p.length ? { places: p } : {}), ...(m.length ? { must: m } : {}), ...(n.length ? { names: n } : {}) };
+}
+// 법 이름 → 기사 제목이 쓰는 줄임말. 정식 이름으로만 찾으면 '산업기술보호법 개정안' 기사를 못 찾는다(10-31 운영: '산업기술의 유출방지 및
+// 보호에 관한 법률 개정안 백혜련'으로 찾아 미보도 후보). 질의는 첫 줄임말, 기사 대조는 줄임말·정식 이름 어느 것이든.
+const LAW_SHORT = {
+  '산업기술의 유출방지 및 보호에 관한 법률': ['산업기술보호법'],
+  '국가첨단전략산업 경쟁력 강화 및 보호에 관한 특별조치법': ['국가첨단전략산업법', '첨단전략산업법'],
+  '분산에너지 활성화 특별법': ['분산에너지법', '분산에너지 특별법', '분산에너지특별법'],
+  '노동조합 및 노동관계조정법': ['노조법', '노란봉투법'],
+  '석유 및 석유대체연료 사업법': ['석유사업법'],
+  '신에너지 및 재생에너지 개발ㆍ이용ㆍ보급 촉진법': ['신재생에너지법', '재생에너지법'],
+  '국가기간 전력망 확충 특별법': ['전력망특별법', '전력망법', '전력망 특별법'],
+  '중대재해 처벌 등에 관한 법률': ['중대재해처벌법', '중대재해법'],
+  '기후위기 대응을 위한 탄소중립ㆍ녹색성장 기본법': ['탄소중립기본법', '탄소중립법'],
+  '온실가스 배출권의 할당 및 거래에 관한 법률': ['배출권거래법'],
+  '화학물질의 등록 및 평가 등에 관한 법률': ['화평법'],
+  화학물질관리법: ['화학물질관리법', '화관법'],
+  '환경친화적 자동차의 개발 및 보급 촉진에 관한 법률': ['친환경차법'],
+  '수소경제 육성 및 수소 안전관리에 관한 법률': ['수소법', '수소경제법'],
+  '자율주행자동차 상용화 촉진 및 지원에 관한 법률': ['자율주행차법', '자율주행법'],
+  '불공정무역행위 조사 및 산업피해구제에 관한 법률': ['불공정무역행위법', '산업피해구제법'],
+  '해상풍력 보급 촉진 및 산업 육성에 관한 특별법': ['해상풍력특별법', '해상풍력법'],
+  '고준위 방사성폐기물 관리 특별법': ['고준위특별법', '고준위방폐물법', '고준위법'],
+  '공급망 안정화 등 경제안보를 위한 기본법': ['공급망기본법', '공급망법'],
+  '외국인투자 촉진법': ['외국인투자촉진법', '외투법'],
+  '철강산업 경쟁력 강화 및 탄소중립 전환을 위한 특별법': ['K-스틸법', 'K스틸법', '철강특별법', '철강산업 특별법'],
+};
+const lawKey = (law) => String(law ?? '').replace(/\s+/g, '').replace(/[·・]/g, 'ㆍ');
+const LAW_SHORT_BY_KEY = Object.fromEntries(Object.entries(LAW_SHORT).map(([k, v]) => [lawKey(k), v]));
+export function billHint(g) {
+  const short = LAW_SHORT_BY_KEY[lawKey(g.law)] ?? [];
+  // 줄임말이 있으면 그것을 주어로(법 이름의 '·'에서 잘리지 않게), 기사 대조는 줄임말·정식 이름 모두
+  return hint(short[0] ?? g.law, ['개정안', (g.leads ?? [])[0]], [], g.leads ?? [], short.length ? [...short, g.law] : []);
 }
 // 굴뚝 측정 사업장 이름의 지명(㈜포스코 광양제철소 → 광양, 현대자동차㈜ 울산공장 → 울산, ㈜영풍석포제련소 → 석포)
 export function siteCity(site) {
@@ -566,7 +599,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
     // 보도 대조는 대표발의 의원 이름이 기사에 있어야 같은 법안으로 친다(같은 주에 같은 법 개정안이 여럿 나온다).
     const tier = g.core && g.kind !== '소관위 회부' ? 'B' : 'C';
     push(tier, W['assembly-bills'], { kind: g.kind === '발의' ? '법안 발의' : `법안 ${g.kind}`, id: g.id, date: g.date,
-      company: g.core ?? '', fact: billLine(g), url: g.urls[0], check: tier === 'B' ? hint(g.law, ['개정안', g.leads[0]], [], g.leads) : undefined });
+      company: g.core ?? '', fact: billLine(g), url: g.urls[0], check: tier === 'B' ? billHint(g) : undefined });
   }
 
   const pw = docs['page-watch'];

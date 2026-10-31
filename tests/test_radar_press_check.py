@@ -227,6 +227,19 @@ class HeadlineRule(unittest.TestCase):
                                 "이종배 의원이 노동조합 및 노동관계조정법 일부개정법률안을 대표발의했다.")])
         self.assertEqual(r["verdict"], "관련 보도 있음")
 
+    def test_bills_are_searched_and_matched_by_the_short_name(self):
+        # 10-31 운영: '산업기술의 유출방지 및 보호에 관한 법률 개정안 백혜련'으로 찾아 미보도 후보 — 기사는 '산업기술보호법'
+        formal = "산업기술의 유출방지 및 보호에 관한 법률"
+        item = ITEMS[2] | {"id": "bills:발의|산업기술|2026-10-27", "date": "2026-10-27",
+                           "check": {"who": "산업기술보호법", "terms": ["개정안", "백혜련"], "alts": {"개정안": ["개정안", "발의", "법안"]},
+                                     "must": ["백혜련"], "names": ["산업기술보호법", formal]}}
+        self.assertEqual(rpc.candidates([item], now=NOW)[0]["names"], ["산업기술보호법", formal])
+        r = self.one(item, [art("기술유출 처벌 강화…백혜련, 산업기술보호법 개정안 대표발의", "2026-10-28")])
+        self.assertEqual(r["verdict"], "관련 보도 있음")
+        self.assertIn("산업기술보호법 개정안 백혜련", r["queries"])
+        # 다른 법 기사(이름이 없음)는 근거가 아니다
+        r = self.one(item, [art("백혜련, 국가첨단전략산업법 개정안 대표발의", "2026-10-28")])
+        self.assertEqual(r["verdict"], "미보도 후보")
 
 class Fetch(unittest.TestCase):
     def test_items_endpoint_uses_bearer_and_fails_loudly(self):
