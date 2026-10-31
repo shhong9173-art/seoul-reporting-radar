@@ -64,3 +64,13 @@ export async function login(request, env, deps = {}) {
   }
   return json(await makeSession(env, now.getTime()), 200);
 }
+
+// GET /auth/check (Authorization: Bearer 세션) — 사이트 첫 화면 잠금(gate.js)이 묻는다. 200 열림 · 401 로그인 필요 · 503 로그인 미설정.
+export async function check(request, env, deps = {}) {
+  if (request.method === 'OPTIONS') return preflight(request);
+  const headers = { ...corsHeaders(request), 'Cache-Control': 'no-store' };
+  if (request.method !== 'GET') return Response.json({ error: 'GET만' }, { status: 405, headers });
+  if (!loginConfigured(env)) return Response.json({ ok: false, error: '로그인 미설정' }, { status: 503, headers });
+  const ok = await verifySession(env, sessionOf(request), (deps.now ?? new Date()).getTime());
+  return Response.json({ ok }, { status: ok ? 200 : 401, headers });
+}
