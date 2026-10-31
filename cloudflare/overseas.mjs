@@ -56,8 +56,10 @@ export async function pageChanges(ctx, args) {
     if (e.kind === 'moved') out.push(`   페이지 넘어감: 이 주소가 ${e.movedTo}(으)로 넘어간다 — 차종 페이지 내림·판매 중단·개편 가능성(회사 확인)`);
     if (e.kind === 'opened') out.push(`   페이지 열림: 전에는 ${e.openedFrom}(으)로 넘어가던 주소가 제 페이지로 열렸다 — 출시 준비 신호일 수 있음(회사 확인)`);
     if (e.redirectNote) out.push(`   주의: ${e.redirectNote}`);
-    for (const [cat, list] of Object.entries(e.removed ?? {})) out.push(`   − ${CAT_KO[cat] ?? cat}: ${list.slice(0, 6).join(' / ')}`);
-    for (const [cat, list] of Object.entries(e.added ?? {})) out.push(`   + ${CAT_KO[cat] ?? cat}: ${list.slice(0, 6).join(' / ')}`);
+    // 가격 줄은 페이지에서 그 앞에 있던 차명을 붙인다(배치로 추정 — '근처 차명')
+    const near = (cat, x) => (cat === 'price' && e.priceModels?.[String(x).toLowerCase()] ? `${x}(근처 차명 ${e.priceModels[String(x).toLowerCase()]})` : x);
+    for (const [cat, list] of Object.entries(e.removed ?? {})) out.push(`   − ${CAT_KO[cat] ?? cat}: ${list.slice(0, 6).map((x) => near(cat, x)).join(' / ')}`);
+    for (const [cat, list] of Object.entries(e.added ?? {})) out.push(`   + ${CAT_KO[cat] ?? cat}: ${list.slice(0, 6).map((x) => near(cat, x)).join(' / ')}`);
     out.push(`   원문: ${e.url}`);
     out.push('   검증 상태: 페이지 문구 비교(자동). 공식 발표·변경 사유는 미확인 — 회사 확인과 과거 발표(보도자료·모터쇼) 대조 필요');
   }
