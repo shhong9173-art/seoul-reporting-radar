@@ -507,6 +507,19 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
       url: x.url, check: x.tier === 'C' ? undefined : hint((x.why ?? [])[0]?.name, ['미국', '조사']) });
   }
 
+  // 미국 소비자 결함 신고 급증(리콜·조사 전 단계): 출입처 차종의 부품별 최근 28일 신고가 앞 24주 평균의 2.5배 넘게 튄 것 B,
+  // 같은 부품 리콜이 60일 안에 있으면 C. 신고는 소비자가 낸 것이라 A로 올리지 않는다(수집기 nhtsa_complaints.py).
+  for (const x of ur?.complaints?.spikes ?? []) {
+    if (!x.active || !recent(x.firstSeen)) continue;
+    const models = usRecallModels(x.model);
+    const parts = (x.parts ?? []).map((p) => `${p.component} ${p.recent}건(평소 28일 ${p.baselinePer28})`).join(', ');
+    const harm = [x.fire && `화재 ${x.fire}`, x.crash && `충돌 ${x.crash}`, x.injured && `부상 ${x.injured}`, x.deaths && `사망 ${x.deaths}`].filter(Boolean).join('·');
+    const recall = (x.sameComponentRecall ?? []).length ? ` · 같은 부품 리콜 ${x.sameComponentRecall.join(',')} 뒤 신고일 수 있음` : '';
+    push(x.tier ?? 'B', W['us-recalls'], { kind: '미국 결함 신고 급증', id: `${x.id}:${String(x.firstSeen).slice(0, 10)}`, date: x.firstSeen, company: x.brand,
+      fact: `미국 소비자 결함 신고 급증 · ${x.brand} ${x.model}(연식 ${x.years}) · 최근 28일(${(x.window ?? []).join('~')}) 신고 ${x.complaints}건 · ${parts}${harm ? ` · ${harm}` : ''}${recall} — 소비자 신고라 결함 확정 아님, 국내 판매 차종 해당 여부는 회사 확인`,
+      url: x.url, check: x.tier === 'C' ? undefined : (models.length ? hint(x.brand, [models[0], '리콜'], [models[0]], models) : hint(x.brand, ['리콜', '미국'])) });
+  }
+
   // US EPA certification file: a model new to the company is A, an EV range change B, model-year carryover C.
   for (const v of docs['us-epa']?.vehicles ?? []) {
     if (!recent(v.firstSeen) && !(all || String(v.created ?? '') >= cutDay)) continue;  // first seen in the window, or registered in it

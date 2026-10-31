@@ -1974,6 +1974,41 @@ test('us_recalls: NHTSA full-file recalls with Korean links reach A; imports alo
   assert.deepEqual(dueAt(new Date('2026-10-28T08:10:00Z')), ['us-recalls.yml']);  // Wed 17:10 KST
 });
 
+test('us_recalls: consumer complaint spikes (pre-recall signal) are B, C after a same-part recall, and never A', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const now = new Date(Date.now() - 3600000).toISOString();
+  const spike = (id, extra) => ({ id, make: 'HYUNDAI', model: 'SANTA FE HYBRID', beat: '현대차', brand: '현대차', window: ['2026-09-30', '2026-10-28'],
+    complaints: 10, parts: [{ component: 'FUEL/PROPULSION SYSTEM', recent: 10, baselinePer28: 2.3, fire: 0, crash: 0, injured: 0, deaths: 0 },
+      { component: 'POWER TRAIN', recent: 8, baselinePer28: 2.7, fire: 0, crash: 1, injured: 1, deaths: 0 }],
+    fire: 0, crash: 1, injured: 1, deaths: 0, years: '2025(8)·2026(2)', samples: [{ odino: '11774001', year: '2025', received: '2026-10-20', text: 'The car lost power on the highway.' }],
+    recentRecalls: [], sameComponentRecall: [], tier: 'B', url: 'https://api.nhtsa.gov/complaints/complaintsByVehicle?make=HYUNDAI&model=SANTA%20FE%20HYBRID&modelYear=2025',
+    firstSeen: now, lastSeen: now, active: true, isNew: true, ...extra });
+  const doc = { schema: 'us_recalls/v1', generatedAt: now, windowDays: 21, checks: [{ source: 'NHTSA 전체 리콜 파일', status: 'ok' }, { source: 'NHTSA 소비자 결함 신고', status: 'ok', rows: 25639 }],
+    rules: [], recalls: [], investigations: [],
+    complaints: { window: ['2026-09-30', '2026-10-28'], windowDays: 28, rules: ['소비자 결함 신고는 결함 확정이 아니다.'], spikes: [
+      spike('cmpl:HYUNDAI:SANTA FE HYBRID'),
+      spike('cmpl:KIA:SORENTO', { make: 'KIA', model: 'SORENTO', beat: '기아', brand: '기아', complaints: 9, tier: 'C', parts: [{ component: 'STEERING', recent: 9, baselinePer28: 1.0 }],
+        recentRecalls: [{ campaign: '26V700000', received: '2026-10-22', component: 'STEERING:GEAR BOX' }], sameComponentRecall: ['26V700000'] }),
+      spike('cmpl:HYUNDAI:TUCSON', { model: 'TUCSON', active: false })] } };
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/us-recalls', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
+  const t = await call('us_recalls', {}, opts);
+  assert.match(t.text, /\[소비자 결함 신고 급증 · 최근 28일\(2026-09-30~2026-10-28\), 앞 24주와 비교\] 2건/);
+  assert.match(t.text, /\[신규\] B · 현대차 SANTA FE HYBRID · 연식 2025\(8\)·2026\(2\) · 신고 10건 · 충돌 1·부상 1/);
+  assert.match(t.text, /부품별: FUEL\/PROPULSION SYSTEM 10건\(평소 28일 2\.3\), POWER TRAIN 8건\(평소 28일 2\.7\)/);
+  assert.match(t.text, /신고 11774001\(2025년형, 접수 2026-10-20\): "The car lost power on the highway\."/);
+  assert.match(t.text, /최근 60일 같은 차종 리콜: 26V700000\(2026-10-22, STEERING:GEAR BOX\) — 같은 부품이라 리콜 공지 뒤 신고일 수 있음/);
+  assert.doesNotMatch(t.text, /TUCSON/);  // 지금은 안 튀는 지난 급증
+  const r = await call('radar_today', { include_minor: true }, opts);
+  const b = r.text.split('[B · ')[1].split('[C · ')[0];
+  assert.match(b, /미국 소비자 결함 신고 급증 · 현대차 SANTA FE HYBRID\(연식 2025\(8\)·2026\(2\)\) · 최근 28일\(2026-09-30~2026-10-28\) 신고 10건 · FUEL\/PROPULSION SYSTEM 10건/);
+  assert.doesNotMatch(r.text.split('[A · ')[1].split('[B · ')[0], /결함 신고 급증/);
+  assert.match(r.text.split('[C · ')[1], /기아 SORENTO[^\n]*같은 부품 리콜 26V700000 뒤 신고일 수 있음/);
+  const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
+  const sf = items.items.find((x) => String(x.id).startsWith('cmpl:HYUNDAI:SANTA FE HYBRID')).check;
+  assert.deepEqual([sf.who, sf.terms, sf.places], ['현대차', ['싼타페', '리콜'], ['싼타페']]);
+});
+
 test('scoop_reverse shows automatic prior-capture candidates by source with lead time, separate from human Y/P/N', async () => {
   const opts = PRIVATE();
   const env = opts.env;

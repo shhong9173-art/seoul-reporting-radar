@@ -377,7 +377,12 @@ def run(*, now, previous=None, get=None, sleep=time.sleep):
     except Exception as e:  # noqa: BLE001
         invs = [dict(x, isNew=False) for x in inv_prev or []]
         checks.append({"source": "NHTSA 결함조사(ODI)", "status": "failed", "error": str(e)[:80] or type(e).__name__})
+    # 소비자 결함 신고 급증(리콜·조사 전 단계 신호). 같은 차종·부품의 최근 리콜과 견주려고 리콜 파일 줄을 넘긴다.
+    import nhtsa_complaints
+    cmpl, ccheck = nhtsa_complaints.collect(now, (previous or {}).get("complaints"), rows, get=get)
+    checks.append(ccheck)
     return {"schema": SCHEMA, "generatedAt": stamp, "status": "complete" if all(c["status"] == "ok" for c in checks) else "partial",
+            "complaints": cmpl,
             "windowDays": WINDOW_DAYS, "checks": checks, "recalls": recalls, "investigations": invs, "invLookbackDays": INV_LOOKBACK,
             "baselineSince": (previous or {}).get("baselineSince") or stamp, "rules": RULES, "confirmedScoops": 0}
 
@@ -407,6 +412,10 @@ def main():
         for w in x["why"]:
             roles[w["role"]] = roles.get(w["role"], 0) + 1
     invs = doc.get("investigations") or []
+    sp = [x for x in (doc.get("complaints") or {}).get("spikes", []) if x.get("active")]
+    # 공개 로그라 차종 이름은 적지 않는다(건수만)
+    print(f"::notice title=us-complaints::소비자 결함 신고 급증 {len(sp)}건(신규 {sum(1 for x in sp if x.get('isNew'))}, "
+          f"B {sum(1 for x in sp if x.get('tier') == 'B')}) · 점검 {[c['status'] for c in doc['checks'] if c['source'] == 'NHTSA 소비자 결함 신고']}")
     print(f"::notice title=us-recalls::상태 {doc['status']} · 출입처 관련 리콜 {len(doc['recalls'])}건(신규 {sum(1 for x in doc['recalls'] if x['isNew'])}) · "
           f"결함조사 {len(invs)}건(신규·종결 {sum(1 for x in invs if x.get('isNew'))}, A {sum(1 for x in invs if x.get('tier') == 'A')}) · "
           f"분류 {roles} · 점검 {[(c['source'], c['status']) for c in doc['checks']]}")

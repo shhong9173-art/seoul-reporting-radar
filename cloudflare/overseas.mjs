@@ -383,6 +383,23 @@ export async function usRecalls(ctx, args) {
     out.push(`   원문: ${x.url}`);
     out.push('   검증 상태: NHTSA 공개 자료(자동). 조사 개시는 결함 확정이 아니고 종결은 결함 없음 판정이 아님. 국내 판매 차량 해당 여부는 회사·국토부 확인');
   }
+  const cm = doc.complaints;
+  const cmCheck = checks.find((c) => c.source === 'NHTSA 소비자 결함 신고');
+  const spikes = (cm?.spikes ?? []).filter((x) => x.active && (!onlyNew || x.isNew)
+    && matches(q, x.brand, x.beat, x.model, (x.parts ?? []).map((p) => p.component).join(' ')));
+  out.push(`\n[소비자 결함 신고 급증 · 최근 ${cm?.windowDays ?? 28}일${cm?.window ? `(${cm.window.join('~')})` : ''}, 앞 24주와 비교] ${spikes.length}건${cmCheck && cmCheck.status !== 'ok' ? ' — 조회 실패, 미확인(0건 아님)' : ''}${cm ? '' : ' — 아직 수집 전'}`);
+  for (const r of cm?.rules ?? []) out.push(`규칙: ${r}`);
+  for (const x of spikes.slice(0, limit)) {
+    const harm = [x.fire && `화재 ${x.fire}`, x.crash && `충돌 ${x.crash}`, x.injured && `부상 ${x.injured}`, x.deaths && `사망 ${x.deaths}`].filter(Boolean).join('·');
+    out.push(`${x.isNew ? '[신규] ' : ''}${x.tier} · ${x.brand} ${x.model} · 연식 ${x.years} · 신고 ${x.complaints}건${harm ? ` · ${harm}` : ''} · 처음 본 날 ${String(x.firstSeen).slice(0, 10)}`);
+    out.push(`   부품별: ${(x.parts ?? []).map((p) => `${p.component} ${p.recent}건(평소 28일 ${p.baselinePer28})`).join(', ')}`);
+    if ((x.recentRecalls ?? []).length) {
+      out.push(`   최근 60일 같은 차종 리콜: ${x.recentRecalls.map((r) => `${r.campaign}(${r.received}, ${r.component})`).join(' · ')}${(x.sameComponentRecall ?? []).length ? ' — 같은 부품이라 리콜 공지 뒤 신고일 수 있음' : ''}`);
+    }
+    for (const smp of x.samples ?? []) out.push(`   신고 ${smp.odino}(${smp.year}년형, 접수 ${smp.received}): "${smp.text}"`);
+    out.push(`   원문: ${x.url}`);
+    out.push('   검증 상태: 소비자가 낸 신고(자동 집계) — 결함 확정 아님. 같은 원인인지·국내 판매 차종 해당 여부는 회사·국토부 확인');
+  }
   out.push('\n다음: NHTSA 리콜 페이지·원보고서(source_document, nhtsa.gov)로 대상 차대·부품·공급사 확인 → 국내 판매 여부·자동차리콜센터 → news_check.');
   return textResult(out.join('\n'));
 }

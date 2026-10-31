@@ -197,7 +197,7 @@ class Investigations(unittest.TestCase):
         self.assertEqual((got["PE26010"]["type"], got["PE26010"]["kind"], got["PE26010"]["opened"]), ("예비조사(PE)", "조사 개시", "2026-10-20"))
         self.assertEqual(got["DP26009"]["kind"], "조사 종결")
         self.assertFalse(any(x["isNew"] for x in first["investigations"]))  # first read: baseline
-        self.assertEqual(first["checks"][-1]["source"], "NHTSA 결함조사(ODI)")
+        self.assertTrue(any(c["source"] == "NHTSA 결함조사(ODI)" for c in first["checks"]))
         # next day: a new probe and the Hyundai probe closed
         lines = INV_LINES + [inv("EA26008", "KIA", "EV9", "2025", "SEATS", "20261028")]
         lines[0] = inv("PE26010", "HYUNDAI", "TUCSON", "2025", "ELECTRICAL", "20261020", "20261028", subject="ICCU failure", camp="26V701000")
@@ -215,7 +215,87 @@ class Investigations(unittest.TestCase):
         doc = w.run(now=NOW + dt.timedelta(days=1), previous=first, get=broken, sleep=lambda s: None)
         self.assertEqual(doc["status"], "partial")
         self.assertEqual(len(doc["investigations"]), len(first["investigations"]))
-        self.assertEqual(doc["checks"][-1]["status"], "failed")
+        self.assertEqual(next(c for c in doc["checks"] if c["source"] == "NHTSA 결함조사(ODI)")["status"], "failed")
+
+
+import nhtsa_complaints as cm  # noqa: E402
+
+
+def cmpl(odino, make, model, year, comp, datea, fire="N", crash="N", injured="0", text="The car lost power while driving."):
+    cells = [""] * 51
+    cells[0], cells[1], cells[2], cells[3], cells[4], cells[5] = "1", odino, "Maker", make, model, year
+    cells[6], cells[8], cells[9], cells[10], cells[11], cells[15], cells[19] = crash, fire, injured, "0", comp, datea, text
+    return "\t".join(cells)
+
+
+def cmpl_zip(lines):
+    b = io.BytesIO()
+    with zipfile.ZipFile(b, "w") as z:
+        z.writestr("COMPLAINTS_RECEIVED_2025-2026.txt", "\n".join(lines).encode("latin-1"))
+    return b.getvalue()
+
+
+def day(n):
+    return (dt.date(2026, 10, 28) - dt.timedelta(days=n)).strftime("%Y%m%d")
+
+
+# 10-31 탐침 모양: 싼타페 하이브리드는 최근 28일 신고가 부품 세 칸에 걸쳐 튀고(한 신고가 두 칸), 투싼 엔진은 평소 수준, 쏘렌토 조향은 같은 부품 리콜 뒤
+CMPL = (
+    [cmpl(f"SF{i}", "HYUNDAI", "SANTA FE HYBRID", "2025", "FUEL/PROPULSION SYSTEM", day(i)) for i in range(1, 11)]
+    + [cmpl(f"SF{i}", "HYUNDAI", "SANTA FE HYBRID", "2025", "POWER TRAIN", day(i)) for i in range(1, 9)]
+    + [cmpl(f"SFB{i}", "HYUNDAI", "SANTA FE HYBRID", "2025", "FUEL/PROPULSION SYSTEM", day(40 + 12 * i)) for i in range(12)]
+    + [cmpl(f"TU{i}", "HYUNDAI", "TUCSON", "2022", "ENGINE", day(i * 2 + 1)) for i in range(10)]
+    + [cmpl(f"TUB{i}", "HYUNDAI", "TUCSON", "2022", "ENGINE", day(30 + 3 * i)) for i in range(55)]
+    + [cmpl(f"SO{i}", "KIA", "SORENTO", "2026", "STEERING", day(i), crash="Y" if i < 2 else "N") for i in range(1, 10)]
+    + [cmpl(f"FD{i}", "FORD", "ESCAPE", "2025", "ENGINE", day(i)) for i in range(1, 30)]             # 출입처 아님
+    + [cmpl(f"TV{i}", "CHEVROLET", "TRAX", "2025", "ELECTRICAL SYSTEM", day(i), fire="Y") for i in range(1, 5)]  # 한국GM 화재 몰림
+    + ["short\tline"])
+RECALL_ROWS = [dict(CAMPNO="26V700000", MAKETXT="KIA", MODELTXT="SORENTO", RCDATE="20261022", COMPNAME="STEERING:GEAR BOX")]
+
+
+def cget(blob=None, status=200):
+    def get(url, headers=None, timeout=None):
+        if "2025-2026" in url:
+            return R(status, content=blob if blob is not None else cmpl_zip(CMPL), headers={"Last-Modified": "Fri, 30 Oct 2026 09:24:41 GMT"})
+        return R(404)
+    return get
+
+
+class Complaints(unittest.TestCase):
+    def test_spikes_by_model_with_recall_overlap_and_fire(self):
+        doc, check = cm.collect(NOW, None, RECALL_ROWS, get=cget())
+        self.assertEqual((check["status"], doc["files"], doc["window"]), ("ok", ["2025-2026"], ["2026-09-29", "2026-10-27"]))
+        by = {x["model"]: x for x in doc["spikes"]}
+        self.assertEqual(set(by), {"SANTA FE HYBRID", "SORENTO", "TRAX"})  # 투싼(평소 수준)·포드(출입처 아님) 없음
+        sf = by["SANTA FE HYBRID"]
+        self.assertEqual((sf["brand"], sf["complaints"], sf["tier"], sf["years"]), ("현대차", 10, "B", "2025(10)"))
+        self.assertEqual([(p["component"], p["recent"], p["baselinePer28"]) for p in sf["parts"]],
+                         [("FUEL/PROPULSION SYSTEM", 10, 2.0), ("POWER TRAIN", 8, 0.0)])
+        self.assertEqual(sf["url"], "https://api.nhtsa.gov/complaints/complaintsByVehicle?make=HYUNDAI&model=SANTA%20FE%20HYBRID&modelYear=2025")
+        self.assertEqual(len(sf["samples"]), 3)
+        so = by["SORENTO"]
+        self.assertEqual((so["tier"], so["sameComponentRecall"], so["crash"]), ("C", ["26V700000"], 1))  # 같은 부품 리콜 뒤
+        tv = by["TRAX"]
+        self.assertEqual((tv["beat"], tv["fire"], tv["parts"][0]["component"]), ("한국GM", 4, "화재 신고(FIRE=Y)"))
+        self.assertFalse(any(x["isNew"] for x in doc["spikes"]))  # 첫 실행은 신규 표시 안 함
+
+    def test_continuing_spike_keeps_first_seen_and_failure_keeps_previous(self):
+        first, _ = cm.collect(NOW, None, RECALL_ROWS, get=cget())
+        second, _ = cm.collect(NOW + dt.timedelta(days=1), first, RECALL_ROWS, get=cget())
+        sf = next(x for x in second["spikes"] if x["model"] == "SANTA FE HYBRID")
+        self.assertEqual((sf["firstSeen"], sf["isNew"]), (first["spikes"][0]["firstSeen"], False))
+        down, check = cm.collect(NOW + dt.timedelta(days=2), second, RECALL_ROWS, get=cget(status=503))
+        self.assertEqual(check["status"], "failed")
+        self.assertEqual(len(down["spikes"]), len(second["spikes"]))
+        self.assertTrue(down["stale"])
+
+    def test_text_excerpt_is_short_and_utf8_repaired(self):
+        self.assertEqual(cm.short("doesn\u00e2\u0080\u0099t   work"), "doesn\u2019t work")
+        self.assertLessEqual(len(cm.short("word " * 200)), 222)
+
+    def test_file_spans_cover_the_baseline(self):
+        self.assertEqual(cm.spans(NOW), ["2025-2026", "2026-2027"])
+        self.assertEqual(cm.spans(dt.datetime(2027, 2, 1, tzinfo=KST)), ["2025-2026", "2026-2027", "2027-2028"])
 
 
 if __name__ == "__main__":
