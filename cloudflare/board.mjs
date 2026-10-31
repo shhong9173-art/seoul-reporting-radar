@@ -4,6 +4,7 @@
 // 항목 자료로 카드를 그린다: 무엇이 잡혔나(제목·사실 줄) / 보도 대조 / 원문 버튼. id·도구 이름은 접어 둔다. 같은 곳 같은 유형은 한 카드.
 // 스크립트 없는 HTML. 토큰이 든 주소가 바깥 사이트로 새지 않게 Referrer-Policy no-referrer, 검색엔진·캐시 금지.
 import { clampInt, safeEqual } from './common.mjs';
+import { corsHeaders, HOMEPAGE, loginConfigured, preflight, sessionOf, verifySession } from './auth.mjs';
 import { clipAt, convergenceRows, evidenceNote, kstStamp, radarTodayData, WATCHES } from './digest.mjs';
 
 const HEADERS = {
@@ -181,7 +182,6 @@ export async function boardKey(env) {
   const sig = new Uint8Array(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(BOARD_KEY_LABEL)));
   return btoa(String.fromCharCode(...sig)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '').slice(0, 32);
 }
-export const HOMEPAGE = 'https://shhong9173-art.github.io';
 const HOMEPAGE_PATH = `${HOMEPAGE}/seoul-reporting-radar/`;
 
 export function boardPage(d, { hours, q, minor }) {
@@ -205,7 +205,7 @@ main{max-width:860px;margin:0 auto;padding:16px}.rb h1{font-size:21px;margin:0}.
 <p class="rb-stamp">${esc(kstStamp(d.now.toISOString()))} 기준 최근 ${esc(d.hours)}시간${d.monday && d.defaultHours ? '(월요일: 주말 포함)' : ''} · 기자 전용 감시 ${WATCHES.length}개${q ? ` · “${esc(q)}”로 좁힘` : ''}</p>
 <div class="rb-nav">${nav}<form method="get">${hours ? `<input type="hidden" name="hours" value="${esc(hours)}">` : ''}${minor ? '<input type="hidden" name="minor" value="1">' : ''}<input name="q" value="${esc(q)}" placeholder="회사·낱말"><button>찾기</button></form></div>
 ${boardSections(d, { cLink })}
-<footer><p class="rb-link">같은 내용이 홈페이지 '단독감·미보도' 탭 맨 위에도 뜬다(11-01 기자 결정: 열쇠 없이 공개): <a href="${esc(HOMEPAGE_PATH)}" rel="noreferrer">홈페이지</a></p>
+<footer><p class="rb-link">같은 내용이 홈페이지 '단독감·미보도' 탭 맨 위에도 뜬다(로그인 설정 전에는 공개, 설정 후에는 아이디·비밀번호 로그인): <a href="${esc(HOMEPAGE_PATH)}" rel="noreferrer">홈페이지</a></p>
 <p>이 주소는 비밀 열쇠가 든 기자 전용 주소다 — 공유하지 말 것.</p></footer>
 </main></body></html>`;
 }
@@ -240,29 +240,40 @@ export async function board(request, env, deps = {}) {
   return new Response(request.method === 'HEAD' ? null : html, { status: 200, headers: HEADERS });
 }
 
-// 홈페이지 탭 조각. 11-01 기자 결정: 열쇠 없이 공개(GET /b/open) — 경쟁지 포함 누구나 볼 수 있다는 설명을 듣고 고름.
-// 읽기 전용 열쇠 주소(/b/<열쇠>)도 그대로 둔다. 같은 조건 조각은 한 실행 환경 안에서 60초 재사용(저장소 읽기 23개를 매번 하지 않게).
+// 홈페이지 탭 조각.
+// - GET /b/me (Authorization: Bearer <세션>): 로그인한 브라우저(11-01 기자 요청: 아이디·비밀번호 로그인).
+// - GET /b/open: 열쇠 없이 — 11-01 기자 결정(누구나 볼 수 있음을 알고 고름). 로그인 비밀값(BOARD_USER·BOARD_PASSWORD)을
+//   등록하면 자동으로 닫힌다(401) — 공개는 로그인을 아직 설정하지 않은 동안만.
+// - GET /b/<읽기 전용 열쇠>: 예전 방식, 되돌릴 때 쓰게 남겨 둠.
+// 같은 조건 조각은 한 실행 환경 안에서 60초 재사용(저장소 읽기 23개를 매번 하지 않게).
 const OPEN_TTL_MS = 60000;
-const openCache = new Map();
+const fragCache = new WeakMap();   // 저장소 바인딩마다 따로(시험에서 저장소가 다르면 섞이지 않게)
 export async function boardPart(request, env, deps = {}) {
   const url = new URL(request.url);
-  const cors = request.headers.get('Origin') === HOMEPAGE ? { 'Access-Control-Allow-Origin': HOMEPAGE } : {};
-  const headers = { ...HEADERS, ...cors, Vary: 'Origin' };
-  const open = /^\/b\/open\/?$/.test(url.pathname);
-  if (!open) {
+  if (request.method === 'OPTIONS') return preflight(request);
+  const cors = corsHeaders(request);
+  const headers = { ...HEADERS, ...cors };
+  const now = deps.now ?? new Date();
+  const mode = /^\/b\/open\/?$/.test(url.pathname) ? 'open' : /^\/b\/me\/?$/.test(url.pathname) ? 'me' : 'key';
+  if (mode === 'open' && loginConfigured(env)) return Response.json({ error: '로그인 필요' }, { status: 401, headers: { ...cors, 'Cache-Control': 'no-store' } });
+  if (mode === 'me' && !(await verifySession(env, sessionOf(request), now.getTime()))) {
+    return Response.json({ error: loginConfigured(env) ? '로그인 필요' : '로그인 미설정' }, { status: loginConfigured(env) ? 401 : 503, headers: { ...cors, 'Cache-Control': 'no-store' } });
+  }
+  if (mode === 'key') {
     const m = /^\/b\/([A-Za-z0-9_-]{16,64})\/?$/.exec(url.pathname);
     const key = await boardKey(env);
-    if (!m || !key || !(await safeEqual(m[1], key))) return new Response('Not found', { status: 404, headers: { ...cors, Vary: 'Origin' } });
+    if (!m || !key || !(await safeEqual(m[1], key))) return new Response('Not found', { status: 404, headers: cors });
   }
   if (request.method !== 'GET') return new Response('Method not allowed', { status: 405, headers: { Allow: 'GET', ...cors } });
-  const ctx = { env, private: true, fetch: deps.fetch ?? ((...a) => fetch(...a)), now: deps.now ?? new Date() };
+  const ctx = { env, private: true, fetch: deps.fetch ?? ((...a) => fetch(...a)), now };
   const { hours, q, minor } = args(url);
   const ck = `${hours ?? ''}|${q}|${minor ? 1 : 0}`;
-  const hit = open && !deps.noCache ? openCache.get(ck) : null;
-  if (hit && ctx.now.getTime() - hit.at < OPEN_TTL_MS) return new Response(hit.body, { status: 200, headers });
+  const cache = env?.STORE && typeof env.STORE === 'object' ? (fragCache.get(env.STORE) ?? fragCache.set(env.STORE, new Map()).get(env.STORE)) : null;
+  const hit = cache && !deps.noCache ? cache.get(ck) : null;
+  if (hit && now.getTime() - hit.at < OPEN_TTL_MS && hit.at <= now.getTime()) return new Response(hit.body, { status: 200, headers });
   try {
     const body = boardFragment(await radarTodayData(ctx, { hours, company: q, limit: 60, include_minor: minor }));
-    if (open) { openCache.set(ck, { at: ctx.now.getTime(), body }); if (openCache.size > 20) openCache.delete(openCache.keys().next().value); }
+    if (cache) { cache.set(ck, { at: now.getTime(), body }); if (cache.size > 20) cache.delete(cache.keys().next().value); }
     return new Response(body, { status: 200, headers });
   } catch (e) {
     return new Response(`<p>불러오기 실패: ${esc(String(e?.message ?? e).slice(0, 200))} — 미확인(0건 아님)</p>`, { status: 503, headers });

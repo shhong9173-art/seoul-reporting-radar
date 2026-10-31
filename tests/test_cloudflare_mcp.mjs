@@ -2172,6 +2172,48 @@ test('reporter board /r/<token> and homepage fragment /b/open: no scripts, no re
   assert.deepEqual(factParts('금호타이어 · [기재정정]유형자산취득결정 — 정정 중 큰 변경(취득예정일자 -36개월)').title, '금호타이어 · [기재정정]유형자산취득결정');
 });
 
+test('homepage login: ID/password secrets give a 30-day signed session for /b/me; /b/open closes once login is set; lockout after repeated failures', async () => {
+  const H = 'https://shhong9173-art.github.io';
+  const base = { MCP_ACCESS_TOKEN: TOKEN, STORE: storeBinding() };
+  const req = (env, path, init = {}) => worker.fetch(new Request(ORIGIN + path, { ...init, headers: { Origin: H, ...(init.headers ?? {}) } }), env, {});
+  const login = (env, id, pw, ip = '1.1.1.1') => req(env, '/auth/login', { method: 'POST', headers: { 'Content-Type': 'text/plain', 'CF-Connecting-IP': ip }, body: JSON.stringify({ id, pw }) });
+  // 비밀값 등록 전: 로그인 503, /b/open 공개, /b/me 503
+  assert.equal((await login(base, 'a', 'b')).status, 503);
+  assert.equal((await req(base, '/b/open')).status, 200);
+  assert.equal((await req(base, '/b/me')).status, 503);
+  const env = { ...base, BOARD_USER: 'hong', BOARD_PASSWORD: 'correct-horse-battery' };
+  // 사전 요청(Authorization 헤더) 허용
+  const pre = await req(env, '/b/me', { method: 'OPTIONS', headers: { 'Access-Control-Request-Headers': 'authorization' } });
+  assert.equal(pre.status, 204);
+  assert.equal(pre.headers.get('Access-Control-Allow-Origin'), H);
+  assert.match(pre.headers.get('Access-Control-Allow-Headers'), /Authorization/);
+  // 등록 후: 공개 조각은 닫힘
+  assert.equal((await req(env, '/b/open')).status, 401);
+  assert.equal((await req(env, '/b/me')).status, 401);
+  const bad = await login(env, 'hong', 'wrong');
+  assert.equal(bad.status, 401);
+  assert.equal(bad.headers.get('Access-Control-Allow-Origin'), H);
+  const ok = await login(env, 'hong', 'correct-horse-battery');
+  assert.equal(ok.status, 200);
+  const { session, exp } = await ok.json();
+  assert.match(session, /^v1\.\d{13}\.[A-Za-z0-9_-]{43}$/);
+  assert.ok(exp - Date.now() > 29 * 86400000);
+  assert.doesNotMatch(session, /correct-horse|hong/);
+  const me = await req(env, '/b/me?hours=72', { headers: { Authorization: `Bearer ${session}` } });
+  assert.equal(me.status, 200);
+  assert.equal(me.headers.get('Access-Control-Allow-Origin'), H);
+  assert.match(await me.text(), /^<style>[\s\S]*<div class="rb-sum"/);
+  // 위조·만료·비밀번호 변경 뒤 세션은 무효
+  assert.equal((await req(env, '/b/me', { headers: { Authorization: `Bearer ${session.slice(0, -2)}xx` } })).status, 401);
+  assert.equal((await req(env, '/b/me', { headers: { Authorization: `Bearer v1.${Date.now() - 1000}.${session.split('.')[2]}` } })).status, 401);
+  assert.equal((await req({ ...env, BOARD_PASSWORD: 'changed-password-123' }, '/b/me', { headers: { Authorization: `Bearer ${session}` } })).status, 401);
+  // 같은 아이피 8번 실패면 맞는 비밀번호도 1시간 잠금, 다른 아이피는 그대로
+  for (let i = 0; i < 7; i += 1) assert.equal((await login(env, 'hong', `nope${i}`)).status, 401);
+  assert.equal((await login(env, 'hong', 'correct-horse-battery')).status, 429);
+  assert.equal((await login(env, 'hong', 'correct-horse-battery', '2.2.2.2')).status, 200);
+  assert.equal((await req(env, '/auth/login')).status, 405);
+});
+
 test('scoop_reverse shows automatic prior-capture candidates by source with lead time, separate from human Y/P/N', async () => {
   const opts = PRIVATE();
   const env = opts.env;

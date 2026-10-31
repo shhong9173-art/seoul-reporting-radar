@@ -3,26 +3,58 @@
   if(!nav||!cards)return;
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   let doc={items:[]};
-  // 오늘의 레이더(워커 /b/open) — 11-01 기자 결정: 열쇠 없이 홈페이지 탭에 바로 띄운다(누구나 볼 수 있음을 알고 고름).
-  const RB_API='https://seoul-reporting-radar.shhong9173.workers.dev/b/open';
+  // 오늘의 레이더(워커 조각). 11-01 기자 요청: 아이디·비밀번호 로그인 — 로그인하면 30일 세션을 이 브라우저에 두고 /b/me로 읽는다.
+  // 로그인을 아직 설정하지 않은 동안은 /b/open(공개)으로 보이고, 설정하면 워커가 /b/open을 닫는다(401 → 로그인 상자).
+  const RB='https://seoul-reporting-radar.shhong9173.workers.dev';
+  const rbSession=()=>{try{return localStorage.getItem('radarSession')||'';}catch(e){return '';}};
+  const rbSaveSession=v=>{try{localStorage.setItem('radarSession',v);}catch(e){}};
+  const rbLogout=()=>{try{localStorage.removeItem('radarSession');}catch(e){}};
   let rbHours='';
   function loadPrivate(){
     if(typeof fetch!=='function')return Promise.resolve({state:'error',error:'fetch 없음'});
-    return fetch(RB_API+(rbHours?'?hours='+rbHours:''),{cache:'no-store',credentials:'omit'})
-      .then(r=>r.ok?r.text().then(html=>({state:'ok',html})):{state:'error',error:'HTTP '+r.status})
+    const qs=rbHours?'?hours='+rbHours:'';
+    const get=(path,headers)=>fetch(RB+path+qs,{cache:'no-store',credentials:'omit',headers:headers||{}});
+    const asState=r=>r.ok?r.text().then(html=>({state:'ok',html})):{state:r.status===401?'login':'error',error:'HTTP '+r.status,status:r.status};
+    const s=rbSession();
+    const open=()=>get('/b/open').then(r=>r.ok?r.text().then(html=>({state:'ok',html,open:true})):asState(r));
+    return (s?get('/b/me',{Authorization:'Bearer '+s}).then(r=>{if(r.status===401){rbLogout();return open();}if(r.status===503)return open();return asState(r);}):open())
       .catch(e=>({state:'error',error:String(e&&e.message||e)}));
+  }
+  function doLogin(id,pw){
+    return fetch(RB+'/auth/login',{method:'POST',cache:'no-store',credentials:'omit',headers:{'Content-Type':'text/plain'},body:JSON.stringify({id,pw})})
+      .then(r=>r.json().catch(()=>({})).then(j=>({status:r.status,body:j})))
+      .catch(e=>({status:0,body:{error:String(e&&e.message||e)}}));
   }
   function setCount(html){const m=/data-a="(\d+)" data-b="(\d+)"/.exec(html||'');const c=document.querySelector('#countScoop');if(m&&c)c.textContent=String(Number(m[1])+Number(m[2]));}
   function privateBox(){
     return '<section class="rb-home"><h2 class="scoop-section-title">오늘의 레이더 <span>기자 전용 감시 23곳의 새 항목 A·B · 자동 보도 대조(미보도 후보)</span></h2>'+
-      '<div class="rb-home-tools" style="display:flex;gap:8px;margin:6px 0 10px"><select id="rbHours"><option value="">기본(24시간, 월요일 72시간)</option><option value="72">72시간</option><option value="168">7일</option></select></div>'+
+      '<div class="rb-home-tools" style="display:flex;gap:8px;align-items:center;margin:6px 0 10px"><select id="rbHours"><option value="">기본(24시간, 월요일 72시간)</option><option value="72">72시간</option><option value="168">7일</option></select><button type="button" id="rbLogout" class="secondary" style="display:none">로그아웃</button></div>'+
       '<div id="rbBody"><div class="card"><div class="summary">불러오는 중…</div></div></div></section>';
   }
-  function fillPrivate(){
+  function loginForm(msg){
+    return '<div class="card" style="cursor:auto"><div class="summary"><b>로그인하면 오늘의 레이더가 보입니다.</b> 한 번 로그인하면 이 브라우저에서 30일 유지됩니다.</div>'+
+      '<form id="rbLogin" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px"><input id="rbId" autocomplete="username" placeholder="아이디" style="padding:9px 11px;border:1px solid #dfe3e7;border-radius:8px;min-width:140px">'+
+      '<input id="rbPw" type="password" autocomplete="current-password" placeholder="비밀번호" style="padding:9px 11px;border:1px solid #dfe3e7;border-radius:8px;min-width:140px">'+
+      '<button type="submit" class="secondary" style="height:40px">로그인</button></form>'+(msg?'<p class="muted" style="margin:8px 0 0">'+esc(msg)+'</p>':'')+'</div>';
+  }
+  function fillPrivate(msg){
     const body=document.querySelector('#rbBody');if(!body)return;
     const sel=document.querySelector('#rbHours');if(sel){sel.value=rbHours;sel.onchange=()=>{rbHours=sel.value;fillPrivate();};}
+    const out=document.querySelector('#rbLogout');
+    if(out){out.onclick=()=>{rbLogout();fillPrivate('로그아웃했습니다.');};if(out.style)out.style.display=rbSession()?'':'none';}
     loadPrivate().then(r=>{
+      if(out&&out.style)out.style.display=rbSession()?'':'none';
       if(r.state==='ok'){body.innerHTML=r.html;setCount(r.html);return;}
+      if(r.state==='login'){
+        body.innerHTML=loginForm(msg);
+        const f=document.querySelector('#rbLogin');
+        if(f)f.onsubmit=e=>{e.preventDefault();const id=(document.querySelector('#rbId')||{}).value||'',pw=(document.querySelector('#rbPw')||{}).value||'';
+          doLogin(id,pw).then(x=>{
+            if(x.status===200&&x.body&&x.body.session){rbSaveSession(x.body.session);fillPrivate();return;}
+            fillPrivate(x.status===401?'아이디 또는 비밀번호가 맞지 않습니다.':x.status===429?'실패가 많아 1시간 잠겼습니다. 잠시 뒤 다시 해 주세요.':x.status===503?'로그인이 아직 설정되지 않았습니다(워커 비밀값 BOARD_USER·BOARD_PASSWORD).':'로그인 실패('+(x.body&&x.body.error||x.status)+')');
+          });};
+        return;
+      }
       body.innerHTML='<div class="card"><div class="summary"><b>오늘의 레이더를 불러오지 못했습니다</b>('+esc(r.error)+') — 미확인이지 0건이 아닙니다. Claude에서 radar_today로 볼 수 있습니다.</div></div>';
     });
   }
