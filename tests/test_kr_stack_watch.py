@@ -105,6 +105,23 @@ class StackTest(unittest.TestCase):
         self.assertEqual([(e["kind"], e["tier"]) for e in ev], [("배출구 멈춤 신호", "B")])
         self.assertIn("1번(평소 30.0", ev[0]["text"])
 
+    def test_two_small_stacks_of_a_big_steelworks_are_not_B(self):
+        # 10-31 09:17 운영: 포스코 광양 평소 움직이던 137개 중 2개(평소 41.0·18.2) 멈춤이 B — 일상 정비 수준
+        big = tuple([60.0, 55.0, 50.0] + [20.0] * 57)  # 60개, 상위 3개는 50 이상
+
+        def at(i):
+            return {"pohang2": big if i < 6 else (big[:10] + (0.0, 0.0) + big[12:])}  # 11·12번(평소 20) 두 개 멈춤
+        doc = series(10, at=at)
+        ev = [e for e in doc["events"] if e["site"] == "현대제철㈜포항2공장"]
+        self.assertEqual(ev, [])  # 60개 중 2개(5%=3개 미만), 상위 3 아님, 평소 값 합 40/1305(10% 미만) → 이벤트 없음
+        site = next(x for x in doc["sites"] if x["name"] == "현대제철㈜포항2공장")
+        self.assertEqual(site["stopped"], ["11", "12"])  # 화면 목록에는 보인다
+
+        def at3(i):
+            return {"pohang2": big if i < 6 else ((0.0,) + big[1:])}  # 가장 큰 배출구 하나 → B
+        ev = [e for e in series(10, at=at3)["events"] if e["site"] == "현대제철㈜포항2공장"]
+        self.assertEqual([(e["kind"], e["tier"]) for e in ev], [("배출구 멈춤 신호", "B")])
+
     def test_stale_measurement_counts_as_stopped(self):
         doc = series(8)
         # 영풍 석포 배출구의 측정 시각이 13시간째 그대로 → 멈춤(사업장 전체 1개라 A는 아님: 배출구 2개 이상일 때만)
