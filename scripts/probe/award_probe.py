@@ -1,6 +1,8 @@
-"""Probe 26: EDIS API 토큰(Authorization: Bearer, 안내서 v1.1) — 첨부 목록·내려받기. 공개 로그라 내용은 적지 않음(상태·길이·쪽수·낱말 개수만).
-토큰 값은 출력하지 않는다. 저장하지 않음."""
-import io
+"""Probe 27: EDIS 감시 설계용 — 토큰 만료(JWT exp만), 최근 문서 전체 목록의 순서·쪽 크기, 조사 목록(상태별) 크기와 Korea 제목.
+토큰 값·문서 내용은 출력하지 않는다. 저장하지 않음."""
+import base64
+import datetime as dt
+import json
 import os
 import re
 import requests
@@ -8,29 +10,27 @@ import requests
 out = []
 tok = os.environ.get("EDIS_API_TOKEN", "").strip()
 UA = {"User-Agent": "seoul-reporting-radar research (github.com/shhong9173-art/seoul-reporting-radar)"}
-if not tok:
-    out.append("EDIS_API_TOKEN 없음")
-else:
-    out.append(f"token len={len(tok)} parts={tok.count('.') + 1}")
-    auth = {"Authorization": f"Bearer {tok}", **UA}
-    a = requests.get("https://edis.usitc.gov/data/attachment/898408", headers=auth, timeout=60)
-    out.append(f"attachment list: HTTP {a.status_code} type={a.headers.get('content-type')} len={len(a.text)} tags={sorted(set(re.findall(r'<([A-Za-z]+)>', a.text)))[:25]}")
-    uris = re.findall(r"<downloadUri>(.*?)</downloadUri>", a.text)
-    ids = re.findall(r"<id>(\d+)</id>", a.text)
-    out.append(f"downloadUri={len(uris)} ids={len(ids)} pages_tag={re.findall(r'<pageCount>(\d+)</pageCount>', a.text)[:3]}")
-    url = uris[0] if uris else (f"https://edis.usitc.gov/data/download/898408/{ids[0]}" if ids else None)
-    if url:
-        d = requests.get(url, headers=auth, timeout=120)
-        out.append(f"download: HTTP {d.status_code} type={d.headers.get('content-type')} bytes={len(d.content)} pdf={d.content[:5] == b'%PDF-'}")
-        if d.content[:5] == b"%PDF-":
-            import pypdf
-            pdf = pypdf.PdfReader(io.BytesIO(d.content))
-            text = " ".join((p.extract_text() or "") for p in pdf.pages)
-            out.append(f"pages={len(pdf.pages)} chars={len(text)} " + " ".join(f"[{w}]={len(re.findall(w, text, re.I))}" for w in
-                       ("with prejudice", "without prejudice", "refil", "Hanwha", "Section 232", "public interest", "invalid")))
-        noauth = requests.get(url, headers=UA, timeout=60)
-        out.append(f"(비교) 토큰 없이: HTTP {noauth.status_code}")
-    else:
-        out.append("body: " + re.sub(r"\s+", " ", a.text[:300]))
+try:
+    body = tok.split(".")[1]
+    claims = json.loads(base64.urlsafe_b64decode(body + "=" * (-len(body) % 4)))
+    out.append("jwt claims keys=" + repr(sorted(claims)) + " iat=" + str(dt.datetime.utcfromtimestamp(claims.get("iat", 0))) + " exp=" + str(dt.datetime.utcfromtimestamp(claims.get("exp", 0))))
+except Exception as e:  # noqa: BLE001
+    out.append(f"jwt decode: {type(e).__name__}")
+B = "https://edis.usitc.gov/data"
+for q in ("/document?pageNumber=1", "/document?pageNumber=1&pageSize=100", "/document?pageNumber=2"):
+    r = requests.get(B + q, headers=UA, timeout=60)
+    docs = re.findall(r"<document>(.*?)</document>", r.text, re.S)
+    dates = [(re.search(r"<officialReceivedDate>(.*?)</officialReceivedDate>", d) or [None, ""])[1] for d in docs]
+    out.append(f"{q}: HTTP {r.status_code} n={len(docs)} first={dates[:2]} last={dates[-2:]}")
+for st in ("Preinstitution", "Active"):
+    r = requests.get(B + f"/investigation?investigationStatus={st}&pageNumber=1", headers=UA, timeout=60)
+    inv = re.findall(r"<investigation>(.*?)</investigation>", r.text, re.S)
+    out.append(f"investigation {st}: HTTP {r.status_code} n_page1={len(inv)} total_tag={re.findall(r'<(?:totalCount|total|count)>(\d+)<', r.text)[:2]}")
+    for i in inv[:3]:
+        out.append("   " + " | ".join((re.search(fr"<{k}>(.*?)</{k}>", i, re.S) or [None, ""])[1][:90] for k in ("investigationNumber", "investigationPhase", "investigationType", "investigationTitle")))
+    kor = [i for i in inv if re.search(r"Korea", i)]
+    out.append(f"   Korea in titles on page1: {len(kor)}")
+r = requests.get(B + "/investigation?investigationStatus=Active&investigationType=Sec%20337&pageNumber=1", headers=UA, timeout=60)
+out.append(f"active 337 page1 n={len(re.findall(r'<investigation>', r.text))} HTTP {r.status_code}")
 open("/tmp/probe_out.txt", "w").write("\n".join(out))
 print("\n".join(out)[:300])
