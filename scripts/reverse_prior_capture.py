@@ -55,8 +55,10 @@ def suppliers_in(*texts):
 CONCEPTS = [
     ("소송·판결", r"소송|제소|항소|불복|패소|승소|판결|법원|배상", r"v\. United States|\bIn re\b|lawsuit|complaint|appeal|opinion|court|소송|판결|항소|법원|Sustaining|Remand"),
     # 레이더 쪽 영문 낱말은 단어 경계로: 'quota'가 'quotation'(ASX 'Application for quotation of securities')에, 'subsid'가
-    # 'subsidiary'에 걸렸다(10-31: 현대차 인도 관세 분쟁 [단독]이 아라푸라 증권 상장 신청과 묶임).
-    ("관세·무역구제", r"관세|상계|반덤핑|덤핑|무역구제|세이프가드|보조금", r"countervail|anti-?dumping|\bdut(?:y|ies)\b|tariff|subsid(?!iar)|관세|덤핑|쿼터|\bquotas?\b"),
+    # 'subsidiary'에 걸렸다(10-31: 현대차 인도 관세 분쟁 [단독]이 아라푸라 증권 상장 신청과 묶임). 'Light-Duty·Heavy-Duty' 차량의 duty도
+    # 관세가 아니다(같은 날 고친 뒤 그 기사가 EPA 'Tier 4 … Light-Duty and Medium-Duty Vehicles' 의견서와 다시 묶임).
+    ("관세·무역구제", r"관세|상계|반덤핑|덤핑|무역구제|세이프가드|보조금", r"countervail|anti-?dumping|"
+     r"(?<!light-)(?<!light )(?<!heavy-)(?<!heavy )(?<!medium-)(?<!medium )\bdut(?:y|ies)\b(?!-free)|tariff|subsid(?!iar)|관세|덤핑|쿼터|\bquotas?\b"),
     ("리콜·결함", r"리콜|결함|화재|발화|시정조치", r"recall|defect|fire|리콜|결함"),
     ("특허·상표", r"특허|상표|브랜드|명칭", r"patent|PTAB|trademark|상표|특허"),
     ("지분·합작·거래", r"지분|합작|매각|인수|철수|정리|양도|합병", r"equity|joint venture|disposal|acquisition|exit|transaction|investment in|양도|합병|지분|merger"),

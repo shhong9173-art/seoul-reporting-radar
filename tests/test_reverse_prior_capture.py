@@ -173,6 +173,9 @@ class Capture(unittest.TestCase):
              "title": "Application for quotation of securities - ARU", "date": "2026-10-27", "firstSeen": "2026-10-28T02:00:00+09:00"},
             {"id": "edgar:x", "beat": ["현대차"], "filer": "X", "title": "Hyundai Motor America, a subsidiary of Hyundai Motor Company", "date": "2026-10-27",
              "firstSeen": "2026-10-28T02:00:00+09:00"}]},
+            "us-comments": {"items": [{"id": "EPA-HQ-OAR-2025-3297-0160", "company": "현대차", "agency": "EPA",
+                                       "docketTitle": "Revision of Tier 4 Phase-in Schedule for Light-Duty and Medium-Duty Vehicles",
+                                       "firstSeen": "2026-10-26T21:04:00+09:00"}]},
             "us-litigation": {"cases": [{"id": "cl:75032648", "beat": ["현대차"], "category": "지식재산(상표)",
                                          "caseName": "Hyundai Motor Company v. The Partnerships and Unincorporated Associations Identified on Schedule A",
                                          "summary": "trademark counterfeiting", "firstSeen": "2026-10-29T07:51:00+09:00"}]}}
@@ -182,7 +185,9 @@ class Capture(unittest.TestCase):
         rx = dict((n, x) for n, _, x in r.CONCEPTS)["관세·무역구제"]
         import re as _re
         self.assertTrue(all(_re.search(rx, t, _re.I) for t in ["steel safeguard quotas", "countervailable subsidy", "duties on imports"]))
-        self.assertFalse(any(_re.search(rx, t, _re.I) for t in ["Application for quotation of securities", "a subsidiary of Hyundai"]))
+        self.assertFalse(any(_re.search(rx, t, _re.I) for t in ["Application for quotation of securities", "a subsidiary of Hyundai",
+                                                                 "Light-Duty and Medium-Duty Vehicles", "heavy duty trucks", "duty-free shop"]))
+        self.assertTrue(_re.search(rx, "Countervailing Duty Administrative Review", _re.I))
 
     def test_ruling_article_counts_a_ruling_seen_before_it(self):
         docs = {"us-litigation": {"cases": [], "opinions": [{"id": "op:1", "beat": ["포스코"], "caseName": "POSCO v. United States",
