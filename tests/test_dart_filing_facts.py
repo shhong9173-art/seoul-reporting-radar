@@ -135,7 +135,7 @@ class Facts(unittest.TestCase):
         line = f.correction_line(fix)
         self.assertTrue(line.startswith("정정(계약 사양 일부 변경에 따른 계약금액 조정): 계약내역 - 계약금액(원) "
                                         "113,586,046,173원(약 1,136억원) → 113,044,698,813원(약 1,130억원)(-0.5%)"))
-        self.assertIn("문구 변경", line)  # 긴 설명 칸은 바뀌었다는 것만
+        self.assertIn("문구·표 변경 1곳(기타 투자판단과 관련한 중요사항)", line)  # 긴 설명 칸은 바뀌었다는 것만
         self.assertNotIn("correction", f.facts("단일판매ㆍ공급계약체결", [LSE]))  # 정정 공시가 아니면 없음
         self.assertEqual(dict(x["facts"])["체결계약명"], "420kV 변압기 등 공급계약")  # 본문 표는 그대로
 
@@ -157,7 +157,9 @@ class Facts(unittest.TestCase):
                                                            "공정거래위원회 신고대상 여부"])
         self.assertNotIn("material", fix)  # 3일 당김은 큰 변경 아님
         self.assertEqual(f.correction_short(fix), "정정: 사채만기일 2031-11-09→2031-11-06 · 납입일 2026-11-09→2026-11-06 · 공정거래위원회 신고대상 여부 미해당→해당")
-        self.assertIn("원금상환방법 문구 변경", f.correction_line(fix))
+        self.assertEqual(f.correction_line(fix), "정정(납입일 변경에 따른 정정 · 인수인 최종 확정에 따른 정정): 사채만기일 2031-11-09 → 2031-11-06 · "
+                         "납입일 2026-11-09 → 2026-11-06 · 공정거래위원회 신고대상 여부 미해당 → 해당 · "
+                         "문구·표 변경 2곳(원금상환방법, 교환에 관한 사항 - 교환청구기간)")
         moved = f.correction([LSC_FIX.replace("2031년 11월 06일", "2032년 05월 06일")])
         self.assertEqual(moved["material"], ["사채만기일 +6개월"])
 
