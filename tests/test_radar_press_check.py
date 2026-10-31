@@ -183,7 +183,7 @@ class HeadlineRule(unittest.TestCase):
         pohang = art("포스코 포항제철소, 현장 혁신으로 설비 장애 감소·안전 강화", "2026-10-27", "설비 가동 중단을 줄이고 정비 체계를 바꿨다.")
         r = self.one(item, [pohang])
         self.assertEqual(r["verdict"], "미보도 후보")
-        self.assertIn("사업장 지명(광양) 없음", r["evidence"][0]["why"])
+        self.assertIn("있으나 광양 없음", r["evidence"][0]["why"])
         r = self.one(item, [pohang, art("포스코 광양제철소 3고로 정비 들어가", "2026-10-28")])
         self.assertEqual(r["verdict"], "관련 보도 있음")
         self.assertEqual(rpc.candidates([item], now=NOW)[0]["must"], ["광양"])
@@ -240,6 +240,16 @@ class HeadlineRule(unittest.TestCase):
         # 다른 법 기사(이름이 없음)는 근거가 아니다
         r = self.one(item, [art("백혜련, 국가첨단전략산업법 개정안 대표발의", "2026-10-28")])
         self.assertEqual(r["verdict"], "미보도 후보")
+    def test_partner_filing_story_must_name_the_partner(self):
+        # 10-31 운영: '한화솔루션 퍼스트솔라 특허'가 「한화솔루션, ESS·태양전지 특허 폭증」으로 '관련 보도 있음'
+        item = {"tier": "B", "watch": "해외 파트너 공시", "id": "edgar:fslr", "date": "2026-10-27", "company": "한화솔루션",
+                "check": {"who": "한화솔루션", "terms": ["퍼스트솔라", "특허"], "alts": {"특허": ["특허", "특허심판원", "PTAB", "무효"]},
+                          "must": ["퍼스트솔라"]}}
+        r = self.one(item, [art("한화솔루션, ESS·태양전지 특허 폭증…'통합 에너지 솔루션' 속도 낸다", "2026-10-27")])
+        self.assertEqual(r["verdict"], "미보도 후보")
+        self.assertIn("있으나 퍼스트솔라 없음", r["evidence"][0]["why"])
+        r = self.one(item, [art("퍼스트솔라, 한화큐셀 등 TOPCon 특허침해 ITC 제소", "2026-10-28")])
+        self.assertEqual(r["verdict"], "관련 보도 있음")
 
 class Fetch(unittest.TestCase):
     def test_items_endpoint_uses_bearer_and_fails_loudly(self):

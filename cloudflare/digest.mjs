@@ -470,7 +470,8 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
     const word = x.source === 'HKEX' ? '합작' : LITIGATION.test(String(x.snippet ?? '')) ? '특허' : '계약';
     const when = x.source === 'HKEX' && x.time ? ` ${x.time} 홍콩시각` : '';
     push(tier, W['partner-filings'], { kind: x.source ?? '공시', id: x.id, date: x.date, company: (x.beat ?? []).join('·'), fact: `${x.source} ${x.filer}${when}: ${x.title}${(x.flags ?? []).length ? ` (낱말 ${x.flags.join(',')})` : ''}${deal}`, url: x.url,
-      check: partner ? hint((x.beat ?? [])[0], [partner, word]) : undefined });
+      // 공시 회사 이름이 기사에 있어야 같은 건(10-31: '한화솔루션 퍼스트솔라 특허'가 「한화솔루션, ESS·태양전지 특허 폭증」으로 '관련 보도 있음')
+      check: partner ? hint((x.beat ?? [])[0], [partner, word], [], [partner]) : undefined });
   }
 
   // Overseas public-buyer award notices (EU TED·영국 FTS·세계은행·바레인 월간 보고서·대만 PCC): a beat company in the winner field is A;
