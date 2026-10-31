@@ -857,6 +857,57 @@ test('radar_today: scoop candidates count as new only when first screened inside
   assert.match(s.text, /상변태 기반 판재 냉각/);  // 후보 목록에는 남는다
 });
 
+test('scoop candidates: a correction filing shows what changed before the same-counterparty comparison', async () => {
+  const env = PRIVATE().env;
+  const now = Date.now();
+  const iso = (h) => new Date(now - h * 3600000).toISOString();
+  // 10-31 운영: 효성중공업 Statnett 정정 — 실제 정정은 계약금액 -0.5%, 같은 상대의 다른 계약 비교가 '-71%'로 보였다
+  const line = '정정(계약 사양 일부 변경에 따른 계약금액 조정): 계약내역 - 계약금액(원) 113,586,046,173원(약 1,136억원) → 113,044,698,813원(약 1,130억원)(-0.5%)';
+  const doc = { schema: 'scoop_screen/v1', generatedAt: iso(1), counts: {}, candidates: [
+    { id: 'clue:hy', kind: '단서', company: '효성중공업', title: '효성중공업 · [기재정정]단일판매ㆍ공급계약체결', verdict: '미보도 후보', published: '2026-10-27',
+      firstSeen: iso(2), url: 'https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261027800518',
+      filing: { type: '공급계약', facts: [['체결계약명', '420kV 변압기 등 공급계약']], correctionLine: line,
+        correctionShort: '정정: 계약금액 1,136억→1,130억(-0.5%) · 매출액대비 3.24→3.22 · 문구 1곳',
+        compare: ['같은 계약상대의 다른 계약 직전 공시 2026-09-30(접수 20260930800924, 계약일 2025-06-01 ↔ 이번 2023-11-08) · 금액 383,338,819,710원(약 3,833억원)'] } }] };
+  await worker.fetch(new Request(ORIGIN + '/ingest/scoop-screen', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {});
+  const s = await call('scoop_screen', {}, { path: `/mcp/${TOKEN}`, env });
+  assert.match(s.text, /정정 내용\(원문 정정 표\): 정정\(계약 사양 일부 변경에 따른 계약금액 조정\): 계약내역 - 계약금액\(원\) 113,586,046,173원/);
+  assert.ok(s.text.indexOf('정정 내용') < s.text.indexOf('직전 비교'));
+  const r = await call('radar_today', {}, { path: `/mcp/${TOKEN}`, env });
+  assert.match(r.text, /효성중공업 · \[기재정정\]단일판매ㆍ공급계약체결 \(단서\) — 보도 대조 '미보도 후보' · 체결계약명 420kV 변압기 등 공급계약 · 정정: 계약금액 1,136억→1,130억\(-0\.5%\) · 매출액대비 3\.24→3\.22 · 문구 1곳/);
+  assert.match(r.text, /· 같은 계약상대의 다른 계약 직전 공시 2026-09-30/);
+  // 정정 중 큰 변경은 '관련 보도 있음'이어도 B(10-31 두산 영광 야월 EPC 종료일 +7개월)
+  doc.candidates.push({ id: 'clue:ds', kind: '단서', company: '두산에너빌리티', title: '두산에너빌리티 [기재정정]단일판매ㆍ공급계약체결 — 변경 항목 대조 필요', verdict: '관련 보도 있음',
+    published: '2026-10-26', firstSeen: iso(2), url: 'https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261026800529',
+    filing: { type: '공급계약', facts: [['체결계약명', '영광 야월 해상풍력 발전소 설계 구매 시공 (EPC) 계약']], correctionShort: '정정: 계약기간종료일 2029-07-01→2030-01-28',
+      correction: { reason: '계약기간 종료일 변경', changes: [['계약기간종료일', '2029-07-01', '2030-01-28']], material: ['계약기간종료일 +7개월'] } } },
+  { id: 'clue:hy2', kind: '단서', company: '효성중공업', title: '효성중공업 · 작은 정정', verdict: '관련 보도 있음', published: '2026-10-27', firstSeen: iso(2),
+    filing: { type: '공급계약', facts: [], correction: { reason: 'x', changes: [] } } });
+  await worker.fetch(new Request(ORIGIN + '/ingest/scoop-screen', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {});
+  const r2 = await call('radar_today', { include_minor: true }, { path: `/mcp/${TOKEN}`, env });
+  const b2 = r2.text.split('[B · ')[1].split('[C · ')[0];
+  assert.match(b2, /두산에너빌리티 \[기재정정\]단일판매ㆍ공급계약체결 — 정정 중 큰 변경\(계약기간종료일 \+7개월 · 사유 '계약기간 종료일 변경'\)[^\n]*정정: 계약기간종료일 2029-07-01→2030-01-28[^\n]*원 계약 기사일 수 있음/);
+  assert.match(r2.text.split('[C · ')[1], /관련 보도 있음: 효성중공업 · 작은 정정/);
+  // 정정 내용 보도 대조(scoop_screen check_corrections) 결과가 있으면 그 결과로 바꿔 적는다
+  doc.candidates[1].correctionCheck = { word: '연장', subject: ['영광', '야월'], since: '2026-10-26', verdict: '미보도 후보',
+    queries: ['두산에너빌리티 영광 야월', '두산에너빌리티 야월 연장'], evidence: [{ title: '두산에너빌리티 해상풍력 공사기간 연장', date: '2026-10-27',
+      channel: 'naver', url: 'https://n/other', why: '제목에 회사·낱말(연장)이 있으나 영광·야월 없음 — 다른 사업장·다른 건 기사일 수 있음' }], channels: { naver: 'ok' } };
+  await worker.fetch(new Request(ORIGIN + '/ingest/scoop-screen', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {});
+  const r3 = await call('radar_today', {}, { path: `/mcp/${TOKEN}`, env });
+  assert.match(r3.text, /정정 내용 보도 대조: 미보도 후보 — "두산에너빌리티 영광 야월", "두산에너빌리티 야월 연장"로 2026-10-26 이후 '연장' 기사 못 찾음\(검색 범위 결과, 단독 판정 아님\)/);
+  assert.doesNotMatch(r3.text, /정정 내용 보도 여부는 따로 확인/);
+  assert.doesNotMatch(r3.text, /변경 항목 대조 필요/);  // 정정 표를 읽었으면 단서 제목 꼬리는 뺀다
+  const s3 = await call('scoop_screen', { company: '두산' }, { path: `/mcp/${TOKEN}`, env });
+  assert.match(s3.text, /잡힌 사실: 두산에너빌리티 \[기재정정\]단일판매ㆍ공급계약체결 \(단서/);
+  assert.match(s3.text, /정정 내용 보도 대조\(정정 중 큰 변경 → '연장' 낱말\): 미보도 후보 — 질의 "두산에너빌리티 영광 야월", "두산에너빌리티 야월 연장" · 2026-10-26 이후 · 제목에 회사·'연장', 제목·요약에 영광·야월/);
+  assert.match(s3.text, /↳ 2026-10-27 \[naver\] 두산에너빌리티 해상풍력 공사기간 연장 — 제목에 회사·낱말\(연장\)이 있으나 영광·야월 없음/);
+  doc.candidates[1].correctionCheck = { ...doc.candidates[1].correctionCheck, verdict: '관련 보도 있음', evidence: [{ title: '두산에너빌리티, 영광 야월 해상풍력 계약기간 7개월 연장',
+    date: '2026-10-29', channel: 'naver', url: 'https://n/hit', why: '제목에 회사·낱말(연장) — 동일 사건 미확정' }] };
+  await worker.fetch(new Request(ORIGIN + '/ingest/scoop-screen', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {});
+  const r4 = await call('radar_today', {}, { path: `/mcp/${TOKEN}`, env });
+  assert.match(r4.text, /정정 내용 보도 대조: 관련 보도 있음 — 2026-10-29 「두산에너빌리티, 영광 야월 해상풍력 계약기간 7개월 연장」\(같은 내용인지 열어 볼 것\)/);
+});
+
 test('converging signals: same beat company and same city from two or more watches, place from the text, C and other tools ignored', () => {
   const t = (h) => new Date(Date.parse('2026-10-30T03:00:00Z') - h * 3600000).toISOString();
   const items = [
@@ -1105,7 +1156,9 @@ test('radar_today ranks EDGAR mentions by deal words and hides items the reporte
   const b = r.text.split('[B · ')[1].split('[C · ')[0];
   assert.match(a, /ACME METALS: 8-K/);
   assert.match(b, /HARTFORD INSURANCE GROUP: 8-K EX-99\.2 — 발췌에 계약·공급·합작 낱말 없음/);
-  assert.match(a, /id p1/);
+  assert.match(b, /id p1/);  // 특허 공개 미보도 후보는 B(그 자체로 단독 아님, 10-31)
+  assert.doesNotMatch(a, /고정자 냉각 장치/);
+  assert.match(b, /고정자 냉각 장치 \(특허\) — 보도 대조 '미보도 후보' · 특허 공개만으로는 단독이 아님/);
   const fb = await call('candidate_feedback', { verdict: '봤음', item_ids: ['p1', 'edgar:hig'] }, opts);
   assert.match(fb.text, /기록: \[봤음\] 2건 — 확인함\(판단 전\)/);
   await call('candidate_feedback', { item_id: 'p2', verdict: '보류', reason: '새 사실 붙으면' }, opts);
@@ -1205,7 +1258,8 @@ test('weekly review groups judgments by watch and DART filing type, and keeps la
   await call('candidate_feedback', { verdict: '봤음', item_ids: ['edgar:hig', 'gone:1'] }, opts);
   const r = await call('candidate_weekly_review', {}, opts);
   assert.match(r.text, /판정한 항목 10개: 씀 2 · 킬 4 · 보류 1 · 봤음 3 \(기록 11건, 같은 항목은 마지막 판정만 셈\)/);
-  assert.match(r.text, /- 단독 후보 심사 8 — 씀 2 · 킬 4 · 보류 1 · 봤음 1 \| A 3\(씀 1 · 보류 1 · 봤음 1\) · B 5\(씀 1 · 킬 4\)/);
+  // 특허 미보도 후보(clue:late)는 B(10-31)
+  assert.match(r.text, /- 단독 후보 심사 8 — 씀 2 · 킬 4 · 보류 1 · 봤음 1 \| A 2\(씀 1 · 보류 1\) · B 6\(씀 1 · 킬 4 · 봤음 1\)/);
   assert.match(r.text, /- 해외 파트너 공시 1 — 봤음 1 \| B 1\(봤음 1\)/);
   assert.match(r.text, /- 감시 미상\(지금 목록에 없음\) 1 — 봤음 1/);
   assert.match(r.text, /- 단독 후보 심사 · DART 채무보증 5 — 씀 1 · 킬 4 \| 일상\(B\) 5: 씀 1 · 킬 4/);
@@ -1672,7 +1726,7 @@ test('radar-items hands hinted A/B items to the press checker; radar_today shows
   const by = Object.fromEntries(body.items.map((x) => [x.id, x]));
   assert.deepEqual(by['cl:4'].check, { who: '세아제강', terms: ['국제무역법원', '소송'], alts: { 국제무역법원: ['국제무역법원', '무역법원', 'CIT'], 소송: ['소송', '제소', '판결', '항소', '불복'] } });
   assert.deepEqual(by['cl:7'].check.terms, ['항소', '특허']);
-  assert.deepEqual(by['fac:1:x'].check.terms, ['감원']);
+  assert.deepEqual([by['fac:1:x'].check.terms, by['fac:1:x'].check.must], [['당진', '감원'], ['당진']]);  // 공장 시·군 없는 감원 기사는 다른 공장일 수 있다
   assert.equal(by['fac:1:x'].fact, '등록 내용 변경: KG스틸(주)당진공장 · 충청남도 당진시 송악읍 북부산업로 1 — 고용 856→690명');
   assert.equal(by['fac:2:gone'].fact.split(' — ')[0], '목록에서 빠짐: 현대위아(주)창원2공장 · 경상남도 창원시 성산구 정동로 154');  // already named: unchanged
   const ko = await call('kr_official', { section: 'factory', company: 'KG스틸' }, opts);
@@ -1691,7 +1745,9 @@ test('radar-items hands hinted A/B items to the press checker; radar_today shows
       evidence: [{ date: '2026-10-25', channel: 'naver', title: '세아제강, 美 국제무역법원에 반덤핑 소송', url: 'https://n/1', why: '낱말' }],
       channels: { naver: { status: 'ok', returned: 3 } }, firstVerdict: '미보도 후보', firstCheckedAt: '2026-10-25T18:50:00+09:00' },
     { id: 'cl:7', verdict: '미보도 후보', since: '2026-10-20', queries: ['LS일렉트릭 항소', 'LS일렉트릭 항소 특허'],
-      evidence: [{ date: '2026-10-24', channel: 'naver', title: '전력기기 업계 美 소송 잇따라', url: 'https://n/2', why: '본문에만 회사·낱말(항소, 특허) — 제목 불일치, 같은 사건 가능성 낮음' }],
+      evidence: [{ date: '2026-10-24', channel: 'naver', title: '전력기기 업계 美 소송 잇따라', url: 'https://n/2', why: '본문에만 회사·낱말(항소, 특허) — 제목 불일치, 같은 사건 가능성 낮음' },
+        { date: '2026-10-23', channel: 'bing', title: 'LS일렉트릭, ESS 특허 폭증', url: 'https://n/4', why: '제목에 회사·낱말(특허)이 있으나 PTAB 없음 — 다른 사업장·다른 건 기사일 수 있음' },
+        { date: '2026-08-02', channel: 'naver', title: 'LS일렉트릭, 美 특허심판원 결정 불복', url: 'https://n/3', before: true, why: '항목 날짜보다 앞선 기사(항소) — 판정에 안 셈' }],
       channels: { naver: { status: 'ok', returned: 0 }, bing: { status: 'ok', returned: 0 }, google: { status: 'ok', returned: 0 } } },
     { id: 'fac:1:x', verdict: '미확인', since: '2026-10-22', queries: ['KG스틸 인력'], evidence: [],
       channels: { naver: { status: 'failed', error: 'ConnectTimeout' }, bing: { status: 'ok', returned: 0 } } }] });
@@ -1704,6 +1760,10 @@ test('radar-items hands hinted A/B items to the press checker; radar_today shows
   assert.match(a, /보도 대조\(자동 10-26 08:50\): 관련 보도 있음 — "세아제강 국제무역법원", "세아제강 국제무역법원 소송" · 처음\(10-25 18:50\) 미보도 후보/);
   assert.match(a, /↳ 2026-10-25 \[naver\] 세아제강, 美 국제무역법원에 반덤핑 소송 https:\/\/n\/1\n/);
   assert.match(a, /↳ 2026-10-24 \[naver\] 전력기기 업계 美 소송 잇따라 https:\/\/n\/2 \(약한 근거: 본문에만, 제목 불일치\)/);
+  // must가 없는 근거(10-31 퍼스트솔라 ↔ '한화솔루션 특허 폭증')도 꼬리표
+  assert.match(a, /↳ 2026-10-23 \[bing\] LS일렉트릭, ESS 특허 폭증 https:\/\/n\/4 \(약한 근거: PTAB 없음 — 다른 건일 수 있음\)/);
+  // 판정에 안 세는 앞선 기사(10-31): 미보도 후보에 맥락 한 줄
+  assert.match(a, /↳ 2026-08-02 \[naver\] LS일렉트릭, 美 특허심판원 결정 불복 https:\/\/n\/3 \(앞선 기사: 항목 날짜 전이라 판정에 안 셈 — 같은 사업의 앞선 보도일 수 있음\)/);
   assert.match(a, /보도 대조\(자동 10-26 08:50\): 미확인 — 채널 naver failed\(ConnectTimeout\)\(0건 아님\)/);
   assert.match(r.text, /보도 대조\(자동\)는 네이버 뉴스 API·빙·구글에서 항목 날짜 3일 전부터 찾은 결과다/);
   assert.doesNotMatch(r.text, /보도 대조\(자동\): 결과 없음/);
@@ -2119,14 +2179,19 @@ test('bill hints: formal law names are searched by the short name headlines use'
 });
 
 test('press-check hints: place words narrow the search but are marked, workforce words follow the direction, local notices use the project word', () => {
-  const h = hint('고려아연', ['울주', localWord("건설공사 안전점검 수행기관 지정 공고[온산 고려아연(주), #2ASU O..."), '공장'], ['울주']);
+  const h = hint('고려아연', ['울주', localWord("건설공사 안전점검 수행기관 지정 공고[온산 고려아연(주), Ga' 2차 ..."), '공장'], ['울주']);
   assert.deepEqual([h.terms, h.places, Object.keys(h.alts)], [['울주', '신설', '공장'], ['울주'], ['신설', '공장']]);
+  // 산소공장(ASU): 기사는 '산소공장 증설'(10-20 전자신문) — '#2ASU'처럼 숫자가 붙어도, 'CASUAL' 같은 낱말 속은 아님
+  assert.deepEqual(["…[온산 고려아연(주), #2ASU O2 COMPRESSOR ROOM 토건공사]", '산소플랜트 증설', 'CASUAL 공장'].map(localWord), ['산소공장', '산소공장', '신설']);
   assert.equal(hint('LS전선', ['입찰'], ['바레인']).places, undefined);  // a place not among the terms is dropped
   assert.equal(hint('LS전선', ['바레인', '입찰']).places, undefined);
   assert.deepEqual(['온산제련소 환경영향평가 초안 공람', '○○ 일반산업단지 계획 변경', '공장 이전 부지', '폐기물 매립시설'].map(localWord),
     ['환경영향평가', '산업단지', '이전', '매립']);
   const wf = (kind, text) => workforceHint({ company: '포스코', kind, text }).terms;
-  assert.deepEqual(wf('인력 증가', '주식회사포스코(경상북도 포항시 남구) 국민연금 가입자 15,852→16,718명(+866명, +5.5%)'), ['채용']);
+  // 사업장 시·군을 넣고 그 지명이 없는 기사는 세지 않는다(10-31 포스코 포항 +866명 ↔ 美 제철소 채용 기사)
+  const pw = workforceHint({ company: '포스코', kind: '인력 증가', text: '주식회사포스코(경상북도 포항시 남구) 국민연금 가입자 15,852→16,718명(+866명, +5.5%)' });
+  assert.deepEqual([pw.terms, pw.places, pw.must], [['포항', '채용'], ['포항'], ['포항']]);
+  assert.deepEqual(workforceHint({ company: '기아', kind: '인력 감소', text: '기아(서울특별시 서초구) 가입자 2,100→2,060명(-40명)' }).must, undefined);  // 시·군 없으면 그대로
   assert.deepEqual(wf('인력 변동', '포스코 가입자 2,100→2,060명(-40명)'), ['감원']);
   assert.deepEqual(wf('인력 감소', '형식 모름'), ['감원']);
   assert.ok(!workforceHint({ company: '기아', kind: '인력 증가', text: '가입자 1→2명' }).alts.채용.includes('고용'));  // 흔한 말 빼기
@@ -2163,6 +2228,22 @@ test('kr local notices: a beat plant notice in a city is A, a city baseline is h
   assert.match(t.text, /- \[첫 조회 기준선\] 2026-10-25 · 당진시 · 현대제철 · A/);
   assert.match(t.text, /미확인\(0건 아님\): 포항시\(ReadTimeout\)/);
   assert.match(t.text, /이 시·군의 출입처 공장: 고려아연·LS MnM·현대차/);
+  // 상세 페이지를 읽은 공고: 전체 제목·본문 앞부분·첨부 파일 이름, 대조 낱말은 전체 제목에서(10-31 울주 68156)
+  doc.items.push(it('local:울주군:68156', { no: '울산광역시 울주군 공고 제2026-2760호', title: '건설공사 안전점검 수행기관 지정 공고[온산 고려아연(주), #2ASU O...',
+    detail: { title: '건설공사 안전점검 수행기관 지정 공고[온산 고려아연(주), #2ASU O2 COMPRESSOR ROOM 토건공사]',
+      body: '우리 군 온산읍 원산리 892번지 일원 상 공장 용도의 건축공사에 대하여 건설공사 안전점검 수행기관을 지정하고자 다음과 같이 모집 공고합니다.',
+      files: ['예정공정표.pdf'] } }),
+  it('local:울주군:68157', { title: '고려아연(주) 온산제련소 ...', tier: 'B', detailError: 'ReadTimeout' }));
+  await worker.fetch(new Request(ORIGIN + '/ingest/kr-local', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {});
+  const r2 = await call('radar_today', { hours: 72 }, opts);
+  assert.match(r2.text, /「건설공사 안전점검 수행기관 지정 공고\[온산 고려아연\(주\), #2ASU O2 COMPRESSOR ROOM 토건공사\]」 · 건축과 · 등록 2026-10-25 · 본문: 우리 군 온산읍 원산리 892번지 일원 상 공장 용도의 건축공사/);
+  assert.match(r2.text, /토건공사\]」[^\n]*— 제목·본문 앞부분 확인/);
+  const t2 = await call('kr_official', { section: 'local' }, opts);
+  assert.match(t2.text, /본문 앞부분\(상세 페이지\): 우리 군 온산읍 원산리 892번지/);
+  assert.match(t2.text, /첨부 파일\(열지 않음\): 예정공정표\.pdf/);
+  assert.match(t2.text, /상세 페이지: 못 읽음\(ReadTimeout\) — 제목만 확인/);
+  const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=168', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: new Date('2026-10-26T01:00:00Z') })).json();
+  assert.deepEqual(items.items.find((x) => x.id === 'local:울주군:68156').check.terms, ['울주', '산소공장', '공장']);
   assert.deepEqual(dueAt(new Date('2026-10-26T21:30:00Z')), ['page-watch.yml', 'kr-local.yml']);  // Tue 06:30 KST
   assert.deepEqual(dueAt(new Date('2026-10-27T07:20:00Z')), ['kr-local.yml']);                    // Tue 16:20 KST
 });

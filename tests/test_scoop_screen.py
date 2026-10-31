@@ -150,6 +150,32 @@ class Selection(unittest.TestCase):
         plain = {"id": "clue:p", "terms": ["분할"]}
         self.assertEqual(s.apply_body_titles([plain]), ([plain], {"read": 0, "procedural": 0, "unread": 0}))
 
+    def test_supply_contracts_are_searched_by_the_contract_name(self):
+        # 10-31: 단일판매ㆍ공급계약 공시는 제목 낱말이 모두 상투어라 심사에서 빠졌다(대한전선 10-27·두산 10-26·효성 10-27)
+        def clue(i, company, title, source="DART"):
+            return {"id": i, "team": "t", "published": "2026-10-27", "source": source, "companies": [company] if company else [],
+                    "routine": False, "tier": "공개 원자료 추적", "title": title,
+                    "url": f"https://dart.fss.or.kr/dsaf001/main.do?rcpNo=2026102780{i[-4:]}"}
+        clues = {"items": [clue("c0001", "대한전선", "대한전선 단일판매ㆍ공급계약체결"),
+                           # 회사 칸이 빈 '그 외' 팀 공시: 제목 앞 이름이 심사 대상 회사면 그 회사
+                           clue("c0002", None, "일진전기 · 공급계약 · 단일판매ㆍ공급계약체결"),
+                           clue("c0003", None, "효성중공업 · 건설/주상복합 — 공식 2025→2026 동일기간·단위 숫자 793315 → 101198", "DART_METRIC"),
+                           clue("c0004", None, "효성중공업 · 임원ㆍ주요주주특정증권등소유상황보고서"),
+                           clue("c0005", None, "씨에스윈드 · [기재정정]단일판매ㆍ공급계약체결")]}
+        rows = {r["id"]: r for r in s.select(clues, {}, now=dt.datetime(2026, 10, 31, 7, 10, tzinfo=KST))}
+        self.assertEqual(set(rows), {"clue:c0001", "clue:c0002"})  # 수치 단서·소유상황 형식명·대상 밖 회사는 그대로 뺀다
+        self.assertEqual((rows["clue:c0002"]["company"], rows["clue:c0002"]["bodyTitle"]), ("일진전기", True))
+        # 원문 체결계약명(엘에스일렉트릭 20261019800108 형식)
+        rows["clue:c0001"]["filing"] = {"type": "공급계약", "facts": [["체결계약명", "765kV 초고압 전력케이블 공급"], ["계약상대", "한국전력공사"]]}
+        rows["clue:c0002"]["filing"] = {"type": "공급계약", "facts": [["체결계약명", "-"], ["계약상대", "비공개"]]}
+        kept, count = s.apply_body_titles(list(rows.values()))
+        self.assertEqual(count, {"read": 1, "procedural": 0, "unread": 1})  # 계약명 '-'는 못 읽은 것과 같다
+        self.assertEqual(s.queries(kept[0]), ["대한전선 초고압", "대한전선 초고압 전력케이블"])  # 한글 낱말 먼저
+        art = {"title": "대한전선, 한전에 765kV 초고압 전력케이블 1200억 공급", "text": "", "url": "k", "date": "2026-10-28"}
+        self.assertEqual(s.judge(kept[0], channels([art]), now=dt.datetime(2026, 10, 31, 7, 10, tzinfo=KST))[0], "관련 보도 있음")
+        # 긴 회사 이름부터 지운다(한국타이어앤테크놀로지 → '앤테크놀로지'가 낱말로 남던 것)
+        self.assertEqual(s.terms_from("한국타이어앤테크놀로지 · 생산설비", "한국타이어"), ["생산설비"])
+
     def test_first_seen_is_carried_so_old_candidates_are_not_new(self):
         rows = [{"id": "clue:a"}, {"id": "clue:b"}, {"id": "clue:c"}]
         prev = {"generatedAt": "2026-10-29T07:10:00+09:00",
@@ -278,6 +304,76 @@ class Screen(unittest.TestCase):
         self.assertEqual(doc["confirmedScoops"], 0)
         self.assertEqual(sum(doc["counts"].values()), len(rows))
 
+    def test_material_correction_is_checked_for_its_own_coverage(self):
+        # 두산에너빌리티 20261026800529(10-31 운영): 원 계약 기사는 있으나 정정(계약기간 종료일 +7개월) 기사는 따로 찾아야 했다
+        now = dt.datetime(2026, 10, 31, 7, 10, tzinfo=KST)
+        fix = {"reason": "계약기간 종료일 변경", "changes": [["계약기간 - 종료일", "2029-07-01", "2030-01-28"]], "material": ["종료일 +7개월"]}
+        row = {"id": "clue:ds", "kind": "단서", "company": "두산에너빌리티", "title": "두산에너빌리티 [기재정정]단일판매ㆍ공급계약체결",
+               "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261026800529", "published": "2026-10-26",
+               "terms": ["영광", "야월", "해상풍력"], "alts": {}, "verdict": "관련 보도 있음", "filing": {"type": "공급계약", "correction": fix}}
+        cc = s.correction_check_of(row)
+        self.assertEqual((cc["terms"], cc["must"], cc["since"], cc["queries"]),
+                         (["연장"], ["영광", "야월"], "2026-10-26", ["두산에너빌리티 영광 야월", "두산에너빌리티 야월 연장"]))
+        seen = []
+
+        def get(url, params=None, headers=None, timeout=None):
+            if "naverapihub" in url:
+                seen.append(params["query"])
+                return R(200, {"items": [
+                    {"title": "두산에너빌리티, 영광 야월 해상풍력 EPC 5750억 수주", "description": "", "originallink": "https://n/old",
+                     "pubDate": "Wed, 31 Dec 2025 09:00:00 +0900"},
+                    {"title": "두산에너빌리티 해상풍력 공사기간 연장", "description": "신안 우이 해상풍력", "originallink": "https://n/other",
+                     "pubDate": "Tue, 27 Oct 2026 09:00:00 +0900"}]})
+            return R(200, content=b"<rss><channel></channel></rss>")
+        with patch.dict(os.environ, {"NAVER_CLIENT_ID": "i", "NAVER_CLIENT_SECRET": "k"}):
+            rows, n = s.check_corrections([row], now=now, get=get, sleep=lambda x: None)
+        got = rows[0]["correctionCheck"]
+        self.assertEqual((n, seen, got["word"], got["verdict"]), (1, cc["queries"], "연장", "미보도 후보"))
+        # 원 계약 기사(정정 전)는 판정에 안 세고, 다른 해상풍력(신안 우이) 연장 기사는 사업 낱말이 없어 약한 근거
+        self.assertEqual([e["url"] for e in got["evidence"]], ["https://n/other"])
+        self.assertIn("영광·야월 없음", got["evidence"][0]["why"])
+
+        def hit(url, params=None, headers=None, timeout=None):
+            if "naverapihub" in url:
+                return R(200, {"items": [{"title": "두산에너빌리티, 영광 야월 해상풍력 계약기간 7개월 연장", "description": "",
+                                          "originallink": "https://n/hit", "pubDate": "Thu, 29 Oct 2026 09:00:00 +0900"}]})
+            return R(200, content=b"<rss><channel></channel></rss>")
+        row.pop("correctionCheck")
+        with patch.dict(os.environ, {"NAVER_CLIENT_ID": "i", "NAVER_CLIENT_SECRET": "k"}):
+            rows, _ = s.check_corrections([row], now=now, get=hit, sleep=lambda x: None)
+        self.assertEqual(rows[0]["correctionCheck"]["verdict"], "관련 보도 있음")
+        # 가이던스 정정(공정공시): '하향' 낱말, 실적 기사의 '매출 축소'는 근거가 아니고, 제목에 사업 낱말이 있는 기사가 앞
+        guide = {"id": "clue:hm", "kind": "단서", "company": "현대차", "title": "현대자동차 · [기재정정]장래사업ㆍ경영계획(공정공시)",
+                 "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261029800231", "published": "2026-10-29", "terms": ["가이던스"],
+                 "alts": {}, "verdict": "관련 보도 있음",
+                 "filing": {"type": "공정공시", "correction": {"reason": "2026년 가이던스 업데이트", "material": ["예상투자금액 -10%"]}}}
+        self.assertEqual(s.correction_check_of(guide)["queries"], ["현대차 가이던스", "현대차 가이던스 하향"])
+
+        def news(url, params=None, headers=None, timeout=None):
+            if "naverapihub" in url:  # 10-31 운영에서 실제로 잡힌 제목들
+                return R(200, {"items": [
+                    {"title": "파업 차질 현실화…현대차, 3분기 영업익 늘었지만 매출 축소", "description": "연간 가이던스는 유지",
+                     "originallink": "https://n/strike", "pubDate": "Thu, 29 Oct 2026 15:00:00 +0900"},
+                    {"title": "현대차, 매출 줄었지만 영업익 증가…연간 목표 판매량은 '하향조정'", "description": "가이던스를 낮췄다",
+                     "originallink": "https://n/hk", "pubDate": "Thu, 29 Oct 2026 16:00:00 +0900"},
+                    {"title": "현대차, 2026년 연간 영업이익률 가이던스 하향 조정", "description": "",
+                     "originallink": "https://n/g", "pubDate": "Fri, 30 Oct 2026 09:00:00 +0900"}]})
+            return R(200, content=b"<rss><channel></channel></rss>")
+        with patch.dict(os.environ, {"NAVER_CLIENT_ID": "i", "NAVER_CLIENT_SECRET": "k"}):
+            rows, _ = s.check_corrections([guide], now=now, get=news, sleep=lambda x: None)
+        g = rows[0]["correctionCheck"]
+        self.assertEqual((g["word"], g["verdict"], [e["url"] for e in g["evidence"]]), ("하향", "관련 보도 있음", ["https://n/g", "https://n/hk"]))
+        # 낱말 고르기: 해지 > 금액 > 기간, 취득완료로 당겨지면 '완료'
+        self.assertEqual(s.change_word({"material": ["계약금액 -40%", "사유에 해지·취소"]}), "해지")
+        self.assertEqual(s.change_word({"material": ["예상투자금액 -10%"]}), "감액")
+        self.assertEqual(s.change_word({"material": ["취득예정일자 -36개월"], "reason": "취득완료(취득가액 및 취득일자 확정)에 따른 정정"}), "완료")
+        self.assertIsNone(s.change_word({"changes": [["a", "1", "2"]]}))
+        self.assertEqual(s.change_word({"material": ["계약기간 확정"]}), "착공")  # 착공지시서 수령으로 기간이 정해짐
+        self.assertIsNone(s.change_word({"material": ["계약상대 공개(현대건설)", "공시유보 해제"]}))  # 기사는 상대 이름을 쓴다
+        # 미보도 후보(원 공시도 못 찾음)·큰 변경 없음·사업 낱말 없음은 다시 찾지 않는다
+        for other in ({**row, "verdict": "미보도 후보"}, {**row, "filing": {"correction": {"material": []}}}, {**row, "terms": ["수주", "공급계약"]}):
+            self.assertEqual(s.check_corrections([dict(other)], now=now, get=get, sleep=lambda x: None)[1], 0)
+
     def test_without_naver_everything_is_unconfirmed(self):
         def get(url, params=None, headers=None, timeout=None):
             return R(200, content=b"<rss><channel></channel></rss>")
@@ -310,6 +406,38 @@ class Screen(unittest.TestCase):
         self.assertEqual(out[0]["queries"], ["고려아연 2025가합10683", "고려아연 주주대표소송"])
         self.assertEqual((out[0]["firstVerdict"], out[0]["firstQueries"]), ("미보도 후보", ["고려아연 소송등의판결"]))
         self.assertEqual(out[0]["filing"]["type"], "소송판결")
+
+    def test_asset_filing_is_searched_by_its_place(self):
+        # 금호타이어 20261027800641 [기재정정]유형자산취득결정(자율공시) — 10-31 운영 원문 요점 그대로
+        facts = [["취득물건구분", "토지 및 건물"], ["취득물건명", "전라남도 함평군 빛그린국가산업단지 2단계 사업구역 소재 토지"],
+                 ["취득가액(원)", "116,081,801,890"], ["거래상대", "한국토지주택공사(LH)"], ["취득목적", "금호타이어 광주공장 이전 신부지 확보"]]
+        row = {"id": "clue:kt", "kind": "단서", "company": "금호타이어", "title": "금호타이어 · [기재정정]유형자산취득결정(자율공시)",
+               "terms": ["투자"], "alts": {"투자": ["투자", "취득", "증설"]}, "numbers": [], "ratios": [], "unit": "", "strength": 1,
+               "published": "2026-10-27", "filing": {"type": "유형자산취득", "facts": facts}}
+        terms, alts = s.asset_terms(row)
+        self.assertEqual(terms, ["부지", "함평", "투자"])
+        row.update(terms=terms, alts=alts)
+        self.assertEqual(s.queries(row), ["금호타이어 부지", "금호타이어 부지 함평"])
+        hit = {"title": "금호타이어 함평 이전 부지 1160억원에 취득 완료", "text": "", "url": "v", "date": "2026-10-28"}
+        report = {"title": "[리포트 브리핑]금호타이어, '마진 방어 상에서 EU 반덤핑 관세 영향이라는 변수' 목표가 8,300원",
+                  "text": "투자 의견", "url": "r", "date": "2026-10-30"}
+        verdict, ev = s.judge(row, channels([report, hit]), now=dt.datetime(2026, 10, 31, 7, 10, tzinfo=KST))
+        self.assertEqual((verdict, [e["url"] for e in ev]), ("관련 보도 있음", ["v"]))  # 리포트 기사는 근거가 아님
+        # 시·군을 못 읽으면 그대로, 토지가 아니면 제목 낱말 + 시·군
+        self.assertIsNone(s.asset_terms({**row, "filing": {"type": "유형자산취득", "facts": [["취득물건명", "기계장치"]]}}))
+        plant = {**row, "terms": ["투자"], "filing": {"type": "신규시설투자", "facts": [["투자구분", "신규시설투자"],
+                 ["투자대상", "충청북도 청주시 흥덕구 배전 공장 증설"], ["투자목적", "생산능력 확대"]]}}
+        self.assertEqual(s.asset_terms(plant)[0], ["투자", "청주"])
+        self.assertEqual(s.asset_terms({**plant, "filing": {"type": "유형자산처분", "facts": [["처분물건구분", "토지"],
+                         ["처분물건명", "광주광역시 광산구 소촌동 공장 부지"]]}})[0], ["부지", "광주", "투자"])
+        self.assertIsNone(s.asset_terms({**row, "filing": {"type": "공급계약", "facts": facts}}))
+        # '투자'는 증권사 이름·투자의견 속에서 맞지 않는다(그 전에는 '금호타이어 투자' 질의의 근거가 이 리포트 기사였다)
+        plain_row = {**row, "terms": ["투자"], "alts": {"투자": ["투자", "취득", "증설"]}}
+        broker = {"title": "[리포트 브리핑]금호타이어, 목표가 8,300원 - 한화투자증권 - 뉴스핌", "text": "투자의견 매수", "url": "b", "date": "2026-10-30"}
+        self.assertEqual(s.judge(plain_row, channels([broker]), now=dt.datetime(2026, 10, 31, 7, 10, tzinfo=KST))[1], [])
+        real = {"title": "금호타이어, 함평 신공장에 4천억 투자", "text": "", "url": "i", "date": "2026-10-30"}
+        self.assertEqual([e["url"] for e in s.judge(plain_row, channels([broker, real]), now=dt.datetime(2026, 10, 31, 7, 10, tzinfo=KST))[1]], ["i"])
+        self.assertEqual(s.event_text("투자자산 투자자 보호"), "투자자산 · 보호")
 
     def test_trade_plan_is_searched_by_the_reporting_holder(self):
         row = {"id": "clue:yp", "kind": "단서", "company": "영풍", "title": "영풍 · 임원ㆍ주요주주특정증권등거래계획보고서",

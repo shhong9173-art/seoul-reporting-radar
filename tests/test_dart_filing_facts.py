@@ -51,6 +51,37 @@ HMC_PLAN = (table([["정정일자", "2026-10-29"], ["2.주요내용 및 추진 �
             + table([["1. 장래계획 사항", "2026년 현대자동차 가이던스"], [("2. 주요내용 및 추진일정", 2), "목적", "2026년 경영계획 공개를 통한 투자자 이해 제고"],
                      ["세부내용", "◎ 판매, 수익성, 투자 등 2026년 주요 경영 계획 및 정책 방향성 ·2026년 판매목표 : 400만대"]]))
 
+# 현대자동차 20261029800231 정정 표 전체(2026-10-31 source_document 원문 그대로, 칸 안 줄바꿈은 <br>)
+HMC_FIX = table([["정정일자", "2026-10-29"], ["1. 정정관련 공시서류", "장래사업ㆍ경영 계획(공정공시)"], ["2. 정정관련 공시서류제출일", "2026-01-29"],
+                 ["3. 정정사유", "경영환경 등의 변화를 반영하여 연초 공개한 2026년 가이던스 업데이트"], ["4. 정정사항", ""], ["정정항목", "정정전", "정정후"],
+                 ["2.주요내용 및 추진<br>일정<br>- 세부내용",
+                  "·2026년 판매목표 : 416만대<br>·2026년 연결 기준 영업이익률 목표<br>: 6.3 ~ 7.3% 수준<br>·2026년 투자계획 : 17.8조원",
+                  "·2026년 판매목표 : 400만대<br>·2026년 연결 기준 영업이익률 목표<br>: 5.5 ~ 6.5% 수준<br>·2026년 투자계획 : 16조원"],
+                 ["2. 주요내용 및 추진일정<br>- 예상투자금액", "17.8조원", "16조원"], ["4. 이사회결의일<br>(결정일)", "2026-01-29", "2026-10-29"],
+                 ["5.정보제공내역<br>- 정보제공(예정)일시", "2026-01-29", "2026-10-29"],
+                 ["5.정보제공내역<br>- 행사명(장소)", "현대자동차 2025년 4분기 경영실적 발표<br>(Conference Call)", "현대자동차 2026년 3분기 경영실적 발표<br>(Conference Call)"],
+                 ["※ 관련공시", "2026-01-05 영업실적 등에 대한 전망(공정공시)", "2026-01-05 영업실적 등에 대한 전망(공정공시)<br>2026-01-29 장래사업ㆍ경영계획(공정공시)"]])
+# 효성중공업 20261027800518 ([기재정정]단일판매ㆍ공급계약체결, 2026-10-31 source_document로 읽은 구조): 정정 표 + 본문 표
+HYO_FIX = table([["정정일자", "2026-10-26"], ["1. 정정관련 공시서류", "[정정]단일판매ㆍ공급계약 체결"], ["2. 정정관련 공시서류제출일", "2026-02-10"],
+                 ["3. 정정사유", "계약 사양 일부 변경에 따른 계약금액 조정"], ["4. 정정사항", ""], ["정정항목", "정정전", "정정후"],
+                 ["2. 계약내역 - 계약금액(원)", "113,586,046,173", "113,044,698,813"], ["2. 계약내역 - 매출액대비(%)", "3.24", "3.22"],
+                 ["9. 기타 투자판단과 관련한 중요사항", "(...) NOK 973,149,813을 계약 체결일(2023-11-08) 매매기준율(1NOK = 116.72원)을 적용하여 환산한 금액임. (...)",
+                  "(...) NOK 968,511,813을 계약 체결일(2023-11-08) 매매기준율(1NOK = 116.72원)을 적용하여 환산한 금액임. (...)"]])
+HYO_BODY = table([["- 체결계약명", "420kV 변압기 등 공급계약"], [("2. 계약내역", 3), "계약금액(원)", "113,044,698,813"], ["최근매출액(원)", "3,510,143,917,637"],
+                  ["매출액대비(%)", "3.22"], ["3. 계약상대", "노르웨이 송전청(Statnett SF)"], ["4. 판매ㆍ공급지역", "노르웨이"], ["7. 계약(수주)일자", "2023-11-08"]])
+
+# LS전선 20261030000651 ([기재정정]주요사항보고서(교환사채권발행결정), dart4.xsd XML, 2026-10-31 source_document로 읽은 구조):
+# '항 목 | 정정사유 | 정 정 전 | 정 정 후' 4칸 표, 값 칸은 <TE>, 교환청구기간은 칸 안 표, 긴 칸은 '주1) 정정 전' 각주
+LSC_FIX = ('<TABLE><TR><TD>1. 정정대상 공시서류 :</TD><TE>주요사항보고서(교환사채권발행결정)</TE></TR></TABLE>'
+           '<TABLE><TR><TD>항 목</TD><TD>정정사유</TD><TD>정 정 전</TD><TD>정 정 후</TD></TR>'
+           '<TR><TD>5. 사채만기일</TD><TD>납입일 변경에 따른 정정</TD><TE>2031년 11월 09일</TE><TE>2031년 11월 06일</TE></TR>'
+           '<TR><TD>7. 원금상환방법</TD><TD>납입일 변경에 따른 정정</TD><TE>주1) 정정 전</TE><TE>주2) 정정 후</TE></TR>'
+           '<TR><TD>9. 교환에 관한 사항 - 교환청구기간</TD><TD>납입일 변경에 따른 정정</TD>'
+           '<TD><TABLE><TR><TD>시작일</TD><TD>2026년 11월 10일</TD></TR></TABLE></TD><TD><TABLE><TR><TD>시작일</TD><TD>2026년 11월 09일</TD></TR></TABLE></TD></TR>'
+           '<TR><TD>11. 납입일</TD><TD>납입일 변경에 따른 정정</TD><TE>2026년 11월 09일</TE><TE>2026년 11월 06일</TE></TR>'
+           '<TR><TD>18. 공정거래위원회 신고대상 여부</TD><TD>인수인 최종 확정에 따른 정정</TD><TE>미해당</TE><TE>해당</TE></TR></TABLE>'
+           '<P>주1) 정정 전 만기일까지 …</P>')
+
 
 class R:
     def __init__(self, body, code=200):
@@ -105,6 +136,120 @@ class Facts(unittest.TestCase):
                  '<TR><TD>보고자 :</TD><TU AUNIT="Y">장세환</TU></TR></TBODY></TABLE><TEXT>본문</TEXT>')
         got = dict(f.facts("임원ㆍ주요주주특정증권등거래계획보고서", [cover])["facts"])
         self.assertEqual((got["보고자"], got["거래시작일(결제일)"]), ("장세환", "2026년 11월 27일"))
+
+    def test_correction_table_and_line(self):
+        x = f.facts("[기재정정]단일판매ㆍ공급계약체결", [HYO_FIX + HYO_BODY])
+        fix = x["correction"]
+        self.assertEqual(fix["reason"], "계약 사양 일부 변경에 따른 계약금액 조정")
+        self.assertEqual(fix["changes"][0], ["계약내역 - 계약금액(원)", "113,586,046,173", "113,044,698,813"])
+        line = f.correction_line(fix)
+        self.assertTrue(line.startswith("정정(계약 사양 일부 변경에 따른 계약금액 조정): 계약내역 - 계약금액(원) "
+                                        "113,586,046,173원(약 1,136억원) → 113,044,698,813원(약 1,130억원)(-0.5%)"))
+        # 긴 설명 칸에서 숫자만 바뀐 곳은 꺼낸다(외화 계약금액)
+        self.assertTrue(line.endswith(" · 기타 투자판단과 관련한 중요사항: NOK 973,149,813 → 968,511,813"))
+        self.assertNotIn("correction", f.facts("단일판매ㆍ공급계약체결", [LSE]))  # 정정 공시가 아니면 없음
+        self.assertEqual(dict(x["facts"])["체결계약명"], "420kV 변압기 등 공급계약")  # 본문 표는 그대로
+
+    def test_material_corrections(self):
+        self.assertNotIn("material", f.facts("[기재정정]단일판매ㆍ공급계약체결", [HYO_FIX + HYO_BODY])["correction"])  # -0.5%
+        # 두산에너빌리티 20261026800529(10-31 운영): 계약기간 종료일 2029-07-01 → 2030-01-28
+        dsn = table([["3. 정정사유", "계약기간 종료일 변경"], ["정정항목", "정정전", "정정후"], ["5. 계약기간 - 종료일", "2029-07-01", "2030-01-28"]])
+        self.assertEqual(f.correction([dsn])["material"], ["종료일 +7개월"])
+        cut = table([["3. 정정사유", "발주처 요청에 따른 계약 일부 해지"], ["정정항목", "정정전", "정정후"],
+                     ["2. 계약내역 - 계약금액(원)", "100,000,000,000", "60,000,000,000"]])
+        self.assertEqual(f.correction([cut])["material"], ["사유에 해지·취소", "계약금액 -40%"])
+        small = table([["정정항목", "정정전", "정정후"], ["5. 계약기간 - 종료일", "2029-07-01", "2029-08-15"]])
+        self.assertNotIn("material", f.correction([small]))
+
+    def test_numbers_inside_text_cells(self):
+        # 현대차 20261029800231 정정 표(2026-10-31 source_document로 읽은 구조) — 판매목표·영업이익률·투자계획이 '세부내용' 한 칸에
+        fix = f.correction([HMC_FIX])
+        self.assertEqual(fix["material"], ["예상투자금액 -10%"])  # 글로 적은 금액 17.8조원 → 16조원
+        line = f.correction_line(fix)
+        self.assertEqual(line, "정정(경영환경 등의 변화를 반영하여 연초 공개한 2026년 가이던스 업데이트): "
+                         "주요내용 및 추진 일정 - 세부내용: 2026년 판매목표 416만대 → 400만대(-3.8%), 연결 기준 영업이익률 목표 6.3~7.3% → 5.5~6.5%, "
+                         "2026년 투자계획 17.8조원 → 16조원(-10.1%) · 주요내용 및 추진일정 - 예상투자금액 17.8조원 → 16조원(-10.1%) · "
+                         "이사회결의일 (결정일) 2026-01-29 → 2026-10-29 · 정보제공내역 - 정보제공(예정)일시 2026-01-29 → 2026-10-29 · "
+                         "정보제공내역 - 행사명(장소): 현대자동차 2025년 4분기 → 2026년 3분기 · 문구·표 변경 1곳(※ 관련공시)")
+        self.assertEqual(f.correction_short(fix), "정정: 2026년 판매목표 416만대→400만대(-3.8%) 외 2곳 · 예상투자금액 17.8조원→16조원(-10.1%) · "
+                         "이사회결의일 2026-01-29→2026-10-29")
+        # 현대모비스 20261028000138: 한 칸에 시작일·종료일이 붙어 있던 정정 — 바뀐 날짜만
+        mobis = table([["정정항목", "정정전", "정정후"], ["분할일정 - 분할반대의사통지 접수기간",
+                       "시작일 : 2026년 11월 09일<br>종료일 : 2026년 11월 23일", "시작일 : 2026년 10월 28일<br>종료일 : 2026년 11월 23일"]])
+        self.assertEqual(f.correction_line(f.correction([mobis])), "정정: 분할일정 - 분할반대의사통지 접수기간: 시작일 2026-11-09 → 2026-10-28")
+        self.assertEqual([f.korean_amount(v) for v in ("3조 4,000억원", "1,234억원", "16조원", "400만대", "-")],
+                         [3_400_000_000_000, 123_400_000_000, 16_000_000_000_000, None, None])
+        # 낱말이 바뀌거나 더해진 칸은 숫자만 꺼내지 않는다(뜻을 지어내지 않음)
+        self.assertIsNone(f.number_changes("주1) 정정 전", "주2) 정정 후"))
+        self.assertIsNone(f.number_changes("주1) 참조", "주2) 참조"))
+        self.assertIsNone(f.number_changes("2026-01-05 영업실적 전망", "2026-01-05 영업실적 전망 2026-01-29 경영계획"))
+        self.assertIsNone(f.number_changes("A사와 100억원 계약", "B사와 100억원 계약"))
+        self.assertIsNone(f.number_changes("전혀 다른 문장 1개", "완전히 새로 쓴 설명 2개 추가"))
+        # 긴 칸: 120자에서 잘리기 전 전체 문구로 찾는다
+        lead = "본 계약은 발주처와의 협의에 따라 체결되었으며 세부 조건은 당사와 발주처 간 비밀유지 약정에 따라 공개하지 않습니다. " * 2
+        long_b, long_a = lead + "선급금 100억원", lead + "선급금 90억원"
+        lf = f.correction([table([["정정항목", "정정전", "정정후"], ["9. 기타 투자판단과 관련한 중요사항", long_b, long_a]])])
+        self.assertEqual(lf["numbers"], [[["선급금", "100억원", "90억원", -10.0]]])
+        self.assertTrue(f.correction_line(lf).endswith("기타 투자판단과 관련한 중요사항: 선급금 100억원 → 90억원(-10.0%)"))
+        self.assertIsNone(f.number_changes(long_b[:117] + "…", long_a[:117] + "…"))
+
+    def test_period_confirmed_and_counterparty_revealed(self):
+        # LS일렉트릭 20260605800561 정정 표(2026-10-31 source_document로 읽은 원문 그대로): 계약기간 '-' → 시작·종료일
+        ntp = table([["정정일자", "2026-06-05"], ["3. 정정사유", "착공지시서(NTP) 수령에 따른 계약기간 확정"], ["정정항목", "정정전", "정정후"],
+                     ["5. 계약기간", "-", "시작일 : 2026-06-05<br>종료일 : 2028-07-20"],
+                     ["8. 기타 투자판단과 관련한 중요사항", "- 상기 5의 계약기간은 착공지시서(NTP) 발행일을 기준으로 상업운전개시(COD)까지 약 21.5개월, "
+                      "최종완공까지 약 25.5개월로 예정되어 있으며, 실제 착공지시서 수령 시 확정 계약기간에 대하여 추가 공시할 예정입니다.",
+                      "- 상기 5의 계약기간은 착공지시서(NTP)발행일인 2026년 6월 5일부터 25.5개월 후인 2028년 7월 20일입니다."]])
+        fix = f.correction([ntp])
+        self.assertEqual(fix["material"], ["계약기간 확정"])
+        self.assertIn("계약기간 - → 시작일 : 2026-06-05 종료일 : 2028-07-20", f.correction_line(fix))
+        # 계약상대 공개·공시유보 해제(형식: 공급계약 본문 '8. 공시유보 관련내용' 칸 — 실제 해제 정정 예시는 아직 없음)
+        reveal = table([["3. 정정사유", "공시유보 기한 도래"], ["정정항목", "정정전", "정정후"], ["3. 계약상대", "-", "Saudi Electricity Company"],
+                        ["8. 공시유보 관련내용 - 유보사유", "영업비밀 보호", "-"], ["8. 공시유보 관련내용 - 유보기한", "2026-10-31", "-"]])
+        self.assertEqual(f.correction([reveal])["material"], ["계약상대 공개(Saudi Electricity Company)", "공시유보 해제"])
+        self.assertEqual(f.correction([table([["정정항목", "정정전", "정정후"], ["3. 계약상대", "비공개(영업비밀)", "현대건설"]])])["material"], ["계약상대 공개(현대건설)"])
+        # 이름만 고친 정정(이미 공개된 상대)·유보 유지는 큰 변경이 아니다
+        same = table([["정정항목", "정정전", "정정후"], ["3. 계약상대", "LS ELECTRIC America", "LS ELECTRIC America Inc."],
+                      ["8. 공시유보 관련내용 - 유보기한", "2026-10-31", "2027-04-30"]])
+        self.assertNotIn("material", f.correction([same]))
+
+    def test_four_column_correction_of_any_filing(self):
+        fix = f.correction([LSC_FIX])
+        self.assertEqual(fix["reason"], "납입일 변경에 따른 정정 · 인수인 최종 확정에 따른 정정")
+        self.assertEqual([c[0] for c in fix["changes"]], ["사채만기일", "원금상환방법", "교환에 관한 사항 - 교환청구기간", "납입일",
+                                                           "공정거래위원회 신고대상 여부"])
+        self.assertNotIn("material", fix)  # 3일 당김은 큰 변경 아님
+        self.assertEqual(f.correction_short(fix), "정정: 사채만기일 2031-11-09→2031-11-06 · 납입일 2026-11-09→2026-11-06 · 공정거래위원회 신고대상 여부 미해당→해당")
+        self.assertEqual(f.correction_line(fix), "정정(납입일 변경에 따른 정정 · 인수인 최종 확정에 따른 정정): 사채만기일 2031-11-09 → 2031-11-06 · "
+                         "납입일 2026-11-09 → 2026-11-06 · 공정거래위원회 신고대상 여부 미해당 → 해당 · "
+                         "문구·표 변경 2곳(원금상환방법, 교환에 관한 사항 - 교환청구기간)")
+        moved = f.correction([LSC_FIX.replace("2031년 11월 06일", "2032년 05월 06일")])
+        self.assertEqual(moved["material"], ["사채만기일 +6개월"])
+
+    def test_unknown_type_correction_is_read_for_its_table_only(self):
+        cand = {"id": "clue:lsc", "kind": "단서", "company": "LS전선", "title": "LS전선 · 정기·주요공시 · [기재정정]주요사항보고서(교환사채권발행결정)",
+                "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261030000651"}
+        plain_one = {"id": "clue:x", "kind": "단서", "company": "LS전선", "title": "LS전선 · 주요사항보고서(교환사채권발행결정)",
+                     "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260911000001"}
+        used = f.enrich([cand, plain_one], "k", {}, fetch_documents=lambda k, r: [LSC_FIX], get=lambda *a, **k: R({"status": "013"}))
+        self.assertEqual(used, 1)  # 정정이 아닌 미지원 종류는 읽지 않는다
+        self.assertIsNone(cand["filing"]["type"])
+        self.assertTrue(cand["filing"]["correctionShort"].startswith("정정: 사채만기일 2031-11-09→2031-11-06"))
+        self.assertNotIn("filing", plain_one)
+
+    def test_same_counterparty_other_contract_is_not_a_change(self):
+        # 10-31 운영: 9-30 다른 Statnett 계약(3,833억)과 비교해 '-71%'로 보였다 — 계약일·계약명이 다르면 다른 계약
+        cur = f.facts("[기재정정]단일판매ㆍ공급계약체결", [HYO_FIX + HYO_BODY])["raw"]
+        other = f.facts("단일판매ㆍ공급계약체결", [table([["- 체결계약명", "400kV 변압기 공급계약"], [("2. 계약내역", 1), "계약금액(원)", "383,338,819,710"],
+                                                     ["3. 계약상대", "노르웨이 송전청(Statnett SF)"], ["7. 계약(수주)일자", "2025-06-01"]])])["raw"]
+        lines, _ = f.compare("공급계약", cur, [({"date": "20260930", "rcept_no": "20260930800924"}, other)], 40)
+        self.assertTrue(lines[0].startswith("같은 계약상대의 다른 계약 직전 공시 2026-09-30(접수 20260930800924, 계약일 2025-06-01 ↔ 이번 2023-11-08"))
+        self.assertNotIn("%)", lines[0])
+        same = f.facts("단일판매ㆍ공급계약체결", [table([["- 체결계약명", "420kV 변압기 등 공급계약"], [("2. 계약내역", 1), "계약금액(원)", "113,586,046,173"],
+                                                    ["3. 계약상대", "노르웨이 송전청(Statnett SF)"], ["7. 계약(수주)일자", "2023-11-08"]])])["raw"]
+        lines, _ = f.compare("공급계약", cur, [({"date": "20260210", "rcept_no": "20260210800001"}, same)], 40)
+        self.assertEqual(lines[0], "같은 계약(계약일·계약명 같음) 직전 공시 2026-02-10(접수 20260210800001): "
+                                   "113,586,046,173원(약 1,136억원) → 113,044,698,813원(약 1,130억원)(-0.5%)")
 
     def test_types(self):
         self.assertEqual(f.filing_type("[기재정정]타인에대한채무보증결정"), "채무보증")
@@ -186,6 +331,14 @@ class Enrich(unittest.TestCase):
         self.assertEqual(used, 1)
         self.assertEqual((cand["filing"]["type"], cand["filing"]["compare"], cand["filing"]["routine"]), ("공정공시", [], None))
         self.assertEqual(dict(cand["filing"]["facts"])["공시제목"], "2024년 ~ 2026년 자기주식 취득 및 소각 계획")
+
+    def test_correction_reaches_the_candidate(self):
+        cand = {"id": "clue:h", "kind": "단서", "company": "효성중공업", "title": "효성중공업 · [기재정정]단일판매ㆍ공급계약체결",
+                "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261027800518"}
+        f.enrich([cand], "k", {}, fetch_documents=lambda k, r: [HYO_FIX + HYO_BODY], get=lambda *a, **k: R({"status": "013"}))
+        self.assertEqual(cand["filing"]["correction"]["reason"], "계약 사양 일부 변경에 따른 계약금액 조정")
+        self.assertIn("(-0.5%)", cand["filing"]["correctionLine"])
+        self.assertEqual(cand["filing"]["correctionShort"], "정정: 계약금액 1,136억→1,130억(-0.5%) · 매출액대비 3.24→3.22 · NOK 973,149,813→968,511,813")
 
     def test_budget_marks_unread(self):
         cands = [{"id": f"clue:{i}", "kind": "단서", "company": "X", "title": "X · 타인에대한채무보증결정",

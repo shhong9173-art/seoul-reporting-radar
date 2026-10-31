@@ -82,6 +82,7 @@ const ALT = {
   회생: ['회생', '법정관리', '파산', '기업회생', '워크아웃'],
   허가: ['허가', '인가', '승인', '전기위원회'], 법인: ['법인', '현지법인', '자회사', '설립'], 영국: ['영국', 'UK'], 원안위: ['원안위', '원자력안전위원회', '의결', '심의'],
   발주: ['발주', '입찰', '낙찰', '구매'],
+  산소공장: ['산소공장', '산소 공장', '산소플랜트', 'ASU', '공기분리'],
   환경영향평가: ['환경영향평가', '환경평가'], 산업단지: ['산업단지', '산단'], 이전: ['이전', '옮겨', '옮긴다'], 매립: ['매립', '매립장'],
 };
 const ASX_KO = { PLS: '필바라', ARU: '아라푸라', '01958': 'BAIC' };
@@ -162,6 +163,8 @@ export function siteCity(site) {
 // 지자체 고시·공고 제목의 사업 낱말 → 기사가 쓸 낱말(안전점검·건설공사 공고의 기사는 '증설·신설·착공'으로 난다)
 export function localWord(title) {
   const t = String(title ?? '');
+  // 산소공장(공기분리장치 ASU): 기사는 '산소공장 증설'로 쓴다(10-20 전자신문 「고려아연, 산소공장 증설 발주 87% 완료」)
+  if (/(?<![A-Za-z])ASU\b|산소\s*(?:공장|플랜트)|공기\s*분리/.test(t)) return '산소공장';
   if (/환경영향평가/.test(t)) return '환경영향평가';
   if (/산업단지/.test(t)) return '산업단지';
   if (/매립/.test(t)) return '매립';
@@ -182,14 +185,29 @@ export function stackHint(e) {
   const words = /배출허용기준/.test(e.kind) ? ['배출허용기준', '초과'] : /재가동/.test(e.kind) ? ['재가동'] : /새/.test(e.kind) ? ['신설', '가동'] : ['가동 중단', '정비'];
   return hint(e.company, [city, ...words], [city], [city]);
 }
-// 국민연금 가입자 변화의 방향 → 기사 낱말(늘면 채용·증원, 줄면 인력 감축)
+// 국민연금 가입자 변화의 방향 → 기사 낱말(늘면 채용·증원, 줄면 인력 감축). 사업장 주소의 시·군을 넣고, 그 지명이 없는 기사는
+// 같은 사건으로 치지 않는다(10-31 운영: 포스코 포항 가입자 +866명 ↔ '현대제철·포스코 美 제철소 1000명 채용' 기사로 '관련 보도 있음')
+// 정정사유를 큰 변경 옆에 붙인다 — 날짜가 크게 당겨진 이유가 '취득완료'인지 '계약 해지'인지 줄에서 바로 보이게
+// (10-31 운영: 금호타이어 함평 부지 취득 정정 '취득예정일자 -36개월'은 사유가 '취득완료(취득가액 및 취득일자 확정)에 따른 정정')
+// 정정 내용 보도 대조(scoop_screen check_corrections): 원 공시 기사와 따로, 변경 낱말(연장·감액·해지 등)로 찾은 결과
+export function correctionNote(cc) {
+  const base = "원 공시 보도 대조 '관련 보도 있음'은 원 계약 기사일 수 있음";
+  if (!cc || !cc.verdict) return `${base}(정정 내용 보도 여부는 따로 확인)`;
+  const q = (cc.queries ?? []).map((x) => `"${x}"`).join(', ');
+  const top = (cc.evidence ?? []).find((e) => !e.before && /동일 사건 미확정/.test(e.why ?? ''));
+  if (cc.verdict === '관련 보도 있음' && top) return `정정 내용 보도 대조: 관련 보도 있음 — ${top.date ?? ''} 「${String(top.title ?? '').slice(0, 60)}」(같은 내용인지 열어 볼 것)`;
+  if (cc.verdict === '미보도 후보') return `정정 내용 보도 대조: 미보도 후보 — ${q}로 ${cc.since} 이후 '${cc.word}' 기사 못 찾음(검색 범위 결과, 단독 판정 아님) · ${base}`;
+  return `정정 내용 보도 대조: ${cc.verdict}(채널 실패 등) · ${base}`;
+}
+const fixReason = (r) => (r ? ` · 사유 '${String(r).length > 40 ? `${String(r).slice(0, 39)}…` : r}'` : '');
 export function workforceHint(e) {
   if (/공사 현장/.test(e.kind)) return hint(e.company, ['공사', '착공']);
   if (/새 자사/.test(e.kind)) return hint(e.company, ['공장', '신설']);
   if (/탈퇴|빠짐/.test(e.kind)) return hint(e.company, ['공장', '폐쇄']);
   const m = /가입자 ([\d,]+)→([\d,]+)명/.exec(String(e.text ?? ''));
   const down = m ? Number(m[2].replace(/,/g, '')) < Number(m[1].replace(/,/g, '')) : /감소/.test(e.kind);
-  return down ? hint(e.company, ['감원']) : hint(e.company, ['채용']);
+  const city = cityOf(e.text);
+  return hint(e.company, [city, down ? '감원' : '채용'], [city], [city]);
 }
 const cityOf = (text) => ((/(?:특별시|광역시|특별자치시|특별자치도|도)\s+([가-힣]{1,4}?)[시군](?![가-힣])/.exec(String(text ?? '')) ?? [])[1]);
 function factoryHint(company, kind, text) {
@@ -197,7 +215,7 @@ function factoryHint(company, kind, text) {
   if (/빠짐/.test(kind)) return hint(company, [city, '공장', '폐쇄'], [city]);
   if (/새 (공장|등록)/.test(kind)) return hint(company, [city, '공장', '신설'], [city]);
   const m = /고용 (\d+)→(\d+)/.exec(String(text ?? ''));
-  if (m) return Number(m[2]) < Number(m[1]) ? hint(company, ['감원']) : hint(company, ['채용']);
+  if (m) return hint(company, [city, Number(m[2]) < Number(m[1]) ? '감원' : '채용'], [city], [city]);  // 사업장 지명 없는 기사는 다른 사업장일 수 있다
   return undefined;  // 업종·주생산품 문구 변경: 기사 낱말을 정할 수 없음
 }
 function caseHint(x) {
@@ -241,14 +259,25 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
     const fl = c.filing;
     // one line per item: long cells (판결 주문, 당사자 목록) are clipped here; scoop_screen shows them in full
     const clip = (v) => { const t = String(v ?? '').replace(/\s+/g, ' ').trim(); return t.length > 60 ? `${t.slice(0, 60).trimEnd()}…` : t; };
+    // 정정 표를 읽었으면 단서 제목의 '변경 항목 대조 필요'는 이미 답이 있다(정정: … 줄)
+    const title = fl?.correction ? String(c.title ?? '').replace(/\s*—\s*변경 항목 대조 필요$/, '') : c.title;
     const brief = fl && !fl.error && (fl.facts ?? []).length ? ` · ${fl.facts.slice(0, 4).map(([k, v]) => `${k} ${clip(v)}`).join(' · ')}` : '';
-    const cmp = fl && (fl.compare ?? []).length ? ` · ${fl.compare[0]}` : '';
+    // 정정 공시는 무엇이 바뀌었는지가 먼저다(10-31 효성중공업 Statnett 정정: 계약금액 1,135.9억 → 1,130.4억, -0.5%)
+    const fix = fl?.correctionShort ?? (fl?.correctionLine ? clip(fl.correctionLine) : '');
+    const cmp = (fix ? ` · ${fix}` : '') + (fl && (fl.compare ?? []).length ? ` · ${fl.compare[0]}` : '');
     const kind = scoopKind(c);
     const flag = fl?.routine ? '일상' : '';
-    if (c.verdict === '미보도 후보' && fl?.routine) push('B', W['scoop-screen'], { kind, flag, verdict: c.verdict, id: c.id, date: c.published ?? c.filedOn, company: c.company, fact: `${c.title} — 일상 공시로 보임(${fl.routine})${brief}`, url: c.url });
-    else if (c.verdict === '미보도 후보') push('A', W['scoop-screen'], { kind, verdict: c.verdict, id: c.id, date: c.published ?? c.filedOn, company: c.company, fact: `${c.title} (${c.kind ?? ''}) — 보도 대조 '미보도 후보'${brief}${cmp}`, url: c.url });
-    else if (c.verdict === '미확인') push('B', W['scoop-screen'], { kind, verdict: c.verdict, id: c.id, date: c.published ?? c.filedOn, company: c.company, fact: `${c.title} — 보도 대조 미확인(채널 실패)`, url: c.url });
-    else push('C', W['scoop-screen'], { kind, id: c.id, company: c.company, fact: `${c.verdict}: ${c.title}` });
+    if (c.verdict === '미보도 후보' && fl?.routine) push('B', W['scoop-screen'], { kind, flag, verdict: c.verdict, id: c.id, date: c.published ?? c.filedOn, company: c.company, fact: `${title} — 일상 공시로 보임(${fl.routine})${brief}`, url: c.url });
+    // 특허 공개는 거의 기사가 안 나므로 '미보도 후보'가 늘 나온다 — 그 자체로 단독이 아니고 사업화·생산·수주 연결을 확인할 B
+    // (10-31 운영: 10-07·10-12 공개특허 두 건이 A에 남아 A 3건 중 2건)
+    else if (c.verdict === '미보도 후보' && c.kind === '특허') push('B', W['scoop-screen'], { kind, verdict: c.verdict, id: c.id, date: c.published ?? c.filedOn, company: c.company, fact: `${title} (특허) — 보도 대조 '미보도 후보' · 특허 공개만으로는 단독이 아님(사업화·생산·수주 연결 확인)`, url: c.url });
+    else if (c.verdict === '미보도 후보') push('A', W['scoop-screen'], { kind, verdict: c.verdict, id: c.id, date: c.published ?? c.filedOn, company: c.company, fact: `${title} (${c.kind ?? ''}) — 보도 대조 '미보도 후보'${brief}${cmp}`, url: c.url });
+    else if (c.verdict === '미확인') push('B', W['scoop-screen'], { kind, verdict: c.verdict, id: c.id, date: c.published ?? c.filedOn, company: c.company, fact: `${title} — 보도 대조 미확인(채널 실패)`, url: c.url });
+    // 정정 중 큰 변경(금액 ±10%·기간 90일+·해지): '관련 보도 있음'이어도 그 기사는 원 계약 기사일 수 있다 — B로 올린다
+    // (10-31 두산에너빌리티 영광 야월 해상풍력 EPC 정정: 계약기간 종료일 2029-07-01 → 2030-01-28, 보도 대조는 다른 기사)
+    else if (c.verdict === '관련 보도 있음' && (fl?.correction?.material ?? []).length) push('B', W['scoop-screen'], { kind, flag: '정정', verdict: c.verdict, id: c.id, date: c.published ?? c.filedOn, company: c.company,
+      fact: `${title} — 정정 중 큰 변경(${fl.correction.material.join(', ')}${fixReason(fl.correction.reason)})${brief}${cmp} · ${correctionNote(c.correctionCheck)}`, url: c.url });
+    else push('C', W['scoop-screen'], { kind, id: c.id, company: c.company, fact: `${c.verdict}: ${title}` });
   }
 
   const kr = docs['kr-official'];
@@ -541,10 +570,15 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
   // 출입처 공장이 있는 시·군의 고시·공고(새올): 출입처 이름+사업 낱말 A, 이름만 B, 제철소·산업단지 계획 등 C. 시·군별 첫 조회는 기준선.
   for (const x of docs['kr-local']?.items ?? []) {
     if (x.baseline || !recent(x.firstSeen)) continue;
+    // 상세 페이지를 읽었으면 전체 제목·본문 앞부분(목록 제목은 '...'로 잘린다 — 10-31 울주 '#2ASU O...' → 'O2 COMPRESSOR ROOM 토건공사')
+    const d = x.detail;
+    const title = d?.title ?? x.title;
+    const body = d?.body ? ` · 본문: ${String(d.body).slice(0, 140)}${String(d.body).length > 140 ? '…' : ''}` : '';
+    const scope = d ? '제목·본문 앞부분 확인(첨부 원문·규모는 지자체·회사 확인)' : '제목만 확인(첨부 원문·규모는 지자체·회사 확인)';
     push(x.tier ?? 'C', W['kr-local'], { kind: '지자체 고시·공고', id: x.id, date: x.date ?? String(x.firstSeen).slice(0, 10), company: x.company ?? x.city,
-      fact: `${x.city} ${x.no ?? ''} 「${x.title}」 · ${x.dept ?? '담당 부서 미기재'} · 등록 ${x.date ?? '?'} — 제목만 확인(첨부 원문·규모는 지자체·회사 확인)`,
+      fact: `${x.city} ${x.no ?? ''} 「${title}」 · ${x.dept ?? '담당 부서 미기재'} · 등록 ${x.date ?? '?'}${body} — ${scope}`,
       url: x.url, check: x.tier === 'C' || !x.company ? undefined
-        : hint(x.company, [String(x.city).replace(/(시|군|구)$/, ''), localWord(x.title), '공장'], [String(x.city).replace(/(시|군|구)$/, '')]) });
+        : hint(x.company, [String(x.city).replace(/(시|군|구)$/, ''), localWord(title), '공장'], [String(x.city).replace(/(시|군|구)$/, '')]) });
   }
 
   // 국민연금 사업장(월 자료): 자사 사업장 가입자 급감·탈퇴·새 사업장·투자 낱말 공사 현장 A, 급증·변동·목록에서 빠짐·공사 현장 묶음 B.
@@ -646,8 +680,21 @@ function pressLines(r, stamp) {
   const tail = r.verdict === '미보도 후보' ? ` — ${qs}로 ${r.since} 이후 관련 기사 못 찾음(검색 범위 결과, 단독 판정 아님)`
     : r.verdict === '미확인' ? ` — ${failed.length ? `채널 ${failed.join(', ')}` : '기사 날짜 오류 또는 사건 식별 불가'}(0건 아님)` : ` — ${qs}`;
   const was = r.firstVerdict && r.firstVerdict !== r.verdict ? ` · 처음(${kstStamp(r.firstCheckedAt)}) ${r.firstVerdict}` : '';
+  // 판정에 안 세는 앞선 기사(항목 날짜 전, 제목에 회사·사건 낱말)는 미보도 후보에 한 줄 맥락으로(10-31 울주 산소공장 안전점검 공고 ↔ 10-20 증설 기사)
+  const ev = r.evidence ?? [];
+  const shown = [...ev.filter((e) => !e.before).slice(0, 2), ...ev.filter((e) => e.before).slice(0, 1)];
   return [`   보도 대조(자동 ${stamp}): ${r.verdict}${tail}${was}`,
-    ...(r.evidence ?? []).slice(0, 2).map((e) => `     ↳ ${e.date ?? '날짜?'} [${e.channel}] ${e.title}${e.url ? ` ${e.url}` : ''}${/^본문에만/.test(e.why ?? '') ? ' (약한 근거: 본문에만, 제목 불일치)' : ''}`)];
+    ...shown.map((e) => `     ↳ ${e.date ?? '날짜?'} [${e.channel}] ${e.title}${e.url ? ` ${e.url}` : ''}${evidenceNote(e, r.verdict)}`)];
+}
+// 근거 줄 꼬리표. 미보도 후보에 붙은 근거는 모두 판정에 안 센 약한 근거다 — 꼬리표가 없으면 뒷받침 기사로 읽힌다
+// (10-31 운영: 퍼스트솔라 10-Q 항목에 「한화솔루션, ESS·태양전지 특허 폭증」이 꼬리표 없이 붙었다 — 퍼스트솔라 없음).
+function evidenceNote(e, verdict) {
+  const why = String(e.why ?? '');
+  if (e.before) return ' (앞선 기사: 항목 날짜 전이라 판정에 안 셈 — 같은 사업의 앞선 보도일 수 있음)';
+  if (/^본문에만/.test(why)) return ' (약한 근거: 본문에만, 제목 불일치)';
+  const missing = (/있으나 (.+?) 없음/.exec(why) ?? [])[1] ?? (/낱말\(.*?\)은 겹치나 (.+?) 없음/.exec(why) ?? [])[1];
+  if (missing) return ` (약한 근거: ${missing} 없음 — 다른 건일 수 있음)`;
+  return verdict === '미보도 후보' ? ' (약한 근거: 판정에 안 셈)' : '';
 }
 
 // id → how radar_today would show it now (watch, kind, tier, short title). Used to label judgments.

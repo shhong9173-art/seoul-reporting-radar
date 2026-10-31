@@ -13,6 +13,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import difflib
 import json
 import re
 from pathlib import Path
@@ -121,6 +122,302 @@ def pairs(documents):
     return out, related
 
 
+def correction(documents):
+    """정정신고 표: 정정사유와 (항목, 정정전, 정정후). '정정항목 | 정정전 | 정정후' 머리 줄 다음의 3칸 줄만 읽는다
+    (2026-10-31 실제 공시로 형식 확인: 효성중공업 20261027800518 — 정정사유 '계약 사양 일부 변경에 따른 계약금액 조정',
+    계약금액(원) 113,586,046,173 → 113,044,698,813). 정정 공시가 아니면 None."""
+    reason, changes, row_reasons, numbers = None, [], [], []
+    clip = lambda v: v if len(v) <= 120 else v[:117] + "…"  # noqa: E731
+    for doc in documents:
+        if not isinstance(doc, str):
+            continue
+        p = CellTableParser()
+        try:
+            p.feed(CELL_XML.sub(lambda m: f"<{m.group(1)}td", doc))
+            p.close()
+        except (ValueError, TypeError):
+            continue
+        for table in p.tables:
+            width = 0  # 0: 정정 표 밖, 3: 거래소 형식(항목·전·후), 4: 정기·주요공시 형식(항목·사유·전·후)
+            for row in table:
+                cells = [c["text"] for c in row]
+                keys = [norm(c) for c in cells]
+                if len(cells) == 2 and keys[0] == "정정사유" and plain(cells[1]) not in ("", "-"):
+                    reason = reason or plain(cells[1])[:160]
+                # 거래소 수시공시 '정정항목 | 정정전 | 정정후', 주요사항보고서 등 '항 목 | 정정사유 | 정 정 전 | 정 정 후'
+                # (2026-10-31: LS전선 20261030000651 교환사채권발행결정 정정 — 사채만기일·청약일·납입일 11-09 → 11-06)
+                if keys[-2:] == ["정정전", "정정후"] and keys[0] in ("정정항목", "항목"):
+                    width = len(cells)
+                    continue
+                if not width:
+                    continue
+                if len(cells) != width:
+                    width = 0
+                    continue
+                # 항목 이름은 띄어쓰기를 살린다('공정거래위원회 신고대상 여부'); 앞 번호(5. · 9-1.)만 뗀다
+                item = re.sub(r"^(?:\d{1,2}(?:-\d{1,2})?|[가-하])[.)]\s*", "", re.sub(r"\s+", " ", plain(cells[0])).strip())
+                item = re.sub(r"\s*-\s*", " - ", item).strip()
+                if any(c.get("nested") for c in row):
+                    before, after = "(표)", "(표 바뀜)"  # 칸 안 표(교환청구기간 시작·종료일 등)는 바뀌었다는 것만
+                else:
+                    before, after = (plain(c) for c in cells[-2:])
+                if width == 4 and plain(cells[1]) and plain(cells[1]) not in row_reasons:
+                    row_reasons.append(plain(cells[1])[:60])
+                if item and (before, after) != ("", ""):
+                    changes.append([item[:60], clip(before), clip(after)])
+                    # 숫자 변경은 자르기 전 전체 문구로 찾는다(긴 칸은 120자에서 잘려 끝이 어긋날 수 있다)
+                    numbers.append([[n, b, a, None if pct is None else round(pct, 1)] for n, b, a, pct in number_changes(before, after) or []] or None)
+    reason = reason or (" · ".join(row_reasons[:2]) if row_reasons else None)
+    if not reason and not changes:
+        return None
+    out = {"reason": reason, "changes": changes[:10]}
+    if any(numbers[:10]):
+        out["numbers"] = numbers[:10]  # changes와 같은 순서: 칸 안에서 숫자만 바뀐 곳 [이름, 전, 후, 증감%]
+    big = material(out)
+    if big:
+        out["material"] = big
+    return out
+
+
+FOOTNOTE = re.compile(r"^주\s*\d+\)")  # '주1) 정정 전' — 본문 각주로 넘긴 칸
+MATERIAL_PCT = 10
+MATERIAL_DAYS = 90
+CANCEL = re.compile(r"해지|해제|취소|중단|철회|파기")
+
+
+def material(fix):
+    """정정 중 큰 변경: 금액 ±10% 이상, 기간·종료일·예정일 90일 이상 이동, 사유에 해지·취소. 원 계약 기사가 이미 있어도
+    이 변경은 새 사실일 수 있다(10-31 두산에너빌리티 영광 야월 해상풍력 EPC 정정: 계약기간 종료일 2029-07-01 → 2030-01-28)."""
+    out = []
+    if CANCEL.search(fix.get("reason") or ""):
+        out.append("사유에 해지·취소")
+    for item, before, after in fix.get("changes") or []:
+        name = item.split(" - ")[-1]
+        b, a = re.sub(r"[,\s]", "", before), re.sub(r"[,\s]", "", after)
+        if name.endswith("(원)") and re.fullmatch(r"\d+", b) and re.fullmatch(r"\d+", a) and int(b):
+            pct = (int(a) - int(b)) / int(b) * 100
+            if abs(pct) >= MATERIAL_PCT:
+                out.append(f"{name[:-3]} {pct:+.0f}%")
+            continue
+        k1, k2 = korean_amount(before), korean_amount(after)
+        if k1 and k2:  # 글로 적은 금액(10-29 현대차 가이던스 정정: 예상투자금액 17.8조원 → 16조원)
+            pct = (k2 - k1) / k1 * 100
+            if abs(pct) >= MATERIAL_PCT:
+                out.append(f"{name} {pct:+.0f}%")
+            continue
+        d1, d2 = as_date(before), as_date(after)
+        if d1 and d2 and re.search(r"종료일|기간|예정일|완료|만기일|납입일", name):
+            days = (d2 - d1).days
+            if abs(days) >= MATERIAL_DAYS:
+                out.append(f"{name} {'+' if days > 0 else '-'}{round(abs(days) / 30.4)}개월")
+            continue
+        # 비어 있던 계약기간이 날짜로 채워짐 — 착공지시서(NTP) 수령 등으로 사업이 시작됐다는 뜻일 수 있다
+        # (2026-06-05 LS일렉트릭 20260605800561 영광 그린 태양광 EPC 정정: 계약기간 '-' → 시작일 2026-06-05·종료일 2028-07-20,
+        # 사유 '착공지시서(NTP) 수령에 따른 계약기간 확정')
+        if re.search(r"기간|시작일|종료일|만기|예정일", name) and withheld(before) and DATE_ANY.search(after):
+            out.append(f"{name} 확정")
+            continue
+        # 비공개였던 상대가 드러남(공시유보 해제 등). 형식 근거: 공급계약 본문 '8. 공시유보 관련내용 | 유보사유 | 유보기한' 칸
+        # (2026-09-14 효성중공업 20260914800537 원문). 실제 해제 정정 예시는 아직 못 봤다 — 정정 전 칸이 비었거나
+        # '비공개·공시유보·영업비밀' 같은 표시일 때만 센다.
+        if re.search(r"계약상대|거래상대|상대방|발행대상|인수인|양수인|채무자", name) and withheld(before) and not withheld(after):
+            out.append(f"{name} 공개({plain(after)[:30]})")  # 드러난 이름이 새 사실이라 줄에 바로 보인다
+            continue
+        if re.search(r"유보사유|유보기한", name) and re.sub(r"\s+", "", before) not in ("", "-", "－", "—") \
+                and re.sub(r"\s+", "", after) in ("", "-", "－", "—", "해당없음", "해당사항없음"):
+            out.append("공시유보 해제")
+    return list(dict.fromkeys(out))
+
+
+SECRET = ("비공개", "비공시", "공시유보", "영업비밀", "미공개", "미정", "보류")
+DATE_ANY = re.compile(r"\d{4}\s*[-.년]\s*\d{1,2}\s*[-.월]\s*\d{1,2}")
+
+
+def withheld(v):
+    """비었거나('-') 비공개 표시인 칸."""
+    t = re.sub(r"\s+", "", str(v or ""))
+    return t in ("", "-", "－", "—") or any(m in t for m in SECRET)
+
+
+KOREAN_AMOUNT = re.compile(r"(?:(\d+(?:\.\d+)?)\s*조)?\s*(?:([\d,]+(?:\.\d+)?)\s*억)?\s*(?:([\d,]+)\s*만)?\s*원")
+
+
+def korean_amount(v):
+    """'17.8조원'·'1,234억원'·'3조 4,000억원' → 원. 글로 적은 금액이 아니면 None('400만대'·'-')."""
+    m = KOREAN_AMOUNT.fullmatch(str(v or "").strip())
+    if not m or not any(m.groups()):
+        return None
+    jo, eok_, man = (float(g.replace(",", "")) if g else 0.0 for g in m.groups())
+    return round(jo * 10 ** 12 + eok_ * 10 ** 8 + man * 10 ** 4) or None
+
+
+# 문구 칸 안의 숫자 변경: '·2026년 판매목표 : 416만대' → '400만대'처럼 긴 설명 칸에서 숫자만 바뀐 곳을 꺼낸다.
+# 낱말이 더해지거나 빠진 곳, 숫자 없는 변경이 하나라도 있으면 문구 변경으로 둔다(뜻을 지어내지 않음).
+NUM_TOKEN = re.compile(r"(?P<date>\d{4}\s*(?:년|[-.])\s*\d{1,2}\s*(?:월|[-.])\s*\d{1,2}\s*(?:일|\.)?)"
+                       r"|(?P<num>\d[\d,]*(?:\.\d+)?(?:%p|%|조원|억원|만원|원|조|억|만대|대|만톤|톤|MWh|GWh|MW|GW|kW|kV|개월|년|분기|월|일|주|명|건|개)?)"
+                       r"|(?P<word>[가-힣A-Za-z]+)|(?P<mark>\S)")
+LABEL_STOP = set("·ㆍ◎○●•▶-※(")
+BRIDGE = ("~", "∼", "〜")
+COUNT_UNIT = re.compile(r"(만대|대|만톤|톤|MWh|GWh|MW|GW|kW|명|건|개)$")
+
+
+def tokens(text):
+    out = []
+    for m in NUM_TOKEN.finditer(str(text or "")):
+        kind, val = m.lastgroup, m.group()
+        if kind == "date":
+            d = as_date(val.rstrip(".")) or as_date(val)
+            val = d.isoformat() if d else re.sub(r"\s+", "", val)
+        out.append((kind, val))
+    return out
+
+
+def number_changes(before, after):
+    """[(이름, 전, 후, 증감%|None)] — 두 칸이 숫자만 다를 때만. 아니면 None. 잘린 문구('…'로 끝남)는 보지 않는다."""
+    if str(before).endswith("…") or str(after).endswith("…") or FOOTNOTE.match(str(before)) or FOOTNOTE.match(str(after)):
+        return None  # 각주 번호(주1)→주2))는 숫자 변경이 아니다
+    tb, ta = tokens(before), tokens(after)
+    if len(tb) < 2 or len(ta) < 2:
+        return None
+    sm = difflib.SequenceMatcher(None, [v for _, v in tb], [v for _, v in ta], autojunk=False)
+    if sm.ratio() < 0.5:
+        return None
+    ops, groups = sm.get_opcodes(), []
+    for k, (tag, i1, i2, j1, j2) in enumerate(ops):
+        if tag != "equal":
+            if groups and groups[-1][4]:
+                groups[-1][1], groups[-1][3] = i2, j2
+            else:
+                groups.append([i1, i2, j1, j2, True])
+        elif groups and groups[-1][4] and i2 - i1 == 1 and tb[i1][1] in BRIDGE and k + 1 < len(ops) and ops[k + 1][0] != "equal":
+            continue  # '6.3 ~ 7.3%' → '5.5 ~ 6.5%'는 한 변경
+        elif groups:
+            groups[-1][4] = False
+    out = []
+    for i1, i2, j1, j2, _ in groups:
+        bs, as_ = tb[i1:i2], ta[j1:j2]
+        if not bs or not as_ or len(bs) > 6 or len(as_) > 6:
+            return None
+        if not any(k in ("num", "date") for k, _ in bs) or not any(k in ("num", "date") for k, _ in as_):
+            return None
+        label = []
+        for kind, val in reversed(tb[:i1]):
+            if val in (":", "："):
+                continue
+            if val in LABEL_STOP or len(label) >= 4 or len(val) > 15 or kind == "date" or (kind == "num" and not val.endswith("년")) or kind == "mark":
+                break
+            label.insert(0, val)
+        show = lambda ts: re.sub(r"\s*([~∼〜])\s*", r"\1", " ".join(v for _, v in ts))  # noqa: E731
+        pct = None
+        if len(bs) == 1 and len(as_) == 1:
+            k1, k2 = korean_amount(bs[0][1]), korean_amount(as_[0][1])
+            u1, u2 = COUNT_UNIT.search(bs[0][1]), COUNT_UNIT.search(as_[0][1])
+            if not (k1 and k2) and u1 and u2 and u1.group() == u2.group():
+                n1, n2 = (float(re.sub(r"[^\d.]", "", v[1])) for v in (bs[0], as_[0]))
+                k1, k2 = (n1, n2) if n1 else (None, None)
+            if k1 and k2:
+                pct = (k2 - k1) / k1 * 100
+        out.append((" ".join(label), show(bs), show(as_), pct))
+    return out or None
+
+
+def number_text(nums, arrow, limit=3):
+    """[('2026년 판매목표', '416만대', '400만대', -3.8)] → '2026년 판매목표 416만대 → 400만대(-3.8%)'."""
+    shown = [f"{n + ' ' if n else ''}{b}{arrow}{a}{f'({p:+.1f}%)' if p is not None else ''}" for n, b, a, p in nums[:limit]]
+    return ", ".join(shown) + (f" 외 {len(nums) - limit}곳" if len(nums) > limit else "")
+
+
+# 결의일·정보제공일 같은 절차 날짜는 실제 내용 변경 뒤에 보인다
+PROCEDURAL = re.compile(r"이사회결의일|결정일|정보제공|제출일|공시일|정정일자|행사명")
+
+
+DATE_FORMS = (re.compile(r"(\d{4})-(\d{1,2})-(\d{1,2})"), re.compile(r"(\d{4})\s*년\s*(\d{1,2})\s*월\s*(\d{1,2})\s*일"),
+              re.compile(r"(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})\.?"))
+
+
+def as_date(v):
+    for rx in DATE_FORMS:
+        m = rx.fullmatch(str(v or "").strip())
+        if m:
+            try:
+                return dt.date(*map(int, m.groups()))
+            except ValueError:
+                return None
+    return None
+
+
+def numbers_of(fix, i, before, after):
+    """correction()이 전체 문구로 찾아 둔 숫자 변경. 없으면(예전 기록) 잘리지 않은 칸만 다시 본다."""
+    if "numbers" in fix:
+        got = (fix["numbers"] + [None] * 10)[i]
+        return [tuple(x) for x in got] if got else None
+    return number_changes(before, after)
+
+
+def correction_line(fix, kind=None):
+    """'정정(사유): 항목 전 → 후(±%)' 한 줄. 금액 칸은 억원과 증감률을 붙인다."""
+    if not fix:
+        return None
+    # 값이 바뀐 칸을 먼저(금액·날짜·짧은 값), 문구·표만 바뀐 칸은 끝에 이름만 모은다(10-31 LS전선 교환사채 정정: 각주 칸이
+    # 앞에 끼어 납입일·공정위 신고대상 변경이 4칸 제한에 잘렸다)
+    parts, texts = [], []
+    for i, (item, before, after) in enumerate(fix.get("changes") or []):
+        b, a = re.sub(r"[,\s]", "", before), re.sub(r"[,\s]", "", after)
+        k1, k2 = korean_amount(before), korean_amount(after)
+        d1, d2 = as_date(before), as_date(after)
+        nums = None if (d1 and d2) or (k1 and k2) else numbers_of(fix, i, before, after)
+        if item.endswith("(원)") and re.fullmatch(r"\d+", b) and re.fullmatch(r"\d+", a) and int(b):
+            pct = (int(a) - int(b)) / int(b) * 100
+            parts.append((item, f"{item} {won(before)} → {won(after)}({pct:+.1f}%)"))
+        elif k1 and k2:
+            parts.append((item, f"{item} {before} → {after}({(k2 - k1) / k1 * 100:+.1f}%)"))
+        elif nums:
+            # 10-29 현대차 가이던스 정정: '세부내용' 칸의 판매목표 416만대 → 400만대 등이 '문구 변경'에 묻혀 있었다
+            parts.append((item, f"{item}: {number_text(nums, ' → ')}"))
+        elif len(before) <= 40 and len(after) <= 40 and not FOOTNOTE.match(before) and not before.startswith("(표"):
+            parts.append((item, f"{item} {d1.isoformat() if d1 else before or '-'} → {d2.isoformat() if d2 and d1 else after or '-'}"))
+        elif item not in texts:
+            texts.append(item)
+    parts = [t for _, t in sorted(parts, key=lambda x: bool(PROCEDURAL.search(x[0])))]
+    head = f"정정({fix['reason']})" if fix.get("reason") else "정정"
+    tail = [f"문구·표 변경 {len(texts)}곳({', '.join(texts[:3])}{' 등' if len(texts) > 3 else ''})"] if texts else []
+    body = parts[:5] + tail
+    return f"{head}: " + (" · ".join(body) if body else "바뀐 항목 표 없음")
+
+
+def correction_short(fix):
+    """오늘의 레이더 한 줄용: '정정: 계약금액 1,136억→1,130억(-0.5%) · 매출액대비 3.24→3.22 · 문구 1곳'."""
+    if not fix:
+        return None
+    parts, text_changes = [], 0
+    for i, (item, before, after) in enumerate(fix.get("changes") or []):
+        name = item.split(" - ")[-1]
+        b, a = re.sub(r"[,\s]", "", before), re.sub(r"[,\s]", "", after)
+        k1, k2 = korean_amount(before), korean_amount(after)
+        d1, d2 = as_date(before), as_date(after)
+        nums = None if (d1 and d2) or (k1 and k2) else numbers_of(fix, i, before, after)
+        if name.endswith("(원)") and re.fullmatch(r"\d+", b) and re.fullmatch(r"\d+", a) and int(b):
+            pct = (int(a) - int(b)) / int(b) * 100
+            parts.append((item, f"{name[:-3]} {eok(int(b))}→{eok(int(a))}({pct:+.1f}%)"))
+        elif k1 and k2:
+            parts.append((item, f"{name} {before}→{after}({(k2 - k1) / k1 * 100:+.1f}%)"))
+        elif nums:
+            parts.append((item, number_text(nums, "→", limit=1)))
+        elif len(before) <= 20 and len(after) <= 20 and not FOOTNOTE.match(before) and not before.startswith("(표"):
+            shown = (d1.isoformat(), d2.isoformat()) if d1 and d2 else (before or "-", after or "-")
+            parts.append((item, f"{re.sub(r'\s*[(].*?[)]$', '', name)} {shown[0]}→{shown[1]}"))
+        else:
+            text_changes += 1
+    parts = [t for _, t in sorted(parts, key=lambda x: bool(PROCEDURAL.search(x[0])))]
+    if text_changes:
+        parts.append(f"문구 {text_changes}곳")
+    return "정정: " + (" · ".join(parts[:3]) if parts else (fix.get("reason") or "바뀐 항목 표 없음")[:40])
+
+
+def eok(n):
+    return f"{n / 10 ** 12:,.2f}조" if n >= 10 ** 12 else f"{n / 10 ** 8:,.0f}억" if n >= 10 ** 8 else f"{n:,}원"
+
+
 def won(value):
     """'53,417,160,000' → '53,417,160,000원(약 534억원)'. The exact figure always stays first."""
     digits = re.sub(r"[,\s]", "", str(value))
@@ -151,7 +448,11 @@ def facts(report_name, documents):
             v = table[f]
             v = won(v) if f.endswith("(원)") else (v if len(v) <= 160 else v[:157] + "…")
             shown.append([f, v])
-    return {"type": kind, "facts": shown, "related": related, "raw": table}
+    out = {"type": kind, "facts": shown, "related": related, "raw": table}
+    fix = correction(documents)
+    if fix:
+        out["correction"] = fix
+    return out
 
 
 def amount(table, kind):
@@ -199,6 +500,20 @@ def previous_filings(api_key, corp_code, kind, before_day, rcept_no, *, get):
     return sorted(rows, key=lambda x: x["rcept_no"], reverse=True)
 
 
+def other_contract(cur, prev):
+    """같은 계약상대의 두 공급계약이 다른 계약인지: 계약(수주)일자나 체결계약명이 다르면 그 차이 문구, 같으면 '', 모르면 None."""
+    diffs, known = [], False
+    for key, label in (("계약(수주)일자", "계약일"), ("체결계약명", "계약명")):
+        a, b = (cur or {}).get(key), (prev or {}).get(key)
+        if a and b:
+            known = True
+            if re.sub(r"\s+", "", a) != re.sub(r"\s+", "", b):
+                diffs.append(f"{label} {b[:30]} ↔ 이번 {a[:30]}")
+    if diffs:
+        return " · ".join(diffs)
+    return "" if known else None
+
+
 def day_of(d):
     return f"{d[:4]}-{d[4:6]}-{d[6:8]}" if d and len(d) == 8 else d
 
@@ -220,11 +535,19 @@ def compare(kind, cur, prev_docs, n_listed):
     if same:
         m, t = same
         a_prev = amount(t, kind)
-        change = ""
-        if a_now and a_prev:
-            pct = (a_now - a_prev) / a_prev * 100
-            change = ": " + won(f"{a_prev:,}") + " → " + won(f"{a_now:,}") + f"({pct:+.0f}%)"
-        lines.append(f"{SAME_LABEL.get(kind, '같은 상대')} 직전 공시 {day_of(m['date'])}(접수 {m['rcept_no']}){change}")
+        other = other_contract(cur, t) if kind == "공급계약" else None
+        if other:
+            # 같은 상대와 맺은 다른 계약 — 금액을 나란히 놓으면 계약이 줄거나 는 것처럼 읽힌다(10-31 효성중공업 Statnett 정정:
+            # 9-30 다른 Statnett 계약 3,833억과 비교해 '-71%'로 보였다. 실제 정정은 1,135.9억 → 1,130.4억)
+            money = " · 금액 " + won(f"{a_prev:,}") if a_prev else ""
+            lines.append(f"같은 계약상대의 다른 계약 직전 공시 {day_of(m['date'])}(접수 {m['rcept_no']}, {other}){money}")
+        else:
+            change = ""
+            if a_now and a_prev:
+                pct = (a_now - a_prev) / a_prev * 100
+                change = ": " + won(f"{a_prev:,}") + " → " + won(f"{a_now:,}") + (f"({pct:+.1f}%)" if abs(pct) < 1 else f"({pct:+.0f}%)")
+            label = "같은 계약(계약일·계약명 같음)" if kind == "공급계약" and other is not None else SAME_LABEL.get(kind, '같은 상대')
+            lines.append(f"{label} 직전 공시 {day_of(m['date'])}(접수 {m['rcept_no']}){change}")
     elif me and prev_docs:
         lines.append(f"최근 {YEARS_BACK}년 같은 종류 공시 {n_listed}건(정정 포함, 목록 기준) 중 원문 {len(prev_docs)}건 확인 — {SAME_LABEL.get(kind, '같은 상대')} 없음(확인한 범위 안)")
     counted = bool(me and prev_docs and not same)
@@ -261,9 +584,12 @@ def enrich(cands, api_key, corp_codes, *, fetch_documents, get, budget=40):
             continue
         report = str(c.get("title") or "").split(" · ", 1)[-1]
         kind = filing_type(report)
-        if not kind:
-            continue
         rcept = m.group(1)
+        if not kind:
+            # 요점 표를 모르는 종류라도 정정 공시면 원문 정정 표만 읽는다(무엇이 바뀌었는지가 먼저 — 10-31 LS전선 교환사채 정정)
+            if "정정" in report:
+                used = correction_only(c, report, rcept, api_key, fetch_documents, used, budget)
+            continue
         info = {"type": kind, "rcept_no": rcept}
         if used >= budget:
             c["filing"] = {**info, "error": "원문 조회 예산 초과 — 미확인"}
@@ -276,6 +602,10 @@ def enrich(cands, api_key, corp_codes, *, fetch_documents, get, budget=40):
             c["filing"] = {**info, "error": f"원문 조회 실패({type(e).__name__}) — 미확인"}
             continue
         info.update(facts=f["facts"], related=f["related"])
+        if f.get("correction"):
+            info["correction"] = f["correction"]
+            info["correctionLine"] = correction_line(f["correction"], kind)
+            info["correctionShort"] = correction_short(f["correction"])
         cur = f.get("raw") or {}
         corp = corp_code_of(c.get("company"), corp_codes)
         prev_docs, listed, err = [], 0, None
@@ -301,6 +631,23 @@ def enrich(cands, api_key, corp_codes, *, fetch_documents, get, budget=40):
         info.update(compare=lines, routine=routine)
         c["filing"] = info
     return used
+
+
+def correction_only(c, report, rcept, api_key, fetch_documents, used, budget):
+    """요점 종류가 없는 정정 공시: 정정 표만. type은 비워 둔다(주간 판정 묶음은 공시 이름으로)."""
+    info = {"type": None, "rcept_no": rcept, "facts": [], "related": None, "compare": [], "routine": None}
+    if used >= budget:
+        c["filing"] = {**info, "error": "원문 조회 예산 초과 — 미확인"}
+        return used
+    try:
+        fix = correction(fetch_documents(api_key, rcept))
+    except Exception as e:  # noqa: BLE001
+        c["filing"] = {**info, "error": f"원문 조회 실패({type(e).__name__}) — 미확인"}
+        return used + 1
+    if fix:
+        info.update(correction=fix, correctionLine=correction_line(fix), correctionShort=correction_short(fix))
+    c["filing"] = info
+    return used + 1
 
 
 def load_corp_codes():

@@ -72,7 +72,9 @@ ADMIN = re.compile(r"특수관계인|공정거래자율준수|기업설명회|IR
                    # 실적 발표와 함께 나오는 실적 전망 공정공시(정정 포함), 기업집단 현황
                    r"동일인등출자계열회사|상품ㆍ?용역거래|의결권대리행사권유|영업실적등에대한전망|기업집단현황|"
                    # 금융 계열사와의 약관 거래 상대방 공시(공정거래법 정기 형식, 10-29 현대차·현대모비스)
-                   r"약관에의한금융거래")
+                   r"약관에의한금융거래|"
+                   # 임원·주요주주 소유상황 보고 원본(사람·증감은 지분공시 단서가 따로 붙인다 — 10-26 효성중공업 형식명만)
+                   r"특정증권등소유상황보고서")
 # Disclosure vocabulary → words news headlines actually use (queries use the first, matching accepts all).
 NEWS_TERMS = {
     "중대재해발생": ["중대재해", "사망", "사고"], "중대재해": ["중대재해", "사망", "사고"],
@@ -92,7 +94,10 @@ NEWS_TERMS = {
 # 원문은 2024년 자기주식 취득·소각 계획의 이행 완료 정정, '현대차 장래사업'은 2026년 가이던스 하향 정정).
 BODY_TITLE_FORMS = re.compile(r"수시공시의무\s*관련\s*사항|장래사업\s*[ㆍ·]?\s*경영\s*계획|기타\s*경영\s*사항|"
                               r"투자판단\s*관련\s*주요\s*경영\s*사항")
-BODY_TITLE_KEYS = ("공시제목", "장래계획사항", "제목")
+BODY_TITLE_KEYS = ("공시제목", "장래계획사항", "제목", "체결계약명")
+# 단일판매ㆍ공급계약 공시는 제목 낱말이 모두 상투어라 낱말이 비어 심사에서 빠졌다(10-31: 대한전선 10-27·두산에너빌리티
+# 10-26 공급계약이 단독 후보 심사·오늘의 레이더 어디에도 없었다). 원문 체결계약명으로 질의한다.
+CONTRACT_FORM = re.compile(r"단일판매\s*[ㆍ·]?\s*공급계약")
 PATENT_SOURCES = re.compile(r"KIPRIS|특허", re.I)
 PARTICLE = re.compile(r"(으로|에서|에게|까지|부터|의|을|를)$")  # only unambiguous endings (양도·원가·회로 stay intact)
 ACRONYM = re.compile(r"[A-Z][A-Z0-9&]{1,5}")
@@ -165,7 +170,8 @@ def ratio_forms(prior, current):
 
 def terms_from(text, company):
     t = html.unescape(str(text or ""))
-    for a in aliases(company) + [company] + list(LEGAL):
+    # 긴 이름부터 지운다: '한국타이어'를 먼저 지우면 '한국타이어앤테크놀로지'에서 '앤테크놀로지'가 낱말로 남는다
+    for a in sorted(set(aliases(company) + [company] + list(LEGAL)), key=len, reverse=True):
         t = t.replace(a, " ")
     t = BOILER.sub(" ", t)
     t = re.sub(r"[\[\](){}<>·ㆍ—\-–/,:;|~→+%=\"'“”‘’…]", " ", t)
@@ -202,17 +208,21 @@ def news_terms(terms):
 def from_clue(x):
     companies = [canon(c) for c in x.get("companies") or [] if c]
     if not companies:
+        # 단서 목록이 회사 칸을 비운 DART 공시('그 외' 팀): 제목 앞 회사 이름이 심사 대상 회사면 그 회사로 본다
+        # (10-31: 효성중공업 10-27·일진전기 10-02 공급계약이 회사 칸이 비어 빠졌다)
+        # 사건 공시만(DART). 사업보고서 수치 단서(DART_METRIC)는 그 팀 선정 그대로 둔다.
+        lead = canon(str(x.get("title") or "").split(" · ")[0].strip())
+        if x.get("source") == "DART" and "dart.fss.or.kr" in str(x.get("url") or "") and lead in ALIASES:
+            companies = [lead]
+    if not companies:
         return None
     if ADMIN.search(str(x.get("title") or "")):
         return None
     company = companies[0]
     title = str(x.get("title") or "")
-    if BODY_TITLE_FORMS.search(title) and re.search(r"rcpNo=\d{14}", str(x.get("url") or "")):
-        # 원문 제목을 읽기 전에는 질의 낱말이 없다 — main()이 DART 원문을 읽은 뒤 채우고, 못 읽으면 심사하지 않는다.
-        return {"id": f"clue:{x.get('id')}", "kind": "단서", "team": x.get("team"), "company": company, "title": title,
-                "url": x.get("url"), "published": x.get("published"), "source": x.get("source"), "tier": x.get("tier"),
-                "terms": [], "alts": {}, "unit": "", "numbers": [], "ratios": [], "note": None, "bodyTitle": True,
-                "strength": 3 if x.get("tier") == "취재 단서·단독 미확정" else 1}
+    dart = bool(re.search(r"rcpNo=\d{14}", str(x.get("url") or "")))
+    if BODY_TITLE_FORMS.search(title) and dart:
+        return body_pending(x, company, title)
     nums, unit = set(), ""
     m = re.search(r"숫자\s*([\d,]+)\s*→\s*([\d,]+)\s*\(([^)]*)\)", title)
     if m:
@@ -223,12 +233,23 @@ def from_clue(x):
     else:
         body, ratios = title, set()
     terms, alts = news_terms(terms_from(body, company))
+    if not terms and dart and CONTRACT_FORM.search(title):
+        return body_pending(x, company, title)
     patent = bool(PATENT_SOURCES.search(str(x.get("source") or "")))
     return {"id": f"clue:{x.get('id')}", "kind": "특허" if patent else "단서", "team": x.get("team"), "company": company,
             "title": title, "url": x.get("url"), "published": x.get("published"), "source": x.get("source"),
             "tier": x.get("tier"), "terms": terms, "alts": alts, "unit": unit, "numbers": sorted(nums), "ratios": sorted(ratios),
             "note": "특허 공개는 그 자체로 단독이 아니다 — 사업화·생산·수주 연결 확인 필요" if patent else None,
             "strength": 0.5 if patent else (3 if x.get("tier") == "취재 단서·단독 미확정" else 1)}
+
+
+def body_pending(x, company, title):
+    """원문 제목(공시제목·장래계획 사항·제목·체결계약명)을 읽기 전에는 질의 낱말이 없다 — main()이 DART 원문을 읽은 뒤
+    apply_body_titles로 채우고, 못 읽으면 심사하지 않는다."""
+    return {"id": f"clue:{x.get('id')}", "kind": "단서", "team": x.get("team"), "company": company, "title": title,
+            "url": x.get("url"), "published": x.get("published"), "source": x.get("source"), "tier": x.get("tier"),
+            "terms": [], "alts": {}, "unit": "", "numbers": [], "ratios": [], "note": None, "bodyTitle": True,
+            "strength": 3 if x.get("tier") == "취재 단서·단독 미확정" else 1}
 
 
 def from_stat(x):
@@ -413,6 +434,36 @@ def holder_terms(c):
     return None
 
 
+# 유형자산 취득·처분·신규시설투자: 제목 낱말('투자')만으로는 다른 기사를 잡는다(10-31 운영: 금호타이어 함평 부지 취득 정정을
+# '금호타이어 투자'로 찾아 증권사 리포트 기사가 근거로 붙었다 — 실제로는 10-28 「금호타이어 함평 이전 부지 1160억원에 취득 완료」가
+# 있었다). 원문 물건명·목적의 시·군과 토지면 '부지'를 질의에 넣는다.
+ASSET_FIELDS = {"유형자산취득": ("취득물건구분", "취득물건명", "취득목적"), "유형자산처분": ("처분물건구분", "처분물건명", "처분목적"),
+                "신규시설투자": ("투자구분", "투자대상", "투자목적")}
+ASSET_PLACE = re.compile(r"(?:특별시|광역시|특별자치시|특별자치도|도)\s+([가-힣]{1,4}?)[시군](?![가-힣])")
+ASSET_METRO = re.compile(r"(?<![가-힣])(부산|대구|인천|광주|대전|울산)광역시")
+LAND = ["부지", "토지"]
+
+
+def asset_terms(c):
+    """(terms, alts) 또는 None. 시·군을 못 읽으면 None(제목 낱말 그대로)."""
+    f = c.get("filing") or {}
+    keys = ASSET_FIELDS.get(f.get("type"))
+    if not keys or f.get("error"):
+        return None
+    got = {k: str(v or "") for k, v in (f.get("facts") or []) if isinstance(k, str)}
+    kind, obj, purpose = (got.get(k, "") for k in keys)
+    m = ASSET_PLACE.search(obj) or ASSET_PLACE.search(purpose) or ASSET_METRO.search(obj)
+    if not m:
+        return None
+    place = m.group(1)
+    land = "토지" in kind or bool(re.search(r"토지|부지", obj))
+    event = "부지" if land else (c.get("terms") or [None])[0]
+    if not event or event == place:
+        return None
+    terms = [event, place] + [t for t in c.get("terms") or [] if t not in (event, place)]
+    return terms, {**(c.get("alts") or {}), **({"부지": LAND} if land else {})}
+
+
 def recheck_lawsuits(rows, *, now, get=None, sleep=time.sleep):
     """Screen lawsuit filings again with the case words read from the original filing."""
     redo = []
@@ -531,6 +582,15 @@ def article_day(value):
         return None
 
 
+# 사건 낱말 '투자'가 증권사 이름·투자의견 속에서 맞지 않게(10-31 운영: 금호타이어 유형자산취득 정정의 근거가
+# 「…목표가 8,300원 - 한화투자증권」이었다). 회사 이름 대조에는 원문 그대로 쓴다.
+NOT_EVENT = re.compile(r"투자(?:증권|의견|금융|자(?![산본]))")
+
+
+def event_text(s):
+    return NOT_EVENT.sub("·", str(s or ""))
+
+
 def judge(c, channels, *, now):
     since = (now - dt.timedelta(days=WINDOW_DAYS)).date()
     if article_day(c.get("since")):
@@ -544,6 +604,8 @@ def judge(c, channels, *, now):
     ambiguous_case = False
     lawsuit=is_lawsuit(c)
     expected,plaintiff=case_identity(c)
+    item_since = article_day(c.get("since"))
+    earlier = []
     if lawsuit and not expected:
         return "미확인", []
     for ch, res in channels.items():
@@ -555,6 +617,8 @@ def judge(c, channels, *, now):
                 invalid_dates = True
                 continue
             if day < since:
+                if c.get("strict") and item_since and day >= item_since - dt.timedelta(days=EARLIER_DAYS):
+                    earlier.append((ch, day, a))
                 continue
             text = f"{a.get('title', '')} {a.get('text', '')}"
             # 법안: 기사는 줄임말('산업기술보호법')·정식 이름 어느 쪽이든 쓴다(names, 법 이름이라 낱말 경계 없이 맞춘다)
@@ -568,8 +632,9 @@ def judge(c, channels, *, now):
                 generic = set(c.get("generic") or [])
                 title = a.get("title", "")
                 words = [t for t in terms if t not in generic]
-                t_hits = [t for t in words if any(w in title for w in alts.get(t, [t]))]
-                x_hits = [t for t in words if any(w in text for w in alts.get(t, [t]))]
+                title_e, text_e = event_text(title), event_text(text)
+                t_hits = [t for t in words if any(w in title_e for w in alts.get(t, [t]))]
+                x_hits = [t for t in words if any(w in text_e for w in alts.get(t, [t]))]
                 must = [m for m in c.get("must") or [] if m]
                 if company_in_text(c["company"], title) and (t_hits or len(x_hits) >= 2) and must and not any(m in text for m in must):
                     # 사업장이 여럿인 회사: 그 사업장 지명이 없는 기사는 다른 사업장 이야기일 수 있다(10-31 포스코 광양 ↔ 포항 기사).
@@ -600,6 +665,7 @@ def judge(c, channels, *, now):
                         ambiguous_case=True
                     continue
             def has(t, where):
+                where = event_text(where)
                 return any(w in where for w in alts.get(t, [t]))
             # Numbers alone are never evidence of the same event. Preserve
             # related coverage for human review even without period/unit proof.
@@ -653,7 +719,38 @@ def judge(c, channels, *, now):
         verdict = "미보도 후보"
     else:
         verdict = "미확인"
-    return verdict, [{k: v for k, v in e.items() if k != "rank"} for e in ev[:5]]
+    out = [{k: v for k, v in e.items() if k != "rank"} for e in ev[:5]]
+    if verdict == "미보도 후보" and earlier:
+        out += earlier_coverage(c, earlier)
+    return verdict, out
+
+
+EARLIER_DAYS = 120
+
+
+def earlier_coverage(c, earlier, limit=2):
+    """항목 날짜(since)보다 앞선 기사 중 제목에 회사·사건 낱말이 함께 있는 것 — 판정에는 안 세고 맥락으로만 붙인다.
+    10-31 운영: 울주 '#2ASU O2 COMPRESSOR ROOM 토건공사' 안전점검 공고(10-30)는 창(10-27~) 안에 기사가 없어 미보도 후보가 맞지만,
+    산소공장 증설 자체는 10-20 전자신문 「고려아연, 산소공장 증설 발주 87% 완료」로 보도됐다 — 같은 사업의 후속 절차일 수 있다."""
+    generic = set(c.get("generic") or [])
+    alts = c.get("alts") or {}
+    words = [t for t in c["terms"] if t not in generic]
+    must = [m for m in c.get("must") or [] if m]
+    seen, out = set(), []
+    for ch, day, a in sorted(earlier, key=lambda x: x[1], reverse=True):
+        title, text = a.get("title", ""), f"{a.get('title', '')} {a.get('text', '')}"
+        key = a.get("url") or title
+        if key in seen or not company_in_text(c["company"], title):
+            continue
+        hits = [t for t in words if any(w in event_text(title) for w in alts.get(t, [t]))]
+        if not hits or (must and not any(m in text for m in must)):
+            continue
+        seen.add(key)
+        out.append({"title": title[:160], "url": a.get("url"), "date": a.get("date"), "channel": ch, "before": True,
+                    "why": f"항목 날짜보다 앞선 기사({', '.join(hits[:2])}) — 판정에 안 셈, 같은 사업의 앞선 보도일 수 있음"})
+        if len(out) >= limit:
+            break
+    return out
 
 
 def screen(cands, *, now, get=None, sleep=time.sleep):
@@ -685,6 +782,92 @@ def screen(cands, *, now, get=None, sleep=time.sleep):
     order = {"미보도 후보": 0, "관련 보도 있음": 1, "미확인": 2, "같은 수치 선행": 3}
     out.sort(key=lambda r: (order[r["verdict"]], -r["strength"]))
     return out
+
+
+# 정정 중 큰 변경(dart_filing_facts.material)의 보도 대조: 원 공시 기사가 있어도 정정 내용(기간 연장·감액·해지)은 새 사실일 수
+# 있다(10-31 운영: 두산에너빌리티 영광 야월 해상풍력 EPC 정정 — 계약기간 종료일 +7개월, 기자가 따로 '야월 해상풍력 두산에너빌리티
+# 계약기간'으로 찾아야 했다). 제목에 회사와 변경 낱말, 제목·요약에 그 사업 낱말이 함께 있어야 정정 내용 기사로 센다.
+CHANGE_WORDS = {
+    "해지": ["해지", "해제", "취소", "무산", "철회", "중단", "파기"],
+    "감액": ["감액", "축소", "하향", "삭감", "줄어", "줄여", "줄인", "조정"],
+    "증액": ["증액", "확대", "상향", "늘어", "늘려", "늘린", "조정"],
+    "연장": ["연장", "연기", "지연", "늘어", "늘려", "미뤄", "변경"],
+    "완료": ["완료", "마무리", "조기", "앞당"],
+    "단축": ["단축", "앞당", "조기", "변경"],
+    # 가이던스·전망 같은 계획 공시(공정공시)는 '감액·증액'이 아니라 '하향·상향 조정'으로 쓴다. '축소'는 빼고 —
+    # 10-31 운영: 현대차 가이던스 정정의 첫 근거가 「…3분기 영업익 늘었지만 매출 축소」였다(실적 기사).
+    "착공": ["착공", "착수", "NTP", "공사 시작", "본격"],
+    "하향": ["하향", "낮춰", "낮춘", "낮췄", "줄여", "줄인", "줄였", "조정"],
+    "상향": ["상향", "높여", "높인", "높였", "늘려", "늘린", "늘렸", "조정"],
+}
+PLAN_TYPES = ("공정공시",)
+NOT_SUBJECT = {"투자", "공장", "생산", "수주", "계약", "공급계약", "매출", "수출", "판매", "증설", "취득", "변압기"}
+MAX_CORRECTION_CHECKS = 6
+
+
+def change_word(fix, kind=None):
+    """큰 변경 목록 → 기사가 쓰는 변경 낱말(해지 > 금액 > 기간). 계획 공시(공정공시)의 금액은 하향·상향. 없으면 None."""
+    big = (fix or {}).get("material") or []
+    if any("해지" in m for m in big):
+        return "해지"
+    for m in big:
+        x = re.search(r"([+-])\d+%$", m)
+        if x and kind in PLAN_TYPES:
+            return "상향" if x.group(1) == "+" else "하향"
+        if x:
+            return "증액" if x.group(1) == "+" else "감액"
+    for m in big:
+        x = re.search(r"([+-])\d+개월$", m)
+        if x:
+            return "연장" if x.group(1) == "+" else "완료" if "완료" in str(fix.get("reason") or "") else "단축"
+    if any(m.endswith(" 확정") for m in big):
+        return "착공"  # 비어 있던 계약기간이 정해짐(착공지시서 수령 등)
+    return None  # 계약상대 공개·공시유보 해제: 기사는 상대 이름을 쓴다 — 변경 낱말로 찾지 않는다
+
+
+def correction_check_of(c):
+    """정정 내용 보도 대조용 후보(심사 함수에 그대로 넣는다). 큰 변경·사업 낱말이 없으면 None."""
+    fix = (c.get("filing") or {}).get("correction")
+    word = change_word(fix, (c.get("filing") or {}).get("type"))
+    subject = [t for t in (c.get("terms") or [])[:3] if t not in NOT_SUBJECT and t not in CHANGE_WORDS][:2]
+    since = article_day(c.get("published")) or article_day(filed_on(c.get("url")))
+    if not word or not subject or not since:
+        return None
+    qs = [f"{c['company']} {' '.join(subject)}", f"{c['company']} {subject[-1]} {word}"]
+    return {"id": c["id"], "company": c["company"], "title": c.get("title", ""), "kind": c.get("kind"), "terms": [word],
+            "alts": {word: CHANGE_WORDS[word]}, "strict": True, "must": subject, "generic": [], "names": [], "numbers": [],
+            "unit": "", "since": since.isoformat(), "queries": qs}
+
+
+def check_corrections(rows, *, now, get=None, sleep=time.sleep, limit=MAX_CORRECTION_CHECKS):
+    """정정 중 큰 변경이 있는데 원 공시 대조가 '관련 보도 있음'인 후보만 정정 내용으로 한 번 더 찾는다. (rows, 대조 수)"""
+    n = 0
+    for r in rows:
+        if n >= limit or r.get("verdict") == "미보도 후보":
+            continue
+        cc = correction_check_of(r)
+        if not cc:
+            continue
+        n += 1
+        channels = {"naver": {"status": "ok", "items": []}}
+        for q in cc["queries"]:
+            got = naver(q, get=get)
+            if got["status"] != "ok":
+                channels["naver"]["status"] = got["status"]
+            channels["naver"]["items"] += got["items"]
+            sleep(0.12)
+        channels["bing"] = bing(cc["queries"][-1], get=get)
+        sleep(0.3)
+        channels["google"] = google(cc["queries"][-1], get=get)
+        sleep(0.3)
+        verdict, evidence = judge(cc, channels, now=now)
+        # 같은 등급 안에서는 제목에 사업 낱말까지 있는 기사를 앞에(요약에만 있는 기사는 다른 각도일 수 있다)
+        evidence.sort(key=lambda e: (bool(e.get("before")) or "동일 사건 미확정" not in str(e.get("why") or ""),
+                                     not any(m in str(e.get("title") or "") for m in cc["must"])))
+        r["correctionCheck"] = {"word": cc["terms"][0], "subject": cc["must"], "since": cc["since"], "queries": cc["queries"],
+                                "verdict": verdict, "evidence": evidence[:3],
+                                "channels": {k: v.get("status") for k, v in channels.items()}}
+    return rows, n
 
 
 def carry_first_seen(rows, previous, now):
@@ -754,10 +937,11 @@ def main():
         from dart_lineage import zip_documents
         # Fetch identity before any news query. A generic lawsuit title is
         # never enough to certify either prior reporting or its absence.
-        targets = sorted(cands,key=lambda r:not is_lawsuit(r))
+        # 원문 제목·계약명이 있어야 심사할 수 있는 후보(bodyTitle)는 소송 다음으로 먼저 읽는다(예산 40건)
+        targets = sorted(cands, key=lambda r: (not is_lawsuit(r), not r.get("bodyTitle")))
         dart_filing_facts.enrich(targets, dart_key, dart_filing_facts.load_corp_codes(), fetch_documents=zip_documents, get=requests.get)
         for c in cands:
-            better=lawsuit_terms(c) or holder_terms(c)
+            better=lawsuit_terms(c) or holder_terms(c) or asset_terms(c)
             if better:
                 c["terms"],c["alts"]=better
         inputs["lawsuitIdentityRead"] = sum(bool(case_identity(c)[0]) for c in cands if is_lawsuit(c))
@@ -773,6 +957,9 @@ def main():
         print(f"::notice title=scoop-screen-body-titles::형식 공시명 후보 원문 제목 읽음 {b['read']} · 형식 공시라 뺌 {b['procedural']}"
               f" · 원문 제목 못 읽어 심사 안 함(미확인) {b['unread']}")
     rows = carry_first_seen(screen(cands, now=now), previous, now)
+    rows, inputs["correctionChecks"] = check_corrections(rows, now=now)
+    if inputs["correctionChecks"]:
+        print(f"::notice title=scoop-screen-corrections::정정 중 큰 변경 {inputs['correctionChecks']}건 정정 내용으로 다시 대조")
     doc = report(rows, now=now, inputs=inputs)
     if a.out:
         Path(a.out).write_text(json.dumps(doc, ensure_ascii=False, indent=1), encoding="utf-8")
