@@ -947,6 +947,11 @@ export function convergenceRows(g, max = 4) {
 }
 
 export async function radarToday(ctx, args) {
+  return textResult(await radarTodayText(ctx, args));
+}
+
+// 같은 내용을 기자 전용 브라우저 화면(board.mjs)도 쓴다 — 거기는 2만 자 응답 예산이 없어 잘리지 않는다.
+export async function radarTodayText(ctx, args) {
   const nowMs = ctx.now.getTime();
   const monday = new Date(nowMs + KST_MS).getUTCDay() === 1;
   const hours = clampInt(args.hours, 1, 336, monday ? 72 : 24);
@@ -1049,5 +1054,5 @@ export async function radarToday(ctx, args) {
   out.push('정리: 다 본 항목은 candidate_feedback(verdict=봤음, item_ids=[…])로 표시하면 다음부터 안 뜬다.');
   out.push('\n규칙: 모두 자동 수집 단계다. A도 단독 확정이 아니다 — 원문 확인 → news_check(낱말 바꿔 2~3번) → 회사 확인 → candidate_check. 첫 실행에 잡힌 기존 항목은 자기 날짜가 최근일 때만 새 항목으로 센다.');
   out.push("보도 대조(자동)는 네이버 뉴스 API·빙·구글에서 항목 날짜 3일 전부터 찾은 결과다. '미보도 후보'도 단독 판정이 아니고, '관련 보도 있음'은 같은 사건인지 열어 봐야 한다. 채널 실패는 미확인.");
-  return textResult(out.join('\n'));
+  return out.join('\n');
 }
