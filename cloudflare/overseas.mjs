@@ -43,14 +43,19 @@ export async function pageChanges(ctx, args) {
   const from = new Date(ctx.now.getTime() - days * 86400000).toISOString();
   const events = (doc.events ?? []).filter((e) => new Date(e.detectedAt).toISOString() >= from && matches(q, e.company, e.label, e.url));
   const pages = (doc.pages ?? []).filter((p) => matches(q, p.company, p.label, p.url));
-  const failed = pages.filter((p) => p.status !== 'ok');
+  const failed = pages.filter((p) => p.status === 'failed');
+  const moved = pages.filter((p) => p.status === 'redirected');
   const out = [`해외 공식 페이지 변경 · 최근 ${days}일 ${events.length}건 · 페이지 ${pages.length - failed.length}/${pages.length} 열림 · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt)}`];
   if (failed.length) out.push(`미확인(변화 없음 아님): ${failed.map((p) => `${p.label}(${p.error})`).join(', ')}`);
+  if (moved.length) out.push(`다른 주소로 넘어가는 페이지(문구 비교 안 함 — 제 페이지로 열리면 '페이지 열림'): ${moved.map((p) => `${p.label} → ${p.finalUrl}`).join(', ')}`);
   out.push(...(doc.rules ?? []).map((r) => `규칙: ${r}`));
   for (const e of events.slice(0, clampInt(args.limit, 1, 40, 15))) {
     out.push(`\n${String(e.detectedAt).slice(0, 16)} · ${e.label}${e.scope === 'site' ? ' [사이트 공통]' : ''}`);
     if (!e.scope) out.push('   주의: 사이트 공통 메뉴 문구를 걸러내기 전 기록 — 메뉴·배너 문구 변화일 수 있음');
     out.push(`   비교 기준: ${e.baselineSource}${e.baselineDate ? ` ${e.baselineDate}` : ''} → ${String(e.detectedAt).slice(0, 10)}`);
+    if (e.kind === 'moved') out.push(`   페이지 넘어감: 이 주소가 ${e.movedTo}(으)로 넘어간다 — 차종 페이지 내림·판매 중단·개편 가능성(회사 확인)`);
+    if (e.kind === 'opened') out.push(`   페이지 열림: 전에는 ${e.openedFrom}(으)로 넘어가던 주소가 제 페이지로 열렸다 — 출시 준비 신호일 수 있음(회사 확인)`);
+    if (e.redirectNote) out.push(`   주의: ${e.redirectNote}`);
     for (const [cat, list] of Object.entries(e.removed ?? {})) out.push(`   − ${CAT_KO[cat] ?? cat}: ${list.slice(0, 6).join(' / ')}`);
     for (const [cat, list] of Object.entries(e.added ?? {})) out.push(`   + ${CAT_KO[cat] ?? cat}: ${list.slice(0, 6).join(' / ')}`);
     out.push(`   원문: ${e.url}`);
@@ -64,7 +69,7 @@ export async function pageChanges(ctx, args) {
       const line = ['timing', 'limited', 'price', 'status'].map((k) => (sig[k] ?? []).slice(0, 3).join(' / ')).filter(Boolean).join(' · ');
       if (line && matches(q, site.company, dom)) out.push(`- [${dom} 공통 메뉴·배너] ${line}`);
     }
-    for (const p of pages.filter((x) => x.status === 'ok')) {
+    for (const p of pages.filter((x) => x.status === 'ok')) {  // 넘어가는 페이지는 문구가 없다
       const sig = p.signals ?? {};
       out.push(`- ${p.label}: ${['timing', 'limited', 'price', 'status'].map((k) => (sig[k] ?? []).slice(0, 3).join(' / ')).filter(Boolean).join(' · ') || '신호 문구 없음'}`);
     }

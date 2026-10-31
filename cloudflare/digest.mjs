@@ -553,8 +553,14 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
   for (const e of pw?.events ?? []) {
     if (!recent(e.detectedAt)) continue;
     const added = Object.values(e.added ?? {}).flat().slice(0, 3).join(' / ');
-    push(e.scope === 'page' ? 'A' : 'C', W['page-watch'], { kind: e.scope === 'site' ? '사이트 공통 문구' : '페이지 문구', id: `${e.pageId}:${e.detectedAt}`, date: e.detectedAt, company: e.company, fact: `${e.label ?? e.pageId}${e.scope === 'site' ? ' [사이트 공통]' : ''} 문구 변화${added ? `: + ${added}` : ''}`, url: e.url,
-      check: e.scope === 'page' ? pageHint(e, added) : undefined });
+    // 다른 주소로 넘어가던 페이지의 예전 '변경'은 넘어간 곳의 문구(10-31: kia.com/us/en/ev4 → 기아 미국 홈페이지) — C
+    const tier = e.redirectNote ? 'C' : e.scope === 'page' ? 'A' : 'C';
+    const what = e.kind === 'moved' ? ` 페이지 넘어감 → ${e.movedTo}(차종 페이지 내림·판매 중단·개편 가능성)`
+      : e.kind === 'opened' ? ` 페이지 열림(전에는 ${e.openedFrom}(으)로 넘어가던 주소 — 출시 준비 신호일 수 있음)${added ? `: ${added}` : ''}`
+      : ` 문구 변화${added ? `: + ${added}` : ''}${e.redirectNote ? ` — ${e.redirectNote}` : ''}`;
+    push(tier, W['page-watch'], { kind: e.scope === 'site' ? '사이트 공통 문구' : e.kind === 'moved' ? '페이지 넘어감' : e.kind === 'opened' ? '페이지 열림' : '페이지 문구',
+      id: `${e.pageId}:${e.detectedAt}`, date: e.detectedAt, company: e.company, fact: `${e.label ?? e.pageId}${e.scope === 'site' ? ' [사이트 공통]' : ''}${what}`, url: e.url,
+      check: e.scope === 'page' && tier === 'A' && !e.kind ? pageHint(e, added) : undefined });
   }
   return items;
 }
