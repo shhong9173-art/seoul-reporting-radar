@@ -99,6 +99,13 @@ class Facts(unittest.TestCase):
         self.assertEqual(f.filing_type("투자판단관련주요경영사항"), "공정공시")
         self.assertEqual(f.filing_type("[기재정정]영업실적등에대한전망(공정공시)"), None)  # 실적 전망은 형식 공시(scoop_screen ADMIN)
 
+    def test_trading_plan_holder_from_dart_xml_cells(self):
+        # 영풍 20261028000440 표지(dart4.xsd XML): 값 칸이 <TE>·<TU>
+        cover = ('<TABLE><TBODY><TR><TD>거래시작일(결제일) :</TD><TE ACODE="X">2026년 11월 27일</TE></TR>'
+                 '<TR><TD>보고자 :</TD><TU AUNIT="Y">장세환</TU></TR></TBODY></TABLE><TEXT>본문</TEXT>')
+        got = dict(f.facts("임원ㆍ주요주주특정증권등거래계획보고서", [cover])["facts"])
+        self.assertEqual((got["보고자"], got["거래시작일(결제일)"]), ("장세환", "2026년 11월 27일"))
+
     def test_types(self):
         self.assertEqual(f.filing_type("[기재정정]타인에대한채무보증결정"), "채무보증")
         self.assertEqual(f.filing_type("타법인주식및출자증권취득결정(자율공시)"), "타법인주식취득")

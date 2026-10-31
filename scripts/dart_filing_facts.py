@@ -25,6 +25,7 @@ LIST_API = "https://opendart.fss.or.kr/api/list.json"
 YEARS_BACK = 3
 MAX_PREV_DOCS = 4
 SUBSIDIARY = re.compile(r"자회사|종속|계열|손자회사|관계회사")
+CELL_XML = re.compile(r"<(/?)t[eu](?![A-Za-z0-9_])", re.I)
 
 
 def norm(label):
@@ -48,7 +49,8 @@ TYPES = [
     # a lawsuit is identified by its case number; case names like '주주대표소송' repeat across different cases
     ("소송판결", r"소송등의판결", ["사건의명칭", "사건번호", "원고ㆍ신청인", "판결ㆍ결정내용", "관할법원", "판결ㆍ결정일자"], "사건번호"),
     ("소송제기", r"소송등의제기", ["사건의명칭", "사건번호", "원고ㆍ신청인", "청구내용", "관할법원", "제기ㆍ신청일자"], "사건번호"),
-    ("거래계획", r"특정증권등거래계획", [], None),
+    # 거래계획 보고: 표지의 '보고자 : | 이름'(2026-10-28 영풍 20261028000440 장세환), 철회 보고서는 '보 고 자: | (성 명)' 다음 칸일 수 있다
+    ("거래계획", r"특정증권등거래계획", ["보고자", "성명", "거래시작일(결제일)", "거래목적"], None),
     # 형식 공시명만으로는 내용을 알 수 없는 공시: 원문의 제목 칸을 읽는다(2026-10-31 실제 공시로 형식 확인:
     # OCI홀딩스 20261029800315 수시공시의무관련사항(공정공시) '1. 정보내용 | 공시제목 | …',
     # 현대자동차 20261029800231 장래사업ㆍ경영계획(공정공시) '1. 장래계획 사항 | …'). 같은 상대 비교는 하지 않는다.
@@ -80,6 +82,8 @@ def pairs(documents):
     for doc in documents:
         if not isinstance(doc, str):
             continue
+        # DART 정기·주요공시 XML(dart4.xsd)은 입력 칸을 <TE>·<TU>로 쓴다(거래계획 보고서의 '보고자 : | 이름' 등) — 칸으로 읽는다.
+        doc = CELL_XML.sub(lambda m: f"<{m.group(1)}td", doc)
         p = CellTableParser()
         try:
             p.feed(doc)
