@@ -262,11 +262,41 @@ export function kitaSection(ki, events, q = '', limit = 15, fromIso = '') {
   return out;
 }
 
+// 미국 ITC 문서 시스템 EDIS(edis_watch.py): 한국산 제소·출입처가 당사자인 서면·출입처 이름이 표지에 든 337 제소장·지켜보는 337 조사의 결정.
+// 운영 근거: 337-TA-1494 종결 예비 결정에 한화솔루션·한화큐셀 등이 재검토를 청원(10-07·10-21) — 10-Q·국내 보도엔 없던 사실.
+export function edisSection(ed, q = '', limit = 15, showAll = false, fromIso = '') {
+  if (!ed) return ['\n[미국 ITC 문서(EDIS)] 아직 수집 전 — 미확인'];
+  const rank = { A: 0, B: 1, C: 2 };
+  const all = (ed.docs ?? []).filter((x) => String(x.firstSeen ?? '') >= fromIso || !fromIso)
+    .filter((x) => matches(q, x.investigationNumber, x.investigationTitle, x.documentTitle, x.onBehalfOf, (x.companies ?? []).join(' ')));
+  const shown = showAll ? all : all.filter((x) => x.tier !== 'C');
+  const sorted = [...shown].sort((a, b) => (rank[a.tier] ?? 3) - (rank[b.tier] ?? 3) || String(b.officialReceivedDate).localeCompare(String(a.officialReceivedDate)));
+  const watched = Object.keys(ed.watched ?? {});
+  const out = [`\n[미국 ITC 문서(EDIS) · 확인 ${String(ed.checkedAt).slice(0, 16)}${ed.stale ? ' · ⚠ 이번 조회 실패, 직전 상태' : ''} · 기준선 ${String(ed.baselineSince ?? '').slice(0, 10)}] `
+    + `A·B ${all.filter((x) => x.tier !== 'C').length}건${showAll ? '' : ` · 일상 C ${all.length - shown.length}건 숨김(show_all=true)`} · 지켜보는 337 조사 ${watched.join(', ') || '없음'}`];
+  if (ed.tokenNote) out.push(`⚠ ${ed.tokenNote}`);
+  for (const x of sorted.slice(0, limit)) {
+    const party = x.onBehalfOf && String(x.firmOrganization).toUpperCase() !== 'USITC' ? ` (당사자 ${String(x.onBehalfOf).slice(0, 240)})` : '';
+    out.push(`- ${x.tier}${x.isNew ? ' [신규]' : ''} · 접수 ${String(x.officialReceivedDate).slice(0, 16)} · ${x.investigationNumber} ${x.documentType} · ${x.documentTitle}`);
+    out.push(`   제출 ${x.firmOrganization || x.filedBy}${party} · ${x.why}${(x.companies ?? []).length ? ` · 출입처 ${x.companies.join('·')}` : ''}`);
+    out.push(`   사건: ${x.investigationTitle} (${x.investigationPhase}·${x.investigationStatus})`);
+    if ((x.snippets ?? []).length) out.push(`   본문(${x.pages}쪽, 공개본 첫 첨부) 발췌: ${x.snippets.map((t) => `"${t}"`).join(' / ')}`);
+    else if (x.bodyError) out.push(`   본문 미확인(${x.bodyError})`);
+    else if (String(x.securityLevel).toLowerCase() !== 'public') out.push('   비공개 문서 — 본문 없음(공개본은 뒤에 따로 올라온다)');
+    out.push(`   원문: ${x.url} (EDIS 문서 번호 ${x.id})`);
+  }
+  if (sorted.length > limit) out.push(`… 남은 ${sorted.length - limit}건`);
+  if (!sorted.length) out.push('이 기간 새로 본 관련 문서 없음(조회 실패·토큰 문제는 위 원천 상태 — 미확인).');
+  out.push('   검증 상태: EDIS 문서 목록(자동)·공개본 첫 첨부 발췌(자동, API 토큰). 제소장·청원·서면은 당사자 주장 — 결론은 위원회·판사 문서로. '
+    + '출입처 이름이 나와도 피제소인·제3자·고객 중 무엇인지 원문 확인. 로펌 하나가 여러 피제소인을 대리하면 회사별 입장은 원문에서');
+  return out;
+}
+
 export async function tradeRemedies(ctx, args) {
   const doc = await readFeed(ctx, 'trade-remedy');
   if (!doc) return missing('무역구제 감시(해외·국내 무역위원회)', '평일 07:40');
   if (doc.broken) return textResult('저장된 무역구제 결과 형식 오류 — 미확인.', true);
-  const section = ['quota', 'us', 'notices', 'ktc', 'kita'].includes(args.section) ? args.section : null;
+  const section = ['quota', 'us', 'notices', 'ktc', 'kita', 'edis'].includes(args.section) ? args.section : null;
   const q = String(args.company ?? '').trim();
   const days = clampInt(args.days, 1, 120, 30);
   const limit = clampInt(args.limit, 1, 60, 15);
@@ -313,10 +343,12 @@ export async function tradeRemedies(ctx, args) {
 
   if (!section || section === 'ktc') out.push(...ktcSection(doc.ktc, q, limit));
   if (!section || section === 'kita') out.push(...kitaSection(doc.kita, doc.events, q, limit, new Date(ctx.now.getTime() - days * 86400000).toISOString()));
+  if (!section || section === 'edis') out.push(...edisSection(doc.edis, q, limit, showAll, new Date(ctx.now.getTime() - days * 86400000).toISOString()));
 
   if (!section || section === 'notices') {
     const from = new Date(ctx.now.getTime() - days * 86400000).toISOString();
-    const ev = (doc.events ?? []).filter((e) => !e.renumbered && new Date(e.detectedAt).toISOString() >= from && matches(q, e.label, e.text, e.country));
+    // EDIS 문서는 위 [미국 ITC 문서] 구역에 본문 발췌와 함께 나온다
+    const ev = (doc.events ?? []).filter((e) => !e.renumbered && e.pageId !== 'edis' && new Date(e.detectedAt).toISOString() >= from && matches(q, e.label, e.text, e.country));
     const renumbered = (doc.events ?? []).filter((e) => e.renumbered && new Date(e.detectedAt).toISOString() >= from).length;
     const off = (doc.pages ?? []).filter((p) => p.status === 'disabled');
     const pages = (doc.pages ?? []).filter((p) => p.status !== 'disabled');
@@ -334,7 +366,7 @@ export async function tradeRemedies(ctx, args) {
     if (renumbered) out.push(`(목록 일련번호만 바뀐 재감지 ${renumbered}건은 뺐다 — 같은 줄의 첫 감지에 표시)`);
     if (!ev.length) out.push('이 기간 감지된 새 공고 줄·새 소진 없음(열리지 않은 목록은 미확인).');
   }
-  out.push('\n다음: 원문은 source_document로 연다(미국 관보·EU·무역위 상세) → 대상 품목·업체·세율·소진일·회의 안건 확인 → news_check로 보도 대조 → 회사·협회 확인.');
+  out.push('\n다음: 원문은 source_document로 연다(미국 관보·EU·무역위 상세; EDIS 첨부 PDF는 토큰이 필요해 EDIS 누리집에서 문서 번호로) → 대상 품목·업체·세율·소진일·회의 안건 확인 → news_check로 보도 대조 → 회사·협회 확인.');
   return textResult(out.join('\n'));
 }
 

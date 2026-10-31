@@ -437,6 +437,15 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
         check: firms.length ? hint(firms[0], [e.country, '관세'], [e.country]) : undefined });
       continue;
     }
+    if (e.pageId === 'edis') {
+      // 미국 ITC 문서(EDIS): 한국산 청원·표지에 출입처가 든 337 제소장(A), 출입처 서면·지켜보는 337 결정·한국 조사 판정(B). 등급은 수집기.
+      const firms = e.companies ?? [];
+      const is337 = /^337-/.test(String(e.label).replace(/^USITC\s+/, ''));
+      push(['A', 'B'].includes(e.tier) ? e.tier : 'C', W['trade-remedy'], { kind: is337 ? '미국 ITC 337(특허) 문서' : '미국 ITC 무역구제 문서', id: e.id, date: e.detectedAt,
+        company: firms.join('·') || '미국 ITC', fact: `${e.label}: ${e.text}`, url: e.url,
+        check: firms.length ? hint(firms[0], is337 ? ['ITC', '특허'] : ['ITC', '반덤핑']) : undefined });
+      continue;
+    }
     // repeats: 같은 줄이 목록 일련번호만 바뀌어 다시 잡힌 적 있음 → 이 첫 감지도 번호 이동일 수 있어 C(원문 개시일 확인)
     push(e.repeats ? 'C' : e.pageId === 'taric' && /한국 전용/.test(e.label) ? 'A' : 'B', W['trade-remedy'], { kind: e.pageId === 'taric' ? 'EU 쿼터(TARIC)' : `해외 조사 ${e.pageId}`, id: e.id, date: e.detectedAt, company: e.country,
       fact: `${e.label}: ${e.text}${e.repeats ? ` — 목록 일련번호만 바뀌어 ${e.repeats}번 다시 잡힌 줄이라 이 감지도 번호 이동일 수 있음(원문 개시일 확인)` : ''}`, url: e.url });
