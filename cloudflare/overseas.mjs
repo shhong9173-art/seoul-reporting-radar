@@ -584,18 +584,21 @@ export function oshaSection(doc, q = '', limit = 20, onlyNew = false, routine = 
   if (!doc) return ['\n[미국 OSHA 점검·위반] 아직 수집 전 — 미확인'];
   if (doc.broken) return ['\n[미국 OSHA 점검·위반] 저장 결과 형식 오류 — 미확인'];
   const c = (doc.checks ?? [])[0] ?? {};
-  const weight = (x) => (['M', 'A'].includes(x.type) || (x.accidents ?? []).some((a) => a.fatality) ? 0
+  // 출입처 공장 주소의 하도급·협력사 점검(atSite)은 사망·중대사고·사고·사망 사고 요약만 보인다
+  const weight = (x) => (['M', 'A'].includes(x.type) || (x.accidents ?? []).some((a) => a.fatality) ? 0 : x.atSite ? 3
     : (x.violations ?? []).some((v) => ['W', 'R'].includes(v.type)) || (x.penaltyInitial ?? 0) >= 100000 ? 1
       : ['B', 'C'].includes(x.type) || (x.violations ?? []).length ? 2 : 3);
   const all = (doc.inspections ?? []).filter((x) => (!onlyNew || x.isNew) && matches(q, x.company, x.estab, x.city, x.state));
   const rows = all.filter((x) => routine || weight(x) < 3).sort((a, b) => weight(a) - weight(b) || String(b.opened).localeCompare(String(a.opened)));
   const out = [`\n[미국 OSHA 점검·위반 · 출입처 미국 법인·공장 · 개시 ${String(doc.since ?? '').slice(0, 10)} 이후 · 확인 ${String(doc.generatedAt).slice(0, 16)}${ctx ? ageNote(ctx, doc.generatedAt, 60, true) : ''}] `
-    + `${rows.length}건${routine ? '' : ` · 정기·후속·모니터링만 있는 점검 ${all.length - rows.length}건 숨김(include_routine=true)`} · 원천 ${c.status ?? '?'}${c.error ? `(${c.error})` : ''}`];
+    + `${rows.length}건${routine ? '' : ` · 정기·후속·모니터링 점검과 공장 주소 하도급의 일반 점검 ${all.length - rows.length}건 숨김(include_routine=true)`} · 원천 ${c.status ?? '?'}${c.error ? `(${c.error})` : ''}`
+    + ` · 지켜보는 공장 주소 ${Object.keys(doc.sites ?? {}).length}곳`];
   for (const x of rows.slice(0, limit)) {
     const v = x.violations ?? [];
     const kinds = [...new Set(v.map((y) => y.typeName))].join('·');
-    out.push(`- ${x.isNew ? '[신규] ' : ''}개시 ${x.opened} · ${x.company} · ${x.typeName}(${x.type}) 점검${x.closed ? ` · 종결 ${x.closed}` : ' · 진행 중'}${x.stale ? ' · ⚠ 이번 조회 실패, 직전 값' : ''}${x.notReturned ? ' · ⚠ 이번 조회에 안 나옴' : ''}`);
-    out.push(`   사업장: ${x.estab} (${x.city ?? '?'}, ${x.state ?? '?'})${x.employees ? ` · 종업원 ${x.employees}명` : ''}${x.naics ? ` · NAICS ${x.naics}` : ''}`);
+    out.push(`- ${x.isNew ? '[신규] ' : ''}개시 ${x.opened} · ${x.company}${x.atSite ? '(공장 주소 하도급)' : ''} · ${x.typeName}(${x.type}) 점검${x.closed ? ` · 종결 ${x.closed}` : ' · 진행 중'}${x.stale ? ' · ⚠ 이번 조회 실패, 직전 값' : ''}${x.notReturned ? ' · ⚠ 이번 조회에 안 나옴' : ''}`);
+    out.push(x.atSite ? `   사업장: ${x.estab} — 출입처(${x.company}) 공장 주소 ${x.address ?? '?'} (${x.city ?? '?'}, ${x.state ?? '?'})의 하도급·협력사 점검(그 회사 점검, 출입처 책임 아님)${x.naics ? ` · NAICS ${x.naics}` : ''}`
+      : `   사업장: ${x.estab} (${x.city ?? '?'}, ${x.state ?? '?'})${x.employees ? ` · 종업원 ${x.employees}명` : ''}${x.naics ? ` · NAICS ${x.naics}` : ''}`);
     out.push(v.length ? `   위반 통지 ${v.length}건(${kinds}) · 최초 벌금 합 $${(x.penaltyInitial ?? 0).toLocaleString('en-US')}${x.penaltyCurrent !== x.penaltyInitial ? ` → 현재 $${(x.penaltyCurrent ?? 0).toLocaleString('en-US')}` : ''} · 통지 ${[...new Set(v.map((y) => y.issued))].join(', ')}`
       : '   위반 통지 없음(아직 미발부일 수 있음 — 개시 뒤 최대 6개월)');
     for (const a of (x.accidents ?? []).slice(0, 2)) out.push(`   사고 요약 ${a.date || '?'}${a.fatality ? ' · 사망' : ''}: ${String(a.desc ?? '').slice(0, 160)}${a.abstract ? ` — "${a.abstract.slice(0, 240)}"` : ''}`);
