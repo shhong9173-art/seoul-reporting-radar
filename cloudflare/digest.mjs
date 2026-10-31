@@ -79,7 +79,7 @@ const ALT = {
   계약: ['계약', '협약', '합의', '공급', '합작', 'MOU'], 의견서: ['의견서', '의견', '제출', '요청'], 상표: ['상표', '출원', '브랜드', '명칭'],
   개정안: ['개정안', '발의', '법안', '개정', '대표발의'], BAIC: ['BAIC', '베이징자동차', '베이징기차', '北汽'],
   합작: ['합작', '지분', '매각', '정리', '철수', '계약', '합작사'], 보조금: ['보조금', '상계관세', '어린이집', '직장', '지원'],
-  리콜: ['리콜', '결함', '시정조치', '화재 위험'], 가격: ['가격', '판매가', '출고가', 'MSRP', '값'], 미국: ['미국', '美'],
+  리콜: ['리콜', '결함', '시정조치', '화재 위험'], 무상수리: ['무상수리', '무상 수리', '보증 연장', '보증기간', '서비스 캠페인', '무상 교체', '무상 점검'], 가격: ['가격', '판매가', '출고가', 'MSRP', '값'], 미국: ['미국', '美'],
   EPA: ['EPA', '환경보호청', '인증', '주행거리', '연비'],
   회생: ['회생', '법정관리', '파산', '기업회생', '워크아웃'], 파산: ['파산', '청산', '회생', '법정관리'], 매각: ['매각', '인수', 'M&A', '새 주인'],
   허가: ['허가', '인가', '승인', '전기위원회'], 법인: ['법인', '현지법인', '자회사', '설립'], 영국: ['영국', 'UK'], 원안위: ['원안위', '원자력안전위원회', '의결', '심의'],
@@ -537,6 +537,24 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
     push(x.tier ?? 'B', W['us-recalls'], { kind: '미국 결함 신고 급증', id: `${x.id}:${String(x.firstSeen).slice(0, 10)}`, date: x.firstSeen, company: x.brand,
       fact: `미국 소비자 결함 신고 급증 · ${x.brand} ${x.model}(연식 ${x.years}) · 최근 28일(${(x.window ?? []).join('~')}) 신고 ${x.complaints}건 · ${parts}${harm ? ` · ${harm}` : ''}${recall} — 소비자 신고라 결함 확정 아님, 국내 판매 차종 해당 여부는 회사 확인`,
       url: x.url, check: x.tier === 'C' ? undefined : (models.length ? hint(x.brand, [models[0], '리콜'], [models[0]], models) : hint(x.brand, ['리콜', '미국'])) });
+  }
+
+  // 미국 제조사 통신(nhtsa_tsbs.py): 동력계통 보증 프로그램 A, 그 밖 보증 프로그램·서비스 캠페인·안전 낱말 서비스 공지 B, 나머지 C.
+  // 딜러용 통신이라 리콜·결함 인정이 아니다 — 국내 무상수리 여부는 회사 확인.
+  const tsItems = ur?.tsbs?.items ?? [];
+  const tsBase = baselineOf(tsItems);
+  for (const x of tsItems) {
+    if (!fresh(x, tsBase, 'added')) continue;
+    const modelText = (x.models ?? []).map((m) => m.model).join(', ');
+    const models = usRecallModels(modelText);
+    const brand = (x.brands ?? [])[0] ?? (x.companies ?? [])[0];
+    const years = (x.models ?? []).flatMap((m) => m.years ?? []).sort();
+    push(['A', 'B'].includes(x.tier) ? x.tier : 'C', W['us-recalls'], { kind: `미국 제조사 통신(${x.kindName ?? x.type})`, id: `tsb:${x.id}`, date: x.added,
+      company: (x.companies ?? []).join('·'),
+      fact: `미국 NHTSA 제조사 통신 ${x.kindName ?? x.type} · 추가 ${x.added} · ${(x.brands ?? []).join('·')} ${(x.models ?? []).slice(0, 4).map((m) => m.model).join(', ')}${x.modelCount > 4 ? ` 외 ${x.modelCount - 4}개` : ''}`
+        + `${years.length ? `(${years[0]}${years.length > 1 && years[years.length - 1] !== years[0] ? `~${years[years.length - 1]}` : ''}년형)` : ''} · 문서 ${x.doc}${x.campaign ? `·캠페인 ${x.campaign}` : ''} · 「${clipAt(x.summary ?? '', 160)}」`
+        + ' — 딜러용 통신이라 리콜·결함 인정 아님, 국내 무상수리 해당 여부는 회사 확인',
+      url: x.url, check: x.tier === 'C' ? undefined : (models.length ? hint(brand, [models[0], '무상수리'], [models[0]], models) : hint(brand, ['무상수리', '미국'])) });
   }
 
   // US OSHA: new inspection (fatality/accident A, complaint/referral B), new citations (willful/repeat or $100k+ A, serious B), fatal accident summary A.

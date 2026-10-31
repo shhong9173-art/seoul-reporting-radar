@@ -1,6 +1,7 @@
 name: US Recalls Watch
 # NHTSA 전체 리콜 파일(매일 갱신, 한국시각 16시 무렵)에서 출입처 브랜드·한국GM 생산 차종·한국 타이어·한국 부품사 이름이 나온 새 리콜,
-# 같은 날 소비자 결함 신고 파일(COMPLAINTS_RECEIVED)에서 출입처 차종의 신고 급증.
+# 같은 날 소비자 결함 신고 파일(COMPLAINTS_RECEIVED)에서 출입처 차종의 신고 급증, 제조사 통신 파일(TSBS_RECEIVED)에서
+# 서비스 캠페인·보증 프로그램·안전 관련 서비스 공지.
 # 시간은 Cloudflare가 평일 17:10 KST에 workflow_dispatch로 맞춘다. 아래 cron은 예비(늦게 오면 건너뜀).
 # 결과는 기자 전용 저장소로만. 공개 로그는 건수만.
 on:
@@ -9,6 +10,7 @@ on:
     paths:
       - 'scripts/us_recall_watch.py'
       - 'scripts/nhtsa_complaints.py'
+      - 'scripts/nhtsa_tsbs.py'
       - 'tests/test_us_recall_watch.py'
       - '.github/workflows/us-recalls.yml'
   schedule:

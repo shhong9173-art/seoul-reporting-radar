@@ -2059,6 +2059,45 @@ test('us_recalls: consumer complaint spikes (pre-recall signal) are B, C after a
   assert.deepEqual([sf.who, sf.terms, sf.places], ['현대차', ['싼타페', '리콜'], ['싼타페']]);
 });
 
+test('us_recalls: NHTSA manufacturer communications — powertrain warranty A, campaign B, C hidden unless show_all, baseline not pushed', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const now = new Date(Date.now() - 3600000).toISOString();
+  const base = new Date(Date.now() - 5 * 86400000).toISOString();
+  const today = now.slice(0, 10);
+  const item = (id, extra) => ({ id, doc: '26-EE-007H', added: '2026-07-20', mfrDate: '2026-07-18', type: 'WARRANTY PROGRAM/EXTENSION', kindName: '보증 연장·보증 프로그램',
+    summary: 'Warranty extension for the Integrated Charging Control Unit (ICCU) to 15 years.', companies: ['현대차'], brands: ['현대차'],
+    models: [{ model: 'IONIQ 5', years: ['2023', '2024'] }, { model: 'IONIQ 6', years: ['2023'] }], modelCount: 2, components: ['ELECTRICAL SYSTEM'], systems: [],
+    rows: 3, otherRows: 0, tier: 'A', firstSeen: base, isNew: false, url: `https://static.nhtsa.gov/odi/tsbs/2026/MC-${id}-0001.pdf`, ...extra });
+  const doc = { schema: 'us_recalls/v1', generatedAt: now, windowDays: 21, rules: [], recalls: [], investigations: [],
+    checks: [{ source: 'NHTSA 전체 리콜 파일', status: 'ok' }, { source: 'NHTSA 제조사 통신(TSB)', status: 'ok', rows: 4 }],
+    tsbs: { windowDays: 120, baselineSince: base, fileModified: 'Sat, 31 Oct 2026 10:08:16 GMT', rules: ['딜러용 통신이라 결함 인정·리콜이 아니다.'], items: [
+      item('11012001'),                                                                                     // 기준선(이미 있던 통신) — 레이더에 안 올림
+      item('11012100', { added: today, firstSeen: now, isNew: true, summary: 'Engine warranty extension to 15 years/150,000 miles.', companies: ['기아'], brands: ['기아'],
+        models: [{ model: 'TELLURIDE', years: ['2026'] }], modelCount: 1, components: ['ENGINE'] }),
+      item('11012101', { added: today, firstSeen: now, isNew: true, type: 'SERVICE CAMPAIGN', kindName: '서비스 캠페인', tier: 'B', campaign: 'SC123',
+        summary: 'Service campaign to update the trailer hitch module.', companies: ['기아'], brands: ['기아'], models: [{ model: 'SORENTO', years: ['2026'] }], modelCount: 1 }),
+      item('11012102', { added: today, firstSeen: now, isNew: true, type: 'SERVICE BULLETIN/REPAIR INSTRUCTIONS', kindName: '서비스 공지(수리 지침)', tier: 'C',
+        summary: 'Radio display software update.', models: [{ model: 'TUCSON', years: ['2025'] }], modelCount: 1 })] } };
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/us-recalls', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
+  const t = await call('us_recalls', {}, opts);
+  assert.match(t.text, /\[제조사 통신\(서비스 캠페인·보증 프로그램·서비스 공지\) · 파일 추가일 최근 120일\] 4건\(A 2·B 1·참고 C 1 — C는 show_all=true\)/);
+  assert.match(t.text, new RegExp(`\\[신규\\] A · ${today} · 보증 연장·보증 프로그램 · 기아 TELLURIDE\\(2026\\)`));
+  assert.match(t.text, /A · 2026-07-20 · 보증 연장·보증 프로그램 · 현대차 IONIQ 5\(2023·2024\), IONIQ 6\(2023\)/);
+  assert.match(t.text, /문서 26-EE-007H · 캠페인 SC123/);
+  assert.match(t.text, /원문: https:\/\/static\.nhtsa\.gov\/odi\/tsbs\/2026\/MC-11012100-0001\.pdf/);
+  assert.doesNotMatch(t.text, /Radio display/);
+  assert.match((await call('us_recalls', { show_all: true }, opts)).text, /C · [^\n]*서비스 공지\(수리 지침\) · 현대차 TUCSON\(2025\)/);
+  const r = await call('radar_today', { include_minor: true }, opts);
+  const a = r.text.split('[A · ')[1].split('[B · ')[0];
+  assert.match(a, /미국 NHTSA 제조사 통신 보증 연장·보증 프로그램 · 추가 [^\n]*기아 TELLURIDE\(2026년형\) · 문서 26-EE-007H · 「Engine warranty extension/);
+  assert.doesNotMatch(r.text, /IONIQ 5/);    // 기준선 통신은 레이더에 안 올림
+  assert.match(r.text.split('[B · ')[1], /서비스 캠페인 · 추가 [^\n]*기아 SORENTO\(2026년형\) · 문서 26-EE-007H·캠페인 SC123/);
+  const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
+  const tl = items.items.find((x) => x.id === 'tsb:11012100').check;
+  assert.deepEqual([tl.who, tl.terms, tl.places, tl.alts['무상수리'].includes('보증 연장')], ['기아', ['텔루라이드', '무상수리'], ['텔루라이드'], true]);
+});
+
 test('scoop_reverse shows automatic prior-capture candidates by source with lead time, separate from human Y/P/N', async () => {
   const opts = PRIVATE();
   const env = opts.env;

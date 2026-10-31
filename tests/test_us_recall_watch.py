@@ -93,6 +93,8 @@ def fake(calls=None, flat=None, issues=SAFETY, pdf_text=P573, inv_lines=None):
             return R(200, content=inv_zip(INV_LINES if inv_lines is None else inv_lines))
         if url.startswith(w.PDF_ROOT):
             return R(200, content=PART573 + pdf_text.encode())
+        if "tsbs/TSBS_RECEIVED_2025-2026" in url:
+            return R(200, content=tsb_zip(TSB))
         return R(404)
     return get
 
@@ -303,6 +305,94 @@ class Complaints(unittest.TestCase):
     def test_file_spans_cover_the_baseline(self):
         self.assertEqual(cm.spans(NOW), ["2025-2026", "2026-2027"])
         self.assertEqual(cm.spans(dt.datetime(2027, 2, 1, tzinfo=KST)), ["2025-2026", "2026-2027", "2027-2028"])
+
+
+import nhtsa_tsbs as tb  # noqa: E402
+
+
+def tsb(nid, make, model, year, ctype, summary, added="20261020", comp="ELECTRICAL SYSTEM", doc="26-EE-007H", campaign=""):
+    return "\t".join([nid, "", added, doc, added, campaign, ctype, make, model, year, comp, "Electrical", "", summary])
+
+
+def tsb_zip(lines):
+    b = io.BytesIO()
+    with zipfile.ZipFile(b, "w") as z:
+        z.writestr("TSBS_RECEIVED_2025-2026.txt", "\n".join(lines).encode("latin-1"))
+    return b.getvalue()
+
+
+# 11-01 탐침 모양: 통신 종류 칸은 빗금 둘레에 띄어쓰기가 없다. 한 통신이 차종×연식마다 한 줄.
+TSB = [
+    tsb("11012001", "HYUNDAI", "IONIQ 5", "2023", "Warranty Program/Extension", "Warranty extension for the Integrated Charging Control Unit (ICCU) to 15 years."),
+    tsb("11012001", "HYUNDAI", "IONIQ 5", "2024", "Warranty Program/Extension", "same"),
+    tsb("11012001", "HYUNDAI", "IONIQ 6", "2023", "Warranty Program/Extension", "same"),
+    tsb("11012002", "KIA", "SORENTO", "2026", "Service Campaign", "Service campaign to update the trailer hitch module.", campaign="SC123"),
+    tsb("11012003", "GENESIS", "GV70", "2025", "Service Bulletin/Repair Instructions", "Vehicle may stall at low speed; reprogram the ECM.", comp="POWER TRAIN"),
+    tsb("11012004", "HYUNDAI", "TUCSON", "2025", "Service Bulletin/Repair Instructions", "Radio display software update."),
+    tsb("11012005", "CHEVROLET", "TRAX", "2025", "Service Bulletin/Repair Instructions", "Brake pedal feel; adjust."),
+    tsb("11012005", "CHEVROLET", "SILVERADO", "2025", "Service Bulletin/Repair Instructions", "Brake pedal feel; adjust."),
+    tsb("11012006", "CHEVROLET", "TRAILBLAZER", "2025", "Service Campaign", "Seat belt anchor inspection."),
+    tsb("11012007", "KIA", "EV9", "2025", "Warranty Program / Extension", "Warranty extension for the 12V auxiliary battery doesn\u00e2\u0080\u0099t charge."),
+    tsb("11012008", "FORD", "ESCAPE", "2025", "Service Campaign", "Not ours."),
+    tsb("11011000", "KIA", "K5", "2025", "Service Campaign", "Too old.", added="20260301"),
+    "short\tline",
+]
+
+
+def tget(lines=None, status=200, seen=None):
+    def get(url, headers=None, timeout=None):
+        if seen is not None:
+            seen.append(url)
+        if "2025-2026" in url:
+            return R(status, content=tsb_zip(TSB if lines is None else lines), headers={"Last-Modified": "Sat, 31 Oct 2026 10:08:16 GMT"})
+        return R(404)
+    return get
+
+
+class Tsbs(unittest.TestCase):
+    def test_tiers_grouping_and_links(self):
+        doc, check = tb.collect(NOW, None, get=tget())
+        self.assertEqual((check["status"], check["rows"], check["new"]), ("ok", 7, 0))
+        by = {x["id"]: x for x in doc["items"]}
+        self.assertNotIn("11012008", by)   # 출입처 아님
+        self.assertNotIn("11011000", by)   # 120일 밖
+        iccu = by["11012001"]
+        self.assertEqual((iccu["tier"], iccu["kindName"], iccu["companies"], iccu["modelCount"]), ("A", "보증 연장·보증 프로그램", ["현대차"], 2))
+        self.assertEqual(iccu["models"], [{"model": "IONIQ 5", "years": ["2023", "2024"]}, {"model": "IONIQ 6", "years": ["2023"]}])
+        self.assertEqual(iccu["url"], "https://static.nhtsa.gov/odi/tsbs/2026/MC-11012001-0001.pdf")
+        self.assertEqual((by["11012002"]["tier"], by["11012002"]["campaign"]), ("B", "SC123"))
+        self.assertEqual((by["11012003"]["tier"], by["11012003"]["brands"], by["11012003"]["companies"]), ("B", ["제네시스"], ["현대차"]))
+        self.assertEqual(by["11012004"]["tier"], "C")
+        self.assertEqual((by["11012005"]["tier"], by["11012005"]["otherRows"]), ("C", 1))   # GM 공통 통신
+        self.assertEqual((by["11012006"]["tier"], by["11012006"]["companies"]), ("B", ["한국GM"]))
+        ev9 = by["11012007"]
+        self.assertEqual((ev9["type"], ev9["tier"]), ("WARRANTY PROGRAM/EXTENSION", "A"))   # 띄어쓴 종류 이름도 같게
+        self.assertIn("doesn\u2019t", ev9["summary"])
+        self.assertTrue(all(not x["isNew"] for x in doc["items"]))
+
+    def test_new_ids_after_baseline_and_failure_keeps_previous(self):
+        first, _ = tb.collect(NOW, None, get=tget())
+        more = TSB + [tsb("11012100", "KIA", "TELLURIDE", "2026", "Warranty Program/Extension", "Engine warranty extension.", added="20261027")]
+        second, check = tb.collect(NOW + dt.timedelta(days=1), first, get=tget(more))
+        new = [x["id"] for x in second["items"] if x["isNew"]]
+        self.assertEqual((new, check["new"]), (["11012100"], 1))
+        old = next(x for x in second["items"] if x["id"] == "11012001")
+        self.assertEqual(old["firstSeen"], next(x for x in first["items"] if x["id"] == "11012001")["firstSeen"])
+        self.assertEqual(second["baselineSince"], first["baselineSince"])
+        down, dcheck = tb.collect(NOW + dt.timedelta(days=2), second, get=tget(status=503))
+        self.assertEqual((dcheck["status"], len(down["items"]), down["stale"]), ("failed", len(second["items"]), True))
+        self.assertFalse(any(x["isNew"] for x in down["items"]))
+
+    def test_spans_and_missing_files(self):
+        self.assertEqual(tb.spans(NOW), ["2025-2026", "2026-2027"])
+        self.assertEqual(tb.spans(dt.datetime(2027, 3, 1, tzinfo=KST)), ["2026-2027", "2027-2028", "2025-2027"])
+        _, check = tb.collect(NOW, None, get=lambda url, headers=None, timeout=None: R(404))
+        self.assertEqual(check["status"], "failed")
+
+    def test_run_carries_tsbs(self):
+        doc = w.run(now=NOW, previous=None, get=fake(), sleep=lambda s: None)
+        self.assertEqual(next(c for c in doc["checks"] if c["source"] == "NHTSA 제조사 통신(TSB)")["status"], "ok")
+        self.assertEqual(len(doc["tsbs"]["items"]), 7)
 
 
 if __name__ == "__main__":
