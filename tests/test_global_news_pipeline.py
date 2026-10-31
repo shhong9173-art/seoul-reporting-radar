@@ -107,6 +107,36 @@ class GlobalCollectorBeatTests(unittest.TestCase):
         for name in ("Hyundai Steel", "Korea Zinc", "LS Electric", "HD Hyundai Electric", "LS Cable", "Hanwha Qcells", "GS Caltex", "Hankook Tire"):
             self.assertIn(name, q)
 
+    def test_worker_ai_translation_first_then_fallbacks(self):
+        import os
+        calls = []
+        orig_post, orig_get = gc.worker_translate, gc.get
+        try:
+            gc.worker_translate = lambda t: (calls.append(("ai", t)) or "고려아연, 미국 제련소 검토 착수")
+            self.assertEqual(gc.translate("Korea Zinc starts US smelter study"), ("고려아연, 미국 제련소 검토 착수", "translated_ai"))
+            gc.worker_translate = lambda t: ""   # 워커 실패 → 구글 → 보조
+            def fake_get(url, timeout=15):
+                if "googleapis" in url:
+                    raise OSError("blocked")
+                return '{"responseData":{"translatedText":"보조 번역"}}'.encode()
+            gc.get = fake_get
+            orig_sleep, gc.time.sleep = gc.time.sleep, (lambda s: None)
+            try:
+                self.assertEqual(gc.translate("Korea Zinc starts US smelter study"), ("보조 번역", "translated_fallback"))
+            finally:
+                gc.time.sleep = orig_sleep
+        finally:
+            gc.worker_translate, gc.get = orig_post, orig_get
+        self.assertEqual(calls, [("ai", "Korea Zinc starts US smelter study")])
+        os.environ.pop("MCP_ACCESS_TOKEN", None)
+        self.assertEqual(gc.worker_translate("x"), "")   # 토큰 없으면 워커를 부르지 않는다
+
+    def test_ai_translation_is_reused_from_cache(self):
+        old=item("Korean EV signal","https://news.example/a",summary="")
+        old.update({"koTitle":"한국 전기차 신호","koSummary":"","translationStatus":"translated_ai"})
+        out=translate_selected([item("Korean EV signal","https://news.example/a",summary="")],lambda t:("다시","translated"),previous=[old],workers=1)
+        self.assertEqual((out[0]["koTitle"],out[0]["translationCacheUsed"]),("한국 전기차 신호",True))
+
     def test_fallback_translation_is_not_reused_and_empty_summary_not_translated(self):
         old=item("Korean EV signal","https://news.example/a",summary="")
         old.update({"koTitle":"보조 번역","koSummary":"","translationStatus":"translated_fallback"})

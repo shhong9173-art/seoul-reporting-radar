@@ -111,12 +111,37 @@ def looks_korean(text: str) -> bool:
     return bool(re.search(r"[가-힣]", text or ""))
 
 
+WORKER_TRANSLATE = "https://seoul-reporting-radar.shhong9173.workers.dev/ingest/translate"
+
+
+def worker_translate(text: str) -> str:
+    """워커(Cloudflare Workers AI)에 번역을 맡긴다 — MCP_ACCESS_TOKEN이 있을 때만. 실패하면 빈 문자열(다음 번역기로)."""
+    import os
+    token = os.environ.get("MCP_ACCESS_TOKEN", "").strip()
+    if not token:
+        return ""
+    req = urllib.request.Request(WORKER_TRANSLATE, data=json.dumps({"texts": [text]}).encode(), method="POST",
+                                 headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json",
+                                          "User-Agent": "seoul-reporting-radar global_collector"})
+    try:
+        with urllib.request.urlopen(req, timeout=40) as r:
+            res = (json.loads(r.read()).get("results") or [{}])[0]
+    except Exception:
+        return ""
+    ko = str(res.get("ko") or "").strip()
+    return ko if res.get("status", "").startswith("translated_ai") and looks_korean(ko) else ""
+
+
 def translate(text: str) -> tuple[str, str]:
     text = clean(text)[:1000]
     if not text:
         return "", "empty"
     if looks_korean(text) and not re.search(r"\b(the|and|of|to|for|with|after|before|reportedly|starts|launches|says)\b", text, re.I):
         return text, "already_ko"
+    # 11-01: 구글 비공식 번역 주소가 Actions에서 막혀 거의 전부 보조 번역기로 넘어갔다 — 워커(Workers AI)를 먼저 쓴다.
+    ko = worker_translate(text)
+    if ko:
+        return ko, "translated_ai"
 
     url = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=ko&dt=t&q=" + urllib.parse.quote(text)
     # 11-01 운영: 32건 중 16건이 보조 번역기(MyMemory)로 넘어가 품질이 낮았다('jailbreaking FSD' → '탈옥 금감원').
@@ -261,6 +286,10 @@ def main() -> None:
     Path("data.js").write_text("window.ITEMS = " + json.dumps(merged, ensure_ascii=False, indent=2) + ";\n", encoding="utf-8")
     Path("global.json").write_text(json.dumps(unique, ensure_ascii=False, indent=2), encoding="utf-8")
     reused=sum(bool(x.get("translationCacheUsed")) for x in unique)
+    statuses={}
+    for x in unique:
+        statuses[x.get("translationStatus")]=statuses.get(x.get("translationStatus"),0)+1
+    print(f"global translation status counts: {statuses}")
     print(f"global radar: {len(unique)} source-filtered translated records; "
           f"{reused} exact-title/URL/summary translations reused; "
           f"RSS query errors {diagnostic['errorQueries']}/{len(QUERIES)}; "

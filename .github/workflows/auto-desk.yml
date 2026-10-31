@@ -72,6 +72,9 @@ jobs:
       - name: Merge expanded industrial desk radar
         run: python merge_industry.py
       - name: Collect dedicated global radar
+        env:
+          # 외신 제목 번역을 워커(Workers AI)에 맡긴다(11-01) — 토큰은 워커 인증에만, 로그에는 건수만
+          MCP_ACCESS_TOKEN: ${{ secrets.MCP_ACCESS_TOKEN }}
         run: python global_collector.py
       - name: Filter repetitive follow-up coverage
         run: python followup_filter.py
