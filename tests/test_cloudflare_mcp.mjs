@@ -2212,6 +2212,14 @@ test('homepage login: ID/password secrets give a 30-day signed session for /b/me
   assert.equal((await login(env, 'hong', 'correct-horse-battery')).status, 429);
   assert.equal((await login(env, 'hong', 'correct-horse-battery', '2.2.2.2')).status, 200);
   assert.equal((await req(env, '/auth/login')).status, 405);
+  // 사이트 첫 화면 잠금(gate.js): /auth/check — 세션 맞으면 200, 없거나 틀리면 401, 미설정 503, 사전 요청 허용
+  assert.equal((await req(env, '/auth/check', { headers: { Authorization: `Bearer ${session}` } })).status, 200);
+  assert.equal((await req(env, '/auth/check')).status, 401);
+  assert.equal((await req(env, '/auth/check', { headers: { Authorization: 'Bearer v1.9999999999999.' + 'x'.repeat(43) } })).status, 401);
+  assert.equal((await req(base, '/auth/check', { headers: { Authorization: `Bearer ${session}` } })).status, 503);
+  const pc = await req(env, '/auth/check', { method: 'OPTIONS' });
+  assert.equal(pc.status, 204);
+  assert.equal(pc.headers.get('Access-Control-Allow-Origin'), H);
 });
 
 test('scoop_reverse shows automatic prior-capture candidates by source with lead time, separate from human Y/P/N', async () => {
