@@ -368,6 +368,8 @@ class Screen(unittest.TestCase):
         self.assertEqual(s.change_word({"material": ["예상투자금액 -10%"]}), "감액")
         self.assertEqual(s.change_word({"material": ["취득예정일자 -36개월"], "reason": "취득완료(취득가액 및 취득일자 확정)에 따른 정정"}), "완료")
         self.assertIsNone(s.change_word({"changes": [["a", "1", "2"]]}))
+        self.assertEqual(s.change_word({"material": ["계약기간 확정"]}), "착공")  # 착공지시서 수령으로 기간이 정해짐
+        self.assertIsNone(s.change_word({"material": ["계약상대 공개(현대건설)", "공시유보 해제"]}))  # 기사는 상대 이름을 쓴다
         # 미보도 후보(원 공시도 못 찾음)·큰 변경 없음·사업 낱말 없음은 다시 찾지 않는다
         for other in ({**row, "verdict": "미보도 후보"}, {**row, "filing": {"correction": {"material": []}}}, {**row, "terms": ["수주", "공급계약"]}):
             self.assertEqual(s.check_corrections([dict(other)], now=now, get=get, sleep=lambda x: None)[1], 0)

@@ -210,7 +210,33 @@ def material(fix):
             days = (d2 - d1).days
             if abs(days) >= MATERIAL_DAYS:
                 out.append(f"{name} {'+' if days > 0 else '-'}{round(abs(days) / 30.4)}개월")
-    return out
+            continue
+        # 비어 있던 계약기간이 날짜로 채워짐 — 착공지시서(NTP) 수령 등으로 사업이 시작됐다는 뜻일 수 있다
+        # (2026-06-05 LS일렉트릭 20260605800561 영광 그린 태양광 EPC 정정: 계약기간 '-' → 시작일 2026-06-05·종료일 2028-07-20,
+        # 사유 '착공지시서(NTP) 수령에 따른 계약기간 확정')
+        if re.search(r"기간|시작일|종료일|만기|예정일", name) and withheld(before) and DATE_ANY.search(after):
+            out.append(f"{name} 확정")
+            continue
+        # 비공개였던 상대가 드러남(공시유보 해제 등). 형식 근거: 공급계약 본문 '8. 공시유보 관련내용 | 유보사유 | 유보기한' 칸
+        # (2026-09-14 효성중공업 20260914800537 원문). 실제 해제 정정 예시는 아직 못 봤다 — 정정 전 칸이 비었거나
+        # '비공개·공시유보·영업비밀' 같은 표시일 때만 센다.
+        if re.search(r"계약상대|거래상대|상대방|발행대상|인수인|양수인|채무자", name) and withheld(before) and not withheld(after):
+            out.append(f"{name} 공개({plain(after)[:30]})")  # 드러난 이름이 새 사실이라 줄에 바로 보인다
+            continue
+        if re.search(r"유보사유|유보기한", name) and re.sub(r"\s+", "", before) not in ("", "-", "－", "—") \
+                and re.sub(r"\s+", "", after) in ("", "-", "－", "—", "해당없음", "해당사항없음"):
+            out.append("공시유보 해제")
+    return list(dict.fromkeys(out))
+
+
+SECRET = ("비공개", "비공시", "공시유보", "영업비밀", "미공개", "미정", "보류")
+DATE_ANY = re.compile(r"\d{4}\s*[-.년]\s*\d{1,2}\s*[-.월]\s*\d{1,2}")
+
+
+def withheld(v):
+    """비었거나('-') 비공개 표시인 칸."""
+    t = re.sub(r"\s+", "", str(v or ""))
+    return t in ("", "-", "－", "—") or any(m in t for m in SECRET)
 
 
 KOREAN_AMOUNT = re.compile(r"(?:(\d+(?:\.\d+)?)\s*조)?\s*(?:([\d,]+(?:\.\d+)?)\s*억)?\s*(?:([\d,]+)\s*만)?\s*원")
