@@ -720,6 +720,30 @@ test('trade_remedies shows quota exhaustion, named US notices and listing change
   assert.ok((await call('trade_remedies', {}, PRIVATE())).isError);
 });
 
+test('trade_remedies and radar_today drop rows re-caught only because the list renumbered (DGTR 10-28·10-31)', async () => {
+  const env = PRIVATE().env;
+  const t = (h) => new Date(Date.now() - h * 3600000).toISOString();
+  const ipa = 'Ongoing Investigation Anti-dumping investigation concerning imports of Isopropyl Alcohol from the European Union, South Korea';
+  const doc = { schema: 'trade_remedy/v1', generatedAt: '2026-10-31T13:20:00+09:00', quarter: '2026-10-01', rules: [], quotas: [], federalRegister: [],
+    checks: [{ source: '인도 DGTR 반덤핑 조사', status: 'ok', returned: 6 }], pages: [{ id: 'in-dgtr', label: '인도 DGTR 반덤핑 조사', status: 'ok' }],
+    events: [
+      { id: 'in-dgtr:4', pageId: 'in-dgtr', country: '인도', label: '인도 DGTR 반덤핑 조사', text: `4 - ${ipa}`, url: 'https://www.dgtr.gov.in/x', detectedAt: t(1), renumbered: true },
+      { id: 'in-dgtr:3', pageId: 'in-dgtr', country: '인도', label: '인도 DGTR 반덤핑 조사', text: `3 - ${ipa}`, url: 'https://www.dgtr.gov.in/x', detectedAt: t(20), repeats: 1 }] };
+  const post = await worker.fetch(new Request(ORIGIN + '/ingest/trade-remedy', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {});
+  assert.equal(post.status, 200);
+  const opts = { path: `/mcp/${TOKEN}`, env };
+  const r = await call('trade_remedies', { section: 'notices' }, opts);
+  assert.match(r.text, /\[감지된 변화 · 감지일 기준 최근 30일\] 1건/);
+  assert.doesNotMatch(r.text, /잡힌 사실: 4 - /);
+  assert.match(r.text, /잡힌 사실: 3 - Ongoing Investigation[^\n]*\n   주의: 목록 일련번호만 바뀌어 1번 다시 잡힌 줄 — 이 감지도 번호 이동일 수 있음/);
+  assert.match(r.text, /목록 일련번호만 바뀐 재감지 1건은 뺐다/);
+  const today = await call('radar_today', { include_minor: true }, opts);
+  assert.doesNotMatch(today.text, /4 - Ongoing Investigation/);
+  const c = today.text.split('[C · ')[1] ?? '';
+  assert.match(c, /3 - Ongoing Investigation[^\n]*목록 일련번호만 바뀌어 1번 다시 잡힌 줄이라 이 감지도 번호 이동일 수 있음/);
+  assert.doesNotMatch(today.text.split('[C · ')[0], /Isopropyl/);
+});
+
 test('trade_remedies ktc: meeting agenda before the meeting, recent cases with last step, old cases hidden; radar_today tiers by beat product', async () => {
   const env = PRIVATE().env;
   const recent = new Date(Date.now() - 3600000).toISOString();
