@@ -429,6 +429,21 @@ class Screen(unittest.TestCase):
         ion = s.recall_candidate({**clue, "url": "https://car.go.kr/x?searchProductName=%EC%95%84%EC%9D%B4%EC%98%A4%EB%8B%89"}, "현대차",
                                  "현대차, 10월 14일 리콜 공지 1건 — [현대] 아이오닉9 - 2열 및 3열 전동시트 제어기 관련 리콜")
         self.assertEqual(ion["terms"], ["아이오닉", "리콜", "전동시트"])
+        # 미국 리콜 단서(해외 원자료, 10-31 운영 26V692000): 차종으로 찾고, 같은 차종이 기사에 있어야
+        us = {"id": "e33ee9a7dca58d62", "team": "해외", "published": "2026-10-20", "source": "해외 원자료", "tier": "취재 단서·단독 미확정",
+              "title": "미국 리콜 26V692000 · ELANTRA·TUCSON HYBRID · 국내 동일 부품/시정조치 대조 필요", "companies": ["현대차", "기아"],
+              "url": "https://api.nhtsa.gov/recalls/campaignNumber?campaignNumber=26V692000"}
+        uc = s.from_clue(us)
+        self.assertEqual((uc["kind"], uc["terms"], uc["must"]), ("리콜", ["아반떼", "리콜"], ["아반떼", "엘란트라", "투싼"]))
+        self.assertEqual(s.queries(uc), ["현대차 아반떼", "현대차 아반떼 리콜"])
+        airbag = {"title": "현대차 '측면 에어백 센서' 리콜 남아공 확산…美·호주 이어 투싼 253대", "text": "", "url": "a", "date": "2026-10-21"}
+        # 같은 차종(투싼)이 있으면 관련 보도로 남는다 — 차종 수준 대조의 한계(결함 부품은 맞추지 않음)
+        self.assertEqual(s.judge(uc, channels([airbag]), now=now)[0], "관련 보도 있음")
+        other = {"title": "현대차, 美서 팰리세이드 리콜", "text": "", "url": "o", "date": "2026-10-21"}
+        self.assertEqual(s.judge(uc, channels([other]), now=now)[0], "미보도 후보")
+        self.assertEqual(s.us_recall_models("G80 · GENESIS"), ["G80"])
+        self.assertIsNone(s.recall_candidate({**us, "title": "미국 리콜 26V692000 · 국내 동일 부품/시정조치 대조 필요"}, "현대차",
+                                             "미국 리콜 26V692000 · 국내 동일 부품/시정조치 대조 필요"))
 
     def test_asset_filing_is_searched_by_its_place(self):
         # 금호타이어 20261027800641 [기재정정]유형자산취득결정(자율공시) — 10-31 운영 원문 요점 그대로

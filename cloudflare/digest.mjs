@@ -187,6 +187,46 @@ export function stackHint(e) {
 }
 // 국민연금 가입자 변화의 방향 → 기사 낱말(늘면 채용·증원, 줄면 인력 감축). 사업장 주소의 시·군을 넣고, 그 지명이 없는 기사는
 // 같은 사건으로 치지 않는다(10-31 운영: 포스코 포항 가입자 +866명 ↔ '현대제철·포스코 美 제철소 1000명 채용' 기사로 '관련 보도 있음')
+// 미국 리콜 보도 대조: 브랜드만으로 찾으면 같은 브랜드의 다른 리콜 기사가 근거로 붙는다(10-31 운영: 현대차 26V692000 아반떼·투싼
+// 하이브리드 스트럿 체결 24대 ↔ 「현대차 '측면 에어백 센서' 리콜 남아공 확산…투싼 253대」). 차종(국문 이름·영문)과 대상 대수가
+// 기사 제목·요약에 하나는 있어야 같은 리콜로 센다. 부품사 이름이 영문뿐이면(원보고서 공급사 칸: SAMJIN NUT·NIDEC MOBILITY KOREA)
+// 그 이름으로는 국내 기사를 못 찾으니 브랜드로 찾는다(한글 이름 부품사 — SK온 등 — 은 그대로 부품사로).
+const US_MODEL_KO = {
+  elantra: ['아반떼', '엘란트라'], sonata: ['쏘나타'], tucson: ['투싼'], 'santa fe': ['싼타페'], 'santa cruz': ['싼타크루즈'],
+  palisade: ['팰리세이드'], kona: ['코나'], venue: ['베뉴'], ioniq: ['아이오닉'], nexo: ['넥쏘'], sorento: ['쏘렌토'], sportage: ['스포티지'],
+  telluride: ['텔루라이드'], carnival: ['카니발'], forte: ['포르테', 'K3'], soul: ['쏘울'], niro: ['니로'], seltos: ['셀토스'],
+  trax: ['트랙스'], trailblazer: ['트레일블레이저'], envista: ['엔비스타'], encore: ['앙코르'],
+};
+const BRAND_WORDS = /^(HYUNDAI|KIA|GENESIS|AUDI|VOLKSWAGEN|VW|BMW|MINI|MERCEDES-BENZ|MERCEDES|HONDA|ACURA|CHEVROLET|BUICK|GMC)$/;
+export function usRecallModels(models) {
+  const s = ` ${String(models ?? '').toLowerCase()} `;
+  const out = [];
+  for (const [k, v] of Object.entries(US_MODEL_KO)) if (new RegExp(`[^a-z0-9]${k}[^a-z0-9]`).test(s)) out.push(...v);
+  if (!out.length) {  // 수입차·영문 그대로 쓰는 차종(X3·Q4·GLC·CR-V·K5·EV6·G80): 브랜드 낱말·연식 뺀 첫 낱말
+    const w = String(models ?? '').split(/[\s,·]+/).find((t) => /^[A-Z0-9][A-Z0-9.-]{1,9}$/i.test(t) && !BRAND_WORDS.test(t.toUpperCase()) && !/^\d{4}(~\d{4})?$/.test(t));
+    if (w) out.push(w.toUpperCase());
+  }
+  return [...new Set(out)];
+}
+export function countForms(n) {
+  if (!(n >= 1000)) return [];
+  const man = Math.floor(n / 10000), rest = n % 10000;
+  const out = [n.toLocaleString('en-US'), String(n)];
+  if (man) {
+    out.push(`${man}만${rest || ''}`, `${man}만${rest ? rest.toLocaleString('en-US') : ''}`, `${man}만 ${rest || ''}`.trim());
+    if (rest && rest % 1000 === 0) out.push(`${man}만${rest / 1000}천`);
+  }
+  return [...new Set(out)];
+}
+export function usRecallHint(x, why) {
+  const supplier = why.find((w) => String(w.role).startsWith('부품'));
+  const brand = why.find((w) => String(w.role).startsWith('제조사'));
+  const models = usRecallModels(x.models);
+  const ids = [...models, ...countForms(Number(x.affected ?? 0))];
+  if (supplier && /[가-힣]/.test(String(supplier.name)) && brand) return hint(supplier.name, ['리콜', brand.name], [], ids);
+  const who = brand?.name ?? supplier?.name ?? why[0]?.name;
+  return models.length ? hint(who, [models[0], '리콜'], [models[0]], ids) : hint(who, ['리콜', '미국'], [], ids);
+}
 // 정정사유를 큰 변경 옆에 붙인다 — 날짜가 크게 당겨진 이유가 '취득완료'인지 '계약 해지'인지 줄에서 바로 보이게
 // (10-31 운영: 금호타이어 함평 부지 취득 정정 '취득예정일자 -36개월'은 사유가 '취득완료(취득가액 및 취득일자 확정)에 따른 정정')
 // 한 줄 요약용: 낱말 중간에서 자르지 않고 ' · ' 구분에서 자른다(10-31 운영: '… · 취득물건구분 토지 및 건물 · 취 · id …')
@@ -447,7 +487,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
     const tier = direct ? (n >= 1000 || urgent ? 'A' : 'B') : (n >= 10000 || urgent ? 'B' : 'C');
     push(tier, W['us-recalls'], { kind: 'NHTSA 리콜', id: x.id, date: x.received, company: [...new Set(why.map((w) => w.name))].join('·'),
       fact: `미국 리콜 ${x.campaign} 접수 ${x.received} · ${x.models} · ${x.component} · 대상 ${Number(x.affected ?? 0).toLocaleString('en-US')}대${x.parkOutside ? ' · 실외 주차 권고' : ''} — ${roles}${x.supplierBox ? ` · 원보고서 공급사 칸: ${String(x.supplierBox).slice(0, 80)}` : ''}`,
-      url: x.url, check: tier === 'C' ? undefined : hint(lead.name, ['리콜', String(lead.role).startsWith('부품') ? brand : '미국']) });
+      url: x.url, check: tier === 'C' ? undefined : usRecallHint(x, why) });
   }
   // NHTSA defect investigations (ODI) on beat cars or naming a Korean supplier: opened on 현대·기아·한국GM 차종 A, closed B.
   const invBase = baselineOf(ur?.investigations ?? []);
