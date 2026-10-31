@@ -321,9 +321,16 @@ class Screen(unittest.TestCase):
         # 이름을 못 읽은 표지·회사 자신·다른 종류는 None
         for facts in ([["보고자", "(성 명)"]], [["보고자", "영풍"]], []):
             self.assertIsNone(s.holder_terms({**row, "filing": {"type": "거래계획", "facts": facts}}))
-        self.assertEqual(s.holder_terms({**row, "filing": {"type": "거래계획", "facts": [["보고자", "(성 명)"], ["성명", "주식회사 에이치씨"]]}})[0],
+        self.assertEqual(s.holder_terms({**row, "filing": {"type": "거래계획", "facts": [["보고자", "주식회사 에이치씨"]]}})[0],
                          ["에이치씨", "지분"])
+        # '성명' 칸(연락 담당자일 수 있음)은 보고자로 쓰지 않는다
+        self.assertIsNone(s.holder_terms({**row, "filing": {"type": "거래계획", "facts": [["보고자", "(성 명)"], ["성명", "권순광"]]}}))
         self.assertIsNone(s.holder_terms({**row, "filing": {"type": "채무보증", "facts": [["보고자", "장세환"]]}}))
+        # 근거 기사 순서: 공시 날짜(10-28) 이후 기사가 앞, 그 전 기사는 최근 순 — 3~4월 지분 기사가 이번 기사를 밀어내지 않게
+        row["published"] = "2026-10-28"
+        old = [{"title": f"주요주주 장세환, 영풍 주식 보유 증가 {i}", "text": "", "url": f"o{i}", "date": f"2026-0{i}-10"} for i in range(3, 9)]
+        verdict, ev = s.judge(row, channels(old + [art]), now=dt.datetime(2026, 10, 31, 7, 10, tzinfo=KST))
+        self.assertEqual([e["url"] for e in ev], ["f", "o8", "o7", "o6", "o5"])
         self.assertIsNone(s.holder_terms({**row, "filing": {"type": "거래계획", "error": "원문 조회 실패 — 미확인"}}))
 
     def test_lawsuit_filing_variants_and_non_lawsuits(self):
