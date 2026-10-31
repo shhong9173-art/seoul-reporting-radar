@@ -643,6 +643,9 @@ export function background(docs, nowMs) {
   }
   for (const s of docs['kr-stacks']?.sites ?? []) {
     if (!(s.stopped ?? []).length) continue;
+    // 배출구가 많은 제철소의 한두 개 멈춤은 일상 정비 수준이라 배경으로도 묶지 않는다(굴뚝 감시의 B 기준과 같은 5%)
+    // (10-31 운영: 포스코 광양 137개 중 2개·포항 101개 중 2개가 '겹친 신호' 배경으로 붙어 감시 2곳 묶음을 만들었다)
+    if ((s.meaningful ?? 0) >= 40 && s.stopped.length < Math.ceil(s.meaningful * 0.05)) continue;
     out.push({ id: `bg:stk:${s.id}`, background: true, tier: 'B', tool: 'kr_official', watch: W['kr-stacks'].label, company: s.company, date: docs['kr-stacks'].generatedAt,
       fact: `${s.name} 굴뚝 배출구 멈춤 ${s.stopped.length}개(평소 움직이던 ${s.meaningful ?? '?'}개 중)` });
   }
