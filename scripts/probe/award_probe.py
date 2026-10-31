@@ -4,7 +4,7 @@ import time
 import requests
 
 out = []
-key = os.environ.get("DATA_GO_KR_KEY", "").strip()
+key = (os.environ.get("DATA_GO_KR_KEY") or os.environ.get("KR_FUEL_API_KEY") or "").strip()
 out.append(f"key set: {bool(key)}")
 for base in ["https://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService/getRestDeInfo",
              "http://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService/getRestDeInfo"]:
