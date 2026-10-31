@@ -32,7 +32,8 @@ SEOUL = [notice("000221", "20262920001129", "주식회사 엠디스틸", "회생
          notice("000221", "20262920001132", "주식회사 메탈153", "회생절차 개시결정 공고", "26"),
          notice("000221", "20262920001133", "주식회사 엠디스틸", "회생계획안 제출기간 연장결정 공고", "30"),
          notice("000221", "20262920001134", "의료법인 정애의료재단", "회생절차 개시결정 공고", "26"),
-         notice("000221", "20252920000291", "주식회사 팩슨", "회생절차 폐지결정 공고", "34", day="20261027")]
+         notice("000221", "20252920000291", "주식회사 팩슨", "회생절차 폐지결정 공고", "34", day="20261027"),
+         notice("000221", "20262920001135", "주식회사 금진테크", "회생절차 개시결정 공고", "26")]
 FACTORIES = {
     "엠디스틸": [{"fctryManageNo": "1", "cmpnyNm": "(주)엠디스틸", "rnAdres": "경기도 화성시 …", "allEmplyCo": "85", "rprsntvIndutyCode": "24121",
                  "indutyNm": "냉간 압연 및 압출 제품 제조업", "mainProductCn": "냉연강판"}],
@@ -40,6 +41,8 @@ FACTORIES = {
                   "indutyNm": "자동차용 금속 프레스 가공품", "mainProductCn": "자동차 차체 프레스 부품"}],
     "팩슨": [{"fctryManageNo": "3", "cmpnyNm": "주식회사 팩슨", "rnAdres": "인천", "allEmplyCo": "40", "rprsntvIndutyCode": "30332",
              "indutyNm": "자동차 부품", "mainProductCn": "브레이크 부품"}],
+    "금진테크": [{"fctryManageNo": "5", "cmpnyNm": "주식회사 금진테크", "rnAdres": "서울 …", "allEmplyCo": "15", "rprsntvIndutyCode": "25929",
+                "indutyNm": "그 외 기타 금속 가공업", "mainProductCn": "덕트"}],  # 10-31 운영: 관련 업종(25)·주생산품 덕트로 B였다
     "동네빵집": [{"fctryManageNo": "4", "cmpnyNm": "동네빵집", "rnAdres": "서울", "allEmplyCo": "5", "rprsntvIndutyCode": "10712", "indutyNm": "빵류", "mainProductCn": "빵"}],
 }
 MA_HTML = ('<table><tbody><tr><td>92</td><td>서울회생법원</td><td><a href="/portal/notice/mainfo/MaNoticeView.work?pageIndex=1&amp;business=01&amp;seqnum=467">'
@@ -97,6 +100,7 @@ class Insolvency(unittest.TestCase):
         self.assertEqual(ev["주식회사 메탈153"]["tier"], "A")  # 협력사 명단
         self.assertEqual(ev["주식회사 메탈153"]["watch"]["beat"], "현대제철")
         self.assertEqual(ev["주식회사 팩슨"]["tier"], "B")  # 자동차 부품 + 폐지
+        self.assertEqual((ev["주식회사 금진테크"]["match"], ev["주식회사 금진테크"]["tier"]), ("related", "C"))  # 관련 업종, 출입 업종 주생산품 아님
         self.assertNotIn("주식회사 동네빵집", ev)  # 빵류: 출입 업종 아님
         self.assertNotIn("의료법인 정애의료재단", ev)
         self.assertEqual(sum(1 for e in doc["events"] if e["company"] == "주식회사 엠디스틸"), 1)  # 제출기간 연장 공고는 버림

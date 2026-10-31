@@ -424,7 +424,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
   }
 
   // Court insolvency notices (대법원 회생·파산 공고, 회생회사 M&A 공고): a beat-industry manufacturer (공장등록 업종) entering
-  // proceedings is A, a related industry or a 폐지 B, name words only C. A court notice is a procedure, not a supply effect.
+  // proceedings is A, a related industry with a beat product word or a 폐지 B, other related industries and name words only C. A court notice is a procedure, not a supply effect.
   const ins = docs['kr-insolvency'];
   const insBase = baselineOf(ins?.events ?? []);
   for (const e of ins?.events ?? []) {

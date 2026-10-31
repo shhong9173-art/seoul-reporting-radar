@@ -76,6 +76,7 @@ RULES = [
     "법원 공고의 회사 이름을 공장등록에서 같은 이름으로 찾아 업종을 붙인다. 이름이 같은 다른 회사일 수 있다(주소·대표자 확인).",
     "포괄적 금지명령 = 회생 신청 직후(개시 전). 개시·파산선고가 가장 이른 확정 단계. 거래 관계·납품 차질은 회사·출입처 확인 전에는 모른다.",
     "공장등록이 없는 회사는 이름 낱말만으로 C(참고). 출입처 협력사 명단(data/kr_supplier_watchlist.json)에 있으면 A.",
+    "관련 업종(금속가공·기타 기계·전기장비·플라스틱·전자부품)은 주생산품에 출입 업종 낱말(자동차·배터리·변압기·전선·강관 등)이 있을 때만 B, 없으면 C.",
     "같은 이름 공장이 관할 법원 지역 밖에만 있거나 대표자가 3명 이상이면 다른 회사일 수 있어 한 단계 내린다.",
 ]
 
@@ -326,8 +327,12 @@ def tier_of(stage, match, watch, ind=None):
 def _tier(stage, match):
     if match == "core":
         return "A" if stage == "start" else "B" if stage == "end" else "C"
-    if match in ("product", "related"):
+    if match == "product":
         return "B" if stage == "start" else "C"
+    if match == "related":
+        # 관련 업종(금속가공·기타 기계·전기장비·플라스틱 등)인데 주생산품에 출입 업종 낱말이 없으면 참고(C)
+        # (10-31 운영: 맨홀·바이오필터·화장품 용기·덕트 제조사가 B로 떠 B 28건 중 상당수를 차지)
+        return "C"
     if match == "name":
         return "C"
     return None
@@ -444,7 +449,7 @@ def run(key, *, now, previous=None, post=None, get=None, sleep=time.sleep, watch
         prev = old.get(eid)
         if r["seq"] in seen_ma and not prev:
             continue  # seen earlier and not kept
-        tier = "A" if w else ("C" if doubtful(info) else "B") if match in RANK else "C" if match == "name" else None
+        tier = "A" if w else ("C" if doubtful(info) or match == "related" else "B") if match in RANK else "C" if match == "name" else None
         if not tier:
             continue
         found.add(eid)
