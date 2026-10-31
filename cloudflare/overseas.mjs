@@ -316,7 +316,8 @@ export async function tradeRemedies(ctx, args) {
 
   if (!section || section === 'notices') {
     const from = new Date(ctx.now.getTime() - days * 86400000).toISOString();
-    const ev = (doc.events ?? []).filter((e) => new Date(e.detectedAt).toISOString() >= from && matches(q, e.label, e.text, e.country));
+    const ev = (doc.events ?? []).filter((e) => !e.renumbered && new Date(e.detectedAt).toISOString() >= from && matches(q, e.label, e.text, e.country));
+    const renumbered = (doc.events ?? []).filter((e) => e.renumbered && new Date(e.detectedAt).toISOString() >= from).length;
     const off = (doc.pages ?? []).filter((p) => p.status === 'disabled');
     const pages = (doc.pages ?? []).filter((p) => p.status !== 'disabled');
     const failed = pages.filter((p) => p.status !== 'ok');
@@ -327,8 +328,10 @@ export async function tradeRemedies(ctx, args) {
     for (const e of ev.slice(0, limit)) {
       out.push(`- ${String(e.detectedAt).slice(0, 16)} · ${e.country} · ${e.label}`);
       out.push(`   잡힌 사실: ${e.text}`);
+      if (e.repeats) out.push(`   주의: 목록 일련번호만 바뀌어 ${e.repeats}번 다시 잡힌 줄 — 이 감지도 번호 이동일 수 있음. 원문의 개시일·공고일로 새 사건인지 확인`);
       out.push(`   원문: ${e.url}`);
     }
+    if (renumbered) out.push(`(목록 일련번호만 바뀐 재감지 ${renumbered}건은 뺐다 — 같은 줄의 첫 감지에 표시)`);
     if (!ev.length) out.push('이 기간 감지된 새 공고 줄·새 소진 없음(열리지 않은 목록은 미확인).');
   }
   out.push('\n다음: 원문은 source_document로 연다(미국 관보·EU·무역위 상세) → 대상 품목·업체·세율·소진일·회의 안건 확인 → news_check로 보도 대조 → 회사·협회 확인.');

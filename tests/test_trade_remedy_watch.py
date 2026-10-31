@@ -381,6 +381,55 @@ class KoreaLines(unittest.TestCase):
         none = w.run(cfg, now=NOW, get=get, sleep=lambda s: None, browser=None)
         self.assertIn("브라우저 수집 없음", none["pages"][0]["error"])
 
+    def test_renumbered_table_rows_are_not_new_lines(self):
+        # 인도 DGTR 10-28·10-31 실제: 한국 줄 6개 그대로인데 위에 새 사건이 끼어 일련번호만 밀림("3 - …"→"4 - …")
+        page = {"id": "in-dgtr", "country": "인도", "label": "인도 DGTR 반덤핑 조사", "url": "https://www.dgtr.gov.in/en/anti-dumping-investigation-in-india"}
+        ipa = "Ongoing Investigation Anti-dumping investigation concerning imports of Isopropyl Alcohol from the European Union, South Korea, Taiwan, and the United States of America"
+        def page_html(*rows):
+            return "<html><table>" + "".join(f"<tr><td>{n} - <a href='/en/case/{n}'>{t}</a></td></tr>" for n, t in rows) + "</table></html>"
+        bodies = iter([page_html((3, ipa)), page_html((4, ipa)), page_html((4, ipa), (5, "Ongoing Investigation Anti-dumping investigation concerning imports of Acetone from the Republic of Korea"))])
+        cfg = {"pages": [page], "taricSeeds": []}
+        def get(url, **k):
+            return R(200, next(bodies)) if "dgtr" in url else fake()(url, **k)
+        first = w.run(cfg, now=NOW, get=get, sleep=lambda s: None)
+        self.assertEqual(list(first["pages"][0]["lines"]), [ipa])  # 번호를 뗀 열쇠
+        second = w.run(cfg, now=NOW + dt.timedelta(days=1), previous=first, get=get, sleep=lambda s: None)
+        self.assertEqual([e for e in second["events"] if e["pageId"] == "in-dgtr"], [])
+        third = w.run(cfg, now=NOW + dt.timedelta(days=2), previous=second, get=get, sleep=lambda s: None)
+        ev = [e for e in third["events"] if e["pageId"] == "in-dgtr"]
+        self.assertEqual(len(ev), 1)
+        self.assertIn("Acetone", ev[0]["text"])
+        self.assertFalse(ev[0]["text"][0].isdigit())
+        # 번호 붙은 열쇠로 저장된 지난 실행과도 새 줄로 안 본다(배포 직후 첫 실행)
+        old = {"pages": [dict(page, status="ok", parser=w.LINE_PARSER, lines={f"3 - {ipa}": "/en/case/3"})], "events": []}
+        bodies2 = iter([page_html((4, ipa))])
+        def get2(url, **k):
+            return R(200, next(bodies2)) if "dgtr" in url else fake()(url, **k)
+        doc = w.run(cfg, now=NOW, previous=old, get=get2, sleep=lambda s: None)
+        self.assertEqual([e for e in doc["events"] if e["pageId"] == "in-dgtr"], [])
+
+    def test_renumbered_repeats_already_stored_are_marked_not_deleted(self):
+        page = {"id": "in-dgtr", "country": "인도", "label": "인도 DGTR 반덤핑 조사", "url": "https://www.dgtr.gov.in/x"}
+        ipa = "Ongoing Investigation Anti-dumping investigation concerning imports of Isopropyl Alcohol from the European Union, South Korea"
+        ev = lambda n, day: {"id": f"in-dgtr:{n} - {ipa}"[:89], "pageId": "in-dgtr", "country": "인도", "label": page["label"],  # noqa: E731
+                             "text": f"{n} - {ipa}", "url": "https://www.dgtr.gov.in/x", "detectedAt": (NOW - dt.timedelta(days=day)).isoformat()}
+        prev = {"pages": [dict(page, status="ok", parser=w.LINE_PARSER, lines={f"4 - {ipa}": None})], "events": [ev(3, 3), ev(4, 1)]}
+        cfg = {"pages": [page], "taricSeeds": []}
+        def get(url, **k):
+            return R(200, f"<table><tr><td>4 - {ipa}</td></tr></table>") if "dgtr" in url else fake()(url, **k)
+        doc = w.run(cfg, now=NOW, previous=prev, get=get, sleep=lambda s: None)
+        got = sorted((e for e in doc["events"] if e["pageId"] == "in-dgtr"), key=lambda e: e["detectedAt"])
+        self.assertEqual(len(got), 2)  # 지우지 않는다
+        self.assertEqual((got[0].get("renumbered"), got[0].get("repeats")), (None, 1))
+        self.assertTrue(got[1]["renumbered"])
+
+    def test_serial_free_keeps_case_numbers_and_years(self):
+        self.assertEqual(w.serial_free("12 - Ongoing Investigation X"), "Ongoing Investigation X")
+        self.assertEqual(w.serial_free("3. Hot-rolled steel from Korea"), "Hot-rolled steel from Korea")
+        self.assertEqual(w.serial_free("2026/143 [PDF 42.34 KB] 710 Hollow"), "2026/143 [PDF 42.34 KB] 710 Hollow")
+        self.assertEqual(w.serial_free("2026 - Korea review"), "2026 - Korea review")
+        self.assertEqual(w.serial_free("AD0012 Korea"), "AD0012 Korea")
+
     def test_disabled_page_is_not_fetched_or_counted_as_failure(self):
         cfg = {"pages": [dict(PAGES[0], disabled="주소 확인 전")], "taricSeeds": ["099843"]}
         seen = []

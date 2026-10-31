@@ -417,7 +417,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
 
   const tr = docs['trade-remedy'];
   for (const e of tr?.events ?? []) {
-    if (!recent(e.detectedAt)) continue;
+    if (!recent(e.detectedAt) || e.renumbered) continue;  // 목록 일련번호만 밀린 재감지(수집기 표시)
     if (e.pageId === 'ktc') {
       // 국내 무역위원회: 공식 변화(B)는 출입 업종 품목만. 보도자료는 이미 공개된 뉴스(C). 회사 이름은 누리집에 대개 없다.
       push(e.tier === 'B' ? 'B' : 'C', W['trade-remedy'], { kind: KTC_KIND[e.ktcKind] ?? '무역위원회', id: e.id, date: e.detectedAt,
@@ -433,7 +433,9 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
         check: firms.length ? hint(firms[0], [e.country, '관세'], [e.country]) : undefined });
       continue;
     }
-    push(e.pageId === 'taric' && /한국 전용/.test(e.label) ? 'A' : 'B', W['trade-remedy'], { kind: e.pageId === 'taric' ? 'EU 쿼터(TARIC)' : `해외 조사 ${e.pageId}`, id: e.id, date: e.detectedAt, company: e.country, fact: `${e.label}: ${e.text}`, url: e.url });
+    // repeats: 같은 줄이 목록 일련번호만 바뀌어 다시 잡힌 적 있음 → 이 첫 감지도 번호 이동일 수 있어 C(원문 개시일 확인)
+    push(e.repeats ? 'C' : e.pageId === 'taric' && /한국 전용/.test(e.label) ? 'A' : 'B', W['trade-remedy'], { kind: e.pageId === 'taric' ? 'EU 쿼터(TARIC)' : `해외 조사 ${e.pageId}`, id: e.id, date: e.detectedAt, company: e.country,
+      fact: `${e.label}: ${e.text}${e.repeats ? ` — 목록 일련번호만 바뀌어 ${e.repeats}번 다시 잡힌 줄이라 이 감지도 번호 이동일 수 있음(원문 개시일 확인)` : ''}`, url: e.url });
   }
   const frBase = baselineOf(tr?.federalRegister ?? []);
   for (const x of tr?.federalRegister ?? []) {

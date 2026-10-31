@@ -381,6 +381,26 @@ def federal_register(now, previous=None, *, get=None, sleep=time.sleep):
 
 LINE_PARSER = 2
 KOREA_RX = re.compile(r"korea", re.I)
+# 목록 표의 일련번호 칸("4 - Ongoing Investigation …"). 위에 새 사건이 끼면 번호만 밀려 같은 줄이 새 줄로 잡혔다
+# (인도 DGTR 10-28·10-31: 한국 줄 6개 그대로인데 '새 줄' 2건씩). 번호를 떼고 비교·저장한다.
+SERIAL = re.compile(r"^\d{1,3}\s*[-–—.)]\s+")
+
+
+def serial_free(t):
+    return SERIAL.sub("", t, count=1)
+
+
+def new_lines(lines, old_lines):
+    """이번 줄 중 지난 목록에 없던 것. 지난 목록 열쇠도 번호를 떼고 본다(번호 붙은 열쇠로 저장된 지난 실행과 비교)."""
+    seen = {serial_free(k) for k in old_lines or {}}
+    return [t for t in lines if serial_free(t) not in seen]
+
+
+def keyed(lines):
+    out = {}
+    for t, href in lines.items():
+        out.setdefault(serial_free(t), href)
+    return out
 BLOCK_END = re.compile(r"(?i)<br\s*/?>|</(?:p|tr|li|div|h\d|dt|dd|td|th|summary|section|article)>")
 
 
@@ -445,7 +465,7 @@ def browser_lines(doc, page, now):
         if not rx.search(t) or not 8 <= len(t) <= 400:
             continue
         links = [str(x) for x in r.get("links") or [] if isinstance(x, str) and x.startswith("/")]
-        lines.setdefault(t, next((x for x in links if x.lower().endswith(".pdf")), links[0] if links else None))
+        lines.setdefault(serial_free(t), next((x for x in links if x.lower().endswith(".pdf")), links[0] if links else None))
     if not lines:
         return None, "브라우저 수집에 한국 줄 0줄(형식 변경 가능)"
     return dict(list(lines.items())[:200]), None
@@ -468,7 +488,7 @@ def foreign_pages(pages, previous, now, *, get=None, sleep=time.sleep, relay_tok
                 continue
             rec.update(status="ok", lines=lines, checkedAt=now.isoformat(timespec="seconds"), parser=BROWSER_PARSER, via="기자 컴퓨터 브라우저")
             if old.get("parser") == BROWSER_PARSER and old.get("lines"):
-                for t in [t for t in lines if t not in old["lines"]]:
+                for t in new_lines(lines, old["lines"]):
                     href = urljoin(p["url"], lines[t]) if lines[t] else None
                     events.append({"id": f"{p['id']}:{t[:80]}", "pageId": p["id"], "country": p["country"], "label": p["label"],
                                    "text": t, "url": href or p["url"], "detectedAt": now.isoformat(timespec="seconds")})
@@ -490,17 +510,33 @@ def foreign_pages(pages, previous, now, *, get=None, sleep=time.sleep, relay_tok
             rec.update(status="failed", error=err, lines=old.get("lines", {}), parser=old.get("parser"))
             out.append(rec)
             continue
-        lines = dict(list(korea_lines(raw, re.compile(p["pattern"], re.I) if p.get("pattern") else None).items())[:200])
+        lines = dict(list(keyed(korea_lines(raw, re.compile(p["pattern"], re.I) if p.get("pattern") else None)).items())[:200])
         rec.update(status="ok", lines=lines, checkedAt=now.isoformat(timespec="seconds"), parser=LINE_PARSER)
         # a baseline taken by another version of the line reader is not compared (its keys differ)
         if old.get("parser") == LINE_PARSER and (old.get("status") == "ok" or old.get("lines")):
-            new = [t for t in lines if t not in (old.get("lines") or {})]
-            for t in new:
+            for t in new_lines(lines, old.get("lines")):
                 href = urljoin(p["url"], lines[t]) if lines[t] else None
                 events.append({"id": f"{p['id']}:{t[:80]}", "pageId": p["id"], "country": p["country"], "label": p["label"],
                                "text": t, "url": href or p["url"], "detectedAt": now.isoformat(timespec="seconds")})
         out.append(rec)
     return out, events
+
+
+def mark_renumbered(events, page_ids):
+    """번호 열쇠 시절 잡힌 같은 줄의 재감지(번호만 밀림)는 renumbered로 표시해 화면에서 뺀다(지우지 않음).
+    가장 이른 감지는 남기고 repeats(번호만 바뀌어 다시 잡힌 횟수)를 붙인다 — 그 처음 감지도 번호 이동이었을 수 있다."""
+    first = {}
+    for e in sorted(events, key=lambda e: str(e.get("detectedAt", ""))):
+        if e.get("pageId") not in page_ids or not isinstance(e.get("text"), str):
+            continue
+        key = (e["pageId"], serial_free(e["text"]))
+        if key not in first:
+            first[key] = e
+            continue
+        e["renumbered"] = True
+        head = first[key]
+        head["repeats"] = len([x for x in events if x is not head and x.get("pageId") == e["pageId"]
+                               and isinstance(x.get("text"), str) and serial_free(x["text"]) == key[1]])
 
 
 def run(cfg, *, now, previous=None, get=None, sleep=time.sleep, relay_token=None, ktc_http=None, kita_http=None, browser=None):
@@ -547,6 +583,7 @@ def run(cfg, *, now, previous=None, get=None, sleep=time.sleep, relay_token=None
          "label": f"EU 쿼터 {q['order']} {q.get('product') or ''}({q['scope']}) 소진", "text": " ".join(q["tags"]),
          "url": q["url"], "detectedAt": stamp} for q in ok_q if q.get("newlyExhausted")]
     events += [e for e in fresh if e["id"] not in seen]
+    mark_renumbered(events, {p["id"] for p in cfg.get("pages", [])})
     events.sort(key=lambda e: e["detectedAt"], reverse=True)
     if terr and not ok_q and previous:  # TARIC down: keep last quotas, marked as stale
         quotas = [dict(q, stale=True) for q in previous.get("quotas", []) if isinstance(q, dict)]
