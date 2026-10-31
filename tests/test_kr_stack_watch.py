@@ -117,6 +117,16 @@ class StackTest(unittest.TestCase):
         site = next(x for x in doc["sites"] if x["name"] == "현대제철㈜포항2공장")
         self.assertEqual(site["stopped"], ["11", "12"])  # 화면 목록에는 보인다
 
+        # 예전 규칙으로 저장된 B(2개 멈춤)는 다음 실행에 C로
+        doc["events"] = [{"id": "stk:stop:현대제철:현대제철(주)포항2공장:2026-10-31", "kind": "배출구 멈춤 신호", "tier": "B", "company": "현대제철",
+                          "site": "현대제철㈜포항2공장", "detectedAt": doc["generatedAt"],
+                          "text": "현대제철㈜포항2공장: 배출구 2개가 … — 11번(평소 20.0→최근 0.0, 측정 x), 12번(평소 20.0→최근 0.0, 측정 x) · 정비·점검일 수 있음(회사 확인)"}] + doc["events"]
+        t = T0 + dt.timedelta(hours=30)
+        doc = w.run(CFG_SMALL, now=t, previous=doc, key="k", get=Api(world(t, pohang2=big[:10] + (0.0, 0.0) + big[12:])), sleep=lambda s: None)
+        old = next(e for e in doc["events"] if e["id"] == "stk:stop:현대제철:현대제철(주)포항2공장:2026-10-31")
+        self.assertEqual(old["tier"], "C")
+        self.assertIn("평소 움직이던 60개 중 2개라 일상 정비 수준일 수 있어 C로 바로잡음", old["text"])
+
         def at3(i):
             return {"pohang2": big if i < 6 else ((0.0,) + big[1:])}  # 가장 큰 배출구 하나 → B
         ev = [e for e in series(10, at=at3)["events"] if e["site"] == "현대제철㈜포항2공장"]

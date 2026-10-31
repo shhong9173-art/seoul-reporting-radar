@@ -419,6 +419,17 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep):
             s["stopped"], s["meaningful"] = stopped, len(meaningful)
             top = sorted(meaningful, key=lambda c: -(meaningful[c] or 0))[:3]
             share = len(stopped) / len(meaningful) if meaningful else 0
+            load = sum(v or 0 for v in meaningful.values()) or 1
+            # 예전 규칙(2개 이상이면 B)으로 저장된 작은 멈춤은 사업장 크기 기준으로 다시 본다(10-31 09:17 포스코 광양 137개 중 2개)
+            for e in events:
+                if e.get("tier") != "B" or e.get("kind") != "배출구 멈춤 신호" or not str(e.get("id", "")).startswith(f"stk:stop:{sid}:"):
+                    continue
+                codes = re.findall(r"(\S+?)번\(평소", e.get("text") or "")
+                if (codes and len(codes) < max(2, math.ceil(len(meaningful) * STOP_B_SHARE)) and not any(c in top for c in codes)
+                        and sum(meaningful.get(c) or 0 for c in codes) < STOP_B_LOAD * load):
+                    e["tier"] = "C"
+                    e["text"] = (e.get("text") or "") + (f" — 평소 움직이던 {len(meaningful)}개 중 {len(codes)}개라 일상 정비 수준일 수 있어 C로 바로잡음"
+                                                         "(사업장 크기 기준: 5%·상위 3·평소 값 10%)")
             if newly:
                 def desc(c):
                     st = stacks[c]
