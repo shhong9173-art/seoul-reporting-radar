@@ -253,7 +253,9 @@ export function dartViewerDocs(html, rcpNo) {
 // 값은 Cloudflare 비밀값 SEC_USER_AGENT로만 받는다(GitHub Actions의 같은 이름 비밀값과 같은 값) — 코드·저장소에 연락처를 두지 않는다.
 // 10-31 운영: 퍼스트솔라 10-Q(sec.gov/Archives)가 HTTP 403이라 USITC 청원 대목을 원문으로 확인하지 못했다.
 const isSec = (url) => url.hostname === 'sec.gov' || url.hostname.endsWith('.sec.gov');
-const secAgent = (ctx) => String(ctx.env?.SEC_USER_AGENT ?? '').replace(/[\r\n]+/g, ' ').trim().slice(0, 200);
+const secRaw = (ctx) => String(ctx.env?.SEC_USER_AGENT ?? '').replace(/[\r\n]+/g, ' ').trim().slice(0, 200);
+// HTTP 머리글은 영문(ASCII)만 된다 — '아이뉴스24'처럼 한글이 섞이면 fetch가 실패하므로 쓰지 않고 안내한다
+const secAgent = (ctx) => (/^[\x20-\x7E]+$/.test(secRaw(ctx)) ? secRaw(ctx) : '');
 export function sourceAgent(ctx, url) {
   return isSec(url) && secAgent(ctx) ? secAgent(ctx) : 'Mozilla/5.0 seoul-reporting-radar (reporter research)';
 }
@@ -279,7 +281,8 @@ export async function sourceDocument(ctx, args) {
   if (!response.ok) {
     const sec = isSec(url) && [403, 429].includes(response.status)
       ? (secAgent(ctx) ? ' (SEC 접속 표시는 보냈음 — SEC가 이 서버 접속을 막았을 수 있다. 브라우저로 원문을 연다)'
-        : ' (SEC 접속 표시 SEC_USER_AGENT가 Cloudflare 비밀값에 없음 — SEC는 회사명·연락 이메일을 적은 접속만 받는다)') : '';
+        : secRaw(ctx) ? ' (SEC_USER_AGENT에 한글 등 영문 밖 글자가 있어 보내지 않음 — 영문으로 다시 넣는다. 예: iNews24 이름 이메일)'
+          : ' (SEC 접속 표시 SEC_USER_AGENT가 Cloudflare 비밀값에 없음 — SEC는 회사명·연락 이메일을 적은 접속만 받는다)') : '';
     return textResult(`원문 HTTP ${response.status}${sec} — 원문 미확인으로 적는다.`, true);
   }
   const type = response.headers.get('Content-Type') ?? '';

@@ -352,6 +352,11 @@ test('source_document sends the declared SEC User-Agent from the Cloudflare secr
   assert.doesNotMatch(ok.calls.find((c) => c.url.startsWith('https://www.motie.go.kr/')).init.headers['User-Agent'], /example\.com/);  // 다른 곳엔 안 보냄
   const still = await call('source_document', { url: doc }, { fetch: denied, env });
   assert.match(still.text, /SEC 접속 표시는 보냈음 — SEC가 이 서버 접속을 막았을 수 있다/);
+  // 한글이 섞인 값은 머리글로 보낼 수 없어 쓰지 않고 안내한다
+  const ko = fakeFetch({ 'https://www.sec.gov/': new Response('denied', { status: 403 }) });
+  const k = await call('source_document', { url: doc }, { fetch: ko, env: { SEC_USER_AGENT: '아이뉴스24 radar-test@example.com' } });
+  assert.match(k.text, /영문 밖 글자가 있어 보내지 않음/);
+  assert.doesNotMatch(ko.calls[0].init.headers['User-Agent'], /example\.com/);
 });
 
 test('dart tools require the private connection and a key, and search inside document.xml', async () => {
