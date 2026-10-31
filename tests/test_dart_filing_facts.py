@@ -60,6 +60,18 @@ HYO_FIX = table([["정정일자", "2026-10-26"], ["1. 정정관련 공시서류"
 HYO_BODY = table([["- 체결계약명", "420kV 변압기 등 공급계약"], [("2. 계약내역", 3), "계약금액(원)", "113,044,698,813"], ["최근매출액(원)", "3,510,143,917,637"],
                   ["매출액대비(%)", "3.22"], ["3. 계약상대", "노르웨이 송전청(Statnett SF)"], ["4. 판매ㆍ공급지역", "노르웨이"], ["7. 계약(수주)일자", "2023-11-08"]])
 
+# LS전선 20261030000651 ([기재정정]주요사항보고서(교환사채권발행결정), dart4.xsd XML, 2026-10-31 source_document로 읽은 구조):
+# '항 목 | 정정사유 | 정 정 전 | 정 정 후' 4칸 표, 값 칸은 <TE>, 교환청구기간은 칸 안 표, 긴 칸은 '주1) 정정 전' 각주
+LSC_FIX = ('<TABLE><TR><TD>1. 정정대상 공시서류 :</TD><TE>주요사항보고서(교환사채권발행결정)</TE></TR></TABLE>'
+           '<TABLE><TR><TD>항 목</TD><TD>정정사유</TD><TD>정 정 전</TD><TD>정 정 후</TD></TR>'
+           '<TR><TD>5. 사채만기일</TD><TD>납입일 변경에 따른 정정</TD><TE>2031년 11월 09일</TE><TE>2031년 11월 06일</TE></TR>'
+           '<TR><TD>7. 원금상환방법</TD><TD>납입일 변경에 따른 정정</TD><TE>주1) 정정 전</TE><TE>주2) 정정 후</TE></TR>'
+           '<TR><TD>9. 교환에 관한 사항 - 교환청구기간</TD><TD>납입일 변경에 따른 정정</TD>'
+           '<TD><TABLE><TR><TD>시작일</TD><TD>2026년 11월 10일</TD></TR></TABLE></TD><TD><TABLE><TR><TD>시작일</TD><TD>2026년 11월 09일</TD></TR></TABLE></TD></TR>'
+           '<TR><TD>11. 납입일</TD><TD>납입일 변경에 따른 정정</TD><TE>2026년 11월 09일</TE><TE>2026년 11월 06일</TE></TR>'
+           '<TR><TD>18. 공정거래위원회 신고대상 여부</TD><TD>인수인 최종 확정에 따른 정정</TD><TE>미해당</TE><TE>해당</TE></TR></TABLE>'
+           '<P>주1) 정정 전 만기일까지 …</P>')
+
 
 class R:
     def __init__(self, body, code=200):
@@ -137,6 +149,28 @@ class Facts(unittest.TestCase):
         self.assertEqual(f.correction([cut])["material"], ["사유에 해지·취소", "계약금액 -40%"])
         small = table([["정정항목", "정정전", "정정후"], ["5. 계약기간 - 종료일", "2029-07-01", "2029-08-15"]])
         self.assertNotIn("material", f.correction([small]))
+
+    def test_four_column_correction_of_any_filing(self):
+        fix = f.correction([LSC_FIX])
+        self.assertEqual(fix["reason"], "납입일 변경에 따른 정정 · 인수인 최종 확정에 따른 정정")
+        self.assertEqual([c[0] for c in fix["changes"]], ["사채만기일", "원금상환방법", "교환에 관한 사항 - 교환청구기간", "납입일",
+                                                           "공정거래위원회 신고대상 여부"])
+        self.assertNotIn("material", fix)  # 3일 당김은 큰 변경 아님
+        self.assertEqual(f.correction_short(fix), "정정: 사채만기일 2031-11-09→2031-11-06 · 납입일 2026-11-09→2026-11-06 · 공정거래위원회 신고대상 여부 미해당→해당")
+        self.assertIn("원금상환방법 문구 변경", f.correction_line(fix))
+        moved = f.correction([LSC_FIX.replace("2031년 11월 06일", "2032년 05월 06일")])
+        self.assertEqual(moved["material"], ["사채만기일 +6개월"])
+
+    def test_unknown_type_correction_is_read_for_its_table_only(self):
+        cand = {"id": "clue:lsc", "kind": "단서", "company": "LS전선", "title": "LS전선 · 정기·주요공시 · [기재정정]주요사항보고서(교환사채권발행결정)",
+                "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261030000651"}
+        plain_one = {"id": "clue:x", "kind": "단서", "company": "LS전선", "title": "LS전선 · 주요사항보고서(교환사채권발행결정)",
+                     "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260911000001"}
+        used = f.enrich([cand, plain_one], "k", {}, fetch_documents=lambda k, r: [LSC_FIX], get=lambda *a, **k: R({"status": "013"}))
+        self.assertEqual(used, 1)  # 정정이 아닌 미지원 종류는 읽지 않는다
+        self.assertIsNone(cand["filing"]["type"])
+        self.assertTrue(cand["filing"]["correctionShort"].startswith("정정: 사채만기일 2031-11-09→2031-11-06"))
+        self.assertNotIn("filing", plain_one)
 
     def test_same_counterparty_other_contract_is_not_a_change(self):
         # 10-31 운영: 9-30 다른 Statnett 계약(3,833억)과 비교해 '-71%'로 보였다 — 계약일·계약명이 다르면 다른 계약
