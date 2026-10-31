@@ -112,6 +112,16 @@ class Views(unittest.TestCase):
         self.assertEqual([r["title"] for r in rows], ["기아, 10월 30일 리콜 공지 1건 — [기아] 쏘렌토 - 저압연료라인 어셈블리 관련 리콜 중대리콜(화재위험)",
                                                      "현대차, 10월 14일 리콜 공지 2건 — [현대] 아이오닉9 - 전동시트 제어기 관련 리콜 외 1건"])
 
+    def test_scoop_items_take_date_and_url_from_their_source(self):
+        # 10-31 운영 scoop.json items: 주소·게시일이 originalSourceUrl·sources[]에만 있다
+        rows = v.from_scoop({"items": [{"id": "c5", "kind": "공시", "title": "현대자동차, 주요사항보고서(자기주식처분결정)", "companies": ["현대차"],
+                                        "originalSourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261029000247",
+                                        "sources": [{"source": "DART", "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261029000247",
+                                                     "published": "2026-10-29T00:00:00+09:00"}]}]})
+        self.assertEqual((rows[0]["published"], rows[0]["receiptNo"], rows[0]["tier"]), ("2026-10-29", "20261029000247", v.TIER_CANDIDATE))
+        self.assertTrue(rows[0]["url"].startswith("https://dart.fss.or.kr/"))
+        self.assertEqual(rows[0]["id"], v.clue_id("레이더", "c5"))  # 단서 id는 예전 그대로(판정·처음 본 날 유지)
+
     def test_us_recall_clue_title_names_the_models(self):
         rows = v.from_crossborder({"items": [{"id": "usrecall:26V692000", "type": "overseas_safety_domestic_comparison",
             "companyGroup": "현대차·기아·제네시스", "headline": "미국 리콜 26V692000 · 국내 동일 부품/시정조치 대조 필요",
