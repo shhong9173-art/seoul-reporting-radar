@@ -11,7 +11,7 @@ import { publicationDate, verifyEvidence } from '../cloudflare/evidence.mjs';
 import { allowedUrl } from '../cloudflare/live_tools.mjs';
 import { handleIngest } from '../cloudflare/screen.mjs';
 import { dueAt, nextSlot, runSchedule } from '../cloudflare/dispatch.mjs';
-import { background, billHint, clipAt, convergence, hint, kepcoHint, localWord, radarItems, siteCity, stackHint, workforceHint } from '../cloudflare/digest.mjs';
+import { background, billHint, clipAt, convergence, countForms, hint, usRecallHint, usRecallModels, kepcoHint, localWord, radarItems, siteCity, stackHint, workforceHint } from '../cloudflare/digest.mjs';
 
 const ORIGIN = 'https://seoul-reporting-radar.shhong9173.workers.dev';
 const TOKEN = 'test-token-0123456789abcdef';
@@ -1861,9 +1861,19 @@ test('us_recalls: NHTSA full-file recalls with Korean links reach A; imports alo
   assert.match(t.text, /\[신규\] 2026-10-24 · PE26010 예비조사\(PE\) 조사 개시 · 현대차\(제조사\(출입처 브랜드\)\)/);
   const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
   const hit = items.items.find((x) => x.id === 'nhtsa:26V698000');
-  assert.deepEqual([hit.check.who, hit.check.terms], ['SK온', ['리콜', '아우디']]);
-  assert.deepEqual(items.items.find((x) => x.id === 'nhtsa:26V702000').check.terms, ['리콜', '미국']);
+  assert.deepEqual([hit.check.who, hit.check.terms, hit.check.must], ['SK온', ['리콜', '아우디'], ['Q4', '9,048', '9048']]);
+  // 브랜드만으로 찾지 않는다: 차종·대상 대수가 제목·요약에 하나는 있어야(10-31 운영: 아반떼 스트럿 24대 ↔ 투싼 에어백 남아공 기사)
+  const bmw = items.items.find((x) => x.id === 'nhtsa:26V702000').check;
+  assert.deepEqual([bmw.who, bmw.terms, bmw.places, bmw.must], ['BMW', ['X3', '리콜'], ['X3'], ['X3', '52,000', '52000', '5만2000', '5만2,000', '5만 2000', '5만2천']]);
+  const hy = items.items.find((x) => x.id === 'nhtsa:26V692000').check;
+  assert.deepEqual([hy.who, hy.terms, hy.must], ['현대차', ['아반떼', '리콜'], ['아반떼', '엘란트라']]);
   assert.equal(items.items.find((x) => x.id === 'nhtsa:26V701000'), undefined);  // C는 보도 대조 안 함
+  // 영문 부품사(원보고서 공급사 칸)는 국내 기사에 안 나온다 — 브랜드로 찾는다(10-08 26V664000 제네시스 G80 9만4,622대 · NIDEC MOBILITY KOREA)
+  const g80 = usRecallHint({ models: 'GENESIS·HYUNDAI G80 2017~2020, GENESIS 2015~2016', affected: 94622 },
+    [{ role: '제조사(출입처 브랜드)', name: '제네시스' }, { role: '부품 공급사(원보고서, 한국 소재)', name: 'NIDEC MOBILITY KOREA CORPORATION' }]);
+  assert.deepEqual([g80.who, g80.terms, g80.must], ['제네시스', ['G80', '리콜'], ['G80', '94,622', '94622', '9만4622', '9만4,622', '9만 4622']]);
+  assert.deepEqual(usRecallModels('HYUNDAI ELANTRA 2026, TUCSON HYBRID 2026'), ['아반떼', '엘란트라', '투싼']);
+  assert.deepEqual(countForms(999), []);
   assert.deepEqual(dueAt(new Date('2026-10-28T08:10:00Z')), ['us-recalls.yml']);  // Wed 17:10 KST
 });
 
