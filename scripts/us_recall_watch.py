@@ -421,7 +421,7 @@ def main():
     print(f"::notice title=us-complaints::소비자 결함 신고 급증 {len(sp)}건(신규 {sum(1 for x in sp if x.get('isNew'))}, "
           f"B {sum(1 for x in sp if x.get('tier') == 'B')}) · 점검 {[c['status'] for c in doc['checks'] if c['source'] == 'NHTSA 소비자 결함 신고']}")
     ts = (doc.get("tsbs") or {}).get("items") or []
-    print(f"::notice title=us-tsbs::제조사 통신 {len(ts)}건(신규 {sum(1 for x in ts if x.get('isNew'))}, "
+    print(f"::notice title=us-tsbs::제조사 통신 캠페인 {len(ts)}건(신규 {sum(1 for x in ts if x.get('isNew'))}, "
           f"A {sum(1 for x in ts if x.get('tier') == 'A')}, B {sum(1 for x in ts if x.get('tier') == 'B')}) · "
           f"점검 {[c['status'] for c in doc['checks'] if c['source'] == 'NHTSA 제조사 통신(TSB)']}")
     print(f"::notice title=us-recalls::상태 {doc['status']} · 출입처 관련 리콜 {len(doc['recalls'])}건(신규 {sum(1 for x in doc['recalls'] if x['isNew'])}) · "

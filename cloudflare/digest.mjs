@@ -539,7 +539,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
       url: x.url, check: x.tier === 'C' ? undefined : (models.length ? hint(x.brand, [models[0], '리콜'], [models[0]], models) : hint(x.brand, ['리콜', '미국'])) });
   }
 
-  // 미국 제조사 통신(nhtsa_tsbs.py): 동력계통 보증 프로그램 A, 그 밖 보증 프로그램·서비스 캠페인·안전 낱말 서비스 공지 B, 나머지 C.
+  // 미국 제조사 통신(nhtsa_tsbs.py, 캠페인 단위): 동력계통 보증 연장 A, 그 밖 보증 연장·서비스 캠페인·안전 낱말 통신 B, 나머지·재통지 C.
   // 딜러용 통신이라 리콜·결함 인정이 아니다 — 국내 무상수리 여부는 회사 확인.
   const tsItems = ur?.tsbs?.items ?? [];
   const tsBase = baselineOf(tsItems);
@@ -552,7 +552,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
     push(['A', 'B'].includes(x.tier) ? x.tier : 'C', W['us-recalls'], { kind: `미국 제조사 통신(${x.kindName ?? x.type})`, id: `tsb:${x.id}`, date: x.added,
       company: (x.companies ?? []).join('·'),
       fact: `미국 NHTSA 제조사 통신 ${x.kindName ?? x.type} · 추가 ${x.added} · ${(x.brands ?? []).join('·')} ${(x.models ?? []).slice(0, 4).map((m) => m.model).join(', ')}${x.modelCount > 4 ? ` 외 ${x.modelCount - 4}개` : ''}`
-        + `${years.length ? `(${years[0]}${years.length > 1 && years[years.length - 1] !== years[0] ? `~${years[years.length - 1]}` : ''}년형)` : ''} · 문서 ${x.doc}${x.campaign ? `·캠페인 ${x.campaign}` : ''} · 「${clipAt(x.summary ?? '', 160)}」`
+        + `${years.length ? `(${years[0]}${years.length > 1 && years[years.length - 1] !== years[0] ? `~${years[years.length - 1]}` : ''}년형)` : ''} · ${x.campaign ? `캠페인 ${x.campaign} · ` : ''}문서 ${x.docCount > 1 ? `${x.docCount}건` : x.doc} · 「${clipAt(x.summary ?? '', 160)}」`
         + ' — 딜러용 통신이라 리콜·결함 인정 아님, 국내 무상수리 해당 여부는 회사 확인',
       url: x.url, check: x.tier === 'C' ? undefined : (models.length ? hint(brand, [models[0], '무상수리'], [models[0]], models) : hint(brand, ['무상수리', '미국'])) });
   }

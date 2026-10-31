@@ -444,18 +444,20 @@ export async function usRecalls(ctx, args) {
 export function tsbSection(ts, check, q, limit, onlyNew, showAll) {
   const out = [];
   const all = (ts?.items ?? []).filter((x) => (!onlyNew || x.isNew)
-    && matches(q, (x.companies ?? []).join(' '), (x.brands ?? []).join(' '), (x.models ?? []).map((m) => m.model).join(' '), x.summary, (x.components ?? []).join(' '), x.campaign, x.doc));
+    && matches(q, (x.companies ?? []).join(' '), (x.brands ?? []).join(' '), (x.models ?? []).map((m) => m.model).join(' '), x.summary, (x.components ?? []).join(' '), x.campaign, x.doc, x.kindName));
   const order = { A: 0, B: 1, C: 2 };
   const shown = all.filter((x) => showAll || x.tier !== 'C')
-    .sort((a, b) => (Number(b.isNew) - Number(a.isNew)) || (order[a.tier] - order[b.tier]) || String(b.added).localeCompare(String(a.added)));
+    .sort((a, b) => (Number(b.isNew) - Number(a.isNew)) || (order[a.tier] - order[b.tier]) || String(b.lastAdded ?? b.added).localeCompare(String(a.lastAdded ?? a.added)));
   const n = (t) => all.filter((x) => x.tier === t).length;
-  out.push(`\n[제조사 통신(서비스 캠페인·보증 프로그램·서비스 공지) · 파일 추가일 최근 ${ts?.windowDays ?? 120}일] ${all.length}건(A ${n('A')}·B ${n('B')}·참고 C ${n('C')}${showAll ? '' : ' — C는 show_all=true'})`
+  out.push(`\n[제조사 통신(서비스 캠페인·보증 연장·서비스 공지, 캠페인 단위) · 파일 추가일 최근 ${ts?.windowDays ?? 120}일] ${all.length}건(A ${n('A')}·B ${n('B')}·참고 C ${n('C')}${showAll ? '' : ' — C는 show_all=true'})`
     + `${check && check.status !== 'ok' ? ' — 조회 실패, 미확인(0건 아님)' : ''}${ts ? '' : ' — 아직 수집 전'}${ts?.fileModified ? ` · 파일 갱신 ${ts.fileModified}` : ''}`);
   for (const r of ts?.rules ?? []) out.push(`규칙: ${r}`);
   for (const x of shown.slice(0, limit)) {
     const models = (x.models ?? []).map((m) => `${m.model}${(m.years ?? []).length ? `(${m.years.length > 3 ? `${m.years[0]}~${m.years[m.years.length - 1]}` : m.years.join('·')})` : ''}`);
     out.push(`${x.isNew ? '[신규] ' : ''}${x.tier} · ${x.added} · ${x.kindName ?? x.type} · ${(x.brands ?? []).join('·')} ${models.slice(0, 6).join(', ')}${x.modelCount > 6 ? ` 외 ${x.modelCount - 6}개 차종` : ''}`);
-    out.push(`   문서 ${x.doc || '?'}${x.campaign ? ` · 캠페인 ${x.campaign}` : ''}${x.mfrDate ? ` · 제조사 통신일 ${x.mfrDate}` : ''}${(x.components ?? []).length ? ` · 부품 ${x.components.slice(0, 4).join(', ')}` : ''}${x.otherRows ? ` · GM 다른 차종 함께(${x.otherRows}줄)` : ''}`);
+    out.push(`   ${x.campaign ? `캠페인 ${x.campaign} · ` : ''}문서 ${x.docCount > 1 ? `${x.docCount}건(${(x.docs ?? []).map((d) => d.doc).slice(0, 6).join(', ')}${x.docCount > 6 ? ' …' : ''})` : (x.doc || '?')}`
+      + `${x.mfrDate ? ` · 제조사 통신일 ${x.mfrDate}` : ''}${x.lastAdded && x.lastAdded !== x.added ? ` · 마지막 문서 ${x.lastAdded}` : ''}${(x.components ?? []).length ? ` · 부품 ${x.components.slice(0, 4).join(', ')}` : ''}`
+      + `${x.otherRows ? ` · GM 다른 차종 함께(${x.otherRows}줄)` : ''}${x.renotice ? ' · 재통지' : ''}`);
     out.push(`   요약(원문): ${x.summary}`);
     out.push(`   원문: ${x.url}`);
   }
