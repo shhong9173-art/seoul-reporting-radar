@@ -1,35 +1,43 @@
-"""Probe 54: NHTSA 제조사 통신 TSV(TSBS_RECEIVED_2025-2026.zip) — 필드 목록, 현대·기아·제네시스 건수·통신 종류·추가일 분포·부품 분포(범주만)."""
+"""Probe 55: nhtsa_tsbs.collect 실제 파일 드라이런 — 건수·종류×등급·회사별·시간·메모리, NHTSA ID 꼴, 문서 PDF 주소 꼴(상태 코드만). 내용·차명은 찍지 않는다."""
 import collections
-import io
+import datetime as dt
+import resource
+import sys
 import time
-import zipfile
 import requests
+
+sys.path.insert(0, "scripts")
+import nhtsa_tsbs as T
 
 H = {"User-Agent": "seoul-reporting-radar research (github.com/shhong9173-art/seoul-reporting-radar)"}
 out = []
-r = requests.get("https://static.nhtsa.gov/odi/ffdd/tsbs/TSBS.txt", headers=H, timeout=60)
-t = r.text
-out.append(t[t.find("FIELDS"):][:2600])
-time.sleep(2)
-z = requests.get("https://static.nhtsa.gov/odi/ffdd/tsbs/TSBS_RECEIVED_2025-2026.zip", headers=H, timeout=180)
-zf = zipfile.ZipFile(io.BytesIO(z.content))
-out.append(f"zip files: {[(i.filename, i.file_size) for i in zf.infolist()]}")
-name = zf.infolist()[0].filename
-raw = zf.read(name)
-text = raw.decode("utf-8", "replace")
-lines = text.splitlines()
-out.append(f"lines={len(lines)} first-line-cols={len(lines[0].split(chr(9)))}")
-rows = [ln.split("\t") for ln in lines if ln.strip()]
-ncol = collections.Counter(len(x) for x in rows).most_common(3)
-out.append(f"col counts {ncol}")
-# guess columns by scanning first row values (print types/lengths only)
-first = rows[0]
-out.append("first row value shapes: " + " | ".join(f"{i}:{(v[:12] if len(v) < 14 and not any(c.isalpha() for c in v[:3]) else ('TXT' + str(len(v))))}" for i, v in enumerate(first)))
-makes = collections.Counter()
-for x in rows:
-    for v in x:
-        if v.strip().upper() in ("HYUNDAI", "KIA", "GENESIS"):
-            makes[v.strip().upper()] += 1
-            break
-out.append(f"rows with HYUNDAI/KIA/GENESIS in some column: {dict(makes)}")
+now = dt.datetime.now(dt.timezone(dt.timedelta(hours=9)))
+t0 = time.time()
+doc, check = T.collect(now, None, get=requests.get)
+out.append(f"check {check['status']} rows={check.get('rows')} err={check.get('error')} mod={check.get('fileModified')} secs={time.time() - t0:.0f} "
+           f"maxrssMB={resource.getrusage(resource.RUSAGE_SELF).ru_maxrss // 1024} spans={T.spans(now)}")
+items = doc.get("items") or []
+out.append(f"items={len(items)} seen={len(doc.get('seen') or [])}")
+out.append("type x tier: " + str(sorted(collections.Counter((x['type'], x['tier']) for x in items).items())))
+out.append("company x tier: " + str(sorted(collections.Counter((','.join(x['companies']), x['tier']) for x in items).items())))
+out.append("added by month: " + str(sorted(collections.Counter(x['added'][:7] for x in items).items())))
+out.append("modelCount dist: " + str(sorted(collections.Counter(min(x['modelCount'], 10) for x in items).items())))
+out.append("summary len max/median: " + str(max((len(x['summary']) for x in items), default=0)) + "/" + str(sorted(len(x['summary']) for x in items)[len(items) // 2] if items else 0))
+out.append("replaces nonempty: " + str(sum(1 for x in items if x.get('replaces'))))
+out.append("campaign nonempty: " + str(sum(1 for x in items if x.get('campaign'))))
+out.append("id shapes: " + str(collections.Counter((len(x['id']), x['id'].isdigit(), x['id'][:3] if not x['id'][:1].isdigit() else 'num') for x in items).most_common(4)))
+out.append("doc shapes: " + str(collections.Counter(('alpha' if x['doc'][:1].isalpha() else 'num', len(x['doc'])) for x in items).most_common(4)))
+# 문서 PDF 주소 꼴 시험(앞 3건 × 꼴 2개, 2초 간격, 상태 코드만)
+pats = ["https://static.nhtsa.gov/odi/tsbs/{ya}/MC-{id}-0001.pdf", "https://static.nhtsa.gov/odi/tsbs/{ym}/MC-{id}-0001.pdf"]
+for x in items[:3]:
+    res = []
+    for p in pats:
+        u = p.format(ya=x['added'][:4], ym=(x.get('mfrDate') or x['added'])[:4], id=x['id'])
+        try:
+            r = requests.head(u, headers=H, timeout=30, allow_redirects=True)
+            res.append(f"{r.status_code}:{r.headers.get('Content-Type', '')[:20]}")
+        except Exception as e:  # noqa: BLE001
+            res.append(type(e).__name__)
+        time.sleep(2)
+    out.append(f"pdf patterns {res} (added y==mfr y: {x['added'][:4] == (x.get('mfrDate') or '')[:4]})")
 open("/tmp/probe_out.txt", "w").write("\n".join(out))
