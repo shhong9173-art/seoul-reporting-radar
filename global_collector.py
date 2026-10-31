@@ -12,7 +12,7 @@ from email.utils import parsedate_to_datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 from scripts.rss_concurrent import collect_feeds
-from scripts.global_news_pipeline import shortlist, translate_selected
+from scripts.global_news_pipeline import shortlist, summarize_selected, translate_selected
 from scripts.auto_news_feed_health import build as build_feed_health, persist as persist_feed_health
 
 KST = ZoneInfo("Asia/Seoul")
@@ -173,6 +173,108 @@ def translate(text: str) -> tuple[str, str]:
     return text, "translation_failed"
 
 
+# 매체 자체 RSS — 본문 앞부분(설명)이나 전문(content:encoded)이 있어 한국어 요약을 만들 수 있다(11-01 탐침 65: GitHub 서버에서 열림).
+# 구글 뉴스 검색 결과와 같은 기사면 본문을 붙이고 주소를 매체 직접 주소로 바꾼다. 영어 본문은 요약에만 쓰고 저장하지 않는다(공개 저장소).
+PUBLISHER_FEEDS = [
+    ("Electrek", "https://electrek.co/feed/"), ("InsideEVs", "https://insideevs.com/rss/articles/all/"),
+    ("CnEVPost", "https://cnevpost.com/feed/"), ("CarNewsChina", "https://carnewschina.com/feed/"),
+    ("Automotive World", "https://www.automotiveworld.com/feed/"), ("Automotive News", "https://www.autonews.com/arc/outboundfeeds/rss/"),
+    ("Just Auto", "https://www.just-auto.com/feed/"), ("electrive", "https://www.electrive.com/feed/"),
+    ("Utility Dive", "https://www.utilitydive.com/feeds/news/"), ("pv magazine", "https://www.pv-magazine.com/feed/"),
+    ("Energy-Storage.news", "https://www.energy-storage.news/feed/"),
+]
+# 전력·태양광·에너지저장 전문지는 한국 회사 이름이 나올 때만(미국 전력망 일반 기사로 넘치지 않게)
+STRICT_KOREA = {"Utility Dive", "pv magazine", "Energy-Storage.news"}
+CONTENT = "{http://purl.org/rss/1.0/modules/content/}encoded"
+
+
+def title_key(title: str) -> str:
+    """구글 뉴스 제목 끝 ' - 매체'를 떼고 글자·숫자만 — 매체 RSS 제목과 맞춰 본다."""
+    t = re.sub(r"\s+[-–—|]\s+[^-–—|]{2,60}$", "", title or "")
+    return re.sub(r"[^a-z0-9]+", "", t.lower())
+
+
+def score_text(text: str):
+    """(점수, 출입처 신호 수) 또는 None(업종 낱말 없음·한국 신호 없이 업종 낱말 1개)."""
+    industry_score = hits(INDUSTRY_RE, text)
+    korea_score = hits(KOREA_RE, text)
+    if industry_score == 0 or (korea_score == 0 and industry_score < 2):
+        return None
+    impact = hits(IMPACT_RE, text)
+    return min(99, 45 + korea_score * 9 + min(industry_score, 5) * 4 + min(impact, 5) * 4), korea_score
+
+
+def parse_publisher(source: str, url: str) -> list[dict]:
+    started = time.monotonic()
+    try:
+        root = ET.fromstring(get(url, 20))
+    except Exception as exc:
+        GLOBAL_FEED_CHECKS.append({"category": source[:40], "globalFeed": True, "status": "transport_or_xml_error", "recentRows": 0,
+                                   "errorType": type(exc).__name__, "durationMs": min(600000, int((time.monotonic() - started) * 1000))})
+        return []
+    cutoff = datetime.now(KST) - timedelta(hours=96)
+    rows = []
+    for item in root.iter("item"):
+        title = clean(item.findtext("title") or "")
+        link = (item.findtext("link") or "").strip()
+        if not title or not link.startswith("https://") or looks_korean(title):
+            continue
+        try:
+            dt = parsedate_to_datetime((item.findtext("pubDate") or "").strip()).astimezone(KST)
+        except Exception:
+            continue   # 날짜 없는 항목을 오늘 기사로 만들지 않는다
+        if dt < cutoff:
+            continue
+        body = clean(item.findtext(CONTENT) or "") or clean(item.findtext("description") or "")
+        scored = score_text((title + " " + body[:800]).lower())
+        if not scored or (source in STRICT_KOREA and scored[1] == 0):
+            continue
+        rows.append({"title": title, "url": link, "published": dt.isoformat(), "sourceName": source, "category": "글로벌", "global": True,
+                     "globalSource": source, "summary": "", "globalScore": scored[0], "koTitle": "", "koSummary": "",
+                     "translationStatus": "not_attempted_until_deduplication", "articleText": body[:2000], "summarySource": f"{source} RSS",
+                     "globalWhy": "한국 자동차·부품·배터리·전력·에너지 산업과 연결되거나 글로벌 공급망·통상·생산 변화가 큰 해외 신호입니다.",
+                     "globalBeat": scored[1] > 0 and source in STRICT_KOREA, "globalPitch": scored[0] >= 70})
+    GLOBAL_FEED_CHECKS.append({"category": source[:40], "globalFeed": True, "status": "checked_recent_rows" if rows else "checked_no_recent_rows",
+                               "recentRows": min(100, len(rows)), "errorType": None, "durationMs": min(600000, int((time.monotonic() - started) * 1000))})
+    return rows
+
+
+def attach_publisher_text(google_rows: list[dict], publisher_rows: list[dict]) -> list[dict]:
+    """같은 기사(제목이 같으면)는 매체 RSS 본문·직접 주소를 구글 뉴스 항목에 붙이고, 남은 매체 RSS 기사는 그대로 후보에 더한다."""
+    by_key = {}
+    for p in publisher_rows:
+        by_key.setdefault(title_key(p["title"]), p)
+    used = set()
+    out = []
+    for g in google_rows:
+        k = title_key(g.get("title", ""))
+        p = by_key.get(k)
+        if p and k:
+            g = {**g, "url": p["url"], "articleText": p["articleText"], "summarySource": p["summarySource"]}
+            used.add(k)
+        out.append(g)
+    out += [p for k, p in by_key.items() if k not in used]
+    return out
+
+
+def worker_summarize(title: str, text: str) -> str:
+    """워커(Workers AI)로 매체 RSS 본문 발췌를 한국어 2~3문장 요약. 실패하면 빈 문자열."""
+    import os
+    token = os.environ.get("MCP_ACCESS_TOKEN", "").strip()
+    if not token or not text.strip():
+        return ""
+    req = urllib.request.Request(WORKER_TRANSLATE, data=json.dumps({"kind": "summary", "texts": [f"{title}\n\n{text}"]}).encode(), method="POST",
+                                 headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json",
+                                          "User-Agent": "seoul-reporting-radar global_collector"})
+    try:
+        with urllib.request.urlopen(req, timeout=60) as r:
+            res = (json.loads(r.read()).get("results") or [{}])[0]
+    except Exception:
+        return ""
+    ko = str(res.get("ko") or "").strip()
+    return ko if res.get("status") == "summarized_ai" and looks_korean(ko) else ""
+
+
 def parse(source: str, query: str) -> list[dict]:
     started=time.monotonic()
     url = "https://news.google.com/rss/search?q=" + urllib.parse.quote(query) + "&hl=en-US&gl=US&ceid=US:en"
@@ -210,15 +312,10 @@ def parse(source: str, query: str) -> list[dict]:
             dt = datetime.now(KST)
         if dt < cutoff:
             continue
-        text = (title + " " + desc).lower()
-        industry_score = hits(INDUSTRY_RE, text)
-        korea_score = hits(KOREA_RE, text)
-        if industry_score == 0:
+        scored = score_text((title + " " + desc).lower())
+        if not scored:
             continue
-        if korea_score == 0 and industry_score < 2:
-            continue
-        impact = hits(IMPACT_RE, text)
-        score = min(99, 45 + korea_score * 9 + min(industry_score, 5) * 4 + min(impact, 5) * 4)
+        score = scored[0]
 
         # Translation happens after cross-feed headline deduplication and priority ranking.
         # Calling external translation here multiplies latency for duplicate RSS hits.
@@ -270,12 +367,17 @@ def main() -> None:
     _,raw_globals=collect_feeds([],QUERIES,
         lambda cat,q,global_feed=False,source_hint="":parse(source_hint,q),
         on_error=unexpected_feed_error,workers=3)
+    publisher_rows=[]
+    for name,feed_url in PUBLISHER_FEEDS:   # 매체 RSS 11곳을 차례로(한 곳당 한 번)
+        publisher_rows+=parse_publisher(name,feed_url)
+    raw_globals=attach_publisher_text(raw_globals,publisher_rows)
     candidates=shortlist(raw_globals,limit=48)
     unique=translate_selected(candidates,translate,
         previous=previous_global,workers=2)
+    unique=summarize_selected(unique,worker_summarize,previous=previous_global,workers=2)
     unique=[x for x in unique if x.get("koTitle") and
             x.get("translationStatus")!="translation_failed"]
-    diagnostic=build_feed_health(GLOBAL_FEED_CHECKS,expected=len(QUERIES),
+    diagnostic=build_feed_health(GLOBAL_FEED_CHECKS,expected=len(QUERIES)+len(PUBLISHER_FEEDS),
         news_items=len(unique),now=datetime.now(KST),threshold=1)
     persist_feed_health(diagnostic,Path("digests/global_news_feed_health_latest.json"))
     # Do not overwrite previously verified worldwide stories with a blackout.
@@ -293,6 +395,8 @@ def main() -> None:
     for x in unique:
         statuses[x.get("translationStatus")]=statuses.get(x.get("translationStatus"),0)+1
     print(f"global translation status counts: {statuses}")
+    print(f"global summaries: {sum(1 for x in unique if x.get('summaryTranslationStatus')=='summarized_ai')} AI 요약 / "
+          f"publisher RSS rows {len(publisher_rows)}")
     print(f"global radar: {len(unique)} source-filtered translated records; "
           f"{reused} exact-title/URL/summary translations reused; "
           f"RSS query errors {diagnostic['errorQueries']}/{len(QUERIES)}; "

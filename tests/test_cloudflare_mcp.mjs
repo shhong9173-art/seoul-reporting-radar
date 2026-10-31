@@ -12,7 +12,7 @@ import { allowedUrl } from '../cloudflare/live_tools.mjs';
 import { ageNote, handleIngest, weekdayHours } from '../cloudflare/screen.mjs';
 import { dueAt, nextSlot, runSchedule } from '../cloudflare/dispatch.mjs';
 import { boardKey, factParts, groupSame, splitTop } from '../cloudflare/board.mjs';
-import { cleanOutput, LLM_MODELS, MT_MODEL } from '../cloudflare/translate.mjs';
+import { cleanOutput, cleanSummary, LLM_MODELS, MT_MODEL } from '../cloudflare/translate.mjs';
 import { background, billHint, clipAt, convergence, convergenceRows, countForms, hint, insolvencyWord, usRecallHint, usRecallModels, kepcoHint, localWord, radarItems, siteCity, stackHint, workforceHint } from '../cloudflare/digest.mjs';
 
 const ORIGIN = 'https://seoul-reporting-radar.shhong9173.workers.dev';
@@ -2228,6 +2228,7 @@ test('foreign-news translation /ingest/translate: bearer only, Workers AI langua
   const AI = { run: async (model, input) => {
     calls.push(model);
     if (model === LLM_MODELS[0]) throw new Error('No such model');                                // 목록에 없는 모델은 건너뛴다
+    if (model === LLM_MODELS[1] && input.messages[0].content.includes('요약한다')) return { response: input.messages[1].content.includes('FAIL') ? 'Sorry, I cannot.' : '요약:\n- 현대차가 앨라배마 공장에 4억5000만달러를 투자한다.\n- 신형 투싼을 생산한다.' };
     if (model === LLM_MODELS[1]) return { response: input.messages[1].content.includes('FAIL') ? 'Sorry, I cannot.' : '번역: "고려아연, 미국 제련소 검토"' };
     if (model === MT_MODEL) return { translated_text: '실패 대비 번역' };
     return { response: 'no korean' };
@@ -2243,6 +2244,13 @@ test('foreign-news translation /ingest/translate: bearer only, Workers AI langua
   assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/translate', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: '{"texts":["a"]}' }), { MCP_ACCESS_TOKEN: TOKEN }, {})).status, 503);
   assert.equal(cleanOutput('제목: 「현대차, 美 공장 증설」\n설명'), '현대차, 美 공장 증설');
   assert.equal(cleanOutput('English only'), '');
+  // 요약(kind:'summary'): 언어 모델만, 번역 전용 모델로 대신하지 않는다
+  const mtBefore = calls.filter((m) => m === MT_MODEL).length;
+  const s1 = await (await post({ kind: 'summary', texts: ['Hyundai Alabama\n\nHyundai will invest $450m.', 'FAIL summary text'] })).json();
+  assert.deepEqual(s1.results.map((x) => [x.ko, x.status]), [['현대차가 앨라배마 공장에 4억5000만달러를 투자한다. 신형 투싼을 생산한다.', 'summarized_ai'], ['', 'failed']]);
+  assert.equal(calls.filter((m) => m === MT_MODEL).length, mtBefore);   // 요약 실패는 번역 전용 모델로 대신하지 않는다
+  assert.equal(cleanSummary('요약:\n- 현대차가 미국 앨라배마 공장에 4억5000만달러를 투자한다.\n- 신형 투싼을 생산한다.'), '현대차가 미국 앨라배마 공장에 4억5000만달러를 투자한다. 신형 투싼을 생산한다.');
+  assert.equal(cleanSummary('Too short English'), '');
   assert.equal(cleanOutput('샤오미, 선우다 EVB 투자 계획 발표… 배터리 협력 강화 -'), '샤오미, 선우다 EVB 투자 계획 발표… 배터리 협력 강화');
 });
 

@@ -78,3 +78,33 @@ def translate_selected(rows,translator,*,previous=None,workers=3):
     with ThreadPoolExecutor(max_workers=workers,thread_name_prefix="global-translate") as pool:
         all_rows=list(pool.map(translate_one,rows))
     return [x for x in all_rows if x is not None]
+
+
+# 한국어 요약(11-01 기자 요청: 외신을 한국어로 요약·번역). 매체 RSS 본문 발췌(articleText)가 있는 항목만 — 본문이 없으면 요약하지 않는다.
+# 같은 주소·같은 제목·같은 요약 규칙 버전이면 지난 요약을 다시 쓴다. 영어 본문(articleText)은 결과에서 지운다(공개 저장소에 원문을 싣지 않게).
+SUMMARY_VERSION=1
+
+
+def summarize_selected(rows,summarizer,*,previous=None,workers=2):
+    if not callable(summarizer) or not 1<=workers<=4 or not isinstance(rows,list):
+        raise ValueError("invalid_summary_task")
+    cache={x.get("url"):x for x in (previous if isinstance(previous,list) else [])
+        if isinstance(x,dict) and isinstance(x.get("url"),str)}
+    def one(row):
+        out=dict(row)
+        text=str(out.pop("articleText","") or "")
+        old=cache.get(out.get("url"))
+        if (isinstance(old,dict) and old.get("title")==out.get("title") and old.get("summaryTranslationStatus")=="summarized_ai"
+                and old.get("summaryVersion")==SUMMARY_VERSION and isinstance(old.get("koSummary"),str) and old["koSummary"].strip()):
+            out.update(koSummary=old["koSummary"],summaryTranslationStatus="summarized_ai",summaryVersion=SUMMARY_VERSION)
+            return out
+        if text.strip() and not out.get("koSummary"):
+            try:
+                ko=summarizer(out.get("title",""),text)
+            except Exception:
+                ko=""
+            if ko:
+                out.update(koSummary=ko,summaryTranslationStatus="summarized_ai",summaryVersion=SUMMARY_VERSION)
+        return out
+    with ThreadPoolExecutor(max_workers=workers,thread_name_prefix="global-summary") as pool:
+        return list(pool.map(one,rows))
