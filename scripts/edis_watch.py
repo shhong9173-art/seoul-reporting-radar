@@ -43,6 +43,10 @@ ROUTINE = re.compile(r"PO Subscription|Protective Order|Appearance|Returned Mail
                      r"Research Material|Work Sheet|Voting Sheet|Import Statistics|Verification Report|Telephone/Meeting|Transcript", re.I)
 # 위원회·행정판사 결정 문서 종류(제출처 USITC라도 질문서·조사 자료·OUII 서면은 아님)
 DECISION_TYPE = re.compile(r"^(?:Notice|Order|ID/RD|Opinion|Views|Consolidated Reports And Views|Determination)\b", re.I)
+# 판사의 절차 명령(Order)은 337 사건 하나에 수십 건(탐침 10-31: 337-1494 최근 100건 중 21건) — 종결·배제·제재 같은 결론 명령만 B
+WEIGHTY = re.compile(r"^(?:Notice|ID/RD|Opinion|Views|Consolidated|Determination|Order,\s*Commission)", re.I)
+WEIGHTY_ORDER = re.compile(r"terminat|exclusion|cease and desist|sanction|summary determination|default|\bstay|dismiss|withdraw|settle|"
+                           r"consent|remand|violation", re.I)
 FINDING_TYPE = re.compile(r"Opinion|Views|Determination|ID/RD - Final", re.I)
 STARTS = re.compile(r"^(?:Petition|Complaint)\b", re.I)
 SUBSTANTIVE = re.compile(r"Complaint|Petition|Motion|Brief|Response|Reply|Comments|Submission|Request|Statement|Answer|Opposition|"
@@ -114,6 +118,10 @@ def is_decision(rec):
     return rec["firmOrganization"].strip().upper() == "USITC" and bool(DECISION_TYPE.search(rec["documentType"]))
 
 
+def is_weighty(rec):
+    return bool(WEIGHTY.search(rec["documentType"]) or WEIGHTY_ORDER.search(rec["documentTitle"]))
+
+
 def is_sec337(rec):
     return rec["investigationType"].replace(" ", "").lower().startswith("sec337")
 
@@ -136,7 +144,7 @@ def classify(rec, watched):
         return "A", "한국산 조사 제소장·청원", who
     if who and not routine and not decision and SUBSTANTIVE.search(kind):
         return "B", "출입처가 당사자인 서면", who
-    if decision and (watch or who) and not routine:
+    if decision and (watch or who) and not routine and is_weighty(rec):
         return "B", "지켜보는 조사의 위원회·판사 결정·공고", who
     if decision and korea and FINDING_TYPE.search(kind):
         return "B", "한국 조사 위원회 판정", who
@@ -229,7 +237,8 @@ def collect(prev, now, *, get, token="", watch=SEED_WATCH, sleep=time.sleep):
         token_note = "EDIS_API_TOKEN 미설정 — 첨부 본문·337 제소장 피제소인 미확인(기본 정보만)"
     elif exp and exp <= now:
         token_note = f"EDIS 토큰 만료({exp.date()}) — EDIS 로그인 → 이름 아래 'API Token Generator'에서 다시 발급"
-    auth = {**headers, "Authorization": f"Bearer {token}"} if token and not token_note else None
+    # 다운로드에 Accept: application/xml을 붙이면 406(탐침 29) — 토큰과 UA만
+    auth = {"User-Agent": UA, "Authorization": f"Bearer {token}"} if token and not token_note else None
     out, a_invs, read = dict(known), {x["investigationNumber"] for x in known.values() if x.get("tier") == "A"}, 0
     complaints = []
     for d in sorted(by_id.values(), key=lambda x: x["officialReceivedDate"]):

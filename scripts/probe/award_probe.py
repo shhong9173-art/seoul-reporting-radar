@@ -1,4 +1,4 @@
-"""Probe 29: edis_watch.collect 실제 API 건식 실행(저장 안 함). 첫 실행(기준선) + 하루 전으로 되돌린 두 번째 실행.
+"""Probe 30 (29 재실행, 406·판사 명령 고침): edis_watch.collect 실제 API 건식 실행(저장 안 함). 첫 실행(기준선) + 하루 전으로 되돌린 두 번째 실행.
 건수·상태·문서 종류(범주)만 출력. 제목·당사자·회사·발췌·토큰은 출력하지 않는다."""
 import collections
 import datetime as dt
@@ -21,6 +21,7 @@ def summary(ed, ev, tag):
     out.append(f"{tag}: docs new={len(docs)} tiers={dict(collections.Counter(x['tier'] for x in docs))} events={dict(collections.Counter(e['tier'] for e in ev))}")
     out.append(f"   A/B types: " + "; ".join(f"{t}/{k}={n}" for (t, k), n in collections.Counter((x['tier'], x['documentType']) for x in docs if x['tier'] in 'AB').most_common(20)))
     out.append(f"   why: " + "; ".join(f"{k}={n}" for k, n in collections.Counter(x['why'] for x in docs).most_common()))
+    out.append(f"   body docs (tier/type/pages/snippets): " + "; ".join(f"{x['tier']}/{x['documentType']}/{x.get('pages')}/{len(x.get('snippets') or [])}" for x in docs if 'pages' in x))
     out.append(f"   bodies: pages={sum(1 for x in docs if 'pages' in x)} snippets={[len(x.get('snippets') or []) for x in docs if 'pages' in x]} errors={dict(collections.Counter(x.get('bodyError') for x in docs if x.get('bodyError')))}")
     out.append(f"   companies matched (count only): {sum(1 for x in docs if x['companies'])}; watched n={len(ed['watched'])}; lastReceived={ed['lastReceived']}; tokenNote set={bool(ed.get('tokenNote'))}")
 summary(ed, ev, "run1")
