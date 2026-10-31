@@ -857,6 +857,29 @@ export function convergence(items, { cut } = {}) {
   return out.sort((a, b) => b.watches.length - a.watches.length || Number(b.fresh) - Number(a.fresh) || Number(b.hasA) - Number(a.hasA) || (b.latest ?? 0) - (a.latest ?? 0));
 }
 
+// 묶음에 보일 줄: 새 신호(배경 아님)를 먼저, 배경은 감시별로 한 줄로 합친다
+// (10-31 운영: 금호타이어 함평 정련동 공사가 시공사마다 이름이 조금씩 달라 국민연금 공사 현장 배경 3줄이 묶음 4줄 중 3줄을 채웠다).
+export function convergenceRows(g, max = 4) {
+  const byDate = (a, b) => String(b.date ?? '').localeCompare(String(a.date ?? ''));
+  const fore = g.items.filter((x) => !x.background).sort(byDate);
+  const back = new Map();
+  for (const x of g.items.filter((y) => y.background).sort(byDate)) {
+    if (!back.has(x.watch)) back.set(x.watch, []);
+    back.get(x.watch).push(x);
+  }
+  const merged = [...back.values()].map((xs) => {
+    if (xs.length === 1) return xs[0];
+    const titles = xs.map((x) => /「([^」]+)」/.exec(x.fact ?? '')?.[1]);
+    const lead = /^[^「]*/.exec(xs[0].fact ?? '')[0].trim();
+    const fact = titles.every(Boolean)
+      ? `${lead} ${xs.length}건 · ${titles.map((t) => `「${clipAt(t, 40)}」`).join(' · ')}`
+      : `${xs.length}건 · ${xs.map((x) => clipAt(x.fact, 50)).join(' · ')}`;
+    return { ...xs[0], fact, id: `${xs[0].id} 외 ${xs.length - 1}` };
+  });
+  const rows = [...fore, ...merged];
+  return { rows: rows.slice(0, max), more: Math.max(0, rows.length - max) };
+}
+
 export async function radarToday(ctx, args) {
   const nowMs = ctx.now.getTime();
   const monday = new Date(nowMs + KST_MS).getUTCDay() === 1;
@@ -904,9 +927,9 @@ export async function radarToday(ctx, args) {
     out.push(`\n[겹친 신호 · 최근 14일 같은 출입처·같은 시군을 감시 여러 곳이 가리킴] ${conv.length}곳 — 하나씩은 공개 자료, 함께 보면 투자·가동 변화 단서(배경: 국민연금 공사 현장·120일 안 건축허가·지금 멈춘 굴뚝)`);
     for (const g of conv.slice(0, 5)) {
       out.push(`- ${g.fresh ? '[새 항목 포함] ' : ''}${g.company} · ${g.place} — 감시 ${g.watches.length}곳(${g.watches.join(', ')})`);
-      const lines = [...g.items].sort((a, b) => String(b.date ?? '').localeCompare(String(a.date ?? ''))).slice(0, 4);
-      for (const x of lines) out.push(`   ${x.background ? '(배경) ' : `${x.tier} · `}${x.date ? `${String(x.date).length > 10 ? kstStamp(x.date) : x.date} · ` : ''}${x.watch}: ${clipAt(x.fact, 110)} · id ${x.id}`);
-      if (g.items.length > 4) out.push(`   … 같은 묶음 ${g.items.length - 4}건 더`);
+      const { rows, more } = convergenceRows(g);
+      for (const x of rows) out.push(`   ${x.background ? '(배경) ' : `${x.tier} · `}${x.date ? `${String(x.date).length > 10 ? kstStamp(x.date) : x.date} · ` : ''}${x.watch}: ${clipAt(x.fact, 110)} · id ${x.id}`);
+      if (more) out.push(`   … 같은 묶음 ${more}줄 더`);
     }
     if (conv.length > 5) out.push(`… 남은 ${conv.length - 5}곳(company로 좁히기)`);
     out.push('   읽는 법: 같은 시군 이름이 문장에 있으면 묶는다(같은 공장·같은 사업이라는 확인이 아님). 각 원문을 열어 같은 부지·사업인지 본다.');
