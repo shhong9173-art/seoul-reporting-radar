@@ -1151,7 +1151,10 @@ test('radar_today ranks EDGAR mentions by deal words and hides items the reporte
     items: [{ id: 'edgar:hig', source: 'EDGAR', filer: 'HARTFORD INSURANCE GROUP', beat: ['현대차'], date: '2026-10-25', title: '8-K EX-99.2',
         snippet: 'Corporate bonds: Hyundai Motor Manufacturing 4.3% 2031 ... fair value', url: 'https://sec/hig' },
       { id: 'edgar:acme', source: 'EDGAR', filer: 'ACME METALS', beat: ['현대제철'], date: '2026-10-25', title: '8-K',
-        snippet: 'entered into a long-term supply agreement with Hyundai Steel Company', url: 'https://sec/acme' }] });
+        snippet: 'entered into a long-term supply agreement with Hyundai Steel Company', url: 'https://sec/acme' },
+      { id: 'edgar:clf', source: 'EDGAR', filer: 'CLEVELAND-CLIFFS INC.  (CLF)', beat: ['포스코'], date: '2026-10-25', title: '8-K EX-99.1', dealNear: true,
+        boilerplate: '출입처 이름이 전망·위험 고지 문구(risks and uncertainties 등)에만 나옴 — 새 거래 공시가 아님(이미 있던 약정 언급일 수 있음)',
+        snippet: 'risks and uncertainties related to any potential transaction arising out of our Memorandum of Understanding with POSCO', url: 'https://sec/clf' }] });
   await post('scoop-screen', { schema: 'scoop_screen/v1', generatedAt: '2026-10-26T07:10:00+09:00', counts: {},
     candidates: [{ id: 'p1', verdict: '미보도 후보', company: '기아', title: '고정자 냉각 장치', kind: '특허' },
       { id: 'p2', verdict: '미보도 후보', company: '현대제철', title: '판재 냉각 제어', kind: '특허' },
@@ -1160,6 +1163,7 @@ test('radar_today ranks EDGAR mentions by deal words and hides items the reporte
   const a = r.text.split('[A · ')[1].split('[B · ')[0];
   const b = r.text.split('[B · ')[1].split('[C · ')[0];
   assert.match(a, /ACME METALS: 8-K/);
+  assert.doesNotMatch(a + b, /CLEVELAND-CLIFFS/);  // 위험 고지 문구 속 MOU 언급은 참고(C)
   assert.match(b, /HARTFORD INSURANCE GROUP: 8-K EX-99\.2 — 발췌에 계약·공급·합작 낱말 없음/);
   assert.match(b, /id p1/);  // 특허 공개 미보도 후보는 B(그 자체로 단독 아님, 10-31)
   assert.doesNotMatch(a, /고정자 냉각 장치/);

@@ -50,6 +50,10 @@ FIN_DOC = re.compile(r"(?:review|financ|consolidat|separate|interim|10-?q|annual
 # 보도 인용)이 한 발췌에 있어 A로 떴다). 낱말 목록은 cloudflare/digest.mjs DEAL_WORDS와 같다.
 DEAL = re.compile(r"\b(agreement|supply|offtake|off-take|joint venture|JV|memorandum|MOU|partnership|collaborat\w*|acquisition|"
                   r"acquire[sd]?|merger|purchase order|contract\w*|guarantee\w*|licen[cs]e|investment in|strategic|customer|order[s]? from)\b", re.I)
+# 전망·위험 고지(forward-looking statements·risk factors) 문구: 'any potential transaction arising out of our Memorandum of Understanding
+# with POSCO'처럼 이미 있던 약정을 위험 요인으로 적은 것 — 새 거래 공시가 아니다(10-31 운영: Cleveland-Cliffs 8-K EX-99.1이 A)
+BOILERPLATE = re.compile(r"forward-looking|risks?\s+and\s+uncertaint|could\s+cause\s+(?:our\s+)?actual\s+results|safe\s+harbor|cautionary\s+statement|"
+                         r"\brisk\s+factors\b|factors\s+that\s+(?:could|may)\s+cause", re.I)
 HEARSAY = re.compile(r"\breportedly\b|\baccording to (?:media|press|news|industry|market) reports?\b|\bas reported (?:by|in)\b|\bit was reported\b", re.I)
 SENTENCE = re.compile(r"(?<=[.;!?])\s+(?=[A-Z0-9(\"'“])")
 
@@ -63,13 +67,15 @@ def classify(it):
     notes, often restating an existing arrangement → never A. dealNear: a deal word in a sentence that names the
     beat company. hearsay: that sentence cites press reports. Text only; the original decides."""
     sn = it.get("snippet") or ""
-    for k in ("routine", "finNote", "dealNear", "hearsay"):
+    for k in ("routine", "finNote", "dealNear", "hearsay", "boilerplate"):
         it.pop(k, None)
     sents = beat_sentences(sn, it.get("phrases") or [])
     if sents:  # 발췌가 잘려 이름이 안 보이면 판단하지 않는다(예전 규칙: 발췌 전체의 낱말)
         it["dealNear"] = any(DEAL.search(x) for x in sents)
         if any(HEARSAY.search(x) for x in sents):
             it["hearsay"] = "출입처 이름이 보도 인용 문장(reportedly 등)에만 나옴 — 두 회사 간 거래 공시가 아님"
+        elif all(BOILERPLATE.search(x) for x in sents):
+            it["boilerplate"] = "출입처 이름이 전망·위험 고지 문구(risks and uncertainties 등)에만 나옴 — 새 거래 공시가 아님(이미 있던 약정 언급일 수 있음)"
     digits = sum(ch.isdigit() for ch in sn)
     if HOLDINGS.search(sn) or (len(sn) > 200 and digits / len(sn) > 0.18):
         it["routine"] = "투자 보유 목록(채권·주식 보유 표) — 출입처와의 거래 아님"

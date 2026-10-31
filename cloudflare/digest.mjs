@@ -540,9 +540,9 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
     else if (x.source === 'ASX' || x.source === 'HKEX') tier = (x.flags ?? []).length ? 'A' : 'C';
     // dealNear(수집기): 계약 낱말이 출입처 이름과 같은 문장에 있나. 예전 저장분은 발췌 전체로 본다.
     // 보도 인용 문장에만 이름이 나온 것은 그 회사 공시가 아니라 기사 인용이다 — 참고(10-31: 넥사 6-K의 '고려아연·텍 벤치마크 TC' 인용)
-    else if (x.hearsay) tier = 'C';
+    else if (x.hearsay || x.boilerplate) tier = 'C';  // 전망·위험 고지 문구 속 언급도 참고(10-31: Cleveland-Cliffs 8-K의 'MOU with POSCO' 위험 요인)
     else tier = (x.dealNear ?? DEAL_WORDS.test(String(x.snippet ?? ''))) && !x.finNote ? 'A' : 'B';
-    const deal = x.routine ? ` — ${x.routine}` : x.source === 'ASX' || x.source === 'HKEX' ? '' : x.hearsay ? ` — ${x.hearsay}` : x.finNote ? ` — ${x.finNote}`
+    const deal = x.routine ? ` — ${x.routine}` : x.source === 'ASX' || x.source === 'HKEX' ? '' : x.hearsay ? ` — ${x.hearsay}` : x.boilerplate ? ` — ${x.boilerplate}` : x.finNote ? ` — ${x.finNote}`
       : tier === 'B' && x.dealNear === false && DEAL_WORDS.test(String(x.snippet ?? '')) ? ' — 계약·공급 낱말이 출입처 이름과 다른 문장에 있음(업계 일반 서술일 수 있음)'
       : tier === 'B' ? ' — 발췌에 계약·공급·합작 낱말 없음(이름만 언급일 수 있음)' : '';
     const ticker = (/\(([A-Z0-9]{1,5})(?:,[^)]*)?\)\s*$/.exec(String(x.filer ?? '')) ?? [])[1];
