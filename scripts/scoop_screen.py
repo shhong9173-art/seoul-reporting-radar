@@ -85,7 +85,7 @@ NEWS_TERMS = {
     "교환사채권발행": ["교환사채", "교환사채권"], "전환사채권발행": ["전환사채", "전환사채권"],
     "신주인수권부사채권발행": ["신주인수권부사채"], "타인에대한채무보증": ["채무보증", "지급보증"],
     "타인에대한담보제공": ["담보 제공", "담보제공"],
-    "특정증권등거래": ["거래계획", "매도 계획", "매수 계획", "처분 계획", "취득 계획"],
+    "특정증권등거래": ["거래계획", "지분 매수", "지분 매도", "지분 매입", "매도 계획", "매수 계획", "처분 계획", "취득 계획"],
 }
 # 형식 공시명만 있는 제목(공정공시·자율공시·투자판단 주요경영사항·장래사업 계획): 제목 낱말로는 기사를 찾을 수 없다.
 # 원문의 공시제목·장래계획 사항·제목 칸을 읽어 질의를 만든다(10-31 운영: 'OCI홀딩스 수시공시의무'로 찾아 미보도 후보 —
@@ -391,6 +391,26 @@ def lawsuit_terms(c):
         return [main, outcome], alts
     alts["소송"] = ["소송", "소 제기", "제기", "청구"]
     return [main, "소송"], alts
+
+
+HOLDER_STAKE = ["지분", "주식", "매수", "매도", "매입", "처분"]
+
+
+def holder_terms(c):
+    """임원·주요주주 거래계획 보고: 원문의 보고자 이름으로 찾는다(10-31 운영: '영풍 거래계획'으로 찾아 미보도 후보 —
+    페로타임즈 10-29 「영풍 오너일가 장세환, 75억 원 규모 지분 매수 추진」이 이미 있었다). (terms, alts) 또는 None."""
+    f = c.get("filing") or {}
+    if f.get("type") != "거래계획" or f.get("error"):
+        return None
+    got = {k: v for k, v in (f.get("facts") or []) if isinstance(k, str)}
+    for key in ("보고자", "성명"):
+        name = re.sub(r"\s+", " ", str(got.get(key) or "")).strip()
+        if re.fullmatch(r"\(?\s*성\s*명\s*\)?", name) or not re.fullmatch(r"[가-힣A-Za-z][가-힣A-Za-z0-9&.() ]{1,40}", name):
+            continue
+        name = re.sub(r"^(?:주식회사\s*|\(주\)\s*|㈜\s*)|(?:\s*주식회사|\s*\(주\)|\s*㈜)$", "", name).strip()
+        if len(name) >= 2 and name != c.get("company"):
+            return [name, "지분"], {"지분": HOLDER_STAKE}
+    return None
 
 
 def recheck_lawsuits(rows, *, now, get=None, sleep=time.sleep):
@@ -717,7 +737,7 @@ def main():
         targets = sorted(cands,key=lambda r:not is_lawsuit(r))
         dart_filing_facts.enrich(targets, dart_key, dart_filing_facts.load_corp_codes(), fetch_documents=zip_documents, get=requests.get)
         for c in cands:
-            better=lawsuit_terms(c)
+            better=lawsuit_terms(c) or holder_terms(c)
             if better:
                 c["terms"],c["alts"]=better
         inputs["lawsuitIdentityRead"] = sum(bool(case_identity(c)[0]) for c in cands if is_lawsuit(c))

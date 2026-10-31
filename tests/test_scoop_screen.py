@@ -308,6 +308,24 @@ class Screen(unittest.TestCase):
         self.assertEqual((out[0]["firstVerdict"], out[0]["firstQueries"]), ("미보도 후보", ["고려아연 소송등의판결"]))
         self.assertEqual(out[0]["filing"]["type"], "소송판결")
 
+    def test_trade_plan_is_searched_by_the_reporting_holder(self):
+        row = {"id": "clue:yp", "kind": "단서", "company": "영풍", "title": "영풍 · 임원ㆍ주요주주특정증권등거래계획보고서",
+               "terms": ["거래계획"], "alts": {}, "numbers": [], "ratios": [], "unit": "", "strength": 1,
+               "filing": {"type": "거래계획", "facts": [["보고자", "장세환"], ["거래시작일(결제일)", "2026년 11월 27일"]]}}
+        terms, alts = s.holder_terms(row)
+        self.assertEqual(terms, ["장세환", "지분"])
+        row.update(terms=terms, alts=alts)
+        self.assertEqual(s.queries(row), ["영풍 장세환", "영풍 장세환 지분"])
+        art = {"title": "영풍 오너일가 장세환, 75억 원 규모 지분 매수 추진", "text": "", "url": "f", "date": "2026-10-29"}
+        self.assertEqual(s.judge(row, channels([art]), now=dt.datetime(2026, 10, 31, 7, 10, tzinfo=KST))[0], "관련 보도 있음")
+        # 이름을 못 읽은 표지·회사 자신·다른 종류는 None
+        for facts in ([["보고자", "(성 명)"]], [["보고자", "영풍"]], []):
+            self.assertIsNone(s.holder_terms({**row, "filing": {"type": "거래계획", "facts": facts}}))
+        self.assertEqual(s.holder_terms({**row, "filing": {"type": "거래계획", "facts": [["보고자", "(성 명)"], ["성명", "주식회사 에이치씨"]]}})[0],
+                         ["에이치씨", "지분"])
+        self.assertIsNone(s.holder_terms({**row, "filing": {"type": "채무보증", "facts": [["보고자", "장세환"]]}}))
+        self.assertIsNone(s.holder_terms({**row, "filing": {"type": "거래계획", "error": "원문 조회 실패 — 미확인"}}))
+
     def test_lawsuit_filing_variants_and_non_lawsuits(self):
         sue = {"filing": {"type": "소송제기", "facts": [["사건의명칭", "손해배상청구의 소"]]}}
         self.assertEqual(s.lawsuit_terms(sue)[0], ["손해배상청구", "소송"])
