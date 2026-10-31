@@ -161,6 +161,29 @@ class Capture(unittest.TestCase):
         self.assertEqual({a["articleId"]: a["verdict"] for a in doc["articles"]}, {"m1": "같은 회사 항목만", "h1": "같은 회사 항목만"})
 
 
+    def test_quotation_subsidiary_and_schedule_a_trademark_suits_are_not_captures(self):
+        # 10-31 운영 오탐 2건(실제 제목·항목 이름)
+        trace = {"generatedAt": "2026-10-31T01:43:00+09:00", "items": [
+            {"articleId": "t1", "title": "[단독] 현대차, 인도서 부품 관세 분쟁 대법원행…세관, 판정 불복 - 뉴스저널리즘", "published": "2026-10-30T16:31:00+09:00",
+             "sourceName": "뉴스저널리즘", "companies": ["현대차"]},
+            {"articleId": "t2", "title": "[단독] 현대차·기아 ‘E-pit’ 상표권 현대엔지니어링에 넘긴다…12월1일 충전사업 운영 일원화 - 쿠키뉴스", "published": "2026-10-30T17:28:00+09:00",
+             "sourceName": "쿠키뉴스", "companies": ["현대차"]}]}
+        docs = {"partner-filings": {"items": [
+            {"id": "asx:ARU:2026-10-27:Application for quotation of securities - ARU", "beat": ["현대차", "기아"], "filer": "Arafura Rare Earths (ARU)",
+             "title": "Application for quotation of securities - ARU", "date": "2026-10-27", "firstSeen": "2026-10-28T02:00:00+09:00"},
+            {"id": "edgar:x", "beat": ["현대차"], "filer": "X", "title": "Hyundai Motor America, a subsidiary of Hyundai Motor Company", "date": "2026-10-27",
+             "firstSeen": "2026-10-28T02:00:00+09:00"}]},
+            "us-litigation": {"cases": [{"id": "cl:75032648", "beat": ["현대차"], "category": "지식재산(상표)",
+                                         "caseName": "Hyundai Motor Company v. The Partnerships and Unincorporated Associations Identified on Schedule A",
+                                         "summary": "trademark counterfeiting", "firstSeen": "2026-10-29T07:51:00+09:00"}]}}
+        doc = r.run(trace, docs, {"items": []}, now=dt.datetime(2026, 10, 31, 1, 43, tzinfo=r.KST))
+        self.assertEqual({a["articleId"]: a["verdict"] for a in doc["articles"]}, {"t1": "같은 회사 항목만", "t2": "같은 회사 항목만"})
+        # 진짜 쿼터·보조금·상표명 낱말은 여전히 잡는다
+        rx = dict((n, x) for n, _, x in r.CONCEPTS)["관세·무역구제"]
+        import re as _re
+        self.assertTrue(all(_re.search(rx, t, _re.I) for t in ["steel safeguard quotas", "countervailable subsidy", "duties on imports"]))
+        self.assertFalse(any(_re.search(rx, t, _re.I) for t in ["Application for quotation of securities", "a subsidiary of Hyundai"]))
+
     def test_ruling_article_counts_a_ruling_seen_before_it(self):
         docs = {"us-litigation": {"cases": [], "opinions": [{"id": "op:1", "beat": ["포스코"], "caseName": "POSCO v. United States",
                 "holding": "Sustaining the Department of Commerce's second remand redetermination", "firstSeen": "2026-10-28T07:50:00+09:00"}]}}

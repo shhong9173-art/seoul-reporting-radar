@@ -54,7 +54,9 @@ def suppliers_in(*texts):
 # (concept, Korean headline words, words in radar items — Korean or English)
 CONCEPTS = [
     ("소송·판결", r"소송|제소|항소|불복|패소|승소|판결|법원|배상", r"v\. United States|\bIn re\b|lawsuit|complaint|appeal|opinion|court|소송|판결|항소|법원|Sustaining|Remand"),
-    ("관세·무역구제", r"관세|상계|반덤핑|덤핑|무역구제|세이프가드|보조금", r"countervail|anti-?dumping|duty|tariff|subsid|관세|덤핑|쿼터|quota"),
+    # 레이더 쪽 영문 낱말은 단어 경계로: 'quota'가 'quotation'(ASX 'Application for quotation of securities')에, 'subsid'가
+    # 'subsidiary'에 걸렸다(10-31: 현대차 인도 관세 분쟁 [단독]이 아라푸라 증권 상장 신청과 묶임).
+    ("관세·무역구제", r"관세|상계|반덤핑|덤핑|무역구제|세이프가드|보조금", r"countervail|anti-?dumping|\bdut(?:y|ies)\b|tariff|subsid(?!iar)|관세|덤핑|쿼터|\bquotas?\b"),
     ("리콜·결함", r"리콜|결함|화재|발화|시정조치", r"recall|defect|fire|리콜|결함"),
     ("특허·상표", r"특허|상표|브랜드|명칭", r"patent|PTAB|trademark|상표|특허"),
     ("지분·합작·거래", r"지분|합작|매각|인수|철수|정리|양도|합병", r"equity|joint venture|disposal|acquisition|exit|transaction|investment in|양도|합병|지분|merger"),
@@ -80,7 +82,9 @@ RULING_TITLE = re.compile(r"패소|승소|판결|기각|인용|선고")
 RULING_ITEM = re.compile(r"\bopinion\b|Sustain|Remand|Affirm|Revers|holding|판결|결정 유지|환송", re.I)
 # 출입 업종에서 너무 흔한 사건 낱말: 이것 하나만 겹치면 같은 사건 근거로 약하다(10-28 첫 실행: '배터리'·'공장'만 겹친 오탐 2건).
 # '신차·인증'도 약하다: 현대차·기아는 새 모델·연식 항목이 늘 있어서, 모델명·EPA 같은 낱말이 함께 겹쳐야 같은 사건으로 본다(10-30).
-WEAK_CONCEPTS = {"공장·생산", "배터리", "가격", "신차·인증"}
+# '특허·상표'도 약하다: 현대차·기아는 미국 'Schedule A' 상표 위조품 소송이 늘 있어, 상표 기사마다 묶였다
+# (10-31: 쿠키뉴스 'E-pit 상표권 현대엔지니어링 이전' [단독] ↔ Hyundai Motor Company v. The Partnerships … Schedule A). 상표명·특허 이름 같은 낱말이 함께 겹쳐야 한다.
+WEAK_CONCEPTS = {"공장·생산", "배터리", "가격", "신차·인증", "특허·상표"}
 GENERIC_WORDS = {"공장", "배터리", "미국", "생산", "가격", "투자", "계약", "중국", "한국", "글로벌", "사업", "신규"}
 STOP = {"단독", "기자", "업계", "관계자", "국내", "최대", "최초", "올해", "내년", "전략", "본격", "사업", "추진", "확대", "주목", "위해",
         "이유", "속도", "결국", "다시", "직접", "모두", "현대", "그룹"}
