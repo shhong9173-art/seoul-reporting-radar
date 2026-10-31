@@ -310,6 +310,32 @@ class StackTest(unittest.TestCase):
         site = next(s for s in doc["sites"] if s["name"] == "현대제철㈜")
         self.assertEqual([x["value"] for x in site["exceedLog"]], [150.0, 160.0, 155.0, 151.0])
 
+    def test_marginal_exceedance_is_one_step_lower(self):
+        # 10-31 운영: 고려아연 온산제련소 77번 황산화물 141.58/140(1.01배) 한 번이 B로 떴다 → C, 두 번 연속이면 B
+        doc = series(2)
+        kinds = []
+        for i, v in enumerate([141.58, 142.0, 30.0, 147.0]):
+            t = T0 + dt.timedelta(hours=6 + 3 * i)
+            doc = w.run(CFG_SMALL, now=t + dt.timedelta(minutes=20), previous=doc, key="k", get=Api(world(t, dangjin=(v, 8.0, 0.1))), sleep=lambda s: None)
+            kinds.append([(e["kind"], e["tier"]) for e in doc["events"] if "배출허용기준" in e["kind"] and e["detectedAt"] == doc["generatedAt"]])
+        self.assertEqual(kinds, [[("배출허용기준 초과(측정값)", "C")], [("배출허용기준 초과 지속", "B")], [], [("배출허용기준 초과(측정값)", "B")]])
+        c = next(e for e in doc["events"] if e["tier"] == "C" and "배출허용기준" in e["kind"])
+        self.assertIn("기준의 1.0배", c["text"])
+        self.assertIn("기준을 5% 안쪽으로 넘은 값이라 한 단계 낮춤", c["text"])
+
+    def test_stored_marginal_exceedance_is_corrected(self):
+        ev = [{"id": "stk:exceed:a", "kind": "배출허용기준 초과(측정값)", "tier": "B", "company": "고려아연",
+               "text": "고려아연㈜온산제련소 배출구 77번 황산화물 측정값 141.58이 배출허용기준 140을 넘음(기준의 1.0배, 측정 2026-10-31 13:30) · 실시간"},
+              {"id": "stk:exceed:b", "kind": "배출허용기준 초과(측정값)", "tier": "B", "company": "현대제철",
+               "text": "현대제철㈜ 배출구 1번 황산화물 측정값 150이 배출허용기준 140을 넘음(기준의 1.1배, 측정 2026-10-30 18:00)"},
+              {"id": "stk:exceed2:c", "kind": "배출허용기준 초과 지속", "tier": "A", "company": "현대제철",
+               "text": "현대제철㈜ 배출구 1번 황산화물 측정값 142이 배출허용기준 140을 넘음(기준의 1.0배) — 18:00 측정부터 이 감시의 실행 2번 연속 초과(처음 150)"}]
+        w.retier_marginal(ev)
+        self.assertEqual([e["tier"] for e in ev], ["C", "B", "A"])  # 지속은 처음 값(150, 1.07배)까지 본다
+        self.assertIn("C로 바로잡음", ev[0]["text"])
+        w.retier_marginal(ev)
+        self.assertEqual(ev[0]["text"].count("바로잡음"), 1)
+
     def test_failures_are_unconfirmed(self):
         doc = w.run(CFG_SMALL, now=T0, key="k", get=Api(world(T0), key_error=True), sleep=lambda s: None)
         self.assertEqual(doc["status"], "failed")
