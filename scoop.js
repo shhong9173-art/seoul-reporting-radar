@@ -10,9 +10,9 @@
   const rbSave=k=>{try{localStorage.setItem('radarBoardKey',k);}catch(e){}};
   const rbForget=()=>{try{localStorage.removeItem('radarBoardKey');}catch(e){}};
   let rbHours='',rbOpen=false;
-  (function(){const m=/[#&]rk=([A-Za-z0-9_-]{16,64})/.exec(location.hash||'');if(!m)return;rbSave(m[1]);rbOpen=true;try{history.replaceState(null,'',location.pathname+location.search);}catch(e){location.hash='';}})();
+  (function(){if(typeof location==='undefined')return;const m=/[#&]rk=([A-Za-z0-9_-]{16,64})/.exec(location.hash||'');if(!m)return;rbSave(m[1]);rbOpen=true;try{history.replaceState(null,'',location.pathname+location.search);}catch(e){location.hash='';}})();
   function loadPrivate(){
-    const k=rbKey();if(!k)return Promise.resolve({state:'none'});
+    const k=rbKey();if(!k||typeof fetch!=='function')return Promise.resolve({state:'none'});
     return fetch(RB_API+encodeURIComponent(k)+(rbHours?'?hours='+rbHours:''),{cache:'no-store',credentials:'omit'})
       .then(r=>r.status===404?{state:'bad'}:r.ok?r.text().then(html=>({state:'ok',html})):{state:'error',error:'HTTP '+r.status})
       .catch(e=>({state:'error',error:String(e&&e.message||e)}));
@@ -27,7 +27,7 @@
     const body=document.querySelector('#rbBody');if(!body)return;
     const sel=document.querySelector('#rbHours');if(sel){sel.value=rbHours;sel.onchange=()=>{rbHours=sel.value;fillPrivate();};}
     const fg=document.querySelector('#rbForget');if(fg)fg.onclick=()=>{rbForget();fillPrivate();};
-    if(fg)fg.style.display=rbKey()?'':'none';if(sel)sel.style.display=rbKey()?'':'none';
+    if(fg&&fg.style)fg.style.display=rbKey()?'':'none';if(sel&&sel.style)sel.style.display=rbKey()?'':'none';
     loadPrivate().then(r=>{
       if(r.state==='ok'){body.innerHTML=r.html;setCount(r.html);return;}
       if(r.state==='none'){body.innerHTML='<div class="card"><div class="summary"><b>이 기기는 아직 연결 안 됨.</b> 기자 전용 감시(해외 리콜·소송·OSHA·ITC·법제처·국내 공문서 등)의 단서는 누구나 보는 이 공개 홈페이지에 올리지 않습니다. '+
