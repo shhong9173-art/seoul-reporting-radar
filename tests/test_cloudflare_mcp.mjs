@@ -334,6 +334,26 @@ test('source_document only opens allowlisted hosts and returns a content hash', 
   assert.ok(hop.isError);
 });
 
+test('source_document sends the declared SEC User-Agent from the Cloudflare secret only to sec.gov', async () => {
+  // 10-31 운영: 퍼스트솔라 10-Q가 HTTP 403. SEC는 '회사명 연락이메일' 형식의 접속 표시를 요구한다.
+  const doc = 'https://www.sec.gov/Archives/edgar/data/1274494/000127449426000212/fslr-20260930.htm';
+  const html = '<html><body><p>USITC Proceeding On February 24, 2026, First Solar filed a petition</p></body></html>';
+  const denied = fakeFetch({ 'https://www.sec.gov/': new Response('Request Rate Threshold Exceeded', { status: 403 }) });
+  const r = await call('source_document', { url: doc }, { fetch: denied });
+  assert.ok(r.isError);
+  assert.match(r.text, /HTTP 403 \(SEC 접속 표시 SEC_USER_AGENT가 Cloudflare 비밀값에 없음/);
+  const ok = fakeFetch({ 'https://www.sec.gov/': new Response(html, { headers: { 'Content-Type': 'text/html; charset=utf-8' } }),
+    'https://www.motie.go.kr/': new Response('<p>보도자료</p>', { headers: { 'Content-Type': 'text/html; charset=utf-8' } }) });
+  const env = { SEC_USER_AGENT: 'Test Newsroom radar-test@example.com\n' };
+  const r2 = await call('source_document', { url: doc }, { fetch: ok, env });
+  assert.match(r2.text, /USITC Proceeding/);
+  assert.equal(ok.calls.find((c) => c.url.startsWith('https://www.sec.gov/')).init.headers['User-Agent'], 'Test Newsroom radar-test@example.com');
+  await call('source_document', { url: 'https://www.motie.go.kr/a' }, { fetch: ok, env });
+  assert.doesNotMatch(ok.calls.find((c) => c.url.startsWith('https://www.motie.go.kr/')).init.headers['User-Agent'], /example\.com/);  // 다른 곳엔 안 보냄
+  const still = await call('source_document', { url: doc }, { fetch: denied, env });
+  assert.match(still.text, /SEC 접속 표시는 보냈음 — SEC가 이 서버 접속을 막았을 수 있다/);
+});
+
 test('dart tools require the private connection and a key, and search inside document.xml', async () => {
   assert.ok((await call('dart_find_text', { rcp_no: '20261023000111', word: '건설중인자산' }, PRIVATE())).isError);
   const xml = Buffer.from('<?xml version="1.0" encoding="utf-8"?><DOC><P>건설중인자산 1,234백만원 증가</P></DOC>');

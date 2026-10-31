@@ -249,6 +249,15 @@ export function dartViewerDocs(html, rcpNo) {
       length: d.length, dtd: d.dtd, ...(d.tocNo ? { tocNo: d.tocNo } : {}) }))).toString() }));
 }
 
+// SEC EDGAR는 자동 접속에 '회사명 연락이메일' 형식의 접속 표시(User-Agent)를 요구한다(sec.gov 공개 접속 규칙).
+// 값은 Cloudflare 비밀값 SEC_USER_AGENT로만 받는다(GitHub Actions의 같은 이름 비밀값과 같은 값) — 코드·저장소에 연락처를 두지 않는다.
+// 10-31 운영: 퍼스트솔라 10-Q(sec.gov/Archives)가 HTTP 403이라 USITC 청원 대목을 원문으로 확인하지 못했다.
+const isSec = (url) => url.hostname === 'sec.gov' || url.hostname.endsWith('.sec.gov');
+const secAgent = (ctx) => String(ctx.env?.SEC_USER_AGENT ?? '').replace(/[\r\n]+/g, ' ').trim().slice(0, 200);
+export function sourceAgent(ctx, url) {
+  return isSec(url) && secAgent(ctx) ? secAgent(ctx) : 'Mozilla/5.0 seoul-reporting-radar (reporter research)';
+}
+
 export async function sourceDocument(ctx, args) {
   let url = allowedUrl(args.url);
   if (!url) return textResult('허용된 공식·출입처 도메인(go.kr·DART·KIND·KIPRIS·.gov·EU·출입처 홈페이지 등)의 http(s) 주소만 연다.', true);
@@ -258,7 +267,7 @@ export async function sourceDocument(ctx, args) {
   for (let hop = 0; hop < 4; hop++) {
     try {
       response = await ctx.fetch(url.href, { redirect: 'manual', signal: signal(),
-        headers: { 'User-Agent': 'Mozilla/5.0 seoul-reporting-radar (reporter research)', Accept: 'text/html,application/xhtml+xml,application/xml,text/plain,application/json' } });
+        headers: { 'User-Agent': sourceAgent(ctx, url), Accept: 'text/html,application/xhtml+xml,application/xml,text/plain,application/json' } });
     } catch (e) {
       return textResult(`원문 열기 실패: ${e.name === 'TimeoutError' ? '시간 초과' : e.message} — 원문 미확인으로 적는다.`, true);
     }
@@ -267,7 +276,12 @@ export async function sourceDocument(ctx, args) {
     if (!next) return textResult('허용 도메인 밖으로 이동하는 주소라 열지 않음.', true);
     url = next;
   }
-  if (!response.ok) return textResult(`원문 HTTP ${response.status} — 원문 미확인으로 적는다.`, true);
+  if (!response.ok) {
+    const sec = isSec(url) && [403, 429].includes(response.status)
+      ? (secAgent(ctx) ? ' (SEC 접속 표시는 보냈음 — SEC가 이 서버 접속을 막았을 수 있다. 브라우저로 원문을 연다)'
+        : ' (SEC 접속 표시 SEC_USER_AGENT가 Cloudflare 비밀값에 없음 — SEC는 회사명·연락 이메일을 적은 접속만 받는다)') : '';
+    return textResult(`원문 HTTP ${response.status}${sec} — 원문 미확인으로 적는다.`, true);
+  }
   const type = response.headers.get('Content-Type') ?? '';
   if (/pdf|octet-stream|zip|image/i.test(type)) return textResult(`본문이 ${type} 형식이라 텍스트로 읽지 못함. 원문 링크: ${url.href}`, true);
   let bytes;
