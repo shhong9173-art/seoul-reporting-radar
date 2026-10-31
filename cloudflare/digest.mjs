@@ -361,6 +361,14 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
   for (const g of kr?.gazette ?? []) {
     if (fresh(g, gzBase, 'date')) push('B', W['kr-official'], { kind: '관보 입법예고', id: g.id, date: g.date, company: (g.teams ?? []).join('·'), fact: `관보 입법예고 ${g.org}: ${g.title}`, url: g.url });
   }
+  // 법제처 확정 발령: 출입 업종 부처의 행정규칙(고시·훈령·예규) 새 제정·개정은 B, 관세청 통관 사무처럼 공통 낱말만 걸린 것·법령 일부개정은 C(수집기 등급).
+  const lawItems = kr?.lawRules?.items ?? [];
+  const lawBase = baselineOf(lawItems);
+  for (const x of lawItems) {
+    if (!fresh(x, lawBase, 'date')) continue;
+    push(x.tier === 'B' ? 'B' : 'C', W['kr-official'], { kind: `법제처 ${x.kind}`, id: x.id, date: x.date, company: (x.teams ?? []).join('·'),
+      fact: `${x.kind}${x.type ? `(${x.type})` : ''} ${x.change ?? ''} · ${x.org}: ${x.title} — ${x.kind === '법령해석례' ? '회신' : '발령'} ${x.date}`, url: x.url });
+  }
 
   const ks = docs['kr-signals'];
   const ksBase = baselineOf(ks?.decisions ?? []);
