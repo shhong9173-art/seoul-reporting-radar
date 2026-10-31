@@ -13,6 +13,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import difflib
 import json
 import re
 from pathlib import Path
@@ -125,7 +126,7 @@ def correction(documents):
     """정정신고 표: 정정사유와 (항목, 정정전, 정정후). '정정항목 | 정정전 | 정정후' 머리 줄 다음의 3칸 줄만 읽는다
     (2026-10-31 실제 공시로 형식 확인: 효성중공업 20261027800518 — 정정사유 '계약 사양 일부 변경에 따른 계약금액 조정',
     계약금액(원) 113,586,046,173 → 113,044,698,813). 정정 공시가 아니면 None."""
-    reason, changes, row_reasons = None, [], []
+    reason, changes, row_reasons, numbers = None, [], [], []
     clip = lambda v: v if len(v) <= 120 else v[:117] + "…"  # noqa: E731
     for doc in documents:
         if not isinstance(doc, str):
@@ -164,10 +165,14 @@ def correction(documents):
                     row_reasons.append(plain(cells[1])[:60])
                 if item and (before, after) != ("", ""):
                     changes.append([item[:60], clip(before), clip(after)])
+                    # 숫자 변경은 자르기 전 전체 문구로 찾는다(긴 칸은 120자에서 잘려 끝이 어긋날 수 있다)
+                    numbers.append([[n, b, a, None if pct is None else round(pct, 1)] for n, b, a, pct in number_changes(before, after) or []] or None)
     reason = reason or (" · ".join(row_reasons[:2]) if row_reasons else None)
     if not reason and not changes:
         return None
     out = {"reason": reason, "changes": changes[:10]}
+    if any(numbers[:10]):
+        out["numbers"] = numbers[:10]  # changes와 같은 순서: 칸 안에서 숫자만 바뀐 곳 [이름, 전, 후, 증감%]
     big = material(out)
     if big:
         out["material"] = big
@@ -194,12 +199,110 @@ def material(fix):
             if abs(pct) >= MATERIAL_PCT:
                 out.append(f"{name[:-3]} {pct:+.0f}%")
             continue
+        k1, k2 = korean_amount(before), korean_amount(after)
+        if k1 and k2:  # 글로 적은 금액(10-29 현대차 가이던스 정정: 예상투자금액 17.8조원 → 16조원)
+            pct = (k2 - k1) / k1 * 100
+            if abs(pct) >= MATERIAL_PCT:
+                out.append(f"{name} {pct:+.0f}%")
+            continue
         d1, d2 = as_date(before), as_date(after)
         if d1 and d2 and re.search(r"종료일|기간|예정일|완료|만기일|납입일", name):
             days = (d2 - d1).days
             if abs(days) >= MATERIAL_DAYS:
                 out.append(f"{name} {'+' if days > 0 else '-'}{round(abs(days) / 30.4)}개월")
     return out
+
+
+KOREAN_AMOUNT = re.compile(r"(?:(\d+(?:\.\d+)?)\s*조)?\s*(?:([\d,]+(?:\.\d+)?)\s*억)?\s*(?:([\d,]+)\s*만)?\s*원")
+
+
+def korean_amount(v):
+    """'17.8조원'·'1,234억원'·'3조 4,000억원' → 원. 글로 적은 금액이 아니면 None('400만대'·'-')."""
+    m = KOREAN_AMOUNT.fullmatch(str(v or "").strip())
+    if not m or not any(m.groups()):
+        return None
+    jo, eok_, man = (float(g.replace(",", "")) if g else 0.0 for g in m.groups())
+    return round(jo * 10 ** 12 + eok_ * 10 ** 8 + man * 10 ** 4) or None
+
+
+# 문구 칸 안의 숫자 변경: '·2026년 판매목표 : 416만대' → '400만대'처럼 긴 설명 칸에서 숫자만 바뀐 곳을 꺼낸다.
+# 낱말이 더해지거나 빠진 곳, 숫자 없는 변경이 하나라도 있으면 문구 변경으로 둔다(뜻을 지어내지 않음).
+NUM_TOKEN = re.compile(r"(?P<date>\d{4}\s*(?:년|[-.])\s*\d{1,2}\s*(?:월|[-.])\s*\d{1,2}\s*(?:일|\.)?)"
+                       r"|(?P<num>\d[\d,]*(?:\.\d+)?(?:%p|%|조원|억원|만원|원|조|억|만대|대|만톤|톤|MWh|GWh|MW|GW|kW|kV|개월|년|분기|월|일|주|명|건|개)?)"
+                       r"|(?P<word>[가-힣A-Za-z]+)|(?P<mark>\S)")
+LABEL_STOP = set("·ㆍ◎○●•▶-※(")
+BRIDGE = ("~", "∼", "〜")
+COUNT_UNIT = re.compile(r"(만대|대|만톤|톤|MWh|GWh|MW|GW|kW|명|건|개)$")
+
+
+def tokens(text):
+    out = []
+    for m in NUM_TOKEN.finditer(str(text or "")):
+        kind, val = m.lastgroup, m.group()
+        if kind == "date":
+            d = as_date(val.rstrip(".")) or as_date(val)
+            val = d.isoformat() if d else re.sub(r"\s+", "", val)
+        out.append((kind, val))
+    return out
+
+
+def number_changes(before, after):
+    """[(이름, 전, 후, 증감%|None)] — 두 칸이 숫자만 다를 때만. 아니면 None. 잘린 문구('…'로 끝남)는 보지 않는다."""
+    if str(before).endswith("…") or str(after).endswith("…") or FOOTNOTE.match(str(before)) or FOOTNOTE.match(str(after)):
+        return None  # 각주 번호(주1)→주2))는 숫자 변경이 아니다
+    tb, ta = tokens(before), tokens(after)
+    if len(tb) < 2 or len(ta) < 2:
+        return None
+    sm = difflib.SequenceMatcher(None, [v for _, v in tb], [v for _, v in ta], autojunk=False)
+    if sm.ratio() < 0.5:
+        return None
+    ops, groups = sm.get_opcodes(), []
+    for k, (tag, i1, i2, j1, j2) in enumerate(ops):
+        if tag != "equal":
+            if groups and groups[-1][4]:
+                groups[-1][1], groups[-1][3] = i2, j2
+            else:
+                groups.append([i1, i2, j1, j2, True])
+        elif groups and groups[-1][4] and i2 - i1 == 1 and tb[i1][1] in BRIDGE and k + 1 < len(ops) and ops[k + 1][0] != "equal":
+            continue  # '6.3 ~ 7.3%' → '5.5 ~ 6.5%'는 한 변경
+        elif groups:
+            groups[-1][4] = False
+    out = []
+    for i1, i2, j1, j2, _ in groups:
+        bs, as_ = tb[i1:i2], ta[j1:j2]
+        if not bs or not as_ or len(bs) > 6 or len(as_) > 6:
+            return None
+        if not any(k in ("num", "date") for k, _ in bs) or not any(k in ("num", "date") for k, _ in as_):
+            return None
+        label = []
+        for kind, val in reversed(tb[:i1]):
+            if val in (":", "："):
+                continue
+            if val in LABEL_STOP or len(label) >= 4 or len(val) > 15 or kind == "date" or (kind == "num" and not val.endswith("년")) or kind == "mark":
+                break
+            label.insert(0, val)
+        show = lambda ts: re.sub(r"\s*([~∼〜])\s*", r"\1", " ".join(v for _, v in ts))  # noqa: E731
+        pct = None
+        if len(bs) == 1 and len(as_) == 1:
+            k1, k2 = korean_amount(bs[0][1]), korean_amount(as_[0][1])
+            u1, u2 = COUNT_UNIT.search(bs[0][1]), COUNT_UNIT.search(as_[0][1])
+            if not (k1 and k2) and u1 and u2 and u1.group() == u2.group():
+                n1, n2 = (float(re.sub(r"[^\d.]", "", v[1])) for v in (bs[0], as_[0]))
+                k1, k2 = (n1, n2) if n1 else (None, None)
+            if k1 and k2:
+                pct = (k2 - k1) / k1 * 100
+        out.append((" ".join(label), show(bs), show(as_), pct))
+    return out or None
+
+
+def number_text(nums, arrow, limit=3):
+    """[('2026년 판매목표', '416만대', '400만대', -3.8)] → '2026년 판매목표 416만대 → 400만대(-3.8%)'."""
+    shown = [f"{n + ' ' if n else ''}{b}{arrow}{a}{f'({p:+.1f}%)' if p is not None else ''}" for n, b, a, p in nums[:limit]]
+    return ", ".join(shown) + (f" 외 {len(nums) - limit}곳" if len(nums) > limit else "")
+
+
+# 결의일·정보제공일 같은 절차 날짜는 실제 내용 변경 뒤에 보인다
+PROCEDURAL = re.compile(r"이사회결의일|결정일|정보제공|제출일|공시일|정정일자|행사명")
 
 
 DATE_FORMS = (re.compile(r"(\d{4})-(\d{1,2})-(\d{1,2})"), re.compile(r"(\d{4})\s*년\s*(\d{1,2})\s*월\s*(\d{1,2})\s*일"),
@@ -217,6 +320,14 @@ def as_date(v):
     return None
 
 
+def numbers_of(fix, i, before, after):
+    """correction()이 전체 문구로 찾아 둔 숫자 변경. 없으면(예전 기록) 잘리지 않은 칸만 다시 본다."""
+    if "numbers" in fix:
+        got = (fix["numbers"] + [None] * 10)[i]
+        return [tuple(x) for x in got] if got else None
+    return number_changes(before, after)
+
+
 def correction_line(fix, kind=None):
     """'정정(사유): 항목 전 → 후(±%)' 한 줄. 금액 칸은 억원과 증감률을 붙인다."""
     if not fix:
@@ -224,16 +335,24 @@ def correction_line(fix, kind=None):
     # 값이 바뀐 칸을 먼저(금액·날짜·짧은 값), 문구·표만 바뀐 칸은 끝에 이름만 모은다(10-31 LS전선 교환사채 정정: 각주 칸이
     # 앞에 끼어 납입일·공정위 신고대상 변경이 4칸 제한에 잘렸다)
     parts, texts = [], []
-    for item, before, after in fix.get("changes") or []:
+    for i, (item, before, after) in enumerate(fix.get("changes") or []):
         b, a = re.sub(r"[,\s]", "", before), re.sub(r"[,\s]", "", after)
+        k1, k2 = korean_amount(before), korean_amount(after)
+        d1, d2 = as_date(before), as_date(after)
+        nums = None if (d1 and d2) or (k1 and k2) else numbers_of(fix, i, before, after)
         if item.endswith("(원)") and re.fullmatch(r"\d+", b) and re.fullmatch(r"\d+", a) and int(b):
             pct = (int(a) - int(b)) / int(b) * 100
-            parts.append(f"{item} {won(before)} → {won(after)}({pct:+.1f}%)")
+            parts.append((item, f"{item} {won(before)} → {won(after)}({pct:+.1f}%)"))
+        elif k1 and k2:
+            parts.append((item, f"{item} {before} → {after}({(k2 - k1) / k1 * 100:+.1f}%)"))
+        elif nums:
+            # 10-29 현대차 가이던스 정정: '세부내용' 칸의 판매목표 416만대 → 400만대 등이 '문구 변경'에 묻혀 있었다
+            parts.append((item, f"{item}: {number_text(nums, ' → ')}"))
         elif len(before) <= 40 and len(after) <= 40 and not FOOTNOTE.match(before) and not before.startswith("(표"):
-            d1, d2 = as_date(before), as_date(after)
-            parts.append(f"{item} {d1.isoformat() if d1 else before or '-'} → {d2.isoformat() if d2 and d1 else after or '-'}")
+            parts.append((item, f"{item} {d1.isoformat() if d1 else before or '-'} → {d2.isoformat() if d2 and d1 else after or '-'}"))
         elif item not in texts:
             texts.append(item)
+    parts = [t for _, t in sorted(parts, key=lambda x: bool(PROCEDURAL.search(x[0])))]
     head = f"정정({fix['reason']})" if fix.get("reason") else "정정"
     tail = [f"문구·표 변경 {len(texts)}곳({', '.join(texts[:3])}{' 등' if len(texts) > 3 else ''})"] if texts else []
     body = parts[:5] + tail
@@ -245,18 +364,25 @@ def correction_short(fix):
     if not fix:
         return None
     parts, text_changes = [], 0
-    for item, before, after in fix.get("changes") or []:
+    for i, (item, before, after) in enumerate(fix.get("changes") or []):
         name = item.split(" - ")[-1]
         b, a = re.sub(r"[,\s]", "", before), re.sub(r"[,\s]", "", after)
+        k1, k2 = korean_amount(before), korean_amount(after)
+        d1, d2 = as_date(before), as_date(after)
+        nums = None if (d1 and d2) or (k1 and k2) else numbers_of(fix, i, before, after)
         if name.endswith("(원)") and re.fullmatch(r"\d+", b) and re.fullmatch(r"\d+", a) and int(b):
             pct = (int(a) - int(b)) / int(b) * 100
-            parts.append(f"{name[:-3]} {eok(int(b))}→{eok(int(a))}({pct:+.1f}%)")
+            parts.append((item, f"{name[:-3]} {eok(int(b))}→{eok(int(a))}({pct:+.1f}%)"))
+        elif k1 and k2:
+            parts.append((item, f"{name} {before}→{after}({(k2 - k1) / k1 * 100:+.1f}%)"))
+        elif nums:
+            parts.append((item, number_text(nums, "→", limit=1)))
         elif len(before) <= 20 and len(after) <= 20 and not FOOTNOTE.match(before) and not before.startswith("(표"):
-            d1, d2 = as_date(before), as_date(after)
             shown = (d1.isoformat(), d2.isoformat()) if d1 and d2 else (before or "-", after or "-")
-            parts.append(f"{re.sub(r'[(].*?[)]$', '', name)} {shown[0]}→{shown[1]}")
+            parts.append((item, f"{re.sub(r'\s*[(].*?[)]$', '', name)} {shown[0]}→{shown[1]}"))
         else:
             text_changes += 1
+    parts = [t for _, t in sorted(parts, key=lambda x: bool(PROCEDURAL.search(x[0])))]
     if text_changes:
         parts.append(f"문구 {text_changes}곳")
     return "정정: " + (" · ".join(parts[:3]) if parts else (fix.get("reason") or "바뀐 항목 표 없음")[:40])
