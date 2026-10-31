@@ -435,8 +435,33 @@ export async function usRecalls(ctx, args) {
     out.push(`   원문: ${x.url}`);
     out.push('   검증 상태: 소비자가 낸 신고(자동 집계) — 결함 확정 아님. 같은 원인인지·국내 판매 차종 해당 여부는 회사·국토부 확인');
   }
-  out.push('\n다음: NHTSA 리콜 페이지·원보고서(source_document, nhtsa.gov)로 대상 차대·부품·공급사 확인 → 국내 판매 여부·자동차리콜센터 → news_check.');
+  out.push(...tsbSection(doc.tsbs, checks.find((c) => c.source === 'NHTSA 제조사 통신(TSB)'), q, limit, onlyNew, args.show_all === true || args.show_all === 'true'));
+  out.push('\n다음: NHTSA 리콜 페이지·원보고서·제조사 통신 PDF(source_document, nhtsa.gov)로 대상 차대·부품·공급사 확인 → 국내 판매 여부·자동차리콜센터 → news_check.');
   return textResult(out.join('\n'));
+}
+
+// NHTSA 제조사 통신(서비스 캠페인·보증 프로그램·안전 관련 서비스 공지) — 수집기 scripts/nhtsa_tsbs.py. 참고(C)는 show_all일 때만 줄로 보인다.
+export function tsbSection(ts, check, q, limit, onlyNew, showAll) {
+  const out = [];
+  const all = (ts?.items ?? []).filter((x) => (!onlyNew || x.isNew)
+    && matches(q, (x.companies ?? []).join(' '), (x.brands ?? []).join(' '), (x.models ?? []).map((m) => m.model).join(' '), x.summary, (x.components ?? []).join(' '), x.campaign, x.doc));
+  const order = { A: 0, B: 1, C: 2 };
+  const shown = all.filter((x) => showAll || x.tier !== 'C')
+    .sort((a, b) => (Number(b.isNew) - Number(a.isNew)) || (order[a.tier] - order[b.tier]) || String(b.added).localeCompare(String(a.added)));
+  const n = (t) => all.filter((x) => x.tier === t).length;
+  out.push(`\n[제조사 통신(서비스 캠페인·보증 프로그램·서비스 공지) · 파일 추가일 최근 ${ts?.windowDays ?? 120}일] ${all.length}건(A ${n('A')}·B ${n('B')}·참고 C ${n('C')}${showAll ? '' : ' — C는 show_all=true'})`
+    + `${check && check.status !== 'ok' ? ' — 조회 실패, 미확인(0건 아님)' : ''}${ts ? '' : ' — 아직 수집 전'}${ts?.fileModified ? ` · 파일 갱신 ${ts.fileModified}` : ''}`);
+  for (const r of ts?.rules ?? []) out.push(`규칙: ${r}`);
+  for (const x of shown.slice(0, limit)) {
+    const models = (x.models ?? []).map((m) => `${m.model}${(m.years ?? []).length ? `(${m.years.length > 3 ? `${m.years[0]}~${m.years[m.years.length - 1]}` : m.years.join('·')})` : ''}`);
+    out.push(`${x.isNew ? '[신규] ' : ''}${x.tier} · ${x.added} · ${x.kindName ?? x.type} · ${(x.brands ?? []).join('·')} ${models.slice(0, 6).join(', ')}${x.modelCount > 6 ? ` 외 ${x.modelCount - 6}개 차종` : ''}`);
+    out.push(`   문서 ${x.doc || '?'}${x.campaign ? ` · 캠페인 ${x.campaign}` : ''}${x.mfrDate ? ` · 제조사 통신일 ${x.mfrDate}` : ''}${(x.components ?? []).length ? ` · 부품 ${x.components.slice(0, 4).join(', ')}` : ''}${x.otherRows ? ` · GM 다른 차종 함께(${x.otherRows}줄)` : ''}`);
+    out.push(`   요약(원문): ${x.summary}`);
+    out.push(`   원문: ${x.url}`);
+  }
+  if (shown.length > limit) out.push(`… 남은 ${shown.length - limit}건`);
+  if (all.length) out.push('   검증 상태: NHTSA 공개 파일(자동). 딜러용 통신이라 결함 인정·리콜 아님. 국내 판매 차량·국내 무상수리 해당 여부는 회사 확인');
+  return out;
 }
 
 const kmd = (v) => { const t = Date.parse(v); return Number.isFinite(t) ? new Date(t + 9 * 3600000).toISOString().slice(5, 16).replace('T', ' ') : String(v ?? '').slice(5, 16); };
