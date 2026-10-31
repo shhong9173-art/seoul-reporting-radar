@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-10-30T11:35:04+09:00",
+  "generatedAt": "2026-11-01T05:45:51+09:00",
   "lookbackDays": 30,
-  "windowStart": "2026-09-30",
+  "windowStart": "2026-10-02",
   "scope": "US Federal Register 8개 검색 + EU TED 8개 검색. 회사명 검색 결과만 검토하며 주·카운티 인허가 및 EPA 시설별 환경허가는 별도 확인 필요",
   "limits": "미국 주·카운티 건축/환경 인허가, EU 각국 소액 조달, 모든 세계 공장 인허가를 망라하지 않음",
   "checks": [
@@ -9,9 +9,9 @@
       "provider": "US Federal Register",
       "query": "Hyundai Motor",
       "status": "checked",
-      "returned": 2,
+      "returned": 0,
       "matched": 0,
-      "unverified": 2
+      "unverified": 0
     },
     {
       "provider": "US Federal Register",
@@ -25,9 +25,9 @@
       "provider": "US Federal Register",
       "query": "Kia Motors",
       "status": "checked",
-      "returned": 1,
+      "returned": 0,
       "matched": 0,
-      "unverified": 1
+      "unverified": 0
     },
     {
       "provider": "US Federal Register",
@@ -65,9 +65,9 @@
       "provider": "EU TED",
       "query": "Doosan Enerbility",
       "status": "checked",
-      "returned": 1,
+      "returned": 0,
       "matched": 0,
-      "unverified": 1
+      "unverified": 0
     },
     {
       "provider": "US Federal Register",
@@ -81,9 +81,9 @@
       "provider": "US Federal Register",
       "query": "Hyundai Steel",
       "status": "checked",
-      "returned": 6,
+      "returned": 3,
       "matched": 1,
-      "unverified": 5
+      "unverified": 2
     },
     {
       "provider": "US Federal Register",
@@ -257,70 +257,10 @@
       "evidence": "연방 고시 검색 색인 일치: 기업명·사건 관계를 원문에서 확인하지 못함",
       "notProven": "지역 공장허가 취득·회사 사업 확정·직접 수주 여부 미확인",
       "exclusiveStatus": "공개 문서 취재 단서·단독 미확정"
-    },
-    {
-      "source": "US Federal Register",
-      "sourceType": "federal_notice",
-      "sourceId": "2026-20160",
-      "published": "2026-10-01",
-      "companiesMentioned": [],
-      "companySearchTerm": "Hyundai Motor",
-      "nameVerified": false,
-      "title": "Initiation of Antidumping and Countervailing Duty Administrative Reviews",
-      "abstract": "The U.S. Department of Commerce (Commerce) has received requests to conduct administrative reviews of various antidumping duty (AD) and countervailing duty (CVD) orders with August anniversary dates. In accordance with Commerce's regulations, we are initiating those administrative reviews.",
-      "sourceUrl": "https://www.federalregister.gov/documents/2026/10/01/2026-20160/initiation-of-antidumping-and-countervailing-duty-administrative-reviews",
-      "evidence": "연방 고시 검색 색인 일치: 기업명·사건 관계를 원문에서 확인하지 못함",
-      "notProven": "지역 공장허가 취득·회사 사업 확정·직접 수주 여부 미확인",
-      "exclusiveStatus": "공개 문서 취재 단서·단독 미확정"
-    },
-    {
-      "source": "EU TED",
-      "sourceType": "eu_procurement_notice",
-      "sourceId": "674215-2026",
-      "published": "2026-09-30",
-      "companiesMentioned": [],
-      "companySearchTerm": "Doosan Enerbility",
-      "nameVerified": false,
-      "title": "Romania – Nuclear-power station construction work – Lucrări de Retehnologizare a Unității 1 CNE Cernavodă",
-      "buyer": "NUCLEARELECTRICA",
-      "sourceUrl": "https://ted.europa.eu/en/notice/674215-2026/html",
-      "evidence": "TED 전문검색 일치: 공식 공고에서 해당 기업의 역할 확인 전",
-      "notProven": "낙찰·공급사 선정·계약금액·해당 회사 사업 귀속 여부 미확인",
-      "exclusiveStatus": "공개 조달 공고 취재 단서·단독 미확정"
-    },
-    {
-      "source": "US Federal Register",
-      "sourceType": "federal_notice",
-      "sourceId": "2026-19964",
-      "published": "2026-09-30",
-      "companiesMentioned": [],
-      "companySearchTerm": "Hyundai Motor",
-      "nameVerified": false,
-      "title": "The Safer Affordable Fuel-Efficient (SAFE) Vehicles Rule III for Model Years 2022 to 2031 Passenger Cars and Light Trucks",
-      "abstract": "NHTSA, on behalf of the U.S. Department of Transportation (DOT), is substantially recalibrating the Corporate Average Fuel Economy (CAFE) program to bring the program into compliance with the law and to remove previous regulatory distortions which have induced manufacturers to make design decisions that have neither aligned with market demand and t",
-      "sourceUrl": "https://www.federalregister.gov/documents/2026/09/30/2026-19964/the-safer-affordable-fuel-efficient-safe-vehicles-rule-iii-for-model-years-2022-to-2031-passenger",
-      "evidence": "연방 고시 검색 색인 일치: 기업명·사건 관계를 원문에서 확인하지 못함",
-      "notProven": "지역 공장허가 취득·회사 사업 확정·직접 수주 여부 미확인",
-      "exclusiveStatus": "공개 문서 취재 단서·단독 미확정"
-    },
-    {
-      "source": "US Federal Register",
-      "sourceType": "federal_notice",
-      "sourceId": "2026-19932",
-      "published": "2026-09-30",
-      "companiesMentioned": [],
-      "companySearchTerm": "Hyundai Steel",
-      "nameVerified": false,
-      "title": "Welded Line Pipe From the Republic of Korea: Notice of Court Decision Not in Harmony With the Less-Than-Fair-Value Amended Final Determination; Notice of Amended Final Determination and Notice of Amended Antidumping Duty Order",
-      "abstract": "On September 15, 2026, the U.S. Court of International Trade (CIT) issued its final judgment in Stupp Corp. v. United States, Court no. 15-00334, sustaining the U.S. Department of Commerce (Commerce)'s fourth final results of redetermination pursuant to remand pertaining to the less-than-fair-value (LTFV) investigation of welded line pipe from the ",
-      "sourceUrl": "https://www.federalregister.gov/documents/2026/09/30/2026-19932/welded-line-pipe-from-the-republic-of-korea-notice-of-court-decision-not-in-harmony-with-the",
-      "evidence": "연방 고시 검색 색인 일치: 기업명·사건 관계를 원문에서 확인하지 못함",
-      "notProven": "지역 공장허가 취득·회사 사업 확정·직접 수주 여부 미확인",
-      "exclusiveStatus": "공개 문서 취재 단서·단독 미확정"
     }
   ],
   "matchedCount": 1,
-  "unverifiedSearchMatches": 11,
+  "unverifiedSearchMatches": 7,
   "sourceErrors": 0,
   "scoopConfirmed": 0
 }
