@@ -544,6 +544,8 @@ def judge(c, channels, *, now):
     ambiguous_case = False
     lawsuit=is_lawsuit(c)
     expected,plaintiff=case_identity(c)
+    item_since = article_day(c.get("since"))
+    earlier = []
     if lawsuit and not expected:
         return "미확인", []
     for ch, res in channels.items():
@@ -555,6 +557,8 @@ def judge(c, channels, *, now):
                 invalid_dates = True
                 continue
             if day < since:
+                if c.get("strict") and item_since and day >= item_since - dt.timedelta(days=EARLIER_DAYS):
+                    earlier.append((ch, day, a))
                 continue
             text = f"{a.get('title', '')} {a.get('text', '')}"
             # 법안: 기사는 줄임말('산업기술보호법')·정식 이름 어느 쪽이든 쓴다(names, 법 이름이라 낱말 경계 없이 맞춘다)
@@ -653,7 +657,38 @@ def judge(c, channels, *, now):
         verdict = "미보도 후보"
     else:
         verdict = "미확인"
-    return verdict, [{k: v for k, v in e.items() if k != "rank"} for e in ev[:5]]
+    out = [{k: v for k, v in e.items() if k != "rank"} for e in ev[:5]]
+    if verdict == "미보도 후보" and earlier:
+        out += earlier_coverage(c, earlier)
+    return verdict, out
+
+
+EARLIER_DAYS = 120
+
+
+def earlier_coverage(c, earlier, limit=2):
+    """항목 날짜(since)보다 앞선 기사 중 제목에 회사·사건 낱말이 함께 있는 것 — 판정에는 안 세고 맥락으로만 붙인다.
+    10-31 운영: 울주 '#2ASU O2 COMPRESSOR ROOM 토건공사' 안전점검 공고(10-30)는 창(10-27~) 안에 기사가 없어 미보도 후보가 맞지만,
+    산소공장 증설 자체는 10-20 전자신문 「고려아연, 산소공장 증설 발주 87% 완료」로 보도됐다 — 같은 사업의 후속 절차일 수 있다."""
+    generic = set(c.get("generic") or [])
+    alts = c.get("alts") or {}
+    words = [t for t in c["terms"] if t not in generic]
+    must = [m for m in c.get("must") or [] if m]
+    seen, out = set(), []
+    for ch, day, a in sorted(earlier, key=lambda x: x[1], reverse=True):
+        title, text = a.get("title", ""), f"{a.get('title', '')} {a.get('text', '')}"
+        key = a.get("url") or title
+        if key in seen or not company_in_text(c["company"], title):
+            continue
+        hits = [t for t in words if any(w in title for w in alts.get(t, [t]))]
+        if not hits or (must and not any(m in text for m in must)):
+            continue
+        seen.add(key)
+        out.append({"title": title[:160], "url": a.get("url"), "date": a.get("date"), "channel": ch, "before": True,
+                    "why": f"항목 날짜보다 앞선 기사({', '.join(hits[:2])}) — 판정에 안 셈, 같은 사업의 앞선 보도일 수 있음"})
+        if len(out) >= limit:
+            break
+    return out
 
 
 def screen(cands, *, now, get=None, sleep=time.sleep):
