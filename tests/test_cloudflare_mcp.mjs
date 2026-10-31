@@ -886,7 +886,7 @@ test('scoop candidates: a correction filing shows what changed before the same-c
   await worker.fetch(new Request(ORIGIN + '/ingest/scoop-screen', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {});
   const r2 = await call('radar_today', { include_minor: true }, { path: `/mcp/${TOKEN}`, env });
   const b2 = r2.text.split('[B · ')[1].split('[C · ')[0];
-  assert.match(b2, /두산에너빌리티 \[기재정정\]단일판매ㆍ공급계약체결 — 정정 중 큰 변경\(계약기간종료일 \+7개월\)[^\n]*정정: 계약기간종료일 2029-07-01→2030-01-28[^\n]*원 계약 기사일 수 있음/);
+  assert.match(b2, /두산에너빌리티 \[기재정정\]단일판매ㆍ공급계약체결 — 정정 중 큰 변경\(계약기간종료일 \+7개월 · 사유 '계약기간 종료일 변경'\)[^\n]*정정: 계약기간종료일 2029-07-01→2030-01-28[^\n]*원 계약 기사일 수 있음/);
   assert.match(r2.text.split('[C · ')[1], /관련 보도 있음: 효성중공업 · 작은 정정/);
 });
 
@@ -1708,7 +1708,7 @@ test('radar-items hands hinted A/B items to the press checker; radar_today shows
   const by = Object.fromEntries(body.items.map((x) => [x.id, x]));
   assert.deepEqual(by['cl:4'].check, { who: '세아제강', terms: ['국제무역법원', '소송'], alts: { 국제무역법원: ['국제무역법원', '무역법원', 'CIT'], 소송: ['소송', '제소', '판결', '항소', '불복'] } });
   assert.deepEqual(by['cl:7'].check.terms, ['항소', '특허']);
-  assert.deepEqual(by['fac:1:x'].check.terms, ['감원']);
+  assert.deepEqual([by['fac:1:x'].check.terms, by['fac:1:x'].check.must], [['당진', '감원'], ['당진']]);  // 공장 시·군 없는 감원 기사는 다른 공장일 수 있다
   assert.equal(by['fac:1:x'].fact, '등록 내용 변경: KG스틸(주)당진공장 · 충청남도 당진시 송악읍 북부산업로 1 — 고용 856→690명');
   assert.equal(by['fac:2:gone'].fact.split(' — ')[0], '목록에서 빠짐: 현대위아(주)창원2공장 · 경상남도 창원시 성산구 정동로 154');  // already named: unchanged
   const ko = await call('kr_official', { section: 'factory', company: 'KG스틸' }, opts);
@@ -2170,7 +2170,10 @@ test('press-check hints: place words narrow the search but are marked, workforce
   assert.deepEqual(['온산제련소 환경영향평가 초안 공람', '○○ 일반산업단지 계획 변경', '공장 이전 부지', '폐기물 매립시설'].map(localWord),
     ['환경영향평가', '산업단지', '이전', '매립']);
   const wf = (kind, text) => workforceHint({ company: '포스코', kind, text }).terms;
-  assert.deepEqual(wf('인력 증가', '주식회사포스코(경상북도 포항시 남구) 국민연금 가입자 15,852→16,718명(+866명, +5.5%)'), ['채용']);
+  // 사업장 시·군을 넣고 그 지명이 없는 기사는 세지 않는다(10-31 포스코 포항 +866명 ↔ 美 제철소 채용 기사)
+  const pw = workforceHint({ company: '포스코', kind: '인력 증가', text: '주식회사포스코(경상북도 포항시 남구) 국민연금 가입자 15,852→16,718명(+866명, +5.5%)' });
+  assert.deepEqual([pw.terms, pw.places, pw.must], [['포항', '채용'], ['포항'], ['포항']]);
+  assert.deepEqual(workforceHint({ company: '기아', kind: '인력 감소', text: '기아(서울특별시 서초구) 가입자 2,100→2,060명(-40명)' }).must, undefined);  // 시·군 없으면 그대로
   assert.deepEqual(wf('인력 변동', '포스코 가입자 2,100→2,060명(-40명)'), ['감원']);
   assert.deepEqual(wf('인력 감소', '형식 모름'), ['감원']);
   assert.ok(!workforceHint({ company: '기아', kind: '인력 증가', text: '가입자 1→2명' }).alts.채용.includes('고용'));  // 흔한 말 빼기

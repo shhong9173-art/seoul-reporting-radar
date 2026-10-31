@@ -185,14 +185,19 @@ export function stackHint(e) {
   const words = /배출허용기준/.test(e.kind) ? ['배출허용기준', '초과'] : /재가동/.test(e.kind) ? ['재가동'] : /새/.test(e.kind) ? ['신설', '가동'] : ['가동 중단', '정비'];
   return hint(e.company, [city, ...words], [city], [city]);
 }
-// 국민연금 가입자 변화의 방향 → 기사 낱말(늘면 채용·증원, 줄면 인력 감축)
+// 국민연금 가입자 변화의 방향 → 기사 낱말(늘면 채용·증원, 줄면 인력 감축). 사업장 주소의 시·군을 넣고, 그 지명이 없는 기사는
+// 같은 사건으로 치지 않는다(10-31 운영: 포스코 포항 가입자 +866명 ↔ '현대제철·포스코 美 제철소 1000명 채용' 기사로 '관련 보도 있음')
+// 정정사유를 큰 변경 옆에 붙인다 — 날짜가 크게 당겨진 이유가 '취득완료'인지 '계약 해지'인지 줄에서 바로 보이게
+// (10-31 운영: 금호타이어 함평 부지 취득 정정 '취득예정일자 -36개월'은 사유가 '취득완료(취득가액 및 취득일자 확정)에 따른 정정')
+const fixReason = (r) => (r ? ` · 사유 '${String(r).length > 40 ? `${String(r).slice(0, 39)}…` : r}'` : '');
 export function workforceHint(e) {
   if (/공사 현장/.test(e.kind)) return hint(e.company, ['공사', '착공']);
   if (/새 자사/.test(e.kind)) return hint(e.company, ['공장', '신설']);
   if (/탈퇴|빠짐/.test(e.kind)) return hint(e.company, ['공장', '폐쇄']);
   const m = /가입자 ([\d,]+)→([\d,]+)명/.exec(String(e.text ?? ''));
   const down = m ? Number(m[2].replace(/,/g, '')) < Number(m[1].replace(/,/g, '')) : /감소/.test(e.kind);
-  return down ? hint(e.company, ['감원']) : hint(e.company, ['채용']);
+  const city = cityOf(e.text);
+  return hint(e.company, [city, down ? '감원' : '채용'], [city], [city]);
 }
 const cityOf = (text) => ((/(?:특별시|광역시|특별자치시|특별자치도|도)\s+([가-힣]{1,4}?)[시군](?![가-힣])/.exec(String(text ?? '')) ?? [])[1]);
 function factoryHint(company, kind, text) {
@@ -200,7 +205,7 @@ function factoryHint(company, kind, text) {
   if (/빠짐/.test(kind)) return hint(company, [city, '공장', '폐쇄'], [city]);
   if (/새 (공장|등록)/.test(kind)) return hint(company, [city, '공장', '신설'], [city]);
   const m = /고용 (\d+)→(\d+)/.exec(String(text ?? ''));
-  if (m) return Number(m[2]) < Number(m[1]) ? hint(company, ['감원']) : hint(company, ['채용']);
+  if (m) return hint(company, [city, Number(m[2]) < Number(m[1]) ? '감원' : '채용'], [city], [city]);  // 사업장 지명 없는 기사는 다른 사업장일 수 있다
   return undefined;  // 업종·주생산품 문구 변경: 기사 낱말을 정할 수 없음
 }
 function caseHint(x) {
@@ -259,7 +264,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
     // 정정 중 큰 변경(금액 ±10%·기간 90일+·해지): '관련 보도 있음'이어도 그 기사는 원 계약 기사일 수 있다 — B로 올린다
     // (10-31 두산에너빌리티 영광 야월 해상풍력 EPC 정정: 계약기간 종료일 2029-07-01 → 2030-01-28, 보도 대조는 다른 기사)
     else if (c.verdict === '관련 보도 있음' && (fl?.correction?.material ?? []).length) push('B', W['scoop-screen'], { kind, flag: '정정', verdict: c.verdict, id: c.id, date: c.published ?? c.filedOn, company: c.company,
-      fact: `${c.title} — 정정 중 큰 변경(${fl.correction.material.join(', ')})${brief}${cmp} · 보도 대조 '관련 보도 있음'은 원 계약 기사일 수 있음(정정 내용 보도 여부는 따로 확인)`, url: c.url });
+      fact: `${c.title} — 정정 중 큰 변경(${fl.correction.material.join(', ')}${fixReason(fl.correction.reason)})${brief}${cmp} · 보도 대조 '관련 보도 있음'은 원 계약 기사일 수 있음(정정 내용 보도 여부는 따로 확인)`, url: c.url });
     else push('C', W['scoop-screen'], { kind, id: c.id, company: c.company, fact: `${c.verdict}: ${c.title}` });
   }
 
