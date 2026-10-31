@@ -125,7 +125,8 @@ def correction(documents):
     """정정신고 표: 정정사유와 (항목, 정정전, 정정후). '정정항목 | 정정전 | 정정후' 머리 줄 다음의 3칸 줄만 읽는다
     (2026-10-31 실제 공시로 형식 확인: 효성중공업 20261027800518 — 정정사유 '계약 사양 일부 변경에 따른 계약금액 조정',
     계약금액(원) 113,586,046,173 → 113,044,698,813). 정정 공시가 아니면 None."""
-    reason, changes = None, []
+    reason, changes, row_reasons = None, [], []
+    clip = lambda v: v if len(v) <= 120 else v[:117] + "…"  # noqa: E731
     for doc in documents:
         if not isinstance(doc, str):
             continue
@@ -136,35 +137,44 @@ def correction(documents):
         except (ValueError, TypeError):
             continue
         for table in p.tables:
-            in_changes = False
+            width = 0  # 0: 정정 표 밖, 3: 거래소 형식(항목·전·후), 4: 정기·주요공시 형식(항목·사유·전·후)
             for row in table:
-                if any(c.get("nested") for c in row):
-                    continue
                 cells = [c["text"] for c in row]
                 keys = [norm(c) for c in cells]
                 if len(cells) == 2 and keys[0] == "정정사유" and plain(cells[1]) not in ("", "-"):
                     reason = reason or plain(cells[1])[:160]
-                if keys[-3:] == ["정정항목", "정정전", "정정후"]:
-                    in_changes = True
+                # 거래소 수시공시 '정정항목 | 정정전 | 정정후', 주요사항보고서 등 '항 목 | 정정사유 | 정 정 전 | 정 정 후'
+                # (2026-10-31: LS전선 20261030000651 교환사채권발행결정 정정 — 사채만기일·청약일·납입일 11-09 → 11-06)
+                if keys[-2:] == ["정정전", "정정후"] and keys[0] in ("정정항목", "항목"):
+                    width = len(cells)
                     continue
-                if in_changes:
-                    if len(cells) != 3:
-                        in_changes = False
-                        continue
-                    item = re.sub(r"\s*-\s*", " - ", clean_label(cells[0])).strip()
-                    before, after = (plain(c) for c in cells[1:])
-                    if item and (before, after) != ("", ""):
-                        clip = lambda v: v if len(v) <= 120 else v[:117] + "…"  # noqa: E731
-                        changes.append([item[:60], clip(before), clip(after)])
+                if not width:
+                    continue
+                if len(cells) != width:
+                    width = 0
+                    continue
+                # 항목 이름은 띄어쓰기를 살린다('공정거래위원회 신고대상 여부'); 앞 번호(5. · 9-1.)만 뗀다
+                item = re.sub(r"^(?:\d{1,2}(?:-\d{1,2})?|[가-하])[.)]\s*", "", re.sub(r"\s+", " ", plain(cells[0])).strip())
+                item = re.sub(r"\s*-\s*", " - ", item).strip()
+                if any(c.get("nested") for c in row):
+                    before, after = "(표)", "(표 바뀜)"  # 칸 안 표(교환청구기간 시작·종료일 등)는 바뀌었다는 것만
+                else:
+                    before, after = (plain(c) for c in cells[-2:])
+                if width == 4 and plain(cells[1]) and plain(cells[1]) not in row_reasons:
+                    row_reasons.append(plain(cells[1])[:60])
+                if item and (before, after) != ("", ""):
+                    changes.append([item[:60], clip(before), clip(after)])
+    reason = reason or (" · ".join(row_reasons[:2]) if row_reasons else None)
     if not reason and not changes:
         return None
-    out = {"reason": reason, "changes": changes[:8]}
+    out = {"reason": reason, "changes": changes[:10]}
     big = material(out)
     if big:
         out["material"] = big
     return out
 
 
+FOOTNOTE = re.compile(r"^주\s*\d+\)")  # '주1) 정정 전' — 본문 각주로 넘긴 칸
 MATERIAL_PCT = 10
 MATERIAL_DAYS = 90
 CANCEL = re.compile(r"해지|해제|취소|중단|철회|파기")
@@ -184,12 +194,27 @@ def material(fix):
             if abs(pct) >= MATERIAL_PCT:
                 out.append(f"{name[:-3]} {pct:+.0f}%")
             continue
-        d1, d2 = re.fullmatch(r"(\d{4})-(\d{2})-(\d{2})", before), re.fullmatch(r"(\d{4})-(\d{2})-(\d{2})", after)
-        if d1 and d2 and re.search(r"종료일|기간|예정일|완료", name):
-            days = (dt.date(*map(int, d2.groups())) - dt.date(*map(int, d1.groups()))).days
+        d1, d2 = as_date(before), as_date(after)
+        if d1 and d2 and re.search(r"종료일|기간|예정일|완료|만기일|납입일", name):
+            days = (d2 - d1).days
             if abs(days) >= MATERIAL_DAYS:
                 out.append(f"{name} {'+' if days > 0 else '-'}{round(abs(days) / 30.4)}개월")
     return out
+
+
+DATE_FORMS = (re.compile(r"(\d{4})-(\d{1,2})-(\d{1,2})"), re.compile(r"(\d{4})\s*년\s*(\d{1,2})\s*월\s*(\d{1,2})\s*일"),
+              re.compile(r"(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})\.?"))
+
+
+def as_date(v):
+    for rx in DATE_FORMS:
+        m = rx.fullmatch(str(v or "").strip())
+        if m:
+            try:
+                return dt.date(*map(int, m.groups()))
+            except ValueError:
+                return None
+    return None
 
 
 def correction_line(fix, kind=None):
@@ -202,7 +227,7 @@ def correction_line(fix, kind=None):
         if item.endswith("(원)") and re.fullmatch(r"\d+", b) and re.fullmatch(r"\d+", a) and int(b):
             pct = (int(a) - int(b)) / int(b) * 100
             parts.append(f"{item} {won(before)} → {won(after)}({pct:+.1f}%)")
-        elif len(before) <= 40 and len(after) <= 40:
+        elif len(before) <= 40 and len(after) <= 40 and not FOOTNOTE.match(before) and not before.startswith("(표"):
             parts.append(f"{item} {before or '-'} → {after or '-'}")
         else:
             parts.append(f"{item} 문구 변경")
@@ -221,8 +246,10 @@ def correction_short(fix):
         if name.endswith("(원)") and re.fullmatch(r"\d+", b) and re.fullmatch(r"\d+", a) and int(b):
             pct = (int(a) - int(b)) / int(b) * 100
             parts.append(f"{name[:-3]} {eok(int(b))}→{eok(int(a))}({pct:+.1f}%)")
-        elif len(before) <= 20 and len(after) <= 20:
-            parts.append(f"{re.sub(r'[(].*?[)]$', '', name)} {before or '-'}→{after or '-'}")
+        elif len(before) <= 20 and len(after) <= 20 and not FOOTNOTE.match(before) and not before.startswith("(표"):
+            d1, d2 = as_date(before), as_date(after)
+            shown = (d1.isoformat(), d2.isoformat()) if d1 and d2 else (before or "-", after or "-")
+            parts.append(f"{re.sub(r'[(].*?[)]$', '', name)} {shown[0]}→{shown[1]}")
         else:
             text_changes += 1
     if text_changes:
@@ -400,9 +427,12 @@ def enrich(cands, api_key, corp_codes, *, fetch_documents, get, budget=40):
             continue
         report = str(c.get("title") or "").split(" · ", 1)[-1]
         kind = filing_type(report)
-        if not kind:
-            continue
         rcept = m.group(1)
+        if not kind:
+            # 요점 표를 모르는 종류라도 정정 공시면 원문 정정 표만 읽는다(무엇이 바뀌었는지가 먼저 — 10-31 LS전선 교환사채 정정)
+            if "정정" in report:
+                used = correction_only(c, report, rcept, api_key, fetch_documents, used, budget)
+            continue
         info = {"type": kind, "rcept_no": rcept}
         if used >= budget:
             c["filing"] = {**info, "error": "원문 조회 예산 초과 — 미확인"}
@@ -444,6 +474,23 @@ def enrich(cands, api_key, corp_codes, *, fetch_documents, get, budget=40):
         info.update(compare=lines, routine=routine)
         c["filing"] = info
     return used
+
+
+def correction_only(c, report, rcept, api_key, fetch_documents, used, budget):
+    """요점 종류가 없는 정정 공시: 정정 표만. type은 비워 둔다(주간 판정 묶음은 공시 이름으로)."""
+    info = {"type": None, "rcept_no": rcept, "facts": [], "related": None, "compare": [], "routine": None}
+    if used >= budget:
+        c["filing"] = {**info, "error": "원문 조회 예산 초과 — 미확인"}
+        return used
+    try:
+        fix = correction(fetch_documents(api_key, rcept))
+    except Exception as e:  # noqa: BLE001
+        c["filing"] = {**info, "error": f"원문 조회 실패({type(e).__name__}) — 미확인"}
+        return used + 1
+    if fix:
+        info.update(correction=fix, correctionLine=correction_line(fix), correctionShort=correction_short(fix))
+    c["filing"] = info
+    return used + 1
 
 
 def load_corp_codes():
