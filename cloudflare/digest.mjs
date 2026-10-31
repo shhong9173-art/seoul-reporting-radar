@@ -34,6 +34,7 @@ export const WATCHES = [
   { feed: 'assembly-bills', label: '국회 법안', tool: 'assembly_bills', schedule: '평일 08:40·17:40' },
   { feed: 'us-recalls', label: '미국 리콜(NHTSA 전체)', tool: 'us_recalls', schedule: '평일 17:10' },
   { feed: 'us-epa', label: '미국 EPA 인증', tool: 'us_epa', schedule: '매일 06:20', staleHours: 60 },
+  { feed: 'us-osha', label: '미국 OSHA 점검·위반', tool: 'us_litigation', schedule: '매일 06:40', staleHours: 60 },
   { feed: 'kr-fuel', label: '국내 연비 신고', tool: 'kr_fuel', schedule: '매일 06:10', staleHours: 60 },
   { feed: 'overseas-awards', label: '해외 발주처 낙찰', tool: 'partner_filings', schedule: '평일 06:50·17:30' },
   { feed: 'kr-insolvency', label: '협력사 회생·파산', tool: 'kr_official', schedule: '평일 07:20·17:20' },
@@ -72,7 +73,8 @@ const ALT = {
   // (10-31 운영: 기아 가입자 증가가 「'효율·고용' 절충…현대차·기아 공장 재편안」으로 '관련 보도 있음').
   채용: ['채용', '증원', '충원', '신입', '공채', '인력 확대', '인원 확대', '인력 증가', '인원 증가'],
   감원: ['감원', '감축', '구조조정', '희망퇴직', '인력 감소', '인원 감소', '인력 축소', '정리해고'],
-  공정위: ['공정위', '공정거래위원회'], 과징금: ['과징금', '제재', '시정명령', '고발', '경고'], 한전: ['한전', '한국전력'],
+  OSHA: ['OSHA', '산업안전보건청', '미국 노동부', '산업안전'], 벌금: ['벌금', '과징금', '제재', '위반'], 사고: ['사고', '사망', '부상', '숨져', '중상'],
+    공정위: ['공정위', '공정거래위원회'], 과징금: ['과징금', '제재', '시정명령', '고발', '경고'], 한전: ['한전', '한국전력'],
   수주: ['수주', '입찰', '낙찰', '공급', '계약'], 관세: ['관세', '반덤핑', '상계관세', '덤핑'], 판정: ['판정', '예비', '최종', '재심', '연례재심'],
   계약: ['계약', '협약', '합의', '공급', '합작', 'MOU'], 의견서: ['의견서', '의견', '제출', '요청'], 상표: ['상표', '출원', '브랜드', '명칭'],
   개정안: ['개정안', '발의', '법안', '개정', '대표발의'], BAIC: ['BAIC', '베이징자동차', '베이징기차', '北汽'],
@@ -535,6 +537,14 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
     push(x.tier ?? 'B', W['us-recalls'], { kind: '미국 결함 신고 급증', id: `${x.id}:${String(x.firstSeen).slice(0, 10)}`, date: x.firstSeen, company: x.brand,
       fact: `미국 소비자 결함 신고 급증 · ${x.brand} ${x.model}(연식 ${x.years}) · 최근 28일(${(x.window ?? []).join('~')}) 신고 ${x.complaints}건 · ${parts}${harm ? ` · ${harm}` : ''}${recall} — 소비자 신고라 결함 확정 아님, 국내 판매 차종 해당 여부는 회사 확인`,
       url: x.url, check: x.tier === 'C' ? undefined : (models.length ? hint(x.brand, [models[0], '리콜'], [models[0]], models) : hint(x.brand, ['리콜', '미국'])) });
+  }
+
+  // US OSHA: new inspection (fatality/accident A, complaint/referral B), new citations (willful/repeat or $100k+ A, serious B), fatal accident summary A.
+  for (const e of docs['us-osha']?.events ?? []) {
+    if (!recent(e.detectedAt)) continue;
+    push(['A', 'B'].includes(e.tier) ? e.tier : 'C', W['us-osha'], { kind: `미국 OSHA ${e.kind}`, id: e.id, date: e.detectedAt, company: e.company,
+      fact: `${e.text} — 점검·통지는 회사 책임 확정 아님(이의 제기 가능)`, url: e.url,
+      check: e.tier === 'C' ? undefined : hint(e.company, ['OSHA', e.kind === '위반 통지' ? '벌금' : '사고']) });
   }
 
   // US EPA certification file: a model new to the company is A, an EV range change B, model-year carryover C.

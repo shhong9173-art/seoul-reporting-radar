@@ -529,12 +529,15 @@ export async function krFuel(ctx, args) {
 
 export async function usLitigation(ctx, args) {
   const doc = await readFeed(ctx, 'us-litigation');
-  if (!doc) return missing('미국 소송·ITC', '평일 07:50');
-  if (doc.broken) return textResult('저장된 소송 결과 형식 오류 — 미확인.', true);
   const q = String(args.company ?? '').trim();
   const onlyNew = args.only_new === true || args.only_new === 'true';
   const routine = args.include_routine === true || args.include_routine === 'true';
   const limit = clampInt(args.limit, 1, 60, 20);
+  // 소송 결과가 없거나 깨져도 OSHA 구역은 따로 보여 준다(다른 저장소)
+  if (!doc || doc.broken) {
+    const head = doc ? '저장된 소송 결과 형식 오류 — 미확인.' : missing('미국 소송·ITC', '평일 07:50').content[0].text;
+    return textResult([head, ...oshaSection(await readFeed(ctx, 'us-osha'), q, limit, onlyNew, routine, ctx)].join('\n'), true);
+  }
   const checks = doc.checks ?? [];
   const failed = checks.filter((c) => c.status !== 'ok');
   const base = (doc.cases ?? []).filter((x) => (!onlyNew || x.isNew) && matches(q, (x.beat ?? []).join(' '), x.caseName, x.category, x.court));
@@ -571,8 +574,38 @@ export async function usLitigation(ctx, args) {
     for (const n of (x.named ?? []).slice(0, 5)) out.push(`   본문의 ${n.company}(${n.mentions}곳): ${n.lines.map((l) => `"${l}"`).join(' / ')}`);
     out.push(`   원문: ${x.url}`);
   }
-  out.push('\n다음: 판결은 PDF(원문)에서 결론·세율·당사자 주장 확인 → news_check로 보도 대조. 사건은 소장(Complaint) 열람 → 청구 원인·금액·상대방 확인 → 회사 확인. ITC 고시는 source_document(federalregister.gov)로 연다.');
+  out.push(...oshaSection(await readFeed(ctx, 'us-osha'), q, limit, onlyNew, routine, ctx));
+  out.push('\n다음: 판결은 PDF(원문)에서 결론·세율·당사자 주장 확인 → news_check로 보도 대조. 사건은 소장(Complaint) 열람 → 청구 원인·금액·상대방 확인 → 회사 확인. ITC 고시는 source_document(federalregister.gov)로 연다. OSHA는 원문(osha.gov 점검 상세)에서 위반 기준·벌금·이의 제기 여부 확인 → 현지 보도·회사 확인.');
   return textResult(out.join('\n'));
+}
+
+// 미국 OSHA 점검·위반(us_osha_watch.py): 출입처 미국 법인·공장. 사망·중대사고·사고·민원 점검과 위반 통지가 먼저, 정기·후속 점검은 include_routine.
+export function oshaSection(doc, q = '', limit = 20, onlyNew = false, routine = false, ctx = null) {
+  if (!doc) return ['\n[미국 OSHA 점검·위반] 아직 수집 전 — 미확인'];
+  if (doc.broken) return ['\n[미국 OSHA 점검·위반] 저장 결과 형식 오류 — 미확인'];
+  const c = (doc.checks ?? [])[0] ?? {};
+  const weight = (x) => (['M', 'A'].includes(x.type) || (x.accidents ?? []).some((a) => a.fatality) ? 0
+    : (x.violations ?? []).some((v) => ['W', 'R'].includes(v.type)) || (x.penaltyInitial ?? 0) >= 100000 ? 1
+      : ['B', 'C'].includes(x.type) || (x.violations ?? []).length ? 2 : 3);
+  const all = (doc.inspections ?? []).filter((x) => (!onlyNew || x.isNew) && matches(q, x.company, x.estab, x.city, x.state));
+  const rows = all.filter((x) => routine || weight(x) < 3).sort((a, b) => weight(a) - weight(b) || String(b.opened).localeCompare(String(a.opened)));
+  const out = [`\n[미국 OSHA 점검·위반 · 출입처 미국 법인·공장 · 개시 ${String(doc.since ?? '').slice(0, 10)} 이후 · 확인 ${String(doc.generatedAt).slice(0, 16)}${ctx ? ageNote(ctx, doc.generatedAt, 60) : ''}] `
+    + `${rows.length}건${routine ? '' : ` · 정기·후속·모니터링만 있는 점검 ${all.length - rows.length}건 숨김(include_routine=true)`} · 원천 ${c.status ?? '?'}${c.error ? `(${c.error})` : ''}`];
+  for (const x of rows.slice(0, limit)) {
+    const v = x.violations ?? [];
+    const kinds = [...new Set(v.map((y) => y.typeName))].join('·');
+    out.push(`- ${x.isNew ? '[신규] ' : ''}개시 ${x.opened} · ${x.company} · ${x.typeName}(${x.type}) 점검${x.closed ? ` · 종결 ${x.closed}` : ' · 진행 중'}${x.stale ? ' · ⚠ 이번 조회 실패, 직전 값' : ''}${x.notReturned ? ' · ⚠ 이번 조회에 안 나옴' : ''}`);
+    out.push(`   사업장: ${x.estab} (${x.city ?? '?'}, ${x.state ?? '?'})${x.employees ? ` · 종업원 ${x.employees}명` : ''}${x.naics ? ` · NAICS ${x.naics}` : ''}`);
+    out.push(v.length ? `   위반 통지 ${v.length}건(${kinds}) · 최초 벌금 합 $${(x.penaltyInitial ?? 0).toLocaleString('en-US')}${x.penaltyCurrent !== x.penaltyInitial ? ` → 현재 $${(x.penaltyCurrent ?? 0).toLocaleString('en-US')}` : ''} · 통지 ${[...new Set(v.map((y) => y.issued))].join(', ')}`
+      : '   위반 통지 없음(아직 미발부일 수 있음 — 개시 뒤 최대 6개월)');
+    for (const a of (x.accidents ?? []).slice(0, 2)) out.push(`   사고 요약 ${a.date || '?'}${a.fatality ? ' · 사망' : ''}: ${String(a.desc ?? '').slice(0, 160)}${a.abstract ? ` — "${a.abstract.slice(0, 240)}"` : ''}`);
+    out.push(`   원문: ${x.url}`);
+  }
+  if (rows.length > limit) out.push(`… 남은 ${rows.length - limit}건`);
+  if (!rows.length) out.push('조건에 맞는 점검 없음(첫 실행은 기준선, 조회 실패면 미확인).');
+  if ((doc.dropped ?? []).length) out.push(`(이름 검색에 걸렸지만 출입처 규칙 밖이라 뺀 사업장 ${doc.dropped.length}곳 — 딜러·이름 겹침 등. 빠진 출입처가 있는지 확인: ${doc.dropped.slice(0, routine ? 60 : 12).map(([n, k]) => `${n}(${k})`).join(', ')}${!routine && doc.dropped.length > 12 ? ' …' : ''})`);
+  out.push('   검증 상태: OSHA 노동부 API(자동). 점검≠위반 확정, 벌금은 최초 부과액(이의 제기·합의로 바뀜). 하도급사 이름으로 열린 공장 안 점검은 빠진다. 사망자·경위는 원문·현지 보도로');
+  return out;
 }
 
 // Same-name doubt for a court notice's company (kr_insolvency_watch.pick): factory outside the court's region, several owners.

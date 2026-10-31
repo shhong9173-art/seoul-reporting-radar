@@ -1453,7 +1453,7 @@ test('kr_signals shows FTC decisions by role, KEPCO bids and commodity prices, a
   const minor = await call('radar_today', { include_minor: true }, opts);
   assert.match(minor.text, /「\(연간단가\)고효율주상변압기,50KVA\(광유\)-2,338대-0\d\(일반\)」 외 같은 공고 2건\(합계 약 149억원\) · 추정가격 약 50억원/);
   assert.equal((minor.text.match(/고효율주상변압기/g) ?? []).length, 1);  // three lots, one line
-  assert.match(r.text, /기자 전용 감시 22개/);
+  assert.match(r.text, /기자 전용 감시 23개/);
   assert.deepEqual(dueAt(new Date('2026-10-26T23:30:00Z')), ['kr-signals.yml', 'kipris-patent-hunt.yml']);  // Tue 08:30 KST
   assert.deepEqual(dueAt(new Date('2026-10-27T06:20:00Z')), ['kr-signals.yml']);  // Tue 15:20 KST
 });
@@ -1739,7 +1739,7 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   assert.doesNotMatch((await call('trademarks', { name: 'aero' }, opts)).text, /NUTRIMACY/);
   assert.doesNotMatch((await call('trademarks', { class: '35' }, opts)).text, /NUTRIMACY/);
   const r = await call('radar_today', {}, opts);
-  assert.match(r.text, /기자 전용 감시 22개/);
+  assert.match(r.text, /기자 전용 감시 23개/);
   assert.match(r.text, /- 상표 출원: 대기 1곳\(제공기관 응답 22 뒤 72시간 대기\) — 해당 부분 0건은 미확인/);
   assert.doesNotMatch(r.text, /상표 출원: [^\n]*시간 전 결과/);
   const b = r.text.split('[B · ')[1].split('[C · ')[0];
@@ -1749,7 +1749,7 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   assert.match(minor.text, /상표 출원 「NUTRIMACY」[^\n]* — 같은 이름 상품류 추가/);
   const list = await rpc('tools/list', {}, { path: `/mcp/${TOKEN}`, env });
   assert.ok(list.body.result.tools.some((x) => x.name === 'trademarks'));
-  assert.match(list.body.result.tools.find((x) => x.name === 'radar_today').description, /감시 22개\([^)]*상표 출원, 국회 법안, 미국 리콜, 미국 EPA 인증, 국내 연비 신고, 해외 발주처 낙찰, 협력사 회생·파산, 전기위·원안위, 공장 부지 건축허가, 해외 법인 등기, 지자체 고시·공고, 사업장 인력, 굴뚝 측정\)/);
+  assert.match(list.body.result.tools.find((x) => x.name === 'radar_today').description, /감시 23개\([^)]*상표 출원, 국회 법안, 미국 리콜, 미국 EPA 인증, 국내 연비 신고, 해외 발주처 낙찰, 협력사 회생·파산, 전기위·원안위, 공장 부지 건축허가, 해외 법인 등기, 지자체 고시·공고, 사업장 인력, 굴뚝 측정\)/);
   assert.ok(!(await rpc('tools/list', {}, { env })).body.result.tools.some((x) => x.name === 'trademarks'));  // private only
 });
 
@@ -1928,7 +1928,7 @@ test('radar-items hands hinted A/B items to the press checker; radar_today shows
 test('press check is dispatched after the morning watches and after the evening page watch', () => {
   assert.deepEqual(dueAt(new Date('2026-10-27T23:50:00Z')), ['radar-press-check.yml']);  // Wed 08:50 KST
   // 공식 원자료 직접 수집: 06:40·08:00·15:00·18:00 KST 평일
-  assert.deepEqual(dueAt(new Date('2026-10-28T21:40:00Z')), ['scoop-radar.yml']);  // Thu 06:40 KST
+  assert.deepEqual(dueAt(new Date('2026-10-28T21:40:00Z')), ['us-osha.yml', 'scoop-radar.yml']);  // Thu 06:40 KST
   assert.deepEqual(dueAt(new Date('2026-10-28T23:00:00Z')), ['scoop-radar.yml']);  // Thu 08:00 KST
   assert.deepEqual(dueAt(new Date('2026-10-29T06:00:00Z')), ['scoop-radar.yml']);  // Thu 15:00 KST
   assert.deepEqual(dueAt(new Date('2026-10-29T09:00:00Z')), ['scoop-radar.yml']);  // Thu 18:00 KST
@@ -2398,6 +2398,37 @@ test('kr_official law: 법제처 confirmed rules — B new rules in radar_today,
   assert.match(sec('B'), /행정규칙\(고시\) 일부개정 · 산업통상부: 전기설비기술기준/);
   assert.match(sec('B'), /법령해석례/);
   assert.match(sec('C'), /관세법 시행세칙/);
+});
+
+test('us_litigation osha: OSHA inspections ranked fatality first, routine hidden, dropped names listed, radar_today tiers', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const recent = new Date(Date.now() - 3600000).toISOString();
+  const x = (id, company, estab, type, typeName, opened, extra = {}) => ({ id, company, estab, city: 'WEST POINT', state: 'GA', opened, type, typeName, scope: 'B',
+    closed: null, naics: '336111', employees: 2700, url: `https://www.osha.gov/ords/imis/establishment.inspection_detail?id=${id}`, violations: [], penaltyInitial: 0,
+    penaltyCurrent: 0, accidents: [], firstSeen: recent, isNew: false, ...extra });
+  const doc = { schema: 'us_osha/v1', generatedAt: recent, status: 'complete', since: '2025-09-28',
+    checks: [{ source: '미국 OSHA(노동부 API)', status: 'ok', returned: 87, kept: 39, calls: 9 }],
+    inspections: [x('1007', '현대모비스', 'MOBIS ALABAMA LLC', 'H', '정기(계획)', '2026-10-29'),
+      x('1002', '현대차', 'HYUNDAI MOTOR MANUFACTURING ALABAMA, LLC', 'B', '민원', '2026-10-08', { violations: [{ citation: '01001', type: 'R', typeName: '반복', issued: '2026-10-30', initialPenalty: 48000, currentPenalty: 48000 }], penaltyInitial: 48000, penaltyCurrent: 48000 }),
+      x('1001', '기아', 'KIA GEORGIA INC', 'M', '사망·중대사고', '2026-09-01', { accidents: [{ summary: '777', date: '2026-08-28', fatality: true, desc: 'Worker struck by press', abstract: '' }] })],
+    events: [{ id: 'osha:viol:1002:2026-10-30', kind: '위반 통지', tier: 'A', company: '현대차', inspection: '1002', text: 'OSHA 위반 통지 2026-10-30 · 1건(반복) · 최초 벌금 합 $48,000 · HYUNDAI MOTOR MANUFACTURING ALABAMA, LLC (MONTGOMERY, AL)', url: 'https://www.osha.gov/x', detectedAt: recent },
+      { id: 'osha:insp:1007', kind: '점검 개시', tier: 'C', company: '현대모비스', inspection: '1007', text: 'OSHA 점검 개시 2026-10-29 · 정기(계획)(H)', url: 'https://www.osha.gov/y', detectedAt: recent }],
+    dropped: [['PAT PECK KIA OF GULFPORT', 1], ["ARMANDO'S MANDO GRILL", 1]] };
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/us-osha', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
+  const t = await call('us_litigation', {}, opts);
+  assert.match(t.text, /미국 소송·ITC 결과가 아직 없음/);  // 소송 결과가 없어도 OSHA 구역은 나온다
+  assert.match(t.text, /\[미국 OSHA 점검·위반 · 출입처 미국 법인·공장 · 개시 2025-09-28 이후 · 확인 [^\]]*\] 2건 · 정기·후속·모니터링만 있는 점검 1건 숨김\(include_routine=true\)/);
+  assert.ok(t.text.indexOf('KIA GEORGIA') < t.text.indexOf('HYUNDAI MOTOR MANUFACTURING'));  // 사망·중대사고 먼저
+  assert.match(t.text, /사고 요약 2026-08-28 · 사망: Worker struck by press/);
+  assert.match(t.text, /위반 통지 1건\(반복\) · 최초 벌금 합 \$48,000/);
+  assert.doesNotMatch(t.text, /MOBIS ALABAMA/);
+  assert.match(t.text, /뺀 사업장 2곳[^\n]*PAT PECK KIA OF GULFPORT\(1\)/);
+  assert.match((await call('us_litigation', { include_routine: true }, opts)).text, /MOBIS ALABAMA/);
+  const r = await call('radar_today', { include_minor: true }, opts);
+  const sec = (k) => r.text.split(`[${k} · `)[1].split(/\n\[[ABC] · /)[0];
+  assert.match(sec('A'), /OSHA 위반 통지 2026-10-30 · 1건\(반복\)[^\n]*회사 책임 확정 아님/);
+  assert.match(sec('C'), /OSHA 점검 개시 2026-10-29/);
 });
 
 test('bill hints: formal law names are searched by the short name headlines use', () => {
