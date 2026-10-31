@@ -161,6 +161,27 @@ class HeadlineRule(unittest.TestCase):
         self.assertEqual(r["verdict"], "관련 보도 있음")
         self.assertTrue(r["evidence"][0]["why"].startswith("제목에 회사·낱말"))
 
+    def test_place_and_company_alone_do_not_mark_a_local_notice_covered(self):
+        # 운영 10-31: 울주군 '건설공사 안전점검 수행기관 지정[온산 고려아연(주), #2ASU…]' ↔ 고려아연 사회공헌 기사
+        new = {"신설": ["신설", "준공", "가동", "건설", "착공", "신축", "증설", "새 공장"], "공장": ["공장", "사업장", "생산기지"]}
+        item = {"tier": "A", "watch": "지자체 고시·공고", "id": "local:울주군:68156", "date": "2026-10-27", "company": "고려아연",
+                "check": {"who": "고려아연", "terms": ["울주", "신설", "공장"], "alts": new, "places": ["울주"]}}
+        csr = art("고려아연 온산제련소 지원 울주군 취약계층 집수리 사업 '호응'", "2026-10-27")
+        r = self.one(item, [csr])
+        self.assertEqual(r["verdict"], "미보도 후보")
+        r = self.one(item, [csr, art("고려아연, 울주 온산제련소에 산소공장 증설 착수", "2026-10-28")])
+        self.assertEqual(r["verdict"], "관련 보도 있음")
+        self.assertIn("신설", r["evidence"][0]["why"])
+        # 지명 표시가 없던 예전 낱말이면(지명이 사건 낱말로 쳐짐) 같은 기사로 '관련 보도 있음'이 됐다
+        old = dict(item, check={k: v for k, v in item["check"].items() if k != "places"})
+        self.assertEqual(self.one(old, [csr])["verdict"], "관련 보도 있음")
+
+    def test_places_join_the_generic_words_per_item(self):
+        rows = rpc.candidates([{"tier": "B", "watch": "해외 발주처 낙찰", "id": "bhopen:1:LS전선", "date": "2026-10-30", "company": "LS전선",
+                                "check": {"who": "LS전선", "terms": ["바레인", "입찰"], "alts": {}, "places": ["바레인", "공장"]}}], now=NOW)
+        self.assertEqual(rows[0]["generic"], ["미국", "공장", "계약", "바레인"])
+        self.assertEqual(rpc.candidates(ITEMS[:1], now=NOW)[0]["generic"], rpc.GENERIC)
+
     def test_bills_match_the_law_name_in_the_text(self):
         item = ITEMS[2] | {"check": {"who": "노동조합 및 노동관계조정법", "terms": ["개정안", "이종배"], "alts": {"개정안": ["개정안", "발의"]}}}
         r = self.one(item, [art("노동조합 불법행위 규율 신설…국힘 이종배 의원, 관련법 개정안 발의", "2026-10-27",
