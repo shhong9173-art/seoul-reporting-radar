@@ -220,6 +220,9 @@ def from_clue(x):
         return None
     company = companies[0]
     title = str(x.get("title") or "")
+    recall = recall_candidate(x, company, title)
+    if recall:
+        return recall
     dart = bool(re.search(r"rcpNo=\d{14}", str(x.get("url") or "")))
     if BODY_TITLE_FORMS.search(title) and dart:
         return body_pending(x, company, title)
@@ -241,6 +244,37 @@ def from_clue(x):
             "tier": x.get("tier"), "terms": terms, "alts": alts, "unit": unit, "numbers": sorted(nums), "ratios": sorted(ratios),
             "note": "특허 공개는 그 자체로 단독이 아니다 — 사업화·생산·수주 연결 확인 필요" if patent else None,
             "strength": 0.5 if patent else (3 if x.get("tier") == "취재 단서·단독 미확정" else 1)}
+
+
+# 국내 리콜 공지(자동차리콜센터): 차종으로 찾고, 제목에 회사·'리콜'(또는 결함 부품), 제목·요약에 차종이 있어야 같은 리콜 기사로 센다.
+# 10-31 운영: '기아, 10월 30일 리콜 공지 1건'(쏘렌토 저압연료라인, 중대리콜·화재위험)을 '기아 리콜'로 찾아 ICCU 리콜 재발 기사
+# (10-27·28)가 근거로 붙었다. 차종은 수집이 검색한 이름(목록 주소의 searchProductName) — 기사가 쓰는 짧은 이름이다.
+RECALL_ROW = re.compile(r"\[[^\]]+\]\s*(?P<model>[^\[\]]+?)\s+[-–]\s+(?P<rest>[^—\[]+)")
+RECALL_STOP = {"관련", "리콜", "제작결함", "결함", "중대리콜", "화재위험", "어셈블리"}
+
+
+def recall_candidate(x, company, title):
+    url = str(x.get("url") or "")
+    if "car.go.kr" not in url and "리콜센터" not in str(x.get("source") or ""):
+        return None
+    q = parse_qs(urlparse(url).query).get("searchProductName") or []
+    row = RECALL_ROW.search(title)
+    model = (q[0].strip() if q else "") or (row.group("model").split()[-1] if row else "")
+    if not model or model == company:
+        return None
+    # 결함 부품: 공지 줄의 앞 낱말 중 가장 긴 한글 낱말('저압연료라인 어셈블리 관련' → 저압연료라인, '2열 및 3열 전동시트 제어기' → 전동시트)
+    words = re.findall(r"[가-힣]{2,}", re.sub(r"\(.*?\)", " ", row.group("rest")))[:5] if row else []
+    words = [w for w in words if w not in RECALL_STOP and w != model]
+    part = max(words, key=len) if words else None
+    terms = [model, "리콜"] + ([part] if part and len(part) >= 3 else [])
+    day = article_day(x.get("published"))
+    return {"id": f"clue:{x.get('id')}", "kind": "리콜", "team": x.get("team"), "company": company, "title": title,
+            "url": url, "published": x.get("published"), "source": x.get("source"), "tier": x.get("tier"),
+            "terms": terms, "alts": {"리콜": ["리콜", "시정조치", "무상수리"]}, "unit": "", "numbers": [], "ratios": [],
+            "strict": True, "generic": [model], "must": [model],
+            **({"since": (day - dt.timedelta(days=3)).isoformat()} if day else {}),
+            "note": "리콜 공지 자체는 단독이 아니다 — 대상 대수·생산기간·국내외 같은 결함 반복 확인 필요",
+            "strength": 1}
 
 
 def body_pending(x, company, title):

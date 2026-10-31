@@ -101,6 +101,17 @@ class Views(unittest.TestCase):
     def clue(self, views, needle):
         return next(r for r in views["clues"]["items"] if needle in r["title"])
 
+    def test_recall_group_title_carries_the_first_notice_row(self):
+        # 10-31 운영 scoop.json publicSignals: 묶음 제목만으로는 차종·부품을 모른다
+        rows = v.from_scoop({"publicSignals": [{"id": "r1", "kind": "공개 리콜 공지", "title": "기아, 10월 30일 리콜 공지 1건", "companies": ["기아"],
+                                                  "details": ["[기아] 쏘렌토 - 저압연료라인 어셈블리 관련 리콜 중대리콜(화재위험)"],
+                                                  "published": "2026-10-30T00:00:00+09:00", "url": "https://car.go.kr/ri/stat/list.do?searchProductName=x"},
+                                                 {"id": "r2", "kind": "공개 리콜 공지", "title": "현대차, 10월 14일 리콜 공지 2건", "companies": ["현대차"],
+                                                  "details": ["[현대] 아이오닉9 - 전동시트 제어기 관련 리콜", "[현대] 팰리세이드 - 같은 원인"],
+                                                  "published": "2026-10-14T00:00:00+09:00", "url": "https://car.go.kr/ri/stat/list.do"}]})
+        self.assertEqual([r["title"] for r in rows], ["기아, 10월 30일 리콜 공지 1건 — [기아] 쏘렌토 - 저압연료라인 어셈블리 관련 리콜 중대리콜(화재위험)",
+                                                     "현대차, 10월 14일 리콜 공지 2건 — [현대] 아이오닉9 - 전동시트 제어기 관련 리콜 외 1건"])
+
     def test_registry_names_and_exact_beats_pick_the_team(self):
         views = self.build()
         self.assertEqual(self.clue(views, "엘에스일렉트릭")["team"], "전력·에너지")
