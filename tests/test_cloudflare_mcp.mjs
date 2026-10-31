@@ -11,7 +11,7 @@ import { publicationDate, verifyEvidence } from '../cloudflare/evidence.mjs';
 import { allowedUrl } from '../cloudflare/live_tools.mjs';
 import { ageNote, handleIngest, weekdayHours } from '../cloudflare/screen.mjs';
 import { dueAt, nextSlot, runSchedule } from '../cloudflare/dispatch.mjs';
-import { factParts, groupSame, splitTop } from '../cloudflare/board.mjs';
+import { boardKey, factParts, groupSame, splitTop } from '../cloudflare/board.mjs';
 import { background, billHint, clipAt, convergence, convergenceRows, countForms, hint, insolvencyWord, usRecallHint, usRecallModels, kepcoHint, localWord, radarItems, siteCity, stackHint, workforceHint } from '../cloudflare/digest.mjs';
 
 const ORIGIN = 'https://seoul-reporting-radar.shhong9173.workers.dev';
@@ -2124,15 +2124,34 @@ test('reporter board /r/<token>: secret path only, no scripts, no referrer, card
   const html = await r.text();
   assert.doesNotMatch(html, /<script/i);
   assert.doesNotMatch(html, new RegExp(TOKEN));      // 토큰은 화면에 안 찍는다(링크는 ?hours= 상대 주소)
-  assert.match(html, /<article class="card tA">\s*<div class="top"><span class="tier">A<\/span><span class="pv pnew">미보도 후보<\/span><span class="watch">지자체 고시·공고<\/span>/);
+  assert.match(html, /<article class="rb-card rb-tA">\s*<div class="rb-top"><span class="rb-tier">A<\/span><span class="rb-pv pnew">미보도 후보<\/span><span class="rb-watch">지자체 고시·공고<\/span>/);
   assert.match(html, /공유수면 점용 허가 &lt;b&gt;/);  // 원문 글자는 이스케이프
-  assert.match(html, /<a class="btn" href="https:\/\/www\.dangjin\.go\.kr\/a\?b=1&amp;c=2" target="_blank" rel="noopener noreferrer">원문 열기<\/a>/);
+  assert.match(html, /<a class="rb-btn" href="https:\/\/www\.dangjin\.go\.kr\/a\?b=1&amp;c=2" target="_blank" rel="noopener noreferrer">원문 열기<\/a>/);
   assert.match(html, /보도 대조\(자동 [^)]*\): 미보도 후보<\/b> · “현대제철 당진”로 2026-10-28 이후 관련 기사를 못 찾음/);
   assert.match(html, /앞선 기사: 항목 날짜 전이라 판정에 안 셈/);
   assert.match(html, /<summary>Claude에 넘길 id<\/summary><code>local:당진시:2<\/code>/);   // id는 접어 둔다
-  assert.match(html, /<a class="chip on" href="\?hours=72">72시간<\/a>/);
+  assert.match(html, /<a class="rb-chip on" href="\?hours=72">72시간<\/a>/);
   assert.match(html, /<div><b>1<\/b><span>A 단독 후보·직접 변화<\/span><\/div>/);
   assert.equal((await get(`/r/${TOKEN}/?q=${encodeURIComponent('없는회사')}`)).status, 200);
+  // 홈페이지 탭 조각: 읽기 전용 열쇠(토큰에서 HMAC)로만, 홈페이지 주소에만 CORS. 토큰 자체로는 안 열린다.
+  const key = await boardKey(env);
+  assert.match(key, /^[A-Za-z0-9_-]{32}$/);
+  assert.notEqual(key, TOKEN);
+  assert.match(html, new RegExp(`href="https://shhong9173-art\\.github\\.io/seoul-reporting-radar/#rk=${key}" rel="noreferrer">홈페이지에 연결</a>`));
+  assert.equal((await get(`/b/${TOKEN}`)).status, 404);
+  assert.equal((await get('/b/wrong-key-0123456789abcdef0123')).status, 404);
+  const part = await get(`/b/${key}?hours=72`, { headers: { Origin: 'https://shhong9173-art.github.io' } });
+  assert.equal(part.status, 200);
+  assert.equal(part.headers.get('Access-Control-Allow-Origin'), 'https://shhong9173-art.github.io');
+  assert.match(part.headers.get('Cache-Control'), /no-store/);
+  const frag = await part.text();
+  assert.doesNotMatch(frag, /<script|<html/i);
+  assert.match(frag, /^<style>/);
+  assert.match(frag, /<div class="rb-sum" data-a="1" data-b="0" data-new="1">/);
+  assert.match(frag, /<span class="rb-pv pnew">미보도 후보<\/span>/);
+  assert.doesNotMatch(frag, new RegExp(key));
+  assert.equal((await get(`/b/${key}`, { headers: { Origin: 'https://evil.example' } })).headers.get('Access-Control-Allow-Origin'), null);
+  assert.equal((await get(`/b/${key}`, { method: 'POST', headers: { Origin: 'https://shhong9173-art.github.io' } })).status, 405);
   // 숫자만 다른 같은 곳 같은 유형은 한 카드
   const row = (n) => ({ tier: 'B', watch: '굴뚝 측정(공장 가동 신호)', company: '현대제철', id: `stk:${n}`, fact: `현대제철㈜포항1공장 배출구 ${n}번이 굴뚝 자동측정 목록에서 2번 연속 빠짐 — 설비 폐쇄·측정 대상 변경일 수 있음(회사 확인)` });
   assert.deepEqual(groupSame([row(10), row(2), row(5), { ...row(7), company: '포스코' }], () => undefined).map((g) => g.length), [3, 1]);

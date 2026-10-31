@@ -14,7 +14,7 @@ const HEADERS = {
 export const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const when = (d) => (!d ? '' : String(d).length > 10 ? kstStamp(d) : String(d));
 const safeUrl = (u) => (/^https?:\/\//i.test(String(u ?? '')) ? String(u) : '');
-const link = (u, label, cls = 'btn') => (safeUrl(u) ? `<a class="${cls}" href="${esc(u)}" target="_blank" rel="noopener noreferrer">${esc(label)}</a>` : '');
+const link = (u, label, cls = 'rb-btn') => (safeUrl(u) ? `<a class="${cls}" href="${esc(u)}" target="_blank" rel="noopener noreferrer">${esc(label)}</a>` : '');
 
 // 괄호·낫표 안의 구분자는 건너뛰고 바깥의 구분자에서만 자른다('사유 '…' · …)' 같은 괄호 안 ' · '가 줄을 깨지 않게).
 export function splitTop(text, sep) {
@@ -61,8 +61,8 @@ function pressHtml(r, stamp) {
       : `${qs}로 찾은 기사가 있음 — 같은 사건인지 열어 볼 것`;
   const ev = r.evidence ?? [];
   const shown = [...ev.filter((e) => !e.before).slice(0, 2), ...ev.filter((e) => e.before).slice(0, 1)];
-  return `<div class="press ${PRESS[r.verdict] ?? 'punk'}"><b>보도 대조(자동 ${esc(stamp)}): ${esc(r.verdict)}</b> · ${msg}`
-    + (shown.length ? `<ul>${shown.map((e) => `<li>${esc(e.date ?? '날짜?')} · ${esc(e.channel ?? '')} · ${safeUrl(e.url) ? link(e.url, e.title ?? '기사', 'plain') : esc(e.title ?? '')}<span class="muted">${esc(evidenceNote(e, r.verdict))}</span></li>`).join('')}</ul>` : '')
+  return `<div class="rb-press ${PRESS[r.verdict] ?? 'punk'}"><b>보도 대조(자동 ${esc(stamp)}): ${esc(r.verdict)}</b> · ${msg}`
+    + (shown.length ? `<ul>${shown.map((e) => `<li>${esc(e.date ?? '날짜?')} · ${esc(e.channel ?? '')} · ${safeUrl(e.url) ? link(e.url, e.title ?? '기사', 'rb-plain') : esc(e.title ?? '')}<span class="rb-muted">${esc(evidenceNote(e, r.verdict))}</span></li>`).join('')}</ul>` : '')
     + '</div>';
 }
 
@@ -84,14 +84,14 @@ function cardHtml(g, d) {
   const { title, details, notes } = factParts(x.fact);
   const who = x.company && !title.includes(String(x.company).split('·')[0]) ? `${x.company} — ` : '';
   const more = g.slice(1);
-  return `<article class="card t${esc(x.tier)}">
-<div class="top"><span class="tier">${esc(x.tier)}</span>${v ? `<span class="pv ${PRESS[v] ?? 'punk'}">${esc(v)}</span>` : ''}<span class="watch">${esc(x.watch)}</span><span class="date">${esc(when(x.date))}</span></div>
+  return `<article class="rb-card rb-t${esc(x.tier)}">
+<div class="rb-top"><span class="rb-tier">${esc(x.tier)}</span>${v ? `<span class="rb-pv ${PRESS[v] ?? 'punk'}">${esc(v)}</span>` : ''}<span class="rb-watch">${esc(x.watch)}</span><span class="rb-date">${esc(when(x.date))}</span></div>
 <h3>${esc(who)}${esc(title)}</h3>
-${details.length ? `<ul class="facts">${details.map((t) => `<li>${esc(t)}</li>`).join('')}</ul>` : ''}
-${more.length ? `<p class="same">같은 곳 같은 유형 ${more.length}건 더</p><ul class="facts">${more.map((y) => `<li>${esc(factParts(y.fact).title)}</li>`).join('')}</ul>` : ''}
-${notes.length ? `<p class="caution">${esc([...new Set(notes)].join(' / '))}</p>` : ''}
+${details.length ? `<ul class="rb-facts">${details.map((t) => `<li>${esc(t)}</li>`).join('')}</ul>` : ''}
+${more.length ? `<p class="rb-same">같은 곳 같은 유형 ${more.length}건 더</p><ul class="rb-facts">${more.map((y) => `<li>${esc(factParts(y.fact).title)}</li>`).join('')}</ul>` : ''}
+${notes.length ? `<p class="rb-caution">${esc([...new Set(notes)].join(' / '))}</p>` : ''}
 ${pressHtml(d.checked.get(String(x.id)), kstStamp(d.press?.generatedAt))}
-<div class="foot">${link(x.url, '원문 열기')}<details><summary>Claude에 넘길 id</summary><code>${g.map((y) => esc(y.id)).join('<br>')}</code><span class="muted"> · 자세히: ${esc(x.tool ?? '')}${d.judged.get(x.id) ? ` · 판정 ${esc(d.judged.get(x.id))}` : ''}</span></details></div>
+<div class="rb-foot">${link(x.url, '원문 열기')}<details><summary>Claude에 넘길 id</summary><code>${g.map((y) => esc(y.id)).join('<br>')}</code><span class="rb-muted"> · 자세히: ${esc(x.tool ?? '')}${d.judged.get(x.id) ? ` · 판정 ${esc(d.judged.get(x.id))}` : ''}</span></details></div>
 </article>`;
 }
 
@@ -99,89 +99,129 @@ function tierSection(t, label, d) {
   const rows = d.tiers[t];
   const groups = groupSame(rows, d.pressOf);
   const n = (v) => rows.filter((x) => d.pressOf(x) === v).length;
-  const sum = rows.length ? `<span class="pill pnew">미보도 후보 ${n('미보도 후보')}</span><span class="pill pcov">관련 보도 있음 ${n('관련 보도 있음') + n('같은 수치 선행')}</span><span class="pill punk">미확인 ${n('미확인')}</span><span class="pill">대조 전 ${rows.filter((x) => !d.pressOf(x)).length}</span>` : '';
-  return `<section><h2 class="h${t}">${esc(t)} · ${esc(label)} <span class="count">${rows.length}건</span></h2>${sum ? `<div class="pills">${sum}</div>` : ''}
-${groups.length ? groups.map((g) => cardHtml(g, d)).join('\n') : '<p class="empty">이 기간 새 항목 없음</p>'}</section>`;
+  const sum = rows.length ? `<span class="rb-pill pnew">미보도 후보 ${n('미보도 후보')}</span><span class="rb-pill pcov">관련 보도 있음 ${n('관련 보도 있음') + n('같은 수치 선행')}</span><span class="rb-pill punk">미확인 ${n('미확인')}</span><span class="rb-pill">대조 전 ${rows.filter((x) => !d.pressOf(x)).length}</span>` : '';
+  return `<section><h2 class="rb-h${t}">${esc(t)} · ${esc(label)} <span class="rb-count">${rows.length}건</span></h2>${sum ? `<div class="rb-pills">${sum}</div>` : ''}
+${groups.length ? groups.map((g) => cardHtml(g, d)).join('\n') : '<p class="rb-empty">이 기간 새 항목 없음</p>'}</section>`;
 }
 
 function convHtml(d) {
   if (!d.conv.length) return '';
   const groups = d.conv.slice(0, 6).map((g) => {
     const { rows, more } = convergenceRows(g);
-    return `<article class="card conv"><h3>${g.fresh ? '<span class="pv pnew">새 항목</span> ' : ''}${esc(g.company)} · ${esc(g.place)} <span class="muted">감시 ${g.watches.length}곳이 가리킴</span></h3>
-<p class="muted small">${esc(g.watches.join(' · '))}${d.coveredGroup(g) ? ' — 새 신호는 모두 관련 보도 있음(같은 사건인지 열어 볼 것)' : ''}</p>
-<ul class="convrows">${rows.map((x) => `<li>${x.background ? '<span class="tag bg">배경</span>' : `<span class="tag t${esc(x.tier)}">${esc(x.tier)}</span>${d.pressOf(x) ? `<span class="pv ${PRESS[d.pressOf(x)] ?? 'punk'}">${esc(d.pressOf(x))}</span>` : ''}`}<span class="date">${esc(when(x.date))}</span> ${esc(x.watch)}: ${esc(clipAt(x.fact, 140))}${safeUrl(x.url) ? ` ${link(x.url, '원문', 'plain')}` : ''}</li>`).join('')}</ul>
-${more ? `<p class="muted small">같은 묶음 ${more}줄 더</p>` : ''}</article>`;
+    return `<article class="rb-card rb-conv"><h3>${g.fresh ? '<span class="rb-pv pnew">새 항목</span> ' : ''}${esc(g.company)} · ${esc(g.place)} <span class="rb-muted">감시 ${g.watches.length}곳이 가리킴</span></h3>
+<p class="rb-muted rb-small">${esc(g.watches.join(' · '))}${d.coveredGroup(g) ? ' — 새 신호는 모두 관련 보도 있음(같은 사건인지 열어 볼 것)' : ''}</p>
+<ul class="rb-convrows">${rows.map((x) => `<li>${x.background ? '<span class="rb-tag bg">배경</span>' : `<span class="rb-tag t${esc(x.tier)}">${esc(x.tier)}</span>${d.pressOf(x) ? `<span class="rb-pv ${PRESS[d.pressOf(x)] ?? 'punk'}">${esc(d.pressOf(x))}</span>` : ''}`}<span class="rb-date">${esc(when(x.date))}</span> ${esc(x.watch)}: ${esc(clipAt(x.fact, 140))}${safeUrl(x.url) ? ` ${link(x.url, '원문', 'rb-plain')}` : ''}</li>`).join('')}</ul>
+${more ? `<p class="rb-muted rb-small">같은 묶음 ${more}줄 더</p>` : ''}</article>`;
   }).join('\n');
-  return `<section><h2 class="hX">겹친 신호 <span class="count">${d.conv.length}곳</span></h2>
-<p class="lead">최근 14일, 같은 출입처·같은 시군을 감시 여러 곳이 가리킨 곳. 하나씩은 공개 자료지만 함께 보면 투자·가동 변화 단서다. 같은 시군 이름으로 묶었을 뿐 같은 공장·사업이라는 확인은 아니다.</p>
-${groups}${d.conv.length > 6 ? `<p class="muted">… 남은 ${d.conv.length - 6}곳(회사로 좁히기)</p>` : ''}</section>`;
+  return `<section><h2 class="rb-hX">겹친 신호 <span class="rb-count">${d.conv.length}곳</span></h2>
+<p class="rb-lead">최근 14일, 같은 출입처·같은 시군을 감시 여러 곳이 가리킨 곳. 하나씩은 공개 자료지만 함께 보면 투자·가동 변화 단서다. 같은 시군 이름으로 묶었을 뿐 같은 공장·사업이라는 확인은 아니다.</p>
+${groups}${d.conv.length > 6 ? `<p class="rb-muted">… 남은 ${d.conv.length - 6}곳(회사로 좁히기)</p>` : ''}</section>`;
 }
 
 function reverseHtml(d) {
   if (!d.firsts.length) return '';
-  return `<section><h2 class="hX">경쟁지 단독 역추적 <span class="count">${d.firsts.length}건</span></h2>
-<p class="lead">최근 14일 경쟁지 [단독] 가운데 레이더가 먼저 잡은 후보(자동). 같은 사실인지는 기자가 판정한다.</p>
-${d.firsts.slice(0, 6).map((a) => `<article class="card rev"><div class="top"><span class="watch">${esc(a.source ?? '?')}</span><span class="date">${esc(kstStamp(a.published))}</span></div>
+  return `<section><h2 class="rb-hX">경쟁지 단독 역추적 <span class="rb-count">${d.firsts.length}건</span></h2>
+<p class="rb-lead">최근 14일 경쟁지 [단독] 가운데 레이더가 먼저 잡은 후보(자동). 같은 사실인지는 기자가 판정한다.</p>
+${d.firsts.slice(0, 6).map((a) => `<article class="rb-card rb-rev"><div class="rb-top"><span class="rb-watch">${esc(a.source ?? '?')}</span><span class="rb-date">${esc(kstStamp(a.published))}</span></div>
 <h3>${esc(a.title ?? '')}</h3>
 <p>레이더가 <b>${esc(a.best.leadHours)}시간 먼저</b>: ${esc(kstStamp(a.best.seen))} ${esc(a.best.label)} — ${esc(clipAt(a.best.text ?? '', 140))}</p>
-<div class="foot"><details><summary>Claude에 넘길 id</summary><code>기사 ${esc(a.articleId)}<br>레이더 ${esc(a.best.id)}</code></details></div></article>`).join('\n')}</section>`;
+<div class="rb-foot"><details><summary>Claude에 넘길 id</summary><code>기사 ${esc(a.articleId)}<br>레이더 ${esc(a.best.id)}</code></details></div></article>`).join('\n')}</section>`;
 }
 
-export function boardPage(d, { hours, q, minor }) {
+// 화면 모양(카드)은 기자 전용 화면(/r)과 홈페이지 '단독감·미보도' 탭(/b 조각) 둘이 같이 쓴다. 홈페이지 style.css의 .card·.summary·.tag와
+// 부딪치지 않게 모든 클래스에 rb- 를 붙이고 규칙은 .rb 안으로 한정한다. 어두운 화면은 단독 화면에서만(홈페이지는 밝은 화면뿐).
+const CSS_RULES = `
+.rb{--fg:#1c2228;--mute:#5f6a74;--line:#dfe2e6;--card:#fff;--a:#b3261e;--b:#1f5fa8;--c:#6b7480;--new:#fff0a6;--newfg:#5a4300;--cov:#e8ecef;--unk:#fde7d6;--link:#0b5cad;color:var(--fg);font-size:15px;line-height:1.6}
+.rb a{color:var(--link)}.rb h2{font-size:17px;margin:0 0 6px;padding-bottom:4px;border-bottom:2px solid var(--line);letter-spacing:0}.rb h3{font-size:16px;margin:6px 0 4px;line-height:1.45;letter-spacing:0}
+.rb section{margin:22px 0}.rb .rb-count{font-weight:400;color:var(--mute);font-size:14px}
+.rb .rb-hA{color:var(--a);border-color:var(--a)}.rb .rb-hB{color:var(--b);border-color:var(--b)}.rb .rb-hC{color:var(--c)}
+.rb .rb-sum{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:0 0 14px}.rb .rb-sum div{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 10px}.rb .rb-sum b{display:block;font-size:22px;line-height:1.2}.rb .rb-sum span{font-size:12px;color:var(--mute)}
+.rb .rb-warn{background:var(--unk);border-radius:10px;padding:8px 12px;margin:0 0 14px;font-size:14px}.rb .rb-warn ul{margin:4px 0 0;padding-left:18px}
+.rb .rb-lead{color:var(--mute);font-size:14px;margin:4px 0 8px}.rb .rb-pills{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}.rb .rb-pill{font-size:12px;border-radius:999px;padding:1px 8px;background:var(--cov)}
+.rb .rb-card{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--line);border-radius:10px;padding:10px 12px;margin:10px 0;overflow-wrap:anywhere;cursor:auto;transform:none}
+.rb .rb-card:hover{transform:none}.rb .rb-tA{border-left-color:var(--a)}.rb .rb-tB{border-left-color:var(--b)}.rb .rb-tC{border-left-color:var(--c)}
+.rb .rb-top{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12px;color:var(--mute)}.rb .rb-tier{font-weight:800;color:var(--fg)}.rb .rb-tA .rb-tier{color:var(--a)}.rb .rb-tB .rb-tier{color:var(--b)}
+.rb .rb-watch{background:var(--cov);border-radius:4px;padding:0 6px}.rb .rb-date{margin-left:auto}.rb .rb-convrows .rb-date{margin:0 4px}
+.rb .rb-pv{font-size:12px;border-radius:4px;padding:0 6px;font-weight:700}.rb .pnew{background:var(--new);color:var(--newfg)}.rb .pcov{background:var(--cov)}.rb .punk{background:var(--unk)}
+.rb .rb-facts{margin:4px 0;padding-left:18px}.rb .rb-facts li{margin:1px 0}.rb .rb-same,.rb .rb-caution{margin:6px 0;font-size:13px;color:var(--mute)}
+.rb .rb-press{margin:8px 0 4px;font-size:13px;border-radius:8px;padding:6px 8px;background:var(--cov)}.rb .rb-press.pnew{background:var(--new);color:var(--newfg)}.rb .rb-press.punk{background:var(--unk)}.rb .rb-press ul{margin:4px 0 0;padding-left:18px}
+.rb .rb-foot{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:6px}.rb .rb-btn{display:inline-block;border:1px solid var(--line);border-radius:6px;padding:2px 10px;text-decoration:none;font-size:14px}
+.rb details{font-size:12px;color:var(--mute)}.rb summary{cursor:pointer}.rb code{font-size:12px}.rb .rb-muted{color:var(--mute)}.rb .rb-small{font-size:13px}.rb .rb-empty{color:var(--mute)}
+.rb .rb-convrows{list-style:none;padding:0;margin:6px 0}.rb .rb-convrows li{margin:4px 0;font-size:14px}.rb .rb-tag{font-size:11px;font-weight:800;border-radius:4px;padding:0 5px;margin-right:4px;background:var(--cov)}.rb .rb-tag.tA{color:var(--a)}.rb .rb-tag.tB{color:var(--b)}.rb .rb-tag.bg{font-weight:400}
+.rb .rb-chip{border:1px solid var(--line);border-radius:999px;padding:3px 11px;color:var(--fg);text-decoration:none;background:var(--card);font-size:14px}.rb .rb-chip.on{border-color:var(--fg);font-weight:700}
+@media (max-width:520px){.rb .rb-sum{grid-template-columns:repeat(2,1fr)}}`;
+const CSS_DARK = '@media (prefers-color-scheme:dark){.rb{--fg:#e6e9ec;--mute:#9aa5b0;--line:#2c3339;--card:#1c2125;--a:#ff8a80;--b:#8ab8ff;--c:#a5adb6;--new:#5a4b00;--newfg:#ffe9a0;--cov:#2a3137;--unk:#4a2f1c;--link:#8ab8ff}}';
+
+// 맨 위 숫자·수집 상태·A·B·겹친 신호·역추적·C(접힘). cLink: C 펼치기 링크(단독 화면) 또는 없음(홈페이지는 C를 접은 채 숫자만).
+export function boardSections(d, { cLink = '' } = {}) {
   const all = [...d.tiers.A, ...d.tiers.B];
   const unreported = all.filter((x) => d.pressOf(x) === '미보도 후보').length;
   const health = d.health.map((h) => h.replace(/^- /, ''));
-  const chip = (label, params, on) => `<a class="chip${on ? ' on' : ''}" href="?${new URLSearchParams(params).toString()}">${esc(label)}</a>`;
-  const base = { ...(q ? { q } : {}), ...(minor ? { minor: '1' } : {}) };
-  const nav = [chip('24시간', { ...base, hours: 24 }, d.hours === 24), chip('72시간', { ...base, hours: 72 }, d.hours === 72), chip('7일', { ...base, hours: 168 }, d.hours === 168),
-    chip(minor ? '참고(C) 숨기기' : '참고(C) 보기', { ...(q ? { q } : {}), ...(hours ? { hours } : {}), ...(minor ? {} : { minor: '1' }) }, false)].join('');
   const cRows = d.tiers.C;
   const hiddenN = Object.values(d.hiddenBy).reduce((a, b) => a + b, 0);
-  return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer"><title>오늘의 레이더 · 기자 전용</title>
-<style>
-:root{--bg:#f6f6f3;--fg:#1c2228;--mute:#5f6a74;--line:#dfe2e6;--card:#fff;--a:#b3261e;--b:#1f5fa8;--c:#6b7480;--new:#fff0a6;--newfg:#5a4300;--cov:#e8ecef;--unk:#fde7d6;--link:#0b5cad}
-@media (prefers-color-scheme:dark){:root{--bg:#141719;--fg:#e6e9ec;--mute:#9aa5b0;--line:#2c3339;--card:#1c2125;--a:#ff8a80;--b:#8ab8ff;--c:#a5adb6;--new:#5a4b00;--newfg:#ffe9a0;--cov:#2a3137;--unk:#4a2f1c;--link:#8ab8ff}}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.6 -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif}
-main{max-width:860px;margin:0 auto;padding:16px}a{color:var(--link)}
-h1{font-size:21px;margin:0}.stamp{color:var(--mute);margin:2px 0 12px;font-size:14px}
-.nav{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 14px}.chip{border:1px solid var(--line);border-radius:999px;padding:3px 11px;color:var(--fg);text-decoration:none;background:var(--card);font-size:14px}.chip.on{border-color:var(--fg);font-weight:700}
-form{display:flex;gap:6px}input{font:inherit;font-size:14px;padding:3px 8px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--fg);width:140px}button{font:inherit;font-size:14px;padding:3px 10px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--fg)}
-.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:0 0 14px}.summary div{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 10px}.summary b{display:block;font-size:22px;line-height:1.2}.summary span{font-size:12px;color:var(--mute)}
-.warn{background:var(--unk);border-radius:10px;padding:8px 12px;margin:0 0 14px;font-size:14px}.warn ul{margin:4px 0 0;padding-left:18px}
-section{margin:22px 0}h2{font-size:17px;margin:0 0 6px;padding-bottom:4px;border-bottom:2px solid var(--line)}h2 .count{font-weight:400;color:var(--mute);font-size:14px}
-h2.hA{color:var(--a);border-color:var(--a)}h2.hB{color:var(--b);border-color:var(--b)}h2.hC{color:var(--c)}
-.lead{color:var(--mute);font-size:14px;margin:4px 0 8px}.pills{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}.pill{font-size:12px;border-radius:999px;padding:1px 8px;background:var(--cov)}
-.card{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--line);border-radius:10px;padding:10px 12px;margin:10px 0;overflow-wrap:anywhere}
-.card.tA{border-left-color:var(--a)}.card.tB{border-left-color:var(--b)}.card.tC{border-left-color:var(--c)}
-.top{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12px;color:var(--mute)}.tier{font-weight:800;color:var(--fg)}.card.tA .tier{color:var(--a)}.card.tB .tier{color:var(--b)}
-.watch{background:var(--cov);border-radius:4px;padding:0 6px}.date{margin-left:auto}.convrows .date{margin:0 4px}
-.pv{font-size:12px;border-radius:4px;padding:0 6px;font-weight:700}.pnew{background:var(--new);color:var(--newfg)}.pcov{background:var(--cov)}.punk{background:var(--unk)}
-h3{font-size:16px;margin:6px 0 4px;line-height:1.45}.facts{margin:4px 0;padding-left:18px}.facts li{margin:1px 0}
-.same{margin:6px 0 0;font-size:13px;color:var(--mute)}.caution{margin:6px 0;font-size:13px;color:var(--mute)}
-.press{margin:8px 0 4px;font-size:13px;border-radius:8px;padding:6px 8px;background:var(--cov)}.press.pnew{background:var(--new);color:var(--newfg)}.press.punk{background:var(--unk)}.press.none{background:none;padding:0;color:var(--mute)}.press ul{margin:4px 0 0;padding-left:18px}
-.foot{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:6px}.btn{display:inline-block;border:1px solid var(--line);border-radius:6px;padding:2px 10px;text-decoration:none;font-size:14px}
-details{font-size:12px;color:var(--mute)}summary{cursor:pointer}code{font-size:12px}.muted{color:var(--mute)}.small{font-size:13px}.empty{color:var(--mute)}
-.convrows{list-style:none;padding:0;margin:6px 0}.convrows li{margin:4px 0;font-size:14px}.tag{font-size:11px;font-weight:800;border-radius:4px;padding:0 5px;margin-right:4px;background:var(--cov)}.tag.tA{color:var(--a)}.tag.tB{color:var(--b)}.tag.bg{font-weight:400}
-.plain{color:var(--link)}footer{color:var(--mute);font-size:13px;margin:28px 0 8px}
-@media (max-width:520px){.summary{grid-template-columns:repeat(2,1fr)}}
-</style></head><body><main>
-<h1>오늘의 레이더</h1>
-<p class="stamp">${esc(kstStamp(d.now.toISOString()))} 기준 최근 ${esc(d.hours)}시간${d.monday && d.defaultHours ? '(월요일: 주말 포함)' : ''} · 기자 전용 감시 ${WATCHES.length}개${q ? ` · “${esc(q)}”로 좁힘` : ''}</p>
-<div class="nav">${nav}<form method="get">${hours ? `<input type="hidden" name="hours" value="${esc(hours)}">` : ''}${minor ? '<input type="hidden" name="minor" value="1">' : ''}<input name="q" value="${esc(q)}" placeholder="회사·낱말"><button>찾기</button></form></div>
-<div class="summary"><div><b>${d.tiers.A.length}</b><span>A 단독 후보·직접 변화</span></div><div><b>${d.tiers.B.length}</b><span>B 확인할 공식 변화</span></div><div><b>${unreported}</b><span>자동 대조 미보도 후보</span></div><div><b>${health.length}</b><span>수집 문제</span></div></div>
-${health.length ? `<div class="warn"><b>먼저 볼 것: 수집 상태</b> — 실패한 곳의 0건은 '없음'이 아니라 미확인<ul>${health.map((h) => `<li>${esc(h)}</li>`).join('')}</ul></div>` : ''}
+  return `<div class="rb-sum" data-a="${d.tiers.A.length}" data-b="${d.tiers.B.length}" data-new="${unreported}"><div><b>${d.tiers.A.length}</b><span>A 단독 후보·직접 변화</span></div><div><b>${d.tiers.B.length}</b><span>B 확인할 공식 변화</span></div><div><b>${unreported}</b><span>자동 대조 미보도 후보</span></div><div><b>${health.length}</b><span>수집 문제</span></div></div>
+${health.length ? `<div class="rb-warn"><b>먼저 볼 것: 수집 상태</b> — 실패한 곳의 0건은 '없음'이 아니라 미확인<ul>${health.map((h) => `<li>${esc(h)}</li>`).join('')}</ul></div>` : ''}
 ${tierSection('A', '단독 후보·직접 변화', d)}
 ${tierSection('B', '확인할 공식 변화', d)}
 ${convHtml(d)}
 ${reverseHtml(d)}
-${minor ? tierSection('C', '참고', d) : (cRows.length ? `<section><h2 class="hC">C · 참고 <span class="count">${cRows.length}건</span></h2><p class="lead">소비자 소송·사이트 공통 문구·기보도 후보 등. ${chip('펼쳐 보기', { ...(q ? { q } : {}), ...(hours ? { hours } : {}), minor: '1' }, false)}</p></section>` : '')}
-${hiddenN ? `<p class="muted small">판정한 ${hiddenN}건은 숨김(${esc(Object.entries(d.hiddenBy).map(([v, n]) => `${v} ${n}`).join(' · '))})</p>` : ''}
-<footer><details><summary>읽는 법·규칙</summary><p>모두 자동 수집 단계다. A도 단독 확정이 아니다 — 원문 확인 → 보도 대조(낱말 바꿔 2~3번) → 회사 확인. 보도 대조(자동)는 네이버 뉴스 API·빙·구글에서 항목 날짜 3일 전부터 찾은 결과다. '미보도 후보'도 단독 판정이 아니고, '관련 보도 있음'은 같은 사건인지 열어 봐야 한다. 채널 실패는 미확인.</p>
-<p>다 본 항목은 Claude에 id를 주고 "봤음"으로 표시하면 다음부터 안 뜬다(candidate_feedback).</p></details>
+${d.showC ? tierSection('C', '참고', d) : (cRows.length ? `<section><h2 class="rb-hC">C · 참고 <span class="rb-count">${cRows.length}건</span></h2><p class="rb-lead">소비자 소송·사이트 공통 문구·기보도 후보 등.${cLink ? ` ${cLink}` : ''}</p></section>` : '')}
+${hiddenN ? `<p class="rb-muted rb-small">판정한 ${hiddenN}건은 숨김(${esc(Object.entries(d.hiddenBy).map(([v, n]) => `${v} ${n}`).join(' · '))})</p>` : ''}
+<details class="rb-rules"><summary>읽는 법·규칙</summary><p>모두 자동 수집 단계다. A도 단독 확정이 아니다 — 원문 확인 → 보도 대조(낱말 바꿔 2~3번) → 회사 확인. 보도 대조(자동)는 네이버 뉴스 API·빙·구글에서 항목 날짜 3일 전부터 찾은 결과다. '미보도 후보'도 단독 판정이 아니고, '관련 보도 있음'은 같은 사건인지 열어 봐야 한다. 채널 실패는 미확인.</p>
+<p>다 본 항목은 Claude에 id를 주고 "봤음"으로 표시하면 다음부터 안 뜬다(candidate_feedback).</p></details>`;
+}
+
+// 홈페이지 탭 연결용 읽기 전용 열쇠: MCP 토큰에서 HMAC으로 뽑는다(새 비밀 등록 없이). 이 열쇠로는 이 화면 조각만 읽힌다 —
+// 커넥터·저장소 쓰기·수집기 전송은 안 된다. 바꾸려면 BOARD_KEY_LABEL을 올린다(예전 열쇠는 바로 404).
+const BOARD_KEY_LABEL = 'board-read-v1';
+export async function boardKey(env) {
+  const token = env?.MCP_ACCESS_TOKEN;
+  if (!token) return '';
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(token), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const sig = new Uint8Array(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(BOARD_KEY_LABEL)));
+  return btoa(String.fromCharCode(...sig)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '').slice(0, 32);
+}
+export const HOMEPAGE = 'https://shhong9173-art.github.io';
+const HOMEPAGE_PATH = `${HOMEPAGE}/seoul-reporting-radar/`;
+
+export function boardPage(d, { hours, q, minor, key = '' }) {
+  const chip = (label, params, on) => `<a class="rb-chip${on ? ' on' : ''}" href="?${new URLSearchParams(params).toString()}">${esc(label)}</a>`;
+  const base = { ...(q ? { q } : {}), ...(minor ? { minor: '1' } : {}) };
+  const nav = [chip('24시간', { ...base, hours: 24 }, d.hours === 24), chip('72시간', { ...base, hours: 72 }, d.hours === 72), chip('7일', { ...base, hours: 168 }, d.hours === 168),
+    chip(minor ? '참고(C) 숨기기' : '참고(C) 보기', { ...(q ? { q } : {}), ...(hours ? { hours } : {}), ...(minor ? {} : { minor: '1' }) }, false)].join('');
+  const cLink = chip('펼쳐 보기', { ...(q ? { q } : {}), ...(hours ? { hours } : {}), minor: '1' }, false);
+  return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer"><title>오늘의 레이더 · 기자 전용</title>
+<style>${CSS_RULES}
+${CSS_DARK}
+*{box-sizing:border-box}body{margin:0;background:#f6f6f3;font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif}
+@media (prefers-color-scheme:dark){body{background:#141719}}
+main{max-width:860px;margin:0 auto;padding:16px}.rb h1{font-size:21px;margin:0}.rb .rb-stamp{color:var(--mute);margin:2px 0 12px;font-size:14px}
+.rb .rb-nav{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 14px}.rb form{display:flex;gap:6px}
+.rb input{font:inherit;font-size:14px;padding:3px 8px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--fg);width:140px}.rb button{font:inherit;font-size:14px;padding:3px 10px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--fg)}
+.rb footer{color:var(--mute);font-size:13px;margin:28px 0 8px}.rb .rb-link{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:13px}
+</style></head><body><main class="rb">
+<h1>오늘의 레이더</h1>
+<p class="rb-stamp">${esc(kstStamp(d.now.toISOString()))} 기준 최근 ${esc(d.hours)}시간${d.monday && d.defaultHours ? '(월요일: 주말 포함)' : ''} · 기자 전용 감시 ${WATCHES.length}개${q ? ` · “${esc(q)}”로 좁힘` : ''}</p>
+<div class="rb-nav">${nav}<form method="get">${hours ? `<input type="hidden" name="hours" value="${esc(hours)}">` : ''}${minor ? '<input type="hidden" name="minor" value="1">' : ''}<input name="q" value="${esc(q)}" placeholder="회사·낱말"><button>찾기</button></form></div>
+${boardSections(d, { cLink })}
+<footer>${key ? `<p class="rb-link"><b>홈페이지 탭에 연결</b> — 이 기기의 홈페이지 '단독감·미보도' 탭에서도 이 내용을 보려면 한 번 누른다: <a href="${esc(`${HOMEPAGE_PATH}#rk=${key}`)}" rel="noreferrer">홈페이지에 연결</a>. 연결 열쇠는 읽기 전용이고(이 화면 내용만 읽힘) 그 기기 브라우저에만 저장된다.</p>` : ''}
 <p>이 주소는 비밀 열쇠가 든 기자 전용 주소다 — 공유하지 말 것.</p></footer>
 </main></body></html>`;
+}
+
+// 홈페이지 탭이 읽는 조각: GET /b/<읽기 전용 열쇠>. 홈페이지 주소에서만 읽히게 CORS를 연다. 스크립트 없는 조각(style 하나 + 카드).
+export function boardFragment(d) {
+  return `<style>${CSS_RULES}</style><div class="rb" data-generated="${esc(d.now.toISOString())}"><p class="rb-muted rb-small">${esc(kstStamp(d.now.toISOString()))} 기준 최근 ${esc(d.hours)}시간${d.monday && d.defaultHours ? '(월요일: 주말 포함)' : ''} · 기자 전용 감시 ${WATCHES.length}개${d.q ? ` · “${esc(d.q)}”로 좁힘` : ''}</p>
+${boardSections(d)}</div>`;
+}
+
+function args(url) {
+  const p = url.searchParams;
+  const hours = p.has('hours') ? clampInt(p.get('hours'), 1, 336, 24) : undefined;
+  const q = String(p.get('q') ?? '').trim().slice(0, 60);
+  const minor = p.get('minor') === '1';
+  return { hours, q, minor };
 }
 
 export async function board(request, env, deps = {}) {
@@ -190,15 +230,29 @@ export async function board(request, env, deps = {}) {
   if (!m || !(await safeEqual(m[1], env?.MCP_ACCESS_TOKEN))) return new Response('Not found', { status: 404 });
   if (request.method !== 'GET' && request.method !== 'HEAD') return new Response('Method not allowed', { status: 405, headers: { Allow: 'GET' } });
   const ctx = { env, private: true, fetch: deps.fetch ?? ((...a) => fetch(...a)), now: deps.now ?? new Date() };
-  const p = url.searchParams;
-  const hours = p.has('hours') ? clampInt(p.get('hours'), 1, 336, 24) : undefined;
-  const q = String(p.get('q') ?? '').trim().slice(0, 60);
-  const minor = p.get('minor') === '1';
+  const { hours, q, minor } = args(url);
   let html;
   try {
-    html = boardPage(await radarTodayData(ctx, { hours, company: q, limit: 60, include_minor: minor }), { hours, q, minor });
+    html = boardPage(await radarTodayData(ctx, { hours, company: q, limit: 60, include_minor: minor }), { hours, q, minor, key: await boardKey(env) });
   } catch (e) {
     html = `<!doctype html><meta charset="utf-8"><title>오늘의 레이더</title><p>불러오기 실패: ${esc(String(e?.message ?? e).slice(0, 200))} — 미확인(0건 아님)</p>`;
   }
   return new Response(request.method === 'HEAD' ? null : html, { status: 200, headers: HEADERS });
+}
+
+export async function boardPart(request, env, deps = {}) {
+  const url = new URL(request.url);
+  const cors = request.headers.get('Origin') === HOMEPAGE ? { 'Access-Control-Allow-Origin': HOMEPAGE } : {};
+  const headers = { ...HEADERS, ...cors, Vary: 'Origin' };
+  const m = /^\/b\/([A-Za-z0-9_-]{16,64})\/?$/.exec(url.pathname);
+  const key = await boardKey(env);
+  if (!m || !key || !(await safeEqual(m[1], key))) return new Response('Not found', { status: 404, headers: { ...cors, Vary: 'Origin' } });
+  if (request.method !== 'GET') return new Response('Method not allowed', { status: 405, headers: { Allow: 'GET', ...cors } });
+  const ctx = { env, private: true, fetch: deps.fetch ?? ((...a) => fetch(...a)), now: deps.now ?? new Date() };
+  const { hours, q, minor } = args(url);
+  try {
+    return new Response(boardFragment(await radarTodayData(ctx, { hours, company: q, limit: 60, include_minor: minor })), { status: 200, headers });
+  } catch (e) {
+    return new Response(`<p>불러오기 실패: ${esc(String(e?.message ?? e).slice(0, 200))} — 미확인(0건 아님)</p>`, { status: 503, headers });
+  }
 }
