@@ -434,6 +434,36 @@ def holder_terms(c):
     return None
 
 
+# 유형자산 취득·처분·신규시설투자: 제목 낱말('투자')만으로는 다른 기사를 잡는다(10-31 운영: 금호타이어 함평 부지 취득 정정을
+# '금호타이어 투자'로 찾아 증권사 리포트 기사가 근거로 붙었다 — 실제로는 10-28 「금호타이어 함평 이전 부지 1160억원에 취득 완료」가
+# 있었다). 원문 물건명·목적의 시·군과 토지면 '부지'를 질의에 넣는다.
+ASSET_FIELDS = {"유형자산취득": ("취득물건구분", "취득물건명", "취득목적"), "유형자산처분": ("처분물건구분", "처분물건명", "처분목적"),
+                "신규시설투자": ("투자구분", "투자대상", "투자목적")}
+ASSET_PLACE = re.compile(r"(?:특별시|광역시|특별자치시|특별자치도|도)\s+([가-힣]{1,4}?)[시군](?![가-힣])")
+ASSET_METRO = re.compile(r"(?<![가-힣])(부산|대구|인천|광주|대전|울산)광역시")
+LAND = ["부지", "토지"]
+
+
+def asset_terms(c):
+    """(terms, alts) 또는 None. 시·군을 못 읽으면 None(제목 낱말 그대로)."""
+    f = c.get("filing") or {}
+    keys = ASSET_FIELDS.get(f.get("type"))
+    if not keys or f.get("error"):
+        return None
+    got = {k: str(v or "") for k, v in (f.get("facts") or []) if isinstance(k, str)}
+    kind, obj, purpose = (got.get(k, "") for k in keys)
+    m = ASSET_PLACE.search(obj) or ASSET_PLACE.search(purpose) or ASSET_METRO.search(obj)
+    if not m:
+        return None
+    place = m.group(1)
+    land = "토지" in kind or bool(re.search(r"토지|부지", obj))
+    event = "부지" if land else (c.get("terms") or [None])[0]
+    if not event or event == place:
+        return None
+    terms = [event, place] + [t for t in c.get("terms") or [] if t not in (event, place)]
+    return terms, {**(c.get("alts") or {}), **({"부지": LAND} if land else {})}
+
+
 def recheck_lawsuits(rows, *, now, get=None, sleep=time.sleep):
     """Screen lawsuit filings again with the case words read from the original filing."""
     redo = []
@@ -552,6 +582,15 @@ def article_day(value):
         return None
 
 
+# 사건 낱말 '투자'가 증권사 이름·투자의견 속에서 맞지 않게(10-31 운영: 금호타이어 유형자산취득 정정의 근거가
+# 「…목표가 8,300원 - 한화투자증권」이었다). 회사 이름 대조에는 원문 그대로 쓴다.
+NOT_EVENT = re.compile(r"투자(?:증권|의견|금융|자(?![산본]))")
+
+
+def event_text(s):
+    return NOT_EVENT.sub("·", str(s or ""))
+
+
 def judge(c, channels, *, now):
     since = (now - dt.timedelta(days=WINDOW_DAYS)).date()
     if article_day(c.get("since")):
@@ -593,8 +632,9 @@ def judge(c, channels, *, now):
                 generic = set(c.get("generic") or [])
                 title = a.get("title", "")
                 words = [t for t in terms if t not in generic]
-                t_hits = [t for t in words if any(w in title for w in alts.get(t, [t]))]
-                x_hits = [t for t in words if any(w in text for w in alts.get(t, [t]))]
+                title_e, text_e = event_text(title), event_text(text)
+                t_hits = [t for t in words if any(w in title_e for w in alts.get(t, [t]))]
+                x_hits = [t for t in words if any(w in text_e for w in alts.get(t, [t]))]
                 must = [m for m in c.get("must") or [] if m]
                 if company_in_text(c["company"], title) and (t_hits or len(x_hits) >= 2) and must and not any(m in text for m in must):
                     # 사업장이 여럿인 회사: 그 사업장 지명이 없는 기사는 다른 사업장 이야기일 수 있다(10-31 포스코 광양 ↔ 포항 기사).
@@ -625,6 +665,7 @@ def judge(c, channels, *, now):
                         ambiguous_case=True
                     continue
             def has(t, where):
+                where = event_text(where)
                 return any(w in where for w in alts.get(t, [t]))
             # Numbers alone are never evidence of the same event. Preserve
             # related coverage for human review even without period/unit proof.
@@ -701,7 +742,7 @@ def earlier_coverage(c, earlier, limit=2):
         key = a.get("url") or title
         if key in seen or not company_in_text(c["company"], title):
             continue
-        hits = [t for t in words if any(w in title for w in alts.get(t, [t]))]
+        hits = [t for t in words if any(w in event_text(title) for w in alts.get(t, [t]))]
         if not hits or (must and not any(m in text for m in must)):
             continue
         seen.add(key)
@@ -814,7 +855,7 @@ def main():
         targets = sorted(cands, key=lambda r: (not is_lawsuit(r), not r.get("bodyTitle")))
         dart_filing_facts.enrich(targets, dart_key, dart_filing_facts.load_corp_codes(), fetch_documents=zip_documents, get=requests.get)
         for c in cands:
-            better=lawsuit_terms(c) or holder_terms(c)
+            better=lawsuit_terms(c) or holder_terms(c) or asset_terms(c)
             if better:
                 c["terms"],c["alts"]=better
         inputs["lawsuitIdentityRead"] = sum(bool(case_identity(c)[0]) for c in cands if is_lawsuit(c))
