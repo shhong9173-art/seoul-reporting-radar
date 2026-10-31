@@ -3,37 +3,27 @@
   if(!nav||!cards)return;
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   let doc={items:[]};
-  // 기자 전용 레이더(워커 /b/<읽기 전용 열쇠>) — 공개 저장소에는 단서를 올리지 않고, 연결한 기기 브라우저에서만 불러온다.
-  // 열쇠는 기자 전용 화면(/r/…) 맨 아래 '홈페이지에 연결'이 #rk=… 로 넘겨 준다(주소 조각은 서버·Referer로 안 간다).
-  const RB_API='https://seoul-reporting-radar.shhong9173.workers.dev/b/';
-  const rbKey=()=>{try{return localStorage.getItem('radarBoardKey')||'';}catch(e){return '';}};
-  const rbSave=k=>{try{localStorage.setItem('radarBoardKey',k);}catch(e){}};
-  const rbForget=()=>{try{localStorage.removeItem('radarBoardKey');}catch(e){}};
-  let rbHours='',rbOpen=false;
-  (function(){if(typeof location==='undefined')return;const m=/[#&]rk=([A-Za-z0-9_-]{16,64})/.exec(location.hash||'');if(!m)return;rbSave(m[1]);rbOpen=true;try{history.replaceState(null,'',location.pathname+location.search);}catch(e){location.hash='';}})();
+  // 오늘의 레이더(워커 /b/open) — 11-01 기자 결정: 열쇠 없이 홈페이지 탭에 바로 띄운다(누구나 볼 수 있음을 알고 고름).
+  const RB_API='https://seoul-reporting-radar.shhong9173.workers.dev/b/open';
+  let rbHours='';
   function loadPrivate(){
-    const k=rbKey();if(!k||typeof fetch!=='function')return Promise.resolve({state:'none'});
-    return fetch(RB_API+encodeURIComponent(k)+(rbHours?'?hours='+rbHours:''),{cache:'no-store',credentials:'omit'})
-      .then(r=>r.status===404?{state:'bad'}:r.ok?r.text().then(html=>({state:'ok',html})):{state:'error',error:'HTTP '+r.status})
+    if(typeof fetch!=='function')return Promise.resolve({state:'error',error:'fetch 없음'});
+    return fetch(RB_API+(rbHours?'?hours='+rbHours:''),{cache:'no-store',credentials:'omit'})
+      .then(r=>r.ok?r.text().then(html=>({state:'ok',html})):{state:'error',error:'HTTP '+r.status})
       .catch(e=>({state:'error',error:String(e&&e.message||e)}));
   }
   function setCount(html){const m=/data-a="(\d+)" data-b="(\d+)"/.exec(html||'');const c=document.querySelector('#countScoop');if(m&&c)c.textContent=String(Number(m[1])+Number(m[2]));}
   function privateBox(){
-    return '<section class="rb-home"><h2 class="scoop-section-title">기자 전용 레이더 <span>오늘의 A·B와 자동 보도 대조(미보도 후보) · 이 기기에서만 불러옴</span></h2>'+
-      '<div class="rb-home-tools" style="display:flex;gap:8px;margin:6px 0 10px"><select id="rbHours"><option value="">기본(24시간, 월요일 72시간)</option><option value="72">72시간</option><option value="168">7일</option></select> <button type="button" id="rbForget" class="secondary">이 기기 연결 끊기</button></div>'+
+    return '<section class="rb-home"><h2 class="scoop-section-title">오늘의 레이더 <span>기자 전용 감시 23곳의 새 항목 A·B · 자동 보도 대조(미보도 후보)</span></h2>'+
+      '<div class="rb-home-tools" style="display:flex;gap:8px;margin:6px 0 10px"><select id="rbHours"><option value="">기본(24시간, 월요일 72시간)</option><option value="72">72시간</option><option value="168">7일</option></select></div>'+
       '<div id="rbBody"><div class="card"><div class="summary">불러오는 중…</div></div></div></section>';
   }
   function fillPrivate(){
     const body=document.querySelector('#rbBody');if(!body)return;
     const sel=document.querySelector('#rbHours');if(sel){sel.value=rbHours;sel.onchange=()=>{rbHours=sel.value;fillPrivate();};}
-    const fg=document.querySelector('#rbForget');if(fg)fg.onclick=()=>{rbForget();fillPrivate();};
-    if(fg&&fg.style)fg.style.display=rbKey()?'':'none';if(sel&&sel.style)sel.style.display=rbKey()?'':'none';
     loadPrivate().then(r=>{
       if(r.state==='ok'){body.innerHTML=r.html;setCount(r.html);return;}
-      if(r.state==='none'){body.innerHTML='<div class="card"><div class="summary"><b>이 기기는 아직 연결 안 됨.</b> 기자 전용 감시(해외 리콜·소송·OSHA·ITC·법제처·국내 공문서 등)의 단서는 누구나 보는 이 공개 홈페이지에 올리지 않습니다. '+
-        '기자 전용 화면(Claude 커넥터 주소의 <code>/mcp/</code>를 <code>/r/</code>로 바꾼 주소) 맨 아래 <b>‘홈페이지에 연결’</b>을 한 번 누르면, 이 기기에서 이 자리에 오늘의 A·B와 미보도 후보가 뜹니다.</div></div>';return;}
-      if(r.state==='bad'){body.innerHTML='<div class="card"><div class="summary"><b>연결 열쇠가 맞지 않습니다</b>(열쇠가 바뀌었을 수 있음). 기자 전용 화면에서 ‘홈페이지에 연결’을 다시 누르세요.</div></div>';return;}
-      body.innerHTML='<div class="card"><div class="summary"><b>기자 전용 레이더를 불러오지 못했습니다</b>('+esc(r.error)+') — 미확인이지 0건이 아닙니다.</div></div>';
+      body.innerHTML='<div class="card"><div class="summary"><b>오늘의 레이더를 불러오지 못했습니다</b>('+esc(r.error)+') — 미확인이지 0건이 아닙니다. Claude에서 radar_today로 볼 수 있습니다.</div></div>';
     });
   }
   function load(){return fetch('scoop.json?v='+Date.now(),{cache:'no-store'}).then(r=>r.ok?r.json():{items:[]}).then(x=>{doc=x||{items:[]};});}
@@ -44,7 +34,6 @@
     const leads=(doc.leadSignals||[]).filter(l=>!items.some(x=>(x.originalSourceUrl&&x.originalSourceUrl===l.url)||(x.whatConfirmed&&x.whatConfirmed===l.title)));
     const publicSignals=doc.publicSignals||[];
     result.textContent='공개 수집기: '+items.length+'건 단독 후보 · '+leads.length+'건 미확정 단서 · '+publicSignals.length+'건 공개 원자료';
-    const count=document.querySelector('#countScoop');if(count&&!rbKey())count.textContent=items.length;
     const c=doc.counts||{};
     const leadCards=leads.map(x=>{
       const numbers=(x.numbers||[]).slice(0,4), qs=(x.questions||[]).slice(0,3);
@@ -117,8 +106,6 @@
   }
   nav.addEventListener('click',async e=>{e.preventDefault();await load();render();fillPrivate();});
   load().then(()=>{
-    const count=document.querySelector('#countScoop');if(count)count.textContent=(doc.items||[]).length;
-    if(rbKey())loadPrivate().then(r=>{if(r.state==='ok')setCount(r.html);});   // 연결한 기기는 탭 숫자를 오늘의 A+B로
-    if(rbOpen)nav.click();
+    loadPrivate().then(r=>{if(r.state==='ok')setCount(r.html);});   // 탭 숫자는 오늘의 레이더 A+B
   });
 })();

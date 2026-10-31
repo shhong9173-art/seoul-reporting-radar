@@ -2101,7 +2101,7 @@ test('us_recalls: NHTSA manufacturer communications by campaign — powertrain w
   assert.deepEqual([tl.who, tl.terms, tl.places, tl.alts['무상수리'].includes('보증 연장')], ['기아', ['텔루라이드', '무상수리'], ['텔루라이드'], true]);
 });
 
-test('reporter board /r/<token>: secret path only, no scripts, no referrer, cards from radar_today data with unreported marked', async () => {
+test('reporter board /r/<token> and homepage fragment /b/open: no scripts, no referrer, cards from radar_today data with unreported marked', async () => {
   const env = { MCP_ACCESS_TOKEN: TOKEN, STORE: storeBinding() };
   const get = (path, init) => worker.fetch(new Request(ORIGIN + path, init), env, {});
   assert.equal((await get('/r/wrong-token-0123456789abc')).status, 404);
@@ -2137,7 +2137,8 @@ test('reporter board /r/<token>: secret path only, no scripts, no referrer, card
   const key = await boardKey(env);
   assert.match(key, /^[A-Za-z0-9_-]{32}$/);
   assert.notEqual(key, TOKEN);
-  assert.match(html, new RegExp(`href="https://shhong9173-art\\.github\\.io/seoul-reporting-radar/#rk=${key}" rel="noreferrer">홈페이지에 연결</a>`));
+  assert.match(html, /<a href="https:\/\/shhong9173-art\.github\.io\/seoul-reporting-radar\/" rel="noreferrer">홈페이지<\/a>/);
+  assert.doesNotMatch(html, new RegExp(key));
   assert.equal((await get(`/b/${TOKEN}`)).status, 404);
   assert.equal((await get('/b/wrong-key-0123456789abcdef0123')).status, 404);
   const part = await get(`/b/${key}?hours=72`, { headers: { Origin: 'https://shhong9173-art.github.io' } });
@@ -2152,6 +2153,15 @@ test('reporter board /r/<token>: secret path only, no scripts, no referrer, card
   assert.doesNotMatch(frag, new RegExp(key));
   assert.equal((await get(`/b/${key}`, { headers: { Origin: 'https://evil.example' } })).headers.get('Access-Control-Allow-Origin'), null);
   assert.equal((await get(`/b/${key}`, { method: 'POST', headers: { Origin: 'https://shhong9173-art.github.io' } })).status, 405);
+  // 11-01 기자 결정: 홈페이지 탭은 열쇠 없이(/b/open). 같은 조각, 홈페이지 주소에만 CORS.
+  const open = await get('/b/open', { headers: { Origin: 'https://shhong9173-art.github.io' } });
+  assert.equal(open.status, 200);
+  assert.equal(open.headers.get('Access-Control-Allow-Origin'), 'https://shhong9173-art.github.io');
+  const openHtml = await open.text();
+  assert.match(openHtml, /<span class="rb-pv pnew">미보도 후보<\/span>/);
+  assert.doesNotMatch(openHtml, /<script/i);
+  assert.equal((await get('/b/open', { method: 'POST' })).status, 405);
+  assert.equal((await get('/b/opened')).status, 404);
   // 숫자만 다른 같은 곳 같은 유형은 한 카드
   const row = (n) => ({ tier: 'B', watch: '굴뚝 측정(공장 가동 신호)', company: '현대제철', id: `stk:${n}`, fact: `현대제철㈜포항1공장 배출구 ${n}번이 굴뚝 자동측정 목록에서 2번 연속 빠짐 — 설비 폐쇄·측정 대상 변경일 수 있음(회사 확인)` });
   assert.deepEqual(groupSame([row(10), row(2), row(5), { ...row(7), company: '포스코' }], () => undefined).map((g) => g.length), [3, 1]);

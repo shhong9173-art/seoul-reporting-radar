@@ -184,7 +184,7 @@ export async function boardKey(env) {
 export const HOMEPAGE = 'https://shhong9173-art.github.io';
 const HOMEPAGE_PATH = `${HOMEPAGE}/seoul-reporting-radar/`;
 
-export function boardPage(d, { hours, q, minor, key = '' }) {
+export function boardPage(d, { hours, q, minor }) {
   const chip = (label, params, on) => `<a class="rb-chip${on ? ' on' : ''}" href="?${new URLSearchParams(params).toString()}">${esc(label)}</a>`;
   const base = { ...(q ? { q } : {}), ...(minor ? { minor: '1' } : {}) };
   const nav = [chip('24시간', { ...base, hours: 24 }, d.hours === 24), chip('72시간', { ...base, hours: 72 }, d.hours === 72), chip('7일', { ...base, hours: 168 }, d.hours === 168),
@@ -205,7 +205,7 @@ main{max-width:860px;margin:0 auto;padding:16px}.rb h1{font-size:21px;margin:0}.
 <p class="rb-stamp">${esc(kstStamp(d.now.toISOString()))} 기준 최근 ${esc(d.hours)}시간${d.monday && d.defaultHours ? '(월요일: 주말 포함)' : ''} · 기자 전용 감시 ${WATCHES.length}개${q ? ` · “${esc(q)}”로 좁힘` : ''}</p>
 <div class="rb-nav">${nav}<form method="get">${hours ? `<input type="hidden" name="hours" value="${esc(hours)}">` : ''}${minor ? '<input type="hidden" name="minor" value="1">' : ''}<input name="q" value="${esc(q)}" placeholder="회사·낱말"><button>찾기</button></form></div>
 ${boardSections(d, { cLink })}
-<footer>${key ? `<p class="rb-link"><b>홈페이지 탭에 연결</b> — 이 기기의 홈페이지 '단독감·미보도' 탭에서도 이 내용을 보려면 한 번 누른다: <a href="${esc(`${HOMEPAGE_PATH}#rk=${key}`)}" rel="noreferrer">홈페이지에 연결</a>. 연결 열쇠는 읽기 전용이고(이 화면 내용만 읽힘) 그 기기 브라우저에만 저장된다.</p>` : ''}
+<footer><p class="rb-link">같은 내용이 홈페이지 '단독감·미보도' 탭 맨 위에도 뜬다(11-01 기자 결정: 열쇠 없이 공개): <a href="${esc(HOMEPAGE_PATH)}" rel="noreferrer">홈페이지</a></p>
 <p>이 주소는 비밀 열쇠가 든 기자 전용 주소다 — 공유하지 말 것.</p></footer>
 </main></body></html>`;
 }
@@ -233,25 +233,37 @@ export async function board(request, env, deps = {}) {
   const { hours, q, minor } = args(url);
   let html;
   try {
-    html = boardPage(await radarTodayData(ctx, { hours, company: q, limit: 60, include_minor: minor }), { hours, q, minor, key: await boardKey(env) });
+    html = boardPage(await radarTodayData(ctx, { hours, company: q, limit: 60, include_minor: minor }), { hours, q, minor });
   } catch (e) {
     html = `<!doctype html><meta charset="utf-8"><title>오늘의 레이더</title><p>불러오기 실패: ${esc(String(e?.message ?? e).slice(0, 200))} — 미확인(0건 아님)</p>`;
   }
   return new Response(request.method === 'HEAD' ? null : html, { status: 200, headers: HEADERS });
 }
 
+// 홈페이지 탭 조각. 11-01 기자 결정: 열쇠 없이 공개(GET /b/open) — 경쟁지 포함 누구나 볼 수 있다는 설명을 듣고 고름.
+// 읽기 전용 열쇠 주소(/b/<열쇠>)도 그대로 둔다. 같은 조건 조각은 한 실행 환경 안에서 60초 재사용(저장소 읽기 23개를 매번 하지 않게).
+const OPEN_TTL_MS = 60000;
+const openCache = new Map();
 export async function boardPart(request, env, deps = {}) {
   const url = new URL(request.url);
   const cors = request.headers.get('Origin') === HOMEPAGE ? { 'Access-Control-Allow-Origin': HOMEPAGE } : {};
   const headers = { ...HEADERS, ...cors, Vary: 'Origin' };
-  const m = /^\/b\/([A-Za-z0-9_-]{16,64})\/?$/.exec(url.pathname);
-  const key = await boardKey(env);
-  if (!m || !key || !(await safeEqual(m[1], key))) return new Response('Not found', { status: 404, headers: { ...cors, Vary: 'Origin' } });
+  const open = /^\/b\/open\/?$/.test(url.pathname);
+  if (!open) {
+    const m = /^\/b\/([A-Za-z0-9_-]{16,64})\/?$/.exec(url.pathname);
+    const key = await boardKey(env);
+    if (!m || !key || !(await safeEqual(m[1], key))) return new Response('Not found', { status: 404, headers: { ...cors, Vary: 'Origin' } });
+  }
   if (request.method !== 'GET') return new Response('Method not allowed', { status: 405, headers: { Allow: 'GET', ...cors } });
   const ctx = { env, private: true, fetch: deps.fetch ?? ((...a) => fetch(...a)), now: deps.now ?? new Date() };
   const { hours, q, minor } = args(url);
+  const ck = `${hours ?? ''}|${q}|${minor ? 1 : 0}`;
+  const hit = open && !deps.noCache ? openCache.get(ck) : null;
+  if (hit && ctx.now.getTime() - hit.at < OPEN_TTL_MS) return new Response(hit.body, { status: 200, headers });
   try {
-    return new Response(boardFragment(await radarTodayData(ctx, { hours, company: q, limit: 60, include_minor: minor })), { status: 200, headers });
+    const body = boardFragment(await radarTodayData(ctx, { hours, company: q, limit: 60, include_minor: minor }));
+    if (open) { openCache.set(ck, { at: ctx.now.getTime(), body }); if (openCache.size > 20) openCache.delete(openCache.keys().next().value); }
+    return new Response(body, { status: 200, headers });
   } catch (e) {
     return new Response(`<p>불러오기 실패: ${esc(String(e?.message ?? e).slice(0, 200))} — 미확인(0건 아님)</p>`, { status: 503, headers });
   }
