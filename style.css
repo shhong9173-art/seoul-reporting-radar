@@ -32,3 +32,17 @@
 .scoop-actions span{color:#7a858e}
 .scoop-lead-card .scoop-rule{font-size:11px;color:#7a858e;line-height:1.5;margin-top:10px}.nav-link{display:block;text-decoration:none;font-size:13.3333px}.nav-group-label{margin:14px 10px 2px;font-size:10px;color:#6f7a84;letter-spacing:1px}.nav-more{display:grid}.nav-more>summary{list-style:none;color:#8a949d;font-size:13.3333px;padding:10px;border-radius:8px;cursor:pointer}.nav-more>summary:hover{background:#1c242d;color:white}.nav-more>summary span{float:right;color:#68727c}.nav-more>summary::-webkit-details-marker{display:none}.nav-more>summary::before{content:'▸ '}.nav-more[open]>summary::before{content:'▾ '}.nav-more-body{display:grid;gap:5px;margin-top:5px}.nav .auto-exclusive-count{float:none;display:inline-block;margin-left:6px;font-size:10px;line-height:1.5;color:#f0a3a3;background:#2a1d20;border-radius:4px;padding:0 5px;vertical-align:1px}
 .nav[hidden]{display:none}
+/* 휴대폰 메뉴(11-01 기자 요청): 900px 아래에서 숨던 왼쪽 메뉴를 위쪽 막대의 '메뉴' 버튼으로 여닫는 서랍으로 */
+.mobile-bar,.nav-backdrop{display:none}
+@media(max-width:900px){
+.mobile-bar{display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:40;background:#10151b;color:#eef2f5;padding:10px 14px;box-shadow:0 2px 8px #0002}
+.mobile-bar button{border:1px solid #2c3640;background:#1c242d;color:#fff;border-radius:8px;padding:7px 11px;font-size:14px;cursor:pointer}
+.mobile-bar .mb-title{font-size:14px;font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mobile-bar .mb-scoop{font-size:13px;padding:6px 9px}
+.sidebar{display:block;transform:translateX(-105%);transition:transform .2s ease;z-index:60;width:min(290px,86vw);box-shadow:0 0 30px #0006}
+body.nav-open .sidebar{transform:none}
+body.nav-open .nav-backdrop{display:block;position:fixed;inset:0;background:#0007;z-index:55}
+body.nav-open{overflow:hidden}
+main{padding:18px 16px 50px}
+.scoop-section-title{display:block}.scoop-section-title span{display:block;margin-top:2px}
+}

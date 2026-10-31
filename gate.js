@@ -20,10 +20,12 @@
   function getS(){try{return localStorage.getItem(KEY)||'';}catch(e){return '';}}
   function setS(v){try{localStorage.setItem(KEY,v);}catch(e){}}
   function dropS(){try{localStorage.removeItem(KEY);}catch(e){}}
-  function unlock(){root.classList.remove('gate-locked');var g=document.getElementById('gate');if(g&&g.parentNode)g.parentNode.removeChild(g);}
+  var unlocked=false;
+  function unlock(){unlocked=true;root.classList.remove('gate-locked');var g=document.getElementById('gate');if(g&&g.parentNode)g.parentNode.removeChild(g);}
   function ready(fn){if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',fn);else fn();}
   function form(msg,checking){
     ready(function(){
+      if(unlocked)return;   // 세션 확인이 문서 읽기보다 먼저 끝난 경우(빠른 연결) — 잠금 상자를 다시 띄우지 않는다
       var g=document.getElementById('gate');
       if(!g){g=document.createElement('div');g.id='gate';document.body.insertBefore(g,document.body.firstChild);}
       if(checking){g.innerHTML='<form><h1>산업부 종합 취재 레이더</h1><p>로그인 확인 중…</p></form>';return;}
