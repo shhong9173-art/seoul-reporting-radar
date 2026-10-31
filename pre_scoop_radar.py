@@ -978,6 +978,25 @@ def court_article(page_text):
 COURT_BODY = "article"  # 저장 항목 표시: 본문만으로 고른 것(이 표시 없는 옛 저장분은 본문을 다시 읽는다)
 
 
+def keep_prior(item, now):
+    """Rolling carry-over of an earlier run's item. Items made by a parser version since fixed are dropped
+    (they come back only when the source is read again with the current parser)."""
+    if not isinstance(item, dict):
+        return False
+    dt=parse_dt(item.get("published"))
+    if dt.year<2000 or dt<now-timedelta(days=LOOKBACK_DAYS) or dt>now+timedelta(hours=6):
+        return False
+    if resurfaced_historical_original(item.get("title"),dt):
+        return False
+    if item.get("signalType")=="official_recall_notice" and item.get("dateParseVersion")!="sequence-v2":
+        return False
+    # 메뉴까지 낱말 대조에 쓴 옛 대법원 보도자료(10-31 운영 6건 — '파키스탄 대법원장 방문' 등)는 이어 싣지 않는다.
+    # 목록이 열리면 본문만으로 다시 고른다. 목록이 안 열리면 그 칸은 미확인(진단에 오류)으로 남는다.
+    if item.get("signalType")=="supreme_court_case_release" and item.get("bodyFrom")!=COURT_BODY:
+        return False
+    return True
+
+
 def fetch_direct_court(max_items=12, prior_items=None):
     """Collect date-stamped Supreme Court releases and industry-related disputes."""
     base="https://www.scourt.go.kr"
@@ -1773,15 +1792,7 @@ def main():
         prior_source_states=previous.get("sourceObservations") if isinstance(previous,dict) else None
     except Exception:
         prior_items=[]
-    for item in prior_items:
-        dt=parse_dt(item.get("published"))
-        if dt.year<2000 or dt<now-timedelta(days=LOOKBACK_DAYS) or dt>now+timedelta(hours=6):
-            continue
-        if resurfaced_historical_original(item.get("title"),dt):
-            continue
-        if item.get("signalType")=="official_recall_notice" and item.get("dateParseVersion")!="sequence-v2":
-            continue
-        items.append(item)
+    items.extend(item for item in prior_items if keep_prior(item, now))
 
     # Keep the feed compact and deterministic.
     dedup = {}

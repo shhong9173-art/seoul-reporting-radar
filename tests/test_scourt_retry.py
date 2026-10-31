@@ -125,6 +125,14 @@ class ArticleOnly(unittest.TestCase):
         self.assertEqual(out, [])
         self.assertTrue(any("NewsViewAction" in u for u in calls))
 
+    def test_unmarked_court_items_are_not_carried_to_the_next_run(self):
+        now = psr.datetime.now(psr.KST)
+        day = now.strftime("%Y-%m-%d") + "T00:00:00+09:00"
+        old = {"signalType": "supreme_court_case_release", "title": "파키스탄 대법원장 방문", "published": day, "sourceGroup": "법원·분쟁"}
+        self.assertFalse(psr.keep_prior(old, now))
+        self.assertTrue(psr.keep_prior(dict(old, bodyFrom=psr.COURT_BODY), now))
+        self.assertTrue(psr.keep_prior({"signalType": "other", "title": "x", "published": day}, now))
+
     def test_court_article_without_view_count_is_empty(self):
         self.assertEqual(psr.court_article("메뉴 회생·파산 공고 특허법원"), "")
 
