@@ -44,9 +44,15 @@ STRONG_COMMON = re.compile(r"원산지|덤핑|할당관세|공급망|첨단전�
                            r"온실가스|배출권|탄소중립")
 # 관보 입법예고용 업종 낱말(kr_official_watch.TEAMS)에 없는 규칙 이름 낱말 — '전기설비기술기준'·'전기용품 안전기준'처럼 출입 업종 핵심 규칙이
 # '전기사업·전력'에 안 걸린다(탐침 41 뒤 시험에서 확인)
-EXTRA = {"전력·에너지": r"전기설비|전기안전|전기용품|전력기술|송배전|배전|변압기|전선|케이블|발전소|발전사업|전기저장",
+EXTRA = {"전력·에너지": r"전기설비|전기안전|전기용품|전력기술|송배전|배전|변압기|전선|케이블|발전소|발전사업|전기저장|핵연료|원자로|방사성",
          "자동차": r"배터리|이차전지|충전시설|충전기|자동차관리|차량",
          "공통": r"온실가스|배출권|탄소중립|원산지|덤핑|할당관세|핵심광물|전략물자|수출통제"}
+# 제목 속 부처 이름(기후'에너지'환경부·'원자력'안전위원회)과 해석례 '질의기관 - ' 머리는 업종 낱말로 치지 않는다
+# (운영 10-31: '원자력안전위원회 인사운영규정'·'기후에너지환경부 - 낙동강수계 주민지원사업' 해석례가 전력·에너지 B)
+ORG_NAMES = re.compile(r"[(（]?(?:기후에너지환경부|원자력안전위원회|산업통상(?:자원)?부|국토교통부|관세청|재정경제부|기획재정부|공정거래위원회|"
+                       r"고용노동부|중소벤처기업부|한국에너지공단|한국원자력안전기술원)[)）]?")
+# 부처 내부 운영 규정·업종 밖 보조금은 출입 업종 이름이 들어도 C(운영 10-31: 원안위 인사운영규정·사이버보안 기본지침, 여객·화물자동차 유가보조금)
+OFFTOPIC = re.compile(r"인사운영|인사관리|복무|직제|사무분장|위임전결|보안업무|사이버보안|운영세칙|포상|여비|감사규정|유가보조금|민원사무|정보공개")
 RETRY_ERRORS = ("ConnectionError", "ConnectTimeout", "ReadTimeout", "ChunkedEncodingError")
 
 
@@ -85,7 +91,15 @@ def parse(kind, xml_text):
     return int(total), out
 
 
-def law_teams(title, teams_of):
+def subject_of(title, kind="admrul"):
+    t = title or ""
+    if kind in ("expc", "법령해석례"):
+        t = re.sub(r"^[^-–]{1,40}\s[-–]\s", "", t)  # '기후에너지환경부 - 주민지원사업 …' → 안건 내용
+    return ORG_NAMES.sub(" ", t)
+
+
+def law_teams(title, teams_of, kind="admrul"):
+    title = subject_of(title, kind)
     teams = list(teams_of(title))
     for team, rx in EXTRA.items():
         if team not in teams and re.search(rx, title or ""):
@@ -94,6 +108,8 @@ def law_teams(title, teams_of):
 
 
 def tier_of(kind, rec, teams):
+    if not teams or OFFTOPIC.search(rec.get("title") or ""):
+        return "C"
     beat = bool(set(teams) - {"공통"}) or bool(STRONG_COMMON.search(rec.get("title") or ""))
     if kind == "expc":
         return "B" if beat else "C"
@@ -164,7 +180,7 @@ def collect(prev, now, key, *, get, teams_of, ministries, sleep=time.sleep, dead
                     date = norm_date(rec.get("date"))
                     text = rec["title"]
                     org = rec.get("org") or ""
-                    teams = law_teams(text, teams_of)
+                    teams = law_teams(text, teams_of, kind)
                     if not teams or (kind != "expc" and not ministries.search(org)):
                         continue
                     if not date or date < since:
@@ -188,7 +204,9 @@ def collect(prev, now, key, *, get, teams_of, ministries, sleep=time.sleep, dead
     for x in kept:
         x["isNew"] = x["firstSeen"] == stamp and not baseline
         # 등급은 저장값이 아니라 지금 규칙으로 다시 매긴다(원래 값은 그대로 두고 표시용만 — 기준이 좁아지면 지난 항목도 따라감)
-        x["tier"] = tier_of(code.get(x.get("kind"), "admrul"), x, x.get("teams") or [])
+        kc = code.get(x.get("kind"), "admrul")
+        x["teams"] = law_teams(x.get("title"), teams_of, kc)  # 업종 낱말도 지금 규칙으로(빈 것은 C로만, 지우지 않음)
+        x["tier"] = tier_of(kc, x, x["teams"])
     group_same_notice(kept)
     notes = errors[:3] + capped[:2] + ([f"시간 상한으로 {len(skipped)}개 질의 건너뜀"] if skipped else [])
     status = "failed" if errors and not returned else "partial" if errors or capped or skipped else "ok"
