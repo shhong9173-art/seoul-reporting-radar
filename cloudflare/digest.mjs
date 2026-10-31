@@ -67,7 +67,11 @@ const ALT = {
   반덤핑: ['반덤핑', '덤핑'], ITC: ['ITC', '무역위원회'], 특허침해: ['특허', '침해', '337조', '수입 금지', '제소'],
   공장: ['공장', '사업장', '생산기지'], 폐쇄: ['폐쇄', '매각', '철수', '가동 중단', '문 닫', '공장 이전', '생산 중단'],
   신설: ['신설', '준공', '가동', '건설', '착공', '신축', '증설', '새 공장'], 인력: ['인력', '인원', '직원', '고용', '근로자', '임직원'],
-  감축: ['감축', '감소', '구조조정', '희망퇴직', '감원', '줄여', '줄었'], 채용: ['채용', '고용', '인력', '인원'], 증원: ['증원', '늘려', '늘었', '확대', '증가'],
+  감축: ['감축', '감소', '구조조정', '희망퇴직', '감원', '줄여', '줄었'], 증원: ['증원', '늘려', '늘었', '확대', '증가'],
+  // 인력 변화(국민연금·공장등록 고용): 한 낱말 묶음만 쓴다 — '고용·인력·감소·확대'처럼 흔한 말은 다른 기사도 잡는다
+  // (10-31 운영: 기아 가입자 증가가 「'효율·고용' 절충…현대차·기아 공장 재편안」으로 '관련 보도 있음').
+  채용: ['채용', '증원', '충원', '신입', '공채', '인력 확대', '인원 확대', '인력 증가', '인원 증가'],
+  감원: ['감원', '감축', '구조조정', '희망퇴직', '인력 감소', '인원 감소', '인력 축소', '정리해고'],
   공정위: ['공정위', '공정거래위원회'], 과징금: ['과징금', '제재', '시정명령', '고발', '경고'], 한전: ['한전', '한국전력'],
   수주: ['수주', '입찰', '낙찰', '공급', '계약'], 관세: ['관세', '반덤핑', '상계관세', '덤핑'], 판정: ['판정', '예비', '최종', '재심', '연례재심'],
   계약: ['계약', '협약', '합의', '공급', '합작', 'MOU'], 의견서: ['의견서', '의견', '제출', '요청'], 상표: ['상표', '출원', '브랜드', '명칭'],
@@ -100,12 +104,20 @@ export function insolvencyLine(e) {
 }
 // places: search words that narrow the query (시·군, 나라) but cannot mark a story alone — a headline with the company and
 // its city is often another story (10-31: 고려아연 울주 안전점검 공고가 '고려아연 온산제련소 지원 울주군 집수리' 기사로 '관련 보도 있음').
-export function hint(who, terms, places = []) {
+// must: an article has to name one of these (title or text) to count — for a site of a company with several (포스코 광양·포항).
+export function hint(who, terms, places = [], must = []) {
   const subject = String(who ?? '').split('·')[0].replace(/\(.*?\)/g, '').trim();
   const t = [...new Set(terms.filter(Boolean).map(String))];
   if (!subject || !t.length) return undefined;
   const p = [...new Set(places.filter(Boolean).map(String))].filter((w) => t.includes(w));
-  return { who: subject, terms: t, alts: Object.fromEntries(t.filter((w) => ALT[w]).map((w) => [w, ALT[w]])), ...(p.length ? { places: p } : {}) };
+  const m = [...new Set(must.filter(Boolean).map(String))];
+  return { who: subject, terms: t, alts: Object.fromEntries(t.filter((w) => ALT[w]).map((w) => [w, ALT[w]])),
+    ...(p.length ? { places: p } : {}), ...(m.length ? { must: m } : {}) };
+}
+// 굴뚝 측정 사업장 이름의 지명(㈜포스코 광양제철소 → 광양, 현대자동차㈜ 울산공장 → 울산, ㈜영풍석포제련소 → 석포)
+export function siteCity(site) {
+  const s = String(site ?? '').replace(/㈜|\(주\)|주식회사/g, ' ');
+  return (/([가-힣]{2})\s*\d*\s*(?:제철소|제련소|공장|사업장|사업소)/.exec(s) ?? [])[1];
 }
 // 지자체 고시·공고 제목의 사업 낱말 → 기사가 쓸 낱말(안전점검·건설공사 공고의 기사는 '증설·신설·착공'으로 난다)
 export function localWord(title) {
@@ -116,6 +128,12 @@ export function localWord(title) {
   if (/이전/.test(t)) return '이전';
   return '신설';
 }
+// 굴뚝 측정: 사업장 지명을 검색에 넣고, 그 지명이 없는 기사는 같은 사건으로 치지 않는다(10-31: 포스코 광양 배출구 멈춤 ↔ 포항제철소 기사)
+export function stackHint(e) {
+  const city = siteCity(e.site ?? e.text);
+  const words = /배출허용기준/.test(e.kind) ? ['배출허용기준', '초과'] : /재가동/.test(e.kind) ? ['재가동'] : /새/.test(e.kind) ? ['신설', '가동'] : ['가동 중단', '정비'];
+  return hint(e.company, [city, ...words], [city], [city]);
+}
 // 국민연금 가입자 변화의 방향 → 기사 낱말(늘면 채용·증원, 줄면 인력 감축)
 export function workforceHint(e) {
   if (/공사 현장/.test(e.kind)) return hint(e.company, ['공사', '착공']);
@@ -123,7 +141,7 @@ export function workforceHint(e) {
   if (/탈퇴|빠짐/.test(e.kind)) return hint(e.company, ['공장', '폐쇄']);
   const m = /가입자 ([\d,]+)→([\d,]+)명/.exec(String(e.text ?? ''));
   const down = m ? Number(m[2].replace(/,/g, '')) < Number(m[1].replace(/,/g, '')) : /감소/.test(e.kind);
-  return down ? hint(e.company, ['인력', '감축']) : hint(e.company, ['채용', '증원']);
+  return down ? hint(e.company, ['감원']) : hint(e.company, ['채용']);
 }
 const cityOf = (text) => ((/(?:특별시|광역시|특별자치시|특별자치도|도)\s+([가-힣]{1,4}?)[시군](?![가-힣])/.exec(String(text ?? '')) ?? [])[1]);
 function factoryHint(company, kind, text) {
@@ -131,7 +149,7 @@ function factoryHint(company, kind, text) {
   if (/빠짐/.test(kind)) return hint(company, [city, '공장', '폐쇄'], [city]);
   if (/새 (공장|등록)/.test(kind)) return hint(company, [city, '공장', '신설'], [city]);
   const m = /고용 (\d+)→(\d+)/.exec(String(text ?? ''));
-  if (m) return Number(m[2]) < Number(m[1]) ? hint(company, ['인력', '감축']) : hint(company, ['채용', '증원']);
+  if (m) return Number(m[2]) < Number(m[1]) ? hint(company, ['감원']) : hint(company, ['채용']);
   return undefined;  // 업종·주생산품 문구 변경: 기사 낱말을 정할 수 없음
 }
 function caseHint(x) {
@@ -481,7 +499,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
   for (const e of docs['kr-stacks']?.events ?? []) {
     if (!recent(e.detectedAt)) continue;
     push(e.tier ?? 'B', W['kr-stacks'], { kind: e.kind, id: e.id, date: e.detectedAt, company: e.company, fact: e.text,
-      check: hint(e.company, /배출허용기준/.test(e.kind) ? ['배출허용기준', '초과'] : /재가동/.test(e.kind) ? ['재가동'] : /새/.test(e.kind) ? ['신설', '가동'] : ['가동 중단', '정비']) });
+      check: stackHint(e) });
   }
 
   // 영국 Companies House 새 법인: 출입처 본사가 지배 주주(PSC)로 적히면 A, 지배 주주 미기재·본사 전체 이름이면 B, 이름만 같으면 C.

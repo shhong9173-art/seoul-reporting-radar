@@ -11,7 +11,7 @@ import { publicationDate, verifyEvidence } from '../cloudflare/evidence.mjs';
 import { allowedUrl } from '../cloudflare/live_tools.mjs';
 import { handleIngest } from '../cloudflare/screen.mjs';
 import { dueAt, nextSlot, runSchedule } from '../cloudflare/dispatch.mjs';
-import { background, convergence, hint, localWord, radarItems, workforceHint } from '../cloudflare/digest.mjs';
+import { background, convergence, hint, localWord, radarItems, siteCity, stackHint, workforceHint } from '../cloudflare/digest.mjs';
 
 const ORIGIN = 'https://seoul-reporting-radar.shhong9173.workers.dev';
 const TOKEN = 'test-token-0123456789abcdef';
@@ -1598,7 +1598,7 @@ test('radar-items hands hinted A/B items to the press checker; radar_today shows
   const by = Object.fromEntries(body.items.map((x) => [x.id, x]));
   assert.deepEqual(by['cl:4'].check, { who: '세아제강', terms: ['국제무역법원', '소송'], alts: { 국제무역법원: ['국제무역법원', '무역법원', 'CIT'], 소송: ['소송', '제소', '판결', '항소', '불복'] } });
   assert.deepEqual(by['cl:7'].check.terms, ['항소', '특허']);
-  assert.deepEqual(by['fac:1:x'].check.terms, ['인력', '감축']);
+  assert.deepEqual(by['fac:1:x'].check.terms, ['감원']);
   assert.equal(by['fac:1:x'].fact, '등록 내용 변경: KG스틸(주)당진공장 · 충청남도 당진시 송악읍 북부산업로 1 — 고용 856→690명');
   assert.equal(by['fac:2:gone'].fact.split(' — ')[0], '목록에서 빠짐: 현대위아(주)창원2공장 · 경상남도 창원시 성산구 정동로 154');  // already named: unchanged
   const ko = await call('kr_official', { section: 'factory', company: 'KG스틸' }, opts);
@@ -2030,9 +2030,14 @@ test('press-check hints: place words narrow the search but are marked, workforce
   assert.deepEqual(['온산제련소 환경영향평가 초안 공람', '○○ 일반산업단지 계획 변경', '공장 이전 부지', '폐기물 매립시설'].map(localWord),
     ['환경영향평가', '산업단지', '이전', '매립']);
   const wf = (kind, text) => workforceHint({ company: '포스코', kind, text }).terms;
-  assert.deepEqual(wf('인력 증가', '주식회사포스코(경상북도 포항시 남구) 국민연금 가입자 15,852→16,718명(+866명, +5.5%)'), ['채용', '증원']);
-  assert.deepEqual(wf('인력 변동', '포스코 가입자 2,100→2,060명(-40명)'), ['인력', '감축']);
-  assert.deepEqual(wf('인력 감소', '형식 모름'), ['인력', '감축']);
+  assert.deepEqual(wf('인력 증가', '주식회사포스코(경상북도 포항시 남구) 국민연금 가입자 15,852→16,718명(+866명, +5.5%)'), ['채용']);
+  assert.deepEqual(wf('인력 변동', '포스코 가입자 2,100→2,060명(-40명)'), ['감원']);
+  assert.deepEqual(wf('인력 감소', '형식 모름'), ['감원']);
+  assert.ok(!workforceHint({ company: '기아', kind: '인력 증가', text: '가입자 1→2명' }).alts.채용.includes('고용'));  // 흔한 말 빼기
+  assert.deepEqual(['㈜포스코 광양제철소', '현대자동차㈜ 울산공장', '㈜영풍석포제련소', '현대제철㈜포항2공장', '현대제철㈜'].map(siteCity), ['광양', '울산', '석포', '포항', undefined]);
+  const sh = stackHint({ company: '포스코', site: '㈜포스코 광양제철소', kind: '배출구 멈춤 신호' });
+  assert.deepEqual([sh.terms, sh.places, sh.must], [['광양', '가동 중단', '정비'], ['광양'], ['광양']]);
+  assert.deepEqual(stackHint({ company: '현대제철', site: '현대제철㈜', kind: '배출구 멈춤 신호' }).must, undefined);
   assert.deepEqual(wf('새 공사 현장', '…'), ['공사', '착공']);
   assert.deepEqual(wf('사업장 탈퇴', '…'), ['공장', '폐쇄']);
 });

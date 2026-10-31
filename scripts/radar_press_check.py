@@ -59,6 +59,7 @@ def candidates(items, *, now, limit=MAX_ITEMS):
                      "numbers": [], "unit": "", "period": "", "strength": 1 if x.get("tier") == "A" else 0,
                      "strict": x.get("watch") not in LOOSE_WATCHES,
                      "generic": GENERIC + [str(p) for p in hint.get("places") or [] if str(p).strip() and str(p) not in GENERIC],
+                     "must": [str(m) for m in hint.get("must") or [] if str(m).strip()],
                      "title": x.get("fact") or "", "date": str(x.get("date") or ""),
                      "since": (day - dt.timedelta(days=LEAD_DAYS)).isoformat()})
     a = sorted([r for r in rows if r["tier"] == "A"], key=lambda r: r["date"], reverse=True)
@@ -88,6 +89,7 @@ def run(items, *, now, previous=None, get=None, sleep=time.sleep):
             "rules": ["오늘의 레이더 A·B 항목 중 대조 낱말이 있는 것만(회사·법안 이름 + 사건 낱말). 낱말은 검색어일 뿐 사실이 아니다.",
                       "관련 보도 있음은 기사 제목에 회사와 사건 낱말이 함께 있을 때(법안은 본문의 법 이름). 본문에만 있으면 약한 근거로만 붙이고 판정은 바꾸지 않는다.",
                       "시·군·나라 이름은 검색을 좁히는 낱말일 뿐, 회사+지명만 겹친 제목은 같은 사건으로 치지 않는다(사건 낱말이 있어야 함).",
+                      "사업장이 여럿인 회사의 굴뚝 측정 항목은 그 사업장 지명(광양·포항 등)이 기사에 있어야 관련 보도로 친다(없으면 약한 근거).",
                       f"항목 날짜 {LEAD_DAYS}일 전 이후 기사만 센다. 미보도 후보는 검색 범위 안에서 못 찾았다는 뜻이고 단독 판정이 아니다.",
                       "관련 보도 있음은 회사명+낱말이 겹친 기사. 같은 사건인지는 열어 봐야 한다. 채널 실패·미설정은 미확인(0건 아님)."]}
 
