@@ -1105,7 +1105,9 @@ test('radar_today ranks EDGAR mentions by deal words and hides items the reporte
   const b = r.text.split('[B · ')[1].split('[C · ')[0];
   assert.match(a, /ACME METALS: 8-K/);
   assert.match(b, /HARTFORD INSURANCE GROUP: 8-K EX-99\.2 — 발췌에 계약·공급·합작 낱말 없음/);
-  assert.match(a, /id p1/);
+  assert.match(b, /id p1/);  // 특허 공개 미보도 후보는 B(그 자체로 단독 아님, 10-31)
+  assert.doesNotMatch(a, /고정자 냉각 장치/);
+  assert.match(b, /고정자 냉각 장치 \(특허\) — 보도 대조 '미보도 후보' · 특허 공개만으로는 단독이 아님/);
   const fb = await call('candidate_feedback', { verdict: '봤음', item_ids: ['p1', 'edgar:hig'] }, opts);
   assert.match(fb.text, /기록: \[봤음\] 2건 — 확인함\(판단 전\)/);
   await call('candidate_feedback', { item_id: 'p2', verdict: '보류', reason: '새 사실 붙으면' }, opts);
@@ -1205,7 +1207,8 @@ test('weekly review groups judgments by watch and DART filing type, and keeps la
   await call('candidate_feedback', { verdict: '봤음', item_ids: ['edgar:hig', 'gone:1'] }, opts);
   const r = await call('candidate_weekly_review', {}, opts);
   assert.match(r.text, /판정한 항목 10개: 씀 2 · 킬 4 · 보류 1 · 봤음 3 \(기록 11건, 같은 항목은 마지막 판정만 셈\)/);
-  assert.match(r.text, /- 단독 후보 심사 8 — 씀 2 · 킬 4 · 보류 1 · 봤음 1 \| A 3\(씀 1 · 보류 1 · 봤음 1\) · B 5\(씀 1 · 킬 4\)/);
+  // 특허 미보도 후보(clue:late)는 B(10-31)
+  assert.match(r.text, /- 단독 후보 심사 8 — 씀 2 · 킬 4 · 보류 1 · 봤음 1 \| A 2\(씀 1 · 보류 1\) · B 6\(씀 1 · 킬 4 · 봤음 1\)/);
   assert.match(r.text, /- 해외 파트너 공시 1 — 봤음 1 \| B 1\(봤음 1\)/);
   assert.match(r.text, /- 감시 미상\(지금 목록에 없음\) 1 — 봤음 1/);
   assert.match(r.text, /- 단독 후보 심사 · DART 채무보증 5 — 씀 1 · 킬 4 \| 일상\(B\) 5: 씀 1 · 킬 4/);
