@@ -31,6 +31,18 @@ class Resp:
         self.text, self.status_code = text, status
 
 
+# 상세 페이지(10-31 탐침 원본 구조에서 줄임): 울주는 <dd>·<div> 본문 + 첨부 링크, 완주는 표 칸
+ULJU_DETAIL = ('<html><head><title>고시공고</title><script>function goDownLoad(){ var a = "<td>제목</td>"; }</script></head><body>'
+               '<dl><dt>공고번호</dt><dd>울산광역시 울주군 공고 제2026-2760호</dd><dt>담당부서</dt><dd>건축허가과</dd><dt>제목</dt>'
+               '<dd>건설공사 안전점검 수행기관 지정 공고[온산 고려아연(주), #2ASU O2 COMPRESSOR ROOM 토건공사]</dd></dl>'
+               '<div>우리 군 온산읍 원산리 892번지 일원 상 공장 용도의 건축공사에 대하여『건설기술 진흥법』제62조에 따라 건설공사 안전점검 '
+               '수행기관을 지정하고자 다음과 같이 모집 공고합니다.<br>붙임 1. 안전점검 수행기관 지정 공고문 1부. 끝.</div>'
+               '<table><tr><th>첨부파일 :</th><td><a href="#">예정공정표.pdf</a> <a href="#">안전점검 수행기관 지정 공고문[온산 고려아연(주) 2ASU '
+               'O2 COMPRESSOR ROOM 토건공사].hwpx</a></td></tr></table><a href="#">목록보기</a></body></html>')
+WANJU_DETAIL = ('<table><tr><th>고시공고번호</th><td>완주군 공고 제2026-1851호</td></tr><tr><th>제목</th>'
+                '<td>전기사업법 위반에 따른 행정처분 사전통지 공시송달 공고</td></tr></table>'
+                '<div>「전기사업법」 제9조(전기설비의 설치 및 사업의 개시의무) 규정을 위반하여 다음과 같이 공시송달합니다.</div>')
+
 CITIES = [("당진시", "https://eminwon.dangjin.go.kr", "현대제철"), ("울주군", "http://eminwon.ulju.ulsan.kr", "고려아연")]
 
 
@@ -219,6 +231,68 @@ class Local(unittest.TestCase):
         self.assertEqual((x["company"], x["tier"]), ("LS일렉트릭", "A"))
         self.assertEqual(x["url"], "https://www.cheongju.go.kr/www/selectEminwonNoticeView.do?key=281&notAncmtMgtNo=161030")
         self.assertEqual(x["listUrl"], "https://www.cheongju.go.kr/www/selectEminwonNoticeList.do?key=281&pageUnit=60")
+
+    def test_detail_page_gives_full_title_body_and_files(self):
+        # 10-31 탐침(울주 68156): 목록 제목은 '…#2ASU O...'로 잘리고 상세에 전체 제목·본문·첨부 파일 이름이 있다
+        got = w.parse_detail(ULJU_DETAIL, "건설공사 안전점검 수행기관 지정 공고[온산 고려아연(주), #2ASU O...")
+        self.assertEqual(got["title"], "건설공사 안전점검 수행기관 지정 공고[온산 고려아연(주), #2ASU O2 COMPRESSOR ROOM 토건공사]")
+        self.assertTrue(got["body"].startswith("우리 군 온산읍 원산리 892번지 일원 상 공장 용도의 건축공사"))
+        self.assertNotIn("목록보기", got["body"])
+        self.assertEqual(got["files"], ["예정공정표.pdf", "안전점검 수행기관 지정 공고문[온산 고려아연(주) 2ASU O2 COMPRESSOR ROOM 토건공사].hwpx"])
+        # 완주 44869 형식(표 칸): 제목 칸 다음 본문
+        got = w.parse_detail(WANJU_DETAIL, "전기사업법 위반에 따른 행정처분 사전통지 공시송달 공고")
+        self.assertEqual(got["title"], "전기사업법 위반에 따른 행정처분 사전통지 공시송달 공고")
+        self.assertTrue(got["body"].startswith("「전기사업법」 제9조"))
+        self.assertIsNone(w.parse_detail("<html><body>없는 공고</body></html>", "건설공사 안전점검 수행기관 지정 공고"))
+
+    def test_new_a_b_notices_read_their_detail_once(self):
+        first = w.run(now=NOW, previous=None, post=fake({"http://eminwon.ulju.ulsan.kr": page(UJ1, A_ROW)}), sleep=lambda s: None,
+                      cities=CITIES[1:], browser_cities=())
+        uj2 = [("68156", "2760", "건설공사 안전점검 수행기관 지정 공고[온산 고려아연(주), #2ASU O...", "2026-10-30"),
+               ("68157", "2761", "고려아연(주) 온산제련소 직원 표창", "2026-10-30")] + UJ1
+        asked = []
+
+        def get(url, headers=None, timeout=None):
+            asked.append(url)
+            if "68156" in url:
+                return Resp(ULJU_DETAIL)
+            raise type("ReadTimeout", (Exception,), {})("read timed out")
+        doc = w.run(now=NOW + dt.timedelta(days=1), previous=first, post=fake({"http://eminwon.ulju.ulsan.kr": page(uj2, A_ROW)}),
+                    sleep=lambda s: None, cities=CITIES[1:], browser_cities=(), get=get)
+        by = {x["id"]: x for x in doc["items"]}
+        asu = by["local:울주군:68156"]
+        self.assertEqual(asu["detail"]["title"], "건설공사 안전점검 수행기관 지정 공고[온산 고려아연(주), #2ASU O2 COMPRESSOR ROOM 토건공사]")
+        self.assertEqual(asu["tier"], "A")
+        self.assertEqual(by["local:울주군:68157"]["tier"], "B")
+        self.assertEqual(by["local:울주군:68157"]["detailError"], "ReadTimeout")  # 실패는 제목만 확인한 상태 그대로
+        self.assertNotIn("detail", by["local:울주군:68118"])  # 기준선 항목은 읽지 않는다
+        self.assertEqual(len(asked), 2)
+        self.assertEqual(doc["details"], {"read": 1, "failed": 1, "skipped": 0})
+        # get이 없으면(테스트·다른 호출) 상세를 읽지 않는다
+        again = w.run(now=NOW + dt.timedelta(days=1), previous=first, post=fake({"http://eminwon.ulju.ulsan.kr": page(uj2, A_ROW)}),
+                      sleep=lambda s: None, cities=CITIES[1:], browser_cities=())
+        self.assertNotIn("details", again)
+        # 이 기능 전에 저장된 최근 A·B(상세 없음)는 한 번 읽고, 실패·성공이 기록되면 다시 읽지 않는다
+        asked.clear()
+        third = w.run(now=NOW + dt.timedelta(days=2), previous=again, post=fake({"http://eminwon.ulju.ulsan.kr": page(uj2, A_ROW)}),
+                      sleep=lambda s: None, cities=CITIES[1:], browser_cities=(), get=get)
+        self.assertEqual(sorted(u.split("no=")[1].split("&")[0] for u in asked), ["68156", "68157"])
+        self.assertIn("detail", next(x for x in third["items"] if x["id"] == "local:울주군:68156"))
+        asked.clear()
+        w.run(now=NOW + dt.timedelta(days=2, hours=1), previous=third, post=fake({"http://eminwon.ulju.ulsan.kr": page(uj2, A_ROW)}),
+              sleep=lambda s: None, cities=CITIES[1:], browser_cities=(), get=get)
+        self.assertEqual(asked, [])
+        # 3일이 지난 저장분은 읽지 않는다
+        stale = w.run(now=NOW + dt.timedelta(days=5), previous=again, post=fake({"http://eminwon.ulju.ulsan.kr": page(uj2, A_ROW)}),
+                      sleep=lambda s: None, cities=CITIES[1:], browser_cities=(), get=get)
+        self.assertNotIn("details", stale)
+
+    def test_full_title_regrades(self):
+        # 목록 제목이 잘려 사업 낱말이 빠졌던 B가 전체 제목으로 A가 된다
+        items = [{"url": "http://x/1", "title": "고려아연(주) 온산제련소 ...", "tier": "B", "companies": ["고려아연"], "company": "고려아연"}]
+        page_ = "<dd>고려아연(주) 온산제련소 제2공장 증설 건축허가 공고</dd><div>본문</div>"
+        stats = w.read_details(items, lambda url, headers=None, timeout=None: Resp(page_), lambda s: None)
+        self.assertEqual((items[0]["tier"], items[0]["listTier"], stats["read"]), ("A", "B", 1))
 
     def test_parse_cells(self):
         self.assertEqual(w.parse_cells("1", ["", " 10 ", "울산 남구 공고", "건축과", "2026-10-30", "3"])["title"], "울산 남구 공고")

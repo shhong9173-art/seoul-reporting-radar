@@ -82,6 +82,7 @@ const ALT = {
   회생: ['회생', '법정관리', '파산', '기업회생', '워크아웃'],
   허가: ['허가', '인가', '승인', '전기위원회'], 법인: ['법인', '현지법인', '자회사', '설립'], 영국: ['영국', 'UK'], 원안위: ['원안위', '원자력안전위원회', '의결', '심의'],
   발주: ['발주', '입찰', '낙찰', '구매'],
+  산소공장: ['산소공장', '산소 공장', '산소플랜트', 'ASU', '공기분리'],
   환경영향평가: ['환경영향평가', '환경평가'], 산업단지: ['산업단지', '산단'], 이전: ['이전', '옮겨', '옮긴다'], 매립: ['매립', '매립장'],
 };
 const ASX_KO = { PLS: '필바라', ARU: '아라푸라', '01958': 'BAIC' };
@@ -162,6 +163,8 @@ export function siteCity(site) {
 // 지자체 고시·공고 제목의 사업 낱말 → 기사가 쓸 낱말(안전점검·건설공사 공고의 기사는 '증설·신설·착공'으로 난다)
 export function localWord(title) {
   const t = String(title ?? '');
+  // 산소공장(공기분리장치 ASU): 기사는 '산소공장 증설'로 쓴다(10-20 전자신문 「고려아연, 산소공장 증설 발주 87% 완료」)
+  if (/(?<![A-Za-z])ASU\b|산소\s*(?:공장|플랜트)|공기\s*분리/.test(t)) return '산소공장';
   if (/환경영향평가/.test(t)) return '환경영향평가';
   if (/산업단지/.test(t)) return '산업단지';
   if (/매립/.test(t)) return '매립';
@@ -541,10 +544,15 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
   // 출입처 공장이 있는 시·군의 고시·공고(새올): 출입처 이름+사업 낱말 A, 이름만 B, 제철소·산업단지 계획 등 C. 시·군별 첫 조회는 기준선.
   for (const x of docs['kr-local']?.items ?? []) {
     if (x.baseline || !recent(x.firstSeen)) continue;
+    // 상세 페이지를 읽었으면 전체 제목·본문 앞부분(목록 제목은 '...'로 잘린다 — 10-31 울주 '#2ASU O...' → 'O2 COMPRESSOR ROOM 토건공사')
+    const d = x.detail;
+    const title = d?.title ?? x.title;
+    const body = d?.body ? ` · 본문: ${String(d.body).slice(0, 140)}${String(d.body).length > 140 ? '…' : ''}` : '';
+    const scope = d ? '제목·본문 앞부분 확인(첨부 원문·규모는 지자체·회사 확인)' : '제목만 확인(첨부 원문·규모는 지자체·회사 확인)';
     push(x.tier ?? 'C', W['kr-local'], { kind: '지자체 고시·공고', id: x.id, date: x.date ?? String(x.firstSeen).slice(0, 10), company: x.company ?? x.city,
-      fact: `${x.city} ${x.no ?? ''} 「${x.title}」 · ${x.dept ?? '담당 부서 미기재'} · 등록 ${x.date ?? '?'} — 제목만 확인(첨부 원문·규모는 지자체·회사 확인)`,
+      fact: `${x.city} ${x.no ?? ''} 「${title}」 · ${x.dept ?? '담당 부서 미기재'} · 등록 ${x.date ?? '?'}${body} — ${scope}`,
       url: x.url, check: x.tier === 'C' || !x.company ? undefined
-        : hint(x.company, [String(x.city).replace(/(시|군|구)$/, ''), localWord(x.title), '공장'], [String(x.city).replace(/(시|군|구)$/, '')]) });
+        : hint(x.company, [String(x.city).replace(/(시|군|구)$/, ''), localWord(title), '공장'], [String(x.city).replace(/(시|군|구)$/, '')]) });
   }
 
   // 국민연금 사업장(월 자료): 자사 사업장 가입자 급감·탈퇴·새 사업장·투자 낱말 공사 현장 A, 급증·변동·목록에서 빠짐·공사 현장 묶음 B.
