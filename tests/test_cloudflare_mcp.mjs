@@ -11,7 +11,7 @@ import { publicationDate, verifyEvidence } from '../cloudflare/evidence.mjs';
 import { allowedUrl } from '../cloudflare/live_tools.mjs';
 import { ageNote, handleIngest, weekdayHours } from '../cloudflare/screen.mjs';
 import { dueAt, nextSlot, runSchedule } from '../cloudflare/dispatch.mjs';
-import { boardHtml, lineHtml } from '../cloudflare/board.mjs';
+import { factParts, groupSame, splitTop } from '../cloudflare/board.mjs';
 import { background, billHint, clipAt, convergence, convergenceRows, countForms, hint, insolvencyWord, usRecallHint, usRecallModels, kepcoHint, localWord, radarItems, siteCity, stackHint, workforceHint } from '../cloudflare/digest.mjs';
 
 const ORIGIN = 'https://seoul-reporting-radar.shhong9173.workers.dev';
@@ -2101,7 +2101,7 @@ test('us_recalls: NHTSA manufacturer communications by campaign — powertrain w
   assert.deepEqual([tl.who, tl.terms, tl.places, tl.alts['무상수리'].includes('보증 연장')], ['기아', ['텔루라이드', '무상수리'], ['텔루라이드'], true]);
 });
 
-test('reporter board /r/<token>: secret path only, no scripts, no referrer, radar_today content with unreported marked', async () => {
+test('reporter board /r/<token>: secret path only, no scripts, no referrer, cards from radar_today data with unreported marked', async () => {
   const env = { MCP_ACCESS_TOKEN: TOKEN, STORE: storeBinding() };
   const get = (path, init) => worker.fetch(new Request(ORIGIN + path, init), env, {});
   assert.equal((await get('/r/wrong-token-0123456789abc')).status, 404);
@@ -2113,7 +2113,8 @@ test('reporter board /r/<token>: secret path only, no scripts, no referrer, rada
     { id: 'local:당진시:2', city: '당진시', company: '현대제철', tier: 'A', title: '현대제철㈜ 당진 전기로 설치 공유수면 점용 허가 <b>', date: recent.slice(0, 10), firstSeen: recent,
       url: 'https://www.dangjin.go.kr/a?b=1&c=2' }] })).status, 200);
   assert.equal((await post('radar-check', { schema: 'radar_check/v1', generatedAt: recent, items: [
-    { id: 'local:당진시:2', verdict: '미보도 후보', since: '2026-10-28', queries: ['현대제철 당진'], evidence: [], channels: {} }] })).status, 200);
+    { id: 'local:당진시:2', verdict: '미보도 후보', since: '2026-10-28', queries: ['현대제철 당진'], channels: {},
+      evidence: [{ date: '2026-10-20', channel: '네이버', title: '현대제철, 당진 전기로 검토', url: 'https://n.news/1', before: true }] }] })).status, 200);
   const r = await get(`/r/${TOKEN}?hours=72`);
   assert.equal(r.status, 200);
   assert.equal(r.headers.get('Referrer-Policy'), 'no-referrer');
@@ -2123,16 +2124,23 @@ test('reporter board /r/<token>: secret path only, no scripts, no referrer, rada
   const html = await r.text();
   assert.doesNotMatch(html, /<script/i);
   assert.doesNotMatch(html, new RegExp(TOKEN));      // 토큰은 화면에 안 찍는다(링크는 ?hours= 상대 주소)
-  assert.match(html, /<h2 class="tA">A · 단독 후보·직접 변화/);
-  assert.match(html, /<mark>미보도 후보<\/mark>/);
+  assert.match(html, /<article class="card tA">\s*<div class="top"><span class="tier">A<\/span><span class="pv pnew">미보도 후보<\/span><span class="watch">지자체 고시·공고<\/span>/);
   assert.match(html, /공유수면 점용 허가 &lt;b&gt;/);  // 원문 글자는 이스케이프
-  assert.match(html, /<a href="https:\/\/www\.dangjin\.go\.kr\/a\?b=1&amp;c=2" target="_blank" rel="noopener noreferrer">/);
+  assert.match(html, /<a class="btn" href="https:\/\/www\.dangjin\.go\.kr\/a\?b=1&amp;c=2" target="_blank" rel="noopener noreferrer">원문 열기<\/a>/);
+  assert.match(html, /보도 대조\(자동 [^)]*\): 미보도 후보<\/b> · “현대제철 당진”로 2026-10-28 이후 관련 기사를 못 찾음/);
+  assert.match(html, /앞선 기사: 항목 날짜 전이라 판정에 안 셈/);
+  assert.match(html, /<summary>Claude에 넘길 id<\/summary><code>local:당진시:2<\/code>/);   // id는 접어 둔다
   assert.match(html, /<a class="chip on" href="\?hours=72">72시간<\/a>/);
+  assert.match(html, /<div><b>1<\/b><span>A 단독 후보·직접 변화<\/span><\/div>/);
   assert.equal((await get(`/r/${TOKEN}/?q=${encodeURIComponent('없는회사')}`)).status, 200);
-  // 끝 구두점은 링크 밖, 괄호 든 주소는 그대로
-  assert.equal(lineHtml('원문: https://e.gov/x). 끝'), '원문: <a href="https://e.gov/x" target="_blank" rel="noopener noreferrer">https://e.gov/x</a>). 끝');
-  assert.match(lineHtml('https://e.gov/a_(b)'), /href="https:\/\/e\.gov\/a_\(b\)"/);
-  assert.match(boardHtml('머리\n[B · 확인할 공식 변화] 0건\n없음', { hours: undefined, q: '', minor: false }), /<h2 class="tB">B · 확인할 공식 변화<small> 0건<\/small><\/h2>/);
+  // 숫자만 다른 같은 곳 같은 유형은 한 카드
+  const row = (n) => ({ tier: 'B', watch: '굴뚝 측정(공장 가동 신호)', company: '현대제철', id: `stk:${n}`, fact: `현대제철㈜포항1공장 배출구 ${n}번이 굴뚝 자동측정 목록에서 2번 연속 빠짐 — 설비 폐쇄·측정 대상 변경일 수 있음(회사 확인)` });
+  assert.deepEqual(groupSame([row(10), row(2), row(5), { ...row(7), company: '포스코' }], () => undefined).map((g) => g.length), [3, 1]);
+  // 괄호 안 구분자는 자르지 않고, ' — ' 뒤 단서 달기는 주의로·핵심 사실은 세부 줄로
+  assert.deepEqual(splitTop("변경(종료일 +7개월 · 사유 '연장') · 계약상대 ㈜야월", ' · '), ["변경(종료일 +7개월 · 사유 '연장')", '계약상대 ㈜야월']);
+  assert.deepEqual(factParts('엘에스엠앤엠(주): 배출구 1개가 3번 연속 평소의 10% 아래 — 5번(평소 50.8→최근 0.18) · 정비·점검일 수 있음(회사 확인)'),
+    { title: '엘에스엠앤엠(주): 배출구 1개가 3번 연속 평소의 10% 아래', details: ['5번(평소 50.8→최근 0.18)'], notes: ['정비·점검일 수 있음(회사 확인)'] });
+  assert.deepEqual(factParts('금호타이어 · [기재정정]유형자산취득결정 — 정정 중 큰 변경(취득예정일자 -36개월)').title, '금호타이어 · [기재정정]유형자산취득결정');
 });
 
 test('scoop_reverse shows automatic prior-capture candidates by source with lead time, separate from human Y/P/N', async () => {
