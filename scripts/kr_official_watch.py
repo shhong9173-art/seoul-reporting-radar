@@ -326,8 +326,17 @@ def factories(cfg, key, now, previous, *, get=None, sleep=time.sleep, deadline=N
         elif f["company"] in comparable:
             changes = []
             oe, ne = old.get("employees"), f.get("employees")
+            # 직전 고용 변경 앞의 값을 들고 다닌다 — 값이 그 앞 값으로 돌아가면 '되돌림'(정정)이다
+            # (10-29 기자 판정 킬: KG스틸 당진 고용 856→690명은 정식 변경등록이 아니라 전화 문의 구두 답변이 반영된 값, 정정 요청 예정)
+            if old.get("employeesBefore") is not None:
+                f["employeesBefore"], f["employeesChangedOn"] = old["employeesBefore"], old.get("employeesChangedOn")
             if oe is not None and ne is not None and oe != ne and abs(ne - oe) >= max(20, round(oe * 0.1)):
-                changes.append((f"고용 {oe:,}→{ne:,}명", "A"))
+                if old.get("employeesBefore") == ne:
+                    changes.append((f"고용 {oe:,}→{ne:,}명(직전 변경 {old.get('employeesChangedOn') or '?'} {ne:,}→{oe:,}명을 되돌림 — "
+                                    f"지난 값이 정정된 것일 수 있음)", "B"))
+                else:
+                    changes.append((f"고용 {oe:,}→{ne:,}명", "A"))
+                f["employeesBefore"], f["employeesChangedOn"] = oe, stamp[:10]
             for k, label in (("mainProductCn", "주생산품"), ("indutyNm", "업종"), ("rnAdres", "주소")):
                 if (old.get(k) or "") != (f.get(k) or "") and old.get(k) is not None:
                     ch = field_change(label, old.get(k), f.get(k))

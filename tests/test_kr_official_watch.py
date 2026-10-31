@@ -101,6 +101,22 @@ class Factory(unittest.TestCase):
         self.assertIn("주생산품 '열연강판'→'열연강판, 전기강판'", ch["text"])
         self.assertNotIn("fac:10", {e["factoryId"] for e in doc["events"]})
 
+    def test_employee_count_that_returns_is_a_revert_not_a_new_change(self):
+        # 10-29 기자 판정(킬): KG스틸 당진 856→690명은 전화 문의 구두 답변이 DB에 반영된 값 — 정정되면 690→856으로 돌아온다
+        first = run()
+        cut = [fac("1", "(주)포스코 포항제철소", emp="8000")]
+        second = run(previous=first, posco=cut, now=NOW + dt.timedelta(days=1))
+        ch = next(e for e in second["events"] if e["kind"] == "등록 내용 변경")
+        self.assertEqual((ch["text"], ch["tier"]), ("고용 9,000→8,000명", "A"))
+        back = run(previous=second, now=NOW + dt.timedelta(days=5))  # 9,000명으로 돌아옴
+        rv = next(e for e in back["events"] if e["kind"] == "등록 내용 변경")
+        self.assertEqual(rv["tier"], "B")
+        self.assertIn("고용 8,000→9,000명(직전 변경 " + (NOW + dt.timedelta(days=1)).date().isoformat() + " 9,000→8,000명을 되돌림", rv["text"])
+        # 값이 그대로인 실행에도 직전 값은 들고 다닌다
+        same = run(previous=second, posco=cut, now=NOW + dt.timedelta(days=2))
+        f = next(x for x in same["factories"] if x["id"] == "fac:1")
+        self.assertEqual(f["employeesBefore"], 9000)
+
     def test_reordered_or_reformatted_fields_are_not_changes(self):
         # 운영 10-29: LS일렉트릭 청주1공장 주생산품이 순서만 바뀐 것이 A로 떴다
         old = [fac("1", "(주)포스코 포항제철소", product="전기부품, 고압접촉기, 전력량계, 누전차단기, 개폐기 등, 진공접촉기, Ev-Relay",
