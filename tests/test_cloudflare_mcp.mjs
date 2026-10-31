@@ -2243,6 +2243,7 @@ test('foreign-news translation /ingest/translate: bearer only, Workers AI langua
   assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/translate', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: '{"texts":["a"]}' }), { MCP_ACCESS_TOKEN: TOKEN }, {})).status, 503);
   assert.equal(cleanOutput('제목: 「현대차, 美 공장 증설」\n설명'), '현대차, 美 공장 증설');
   assert.equal(cleanOutput('English only'), '');
+  assert.equal(cleanOutput('샤오미, 선우다 EVB 투자 계획 발표… 배터리 협력 강화 -'), '샤오미, 선우다 EVB 투자 계획 발표… 배터리 협력 강화');
 });
 
 test('scoop_reverse shows automatic prior-capture candidates by source with lead time, separate from human Y/P/N', async () => {

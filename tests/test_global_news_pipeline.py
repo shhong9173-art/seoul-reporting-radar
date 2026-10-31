@@ -128,14 +128,25 @@ class GlobalCollectorBeatTests(unittest.TestCase):
         finally:
             gc.worker_translate, gc.get = orig_post, orig_get
         self.assertEqual(calls, [("ai", "Korea Zinc starts US smelter study")])
+        sent = []
+        orig_post = gc.worker_translate
+        try:
+            gc.worker_translate = lambda t: (sent.append(t) or "번역")
+            gc.translate("Hyundai to invest US$450m in Alabama plant for new Tucson - Automotive World")
+        finally:
+            gc.worker_translate = orig_post
+        self.assertEqual(sent, ["Hyundai to invest US$450m in Alabama plant for new Tucson"])   # 매체 이름은 떼고 보낸다
         os.environ.pop("MCP_ACCESS_TOKEN", None)
         self.assertEqual(gc.worker_translate("x"), "")   # 토큰 없으면 워커를 부르지 않는다
 
     def test_ai_translation_is_reused_from_cache(self):
         old=item("Korean EV signal","https://news.example/a",summary="")
-        old.update({"koTitle":"한국 전기차 신호","koSummary":"","translationStatus":"translated_ai"})
-        out=translate_selected([item("Korean EV signal","https://news.example/a",summary="")],lambda t:("다시","translated"),previous=[old],workers=1)
+        old.update({"koTitle":"한국 전기차 신호","koSummary":"","translationStatus":"translated_ai","translationVersion":2})
+        out=translate_selected([item("Korean EV signal","https://news.example/a",summary="")],lambda t:("다시","translated_ai"),previous=[old],workers=1)
         self.assertEqual((out[0]["koTitle"],out[0]["translationCacheUsed"]),("한국 전기차 신호",True))
+        old.pop("translationVersion")   # 예전 규칙(v1) AI 번역은 다시 번역
+        out=translate_selected([item("Korean EV signal","https://news.example/a",summary="")],lambda t:("다시","translated_ai"),previous=[old],workers=1)
+        self.assertEqual((out[0]["koTitle"],out[0]["translationCacheUsed"],out[0]["translationVersion"]),("다시",False,2))
 
     def test_fallback_translation_is_not_reused_and_empty_summary_not_translated(self):
         old=item("Korean EV signal","https://news.example/a",summary="")

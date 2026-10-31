@@ -31,12 +31,17 @@ def shortlist(raw,*,limit=40):
         x.get("globalScore",0),x["published"]),reverse=True)[:limit]
 
 
+# AI 번역 규칙(프롬프트·매체 이름 떼기)을 바꾸면 올린다 — 예전 규칙으로 만든 번역은 다시 번역한다(11-01: v1 번역에 매체 이름·없는 사실이 섞임).
+AI_TRANSLATION_VERSION=2
+
+
 def same_text_identity(new,old):
     return (isinstance(old,dict) and
         all(new.get(k)==old.get(k) for k in ("title","url","summary")) and
         isinstance(old.get("koTitle"),str) and old["koTitle"].strip() and
         # 보조 번역기(MyMemory) 결과는 다시 쓰지 않고 다음 실행에 주 번역기로 다시 번역한다(11-01: 품질이 낮았다)
-        old.get("translationStatus") in ("translated","translated_ai","already_ko") and
+        (old.get("translationStatus") in ("translated","already_ko") or
+         (old.get("translationStatus")=="translated_ai" and old.get("translationVersion")==AI_TRANSLATION_VERSION)) and
         isinstance(old.get("koSummary"),str))
 
 
@@ -50,7 +55,7 @@ def translate_selected(rows,translator,*,previous=None,workers=3):
         out=dict(row)
         old=cache.get(out.get("url"))
         if same_text_identity(out,old):
-            for field in ("koTitle","koSummary","translationStatus","summaryTranslationStatus"):
+            for field in ("koTitle","koSummary","translationStatus","summaryTranslationStatus","translationVersion"):
                 if field in old:out[field]=old[field]
             out["translationCacheUsed"]=True
             return out
@@ -66,6 +71,7 @@ def translate_selected(rows,translator,*,previous=None,workers=3):
         out["koTitle"]=ko_title
         out["koSummary"]=ko_summary if summary_status!="translation_failed" else ""
         out["translationStatus"]=title_status
+        if title_status=="translated_ai":out["translationVersion"]=AI_TRANSLATION_VERSION
         out["summaryTranslationStatus"]=summary_status
         out["translationCacheUsed"]=False
         return out

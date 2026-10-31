@@ -139,6 +139,9 @@ def translate(text: str) -> tuple[str, str]:
     if looks_korean(text) and not re.search(r"\b(the|and|of|to|for|with|after|before|reportedly|starts|launches|says)\b", text, re.I):
         return text, "already_ko"
     # 11-01: 구글 비공식 번역 주소가 Actions에서 막혀 거의 전부 보조 번역기로 넘어갔다 — 워커(Workers AI)를 먼저 쓴다.
+    # 제목 끝 매체 이름(" - Automotive News")은 떼고 보낸다(11-01 운영: '- 오토모티브 뉴스'·'- 인사이드EV스'가 번역문에 남았다).
+    if len(text) < 300:
+        text = re.sub(r"\s+[-–—|]\s+[^-–—|]{2,60}$", "", text).strip() or text
     ko = worker_translate(text)
     if ko:
         return ko, "translated_ai"
