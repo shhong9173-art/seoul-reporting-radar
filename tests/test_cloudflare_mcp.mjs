@@ -589,6 +589,35 @@ test('page_changes shows before/after lines from the private page-watch feed', a
   assert.match(r.text, /현대차 미국 아이오닉6 N: Coming Spring 2027 · extremely limited availability/);
 });
 
+test('page_changes: a redirected page is not a failure, moved/opened are events, old changes of a redirected address are C', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const now = new Date(Date.now() - 3600000).toISOString();
+  const doc = { schema: 'page_watch/v1', generatedAt: now, status: 'complete', rules: [],
+    pages: [{ id: 'kia-us-ev4', company: '기아', label: '기아 미국 EV4', url: 'https://www.kia.com/us/en/ev4', status: 'redirected', finalUrl: 'https://www.kia.com/us/en', signals: {} },
+      { id: 'kia-us-ev9', company: '기아', label: '기아 미국 EV9', url: 'https://www.kia.com/us/en/ev9', status: 'ok', finalUrl: 'https://www.kia.com/us/en/ev9', signals: {} }],
+    events: [
+      { pageId: 'kia-us-ev4', scope: 'page', company: '기아', label: '기아 미국 EV4', url: 'https://www.kia.com/us/en/ev4', detectedAt: now, baselineSource: '직전 확인',
+        added: { price: ['STARTING AT $ 22,390'] }, removed: {}, redirectNote: '이 주소는 https://www.kia.com/us/en(으)로 넘어가 있어 이 문구는 그 페이지 것이다 — 기아 미국 EV4 문구 아님(2026-10-31 확인)' },
+      { pageId: 'kia-us-ev9', scope: 'page', kind: 'moved', company: '기아', label: '기아 미국 EV9', url: 'https://www.kia.com/us/en/ev9', detectedAt: now, baselineSource: '직전 확인',
+        movedTo: 'https://www.kia.com/us/en/vehicles', added: {}, removed: { price: ['$54,900'] } },
+      { pageId: 'genesis-gv90', scope: 'page', kind: 'opened', company: '제네시스', label: '제네시스 미국 GV90', url: 'https://www.genesis.com/us/en/gv90', detectedAt: now,
+        baselineSource: 'x', openedFrom: 'https://www.genesis.com/us/en/home', added: { timing: ['Coming Spring 2027'] }, removed: {} }] };
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/page-watch', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
+  const t = await call('page_changes', {}, opts);
+  assert.match(t.text, /페이지 2\/2 열림/);
+  assert.doesNotMatch(t.text, /미확인\(변화 없음 아님\)/);
+  assert.match(t.text, /다른 주소로 넘어가는 페이지\(문구 비교 안 함[^)]*\): 기아 미국 EV4 → https:\/\/www\.kia\.com\/us\/en/);
+  assert.match(t.text, /페이지 넘어감: 이 주소가 https:\/\/www\.kia\.com\/us\/en\/vehicles\(으\)로 넘어간다/);
+  assert.match(t.text, /주의: 이 주소는 https:\/\/www\.kia\.com\/us\/en\(으\)로 넘어가 있어/);
+  const r = await call('radar_today', { include_minor: true }, opts);
+  const a = r.text.split('[A · ')[1].split('[B · ')[0];
+  assert.match(a, /기아 미국 EV9 페이지 넘어감 → https:\/\/www\.kia\.com\/us\/en\/vehicles/);
+  assert.match(a, /제네시스 미국 GV90 페이지 열림\(전에는 https:\/\/www\.genesis\.com\/us\/en\/home\(으\)로 넘어가던 주소 — 출시 준비 신호일 수 있음\): Coming Spring 2027/);
+  assert.doesNotMatch(a, /기아 미국 EV4/);
+  assert.match(r.text.split('[C · ')[1], /기아 미국 EV4 문구 변화: \+ STARTING AT \$ 22,390 — 이 주소는/);
+});
+
 test('partner_filings reads ASX and EDGAR items from the private feed', async () => {
   const env = PRIVATE().env;
   const doc = { schema: 'partner_filings/v1', generatedAt: '2026-10-26T07:00:00+09:00', windowDays: 30, rules: ['파트너 공시는 그 회사의 발표다.'],

@@ -17,8 +17,10 @@ PAGE = {"id": "hyundai-us-ioniq-6-n", "company": "현대차", "label": "현대�
 
 
 class R:
-    def __init__(self, code=200, text="", body=None):
+    def __init__(self, code=200, text="", body=None, url=None):
         self.status_code, self.text, self.body = code, text, body
+        if url:
+            self.url = url
 
     def json(self):
         return self.body
@@ -110,6 +112,50 @@ class Run(unittest.TestCase):
         self.assertEqual(doc["status"], "partial")
         short = w.fetch("u", get=lambda url, **k: R(200, text="<html>Access Denied</html>"))
         self.assertEqual(short["status"], "failed")
+
+
+class Redirects(unittest.TestCase):
+    """10-31 확인: kia.com/us/en/ev4 → 301 → 기아 미국 홈페이지. 그동안 'EV4' 이름으로 홈페이지 K4 가격을 비교했다."""
+    EV4 = {"id": "kia-us-ev4", "company": "기아", "label": "기아 미국 EV4", "url": "https://www.kia.com/us/en/ev4", "kind": "model"}
+    HOME = f"<html><head><title>Kia America</title></head><body><p>2027 K4 STARTING AT $22,390</p>{PAD}</body></html>"
+
+    def home(self, url, **k):
+        return R(text=self.HOME, url="https://www.kia.com/us/en")
+
+    def test_same_page_ignores_scheme_www_slash_and_query(self):
+        self.assertTrue(w.same_page("https://www.kia.com/us/en/ev9", "https://kia.com/us/en/ev9/?cid=x"))
+        self.assertFalse(w.same_page("https://www.kia.com/us/en/ev4", "https://www.kia.com/us/en"))
+
+    def test_first_sight_of_a_redirect_is_recorded_without_events_or_wayback(self):
+        calls = []
+        doc = w.run([self.EV4], now=NOW, get=lambda url, **k: calls.append(url) or self.home(url), sleep=lambda s: None)
+        page = doc["pages"][0]
+        self.assertEqual((page["status"], page["finalUrl"], page["signals"]), ("redirected", "https://www.kia.com/us/en", {}))
+        self.assertEqual((doc["events"], doc["status"], calls), ([], "complete", [self.EV4["url"]]))  # 넘어감은 실패가 아니다
+
+    def test_legacy_record_marks_earlier_changes_as_the_target_pages(self):
+        prev = {"pages": [{**self.EV4, "status": "ok", "signals": {"price": ["STARTING AT $ 22,390"]}, "lastOk": "2026-10-28T06:31:00+09:00"}],
+                "events": [{"pageId": "kia-us-ev4", "scope": "page", "detectedAt": "2026-10-28T06:31:00+09:00", "added": {"price": ["STARTING AT $ 22,390"]}}]}
+        doc = w.run([self.EV4], now=NOW, previous=prev, get=self.home, sleep=lambda s: None)
+        self.assertEqual(len(doc["events"]), 1)  # 새 '넘어감' 이벤트는 없다(언제 넘어갔는지 모름)
+        self.assertIn("이 주소는 https://www.kia.com/us/en(으)로 넘어가 있어 이 문구는 그 페이지 것이다", doc["events"][0]["redirectNote"])
+
+    def test_known_page_moving_away_and_a_redirect_opening_are_events(self):
+        prev = {"pages": [{**PAGE, "status": "ok", "finalUrl": PAGE["url"], "signals": w.signals(w.visible_text(NEW)), "lastOk": "2026-10-26T06:00:00+09:00"}]}
+        doc = w.run([PAGE], now=NOW, previous=prev, get=lambda url, **k: R(text=self.HOME, url="https://www.hyundaiusa.com/us/en/vehicles"),
+                    sleep=lambda s: None)
+        ev = doc["events"][0]
+        self.assertEqual((ev["kind"], ev["movedTo"]), ("moved", "https://www.hyundaiusa.com/us/en/vehicles"))
+        self.assertIn("Coming Spring 2027", " ".join(ev["removed"]["timing"]))
+        # 넘어가던 주소가 제 페이지로 열림 → '열림' 이벤트(지금 문구 전체), 웹 아카이브는 부르지 않는다
+        calls = []
+        opened = w.run([PAGE], now=NOW + dt.timedelta(days=1), previous=doc,
+                       get=lambda url, **k: calls.append(url) or R(text=NEW, url=PAGE["url"]), sleep=lambda s: None)
+        e = [x for x in opened["events"] if x.get("kind") == "opened"][0]
+        self.assertEqual(e["openedFrom"], "https://www.hyundaiusa.com/us/en/vehicles")
+        self.assertIn("Coming Spring 2027", " ".join(e["added"]["timing"]))
+        self.assertEqual(calls, [PAGE["url"]])
+        self.assertEqual(opened["pages"][0]["status"], "ok")
 
 
 if __name__ == "__main__":
