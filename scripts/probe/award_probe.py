@@ -1,38 +1,48 @@
-"""Probe 40: 법제처 공유서비스 — 전체 질의(*·공백)·정렬 값·출입 업종 낱말별 건수(쪽 수 가늠)·법령 질의. 건수·날짜만."""
+"""Probe 41: law_rules_watch.collect 실제 건식 실행(기준선, 저장 안 함) + 사람용 law.go.kr 주소 확인. 건수·등급·부처 분포·주소 상태만."""
+import collections
+import datetime as dt
 import os
+import re
+import sys
 import time
-import xml.etree.ElementTree as ET
+sys.path.insert(0, "scripts")
 import requests
+import law_rules_watch as w
+from kr_official_watch import TEAMS, BEAT_MINISTRIES, teams_of
 
 KEY = os.environ.get("G2B_API_KEY", "").strip()
+KST = dt.timezone(dt.timedelta(hours=9))
+now = dt.datetime.now(KST)
 H = {"User-Agent": "seoul-reporting-radar research (github.com/shhong9173-art/seoul-reporting-radar)"}
-URL = "https://apis.data.go.kr/1170000/law/lawSearchList.do"
 out = []
-
-
-def q(label, **p):
-    t0 = time.time()
+t0 = time.time()
+sec, check = w.collect(None, now, KEY, get=lambda u, **k: requests.get(u, headers=H, **k), teams_of=teams_of, ministries=BEAT_MINISTRIES)
+out.append(f"{time.time() - t0:.0f}s check={ {k: v for k, v in check.items() if k != 'error'} } err={check.get('error')}")
+items = sec["items"]
+out.append(f"kept {len(items)} by kind/tier {dict(collections.Counter((x['kind'], x['tier']) for x in items))}")
+for days in (7, 14, 30):
+    cut = (now.date() - dt.timedelta(days=days)).isoformat()
+    sub = [x for x in items if x["date"] >= cut]
+    out.append(f"date within {days}d: {len(sub)} {dict(collections.Counter((x['kind'], x['tier']) for x in sub))}")
+out.append("org (B) " + str(collections.Counter(x["org"] for x in items if x["tier"] == "B").most_common(10)))
+out.append("type " + str(collections.Counter((x["kind"], x["type"]) for x in items).most_common(10)))
+out.append("change " + str(collections.Counter(x["change"] for x in items).most_common(8)))
+out.append("teams " + str(collections.Counter(t for x in items for t in x["teams"]).most_common()))
+out.append(f"seen {len(sec['seen'])}")
+cands = []
+for x in items:
+    if x["kind"] == "행정규칙" and len([c for c in cands if c[0] == "admrul"]) < 2:
+        cands += [("admrul", x["url"], x["title"]), ("admrul-seq", f"https://www.law.go.kr/admRulLsInfoP.do?admRulSeq={x['id'].split(':')[1]}", x["title"])]
+    if x["kind"] == "법령" and not any(c[0] == "law" for c in cands):
+        cands.append(("law", x["url"], x["title"]))
+    if x["kind"] == "법령해석례" and not any(c[0] == "expc" for c in cands):
+        cands += [("expc", x["url"], x["title"]), ("expc-noLSW", x["url"].replace("/LSW/", "/"), x["title"])]
+for label, url, title in cands:
     try:
-        r = requests.get(URL, params={"serviceKey": KEY, "numOfRows": 100, "pageNo": 1, **p}, headers=H, timeout=40)
-        root = ET.fromstring(r.content)
+        r = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=30)
+        key = re.sub(r"\s+", "", title)[:12]
+        out.append(f"url {label}: HTTP {r.status_code} len={len(r.text)} title-in-page={key in re.sub(r'\s+', '', r.text)} final-path={re.sub(r'[0-9]', '9', r.url.split('law.go.kr')[-1])[:60]}")
     except Exception as e:  # noqa: BLE001
-        out.append(f"{label}: {type(e).__name__}")
-        return
-    items = [c for c in root if len(c)]
-    dk = {"admrul": "발령일자", "law": "공포일자", "expc": "회신일자"}[p["target"]]
-    d = [x.findtext(dk) or "" for x in items]
-    out.append(f"{label}: code={root.findtext('.//resultCode')} msg={root.findtext('.//resultMsg')} total={root.findtext('totalCnt')} n={len(items)} first3={d[:3]} desc={d == sorted(d, reverse=True)} asc={d == sorted(d)} {time.time() - t0:.1f}s")
-    time.sleep(0.7)
-
-
-q("admrul *", target="admrul", query="*")
-q("admrul sort=date", target="admrul", query="자동차", sort="date")
-q("admrul sort=ddes", target="admrul", query="자동차", sort="ddes")
-q("admrul sort=dasc", target="admrul", query="자동차", sort="dasc")
-for kw in ("전기", "전력", "에너지", "철강", "금속", "화학", "화학물질", "배출", "온실가스", "관세", "원산지", "수소", "원자력", "배터리", "이차전지", "광물", "가스", "석유", "산업단지", "타이어"):
-    q(f"admrul {kw}", target="admrul", query=kw)
-q("law 자동차", target="law", query="자동차")
-q("law 전기", target="law", query="전기")
-q("law *", target="law", query="*")
-q("expc *", target="expc", query="*")
+        out.append(f"url {label}: {type(e).__name__}")
+    time.sleep(1)
 open("/tmp/probe_out.txt", "w").write("\n".join(out))
