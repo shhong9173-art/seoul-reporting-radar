@@ -143,7 +143,7 @@ async function registrySection(ctx, q, onlyNew, limit) {
     `원천: 질의 ${checks.length - bad.length}/${checks.length} 정상${bad.length ? `(미확인: ${bad.slice(0, 3).map((c) => `${c.source}(${c.error ?? c.status})`).join(', ')})` : ''}`,
     ...(doc.rules ?? []).map((r) => `규칙: ${r}`)];
   for (const x of rows.slice(0, limit)) {
-    out.push(`- ${x.isNew ? '[신규] ' : ''}${x.created ?? '?'} 설립 · ${x.company} · ${x.name} (${x.number}, ${x.status ?? '상태 미상'})`);
+    out.push(`- ${x.isNew ? '[신규] ' : ''}${x.created ?? '?'} 설립 · ${x.company} · ${x.name} (${x.number}, ${x.status ?? '상태 미상'})${x.note ? ` — ${x.note}` : ''}`);
     out.push(`   잡힌 사실: 지배 주주 ${(x.psc ?? []).join(', ') || '미기재'} · SIC ${(x.sic ?? []).join(',') || '미기재'} · 등기 주소 ${x.address || '미기재'}`);
     out.push(`   원문: ${x.url}`);
   }

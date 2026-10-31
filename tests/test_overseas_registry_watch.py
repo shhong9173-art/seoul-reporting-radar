@@ -79,6 +79,24 @@ class Registry(unittest.TestCase):
         again = w.run("k", now=NOW + dt.timedelta(days=30), previous=old, get=fake({}, {}), sleep=lambda s: None)
         self.assertEqual({x["number"]: x["tier"] for x in again["companies"]}, {"16848629": "B", "16967581": "C"})
 
+    def test_affiliates_are_not_the_beat_company(self):
+        # 10-31 운영: POSCO INTERNATIONAL DEUTSCHLAND GMBH가 '포스코'(B)로 보였다 — 포스코인터내셔널은 포스코가 아니다
+        res = {"posco": [co("FC042966", "POSCO INTERNATIONAL DEUTSCHLAND GMBH"), co("17000001", "POSCO UK STEEL LIMITED"),
+                         co("17000002", "POSCO FUTURE M EUROPE LTD")],
+               "hd hyundai": [co("17000003", "HD HYUNDAI CONSTRUCTION EQUIPMENT UK LTD"), co("17000004", "HD HYUNDAI ELECTRIC UK LTD")]}
+        psc = {"17000001": ["Posco Holdings Inc."], "17000002": ["Posco Future M Co., Ltd."], "17000003": ["Hd Hyundai Construction Equipment Co., Ltd."]}
+        doc = w.run("k", now=NOW, previous=None, get=fake(res, psc), sleep=lambda s: None)
+        got = {x["number"]: (x["tier"], x.get("note")) for x in doc["companies"]}
+        self.assertEqual(got["FC042966"], ("C", "출입처 아님 — 별도 법인(POSCO INTERNATIONAL)"))
+        self.assertEqual(got["17000001"], ("A", None))
+        self.assertEqual(got["17000002"][0], "C")
+        self.assertEqual(got["17000003"], ("C", None))  # HD현대 건설기계는 HD현대일렉트릭 지배가 아니다
+        self.assertEqual(got["17000004"], ("B", None))  # 지배 주주 미기재 + 본사 이름
+        # 예전 규칙으로 B로 저장된 줄도 다시 판정한다
+        old = dict(doc, companies=[dict(x, tier="B") for x in doc["companies"]])
+        again = w.run("k", now=NOW + dt.timedelta(days=30), previous=old, get=fake({}, {}), sleep=lambda s: None)
+        self.assertEqual({x["number"]: x["tier"] for x in again["companies"]}["FC042966"], "C")
+
     def test_missing_or_refused_key_is_unset(self):
         self.assertEqual(w.run("", now=NOW)["status"], "unset")
         doc = w.run("k", now=NOW, previous=None, get=fake({}, {}, status=401), sleep=lambda s: None)

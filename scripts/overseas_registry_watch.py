@@ -32,13 +32,15 @@ COMPANIES = [
     ("현대차", "hyundai", r"\bhyundai\b", r"hyundai\s+motor\s+(?:company|co\b)|hyundai\s+motor\s+europe|hyundai\s+motor\s+uk"),
     ("기아", "kia", r"\bkia\b", r"kia\s+(?:corporation|motors?\s+corporation|europe|uk)"),
     ("현대모비스", "mobis", r"\bmobis\b", r"hyundai\s+mobis"),
-    ("HD현대일렉트릭", "hd hyundai", r"\bhd\s+hyundai\b", r"hd\s+hyundai"),
-    ("효성중공업(관련)", "hyosung", r"\bhyosung\b", r"hyosung"),
+    # 지배 주주·본사 이름 규칙은 출입처 법인만: HD현대 계열(건설기계·조선 등)·효성 계열(TNC·화학 등)은 다른 법인이다
+    ("HD현대일렉트릭", "hd hyundai", r"\bhd\s+hyundai\b", r"hd\s+hyundai\s+electric"),
+    ("효성중공업(관련)", "hyosung", r"\bhyosung\b", r"hyosung\s+heavy"),
     ("LS전선", "ls cable", r"\bls\s+cable", r"ls\s+cable"),
     ("LS일렉트릭", "ls electric", r"\bls\s+electric", r"ls\s+electric"),
     ("대한전선", "taihan", r"\btaihan\b", r"taihan"),
     ("두산에너빌리티", "doosan", r"\bdoosan\b", r"doosan\s+(?:enerbility|heavy)"),
-    ("포스코", "posco", r"\bposco\b", r"posco"),
+    # 포스코인터내셔널·포스코퓨처엠·포스코이앤씨 등은 포스코가 아니다(AGENTS.md) — 지배 주주는 포스코·포스코홀딩스 자신일 때만
+    ("포스코", "posco", r"\bposco\b", r"^posco(?:\s+holdings(?:\s+inc)?|\s+co\b.*|\s+corporation)?\.?$"),
     ("현대제철", "hyundai steel", r"\bhyundai\s+steel", r"hyundai\s+steel"),
     ("한화솔루션", "hanwha", r"\bhanwha\b", r"hanwha\s+(?:solutions|q\s*cells|qcells)"),
     ("고려아연", "korea zinc", r"\bkorea\s+zinc", r"korea\s+zinc"),
@@ -103,7 +105,17 @@ def psc_names(client, number):
 PSC_RX = {beat: psc_rx for beat, _, _, psc_rx in COMPANIES}
 
 
+# 출입처 이름으로 시작하지만 다른 상장 법인인 계열사 — 이름이 같아도 그 출입처 법인이 아니다
+# (10-31 운영: POSCO INTERNATIONAL DEUTSCHLAND GMBH 두 건이 '포스코 · 지배 주주 미기재·본사 이름'(B)으로 보였다)
+AFFILIATE = {"포스코": re.compile(r"\bposco\s+(?:international|future\s*m|e\s*&\s*c|dx|ict|a\s*&\s*c|m-?tech|steeleon|wide|chemtech|mobility)\b", re.I)}
+
+
 def grade(rec, psc_rx):
+    other = AFFILIATE.get(rec.get("company"))
+    if other and other.search(rec.get("name") or ""):
+        rec.update(pscMatch=False, nameStrong=False, tier="C", note=f"출입처 아님 — 별도 법인({other.search(rec['name']).group(0)})")
+        return
+    rec.pop("note", None)
     rec["pscMatch"] = any(re.search(psc_rx, p, re.I) for p in rec.get("psc") or [])
     # no PSC filed yet but the name is the parent's full name (e.g. 'NEXEN TYRE U.K. LIMITED'): check it
     rec["nameStrong"] = not rec.get("psc") and bool(re.search(psc_rx, rec.get("name") or "", re.I))
