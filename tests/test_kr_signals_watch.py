@@ -363,10 +363,28 @@ class MotirWatch(unittest.TestCase):
         items, check = w.motir(CFG, NOW, None, http(motir_routes()))
         ids = [x["id"] for x in items]
         self.assertNotIn("motir:172158", ids)  # no beat topic or name
+        self.assertNotIn("motir:172335", ids)  # '자동차' 낱말이 있어도 할인 행사(페스티벌)는 업종 밖
         self.assertIn("motir:172155", ids)
         named = next(x for x in items if x["id"] == "motir:172300")
         self.assertEqual(named["companies"], ["포스코", "현대제철"])
         self.assertEqual((check["status"], check["listed"]), ("ok", 5))
+
+    def test_off_beat_releases_with_beat_words_are_dropped(self):
+        # 10-31 운영 제목들: 직함 속 '통상', 바이오 회사의 '화학', 할인 행사의 '자동차'
+        for title in ("통상교섭본부장, K-콘텐츠 기업과 함께중국 시장 진출 전략 모색",
+                      "글로벌 화학 기업 독일 머크(Merck), 대전 바이오 원부자재 제조 거점 개소",
+                      "자동차·가전부터 한우·수산물까지...최대 50% 할인 정부, 「제2회 코리아 그랜드 페스티벌」 시작(10.29~11.15)"):
+            self.assertFalse(w.motir_topic(title), title)
+        for title in ("(참고자료)EU, 수입 하이브리드 자동차에 대한 글로벌 세이프가드 조사 개시", "외국의 통상조치로 인한 피해까지 지원대상 늘린다",
+                      "민관 원팀으로 중동發 공급망 위기 넘어, 구조개편 가속화로 화학산업 재도약 다짐", "K-원전, 글로벌 공급망에 올라탄다!"):
+            self.assertTrue(w.motir_topic(title), title)
+        # 예전 실행이 남긴 업종 밖 줄도 걸러진다(출입처 이름이 있으면 둔다)
+        prev = {"motir": [{"id": "motir:1", "title": "통상교섭본부장, K-콘텐츠 기업과 함께", "date": "2026-10-30", "companies": []},
+                          {"id": "motir:2", "title": "현대차, 바이오 연료 실증", "date": "2026-10-30", "companies": ["현대차"]}]}
+        items, _ = w.motir(CFG, NOW, prev, http(motir_routes()))
+        ids = [x["id"] for x in items]
+        self.assertNotIn("motir:1", ids)
+        self.assertIn("motir:2", ids)
 
     def test_trade_release_items_quoted_as_published(self):
         t = w.parse_trade(TRADE_BODY)

@@ -189,6 +189,15 @@ export function stackHint(e) {
 // 같은 사건으로 치지 않는다(10-31 운영: 포스코 포항 가입자 +866명 ↔ '현대제철·포스코 美 제철소 1000명 채용' 기사로 '관련 보도 있음')
 // 정정사유를 큰 변경 옆에 붙인다 — 날짜가 크게 당겨진 이유가 '취득완료'인지 '계약 해지'인지 줄에서 바로 보이게
 // (10-31 운영: 금호타이어 함평 부지 취득 정정 '취득예정일자 -36개월'은 사유가 '취득완료(취득가액 및 취득일자 확정)에 따른 정정')
+// 한 줄 요약용: 낱말 중간에서 자르지 않고 ' · ' 구분에서 자른다(10-31 운영: '… · 취득물건구분 토지 및 건물 · 취 · id …')
+export function clipAt(text, n) {
+  const s = String(text ?? '');
+  if (s.length <= n) return s;
+  const cut = s.slice(0, n);
+  const at = cut.lastIndexOf(' · ');
+  return `${(at > n * 0.5 ? cut.slice(0, at) : cut.replace(/\s+\S*$/, '')).trimEnd()} …`;
+}
+
 // 정정 내용 보도 대조(scoop_screen check_corrections): 원 공시 기사와 따로, 변경 낱말(연장·감액·해지 등)로 찾은 결과
 export function correctionNote(cc) {
   const base = "원 공시 보도 대조 '관련 보도 있음'은 원 계약 기사일 수 있음";
@@ -850,7 +859,7 @@ export async function radarToday(ctx, args) {
     for (const g of conv.slice(0, 5)) {
       out.push(`- ${g.fresh ? '[새 항목 포함] ' : ''}${g.company} · ${g.place} — 감시 ${g.watches.length}곳(${g.watches.join(', ')})`);
       const lines = [...g.items].sort((a, b) => String(b.date ?? '').localeCompare(String(a.date ?? ''))).slice(0, 4);
-      for (const x of lines) out.push(`   ${x.background ? '(배경) ' : `${x.tier} · `}${x.date ? `${String(x.date).length > 10 ? kstStamp(x.date) : x.date} · ` : ''}${x.watch}: ${String(x.fact ?? '').slice(0, 110)} · id ${x.id}`);
+      for (const x of lines) out.push(`   ${x.background ? '(배경) ' : `${x.tier} · `}${x.date ? `${String(x.date).length > 10 ? kstStamp(x.date) : x.date} · ` : ''}${x.watch}: ${clipAt(x.fact, 110)} · id ${x.id}`);
       if (g.items.length > 4) out.push(`   … 같은 묶음 ${g.items.length - 4}건 더`);
     }
     if (conv.length > 5) out.push(`… 남은 ${conv.length - 5}곳(company로 좁히기)`);

@@ -472,6 +472,14 @@ MOTIR_KEEP_DAYS = 60
 TOPIC = re.compile(r"자동차|완성차|부품|모빌리티|미래차|전기차|수소차|철강|강판|강관|철근|아연|비철|구리|알루미늄|광물|희토류|전력|변압기|전선|케이블|송전|"
                    r"전력망|원전|원자력|수소|석유화학|화학|배터리|이차전지|무역위|덤핑|상계|세이프가드|관세|통상|수출입|공급망|타이어|소재")
 TRADE_TITLE = re.compile(r"^(\d{4})년\s*(\d{1,2})월\s*수출입\s*동향$")
+# 출입 업종 낱말이 있어도 업종 밖인 보도자료(10-31 운영: 「통상교섭본부장, K-콘텐츠 기업과…」·「글로벌 화학 기업 독일 머크, 대전 바이오
+# 원부자재…」·「자동차·가전부터 한우·수산물까지…최대 50% 할인」이 출입 업종으로 잡혔다). 출입처 이름이 나오면 그대로 둔다.
+OFF_BEAT = re.compile(r"콘텐츠|바이오|제약|의약|한우|수산물|농식품|관광|게임|뷰티|페스티벌|할인\s*행사|사회공헌")
+NOT_TOPIC = re.compile(r"통상교섭본부장|통상차관보")  # 직함 속 '통상'은 업종 낱말이 아니다
+
+
+def motir_topic(title):
+    return bool(TOPIC.search(NOT_TOPIC.sub(" ", title))) and not OFF_BEAT.search(title)
 TRADE_ITEMS = ("자동차", "자동차부품", "철강", "비철금속", "석유화학", "석유제품", "이차전지", "전기기기", "일반기계", "선박")
 
 
@@ -545,7 +553,7 @@ def motir(cfg, now, previous, http):
     for x in rows:
         trade = TRADE_TITLE.match(x["title"])
         names = sorted({c for c, rx, _ in patterns if rx.search(x["title"])})
-        if not (trade or names or TOPIC.search(x["title"])):
+        if not (trade or names or motir_topic(x["title"])):
             continue
         old = prev.get(x["id"])
         row = {**x, "companies": names, "trade": (old or {}).get("trade"), "firstSeen": (old or {}).get("firstSeen") or stamp,
@@ -555,7 +563,10 @@ def motir(cfg, now, previous, http):
             row["trade"] = {"period": f"{trade.group(1)}-{int(trade.group(2)):02d}", **(parse_trade(re.sub(r"(?s)<[^>]+>", " ", d.text)) if not e else {"error": e})}
         kept[x["id"]] = row
     keep_from = (now.date() - dt.timedelta(days=MOTIR_KEEP_DAYS)).isoformat()
-    items = sorted((x for x in kept.values() if str(x.get("date") or "") >= keep_from), key=lambda x: (x.get("date") or "", x["id"]), reverse=True)
+    # 예전 실행이 남긴 업종 밖 줄도 같은 기준으로 다시 거른다
+    items = sorted((x for x in kept.values() if str(x.get("date") or "") >= keep_from
+                    and (TRADE_TITLE.match(str(x.get("title") or "")) or x.get("companies") or motir_topic(str(x.get("title") or "")))),
+                   key=lambda x: (x.get("date") or "", x["id"]), reverse=True)
     status = "failed" if err and not rows else ("partial" if err else "ok")
     return items, {"source": "산업통상부 보도자료", "status": status, "listed": len(rows), "kept": sum(1 for x in items if x["id"] in {r["id"] for r in rows}),
                    **({"error": err} if err else {})}
