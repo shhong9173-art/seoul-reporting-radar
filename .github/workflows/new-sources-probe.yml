@@ -27,6 +27,8 @@ jobs:
           DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
           EDIS_API_TOKEN: ${{ secrets.EDIS_API_TOKEN }}
+          WORK24_RECRUIT_KEY: ${{ secrets.WORK24_RECRUIT_KEY }}
+          WORK24_CODE_KEY: ${{ secrets.WORK24_CODE_KEY }}
         run: python scripts/probe/award_probe.py
       - run: python scripts/probe/print_part.py 0
       - run: python scripts/probe/print_part.py 1
