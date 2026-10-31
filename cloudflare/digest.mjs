@@ -925,12 +925,16 @@ export async function radarToday(ctx, args) {
   const span = nowMs - 14 * 86400000;
   const conv = convergence([...collect(docs, span, kstDate(span), { now: nowMs }).filter((x) => !(judged.get(x.id) && !showJudged)), ...background(docs, nowMs)]
     .filter((x) => has(q, x.company, x.fact, x.watch)), { cut });
+  // 묶음을 만든 새 신호(배경 아님)가 모두 이미 보도된 묶음은 뒤로(10-31 운영: 금호타이어 함평 묶음의 유일한 새 신호인
+  // 부지 취득 완료 정정은 10-28 '함평 이전 부지 1160억원에 취득 완료' 기사로 '관련 보도 있음'인데 맨 위에 표시 없이 떴다)
+  const coveredGroup = (g) => g.items.filter((x) => !x.background).every((x) => rank(x) === 2);
+  conv.sort((a, b) => Number(coveredGroup(a)) - Number(coveredGroup(b)));
   if (conv.length) {
     out.push(`\n[겹친 신호 · 최근 14일 같은 출입처·같은 시군을 감시 여러 곳이 가리킴] ${conv.length}곳 — 하나씩은 공개 자료, 함께 보면 투자·가동 변화 단서(배경: 국민연금 공사 현장·120일 안 건축허가·지금 멈춘 굴뚝)`);
     for (const g of conv.slice(0, 5)) {
-      out.push(`- ${g.fresh ? '[새 항목 포함] ' : ''}${g.company} · ${g.place} — 감시 ${g.watches.length}곳(${g.watches.join(', ')})`);
+      out.push(`- ${g.fresh ? '[새 항목 포함] ' : ''}${g.company} · ${g.place} — 감시 ${g.watches.length}곳(${g.watches.join(', ')})${coveredGroup(g) ? ' · 새 신호는 모두 관련 보도 있음(같은 사건인지 열어 볼 것)' : ''}`);
       const { rows, more } = convergenceRows(g);
-      for (const x of rows) out.push(`   ${x.background ? '(배경) ' : `${x.tier} · `}${x.date ? `${String(x.date).length > 10 ? kstStamp(x.date) : x.date} · ` : ''}${x.watch}: ${clipAt(x.fact, 110)} · id ${x.id}`);
+      for (const x of rows) out.push(`   ${x.background ? '(배경) ' : `${x.tier} · ${pressOf(x) ? `[${pressOf(x)}] ` : ''}`}${x.date ? `${String(x.date).length > 10 ? kstStamp(x.date) : x.date} · ` : ''}${x.watch}: ${clipAt(x.fact, 110)} · id ${x.id}`);
       if (more) out.push(`   … 같은 묶음 ${more}줄 더`);
     }
     if (conv.length > 5) out.push(`… 남은 ${conv.length - 5}곳(company로 좁히기)`);
