@@ -92,7 +92,7 @@ class Insolvency(unittest.TestCase):
         doc = k.run("key", now=NOW, previous={"events": [], "generatedAt": "2026-10-28T17:20:00+09:00"}, post=post, get=get,
                     sleep=lambda s: None, watchlist={"메탈153": {"name": "주식회사 메탈153", "beat": "현대제철", "relation": "스크랩 납품", "evidence": "기자 확인"}})
         ev = {e["company"]: e for e in doc["events"]}
-        self.assertEqual(ev["주식회사 엠디스틸"]["tier"], "A")  # 1차 철강(241) + 개시
+        self.assertEqual(ev["주식회사 엠디스틸"]["tier"], "A")  # 1차 철강(241) + 개시, 종업원 85명
         self.assertEqual(ev["주식회사 엠디스틸"]["industry"]["label"], "1차 철강")
         self.assertEqual(ev["주식회사 엠디스틸"]["industry"]["employees"], 85)
         self.assertEqual(ev["주식회사 한빛오토텍"]["tier"], "B")  # 금속가공(25) + 자동차 주생산품 + 포괄적 금지명령
@@ -143,8 +143,19 @@ class Insolvency(unittest.TestCase):
         doc = k.run("key", now=NOW, previous={"events": [], "generatedAt": "2026-10-28T17:20:00+09:00"}, post=post, get=get, sleep=lambda s: None, watchlist={})
         ev = {e["company"]: e for e in doc["events"]}
         self.assertEqual((ev["삼보산업 주식회사"]["tier"], ev["삼보산업 주식회사"]["industry"]["regionMismatch"]), ("B", True))  # 수원 법원, 대구 공장
-        self.assertEqual((ev["주식회사 서우"]["tier"], ev["주식회사 서우"]["industry"]["address"]), ("A", "경기도 화성시"))  # 관할 안 공장을 고른다
+        # 관할 안 공장을 고른다(종업원 6명이라 A가 아니라 B — 50명 미만 규칙)
+        self.assertEqual((ev["주식회사 서우"]["tier"], ev["주식회사 서우"]["industry"]["address"]), ("B", "경기도 화성시"))
         self.assertEqual((ev["주식회사 세명테크"]["tier"], ev["주식회사 세명테크"]["industry"]["owners"]), ("B", 3))  # 같은 이름 대표자 3명
+
+    def test_small_firms_are_not_a(self):
+        # 10-31 운영: 보성알앤디(자동차 부품, 종업원 17명) 회생 개시가 A — 최근 30일 A 대부분이 5~37명 업체
+        ind = {"employees": 17}
+        self.assertEqual(k.tier_of("start", "core", None, ind), "B")
+        self.assertEqual(k.tier_of("start", "core", None, {"employees": 166}), "A")
+        self.assertEqual(k.tier_of("start", "core", None, {"employees": None}), "A")  # 모르면 그대로
+        self.assertEqual(k.tier_of("start", "core", {"beat": "현대차"}, ind), "A")  # 협력사 명단은 A
+        self.assertEqual(k.tier_of("end", "core", None, ind), "B")  # 이미 B인 단계는 그대로
+        self.assertEqual(k.tier_of("start", "core", None, {"employees": 17, "owners": 3}), "B")  # 이름 의심과 겹쳐도 한 단계만
 
     def test_rehabilitation_courts_cover_their_high_court_area(self):
         self.assertTrue(k.region_rx("부산회생법원").search("울산광역시 남구 용연로"))

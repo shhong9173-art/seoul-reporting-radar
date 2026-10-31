@@ -78,6 +78,7 @@ RULES = [
     "공장등록이 없는 회사는 이름 낱말만으로 C(참고). 출입처 협력사 명단(data/kr_supplier_watchlist.json)에 있으면 A.",
     "관련 업종(금속가공·기타 기계·전기장비·플라스틱·전자부품)은 주생산품에 출입 업종 낱말(자동차·배터리·변압기·전선·강관 등)이 있을 때만 B, 없으면 C.",
     "같은 이름 공장이 관할 법원 지역 밖에만 있거나 대표자가 3명 이상이면 다른 회사일 수 있어 한 단계 내린다.",
+    "핵심 업종이라도 공장등록 종업원 50명 미만이면 A가 아니라 B(협력사 명단에 있으면 A).",
 ]
 
 
@@ -317,11 +318,23 @@ def load_watchlist(path=WATCHLIST):
 
 
 # ---------------------------------------------------------------- run
+SMALL_FIRM = 50  # 공장등록 종업원 수
+
+
+def small(ind):
+    """공장등록 종업원 50명 미만: 출입처 생산에 닿는 협력사라는 근거가 없으면 단독 후보(A)로 올리지 않는다
+    (10-31 운영: 종업원 17명 자동차 부품사 회생 개시가 A — 최근 30일 A 대부분이 5~37명 업체)."""
+    n = (ind or {}).get("employees")
+    return isinstance(n, int) and n < SMALL_FIRM
+
+
 def tier_of(stage, match, watch, ind=None):
     if watch:
         return "A"
     t = _tier(stage, match)
-    return {"A": "B", "B": "C"}.get(t, t) if t and doubtful(ind) else t
+    if t and doubtful(ind):
+        return {"A": "B", "B": "C"}.get(t, t)
+    return "B" if t == "A" and small(ind) else t
 
 
 def _tier(stage, match):
