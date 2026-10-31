@@ -32,22 +32,65 @@ QUERIES = [
     ("CarNewsChina", "site:carnewschina.com BYD OR Geely OR Zeekr OR Xiaomi OR CATL OR EV"),
     ("EV.com", "site:ev.com EV OR battery OR charging OR automotive"),
     ("The Verge", "site:theverge.com EV OR Tesla OR autonomous OR battery OR car"),
+    # 11-01 기자 요청("내 출입처 관련 외신"): 자동차·배터리만 보던 검색에 철강·비철·전력기기·전선·에너지·화학·타이어·부품 출입처를 더한다.
+    # 매체 제한 없이 출입처 영문 이름으로 찾고, 국내 매체의 영문판(코리아헤럴드·연합 등)은 아래 DOMESTIC_EN으로 뺀다(외신만).
+    ("출입처·철강비철", '"POSCO" OR "Hyundai Steel" OR "Dongkuk Steel" OR "SeAH Steel" OR "KG Steel" OR "Korea Zinc" OR "Young Poong" OR "LS MnM"'),
+    ("출입처·전력기기전선", '"HD Hyundai Electric" OR "LS Electric" OR "Hyosung Heavy Industries" OR "LS Cable" OR "Taihan Cable" OR "Doosan Enerbility"'),
+    ("출입처·에너지화학", '"Hanwha Qcells" OR "Hanwha Solutions" OR "OCI Holdings" OR "GS Caltex" OR "Korean refiner" OR "Korean steelmakers"'),
+    ("출입처·타이어부품", '"Hankook Tire" OR "Kumho Tire" OR "Nexen Tire" OR "Hyundai Mobis" OR "HL Mando" OR "Hyundai Wia" OR "KG Mobility" OR "GM Korea"'),
 ]
+
+# 출입처 검색(매체 제한 없음)은 이 외신 매체만 받는다 — 11-01 탐침 63: 매체 제한 없이 찾으니 48건 중 국내 한글 기사(헤럴드경제·매일경제·조선일보 등)와
+# 주가 모음 사이트(BigGo Finance·TradingView·Yahoo Finance)가 대부분이었다.
+FOREIGN_OK = re.compile(r"reuters|bloomberg|nikkei|financial times|\bft\b|wall street journal|\bwsj\b|cnbc|associated press|\bap news\b|economist|fortune|barron|"
+                        r"s&p global|platts|fastmarkets|argus|mining\.com|kallanish|metal bulletin|utility dive|power engineering|t&d world|recharge|pv magazine|pv tech|"
+                        r"electrek|insideevs|automotive news|automotive world|just auto|just-auto|wardsauto|tire business|tyrepress|rubber|tire technology|"
+                        r"energy-storage|energy storage news|chemical & engineering|icis|hydrogen insight|financial post|politico|axios|the information|"
+                        r"south china morning post|scmp|caixin|nikkei asia|the japan times|asahi|digitimes|electrive|autocar|carscoops|motor1|the verge|techcrunch", re.I)
+
+# 국내 매체 영문판·국내 통신 — 외신 화면에서 뺀다(이미 국내 보도).
+DOMESTIC_EN = re.compile(r"korea herald|korea times|joongang|yonhap|korea economic daily|ked global|businesskorea|business korea|pulse by maeil|maeil|"
+                         r"chosun|donga|hankyoreh|aju|seoul economic|the investor|korea bizwire|korea\.net|arirang|kbs|mbc|sbs|kpop|asiae|"
+                         r"etnews|thelec|the elec|biz\.chosun|koreatechtoday|koreaittimes|newsis|news1|edaily|businesspost|mk\.co\.kr|hankyung", re.I)
 
 KOREA_SIGNALS = [
     "hyundai", "kia", "genesis", "hyundai mobis", "lg energy solution", "lg energy", "samsung sdi", "sk on",
     "sk innovation", "posco", "hanwha", "hl mando", "hyundai transys", "hyundai wia", "kg mobility",
-    "gm korea", "renault korea", "korea", "south korea", "korean", "seoul"
+    "gm korea", "renault korea", "korea", "south korea", "korean", "seoul",
+    # 철강·비철·전력기기·전선·에너지·화학·타이어 출입처
+    "hyundai steel", "dongkuk", "seah", "kg steel", "korea zinc", "young poong", "ls mnm", "ls electric", "ls cable", "taihan",
+    "hd hyundai electric", "hyosung heavy", "doosan enerbility", "qcells", "oci holdings", "gs caltex", "hankook tire", "kumho tire", "nexen tire",
 ]
 INDUSTRY = [
     "ev", "electric vehicle", "battery", "ess", "autonomous", "self-driving", "tariff", "trade", "recall",
     "plant", "factory", "production", "investment", "contract", "supply", "order", "sales", "price",
-    "lithium", "lfp", "solid-state", "charging", "software", "robotaxi", "export"
+    "lithium", "lfp", "solid-state", "charging", "software", "robotaxi", "export",
+    "steel", "steelmaker", "zinc", "copper", "smelter", "transformer", "transformers", "cable", "cables", "grid", "power equipment",
+    "solar", "polysilicon", "refinery", "refiner", "petrochemical", "chemical", "tire", "tires", "nuclear", "turbine", "antidumping", "anti-dumping",
 ]
 HIGH_IMPACT = [
     "tariff", "investment", "contract", "order", "supply", "factory", "plant", "production", "recall",
     "fire", "battery", "ess", "autonomous", "export", "sales", "price", "shutdown", "strike", "union"
 ]
+
+
+def _word_re(words):
+    # 낱말 경계로만 센다 — 예전 부분 문자열 비교는 'ev'가 every·seven, 'ess'가 business·less, 'oci'가 social에도 걸렸다(11-01 점검).
+    return [re.compile(r"(?<![a-z0-9])" + re.escape(w) + r"(?![a-z0-9])") for w in words]
+
+
+INDUSTRY_RE, KOREA_RE, IMPACT_RE = _word_re(INDUSTRY), _word_re(KOREA_SIGNALS), _word_re(HIGH_IMPACT)
+
+
+def hits(patterns, text: str) -> int:
+    return sum(1 for p in patterns if p.search(text))
+
+
+def title_only(summary: str, title: str) -> bool:
+    """구글 뉴스 RSS 설명 칸은 '제목 + 매체 이름'뿐이다 — 이걸 '요약'으로 번역하지 않는다(11-01: 요약 칸이 제목 번역 되풀이)."""
+    norm = lambda t: re.sub(r"[^a-z0-9]+", "", (t or "").lower())
+    s, t = norm(summary), norm(re.sub(r"\s+-\s+[^-]+$", "", title or ""))
+    return not s or (bool(t) and s.startswith(t) and len(s) - len(t) <= 60)
 
 
 def get(url: str, timeout: int = 15) -> bytes:
@@ -76,15 +119,17 @@ def translate(text: str) -> tuple[str, str]:
         return text, "already_ko"
 
     url = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=ko&dt=t&q=" + urllib.parse.quote(text)
-    for attempt in range(2):
+    # 11-01 운영: 32건 중 16건이 보조 번역기(MyMemory)로 넘어가 품질이 낮았다('jailbreaking FSD' → '탈옥 금감원').
+    # 주 번역기를 세 번까지, 간격을 늘려(1·2·4초) 다시 묻는다.
+    for attempt in range(3):
         try:
-            raw = json.loads(get(url, 8))
+            raw = json.loads(get(url, 10))
             translated = "".join(part[0] for part in raw[0] if part and part[0]).strip()
             if translated and (looks_korean(translated) or not re.search(r"[A-Za-z]", text)):
                 return translated, "translated"
         except Exception:
             pass
-        time.sleep(0.35 * (attempt + 1))
+        time.sleep(2 ** attempt)
 
     # Second provider fallback. It is intentionally only used when Google translation failed.
     try:
@@ -115,7 +160,8 @@ def parse(source: str, query: str) -> list[dict]:
             "recentRows":0,"errorType":type(exc).__name__,
             "durationMs":min(600000,int((time.monotonic()-started)*1000))})
         return []
-    cutoff = datetime.now(KST) - timedelta(hours=96)
+    # 출입처(철강·전력기기 등) 외신은 드물다(11-01 탐침 64: 96시간에 1건) — 출입처 검색은 7일까지 본다
+    cutoff = datetime.now(KST) - timedelta(hours=168 if source.startswith("출입처") else 96)
     rows = []
     for item in root.findall("./channel/item"):
         title = (item.findtext("title") or "").strip()
@@ -126,6 +172,10 @@ def parse(source: str, query: str) -> list[dict]:
         actual_source = (src.text or "").strip() if src is not None else source
         if not title or not link:
             continue
+        if DOMESTIC_EN.search(actual_source or "") or looks_korean(title) or looks_korean(actual_source or ""):
+            continue   # 외신만: 국내 매체 영문판·한글 기사는 뺀다
+        if source.startswith("출입처") and not FOREIGN_OK.search(actual_source or ""):
+            continue   # 매체 제한 없는 출입처 검색은 믿을 만한 외신만
         try:
             dt = parsedate_to_datetime(pub).astimezone(KST)
         except Exception:
@@ -133,13 +183,13 @@ def parse(source: str, query: str) -> list[dict]:
         if dt < cutoff:
             continue
         text = (title + " " + desc).lower()
-        industry_score = sum(1 for x in INDUSTRY if x in text)
-        korea_score = sum(1 for x in KOREA_SIGNALS if x in text)
+        industry_score = hits(INDUSTRY_RE, text)
+        korea_score = hits(KOREA_RE, text)
         if industry_score == 0:
             continue
         if korea_score == 0 and industry_score < 2:
             continue
-        impact = sum(1 for x in HIGH_IMPACT if x in text)
+        impact = hits(IMPACT_RE, text)
         score = min(99, 45 + korea_score * 9 + min(industry_score, 5) * 4 + min(impact, 5) * 4)
 
         # Translation happens after cross-feed headline deduplication and priority ranking.
@@ -152,12 +202,14 @@ def parse(source: str, query: str) -> list[dict]:
             "category": "글로벌",
             "global": True,
             "globalSource": source,
-            "summary": desc[:1000],
+            "summary": "" if title_only(desc, title) else desc[:1000],
             "globalScore": score,
             "koTitle": "",
             "koSummary": "",
             "translationStatus": "not_attempted_until_deduplication",
-            "globalWhy": "한국 자동차·부품·배터리 산업과 연결되거나 글로벌 공급망·통상·생산 변화가 큰 해외 신호입니다.",
+            "globalWhy": ("출입처 관련 해외 보도" if source.startswith("출입처") else
+                          "한국 자동차·부품·배터리 산업과 연결되거나 글로벌 공급망·통상·생산 변화가 큰 해외 신호입니다."),
+            "globalBeat": source.startswith("출입처"),
             "globalPitch": score >= 70,
         })
     GLOBAL_FEED_CHECKS.append({
@@ -190,9 +242,9 @@ def main() -> None:
     _,raw_globals=collect_feeds([],QUERIES,
         lambda cat,q,global_feed=False,source_hint="":parse(source_hint,q),
         on_error=unexpected_feed_error,workers=3)
-    candidates=shortlist(raw_globals,limit=32)
+    candidates=shortlist(raw_globals,limit=48)
     unique=translate_selected(candidates,translate,
-        previous=previous_global,workers=3)
+        previous=previous_global,workers=2)
     unique=[x for x in unique if x.get("koTitle") and
             x.get("translationStatus")!="translation_failed"]
     diagnostic=build_feed_health(GLOBAL_FEED_CHECKS,expected=len(QUERIES),

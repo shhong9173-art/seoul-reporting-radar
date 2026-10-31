@@ -11,7 +11,7 @@ const AUTO_ITEMS=()=>items.filter(x=>!x.global&&(!x.industrySource||AUTO_CATS.ha
 function badge(x){return x.global?'글로벌':x.exclusive?'타사 단독·속보':x.priority==='must'?'오늘 핵심':x.priority==='follow'||x.followUp?'후속 검토':x.industrySource?'산업부':'모니터링'}
 function cls(x){return x.global?'normal':x.exclusive?'exclusive':x.priority==='must'?'must':x.followUp?'follow':'normal'}
 function titleOf(x){return x.global&&x.koTitle?x.koTitle:x.title}
-function summaryOf(x){return x.global&&x.koSummary?x.koSummary:x.summary}
+function summaryOf(x){if(!x.global)return x.summary;return x.koSummary||(x.summary?x.summary:'본문 설명 없음(검색 결과에 제목만 있음) — 원문 기사에서 확인')}
 function isAuto(x){return !x.global && AUTO_CATS.has(x.category) && !x.industrySource}
 function isIndustry(x){return !x.global && x.industrySource && INDUSTRY_CATS.has(x.category)}
 function isAutomotiveExclusive(x){
@@ -71,7 +71,7 @@ function filtered(){
 function article(x){
   const score=view==='today'?unifiedScore(x):(x.score||x.industryPriorityScore||0);
   const industryLabel=x.industrySource?'<span class="tag">'+esc(x.category)+'</span>':'';
-  return '<article class="card '+cls(x)+'" onclick="openItem(\''+esc(x.id)+'\')"><div class="card-top"><span class="badge '+cls(x)+'">'+badge(x)+'</span><span class="score">'+score+'점</span></div><div class="meta"><b>'+esc(beatOf(x))+'</b> · '+esc(x.sourceName)+' · '+esc(x.publishedLabel||x.published)+' · '+esc(x.category)+'</div><div class="title">'+esc(titleOf(x))+'</div>'+(x.global&&x.title!==x.koTitle?'<div class="muted" style="font-size:11px;margin-bottom:7px">원문: '+esc(x.title)+'</div>':'')+'<div class="summary"><b class="why">'+esc(view==='today'?priorityReason(x):(x.whyNow||''))+'</b><br>'+esc(summaryOf(x))+'</div><div class="signal-row"><span class="signal">이슈 '+esc(x.clusterId||'-')+'</span><span class="signal">관련 '+(x.clusterCount||1)+'건</span>'+(hasConcrete(x)?'<span class="signal">숫자 확인</span>':'')+(x.earliestObservedSource?'<span class="signal">최초 '+esc(x.earliestObservedSource)+'</span>':'')+'</div><div class="bottom">'+industryLabel+(x.companies||[]).slice(0,5).map(t=>'<span class="tag">'+esc(t)+'</span>').join('')+(x.tags||[]).slice(0,4).map(t=>'<span class="tag">'+esc(t)+'</span>').join('')+'</div></article>';
+  return '<article class="card '+cls(x)+'" onclick="openItem(\''+esc(x.id)+'\')"><div class="card-top"><span class="badge '+cls(x)+'">'+badge(x)+'</span><span class="score">'+score+'점</span></div><div class="meta"><b>'+esc(beatOf(x))+'</b> · '+esc(x.sourceName)+' · '+esc(x.publishedLabel||x.published)+' · '+esc(x.category)+'</div><div class="title">'+esc(titleOf(x))+'</div>'+(x.global&&x.title!==x.koTitle?'<div class="muted" style="font-size:11px;margin-bottom:7px">원문: '+esc(x.title)+(x.translationStatus==='translated_fallback'?' · 보조 번역기(품질 낮음 — 다음 수집 때 다시 번역)':'')+'</div>':'')+'<div class="summary"><b class="why">'+esc(view==='today'?priorityReason(x):(x.whyNow||''))+'</b><br>'+esc(summaryOf(x))+'</div><div class="signal-row"><span class="signal">이슈 '+esc(x.clusterId||'-')+'</span><span class="signal">관련 '+(x.clusterCount||1)+'건</span>'+(hasConcrete(x)?'<span class="signal">숫자 확인</span>':'')+(x.earliestObservedSource?'<span class="signal">최초 '+esc(x.earliestObservedSource)+'</span>':'')+'</div><div class="bottom">'+industryLabel+(x.companies||[]).slice(0,5).map(t=>'<span class="tag">'+esc(t)+'</span>').join('')+(x.tags||[]).slice(0,4).map(t=>'<span class="tag">'+esc(t)+'</span>').join('')+'</div></article>';
 }
 function render(){
   const cards=$('#cards');
