@@ -162,6 +162,13 @@ class Watch(unittest.TestCase):
         self.assertTrue(next(x for x in doc["recalls"] if x["campaign"] == "26V700000")["isNew"])
         self.assertFalse(next(x for x in doc["recalls"] if x["campaign"] == "26V698000")["isNew"])
         self.assertNotIn(("https://api.nhtsa.gov/safetyIssues/byNhtsaId", {"filter": "recalls", "nhtsaId": "26V698000"}), calls)
+        # 원보고서는 다시 읽지 않아도 공급사 관계는 남는다(10-31 운영: 26V698000 SK온이 두 번째 실행부터 빠졌다)
+        audi = next(x for x in doc["recalls"] if x["campaign"] == "26V698000")
+        self.assertIn({"role": "부품 공급사(원보고서, 출입처 아님)", "beat": None, "name": "SK온"}, audi["why"])
+        self.assertEqual(sum(1 for w in audi["why"] if w["name"] == "SK온"), 1)
+        again = self.go(previous=doc)
+        audi = next(x for x in again["recalls"] if x["campaign"] == "26V698000")
+        self.assertEqual(sum(1 for w in audi["why"] if w["name"] == "SK온"), 1)
 
     def test_missing_report_and_failures(self):
         doc = self.go(issues='{"results":[]}')

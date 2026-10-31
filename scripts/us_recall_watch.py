@@ -184,6 +184,19 @@ def part573(campaign, *, get, sleep):
     return {"report": url, "supplierBox": box, "suppliers": sups[:3], "supplierKorean": korean}, None
 
 
+def report_suppliers(x):
+    """원보고서 공급사 칸의 한국 부품사를 관계(why)에 붙인다. why는 실행마다 전체 리콜 파일로 다시 만들고 원보고서는 한 번만 읽으므로
+    매 실행 다시 붙인다(10-31 운영: 26V698000 아우디 Q4 e-tron의 'SK Battery Manufacturing Kft.'가 10-28 읽힌 뒤 다음 실행부터
+    관계에서 빠져 B·보도 대조 '아우디 리콜'로만 떴다 — 같은 리콜이 10-26 경쟁지 [단독]으로 나왔다)."""
+    for ko in x.get("supplierKorean") or []:
+        known = next(((k, b) for _, k, b in SUPPLIERS if k == ko), None)
+        role = ("부품 공급사(원보고서)" if known[1] else "부품 공급사(원보고서, 출입처 아님)") if known else "부품 공급사(원보고서, 한국 소재)"
+        if not any(w["name"] == ko for w in x["why"]):
+            x["why"].append({"role": role, "beat": ko if known and known[1] else None, "name": ko})
+    x["beat"] = sorted({w["beat"] for w in x.get("why") or [] if w["beat"]})
+    return x
+
+
 def investigation_rows(lead):
     """Beat relations of one ODI action across all its vehicles (the action's first row alone can hide a Hyundai model)."""
     why = []
@@ -342,18 +355,14 @@ def run(*, now, previous=None, get=None, sleep=time.sleep):
         else:
             read += 1
             x.pop("reportError", None)
-            for ko in x.get("supplierKorean") or []:
-                known = next(((k, b) for _, k, b in SUPPLIERS if k == ko), None)
-                role = ("부품 공급사(원보고서)" if known[1] else "부품 공급사(원보고서, 출입처 아님)") if known else "부품 공급사(원보고서, 한국 소재)"
-                if not any(w["name"] == ko for w in x["why"]):
-                    x["why"].append({"role": role, "beat": ko if known and known[1] else None, "name": ko})
-            x["beat"] = sorted({w["beat"] for w in x["why"] if w["beat"]})
     checks.append({"source": "NHTSA 원보고서(Part 573)", "status": "ok" if not errs else ("partial" if read else "failed"),
                    "read": read, "errors": errs, "pending": sum(1 for x in out.values() if "report" not in x and not x.get("reportError"))})
     keep_from = (now - dt.timedelta(days=KEEP_DAYS)).strftime("%Y-%m-%d")
     for rid, x in prev.items():
         if rid not in out and str(x.get("received") or "") >= keep_from:
             out[rid] = x
+    for x in out.values():
+        report_suppliers(x)
     recalls = sorted(out.values(), key=lambda x: (x["received"], x["affected"]), reverse=True)
     for x in recalls:
         x["isNew"] = bool(had_state and x["id"] not in prev)
