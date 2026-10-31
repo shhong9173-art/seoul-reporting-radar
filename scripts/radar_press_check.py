@@ -60,6 +60,7 @@ def candidates(items, *, now, limit=MAX_ITEMS):
                      "strict": x.get("watch") not in LOOSE_WATCHES,
                      "generic": GENERIC + [str(p) for p in hint.get("places") or [] if str(p).strip() and str(p) not in GENERIC],
                      "must": [str(m) for m in hint.get("must") or [] if str(m).strip()],
+                     "names": [str(n) for n in hint.get("names") or [] if str(n).strip()],
                      "title": x.get("fact") or "", "date": str(x.get("date") or ""),
                      "since": (day - dt.timedelta(days=LEAD_DAYS)).isoformat()})
     a = sorted([r for r in rows if r["tier"] == "A"], key=lambda r: r["date"], reverse=True)

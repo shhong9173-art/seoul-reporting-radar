@@ -11,7 +11,7 @@ import { publicationDate, verifyEvidence } from '../cloudflare/evidence.mjs';
 import { allowedUrl } from '../cloudflare/live_tools.mjs';
 import { handleIngest } from '../cloudflare/screen.mjs';
 import { dueAt, nextSlot, runSchedule } from '../cloudflare/dispatch.mjs';
-import { background, convergence, hint, kepcoHint, localWord, radarItems, siteCity, stackHint, workforceHint } from '../cloudflare/digest.mjs';
+import { background, billHint, convergence, hint, kepcoHint, localWord, radarItems, siteCity, stackHint, workforceHint } from '../cloudflare/digest.mjs';
 
 const ORIGIN = 'https://seoul-reporting-radar.shhong9173.workers.dev';
 const TOKEN = 'test-token-0123456789abcdef';
@@ -1493,6 +1493,9 @@ test('assembly bills: same-law same-day filings are one line, core laws are B, s
   const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=168', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: new Date('2026-10-26T01:00:00Z') })).json();
   const bill = items.items.find((x) => x.id === 'bills:발의|전기사업법|2026-10-25');
   assert.deepEqual([bill.check.terms, bill.check.must], [['개정안', '김갑동'], ['김갑동', '이을동']]);  // 대표발의 의원이 기사에 있어야
+  assert.equal(bill.check.names, undefined);  // 줄임말 없는 법은 그대로
+  const steel = items.items.find((x) => x.id.startsWith('bills:') && x.fact.includes('철강산업'));
+  assert.deepEqual([steel.check.who, steel.check.names.at(-1)], ['K-스틸법', '철강산업 경쟁력 강화 및 탄소중립 전환을 위한 특별법']);
   assert.deepEqual(dueAt(new Date('2026-10-27T23:40:00Z')), ['assembly-bills.yml']);  // Wed 08:40 KST
   assert.deepEqual(dueAt(new Date('2026-10-28T08:40:00Z')), ['assembly-bills.yml']);  // Wed 17:40 KST
 });
@@ -2102,6 +2105,17 @@ test('kr_official: 환경영향평가 new stage of a beat project is A and liste
   assert.match(t.text, /\[환경영향평가 · 사업명에 출입처 이름 · 새 단계\] 1건\n- \[신규\] 2026-10-25 접수 · 고려아연 · 환경영향평가 초안\(진행\)/);
   const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
   assert.deepEqual(items.items.find((x) => x.id.startsWith('eia:')).check.terms, ['온산제련소', '환경영향평가']);
+});
+
+test('bill hints: formal law names are searched by the short name headlines use', () => {
+  // 10-31 운영: '산업기술의 유출방지 및 보호에 관한 법률 개정안 백혜련'으로 찾아 미보도 후보
+  const h = billHint({ law: '산업기술의 유출방지 및 보호에 관한 법률', leads: ['백혜련'] });
+  assert.deepEqual([h.who, h.terms, h.must, h.names], ['산업기술보호법', ['개정안', '백혜련'], ['백혜련'], ['산업기술보호법', '산업기술의 유출방지 및 보호에 관한 법률']]);
+  // 가운뎃점 표기가 달라도(· / ㆍ) 같은 법, 주어가 '·'에서 잘리지 않는다
+  assert.equal(billHint({ law: '신에너지 및 재생에너지 개발·이용·보급 촉진법', leads: ['홍길동'] }).who, '신재생에너지법');
+  assert.equal(billHint({ law: '노동조합 및 노동관계조정법', leads: ['이종배'] }).who, '노조법');
+  const plain = billHint({ law: '전기사업법', leads: ['박덕흠'] });
+  assert.deepEqual([plain.who, plain.names], ['전기사업법', undefined]);
 });
 
 test('press-check hints: place words narrow the search but are marked, workforce words follow the direction, local notices use the project word', () => {

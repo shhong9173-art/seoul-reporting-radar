@@ -552,7 +552,9 @@ def judge(c, channels, *, now):
             if day < since:
                 continue
             text = f"{a.get('title', '')} {a.get('text', '')}"
-            if not company_in_text(c["company"], text):
+            # 법안: 기사는 줄임말('산업기술보호법')·정식 이름 어느 쪽이든 쓴다(names, 법 이름이라 낱말 경계 없이 맞춘다)
+            names = c.get("names") or []
+            if not (any(n in text for n in names) if names else company_in_text(c["company"], text)):
                 continue
             if c.get("strict"):
                 # Radar items (radar_press_check): the company and an event word must be in the headline. Body-only
