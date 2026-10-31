@@ -1,44 +1,20 @@
-"""Probe 47: 한전 전력데이터 개방포털 — 기존 KEPCO_API_KEY로 산업분류별·계약종별 전력사용량, 공통코드(시도·시군구·업종) 호출 형식.
-상태·필드 이름·건수만(키는 가림). 통계 수치는 찍지 않는다."""
-import json
+"""Probe 49: OSHA 공장 주소 하도급 점검 — 건식 실행(저장 안 함). 회사별 주소 수·하도급 점검 수·종류·시간만(이름·주소 안 찍음)."""
+import collections
+import datetime as dt
 import os
+import sys
 import time
-import requests
+sys.path.insert(0, "scripts")
+import us_osha_watch as w
 
-KEY = os.environ.get("KEPCO_API_KEY", "").strip()
-B = "https://bigdata.kepco.co.kr/openapi/v1"
-H = {"User-Agent": "seoul-reporting-radar research (github.com/shhong9173-art/seoul-reporting-radar)"}
-out = [f"key set={bool(KEY)} len={len(KEY)}"]
-
-
-def call(path, **p):
-    time.sleep(2)
-    try:
-        r = requests.get(f"{B}/{path}", params={**p, "apiKey": KEY, "returnType": "json"}, headers=H, timeout=60)
-    except Exception as e:  # noqa: BLE001
-        out.append(f"{path} {p}: {type(e).__name__}")
-        return None
-    head = r.text[:200].replace(KEY, "<KEY>") if KEY else r.text[:200]
-    try:
-        j = r.json()
-    except ValueError:
-        out.append(f"{path} {p}: HTTP {r.status_code} non-JSON head={head!r}")
-        return None
-    data = j.get("data") if isinstance(j, dict) else j
-    keys = list(j)[:8] if isinstance(j, dict) else "list"
-    first = data[0] if isinstance(data, list) and data else None
-    out.append(f"{path} {p}: HTTP {r.status_code} top={keys} n={len(data) if isinstance(data, list) else None} fields={sorted(first)[:20] if isinstance(first, dict) else None} "
-               f"err={ {k: j.get(k) for k in ('errCd', 'errMsg', 'resultCode', 'resultMsg', 'message') if isinstance(j, dict) and k in j} }")
-    return data
-
-
-for ty in ("metroCd", "cityCd", "bizCd", "cntrCd"):
-    d = call("commonCode.do", codeTy=ty)
-    if isinstance(d, list) and d and ty in ("metroCd", "bizCd"):
-        out.append(f"   {ty} sample codes: " + json.dumps(d[:6], ensure_ascii=False)[:400])
-call("powerUsage/industryType.do", year="2026", month="08", metroCd="44", cityCd="", bizCd="")
-call("powerUsage/industryType.do", year="2026", month="08", metroCd="44", cityCd="270", bizCd="")
-call("powerUsage/contractType.do", year="2026", month="08", metroCd="44", cityCd="", cntrCd="")
-for m in ("09", "10"):
-    call("powerUsage/industryType.do", year="2026", month=m, metroCd="44", cityCd="", bizCd="")
+KST = dt.timezone(dt.timedelta(hours=9))
+t0 = time.time()
+doc = w.run(now=dt.datetime.now(KST), key=os.environ.get("DOL_API_KEY", "").strip())
+c = doc["checks"][0]
+ins = doc["inspections"]
+site = [x for x in ins if x.get("atSite")]
+out = [f"{time.time() - t0:.0f}s status={c['status']} calls={c['calls']} err={c.get('error')} kept={c['kept']} named={len(ins) - len(site)} atSite={len(site)}",
+       "sites by company " + str(collections.Counter(v["company"] for v in doc["sites"].values()).most_common()),
+       "atSite by company/type " + str(collections.Counter((x["company"], x["type"]) for x in site).most_common(20)),
+       f"atSite with violations {sum(1 for x in site if x['violations'])} M/A {sum(1 for x in site if x['type'] in ('M', 'A'))} latest {max([x['opened'] for x in site] or [''])}"]
 open("/tmp/probe_out.txt", "w").write("\n".join(out))
