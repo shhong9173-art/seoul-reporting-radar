@@ -606,7 +606,7 @@ async function localSection(ctx, q, days, limit) {
   const checks = doc.checks ?? [];
   const bad = checks.filter((c) => c.status !== 'ok');
   const from = new Date(ctx.now.getTime() - days * 86400000).toISOString();
-  const all = (doc.items ?? []).filter((x) => String(x.firstSeen) >= from && matches(q, x.city, x.title, x.company, x.dept, x.plants));
+  const all = (doc.items ?? []).filter((x) => !x.routine && String(x.firstSeen) >= from && matches(q, x.city, x.title, x.company, x.dept, x.plants));
   const rank = { A: 0, B: 1, C: 2 };
   const rows = all.filter((x) => q || x.tier !== 'C').sort((a, b) => (rank[a.tier] ?? 3) - (rank[b.tier] ?? 3)
     || String(b.date ?? '').localeCompare(String(a.date ?? '')));

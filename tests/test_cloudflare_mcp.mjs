@@ -2270,7 +2270,9 @@ test('kr local notices: a beat plant notice in a city is A, a city baseline is h
     checks: [{ source: '울주군', status: 'ok', returned: 60 }, { source: '포항시', status: 'failed', error: 'ReadTimeout' }],
     items: [it('local:울주군:68118'),
       it('local:당진시:1', { city: '당진시', title: '현대제철 옛 공고', company: '현대제철', companies: ['현대제철'], baseline: true, isNew: false }),
-      it('local:여수시:2', { city: '여수시', title: '여수국가산업단지 계획 변경 승인 고시', company: null, companies: [], tier: 'C' })] };
+      it('local:여수시:2', { city: '여수시', title: '여수국가산업단지 계획 변경 승인 고시', company: null, companies: [], tier: 'C' }),
+      // 수집기가 일상 행정으로 표시한 저장분(10-30 예산 태양광 양수인가)은 어디에도 안 보인다
+      it('local:예산군:47455', { city: '예산군', title: '전기사업(태양광발전) 양수인가 공고', company: null, companies: [], tier: 'C', routine: true })] };
   assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/kr-local', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
   const r = await call('radar_today', { hours: 72 }, opts);
   assert.match(r.text.split('[A · ')[1].split('[B · ')[0], /울주군 울산광역시 울주군 공고 제2026-2727호 「건설공사 안전점검 수행기관 지정 공고\[온산 고려아연\(주\), Ga' 2차 \.\.\.」 · 건축과 · 등록 2026-10-25 — 제목만 확인/);
@@ -2281,6 +2283,8 @@ test('kr local notices: a beat plant notice in a city is A, a city baseline is h
   assert.match(t.text, /- \[첫 조회 기준선\] 2026-10-25 · 당진시 · 현대제철 · A/);
   assert.match(t.text, /미확인\(0건 아님\): 포항시\(ReadTimeout\)/);
   assert.match(t.text, /이 시·군의 출입처 공장: 고려아연·LS MnM·현대차/);
+  assert.doesNotMatch((await call('kr_official', { section: 'local', company: '예산' }, opts)).text, /양수인가/);
+  assert.doesNotMatch((await call('radar_today', { hours: 72, include_minor: true }, opts)).text, /양수인가/);
   // 상세 페이지를 읽은 공고: 전체 제목·본문 앞부분·첨부 파일 이름, 대조 낱말은 전체 제목에서(10-31 울주 68156)
   doc.items.push(it('local:울주군:68156', { no: '울산광역시 울주군 공고 제2026-2760호', title: '건설공사 안전점검 수행기관 지정 공고[온산 고려아연(주), #2ASU O...',
     detail: { title: '건설공사 안전점검 수행기관 지정 공고[온산 고려아연(주), #2ASU O2 COMPRESSOR ROOM 토건공사]',
