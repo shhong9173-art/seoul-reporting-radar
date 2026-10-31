@@ -101,9 +101,27 @@ export async function readFeed(ctx, name) {
   try { return JSON.parse(row.body); } catch { return { broken: true }; }
 }
 
-export function ageNote(ctx, generatedAt, hours = 36) {
-  const ageH = (ctx.now.getTime() - Date.parse(generatedAt)) / 3600000;
-  return Number.isFinite(ageH) && ageH > hours ? ` (⚠ ${Math.round(ageH)}시간 전 — 최근 실행 실패 가능)` : '';
+// 평일에만 도는 감시의 '오래됨'은 토·일(KST)을 빼고 잰다. 금요일 오후 결과가 일요일에 '37시간 전 — 실행 실패 가능'으로 뜨면
+// 진짜 실패가 묻힌다(운영 11-01 02:50: 미국 소송·ITC 37시간 전 경고 — 평일 07:50 감시라 토·일엔 원래 안 돈다). 공휴일은 세지 않는다.
+export function weekdayHours(fromMs, toMs) {
+  if (!Number.isFinite(fromMs) || !Number.isFinite(toMs)) return NaN;
+  const KST = 9 * 3600000;
+  let h = 0;
+  for (let t = fromMs; t < toMs;) {
+    const next = Math.min(toMs, (Math.floor((t + KST) / 86400000) + 1) * 86400000 - KST);  // 다음 KST 자정
+    const dow = new Date(t + KST).getUTCDay();
+    if (dow !== 0 && dow !== 6) h += (next - t) / 3600000;
+    t = next;
+  }
+  return h;
+}
+
+// daily=true: 매일 도는 감시(주말도 센다). 기본은 평일 감시라 토·일을 뺀다.
+export function ageNote(ctx, generatedAt, hours = 36, daily = false) {
+  const from = Date.parse(generatedAt);
+  const ageH = (ctx.now.getTime() - from) / 3600000;
+  const counted = daily ? ageH : weekdayHours(from, ctx.now.getTime());
+  return Number.isFinite(counted) && counted > hours ? ` (⚠ ${Math.round(ageH)}시간 전 — 최근 실행 실패 가능)` : '';
 }
 
 function channelLine(chs = {}) {

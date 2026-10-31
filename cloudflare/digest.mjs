@@ -1,7 +1,7 @@
 // radar_today: one private digest over the eleven private watches. It reads what the collectors already stored
 // (no new fetching), keeps what is new since a cutoff, and ranks it. Failed or stale watches are listed first:
 // their silence is "미확인", not "nothing new".
-import { readFeed } from './screen.mjs';
+import { readFeed, weekdayHours } from './screen.mjs';
 import { storeOp } from './store.mjs';
 import { dispatchHealth } from './dispatch.mjs';
 import { clampInt, safeEqual, textResult, uniqueList } from './common.mjs';
@@ -819,13 +819,15 @@ function health(ctx, docs) {
     const d = docs[w.feed];
     if (!d) { lines.push(`- ${w.label}: 결과 없음 — 미확인(${w.schedule} 실행 확인)`); continue; }
     if (d.broken) { lines.push(`- ${w.label}: 저장 형식 오류 — 미확인`); continue; }
-    const ageH = (ctx.now.getTime() - Date.parse(d.generatedAt)) / 3600000;
+    const rawH = (ctx.now.getTime() - Date.parse(d.generatedAt)) / 3600000;
+    // 평일에만 도는 감시는 토·일을 빼고 잰다(screen.mjs weekdayHours). 주 1회(월) 감시는 문턱(192시간)이 이미 주말을 품는다
+    const ageH = /^평일/.test(w.schedule) ? weekdayHours(Date.parse(d.generatedAt), ctx.now.getTime()) : rawH;
     const waiting = (d.checks ?? []).filter((c) => c.status === 'partial' && !c.error && c.pending);  // read budget, not a failure
     const paused = (d.checks ?? []).filter((c) => c.status === 'waiting');  // call budget or provider cooldown: 미확인, not a failure
     const failed = (d.checks ?? []).filter((c) => c.status && !['ok', 'unset', 'waiting'].includes(c.status) && !waiting.includes(c) && !String(c.source ?? '').startsWith('공장등록 이름 규칙'));
     const unset = (d.checks ?? []).filter((c) => c.status === 'unset');
     const issues = [];
-    if (Number.isFinite(ageH) && ageH > (w.staleHours ?? 36)) issues.push(`⚠ ${Math.round(ageH)}시간 전 결과`);
+    if (Number.isFinite(ageH) && ageH > (w.staleHours ?? 36)) issues.push(`⚠ ${Math.round(rawH)}시간 전 결과`);
     if (failed.length) issues.push(`일부 실패 ${failed.length}건(${failed.slice(0, 3).map((c) => c.source ?? c.company ?? c.target).join(', ')})`);
     if (unset.length) issues.push(`미설정 ${unset.map((c) => `${c.source}(${c.error ?? '열쇠 없음'})`).join(', ')}`);
     if (waiting.length) issues.push(`${waiting.map((c) => `${c.source} 원문 대기 ${c.pending}건`).join(', ')}(실행당 읽기 한도, 다음 실행에서 읽음)`);

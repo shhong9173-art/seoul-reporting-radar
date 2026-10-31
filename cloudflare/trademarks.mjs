@@ -31,7 +31,7 @@ export async function trademarks(ctx, args) {
   const waiting = checks.filter((c) => c.status === 'waiting');
   const bad = checks.filter((c) => !['ok', 'waiting'].includes(c.status));
   const kip = doc.kipris ?? {};
-  const out = [`상표 출원(출입처 ${checks.length}곳 · 출원일 ${doc.window?.from ?? '?'}~${doc.window?.to ?? '?'}) · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt, 192)}`,
+  const out = [`상표 출원(출입처 ${checks.length}곳 · 출원일 ${doc.window?.from ?? '?'}~${doc.window?.to ?? '?'}) · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt, 192, true)}`,
     `조회 정상 ${ok.length}/${checks.length}${waiting.length ? ` · 대기 ${waiting.length}곳(${[...new Set(waiting.map((c) => waitReason(c.reason)))].join(', ')}${waiting[0]?.until ? `, ${String(waiting[0].until).slice(0, 16)}부터 재시도` : ''})` : ''}`
       + `${bad.length ? ` · 미확인(0건 아님): ${bad.slice(0, 6).map((c) => `${c.source.replace('상표 ', '')}(${c.error ?? c.status})`).join(', ')}` : ''}`,
     kip.month ? `KIPRIS 호출 장부(${kip.month}): 상표 ${kip.groupUsed?.trademark ?? '?'}/${kip.groupLimits?.trademark ?? '?'} · 전체 ${kip.counted ?? '?'}/${kip.monthlyLimit ?? '?'} — 이 저장소가 센 수, 계정 실제 사용량 아님` : '',
