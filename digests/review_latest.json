@@ -1,16 +1,16 @@
 {
-  "generatedAt": "2026-10-28T09:47:18+09:00",
-  "digestGeneratedAt": "2026-10-28T09:47:10+09:00",
-  "numericGeneratedAt": "2026-10-28T00:17:20.399347+00:00",
+  "generatedAt": "2026-10-30T10:27:23+09:00",
+  "digestGeneratedAt": "2026-10-30T10:27:13+09:00",
+  "numericGeneratedAt": "2026-10-30T00:16:17.201756+00:00",
   "assessment": "공개 원자료·수치·정정표·관련 기사 검색, 자동 단독 확정 불가",
   "counts": {
     "원공시 독립 대조 확인": 0,
-    "정정표 변경 검토": 0,
+    "정정표 변경 검토": 1,
     "원문·변경 사실 확인": 4,
-    "공개자료 추적": 18,
-    "정례 공개·후순위": 1
+    "공개자료 추적": 48,
+    "정례 공개·후순위": 2
   },
-  "total": 23,
+  "total": 55,
   "missingCompanies": [
     "한국GM",
     "LS엠앤엠",
@@ -18,19 +18,47 @@
   ],
   "items": [
     {
-      "receiptNo": "20261027800235",
-      "company": "HD현대일렉트릭",
-      "group": "전력기기·전선",
-      "report": "신규시설투자등",
-      "published": "20261027",
-      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261027800235",
-      "isNew": true,
-      "tag": "★증설",
-      "lane": "원문·변경 사실 확인",
-      "reason": "공시 유형을 포착했지만 실제 사업 변화·대상 물량은 확인 전",
-      "evidenceStatus": "공시 목록 확인, 상세 근거 미검증",
-      "changeStatus": "동일 사건 전후 변화 미확인",
-      "changes": [],
+      "receiptNo": "20261028000138",
+      "company": "현대모비스",
+      "group": "자동차",
+      "report": "[기재정정]주요사항보고서(회사분할결정)",
+      "published": "20261028",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261028000138",
+      "isNew": false,
+      "tag": "★분할",
+      "lane": "정정표 변경 검토",
+      "reason": "발행인 정정표의 전후 문구가 확인됨. 최초 원공시와 독립 대조한 사실은 아님",
+      "evidenceStatus": "발행인 정정표 확인(원공시 대조 미완료)",
+      "changeStatus": "발행인 정정표 문구 변화 확인",
+      "changes": [
+        {
+          "field": "9. 분할일정- 분할반대의사통지 접수기간",
+          "before": "시작일 : 2026년 11월 09일종료일 : 2026년 11월 23일",
+          "after": "시작일 : 2026년 10월 28일종료일 : 2026년 11월 23일",
+          "category": "text_review",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261028000138",
+          "basis": "발행인 정정표 기재",
+          "originalDocumentVerified": false
+        },
+        {
+          "field": "16. 기타 투자판단과 관련한 중요사항",
+          "before": "(3) 반대주주의 주식매수청구권본건 분할은 상법 제530조의2 내지 제530조의12에 따른 단순·물적분할로서, 자본시장법 제165조의5에 따라 주식매수청구권이 인정됩니다. 주식매수청구권에 관한 사항 중 '매수예정가격'은 자본시장법 시행령 제176조의7 제3항 제1호에서 정한 아래 각 목의 방법에 따라 산정된 가격의 산술평균가격(원 단위 미만 절상)으로 합니다.(이하 생략)",
+          "after": "(3) 반대주주의 주식매수청구권본건 분할은 상법 제530조의2 내지 제530조의12에 따른 단순·물적분할로서, 자본시장법 제165조의5에 따라 주식매수청구권이 인정됩니다. 주식매수청구권에 관한 사항 중 '매수예정가격'은 자본시장법 시행령 제176조의7 제3항 제1호에서 정한 아래 각 목의 방법에 따라 산정된 보통주 가격의 산술평균가격(원 단위 미만 절상)으로 하며, 보통주와 우선주의 주식 매수예정가격은 동일합니다. (이하 생략)",
+          "category": "text_review",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261028000138",
+          "basis": "발행인 정정표 기재",
+          "originalDocumentVerified": false
+        },
+        {
+          "field": "16. 기타 투자판단과 관련한 중요사항",
+          "before": "(6) 주식매수청구권 예정 가격○ 보통주 주식매수청구권 매수예정가격: 1주당 408,394원○ 산정 내역",
+          "after": "(6) 주식매수청구권 예정 가격○ 보통주 주식매수청구권 매수예정가격: 1주당 408,394원○ 산정 내역 ○ 당사의 우선주 주식매수청구권 매수예정가격은 보통주 주식매수청구권 매수예정가격과 동일하게 적용할 예정입니다.",
+          "category": "text_review",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261028000138",
+          "basis": "발행인 정정표 기재",
+          "originalDocumentVerified": false
+        }
+      ],
       "numericFacts": [],
       "originalComparison": {
         "status": "미조회",
@@ -45,18 +73,18 @@
         "status": "관련 기사 검색 결과 있음: 동일 사건 여부 미검증",
         "results": [
           {
-            "title": "HD현대일렉, 3Q 영업익 15.1%↑…1980억 투자해 배전기기 생산 확대",
-            "url": "https://www.apnews.kr/news/articleView.html?idxno=3052537",
+            "title": "현대모비스 3분기 영업익 17%↑…“11월부터 아틀라스 관절 시생산”",
+            "url": "https://www.dnews.co.kr/uhtml/view.jsp?idxno=202610301009552230888",
             "published": ""
           },
           {
-            "title": "HD현대일렉트릭, 3분기 영업익 2,845억 원…전년대비 15.1% 증가",
-            "url": "https://www.onews.tv/news/articleView.html?idxno=290153",
+            "title": "전장 믹스 개선 통했다···현대모비스, 3분기 영업이익 17.2% 증가",
+            "url": "https://www.seoulfn.com/news/articleView.html?idxno=641423",
             "published": ""
           },
           {
-            "title": "HD현대일렉트릭, 배전 공장·자동화 설비에 1980억원",
-            "url": "https://www.vegannews.co.kr/news/article.html?no=397589",
+            "title": "현대모비스, 3분기 영업익 9141억원…전년比 17.2%↑ 'AS 호조'",
+            "url": "http://www.4th.kr/news/articleView.html?idxno=2120764",
             "published": ""
           }
         ]
@@ -64,75 +92,8 @@
       "companyResponse": "미확인",
       "exclusiveStatus": "판정 보류: 자동 단독 확정 금지",
       "questions": [
-        "원공시 전문에서 대상 사업·금액·기간·상대방 확인",
-        "기존 발표 대비 새 변화와 기업의 실제 대응 확인"
-      ],
-      "originalDocumentVerified": false
-    },
-    {
-      "receiptNo": "20261027800518",
-      "company": "효성중공업",
-      "group": "전력기기·전선",
-      "report": "[기재정정]단일판매ㆍ공급계약체결",
-      "published": "20261027",
-      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261027800518",
-      "isNew": true,
-      "tag": "★수주",
-      "lane": "원문·변경 사실 확인",
-      "reason": "공시 유형을 포착했지만 실제 사업 변화·대상 물량은 확인 전",
-      "evidenceStatus": "공시 목록 확인, 상세 근거 미검증",
-      "changeStatus": "동일 사건 전후 변화 미확인",
-      "changes": [],
-      "numericFacts": [],
-      "originalComparison": {
-        "status": "original_unverified",
-        "reason": "원문에서 원공시의 명시적 접수번호 확인 불가; 날짜·제목만으로 계약 연결 금지",
-        "originalReceiptNo": null,
-        "originalUrl": null,
-        "verifiedChanges": [],
-        "candidateOrigins": [
-          {
-            "receiptNo": "20260210801094",
-            "report": "[기재정정]단일판매ㆍ공급계약체결              ",
-            "date": "20260210",
-            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260210801094",
-            "status": "같은 날짜의 후보일 뿐 동일 사건 미검증"
-          },
-          {
-            "receiptNo": "20260210800044",
-            "report": "단일판매ㆍ공급계약체결              ",
-            "date": "20260210",
-            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260210800044",
-            "status": "같은 날짜의 후보일 뿐 동일 사건 미검증"
-          }
-        ],
-        "originalDocumentVerified": false
-      },
-      "coverage": {
-        "status": "관련 기사 검색 결과 있음: 동일 사건 여부 미검증",
-        "results": [
-          {
-            "title": "10월 27일 주식시장 주요공시",
-            "url": "https://www.catchnews.kr/news/articleView.html?idxno=129857",
-            "published": ""
-          },
-          {
-            "title": "[Who Is ?] 김영기 HD현대일렉트릭 대표이사 사장",
-            "url": "https://www.businesspost.co.kr/BP?command=article_view&num=449788",
-            "published": ""
-          },
-          {
-            "title": "전력기기 삼대장, 3Q실적 호황인데 주가 왜 이래",
-            "url": "https://www.newstopkorea.com/news/articleView.html?idxno=48518",
-            "published": ""
-          }
-        ]
-      },
-      "companyResponse": "미확인",
-      "exclusiveStatus": "판정 보류: 자동 단독 확정 금지",
-      "questions": [
-        "원공시 전문에서 대상 사업·금액·기간·상대방 확인",
-        "기존 발표 대비 새 변화와 기업의 실제 대응 확인"
+        "정정 공시 표의 변경사항을 최초 공시 원문과 독립 대조",
+        "수정된 일정·계약 조건이 실제 사업에 미치는 영향 회사에 확인"
       ],
       "originalDocumentVerified": false
     },
@@ -164,18 +125,18 @@
         "status": "관련 기사 검색 결과 있음: 동일 사건 여부 미검증",
         "results": [
           {
-            "title": "3040세대 아파트 매수 비중 역대 최고…'초품아' 단지 주목",
-            "url": "https://www.bizwork.co.kr/news/articleView.html?idxno=420252",
+            "title": "[중화학노트] 삼성SDI, ‘배터리의 날’ 국무총리 표창 外",
+            "url": "https://news.dealsitetv.com/articles/177779",
             "published": ""
           },
           {
-            "title": "[증시키워드] 앤트로픽 훈풍에 삼전·닉스 급등…JYP '日 자본 인수설'에...",
-            "url": "https://www.etoday.co.kr/news/view/2640842",
+            "title": "공사비 1조에 깨진 체코원전 '팀 코리아' 새 시공사 물색",
+            "url": "https://www.safetimes.co.kr/news/articleView.html?idxno=247010",
             "published": ""
           },
           {
-            "title": "[THE Biz&CEO] 빚 갚던 두산 살림꾼 박상현… '원전 공격수'로 뛴다",
-            "url": "http://www.the-biz.co.kr/news/articleView.html?idxno=730040",
+            "title": "체코 원전 '팀코리아' 결국 균열…한수원, 새 시공사 찾는다",
+            "url": "https://www.insightkorea.co.kr/news/articleView.html?idxno=257675",
             "published": ""
           }
         ]
@@ -216,18 +177,18 @@
         "status": "관련 기사 검색 결과 있음: 동일 사건 여부 미검증",
         "results": [
           {
-            "title": "10월 27일 주식시장 주요공시",
-            "url": "https://www.catchnews.kr/news/articleView.html?idxno=129857",
+            "title": "10월 29일 주식시장 주요공시",
+            "url": "https://www.catchnews.kr/news/articleView.html?idxno=129970",
             "published": ""
           },
           {
-            "title": "[박정식의 국내 주식시황] 앤트로픽 IPO가 되살린 AI 랠리…반도체 앞세...",
-            "url": "https://www.newsquest.co.kr/news/articleView.html?idxno=303556",
+            "title": "대한전선, 3분기 영업익 4.5% 증가…포설선 개보수 등 수익성 압박",
+            "url": "https://www.sedaily.com/article/20107899?ref=naver",
             "published": ""
           },
           {
-            "title": "[코스피·코스닥,신한지주 한화오션  셀트리온 대우건설  두산로보틱스...",
-            "url": "https://www.public25.com/news/articleView.html?idxno=57341",
+            "title": "[TOP's Pick] [중후장대] SK이노, 3분기 영업익 3조7043억 '분기 최대' 外",
+            "url": "https://www.topdaily.kr/articles/112587",
             "published": ""
           }
         ]
@@ -241,12 +202,131 @@
       "originalDocumentVerified": false
     },
     {
-      "receiptNo": "20261027000283",
-      "company": "두산에너빌리티",
+      "receiptNo": "20261027800235",
+      "company": "HD현대일렉트릭",
+      "group": "전력기기·전선",
+      "report": "신규시설투자등",
+      "published": "20261027",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261027800235",
+      "isNew": false,
+      "tag": "★증설",
+      "lane": "원문·변경 사실 확인",
+      "reason": "공시 유형을 포착했지만 실제 사업 변화·대상 물량은 확인 전",
+      "evidenceStatus": "공시 목록 확인, 상세 근거 미검증",
+      "changeStatus": "동일 사건 전후 변화 미확인",
+      "changes": [],
+      "numericFacts": [],
+      "originalComparison": {
+        "status": "미조회",
+        "reason": "원공시 독립 조회 전",
+        "originalReceiptNo": null,
+        "originalUrl": null,
+        "verifiedChanges": [],
+        "candidateOrigins": [],
+        "originalDocumentVerified": false
+      },
+      "coverage": {
+        "status": "관련 기사 검색 결과 있음: 동일 사건 여부 미검증",
+        "results": [
+          {
+            "title": "'실적·수주·투자' 삼박자···탄력받는 HD현대 엔진사업",
+            "url": "https://www.sisajournal-e.com/news/articleView.html?idxno=424661",
+            "published": ""
+          },
+          {
+            "title": "\"역대 최대 매출 찍고도 웃지 못했다…HD현대일렉트릭, '마진 둔화'의 덫...",
+            "url": "https://www.newsquest.co.kr/news/articleView.html?idxno=303662",
+            "published": ""
+          },
+          {
+            "title": "청주공장 증설 나선 HD현대일렉트릭···배전사업 확대 잰걸음",
+            "url": "https://www.sisajournal-e.com/news/articleView.html?idxno=424631",
+            "published": ""
+          }
+        ]
+      },
+      "companyResponse": "미확인",
+      "exclusiveStatus": "판정 보류: 자동 단독 확정 금지",
+      "questions": [
+        "원공시 전문에서 대상 사업·금액·기간·상대방 확인",
+        "기존 발표 대비 새 변화와 기업의 실제 대응 확인"
+      ],
+      "originalDocumentVerified": false
+    },
+    {
+      "receiptNo": "20261027800518",
+      "company": "효성중공업",
+      "group": "전력기기·전선",
+      "report": "[기재정정]단일판매ㆍ공급계약체결",
+      "published": "20261027",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261027800518",
+      "isNew": false,
+      "tag": "★수주",
+      "lane": "원문·변경 사실 확인",
+      "reason": "공시 유형을 포착했지만 실제 사업 변화·대상 물량은 확인 전",
+      "evidenceStatus": "공시 목록 확인, 상세 근거 미검증",
+      "changeStatus": "동일 사건 전후 변화 미확인",
+      "changes": [],
+      "numericFacts": [],
+      "originalComparison": {
+        "status": "original_unverified",
+        "reason": "원문에서 원공시의 명시적 접수번호 확인 불가; 날짜·제목만으로 계약 연결 금지",
+        "originalReceiptNo": null,
+        "originalUrl": null,
+        "verifiedChanges": [],
+        "candidateOrigins": [
+          {
+            "receiptNo": "20260210801094",
+            "report": "[기재정정]단일판매ㆍ공급계약체결              ",
+            "date": "20260210",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260210801094",
+            "status": "같은 날짜의 후보일 뿐 동일 사건 미검증"
+          },
+          {
+            "receiptNo": "20260210800044",
+            "report": "단일판매ㆍ공급계약체결              ",
+            "date": "20260210",
+            "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260210800044",
+            "status": "같은 날짜의 후보일 뿐 동일 사건 미검증"
+          }
+        ],
+        "originalDocumentVerified": false
+      },
+      "coverage": {
+        "status": "관련 기사 검색 결과 있음: 동일 사건 여부 미검증",
+        "results": [
+          {
+            "title": "10월 29일 주식시장 주요공시",
+            "url": "https://www.catchnews.kr/news/articleView.html?idxno=129970",
+            "published": ""
+          },
+          {
+            "title": "효성중공업 콕 집은 아이슬란드 송전망 운영사…변전소 추가 수주 임박",
+            "url": "https://www.pinpointnews.co.kr/news/articleView.html?idxno=499771",
+            "published": ""
+          },
+          {
+            "title": "[TOP's Pick] [중후장대] SK이노, 3분기 영업익 3조7043억 '분기 최대' 外",
+            "url": "https://www.topdaily.kr/articles/112587",
+            "published": ""
+          }
+        ]
+      },
+      "companyResponse": "미확인",
+      "exclusiveStatus": "판정 보류: 자동 단독 확정 금지",
+      "questions": [
+        "원공시 전문에서 대상 사업·금액·기간·상대방 확인",
+        "기존 발표 대비 새 변화와 기업의 실제 대응 확인"
+      ],
+      "originalDocumentVerified": false
+    },
+    {
+      "receiptNo": "20261029000365",
+      "company": "한화솔루션",
       "group": "에너지·재생",
-      "report": "특수관계인과의수익증권거래",
-      "published": "20261027",
-      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261027000283",
+      "report": "동일인등출자계열회사와의상품ㆍ용역거래변경",
+      "published": "20261029",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261029000365",
       "isNew": true,
       "tag": "",
       "lane": "공개자료 추적",
@@ -277,12 +357,12 @@
       "originalDocumentVerified": false
     },
     {
-      "receiptNo": "20261027800213",
-      "company": "HD현대일렉트릭",
-      "group": "전력기기·전선",
-      "report": "현금ㆍ현물배당결정",
-      "published": "20261027",
-      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261027800213",
+      "receiptNo": "20261029000371",
+      "company": "한화솔루션",
+      "group": "에너지·재생",
+      "report": "동일인등출자계열회사와의상품ㆍ용역거래변경",
+      "published": "20261029",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261029000371",
       "isNew": true,
       "tag": "",
       "lane": "공개자료 추적",
@@ -313,12 +393,277 @@
       "originalDocumentVerified": false
     },
     {
-      "receiptNo": "20261027800226",
-      "company": "HD현대일렉트릭",
-      "group": "전력기기·전선",
+      "receiptNo": "20261029000447",
+      "company": "현대자동차",
+      "group": "자동차",
+      "report": "약관에의한금융거래시계열금융회사의거래상대방의공시",
+      "published": "20261029",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261029000447",
+      "isNew": true,
+      "tag": "",
+      "lane": "공개자료 추적",
+      "reason": "변경 전후의 직접 근거 또는 실질적인 기사 야마가 아직 없음",
+      "evidenceStatus": "공시 목록 확인, 상세 근거 미검증",
+      "changeStatus": "동일 사건 전후 변화 미확인",
+      "changes": [],
+      "numericFacts": [],
+      "originalComparison": {
+        "status": "미조회",
+        "reason": "원공시 독립 조회 전",
+        "originalReceiptNo": null,
+        "originalUrl": null,
+        "verifiedChanges": [],
+        "candidateOrigins": [],
+        "originalDocumentVerified": false
+      },
+      "coverage": {
+        "status": "미실행: 보도 검색 전",
+        "results": []
+      },
+      "companyResponse": "미확인",
+      "exclusiveStatus": "판정 보류: 자동 단독 확정 금지",
+      "questions": [
+        "원공시 전문에서 대상 사업·금액·기간·상대방 확인",
+        "기존 발표 대비 새 변화와 기업의 실제 대응 확인"
+      ],
+      "originalDocumentVerified": false
+    },
+    {
+      "receiptNo": "20261029000456",
+      "company": "현대자동차",
+      "group": "자동차",
+      "report": "특수관계인과의내부거래",
+      "published": "20261029",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261029000456",
+      "isNew": true,
+      "tag": "",
+      "lane": "공개자료 추적",
+      "reason": "변경 전후의 직접 근거 또는 실질적인 기사 야마가 아직 없음",
+      "evidenceStatus": "공시 목록 확인, 상세 근거 미검증",
+      "changeStatus": "동일 사건 전후 변화 미확인",
+      "changes": [],
+      "numericFacts": [],
+      "originalComparison": {
+        "status": "미조회",
+        "reason": "원공시 독립 조회 전",
+        "originalReceiptNo": null,
+        "originalUrl": null,
+        "verifiedChanges": [],
+        "candidateOrigins": [],
+        "originalDocumentVerified": false
+      },
+      "coverage": {
+        "status": "미실행: 보도 검색 전",
+        "results": []
+      },
+      "companyResponse": "미확인",
+      "exclusiveStatus": "판정 보류: 자동 단독 확정 금지",
+      "questions": [
+        "원공시 전문에서 대상 사업·금액·기간·상대방 확인",
+        "기존 발표 대비 새 변화와 기업의 실제 대응 확인"
+      ],
+      "originalDocumentVerified": false
+    },
+    {
+      "receiptNo": "20261029000463",
+      "company": "현대자동차",
+      "group": "자동차",
+      "report": "특수관계인에대한부동산임대",
+      "published": "20261029",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261029000463",
+      "isNew": true,
+      "tag": "",
+      "lane": "공개자료 추적",
+      "reason": "변경 전후의 직접 근거 또는 실질적인 기사 야마가 아직 없음",
+      "evidenceStatus": "공시 목록 확인, 상세 근거 미검증",
+      "changeStatus": "동일 사건 전후 변화 미확인",
+      "changes": [],
+      "numericFacts": [],
+      "originalComparison": {
+        "status": "미조회",
+        "reason": "원공시 독립 조회 전",
+        "originalReceiptNo": null,
+        "originalUrl": null,
+        "verifiedChanges": [],
+        "candidateOrigins": [],
+        "originalDocumentVerified": false
+      },
+      "coverage": {
+        "status": "미실행: 보도 검색 전",
+        "results": []
+      },
+      "companyResponse": "미확인",
+      "exclusiveStatus": "판정 보류: 자동 단독 확정 금지",
+      "questions": [
+        "원공시 전문에서 대상 사업·금액·기간·상대방 확인",
+        "기존 발표 대비 새 변화와 기업의 실제 대응 확인"
+      ],
+      "originalDocumentVerified": false
+    },
+    {
+      "receiptNo": "20261029000476",
+      "company": "현대자동차",
+      "group": "자동차",
+      "report": "특수관계인에대한출자",
+      "published": "20261029",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261029000476",
+      "isNew": true,
+      "tag": "",
+      "lane": "공개자료 추적",
+      "reason": "변경 전후의 직접 근거 또는 실질적인 기사 야마가 아직 없음",
+      "evidenceStatus": "동일 접수번호 원문 수치 일부 확인",
+      "changeStatus": "동일 사건 전후 변화 미확인",
+      "changes": [],
+      "numericFacts": [
+        {
+          "label": "다. 출자금액",
+          "value": "285,167백만원",
+          "context": "다. 출자금액 | 285,167",
+          "interpretation": "공시 항목에 기재된 수치; 신규 변경 여부는 별도 비교 필요"
+        },
+        {
+          "label": "라. 출자상대방 총출자액",
+          "value": "1,220,514백만원",
+          "context": "라. 출자상대방 총출자액 | 1,220,514",
+          "interpretation": "공시 항목에 기재된 수치; 신규 변경 여부는 별도 비교 필요"
+        }
+      ],
+      "originalComparison": {
+        "status": "미조회",
+        "reason": "원공시 독립 조회 전",
+        "originalReceiptNo": null,
+        "originalUrl": null,
+        "verifiedChanges": [],
+        "candidateOrigins": [],
+        "originalDocumentVerified": false
+      },
+      "coverage": {
+        "status": "미실행: 보도 검색 전",
+        "results": []
+      },
+      "companyResponse": "미확인",
+      "exclusiveStatus": "판정 보류: 자동 단독 확정 금지",
+      "questions": [
+        "원공시 전문에서 대상 사업·금액·기간·상대방 확인",
+        "기존 발표 대비 새 변화와 기업의 실제 대응 확인"
+      ],
+      "originalDocumentVerified": false
+    },
+    {
+      "receiptNo": "20261029000483",
+      "company": "현대자동차",
+      "group": "자동차",
+      "report": "특수관계인으로부터채권매수",
+      "published": "20261029",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261029000483",
+      "isNew": true,
+      "tag": "",
+      "lane": "공개자료 추적",
+      "reason": "변경 전후의 직접 근거 또는 실질적인 기사 야마가 아직 없음",
+      "evidenceStatus": "공시 목록 확인, 상세 근거 미검증",
+      "changeStatus": "동일 사건 전후 변화 미확인",
+      "changes": [],
+      "numericFacts": [],
+      "originalComparison": {
+        "status": "미조회",
+        "reason": "원공시 독립 조회 전",
+        "originalReceiptNo": null,
+        "originalUrl": null,
+        "verifiedChanges": [],
+        "candidateOrigins": [],
+        "originalDocumentVerified": false
+      },
+      "coverage": {
+        "status": "미실행: 보도 검색 전",
+        "results": []
+      },
+      "companyResponse": "미확인",
+      "exclusiveStatus": "판정 보류: 자동 단독 확정 금지",
+      "questions": [
+        "원공시 전문에서 대상 사업·금액·기간·상대방 확인",
+        "기존 발표 대비 새 변화와 기업의 실제 대응 확인"
+      ],
+      "originalDocumentVerified": false
+    },
+    {
+      "receiptNo": "20261029000538",
+      "company": "현대모비스",
+      "group": "자동차",
+      "report": "약관에의한금융거래시계열금융회사의거래상대방의공시",
+      "published": "20261029",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261029000538",
+      "isNew": true,
+      "tag": "",
+      "lane": "공개자료 추적",
+      "reason": "변경 전후의 직접 근거 또는 실질적인 기사 야마가 아직 없음",
+      "evidenceStatus": "공시 목록 확인, 상세 근거 미검증",
+      "changeStatus": "동일 사건 전후 변화 미확인",
+      "changes": [],
+      "numericFacts": [],
+      "originalComparison": {
+        "status": "미조회",
+        "reason": "원공시 독립 조회 전",
+        "originalReceiptNo": null,
+        "originalUrl": null,
+        "verifiedChanges": [],
+        "candidateOrigins": [],
+        "originalDocumentVerified": false
+      },
+      "coverage": {
+        "status": "미실행: 보도 검색 전",
+        "results": []
+      },
+      "companyResponse": "미확인",
+      "exclusiveStatus": "판정 보류: 자동 단독 확정 금지",
+      "questions": [
+        "원공시 전문에서 대상 사업·금액·기간·상대방 확인",
+        "기존 발표 대비 새 변화와 기업의 실제 대응 확인"
+      ],
+      "originalDocumentVerified": false
+    },
+    {
+      "receiptNo": "20261029000561",
+      "company": "현대모비스",
+      "group": "자동차",
+      "report": "약관에의한금융거래시계열금융회사의거래상대방의공시",
+      "published": "20261029",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261029000561",
+      "isNew": true,
+      "tag": "",
+      "lane": "공개자료 추적",
+      "reason": "변경 전후의 직접 근거 또는 실질적인 기사 야마가 아직 없음",
+      "evidenceStatus": "공시 목록 확인, 상세 근거 미검증",
+      "changeStatus": "동일 사건 전후 변화 미확인",
+      "changes": [],
+      "numericFacts": [],
+      "originalComparison": {
+        "status": "미조회",
+        "reason": "원공시 독립 조회 전",
+        "originalReceiptNo": null,
+        "originalUrl": null,
+        "verifiedChanges": [],
+        "candidateOrigins": [],
+        "originalDocumentVerified": false
+      },
+      "coverage": {
+        "status": "미실행: 보도 검색 전",
+        "results": []
+      },
+      "companyResponse": "미확인",
+      "exclusiveStatus": "판정 보류: 자동 단독 확정 금지",
+      "questions": [
+        "원공시 전문에서 대상 사업·금액·기간·상대방 확인",
+        "기존 발표 대비 새 변화와 기업의 실제 대응 확인"
+      ],
+      "originalDocumentVerified": false
+    },
+    {
+      "receiptNo": "20261029800228",
+      "company": "현대자동차",
+      "group": "자동차",
       "report": "연결재무제표기준영업(잠정)실적(공정공시)",
-      "published": "20261027",
-      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261027800226",
+      "published": "20261029",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261029800228",
       "isNew": true,
       "tag": "★잠정실적",
       "lane": "공개자료 추적",
@@ -349,157 +694,13 @@
       "originalDocumentVerified": false
     },
     {
-      "receiptNo": "20261027800232",
-      "company": "HD현대일렉트릭",
-      "group": "전력기기·전선",
-      "report": "현금ㆍ현물배당을위한주주명부폐쇄(기준일)결정",
-      "published": "20261027",
-      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261027800232",
-      "isNew": true,
-      "tag": "",
-      "lane": "공개자료 추적",
-      "reason": "변경 전후의 직접 근거 또는 실질적인 기사 야마가 아직 없음",
-      "evidenceStatus": "공시 목록 확인, 상세 근거 미검증",
-      "changeStatus": "동일 사건 전후 변화 미확인",
-      "changes": [],
-      "numericFacts": [],
-      "originalComparison": {
-        "status": "미조회",
-        "reason": "원공시 독립 조회 전",
-        "originalReceiptNo": null,
-        "originalUrl": null,
-        "verifiedChanges": [],
-        "candidateOrigins": [],
-        "originalDocumentVerified": false
-      },
-      "coverage": {
-        "status": "미실행: 보도 검색 전",
-        "results": []
-      },
-      "companyResponse": "미확인",
-      "exclusiveStatus": "판정 보류: 자동 단독 확정 금지",
-      "questions": [
-        "원공시 전문에서 대상 사업·금액·기간·상대방 확인",
-        "기존 발표 대비 새 변화와 기업의 실제 대응 확인"
-      ],
-      "originalDocumentVerified": false
-    },
-    {
-      "receiptNo": "20261027800359",
-      "company": "현대위아",
-      "group": "자동차",
-      "report": "결산실적공시예고(안내공시)",
-      "published": "20261027",
-      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261027800359",
-      "isNew": true,
-      "tag": "",
-      "lane": "공개자료 추적",
-      "reason": "변경 전후의 직접 근거 또는 실질적인 기사 야마가 아직 없음",
-      "evidenceStatus": "공시 목록 확인, 상세 근거 미검증",
-      "changeStatus": "동일 사건 전후 변화 미확인",
-      "changes": [],
-      "numericFacts": [],
-      "originalComparison": {
-        "status": "미조회",
-        "reason": "원공시 독립 조회 전",
-        "originalReceiptNo": null,
-        "originalUrl": null,
-        "verifiedChanges": [],
-        "candidateOrigins": [],
-        "originalDocumentVerified": false
-      },
-      "coverage": {
-        "status": "미실행: 보도 검색 전",
-        "results": []
-      },
-      "companyResponse": "미확인",
-      "exclusiveStatus": "판정 보류: 자동 단독 확정 금지",
-      "questions": [
-        "원공시 전문에서 대상 사업·금액·기간·상대방 확인",
-        "기존 발표 대비 새 변화와 기업의 실제 대응 확인"
-      ],
-      "originalDocumentVerified": false
-    },
-    {
-      "receiptNo": "20261027800373",
-      "company": "현대위아",
-      "group": "자동차",
-      "report": "기업설명회(IR)개최(안내공시)",
-      "published": "20261027",
-      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261027800373",
-      "isNew": true,
-      "tag": "",
-      "lane": "공개자료 추적",
-      "reason": "변경 전후의 직접 근거 또는 실질적인 기사 야마가 아직 없음",
-      "evidenceStatus": "공시 목록 확인, 상세 근거 미검증",
-      "changeStatus": "동일 사건 전후 변화 미확인",
-      "changes": [],
-      "numericFacts": [],
-      "originalComparison": {
-        "status": "미조회",
-        "reason": "원공시 독립 조회 전",
-        "originalReceiptNo": null,
-        "originalUrl": null,
-        "verifiedChanges": [],
-        "candidateOrigins": [],
-        "originalDocumentVerified": false
-      },
-      "coverage": {
-        "status": "미실행: 보도 검색 전",
-        "results": []
-      },
-      "companyResponse": "미확인",
-      "exclusiveStatus": "판정 보류: 자동 단독 확정 금지",
-      "questions": [
-        "원공시 전문에서 대상 사업·금액·기간·상대방 확인",
-        "기존 발표 대비 새 변화와 기업의 실제 대응 확인"
-      ],
-      "originalDocumentVerified": false
-    },
-    {
-      "receiptNo": "20261027800641",
-      "company": "금호타이어",
-      "group": "자동차",
-      "report": "[기재정정]유형자산취득결정(자율공시)",
-      "published": "20261027",
-      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261027800641",
-      "isNew": true,
-      "tag": "",
-      "lane": "공개자료 추적",
-      "reason": "변경 전후의 직접 근거 또는 실질적인 기사 야마가 아직 없음",
-      "evidenceStatus": "공시 목록 확인, 상세 근거 미검증",
-      "changeStatus": "동일 사건 전후 변화 미확인",
-      "changes": [],
-      "numericFacts": [],
-      "originalComparison": {
-        "status": "미조회",
-        "reason": "원공시 독립 조회 전",
-        "originalReceiptNo": null,
-        "originalUrl": null,
-        "verifiedChanges": [],
-        "candidateOrigins": [],
-        "originalDocumentVerified": false
-      },
-      "coverage": {
-        "status": "미실행: 보도 검색 전",
-        "results": []
-      },
-      "companyResponse": "미확인",
-      "exclusiveStatus": "판정 보류: 자동 단독 확정 금지",
-      "questions": [
-        "원공시 전문에서 대상 사업·금액·기간·상대방 확인",
-        "기존 발표 대비 새 변화와 기업의 실제 대응 확인"
-      ],
-      "originalDocumentVerified": false
-    },
-    {
-      "receiptNo": "20261023000336",
+      "receiptNo": "20261029800231",
       "company": "현대자동차",
       "group": "자동차",
-      "report": "특수관계인으로부터기타유가증권매수",
-      "published": "20261023",
-      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261023000336",
-      "isNew": false,
+      "report": "[기재정정]장래사업ㆍ경영계획(공정공시)",
+      "published": "20261029",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261029800231",
+      "isNew": true,
       "tag": "",
       "lane": "공개자료 추적",
       "reason": "변경 전후의 직접 근거 또는 실질적인 기사 야마가 아직 없음",
@@ -529,13 +730,13 @@
       "originalDocumentVerified": false
     },
     {
-      "receiptNo": "20261023000362",
-      "company": "GS",
+      "receiptNo": "20261029800234",
+      "company": "두산에너빌리티",
       "group": "에너지·재생",
-      "report": "임원ㆍ주요주주특정증권등거래계획철회보고서",
-      "published": "20261023",
-      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261023000362",
-      "isNew": false,
+      "report": "풍문또는보도에대한해명",
+      "published": "20261029",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261029800234",
+      "isNew": true,
       "tag": "",
       "lane": "공개자료 추적",
       "reason": "변경 전후의 직접 근거 또는 실질적인 기사 야마가 아직 없음",
@@ -565,14 +766,14 @@
       "originalDocumentVerified": false
     },
     {
-      "receiptNo": "20261023800445",
-      "company": "현대제철",
-      "group": "철강",
-      "report": "기업설명회(IR)개최(안내공시)",
-      "published": "20261023",
-      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261023800445",
-      "isNew": false,
-      "tag": "",
+      "receiptNo": "20261029800240",
+      "company": "현대자동차",
+      "group": "자동차",
+      "report": "[기재정정]영업실적등에대한전망(공정공시)",
+      "published": "20261029",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261029800240",
+      "isNew": true,
+      "tag": "★실적전망",
       "lane": "공개자료 추적",
       "reason": "변경 전후의 직접 근거 또는 실질적인 기사 야마가 아직 없음",
       "evidenceStatus": "공시 목록 확인, 상세 근거 미검증",
@@ -601,49 +802,49 @@
       "originalDocumentVerified": false
     },
     {
-      "receiptNo": "20261023800449",
-      "company": "현대제철",
-      "group": "철강",
-      "report": "기업설명회(IR)개최(안내공시)",
-      "published": "20261023",
-      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261023800449",
-      "isNew": false,
-      "tag": "",
-      "lane": "공개자료 추적",
-      "reason": "변경 전후의 직접 근거 또는 실질적인 기사 야마가 아직 없음",
-      "evidenceStatus": "공시 목록 확인, 상세 근거 미검증",
-      "changeStatus": "동일 사건 전후 변화 미확인",
-      "changes": [],
-      "numericFacts": [],
-      "originalComparison": {
-        "status": "미조회",
-        "reason": "원공시 독립 조회 전",
-        "originalReceiptNo": null,
-        "originalUrl": null,
-        "verifiedChanges": [],
-        "candidateOrigins": [],
-        "originalDocumentVerified": false
-      },
-      "coverage": {
-        "status": "미실행: 보도 검색 전",
-        "results": []
-      },
-      "companyResponse": "미확인",
-      "exclusiveStatus": "판정 보류: 자동 단독 확정 금지",
-      "questions": [
-        "원공시 전문에서 대상 사업·금액·기간·상대방 확인",
-        "기존 발표 대비 새 변화와 기업의 실제 대응 확인"
-      ],
-      "originalDocumentVerified": false
-    },
-    {
-      "receiptNo": "20261023800753",
-      "company": "GS",
+      "receiptNo": "20261029800252",
+      "company": "한화솔루션",
       "group": "에너지·재생",
-      "report": "최대주주등소유주식변동신고서",
-      "published": "20261023",
-      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261023800753",
-      "isNew": false,
+      "report": "연결재무제표기준영업(잠정)실적(공정공시)",
+      "published": "20261029",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261029800252",
+      "isNew": true,
+      "tag": "★잠정실적",
+      "lane": "공개자료 추적",
+      "reason": "변경 전후의 직접 근거 또는 실질적인 기사 야마가 아직 없음",
+      "evidenceStatus": "공시 목록 확인, 상세 근거 미검증",
+      "changeStatus": "동일 사건 전후 변화 미확인",
+      "changes": [],
+      "numericFacts": [],
+      "originalComparison": {
+        "status": "미조회",
+        "reason": "원공시 독립 조회 전",
+        "originalReceiptNo": null,
+        "originalUrl": null,
+        "verifiedChanges": [],
+        "candidateOrigins": [],
+        "originalDocumentVerified": false
+      },
+      "coverage": {
+        "status": "미실행: 보도 검색 전",
+        "results": []
+      },
+      "companyResponse": "미확인",
+      "exclusiveStatus": "판정 보류: 자동 단독 확정 금지",
+      "questions": [
+        "원공시 전문에서 대상 사업·금액·기간·상대방 확인",
+        "기존 발표 대비 새 변화와 기업의 실제 대응 확인"
+      ],
+      "originalDocumentVerified": false
+    },
+    {
+      "receiptNo": "20261029800264",
+      "company": "현대자동차",
+      "group": "자동차",
+      "report": "현금ㆍ현물배당을위한주주명부폐쇄(기준일)결정",
+      "published": "20261029",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261029800264",
+      "isNew": true,
       "tag": "",
       "lane": "공개자료 추적",
       "reason": "변경 전후의 직접 근거 또는 실질적인 기사 야마가 아직 없음",
@@ -673,13 +874,13 @@
       "originalDocumentVerified": false
     },
     {
-      "receiptNo": "20261023800867",
-      "company": "고려아연",
-      "group": "비철",
-      "report": "소송등의판결ㆍ결정",
-      "published": "20261023",
-      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261023800867",
-      "isNew": false,
+      "receiptNo": "20261029800267",
+      "company": "KG모빌리티",
+      "group": "자동차",
+      "report": "기업설명회(IR)개최(안내공시)",
+      "published": "20261029",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261029800267",
+      "isNew": true,
       "tag": "",
       "lane": "공개자료 추적",
       "reason": "변경 전후의 직접 근거 또는 실질적인 기사 야마가 아직 없음",
@@ -697,24 +898,8 @@
         "originalDocumentVerified": false
       },
       "coverage": {
-        "status": "관련 기사 검색 결과 있음: 동일 사건 여부 미검증",
-        "results": [
-          {
-            "title": "고려아연 감사위 절차 진행 중… 정식 조사·사실 인정과는 구분돼야",
-            "url": "https://www.upkoreanews.kr/news/articleView.html?idxno=100881",
-            "published": ""
-          },
-          {
-            "title": "페로타임즈 손바닥뉴스 10월28일(수)",
-            "url": "http://www.ferrotimes.com/news/articleView.html?idxno=51154",
-            "published": ""
-          },
-          {
-            "title": "잡초 뽑듯 다져온 '현장경영' 철학…고려아연 최윤범의 '뚝심'",
-            "url": "https://www.asiatoday.co.kr/kn/view.php?key=20261027010009392",
-            "published": ""
-          }
-        ]
+        "status": "미실행: 보도 검색 전",
+        "results": []
       },
       "companyResponse": "미확인",
       "exclusiveStatus": "판정 보류: 자동 단독 확정 금지",
@@ -725,13 +910,13 @@
       "originalDocumentVerified": false
     },
     {
-      "receiptNo": "20261023801005",
-      "company": "고려아연",
-      "group": "비철",
-      "report": "소송등의판결ㆍ결정",
-      "published": "20261023",
-      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261023801005",
-      "isNew": false,
+      "receiptNo": "20261029800269",
+      "company": "현대자동차",
+      "group": "자동차",
+      "report": "현금ㆍ현물배당결정",
+      "published": "20261029",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261029800269",
+      "isNew": true,
       "tag": "",
       "lane": "공개자료 추적",
       "reason": "변경 전후의 직접 근거 또는 실질적인 기사 야마가 아직 없음",
@@ -749,24 +934,404 @@
         "originalDocumentVerified": false
       },
       "coverage": {
-        "status": "관련 기사 검색 결과 있음: 동일 사건 여부 미검증",
-        "results": [
-          {
-            "title": "고려아연 감사위 절차 진행 중… 정식 조사·사실 인정과는 구분돼야",
-            "url": "https://www.upkoreanews.kr/news/articleView.html?idxno=100881",
-            "published": ""
-          },
-          {
-            "title": "페로타임즈 손바닥뉴스 10월28일(수)",
-            "url": "http://www.ferrotimes.com/news/articleView.html?idxno=51154",
-            "published": ""
-          },
-          {
-            "title": "잡초 뽑듯 다져온 '현장경영' 철학…고려아연 최윤범의 '뚝심'",
-            "url": "https://www.asiatoday.co.kr/kn/view.php?key=20261027010009392",
-            "published": ""
-          }
-        ]
+        "status": "미실행: 보도 검색 전",
+        "results": []
+      },
+      "companyResponse": "미확인",
+      "exclusiveStatus": "판정 보류: 자동 단독 확정 금지",
+      "questions": [
+        "원공시 전문에서 대상 사업·금액·기간·상대방 확인",
+        "기존 발표 대비 새 변화와 기업의 실제 대응 확인"
+      ],
+      "originalDocumentVerified": false
+    },
+    {
+      "receiptNo": "20261029800311",
+      "company": "OCI홀딩스",
+      "group": "에너지·재생",
+      "report": "주식소각결정",
+      "published": "20261029",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261029800311",
+      "isNew": true,
+      "tag": "",
+      "lane": "공개자료 추적",
+      "reason": "변경 전후의 직접 근거 또는 실질적인 기사 야마가 아직 없음",
+      "evidenceStatus": "공시 목록 확인, 상세 근거 미검증",
+      "changeStatus": "동일 사건 전후 변화 미확인",
+      "changes": [],
+      "numericFacts": [],
+      "originalComparison": {
+        "status": "미조회",
+        "reason": "원공시 독립 조회 전",
+        "originalReceiptNo": null,
+        "originalUrl": null,
+        "verifiedChanges": [],
+        "candidateOrigins": [],
+        "originalDocumentVerified": false
+      },
+      "coverage": {
+        "status": "미실행: 보도 검색 전",
+        "results": []
+      },
+      "companyResponse": "미확인",
+      "exclusiveStatus": "판정 보류: 자동 단독 확정 금지",
+      "questions": [
+        "원공시 전문에서 대상 사업·금액·기간·상대방 확인",
+        "기존 발표 대비 새 변화와 기업의 실제 대응 확인"
+      ],
+      "originalDocumentVerified": false
+    },
+    {
+      "receiptNo": "20261029800315",
+      "company": "OCI홀딩스",
+      "group": "에너지·재생",
+      "report": "[기재정정]수시공시의무관련사항(공정공시)",
+      "published": "20261029",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261029800315",
+      "isNew": true,
+      "tag": "",
+      "lane": "공개자료 추적",
+      "reason": "변경 전후의 직접 근거 또는 실질적인 기사 야마가 아직 없음",
+      "evidenceStatus": "공시 목록 확인, 상세 근거 미검증",
+      "changeStatus": "동일 사건 전후 변화 미확인",
+      "changes": [],
+      "numericFacts": [],
+      "originalComparison": {
+        "status": "미조회",
+        "reason": "원공시 독립 조회 전",
+        "originalReceiptNo": null,
+        "originalUrl": null,
+        "verifiedChanges": [],
+        "candidateOrigins": [],
+        "originalDocumentVerified": false
+      },
+      "coverage": {
+        "status": "미실행: 보도 검색 전",
+        "results": []
+      },
+      "companyResponse": "미확인",
+      "exclusiveStatus": "판정 보류: 자동 단독 확정 금지",
+      "questions": [
+        "원공시 전문에서 대상 사업·금액·기간·상대방 확인",
+        "기존 발표 대비 새 변화와 기업의 실제 대응 확인"
+      ],
+      "originalDocumentVerified": false
+    },
+    {
+      "receiptNo": "20261029800321",
+      "company": "대한전선",
+      "group": "전력기기·전선",
+      "report": "연결재무제표기준영업(잠정)실적(공정공시)",
+      "published": "20261029",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261029800321",
+      "isNew": true,
+      "tag": "★잠정실적",
+      "lane": "공개자료 추적",
+      "reason": "변경 전후의 직접 근거 또는 실질적인 기사 야마가 아직 없음",
+      "evidenceStatus": "공시 목록 확인, 상세 근거 미검증",
+      "changeStatus": "동일 사건 전후 변화 미확인",
+      "changes": [],
+      "numericFacts": [],
+      "originalComparison": {
+        "status": "미조회",
+        "reason": "원공시 독립 조회 전",
+        "originalReceiptNo": null,
+        "originalUrl": null,
+        "verifiedChanges": [],
+        "candidateOrigins": [],
+        "originalDocumentVerified": false
+      },
+      "coverage": {
+        "status": "미실행: 보도 검색 전",
+        "results": []
+      },
+      "companyResponse": "미확인",
+      "exclusiveStatus": "판정 보류: 자동 단독 확정 금지",
+      "questions": [
+        "원공시 전문에서 대상 사업·금액·기간·상대방 확인",
+        "기존 발표 대비 새 변화와 기업의 실제 대응 확인"
+      ],
+      "originalDocumentVerified": false
+    },
+    {
+      "receiptNo": "20261029800325",
+      "company": "OCI홀딩스",
+      "group": "에너지·재생",
+      "report": "연결재무제표기준영업(잠정)실적(공정공시)",
+      "published": "20261029",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261029800325",
+      "isNew": true,
+      "tag": "★잠정실적",
+      "lane": "공개자료 추적",
+      "reason": "변경 전후의 직접 근거 또는 실질적인 기사 야마가 아직 없음",
+      "evidenceStatus": "공시 목록 확인, 상세 근거 미검증",
+      "changeStatus": "동일 사건 전후 변화 미확인",
+      "changes": [],
+      "numericFacts": [],
+      "originalComparison": {
+        "status": "미조회",
+        "reason": "원공시 독립 조회 전",
+        "originalReceiptNo": null,
+        "originalUrl": null,
+        "verifiedChanges": [],
+        "candidateOrigins": [],
+        "originalDocumentVerified": false
+      },
+      "coverage": {
+        "status": "미실행: 보도 검색 전",
+        "results": []
+      },
+      "companyResponse": "미확인",
+      "exclusiveStatus": "판정 보류: 자동 단독 확정 금지",
+      "questions": [
+        "원공시 전문에서 대상 사업·금액·기간·상대방 확인",
+        "기존 발표 대비 새 변화와 기업의 실제 대응 확인"
+      ],
+      "originalDocumentVerified": false
+    },
+    {
+      "receiptNo": "20261029800334",
+      "company": "한화솔루션",
+      "group": "에너지·재생",
+      "report": "기업설명회(IR)개최(안내공시)",
+      "published": "20261029",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261029800334",
+      "isNew": true,
+      "tag": "",
+      "lane": "공개자료 추적",
+      "reason": "변경 전후의 직접 근거 또는 실질적인 기사 야마가 아직 없음",
+      "evidenceStatus": "공시 목록 확인, 상세 근거 미검증",
+      "changeStatus": "동일 사건 전후 변화 미확인",
+      "changes": [],
+      "numericFacts": [],
+      "originalComparison": {
+        "status": "미조회",
+        "reason": "원공시 독립 조회 전",
+        "originalReceiptNo": null,
+        "originalUrl": null,
+        "verifiedChanges": [],
+        "candidateOrigins": [],
+        "originalDocumentVerified": false
+      },
+      "coverage": {
+        "status": "미실행: 보도 검색 전",
+        "results": []
+      },
+      "companyResponse": "미확인",
+      "exclusiveStatus": "판정 보류: 자동 단독 확정 금지",
+      "questions": [
+        "원공시 전문에서 대상 사업·금액·기간·상대방 확인",
+        "기존 발표 대비 새 변화와 기업의 실제 대응 확인"
+      ],
+      "originalDocumentVerified": false
+    },
+    {
+      "receiptNo": "20261029800381",
+      "company": "두산에너빌리티",
+      "group": "에너지·재생",
+      "report": "연결재무제표기준영업(잠정)실적(공정공시)",
+      "published": "20261029",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261029800381",
+      "isNew": true,
+      "tag": "★잠정실적",
+      "lane": "공개자료 추적",
+      "reason": "변경 전후의 직접 근거 또는 실질적인 기사 야마가 아직 없음",
+      "evidenceStatus": "공시 목록 확인, 상세 근거 미검증",
+      "changeStatus": "동일 사건 전후 변화 미확인",
+      "changes": [],
+      "numericFacts": [],
+      "originalComparison": {
+        "status": "미조회",
+        "reason": "원공시 독립 조회 전",
+        "originalReceiptNo": null,
+        "originalUrl": null,
+        "verifiedChanges": [],
+        "candidateOrigins": [],
+        "originalDocumentVerified": false
+      },
+      "coverage": {
+        "status": "미실행: 보도 검색 전",
+        "results": []
+      },
+      "companyResponse": "미확인",
+      "exclusiveStatus": "판정 보류: 자동 단독 확정 금지",
+      "questions": [
+        "원공시 전문에서 대상 사업·금액·기간·상대방 확인",
+        "기존 발표 대비 새 변화와 기업의 실제 대응 확인"
+      ],
+      "originalDocumentVerified": false
+    },
+    {
+      "receiptNo": "20261029800592",
+      "company": "현대자동차",
+      "group": "자동차",
+      "report": "공정거래자율준수프로그램운영현황(안내공시)",
+      "published": "20261029",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261029800592",
+      "isNew": true,
+      "tag": "",
+      "lane": "공개자료 추적",
+      "reason": "변경 전후의 직접 근거 또는 실질적인 기사 야마가 아직 없음",
+      "evidenceStatus": "공시 목록 확인, 상세 근거 미검증",
+      "changeStatus": "동일 사건 전후 변화 미확인",
+      "changes": [],
+      "numericFacts": [],
+      "originalComparison": {
+        "status": "미조회",
+        "reason": "원공시 독립 조회 전",
+        "originalReceiptNo": null,
+        "originalUrl": null,
+        "verifiedChanges": [],
+        "candidateOrigins": [],
+        "originalDocumentVerified": false
+      },
+      "coverage": {
+        "status": "미실행: 보도 검색 전",
+        "results": []
+      },
+      "companyResponse": "미확인",
+      "exclusiveStatus": "판정 보류: 자동 단독 확정 금지",
+      "questions": [
+        "원공시 전문에서 대상 사업·금액·기간·상대방 확인",
+        "기존 발표 대비 새 변화와 기업의 실제 대응 확인"
+      ],
+      "originalDocumentVerified": false
+    },
+    {
+      "receiptNo": "20261029800635",
+      "company": "금호타이어",
+      "group": "자동차",
+      "report": "연결재무제표기준영업(잠정)실적(공정공시)",
+      "published": "20261029",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261029800635",
+      "isNew": true,
+      "tag": "★잠정실적",
+      "lane": "공개자료 추적",
+      "reason": "변경 전후의 직접 근거 또는 실질적인 기사 야마가 아직 없음",
+      "evidenceStatus": "공시 목록 확인, 상세 근거 미검증",
+      "changeStatus": "동일 사건 전후 변화 미확인",
+      "changes": [],
+      "numericFacts": [],
+      "originalComparison": {
+        "status": "미조회",
+        "reason": "원공시 독립 조회 전",
+        "originalReceiptNo": null,
+        "originalUrl": null,
+        "verifiedChanges": [],
+        "candidateOrigins": [],
+        "originalDocumentVerified": false
+      },
+      "coverage": {
+        "status": "미실행: 보도 검색 전",
+        "results": []
+      },
+      "companyResponse": "미확인",
+      "exclusiveStatus": "판정 보류: 자동 단독 확정 금지",
+      "questions": [
+        "원공시 전문에서 대상 사업·금액·기간·상대방 확인",
+        "기존 발표 대비 새 변화와 기업의 실제 대응 확인"
+      ],
+      "originalDocumentVerified": false
+    },
+    {
+      "receiptNo": "20261029800755",
+      "company": "두산에너빌리티",
+      "group": "에너지·재생",
+      "report": "기업설명회(IR)개최(안내공시)",
+      "published": "20261029",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261029800755",
+      "isNew": true,
+      "tag": "",
+      "lane": "공개자료 추적",
+      "reason": "변경 전후의 직접 근거 또는 실질적인 기사 야마가 아직 없음",
+      "evidenceStatus": "공시 목록 확인, 상세 근거 미검증",
+      "changeStatus": "동일 사건 전후 변화 미확인",
+      "changes": [],
+      "numericFacts": [],
+      "originalComparison": {
+        "status": "미조회",
+        "reason": "원공시 독립 조회 전",
+        "originalReceiptNo": null,
+        "originalUrl": null,
+        "verifiedChanges": [],
+        "candidateOrigins": [],
+        "originalDocumentVerified": false
+      },
+      "coverage": {
+        "status": "미실행: 보도 검색 전",
+        "results": []
+      },
+      "companyResponse": "미확인",
+      "exclusiveStatus": "판정 보류: 자동 단독 확정 금지",
+      "questions": [
+        "원공시 전문에서 대상 사업·금액·기간·상대방 확인",
+        "기존 발표 대비 새 변화와 기업의 실제 대응 확인"
+      ],
+      "originalDocumentVerified": false
+    },
+    {
+      "receiptNo": "20261030800221",
+      "company": "현대모비스",
+      "group": "자동차",
+      "report": "연결재무제표기준영업(잠정)실적(공정공시)",
+      "published": "20261030",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261030800221",
+      "isNew": true,
+      "tag": "★잠정실적",
+      "lane": "공개자료 추적",
+      "reason": "변경 전후의 직접 근거 또는 실질적인 기사 야마가 아직 없음",
+      "evidenceStatus": "공시 목록 확인, 상세 근거 미검증",
+      "changeStatus": "동일 사건 전후 변화 미확인",
+      "changes": [],
+      "numericFacts": [],
+      "originalComparison": {
+        "status": "미조회",
+        "reason": "원공시 독립 조회 전",
+        "originalReceiptNo": null,
+        "originalUrl": null,
+        "verifiedChanges": [],
+        "candidateOrigins": [],
+        "originalDocumentVerified": false
+      },
+      "coverage": {
+        "status": "미실행: 보도 검색 전",
+        "results": []
+      },
+      "companyResponse": "미확인",
+      "exclusiveStatus": "판정 보류: 자동 단독 확정 금지",
+      "questions": [
+        "원공시 전문에서 대상 사업·금액·기간·상대방 확인",
+        "기존 발표 대비 새 변화와 기업의 실제 대응 확인"
+      ],
+      "originalDocumentVerified": false
+    },
+    {
+      "receiptNo": "20261030800253",
+      "company": "현대모비스",
+      "group": "자동차",
+      "report": "기업설명회(IR)개최(안내공시)",
+      "published": "20261030",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261030800253",
+      "isNew": true,
+      "tag": "",
+      "lane": "공개자료 추적",
+      "reason": "변경 전후의 직접 근거 또는 실질적인 기사 야마가 아직 없음",
+      "evidenceStatus": "공시 목록 확인, 상세 근거 미검증",
+      "changeStatus": "동일 사건 전후 변화 미확인",
+      "changes": [],
+      "numericFacts": [],
+      "originalComparison": {
+        "status": "미조회",
+        "reason": "원공시 독립 조회 전",
+        "originalReceiptNo": null,
+        "originalUrl": null,
+        "verifiedChanges": [],
+        "candidateOrigins": [],
+        "originalDocumentVerified": false
+      },
+      "coverage": {
+        "status": "미실행: 보도 검색 전",
+        "results": []
       },
       "companyResponse": "미확인",
       "exclusiveStatus": "판정 보류: 자동 단독 확정 금지",
@@ -917,6 +1482,618 @@
       "questions": [
         "원공시 전문에서 대상 사업·금액·기간·상대방 확인",
         "기존 발표 대비 새 변화와 기업의 실제 대응 확인"
+      ],
+      "originalDocumentVerified": false
+    },
+    {
+      "receiptNo": "20261027000283",
+      "company": "두산에너빌리티",
+      "group": "에너지·재생",
+      "report": "특수관계인과의수익증권거래",
+      "published": "20261027",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261027000283",
+      "isNew": false,
+      "tag": "",
+      "lane": "공개자료 추적",
+      "reason": "변경 전후의 직접 근거 또는 실질적인 기사 야마가 아직 없음",
+      "evidenceStatus": "공시 목록 확인, 상세 근거 미검증",
+      "changeStatus": "동일 사건 전후 변화 미확인",
+      "changes": [],
+      "numericFacts": [],
+      "originalComparison": {
+        "status": "미조회",
+        "reason": "원공시 독립 조회 전",
+        "originalReceiptNo": null,
+        "originalUrl": null,
+        "verifiedChanges": [],
+        "candidateOrigins": [],
+        "originalDocumentVerified": false
+      },
+      "coverage": {
+        "status": "미실행: 보도 검색 전",
+        "results": []
+      },
+      "companyResponse": "미확인",
+      "exclusiveStatus": "판정 보류: 자동 단독 확정 금지",
+      "questions": [
+        "원공시 전문에서 대상 사업·금액·기간·상대방 확인",
+        "기존 발표 대비 새 변화와 기업의 실제 대응 확인"
+      ],
+      "originalDocumentVerified": false
+    },
+    {
+      "receiptNo": "20261027800213",
+      "company": "HD현대일렉트릭",
+      "group": "전력기기·전선",
+      "report": "현금ㆍ현물배당결정",
+      "published": "20261027",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261027800213",
+      "isNew": false,
+      "tag": "",
+      "lane": "공개자료 추적",
+      "reason": "변경 전후의 직접 근거 또는 실질적인 기사 야마가 아직 없음",
+      "evidenceStatus": "공시 목록 확인, 상세 근거 미검증",
+      "changeStatus": "동일 사건 전후 변화 미확인",
+      "changes": [],
+      "numericFacts": [],
+      "originalComparison": {
+        "status": "미조회",
+        "reason": "원공시 독립 조회 전",
+        "originalReceiptNo": null,
+        "originalUrl": null,
+        "verifiedChanges": [],
+        "candidateOrigins": [],
+        "originalDocumentVerified": false
+      },
+      "coverage": {
+        "status": "미실행: 보도 검색 전",
+        "results": []
+      },
+      "companyResponse": "미확인",
+      "exclusiveStatus": "판정 보류: 자동 단독 확정 금지",
+      "questions": [
+        "원공시 전문에서 대상 사업·금액·기간·상대방 확인",
+        "기존 발표 대비 새 변화와 기업의 실제 대응 확인"
+      ],
+      "originalDocumentVerified": false
+    },
+    {
+      "receiptNo": "20261027800226",
+      "company": "HD현대일렉트릭",
+      "group": "전력기기·전선",
+      "report": "연결재무제표기준영업(잠정)실적(공정공시)",
+      "published": "20261027",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261027800226",
+      "isNew": false,
+      "tag": "★잠정실적",
+      "lane": "공개자료 추적",
+      "reason": "변경 전후의 직접 근거 또는 실질적인 기사 야마가 아직 없음",
+      "evidenceStatus": "공시 목록 확인, 상세 근거 미검증",
+      "changeStatus": "동일 사건 전후 변화 미확인",
+      "changes": [],
+      "numericFacts": [],
+      "originalComparison": {
+        "status": "미조회",
+        "reason": "원공시 독립 조회 전",
+        "originalReceiptNo": null,
+        "originalUrl": null,
+        "verifiedChanges": [],
+        "candidateOrigins": [],
+        "originalDocumentVerified": false
+      },
+      "coverage": {
+        "status": "미실행: 보도 검색 전",
+        "results": []
+      },
+      "companyResponse": "미확인",
+      "exclusiveStatus": "판정 보류: 자동 단독 확정 금지",
+      "questions": [
+        "원공시 전문에서 대상 사업·금액·기간·상대방 확인",
+        "기존 발표 대비 새 변화와 기업의 실제 대응 확인"
+      ],
+      "originalDocumentVerified": false
+    },
+    {
+      "receiptNo": "20261027800232",
+      "company": "HD현대일렉트릭",
+      "group": "전력기기·전선",
+      "report": "현금ㆍ현물배당을위한주주명부폐쇄(기준일)결정",
+      "published": "20261027",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261027800232",
+      "isNew": false,
+      "tag": "",
+      "lane": "공개자료 추적",
+      "reason": "변경 전후의 직접 근거 또는 실질적인 기사 야마가 아직 없음",
+      "evidenceStatus": "공시 목록 확인, 상세 근거 미검증",
+      "changeStatus": "동일 사건 전후 변화 미확인",
+      "changes": [],
+      "numericFacts": [],
+      "originalComparison": {
+        "status": "미조회",
+        "reason": "원공시 독립 조회 전",
+        "originalReceiptNo": null,
+        "originalUrl": null,
+        "verifiedChanges": [],
+        "candidateOrigins": [],
+        "originalDocumentVerified": false
+      },
+      "coverage": {
+        "status": "미실행: 보도 검색 전",
+        "results": []
+      },
+      "companyResponse": "미확인",
+      "exclusiveStatus": "판정 보류: 자동 단독 확정 금지",
+      "questions": [
+        "원공시 전문에서 대상 사업·금액·기간·상대방 확인",
+        "기존 발표 대비 새 변화와 기업의 실제 대응 확인"
+      ],
+      "originalDocumentVerified": false
+    },
+    {
+      "receiptNo": "20261027800359",
+      "company": "현대위아",
+      "group": "자동차",
+      "report": "결산실적공시예고(안내공시)",
+      "published": "20261027",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261027800359",
+      "isNew": false,
+      "tag": "",
+      "lane": "공개자료 추적",
+      "reason": "변경 전후의 직접 근거 또는 실질적인 기사 야마가 아직 없음",
+      "evidenceStatus": "공시 목록 확인, 상세 근거 미검증",
+      "changeStatus": "동일 사건 전후 변화 미확인",
+      "changes": [],
+      "numericFacts": [],
+      "originalComparison": {
+        "status": "미조회",
+        "reason": "원공시 독립 조회 전",
+        "originalReceiptNo": null,
+        "originalUrl": null,
+        "verifiedChanges": [],
+        "candidateOrigins": [],
+        "originalDocumentVerified": false
+      },
+      "coverage": {
+        "status": "미실행: 보도 검색 전",
+        "results": []
+      },
+      "companyResponse": "미확인",
+      "exclusiveStatus": "판정 보류: 자동 단독 확정 금지",
+      "questions": [
+        "원공시 전문에서 대상 사업·금액·기간·상대방 확인",
+        "기존 발표 대비 새 변화와 기업의 실제 대응 확인"
+      ],
+      "originalDocumentVerified": false
+    },
+    {
+      "receiptNo": "20261027800373",
+      "company": "현대위아",
+      "group": "자동차",
+      "report": "기업설명회(IR)개최(안내공시)",
+      "published": "20261027",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261027800373",
+      "isNew": false,
+      "tag": "",
+      "lane": "공개자료 추적",
+      "reason": "변경 전후의 직접 근거 또는 실질적인 기사 야마가 아직 없음",
+      "evidenceStatus": "공시 목록 확인, 상세 근거 미검증",
+      "changeStatus": "동일 사건 전후 변화 미확인",
+      "changes": [],
+      "numericFacts": [],
+      "originalComparison": {
+        "status": "미조회",
+        "reason": "원공시 독립 조회 전",
+        "originalReceiptNo": null,
+        "originalUrl": null,
+        "verifiedChanges": [],
+        "candidateOrigins": [],
+        "originalDocumentVerified": false
+      },
+      "coverage": {
+        "status": "미실행: 보도 검색 전",
+        "results": []
+      },
+      "companyResponse": "미확인",
+      "exclusiveStatus": "판정 보류: 자동 단독 확정 금지",
+      "questions": [
+        "원공시 전문에서 대상 사업·금액·기간·상대방 확인",
+        "기존 발표 대비 새 변화와 기업의 실제 대응 확인"
+      ],
+      "originalDocumentVerified": false
+    },
+    {
+      "receiptNo": "20261027800641",
+      "company": "금호타이어",
+      "group": "자동차",
+      "report": "[기재정정]유형자산취득결정(자율공시)",
+      "published": "20261027",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261027800641",
+      "isNew": false,
+      "tag": "",
+      "lane": "공개자료 추적",
+      "reason": "변경 전후의 직접 근거 또는 실질적인 기사 야마가 아직 없음",
+      "evidenceStatus": "공시 목록 확인, 상세 근거 미검증",
+      "changeStatus": "동일 사건 전후 변화 미확인",
+      "changes": [],
+      "numericFacts": [],
+      "originalComparison": {
+        "status": "미조회",
+        "reason": "원공시 독립 조회 전",
+        "originalReceiptNo": null,
+        "originalUrl": null,
+        "verifiedChanges": [],
+        "candidateOrigins": [],
+        "originalDocumentVerified": false
+      },
+      "coverage": {
+        "status": "미실행: 보도 검색 전",
+        "results": []
+      },
+      "companyResponse": "미확인",
+      "exclusiveStatus": "판정 보류: 자동 단독 확정 금지",
+      "questions": [
+        "원공시 전문에서 대상 사업·금액·기간·상대방 확인",
+        "기존 발표 대비 새 변화와 기업의 실제 대응 확인"
+      ],
+      "originalDocumentVerified": false
+    },
+    {
+      "receiptNo": "20261028000161",
+      "company": "현대모비스",
+      "group": "자동차",
+      "report": "주주총회소집공고",
+      "published": "20261028",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261028000161",
+      "isNew": false,
+      "tag": "",
+      "lane": "공개자료 추적",
+      "reason": "변경 전후의 직접 근거 또는 실질적인 기사 야마가 아직 없음",
+      "evidenceStatus": "공시 목록 확인, 상세 근거 미검증",
+      "changeStatus": "동일 사건 전후 변화 미확인",
+      "changes": [],
+      "numericFacts": [],
+      "originalComparison": {
+        "status": "미조회",
+        "reason": "원공시 독립 조회 전",
+        "originalReceiptNo": null,
+        "originalUrl": null,
+        "verifiedChanges": [],
+        "candidateOrigins": [],
+        "originalDocumentVerified": false
+      },
+      "coverage": {
+        "status": "미실행: 보도 검색 전",
+        "results": []
+      },
+      "companyResponse": "미확인",
+      "exclusiveStatus": "판정 보류: 자동 단독 확정 금지",
+      "questions": [
+        "원공시 전문에서 대상 사업·금액·기간·상대방 확인",
+        "기존 발표 대비 새 변화와 기업의 실제 대응 확인"
+      ],
+      "originalDocumentVerified": false
+    },
+    {
+      "receiptNo": "20261028000162",
+      "company": "현대모비스",
+      "group": "자동차",
+      "report": "의결권대리행사권유참고서류",
+      "published": "20261028",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261028000162",
+      "isNew": false,
+      "tag": "",
+      "lane": "공개자료 추적",
+      "reason": "변경 전후의 직접 근거 또는 실질적인 기사 야마가 아직 없음",
+      "evidenceStatus": "공시 목록 확인, 상세 근거 미검증",
+      "changeStatus": "동일 사건 전후 변화 미확인",
+      "changes": [],
+      "numericFacts": [],
+      "originalComparison": {
+        "status": "미조회",
+        "reason": "원공시 독립 조회 전",
+        "originalReceiptNo": null,
+        "originalUrl": null,
+        "verifiedChanges": [],
+        "candidateOrigins": [],
+        "originalDocumentVerified": false
+      },
+      "coverage": {
+        "status": "미실행: 보도 검색 전",
+        "results": []
+      },
+      "companyResponse": "미확인",
+      "exclusiveStatus": "판정 보류: 자동 단독 확정 금지",
+      "questions": [
+        "원공시 전문에서 대상 사업·금액·기간·상대방 확인",
+        "기존 발표 대비 새 변화와 기업의 실제 대응 확인"
+      ],
+      "originalDocumentVerified": false
+    },
+    {
+      "receiptNo": "20261028000440",
+      "company": "영풍",
+      "group": "비철",
+      "report": "임원ㆍ주요주주특정증권등거래계획보고서",
+      "published": "20261028",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261028000440",
+      "isNew": false,
+      "tag": "",
+      "lane": "공개자료 추적",
+      "reason": "변경 전후의 직접 근거 또는 실질적인 기사 야마가 아직 없음",
+      "evidenceStatus": "공시 목록 확인, 상세 근거 미검증",
+      "changeStatus": "동일 사건 전후 변화 미확인",
+      "changes": [],
+      "numericFacts": [],
+      "originalComparison": {
+        "status": "미조회",
+        "reason": "원공시 독립 조회 전",
+        "originalReceiptNo": null,
+        "originalUrl": null,
+        "verifiedChanges": [],
+        "candidateOrigins": [],
+        "originalDocumentVerified": false
+      },
+      "coverage": {
+        "status": "미실행: 보도 검색 전",
+        "results": []
+      },
+      "companyResponse": "미확인",
+      "exclusiveStatus": "판정 보류: 자동 단독 확정 금지",
+      "questions": [
+        "원공시 전문에서 대상 사업·금액·기간·상대방 확인",
+        "기존 발표 대비 새 변화와 기업의 실제 대응 확인"
+      ],
+      "originalDocumentVerified": false
+    },
+    {
+      "receiptNo": "20261028800138",
+      "company": "GS",
+      "group": "에너지·재생",
+      "report": "결산실적공시예고(안내공시)",
+      "published": "20261028",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261028800138",
+      "isNew": false,
+      "tag": "",
+      "lane": "공개자료 추적",
+      "reason": "변경 전후의 직접 근거 또는 실질적인 기사 야마가 아직 없음",
+      "evidenceStatus": "공시 목록 확인, 상세 근거 미검증",
+      "changeStatus": "동일 사건 전후 변화 미확인",
+      "changes": [],
+      "numericFacts": [],
+      "originalComparison": {
+        "status": "미조회",
+        "reason": "원공시 독립 조회 전",
+        "originalReceiptNo": null,
+        "originalUrl": null,
+        "verifiedChanges": [],
+        "candidateOrigins": [],
+        "originalDocumentVerified": false
+      },
+      "coverage": {
+        "status": "미실행: 보도 검색 전",
+        "results": []
+      },
+      "companyResponse": "미확인",
+      "exclusiveStatus": "판정 보류: 자동 단독 확정 금지",
+      "questions": [
+        "원공시 전문에서 대상 사업·금액·기간·상대방 확인",
+        "기존 발표 대비 새 변화와 기업의 실제 대응 확인"
+      ],
+      "originalDocumentVerified": false
+    },
+    {
+      "receiptNo": "20261028800140",
+      "company": "GS",
+      "group": "에너지·재생",
+      "report": "기업설명회(IR)개최(안내공시)",
+      "published": "20261028",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261028800140",
+      "isNew": false,
+      "tag": "",
+      "lane": "공개자료 추적",
+      "reason": "변경 전후의 직접 근거 또는 실질적인 기사 야마가 아직 없음",
+      "evidenceStatus": "공시 목록 확인, 상세 근거 미검증",
+      "changeStatus": "동일 사건 전후 변화 미확인",
+      "changes": [],
+      "numericFacts": [],
+      "originalComparison": {
+        "status": "미조회",
+        "reason": "원공시 독립 조회 전",
+        "originalReceiptNo": null,
+        "originalUrl": null,
+        "verifiedChanges": [],
+        "candidateOrigins": [],
+        "originalDocumentVerified": false
+      },
+      "coverage": {
+        "status": "미실행: 보도 검색 전",
+        "results": []
+      },
+      "companyResponse": "미확인",
+      "exclusiveStatus": "판정 보류: 자동 단독 확정 금지",
+      "questions": [
+        "원공시 전문에서 대상 사업·금액·기간·상대방 확인",
+        "기존 발표 대비 새 변화와 기업의 실제 대응 확인"
+      ],
+      "originalDocumentVerified": false
+    },
+    {
+      "receiptNo": "20261028800141",
+      "company": "GS",
+      "group": "에너지·재생",
+      "report": "기업설명회(IR)개최(안내공시)",
+      "published": "20261028",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261028800141",
+      "isNew": false,
+      "tag": "",
+      "lane": "공개자료 추적",
+      "reason": "변경 전후의 직접 근거 또는 실질적인 기사 야마가 아직 없음",
+      "evidenceStatus": "공시 목록 확인, 상세 근거 미검증",
+      "changeStatus": "동일 사건 전후 변화 미확인",
+      "changes": [],
+      "numericFacts": [],
+      "originalComparison": {
+        "status": "미조회",
+        "reason": "원공시 독립 조회 전",
+        "originalReceiptNo": null,
+        "originalUrl": null,
+        "verifiedChanges": [],
+        "candidateOrigins": [],
+        "originalDocumentVerified": false
+      },
+      "coverage": {
+        "status": "미실행: 보도 검색 전",
+        "results": []
+      },
+      "companyResponse": "미확인",
+      "exclusiveStatus": "판정 보류: 자동 단독 확정 금지",
+      "questions": [
+        "원공시 전문에서 대상 사업·금액·기간·상대방 확인",
+        "기존 발표 대비 새 변화와 기업의 실제 대응 확인"
+      ],
+      "originalDocumentVerified": false
+    },
+    {
+      "receiptNo": "20261028800249",
+      "company": "HL만도",
+      "group": "자동차",
+      "report": "기업설명회(IR)개최(안내공시)",
+      "published": "20261028",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261028800249",
+      "isNew": false,
+      "tag": "",
+      "lane": "공개자료 추적",
+      "reason": "변경 전후의 직접 근거 또는 실질적인 기사 야마가 아직 없음",
+      "evidenceStatus": "공시 목록 확인, 상세 근거 미검증",
+      "changeStatus": "동일 사건 전후 변화 미확인",
+      "changes": [],
+      "numericFacts": [],
+      "originalComparison": {
+        "status": "미조회",
+        "reason": "원공시 독립 조회 전",
+        "originalReceiptNo": null,
+        "originalUrl": null,
+        "verifiedChanges": [],
+        "candidateOrigins": [],
+        "originalDocumentVerified": false
+      },
+      "coverage": {
+        "status": "미실행: 보도 검색 전",
+        "results": []
+      },
+      "companyResponse": "미확인",
+      "exclusiveStatus": "판정 보류: 자동 단독 확정 금지",
+      "questions": [
+        "원공시 전문에서 대상 사업·금액·기간·상대방 확인",
+        "기존 발표 대비 새 변화와 기업의 실제 대응 확인"
+      ],
+      "originalDocumentVerified": false
+    },
+    {
+      "receiptNo": "20261028800255",
+      "company": "HL만도",
+      "group": "자동차",
+      "report": "기업설명회(IR)개최(안내공시)",
+      "published": "20261028",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261028800255",
+      "isNew": false,
+      "tag": "",
+      "lane": "공개자료 추적",
+      "reason": "변경 전후의 직접 근거 또는 실질적인 기사 야마가 아직 없음",
+      "evidenceStatus": "공시 목록 확인, 상세 근거 미검증",
+      "changeStatus": "동일 사건 전후 변화 미확인",
+      "changes": [],
+      "numericFacts": [],
+      "originalComparison": {
+        "status": "미조회",
+        "reason": "원공시 독립 조회 전",
+        "originalReceiptNo": null,
+        "originalUrl": null,
+        "verifiedChanges": [],
+        "candidateOrigins": [],
+        "originalDocumentVerified": false
+      },
+      "coverage": {
+        "status": "미실행: 보도 검색 전",
+        "results": []
+      },
+      "companyResponse": "미확인",
+      "exclusiveStatus": "판정 보류: 자동 단독 확정 금지",
+      "questions": [
+        "원공시 전문에서 대상 사업·금액·기간·상대방 확인",
+        "기존 발표 대비 새 변화와 기업의 실제 대응 확인"
+      ],
+      "originalDocumentVerified": false
+    },
+    {
+      "receiptNo": "20261028800321",
+      "company": "OCI",
+      "group": "에너지·재생",
+      "report": "연결재무제표기준영업(잠정)실적(공정공시)",
+      "published": "20261028",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261028800321",
+      "isNew": false,
+      "tag": "★잠정실적",
+      "lane": "공개자료 추적",
+      "reason": "변경 전후의 직접 근거 또는 실질적인 기사 야마가 아직 없음",
+      "evidenceStatus": "공시 목록 확인, 상세 근거 미검증",
+      "changeStatus": "동일 사건 전후 변화 미확인",
+      "changes": [],
+      "numericFacts": [],
+      "originalComparison": {
+        "status": "미조회",
+        "reason": "원공시 독립 조회 전",
+        "originalReceiptNo": null,
+        "originalUrl": null,
+        "verifiedChanges": [],
+        "candidateOrigins": [],
+        "originalDocumentVerified": false
+      },
+      "coverage": {
+        "status": "미실행: 보도 검색 전",
+        "results": []
+      },
+      "companyResponse": "미확인",
+      "exclusiveStatus": "판정 보류: 자동 단독 확정 금지",
+      "questions": [
+        "원공시 전문에서 대상 사업·금액·기간·상대방 확인",
+        "기존 발표 대비 새 변화와 기업의 실제 대응 확인"
+      ],
+      "originalDocumentVerified": false
+    },
+    {
+      "receiptNo": "20261029000247",
+      "company": "현대자동차",
+      "group": "자동차",
+      "report": "주요사항보고서(자기주식처분결정)",
+      "published": "20261029",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261029000247",
+      "isNew": true,
+      "tag": "★자사주",
+      "lane": "정례 공개·후순위",
+      "reason": "보고서 유형만으로 실제 지분 변화·경영 영향이 확인되지 않음",
+      "evidenceStatus": "공시 목록 확인, 상세 근거 미검증",
+      "changeStatus": "동일 사건 전후 변화 미확인",
+      "changes": [],
+      "numericFacts": [],
+      "originalComparison": {
+        "status": "미조회",
+        "reason": "원공시 독립 조회 전",
+        "originalReceiptNo": null,
+        "originalUrl": null,
+        "verifiedChanges": [],
+        "candidateOrigins": [],
+        "originalDocumentVerified": false
+      },
+      "coverage": {
+        "status": "미실행: 보도 검색 전",
+        "results": []
+      },
+      "companyResponse": "미확인",
+      "exclusiveStatus": "판정 보류: 자동 단독 확정 금지",
+      "questions": [
+        "신고 대상·보유 전후 수량·비율을 원문에서 비교",
+        "경영권 등 실질적 영향 존재 여부 확인"
       ],
       "originalDocumentVerified": false
     },

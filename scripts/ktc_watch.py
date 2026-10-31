@@ -22,19 +22,22 @@ PROGRESS = ("/proInvestList.do", "11")
 SCHEDULE = ("/noticeScheduleList.do", "24")
 NEWS = ("/reportNewsList.do", "57")
 TIMEOUT = 40
-LIST_PAGES = 6
-DETAIL_MAX = 45
+LIST_PAGES = 10
+DETAIL_MAX = 40
+# 진행 목록에는 2000년대 불공정무역행위 사건도 '조사실행'으로 남아 있다(10-30 실제 44건 중 20건이 2019년 전). 이런 사건은
+# 상세를 매번 읽지 않는다 — 목록에서 빠지면 그때 상세를 읽는다.
+DETAIL_SINCE = "2019-01-01"
 MEETINGS_READ = 3
 AGENDA_TRIES = 6
 KEEP_MEETINGS = 12
 KEEP_NEWS = 60
 KEEP_LEFT = 40
-LIST_URL = f"{SITE}/proInvestList.do?menuId=11"
+LEFT_MAX = 5  # 한 번에 이보다 많이 빠지면 누리집 이상으로 보고 판단을 미룬다
 # 출입 업종(철강·비철·전력기기·자동차·배터리·화학·에너지) 품목 낱말. 품목 표시일 뿐 회사 사건 근거가 아니다.
 BEAT = re.compile(r"강관|강판|냉연|열연|후판|형강|봉강|철근|선재|스테인리스|도금|석도|아연|강선|철강|합금철|페로|빌릿|슬래브|"
                   r"변압기|차단기|케이블|전선|광섬유|동관|알루미늄|구리|동박|"
                   r"자동차|전기차|타이어|이차전지|배터리|양극재|음극재|전해액|분리막|"
-                  r"PET|폴리|수지|에틸|아크릴|페놀|에폭시|가소제|초산|프로필렌|부타디엔|카본블랙|스티렌|글리콜|메탄올|흑연|"
+                  r"PET|폴리|수지|에틸|아크릴|페놀|에폭시|가소제|초산|프로필렌|부타디엔|카본블랙|스티렌|글리콜|메탄올|흑연|리튬|수산화나트륨|가성소다|염소|"
                   r"태양광|폴리실리콘|수소|LNG", re.I)
 AGENDA = re.compile(r"\(\s*(정기|일반|의결)\s*제?\s*(\d{4}\s*-\s*\d+)\s*호\s*\)\s*(.+?)(?=\s*ㅇ\s*\(\s*(?:정기|일반|의결)|\s*□|\s+\*\s|\s+-\s*\d+\s*-|$)", re.S)
 DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
@@ -47,7 +50,9 @@ def plain(raw):
 
 def iso_dot(s):
     m = re.search(r"(\d{4})[.\-](\d{1,2})[.\-](\d{1,2})", s or "")
-    return f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}" if m else None
+    if not m or m.group(1) == "1900":  # 누리집의 빈 날짜 자리값
+        return None
+    return f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
 
 
 def rows_of(page):
@@ -194,6 +199,10 @@ def _try(errors, label, fn, *a, **k):
     return body
 
 
+def case_url(cid, ctype):
+    return f"{SITE}/viewInvest.do?menuId=11&masterId={cid}&invstg_type_code={ctype}"
+
+
 def _meeting_url(mid):
     return f"{SITE}/noticeScheduleView.do?dltnc_id={mid}&menuId=24&pageIndex=1&searchCondition=&searchKeyword="
 
@@ -273,25 +282,31 @@ def collect(prev, now, http, *, sleep=time.sleep):
     prev_cases = {c["id"]: c for c in prev.get("cases") or [] if isinstance(c, dict) and c.get("id")}
 
     # 2) 사건 상세(진행일정)
-    detail_fail = 0
-    for i, c in enumerate(cases):
+    detail_fail, over, reads = 0, 0, 0
+    for c in cases:
         old = prev_cases.get(c["id"]) or {}
         c["beat"] = bool(BEAT.search(f"{c['title']} {c['product']}"))
         c["firstSeen"] = old.get("firstSeen") or stamp
-        c["url"] = LIST_URL
-        d = None
-        if i < DETAIL_MAX:
+        c["url"] = case_url(c["id"], c["type"])
+        d, read = None, False
+        if (not c["opened"] or c["opened"] < DETAIL_SINCE) and old.get("checkedAt"):
+            pass  # 오래된 사건은 한 번 읽은 뒤로는 목록만 본다
+        elif reads < DETAIL_MAX:
+            reads, read = reads + 1, True
             page = _try([], "", http.post, "/viewInvest.do", {"menuId": PROGRESS[1], "masterId": c["id"], "invstg_type_code": c["type"]})
             d = parse_detail(page) if page else None
             sleep(0.5)
+        else:
+            over += 1
         if d:
             c.update(d, checkedAt=stamp)
         else:
-            detail_fail += 1
             for k in ("country", "kind", "review", "timeline", "pending", "result", "checkedAt"):
                 if k in old:
                     c[k] = old[k]
-            c["detailError"] = "상세 조회 실패" if i < DETAIL_MAX else "상세 한도 초과"
+            if read:
+                detail_fail += 1
+                c["detailError"] = "상세 조회 실패"
         if baseline:
             continue
         if not old:
@@ -309,14 +324,19 @@ def collect(prev, now, http, *, sleep=time.sleep):
             event("step", f"{c['id']}:{len(c.get('timeline') or [])}:{c['stage']}", f"무역위 진행일정 · {c['no']}",
                   f"{c['title']} — 새 진행: {'; '.join(fresh[:6])}", c["url"], "B" if c["beat"] else "C", c["beat"], c["product"])
     if detail_fail:
-        errors.append(f"상세 {detail_fail}/{len(cases)}건 실패")
+        errors.append(f"상세 {detail_fail}/{reads}건 실패")
+    if over:
+        errors.append(f"상세 한도 {DETAIL_MAX}건 넘어 {over}건 다음 실행으로")
 
     # 3) 진행 목록에서 빠진 사건 — 목록을 끝까지 읽은 때만. 상세의 마지막 진행·판정결과를 붙인다
     left = [x for x in prev.get("left") or [] if isinstance(x, dict) and x.get("leftAt", "") >= (now - dt.timedelta(days=180)).isoformat()]
-    if list_done and cases:
-        for oid, old in prev_cases.items():
-            if oid in ids:
-                continue
+    gone = [oid for oid in prev_cases if oid not in ids]
+    sane = len(gone) <= LEFT_MAX and len(ids) >= 0.7 * len(prev_cases)
+    if list_done and cases and gone and not sane:
+        errors.append(f"진행 목록 {len(prev_cases)}→{len(ids)}건 — 한꺼번에 {len(gone)}건 빠져 판단 보류")
+    if list_done and cases and sane:
+        for oid in gone:
+            old = prev_cases[oid]
             page = _try([], "", http.post, "/viewInvest.do", {"menuId": PROGRESS[1], "masterId": oid, "invstg_type_code": old.get("type", "")})
             d = parse_detail(page) if page else None
             sleep(0.5)
@@ -326,9 +346,10 @@ def collect(prev, now, http, *, sleep=time.sleep):
                 last = (rec.get("timeline") or [])[-3:]
                 what = f"{old.get('title')} — 진행 목록에서 빠짐(종결 목록 확인)" + (f"; 마지막 진행: {'; '.join(f'{s} {t}' for s, t in last)}" if last else "") \
                     + (f"; 판정결과: {rec['result']}" if rec.get("result") else "") + ("" if d else "; 상세 조회 실패")
-                event("left", oid, f"무역위 진행 목록에서 빠짐 · {old.get('no')}", what, LIST_URL, "B" if old.get("beat") else "C", bool(old.get("beat")), old.get("product"))
-    elif prev_cases:  # 목록을 다 못 읽었으면 지난 사건을 그대로 둔다(빠짐으로 보지 않음)
-        cases += [dict(old, stale=True) for oid, old in prev_cases.items() if oid not in ids]
+                event("left", oid, f"무역위 진행 목록에서 빠짐 · {old.get('no')}", what, case_url(oid, old.get("type", "")),
+                      "B" if old.get("beat") else "C", bool(old.get("beat")), old.get("product"))
+    elif gone:  # 목록을 다 못 읽었거나 한꺼번에 많이 빠졌으면 지난 사건을 그대로 둔다(빠짐으로 보지 않음)
+        cases += [dict(prev_cases[oid], stale=True) for oid in gone]
 
     # 4) 위원회 개최 안내와 회의 개요(안건)
     prev_meet = {m["id"]: m for m in prev.get("meetings") or [] if isinstance(m, dict) and m.get("id")}

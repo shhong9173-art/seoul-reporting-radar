@@ -13,7 +13,7 @@ import re
 
 WORKER = "https://seoul-reporting-radar.shhong9173.workers.dev"
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
-FEEDS = {"scoop-screen", "us-comments", "page-watch", "partner-filings", "trade-remedy", "us-litigation", "kr-official", "kr-signals", "kr-stats", "trademarks", "assembly-bills", "radar-check", "us-recalls", "reverse-check", "us-epa", "kr-fuel", "overseas-awards", "kr-insolvency", "kr-energy", "kr-building", "overseas-registry"}
+FEEDS = {"scoop-screen", "us-comments", "page-watch", "partner-filings", "trade-remedy", "us-litigation", "kr-official", "kr-signals", "kr-stats", "trademarks", "assembly-bills", "radar-check", "us-recalls", "reverse-check", "us-epa", "kr-fuel", "overseas-awards", "kr-insolvency", "kr-energy", "kr-building", "overseas-registry", "kr-local", "kr-workforce", "kr-stacks", "kr-local-browser", "trade-remedy-browser"}
 
 
 class StoreError(RuntimeError):
@@ -41,31 +41,82 @@ def _headers(token):
     return {"Authorization": f"Bearer {normalize_token(token)}", "Content-Type": "application/json", "User-Agent": UA}
 
 
-def get(name, token, *, get=None):
-    """Previous private document, or None when nothing is stored yet. Errors raise (never treated as empty)."""
-    if name not in FEEDS:
-        raise ValueError(name)
+# A feed added in the same merge can reach a GitHub run before Cloudflare finishes deploying the Worker
+# that knows it (10-30 kr-stacks: first push run PUT 404, re-run 200). The Worker answers 404 both for an
+# unknown feed and for a wrong token (on purpose: nothing leaks), so a 404 is told apart by reading one
+# long-standing feed with the same token: readable → the token is fine and the Worker is just behind.
+REFERENCE_FEED = "page-watch"
+DEPLOY_WAITS = (45, 90, 120)  # seconds; ~4 minutes in all, then the run fails as before
+
+
+def _token_works(token, get):
+    try:
+        r = get(f"{WORKER}/ingest/{REFERENCE_FEED}", headers=_headers(token), timeout=30)
+    except Exception:  # noqa: BLE001 — network trouble is not proof the token works
+        return False
+    return getattr(r, "status_code", 0) in (200, 204)
+
+
+def _deps(get, sleep):
     if get is None:
         import requests
         get = requests.get
-    r = get(f"{WORKER}/ingest/{name}", headers=_headers(token), timeout=30)
-    if r.status_code == 204:
-        return None
-    if r.status_code != 200:
-        hint = f" — 토큰 거부 가능성({token_shape(normalize_token(token))}; Cloudflare MCP_ACCESS_TOKEN과 같아야 함)" if r.status_code == 404 else ""
-        raise StoreError(f"private store GET HTTP {r.status_code}{hint}")
-    return r.json()
+    if sleep is None:
+        import time
+        sleep = time.sleep
+    return get, sleep
 
 
-def put(name, doc, token, *, post=None):
+def _wait(name, sleep, attempt):
+    print(f"::notice title=store-wait-deploy::{name}: Worker가 아직 이 감시를 모름(배포 지연 추정) — "
+          f"{DEPLOY_WAITS[attempt]}초 뒤 다시({attempt + 1}/{len(DEPLOY_WAITS)})")
+    sleep(DEPLOY_WAITS[attempt])
+
+
+def get(name, token, *, get=None, sleep=None):
+    """Previous private document, or None when nothing is stored yet. Errors raise (never treated as empty)."""
+    if name not in FEEDS:
+        raise ValueError(name)
+    get, sleep = _deps(get, sleep)
+    token_ok = False
+    for attempt in range(len(DEPLOY_WAITS) + 1):
+        r = get(f"{WORKER}/ingest/{name}", headers=_headers(token), timeout=30)
+        if r.status_code == 204:
+            return None
+        if r.status_code == 200:
+            return r.json()
+        if r.status_code != 404 or name == REFERENCE_FEED:
+            break
+        token_ok = token_ok or _token_works(token, get)
+        if not token_ok or attempt == len(DEPLOY_WAITS):
+            break
+        _wait(name, sleep, attempt)
+    if r.status_code == 404 and token_ok:
+        raise StoreError(f"private store GET HTTP 404 — 토큰은 맞음({REFERENCE_FEED} 읽힘), Worker가 '{name}'을 모름(배포 실패·지연 확인)")
+    hint = f" — 토큰 거부 가능성({token_shape(normalize_token(token))}; Cloudflare MCP_ACCESS_TOKEN과 같아야 함)" if r.status_code == 404 else ""
+    raise StoreError(f"private store GET HTTP {r.status_code}{hint}")
+
+
+def put(name, doc, token, *, post=None, get=None, sleep=None):
+    """HTTP status of the save (callers fail the run on anything but 200)."""
     if name not in FEEDS:
         raise ValueError(name)
     if post is None:
         import requests
         post = requests.post
-    r = post(f"{WORKER}/ingest/{name}", data=json.dumps(doc, ensure_ascii=False).encode("utf-8"),
-             headers=_headers(token), timeout=30)
-    return getattr(r, "status_code", 0)
+    body = json.dumps(doc, ensure_ascii=False).encode("utf-8")
+    token_ok = None
+    for attempt in range(len(DEPLOY_WAITS) + 1):
+        status = getattr(post(f"{WORKER}/ingest/{name}", data=body, headers=_headers(token), timeout=30), "status_code", 0)
+        if status != 404 or name == REFERENCE_FEED or attempt == len(DEPLOY_WAITS):
+            return status
+        if token_ok is None:
+            get, sleep = _deps(get, sleep)
+            token_ok = _token_works(token, get)
+        if not token_ok:
+            return status
+        _wait(name, sleep, attempt)
+    return status
 
 
 RELAY_HOSTS = {"www.industry.gov.au", "www.dgtr.gov.in"}

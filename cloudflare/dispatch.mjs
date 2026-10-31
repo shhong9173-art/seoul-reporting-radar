@@ -10,15 +10,23 @@ const LOG_KEEP = 200;
 
 // KST weekday (Mon–Fri) slots, matching each workflow's GitHub cron.
 export const SLOTS = [
+  // 영국 Companies House: 영국 업무일이 끝난 뒤.
+  { at: '06:00', workflow: 'overseas-registry.yml' },
   { at: '06:10', workflow: 'kr-fuel.yml' },
   // EPA·vPIC: GitHub 예약('20 21 * * *')이 10-29 아침에 돌지 않았다.
   { at: '06:20', workflow: 'us-epa.yml' },
   { at: '06:30', workflow: 'page-watch.yml' },
+  // 지자체 고시·공고(새올): 아침·오후 한 번씩.
+  { at: '06:30', workflow: 'kr-local.yml' },
   // 공식 원자료 직접 수집(pre_scoop.json: 대법원·NTIS·IRIS 등). GitHub 예약 '7,37 * * * *'은 10-28에 4번만 돌았다.
   // 07:10 단독 후보 심사·08:50 보도 대조·08:57 아침 발제 전에 한 번씩 새로 받는다.
   { at: '06:40', workflow: 'scoop-radar.yml' },
+  // 해외 발주처 낙찰(TED는 평일 17시께 KST에 그날 공고를 낸다): 아침에 밤사이 FTS·세계은행, 저녁에 그날 TED.
+  { at: '06:50', workflow: 'overseas-awards.yml' },
   { at: '07:00', workflow: 'partner-filings.yml' },
   { at: '07:10', workflow: 'scoop-screen.yml' },
+  // 협력사 회생·파산(대법원 공고): 아침에 전날 공고, 저녁에 그날 공고.
+  { at: '07:20', workflow: 'kr-insolvency.yml' },
   { at: '07:30', workflow: 'kr-stats.yml' },
   { at: '07:40', workflow: 'trade-remedy.yml' },
   { at: '07:50', workflow: 'us-litigation.yml' },
@@ -26,14 +34,24 @@ export const SLOTS = [
   { at: '08:10', workflow: 'kr-official.yml' },
   { at: '08:20', workflow: 'us-comments.yml' },
   { at: '08:30', workflow: 'kr-signals.yml' },
+  // KIPRIS 특허 공보: GitHub 예약 06:30이 10-29에 10시까지 오지 않아 22 재조회(08:25 이후)가 밀렸다. 늦은 예약 실행은 워크플로가 건너뛴다.
+  { at: '08:30', workflow: 'kipris-patent-hunt.yml' },
   { at: '08:40', workflow: 'assembly-bills.yml' },
   { at: '08:50', workflow: 'radar-press-check.yml' },
   { at: '15:00', workflow: 'scoop-radar.yml' },
   { at: '15:10', workflow: 'scoop-screen.yml' },
   { at: '15:20', workflow: 'kr-signals.yml' },
+  // 전기위원회 개최결과(오후 게시)·원안위 안건(회의 며칠 전 아침 게시).
+  { at: '15:40', workflow: 'kr-energy.yml' },
+  // 국민연금 사업장(월 자료): 표지 조회로 새 달만 전체를 읽고, 남는 시간에 지난 12개월을 채운다(최대 22분).
+  { at: '15:50', workflow: 'kr-workforce.yml' },
+  { at: '16:20', workflow: 'kr-local.yml' },
   { at: '17:10', workflow: 'us-recalls.yml' },
+  { at: '17:20', workflow: 'kr-insolvency.yml' },
+  { at: '17:30', workflow: 'overseas-awards.yml' },
   { at: '17:40', workflow: 'assembly-bills.yml' },
   { at: '18:00', workflow: 'scoop-radar.yml' },
+  { at: '18:10', workflow: 'kr-energy.yml' },
   { at: '18:30', workflow: 'page-watch.yml' },
   { at: '18:50', workflow: 'radar-press-check.yml' },
 ];
@@ -66,23 +84,31 @@ export async function runSchedule(env, when, deps = {}) {
   }
   const doFetch = deps.fetch ?? fetch;
   const entries = [];
-  for (const workflow of due) {
-    let status;
-    try {
-      const r = await doFetch(`https://api.github.com/repos/${REPO}/actions/workflows/${workflow}/dispatches`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${env.GITHUB_DISPATCH_TOKEN}`, Accept: 'application/vnd.github+json',
-          'X-GitHub-Api-Version': '2022-11-28', 'User-Agent': 'seoul-reporting-radar-cron', 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ref: 'main' }),
-      });
-      status = r.status === 204 ? 'ok' : `HTTP ${r.status}`;
-    } catch (e) {
-      status = e?.name ?? 'error';
-    }
-    entries.push({ at: stamp, workflow, status });
-  }
+  for (const workflow of due) entries.push({ at: stamp, workflow, status: await requestRun(env, workflow, doFetch) });
   await appendLog(ctx, entries);
   return entries;
+}
+
+async function requestRun(env, workflow, doFetch) {
+  try {
+    const r = await doFetch(`https://api.github.com/repos/${REPO}/actions/workflows/${workflow}/dispatches`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${env.GITHUB_DISPATCH_TOKEN}`, Accept: 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28', 'User-Agent': 'seoul-reporting-radar-cron', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ref: 'main' }),
+    });
+    return r.status === 204 ? 'ok' : `HTTP ${r.status}`;
+  } catch (e) {
+    return e?.name ?? 'error';
+  }
+}
+
+// One run asked outside the slots (e.g. right after the reporter's computer submitted browser-read notices). Logged like
+// the slot requests, with who asked.
+export async function dispatchNow(ctx, workflow, by) {
+  const status = ctx.env?.GITHUB_DISPATCH_TOKEN ? await requestRun(ctx.env, workflow, ctx.fetch ?? fetch) : 'no-token';
+  await appendLog(ctx, [{ at: ctx.now.toISOString(), workflow, status, by }]);
+  return status;
 }
 
 // The next KST weekday slot after `when` (for telling the reporter when the first request will go out).

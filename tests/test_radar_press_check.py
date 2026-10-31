@@ -161,12 +161,95 @@ class HeadlineRule(unittest.TestCase):
         self.assertEqual(r["verdict"], "관련 보도 있음")
         self.assertTrue(r["evidence"][0]["why"].startswith("제목에 회사·낱말"))
 
+    def test_place_and_company_alone_do_not_mark_a_local_notice_covered(self):
+        # 운영 10-31: 울주군 '건설공사 안전점검 수행기관 지정[온산 고려아연(주), #2ASU…]' ↔ 고려아연 사회공헌 기사
+        new = {"신설": ["신설", "준공", "가동", "건설", "착공", "신축", "증설", "새 공장"], "공장": ["공장", "사업장", "생산기지"]}
+        item = {"tier": "A", "watch": "지자체 고시·공고", "id": "local:울주군:68156", "date": "2026-10-27", "company": "고려아연",
+                "check": {"who": "고려아연", "terms": ["울주", "신설", "공장"], "alts": new, "places": ["울주"]}}
+        csr = art("고려아연 온산제련소 지원 울주군 취약계층 집수리 사업 '호응'", "2026-10-27")
+        r = self.one(item, [csr])
+        self.assertEqual(r["verdict"], "미보도 후보")
+        r = self.one(item, [csr, art("고려아연, 울주 온산제련소에 산소공장 증설 착수", "2026-10-28")])
+        self.assertEqual(r["verdict"], "관련 보도 있음")
+        self.assertIn("신설", r["evidence"][0]["why"])
+        # 지명 표시가 없던 예전 낱말이면(지명이 사건 낱말로 쳐짐) 같은 기사로 '관련 보도 있음'이 됐다
+        old = dict(item, check={k: v for k, v in item["check"].items() if k != "places"})
+        self.assertEqual(self.one(old, [csr])["verdict"], "관련 보도 있음")
+
+    def test_stack_item_needs_the_site_city(self):
+        # 운영 10-31 09:18: 포스코 광양제철소 배출구 멈춤(B)이 '포스코 포항제철소 … 설비 장애 감소' 기사로 '관련 보도 있음'
+        item = {"tier": "B", "watch": "굴뚝 측정(공장 가동 신호)", "id": "stk:stop:포스코:광양", "date": "2026-10-27T09:17:00+09:00", "company": "포스코",
+                "check": {"who": "포스코", "terms": ["광양", "가동 중단", "정비"], "alts": {}, "places": ["광양"], "must": ["광양"]}}
+        pohang = art("포스코 포항제철소, 현장 혁신으로 설비 장애 감소·안전 강화", "2026-10-27", "설비 가동 중단을 줄이고 정비 체계를 바꿨다.")
+        r = self.one(item, [pohang])
+        self.assertEqual(r["verdict"], "미보도 후보")
+        self.assertIn("있으나 광양 없음", r["evidence"][0]["why"])
+        r = self.one(item, [pohang, art("포스코 광양제철소 3고로 정비 들어가", "2026-10-28")])
+        self.assertEqual(r["verdict"], "관련 보도 있음")
+        self.assertEqual(rpc.candidates([item], now=NOW)[0]["must"], ["광양"])
+
+    def test_workforce_increase_is_not_matched_by_common_words(self):
+        # 운영 10-31 09:18: 기아 가입자 증가(채용 낱말에 고용·인력이 들어 있었음)가 공장 재편 기사로 '관련 보도 있음'
+        hire = ["채용", "증원", "충원", "신입", "공채", "인력 확대", "인원 확대", "인력 증가", "인원 증가"]
+        item = {"tier": "B", "watch": "사업장 인력(국민연금)", "id": "wf:delta:기아", "date": "2026-10-27", "company": "기아",
+                "check": {"who": "기아", "terms": ["채용"], "alts": {"채용": hire}}}
+        r = self.one(item, [art("'효율·고용' 절충…현대차·기아 공장 재편안 나왔다", "2026-10-27")])
+        self.assertEqual(r["verdict"], "미보도 후보")
+        r = self.one(item, [art("기아, 하반기 생산직 신입 500명 채용", "2026-10-28")])
+        self.assertEqual(r["verdict"], "관련 보도 있음")
+
+    def test_bill_story_must_name_the_sponsor(self):
+        # 운영 10-31: 박덕흠 전기사업법 개정안이 박성훈 개정안 기사로 '관련 보도 있음'
+        item = {"tier": "B", "watch": "국회 법안", "id": "bills:발의|전기사업법|2026-10-27", "date": "2026-10-27", "company": "전력·에너지",
+                "check": {"who": "전기사업법", "terms": ["개정안", "박덕흠"], "alts": {"개정안": ["개정안", "발의", "법안"]}, "must": ["박덕흠"]}}
+        other = art("히트펌프 전용 전기요금 도입 길 열리나…박성훈 의원, 전기사업법 개정안 발의", "2026-10-27", "박성훈 의원이 전기사업법 일부개정법률안을 대표발의했다.")
+        r = self.one(item, [other])
+        self.assertEqual(r["verdict"], "미보도 후보")
+        self.assertIn("박덕흠 없음", r["evidence"][0]["why"])
+        mine = art("박덕흠 의원, 전기사업법 개정안 대표발의", "2026-10-28", "박덕흠 의원이 전기사업법 일부개정법률안을 대표발의했다.")
+        self.assertEqual(self.one(item, [other, mine])["verdict"], "관련 보도 있음")
+
+    def test_kepco_tender_story_is_matched_by_hanjeon_and_the_product(self):
+        item = {"tier": "B", "watch": "공정위·한전·원자재", "id": "kepco:COM01:G012606058", "date": "2026-10-27", "company": "한국전력공사",
+                "check": {"who": "한전", "terms": ["765kV", "변압기", "발주"], "alts": {"발주": ["발주", "입찰", "낙찰", "구매"]}, "places": ["765kV"]}}
+        self.assertEqual(self.one(item, [art("한전, 원전 공급망 점검…경주 SMR 포럼", "2026-10-27")])["verdict"], "미보도 후보")
+        self.assertEqual(self.one(item, [art("한국전력, 765㎸ 신안성 변압기 발주…효성·HD현대 경쟁", "2026-10-28")])["verdict"], "관련 보도 있음")
+
+    def test_places_join_the_generic_words_per_item(self):
+        rows = rpc.candidates([{"tier": "B", "watch": "해외 발주처 낙찰", "id": "bhopen:1:LS전선", "date": "2026-10-30", "company": "LS전선",
+                                "check": {"who": "LS전선", "terms": ["바레인", "입찰"], "alts": {}, "places": ["바레인", "공장"]}}], now=NOW)
+        self.assertEqual(rows[0]["generic"], ["미국", "공장", "계약", "바레인"])
+        self.assertEqual(rpc.candidates(ITEMS[:1], now=NOW)[0]["generic"], rpc.GENERIC)
+
     def test_bills_match_the_law_name_in_the_text(self):
         item = ITEMS[2] | {"check": {"who": "노동조합 및 노동관계조정법", "terms": ["개정안", "이종배"], "alts": {"개정안": ["개정안", "발의"]}}}
         r = self.one(item, [art("노동조합 불법행위 규율 신설…국힘 이종배 의원, 관련법 개정안 발의", "2026-10-27",
                                 "이종배 의원이 노동조합 및 노동관계조정법 일부개정법률안을 대표발의했다.")])
         self.assertEqual(r["verdict"], "관련 보도 있음")
 
+    def test_bills_are_searched_and_matched_by_the_short_name(self):
+        # 10-31 운영: '산업기술의 유출방지 및 보호에 관한 법률 개정안 백혜련'으로 찾아 미보도 후보 — 기사는 '산업기술보호법'
+        formal = "산업기술의 유출방지 및 보호에 관한 법률"
+        item = ITEMS[2] | {"id": "bills:발의|산업기술|2026-10-27", "date": "2026-10-27",
+                           "check": {"who": "산업기술보호법", "terms": ["개정안", "백혜련"], "alts": {"개정안": ["개정안", "발의", "법안"]},
+                                     "must": ["백혜련"], "names": ["산업기술보호법", formal]}}
+        self.assertEqual(rpc.candidates([item], now=NOW)[0]["names"], ["산업기술보호법", formal])
+        r = self.one(item, [art("기술유출 처벌 강화…백혜련, 산업기술보호법 개정안 대표발의", "2026-10-28")])
+        self.assertEqual(r["verdict"], "관련 보도 있음")
+        self.assertEqual(r["queries"], ["산업기술보호법 개정안", f"{formal} 개정안", "산업기술보호법 개정안 백혜련"])
+        # 다른 법 기사(이름이 없음)는 근거가 아니다
+        r = self.one(item, [art("백혜련, 국가첨단전략산업법 개정안 대표발의", "2026-10-28")])
+        self.assertEqual(r["verdict"], "미보도 후보")
+    def test_partner_filing_story_must_name_the_partner(self):
+        # 10-31 운영: '한화솔루션 퍼스트솔라 특허'가 「한화솔루션, ESS·태양전지 특허 폭증」으로 '관련 보도 있음'
+        item = {"tier": "B", "watch": "해외 파트너 공시", "id": "edgar:fslr", "date": "2026-10-27", "company": "한화솔루션",
+                "check": {"who": "한화솔루션", "terms": ["퍼스트솔라", "특허"], "alts": {"특허": ["특허", "특허심판원", "PTAB", "무효"]},
+                          "must": ["퍼스트솔라"]}}
+        r = self.one(item, [art("한화솔루션, ESS·태양전지 특허 폭증…'통합 에너지 솔루션' 속도 낸다", "2026-10-27")])
+        self.assertEqual(r["verdict"], "미보도 후보")
+        self.assertIn("있으나 퍼스트솔라 없음", r["evidence"][0]["why"])
+        r = self.one(item, [art("퍼스트솔라, 한화큐셀 등 TOPCon 특허침해 ITC 제소", "2026-10-28")])
+        self.assertEqual(r["verdict"], "관련 보도 있음")
 
 class Fetch(unittest.TestCase):
     def test_items_endpoint_uses_bearer_and_fails_loudly(self):

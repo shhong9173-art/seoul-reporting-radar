@@ -21,7 +21,40 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # GitHub 예약(06:30)은 몇 시간씩 늦게 오거나 빠진다(10-29: 10시까지 안 옴). 정시 실행은 Cloudflare가 08:30에 요청하고,
+  # 그 뒤 늦게 온 예약 실행은 6시간 안에 KIPRIS에 이미 물었으면 건너뛴다(같은 날 두 번 호출하지 않음).
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      skip: ${{ steps.g.outputs.skip }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - id: g
+        env:
+          EVENT: ${{ github.event_name }}
+        run: |
+          python3 - <<'PY'
+          import datetime as dt, json, os
+          skip = "false"
+          try:
+              d = json.load(open("digests/kipris_source_request_budget_latest.json", encoding="utf-8"))
+              last = dt.datetime.fromisoformat(str(d.get("lastProviderResponseAt")))
+              age = (dt.datetime.now(dt.timezone.utc) - last).total_seconds() / 3600
+              if os.environ.get("EVENT") == "schedule" and age < 6:
+                  skip = "true"
+                  print(f"::notice title=kipris-late-schedule::직전 KIPRIS 응답이 {age:.1f}시간 전 — 늦게 온 예약 실행이라 건너뜀")
+          except (OSError, ValueError, TypeError) as e:
+              print(f"::notice title=kipris-gate::직전 응답 시각 없음({type(e).__name__}) — 실행")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"skip={skip}\n")
+          PY
   patent:
+    needs: gate
+    if: needs.gate.outputs.skip != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:

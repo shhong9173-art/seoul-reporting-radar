@@ -1,0 +1,38 @@
+name: Power Permits & Nuclear Agenda Watch
+# 전기위원회 발전사업 허가(회차별 개최결과 PDF·3MW 초과 허가대장)와 원자력안전위원회 상정 안건·의결 결과.
+# 평일 15:40·18:10 KST(Cloudflare 요청이 정시 실행, GitHub 예약은 대비용). 결과는 기자 전용 저장소로만, 공개 로그는 건수만.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/kr_energy_watch.py'
+      - 'tests/test_kr_energy_watch.py'
+      - '.github/workflows/kr-energy.yml'
+  schedule:
+    - cron: '40 6 * * 1-5'
+    - cron: '10 9 * * 1-5'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: kr-energy-watch
+  cancel-in-progress: false
+jobs:
+  energy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install "requests>=2.31,<3" "pypdf>=4,<6"
+      - name: Test permit and agenda parsing
+        run: python -m unittest tests.test_kr_energy_watch tests.test_private_store -v
+      - name: Watch power permits and nuclear agenda (counts-only log)
+        env:
+          MCP_ACCESS_TOKEN: ${{ secrets.MCP_ACCESS_TOKEN }}
+        run: python scripts/kr_energy_watch.py

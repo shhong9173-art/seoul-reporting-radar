@@ -100,8 +100,21 @@ class Capture(unittest.TestCase):
         self.assertEqual(sent["doc"]["feedsEmpty"], ["trademarks"])
         self.assertEqual(sent["doc"]["feedsFailed"], ["kr-signals:StoreError"])
         self.assertIn("저장 결과 없음 ['trademarks']", buf.getvalue())
-        self.assertIn("감시 읽음 11/13", buf.getvalue())
+        self.assertIn("감시 읽음 19/21", buf.getvalue())
 
+
+    def test_plant_permit_before_the_article(self):
+        trace = {"generatedAt": "2026-11-20T15:00:00+09:00", "items": [
+            {"articleId": "b1", "title": "[단독] LS전선, 구미에 희토류 영구자석 공장 증설", "published": "2026-11-18T08:00:00+09:00",
+             "sourceName": "X", "companies": ["LS전선"]}]}
+        docs = {"kr-building": {"permits": [
+            {"id": "bld:1", "company": "LS전선", "companies": ["LS전선"], "archGbCdNm": "신축", "mainPurpsCdNm": "공장", "plot": "경상북도 구미시 공단동 1",
+             "tier": "A", "firstSeen": "2026-11-02T07:45:00+09:00", "permitted": "2026-10-20"},
+            {"id": "bld:2", "company": "LS전선", "companies": ["LS전선"], "archGbCdNm": "증축", "tier": "C", "firstSeen": "2026-11-02T07:45:00+09:00"}]}}
+        doc = r.run(trace, docs, {"items": []}, now=dt.datetime(2026, 11, 20, 19, 20, tzinfo=r.KST))
+        a = doc["articles"][0]
+        self.assertEqual(a["verdict"], "먼저 잡은 후보")
+        self.assertEqual((a["best"]["label"], a["best"]["id"]), ("공장 부지 건축허가", "bld:1"))
 
     def test_new_car_filing_before_the_article(self):
         trace = {"generatedAt": "2026-10-28T15:00:00+09:00", "items": [
@@ -114,6 +127,25 @@ class Capture(unittest.TestCase):
         self.assertEqual(a["verdict"], "먼저 잡은 후보")
         self.assertEqual(a["best"]["label"], "국내 연비 신고")
 
+
+    def test_epa_rule_docket_is_not_a_new_car_capture(self):
+        # 10-30 운영: 신차 낱말 하나로 EPA 규제 의견서와 묶인 오탐(실제 제목·의견서 이름)
+        trace = {"generatedAt": "2026-10-30T12:55:00+09:00", "items": [
+            {"articleId": "c4", "title": "[단독]현대차 미래항공·새만금 사업 가속..신차로 본업 경쟁력↑ - 머니투데이", "published": "2026-10-29T18:10:00+09:00",
+             "sourceName": "머니투데이", "companies": ["현대차"]}]}
+        docs = {"us-comments": {"items": [{"id": "EPA-HQ-OAR-2025-3297-0160", "company": "현대차", "agency": "EPA",
+                                           "docketTitle": "Revision of Tier 4 Phase-in Schedule for Light-Duty and Medium-Duty Vehicles",
+                                           "firstSeen": "2026-10-26T21:04:00+09:00"}]},
+                "us-epa": {"vehicles": [{"id": "epa:1", "company": "현대차", "kind": "새 모델", "year": "2027", "make": "Hyundai", "model": "IONIQ 6 N",
+                                         "range": 250, "firstSeen": "2026-10-20T06:20:00+09:00"}]}}
+        doc = r.run(trace, docs, {"items": []}, now=dt.datetime(2026, 10, 30, 13, 0, tzinfo=r.KST))
+        a = doc["articles"][0]
+        self.assertEqual(a["verdict"], "같은 회사 항목만")
+        # 차량 항목은 여전히 신차 낱말로 묶인다(EPA 연비 인증 새 모델)
+        trace["items"][0]["title"] = "[단독] 현대차, 아이오닉 6 N 美 출시 임박…EPA 인증 마쳐"
+        trace["items"][0]["articleId"] = "c5"
+        b = r.run(trace, docs, {"items": []}, now=dt.datetime(2026, 10, 30, 13, 0, tzinfo=r.KST))["articles"][0]
+        self.assertEqual((b["verdict"], b["best"]["id"]), ("먼저 잡은 후보", "epa:1"))
 
     def test_one_generic_word_is_not_enough_and_duplicates_count_once(self):
         # 10-28 첫 운영 실행의 오탐 2건(실제 제목): '배터리'·'공장'만 겹침
@@ -129,6 +161,34 @@ class Capture(unittest.TestCase):
         self.assertEqual({a["articleId"]: a["verdict"] for a in doc["articles"]}, {"m1": "같은 회사 항목만", "h1": "같은 회사 항목만"})
 
 
+    def test_quotation_subsidiary_and_schedule_a_trademark_suits_are_not_captures(self):
+        # 10-31 운영 오탐 2건(실제 제목·항목 이름)
+        trace = {"generatedAt": "2026-10-31T01:43:00+09:00", "items": [
+            {"articleId": "t1", "title": "[단독] 현대차, 인도서 부품 관세 분쟁 대법원행…세관, 판정 불복 - 뉴스저널리즘", "published": "2026-10-30T16:31:00+09:00",
+             "sourceName": "뉴스저널리즘", "companies": ["현대차"]},
+            {"articleId": "t2", "title": "[단독] 현대차·기아 ‘E-pit’ 상표권 현대엔지니어링에 넘긴다…12월1일 충전사업 운영 일원화 - 쿠키뉴스", "published": "2026-10-30T17:28:00+09:00",
+             "sourceName": "쿠키뉴스", "companies": ["현대차"]}]}
+        docs = {"partner-filings": {"items": [
+            {"id": "asx:ARU:2026-10-27:Application for quotation of securities - ARU", "beat": ["현대차", "기아"], "filer": "Arafura Rare Earths (ARU)",
+             "title": "Application for quotation of securities - ARU", "date": "2026-10-27", "firstSeen": "2026-10-28T02:00:00+09:00"},
+            {"id": "edgar:x", "beat": ["현대차"], "filer": "X", "title": "Hyundai Motor America, a subsidiary of Hyundai Motor Company", "date": "2026-10-27",
+             "firstSeen": "2026-10-28T02:00:00+09:00"}]},
+            "us-comments": {"items": [{"id": "EPA-HQ-OAR-2025-3297-0160", "company": "현대차", "agency": "EPA",
+                                       "docketTitle": "Revision of Tier 4 Phase-in Schedule for Light-Duty and Medium-Duty Vehicles",
+                                       "firstSeen": "2026-10-26T21:04:00+09:00"}]},
+            "us-litigation": {"cases": [{"id": "cl:75032648", "beat": ["현대차"], "category": "지식재산(상표)",
+                                         "caseName": "Hyundai Motor Company v. The Partnerships and Unincorporated Associations Identified on Schedule A",
+                                         "summary": "trademark counterfeiting", "firstSeen": "2026-10-29T07:51:00+09:00"}]}}
+        doc = r.run(trace, docs, {"items": []}, now=dt.datetime(2026, 10, 31, 1, 43, tzinfo=r.KST))
+        self.assertEqual({a["articleId"]: a["verdict"] for a in doc["articles"]}, {"t1": "같은 회사 항목만", "t2": "같은 회사 항목만"})
+        # 진짜 쿼터·보조금·상표명 낱말은 여전히 잡는다
+        rx = dict((n, x) for n, _, x in r.CONCEPTS)["관세·무역구제"]
+        import re as _re
+        self.assertTrue(all(_re.search(rx, t, _re.I) for t in ["steel safeguard quotas", "countervailable subsidy", "duties on imports"]))
+        self.assertFalse(any(_re.search(rx, t, _re.I) for t in ["Application for quotation of securities", "a subsidiary of Hyundai",
+                                                                 "Light-Duty and Medium-Duty Vehicles", "heavy duty trucks", "duty-free shop"]))
+        self.assertTrue(_re.search(rx, "Countervailing Duty Administrative Review", _re.I))
+
     def test_ruling_article_counts_a_ruling_seen_before_it(self):
         docs = {"us-litigation": {"cases": [], "opinions": [{"id": "op:1", "beat": ["포스코"], "caseName": "POSCO v. United States",
                 "holding": "Sustaining the Department of Commerce's second remand redetermination", "firstSeen": "2026-10-28T07:50:00+09:00"}]}}
@@ -139,3 +199,22 @@ class Capture(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class GroupsAndSuppliers(unittest.TestCase):
+    def test_audi_recall_with_sk_battery_counts_for_a_vw_sk_on_article(self):
+        # 10-26 '[단독] 아우디, 미국서 Q4 e-트론 9048대 리콜…SK온 배터리 화재 우려'(회사 분류: SK온·폭스바겐)와 NHTSA 26V698000(접수 10-21).
+        # 가정: 레이더가 기사 전에 이 리콜을 봤다면(firstSeen은 가상 — 실제 감시는 10-28에 생겨 운영 판정 '없음'이 맞다) 회사가 이어져야 한다.
+        trace = {"items": [{"articleId": "audi", "title": "[단독] 아우디, 미국서 Q4 e-트론 9048대 리콜…SK온 배터리 화재 우려 - 한국신용신문",
+                            "published": "2026-10-26T10:17:00+09:00", "sourceName": "한국신용신문", "companies": ["SK온", "폭스바겐"]}]}
+        docs = {"us-recalls": {"recalls": [{"id": "26V698000", "why": [{"name": "AUDI", "beat": "아우디"}], "models": "Q4 E-TRON",
+                                            "component": "ELECTRICAL SYSTEM:PROPULSION SYSTEM:TRACTION BATTERY",
+                                            "defect": "The high voltage battery may fail and cause a fire.", "supplierBox": "SK Battery Manufacturing Kft. (Hungary)",
+                                            "firstSeen": "2026-10-21T17:10:00+09:00", "url": "https://www.nhtsa.gov/recalls?nhtsaId=26V698"}]}}
+        doc = r.run(trace, docs, {}, now=NOW)
+        row = doc["articles"][0]
+        self.assertEqual(row["verdict"], "먼저 잡은 후보")
+        self.assertEqual(row["best"]["id"], "26V698000")
+        self.assertGreater(row["best"]["leadHours"], 100)
+        self.assertEqual(r.suppliers_in("SK On Co., Ltd.", "LG Energy Solution Michigan"), ["SK온", "LG에너지솔루션"])
+        self.assertEqual(r.canon("아우디코리아"), "폭스바겐")

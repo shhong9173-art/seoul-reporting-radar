@@ -31,7 +31,10 @@ BROWSER = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, 
 SEC_UA = os.environ.get("SEC_USER_AGENT", "").strip() or "seoul-reporting-radar research (github.com/shhong9173-art/seoul-reporting-radar)"
 FORMS = "8-K,6-K,10-Q,10-K,20-F,40-F,S-1,F-1,424B4,DEF 14A"
 # Name used in an unrelated sense (first real run, 10/26: 'POSCO Center' building address in a Beijing proxy statement).
-UNRELATED = {"POSCO": re.compile(r"POSCO\s+(?:Center|Centre|Tower|Plaza|E&C\s+Tower)", re.I)}
+UNRELATED = {"POSCO": re.compile(r"POSCO\s+(?:Center|Centre|Tower|Plaza|E&C\s+Tower)", re.I),
+             # EDGAR 전문 검색은 대소문자를 가리지 않아 말레이시아·싱가포르 성씨 'Seah'도 걸린다(10-29 Global Engine Group 20-F → '세아' A).
+             # 세아는 'SeAH'로만 쓴다 — 다른 대소문자 'Seah·SEAH'는 무관한 뜻으로 센다.
+             "SeAH": re.compile(r"\b(?!SeAH\b)[Ss][Ee][Aa][Hh]\b")}
 # EDGAR hits that name a beat company without any dealing with it (첫 실운영 10/27: 미국 보험사 투자 보유 표의
 # 'Top Ten Exposures by Issuer … Hyundai Motor Company', KT 분기 재무제표 주석의 기존 지분 약정 문구).
 HOLDINGS = re.compile(r"top\s+(?:ten|10)\s+(?:exposures|holdings|issuers)|exposures?\s+by\s+issuer|fixed\s+maturit|schedule\s+of\s+investments|"
@@ -42,12 +45,31 @@ FIN_NOTE = re.compile(r"\(\d{1,2}\)\s+the\s+(?:company|group)\s+(?:has|had|have|
 FIN_DOC = re.compile(r"(?:review|financ|consolidat|separate|interim|10-?q|annual|20-?f)", re.I)
 
 
+# 계약 낱말은 출입처 이름이 든 문장 안에 있어야 거래 문구로 본다(운영 10-29: Nexa Resources 3분기 실적 6-K의
+# 'annually negotiated contracts'(제3자 공급사 일반 서술)와 '…reportedly agreed between Korea Zinc and Teck…'(업계 기준가
+# 보도 인용)이 한 발췌에 있어 A로 떴다). 낱말 목록은 cloudflare/digest.mjs DEAL_WORDS와 같다.
+DEAL = re.compile(r"\b(agreement|supply|offtake|off-take|joint venture|JV|memorandum|MOU|partnership|collaborat\w*|acquisition|"
+                  r"acquire[sd]?|merger|purchase order|contract\w*|guarantee\w*|licen[cs]e|investment in|strategic|customer|order[s]? from)\b", re.I)
+HEARSAY = re.compile(r"\breportedly\b|\baccording to (?:media|press|news|industry|market) reports?\b|\bas reported (?:by|in)\b|\bit was reported\b", re.I)
+SENTENCE = re.compile(r"(?<=[.;!?])\s+(?=[A-Z0-9(\"'“])")
+
+
+def beat_sentences(sn, phrases):
+    return [x for x in SENTENCE.split(sn) if any(ph.lower() in x.lower() for ph in phrases)]
+
+
 def classify(it):
     """routine: no dealing with the beat company (holdings tables) → C. finNote: periodic financial-statement
-    notes, often restating an existing arrangement → never A. Text only; the original decides."""
+    notes, often restating an existing arrangement → never A. dealNear: a deal word in a sentence that names the
+    beat company. hearsay: that sentence cites press reports. Text only; the original decides."""
     sn = it.get("snippet") or ""
-    it.pop("routine", None)
-    it.pop("finNote", None)
+    for k in ("routine", "finNote", "dealNear", "hearsay"):
+        it.pop(k, None)
+    sents = beat_sentences(sn, it.get("phrases") or [])
+    if sents:  # 발췌가 잘려 이름이 안 보이면 판단하지 않는다(예전 규칙: 발췌 전체의 낱말)
+        it["dealNear"] = any(DEAL.search(x) for x in sents)
+        if any(HEARSAY.search(x) for x in sents):
+            it["hearsay"] = "출입처 이름이 보도 인용 문장(reportedly 등)에만 나옴 — 두 회사 간 거래 공시가 아님"
     digits = sum(ch.isdigit() for ch in sn)
     if HOLDINGS.search(sn) or (len(sn) > 200 and digits / len(sn) > 0.18):
         it["routine"] = "투자 보유 목록(채권·주식 보유 표) — 출입처와의 거래 아님"
@@ -84,6 +106,12 @@ def get_json(url, *, params=None, headers=None, get=None):
         return "ok", r.json()
     except ValueError:
         return "failed", "JSON 아님"
+
+
+def transient(err):
+    """다시 해 볼 만한 일시 오류: 연결 끊김·시간 초과·서버 5xx. 4xx·형식 오류는 다시 해도 같다."""
+    e = str(err or "")
+    return bool(re.match(r"HTTP 5\d\d$", e)) or e in ("ConnectionError", "ReadTimeout", "ConnectTimeout", "Timeout", "ChunkedEncodingError")
 
 
 # ---------- ASX ----------
@@ -257,6 +285,10 @@ def run(cfg, *, now, previous=None, get=None, sleep=time.sleep, snippet_budget=2
     for beat, phrase in cfg.get("edgarPhrases", []):
         status, body = edgar_search(phrase, start, end, get=get)
         sleep(0.4)
+        if status != "ok" and transient(body):
+            # 10-30 'OCI Holdings' 한 질의만 HTTP 500(앞뒤 실행은 정상): 일시 오류는 한 번만 다시
+            sleep(5.0)
+            status, body = edgar_search(phrase, start, end, get=get)
         if status != "ok":
             checks.append({"source": "EDGAR", "target": phrase, "status": "failed", "error": body})
             continue
@@ -294,7 +326,7 @@ def run(cfg, *, now, previous=None, get=None, sleep=time.sleep, snippet_budget=2
             it["noise"] = "출입처 이름이 무관한 뜻(건물 주소 등)으로만 쓰임"
             continue
         for ph in related:
-            sn = snippet(re.sub(UNRELATED[ph].pattern, " ", text, flags=re.I) if ph in UNRELATED else text, ph)
+            sn = snippet(UNRELATED[ph].sub(" ", text) if ph in UNRELATED else text, ph)
             if sn:
                 it["snippet"] = sn[:700]
                 break

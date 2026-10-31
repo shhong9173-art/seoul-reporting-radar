@@ -11,7 +11,7 @@ import { publicationDate, verifyEvidence } from '../cloudflare/evidence.mjs';
 import { allowedUrl } from '../cloudflare/live_tools.mjs';
 import { handleIngest } from '../cloudflare/screen.mjs';
 import { dueAt, nextSlot, runSchedule } from '../cloudflare/dispatch.mjs';
-import { hint, radarItems } from '../cloudflare/digest.mjs';
+import { background, billHint, convergence, hint, kepcoHint, localWord, radarItems, siteCity, stackHint, workforceHint } from '../cloudflare/digest.mjs';
 
 const ORIGIN = 'https://seoul-reporting-radar.shhong9173.workers.dev';
 const TOKEN = 'test-token-0123456789abcdef';
@@ -252,6 +252,27 @@ test('news_check: Bing stands in for Google and unwraps the original link', asyn
     'https://naverapihub.apigw.ntruss.com/': Response.json({ items: [] }) });
   const d = await call('news_check', { q: '동국씨엠 컬러강판' }, { ...PRIVATE({ NAVER_CLIENT_ID: 'i', NAVER_CLIENT_SECRET: 's' }), fetch: bothDown });
   assert.match(d.text, /판정: 미확인 — 웹 색인\(구글·빙 모두\)/);
+});
+
+test('news_check: Naver pages past the newest 100 until the window is covered', async () => {
+  const env = PRIVATE({ NAVER_CLIENT_ID: 'i', NAVER_CLIENT_SECRET: 's' });
+  const item = (i, day) => ({ title: `기아 광명 ${i}`, originallink: `https://news.example.kr/${i}`, link: 'x', pubDate: `${day} 09:00:00 +0900` });
+  const page = (url) => {
+    const start = Number(new URL(url).searchParams.get('start'));
+    if (start === 1) return Response.json({ items: Array.from({ length: 100 }, (_, i) => item(i, 'Fri, 23 Oct 2026')) });
+    return Response.json({ items: Array.from({ length: 30 }, (_, i) => item(100 + i, 'Mon, 01 Jun 2026')) });
+  };
+  const fetch = fakeFetch({ 'https://news.google.com/': new Response('<rss><channel></channel></rss>'), 'https://naverapihub.apigw.ntruss.com/': page });
+  const r = await call('news_check', { q: '기아 광명 증축', days: 180 }, { ...env, fetch });
+  assert.match(r.text, /네이버 뉴스\(API HUB\): 130건 \(응답 130건\) · 최신순 130건까지 읽음/);
+  assert.doesNotMatch(r.text, /100건 상한/);
+  assert.equal(fetch.calls.filter((c) => c.url.startsWith('https://naverapihub')).length, 2);
+  // every page full and inside the window: stops at the API limit and says so
+  const full = fakeFetch({ 'https://news.google.com/': new Response('<rss><channel></channel></rss>'),
+    'https://naverapihub.apigw.ntruss.com/': () => Response.json({ items: Array.from({ length: 100 }, (_, i) => item(i, 'Fri, 23 Oct 2026')) }) });
+  const f = await call('news_check', { q: '기아', days: 30 }, { ...env, fetch: full });
+  assert.match(f.text, /네이버 뉴스: partial — 최신순 1000건 상한 — 그 이전 기사는 못 봄/);
+  assert.equal(full.calls.filter((c) => c.url.startsWith('https://naverapihub')).length, 10);
 });
 
 test('news_check: Naver goes through API HUB first and old Developers Center keys only when HUB refuses', async () => {
@@ -568,6 +589,35 @@ test('page_changes shows before/after lines from the private page-watch feed', a
   assert.match(r.text, /현대차 미국 아이오닉6 N: Coming Spring 2027 · extremely limited availability/);
 });
 
+test('page_changes: a redirected page is not a failure, moved/opened are events, old changes of a redirected address are C', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const now = new Date(Date.now() - 3600000).toISOString();
+  const doc = { schema: 'page_watch/v1', generatedAt: now, status: 'complete', rules: [],
+    pages: [{ id: 'kia-us-ev4', company: '기아', label: '기아 미국 EV4', url: 'https://www.kia.com/us/en/ev4', status: 'redirected', finalUrl: 'https://www.kia.com/us/en', signals: {} },
+      { id: 'kia-us-ev9', company: '기아', label: '기아 미국 EV9', url: 'https://www.kia.com/us/en/ev9', status: 'ok', finalUrl: 'https://www.kia.com/us/en/ev9', signals: {} }],
+    events: [
+      { pageId: 'kia-us-ev4', scope: 'page', company: '기아', label: '기아 미국 EV4', url: 'https://www.kia.com/us/en/ev4', detectedAt: now, baselineSource: '직전 확인',
+        added: { price: ['STARTING AT $ 22,390'] }, removed: {}, redirectNote: '이 주소는 https://www.kia.com/us/en(으)로 넘어가 있어 이 문구는 그 페이지 것이다 — 기아 미국 EV4 문구 아님(2026-10-31 확인)' },
+      { pageId: 'kia-us-ev9', scope: 'page', kind: 'moved', company: '기아', label: '기아 미국 EV9', url: 'https://www.kia.com/us/en/ev9', detectedAt: now, baselineSource: '직전 확인',
+        movedTo: 'https://www.kia.com/us/en/vehicles', added: {}, removed: { price: ['$54,900'] } },
+      { pageId: 'genesis-gv90', scope: 'page', kind: 'opened', company: '제네시스', label: '제네시스 미국 GV90', url: 'https://www.genesis.com/us/en/gv90', detectedAt: now,
+        baselineSource: 'x', openedFrom: 'https://www.genesis.com/us/en/home', added: { timing: ['Coming Spring 2027'] }, removed: {} }] };
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/page-watch', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
+  const t = await call('page_changes', {}, opts);
+  assert.match(t.text, /페이지 2\/2 열림/);
+  assert.doesNotMatch(t.text, /미확인\(변화 없음 아님\)/);
+  assert.match(t.text, /다른 주소로 넘어가는 페이지\(문구 비교 안 함[^)]*\): 기아 미국 EV4 → https:\/\/www\.kia\.com\/us\/en/);
+  assert.match(t.text, /페이지 넘어감: 이 주소가 https:\/\/www\.kia\.com\/us\/en\/vehicles\(으\)로 넘어간다/);
+  assert.match(t.text, /주의: 이 주소는 https:\/\/www\.kia\.com\/us\/en\(으\)로 넘어가 있어/);
+  const r = await call('radar_today', { include_minor: true }, opts);
+  const a = r.text.split('[A · ')[1].split('[B · ')[0];
+  assert.match(a, /기아 미국 EV9 페이지 넘어감 → https:\/\/www\.kia\.com\/us\/en\/vehicles/);
+  assert.match(a, /제네시스 미국 GV90 페이지 열림\(전에는 https:\/\/www\.genesis\.com\/us\/en\/home\(으\)로 넘어가던 주소 — 출시 준비 신호일 수 있음\): Coming Spring 2027/);
+  assert.doesNotMatch(a, /기아 미국 EV4/);
+  assert.match(r.text.split('[C · ')[1], /기아 미국 EV4 문구 변화: \+ STARTING AT \$ 22,390 — 이 주소는/);
+});
+
 test('partner_filings reads ASX and EDGAR items from the private feed', async () => {
   const env = PRIVATE().env;
   const doc = { schema: 'partner_filings/v1', generatedAt: '2026-10-26T07:00:00+09:00', windowDays: 30, rules: ['파트너 공시는 그 회사의 발표다.'],
@@ -660,6 +710,225 @@ test('trade_remedies shows quota exhaustion, named US notices and listing change
   assert.match(quota.text, /099854 후판/);
   assert.doesNotMatch(quota.text, /미국 상무부/);
   assert.ok((await call('trade_remedies', {}, PRIVATE())).isError);
+});
+
+test('trade_remedies ktc: meeting agenda before the meeting, recent cases with last step, old cases hidden; radar_today tiers by beat product', async () => {
+  const env = PRIVATE().env;
+  const recent = new Date(Date.now() - 3600000).toISOString();
+  const ktc = { checkedAt: '2026-10-30T07:40:00+09:00', listComplete: true,
+    cases: [
+      { id: '00000845', no: '구제 4-1-2025-1', title: '커넥티드 전기자동차 특허권 침해 불공정무역행위 조사', product: '커넥티드 전기자동차', opened: '2025-06-30', stage: '조사실행',
+        kind: '불공정무역행위', review: '원심', country: null, beat: true, timeline: [['조사개시', '2025-06-30'], ['판정시한 2차 연장', '2026-02-25']], pending: [],
+        url: 'https://www.ktc.go.kr/viewInvest.do?menuId=11&masterId=00000845&invstg_type_code=10100002' },
+      { id: '00000875', no: '구제 23-2026-9호', title: '중국산 무계목강관의 덤핑사실 및 국내산업피해 유무 조사', product: '무계목강관', opened: '2026-10-08', stage: '조사실행',
+        kind: '반덤핑조사', review: '원심', country: '중국', beat: true, timeline: [['조사개시', '2026-10-08']], pending: ['예비조사', '공청회', '최종판정'], url: 'https://www.ktc.go.kr/v?875' },
+      { id: '00000859', no: '구제 23-2025-13호', title: '중국산 인쇄제판용 평면모양 사진플레이트', product: '인쇄제판용 평면모양 사진플레이트', opened: '2026-01-08', stage: '조사실행',
+        kind: '반덤핑조사', review: '재심', country: '중국', beat: false, timeline: [['조사개시', '2026-01-08']], pending: ['최종판정'], url: 'https://www.ktc.go.kr/v?859' },
+      { id: '00000493', no: '제 4-1-2008-6', title: '낚싯대케이스', product: '낚싯대케이스', opened: '2008-07-23', stage: '조사실행', beat: false, url: 'https://www.ktc.go.kr/v?493' }],
+    left: [{ id: '00000868', no: '구제23-2026-5호', title: '중국산 석도강판의 덤핑사실 및 국내산업피해 유무', product: '석도강판', leftAt: '2026-10-30T07:40:00+09:00', result: '부정 · 조사종결' }],
+    meetings: [{ id: '00000312', title: '제479차 11월 무역위원회 개최 안내', posted: '2026-11-13', meetingOn: '2026-11-20', summary: '3건(정기보고1, 의결2)',
+      url: 'https://www.ktc.go.kr/noticeScheduleView.do?dltnc_id=00000312&menuId=24',
+      agenda: [{ kind: '의결', no: '2026-27', text: '중국산 석도강판의 덤핑사실및국내산업피해유무 예비판정(원심)', beat: true },
+        { kind: '보고', no: '2026-21', text: '화장품 상표권 침해 조사개시 보고', beat: false }] },
+      { id: '00000311', title: '제478차 10월 무역위원회 개최 안내', posted: '2026-10-16', agenda: null, agendaError: 'PDF 받기 실패' }],
+    news: [{ id: '00002297', title: '무역위, 중국산 아연도금냉연, 옵셋인쇄판 덤핑조사 최종판정', posted: '2026-10-26' }] };
+  const doc = { schema: 'trade_remedy/v1', generatedAt: '2026-10-30T07:40:00+09:00', quarter: '2026-10-01', rules: [], quotas: [], federalRegister: [], pages: [],
+    checks: [{ source: '무역위원회', status: 'ok', returned: 4 }], ktc,
+    events: [
+      { id: 'ktc:meeting:00000312', pageId: 'ktc', country: 'KR', label: '무역위원회 회의 안내(개최 2026-11-20)', text: '제479차 — 의결: 중국산 석도강판 예비판정', url: 'https://k/m', detectedAt: recent, tier: 'B', beat: true, ktcKind: 'meeting' },
+      { id: 'ktc:case:00000900', pageId: 'ktc', country: 'KR', label: '무역위 새 조사 · 구제 4-2-2026-2', text: '플라스틱 필름 원산지 표시위반', url: 'https://k/c', detectedAt: recent, tier: 'C', beat: false, ktcKind: 'case', product: '플라스틱 필름' },
+      { id: 'ktc:news:00002297', pageId: 'ktc', country: 'KR', label: '무역위 보도자료', text: '무역위, 중국산 아연도금냉연 덤핑조사 최종판정', url: 'https://k/n', detectedAt: recent, tier: 'C', beat: true, ktcKind: 'news' }] };
+  const post = await worker.fetch(new Request(ORIGIN + '/ingest/trade-remedy', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {});
+  assert.equal(post.status, 200);
+  const opts = { path: `/mcp/${TOKEN}`, env };
+  const r = await call('trade_remedies', { section: 'ktc' }, opts);
+  assert.match(r.text, /\[국내 무역위원회 · 확인 2026-10-30T07:40\] 진행 목록 4건 · 2019년 이후 개시 3건\(출입 업종 품목 2\)/);
+  assert.match(r.text, /- 회의: 제479차 11월 무역위원회 개최 안내 · 개최 2026-11-20 · 게시 2026-11-13 · 안건 3건\(정기보고1, 의결2\)\n   의결\(출입 업종 품목\): 중국산 석도강판/);
+  assert.match(r.text, /안건 미확인\(PDF 받기 실패\) — 0건 아님/);
+  assert.match(r.text, /구제 4-1-2025-1 · 커넥티드 전기자동차 특허권 침해 불공정무역행위 조사 · 대상국 미기재 · 불공정무역행위\/원심 · 개시 2025-06-30 · 최근 판정시한 2차 연장 2026-02-25 · 출입 업종 품목/);
+  assert.ok(r.text.indexOf('무계목강관') < r.text.indexOf('커넥티드'));  // beat products, latest step first
+  assert.ok(r.text.indexOf('커넥티드') < r.text.indexOf('사진플레이트'));  // non-beat after beat
+  assert.match(r.text, /남은 단계 예비조사·공청회·최종판정/);
+  assert.match(r.text, /2019년 전 개시 1건은 목록에 '조사실행'으로 남은 옛 사건 — 숨김/);
+  assert.doesNotMatch(r.text, /낚싯대케이스/);
+  assert.match(r.text, /진행 목록에서 빠짐 2026-10-30: 구제23-2026-5호 중국산 석도강판의 덤핑사실 및 국내산업피해 유무 · 판정결과 부정 · 조사종결/);
+  assert.match(r.text, /최근 보도자료: 무역위, 중국산 아연도금냉연, 옵셋인쇄판 덤핑조사 최종판정\(2026-10-26\)/);
+  assert.doesNotMatch(r.text, /EU 철강 쿼터/);
+  const steel = await call('trade_remedies', { section: 'ktc', company: '석도' }, opts);
+  assert.doesNotMatch(steel.text, /커넥티드/);
+  assert.match(steel.text, /제479차/);
+  const today = await call('radar_today', { include_minor: true }, opts);
+  const b = today.text.split('[B · ')[1].split('[C · ')[0];
+  assert.match(b, /무역구제\n   무역위원회 회의 안내\(개최 2026-11-20\): 제479차 — 의결: 중국산 석도강판 예비판정/);
+  assert.doesNotMatch(b, /플라스틱 필름|아연도금냉연 덤핑조사 최종판정/);
+});
+
+test('kr_official workforce: member counts ranked by monthly drop with year-ago, events and new construction sites; radar_today tiers', async () => {
+  const env = PRIVATE().env;
+  const recent = new Date(Date.now() - 3600000).toISOString();
+  const doc = { schema: 'kr_workforce/v1', generatedAt: '2026-10-31T15:50:00+09:00', status: 'partial', month: '202609', scanStatus: 'complete',
+    checks: [{ source: '국민연금 사업장(출입처 검색)', status: 'ok', returned: 58 }, { source: '국민연금 사업장(지난 12개월 채우기)', status: 'ok', returned: 120, pending: 12 }],
+    rules: ['국민연금 가입자 수는 사업장 전체 직원 수가 아니다.'],
+    sites: [
+      { id: 's1', company: '현대제철', name: '현대제철(주)포항1공장', region: '47111', status: '1',
+        history: { 202609: { members: 1150, acq: 4, loss: 106 }, 202608: { members: 1252 }, 202509: { members: 1300 } } },
+      { id: 's2', company: '기아', name: '기아(주)AutoLand화성', region: '41591', status: '1', history: { 202609: { members: 11560, acq: 49, loss: 75 }, 202608: { members: 11586 } } },
+      { id: 's3', company: '현대제철', name: '현대제철 순천공장', region: '12150', status: '1', history: { 202609: { members: 310 } } }],
+    projects: [
+      { id: 'p1', company: '현대제철', title: '현대제철 당진 전기로 신설공사', names: ['(주)대한건설/일용/현대제철 당진 전기로 신설공사'], sites: 1, month: '202609', tier: 'A', adptDt: '20260905', members: 41, baseline: false },
+      { id: 'p2', company: '기아', title: '기아 오토랜드 화성 PBV 2공장 신축공사', names: ['삼우기전/상용/기아 오토랜드 화성 PBV 2공장 신축공사'], sites: 7, month: '202609', tier: 'A', baseline: true },
+      { id: 'p3', company: '기아', title: '기아 화성 전기공사', names: ['영일전설/일용/기아 화성 전기공사'], sites: 1, month: '202609', tier: 'B', baseline: true }],
+    events: [
+      { id: 'wf:delta:s1:202609', kind: '인력 감소', tier: 'A', company: '현대제철', month: '202609', detectedAt: recent,
+        text: '현대제철(주)포항1공장(경북 시군구코드 111) 국민연금 가입자 1,252→1,150명(-102명, -8.1%) · 그달 신규 취득 4·상실 106 — 2026-09 자료' },
+      { id: 'wf:projs:기아:202609:3', kind: '새 공사 현장 묶음', tier: 'B', company: '기아', month: '202609', detectedAt: recent, text: '기아 이름이 든 새 공사 3건' }] };
+  const post = await worker.fetch(new Request(ORIGIN + '/ingest/kr-workforce', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {});
+  assert.equal(post.status, 200);
+  const opts = { path: `/mcp/${TOKEN}`, env };
+  const r = await call('kr_official', { section: 'workforce' }, opts);
+  assert.match(r.text, /\[사업장 인력\(국민연금 가입 사업장\) · 자료 2026-09/);
+  assert.match(r.text, /남은 채우기 12곳/);
+  assert.match(r.text, /자사 사업장 3곳\(지난달 비교 가능 2곳 · 1년 전 비교 가능 1곳\)/);
+  assert.match(r.text, /현대제철 · 현대제철\(주\)포항1공장 · 가입자 1,150명 \(지난달 -102, -8\.1%\) · 1년 전 1,300명 대비 -11\.5% · 그달 취득 4·상실 106 · 3개월 보관/);
+  assert.ok(r.text.indexOf('포항1공장 · 가입자') < r.text.indexOf('AutoLand화성 · 가입자'));
+  assert.match(r.text, /현대제철 순천공장 · 가입자 310명 \(지난달 미수집\)/);
+  assert.match(r.text, /새로 잡힌 1건 · 첫 조회 기준선 2건\(투자 낱말 1\)/);
+  assert.match(r.text, /A · 현대제철 · 「현대제철 당진 전기로 신설공사」 · 현장 1곳 · 2026-09 자료 · 첫 현장 적용 20260905 · 가입자 41명/);
+  assert.match(r.text, /\[기준선\] A · 기아 · 「기아 오토랜드 화성 PBV 2공장 신축공사」 · 현장 7곳/);
+  assert.doesNotMatch(r.text, /기아 화성 전기공사/);
+  const kia = await call('kr_official', { section: 'workforce', company: '기아' }, opts);
+  assert.doesNotMatch(kia.text, /포항1공장/);
+  const today = await call('radar_today', {}, opts);
+  const a = today.text.split('[A · ')[1].split('[B · ')[0];
+  assert.match(a, /사업장 인력\(국민연금\)[\s\S]*국민연금 가입자 1,252→1,150명/);
+  const b = today.text.split('[B · ')[1].split('[C · ')[0];
+  assert.match(b, /기아 이름이 든 새 공사 3건/);
+});
+
+test('kr_official stacks: plants with stopped stacks first, events, young sites not judged; radar_today A for a plant-wide stop', async () => {
+  const env = PRIVATE().env;
+  const recent = new Date(Date.now() - 3600000).toISOString();
+  const doc = { schema: 'kr_stacks/v1', generatedAt: '2026-10-31T09:20:00+09:00', status: 'complete', baselineSince: '2026-10-30T12:20:00+09:00',
+    checks: [{ source: '굴뚝 자동측정(CleanSYS)', status: 'ok', returned: 3, terms: '24/24' }], rules: ['배출구 이름·설비 종류는 자료에 없다(번호만).'],
+    sites: [
+      { id: 'a', company: '현대제철', name: '현대제철㈜포항2공장', area: '경상북도', meaningful: 2, stopped: ['1', '2'],
+        stacks: { 1: { lastDt: '2026-10-31 09:00', obs: Array(9).fill(['x', 0]) }, 2: { lastDt: '2026-10-31 09:00', obs: Array(9).fill(['x', 0]) } } },
+      { id: 'b', company: '포스코', name: '㈜포스코 광양제철소', area: '전라남도', meaningful: 150, stopped: ['17'], stacks: { 17: { lastDt: '2026-10-31 09:00', obs: Array(9).fill(['x', 0]) } },
+        exceedLog: [{ stack: '40', pollutant: 'nox', value: 61.2, limit: 50, at: '2026-10-31 06:00' }, { stack: '40', pollutant: 'nox', value: 70.5, limit: 50, at: '2026-10-31 09:00' }] },
+      { id: 'c', company: '고려아연', name: '고려아연㈜온산제련소', area: '울산광역시', meaningful: 0, stopped: [], stacks: { 11: { obs: [['x', 5]] } } }],
+    events: [{ id: 'stk:down:a:2026-10-31', kind: '사업장 가동 중단 신호', tier: 'A', company: '현대제철', site: '현대제철㈜포항2공장', detectedAt: recent,
+      text: '현대제철㈜포항2공장: 평소 움직이던 배출구 2개 중 2개가 3번 연속 평소의 10% 아래' },
+      { id: 'stk:exceed2:b:40:nox:2026-10-31 06:00', kind: '배출허용기준 초과 지속', tier: 'A', company: '포스코', site: '㈜포스코 광양제철소', detectedAt: recent,
+        text: '㈜포스코 광양제철소 배출구 40번 질소산화물 측정값 70.5이 배출허용기준 50을 넘음(기준의 1.4배, 측정 2026-10-31 09:00) — 2026-10-31 06:00 측정부터 이 감시의 실행 2번 연속 초과(처음 61.2)' }] };
+  const post = await worker.fetch(new Request(ORIGIN + '/ingest/kr-stacks', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {});
+  assert.equal(post.status, 200);
+  const opts = { path: `/mcp/${TOKEN}`, env };
+  const r = await call('kr_official', { section: 'stacks' }, opts);
+  assert.match(r.text, /\[굴뚝 측정\(공장 가동 신호\) · 출입처 사업장 3곳 · 배출구 4개/);
+  assert.match(r.text, /멈춤으로 판단한 배출구가 있는 사업장 2곳/);
+  assert.ok(r.text.indexOf('포항2공장(경상북도)') < r.text.indexOf('광양제철소(전라남도)'));  // 멈춘 비율 높은 순
+  assert.match(r.text, /평소 움직이던 배출구 2개 중 멈춤 2개: 1번\(측정 2026-10-31 09:00\), 2번/);
+  assert.match(r.text, /관측이 아직 6번이 안 된 사업장 1곳/);
+  assert.match(r.text, /A · .* · 사업장 가동 중단 신호 · 현대제철/);
+  assert.match(r.text, /- 배출허용기준 넘은 측정값\(이 감시가 본 것, 사업장마다 최근 20건\) 2건\n  2026-10-31 09:00 · 포스코 · ㈜포스코 광양제철소 배출구 40번 질소산화물 70\.5\(기준 50\)/);
+  assert.match(r.text, /기준 초과 값은 확정 전 실시간 값/);
+  const today = (await call('radar_today', {}, opts)).text;
+  const a = today.split('[A · ')[1].split('[B · ')[0];
+  assert.match(a, /굴뚝 측정\(공장 가동 신호\)[\s\S]*포항2공장: 평소 움직이던 배출구 2개 중 2개/);
+  assert.match(a, /광양제철소 배출구 40번 질소산화물 측정값 70\.5이 배출허용기준 50을 넘음/);
+});
+
+test('radar_today: scoop candidates count as new only when first screened inside the window', async () => {
+  const env = PRIVATE().env;
+  const now = Date.now();
+  const iso = (h) => new Date(now - h * 3600000).toISOString();
+  const doc = { schema: 'scoop_screen/v1', generatedAt: iso(1), counts: {}, candidates: [
+    { id: 'clue:old', kind: '특허', company: '현대제철', title: '상변태 기반 판재 냉각 제어 장치 및 방법 (현대제철)', verdict: '미보도 후보', published: '2026-10-07', firstSeen: iso(24 * 9) },
+    { id: 'clue:new', kind: '단서', company: '기아', title: '기아 · 신규시설투자등', verdict: '미보도 후보', published: '2026-10-30', firstSeen: iso(2) },
+    { id: 'clue:legacy', kind: '단서', company: '포스코', title: '포스코 · 단일판매ㆍ공급계약체결', verdict: '미보도 후보', published: '2026-10-29' }] };
+  const post = await worker.fetch(new Request(ORIGIN + '/ingest/scoop-screen', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {});
+  assert.equal(post.status, 200);
+  const r = await call('radar_today', {}, { path: `/mcp/${TOKEN}`, env });
+  const a = r.text.split('[A · ')[1].split('[B · ')[0];
+  assert.match(a, /기아 · 신규시설투자등/);
+  assert.match(a, /포스코 · 단일판매ㆍ공급계약체결/);  // 시각이 없는 옛 결과는 그대로 보인다
+  assert.doesNotMatch(a, /상변태 기반 판재 냉각/);
+  const s = await call('scoop_screen', {}, { path: `/mcp/${TOKEN}`, env });
+  assert.match(s.text, /상변태 기반 판재 냉각/);  // 후보 목록에는 남는다
+});
+
+test('converging signals: same beat company and same city from two or more watches, place from the text, C and other tools ignored', () => {
+  const t = (h) => new Date(Date.parse('2026-10-30T03:00:00Z') - h * 3600000).toISOString();
+  const items = [
+    { id: 'b1', tier: 'B', tool: 'kr_official', watch: '공장 부지 건축허가', company: '기아', date: '2026-10-22', fact: '건축허가: 기아 부지(경기도 화성시 우정읍) · 신축 공장' },
+    { id: 'l1', tier: 'A', tool: 'kr_official', watch: '지자체 고시·공고', company: '기아', date: '2026-10-29', fact: '화성시 고시 「기아 오토랜드 화성 PBV 2공장 도시계획시설 결정」' },
+    { id: 'w1', tier: 'A', tool: 'kr_official', watch: '사업장 인력(국민연금)', company: '기아', date: t(2), fact: '「AutoLand 화성 기아 LW 프로젝트」 · 첫 현장 적용 2026-10-05' },
+    { id: 's1', tier: 'B', tool: 'kr_official', watch: '굴뚝 측정(공장 가동 신호)', company: '현대제철', date: t(3), fact: '현대제철㈜: 배출구 2개가 3번 연속 평소의 10% 아래' },
+    { id: 'l2', tier: 'B', tool: 'kr_official', watch: '지자체 고시·공고', company: '현대제철', date: '2026-10-25', fact: '당진시 공고 「현대제철㈜ 전기로 설치 관련 공유수면 점용」' },
+    { id: 'c1', tier: 'C', tool: 'kr_official', watch: '지자체 고시·공고', company: '포스코', date: '2026-10-25', fact: '포항시 고시 「영일만 산업단지」' },
+    { id: 'p1', tier: 'B', tool: 'kr_official', watch: '공장 부지 건축허가', company: '포스코', date: '2026-10-25', fact: '건축허가: 포스코 부지(경상북도 포항시)' },
+    { id: 'x1', tier: 'A', tool: 'us_recalls', watch: '미국 리콜', company: '기아', date: '2026-10-29', fact: '화성 공장 생산 차량 리콜' },
+    { id: 'n1', tier: 'B', tool: 'kr_official', watch: '공장등록·관보', company: '현대차', date: '2026-10-29', fact: '공장 등록 내용 변경(주소 없음)' }];
+  const g = convergence(items, { cut: Date.parse('2026-10-29T15:00:00Z') });
+  assert.deepEqual(g.map((x) => [x.company, x.place, x.watches.length, x.fresh]), [['기아', '화성', 3, true], ['현대제철', '당진', 2, true]]);
+  assert.ok(!g[0].items.some((x) => x.id === 'x1'));  // 미국 리콜은 장소 묶음 대상이 아님
+  assert.ok(!g.some((x) => x.company === '포스코'));  // C는 세지 않아 감시 한 곳뿐
+});
+
+test('converging signals: background (workforce project, recent permit, stopped stack) joins a fresh item but never forms a group alone', () => {
+  const now = Date.parse('2026-10-30T03:00:00Z');
+  const docs = {
+    'kr-workforce': { projects: [{ id: 'p1', company: '기아', title: 'AutoLand 화성 기아 LW 프로젝트', sites: 46, tier: 'A', firstSeen: '2026-10-30T09:43:00+09:00' },
+      { id: 'p2', company: '현대제철', title: '현대제철 당진 유틸리티설비 증설공사', sites: 3, tier: 'A', firstSeen: '2026-10-30T09:43:00+09:00' }] },
+    'kr-building': { permits: [{ id: 'bd1', company: '현대제철', kind: '새 허가', tier: 'B', permitted: '2026-09-22', plot: '전남광주통합특별시 순천시 해룡면 신성리 897번지', archGbCdNm: '신축' }] },
+    'kr-stacks': { generatedAt: '2026-10-30T12:20:00+09:00', sites: [{ id: 's1', company: '현대제철', name: '현대제철㈜', stopped: ['1', '2', '3'], meaningful: 60 },
+      { id: 's2', company: '포스코', name: '㈜포스코 광양제철소', stopped: ['129', '135'], meaningful: 137 },  // 10-31 운영: 137개 중 2개 — 배경 아님
+      { id: 's3', company: '영풍', name: '㈜영풍석포제련소', stopped: ['3'], meaningful: 4 }] } };  // 작은 사업장은 하나도 배경
+  const bg = background(docs, now);
+  assert.equal(bg.length, 5);
+  assert.deepEqual(bg.filter((x) => x.id.startsWith('bg:stk:')).map((x) => x.id), ['bg:stk:s1', 'bg:stk:s3']);
+  const fresh = [{ id: 'l1', tier: 'A', tool: 'kr_official', watch: '지자체 고시·공고', company: '기아', date: '2026-10-29', fact: '화성시 고시 「기아 오토랜드 화성 PBV 2공장」' }];
+  const g = convergence([...fresh, ...bg], { cut: Date.parse('2026-10-29T03:00:00Z') });  // 10-29 12:00 KST(24시간 창)
+  assert.deepEqual(g.map((x) => [x.company, x.place, x.watches.length, x.fresh]), [['기아', '화성', 2, true]]);
+  assert.equal(convergence([...fresh, ...bg], { cut: Date.parse('2026-10-29T15:00:00Z') })[0].fresh, false);  // 10-30 00:00 KST부터면 10-29 공고는 새 항목 아님
+  // 당진: 공사 현장 + 멈춘 굴뚝은 둘 다 배경이라 묶지 않는다
+  assert.ok(!g.some((x) => x.place === '당진'));
+});
+
+test('radar_today shows converging signals above the tiers', async () => {
+  const env = PRIVATE().env;
+  const recent = new Date(Date.now() - 2 * 3600000).toISOString();
+  const older = new Date(Date.now() - 5 * 86400000).toISOString();
+  const post = (feed, doc) => worker.fetch(new Request(ORIGIN + `/ingest/${feed}`, { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {});
+  await post('kr-local', { schema: 'kr_local/v1', generatedAt: recent, checks: [], items: [
+    { id: 'local:화성시:1', city: '화성시', company: '기아', tier: 'A', title: '기아 오토랜드 화성 공장 증설 관련 도시관리계획 결정', date: older.slice(0, 10), firstSeen: older, url: 'https://e/1' }] });
+  await post('kr-workforce', { schema: 'kr_workforce/v1', generatedAt: recent, month: '202610', sites: [], projects: [], checks: [], events: [
+    { id: 'wf:proj:x', kind: '새 공사 현장', tier: 'A', company: '기아', month: '202610', detectedAt: recent, text: '「AutoLand 화성 기아 LW 프로젝트」 · 첫 현장 적용 2026-10-05' }] });
+  const r = await call('radar_today', {}, { path: `/mcp/${TOKEN}`, env });
+  assert.match(r.text, /\[겹친 신호 · 최근 14일 같은 출입처·같은 시군을 감시 여러 곳이 가리킴\] 1곳/);
+  assert.match(r.text, /- \[새 항목 포함\] 기아 · 화성 — 감시 2곳\((사업장 인력\(국민연금\), 지자체 고시·공고|지자체 고시·공고, 사업장 인력\(국민연금\))\)/);
+  assert.ok(r.text.indexOf('[겹친 신호') < r.text.indexOf('[A · '));
+});
+
+test('workforce: a small rise is reference (C, no press check), a small drop stays B', async () => {
+  const env = PRIVATE().env;
+  const recent = new Date(Date.now() - 2 * 3600000).toISOString();
+  const post = (feed, doc) => worker.fetch(new Request(ORIGIN + `/ingest/${feed}`, { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {});
+  // 10-31 운영: 한화솔루션 울산1 +15명이 B '미보도 후보'(질의 '한화솔루션 채용')로 떴다. 예전 저장분은 tier B로 남아 있다.
+  await post('kr-workforce', { schema: 'kr_workforce/v1', generatedAt: recent, month: '202609', sites: [], projects: [], checks: [], events: [
+    { id: 'wf:delta:up', kind: '인력 변동', tier: 'B', company: '한화솔루션', month: '202609', detectedAt: recent,
+      text: '한화솔루션(주) 울산1(울산광역시 남구 상개로) 국민연금 가입자 521→536명(+15명, +2.9%) · 그달 신규 취득 17·상실 4 — 2026-09 자료' },
+    { id: 'wf:delta:down', kind: '인력 변동', tier: 'B', company: '기아', month: '202609', detectedAt: recent,
+      text: '기아(주)AutoLand화성 국민연금 가입자 11,560→11,300명(-260명, -2.2%) — 2026-09 자료' }] });
+  const r = await call('radar_today', { include_minor: true }, { path: `/mcp/${TOKEN}`, env });
+  const b = r.text.split('[B · ')[1].split('[C · ')[0];
+  const c = r.text.split('[C · ')[1];
+  assert.match(b, /11,560→11,300명\(-260명/);
+  assert.doesNotMatch(b, /521→536명/);
+  assert.match(c, /521→536명\(\+15명/);
+  const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, {})).json();
+  assert.equal(items.items.find((x) => x.id === 'wf:delta:up'), undefined);
+  assert.deepEqual(items.items.find((x) => x.id === 'wf:delta:down').check.terms, ['감원']);
 });
 
 test('us_litigation shows party cases by priority, folds routine ones, and lists ITC 337 names', async () => {
@@ -852,7 +1121,7 @@ test('Cloudflare cron asks GitHub to run each watch at its KST weekday slot and 
   assert.deepEqual(dueAt(new Date('2026-10-26T22:40:05Z')), ['trade-remedy.yml']);        // Tue 07:40 KST
   assert.deepEqual(dueAt(new Date('2026-10-26T22:10:30Z')), ['scoop-screen.yml']);
   assert.deepEqual(dueAt(new Date('2026-10-27T06:10:00Z')), ['scoop-screen.yml']);        // 15:10 KST
-  assert.deepEqual(dueAt(new Date('2026-10-26T22:20:00Z')), []);                          // no slot
+  assert.deepEqual(dueAt(new Date('2026-10-27T07:00:00Z')), []);                          // no slot (16:00 KST)
   assert.deepEqual(dueAt(new Date('2026-10-31T22:40:00Z')), []);                          // Sun 07:40 KST
   const opts = PRIVATE({ GITHUB_DISPATCH_TOKEN: 'ghp_test' });
   const seen = [];
@@ -873,7 +1142,7 @@ test('Cloudflare cron asks GitHub to run each watch at its KST weekday slot and 
   // the reporter adds the secret after the morning slots: the line says so before the next slot comes round
   const later = await call('radar_today', {}, { ...none, env: { ...none.env, GITHUB_DISPATCH_TOKEN: 'ghp_test' } });
   assert.match(later.text, /예약 요청\(Cloudflare\): 오늘 앞선 칸은 토큰 없이 지나감 · 지금은 토큰 보임 — 다음 칸\(10-26 15:00 scoop-radar\.yml\)부터 요청/);
-  assert.equal(nextSlot(new Date('2026-10-30T10:00:00Z')), '11-02 06:10 kr-fuel.yml');  // Fri 19:00 KST → Mon 06:30
+  assert.equal(nextSlot(new Date('2026-10-30T10:00:00Z')), '11-02 06:00 overseas-registry.yml');  // Fri 19:00 KST → Mon 06:00
   const fresh = await call('radar_today', {}, PRIVATE());
   assert.match(fresh.text, /예약 요청\(Cloudflare\): 기록 없음 · 지금도 워커에서 GITHUB_DISPATCH_TOKEN이 보이지 않음/);
   const freshWithToken = await call('radar_today', {}, PRIVATE({ GITHUB_DISPATCH_TOKEN: 'ghp_test' }));
@@ -1026,8 +1295,8 @@ test('kr_signals shows FTC decisions by role, KEPCO bids and commodity prices, a
   const minor = await call('radar_today', { include_minor: true }, opts);
   assert.match(minor.text, /「\(연간단가\)고효율주상변압기,50KVA\(광유\)-2,338대-0\d\(일반\)」 외 같은 공고 2건\(합계 약 149억원\) · 추정가격 약 50억원/);
   assert.equal((minor.text.match(/고효율주상변압기/g) ?? []).length, 1);  // three lots, one line
-  assert.match(r.text, /기자 전용 감시 14개/);
-  assert.deepEqual(dueAt(new Date('2026-10-26T23:30:00Z')), ['kr-signals.yml']);  // Tue 08:30 KST
+  assert.match(r.text, /기자 전용 감시 22개/);
+  assert.deepEqual(dueAt(new Date('2026-10-26T23:30:00Z')), ['kr-signals.yml', 'kipris-patent-hunt.yml']);  // Tue 08:30 KST
   assert.deepEqual(dueAt(new Date('2026-10-27T06:20:00Z')), ['kr-signals.yml']);  // Tue 15:20 KST
 });
 
@@ -1078,6 +1347,74 @@ test('kr_stats shows KAIDA ranks, price and production series with signals, and 
   assert.deepEqual(dueAt(new Date('2026-10-26T22:30:00Z')), ['kr-stats.yml']);  // Tue 07:30 KST
 });
 
+test('kr_stats carsales: latest-month signals A first, model months on query, radar_today puts a stopped model in A and a drop in B', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const sig = (tier, signal, label, scope, text) => ({ id: `cs:x:${label}:2026-10:${signal}`, maker: '현대차', signal, tier, period: '2026-10', scope, label, value: 1, base: 1, yoy: 1, text });
+  const doc = { schema: 'kr_stats/v1', generatedAt: '2026-11-16T07:30:00+09:00', checks: [{ source: '완성차 판매(현대차·기아 IR)', status: 'ok', ok: 8, failed: 0, latest: '현대차 모델 2026-10' }],
+    rules: [], series: [], kaidaMonths: {}, kaida: {},
+    carSales: { latest: { 'hmc:model': '2026-10', 'hmc:plant': '2026-10', 'kia:model': '2026-08' },
+      files: { a: { maker: 'hmc', kind: 'model', year: 2026, latest: '2026-10', lastModified: 'Fri, 13 Nov 2026 11:28:08 GMT' },
+        b: { maker: 'hmc', kind: 'model', year: 2025, latest: '2025-12', lastModified: 'Mon, 26 Jan 2026 06:37:47 GMT' } },
+      rules: ['현대차·기아 IR 엑셀(회사 발표 잠정치).'],
+      signals: [sig('B', '급감', 'Sonata (DN8)', '국내 판매', '현대차 국내 판매 · Sonata (DN8) 2026-10 400대 — 직전 3개월 평균 2,198대의 18%, 전년 같은 달 2,500대(16%)'),
+        sig('A', '판매 끊김', 'Santa-Fe (MX5a)', '미국 앨라배마 공장 현지 판매', '현대차 미국 앨라배마 공장 현지 판매 · Santa-Fe (MX5a) 2026-10 100대 — 직전 3개월 평균 7,526대, 전년 같은 달 7,000대. 판매(출고)가 거의 끊김')],
+      series: [{ id: 'hmc:model:Domestic::Sonata (DN8)', maker: 'hmc', kind: 'model', scope: '국내 판매', label: 'Sonata (DN8)',
+        months: { '2026-05': 2241, '2026-06': 2804, '2026-07': 2788, '2026-08': 1642, '2026-09': 2163, '2026-10': 400 } }] },
+    events: [{ id: 'cs:hmc:plant:HMMA:Domestic:Santa-Fe (MX5a):2026-10:판매 끊김', kind: '모델별 판매', signal: '판매 끊김', tier: 'A', period: '2026-10', company: '현대차',
+        detectedAt: '2026-11-16T07:30:00+09:00', keyword: '싼타페', url: 'https://www.hyundai.com/worldwide/ko/company/ir/ir-resources/sales-results',
+        text: '현대차 미국 앨라배마 공장 현지 판매 · Santa-Fe (MX5a) 2026-10 100대 — 직전 3개월 평균 7,526대, 전년 같은 달 7,000대. 판매(출고)가 거의 끊김 (IR 엑셀)' },
+      { id: 'cs:hmc:model:Domestic::Sonata (DN8):2026-10:급감', kind: '모델별 판매', signal: '급감', tier: 'B', period: '2026-10', company: '현대차',
+        detectedAt: '2026-11-16T07:30:00+09:00', keyword: '쏘나타', url: 'https://www.hyundai.com/worldwide/ko/company/ir/ir-resources/sales-results',
+        text: '현대차 국내 판매 · Sonata (DN8) 2026-10 400대 — 직전 3개월 평균 2,198대의 18%, 전년 같은 달 2,500대(16%) (IR 엑셀)' }],
+    confirmedScoops: 0 };
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/kr-stats', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
+  const k = await call('kr_stats', { section: 'carsales' }, opts);
+  assert.match(k.text, /\[완성차 모델별·공장별 판매 · 현대차·기아 IR 엑셀\] 최신 현대차 모델별\(국내 판매·국내 공장 수출\) 2026-10 · 현대차 해외 공장별 2026-10 · 기아 모델별\(국내 판매·국내 공장 수출\) 2026-08/);
+  assert.match(k.text, /최신 달 신호 2건\(A 먼저\):\n   - B · 급감: 현대차 국내 판매 · Sonata/);  // 저장 순서 그대로(수집기가 A 먼저 정렬)
+  assert.doesNotMatch(k.text, /계열 \d+개/);  // 낱말 없이 부르면 계열 값은 안 펼침
+  assert.match(k.text, /현대차 모델별\(국내 판매·국내 공장 수출\) 엑셀 최종수정 Fri, 13 Nov 2026/);  // 지난해 파일(Mon, 26 Jan)이 아니라 최신 달 파일
+  assert.doesNotMatch(k.text, /26 Jan 2026/);
+  assert.doesNotMatch(k.text, /\[수입 승용차|\[물가지수/);
+  assert.match(k.text, /다음: 신호가 있으면 IR 엑셀 원본에서/);
+  const q = await call('kr_stats', { section: 'carsales', company: 'Sonata' }, opts);
+  assert.match(q.text, /계열 1개 — 최근 6개월:\n   - 현대차 국내 판매 · Sonata \(DN8\): 26-05 2,241 \/ 26-06 2,804 \/ 26-07 2,788 \/ 26-08 1,642 \/ 26-09 2,163 \/ 26-10 400/);
+  assert.doesNotMatch(q.text, /Santa-Fe/);
+  const r = await call('radar_today', { hours: 24 }, { ...opts, now: new Date('2026-11-16T03:00:00Z') });
+  const a = r.text.split('[A · ')[1].split('[B · ')[0];
+  assert.match(a, /모델별 판매: 현대차 미국 앨라배마 공장 현지 판매 · Santa-Fe \(MX5a\) 2026-10 100대/);
+  const b = r.text.split('[B · ')[1].split('[C · ')[0];
+  assert.match(b, /모델별 판매: 현대차 국내 판매 · Sonata \(DN8\) 2026-10 400대/);
+});
+
+test('trade_remedies kita: KITA import-regulation events A/B/C in radar_today, recent cases listed, section filter', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const recent = new Date(Date.now() - 3600000).toISOString();
+  const ev = (id, tier, kind, text, companies = [], country = 'EAEU') => ({ id, pageId: 'kita', country, tier, kitaKind: kind, label: `${country} 사건`, text, companies,
+    url: 'https://docs.wto.org/dol2fe/Pages/SS/directdoc2.aspx?filename=Q%3a%2fG%2fSG%2fN6RUS10.pdf&Open=True', kitaId: id.split(':')[1], detectedAt: recent });
+  const doc = { schema: 'trade_remedy/v1', generatedAt: recent, status: 'complete', checks: [{ source: '무역협회 수입규제DB', status: 'ok', returned: 50, detailsRead: 3 }],
+    quotas: [], federalRegister: [], pages: [], rules: [],
+    kita: { checkedAt: recent, baselineSince: '2026-10-30T07:40:00+09:00', recent: ['ROIL2026100002', 'ROIL2026100006'],
+      cases: { ROIL2026100002: { country: 'EAEU', item: '폴리머코팅 평판압연(Flat Steel Products with Polymer Coating)', type: '세이프가드', status: '조사중', updated: '2026-10-27', category: '철강/금속', latestStage: '조사개시|2026-09-07' },
+        ROIL2026100006: { country: '마다가스카르', item: '현미(Husked Rice)', type: '세이프가드', status: '조사중', updated: '2026-10-29' } } },
+    events: [ev('kita:ROIL2026100010:조사개시|2026-10-20', 'A', '새 대한 수입규제', '튀르키예 반덤핑 · 열연강판(Hot-rolled) — 조사개시 2026-10-20 · 출입처: 포스코·현대제철', ['포스코', '현대제철'], '튀르키예'),
+      ev('kita:ROIL2026100002:new', 'B', '새 대한 수입규제', 'EAEU 세이프가드 · 폴리머코팅 평판압연 — 조사개시 2026-09-07 · 품목 분류 철강/금속'),
+      ev('kita:ROIL2026100006:new', 'C', '새 대한 수입규제', '마다가스카르 세이프가드 · 현미 — 조사개시 2026-08-31', [], '마다가스카르')] };
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/trade-remedy', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
+  const r = await call('radar_today', { include_minor: true }, opts);
+  const sec = (t) => r.text.split(`[${t} · `)[1].split(/\n\[[ABC] · /)[0];
+  assert.match(sec('A'), /새 대한 수입규제[\s\S]*튀르키예 반덤핑 · 열연강판\(Hot-rolled\) — 조사개시 2026-10-20 · 출입처: 포스코·현대제철/);
+  assert.match(sec('B'), /EAEU 세이프가드 · 폴리머코팅 평판압연/);
+  assert.match(sec('C'), /마다가스카르 세이프가드 · 현미/);
+  const t = await call('trade_remedies', { section: 'kita' }, opts);
+  assert.match(t.text, /\[대한 수입규제 · 무역협회 수입규제DB · 확인 [^\]]*\] 아는 사건 2건 · 감지 3건\(기준선 2026-10-30 이후\)\n- A · /);
+  assert.match(t.text, /최근 갱신 사건\(갱신순\) 2\/2:\n  2026-10-27 · EAEU 세이프가드 · 폴리머코팅 평판압연\(Flat Steel Products with Polymer Coating\) · 조사중 · 철강\/금속 · 최신 조사개시 2026-09-07/);
+  assert.doesNotMatch(t.text, /EU 철강 쿼터|미국 상무부/);
+  const q = await call('trade_remedies', { section: 'kita', company: '포스코' }, opts);
+  assert.match(q.text, /감지 1건/);
+});
+
 test('partner filings: EDGAR holdings tables and repeated text fold to C, financial-statement notes never reach A', async () => {
   const opts = PRIVATE();
   const env = opts.env;
@@ -1086,7 +1423,14 @@ test('partner filings: EDGAR holdings tables and repeated text fold to C, financ
   const doc = { schema: 'partner_filings/v1', generatedAt: '2026-10-26T07:00:00+09:00', windowDays: 30, checks: [{ source: 'EDGAR', target: 'Hyundai Motor Company', status: 'ok' }],
     items: [ed('h1', 'HARTFORD INSURANCE GROUP', 'Top Ten Exposures by Issuer … Hyundai Motor Company 182 178 0.3 %', { routine: '투자 보유 목록(채권·주식 보유 표) — 출입처와의 거래 아님' }),
       ed('k1', 'KT CORP', '(12) The Company has an agreement related to a stock sale contract with HYUNDAI MOTOR COMPANY.', { finNote: '재무제표 주석 — 이미 있던 약정을 다시 적은 것일 수 있음(이전 분기 보고서와 대조)' }),
-      ed('c1', 'CELL MAKER INC', 'entered into a binding supply agreement with Hyundai Motor Company for battery cells.')],
+      ed('c1', 'CELL MAKER INC', 'entered into a binding supply agreement with Hyundai Motor Company for battery cells.', { dealNear: true }),
+      // 10-30: 계약 낱말이 출입처 이름과 다른 문장(업계 일반 서술), 보도 인용 문장에만 이름 → A가 아니다
+      ed('n1', 'NEXA RESOURCES', 'For third-party suppliers, TCs are based on annually negotiated contracts. The 2026 benchmark TC, reportedly agreed between Hyundai Motor Company and X, was set at US$85/t.',
+        { dealNear: false, hearsay: '출입처 이름이 보도 인용 문장(reportedly 등)에만 나옴 — 두 회사 간 거래 공시가 아님' }),
+      ed('m1', 'MINER CORP', 'Our supply contracts are with steel mills. Hyundai Motor Company is one of the largest automakers.', { dealNear: false }),
+      // 10-31: 퍼스트솔라 10-Q의 특허침해 USITC 청원 문단 — 질의는 한국 표기 + '특허'
+      ed('f1', 'FIRST SOLAR, INC.  (FSLR)', 'First Solar filed a petition with the USITC asserting that entities affiliated with Hyundai Motor Company infringe a First Solar patent.',
+        { dealNear: false })],
     confirmedScoops: 0 };
   assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/partner-filings', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
   const r = await call('radar_today', { include_minor: true, limit: 60 }, opts);
@@ -1094,7 +1438,16 @@ test('partner filings: EDGAR holdings tables and repeated text fold to C, financ
   assert.match(sec('A'), /CELL MAKER INC/);
   assert.match(sec('B'), /KT CORP: 6-K EX-99\.1 — 재무제표 주석/);
   assert.match(sec('C'), /HARTFORD INSURANCE GROUP: 6-K EX-99\.1 — 투자 보유 목록/);
-  assert.doesNotMatch(sec('A'), /KT CORP|HARTFORD/);
+  assert.doesNotMatch(sec('A'), /KT CORP|HARTFORD|NEXA|MINER/);
+  assert.match(sec('C'), /NEXA RESOURCES: 6-K EX-99\.1 — 출입처 이름이 보도 인용 문장/);  // 기사 인용일 뿐 — 참고(10-31)
+  assert.doesNotMatch(sec('B'), /NEXA RESOURCES/);
+  assert.match(sec('B'), /MINER CORP: 6-K EX-99\.1 — 계약·공급 낱말이 출입처 이름과 다른 문장에 있음/);
+  assert.match(sec('B'), /FIRST SOLAR, INC\.  \(FSLR\): 6-K EX-99\.1 — 발췌에 계약·공급·합작 낱말 없음/);
+  const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=168', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: new Date('2026-10-26T01:00:00Z') })).json();
+  const chk = (id) => items.items.find((x) => x.id === id)?.check;
+  assert.deepEqual([chk('f1').who, chk('f1').terms, chk('f1').must], ['현대차', ['퍼스트솔라', '특허'], ['퍼스트솔라']]);
+  assert.equal(chk('m1'), undefined);  // 한국 표기를 모르는 회사: 'MINER'로 찾지 않는다(대조 안 함)
+  assert.equal(chk('n1'), undefined);  // C
   const t = await call('partner_filings', {}, opts);
   assert.doesNotMatch(t.text, /HARTFORD/);
   assert.match(t.text, /분류: 재무제표 주석/);
@@ -1119,12 +1472,15 @@ test('assembly bills: same-law same-day filings are one line, core laws are B, s
       { id: 'bill:PRC_A2:발의', billId: 'PRC_A2', kind: '발의', detectedAt: '2026-10-26T08:40:00+09:00', date: '2026-10-25', core: '전력·에너지', law: '전기사업법', lead: '이을동' },
       { id: 'bill:PRC_S1:소관위 상정', billId: 'PRC_S1', kind: '소관위 상정', detectedAt: '2026-10-26T08:40:00+09:00', date: '2026-10-26', core: '철강·비철',
         law: '철강산업 경쟁력 강화 및 탄소중립 전환을 위한 특별법', lead: '박병동', from: '소관위 회부' },
-      { id: 'bill:PRC_K1:발의', billId: 'PRC_K1', kind: '발의', detectedAt: '2026-10-26T08:40:00+09:00', date: '2026-10-25', core: null, law: '산업안전보건법', lead: '홍길동' }],
+      { id: 'bill:PRC_K1:발의', billId: 'PRC_K1', kind: '발의', detectedAt: '2026-10-26T08:40:00+09:00', date: '2026-10-25', core: null, law: '산업안전보건법', lead: '홍길동' },
+      // 10-31 운영: 발의 다음 날 소관위 회부가 또 B로 떴다 — 회부는 모든 법안이 거치는 절차
+      { id: 'bill:PRC_A1:소관위 회부', billId: 'PRC_A1', kind: '소관위 회부', detectedAt: '2026-10-26T08:40:00+09:00', date: '2026-10-26', core: '전력·에너지',
+        law: '전기사업법', lead: '김갑동', from: '발의' }],
     rules: ['국회의원 발의법률안(열린국회정보)이다.'], confirmedScoops: 0 };
   assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/assembly-bills', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
   const t = await call('assembly_bills', {}, opts);
   assert.match(t.text, /\[새 발의 · 최근 14일 · 출입처 직결 법\(core\)\] 1묶음\n- 2026-10-25 · \[전력·에너지\] 법안 발의: 전기사업법 일부개정법률안 등 2건 — 김갑동·이을동 대표발의/);
-  assert.match(t.text, /\[단계 변화 · 최근 14일\] 1건\n- 2026-10-26 · \[철강·비철\] 법안 소관위 상정: 철강산업 경쟁력 강화 및 탄소중립 전환을 위한 특별법 일부개정법률안 \(직전 소관위 회부\) — 박병동 대표발의/);
+  assert.match(t.text, /\[단계 변화 · 최근 14일\] 2건\n- 2026-10-26 · \[철강·비철\] 법안 소관위 상정: 철강산업 경쟁력 강화 및 탄소중립 전환을 위한 특별법 일부개정법률안 \(직전 소관위 회부\) — 박병동 대표발의/);
   assert.doesNotMatch(t.text, /산업안전보건법 일부개정/);
   assert.match((await call('assembly_bills', { include_related: true }, opts)).text, /산업안전보건법 일부개정법률안/);
   const r = await call('radar_today', { include_minor: true }, opts);
@@ -1132,6 +1488,14 @@ test('assembly bills: same-law same-day filings are one line, core laws are B, s
   assert.match(bsec, /국회 법안 · 전력·에너지\n   법안 발의: 전기사업법 일부개정법률안 등 2건/);
   assert.match(bsec, /법안 소관위 상정: 철강산업/);
   assert.match(r.text.split('[C · ')[1], /법안 발의: 산업안전보건법 일부개정법률안/);
+  assert.match(r.text.split('[C · ')[1], /법안 소관위 회부: 전기사업법 일부개정법률안 \(직전 발의\) — 김갑동 대표발의/);
+  assert.doesNotMatch(bsec, /법안 소관위 회부:/);
+  const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=168', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: new Date('2026-10-26T01:00:00Z') })).json();
+  const bill = items.items.find((x) => x.id === 'bills:발의|전기사업법|2026-10-25');
+  assert.deepEqual([bill.check.terms, bill.check.must], [['개정안', '김갑동'], ['김갑동', '이을동']]);  // 대표발의 의원이 기사에 있어야
+  assert.equal(bill.check.names, undefined);  // 줄임말 없는 법은 그대로
+  const steel = items.items.find((x) => x.id.startsWith('bills:') && x.fact.includes('철강산업'));
+  assert.deepEqual([steel.check.who, steel.check.names.at(-1)], ['K-스틸법', '철강산업 경쟁력 강화 및 탄소중립 전환을 위한 특별법']);
   assert.deepEqual(dueAt(new Date('2026-10-27T23:40:00Z')), ['assembly-bills.yml']);  // Wed 08:40 KST
   assert.deepEqual(dueAt(new Date('2026-10-28T08:40:00Z')), ['assembly-bills.yml']);  // Wed 17:40 KST
 });
@@ -1167,7 +1531,7 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   assert.doesNotMatch((await call('trademarks', { name: 'aero' }, opts)).text, /NUTRIMACY/);
   assert.doesNotMatch((await call('trademarks', { class: '35' }, opts)).text, /NUTRIMACY/);
   const r = await call('radar_today', {}, opts);
-  assert.match(r.text, /기자 전용 감시 14개/);
+  assert.match(r.text, /기자 전용 감시 22개/);
   assert.match(r.text, /- 상표 출원: 대기 1곳\(제공기관 응답 22 뒤 72시간 대기\) — 해당 부분 0건은 미확인/);
   assert.doesNotMatch(r.text, /상표 출원: [^\n]*시간 전 결과/);
   const b = r.text.split('[B · ')[1].split('[C · ')[0];
@@ -1177,7 +1541,7 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   assert.match(minor.text, /상표 출원 「NUTRIMACY」[^\n]* — 같은 이름 상품류 추가/);
   const list = await rpc('tools/list', {}, { path: `/mcp/${TOKEN}`, env });
   assert.ok(list.body.result.tools.some((x) => x.name === 'trademarks'));
-  assert.match(list.body.result.tools.find((x) => x.name === 'radar_today').description, /감시 14개\([^)]*상표 출원, 국회 법안, 미국 리콜, 미국 EPA 인증, 국내 연비 신고\)/);
+  assert.match(list.body.result.tools.find((x) => x.name === 'radar_today').description, /감시 22개\([^)]*상표 출원, 국회 법안, 미국 리콜, 미국 EPA 인증, 국내 연비 신고, 해외 발주처 낙찰, 협력사 회생·파산, 전기위·원안위, 공장 부지 건축허가, 해외 법인 등기, 지자체 고시·공고, 사업장 인력, 굴뚝 측정\)/);
   assert.ok(!(await rpc('tools/list', {}, { env })).body.result.tools.some((x) => x.name === 'trademarks'));  // private only
 });
 
@@ -1294,7 +1658,9 @@ test('radar-items hands hinted A/B items to the press checker; radar_today shows
     events: [
       { id: 'fac:1:x', kind: '등록 내용 변경', company: 'KG스틸', factoryId: 'fac:1', name: 'KG스틸(주)', text: '고용 856→690명', detectedAt: '2026-10-25T11:09:00+09:00' },
       { id: 'fac:2:gone', kind: '목록에서 빠짐', company: '현대위아', factoryId: 'fac:2', text: '현대위아(주)창원2공장 · 경상남도 창원시 성산구 정동로 154 — 이번 조회 목록에 없음', detectedAt: '2026-10-25T11:09:00+09:00' },
-      { id: 'fac:3:x', kind: '등록 내용 변경', company: '효성중공업(관련)', factoryId: 'fac:3', text: "업종 'a 외 13 종'→'a 외 14 종'", detectedAt: '2026-10-25T11:09:00+09:00' }] });
+      { id: 'fac:3:x', kind: '등록 내용 변경', company: '효성중공업(관련)', factoryId: 'fac:3', text: "업종 'a 외 13 종'→'a 외 14 종'", detectedAt: '2026-10-25T11:09:00+09:00' },
+      // 10-30부터 수집기가 등급을 붙인다: 순서만 바뀐 주생산품은 C(보도 대조 안 함)
+      { id: 'fac:4:x', kind: '등록 내용 변경', company: 'LS일렉트릭', factoryId: 'fac:4', tier: 'C', text: "주생산품 'a, b'→'b, a' — 순서·표기만 바뀜", detectedAt: '2026-10-25T11:09:00+09:00' }] });
   await call('candidate_feedback', { item_id: 'cl:5', verdict: '봤음', reason: '확인' }, opts);
 
   const wrong = await worker.fetch(new Request(ORIGIN + '/ingest/radar-items', { headers: { Authorization: 'Bearer wrong-token-0123456789' } }), env, {});
@@ -1306,14 +1672,16 @@ test('radar-items hands hinted A/B items to the press checker; radar_today shows
   const by = Object.fromEntries(body.items.map((x) => [x.id, x]));
   assert.deepEqual(by['cl:4'].check, { who: '세아제강', terms: ['국제무역법원', '소송'], alts: { 국제무역법원: ['국제무역법원', '무역법원', 'CIT'], 소송: ['소송', '제소', '판결', '항소', '불복'] } });
   assert.deepEqual(by['cl:7'].check.terms, ['항소', '특허']);
-  assert.deepEqual(by['fac:1:x'].check.terms, ['인력', '감축']);
+  assert.deepEqual(by['fac:1:x'].check.terms, ['감원']);
   assert.equal(by['fac:1:x'].fact, '등록 내용 변경: KG스틸(주)당진공장 · 충청남도 당진시 송악읍 북부산업로 1 — 고용 856→690명');
   assert.equal(by['fac:2:gone'].fact.split(' — ')[0], '목록에서 빠짐: 현대위아(주)창원2공장 · 경상남도 창원시 성산구 정동로 154');  // already named: unchanged
   const ko = await call('kr_official', { section: 'factory', company: 'KG스틸' }, opts);
   assert.match(ko.text, /잡힌 사실: KG스틸\(주\)당진공장 · 충청남도 당진시 송악읍 북부산업로 1 — 고용 856→690명/);
   assert.deepEqual(by['fac:2:gone'].check.terms, ['창원', '공장', '폐쇄']);
+  assert.deepEqual(by['fac:2:gone'].check.places, ['창원']);
   assert.ok(!by['cl:5'], 'judged 봤음 is not checked again');
   assert.ok(!by['cl:9'], 'C tier is not checked');
+  assert.ok(!by['fac:4:x'], 'a factory change the collector graded C is not checked');
   assert.ok(!by['fac:3:x'], 'no hint when the change has no search words');
   assert.equal(hint('효성중공업(관련)·일진전기', ['공장', null]).who, '효성중공업');
   assert.equal(hint('', ['x']), undefined);
@@ -1389,7 +1757,23 @@ test('us_recalls: NHTSA full-file recalls with Korean links reach A; imports alo
         firstSeen: '2026-10-25T17:10:00+09:00', isNew: true },
       { id: 'nhtsa:26V701000', campaign: '26V701000', received: '2026-10-24', makes: ['BMW'], models: 'X5 2026', component: 'BRAKES', affected: 300,
         defect: 'Brake hose.', url: 'https://www.nhtsa.gov/recalls?nhtsaId=26V701', why: [{ role: '제조사(출입처 브랜드)', beat: 'BMW코리아', name: 'BMW' }],
-        firstSeen: '2026-10-25T17:10:00+09:00', isNew: true }] };
+        firstSeen: '2026-10-25T17:10:00+09:00', isNew: true },
+      // 10-31: 수입 브랜드만 걸린 큰 리콜은 B, 출입처 직접 리콜도 1,000대 미만이면 B
+      { id: 'nhtsa:26V702000', campaign: '26V702000', received: '2026-10-24', makes: ['BMW'], models: 'X3 2025', component: 'AIR BAGS', affected: 52000,
+        defect: 'Air bag.', url: 'https://www.nhtsa.gov/recalls?nhtsaId=26V702', why: [{ role: '제조사(출입처 브랜드)', beat: 'BMW코리아', name: 'BMW' }],
+        firstSeen: '2026-10-25T17:10:00+09:00', isNew: true },
+      { id: 'nhtsa:26V692000', campaign: '26V692000', received: '2026-10-24', makes: ['HYUNDAI'], models: 'ELANTRA 2026', component: 'SUSPENSION', affected: 24,
+        defect: 'Strut fasteners.', url: 'https://www.nhtsa.gov/recalls?nhtsaId=26V692', why: [{ role: '제조사(출입처 브랜드)', beat: '현대차', name: '현대차' }],
+        firstSeen: '2026-10-25T17:10:00+09:00', isNew: true }],
+    invLookbackDays: 120,
+    investigations: [
+      { id: 'odi:PE26010', action: 'PE26010', type: '예비조사(PE)', kind: '조사 개시', opened: '2026-10-24', closed: null, models: 'HYUNDAI TUCSON 2025',
+        component: 'ELECTRICAL', subject: 'ICCU failure', summary: 'Loss of drive power.', recallCampaigns: [], tier: 'A',
+        why: [{ role: '제조사(출입처 브랜드)', beat: '현대차', name: '현대차' }], beat: ['현대차'], url: 'https://www.nhtsa.gov/recalls?nhtsaId=PE26010',
+        firstSeen: '2026-10-25T17:10:00+09:00', isNew: true },
+      { id: 'odi:EA25001', action: 'EA25001', type: '공학분석(EA, 격상 단계)', kind: '조사 개시', opened: '2026-07-01', closed: null, models: 'KIA EV6 2023',
+        component: 'SEATS', subject: 'Old probe', summary: '', recallCampaigns: [], tier: 'A', why: [{ role: '제조사(출입처 브랜드)', beat: '기아', name: '기아' }],
+        url: 'https://www.nhtsa.gov/recalls?nhtsaId=EA25001', firstSeen: '2026-10-20T17:10:00+09:00', isNew: false }] };
   assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/us-recalls', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
   const t = await call('us_recalls', {}, opts);
   assert.match(t.text, /\[신규\] 2026-10-24 · 26V698000 · 아우디\(제조사\(출입처 브랜드\)\) · SK온\(부품 공급사\(원보고서, 출입처 아님\)\)/);
@@ -1400,11 +1784,19 @@ test('us_recalls: NHTSA full-file recalls with Korean links reach A; imports alo
   const a = r.text.split('[A · ')[1].split('[B · ')[0];
   const b = r.text.split('[B · ')[1].split('[C · ')[0];
   assert.match(a, /미국 리콜 26V698000 접수 2026-10-24 · Q4 E-TRON 2024~2025 · ELECTRICAL SYSTEM:PROPULSION · 대상 9,048대 · 실외 주차 권고 — 아우디\(제조사\(출입처 브랜드\)\)·SK온/);
-  assert.match(b, /미국 리콜 26V701000/);
+  assert.match(b, /미국 리콜 26V702000/);
+  assert.match(b, /미국 리콜 26V692000 접수 2026-10-24 · ELANTRA 2026 · SUSPENSION · 대상 24대/);
+  assert.doesNotMatch(a + b, /26V701000/);  // 수입 브랜드 300대 → 참고(C)
+  assert.match(r.text, /\[C · 참고\(접힘\)\] \d+건/);
+  assert.match(a, /미국 NHTSA 예비조사\(PE\) PE26010 조사 개시 · HYUNDAI TUCSON 2025 · ELECTRICAL · 「ICCU failure」 · 개시 2026-10-24 — 조사 개시는 결함 확정 아님/);
+  assert.doesNotMatch(r.text, /Old probe/);  // first-read baseline with an old date
+  assert.match(t.text, /\[결함조사\(ODI\) · 최근 120일 개시·종결\] 출입처 관련 2건/);
+  assert.match(t.text, /\[신규\] 2026-10-24 · PE26010 예비조사\(PE\) 조사 개시 · 현대차\(제조사\(출입처 브랜드\)\)/);
   const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
   const hit = items.items.find((x) => x.id === 'nhtsa:26V698000');
   assert.deepEqual([hit.check.who, hit.check.terms], ['SK온', ['리콜', '아우디']]);
-  assert.deepEqual(items.items.find((x) => x.id === 'nhtsa:26V701000').check.terms, ['리콜', '미국']);
+  assert.deepEqual(items.items.find((x) => x.id === 'nhtsa:26V702000').check.terms, ['리콜', '미국']);
+  assert.equal(items.items.find((x) => x.id === 'nhtsa:26V701000'), undefined);  // C는 보도 대조 안 함
   assert.deepEqual(dueAt(new Date('2026-10-28T08:10:00Z')), ['us-recalls.yml']);  // Wed 17:10 KST
 });
 
@@ -1496,6 +1888,208 @@ test('kr_fuel: a new model name is A, an EV range change B, other rows C; unset 
   assert.match((await call('kr_fuel', {}, opts)).text, /미확인\(0건 아님\): 공공데이터포털 활용신청 필요/);
 });
 
+test('overseas awards: a beat company in the TED winner field is A; other Korean winners stay in the tool', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const a = (id, extra = {}) => ({ id, source: 'EU TED', published: '2026-10-25', kind: '낙찰', buyer: 'Energinet Eltransmission A/S', buyerCountry: 'DNK',
+    winners: ['Hyosung Heavy Industires Corporation'], winnerCountry: ['KOR'], winnerIds: ['578-87-00896'], company: '효성중공업', companies: ['효성중공업'],
+    title: '400/220 kV Autotransformers for SLF02', value: 15923696, currency: 'EUR', concluded: '2026-06-19', noticeType: 'can-standard',
+    url: 'https://ted.europa.eu/en/notice/-/detail/545946-2026', firstSeen: '2026-10-25T17:30:00+09:00', isNew: true, tier: 'A', ...extra });
+  const doc = { schema: 'overseas_awards/v1', generatedAt: '2026-10-25T17:30:00+09:00', status: 'partial', coverage: 'EU TED · 영국 Find a Tender · 세계은행 · 바레인',
+    checks: [{ source: 'EU TED', query: '한국 국적 낙찰자', status: 'ok', returned: 20, matched: 3 }, { source: '세계은행 조달', query: 'LS Cable', status: 'failed', error: 'HTTP 503' }],
+    rules: ['낙찰자 칸에 이름이 있을 때만 잡는다.'],
+    items: [a('ted:545946-2026'),
+      a('ted:546637-2026', { kind: '계약 변경', tier: 'B', company: 'HD현대일렉트릭', winners: ['HD Hyundai Electric Europe GmbH'], winnerCountry: ['DEU'], winnerIds: [], value: null, concluded: null }),
+      a('ted:721359-2026', { tier: 'C', company: null, companies: [], winners: ['Nano Co., Ltd.'], buyer: 'Enea Elektrownia Połaniec', buyerCountry: 'POL', value: null }),
+      a('pcc:3.13.31:0081520071:BDM-1-71300001', { source: '대만 정부조달(PCC)', published: '2026-10-24', buyer: '台灣電力股份有限公司', buyerCountry: 'TWN', company: 'LS전선', companies: ['LS전선'],
+        winners: ['LS Cable & System Ltd.'], winnerCount: 2, winnerCountry: [], winnerIds: [], value: 276084986, currency: 'TWD', priceKind: '출입처 낙찰 품목 결정 금액 합',
+        title: '115年度超耐熱鋼心鋁線 — 2번 품목 LS Cable & System Ltd. NT$276,084,986(원산지 南韓(Republic of Korea))', concluded: '2026-10-24',
+        url: 'https://openfunltd.github.io/pcc-viewer/tender.html?unit_id=3.13.31&job_number=0081520071',
+        official: 'https://web.pcc.gov.tw/prkms/tender/common/noticeDate/redirectPublic?ds=20261024&fn=BDM-1-71300001.xml' })] };
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/overseas-awards', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
+  const r = await call('radar_today', { hours: 72, include_minor: true }, opts);
+  const sec = (t) => r.text.split(`[${t} · `)[1].split(/\n\[[ABC] · /)[0];
+  assert.match(sec('A'), /해외 낙찰\(EU TED\): 덴마크 Energinet Eltransmission A\/S ← Hyosung Heavy Industires Corporation · 400\/220 kV Autotransformers for SLF02 · EUR 15,923,696 · 계약 2026-06-19 · 공고 2026-10-25/);
+  assert.match(sec('B'), /해외 계약 변경\(EU TED\): 덴마크 Energinet Eltransmission A\/S ← HD Hyundai Electric Europe GmbH · 400\/220 kV Autotransformers for SLF02 · 금액 미기재/);
+  assert.match(sec('C'), /폴란드 Enea Elektrownia Połaniec ← Nano Co\., Ltd\./);
+  assert.match(r.text, /- 해외 발주처 낙찰: 일부 실패 1건\(세계은행 조달\)/);
+  assert.match(sec('A'), /해외 낙찰\(대만 정부조달\(PCC\)\): 대만 台灣電力股份有限公司 ← LS Cable & System Ltd\. 외 1곳 · 115年度超耐熱鋼心鋁線 — 2번 품목[^\n]* · TWD 276,084,986 · 계약 2026-10-24/);
+  const t = await call('partner_filings', {}, opts);
+  assert.match(t.text, /\[해외 발주처 낙찰 · EU TED · 영국 Find a Tender · 세계은행 · 바레인 · 공고 최근 120일\] 출입처 3건 · 출입처 밖 한국 기업 1건/);
+  assert.match(t.text, /원문: https:\/\/openfunltd\.github\.io\/pcc-viewer\/tender\.html\?unit_id=3\.13\.31&job_number=0081520071 · 정부전자조달망 https:\/\/web\.pcc\.gov\.tw\/[^\n]*\n   검증 상태: 공고의 낙찰자 칸\(대만 PCC 공고의 得標廠商/);
+  assert.match(t.text, /원천: EU TED 1\/1 정상 · 세계은행 조달 0\/1 정상\(미확인: LS Cable\(HTTP 503\)\)/);
+  assert.match(t.text, /\[신규\] 2026-10-25 · EU TED 낙찰 · 효성중공업 · 발주 Energinet Eltransmission A\/S\(DNK\)\n   잡힌 사실: 낙찰자 Hyosung Heavy Industires Corporation\(KOR, 식별번호 578-87-00896\) · 400\/220 kV Autotransformers for SLF02 · EUR 15,923,696 · 계약 2026-06-19/);
+  assert.doesNotMatch(t.text, /Nano Co/);
+  assert.match((await call('partner_filings', { company: 'Nano' }, opts)).text, /출입처 밖 한국 기업 · 발주 Enea/);
+  assert.doesNotMatch((await call('partner_filings', { source: 'EDGAR' }, opts)).text, /해외 발주처 낙찰/);
+  const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
+  assert.deepEqual(items.items.find((x) => x.id === 'ted:545946-2026').check.terms, ['덴마크', '수주']);
+  assert.deepEqual(dueAt(new Date('2026-10-28T21:50:00Z')), ['overseas-awards.yml']);  // Thu 06:50 KST
+  assert.deepEqual(dueAt(new Date('2026-10-29T08:30:00Z')), ['overseas-awards.yml']);  // Thu 17:30 KST
+});
+
+test('overseas awards: a Bahrain opened bid is a bid, not an award — lowest big bid A, others B, its first run a baseline', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const b = (id, extra = {}) => ({ id, source: '바레인 입찰위원회 개찰', published: '2026-10-25', kind: '개찰(응찰)', buyer: 'Electricity and Water Authority (Planning)',
+    buyerCountry: 'BHR', winners: [], winnerCountry: [], winnerIds: [], company: '일진전기', companies: ['일진전기'],
+    title: '4669/2025/5100 400kV and 220kV Feeder Cable Works for Establishment of New Sitra 400kV Grid Substation', bidder: 'ILJIN ELECTRIC',
+    bidStatus: 'Accepted', value: 35004118.33, currency: 'BHD', options: 1, rank: 1, priced: 3, bidCount: 3, lowest: true,
+    others: [{ name: 'TAIHAN ELECTRIC WIRE CO LTD', value: 45648300 }, { name: 'LS CABLE AND SYSTEM LTD', value: 46659985.55 }], lowestBid: null,
+    url: 'https://www.tenderboard.gov.bh/OpenedTenderDetails/?id=4669%2f2025%2f5100&source=New&envelope=PB&type=1',
+    firstSeen: '2026-10-25T17:30:00+09:00', isNew: true, baseline: false, tier: 'A', ...extra });
+  const doc = { schema: 'overseas_awards/v1', generatedAt: '2026-10-25T17:30:00+09:00', status: 'complete', coverage: 'EU TED · 바레인 입찰위원회 월간 낙찰 보고서·개찰 결과',
+    checks: [{ source: '바레인 입찰위원회 개찰', query: '개찰 결과(응찰 회사·응찰가)', status: 'ok', returned: 40, matched: 3,
+      note: '목록 40건(개찰 2026-10-01~2026-10-25) · 새 개찰 3 · 상세 3' }], rules: [],
+    items: [b('bhopen:9001:일진전기'),
+      b('bhopen:9001:LS전선', { company: 'LS전선', companies: ['LS전선'], bidder: 'LS CABLE AND SYSTEM LTD', value: 46659985.55, rank: 3, lowest: false, tier: 'B',
+        lowestBid: { name: 'ILJIN ELECTRIC', value: 35004118.33 } }),
+      b('bhopen:8001:LS일렉트릭', { company: 'LS일렉트릭', companies: ['LS일렉트릭'], bidder: 'LS ELECTRIC CO., LTD.', published: '2026-09-01', value: null,
+        rank: null, priced: null, lowest: false, isNew: false, baseline: true, tier: 'B', title: 'PT/CSD/AS/2026/019 Supply of 66KV Switchgear' })] };
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/overseas-awards', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
+  const r = await call('radar_today', { hours: 72, include_minor: true }, opts);
+  const sec = (t) => r.text.split(`[${t} · `)[1].split(/\n\[[ABC] · /)[0];
+  assert.match(sec('A'), /해외 개찰\(바레인 입찰위원회 개찰\): 바레인 Electricity and Water Authority \(Planning\) · 4669\/2025\/5100 400kV[^\n]* — ILJIN ELECTRIC BHD 35,004,118 · 응찰가 1위\/3곳\(최저가\) · 개찰 2026-10-25 · 낙찰 아님/);
+  assert.match(sec('B'), /— LS CABLE AND SYSTEM LTD BHD 46,659,986 · 응찰가 3위\/3곳 · 최저 ILJIN ELECTRIC BHD 35,004,118/);
+  assert.doesNotMatch(r.text, /66KV Switchgear/);  // 이 원천 첫 실행의 예전 개찰(기준선)은 오늘 항목이 아니다
+  const t = await call('partner_filings', { company: '일진' }, opts);
+  assert.match(t.text, /\[신규\] 2026-10-25 · 바레인 입찰위원회 개찰 개찰\(응찰\) · 일진전기 · 발주 Electricity and Water Authority \(Planning\)\(BHR\)\n   잡힌 사실: 응찰 ILJIN ELECTRIC BHD 35,004,118\.33 · 상태 Accepted · 응찰가 1위\/3곳\(최저가\) · 응찰 3곳 · 다른 응찰 TAIHAN ELECTRIC WIRE CO LTD BHD 45,648,300 \/ LS CABLE AND SYSTEM LTD BHD 46,659,985\.55/);
+  assert.match(t.text, /검증 상태: 입찰위원회 개찰 결과\(응찰가 공개\) — 낙찰 아님/);
+  assert.match(t.text, /\n범위: 바레인 입찰위원회 개찰 — 목록 40건\(개찰 2026-10-01~2026-10-25\) · 새 개찰 3 · 상세 3\n/);
+  const all = await call('partner_filings', {}, opts);
+  assert.match(all.text, /2026-09-01 · 바레인 입찰위원회 개찰 개찰\(응찰\) · LS일렉트릭[^\n]*\n   잡힌 사실: 응찰 LS ELECTRIC CO\., LTD\. 응찰가 미공개 · 상태 Accepted · 응찰가 순위 없음/);
+  const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
+  assert.deepEqual(items.items.find((x) => x.id === 'bhopen:9001:일진전기').check.terms, ['바레인', '입찰']);
+  assert.deepEqual(items.items.find((x) => x.id === 'bhopen:9001:일진전기').check.places, ['바레인']);
+});
+
+test('kr insolvency: a beat-industry manufacturer entering court proceedings is A and listed under kr_official', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const ev = (id, extra = {}) => ({ id, source: '대법원 회생·파산 공고', kind: '회생 개시', stage: 'start', title: '회생절차 개시결정 공고', company: '주식회사 엠디스틸',
+    court: '서울회생법원', task: '법인회생', caseNo: '2026회합 1129', division: '제17부', posted: '2026-10-25',
+    industry: { match: 'core', label: '1차 철강', code: '24121', industry: '냉간 압연 및 압출 제품 제조업', product: '냉연강판', employees: 85, address: '경기도 화성시 팔탄면 …', factories: 1 },
+    match: 'core', watch: null, tier: 'A', url: 'https://ecfs.scourt.go.kr/sgvo/websquare/websquare.html?w2xPath=/sgvo/ui/sgvo200/SGVO201M01.xml?paramData=e30=',
+    listUrl: 'https://www.scourt.go.kr/portal/notice/insolvency/insolvency.jsp', firstSeen: '2026-10-25T17:20:00+09:00', baseline: false, isNew: true, ...extra });
+  const doc = { schema: 'kr_insolvency/v1', generatedAt: '2026-10-25T17:20:00+09:00', status: 'partial', watchlistSize: 0, rules: ['법원 공고는 절차 단계다.'],
+    checks: [{ source: '서울회생법원 법인회생', status: 'ok', returned: 40 }, { source: '부산회생법원 법인회생', status: 'failed', error: 'ConnectTimeout' },
+      { source: '회생회사 M&A 공고 제조업(기계,금속,중공업)', status: 'ok', returned: 21 }, { source: '공장등록 업종 조회', status: 'partial', returned: 120, pending: 68 }],
+    events: [ev('ins:1'),
+      ev('ins:2', { kind: '포괄적 금지명령', company: '주식회사 한빛오토텍', tier: 'B', match: 'product', industry: { match: 'product', label: '금속가공제품', code: '25912', product: '자동차 차체 프레스 부품, 자동차 차체 프레스 부품, 자동차 차체 프레스 부품', employees: 120, address: '충청남도 아산시 …', factories: 1 } }),
+      ev('ins:3', { company: '주식회사 메탈153', tier: 'C', match: 'name', industry: { match: null, factories: 0 } }),
+      ev('ins:4', { company: '삼보산업 주식회사', court: '수원회생법원', tier: 'B', industry: { match: 'core', label: '자동차 부품', code: '30332', product: '자동차부품', employees: 22, address: '대구광역시 서구 염색공단천로', factories: 13, owners: 4, regionMismatch: true } })] };
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/kr-insolvency', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
+  const r = await call('radar_today', { hours: 72, include_minor: true }, opts);
+  const sec = (t) => r.text.split(`[${t} · `)[1].split(/\n\[[ABC] · /)[0];
+  assert.match(sec('A'), /회생 개시: 주식회사 엠디스틸 \(서울회생법원 2026회합 1129\) · 공장등록 업종 1차 철강 · 주생산품 냉연강판 · 종업원 85명 · 경기도 화성시 · 공고 2026-10-25 — 거래 관계·납품 영향 미확인/);
+  assert.match(sec('B'), /포괄적 금지명령: 주식회사 한빛오토텍 \(서울회생법원 2026회합 1129\) · 공장등록 업종 금속가공제품 · 주생산품 자동차 차체 프레스 부품 · 종업원 120명/);  // 같은 항목 반복은 한 번만
+  assert.match(sec('C'), /주식회사 메탈153 [^\n]*공장등록 없음 — 이름 낱말만/);
+  assert.match(sec('B'), /삼보산업 주식회사 \(수원회생법원 2026회합 1129\) · 공장등록 업종 자동차 부품 [^\n]*· 대구광역시 서구 · ⚠ 공장 주소가 관할 법원 지역 밖\(다른 회사일 수 있음\) · 같은 이름 공장 대표자 4명/);
+  assert.match(r.text, /- 협력사 회생·파산: 일부 실패 1건\(부산회생법원 법인회생\)/);
+  const t = await call('kr_official', { section: 'insolvency' }, opts);
+  assert.match(t.text, /\[협력사 회생·파산 · 대법원 회생·파산 공고\(법원 2곳 목록\)·회생회사 M&A 공고 · 공고 최근 30일\] 출입 업종 3건 · 이름 낱말만 1건/);
+  assert.match(t.text, /종업원 22명 · 대구광역시 서구 염색공단천로 · 같은 이름 등록 공장 13곳 · ⚠ 공장 주소가 관할 법원 지역 밖/);
+  assert.match(t.text, /원천: 법원 목록 1\/2 정상\(미확인: 부산회생법원 법인회생\(ConnectTimeout\)\) · 회생회사 M&A 공고 제조업\(기계,금속,중공업\) ok · 공장등록 업종 조회 partial\(업종 조회 대기 68곳 — 다음 실행\) · 협력사 명단 비어 있음/);
+  assert.match(t.text, /\[신규\] 2026-10-25 · 회생 개시 · 주식회사 엠디스틸 · 서울회생법원 2026회합 1129\(제17부\)\n   잡힌 사실: 공고 「회생절차 개시결정 공고」 · 공장등록 업종 1차 철강\(24121 냉간 압연 및 압출 제품 제조업\) · 주생산품 냉연강판 · 종업원 85명/);
+  assert.doesNotMatch(t.text, /메탈153/);
+  assert.match((await call('kr_official', { section: 'insolvency', company: '메탈' }, opts)).text, /주식회사 메탈153/);
+  // without the kr-official feed the insolvency section still shows
+  assert.match((await call('kr_official', {}, opts)).text, /공장등록·관보 입법예고 결과가 아직 없음[\s\S]*\[협력사 회생·파산/);
+  const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
+  assert.deepEqual(items.items.find((x) => x.id === 'ins:1').check, { who: '엠디스틸', terms: ['회생'], alts: { 회생: ['회생', '법정관리', '파산', '기업회생', '워크아웃'] } });
+  assert.deepEqual(dueAt(new Date('2026-10-28T22:20:00Z')), ['kr-insolvency.yml']);  // Thu 07:20 KST
+  assert.deepEqual(dueAt(new Date('2026-10-29T08:20:00Z')), ['kr-insolvency.yml']);  // Thu 17:20 KST
+});
+
+test('kr energy: beat-group power permits and nuclear agenda results show in radar_today and kr_signals', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const it = (id, extra) => ({ id, source: '전기위원회', kind: '조건부 허가', title: 'GS 당진 바이오 발전사업', meeting: '제329차', held: '2026-10-24', posted: '2026-10-25',
+    company: 'GS', tier: 'A', url: 'https://www.korec.go.kr/commonfile/fileDownLoad.do?x', firstSeen: '2026-10-25T18:10:00+09:00', baseline: false, isNew: true, ...extra });
+  const doc = { schema: 'kr_energy/v1', generatedAt: '2026-10-25T18:10:00+09:00', status: 'complete', rules: ['허가는 착공이 아니다.'],
+    checks: [{ source: '전기위원회 개최결과', status: 'ok', returned: 11, read: 1 }, { source: '원자력안전위원회 회의', status: 'ok', returned: 15 }],
+    items: [it('korec:329:gs'),
+      it('korec:329:wind', { title: '신안 우이 해상풍력 발전사업', company: null, tier: 'B' }),
+      it('korec:329:sun', { title: '고흥 가야신양해밀솔라 태양광 발전사업', company: null, tier: 'C' }),
+      it('nssc:1:1', { source: '원자력안전위원회', kind: '심의·의결 안건', title: '고리 원자력발전소 3·4호기 계속운전 허가(안)', meeting: '제2026-17회(10.27) 원자력안전위원회',
+        held: '2026-10-27', posted: '2026-10-21', company: null, tier: 'B', result: '원안의결', firstSeen: '2026-10-21T18:10:00+09:00', resultSeen: '2026-10-25T18:10:00+09:00' })] };
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/kr-energy', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
+  const r = await call('radar_today', { hours: 72, include_minor: true }, opts);
+  const sec = (t) => r.text.split(`[${t} · `)[1].split(/\n\[[ABC] · /)[0];
+  assert.match(sec('A'), /전기위원회 제329차 조건부 허가: GS 당진 바이오 발전사업 · 회의·허가일 2026-10-24/);
+  assert.match(sec('B'), /전기위원회 제329차 조건부 허가: 신안 우이 해상풍력 발전사업/);
+  assert.match(sec('B'), /원자력안전위원회 심의·의결 안건: 고리 원자력발전소 3·4호기 계속운전 허가\(안\) → 원안의결 · 회의 2026-10-27/);  // 결과가 새로 붙어 다시 올라옴
+  assert.match(sec('C'), /고흥 가야신양해밀솔라/);
+  const t = await call('kr_signals', { section: 'energy' }, opts);
+  assert.match(t.text, /\[전기위원회·원안위 · 최근 60일\] 출입처·주요 3건 · 기타 1건/);
+  assert.match(t.text, /- \[신규\] 2026-10-24 · 전기위원회 제329차 · 조건부 허가 · GS\n   잡힌 사실: GS 당진 바이오 발전사업/);
+  assert.match(t.text, /고리 원자력발전소 3·4호기 계속운전 허가\(안\) → 결과 원안의결/);
+  assert.match((await call('kr_signals', {}, opts)).text, /공정위 의결서·한전 입찰·원자재 가격 결과가 아직 없음[\s\S]*\[전기위원회·원안위/);
+  const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
+  assert.deepEqual(items.items.find((x) => x.id === 'korec:329:gs').check.terms, ['허가']);
+  assert.deepEqual(dueAt(new Date('2026-10-29T06:40:00Z')), ['kr-energy.yml']);  // Thu 15:40 KST
+  assert.deepEqual(dueAt(new Date('2026-10-29T09:10:00Z')), ['kr-energy.yml']);  // Thu 18:10 KST
+});
+
+test('kr building: a permit on a beat factory parcel is A; unset datasets show as 미설정', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const p = (id, extra) => ({ id, company: 'KG스틸', companies: ['KG스틸'], factory: '케이지스틸 주식회사', factoryId: 'fac:1', plot: '충청남도 당진시 송악읍 고대리 1-1번지',
+    bldNm: '제강공장', archGbCdNm: '신축', mainPurpsCdNm: '공장', totArea: 12500.5, permitted: '2026-10-20', startPlanned: '2026-12-01', started: null, useApproved: null,
+    kind: '새 허가', tier: 'A', firstSeen: '2026-10-26T07:45:00+09:00', baseline: false, isNew: true, ...extra });
+  const doc = { schema: 'kr_building/v1', generatedAt: '2026-10-26T07:45:00+09:00', status: 'complete', plants: 286, parcelsResolved: 240, rules: ['건축주 비공개.'],
+    unresolved: [{ company: '세아', plant: '세아베스틸', road: '전북특별자치도 군산시 동장산로 1', error: '지번 못 찾음' }],
+    archFailed: [{ company: 'LS일렉트릭', plant: '엘에스일렉트릭(주)청주1공장', parcel: '충청북도 청주시 흥덕구 송정동 1', error: '빈 응답' }],
+    checks: [{ source: '주소 변환', status: 'ok', returned: 240 }, { source: '건축인허가', status: 'ok', returned: 200 }],
+    permits: [p('bld:1'), p('bld:2', { archGbCdNm: '대수선', totArea: 150, tier: 'C' }),
+      p('bld:0', { permitted: '2026-08-01', firstSeen: '2026-10-19T07:45:00+09:00', baseline: true, isNew: false }),  // 지난주 기준선
+      p('bld:3', { plot: '충청남도 당진시 송악읍 고대리 1-7번지', bldNm: '이웃산업(주) 공장', archGbCdNm: '증축', sameLot: false, tier: 'B' }),
+      p('bld:4', { bldNm: '첫 조회 번지의 옛 허가', permitted: '2026-06-01', baseline: true, isNew: false }),  // 이 번지는 이번에 처음 봄
+      p('bld:5', { bldNm: '공장 목록에서 빠진 공장', orphan: true })] };
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/kr-building', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
+  const r = await call('radar_today', { hours: 72 }, opts);
+  assert.match(r.text.split('[A · ')[1].split('[B · ')[0], /건축허가: 케이지스틸 주식회사 부지\(충청남도 당진시 송악읍 고대리 1-1번지\) · 신축 공장 · 연면적 12,501㎡ · 허가 2026-10-20 · 착공예정 2026-12-01 — 건축주 미표기\(공장과 같은 번지\)/);
+  assert.match(r.text.split('[B · ')[1], /케이지스틸 주식회사 부지와 같은 본번의 다른 필지\(충청남도 당진시 송악읍 고대리 1-7번지\) · 증축 공장 · 연면적 12,501㎡\(건물 전체일 수 있음, 증축분 아님\)[^\n]*건축주 미표기\(공장과 본번만 같은 다른 필지, 건물명 '이웃산업\(주\) 공장'\)/);
+  assert.doesNotMatch(r.text, /첫 조회 번지의 옛 허가|공장 목록에서 빠진 공장/);
+  const t = await call('kr_official', { section: 'building' }, opts);
+  assert.match(t.text, /\[공장 부지 건축허가 · 출입처 공장 286곳 중 번지 확인 240곳 · 허가일 최근 90일\] 3건 · 소규모 1건/);
+  assert.doesNotMatch(t.text, /공장 목록에서 빠진 공장/);
+  assert.match(t.text, /번지 못 찾은 공장 1곳\(허가 미확인\): 세아 세아베스틸\(전북특별자치도 군산시 동장산로 1, 지번 못 찾음\)/);
+  assert.match(t.text, /조회 실패 번지 1곳\(허가 미확인\): LS일렉트릭 엘에스일렉트릭\(주\)청주1공장\(충청북도 청주시 흥덕구 송정동 1, 빈 응답\)/);
+  assert.match(t.text, /검증 상태: 건축주 미표기 — 공장과 본번만 같은 다른 필지라 이웃 회사 건물일 수 있음\(건물명 '이웃산업\(주\) 공장'\)/);
+  const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
+  assert.deepEqual(items.items.find((x) => x.id === 'bld:1').check.terms, ['당진', '공장', '신설']);
+  const unset = { ...doc, status: 'unset', permits: [], checks: [{ source: '주소 변환', status: 'unset', error: 'JUSO_CONFM_KEY 없음 — 도로명주소 검색API 승인키(business.juso.go.kr) 필요' },
+    { source: '건축인허가', status: 'unset', error: '조회할 번지 없음 — 주소 변환 활용신청 후' }] };
+  await worker.fetch(new Request(ORIGIN + '/ingest/kr-building', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(unset) }), env, {});
+  assert.match((await call('radar_today', { hours: 72 }, opts)).text, /- 공장 부지 건축허가: 미설정 주소 변환\(JUSO_CONFM_KEY 없음 — 도로명주소 검색API 승인키\(business\.juso\.go\.kr\) 필요\)/);
+});
+
+test('overseas registry: a new UK company with a beat parent as PSC is A; a missing key is 미설정', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const c = (id, extra) => ({ id, company: '효성중공업(관련)', name: 'HYOSUNG HEAVY INDUSTRIES UK LTD', number: '16000001', status: 'active', type: 'ltd',
+    created: '2026-10-24', sic: ['27110'], address: '1 Grid Way, London', url: 'https://find-and-update.company-information.service.gov.uk/company/16000001',
+    psc: ['Hyosung Heavy Industries Corporation'], pscMatch: true, tier: 'A', firstSeen: '2026-10-25T06:00:00+09:00', baseline: false, isNew: true, ...extra });
+  const doc = { schema: 'overseas_registry/v1', generatedAt: '2026-10-25T06:00:00+09:00', status: 'complete', windowStart: '2025-10-25', rules: ['PSC로 판단.'],
+    checks: [{ source: '영국 Companies House hyosung', status: 'ok', returned: 3, matched: 1 }],
+    companies: [c('ch:16000001'), c('ch:16000002', { company: '현대차', name: 'HYUNDAI OF BRISTOL LIMITED', number: '16000002', psc: ['John Smith'], pscMatch: false, tier: 'C' }),
+      c('ch:16848629', { company: '넥센타이어', name: 'NEXEN TYRE U.K. LIMITED', number: '16848629', psc: [], pscMatch: false, nameStrong: true, tier: 'B' })] };
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/overseas-registry', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
+  const r = await call('radar_today', { hours: 72, include_minor: true }, opts);
+  const sec = (t) => r.text.split(`[${t} · `)[1].split(/\n\[[ABC] · /)[0];
+  assert.match(sec('A'), /영국 법인 설립 등기: HYOSUNG HEAVY INDUSTRIES UK LTD\(16000001\) · 설립 2026-10-24 · SIC 27110 · 지배 주주 Hyosung Heavy Industries Corporation/);
+  assert.match(sec('C'), /HYUNDAI OF BRISTOL LIMITED[^\n]*출입처 본사 지배 주주 아님\(이름만 같음\)/);
+  assert.match(sec('B'), /NEXEN TYRE U\.K\. LIMITED\(16848629\)[^\n]*지배 주주 미기재 — 지배 주주 아직 미기재, 이름이 본사 전체 이름/);
+  const t = await call('partner_filings', {}, opts);
+  assert.match(t.text, /\[해외 법인 등기 · 영국 Companies House · 보관 3곳\(첫 실행은 1년 전 설립부터, 이번 조회는 설립 2025-10-25 이후\)\] 출입처 지배 주주 1건 · 지배 주주 미기재·본사 이름 1건 · 이름만 같은 법인 1건\(company 낱말로 보기\)/);
+  assert.match(t.text, /- \[신규\] 2026-10-24 설립 · 효성중공업\(관련\) · HYOSUNG HEAVY INDUSTRIES UK LTD \(16000001, active\)/);
+  const unset = { ...doc, status: 'unset', companies: [], checks: [{ source: '영국 Companies House', status: 'unset', error: 'COMPANIES_HOUSE_API_KEY 없음(무료 발급)' }] };
+  await worker.fetch(new Request(ORIGIN + '/ingest/overseas-registry', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(unset) }), env, {});
+  assert.match((await call('radar_today', { hours: 72 }, opts)).text, /- 해외 법인 등기\(영국\): 미설정 영국 Companies House\(COMPANIES_HOUSE_API_KEY 없음\(무료 발급\)\)/);
+  assert.deepEqual(dueAt(new Date('2026-10-28T21:00:00Z')), ['overseas-registry.yml']);  // Thu 06:00 KST
+});
+
 test('kr_official: 환경영향평가 new stage of a beat project is A and listed in the tool', async () => {
   const opts = PRIVATE();
   const env = opts.env;
@@ -1511,4 +2105,114 @@ test('kr_official: 환경영향평가 new stage of a beat project is A and liste
   assert.match(t.text, /\[환경영향평가 · 사업명에 출입처 이름 · 새 단계\] 1건\n- \[신규\] 2026-10-25 접수 · 고려아연 · 환경영향평가 초안\(진행\)/);
   const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
   assert.deepEqual(items.items.find((x) => x.id.startsWith('eia:')).check.terms, ['온산제련소', '환경영향평가']);
+});
+
+test('bill hints: formal law names are searched by the short name headlines use', () => {
+  // 10-31 운영: '산업기술의 유출방지 및 보호에 관한 법률 개정안 백혜련'으로 찾아 미보도 후보
+  const h = billHint({ law: '산업기술의 유출방지 및 보호에 관한 법률', leads: ['백혜련'] });
+  assert.deepEqual([h.who, h.terms, h.must, h.names], ['산업기술보호법', ['개정안', '백혜련'], ['백혜련'], ['산업기술보호법', '산업기술의 유출방지 및 보호에 관한 법률']]);
+  // 가운뎃점 표기가 달라도(· / ㆍ) 같은 법, 주어가 '·'에서 잘리지 않는다
+  assert.equal(billHint({ law: '신에너지 및 재생에너지 개발·이용·보급 촉진법', leads: ['홍길동'] }).who, '신재생에너지법');
+  assert.equal(billHint({ law: '노동조합 및 노동관계조정법', leads: ['이종배'] }).who, '노조법');
+  const plain = billHint({ law: '전기사업법', leads: ['박덕흠'] });
+  assert.deepEqual([plain.who, plain.names], ['전기사업법', undefined]);
+});
+
+test('press-check hints: place words narrow the search but are marked, workforce words follow the direction, local notices use the project word', () => {
+  const h = hint('고려아연', ['울주', localWord("건설공사 안전점검 수행기관 지정 공고[온산 고려아연(주), #2ASU O..."), '공장'], ['울주']);
+  assert.deepEqual([h.terms, h.places, Object.keys(h.alts)], [['울주', '신설', '공장'], ['울주'], ['신설', '공장']]);
+  assert.equal(hint('LS전선', ['입찰'], ['바레인']).places, undefined);  // a place not among the terms is dropped
+  assert.equal(hint('LS전선', ['바레인', '입찰']).places, undefined);
+  assert.deepEqual(['온산제련소 환경영향평가 초안 공람', '○○ 일반산업단지 계획 변경', '공장 이전 부지', '폐기물 매립시설'].map(localWord),
+    ['환경영향평가', '산업단지', '이전', '매립']);
+  const wf = (kind, text) => workforceHint({ company: '포스코', kind, text }).terms;
+  assert.deepEqual(wf('인력 증가', '주식회사포스코(경상북도 포항시 남구) 국민연금 가입자 15,852→16,718명(+866명, +5.5%)'), ['채용']);
+  assert.deepEqual(wf('인력 변동', '포스코 가입자 2,100→2,060명(-40명)'), ['감원']);
+  assert.deepEqual(wf('인력 감소', '형식 모름'), ['감원']);
+  assert.ok(!workforceHint({ company: '기아', kind: '인력 증가', text: '가입자 1→2명' }).alts.채용.includes('고용'));  // 흔한 말 빼기
+  assert.deepEqual(['㈜포스코 광양제철소', '현대자동차㈜ 울산공장', '㈜영풍석포제련소', '현대제철㈜포항2공장', '현대제철㈜'].map(siteCity), ['광양', '울산', '석포', '포항', undefined]);
+  const sh = stackHint({ company: '포스코', site: '㈜포스코 광양제철소', kind: '배출구 멈춤 신호' });
+  assert.deepEqual([sh.terms, sh.places, sh.must], [['광양', '가동 중단', '정비'], ['광양'], ['광양']]);
+  assert.deepEqual(stackHint({ company: '현대제철', site: '현대제철㈜', kind: '배출구 멈춤 신호' }).must, undefined);
+  const kh = kepcoHint('765kV 전력용변압기 1Bank(3대) - 신안성S/S');  // 10-31 운영: 예전엔 "한국전력공사 한전"으로 찾았다
+  assert.deepEqual([kh.who, kh.terms, kh.places], ['한전', ['765kV', '변압기', '발주'], ['765kV']]);
+  assert.deepEqual(kepcoHint('배전용 자재 구매').terms, ['발주']);
+  assert.deepEqual(wf('새 공사 현장', '…'), ['공사', '착공']);
+  assert.deepEqual(wf('사업장 탈퇴', '…'), ['공장', '폐쇄']);
+});
+
+test('kr local notices: a beat plant notice in a city is A, a city baseline is hidden, kr_official section=local lists it', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const it = (id, extra) => ({ id, city: '울주군', plants: '고려아연·LS MnM·현대차', no: '울산광역시 울주군 공고 제2026-2727호',
+    title: "건설공사 안전점검 수행기관 지정 공고[온산 고려아연(주), Ga' 2차 ...", dept: '건축과', date: '2026-10-25', companies: ['고려아연'], company: '고려아연',
+    tier: 'A', url: 'http://eminwon.ulju.ulsan.kr/emwp/gov/mogaha/ntis/web/ofr/action/OfrAction.do?method=selectOfrNotAncmt&not_ancmt_mgt_no=68118',
+    firstSeen: '2026-10-25T06:30:00+09:00', baseline: false, isNew: true, ...extra });
+  const doc = { schema: 'kr_local/v1', generatedAt: '2026-10-25T06:30:00+09:00', status: 'partial', rules: ['제목만 본다.'],
+    checks: [{ source: '울주군', status: 'ok', returned: 60 }, { source: '포항시', status: 'failed', error: 'ReadTimeout' }],
+    items: [it('local:울주군:68118'),
+      it('local:당진시:1', { city: '당진시', title: '현대제철 옛 공고', company: '현대제철', companies: ['현대제철'], baseline: true, isNew: false }),
+      it('local:여수시:2', { city: '여수시', title: '여수국가산업단지 계획 변경 승인 고시', company: null, companies: [], tier: 'C' })] };
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/kr-local', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
+  const r = await call('radar_today', { hours: 72 }, opts);
+  assert.match(r.text.split('[A · ')[1].split('[B · ')[0], /울주군 울산광역시 울주군 공고 제2026-2727호 「건설공사 안전점검 수행기관 지정 공고\[온산 고려아연\(주\), Ga' 2차 \.\.\.」 · 건축과 · 등록 2026-10-25 — 제목만 확인/);
+  assert.doesNotMatch(r.text, /현대제철 옛 공고/);
+  assert.match(r.text, /지자체 고시·공고: 일부 실패 1건\(포항시\)|지자체 고시·공고: 일부/);
+  const t = await call('kr_official', { section: 'local' }, opts);
+  assert.match(t.text, /\[지자체 고시·공고 · 출입처 공장 시·군 2곳 새올 목록 · 처음 본 날 최근 30일\] 출입처 관련 2건 · 참고\(제철소·산업단지 계획 등\) 1건/);
+  assert.match(t.text, /- \[첫 조회 기준선\] 2026-10-25 · 당진시 · 현대제철 · A/);
+  assert.match(t.text, /미확인\(0건 아님\): 포항시\(ReadTimeout\)/);
+  assert.match(t.text, /이 시·군의 출입처 공장: 고려아연·LS MnM·현대차/);
+  assert.deepEqual(dueAt(new Date('2026-10-26T21:30:00Z')), ['page-watch.yml', 'kr-local.yml']);  // Tue 06:30 KST
+  assert.deepEqual(dueAt(new Date('2026-10-27T07:20:00Z')), ['kr-local.yml']);                    // Tue 16:20 KST
+});
+
+test('local_notice_submit: the reporter computer posts browser-read 새올 rows for fixed cities, kr-local runs once an hour at most', async () => {
+  const seen = [];
+  const fetch = async (url, init) => { seen.push({ url, init }); return new Response(null, { status: 204 }); };
+  const opts = { ...PRIVATE({ GITHUB_DISPATCH_TOKEN: 'ghp_test' }), fetch };
+  assert.ok(!(await rpc('tools/list')).body.result.tools.some((x) => x.name === 'local_notice_submit'));  // private only
+  const r = await call('local_notice_submit', { cities: [
+    { city: '인천 부평구', rows: [
+      { mgt: '91001', cells: ['120', '부평구 공고 제2026-1500호', '  한국지엠 부평공장\n도장공장 증축 건축허가 사항 공고 ', '건축과', '2026-10-29', '7', ''] },
+      { mgt: "1');alert(1", cells: ['x'] },
+      { mgt: '91001', cells: ['중복'] }] },
+    { city: '구미시', error: 'TypeError: Failed to fetch' },
+    { city: '서울 강남구', rows: [{ mgt: '1', cells: ['x'] }] }] }, opts);
+  assert.equal(r.isError, false);
+  assert.match(r.text, /- 인천 부평구: 1줄 · 버린 줄 2/);
+  assert.match(r.text, /- 구미시: 미확인\(TypeError: Failed to fetch\)/);
+  assert.match(r.text, /받지 않은 이름\(허용 목록 밖\): 서울 강남구/);
+  assert.match(r.text, /지자체 고시·공고 감시\(kr-local\) 실행 요청함/);
+  assert.deepEqual(seen.map((x) => x.url), ['https://api.github.com/repos/shhong9173-art/seoul-reporting-radar/actions/workflows/kr-local.yml/dispatches']);
+  // the watch reads it back through the bearer ingest path
+  const got = await (await worker.fetch(new Request(ORIGIN + '/ingest/kr-local-browser', { headers: { Authorization: `Bearer ${TOKEN}` } }), opts.env, {})).json();
+  assert.equal(got.schema, 'kr_local_browser/v1');
+  assert.deepEqual(got.cities.find((c) => c.city === '인천 부평구').rows,
+    [{ mgt: '91001', cells: ['120', '부평구 공고 제2026-1500호', '한국지엠 부평공장 도장공장 증축 건축허가 사항 공고', '건축과', '2026-10-29', '7'] }]);
+  // a second submit in the same hour keeps the other cities and does not ask GitHub again
+  const again = await call('local_notice_submit', { cities: [{ city: '구미시', rows: [{ mgt: '7', cells: ['구미시 공고', '도로 공고', '2026-10-30'] }] }] }, opts);
+  assert.match(again.text, /이미 함 — 다시 요청하지 않음/);
+  assert.equal(seen.length, 1);
+  const got2 = await (await worker.fetch(new Request(ORIGIN + '/ingest/kr-local-browser', { headers: { Authorization: `Bearer ${TOKEN}` } }), opts.env, {})).json();
+  assert.deepEqual(got2.cities.map((c) => [c.city, c.rows.length]).sort(), [['구미시', 1], ['인천 부평구', 1]]);
+  assert.ok((await call('local_notice_submit', { cities: [{ city: '서울 강남구' }] }, opts)).isError);
+  // 무역구제 목록(호주 TRN): 한국 줄 칸 글자 + 같은 사이트 링크만, 감시는 따로 돌리지 않음
+  const pg = await call('local_notice_submit', { pages: [{ id: 'au-trn', rows: [
+    { cells: ['2026/141 [PDF 270.2 KB]', '706', 'Zinc coated (galvanised) steel', 'Extension of time for SEF and Final Report', 'Korea, Vietnam', '02/10/2026'],
+      links: ['/sites/default/files/atrc/public-record/2026-10/706-22.pdf', 'https://evil.example/x', 'https://www.industry.gov.au/australian-trade-remedies-commission/current-cases-and-electronic-public-record-epr/706'] }] },
+  { id: 'xx-page', rows: [] }] }, opts);
+  assert.equal(pg.isError, false);
+  assert.match(pg.text, /- 무역구제 au-trn: 한국 줄 1/);
+  assert.match(pg.text, /받지 않은 목록\(허용 밖\): xx-page/);
+  assert.equal(seen.length, 1);  // 무역구제는 실행 요청 없음
+  const tb = await (await worker.fetch(new Request(ORIGIN + '/ingest/trade-remedy-browser', { headers: { Authorization: `Bearer ${TOKEN}` } }), opts.env, {})).json();
+  assert.deepEqual(tb.pages[0].rows[0].links, ['/sites/default/files/atrc/public-record/2026-10/706-22.pdf',
+    '/australian-trade-remedies-commission/current-cases-and-electronic-public-record-epr/706']);  // 다른 사이트 링크는 버림
+  assert.ok((await call('local_notice_submit', {}, opts)).isError);
+  // kr_official names the cities read on the reporter's computer
+  const doc = { schema: 'kr_local/v1', generatedAt: '2026-10-26T08:50:00+09:00', status: 'complete', items: [],
+    checks: [{ source: '인천 부평구', status: 'ok', returned: 30, via: '기자 컴퓨터 브라우저 수집 2026-10-25T23:45' }, { source: '당진시', status: 'ok', returned: 60 }] };
+  await worker.fetch(new Request(ORIGIN + '/ingest/kr-local', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), opts.env, {});
+  assert.match((await call('kr_official', { section: 'local' }, opts)).text, /기자 컴퓨터 브라우저로 읽은 곳\(해외 IP 차단\): 인천 부평구\(2026-10-25 23:45\)/);
 });

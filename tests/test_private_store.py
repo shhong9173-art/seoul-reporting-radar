@@ -42,6 +42,68 @@ class PrivateStore(unittest.TestCase):
 
 
 
+class DeployLag(unittest.TestCase):
+    """10-30 kr-stacks: the first push run after merge hit the old Worker (404), a re-run a few minutes later saved."""
+
+    def setUp(self):
+        import contextlib
+        import io
+        self.out = io.StringIO()
+        self._ctx = contextlib.redirect_stdout(self.out)
+        self._ctx.__enter__()
+        self.addCleanup(self._ctx.__exit__, None, None, None)
+
+    def test_put_waits_while_the_token_still_reads_an_old_feed(self):
+        posts, waits = [], []
+        def post(url, data, headers, timeout):
+            posts.append(url)
+            return R(404 if len(posts) < 3 else 200)
+        def get(url, headers, timeout):
+            self.assertTrue(url.endswith("/ingest/page-watch"))
+            return R(200, {})
+        self.assertEqual(ps.put("kr-stacks", {"a": 1}, "t", post=post, get=get, sleep=waits.append), 200)
+        self.assertEqual(len(posts), 3)
+        self.assertEqual(waits, [45, 90])
+        self.assertIn("store-wait-deploy::kr-stacks", self.out.getvalue())
+
+    def test_wrong_token_fails_at_once(self):
+        waits = []
+        self.assertEqual(ps.put("kr-stacks", {}, "t", post=lambda u, data, headers, timeout: R(404),
+                                get=lambda u, headers, timeout: R(404), sleep=waits.append), 404)
+        with self.assertRaises(ps.StoreError) as e:
+            ps.get("kr-stacks", "t", get=lambda u, headers, timeout: R(404), sleep=waits.append)
+        self.assertIn("토큰 거부 가능성", str(e.exception))
+        self.assertEqual(waits, [])
+
+    def test_gives_up_after_the_waits_and_says_why(self):
+        waits = []
+        def get(url, headers, timeout):
+            return R(204) if url.endswith("/page-watch") else R(404)
+        with self.assertRaises(ps.StoreError) as e:
+            ps.get("kr-stacks", "t", get=get, sleep=waits.append)
+        self.assertEqual(waits, list(ps.DEPLOY_WAITS))
+        self.assertIn("토큰은 맞음", str(e.exception))
+        waits.clear()
+        self.assertEqual(ps.put("kr-stacks", {}, "t", post=lambda u, data, headers, timeout: R(404), get=get, sleep=waits.append), 404)
+        self.assertEqual(waits, list(ps.DEPLOY_WAITS))
+
+    def test_get_recovers_and_other_errors_do_not_wait(self):
+        calls, waits = [], []
+        def get(url, headers, timeout):
+            calls.append(url)
+            if url.endswith("/page-watch"):
+                return R(204)
+            return R(404) if len([c for c in calls if c.endswith("/kr-stacks")]) == 1 else R(200, {"ok": 1})
+        self.assertEqual(ps.get("kr-stacks", "t", get=get, sleep=waits.append), {"ok": 1})
+        self.assertEqual(waits, [45])
+        waits.clear()
+        self.assertEqual(ps.put("kr-stacks", {}, "t", post=lambda u, data, headers, timeout: R(500), sleep=waits.append), 500)
+        with self.assertRaises(ps.StoreError):
+            ps.get("kr-stacks", "t", get=lambda u, headers, timeout: R(503), sleep=waits.append)
+        self.assertEqual(waits, [])
+
+
+
 class RelayClient(unittest.TestCase):
     def test_only_allow_listed_hosts(self):
         with self.assertRaises(ValueError):
@@ -63,7 +125,14 @@ class LateSchedule(unittest.TestCase):
         kst = dt.timezone(dt.timedelta(hours=9))
         now = dt.datetime(2026, 10, 28, 10, 40, tzinfo=kst)
         prev = {"generatedAt": "2026-10-28T07:42:10+09:00"}  # the on-time Cloudflare-requested run
-        self.assertTrue(ps.late_scheduled_duplicate(prev, now, env={"GITHUB_EVENT_NAME": "schedule"}))
+        # The skip notice is captured: printed in a real run's test step it showed up as a false
+        # 'skip-late-schedule' annotation on every collector run (10-29 점검에서 헷갈림).
+        import contextlib
+        import io
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            self.assertTrue(ps.late_scheduled_duplicate(prev, now, env={"GITHUB_EVENT_NAME": "schedule"}))
+        self.assertIn("title=skip-late-schedule::직전 결과가 3.0시간 전", buf.getvalue())
         self.assertFalse(ps.late_scheduled_duplicate(prev, now, env={"GITHUB_EVENT_NAME": "workflow_dispatch"}))
         self.assertFalse(ps.late_scheduled_duplicate(prev, now, env={"GITHUB_EVENT_NAME": "push"}))
         old = {"generatedAt": "2026-10-27T07:42:10+09:00"}  # Cloudflare request failed: yesterday's result

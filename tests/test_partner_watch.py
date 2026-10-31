@@ -87,6 +87,27 @@ class Partners(unittest.TestCase):
         self.assertTrue(all(c["status"] == "failed" and c["error"] == "HTTP 503" for c in edgar_fail))
         self.assertEqual(doc["status"], "partial")
 
+    def test_edgar_transient_error_retried_once(self):
+        # 10-30 'OCI Holdings' 한 질의만 HTTP 500(앞뒤 실행 정상) — 5xx·연결 오류만 한 번 다시, 4xx는 그대로 실패
+        body = {"hits": {"hits": []}}
+        seen = {}
+
+        def get(url, params=None, headers=None, timeout=None):
+            q = (params or {}).get("q", "")
+            seen[q] = seen.get(q, 0) + 1
+            if q == '"Hyundai Steel"' and seen[q] == 1:
+                return R(500)
+            if q == '"POSCO"':
+                return R(429)
+            return R(200, body)
+        waits = []
+        doc = w.run({"asx": [], "edgarPhrases": CFG["edgarPhrases"]}, now=NOW, get=get, sleep=waits.append)
+        st = {c["target"]: c["status"] for c in doc["checks"] if c["source"] == "EDGAR"}
+        self.assertEqual(st, {"Hyundai Steel": "ok", "POSCO": "failed"})
+        self.assertEqual((seen['"Hyundai Steel"'], seen['"POSCO"']), (2, 1))
+        self.assertIn(5.0, waits)
+        self.assertTrue(w.transient("HTTP 502") and w.transient("ConnectionError") and not w.transient("HTTP 404") and not w.transient("JSON 아님"))
+
     def test_own_filing_filter_needs_the_whole_phrase(self):
         body = {"hits": {"hits": [{"_id": "a:b.htm", "_source": {"ciks": ["1"], "display_names": ["Wells Fargo & Co  (WFC)  (CIK 0000072971)"],
                                                                 "form": "8-K", "file_date": "2026-10-20", "adsh": "a"}}]}}
@@ -104,6 +125,27 @@ class Partners(unittest.TestCase):
             return R(200, text="<p>Meeting at Floor 25, Tower B, POSCO Center, Beijing.</p>")
         doc = w.run({"asx": [], "edgarPhrases": [["포스코", "POSCO"]]}, now=NOW, get=get, sleep=lambda s: None)
         self.assertEqual(doc["items"], [])
+
+    def test_seah_surname_is_not_seah_steel(self):
+        # 10-29 Global Engine Group 20-F: 'Seah'(사람 성씨)만 있어 세아로 잡혔다 — 'SeAH'만 세아
+        body = {"hits": {"hits": [{"_id": "g-1:ex4.htm", "_source": {"ciks": ["1908705"], "display_names": ["Global Engine Group Holding Ltd  (GLE)  (CIK 0001908705)"],
+                                                                    "form": "20-F", "file_date": "2026-10-29", "adsh": "g-1"}}]}}
+        def get(url, params=None, headers=None, timeout=None):
+            if "efts" in url:
+                return R(200, body)
+            return R(200, text="<p>Signed by Mr. Seah Kok Wah, Director, and SEAH Holdings Sdn Bhd.</p>")
+        doc = w.run({"asx": [], "edgarPhrases": [["세아", "SeAH"]]}, now=NOW, get=get, sleep=lambda s: None)
+        self.assertEqual(doc["items"], [])
+        def get2(url, params=None, headers=None, timeout=None):
+            if "efts" in url:
+                return R(200, body)
+            return R(200, text="<p>Mr. Seah Kok Wah signed a supply agreement with SeAH Steel Corporation for API pipes.</p>")
+        doc = w.run({"asx": [], "edgarPhrases": [["세아", "SeAH"]]}, now=NOW, get=get2, sleep=lambda s: None)
+        self.assertIn("SeAH Steel Corporation", doc["items"][0]["snippet"])
+        prev = {"items": [{"id": "edgar:g-1:ex4.htm", "source": "EDGAR", "date": "2026-10-29", "firstSeen": "2026-10-29T07:00:00+09:00",
+                           "phrases": ["SeAH"], "beat": ["세아"], "snippet": "agreement signed by Seah Kok Wah, director"}]}
+        doc = w.run({"asx": [], "edgarPhrases": []}, now=NOW, previous=prev, get=lambda *a, **k: R(404), sleep=lambda s: None)
+        self.assertEqual(doc["items"], [])  # 저장된 발췌도 같은 기준
 
     def test_saved_snippets_get_the_unrelated_check_too(self):
         prev = {"items": [{"id": "edgar:x-1:p.htm", "source": "EDGAR", "date": "2026-10-20", "firstSeen": "2026-10-20T07:00:00+09:00",
@@ -148,6 +190,24 @@ class EdgarNoise(unittest.TestCase):
         self.assertIn("투자 보유", by["edgar:a-1:ex992.htm"]["routine"])
         self.assertNotIn("routine", by["edgar:b-1:d8k.htm"])
         self.assertNotIn("finNote", by["edgar:b-1:d8k.htm"])
+
+    def test_deal_word_must_share_a_sentence_with_the_beat_name(self):
+        # 운영 10-29 Nexa Resources 3분기 6-K: 계약 낱말은 제3자 공급사 일반 서술, 고려아연은 업계 기준가 보도 인용 문장에만
+        nexa = ("For internal transfers between mining and smelting segments, we apply our internal benchmark treatment charge (TC). "
+                "For third-party suppliers, TCs are based on the annual benchmark TC, spot TCs, or annually negotiated contracts. "
+                "The 2026 benchmark TC, reportedly agreed between Korea Zinc and Teck Resources in March 2026, was set at US$85/t of "
+                "concentrate, up 6% from US$80/t in 2025.")
+        it = self.item("edgar:n-1:ex99-1.htm", "2026-10-29", nexa, filer="Nexa Resources S.A. (NEXA)", form="6-K")
+        it["phrases"], it["beat"] = ["Korea Zinc"], ["고려아연"]
+        doc = self.run_with([it, self.item("edgar:b-1:d8k.htm", "2026-10-21", self.DEAL, filer="Cell Maker Inc")])
+        by = {x["id"]: x for x in doc["items"]}
+        self.assertIs(by["edgar:n-1:ex99-1.htm"]["dealNear"], False)
+        self.assertIn("보도 인용", by["edgar:n-1:ex99-1.htm"]["hearsay"])
+        self.assertIs(by["edgar:b-1:d8k.htm"]["dealNear"], True)
+        self.assertNotIn("hearsay", by["edgar:b-1:d8k.htm"])
+        # 발췌에 이름이 안 보이면(잘림) 판단하지 않는다
+        cut = self.item("edgar:c-1:x.htm", "2026-10-21", "The Company entered into a supply agreement for cells with a customer in Asia.")
+        self.assertNotIn("dealNear", self.run_with([cut])["items"][0])
 
     def test_financial_statement_note_is_flagged_not_hidden(self):
         doc = self.run_with([self.item("edgar:k-1:a2q26_seperatexreviewrep.htm", "2026-10-23", self.KT, filer="KT CORP", form="6-K/A")])

@@ -311,20 +311,31 @@ def opinions(token, now, previous, budget, *, get=None, sleep=time.sleep):
                   "own": len(have), "since": since}
 
 
-def cit_direct(now, previous, *, get=None):
+def cit_direct(now, previous, *, get=None, sleep=None):
     """Beat-party rulings from the trade court's own slip-opinion list (same day; CourtListener can lag)."""
     if get is None:
         import requests
         get = requests.get
+    if sleep is None:
+        import time
+        sleep = time.sleep
     since = (now - dt.timedelta(days=OPINION_DAYS)).date()
     prev = {x.get("slipOp"): x for x in (previous or {}).get("opinions", []) if isinstance(x, dict) and x.get("slipOp")}
     years = [now.year - 1, now.year] if now.month == 1 else [now.year]
     rows = []
     for y in years:
-        try:
-            r = get(CIT_LIST.format(year=y), headers={"User-Agent": "Mozilla/5.0 seoul-reporting-radar"}, timeout=40)
-        except Exception as e:  # noqa: BLE001
-            return rows, {"source": CIT_SOURCE, "kind": "opinions-direct", "status": "failed", "error": type(e).__name__}
+        r = err = None
+        for attempt in (1, 2):  # 10-29 22:50 한 번 ConnectionError(앞뒤 실행 정상): 연결 오류·5xx만 한 번 다시
+            try:
+                r, err = get(CIT_LIST.format(year=y), headers={"User-Agent": "Mozilla/5.0 seoul-reporting-radar"}, timeout=40), None
+            except Exception as e:  # noqa: BLE001
+                r, err = None, type(e).__name__
+            if attempt == 1 and (err or r.status_code >= 500):
+                sleep(10.0)
+                continue
+            break
+        if err:
+            return rows, {"source": CIT_SOURCE, "kind": "opinions-direct", "status": "failed", "error": err}
         if r.status_code != 200:
             return rows, {"source": CIT_SOURCE, "kind": "opinions-direct", "status": "failed", "error": f"HTTP {r.status_code}"}
         for pdf, slip, caption, date, court_no, judge in CIT_ROW.findall(r.text):
@@ -508,7 +519,7 @@ def run(token, *, now, previous=None, get=None, sleep=time.sleep):
     found, checks = litigation(token, now, previous, get=get, sleep=sleep, budget=budget)
     rulings, ocheck = opinions(token, now, previous, budget, get=get, sleep=sleep)
     checks.append(ocheck)
-    cit_rows, ccheck = cit_direct(now, previous, get=get)
+    cit_rows, ccheck = cit_direct(now, previous, get=get, sleep=sleep)
     checks.append(ccheck)
     rulings = merge_opinions(rulings, cit_rows)
     prev_ops = {x["id"] for x in (previous or {}).get("opinions", []) if isinstance(x, dict)}

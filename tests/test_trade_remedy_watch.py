@@ -347,6 +347,40 @@ class KoreaLines(unittest.TestCase):
         self.assertFalse(any("trade office" in k for k in lines))  # navigation removed
         self.assertEqual(len(lines), 3)
 
+    def test_browser_page_rows_from_the_reporters_computer(self):
+        # 10-30 기자 컴퓨터에서 읽은 호주 TRN 실제 줄 모양(칸 글자 + 같은 사이트 링크)
+        page = {"id": "au-trn", "country": "호주", "label": "호주 무역구제위원회 공지(TRN)", "via": "browser",
+                "url": "https://www.industry.gov.au/australian-trade-remedies-commission/trade-remedies-notices-trns"}
+        row = lambda no, case, prod, kind, ctry, day, pdf: {  # noqa: E731
+            "cells": [f"2026/{no} [PDF 42.34 KB]", case, prod, kind, ctry, day],
+            "links": [f"/sites/default/files/atrc/public-record/2026-10/{pdf}.pdf", f"/australian-trade-remedies-commission/current-cases-and-electronic-public-record-epr/{case}"]}
+        rows = [row("143", "710", "Hollow structural sections", "Extension of time for SEF and Final Report", "China, Korea, Malaysia, Taiwan", "07/10/2026", "710-9"),
+                row("141", "706", "Zinc coated (galvanised) steel", "Extension of time for SEF and Final Report", "Korea, Vietnam", "02/10/2026", "706-22")]
+        cfg = {"pages": [page], "taricSeeds": []}
+        fetched = []
+        def get(url, **k):
+            fetched.append(url)
+            return fake()(url, **k)
+        b1 = {"pages": [{"id": "au-trn", "fetchedAt": (NOW - dt.timedelta(hours=15)).isoformat(), "rows": rows[1:]}]}
+        first = w.run(cfg, now=NOW, get=get, sleep=lambda s: None, browser=b1)
+        self.assertFalse(any("industry.gov.au" in u for u in fetched))  # 직접 접속하지 않음
+        p = first["pages"][0]
+        self.assertEqual((p["status"], p["parser"], len(p["lines"])), ("ok", w.BROWSER_PARSER, 1))
+        self.assertEqual(first["events"], [])  # 첫 수집은 기준선
+        b2 = {"pages": [{"id": "au-trn", "fetchedAt": (NOW + dt.timedelta(hours=9)).isoformat(), "rows": rows}]}
+        doc = w.run(cfg, now=NOW + dt.timedelta(days=1), previous=first, get=get, sleep=lambda s: None, browser=b2)
+        ev = [e for e in doc["events"] if e["pageId"] == "au-trn"]
+        self.assertEqual(len(ev), 1)
+        self.assertIn("710 Hollow structural sections Extension of time for SEF and Final Report China, Korea", ev[0]["text"])
+        self.assertEqual(ev[0]["url"], "https://www.industry.gov.au/sites/default/files/atrc/public-record/2026-10/710-9.pdf")
+        # 오래된 수집·수집 없음은 미확인(지난 줄은 유지)
+        stale = w.run(cfg, now=NOW + dt.timedelta(days=3), previous=doc, get=get, sleep=lambda s: None, browser=b2)
+        self.assertEqual(stale["pages"][0]["status"], "failed")
+        self.assertIn("시간 전", stale["pages"][0]["error"])
+        self.assertTrue(stale["pages"][0]["lines"])
+        none = w.run(cfg, now=NOW, get=get, sleep=lambda s: None, browser=None)
+        self.assertIn("브라우저 수집 없음", none["pages"][0]["error"])
+
     def test_disabled_page_is_not_fetched_or_counted_as_failure(self):
         cfg = {"pages": [dict(PAGES[0], disabled="주소 확인 전")], "taricSeeds": ["099843"]}
         seen = []
@@ -372,3 +406,15 @@ class KoreaLines(unittest.TestCase):
         doc = w.run({"pages": PAGES, "taricSeeds": []}, now=NOW, get=get2, sleep=lambda s: None)
         self.assertEqual(n, [60, 60])
         self.assertEqual(doc["pages"][0]["status"], "ok")
+
+
+class PagePattern(unittest.TestCase):
+    def test_vietnamese_word_for_korea(self):
+        import re
+        raw = ('<ul><li><a href="/tin/1">Khởi xướng điều tra chống bán phá giá thép mạ từ Trung Quốc và Hàn Quốc</a></li>'
+               '<li><a href="/tin/2">Hội thảo về phòng vệ thương mại</a></li></ul>')
+        lines = w.korea_lines(raw, re.compile("hàn quốc|korea", re.I))
+        self.assertEqual(list(lines), ["Khởi xướng điều tra chống bán phá giá thép mạ từ Trung Quốc và Hàn Quốc"])
+        self.assertEqual(w.korea_lines(raw), {})  # 기본 'korea'로는 안 잡힌다
+        uk = '<table><tr><td><a href="/public/case/AD0099/">Case Hot-rolled steel plate from South Korea</a></td><td>Initiated</td></tr></table>'
+        self.assertTrue(any("Hot-rolled steel plate from South Korea" in k for k in w.korea_lines(uk)))

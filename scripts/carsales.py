@@ -42,6 +42,10 @@ SURGE_MIN = 1000
 NEW_MIN = 20           # 첫 판매: 이 대수 이상일 때만(시험·관용 소량 제외)
 PLANT_BASE = 1000      # 공장 합계 급감 하한
 PLANT_DROP = 0.7       # 공장 합계: 평균·전년 같은 달의 70% 아래(30% 넘게 감소)
+# 공장 합계가 평균·전년 같은 달 모두의 40% 아래(60% 넘게 감소)면 A — 멈춤(5%)은 아니어도 공장 가동이 크게 바뀐 것
+# (운영 10-30: 현대차 미국 조지아(HMGMA) 2026-09 1,121대, 직전 3개월 평균 3,707대의 30%·전년 같은 달 4,027대의 28%가 B였다).
+PLANT_DEEP = 0.4
+PLANT_DEEP_BASE = 2000
 
 # 보도 대조 검색어(영문 모델명 → 국문 차명). 모르는 이름은 영문 그대로.
 KO = {"avante": "아반떼", "elantra": "아반떼", "sonata": "쏘나타", "grandeur": "그랜저", "santa-fe": "싼타페", "santa fe": "싼타페", "tucson": "투싼",
@@ -328,7 +332,9 @@ def signals(series, maker, kind, ym):
             elif base and base >= PLANT_BASE and v <= base * STOP_RATIO and prev[0] >= base * 0.2:
                 sig = ("공장 출고 멈춤", "A", f"{name} — 직전 3개월 평균 {fmt(base)}대{ytxt}. 공장 전체 판매·출고가 거의 멈춤")
             elif base and base >= PLANT_BASE and v < base * PLANT_DROP and (yoy is None or v < yoy * PLANT_DROP):
-                sig = ("공장 급감", "B", f"{name} — 직전 3개월 평균 {fmt(base)}대의 {_ratio(v, base)}{ytxt}" + (f"({_ratio(v, yoy)})" if yoy else ""))
+                deep = base >= PLANT_DEEP_BASE and v <= base * PLANT_DEEP and (yoy is None or v <= yoy * PLANT_DEEP)
+                sig = ("공장 급감", "A" if deep else "B", f"{name} — 직전 3개월 평균 {fmt(base)}대의 {_ratio(v, base)}{ytxt}"
+                       + (f"({_ratio(v, yoy)})" if yoy else "") + (". 공장 합계가 평소의 40% 아래" if deep else ""))
         elif low_before and v < (base or 0):
             pass
         elif base is not None and base >= STOP_BASE and v <= base * STOP_RATIO and prev[0] >= base * 0.2:
@@ -460,7 +466,8 @@ def collect(prev, now, http, *, baseline):
             for x in cur:
                 events.append({"id": x["id"], "kind": "모델별 판매", "signal": x["signal"], "tier": x["tier"], "period": ym,
                                "company": x["maker"], "detectedAt": stamp, "text": f"{x['text']} (IR 엑셀)", "url": PAGES[maker],
-                               "keyword": "공장" if x["label"] == "공장 합계" else keyword(x["label"])})
+                               "keyword": ("공장" if x["label"] == "공장 합계" else ("수출" if "수출" in x["scope"] else "판매") if x["label"] == "전체"
+                                           else keyword(x["label"]))})
     status = "ok" if not fails and not errors else ("failed" if not ok else "partial")
     check = {"source": "완성차 판매(현대차·기아 IR)", "status": status, "ok": ok, "failed": fails,
              "latest": " · ".join(f"{MAKERS[k.split(':')[0]]} {'모델' if k.endswith('model') else '공장'} {v}" for k, v in sorted(latest.items())),

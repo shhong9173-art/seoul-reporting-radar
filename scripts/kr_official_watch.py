@@ -120,6 +120,120 @@ def emp(s):
         return None
 
 
+# 등록 내용 변경을 같은 기준으로 비교한다(운영 10-29: LS일렉트릭 청주1공장 주생산품이 순서만 바뀐 것
+# '전기부품, 고압접촉기, …, Ev-Relay'→'Ev-Relay, 전력량계, …'이 A로 떴다).
+LIST_SPLIT = re.compile(r"\s*[,，、·/]\s*")
+MORE_KINDS = re.compile(r"\s*외\s*(\d+)\s*종\s*$")
+
+
+def list_parts(s):
+    """주생산품·업종 글자 → [(원래 글자, 비교 키)] (끝의 '외 N 종'·항목 끝 '등'·띄어쓰기는 비교에서 뺀다)."""
+    out = []
+    for part in LIST_SPLIT.split(MORE_KINDS.sub("", s or "")):
+        part = part.strip()
+        key = re.sub(r"\s+", "", re.sub(r"\s*등$", "", part)).lower()
+        if key and key != "-":
+            out.append((part, key))
+    return out
+
+
+def more_kinds(s):
+    m = MORE_KINDS.search(s or "")
+    return int(m.group(1)) if m else 0
+
+
+def addr_key(s):
+    """뒤의 참고 항목(괄호: 동·건물명, '(주)'가 든 건물명 포함)과 띄어쓰기를 뺀 도로명 주소."""
+    return re.sub(r"\s+", "", (s or "").split("(", 1)[0])
+
+
+def field_change(label, old, new):
+    """(문장, 등급) 또는 None. A: 주생산품에 새 품목. B: 품목 빠짐·업종·주소 변화. None: 순서·표기만 다름."""
+    if label == "주소":
+        if addr_key(old) == addr_key(new):
+            return None
+        return f"주소 '{old or '-'}'→'{new or '-'}'", "B"
+    op, np_ = list_parts(old), list_parts(new)
+    o, n = {k for _, k in op}, {k for _, k in np_}
+    if o == n:
+        if more_kinds(old) == more_kinds(new):
+            return None  # 순서·띄어쓰기·'등'만 다름
+        # 업종 '외 13 종'→'외 14 종': 적힌 업종은 같고 개수만 바뀜
+        return (f"{label} 수 {more_kinds(old) + len(o)}→{more_kinds(new) + len(n)}종"
+                "(앞에 적힌 업종은 같음, 늘거나 준 업종 이름은 원문 확인)"), "B"
+    added = [p for p, k in np_ if k not in o]
+    removed = [p for p, k in op if k not in n]
+    detail = " · ".join(x for x in (f"추가 {', '.join(added)}" if added else "", f"빠짐 {', '.join(removed)}" if removed else "") if x)
+    tier = "A" if label == "주생산품" and added else "B"
+    return f"{label} '{old or '-'}'→'{new or '-'}'" + (f" ({detail})" if detail else ""), tier
+
+
+def lower(tier):
+    return {"A": "B", "B": "C"}.get(tier, tier)
+
+
+OLD_REG_NOTE = " — 오래전 등록된 공장이 이번에 처음 잡힘(이름 변경·조회 범위 변화 가능)"
+
+
+def dedupe_list(s):
+    """'액슬 등 구동부품, 액슬 등 구동부품, …, 화포 및 함포' → 같은 항목은 한 번만(원래 순서·글자 유지)."""
+    seen, out = set(), []
+    for part, key in list_parts(s):
+        if key not in seen:
+            seen.add(key)
+            out.append(part)
+    return ", ".join(out) if out else (s or "")
+
+
+def settle_reappearances(events):
+    """'목록에서 빠짐' 뒤에 같은 공장이 다시 잡히면 둘 다 C: 조회 목록에서 잠깐 빠졌던 것(운영 10-28 빠짐 → 10-30
+    '새 공장': 현대위아 창원2공장, 등록 1993-08-18). 다시 판정한 것은 표시를 남겨 두 번 고치지 않는다."""
+    gone = {}
+    for e in sorted(events, key=lambda e: e.get("detectedAt") or ""):
+        fid = e.get("factoryId")
+        if e.get("kind") == "목록에서 빠짐":
+            gone[fid] = e
+        elif e.get("kind") in ("새 공장", "목록에 다시 나옴") and fid in gone:
+            g = gone.pop(fid)
+            if not g.get("settled"):
+                g.update(tier="C", settled=True, text=str(g.get("text") or "") + f" — {str(e.get('detectedAt'))[:10]} 다시 나옴(조회 목록에서 잠깐 빠진 것으로 보임)")
+            if e.get("kind") == "새 공장" or not e.get("settled"):
+                e.update(kind="목록에 다시 나옴", tier="C", settled=True)
+    for e in events:  # 다시 나온 공장 문장: '처음 잡힘' 설명은 맞지 않고, 주생산품 반복은 한 번만(여러 번 돌아도 같은 결과)
+        if e.get("kind") == "목록에 다시 나옴":
+            text = str(e.get("text") or "").replace(OLD_REG_NOTE, "")
+            e["text"] = re.sub(r"주생산품 (.*?) · 등록", lambda m: f"주생산품 {dedupe_list(m.group(1))} · 등록", text, count=1)
+    return events
+
+
+SEGMENT = re.compile(r"(주생산품|업종|주소) '(.*?)'→'(.*?)'(?= · |$)")
+
+
+def retier(e):
+    """등급 없이 저장된 예전 '등록 내용 변경'·'새 공장'(10-30 이전)을 같은 기준으로 다시 판정한다."""
+    if e.get("tier") or e.get("kind") not in ("등록 내용 변경", "새 공장"):
+        return e
+    text = str(e.get("text") or "")
+    if e.get("kind") == "새 공장":
+        m = re.search(r"등록 (\d{4}-\d{2}-\d{2})", text)
+        try:
+            cut = (dt.datetime.fromisoformat(str(e.get("detectedAt"))).date() - dt.timedelta(days=RECENT_DAYS)).isoformat()
+        except ValueError:
+            return e
+        tier = "B" if m and m.group(1) < cut else "A"
+        return dict(e, tier=lower(tier) if str(e.get("company") or "").endswith("(관련)") else tier,
+                    text=text + (OLD_REG_NOTE if tier == "B" else ""))
+    tiers = ["A"] if re.search(r"(^|· )고용 [\d,]+→[\d,]+명", text) else []
+    for label, old, new in SEGMENT.findall(text):
+        ch = field_change(label, old, new)
+        if ch:
+            tiers.append(ch[1])
+    if not tiers:
+        return dict(e, tier="C", text=text + " — 순서·표기만 바뀜(같은 항목, 10-30 다시 판정)")
+    tier = "A" if "A" in tiers else "B"
+    return dict(e, tier=lower(tier) if str(e.get("company") or "").endswith("(관련)") else tier)
+
+
 def rule_sig(c):
     return "|".join([",".join(c["queries"]), c["accept"], c.get("industryAccept") or ""])
 
@@ -201,21 +315,32 @@ def factories(cfg, key, now, previous, *, get=None, sleep=time.sleep, deadline=N
         if old is None:
             if f["company"] in comparable:
                 tags.append("[새로 잡힌 공장]")
+                # 등록일이 최근 120일보다 오래된 공장은 새 공장이 아니라 '처음 잡힌 기존 공장'(이름 변경·조회 범위 변화일 수 있음): B
+                fresh_reg = bool(f.get("registeredOn")) and f["registeredOn"] >= recent_from
+                tier = "A" if fresh_reg or not f.get("registeredOn") else "B"
                 events.append({"id": f"{fid}:new", "kind": "새 공장", "company": f["company"], "factoryId": fid, "name": f["cmpnyNm"],
-                               "text": f"{f['cmpnyNm']} · {f['rnAdres']} · 주생산품 {f['mainProductCn'] or '미기재'} · 등록 {f.get('registeredOn') or '미기재'}",
+                               "text": f"{f['cmpnyNm']} · {f['rnAdres']} · 주생산품 {dedupe_list(f['mainProductCn']) or '미기재'} · 등록 {f.get('registeredOn') or '미기재'}"
+                                       + ("" if tier == "A" else OLD_REG_NOTE),
+                               "registeredOn": f.get("registeredOn"), "tier": lower(tier) if f["company"].endswith("(관련)") else tier,
                                "detectedAt": stamp})
         elif f["company"] in comparable:
             changes = []
             oe, ne = old.get("employees"), f.get("employees")
             if oe is not None and ne is not None and oe != ne and abs(ne - oe) >= max(20, round(oe * 0.1)):
-                changes.append(f"고용 {oe:,}→{ne:,}명")
+                changes.append((f"고용 {oe:,}→{ne:,}명", "A"))
             for k, label in (("mainProductCn", "주생산품"), ("indutyNm", "업종"), ("rnAdres", "주소")):
                 if (old.get(k) or "") != (f.get(k) or "") and old.get(k) is not None:
-                    changes.append(f"{label} '{old.get(k) or '-'}'→'{f.get(k) or '-'}'")
+                    ch = field_change(label, old.get(k), f.get(k))
+                    if ch:
+                        changes.append(ch)
             if changes:
-                tags.append("[변경] " + " · ".join(changes))
+                tier = "A" if any(t == "A" for _, t in changes) else "B"
+                if f["company"].endswith("(관련)"):  # 직접 출입처가 아닌 관련 기업은 한 단계 낮춘다
+                    tier = lower(tier)
+                text = " · ".join(c for c, _ in changes)
+                tags.append("[변경] " + text)
                 events.append({"id": f"{fid}:{stamp[:10]}", "kind": "등록 내용 변경", "company": f["company"], "factoryId": fid,
-                               "name": f["cmpnyNm"], "text": " · ".join(changes), "detectedAt": stamp})
+                               "name": f["cmpnyNm"], "text": text, "tier": tier, "detectedAt": stamp})
         f["tags"] = tags
     # factories that disappeared from a company whose queries all completed
     for fid, old in prev.items():
@@ -360,16 +485,22 @@ def eia(cfg, now, previous, *, post=None, get=None, sleep=time.sleep, deadline=N
         rx, q = eia_name_rx(c), c["queries"][0]
         for kind, ext, view in EIA_KINDS:
             data = {"query": q, "collection": "business", "urlString": ext, "viewName": view, "currentPage": 1, "sort": "DATE/DESC", "listCount": 10}
-            try:
-                r = post(EIASS, data=data, headers={**UA, "X-Requested-With": "XMLHttpRequest", "Referer": EIASS_PAGE}, timeout=30, verify=verify)
-                if r.status_code != 200:
-                    raise RuntimeError(f"HTTP {r.status_code}")
-                rows = eia_rows(r.text)
-                ok += 1
-            except Exception as e:  # noqa: BLE001
-                failed.append(f"{c['company']}·{kind}:{str(e)[:30] or type(e).__name__}")
-                sleep(0.5)
+            rows, err = None, None
+            for attempt in range(2):  # 10-29: one company's two queries timed out once, fine on the next run
+                try:
+                    r = post(EIASS, data=data, headers={**UA, "X-Requested-With": "XMLHttpRequest", "Referer": EIASS_PAGE}, timeout=30, verify=verify)
+                    if r.status_code != 200:
+                        raise RuntimeError(f"HTTP {r.status_code}")
+                    rows = eia_rows(r.text)
+                    break
+                except Exception as e:  # noqa: BLE001
+                    err = e
+                    sleep(5.0 if attempt == 0 else 0.5)
+            if rows is None:
+                name = type(err).__name__
+                failed.append(f"{c['company']}·{kind}:{name if name in ('ConnectTimeout', 'ReadTimeout', 'ConnectionError', 'SSLError') else (str(err)[:30] or name)}")
                 continue
+            ok += 1
             for x in rows:
                 if not rx.search(x["name"]) or EIA_REJECT.search(x["name"]):
                     continue
@@ -403,9 +534,10 @@ def run(cfg, key, *, now, previous=None, get=None, sleep=time.sleep, post=None, 
     else:
         eia_items, eia_seen = list((previous or {}).get("eia") or []), list((previous or {}).get("eiaSeen") or [])
     keep_from = (now - dt.timedelta(days=120)).isoformat()
-    events = [e for e in (previous or {}).get("events", []) if isinstance(e, dict) and e.get("detectedAt", "") >= keep_from]
+    events = [retier(e) for e in (previous or {}).get("events", []) if isinstance(e, dict) and e.get("detectedAt", "") >= keep_from]
     seen = {e.get("id") for e in events}
     events += [e for e in fac_events if e["id"] not in seen]
+    settle_reappearances(events)
     events.sort(key=lambda e: e["detectedAt"], reverse=True)
     failed = [c for c in checks if c["status"] != "ok"]
     return {"schema": SCHEMA, "generatedAt": stamp, "status": "partial" if failed else "complete", "checks": checks,

@@ -4,6 +4,9 @@
   출시 시점(Coming Spring 2027 등), 한정 물량, 가격(Starting MSRP $..), 판매 상태(sold out·reserve 등), 연식+차명.
 - 직전 상태(기자 전용 저장소)와 비교해 추가·삭제된 문구를 '변경'으로 남긴다.
   처음 보는 페이지는 웹 아카이브(Wayback)의 약 45일 전 사본을 기준으로 비교한다.
+- 설정한 주소가 다른 주소로 넘어가면(리디렉트) 그 페이지는 '넘어감'으로 두고 문구를 비교하지 않는다. 알던 페이지가 넘어가기 시작하면
+  '페이지 넘어감'(판매 중단·단종·개편 가능성), 넘어가던 주소가 제 페이지로 열리면 '페이지 열림'(출시 준비 신호)을 남긴다.
+  (10-31 확인: kia.com/us/en/ev4는 기아 미국 홈페이지로 301 — 그동안 'EV4' 이름으로 홈페이지의 K4 가격 문구를 비교했다.)
 - 페이지 문구 변화는 공식 발표가 아니다. 변경 시점·사유는 회사 확인이 필요하다.
 - 결과는 기자 전용 저장소(page-watch)로만. 공개 로그에는 건수와 페이지별 응답 코드만.
 """
@@ -97,7 +100,18 @@ def fetch(url, *, get=None):
     body = r.text if hasattr(r, "text") else r.content.decode("utf-8", "replace")
     if len(body) < 2000 or re.search(r"(?i)access denied|captcha|are you a robot|request unsuccessful", body[:5000]):
         return {"status": "failed", "error": "차단·확인 페이지 의심"}
-    return {"status": "ok", "html": body}
+    final = getattr(r, "url", None)
+    return {"status": "ok", "html": body, "final": final if isinstance(final, str) and final else url}
+
+
+def page_key(u):
+    """주소 비교용: 호스트(www 뺌)·경로(끝 / 뺌), scheme·쿼리·조각은 무시."""
+    m = re.match(r"^https?://(?:www\.)?([^/?#]+)([^?#]*)", str(u or ""), re.I)
+    return (m.group(1).lower(), m.group(2).rstrip("/").lower()) if m else (str(u or "").lower(), "")
+
+
+def same_page(want, got):
+    return page_key(want) == page_key(got)
 
 
 def wayback(url, day, *, get=None):
@@ -171,10 +185,27 @@ def run(pages, *, now, previous=None, get=None, sleep=time.sleep):
                 rec.update(signals=old["signals"], specific=old.get("specific", False), lastOk=old.get("lastOk"))
             out_pages.append(rec)
             continue
+        final = res.get("final") or p["url"]
+        if not same_page(p["url"], final):
+            rec.update(status="redirected", finalUrl=final, lastOk=stamp, signals={})
+            if old and "finalUrl" in old and old.get("status") != "redirected":
+                # 알던 페이지가 이번에 다른 주소로 넘어감
+                events.append({"pageId": p["id"], "scope": "page", "kind": "moved", "company": p["company"], "label": p["label"], "url": p["url"],
+                               "detectedAt": stamp, "baselineSource": "직전 확인", "baselineDate": (old.get("lastOk") or "")[:10],
+                               "movedTo": final, "added": {}, "removed": old.get("signals") or {}})
+            elif old and "finalUrl" not in old:
+                # 예전 기록(넘어간 줄 모르던 때): 이 주소의 지난 '변경'은 넘어간 곳의 문구였다고 적는다
+                for e in events:
+                    if e.get("pageId") == p["id"] and not e.get("redirectNote"):
+                        e["redirectNote"] = f"이 주소는 {final}(으)로 넘어가 있어 이 문구는 그 페이지 것이다 — {p['label']} 문구 아님({stamp[:10]} 확인)"
+            out_pages.append(rec)
+            continue
         text = visible_text(res["html"])
         raw[p["id"]] = signals(text)
-        rec.update(status="ok", hash=hashlib.sha256(text.encode()).hexdigest()[:16], lastOk=stamp, textLength=len(text))
-        if not (old and old.get("signals")):
+        rec.update(status="ok", finalUrl=final, hash=hashlib.sha256(text.encode()).hexdigest()[:16], lastOk=stamp, textLength=len(text))
+        if old and old.get("status") == "redirected":
+            rec["openedFrom"] = old.get("finalUrl") or "다른 주소"
+        elif not (old and old.get("signals")):
             day = (now - dt.timedelta(days=BASELINE_DAYS)).strftime("%Y%m%d")
             wb_day, wb_html = wayback(p["url"], day, get=get)
             sleep(1.5)
@@ -211,6 +242,12 @@ def run(pages, *, now, previous=None, get=None, sleep=time.sleep):
             rec.update(signals=own, specific=True)
             old = prev_pages.get(pid)
             base, src, day = None, None, None
+            if rec.get("openedFrom"):
+                # 다른 주소로 넘어가던 주소가 제 페이지로 열림 — 지금 문구 전체를 새로 보인 것으로
+                events.append({"pageId": pid, "scope": "page", "kind": "opened", "company": rec["company"], "label": rec["label"], "url": rec["url"],
+                               "detectedAt": stamp, "baselineSource": f"{rec['openedFrom']}(으)로 넘어가던 주소", "baselineDate": (old.get("lastOk") or "")[:10],
+                               "openedFrom": rec["openedFrom"], "added": {k: v for k, v in own.items() if v}, "removed": {}})
+                continue
             if old and old.get("signals"):
                 # Records saved before site-wide separation still contain menu lines: strip today's common lines.
                 base = old["signals"] if old.get("specific") else subtract(subtract(old["signals"], legacy_common), common)
@@ -227,13 +264,14 @@ def run(pages, *, now, previous=None, get=None, sleep=time.sleep):
                                    "url": rec["url"], "detectedAt": stamp, "baselineSource": src, "baselineDate": day,
                                    "added": added, "removed": removed})
     events.sort(key=lambda e: e["detectedAt"], reverse=True)
-    failed = [p for p in out_pages if p["status"] != "ok"]
+    failed = [p for p in out_pages if p["status"] == "failed"]
     return {"schema": SCHEMA, "generatedAt": stamp,
             "status": "partial" if failed else "complete", "pages": out_pages, "sites": sites, "events": events[:200],
             "rules": ["페이지 문구 변화는 공식 발표가 아니다. 언제·왜 바뀌었는지는 회사 확인이 필요하다.",
                       "같은 사이트 여러 페이지에 공통으로 붙은 문구(메뉴·배너)는 사이트 공통으로 따로 본다.",
                       "첫 비교 기준이 웹 아카이브 사본이면 그 사이 언제 바뀌었는지는 모른다.",
-                      "열리지 않은 페이지(차단·오류)는 변화 없음이 아니라 미확인."],
+                      "열리지 않은 페이지(차단·오류)는 변화 없음이 아니라 미확인.",
+                      "다른 주소로 넘어가는 페이지는 문구를 비교하지 않는다. 넘어가기 시작하면 '페이지 넘어감', 다시 제 페이지로 열리면 '페이지 열림'."],
             "confirmedScoops": 0}
 
 
@@ -261,7 +299,7 @@ def main():
     # GitHub shows at most 10 notices per step: one line for all pages.
     lines = []
     for p in doc["pages"]:
-        counts = "/".join(str(len(v)) for v in (p.get("signals") or {}).values()) if p["status"] == "ok" else p.get("error")
+        counts = "/".join(str(len(v)) for v in (p.get("signals") or {}).values()) if p["status"] == "ok" else (p.get("error") or p["status"])
         lines.append(f"{p['id']}={p['status']}({counts};{(p.get('baseline') or {}).get('source', '직전')})")
     print("::notice title=page-watch-pages::신호 수 순서 timing/limited/price/status/models ;; " + " ;; ".join(lines))
     ok = sum(1 for p in doc["pages"] if p["status"] == "ok")

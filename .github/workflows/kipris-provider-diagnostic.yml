@@ -30,6 +30,15 @@ jobs:
         env:
           KIPRIS_SERVICE_KEY: ${{ secrets.KIPRIS_SERVICE_KEY }}
         run: python scripts/kipris_provider_probe.py --out "$RUNNER_TEMP/kipris-provider-diagnostic.json"
+      - name: Show the sanitized result as an annotation (status and code only)
+        if: ${{ always() }}
+        run: |
+          python - "$RUNNER_TEMP/kipris-provider-diagnostic.json" <<'PY'
+          import json, sys
+          d = json.load(open(sys.argv[1]))
+          keep = {k: d.get(k) for k in ("status", "providerResultCode", "providerMessageCategory", "httpStatus", "reportedTotal", "returnedRows", "requestsAttempted")}
+          print("::notice title=kipris-diagnostic::" + json.dumps(keep, ensure_ascii=False))
+          PY
       - name: Keep sanitized diagnostic; a green job does not mean collection recovered
         uses: actions/upload-artifact@v4
         with:

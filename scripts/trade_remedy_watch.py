@@ -1,5 +1,5 @@
 """무역구제 감시: EU 철강 쿼터(TARIC) 한국 몫 소진, 미국 관보의 한국산 무역구제·ITC 고시, 호주·캐나다·인도 공고 목록,
-국내 무역위원회(진행 사건·진행일정·회의 안건·보도자료, scripts/ktc_watch.py).
+국내 무역위원회(진행 사건·진행일정·회의 안건·보도자료, scripts/ktc_watch.py), 무역협회 대한 수입규제DB(세계 각국, scripts/kita_watch.py).
 
 - EU TARIC: 이번 분기 한국 관련 관세쿼터(09xxxx) 초기 물량·잔량·소진일·CN 코드. 사용률 80% 이상·소진을 표시하고
   직전 확인 대비 사용률 변화를 남긴다.
@@ -380,21 +380,24 @@ def federal_register(now, previous=None, *, get=None, sleep=time.sleep):
 # ---------- Foreign listing pages ----------
 
 LINE_PARSER = 2
+KOREA_RX = re.compile(r"korea", re.I)
 BLOCK_END = re.compile(r"(?i)<br\s*/?>|</(?:p|tr|li|div|h\d|dt|dd|td|th|summary|section|article)>")
 
 
-def korea_lines(raw):
-    """Lines that mention Korea — table rows, list items, headings, paragraphs, link texts — with the first link inside."""
+def korea_lines(raw, rx=None):
+    """Lines that mention Korea — table rows, list items, headings, paragraphs, link texts — with the first link inside.
+    rx: the page's own word for Korea (베트남 'Hàn Quốc' 등); default 'korea'."""
+    rx = rx or KOREA_RX
     raw = re.sub(r"(?is)<(script|style|noscript|nav|header|footer)[^>]*>.*?</\1>", " ", raw)
     out = {}
     for href, inner in re.findall(r"""(?is)<a[^>]+href=["']([^"']+)["'][^>]*>(.*?)</a>""", raw):
         t = plain(inner)
-        if re.search(r"korea", t, re.I) and 8 <= len(t) <= 300:
+        if rx.search(t) and 8 <= len(t) <= 300:
             out.setdefault(t, href)
     # rows first so a table row keeps its link; then any other block-level line
     for row in re.findall(r"(?is)<tr[^>]*>(.*?)</tr>", raw):
         t = plain(row)
-        if re.search(r"korea", t, re.I) and 8 <= len(t) <= 400:
+        if rx.search(t) and 8 <= len(t) <= 400:
             m = re.search(r"""href=["']([^"']+)["']""", row)
             out.setdefault(t, m.group(1) if m else None)
     prev_text = ""
@@ -402,7 +405,7 @@ def korea_lines(raw):
         t = plain(chunk)
         if not t:
             continue
-        if re.search(r"korea", t, re.I) and 8 <= len(t) <= 400:
+        if rx.search(t) and 8 <= len(t) <= 400:
             # a bare country list ("China, South Korea and Vietnam") is keyed with the line before it (the case name)
             key = f"{prev_text[:120]} — {t}" if len(t) < 60 and prev_text else t
             if not any(key in k for k in out):  # already kept as a link or table row
@@ -412,7 +415,43 @@ def korea_lines(raw):
     return out
 
 
-def foreign_pages(pages, previous, now, *, get=None, sleep=time.sleep, relay_token=None):
+# 해외 IP에서 막히는 목록(via=browser): 기자 컴퓨터 예약 작업이 브라우저로 한국 줄의 칸 글자·링크만 올린다(trade-remedy-browser).
+# 평일 08:40·16:40 수집 → 이 감시(평일 07:40)는 전날 16:40 것을 읽는다. 30시간(월요일 오전은 금요일 수집까지 78시간)보다 오래되면 미확인.
+BROWSER_PARSER = "browser-v1"
+BROWSER_FRESH_HOURS = 30
+BROWSER_FRESH_MONDAY = 78
+
+
+def browser_lines(doc, page, now):
+    """(lines, None) 또는 (None, 이유). lines: 한국이 든 줄 글자 → 링크(그 사이트 경로, PDF 먼저)."""
+    entry = next((x for x in (doc or {}).get("pages") or [] if isinstance(x, dict) and x.get("id") == page["id"]), None)
+    if not entry:
+        return None, "브라우저 수집 없음(예약 작업 전이거나 컴퓨터·앱이 꺼짐)"
+    try:
+        age = (now - dt.datetime.fromisoformat(str(entry.get("fetchedAt")))).total_seconds() / 3600
+    except (TypeError, ValueError):
+        return None, "브라우저 수집 시각 미상"
+    limit = BROWSER_FRESH_MONDAY if now.weekday() == 0 and now.hour < 12 else BROWSER_FRESH_HOURS
+    if age > limit:
+        return None, f"브라우저 수집이 {age:.0f}시간 전 — 컴퓨터·앱이 꺼졌을 수 있음"
+    if entry.get("error"):
+        return None, f"브라우저 수집 실패({str(entry['error'])[:40]})"
+    rx = re.compile(page["pattern"], re.I) if page.get("pattern") else KOREA_RX
+    lines = {}
+    for r in entry.get("rows") or []:
+        if not isinstance(r, dict):
+            continue
+        t = re.sub(r"\s+", " ", " ".join(str(c) for c in r.get("cells") or [])).strip()
+        if not rx.search(t) or not 8 <= len(t) <= 400:
+            continue
+        links = [str(x) for x in r.get("links") or [] if isinstance(x, str) and x.startswith("/")]
+        lines.setdefault(t, next((x for x in links if x.lower().endswith(".pdf")), links[0] if links else None))
+    if not lines:
+        return None, "브라우저 수집에 한국 줄 0줄(형식 변경 가능)"
+    return dict(list(lines.items())[:200]), None
+
+
+def foreign_pages(pages, previous, now, *, get=None, sleep=time.sleep, relay_token=None, browser=None):
     prev = {p["id"]: p for p in (previous or {}).get("pages", []) if isinstance(p, dict)}
     out, events = [], []
     for p in pages:
@@ -420,6 +459,20 @@ def foreign_pages(pages, previous, now, *, get=None, sleep=time.sleep, relay_tok
         old = prev.get(p["id"]) or {}
         if p.get("disabled"):
             out.append({**rec, "status": "disabled", "error": p["disabled"], "lines": old.get("lines", {})})
+            continue
+        if p.get("via") == "browser":
+            lines, err = browser_lines(browser, p, now)
+            if err:
+                rec.update(status="failed", error=err, lines=old.get("lines", {}), parser=old.get("parser"))
+                out.append(rec)
+                continue
+            rec.update(status="ok", lines=lines, checkedAt=now.isoformat(timespec="seconds"), parser=BROWSER_PARSER, via="기자 컴퓨터 브라우저")
+            if old.get("parser") == BROWSER_PARSER and old.get("lines"):
+                for t in [t for t in lines if t not in old["lines"]]:
+                    href = urljoin(p["url"], lines[t]) if lines[t] else None
+                    events.append({"id": f"{p['id']}:{t[:80]}", "pageId": p["id"], "country": p["country"], "label": p["label"],
+                                   "text": t, "url": href or p["url"], "detectedAt": now.isoformat(timespec="seconds")})
+            out.append(rec)
             continue
         if p.get("via") == "relay":
             if not relay_token:
@@ -437,7 +490,7 @@ def foreign_pages(pages, previous, now, *, get=None, sleep=time.sleep, relay_tok
             rec.update(status="failed", error=err, lines=old.get("lines", {}), parser=old.get("parser"))
             out.append(rec)
             continue
-        lines = dict(list(korea_lines(raw).items())[:200])
+        lines = dict(list(korea_lines(raw, re.compile(p["pattern"], re.I) if p.get("pattern") else None).items())[:200])
         rec.update(status="ok", lines=lines, checkedAt=now.isoformat(timespec="seconds"), parser=LINE_PARSER)
         # a baseline taken by another version of the line reader is not compared (its keys differ)
         if old.get("parser") == LINE_PARSER and (old.get("status") == "ok" or old.get("lines")):
@@ -450,7 +503,7 @@ def foreign_pages(pages, previous, now, *, get=None, sleep=time.sleep, relay_tok
     return out, events
 
 
-def run(cfg, *, now, previous=None, get=None, sleep=time.sleep, relay_token=None, ktc_http=None):
+def run(cfg, *, now, previous=None, get=None, sleep=time.sleep, relay_token=None, ktc_http=None, kita_http=None, browser=None):
     stamp = now.isoformat(timespec="seconds")
     had_state = bool(previous)
     checks = []
@@ -462,7 +515,7 @@ def run(cfg, *, now, previous=None, get=None, sleep=time.sleep, relay_token=None
     fr, ferr, bodies = federal_register(now, previous, get=get, sleep=sleep)
     checks.append({"source": "미국 관보", "status": "failed" if ferr else "ok", "returned": len(fr), "bodiesRead": bodies,
                    **({"error": ferr} if ferr else {})})
-    pages, page_events = foreign_pages(cfg.get("pages", []), previous, now, get=get, sleep=sleep, relay_token=relay_token)
+    pages, page_events = foreign_pages(cfg.get("pages", []), previous, now, get=get, sleep=sleep, relay_token=relay_token, browser=browser)
     for p in pages:
         if p["status"] == "disabled":
             continue
@@ -475,6 +528,11 @@ def run(cfg, *, now, previous=None, get=None, sleep=time.sleep, relay_token=None
         if kcheck["status"] == "failed" and (previous or {}).get("ktc"):
             ktc = dict(previous["ktc"], stale=True)  # 누리집이 안 열리면 지난 목록을 그대로(0건 아님)
         checks.append(kcheck)
+    kita, kita_events = (previous or {}).get("kita"), []
+    if kita_http is not None:
+        import kita_watch
+        kita, kita_events, kcheck2 = kita_watch.collect(kita, now, kita_http, sleep=sleep)
+        checks.append(kcheck2)
     prev_fr = {x["id"]: x for x in (previous or {}).get("federalRegister", []) if isinstance(x, dict)}
     if ferr:  # keep the last good list rather than showing an empty one
         fr = list(prev_fr.values())
@@ -484,7 +542,7 @@ def run(cfg, *, now, previous=None, get=None, sleep=time.sleep, relay_token=None
     keep_from = (now - dt.timedelta(days=KEEP_DAYS)).isoformat()
     events = [e for e in (previous or {}).get("events", []) if isinstance(e, dict) and e.get("detectedAt", "") >= keep_from]
     seen = {e.get("id") for e in events}
-    fresh = page_events + ktc_events + [
+    fresh = page_events + ktc_events + kita_events + [
         {"id": f"taric:{q['order']}:{q['periodStart']}", "pageId": "taric", "country": "EU",
          "label": f"EU 쿼터 {q['order']} {q.get('product') or ''}({q['scope']}) 소진", "text": " ".join(q["tags"]),
          "url": q["url"], "detectedAt": stamp} for q in ok_q if q.get("newlyExhausted")]
@@ -496,13 +554,14 @@ def run(cfg, *, now, previous=None, get=None, sleep=time.sleep, relay_token=None
     return {"schema": SCHEMA, "generatedAt": stamp, "status": "partial" if failed else "complete", "checks": checks,
             "baselineSince": (previous or {}).get("baselineSince") or ((previous or {}).get("generatedAt") if previous else None) or stamp,
             "quarter": tinfo["periodStart"], "quotas": quotas, "quotaHistory": history, "federalRegister": fr,
-            "pages": pages, "events": events[:300], **({"ktc": ktc} if ktc else {}),
+            "pages": pages, "events": events[:300], **({"ktc": ktc} if ktc else {}), **({"kita": kita} if kita else {}),
             "rules": ["쿼터 수치는 EU TARIC 집계(마지막 갱신일 기준)다. 통관 신고 정산·배정 대기 물량 배분으로 바뀔 수 있다.",
                       "'한국 전용'은 원산지가 한국만인 쿼터, '공동'은 인도·튀르키예 등과 나눠 쓰는 쿼터다. 공동 쿼터 소진을 한국 물량 소진으로 쓰지 않는다.",
                       "쿼터 소진이 곧 수출 타격은 아니다(선적 시점 조정·선계약). 업체별 물량·영향은 회사 확인이 필요하다.",
                       "미국 고시에 업체명이 나와도 판정 결과·세율은 원문 표에서 직접 확인한다. 회사명 일치만으로 해당 회사 사건으로 단정하지 않는다.",
                       "무역위원회 누리집에는 신청인(국내 생산자)·피신청인 이름이 대개 없다. 품목이 출입 업종이어도 회사 사건으로 단정하지 않는다.",
                       "무역위 회의 안건은 회의 전 공개 개요다. 판정 결과(긍정·부정·세율)는 회의 뒤 보도자료·의결서로 확인한다.",
+                      "무역협회 수입규제DB는 각국 조치를 무역협회가 정리한 2차 자료다. 마진·판정은 단계마다 붙은 원문 링크(관보·WTO 통보 등)로 확인한다.",
                       "조회 실패는 0건이 아니라 미확인."],
             "confirmedScoops": 0}
 
@@ -521,8 +580,16 @@ def main():
             print(f"::warning title=trade-state::이전 상태 조회 실패({e}) — 신규 표시는 이번 실행 기준")
     if private_store.late_scheduled_duplicate(previous, now):
         return
+    browser = None
+    if token and any(p.get("via") == "browser" for p in cfg.get("pages", [])):
+        try:
+            browser = private_store.get("trade-remedy-browser", token)
+        except private_store.StoreError as e:
+            print(f"::warning title=trade-remedy-browser::브라우저 수집 문서 조회 실패({e}) — 그 목록은 미확인")
+    import kita_watch
     import ktc_watch
-    doc = run(cfg, now=now, previous=previous, relay_token=token or None, ktc_http=ktc_watch.Http())
+    doc = run(cfg, now=now, previous=previous, relay_token=token or None, ktc_http=ktc_watch.Http(), kita_http=kita_watch.Http(),
+              browser=browser)
     q = [x for x in doc["quotas"] if x["status"] == "ok"]
     exhausted = sum(1 for x in q if x.get("exhaustedOn"))
     hot = sum(1 for x in q if x.get("tags"))
@@ -536,6 +603,10 @@ def main():
     kev = [e for e in doc["events"] if e.get("pageId") == "ktc" and e["detectedAt"] == doc["generatedAt"]]
     print(f"::notice title=trade-remedy-ktc::무역위 진행 사건 {len([c for c in k.get('cases', []) if not c.get('stale')])} · "
           f"회의 {len(k.get('meetings', []))}(안건 읽음 {sum(1 for m in k.get('meetings', []) if m.get('agenda'))}) · 보도자료 {len(k.get('news', []))} · 이번 이벤트 {len(kev)}")
+    ki = doc.get("kita") or {}
+    kiev = [e for e in doc["events"] if e.get("pageId") == "kita" and e["detectedAt"] == doc["generatedAt"]]
+    print(f"::notice title=trade-remedy-kita::무역협회 수입규제DB 사건 {len(ki.get('cases', {}))} · 이번 이벤트 {len(kiev)}"
+          f"({', '.join(sorted({e['tier'] for e in kiev}))})")
     if not token:
         print("::warning title=trade-remedy-push::MCP_ACCESS_TOKEN 미설정 — 결과를 저장하지 않음")
         return

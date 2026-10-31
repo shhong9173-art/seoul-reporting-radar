@@ -25,6 +25,18 @@ export const FEEDS = {
   'reverse-check': { blob: 'reverse_check', schema: 'reverse_check/v1', list: 'articles' },
   'us-epa': { blob: 'us_epa', schema: 'us_epa/v1', list: 'vehicles' },
   'kr-fuel': { blob: 'kr_fuel', schema: 'kr_fuel/v1', list: 'vehicles' },
+  'overseas-awards': { blob: 'overseas_awards', schema: 'overseas_awards/v1', list: 'items' },
+  'kr-local': { blob: 'kr_local', schema: 'kr_local/v1', list: 'items' },
+  'kr-insolvency': { blob: 'kr_insolvency', schema: 'kr_insolvency/v1', list: 'events' },
+  'kr-energy': { blob: 'kr_energy', schema: 'kr_energy/v1', list: 'items' },
+  'kr-building': { blob: 'kr_building', schema: 'kr_building/v1', list: 'permits' },
+  'overseas-registry': { blob: 'overseas_registry', schema: 'overseas_registry/v1', list: 'companies' },
+  'kr-workforce': { blob: 'kr_workforce', schema: 'kr_workforce/v1', list: 'sites' },
+  'kr-stacks': { blob: 'kr_stacks', schema: 'kr_stacks/v1', list: 'sites' },
+  // 기자 컴퓨터 브라우저로 읽은 새올 목록(local_notice_submit이 쓰고, kr-local 감시가 GET으로 읽는다).
+  'kr-local-browser': { blob: 'kr_local_browser', schema: 'kr_local_browser/v1', list: 'cities' },
+  // 기자 컴퓨터 브라우저로 읽은 무역구제 공고 목록(호주 TRN 등; local_notice_submit pages → trade-remedy 감시가 GET).
+  'trade-remedy-browser': { blob: 'trade_remedy_browser', schema: 'trade_remedy_browser/v1', list: 'pages' },
 };
 
 // Official trade-remedy listing pages that do not answer GitHub runners (ReadTimeout). Collectors fetch them through

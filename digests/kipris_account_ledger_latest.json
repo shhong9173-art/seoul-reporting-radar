@@ -1,10 +1,10 @@
 {
   "month": "2026-10",
   "status": "repository_requests_counted_not_account_quota",
-  "counted": 0,
+  "counted": 1,
   "monthlyLimit": 900,
   "byPurpose": {
-    "patent_source": 0,
+    "patent_source": 1,
     "patent_deep": 0,
     "patent_claims": 0,
     "trademark": 0,
@@ -16,14 +16,22 @@
     "diagnostic": 20
   },
   "groupUsed": {
-    "patent": 0,
+    "patent": 1,
     "trademark": 0,
     "diagnostic": 0
   },
   "thisRunAttempted": 0,
-  "providerCooldown": {},
+  "providerCooldown": {
+    "patent": {
+      "lastResultCode": "22",
+      "lastPurpose": "patent_source",
+      "lastMessageCategory": null,
+      "lastResponseAt": "2026-10-29T10:08:06+09:00",
+      "nextProbeAt": "2026-11-01T10:08:06+09:00"
+    }
+  },
   "effectiveNextProbeAt": {
-    "patent": "2026-10-29T08:25:32+09:00"
+    "patent": "2026-11-01T10:08:06+09:00"
   },
   "providerCodeMeaningVerified": false,
   "lastSuccessAt": {},

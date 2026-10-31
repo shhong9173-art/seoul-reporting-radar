@@ -98,7 +98,7 @@ def parse_detail(page):
         link = (re.search(r"(?is)<a href=\"(https?://[^\"]+)\"[^>]*class=\"open-link\"", body)
                 or re.search(r"(?is)<a href=\"(https?://[^\"]+)\"[^>]*>\s*관련 링크", body))
         stages.append({"label": m.group(1).strip(), "date": f"{m.group(2)}-{m.group(3)}-{m.group(4)}", "firms": firms[:20], "note": note,
-                       "link": link.group(1) if link else None})
+                       "link": htmllib.unescape(link.group(1)) if link else None})  # 10-30 실제 링크에 '&amp;'가 그대로
     return {"caseNo": head.get("케이스 번호"), "country": head.get("규제국"), "type": head.get("유형"), "category": head.get("품목 분류"),
             "status": head.get("규제 상태"), "hs": re.findall(r"\d{4}\.\d{2}(?:\.\d{2,4})?", head.get("HS코드", ""))[:6], "stages": stages}
 

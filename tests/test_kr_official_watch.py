@@ -101,6 +101,76 @@ class Factory(unittest.TestCase):
         self.assertIn("주생산품 '열연강판'→'열연강판, 전기강판'", ch["text"])
         self.assertNotIn("fac:10", {e["factoryId"] for e in doc["events"]})
 
+    def test_reordered_or_reformatted_fields_are_not_changes(self):
+        # 운영 10-29: LS일렉트릭 청주1공장 주생산품이 순서만 바뀐 것이 A로 떴다
+        old = [fac("1", "(주)포스코 포항제철소", product="전기부품, 고압접촉기, 전력량계, 누전차단기, 개폐기 등, 진공접촉기, Ev-Relay",
+                   induty="제철업 외 13 종", addr="경상북도 포항시 남구 동해안로 6261(괴동동, 포스코(주)포항제철소)")]
+        first = run(posco=old)
+        same = [fac("1", "(주)포스코 포항제철소", product="Ev-Relay, 전력량계, 전기부품, 고압접촉기, 진공접촉기, 누전차단기, 개폐기 등",
+                    induty="제철업 외 13 종", addr="경상북도 포항시 남구 동해안로 6261 (괴동동)")]
+        doc = run(previous=first, posco=same, now=NOW + dt.timedelta(days=1))
+        self.assertEqual([e for e in doc["events"] if e["kind"] == "등록 내용 변경"], [])
+        more = [fac("1", "(주)포스코 포항제철소", product="Ev-Relay, 전력량계, 전기부품, 고압접촉기, 진공접촉기, 누전차단기, 개폐기 등, ESS용 PCS",
+                    induty="제철업 외 14 종")]
+        doc = run(previous=first, posco=more, now=NOW + dt.timedelta(days=1))
+        ch = next(e for e in doc["events"] if e["kind"] == "등록 내용 변경")
+        self.assertEqual(ch["tier"], "A")  # 새 품목
+        self.assertIn("(추가 ESS용 PCS)", ch["text"])
+        self.assertIn("업종 수 14→15종", ch["text"])
+        fewer = [fac("1", "(주)포스코 포항제철소", product="전기부품, 고압접촉기", induty="제철업 외 14 종")]
+        doc = run(previous=first, posco=fewer, now=NOW + dt.timedelta(days=1))
+        self.assertEqual(next(e for e in doc["events"] if e["kind"] == "등록 내용 변경")["tier"], "B")  # 빠지기만 함·업종 수
+
+    def test_stored_events_without_tier_are_rejudged_and_related_companies_are_lower(self):
+        prev = run()
+        reorder = {"id": "fac:x:2026-10-29", "kind": "등록 내용 변경", "company": "LS일렉트릭", "factoryId": "fac:x", "detectedAt": "2026-10-29T08:10:00+09:00",
+                   "text": "주생산품 '전기부품, 고압접촉기, 개폐기 등, Ev-Relay'→'Ev-Relay, 전기부품, 고압접촉기, 개폐기 등'"}
+        kinds = {"id": "fac:y:2026-10-28", "kind": "등록 내용 변경", "company": "효성중공업(관련)", "factoryId": "fac:y", "detectedAt": "2026-10-28T08:10:00+09:00",
+                 "text": "업종 '육상 금속 골조 구조재 제조업 외 13 종'→'육상 금속 골조 구조재 제조업 외 14 종'"}
+        staff = {"id": "fac:z:2026-10-28", "kind": "등록 내용 변경", "company": "KG스틸", "factoryId": "fac:z", "detectedAt": "2026-10-28T08:10:00+09:00",
+                 "text": "고용 856→690명"}
+        prev["events"] = [reorder, kinds, staff]
+        doc = run(previous=prev, now=NOW + dt.timedelta(days=3))
+        by = {e["id"]: e for e in doc["events"]}
+        self.assertEqual(by["fac:x:2026-10-29"]["tier"], "C")
+        self.assertIn("순서·표기만 바뀜", by["fac:x:2026-10-29"]["text"])
+        self.assertEqual(by["fac:y:2026-10-28"]["tier"], "C")  # 업종 수만(B) + 관련 기업 한 단계 아래
+        self.assertEqual(by["fac:z:2026-10-28"]["tier"], "A")
+        self.assertEqual(w.retier(by["fac:x:2026-10-29"]), by["fac:x:2026-10-29"])  # 두 번 판정하지 않음
+
+    def test_factory_that_comes_back_is_not_a_new_factory(self):
+        # 운영 10-28 '목록에서 빠짐' → 10-30 '새 공장': 현대위아(주)창원2공장(등록 1993-08-18)
+        first = run()
+        gone = run(previous=first, posco=[f for f in POSCO if f["fctryManageNo"] != "4"], now=NOW + dt.timedelta(days=1))
+        self.assertIn(("목록에서 빠짐", "fac:4"), {(e["kind"], e["factoryId"]) for e in gone["events"]})
+        back = run(previous=gone, now=NOW + dt.timedelta(days=3))
+        by = {(e["kind"], e["factoryId"]): e for e in back["events"]}
+        self.assertNotIn(("새 공장", "fac:4"), by)
+        self.assertEqual(by[("목록에 다시 나옴", "fac:4")]["tier"], "C")
+        self.assertEqual(by[("목록에서 빠짐", "fac:4")]["tier"], "C")
+        self.assertIn("다시 나옴(조회 목록에서 잠깐 빠진 것으로 보임)", by[("목록에서 빠짐", "fac:4")]["text"])
+        # 10-30 운영 저장분 모양: 예전 규칙이 붙인 '처음 잡힘' 설명·주생산품 반복이 있는 '새 공장' → 다시 나옴 문장은 깔끔하게
+        stored = dict(by[("목록에 다시 나옴", "fac:4")], kind="새 공장", settled=False,
+                      text="(주)포스코 광양제철소 · 전라남도 광양시 · 주생산품 액슬 등 구동부품, 액슬 등 구동부품, 화포 및 함포 · 등록 1973-07-03" + w.OLD_REG_NOTE)
+        cleaned = w.settle_reappearances([next(e for e in back["events"] if e["kind"] == "목록에서 빠짐" and e["factoryId"] == "fac:4"), stored])
+        self.assertEqual(cleaned[1]["text"], "(주)포스코 광양제철소 · 전라남도 광양시 · 주생산품 액슬 등 구동부품, 화포 및 함포 · 등록 1973-07-03")
+        again = run(previous=back, now=NOW + dt.timedelta(days=4))  # 다시 판정하지 않음(문장이 두 번 붙지 않음)
+        g = next(e for e in again["events"] if e["kind"] == "목록에서 빠짐" and e["factoryId"] == "fac:4")
+        self.assertEqual(g["text"].count("다시 나옴"), 1)
+
+    def test_old_registration_first_seen_is_b_and_products_are_deduplicated(self):
+        first = run()
+        more = POSCO + [fac("7", "(주)포스코 광양 제2공장", reg="19930818", product="액슬 등 구동부품, 액슬 등 구동부품, 화포 및 함포"),
+                        fac("8", "(주)포스코 광양 수소공장", reg="20260901")]
+        doc = run(previous=first, posco=more, now=NOW + dt.timedelta(days=1))
+        by = {e["factoryId"]: e for e in doc["events"] if e["kind"] == "새 공장"}
+        self.assertEqual((by["fac:7"]["tier"], by["fac:8"]["tier"]), ("B", "A"))
+        self.assertIn("주생산품 액슬 등 구동부품, 화포 및 함포 · 등록 1993-08-18 — 오래전 등록된 공장이 이번에 처음 잡힘", by["fac:7"]["text"])
+        old = {"id": "fac:9:new", "kind": "새 공장", "company": "현대위아", "factoryId": "fac:9", "detectedAt": "2026-10-28T08:10:00+09:00",
+               "text": "현대위아(주)창원3공장 · 경남 · 주생산품 x · 등록 2001-05-01"}
+        self.assertEqual(w.retier(old)["tier"], "B")
+        self.assertEqual(w.retier(dict(old, text="… · 등록 2026-09-01"))["tier"], "A")
+
     def test_failed_query_keeps_records_and_does_not_report_gone(self):
         first = run()
         doc = run(previous=first, factory_code=500, now=NOW + dt.timedelta(days=1))
@@ -257,6 +327,18 @@ class Eia(unittest.TestCase):
         post2, get2, _ = self.fake(newer)
         items, _, _ = w.eia(self.cfg, self.now, {"eiaSeen": seen, "eia": []}, post=post2, get=get2, sleep=lambda s: None)
         self.assertEqual([(x["company"], x["stage"], x["kind"], x["isNew"]) for x in items], [("고려아연", "본안(진행)", "환경영향평가", True)])
+
+    def test_one_timeout_is_retried(self):
+        post, get, posts = self.fake()
+        fails = {"n": 0}
+
+        def flaky(url, **kw):
+            if kw["data"]["query"] == "포스코" and not fails["n"]:
+                fails["n"] += 1
+                raise type("ConnectTimeout", (Exception,), {})("HTTPSConnectionPool(host='www.eiass.go.kr') url /x")
+            return post(url, **kw)
+        _, _, checks = w.eia(self.cfg, self.now, None, post=flaky, get=get, sleep=lambda s: None)
+        self.assertEqual((checks[0]["status"], checks[0]["returned"]), ("ok", 4))
 
     def test_site_failure_is_not_zero(self):
         post, get, _ = self.fake(status=503)

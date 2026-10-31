@@ -1,0 +1,41 @@
+name: Workplace Workforce Watch (National Pension)
+# 출입처 사업장 인력: 국민연금 가입 사업장(공공데이터 3046071 V2) 월 자료에서 자사 본사·공장의 가입자 수·그달 취득·상실,
+# 탈퇴·새 사업장, 시공사가 출입처 이름을 넣어 만든 새 공사·용역 현장. 평일 15:50 KST(Cloudflare 요청이 정시 실행, GitHub 예약은 대비용).
+# 표지 조회 한 번으로 새 달이 나왔을 때만 전체를 읽고, 남는 시간(최대 22분)에 지난 12개월을 채운다.
+# 결과는 기자 전용 저장소로만. 공개 로그는 건수·원천 상태만(키 값은 출력하지 않음).
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/kr_workforce_watch.py'
+      - 'data/workforce_watch.json'
+      - 'tests/test_kr_workforce_watch.py'
+      - '.github/workflows/kr-workforce.yml'
+  schedule:
+    - cron: '50 6 * * 1-5'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: kr-workforce-watch
+  cancel-in-progress: false
+jobs:
+  workforce:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install "requests>=2.31,<3"
+      - name: Test workplace rules and grading
+        run: python -m unittest tests.test_kr_workforce_watch tests.test_private_store -v
+      - name: Watch beat workplaces (counts-only log)
+        env:
+          MCP_ACCESS_TOKEN: ${{ secrets.MCP_ACCESS_TOKEN }}
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY || secrets.KR_FUEL_API_KEY }}
+        run: python scripts/kr_workforce_watch.py

@@ -4,10 +4,10 @@ PPS official API (data.go.kr dataset 15129394) requires explicit permission.
 A response error, incomplete pagination, or missing key is NOT "zero tenders".
 """
 from __future__ import annotations
-import argparse,json,os,re
+import argparse,json,os,re,time
 from datetime import datetime,timedelta,timezone
 from pathlib import Path
-from urllib.error import HTTPError
+from urllib.error import HTTPError,URLError
 from urllib.parse import unquote,urlencode,urlsplit
 from urllib.request import Request,urlopen
 
@@ -91,7 +91,18 @@ def official_link(value):
  return value[:450]
 
 # 일일 공고가 많은 날은 이틀 창이 1,000건을 넘는다(10-27 물품 921건). 상한 20쪽(2,000건), 하루 1회 실행.
-def query(kind,key,start,end,get=fetch,max_pages=20,per_page=100):
+# 연결 오류(URLError·시간 초과·연결 끊김)만 한 번 다시: 10-30 공사 목록 1쪽이 URLError로 실패해 그날 상태가 source_error가 됐다.
+# 응답이 온 거절(HTTP 오류·게이트웨이 거절·형식 오류)은 다시 부르지 않는다.
+RETRY_WAIT=5
+TRANSIENT=(URLError,TimeoutError,ConnectionError)
+def call_once_more(get,url,sleep):
+ try:
+  return get(url)
+ except TRANSIENT as e:
+  if isinstance(e,HTTPError):raise
+  sleep(RETRY_WAIT)
+  return get(url)
+def query(kind,key,start,end,get=fetch,max_pages=20,per_page=100,sleep=time.sleep):
  if kind not in OPERATIONS or not key:raise ValueError("Provider kind/key missing")
  if not re.fullmatch(r"20\d{10}",start) or not re.fullmatch(r"20\d{10}",end) or end<start:
   raise ValueError("Invalid 12-digit period")
@@ -101,7 +112,7 @@ def query(kind,key,start,end,get=fetch,max_pages=20,per_page=100):
   params={"serviceKey":key,"pageNo":page,"numOfRows":per_page,
           "type":"json","inqryDiv":"1","inqryBgnDt":start,"inqryEndDt":end}
   url=BASE+"/"+OPERATIONS[kind]+"?"+urlencode(params)
-  rows,total=parse_result(get(url))
+  rows,total=parse_result(call_once_more(get,url,sleep))
   if count is not None and total!=count:
    raise ValueError("Official totalCount changed mid-pagination")
   count=total;pages=page
@@ -138,7 +149,7 @@ class ProviderCallsFailed(ValueError):
  def __init__(self,checks):
   super().__init__("Provider calls failed; old complete snapshot must be preserved")
   self.checks=checks
-def build(key,get=fetch,now=None,previous=None):
+def build(key,get=fetch,now=None,previous=None,sleep=time.sleep):
  now=now or datetime.now(KST)
  # 창 끝을 '오늘 23:59'가 아니라 실행 5분 전으로: 넘기는 사이 새 공고가 붙어 totalCount가 바뀌는 일을 줄인다.
  end=(now-timedelta(minutes=5)).strftime("%Y%m%d%H%M")
@@ -147,10 +158,10 @@ def build(key,get=fetch,now=None,previous=None):
  for kind in OPERATIONS:
   try:
    try:
-    rows,check=query(kind,key,start,end,get=get)
+    rows,check=query(kind,key,start,end,get=get,sleep=sleep)
    except ValueError as e:
     if str(e)!="Official totalCount changed mid-pagination":raise
-    rows,check=query(kind,key,start,end,get=get)  # 한 번만 처음부터 다시
+    rows,check=query(kind,key,start,end,get=get,sleep=sleep)  # 한 번만 처음부터 다시
     check["restarted"]=True
    checks.append(check);leads.extend(rows)
   except (OSError,TimeoutError,ValueError,TypeError) as e:

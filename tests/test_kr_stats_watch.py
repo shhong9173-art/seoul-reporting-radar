@@ -48,6 +48,12 @@ def kaida_html(rows, total):
                        f'<tr>\r\n<td class="first leftnone">Total</td>\r\n<td class="">{total:,}</td>\r\n</tr></table>'})
 
 
+
+def run(*a, **k):
+    # 완성차 판매 엑셀은 test_carsales에서 따로 본다(여기 가짜 HTTP는 통계 원천만 흉내 낸다)
+    return w.run(*a, car_sales=False, **k)
+
+
 class Resp:
     def __init__(self, text="", status=200, payload=None):
         self.text, self.status_code, self._p = text, status, payload
@@ -192,28 +198,28 @@ class RunDoc(unittest.TestCase):
         ecos_vals = [(p, 100.0) for p in ps]
         kosis_vals = [(p, 5000.0) for p in ps]
         table = {p: [("BMW", 6000), ("Mercedes-Benz", 6500)] for p in months("2022-10", "2026-08")}
-        d1 = w.run(cfg, now=NOW, previous=None, http=http(self.route(ecos_vals, kosis_vals, table)), ecos_key="e", kosis_key="k")
+        d1 = run(cfg, now=NOW, previous=None, http=http(self.route(ecos_vals, kosis_vals, table)), ecos_key="e", kosis_key="k")
         self.assertEqual(d1["events"], [])
         self.assertEqual(d1["status"], "complete")
         self.assertEqual([c["source"] for c in d1["checks"]], ["ECOS 통계", "KOSIS 통계", "CENSUS 통계", "KAIDA 수입 승용차 신규등록"])
         # same month again: nothing new
-        d2 = w.run(cfg, now=NOW + dt.timedelta(days=1), previous=d1, http=http(self.route(ecos_vals, kosis_vals, table)), ecos_key="e", kosis_key="k")
+        d2 = run(cfg, now=NOW + dt.timedelta(days=1), previous=d1, http=http(self.route(ecos_vals, kosis_vals, table)), ecos_key="e", kosis_key="k")
         self.assertEqual(d2["events"], [])
         # September published: a drop to a record low and a rank swap
         ecos2 = ecos_vals + [("2026-09", 80.0)]
         table2 = {**table, "2026-09": [("BMW", 7000), ("Mercedes-Benz", 6500)]}
-        d3 = w.run(cfg, now=NOW + dt.timedelta(days=2), previous=d2, http=http(self.route(ecos2, kosis_vals, table2)), ecos_key="e", kosis_key="k")
+        d3 = run(cfg, now=NOW + dt.timedelta(days=2), previous=d2, http=http(self.route(ecos2, kosis_vals, table2)), ecos_key="e", kosis_key="k")
         texts = [e["text"] for e in d3["events"]]
         self.assertTrue(any(t.startswith("생산자물가 열연강대및강판 2026-09 80(2020=100) · 2016-01 이후 최저(조회 범위 안)") for t in texts), texts)
         self.assertTrue(any("전년 같은 달(2025-09, 100) 대비 -20.0%" in t for t in texts), texts)
         self.assertIn("KAIDA 2026-09 · BMW 순위 2위 → 1위(2026-08 → 2026-09)", texts)
-        d4 = w.run(cfg, now=NOW + dt.timedelta(days=3), previous=d3, http=http(self.route(ecos2, kosis_vals, table2)), ecos_key="e", kosis_key="k")
+        d4 = run(cfg, now=NOW + dt.timedelta(days=3), previous=d3, http=http(self.route(ecos2, kosis_vals, table2)), ecos_key="e", kosis_key="k")
         self.assertEqual(len(d4["events"]), len(d3["events"]))  # no repeats
 
     def test_unset_keys_and_failures(self):
         cfg = self.small_cfg()
         table = {p: [("BMW", 6000)] for p in months("2022-10", "2026-08")}
-        d = w.run(cfg, now=NOW, previous=None, http=http(self.route([], [], table)), ecos_key="", kosis_key="")
+        d = run(cfg, now=NOW, previous=None, http=http(self.route([], [], table)), ecos_key="", kosis_key="")
         st = {c["source"]: c["status"] for c in d["checks"]}
         self.assertEqual((st["ECOS 통계"], st["KOSIS 통계"]), ("unset", "unset"))
         self.assertEqual(d["status"], "complete")  # unset is not a failure, and it is not zero either
@@ -225,7 +231,7 @@ class RunDoc(unittest.TestCase):
                 return Resp(payload=kosis_body([("2026-08", 5721)]))
             return kaida_months(table)(method, url, kw)
         prev = {"series": [{"id": cfg["ecos"][0]["id"], "label": "old", "summary": {"period": "2026-07"}}]}
-        d2 = w.run(cfg, now=NOW, previous=prev, http=http(broken), ecos_key="e", kosis_key="k")
+        d2 = run(cfg, now=NOW, previous=prev, http=http(broken), ecos_key="e", kosis_key="k")
         ecos = next(c for c in d2["checks"] if c["source"] == "ECOS 통계")
         self.assertEqual((ecos["status"], ecos["failed"]), ("failed", 1))
         self.assertIn("HTTP 500", ecos["error"])
@@ -267,15 +273,36 @@ class Census(unittest.TestCase):
                     return Resp(json.dumps(census_rows(values)))
                 return kaida_months(table)(method, url, kw)
             return fn
-        before = w.run(cfg | {"census": []}, now=NOW, previous=None, http=http(route(vals)))
-        added = w.run(cfg, now=NOW + dt.timedelta(days=1), previous=before, http=http(route(vals)), census_key="c")
+        before = run(cfg | {"census": []}, now=NOW, previous=None, http=http(route(vals)))
+        added = run(cfg, now=NOW + dt.timedelta(days=1), previous=before, http=http(route(vals)), census_key="c")
         self.assertEqual([e for e in added["events"] if e["series"] == cfg["census"][0]["id"]], [])
         row = next(s for s in added["series"] if s["id"] == cfg["census"][0]["id"])
         self.assertEqual((row["kind"], row["unit"], row["summary"]["value"]), ("trade", "백만달러", 400.0))
-        nxt = w.run(cfg, now=NOW + dt.timedelta(days=30), previous=added, http=http(route(vals + [("2026-09", 500_000_000)])), census_key="c")
+        nxt = run(cfg, now=NOW + dt.timedelta(days=30), previous=added, http=http(route(vals + [("2026-09", 500_000_000)])), census_key="c")
         texts = [e["text"] for e in nxt["events"] if e.get("series") == cfg["census"][0]["id"]]
         self.assertTrue(any(t.startswith("미국 수입(한국산) 변압기·전력변환기(HS 8504) 2026-09 500(백만달러) · 2016-01 이후 최고") for t in texts), texts)
 
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CarEventTier(unittest.TestCase):
+    def test_stored_car_event_takes_the_current_tier(self):
+        # 10-30: 공장 합계 60% 넘게 감소 A 신설 — 이미 B로 저장된 같은 달 HMGMA 이벤트는 등급·문장만 지금 규칙으로
+        from unittest import mock
+        import carsales
+        sid = "cs:hmc:plant:미국 조지아(HMGMA) 공장:공장 합계:2026-09:공장 급감"
+        sig = {"id": sid, "tier": "A", "text": "현대차 미국 조지아(HMGMA) 공장 · 공장 합계 2026-09 1,121대 — … 공장 합계가 평소의 40% 아래"}
+        prev = {"events": [{"id": sid, "kind": "모델별 판매", "signal": "공장 급감", "tier": "B", "text": "옛 문장 (IR 엑셀)",
+                            "detectedAt": "2026-10-30T13:15:00+09:00"},
+                           {"id": "cs:kia:model:x", "kind": "모델별 판매", "tier": "B", "text": "그대로", "detectedAt": "2026-10-30T13:15:00+09:00"}],
+                "carSales": {"latest": {"hmc:plant": "2026-09"}}}
+        sess = Session(lambda m, u, kw: Resp("", 503))
+        with mock.patch.object(carsales, "collect", return_value=({"signals": [sig], "latest": {"hmc:plant": "2026-09"}}, [],
+                                                                    {"source": "완성차 판매(현대차·기아 IR)", "status": "ok"})):
+            doc = w.run(CFG, now=NOW, previous=prev, http=w.Http(sess, sleep=lambda s: None, gap=0), car_sales=True)
+        by = {e["id"]: e for e in doc["events"]}
+        self.assertEqual(by[sid]["tier"], "A")
+        self.assertTrue(by[sid]["text"].endswith("평소의 40% 아래 (IR 엑셀)"))
+        self.assertEqual((by["cs:kia:model:x"]["tier"], by["cs:kia:model:x"]["text"]), ("B", "그대로"))

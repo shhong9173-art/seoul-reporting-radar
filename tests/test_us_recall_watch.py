@@ -59,7 +59,27 @@ P573_KR = ("Component Manufacturer Tier of Supplier: Tier 1 Supplier Type: OEM N
            "Bogaewonsam-ro Gyeonggi-do Foreign States, 17507 Country: Korea, Republic Of Involved Components Component Name 1: SWITCH ASSY")
 
 
-def fake(calls=None, flat=None, issues=SAFETY, pdf_text=P573):
+def inv(action, make, model, year, comp, opened, closed="", subject="Fire", summary="Summary.", maker="Maker", camp=""):
+    return "\t".join([action, make, model, year, comp, maker, opened, closed, camp, subject, summary])
+
+
+INV_LINES = [
+    inv("PE26010", "HYUNDAI", "TUCSON", "2025", "ELECTRICAL", "20261020", subject="ICCU failure"),
+    inv("DP26009", "BMW", "540I", "2022", "DRIVESHAFT", "20260914", "20261026"),
+    inv("PE26012", "FORD", "F-150", "2025", "STEERING", "20261001", summary="Steering racks supplied by Hyundai Mobis may crack."),
+    inv("EA26006", "BUICK", "ENCLAVE", "2025", "SERVICE BRAKES", "20260821"),           # not a GM Korea model
+    inv("EA26007", "CHEVROLET", "TRAX", "2025", "AIR BAGS", "20260901"),               # GM Korea builds it
+]
+
+
+def inv_zip(lines):
+    b = io.BytesIO()
+    with zipfile.ZipFile(b, "w") as z:
+        z.writestr("FLAT_INV.txt", "\n".join(lines).encode("utf-8"))
+    return b.getvalue()
+
+
+def fake(calls=None, flat=None, issues=SAFETY, pdf_text=P573, inv_lines=None):
     import pypdf  # noqa: F401  (patched below)
 
     def get(url, params=None, headers=None, timeout=None):
@@ -69,6 +89,8 @@ def fake(calls=None, flat=None, issues=SAFETY, pdf_text=P573):
             return R(200, content=flat if flat is not None else flat_zip(LINES), headers={"Last-Modified": "Wed, 28 Oct 2026 07:05:14 GMT"})
         if url == w.ISSUES:
             return R(200, text=issues)
+        if url == w.INV_FLAT:
+            return R(200, content=inv_zip(INV_LINES if inv_lines is None else inv_lines))
         if url.startswith(w.PDF_ROOT):
             return R(200, content=PART573 + pdf_text.encode())
         return R(404)
@@ -140,6 +162,13 @@ class Watch(unittest.TestCase):
         self.assertTrue(next(x for x in doc["recalls"] if x["campaign"] == "26V700000")["isNew"])
         self.assertFalse(next(x for x in doc["recalls"] if x["campaign"] == "26V698000")["isNew"])
         self.assertNotIn(("https://api.nhtsa.gov/safetyIssues/byNhtsaId", {"filter": "recalls", "nhtsaId": "26V698000"}), calls)
+        # 원보고서는 다시 읽지 않아도 공급사 관계는 남는다(10-31 운영: 26V698000 SK온이 두 번째 실행부터 빠졌다)
+        audi = next(x for x in doc["recalls"] if x["campaign"] == "26V698000")
+        self.assertIn({"role": "부품 공급사(원보고서, 출입처 아님)", "beat": None, "name": "SK온"}, audi["why"])
+        self.assertEqual(sum(1 for w in audi["why"] if w["name"] == "SK온"), 1)
+        again = self.go(previous=doc)
+        audi = next(x for x in again["recalls"] if x["campaign"] == "26V698000")
+        self.assertEqual(sum(1 for w in audi["why"] if w["name"] == "SK온"), 1)
 
     def test_missing_report_and_failures(self):
         doc = self.go(issues='{"results":[]}')
@@ -147,6 +176,46 @@ class Watch(unittest.TestCase):
         bad = w.run(now=NOW, get=lambda *a, **k: R(503), sleep=lambda s: None, previous={"recalls": [{"id": "nhtsa:X", "received": "2026-10-01"}]})
         self.assertEqual((bad["status"], bad["checks"][0]["error"]), ("failed", "HTTP 503"))
         self.assertEqual([x["id"] for x in bad["recalls"]], ["nhtsa:X"])  # previous result kept, not zero
+
+
+class Investigations(unittest.TestCase):
+    def setUp(self):
+        import pypdf
+        self._r = pypdf.PdfReader
+        pypdf.PdfReader = FakeReader
+
+    def tearDown(self):
+        import pypdf
+        pypdf.PdfReader = self._r
+
+    def test_beat_probes_tiers_and_baseline(self):
+        first = w.run(now=NOW, previous=None, get=fake(), sleep=lambda s: None)
+        got = {x["action"]: x for x in first["investigations"]}
+        self.assertEqual(set(got), {"PE26010", "DP26009", "PE26012", "EA26007"})  # Enclave is not built by GM Korea
+        self.assertEqual({a: x["tier"] for a, x in got.items()}, {"PE26010": "A", "DP26009": "C", "PE26012": "A", "EA26007": "A"})
+        self.assertEqual(got["PE26012"]["beat"], ["현대모비스"])
+        self.assertEqual((got["PE26010"]["type"], got["PE26010"]["kind"], got["PE26010"]["opened"]), ("예비조사(PE)", "조사 개시", "2026-10-20"))
+        self.assertEqual(got["DP26009"]["kind"], "조사 종결")
+        self.assertFalse(any(x["isNew"] for x in first["investigations"]))  # first read: baseline
+        self.assertEqual(first["checks"][-1]["source"], "NHTSA 결함조사(ODI)")
+        # next day: a new probe and the Hyundai probe closed
+        lines = INV_LINES + [inv("EA26008", "KIA", "EV9", "2025", "SEATS", "20261028")]
+        lines[0] = inv("PE26010", "HYUNDAI", "TUCSON", "2025", "ELECTRICAL", "20261020", "20261028", subject="ICCU failure", camp="26V701000")
+        second = w.run(now=NOW + dt.timedelta(days=1), previous=first, get=fake(inv_lines=lines), sleep=lambda s: None)
+        new = {x["action"]: x for x in second["investigations"] if x["isNew"]}
+        self.assertEqual(set(new), {"EA26008", "PE26010"})
+        self.assertEqual((new["PE26010"]["kind"], new["PE26010"]["tier"], new["PE26010"]["recallCampaigns"]), ("조사 종결", "B", ["26V701000"]))
+        self.assertEqual(new["EA26008"]["type"], "공학분석(EA, 격상 단계)")
+
+    def test_investigation_file_failure_keeps_previous(self):
+        first = w.run(now=NOW, previous=None, get=fake(), sleep=lambda s: None)
+
+        def broken(url, **kw):
+            return R(503) if url == w.INV_FLAT else fake()(url, **kw)
+        doc = w.run(now=NOW + dt.timedelta(days=1), previous=first, get=broken, sleep=lambda s: None)
+        self.assertEqual(doc["status"], "partial")
+        self.assertEqual(len(doc["investigations"]), len(first["investigations"]))
+        self.assertEqual(doc["checks"][-1]["status"], "failed")
 
 
 if __name__ == "__main__":

@@ -24,37 +24,69 @@ SCHEMA = "reverse_check/v1"
 WINDOW_DAYS = 30
 LOOKBACK_DAYS = 60   # how far before an article a radar item can count
 FEEDS = ["us-litigation", "partner-filings", "trade-remedy", "kr-official", "kr-signals", "us-comments", "page-watch",
-         "trademarks", "assembly-bills", "us-recalls", "scoop-screen", "us-epa", "kr-fuel"]
+         "trademarks", "assembly-bills", "us-recalls", "scoop-screen", "us-epa", "kr-fuel", "overseas-awards",
+         "kr-insolvency", "kr-energy", "kr-building", "overseas-registry", "kr-local", "kr-workforce", "kr-stacks"]
 LABEL = {"us-litigation": "미국 소송·판결", "partner-filings": "해외 파트너 공시", "trade-remedy": "무역구제·미국 관보",
          "kr-official": "공장등록·관보", "kr-signals": "공정위·한전·산업부", "us-comments": "미 연방 의견서", "page-watch": "해외 공식 페이지",
          "trademarks": "상표 출원", "assembly-bills": "국회 법안", "us-recalls": "미국 리콜", "scoop-screen": "단독 후보 심사",
-         "us-epa": "미국 EPA 인증", "kr-fuel": "국내 연비 신고",
-         "clues": "공개 원자료 단서(DART 등)"}
+         "us-epa": "미국 EPA 인증", "kr-fuel": "국내 연비 신고", "overseas-awards": "해외 발주처 낙찰",
+         "kr-insolvency": "협력사 회생·파산", "kr-energy": "전기위·원안위", "kr-building": "공장 부지 건축허가", "overseas-registry": "해외 법인 등기", "kr-local": "지자체 고시·공고",
+         "kr-workforce": "사업장 인력(국민연금)", "kr-stacks": "굴뚝 측정(가동 신호)", "clues": "공개 원자료 단서(DART 등)"}
 # Group-level names: an article about 포스코 and a radar item about 포스코홀딩스 concern the same group.
 GROUP = {"현대자동차": "현대차", "제네시스": "현대차", "현대차(제네시스)": "현대차", "포스코홀딩스": "포스코", "엘에스일렉트릭": "LS일렉트릭",
          "아우디코리아": "아우디", "폭스바겐코리아": "폭스바겐", "BMW코리아": "BMW", "메르세데스-벤츠 코리아": "벤츠", "혼다코리아": "혼다",
-         "효성중공업(관련)": "효성중공업", "일진전기(관련)": "일진전기", "OCI홀딩스": "OCI", "세아홀딩스": "세아제강", "LS지주": "LS"}
+         "효성중공업(관련)": "효성중공업", "일진전기(관련)": "일진전기", "OCI홀딩스": "OCI", "세아홀딩스": "세아제강", "LS지주": "LS",
+         # 아우디는 폭스바겐그룹 브랜드: 10-26 '[단독] 아우디, 미국서 Q4 e-트론 9048대 리콜…SK온 배터리'는 회사가 '폭스바겐·SK온'으로
+         # 분류된다. 리콜 항목 회사는 '아우디'라, 기사 전에 잡았더라도 회사가 달라 '없음'이 됐을 것이다. 대조에서는 한 그룹으로 본다.
+         # (이 기사 자체는 '없음'이 맞다: 10-21은 NHTSA 접수일이고, 아우디를 보는 미국 리콜 감시는 기사 뒤 10-28에 생겼다.)
+         "아우디": "폭스바겐", "아우디코리아": "폭스바겐"}
+# 리콜 원보고서 공급사 칸·결함 설명의 한국 부품사 영문 이름 → 대조용 회사 이름(기사 회사 분류는 부품사 이름으로도 붙는다)
+SUPPLIERS = [(re.compile(r"SK\s*(?:On|Battery|Innovation)", re.I), "SK온"), (re.compile(r"LG\s*(?:Energy\s*Solution|Chem)", re.I), "LG에너지솔루션"),
+             (re.compile(r"Samsung\s*SDI", re.I), "삼성SDI"), (re.compile(r"Hyundai\s*Mobis|\bMobis\b", re.I), "현대모비스"),
+             (re.compile(r"\bMando\b", re.I), "HL만도"), (re.compile(r"Hyundai\s*Wia", re.I), "현대위아"), (re.compile(r"Hyundai\s*Transys", re.I), "현대트랜시스"),
+             (re.compile(r"Hankook", re.I), "한국타이어"), (re.compile(r"Kumho", re.I), "금호타이어"), (re.compile(r"Nexen", re.I), "넥센타이어"),
+             (re.compile(r"LS\s*(?:Cable|Electric)", re.I), "LS"), (re.compile(r"POSCO", re.I), "포스코")]
+
+
+def suppliers_in(*texts):
+    t = " ".join(str(x or "") for x in texts)
+    return [name for rx, name in SUPPLIERS if rx.search(t)]
 # (concept, Korean headline words, words in radar items — Korean or English)
 CONCEPTS = [
     ("소송·판결", r"소송|제소|항소|불복|패소|승소|판결|법원|배상", r"v\. United States|\bIn re\b|lawsuit|complaint|appeal|opinion|court|소송|판결|항소|법원|Sustaining|Remand"),
-    ("관세·무역구제", r"관세|상계|반덤핑|덤핑|무역구제|세이프가드|보조금", r"countervail|anti-?dumping|duty|tariff|subsid|관세|덤핑|쿼터|quota"),
+    # 레이더 쪽 영문 낱말은 단어 경계로: 'quota'가 'quotation'(ASX 'Application for quotation of securities')에, 'subsid'가
+    # 'subsidiary'에 걸렸다(10-31: 현대차 인도 관세 분쟁 [단독]이 아라푸라 증권 상장 신청과 묶임). 'Light-Duty·Heavy-Duty' 차량의 duty도
+    # 관세가 아니다(같은 날 고친 뒤 그 기사가 EPA 'Tier 4 … Light-Duty and Medium-Duty Vehicles' 의견서와 다시 묶임).
+    ("관세·무역구제", r"관세|상계|반덤핑|덤핑|무역구제|세이프가드|보조금", r"countervail|anti-?dumping|"
+     r"(?<!light-)(?<!light )(?<!heavy-)(?<!heavy )(?<!medium-)(?<!medium )\bdut(?:y|ies)\b(?!-free)|tariff|subsid(?!iar)|관세|덤핑|쿼터|\bquotas?\b"),
     ("리콜·결함", r"리콜|결함|화재|발화|시정조치", r"recall|defect|fire|리콜|결함"),
     ("특허·상표", r"특허|상표|브랜드|명칭", r"patent|PTAB|trademark|상표|특허"),
     ("지분·합작·거래", r"지분|합작|매각|인수|철수|정리|양도|합병", r"equity|joint venture|disposal|acquisition|exit|transaction|investment in|양도|합병|지분|merger"),
     ("공장·생산", r"공장|증설|감산|생산|가동|라인|투자", r"plant|factory|공장|고용|주생산품|production|capacity"),
     ("수주·입찰", r"수주|낙찰|입찰|공급계약|계약", r"tender|award|bid|입찰|낙찰|supply agreement|contract|offtake"),
+    ("건축·증설", r"증설|신설|착공|짓는다|짓기로|신축|증축|새 공장", r"건축허가|신축|증축"),
+    ("회생·파산", r"회생|파산|법정관리|부도|워크아웃", r"회생|파산|포괄적 금지명령"),
+    ("허가·원전", r"허가|원전|원자력|발전사업|해상풍력|계속운전|원안위", r"허가|원자력|발전사업|해상풍력|계속운전|원안의결|심의"),
+    ("법인 설립", r"법인|현지법인|자회사|설립", r"법인 설립|incorporat|Companies House|LIMITED|LTD"),
+    ("인력·고용", r"인력|감원|희망퇴직|구조조정|채용|고용|직원|인원|감축", r"국민연금 가입자|인력 감소|인력 증가|취득|상실"),
+    ("가동·중단", r"가동|중단|셧다운|정지|휴업|멈춰|멈춘|재가동|조업", r"가동 중단|멈춤|재가동|새 배출구|배출구"),
     ("입법·규제", r"법안|입법|개정안|국회|규제|시행령|입법예고", r"법률안|개정안|입법예고|bill|regulation|rule"),
     ("보육·복지", r"어린이집|보육|직장", r"nursery|child ?care|daycare|어린이집"),
     ("가격", r"가격|값|인상|인하", r"MSRP|price|\$\s?\d|가격"),
     ("배터리", r"배터리|셀|전지", r"battery|cell|배터리"),
-    ("신차·인증", r"신차|출시|투입|연식|연비|인증|주행거리|부분변경|신형|트림", r"EPA|연비|새 모델|model year|range|주행거리|1회 충전|연식"),
+    # 레이더 쪽은 차량 항목(EPA 연비 인증·VIN 새 모델명·국내 연비 신고)의 낱말만: 맨 'EPA'·'range'는 EPA 규제 의견서·영문 공시에도 나온다
+    # (10-30: 머니투데이 '[단독]현대차 미래항공·새만금 사업 가속..신차로 본업 경쟁력↑'이 'EPA 의견서 Tier 4 Phase-in'과 묶였다).
+    ("신차·인증", r"신차|출시|투입|연식|연비|인증|주행거리|부분변경|신형|트림", r"연비|새 모델|model year|주행거리|1회 충전|연식"),
 ]
 # 판결 기사(패소·승소 등)는 판결 항목만 같은 사건으로 센다. 같은 회사의 다른 소송 접수는 다른 사건번호일 수 있다
 # (10-28: 포스코 패소 기사 = 국제무역법원 24-00006 판결(Slip Op. 26-131), 레이더가 먼저 본 것은 1:26-cv-04229 접수).
 RULING_TITLE = re.compile(r"패소|승소|판결|기각|인용|선고")
 RULING_ITEM = re.compile(r"\bopinion\b|Sustain|Remand|Affirm|Revers|holding|판결|결정 유지|환송", re.I)
 # 출입 업종에서 너무 흔한 사건 낱말: 이것 하나만 겹치면 같은 사건 근거로 약하다(10-28 첫 실행: '배터리'·'공장'만 겹친 오탐 2건).
-WEAK_CONCEPTS = {"공장·생산", "배터리", "가격"}
+# '신차·인증'도 약하다: 현대차·기아는 새 모델·연식 항목이 늘 있어서, 모델명·EPA 같은 낱말이 함께 겹쳐야 같은 사건으로 본다(10-30).
+# '특허·상표'도 약하다: 현대차·기아는 미국 'Schedule A' 상표 위조품 소송이 늘 있어, 상표 기사마다 묶였다
+# (10-31: 쿠키뉴스 'E-pit 상표권 현대엔지니어링 이전' [단독] ↔ Hyundai Motor Company v. The Partnerships … Schedule A). 상표명·특허 이름 같은 낱말이 함께 겹쳐야 한다.
+WEAK_CONCEPTS = {"공장·생산", "배터리", "가격", "신차·인증", "특허·상표"}
 GENERIC_WORDS = {"공장", "배터리", "미국", "생산", "가격", "투자", "계약", "중국", "한국", "글로벌", "사업", "신규"}
 STOP = {"단독", "기자", "업계", "관계자", "국내", "최대", "최초", "올해", "내년", "전략", "본격", "사업", "추진", "확대", "주목", "위해",
         "이유", "속도", "결국", "다시", "직접", "모두", "현대", "그룹"}
@@ -169,7 +201,8 @@ def _marks(d, add):
 
 def _recalls(d, add):
     for x in d.get("recalls") or []:
-        add(mem("us-recalls", x.get("id"), [w.get("name") for w in x.get("why") or []] + [w.get("beat") for w in x.get("why") or []],
+        add(mem("us-recalls", x.get("id"), [w.get("name") for w in x.get("why") or []] + [w.get("beat") for w in x.get("why") or []]
+                + suppliers_in(x.get("supplierBox"), x.get("defect"), x.get("component")),
                 f"recall 리콜 {x.get('models')} {x.get('component')} {x.get('defect') or ''} {x.get('supplierBox') or ''}", x.get("firstSeen") or x.get("received"), x.get("url")))
 
 
@@ -191,6 +224,74 @@ def _fuel(d, add):
                 f"{' 1회 충전 주행거리 ' + str(v.get('range')) if v.get('range') else ''}", v.get("firstSeen"), v.get("url")))
 
 
+def _awards(d, add):
+    for x in d.get("items") or []:
+        if not x.get("company"):
+            continue
+        add(mem("overseas-awards", x.get("id"), x.get("companies") or [x.get("company")],
+                f"해외 낙찰 award {x.get('source')} {x.get('buyer')} {x.get('buyerCountry') or ''} {x.get('title')} {' '.join(x.get('winners') or [])}",
+                x.get("firstSeen"), x.get("url")))
+
+
+def _investigations(d, add):
+    for x in d.get("investigations") or []:
+        add(mem("us-recalls", x.get("id"), [w.get("name") for w in x.get("why") or []] + [w.get("beat") for w in x.get("why") or []],
+                f"NHTSA 결함조사 defect investigation {x.get('kind')} {x.get('models')} {x.get('component')} {x.get('subject') or ''} 결함 조사",
+                x.get("firstSeen") or x.get("opened"), x.get("url")))
+
+
+def _insolvency(d, add):
+    for x in d.get("events") or []:
+        if x.get("tier") == "C":
+            continue
+        add(mem("kr-insolvency", x.get("id"), [x.get("company"), (x.get("watch") or {}).get("beat")],
+                f"회생 파산 {x.get('kind')} {x.get('company')} {(x.get('industry') or {}).get('product') or ''}", x.get("firstSeen") or x.get("posted"), x.get("url")))
+
+
+def _energy(d, add):
+    for x in d.get("items") or []:
+        add(mem("kr-energy", x.get("id"), [x.get("company")], f"허가 {x.get('source')} {x.get('kind')} {x.get('title')} {x.get('result') or ''}",
+                x.get("firstSeen") or x.get("held"), x.get("url")))
+
+
+def _building(d, add):
+    for x in d.get("permits") or []:
+        if x.get("orphan") or x.get("tier") == "C":
+            continue  # a plant gone from the list, or a small/neighbouring-lot permit
+        add(mem("kr-building", x.get("id"), x.get("companies") or [x.get("company")],
+                f"공장 건축허가 {x.get('archGbCdNm') or ''} {x.get('mainPurpsCdNm') or ''} {x.get('plot') or ''} 증설 신축 plant factory",
+                x.get("firstSeen") or x.get("permitted"), None))
+
+
+def _registry(d, add):
+    for x in d.get("companies") or []:
+        if x.get("tier") not in ("A", "B"):
+            continue  # name-only companies (dealers, unrelated firms)
+        add(mem("overseas-registry", x.get("id"), [x.get("company")], f"영국 법인 설립 Companies House {x.get('name')} LIMITED",
+                x.get("firstSeen") or x.get("created"), x.get("url")))
+
+
+def _local(d, add):
+    for x in d.get("items") or []:
+        if x.get("tier") == "C" or not x.get("companies"):
+            continue
+        add(mem("kr-local", x.get("id"), x.get("companies") or [], f"지자체 고시 공고 {x.get('city')} {x.get('title')} 공장 증설 신축",
+                x.get("firstSeen") or x.get("date"), x.get("url")))
+
+
+def _workforce(d, add):
+    # 자사 사업장 인력 변화·탈퇴·새 사업장, 새 공사 현장(A는 하나씩, B는 묶음) — 국민연금 월 자료
+    for e in d.get("events") or []:
+        words = "공사 현장 신설 증설 신축 착공" if "공사" in str(e.get("kind")) else "인력 고용 공장"
+        add(mem("kr-workforce", e.get("id"), [e.get("company")], f"{e.get('kind')} {e.get('text')} {words}", e.get("detectedAt"), None))
+
+
+def _stacks(d, add):
+    # 굴뚝 측정 가동 신호(사업장 가동 중단·배출구 멈춤·새 배출구·재가동)
+    for e in d.get("events") or []:
+        add(mem("kr-stacks", e.get("id"), [e.get("company")], f"{e.get('kind')} {e.get('text')} 공장 가동", e.get("detectedAt"), None))
+
+
 def _screen(d, add):
     for x in d.get("candidates") or []:
         add(mem("scoop-screen", x.get("id"), split_names(x.get("company")), x.get("title"), x.get("published") or x.get("filedOn"), x.get("url")))
@@ -203,7 +304,9 @@ def _clues(d, add):
 
 ADAPTERS = [("us-litigation", _litigation), ("partner-filings", _partners), ("trade-remedy", _trade), ("kr-official", _official), ("kr-official", _eia),
             ("kr-signals", _signals), ("us-comments", _comments), ("page-watch", _pages), ("trademarks", _marks),
-            ("us-recalls", _recalls), ("scoop-screen", _screen), ("us-epa", _epa), ("us-epa", _vin), ("kr-fuel", _fuel), ("clues", _clues)]
+            ("us-recalls", _recalls), ("scoop-screen", _screen), ("us-epa", _epa), ("us-epa", _vin), ("kr-fuel", _fuel), ("overseas-awards", _awards),
+            ("us-recalls", _investigations), ("kr-insolvency", _insolvency), ("kr-energy", _energy), ("kr-building", _building),
+            ("overseas-registry", _registry), ("kr-local", _local), ("kr-workforce", _workforce), ("kr-stacks", _stacks), ("clues", _clues)]
 
 
 def nouns(title):

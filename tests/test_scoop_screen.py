@@ -85,6 +85,16 @@ class Selection(unittest.TestCase):
             {"id": "m5", "team": "특허", "published": "2026-10-12", "source": "KIPRIS 공개특허", "companies": ["기아"], "routine": False,
              "tier": "취재 단서·단독 미확정", "title": "고정자 냉각 장치 (기아, 현대자동차)"},
         ]}
+        # 10-30 radar_today A에 매일 올라온 형식 공시(계열사 상품·용역거래, 의결권 권유, 실적 전망 정정)
+        clues["items"] += [
+            {"id": "m6", "team": "화학", "published": "2026-10-29", "source": "DART", "companies": ["한화솔루션"], "routine": False,
+             "tier": "취재 단서·단독 미확정", "title": "한화솔루션 · 동일인등출자계열회사와의상품ㆍ용역거래변경"},
+            {"id": "m7", "team": "자동차", "published": "2026-10-28", "source": "DART", "companies": ["현대모비스"], "routine": False,
+             "tier": "취재 단서·단독 미확정", "title": "현대모비스 · 의결권대리행사권유참고서류"},
+            {"id": "m8", "team": "자동차", "published": "2026-10-29", "source": "DART", "companies": ["현대차"], "routine": False,
+             "tier": "취재 단서·단독 미확정", "title": "현대자동차 · 정기·주요공시 · [기재정정]영업실적등에대한전망(공정공시)"},
+            {"id": "m9", "team": "자동차", "published": "2026-10-29", "source": "DART", "companies": ["현대모비스"], "routine": False,
+             "tier": "취재 단서·단독 미확정", "title": "현대모비스 · 약관에의한금융거래시계열금융회사의거래상대방의공시"}]
         rows = {r["id"]: r for r in s.select(clues, {}, now=NOW)}
         self.assertEqual(set(rows), {"clue:m4", "clue:m5"})
         accident = rows["clue:m4"]
@@ -95,6 +105,63 @@ class Selection(unittest.TestCase):
         self.assertEqual(patent["kind"], "특허")
         self.assertIn("단독이 아니다", patent["note"])
         self.assertEqual(patent["strength"], 0.5)
+
+    def test_disclosure_form_names_become_headline_words(self):
+        # 10-31 운영 질의: 'LS전선 교환사채권발행'·'HD현대일렉트릭 타인에대한채무보증'·'영풍 임원'·'현대모비스 분할 항목'·'두산에너빌리티 항목'
+        def q(title, company):
+            return s.news_terms(s.terms_from(title, company))
+        self.assertEqual(q("LS전선 · 정기·주요공시 · [기재정정]주요사항보고서(교환사채권발행결정)", "LS전선"),
+                         (["교환사채"], {"교환사채": ["교환사채", "교환사채권"]}))
+        self.assertEqual(q("HD현대일렉트릭 · 타인에대한채무보증결정", "HD현대일렉트릭")[0], ["채무보증"])
+        self.assertEqual(q("포스코홀딩스 · 주요사항보고서(전환사채권발행결정)", "포스코홀딩스")[0], ["전환사채"])
+        self.assertEqual(q("영풍 · 임원ㆍ주요주주특정증권등거래계획보고서", "영풍")[0], ["거래계획"])
+        self.assertIn("매도 계획", q("영풍 · 임원ㆍ주요주주특정증권등거래계획보고서", "영풍")[1]["거래계획"])
+        self.assertEqual(q("현대모비스 [기재정정]주요사항보고서(회사분할결정) — 변경 항목 대조 필요", "현대모비스")[0], ["분할"])
+        self.assertEqual(q("두산에너빌리티 [기재정정]단일판매ㆍ공급계약체결 — 변경 항목 대조 필요", "두산에너빌리티")[0], [])
+        # BW 발행 결정은 자금 조달 기사라 심사 대상, 신주인수권 행사는 계속 형식 공시
+        self.assertIsNone(s.ADMIN.search("X · 주요사항보고서(신주인수권부사채권발행결정)"))
+        self.assertTrue(s.ADMIN.search("X · 신주인수권행사"))
+        # 영문 약어는 대조 낱말로 쓰지 않는다(EBITDA 기사에 'EB'가 섞인다)
+        self.assertFalse(any(w in ("EB", "CB", "BW") for v in s.NEWS_TERMS.values() for w in v))
+
+    def test_form_only_titles_wait_for_the_filing_subject(self):
+        def clue(i, company, title, rcp):
+            return {"id": i, "team": "t", "published": "2026-10-29", "source": "DART", "companies": [company], "routine": False,
+                    "tier": "공개 원자료 추적", "title": title, "url": f"https://dart.fss.or.kr/dsaf001/main.do?rcpNo={rcp}"}
+        clues = {"items": [clue("o1", "OCI홀딩스", "OCI홀딩스 · [기재정정]수시공시의무관련사항(공정공시)", "20261029800315"),
+                           clue("h1", "현대차", "현대자동차 · [기재정정]장래사업ㆍ경영계획(공정공시)", "20261029800231"),
+                           clue("h2", "현대차", "현대자동차 · 기타경영사항(자율공시)", "20261029800999"),
+                           clue("x1", "현대차", "현대자동차 · 투자판단관련주요경영사항", "20261029800998")]}
+        rows = {r["id"]: r for r in s.select(clues, {}, now=dt.datetime(2026, 10, 31, 7, 10, tzinfo=KST))}
+        self.assertEqual(set(rows), {"clue:o1", "clue:h1", "clue:h2", "clue:x1"})  # same company, different filings: not merged
+        self.assertTrue(all(r["bodyTitle"] and r["terms"] == [] for r in rows.values()))
+        # 원문 제목(2026-10-31 실제 공시에서 읽은 값)
+        rows["clue:o1"]["filing"] = {"type": "공정공시", "facts": [["공시제목", "2024년 ~ 2026년 자기주식 취득 및 소각 계획"]]}
+        rows["clue:h1"]["filing"] = {"type": "공정공시", "facts": [["장래계획사항", "2026년 현대자동차 가이던스"]]}
+        rows["clue:h2"]["filing"] = {"type": "공정공시", "error": "원문 조회 실패(ValueError) — 미확인"}
+        kept, count = s.apply_body_titles(list(rows.values()))
+        self.assertEqual(count, {"read": 1, "procedural": 1, "unread": 2})  # x1: no filing read at all (no DART key)
+        self.assertEqual([r["id"] for r in kept], ["clue:h1"])
+        self.assertEqual((kept[0]["terms"], kept[0]["subject"]), (["가이던스"], "2026년 현대자동차 가이던스"))
+        self.assertEqual(s.queries(kept[0]), ["현대차 가이던스"])
+        art = {"title": "현대차, 올해 판매 가이던스 400만대로 하향", "text": "", "url": "g", "date": "2026-10-29"}
+        self.assertEqual(s.judge(kept[0], channels([art]), now=dt.datetime(2026, 10, 31, 7, 10, tzinfo=KST))[0], "관련 보도 있음")
+        # 기존 후보는 그대로
+        plain = {"id": "clue:p", "terms": ["분할"]}
+        self.assertEqual(s.apply_body_titles([plain]), ([plain], {"read": 0, "procedural": 0, "unread": 0}))
+
+    def test_first_seen_is_carried_so_old_candidates_are_not_new(self):
+        rows = [{"id": "clue:a"}, {"id": "clue:b"}, {"id": "clue:c"}]
+        prev = {"generatedAt": "2026-10-29T07:10:00+09:00",
+                "candidates": [{"id": "clue:a", "firstSeen": "2026-10-12T07:10:00+09:00"}, {"id": "clue:b"}]}
+        out = {r["id"]: r["firstSeen"] for r in s.carry_first_seen(rows, prev, NOW)}
+        self.assertEqual(out["clue:a"], "2026-10-12T07:10:00+09:00")
+        self.assertEqual(out["clue:b"], "2026-10-29T07:10:00+09:00")  # 이전 결과에 시각이 없으면 이전 실행 시각
+        self.assertEqual(out["clue:c"], NOW.isoformat(timespec="seconds"))
+        self.assertEqual(s.carry_first_seen([{"id": "x"}], None, NOW)[0]["firstSeen"], NOW.isoformat(timespec="seconds"))
+
+    def test_qcells_headline_names_hanwha_solutions(self):
+        self.assertTrue(s.company_in_text("한화솔루션", "퍼스트솔라, 한화큐셀 등 특허침해 ITC 제소"))
 
     def test_particles_and_stopwords(self):
         self.assertEqual(s.terms_from("두산에너빌리티 압력용기의 내외부를 이를", "두산에너빌리티"), ["압력용기", "내외부"])
@@ -243,6 +310,31 @@ class Screen(unittest.TestCase):
         self.assertEqual(out[0]["queries"], ["고려아연 2025가합10683", "고려아연 주주대표소송"])
         self.assertEqual((out[0]["firstVerdict"], out[0]["firstQueries"]), ("미보도 후보", ["고려아연 소송등의판결"]))
         self.assertEqual(out[0]["filing"]["type"], "소송판결")
+
+    def test_trade_plan_is_searched_by_the_reporting_holder(self):
+        row = {"id": "clue:yp", "kind": "단서", "company": "영풍", "title": "영풍 · 임원ㆍ주요주주특정증권등거래계획보고서",
+               "terms": ["거래계획"], "alts": {}, "numbers": [], "ratios": [], "unit": "", "strength": 1,
+               "filing": {"type": "거래계획", "facts": [["보고자", "장세환"], ["거래시작일(결제일)", "2026년 11월 27일"]]}}
+        terms, alts = s.holder_terms(row)
+        self.assertEqual(terms, ["장세환", "지분"])
+        row.update(terms=terms, alts=alts)
+        self.assertEqual(s.queries(row), ["영풍 장세환", "영풍 장세환 지분"])
+        art = {"title": "영풍 오너일가 장세환, 75억 원 규모 지분 매수 추진", "text": "", "url": "f", "date": "2026-10-29"}
+        self.assertEqual(s.judge(row, channels([art]), now=dt.datetime(2026, 10, 31, 7, 10, tzinfo=KST))[0], "관련 보도 있음")
+        # 이름을 못 읽은 표지·회사 자신·다른 종류는 None
+        for facts in ([["보고자", "(성 명)"]], [["보고자", "영풍"]], []):
+            self.assertIsNone(s.holder_terms({**row, "filing": {"type": "거래계획", "facts": facts}}))
+        self.assertEqual(s.holder_terms({**row, "filing": {"type": "거래계획", "facts": [["보고자", "주식회사 에이치씨"]]}})[0],
+                         ["에이치씨", "지분"])
+        # '성명' 칸(연락 담당자일 수 있음)은 보고자로 쓰지 않는다
+        self.assertIsNone(s.holder_terms({**row, "filing": {"type": "거래계획", "facts": [["보고자", "(성 명)"], ["성명", "권순광"]]}}))
+        self.assertIsNone(s.holder_terms({**row, "filing": {"type": "채무보증", "facts": [["보고자", "장세환"]]}}))
+        # 근거 기사 순서: 공시 날짜(10-28) 이후 기사가 앞, 그 전 기사는 최근 순 — 3~4월 지분 기사가 이번 기사를 밀어내지 않게
+        row["published"] = "2026-10-28"
+        old = [{"title": f"주요주주 장세환, 영풍 주식 보유 증가 {i}", "text": "", "url": f"o{i}", "date": f"2026-0{i}-10"} for i in range(3, 9)]
+        verdict, ev = s.judge(row, channels(old + [art]), now=dt.datetime(2026, 10, 31, 7, 10, tzinfo=KST))
+        self.assertEqual([e["url"] for e in ev], ["f", "o8", "o7", "o6", "o5"])
+        self.assertIsNone(s.holder_terms({**row, "filing": {"type": "거래계획", "error": "원문 조회 실패 — 미확인"}}))
 
     def test_lawsuit_filing_variants_and_non_lawsuits(self):
         sue = {"filing": {"type": "소송제기", "facts": [["사건의명칭", "손해배상청구의 소"]]}}

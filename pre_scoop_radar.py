@@ -434,8 +434,13 @@ class _NtisBodyParser(HTMLParser):
 
 
 def _ntis_title_key(value):
-    # NTIS search indexing drops the ampersand in R&D; detail HTML preserves it.
-    return re.sub(r"\s+", "", re.sub(r"\bR\s*&\s*D\b", "RD", value, flags=re.I))
+    # NTIS search indexing drops the ampersand in R&D; detail HTML preserves it. '\b' does not separate 'D' from a
+    # following Hangul letter ('R&D사업'), so ASCII-only lookarounds are used. The list also writes straight quotes
+    # where the detail has curly ones ('한국-헝가리 …' vs ‘한국-헝가리 …’) — quote marks are not compared.
+    # (10-30 탐침: 3번 연속 'list_detail_title_mismatch'로 일부 수집 표시된 두 공고)
+    v = re.sub(r"(?<![A-Za-z])R\s*&\s*D(?![A-Za-z])", "RD", value or "", flags=re.I)
+    v = re.sub(r"[\"'‘’“”`´]", "", v)
+    return re.sub(r"\s+", "", v)
 
 
 def parse_ntis_detail(markup):

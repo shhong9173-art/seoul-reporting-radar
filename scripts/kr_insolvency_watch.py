@@ -47,7 +47,7 @@ OVERLAP_DAYS = 2
 KEEP_DAYS = 180
 LOOKUP_BUDGET = 120
 LOOKUP_TTL_DAYS = 90
-CACHE_MAX = 3000
+CACHE_MAX = 2000  # ingest body cap 2MB
 DEADLINE_SECONDS = 9 * 60
 
 # (종류, 단계, 제목 규칙). 단계: start = 신청·개시·선고(가장 이른 공개 신호), end = 폐지, late = 인가·종결 등.
@@ -76,6 +76,9 @@ RULES = [
     "법원 공고의 회사 이름을 공장등록에서 같은 이름으로 찾아 업종을 붙인다. 이름이 같은 다른 회사일 수 있다(주소·대표자 확인).",
     "포괄적 금지명령 = 회생 신청 직후(개시 전). 개시·파산선고가 가장 이른 확정 단계. 거래 관계·납품 차질은 회사·출입처 확인 전에는 모른다.",
     "공장등록이 없는 회사는 이름 낱말만으로 C(참고). 출입처 협력사 명단(data/kr_supplier_watchlist.json)에 있으면 A.",
+    "관련 업종(금속가공·기타 기계·전기장비·플라스틱·전자부품)은 주생산품에 출입 업종 낱말(자동차·배터리·변압기·전선·강관 등)이 있을 때만 B, 없으면 C.",
+    "같은 이름 공장이 관할 법원 지역 밖에만 있거나 대표자가 3명 이상이면 다른 회사일 수 있어 한 단계 내린다.",
+    "핵심 업종이라도 공장등록 종업원 50명 미만이면 A가 아니라 B(협력사 명단에 있으면 A).",
 ]
 
 
@@ -128,6 +131,8 @@ def fetch_page(task, cort, page, *, post=None, sleep=time.sleep):
             d = r.json()
             data = d.get("data") or {}
             rows = data.get("dlt_pbancLst")
+            if rows is None and d.get("status") == 200 and "완료" in str(d.get("message") or ""):
+                rows = []  # a court with no notices answers without the list (10-29: 춘천지법 강릉지원)
             if not isinstance(rows, list):
                 raise RuntimeError(f"응답 형식 미상({str(d.get('message') or '')[:40]})")
             return rows, (data.get("dma_pageInfo") or {}).get("totalCnt")
@@ -137,12 +142,22 @@ def fetch_page(task, cort, page, *, post=None, sleep=time.sleep):
     raise last
 
 
+DOWN_AFTER = 4  # 처음부터 이만큼 연달아 접속이 안 되면 대법원 사이트가 내려간 것으로 보고 나머지를 건너뛴다
+
+
 def court_notices(since_day, *, post=None, sleep=time.sleep, deadline=None):
+    """since_day: 날짜 문자열 하나, 또는 원천 이름(법원 업무)을 받아 그 법원 업무의 조회 시작일을 돌려주는 함수."""
+    since_for = since_day if callable(since_day) else (lambda source: since_day)
     notices, checks = [], []
     for cort, cname in COURTS:
         for task, tname in TASKS:
+            source = f"{cname} {tname}"
+            since_day = since_for(source)
             if deadline and time.monotonic() > deadline:
-                checks.append({"source": f"{cname} {tname}", "status": "partial", "error": "실행 시간 상한 — 다음 실행에서 조회"})
+                checks.append({"source": source, "status": "partial", "error": "실행 시간 상한 — 다음 실행에서 조회"})
+                continue
+            if len(checks) >= DOWN_AFTER and all(c["status"] == "failed" for c in checks):
+                checks.append({"source": source, "status": "failed", "error": f"대법원 사이트 접속 불가(앞 {DOWN_AFTER}곳 연속 실패) — 다음 실행에서 조회"})
                 continue
             got, pages, total = 0, 0, None
             try:
@@ -159,9 +174,9 @@ def court_notices(since_day, *, post=None, sleep=time.sleep, deadline=None):
                     if len(rows) < PAGE_SIZE or oldest < since_day:
                         break
                     sleep(0.8)
-                checks.append({"source": f"{cname} {tname}", "status": "ok", "returned": got, "pages": pages, "total": total})
+                checks.append({"source": source, "status": "ok", "returned": got, "pages": pages, "total": total, "since": since_day})
             except Exception as e:  # noqa: BLE001
-                checks.append({"source": f"{cname} {tname}", "status": "failed", "error": str(e)[:80] or type(e).__name__})
+                checks.append({"source": source, "status": "failed", "error": str(e)[:80] or type(e).__name__})
             sleep(0.8)
     return notices, checks
 
@@ -204,36 +219,77 @@ def ma_notices(*, get=None, sleep=time.sleep):
 
 
 # ---------------------------------------------------------------- industry lookup
+CACHE_VERSION = 2
+# 법인 회생·파산 관할(본점 소재지). 회생법원은 고등법원 관할 구역 전체의 법인 사건도 받는다(채무자회생법 제3조 제2항),
+# 서울회생법원은 전국 큰 회사도 받으므로 지역을 보지 않는다. 회생법원 이름을 지방법원 도시 이름보다 먼저 본다.
+REGION_BY_COURT = [("서울", None), ("수원회생", r"경기"), ("대전회생", r"대전|세종|충청남도|충남|충청북도|충북"),
+                   ("대구회생", r"대구|경상북도|경북"), ("부산회생", r"부산|울산|경상남도|경남"),
+                   ("광주회생", r"광주|전라남도|전남|전라북도|전북|전북특별자치도|제주"), ("의정부", r"경기"), ("인천", r"인천|경기도\s*(?:부천|김포)"), ("수원", r"경기"), ("춘천", r"강원"),
+                   ("강릉", r"강원"), ("대전", r"대전|세종|충청남도|충남"), ("청주", r"충청북도|충북"), ("대구", r"대구|경상북도|경북"),
+                   ("부산", r"부산"), ("울산", r"울산|경상남도\s*양산"), ("창원", r"경상남도|경남"), ("광주", r"광주|전라남도|전남"),
+                   ("전주", r"전라북도|전북|전북특별자치도"), ("제주", r"제주")]
+
+
+def region_rx(court):
+    for city, rx in REGION_BY_COURT:
+        if city in str(court or ""):
+            return re.compile(rx) if rx else None
+    return None
+
+
+def factory_match(f):
+    code = re.sub(r"\D", "", f.get("rprsntvIndutyCode") or "")
+    text = f"{f.get('indutyNm') or ''} {f.get('mainProductCn') or ''}"
+    for p, name in CORE.items():
+        if code.startswith(p):
+            return "core", name
+    for p, name in sorted(RELATED.items(), key=lambda kv: -len(kv[0])):
+        if code.startswith(p):
+            return ("product" if PRODUCT.search(text) else "related"), name
+    if PRODUCT.search(text):
+        return "product", "주생산품 낱말"
+    return None, None
+
+
+RANK = {"core": 0, "product": 1, "related": 2}
+
+
 def classify_factories(facs):
-    """Best industry match among a company's registered factories: core > related > product word."""
-    best = None
+    """Same-name factories, beat-relevant ones kept as candidates (best first); the notice's court picks among them."""
+    if not facs:
+        return {"v": CACHE_VERSION, "match": None, "factories": 0}
+    owners = len({norm(f.get("rprsntvNm")) for f in facs if f.get("rprsntvNm")})
+    cands = []
     for f in facs:
-        code = re.sub(r"\D", "", f.get("rprsntvIndutyCode") or "")
-        text = f"{f.get('indutyNm') or ''} {f.get('mainProductCn') or ''}"
-        match, label = None, None
-        for p, name in CORE.items():
-            if code.startswith(p):
-                match, label = "core", name
-                break
-        if not match:
-            for p, name in sorted(RELATED.items(), key=lambda kv: -len(kv[0])):
-                if code.startswith(p):
-                    match, label = ("product" if PRODUCT.search(text) else "related"), name
-                    break
-        if not match and PRODUCT.search(text):
-            match, label = "product", "주생산품 낱말"
-        rank = {"core": 0, "product": 1, "related": 2}.get(match, 9)
-        if best is None or rank < best[0]:
-            best = (rank, match, label, f)
-    if not best or best[1] is None:
-        f = facs[0] if facs else {}
-        return {"match": "factory-other" if facs else None, "label": None, "code": re.sub(r"\D", "", f.get("rprsntvIndutyCode") or "") or None,
-                "industry": f.get("indutyNm"), "product": f.get("mainProductCn"), "employees": emp(f.get("allEmplyCo")),
-                "address": f.get("rnAdres"), "factories": len(facs)}
-    _, match, label, f = best
-    return {"match": match, "label": label, "code": re.sub(r"\D", "", f.get("rprsntvIndutyCode") or "") or None,
-            "industry": f.get("indutyNm"), "product": f.get("mainProductCn"), "employees": emp(f.get("allEmplyCo")),
-            "address": f.get("rnAdres"), "factories": len(facs)}
+        m, label = factory_match(f)
+        if m:
+            cands.append({"m": m, "l": label, "c": re.sub(r"\D", "", f.get("rprsntvIndutyCode") or "") or None,
+                          "i": (f.get("indutyNm") or "")[:40] or None, "p": (f.get("mainProductCn") or "")[:60] or None,
+                          "e": emp(f.get("allEmplyCo")), "a": (f.get("rnAdres") or "")[:60] or None})
+    cands.sort(key=lambda c: (RANK[c["m"]], -(c["e"] or 0)))
+    if not cands:
+        f = facs[0]
+        return {"v": CACHE_VERSION, "match": "factory-other", "code": re.sub(r"\D", "", f.get("rprsntvIndutyCode") or "") or None,
+                "industry": (f.get("indutyNm") or "")[:40] or None, "factories": len(facs), "owners": owners}
+    return {"v": CACHE_VERSION, "match": cands[0]["m"], "factories": len(facs), "owners": owners, "cands": cands[:5]}
+
+
+def pick(info, court):
+    """Industry for one notice: a same-name factory inside the court's region first. Outside it → regionMismatch."""
+    if not info or not info.get("cands"):
+        return info
+    rx = region_rx(court)
+    cands = info["cands"]
+    local = [c for c in cands if rx and rx.search(c.get("a") or "")]
+    best = local[0] if local else cands[0]
+    return {"match": best["m"], "label": best["l"], "code": best["c"], "industry": best["i"], "product": best["p"], "employees": best["e"],
+            "address": best["a"], "factories": info.get("factories"), "owners": info.get("owners"),
+            "regionMismatch": bool(rx) and not local}
+
+
+def doubtful(ind):
+    """Name may belong to another company: factory outside the court's region, or 3+ owners under the same name."""
+    return bool(ind) and (bool(ind.get("regionMismatch")) or (ind.get("owners") or 0) >= 3)
 
 
 def lookup(name, key, *, get=None, sleep=time.sleep):
@@ -262,13 +318,34 @@ def load_watchlist(path=WATCHLIST):
 
 
 # ---------------------------------------------------------------- run
-def tier_of(stage, match, watch):
+SMALL_FIRM = 50  # 공장등록 종업원 수
+
+
+def small(ind):
+    """공장등록 종업원 50명 미만: 출입처 생산에 닿는 협력사라는 근거가 없으면 단독 후보(A)로 올리지 않는다
+    (10-31 운영: 종업원 17명 자동차 부품사 회생 개시가 A — 최근 30일 A 대부분이 5~37명 업체)."""
+    n = (ind or {}).get("employees")
+    return isinstance(n, int) and n < SMALL_FIRM
+
+
+def tier_of(stage, match, watch, ind=None):
     if watch:
         return "A"
+    t = _tier(stage, match)
+    if t and doubtful(ind):
+        return {"A": "B", "B": "C"}.get(t, t)
+    return "B" if t == "A" and small(ind) else t
+
+
+def _tier(stage, match):
     if match == "core":
         return "A" if stage == "start" else "B" if stage == "end" else "C"
-    if match in ("product", "related"):
+    if match == "product":
         return "B" if stage == "start" else "C"
+    if match == "related":
+        # 관련 업종(금속가공·기타 기계·전기장비·플라스틱 등)인데 주생산품에 출입 업종 낱말이 없으면 참고(C)
+        # (10-31 운영: 맨홀·바이오필터·화장품 용기·덕트 제조사가 B로 떠 B 28건 중 상당수를 차지)
+        return "C"
     if match == "name":
         return "C"
     return None
@@ -283,12 +360,28 @@ def since_of(previous, now):
         return floor.date().isoformat()
 
 
+def court_since(previous, now, source):
+    """법원 업무별 조회 시작일: 그 법원 업무를 마지막으로 다 읽은 때 − 겹침(10-30 07:20 대법원 접속 불가 실행이 전체 성공 시각을
+    앞당겨 다음 실행 범위가 줄 수 있었다). 기록이 없으면 전체 기준(since_of)."""
+    last = ((previous or {}).get("courtLastOk") or {}).get(source)
+    if not last:
+        return since_of(previous, now)
+    floor = now - dt.timedelta(days=BASELINE_DAYS)
+    try:
+        return max(floor, dt.datetime.fromisoformat(str(last)) - dt.timedelta(days=OVERLAP_DAYS)).date().isoformat()
+    except (TypeError, ValueError):
+        return since_of(previous, now)
+
+
 def run(key, *, now, previous=None, post=None, get=None, sleep=time.sleep, watchlist=None, deadline=None):
     stamp = now.isoformat(timespec="seconds")
     baseline = not (isinstance(previous, dict) and previous.get("events") is not None)
     since_day = since_of(None if baseline else previous, now)
     watch = load_watchlist() if watchlist is None else watchlist
-    notices, checks = court_notices(since_day, post=post, sleep=sleep, deadline=deadline)
+    notices, checks = court_notices(lambda source: since_day if baseline else court_since(previous, now, source), post=post, sleep=sleep, deadline=deadline)
+    court_last = dict((previous or {}).get("courtLastOk") or {})
+    court_last.update({c["source"]: stamp for c in checks if c["status"] == "ok"})
+    since_day = min([c["since"] for c in checks if c.get("since")] or [since_day])
     ma, ma_checks = ma_notices(get=get, sleep=sleep)
     checks += ma_checks
 
@@ -308,12 +401,16 @@ def run(key, *, now, previous=None, post=None, get=None, sleep=time.sleep, watch
 
     cache = dict((previous or {}).get("industryCache") or {})
     fresh_cut = (now - dt.timedelta(days=LOOKUP_TTL_DAYS)).isoformat()
-    order = sorted({firm_key(x.get("btprtNm")) for x, _, st in cands if st != "late"} | {firm_key(r["company"]) for r in ma_new},
+    stale = {firm_key(e.get("company")) for e in (previous or {}).get("events") or []
+             if (cache.get(firm_key(e.get("company"))) or {}).get("match") in RANK and (cache.get(firm_key(e.get("company"))) or {}).get("v") != CACHE_VERSION}
+    order = sorted({firm_key(x.get("btprtNm")) for x, _, st in cands if st != "late"} | {firm_key(r["company"]) for r in ma_new} | stale,
                    key=lambda k: (0 if NAME_HINT.search(k) else 1, k))
     lookups, pending, lookup_errors = 0, 0, []
     if key:
         for k in order:
-            if not k or (k in cache and str(cache[k].get("checkedAt")) >= fresh_cut) or k in watch:
+            c = cache.get(k)
+            current = c and str(c.get("checkedAt")) >= fresh_cut and (c.get("v") == CACHE_VERSION or c.get("match") not in RANK)
+            if not k or current or k in watch:
                 continue
             if lookups >= LOOKUP_BUDGET or (deadline and time.monotonic() > deadline):
                 pending += 1
@@ -330,9 +427,9 @@ def run(key, *, now, previous=None, post=None, get=None, sleep=time.sleep, watch
                    **({"error": f"{len(lookup_errors)}건 실패({lookup_errors[0]})"} if lookup_errors else {}),
                    **({"error": "DATA_GO_KR_KEY·CUSTOMS_API_KEY 미설정 — 업종 미확인"} if not key else {})})
 
-    def industry_for(name):
+    def industry_for(name, court):
         k = firm_key(name)
-        info = cache.get(k)
+        info = pick(cache.get(k), court)
         w = watch.get(k)
         match = (info or {}).get("match")
         if match in (None, "factory-other") and NAME_HINT.search(k):
@@ -343,8 +440,8 @@ def run(key, *, now, previous=None, post=None, get=None, sleep=time.sleep, watch
     events = dict(old)
     found = set()
     for x, kind, stage in cands:
-        k, info, w, match = industry_for(x.get("btprtNm"))
-        tier = tier_of(stage, match, w)
+        k, info, w, match = industry_for(x.get("btprtNm"), x.get("_court"))
+        tier = tier_of(stage, match, w, info)
         if not tier:
             continue
         eid = f"ins:{x.get('cortCd')}:{x.get('csNo')}:{x.get('inetPbancDvsCd')}:{x.get('inetPbancSeq')}"
@@ -360,12 +457,12 @@ def run(key, *, now, previous=None, post=None, get=None, sleep=time.sleep, watch
             "isNew": not prev and not baseline,
         }
     for r in ma:
-        k, info, w, match = industry_for(r["company"])
+        k, info, w, match = industry_for(r["company"], r["court"])
         eid = f"ma:{r['seq']}"
         prev = old.get(eid)
         if r["seq"] in seen_ma and not prev:
             continue  # seen earlier and not kept
-        tier = "A" if w else "B" if match in ("core", "product", "related") else "C" if match == "name" else None
+        tier = "A" if w else ("C" if doubtful(info) or match == "related" else "B") if match in RANK else "C" if match == "name" else None
         if not tier:
             continue
         found.add(eid)
@@ -383,10 +480,10 @@ def run(key, *, now, previous=None, post=None, get=None, sleep=time.sleep, watch
     # an industry looked up after the notice was stored: refresh the stored events' industry and tier
     for e in events.values():
         if e["source"] == "대법원 회생·파산 공고" and e["id"] not in found:
-            k, info, w, match = industry_for(e["company"])
-            if info and not e.get("industry"):
+            k, info, w, match = industry_for(e["company"], e.get("court"))
+            if info:  # stored notices follow the current cache and region rules
                 e["industry"], e["match"] = info, match
-                e["tier"] = tier_of(e["stage"], match, w) or e["tier"]
+                e["tier"] = tier_of(e["stage"], match, w, info) or e["tier"]
 
     cut = (now - dt.timedelta(days=KEEP_DAYS)).date().isoformat()
     kept = sorted((e for e in events.values() if str(e.get("posted") or e["firstSeen"])[:10] >= cut),
@@ -396,11 +493,12 @@ def run(key, *, now, previous=None, post=None, get=None, sleep=time.sleep, watch
     court_checks = [c for c in checks if not c["source"].startswith(("회생회사", "공장등록"))]
     court_failed = [c for c in court_checks if c["status"] == "failed"]
     failed = [c for c in checks if c["status"] == "failed"]
-    status = ("failed" if len(court_failed) == len(court_checks) else
+    court_ok = [c for c in court_checks if c["status"] == "ok"]
+    status = ("failed" if len(court_failed) == len(court_checks) or not court_ok else
               "partial" if failed or any(c["status"] == "partial" for c in checks) else "complete")
     return {
         "schema": SCHEMA, "generatedAt": stamp, "status": status,
-        "lastSuccess": stamp if status != "failed" else (previous or {}).get("lastSuccess"),
+        "lastSuccess": stamp if status != "failed" else (previous or {}).get("lastSuccess"), "courtLastOk": court_last,
         "baselineSince": (previous or {}).get("baselineSince") or stamp, "windowStart": since_day,
         "checks": checks, "events": kept, "industryCache": cache, "maSeen": sorted({r["seq"] for r in ma} | seen_ma)[-500:],
         "counts": {"notices": len(notices), "keyKinds": kinds_count, "firms": len(cands), "lookups": lookups, "pending": pending},
@@ -428,8 +526,17 @@ def main():
         if e.get("isNew"):
             tiers[e["tier"]] = tiers.get(e["tier"], 0) + 1
     c = doc["counts"]
+    bad = [x for x in doc["checks"] if x["status"] != "ok"]
+    # 실패 원인 예(오류 종류만 — 공고 내용·키는 싣지 않음). 10-31(토) 실행이 34곳 중 1곳만 정상이었는데 원인이 로그에 없었다.
+    sample, errs = [], set()
+    for x in bad:  # 서로 다른 오류만 3가지까지
+        err = str(x.get("error") or x["status"])[:40]
+        if err not in errs and len(sample) < 3:
+            errs.add(err)
+            sample.append(f"{x['source']}({err})")
+    why = f" · 미확인 {len(bad)}곳 예: {', '.join(sample)}" if bad else ""
     print(f"::notice title=kr-insolvency::상태 {doc['status']} · 원천 {ok}/{len(doc['checks'])} 정상 · 공고 {c['notices']}건(주요 단계 {sum(c['keyKinds'].values())}) · "
-          f"업종 조회 {c['lookups']}(대기 {c['pending']}) · 새 항목 {tiers} · 보관 {len(doc['events'])}")
+          f"업종 조회 {c['lookups']}(대기 {c['pending']}) · 새 항목 {tiers} · 보관 {len(doc['events'])}{why}")
     if not token:
         print("::warning title=kr-insolvency-push::MCP_ACCESS_TOKEN 미설정 — 결과를 저장하지 않음")
         return
