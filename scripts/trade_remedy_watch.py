@@ -1,5 +1,6 @@
 """무역구제 감시: EU 철강 쿼터(TARIC) 한국 몫 소진, 미국 관보의 한국산 무역구제·ITC 고시, 호주·캐나다·인도 공고 목록,
-국내 무역위원회(진행 사건·진행일정·회의 안건·보도자료, scripts/ktc_watch.py), 무역협회 대한 수입규제DB(세계 각국, scripts/kita_watch.py).
+국내 무역위원회(진행 사건·진행일정·회의 안건·보도자료, scripts/ktc_watch.py), 무역협회 대한 수입규제DB(세계 각국, scripts/kita_watch.py),
+미국 ITC 문서 시스템 EDIS(한국산 제소·출입처가 당사자인 서면·출입처 이름이 표지에 든 337 제소장, scripts/edis_watch.py).
 
 - EU TARIC: 이번 분기 한국 관련 관세쿼터(09xxxx) 초기 물량·잔량·소진일·CN 코드. 사용률 80% 이상·소진을 표시하고
   직전 확인 대비 사용률 변화를 남긴다.
@@ -55,7 +56,9 @@ BEAT_NAMES = [
     ("HD현대일렉트릭", r"HD Hyundai Electric|Hyundai Electric (?:&|and) Energy|Hyundai Power Transformers"),
     ("LS일렉트릭", r"\bLS Electric|\bLSIS\b"), ("LS전선", r"\bLS Cable"), ("대한전선", r"Taihan"), ("LS MnM", r"\bLS MnM|LS-Nikko"),
     ("두산에너빌리티", r"Doosan Enerbility|Doosan Heavy"), ("효성중공업(관련)", r"Hyosung Heavy"), ("일진전기(관련)", r"Iljin Electric"),
-    ("한화솔루션", r"Hanwha Solutions|Hanwha Q ?CELLS|\bQcells\b"), ("OCI", r"\bOCI\b"), ("GS칼텍스", r"GS Caltex"),
+    ("한화솔루션", r"Hanwha Solutions|Hanwha Q ?CELLS|\bQcells\b"),
+    # 네덜란드 비료·메탄올 OCI(OCI N.V.·OCI Global·OCI Nitrogen)는 OCI가 아니다 — 미국 ITC 비료(UAN) 사건에 나온다
+    ("OCI", r"\bOCI\b(?!\s*(?:N\.?\s?V\b|Global|Nitrogen|Methanol|Partners|Fertili[sz]er|Agro|Beaumont|Iowa))"), ("GS칼텍스", r"GS Caltex"),
     ("태광", r"Taekwang"), ("DL케미칼", r"DL Chemical"), ("동성케미칼", r"Dongsung Chemical"), ("KG모빌리티", r"KG Mobility"),
 ]
 STAGE = [("개시", r"initiation|institution of|commencement"), ("예비 판정", r"preliminary"), ("최종 판정", r"final"),
@@ -539,7 +542,8 @@ def mark_renumbered(events, page_ids):
                                and isinstance(x.get("text"), str) and serial_free(x["text"]) == key[1]])
 
 
-def run(cfg, *, now, previous=None, get=None, sleep=time.sleep, relay_token=None, ktc_http=None, kita_http=None, browser=None):
+def run(cfg, *, now, previous=None, get=None, sleep=time.sleep, relay_token=None, ktc_http=None, kita_http=None, browser=None,
+        edis_get=None, edis_token=""):
     stamp = now.isoformat(timespec="seconds")
     had_state = bool(previous)
     checks = []
@@ -569,6 +573,13 @@ def run(cfg, *, now, previous=None, get=None, sleep=time.sleep, relay_token=None
         import kita_watch
         kita, kita_events, kcheck2 = kita_watch.collect(kita, now, kita_http, sleep=sleep)
         checks.append(kcheck2)
+    edis, edis_events = (previous or {}).get("edis"), []
+    if edis_get is not None:
+        import edis_watch
+        edis, edis_events, echeck = edis_watch.collect(edis, now, get=edis_get, token=edis_token, sleep=sleep)
+        if echeck["status"] == "failed" and (previous or {}).get("edis"):
+            edis = dict(previous["edis"], stale=True)  # 목록이 안 열리면 지난 상태 그대로(0건 아님, 다음 실행이 이어 읽음)
+        checks.append(echeck)
     prev_fr = {x["id"]: x for x in (previous or {}).get("federalRegister", []) if isinstance(x, dict)}
     if ferr:  # keep the last good list rather than showing an empty one
         fr = list(prev_fr.values())
@@ -578,7 +589,7 @@ def run(cfg, *, now, previous=None, get=None, sleep=time.sleep, relay_token=None
     keep_from = (now - dt.timedelta(days=KEEP_DAYS)).isoformat()
     events = [e for e in (previous or {}).get("events", []) if isinstance(e, dict) and e.get("detectedAt", "") >= keep_from]
     seen = {e.get("id") for e in events}
-    fresh = page_events + ktc_events + kita_events + [
+    fresh = page_events + ktc_events + kita_events + edis_events + [
         {"id": f"taric:{q['order']}:{q['periodStart']}", "pageId": "taric", "country": "EU",
          "label": f"EU 쿼터 {q['order']} {q.get('product') or ''}({q['scope']}) 소진", "text": " ".join(q["tags"]),
          "url": q["url"], "detectedAt": stamp} for q in ok_q if q.get("newlyExhausted")]
@@ -592,6 +603,7 @@ def run(cfg, *, now, previous=None, get=None, sleep=time.sleep, relay_token=None
             "baselineSince": (previous or {}).get("baselineSince") or ((previous or {}).get("generatedAt") if previous else None) or stamp,
             "quarter": tinfo["periodStart"], "quotas": quotas, "quotaHistory": history, "federalRegister": fr,
             "pages": pages, "events": events[:300], **({"ktc": ktc} if ktc else {}), **({"kita": kita} if kita else {}),
+            **({"edis": edis} if edis else {}),
             "rules": ["쿼터 수치는 EU TARIC 집계(마지막 갱신일 기준)다. 통관 신고 정산·배정 대기 물량 배분으로 바뀔 수 있다.",
                       "'한국 전용'은 원산지가 한국만인 쿼터, '공동'은 인도·튀르키예 등과 나눠 쓰는 쿼터다. 공동 쿼터 소진을 한국 물량 소진으로 쓰지 않는다.",
                       "쿼터 소진이 곧 수출 타격은 아니다(선적 시점 조정·선계약). 업체별 물량·영향은 회사 확인이 필요하다.",
@@ -625,8 +637,9 @@ def main():
             print(f"::warning title=trade-remedy-browser::브라우저 수집 문서 조회 실패({e}) — 그 목록은 미확인")
     import kita_watch
     import ktc_watch
+    import requests
     doc = run(cfg, now=now, previous=previous, relay_token=token or None, ktc_http=ktc_watch.Http(), kita_http=kita_watch.Http(),
-              browser=browser)
+              browser=browser, edis_get=requests.get, edis_token=os.environ.get("EDIS_API_TOKEN", "").strip())
     q = [x for x in doc["quotas"] if x["status"] == "ok"]
     exhausted = sum(1 for x in q if x.get("exhaustedOn"))
     hot = sum(1 for x in q if x.get("tags"))
@@ -644,6 +657,13 @@ def main():
     kiev = [e for e in doc["events"] if e.get("pageId") == "kita" and e["detectedAt"] == doc["generatedAt"]]
     print(f"::notice title=trade-remedy-kita::무역협회 수입규제DB 사건 {len(ki.get('cases', {}))} · 이번 이벤트 {len(kiev)}"
           f"({', '.join(sorted({e['tier'] for e in kiev}))})")
+    ed = doc.get("edis") or {}
+    edev = [e for e in doc["events"] if e.get("pageId") == "edis" and e["detectedAt"] == doc["generatedAt"]]
+    fresh_docs = [x for x in ed.get("docs", []) if x.get("firstSeen") == doc["generatedAt"]]
+    print(f"::notice title=trade-remedy-edis::USITC EDIS 새로 본 관련 문서 {len(fresh_docs)}(A·B {sum(1 for x in fresh_docs if x.get('tier') in ('A', 'B'))})"
+          f" · 본문 읽음 {sum(1 for x in fresh_docs if 'pages' in x)} · 이번 이벤트 {len(edev)} · 지켜보는 337 조사 {len(ed.get('watched') or {})}")
+    if ed.get("tokenNote"):
+        print("::warning title=trade-remedy-edis-token::EDIS API 토큰 만료·거부·미설정 또는 3일 안 만료 — EDIS 로그인 → 'API Token Generator'에서 다시 발급해 비밀값 교체")
     if not token:
         print("::warning title=trade-remedy-push::MCP_ACCESS_TOKEN 미설정 — 결과를 저장하지 않음")
         return
