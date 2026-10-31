@@ -7,7 +7,9 @@ const pages = fs.readdirSync('.').filter((f) => f.endsWith('.html') && !['index.
 for (const f of pages) assert(home.includes(`href="${f}"`) || list.includes(`href="${f}"`), `${f}가 메뉴에도 목록에도 없음`);
 assert(home.includes('href="pages.html"'));
 for (const id of ['countGlobal', 'countFollow', 'countCompetition', 'countAll', 'countMust']) assert(home.includes(`id="${id}"`), `${id} 사라짐`);
-for (const v of ['calls', 'keywords', 'issues', 'global']) {
+// 외신(global)은 11-01 기자 요청('외신 봐주는 페이지 어디 갔어')으로 홈 메뉴에 다시 보인다.
+assert(/<button class="nav" data-view="global">외신 · 한국어 <span id="countGlobal">/.test(home), '외신 버튼이 홈 메뉴에 보여야 함');
+for (const v of ['calls', 'keywords', 'issues']) {
   assert(new RegExp(`data-view="${v}" hidden`).test(home), `${v} 버튼은 숨김으로 남아야 함`);
   assert(list.includes(`index.html#view=${v}`), `${v} 화면 링크 없음`);
 }
