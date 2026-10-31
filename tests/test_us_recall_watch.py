@@ -346,7 +346,8 @@ TSB = [
     tsb("11012010", "HYUNDAI", "PALISADE", "2026", "Warranty Program/Extension", "Check Active Air Flap System warning, Engine MIL ON and/or Low Engine Oil "
         "warning due to water ingress at the AAF wiring.", doc="26-01-026H-1 TSB", campaign="LA13", comp="ENGINE"),
     tsb("11012011", "GENESIS", "GV70", "2025", "Service Bulletin/Repair Instructions", "Vehicle may stall at low speed; reprogram the ECM.", doc="26-01-090G"),
-    tsb("11012012", "HYUNDAI", "TUCSON", "2025", "Service Bulletin/Repair Instructions", "Radio display software update.", doc="26-AV-011H"),
+    tsb("11012012", "HYUNDAI", "TUCSON", "2025", "Service Bulletin/Repair Instructions", "Radio display software update. Air bubbles on the dashboard "
+        "(crash pad) surface.", doc="26-AV-011H"),
     tsb("11012013", "CHEVROLET", "TRAX", "2025", "Service Bulletin/Repair Instructions", "Vehicle may stall; reprogram.", doc="25-NA-123"),
     tsb("11012013", "CHEVROLET", "SILVERADO", "2025", "Service Bulletin/Repair Instructions", "Vehicle may stall; reprogram.", doc="25-NA-123"),
     tsb("11012014", "BUICK", "ENCORE GX", "2022", "Warranty Program/Extension", "Special Coverage. Certain 2022 Encore GX and Trailblazer vehicles may have a "
