@@ -11,7 +11,7 @@ import { publicationDate, verifyEvidence } from '../cloudflare/evidence.mjs';
 import { allowedUrl } from '../cloudflare/live_tools.mjs';
 import { handleIngest } from '../cloudflare/screen.mjs';
 import { dueAt, nextSlot, runSchedule } from '../cloudflare/dispatch.mjs';
-import { background, billHint, convergence, hint, kepcoHint, localWord, radarItems, siteCity, stackHint, workforceHint } from '../cloudflare/digest.mjs';
+import { background, billHint, clipAt, convergence, hint, kepcoHint, localWord, radarItems, siteCity, stackHint, workforceHint } from '../cloudflare/digest.mjs';
 
 const ORIGIN = 'https://seoul-reporting-radar.shhong9173.workers.dev';
 const TOKEN = 'test-token-0123456789abcdef';
@@ -959,6 +959,10 @@ test('radar_today shows converging signals above the tiers', async () => {
   assert.match(r.text, /\[겹친 신호 · 최근 14일 같은 출입처·같은 시군을 감시 여러 곳이 가리킴\] 1곳/);
   assert.match(r.text, /- \[새 항목 포함\] 기아 · 화성 — 감시 2곳\((사업장 인력\(국민연금\), 지자체 고시·공고|지자체 고시·공고, 사업장 인력\(국민연금\))\)/);
   assert.ok(r.text.indexOf('[겹친 신호') < r.text.indexOf('[A · '));
+  // 한 줄 요약은 ' · ' 구분에서 자른다(10-31 운영: '… · 취 · id')
+  const line = "금호타이어 · [기재정정]유형자산취득결정(자율공시) — 정정 중 큰 변경(취득예정일자 -36개월 · 사유 '취득완료(취득가액 및 취득일자 확정)에 따른 정정') · 취득물건구분 토지 및 건물 · 취득물건명 전라남도 함평군 빛그린국가산업단지";
+  assert.equal(clipAt(line, 110), "금호타이어 · [기재정정]유형자산취득결정(자율공시) — 정정 중 큰 변경(취득예정일자 -36개월 · 사유 '취득완료(취득가액 및 취득일자 확정)에 따른 정정') · 취득물건구분 토지 및 건물 …");
+  assert.equal(clipAt('짧은 줄', 110), '짧은 줄');
 });
 
 test('workforce: a small rise is reference (C, no press check), a small drop stays B', async () => {
