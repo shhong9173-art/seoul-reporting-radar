@@ -954,6 +954,30 @@ def fetch_direct_iris_announcements(max_items=10, max_pages=2, max_details=30, p
 
 
 
+def court_article(page_text):
+    """대법원 보도자료 본문만: '조회수 N' 뒤부터 '이전글'·'다음글'·'목록' 앞까지(메뉴·바닥글·옆 글 제목 빼고). 못 찾으면 ''.
+    운영 10-31: 쪽 전체를 낱말 대조에 써서 메뉴의 '회생·파산 공고'·'특허법원'·'법원전시관'이 모든 보도자료에 걸렸다
+    ('파키스탄 대법원장 방문'·'법원경매 기일입찰표 양식 전면 개선'이 단서로 남음). 요약도 메뉴 3,500자였다."""
+    m = re.search(r"조회수\D{0,5}\d[\d,]*", page_text or "")
+    if not m:
+        return ""
+    rest = page_text[m.end():]
+    end = re.search(r"이전글|다음글|목록\s*대법원\s*페이스북|개인정보처리방침", rest)
+    body = (rest[:end.start()] if end else rest[:6000]).strip()
+    head = re.match(r"[\s|:]*첨부파일[\s|:]*", body)
+    if head:  # 첨부 파일 이름(띄어쓰기 포함)들을 뗀다
+        body = body[head.end():]
+        while True:
+            m2 = re.match(r"[^□▣○●◇◆■]{0,200}?\.(?:pdf|hwpx?|zip)\b[\s|,\])]*", body, re.I)
+            if not m2:
+                break
+            body = body[m2.end():]
+    return body.strip()
+
+
+COURT_BODY = "article"  # 저장 항목 표시: 본문만으로 고른 것(이 표시 없는 옛 저장분은 본문을 다시 읽는다)
+
+
 def fetch_direct_court(max_items=12, prior_items=None):
     """Collect date-stamped Supreme Court releases and industry-related disputes."""
     base="https://www.scourt.go.kr"
@@ -1034,7 +1058,8 @@ def fetch_direct_court(max_items=12, prior_items=None):
             diag["recentRows"]+=1
             seen.add(href)
             hit=cache.get(href)
-            if hit and hit.get("title")==title and str(hit.get("published",""))[:10]==dt.date().isoformat():
+            if (hit and hit.get("title")==title and str(hit.get("published",""))[:10]==dt.date().isoformat()
+                    and hit.get("bodyFrom")==COURT_BODY):
                 diag["detailReused"]=diag.get("detailReused",0)+1
                 out.append(dict(hit))
                 if len(out)>=max_items: break
@@ -1046,7 +1071,7 @@ def fetch_direct_court(max_items=12, prior_items=None):
                 # 본문 쪽도 같은 연결 끊김이 난다(운영 10-28 20:36: 목록 2/2 성공, 본문 1건 Connection reset). 한 번만 더.
                 for attempt,timeout in ((1,8),(2,15)):
                     try:
-                        detail=clean(decode_web_bytes(get(href,timeout=timeout)))[:12000]
+                        detail=court_article(clean(decode_web_bytes(get(href,timeout=timeout))))[:12000]
                         diag["detailPagesFetched"]+=1
                         if attempt>1:
                             diag["retriedOk"]=diag.get("retriedOk",0)+1
@@ -1070,7 +1095,7 @@ def fetch_direct_court(max_items=12, prior_items=None):
                 "title":title,"url":href,"published":dt.isoformat(),
                 "summary":detail[:3500],"official":True,"preScoop":True,
                 "companies":companies,"directSource":True,
-                "signalType":"supreme_court_case_release",
+                "signalType":"supreme_court_case_release","bodyFrom":COURT_BODY,
                 "dateSource":"대법원 보도자료 게시일"
             })
             if len(out)>=max_items: break
