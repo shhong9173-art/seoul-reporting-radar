@@ -193,6 +193,26 @@ class Facts(unittest.TestCase):
         self.assertTrue(f.correction_line(lf).endswith("기타 투자판단과 관련한 중요사항: 선급금 100억원 → 90억원(-10.0%)"))
         self.assertIsNone(f.number_changes(long_b[:117] + "…", long_a[:117] + "…"))
 
+    def test_period_confirmed_and_counterparty_revealed(self):
+        # LS일렉트릭 20260605800561 정정 표(2026-10-31 source_document로 읽은 원문 그대로): 계약기간 '-' → 시작·종료일
+        ntp = table([["정정일자", "2026-06-05"], ["3. 정정사유", "착공지시서(NTP) 수령에 따른 계약기간 확정"], ["정정항목", "정정전", "정정후"],
+                     ["5. 계약기간", "-", "시작일 : 2026-06-05<br>종료일 : 2028-07-20"],
+                     ["8. 기타 투자판단과 관련한 중요사항", "- 상기 5의 계약기간은 착공지시서(NTP) 발행일을 기준으로 상업운전개시(COD)까지 약 21.5개월, "
+                      "최종완공까지 약 25.5개월로 예정되어 있으며, 실제 착공지시서 수령 시 확정 계약기간에 대하여 추가 공시할 예정입니다.",
+                      "- 상기 5의 계약기간은 착공지시서(NTP)발행일인 2026년 6월 5일부터 25.5개월 후인 2028년 7월 20일입니다."]])
+        fix = f.correction([ntp])
+        self.assertEqual(fix["material"], ["계약기간 확정"])
+        self.assertIn("계약기간 - → 시작일 : 2026-06-05 종료일 : 2028-07-20", f.correction_line(fix))
+        # 계약상대 공개·공시유보 해제(형식: 공급계약 본문 '8. 공시유보 관련내용' 칸 — 실제 해제 정정 예시는 아직 없음)
+        reveal = table([["3. 정정사유", "공시유보 기한 도래"], ["정정항목", "정정전", "정정후"], ["3. 계약상대", "-", "Saudi Electricity Company"],
+                        ["8. 공시유보 관련내용 - 유보사유", "영업비밀 보호", "-"], ["8. 공시유보 관련내용 - 유보기한", "2026-10-31", "-"]])
+        self.assertEqual(f.correction([reveal])["material"], ["계약상대 공개(Saudi Electricity Company)", "공시유보 해제"])
+        self.assertEqual(f.correction([table([["정정항목", "정정전", "정정후"], ["3. 계약상대", "비공개(영업비밀)", "현대건설"]])])["material"], ["계약상대 공개(현대건설)"])
+        # 이름만 고친 정정(이미 공개된 상대)·유보 유지는 큰 변경이 아니다
+        same = table([["정정항목", "정정전", "정정후"], ["3. 계약상대", "LS ELECTRIC America", "LS ELECTRIC America Inc."],
+                      ["8. 공시유보 관련내용 - 유보기한", "2026-10-31", "2027-04-30"]])
+        self.assertNotIn("material", f.correction([same]))
+
     def test_four_column_correction_of_any_filing(self):
         fix = f.correction([LSC_FIX])
         self.assertEqual(fix["reason"], "납입일 변경에 따른 정정 · 인수인 최종 확정에 따른 정정")
