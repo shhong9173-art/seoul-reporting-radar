@@ -1507,7 +1507,7 @@ test('partner filings: EDGAR holdings tables and repeated text fold to C, financ
   assert.match(sec('C'), /NEXA RESOURCES: 6-K EX-99\.1 — 출입처 이름이 보도 인용 문장/);  // 기사 인용일 뿐 — 참고(10-31)
   assert.doesNotMatch(sec('B'), /NEXA RESOURCES/);
   assert.match(sec('B'), /MINER CORP: 6-K EX-99\.1 — 계약·공급 낱말이 출입처 이름과 다른 문장에 있음/);
-  assert.match(sec('B'), /FIRST SOLAR, INC\.  \(FSLR\): 6-K EX-99\.1 — 발췌에 계약·공급·합작 낱말 없음/);
+  assert.match(sec('B'), /FIRST SOLAR, INC\.  \(FSLR\): 6-K EX-99\.1 — 소송·특허 절차 서술\(진행 단계·당사자는 원문 확인\)/);  // 10-31: '계약 낱말 없음' 대신
   const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=168', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: new Date('2026-10-26T01:00:00Z') })).json();
   const chk = (id) => items.items.find((x) => x.id === id)?.check;
   assert.deepEqual([chk('f1').who, chk('f1').terms, chk('f1').must], ['현대차', ['퍼스트솔라', '특허'], ['퍼스트솔라']]);
