@@ -14,11 +14,14 @@ const SYSTEM = '너는 한국 경제신문의 외신 담당 번역 기자다. �
   + '회사·제품 이름은 한국 언론이 쓰는 표기로(Hyundai Motor→현대차, Kia→기아, Hyundai Mobis→현대모비스, POSCO→포스코, Hyundai Steel→현대제철, '
   + 'Korea Zinc→고려아연, LS Electric→LS일렉트릭, HD Hyundai Electric→HD현대일렉트릭, Hyosung Heavy Industries→효성중공업, LS Cable→LS전선, '
   + 'Hanwha Qcells→한화큐셀, Hankook Tire→한국타이어, Tesla→테슬라, BYD→BYD), 숫자·단위·고유명사는 그대로 둔다. 뜻을 더하거나 빼지 않는다. '
-  + '끝에 붙은 매체 이름(" - Reuters" 등)은 옮기지 않는다. 번역문 한 줄만 출력한다(설명·따옴표·접두어 없이).';
+  + '끝에 붙은 매체 이름(" - Reuters" 등)은 옮기지 않는다. 제목에 없는 사실(상표 출원·확정·계약 체결 등)을 지어내지 않는다 — '
+  + "hints at·plans·considers·may·reportedly 같은 불확실한 표현은 '시사'·'검토'·'계획'·'~할 듯'·'~한 것으로 알려져'처럼 그대로 살린다. "
+  + '번역문 한 줄만 출력한다(설명·따옴표·접두어 없이).';
 
 export function cleanOutput(text) {
   let t = String(text ?? '').trim().split('\n').find((l) => l.trim()) ?? '';
   t = t.replace(/^(번역|한국어|제목)\s*[:：]\s*/, '').replace(/^["'“”‘’「」]+|["'“”‘’「」]+$/g, '').trim();
+  t = t.replace(/\s+-\s*$/, '').trim();   // 끝에 남은 ' -'(매체 이름을 빼다 남은 것)
   return /[가-힣]/.test(t) && t.length <= 400 ? t : '';
 }
 
