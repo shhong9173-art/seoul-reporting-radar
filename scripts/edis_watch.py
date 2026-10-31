@@ -44,7 +44,11 @@ ROUTINE = re.compile(r"PO Subscription|Protective Order|Appearance|Returned Mail
 # 위원회·행정판사 결정 문서 종류(제출처 USITC라도 질문서·조사 자료·OUII 서면은 아님)
 DECISION_TYPE = re.compile(r"^(?:Notice|Order|ID/RD|Opinion|Views|Consolidated Reports And Views|Determination)\b", re.I)
 # 판사의 절차 명령(Order)은 337 사건 하나에 수십 건(탐침 10-31: 337-1494 최근 100건 중 21건) — 종결·배제·제재 같은 결론 명령만 B
-WEIGHTY = re.compile(r"^(?:Notice|ID/RD|Opinion|Views|Consolidated|Determination|Order,\s*Commission)", re.I)
+WEIGHTY = re.compile(r"^(?:ID/RD|Opinion|Views|Consolidated|Determination|Order,\s*Commission)", re.I)
+# 공고(Notice)는 위원회 결정·개시·종결 공고만 — 판사의 '대리 자문관 교체 안내' 같은 절차 공고는 C(운영 10-31 첫 실행: 2건 B)
+WEIGHTY_NOTICE = re.compile(r"Commission|determin|terminat|institut|exclusion|review|target date|remand", re.I)
+# 위원회 조사 스태프(OUII)의 서면은 제출처가 USITC여도 결정이 아니다(운영 10-31: 'Commission Investigative Staff's Notice of Prior Art'가 B)
+STAFF = re.compile(r"Investigative Staff|\bOUII\b|Office of Unfair Import", re.I)
 WEIGHTY_ORDER = re.compile(r"terminat|exclusion|cease and desist|sanction|summary determination|default|\bstay|dismiss|withdraw|settle|"
                            r"consent|remand|violation", re.I)
 FINDING_TYPE = re.compile(r"Opinion|Views|Determination|ID/RD - Final", re.I)
@@ -96,11 +100,17 @@ def token_expiry(token):
         return None
 
 
+def caps(s):
+    """사건 표제·문서 제목(대문자 덩어리)은 내용이 아니다(운영 10-31: 발췌 첫 줄이 표제)."""
+    letters = [c for c in s if c.isalpha()]
+    return len(letters) > 20 and sum(c.isupper() for c in letters) / len(letters) > 0.5
+
+
 def snippets(text, names):
     """요청·종결·결정 낱말이 든 문장을 먼저, 모자라면 출입처 이름이 든 문장 — 3개까지(280자). 표지·목차 덩어리는 건너뜀."""
     sents = re.split(r"(?<=[.;])\s+(?=[A-Z(\"“])", re.sub(r"\s+", " ", text or ""))
     want = [rx for n, rx in beat_names() if n in names]
-    good = [s for s in sents if 40 <= len(s) <= 900 and "....." not in s and "_____" not in s and "…" * 3 not in s]
+    good = [s for s in sents if 40 <= len(s) <= 900 and "....." not in s and "_____" not in s and "…" * 3 not in s and not caps(s)]
     pick = [s for s in good if SNIP.search(s)][:3]
     if len(pick) < 3:
         pick += [s for s in good if s not in pick and any(re.search(rx, s, re.I) for rx in want)][:3 - len(pick)]
@@ -115,11 +125,25 @@ def pdf_pages(data, limit=60):
 
 
 def is_decision(rec):
-    return rec["firmOrganization"].strip().upper() == "USITC" and bool(DECISION_TYPE.search(rec["documentType"]))
+    return (rec["firmOrganization"].strip().upper() == "USITC" and bool(DECISION_TYPE.search(rec["documentType"]))
+            and not STAFF.search(rec["documentTitle"] + " " + rec["documentType"]))
 
 
 def is_weighty(rec):
+    if re.match(r"Notice", rec["documentType"], re.I):
+        return bool(WEIGHTY_NOTICE.search(rec["documentTitle"]))
     return bool(WEIGHTY.search(rec["documentType"]) or WEIGHTY_ORDER.search(rec["documentTitle"]))
+
+
+def party_hits(on_behalf):
+    """당사자 목록에서 출입처로 잡힌 법인 이름(공동 피제소인 20여 곳을 한 줄에 적어 출입처가 잘려 안 보였다 — 운영 10-31)."""
+    hits = []
+    for _, rx in beat_names():
+        for m in re.finditer(rf"(?:{rx})[^,;&]{{0,40}}(?:,\s*(?:Inc|Ltd|LLC|Corp|Co|GmbH|S\.A)\.?)*", on_behalf or "", re.I):
+            name = m.group(0).strip(" ,;")
+            if name and name not in hits:
+                hits.append(name)
+    return hits[:6]
 
 
 def is_sec337(rec):
@@ -240,6 +264,13 @@ def collect(prev, now, *, get, token="", watch=SEED_WATCH, sleep=time.sleep):
     # 다운로드에 Accept: application/xml을 붙이면 406(탐침 29) — 토큰과 UA만
     auth = {"User-Agent": UA, "Authorization": f"Bearer {token}"} if token and not token_note else None
     out, a_invs, read = dict(known), {x["investigationNumber"] for x in known.values() if x.get("tier") == "A"}, 0
+    for rec in out.values():  # 저장된 문서: 결정 문서 기준을 좁힌 뒤의 등급·당사자 출입처 표기(원래 값은 그대로 두고 표시용만)
+        if rec.get("tier") == "B" and rec.get("why") == "지켜보는 조사의 위원회·판사 결정·공고" and not (is_decision(rec) and is_weighty(rec)):
+            rec.update(tier="C", why="관련 일상 문서", retiered="B")
+        if "partyHits" not in rec:
+            rec["partyHits"] = party_hits(rec.get("onBehalfOf"))
+        if any(caps(x) for x in rec.get("snippets") or []):
+            rec["snippets"] = [x for x in rec["snippets"] if not caps(x)]
     complaints = []
     for d in sorted(by_id.values(), key=lambda x: x["officialReceivedDate"]):
         if d["id"] in seen:
@@ -256,7 +287,7 @@ def collect(prev, now, *, get, token="", watch=SEED_WATCH, sleep=time.sleep):
         if tier == "A":
             a_invs.add(inv)
         out[d["id"]] = {**d, "tier": tier, "why": why, "companies": who, "firstSeen": stamp, "url": f"{BASE}/document/{d['id']}",
-                        "isNew": not baseline and d["officialReceivedDate"] >= floor}
+                        "isNew": not baseline and d["officialReceivedDate"] >= floor, "partyHits": party_hits(d["onBehalfOf"])}
     # 새 337 제소장: 표지(앞 3쪽)에 출입처 이름이 있으면 피제소인 후보(A), 본문 앞쪽에만 있으면 B — 피제소인 여부는 원문 확인
     scanned = 0
     for d in sorted(complaints, key=lambda x: x["officialReceivedDate"], reverse=True)[:COMPLAINT_BUDGET]:
@@ -283,7 +314,8 @@ def collect(prev, now, *, get, token="", watch=SEED_WATCH, sleep=time.sleep):
         watched[d["investigationNumber"]] = max(watched.get(d["investigationNumber"]) or "", d["officialReceivedDate"])
         body = " ".join(pages_text)
         out[d["id"]] = {**d, "tier": tier, "why": why, "companies": who, "firstSeen": stamp, "url": f"{BASE}/document/{d['id']}",
-                        "isNew": not baseline and d["officialReceivedDate"] >= floor, "pages": n, "snippets": snippets(body, who)}
+                        "isNew": not baseline and d["officialReceivedDate"] >= floor, "pages": n, "snippets": snippets(body, who),
+                        "partyHits": party_hits(d["onBehalfOf"])}
         read += 1
     # 첨부 본문(공개 문서만): 이번에 처음 본 A·B 문서 — 출입처가 낸 서면 먼저, 최근 것부터
     todo = [x for x in out.values() if x["firstSeen"] == stamp and x["tier"] in ("A", "B") and "pages" not in x
@@ -310,7 +342,9 @@ def collect(prev, now, *, get, token="", watch=SEED_WATCH, sleep=time.sleep):
     for rec in sorted(out.values(), key=lambda x: x["officialReceivedDate"]):
         if rec["firstSeen"] != stamp or not rec["isNew"] or rec["tier"] not in ("A", "B"):
             continue
-        party = rec["onBehalfOf"] if rec["onBehalfOf"] and not is_decision(rec) else ""
+        hits = rec.get("partyHits") or []
+        party = ("" if not rec["onBehalfOf"] or is_decision(rec) else
+                 f"공동 당사자 중 출입처 {'; '.join(hits)}" if hits and len(rec["onBehalfOf"]) > 200 else rec["onBehalfOf"])
         body = f" · 본문 발췌: {' / '.join(rec['snippets'])}" if rec.get("snippets") else ""
         events.append({"id": f"edis:{rec['id']}", "pageId": "edis", "country": "미국", "tier": rec["tier"],
                        "label": f"USITC {rec['investigationNumber']} {rec['documentType']}"[:120],

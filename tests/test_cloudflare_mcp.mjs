@@ -1587,7 +1587,10 @@ test('trade_remedies edis: USITC EDIS docs with snippets by tier, C hidden unles
     d('899140', 'B', 'Notice', { firmOrganization: 'USITC', officialReceivedDate: '2026/10/29 09:00:00', why: '지켜보는 조사의 위원회·판사 결정·공고', bodyError: '첨부 없음' }),
     d('900101', 'A', 'Complaint', { investigationNumber: '337-3900', investigationStatus: 'Preinstitution', onBehalfOf: 'Acme Corp.', companies: ['현대모비스'],
       why: '337 제소장 표지에 출입처 이름(피제소인 후보 — 원문 확인)', officialReceivedDate: '2026/11/02 14:00:00', pages: 4, snippets: ['Complainant requests a limited exclusion order.'] }),
-    d('898800', 'C', 'Response', { onBehalfOf: 'First Solar, Inc.', why: '관련 일상 문서', securityLevel: 'Confidential' })];
+    d('898800', 'C', 'Response', { onBehalfOf: 'First Solar, Inc.', why: '관련 일상 문서', securityLevel: 'Confidential' }),
+    d('896718', 'B', 'Motion Response/Reply', { officialReceivedDate: '2026/10/05 16:35:00', firmOrganization: 'Covington & Burling LLP',
+      onBehalfOf: `${'JinkoSolar Holding Co., Ltd., Jinko Solar Co., Ltd., '.repeat(5)}Hanwha Solutions Corporation, Hanwha Q CELLS USA, Inc.`,
+      partyHits: ['Hanwha Solutions Corporation', 'Hanwha Q CELLS USA, Inc.'], companies: ['한화솔루션'] })];
   const ev = (x) => ({ id: `edis:${x.id}`, pageId: 'edis', country: '미국', tier: x.tier, label: `USITC ${x.investigationNumber} ${x.documentType}`,
     text: `${x.documentTitle} — 제출 ${x.firmOrganization} · ${x.why}`, companies: x.companies, url: x.url, detectedAt: recent });
   const doc = { schema: 'trade_remedy/v1', generatedAt: recent, status: 'partial', quotas: [], federalRegister: [], pages: [], rules: [],
@@ -1597,7 +1600,7 @@ test('trade_remedies edis: USITC EDIS docs with snippets by tier, C hidden unles
     events: [ev(docs[0]), ev(docs[1]), ev(docs[2])] };
   assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/trade-remedy', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
   const t = await call('trade_remedies', { section: 'edis' }, opts);
-  assert.match(t.text, /\[미국 ITC 문서\(EDIS\) · 확인 [^\]]*\] A·B 3건 · 일상 C 1건 숨김\(show_all=true\) · 지켜보는 337 조사 337-1494, 337-3900/);
+  assert.match(t.text, /\[미국 ITC 문서\(EDIS\) · 확인 [^\]]*\] A·B 4건 · 일상 C 1건 숨김\(show_all=true\) · 지켜보는 337 조사 337-1494, 337-3900/);
   assert.match(t.text, /⚠ EDIS 토큰 2026-11-14 만료 예정/);
   assert.ok(t.text.indexOf('337-3900 Complaint') < t.text.indexOf('337-1494 Notice'));  // A first
   assert.ok(t.text.indexOf('337-1494 Notice') < t.text.indexOf('337-1494 Petition'));  // then newest B
@@ -1606,10 +1609,11 @@ test('trade_remedies edis: USITC EDIS docs with snippets by tier, C hidden unles
   assert.match(t.text, /본문 미확인\(첨부 없음\)/);
   assert.match(t.text, /원문: https:\/\/edis\.usitc\.gov\/data\/document\/898408 \(EDIS 문서 번호 898408\)/);
   assert.doesNotMatch(t.text, /First Solar/);
+  assert.match(t.text, /제출 Covington & Burling LLP \(공동 당사자 \d+자 중 출입처: Hanwha Solutions Corporation; Hanwha Q CELLS USA, Inc\.\)/);
   const all = await call('trade_remedies', { section: 'edis', show_all: true }, opts);
   assert.match(all.text, /C \[신규\] · 접수 2026\/10\/21 16:30 · 337-1494 Response[\s\S]*비공개 문서 — 본문 없음/);
   const q = await call('trade_remedies', { section: 'edis', company: 'Hanwha' }, opts);
-  assert.match(q.text, /A·B 1건/);
+  assert.match(q.text, /A·B 2건/);
   const n = await call('trade_remedies', { section: 'notices' }, opts);
   assert.doesNotMatch(n.text, /USITC 337/);
   const r = await call('radar_today', { include_minor: true }, opts);
