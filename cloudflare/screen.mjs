@@ -146,6 +146,7 @@ export async function scoopScreen(ctx, args) {
       if (fl?.error) out.push(`   원문 요점: ${fl.error}`);
       else if (fl) {
         if ((fl.facts ?? []).length) out.push(`   원문 요점(${fl.type}): ${fl.facts.map(([k, v]) => `${k} ${v}`).join(' · ')}`);
+        if (fl.correctionLine) out.push(`   정정 내용(원문 정정 표): ${fl.correctionLine}`);
         if (fl.related) out.push(`   회사가 적은 관련공시: ${fl.related}`);
         for (const line of (fl.compare ?? []).slice(0, 3)) out.push(`   직전 비교: ${line}`);
         if (fl.routine) out.push(`   일상 공시로 보임: ${fl.routine} — 오늘의 레이더에서는 B`);

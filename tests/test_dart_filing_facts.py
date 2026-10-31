@@ -51,6 +51,15 @@ HMC_PLAN = (table([["정정일자", "2026-10-29"], ["2.주요내용 및 추진 �
             + table([["1. 장래계획 사항", "2026년 현대자동차 가이던스"], [("2. 주요내용 및 추진일정", 2), "목적", "2026년 경영계획 공개를 통한 투자자 이해 제고"],
                      ["세부내용", "◎ 판매, 수익성, 투자 등 2026년 주요 경영 계획 및 정책 방향성 ·2026년 판매목표 : 400만대"]]))
 
+# 효성중공업 20261027800518 ([기재정정]단일판매ㆍ공급계약체결, 2026-10-31 source_document로 읽은 구조): 정정 표 + 본문 표
+HYO_FIX = table([["정정일자", "2026-10-26"], ["1. 정정관련 공시서류", "[정정]단일판매ㆍ공급계약 체결"], ["2. 정정관련 공시서류제출일", "2026-02-10"],
+                 ["3. 정정사유", "계약 사양 일부 변경에 따른 계약금액 조정"], ["4. 정정사항", ""], ["정정항목", "정정전", "정정후"],
+                 ["2. 계약내역 - 계약금액(원)", "113,586,046,173", "113,044,698,813"], ["2. 계약내역 - 매출액대비(%)", "3.24", "3.22"],
+                 ["9. 기타 투자판단과 관련한 중요사항", "(...) NOK 973,149,813을 계약 체결일(2023-11-08) 매매기준율(1NOK = 116.72원)을 적용하여 환산한 금액임. (...)",
+                  "(...) NOK 968,511,813을 계약 체결일(2023-11-08) 매매기준율(1NOK = 116.72원)을 적용하여 환산한 금액임. (...)"]])
+HYO_BODY = table([["- 체결계약명", "420kV 변압기 등 공급계약"], [("2. 계약내역", 3), "계약금액(원)", "113,044,698,813"], ["최근매출액(원)", "3,510,143,917,637"],
+                  ["매출액대비(%)", "3.22"], ["3. 계약상대", "노르웨이 송전청(Statnett SF)"], ["4. 판매ㆍ공급지역", "노르웨이"], ["7. 계약(수주)일자", "2023-11-08"]])
+
 
 class R:
     def __init__(self, body, code=200):
@@ -105,6 +114,32 @@ class Facts(unittest.TestCase):
                  '<TR><TD>보고자 :</TD><TU AUNIT="Y">장세환</TU></TR></TBODY></TABLE><TEXT>본문</TEXT>')
         got = dict(f.facts("임원ㆍ주요주주특정증권등거래계획보고서", [cover])["facts"])
         self.assertEqual((got["보고자"], got["거래시작일(결제일)"]), ("장세환", "2026년 11월 27일"))
+
+    def test_correction_table_and_line(self):
+        x = f.facts("[기재정정]단일판매ㆍ공급계약체결", [HYO_FIX + HYO_BODY])
+        fix = x["correction"]
+        self.assertEqual(fix["reason"], "계약 사양 일부 변경에 따른 계약금액 조정")
+        self.assertEqual(fix["changes"][0], ["계약내역 - 계약금액(원)", "113,586,046,173", "113,044,698,813"])
+        line = f.correction_line(fix)
+        self.assertTrue(line.startswith("정정(계약 사양 일부 변경에 따른 계약금액 조정): 계약내역 - 계약금액(원) "
+                                        "113,586,046,173원(약 1,136억원) → 113,044,698,813원(약 1,130억원)(-0.5%)"))
+        self.assertIn("문구 변경", line)  # 긴 설명 칸은 바뀌었다는 것만
+        self.assertNotIn("correction", f.facts("단일판매ㆍ공급계약체결", [LSE]))  # 정정 공시가 아니면 없음
+        self.assertEqual(dict(x["facts"])["체결계약명"], "420kV 변압기 등 공급계약")  # 본문 표는 그대로
+
+    def test_same_counterparty_other_contract_is_not_a_change(self):
+        # 10-31 운영: 9-30 다른 Statnett 계약(3,833억)과 비교해 '-71%'로 보였다 — 계약일·계약명이 다르면 다른 계약
+        cur = f.facts("[기재정정]단일판매ㆍ공급계약체결", [HYO_FIX + HYO_BODY])["raw"]
+        other = f.facts("단일판매ㆍ공급계약체결", [table([["- 체결계약명", "400kV 변압기 공급계약"], [("2. 계약내역", 1), "계약금액(원)", "383,338,819,710"],
+                                                     ["3. 계약상대", "노르웨이 송전청(Statnett SF)"], ["7. 계약(수주)일자", "2025-06-01"]])])["raw"]
+        lines, _ = f.compare("공급계약", cur, [({"date": "20260930", "rcept_no": "20260930800924"}, other)], 40)
+        self.assertTrue(lines[0].startswith("같은 계약상대의 다른 계약 직전 공시 2026-09-30(접수 20260930800924, 계약일 2025-06-01 ↔ 이번 2023-11-08"))
+        self.assertNotIn("%)", lines[0])
+        same = f.facts("단일판매ㆍ공급계약체결", [table([["- 체결계약명", "420kV 변압기 등 공급계약"], [("2. 계약내역", 1), "계약금액(원)", "113,586,046,173"],
+                                                    ["3. 계약상대", "노르웨이 송전청(Statnett SF)"], ["7. 계약(수주)일자", "2023-11-08"]])])["raw"]
+        lines, _ = f.compare("공급계약", cur, [({"date": "20260210", "rcept_no": "20260210800001"}, same)], 40)
+        self.assertEqual(lines[0], "같은 계약(계약일·계약명 같음) 직전 공시 2026-02-10(접수 20260210800001): "
+                                   "113,586,046,173원(약 1,136억원) → 113,044,698,813원(약 1,130억원)(-0.5%)")
 
     def test_types(self):
         self.assertEqual(f.filing_type("[기재정정]타인에대한채무보증결정"), "채무보증")
@@ -186,6 +221,14 @@ class Enrich(unittest.TestCase):
         self.assertEqual(used, 1)
         self.assertEqual((cand["filing"]["type"], cand["filing"]["compare"], cand["filing"]["routine"]), ("공정공시", [], None))
         self.assertEqual(dict(cand["filing"]["facts"])["공시제목"], "2024년 ~ 2026년 자기주식 취득 및 소각 계획")
+
+    def test_correction_reaches_the_candidate(self):
+        cand = {"id": "clue:h", "kind": "단서", "company": "효성중공업", "title": "효성중공업 · [기재정정]단일판매ㆍ공급계약체결",
+                "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261027800518"}
+        f.enrich([cand], "k", {}, fetch_documents=lambda k, r: [HYO_FIX + HYO_BODY], get=lambda *a, **k: R({"status": "013"}))
+        self.assertEqual(cand["filing"]["correction"]["reason"], "계약 사양 일부 변경에 따른 계약금액 조정")
+        self.assertIn("(-0.5%)", cand["filing"]["correctionLine"])
+        self.assertEqual(cand["filing"]["correctionShort"], "정정: 계약금액 1,136억→1,130억(-0.5%) · 매출액대비 3.24→3.22 · 문구 1곳")
 
     def test_budget_marks_unread(self):
         cands = [{"id": f"clue:{i}", "kind": "단서", "company": "X", "title": "X · 타인에대한채무보증결정",

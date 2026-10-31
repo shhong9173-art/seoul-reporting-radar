@@ -121,6 +121,88 @@ def pairs(documents):
     return out, related
 
 
+def correction(documents):
+    """정정신고 표: 정정사유와 (항목, 정정전, 정정후). '정정항목 | 정정전 | 정정후' 머리 줄 다음의 3칸 줄만 읽는다
+    (2026-10-31 실제 공시로 형식 확인: 효성중공업 20261027800518 — 정정사유 '계약 사양 일부 변경에 따른 계약금액 조정',
+    계약금액(원) 113,586,046,173 → 113,044,698,813). 정정 공시가 아니면 None."""
+    reason, changes = None, []
+    for doc in documents:
+        if not isinstance(doc, str):
+            continue
+        p = CellTableParser()
+        try:
+            p.feed(CELL_XML.sub(lambda m: f"<{m.group(1)}td", doc))
+            p.close()
+        except (ValueError, TypeError):
+            continue
+        for table in p.tables:
+            in_changes = False
+            for row in table:
+                if any(c.get("nested") for c in row):
+                    continue
+                cells = [c["text"] for c in row]
+                keys = [norm(c) for c in cells]
+                if len(cells) == 2 and keys[0] == "정정사유" and plain(cells[1]) not in ("", "-"):
+                    reason = reason or plain(cells[1])[:160]
+                if keys[-3:] == ["정정항목", "정정전", "정정후"]:
+                    in_changes = True
+                    continue
+                if in_changes:
+                    if len(cells) != 3:
+                        in_changes = False
+                        continue
+                    item = re.sub(r"\s*-\s*", " - ", clean_label(cells[0])).strip()
+                    before, after = (plain(c) for c in cells[1:])
+                    if item and (before, after) != ("", ""):
+                        clip = lambda v: v if len(v) <= 120 else v[:117] + "…"  # noqa: E731
+                        changes.append([item[:60], clip(before), clip(after)])
+    if not reason and not changes:
+        return None
+    return {"reason": reason, "changes": changes[:8]}
+
+
+def correction_line(fix, kind=None):
+    """'정정(사유): 항목 전 → 후(±%)' 한 줄. 금액 칸은 억원과 증감률을 붙인다."""
+    if not fix:
+        return None
+    parts = []
+    for item, before, after in fix.get("changes") or []:
+        b, a = re.sub(r"[,\s]", "", before), re.sub(r"[,\s]", "", after)
+        if item.endswith("(원)") and re.fullmatch(r"\d+", b) and re.fullmatch(r"\d+", a) and int(b):
+            pct = (int(a) - int(b)) / int(b) * 100
+            parts.append(f"{item} {won(before)} → {won(after)}({pct:+.1f}%)")
+        elif len(before) <= 40 and len(after) <= 40:
+            parts.append(f"{item} {before or '-'} → {after or '-'}")
+        else:
+            parts.append(f"{item} 문구 변경")
+    head = f"정정({fix['reason']})" if fix.get("reason") else "정정"
+    return f"{head}: " + (" · ".join(parts[:4]) if parts else "바뀐 항목 표 없음")
+
+
+def correction_short(fix):
+    """오늘의 레이더 한 줄용: '정정: 계약금액 1,136억→1,130억(-0.5%) · 매출액대비 3.24→3.22 · 문구 1곳'."""
+    if not fix:
+        return None
+    parts, text_changes = [], 0
+    for item, before, after in fix.get("changes") or []:
+        name = item.split(" - ")[-1]
+        b, a = re.sub(r"[,\s]", "", before), re.sub(r"[,\s]", "", after)
+        if name.endswith("(원)") and re.fullmatch(r"\d+", b) and re.fullmatch(r"\d+", a) and int(b):
+            pct = (int(a) - int(b)) / int(b) * 100
+            parts.append(f"{name[:-3]} {eok(int(b))}→{eok(int(a))}({pct:+.1f}%)")
+        elif len(before) <= 20 and len(after) <= 20:
+            parts.append(f"{re.sub(r'[(].*?[)]$', '', name)} {before or '-'}→{after or '-'}")
+        else:
+            text_changes += 1
+    if text_changes:
+        parts.append(f"문구 {text_changes}곳")
+    return "정정: " + (" · ".join(parts[:3]) if parts else (fix.get("reason") or "바뀐 항목 표 없음")[:40])
+
+
+def eok(n):
+    return f"{n / 10 ** 12:,.2f}조" if n >= 10 ** 12 else f"{n / 10 ** 8:,.0f}억" if n >= 10 ** 8 else f"{n:,}원"
+
+
 def won(value):
     """'53,417,160,000' → '53,417,160,000원(약 534억원)'. The exact figure always stays first."""
     digits = re.sub(r"[,\s]", "", str(value))
@@ -151,7 +233,11 @@ def facts(report_name, documents):
             v = table[f]
             v = won(v) if f.endswith("(원)") else (v if len(v) <= 160 else v[:157] + "…")
             shown.append([f, v])
-    return {"type": kind, "facts": shown, "related": related, "raw": table}
+    out = {"type": kind, "facts": shown, "related": related, "raw": table}
+    fix = correction(documents)
+    if fix:
+        out["correction"] = fix
+    return out
 
 
 def amount(table, kind):
@@ -199,6 +285,20 @@ def previous_filings(api_key, corp_code, kind, before_day, rcept_no, *, get):
     return sorted(rows, key=lambda x: x["rcept_no"], reverse=True)
 
 
+def other_contract(cur, prev):
+    """같은 계약상대의 두 공급계약이 다른 계약인지: 계약(수주)일자나 체결계약명이 다르면 그 차이 문구, 같으면 '', 모르면 None."""
+    diffs, known = [], False
+    for key, label in (("계약(수주)일자", "계약일"), ("체결계약명", "계약명")):
+        a, b = (cur or {}).get(key), (prev or {}).get(key)
+        if a and b:
+            known = True
+            if re.sub(r"\s+", "", a) != re.sub(r"\s+", "", b):
+                diffs.append(f"{label} {b[:30]} ↔ 이번 {a[:30]}")
+    if diffs:
+        return " · ".join(diffs)
+    return "" if known else None
+
+
 def day_of(d):
     return f"{d[:4]}-{d[4:6]}-{d[6:8]}" if d and len(d) == 8 else d
 
@@ -220,11 +320,19 @@ def compare(kind, cur, prev_docs, n_listed):
     if same:
         m, t = same
         a_prev = amount(t, kind)
-        change = ""
-        if a_now and a_prev:
-            pct = (a_now - a_prev) / a_prev * 100
-            change = ": " + won(f"{a_prev:,}") + " → " + won(f"{a_now:,}") + f"({pct:+.0f}%)"
-        lines.append(f"{SAME_LABEL.get(kind, '같은 상대')} 직전 공시 {day_of(m['date'])}(접수 {m['rcept_no']}){change}")
+        other = other_contract(cur, t) if kind == "공급계약" else None
+        if other:
+            # 같은 상대와 맺은 다른 계약 — 금액을 나란히 놓으면 계약이 줄거나 는 것처럼 읽힌다(10-31 효성중공업 Statnett 정정:
+            # 9-30 다른 Statnett 계약 3,833억과 비교해 '-71%'로 보였다. 실제 정정은 1,135.9억 → 1,130.4억)
+            money = " · 금액 " + won(f"{a_prev:,}") if a_prev else ""
+            lines.append(f"같은 계약상대의 다른 계약 직전 공시 {day_of(m['date'])}(접수 {m['rcept_no']}, {other}){money}")
+        else:
+            change = ""
+            if a_now and a_prev:
+                pct = (a_now - a_prev) / a_prev * 100
+                change = ": " + won(f"{a_prev:,}") + " → " + won(f"{a_now:,}") + (f"({pct:+.1f}%)" if abs(pct) < 1 else f"({pct:+.0f}%)")
+            label = "같은 계약(계약일·계약명 같음)" if kind == "공급계약" and other is not None else SAME_LABEL.get(kind, '같은 상대')
+            lines.append(f"{label} 직전 공시 {day_of(m['date'])}(접수 {m['rcept_no']}){change}")
     elif me and prev_docs:
         lines.append(f"최근 {YEARS_BACK}년 같은 종류 공시 {n_listed}건(정정 포함, 목록 기준) 중 원문 {len(prev_docs)}건 확인 — {SAME_LABEL.get(kind, '같은 상대')} 없음(확인한 범위 안)")
     counted = bool(me and prev_docs and not same)
@@ -276,6 +384,10 @@ def enrich(cands, api_key, corp_codes, *, fetch_documents, get, budget=40):
             c["filing"] = {**info, "error": f"원문 조회 실패({type(e).__name__}) — 미확인"}
             continue
         info.update(facts=f["facts"], related=f["related"])
+        if f.get("correction"):
+            info["correction"] = f["correction"]
+            info["correctionLine"] = correction_line(f["correction"], kind)
+            info["correctionShort"] = correction_short(f["correction"])
         cur = f.get("raw") or {}
         corp = corp_code_of(c.get("company"), corp_codes)
         prev_docs, listed, err = [], 0, None

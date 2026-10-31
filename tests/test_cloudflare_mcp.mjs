@@ -857,6 +857,27 @@ test('radar_today: scoop candidates count as new only when first screened inside
   assert.match(s.text, /상변태 기반 판재 냉각/);  // 후보 목록에는 남는다
 });
 
+test('scoop candidates: a correction filing shows what changed before the same-counterparty comparison', async () => {
+  const env = PRIVATE().env;
+  const now = Date.now();
+  const iso = (h) => new Date(now - h * 3600000).toISOString();
+  // 10-31 운영: 효성중공업 Statnett 정정 — 실제 정정은 계약금액 -0.5%, 같은 상대의 다른 계약 비교가 '-71%'로 보였다
+  const line = '정정(계약 사양 일부 변경에 따른 계약금액 조정): 계약내역 - 계약금액(원) 113,586,046,173원(약 1,136억원) → 113,044,698,813원(약 1,130억원)(-0.5%)';
+  const doc = { schema: 'scoop_screen/v1', generatedAt: iso(1), counts: {}, candidates: [
+    { id: 'clue:hy', kind: '단서', company: '효성중공업', title: '효성중공업 · [기재정정]단일판매ㆍ공급계약체결', verdict: '미보도 후보', published: '2026-10-27',
+      firstSeen: iso(2), url: 'https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261027800518',
+      filing: { type: '공급계약', facts: [['체결계약명', '420kV 변압기 등 공급계약']], correctionLine: line,
+        correctionShort: '정정: 계약금액 1,136억→1,130억(-0.5%) · 매출액대비 3.24→3.22 · 문구 1곳',
+        compare: ['같은 계약상대의 다른 계약 직전 공시 2026-09-30(접수 20260930800924, 계약일 2025-06-01 ↔ 이번 2023-11-08) · 금액 383,338,819,710원(약 3,833억원)'] } }] };
+  await worker.fetch(new Request(ORIGIN + '/ingest/scoop-screen', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {});
+  const s = await call('scoop_screen', {}, { path: `/mcp/${TOKEN}`, env });
+  assert.match(s.text, /정정 내용\(원문 정정 표\): 정정\(계약 사양 일부 변경에 따른 계약금액 조정\): 계약내역 - 계약금액\(원\) 113,586,046,173원/);
+  assert.ok(s.text.indexOf('정정 내용') < s.text.indexOf('직전 비교'));
+  const r = await call('radar_today', {}, { path: `/mcp/${TOKEN}`, env });
+  assert.match(r.text, /효성중공업 · \[기재정정\]단일판매ㆍ공급계약체결 \(단서\) — 보도 대조 '미보도 후보' · 체결계약명 420kV 변압기 등 공급계약 · 정정: 계약금액 1,136억→1,130억\(-0\.5%\) · 매출액대비 3\.24→3\.22 · 문구 1곳/);
+  assert.match(r.text, /· 같은 계약상대의 다른 계약 직전 공시 2026-09-30/);
+});
+
 test('converging signals: same beat company and same city from two or more watches, place from the text, C and other tools ignored', () => {
   const t = (h) => new Date(Date.parse('2026-10-30T03:00:00Z') - h * 3600000).toISOString();
   const items = [
