@@ -46,6 +46,7 @@
    - `DART_API_KEY`: GitHub Secrets에 쓰는 것과 같은 OpenDART 키.
    - `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET`: 네이버 뉴스 검색. 새로 받는 키는 네이버 클라우드 플랫폼 NAVER API HUB(Application 등록에서 '뉴스' 선택 → [인증 정보])에서 발급한다. 개발자센터 신규 신청은 막혔다. 서버는 HUB 방식으로 먼저 호출하고, 거부(401·403)될 때만 예전 개발자센터 방식으로 다시 호출한다.
    - `G2B_API_KEY`(또는 `DATA_GO_KR_KEY`): 공공데이터포털 일반 인증키.
+   - `SEC_USER_AGENT`: SEC EDGAR 원문(`source_document`의 sec.gov 주소)을 열 때 보내는 접속 표시. SEC 공개 접속 규칙대로 '회사·이름 연락이메일' 한 줄(예: `회사명 이름 이메일주소`). GitHub Secrets의 같은 이름 값(해외 파트너 공시 감시가 씀)과 같게 둔다. sec.gov에만 보내고 다른 곳에는 보내지 않는다. 없으면 SEC가 HTTP 403을 줄 수 있고, 도구가 '비밀값에 없음'이라고 알려 준다(10-31 운영: 퍼스트솔라 10-Q 403).
 3. Claude 설정의 커넥터에서 사용자 지정 커넥터를 추가하고 기자 전용 주소를 넣는다.
 
 키 값은 응답·로그·저장소 어디에도 출력하지 않는다.
