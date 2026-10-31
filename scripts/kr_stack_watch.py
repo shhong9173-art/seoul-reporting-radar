@@ -4,7 +4,9 @@
   쌓는다. API는 지금 값만 주므로 이력은 이 감시가 쌓은 것이다.
 - 배출구 멈춤 신호: 평소 값(직전 관측 중앙값)이 1 이상이던 배출구가 연달아 STOP_RUNS번 평소의 10% 아래(또는 0.3 아래)로 떨어지면
   '멈춤'. 사업장에서 평소 움직이던 배출구 절반 이상(2개 이상)이 멈추면 A(사업장 가동 중단 신호), 두 곳 이상이거나 큰 배출구면 B.
-- 새 배출구 번호·새 사업장(첫 실행 뒤) A — 새 설비 가동 가능성. 목록에서 빠진 배출구(두 번 연속) B. 멈췄던 사업장이 다시 움직이면 B.
+- 새 배출구 번호·새 사업장: 실시간 값만 오는 자료라 쉬던 설비가 다시 측정되기 시작해도 '새 번호'로 보인다. 그 사업장을 14일 넘게
+  지켜본 뒤 처음 보인 번호만 A(새 설비 또는 오래 쉬던 설비 재가동), 7~14일 B, 그 전은 C(간헐 가동·자료 지연일 수 있음).
+  (10-31 운영: 영풍 석포 5·6번이 감시 하루 만에 A로 떴다.) 목록에서 빠진 배출구(두 번 연속) B. 멈췄던 사업장이 다시 움직이면 B.
 - 측정값 0 근처는 설비 정지·정비·측정기 점검·연료 전환일 수 있다. 어느 설비인지(배출구 이름)는 자료에 없다 — 회사 확인.
 - 키는 공공데이터 공유 키(DATA_GO_KR_KEY). 키 값은 출력하지 않는다. 조회 실패는 0이 아니라 미확인.
 """
@@ -31,6 +33,8 @@ POLLUTANTS = ("tsp", "sox", "nox", "hcl", "hf", "nh3", "co")
 OBS_KEEP = 24          # 3시간 간격이면 3일치
 MIN_OBS = 6            # 평소 값을 정할 최소 관측 수(첫 실행 뒤 하루쯤)
 MATURE_RUNS = 6        # 새 배출구·새 사업장을 '새것'으로 볼 만큼 그 사업장(감시)을 지켜본 실행 수
+NEW_A_DAYS = 14        # 새 배출구·새 사업장 A: 그 사업장(새 사업장은 감시)을 이만큼 지켜본 뒤 처음 보인 것
+NEW_B_DAYS = 7         # 이만큼~NEW_A_DAYS면 B, 그 전은 C
 BURST = 3              # 한 실행에 이만큼 이상 새로 보이면 새 설비가 아니라 목록 보강으로 본다(10-30 고려아연 온산 24개)
 STOP_RUNS = 3          # 연달아 이만큼 낮으면 멈춤(3시간 간격이면 9시간)
 MEANINGFUL = 1.0       # 평소 값이 이보다 작으면 멈춤 판단을 하지 않는다(원래 거의 0인 배출구)
@@ -45,6 +49,38 @@ TRANSIENT_GATEWAY = {"04", "05"}
 
 class ApiError(RuntimeError):
     pass
+
+
+def age_days(since, now):
+    try:
+        return (now - dt.datetime.fromisoformat(str(since))).total_seconds() / 86400
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def new_tier(days):
+    return "A" if days >= NEW_A_DAYS else "B" if days >= NEW_B_DAYS else "C"
+
+
+def retier_new(events, sites, baseline_since):
+    """저장된 '새 배출구'·'새 사업장' 이벤트를 지켜본 기간 규칙으로 다시 매긴다(예전 규칙으로 하루 만에 A가 된 것 바로잡기)."""
+    for e in events:
+        kind, at = e.get("kind"), e.get("detectedAt")
+        if kind == "새 배출구":
+            sid = ":".join(str(e.get("id", "")).split(":")[2:-1])
+            since = (sites.get(sid) or {}).get("firstSeen") or baseline_since
+        elif kind == "새 사업장(굴뚝 측정)":
+            since = baseline_since
+        else:
+            continue
+        try:
+            days = age_days(since, dt.datetime.fromisoformat(str(at)))
+        except (TypeError, ValueError):
+            continue
+        tier = new_tier(days)
+        if tier != e.get("tier") and {"A": 0, "B": 1, "C": 2}.get(tier, 2) > {"A": 0, "B": 1, "C": 2}.get(e.get("tier"), 2):
+            e["tier"] = tier
+            e["text"] = (e.get("text") or "") + f" — 이 사업장을 {days:.1f}일만 지켜본 때라 간헐 가동·측정 자료 지연일 수 있어 {tier}로 바로잡음"
 
 
 def fetch(term, key, *, get=None, sleep=time.sleep):
@@ -184,6 +220,7 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep):
     sites = {s["id"]: s for s in prev.get("sites") or [] if isinstance(s, dict) and s.get("id")}
     keep_from = (now - dt.timedelta(days=KEEP_EVENTS_DAYS)).isoformat()
     events = collapse_bursts([e for e in prev.get("events") or [] if isinstance(e, dict) and e.get("detectedAt", "") >= keep_from])
+    retier_new(events, sites, prev.get("baselineSince"))
     known = {e["id"] for e in events}
     fresh, errors, ok_terms, seen_sites = [], [], 0, set()
     day = now.date().isoformat()
@@ -225,11 +262,13 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep):
             if s is None:
                 s = {"id": sid, "company": comp["company"], "name": name, "area": xs[0].get("area_nm"), "firstSeen": stamp, "stacks": {}}
                 sites[sid] = s
-                watched = (now - dt.datetime.fromisoformat(prev["baselineSince"])).total_seconds() / 3600 if prev.get("baselineSince") else 0
+                watched = age_days(prev.get("baselineSince"), now) if prev.get("baselineSince") else 0.0
                 if not first:
-                    # 감시를 하루 넘게 돌린 뒤에 처음 나타난 사업장만 A(초기에는 검색 결과가 덜 찬 것일 수 있어 C)
-                    emit(f"stk:newsite:{sid}", "새 사업장(굴뚝 측정)", "A" if watched >= 24 else "C", comp["company"], name,
-                         f"{name}({xs[0].get('area_nm') or '지역 미상'}) 굴뚝 자동측정 목록에 새로 나타남 — 배출구 {len(xs)}개. 새 공장·설비 가동 또는 이름 변경일 수 있음(회사 확인)")
+                    # 감시를 14일 넘게 돌린 뒤 처음 나타난 사업장만 A(초기에는 검색 결과가 덜 차거나 쉬던 사업장일 수 있다)
+                    tier = new_tier(watched)
+                    emit(f"stk:newsite:{sid}", "새 사업장(굴뚝 측정)", tier, comp["company"], name,
+                         f"{name}({xs[0].get('area_nm') or '지역 미상'}) 굴뚝 자동측정 목록에 새로 나타남 — 배출구 {len(xs)}개. 새 공장·설비 가동 또는 이름 변경일 수 있음(회사 확인)"
+                         + ("" if tier == "A" else f" · 감시 {watched:.1f}일째라 쉬던 사업장이 다시 측정된 것일 수 있음"))
             s.update(name=name, area=xs[0].get("area_nm") or s.get("area"), lastSeen=stamp)
             stacks = s.setdefault("stacks", {})
             # 이 사업장을 본 실행 수(예전 저장본에는 없으니 배출구 관측 수 가운데 가장 큰 값으로 시작)
@@ -277,16 +316,21 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep):
                         emit(f"stk:exceed2:{sid}:{code}:{p}:{ep['start']}", "배출허용기준 초과 지속", "A", comp["company"], name,
                              f"{what} — {ep['start']} 측정부터 이 감시의 실행 2번 연속 초과(처음 {ep['first'][0]:g})" + tail)
             if new_codes:
-                if s["runs"] > MATURE_RUNS and len(new_codes) < BURST:
+                days = age_days(s.get("firstSeen"), now)
+                tier = new_tier(days)
+                if s["runs"] > MATURE_RUNS and len(new_codes) < BURST and tier != "C":
                     for code, x in new_codes:
-                        emit(f"stk:newstack:{sid}:{code}", "새 배출구", "A", comp["company"], name,
-                             f"{name} 굴뚝 자동측정에 새 배출구 {code}번이 생김(측정 {x.get('mesure_dt')}, 가장 큰 측정값 {peak(x)}, 이 사업장 {s['runs'] - 1}번 실행 동안 없던 번호) — 새 설비 가동 가능성, 어떤 설비인지는 회사 확인")
+                        emit(f"stk:newstack:{sid}:{code}", "새 배출구", tier, comp["company"], name,
+                             f"{name} 굴뚝 자동측정에 새 배출구 {code}번이 생김(측정 {x.get('mesure_dt')}, 가장 큰 측정값 {peak(x)}, "
+                             f"이 사업장을 {days:.0f}일·{s['runs'] - 1}번 지켜보는 동안 없던 번호) — "
+                             + ("새 설비 가동 또는 오래 쉬던 설비 재가동 가능성" if tier == "A" else "간헐 가동 설비가 다시 측정된 것일 수 있음(새 설비 여부 미확인)")
+                             + ", 어떤 설비인지는 회사 확인")
                 else:
                     codes = [c for c, _ in new_codes]
                     emit(f"stk:burst:{comp['company']}:{name}:{stamp}", "배출구 목록 보강", "C", comp["company"], name,
                          f"{name} 굴뚝 자동측정 목록에 배출구 {len(codes)}개가 새로 보임({', '.join(codes[:12])}{' 외' if len(codes) > 12 else ''}) — "
-                         + ("한꺼번에 여러 개라 " if len(codes) >= BURST else f"이 사업장을 {s['runs'] - 1}번만 봐서 ")
-                         + "측정 자료가 늦게 들어온 것일 수 있어 새 설비로 보지 않음")
+                         + ("한꺼번에 여러 개라 " if len(codes) >= BURST else f"이 사업장을 {days:.1f}일·{s['runs'] - 1}번만 봐서 ")
+                         + "간헐 가동·측정 자료 지연일 수 있어 새 설비로 보지 않음")
             for code, st in stacks.items():
                 if code not in present:
                     st["missing"] = st.get("missing", 0) + 1
@@ -347,6 +391,7 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep):
             "rules": ["굴뚝 자동측정(TMS) 실시간 값을 이 감시가 3시간마다 쌓은 이력이다. 배출구 이름·설비 종류는 자료에 없다(번호만).",
                       "측정값이 평소의 10% 아래로 떨어진 것은 설비 정지·정비·측정기 점검·연료 전환일 수 있다. 가동 중단은 회사 확인 전 미확인.",
                       "평소 값이 1 미만인 배출구(원래 거의 0)는 멈춤 판단을 하지 않는다. 관측이 6번 모이기 전에는 판단하지 않는다.",
+                      f"새 배출구 번호·새 사업장은 쉬던 설비가 다시 측정돼도 생긴다. 그 사업장을 {NEW_A_DAYS}일 넘게 지켜본 뒤 처음 보인 것만 A, {NEW_B_DAYS}~{NEW_A_DAYS}일 B, 그 전은 C.",
                       "배출허용기준 초과는 같은 줄에 실린 그 배출구의 물질별 기준과 실시간 측정값을 비교한 것이다. 처음 넘으면 B, 다음 실행에도 넘으면 A. 측정기 점검·교정 값일 수 있고 초과 판정·처분은 환경공단·지자체 확인.",
                       "조회 실패는 0이 아니라 미확인."],
             "confirmedScoops": 0}
