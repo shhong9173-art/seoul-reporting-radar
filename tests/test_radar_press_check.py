@@ -236,7 +236,7 @@ class HeadlineRule(unittest.TestCase):
         self.assertEqual(rpc.candidates([item], now=NOW)[0]["names"], ["산업기술보호법", formal])
         r = self.one(item, [art("기술유출 처벌 강화…백혜련, 산업기술보호법 개정안 대표발의", "2026-10-28")])
         self.assertEqual(r["verdict"], "관련 보도 있음")
-        self.assertIn("산업기술보호법 개정안 백혜련", r["queries"])
+        self.assertEqual(r["queries"], ["산업기술보호법 개정안", f"{formal} 개정안", "산업기술보호법 개정안 백혜련"])
         # 다른 법 기사(이름이 없음)는 근거가 아니다
         r = self.one(item, [art("백혜련, 국가첨단전략산업법 개정안 대표발의", "2026-10-28")])
         self.assertEqual(r["verdict"], "미보도 후보")
