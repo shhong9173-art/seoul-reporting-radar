@@ -1,22 +1,26 @@
-"""Probe 15: 한국천문연구원 특일 정보(공휴일) API가 공유 키(DATA_GO_KR_KEY)로 되는지 — 키 값은 출력하지 않는다."""
-import os
+"""Probe 16: 해외 공식 페이지 감시 대상이 다른 주소로 넘어가는지(리디렉트) — 최종 주소·제목. 공개 자료, 저장하지 않음."""
+import json
+import re
+import sys
 import time
+from pathlib import Path
 import requests
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import page_watch as pw  # noqa: E402
+
+cfg = json.loads(Path("data/official_page_watch.json").read_text(encoding="utf-8"))
 out = []
-key = (os.environ.get("DATA_GO_KR_KEY") or os.environ.get("KR_FUEL_API_KEY") or "").strip()
-out.append(f"key set: {bool(key)}")
-for base in ["https://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService/getRestDeInfo",
-             "http://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService/getRestDeInfo"]:
-    for ym in [("2026", "12"), ("2027", "02")]:
-        try:
-            r = requests.get(base, params={"serviceKey": key, "solYear": ym[0], "solMonth": ym[1], "_type": "json", "numOfRows": 50}, timeout=30)
-            body = r.text.replace(key, "***") if key else r.text
-            out.append(f"{base[:5]} {ym} HTTP {r.status_code} type {r.headers.get('content-type')} :: {body[:600]}")
-        except Exception as e:  # noqa: BLE001
-            out.append(f"{base[:5]} {ym} {type(e).__name__} {str(e)[:120]}")
-        time.sleep(1)
-    if any("HTTP 200" in x and "locdate" in x for x in out):
-        break
+for p in cfg.get("pages") or cfg.get("targets") or []:
+    url = p["url"]
+    try:
+        r = requests.get(url, headers=pw.HEADERS, timeout=30, allow_redirects=True)
+        title = re.sub(r"\s+", " ", (re.search(r"<title[^>]*>(.*?)</title>", r.text, re.S | re.I) or [None, ""])[1]).strip()[:90]
+        canon = (re.search(r'<link[^>]+rel=["\']canonical["\'][^>]+href=["\']([^"\']+)', r.text, re.I) or [None, ""])[1]
+        hist = " > ".join(f"{h.status_code}:{h.headers.get('location', '')[:80]}" for h in r.history)
+        out.append(f"{p['id']} | {r.status_code} | final {r.url} | hist {hist or '-'} | canonical {canon[:90]} | title {title}")
+    except Exception as e:  # noqa: BLE001
+        out.append(f"{p['id']} | {type(e).__name__}")
+    time.sleep(1.5)
 open("/tmp/probe_out.txt", "w").write("\n".join(out))
-print("\n".join(out)[:300].replace(key, "***") if key else "\n".join(out)[:300])
+print("\n".join(out)[:300])
