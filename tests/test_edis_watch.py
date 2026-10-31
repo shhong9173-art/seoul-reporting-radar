@@ -144,7 +144,7 @@ class Classify(unittest.TestCase):
         self.assertEqual((t, who), ("B", ["한화솔루션"]))
 
     def test_commission_notice_in_watched_case_is_b(self):
-        t, why, _ = self.c(doc(899140, "Notice", "2026/10/29 09:00:00", firm="USITC", title="Notice extending the date"))
+        t, why, _ = self.c(doc(899140, "Notice", "2026/10/29 09:00:00", firm="USITC", title="Commission Determination to Extend the Due Date for Determining Whether to Review an Initial Determination"))
         self.assertEqual(t, "B")
 
     def test_routine_and_other_side_are_c(self):
@@ -161,6 +161,18 @@ class Classify(unittest.TestCase):
         self.assertEqual(self.c(doc(22, "Order, Commission", "2026/10/30 10:00:00", firm="USITC", title="Commission Order"))[0], "B")
         self.assertEqual(self.c(doc(23, "ID/RD - Other Than Final on Violation", "2026/10/30 10:00:00", firm="USITC"))[0], "B")
 
+    def test_procedural_notice_and_staff_filings_are_c(self):
+        # 운영 10-31 첫 실행: 판사 '대리 자문관 교체 안내'·OUII 'Notice of Prior Art'가 B였다
+        self.assertEqual(self.c(doc(24, "Notice", "2026/09/11 08:59:00", firm="USITC", title="Notice to the Parties regarding Substitute Attorney Advisor"))[0], "C")
+        self.assertEqual(self.c(doc(25, "Notice of Prior Art", "2026/08/07 13:27:00", firm="USITC", title="Commission Investigative Staff's Notice of Prior Art"))[0], "C")
+        self.assertEqual(self.c(doc(26, "Notice", "2026/10/29 16:14:00", firm="USITC",
+                                    title="Commission Determination to Extend the Due Date for Determining Whether to Review an Initial Determination"))[0], "B")
+
+    def test_party_hits_name_the_beat_entities_in_a_long_joint_list(self):
+        ob = ("Canadian Solar Inc., Canadian Solar (USA) Inc., JinkoSolar Holding Co., Ltd., Hanwha Solutions Corporation, "
+              "Hanwha Q CELLS USA, Inc., Trina Solar Co., Ltd.")
+        self.assertEqual(w.party_hits(ob), ["Hanwha Solutions Corporation", "Hanwha Q CELLS USA, Inc."])
+
     def test_korea_title_vii_schedule_notice_is_c_but_views_b(self):
         base = dict(inv="731-TA-1800", itype="Import Injury", ititle="Certain Cold-Rolled Steel Flat Products from Korea", firm="USITC")
         self.assertEqual(self.c(doc(6, "Notice", "2026/10/30 10:00:00", **base))[0], "C")
@@ -175,6 +187,11 @@ class Classify(unittest.TestCase):
 
 
 class Snippets(unittest.TestCase):
+    def test_all_caps_caption_is_skipped(self):
+        text = ("In the Matter of CERTAIN TOPCON SOLAR CELLS, MODULES, PANELS INVESTIGATION NO. 337-TA-1494 RESPONDENTS PETITION TO TERMINATE THE "
+                "INVESTIGATION PUBLIC VERSION. Respondents seek review of Order No. 47, which rejected the request to terminate with prejudice.")
+        self.assertEqual(w.snippets(text, []), ["Respondents seek review of Order No. 47, which rejected the request to terminate with prejudice."])
+
     def test_request_sentences_first_and_toc_skipped(self):
         text = ("TABLE OF CONTENTS ........................ 1. Respondents Hanwha Solutions Corporation join this petition in full. "
                 "Respondents respectfully request that the Commission review the ID. The ALJ erred in law here and there. "
@@ -189,7 +206,7 @@ def first_run(**k):
     pages = [[doc(898800, "Response", "2026/10/31 06:00:00", firm="Alston & Bird", by="First Solar, Inc."),
               doc(10, "PO Subscription", "2026/10/30 12:00:00", inv="337-1500", firm="X LLP")],
              [doc(11, "Notice", "2026/10/29 09:00:00", inv="701-TA-700", itype="Import Injury", firm="USITC", ititle="Steel Nails from Vietnam")]]
-    by_inv = {"337-1494": [doc(899140, "Notice", "2026/10/29 09:00:00", firm="USITC", title="Notice extending the date"),
+    by_inv = {"337-1494": [doc(899140, "Notice", "2026/10/29 09:00:00", firm="USITC", title="Commission Determination to Extend the Due Date for Determining Whether to Review an Initial Determination"),
                            doc(898408, "Petition", "2026/10/21 16:30:00", title="Respondents' Petition for Review", by=HANWHA),
                            doc(898800, "Response", "2026/10/31 06:00:00", firm="Alston & Bird", by="First Solar, Inc.")]}
     calls = []
@@ -221,7 +238,7 @@ class Collect(unittest.TestCase):
         pages = [[doc(900100, "Brief on Review/Remedy", "2026/11/02 15:00:00", title="Respondents' brief", by=HANWHA),
                   doc(900101, "Complaint", "2026/11/02 14:00:00", inv="337-3900", status="Preinstitution", title="Complaint", by="Acme Corp."),
                   doc(900102, "Complaint", "2026/11/02 13:00:00", inv="337-3901", status="Preinstitution", title="Complaint", by="Other Inc."),
-                  doc(899140, "Notice", "2026/10/29 09:00:00", firm="USITC", title="Notice extending the date"),
+                  doc(899140, "Notice", "2026/10/29 09:00:00", firm="USITC", title="Commission Determination to Extend the Due Date for Determining Whether to Review an Initial Determination"),
                   doc(898800, "Response", "2026/10/31 06:00:00", firm="Alston & Bird", by="First Solar, Inc.")]]
         get = fake(pages, attach={"900100": att(900100), "900101": att(900101), "900102": att(900102)},
                    files={dl(900100): (200, PETITION_PDF), dl(900101): (200, COMPLAINT_PDF),
@@ -273,6 +290,20 @@ class Collect(unittest.TestCase):
         self.assertEqual(check["status"], "ok")
         self.assertIn("만료 예정", ed["tokenNote"])
         self.assertTrue(any("/download/" in u for u, _, _ in calls))
+
+    def test_stored_procedural_b_docs_are_retiered_c_and_get_party_hits(self):
+        (ed, _, _), _ = first_run()
+        stored = dict(next(x for x in ed["docs"] if x["id"] == "899140"), id="894502", tier="B",
+                      documentTitle="Notice to the Parties regarding Substitute Attorney Advisor")
+        stored.pop("partyHits", None)
+        ed["docs"].append(stored)
+        pages = [[doc(898800, "Response", "2026/10/31 06:00:00", firm="Alston & Bird", by="First Solar, Inc.")]]
+        ed2, events, _ = w.collect(ed, NOW + dt.timedelta(days=1), get=fake(pages), token="", sleep=NOSLEEP)
+        x = next(x for x in ed2["docs"] if x["id"] == "894502")
+        self.assertEqual((x["tier"], x["retiered"], x["partyHits"]), ("C", "B", []))
+        self.assertEqual(next(x for x in ed2["docs"] if x["id"] == "899140")["tier"], "B")
+        self.assertEqual(next(x for x in ed2["docs"] if x["id"] == "898408")["partyHits"], ["Hanwha Solutions Corporation", "Hanwha Q CELLS USA, Inc.",
+                                                                                           "Hanwha Q CELLS America Inc."])
 
     def test_list_failure_is_unconfirmed_and_run_keeps_previous_state(self):
         (ed, _, _), _ = first_run()

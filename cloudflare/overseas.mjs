@@ -276,7 +276,10 @@ export function edisSection(ed, q = '', limit = 15, showAll = false, fromIso = '
     + `A·B ${all.filter((x) => x.tier !== 'C').length}건${showAll ? '' : ` · 일상 C ${all.length - shown.length}건 숨김(show_all=true)`} · 지켜보는 337 조사 ${watched.join(', ') || '없음'}`];
   if (ed.tokenNote) out.push(`⚠ ${ed.tokenNote}`);
   for (const x of sorted.slice(0, limit)) {
-    const party = x.onBehalfOf && String(x.firmOrganization).toUpperCase() !== 'USITC' ? ` (당사자 ${String(x.onBehalfOf).slice(0, 240)})` : '';
+    // 공동 피제소인 20여 곳을 한 줄에 적은 서면은 출입처가 뒤에서 잘린다(운영 10-31) — 출입처로 잡힌 법인 이름을 따로
+    const long = String(x.onBehalfOf ?? '').length > 200;
+    const party = !x.onBehalfOf || String(x.firmOrganization).toUpperCase() === 'USITC' ? ''
+      : (x.partyHits ?? []).length && long ? ` (공동 당사자 ${String(x.onBehalfOf).length}자 중 출입처: ${x.partyHits.join('; ')})` : ` (당사자 ${String(x.onBehalfOf).slice(0, 240)})`;
     out.push(`- ${x.tier}${x.isNew ? ' [신규]' : ''} · 접수 ${String(x.officialReceivedDate).slice(0, 16)} · ${x.investigationNumber} ${x.documentType} · ${x.documentTitle}`);
     out.push(`   제출 ${x.firmOrganization || x.filedBy}${party} · ${x.why}${(x.companies ?? []).length ? ` · 출입처 ${x.companies.join('·')}` : ''}`);
     out.push(`   사건: ${x.investigationTitle} (${x.investigationPhase}·${x.investigationStatus})`);
