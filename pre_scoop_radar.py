@@ -978,6 +978,18 @@ def court_article(page_text):
 COURT_BODY = "article"  # 저장 항목 표시: 본문만으로 고른 것(이 표시 없는 옛 저장분은 본문을 다시 읽는다)
 
 
+def dedup_items(items):
+    """Same group + title once. A later item (the earlier run's carry-over) replaces an earlier one, except that a
+    title-only court release never replaces one whose body was read in this run."""
+    dedup = {}
+    for x in items:
+        key = (x["sourceGroup"], re.sub(r"[^가-힣A-Za-z0-9]", "", x["title"]).lower())
+        if dedup.get(key, {}).get("bodyFrom") == COURT_BODY and x.get("bodyFrom") != COURT_BODY:
+            continue
+        dedup[key] = x
+    return sorted(dedup.values(), key=lambda x: x["published"], reverse=True)[:80]
+
+
 def keep_prior(item, now):
     """Rolling carry-over of an earlier run's item. Items made by a parser version since fixed are dropped
     (they come back only when the source is read again with the current parser)."""
@@ -992,7 +1004,7 @@ def keep_prior(item, now):
         return False
     # 메뉴까지 낱말 대조에 쓴 옛 대법원 보도자료(10-31 운영 6건 — '파키스탄 대법원장 방문' 등)는 이어 싣지 않는다.
     # 목록이 열리면 본문만으로 다시 고른다. 목록이 안 열리면 그 칸은 미확인(진단에 오류)으로 남는다.
-    if item.get("signalType")=="supreme_court_case_release" and item.get("bodyFrom")!=COURT_BODY:
+    if item.get("signalType")=="supreme_court_case_release" and item.get("bodyFrom") not in (COURT_BODY, "title"):
         return False
     return True
 
@@ -1084,6 +1096,7 @@ def fetch_direct_court(max_items=12, prior_items=None):
                 if len(out)>=max_items: break
                 continue
             detail=""
+            detail_failed=False
             title_companies=target_hits(title)
             if not title_companies and diag["detailPagesAttempted"]<8:
                 diag["detailPagesAttempted"]+=1
@@ -1096,13 +1109,17 @@ def fetch_direct_court(max_items=12, prior_items=None):
                             diag["retriedOk"]=diag.get("retriedOk",0)+1
                         break
                     except Exception as exc:
-                        if attempt==2 and len(diag["errors"])<4:
-                            diag["errors"].append(f"detail {title[:50]}: {type(exc).__name__}: {exc}"[:240])
+                        if attempt==2:
+                            detail_failed=True
+                            if len(diag["errors"])<4:
+                                diag["errors"].append(f"detail {title[:50]}: {type(exc).__name__}: {exc}"[:240])
                         if attempt==1:
                             time.sleep(2)
             body=title+" "+detail
             companies=target_hits(body)
-            if not SIGNAL_TERMS.search(body): continue
+            # '대법원 선고 … 사건에 관한 보도자료'는 그 자체가 판결이다. 본문이 끊겨도(운영 10-31: 3건 Connection reset)
+            # 제목의 업종 낱말(중대재해 등)로는 고른다 — 이 경우 bodyFrom='title'로 남겨 다음 실행에 본문을 다시 읽는다.
+            if not SIGNAL_TERMS.search(body) and "선고" not in title: continue
             if not companies and not material_re.search(body):
                 if len(diag["sampleRows"])<8:
                     diag["sampleRows"].append({"title":title[:160],"date":dt.isoformat(),
@@ -1114,7 +1131,8 @@ def fetch_direct_court(max_items=12, prior_items=None):
                 "title":title,"url":href,"published":dt.isoformat(),
                 "summary":detail[:3500],"official":True,"preScoop":True,
                 "companies":companies,"directSource":True,
-                "signalType":"supreme_court_case_release","bodyFrom":COURT_BODY,
+                "signalType":"supreme_court_case_release","bodyFrom":"title" if detail_failed else COURT_BODY,
+                **({"detailError":"본문 못 읽음(연결 끊김) — 제목만으로 고름"} if detail_failed else {}),
                 "dateSource":"대법원 보도자료 게시일"
             })
             if len(out)>=max_items: break
@@ -1795,11 +1813,7 @@ def main():
     items.extend(item for item in prior_items if keep_prior(item, now))
 
     # Keep the feed compact and deterministic.
-    dedup = {}
-    for x in items:
-        key = (x["sourceGroup"], re.sub(r"[^가-힣A-Za-z0-9]", "", x["title"]).lower())
-        dedup[key] = x
-    items = sorted(dedup.values(), key=lambda x: x["published"], reverse=True)[:80]
+    items = dedup_items(items)
     observations=update_source_states(
         prior_source_states,SOURCE_DIAGNOSTICS,DIRECT_DIAGNOSTICS,
         freshly_collected_items,now=now)
