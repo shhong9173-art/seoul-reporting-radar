@@ -351,10 +351,16 @@ def from_scoop(data):
             if not isinstance(x, dict):
                 continue
             companies = beats_in(x.get("title"), x.get("companies") or [])
+            # 단독 후보(items)는 주소·게시일을 originalSourceUrl·sources[]에만 둔다 — 그대로 읽으면 '게시일 미표기'·주소 없음
+            # (10-31 운영: 현대차·현대모비스 자기주식처분결정 단서가 날짜·DART 주소 없이 떴다).
+            first = next((s for s in x.get("sources") or [] if isinstance(s, dict)), {})
+            url = x.get("url") or x.get("originalSourceUrl") or first.get("url")
+            published = x.get("published") or first.get("published")
             receipt = None
-            match = re.search(r"rcpNo=(\d{14})", str(x.get("url") or ""))
+            match = re.search(r"rcpNo=(\d{14})", str(x.get("url") or ""))  # 단서 id가 바뀌지 않게 접수번호는 예전처럼 url에서만
             if match:
                 receipt = match.group(1)
+            shown = re.search(r"rcpNo=(\d{14})", str(url or ""))
             title = x.get("title")
             details = [re.sub(r"\s+", " ", str(d)).strip() for d in x.get("details") or [] if str(d).strip()]
             if details and x.get("kind") == "공개 리콜 공지":
@@ -362,10 +368,12 @@ def from_scoop(data):
                 # (10-31 운영: 쏘렌토 저압연료라인 리콜이 '기아 리콜'로 찾아져 ICCU 리콜 기사가 근거로 붙었다)
                 title = f"{title} — {details[0]}" + (f" 외 {len(details) - 1}건" if len(details) > 1 else "")
             out.append(clue(kind=None, source=x.get("sourceName") or "레이더", title=title,
-                            url=x.get("url"), published=x.get("published"), companies=companies,
+                            url=url, published=published, companies=companies,
                             tier=tier, signal=x.get("signalGroup") or x.get("kind") or bucket,
                             note=x.get("verification") or x.get("coverageStatus") or "", receipt=receipt,
                             key=x.get("id")))
+            if shown and not out[-1]["receiptNo"]:
+                out[-1]["receiptNo"] = shown.group(1)
     for x in data.get("heldDartResearch", []) or []:
         if not isinstance(x, dict):
             continue
