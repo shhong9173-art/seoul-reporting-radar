@@ -49,7 +49,13 @@ TYPES = [
     ("소송판결", r"소송등의판결", ["사건의명칭", "사건번호", "원고ㆍ신청인", "판결ㆍ결정내용", "관할법원", "판결ㆍ결정일자"], "사건번호"),
     ("소송제기", r"소송등의제기", ["사건의명칭", "사건번호", "원고ㆍ신청인", "청구내용", "관할법원", "제기ㆍ신청일자"], "사건번호"),
     ("거래계획", r"특정증권등거래계획", [], None),
+    # 형식 공시명만으로는 내용을 알 수 없는 공시: 원문의 제목 칸을 읽는다(2026-10-31 실제 공시로 형식 확인:
+    # OCI홀딩스 20261029800315 수시공시의무관련사항(공정공시) '1. 정보내용 | 공시제목 | …',
+    # 현대자동차 20261029800231 장래사업ㆍ경영계획(공정공시) '1. 장래계획 사항 | …'). 같은 상대 비교는 하지 않는다.
+    ("공정공시", r"수시공시의무관련사항|장래사업ㆍ?경영계획|기타경영사항|투자판단관련주요경영사항",
+     ["공시제목", "장래계획사항", "제목", "관련수시공시내용", "세부내용", "주요내용"], None),
 ]
+NO_PREVIOUS = ("거래계획", "공정공시")
 AMOUNT_KEY = {"채무보증": "채무보증금액(원)", "공급계약": "계약금액(원)", "유형자산취득": "취득가액(원)", "유형자산처분": "처분가액(원)",
               "타법인주식취득": "취득금액(원)", "타법인주식처분": "처분금액(원)", "신규시설투자": "투자금액(원)"}
 RATIO_KEY = {"채무보증": "자기자본대비(%)", "공급계약": "매출액대비(%)", "유형자산취득": "자산총액대비(%)", "유형자산처분": "자산총액대비(%)",
@@ -197,6 +203,8 @@ def compare(kind, cur, prev_docs, n_listed):
     lines, routine = [], None
     if kind == "거래계획":
         return [], "임원·주요주주 거래계획 보고(형식 공시) — 거래 규모·당사자는 원문 확인"
+    if kind == "공정공시":
+        return [], None
     if not n_listed:
         return [f"최근 {YEARS_BACK}년 같은 종류 거래소 공시 없음(목록 기준)"], None
     same = None
@@ -266,7 +274,7 @@ def enrich(cands, api_key, corp_codes, *, fetch_documents, get, budget=40):
         cur = f.get("raw") or {}
         corp = corp_code_of(c.get("company"), corp_codes)
         prev_docs, listed, err = [], 0, None
-        if kind != "거래계획" and corp:
+        if kind not in NO_PREVIOUS and corp:
             try:
                 rows = previous_filings(api_key, corp, kind, dt.date(int(rcept[:4]), int(rcept[4:6]), int(rcept[6:8])), rcept, get=get)
                 listed = len(rows)
@@ -280,7 +288,7 @@ def enrich(cands, api_key, corp_codes, *, fetch_documents, get, budget=40):
                         continue
             except Exception as e:
                 err = f"직전 공시 목록 조회 실패({type(e).__name__})"
-        elif kind != "거래계획":
+        elif kind not in NO_PREVIOUS:
             err = "회사 고유번호 없음 — 직전 비교 못 함"
         lines, routine = compare(kind, cur, prev_docs, listed) if not err else ([], None)
         if err:

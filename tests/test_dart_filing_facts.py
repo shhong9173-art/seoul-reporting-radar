@@ -41,6 +41,16 @@ LSE = table([["1. 판매ㆍ공급계약 구분", "기타 판매ㆍ공급계약"]
              ["3. 계약상대", "LS ELECTRIC AMERICA Inc."], ["- 회사와의 관계", "자회사"], ["4. 판매ㆍ공급지역", "미국"],
              [("5. 계약기간", 2), "시작일", "2026-10-16"], ["종료일", "2027-12-31"], ["※ 관련공시", "2026-04-13 단일판매ㆍ공급계약체결"]])
 
+# OCI홀딩스 20261029800315 ([기재정정]수시공시의무관련사항(공정공시)), 2026-10-31: 정정 표 다음에 본문 표
+OCI_FAIR = (table([["정정일자", "2026-10-29"], ["1. 정정관련 공시서류", "수시공시의무관련사항(공정공시)"],
+                   ["정정항목", "정정전", "정정후"], ["1. 정보내용 - 관련 수시공시내용", "-", "- 당사는 정정일자 기준으로 본 주주환원 정책의 이행을 완료하였으며"]])
+            + table([[("1. 정보내용", 2), "공시제목", "2024년 ~ 2026년 자기주식 취득 및 소각 계획"],
+                     ["관련 수시공시내용", "- 당사는 중장기 주주환원 정책을 수립중에 있으며"], ["예정 공시 일시", "2024-03-29"]]))
+# 현대자동차 20261029800231 ([기재정정]장래사업ㆍ경영계획(공정공시)), 2026-10-31
+HMC_PLAN = (table([["정정일자", "2026-10-29"], ["2.주요내용 및 추진 일정 - 세부내용", "·2026년 판매목표 : 416만대", "·2026년 판매목표 : 400만대"]])
+            + table([["1. 장래계획 사항", "2026년 현대자동차 가이던스"], [("2. 주요내용 및 추진일정", 2), "목적", "2026년 경영계획 공개를 통한 투자자 이해 제고"],
+                     ["세부내용", "◎ 판매, 수익성, 투자 등 2026년 주요 경영 계획 및 정책 방향성 ·2026년 판매목표 : 400만대"]]))
+
 
 class R:
     def __init__(self, body, code=200):
@@ -75,6 +85,19 @@ class Facts(unittest.TestCase):
         self.assertEqual(got["매출액대비(%)"], "3.40")
         self.assertEqual(got["계약상대"], "LS ELECTRIC AMERICA Inc.")
         self.assertEqual(got["계약기간 종료일"], "2027-12-31")
+
+    def test_fair_disclosure_subject_is_read_from_the_body(self):
+        x = f.facts("[기재정정]수시공시의무관련사항(공정공시)", [OCI_FAIR])
+        got = dict(x["facts"])
+        self.assertEqual(x["type"], "공정공시")
+        self.assertEqual(got["공시제목"], "2024년 ~ 2026년 자기주식 취득 및 소각 계획")
+        self.assertTrue(got["관련수시공시내용"].startswith("- 당사는 중장기"))  # the body table, not the correction table
+        got = dict(f.facts("[기재정정]장래사업ㆍ경영계획(공정공시)", [HMC_PLAN])["facts"])
+        self.assertEqual(got["장래계획사항"], "2026년 현대자동차 가이던스")
+        self.assertIn("400만대", got["세부내용"])
+        self.assertEqual(f.filing_type("기타경영사항(자율공시)"), "공정공시")
+        self.assertEqual(f.filing_type("투자판단관련주요경영사항"), "공정공시")
+        self.assertEqual(f.filing_type("[기재정정]영업실적등에대한전망(공정공시)"), None)  # 실적 전망은 형식 공시(scoop_screen ADMIN)
 
     def test_types(self):
         self.assertEqual(f.filing_type("[기재정정]타인에대한채무보증결정"), "채무보증")
@@ -146,6 +169,16 @@ class Enrich(unittest.TestCase):
         patent = {"id": "clue:3", "kind": "특허", "company": "기아", "title": "기아 · 고정자 냉각 장치", "url": "https://doi.org/x"}
         f.enrich([patent], "k", {}, fetch_documents=lambda *a: [], get=lambda *a, **k: None)
         self.assertNotIn("filing", patent)
+
+    def test_fair_disclosure_skips_previous_comparison(self):
+        cand = {"id": "clue:o", "kind": "단서", "company": "OCI홀딩스", "title": "OCI홀딩스 · [기재정정]수시공시의무관련사항(공정공시)",
+                "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261029800315"}
+        def get(*a, **k):
+            raise AssertionError("no previous-filing list for fair disclosures")
+        used = f.enrich([cand], "k", {}, fetch_documents=lambda k, r: [OCI_FAIR], get=get)
+        self.assertEqual(used, 1)
+        self.assertEqual((cand["filing"]["type"], cand["filing"]["compare"], cand["filing"]["routine"]), ("공정공시", [], None))
+        self.assertEqual(dict(cand["filing"]["facts"])["공시제목"], "2024년 ~ 2026년 자기주식 취득 및 소각 계획")
 
     def test_budget_marks_unread(self):
         cands = [{"id": f"clue:{i}", "kind": "단서", "company": "X", "title": "X · 타인에대한채무보증결정",

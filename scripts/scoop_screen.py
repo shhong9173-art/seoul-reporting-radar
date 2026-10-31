@@ -55,7 +55,9 @@ BOILER = re.compile(
     r"정기·주요공시|주요사항보고서|공정공시|안내공시|자율공시|자회사의\s*주요경영사항|종속회사의\s*주요경영사항|"
     r"기재정정|첨부정정|발행조건확정|연결재무제표기준|공식|동일기간|단위|숫자|공시상|원문|보고서|결정|체결|변경|관련|"
     r"사업의\s*내용|분기|반기|누적|전년|대비|기준|현황|정보|제출|기업|계획|PBR\s*개선|주요|단일판매ㆍ공급계약|"
-    r"단일판매·공급계약|특수관계인(?:에대한|으로부터)?|대량보유\(5%\)|임원·주요주주")
+    r"단일판매·공급계약|특수관계인(?:에대한|으로부터)?|대량보유\(5%\)|임원[·ㆍ]\s*주요주주|"
+    # 레이더가 붙인 안내 문구(10-31 운영: '두산에너빌리티 항목 대조'·'현대모비스 분할 항목'으로 검색)
+    r"항목\s*대조\s*필요")
 STOP = {"공급계약", "공시", "회사", "국내", "해외", "기타", "합계", "제품", "사업", "부문", "대한", "관한", "통해",
         "에서", "으로", "그리고", "보고", "건", "등", "및", "의", "수", "약", "총", "이를", "위한", "통한", "있는", "하는",
         "따른", "대해", "관련된", "포함", "이상", "이하", "경우", "방법", "장치", "시스템"}
@@ -64,7 +66,8 @@ STOP = {"공급계약", "공시", "회사", "국내", "해외", "기타", "합�
 ADMIN = re.compile(r"특수관계인|공정거래자율준수|기업설명회|IR\)?개최|주주총회|최대주주등소유주식|자기주식취득결과|"
                    r"증권발행실적|투자설명서|기업지배구조보고서|감사보고서|결산실적공시예고|조회공시|풍문|매매거래정지|"
                    r"발행조건확정|증권신고서|영업\(잠정\)실적|잠정\)?실적|기업가치제고|대표이사|대표집행임원|사외이사|"
-                   r"주식소각|자기주식처분|자기주식취득|배당|정관변경|명의개서|전환가액|신주인수권|"
+                   # 신주인수권 행사·가액 조정은 형식 공시지만 신주인수권부사채(BW) 발행 결정은 자금 조달 기사다
+                   r"주식소각|자기주식처분|자기주식취득|배당|정관변경|명의개서|전환가액|신주인수권(?!부사채)|"
                    # 10-30 radar_today A에 매일 올라온 형식 공시: 공정거래법 계열사 상품·용역거래 이사회 의결, 주총 의결권 권유,
                    # 실적 발표와 함께 나오는 실적 전망 공정공시(정정 포함), 기업집단 현황
                    r"동일인등출자계열회사|상품ㆍ?용역거래|의결권대리행사권유|영업실적등에대한전망|기업집단현황|"
@@ -77,7 +80,19 @@ NEWS_TERMS = {
     "회사분할": ["분할"], "회사합병": ["합병"], "타법인주식및출자증권취득": ["지분 인수", "인수", "취득"],
     "유형자산취득": ["투자", "취득", "증설"], "유형자산처분": ["매각", "처분"], "신규시설투자": ["투자", "증설"],
     "단일판매ㆍ공급계약체결": ["수주", "공급계약"], "공급계약": ["수주", "공급계약"],
+    # 10-31 운영: 'LS전선 교환사채권발행'·'HD현대일렉트릭 타인에대한채무보증'으로 찾아 미보도 후보 — 기사는 '교환사채'·'채무보증'
+    # (LS전선 5,000억 교환사채는 9월에 여러 매체가 보도). 영문 약어(EB·CB·BW)는 다른 낱말(EBITDA 등)에 섞여 대조 낱말로 쓰지 않는다.
+    "교환사채권발행": ["교환사채", "교환사채권"], "전환사채권발행": ["전환사채", "전환사채권"],
+    "신주인수권부사채권발행": ["신주인수권부사채"], "타인에대한채무보증": ["채무보증", "지급보증"],
+    "타인에대한담보제공": ["담보 제공", "담보제공"],
+    "특정증권등거래": ["거래계획", "매도 계획", "매수 계획", "처분 계획", "취득 계획"],
 }
+# 형식 공시명만 있는 제목(공정공시·자율공시·투자판단 주요경영사항·장래사업 계획): 제목 낱말로는 기사를 찾을 수 없다.
+# 원문의 공시제목·장래계획 사항·제목 칸을 읽어 질의를 만든다(10-31 운영: 'OCI홀딩스 수시공시의무'로 찾아 미보도 후보 —
+# 원문은 2024년 자기주식 취득·소각 계획의 이행 완료 정정, '현대차 장래사업'은 2026년 가이던스 하향 정정).
+BODY_TITLE_FORMS = re.compile(r"수시공시의무\s*관련\s*사항|장래사업\s*[ㆍ·]?\s*경영\s*계획|기타\s*경영\s*사항|"
+                              r"투자판단\s*관련\s*주요\s*경영\s*사항")
+BODY_TITLE_KEYS = ("공시제목", "장래계획사항", "제목")
 PATENT_SOURCES = re.compile(r"KIPRIS|특허", re.I)
 PARTICLE = re.compile(r"(으로|에서|에게|까지|부터|의|을|를)$")  # only unambiguous endings (양도·원가·회로 stay intact)
 ACRONYM = re.compile(r"[A-Z][A-Z0-9&]{1,5}")
@@ -192,6 +207,12 @@ def from_clue(x):
         return None
     company = companies[0]
     title = str(x.get("title") or "")
+    if BODY_TITLE_FORMS.search(title) and re.search(r"rcpNo=\d{14}", str(x.get("url") or "")):
+        # 원문 제목을 읽기 전에는 질의 낱말이 없다 — main()이 DART 원문을 읽은 뒤 채우고, 못 읽으면 심사하지 않는다.
+        return {"id": f"clue:{x.get('id')}", "kind": "단서", "team": x.get("team"), "company": company, "title": title,
+                "url": x.get("url"), "published": x.get("published"), "source": x.get("source"), "tier": x.get("tier"),
+                "terms": [], "alts": {}, "unit": "", "numbers": [], "ratios": [], "note": None, "bodyTitle": True,
+                "strength": 3 if x.get("tier") == "취재 단서·단독 미확정" else 1}
     nums, unit = set(), ""
     m = re.search(r"숫자\s*([\d,]+)\s*→\s*([\d,]+)\s*\(([^)]*)\)", title)
     if m:
@@ -258,7 +279,7 @@ def select(clues, stats, *, now, limit=MAX_CANDIDATES):
         if not (strong or fresh):
             continue
         c = from_clue(x)
-        if c and c["terms"]:
+        if c and (c["terms"] or c.get("bodyTitle")):
             c["strength"] += 1 if fresh else 0
             rows.append(c)
     for x in stats.get("items", []) if isinstance(stats, dict) else []:
@@ -271,6 +292,8 @@ def select(clues, stats, *, now, limit=MAX_CANDIDATES):
     seen, out = set(), []
     for c in sorted(rows, key=lambda r: -r["strength"]):
         key = (c["company"], tuple(c["numbers"])) if c["numbers"] else (c["company"], tuple(c["terms"][:2]))
+        if c.get("bodyTitle"):
+            key = (c["company"], c.get("url") or c["id"])  # 낱말이 아직 없다 — 같은 회사의 다른 공정공시끼리 합치지 않는다
         if is_lawsuit(c):
             key=(c["company"],c.get("url") or c["id"])
         if key in seen:
@@ -278,6 +301,39 @@ def select(clues, stats, *, now, limit=MAX_CANDIDATES):
         seen.add(key)
         out.append(c)
     return out[:limit]
+
+
+def body_subject(c):
+    """원문에서 읽은 공시 제목(공시제목·장래계획 사항·제목 칸). 못 읽었으면 None."""
+    f = c.get("filing") or {}
+    if f.get("error"):
+        return None
+    got = {k: v for k, v in (f.get("facts") or []) if isinstance(k, str)}
+    return next((got[k] for k in BODY_TITLE_KEYS if str(got.get(k) or "").strip() not in ("", "-")), None)
+
+
+def apply_body_titles(cands):
+    """형식 공시명만 있는 후보에 원문 제목 낱말을 넣는다. 원문을 못 읽었거나 낱말이 없으면 심사에서 뺀다(형식명 질의의 0건은
+    미보도 증거가 아니다). 원문 제목이 형식 공시(자기주식·배당 등)면 다른 형식 공시처럼 뺀다. (남길 후보, 집계)"""
+    kept, count = [], {"read": 0, "procedural": 0, "unread": 0}
+    for c in cands:
+        if not c.get("bodyTitle"):
+            kept.append(c)
+            continue
+        subject = body_subject(c)
+        if not subject:
+            count["unread"] += 1
+            continue
+        if ADMIN.search(re.sub(r"\s+", "", subject)):
+            count["procedural"] += 1
+            continue
+        terms, alts = news_terms(terms_from(subject, c["company"]))
+        if not terms:
+            count["unread"] += 1
+            continue
+        count["read"] += 1
+        kept.append({**c, "terms": terms, "alts": alts, "subject": subject})
+    return kept, count
 
 
 def lead(terms):
@@ -648,7 +704,7 @@ def main():
               "selected": len(cands)}
     if a.dry_run:
         for c in cands:
-            print(c["company"], "|", queries(c), "|", c["numbers"][:4])
+            print(c["company"], "|", queries(c) if c["terms"] else "(원문 공시 제목을 읽은 뒤 질의)", "|", c["numbers"][:4])
         return
     dart_key = os.environ.get("DART_API_KEY", "").strip()
     if dart_key:
@@ -671,6 +727,11 @@ def main():
         print(f"::notice title=scoop-screen-filings::DART 원문 요점 {inputs['filingFacts']['read']}건 · 일상 {inputs['filingFacts']['routine']}건 · 실패 {inputs['filingFacts']['failed']}건")
     else:
         print("::warning title=scoop-screen-filings::DART_API_KEY 미설정 — 원문 요점·직전 비교 생략")
+    cands, inputs["bodyTitles"] = apply_body_titles(cands)
+    b = inputs["bodyTitles"]
+    if any(b.values()):
+        print(f"::notice title=scoop-screen-body-titles::형식 공시명 후보 원문 제목 읽음 {b['read']} · 형식 공시라 뺌 {b['procedural']}"
+              f" · 원문 제목 못 읽어 심사 안 함(미확인) {b['unread']}")
     rows = carry_first_seen(screen(cands, now=now), previous, now)
     doc = report(rows, now=now, inputs=inputs)
     if a.out:
