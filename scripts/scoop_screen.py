@@ -794,18 +794,25 @@ CHANGE_WORDS = {
     "연장": ["연장", "연기", "지연", "늘어", "늘려", "미뤄", "변경"],
     "완료": ["완료", "마무리", "조기", "앞당"],
     "단축": ["단축", "앞당", "조기", "변경"],
+    # 가이던스·전망 같은 계획 공시(공정공시)는 '감액·증액'이 아니라 '하향·상향 조정'으로 쓴다. '축소'는 빼고 —
+    # 10-31 운영: 현대차 가이던스 정정의 첫 근거가 「…3분기 영업익 늘었지만 매출 축소」였다(실적 기사).
+    "하향": ["하향", "낮춰", "낮춘", "낮췄", "줄여", "줄인", "줄였", "조정"],
+    "상향": ["상향", "높여", "높인", "높였", "늘려", "늘린", "늘렸", "조정"],
 }
+PLAN_TYPES = ("공정공시",)
 NOT_SUBJECT = {"투자", "공장", "생산", "수주", "계약", "공급계약", "매출", "수출", "판매", "증설", "취득", "변압기"}
 MAX_CORRECTION_CHECKS = 6
 
 
-def change_word(fix):
-    """큰 변경 목록 → 기사가 쓰는 변경 낱말(해지 > 금액 > 기간). 없으면 None."""
+def change_word(fix, kind=None):
+    """큰 변경 목록 → 기사가 쓰는 변경 낱말(해지 > 금액 > 기간). 계획 공시(공정공시)의 금액은 하향·상향. 없으면 None."""
     big = (fix or {}).get("material") or []
     if any("해지" in m for m in big):
         return "해지"
     for m in big:
         x = re.search(r"([+-])\d+%$", m)
+        if x and kind in PLAN_TYPES:
+            return "상향" if x.group(1) == "+" else "하향"
         if x:
             return "증액" if x.group(1) == "+" else "감액"
     for m in big:
@@ -818,7 +825,7 @@ def change_word(fix):
 def correction_check_of(c):
     """정정 내용 보도 대조용 후보(심사 함수에 그대로 넣는다). 큰 변경·사업 낱말이 없으면 None."""
     fix = (c.get("filing") or {}).get("correction")
-    word = change_word(fix)
+    word = change_word(fix, (c.get("filing") or {}).get("type"))
     subject = [t for t in (c.get("terms") or [])[:3] if t not in NOT_SUBJECT and t not in CHANGE_WORDS][:2]
     since = article_day(c.get("published")) or article_day(filed_on(c.get("url")))
     if not word or not subject or not since:
@@ -851,6 +858,9 @@ def check_corrections(rows, *, now, get=None, sleep=time.sleep, limit=MAX_CORREC
         channels["google"] = google(cc["queries"][-1], get=get)
         sleep(0.3)
         verdict, evidence = judge(cc, channels, now=now)
+        # 같은 등급 안에서는 제목에 사업 낱말까지 있는 기사를 앞에(요약에만 있는 기사는 다른 각도일 수 있다)
+        evidence.sort(key=lambda e: (bool(e.get("before")) or "동일 사건 미확정" not in str(e.get("why") or ""),
+                                     not any(m in str(e.get("title") or "") for m in cc["must"])))
         r["correctionCheck"] = {"word": cc["terms"][0], "subject": cc["must"], "since": cc["since"], "queries": cc["queries"],
                                 "verdict": verdict, "evidence": evidence[:3],
                                 "channels": {k: v.get("status") for k, v in channels.items()}}
