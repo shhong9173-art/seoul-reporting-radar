@@ -77,6 +77,7 @@ const ALT = {
   EPA: ['EPA', '환경보호청', '인증', '주행거리', '연비'],
   회생: ['회생', '법정관리', '파산', '기업회생', '워크아웃'],
   허가: ['허가', '인가', '승인', '전기위원회'], 법인: ['법인', '현지법인', '자회사', '설립'], 영국: ['영국', 'UK'], 원안위: ['원안위', '원자력안전위원회', '의결', '심의'],
+  환경영향평가: ['환경영향평가', '환경평가'], 산업단지: ['산업단지', '산단'], 이전: ['이전', '옮겨', '옮긴다'], 매립: ['매립', '매립장'],
 };
 const ASX_KO = { PLS: '필바라', ARU: '아라푸라', '01958': 'BAIC' };
 const COUNTRY_KO = {
@@ -97,17 +98,38 @@ export function insolvencyLine(e) {
   const where = ind.address ? ` · ${String(ind.address).split(/\s+/).slice(0, 2).join(' ')}` : '';
   return `${e.company} (${e.court}${e.caseNo ? ` ${e.caseNo}` : ''}) · ${what}${where}${identityNote(ind)}`;
 }
-export function hint(who, terms) {
+// places: search words that narrow the query (시·군, 나라) but cannot mark a story alone — a headline with the company and
+// its city is often another story (10-31: 고려아연 울주 안전점검 공고가 '고려아연 온산제련소 지원 울주군 집수리' 기사로 '관련 보도 있음').
+export function hint(who, terms, places = []) {
   const subject = String(who ?? '').split('·')[0].replace(/\(.*?\)/g, '').trim();
   const t = [...new Set(terms.filter(Boolean).map(String))];
   if (!subject || !t.length) return undefined;
-  return { who: subject, terms: t, alts: Object.fromEntries(t.filter((w) => ALT[w]).map((w) => [w, ALT[w]])) };
+  const p = [...new Set(places.filter(Boolean).map(String))].filter((w) => t.includes(w));
+  return { who: subject, terms: t, alts: Object.fromEntries(t.filter((w) => ALT[w]).map((w) => [w, ALT[w]])), ...(p.length ? { places: p } : {}) };
+}
+// 지자체 고시·공고 제목의 사업 낱말 → 기사가 쓸 낱말(안전점검·건설공사 공고의 기사는 '증설·신설·착공'으로 난다)
+export function localWord(title) {
+  const t = String(title ?? '');
+  if (/환경영향평가/.test(t)) return '환경영향평가';
+  if (/산업단지/.test(t)) return '산업단지';
+  if (/매립/.test(t)) return '매립';
+  if (/이전/.test(t)) return '이전';
+  return '신설';
+}
+// 국민연금 가입자 변화의 방향 → 기사 낱말(늘면 채용·증원, 줄면 인력 감축)
+export function workforceHint(e) {
+  if (/공사 현장/.test(e.kind)) return hint(e.company, ['공사', '착공']);
+  if (/새 자사/.test(e.kind)) return hint(e.company, ['공장', '신설']);
+  if (/탈퇴|빠짐/.test(e.kind)) return hint(e.company, ['공장', '폐쇄']);
+  const m = /가입자 ([\d,]+)→([\d,]+)명/.exec(String(e.text ?? ''));
+  const down = m ? Number(m[2].replace(/,/g, '')) < Number(m[1].replace(/,/g, '')) : /감소/.test(e.kind);
+  return down ? hint(e.company, ['인력', '감축']) : hint(e.company, ['채용', '증원']);
 }
 const cityOf = (text) => ((/(?:특별시|광역시|특별자치시|특별자치도|도)\s+([가-힣]{1,4}?)[시군](?![가-힣])/.exec(String(text ?? '')) ?? [])[1]);
 function factoryHint(company, kind, text) {
   const city = cityOf(text);
-  if (/빠짐/.test(kind)) return hint(company, [city, '공장', '폐쇄']);
-  if (/새 (공장|등록)/.test(kind)) return hint(company, [city, '공장', '신설']);
+  if (/빠짐/.test(kind)) return hint(company, [city, '공장', '폐쇄'], [city]);
+  if (/새 (공장|등록)/.test(kind)) return hint(company, [city, '공장', '신설'], [city]);
   const m = /고용 (\d+)→(\d+)/.exec(String(text ?? ''));
   if (m) return Number(m[2]) < Number(m[1]) ? hint(company, ['인력', '감축']) : hint(company, ['채용', '증원']);
   return undefined;  // 업종·주생산품 문구 변경: 기사 낱말을 정할 수 없음
@@ -260,7 +282,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
       const firms = e.companies ?? [];
       push(['A', 'B'].includes(e.tier) ? e.tier : 'C', W['trade-remedy'], { kind: e.kitaKind ?? '대한 수입규제', id: e.id, date: e.detectedAt,
         company: firms.join('·') || e.country, fact: `${e.kitaKind ?? '대한 수입규제'}(무역협회 DB): ${e.text}`, url: e.url,
-        check: firms.length ? hint(firms[0], [e.country, '관세']) : undefined });
+        check: firms.length ? hint(firms[0], [e.country, '관세'], [e.country]) : undefined });
       continue;
     }
     push(e.pageId === 'taric' && /한국 전용/.test(e.label) ? 'A' : 'B', W['trade-remedy'], { kind: e.pageId === 'taric' ? 'EU 쿼터(TARIC)' : `해외 조사 ${e.pageId}`, id: e.id, date: e.detectedAt, company: e.country, fact: `${e.label}: ${e.text}`, url: e.url });
@@ -391,14 +413,14 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
       const rank = x.rank ? `응찰가 ${x.rank}위/${x.priced}곳${x.lowest ? '(최저가)' : x.lowestBid ? ` · 최저 ${x.lowestBid.name} ${money(x.lowestBid.value)}` : ''}` : '응찰가 순위 없음(가격 미공개·탈락)';
       push(tier, W['overseas-awards'], { kind: `${x.source} ${x.kind}`, id: x.id, date: x.published ?? x.firstSeen, company: x.company ?? '',
         fact: `해외 개찰(${x.source}): ${where ? `${where} ` : ''}${x.buyer} · ${String(x.title ?? '').slice(0, 120)} — ${x.bidder}${x.value ? ` ${money(x.value)}` : ' 응찰가 미공개'} · ${rank} · 개찰 ${x.published ?? '?'} · 낙찰 아님`,
-        url: x.url, check: tier === 'C' ? undefined : hint(x.company, [where, '입찰']) });
+        url: x.url, check: tier === 'C' ? undefined : hint(x.company, [where, '입찰'], [where]) });
       continue;
     }
     const more = (x.winnerCount ?? (x.winners ?? []).length) - Math.min(2, (x.winners ?? []).length);
     const who = ((x.winners ?? []).slice(0, 2).join('·') + (more > 0 ? ` 외 ${more}곳` : '')) || '보고서 줄 참조';
     push(tier, W['overseas-awards'], { kind: `${x.source} ${x.kind}`, id: x.id, date: x.published ?? x.firstSeen, company: x.company ?? '',
       fact: `해외 ${x.kind}(${x.source}): ${where ? `${where} ` : ''}${x.buyer} ← ${who} · ${String(x.title ?? '').slice(0, 120)}${value}${x.concluded ? ` · 계약 ${x.concluded}` : ''} · 공고 ${x.published ?? '?'}`,
-      url: x.url, check: tier === 'C' ? undefined : hint(x.company, [where, '수주']) });
+      url: x.url, check: tier === 'C' ? undefined : hint(x.company, [where, '수주'], [where]) });
   }
 
   // Court insolvency notices (대법원 회생·파산 공고, 회생회사 M&A 공고): a beat-industry manufacturer (공장등록 업종) entering
@@ -436,7 +458,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
     if (!fresh(x, bdBase, 'permitted') && !(x.changedAt && recent(x.changedAt))) continue;
     push(x.tier ?? 'C', W['kr-building'], { kind: `건축 ${x.kind}`, id: x.id, date: x.changedAt ? String(x.changedAt).slice(0, 10) : x.permitted ?? x.firstSeen, company: x.company,
       fact: `${buildingLine(x)} — 건축주 미표기(${x.sameLot === false ? `공장과 본번만 같은 다른 필지${x.bldNm ? `, 건물명 '${x.bldNm}'` : ''}` : '공장과 같은 번지'})`,
-      check: x.tier === 'C' ? undefined : hint(x.company, [cityOf(x.plot), '공장', x.archGbCdNm === '신축' ? '신설' : '증설']) });
+      check: x.tier === 'C' ? undefined : hint(x.company, [cityOf(x.plot), '공장', x.archGbCdNm === '신축' ? '신설' : '증설'], [cityOf(x.plot)]) });
   }
 
   // 출입처 공장이 있는 시·군의 고시·공고(새올): 출입처 이름+사업 낱말 A, 이름만 B, 제철소·산업단지 계획 등 C. 시·군별 첫 조회는 기준선.
@@ -444,14 +466,15 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
     if (x.baseline || !recent(x.firstSeen)) continue;
     push(x.tier ?? 'C', W['kr-local'], { kind: '지자체 고시·공고', id: x.id, date: x.date ?? String(x.firstSeen).slice(0, 10), company: x.company ?? x.city,
       fact: `${x.city} ${x.no ?? ''} 「${x.title}」 · ${x.dept ?? '담당 부서 미기재'} · 등록 ${x.date ?? '?'} — 제목만 확인(첨부 원문·규모는 지자체·회사 확인)`,
-      url: x.url, check: x.tier === 'C' || !x.company ? undefined : hint(x.company, [String(x.city).replace(/(시|군|구)$/, ''), '공장']) });
+      url: x.url, check: x.tier === 'C' || !x.company ? undefined
+        : hint(x.company, [String(x.city).replace(/(시|군|구)$/, ''), localWord(x.title), '공장'], [String(x.city).replace(/(시|군|구)$/, '')]) });
   }
 
   // 국민연금 사업장(월 자료): 자사 사업장 가입자 급감·탈퇴·새 사업장·투자 낱말 공사 현장 A, 급증·변동·목록에서 빠짐·공사 현장 묶음 B.
   for (const e of docs['kr-workforce']?.events ?? []) {
     if (!recent(e.detectedAt)) continue;
     push(e.tier ?? 'B', W['kr-workforce'], { kind: e.kind, id: e.id, date: e.detectedAt, company: e.company, fact: e.text,
-      check: hint(e.company, /공사 현장/.test(e.kind) ? ['공사', '착공'] : /새 자사/.test(e.kind) ? ['공장', '신설'] : ['인력', '감원']) });
+      check: workforceHint(e) });
   }
 
   // 굴뚝 자동측정(TMS): 사업장 가동 중단 신호·새 배출구·새 사업장 A, 배출구 멈춤·목록에서 빠짐·재가동 B. 측정값만으로는 정지·정비·점검을 가르지 못한다.
@@ -468,7 +491,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
     if (!fresh(x, rgBase, 'created')) continue;
     push(x.tier ?? 'C', W['overseas-registry'], { kind: '영국 법인 설립', id: x.id, date: x.created ?? x.firstSeen, company: x.company,
       fact: `영국 법인 설립 등기: ${x.name}(${x.number}) · 설립 ${x.created ?? '?'} · SIC ${(x.sic ?? []).join(',') || '미기재'}${(x.psc ?? []).length ? ` · 지배 주주 ${x.psc.slice(0, 2).join(', ')}` : ' · 지배 주주 미기재'}${x.pscMatch ? '' : x.tier === 'B' ? ' — 지배 주주 아직 미기재, 이름이 본사 전체 이름(본사 법인인지 확인)' : ' — 출입처 본사 지배 주주 아님(이름만 같음)'}`,
-      url: x.url, check: x.tier === 'C' ? undefined : hint(x.company, ['영국', '법인']) });
+      url: x.url, check: x.tier === 'C' ? undefined : hint(x.company, ['영국', '법인'], ['영국']) });
   }
 
   const uc = docs['us-comments'];

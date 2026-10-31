@@ -11,7 +11,7 @@ import { publicationDate, verifyEvidence } from '../cloudflare/evidence.mjs';
 import { allowedUrl } from '../cloudflare/live_tools.mjs';
 import { handleIngest } from '../cloudflare/screen.mjs';
 import { dueAt, nextSlot, runSchedule } from '../cloudflare/dispatch.mjs';
-import { background, convergence, hint, radarItems } from '../cloudflare/digest.mjs';
+import { background, convergence, hint, localWord, radarItems, workforceHint } from '../cloudflare/digest.mjs';
 
 const ORIGIN = 'https://seoul-reporting-radar.shhong9173.workers.dev';
 const TOKEN = 'test-token-0123456789abcdef';
@@ -1604,6 +1604,7 @@ test('radar-items hands hinted A/B items to the press checker; radar_today shows
   const ko = await call('kr_official', { section: 'factory', company: 'KG스틸' }, opts);
   assert.match(ko.text, /잡힌 사실: KG스틸\(주\)당진공장 · 충청남도 당진시 송악읍 북부산업로 1 — 고용 856→690명/);
   assert.deepEqual(by['fac:2:gone'].check.terms, ['창원', '공장', '폐쇄']);
+  assert.deepEqual(by['fac:2:gone'].check.places, ['창원']);
   assert.ok(!by['cl:5'], 'judged 봤음 is not checked again');
   assert.ok(!by['cl:9'], 'C tier is not checked');
   assert.ok(!by['fac:4:x'], 'a factory change the collector graded C is not checked');
@@ -1874,6 +1875,7 @@ test('overseas awards: a Bahrain opened bid is a bid, not an award — lowest bi
   assert.match(all.text, /2026-09-01 · 바레인 입찰위원회 개찰 개찰\(응찰\) · LS일렉트릭[^\n]*\n   잡힌 사실: 응찰 LS ELECTRIC CO\., LTD\. 응찰가 미공개 · 상태 Accepted · 응찰가 순위 없음/);
   const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
   assert.deepEqual(items.items.find((x) => x.id === 'bhopen:9001:일진전기').check.terms, ['바레인', '입찰']);
+  assert.deepEqual(items.items.find((x) => x.id === 'bhopen:9001:일진전기').check.places, ['바레인']);
 });
 
 test('kr insolvency: a beat-industry manufacturer entering court proceedings is A and listed under kr_official', async () => {
@@ -2018,6 +2020,21 @@ test('kr_official: 환경영향평가 new stage of a beat project is A and liste
   assert.match(t.text, /\[환경영향평가 · 사업명에 출입처 이름 · 새 단계\] 1건\n- \[신규\] 2026-10-25 접수 · 고려아연 · 환경영향평가 초안\(진행\)/);
   const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
   assert.deepEqual(items.items.find((x) => x.id.startsWith('eia:')).check.terms, ['온산제련소', '환경영향평가']);
+});
+
+test('press-check hints: place words narrow the search but are marked, workforce words follow the direction, local notices use the project word', () => {
+  const h = hint('고려아연', ['울주', localWord("건설공사 안전점검 수행기관 지정 공고[온산 고려아연(주), #2ASU O..."), '공장'], ['울주']);
+  assert.deepEqual([h.terms, h.places, Object.keys(h.alts)], [['울주', '신설', '공장'], ['울주'], ['신설', '공장']]);
+  assert.equal(hint('LS전선', ['입찰'], ['바레인']).places, undefined);  // a place not among the terms is dropped
+  assert.equal(hint('LS전선', ['바레인', '입찰']).places, undefined);
+  assert.deepEqual(['온산제련소 환경영향평가 초안 공람', '○○ 일반산업단지 계획 변경', '공장 이전 부지', '폐기물 매립시설'].map(localWord),
+    ['환경영향평가', '산업단지', '이전', '매립']);
+  const wf = (kind, text) => workforceHint({ company: '포스코', kind, text }).terms;
+  assert.deepEqual(wf('인력 증가', '주식회사포스코(경상북도 포항시 남구) 국민연금 가입자 15,852→16,718명(+866명, +5.5%)'), ['채용', '증원']);
+  assert.deepEqual(wf('인력 변동', '포스코 가입자 2,100→2,060명(-40명)'), ['인력', '감축']);
+  assert.deepEqual(wf('인력 감소', '형식 모름'), ['인력', '감축']);
+  assert.deepEqual(wf('새 공사 현장', '…'), ['공사', '착공']);
+  assert.deepEqual(wf('사업장 탈퇴', '…'), ['공장', '폐쇄']);
 });
 
 test('kr local notices: a beat plant notice in a city is A, a city baseline is hidden, kr_official section=local lists it', async () => {
