@@ -140,7 +140,7 @@ export async function scoopScreen(ctx, args) {
       shown++;
       const mark = verdictOf.get(x.id);
       out.push(`${shown}. [${x.team ?? '?'}] ${x.company ?? ''}${mark ? `  〔기자 판정: ${mark.verdict} — ${mark.reason}〕` : ''}`);
-      out.push(`   잡힌 사실: ${x.title} (${x.kind} · ${x.source ?? ''}${x.published ? ` · ${x.published}` : ''})`);
+      out.push(`   잡힌 사실: ${x.filing?.correction ? String(x.title ?? '').replace(/\s*—\s*변경 항목 대조 필요$/, '') : x.title} (${x.kind} · ${x.source ?? ''}${x.published ? ` · ${x.published}` : ''})`);
       out.push(`   원문: ${x.url ?? '링크 없음'}${x.filedOn ? ` · 접수 ${x.filedOn}` : ''}`);
       const fl = x.filing;
       if (fl?.error) out.push(`   원문 요점: ${fl.error}`);
