@@ -607,7 +607,7 @@ export function oshaSection(doc, q = '', limit = 20, onlyNew = false, routine = 
   if (rows.length > limit) out.push(`… 남은 ${rows.length - limit}건`);
   if (!rows.length) out.push('조건에 맞는 점검 없음(첫 실행은 기준선, 조회 실패면 미확인).');
   if ((doc.dropped ?? []).length) out.push(`(이름 검색에 걸렸지만 출입처 규칙 밖이라 뺀 사업장 ${doc.dropped.length}곳 — 딜러·이름 겹침 등. 빠진 출입처가 있는지 확인: ${doc.dropped.slice(0, routine ? 60 : 12).map(([n, k]) => `${n}(${k})`).join(', ')}${!routine && doc.dropped.length > 12 ? ' …' : ''})`);
-  out.push('   검증 상태: OSHA 노동부 API(자동). 점검≠위반 확정, 벌금은 최초 부과액(이의 제기·합의로 바뀜). 하도급사 이름으로 열린 공장 안 점검은 빠진다. 사망자·경위는 원문·현지 보도로');
+  out.push('   검증 상태: OSHA 노동부 API(자동). 점검≠위반 확정, 벌금은 최초 부과액(이의 제기·합의로 바뀜). 하도급 점검은 출입처 점검과 같은 주소로 열린 것만 — 주소 표기가 다르면 빠진다. 사망자·경위는 원문·현지 보도로');
   return out;
 }
 

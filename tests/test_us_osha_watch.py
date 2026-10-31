@@ -163,6 +163,13 @@ class Run(unittest.TestCase):
         self.assertIn("출입처 공장 주소(7777 KIA PARKWAY", ev["osha:insp:2001"]["text"])
         self.assertEqual(ev["osha:insp:2003"]["tier"], "C")                 # 하도급 민원
         self.assertEqual(ev["osha:viol:2003:2026-10-31"]["tier"], "B")      # 하도급 고의 위반은 한 단계 낮춤
+        self.assertTrue(by["2001"]["isNew"])
+
+    def test_old_inspection_seen_for_the_first_time_is_not_marked_new(self):
+        first = run(inspections=BASE)
+        later = BASE + [insp(1009, "HANKOOK TIRE MANUFACTURING TENNESSEE LP", "2026-03-03", "C", "CLARKSVILLE", "TN")]
+        doc = run(first, now=NOW + dt.timedelta(days=1), inspections=later)
+        self.assertFalse(next(x for x in doc["inspections"] if x["id"] == "1009")["isNew"])
 
     def test_company_rules(self):
         self.assertEqual(w.company_of("Hyundai Motor Group Metaplant America LLC"), "현대차")
