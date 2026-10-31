@@ -10,7 +10,7 @@ import { readZip } from '../cloudflare/zip.mjs';
 import { publicationDate, verifyEvidence } from '../cloudflare/evidence.mjs';
 import { allowedUrl } from '../cloudflare/live_tools.mjs';
 import { ageNote, handleIngest, weekdayHours } from '../cloudflare/screen.mjs';
-import { dueAt, nextSlot, runSchedule } from '../cloudflare/dispatch.mjs';
+import { dueAt, newsDue, nextSlot, runSchedule } from '../cloudflare/dispatch.mjs';
 import { boardKey, factParts, groupSame, splitTop } from '../cloudflare/board.mjs';
 import { cleanOutput, cleanSummary, LLM_MODELS, MT_MODEL } from '../cloudflare/translate.mjs';
 import { background, billHint, clipAt, convergence, convergenceRows, countForms, hint, insolvencyWord, usRecallHint, usRecallModels, kepcoHint, localWord, radarItems, siteCity, stackHint, workforceHint } from '../cloudflare/digest.mjs';
@@ -1291,7 +1291,16 @@ test('Cloudflare cron asks GitHub to run each watch at its KST weekday slot and 
   assert.equal(seen[0].init.headers.Authorization, 'Bearer ghp_test');
   assert.deepEqual(JSON.parse(seen[0].init.body), { ref: 'main' });
   const fail = await runSchedule(opts.env, new Date('2026-10-26T22:50:00Z'), { fetch: async () => new Response('{}', { status: 403 }) });
-  assert.deepEqual(fail.map((e) => e.status), ['HTTP 403']);
+  assert.deepEqual(fail.map((e) => [e.workflow, e.status]), [['us-litigation.yml', 'HTTP 403'], ['auto-desk.yml', 'HTTP 403']]);   // 07:50 칸 + 뉴스(50분)
+  // 뉴스 수집은 20분마다(KST 매시 10·30·50분), 주말에도 — GitHub 예약 '*/15'가 하루 5번만 돌았다(10-31~11-01)
+  assert.equal(newsDue(new Date('2026-11-01T01:10:30Z')), true);    // 일 10:10 KST
+  assert.equal(newsDue(new Date('2026-11-01T01:20:00Z')), false);
+  assert.equal(newsDue(new Date('2026-11-01T01:50:00Z')), true);
+  const newsSeen = [];
+  const sunday = await runSchedule(opts.env, new Date('2026-11-01T01:30:00Z'), { fetch: async (url) => { newsSeen.push(url); return new Response(null, { status: 204 }); } });
+  assert.deepEqual(sunday.map((e) => [e.workflow, e.status]), [['auto-desk.yml', 'ok']]);
+  assert.match(newsSeen[0], /workflows\/auto-desk\.yml\/dispatches$/);
+  assert.deepEqual(await runSchedule(opts.env, new Date('2026-11-01T01:40:00Z'), { fetch: async () => { throw new Error('must not call'); } }), []);
   const none = PRIVATE();
   // Mon 2026-10-26 07:40 KST — the same KST day as the test clock (09:00 KST)
   const skipped = await runSchedule(none.env, new Date('2026-10-25T22:40:00Z'), { fetch: async () => { throw new Error('must not call'); } });

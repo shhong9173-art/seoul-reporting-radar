@@ -1,5 +1,5 @@
 // Morning collectors on time: GitHub's own cron is often hours late (2026-10-27: 06:30 → 09:41, 07:00 → 09:57),
-// so a Cloudflare cron (every 10 minutes in the KST morning and late-afternoon windows) asks GitHub to run each
+// so a Cloudflare cron (every 10 minutes, all day) asks GitHub to run each
 // watch at its slot through workflow_dispatch. GitHub's cron stays as a fallback. Results go to a private log blob.
 import { storeOp } from './store.mjs';
 
@@ -58,6 +58,15 @@ export const SLOTS = [
   { at: '18:50', workflow: 'radar-press-check.yml' },
 ];
 
+// 뉴스 수집(auto-desk.yml: 국내·산업·외신 기사)은 GitHub 예약('*/15 * * * *')이 10-31~11-01 24시간에 5번만 돌았다 —
+// 코드가 올라올 때만 새로 고쳐졌다. 워커 예약(10분마다, 하루 종일)으로 20분마다(KST 매시 10·30·50분) 주말에도 요청한다.
+// 성공은 기록하지 않고(기록이 아침 칸 기록을 밀어내지 않게) 실패만 남긴다. 같은 동시 실행 묶음이라 GitHub가 대기 실행을 하나로 줄인다.
+export const NEWS_WORKFLOW = 'auto-desk.yml';
+export function newsDue(when) {
+  const m = new Date(when.getTime() + KST_MS).getUTCMinutes();
+  return (Math.floor(m / 10) * 10) % 20 === 10;
+}
+
 export function dueAt(when) {
   const k = new Date(when.getTime() + KST_MS);
   const day = k.getUTCDay();
@@ -77,17 +86,24 @@ async function appendLog(ctx, entries) {
 export async function runSchedule(env, when, deps = {}) {
   const ctx = { env, now: when };
   const due = dueAt(when);
-  if (!due.length) return [];
+  const news = newsDue(when);
+  if (!due.length && !news) return [];
   const stamp = when.toISOString();
   if (!env?.GITHUB_DISPATCH_TOKEN) {
     const entries = due.map((workflow) => ({ at: stamp, workflow, status: 'no-token' }));
-    await appendLog(ctx, entries);
+    if (entries.length) await appendLog(ctx, entries);
     return entries;
   }
   const doFetch = deps.fetch ?? fetch;
   const entries = [];
   for (const workflow of due) entries.push({ at: stamp, workflow, status: await requestRun(env, workflow, doFetch) });
-  await appendLog(ctx, entries);
+  const toLog = [...entries];
+  if (news) {
+    const e = { at: stamp, workflow: NEWS_WORKFLOW, status: await requestRun(env, NEWS_WORKFLOW, doFetch), kind: 'news' };
+    entries.push(e);
+    if (e.status !== 'ok') toLog.push(e);
+  }
+  if (toLog.length) await appendLog(ctx, toLog);
   return entries;
 }
 
