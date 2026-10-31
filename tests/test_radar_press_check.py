@@ -198,6 +198,23 @@ class HeadlineRule(unittest.TestCase):
         r = self.one(item, [art("기아, 하반기 생산직 신입 500명 채용", "2026-10-28")])
         self.assertEqual(r["verdict"], "관련 보도 있음")
 
+    def test_bill_story_must_name_the_sponsor(self):
+        # 운영 10-31: 박덕흠 전기사업법 개정안이 박성훈 개정안 기사로 '관련 보도 있음'
+        item = {"tier": "B", "watch": "국회 법안", "id": "bills:발의|전기사업법|2026-10-27", "date": "2026-10-27", "company": "전력·에너지",
+                "check": {"who": "전기사업법", "terms": ["개정안", "박덕흠"], "alts": {"개정안": ["개정안", "발의", "법안"]}, "must": ["박덕흠"]}}
+        other = art("히트펌프 전용 전기요금 도입 길 열리나…박성훈 의원, 전기사업법 개정안 발의", "2026-10-27", "박성훈 의원이 전기사업법 일부개정법률안을 대표발의했다.")
+        r = self.one(item, [other])
+        self.assertEqual(r["verdict"], "미보도 후보")
+        self.assertIn("박덕흠 없음", r["evidence"][0]["why"])
+        mine = art("박덕흠 의원, 전기사업법 개정안 대표발의", "2026-10-28", "박덕흠 의원이 전기사업법 일부개정법률안을 대표발의했다.")
+        self.assertEqual(self.one(item, [other, mine])["verdict"], "관련 보도 있음")
+
+    def test_kepco_tender_story_is_matched_by_hanjeon_and_the_product(self):
+        item = {"tier": "B", "watch": "공정위·한전·원자재", "id": "kepco:COM01:G012606058", "date": "2026-10-27", "company": "한국전력공사",
+                "check": {"who": "한전", "terms": ["765kV", "변압기", "발주"], "alts": {"발주": ["발주", "입찰", "낙찰", "구매"]}, "places": ["765kV"]}}
+        self.assertEqual(self.one(item, [art("한전, 원전 공급망 점검…경주 SMR 포럼", "2026-10-27")])["verdict"], "미보도 후보")
+        self.assertEqual(self.one(item, [art("한국전력, 765㎸ 신안성 변압기 발주…효성·HD현대 경쟁", "2026-10-28")])["verdict"], "관련 보도 있음")
+
     def test_places_join_the_generic_words_per_item(self):
         rows = rpc.candidates([{"tier": "B", "watch": "해외 발주처 낙찰", "id": "bhopen:1:LS전선", "date": "2026-10-30", "company": "LS전선",
                                 "check": {"who": "LS전선", "terms": ["바레인", "입찰"], "alts": {}, "places": ["바레인", "공장"]}}], now=NOW)

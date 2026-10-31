@@ -11,7 +11,7 @@ import { publicationDate, verifyEvidence } from '../cloudflare/evidence.mjs';
 import { allowedUrl } from '../cloudflare/live_tools.mjs';
 import { handleIngest } from '../cloudflare/screen.mjs';
 import { dueAt, nextSlot, runSchedule } from '../cloudflare/dispatch.mjs';
-import { background, convergence, hint, localWord, radarItems, siteCity, stackHint, workforceHint } from '../cloudflare/digest.mjs';
+import { background, convergence, hint, kepcoHint, localWord, radarItems, siteCity, stackHint, workforceHint } from '../cloudflare/digest.mjs';
 
 const ORIGIN = 'https://seoul-reporting-radar.shhong9173.workers.dev';
 const TOKEN = 'test-token-0123456789abcdef';
@@ -1412,12 +1412,15 @@ test('assembly bills: same-law same-day filings are one line, core laws are B, s
       { id: 'bill:PRC_A2:발의', billId: 'PRC_A2', kind: '발의', detectedAt: '2026-10-26T08:40:00+09:00', date: '2026-10-25', core: '전력·에너지', law: '전기사업법', lead: '이을동' },
       { id: 'bill:PRC_S1:소관위 상정', billId: 'PRC_S1', kind: '소관위 상정', detectedAt: '2026-10-26T08:40:00+09:00', date: '2026-10-26', core: '철강·비철',
         law: '철강산업 경쟁력 강화 및 탄소중립 전환을 위한 특별법', lead: '박병동', from: '소관위 회부' },
-      { id: 'bill:PRC_K1:발의', billId: 'PRC_K1', kind: '발의', detectedAt: '2026-10-26T08:40:00+09:00', date: '2026-10-25', core: null, law: '산업안전보건법', lead: '홍길동' }],
+      { id: 'bill:PRC_K1:발의', billId: 'PRC_K1', kind: '발의', detectedAt: '2026-10-26T08:40:00+09:00', date: '2026-10-25', core: null, law: '산업안전보건법', lead: '홍길동' },
+      // 10-31 운영: 발의 다음 날 소관위 회부가 또 B로 떴다 — 회부는 모든 법안이 거치는 절차
+      { id: 'bill:PRC_A1:소관위 회부', billId: 'PRC_A1', kind: '소관위 회부', detectedAt: '2026-10-26T08:40:00+09:00', date: '2026-10-26', core: '전력·에너지',
+        law: '전기사업법', lead: '김갑동', from: '발의' }],
     rules: ['국회의원 발의법률안(열린국회정보)이다.'], confirmedScoops: 0 };
   assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/assembly-bills', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
   const t = await call('assembly_bills', {}, opts);
   assert.match(t.text, /\[새 발의 · 최근 14일 · 출입처 직결 법\(core\)\] 1묶음\n- 2026-10-25 · \[전력·에너지\] 법안 발의: 전기사업법 일부개정법률안 등 2건 — 김갑동·이을동 대표발의/);
-  assert.match(t.text, /\[단계 변화 · 최근 14일\] 1건\n- 2026-10-26 · \[철강·비철\] 법안 소관위 상정: 철강산업 경쟁력 강화 및 탄소중립 전환을 위한 특별법 일부개정법률안 \(직전 소관위 회부\) — 박병동 대표발의/);
+  assert.match(t.text, /\[단계 변화 · 최근 14일\] 2건\n- 2026-10-26 · \[철강·비철\] 법안 소관위 상정: 철강산업 경쟁력 강화 및 탄소중립 전환을 위한 특별법 일부개정법률안 \(직전 소관위 회부\) — 박병동 대표발의/);
   assert.doesNotMatch(t.text, /산업안전보건법 일부개정/);
   assert.match((await call('assembly_bills', { include_related: true }, opts)).text, /산업안전보건법 일부개정법률안/);
   const r = await call('radar_today', { include_minor: true }, opts);
@@ -1425,6 +1428,11 @@ test('assembly bills: same-law same-day filings are one line, core laws are B, s
   assert.match(bsec, /국회 법안 · 전력·에너지\n   법안 발의: 전기사업법 일부개정법률안 등 2건/);
   assert.match(bsec, /법안 소관위 상정: 철강산업/);
   assert.match(r.text.split('[C · ')[1], /법안 발의: 산업안전보건법 일부개정법률안/);
+  assert.match(r.text.split('[C · ')[1], /법안 소관위 회부: 전기사업법 일부개정법률안 \(직전 발의\) — 김갑동 대표발의/);
+  assert.doesNotMatch(bsec, /법안 소관위 회부:/);
+  const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=168', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: new Date('2026-10-26T01:00:00Z') })).json();
+  const bill = items.items.find((x) => x.id === 'bills:발의|전기사업법|2026-10-25');
+  assert.deepEqual([bill.check.terms, bill.check.must], [['개정안', '김갑동'], ['김갑동', '이을동']]);  // 대표발의 의원이 기사에 있어야
   assert.deepEqual(dueAt(new Date('2026-10-27T23:40:00Z')), ['assembly-bills.yml']);  // Wed 08:40 KST
   assert.deepEqual(dueAt(new Date('2026-10-28T08:40:00Z')), ['assembly-bills.yml']);  // Wed 17:40 KST
 });
@@ -2041,6 +2049,9 @@ test('press-check hints: place words narrow the search but are marked, workforce
   const sh = stackHint({ company: '포스코', site: '㈜포스코 광양제철소', kind: '배출구 멈춤 신호' });
   assert.deepEqual([sh.terms, sh.places, sh.must], [['광양', '가동 중단', '정비'], ['광양'], ['광양']]);
   assert.deepEqual(stackHint({ company: '현대제철', site: '현대제철㈜', kind: '배출구 멈춤 신호' }).must, undefined);
+  const kh = kepcoHint('765kV 전력용변압기 1Bank(3대) - 신안성S/S');  // 10-31 운영: 예전엔 "한국전력공사 한전"으로 찾았다
+  assert.deepEqual([kh.who, kh.terms, kh.places], ['한전', ['765kV', '변압기', '발주'], ['765kV']]);
+  assert.deepEqual(kepcoHint('배전용 자재 구매').terms, ['발주']);
   assert.deepEqual(wf('새 공사 현장', '…'), ['공사', '착공']);
   assert.deepEqual(wf('사업장 탈퇴', '…'), ['공장', '폐쇄']);
 });

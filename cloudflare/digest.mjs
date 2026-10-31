@@ -81,6 +81,7 @@ const ALT = {
   EPA: ['EPA', '환경보호청', '인증', '주행거리', '연비'],
   회생: ['회생', '법정관리', '파산', '기업회생', '워크아웃'],
   허가: ['허가', '인가', '승인', '전기위원회'], 법인: ['법인', '현지법인', '자회사', '설립'], 영국: ['영국', 'UK'], 원안위: ['원안위', '원자력안전위원회', '의결', '심의'],
+  발주: ['발주', '입찰', '낙찰', '구매'],
   환경영향평가: ['환경영향평가', '환경평가'], 산업단지: ['산업단지', '산단'], 이전: ['이전', '옮겨', '옮긴다'], 매립: ['매립', '매립장'],
 };
 const ASX_KO = { PLS: '필바라', ARU: '아라푸라', '01958': 'BAIC' };
@@ -127,6 +128,14 @@ export function localWord(title) {
   if (/매립/.test(t)) return '매립';
   if (/이전/.test(t)) return '이전';
   return '신설';
+}
+// 한전 입찰: 기사는 '한전, 765kV 변압기 발주'처럼 한전과 품목으로 난다. 예전엔 발주처 이름(한국전력공사)을 회사로, '한전'을 낱말로 넣어
+// "한국전력공사 한전"으로 찾았다(10-31 운영: 765kV 전력용변압기 신안성S/S 입찰).
+export function kepcoHint(name) {
+  const t = String(name ?? '');
+  const volt = (/(\d{2,3})\s*k[vV]/.exec(t) ?? [])[1];
+  const product = (/(변압기|차단기|개폐기|GIS|가스절연|리액터|전선|케이블|철탑|애자|변성기|계량기|조상설비|STATCOM|ESS)/.exec(t) ?? [])[1];
+  return hint('한전', [volt ? `${volt}kV` : null, product, '발주'], volt ? [`${volt}kV`] : []);
 }
 // 굴뚝 측정: 사업장 지명을 검색에 넣고, 그 지명이 없는 기사는 같은 사건으로 치지 않는다(10-31: 포스코 광양 배출구 멈춤 ↔ 포항제철소 기사)
 export function stackHint(e) {
@@ -257,7 +266,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
     const won = (v) => `약 ${Math.round(v / 1e8).toLocaleString('en-US')}억원`;
     push(big ? 'B' : 'C', W['kr-signals'], { kind: '한전 입찰', id: x.id, date: nd, company: x.company,
       fact: `한전 전자입찰 ${x.company} 「${x.name}」${n > 1 ? ` 외 같은 공고 ${n - 1}건(합계 ${won(sum)})` : ''} · 추정가격 ${x.price ? won(x.price) : '미기재'} · ${x.state}`,
-      check: hint(x.company, ['한전', '수주']) });
+      check: kepcoHint(x.name) });
   }
   for (const x of ks?.motir ?? []) {
     if (!(all || String(x.date ?? '') >= cutDay)) continue;
@@ -533,8 +542,11 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
   const ab = docs['assembly-bills'];
   for (const g of groupBillEvents(ab, { all: true })) {
     if (!recent(g.detectedAt)) continue;
-    push(g.core ? 'B' : 'C', W['assembly-bills'], { kind: g.kind === '발의' ? '법안 발의' : `법안 ${g.kind}`, id: g.id, date: g.date,
-      company: g.core ?? '', fact: billLine(g), url: g.urls[0], check: g.core ? hint(g.law, ['개정안', g.leads[0]]) : undefined });
+    // 소관위 회부는 발의 며칠 뒤 모든 법안이 거치는 절차라 참고(C) — 발의 줄이 이미 B로 떠 있다(10-31: 대외무역법·산업기술보호법이 발의·회부로 두 번씩 B).
+    // 보도 대조는 대표발의 의원 이름이 기사에 있어야 같은 법안으로 친다(같은 주에 같은 법 개정안이 여럿 나온다).
+    const tier = g.core && g.kind !== '소관위 회부' ? 'B' : 'C';
+    push(tier, W['assembly-bills'], { kind: g.kind === '발의' ? '법안 발의' : `법안 ${g.kind}`, id: g.id, date: g.date,
+      company: g.core ?? '', fact: billLine(g), url: g.urls[0], check: tier === 'B' ? hint(g.law, ['개정안', g.leads[0]], [], g.leads) : undefined });
   }
 
   const pw = docs['page-watch'];
