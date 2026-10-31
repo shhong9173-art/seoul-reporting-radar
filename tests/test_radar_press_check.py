@@ -176,6 +176,28 @@ class HeadlineRule(unittest.TestCase):
         old = dict(item, check={k: v for k, v in item["check"].items() if k != "places"})
         self.assertEqual(self.one(old, [csr])["verdict"], "관련 보도 있음")
 
+    def test_stack_item_needs_the_site_city(self):
+        # 운영 10-31 09:18: 포스코 광양제철소 배출구 멈춤(B)이 '포스코 포항제철소 … 설비 장애 감소' 기사로 '관련 보도 있음'
+        item = {"tier": "B", "watch": "굴뚝 측정(공장 가동 신호)", "id": "stk:stop:포스코:광양", "date": "2026-10-27T09:17:00+09:00", "company": "포스코",
+                "check": {"who": "포스코", "terms": ["광양", "가동 중단", "정비"], "alts": {}, "places": ["광양"], "must": ["광양"]}}
+        pohang = art("포스코 포항제철소, 현장 혁신으로 설비 장애 감소·안전 강화", "2026-10-27", "설비 가동 중단을 줄이고 정비 체계를 바꿨다.")
+        r = self.one(item, [pohang])
+        self.assertEqual(r["verdict"], "미보도 후보")
+        self.assertIn("사업장 지명(광양) 없음", r["evidence"][0]["why"])
+        r = self.one(item, [pohang, art("포스코 광양제철소 3고로 정비 들어가", "2026-10-28")])
+        self.assertEqual(r["verdict"], "관련 보도 있음")
+        self.assertEqual(rpc.candidates([item], now=NOW)[0]["must"], ["광양"])
+
+    def test_workforce_increase_is_not_matched_by_common_words(self):
+        # 운영 10-31 09:18: 기아 가입자 증가(채용 낱말에 고용·인력이 들어 있었음)가 공장 재편 기사로 '관련 보도 있음'
+        hire = ["채용", "증원", "충원", "신입", "공채", "인력 확대", "인원 확대", "인력 증가", "인원 증가"]
+        item = {"tier": "B", "watch": "사업장 인력(국민연금)", "id": "wf:delta:기아", "date": "2026-10-27", "company": "기아",
+                "check": {"who": "기아", "terms": ["채용"], "alts": {"채용": hire}}}
+        r = self.one(item, [art("'효율·고용' 절충…현대차·기아 공장 재편안 나왔다", "2026-10-27")])
+        self.assertEqual(r["verdict"], "미보도 후보")
+        r = self.one(item, [art("기아, 하반기 생산직 신입 500명 채용", "2026-10-28")])
+        self.assertEqual(r["verdict"], "관련 보도 있음")
+
     def test_places_join_the_generic_words_per_item(self):
         rows = rpc.candidates([{"tier": "B", "watch": "해외 발주처 낙찰", "id": "bhopen:1:LS전선", "date": "2026-10-30", "company": "LS전선",
                                 "check": {"who": "LS전선", "terms": ["바레인", "입찰"], "alts": {}, "places": ["바레인", "공장"]}}], now=NOW)
