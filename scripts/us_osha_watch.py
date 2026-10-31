@@ -224,7 +224,8 @@ def run(*, now, key, previous=None, get=None, sleep=time.sleep):
                            "desc": acc.get(s, {}).get("event_desc"), "abstract": str(acc.get(s, {}).get("abstract_text") or "")[:600]} for s in sums]
         old = prev.get(x["id"], {})
         x["firstSeen"] = old.get("firstSeen") or stamp
-        x["isNew"] = had_state and not old
+        # [신규]는 이번에 처음 본 것 중 개시가 최근인 것만(공장 주소 질의를 새로 붙여 처음 잡힌 옛 하도급 점검은 아님 — 운영 11-01)
+        x["isNew"] = had_state and not old and x["opened"] >= (now.date() - dt.timedelta(days=RECENT_DAYS)).isoformat()
     chunks = len(range(0, len(LIKES), CHUNK))
     insp_errors = sum(1 for e in errors if e.startswith("점검 "))
     inspections_failed = insp_errors >= chunks and not rows
