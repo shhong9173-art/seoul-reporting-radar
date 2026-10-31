@@ -321,20 +321,42 @@ def tsb_zip(lines):
     return b.getvalue()
 
 
-# 11-01 탐침 모양: 통신 종류 칸은 빗금 둘레에 띄어쓰기가 없다. 한 통신이 차종×연식마다 한 줄.
+# 11-01 탐침·운영 모양: 통신 종류 칸은 빗금 둘레에 띄어쓰기가 없다. 한 통신이 차종×연식마다 한 줄, 한 캠페인이 문서 여러 건.
+ICCU = "Kia is extending the New Vehicle Limited Warranty coverage for the Integrated Charging Control Unit (ICCU) to 15 years / 150,000 miles."
 TSB = [
-    tsb("11012001", "HYUNDAI", "IONIQ 5", "2023", "Warranty Program/Extension", "Warranty extension for the Integrated Charging Control Unit (ICCU) to 15 years."),
-    tsb("11012001", "HYUNDAI", "IONIQ 5", "2024", "Warranty Program/Extension", "same"),
-    tsb("11012001", "HYUNDAI", "IONIQ 6", "2023", "Warranty Program/Extension", "same"),
-    tsb("11012002", "KIA", "SORENTO", "2026", "Service Campaign", "Service campaign to update the trailer hitch module.", campaign="SC123"),
-    tsb("11012003", "GENESIS", "GV70", "2025", "Service Bulletin/Repair Instructions", "Vehicle may stall at low speed; reprogram the ECM.", comp="POWER TRAIN"),
-    tsb("11012004", "HYUNDAI", "TUCSON", "2025", "Service Bulletin/Repair Instructions", "Radio display software update."),
-    tsb("11012005", "CHEVROLET", "TRAX", "2025", "Service Bulletin/Repair Instructions", "Brake pedal feel; adjust."),
-    tsb("11012005", "CHEVROLET", "SILVERADO", "2025", "Service Bulletin/Repair Instructions", "Brake pedal feel; adjust."),
-    tsb("11012006", "CHEVROLET", "TRAILBLAZER", "2025", "Service Campaign", "Seat belt anchor inspection."),
-    tsb("11012007", "KIA", "EV9", "2025", "Warranty Program / Extension", "Warranty extension for the 12V auxiliary battery doesn\u00e2\u0080\u0099t charge."),
-    tsb("11012008", "FORD", "ESCAPE", "2025", "Service Campaign", "Not ours."),
-    tsb("11011000", "KIA", "K5", "2025", "Service Campaign", "Too old.", added="20260301"),
+    tsb("11012001", "KIA", "EV6", "2023", "Warranty Program/Extension", "WARRANTY EXTENSION CAMPAIGN: OWNER NOTIFICATION (WTY050) - " + ICCU, doc="WTY050_OWNR", campaign="WTY050"),
+    tsb("11012001", "KIA", "EV6", "2024", "Warranty Program/Extension", "same", doc="WTY050_OWNR", campaign="WTY050"),
+    tsb("11012002", "KIA", "EV6", "2023", "Warranty Program/Extension", "WARRANTY EXTENSION CAMPAIGN: DEALER PRINCIPAL MEMO (WTY050) - " + ICCU,
+        doc="WTY050_DP", campaign="WTY050"),
+    tsb("11012003", "KIA", "EV6", "2023", "Warranty Program/Extension", "WARRANTY EXTENSION CAMPAIGN: REIMBURSEMENT FORM (WTY050) - This document is a "
+        "Reimbursement Request form that was mailed with the customer letter.", doc="WTY050_REIMB", campaign="WTY050", added="20261021"),
+    tsb("11012004", "KIA", "STINGER", "2022", "Warranty Program/Extension", "WARRANTY EXTENSION CAMPAIGN: OWNER NOTIFICATION (WTY046) - Kia is extending "
+        "the New Vehicle Limited Warranty coverage for the HVAC blower motor from 5 years / 60,000 miles to 15 years / 180,000 miles.", doc="WTY046_OWNR",
+        campaign="WTY046", comp="ELECTRICAL SYSTEM"),
+    tsb("11012005", "KIA", "SORENTO", "2026", "Service Campaign", "VOLUNTARY SERVICE CAMPAIGN: OWNER NOTIFICATION (SC380) - replace the trailer hitch module.",
+        doc="SC380_OWNR", campaign="SC380"),
+    tsb("11012006", "KIA", "SORENTO", "2017", "Service Campaign", "VOLUNTARY SERVICE CAMPAIGN: OWNER RENOTIFICATION (SC330 Flight 301) - replace the "
+        "multi-function switch knob.", doc="SC330_OWNR_301", campaign="SC330"),
+    tsb("11012007", "GENESIS", "GV80", "2025", "Warranty Program/Extension", "Certain GV80 vehicles may not display the navigation map on the cluster.",
+        doc="26-01-084G TSB", campaign="L22G"),
+    tsb("11012008", "GENESIS", "GV80", "2025", "Warranty Program/Extension", "Certain GV80 vehicles may not display the navigation map.", doc="26-01-084G DL",
+        campaign="L22G"),
+    tsb("11012009", "HYUNDAI", "IONIQ 5", "2025", "Warranty Program/Extension", "False battery overtemperature fault caused by water ingress into the high "
+        "voltage battery system; update the BMS software.", doc="26-01-082H TSB", campaign="LA42", comp="ENGINE"),
+    tsb("11012010", "HYUNDAI", "PALISADE", "2026", "Warranty Program/Extension", "Check Active Air Flap System warning, Engine MIL ON and/or Low Engine Oil "
+        "warning due to water ingress at the AAF wiring.", doc="26-01-026H-1 TSB", campaign="LA13", comp="ENGINE"),
+    tsb("11012011", "GENESIS", "GV70", "2025", "Service Bulletin/Repair Instructions", "Vehicle may stall at low speed; reprogram the ECM.", doc="26-01-090G"),
+    tsb("11012012", "HYUNDAI", "TUCSON", "2025", "Service Bulletin/Repair Instructions", "Radio display software update.", doc="26-AV-011H"),
+    tsb("11012013", "CHEVROLET", "TRAX", "2025", "Service Bulletin/Repair Instructions", "Vehicle may stall; reprogram.", doc="25-NA-123"),
+    tsb("11012013", "CHEVROLET", "SILVERADO", "2025", "Service Bulletin/Repair Instructions", "Vehicle may stall; reprogram.", doc="25-NA-123"),
+    tsb("11012014", "BUICK", "ENCORE GX", "2022", "Warranty Program/Extension", "Special Coverage. Certain 2022 Encore GX and Trailblazer vehicles may have a "
+        "condition that could cause the turbocharger to fail. This special coverage covers the condition for 15 years or 150,000 miles.",
+        doc="N242484750-02", campaign="N242484750-02", comp="ENGINE"),
+    tsb("11012014", "CHEVROLET", "TRAILBLAZER", "2022", "Warranty Program/Extension", "same", doc="N242484750-02", campaign="N242484750-02", comp="ENGINE"),
+    tsb("11012015", "KIA", "EV9", "2025", "Warranty Program / Extension", "Warranty extension for the 12V auxiliary battery doesn\u00e2\u0080\u0099t charge.",
+        doc="WTY051_OWNR", campaign="WTY051"),
+    tsb("11012016", "FORD", "ESCAPE", "2025", "Service Campaign", "Not ours.", doc="F1"),
+    tsb("11011000", "KIA", "K5", "2025", "Service Campaign", "Too old.", added="20260301", doc="SC100_OWNR", campaign="SC100"),
     "short\tline",
 ]
 
@@ -350,38 +372,60 @@ def tget(lines=None, status=200, seen=None):
 
 
 class Tsbs(unittest.TestCase):
-    def test_tiers_grouping_and_links(self):
+    def test_campaign_groups_tiers_and_links(self):
         doc, check = tb.collect(NOW, None, get=tget())
-        self.assertEqual((check["status"], check["rows"], check["new"]), ("ok", 7, 0))
+        self.assertEqual((check["status"], check["rows"], check["campaigns"], check["new"]), ("ok", 15, 12, 0))
         by = {x["id"]: x for x in doc["items"]}
-        self.assertNotIn("11012008", by)   # 출입처 아님
-        self.assertNotIn("11011000", by)   # 120일 밖
-        iccu = by["11012001"]
-        self.assertEqual((iccu["tier"], iccu["kindName"], iccu["companies"], iccu["modelCount"]), ("A", "보증 연장·보증 프로그램", ["현대차"], 2))
-        self.assertEqual(iccu["models"], [{"model": "IONIQ 5", "years": ["2023", "2024"]}, {"model": "IONIQ 6", "years": ["2023"]}])
-        self.assertEqual(iccu["url"], "https://static.nhtsa.gov/odi/tsbs/2026/MC-11012001-0001.pdf")
-        self.assertEqual((by["11012002"]["tier"], by["11012002"]["campaign"]), ("B", "SC123"))
-        self.assertEqual((by["11012003"]["tier"], by["11012003"]["brands"], by["11012003"]["companies"]), ("B", ["제네시스"], ["현대차"]))
-        self.assertEqual(by["11012004"]["tier"], "C")
-        self.assertEqual((by["11012005"]["tier"], by["11012005"]["otherRows"]), ("C", 1))   # GM 공통 통신
-        self.assertEqual((by["11012006"]["tier"], by["11012006"]["companies"]), ("B", ["한국GM"]))
-        ev9 = by["11012007"]
-        self.assertEqual((ev9["type"], ev9["tier"]), ("WARRANTY PROGRAM/EXTENSION", "A"))   # 띄어쓴 종류 이름도 같게
+        self.assertEqual(sorted(by), ["GM:N242484750-02", "GM:doc:25-NA-123", "HMA:L22G", "HMA:LA13", "HMA:LA42", "HMA:doc:26-01-090G", "HMA:doc:26-AV-011H",
+                                      "KIA:SC330", "KIA:SC380", "KIA:WTY046", "KIA:WTY050", "KIA:WTY051"])
+        self.assertNotIn("KIA:SC100", by)   # 120일 밖
+        iccu = by["KIA:WTY050"]
+        self.assertEqual((iccu["tier"], iccu["kindName"], iccu["docCount"], iccu["ids"]), ("A", "보증 연장", 3, ["11012001", "11012002", "11012003"]))
+        self.assertEqual((iccu["doc"], iccu["added"], iccu["lastAdded"]), ("WTY050_DP", "2026-10-20", "2026-10-21"))   # 환급 양식 말고 가장 긴 통지문 요약
+        self.assertEqual(iccu["models"], [{"model": "EV6", "years": ["2023", "2024"]}])
+        self.assertEqual(iccu["url"], "https://static.nhtsa.gov/odi/tsbs/2026/MC-11012002-0001.pdf")
+        self.assertEqual((by["KIA:WTY046"]["tier"], by["KIA:WTY046"]["kindName"]), ("B", "보증 연장"))   # 공조 송풍 모터는 동력계통 아님
+        self.assertEqual((by["KIA:SC380"]["tier"], by["KIA:SC380"]["kindName"]), ("B", "서비스 캠페인"))
+        self.assertEqual((by["KIA:SC330"]["tier"], by["KIA:SC330"].get("renotice")), ("C", True))      # 지난 캠페인 재통지
+        self.assertEqual((by["HMA:L22G"]["tier"], by["HMA:L22G"]["docCount"], by["HMA:L22G"]["brands"]), ("C", 2, ["제네시스"]))
+        self.assertEqual(by["HMA:LA42"]["tier"], "B")    # 고전압 배터리 침수 — 보증 연장 문구는 없음
+        self.assertEqual(by["HMA:LA13"]["tier"], "C")    # 분류 칸 'ENGINE'만으로는 안 올림
+        self.assertEqual(by["HMA:doc:26-01-090G"]["tier"], "B")
+        self.assertEqual(by["HMA:doc:26-AV-011H"]["tier"], "C")
+        self.assertEqual((by["GM:doc:25-NA-123"]["tier"], by["GM:doc:25-NA-123"]["otherRows"]), ("C", 1))   # GM 공통 통신
+        gm = by["GM:N242484750-02"]
+        self.assertEqual((gm["tier"], gm["companies"], gm["modelCount"]), ("A", ["한국GM"], 2))           # 한국 생산 차종만의 터보 특별 보증
+        ev9 = by["KIA:WTY051"]
+        self.assertEqual((ev9["type"], ev9["tier"]), ("WARRANTY PROGRAM/EXTENSION", "B"))   # 띄어쓴 종류 이름도 같게, 12V 보조 배터리는 동력계통 아님
         self.assertIn("doesn\u2019t", ev9["summary"])
         self.assertTrue(all(not x["isNew"] for x in doc["items"]))
 
-    def test_new_ids_after_baseline_and_failure_keeps_previous(self):
+    def test_new_campaigns_after_baseline_not_new_documents(self):
         first, _ = tb.collect(NOW, None, get=tget())
-        more = TSB + [tsb("11012100", "KIA", "TELLURIDE", "2026", "Warranty Program/Extension", "Engine warranty extension.", added="20261027")]
+        more = TSB + [tsb("11012100", "KIA", "TELLURIDE", "2026", "Warranty Program/Extension", "WARRANTY EXTENSION CAMPAIGN (WTY052): Kia is extending the "
+                          "warranty for engine damage caused by connecting rod bearing wear.", added="20261027", doc="WTY052_OWNR", campaign="WTY052"),
+                      tsb("11012101", "KIA", "EV6", "2023", "Warranty Program/Extension", "WARRANTY EXTENSION CAMPAIGN: QUESTION AND ANSWER (WTY050)",
+                          added="20261027", doc="WTY050_QA", campaign="WTY050")]
         second, check = tb.collect(NOW + dt.timedelta(days=1), first, get=tget(more))
         new = [x["id"] for x in second["items"] if x["isNew"]]
-        self.assertEqual((new, check["new"]), (["11012100"], 1))
-        old = next(x for x in second["items"] if x["id"] == "11012001")
-        self.assertEqual(old["firstSeen"], next(x for x in first["items"] if x["id"] == "11012001")["firstSeen"])
+        self.assertEqual((new, check["new"]), (["KIA:WTY052"], 1))            # 이미 본 캠페인의 새 문서(Q&A)는 신규 아님
+        tel = next(x for x in second["items"] if x["id"] == "KIA:WTY052")
+        self.assertEqual(tel["tier"], "A")
+        iccu = next(x for x in second["items"] if x["id"] == "KIA:WTY050")
+        self.assertEqual((iccu["docCount"], iccu["firstSeen"]), (4, next(x for x in first["items"] if x["id"] == "KIA:WTY050")["firstSeen"]))
         self.assertEqual(second["baselineSince"], first["baselineSince"])
         down, dcheck = tb.collect(NOW + dt.timedelta(days=2), second, get=tget(status=503))
         self.assertEqual((dcheck["status"], len(down["items"]), down["stale"]), ("failed", len(second["items"]), True))
         self.assertFalse(any(x["isNew"] for x in down["items"]))
+
+    def test_first_result_with_one_item_per_document_migrates_without_new_flags(self):
+        # 11-01 첫 운영 결과는 문서 한 건씩(id=NHTSA ID, seen=NHTSA ID) — 묶음으로 바뀌어도 이미 본 문서의 캠페인은 신규가 아니고 처음 본 날을 잇는다
+        legacy = {"baselineSince": "2026-11-01T12:36:00+09:00", "seen": [f"110120{i:02d}" for i in range(1, 16)],
+                  "items": [{"id": "11012001", "firstSeen": "2026-11-01T12:36:00+09:00", "added": "2026-10-20"}]}
+        doc, check = tb.collect(NOW + dt.timedelta(days=4), legacy, get=tget())
+        self.assertEqual(check["new"], 0)
+        self.assertFalse(any(not x.get("ids") for x in doc["items"]))
+        self.assertEqual(next(x for x in doc["items"] if x["id"] == "KIA:WTY050")["firstSeen"], "2026-11-01T12:36:00+09:00")
 
     def test_spans_and_missing_files(self):
         self.assertEqual(tb.spans(NOW), ["2025-2026", "2026-2027"])
@@ -392,7 +436,7 @@ class Tsbs(unittest.TestCase):
     def test_run_carries_tsbs(self):
         doc = w.run(now=NOW, previous=None, get=fake(), sleep=lambda s: None)
         self.assertEqual(next(c for c in doc["checks"] if c["source"] == "NHTSA 제조사 통신(TSB)")["status"], "ok")
-        self.assertEqual(len(doc["tsbs"]["items"]), 7)
+        self.assertEqual(len(doc["tsbs"]["items"]), 12)
 
 
 if __name__ == "__main__":
