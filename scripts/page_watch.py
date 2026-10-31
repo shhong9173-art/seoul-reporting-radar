@@ -50,6 +50,23 @@ PATTERNS = {
                          r"Tucson|Elantra|Sonata|Kona|Venue|Telluride|Sorento|Sportage|Seltos|Carnival|Niro|K4|K5|Soul|Electrified\s+G\w+)"
                          r"(?:\s+(?:\d|N|Hybrid|Plug-in Hybrid|Electric|XRT|X-Pro|Line|GT)){0,2}\b"),
 }
+# 가격 줄 앞(160자 안)의 가장 가까운 차명 — 차종 목록 페이지의 가격만 바뀌면 어느 차인지 모른다(10-31 운영: 현대차 미국 차종 목록
+# '$26,900 / $27,450 / $29,200 → $27,600 / $29,450 Starting MSRP'). 페이지 배치에 따른 추정이라 '근처 차명'으로만 적는다.
+MODEL_NAME = re.compile(r"\b(?:IONIQ|Ioniq)\s*\d(?:\s+N)?\b|\b(?:EV\d|GV\d{2}|G\d{2}|K4|K5)\b(?:\s+GT)?|"
+                        r"\b(?:Palisade|Santa\s+Fe|Santa\s+Cruz|Tucson|Elantra|Sonata|Kona|Venue|Telluride|Sorento|Sportage|Seltos|Carnival|Niro|Soul)\b"
+                        r"(?:\s+(?:Plug-in\s+Hybrid|Hybrid|Electric|N\s+Line|N|XRT|X-Pro))?", re.I)
+
+
+def price_models(text):
+    out = {}
+    for m in PATTERNS["price"].finditer(text):
+        line = re.sub(r"\s+", " ", m.group(0)).strip().lower()
+        names = list(MODEL_NAME.finditer(text[max(0, m.start() - 160):m.start()]))
+        if names and line not in out:
+            out[line] = re.sub(r"\s+", " ", names[-1].group(0)).strip()
+    return out
+
+
 CATEGORY_KO = {"timing": "출시 시점", "limited": "한정 물량", "price": "가격", "status": "판매 상태", "models": "연식·차명"}
 
 
@@ -202,6 +219,7 @@ def run(pages, *, now, previous=None, get=None, sleep=time.sleep):
             continue
         text = visible_text(res["html"])
         raw[p["id"]] = signals(text)
+        rec["priceModels"] = price_models(text)
         rec.update(status="ok", finalUrl=final, hash=hashlib.sha256(text.encode()).hexdigest()[:16], lastOk=stamp, textLength=len(text))
         if old and old.get("status") == "redirected":
             rec["openedFrom"] = old.get("finalUrl") or "다른 주소"
@@ -260,9 +278,14 @@ def run(pages, *, now, previous=None, get=None, sleep=time.sleep):
             if base is not None:
                 added, removed = diff(base, own)
                 if added or removed:
-                    events.append({"pageId": pid, "scope": "page", "company": rec["company"], "label": rec["label"],
-                                   "url": rec["url"], "detectedAt": stamp, "baselineSource": src, "baselineDate": day,
-                                   "added": added, "removed": removed})
+                    ev = {"pageId": pid, "scope": "page", "company": rec["company"], "label": rec["label"],
+                          "url": rec["url"], "detectedAt": stamp, "baselineSource": src, "baselineDate": day,
+                          "added": added, "removed": removed}
+                    near = {**((old or {}).get("priceModels") or {}), **(rec.get("priceModels") or {})}
+                    pm = {x.lower(): near[x.lower()] for x in added.get("price", []) + removed.get("price", []) if x.lower() in near}
+                    if pm:
+                        ev["priceModels"] = pm
+                    events.append(ev)
     events.sort(key=lambda e: e["detectedAt"], reverse=True)
     failed = [p for p in out_pages if p["status"] == "failed"]
     return {"schema": SCHEMA, "generatedAt": stamp,

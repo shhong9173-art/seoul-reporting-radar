@@ -575,9 +575,11 @@ test('page_changes shows before/after lines from the private page-watch feed', a
     pages: [{ id: 'hyundai-us-ioniq-6-n', company: '현대차', label: '현대차 미국 아이오닉6 N', url: 'https://www.hyundaiusa.com/us/en/vehicles/ioniq-6-n', status: 'ok',
       signals: { timing: ['Coming Spring 2027'], limited: ['extremely limited availability'] } },
       { id: 'kia-us-ev4', company: '기아', label: '기아 미국 EV4', url: 'https://www.kia.com/us/en/ev4', status: 'failed', error: 'HTTP 403' }],
-    events: [{ pageId: 'hyundai-us-ioniq-6-n', company: '현대차', label: '현대차 미국 아이오닉6 N', url: 'https://www.hyundaiusa.com/us/en/vehicles/ioniq-6-n',
+    events: [{ pageId: 'hyundai-us-ioniq-6-n', scope: 'page', company: '현대차', label: '현대차 미국 아이오닉6 N', url: 'https://www.hyundaiusa.com/us/en/vehicles/ioniq-6-n',
       detectedAt: '2026-10-26T06:30:00+09:00', baselineSource: '웹 아카이브 사본', baselineDate: '2026-09-10',
-      added: { timing: ['Coming Spring 2027'], limited: ['extremely limited availability'] }, removed: { timing: ['Coming 2026'] } }] };
+      added: { timing: ['Coming Spring 2027'], limited: ['extremely limited availability'], price: ['$27,600 * Starting MSRP'] },
+      removed: { timing: ['Coming 2026'], price: ['$26,900 * Starting MSRP'] },
+      priceModels: { '$27,600 * starting msrp': 'ELANTRA', '$26,900 * starting msrp': 'ELANTRA' } }] };
   const post = await worker.fetch(new Request(ORIGIN + '/ingest/page-watch', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {});
   assert.equal(post.status, 200);
   const r = await call('page_changes', { show_current: true }, { path: `/mcp/${TOKEN}`, env });
@@ -586,6 +588,12 @@ test('page_changes shows before/after lines from the private page-watch feed', a
   assert.match(r.text, /비교 기준: 웹 아카이브 사본 2026-09-10 → 2026-10-2/);
   assert.match(r.text, /− 출시 시점: Coming 2026/);
   assert.match(r.text, /\+ 출시 시점: Coming Spring 2027/);
+  assert.match(r.text, /− 가격: \$26,900 \* Starting MSRP\(근처 차명 ELANTRA\)/);  // 가격 줄에 페이지에서 그 앞 차명(10-31)
+  assert.match(r.text, /\+ 가격: \$27,600 \* Starting MSRP\(근처 차명 ELANTRA\)/);
+  const rt = await call('radar_today', { hours: 336 }, { path: `/mcp/${TOKEN}`, env });
+  assert.match(rt.text, /현대차 미국 아이오닉6 N 문구 변화: \+ Coming Spring 2027 \/ extremely limited availability \/ \$27,600 \* Starting MSRP\(근처 차명 ELANTRA\)/);
+  const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=336', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: new Date('2026-10-27T00:00:00Z') })).json();
+  assert.deepEqual(items.items.find((x) => x.watch === '해외 공식 페이지')?.check?.terms, ['아반떼', '가격', '미국']);  // 근처 차명으로 질의
   assert.match(r.text, /현대차 미국 아이오닉6 N: Coming Spring 2027 · extremely limited availability/);
 });
 

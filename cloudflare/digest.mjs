@@ -279,7 +279,9 @@ function opinionHint(x) {
 }
 function pageHint(e, added) {
   if (!/\$\s?\d/.test(added)) return undefined;  // price lines only; other wording changes have no reliable search words
-  const model = (/\b([A-Z]{1,4}\d{1,2}[A-Za-z]?)\b/.exec(String(e.label ?? '')) ?? [])[1];
+  // 차종 목록 페이지는 가격 줄 근처 차명(국문으로)으로 찾는다 — 없으면 페이지 이름의 차명(아이오닉6 N 등)
+  const near = Object.values(e.priceModels ?? {})[0];
+  const model = (near ? usRecallModels(near)[0] : undefined) ?? (/\b([A-Z]{1,4}\d{1,2}[A-Za-z]?)\b/.exec(String(e.label ?? '')) ?? [])[1];
   return hint(e.company, [model, '가격', '미국']);
 }
 
@@ -693,7 +695,9 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
   const pw = docs['page-watch'];
   for (const e of pw?.events ?? []) {
     if (!recent(e.detectedAt)) continue;
-    const added = Object.values(e.added ?? {}).flat().slice(0, 3).join(' / ');
+    // 가격 줄에는 페이지에서 그 앞 차명(배치로 추정)을 붙인다(10-31: 현대차 미국 차종 목록 가격만 바뀌어 어느 차인지 몰랐다)
+    const added = Object.entries(e.added ?? {}).flatMap(([cat, list]) => list.map((x) => (cat === 'price' && e.priceModels?.[String(x).toLowerCase()]
+      ? `${x}(근처 차명 ${e.priceModels[String(x).toLowerCase()]})` : x))).slice(0, 3).join(' / ');
     // 다른 주소로 넘어가던 페이지의 예전 '변경'은 넘어간 곳의 문구(10-31: kia.com/us/en/ev4 → 기아 미국 홈페이지) — C
     const tier = e.redirectNote ? 'C' : e.scope === 'page' ? 'A' : 'C';
     const what = e.kind === 'moved' ? ` 페이지 넘어감 → ${e.movedTo}(차종 페이지 내림·판매 중단·개편 가능성)`
