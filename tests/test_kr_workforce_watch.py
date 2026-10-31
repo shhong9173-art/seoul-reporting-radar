@@ -218,6 +218,18 @@ class WorkforceTest(unittest.TestCase):
 
 
 
+class DeltaTier(unittest.TestCase):
+    def test_small_rise_is_reference_small_drop_stays_b(self):
+        # 10-31 운영: 한화솔루션 울산1 521→536(+15)이 B '미보도 후보'로 떴다 — 늘어난 변동은 참고(C), 줄어든 변동은 B
+        site = {"name": "한화솔루션(주) 울산1", "region": "31140",
+                "history": {"202608": {"members": 521}, "202609": {"members": 536, "acq": 17, "loss": 4}}}
+        self.assertEqual(w.delta_event(site, "202609")[:2], ("C", "인력 변동"))
+        site["history"]["202609"]["members"] = 506
+        self.assertEqual(w.delta_event(site, "202609")[:2], ("B", "인력 변동"))
+        site["history"]["202609"]["members"] = 600  # +79 ≥ max(30, 3%) → 인력 증가 B
+        self.assertEqual(w.delta_event(site, "202609")[:2], ("B", "인력 증가"))
+
+
 class GatewayRetry(unittest.TestCase):
     def test_gateway_timeout_is_retried_once_but_key_errors_are_not(self):
         # 10-30 운영: '지난 달 채우기 코드 05'(SERVICE_TIMEOUT)로 그 실행 검색이 일부 실패
