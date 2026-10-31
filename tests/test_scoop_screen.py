@@ -342,6 +342,27 @@ class Screen(unittest.TestCase):
         with patch.dict(os.environ, {"NAVER_CLIENT_ID": "i", "NAVER_CLIENT_SECRET": "k"}):
             rows, _ = s.check_corrections([row], now=now, get=hit, sleep=lambda x: None)
         self.assertEqual(rows[0]["correctionCheck"]["verdict"], "관련 보도 있음")
+        # 가이던스 정정(공정공시): '하향' 낱말, 실적 기사의 '매출 축소'는 근거가 아니고, 제목에 사업 낱말이 있는 기사가 앞
+        guide = {"id": "clue:hm", "kind": "단서", "company": "현대차", "title": "현대자동차 · [기재정정]장래사업ㆍ경영계획(공정공시)",
+                 "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261029800231", "published": "2026-10-29", "terms": ["가이던스"],
+                 "alts": {}, "verdict": "관련 보도 있음",
+                 "filing": {"type": "공정공시", "correction": {"reason": "2026년 가이던스 업데이트", "material": ["예상투자금액 -10%"]}}}
+        self.assertEqual(s.correction_check_of(guide)["queries"], ["현대차 가이던스", "현대차 가이던스 하향"])
+
+        def news(url, params=None, headers=None, timeout=None):
+            if "naverapihub" in url:  # 10-31 운영에서 실제로 잡힌 제목들
+                return R(200, {"items": [
+                    {"title": "파업 차질 현실화…현대차, 3분기 영업익 늘었지만 매출 축소", "description": "연간 가이던스는 유지",
+                     "originallink": "https://n/strike", "pubDate": "Thu, 29 Oct 2026 15:00:00 +0900"},
+                    {"title": "현대차, 매출 줄었지만 영업익 증가…연간 목표 판매량은 '하향조정'", "description": "가이던스를 낮췄다",
+                     "originallink": "https://n/hk", "pubDate": "Thu, 29 Oct 2026 16:00:00 +0900"},
+                    {"title": "현대차, 2026년 연간 영업이익률 가이던스 하향 조정", "description": "",
+                     "originallink": "https://n/g", "pubDate": "Fri, 30 Oct 2026 09:00:00 +0900"}]})
+            return R(200, content=b"<rss><channel></channel></rss>")
+        with patch.dict(os.environ, {"NAVER_CLIENT_ID": "i", "NAVER_CLIENT_SECRET": "k"}):
+            rows, _ = s.check_corrections([guide], now=now, get=news, sleep=lambda x: None)
+        g = rows[0]["correctionCheck"]
+        self.assertEqual((g["word"], g["verdict"], [e["url"] for e in g["evidence"]]), ("하향", "관련 보도 있음", ["https://n/g", "https://n/hk"]))
         # 낱말 고르기: 해지 > 금액 > 기간, 취득완료로 당겨지면 '완료'
         self.assertEqual(s.change_word({"material": ["계약금액 -40%", "사유에 해지·취소"]}), "해지")
         self.assertEqual(s.change_word({"material": ["예상투자금액 -10%"]}), "감액")
