@@ -513,8 +513,17 @@ def main():
         if e.get("isNew"):
             tiers[e["tier"]] = tiers.get(e["tier"], 0) + 1
     c = doc["counts"]
+    bad = [x for x in doc["checks"] if x["status"] != "ok"]
+    # 실패 원인 예(오류 종류만 — 공고 내용·키는 싣지 않음). 10-31(토) 실행이 34곳 중 1곳만 정상이었는데 원인이 로그에 없었다.
+    sample, errs = [], set()
+    for x in bad:  # 서로 다른 오류만 3가지까지
+        err = str(x.get("error") or x["status"])[:40]
+        if err not in errs and len(sample) < 3:
+            errs.add(err)
+            sample.append(f"{x['source']}({err})")
+    why = f" · 미확인 {len(bad)}곳 예: {', '.join(sample)}" if bad else ""
     print(f"::notice title=kr-insolvency::상태 {doc['status']} · 원천 {ok}/{len(doc['checks'])} 정상 · 공고 {c['notices']}건(주요 단계 {sum(c['keyKinds'].values())}) · "
-          f"업종 조회 {c['lookups']}(대기 {c['pending']}) · 새 항목 {tiers} · 보관 {len(doc['events'])}")
+          f"업종 조회 {c['lookups']}(대기 {c['pending']}) · 새 항목 {tiers} · 보관 {len(doc['events'])}{why}")
     if not token:
         print("::warning title=kr-insolvency-push::MCP_ACCESS_TOKEN 미설정 — 결과를 저장하지 않음")
         return
