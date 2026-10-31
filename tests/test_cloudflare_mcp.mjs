@@ -11,7 +11,7 @@ import { publicationDate, verifyEvidence } from '../cloudflare/evidence.mjs';
 import { allowedUrl } from '../cloudflare/live_tools.mjs';
 import { handleIngest } from '../cloudflare/screen.mjs';
 import { dueAt, nextSlot, runSchedule } from '../cloudflare/dispatch.mjs';
-import { background, billHint, clipAt, convergence, countForms, hint, usRecallHint, usRecallModels, kepcoHint, localWord, radarItems, siteCity, stackHint, workforceHint } from '../cloudflare/digest.mjs';
+import { background, billHint, clipAt, convergence, convergenceRows, countForms, hint, usRecallHint, usRecallModels, kepcoHint, localWord, radarItems, siteCity, stackHint, workforceHint } from '../cloudflare/digest.mjs';
 
 const ORIGIN = 'https://seoul-reporting-radar.shhong9173.workers.dev';
 const TOKEN = 'test-token-0123456789abcdef';
@@ -976,6 +976,24 @@ test('converging signals: background (workforce project, recent permit, stopped 
   assert.equal(convergence([...fresh, ...bg], { cut: Date.parse('2026-10-29T15:00:00Z') })[0].fresh, false);  // 10-30 00:00 KST부터면 10-29 공고는 새 항목 아님
   // 당진: 공사 현장 + 멈춘 굴뚝은 둘 다 배경이라 묶지 않는다
   assert.ok(!g.some((x) => x.place === '당진'));
+});
+
+test('converging signals: the new item comes first and background from one watch is one line (10-31 금호타이어 함평)', () => {
+  const g = { company: '금호타이어', place: '함평', items: [
+    { id: 'bg:wf:a', background: true, tier: 'A', watch: '사업장 인력(국민연금)', date: '2026-10-30T09:43:00+09:00', fact: '국민연금 공사 현장 「금호타이어함평공장정련동외철근콘크리트공사」 현장 1곳' },
+    { id: 'bg:wf:b', background: true, tier: 'A', watch: '사업장 인력(국민연금)', date: '2026-10-30T09:43:00+09:00', fact: '국민연금 공사 현장 「금호타이어 함평공장 정련동 외 건설공사」 현장 1곳' },
+    { id: 'bg:wf:c', background: true, tier: 'B', watch: '사업장 인력(국민연금)', date: '2026-10-30T09:43:00+09:00', fact: '국민연금 공사 현장 「금호타이어 함평공장 정련동의 건설공사」 현장 1곳' },
+    { id: 'clue:f42', tier: 'B', watch: '단독 후보 심사', date: '2026-10-27', fact: '금호타이어 · [기재정정]유형자산취득결정(자율공시) · 취득물건명 전라남도 함평군 빛그린국가산업단지' }] };
+  const { rows, more } = convergenceRows(g);
+  assert.equal(more, 0);
+  assert.deepEqual(rows.map((x) => x.id), ['clue:f42', 'bg:wf:a 외 2']);
+  assert.equal(rows[1].fact, '국민연금 공사 현장 3건 · 「금호타이어함평공장정련동외철근콘크리트공사」 · 「금호타이어 함평공장 정련동 외 건설공사」 · 「금호타이어 함평공장 정련동의 건설공사」');
+  assert.ok(rows[1].background);
+  // 배경이 한 건이면 그대로, 새 신호가 많으면 배경이 뒤로 밀려 '더' 줄로 센다
+  const many = { items: [...[1, 2, 3, 4].map((i) => ({ id: `n${i}`, tier: 'B', watch: `감시${i}`, date: `2026-10-2${i}`, fact: `새 항목 ${i}` })), g.items[0]] };
+  const r2 = convergenceRows(many);
+  assert.deepEqual(r2.rows.map((x) => x.id), ['n4', 'n3', 'n2', 'n1']);
+  assert.equal(r2.more, 1);
 });
 
 test('radar_today shows converging signals above the tiers', async () => {
