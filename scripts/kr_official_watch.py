@@ -240,6 +240,12 @@ def rule_sig(c):
 
 def factories(cfg, key, now, previous, *, get=None, sleep=time.sleep, deadline=None):
     prev = {x["id"]: x for x in (previous or {}).get("factories", []) if isinstance(x, dict) and x.get("id")}
+    # 앞 값을 저장하기 전(10-31 이전)에 생긴 고용 변경은 저장된 사건 글에서 앞 값을 읽는다('고용 856→690명')
+    for e in sorted((previous or {}).get("events") or [], key=lambda e: str(e.get("detectedAt") or "") if isinstance(e, dict) else ""):
+        m = re.search(r"(?:^|· )고용 ([\d,]+)→([\d,]+)명", str(e.get("text") or "")) if isinstance(e, dict) else None
+        old_f = prev.get(e.get("factoryId")) if m else None
+        if old_f is not None and old_f.get("employeesBefore") is None and old_f.get("employees") == int(m.group(2).replace(",", "")):
+            prev[e["factoryId"]] = dict(old_f, employeesBefore=int(m.group(1).replace(",", "")), employeesChangedOn=str(e.get("detectedAt") or "")[:10] or None)
     # A company is compared with the previous run only when its name rules are unchanged; otherwise this run is its new baseline.
     sigs = {c["company"]: rule_sig(c) for c in cfg["companies"]}
     prev_sigs = (previous or {}).get("ruleSigs") or {}

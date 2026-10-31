@@ -112,6 +112,10 @@ class Factory(unittest.TestCase):
         rv = next(e for e in back["events"] if e["kind"] == "등록 내용 변경")
         self.assertEqual(rv["tier"], "B")
         self.assertIn("고용 8,000→9,000명(직전 변경 " + (NOW + dt.timedelta(days=1)).date().isoformat() + " 9,000→8,000명을 되돌림", rv["text"])
+        # 앞 값을 저장하기 전에 생긴 변경(10-28 KG스틸)은 저장된 사건 글에서 앞 값을 읽는다
+        legacy = {**second, "factories": [{k: v for k, v in f.items() if k not in ("employeesBefore", "employeesChangedOn")} for f in second["factories"]]}
+        back2 = run(previous=legacy, now=NOW + dt.timedelta(days=5))
+        self.assertEqual(next(e for e in back2["events"] if e["kind"] == "등록 내용 변경")["tier"], "B")
         # 값이 그대로인 실행에도 직전 값은 들고 다닌다
         same = run(previous=second, posco=cut, now=NOW + dt.timedelta(days=2))
         f = next(x for x in same["factories"] if x["id"] == "fac:1")
