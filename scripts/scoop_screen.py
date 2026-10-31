@@ -39,6 +39,7 @@ WINDOW_DAYS = 365
 # Display/common names → aliases used in articles.
 ALIASES = {
     "현대차": ["현대차", "현대자동차"], "기아": ["기아"], "현대모비스": ["현대모비스"], "현대위아": ["현대위아"],
+    "한전": ["한전", "한국전력", "한국전력공사"],  # 한전 입찰 항목의 보도 대조(digest kepcoHint)
     "HL만도": ["HL만도", "만도"], "KG모빌리티": ["KG모빌리티", "KGM"], "한국타이어": ["한국타이어", "한국타이어앤테크놀로지"],
     "넥센타이어": ["넥센타이어"], "금호타이어": ["금호타이어"], "포스코홀딩스": ["포스코홀딩스"], "포스코": ["포스코"],
     "현대제철": ["현대제철"], "KG스틸": ["KG스틸"], "세아홀딩스": ["세아홀딩스"], "세아제강": ["세아제강"],
@@ -537,6 +538,10 @@ def judge(c, channels, *, now):
                 why, rank = f"같은 수치·단위·기간 및 사건 낱말({', '.join(num_hits[:2])}; {period}) — 동일 사건 최종 확인 필요", 2
             else:
                 why, rank = f"낱말({', '.join(term_hits[:3])}) — 동일 사건 미확정", 1
+            must = [m for m in c.get("must") or [] if m]
+            if rank and must and not any(m in text for m in must):
+                # 같은 법의 다른 의원 개정안 기사(10-31 운영: 박덕흠 전기사업법 개정안 ↔ 박성훈 개정안 기사)
+                why, rank = f"낱말({', '.join(term_hits[:3])})은 겹치나 {'·'.join(must[:3])} 없음 — 다른 건 기사일 수 있음", 0
             key = a.get("url") or a.get("title")
             if key not in evidence or evidence[key]["rank"] < rank:
                 evidence[key] = {"title": a.get("title", "")[:160], "url": a.get("url"), "date": a.get("date"),
