@@ -176,6 +176,25 @@ class HeadlineRule(unittest.TestCase):
         old = dict(item, check={k: v for k, v in item["check"].items() if k != "places"})
         self.assertEqual(self.one(old, [csr])["verdict"], "관련 보도 있음")
 
+    def test_earlier_story_is_context_not_coverage(self):
+        # 10-31 운영: 울주 '#2ASU O2 COMPRESSOR ROOM 토건공사' 안전점검 공고(10-30) — 창(10-27~)에는 기사가 없지만
+        # 산소공장 증설 자체는 10-20 전자신문이 보도. 판정은 미보도 후보 그대로, 앞선 기사는 맥락으로만.
+        o2 = {"산소공장": ["산소공장", "산소 공장", "산소플랜트", "ASU", "공기분리"], "공장": ["공장", "사업장", "생산기지"]}
+        item = {"tier": "A", "watch": "지자체 고시·공고", "id": "local:울주군:68156", "date": "2026-10-27", "company": "고려아연",
+                "check": {"who": "고려아연", "terms": ["울주", "산소공장", "공장"], "alts": o2, "places": ["울주"]}}
+        old = art("고려아연, 산소공장 증설 발주 87% 완료…내년 상업운전 시동", "2026-10-20")
+        csr = art("고려아연 온산제련소, 울산공업축제 응원 메시지로 5000만원 기부", "2026-10-15")
+        ancient = art("고려아연, 산소공장 신설 검토", "2026-01-05")  # 120일보다 앞섬
+        r = self.one(item, [old, csr, ancient])
+        self.assertEqual(r["verdict"], "미보도 후보")
+        before = [e for e in r["evidence"] if e.get("before")]
+        self.assertEqual([e["date"] for e in before], ["2026-10-20"])
+        self.assertIn("판정에 안 셈", before[0]["why"])
+        # 창 안에 기사가 있으면 판정대로(관련 보도 있음), 앞선 기사는 붙이지 않는다
+        r = self.one(item, [old, art("고려아연, 온산 산소공장 토건공사 착수", "2026-10-28")])
+        self.assertEqual(r["verdict"], "관련 보도 있음")
+        self.assertFalse(any(e.get("before") for e in r["evidence"]))
+
     def test_stack_item_needs_the_site_city(self):
         # 운영 10-31 09:18: 포스코 광양제철소 배출구 멈춤(B)이 '포스코 포항제철소 … 설비 장애 감소' 기사로 '관련 보도 있음'
         item = {"tier": "B", "watch": "굴뚝 측정(공장 가동 신호)", "id": "stk:stop:포스코:광양", "date": "2026-10-27T09:17:00+09:00", "company": "포스코",

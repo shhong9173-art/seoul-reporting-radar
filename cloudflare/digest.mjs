@@ -654,8 +654,11 @@ function pressLines(r, stamp) {
   const tail = r.verdict === '미보도 후보' ? ` — ${qs}로 ${r.since} 이후 관련 기사 못 찾음(검색 범위 결과, 단독 판정 아님)`
     : r.verdict === '미확인' ? ` — ${failed.length ? `채널 ${failed.join(', ')}` : '기사 날짜 오류 또는 사건 식별 불가'}(0건 아님)` : ` — ${qs}`;
   const was = r.firstVerdict && r.firstVerdict !== r.verdict ? ` · 처음(${kstStamp(r.firstCheckedAt)}) ${r.firstVerdict}` : '';
+  // 판정에 안 세는 앞선 기사(항목 날짜 전, 제목에 회사·사건 낱말)는 미보도 후보에 한 줄 맥락으로(10-31 울주 산소공장 안전점검 공고 ↔ 10-20 증설 기사)
+  const ev = r.evidence ?? [];
+  const shown = [...ev.filter((e) => !e.before).slice(0, 2), ...ev.filter((e) => e.before).slice(0, 1)];
   return [`   보도 대조(자동 ${stamp}): ${r.verdict}${tail}${was}`,
-    ...(r.evidence ?? []).slice(0, 2).map((e) => `     ↳ ${e.date ?? '날짜?'} [${e.channel}] ${e.title}${e.url ? ` ${e.url}` : ''}${/^본문에만/.test(e.why ?? '') ? ' (약한 근거: 본문에만, 제목 불일치)' : ''}`)];
+    ...shown.map((e) => `     ↳ ${e.date ?? '날짜?'} [${e.channel}] ${e.title}${e.url ? ` ${e.url}` : ''}${e.before ? ' (앞선 기사: 항목 날짜 전이라 판정에 안 셈 — 같은 사업의 앞선 보도일 수 있음)' : /^본문에만/.test(e.why ?? '') ? ' (약한 근거: 본문에만, 제목 불일치)' : ''}`)];
 }
 
 // id → how radar_today would show it now (watch, kind, tier, short title). Used to label judgments.
