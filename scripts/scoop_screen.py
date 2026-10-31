@@ -567,8 +567,9 @@ def judge(c, channels, *, now):
                 x_hits = [t for t in words if any(w in text for w in alts.get(t, [t]))]
                 must = [m for m in c.get("must") or [] if m]
                 if company_in_text(c["company"], title) and (t_hits or len(x_hits) >= 2) and must and not any(m in text for m in must):
-                    # 사업장이 여럿인 회사: 그 사업장 지명이 없는 기사는 다른 사업장 이야기일 수 있다(10-31 포스코 광양 ↔ 포항 기사)
-                    why, rank = f"제목에 회사·낱말({', '.join((t_hits or x_hits)[:3])})이 있으나 사업장 지명({'·'.join(must)}) 없음 — 다른 사업장 기사일 수 있음", 0
+                    # 사업장이 여럿인 회사: 그 사업장 지명이 없는 기사는 다른 사업장 이야기일 수 있다(10-31 포스코 광양 ↔ 포항 기사).
+                    # 해외 파트너 공시: 공시 회사 이름(퍼스트솔라 등)이 없는 기사는 다른 건이다(10-31 한화솔루션 특허 기사).
+                    why, rank = f"제목에 회사·낱말({', '.join((t_hits or x_hits)[:3])})이 있으나 {'·'.join(must)} 없음 — 다른 사업장·다른 건 기사일 수 있음", 0
                 elif company_in_text(c["company"], title) and (t_hits or len(x_hits) >= 2):
                     why, rank = f"제목에 회사·낱말({', '.join((t_hits or x_hits)[:3])}) — 동일 사건 미확정", 1
                 elif len(x_hits) >= 2:
