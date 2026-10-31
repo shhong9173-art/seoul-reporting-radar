@@ -61,6 +61,18 @@ class Tender(unittest.TestCase):
  def test_permission_denied_is_not_zero(self):
   with self.assertRaises(ValueError):
    p.parse_result({"response":{"header":{"resultCode":"20"},"body":{"items":[],"totalCount":0}}})
+ def test_word_boundaries_from_operations(self):
+  # 10-30 운영 제목: 부분 문자열로 걸린 것
+  for t in ["GIST 기술창업활성화사업 공간구축공사(전기)","STEMx OIM & Precession software license",
+            "앵커사업단 ULB+센터 전략산업 인센티브 과제 Wellness Care Park Lab 환경개선 (긴급공사)",
+            "경전선 원창-벌교간 벌교천교 외 1개소 강형도장 공사","2026년 1, 2호선 수전선로 맨홀 청소 및 보수공사(오수처리장비 보유)"]:
+   self.assertEqual(p.tags(t),[],t)
+  # 제대로 걸리는 것
+  self.assertEqual(p.tags("BESS 극한환경 복합시험 챔버 구매"),["storage"])
+  self.assertEqual(p.tags("횡간도 자가발전시설 ESS 축전지 구매설치"),["storage"])
+  self.assertEqual(p.tags("2026년 전력케이블 22.9kV TR CNCE-W 325SQ 예비품 구매"),["grid"])
+  self.assertEqual(p.tags("345kV GIS 교체공사"),["grid"])
+  self.assertEqual(p.tags("지중 전선 구매(22.9kV)"),["grid"])
  def test_irrelevant_and_spurious_urls(self):
   self.assertEqual(p.tags("회사 사무용 의자"),[])
   self.assertIn("grid",p.tags("HVDC 송전선 건설"))
