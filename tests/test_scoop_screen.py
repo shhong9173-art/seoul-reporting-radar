@@ -407,6 +407,24 @@ class Screen(unittest.TestCase):
         self.assertEqual((out[0]["firstVerdict"], out[0]["firstQueries"]), ("미보도 후보", ["고려아연 소송등의판결"]))
         self.assertEqual(out[0]["filing"]["type"], "소송판결")
 
+    def test_group_headline_short_names_count_when_the_body_names_the_company(self):
+        # 10-28 아이뉴스24 「0%→19.87%로 뛴 美 관세…세아·현대, 국제무역법원 제소」 — 10-31 운영에서 세아제강·현대제철 소송이
+        # '본문에만' 약한 근거로 미보도 후보(A)에 남았다
+        art = {"title": "0%→19.87%로 뛴 美 관세…세아·현대, 국제무역법원 제소", "url": "https://www.inews24.com/view/2020330", "date": "2026-10-28",
+               "text": "세아제강과 현대제철이 미국 국제무역법원(CIT)에 소송을 냈다."}
+        now = dt.datetime(2026, 10, 31, 7, 10, tzinfo=KST)
+        for who in ("세아제강", "현대제철"):
+            c = {"id": f"cl:{who}", "company": who, "terms": ["국제무역법원", "소송"], "alts": {"소송": ["소송", "제소", "판결", "항소"]},
+                 "numbers": [], "unit": "", "strict": True, "generic": [], "since": "2026-10-20", "title": "x"}
+            verdict, ev = s.judge(c, channels([art]), now=now)
+            self.assertEqual((verdict, ev[0]["why"]), ("관련 보도 있음", "제목에 회사·낱말(국제무역법원, 소송) — 동일 사건 미확정"), who)
+        # 줄임만 있고 본문에 정식 이름이 없으면 그 회사로 보지 않는다(현대 → 현대차·현대모비스일 수 있음)
+        other = {**art, "text": "현대자동차그룹 계열사가 소송을 냈다."}
+        c = {"id": "cl:h", "company": "현대제철", "terms": ["국제무역법원", "소송"], "alts": {"소송": ["소송", "제소"]}, "numbers": [], "unit": "",
+             "strict": True, "generic": [], "since": "2026-10-20", "title": "x"}
+        self.assertEqual(s.judge(c, channels([other]), now=now)[0], "미보도 후보")
+        self.assertFalse(s.company_in_title("현대제철", "현대차, 국제무역법원 제소", "현대제철도"))  # '현대차'의 '현대'는 줄임이 아님
+
     def test_domestic_recall_is_searched_by_model_strictly(self):
         # 10-31 운영 단서(clues.json 384a5fb21a248f1e) + 공지 줄(scoop.json details)
         clue = {"id": "384a5fb21a248f1e", "team": "자동차", "published": "2026-10-30", "source": "자동차리콜센터(국토교통부·자동차안전연구원)",
