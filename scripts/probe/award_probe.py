@@ -1,20 +1,26 @@
-"""Probe 49: OSHA 공장 주소 하도급 점검 — 건식 실행(저장 안 함). 회사별 주소 수·하도급 점검 수·종류·시간만(이름·주소 안 찍음)."""
-import collections
-import datetime as dt
+"""Probe 50: 한전 전력사용량 한 번 더(같은 레이더 UA, 호출 간 10초) — 운영에서 되는 전자입찰을 대조로. 상태·필드 이름·건수만."""
 import os
-import sys
 import time
-sys.path.insert(0, "scripts")
-import us_osha_watch as w
+import requests
 
-KST = dt.timezone(dt.timedelta(hours=9))
-t0 = time.time()
-doc = w.run(now=dt.datetime.now(KST), key=os.environ.get("DOL_API_KEY", "").strip())
-c = doc["checks"][0]
-ins = doc["inspections"]
-site = [x for x in ins if x.get("atSite")]
-out = [f"{time.time() - t0:.0f}s status={c['status']} calls={c['calls']} err={c.get('error')} kept={c['kept']} named={len(ins) - len(site)} atSite={len(site)}",
-       "sites by company " + str(collections.Counter(v["company"] for v in doc["sites"].values()).most_common()),
-       "atSite by company/type " + str(collections.Counter((x["company"], x["type"]) for x in site).most_common(20)),
-       f"atSite with violations {sum(1 for x in site if x['violations'])} M/A {sum(1 for x in site if x['type'] in ('M', 'A'))} latest {max([x['opened'] for x in site] or [''])}"]
+KEY = os.environ.get("KEPCO_API_KEY", "").strip()
+B = "https://bigdata.kepco.co.kr/openapi/v1"
+H = {"User-Agent": "seoul-reporting-radar research (github.com/shhong9173-art/seoul-reporting-radar)"}
+out = []
+for path, p in (("electContract.do", {"noticeBeginDate": "20261025", "noticeEndDate": "20261031"}),
+                ("powerUsage/industryType.do", {"year": "2026", "month": "08", "metroCd": "44", "cityCd": "", "bizCd": ""}),
+                ("powerUsage/contractType.do", {"year": "2026", "month": "08", "metroCd": "44", "cityCd": "", "cntrCd": ""})):
+    time.sleep(10)
+    t0 = time.time()
+    try:
+        r = requests.get(f"{B}/{path}", params={**p, "apiKey": KEY, "returnType": "json"}, headers=H, timeout=120)
+        try:
+            j = r.json()
+            d = j.get("data") if isinstance(j, dict) else j
+            f = d[0] if isinstance(d, list) and d else None
+            out.append(f"{path}: HTTP {r.status_code} {time.time() - t0:.0f}s n={len(d) if isinstance(d, list) else None} fields={sorted(f) if isinstance(f, dict) else None}")
+        except ValueError:
+            out.append(f"{path}: HTTP {r.status_code} {time.time() - t0:.0f}s non-JSON len={len(r.text)}")
+    except Exception as e:  # noqa: BLE001
+        out.append(f"{path}: {type(e).__name__} after {time.time() - t0:.0f}s")
 open("/tmp/probe_out.txt", "w").write("\n".join(out))
