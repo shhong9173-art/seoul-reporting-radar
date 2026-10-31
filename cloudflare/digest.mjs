@@ -11,7 +11,7 @@ import { buildingLine, factoryEventText, identityNote } from './overseas.mjs';
 
 const KST_MS = 9 * 3600000;
 const kstDate = (ms) => new Date(ms + KST_MS).toISOString().slice(0, 10);
-const kstStamp = (v) => { const t = Date.parse(v); return Number.isFinite(t) ? new Date(t + KST_MS).toISOString().slice(5, 16).replace('T', ' ') : String(v ?? '').slice(0, 16); };
+export const kstStamp = (v) => { const t = Date.parse(v); return Number.isFinite(t) ? new Date(t + KST_MS).toISOString().slice(5, 16).replace('T', ' ') : String(v ?? '').slice(0, 16); };
 // EDGAR hits count as direct changes only when the excerpt reads like a deal with the beat company.
 const DEAL_WORDS = /\b(agreement|supply|offtake|off-take|joint venture|\bJV\b|memorandum|MOU|partnership|collaborat\w*|acquisition|acquire[sd]?|merger|purchase order|contract\w*|guarantee\w*|licen[cs]e|investment in|strategic|customer|order[s]? from)\b/i;
 const ymd8 = (v) => (/^\d{8}/.test(String(v ?? '')) ? `${String(v).slice(0, 4)}-${String(v).slice(4, 6)}-${String(v).slice(6, 8)}` : String(v ?? '').slice(0, 10));
@@ -809,7 +809,7 @@ function pressLines(r, stamp) {
 }
 // 근거 줄 꼬리표. 미보도 후보에 붙은 근거는 모두 판정에 안 센 약한 근거다 — 꼬리표가 없으면 뒷받침 기사로 읽힌다
 // (10-31 운영: 퍼스트솔라 10-Q 항목에 「한화솔루션, ESS·태양전지 특허 폭증」이 꼬리표 없이 붙었다 — 퍼스트솔라 없음).
-function evidenceNote(e, verdict) {
+export function evidenceNote(e, verdict) {
   const why = String(e.why ?? '');
   if (e.before) return ' (앞선 기사: 항목 날짜 전이라 판정에 안 셈 — 같은 사업의 앞선 보도일 수 있음)';
   if (/^본문에만/.test(why)) return ' (약한 근거: 본문에만, 제목 불일치)';
@@ -950,8 +950,8 @@ export async function radarToday(ctx, args) {
   return textResult(await radarTodayText(ctx, args));
 }
 
-// 같은 내용을 기자 전용 브라우저 화면(board.mjs)도 쓴다 — 거기는 2만 자 응답 예산이 없어 잘리지 않는다.
-export async function radarTodayText(ctx, args) {
+// 오늘의 레이더 자료(도구 글과 기자 전용 화면 board.mjs가 같이 쓴다). 글 모양은 radarTodayText, 카드 모양은 board.mjs.
+export async function radarTodayData(ctx, args) {
   const nowMs = ctx.now.getTime();
   const monday = new Date(nowMs + KST_MS).getUTCDay() === 1;
   const hours = clampInt(args.hours, 1, 336, monday ? 72 : 24);
@@ -979,8 +979,6 @@ export async function radarTodayText(ctx, args) {
   const rank = (x) => PRESS_RANK[pressOf(x)] ?? 1;
   const byTier = (t) => all.filter((x) => x.tier === t)
     .sort((a, b) => rank(a) - rank(b) || String(b.date ?? '').localeCompare(String(a.date ?? '')));
-
-  const out = [`오늘의 레이더 · ${kstStamp(ctx.now.toISOString())} KST 기준 최근 ${hours}시간${monday && !args.hours ? '(월요일: 주말 포함)' : ''} · 기자 전용 감시 ${WATCHES.length}개`];
   const h = health(ctx, docs);
   const dh = await dispatchHealth(ctx);
   if (dh) h.unshift(`- ${dh}`);
@@ -990,7 +988,6 @@ export async function radarTodayText(ctx, args) {
     const ageH = (nowMs - Date.parse(press.generatedAt)) / 3600000;
     if (Number.isFinite(ageH) && ageH > 36) h.push(`- 보도 대조(자동): ⚠ ${Math.round(ageH)}시간 전 결과 — 이후 항목은 대조 전`);
   }
-  out.push(h.length ? `\n[먼저 볼 것: 수집 상태]\n${h.join('\n')}` : `\n[수집 상태] ${WATCHES.length}개 감시 모두 최근 정상`);
   const span = nowMs - 14 * 86400000;
   const conv = convergence([...collect(docs, span, kstDate(span), { now: nowMs }).filter((x) => !(judged.get(x.id) && !showJudged)), ...background(docs, nowMs)]
     .filter((x) => has(q, x.company, x.fact, x.watch)), { cut });
@@ -998,6 +995,26 @@ export async function radarTodayText(ctx, args) {
   // 부지 취득 완료 정정은 10-28 '함평 이전 부지 1160억원에 취득 완료' 기사로 '관련 보도 있음'인데 맨 위에 표시 없이 떴다)
   const coveredGroup = (g) => g.items.filter((x) => !x.background).every((x) => rank(x) === 2);
   conv.sort((a, b) => Number(coveredGroup(a)) - Number(coveredGroup(b)));
+  // Competitor exclusives the radar had first (reverse_prior_capture.py). Shown here too, so the reporter can prepare Y/P/N
+  // judgments even when the chat's connector list is stale and scoop_reverse is not offered.
+  const rev = await readFeed(ctx, 'reverse-check');
+  let firsts = [];
+  if (rev && !rev.broken) {
+    const from = Date.parse(rev.generatedAt) - 14 * 86400000;
+    firsts = (rev.articles ?? []).filter((a) => a.verdict === '먼저 잡은 후보' && Date.parse(a.published) >= from && a.best
+      && (!q || has(q, a.title, (a.companies ?? []).join(' '), a.best.text)))
+      .sort((a, b) => String(b.published).localeCompare(String(a.published)));
+  }
+  return { now: ctx.now, hours, monday, defaultHours: !args.hours, q, limit, showC, judged, hiddenBy, press, checked, pressOf, rank,
+    tiers: { A: byTier('A'), B: byTier('B'), C: byTier('C') }, health: h, conv, coveredGroup, rev, firsts };
+}
+
+export async function radarTodayText(ctx, args) {
+  const d = await radarTodayData(ctx, args);
+  const { hours, monday, limit, showC, judged, hiddenBy, press, checked, pressOf, conv, coveredGroup, rev, firsts } = d;
+  const h = d.health;
+  const out = [`오늘의 레이더 · ${kstStamp(d.now.toISOString())} KST 기준 최근 ${hours}시간${monday && d.defaultHours ? '(월요일: 주말 포함)' : ''} · 기자 전용 감시 ${WATCHES.length}개`];
+  out.push(h.length ? `\n[먼저 볼 것: 수집 상태]\n${h.join('\n')}` : `\n[수집 상태] ${WATCHES.length}개 감시 모두 최근 정상`);
   if (conv.length) {
     out.push(`\n[겹친 신호 · 최근 14일 같은 출입처·같은 시군을 감시 여러 곳이 가리킴] ${conv.length}곳 — 하나씩은 공개 자료, 함께 보면 투자·가동 변화 단서(배경: 국민연금 공사 현장·120일 안 건축허가·지금 멈춘 굴뚝)`);
     for (const g of conv.slice(0, 5)) {
@@ -1011,7 +1028,7 @@ export async function radarTodayText(ctx, args) {
   }
   const tiers = [['A', '단독 후보·직접 변화 — 원문·보도 대조부터'], ['B', '확인할 공식 변화'], ['C', '참고(접힘)']];
   for (const [t, title] of tiers) {
-    const rows = byTier(t);
+    const rows = d.tiers[t];
     if (t === 'C' && !showC) {
       if (rows.length) out.push(`\n[C · ${title}] ${rows.length}건 — 소비자 소송·사이트 공통 문구·기보도 후보 등 (include_minor=true)`);
       continue;
@@ -1031,23 +1048,14 @@ export async function radarTodayText(ctx, args) {
     if (rows.length > limit) out.push(`… 남은 ${rows.length - limit}건(limit 또는 company로 좁히기)`);
     if (!rows.length) out.push('없음');
   }
-  // Competitor exclusives the radar had first (reverse_prior_capture.py). Shown here too, so the reporter can prepare Y/P/N
-  // judgments even when the chat's connector list is stale and scoop_reverse is not offered.
-  const rev = await readFeed(ctx, 'reverse-check');
-  if (rev && !rev.broken) {
-    const from = Date.parse(rev.generatedAt) - 14 * 86400000;
-    const firsts = (rev.articles ?? []).filter((a) => a.verdict === '먼저 잡은 후보' && Date.parse(a.published) >= from && a.best
-      && (!q || has(q, a.title, (a.companies ?? []).join(' '), a.best.text)))
-      .sort((a, b) => String(b.published).localeCompare(String(a.published)));
-    if (firsts.length) {
-      out.push(`\n[경쟁지 단독 역추적 · 자동 후보, 사람 판정(Y/P/N) 전] 최근 14일 레이더가 먼저 잡은 후보 ${firsts.length}건 · 확인 ${kstStamp(rev.generatedAt)}`);
-      for (const a of firsts.slice(0, 5)) {
-        out.push(`- 기사 ${kstStamp(a.published)} · ${a.source ?? '?'} 「${String(a.title ?? '').slice(0, 70)}」 · 기사 id ${a.articleId}`);
-        out.push(`   레이더: ${kstStamp(a.best.seen)} ${a.best.label} — ${String(a.best.text ?? '').slice(0, 90)} (${a.best.leadHours}시간 앞${(a.best.why ?? []).length ? `, 겹친 낱말 ${a.best.why.join('·')}` : ''}) · id ${a.best.id}`);
-      }
-      if (firsts.length > 5) out.push(`… 남은 ${firsts.length - 5}건`);
-      out.push('판정은 기자가 한다: 기사 원문(매체 사이트)·최초 게재 시각과 레이더 원천 원문을 열어 같은 사실인지 본다. 자세히: scoop_reverse.');
+  if (firsts.length) {
+    out.push(`\n[경쟁지 단독 역추적 · 자동 후보, 사람 판정(Y/P/N) 전] 최근 14일 레이더가 먼저 잡은 후보 ${firsts.length}건 · 확인 ${kstStamp(rev.generatedAt)}`);
+    for (const a of firsts.slice(0, 5)) {
+      out.push(`- 기사 ${kstStamp(a.published)} · ${a.source ?? '?'} 「${String(a.title ?? '').slice(0, 70)}」 · 기사 id ${a.articleId}`);
+      out.push(`   레이더: ${kstStamp(a.best.seen)} ${a.best.label} — ${String(a.best.text ?? '').slice(0, 90)} (${a.best.leadHours}시간 앞${(a.best.why ?? []).length ? `, 겹친 낱말 ${a.best.why.join('·')}` : ''}) · id ${a.best.id}`);
     }
+    if (firsts.length > 5) out.push(`… 남은 ${firsts.length - 5}건`);
+    out.push('판정은 기자가 한다: 기사 원문(매체 사이트)·최초 게재 시각과 레이더 원천 원문을 열어 같은 사실인지 본다. 자세히: scoop_reverse.');
   }
   const hiddenN = Object.values(hiddenBy).reduce((a, b) => a + b, 0);
   if (hiddenN) out.push(`\n(판정한 ${hiddenN}건 숨김: ${Object.entries(hiddenBy).map(([v, n]) => `${v} ${n}`).join(' · ')} — include_judged=true로 보기)`);
