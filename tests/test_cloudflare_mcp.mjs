@@ -2411,14 +2411,19 @@ test('us_litigation osha: OSHA inspections ranked fatality first, routine hidden
     checks: [{ source: '미국 OSHA(노동부 API)', status: 'ok', returned: 87, kept: 39, calls: 9 }],
     inspections: [x('1007', '현대모비스', 'MOBIS ALABAMA LLC', 'H', '정기(계획)', '2026-10-29'),
       x('1002', '현대차', 'HYUNDAI MOTOR MANUFACTURING ALABAMA, LLC', 'B', '민원', '2026-10-08', { violations: [{ citation: '01001', type: 'R', typeName: '반복', issued: '2026-10-30', initialPenalty: 48000, currentPenalty: 48000 }], penaltyInitial: 48000, penaltyCurrent: 48000 }),
-      x('1001', '기아', 'KIA GEORGIA INC', 'M', '사망·중대사고', '2026-09-01', { accidents: [{ summary: '777', date: '2026-08-28', fatality: true, desc: 'Worker struck by press', abstract: '' }] })],
+      x('1001', '기아', 'KIA GEORGIA INC', 'M', '사망·중대사고', '2026-09-01', { accidents: [{ summary: '777', date: '2026-08-28', fatality: true, desc: 'Worker struck by press', abstract: '' }] }),
+      x('2001', '기아', 'ACME STEEL ERECTORS LLC', 'M', '사망·중대사고', '2026-10-30', { atSite: true, address: '7777 KIA PARKWAY' }),
+      x('2003', '기아', 'JOHN DOE PLUMBING', 'B', '민원', '2026-10-31', { atSite: true, address: '7777 KIA PARKWAY' })],
+    sites: { '7777 KIA PARKWAY': { raw: '7777 KIA PARKWAY', company: '기아' } },
     events: [{ id: 'osha:viol:1002:2026-10-30', kind: '위반 통지', tier: 'A', company: '현대차', inspection: '1002', text: 'OSHA 위반 통지 2026-10-30 · 1건(반복) · 최초 벌금 합 $48,000 · HYUNDAI MOTOR MANUFACTURING ALABAMA, LLC (MONTGOMERY, AL)', url: 'https://www.osha.gov/x', detectedAt: recent },
       { id: 'osha:insp:1007', kind: '점검 개시', tier: 'C', company: '현대모비스', inspection: '1007', text: 'OSHA 점검 개시 2026-10-29 · 정기(계획)(H)', url: 'https://www.osha.gov/y', detectedAt: recent }],
     dropped: [['PAT PECK KIA OF GULFPORT', 1], ["ARMANDO'S MANDO GRILL", 1]] };
   assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/us-osha', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
   const t = await call('us_litigation', {}, opts);
   assert.match(t.text, /미국 소송·ITC 결과가 아직 없음/);  // 소송 결과가 없어도 OSHA 구역은 나온다
-  assert.match(t.text, /\[미국 OSHA 점검·위반 · 출입처 미국 법인·공장 · 개시 2025-09-28 이후 · 확인 [^\]]*\] 2건 · 정기·후속·모니터링만 있는 점검 1건 숨김\(include_routine=true\)/);
+  assert.match(t.text, /\[미국 OSHA 점검·위반 · 출입처 미국 법인·공장 · 개시 2025-09-28 이후 · 확인 [^\]]*\] 3건 · 정기·후속·모니터링 점검과 공장 주소 하도급의 일반 점검 2건 숨김\(include_routine=true\) · 원천 ok · 지켜보는 공장 주소 1곳/);
+  assert.match(t.text, /개시 2026-10-30 · 기아\(공장 주소 하도급\) · 사망·중대사고\(M\) 점검[^\n]*\n   사업장: ACME STEEL ERECTORS LLC — 출입처\(기아\) 공장 주소 7777 KIA PARKWAY/);
+  assert.doesNotMatch(t.text, /JOHN DOE PLUMBING/);
   assert.ok(t.text.indexOf('KIA GEORGIA') < t.text.indexOf('HYUNDAI MOTOR MANUFACTURING'));  // 사망·중대사고 먼저
   assert.match(t.text, /사고 요약 2026-08-28 · 사망: Worker struck by press/);
   assert.match(t.text, /위반 통지 1건\(반복\) · 최초 벌금 합 \$48,000/);

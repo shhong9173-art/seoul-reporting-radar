@@ -53,12 +53,19 @@ LIKES = ["%HYUNDAI MOTOR%", "%HMGMA%", "%HL-GA%", "%HLGA%", "%KIA %", "%MOBIS%",
          "%HANKOOK%", "%NEXEN%", "%KUMHO%", "%POSCO%", "%HYUNDAI STEEL%", "%SEAH%", "%DONGKUK%", "%KOREA ZINC%", "%HYUNDAI POWER%",
          "%HD HYUNDAI%", "%LS ELECTRIC%", "%LS CABLE%", "%GREENLINK%", "%SUPERIOR ESSEX%", "%TAIHAN%", "%DOOSAN%", "%HANWHA%", "%QCELLS%",
          "%MISSION SOLAR%", "%OCI ENERGY%", "%HYOSUNG%"]
-INSP_FIELDS = "activity_nr,estab_name,site_city,site_state,open_date,insp_type,insp_scope,close_case_date,naics_code,nr_in_estab"
+INSP_FIELDS = "activity_nr,estab_name,site_address,site_city,site_state,site_zip,open_date,insp_type,insp_scope,close_case_date,naics_code,nr_in_estab"
+ADDR_CHUNK = 8      # 공장 주소 몇 개씩 in으로 묻나
+SITES_MAX = 80
 VIOL_FIELDS = "activity_nr,citation_id,viol_type,issuance_date,initial_penalty,current_penalty,standard,delete_flag"
 INSP_TYPE = {"A": "사고", "B": "민원", "C": "회부", "D": "모니터링", "E": "변경 신청", "F": "후속", "G": "관련(비계획)", "H": "정기(계획)",
              "I": "기타(비계획)", "J": "관련(계획)", "K": "기타(계획)", "L": "기타", "M": "사망·중대사고"}
 VIOL_TYPE = {"S": "중대", "W": "고의", "R": "반복", "O": "기타", "U": "미분류"}
 DETAIL = "https://www.osha.gov/ords/imis/establishment.inspection_detail?id={nr}"
+
+
+def norm_addr(a):
+    a = re.sub(r"\s+", " ", str(a or "").upper()).strip(" ,.")
+    return "" if not a or a.startswith(("PO BOX", "P.O.", "P O BOX")) or len(a) < 6 else a
 
 
 def company_of(name):
@@ -112,6 +119,23 @@ def collect_rows(api, since):
     return rows, errors
 
 
+def site_rows(api, since, sites):
+    """출입처 공장 주소(이름 규칙으로 잡힌 점검의 site_address)에서 열린 다른 사업장 점검 — 하도급·협력사·건설 현장.
+    탐침 10-31: 하도급사 이름으로 열린 공장 안 점검은 이름 검색에 안 잡힌다(HMGMA·조지아 배터리 공장 건설 현장 등)."""
+    rows, errors = {}, []
+    raw = sorted({v["raw"] for v in sites.values() if v.get("raw")})
+    for i in range(0, len(raw), ADDR_CHUNK):
+        f = {"and": [{"field": "open_date", "operator": "gt", "value": since},
+                     {"field": "site_address", "operator": "in", "value": raw[i:i + ADDR_CHUNK]}]}
+        data, err = api("inspection", limit=5000, sort="desc", sort_by="open_date", filter_object=json.dumps(f), fields=INSP_FIELDS)
+        if err:
+            errors.append(f"공장 주소 {i // ADDR_CHUNK + 1}묶음 {err}")
+            continue
+        for x in data:
+            rows.setdefault(str(x.get("activity_nr")), x)
+    return rows, errors
+
+
 def by_ids(api, ep, field, ids, fields):
     out, errors = [], []
     for i in range(0, len(ids), ID_CHUNK):
@@ -150,15 +174,36 @@ def run(*, now, key, previous=None, get=None, sleep=time.sleep):
     since = (now.date() - dt.timedelta(days=WINDOW_DAYS)).isoformat()
     rows, errors = collect_rows(api, since)
     kept, dropped = {}, {}
+
+    def record(nr, x, company, **extra):
+        return {"id": nr, "company": company, "estab": x.get("estab_name"), "address": x.get("site_address"), "city": x.get("site_city"),
+                "state": x.get("site_state"), "opened": day(x.get("open_date")), "type": x.get("insp_type"),
+                "typeName": INSP_TYPE.get(x.get("insp_type"), x.get("insp_type")), "scope": x.get("insp_scope"),
+                "closed": day(x.get("close_case_date")) or None, "naics": x.get("naics_code"), "employees": x.get("nr_in_estab"),
+                "url": DETAIL.format(nr=nr), **extra}
+
     for nr, x in rows.items():
         c = company_of(x.get("estab_name"))
         if not c:
             dropped[x.get("estab_name") or "?"] = dropped.get(x.get("estab_name") or "?", 0) + 1
             continue
-        kept[nr] = {"id": nr, "company": c, "estab": x.get("estab_name"), "city": x.get("site_city"), "state": x.get("site_state"),
-                    "opened": day(x.get("open_date")), "type": x.get("insp_type"), "typeName": INSP_TYPE.get(x.get("insp_type"), x.get("insp_type")),
-                    "scope": x.get("insp_scope"), "closed": day(x.get("close_case_date")) or None, "naics": x.get("naics_code"),
-                    "employees": x.get("nr_in_estab"), "url": DETAIL.format(nr=nr)}
+        kept[nr] = record(nr, x, c)
+    # 출입처 공장 주소: 이번에 잡힌 점검 + 지난 실행에서 쌓인 주소(하도급 점검은 주소로만 잡힌다)
+    sites = {k: v for k, v in ((previous or {}).get("sites") or {}).items() if isinstance(v, dict)}
+    for x in kept.values():
+        a = norm_addr(x.get("address"))
+        if a:
+            sites[a] = {"raw": x.get("address"), "company": x["company"], "city": x.get("city"), "state": x.get("state"),
+                        "lastSeen": max(x["opened"], (sites.get(a) or {}).get("lastSeen") or "")}
+    sites = dict(sorted(sites.items(), key=lambda kv: kv[1].get("lastSeen") or "", reverse=True)[:SITES_MAX])
+    contractor_rows, serr = site_rows(api, since, sites) if sites else ({}, [])
+    errors += serr
+    for nr, x in contractor_rows.items():
+        if nr in kept or company_of(x.get("estab_name")):
+            continue
+        owner = sites.get(norm_addr(x.get("site_address")))
+        if owner:
+            kept[nr] = record(nr, x, owner["company"], atSite=True)
     ids = sorted(kept)
     viols, verr = by_ids(api, "violation", "activity_nr", [int(i) for i in ids], VIOL_FIELDS) if ids else ([], [])
     injuries, ierr = by_ids(api, "accident_injury", "rel_insp_nr", [int(i) for i in ids], "summary_nr,rel_insp_nr,degree_of_inj") if ids else ([], [])
@@ -202,8 +247,10 @@ def run(*, now, key, previous=None, get=None, sleep=time.sleep):
                 continue
             old = prev.get(x["id"])
             where = f"{x['estab']} ({x['city'] or '?'}, {x['state'] or '?'})"
+            if x.get("atSite"):
+                where = f"{x['estab']} — 출입처 공장 주소({x['address'] or '?'}, {x['city'] or '?'}, {x['state'] or '?'})의 하도급·협력사"
             if not old and x["opened"] >= recent:
-                t = "A" if x["type"] in ("M", "A") else "B" if x["type"] in ("B", "C") else "C"
+                t = "A" if x["type"] in ("M", "A") else "C" if x.get("atSite") else "B" if x["type"] in ("B", "C") else "C"
                 fresh.append({"id": f"osha:insp:{x['id']}", "kind": "점검 개시", "tier": t, "company": x["company"], "inspection": x["id"],
                               "text": f"OSHA 점검 개시 {x['opened']} · {x['typeName']}({x['type']}) · {where} · 범위 {x['scope'] or '?'}"
                                       f"{' · 종업원 ' + str(x['employees']) + '명' if x.get('employees') else ''}", "url": x["url"], "detectedAt": stamp})
@@ -212,7 +259,9 @@ def run(*, now, key, previous=None, get=None, sleep=time.sleep):
             if new_v:
                 kinds = sorted({v["typeName"] for v in new_v})
                 total = round(sum(v["initialPenalty"] for v in new_v))
-                fresh.append({"id": f"osha:viol:{x['id']}:{max(v['issued'] for v in new_v)}", "kind": "위반 통지", "tier": viol_tier(new_v),
+                vt = viol_tier(new_v)
+                fresh.append({"id": f"osha:viol:{x['id']}:{max(v['issued'] for v in new_v)}", "kind": "위반 통지",
+                              "tier": ("B" if vt == "A" else "C") if x.get("atSite") else vt,
                               "company": x["company"], "inspection": x["id"],
                               "text": f"OSHA 위반 통지 {max(v['issued'] for v in new_v)} · {len(new_v)}건({'·'.join(kinds)}) · 최초 벌금 합 ${total:,} · {where} · "
                                       f"점검 개시 {x['opened']}({x['typeName']}) · 기준 {', '.join(sorted({str(v['standard']) for v in new_v if v['standard']}))[:120]}",
@@ -232,9 +281,10 @@ def run(*, now, key, previous=None, get=None, sleep=time.sleep):
     return {"schema": SCHEMA, "generatedAt": stamp, "status": "partial" if status != "ok" else "complete", "checks": [check],
             "baselineSince": (previous or {}).get("baselineSince") or stamp, "since": since,
             "inspections": sorted(kept.values(), key=lambda x: (x["opened"], x["id"]), reverse=True),
-            "events": events[:300], "dropped": sorted(dropped.items(), key=lambda kv: -kv[1])[:120],
+            "events": events[:300], "dropped": sorted(dropped.items(), key=lambda kv: -kv[1])[:120], "sites": sites,
             "rules": ["OSHA 점검은 위반 확정이 아니다. 위반은 통지(citation)로, 벌금은 최초 부과액이며 이의 제기·합의로 바뀐다.",
-                      "사업장 이름 규칙으로 출입처 미국 법인을 고른다. 같은 이름의 딜러·협력사·하도급 현장은 빠지고, 하도급사 이름으로 열린 공장 안 점검도 빠진다.",
+                      "사업장 이름 규칙으로 출입처 미국 법인을 고른다(딜러·이름 겹침 제외). 하도급·협력사 점검은 출입처 점검에 나온 공장 주소와 같은 주소로 열린 것만 잡는다 — 주소 표기가 다르면 빠진다.",
+                      "공장 주소의 하도급·협력사 점검은 그 회사(하도급사) 점검이다. 출입처 책임으로 쓰지 않는다. 사망·중대사고만 A.",
                       "점검은 개시 며칠 뒤, 위반 통지는 최대 6개월 뒤, 사고 서술은 조사가 끝난 뒤에 자료에 올라온다.",
                       "사망·중대사고 점검(M)은 사고가 났다는 뜻이지 회사 책임이 확정된 것이 아니다. 사망자·경위는 OSHA 원문·현지 보도로 확인한다.",
                       "조회 실패는 0건이 아니라 미확인."],

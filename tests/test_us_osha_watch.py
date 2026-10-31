@@ -15,8 +15,8 @@ KST = dt.timezone(dt.timedelta(hours=9))
 NOW = dt.datetime(2026, 11, 2, 6, 40, tzinfo=KST)
 
 
-def insp(nr, name, opened, typ="B", city="WEST POINT", state="GA", closed=None):
-    return {"activity_nr": nr, "estab_name": name, "site_city": city, "site_state": state, "open_date": f"{opened}T00:00:00",
+def insp(nr, name, opened, typ="B", city="WEST POINT", state="GA", closed=None, address=None):
+    return {"activity_nr": nr, "estab_name": name, "site_address": address, "site_city": city, "site_state": state, "open_date": f"{opened}T00:00:00",
             "insp_type": typ, "insp_scope": "B", "close_case_date": f"{closed}T00:00:00" if closed else None, "naics_code": "336111", "nr_in_estab": 2700}
 
 
@@ -49,7 +49,9 @@ def fake(inspections, violations=(), injuries=(), accidents=(), calls=None, fail
             if code:
                 return R(code)
         f = json.loads(params["filter_object"])
-        if ep == "inspection":
+        if ep == "inspection" and "or" not in f["and"][1]:  # 공장 주소 in 질의
+            rows = [x for x in inspections if x.get("site_address") in f["and"][1]["value"] and x["open_date"][:10] > f["and"][0]["value"]]
+        elif ep == "inspection":
             pats = [c["value"] for c in f["and"][1]["or"]]
             rows = [x for x in inspections if any(like(x["estab_name"], p) for p in pats) and x["open_date"][:10] > f["and"][0]["value"]]
         elif ep == "violation":
@@ -139,6 +141,28 @@ class Run(unittest.TestCase):
         ids = {x["id"] for x in doc["inspections"]}
         self.assertTrue({"1001", "1002", "1005"} <= ids)
         self.assertEqual(doc["events"], [])
+
+    def test_contractor_inspections_at_beat_plant_address(self):
+        kia_addr = "7777 KIA PARKWAY"
+        base = [insp(1001, "KIA GEORGIA INC", "2026-09-01", "M", address=kia_addr)] + BASE[1:]
+        first = run(inspections=base)
+        self.assertEqual(first["sites"]["7777 KIA PARKWAY"]["company"], "기아")
+        later = base + [insp(2001, "ACME STEEL ERECTORS LLC", "2026-10-30", "M", address=kia_addr),
+                        insp(2002, "BRIGHT ELECTRIC INC", "2026-10-30", "B", address="7777  kia parkway"),   # 표기만 다른 같은 주소는 in 질의에 안 걸림
+                        insp(2003, "JOHN DOE PLUMBING", "2026-10-31", "B", address=kia_addr),
+                        insp(2004, "OTHER PLANT LLC", "2026-10-30", "M", address="1 MAIN ST")]
+        vs = [viol(2003, "01001", "W", "2026-10-31", 160000)]
+        doc = run(first, now=NOW + dt.timedelta(days=1), inspections=later, violations=vs)
+        by = {x["id"]: x for x in doc["inspections"]}
+        self.assertTrue(by["2001"]["atSite"])
+        self.assertEqual(by["2001"]["company"], "기아")
+        self.assertNotIn("2002", by)
+        self.assertNotIn("2004", by)
+        ev = {e["id"]: e for e in doc["events"]}
+        self.assertEqual(ev["osha:insp:2001"]["tier"], "A")                 # 공장 안 사망·중대사고
+        self.assertIn("출입처 공장 주소(7777 KIA PARKWAY", ev["osha:insp:2001"]["text"])
+        self.assertEqual(ev["osha:insp:2003"]["tier"], "C")                 # 하도급 민원
+        self.assertEqual(ev["osha:viol:2003:2026-10-31"]["tier"], "B")      # 하도급 고의 위반은 한 단계 낮춤
 
     def test_company_rules(self):
         self.assertEqual(w.company_of("Hyundai Motor Group Metaplant America LLC"), "현대차")
