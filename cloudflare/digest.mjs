@@ -626,7 +626,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
 
   // 출입처 공장이 있는 시·군의 고시·공고(새올): 출입처 이름+사업 낱말 A, 이름만 B, 제철소·산업단지 계획 등 C. 시·군별 첫 조회는 기준선.
   for (const x of docs['kr-local']?.items ?? []) {
-    if (x.baseline || !recent(x.firstSeen)) continue;
+    if (x.baseline || x.routine || !recent(x.firstSeen)) continue;  // routine: 이름 없는 일상 행정(수집기 표시)
     // 상세 페이지를 읽었으면 전체 제목·본문 앞부분(목록 제목은 '...'로 잘린다 — 10-31 울주 '#2ASU O...' → 'O2 COMPRESSOR ROOM 토건공사')
     const d = x.detail;
     const title = d?.title ?? x.title;
