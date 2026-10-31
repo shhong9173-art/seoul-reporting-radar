@@ -168,6 +168,17 @@ class Views(unittest.TestCase):
         self.assertFalse(zinc["routine"])
         self.assertTrue(self.clue(views, "국민연금공단")["routine"])
 
+    def test_group_affiliate_disclosures_are_routine(self):
+        # 10-29~30 운영 제목(공정거래법 대규모기업집단 정기 공시)
+        for t in ["현대자동차 · 특수관계인으로부터채권매수", "현대자동차 · 특수관계인에대한부동산임대", "현대자동차 · 특수관계인과의내부거래",
+                  "현대자동차 · 약관에의한금융거래시계열금융회사의거래상대방의공시", "현대자동차 · 공정거래자율준수프로그램운영현황(안내공시)",
+                  "GS칼텍스 · 동일인등출자계열회사와의상품ㆍ용역거래변경", "두산에너빌리티 · 특수관계인과의수익증권거래"]:
+            self.assertTrue(v.ROUTINE_RE.search(t), t)
+        for t in ["현대자동차 · 현금ㆍ현물배당결정", "OCI홀딩스 · 정기·주요공시 · 주식소각결정", "두산에너빌리티 · 풍문또는보도에대한해명",
+                  "LS전선 · 정기·주요공시 · [기재정정]주요사항보고서(교환사채권발행결정)", "현대오토에버 · 정기·주요공시 · 타법인주식및출자증권취득결정",
+                  "기아 · 특수관계인에대한출자", "현대자동차 · 특수관계인에대한자금대여"]:  # 출자·자금대여는 새 법인·지원일 수 있음
+            self.assertFalse(v.ROUTINE_RE.search(t), t)
+
     def test_only_flagged_filed_companies_become_earnings_clues(self):
         views = self.build()
         steel = self.clue(views, "현대제철 · 2026년 3분기")
