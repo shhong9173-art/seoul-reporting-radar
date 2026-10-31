@@ -36,7 +36,7 @@ def same_text_identity(new,old):
         all(new.get(k)==old.get(k) for k in ("title","url","summary")) and
         isinstance(old.get("koTitle"),str) and old["koTitle"].strip() and
         # 보조 번역기(MyMemory) 결과는 다시 쓰지 않고 다음 실행에 주 번역기로 다시 번역한다(11-01: 품질이 낮았다)
-        old.get("translationStatus") in ("translated","already_ko") and
+        old.get("translationStatus") in ("translated","translated_ai","already_ko") and
         isinstance(old.get("koSummary"),str))
 
 

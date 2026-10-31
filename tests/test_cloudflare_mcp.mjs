@@ -12,6 +12,7 @@ import { allowedUrl } from '../cloudflare/live_tools.mjs';
 import { ageNote, handleIngest, weekdayHours } from '../cloudflare/screen.mjs';
 import { dueAt, nextSlot, runSchedule } from '../cloudflare/dispatch.mjs';
 import { boardKey, factParts, groupSame, splitTop } from '../cloudflare/board.mjs';
+import { cleanOutput, LLM_MODELS, MT_MODEL } from '../cloudflare/translate.mjs';
 import { background, billHint, clipAt, convergence, convergenceRows, countForms, hint, insolvencyWord, usRecallHint, usRecallModels, kepcoHint, localWord, radarItems, siteCity, stackHint, workforceHint } from '../cloudflare/digest.mjs';
 
 const ORIGIN = 'https://seoul-reporting-radar.shhong9173.workers.dev';
@@ -2220,6 +2221,28 @@ test('homepage login: ID/password secrets give a 30-day signed session for /b/me
   const pc = await req(env, '/auth/check', { method: 'OPTIONS' });
   assert.equal(pc.status, 204);
   assert.equal(pc.headers.get('Access-Control-Allow-Origin'), H);
+});
+
+test('foreign-news translation /ingest/translate: bearer only, Workers AI language model first (missing models skipped), m2m100 fallback, clean output', async () => {
+  const calls = [];
+  const AI = { run: async (model, input) => {
+    calls.push(model);
+    if (model === LLM_MODELS[0]) throw new Error('No such model');                                // 목록에 없는 모델은 건너뛴다
+    if (model === LLM_MODELS[1]) return { response: input.messages[1].content.includes('FAIL') ? 'Sorry, I cannot.' : '번역: "고려아연, 미국 제련소 검토"' };
+    if (model === MT_MODEL) return { translated_text: '실패 대비 번역' };
+    return { response: 'no korean' };
+  } };
+  const env = { MCP_ACCESS_TOKEN: TOKEN, STORE: storeBinding(), AI };
+  const post = (body, auth = `Bearer ${TOKEN}`) => worker.fetch(new Request(ORIGIN + '/ingest/translate', { method: 'POST', headers: { Authorization: auth, 'Content-Type': 'application/json' }, body: JSON.stringify(body) }), env, {});
+  assert.equal((await post({ texts: ['x'] }, 'Bearer wrong-token-0123456789')).status, 404);
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/translate', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, {})).status, 405);
+  assert.equal((await post({ texts: [] })).status, 400);
+  const r = await (await post({ texts: ['Korea Zinc starts US smelter study - Reuters', 'FAIL here', ''] })).json();
+  assert.deepEqual(r.results.map((x) => [x.ko, x.status]), [['고려아연, 미국 제련소 검토', 'translated_ai'], ['실패 대비 번역', 'translated_ai_mt'], ['', 'empty']]);
+  assert.equal(r.results[0].model, LLM_MODELS[1]);
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/translate', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: '{"texts":["a"]}' }), { MCP_ACCESS_TOKEN: TOKEN }, {})).status, 503);
+  assert.equal(cleanOutput('제목: 「현대차, 美 공장 증설」\n설명'), '현대차, 美 공장 증설');
+  assert.equal(cleanOutput('English only'), '');
 });
 
 test('scoop_reverse shows automatic prior-capture candidates by source with lead time, separate from human Y/P/N', async () => {

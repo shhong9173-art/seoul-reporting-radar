@@ -6,6 +6,7 @@ import { runSchedule } from './dispatch.mjs';
 import { radarItems } from './digest.mjs';
 import { board, boardPart } from './board.mjs';
 import { check, login } from './auth.mjs';
+import { translateRoute } from './translate.mjs';
 export { RadarStore } from './store.mjs';
 
 export default {
@@ -17,6 +18,7 @@ export default {
     if (pathname.startsWith('/b/')) return boardPart(request, env);   // 홈페이지 탭이 읽는 조각(로그인 세션·공개·읽기 전용 열쇠)
     if (pathname === '/auth/login') return login(request, env);       // 홈페이지 로그인(아이디·비밀번호 → 30일 세션)
     if (pathname === '/auth/check') return check(request, env);       // 사이트 첫 화면 잠금(gate.js)의 세션 확인
+    if (pathname === '/ingest/translate') return translateRoute(request, env);   // 외신 제목 번역(Workers AI)
     if (pathname.startsWith('/ingest/')) return handleIngest(request, env);
     return redirect.fetch(request, env, ctx);
   },
