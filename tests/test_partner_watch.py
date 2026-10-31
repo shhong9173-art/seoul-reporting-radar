@@ -205,6 +205,16 @@ class EdgarNoise(unittest.TestCase):
         self.assertIn("보도 인용", by["edgar:n-1:ex99-1.htm"]["hearsay"])
         self.assertIs(by["edgar:b-1:d8k.htm"]["dealNear"], True)
         self.assertNotIn("hearsay", by["edgar:b-1:d8k.htm"])
+        # 전망·위험 고지 문구 속 언급(10-31 운영 Cleveland-Cliffs 8-K EX-99.1 발췌 그대로)
+        clf = ("…ign currency rates and tax laws; risks and uncertainties related to our ability to realize the anticipated synergies or other "
+               "expected benefits of any acquisitions, including the acquisition of Stelco, any potential transaction arising out of our "
+               "Memorandum of Understanding with POSCO and completing any proposed asset divestiture transactions; challenges to successfully "
+               "implementing our business s…")
+        c = self.item("edgar:clf-1:ex991.htm", "2026-10-19", clf, filer="CLEVELAND-CLIFFS INC. (CLF)", form="8-K")
+        c["phrases"], c["beat"] = ["POSCO"], ["포스코"]
+        got = {x["id"]: x for x in self.run_with([c, self.item("edgar:b-1:d8k.htm", "2026-10-21", self.DEAL, filer="Cell Maker Inc")])["items"]}
+        self.assertIn("전망·위험 고지", got["edgar:clf-1:ex991.htm"]["boilerplate"])
+        self.assertNotIn("boilerplate", got["edgar:b-1:d8k.htm"])
         # 발췌에 이름이 안 보이면(잘림) 판단하지 않는다
         cut = self.item("edgar:c-1:x.htm", "2026-10-21", "The Company entered into a supply agreement for cells with a customer in Asia.")
         self.assertNotIn("dealNear", self.run_with([cut])["items"][0])
