@@ -439,6 +439,11 @@ def queries(c):
             name=better[0][0] if better else "소송"
             return [f"{a} {sorted(numbers)[0]}", f"{a} {plaintiff} {name}".replace("  "," ")]
     qs = [f"{a} {t[0]}"]
+    names = c.get("names") or []
+    if len(names) > 1 and names[-1] != a:
+        # 법안: 줄임말과 정식 이름 기사가 따로 잡힌다(10-31 운영: '국가첨단전략산업법 개정안'으로 바꾸자 정식 이름으로 찾던
+        # 「반도체·배터리 기술유출 사전 차단 강화…」가 빠졌다). 네이버는 둘 다, 빙·구글은 마지막(줄임말+대표발의자).
+        qs.append(f"{names[-1]} {t[0]}")
     if len(t) > 1:
         qs.append(f"{a} {t[0]} {t[1]}")
     return qs
