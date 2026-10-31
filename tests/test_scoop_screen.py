@@ -150,6 +150,32 @@ class Selection(unittest.TestCase):
         plain = {"id": "clue:p", "terms": ["분할"]}
         self.assertEqual(s.apply_body_titles([plain]), ([plain], {"read": 0, "procedural": 0, "unread": 0}))
 
+    def test_supply_contracts_are_searched_by_the_contract_name(self):
+        # 10-31: 단일판매ㆍ공급계약 공시는 제목 낱말이 모두 상투어라 심사에서 빠졌다(대한전선 10-27·두산 10-26·효성 10-27)
+        def clue(i, company, title, source="DART"):
+            return {"id": i, "team": "t", "published": "2026-10-27", "source": source, "companies": [company] if company else [],
+                    "routine": False, "tier": "공개 원자료 추적", "title": title,
+                    "url": f"https://dart.fss.or.kr/dsaf001/main.do?rcpNo=2026102780{i[-4:]}"}
+        clues = {"items": [clue("c0001", "대한전선", "대한전선 단일판매ㆍ공급계약체결"),
+                           # 회사 칸이 빈 '그 외' 팀 공시: 제목 앞 이름이 심사 대상 회사면 그 회사
+                           clue("c0002", None, "일진전기 · 공급계약 · 단일판매ㆍ공급계약체결"),
+                           clue("c0003", None, "효성중공업 · 건설/주상복합 — 공식 2025→2026 동일기간·단위 숫자 793315 → 101198", "DART_METRIC"),
+                           clue("c0004", None, "효성중공업 · 임원ㆍ주요주주특정증권등소유상황보고서"),
+                           clue("c0005", None, "씨에스윈드 · [기재정정]단일판매ㆍ공급계약체결")]}
+        rows = {r["id"]: r for r in s.select(clues, {}, now=dt.datetime(2026, 10, 31, 7, 10, tzinfo=KST))}
+        self.assertEqual(set(rows), {"clue:c0001", "clue:c0002"})  # 수치 단서·소유상황 형식명·대상 밖 회사는 그대로 뺀다
+        self.assertEqual((rows["clue:c0002"]["company"], rows["clue:c0002"]["bodyTitle"]), ("일진전기", True))
+        # 원문 체결계약명(엘에스일렉트릭 20261019800108 형식)
+        rows["clue:c0001"]["filing"] = {"type": "공급계약", "facts": [["체결계약명", "765kV 초고압 전력케이블 공급"], ["계약상대", "한국전력공사"]]}
+        rows["clue:c0002"]["filing"] = {"type": "공급계약", "facts": [["체결계약명", "-"], ["계약상대", "비공개"]]}
+        kept, count = s.apply_body_titles(list(rows.values()))
+        self.assertEqual(count, {"read": 1, "procedural": 0, "unread": 1})  # 계약명 '-'는 못 읽은 것과 같다
+        self.assertEqual(s.queries(kept[0]), ["대한전선 초고압", "대한전선 초고압 전력케이블"])  # 한글 낱말 먼저
+        art = {"title": "대한전선, 한전에 765kV 초고압 전력케이블 1200억 공급", "text": "", "url": "k", "date": "2026-10-28"}
+        self.assertEqual(s.judge(kept[0], channels([art]), now=dt.datetime(2026, 10, 31, 7, 10, tzinfo=KST))[0], "관련 보도 있음")
+        # 긴 회사 이름부터 지운다(한국타이어앤테크놀로지 → '앤테크놀로지'가 낱말로 남던 것)
+        self.assertEqual(s.terms_from("한국타이어앤테크놀로지 · 생산설비", "한국타이어"), ["생산설비"])
+
     def test_first_seen_is_carried_so_old_candidates_are_not_new(self):
         rows = [{"id": "clue:a"}, {"id": "clue:b"}, {"id": "clue:c"}]
         prev = {"generatedAt": "2026-10-29T07:10:00+09:00",
