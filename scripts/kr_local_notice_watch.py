@@ -203,6 +203,7 @@ def parse_cells(mgt, cells):
 
 DETAIL_MAX = 8  # 실행당 상세 페이지(새 A·B만)
 DETAIL_TIMEOUT = 45
+DETAIL_BACKFILL_DAYS = 3
 BODY_CHARS = 400
 FILE_EXT = re.compile(r"\.(?:pdf|hwpx?|docx?|xlsx?|zip|jpg|png)$", re.I)
 BODY_END = re.compile(r"^(?:첨부\s*파일|목록\s*보기|목록|이전\s*글|다음\s*글)\b")
@@ -395,8 +396,12 @@ def run(*, now, previous=None, post=None, sleep=time.sleep, cities=CITIES, brows
             x["isNew"] = False
     # 새 A·B 공고는 상세 페이지까지(기자 컴퓨터 브라우저로 읽은 시·군과 홈페이지 게시판은 GitHub에서 상세가 안 열려 뺀다)
     via_browser = {c[0] for c in browser_cities} | set(sources)
-    fresh = [x for x in out.values() if x.get("isNew") and x["tier"] in ("A", "B") and x["city"] not in via_browser
+    # 이번에 새로 잡힌 것 + 최근 3일 안에 잡혔는데 아직 상세를 안 읽은 것(이 기능 전 저장분, 한 번만 — 실패도 기록돼 다시 안 읽음)
+    since = (now - dt.timedelta(days=DETAIL_BACKFILL_DAYS)).isoformat()
+    fresh = [x for x in out.values() if x["tier"] in ("A", "B") and not x.get("baseline") and x["city"] not in via_browser
+             and (x.get("isNew") or (str(x.get("firstSeen")) >= since and "detail" not in x and "detailError" not in x))
              and not any(x["url"].startswith(b) for b in HOMEPAGE_BOARDS)]
+    fresh.sort(key=lambda x: (not x.get("isNew"), x["tier"]))
     details = read_details(fresh, get, sleep) if get and fresh else None
     keep_from = (now - dt.timedelta(days=KEEP_DAYS)).isoformat()
     items = sorted((x for x in out.values() if str(x.get("firstSeen")) >= keep_from),

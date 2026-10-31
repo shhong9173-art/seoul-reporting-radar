@@ -272,6 +272,20 @@ class Local(unittest.TestCase):
         again = w.run(now=NOW + dt.timedelta(days=1), previous=first, post=fake({"http://eminwon.ulju.ulsan.kr": page(uj2, A_ROW)}),
                       sleep=lambda s: None, cities=CITIES[1:], browser_cities=())
         self.assertNotIn("details", again)
+        # 이 기능 전에 저장된 최근 A·B(상세 없음)는 한 번 읽고, 실패·성공이 기록되면 다시 읽지 않는다
+        asked.clear()
+        third = w.run(now=NOW + dt.timedelta(days=2), previous=again, post=fake({"http://eminwon.ulju.ulsan.kr": page(uj2, A_ROW)}),
+                      sleep=lambda s: None, cities=CITIES[1:], browser_cities=(), get=get)
+        self.assertEqual(sorted(u.split("no=")[1].split("&")[0] for u in asked), ["68156", "68157"])
+        self.assertIn("detail", next(x for x in third["items"] if x["id"] == "local:울주군:68156"))
+        asked.clear()
+        w.run(now=NOW + dt.timedelta(days=2, hours=1), previous=third, post=fake({"http://eminwon.ulju.ulsan.kr": page(uj2, A_ROW)}),
+              sleep=lambda s: None, cities=CITIES[1:], browser_cities=(), get=get)
+        self.assertEqual(asked, [])
+        # 3일이 지난 저장분은 읽지 않는다
+        stale = w.run(now=NOW + dt.timedelta(days=5), previous=again, post=fake({"http://eminwon.ulju.ulsan.kr": page(uj2, A_ROW)}),
+                      sleep=lambda s: None, cities=CITIES[1:], browser_cities=(), get=get)
+        self.assertNotIn("details", stale)
 
     def test_full_title_regrades(self):
         # 목록 제목이 잘려 사업 낱말이 빠졌던 B가 전체 제목으로 A가 된다
