@@ -436,7 +436,7 @@ export async function usRecalls(ctx, args) {
     out.push('   검증 상태: 소비자가 낸 신고(자동 집계) — 결함 확정 아님. 같은 원인인지·국내 판매 차종 해당 여부는 회사·국토부 확인');
   }
   out.push(...tsbSection(doc.tsbs, checks.find((c) => c.source === 'NHTSA 제조사 통신(TSB)'), q, limit, onlyNew, args.show_all === true || args.show_all === 'true'));
-  out.push('\n다음: NHTSA 리콜 페이지·원보고서·제조사 통신 PDF(source_document, nhtsa.gov)로 대상 차대·부품·공급사 확인 → 국내 판매 여부·자동차리콜센터 → news_check.');
+  out.push('\n다음: NHTSA 리콜 페이지(source_document)로 대상 차대·부품 확인 — 원보고서(Part 573)·제조사 통신 PDF는 source_document가 못 읽어 링크를 직접 연다 → 국내 판매 여부·자동차리콜센터 → news_check.');
   return textResult(out.join('\n'));
 }
 
