@@ -1,23 +1,22 @@
-"""Probe 14: Nama iSupplier(Oracle) 입찰 공고 화면(OETC·NSS) — 해외 IP에서 열리는지, 공개 칸(마감·개찰·낙찰). 공개 자료, 저장하지 않음."""
-import html
-import re
+"""Probe 15: 한국천문연구원 특일 정보(공휴일) API가 공유 키(DATA_GO_KR_KEY)로 되는지 — 키 값은 출력하지 않는다."""
+import os
 import time
 import requests
 
 out = []
-S = requests.Session()
-S.headers.update({"User-Agent": "newsroom-official-research/1.0 (github.com/shhong9173-art/seoul-reporting-radar)"})
-for f in ["XXTEN_TENDER_FLOAT_OETC_F", "XXTEN_TENDER_FLOAT_NSS_F"]:
-    url = f"https://isupplier.nama.om:4443/OA_HTML/OA.jsp?OAFunc={f}"
-    try:
-        r = S.get(url, timeout=40)
-        body = re.sub(r"<script.*?</script>|<style.*?</style>", " ", r.text, flags=re.S)
-        txt = re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " | ", body)))
-        out.append(f"\n## {f} -> HTTP {r.status_code} len {len(r.text)} final {r.url}\n{txt[:2500]}")
-        out.append("links: " + " | ".join(sorted(set(re.findall(r"""href=['"]([^'"]{6,200})""", r.text)))[:25]))
-        out.append("OAFunc refs: " + " | ".join(sorted(set(re.findall(r"OAFunc=([A-Z0-9_]+)", r.text)))[:25]))
-    except Exception as e:  # noqa: BLE001
-        out.append(f"\n## {f} -> {type(e).__name__} {str(e)[:200]}")
-    time.sleep(2)
+key = os.environ.get("DATA_GO_KR_KEY", "").strip()
+out.append(f"key set: {bool(key)}")
+for base in ["https://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService/getRestDeInfo",
+             "http://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService/getRestDeInfo"]:
+    for ym in [("2026", "12"), ("2027", "02")]:
+        try:
+            r = requests.get(base, params={"serviceKey": key, "solYear": ym[0], "solMonth": ym[1], "_type": "json", "numOfRows": 50}, timeout=30)
+            body = r.text.replace(key, "***") if key else r.text
+            out.append(f"{base[:5]} {ym} HTTP {r.status_code} type {r.headers.get('content-type')} :: {body[:600]}")
+        except Exception as e:  # noqa: BLE001
+            out.append(f"{base[:5]} {ym} {type(e).__name__} {str(e)[:120]}")
+        time.sleep(1)
+    if any("HTTP 200" in x and "locdate" in x for x in out):
+        break
 open("/tmp/probe_out.txt", "w").write("\n".join(out))
-print("\n".join(out)[:400])
+print("\n".join(out)[:300].replace(key, "***") if key else "\n".join(out)[:300])
