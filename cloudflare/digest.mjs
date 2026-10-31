@@ -85,6 +85,12 @@ const ALT = {
   환경영향평가: ['환경영향평가', '환경평가'], 산업단지: ['산업단지', '산단'], 이전: ['이전', '옮겨', '옮긴다'], 매립: ['매립', '매립장'],
 };
 const ASX_KO = { PLS: '필바라', ARU: '아라푸라', '01958': 'BAIC' };
+// EDGAR 공시 회사의 한국 기사 표기(앞부분만 — '넥사 리소시스'·'클리블랜드-클리프스' 모두 맞게). 표기를 모르면 보도 대조를 하지 않는다:
+// 영문 첫 낱말('FIRST' 등)로 찾으면 아무 기사도 못 찾아 '미보도 후보'가 된다(10-31 운영: 한화솔루션 FIRST SOLAR 10-Q).
+const EDGAR_KO = { FSLR: '퍼스트솔라', NEXA: '넥사', CLF: '클리블랜드', KT: 'KT', PBK: '파워뱅크', ALB: '앨버말', TSLA: '테슬라', GM: 'GM', F: '포드',
+  RIVN: '리비안', NUE: '뉴코어', STLD: '스틸다이내믹스', X: 'US스틸', FCX: '프리포트', SQM: 'SQM', LAC: '리튬아메리카스', ENPH: '엔페이즈', NEE: '넥스트에라' };
+// 발췌가 소송·특허 서술이면 '계약' 대신 '특허'로 찾는다(10-31: 퍼스트솔라 10-Q의 한화큐셀 특허침해 USITC 청원 문단)
+const LITIGATION = /\b(?:infring\w*|lawsuit|complaint|petition|USITC|litigation|patent\w*)\b/i;
 const COUNTRY_KO = {
   DNK: '덴마크', SWE: '스웨덴', FIN: '핀란드', NOR: '노르웨이', ESP: '스페인', PRT: '포르투갈', GBR: '영국', DEU: '독일', NLD: '네덜란드', BEL: '벨기에',
   FRA: '프랑스', ITA: '이탈리아', IRL: '아일랜드', AUT: '오스트리아', POL: '폴란드', CZE: '체코', SVK: '슬로바키아', HUN: '헝가리', ROU: '루마니아',
@@ -350,7 +356,8 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
       check: hint((x.named ?? [])[0]?.company, ['ITC', '특허침해']) });
   }
 
-  // US recalls (NHTSA full file): Korean brands, GM Korea models, Korean tires and Korean supplier names are direct; imports alone are B.
+  // US recalls (NHTSA full file): Korean brands, GM Korea models, Korean tires and Korean supplier names are direct (A from 1,000 cars);
+  // imports alone are B from 10,000 cars, smaller ones C. Park-outside / do-not-drive advisories keep the higher tier.
   const ur = docs['us-recalls'];
   const urBase = baselineOf(ur?.recalls ?? []);
   for (const x of ur?.recalls ?? []) {
@@ -360,9 +367,14 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
     const lead = why.find((w) => String(w.role).startsWith('부품')) ?? why[0] ?? {};
     const brand = why.find((w) => String(w.role).startsWith('제조사'))?.name;
     const roles = why.map((w) => `${w.name}(${w.role})`).join('·');
-    push(direct ? 'A' : 'B', W['us-recalls'], { kind: 'NHTSA 리콜', id: x.id, date: x.received, company: [...new Set(why.map((w) => w.name))].join('·'),
+    // 대상 대수: 출입처 직접 리콜도 1,000대 미만은 B, 수입 브랜드만 걸린 리콜은 1만 대 미만이면 참고(C) — 실외 주차·운행 중지 권고는 그대로 올린다
+    // (10-31 운영: 현대차 24대·17대 리콜이 A, BMW 45대 리콜이 B '관련 보도 있음'(다른 BMW 리콜 기사)으로 떴다).
+    const n = Number(x.affected ?? 0);
+    const urgent = x.parkOutside || x.doNotDrive;
+    const tier = direct ? (n >= 1000 || urgent ? 'A' : 'B') : (n >= 10000 || urgent ? 'B' : 'C');
+    push(tier, W['us-recalls'], { kind: 'NHTSA 리콜', id: x.id, date: x.received, company: [...new Set(why.map((w) => w.name))].join('·'),
       fact: `미국 리콜 ${x.campaign} 접수 ${x.received} · ${x.models} · ${x.component} · 대상 ${Number(x.affected ?? 0).toLocaleString('en-US')}대${x.parkOutside ? ' · 실외 주차 권고' : ''} — ${roles}${x.supplierBox ? ` · 원보고서 공급사 칸: ${String(x.supplierBox).slice(0, 80)}` : ''}`,
-      url: x.url, check: hint(lead.name, ['리콜', String(lead.role).startsWith('부품') ? brand : '미국']) });
+      url: x.url, check: tier === 'C' ? undefined : hint(lead.name, ['리콜', String(lead.role).startsWith('부품') ? brand : '미국']) });
   }
   // NHTSA defect investigations (ODI) on beat cars or naming a Korean supplier: opened on 현대·기아·한국GM 차종 A, closed B.
   const invBase = baselineOf(ur?.investigations ?? []);
@@ -414,14 +426,18 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
     if (x.routine) tier = 'C';
     else if (x.source === 'ASX' || x.source === 'HKEX') tier = (x.flags ?? []).length ? 'A' : 'C';
     // dealNear(수집기): 계약 낱말이 출입처 이름과 같은 문장에 있나. 예전 저장분은 발췌 전체로 본다.
-    else tier = !x.hearsay && (x.dealNear ?? DEAL_WORDS.test(String(x.snippet ?? ''))) && !x.finNote ? 'A' : 'B';
+    // 보도 인용 문장에만 이름이 나온 것은 그 회사 공시가 아니라 기사 인용이다 — 참고(10-31: 넥사 6-K의 '고려아연·텍 벤치마크 TC' 인용)
+    else if (x.hearsay) tier = 'C';
+    else tier = (x.dealNear ?? DEAL_WORDS.test(String(x.snippet ?? ''))) && !x.finNote ? 'A' : 'B';
     const deal = x.routine ? ` — ${x.routine}` : x.source === 'ASX' || x.source === 'HKEX' ? '' : x.hearsay ? ` — ${x.hearsay}` : x.finNote ? ` — ${x.finNote}`
       : tier === 'B' && x.dealNear === false && DEAL_WORDS.test(String(x.snippet ?? '')) ? ' — 계약·공급 낱말이 출입처 이름과 다른 문장에 있음(업계 일반 서술일 수 있음)'
       : tier === 'B' ? ' — 발췌에 계약·공급·합작 낱말 없음(이름만 언급일 수 있음)' : '';
-    const partner = ASX_KO[(/\(([A-Z0-9]{2,5})\)\s*$/.exec(String(x.filer ?? '')) ?? [])[1]] ?? String(x.filer ?? '').split(/[\s,(]/)[0];
+    const ticker = (/\(([A-Z0-9]{1,5})(?:,[^)]*)?\)\s*$/.exec(String(x.filer ?? '')) ?? [])[1];
+    const partner = x.source === 'EDGAR' ? EDGAR_KO[ticker] : ASX_KO[ticker] ?? String(x.filer ?? '').split(/[\s,(]/)[0];
+    const word = x.source === 'HKEX' ? '합작' : LITIGATION.test(String(x.snippet ?? '')) ? '특허' : '계약';
     const when = x.source === 'HKEX' && x.time ? ` ${x.time} 홍콩시각` : '';
     push(tier, W['partner-filings'], { kind: x.source ?? '공시', id: x.id, date: x.date, company: (x.beat ?? []).join('·'), fact: `${x.source} ${x.filer}${when}: ${x.title}${(x.flags ?? []).length ? ` (낱말 ${x.flags.join(',')})` : ''}${deal}`, url: x.url,
-      check: hint((x.beat ?? [])[0], [partner, x.source === 'HKEX' ? '합작' : '계약']) });
+      check: partner ? hint((x.beat ?? [])[0], [partner, word]) : undefined });
   }
 
   // Overseas public-buyer award notices (EU TED·영국 FTS·세계은행·바레인 월간 보고서·대만 PCC): a beat company in the winner field is A;
@@ -500,8 +516,12 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
   // 국민연금 사업장(월 자료): 자사 사업장 가입자 급감·탈퇴·새 사업장·투자 낱말 공사 현장 A, 급증·변동·목록에서 빠짐·공사 현장 묶음 B.
   for (const e of docs['kr-workforce']?.events ?? []) {
     if (!recent(e.detectedAt)) continue;
-    push(e.tier ?? 'B', W['kr-workforce'], { kind: e.kind, id: e.id, date: e.detectedAt, company: e.company, fact: e.text,
-      check: workforceHint(e) });
+    // 늘어난 '인력 변동'(지난달 대비 +max(15명, 1.5%) 이상, 급증 기준 max(30명, 3%) 미만)은 참고 — 공채 입사 같은 달마다의 출렁임이다
+    // (10-31 운영: 한화솔루션 울산1 +15명·기아 본사 +112명(+1.7%)·현대위아 창원 +50명이 B '미보도 후보'로 떴다). 줄어든 변동은 B 그대로.
+    const grew = /\(\+[\d,]+명/.test(String(e.text ?? ''));
+    const tier = e.kind === '인력 변동' && grew ? 'C' : e.tier ?? 'B';
+    push(tier, W['kr-workforce'], { kind: e.kind, id: e.id, date: e.detectedAt, company: e.company, fact: e.text,
+      check: tier === 'C' ? undefined : workforceHint(e) });
   }
 
   // 굴뚝 자동측정(TMS): 사업장 가동 중단 신호·(14일 넘게 지켜본 뒤의) 새 배출구·새 사업장 A, 배출구 멈춤·목록에서 빠짐·재가동 B. 측정값만으로는 정지·정비·점검을 가르지 못한다.

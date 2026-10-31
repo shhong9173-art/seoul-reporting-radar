@@ -160,6 +160,9 @@ class Selection(unittest.TestCase):
         self.assertEqual(out["clue:c"], NOW.isoformat(timespec="seconds"))
         self.assertEqual(s.carry_first_seen([{"id": "x"}], None, NOW)[0]["firstSeen"], NOW.isoformat(timespec="seconds"))
 
+    def test_qcells_headline_names_hanwha_solutions(self):
+        self.assertTrue(s.company_in_text("한화솔루션", "퍼스트솔라, 한화큐셀 등 특허침해 ITC 제소"))
+
     def test_particles_and_stopwords(self):
         self.assertEqual(s.terms_from("두산에너빌리티 압력용기의 내외부를 이를", "두산에너빌리티"), ["압력용기", "내외부"])
 

@@ -910,6 +910,27 @@ test('radar_today shows converging signals above the tiers', async () => {
   assert.ok(r.text.indexOf('[겹친 신호') < r.text.indexOf('[A · '));
 });
 
+test('workforce: a small rise is reference (C, no press check), a small drop stays B', async () => {
+  const env = PRIVATE().env;
+  const recent = new Date(Date.now() - 2 * 3600000).toISOString();
+  const post = (feed, doc) => worker.fetch(new Request(ORIGIN + `/ingest/${feed}`, { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {});
+  // 10-31 운영: 한화솔루션 울산1 +15명이 B '미보도 후보'(질의 '한화솔루션 채용')로 떴다. 예전 저장분은 tier B로 남아 있다.
+  await post('kr-workforce', { schema: 'kr_workforce/v1', generatedAt: recent, month: '202609', sites: [], projects: [], checks: [], events: [
+    { id: 'wf:delta:up', kind: '인력 변동', tier: 'B', company: '한화솔루션', month: '202609', detectedAt: recent,
+      text: '한화솔루션(주) 울산1(울산광역시 남구 상개로) 국민연금 가입자 521→536명(+15명, +2.9%) · 그달 신규 취득 17·상실 4 — 2026-09 자료' },
+    { id: 'wf:delta:down', kind: '인력 변동', tier: 'B', company: '기아', month: '202609', detectedAt: recent,
+      text: '기아(주)AutoLand화성 국민연금 가입자 11,560→11,300명(-260명, -2.2%) — 2026-09 자료' }] });
+  const r = await call('radar_today', { include_minor: true }, { path: `/mcp/${TOKEN}`, env });
+  const b = r.text.split('[B · ')[1].split('[C · ')[0];
+  const c = r.text.split('[C · ')[1];
+  assert.match(b, /11,560→11,300명\(-260명/);
+  assert.doesNotMatch(b, /521→536명/);
+  assert.match(c, /521→536명\(\+15명/);
+  const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, {})).json();
+  assert.equal(items.items.find((x) => x.id === 'wf:delta:up'), undefined);
+  assert.deepEqual(items.items.find((x) => x.id === 'wf:delta:down').check.terms, ['감원']);
+});
+
 test('us_litigation shows party cases by priority, folds routine ones, and lists ITC 337 names', async () => {
   const env = PRIVATE().env;
   const doc = { schema: 'us_litigation/v1', generatedAt: '2026-10-27T07:50:00+09:00', windowDays: 45, rules: ['당사자 목록에 출입처가 있는 사건만.'],
@@ -1406,7 +1427,10 @@ test('partner filings: EDGAR holdings tables and repeated text fold to C, financ
       // 10-30: 계약 낱말이 출입처 이름과 다른 문장(업계 일반 서술), 보도 인용 문장에만 이름 → A가 아니다
       ed('n1', 'NEXA RESOURCES', 'For third-party suppliers, TCs are based on annually negotiated contracts. The 2026 benchmark TC, reportedly agreed between Hyundai Motor Company and X, was set at US$85/t.',
         { dealNear: false, hearsay: '출입처 이름이 보도 인용 문장(reportedly 등)에만 나옴 — 두 회사 간 거래 공시가 아님' }),
-      ed('m1', 'MINER CORP', 'Our supply contracts are with steel mills. Hyundai Motor Company is one of the largest automakers.', { dealNear: false })],
+      ed('m1', 'MINER CORP', 'Our supply contracts are with steel mills. Hyundai Motor Company is one of the largest automakers.', { dealNear: false }),
+      // 10-31: 퍼스트솔라 10-Q의 특허침해 USITC 청원 문단 — 질의는 한국 표기 + '특허'
+      ed('f1', 'FIRST SOLAR, INC.  (FSLR)', 'First Solar filed a petition with the USITC asserting that entities affiliated with Hyundai Motor Company infringe a First Solar patent.',
+        { dealNear: false })],
     confirmedScoops: 0 };
   assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/partner-filings', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
   const r = await call('radar_today', { include_minor: true, limit: 60 }, opts);
@@ -1415,8 +1439,15 @@ test('partner filings: EDGAR holdings tables and repeated text fold to C, financ
   assert.match(sec('B'), /KT CORP: 6-K EX-99\.1 — 재무제표 주석/);
   assert.match(sec('C'), /HARTFORD INSURANCE GROUP: 6-K EX-99\.1 — 투자 보유 목록/);
   assert.doesNotMatch(sec('A'), /KT CORP|HARTFORD|NEXA|MINER/);
-  assert.match(sec('B'), /NEXA RESOURCES: 6-K EX-99\.1 — 출입처 이름이 보도 인용 문장/);
+  assert.match(sec('C'), /NEXA RESOURCES: 6-K EX-99\.1 — 출입처 이름이 보도 인용 문장/);  // 기사 인용일 뿐 — 참고(10-31)
+  assert.doesNotMatch(sec('B'), /NEXA RESOURCES/);
   assert.match(sec('B'), /MINER CORP: 6-K EX-99\.1 — 계약·공급 낱말이 출입처 이름과 다른 문장에 있음/);
+  assert.match(sec('B'), /FIRST SOLAR, INC\.  \(FSLR\): 6-K EX-99\.1 — 발췌에 계약·공급·합작 낱말 없음/);
+  const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=168', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: new Date('2026-10-26T01:00:00Z') })).json();
+  const chk = (id) => items.items.find((x) => x.id === id)?.check;
+  assert.deepEqual([chk('f1').who, chk('f1').terms], ['현대차', ['퍼스트솔라', '특허']]);
+  assert.equal(chk('m1'), undefined);  // 한국 표기를 모르는 회사: 'MINER'로 찾지 않는다(대조 안 함)
+  assert.equal(chk('n1'), undefined);  // C
   const t = await call('partner_filings', {}, opts);
   assert.doesNotMatch(t.text, /HARTFORD/);
   assert.match(t.text, /분류: 재무제표 주석/);
@@ -1723,6 +1754,13 @@ test('us_recalls: NHTSA full-file recalls with Korean links reach A; imports alo
         firstSeen: '2026-10-25T17:10:00+09:00', isNew: true },
       { id: 'nhtsa:26V701000', campaign: '26V701000', received: '2026-10-24', makes: ['BMW'], models: 'X5 2026', component: 'BRAKES', affected: 300,
         defect: 'Brake hose.', url: 'https://www.nhtsa.gov/recalls?nhtsaId=26V701', why: [{ role: '제조사(출입처 브랜드)', beat: 'BMW코리아', name: 'BMW' }],
+        firstSeen: '2026-10-25T17:10:00+09:00', isNew: true },
+      // 10-31: 수입 브랜드만 걸린 큰 리콜은 B, 출입처 직접 리콜도 1,000대 미만이면 B
+      { id: 'nhtsa:26V702000', campaign: '26V702000', received: '2026-10-24', makes: ['BMW'], models: 'X3 2025', component: 'AIR BAGS', affected: 52000,
+        defect: 'Air bag.', url: 'https://www.nhtsa.gov/recalls?nhtsaId=26V702', why: [{ role: '제조사(출입처 브랜드)', beat: 'BMW코리아', name: 'BMW' }],
+        firstSeen: '2026-10-25T17:10:00+09:00', isNew: true },
+      { id: 'nhtsa:26V692000', campaign: '26V692000', received: '2026-10-24', makes: ['HYUNDAI'], models: 'ELANTRA 2026', component: 'SUSPENSION', affected: 24,
+        defect: 'Strut fasteners.', url: 'https://www.nhtsa.gov/recalls?nhtsaId=26V692', why: [{ role: '제조사(출입처 브랜드)', beat: '현대차', name: '현대차' }],
         firstSeen: '2026-10-25T17:10:00+09:00', isNew: true }],
     invLookbackDays: 120,
     investigations: [
@@ -1743,7 +1781,10 @@ test('us_recalls: NHTSA full-file recalls with Korean links reach A; imports alo
   const a = r.text.split('[A · ')[1].split('[B · ')[0];
   const b = r.text.split('[B · ')[1].split('[C · ')[0];
   assert.match(a, /미국 리콜 26V698000 접수 2026-10-24 · Q4 E-TRON 2024~2025 · ELECTRICAL SYSTEM:PROPULSION · 대상 9,048대 · 실외 주차 권고 — 아우디\(제조사\(출입처 브랜드\)\)·SK온/);
-  assert.match(b, /미국 리콜 26V701000/);
+  assert.match(b, /미국 리콜 26V702000/);
+  assert.match(b, /미국 리콜 26V692000 접수 2026-10-24 · ELANTRA 2026 · SUSPENSION · 대상 24대/);
+  assert.doesNotMatch(a + b, /26V701000/);  // 수입 브랜드 300대 → 참고(C)
+  assert.match(r.text, /\[C · 참고\(접힘\)\] \d+건/);
   assert.match(a, /미국 NHTSA 예비조사\(PE\) PE26010 조사 개시 · HYUNDAI TUCSON 2025 · ELECTRICAL · 「ICCU failure」 · 개시 2026-10-24 — 조사 개시는 결함 확정 아님/);
   assert.doesNotMatch(r.text, /Old probe/);  // first-read baseline with an old date
   assert.match(t.text, /\[결함조사\(ODI\) · 최근 120일 개시·종결\] 출입처 관련 2건/);
@@ -1751,7 +1792,8 @@ test('us_recalls: NHTSA full-file recalls with Korean links reach A; imports alo
   const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
   const hit = items.items.find((x) => x.id === 'nhtsa:26V698000');
   assert.deepEqual([hit.check.who, hit.check.terms], ['SK온', ['리콜', '아우디']]);
-  assert.deepEqual(items.items.find((x) => x.id === 'nhtsa:26V701000').check.terms, ['리콜', '미국']);
+  assert.deepEqual(items.items.find((x) => x.id === 'nhtsa:26V702000').check.terms, ['리콜', '미국']);
+  assert.equal(items.items.find((x) => x.id === 'nhtsa:26V701000'), undefined);  // C는 보도 대조 안 함
   assert.deepEqual(dueAt(new Date('2026-10-28T08:10:00Z')), ['us-recalls.yml']);  // Wed 17:10 KST
 });
 
