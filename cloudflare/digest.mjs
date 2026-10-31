@@ -79,7 +79,7 @@ const ALT = {
   합작: ['합작', '지분', '매각', '정리', '철수', '계약', '합작사'], 보조금: ['보조금', '상계관세', '어린이집', '직장', '지원'],
   리콜: ['리콜', '결함', '시정조치', '화재 위험'], 가격: ['가격', '판매가', '출고가', 'MSRP', '값'], 미국: ['미국', '美'],
   EPA: ['EPA', '환경보호청', '인증', '주행거리', '연비'],
-  회생: ['회생', '법정관리', '파산', '기업회생', '워크아웃'],
+  회생: ['회생', '법정관리', '파산', '기업회생', '워크아웃'], 파산: ['파산', '청산', '회생', '법정관리'], 매각: ['매각', '인수', 'M&A', '새 주인'],
   허가: ['허가', '인가', '승인', '전기위원회'], 법인: ['법인', '현지법인', '자회사', '설립'], 영국: ['영국', 'UK'], 원안위: ['원안위', '원자력안전위원회', '의결', '심의'],
   발주: ['발주', '입찰', '낙찰', '구매'],
   산소공장: ['산소공장', '산소 공장', '산소플랜트', 'ASU', '공기분리'],
@@ -113,6 +113,10 @@ export function insolvencyLine(e) {
 // places: search words that narrow the query (시·군, 나라) but cannot mark a story alone — a headline with the company and
 // its city is often another story (10-31: 고려아연 울주 안전점검 공고가 '고려아연 온산제련소 지원 울주군 집수리' 기사로 '관련 보도 있음').
 // must: an article has to name one of these (title or text) to count — for a site of a company with several (포스코 광양·포항).
+// 회생·파산 공고의 보도 대조 낱말은 절차대로: 파산 선고를 '회생'으로 찾으면 '○○ 파산' 기사를 못 찾는다
+// (10-31 운영: 케이아이씨·남양테크 파산 선고가 "케이아이씨 회생"으로 대조돼 '미보도 후보').
+export const insolvencyWord = (kind) => (/파산/.test(String(kind ?? '')) ? '파산' : /M&A|매각/.test(String(kind ?? '')) ? '매각' : '회생');
+
 export function hint(who, terms, places = [], must = [], names = []) {
   const subject = String(who ?? '').split('·')[0].replace(/\(.*?\)/g, '').trim();
   const t = [...new Set(terms.filter(Boolean).map(String))];
@@ -594,7 +598,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
     if (!fresh(e, insBase, 'posted')) continue;
     push(e.tier ?? 'C', W['kr-insolvency'], { kind: e.kind, id: e.id, date: e.posted ?? e.firstSeen, company: e.company,
       fact: `${e.kind}: ${insolvencyLine(e)} · 공고 ${e.posted ?? '?'} — 거래 관계·납품 영향 미확인`, url: e.url ?? e.listUrl,
-      check: e.tier === 'C' ? undefined : hint(firmName(e.company), ['회생']) });
+      check: e.tier === 'C' ? undefined : hint(firmName(e.company), [insolvencyWord(e.kind)]) });
   }
 
   // 전기위원회 발전사업 허가(회차 개최결과·허가대장)·원안위 안건: 출입처 그룹 사업명·원전 건설/운영허가·SMR A, 해상풍력 허가·계속운전 B.
