@@ -1,11 +1,13 @@
 name: KR Official Watch
-# 출입처 공장등록(팩토리온) 변화와 관보 입법예고(출입처 업종 관련). 평일 08:10 KST.
+# 출입처 공장등록(팩토리온) 변화, 관보 입법예고(출입처 업종 관련), 법제처 확정 발령(행정규칙·법령·해석례). 평일 08:10 KST.
 # 결과는 기자 전용 저장소로만. 공개 로그는 건수만. 공공데이터포털 개발계정 하루 1,000회 안에서(실행당 약 40~80회).
 on:
   push:
     branches: [main]
     paths:
       - 'scripts/kr_official_watch.py'
+      - 'scripts/law_rules_watch.py'
+      - 'tests/test_law_rules_watch.py'
       - 'data/factory_watch.json'
       - 'tests/test_kr_official_watch.py'
       - '.github/workflows/kr-official.yml'
@@ -31,9 +33,10 @@ jobs:
           python-version: '3.12'
       - run: python -m pip install "requests>=2.31,<3"
       - name: Test parsing
-        run: python -m unittest tests.test_kr_official_watch tests.test_private_store -v
+        run: python -m unittest tests.test_kr_official_watch tests.test_law_rules_watch tests.test_private_store -v
       - name: Watch factory registry and gazette (counts-only log)
         env:
           MCP_ACCESS_TOKEN: ${{ secrets.MCP_ACCESS_TOKEN }}
           CUSTOMS_API_KEY: ${{ secrets.CUSTOMS_API_KEY }}
+          G2B_API_KEY: ${{ secrets.G2B_API_KEY }}
         run: python scripts/kr_official_watch.py

@@ -756,7 +756,7 @@ export async function stacksSection(ctx, q, days, limit) {
 }
 
 export async function krOfficial(ctx, args) {
-  const section = ['factory', 'gazette', 'insolvency', 'building', 'local', 'workforce', 'stacks'].includes(args.section) ? args.section : null;
+  const section = ['factory', 'gazette', 'law', 'insolvency', 'building', 'local', 'workforce', 'stacks'].includes(args.section) ? args.section : null;
   const q = String(args.company ?? '').trim();
   if (section === 'local') return textResult((await localSection(ctx, q, clampInt(args.days, 1, 120, 30), clampInt(args.limit, 1, 80, 20))).join('\n').trim());
   if (section === 'workforce') return textResult((await workforceSection(ctx, q, clampInt(args.days, 1, 120, 45), clampInt(args.limit, 1, 80, 20))).join('\n').trim());
@@ -815,6 +815,7 @@ export async function krOfficial(ctx, args) {
     }
     out.push('   검증 상태: 관보 게재 목록(자동). 같은 날 보도자료가 나왔는지 news_check로 확인');
   }
+  if (!section || section === 'law') out.push(...lawRulesSection(doc.lawRules, q, args.limit ? limit : 15, args.show_all === true || args.show_all === 'true'));
   if (!section) {
     const eia = (doc.eia ?? []).filter((x) => matches(q, x.company, x.name, x.category));
     out.push(`\n[환경영향평가 · 사업명에 출입처 이름 · 새 단계] ${eia.length}건`);
@@ -822,9 +823,30 @@ export async function krOfficial(ctx, args) {
     if (!eia.length) out.push('새 단계 없음(첫 실행은 기준선, 조회 실패면 미확인).');
   }
   out.push(...insolvency);
-  out.push('\n다음: 새 공장·변경은 회사·지자체에 가동 시점·투자액·인력 확인 → news_check. 입법예고는 원문(관보 PDF)에서 시행일·대상 확인. 환경영향평가는 EIASS에서 사업코드로 평가서 원문(규모·일정) 확인.'
+  out.push('\n다음: 새 공장·변경은 회사·지자체에 가동 시점·투자액·인력 확인 → news_check. 입법예고는 원문(관보 PDF)에서 시행일·대상 확인. 법제처 확정 발령은 law.go.kr 원문의 신구조문·개정이유로 무엇이 바뀌었는지 확인. 환경영향평가는 EIASS에서 사업코드로 평가서 원문(규모·일정) 확인.'
     + (insolvency.length ? ' 회생·파산은 공고 원문(관리인·신청일)과 공장 주소 대조 → 출입처 DART 사업보고서 주요 매입처·협력사 확인(dart_find_text) → 회사·출입처에 거래 규모·대체 공급 확인 → news_check.' : ''));
   return textResult(out.join('\n'));
+}
+
+// 법제처 확정 발령(law_rules_watch.py): 출입 업종 행정규칙·법령의 새 일련번호와 법제처 법령해석례. 입법예고(관보)의 다음 단계.
+export function lawRulesSection(lr, q = '', limit = 15, showAll = false) {
+  if (!lr) return ['\n[법제처 확정 발령 · 행정규칙·법령·해석례] 아직 수집 전 — 미확인'];
+  const rank = { B: 0, C: 1 };
+  const all = (lr.items ?? []).filter((x) => matches(q, x.title, x.org, x.type, (x.teams ?? []).join(' ')));
+  const shown = (showAll ? all : all.filter((x) => x.tier === 'B'))
+    .sort((a, b) => Number(b.isNew) - Number(a.isNew) || String(b.date).localeCompare(String(a.date)) || (rank[a.tier] ?? 2) - (rank[b.tier] ?? 2));
+  const out = [`\n[법제처 확정 발령 · 출입 업종 행정규칙(고시·훈령·예규)·법령·법령해석례 · 확인 ${String(lr.checkedAt).slice(0, 16)}${lr.stale ? ' · ⚠ 이번 조회 실패, 직전 목록' : ''} · 기준선 ${String(lr.baselineSince ?? '').slice(0, 10)}] `
+    + `B ${all.filter((x) => x.tier === 'B').length}건${showAll ? '' : ` · C ${all.length - shown.length}건 숨김(show_all=true)`} · 최근 90일 안에 처음 본 것`];
+  for (const x of shown.slice(0, limit)) {
+    const when = x.kind === '법령해석례' ? `회신 ${x.date}` : `${x.kind === '법령' ? '공포' : '발령'} ${x.date}${x.effective && x.effective !== x.date ? ` · 시행 ${x.effective}` : ''}`;
+    out.push(`- ${x.isNew ? '[신규] ' : ''}${x.tier} · ${when} · ${x.kind}${x.type ? `(${x.type})` : ''}${x.change ? ` ${x.change}` : ''} · ${x.org}${x.asker ? ` ← 질의 ${x.asker}` : ''} · ${(x.teams ?? []).join('·')}`);
+    out.push(`   잡힌 사실: ${x.title}${x.no ? ` (${x.kind === '법령해석례' ? '안건' : x.kind === '법령' ? '공포' : '발령'}번호 ${x.no})` : ''}`);
+    out.push(`   원문: ${x.url}`);
+  }
+  if (shown.length > limit) out.push(`… 남은 ${shown.length - limit}건`);
+  if (!shown.length) out.push('이 기간 새로 본 출입 업종 확정 발령 없음(첫 실행은 기준선, 조회 실패면 미확인).');
+  out.push('   검증 상태: 법제처 현행 목록의 제목·부처·발령일(자동). 무엇이 바뀌었는지는 원문 신구조문으로 확인. 발령일과 법제처 반영일은 며칠 다를 수 있다. 같은 날 보도자료 여부는 news_check');
+  return out;
 }
 
 const eok = (v) => (Number.isFinite(v) && v > 0 ? `${v.toLocaleString('en-US')}원(약 ${(v / 1e8).toLocaleString('en-US', { maximumFractionDigits: v >= 1e10 ? 0 : 1 })}억원)` : '미기재');

@@ -3,6 +3,8 @@
 - 공장등록(15087611, getFctryPrdctnService_v2): 출입처 회사명으로 등록 공장 목록을 받아, 이름 규칙(data/factory_watch.json)에 맞는
   공장만 남긴다(계열사 제외). 직전 확인 대비 새 공장·고용인원 변화·주생산품·업종·주소 변화와, 등록일이 최근 120일인 공장을 표시.
 - 관보 입법예고(15109162, getApiPblancLgsltList): 최근 발행분에서 출입처 업종 낱말이 제목(또는 소관 부처 + 개정이유)에 있는 것만.
+- 법제처 행정규칙·법령·해석례(공공데이터 15000115, scripts/law_rules_watch.py): 입법예고가 아니라 확정 발령 — 출입 업종 고시·훈령·예규,
+  법령 공포, 법제처 법령해석례의 새 일련번호.
 - 환경영향평가(EIASS 평가정보조회): 출입처 이름이 사업명에 든 환경영향평가·소규모환경영향평가 사업의 새 단계(초안·본안·변경협의 등).
   공장 신·증설은 보도자료보다 평가서 접수가 먼저인 경우가 많다. EIASS는 중간 인증서를 보내지 않아 Sectigo 중간 인증서를 받아 붙인다.
 - 결과는 기자 전용 저장소(kr-official)로만. 공개 로그는 건수만. 조회 실패는 0건이 아니다.
@@ -49,6 +51,7 @@ EIA_KINDS = [  # (분류, urlString, viewName) — 누리집 검색 화면이 �
 # 아침에 공장등록 API가 느린 것으로 본다(가설). 시간 상한을 넘으면 남은 회사는 건너뛰고(이전 기록 유지) 저장한다.
 FACTORY_BUDGET = 12 * 60
 EIA_BUDGET = 16 * 60
+LAW_BUDGET = 20 * 60  # 법제처 질의는 EIASS 뒤에, 시작부터 20분까지만(작업 시간 상한 25분)
 EIA_DAYS = 400       # 접수일이 이보다 오래된 행은 새 단계로 세지 않는다
 EIA_KEEP = 180
 # 계열사·동명 회사는 출입처가 아니다(AGENTS: 포스코퓨처엠·포스코인터내셔널은 포스코가 아니다).
@@ -535,7 +538,7 @@ def eia(cfg, now, previous, *, post=None, get=None, sleep=time.sleep, deadline=N
     return kept[:200], sorted(seen | ids_now), checks
 
 
-def run(cfg, key, *, now, previous=None, get=None, sleep=time.sleep, post=None, budget=False):
+def run(cfg, key, *, now, previous=None, get=None, sleep=time.sleep, post=None, budget=False, law_key=None, law_get=None):
     stamp = now.isoformat(timespec="seconds")
     t0 = time.monotonic()
     facs, checks, fac_events, sigs, rule_counts = factories(cfg, key, now, previous, get=get, sleep=sleep,
@@ -548,6 +551,17 @@ def run(cfg, key, *, now, previous=None, get=None, sleep=time.sleep, post=None, 
         checks += eia_checks
     else:
         eia_items, eia_seen = list((previous or {}).get("eia") or []), list((previous or {}).get("eiaSeen") or [])
+    law_rules = (previous or {}).get("lawRules")
+    if law_key:
+        import law_rules_watch
+        if law_get is None:
+            import requests
+            law_get = lambda url, **k: requests.get(url, headers=UA, **k)  # noqa: E731
+        law_rules, lcheck = law_rules_watch.collect(law_rules, now, law_key, get=law_get, teams_of=teams_of, ministries=BEAT_MINISTRIES,
+                                                    sleep=sleep, deadline=t0 + LAW_BUDGET if budget else None)
+        if lcheck["status"] == "failed" and (previous or {}).get("lawRules"):
+            law_rules = dict(previous["lawRules"], stale=True)  # 전부 실패면 지난 목록 그대로(0건 아님)
+        checks.append(lcheck)
     keep_from = (now - dt.timedelta(days=120)).isoformat()
     events = [retier(e) for e in (previous or {}).get("events", []) if isinstance(e, dict) and e.get("detectedAt", "") >= keep_from]
     seen = {e.get("id") for e in events}
@@ -558,11 +572,13 @@ def run(cfg, key, *, now, previous=None, get=None, sleep=time.sleep, post=None, 
     return {"schema": SCHEMA, "generatedAt": stamp, "status": "partial" if failed else "complete", "checks": checks,
             "baselineSince": (previous or {}).get("baselineSince") or ((previous or {}).get("generatedAt") if previous else None) or stamp,
             "factories": facs, "ruleSigs": sigs, "ruleCounts": rule_counts, "gazette": gz, "events": events[:400],
-            "eia": eia_items, "eiaSeen": eia_seen,
+            "eia": eia_items, "eiaSeen": eia_seen, **({"lawRules": law_rules} if law_rules else {}),
             "rules": ["공장등록 정보는 지자체 등록 기준이다. 등록일·고용인원은 신고값이라 실제 가동·채용과 다를 수 있다.",
                       "회사명 검색은 이름 규칙으로 계열사를 거른다. 이름이 비슷한 다른 회사가 섞일 수 있으니 주소·대표자로 확인한다.",
                       "'목록에서 빠짐'은 폐업·이전·이름 변경·등록 정정일 수 있다. 지자체·회사 확인 전 폐쇄로 쓰지 않는다.",
                       "관보 입법예고는 공개 공고다. 보도자료와 같은 날 나오는 경우가 많으니 단독 근거로 쓰지 않는다.",
+                      "법제처 행정규칙·법령·해석례는 확정 발령 목록이다. 제목·부처·발령일만 자동이고, 무엇이 바뀌었는지는 원문(신구조문)에서 확인한다. "
+                      "현행 목록에 새 일련번호가 생긴 것을 잡으므로 발령일과 법제처 반영일이 며칠 다를 수 있다.",
                       "환경영향평가는 사업명에 출입처 이름이 든 것만이다. 평가서 접수·초안은 계획 단계라 착공·투자 확정이 아니다. 규모·일정은 평가서 원문과 회사로 확인한다.",
                       "조회 실패는 0건이 아니라 미확인."],
             "confirmedScoops": 0}
@@ -572,6 +588,8 @@ def main():
     argparse.ArgumentParser(description="공장등록·관보 입법예고 감시(기자 전용 저장소로)").parse_args()
     now = dt.datetime.now(KST)
     key = (os.environ.get("DATA_GO_KR_KEY") or os.environ.get("CUSTOMS_API_KEY") or "").strip()
+    # 법제처 공유서비스(15000115)는 10-31 기자 계정 키(G2B_API_KEY)로 활용신청·호출 확인 — 없으면 공용 키로
+    law_key = (os.environ.get("G2B_API_KEY") or key).strip()
     token = os.environ.get("MCP_ACCESS_TOKEN", "").strip()
     if not key:
         sys.exit("공공데이터포털 키 미설정 — 실행하지 않음(0건 아님)")
@@ -586,7 +604,7 @@ def main():
     if private_store.late_scheduled_duplicate(previous, now):
         return
     t0 = time.monotonic()
-    doc = run(cfg, key, now=now, previous=previous, budget=True)
+    doc = run(cfg, key, now=now, previous=previous, budget=True, law_key=law_key)
     print(f"::notice title=kr-official-time::실행 {round(time.monotonic() - t0)}초 · 시간 상한으로 건너뛴 질의 "
           f"{sum(1 for c in doc['checks'] if '시간 상한' in str(c.get('error')))}건")
     fac_checks = [c for c in doc["checks"] if c["source"].startswith("공장등록 ")]
@@ -600,6 +618,13 @@ def main():
           f"이번 변경 이벤트 {new_ev} · 관보 입법예고 {g['status']} {g.get('returned', 0)}건 중 관련 {g.get('kept', 0)}건"
           f"{' · 오류 ' + ', '.join(errors)[:300] if errors else ''}")
     print(f"::notice title=kr-official-rules::회사별 채택/조회 {rules}")
+    lc = next((c for c in doc["checks"] if c["source"].startswith("법제처")), None)
+    if lc:
+        lr = doc.get("lawRules") or {}
+        fresh_law = [x for x in lr.get("items", []) if x.get("firstSeen") == doc["generatedAt"]]
+        print(f"::notice title=kr-official-law::법제처 {lc['status']} 조회 {lc.get('returned', 0)} · 관련 최근 {lc.get('kept', 0)}건 · "
+              f"이번 새 {sum(1 for x in fresh_law if x.get('isNew'))}(B {sum(1 for x in fresh_law if x.get('isNew') and x.get('tier') == 'B')})"
+              f"{' · ' + str(lc.get('error'))[:200] if lc.get('error') else ''}")
     if not token:
         print("::warning title=kr-official-push::MCP_ACCESS_TOKEN 미설정 — 결과를 저장하지 않음")
         return
