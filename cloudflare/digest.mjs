@@ -365,9 +365,9 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
   const lawItems = kr?.lawRules?.items ?? [];
   const lawBase = baselineOf(lawItems);
   for (const x of lawItems) {
-    if (!fresh(x, lawBase, 'date')) continue;
+    if (x.grouped || !fresh(x, lawBase, 'date')) continue;
     push(x.tier === 'B' ? 'B' : 'C', W['kr-official'], { kind: `법제처 ${x.kind}`, id: x.id, date: x.date, company: (x.teams ?? []).join('·'),
-      fact: `${x.kind}${x.type ? `(${x.type})` : ''} ${x.change ?? ''} · ${x.org}: ${x.title} — ${x.kind === '법령해석례' ? '회신' : '발령'} ${x.date}`, url: x.url });
+      fact: `${x.kind}${x.type ? `(${x.type})` : ''} ${x.change ?? ''} · ${x.org}: ${x.title}${x.siblings ? ` 외 같은 번호 ${x.siblings}건` : ''} — ${x.kind === '법령해석례' ? '회신' : '발령'} ${x.date}`, url: x.url });
   }
 
   const ks = docs['kr-signals'];

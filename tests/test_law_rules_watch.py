@@ -16,9 +16,10 @@ NOW = dt.datetime(2026, 11, 2, 8, 10, tzinfo=KST)
 NOSLEEP = lambda s: None  # noqa: E731
 
 
-def admrul(seq, name, date, org="산업통상부", kind="고시", change="일부개정"):
+def admrul(seq, name, date, org="산업통상부", kind="고시", change="일부개정", no=None):
+    no = no or f"2026-{seq[-3:]}"
     return (f"<admrul id=\"1\"><행정규칙일련번호>{seq}</행정규칙일련번호><행정규칙명>{name}</행정규칙명><행정규칙종류>{kind}</행정규칙종류>"
-            f"<발령일자>{date}</발령일자><발령번호>2026-1</발령번호><소관부처명>{org}</소관부처명><현행연혁구분>현행</현행연혁구분>"
+            f"<발령일자>{date}</발령일자><발령번호>{no}</발령번호><소관부처명>{org}</소관부처명><현행연혁구분>현행</현행연혁구분>"
             f"<제개정구분코드>1</제개정구분코드><제개정구분명>{change}</제개정구분명><행정규칙ID>99</행정규칙ID>"
             f"<행정규칙상세링크>/DRF/lawService.do?OC=x&amp;target=admrul&amp;ID={seq}</행정규칙상세링크><시행일자>{date}</시행일자><생성일자>{date}</생성일자></admrul>")
 
@@ -112,6 +113,23 @@ class Collect(unittest.TestCase):
         self.assertEqual([x["id"] for x in new], ["admrul:2100000280001"])
         self.assertEqual(sec["baselineSince"], first["baselineSince"])
         self.assertTrue(any(x["id"] == "admrul:2100000270001" and not x["isNew"] for x in sec["items"]))
+
+    def test_same_notice_number_is_grouped_and_industrial_complex_plans_are_c(self):
+        # 운영 10-31: 산업통상부 고시 2026-118이 국가산업단지 관리기본계획 6곳으로 따로 올라와 B 6건
+        data = {("admrul", "산업단지"): [admrul(f"21000002700{i}", f"국가산업단지 관리기본계획({n})", "20261022", no="2026-118")
+                                        for i, n in enumerate(("구미", "석문", "빛그린"))]}
+        sec, _ = run(None, data)
+        main = [x for x in sec["items"] if not x.get("grouped")]
+        self.assertEqual(len(main), 1)
+        self.assertEqual((main[0]["siblings"], main[0]["tier"]), (2, "C"))
+        self.assertEqual(sum(1 for x in sec["items"] if x.get("grouped") == main[0]["id"]), 2)
+
+    def test_stored_items_are_retiered_with_current_rules(self):
+        first, _ = run(None, BASE)
+        x = next(x for x in first["items"] if x["id"] == "admrul:2100000270002")
+        x["tier"] = "B"  # 예전 규칙으로 저장된 등급
+        sec, _ = run(first, BASE, now=NOW + dt.timedelta(days=1))
+        self.assertEqual(next(x for x in sec["items"] if x["id"] == "admrul:2100000270002")["tier"], "C")
 
     def test_paging_retry_and_errors(self):
         calls = []

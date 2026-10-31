@@ -832,7 +832,8 @@ export async function krOfficial(ctx, args) {
 export function lawRulesSection(lr, q = '', limit = 15, showAll = false) {
   if (!lr) return ['\n[법제처 확정 발령 · 행정규칙·법령·해석례] 아직 수집 전 — 미확인'];
   const rank = { B: 0, C: 1 };
-  const all = (lr.items ?? []).filter((x) => matches(q, x.title, x.org, x.type, (x.teams ?? []).join(' ')));
+  // 같은 발령번호로 단지·품목마다 따로 올라온 고시는 첫 항목에 '같은 번호 N건'으로 묶는다(수집기 grouped·siblings)
+  const all = (lr.items ?? []).filter((x) => !x.grouped && matches(q, x.title, x.org, x.type, (x.teams ?? []).join(' ')));
   const shown = (showAll ? all : all.filter((x) => x.tier === 'B'))
     .sort((a, b) => Number(b.isNew) - Number(a.isNew) || String(b.date).localeCompare(String(a.date)) || (rank[a.tier] ?? 2) - (rank[b.tier] ?? 2));
   const out = [`\n[법제처 확정 발령 · 출입 업종 행정규칙(고시·훈령·예규)·법령·법령해석례 · 확인 ${String(lr.checkedAt).slice(0, 16)}${lr.stale ? ' · ⚠ 이번 조회 실패, 직전 목록' : ''} · 기준선 ${String(lr.baselineSince ?? '').slice(0, 10)}] `
@@ -840,7 +841,7 @@ export function lawRulesSection(lr, q = '', limit = 15, showAll = false) {
   for (const x of shown.slice(0, limit)) {
     const when = x.kind === '법령해석례' ? `회신 ${x.date}` : `${x.kind === '법령' ? '공포' : '발령'} ${x.date}${x.effective && x.effective !== x.date ? ` · 시행 ${x.effective}` : ''}`;
     out.push(`- ${x.isNew ? '[신규] ' : ''}${x.tier} · ${when} · ${x.kind}${x.type ? `(${x.type})` : ''}${x.change ? ` ${x.change}` : ''} · ${x.org}${x.asker ? ` ← 질의 ${x.asker}` : ''} · ${(x.teams ?? []).join('·')}`);
-    out.push(`   잡힌 사실: ${x.title}${x.no ? ` (${x.kind === '법령해석례' ? '안건' : x.kind === '법령' ? '공포' : '발령'}번호 ${x.no})` : ''}`);
+    out.push(`   잡힌 사실: ${x.title}${x.no ? ` (${x.kind === '법령해석례' ? '안건' : x.kind === '법령' ? '공포' : '발령'}번호 ${x.no})` : ''}${x.siblings ? ` 외 같은 번호 ${x.siblings}건` : ''}`);
     out.push(`   원문: ${x.url}`);
   }
   if (shown.length > limit) out.push(`… 남은 ${shown.length - limit}건`);

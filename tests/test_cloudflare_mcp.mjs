@@ -2379,14 +2379,16 @@ test('kr_official law: 법제처 confirmed rules — B new rules in radar_today,
   const doc = { schema: 'kr_official/v1', generatedAt: recent, checks: [{ source: '법제처 행정규칙·법령·해석례', status: 'ok', returned: 3100, kept: 3 }],
     factories: [], events: [], gazette: [], eia: [], eiaSeen: [],
     lawRules: { checkedAt: recent, baselineSince: '2026-11-02T08:10:00+09:00', seen: [],
-      items: [it('admrul:2100000280001', '행정규칙', 'B', '전기설비기술기준'),
+      items: [it('admrul:2100000280001', '행정규칙', 'B', '전기설비기술기준', { siblings: 1 }),
+        it('admrul:2100000280009', '행정규칙', 'B', '전기설비기술기준(별표)', { grouped: 'admrul:2100000280001' }),
         it('admrul:2100000280002', '행정규칙', 'C', '관세법 시행세칙 사무처리에 관한 고시', { org: '관세청', teams: ['공통'] }),
         it('expc:330001', '법령해석례', 'B', '산업통상부 - 「전기사업법」 제7조(발전사업 허가) 관련', { org: '법제처', asker: '산업통상부', type: null, change: null,
           url: 'https://www.law.go.kr/LSW/expcInfoP.do?expcSeq=330001' })] } };
   assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/kr-official', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
   const t = await call('kr_official', { section: 'law' }, opts);
   assert.match(t.text, /\[법제처 확정 발령 · 출입 업종 행정규칙\(고시·훈령·예규\)·법령·법령해석례 · 확인 [^\]]*\] B 2건 · C 1건 숨김\(show_all=true\)/);
-  assert.match(t.text, new RegExp(`- \\[신규\\] B · 발령 ${today} · 행정규칙\\(고시\\) 일부개정 · 산업통상부 · 전력·에너지\\n   잡힌 사실: 전기설비기술기준 \\(발령번호 2026-301\\)`));
+  assert.match(t.text, new RegExp(`- \\[신규\\] B · 발령 ${today} · 행정규칙\\(고시\\) 일부개정 · 산업통상부 · 전력·에너지\\n   잡힌 사실: 전기설비기술기준 \\(발령번호 2026-301\\) 외 같은 번호 1건`));
+  assert.doesNotMatch(t.text, /전기설비기술기준\(별표\)/);
   assert.match(t.text, new RegExp(`B · 회신 ${today} · 법령해석례 · 법제처 ← 질의 산업통상부`));
   assert.doesNotMatch(t.text, /관세법 시행세칙/);
   assert.doesNotMatch(t.text, /\[공장등록 변화/);
