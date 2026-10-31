@@ -39,7 +39,8 @@ KIND = {"admrul": "행정규칙", "law": "법령", "expc": "법령해석례"}
 # 출입 업종을 직접 맡는 부처(행정규칙·법령 B). 공정위·고용부는 하도급·산업안전처럼 '공통' 낱말일 때만 의미가 있어 여기 둔다.
 CORE = re.compile(r"산업통상|산업부|기후에너지환경부|환경부|국토교통부|관세청|재정경제부|기획재정부|원자력안전위원회|공정거래위원회|고용노동부")
 # '공통'(관세·무역·공장 등)만 걸린 규칙은 관세청 통관 사무 훈령처럼 일상이 많다(탐침 41: 45일 관련 62건 중 공통 34, 관세청 17) — 이 낱말일 때만 B
-STRONG_COMMON = re.compile(r"원산지|덤핑|할당관세|공급망|첨단전략|핵심광물|탄소국경|무역구제|수출통제|전략물자|산업단지|중대재해|산업안전|"
+# 산업단지는 뺀다 — 운영 첫 실행(10-31)에서 '국가산업단지 관리기본계획(국가식품클러스터·오송생명과학단지·…)' 같은 번호 고시가 단지마다 B로 6건
+STRONG_COMMON = re.compile(r"원산지|덤핑|할당관세|공급망|첨단전략|핵심광물|탄소국경|무역구제|수출통제|전략물자|중대재해|산업안전|"
                            r"온실가스|배출권|탄소중립")
 # 관보 입법예고용 업종 낱말(kr_official_watch.TEAMS)에 없는 규칙 이름 낱말 — '전기설비기술기준'·'전기용품 안전기준'처럼 출입 업종 핵심 규칙이
 # '전기사업·전력'에 안 걸린다(탐침 41 뒤 시험에서 확인)
@@ -116,6 +117,23 @@ def fetch(get, kind, q, page, key, sleep):
             sleep(2)
 
 
+def group_same_notice(items):
+    """같은 부처·같은 발령번호·같은 날 고시가 단지·품목마다 따로 올라온 것(운영 10-31: 산업통상부 고시 2026-118이 국가산업단지 6곳)은
+    첫 항목에 나머지 개수를 달고 나머지는 grouped로 표시한다(지우지 않음)."""
+    first = {}
+    for x in sorted(items, key=lambda x: x["id"]):
+        x.pop("grouped", None)
+        x.pop("siblings", None)
+        k = (x.get("kind"), x.get("org"), x.get("no"), x.get("date"))
+        if not x.get("no") or x.get("kind") == "법령해석례":
+            continue
+        if k in first:
+            x["grouped"] = first[k]["id"]
+            first[k]["siblings"] = first[k].get("siblings", 0) + 1
+        else:
+            first[k] = x
+
+
 def collect(prev, now, key, *, get, teams_of, ministries, sleep=time.sleep, deadline=None):
     """prev: 지난 doc['lawRules'] 구역(dict) 또는 None. 돌려줌: (구역, 점검 한 줄)."""
     stamp = now.isoformat(timespec="seconds")
@@ -166,8 +184,12 @@ def collect(prev, now, key, *, get, teams_of, ministries, sleep=time.sleep, dead
     seen |= now_ids
     keep = (now - dt.timedelta(days=KEEP_DAYS)).isoformat()
     kept = sorted((x for x in items.values() if str(x.get("firstSeen")) >= keep), key=lambda x: (x["date"], x["id"]), reverse=True)
+    code = {v: k for k, v in KIND.items()}
     for x in kept:
         x["isNew"] = x["firstSeen"] == stamp and not baseline
+        # 등급은 저장값이 아니라 지금 규칙으로 다시 매긴다(원래 값은 그대로 두고 표시용만 — 기준이 좁아지면 지난 항목도 따라감)
+        x["tier"] = tier_of(code.get(x.get("kind"), "admrul"), x, x.get("teams") or [])
+    group_same_notice(kept)
     notes = errors[:3] + capped[:2] + ([f"시간 상한으로 {len(skipped)}개 질의 건너뜀"] if skipped else [])
     status = "failed" if errors and not returned else "partial" if errors or capped or skipped else "ok"
     check = {"source": "법제처 행정규칙·법령·해석례", "status": status, "returned": returned, "kept": len(kept),
