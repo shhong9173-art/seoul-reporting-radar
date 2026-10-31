@@ -22,6 +22,19 @@ from ntis_collector_cases import NtisCollectorTests
 
 
 class CollectorRegressionTests(unittest.TestCase):
+    def test_employee_stock_grants_are_not_scoop_candidates(self):
+        # 10-30 운영 원문(DART 주요사항보고서(자기주식처분결정)) 발췌
+        mobis = ("자기주식 처분 결정 1. 처분예정주식(주) 보통주식 96,136 3. 처분예정금액(원) 보통주식 33,936,008,000 "
+                 "5. 처분목적 2026년 단체교섭에 따른 회사주식 지급 6. 처분방법 기 타(주) 96,136 7. 처분상대방 회사 직원")
+        kia = ("3. 처분예정금액(원) 보통주식 190,011,916,800 5. 처분목적 2026년 임금협상 결과에 따른 회사주식 지급 "
+               "7. 처분상대방 당사 직원 30,916명")
+        self.assertTrue(scoops.employee_equity_grant(mobis))
+        self.assertTrue(scoops.employee_equity_grant(kia))
+        self.assertTrue(scoops.employee_equity_grant("5. 처분목적 임원 성과급 지급 7. 처분상대방 임원 12명"))
+        # 지배구조·자금 목적 처분은 그대로 본다
+        self.assertFalse(scoops.employee_equity_grant("5. 처분목적 교환사채 교환대상 주식 확보 7. 처분상대방 기관투자자"))
+        self.assertFalse(scoops.employee_equity_grant("5. 처분목적 전략적 제휴를 위한 주식 교환 7. 처분상대방 OOO홀딩스"))
+
     def test_exclusive_scope_rejects_unrelated_sources_and_suppliers(self):
         unrelated = [
             "대법원 선고 2026도11543 증거인멸교사 등 사건에 관한 보도자료",

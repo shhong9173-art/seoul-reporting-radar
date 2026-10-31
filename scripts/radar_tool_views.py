@@ -175,7 +175,13 @@ def clue(*, kind, source, title, url, published, companies, tier, signal="", not
 # Procedural filings: kept for completeness but sorted last and hidden by default.
 ROUTINE_RE = re.compile(r"기업설명회|IR\)?개최|주주명부폐쇄|주주총회소집|매매거래정지|결산실적공시예고|"
                         r"증권발행실적보고서|투자설명서|일괄신고추가서류|기업지배구조보고서|"
-                        r"주식등의대량보유상황보고서\(약식\)|자기주식취득결과보고서")
+                        r"주식등의대량보유상황보고서\(약식\)|자기주식취득결과보고서|"
+                        # 공정거래법 대규모기업집단 정기 공시(계열사 간 거래·금융거래·자율준수 안내). 10-29~30 운영: 단서 78건 중
+                        # 11건(현대차 5·GS칼텍스 3·한화솔루션 2·효성중공업 1)이 이것이라 자동차 칸 맨 앞을 채웠다.
+                        # 출자·자금대여·담보제공은 새 법인·지원일 수 있어 그대로 둔다.
+                        r"특수관계인(?:으로부터|에대한|과의|에게)(?:채권|부동산|내부거래|수익증권|유가증권|상품)|"
+                        r"약관에의한금융거래|공정거래자율준수프로그램|"
+                        r"동일인등출자계열회사와의")
 
 TIER_PUBLIC = "공개 원자료 추적"
 TIER_LEAD = "취재 단서·단독 미확정"
@@ -291,7 +297,17 @@ def from_crossborder(data):
             if isinstance(ev, dict) and https_url(ev.get("url")):
                 url = ev["url"]
                 break
-        out.append(clue(kind="해외", source="해외 원자료", title=x.get("headline"), url=url,
+        title = str(x.get("headline") or "")
+        models = []
+        for m in (x.get("officialFact") or {}).get("usModelYears") or []:
+            name = re.sub(r"\s+", " ", str((m or {}).get("model") or "")).strip().upper() if isinstance(m, dict) else ""
+            if name and name not in models:
+                models.append(name)
+        if models:
+            # 미국 리콜 단서 제목에 차종을 붙인다 — 캠페인 번호만으로는 보도 대조가 '{회사} 미국 리콜'이 된다(10-31 운영:
+            # 26V692000 아반떼·투싼 하이브리드 스트럿 ↔ 투싼 에어백 남아공 기사)
+            title = re.sub(r"^(미국 리콜 \S+)", lambda mm: f"{mm.group(1)} · {'·'.join(models[:3])}{' 외' if len(models) > 3 else ''}", title, count=1)
+        out.append(clue(kind="해외", source="해외 원자료", title=title, url=url,
                         published=x.get("officialPublicationDate"), companies=companies,
                         tier=TIER_LEAD, signal=x.get("type") or "", key=x.get("id"),
                         note=x.get("reporterPriority") or ""))
@@ -335,15 +351,29 @@ def from_scoop(data):
             if not isinstance(x, dict):
                 continue
             companies = beats_in(x.get("title"), x.get("companies") or [])
+            # 단독 후보(items)는 주소·게시일을 originalSourceUrl·sources[]에만 둔다 — 그대로 읽으면 '게시일 미표기'·주소 없음
+            # (10-31 운영: 현대차·현대모비스 자기주식처분결정 단서가 날짜·DART 주소 없이 떴다).
+            first = next((s for s in x.get("sources") or [] if isinstance(s, dict)), {})
+            url = x.get("url") or x.get("originalSourceUrl") or first.get("url")
+            published = x.get("published") or first.get("published")
             receipt = None
-            match = re.search(r"rcpNo=(\d{14})", str(x.get("url") or ""))
+            match = re.search(r"rcpNo=(\d{14})", str(x.get("url") or ""))  # 단서 id가 바뀌지 않게 접수번호는 예전처럼 url에서만
             if match:
                 receipt = match.group(1)
-            out.append(clue(kind=None, source=x.get("sourceName") or "레이더", title=x.get("title"),
-                            url=x.get("url"), published=x.get("published"), companies=companies,
+            shown = re.search(r"rcpNo=(\d{14})", str(url or ""))
+            title = x.get("title")
+            details = [re.sub(r"\s+", " ", str(d)).strip() for d in x.get("details") or [] if str(d).strip()]
+            if details and x.get("kind") == "공개 리콜 공지":
+                # 묶음 제목('기아, 10월 30일 리콜 공지 1건')만으로는 차종·부품을 모른다 — 첫 공지 줄을 붙인다
+                # (10-31 운영: 쏘렌토 저압연료라인 리콜이 '기아 리콜'로 찾아져 ICCU 리콜 기사가 근거로 붙었다)
+                title = f"{title} — {details[0]}" + (f" 외 {len(details) - 1}건" if len(details) > 1 else "")
+            out.append(clue(kind=None, source=x.get("sourceName") or "레이더", title=title,
+                            url=url, published=published, companies=companies,
                             tier=tier, signal=x.get("signalGroup") or x.get("kind") or bucket,
                             note=x.get("verification") or x.get("coverageStatus") or "", receipt=receipt,
                             key=x.get("id")))
+            if shown and not out[-1]["receiptNo"]:
+                out[-1]["receiptNo"] = shown.group(1)
     for x in data.get("heldDartResearch", []) or []:
         if not isinstance(x, dict):
             continue

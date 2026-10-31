@@ -81,6 +81,28 @@ class Local(unittest.TestCase):
         self.assertEqual(w.classify("(주)동성케미컬 신평공장 증설 관련 건축허가 공고"), ("A", ["동성케미칼"]))  # 법인 이름은 '케미컬'
         self.assertTrue(any(c == "울산 북구" for c, _, _ in w.CITIES))
 
+    def test_routine_power_transfers_and_bids_without_a_beat_name_are_dropped(self):
+        # 10-27~10-30 운영 참고(C) 줄 실제 제목
+        for t in ["전기사업의 양도·양수 인가 공고[다다2호 태양광발전소 등 4건]", "전기사업(태양광발전) 양수인가 공고", "전기사업 양수인가 내역 공고",
+                  "전기사업(태양광발전) 양수 인가 공고", "전기사업법 위반에 따른 행정처분 사전통지 공시송달 공고",
+                  "예당2일반산업단지 진입도로 건설공사 폐기물처리용역 입찰 공고", "예산신소재 일반산업단지(확장) 공업용수도 건설공사 폐기물처리용역 입찰 공..."]:
+            self.assertEqual(w.classify(t), (None, []), t)
+        # 산업단지 계획·발전소 건설은 그대로 참고, 출입처 이름이 있으면 그대로 A·B
+        self.assertEqual(w.classify("창녕군관리계획(대합일반산업단지 지구단위계획) 결정(변경) 주민 공람 공고"), ("C", []))
+        self.assertEqual(w.classify("음성 성본 산업단지계획(변경) 승인 신청에 따른 주민 등의 의견청취 공고"), ("C", []))
+        self.assertEqual(w.classify("한화솔루션 전기사업(태양광발전) 양수인가 공고"), ("A", ["한화솔루션"]))
+
+    def test_stored_routine_reference_is_marked_not_deleted(self):
+        prev = {"seen": {"예산군": ["47455"]}, "items": [
+            {"id": "local:예산군:47455", "city": "예산군", "title": "전기사업(태양광발전) 양수인가 공고", "tier": "C", "company": None, "companies": [],
+             "firstSeen": NOW.isoformat(), "url": "https://eminwon.yesan.go.kr/x", "date": "2026-10-30"},
+            {"id": "local:예산군:47000", "city": "예산군", "title": "예산 일반산업단지 계획 변경 승인 고시", "tier": "C", "company": None, "companies": [],
+             "firstSeen": NOW.isoformat(), "url": "https://eminwon.yesan.go.kr/y", "date": "2026-10-29"}]}
+        doc = w.run(now=NOW + dt.timedelta(hours=6), previous=prev, post=fake({}), sleep=lambda s: None, cities=[], browser_cities=[])
+        got = {x["id"]: x for x in doc["items"]}
+        self.assertTrue(got["local:예산군:47455"]["routine"])
+        self.assertNotIn("routine", got["local:예산군:47000"])
+
     def test_namgu_layout_without_notice_number(self):
         row = ('<tr> <td >40994</td> <td class="left"> <div class="list_subject"> <div class="link"> <a href="emwp/gov/mogaha/ntis/web/ofr/action/'
                'OfrAction.do?not_ancmt_mgt_no=54887&amp;subCheck=Y" onclick="searchDetail(\'54887\');return false;" onkeypress="">'

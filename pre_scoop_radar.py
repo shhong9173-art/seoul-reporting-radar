@@ -954,6 +954,61 @@ def fetch_direct_iris_announcements(max_items=10, max_pages=2, max_details=30, p
 
 
 
+def court_article(page_text):
+    """대법원 보도자료 본문만: '조회수 N' 뒤부터 '이전글'·'다음글'·'목록' 앞까지(메뉴·바닥글·옆 글 제목 빼고). 못 찾으면 ''.
+    운영 10-31: 쪽 전체를 낱말 대조에 써서 메뉴의 '회생·파산 공고'·'특허법원'·'법원전시관'이 모든 보도자료에 걸렸다
+    ('파키스탄 대법원장 방문'·'법원경매 기일입찰표 양식 전면 개선'이 단서로 남음). 요약도 메뉴 3,500자였다."""
+    m = re.search(r"조회수\D{0,5}\d[\d,]*", page_text or "")
+    if not m:
+        return ""
+    rest = page_text[m.end():]
+    end = re.search(r"이전글|다음글|목록\s*대법원\s*페이스북|개인정보처리방침", rest)
+    body = (rest[:end.start()] if end else rest[:6000]).strip()
+    head = re.match(r"[\s|:]*첨부파일[\s|:]*", body)
+    if head:  # 첨부 파일 이름(띄어쓰기 포함)들을 뗀다
+        body = body[head.end():]
+        while True:
+            m2 = re.match(r"[^□▣○●◇◆■]{0,200}?\.(?:pdf|hwpx?|zip)\b[\s|,\])]*", body, re.I)
+            if not m2:
+                break
+            body = body[m2.end():]
+    return body.strip()
+
+
+COURT_BODY = "article"  # 저장 항목 표시: 본문만으로 고른 것(이 표시 없는 옛 저장분은 본문을 다시 읽는다)
+
+
+def dedup_items(items):
+    """Same group + title once. A later item (the earlier run's carry-over) replaces an earlier one, except that a
+    title-only court release never replaces one whose body was read in this run."""
+    dedup = {}
+    for x in items:
+        key = (x["sourceGroup"], re.sub(r"[^가-힣A-Za-z0-9]", "", x["title"]).lower())
+        if dedup.get(key, {}).get("bodyFrom") == COURT_BODY and x.get("bodyFrom") != COURT_BODY:
+            continue
+        dedup[key] = x
+    return sorted(dedup.values(), key=lambda x: x["published"], reverse=True)[:80]
+
+
+def keep_prior(item, now):
+    """Rolling carry-over of an earlier run's item. Items made by a parser version since fixed are dropped
+    (they come back only when the source is read again with the current parser)."""
+    if not isinstance(item, dict):
+        return False
+    dt=parse_dt(item.get("published"))
+    if dt.year<2000 or dt<now-timedelta(days=LOOKBACK_DAYS) or dt>now+timedelta(hours=6):
+        return False
+    if resurfaced_historical_original(item.get("title"),dt):
+        return False
+    if item.get("signalType")=="official_recall_notice" and item.get("dateParseVersion")!="sequence-v2":
+        return False
+    # 메뉴까지 낱말 대조에 쓴 옛 대법원 보도자료(10-31 운영 6건 — '파키스탄 대법원장 방문' 등)는 이어 싣지 않는다.
+    # 목록이 열리면 본문만으로 다시 고른다. 목록이 안 열리면 그 칸은 미확인(진단에 오류)으로 남는다.
+    if item.get("signalType")=="supreme_court_case_release" and item.get("bodyFrom") not in (COURT_BODY, "title"):
+        return False
+    return True
+
+
 def fetch_direct_court(max_items=12, prior_items=None):
     """Collect date-stamped Supreme Court releases and industry-related disputes."""
     base="https://www.scourt.go.kr"
@@ -1034,31 +1089,37 @@ def fetch_direct_court(max_items=12, prior_items=None):
             diag["recentRows"]+=1
             seen.add(href)
             hit=cache.get(href)
-            if hit and hit.get("title")==title and str(hit.get("published",""))[:10]==dt.date().isoformat():
+            if (hit and hit.get("title")==title and str(hit.get("published",""))[:10]==dt.date().isoformat()
+                    and hit.get("bodyFrom")==COURT_BODY):
                 diag["detailReused"]=diag.get("detailReused",0)+1
                 out.append(dict(hit))
                 if len(out)>=max_items: break
                 continue
             detail=""
+            detail_failed=False
             title_companies=target_hits(title)
             if not title_companies and diag["detailPagesAttempted"]<8:
                 diag["detailPagesAttempted"]+=1
                 # 본문 쪽도 같은 연결 끊김이 난다(운영 10-28 20:36: 목록 2/2 성공, 본문 1건 Connection reset). 한 번만 더.
                 for attempt,timeout in ((1,8),(2,15)):
                     try:
-                        detail=clean(decode_web_bytes(get(href,timeout=timeout)))[:12000]
+                        detail=court_article(clean(decode_web_bytes(get(href,timeout=timeout))))[:12000]
                         diag["detailPagesFetched"]+=1
                         if attempt>1:
                             diag["retriedOk"]=diag.get("retriedOk",0)+1
                         break
                     except Exception as exc:
-                        if attempt==2 and len(diag["errors"])<4:
-                            diag["errors"].append(f"detail {title[:50]}: {type(exc).__name__}: {exc}"[:240])
+                        if attempt==2:
+                            detail_failed=True
+                            if len(diag["errors"])<4:
+                                diag["errors"].append(f"detail {title[:50]}: {type(exc).__name__}: {exc}"[:240])
                         if attempt==1:
                             time.sleep(2)
             body=title+" "+detail
             companies=target_hits(body)
-            if not SIGNAL_TERMS.search(body): continue
+            # '대법원 선고 … 사건에 관한 보도자료'는 그 자체가 판결이다. 본문이 끊겨도(운영 10-31: 3건 Connection reset)
+            # 제목의 업종 낱말(중대재해 등)로는 고른다 — 이 경우 bodyFrom='title'로 남겨 다음 실행에 본문을 다시 읽는다.
+            if not SIGNAL_TERMS.search(body) and "선고" not in title: continue
             if not companies and not material_re.search(body):
                 if len(diag["sampleRows"])<8:
                     diag["sampleRows"].append({"title":title[:160],"date":dt.isoformat(),
@@ -1070,7 +1131,8 @@ def fetch_direct_court(max_items=12, prior_items=None):
                 "title":title,"url":href,"published":dt.isoformat(),
                 "summary":detail[:3500],"official":True,"preScoop":True,
                 "companies":companies,"directSource":True,
-                "signalType":"supreme_court_case_release",
+                "signalType":"supreme_court_case_release","bodyFrom":"title" if detail_failed else COURT_BODY,
+                **({"detailError":"본문 못 읽음(연결 끊김) — 제목만으로 고름"} if detail_failed else {}),
                 "dateSource":"대법원 보도자료 게시일"
             })
             if len(out)>=max_items: break
@@ -1748,22 +1810,10 @@ def main():
         prior_source_states=previous.get("sourceObservations") if isinstance(previous,dict) else None
     except Exception:
         prior_items=[]
-    for item in prior_items:
-        dt=parse_dt(item.get("published"))
-        if dt.year<2000 or dt<now-timedelta(days=LOOKBACK_DAYS) or dt>now+timedelta(hours=6):
-            continue
-        if resurfaced_historical_original(item.get("title"),dt):
-            continue
-        if item.get("signalType")=="official_recall_notice" and item.get("dateParseVersion")!="sequence-v2":
-            continue
-        items.append(item)
+    items.extend(item for item in prior_items if keep_prior(item, now))
 
     # Keep the feed compact and deterministic.
-    dedup = {}
-    for x in items:
-        key = (x["sourceGroup"], re.sub(r"[^가-힣A-Za-z0-9]", "", x["title"]).lower())
-        dedup[key] = x
-    items = sorted(dedup.values(), key=lambda x: x["published"], reverse=True)[:80]
+    items = dedup_items(items)
     observations=update_source_states(
         prior_source_states,SOURCE_DIAGNOSTICS,DIRECT_DIAGNOSTICS,
         freshly_collected_items,now=now)

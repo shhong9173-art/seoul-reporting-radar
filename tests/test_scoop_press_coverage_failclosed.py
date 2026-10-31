@@ -233,5 +233,27 @@ class DomesticNewsFailureGate(unittest.TestCase):
         self.assertFalse(report["notReportedProved"])
 
 
+class SameAmountMatch(unittest.TestCase):
+    # 10-31 운영: 레이더 제목(공시 이름+…)과 10-27 기사 제목의 글자 유사도가 0.1 안팎이라 '기보도 검증 미완료'
+    ITEM={"title":"HD현대일렉트릭, 배전반/배전변압기 생산 공장 및 자동화 설비 등 생산 인프라 1,980억원 증설 투자…투자 대상·가동 시점은",
+          "summary":"HD현대일렉트릭 신규시설투자"}
+
+    def score(self,headline):
+        return scout.event_match_score(self.ITEM,{"title":headline,"summary":""})
+
+    def test_same_company_event_word_and_amount_is_the_same_event(self):
+        self.assertGreaterEqual(self.score("HD현대일렉트릭, 청주 배전캠퍼스 배전기 시설 증설에 1980억 투자"),0.8)
+        self.assertGreaterEqual(self.score("청주공장 1,980억원 증설 나선 HD현대일렉트릭"),0.8)
+
+    def test_other_amount_or_company_or_no_event_word_is_not(self):
+        self.assertEqual(self.score("HD현대일렉트릭, 미국 공장 증설에 2,500억 투자"),0.0)
+        self.assertEqual(self.score("LS일렉트릭, 배전반 공장 증설에 1980억 투자"),0.0)
+        self.assertEqual(self.score("HD현대일렉트릭 3분기 영업익 1980억"),0.0)
+
+    def test_money_amounts_normalise_commas_and_won(self):
+        self.assertEqual(scout.money_amounts("1,980억원"),scout.money_amounts("1980억"))
+        self.assertEqual(scout.money_amounts("1조 2,000억원 · 5,000만원"),{1000000,200000})  # 1억 미만은 뺌
+
+
 if __name__=="__main__":
     unittest.main()

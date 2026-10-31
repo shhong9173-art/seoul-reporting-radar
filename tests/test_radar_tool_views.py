@@ -101,6 +101,35 @@ class Views(unittest.TestCase):
     def clue(self, views, needle):
         return next(r for r in views["clues"]["items"] if needle in r["title"])
 
+    def test_recall_group_title_carries_the_first_notice_row(self):
+        # 10-31 운영 scoop.json publicSignals: 묶음 제목만으로는 차종·부품을 모른다
+        rows = v.from_scoop({"publicSignals": [{"id": "r1", "kind": "공개 리콜 공지", "title": "기아, 10월 30일 리콜 공지 1건", "companies": ["기아"],
+                                                  "details": ["[기아] 쏘렌토 - 저압연료라인 어셈블리 관련 리콜 중대리콜(화재위험)"],
+                                                  "published": "2026-10-30T00:00:00+09:00", "url": "https://car.go.kr/ri/stat/list.do?searchProductName=x"},
+                                                 {"id": "r2", "kind": "공개 리콜 공지", "title": "현대차, 10월 14일 리콜 공지 2건", "companies": ["현대차"],
+                                                  "details": ["[현대] 아이오닉9 - 전동시트 제어기 관련 리콜", "[현대] 팰리세이드 - 같은 원인"],
+                                                  "published": "2026-10-14T00:00:00+09:00", "url": "https://car.go.kr/ri/stat/list.do"}]})
+        self.assertEqual([r["title"] for r in rows], ["기아, 10월 30일 리콜 공지 1건 — [기아] 쏘렌토 - 저압연료라인 어셈블리 관련 리콜 중대리콜(화재위험)",
+                                                     "현대차, 10월 14일 리콜 공지 2건 — [현대] 아이오닉9 - 전동시트 제어기 관련 리콜 외 1건"])
+
+    def test_scoop_items_take_date_and_url_from_their_source(self):
+        # 10-31 운영 scoop.json items: 주소·게시일이 originalSourceUrl·sources[]에만 있다
+        rows = v.from_scoop({"items": [{"id": "c5", "kind": "공시", "title": "현대자동차, 주요사항보고서(자기주식처분결정)", "companies": ["현대차"],
+                                        "originalSourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261029000247",
+                                        "sources": [{"source": "DART", "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261029000247",
+                                                     "published": "2026-10-29T00:00:00+09:00"}]}]})
+        self.assertEqual((rows[0]["published"], rows[0]["receiptNo"], rows[0]["tier"]), ("2026-10-29", "20261029000247", v.TIER_CANDIDATE))
+        self.assertTrue(rows[0]["url"].startswith("https://dart.fss.or.kr/"))
+        self.assertEqual(rows[0]["id"], v.clue_id("레이더", "c5"))  # 단서 id는 예전 그대로(판정·처음 본 날 유지)
+
+    def test_us_recall_clue_title_names_the_models(self):
+        rows = v.from_crossborder({"items": [{"id": "usrecall:26V692000", "type": "overseas_safety_domestic_comparison",
+            "companyGroup": "현대차·기아·제네시스", "headline": "미국 리콜 26V692000 · 국내 동일 부품/시정조치 대조 필요",
+            "officialPublicationDate": "2026-10-20", "reporterPriority": "background_followup",
+            "sourceEvidence": [{"url": "https://api.nhtsa.gov/recalls/campaignNumber?campaignNumber=26V692000"}],
+            "officialFact": {"usModelYears": [{"model": "ELANTRA", "year": "2026"}, {"model": "TUCSON HYBRID", "year": "2026"}, {"model": "ELANTRA", "year": "2026"}]}}]})
+        self.assertEqual(rows[0]["title"], "미국 리콜 26V692000 · ELANTRA·TUCSON HYBRID · 국내 동일 부품/시정조치 대조 필요")
+
     def test_registry_names_and_exact_beats_pick_the_team(self):
         views = self.build()
         self.assertEqual(self.clue(views, "엘에스일렉트릭")["team"], "전력·에너지")
@@ -148,6 +177,17 @@ class Views(unittest.TestCase):
         self.assertIn("-1.45%p", zinc["title"])
         self.assertFalse(zinc["routine"])
         self.assertTrue(self.clue(views, "국민연금공단")["routine"])
+
+    def test_group_affiliate_disclosures_are_routine(self):
+        # 10-29~30 운영 제목(공정거래법 대규모기업집단 정기 공시)
+        for t in ["현대자동차 · 특수관계인으로부터채권매수", "현대자동차 · 특수관계인에대한부동산임대", "현대자동차 · 특수관계인과의내부거래",
+                  "현대자동차 · 약관에의한금융거래시계열금융회사의거래상대방의공시", "현대자동차 · 공정거래자율준수프로그램운영현황(안내공시)",
+                  "GS칼텍스 · 동일인등출자계열회사와의상품ㆍ용역거래변경", "두산에너빌리티 · 특수관계인과의수익증권거래"]:
+            self.assertTrue(v.ROUTINE_RE.search(t), t)
+        for t in ["현대자동차 · 현금ㆍ현물배당결정", "OCI홀딩스 · 정기·주요공시 · 주식소각결정", "두산에너빌리티 · 풍문또는보도에대한해명",
+                  "LS전선 · 정기·주요공시 · [기재정정]주요사항보고서(교환사채권발행결정)", "현대오토에버 · 정기·주요공시 · 타법인주식및출자증권취득결정",
+                  "기아 · 특수관계인에대한출자", "현대자동차 · 특수관계인에대한자금대여"]:  # 출자·자금대여는 새 법인·지원일 수 있음
+            self.assertFalse(v.ROUTINE_RE.search(t), t)
 
     def test_only_flagged_filed_companies_become_earnings_clues(self):
         views = self.build()

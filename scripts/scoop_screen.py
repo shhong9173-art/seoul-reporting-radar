@@ -220,6 +220,9 @@ def from_clue(x):
         return None
     company = companies[0]
     title = str(x.get("title") or "")
+    recall = recall_candidate(x, company, title)
+    if recall:
+        return recall
     dart = bool(re.search(r"rcpNo=\d{14}", str(x.get("url") or "")))
     if BODY_TITLE_FORMS.search(title) and dart:
         return body_pending(x, company, title)
@@ -241,6 +244,71 @@ def from_clue(x):
             "tier": x.get("tier"), "terms": terms, "alts": alts, "unit": unit, "numbers": sorted(nums), "ratios": sorted(ratios),
             "note": "특허 공개는 그 자체로 단독이 아니다 — 사업화·생산·수주 연결 확인 필요" if patent else None,
             "strength": 0.5 if patent else (3 if x.get("tier") == "취재 단서·단독 미확정" else 1)}
+
+
+# 국내 리콜 공지(자동차리콜센터): 차종으로 찾고, 제목에 회사·'리콜'(또는 결함 부품), 제목·요약에 차종이 있어야 같은 리콜 기사로 센다.
+# 10-31 운영: '기아, 10월 30일 리콜 공지 1건'(쏘렌토 저압연료라인, 중대리콜·화재위험)을 '기아 리콜'로 찾아 ICCU 리콜 재발 기사
+# (10-27·28)가 근거로 붙었다. 차종은 수집이 검색한 이름(목록 주소의 searchProductName) — 기사가 쓰는 짧은 이름이다.
+RECALL_ROW = re.compile(r"\[[^\]]+\]\s*(?P<model>[^\[\]]+?)\s+[-–]\s+(?P<rest>[^—\[]+)")
+RECALL_STOP = {"관련", "리콜", "제작결함", "결함", "중대리콜", "화재위험", "어셈블리"}
+
+
+# 미국 리콜(NHTSA) 단서: 차종 미국 이름 → 국내 기사가 쓰는 이름(digest.mjs US_MODEL_KO와 같은 표)
+US_MODEL_KO = {"elantra": ["아반떼", "엘란트라"], "sonata": ["쏘나타"], "tucson": ["투싼"], "santa fe": ["싼타페"], "santa cruz": ["싼타크루즈"],
+               "palisade": ["팰리세이드"], "kona": ["코나"], "venue": ["베뉴"], "ioniq": ["아이오닉"], "nexo": ["넥쏘"], "sorento": ["쏘렌토"],
+               "sportage": ["스포티지"], "telluride": ["텔루라이드"], "carnival": ["카니발"], "forte": ["포르테", "K3"], "soul": ["쏘울"],
+               "niro": ["니로"], "seltos": ["셀토스"], "trax": ["트랙스"], "trailblazer": ["트레일블레이저"], "envista": ["엔비스타"], "encore": ["앙코르"]}
+US_BRANDS = {"HYUNDAI", "KIA", "GENESIS", "AUDI", "VOLKSWAGEN", "VW", "BMW", "MINI", "MERCEDES-BENZ", "MERCEDES", "HONDA", "ACURA",
+             "CHEVROLET", "BUICK", "GMC"}
+US_RECALL_TITLE = re.compile(r"^미국 리콜 (\d{2}V\d{6}) · (?P<models>.+?) · 국내")
+
+
+def us_recall_models(models):
+    s = f" {str(models or '').lower()} "
+    out = [ko for k, v in US_MODEL_KO.items() if re.search(rf"[^a-z0-9]{re.escape(k)}[^a-z0-9]", s) for ko in v]
+    if not out:
+        w = next((t for t in re.split(r"[\s,·]+", str(models or "")) if re.fullmatch(r"[A-Z0-9][A-Z0-9.-]{1,9}", t, re.I)
+                  and t.upper() not in US_BRANDS and not re.fullmatch(r"\d{4}(~\d{4})?", t)), None)
+        out = [w.upper()] if w else []
+    return list(dict.fromkeys(out))
+
+
+def recall_candidate(x, company, title):
+    url = str(x.get("url") or "")
+    us = US_RECALL_TITLE.match(title)
+    if us:
+        models = us_recall_models(us.group("models"))
+        if not models:
+            return None
+        day = article_day(x.get("published"))
+        # 미국 리콜 기사는 차종 국문·미국 이름을 쓴다. 제목에 회사·'리콜', 제목·요약에 차종이 있어야 같은 리콜(us_recalls 보도 대조와 같은 규칙)
+        return {"id": f"clue:{x.get('id')}", "kind": "리콜", "team": x.get("team"), "company": company, "title": title,
+                "url": url, "published": x.get("published"), "source": x.get("source"), "tier": x.get("tier"),
+                "terms": [models[0], "리콜"], "alts": {"리콜": ["리콜", "시정조치"]}, "unit": "", "numbers": [], "ratios": [],
+                "strict": True, "generic": [models[0]], "must": models,
+                **({"since": (day - dt.timedelta(days=3)).isoformat()} if day else {}),
+                "note": "미국 리콜은 국내 판매 차량 해당 여부를 알 수 없다 — 국내 같은 부품·시정조치는 회사·국토부 확인",
+                "strength": 1}
+    if "car.go.kr" not in url and "리콜센터" not in str(x.get("source") or ""):
+        return None
+    q = parse_qs(urlparse(url).query).get("searchProductName") or []
+    row = RECALL_ROW.search(title)
+    model = (q[0].strip() if q else "") or (row.group("model").split()[-1] if row else "")
+    if not model or model == company:
+        return None
+    # 결함 부품: 공지 줄의 앞 낱말 중 가장 긴 한글 낱말('저압연료라인 어셈블리 관련' → 저압연료라인, '2열 및 3열 전동시트 제어기' → 전동시트)
+    words = re.findall(r"[가-힣]{2,}", re.sub(r"\(.*?\)", " ", row.group("rest")))[:5] if row else []
+    words = [w for w in words if w not in RECALL_STOP and w != model]
+    part = max(words, key=len) if words else None
+    terms = [model, "리콜"] + ([part] if part and len(part) >= 3 else [])
+    day = article_day(x.get("published"))
+    return {"id": f"clue:{x.get('id')}", "kind": "리콜", "team": x.get("team"), "company": company, "title": title,
+            "url": url, "published": x.get("published"), "source": x.get("source"), "tier": x.get("tier"),
+            "terms": terms, "alts": {"리콜": ["리콜", "시정조치", "무상수리"]}, "unit": "", "numbers": [], "ratios": [],
+            "strict": True, "generic": [model], "must": [model],
+            **({"since": (day - dt.timedelta(days=3)).isoformat()} if day else {}),
+            "note": "리콜 공지 자체는 단독이 아니다 — 대상 대수·생산기간·국내외 같은 결함 반복 확인 필요",
+            "strength": 1}
 
 
 def body_pending(x, company, title):
@@ -573,6 +641,22 @@ def company_in_text(company, text):
     return False
 
 
+# 여러 회사를 한 제목에 묶을 때 쓰는 줄임(「…세아·현대, 국제무역법원 제소」 — 10-28 아이뉴스24, 10-31 운영에서 세아제강·현대제철
+# 국제무역법원 소송이 '본문에만'으로 미보도 후보 A에 남았다). 줄임은 제목에서 낱말로 떨어져 있고(뒤에 한글이 붙지 않음) 본문·요약에
+# 정식 이름이 있을 때만 그 회사로 본다 — '현대'만으로 현대차·현대모비스와 섞이지 않게.
+SHORT_NAMES = {"세아제강": ["세아"], "세아홀딩스": ["세아"], "현대제철": ["현대"], "동국제강": ["동국"], "동국씨엠": ["동국"],
+               "한화솔루션": ["한화"], "두산에너빌리티": ["두산"], "효성중공업": ["효성"], "LS일렉트릭": ["LS"], "LS전선": ["LS"],
+               "현대모비스": ["모비스"], "현대위아": ["위아"], "금호타이어": ["금호"], "넥센타이어": ["넥센"], "KG스틸": ["KG"]}
+
+
+def company_in_title(company, title, text):
+    if company_in_text(company, title):
+        return True
+    shorts = SHORT_NAMES.get(company) or []
+    return any(re.search(r"(?<![A-Za-z0-9가-힣])" + re.escape(x) + r"(?![A-Za-z0-9가-힣])", title) for x in shorts) \
+        and company_in_text(company, text)
+
+
 def article_day(value):
     try:
         if not isinstance(value, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
@@ -636,11 +720,11 @@ def judge(c, channels, *, now):
                 t_hits = [t for t in words if any(w in title_e for w in alts.get(t, [t]))]
                 x_hits = [t for t in words if any(w in text_e for w in alts.get(t, [t]))]
                 must = [m for m in c.get("must") or [] if m]
-                if company_in_text(c["company"], title) and (t_hits or len(x_hits) >= 2) and must and not any(m in text for m in must):
+                if company_in_title(c["company"], title, text) and (t_hits or len(x_hits) >= 2) and must and not any(m in text for m in must):
                     # 사업장이 여럿인 회사: 그 사업장 지명이 없는 기사는 다른 사업장 이야기일 수 있다(10-31 포스코 광양 ↔ 포항 기사).
                     # 해외 파트너 공시: 공시 회사 이름(퍼스트솔라 등)이 없는 기사는 다른 건이다(10-31 한화솔루션 특허 기사).
                     why, rank = f"제목에 회사·낱말({', '.join((t_hits or x_hits)[:3])})이 있으나 {'·'.join(must)} 없음 — 다른 사업장·다른 건 기사일 수 있음", 0
-                elif company_in_text(c["company"], title) and (t_hits or len(x_hits) >= 2):
+                elif company_in_title(c["company"], title, text) and (t_hits or len(x_hits) >= 2):
                     why, rank = f"제목에 회사·낱말({', '.join((t_hits or x_hits)[:3])}) — 동일 사건 미확정", 1
                 elif len(x_hits) >= 2:
                     why, rank = f"본문에만 회사·낱말({', '.join(x_hits[:3])}) — 제목 불일치, 같은 사건 가능성 낮음", 0
@@ -740,7 +824,7 @@ def earlier_coverage(c, earlier, limit=2):
     for ch, day, a in sorted(earlier, key=lambda x: x[1], reverse=True):
         title, text = a.get("title", ""), f"{a.get('title', '')} {a.get('text', '')}"
         key = a.get("url") or title
-        if key in seen or not company_in_text(c["company"], title):
+        if key in seen or not company_in_title(c["company"], title, text):
             continue
         hits = [t for t in words if any(w in event_text(title) for w in alts.get(t, [t]))]
         if not hits or (must and not any(m in text for m in must)):

@@ -47,12 +47,14 @@ def review_hold(filing,monitor):
     # transaction with a company in the same large-business group. A change
     # filing is evidence of the issuer's stated related-party reporting change,
     # not a new third-party customer/order or a new commercial activity.
+    # The initial filing of the same form is the same kind of evidence (10-31 운영: GS칼텍스
+    # '동일인등출자계열회사와의상품ㆍ용역거래', 매출 대비 0.02~0.03%가 '단독 유력' 87점으로 올랐다).
     if ("동일인등출자계열회사와의상품" in report and
-        ("용역거래" in report or "용역" in report) and
-        ("변경" in report or "정정" in report)):
+        ("용역거래" in report or "용역" in report)):
+        changed="변경" in report or "정정" in report
         return {
             "reason":"related_party_goods_services_change_not_external_customer",
-            "whatVerified":"동일인 등 출자계열회사와의 상품·용역거래 변경 공시 접수",
+            "whatVerified":"동일인 등 출자계열회사와의 상품·용역거래"+(" 변경" if changed else "")+" 공시 접수",
             "notVerified":"그룹 외부 신규 고객·실제 신규 매출·원거래 대비 금액 증감·미보도",
             "sourceUrl":url,
             "counterparty":None

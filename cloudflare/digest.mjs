@@ -79,7 +79,7 @@ const ALT = {
   합작: ['합작', '지분', '매각', '정리', '철수', '계약', '합작사'], 보조금: ['보조금', '상계관세', '어린이집', '직장', '지원'],
   리콜: ['리콜', '결함', '시정조치', '화재 위험'], 가격: ['가격', '판매가', '출고가', 'MSRP', '값'], 미국: ['미국', '美'],
   EPA: ['EPA', '환경보호청', '인증', '주행거리', '연비'],
-  회생: ['회생', '법정관리', '파산', '기업회생', '워크아웃'],
+  회생: ['회생', '법정관리', '파산', '기업회생', '워크아웃'], 파산: ['파산', '청산', '회생', '법정관리'], 매각: ['매각', '인수', 'M&A', '새 주인'],
   허가: ['허가', '인가', '승인', '전기위원회'], 법인: ['법인', '현지법인', '자회사', '설립'], 영국: ['영국', 'UK'], 원안위: ['원안위', '원자력안전위원회', '의결', '심의'],
   발주: ['발주', '입찰', '낙찰', '구매'],
   산소공장: ['산소공장', '산소 공장', '산소플랜트', 'ASU', '공기분리'],
@@ -113,6 +113,10 @@ export function insolvencyLine(e) {
 // places: search words that narrow the query (시·군, 나라) but cannot mark a story alone — a headline with the company and
 // its city is often another story (10-31: 고려아연 울주 안전점검 공고가 '고려아연 온산제련소 지원 울주군 집수리' 기사로 '관련 보도 있음').
 // must: an article has to name one of these (title or text) to count — for a site of a company with several (포스코 광양·포항).
+// 회생·파산 공고의 보도 대조 낱말은 절차대로: 파산 선고를 '회생'으로 찾으면 '○○ 파산' 기사를 못 찾는다
+// (10-31 운영: 케이아이씨·남양테크 파산 선고가 "케이아이씨 회생"으로 대조돼 '미보도 후보').
+export const insolvencyWord = (kind) => (/파산/.test(String(kind ?? '')) ? '파산' : /M&A|매각/.test(String(kind ?? '')) ? '매각' : '회생');
+
 export function hint(who, terms, places = [], must = [], names = []) {
   const subject = String(who ?? '').split('·')[0].replace(/\(.*?\)/g, '').trim();
   const t = [...new Set(terms.filter(Boolean).map(String))];
@@ -187,8 +191,57 @@ export function stackHint(e) {
 }
 // 국민연금 가입자 변화의 방향 → 기사 낱말(늘면 채용·증원, 줄면 인력 감축). 사업장 주소의 시·군을 넣고, 그 지명이 없는 기사는
 // 같은 사건으로 치지 않는다(10-31 운영: 포스코 포항 가입자 +866명 ↔ '현대제철·포스코 美 제철소 1000명 채용' 기사로 '관련 보도 있음')
+// 미국 리콜 보도 대조: 브랜드만으로 찾으면 같은 브랜드의 다른 리콜 기사가 근거로 붙는다(10-31 운영: 현대차 26V692000 아반떼·투싼
+// 하이브리드 스트럿 체결 24대 ↔ 「현대차 '측면 에어백 센서' 리콜 남아공 확산…투싼 253대」). 차종(국문 이름·영문)과 대상 대수가
+// 기사 제목·요약에 하나는 있어야 같은 리콜로 센다. 부품사 이름이 영문뿐이면(원보고서 공급사 칸: SAMJIN NUT·NIDEC MOBILITY KOREA)
+// 그 이름으로는 국내 기사를 못 찾으니 브랜드로 찾는다(한글 이름 부품사 — SK온 등 — 은 그대로 부품사로).
+const US_MODEL_KO = {
+  elantra: ['아반떼', '엘란트라'], sonata: ['쏘나타'], tucson: ['투싼'], 'santa fe': ['싼타페'], 'santa cruz': ['싼타크루즈'],
+  palisade: ['팰리세이드'], kona: ['코나'], venue: ['베뉴'], ioniq: ['아이오닉'], nexo: ['넥쏘'], sorento: ['쏘렌토'], sportage: ['스포티지'],
+  telluride: ['텔루라이드'], carnival: ['카니발'], forte: ['포르테', 'K3'], soul: ['쏘울'], niro: ['니로'], seltos: ['셀토스'],
+  trax: ['트랙스'], trailblazer: ['트레일블레이저'], envista: ['엔비스타'], encore: ['앙코르'],
+};
+const BRAND_WORDS = /^(HYUNDAI|KIA|GENESIS|AUDI|VOLKSWAGEN|VW|BMW|MINI|MERCEDES-BENZ|MERCEDES|HONDA|ACURA|CHEVROLET|BUICK|GMC)$/;
+export function usRecallModels(models) {
+  const s = ` ${String(models ?? '').toLowerCase()} `;
+  const out = [];
+  for (const [k, v] of Object.entries(US_MODEL_KO)) if (new RegExp(`[^a-z0-9]${k}[^a-z0-9]`).test(s)) out.push(...v);
+  if (!out.length) {  // 수입차·영문 그대로 쓰는 차종(X3·Q4·GLC·CR-V·K5·EV6·G80): 브랜드 낱말·연식 뺀 첫 낱말
+    const w = String(models ?? '').split(/[\s,·]+/).find((t) => /^[A-Z0-9][A-Z0-9.-]{1,9}$/i.test(t) && !BRAND_WORDS.test(t.toUpperCase()) && !/^\d{4}(~\d{4})?$/.test(t));
+    if (w) out.push(w.toUpperCase());
+  }
+  return [...new Set(out)];
+}
+export function countForms(n) {
+  if (!(n >= 1000)) return [];
+  const man = Math.floor(n / 10000), rest = n % 10000;
+  const out = [n.toLocaleString('en-US'), String(n)];
+  if (man) {
+    out.push(`${man}만${rest || ''}`, `${man}만${rest ? rest.toLocaleString('en-US') : ''}`, `${man}만 ${rest || ''}`.trim());
+    if (rest && rest % 1000 === 0) out.push(`${man}만${rest / 1000}천`);
+  }
+  return [...new Set(out)];
+}
+export function usRecallHint(x, why) {
+  const supplier = why.find((w) => String(w.role).startsWith('부품'));
+  const brand = why.find((w) => String(w.role).startsWith('제조사'));
+  const models = usRecallModels(x.models);
+  const ids = [...models, ...countForms(Number(x.affected ?? 0))];
+  if (supplier && /[가-힣]/.test(String(supplier.name)) && brand) return hint(supplier.name, ['리콜', brand.name], [], ids);
+  const who = brand?.name ?? supplier?.name ?? why[0]?.name;
+  return models.length ? hint(who, [models[0], '리콜'], [models[0]], ids) : hint(who, ['리콜', '미국'], [], ids);
+}
 // 정정사유를 큰 변경 옆에 붙인다 — 날짜가 크게 당겨진 이유가 '취득완료'인지 '계약 해지'인지 줄에서 바로 보이게
 // (10-31 운영: 금호타이어 함평 부지 취득 정정 '취득예정일자 -36개월'은 사유가 '취득완료(취득가액 및 취득일자 확정)에 따른 정정')
+// 한 줄 요약용: 낱말 중간에서 자르지 않고 ' · ' 구분에서 자른다(10-31 운영: '… · 취득물건구분 토지 및 건물 · 취 · id …')
+export function clipAt(text, n) {
+  const s = String(text ?? '');
+  if (s.length <= n) return s;
+  const cut = s.slice(0, n);
+  const at = cut.lastIndexOf(' · ');
+  return `${(at > n * 0.5 ? cut.slice(0, at) : cut.replace(/\s+\S*$/, '')).trimEnd()} …`;
+}
+
 // 정정 내용 보도 대조(scoop_screen check_corrections): 원 공시 기사와 따로, 변경 낱말(연장·감액·해지 등)로 찾은 결과
 export function correctionNote(cc) {
   const base = "원 공시 보도 대조 '관련 보도 있음'은 원 계약 기사일 수 있음";
@@ -230,7 +283,9 @@ function opinionHint(x) {
 }
 function pageHint(e, added) {
   if (!/\$\s?\d/.test(added)) return undefined;  // price lines only; other wording changes have no reliable search words
-  const model = (/\b([A-Z]{1,4}\d{1,2}[A-Za-z]?)\b/.exec(String(e.label ?? '')) ?? [])[1];
+  // 차종 목록 페이지는 가격 줄 근처 차명(국문으로)으로 찾는다 — 없으면 페이지 이름의 차명(아이오닉6 N 등)
+  const near = Object.values(e.priceModels ?? {})[0];
+  const model = (near ? usRecallModels(near)[0] : undefined) ?? (/\b([A-Z]{1,4}\d{1,2}[A-Za-z]?)\b/.exec(String(e.label ?? '')) ?? [])[1];
   return hint(e.company, [model, '가격', '미국']);
 }
 
@@ -270,6 +325,8 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
     if (c.verdict === '미보도 후보' && fl?.routine) push('B', W['scoop-screen'], { kind, flag, verdict: c.verdict, id: c.id, date: c.published ?? c.filedOn, company: c.company, fact: `${title} — 일상 공시로 보임(${fl.routine})${brief}`, url: c.url });
     // 특허 공개는 거의 기사가 안 나므로 '미보도 후보'가 늘 나온다 — 그 자체로 단독이 아니고 사업화·생산·수주 연결을 확인할 B
     // (10-31 운영: 10-07·10-12 공개특허 두 건이 A에 남아 A 3건 중 2건)
+    // 국내 리콜 공지(자동차리콜센터)는 공개 공지라 그 자체로 단독이 아니다 — 미보도 후보여도 B(대상 대수·생산기간·반복 결함 확인)
+    else if (c.verdict === '미보도 후보' && c.kind === '리콜') push('B', W['scoop-screen'], { kind, verdict: c.verdict, id: c.id, date: c.published ?? c.filedOn, company: c.company, fact: `${title} — 보도 대조 '미보도 후보' · 리콜 공지만으로는 단독이 아님(대상 대수·생산기간·같은 결함 반복 확인)`, url: c.url });
     else if (c.verdict === '미보도 후보' && c.kind === '특허') push('B', W['scoop-screen'], { kind, verdict: c.verdict, id: c.id, date: c.published ?? c.filedOn, company: c.company, fact: `${title} (특허) — 보도 대조 '미보도 후보' · 특허 공개만으로는 단독이 아님(사업화·생산·수주 연결 확인)`, url: c.url });
     else if (c.verdict === '미보도 후보') push('A', W['scoop-screen'], { kind, verdict: c.verdict, id: c.id, date: c.published ?? c.filedOn, company: c.company, fact: `${title} (${c.kind ?? ''}) — 보도 대조 '미보도 후보'${brief}${cmp}`, url: c.url });
     else if (c.verdict === '미확인') push('B', W['scoop-screen'], { kind, verdict: c.verdict, id: c.id, date: c.published ?? c.filedOn, company: c.company, fact: `${title} — 보도 대조 미확인(채널 실패)`, url: c.url });
@@ -364,7 +421,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
 
   const tr = docs['trade-remedy'];
   for (const e of tr?.events ?? []) {
-    if (!recent(e.detectedAt)) continue;
+    if (!recent(e.detectedAt) || e.renumbered) continue;  // 목록 일련번호만 밀린 재감지(수집기 표시)
     if (e.pageId === 'ktc') {
       // 국내 무역위원회: 공식 변화(B)는 출입 업종 품목만. 보도자료는 이미 공개된 뉴스(C). 회사 이름은 누리집에 대개 없다.
       push(e.tier === 'B' ? 'B' : 'C', W['trade-remedy'], { kind: KTC_KIND[e.ktcKind] ?? '무역위원회', id: e.id, date: e.detectedAt,
@@ -380,7 +437,9 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
         check: firms.length ? hint(firms[0], [e.country, '관세'], [e.country]) : undefined });
       continue;
     }
-    push(e.pageId === 'taric' && /한국 전용/.test(e.label) ? 'A' : 'B', W['trade-remedy'], { kind: e.pageId === 'taric' ? 'EU 쿼터(TARIC)' : `해외 조사 ${e.pageId}`, id: e.id, date: e.detectedAt, company: e.country, fact: `${e.label}: ${e.text}`, url: e.url });
+    // repeats: 같은 줄이 목록 일련번호만 바뀌어 다시 잡힌 적 있음 → 이 첫 감지도 번호 이동일 수 있어 C(원문 개시일 확인)
+    push(e.repeats ? 'C' : e.pageId === 'taric' && /한국 전용/.test(e.label) ? 'A' : 'B', W['trade-remedy'], { kind: e.pageId === 'taric' ? 'EU 쿼터(TARIC)' : `해외 조사 ${e.pageId}`, id: e.id, date: e.detectedAt, company: e.country,
+      fact: `${e.label}: ${e.text}${e.repeats ? ` — 목록 일련번호만 바뀌어 ${e.repeats}번 다시 잡힌 줄이라 이 감지도 번호 이동일 수 있음(원문 개시일 확인)` : ''}`, url: e.url });
   }
   const frBase = baselineOf(tr?.federalRegister ?? []);
   for (const x of tr?.federalRegister ?? []) {
@@ -436,7 +495,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
     const tier = direct ? (n >= 1000 || urgent ? 'A' : 'B') : (n >= 10000 || urgent ? 'B' : 'C');
     push(tier, W['us-recalls'], { kind: 'NHTSA 리콜', id: x.id, date: x.received, company: [...new Set(why.map((w) => w.name))].join('·'),
       fact: `미국 리콜 ${x.campaign} 접수 ${x.received} · ${x.models} · ${x.component} · 대상 ${Number(x.affected ?? 0).toLocaleString('en-US')}대${x.parkOutside ? ' · 실외 주차 권고' : ''} — ${roles}${x.supplierBox ? ` · 원보고서 공급사 칸: ${String(x.supplierBox).slice(0, 80)}` : ''}`,
-      url: x.url, check: tier === 'C' ? undefined : hint(lead.name, ['리콜', String(lead.role).startsWith('부품') ? brand : '미국']) });
+      url: x.url, check: tier === 'C' ? undefined : usRecallHint(x, why) });
   }
   // NHTSA defect investigations (ODI) on beat cars or naming a Korean supplier: opened on 현대·기아·한국GM 차종 A, closed B.
   const invBase = baselineOf(ur?.investigations ?? []);
@@ -489,10 +548,12 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
     else if (x.source === 'ASX' || x.source === 'HKEX') tier = (x.flags ?? []).length ? 'A' : 'C';
     // dealNear(수집기): 계약 낱말이 출입처 이름과 같은 문장에 있나. 예전 저장분은 발췌 전체로 본다.
     // 보도 인용 문장에만 이름이 나온 것은 그 회사 공시가 아니라 기사 인용이다 — 참고(10-31: 넥사 6-K의 '고려아연·텍 벤치마크 TC' 인용)
-    else if (x.hearsay) tier = 'C';
+    else if (x.hearsay || x.boilerplate) tier = 'C';  // 전망·위험 고지 문구 속 언급도 참고(10-31: Cleveland-Cliffs 8-K의 'MOU with POSCO' 위험 요인)
     else tier = (x.dealNear ?? DEAL_WORDS.test(String(x.snippet ?? ''))) && !x.finNote ? 'A' : 'B';
-    const deal = x.routine ? ` — ${x.routine}` : x.source === 'ASX' || x.source === 'HKEX' ? '' : x.hearsay ? ` — ${x.hearsay}` : x.finNote ? ` — ${x.finNote}`
+    const deal = x.routine ? ` — ${x.routine}` : x.source === 'ASX' || x.source === 'HKEX' ? '' : x.hearsay ? ` — ${x.hearsay}` : x.boilerplate ? ` — ${x.boilerplate}` : x.finNote ? ` — ${x.finNote}`
       : tier === 'B' && x.dealNear === false && DEAL_WORDS.test(String(x.snippet ?? '')) ? ' — 계약·공급 낱말이 출입처 이름과 다른 문장에 있음(업계 일반 서술일 수 있음)'
+      // 소송·특허 서술은 '계약 낱말 없음'이 아니라 절차 서술이다 — 단계(청원·답변 기한·철회)는 원문으로(10-31: FSLR 10-Q의 USITC 청원 문단)
+      : tier === 'B' && LITIGATION.test(String(x.snippet ?? '')) ? ' — 소송·특허 절차 서술(진행 단계·당사자는 원문 확인)'
       : tier === 'B' ? ' — 발췌에 계약·공급·합작 낱말 없음(이름만 언급일 수 있음)' : '';
     const ticker = (/\(([A-Z0-9]{1,5})(?:,[^)]*)?\)\s*$/.exec(String(x.filer ?? '')) ?? [])[1];
     const partner = x.source === 'EDGAR' ? EDGAR_KO[ticker] : ASX_KO[ticker] ?? String(x.filer ?? '').split(/[\s,(]/)[0];
@@ -537,7 +598,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
     if (!fresh(e, insBase, 'posted')) continue;
     push(e.tier ?? 'C', W['kr-insolvency'], { kind: e.kind, id: e.id, date: e.posted ?? e.firstSeen, company: e.company,
       fact: `${e.kind}: ${insolvencyLine(e)} · 공고 ${e.posted ?? '?'} — 거래 관계·납품 영향 미확인`, url: e.url ?? e.listUrl,
-      check: e.tier === 'C' ? undefined : hint(firmName(e.company), ['회생']) });
+      check: e.tier === 'C' ? undefined : hint(firmName(e.company), [insolvencyWord(e.kind)]) });
   }
 
   // 전기위원회 발전사업 허가(회차 개최결과·허가대장)·원안위 안건: 출입처 그룹 사업명·원전 건설/운영허가·SMR A, 해상풍력 허가·계속운전 B.
@@ -569,7 +630,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
 
   // 출입처 공장이 있는 시·군의 고시·공고(새올): 출입처 이름+사업 낱말 A, 이름만 B, 제철소·산업단지 계획 등 C. 시·군별 첫 조회는 기준선.
   for (const x of docs['kr-local']?.items ?? []) {
-    if (x.baseline || !recent(x.firstSeen)) continue;
+    if (x.baseline || x.routine || !recent(x.firstSeen)) continue;  // routine: 이름 없는 일상 행정(수집기 표시)
     // 상세 페이지를 읽었으면 전체 제목·본문 앞부분(목록 제목은 '...'로 잘린다 — 10-31 울주 '#2ASU O...' → 'O2 COMPRESSOR ROOM 토건공사')
     const d = x.detail;
     const title = d?.title ?? x.title;
@@ -640,7 +701,9 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
   const pw = docs['page-watch'];
   for (const e of pw?.events ?? []) {
     if (!recent(e.detectedAt)) continue;
-    const added = Object.values(e.added ?? {}).flat().slice(0, 3).join(' / ');
+    // 가격 줄에는 페이지에서 그 앞 차명(배치로 추정)을 붙인다(10-31: 현대차 미국 차종 목록 가격만 바뀌어 어느 차인지 몰랐다)
+    const added = Object.entries(e.added ?? {}).flatMap(([cat, list]) => list.map((x) => (cat === 'price' && e.priceModels?.[String(x).toLowerCase()]
+      ? `${x}(근처 차명 ${e.priceModels[String(x).toLowerCase()]})` : x))).slice(0, 3).join(' / ');
     // 다른 주소로 넘어가던 페이지의 예전 '변경'은 넘어간 곳의 문구(10-31: kia.com/us/en/ev4 → 기아 미국 홈페이지) — C
     const tier = e.redirectNote ? 'C' : e.scope === 'page' ? 'A' : 'C';
     const what = e.kind === 'moved' ? ` 페이지 넘어감 → ${e.movedTo}(차종 페이지 내림·판매 중단·개편 가능성)`
@@ -800,6 +863,29 @@ export function convergence(items, { cut } = {}) {
   return out.sort((a, b) => b.watches.length - a.watches.length || Number(b.fresh) - Number(a.fresh) || Number(b.hasA) - Number(a.hasA) || (b.latest ?? 0) - (a.latest ?? 0));
 }
 
+// 묶음에 보일 줄: 새 신호(배경 아님)를 먼저, 배경은 감시별로 한 줄로 합친다
+// (10-31 운영: 금호타이어 함평 정련동 공사가 시공사마다 이름이 조금씩 달라 국민연금 공사 현장 배경 3줄이 묶음 4줄 중 3줄을 채웠다).
+export function convergenceRows(g, max = 4) {
+  const byDate = (a, b) => String(b.date ?? '').localeCompare(String(a.date ?? ''));
+  const fore = g.items.filter((x) => !x.background).sort(byDate);
+  const back = new Map();
+  for (const x of g.items.filter((y) => y.background).sort(byDate)) {
+    if (!back.has(x.watch)) back.set(x.watch, []);
+    back.get(x.watch).push(x);
+  }
+  const merged = [...back.values()].map((xs) => {
+    if (xs.length === 1) return xs[0];
+    const titles = xs.map((x) => /「([^」]+)」/.exec(x.fact ?? '')?.[1]);
+    const lead = /^[^「]*/.exec(xs[0].fact ?? '')[0].trim();
+    const fact = titles.every(Boolean)
+      ? `${lead} ${xs.length}건 · ${titles.map((t) => `「${clipAt(t, 40)}」`).join(' · ')}`
+      : `${xs.length}건 · ${xs.map((x) => clipAt(x.fact, 50)).join(' · ')}`;
+    return { ...xs[0], fact, id: `${xs[0].id} 외 ${xs.length - 1}` };
+  });
+  const rows = [...fore, ...merged];
+  return { rows: rows.slice(0, max), more: Math.max(0, rows.length - max) };
+}
+
 export async function radarToday(ctx, args) {
   const nowMs = ctx.now.getTime();
   const monday = new Date(nowMs + KST_MS).getUTCDay() === 1;
@@ -843,13 +929,17 @@ export async function radarToday(ctx, args) {
   const span = nowMs - 14 * 86400000;
   const conv = convergence([...collect(docs, span, kstDate(span), { now: nowMs }).filter((x) => !(judged.get(x.id) && !showJudged)), ...background(docs, nowMs)]
     .filter((x) => has(q, x.company, x.fact, x.watch)), { cut });
+  // 묶음을 만든 새 신호(배경 아님)가 모두 이미 보도된 묶음은 뒤로(10-31 운영: 금호타이어 함평 묶음의 유일한 새 신호인
+  // 부지 취득 완료 정정은 10-28 '함평 이전 부지 1160억원에 취득 완료' 기사로 '관련 보도 있음'인데 맨 위에 표시 없이 떴다)
+  const coveredGroup = (g) => g.items.filter((x) => !x.background).every((x) => rank(x) === 2);
+  conv.sort((a, b) => Number(coveredGroup(a)) - Number(coveredGroup(b)));
   if (conv.length) {
     out.push(`\n[겹친 신호 · 최근 14일 같은 출입처·같은 시군을 감시 여러 곳이 가리킴] ${conv.length}곳 — 하나씩은 공개 자료, 함께 보면 투자·가동 변화 단서(배경: 국민연금 공사 현장·120일 안 건축허가·지금 멈춘 굴뚝)`);
     for (const g of conv.slice(0, 5)) {
-      out.push(`- ${g.fresh ? '[새 항목 포함] ' : ''}${g.company} · ${g.place} — 감시 ${g.watches.length}곳(${g.watches.join(', ')})`);
-      const lines = [...g.items].sort((a, b) => String(b.date ?? '').localeCompare(String(a.date ?? ''))).slice(0, 4);
-      for (const x of lines) out.push(`   ${x.background ? '(배경) ' : `${x.tier} · `}${x.date ? `${String(x.date).length > 10 ? kstStamp(x.date) : x.date} · ` : ''}${x.watch}: ${String(x.fact ?? '').slice(0, 110)} · id ${x.id}`);
-      if (g.items.length > 4) out.push(`   … 같은 묶음 ${g.items.length - 4}건 더`);
+      out.push(`- ${g.fresh ? '[새 항목 포함] ' : ''}${g.company} · ${g.place} — 감시 ${g.watches.length}곳(${g.watches.join(', ')})${coveredGroup(g) ? ' · 새 신호는 모두 관련 보도 있음(같은 사건인지 열어 볼 것)' : ''}`);
+      const { rows, more } = convergenceRows(g);
+      for (const x of rows) out.push(`   ${x.background ? '(배경) ' : `${x.tier} · ${pressOf(x) ? `[${pressOf(x)}] ` : ''}`}${x.date ? `${String(x.date).length > 10 ? kstStamp(x.date) : x.date} · ` : ''}${x.watch}: ${clipAt(x.fact, 110)} · id ${x.id}`);
+      if (more) out.push(`   … 같은 묶음 ${more}줄 더`);
     }
     if (conv.length > 5) out.push(`… 남은 ${conv.length - 5}곳(company로 좁히기)`);
     out.push('   읽는 법: 같은 시군 이름이 문장에 있으면 묶는다(같은 공장·같은 사업이라는 확인이 아님). 각 원문을 열어 같은 부지·사업인지 본다.');

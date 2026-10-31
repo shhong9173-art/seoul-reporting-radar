@@ -56,8 +56,10 @@ export async function pageChanges(ctx, args) {
     if (e.kind === 'moved') out.push(`   페이지 넘어감: 이 주소가 ${e.movedTo}(으)로 넘어간다 — 차종 페이지 내림·판매 중단·개편 가능성(회사 확인)`);
     if (e.kind === 'opened') out.push(`   페이지 열림: 전에는 ${e.openedFrom}(으)로 넘어가던 주소가 제 페이지로 열렸다 — 출시 준비 신호일 수 있음(회사 확인)`);
     if (e.redirectNote) out.push(`   주의: ${e.redirectNote}`);
-    for (const [cat, list] of Object.entries(e.removed ?? {})) out.push(`   − ${CAT_KO[cat] ?? cat}: ${list.slice(0, 6).join(' / ')}`);
-    for (const [cat, list] of Object.entries(e.added ?? {})) out.push(`   + ${CAT_KO[cat] ?? cat}: ${list.slice(0, 6).join(' / ')}`);
+    // 가격 줄은 페이지에서 그 앞에 있던 차명을 붙인다(배치로 추정 — '근처 차명')
+    const near = (cat, x) => (cat === 'price' && e.priceModels?.[String(x).toLowerCase()] ? `${x}(근처 차명 ${e.priceModels[String(x).toLowerCase()]})` : x);
+    for (const [cat, list] of Object.entries(e.removed ?? {})) out.push(`   − ${CAT_KO[cat] ?? cat}: ${list.slice(0, 6).map((x) => near(cat, x)).join(' / ')}`);
+    for (const [cat, list] of Object.entries(e.added ?? {})) out.push(`   + ${CAT_KO[cat] ?? cat}: ${list.slice(0, 6).map((x) => near(cat, x)).join(' / ')}`);
     out.push(`   원문: ${e.url}`);
     out.push('   검증 상태: 페이지 문구 비교(자동). 공식 발표·변경 사유는 미확인 — 회사 확인과 과거 발표(보도자료·모터쇼) 대조 필요');
   }
@@ -143,7 +145,7 @@ async function registrySection(ctx, q, onlyNew, limit) {
     `원천: 질의 ${checks.length - bad.length}/${checks.length} 정상${bad.length ? `(미확인: ${bad.slice(0, 3).map((c) => `${c.source}(${c.error ?? c.status})`).join(', ')})` : ''}`,
     ...(doc.rules ?? []).map((r) => `규칙: ${r}`)];
   for (const x of rows.slice(0, limit)) {
-    out.push(`- ${x.isNew ? '[신규] ' : ''}${x.created ?? '?'} 설립 · ${x.company} · ${x.name} (${x.number}, ${x.status ?? '상태 미상'})`);
+    out.push(`- ${x.isNew ? '[신규] ' : ''}${x.created ?? '?'} 설립 · ${x.company} · ${x.name} (${x.number}, ${x.status ?? '상태 미상'})${x.note ? ` — ${x.note}` : ''}`);
     out.push(`   잡힌 사실: 지배 주주 ${(x.psc ?? []).join(', ') || '미기재'} · SIC ${(x.sic ?? []).join(',') || '미기재'} · 등기 주소 ${x.address || '미기재'}`);
     out.push(`   원문: ${x.url}`);
   }
@@ -178,7 +180,7 @@ export async function partnerFilings(ctx, args) {
     out.push(`\n${x.isNew ? '[신규] ' : ''}${x.date}${x.time ? ` ${x.time}(홍콩시각)` : ''} · ${x.source} · ${x.filer} · 관련 출입처 ${(x.beat ?? []).join('·')}`);
     out.push(`   잡힌 사실: ${x.title}${x.priceSensitive ? ' (주가 민감 공시)' : ''}${(x.flags ?? []).length ? ` · 낱말 ${x.flags.join(',')}` : ''}`);
     if (x.relation) out.push(`   관계: ${x.relation} (근거 ${x.relationEvidence})`);
-    if (x.routine || x.finNote || x.hearsay) out.push(`   분류: ${x.routine ?? x.hearsay ?? x.finNote}`);
+    if (x.routine || x.finNote || x.hearsay || x.boilerplate) out.push(`   분류: ${x.routine ?? x.hearsay ?? x.boilerplate ?? x.finNote}`);
     if (x.snippet) out.push(`   본문 발췌: …${x.snippet.slice(0, 400)}…`);
     else if (x.snippetError) out.push(`   본문 발췌 실패: ${x.snippetError}`);
     out.push(`   원문: ${x.url ?? '링크 없음'}`);
@@ -314,7 +316,8 @@ export async function tradeRemedies(ctx, args) {
 
   if (!section || section === 'notices') {
     const from = new Date(ctx.now.getTime() - days * 86400000).toISOString();
-    const ev = (doc.events ?? []).filter((e) => new Date(e.detectedAt).toISOString() >= from && matches(q, e.label, e.text, e.country));
+    const ev = (doc.events ?? []).filter((e) => !e.renumbered && new Date(e.detectedAt).toISOString() >= from && matches(q, e.label, e.text, e.country));
+    const renumbered = (doc.events ?? []).filter((e) => e.renumbered && new Date(e.detectedAt).toISOString() >= from).length;
     const off = (doc.pages ?? []).filter((p) => p.status === 'disabled');
     const pages = (doc.pages ?? []).filter((p) => p.status !== 'disabled');
     const failed = pages.filter((p) => p.status !== 'ok');
@@ -325,8 +328,10 @@ export async function tradeRemedies(ctx, args) {
     for (const e of ev.slice(0, limit)) {
       out.push(`- ${String(e.detectedAt).slice(0, 16)} · ${e.country} · ${e.label}`);
       out.push(`   잡힌 사실: ${e.text}`);
+      if (e.repeats) out.push(`   주의: 목록 일련번호만 바뀌어 ${e.repeats}번 다시 잡힌 줄 — 이 감지도 번호 이동일 수 있음. 원문의 개시일·공고일로 새 사건인지 확인`);
       out.push(`   원문: ${e.url}`);
     }
+    if (renumbered) out.push(`(목록 일련번호만 바뀐 재감지 ${renumbered}건은 뺐다 — 같은 줄의 첫 감지에 표시)`);
     if (!ev.length) out.push('이 기간 감지된 새 공고 줄·새 소진 없음(열리지 않은 목록은 미확인).');
   }
   out.push('\n다음: 원문은 source_document로 연다(미국 관보·EU·무역위 상세) → 대상 품목·업체·세율·소진일·회의 안건 확인 → news_check로 보도 대조 → 회사·협회 확인.');
@@ -601,7 +606,7 @@ async function localSection(ctx, q, days, limit) {
   const checks = doc.checks ?? [];
   const bad = checks.filter((c) => c.status !== 'ok');
   const from = new Date(ctx.now.getTime() - days * 86400000).toISOString();
-  const all = (doc.items ?? []).filter((x) => String(x.firstSeen) >= from && matches(q, x.city, x.title, x.company, x.dept, x.plants));
+  const all = (doc.items ?? []).filter((x) => !x.routine && String(x.firstSeen) >= from && matches(q, x.city, x.title, x.company, x.dept, x.plants));
   const rank = { A: 0, B: 1, C: 2 };
   const rows = all.filter((x) => q || x.tier !== 'C').sort((a, b) => (rank[a.tier] ?? 3) - (rank[b.tier] ?? 3)
     || String(b.date ?? '').localeCompare(String(a.date ?? '')));

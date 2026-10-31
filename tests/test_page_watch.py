@@ -70,6 +70,20 @@ class Run(unittest.TestCase):
         self.assertEqual(changed["events"][0]["baselineSource"], "직전 확인")
         self.assertEqual(changed["events"][0]["baselineDate"], "2026-10-26")
 
+    def test_price_lines_carry_the_nearest_model_name(self):
+        # 차종 목록 페이지: 가격만 바뀌면 어느 차인지 모른다(10-31 운영: 현대차 미국 차종 목록 '$26,900 … → $27,600 …')
+        def page(e, t):
+            return (f"<html><body><h2>2027 ELANTRA</h2><p>$ {e} * Starting MSRP</p><h2>2027 TUCSON Hybrid</h2>"
+                    f"<p>${t} * Starting MSRP</p>{PAD}</body></html>")
+        listing = {**PAGE, "id": "hyundai-us-vehicles", "label": "현대차 미국 차종 목록", "url": "https://www.hyundaiusa.com/us/en/vehicles"}
+        first = w.run([listing], now=NOW, previous={"pages": [{**listing, "status": "ok", "lastOk": "2026-10-26T06:00:00+09:00",
+                       "signals": w.signals(w.visible_text(page("26,900", "33,450"))), "priceModels": w.price_models(w.visible_text(page("26,900", "33,450")))}]},
+                       get=lambda url, **k: R(text=page("27,600", "33,450")), sleep=lambda s: None)
+        ev = first["events"][0]
+        self.assertEqual(ev["added"]["price"], ["$ 27,600 * Starting MSRP"])
+        self.assertEqual(ev["priceModels"], {"$ 27,600 * starting msrp": "ELANTRA", "$ 26,900 * starting msrp": "ELANTRA"})
+        self.assertEqual(w.price_models(w.visible_text(page("1", "33,450")))["$33,450 * starting msrp"], "TUCSON Hybrid")
+
     def test_site_wide_menu_lines_are_separated_from_page_lines(self):
         nav_old = "<nav>IONIQ 6 N Coming 2026</nav>"
         nav_new = "<nav>IONIQ 6 N Coming 2027</nav>"

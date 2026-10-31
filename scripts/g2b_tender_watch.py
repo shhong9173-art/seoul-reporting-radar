@@ -18,7 +18,7 @@ OPERATIONS={"goods":"getBidPblancListInfoThng",
 TECH={
  "transformer":("변압기","변전소","배전반"),
  "grid":("초고압","송전선","HVDC","GIS","전력망","전력케이블","전선"),
- "storage":("ESS","에너지저장장치"),
+ "storage":("ESS","BESS","에너지저장장치"),
  "energy":("원자력발전","원전","수소연료전지","풍력발전"),
  "mobility":("전기버스","전기차충전","전기차 충전"),
 }
@@ -79,9 +79,17 @@ def parse_result(payload):
  if str(header.get("resultCode")) not in ("00","000"):
   raise ProviderError(f"provider {header.get('resultCode')} {str(header.get('resultMsg') or '')[:120]}".strip())
  return unpack(resp.get("body"))
+# 낱말 경계: 영문 약어는 대소문자 그대로 앞뒤에 영문자가 없을 때만, '전선'은 철도 노선·수전선로·전선관이 아닐 때만.
+# 10-30 운영: 'GIST 공간구축공사'(GIS)·'Precession software'·'Wellness Care'(ess)·'경전선 강형도장'·'수전선로 맨홀 청소'(전선)가
+# 23건 중 7건(나라장터 단서로 radar_clues 조달 칸에 올라감).
+def _term(t):
+ if re.fullmatch(r"[A-Za-z]+",t):return re.compile(rf"(?<![A-Za-z]){t}(?![A-Za-z])")
+ if t=="전선":return re.compile(r"(?<![경수배충])전선(?!관)")
+ return re.compile(re.escape(t))
+TECH_RX={name:[_term(t) for t in terms] for name,terms in TECH.items()}
 def tags(title):
- val=str(title or "").lower()
- return [name for name,terms in TECH.items() if any(t.lower() in val for t in terms)]
+ val=str(title or "")
+ return [name for name,rxs in TECH_RX.items() if any(rx.search(val) for rx in rxs)]
 def official_link(value):
  if not isinstance(value,str):return None
  p=urlsplit(value)

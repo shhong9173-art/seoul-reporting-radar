@@ -407,6 +407,62 @@ class Screen(unittest.TestCase):
         self.assertEqual((out[0]["firstVerdict"], out[0]["firstQueries"]), ("미보도 후보", ["고려아연 소송등의판결"]))
         self.assertEqual(out[0]["filing"]["type"], "소송판결")
 
+    def test_group_headline_short_names_count_when_the_body_names_the_company(self):
+        # 10-28 아이뉴스24 「0%→19.87%로 뛴 美 관세…세아·현대, 국제무역법원 제소」 — 10-31 운영에서 세아제강·현대제철 소송이
+        # '본문에만' 약한 근거로 미보도 후보(A)에 남았다
+        art = {"title": "0%→19.87%로 뛴 美 관세…세아·현대, 국제무역법원 제소", "url": "https://www.inews24.com/view/2020330", "date": "2026-10-28",
+               "text": "세아제강과 현대제철이 미국 국제무역법원(CIT)에 소송을 냈다."}
+        now = dt.datetime(2026, 10, 31, 7, 10, tzinfo=KST)
+        for who in ("세아제강", "현대제철"):
+            c = {"id": f"cl:{who}", "company": who, "terms": ["국제무역법원", "소송"], "alts": {"소송": ["소송", "제소", "판결", "항소"]},
+                 "numbers": [], "unit": "", "strict": True, "generic": [], "since": "2026-10-20", "title": "x"}
+            verdict, ev = s.judge(c, channels([art]), now=now)
+            self.assertEqual((verdict, ev[0]["why"]), ("관련 보도 있음", "제목에 회사·낱말(국제무역법원, 소송) — 동일 사건 미확정"), who)
+        # 줄임만 있고 본문에 정식 이름이 없으면 그 회사로 보지 않는다(현대 → 현대차·현대모비스일 수 있음)
+        other = {**art, "text": "현대자동차그룹 계열사가 소송을 냈다."}
+        c = {"id": "cl:h", "company": "현대제철", "terms": ["국제무역법원", "소송"], "alts": {"소송": ["소송", "제소"]}, "numbers": [], "unit": "",
+             "strict": True, "generic": [], "since": "2026-10-20", "title": "x"}
+        self.assertEqual(s.judge(c, channels([other]), now=now)[0], "미보도 후보")
+        self.assertFalse(s.company_in_title("현대제철", "현대차, 국제무역법원 제소", "현대제철도"))  # '현대차'의 '현대'는 줄임이 아님
+
+    def test_domestic_recall_is_searched_by_model_strictly(self):
+        # 10-31 운영 단서(clues.json 384a5fb21a248f1e) + 공지 줄(scoop.json details)
+        clue = {"id": "384a5fb21a248f1e", "team": "자동차", "published": "2026-10-30", "source": "자동차리콜센터(국토교통부·자동차안전연구원)",
+                "title": "기아, 10월 30일 리콜 공지 1건 — [기아] 쏘렌토 - 저압연료라인 어셈블리 관련 리콜 중대리콜(화재위험)",
+                "url": "https://car.go.kr/ri/stat/list.do?ctype=O&currentPageNo=1&searchProductName=%EC%8F%98%EB%A0%8C%ED%86%A0",
+                "companies": ["기아"], "tier": "공개 원자료 추적"}
+        c = s.from_clue(clue)
+        self.assertEqual((c["kind"], c["terms"], c["must"], c["since"]), ("리콜", ["쏘렌토", "리콜", "저압연료라인"], ["쏘렌토"], "2026-10-27"))
+        self.assertEqual(s.queries(c), ["기아 쏘렌토", "기아 쏘렌토 리콜"])
+        now = dt.datetime(2026, 10, 31, 7, 10, tzinfo=KST)
+        iccu = {"title": "전기차 리콜 후에도 결함 재발…현대차·기아 ICCU 부실 대응 도마 위", "text": "", "url": "i", "date": "2026-10-27"}
+        launch = {"title": "기아, 쏘렌토 하이브리드 판매 호조", "text": "", "url": "l", "date": "2026-10-28"}
+        verdict, ev = s.judge(c, channels([iccu, launch]), now=now)
+        self.assertEqual(verdict, "미보도 후보")  # 다른 차종 리콜(ICCU)·리콜 아닌 쏘렌토 기사는 같은 리콜이 아니다
+        self.assertEqual([e["url"] for e in ev], ["i"])  # 약한 근거로만
+        hit = {"title": "기아 쏘렌토 1만대 리콜…저압연료라인 화재 위험", "text": "", "url": "h", "date": "2026-10-30"}
+        self.assertEqual(s.judge(c, channels([iccu, hit]), now=now)[0], "관련 보도 있음")
+        # 차종을 못 읽으면 일반 단서, 다른 줄 형식의 부품 낱말
+        self.assertIsNone(s.recall_candidate({**clue, "url": "https://car.go.kr/ri/stat/list.do", "title": "기아, 10월 30일 리콜 공지 1건"}, "기아", "기아, 10월 30일 리콜 공지 1건"))
+        ion = s.recall_candidate({**clue, "url": "https://car.go.kr/x?searchProductName=%EC%95%84%EC%9D%B4%EC%98%A4%EB%8B%89"}, "현대차",
+                                 "현대차, 10월 14일 리콜 공지 1건 — [현대] 아이오닉9 - 2열 및 3열 전동시트 제어기 관련 리콜")
+        self.assertEqual(ion["terms"], ["아이오닉", "리콜", "전동시트"])
+        # 미국 리콜 단서(해외 원자료, 10-31 운영 26V692000): 차종으로 찾고, 같은 차종이 기사에 있어야
+        us = {"id": "e33ee9a7dca58d62", "team": "해외", "published": "2026-10-20", "source": "해외 원자료", "tier": "취재 단서·단독 미확정",
+              "title": "미국 리콜 26V692000 · ELANTRA·TUCSON HYBRID · 국내 동일 부품/시정조치 대조 필요", "companies": ["현대차", "기아"],
+              "url": "https://api.nhtsa.gov/recalls/campaignNumber?campaignNumber=26V692000"}
+        uc = s.from_clue(us)
+        self.assertEqual((uc["kind"], uc["terms"], uc["must"]), ("리콜", ["아반떼", "리콜"], ["아반떼", "엘란트라", "투싼"]))
+        self.assertEqual(s.queries(uc), ["현대차 아반떼", "현대차 아반떼 리콜"])
+        airbag = {"title": "현대차 '측면 에어백 센서' 리콜 남아공 확산…美·호주 이어 투싼 253대", "text": "", "url": "a", "date": "2026-10-21"}
+        # 같은 차종(투싼)이 있으면 관련 보도로 남는다 — 차종 수준 대조의 한계(결함 부품은 맞추지 않음)
+        self.assertEqual(s.judge(uc, channels([airbag]), now=now)[0], "관련 보도 있음")
+        other = {"title": "현대차, 美서 팰리세이드 리콜", "text": "", "url": "o", "date": "2026-10-21"}
+        self.assertEqual(s.judge(uc, channels([other]), now=now)[0], "미보도 후보")
+        self.assertEqual(s.us_recall_models("G80 · GENESIS"), ["G80"])
+        self.assertIsNone(s.recall_candidate({**us, "title": "미국 리콜 26V692000 · 국내 동일 부품/시정조치 대조 필요"}, "현대차",
+                                             "미국 리콜 26V692000 · 국내 동일 부품/시정조치 대조 필요"))
+
     def test_asset_filing_is_searched_by_its_place(self):
         # 금호타이어 20261027800641 [기재정정]유형자산취득결정(자율공시) — 10-31 운영 원문 요점 그대로
         facts = [["취득물건구분", "토지 및 건물"], ["취득물건명", "전라남도 함평군 빛그린국가산업단지 2단계 사업구역 소재 토지"],
