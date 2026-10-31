@@ -661,7 +661,17 @@ function pressLines(r, stamp) {
   const ev = r.evidence ?? [];
   const shown = [...ev.filter((e) => !e.before).slice(0, 2), ...ev.filter((e) => e.before).slice(0, 1)];
   return [`   보도 대조(자동 ${stamp}): ${r.verdict}${tail}${was}`,
-    ...shown.map((e) => `     ↳ ${e.date ?? '날짜?'} [${e.channel}] ${e.title}${e.url ? ` ${e.url}` : ''}${e.before ? ' (앞선 기사: 항목 날짜 전이라 판정에 안 셈 — 같은 사업의 앞선 보도일 수 있음)' : /^본문에만/.test(e.why ?? '') ? ' (약한 근거: 본문에만, 제목 불일치)' : ''}`)];
+    ...shown.map((e) => `     ↳ ${e.date ?? '날짜?'} [${e.channel}] ${e.title}${e.url ? ` ${e.url}` : ''}${evidenceNote(e, r.verdict)}`)];
+}
+// 근거 줄 꼬리표. 미보도 후보에 붙은 근거는 모두 판정에 안 센 약한 근거다 — 꼬리표가 없으면 뒷받침 기사로 읽힌다
+// (10-31 운영: 퍼스트솔라 10-Q 항목에 「한화솔루션, ESS·태양전지 특허 폭증」이 꼬리표 없이 붙었다 — 퍼스트솔라 없음).
+function evidenceNote(e, verdict) {
+  const why = String(e.why ?? '');
+  if (e.before) return ' (앞선 기사: 항목 날짜 전이라 판정에 안 셈 — 같은 사업의 앞선 보도일 수 있음)';
+  if (/^본문에만/.test(why)) return ' (약한 근거: 본문에만, 제목 불일치)';
+  const missing = (/있으나 (.+?) 없음/.exec(why) ?? [])[1] ?? (/낱말\(.*?\)은 겹치나 (.+?) 없음/.exec(why) ?? [])[1];
+  if (missing) return ` (약한 근거: ${missing} 없음 — 다른 건일 수 있음)`;
+  return verdict === '미보도 후보' ? ' (약한 근거: 판정에 안 셈)' : '';
 }
 
 // id → how radar_today would show it now (watch, kind, tier, short title). Used to label judgments.
