@@ -1,6 +1,6 @@
 {
- "generatedAt": "2026-10-30T11:08:46+09:00",
- "windowStart": "2026-09-30",
+ "generatedAt": "2026-11-01T16:23:18+09:00",
+ "windowStart": "2026-10-02",
  "windowDays": 30,
  "source": "OpenDART 지분공시 종합정보(majorstock·elestock)",
  "status": "complete",
@@ -30,7 +30,7 @@
    "company": "기아",
    "endpoint": "elestock.json",
    "status": "checked",
-   "rowsReturned": 275,
+   "rowsReturned": 274,
    "rowsInWindow": 0
   },
   {
@@ -72,7 +72,7 @@
    "company": "HL만도",
    "endpoint": "elestock.json",
    "status": "checked",
-   "rowsReturned": 25,
+   "rowsReturned": 24,
    "rowsInWindow": 7
   },
   {
@@ -135,14 +135,14 @@
    "company": "포스코홀딩스",
    "endpoint": "majorstock.json",
    "status": "checked",
-   "rowsReturned": 4,
+   "rowsReturned": 3,
    "rowsInWindow": 0
   },
   {
    "company": "포스코홀딩스",
    "endpoint": "elestock.json",
    "status": "checked",
-   "rowsReturned": 44,
+   "rowsReturned": 43,
    "rowsInWindow": 0
   },
   {
@@ -177,7 +177,7 @@
    "company": "세아홀딩스",
    "endpoint": "majorstock.json",
    "status": "checked",
-   "rowsReturned": 20,
+   "rowsReturned": 19,
    "rowsInWindow": 1
   },
   {
@@ -318,7 +318,7 @@
    "endpoint": "majorstock.json",
    "status": "checked",
    "rowsReturned": 15,
-   "rowsInWindow": 1
+   "rowsInWindow": 0
   },
   {
    "company": "두산에너빌리티",
@@ -339,6 +339,34 @@
    "endpoint": "elestock.json",
    "status": "checked",
    "rowsReturned": 2,
+   "rowsInWindow": 0
+  },
+  {
+   "company": "S-Oil",
+   "endpoint": "majorstock.json",
+   "status": "checked",
+   "rowsReturned": 4,
+   "rowsInWindow": 2
+  },
+  {
+   "company": "S-Oil",
+   "endpoint": "elestock.json",
+   "status": "checked",
+   "rowsReturned": 16,
+   "rowsInWindow": 5
+  },
+  {
+   "company": "SK이노베이션",
+   "endpoint": "majorstock.json",
+   "status": "checked",
+   "rowsReturned": 10,
+   "rowsInWindow": 1
+  },
+  {
+   "company": "SK이노베이션",
+   "endpoint": "elestock.json",
+   "status": "checked",
+   "rowsReturned": 18,
    "rowsInWindow": 0
   },
   {
@@ -410,6 +438,48 @@
    "status": "checked",
    "rowsReturned": 29,
    "rowsInWindow": 1
+  },
+  {
+   "company": "LG화학",
+   "endpoint": "majorstock.json",
+   "status": "checked",
+   "rowsReturned": 6,
+   "rowsInWindow": 0
+  },
+  {
+   "company": "LG화학",
+   "endpoint": "elestock.json",
+   "status": "checked",
+   "rowsReturned": 19,
+   "rowsInWindow": 0
+  },
+  {
+   "company": "롯데케미칼",
+   "endpoint": "majorstock.json",
+   "status": "checked",
+   "rowsReturned": 1,
+   "rowsInWindow": 0
+  },
+  {
+   "company": "롯데케미칼",
+   "endpoint": "elestock.json",
+   "status": "checked",
+   "rowsReturned": 8,
+   "rowsInWindow": 0
+  },
+  {
+   "company": "금호석유화학",
+   "endpoint": "majorstock.json",
+   "status": "checked",
+   "rowsReturned": 8,
+   "rowsInWindow": 0
+  },
+  {
+   "company": "금호석유화학",
+   "endpoint": "elestock.json",
+   "status": "checked",
+   "rowsReturned": 59,
+   "rowsInWindow": 1
   }
  ],
  "failedCount": 0,
@@ -417,7 +487,7 @@
  "dartSpellings": {
   "동성케미칼": "동성케미컬"
  },
- "count": 45,
+ "count": 53,
  "items": [
   {
    "company": "KG스틸",
@@ -531,6 +601,24 @@
    "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261023000155"
   },
   {
+   "company": "금호석유화학",
+   "team": "화학·소재",
+   "kind": "임원·주요주주",
+   "date": "2026-10-22",
+   "receiptNo": "20261022000135",
+   "reporter": "박주형",
+   "role": "비등기임원 부사장 사실상지배주주",
+   "shares": 331980.0,
+   "sharesChange": 400.0,
+   "ratio": 1.19,
+   "ratioChange": 0.01,
+   "tags": [
+    "[최고경영진]"
+   ],
+   "routine": false,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261022000135"
+  },
+  {
    "company": "KG스틸",
    "team": "철강·비철",
    "kind": "대량보유(5%)",
@@ -642,23 +730,98 @@
    "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261002000155"
   },
   {
-   "company": "두산에너빌리티",
+   "company": "S-Oil",
    "team": "전력·에너지",
    "kind": "대량보유(5%)",
-   "date": "2026-10-01",
-   "receiptNo": "20261001000182",
-   "reporter": "두산",
+   "date": "2026-10-02",
+   "receiptNo": "20261002000244",
+   "reporter": "AramcoOverseasCompany,B.V",
    "reportType": "일반",
-   "shares": 196506795.0,
-   "sharesChange": 0.0,
-   "ratio": 30.68,
-   "ratioChange": 0.0,
-   "reason": "계약 내용의 변경",
+   "shares": 0.0,
+   "sharesChange": -71435738.0,
+   "ratio": 0.0,
+   "ratioChange": -63.45,
+   "reason": "- 보고자의 주식매매계약 체결 및 종결 (장외매도) - 특별관계자 변동 - 대표보고자 변동에 따른 폐지보고",
    "tags": [
+    "[지분율 -63.45%p]",
+    "[사유: 계약·특별관계자]"
+   ],
+   "routine": false,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261002000244"
+  },
+  {
+   "company": "S-Oil",
+   "team": "전력·에너지",
+   "kind": "대량보유(5%)",
+   "date": "2026-10-02",
+   "receiptNo": "20261002000274",
+   "reporter": "AramcoDownStreamAsiaPte.Ltd.",
+   "reportType": "일반",
+   "shares": 71410588.0,
+   "sharesChange": 71410588.0,
+   "ratio": 63.43,
+   "ratioChange": 63.43,
+   "reason": "- 보고자의 주식매매계약 체결 및 종결 (장외매수) - 대표보고자 변동에 따른 신규보고",
+   "tags": [
+    "[지분율 +63.43%p]",
     "[사유: 계약]"
    ],
    "routine": false,
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261001000182"
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261002000274"
+  },
+  {
+   "company": "S-Oil",
+   "team": "전력·에너지",
+   "kind": "임원·주요주주",
+   "date": "2026-10-02",
+   "receiptNo": "20261002000260",
+   "reporter": "AramcoOverseasCompany,B.V",
+   "role": "10%이상주주",
+   "shares": 0.0,
+   "sharesChange": -71739062.0,
+   "ratio": 0.0,
+   "ratioChange": -61.52,
+   "tags": [
+    "[지분율 -61.52%p]",
+    "[주요주주]"
+   ],
+   "routine": false,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261002000260"
+  },
+  {
+   "company": "S-Oil",
+   "team": "전력·에너지",
+   "kind": "임원·주요주주",
+   "date": "2026-10-02",
+   "receiptNo": "20261002000281",
+   "reporter": "AramcoDownStreamAsiaPte.Ltd.",
+   "role": "10%이상주주",
+   "shares": 71739062.0,
+   "sharesChange": 71739062.0,
+   "ratio": 61.52,
+   "ratioChange": 61.52,
+   "tags": [
+    "[지분율 +61.52%p]",
+    "[주요주주]"
+   ],
+   "routine": false,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261002000281"
+  },
+  {
+   "company": "S-Oil",
+   "team": "전력·에너지",
+   "kind": "임원·주요주주",
+   "date": "2026-10-28",
+   "receiptNo": "20261028000180",
+   "reporter": "국민연금공단",
+   "role": "10%이상주주",
+   "shares": 11228573.0,
+   "sharesChange": -288964.0,
+   "ratio": 9.63,
+   "ratioChange": -0.25,
+   "tags": [],
+   "routine": true,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261028000180"
   },
   {
    "company": "KG스틸",
@@ -869,6 +1032,22 @@
    "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261023000339"
   },
   {
+   "company": "S-Oil",
+   "team": "전력·에너지",
+   "kind": "임원·주요주주",
+   "date": "2026-10-15",
+   "receiptNo": "20261015000064",
+   "reporter": "홍승표",
+   "role": "비등기임원 CSO",
+   "shares": 0.0,
+   "sharesChange": -1000.0,
+   "ratio": 0.0,
+   "ratioChange": 0.0,
+   "tags": [],
+   "routine": true,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261015000064"
+  },
+  {
    "company": "HL만도",
    "team": "자동차",
    "kind": "임원·주요주주",
@@ -1029,6 +1208,22 @@
    "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261006000163"
   },
   {
+   "company": "S-Oil",
+   "team": "전력·에너지",
+   "kind": "임원·주요주주",
+   "date": "2026-10-06",
+   "receiptNo": "20261006000181",
+   "reporter": "국민연금공단",
+   "role": "10%이상주주",
+   "shares": 11517537.0,
+   "sharesChange": 203349.0,
+   "ratio": 9.88,
+   "ratioChange": 0.18,
+   "tags": [],
+   "routine": true,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261006000181"
+  },
+  {
    "company": "OCI홀딩스",
    "team": "화학·소재",
    "kind": "임원·주요주주",
@@ -1143,6 +1338,23 @@
    "tags": [],
    "routine": true,
    "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261002000380"
+  },
+  {
+   "company": "SK이노베이션",
+   "team": "전력·에너지",
+   "kind": "대량보유(5%)",
+   "date": "2026-10-02",
+   "receiptNo": "20261002000399",
+   "reporter": "국민연금공단",
+   "reportType": "약식",
+   "shares": 12074145.0,
+   "sharesChange": 1881069.0,
+   "ratio": 7.14,
+   "ratioChange": 1.11,
+   "reason": "단순추가취득/처분",
+   "tags": [],
+   "routine": true,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261002000399"
   },
   {
    "company": "한화솔루션",
