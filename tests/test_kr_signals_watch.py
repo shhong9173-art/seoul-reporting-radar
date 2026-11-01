@@ -481,6 +481,44 @@ class FtcPressWatch(unittest.TestCase):
         self.assertIn("보도·참고자료 목록 형식(행 없음)", check["error"])
 
 
+# 11-01 운영 '2026년 10월 수출입 동향'(172360) 본문 형식(probe 83·84): 낱말마다 띄어 나오고 끝의 총 수출액에 괄호가 없다
+OCT_BODY = ("<div>- 수출 2 개월 연속 1,100 억 달러 상회 * 10 월 수출 1,153 억 달러 (+93.7%) , 수입 728 억 달러 (+36.0%) , 수지 425 억 달러 흑자 "
+            "* 1~10 월 누적 수출 9,300 억 달러 (+60.6%) , 수입 6,351 억 달러 (+21.4%) 【 품목 】 10 월에는 20 대 주력 수출품목 중 18 개 품목 수출이 증가했다 . "
+            "【 10 월 20 대 주요품목별 수출액 ( 억 달러 ) 및 증감률 (%) 】 반도체 디스플레이 무선통신기기 컴퓨터 자동차 자동차부품 선박 564 (+259) 19 (+29) "
+            "19 (+7) 59 (+497) 65 (+18) 17 (+15) 26 ( △ 44) 석유제품 석유화학 이차전지 일반기계 전기기기 철강 비철금속 69 (+80) 40 (+28) 7 (+38) 41 (+24) "
+            "20 (+74) 23 (+22) 17 (+38) 농수산식품 화장품 생활용품 섬유 가전 바이오헬스 총 수출액 11 (+12) 14 (+58) 7 ( △ 13) 10 (+25) 6 (+6) 15 (+30) "
+            "1,153 +94 (IT) 반도체 수출 (564.4 억 달러 , +259.4%) 은 … ( 모빌리티 ) 자동차 (65.5 억 달러 , +18.1%) 수출은 … 선박 (26.4 억 달러 , △ 43.6%) "
+            "수출은 … 철강 (22.9 억 달러 , +22.3%) 수출은 … 전기기기 수출 (19.9 억 달러 , +74.0%) 은 …</div>")
+
+
+class TradeOctoberFormat(unittest.TestCase):
+    def test_spaced_body_parses(self):
+        t = w.parse_trade(OCT_BODY)
+        self.assertEqual(t["exports"], {"value": "1,153", "yoy": "+93.7"})
+        self.assertEqual(t["imports"], {"value": "728", "yoy": "+36.0"})
+        self.assertNotIn("tableError", t)
+        self.assertEqual(t["items"]["자동차"], {"value": "65", "yoy": "+18"})
+        self.assertEqual(t["items"]["선박"], {"value": "26", "yoy": "-44"})
+        self.assertEqual(t["items"]["전기기기"], {"value": "20", "yoy": "+74"})
+        self.assertEqual(len(t["items"]), 10)
+        bad = w.parse_trade(OCT_BODY.replace("자동차부품 선박", "자동차부품"))
+        self.assertIn("표 해석 실패", bad["tableError"])
+        self.assertEqual(bad["items"]["자동차"], {"value": "65.5", "yoy": "+18.1", "from": "본문"})
+        self.assertEqual(bad["items"]["전기기기"], {"value": "19.9", "yoy": "+74.0", "from": "본문"})  # '전기기기 수출 (…)'
+
+    def test_failed_parse_is_read_again(self):
+        prev = {"motir": [{"id": "motir:172254", "title": "2026년 9월 수출입 동향", "date": "2026-10-01", "companies": [],
+                           "trade": {"period": "2026-09", "items": {}, "tableError": "표 해석 실패(이름 21·값 20)"}}]}
+        items, _ = w.motir(CFG, NOW, prev, http(motir_routes()))
+        trade = next(x for x in items if x["id"] == "motir:172254")["trade"]
+        self.assertNotIn("tableError", trade)
+        self.assertEqual(trade["exports"], {"value": "1,209.4", "yoy": "+83.5"})
+        ok = {"motir": [{**prev["motir"][0], "trade": trade}]}
+        calls = http(motir_routes())
+        w.motir(CFG, NOW, ok, calls)
+        self.assertFalse(any("/172254/view" in c[1] for c in calls.s.calls))  # 해석된 것은 다시 읽지 않음
+
+
 class RunDoc(unittest.TestCase):
     def test_document_shape_and_unset_kepco_not_partial(self):
         routes = {**ftc_routes([KUMHO]), **komis_routes({"MNRL0023": komis_series("2026-01-01", "2026-10-26")}), **motir_routes(), **ftc_press_routes()}
