@@ -687,8 +687,11 @@ def parse_briefing(text):
 
 def briefing(cfg, now, previous, http):
     bc = cfg.get("briefing") or {}
-    had = isinstance((previous or {}).get("briefing"), list)  # 이 구역 첫 실행은 기준선
     prev = {x["id"]: x for x in (previous or {}).get("briefing", []) if isinstance(x, dict) and x.get("id")}
+    # 부처마다 처음 읽은 실행은 기준선(신규 표시 없음) — 11-01 관세청·조달청을 더하자 첫 실행 줄이 [신규]로 떴다.
+    # briefingRead가 없던 예전 결과는 저장된 줄의 부처를 이미 읽은 부처로 본다.
+    seen_before = set((previous or {}).get("briefingRead") or []) | {x.get("ministry") for x in prev.values()}
+    read_ok = set()
     stamp = now.isoformat(timespec="seconds")
     patterns = company_patterns(cfg)
     rows, errs = [], []
@@ -706,27 +709,31 @@ def briefing(cfg, now, previous, http):
                 errs.append(f"{mi['name']} 목록 형식({'행 없음' if not got else '다른 부처 섞임'})")
                 break
             rows += [x for x in got if x["ministry"] == mi["name"]]
+            read_ok.add(mi["name"])
             if not got:
                 break
+    def on_topic(x):  # 업종 낱말이 있어도 할인 행사·한우 같은 업종 밖 공동 보도자료는 뺀다(산업부 구역과 같은 기준)
+        t = topics.get(x.get("ministry"))
+        title = str(x.get("title") or "")
+        return bool(t and t.search(title)) and not OFF_BEAT.search(title)
+
     kept = dict(prev)
     for x in rows:
         names = sorted({c for c, rx, rel in patterns if not rel and rx.search(x["title"])})
-        topic = topics.get(x["ministry"])
-        if not (names or (topic and topic.search(x["title"]))):
+        if not (names or on_topic(x)):
             continue
         old = prev.get(x["id"])
-        kept[x["id"]] = {**x, "companies": names, "firstSeen": (old or {}).get("firstSeen") or stamp, "isNew": had and old is None}
+        kept[x["id"]] = {**x, "companies": names, "firstSeen": (old or {}).get("firstSeen") or stamp,
+                         "isNew": x["ministry"] in seen_before and old is None}
     keep_from = (now.date() - dt.timedelta(days=BRIEFING_KEEP_DAYS)).isoformat()
 
-    def wanted(x):  # 설정 낱말을 좁히면 예전 실행이 남긴 줄도 같은 기준으로 다시 거른다
-        t = topics.get(x.get("ministry"))
-        return bool(x.get("companies")) or bool(t and t.search(str(x.get("title") or "")))
-    items = sorted((x for x in kept.values() if str(x.get("date") or "") >= keep_from and wanted(x)),
+    # 설정 낱말을 좁히면 예전 실행이 남긴 줄도 같은 기준으로 다시 거른다
+    items = sorted((x for x in kept.values() if str(x.get("date") or "") >= keep_from and (x.get("companies") or on_topic(x))),
                    key=lambda x: (x.get("date") or "", x["id"]), reverse=True)
     listed = {x["id"] for x in rows}
     status = "unset" if not bc.get("ministries") else ("failed" if errs and not rows else ("partial" if errs else "ok"))
     return items, {"source": "정책브리핑 부처 보도자료", "status": status, "listed": len(rows), "kept": sum(1 for x in items if x["id"] in listed),
-                   **({"error": "; ".join(errs)} if errs else {})}
+                   "read": sorted(n for n in seen_before | read_ok if n), **({"error": "; ".join(errs)} if errs else {})}
 
 
 # ---------- run ----------
@@ -749,7 +756,7 @@ def run(cfg, *, now, previous=None, http=None, kepco_key=""):
     failed = [c for c in checks if c["status"] not in ("ok", "unset")]
     return {"schema": SCHEMA, "generatedAt": stamp, "status": "partial" if failed else "complete", "checks": checks,
             "baselineSince": (previous or {}).get("baselineSince") or stamp,
-            "decisions": decisions, "ftcSeen": seen, "kepco": bids, "motir": releases, "ftcPress": press, "briefing": briefs, "prices": prices, "events": events[:400],
+            "decisions": decisions, "ftcSeen": seen, "kepco": bids, "motir": releases, "ftcPress": press, "briefing": briefs, "briefingRead": bcheck.get("read", []), "prices": prices, "events": events[:400],
             "rules": ["공정위 의결서는 의결일과 파일 등록(파일번호 앞자리)이 다르다. 보도자료는 보통 의결 전후에 먼저 나오니 news_check로 선행 보도를 본다.",
                       "'발주처'는 출입처가 입찰을 낸 쪽(피해·구매자)이라는 뜻이다. 제재 대상(피심인)과 섞어 쓰지 않는다.",
                       "주문 발췌의 금액은 의결서에 적힌 그대로다. 합계·감경 전후는 원문에서 확인한다.",
