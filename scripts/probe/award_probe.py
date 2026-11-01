@@ -30,7 +30,9 @@ def strip(n):
 
 
 try:
+    say(f"key length {len(KEY)}")
     r = requests.get("https://opendart.fss.or.kr/api/corpCode.xml", params={"crtfc_key": KEY}, timeout=90)
+    say(f"corpCode HTTP {r.status_code} type {r.headers.get('Content-Type')} bytes {len(r.content)} head {r.content[:160]!r}")
     z = zipfile.ZipFile(io.BytesIO(r.content))
     root = ET.fromstring(z.read(z.namelist()[0]))
     index = {}
