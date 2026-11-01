@@ -6,6 +6,11 @@ Cached translations only apply when original URL, title AND summary match.
 from concurrent.futures import ThreadPoolExecutor
 import re
 
+try:
+    from scripts.number_check import unmatched_numbers
+except ImportError:   # tests put scripts/ itself on sys.path
+    from number_check import unmatched_numbers
+
 
 def norm_title(title):
     return re.sub(r"\s+"," ",str(title or "").strip()).casefold()
@@ -98,14 +103,23 @@ def summarize_selected(rows,summarizer,*,previous=None,workers=2):
         if (isinstance(old,dict) and old.get("title")==out.get("title") and old.get("summaryTranslationStatus")=="summarized_ai"
                 and old.get("summaryVersion")==SUMMARY_VERSION and isinstance(old.get("koSummary"),str) and old["koSummary"].strip()):
             out.update(koSummary=old["koSummary"],summaryTranslationStatus="summarized_ai",summaryVersion=SUMMARY_VERSION)
-            return out
-        if text.strip() and not out.get("koSummary"):
+        elif text.strip() and not out.get("koSummary"):
             try:
                 ko=summarizer(out.get("title",""),text)
             except Exception:
                 ko=""
             if ko:
                 out.update(koSummary=ko,summaryTranslationStatus="summarized_ai",summaryVersion=SUMMARY_VERSION)
-        return out
+        return check_numbers(out,text)
     with ThreadPoolExecutor(max_workers=workers,thread_name_prefix="global-summary") as pool:
         return list(pool.map(one,rows))
+
+
+# 11-01 기자 승인: AI 번역·요약에 원문에 없는 숫자가 들어가면 표시. AI가 받은 영어(제목·구글 설명·매체 RSS 발췌)와 맞춰 본다.
+# 기사 발행 연도는 '올해'를 연도로 옮긴 것일 수 있어 허용한다. 영어 발췌는 저장하지 않으므로 여기(발췌가 있을 때)서 한 번 본다.
+def check_numbers(out,text=""):
+    korean="\n".join(str(out.get(k) or "") for k in ("koTitle","koSummary"))
+    source="\n".join(str(out.get(k) or "") for k in ("title","summary"))+"\n"+(text or "")
+    year=str(out.get("published") or "")[:4]
+    out["numbersNotInSource"]=unmatched_numbers(korean,source,allow=[int(year)] if year.isdigit() else [])
+    return out
