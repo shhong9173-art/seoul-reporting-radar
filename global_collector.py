@@ -189,9 +189,8 @@ def translate(text: str) -> tuple[str, str]:
     if looks_korean(text) and not re.search(r"\b(the|and|of|to|for|with|after|before|reportedly|starts|launches|says)\b", text, re.I):
         return text, "already_ko"
     # 11-01: 구글 비공식 번역 주소가 Actions에서 막혀 거의 전부 보조 번역기로 넘어갔다 — 워커(Workers AI)를 먼저 쓴다.
-    # 제목 끝 매체 이름(" - Automotive News")은 떼고 보낸다(11-01 운영: '- 오토모티브 뉴스'·'- 인사이드EV스'가 번역문에 남았다).
-    if len(text) < 300:
-        text = re.sub(r"\s+[-–—|]\s+[^-–—|]{2,60}$", "", text).strip() or text
+    # 제목 끝 매체 이름(" - Automotive News")은 수집할 때 그 기사의 매체 이름과 같을 때만 뗀다(strip_source_suffix).
+    # 여기서 아무 ' – 뒤 글'이나 떼면 본문 제목이 잘린다(11-01 운영: 'Three in a row – Nexen Tire …' → '3연패').
     ko = worker_translate(text)
     if ko:
         return ko, "translated_ai"
@@ -246,10 +245,30 @@ STRICT_KOREA = {"Utility Dive", "pv magazine", "Energy-Storage.news", "GMK Cente
 CONTENT = "{http://purl.org/rss/1.0/modules/content/}encoded"
 
 
+SOURCE_SEP = re.compile(r"\s+[-–—|]\s+")
+
+
+def _alnum(text: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "", (text or "").lower())
+
+
+def strip_source_suffix(title: str, source: str) -> str:
+    """구글 뉴스 제목 끝 ' - 매체'를, 뒤 글이 그 기사의 매체 이름(<source>)과 같을 때만 뗀다.
+    11-01 운영: 아무 ' – 뒤 글'이나 떼던 규칙이 'Three in a row – Nexen Tire receives …'를 '3연패'로 자르고
+    같은 기사의 매체 RSS 제목과도 못 맞춰 두 번 올렸다."""
+    t = title or ""
+    want = _alnum(source)
+    if not want:
+        return t
+    for m in reversed(list(SOURCE_SEP.finditer(t))):
+        if _alnum(t[m.end():]) == want:
+            return t[:m.start()].strip() or t
+    return t
+
+
 def title_key(title: str) -> str:
-    """구글 뉴스 제목 끝 ' - 매체'를 떼고 글자·숫자만 — 매체 RSS 제목과 맞춰 본다."""
-    t = re.sub(r"\s+[-–—|]\s+[^-–—|]{2,60}$", "", title or "")
-    return re.sub(r"[^a-z0-9]+", "", t.lower())
+    """글자·숫자만 — 구글 뉴스 제목(수집 때 매체 이름을 뗌)과 매체 RSS 제목을 맞춰 본다."""
+    return _alnum(title)
 
 
 def score_text(text: str):
@@ -361,6 +380,7 @@ def parse(source: str, query: str) -> list[dict]:
         desc = clean(item.findtext("description") or "")
         src = item.find("source")
         actual_source = (src.text or "").strip() if src is not None else source
+        title = strip_source_suffix(title, actual_source)
         if not title or not link:
             continue
         if DOMESTIC_EN.search(actual_source or "") or looks_korean(title) or looks_korean(actual_source or ""):

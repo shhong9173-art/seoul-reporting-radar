@@ -3,7 +3,7 @@ import sys
 import unittest
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/"scripts"))
-from global_news_pipeline import shortlist,summarize_selected,translate_selected
+from global_news_pipeline import AI_TRANSLATION_VERSION,shortlist,summarize_selected,translate_selected
 
 
 def item(title,url,score=70,published="2026-10-16T09:00:00+09:00",summary="Original context"):
@@ -188,24 +188,58 @@ class GlobalCollectorBeatTests(unittest.TestCase):
         orig_post = gc.worker_translate
         try:
             gc.worker_translate = lambda t: (sent.append(t) or "번역")
-            gc.translate("Hyundai to invest US$450m in Alabama plant for new Tucson - Automotive World")
+            gc.translate("Three in a row – Nexen Tire receives EcoVadis Gold medal")
         finally:
             gc.worker_translate = orig_post
-        self.assertEqual(sent, ["Hyundai to invest US$450m in Alabama plant for new Tucson"])   # 매체 이름은 떼고 보낸다
+        # 번역기에는 제목을 자르지 않고 보낸다(11-01 운영: ' – 뒤 글'을 떼서 '3연패'만 번역됐다). 매체 이름은 수집 때 뗀다.
+        self.assertEqual(sent, ["Three in a row – Nexen Tire receives EcoVadis Gold medal"])
         os.environ.pop("MCP_ACCESS_TOKEN", None)
         self.assertEqual(gc.worker_translate("x"), "")   # 토큰 없으면 워커를 부르지 않는다
 
     def test_ai_translation_is_reused_from_cache(self):
         old=item("Korean EV signal","https://news.example/a",summary="")
-        old.update({"koTitle":"한국 전기차 신호","koSummary":"","translationStatus":"translated_ai","translationVersion":2})
+        old.update({"koTitle":"한국 전기차 신호","koSummary":"","translationStatus":"translated_ai","translationVersion":AI_TRANSLATION_VERSION})
         out=translate_selected([item("Korean EV signal","https://news.example/a",summary="")],lambda t:("다시","translated_ai"),previous=[old],workers=1)
         self.assertEqual((out[0]["koTitle"],out[0]["translationCacheUsed"]),("한국 전기차 신호",True))
         old.pop("translationVersion")   # 예전 규칙(v1) AI 번역은 다시 번역
         out=translate_selected([item("Korean EV signal","https://news.example/a",summary="")],lambda t:("다시","translated_ai"),previous=[old],workers=1)
-        self.assertEqual((out[0]["koTitle"],out[0]["translationCacheUsed"],out[0]["translationVersion"]),("다시",False,2))
+        self.assertEqual((out[0]["koTitle"],out[0]["translationCacheUsed"],out[0]["translationVersion"]),("다시",False,AI_TRANSLATION_VERSION))
+
+    def test_source_suffix_removed_only_when_it_is_the_outlet_name(self):
+        s=gc.strip_source_suffix
+        self.assertEqual(s("Hyundai to invest US$450m in Alabama plant for new Tucson - Automotive World","Automotive World"),
+                         "Hyundai to invest US$450m in Alabama plant for new Tucson")
+        self.assertEqual(s("Three in a row – Nexen Tire receives EcoVadis Gold medal - Tyrepress","Tyrepress"),
+                         "Three in a row – Nexen Tire receives EcoVadis Gold medal")
+        self.assertEqual(s("Three in a row – Nexen Tire receives EcoVadis Gold medal","Tyrepress"),
+                         "Three in a row – Nexen Tire receives EcoVadis Gold medal")   # 매체 RSS 제목은 그대로
+        self.assertEqual(s("Korea Zinc – the smelter bet | Reuters","Reuters"),"Korea Zinc – the smelter bet")
+        self.assertEqual(s("‘Cannot Give Up’: Hyundai’s R&D Boss On The Solid-State Battery Bet - InsideEVs","InsideEVs"),
+                         "‘Cannot Give Up’: Hyundai’s R&D Boss On The Solid-State Battery Bet")
+        self.assertEqual(s("Doosan wins order - Korea's big week","Reuters"),"Doosan wins order - Korea's big week")   # 매체 이름이 아니면 안 뗀다
+        self.assertEqual(s("Doosan wins order - Reuters",""),"Doosan wins order - Reuters")
+
+    def test_google_rows_drop_outlet_suffix_and_match_publisher_rss(self):
+        import datetime as _dt
+        now=_dt.datetime.now(gc.KST).strftime("%a, %d %b %Y %H:%M:%S +0900")
+        xml=("<rss><channel>"
+             f"<item><title>Three in a row – Nexen Tire receives EcoVadis Gold medal - Tyrepress</title><link>https://news.google.com/rss/articles/n</link>"
+             f"<pubDate>{now}</pubDate><description>Nexen Tire tyre sustainability rating</description><source url=\"https://www.tyrepress.com\">Tyrepress</source></item>"
+             "</channel></rss>").encode()
+        orig=gc.get
+        try:
+            gc.get=lambda url,timeout=15: xml
+            g=gc.parse("타이어","Nexen Tire")
+        finally:
+            gc.get=orig
+        self.assertEqual([r["title"] for r in g],["Three in a row – Nexen Tire receives EcoVadis Gold medal"])
+        p=[{**item("Three in a row – Nexen Tire receives EcoVadis Gold medal","https://www.tyrepress.com/2026/10/three-in-a-row/",summary=""),
+            "articleText":"Nexen Tire has been awarded …","summarySource":"Tyrepress RSS"}]
+        out=gc.attach_publisher_text(g,p)
+        self.assertEqual([x["url"] for x in out],["https://www.tyrepress.com/2026/10/three-in-a-row/"])   # 같은 기사를 두 번 올리지 않는다
 
     def test_publisher_rss_text_attaches_to_google_rows_and_direct_url(self):
-        g=[item("Hyundai to invest US$450m in Alabama plant for new Tucson - Automotive World","https://news.google.com/rss/articles/x",summary="")]
+        g=[item("Hyundai to invest US$450m in Alabama plant for new Tucson","https://news.google.com/rss/articles/x",summary="")]
         p=[{**item("Hyundai to invest US$450m in Alabama plant for new Tucson","https://www.automotiveworld.com/news/hyundai-tucson/",summary=""),
             "articleText":"Hyundai Motor Manufacturing Alabama will invest US$450m ...","summarySource":"Automotive World RSS"},
            {**item("CATL opens Hungary plant","https://cnevpost.com/catl-hungary/",summary=""),"articleText":"CATL said ...","summarySource":"CnEVPost RSS"}]
