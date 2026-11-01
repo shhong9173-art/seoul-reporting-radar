@@ -75,6 +75,19 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 import global_collector as gc  # noqa: E402
 
 
+class BeatShortlist(unittest.TestCase):
+    def test_beat_items_are_kept_beyond_the_score_cut(self):
+        from scripts.global_news_pipeline import shortlist_with_beats
+        def row(i, score, beat=False):
+            return {"title": f"story {i}", "url": f"https://x/{i}", "published": f"2026-11-01T0{i % 10}:00:00+09:00",
+                    "globalScore": score, "globalBeat": beat, "beatCompanies": ["LG화학"] if beat else []}
+        raw = [row(i, 90) for i in range(5)] + [row(10 + i, 55, beat=True) for i in range(3)]
+        got = shortlist_with_beats(raw, limit=5, beat_limit=2)
+        self.assertEqual(len(got), 7)
+        self.assertEqual(sum(1 for x in got if x["globalBeat"]), 2)
+        self.assertEqual(len(shortlist_with_beats(raw, limit=8, beat_limit=2)), 8)   # 이미 든 출입처 외신은 겹치지 않는다
+
+
 class GlobalCollectorBeatTests(unittest.TestCase):
     """11-01 기자 요청: 출입처(철강·전력기기·에너지·화학·타이어) 외신, 국내 매체 영문판 제외, 제목뿐인 설명은 요약으로 번역하지 않음."""
 
@@ -107,6 +120,14 @@ class GlobalCollectorBeatTests(unittest.TestCase):
         src=inspect.getsource(gc)
         self.assertNotIn("FEED_UA",src)
         self.assertEqual(list(inspect.signature(gc.get).parameters),["url","timeout"])   # 요청 이름을 바꿀 수 있는 인자 없음
+
+    def test_petchem_beat_headlines_are_scored(self):
+        # 11-01: 출입처·석유화학정유 검색 결과가 업종 낱말 없음으로 모두 빠졌다('refining'·'naphtha cracker' 미등록)
+        for t in ("LG Chem to shut naphtha cracker in Yeosu amid oversupply", "S-Oil completes Shaheen petrochemical complex",
+                  "SK Innovation posts third-quarter loss on refining margins", "Hyundai Oilbank cuts crude runs",
+                  "Kumho Petrochemical raises synthetic rubber prices"):
+            self.assertIsNotNone(gc.score_text(t.lower()), t)
+        self.assertIsNone(gc.score_text("crude prices fall".lower()))   # 한국·출입처 없이 업종 낱말 하나면 그대로 뺀다
 
     def test_beat_trade_press_feeds_require_korean_mention(self):
         names={n for n,_ in gc.PUBLISHER_FEEDS}
