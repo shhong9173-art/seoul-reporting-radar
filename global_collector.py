@@ -49,7 +49,10 @@ FOREIGN_OK = re.compile(r"reuters|bloomberg|nikkei|financial times|\bft\b|wall s
                         r"electrek|insideevs|automotive news|automotive world|just auto|just-auto|wardsauto|tire business|tyrepress|rubber|tire technology|"
                         r"energy-storage|energy storage news|chemical & engineering|icis|hydrogen insight|financial post|politico|axios|the information|"
                         r"south china morning post|scmp|caixin|nikkei asia|the japan times|asahi|digitimes|electrive|autocar|carscoops|motor1|the verge|techcrunch|"
-                        r"hydrocarbon processing|chemical week|chemweek|oil & gas journal|\bogj\b|energy intelligence|\bopis\b", re.I)
+                        r"hydrocarbon processing|chemical week|chemweek|oil & gas journal|\bogj\b|energy intelligence|\bopis\b|"
+                        # 11-01 탐침 74(석유화학·정유 검색 매체 분포): 에너지·화학 전문지
+                        r"quantum commodity intelligence|hydrocarbon engineering|rigzone|\bupstream\b|energy voice|plastics news|plasticstoday|"
+                        r"european rubber journal|chemanager", re.I)
 
 # 국내 매체 영문판·국내 통신 — 외신 화면에서 뺀다(이미 국내 보도).
 DOMESTIC_EN = re.compile(r"korea herald|korea times|joongang|yonhap|korea economic daily|ked global|businesskorea|business korea|pulse by maeil|maeil|"
