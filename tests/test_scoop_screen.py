@@ -510,6 +510,25 @@ class Screen(unittest.TestCase):
         self.assertEqual([e["url"] for e in s.judge(plain_row, channels([broker, real]), now=dt.datetime(2026, 10, 31, 7, 10, tzinfo=KST))[1]], ["i"])
         self.assertEqual(s.event_text("투자자산 투자자 보호"), "투자자산 · 보호")
 
+    def test_stake_sale_is_searched_by_the_target_company(self):
+        # LG화학 20261028800407 타법인주식및출자증권처분결정 — 11-01 운영 원문 요점 그대로
+        facts = [["회사명", "㈜LG에너지솔루션"], ["회사와관계", "자회사"], ["처분금액(원)", "2,499,996,667,500"],
+                 ["자기자본대비(%)", "5.31"], ["지분비율(%)", "76.59"], ["처분목적", "재무구조 개선 및 주주가치 제고"]]
+        row = {"id": "clue:lg", "kind": "단서", "company": "LG화학", "title": "LG화학 · 정기·주요공시 · 타법인주식및출자증권처분결정",
+               "terms": ["타법인주식및출자증권처분"], "alts": {}, "numbers": [], "ratios": [], "unit": "", "strength": 1,
+               "published": "2026-10-28", "filing": {"type": "타법인주식처분", "facts": facts}}
+        terms, alts = s.stake_terms(row)
+        self.assertEqual(terms[:2], ["LG에너지솔루션", "지분"])
+        row.update(terms=terms, alts=alts)
+        self.assertEqual(s.queries(row)[:2], ["LG화학 LG에너지솔루션", "LG화학 LG에너지솔루션 지분"])
+        hit = {"title": "LG화학, LG엔솔 지분 2.5조원 어치 매각. 재무건전성 강화", "text": "", "url": "h", "date": "2026-10-28"}
+        verdict, ev = s.judge(row, channels([hit]), now=dt.datetime(2026, 10, 29, 7, 10, tzinfo=KST))
+        self.assertEqual((verdict, [e["url"] for e in ev]), ("관련 보도 있음", ["h"]))
+        self.assertIsNone(s.stake_terms({**row, "filing": {"type": "타법인주식처분", "facts": [["회사명", "-"]]}}))
+        self.assertIsNone(s.stake_terms({**row, "filing": {"type": "공급계약", "facts": facts}}))
+        # 원문을 못 읽어도 제목 낱말은 기사 말로 바뀐다
+        self.assertEqual(s.news_terms(["타법인주식및출자증권처분"])[0], ["지분 매각"])
+
     def test_trade_plan_is_searched_by_the_reporting_holder(self):
         row = {"id": "clue:yp", "kind": "단서", "company": "영풍", "title": "영풍 · 임원ㆍ주요주주특정증권등거래계획보고서",
                "terms": ["거래계획"], "alts": {}, "numbers": [], "ratios": [], "unit": "", "strength": 1,
