@@ -415,6 +415,19 @@ def push_beat(rows: list[dict], stamp: str) -> None:
     if not token:
         return
     from scripts import private_store
+    import types
+    import urllib.error
+
+    # 뉴스 수집 작업에는 requests가 없다(11-01 첫 운영: ModuleNotFoundError로 전송 실패) — 표준 라이브러리로 보낸다.
+    def _send(url, data=None, headers=None, timeout=30, params=None, method="POST"):
+        req = urllib.request.Request(url, data=data, headers=headers or {}, method=method)
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                return types.SimpleNamespace(status_code=r.status, text=r.read().decode("utf-8", "replace"))
+        except urllib.error.HTTPError as e:
+            return types.SimpleNamespace(status_code=e.code, text="")
+    post = lambda url, data=None, headers=None, timeout=30: _send(url, data, headers, timeout)
+    get = lambda url, headers=None, timeout=30, params=None: _send(url, None, headers, timeout, method="GET")
     items = [{"id": "gl:" + __import__("hashlib").sha1(x["url"].encode()).hexdigest()[:12], "url": x["url"], "title": x.get("title", ""),
               "koTitle": x.get("koTitle", ""), "koSummary": (x.get("koSummary") or "")[:500], "source": x.get("sourceName") or x.get("globalSource"),
               "published": x.get("published"), "firstSeen": x.get("firstSeen"), "beatCompanies": x.get("beatCompanies") or [],
@@ -425,7 +438,7 @@ def push_beat(rows: list[dict], stamp: str) -> None:
            "rules": ["해외 매체 기사(구글 뉴스·매체 RSS) 중 직접 출입처 이름이 나온 것만. 제목·요약은 AI 번역·요약이라 원문 확인.",
                      "사건 낱말(공장·투자·수주·원자로 등)이 한국어 제목에 있으면 B(자동 보도 대조), 없으면 참고(C)."]}
     try:
-        status = private_store.put("global-beat", doc, token)
+        status = private_store.put("global-beat", doc, token, post=post, get=get)
         print(f"global beat push: {len(items)} items, HTTP {status}")
     except Exception as exc:  # noqa: BLE001
         print(f"::warning title=global-beat-push::기자 전용 저장소 전송 실패({type(exc).__name__}) — 레이더의 출입처 외신은 이전 결과")
