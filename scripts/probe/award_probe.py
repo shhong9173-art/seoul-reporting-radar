@@ -1,26 +1,24 @@
-"""Probe 80: 공정위 보도자료 목록 원본 HTML 두 줄(파서 시험 자료) + 정책브리핑 API policyNewsService2를 공유 키(KR_FUEL 대체)로 한 번.
-공개 보도자료 목록 HTML만, 키 값은 남기지 않는다."""
-import os
+"""Probe 81: 정책브리핑 보도자료 목록(korea.kr/briefing/pressReleaseList.do, robots 허용) — 부처 거르기 칸 이름·값(기후에너지환경부·공정위·산업통상부),
+목록 행 형식(제목·부처·날짜·newsId) 확인. 공개 목록 제목만 몇 줄, 한 번(+거르기 시험 한 번)."""
 import re
 
 import requests
 
 H = {"User-Agent": "newsroom-official-research/1.0 (github.com/shhong9173-art/seoul-reporting-radar)"}
-KEY = (os.environ.get("DATA_GO_KR_KEY") or os.environ.get("KR_FUEL_API_KEY") or "").strip()
-out = [f"key length {len(KEY)}"]
-for key, ctg in [("12", "01,02"), ("13", "03")]:
-    r = requests.get("https://www.ftc.go.kr/www/selectBbsNttList.do", params={"bordCd": "3", "key": key, "searchCtgry": ctg}, headers=H, timeout=30)
-    body = r.text.split("<tbody", 1)[-1].split("</tbody>", 1)[0]
-    trs = re.split(r"(?=<tr[\s>])", body)
-    out.append(f"ftc key={key} HTTP {r.status_code} total-marker {re.findall(r'총\s*<[^>]*>?\s*[\d,]+', r.text)[:2]}")
-    for tr in trs[1:3]:
-        out.append(re.sub(r"\n\s*", "\n", tr.strip())[:1800])
-    pg = re.findall(r'pageIndex=(\d+)', r.text)
-    out.append(f"  pageIndex refs {sorted(set(pg))[:12]}")
-for op in ["policyNewsList"]:
-    r = requests.get(f"https://apis.data.go.kr/1371000/policyNewsService2/{op}", params={"serviceKey": KEY, "startDate": "20261029", "endDate": "20261031"}, headers=H, timeout=40)
-    t = r.text.replace(KEY, "<KEY>") if KEY else r.text
-    out.append(f"api {op} HTTP {r.status_code} len {len(t)} head {re.sub(r'\\s+', ' ', t[:240])}")
-text = "\n".join(out)
-open("/tmp/probe_out.txt", "w").write(text)
-print(text[:600])
+out = []
+r = requests.get("https://www.korea.kr/briefing/pressReleaseList.do", headers=H, timeout=30)
+t = r.text
+out.append(f"list HTTP {r.status_code} len {len(t)}")
+for m in re.finditer(r'<input[^>]*(?:기후에너지환경부|공정거래위원회|산업통상부)[^>]*>|<input[^>]*value="[^"]*"[^>]*>\s*<label[^>]*>\s*(?:기후에너지환경부|공정거래위원회|산업통상부)', t):
+    out.append("  input " + re.sub(r"\s+", " ", m.group(0))[:220])
+for lab in ("기후에너지환경부", "공정거래위원회", "산업통상부"):
+    i = t.find(lab)
+    out.append(f"  ctx {lab}: " + re.sub(r"\s+", " ", t[max(0, i - 260):i + 40]) if i >= 0 else f"  {lab} not found")
+names = sorted(set(re.findall(r'name="([A-Za-z_]+)"', t)))
+out.append(f"  field names {names[:40]}")
+items = re.findall(r'pressReleaseView\.do\?newsId=(\d+)', t)
+out.append(f"  newsIds {len(items)} {items[:3]}")
+li = t.find("pressReleaseView.do?newsId=")
+out.append("  row html " + re.sub(r"\s+", " ", t[max(0, li - 200):li + 900])[:1100])
+open("/tmp/probe_out.txt", "w").write("\n".join(out))
+print("\n".join(out)[:600])
