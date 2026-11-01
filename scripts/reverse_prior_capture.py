@@ -182,6 +182,8 @@ def _signals(d, add):
         add(mem("kr-signals", x.get("id"), x.get("companies") or [], f"산업부 {x.get('title')}", x.get("date"), x.get("url")))
     for x in d.get("ftcPress") or []:
         add(mem("kr-signals", x.get("id"), x.get("companies") or [], f"공정위 {x.get('title')}", x.get("date"), x.get("url")))
+    for x in d.get("briefing") or []:
+        add(mem("kr-signals", x.get("id"), x.get("companies") or [], f"{x.get('ministry')} {x.get('title')}", x.get("date"), x.get("url")))
 
 
 def _comments(d, add):

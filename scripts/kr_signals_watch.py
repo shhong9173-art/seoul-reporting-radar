@@ -7,6 +7,8 @@
   본문의 주요 품목 표에서 출입처 품목(자동차·부품·철강·비철·석유화학·이차전지·전기기기 등) 수출액·증감률을 적힌 그대로 남긴다.
 - 공정위 보도·참고자료(두 쪽)와 설명자료(한 쪽)(ftc.go.kr 게시판, 열쇠 없음): 제목에 출입처 이름이나 출입 업종 낱말이 있는 것.
   정책브리핑 RSS·API가 끊겨 부처 게시판을 직접 읽는다. 이 구역 첫 실행은 기준선(신규 표시 없음).
+- 기후에너지환경부·국토교통부 보도자료(정책브리핑 목록을 부처 코드로 거름, 두 쪽씩): 제목에 출입처 이름이나 부처별 업종 낱말이 있는 것.
+  제목·날짜·부처·주소만 남긴다(정책브리핑이 7-1 RSS를 권리 보호로 끊음 — 요약·본문은 남기지 않음).
 - 원자재 가격(KOMIS 광물자원가격, 열쇠 없음): 설정한 광종·가격 기준(LME CASH 등)의 일별 가격·LME 재고.
   같은 기준·같은 단위로만 비교하고, 설정한 since 이전 값과는 비교하지 않는다. 'N개월 만에 최고'는 조회 범위 안의 사실만.
 - 결과는 기자 전용 저장소(kr-signals)로만. 공개 로그는 건수만. 조회 실패는 0건이 아니다.
@@ -660,6 +662,68 @@ def ftc_press(cfg, now, previous, http):
                    **({"error": "; ".join(errs)} if errs else {})}
 
 
+# ---------- 정책브리핑 부처별 보도자료(기후에너지환경부·국토교통부) ----------
+# 부처 누리집이 GitHub 러너에서 막힌 곳(me.go.kr 접속 실패)은 정책브리핑 목록 쪽을 부처 코드로 걸러 읽는다(robots.txt 전부 허용).
+# 정책브리핑은 2026-07-01 RSS를 '저작권 등 권리 보호'로 끊었다 — 제목·날짜·부처·주소만 남기고 본문·요약은 남기지 않는다.
+
+BRIEFING = "https://www.korea.kr"
+BRIEFING_LIST = BRIEFING + "/briefing/pressReleaseList.do"
+BRIEFING_KEEP_DAYS = 60
+_BRIEF_ROW = re.compile(r'<a href="/briefing/pressReleaseView\.do\?newsId=(\d+)[^"]*"[^>]*>(.*?)</a>', re.S)
+
+
+def parse_briefing(text):
+    rows = []
+    for m in _BRIEF_ROW.finditer(text):
+        inner = m.group(2)
+        title = re.search(r"<strong[^>]*>(.*?)</strong>", inner, re.S)
+        src = re.search(r'<span class="source">\s*<span>\s*([\d.\-]+)\s*</span>\s*<span>\s*([^<]+?)\s*</span>', inner, re.S)
+        if not (title and src):
+            continue
+        rows.append({"id": f"briefing:{m.group(1)}", "title": _cell(title.group(1)), "date": src.group(1).replace(".", "-"),
+                     "ministry": _norm(src.group(2)), "url": f"{BRIEFING}/briefing/pressReleaseView.do?newsId={m.group(1)}"})
+    return rows
+
+
+def briefing(cfg, now, previous, http):
+    bc = cfg.get("briefing") or {}
+    had = isinstance((previous or {}).get("briefing"), list)  # 이 구역 첫 실행은 기준선
+    prev = {x["id"]: x for x in (previous or {}).get("briefing", []) if isinstance(x, dict) and x.get("id")}
+    stamp = now.isoformat(timespec="seconds")
+    patterns = company_patterns(cfg)
+    rows, errs = [], []
+    topics = {}
+    for mi in bc.get("ministries", []):
+        topics[mi["name"]] = re.compile(mi["topic"])
+        for page in range(1, int(bc.get("pages", 2)) + 1):
+            r, err = http.call("GET", BRIEFING_LIST, params={"repCodeType": mi["code"][0], "repCode": mi["code"], "pageIndex": page})
+            if err:
+                errs.append(f"{mi['name']} {err}")
+                break
+            got = parse_briefing(r.text)
+            wrong = [x for x in got if x["ministry"] != mi["name"]]
+            if page == 1 and (not got or wrong):  # 거르기가 풀리면 다른 부처가 섞여 나온다 — 그 쪽은 버리고 미확인
+                errs.append(f"{mi['name']} 목록 형식({'행 없음' if not got else '다른 부처 섞임'})")
+                break
+            rows += [x for x in got if x["ministry"] == mi["name"]]
+            if not got:
+                break
+    kept = dict(prev)
+    for x in rows:
+        names = sorted({c for c, rx, rel in patterns if not rel and rx.search(x["title"])})
+        topic = topics.get(x["ministry"])
+        if not (names or (topic and topic.search(x["title"]))):
+            continue
+        old = prev.get(x["id"])
+        kept[x["id"]] = {**x, "companies": names, "firstSeen": (old or {}).get("firstSeen") or stamp, "isNew": had and old is None}
+    keep_from = (now.date() - dt.timedelta(days=BRIEFING_KEEP_DAYS)).isoformat()
+    items = sorted((x for x in kept.values() if str(x.get("date") or "") >= keep_from), key=lambda x: (x.get("date") or "", x["id"]), reverse=True)
+    listed = {x["id"] for x in rows}
+    status = "unset" if not bc.get("ministries") else ("failed" if errs and not rows else ("partial" if errs else "ok"))
+    return items, {"source": "정책브리핑 부처 보도자료", "status": status, "listed": len(rows), "kept": sum(1 for x in items if x["id"] in listed),
+                   **({"error": "; ".join(errs)} if errs else {})}
+
+
 # ---------- run ----------
 
 def run(cfg, *, now, previous=None, http=None, kepco_key=""):
@@ -670,7 +734,8 @@ def run(cfg, *, now, previous=None, http=None, kepco_key=""):
     prices, px_events, pchecks = komis(cfg, now, previous, http)
     releases, mcheck = motir(cfg, now, previous, http)
     press, pcheck = ftc_press(cfg, now, previous, http)
-    checks = [fcheck, kcheck, mcheck, pcheck, *pchecks]
+    briefs, bcheck = briefing(cfg, now, previous, http)
+    checks = [fcheck, kcheck, mcheck, pcheck, bcheck, *pchecks]
     keep_from = (now - dt.timedelta(days=EVENT_KEEP_DAYS)).isoformat()
     events = [e for e in (previous or {}).get("events", []) if isinstance(e, dict) and e.get("detectedAt", "") >= keep_from]
     have = {e.get("id") for e in events}
@@ -679,12 +744,13 @@ def run(cfg, *, now, previous=None, http=None, kepco_key=""):
     failed = [c for c in checks if c["status"] not in ("ok", "unset")]
     return {"schema": SCHEMA, "generatedAt": stamp, "status": "partial" if failed else "complete", "checks": checks,
             "baselineSince": (previous or {}).get("baselineSince") or stamp,
-            "decisions": decisions, "ftcSeen": seen, "kepco": bids, "motir": releases, "ftcPress": press, "prices": prices, "events": events[:400],
+            "decisions": decisions, "ftcSeen": seen, "kepco": bids, "motir": releases, "ftcPress": press, "briefing": briefs, "prices": prices, "events": events[:400],
             "rules": ["공정위 의결서는 의결일과 파일 등록(파일번호 앞자리)이 다르다. 보도자료는 보통 의결 전후에 먼저 나오니 news_check로 선행 보도를 본다.",
                       "'발주처'는 출입처가 입찰을 낸 쪽(피해·구매자)이라는 뜻이다. 제재 대상(피심인)과 섞어 쓰지 않는다.",
                       "주문 발췌의 금액은 의결서에 적힌 그대로다. 합계·감경 전후는 원문에서 확인한다.",
                       "한전 공고의 추정가격은 발주 예정 금액이다. 낙찰 금액·낙찰사가 아니다.",
                       "공정위 보도·참고자료는 공개 발표다(의결서보다 먼저 나온다). 설명자료는 기사에 대한 공정위 해명이다. 단독 근거가 아니다.",
+                      "정책브리핑 부처 보도자료(기후에너지환경부·국토교통부)도 공개 발표다. 제목만 남긴다 — 내용·수치는 원문에서 확인한다.",
                       "산업통상부 보도자료는 공개 발표다. 단독 근거가 아니라 확인할 공식 변화이며, 첨부 파일명의 엠바고(조간·석간)를 지킨다.",
                       "원자재 가격은 KOMIS 게시값(같은 가격 기준·단위)이다. '이후 최고'는 조회 범위 안의 사실이고, 역대 최고가 아니다.",
                       "조회 실패는 0건이 아니라 미확인."],
@@ -711,10 +777,11 @@ def main():
     p = [c for c in doc["checks"] if c["source"].startswith("KOMIS ")]
     m = next(c for c in doc["checks"] if c["source"] == "산업통상부 보도자료")
     fp = next(c for c in doc["checks"] if c["source"] == "공정위 보도자료")
+    bp = next(c for c in doc["checks"] if c["source"] == "정책브리핑 부처 보도자료")
     new_ev = sum(1 for e in doc["events"] if e["detectedAt"] == doc["generatedAt"])
     print(f"::notice title=kr-signals::공정위 의결서 {f['status']} 목록 {f.get('listed', 0)}건·의결 {f.get('decisions', 0)}건·전문 {f.get('read', 0)}건 읽음·"
           f"대기 {f.get('pending', 0)}·출입처 관련 {f.get('kept', 0)}건 · 한전 {k['status']} {k.get('kept', 0)}/{k.get('returned', 0)} · "
-          f"산업부 {m['status']} {m.get('kept', 0)}/{m.get('listed', 0)} · 공정위 보도 {fp['status']} {fp.get('kept', 0)}/{fp.get('listed', 0)} · 원자재 {sum(1 for c in p if c['status'] == 'ok')}/{len(p)} · 새 이벤트 {new_ev}")
+          f"산업부 {m['status']} {m.get('kept', 0)}/{m.get('listed', 0)} · 공정위 보도 {fp['status']} {fp.get('kept', 0)}/{fp.get('listed', 0)} · 부처 보도 {bp['status']} {bp.get('kept', 0)}/{bp.get('listed', 0)} · 원자재 {sum(1 for c in p if c['status'] == 'ok')}/{len(p)} · 새 이벤트 {new_ev}")
     errors = sorted({c.get("error") for c in doc["checks"] if c.get("error")})
     if errors:
         print(f"::notice title=kr-signals-errors::{', '.join(errors)[:400]}")

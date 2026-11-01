@@ -433,6 +433,13 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
       company: [...(x.companies ?? []), ...(x.related ?? [])].join('·') || x.dept,
       fact: `공정위 ${x.kind}${x.dept ? `(${x.dept})` : ''}: ${x.title}`, url: x.url, check: named ? hint(x.companies[0], ['공정위']) : undefined });
   }
+  // 정책브리핑 부처 보도자료(기후에너지환경부·국토교통부): 제목에 출입처 이름이면 B, 부처별 업종 낱말만이면 C
+  for (const x of ks?.briefing ?? []) {
+    if (!(all || String(x.date ?? '') >= cutDay)) continue;
+    const named = (x.companies ?? []).length;
+    push(named ? 'B' : 'C', W['kr-signals'], { kind: `${x.ministry} 발표`, id: x.id, date: x.date, company: (x.companies ?? []).join('·') || x.ministry,
+      fact: `${x.ministry} 보도자료: ${x.title}`, url: x.url, check: named ? hint(x.companies[0], [x.ministry.replace(/부$/, '')]) : undefined });
+  }
   for (const e of ks?.events ?? []) {
     if (!recent(e.detectedAt)) continue;
     const tier = e.kind === '원자재 가격' ? (/최고|최저/.test(e.signal ?? '') ? 'B' : 'C') : 'B';
