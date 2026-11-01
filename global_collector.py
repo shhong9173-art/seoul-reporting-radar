@@ -404,7 +404,10 @@ def parse(source: str, query: str) -> list[dict]:
     # 출입처(철강·전력기기 등) 외신은 드물다(11-01 탐침 64: 96시간에 1건) — 출입처 검색은 7일까지 본다
     cutoff = datetime.now(KST) - timedelta(hours=168 if source.startswith("출입처") else 96)
     rows = []
-    for item in root.findall("./channel/item"):
+    # 검색이 0건인지, 걸렀는지 구분하려고 버린 이유별로 센다(11-01: 석유화학·정유 검색이 계속 0줄 — 건수만 공개 진단에 남긴다)
+    items = root.findall("./channel/item")
+    dropped = {"notNews": 0, "domestic": 0, "outlet": 0, "old": 0, "unscored": 0}
+    for item in items:
         title = (item.findtext("title") or "").strip()
         link = (item.findtext("link") or "").strip()
         pub = (item.findtext("pubDate") or "").strip()
@@ -414,24 +417,29 @@ def parse(source: str, query: str) -> list[dict]:
         title = strip_source_suffix(title, actual_source)
         if not_news(title):
             NOT_NEWS_DROPPED.append(actual_source or source)
+            dropped["notNews"] += 1
             continue
         if not title or not link:
             continue
         if DOMESTIC_EN.search(actual_source or "") or looks_korean(title) or looks_korean(actual_source or ""):
+            dropped["domestic"] += 1
             continue   # 외신만: 국내 매체 영문판·한글 기사는 뺀다
         if source.startswith("출입처") and not FOREIGN_OK.search(actual_source or ""):
+            dropped["outlet"] += 1
             continue   # 매체 제한 없는 출입처 검색은 믿을 만한 외신만
         try:
             dt = parsedate_to_datetime(pub).astimezone(KST)
         except Exception:
             dt = datetime.now(KST)
         if dt < cutoff:
+            dropped["old"] += 1
             continue
         scored = score_text((title + " " + desc).lower())
         if not scored and source.startswith("출입처") and beat_companies(title + " " + desc):
             # 출입처 이름 검색: 업종 낱말 목록에 없는 사업(11-01 석유화학·정유 6곳이 그랬다)이어도 출입처 이름이 있으면 둔다
             scored = (55, 1)
         if not scored:
+            dropped["unscored"] += 1
             continue
         score = scored[0]
 
@@ -460,6 +468,7 @@ def parse(source: str, query: str) -> list[dict]:
         "category":source[:40],"globalFeed":True,
         "status":"checked_recent_rows" if rows else "checked_no_recent_rows",
         "recentRows":min(100,len(rows)),"errorType":None,
+        "feedItems":min(1000,len(items)),"dropped":{k:min(1000,v) for k,v in dropped.items()},
         "durationMs":min(600000,int((time.monotonic()-started)*1000))})
     return rows
 

@@ -45,6 +45,15 @@ class FeedHealth(unittest.TestCase):
             self.assertEqual(parsed["checks"],rows)
             self.assertEqual(parsed["attemptedQueries"],19)
 
+    def test_drop_counts_are_kept_and_checked(self):
+        # 11-01: 외신 출입처 검색 0줄이 '검색 결과 없음'인지 '걸러짐'인지 건수로 구분
+        r=row("checked_no_recent_rows",category="출입처·석유화학정유",global_feed=True)
+        r.update(feedItems=42,dropped={"notNews":0,"domestic":3,"outlet":30,"old":9,"unscored":0})
+        out=build([r],expected=1,news_items=1,now=NOW,threshold=1)
+        self.assertEqual((out["checks"][0]["feedItems"],out["checks"][0]["dropped"]["outlet"]),(42,30))
+        bad=dict(r,dropped={"title":1})
+        with self.assertRaises(ValueError):build([bad],expected=1,news_items=1,now=NOW,threshold=1)
+
     def test_missing_query_coverage_is_incomplete(self):
         report=build([row("checked_recent_rows",count=3)],expected=19,
                      news_items=11,now=NOW)

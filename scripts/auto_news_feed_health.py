@@ -44,6 +44,16 @@ def build(checks,*,expected,news_items,now,threshold=10):
         if "invalidPubDateRows" in row:slim["invalidPubDateRows"]=bad_dates
         if "futurePubDateRows" in row:slim["futurePubDateRows"]=future_dates
         if "exclusiveQuery" in row:slim["exclusiveQuery"]=exclusive_query
+        # 외신 검색: 받은 줄 수와 버린 이유별 건수(11-01) — 건수만, 제목·주소는 남기지 않는다
+        if "feedItems" in row:
+            if type(row["feedItems"]) is not int or not 0<=row["feedItems"]<=1000:raise ValueError("invalid_feed_items")
+            slim["feedItems"]=row["feedItems"]
+        if "dropped" in row:
+            d=row["dropped"]
+            if (not isinstance(d,dict) or not set(d)<= {"notNews","domestic","outlet","old","unscored"}
+                or any(type(v) is not int or not 0<=v<=1000 for v in d.values())):
+                raise ValueError("invalid_drop_counts")
+            slim["dropped"]=dict(d)
         safe.append(slim)
     failures=sum(x["status"] in ("transport_or_xml_error","malformed_rss",
                                  "checked_partial_dates") for x in safe)
