@@ -140,6 +140,19 @@ class LateSchedule(unittest.TestCase):
         self.assertFalse(ps.late_scheduled_duplicate(None, now, env={"GITHUB_EVENT_NAME": "schedule"}))
         self.assertFalse(ps.late_scheduled_duplicate({"generatedAt": "bad"}, now, env={"GITHUB_EVENT_NAME": "schedule"}))
 
+    def test_quota_watch_skips_a_second_run_the_same_morning_unless_forced(self):
+        import contextlib
+        import datetime as dt
+        import io
+        kst = dt.timezone(dt.timedelta(hours=9))
+        now = dt.datetime(2026, 11, 2, 7, 40, tzinfo=kst)
+        prev = {"generatedAt": "2026-11-02T07:12:00+09:00"}   # 월 07:10 Cloudflare 요청 실행 — 뒤이어 온 GitHub 예약·요청은 건너뜀
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertTrue(ps.recent_duplicate(prev, now, env={"GITHUB_EVENT_NAME": "workflow_dispatch"}))
+        self.assertFalse(ps.recent_duplicate(prev, now, env={"GITHUB_EVENT_NAME": "workflow_dispatch", "FORCE_RUN": "true"}))
+        self.assertFalse(ps.recent_duplicate({"generatedAt": "2026-10-26T07:12:00+09:00"}, now, env={}))   # 지난주 결과
+        self.assertFalse(ps.recent_duplicate(None, now, env={}))
+
 
 if __name__ == "__main__":
     unittest.main()

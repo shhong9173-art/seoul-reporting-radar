@@ -39,7 +39,7 @@ export const WATCHES = [
   { feed: 'overseas-awards', label: '해외 발주처 낙찰', tool: 'partner_filings', schedule: '평일 06:50·17:30' },
   { feed: 'kr-insolvency', label: '협력사 회생·파산', tool: 'kr_official', schedule: '평일 07:20·17:20' },
   { feed: 'kr-energy', label: '전기위·원안위', tool: 'kr_signals', schedule: '평일 15:40·18:10' },
-  { feed: 'kr-building', label: '공장 부지 건축허가', tool: 'kr_official', schedule: '월 07:45', staleHours: 192 },
+  { feed: 'kr-building', label: '공장 부지 건축허가', tool: 'kr_official', schedule: '월 07:50', staleHours: 192 },
   { feed: 'overseas-registry', label: '해외 법인 등기(영국)', tool: 'partner_filings', schedule: '평일 06:00' },
   { feed: 'kr-local', label: '지자체 고시·공고', tool: 'kr_official', schedule: '평일 06:30·16:20' },
   { feed: 'kr-workforce', label: '사업장 인력(국민연금)', tool: 'kr_official', schedule: '평일 15:50', staleHours: 80 },
