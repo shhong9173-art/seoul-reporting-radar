@@ -82,6 +82,19 @@ class Partners(unittest.TestCase):
         doc2 = w.run(CFG, now=later, previous=known, get=fake([]), sleep=lambda s: None)
         self.assertNotIn("baseline", next(x for x in doc2["items"] if x["source"] == "EDGAR"))   # 아는 문구로 잡힌 새 공시는 그대로
 
+    def test_officer_biography_mention_is_routine(self):
+        # 11-01 운영: Beyond Air DEF 14A 이사 경력 소개
+        it = {"phrases": ["LG Chem"], "form": "DEF 14A", "snippet": (
+            "He was the Chief Financial Officer of AVEO Oncology (Nasdaq: AVEO), a biopharmaceutical company focused on targeted "
+            "medicines for oncology and other unmet medical needs, from 2020 to 2023, when it was acquired by LG Chem, and was the "
+            "Chief Financial Officer of Valeritas Holdings, Inc.")}
+        w.classify(it)
+        self.assertIn("경력", it.get("routine", ""))
+        deal = {"phrases": ["LG Chem"], "form": "8-K", "snippet": "The Company entered into a supply agreement with LG Chem, Ltd. for cathode materials."}
+        w.classify(deal)
+        self.assertNotIn("routine", deal)
+        self.assertTrue(deal["dealNear"])
+
     def test_legacy_asx_shape_and_failures_are_recorded(self):
         legacy = {"data": [{"document_release_date": "2026-10-25T10:00:00+1100", "header": "Binding offtake with Kia", "url": "https://www.asx.com.au/asxpdf/x.pdf",
                             "market_sensitive": True}]}

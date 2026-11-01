@@ -56,6 +56,10 @@ BOILERPLATE = re.compile(r"forward-looking|risks?\s+and\s+uncertaint|could\s+cau
                          r"\brisk\s+factors\b|factors\s+that\s+(?:could|may)\s+cause", re.I)
 HEARSAY = re.compile(r"\breportedly\b|\baccording to (?:media|press|news|industry|market) reports?\b|\bas reported (?:by|in)\b|\bit was reported\b", re.I)
 SENTENCE = re.compile(r"(?<=[.;!?])\s+(?=[A-Z0-9(\"'“])")
+# 임원·이사 경력 소개(11-01 운영: Beyond Air 주총 안내서 DEF 14A '…Chief Financial Officer of AVEO Oncology … when it was acquired by
+# LG Chem'이 LG화학 새 공시로 떴다) — 출입처가 예전 거래의 상대로 이름만 나온다.
+BIO = re.compile(r"\b(?:was|served|serves|has served|previously served|prior to (?:joining|that)|formerly)\b.{0,160}?"
+                 r"\b(?:officer|director|president|chairman|ceo|cfo|coo|cto|vice president|general counsel|partner)\b", re.I)
 
 
 def beat_sentences(sn, phrases):
@@ -87,6 +91,9 @@ def classify(it):
             it["hearsay"] = "출입처 이름이 보도 인용 문장(reportedly 등)에만 나옴 — 두 회사 간 거래 공시가 아님"
         elif all(BOILERPLATE.search(x) for x in sents):
             it["boilerplate"] = "출입처 이름이 전망·위험 고지 문구(risks and uncertainties 등)에만 나옴 — 새 거래 공시가 아님(이미 있던 약정 언급일 수 있음)"
+        elif all(BIO.search(x) for x in sents):
+            it["routine"] = "임원·이사 경력 소개 문장에만 나옴 — 출입처와의 거래 아님"
+            return
     digits = sum(ch.isdigit() for ch in sn)
     if HOLDINGS.search(sn) or (len(sn) > 200 and digits / len(sn) > 0.18):
         it["routine"] = "투자 보유 목록(채권·주식 보유 표) — 출입처와의 거래 아님"
