@@ -32,7 +32,7 @@ export const WATCHES = [
   { feed: 'page-watch', label: '해외 공식 페이지', tool: 'page_changes', schedule: '평일 06:30·18:30' },
   { feed: 'trademarks', label: '상표 출원', tool: 'trademarks', schedule: '월 07:10', staleHours: 192 },
   { feed: 'assembly-bills', label: '국회 법안', tool: 'assembly_bills', schedule: '평일 08:40·17:40' },
-  { feed: 'us-recalls', label: '미국 리콜(NHTSA 전체)', tool: 'us_recalls', schedule: '평일 17:10' },
+  { feed: 'us-recalls', label: '미국 리콜(NHTSA 전체)', tool: 'us_recalls', schedule: '매일 17:10' },
   { feed: 'us-epa', label: '미국 EPA 인증', tool: 'us_epa', schedule: '매일 06:20', staleHours: 60 },
   { feed: 'us-osha', label: '미국 OSHA 점검·위반', tool: 'us_litigation', schedule: '매일 06:40', staleHours: 60 },
   { feed: 'kr-fuel', label: '국내 연비 신고', tool: 'kr_fuel', schedule: '매일 06:10', staleHours: 60 },

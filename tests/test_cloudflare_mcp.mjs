@@ -1310,7 +1310,8 @@ test('Cloudflare cron asks GitHub to run each watch at its KST weekday slot and 
   // the reporter adds the secret after the morning slots: the line says so before the next slot comes round
   const later = await call('radar_today', {}, { ...none, env: { ...none.env, GITHUB_DISPATCH_TOKEN: 'ghp_test' } });
   assert.match(later.text, /예약 요청\(Cloudflare\): 오늘 앞선 칸은 토큰 없이 지나감 · 지금은 토큰 보임 — 다음 칸\(10-26 15:00 scoop-radar\.yml\)부터 요청/);
-  assert.equal(nextSlot(new Date('2026-10-30T10:00:00Z')), '11-02 06:00 overseas-registry.yml');  // Fri 19:00 KST → Mon 06:00
+  assert.equal(nextSlot(new Date('2026-10-30T10:00:00Z')), '10-31 06:10 kr-fuel.yml');  // Fri 19:00 KST → Sat 06:10 (매일 감시)
+  assert.equal(nextSlot(new Date('2026-11-01T09:00:00Z')), '11-02 06:00 overseas-registry.yml');  // Sun 18:00 KST → Mon 06:00
   const fresh = await call('radar_today', {}, PRIVATE());
   assert.match(fresh.text, /예약 요청\(Cloudflare\): 기록 없음 · 지금도 워커에서 GITHUB_DISPATCH_TOKEN이 보이지 않음/);
   const freshWithToken = await call('radar_today', {}, PRIVATE({ GITHUB_DISPATCH_TOKEN: 'ghp_test' }));
@@ -1947,6 +1948,14 @@ test('press check is dispatched after the morning watches and after the evening 
   assert.deepEqual(dueAt(new Date('2026-10-28T21:10:00Z')), ['kr-fuel.yml']);      // Thu 06:10 KST
   assert.deepEqual(dueAt(new Date('2026-10-28T21:20:00Z')), ['us-epa.yml']);       // Thu 06:20 KST
   assert.deepEqual(dueAt(new Date('2026-10-28T09:50:00Z')), ['radar-press-check.yml']);  // Wed 18:50 KST
+  // 주말: 매일 감시(연비·EPA·OSHA)와 미국 리콜만 — 10-31 토 OSHA GitHub 예약이 돌지 않았다
+  assert.deepEqual(dueAt(new Date('2026-10-30T21:10:00Z')), ['kr-fuel.yml']);      // Sat 06:10 KST
+  assert.deepEqual(dueAt(new Date('2026-10-30T21:20:00Z')), ['us-epa.yml']);       // Sat 06:20 KST
+  assert.deepEqual(dueAt(new Date('2026-10-30T21:40:00Z')), ['us-osha.yml']);      // Sat 06:40 KST (scoop-radar는 평일만)
+  assert.deepEqual(dueAt(new Date('2026-10-31T08:10:00Z')), ['us-recalls.yml']);   // Sat 17:10 KST — 미국 금요일 파일
+  assert.deepEqual(dueAt(new Date('2026-11-01T08:10:00Z')), ['us-recalls.yml']);   // Sun 17:10 KST
+  assert.deepEqual(dueAt(new Date('2026-10-30T21:30:00Z')), []);                   // Sat 06:30 KST (page-watch·kr-local 평일만)
+  assert.deepEqual(dueAt(new Date('2026-10-31T09:50:00Z')), []);                   // Sat 18:50 KST (보도 대조 평일만)
 });
 
 test('trade remedies: an unusual decision-memo topic in a notice naming a beat company reaches A with the appendix line', async () => {
