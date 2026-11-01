@@ -570,7 +570,9 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
     const companies = x.beatCompanies ?? [];
     const terms = (x.checkTerms ?? []).slice(0, 2);
     push(terms.length ? 'B' : 'C', W['global-beat'], { kind: '출입처 외신', id: x.id, date: x.published, company: companies.join('·'),
-      fact: `외신 ${x.source ?? ''} 「${x.koTitle || x.title}」${x.koSummary ? ` — ${clipAt(x.koSummary, 220)}` : ''} · 원제 "${clipAt(x.title ?? '', 140)}" (AI 번역·요약 — 원문 확인)`,
+      fact: `외신 ${x.source ?? ''} 「${x.koTitle || x.title}」${x.koSummary ? ` — ${clipAt(x.koSummary, 220)}` : ''} · 원제 "${clipAt(x.title ?? '', 140)}" (AI 번역·요약 — 원문 확인)`
+        // AI가 받은 영어(제목·RSS 발췌)에서 같은 값을 못 찾은 숫자 — 지어냈거나 환산했거나 표기가 달라 못 맞춘 것(global_news_pipeline.check_numbers)
+        + (Array.isArray(x.numbersNotInSource) && x.numbersNotInSource.length ? ` · ⚠ 원문 발췌에 없는 숫자: ${x.numbersNotInSource.slice(0, 4).join(', ')} — 기사에 쓰기 전 원문 대조` : ''),
       url: x.url, check: terms.length && companies.length ? hint(companies[0], terms) : undefined });
   }
 

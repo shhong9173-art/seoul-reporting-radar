@@ -7,6 +7,7 @@ on:
       - 'scripts/rss_concurrent.py'
       - 'global_collector.py'
       - 'scripts/global_news_pipeline.py'
+      - 'scripts/number_check.py'
       - 'tests/test_auto_news_feed_health.py'
       - 'tests/test_rss_concurrent.py'
       - 'tests/test_global_news_pipeline.py'
@@ -20,6 +21,7 @@ on:
       - 'scripts/rss_concurrent.py'
       - 'global_collector.py'
       - 'scripts/global_news_pipeline.py'
+      - 'scripts/number_check.py'
       - '.github/workflows/rss-source-health-ci.yml'
   workflow_dispatch:
 permissions:
@@ -32,7 +34,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: python -m compileall -q collector.py global_collector.py scripts/auto_news_feed_health.py scripts/rss_concurrent.py scripts/global_news_pipeline.py
+      - run: python -m compileall -q collector.py global_collector.py scripts/auto_news_feed_health.py scripts/rss_concurrent.py scripts/global_news_pipeline.py scripts/number_check.py
       - run: python -m unittest discover -s tests -p 'test_auto_news_feed_health.py' -v
       - run: python -m unittest discover -s tests -p 'test_rss_concurrent.py' -v
       - run: python -m unittest discover -s tests -p 'test_global_news_pipeline.py' -v

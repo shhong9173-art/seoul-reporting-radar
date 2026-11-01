@@ -472,7 +472,7 @@ def push_beat(rows: list[dict], stamp: str) -> None:
     items = [{"id": "gl:" + __import__("hashlib").sha1(x["url"].encode()).hexdigest()[:12], "url": x["url"], "title": x.get("title", ""),
               "koTitle": x.get("koTitle", ""), "koSummary": (x.get("koSummary") or "")[:500], "source": x.get("sourceName") or x.get("globalSource"),
               "published": x.get("published"), "firstSeen": x.get("firstSeen"), "beatCompanies": x.get("beatCompanies") or [],
-              "checkTerms": x.get("checkTerms") or []} for x in rows
+              "checkTerms": x.get("checkTerms") or [], "numbersNotInSource": (x.get("numbersNotInSource") or [])[:6]} for x in rows
              if x.get("beatCompanies") and (x.get("sourceName") or "").strip().lower() not in MARKETPLACES]
     refused = sorted({c["category"] for c in GLOBAL_FEED_CHECKS if c.get("status") == "transport_or_xml_error"})
     doc = {"schema": "global_beat/v1", "generatedAt": stamp, "items": items, "checks": [{"source": "외신 수집", "status": "ok"}],
@@ -545,6 +545,7 @@ def main() -> None:
         statuses[x.get("translationStatus")]=statuses.get(x.get("translationStatus"),0)+1
     print(f"global translation status counts: {statuses}")
     print(f"global not-news dropped: {len(NOT_NEWS_DROPPED)} (판매·광고·팟캐스트 안내)")
+    print(f"global numbers not in source: {sum(1 for x in unique if x.get('numbersNotInSource'))} items")
     print(f"global summaries: {sum(1 for x in unique if x.get('summaryTranslationStatus')=='summarized_ai')} AI 요약 / "
           f"publisher RSS rows {len(publisher_rows)}")
     print(f"global radar: {len(unique)} source-filtered translated records; "

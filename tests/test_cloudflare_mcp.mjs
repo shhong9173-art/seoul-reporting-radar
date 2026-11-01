@@ -2273,13 +2273,14 @@ test('출입처 외신 (global-beat): event words → B with press-check hint, n
     published: now, firstSeen: now, beatCompanies: ['두산에너빌리티'], checkTerms: ['원자로'], ...extra });
   const doc = { schema: 'global_beat/v1', generatedAt: now, checks: [{ source: '외신 수집', status: 'ok' }], feedErrors: ['Automotive News'], items: [
     it('gl:a'),
-    it('gl:b', { title: 'Nexen Tire receives EcoVadis Gold', koTitle: '넥센타이어, 에코바디스 골드 3년 연속', koSummary: '', source: 'Tyrepress', beatCompanies: ['넥센타이어'], checkTerms: [] }),
+    it('gl:b', { title: 'Nexen Tire receives EcoVadis Gold', koTitle: '넥센타이어, 에코바디스 골드 3년 연속', koSummary: '넥센타이어가 약 30억 원 규모 상을 받았다.', source: 'Tyrepress', beatCompanies: ['넥센타이어'], checkTerms: [], numbersNotInSource: ['30억 원'] }),
     it('gl:old', { published: base, firstSeen: base, koTitle: '포스코, 오래된 기사', beatCompanies: ['포스코'], checkTerms: ['투자'] })] };
   assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/global-beat', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
   const r = await call('radar_today', { include_minor: true }, opts);
   const b = r.text.split('[B · ')[1].split('[C · ')[0];
   assert.match(b, /출입처 외신 · 두산에너빌리티\n   외신 World Nuclear News 「두산, 뉴스케일 소형모듈원전 상부 원자로 용기 제작」 — 두산에너빌리티가 뉴스케일파워와[^\n]*원제 "Doosan to manufacture upper reactor vessel for NuScale SMR" \(AI 번역·요약 — 원문 확인\)/);
-  assert.match(r.text.split('[C · ')[1], /넥센타이어, 에코바디스 골드 3년 연속/);
+  assert.match(r.text.split('[C · ')[1], /넥센타이어, 에코바디스 골드 3년 연속[^\n]*· ⚠ 원문 발췌에 없는 숫자: 30억 원 — 기사에 쓰기 전 원문 대조/);
+  assert.doesNotMatch(b, /원문 발췌에 없는 숫자/);   // 숫자가 다 맞으면 표시 없음
   assert.doesNotMatch(r.text, /오래된 기사/);
   assert.doesNotMatch(r.text, /출입처 외신: /);   // 수집 상태 정상
   const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();

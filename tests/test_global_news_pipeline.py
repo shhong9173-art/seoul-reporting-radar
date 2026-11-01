@@ -144,7 +144,7 @@ class GlobalCollectorBeatTests(unittest.TestCase):
         orig=getattr(scripts,"private_store",None)
         scripts.private_store=fake
         try:
-            rows=[{**item("Doosan wins SMR vessel order","https://w/a"),"beatCompanies":["두산에너빌리티"],"checkTerms":["원자로"],"koTitle":"두산, SMR 용기 수주","firstSeen":"2026-11-01T09:00:00+09:00"},
+            rows=[{**item("Doosan wins SMR vessel order","https://w/a"),"beatCompanies":["두산에너빌리티"],"checkTerms":["원자로"],"koTitle":"두산, SMR 용기 수주","firstSeen":"2026-11-01T09:00:00+09:00","numbersNotInSource":["6천억 원"]},
                   {**item("CATL opens plant","https://w/b"),"beatCompanies":[]},
                   {**item("Toyota bZ Closes In on Hyundai Ioniq 5","https://w/c"),"beatCompanies":["현대차"],"sourceName":"EV.com"}]
             gc.push_beat(rows,"2026-11-01T09:00:00+09:00")
@@ -157,7 +157,32 @@ class GlobalCollectorBeatTests(unittest.TestCase):
         self.assertTrue(callable(post))   # requests 없이 표준 라이브러리로 보낸다
         self.assertEqual((name,doc["schema"],[x["url"] for x in doc["items"]]),("global-beat","global_beat/v1",["https://w/a"]))
         self.assertTrue(doc["items"][0]["id"].startswith("gl:"))
-        self.assertEqual(doc["items"][0]["checkTerms"],["원자로"])
+        self.assertEqual((doc["items"][0]["checkTerms"],doc["items"][0]["numbersNotInSource"]),(["원자로"],["6천억 원"]))
+
+    def test_summary_numbers_checked_against_text_ai_received(self):
+        from number_check import unmatched_numbers,ko_numbers
+        self.assertEqual(ko_numbers("영업이익은 2조6천8백억 원, 판매 92만 710대, 투자 4억 5천만 달러, 3만3,240파운드"),
+                         [("2조6천8백억 원",2.68e12),("92만 710대",920710.0),("4억 5천만 달러",4.5e8),("3만3,240파운드",33240.0)])
+        src=("Hyundai Motor's Q3 net profit falls 24.2% to KRW1.93trn; wholesales 920,710 units. It will invest US$450m in Alabama. "
+             "Prices start at £33,240. Three in a row. The camper has two double beds and a 200W panel. Announced on Oct. 30.")
+        ok="3분기 순이익 1조9천3백억 원(24.2% 감소), 판매 92만 710대, 4억 5천만 달러 투자, 3만3,240파운드부터, 3년 연속, 2개 침대, 200W, 10월 30일"
+        self.assertEqual(unmatched_numbers(ok,src),[])
+        self.assertEqual(unmatched_numbers("앨라배마에 약 6천억 원을 투자하고 1,200명을 고용한다",src),["6천억 원","1,200명"])   # 환산·없는 숫자
+        self.assertEqual(unmatched_numbers("2026년 계획",src),["2026년"])
+        self.assertEqual(unmatched_numbers("2026년 계획",src,allow=[2026]),[])   # 기사 발행 연도('올해')는 허용
+        self.assertEqual(unmatched_numbers("앨라배마에 4억5천만달러",src.replace("US$450m","US$449.6m")),[])   # 반올림은 같은 수
+
+    def test_summarize_step_records_numbers_not_in_source(self):
+        rows=[{**item("Hyundai to invest US$450m in Alabama","https://e/a",summary="",published="2026-10-30T09:00:00+09:00"),
+               "koTitle":"현대차, 앨라배마에 4억5000만달러 투자","articleText":"Hyundai will invest US$450m in its Alabama plant."},
+              {**item("Hyundai to invest US$450m in Alabama","https://e/b",summary="",published="2026-10-30T09:00:00+09:00"),
+               "koTitle":"현대차, 앨라배마 투자","articleText":"Hyundai will invest US$450m in its Alabama plant."}]
+        out=summarize_selected([rows[0]],lambda t,x:"",previous=[],workers=1)
+        self.assertEqual(out[0]["numbersNotInSource"],[])   # 제목 번역 숫자도 본다(4억5000만달러 = US$450m)
+        out=summarize_selected([rows[1]],lambda t,x:"현대차가 4억5000만달러, 약 6천억 원을 투자한다. 2026년 생산.",previous=[],workers=1)
+        self.assertEqual(out[0]["numbersNotInSource"],["6천억 원"])   # 발행 연도 2026은 허용, 환산 숫자는 표시
+        again=summarize_selected([rows[1]],lambda t,x:"다른 요약",previous=out,workers=1)   # 지난 요약을 다시 써도 숫자는 다시 본다
+        self.assertEqual((again[0]["koSummary"],again[0]["numbersNotInSource"]),(out[0]["koSummary"],["6천억 원"]))
 
     def test_sales_ads_and_podcasts_are_not_news(self):
         for t in ["2027 Kia EV3 for $36,105, available now on EV.com!","2027 Hyundai Ioniq 5",
