@@ -137,7 +137,7 @@ class GlobalCollectorBeatTests(unittest.TestCase):
     def test_push_beat_sends_only_beat_items(self):
         import os, types, sys as _sys
         sent=[]
-        fake=types.SimpleNamespace(put=lambda name,doc,token: sent.append((name,doc,token)) or 200)
+        fake=types.SimpleNamespace(put=lambda name,doc,token,post=None,get=None: sent.append((name,doc,token,post)) or 200)
         os.environ["MCP_ACCESS_TOKEN"]="t"*20
         _sys.modules["scripts.private_store"]=fake
         import scripts
@@ -152,7 +152,8 @@ class GlobalCollectorBeatTests(unittest.TestCase):
             if orig is not None: scripts.private_store=orig
             _sys.modules.pop("scripts.private_store",None)
         self.assertEqual(len(sent),1)
-        name,doc,_=sent[0]
+        name,doc,_,post=sent[0]
+        self.assertTrue(callable(post))   # requests 없이 표준 라이브러리로 보낸다
         self.assertEqual((name,doc["schema"],[x["url"] for x in doc["items"]]),("global-beat","global_beat/v1",["https://w/a"]))
         self.assertTrue(doc["items"][0]["id"].startswith("gl:"))
         self.assertEqual(doc["items"][0]["checkTerms"],["원자로"])
