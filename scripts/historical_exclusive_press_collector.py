@@ -35,14 +35,16 @@ BEATS={
     "steel_nonferrous":"포스코 OR 현대제철 OR KG스틸 OR 세아제강 OR 고려아연",
     "power_equipment":"HD현대일렉트릭 OR LS일렉트릭 OR 대한전선 OR LS전선 OR 두산에너빌리티",
     "energy_chemicals":"OCI홀딩스 OR 한화솔루션 OR 씨에스윈드 OR 롯데케미칼 OR GS칼텍스",
+    # 11-01 기자 명시: 석유화학·정유 — 새 묶음의 13개월 창은 다음 실행부터 5개씩 처음 훑는다
+    "petchem_refining":"LG화학 OR 롯데케미칼 OR 금호석유화학 OR 에쓰오일 OR SK이노베이션 OR HD현대오일뱅크",
 }
 RSS_URL="https://news.google.com/rss/search?q={q}&hl=ko&gl=KR&ceid=KR:ko"
 MONTHS=13
-QUERIES_PER_RUN=5
+QUERIES_PER_RUN=6   # 한 실행에 한 달치 출입 묶음 전부(11-01 석유화학·정유 묶음 추가로 5→6)
 RECENT_WINDOW_DAYS=4
 INDUSTRY_TERMS=re.compile(
     r"철강|제철|후판|냉연|열연|배터리|리튬|수소|전기차|"
-    r"양극재|음극재|니켈|제련|제철소|HVDC|변압기|광산",re.I)
+    r"양극재|음극재|니켈|제련|제철소|HVDC|변압기|광산|석유화학|정유|나프타|NCC",re.I)
 CONSTRUCTION_POSCO=re.compile(
     r"포스코(?:이앤씨|E&C|건설)|"
     r"재건축|재개발|시공사|정비사업|도시정비|아파트",re.I)
@@ -124,7 +126,7 @@ def _all_month_beat_windows(now):
 def recent_searches(now):
     """Run ALL five short-window beat queries on each normal newsroom run.
 
-    This deliberately does not participate in the 65-slot historical rotation.
+    This deliberately does not participate in the 13-month × beat historical rotation (78 slots since 11-01).
     Search results are observed headlines, not an exhaustive list of reporting.
     """
     if now.tzinfo is None or now.utcoffset() is None:
@@ -193,7 +195,7 @@ def planned_searches(now,*,batch=None,limit=QUERIES_PER_RUN,previous=None):
             checked.append((last_ok,row))
     if due_failures:
         return due_failures[:limit]
-    # All 65 already attempted: refresh the oldest successful observations
+    # All slots already attempted: refresh the oldest successful observations
     # rather than tie selection to a wall-clock modulo (which can skip slots
     # when scheduled runs are cancelled or delayed).
     checked.sort(key=lambda x:(x[0],x[1]["windowId"]))
