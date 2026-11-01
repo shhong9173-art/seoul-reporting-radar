@@ -1,59 +1,62 @@
-"""Probe 78: 부처 보도자료 원천 — 정책브리핑 RSS가 7-1 중단돼, 부처 자체 게시판·공공데이터포털 정책브리핑 API 실제 주소를 한 번씩 본다(공개 보도자료).
-공정위·산업통상부·기후에너지환경부 robots.txt와 보도자료 목록 첫 쪽, data.go.kr 정책브리핑 API 안내 쪽의 요청 주소만."""
+"""Probe 79: (1) 공정위 보도자료 게시판 목록 칸(제목·날짜·부서) 형식, (2) 공공데이터포털 정책브리핑 API(policyNewsService2) 공유 키 응답 —
+정책뉴스와 보도자료 목록 연산 후보를 한 번씩. 공개 보도자료 제목·부처명만 몇 줄, 키 값은 남기지 않는다."""
+import os
 import re
 
 import requests
 
 H = {"User-Agent": "newsroom-official-research/1.0 (github.com/shhong9173-art/seoul-reporting-radar)"}
 out = []
+KEY = os.environ.get("DATA_GO_KR_KEY", "")
 
 
-def get(url, **kw):
+def clean(s):
+    return re.sub(r"\s+", " ", re.sub(r"(?s)<[^>]+>", " ", s)).strip()
+
+
+for key, ctg in [("12", "01,02"), ("13", "03")]:
     try:
-        r = requests.get(url, headers=H, timeout=30, **kw)
-        return r
+        r = requests.get("https://www.ftc.go.kr/www/selectBbsNttList.do", params={"bordCd": "3", "key": key, "searchCtgry": ctg}, headers=H, timeout=30)
+        out.append(f"ftc key={key} HTTP {r.status_code} len {len(r.text)}")
+        body = r.text.split("<tbody", 1)[-1].split("</tbody>", 1)[0]
+        trs = re.split(r"<tr[\s>]", body)[1:]
+        out.append(f"  rows {len(trs)}")
+        for tr in trs[:4]:
+            cells = [clean(c)[:60] for c in re.findall(r"<td[^>]*>(.*?)</td>", tr, re.S)]
+            href = re.search(r'href="([^"]*nttSn=\d+[^"]*)"', tr)
+            onclick = re.search(r"onclick=\"([^\"]{0,120})\"", tr)
+            out.append(f"  cells {cells}")
+            out.append(f"  href {(href.group(1) if href else '')[:120]} onclick {(onclick.group(1) if onclick else '')[:100]}")
     except Exception as e:  # noqa: BLE001
-        out.append(f"  ERR {url} {type(e).__name__} {str(e)[:80]}")
-        return None
+        out.append(f"ftc {type(e).__name__} {str(e)[:80]}")
 
-
-for host in ["https://www.ftc.go.kr", "https://www.motir.go.kr", "https://www.me.go.kr"]:
-    r = get(host + "/robots.txt")
-    if r is not None:
-        out.append(f"robots {host} HTTP {r.status_code}: " + re.sub(r"\s+", " ", r.text[:300]))
-
-r = get("https://www.ftc.go.kr/www/index.do")
-if r is not None:
-    out.append(f"ftc home HTTP {r.status_code} len {len(r.text)}")
-    links = set(re.findall(r'href="([^"]*(?:rss|Rss|RSS|bordCd|selectReport|selectBbs)[^"]*)"', r.text))
-    for h in sorted(links)[:25]:
-        out.append(f"  ftc link {h[:140]}")
-    for m in re.finditer(r'<a[^>]+href="([^"]+)"[^>]*>\s*([^<]{0,20}보도[^<]{0,20})<', r.text):
-        out.append(f"  ftc 보도 {m.group(2).strip()} -> {m.group(1)[:140]}")
-
-r = get("https://www.motir.go.kr/kor/article/ATCL3f49a5a8c")
-if r is not None:
-    out.append(f"motir list HTTP {r.status_code} len {len(r.text)}")
-    rows = re.findall(r'href="(/kor/article/ATCL3f49a5a8c/(\d+)/view[^"]*)"', r.text)
-    out.append(f"  motir rows {len(rows)} first ids {[x[1] for x in rows[:5]]}")
-    for h in sorted(set(re.findall(r'href="([^"]*(?:rss|RSS|Rss)[^"]*)"', r.text)))[:10]:
-        out.append(f"  motir rss href {h[:140]}")
-    dates = re.findall(r"20\d\d[-.]\d\d[-.]\d\d", r.text)
-    out.append(f"  motir dates {dates[:6]}")
-
-for did in ["15095335"]:
-    r = get(f"https://www.data.go.kr/data/{did}/openapi.do")
-    if r is not None:
-        paths = sorted(set(re.findall(r"apis\.data\.go\.kr/1371000/[A-Za-z0-9_/]+", r.text)))
-        out.append(f"datago {did} HTTP {r.status_code} paths {paths[:10]}")
-        ops = sorted(set(re.findall(r'"(/[A-Za-z]+List)"', r.text)))
-        out.append(f"  ops {ops[:10]}")
-
-r = get("https://www.data.go.kr/tcs/dss/selectDataSetList.do", params={"keyword": "정책브리핑 보도자료", "dType": "API"})
-if r is not None:
-    hits = re.findall(r'/data/(\d{8})/openapi\.do[^>]*>\s*(?:<[^>]+>\s*)*([^<]{3,80})', r.text)
-    out.append(f"datago search HTTP {r.status_code} hits {len(hits)}")
-    for did, title in hits[:12]:
-        out.append(f"  {did} {title.strip()[:70]}")
-open("/tmp/probe_out.txt", "w").write("\n".join(out))
-print("\n".join(out)[:600])
+base = "https://apis.data.go.kr/1371000/policyNewsService2"
+for op in ["policyNewsList", "pressReleaseList"]:
+    try:
+        r = requests.get(f"{base}/{op}", params={"serviceKey": KEY, "startDate": "20261029", "endDate": "20261031"}, headers=H, timeout=40)
+        t = r.text
+        code = re.search(r"<resultCode>([^<]*)</resultCode>", t)
+        msg = re.search(r"<resultMsg>([^<]*)</resultMsg>", t) or re.search(r"<returnAuthMsg>([^<]*)</returnAuthMsg>", t)
+        reason = re.search(r"<returnReasonCode>([^<]*)</returnReasonCode>", t)
+        items = re.findall(r"<NewsItem>(.*?)</NewsItem>", t, re.S)
+        out.append(f"api {op} HTTP {r.status_code} len {len(t)} code {code.group(1) if code else '-'} msg {(msg.group(1) if msg else '')[:60]} reason {reason.group(1) if reason else '-'} items {len(items)}")
+        if not items:
+            out.append("  head " + clean(t[:300]).replace(KEY, "<KEY>")[:300])
+        tags = sorted(set(re.findall(r"<([A-Za-z]+)>", items[0])))[:30] if items else []
+        out.append(f"  tags {tags}")
+        mins = {}
+        for it in items:
+            m = re.search(r"<MinisterCode>([^<]*)</MinisterCode>", it)
+            mins[m.group(1) if m else "?"] = mins.get(m.group(1) if m else "?", 0) + 1
+        out.append(f"  ministries {sorted(mins.items(), key=lambda x: -x[1])[:15]}")
+        for it in items[:4]:
+            ti = re.search(r"<Title>(.*?)</Title>", it, re.S)
+            ap = re.search(r"<ApproveDate>([^<]*)</ApproveDate>", it)
+            out.append(f"  {(ap.group(1) if ap else '')[:20]} | {clean(ti.group(1) if ti else '')[:60]}")
+    except Exception as e:  # noqa: BLE001
+        out.append(f"api {op} {type(e).__name__} {str(e)[:80]}")
+text = "\n".join(out)
+if KEY:
+    text = text.replace(KEY, "<KEY>")
+open("/tmp/probe_out.txt", "w").write(text)
+print(text[:600])
