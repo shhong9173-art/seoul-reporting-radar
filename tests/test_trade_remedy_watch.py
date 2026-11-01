@@ -507,12 +507,40 @@ Dongkuk Coated Metal Co., Ltd./Aju Steel Co., Ltd........... 19.43
 Companies Not Selected for Individual Review \\12\\........... 20.58
 ------------------------------------------------------------------------
 Disclosure
+For companies not selected for individual examination, we assign the rate above.
+Appendix I
+List of Topics Discussed in the Preliminary Decision Memorandum
+I. Summary
 Appendix II
-Non-Selected Companies Under Review
+Review-Specific Rate Applicable to Companies Not Selected for
+Individual Review
 1. Hyundai Steel Company
 2. POSCO
+3. POSCO International Corporation
+4. SeAH Coated Metal
 5. SeAH Steel Corporation
+Appendix III
+Companies With No Reviewable Entries
+1. Dongbu Incheon Steel Co., Ltd.
+2. Dongkuk Steel Mill Co., Ltd.
+3. POSCO Coated & Color Steel Co., Ltd.
+4. TCC Steel Corp.
 [FR Doc. 2026-20698 Filed 10-7-26; 8:45 am]
+BILLING CODE 3510-DS-P
+"""
+LINE_PIPE = """Commerce is amending its Amended Final Determination and its antidumping duty Order with
+respect to SeAH Steel Corporation (SeAH) and all other producers and exporters. The revised
+estimated weighted-average dumping margins are as follows:
+------------------------------------------------------------------------
+Weighted-
+average
+Exporter or producer dumping
+margin
+(percent)
+------------------------------------------------------------------------
+SeAH........................................................ 4.55
+All Others.................................................. 5.39
+------------------------------------------------------------------------
 """
 CORE_AD_FINAL = """Final Results of Review
 ------------------------------------------------------------------------
@@ -561,7 +589,12 @@ class DutyRates(unittest.TestCase):
         self.assertEqual(t["othersRate"], 2.22)
         t = w.rate_table(CORE_AD_PRELIM, CORE_AD_TITLE)
         self.assertEqual((t["kind"], t["rates"]["KG스틸"]["rate"], t["rates"]["동국씨엠"]["rate"], t["othersRate"]), ("반덤핑", 23.40, 19.43, 20.58))
-        self.assertEqual((t["rates"]["현대제철"]["via"], t["rates"]["포스코"]["rate"]), ("비선정", 20.58))
+        self.assertEqual((t["rates"]["현대제철"]["via"], t["rates"]["포스코"]["rate"], t["rates"]["세아제강"]["rate"]), ("비선정", 20.58, 20.58))
+        self.assertNotIn("동국제강", t["rates"])   # 부록 III(재심 취소·대상 거래 없음)는 세율을 받지 않는다
+        lp = w.rate_table(LINE_PIPE, "Welded Line Pipe From the Republic of Korea: Notice of Court Decision Not in Harmony With the Less-Than-Fair-Value Amended Final Determination")
+        self.assertEqual((lp["rates"]["세아제강"]["rate"], lp["othersRate"]), (4.55, 5.39))   # 본문이 정한 줄임말 'SeAH'
+        self.assertEqual(w.aliases("HD Hyundai Electric Co., Ltd. (Hyundai) and Iljin Electric Co., Ltd. (Iljin)"), {"Hyundai": "HD현대일렉트릭", "Iljin": "일진전기(관련)"})
+        self.assertEqual(w.aliases("Commerce selected Hyundai Steel and Dongbu Incheon Steel Co., Ltd. (Dongbu Incheon)"), {})   # 괄호 앞이 다른 회사
         f = w.rate_table(CORE_AD_FINAL, "… Final Results and Rescission, in Part, of Antidumping Duty Administrative Review; 2023-2024")
         self.assertEqual(sorted(f["rates"]), sorted(["동국씨엠", "동국제강", "현대제철", "KG스틸", "포스코", "세아제강"]))
         self.assertEqual(f["rates"]["포스코"]["name"], "POSCO")   # POSCO International 줄이 아니라 POSCO 줄
@@ -613,6 +646,9 @@ class DutyRates(unittest.TestCase):
         again, _, read2 = w.federal_register(NOW, {"federalRegister": rows}, get=self.fr_get(docs, bodies, calls), sleep=lambda s: None)
         self.assertEqual((read2, len(calls) - n), (0, 1))   # 목록 조회 한 번뿐 — 본문·직전 판정은 저장본
         self.assertEqual(again[0]["rateChange"], row["rateChange"])
+        again[0]["rateTable"].pop("v")   # 예전 규칙으로 저장된 세율은 다시 읽는다(직전 판정도)
+        third, _, read3 = w.federal_register(NOW, {"federalRegister": again}, get=self.fr_get(docs, bodies, calls), sleep=lambda s: None)
+        self.assertEqual((read3, third[0]["rateTable"]["v"], third[0]["prior"]["final"]["id"]), (1, w.RATE_RULES, "fr:2026-09691"))
 
     def test_same_rates_as_last_final_is_no_change_and_sunset_is_not_compared(self):
         row = {"id": "fr:2026-22343", "date": "2026-11-02", "title": "Large Power Transformers From the Republic of Korea: Preliminary Results of Antidumping Duty Administrative Review; 2024-2025",
