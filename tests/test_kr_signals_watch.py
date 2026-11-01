@@ -650,13 +650,74 @@ class BriefingNewMinistryBaseline(unittest.TestCase):
         self.assertNotIn("briefing:156786670", {x["id"] for x in items})  # 저장된 줄도 다시 거름
 
 
+def ulsan_row(no, did, title, dept, date):
+    return (f'<tr> <td class="re_blind7">{no}</td> <td class="ta_l" style="padding-left:0px;"> <a href="./view.do?mId=001004003001000000&amp;'
+            f'bbsId=BBS_0000000000000027&amp;dataId={did}" onclick="fn_view(\'{did}\');return false;"> {title}</a> </td> '
+            f'<td class="re_blind7">{dept}</td> <td> {date}</td> <td class="re_blind7">247</td> </tr>')
+
+
+def cn_row(no, nid, title, dept, date):
+    return (f'<tr> <td> {no} </td> <td class="td-subj"> <a href="/cnportal/cnapcPressList/cnapcPress/view.do?nttId={nid}&menuNo=500498&pageIndex=1" '
+            f'class="tit" title="{title}">{title}</a> </td> <td> {dept}</td> <td>{date}</td> <td>99</td> </tr>')
+
+
+def table(rows):
+    return f"<table><tbody>{''.join(rows)}</tbody></table>"
+
+
+# 11-01 운영 목록 형식(probe 88)
+ULSAN_PAGE = table([ulsan_row("51814", "184854", "‘2026 KOREA 울산 세계궁도대회’개막", "체육지원과", "2026.10.30"),
+                    ulsan_row("51813", "184850", "울산시, 고려아연과 온산제련소 이차전지 소재 증설 투자협약", "투자유치과", "2026.10.30"),
+                    ulsan_row("51812", "184849", "석유화학 산업위기 대응 지역 협의회 개최", "산업정책과", "2026.10.29")])
+CN_PAGE = table([cn_row("3089", "2185409", "충남도립대 건축인테리어학과, 강의실 밖에서 건축의 답 찾다", "충남도립대학교 교무학생처", "2026-10-31"),
+                 cn_row("3088", "2185400", "도, 현대제철 당진제철소와 탄소중립 업무협약", "기후환경정책과", "2026-10-30")])
+
+
+def province_routes(fail=None):
+    def make(page, name):
+        def fn(method, url, kw):
+            if name == fail:
+                return ConnectionError("blocked")
+            p = int((kw.get("params") or {}).get("pageIndex", 1))
+            return Resp(page if p == 1 else table([]))
+        return fn
+    return {"https://www.ulsan.go.kr/u/rep/bbs/list.ulsan": make(ULSAN_PAGE, "울산광역시"),
+            "https://www.chungnam.go.kr/cnportal/cnapcPressList/cnapcPress/list.do": make(CN_PAGE, "충청남도")}
+
+
+class ProvincePress(unittest.TestCase):
+    def test_parse_filter_and_links(self):
+        rows = w.parse_province(ULSAN_PAGE, CFG["provinces"]["sites"][0])
+        self.assertEqual(rows[1], {"id": "province:울산광역시:184850", "site": "울산광역시", "title": "울산시, 고려아연과 온산제련소 이차전지 소재 증설 투자협약",
+                                   "dept": "투자유치과", "date": "2026-10-30",
+                                   "url": "https://www.ulsan.go.kr/u/rep/bbs/view.do?mId=001004003001000000&bbsId=BBS_0000000000000027&dataId=184850"})
+        cn = w.parse_province(CN_PAGE, CFG["provinces"]["sites"][1])
+        self.assertEqual(cn[1]["url"], "https://www.chungnam.go.kr/cnportal/cnapcPressList/cnapcPress/view.do?nttId=2185400&menuNo=500498&pageIndex=1")
+        items, check = w.province(CFG, NOW, None, http(province_routes()))
+        by = {x["id"]: x for x in items}
+        self.assertEqual(by["province:울산광역시:184850"]["companies"], ["고려아연"])
+        self.assertEqual(by["province:충청남도:2185400"]["companies"], ["현대제철"])
+        self.assertIn("province:울산광역시:184849", by)  # 석유화학 + 위기
+        self.assertNotIn("province:울산광역시:184854", by)
+        self.assertNotIn("province:충청남도:2185409", by)
+        self.assertEqual((check["status"], check["listed"], check["kept"]), ("ok", 5, 3))
+        self.assertFalse(any(x["isNew"] for x in items))
+
+    def test_blocked_runner_is_unconfirmed_and_keeps_rows(self):
+        first, _ = w.province(CFG, NOW, None, http(province_routes()))
+        items, check = w.province(CFG, NOW, {"province": first, "provinceRead": ["울산광역시", "충청남도"]}, http(province_routes(fail="울산광역시")))
+        self.assertEqual(check["status"], "partial")
+        self.assertIn("울산광역시 ConnectionError", check["error"])
+        self.assertIn("province:울산광역시:184850", {x["id"] for x in items})
+
+
 class RunDoc(unittest.TestCase):
     def test_document_shape_and_unset_kepco_not_partial(self):
-        routes = {**ftc_routes([KUMHO]), **komis_routes({"MNRL0023": komis_series("2026-01-01", "2026-10-26")}), **motir_routes(), **ftc_press_routes(), **briefing_routes()}
+        routes = {**ftc_routes([KUMHO]), **komis_routes({"MNRL0023": komis_series("2026-01-01", "2026-10-26")}), **motir_routes(), **ftc_press_routes(), **briefing_routes(), **province_routes()}
         doc = w.run(flat_cfg(), now=NOW, previous=None, http=http(routes), kepco_key="")
         self.assertEqual(doc["schema"], "kr_signals/v1")
         self.assertEqual(doc["status"], "complete")
-        self.assertEqual([c["source"] for c in doc["checks"]], ["공정위 의결서", "한전 전자입찰", "산업통상부 보도자료", "공정위 보도자료", "정책브리핑 부처 보도자료", "KOMIS 아연"])
+        self.assertEqual([c["source"] for c in doc["checks"]], ["공정위 의결서", "한전 전자입찰", "산업통상부 보도자료", "공정위 보도자료", "정책브리핑 부처 보도자료", "시·도 보도자료", "KOMIS 아연"])
         self.assertEqual(doc["confirmedScoops"], 0)
         self.assertTrue(isinstance(doc["prices"], list) and doc["prices"])
 

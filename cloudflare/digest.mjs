@@ -440,6 +440,13 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
     push(named ? 'B' : 'C', W['kr-signals'], { kind: `${x.ministry} 발표`, id: x.id, date: x.date, company: (x.companies ?? []).join('·') || x.ministry,
       fact: `${x.ministry} 보도자료: ${x.title}`, url: x.url, check: named ? hint(x.companies[0], [x.ministry.replace(/부$/, '')]) : undefined });
   }
+  // 시·도 보도자료(울산·충남): 제목에 출입처 이름이면 B(지자체 발표 — 투자 규모는 회사 확인 전 지자체 주장), 투자·위기+업종 낱말만이면 C
+  for (const x of ks?.province ?? []) {
+    if (!(all || String(x.date ?? '') >= cutDay)) continue;
+    const named = (x.companies ?? []).length;
+    push(named ? 'B' : 'C', W['kr-signals'], { kind: `${x.site} 발표`, id: x.id, date: x.date, company: (x.companies ?? []).join('·') || x.site,
+      fact: `${x.site} 보도자료${x.dept ? `(${x.dept})` : ''}: ${x.title}`, url: x.url, check: named ? hint(x.companies[0], [x.site.replace(/광역시|도$/, '')]) : undefined });
+  }
   for (const e of ks?.events ?? []) {
     if (!recent(e.detectedAt)) continue;
     const tier = e.kind === '원자재 가격' ? (/최고|최저/.test(e.signal ?? '') ? 'B' : 'C') : 'B';
