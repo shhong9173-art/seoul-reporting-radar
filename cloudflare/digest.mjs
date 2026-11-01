@@ -7,7 +7,7 @@ import { dispatchHealth } from './dispatch.mjs';
 import { clampInt, safeEqual, textResult, uniqueList } from './common.mjs';
 import { classLabel, waitReason } from './trademarks.mjs';
 import { billLine, groupBillEvents } from './assembly.mjs';
-import { buildingLine, factoryEventText, identityNote } from './overseas.mjs';
+import { buildingLine, factoryEventText, identityNote, rateChangeText, rateText } from './overseas.mjs';
 
 const KST_MS = 9 * 3600000;
 const kstDate = (ms) => new Date(ms + KST_MS).toISOString().slice(0, 10);
@@ -472,9 +472,14 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
     const odd = names.length ? (x.memoUnusual ?? []) : [];
     const memo = odd.length ? ` · 결정문 목차에 흔치 않은 항목(관보 부록 원문): "${String(odd[0]).slice(0, 160)}"${odd.length > 1 ? ` 외 ${odd.length - 1}` : ''}`
       : (x.memoNamed ?? []).length ? ` · 결정문 목차에 출입처: "${String(x.memoNamed[0]).slice(0, 120)}"` : '';
-    push(odd.length ? 'A' : names.length ? 'B' : 'C', W['trade-remedy'], { kind: odd.length ? '미국 관보 결정문 목차' : '미국 관보', id: x.id, date: x.date, company: names.join('·'),
-      fact: `미국 관보 ${x.stage}: ${x.title}${names.length ? ` — 본문에 ${names.join('·')}` : ''}${memo}`, url: x.url,
-      check: hint(names[0], ['관세', odd.length ? '보조금' : '판정']) });
+    // 출입처 세율이 같은 사건 직전 판정보다 5%p 넘게 바뀌거나 0.5% 미만↔5% 이상(새 조사는 처음 5% 이상)이면 A(10-08 도금강판 0%→23.40% → 10-30 [단독])
+    const changed = x.rateChange ?? [];
+    const rates = names.length || changed.length ? rateText(x) : '';
+    const kind = changed.length ? '미국 관보 세율 변화' : odd.length ? '미국 관보 결정문 목차' : '미국 관보';
+    const who = changed.length ? changed.map((c) => c.company) : names;
+    push(odd.length || changed.length ? 'A' : names.length ? 'B' : 'C', W['trade-remedy'], { kind, id: x.id, date: x.date, company: [...new Set([...who, ...names])].join('·'),
+      fact: `미국 관보 ${x.stage}: ${x.title}${changed.length ? ` — 세율 크게 바뀜: ${rateChangeText(x)}` : ''}${names.length ? ` — 본문에 ${names.join('·')}` : ''}${rates}${memo}`, url: x.url,
+      check: hint(who[0], ['관세', changed.length ? (x.rateTable?.kind === '상계관세' ? '상계관세' : '반덤핑') : odd.length ? '보조금' : '판정']) });
   }
 
   const lit = docs['us-litigation'];
