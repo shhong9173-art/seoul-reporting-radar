@@ -1,13 +1,13 @@
 {
-  "generatedAt": "2026-10-29T11:18:37+09:00",
+  "generatedAt": "2026-11-01T17:55:36+09:00",
   "reportYear": 2025,
   "priorYear": 2024,
   "source": "OpenDART list.json + 사업보고서 document.xml 원문",
   "scope": "직접 출입처 완성차·부품·타이어·철강·비철·전력기기·에너지 21개사 · II. 사업의 내용",
   "basis": "공식 원문 사업의 내용에서 수주·생산·가동·매출 표를 발췌. 표 간 원시 숫자 자동 비교 금지",
   "statuses": {
-    "insufficient_comparable_evidence": 4,
-    "source_pairs_to_review": 17
+    "insufficient_comparable_evidence": 6,
+    "source_pairs_to_review": 21
   },
   "companies": [
     {
@@ -14353,9 +14353,5518 @@
         "제품군·사업장·고객사 변경이 수주잔고 또는 생산능력에 미치는 실제 영향은?",
         "같은 사실이 기업 IR과 기존 산업전문지에 이미 공개됐는가?"
       ]
+    },
+    {
+      "company": "LG화학",
+      "corpCode": "00356361",
+      "periods": {
+        "2024": {
+          "year": 2024,
+          "status": "evidence_found",
+          "receiptNo": "20250731000339",
+          "tables": [
+            {
+              "topic": "segmentSales",
+              "topicName": "제품·사업부별 매출",
+              "receiptNo": "20250731000339",
+              "unit": "백만원",
+              "context": "매출실적 [공통및기타부문] (단위: 백만원)",
+              "reportingEntity": "공통및기타부문",
+              "classificationHeading": "매출실적",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "내 수",
+                  "7,880,936",
+                  "8,044,290",
+                  "9,491,776"
+                ],
+                [
+                  "합 계",
+                  "18,619,494",
+                  "17,208,803",
+                  "21,151,355"
+                ],
+                [
+                  "내 수",
+                  "1,223,415",
+                  "1,169,641",
+                  "1,163,498"
+                ],
+                [
+                  "합 계",
+                  "2,657,248",
+                  "2,441,790",
+                  "2,538,394"
+                ],
+                [
+                  "내 수",
+                  "902,827",
+                  "779,091",
+                  "548,873"
+                ],
+                [
+                  "합 계",
+                  "1,269,051",
+                  "1,128,075",
+                  "849,289"
+                ],
+                [
+                  "내 수",
+                  "12,824,564",
+                  "13,640,543",
+                  "8,725,257"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            }
+          ],
+          "reportName": "[기재정정]사업보고서 (2024.12)",
+          "published": "20250731",
+          "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250731000339",
+          "documentName": "20250731000339.xml"
+        },
+        "2025": {
+          "year": 2025,
+          "status": "evidence_found",
+          "receiptNo": "20260313001195",
+          "tables": [
+            {
+              "topic": "segmentSales",
+              "topicName": "제품·사업부별 매출",
+              "receiptNo": "20260313001195",
+              "unit": "백만원",
+              "context": "매출실적 [공통및기타부문] (단위: 백만원)",
+              "reportingEntity": "공통및기타부문",
+              "classificationHeading": "매출실적",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "내 수",
+                  "7,466,686",
+                  "7,899,456",
+                  "8,064,078"
+                ],
+                [
+                  "합 계",
+                  "17,568,310",
+                  "18,638,014",
+                  "17,228,591"
+                ],
+                [
+                  "내 수",
+                  "1,535,161",
+                  "1,177,684",
+                  "1,124,834"
+                ],
+                [
+                  "합 계",
+                  "2,638,526",
+                  "2,422,378",
+                  "2,215,930"
+                ],
+                [
+                  "내 수",
+                  "950,553",
+                  "902,827",
+                  "779,091"
+                ],
+                [
+                  "합 계",
+                  "1,345,422",
+                  "1,269,051",
+                  "1,128,075"
+                ],
+                [
+                  "내 수",
+                  "13,819,265",
+                  "12,824,564",
+                  "13,640,543"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            }
+          ],
+          "reportName": "사업보고서 (2025.12)",
+          "published": "20260313",
+          "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260313001195",
+          "documentName": "20260313001195.xml"
+        }
+      },
+      "pairs": [
+        {
+          "topic": "segmentSales",
+          "topicName": "제품·사업부별 매출",
+          "unit": "백만원",
+          "before": {
+            "topic": "segmentSales",
+            "topicName": "제품·사업부별 매출",
+            "receiptNo": "20250731000339",
+            "unit": "백만원",
+            "context": "매출실적 [공통및기타부문] (단위: 백만원)",
+            "reportingEntity": "공통및기타부문",
+            "classificationHeading": "매출실적",
+            "extractionVersion": "heading-scope-v2",
+            "rows": [
+              [
+                "내 수",
+                "7,880,936",
+                "8,044,290",
+                "9,491,776"
+              ],
+              [
+                "합 계",
+                "18,619,494",
+                "17,208,803",
+                "21,151,355"
+              ],
+              [
+                "내 수",
+                "1,223,415",
+                "1,169,641",
+                "1,163,498"
+              ],
+              [
+                "합 계",
+                "2,657,248",
+                "2,441,790",
+                "2,538,394"
+              ],
+              [
+                "내 수",
+                "902,827",
+                "779,091",
+                "548,873"
+              ],
+              [
+                "합 계",
+                "1,269,051",
+                "1,128,075",
+                "849,289"
+              ],
+              [
+                "내 수",
+                "12,824,564",
+                "13,640,543",
+                "8,725,257"
+              ]
+            ],
+            "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+          },
+          "after": {
+            "topic": "segmentSales",
+            "topicName": "제품·사업부별 매출",
+            "receiptNo": "20260313001195",
+            "unit": "백만원",
+            "context": "매출실적 [공통및기타부문] (단위: 백만원)",
+            "reportingEntity": "공통및기타부문",
+            "classificationHeading": "매출실적",
+            "extractionVersion": "heading-scope-v2",
+            "rows": [
+              [
+                "내 수",
+                "7,466,686",
+                "7,899,456",
+                "8,064,078"
+              ],
+              [
+                "합 계",
+                "17,568,310",
+                "18,638,014",
+                "17,228,591"
+              ],
+              [
+                "내 수",
+                "1,535,161",
+                "1,177,684",
+                "1,124,834"
+              ],
+              [
+                "합 계",
+                "2,638,526",
+                "2,422,378",
+                "2,215,930"
+              ],
+              [
+                "내 수",
+                "950,553",
+                "902,827",
+                "779,091"
+              ],
+              [
+                "합 계",
+                "1,345,422",
+                "1,269,051",
+                "1,128,075"
+              ],
+              [
+                "내 수",
+                "13,819,265",
+                "12,824,564",
+                "13,640,543"
+              ]
+            ],
+            "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+          },
+          "status": "동일 주제·표시 단위 후보, 비교 열·사업범위 확인 전",
+          "numericChange": null,
+          "needsManualVerification": true
+        }
+      ],
+      "status": "source_pairs_to_review",
+      "questions": [
+        "표에 제시된 기준 기간·수량 단위·연결/별도 범위가 같은가?",
+        "제품군·사업장·고객사 변경이 수주잔고 또는 생산능력에 미치는 실제 영향은?",
+        "같은 사실이 기업 IR과 기존 산업전문지에 이미 공개됐는가?"
+      ]
+    },
+    {
+      "company": "롯데케미칼",
+      "corpCode": "00165413",
+      "periods": {
+        "2024": {
+          "year": 2024,
+          "status": "no_supported_tables",
+          "receiptNo": "20250725000806",
+          "tables": [],
+          "reportName": "[기재정정]사업보고서 (2024.12)",
+          "published": "20250725",
+          "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250725000806",
+          "documentName": "20250725000806.xml"
+        },
+        "2025": {
+          "year": 2025,
+          "status": "evidence_found",
+          "receiptNo": "20260312001296",
+          "tables": [
+            {
+              "topic": "orderBacklog",
+              "topicName": "수주잔고",
+              "receiptNo": "20260312001296",
+              "unit": null,
+              "context": "수주상황 [롯데에너지머티리얼즈] ",
+              "reportingEntity": "롯데에너지머티리얼즈",
+              "classificationHeading": "수주상황",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "기간",
+                  "2020.06.24 ~ 2025.12.31",
+                  "2021.04.07 ~ 2031.04.06",
+                  "2022.06.24 ~ 2030.12.31",
+                  "2023.05.05 ~ 2033.05.03(*)"
+                ],
+                [
+                  "물량",
+                  "30,000톤",
+                  "17,147톤",
+                  "거래처가 필요로 하는연간 이차전지용 일렉포일 전체 물량의 60%",
+                  "-"
+                ],
+                [
+                  "비고",
+                  "-",
+                  "-",
+                  "상호합의하 연간 공급의무물량을 5% 범위내 혹은20% 범위내 증가가능",
+                  "-"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            }
+          ],
+          "reportName": "사업보고서 (2025.12)",
+          "published": "20260312",
+          "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260312001296",
+          "documentName": "20260312001296.xml"
+        }
+      },
+      "pairs": [],
+      "status": "insufficient_comparable_evidence",
+      "questions": [
+        "표에 제시된 기준 기간·수량 단위·연결/별도 범위가 같은가?",
+        "제품군·사업장·고객사 변경이 수주잔고 또는 생산능력에 미치는 실제 영향은?",
+        "같은 사실이 기업 IR과 기존 산업전문지에 이미 공개됐는가?"
+      ]
+    },
+    {
+      "company": "금호석유화학",
+      "corpCode": "00106368",
+      "periods": {
+        "2024": {
+          "year": 2024,
+          "status": "evidence_found",
+          "receiptNo": "20250317000810",
+          "tables": [
+            {
+              "topic": "productionCapacity",
+              "topicName": "생산능력",
+              "receiptNo": "20250317000810",
+              "unit": null,
+              "context": "생산능력 및 생산능력의 산출근거 (1) 생산능력 [주요종속회사:ASIANAWEIHAICOUNTRYCLUB&RESORTCo.,Ltd.] ",
+              "reportingEntity": "주요종속회사:ASIANAWEIHAICOUNTRYCLUB&RESORTCo.,Ltd.",
+              "classificationHeading": "생산능력 및 생산능력의 산출근거 (1) 생산능력",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "사업부문",
+                  "품목",
+                  "사업소",
+                  "단위",
+                  "제48기",
+                  "제47기",
+                  "제46기"
+                ],
+                [
+                  "합성수지",
+                  "울산",
+                  "천톤",
+                  "1,023",
+                  "1,023",
+                  "989"
+                ],
+                [
+                  "LATEX",
+                  "울산",
+                  "천톤",
+                  "1,031",
+                  "795",
+                  "793"
+                ],
+                [
+                  "BD",
+                  "울산/여수",
+                  "천톤",
+                  "237",
+                  "237",
+                  "237"
+                ],
+                [
+                  "정밀화학",
+                  "여수",
+                  "천톤",
+                  "71",
+                  "71",
+                  "71"
+                ],
+                [
+                  "CNT",
+                  "아산",
+                  "천톤",
+                  "0.240",
+                  "0.120",
+                  "0.120"
+                ],
+                [
+                  "건자재",
+                  "예산",
+                  "천톤",
+                  "16",
+                  "16",
+                  "16"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "productionCapacity",
+              "topicName": "생산능력",
+              "receiptNo": "20250317000810",
+              "unit": null,
+              "context": "생산능력 및 생산능력의 산출근거- 생산능력 [주요종속회사:금호피앤비화학(주)] ",
+              "reportingEntity": "주요종속회사:금호피앤비화학(주)",
+              "classificationHeading": "생산능력 및 생산능력의 산출근거- 생산능력",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "사업부문",
+                  "품 목",
+                  "사업소",
+                  "2024년",
+                  "2023년",
+                  "2022년"
+                ],
+                [
+                  "PHENOL",
+                  "1공장",
+                  "680",
+                  "680",
+                  "680"
+                ],
+                [
+                  "ACETONE",
+                  "1공장",
+                  "420",
+                  "420",
+                  "420"
+                ],
+                [
+                  "BPA",
+                  "2공장",
+                  "450",
+                  "450",
+                  "450"
+                ],
+                [
+                  "MIBK",
+                  "2공장",
+                  "60",
+                  "60",
+                  "60"
+                ],
+                [
+                  "EPOXY",
+                  "2공장, 김포",
+                  "338",
+                  "278",
+                  "278"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "productionCapacity",
+              "topicName": "생산능력",
+              "receiptNo": "20250317000810",
+              "unit": null,
+              "context": "생산능력 및 생산능력의 산출근거- 생산능력 [주요종속회사:금호폴리켐(주)] ",
+              "reportingEntity": "주요종속회사:금호폴리켐(주)",
+              "classificationHeading": "생산능력 및 생산능력의 산출근거- 생산능력",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "사업부문",
+                  "품 목",
+                  "2024년",
+                  "2023년",
+                  "2022년"
+                ],
+                [
+                  "TPV,KEPA",
+                  "12",
+                  "12",
+                  "12"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "productionCapacity",
+              "topicName": "생산능력",
+              "receiptNo": "20250317000810",
+              "unit": null,
+              "context": "생산능력 및 생산능력의 산출근거- 생산능력 [주요종속회사:금호티앤엘(주)] ",
+              "reportingEntity": "주요종속회사:금호티앤엘(주)",
+              "classificationHeading": "생산능력 및 생산능력의 산출근거- 생산능력",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "사업부문",
+                  "취급설비",
+                  "사업소",
+                  "2024년",
+                  "2023년",
+                  "2022년"
+                ],
+                [
+                  "하 역",
+                  "하역기",
+                  "여수",
+                  "1,467",
+                  "1,584",
+                  "1,641"
+                ],
+                [
+                  "TDF생산",
+                  "청원",
+                  "8.8",
+                  "8.32",
+                  "8.74"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "productionCapacity",
+              "topicName": "생산능력",
+              "receiptNo": "20250317000810",
+              "unit": null,
+              "context": "생산능력 및 생산능력의 산출근거- 생산능력 [주요시설현황] ",
+              "reportingEntity": "주요시설현황",
+              "classificationHeading": "생산능력 및 생산능력의 산출근거- 생산능력",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "글램핑&카라반",
+                  "41동 : 글램핑31동, 카라반10동"
+                ],
+                [
+                  "골프장",
+                  "아시아나CC",
+                  "회원제 36홀"
+                ],
+                [
+                  "기타",
+                  "워터파크",
+                  "연면적 : 19,378㎡, 7,100명 수용"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "productionCapacity",
+              "topicName": "생산능력",
+              "receiptNo": "20250317000810",
+              "unit": null,
+              "context": "생산능력 및 생산능력의 산출근거- 생산능력 [주요시설현황] ",
+              "reportingEntity": "주요시설현황",
+              "classificationHeading": "생산능력 및 생산능력의 산출근거- 생산능력",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "숙박시설",
+                  "호텔, 빌라",
+                  "호텔 53실, 빌라 28채"
+                ],
+                [
+                  "골프장",
+                  "골프",
+                  "회원제 18홀"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "utilization",
+              "topicName": "가동률",
+              "receiptNo": "20250317000810",
+              "unit": null,
+              "context": "당해 사업연도의 가동률 [주요시설현황] ",
+              "reportingEntity": "주요시설현황",
+              "classificationHeading": "당해 사업연도의 가동률",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "합성고무부문",
+                  "8,040",
+                  "5,653",
+                  "70%"
+                ],
+                [
+                  "합성수지부문",
+                  "8,040",
+                  "4,791",
+                  "60%"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "investment",
+              "topicName": "진행·계획 투자",
+              "receiptNo": "20250317000810",
+              "unit": "천원",
+              "context": "설비의 신설ㆍ매입 계획 등- 해당사항 없음(나) 향후 투자계획- 경상적 투자 외에 계획된 투자는 없음 [주요종속회사:금호피앤비화학(주)] (단위: 천원)",
+              "reportingEntity": "주요종속회사:금호피앤비화학(주)",
+              "classificationHeading": "설비의 신설ㆍ매입 계획 등- 해당사항 없음(나) 향후 투자계획- 경상적 투자 외에 계획된 투자는 없음",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "건 물",
+                  "58,641,288",
+                  "-",
+                  "-",
+                  "12,625,949",
+                  "(1,949,239)",
+                  "69,317,999"
+                ],
+                [
+                  "구 축 물",
+                  "120,326,195",
+                  "-",
+                  "(51,623)",
+                  "4,844,066",
+                  "(8,878,352)",
+                  "116,240,285"
+                ],
+                [
+                  "기계장치",
+                  "323,609,105",
+                  "-",
+                  "(115,023)",
+                  "72,482,460",
+                  "(39,883,036)",
+                  "356,093,506"
+                ],
+                [
+                  "차량운반구",
+                  "508,634",
+                  "-",
+                  "-",
+                  "-",
+                  "(162,583)",
+                  "346,051"
+                ],
+                [
+                  "공구와기구",
+                  "2,140,864",
+                  "-",
+                  "(45)",
+                  "210,144",
+                  "(751,913)",
+                  "1,599,050"
+                ],
+                [
+                  "비 품",
+                  "540,795",
+                  "-",
+                  "(3)",
+                  "668,053",
+                  "(271,939)",
+                  "936,905"
+                ],
+                [
+                  "건설중인자산",
+                  "95,036,438",
+                  "49,589,007",
+                  "-",
+                  "(93,848,513)",
+                  "-",
+                  "50,776,933"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "investment",
+              "topicName": "진행·계획 투자",
+              "receiptNo": "20250317000810",
+              "unit": null,
+              "context": "설비의 신설ㆍ매입 계획 등(가) 진행중인 투자 [주요종속회사:금호폴리켐(주)] ",
+              "reportingEntity": "주요종속회사:금호폴리켐(주)",
+              "classificationHeading": "설비의 신설ㆍ매입 계획 등(가) 진행중인 투자",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "EPDM 5 Line",
+                  "70,000MT",
+                  "2025년 1분기",
+                  "2,940억"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "investment",
+              "topicName": "진행·계획 투자",
+              "receiptNo": "20250317000810",
+              "unit": "백만원",
+              "context": "향후 투자계획- 경상적 투자 외에 계획된 투자는 없음. [주요 종속회사 : 금호티앤엘(주)] (1) 운영설비의 현황 [주요종속회사:금호티앤엘(주)] (단위: 백만원)",
+              "reportingEntity": "주요종속회사:금호티앤엘(주)",
+              "classificationHeading": "향후 투자계획- 경상적 투자 외에 계획된 투자는 없음. [주요 종속회사 : 금호티앤엘(주)] (1) 운영설비의 현황",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "건물",
+                  "21,738",
+                  "-",
+                  "-",
+                  "(743)",
+                  "-",
+                  "20,995"
+                ],
+                [
+                  "구축물",
+                  "64,202",
+                  "50",
+                  "(14)",
+                  "(2,220)",
+                  "-",
+                  "62,018"
+                ],
+                [
+                  "기계장치",
+                  "47,633",
+                  "1,995",
+                  "(614)",
+                  "(6,380)",
+                  "-",
+                  "42,634"
+                ],
+                [
+                  "차량운반구",
+                  "32",
+                  "-",
+                  "-",
+                  "(7)",
+                  "-",
+                  "25"
+                ],
+                [
+                  "공구와기구",
+                  "6",
+                  "-",
+                  "-",
+                  "(4)",
+                  "-",
+                  "2"
+                ],
+                [
+                  "비품",
+                  "119",
+                  "22",
+                  "-",
+                  "(39)",
+                  "-",
+                  "102"
+                ],
+                [
+                  "건설중인자산",
+                  "285",
+                  "-",
+                  "-",
+                  "-",
+                  "12",
+                  "297"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "segmentSales",
+              "topicName": "제품·사업부별 매출",
+              "receiptNo": "20250317000810",
+              "unit": "백만원",
+              "context": "매출실적 [주요종속회사:ASIANAWEIHAICOUNTRYCLUB&RESORTCo.,Ltd.] (단위: 백만원)",
+              "reportingEntity": "주요종속회사:ASIANAWEIHAICOUNTRYCLUB&RESORTCo.,Ltd.",
+              "classificationHeading": "매출실적",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "수 출",
+                  "2,247,365",
+                  "1,737,276",
+                  "2,096,791"
+                ],
+                [
+                  "합 계",
+                  "2,795,259",
+                  "2,162,199",
+                  "2,578,915"
+                ],
+                [
+                  "수 출",
+                  "838,004",
+                  "788,027",
+                  "1,055,797"
+                ],
+                [
+                  "합 계",
+                  "1,282,978",
+                  "1,250,083",
+                  "1,594,459"
+                ],
+                [
+                  "수 출",
+                  "135,585",
+                  "137,115",
+                  "167,032"
+                ],
+                [
+                  "합 계",
+                  "166,736",
+                  "164,163",
+                  "205,981"
+                ],
+                [
+                  "수 출",
+                  "3,739",
+                  "4,737",
+                  "33,681"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "segmentSales",
+              "topicName": "제품·사업부별 매출",
+              "receiptNo": "20250317000810",
+              "unit": "백만원",
+              "context": "매출실적 [주요종속회사:금호피앤비화학(주)] (단위: 백만원)",
+              "reportingEntity": "주요종속회사:금호피앤비화학(주)",
+              "classificationHeading": "매출실적",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "내 수",
+                  "821,554",
+                  "710,452",
+                  "926,986"
+                ],
+                [
+                  "합 계",
+                  "1,628,774",
+                  "1,478,389",
+                  "2,161,832"
+                ],
+                [
+                  "내 수",
+                  "34,805",
+                  "29,990",
+                  "29,703"
+                ],
+                [
+                  "합 계",
+                  "36,560",
+                  "35,135",
+                  "35,756"
+                ],
+                [
+                  "합 계",
+                  "-",
+                  "-",
+                  "4,896"
+                ],
+                [
+                  "내 수",
+                  "856,359",
+                  "740,442",
+                  "956,689"
+                ],
+                [
+                  "합 계",
+                  "1,665,334",
+                  "1,513,525",
+                  "2,202,484"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "segmentSales",
+              "topicName": "제품·사업부별 매출",
+              "receiptNo": "20250317000810",
+              "unit": "백만원",
+              "context": "매출실적 [주요종속회사:금호폴리켐(주)] (단위: 백만원)",
+              "reportingEntity": "주요종속회사:금호폴리켐(주)",
+              "classificationHeading": "매출실적",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "사업부문",
+                  "매출유형",
+                  "품 목",
+                  "2024년",
+                  "2023년",
+                  "2022년"
+                ],
+                [
+                  "부산물",
+                  "1,150",
+                  "948",
+                  "1,122"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "segmentSales",
+              "topicName": "제품·사업부별 매출",
+              "receiptNo": "20250317000810",
+              "unit": "백만원",
+              "context": "매출실적 [주요종속회사:금호티앤엘(주)] (단위: 백만원)",
+              "reportingEntity": "주요종속회사:금호티앤엘(주)",
+              "classificationHeading": "매출실적",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "사업부문",
+                  "매출유형",
+                  "2024년",
+                  "2023년",
+                  "2022년"
+                ],
+                [
+                  "하 역",
+                  "서비스",
+                  "46,937",
+                  "41,850",
+                  "38,129"
+                ],
+                [
+                  "운 송",
+                  "서비스",
+                  "8,907",
+                  "7,448",
+                  "8,476"
+                ],
+                [
+                  "용 역",
+                  "서비스",
+                  "3,165",
+                  "2,960",
+                  "2,815"
+                ],
+                [
+                  "제품공급",
+                  "TDF공급",
+                  "36,142",
+                  "32,468",
+                  "29,374"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "segmentSales",
+              "topicName": "제품·사업부별 매출",
+              "receiptNo": "20250317000810",
+              "unit": "백만원",
+              "context": "매출실적 [주요종속회사:금호리조트(주)] (단위: 백만원)",
+              "reportingEntity": "주요종속회사:금호리조트(주)",
+              "classificationHeading": "매출실적",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "내 수",
+                  "62,225",
+                  "63,499",
+                  "55,948"
+                ],
+                [
+                  "내 수",
+                  "10,370",
+                  "10,787",
+                  "7,324"
+                ],
+                [
+                  "내 수",
+                  "34,055",
+                  "33,984",
+                  "34,391"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "segmentSales",
+              "topicName": "제품·사업부별 매출",
+              "receiptNo": "20250317000810",
+              "unit": null,
+              "context": "매출실적 [주요종속회사:ASIANAWEIHAICOUNTRYCLUB&RESORTCo.,Ltd.] ",
+              "reportingEntity": "주요종속회사:ASIANAWEIHAICOUNTRYCLUB&RESORTCo.,Ltd.",
+              "classificationHeading": "매출실적",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "내 수",
+                  "40,321",
+                  "31,926",
+                  "29,989"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            }
+          ],
+          "reportName": "사업보고서 (2024.12)",
+          "published": "20250317",
+          "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250317000810",
+          "documentName": "20250317000810.xml"
+        },
+        "2025": {
+          "year": 2025,
+          "status": "evidence_found",
+          "receiptNo": "20260318001268",
+          "tables": [
+            {
+              "topic": "productionCapacity",
+              "topicName": "생산능력",
+              "receiptNo": "20260318001268",
+              "unit": null,
+              "context": "생산능력 및 생산능력의 산출근거 (1) 생산능력 [주요종속회사:ASIANAWEIHAICOUNTRYCLUB&RESORTCo.,Ltd.] ",
+              "reportingEntity": "주요종속회사:ASIANAWEIHAICOUNTRYCLUB&RESORTCo.,Ltd.",
+              "classificationHeading": "생산능력 및 생산능력의 산출근거 (1) 생산능력",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "사업부문",
+                  "품목",
+                  "사업소",
+                  "단위",
+                  "제49기",
+                  "제48기",
+                  "제47기"
+                ],
+                [
+                  "합성수지",
+                  "울산",
+                  "천톤",
+                  "1,023",
+                  "1,023",
+                  "1,023"
+                ],
+                [
+                  "LATEX",
+                  "울산",
+                  "천톤",
+                  "1,031",
+                  "1,031",
+                  "795"
+                ],
+                [
+                  "BD",
+                  "울산/여수",
+                  "천톤",
+                  "237",
+                  "237",
+                  "237"
+                ],
+                [
+                  "정밀화학",
+                  "여수",
+                  "천톤",
+                  "71",
+                  "71",
+                  "71"
+                ],
+                [
+                  "CNT",
+                  "아산",
+                  "천톤",
+                  "0.360",
+                  "0.240",
+                  "0.120"
+                ],
+                [
+                  "건자재",
+                  "예산",
+                  "천톤",
+                  "16",
+                  "16",
+                  "16"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "productionCapacity",
+              "topicName": "생산능력",
+              "receiptNo": "20260318001268",
+              "unit": null,
+              "context": "생산능력 [주요종속회사:금호피앤비화학(주)] ",
+              "reportingEntity": "주요종속회사:금호피앤비화학(주)",
+              "classificationHeading": "생산능력",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "사업부문",
+                  "품 목",
+                  "사업소",
+                  "2025년",
+                  "2024년",
+                  "2023년"
+                ],
+                [
+                  "PHENOL",
+                  "1공장",
+                  "680",
+                  "680",
+                  "680"
+                ],
+                [
+                  "ACETONE",
+                  "1공장",
+                  "420",
+                  "420",
+                  "420"
+                ],
+                [
+                  "BPA",
+                  "2공장",
+                  "450",
+                  "450",
+                  "450"
+                ],
+                [
+                  "MIBK",
+                  "2공장",
+                  "60",
+                  "60",
+                  "60"
+                ],
+                [
+                  "EPOXY",
+                  "2공장, 김포",
+                  "338",
+                  "338",
+                  "278"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "productionCapacity",
+              "topicName": "생산능력",
+              "receiptNo": "20260318001268",
+              "unit": null,
+              "context": "생산능력 [주요종속회사:금호폴리켐(주)] ",
+              "reportingEntity": "주요종속회사:금호폴리켐(주)",
+              "classificationHeading": "생산능력",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "사업부문",
+                  "품 목",
+                  "2025년",
+                  "2024년",
+                  "2023년"
+                ],
+                [
+                  "TPV,KEPA",
+                  "12",
+                  "12",
+                  "12"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "utilization",
+              "topicName": "가동률",
+              "receiptNo": "20260318001268",
+              "unit": "시간",
+              "context": "당해 사업연도의 가동률 [주요시설현황] (단위: 시간)",
+              "reportingEntity": "주요시설현황",
+              "classificationHeading": "당해 사업연도의 가동률",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "합성고무부문",
+                  "8,040",
+                  "5,601",
+                  "70%"
+                ],
+                [
+                  "합성수지부문",
+                  "8,040",
+                  "4,500",
+                  "56%"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "utilization",
+              "topicName": "가동률",
+              "receiptNo": "20260318001268",
+              "unit": null,
+              "context": "당해 사업연도의 가동률 [주요종속회사:금호피앤비화학(주)] ",
+              "reportingEntity": "주요종속회사:금호피앤비화학(주)",
+              "classificationHeading": "당해 사업연도의 가동률",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "사업부문",
+                  "품 목",
+                  "사업소",
+                  "2025년",
+                  "2024년",
+                  "2023년"
+                ],
+                [
+                  "제 품",
+                  "김포",
+                  "8",
+                  "7",
+                  "6"
+                ],
+                [
+                  "부산물",
+                  "여수",
+                  "54",
+                  "54",
+                  "58"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "utilization",
+              "topicName": "가동률",
+              "receiptNo": "20260318001268",
+              "unit": "시간",
+              "context": "당해 사업연도의 가동률 [주요종속회사:금호피앤비화학(주)] (단위: 시간)",
+              "reportingEntity": "주요종속회사:금호피앤비화학(주)",
+              "classificationHeading": "당해 사업연도의 가동률",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "여수공장 외",
+                  "8,760",
+                  "7,537",
+                  "86.04%"
+                ],
+                [
+                  "합 계",
+                  "8,760",
+                  "7,537",
+                  "86.04%"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "utilization",
+              "topicName": "가동률",
+              "receiptNo": "20260318001268",
+              "unit": null,
+              "context": "당해 사업연도의 가동률 [주요종속회사:금호폴리켐(주)] ",
+              "reportingEntity": "주요종속회사:금호폴리켐(주)",
+              "classificationHeading": "당해 사업연도의 가동률",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "사업부문",
+                  "품 목",
+                  "2025년",
+                  "2024년",
+                  "2023년"
+                ],
+                [
+                  "TPV,KEPA",
+                  "5",
+                  "6",
+                  "5"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "utilization",
+              "topicName": "가동률",
+              "receiptNo": "20260318001268",
+              "unit": null,
+              "context": "당해 사업연도의 가동률 [주요종속회사:금호폴리켐(주)] ",
+              "reportingEntity": "주요종속회사:금호폴리켐(주)",
+              "classificationHeading": "당해 사업연도의 가동률",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "TPV,KEPA",
+                  "8,760",
+                  "3,826",
+                  "43.7%"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "utilization",
+              "topicName": "가동률",
+              "receiptNo": "20260318001268",
+              "unit": null,
+              "context": "당해 사업연도의 가동률 [주요종속회사:금호티앤엘(주)] ",
+              "reportingEntity": "주요종속회사:금호티앤엘(주)",
+              "classificationHeading": "당해 사업연도의 가동률",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "제조(율촌)",
+                  "TDF생산",
+                  "5,475",
+                  "5,430",
+                  "99%"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "utilization",
+              "topicName": "가동률",
+              "receiptNo": "20260318001268",
+              "unit": "시간",
+              "context": "당해 사업연도의 가동률 [주요종속회사:금호티앤엘(주)] (단위: 시간)",
+              "reportingEntity": "주요종속회사:금호티앤엘(주)",
+              "classificationHeading": "당해 사업연도의 가동률",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "제조(청원)",
+                  "TDF생산",
+                  "5,840",
+                  "5,792",
+                  "100.00%"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "investment",
+              "topicName": "진행·계획 투자",
+              "receiptNo": "20260318001268",
+              "unit": null,
+              "context": "진행 중인 투자 [주요종속회사:금호폴리켐(주)] ",
+              "reportingEntity": "주요종속회사:금호폴리켐(주)",
+              "classificationHeading": "진행 중인 투자",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "TPV 3Line",
+                  "10,000 MT",
+                  "2028년 내",
+                  "260억 원"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "investment",
+              "topicName": "진행·계획 투자",
+              "receiptNo": "20260318001268",
+              "unit": "백만원",
+              "context": "향후 투자계획- 경상적 투자 외에 계획된 투자는 없음. [주요종속회사:금호티앤엘(주)] (단위: 백만원)",
+              "reportingEntity": "주요종속회사:금호티앤엘(주)",
+              "classificationHeading": "향후 투자계획- 경상적 투자 외에 계획된 투자는 없음.",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "건물",
+                  "20,994",
+                  "",
+                  "(22)",
+                  "(742)",
+                  "",
+                  "20,230"
+                ],
+                [
+                  "구축물",
+                  "62,018",
+                  "",
+                  "",
+                  "(2,220)",
+                  "",
+                  "59,797"
+                ],
+                [
+                  "기계장치",
+                  "42,635",
+                  "1640",
+                  "(121)",
+                  "(6,492)",
+                  "",
+                  "37,661"
+                ],
+                [
+                  "차량운반구",
+                  "25",
+                  "",
+                  "",
+                  "(7)",
+                  "",
+                  "19"
+                ],
+                [
+                  "공구와기구",
+                  "2",
+                  "",
+                  "",
+                  "(1)",
+                  "",
+                  "1"
+                ],
+                [
+                  "비품",
+                  "102.462",
+                  "111",
+                  "",
+                  "(40)",
+                  "",
+                  "174"
+                ],
+                [
+                  "건설중인자산",
+                  "297",
+                  "363",
+                  "",
+                  "",
+                  "22.461",
+                  "683"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "segmentSales",
+              "topicName": "제품·사업부별 매출",
+              "receiptNo": "20260318001268",
+              "unit": "백만원",
+              "context": "매출실적 [주요종속회사:ASIANAWEIHAICOUNTRYCLUB&RESORTCo.,Ltd.] (단위: 백만원)",
+              "reportingEntity": "주요종속회사:ASIANAWEIHAICOUNTRYCLUB&RESORTCo.,Ltd.",
+              "classificationHeading": "매출실적",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "수 출",
+                  "2,218,156",
+                  "2,247,365",
+                  "1,737,276"
+                ],
+                [
+                  "합 계",
+                  "2,671,376",
+                  "2,795,259",
+                  "2,162,199"
+                ],
+                [
+                  "수 출",
+                  "766,926",
+                  "838,004",
+                  "788,027"
+                ],
+                [
+                  "합 계",
+                  "1,173,028",
+                  "1,282,978",
+                  "1,250,083"
+                ],
+                [
+                  "수 출",
+                  "147,140",
+                  "135,585",
+                  "137,115"
+                ],
+                [
+                  "합 계",
+                  "182,122",
+                  "166,736",
+                  "164,163"
+                ],
+                [
+                  "수 출",
+                  "4,088",
+                  "3,739",
+                  "4,737"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "segmentSales",
+              "topicName": "제품·사업부별 매출",
+              "receiptNo": "20260318001268",
+              "unit": "백만원",
+              "context": "매출실적 [주요종속회사:금호피앤비화학(주)] (단위: 백만원)",
+              "reportingEntity": "주요종속회사:금호피앤비화학(주)",
+              "classificationHeading": "매출실적",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "내 수",
+                  "646,816",
+                  "821,554",
+                  "710,452"
+                ],
+                [
+                  "합 계",
+                  "1,606,047",
+                  "1,628,774",
+                  "1,478,389"
+                ],
+                [
+                  "내 수",
+                  "32,825",
+                  "34,805",
+                  "29,990"
+                ],
+                [
+                  "합 계",
+                  "35,386",
+                  "36,560",
+                  "35,135"
+                ],
+                [
+                  "내 수",
+                  "10",
+                  "-",
+                  "-"
+                ],
+                [
+                  "합 계",
+                  "10",
+                  "-",
+                  "-"
+                ],
+                [
+                  "내 수",
+                  "679,651",
+                  "856,359",
+                  "740,442"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "segmentSales",
+              "topicName": "제품·사업부별 매출",
+              "receiptNo": "20260318001268",
+              "unit": "백만원",
+              "context": "매출실적 [주요종속회사:금호폴리켐(주)] (단위: 백만원)",
+              "reportingEntity": "주요종속회사:금호폴리켐(주)",
+              "classificationHeading": "매출실적",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "사업부문",
+                  "매출유형",
+                  "품 목",
+                  "2025년",
+                  "2024년",
+                  "2023년"
+                ],
+                [
+                  "부산물",
+                  "1,343",
+                  "1,150",
+                  "948"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "segmentSales",
+              "topicName": "제품·사업부별 매출",
+              "receiptNo": "20260318001268",
+              "unit": "백만원",
+              "context": "매출실적 [주요종속회사:금호티앤엘(주)] (단위: 백만원)",
+              "reportingEntity": "주요종속회사:금호티앤엘(주)",
+              "classificationHeading": "매출실적",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "사업부문",
+                  "매출유형",
+                  "2025년",
+                  "2024년",
+                  "2023년"
+                ],
+                [
+                  "하 역",
+                  "서비스",
+                  "48,018",
+                  "46,937",
+                  "41,850"
+                ],
+                [
+                  "운 송",
+                  "서비스",
+                  "9,330",
+                  "8,907",
+                  "7,448"
+                ],
+                [
+                  "용 역",
+                  "서비스",
+                  "3,222",
+                  "3,165",
+                  "2,960"
+                ],
+                [
+                  "제품공급",
+                  "TDF공급",
+                  "37,907",
+                  "36,142",
+                  "32,468"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "segmentSales",
+              "topicName": "제품·사업부별 매출",
+              "receiptNo": "20260318001268",
+              "unit": "백만원",
+              "context": "매출실적 [주요종속회사:금호리조트(주)] (단위: 백만원)",
+              "reportingEntity": "주요종속회사:금호리조트(주)",
+              "classificationHeading": "매출실적",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "사업부문",
+                  "매출유형",
+                  "2025년",
+                  "2024년",
+                  "2023년"
+                ],
+                [
+                  "워터파크, 글램핑",
+                  "11,239",
+                  "10,370",
+                  "10,787"
+                ],
+                [
+                  "골프",
+                  "골프장",
+                  "34,149",
+                  "34,055",
+                  "33,984"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "segmentSales",
+              "topicName": "제품·사업부별 매출",
+              "receiptNo": "20260318001268",
+              "unit": null,
+              "context": "매출실적 [주요종속회사:ASIANAWEIHAICOUNTRYCLUB&RESORTCo.,Ltd.] ",
+              "reportingEntity": "주요종속회사:ASIANAWEIHAICOUNTRYCLUB&RESORTCo.,Ltd.",
+              "classificationHeading": "매출실적",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "내 수",
+                  "27,880",
+                  "40,321",
+                  "31,926"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            }
+          ],
+          "reportName": "사업보고서 (2025.12)",
+          "published": "20260318",
+          "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260318001268",
+          "documentName": "20260318001268.xml"
+        }
+      },
+      "pairs": [],
+      "status": "insufficient_comparable_evidence",
+      "questions": [
+        "표에 제시된 기준 기간·수량 단위·연결/별도 범위가 같은가?",
+        "제품군·사업장·고객사 변경이 수주잔고 또는 생산능력에 미치는 실제 영향은?",
+        "같은 사실이 기업 IR과 기존 산업전문지에 이미 공개됐는가?"
+      ]
+    },
+    {
+      "company": "S-Oil",
+      "corpCode": "00138279",
+      "periods": {
+        "2024": {
+          "year": 2024,
+          "status": "evidence_found",
+          "receiptNo": "20250319000503",
+          "tables": [
+            {
+              "topic": "productionCapacity",
+              "topicName": "생산능력",
+              "receiptNo": "20250319000503",
+              "unit": null,
+              "context": "생산능력 및 생산능력의 산출근거 ",
+              "reportingEntity": "",
+              "classificationHeading": "생산능력 및 생산능력의 산출근거",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "Polymer",
+                  "천톤",
+                  "797",
+                  "743",
+                  "701"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "productionCapacity",
+              "topicName": "생산능력",
+              "receiptNo": "20250319000503",
+              "unit": null,
+              "context": "생산능력 및 생산능력의 산출근거 ",
+              "reportingEntity": "",
+              "classificationHeading": "생산능력 및 생산능력의 산출근거",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "Polymer*",
+                  "톤/년",
+                  "765,000",
+                  "347.5일",
+                  "8,339시간"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "segmentSales",
+              "topicName": "제품·사업부별 매출",
+              "receiptNo": "20250319000503",
+              "unit": "백만원",
+              "context": "매출실적 (단위: 백만원)",
+              "reportingEntity": "",
+              "classificationHeading": "매출실적",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "내수",
+                  "495,207",
+                  "525,411",
+                  "705,578"
+                ],
+                [
+                  "합계",
+                  "495,207",
+                  "525,411",
+                  "705,578"
+                ],
+                [
+                  "내수",
+                  "2,816,179",
+                  "2,775,836",
+                  "3,128,305"
+                ],
+                [
+                  "합계",
+                  "6,692,912",
+                  "6,135,964",
+                  "6,613,268"
+                ],
+                [
+                  "내수",
+                  "1,501,484",
+                  "1,333,284",
+                  "1,249,934"
+                ],
+                [
+                  "합계",
+                  "2,121,553",
+                  "1,873,461",
+                  "2,213,426"
+                ],
+                [
+                  "내수",
+                  "670,816",
+                  "689,257",
+                  "731,215"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "orderBacklog",
+              "topicName": "수주잔고",
+              "receiptNo": "20250319000503",
+              "unit": null,
+              "context": "수주상황 ",
+              "reportingEntity": "",
+              "classificationHeading": "수주상황",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "Idemitsu Kosan 등",
+                  "윤활기유 제품",
+                  "2022.01.01",
+                  "2026.12.31",
+                  "840",
+                  "163,255",
+                  "840"
+                ],
+                [
+                  "대한유화주식회사",
+                  "납사",
+                  "2024.01.01",
+                  "2024.12.31",
+                  "15,426",
+                  "1,491,981",
+                  "15,426"
+                ],
+                [
+                  "Aramco Trading Singapore",
+                  "정유제품",
+                  "2023.02.01",
+                  "2026.01.31",
+                  "64,655",
+                  "8,185,202",
+                  "64,655"
+                ],
+                [
+                  "Motiva Enterprises",
+                  "윤활기유 제품",
+                  "2021.06.01",
+                  "2025.12.31",
+                  "1,268",
+                  "271,739",
+                  "1,268"
+                ],
+                [
+                  "Saudi Basic Industries Corporation*",
+                  "폴리프로필렌(PP)",
+                  "2023.05.04",
+                  "2027.12.31",
+                  "502",
+                  "98,131",
+                  "502"
+                ],
+                [
+                  "이수화학",
+                  "정유제품",
+                  "2022.10.01",
+                  "2025.09.30",
+                  "8,567",
+                  "1,160,629",
+                  "8,567"
+                ],
+                [
+                  "대한항공",
+                  "정유제품",
+                  "2024.01.01",
+                  "2024.12.31",
+                  "2,427",
+                  "335,288",
+                  "2,427"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "orderBacklog",
+              "topicName": "수주잔고",
+              "receiptNo": "20250319000503",
+              "unit": null,
+              "context": "수주상황 ",
+              "reportingEntity": "",
+              "classificationHeading": "수주상황",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "구분",
+                  "제50기 (2024년)",
+                  "제49기 (2023년)",
+                  "제48기 (2022년)"
+                ],
+                [
+                  "합계",
+                  "458,323",
+                  "478,764",
+                  "431,422"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            }
+          ],
+          "reportName": "사업보고서 (2024.12)",
+          "published": "20250319",
+          "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250319000503",
+          "documentName": "20250319000503.xml"
+        },
+        "2025": {
+          "year": 2025,
+          "status": "evidence_found",
+          "receiptNo": "20260320000559",
+          "tables": [
+            {
+              "topic": "productionCapacity",
+              "topicName": "생산능력",
+              "receiptNo": "20260320000559",
+              "unit": null,
+              "context": "생산능력 및 생산능력의 산출근거 ",
+              "reportingEntity": "",
+              "classificationHeading": "생산능력 및 생산능력의 산출근거",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "Polymer",
+                  "천톤",
+                  "805",
+                  "797",
+                  "743"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "productionCapacity",
+              "topicName": "생산능력",
+              "receiptNo": "20260320000559",
+              "unit": null,
+              "context": "생산능력 및 생산능력의 산출근거 ",
+              "reportingEntity": "",
+              "classificationHeading": "생산능력 및 생산능력의 산출근거",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "Polymer (*)",
+                  "톤/년",
+                  "765,000",
+                  "350.9일",
+                  "8,422시간"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "segmentSales",
+              "topicName": "제품·사업부별 매출",
+              "receiptNo": "20260320000559",
+              "unit": "백만원",
+              "context": "매출실적 (단위: 백만원)",
+              "reportingEntity": "",
+              "classificationHeading": "매출실적",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "내수",
+                  "500,499",
+                  "495,207",
+                  "525,411"
+                ],
+                [
+                  "합계",
+                  "500,499",
+                  "495,207",
+                  "525,411"
+                ],
+                [
+                  "내수",
+                  "2,693,219",
+                  "2,816,179",
+                  "2,775,836"
+                ],
+                [
+                  "합계",
+                  "5,927,466",
+                  "6,692,912",
+                  "6,135,964"
+                ],
+                [
+                  "내수",
+                  "1,374,972",
+                  "1,501,484",
+                  "1,333,284"
+                ],
+                [
+                  "합계",
+                  "2,014,508",
+                  "2,121,553",
+                  "1,873,461"
+                ],
+                [
+                  "내수",
+                  "673,755",
+                  "670,816",
+                  "689,257"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "orderBacklog",
+              "topicName": "수주잔고",
+              "receiptNo": "20260320000559",
+              "unit": null,
+              "context": "수주상황 ",
+              "reportingEntity": "",
+              "classificationHeading": "수주상황",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "Idemitsu Kosan",
+                  "윤활기유 제품",
+                  "2022.02.28",
+                  "2026.12.31",
+                  "764",
+                  "136,041",
+                  "764"
+                ],
+                [
+                  "Aramco Trading Singapore",
+                  "정유제품",
+                  "2022.09.28",
+                  "2026.12.31",
+                  "54,846",
+                  "6,375,285",
+                  "54,846"
+                ],
+                [
+                  "Motiva Enterprises",
+                  "윤활기유 제품",
+                  "2021.06.01",
+                  "2025.12.31",
+                  "1,705",
+                  "316,822",
+                  "1,705"
+                ],
+                [
+                  "Saudi Basic Industries Corporation(*1)",
+                  "폴리프로필렌",
+                  "2023.05.04",
+                  "2027.12.31",
+                  "86,542",
+                  "104,141",
+                  "86,542"
+                ],
+                [
+                  "DLA Energy",
+                  "정유제품",
+                  "2024.12.19",
+                  "2025.12.31",
+                  "7,067",
+                  "806,008",
+                  "7,067"
+                ],
+                [
+                  "대한유화주식회사(*2)",
+                  "정유제품(납사)",
+                  "2024.12.20",
+                  "2025.12.31",
+                  "15,129",
+                  "1,395,481",
+                  "15,129"
+                ],
+                [
+                  "대한항공",
+                  "정유제품",
+                  "2025.01.01",
+                  "2025.12.31",
+                  "2,278",
+                  "298,709",
+                  "2,278"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            }
+          ],
+          "reportName": "사업보고서 (2025.12)",
+          "published": "20260320",
+          "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260320000559",
+          "documentName": "20260320000559.xml"
+        }
+      },
+      "pairs": [
+        {
+          "topic": "segmentSales",
+          "topicName": "제품·사업부별 매출",
+          "unit": "백만원",
+          "before": {
+            "topic": "segmentSales",
+            "topicName": "제품·사업부별 매출",
+            "receiptNo": "20250319000503",
+            "unit": "백만원",
+            "context": "매출실적 (단위: 백만원)",
+            "reportingEntity": "",
+            "classificationHeading": "매출실적",
+            "extractionVersion": "heading-scope-v2",
+            "rows": [
+              [
+                "내수",
+                "495,207",
+                "525,411",
+                "705,578"
+              ],
+              [
+                "합계",
+                "495,207",
+                "525,411",
+                "705,578"
+              ],
+              [
+                "내수",
+                "2,816,179",
+                "2,775,836",
+                "3,128,305"
+              ],
+              [
+                "합계",
+                "6,692,912",
+                "6,135,964",
+                "6,613,268"
+              ],
+              [
+                "내수",
+                "1,501,484",
+                "1,333,284",
+                "1,249,934"
+              ],
+              [
+                "합계",
+                "2,121,553",
+                "1,873,461",
+                "2,213,426"
+              ],
+              [
+                "내수",
+                "670,816",
+                "689,257",
+                "731,215"
+              ]
+            ],
+            "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+          },
+          "after": {
+            "topic": "segmentSales",
+            "topicName": "제품·사업부별 매출",
+            "receiptNo": "20260320000559",
+            "unit": "백만원",
+            "context": "매출실적 (단위: 백만원)",
+            "reportingEntity": "",
+            "classificationHeading": "매출실적",
+            "extractionVersion": "heading-scope-v2",
+            "rows": [
+              [
+                "내수",
+                "500,499",
+                "495,207",
+                "525,411"
+              ],
+              [
+                "합계",
+                "500,499",
+                "495,207",
+                "525,411"
+              ],
+              [
+                "내수",
+                "2,693,219",
+                "2,816,179",
+                "2,775,836"
+              ],
+              [
+                "합계",
+                "5,927,466",
+                "6,692,912",
+                "6,135,964"
+              ],
+              [
+                "내수",
+                "1,374,972",
+                "1,501,484",
+                "1,333,284"
+              ],
+              [
+                "합계",
+                "2,014,508",
+                "2,121,553",
+                "1,873,461"
+              ],
+              [
+                "내수",
+                "673,755",
+                "670,816",
+                "689,257"
+              ]
+            ],
+            "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+          },
+          "status": "동일 주제·표시 단위 후보, 비교 열·사업범위 확인 전",
+          "numericChange": null,
+          "needsManualVerification": true
+        }
+      ],
+      "status": "source_pairs_to_review",
+      "questions": [
+        "표에 제시된 기준 기간·수량 단위·연결/별도 범위가 같은가?",
+        "제품군·사업장·고객사 변경이 수주잔고 또는 생산능력에 미치는 실제 영향은?",
+        "같은 사실이 기업 IR과 기존 산업전문지에 이미 공개됐는가?"
+      ]
+    },
+    {
+      "company": "SK이노베이션",
+      "corpCode": "00631518",
+      "periods": {
+        "2024": {
+          "year": 2024,
+          "status": "evidence_found",
+          "receiptNo": "20250318000862",
+          "tables": [
+            {
+              "topic": "productionCapacity",
+              "topicName": "생산능력",
+              "receiptNo": "20250318000862",
+              "unit": null,
+              "context": "생산능력 및 생산능력의 산출근거 (1) 최대생산능력 [SK에너지㈜] ",
+              "reportingEntity": "SK에너지㈜",
+              "classificationHeading": "생산능력 및 생산능력의 산출근거 (1) 최대생산능력",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "사업부문",
+                  "품목",
+                  "사업소",
+                  "2024년 연간",
+                  "2023년 연간",
+                  "2022년 연간"
+                ],
+                [
+                  "석유사업",
+                  "석유류",
+                  "울산CLX",
+                  "306,600",
+                  "306,600",
+                  "306,600"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "productionCapacity",
+              "topicName": "생산능력",
+              "receiptNo": "20250318000862",
+              "unit": null,
+              "context": "생산능력 및 생산능력의 산출근거 (1) 최대생산능력 [SK에너지㈜] ",
+              "reportingEntity": "SK에너지㈜",
+              "classificationHeading": "생산능력 및 생산능력의 산출근거 (1) 최대생산능력",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "구 분",
+                  "분 류",
+                  "공정명 주1)",
+                  "생산능력 주2)"
+                ],
+                [
+                  "No.2 CDU",
+                  "110"
+                ],
+                [
+                  "No.3 CDU",
+                  "170"
+                ],
+                [
+                  "No.4 CDU",
+                  "240"
+                ],
+                [
+                  "No.5 CDU",
+                  "260"
+                ],
+                [
+                  "No.1 RFCC",
+                  "68"
+                ],
+                [
+                  "No.2 RFCC",
+                  "94.5"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "productionCapacity",
+              "topicName": "생산능력",
+              "receiptNo": "20250318000862",
+              "unit": null,
+              "context": "생산능력 및 생산능력의 산출근거 (1) 최대생산능력 [SK에너지㈜] ",
+              "reportingEntity": "SK에너지㈜",
+              "classificationHeading": "생산능력 및 생산능력의 산출근거 (1) 최대생산능력",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "사업부문",
+                  "생산능력(일) 주1)",
+                  "4분기 누적 가동가능일수",
+                  "4분기 누적 최대생산능력",
+                  "4분기 누적 실제 처리량 주2)",
+                  "4분기 누적 평균 가동률",
+                  "비고"
+                ],
+                [
+                  "울산 CLX",
+                  "840",
+                  "345",
+                  "289,550",
+                  "248,542",
+                  "85.8%",
+                  "-"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "productionCapacity",
+              "topicName": "생산능력",
+              "receiptNo": "20250318000862",
+              "unit": null,
+              "context": "생산능력 및 생산능력의 산출근거 (1) 최대생산능력 [SK에너지㈜] ",
+              "reportingEntity": "SK에너지㈜",
+              "classificationHeading": "생산능력 및 생산능력의 산출근거 (1) 최대생산능력",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "Naphtha",
+                  "울산CLX",
+                  "45,728",
+                  "48,601",
+                  "48,371"
+                ],
+                [
+                  "Kerosene",
+                  "울산CLX",
+                  "3,095",
+                  "3,557",
+                  "4,313"
+                ],
+                [
+                  "Diesel",
+                  "울산CLX",
+                  "91,145",
+                  "92,829",
+                  "93,354"
+                ],
+                [
+                  "Bunker-C",
+                  "울산CLX",
+                  "16,937",
+                  "18,431",
+                  "23,454"
+                ],
+                [
+                  "Asphalt",
+                  "울산CLX",
+                  "6,275",
+                  "7,871",
+                  "7,137"
+                ],
+                [
+                  "LPG",
+                  "울산CLX",
+                  "4,698",
+                  "3,176",
+                  "3,510"
+                ],
+                [
+                  "항공유",
+                  "울산CLX",
+                  "28,476",
+                  "28,335",
+                  "25,347"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "productionCapacity",
+              "topicName": "생산능력",
+              "receiptNo": "20250318000862",
+              "unit": null,
+              "context": "생산능력 (누적) [SK지오센트릭㈜] ",
+              "reportingEntity": "SK지오센트릭㈜",
+              "classificationHeading": "생산능력 (누적)",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "사업부문",
+                  "품 목",
+                  "사업소",
+                  "제14기 (2024년)",
+                  "제13기 (2023년)",
+                  "제12기 (2022년)"
+                ],
+                [
+                  "기초유화사업",
+                  "화학제품",
+                  "울산Complex",
+                  "6,004",
+                  "6,077",
+                  "6,142"
+                ],
+                [
+                  "화학소재사업",
+                  "화학제품",
+                  "울산Complex 등",
+                  "1,031",
+                  "953",
+                  "1,032"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "productionCapacity",
+              "topicName": "생산능력",
+              "receiptNo": "20250318000862",
+              "unit": null,
+              "context": "생산능력의 산출근거 ① 산출기준: 각 개별공정의 최대생산능력 [SK지오센트릭㈜] ",
+              "reportingEntity": "SK지오센트릭㈜",
+              "classificationHeading": "생산능력의 산출근거 ① 산출기준: 각 개별공정의 최대생산능력",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "프로필렌",
+                  "380,000",
+                  "톤/년"
+                ],
+                [
+                  "부타디엔",
+                  "130,000",
+                  "톤/년"
+                ],
+                [
+                  "MTBE",
+                  "178,000",
+                  "톤/년"
+                ],
+                [
+                  "부텐-1",
+                  "44,000",
+                  "톤/년"
+                ],
+                [
+                  "BTX",
+                  "3,303,000",
+                  "톤/년"
+                ],
+                [
+                  "파라자일렌",
+                  "1,330,000",
+                  "톤/년"
+                ],
+                [
+                  "올소자일렌",
+                  "200,000",
+                  "톤/년"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "productionCapacity",
+              "topicName": "생산능력",
+              "receiptNo": "20250318000862",
+              "unit": null,
+              "context": "생산능력의 산출근거 ① 산출기준: 각 개별공정의 최대생산능력 [SK지오센트릭㈜] ",
+              "reportingEntity": "SK지오센트릭㈜",
+              "classificationHeading": "생산능력의 산출근거 ① 산출기준: 각 개별공정의 최대생산능력",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "구 분",
+                  "최대생산능력 (톤/일) A",
+                  "제14기 가동가능일수(일) B",
+                  "제14기 생산능력(천톤) A ×B / 1,000",
+                  "비고"
+                ],
+                [
+                  "기초유화사업",
+                  "17,008",
+                  "353.0",
+                  "6,004",
+                  "최대생산능력"
+                ],
+                [
+                  "화학소재사업",
+                  "2,913",
+                  "354.1",
+                  "1,031",
+                  "최대생산능력"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "productionCapacity",
+              "topicName": "생산능력",
+              "receiptNo": "20250318000862",
+              "unit": null,
+              "context": "생산능력의 산출근거 ① 산출기준: 각 개별공정의 최대생산능력 [SK지오센트릭㈜] ",
+              "reportingEntity": "SK지오센트릭㈜",
+              "classificationHeading": "생산능력의 산출근거 ① 산출기준: 각 개별공정의 최대생산능력",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "기초유화사업",
+                  "23.1",
+                  "29.3",
+                  "351.7",
+                  "8,441"
+                ],
+                [
+                  "화학소재사업",
+                  "21.2",
+                  "26.9",
+                  "323.3",
+                  "7,759"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "productionActual",
+              "topicName": "생산실적",
+              "receiptNo": "20250318000862",
+              "unit": null,
+              "context": "생산실적 (누적) [SK지오센트릭㈜] ",
+              "reportingEntity": "SK지오센트릭㈜",
+              "classificationHeading": "생산실적 (누적)",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "기타(BTX 등)",
+                  "울산CLX 등",
+                  "3,229",
+                  "3,285",
+                  "3,210"
+                ],
+                [
+                  "기타(EPDM 등)",
+                  "울산CLX 등",
+                  "382",
+                  "434",
+                  "421"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "utilization",
+              "topicName": "가동률",
+              "receiptNo": "20250318000862",
+              "unit": null,
+              "context": "당기 가동률 (누적) [SK지오센트릭㈜] ",
+              "reportingEntity": "SK지오센트릭㈜",
+              "classificationHeading": "당기 가동률 (누적)",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "기초유화사업",
+                  "8,472",
+                  "8,441",
+                  "99.64%"
+                ],
+                [
+                  "화학소재사업",
+                  "8,498",
+                  "7,759",
+                  "91.31%"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "utilization",
+              "topicName": "가동률",
+              "receiptNo": "20250318000862",
+              "unit": null,
+              "context": "당기 가동률 (누적) [SK인천석유화학㈜] ",
+              "reportingEntity": "SK인천석유화학㈜",
+              "classificationHeading": "당기 가동률 (누적)",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "품목",
+                  "제12기 (2024년)",
+                  "제11기 (2023년)",
+                  "제10기 (2022년)"
+                ],
+                [
+                  "석유",
+                  "137,250",
+                  "136,875",
+                  "122,250"
+                ],
+                [
+                  "석유화학",
+                  "1,471,320",
+                  "1,467,300",
+                  "1,310,520"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "utilization",
+              "topicName": "가동률",
+              "receiptNo": "20250318000862",
+              "unit": null,
+              "context": "당기 가동률 (누적) [SK인천석유화학㈜] ",
+              "reportingEntity": "SK인천석유화학㈜",
+              "classificationHeading": "당기 가동률 (누적)",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "제2상압증류시설",
+                  "200"
+                ],
+                [
+                  "제1초경질원유처리시설",
+                  "100"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "utilization",
+              "topicName": "가동률",
+              "receiptNo": "20250318000862",
+              "unit": null,
+              "context": "당기 가동률 (누적) [SK인천석유화학㈜] ",
+              "reportingEntity": "SK인천석유화학㈜",
+              "classificationHeading": "당기 가동률 (누적)",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "석유화학",
+                  "PX공정",
+                  "4,020"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "utilization",
+              "topicName": "가동률",
+              "receiptNo": "20250318000862",
+              "unit": null,
+              "context": "당기 가동률 (누적) [SK인천석유화학㈜] ",
+              "reportingEntity": "SK인천석유화학㈜",
+              "classificationHeading": "당기 가동률 (누적)",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "석유",
+                  "375",
+                  "366",
+                  "137,250",
+                  "-"
+                ],
+                [
+                  "석유화학",
+                  "4,020",
+                  "366",
+                  "1,471,320",
+                  "PX제품 일 생산량 기준"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "productionCapacity",
+              "topicName": "생산능력",
+              "receiptNo": "20250318000862",
+              "unit": null,
+              "context": "생산능력 및 생산능력의 산출근거 (1) 생산능력 [SK엔무브㈜] ",
+              "reportingEntity": "SK엔무브㈜",
+              "classificationHeading": "생산능력 및 생산능력의 산출근거 (1) 생산능력",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "품 목",
+                  "사업소",
+                  "제 16 기 (2024년)",
+                  "제 15 기 (2023년)",
+                  "제 14 기 (2022년)"
+                ],
+                [
+                  "기유",
+                  "울산CLX 및 해외",
+                  "23,591,300",
+                  "24,881,710",
+                  "25,659,500"
+                ],
+                [
+                  "윤활유",
+                  "울산CLX 및 해외",
+                  "2,117,000",
+                  "2,182,700",
+                  "2,192,900"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "productionCapacity",
+              "topicName": "생산능력",
+              "receiptNo": "20250318000862",
+              "unit": null,
+              "context": "생산능력의 산출 방법 및 근거① 최대 생산(처리)능력 [SK엔무브㈜] ",
+              "reportingEntity": "SK엔무브㈜",
+              "classificationHeading": "생산능력의 산출 방법 및 근거① 최대 생산(처리)능력",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "기유",
+                  "기유 공정",
+                  "80,300",
+                  "배럴/일"
+                ],
+                [
+                  "윤활유",
+                  "윤활유 공정",
+                  "8,900",
+                  "배럴/일"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "productionCapacity",
+              "topicName": "생산능력",
+              "receiptNo": "20250318000862",
+              "unit": null,
+              "context": "생산능력의 산출 방법 및 근거① 최대 생산(처리)능력 [SK엔무브㈜] ",
+              "reportingEntity": "SK엔무브㈜",
+              "classificationHeading": "생산능력의 산출 방법 및 근거① 최대 생산(처리)능력",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "기유",
+                  "24.0",
+                  "24.5",
+                  "293.8",
+                  "7,051"
+                ],
+                [
+                  "윤활유",
+                  "9.5",
+                  "19.8",
+                  "237.9",
+                  "2,266"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "productionCapacity",
+              "topicName": "생산능력",
+              "receiptNo": "20250318000862",
+              "unit": null,
+              "context": "생산능력의 산출 방법 및 근거① 최대 생산(처리)능력 [SK엔무브㈜] ",
+              "reportingEntity": "SK엔무브㈜",
+              "classificationHeading": "생산능력의 산출 방법 및 근거① 최대 생산(처리)능력",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "기유",
+                  "80,300",
+                  "293.8",
+                  "23,591,300"
+                ],
+                [
+                  "윤활유",
+                  "8,900",
+                  "237.9",
+                  "2,117,000"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "productionActual",
+              "topicName": "생산실적",
+              "receiptNo": "20250318000862",
+              "unit": null,
+              "context": "생산실적 [SK엔무브㈜] ",
+              "reportingEntity": "SK엔무브㈜",
+              "classificationHeading": "생산실적",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "기유",
+                  "울산CLX 및 해외",
+                  "13,731,684",
+                  "17,310,873",
+                  "16,932,353"
+                ],
+                [
+                  "윤활유",
+                  "울산CLX 및 해외",
+                  "1,186,046",
+                  "1,201,135",
+                  "1,206,972"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "utilization",
+              "topicName": "가동률",
+              "receiptNo": "20250318000862",
+              "unit": null,
+              "context": "당해 누적 가동률 [SK엔무브㈜] ",
+              "reportingEntity": "SK엔무브㈜",
+              "classificationHeading": "당해 누적 가동률",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "기유",
+                  "7,051",
+                  "7,036",
+                  "100%"
+                ],
+                [
+                  "윤활유",
+                  "2,266",
+                  "2,266",
+                  "100%"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "productionCapacity",
+              "topicName": "생산능력",
+              "receiptNo": "20250318000862",
+              "unit": null,
+              "context": "생산능력 [SK아이이테크놀로지㈜] ",
+              "reportingEntity": "SK아이이테크놀로지㈜",
+              "classificationHeading": "생산능력",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "사업부문",
+                  "품목",
+                  "사업소",
+                  "제6기 (2024년)",
+                  "제5기 (2023년)",
+                  "제4기 (2022년)"
+                ],
+                [
+                  "LiBS",
+                  "분리막",
+                  "한국, 중국, 폴란드",
+                  "15.3",
+                  "15.3",
+                  "15.3"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "productionCapacity",
+              "topicName": "생산능력",
+              "receiptNo": "20250318000862",
+              "unit": null,
+              "context": "생산능력 [SK이노베이션E&SCIC] ",
+              "reportingEntity": "SK이노베이션E&SCIC",
+              "classificationHeading": "생산능력",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "사업부문",
+                  "품목",
+                  "사업소",
+                  "2024년",
+                  "2023년",
+                  "2022년"
+                ],
+                [
+                  "파주발전소",
+                  "16,013",
+                  "15,969",
+                  "15,969"
+                ],
+                [
+                  "강동연료전지",
+                  "160",
+                  "160",
+                  "165"
+                ],
+                [
+                  "하남발전소",
+                  "3,504",
+                  "3,494",
+                  "3,494"
+                ],
+                [
+                  "위례발전소",
+                  "3,956",
+                  "3,946",
+                  "3,946"
+                ],
+                [
+                  "여주발전소",
+                  "9,620",
+                  "8,017",
+                  "-"
+                ],
+                [
+                  "부산정관에너지",
+                  "881",
+                  "879",
+                  "879"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "investment",
+              "topicName": "진행·계획 투자",
+              "receiptNo": "20250318000862",
+              "unit": "억원",
+              "context": "설비의 신설ㆍ매입 계획 등 ① 진행중인 투자 [SK이노베이션E&SCIC] (단위: 억원)",
+              "reportingEntity": "SK이노베이션E&SCIC",
+              "classificationHeading": "설비의 신설ㆍ매입 계획 등 ① 진행중인 투자",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "배터리 및 소재 사업",
+                  "신/증설",
+                  "Battery 국내/해외 설비 투자 및 LiBS 상업라인 신/증설",
+                  "2018년 ~",
+                  "414,335",
+                  "325,644",
+                  "제품 생산량 증대를 통한 판매 확대"
+                ],
+                [
+                  "Packaging 사업",
+                  "신/증설",
+                  "중국 내 고기능소재 생산 설비 신설 투자",
+                  "2022년 ~",
+                  "2,900",
+                  "1,590",
+                  "아시아 지역 내 신설 통한 수요 확대 대응"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "orderBacklog",
+              "topicName": "수주잔고",
+              "receiptNo": "20250318000862",
+              "unit": "백만원",
+              "context": "매출 및 수주상황 [SK온㈜] (단위: 백만원)",
+              "reportingEntity": "SK온㈜",
+              "classificationHeading": "매출 및 수주상황",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "내수",
+                  "4,244,923",
+                  "2,667,120",
+                  "2,089,505"
+                ],
+                [
+                  "해외판매",
+                  "5,427,396",
+                  "9,824,272",
+                  "5,009,673"
+                ],
+                [
+                  "합계",
+                  "10,674,300",
+                  "18,365,487",
+                  "11,018,785"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "orderBacklog",
+              "topicName": "수주잔고",
+              "receiptNo": "20250318000862",
+              "unit": null,
+              "context": "매출 및 수주상황 [SK온㈜] ",
+              "reportingEntity": "SK온㈜",
+              "classificationHeading": "매출 및 수주상황",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "해외판매",
+                  "2,872,472",
+                  "-",
+                  "-"
+                ],
+                [
+                  "합 계",
+                  "2,872,472",
+                  "-",
+                  "-"
+                ],
+                [
+                  "해외판매",
+                  "1,237,627",
+                  "-",
+                  "-"
+                ],
+                [
+                  "합 계",
+                  "1,956,860",
+                  "-",
+                  "-"
+                ],
+                [
+                  "해외판매",
+                  "1,569,398",
+                  "-",
+                  "-"
+                ],
+                [
+                  "합 계",
+                  "2,574,524",
+                  "-",
+                  "-"
+                ],
+                [
+                  "해외판매",
+                  "672,076",
+                  "-",
+                  "-"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "orderBacklog",
+              "topicName": "수주잔고",
+              "receiptNo": "20250318000862",
+              "unit": null,
+              "context": "매출 및 수주상황 [SK온㈜] ",
+              "reportingEntity": "SK온㈜",
+              "classificationHeading": "매출 및 수주상황",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "본사 및 해외 생산법인 직접 판매",
+                  "71.7%"
+                ],
+                [
+                  "본사 직접 판매",
+                  "16.0%"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "orderBacklog",
+              "topicName": "수주잔고",
+              "receiptNo": "20250318000862",
+              "unit": null,
+              "context": "매출 및 수주상황 [SK온㈜] ",
+              "reportingEntity": "SK온㈜",
+              "classificationHeading": "매출 및 수주상황",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "내수",
+                  "0.17%"
+                ],
+                [
+                  "해외판매",
+                  "96.67%"
+                ],
+                [
+                  "(연결조정)",
+                  "(27.73%)"
+                ],
+                [
+                  "순매출액",
+                  "100.00%"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "segmentSales",
+              "topicName": "제품·사업부별 매출",
+              "receiptNo": "20250318000862",
+              "unit": "백만원",
+              "context": "매출실적 [SK에너지㈜] (단위: 백만원)",
+              "reportingEntity": "SK에너지㈜",
+              "classificationHeading": "매출실적",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "내 수",
+                  "3,981,777",
+                  "3,814,685",
+                  "4,167,123"
+                ],
+                [
+                  "해외판매",
+                  "-",
+                  "6,675,725",
+                  "6,831,675"
+                ],
+                [
+                  "합 계",
+                  "8,996,634",
+                  "19,478,166",
+                  "20,479,069"
+                ],
+                [
+                  "내 수",
+                  "381,420",
+                  "553,635",
+                  "718,736"
+                ],
+                [
+                  "합 계",
+                  "436,507",
+                  "582,104",
+                  "769,346"
+                ],
+                [
+                  "내 수",
+                  "6,598,635",
+                  "7,110,867",
+                  "8,701,197"
+                ],
+                [
+                  "해외판매",
+                  "-",
+                  "12,021,952",
+                  "14,691,289"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "segmentSales",
+              "topicName": "제품·사업부별 매출",
+              "receiptNo": "20250318000862",
+              "unit": null,
+              "context": "매출실적 [SK에너지㈜] ",
+              "reportingEntity": "SK에너지㈜",
+              "classificationHeading": "매출실적",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "주1)",
+                  "제12기 및 제13기 실적에는 SK트레이딩인터내셔널㈜ 등 기타 석유사업이 포함되어 있으나, SK트레이딩인터내셔널㈜이 2024년 11월 SK온㈜과 합병됨에 따라 2024년 실적에는 포함되지 않음"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "segmentSales",
+              "topicName": "제품·사업부별 매출",
+              "receiptNo": "20250318000862",
+              "unit": "백만원",
+              "context": "매출실적 [SK지오센트릭㈜] (단위: 백만원)",
+              "reportingEntity": "SK지오센트릭㈜",
+              "classificationHeading": "매출실적",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "내수",
+                  "315,031",
+                  "83%",
+                  "358,031",
+                  "92%",
+                  "348,723",
+                  "90%"
+                ],
+                [
+                  "해외판매",
+                  "588",
+                  "0%",
+                  "414",
+                  "0%",
+                  "921",
+                  "0%"
+                ],
+                [
+                  "합계",
+                  "378,099",
+                  "100%",
+                  "387,974",
+                  "100%",
+                  "387,105",
+                  "100%"
+                ],
+                [
+                  "내수",
+                  "24,985",
+                  "1%",
+                  "35,224",
+                  "1%",
+                  "53,352",
+                  "2%"
+                ],
+                [
+                  "해외판매",
+                  "355,254",
+                  "11%",
+                  "523,518",
+                  "14%",
+                  "412,692",
+                  "12%"
+                ],
+                [
+                  "합계",
+                  "3,381,268",
+                  "100%",
+                  "3,734,296",
+                  "100%",
+                  "3,505,287",
+                  "100%"
+                ],
+                [
+                  "내수",
+                  "-",
+                  "-",
+                  "-",
+                  "-",
+                  "118,154",
+                  "27%"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "segmentSales",
+              "topicName": "제품·사업부별 매출",
+              "receiptNo": "20250318000862",
+              "unit": "백만원",
+              "context": "매출실적 [SK인천석유화학㈜] (단위: 백만원)",
+              "reportingEntity": "SK인천석유화학㈜",
+              "classificationHeading": "매출실적",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "내수",
+                  "791,172",
+                  "644,397",
+                  "709,971"
+                ],
+                [
+                  "합계",
+                  "791,172",
+                  "644,397",
+                  "709,971"
+                ],
+                [
+                  "내수",
+                  "32,390",
+                  "45,769",
+                  "41,436"
+                ],
+                [
+                  "합계",
+                  "32,390",
+                  "45,769",
+                  "41,436"
+                ],
+                [
+                  "내수",
+                  "1,627,298",
+                  "1,389,542",
+                  "1,484,340"
+                ],
+                [
+                  "합계",
+                  "2,103,740",
+                  "2,118,396",
+                  "2,446,505"
+                ],
+                [
+                  "내수",
+                  "1,782,669",
+                  "1,838,283",
+                  "1,264,478"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "segmentSales",
+              "topicName": "제품·사업부별 매출",
+              "receiptNo": "20250318000862",
+              "unit": "백만원",
+              "context": "매출실적 [SK엔무브㈜] (단위: 백만원)",
+              "reportingEntity": "SK엔무브㈜",
+              "classificationHeading": "매출실적",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "수출",
+                  "2,505,602",
+                  "3,227,909",
+                  "3,565,291"
+                ],
+                [
+                  "해외법인",
+                  "3,245,336",
+                  "3,826,478",
+                  "4,283,619"
+                ],
+                [
+                  "합계",
+                  "6,845,846",
+                  "8,378,942",
+                  "9,329,333"
+                ],
+                [
+                  "수출",
+                  "296,262",
+                  "284,880",
+                  "261,595"
+                ],
+                [
+                  "해외법인",
+                  "488,846",
+                  "458,062",
+                  "427,148"
+                ],
+                [
+                  "합계",
+                  "983,729",
+                  "932,693",
+                  "881,699"
+                ],
+                [
+                  "수출",
+                  "2,801,864",
+                  "3,512,789",
+                  "3,826,886"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "segmentSales",
+              "topicName": "제품·사업부별 매출",
+              "receiptNo": "20250318000862",
+              "unit": "백만원",
+              "context": "매출실적 [SK아이이테크놀로지㈜] (단위: 백만원)",
+              "reportingEntity": "SK아이이테크놀로지㈜",
+              "classificationHeading": "매출실적",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "내수",
+                  "33,948",
+                  "45,249",
+                  "75,668"
+                ],
+                [
+                  "해외판매",
+                  "139,342",
+                  "533,319",
+                  "429,233"
+                ],
+                [
+                  "합계",
+                  "217,865",
+                  "648,322",
+                  "584,676"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "segmentSales",
+              "topicName": "제품·사업부별 매출",
+              "receiptNo": "20250318000862",
+              "unit": null,
+              "context": "매출실적 [SK아이이테크놀로지㈜] ",
+              "reportingEntity": "SK아이이테크놀로지㈜",
+              "classificationHeading": "매출실적",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "A 계열",
+                  "84,439",
+                  "38.8%"
+                ],
+                [
+                  "B 계열",
+                  "54,271",
+                  "24.9%"
+                ],
+                [
+                  "C 계열",
+                  "38,647",
+                  "17.7%"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "segmentSales",
+              "topicName": "제품·사업부별 매출",
+              "receiptNo": "20250318000862",
+              "unit": "백만원",
+              "context": "매출실적 [SK아이이테크놀로지㈜] (단위: 백만원)",
+              "reportingEntity": "SK아이이테크놀로지㈜",
+              "classificationHeading": "매출실적",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "판매 경로",
+                  "사업 부문",
+                  "구분",
+                  "제6기 (2024년)",
+                  "제5기 (2023년)",
+                  "제4기 (2022년)"
+                ],
+                [
+                  "내수",
+                  "33,948",
+                  "45,249",
+                  "75,668"
+                ],
+                [
+                  "해외판매",
+                  "139,342",
+                  "533,319",
+                  "429,233"
+                ],
+                [
+                  "합계",
+                  "217,865",
+                  "648,322",
+                  "584,676"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "segmentSales",
+              "topicName": "제품·사업부별 매출",
+              "receiptNo": "20250318000862",
+              "unit": "백만원",
+              "context": "매출실적 [SK엔텀㈜] (단위: 백만원)",
+              "reportingEntity": "SK엔텀㈜",
+              "classificationHeading": "매출실적",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "회사 구분",
+                  "매출 유형",
+                  "품 목",
+                  "제14기(2024년)"
+                ],
+                [
+                  "내 수",
+                  "내수",
+                  "250,542"
+                ],
+                [
+                  "합 계",
+                  "합 계",
+                  "250,542"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "segmentSales",
+              "topicName": "제품·사업부별 매출",
+              "receiptNo": "20250318000862",
+              "unit": "억원",
+              "context": "매출실적 [SK이노베이션E&SCIC] (단위: 억원)",
+              "reportingEntity": "SK이노베이션E&SCIC",
+              "classificationHeading": "매출실적",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "자산 총계",
+                  "50,554",
+                  "4.5%",
+                  "-",
+                  "-",
+                  "-",
+                  "-"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "segmentSales",
+              "topicName": "제품·사업부별 매출",
+              "receiptNo": "20250318000862",
+              "unit": "억원",
+              "context": "매출실적 [SK이노베이션E&SCIC] (단위: 억원)",
+              "reportingEntity": "SK이노베이션E&SCIC",
+              "classificationHeading": "매출실적",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "자산 총계",
+                  "31,948",
+                  "2.9%",
+                  "-",
+                  "-",
+                  "-",
+                  "-"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "segmentSales",
+              "topicName": "제품·사업부별 매출",
+              "receiptNo": "20250318000862",
+              "unit": null,
+              "context": "매출실적 [SK이노베이션E&SCIC] ",
+              "reportingEntity": "SK이노베이션E&SCIC",
+              "classificationHeading": "매출실적",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "(주1)",
+                  "에스케이이노베이션㈜와 에스케이이엔에스㈜의 합병으로 2024년 11월 이후 실적만 기재 하였습니다."
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            }
+          ],
+          "reportName": "사업보고서 (2024.12)",
+          "published": "20250318",
+          "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250318000862",
+          "documentName": "20250318000862.xml"
+        },
+        "2025": {
+          "year": 2025,
+          "status": "evidence_found",
+          "receiptNo": "20260316000827",
+          "tables": [
+            {
+              "topic": "productionCapacity",
+              "topicName": "생산능력",
+              "receiptNo": "20260316000827",
+              "unit": null,
+              "context": "생산능력 및 생산능력의 산출근거 (1) 최대생산능력 [SK에너지㈜] ",
+              "reportingEntity": "SK에너지㈜",
+              "classificationHeading": "생산능력 및 생산능력의 산출근거 (1) 최대생산능력",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "사업부문",
+                  "품목",
+                  "사업소",
+                  "2025년 연간",
+                  "2024년 연간",
+                  "2023년 연간"
+                ],
+                [
+                  "석유사업",
+                  "석유류",
+                  "울산CLX",
+                  "306,600",
+                  "306,600",
+                  "306,600"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "productionCapacity",
+              "topicName": "생산능력",
+              "receiptNo": "20260316000827",
+              "unit": null,
+              "context": "생산능력 및 생산능력의 산출근거 (1) 최대생산능력 [SK에너지㈜] ",
+              "reportingEntity": "SK에너지㈜",
+              "classificationHeading": "생산능력 및 생산능력의 산출근거 (1) 최대생산능력",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "구 분",
+                  "분 류",
+                  "공정명 주1)",
+                  "생산능력 주2)"
+                ],
+                [
+                  "No.2 CDU",
+                  "110"
+                ],
+                [
+                  "No.3 CDU",
+                  "170"
+                ],
+                [
+                  "No.4 CDU",
+                  "240"
+                ],
+                [
+                  "No.5 CDU",
+                  "260"
+                ],
+                [
+                  "No.1 RFCC",
+                  "68"
+                ],
+                [
+                  "No.2 RFCC",
+                  "94.5"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "productionCapacity",
+              "topicName": "생산능력",
+              "receiptNo": "20260316000827",
+              "unit": null,
+              "context": "생산능력 및 생산능력의 산출근거 (1) 최대생산능력 [SK에너지㈜] ",
+              "reportingEntity": "SK에너지㈜",
+              "classificationHeading": "생산능력 및 생산능력의 산출근거 (1) 최대생산능력",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "사업부문",
+                  "생산능력(일) 주1)",
+                  "4분기 누적 가동가능일수",
+                  "4분기 누적 최대생산능력",
+                  "4분기 누적 실제 처리량 주2)",
+                  "4분기 누적 평균 가동률",
+                  "비고"
+                ],
+                [
+                  "울산 CLX",
+                  "840",
+                  "342",
+                  "287,330",
+                  "240,542",
+                  "83.7%",
+                  "-"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "productionCapacity",
+              "topicName": "생산능력",
+              "receiptNo": "20260316000827",
+              "unit": null,
+              "context": "생산능력 및 생산능력의 산출근거 (1) 최대생산능력 [SK에너지㈜] ",
+              "reportingEntity": "SK에너지㈜",
+              "classificationHeading": "생산능력 및 생산능력의 산출근거 (1) 최대생산능력",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "Naphtha",
+                  "울산CLX",
+                  "42,842",
+                  "45,728",
+                  "48,601"
+                ],
+                [
+                  "Kerosene",
+                  "울산CLX",
+                  "2,587",
+                  "3,095",
+                  "3,557"
+                ],
+                [
+                  "Diesel",
+                  "울산CLX",
+                  "88,891",
+                  "91,145",
+                  "92,829"
+                ],
+                [
+                  "Bunker-C",
+                  "울산CLX",
+                  "15,713",
+                  "16,937",
+                  "18,431"
+                ],
+                [
+                  "Asphalt",
+                  "울산CLX",
+                  "7,198",
+                  "6,275",
+                  "7,871"
+                ],
+                [
+                  "LPG",
+                  "울산CLX",
+                  "4,490",
+                  "4,698",
+                  "3,176"
+                ],
+                [
+                  "항공유",
+                  "울산CLX",
+                  "29,181",
+                  "28,476",
+                  "28,335"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "productionCapacity",
+              "topicName": "생산능력",
+              "receiptNo": "20260316000827",
+              "unit": null,
+              "context": "생산능력 및 생산능력의 산출근거 (1) 생산능력 (누적) [SK지오센트릭㈜] ",
+              "reportingEntity": "SK지오센트릭㈜",
+              "classificationHeading": "생산능력 및 생산능력의 산출근거 (1) 생산능력 (누적)",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "사업부문",
+                  "품 목",
+                  "사업소",
+                  "제15기 (2025년)",
+                  "제14기 (2024년)",
+                  "제13기 (2023년)"
+                ],
+                [
+                  "기초유화사업",
+                  "화학제품",
+                  "울산Complex",
+                  "5,981",
+                  "6,004",
+                  "6,077"
+                ],
+                [
+                  "화학소재사업",
+                  "화학제품",
+                  "울산Complex 등",
+                  "1,042",
+                  "1,031",
+                  "953"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "productionCapacity",
+              "topicName": "생산능력",
+              "receiptNo": "20260316000827",
+              "unit": null,
+              "context": "생산능력의 산출근거 ① 산출기준: 각 개별공정의 최대생산능력 [SK지오센트릭㈜] ",
+              "reportingEntity": "SK지오센트릭㈜",
+              "classificationHeading": "생산능력의 산출근거 ① 산출기준: 각 개별공정의 최대생산능력",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "프로필렌",
+                  "380,000",
+                  "톤/년"
+                ],
+                [
+                  "부타디엔",
+                  "130,000",
+                  "톤/년"
+                ],
+                [
+                  "MTBE",
+                  "178,000",
+                  "톤/년"
+                ],
+                [
+                  "부텐-1",
+                  "44,000",
+                  "톤/년"
+                ],
+                [
+                  "BTX",
+                  "3,303,000",
+                  "톤/년"
+                ],
+                [
+                  "파라자일렌",
+                  "1,330,000",
+                  "톤/년"
+                ],
+                [
+                  "올소자일렌",
+                  "200,000",
+                  "톤/년"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "productionCapacity",
+              "topicName": "생산능력",
+              "receiptNo": "20260316000827",
+              "unit": null,
+              "context": "생산능력의 산출근거 ① 산출기준: 각 개별공정의 최대생산능력 [SK지오센트릭㈜] ",
+              "reportingEntity": "SK지오센트릭㈜",
+              "classificationHeading": "생산능력의 산출근거 ① 산출기준: 각 개별공정의 최대생산능력",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "구 분",
+                  "최대생산능력 (톤/일) A",
+                  "제15기 가동가능일수(일) B",
+                  "제15기 생산능력(천톤) A ×B / 1,000",
+                  "비고"
+                ],
+                [
+                  "기초유화사업",
+                  "17,055",
+                  "350.7",
+                  "5,981",
+                  "최대생산능력"
+                ],
+                [
+                  "화학소재사업",
+                  "2,921",
+                  "356.8",
+                  "1,042",
+                  "최대생산능력"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "productionCapacity",
+              "topicName": "생산능력",
+              "receiptNo": "20260316000827",
+              "unit": null,
+              "context": "생산능력의 산출근거 ① 산출기준: 각 개별공정의 최대생산능력 [SK지오센트릭㈜] ",
+              "reportingEntity": "SK지오센트릭㈜",
+              "classificationHeading": "생산능력의 산출근거 ① 산출기준: 각 개별공정의 최대생산능력",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "기초유화사업",
+                  "22.7",
+                  "28.8",
+                  "345.9",
+                  "8,302"
+                ],
+                [
+                  "화학소재사업",
+                  "20.8",
+                  "26.4",
+                  "317.1",
+                  "7,611"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "productionActual",
+              "topicName": "생산실적",
+              "receiptNo": "20260316000827",
+              "unit": null,
+              "context": "생산실적 (누적) [SK지오센트릭㈜] ",
+              "reportingEntity": "SK지오센트릭㈜",
+              "classificationHeading": "생산실적 (누적)",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "기타(BTX 등)",
+                  "울산CLX 등",
+                  "2,983",
+                  "3,229",
+                  "3,285"
+                ],
+                [
+                  "기타(EPDM 등)",
+                  "울산CLX 등",
+                  "397",
+                  "382",
+                  "434"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "utilization",
+              "topicName": "가동률",
+              "receiptNo": "20260316000827",
+              "unit": null,
+              "context": "당기 가동률 (누적) [SK지오센트릭㈜] ",
+              "reportingEntity": "SK지오센트릭㈜",
+              "classificationHeading": "당기 가동률 (누적)",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "기초유화사업",
+                  "8,416",
+                  "8,302",
+                  "98.64%"
+                ],
+                [
+                  "화학소재사업",
+                  "8,564",
+                  "7,611",
+                  "88.87%"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "utilization",
+              "topicName": "가동률",
+              "receiptNo": "20260316000827",
+              "unit": null,
+              "context": "당기 가동률 (누적) [SK인천석유화학㈜] ",
+              "reportingEntity": "SK인천석유화학㈜",
+              "classificationHeading": "당기 가동률 (누적)",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "품목",
+                  "제13기(2025년)",
+                  "제12기(2024년)",
+                  "제11기(2023년)"
+                ],
+                [
+                  "석유",
+                  "136,875",
+                  "137,250",
+                  "136,875"
+                ],
+                [
+                  "석유화학",
+                  "1,467,300",
+                  "1,471,320",
+                  "1,467,300"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "utilization",
+              "topicName": "가동률",
+              "receiptNo": "20260316000827",
+              "unit": null,
+              "context": "당기 가동률 (누적) [SK인천석유화학㈜] ",
+              "reportingEntity": "SK인천석유화학㈜",
+              "classificationHeading": "당기 가동률 (누적)",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "제2상압증류시설",
+                  "200"
+                ],
+                [
+                  "제1초경질원유처리시설",
+                  "100"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "utilization",
+              "topicName": "가동률",
+              "receiptNo": "20260316000827",
+              "unit": null,
+              "context": "당기 가동률 (누적) [SK인천석유화학㈜] ",
+              "reportingEntity": "SK인천석유화학㈜",
+              "classificationHeading": "당기 가동률 (누적)",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "석유화학",
+                  "PX공정",
+                  "4,020"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "utilization",
+              "topicName": "가동률",
+              "receiptNo": "20260316000827",
+              "unit": null,
+              "context": "당기 가동률 (누적) [SK인천석유화학㈜] ",
+              "reportingEntity": "SK인천석유화학㈜",
+              "classificationHeading": "당기 가동률 (누적)",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "석유",
+                  "375",
+                  "365",
+                  "136,875",
+                  "-"
+                ],
+                [
+                  "석유화학",
+                  "4,020",
+                  "365",
+                  "1,467,300",
+                  "PX제품 일 생산량 기준"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "productionCapacity",
+              "topicName": "생산능력",
+              "receiptNo": "20260316000827",
+              "unit": null,
+              "context": "생산능력 [SK아이이테크놀로지㈜] ",
+              "reportingEntity": "SK아이이테크놀로지㈜",
+              "classificationHeading": "생산능력",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "사업부문",
+                  "품목",
+                  "사업소",
+                  "제7기 (2025년)",
+                  "제6기 (2024년)",
+                  "제5기 (2023년)"
+                ],
+                [
+                  "LiBS",
+                  "분리막",
+                  "한국, 중국, 폴란드",
+                  "14.0",
+                  "15.3",
+                  "15.3"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "productionCapacity",
+              "topicName": "생산능력",
+              "receiptNo": "20260316000827",
+              "unit": null,
+              "context": "생산능력 [SK아이이테크놀로지㈜] ",
+              "reportingEntity": "SK아이이테크놀로지㈜",
+              "classificationHeading": "생산능력",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "(주2)",
+                  "글로벌 사업 역량 강화를 위한 경영상 선택과 집중의 일환으로 (주)에어레인을 상대로 2025년 3분기 중 청주공장을 매각하였으며, 2025년 4분기 중 증평공장의 일부 생산라인을 대상으로 인허가 폐쇄를 진행 하였습니다."
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "productionCapacity",
+              "topicName": "생산능력",
+              "receiptNo": "20260316000827",
+              "unit": null,
+              "context": "생산능력 및 생산능력의 산출 근거 [SK이노베이션E&SCIC] ",
+              "reportingEntity": "SK이노베이션E&SCIC",
+              "classificationHeading": "생산능력 및 생산능력의 산출 근거",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "사업부문",
+                  "품목",
+                  "사업소",
+                  "2025년",
+                  "2024년",
+                  "2023년"
+                ],
+                [
+                  "파주발전소",
+                  "15,969",
+                  "16,013",
+                  "15,969"
+                ],
+                [
+                  "강동연료전지",
+                  "160",
+                  "160",
+                  "160"
+                ],
+                [
+                  "하남발전소",
+                  "3,494",
+                  "3,504",
+                  "3,494"
+                ],
+                [
+                  "위례발전소",
+                  "3,946",
+                  "3,956",
+                  "3,946"
+                ],
+                [
+                  "여주발전소",
+                  "9,594",
+                  "9,620",
+                  "8,017"
+                ],
+                [
+                  "엔솔브 (舊 부산정관에너지)",
+                  "879",
+                  "881",
+                  "879"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "investment",
+              "topicName": "진행·계획 투자",
+              "receiptNo": "20260316000827",
+              "unit": "억원",
+              "context": "설비의 신설ㆍ매입 계획 등 ① 진행중인 투자 [SK이노베이션E&SCIC] (단위: 억원)",
+              "reportingEntity": "SK이노베이션E&SCIC",
+              "classificationHeading": "설비의 신설ㆍ매입 계획 등 ① 진행중인 투자",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "배터리 및 소재 사업",
+                  "신/증설",
+                  "Battery 국내/해외 설비 투자 및 LiBS 상업라인 신/증설",
+                  "제품 생산량 증대를 통한 판매 확대",
+                  "2025.01.01~2025.12.31",
+                  "21,035",
+                  "누적 실적"
+                ],
+                [
+                  "Packaging 사업",
+                  "신/증설",
+                  "중국 내 고기능소재 생산 설비 신설 투자",
+                  "아시아 지역 내 신설 통한수요 확대 대응",
+                  "2025.01.01~2025.12.31",
+                  "782",
+                  "누적 실적"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "segmentSales",
+              "topicName": "제품·사업부별 매출",
+              "receiptNo": "20260316000827",
+              "unit": "백만원",
+              "context": "매출실적 [SK온㈜] (단위: 백만원)",
+              "reportingEntity": "SK온㈜",
+              "classificationHeading": "매출실적",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "내수",
+                  "688,792",
+                  "1,001,981",
+                  "2,667,120"
+                ],
+                [
+                  "해외판매",
+                  "7,179,378",
+                  "5,427,396",
+                  "9,824,272"
+                ],
+                [
+                  "합계",
+                  "11,660,255",
+                  "10,674,300",
+                  "18,365,487"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "segmentSales",
+              "topicName": "제품·사업부별 매출",
+              "receiptNo": "20260316000827",
+              "unit": null,
+              "context": "매출실적 [SK온㈜] ",
+              "reportingEntity": "SK온㈜",
+              "classificationHeading": "매출실적",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "해외판매",
+                  "22,656,978",
+                  "2,872,472",
+                  "-"
+                ],
+                [
+                  "합 계",
+                  "22,656,978",
+                  "2,872,472",
+                  "-"
+                ],
+                [
+                  "해외판매",
+                  "5,302,635",
+                  "1,237,627",
+                  "-"
+                ],
+                [
+                  "합 계",
+                  "9,399,703",
+                  "1,956,860",
+                  "-"
+                ],
+                [
+                  "해외판매",
+                  "11,023,641",
+                  "1,569,398",
+                  "-"
+                ],
+                [
+                  "합 계",
+                  "17,598,036",
+                  "2,574,524",
+                  "-"
+                ],
+                [
+                  "해외판매",
+                  "4,110,812",
+                  "672,076",
+                  "-"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "segmentSales",
+              "topicName": "제품·사업부별 매출",
+              "receiptNo": "20260316000827",
+              "unit": "백만원",
+              "context": "매출실적 [SK온㈜] (단위: 백만원)",
+              "reportingEntity": "SK온㈜",
+              "classificationHeading": "매출실적",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "수출",
+                  "2,329,714",
+                  "2,505,602",
+                  "3,227,909"
+                ],
+                [
+                  "해외법인",
+                  "2,742,765",
+                  "3,245,336",
+                  "3,826,478"
+                ],
+                [
+                  "합계",
+                  "5,906,019",
+                  "6,845,846",
+                  "8,378,942"
+                ],
+                [
+                  "수출",
+                  "278,515",
+                  "296,262",
+                  "284,880"
+                ],
+                [
+                  "해외법인",
+                  "530,204",
+                  "488,846",
+                  "458,062"
+                ],
+                [
+                  "합계",
+                  "1,001,008",
+                  "983,729",
+                  "932,693"
+                ],
+                [
+                  "수출",
+                  "2,608,229",
+                  "2,801,864",
+                  "3,512,789"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "segmentSales",
+              "topicName": "제품·사업부별 매출",
+              "receiptNo": "20260316000827",
+              "unit": "백만원",
+              "context": "매출실적 [SK에너지㈜] (단위: 백만원)",
+              "reportingEntity": "SK에너지㈜",
+              "classificationHeading": "매출실적",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "내 수",
+                  "3,875,634",
+                  "3,981,777",
+                  "3,814,685"
+                ],
+                [
+                  "합 계",
+                  "8,052,896",
+                  "8,996,634",
+                  "8,338,971"
+                ],
+                [
+                  "내 수",
+                  "380,359",
+                  "381,420",
+                  "553,635"
+                ],
+                [
+                  "합 계",
+                  "404,226",
+                  "436,507",
+                  "582,104"
+                ],
+                [
+                  "내 수",
+                  "5,883,654",
+                  "6,598,635",
+                  "7,110,867"
+                ],
+                [
+                  "합 계",
+                  "13,687,538",
+                  "14,757,967",
+                  "15,252,461"
+                ],
+                [
+                  "내 수",
+                  "352,828",
+                  "508,807",
+                  "683,849"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "segmentSales",
+              "topicName": "제품·사업부별 매출",
+              "receiptNo": "20260316000827",
+              "unit": "백만원",
+              "context": "매출실적 [SK지오센트릭㈜] (단위: 백만원)",
+              "reportingEntity": "SK지오센트릭㈜",
+              "classificationHeading": "매출실적",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "내수",
+                  "387,067",
+                  "94%",
+                  "315,031",
+                  "83%",
+                  "358,031",
+                  "92%"
+                ],
+                [
+                  "해외판매",
+                  "-",
+                  "0%",
+                  "-",
+                  "0%",
+                  "-",
+                  "0%"
+                ],
+                [
+                  "합계",
+                  "409,705",
+                  "100%",
+                  "377,511",
+                  "100%",
+                  "387,560",
+                  "100%"
+                ],
+                [
+                  "내수",
+                  "2,761",
+                  "0%",
+                  "24,985",
+                  "1%",
+                  "35,224",
+                  "1%"
+                ],
+                [
+                  "해외판매",
+                  "825,097",
+                  "26%",
+                  "355,254",
+                  "10%",
+                  "523,518",
+                  "14%"
+                ],
+                [
+                  "합계",
+                  "3,180,558",
+                  "100%",
+                  "3,381,268",
+                  "100%",
+                  "3,734,296",
+                  "100%"
+                ],
+                [
+                  "내수",
+                  "3,494,779",
+                  "63%",
+                  "3,730,176",
+                  "57%",
+                  "3,222,019",
+                  "50%"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "segmentSales",
+              "topicName": "제품·사업부별 매출",
+              "receiptNo": "20260316000827",
+              "unit": "백만원",
+              "context": "매출실적 [SK인천석유화학㈜] (단위: 백만원)",
+              "reportingEntity": "SK인천석유화학㈜",
+              "classificationHeading": "매출실적",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "내수",
+                  "819,775",
+                  "791,172",
+                  "644,397"
+                ],
+                [
+                  "합계",
+                  "819,775",
+                  "791,172",
+                  "644,397"
+                ],
+                [
+                  "내수",
+                  "49,936",
+                  "32,390",
+                  "45,769"
+                ],
+                [
+                  "합계",
+                  "49,936",
+                  "32,390",
+                  "45,769"
+                ],
+                [
+                  "내수",
+                  "1,535,675",
+                  "1,627,298",
+                  "1,389,542"
+                ],
+                [
+                  "합계",
+                  "1,939,654",
+                  "2,103,740",
+                  "2,118,396"
+                ],
+                [
+                  "내수",
+                  "1,225,021",
+                  "1,782,669",
+                  "1,838,283"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "segmentSales",
+              "topicName": "제품·사업부별 매출",
+              "receiptNo": "20260316000827",
+              "unit": "백만원",
+              "context": "매출실적 [SK아이이테크놀로지㈜] (단위: 백만원)",
+              "reportingEntity": "SK아이이테크놀로지㈜",
+              "classificationHeading": "매출실적",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "내수",
+                  "31,593",
+                  "33,948",
+                  "45,249"
+                ],
+                [
+                  "해외판매",
+                  "156,635",
+                  "139,342",
+                  "533,319"
+                ],
+                [
+                  "합계",
+                  "261,874",
+                  "217,865",
+                  "648,322"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "segmentSales",
+              "topicName": "제품·사업부별 매출",
+              "receiptNo": "20260316000827",
+              "unit": null,
+              "context": "매출실적 [SK아이이테크놀로지㈜] ",
+              "reportingEntity": "SK아이이테크놀로지㈜",
+              "classificationHeading": "매출실적",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "A 계열",
+                  "177,796",
+                  "68%"
+                ],
+                [
+                  "B 계열",
+                  "33,381",
+                  "13%"
+                ],
+                [
+                  "C 계열",
+                  "30,491",
+                  "12%"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "segmentSales",
+              "topicName": "제품·사업부별 매출",
+              "receiptNo": "20260316000827",
+              "unit": "백만원",
+              "context": "매출실적 [SK아이이테크놀로지㈜] (단위: 백만원)",
+              "reportingEntity": "SK아이이테크놀로지㈜",
+              "classificationHeading": "매출실적",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "판매 경로",
+                  "사업 부문",
+                  "구분",
+                  "제7기(2025년)",
+                  "제6기 (2024년)",
+                  "제5기 (2023년)"
+                ],
+                [
+                  "내수",
+                  "31,593",
+                  "33,948",
+                  "45,249"
+                ],
+                [
+                  "해외판매",
+                  "156,635",
+                  "139,342",
+                  "533,319"
+                ],
+                [
+                  "합계",
+                  "261,874",
+                  "217,865",
+                  "648,322"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "segmentSales",
+              "topicName": "제품·사업부별 매출",
+              "receiptNo": "20260316000827",
+              "unit": "억원",
+              "context": "매출실적 [SK이노베이션E&SCIC] (단위: 억원)",
+              "reportingEntity": "SK이노베이션E&SCIC",
+              "classificationHeading": "매출실적",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "자산 총계",
+                  "72,727",
+                  "6.89%",
+                  "50,554",
+                  "4.5%",
+                  "-",
+                  "-"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "segmentSales",
+              "topicName": "제품·사업부별 매출",
+              "receiptNo": "20260316000827",
+              "unit": null,
+              "context": "매출실적 [SK이노베이션E&SCIC] ",
+              "reportingEntity": "SK이노베이션E&SCIC",
+              "classificationHeading": "매출실적",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "(주1)",
+                  "에스케이이노베이션(주)와 에스케이이엔에스(주)의 합병으로 2024년 11월 이후 실적만 기재 하였습니다."
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "segmentSales",
+              "topicName": "제품·사업부별 매출",
+              "receiptNo": "20260316000827",
+              "unit": "억원",
+              "context": "매출실적 [SK이노베이션E&SCIC] (단위: 억원)",
+              "reportingEntity": "SK이노베이션E&SCIC",
+              "classificationHeading": "매출실적",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "자산 총계",
+                  "33,059",
+                  "3.13%",
+                  "31,948",
+                  "2.9%",
+                  "-",
+                  "-"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "segmentSales",
+              "topicName": "제품·사업부별 매출",
+              "receiptNo": "20260316000827",
+              "unit": null,
+              "context": "매출실적 [SK이노베이션E&SCIC] ",
+              "reportingEntity": "SK이노베이션E&SCIC",
+              "classificationHeading": "매출실적",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "(주1)",
+                  "에스케이이노베이션(주)와 에스케이이엔에스(주)의 합병으로 2024년 11월 이후 실적만 기재 하였습니다."
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            }
+          ],
+          "reportName": "사업보고서 (2025.12)",
+          "published": "20260316",
+          "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260316000827",
+          "documentName": "20260316000827.xml"
+        }
+      },
+      "pairs": [
+        {
+          "topic": "investment",
+          "topicName": "진행·계획 투자",
+          "unit": "억원",
+          "before": {
+            "topic": "investment",
+            "topicName": "진행·계획 투자",
+            "receiptNo": "20250318000862",
+            "unit": "억원",
+            "context": "설비의 신설ㆍ매입 계획 등 ① 진행중인 투자 [SK이노베이션E&SCIC] (단위: 억원)",
+            "reportingEntity": "SK이노베이션E&SCIC",
+            "classificationHeading": "설비의 신설ㆍ매입 계획 등 ① 진행중인 투자",
+            "extractionVersion": "heading-scope-v2",
+            "rows": [
+              [
+                "배터리 및 소재 사업",
+                "신/증설",
+                "Battery 국내/해외 설비 투자 및 LiBS 상업라인 신/증설",
+                "2018년 ~",
+                "414,335",
+                "325,644",
+                "제품 생산량 증대를 통한 판매 확대"
+              ],
+              [
+                "Packaging 사업",
+                "신/증설",
+                "중국 내 고기능소재 생산 설비 신설 투자",
+                "2022년 ~",
+                "2,900",
+                "1,590",
+                "아시아 지역 내 신설 통한 수요 확대 대응"
+              ]
+            ],
+            "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+          },
+          "after": {
+            "topic": "investment",
+            "topicName": "진행·계획 투자",
+            "receiptNo": "20260316000827",
+            "unit": "억원",
+            "context": "설비의 신설ㆍ매입 계획 등 ① 진행중인 투자 [SK이노베이션E&SCIC] (단위: 억원)",
+            "reportingEntity": "SK이노베이션E&SCIC",
+            "classificationHeading": "설비의 신설ㆍ매입 계획 등 ① 진행중인 투자",
+            "extractionVersion": "heading-scope-v2",
+            "rows": [
+              [
+                "배터리 및 소재 사업",
+                "신/증설",
+                "Battery 국내/해외 설비 투자 및 LiBS 상업라인 신/증설",
+                "제품 생산량 증대를 통한 판매 확대",
+                "2025.01.01~2025.12.31",
+                "21,035",
+                "누적 실적"
+              ],
+              [
+                "Packaging 사업",
+                "신/증설",
+                "중국 내 고기능소재 생산 설비 신설 투자",
+                "아시아 지역 내 신설 통한수요 확대 대응",
+                "2025.01.01~2025.12.31",
+                "782",
+                "누적 실적"
+              ]
+            ],
+            "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+          },
+          "status": "동일 주제·표시 단위 후보, 비교 열·사업범위 확인 전",
+          "numericChange": null,
+          "needsManualVerification": true
+        }
+      ],
+      "status": "source_pairs_to_review",
+      "questions": [
+        "표에 제시된 기준 기간·수량 단위·연결/별도 범위가 같은가?",
+        "제품군·사업장·고객사 변경이 수주잔고 또는 생산능력에 미치는 실제 영향은?",
+        "같은 사실이 기업 IR과 기존 산업전문지에 이미 공개됐는가?"
+      ]
+    },
+    {
+      "company": "HD현대오일뱅크",
+      "corpCode": "00105174",
+      "periods": {
+        "2024": {
+          "year": 2024,
+          "status": "evidence_found",
+          "receiptNo": "20250328000054",
+          "tables": [
+            {
+              "topic": "productionCapacity",
+              "topicName": "생산능력",
+              "receiptNo": "20250328000054",
+              "unit": null,
+              "context": "생산능력 [석유화학] ",
+              "reportingEntity": "석유화학",
+              "classificationHeading": "생산능력",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "사업부문",
+                  "구분",
+                  "품목",
+                  "사업소",
+                  "제 61 기",
+                  "제 60 기",
+                  "제 59기"
+                ],
+                [
+                  "정유",
+                  "원유정제",
+                  "석유류",
+                  "대산",
+                  "189,800",
+                  "189,800",
+                  "189,800"
+                ],
+                [
+                  "윤활",
+                  "윤활기유공정",
+                  "석유류",
+                  "대산",
+                  "9,125",
+                  "9,125",
+                  "9,125"
+                ],
+                [
+                  "석유화학(BTX)",
+                  "대산",
+                  "21,900",
+                  "21,900",
+                  "21,900"
+                ],
+                [
+                  "석유화학(모노머)",
+                  "대산",
+                  "832천톤",
+                  "832천톤",
+                  "832천톤"
+                ],
+                [
+                  "석유화학(폴리머)",
+                  "대산",
+                  "1,350천톤",
+                  "1,350천톤",
+                  "1,350천톤"
+                ],
+                [
+                  "화학공정",
+                  "카본블랙",
+                  "대산",
+                  "150천톤",
+                  "150천톤",
+                  "150천톤"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "productionActual",
+              "topicName": "생산실적",
+              "receiptNo": "20250328000054",
+              "unit": null,
+              "context": "생산실적 [석유화학] ",
+              "reportingEntity": "석유화학",
+              "classificationHeading": "생산실적",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "사업부문",
+                  "구분",
+                  "품목",
+                  "사업소",
+                  "제 61 기",
+                  "제 60 기",
+                  "제 59기"
+                ],
+                [
+                  "정유",
+                  "원유정제",
+                  "석유류",
+                  "대산",
+                  "163,446",
+                  "146,585",
+                  "151,392"
+                ],
+                [
+                  "윤활",
+                  "윤활기유공정",
+                  "석유류",
+                  "대산",
+                  "9,127",
+                  "8,301",
+                  "7,660"
+                ],
+                [
+                  "석유화학(BTX)",
+                  "대산",
+                  "21,307",
+                  "19,135",
+                  "16,871"
+                ],
+                [
+                  "석유화학(모노머)",
+                  "대산",
+                  "573천톤",
+                  "354천톤",
+                  "691천톤"
+                ],
+                [
+                  "석유화학(폴리머)",
+                  "대산",
+                  "571 천톤",
+                  "514천톤",
+                  "786천톤"
+                ],
+                [
+                  "화학공정",
+                  "카본블랙",
+                  "대산",
+                  "144천톤",
+                  "152천톤",
+                  "146천톤"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "utilization",
+              "topicName": "가동률",
+              "receiptNo": "20250328000054",
+              "unit": null,
+              "context": "가동률 [석유화학] ",
+              "reportingEntity": "석유화학",
+              "classificationHeading": "가동률",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "정유",
+                  "원유정제",
+                  "석유류",
+                  "189,800",
+                  "163,446",
+                  "86%"
+                ],
+                [
+                  "윤활",
+                  "윤활기유공정",
+                  "석유류",
+                  "9,125",
+                  "9,127",
+                  "100%"
+                ],
+                [
+                  "석유화학(BTX)",
+                  "21,900",
+                  "21,307",
+                  "97%"
+                ],
+                [
+                  "석유화학(모노머)",
+                  "832천톤",
+                  "573천톤",
+                  "69%"
+                ],
+                [
+                  "석유화학(폴리머)",
+                  "1,350천톤",
+                  "571 천톤",
+                  "42%"
+                ],
+                [
+                  "화학공정",
+                  "카본블랙",
+                  "150천톤",
+                  "144천톤",
+                  "96%"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "segmentSales",
+              "topicName": "제품·사업부별 매출",
+              "receiptNo": "20250328000054",
+              "unit": "백만원",
+              "context": "매출실적 [(참고)에이치디현대오일뱅크별도생산설비현황] (단위: 백만원)",
+              "reportingEntity": "(참고)에이치디현대오일뱅크별도생산설비현황",
+              "classificationHeading": "매출실적",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "내수",
+                  "13,907,347",
+                  "13,041,027",
+                  "16,058,552"
+                ],
+                [
+                  "합계",
+                  "28,629,423",
+                  "25,579,776",
+                  "32,931,091"
+                ],
+                [
+                  "내수",
+                  "130,728",
+                  "115,638",
+                  "153,503"
+                ],
+                [
+                  "합계",
+                  "10,342,409",
+                  "6,176,796",
+                  "6,961,294"
+                ],
+                [
+                  "내수",
+                  "77,707",
+                  "77,190",
+                  "(212,582)"
+                ],
+                [
+                  "합계",
+                  "83,554",
+                  "82,352",
+                  "(499,461)"
+                ],
+                [
+                  "내수",
+                  "14,115,782",
+                  "13,233,855",
+                  "15,999,473"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "orderBacklog",
+              "topicName": "수주잔고",
+              "receiptNo": "20250328000054",
+              "unit": null,
+              "context": "수주상황 [기타종속회사판매경로등:에이치디현대케미칼(주)] ",
+              "reportingEntity": "기타종속회사판매경로등:에이치디현대케미칼(주)",
+              "classificationHeading": "수주상황",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "석유류제품",
+                  "2024.01.01",
+                  "2024.12.31",
+                  "136,299",
+                  "119,984",
+                  "136,299",
+                  "119,984"
+                ],
+                [
+                  "석유류제품",
+                  "2024.01.01",
+                  "2024.12.31",
+                  "164,348",
+                  "141,131",
+                  "164,348",
+                  "141,131"
+                ],
+                [
+                  "석유류제품",
+                  "2024.01.01",
+                  "2024.12.31",
+                  "20,359",
+                  "21,767",
+                  "20,359",
+                  "21,767"
+                ],
+                [
+                  "석유류제품",
+                  "2024.01.01",
+                  "2024.12.31",
+                  "4,685,937",
+                  "3,762,653",
+                  "4,685,937",
+                  "3,762,653"
+                ],
+                [
+                  "석유류제품",
+                  "2024.01.01",
+                  "2024.12.31",
+                  "133,377",
+                  "112,027",
+                  "133,377",
+                  "112,027"
+                ],
+                [
+                  "석유류제품",
+                  "2024.11.01",
+                  "2024.12.31",
+                  "170,640",
+                  "131,719",
+                  "170,640",
+                  "131,719"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            }
+          ],
+          "reportName": "사업보고서 (2024.12)",
+          "published": "20250328",
+          "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250328000054",
+          "documentName": "20250328000054.xml"
+        },
+        "2025": {
+          "year": 2025,
+          "status": "evidence_found",
+          "receiptNo": "20260330000992",
+          "tables": [
+            {
+              "topic": "productionCapacity",
+              "topicName": "생산능력",
+              "receiptNo": "20260330000992",
+              "unit": null,
+              "context": "생산능력 [석유화학] ",
+              "reportingEntity": "석유화학",
+              "classificationHeading": "생산능력",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "사업부문",
+                  "구분",
+                  "품목",
+                  "사업소",
+                  "제 62 기",
+                  "제 61 기",
+                  "제 60기"
+                ],
+                [
+                  "정유",
+                  "원유정제",
+                  "석유류",
+                  "대산",
+                  "189,800",
+                  "189,800",
+                  "189,800"
+                ],
+                [
+                  "윤활",
+                  "윤활기유공정",
+                  "석유류",
+                  "대산",
+                  "9,125",
+                  "9,125",
+                  "9,125"
+                ],
+                [
+                  "석유화학(BTX)",
+                  "대산",
+                  "21,900",
+                  "21,900",
+                  "21,900"
+                ],
+                [
+                  "석유화학(모노머)",
+                  "대산",
+                  "832천톤",
+                  "832천톤",
+                  "832천톤"
+                ],
+                [
+                  "석유화학(폴리머)",
+                  "대산",
+                  "1,350천톤",
+                  "1,350천톤",
+                  "1,350천톤"
+                ],
+                [
+                  "화학공정",
+                  "카본블랙",
+                  "대산",
+                  "150천톤",
+                  "150천톤",
+                  "150천톤"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "productionActual",
+              "topicName": "생산실적",
+              "receiptNo": "20260330000992",
+              "unit": null,
+              "context": "생산실적 [석유화학] ",
+              "reportingEntity": "석유화학",
+              "classificationHeading": "생산실적",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "사업부문",
+                  "구분",
+                  "품목",
+                  "사업소",
+                  "제 62 기",
+                  "제 61 기",
+                  "제 60기"
+                ],
+                [
+                  "정유",
+                  "원유정제",
+                  "석유류",
+                  "대산",
+                  "167,666",
+                  "163,446",
+                  "146,585"
+                ],
+                [
+                  "윤활",
+                  "윤활기유공정",
+                  "석유류",
+                  "대산",
+                  "8,671",
+                  "9,127",
+                  "8,301"
+                ],
+                [
+                  "석유화학(BTX)",
+                  "대산",
+                  "22,144",
+                  "21,307",
+                  "19,135"
+                ],
+                [
+                  "석유화학(모노머)",
+                  "대산",
+                  "534천톤",
+                  "573천톤",
+                  "354천톤"
+                ],
+                [
+                  "석유화학(폴리머)",
+                  "대산",
+                  "531천톤",
+                  "571천톤",
+                  "514천톤"
+                ],
+                [
+                  "화학공정",
+                  "카본블랙",
+                  "대산",
+                  "146천톤",
+                  "144천톤",
+                  "152천톤"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "utilization",
+              "topicName": "가동률",
+              "receiptNo": "20260330000992",
+              "unit": null,
+              "context": "가동률 [석유화학] ",
+              "reportingEntity": "석유화학",
+              "classificationHeading": "가동률",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "정유",
+                  "원유정제",
+                  "석유류",
+                  "189,800",
+                  "167,666",
+                  "88%"
+                ],
+                [
+                  "윤활",
+                  "윤활기유공정",
+                  "석유류",
+                  "9,125",
+                  "8,671",
+                  "95%"
+                ],
+                [
+                  "석유화학(BTX)",
+                  "21,900",
+                  "22,144",
+                  "101%"
+                ],
+                [
+                  "석유화학(모노머)",
+                  "832천톤",
+                  "534천톤",
+                  "64%"
+                ],
+                [
+                  "석유화학(폴리머)",
+                  "1,350천톤",
+                  "531천톤",
+                  "39%"
+                ],
+                [
+                  "화학공정",
+                  "카본블랙",
+                  "150천톤",
+                  "146천톤",
+                  "97%"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "segmentSales",
+              "topicName": "제품·사업부별 매출",
+              "receiptNo": "20260330000992",
+              "unit": "백만원",
+              "context": "매출실적 [(참고)에이치디현대오일뱅크별도생산설비현황] (단위: 백만원)",
+              "reportingEntity": "(참고)에이치디현대오일뱅크별도생산설비현황",
+              "classificationHeading": "매출실적",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "내수",
+                  "10,972,143",
+                  "13,907,347",
+                  "13,041,027"
+                ],
+                [
+                  "합계",
+                  "26,469,345",
+                  "28,629,423",
+                  "25,579,776"
+                ],
+                [
+                  "내수",
+                  "95,292",
+                  "130,728",
+                  "115,638"
+                ],
+                [
+                  "합계",
+                  "9,671,838",
+                  "10,342,409",
+                  "6,176,796"
+                ],
+                [
+                  "내수",
+                  "52,284",
+                  "77,707",
+                  "77,190"
+                ],
+                [
+                  "합계",
+                  "43,003",
+                  "83,554",
+                  "82,352"
+                ],
+                [
+                  "내수",
+                  "(3,089,082)",
+                  "(3,463,464)",
+                  "(2,473,006)"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            },
+            {
+              "topic": "orderBacklog",
+              "topicName": "수주잔고",
+              "receiptNo": "20260330000992",
+              "unit": null,
+              "context": "수주상황 [기타종속회사판매경로등:에이치디현대케미칼(주)] ",
+              "reportingEntity": "기타종속회사판매경로등:에이치디현대케미칼(주)",
+              "classificationHeading": "수주상황",
+              "extractionVersion": "heading-scope-v2",
+              "rows": [
+                [
+                  "석유류제품",
+                  "2025.01.01",
+                  "2025.12.31",
+                  "188,010",
+                  "166,426",
+                  "188,010",
+                  "166,426"
+                ],
+                [
+                  "석유류제품",
+                  "2025.01.01",
+                  "2025.12.31",
+                  "155,995",
+                  "126,588",
+                  "155,995",
+                  "126,588"
+                ],
+                [
+                  "석유류제품",
+                  "2025.01.01",
+                  "2025.12.31",
+                  "4,141,558",
+                  "3,218,018",
+                  "4,141,558",
+                  "3,218,018"
+                ],
+                [
+                  "석유류제품",
+                  "2025.01.01",
+                  "2025.12.31",
+                  "226,775",
+                  "182,167",
+                  "226,775",
+                  "182,167"
+                ],
+                [
+                  "석유류제품",
+                  "2025.01.01",
+                  "2025.12.31",
+                  "700,697",
+                  "522,671",
+                  "700,697",
+                  "522,671"
+                ]
+              ],
+              "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+            }
+          ],
+          "reportName": "사업보고서 (2025.12)",
+          "published": "20260330",
+          "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260330000992",
+          "documentName": "20260330000992.xml"
+        }
+      },
+      "pairs": [
+        {
+          "topic": "segmentSales",
+          "topicName": "제품·사업부별 매출",
+          "unit": "백만원",
+          "before": {
+            "topic": "segmentSales",
+            "topicName": "제품·사업부별 매출",
+            "receiptNo": "20250328000054",
+            "unit": "백만원",
+            "context": "매출실적 [(참고)에이치디현대오일뱅크별도생산설비현황] (단위: 백만원)",
+            "reportingEntity": "(참고)에이치디현대오일뱅크별도생산설비현황",
+            "classificationHeading": "매출실적",
+            "extractionVersion": "heading-scope-v2",
+            "rows": [
+              [
+                "내수",
+                "13,907,347",
+                "13,041,027",
+                "16,058,552"
+              ],
+              [
+                "합계",
+                "28,629,423",
+                "25,579,776",
+                "32,931,091"
+              ],
+              [
+                "내수",
+                "130,728",
+                "115,638",
+                "153,503"
+              ],
+              [
+                "합계",
+                "10,342,409",
+                "6,176,796",
+                "6,961,294"
+              ],
+              [
+                "내수",
+                "77,707",
+                "77,190",
+                "(212,582)"
+              ],
+              [
+                "합계",
+                "83,554",
+                "82,352",
+                "(499,461)"
+              ],
+              [
+                "내수",
+                "14,115,782",
+                "13,233,855",
+                "15,999,473"
+              ]
+            ],
+            "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+          },
+          "after": {
+            "topic": "segmentSales",
+            "topicName": "제품·사업부별 매출",
+            "receiptNo": "20260330000992",
+            "unit": "백만원",
+            "context": "매출실적 [(참고)에이치디현대오일뱅크별도생산설비현황] (단위: 백만원)",
+            "reportingEntity": "(참고)에이치디현대오일뱅크별도생산설비현황",
+            "classificationHeading": "매출실적",
+            "extractionVersion": "heading-scope-v2",
+            "rows": [
+              [
+                "내수",
+                "10,972,143",
+                "13,907,347",
+                "13,041,027"
+              ],
+              [
+                "합계",
+                "26,469,345",
+                "28,629,423",
+                "25,579,776"
+              ],
+              [
+                "내수",
+                "95,292",
+                "130,728",
+                "115,638"
+              ],
+              [
+                "합계",
+                "9,671,838",
+                "10,342,409",
+                "6,176,796"
+              ],
+              [
+                "내수",
+                "52,284",
+                "77,707",
+                "77,190"
+              ],
+              [
+                "합계",
+                "43,003",
+                "83,554",
+                "82,352"
+              ],
+              [
+                "내수",
+                "(3,089,082)",
+                "(3,463,464)",
+                "(2,473,006)"
+              ]
+            ],
+            "comparisonStatus": "표 발췌 · 표 항목/기간/단위 재확인 필요"
+          },
+          "status": "동일 주제·표시 단위 후보, 비교 열·사업범위 확인 전",
+          "numericChange": null,
+          "needsManualVerification": true
+        }
+      ],
+      "status": "source_pairs_to_review",
+      "questions": [
+        "표에 제시된 기준 기간·수량 단위·연결/별도 범위가 같은가?",
+        "제품군·사업장·고객사 변경이 수주잔고 또는 생산능력에 미치는 실제 영향은?",
+        "같은 사실이 기업 IR과 기존 산업전문지에 이미 공개됐는가?"
+      ]
     }
   ],
-  "candidatePairs": 24,
+  "candidatePairs": 28,
   "verifiedNumericChanges": 0,
   "scoopStatus": "단독 판단 불가: 사업범위·보도·회사 확인 전"
 }
