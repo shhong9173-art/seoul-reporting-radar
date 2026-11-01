@@ -44,7 +44,7 @@ TARGETS=[
  # 전선·전력
  ("LS전선","전선·전력"),("LS M&M","전선·전력"),("LS지주","전선·전력"),
  # 에너지
- ("두산에너빌리티","에너지"),("GS","에너지"),("GS칼텍스","에너지"),
+ ("두산에너빌리티","에너지"),("GS","에너지"),("GS칼텍스","에너지"),("S-OIL","에너지"),("HD현대오일뱅크","에너지"),
  ("한국전력공사","전력·에너지"),("한국수력원자력","에너지"),("한국전력기술","에너지"),("전력거래소","전력시장"),
  # 풍력·재생에너지
  ("한화솔루션","재생에너지"),("OCI","재생에너지"),("OCI홀딩스","재생에너지"),("씨에스윈드","재생에너지"),
@@ -78,6 +78,7 @@ ALIASES={
  "대한전선":("대한전선","Taihan Cable"),"효성중공업":("효성중공업","Hyosung Heavy Industries"),"일진전기":("일진전기","Iljin Electric"),
  "LS전선":("LS전선","LS Cable & System"),"LS M&M":("LS M&M","LS MnM"),"LS지주":("LS지주","LS Corp"),
  "두산에너빌리티":("두산에너빌리티","Doosan Enerbility"),"GS":("GS",),"GS칼텍스":("GS칼텍스","GS Caltex"),
+ "S-OIL":("S-OIL","에쓰오일","에쓰-오일"),"HD현대오일뱅크":("HD현대오일뱅크","현대오일뱅크","Hyundai Oilbank"),
  "한화솔루션":("한화솔루션","Hanwha Solutions"),"OCI":("OCI",),"OCI홀딩스":("OCI홀딩스","OCI Holdings"),
  "씨에스윈드":("씨에스윈드","CS Wind"),"태광":("태광","Taekwang"),"동성케미칼":("동성케미칼","Dongsung Chemical"),
  "DL케미칼":("DL케미칼","DL Chemical"),"LG화학":("LG화학","LG Chem"),"롯데케미칼":("롯데케미칼","Lotte Chemical"),
@@ -116,6 +117,7 @@ OFFICIAL_DOMAINS={
  "posco.com":"포스코","hyundai-steel.com":"현대제철","seah.co.kr":"세아","koreazinc.co.kr":"고려아연","youngpoong.co.kr":"영풍",
  "ls-electric.com":"LS일렉트릭","taihan.com":"대한전선","hyosung.com":"효성","iljinelectric.co.kr":"일진전기","lscns.co.kr":"LS전선",
  "lscorp.co.kr":"LS지주","doosanenerbility.com":"두산에너빌리티","gscaltex.com":"GS칼텍스","hanwhasolutions.com":"한화솔루션",
+ "s-oil.com":"S-OIL","oilbank.co.kr":"HD현대오일뱅크","skinnovation.com":"SK이노베이션",
  "oci.co.kr":"OCI","oci-holdings.co.kr":"OCI홀딩스","cswind.com":"씨에스윈드","taekwang.com":"태광",
  "dongsungchemical.com":"동성케미칼","dlchem.com":"DL케미칼"
 }
@@ -131,6 +133,7 @@ COMPANY_DOMAINS={
  "HD현대일렉트릭":"hd-hyundaielectric.com","LS일렉트릭":"ls-electric.com","대한전선":"taihan.com","효성중공업":"hyosungheavyindustries.com","일진전기":"iljinelectric.co.kr",
  "LS전선":"lscns.co.kr","LS지주":"lsholdings.com",
  "두산에너빌리티":"doosanenerbility.com","GS":"gs.co.kr","GS칼텍스":"gscaltex.com",
+ "S-OIL":"s-oil.com","HD현대오일뱅크":"oilbank.co.kr","SK이노베이션":"skinnovation.com",
  "한화솔루션":"hanwhasolutions.com","OCI":"oci.co.kr","OCI홀딩스":"oci-holdings.co.kr","씨에스윈드":"cswind.com",
  "태광":"taekwang.com","동성케미칼":"dongsungchemical.com","DL케미칼":"dlchem.com",
  "LG화학":"lgchem.com","롯데케미칼":"lottechem.com","금호석유화학":"kkpc.com","효성첨단소재":"hshyosungadvancedmaterials.com","코오롱인더":"kolonindustries.com"
@@ -147,6 +150,8 @@ DIRECT_BEAT_COMPANIES=frozenset({
  "HD현대일렉트릭","LS일렉트릭","대한전선",
  "LS전선","LS지주","두산에너빌리티","GS","GS칼텍스",
  "한화솔루션","OCI","OCI홀딩스","태광","동성케미칼","DL케미칼",
+ # 11-01 기자 명시: 석유화학·정유(자회사 SK에너지·SK지오센트릭·SK온·LG에너지솔루션은 아님)
+ "LG화학","롯데케미칼","금호석유화학","S-OIL","SK이노베이션","HD현대오일뱅크",
  "한국철강협회","한국풍력산업협회","대한전기협회",
  "한국전기산업진흥회","한국원자력산업협회"
 })

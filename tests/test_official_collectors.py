@@ -70,7 +70,8 @@ class CollectorRegressionTests(unittest.TestCase):
         rows=[
             {"corpName":"삼성전기","reportName":"신규시설투자등",
              "date":date,"receiptNo":"20261012000001","url":"https://dart.fss.or.kr"},
-            {"corpName":"LG화학","reportName":"생산중단",
+            # LG화학은 11-01부터 출입처(석유화학) — 출입처 밖 화학사는 코오롱인더로 본다
+            {"corpName":"코오롱인더","reportName":"생산중단",
              "date":date,"receiptNo":"20261012000002","url":"https://dart.fss.or.kr"},
             {"corpName":"두산에너빌리티","reportName":"생산중단",
              "date":date,"receiptNo":"20261012000003","url":"https://dart.fss.or.kr"},
@@ -79,6 +80,14 @@ class CollectorRegressionTests(unittest.TestCase):
         ]
         public=scoops.build_public_signals([],rows,now,numeric_rows=[])
         self.assertEqual([x["companies"] for x in public],[["두산에너빌리티"]])
+
+    def test_petrochem_beats_are_public_from_1101(self):
+        now=datetime.now(scoops.KST)
+        date=now.strftime("%Y%m%d")
+        rows=[{"corpName":c,"reportName":"생산중단","date":date,"receiptNo":f"2026110100000{i}","url":"https://dart.fss.or.kr"}
+              for i,c in enumerate(["LG화학","S-OIL","SK에너지"])]
+        public=scoops.build_public_signals([],rows,now,numeric_rows=[])
+        self.assertEqual(sorted(c for x in public for c in x["companies"]),["LG화학","S-OIL"])   # SK에너지는 자회사
 
     def test_companyless_policy_not_exclusive(self):
         self.assertFalse(scoops.relevant_primary(
