@@ -705,7 +705,8 @@ def browser_lines(doc, page, now):
         age = (now - dt.datetime.fromisoformat(str(entry.get("fetchedAt")))).total_seconds() / 3600
     except (TypeError, ValueError):
         return None, "브라우저 수집 시각 미상"
-    limit = BROWSER_FRESH_MONDAY if now.weekday() == 0 and now.hour < 12 else BROWSER_FRESH_HOURS
+    # 예약 작업은 평일 오전뿐: 토·일과 월요일 오전에는 금요일 수집까지(11-01 일요일 병합 실행에 '호주 TRN 실패'로 떴다)
+    limit = BROWSER_FRESH_MONDAY if now.weekday() >= 5 or (now.weekday() == 0 and now.hour < 12) else BROWSER_FRESH_HOURS
     if age > limit:
         return None, f"브라우저 수집이 {age:.0f}시간 전 — 컴퓨터·앱이 꺼졌을 수 있음"
     if entry.get("error"):

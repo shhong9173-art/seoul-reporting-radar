@@ -345,6 +345,17 @@ class PetrochemNames(unittest.TestCase):
         self.assertTrue(w.BEAT_PRODUCTS.search("Emulsion Styrene-Butadiene Rubber From the Republic of Korea"))
 
 
+class BrowserFreshness(unittest.TestCase):
+    def test_weekend_accepts_friday_collection(self):
+        # 11-01(일) 병합 실행: 금요일 오전 수집이 48시간 전이라 '호주 TRN 실패'로 떴다 — 예약 작업은 평일 오전뿐
+        doc = {"pages": [{"id": "au-trn", "fetchedAt": "2026-10-30T08:45:00+09:00", "rows": []}]}
+        page = {"id": "au-trn"}
+        sunday = dt.datetime(2026, 11, 1, 16, 40, tzinfo=dt.timezone(dt.timedelta(hours=9)))
+        tuesday = dt.datetime(2026, 11, 3, 7, 40, tzinfo=dt.timezone(dt.timedelta(hours=9)))
+        self.assertNotIn("시간 전", str(w.browser_lines(doc, page, sunday)[1]))
+        self.assertIn("시간 전", str(w.browser_lines(doc, page, tuesday)[1]))
+
+
 if __name__ == "__main__":
     unittest.main()
 
