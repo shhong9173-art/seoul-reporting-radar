@@ -67,6 +67,7 @@ INDUSTRY = [
     "lithium", "lfp", "solid-state", "charging", "software", "robotaxi", "export",
     "steel", "steelmaker", "zinc", "copper", "smelter", "transformer", "transformers", "cable", "cables", "grid", "power equipment",
     "solar", "polysilicon", "refinery", "refiner", "petrochemical", "chemical", "tire", "tires", "nuclear", "turbine", "antidumping", "anti-dumping",
+    "reactor", "reactors", "smr", "wind", "offshore wind", "subsea", "hvdc", "substation", "module", "modules", "wafer", "cell", "cells", "lng",
 ]
 HIGH_IMPACT = [
     "tariff", "investment", "contract", "order", "supply", "factory", "plant", "production", "recall",
@@ -185,9 +186,17 @@ PUBLISHER_FEEDS = [
     ("Just Auto", "https://www.just-auto.com/feed/"), ("electrive", "https://www.electrive.com/feed/"),
     ("Utility Dive", "https://www.utilitydive.com/feeds/news/"), ("pv magazine", "https://www.pv-magazine.com/feed/"),
     ("Energy-Storage.news", "https://www.energy-storage.news/feed/"),
+    # 11-01 출입처 외신 넓히기(탐침 68: GitHub 서버에서 열리는 것만) — 철강·비철·전력기기·전선·원전·태양광·타이어
+    ("GMK Center", "https://gmk.center/en/feed/"), ("MetalMiner", "https://agmetalminer.com/feed/"),
+    ("Northern Miner", "https://www.northernminer.com/feed/"), ("Transformers Magazine", "https://transformers-magazine.com/feed/"),
+    ("offshoreWIND.biz", "https://www.offshorewind.biz/feed/"), ("Offshore Energy", "https://www.offshore-energy.biz/feed/"),
+    ("Canary Media", "https://www.canarymedia.com/rss"), ("World Nuclear News", "https://www.world-nuclear-news.org/rss"),
+    ("PV Tech", "https://www.pv-tech.org/feed/"), ("Tire Business", "https://www.tirebusiness.com/arc/outboundfeeds/rss/"),
+    ("Tyrepress", "https://www.tyrepress.com/feed/"), ("Automotive News Europe", "https://europe.autonews.com/arc/outboundfeeds/rss/"),
 ]
 # 전력·태양광·에너지저장 전문지는 한국 회사 이름이 나올 때만(미국 전력망 일반 기사로 넘치지 않게)
-STRICT_KOREA = {"Utility Dive", "pv magazine", "Energy-Storage.news"}
+STRICT_KOREA = {"Utility Dive", "pv magazine", "Energy-Storage.news", "GMK Center", "MetalMiner", "Northern Miner", "Transformers Magazine",
+                "offshoreWIND.biz", "Offshore Energy", "Canary Media", "World Nuclear News", "PV Tech", "Tire Business", "Tyrepress"}
 CONTENT = "{http://purl.org/rss/1.0/modules/content/}encoded"
 
 
@@ -231,7 +240,7 @@ def parse_publisher(source: str, url: str) -> list[dict]:
             continue
         body = clean(item.findtext(CONTENT) or "") or clean(item.findtext("description") or "")
         scored = score_text((title + " " + body[:800]).lower())
-        if not scored or (source in STRICT_KOREA and scored[1] == 0):
+        if not scored or (source in STRICT_KOREA and scored[1] == 0):   # 전문지는 한국·출입처 이름이 나올 때만
             continue
         rows.append({"title": title, "url": link, "published": dt.isoformat(), "sourceName": source, "category": "글로벌", "global": True,
                      "globalSource": source, "summary": "", "globalScore": scored[0], "koTitle": "", "koSummary": "",
@@ -372,10 +381,10 @@ def main() -> None:
         lambda cat,q,global_feed=False,source_hint="":parse(source_hint,q),
         on_error=unexpected_feed_error,workers=3)
     publisher_rows=[]
-    for name,feed_url in PUBLISHER_FEEDS:   # 매체 RSS 11곳을 차례로(한 곳당 한 번)
+    for name,feed_url in PUBLISHER_FEEDS:   # 매체 RSS를 차례로(한 곳당 한 번)
         publisher_rows+=parse_publisher(name,feed_url)
     raw_globals=attach_publisher_text(raw_globals,publisher_rows)
-    candidates=shortlist(raw_globals,limit=48)
+    candidates=shortlist(raw_globals,limit=60)
     unique=translate_selected(candidates,translate,
         previous=previous_global,workers=2)
     unique=summarize_selected(unique,worker_summarize,previous=previous_global,workers=2)

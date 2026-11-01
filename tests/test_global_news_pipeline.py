@@ -102,6 +102,13 @@ class GlobalCollectorBeatTests(unittest.TestCase):
         self.assertTrue(gc.title_only("", t))
         self.assertFalse(gc.title_only("The company said on Monday it would spend $7.4 billion on a smelter in Tennessee, its first outside Korea.", t))
 
+    def test_beat_trade_press_feeds_require_korean_mention(self):
+        names={n for n,_ in gc.PUBLISHER_FEEDS}
+        for n in ("GMK Center","World Nuclear News","offshoreWIND.biz","PV Tech","Tire Business","Transformers Magazine"):
+            self.assertIn(n,names); self.assertIn(n,gc.STRICT_KOREA)
+        self.assertNotIn("Automotive News Europe",gc.STRICT_KOREA)   # 자동차 매체는 자동차 기준 그대로
+        self.assertGreaterEqual(gc.hits(gc.INDUSTRY_RE,"ls cable wins hvdc subsea cable order for offshore wind"),3)
+
     def test_beat_queries_cover_non_auto_beats(self):
         q = " ".join(x[1] for x in gc.QUERIES)
         for name in ("Hyundai Steel", "Korea Zinc", "LS Electric", "HD Hyundai Electric", "LS Cable", "Hanwha Qcells", "GS Caltex", "Hankook Tire"):
