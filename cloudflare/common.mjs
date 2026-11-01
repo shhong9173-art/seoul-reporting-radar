@@ -5,7 +5,7 @@ export const MAX_TEXT = 20000;
 export const DEFAULT_DATA_BASE =
   'https://raw.githubusercontent.com/shhong9173-art/seoul-reporting-radar/main/';
 
-// Reporter-confirmed direct beats (2026-10-26, 41 companies).
+// Reporter-confirmed direct beats (2026-10-26, 41 companies; 2026-11-01 석유화학 3·정유 3 추가 → 47).
 export const BEAT_TEAMS = {
   '자동차': ['현대차', '기아', '현대모비스', '현대위아', 'HL만도', '한국GM', 'KG모빌리티', '르노코리아',
     '메르세데스벤츠코리아', 'BMW코리아', '폭스바겐코리아', '아우디코리아', '혼다코리아', '한국타이어',
@@ -13,8 +13,8 @@ export const BEAT_TEAMS = {
   '철강·비철': ['포스코홀딩스', '포스코', '현대제철', 'KG스틸', '세아홀딩스', '세아제강', '동국제강', '동국씨엠',
     '고려아연', '영풍'],
   '전력·에너지': ['HD현대일렉트릭', 'LS일렉트릭', '대한전선', 'LS전선', 'LS MnM', 'LS지주', '두산에너빌리티',
-    'GS', 'GS칼텍스'],
-  '화학·소재': ['한화솔루션', 'OCI', 'OCI홀딩스', '태광', '동성케미칼', 'DL케미칼'],
+    'GS', 'GS칼텍스', 'S-OIL', 'SK이노베이션', 'HD현대오일뱅크'],
+  '화학·소재': ['한화솔루션', 'OCI', 'OCI홀딩스', '태광', '동성케미칼', 'DL케미칼', 'LG화학', '롯데케미칼', '금호석유화학'],
 };
 export const DIRECT_BEATS = new Set(Object.values(BEAT_TEAMS).flat());
 export const TEAM_ORDER = ['자동차', '철강·비철', '전력·에너지', '화학·소재', '해외', '조달', '특허', '그 외'];
@@ -33,6 +33,8 @@ export const REGISTRY_NAMES = {
   '케이지스틸': 'KG스틸', '케이지모빌리티': 'KG모빌리티', '한국지엠': '한국GM', '오씨아이': 'OCI',
   '에이치디현대일렉트릭': 'HD현대일렉트릭', '디엘케미칼': 'DL케미칼', 'LS': 'LS지주', '엘에스': 'LS지주',
   '에이치엘만도': 'HL만도', '만도': 'HL만도', '메르세데스-벤츠 코리아': '메르세데스벤츠코리아',
+  '엘지화학': 'LG화학', 'S-Oil': 'S-OIL', '에쓰오일': 'S-OIL', '에쓰-오일': 'S-OIL', '에스케이이노베이션': 'SK이노베이션',
+  '에이치디현대오일뱅크': 'HD현대오일뱅크', '현대오일뱅크': 'HD현대오일뱅크',
 };
 
 export function beatName(raw) {
