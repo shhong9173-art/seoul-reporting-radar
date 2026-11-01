@@ -1,26 +1,22 @@
-"""Probe 82: 정책브리핑 보도자료 목록 부처 거르기 매개변수 — 기후에너지환경부(A00019) 조합 세 가지를 한 번씩, 행마다 날짜·부처만 본다(공개 목록)."""
+"""Probe 83: (1) 정책브리핑 보도자료 목록 repCodeType=A&repCode=A00019(기후에너지환경부) 원본 행 HTML 한 줄,
+(2) 산업부 '2026년 10월 수출입 동향'(172360) 본문 중 품목 표 부분 — 10월 표 해석 실패 원인(공개 보도자료, 한 번씩)."""
+import html
 import re
 
 import requests
 
 H = {"User-Agent": "newsroom-official-research/1.0 (github.com/shhong9173-art/seoul-reporting-radar)"}
-URL = "https://www.korea.kr/briefing/pressReleaseList.do"
 out = []
-for label, params in [("repCode", {"repCodeType": "A", "repCode": "A00019"}),
-                      ("srchRepCodeType", {"srchRepCodeType": "A00019"}),
-                      ("deptCode", {"deptCode": "A00019"})]:
-    try:
-        r = requests.get(URL, params=params, headers=H, timeout=30)
-        rows = re.findall(r'pressReleaseView\.do\?newsId=(\d+)[^"]*">\s*<span class="text">\s*<strong>(.*?)</strong>.*?<span class="source">\s*<span>([\d.]+)</span>\s*<span>([^<]+)</span>', r.text, re.S)
-        depts = {}
-        for _, _, _, d in rows:
-            depts[d.strip()] = depts.get(d.strip(), 0) + 1
-        out.append(f"{label} HTTP {r.status_code} rows {len(rows)} depts {depts}")
-        for nid, title, date, dept in rows[:3]:
-            out.append(f"  {date} {dept.strip()} {nid} | {re.sub(r'<[^>]+>', '', title)[:60]}")
-        tot = re.search(r"총\s*<[^>]*>\s*([\d,]+)|([\d,]+)\s*건", r.text)
-        out.append(f"  total {tot.group(0)[:40] if tot else '-'}")
-    except Exception as e:  # noqa: BLE001
-        out.append(f"{label} {type(e).__name__}")
+r = requests.get("https://www.korea.kr/briefing/pressReleaseList.do", params={"repCodeType": "A", "repCode": "A00019"}, headers=H, timeout=30)
+t = r.text
+i = t.find("pressReleaseView.do?newsId=")
+out.append(f"korea filtered HTTP {r.status_code} ids {len(re.findall(r'pressReleaseView[.]do[?]newsId=', t))}")
+out.append("  row " + re.sub(r"\s+", " ", t[max(0, i - 150):i + 700]))
+r = requests.get("https://www.motir.go.kr/kor/article/ATCL3f49a5a8c/172360/view", headers=H, timeout=40)
+body = re.sub(r"\s+", " ", html.unescape(re.sub(r"(?s)<[^>]+>", " ", r.text)))
+out.append(f"motir 172360 HTTP {r.status_code} len {len(body)}")
+for pat in [r"\*\s*\d{1,2}월\s*수출", r"주요\s*품목별\s*수출액", r"자동차\(", r"석유화학"]:
+    m = re.search(pat, body)
+    out.append(f"  [{pat}] " + (body[max(0, m.start() - 80):m.start() + 700] if m else "없음"))
 open("/tmp/probe_out.txt", "w").write("\n".join(out))
 print("\n".join(out)[:600])
