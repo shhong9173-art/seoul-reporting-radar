@@ -1,21 +1,43 @@
-"""Probe 75: 나주시 새올 고시·공고 목록(LG화학 나주공장 시) — GitHub 러너에서 열리는지, 줄 수·최근 제목 몇 줄(공개 공고).
-운영 지자체 감시와 같은 코드(main의 kr_local_notice_watch 복사본)로 읽는다. 한 번만."""
-import sys
-import time
+"""Probe 76: 정책브리핑 보도자료 OpenAPI(문화체육관광부, 공공데이터 15095295 추정) — 공유 키로 열리는지(활용신청 여부),
+응답 칸 이름, 최근 3일 부처별 건수와 공정위·기후에너지환경부 제목 몇 줄(공개 보도자료). 키 값은 출력하지 않는다. 한 번."""
+import collections
+import datetime as dt
+import os
+import re
+import xml.etree.ElementTree as ET
 
-sys.path.insert(0, "scripts/probe")
-import klnw_main as w  # noqa: E402
-import requests  # noqa: E402
+import requests
 
-out = []
-for city, base in [("나주시", "https://eminwon.naju.go.kr")]:
-    t0 = time.time()
+KEY = (os.environ.get("DATA_GO_KR_KEY") or os.environ.get("KR_FUEL_API_KEY") or "").strip()
+KST = dt.timezone(dt.timedelta(hours=9))
+now = dt.datetime.now(KST)
+out = [f"key length {len(KEY)}"]
+for url in ("https://apis.data.go.kr/1371000/pressReleaseService/pressReleaseList",
+            "http://apis.data.go.kr/1371000/pressReleaseService/pressReleaseList"):
+    params = {"serviceKey": KEY, "startDate": (now - dt.timedelta(days=3)).strftime("%Y%m%d"), "endDate": now.strftime("%Y%m%d")}
     try:
-        rows, note = w.fetch_city(city, base, requests.post, time.sleep)
-        out.append(f"{city}: {len(rows)}줄 · {time.time() - t0:.1f}초 · note {note}")
-        for r in rows[:6]:
-            out.append(f"  {r.get('date')} | {r.get('title', '')[:60]} | 분류 {w.classify(r.get('title', ''))}")
+        r = requests.get(url, params=params, timeout=40, headers={"User-Agent": "newsroom-official-research/1.0"})
+        body = r.text
+        out.append(f"{url.split(':')[0]} HTTP {r.status_code} len {len(body)} head {re.sub(r'\\s+', ' ', body[:200])}")
+        code = re.search(r"<(?:returnReasonCode|resultCode)>([^<]+)<", body)
+        out.append(f"  code {code.group(1) if code else None}")
+        try:
+            root = ET.fromstring(body)
+        except ET.ParseError as e:
+            out.append(f"  not XML: {e}")
+            continue
+        items = root.findall(".//NewsItem") or root.findall(".//item")
+        out.append(f"  items {len(items)}")
+        if items:
+            out.append("  fields " + ", ".join(sorted({c.tag for c in items[0]})))
+            mins = collections.Counter((i.findtext("MinisterCode") or i.findtext("ministerCode") or "?") for i in items)
+            out.append("  ministers " + ", ".join(f"{k}:{v}" for k, v in mins.most_common(25)))
+            for i in items:
+                m = i.findtext("MinisterCode") or ""
+                if re.search(r"공정거래|기후에너지|산업통상|환경", m):
+                    out.append(f"  {m} | {(i.findtext('ApproveDate') or '')[:16]} | {(i.findtext('Title') or '')[:70]}")
+        break
     except Exception as e:  # noqa: BLE001
-        out.append(f"{city}: {type(e).__name__} {str(e)[:120]} · {time.time() - t0:.1f}초")
-open("/tmp/probe_out.txt", "w").write("\n".join(out))
+        out.append(f"{url.split(':')[0]} {type(e).__name__} {str(e)[:100]}")
+open("/tmp/probe_out.txt", "w").write("\n".join(out[:80]))
 print("\n".join(out)[:600])
