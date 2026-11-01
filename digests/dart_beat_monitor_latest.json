@@ -1,31 +1,31 @@
 {
-  "generatedAt": "2026-11-01T10:32:35+09:00",
+  "generatedAt": "2026-11-01T16:23:30+09:00",
   "status": "industry_beat_official_receipt_review",
   "windowStart": "20261003",
   "windowEnd": "20261101",
-  "scopeCompanyCount": 48,
-  "companiesCodeVerified": 45,
+  "scopeCompanyCount": 53,
+  "companiesCodeVerified": 50,
   "companiesUnresolved": 3,
   "companiesWithSourceErrors": 0,
   "sourceComplete": false,
-  "relevantFilings": 48,
+  "relevantFilings": 55,
   "detailBound": 12,
-  "detailsAttempted": 0,
+  "detailsAttempted": 5,
   "valueupOfficialDocumentAttempts": 0,
-  "shareCancellationDocumentAttempts": 0,
+  "shareCancellationDocumentAttempts": 1,
   "businessCessationDocumentAttempts": 0,
   "businessCessationDocumentReads": 0,
   "businessCessationDocumentUnavailable": 0,
   "possibleParentSubsidiaryCessationOverlapCount": 0,
   "possibleParentSubsidiaryCessationOverlapReviews": [],
-  "shareCancellationDocumentReads": 2,
+  "shareCancellationDocumentReads": 3,
   "shareCancellationDocumentUnavailable": 0,
   "valueupOfficialDocumentReads": 3,
   "valueupOfficialDocumentUnavailable": 0,
-  "detailBacklogQueued": 0,
+  "detailBacklogQueued": 5,
   "detailNotAttemptedThisRun": 0,
-  "unsupportedOriginalDetailTypes": 31,
-  "uninspectedListedDetails": 31,
+  "unsupportedOriginalDetailTypes": 33,
+  "uninspectedListedDetails": 33,
   "uninspectedRelevantDetails": 0,
   "firstRunBaseline": false,
   "sourceChecks": [
@@ -408,6 +408,46 @@
       "status": "checked",
       "officialRows": 4,
       "relevantRows": 2,
+      "pagesRead": 1
+    },
+    {
+      "company": "LG화학",
+      "beat": "에너지·화학",
+      "status": "checked",
+      "officialRows": 6,
+      "relevantRows": 4,
+      "pagesRead": 1
+    },
+    {
+      "company": "롯데케미칼",
+      "beat": "에너지·화학",
+      "status": "checked",
+      "officialRows": 3,
+      "relevantRows": 0,
+      "pagesRead": 1
+    },
+    {
+      "company": "금호석유화학",
+      "beat": "에너지·화학",
+      "status": "checked",
+      "officialRows": 3,
+      "relevantRows": 0,
+      "pagesRead": 1
+    },
+    {
+      "company": "S-Oil",
+      "beat": "에너지·화학",
+      "status": "checked",
+      "officialRows": 7,
+      "relevantRows": 3,
+      "pagesRead": 1
+    },
+    {
+      "company": "HD현대오일뱅크",
+      "beat": "에너지·화학",
+      "status": "checked",
+      "officialRows": 0,
+      "relevantRows": 0,
       "pagesRead": 1
     }
   ],
@@ -1009,6 +1049,68 @@
       "approvedForPitch": false
     },
     {
+      "company": "LG화학",
+      "beat": "에너지·화학",
+      "corpCode": "00356361",
+      "receiptNo": "20261028800492",
+      "published": "20261028",
+      "report": "주식소각결정              ",
+      "category": "정기·주요공시",
+      "isCorrection": false,
+      "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261028800492",
+      "sourceType": "official_list_receipt",
+      "originalDocumentVerified": false,
+      "companyImpactVerified": false,
+      "scoopConfirmed": false,
+      "status": "official_share_cancellation_document_review",
+      "sourceError": false,
+      "shareCancellationPrimarySource": {
+        "status": "official_text_opened_fields_not_unambiguous",
+        "observedTerms": {},
+        "conflictingFields": [],
+        "officialXmlOrHtmlBodyRetrieved": true,
+        "officialPdfAttachmentReviewed": false,
+        "documentsExamined": 1,
+        "tablesExamined": 18,
+        "documentTextSha256": [
+          "8366c800da3d8ed5f344674df1ca2d080b2b38152f26b9be229dd98d87774ef0"
+        ],
+        "actualCancellationExecutedVerified": false,
+        "shareholderReturnNumeratorVerified": false,
+        "historicalPressFulltextChecked": false,
+        "exclusiveConfirmed": false,
+        "approvedForPitch": false,
+        "caution": "주식소각결정 공시의 기재값일 뿐 실제 소각 완료·주주환원 산식·기보도 여부는 미확인"
+      },
+      "approvedForPitch": false,
+      "firstObservedAt": "2026-11-01T16:23:30+09:00",
+      "firstObservedThisRun": true,
+      "detailTypeSupported": true,
+      "detailStatus": "official_share_cancellation_document_review",
+      "independentContractComparisonVerified": false
+    },
+    {
+      "company": "LG화학",
+      "beat": "에너지·화학",
+      "corpCode": "00356361",
+      "receiptNo": "20261028800407",
+      "published": "20261028",
+      "report": "타법인주식및출자증권처분결정              ",
+      "category": "정기·주요공시",
+      "isCorrection": false,
+      "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261028800407",
+      "sourceType": "official_list_receipt",
+      "originalDocumentVerified": false,
+      "companyImpactVerified": false,
+      "scoopConfirmed": false,
+      "firstObservedAt": "2026-11-01T16:23:30+09:00",
+      "firstObservedThisRun": true,
+      "detailTypeSupported": false,
+      "detailStatus": "original_detail_type_unsupported",
+      "independentContractComparisonVerified": false,
+      "approvedForPitch": false
+    },
+    {
       "company": "OCI",
       "beat": "에너지·화학",
       "corpCode": "01760738",
@@ -1024,6 +1126,27 @@
       "scoopConfirmed": false,
       "firstObservedAt": "2026-10-29T00:26:15+09:00",
       "firstObservedThisRun": false,
+      "detailTypeSupported": false,
+      "detailStatus": "original_detail_type_unsupported",
+      "independentContractComparisonVerified": false,
+      "approvedForPitch": false
+    },
+    {
+      "company": "LG화학",
+      "beat": "에너지·화학",
+      "corpCode": "00356361",
+      "receiptNo": "20261028000304",
+      "published": "20261028",
+      "report": "주요사항보고서(자기주식취득신탁계약체결결정)",
+      "category": "정기·주요공시",
+      "isCorrection": false,
+      "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261028000304",
+      "sourceType": "official_list_receipt",
+      "originalDocumentVerified": false,
+      "companyImpactVerified": false,
+      "scoopConfirmed": false,
+      "firstObservedAt": "2026-11-01T16:23:30+09:00",
+      "firstObservedThisRun": true,
       "detailTypeSupported": false,
       "detailStatus": "original_detail_type_unsupported",
       "independentContractComparisonVerified": false,
@@ -1461,6 +1584,106 @@
       "approvedForPitch": false
     },
     {
+      "company": "S-Oil",
+      "beat": "에너지·화학",
+      "corpCode": "00138279",
+      "receiptNo": "20261020800241",
+      "published": "20261020",
+      "report": "단일판매ㆍ공급계약체결              ",
+      "category": "공급계약",
+      "isCorrection": false,
+      "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261020800241",
+      "sourceType": "official_list_receipt",
+      "originalDocumentVerified": false,
+      "companyImpactVerified": false,
+      "scoopConfirmed": false,
+      "status": "official_document_read",
+      "observedFields": {
+        "contract_subject": "Sour Heavy Kerosene 매매계약",
+        "contract_amount": "1,160,000,000,000",
+        "recent_sales": "34,246,957,000,000",
+        "sales_ratio": "3.4",
+        "counterparty": "주식회사 이수화학",
+        "supply_region": "내수판매",
+        "contract_start": "2026-10-01",
+        "contract_end": "2027-09-30"
+      },
+      "observedFieldEvidence": {
+        "contract_subject": {
+          "sourceLabel": "- 체결계약명",
+          "rowPattern": "two_cell_explicit_label",
+          "basis": "same_official_table_row",
+          "independentBusinessVerification": false,
+          "distinctDocumentRows": 1
+        },
+        "contract_amount": {
+          "sourceLabel": "계약금액(원)",
+          "rowPattern": "three_cell_explicit_label",
+          "basis": "same_official_table_row",
+          "independentBusinessVerification": false,
+          "distinctDocumentRows": 1
+        },
+        "recent_sales": {
+          "sourceLabel": "최근매출액(원)",
+          "rowPattern": "two_cell_explicit_label",
+          "basis": "same_official_table_row",
+          "independentBusinessVerification": false,
+          "distinctDocumentRows": 1
+        },
+        "sales_ratio": {
+          "sourceLabel": "매출액대비(%)",
+          "rowPattern": "two_cell_explicit_label",
+          "basis": "same_official_table_row",
+          "independentBusinessVerification": false,
+          "distinctDocumentRows": 1
+        },
+        "counterparty": {
+          "sourceLabel": "3. 계약상대",
+          "rowPattern": "two_cell_explicit_label",
+          "basis": "same_official_table_row",
+          "independentBusinessVerification": false,
+          "distinctDocumentRows": 1
+        },
+        "supply_region": {
+          "sourceLabel": "4. 판매ㆍ공급지역",
+          "rowPattern": "two_cell_explicit_label",
+          "basis": "same_official_table_row",
+          "independentBusinessVerification": false,
+          "distinctDocumentRows": 1
+        },
+        "contract_start": {
+          "sourceLabel": "시작일",
+          "rowPattern": "three_cell_explicit_label",
+          "basis": "same_official_table_row",
+          "independentBusinessVerification": false,
+          "distinctDocumentRows": 2
+        },
+        "contract_end": {
+          "sourceLabel": "종료일",
+          "rowPattern": "contract_period_rowspan",
+          "basis": "same_official_table_row",
+          "independentBusinessVerification": false,
+          "distinctDocumentRows": 1
+        }
+      },
+      "conflictingDocumentFields": [],
+      "documentTablesExamined": 1,
+      "documentFieldExtractionStatus": "official_table_terms_not_business_effect",
+      "evidenceStatus": "공식 DART 원문 표의 동일 행 필드만 수집. 공시상 기재값이며 실제 납품·매출·효력 확인 아님",
+      "scoopStatus": "기보도 및 원자료·회사 답변 확인 전 · 단독 미확정",
+      "questions": [
+        "원문 원계약·정정 전후 계약금액, 고객사, 적용 기간이 명시됐는가?",
+        "해당 공급계약·투자에 관한 이전 DART 공시·기업 발표·전문지 보도가 있는가?",
+        "공식 계약 확정과 입찰/협약/옵션 계약의 구분 및 실제 산업 영향은 무엇인가?"
+      ],
+      "firstObservedAt": "2026-11-01T16:23:30+09:00",
+      "firstObservedThisRun": true,
+      "detailTypeSupported": true,
+      "detailStatus": "official_document_read",
+      "independentContractComparisonVerified": false,
+      "approvedForPitch": false
+    },
+    {
       "company": "가온전선",
       "beat": "전력기기·전선",
       "corpCode": "00104768",
@@ -1478,6 +1701,70 @@
       "firstObservedThisRun": false,
       "detailTypeSupported": false,
       "detailStatus": "original_detail_type_unsupported",
+      "independentContractComparisonVerified": false,
+      "approvedForPitch": false
+    },
+    {
+      "company": "S-Oil",
+      "beat": "에너지·화학",
+      "corpCode": "00138279",
+      "receiptNo": "20261019800117",
+      "published": "20261019",
+      "report": "[기재정정]단일판매ㆍ공급계약체결              ",
+      "category": "공급계약",
+      "isCorrection": true,
+      "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261019800117",
+      "sourceType": "official_list_receipt",
+      "originalDocumentVerified": false,
+      "companyImpactVerified": false,
+      "scoopConfirmed": false,
+      "status": "original_not_verified",
+      "originalReceiptNo": null,
+      "originalSourceUrl": null,
+      "changes": [],
+      "issuerCorrectionTable": {
+        "status": "issuer_table_material_changes_for_review",
+        "changes": [
+          {
+            "fieldLabel": "2. 계약내역 / 계약금액 (원)",
+            "before": "1,181,000,000,000",
+            "after": "1,740,795,519,703",
+            "category": "amount",
+            "basis": "issuer_reported_amendment_table_only",
+            "amendedSourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261019800117",
+            "originalReceiptIndependentlyVerified": false,
+            "commercialEffectVerified": false,
+            "sameEventPriorCoverageVerified": false,
+            "oneSideUnspecified": false
+          }
+        ],
+        "totalMaterialRows": 1,
+        "conflictingFieldCount": 0,
+        "skippedRows": 0,
+        "independentOriginalDocumentCompared": false,
+        "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261019800117"
+      },
+      "unverifiedSameDateCandidates": [
+        {
+          "receiptNo": "20261019800110",
+          "report": "[기재정정]단일판매ㆍ공급계약체결              ",
+          "date": "20261019",
+          "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261019800110",
+          "status": "같은 날짜의 후보일 뿐 동일 사건 미검증"
+        }
+      ],
+      "evidenceStatus": "원문에서 원공시의 명시적 접수번호 확인 불가; 날짜·제목만으로 계약 연결 금지",
+      "sourceError": false,
+      "scoopStatus": "기보도 및 원자료·회사 답변 확인 전 · 단독 미확정",
+      "questions": [
+        "원문 원계약·정정 전후 계약금액, 고객사, 적용 기간이 명시됐는가?",
+        "해당 공급계약·투자에 관한 이전 DART 공시·기업 발표·전문지 보도가 있는가?",
+        "공식 계약 확정과 입찰/협약/옵션 계약의 구분 및 실제 산업 영향은 무엇인가?"
+      ],
+      "firstObservedAt": "2026-11-01T16:23:30+09:00",
+      "firstObservedThisRun": true,
+      "detailTypeSupported": true,
+      "detailStatus": "original_not_verified",
       "independentContractComparisonVerified": false,
       "approvedForPitch": false
     },
@@ -1586,6 +1873,70 @@
       "firstObservedThisRun": false,
       "detailTypeSupported": true,
       "detailStatus": "official_document_read",
+      "independentContractComparisonVerified": false,
+      "approvedForPitch": false
+    },
+    {
+      "company": "S-Oil",
+      "beat": "에너지·화학",
+      "corpCode": "00138279",
+      "receiptNo": "20261019800110",
+      "published": "20261019",
+      "report": "[기재정정]단일판매ㆍ공급계약체결              ",
+      "category": "공급계약",
+      "isCorrection": true,
+      "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261019800110",
+      "sourceType": "official_list_receipt",
+      "originalDocumentVerified": false,
+      "companyImpactVerified": false,
+      "scoopConfirmed": false,
+      "status": "original_not_verified",
+      "originalReceiptNo": null,
+      "originalSourceUrl": null,
+      "changes": [],
+      "issuerCorrectionTable": {
+        "status": "issuer_table_material_changes_for_review",
+        "changes": [
+          {
+            "fieldLabel": "2. 계약내역 / 계약금액(원)",
+            "before": "943,000,000,000",
+            "after": "1,284,544,500,098",
+            "category": "amount",
+            "basis": "issuer_reported_amendment_table_only",
+            "amendedSourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261019800110",
+            "originalReceiptIndependentlyVerified": false,
+            "commercialEffectVerified": false,
+            "sameEventPriorCoverageVerified": false,
+            "oneSideUnspecified": false
+          }
+        ],
+        "totalMaterialRows": 1,
+        "conflictingFieldCount": 0,
+        "skippedRows": 0,
+        "independentOriginalDocumentCompared": false,
+        "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261019800110"
+      },
+      "unverifiedSameDateCandidates": [
+        {
+          "receiptNo": "20261019800117",
+          "report": "[기재정정]단일판매ㆍ공급계약체결              ",
+          "date": "20261019",
+          "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261019800117",
+          "status": "같은 날짜의 후보일 뿐 동일 사건 미검증"
+        }
+      ],
+      "evidenceStatus": "원문에서 원공시의 명시적 접수번호 확인 불가; 날짜·제목만으로 계약 연결 금지",
+      "sourceError": false,
+      "scoopStatus": "기보도 및 원자료·회사 답변 확인 전 · 단독 미확정",
+      "questions": [
+        "원문 원계약·정정 전후 계약금액, 고객사, 적용 기간이 명시됐는가?",
+        "해당 공급계약·투자에 관한 이전 DART 공시·기업 발표·전문지 보도가 있는가?",
+        "공식 계약 확정과 입찰/협약/옵션 계약의 구분 및 실제 산업 영향은 무엇인가?"
+      ],
+      "firstObservedAt": "2026-11-01T16:23:30+09:00",
+      "firstObservedThisRun": true,
+      "detailTypeSupported": true,
+      "detailStatus": "original_not_verified",
       "independentContractComparisonVerified": false,
       "approvedForPitch": false
     },
@@ -2226,6 +2577,70 @@
       "detailTypeSupported": true
     },
     {
+      "company": "LG화학",
+      "beat": "에너지·화학",
+      "corpCode": "00356361",
+      "receiptNo": "20261008800790",
+      "published": "20261008",
+      "report": "[기재정정]생산중단              ",
+      "category": "생산중단",
+      "isCorrection": true,
+      "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261008800790",
+      "sourceType": "official_list_receipt",
+      "originalDocumentVerified": false,
+      "companyImpactVerified": false,
+      "scoopConfirmed": false,
+      "status": "original_not_verified",
+      "originalReceiptNo": null,
+      "originalSourceUrl": null,
+      "changes": [],
+      "issuerCorrectionTable": {
+        "status": "issuer_table_material_changes_for_review",
+        "changes": [
+          {
+            "fieldLabel": "8. 생산재개예정일자",
+            "before": "-",
+            "after": "2026-10-12",
+            "category": "production_schedule",
+            "basis": "issuer_reported_amendment_table_only",
+            "amendedSourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261008800790",
+            "originalReceiptIndependentlyVerified": false,
+            "commercialEffectVerified": false,
+            "sameEventPriorCoverageVerified": false,
+            "oneSideUnspecified": true
+          }
+        ],
+        "totalMaterialRows": 1,
+        "conflictingFieldCount": 0,
+        "skippedRows": 0,
+        "independentOriginalDocumentCompared": false,
+        "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261008800790"
+      },
+      "unverifiedSameDateCandidates": [
+        {
+          "receiptNo": "20260323801748",
+          "report": "생산중단              ",
+          "date": "20260323",
+          "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260323801748",
+          "status": "같은 날짜의 후보일 뿐 동일 사건 미검증"
+        }
+      ],
+      "evidenceStatus": "원문에서 원공시의 명시적 접수번호 확인 불가; 날짜·제목만으로 계약 연결 금지",
+      "sourceError": false,
+      "scoopStatus": "기보도 및 원자료·회사 답변 확인 전 · 단독 미확정",
+      "questions": [
+        "원문 원계약·정정 전후 계약금액, 고객사, 적용 기간이 명시됐는가?",
+        "해당 공급계약·투자에 관한 이전 DART 공시·기업 발표·전문지 보도가 있는가?",
+        "공식 계약 확정과 입찰/협약/옵션 계약의 구분 및 실제 산업 영향은 무엇인가?"
+      ],
+      "firstObservedAt": "2026-11-01T16:23:30+09:00",
+      "firstObservedThisRun": true,
+      "detailTypeSupported": true,
+      "detailStatus": "original_not_verified",
+      "independentContractComparisonVerified": false,
+      "approvedForPitch": false
+    },
+    {
       "company": "씨에스윈드",
       "beat": "에너지·화학",
       "corpCode": "00670340",
@@ -2387,7 +2802,14 @@
     "20261030800461": "2026-10-31T00:23:45+09:00",
     "20261030000651": "2026-10-31T00:23:45+09:00",
     "20261030000571": "2026-10-31T00:23:45+09:00",
-    "20261030000550": "2026-10-31T00:23:45+09:00"
+    "20261030000550": "2026-10-31T00:23:45+09:00",
+    "20261028800492": "2026-11-01T16:23:30+09:00",
+    "20261028800407": "2026-11-01T16:23:30+09:00",
+    "20261028000304": "2026-11-01T16:23:30+09:00",
+    "20261020800241": "2026-11-01T16:23:30+09:00",
+    "20261019800117": "2026-11-01T16:23:30+09:00",
+    "20261019800110": "2026-11-01T16:23:30+09:00",
+    "20261008800790": "2026-11-01T16:23:30+09:00"
   },
   "confirmedScoops": 0,
   "approvedArticles": 0,
