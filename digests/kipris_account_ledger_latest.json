@@ -1,26 +1,26 @@
 {
-  "month": "2026-10",
+  "month": "2026-11",
   "status": "repository_requests_counted_not_account_quota",
-  "counted": 1,
+  "counted": 34,
   "monthlyLimit": 900,
   "byPurpose": {
-    "patent_source": 1,
+    "patent_source": 0,
     "patent_deep": 0,
     "patent_claims": 0,
-    "trademark": 0,
+    "trademark": 34,
     "diagnostic": 0
   },
   "groupLimits": {
-    "patent": 730,
-    "trademark": 150,
+    "patent": 700,
+    "trademark": 180,
     "diagnostic": 20
   },
   "groupUsed": {
-    "patent": 1,
-    "trademark": 0,
+    "patent": 0,
+    "trademark": 34,
     "diagnostic": 0
   },
-  "thisRunAttempted": 0,
+  "thisRunAttempted": 34,
   "providerCooldown": {
     "patent": {
       "lastResultCode": "22",
@@ -34,7 +34,9 @@
     "patent": "2026-11-01T10:08:06+09:00"
   },
   "providerCodeMeaningVerified": false,
-  "lastSuccessAt": {},
+  "lastSuccessAt": {
+    "trademark": "2026-11-02T07:11:16+09:00"
+  },
   "officialAccountUsageVerified": false,
   "freeTierNote": "KIPRIS Plus 무료: 매월 1,000회, 매월 1일 초기화(서비스 수수료 안내). 900에서 멈춤.",
   "note": "이 저장소 작업이 보낸 요청 수. 계정 실제 사용량 아님(장부 이전·다른 곳 호출은 빠짐)."
