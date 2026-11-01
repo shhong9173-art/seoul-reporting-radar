@@ -456,6 +456,8 @@ def prior_rates(row, dockets, *, get, sleep, budget):
             used += 1
             body, err = get_text(d["raw_text_url"], get=get, headers={"User-Agent": UA, "Accept": "text/plain,text/html"})
             sleep(0.5)
+            if err == "HTTP 429":
+                return None, used, "직전 판정 원문 HTTP 429"
             table = rate_table(text_lines(body), title) if body is not None else None
             if table is None:
                 continue
@@ -514,7 +516,7 @@ def federal_register(now, previous=None, *, get=None, sleep=time.sleep):
     except Exception as e:
         return [], type(e).__name__, 0
     prev = {x["id"]: x for x in (previous or {}).get("federalRegister", []) if isinstance(x, dict) and x.get("id")}
-    rows, budget, prior_budget = [], BODY_BUDGET, PRIOR_BUDGET
+    rows, budget, prior_budget, throttled = [], BODY_BUDGET, PRIOR_BUDGET, False
     for x in data.get("results") or []:
         title = x.get("title") or ""
         in_title = bool(re.search(r"korea", title, re.I))
@@ -533,17 +535,21 @@ def federal_register(now, previous=None, *, get=None, sleep=time.sleep):
         for k in ("named", "memoTopics", "memoNamed", "memoUnusual", "rateTable", "prior"):
             if k in old:
                 row[k] = old[k]
-        if (row.get("rateTable") or {}).get("v") != RATE_RULES:
-            row.pop("rateTable", None)
-            row.pop("prior", None)
+        # 예전 규칙으로 읽은 세율은 다시 읽되, 다시 읽기에 실패하면 예전 값을 그대로 둔다
+        # (11-01 14:00 운영: 규칙을 올린 뒤 본문 읽기가 HTTP 429로 막혀 13:55에 읽은 세율이 모두 빠졌다)
+        stale_rates = (row.get("rateTable") or {}).get("v") != RATE_RULES and "rateTable" in row
         results = in_title and bool(RATE_TITLE.search(title))
         wants_memo = in_title and bool(re.search(r"Results|Determination", title)) and "memoTopics" not in row
-        wants_rates = results and "rateTable" not in row   # 세율 규칙 전에 읽은 고시도 한 번 다시 읽는다
-        if ("named" not in row or wants_memo or wants_rates) and x.get("raw_text_url") and budget > 0:
+        wants_rates = results and ("rateTable" not in row or stale_rates)   # 세율 규칙 전에 읽은 고시도 한 번 다시 읽는다
+        if ("named" not in row or wants_memo or wants_rates) and x.get("raw_text_url") and budget > 0 and not throttled:
             budget -= 1
             body, err = get_text(x["raw_text_url"], get=get, headers={"User-Agent": UA, "Accept": "text/plain,text/html"})
             sleep(0.5)
+            if err == "HTTP 429":
+                throttled = True   # 관보가 호출을 막으면 이번 실행은 본문·직전 판정 읽기를 멈춘다(다음 실행에 이어 읽음)
             if body is not None:
+                if stale_rates:
+                    row.pop("prior", None)
                 lines = text_lines(body)
                 row["named"] = named_companies(lines)
                 topics = memo_topics(lines)
@@ -557,20 +563,21 @@ def federal_register(now, previous=None, *, get=None, sleep=time.sleep):
             else:
                 row["bodyError"] = err
         table = row.get("rateTable") or {}
-        if (table.get("rates") or table.get("othersRate") is not None) and "prior" not in row and dockets and prior_budget > 0:
+        if (table.get("rates") or table.get("othersRate") is not None) and "prior" not in row and dockets and prior_budget > 0 and not throttled:
             prior, used, perr = prior_rates(row, dockets, get=get, sleep=sleep, budget=prior_budget)
             prior_budget -= max(used, 1)
             if prior is not None:
                 row["prior"] = prior
             else:
                 row["priorError"] = perr   # 다음 실행에 다시 본다
+                throttled = throttled or "429" in str(perr)
         changed = rate_change(row)
         if changed:
             row["rateChange"] = [{"company": c, "rate": a, "before": b} for c, a, b in changed]
         if row["omnibus"] and "named" in row and not row["named"]:
             continue  # omnibus notice that names no beat company
         rows.append(row)
-    return rows, None, BODY_BUDGET - budget
+    return rows, ("본문 HTTP 429(관보 호출 제한) — 이번 실행은 본문 읽기 멈춤, 다음 실행에 이어 읽음" if throttled else None), BODY_BUDGET - budget
 
 
 # ---------- Foreign listing pages ----------
@@ -746,8 +753,11 @@ def run(cfg, *, now, previous=None, get=None, sleep=time.sleep, relay_token=None
                    "returned": len(ok_q), "listed": tinfo["listed"], "listPages": tinfo["listPages"],
                    **({"error": "; ".join(terr[:3]) or "상세 조회 실패"} if terr or not ok_q else {})})
     fr, ferr, bodies = federal_register(now, previous, get=get, sleep=sleep)
-    checks.append({"source": "미국 관보", "status": "failed" if ferr else "ok", "returned": len(fr), "bodiesRead": bodies,
+    throttled = bool(ferr) and "429" in ferr and bool(fr)
+    checks.append({"source": "미국 관보", "status": "partial" if throttled else "failed" if ferr else "ok", "returned": len(fr), "bodiesRead": bodies,
                    **({"error": ferr} if ferr else {})})
+    if throttled:
+        ferr = None   # 목록은 읽었다 — 본문만 일부 못 읽음
     pages, page_events = foreign_pages(cfg.get("pages", []), previous, now, get=get, sleep=sleep, relay_token=relay_token, browser=browser)
     for p in pages:
         if p["status"] == "disabled":
