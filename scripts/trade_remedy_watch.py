@@ -41,7 +41,7 @@ PRODUCTS = [("721070", "컬러강판(유기코팅)"), ("721240", "컬러강판(�
             ("7216", "형강"), ("7217", "강선"), ("7221", "스테인리스 선재"), ("7222", "스테인리스 봉강"), ("7225", "합금강 판재"),
             ("7226", "합금강 판재"), ("7228", "합금강 봉형강"), ("7304", "강관(무계목)"), ("7305", "강관(대구경)"), ("7306", "강관(용접)"),
             ("7301", "시트파일"), ("7302", "철도용 강재")]
-BEAT_PRODUCTS = re.compile(r"steel|iron|pipe|tube|wire|rebar|plate|sheet|coil|stainless|transformer|cable|conductor|aluminum|"
+BEAT_PRODUCTS = re.compile(r"steel|iron|pipe|tube|tubular|wire|rebar|plate|sheet|coil|stainless|transformer|cable|conductor|aluminum|"
                            r"zinc|copper|tire|tyre|polysilicon|solar|silicon|chemical|resin|polyethylene|terephthal|fiber|"
                            r"rod|bar|strip|electrical|vehicle|automotive|battery|graphite|lithium", re.I)
 # Beat companies as they appear in US trade notices (respondents, rate tables). 동국제강 and 동국씨엠 are separate companies;
@@ -495,6 +495,42 @@ def rate_change(row):
     return out
 
 
+# ---------- ITC injury votes ('…; Determinations') ----------
+# 판정 고시 본문 첫 문단('the Commission determines … that …')에서 한국산에 대한 결과를 읽는다. 일몰 재심 '유지 안 함'(철폐)·
+# 조사 '피해 없음'(종결)·조사 최종 '피해 있음'(관세 부과)이 기사다. ITC 고시에는 회사 이름이 거의 없어 예전에는 C로 묻혔다
+# (09-29 'Oil Country Tubular Goods From India, South Korea, …; Determinations' — 한국산 유정용 강관 반덤핑 유지).
+ITC_TITLE = re.compile(r";\s*Determinations?\b|Determinations?$", re.I)
+KOREA = re.compile(r"\b(?:South\s+)?Korea\b|Republic of Korea", re.I)
+NEG = re.compile(r"would not be likely|not materially injured|is not threatened|no reasonable indication|not threatened with material injury", re.I)
+POS = re.compile(r"would be likely to lead|is materially injured|threatened with material injury|reasonable indication that an industry", re.I)
+
+
+def itc_outcome(text, title=""):
+    """{'phase': 일몰 재심|예비|최종, 'korea': 긍정|부정|섞임|None, 'quote': 첫 판정 문장, 'dissent': 한국 관련 반대표 각주}.
+    None when the notice has no 'determines' paragraph."""
+    flat = re.sub(r"\s+", " ", text or "")
+    m = re.search(r"(?:Commission|Commission'')\)?\s*(?:\(``Commission''\))?\s*determines?,?\s.*?(?=\\\d+\\\s*-{5,}|-{20,}|Background\b|$)", flat)
+    if not m:
+        return None
+    body = re.sub(r"\\\d+\\", " ", m.group(0))
+    bracket = re.search(r"\((Preliminary|Final|(?:First|Second|Third|Fourth|Fifth) Review|Review)\)", flat[:1500], re.I)
+    phase = ("일몰 재심" if (bracket and "review" in bracket.group(1).lower()) or re.search(r"revocation of", body, re.I)
+             else "예비" if (bracket and bracket.group(1).lower() == "preliminary") or re.search(r"reasonable indication", body, re.I)
+             else "최종")
+    verdicts = set()
+    for clause in re.split(r";|\.\s+(?=[A-Z])", body):
+        if not KOREA.search(clause):
+            continue
+        if NEG.search(clause):
+            verdicts.add("부정")
+        elif POS.search(clause):
+            verdicts.add("긍정")
+    korea = None if not verdicts else verdicts.pop() if len(verdicts) == 1 else "섞임"
+    dissent = [d.strip()[:200] for d in re.findall(r"Commissioner[^.]{0,120}voted in the (?:negative|affirmative)[^.]{0,200}\.", flat)
+               if KOREA.search(d)]
+    return {"phase": phase, "korea": korea, "quote": body.strip()[:400], "dissent": dissent[:2]}
+
+
 def federal_register(now, previous=None, *, get=None, sleep=time.sleep):
     """ITA·ITC notices from the last FR_DAYS that name Korea in the title, plus omnibus notices (review initiations,
     337 complaints) — bodies are scanned once for beat company names and the result is cached by document number."""
@@ -532,13 +568,14 @@ def federal_register(now, previous=None, *, get=None, sleep=time.sleep):
         if dockets:
             row["dockets"] = dockets
         old = prev.get(did) or {}
-        for k in ("named", "memoTopics", "memoNamed", "memoUnusual", "rateTable", "prior"):
+        for k in ("named", "memoTopics", "memoNamed", "memoUnusual", "rateTable", "prior", "itcOutcome"):
             if k in old:
                 row[k] = old[k]
         # 예전 규칙으로 읽은 세율은 다시 읽되, 다시 읽기에 실패하면 예전 값을 그대로 둔다
         # (11-01 14:00 운영: 규칙을 올린 뒤 본문 읽기가 HTTP 429로 막혀 13:55에 읽은 세율이 모두 빠졌다)
         stale_rates = (row.get("rateTable") or {}).get("v") != RATE_RULES and "rateTable" in row
         results = in_title and bool(RATE_TITLE.search(title))
+        itc_vote = in_title and bool(ITC_TITLE.search(title)) and "International Trade Commission" in agency
         wants_memo = in_title and bool(re.search(r"Results|Determination", title)) and "memoTopics" not in row
         wants_rates = results and ("rateTable" not in row or stale_rates)   # 세율 규칙 전에 읽은 고시도 한 번 다시 읽는다
         if ("named" not in row or wants_memo or wants_rates) and x.get("raw_text_url") and budget > 0 and not throttled:
@@ -560,6 +597,8 @@ def federal_register(now, previous=None, *, get=None, sleep=time.sleep):
                     row["memoTopics"] = []
                 if results:
                     row["rateTable"] = rate_table(lines, title) or {"kind": duty_kind(title), "rates": {}, "othersRate": None, "rows": 0, "v": RATE_RULES}
+                if itc_vote:
+                    row["itcOutcome"] = itc_outcome(lines, title) or {"phase": None, "korea": None, "quote": "", "dissent": []}
             else:
                 row["bodyError"] = err
         table = row.get("rateTable") or {}
@@ -571,6 +610,13 @@ def federal_register(now, previous=None, *, get=None, sleep=time.sleep):
             else:
                 row["priorError"] = perr   # 다음 실행에 다시 본다
                 throttled = throttled or "429" in str(perr)
+        if itc_vote and "itcOutcome" not in row and x.get("raw_text_url") and budget > 0 and not throttled:
+            budget -= 1
+            body, err = get_text(x["raw_text_url"], get=get, headers={"User-Agent": UA, "Accept": "text/plain,text/html"})
+            sleep(0.5)
+            throttled = throttled or err == "HTTP 429"
+            if body is not None:
+                row["itcOutcome"] = itc_outcome(text_lines(body), title) or {"phase": None, "korea": None, "quote": "", "dissent": []}
         changed = rate_change(row)
         if changed:
             row["rateChange"] = [{"company": c, "rate": a, "before": b} for c, a, b in changed]

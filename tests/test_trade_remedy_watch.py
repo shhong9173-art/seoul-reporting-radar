@@ -688,3 +688,76 @@ class DutyRates(unittest.TestCase):
         inv = {"title": "Certain Steel Wire From the Republic of Korea: Affirmative Preliminary Determination of Sales at Less-Than-Fair-Value",
                "rateTable": {"rates": {"고려아연": {"rate": 31.0, "via": "표"}, "포스코": {"rate": 2.0, "via": "표"}}}, "prior": {"none": True}}
         self.assertEqual(w.rate_change(inv), [("고려아연", 31.0, None)])   # 새 조사: 처음 매긴 5% 이상
+
+
+OCTG_ITC = """INTERNATIONAL TRADE COMMISSION
+[Investigation 701-TA-499-500 and 731-TA-1215-1216, 1221-1223 (Second
+Review)]
+Oil Country Tubular Goods From India, South Korea, Turkey,
+Ukraine, and Vietnam; Determinations
+On the basis of the record \\1\\ developed in the subject five-year
+reviews, the United States International Trade Commission
+(``Commission'') determines, pursuant to the Tariff Act of 1930 (``the
+Act''), that revocation of the countervailing duty orders on oil
+country tubular goods from India and Turkey and the antidumping duty
+orders on oil country tubular goods from India, South Korea, Turkey,
+Ukraine, and Vietnam would be likely to lead to continuation or
+recurrence of material injury to an industry in the United States
+within a reasonably foreseeable time.\\2\\
+---------------------------------------------------------------------------
+\\2\\ Commissioner Jason E. Kearns voted in the negative with
+respect to the antidumping duty order on oil country tubular goods
+from Ukraine.
+---------------------------------------------------------------------------
+Background
+"""
+LHC_ITC = """INTERNATIONAL TRADE COMMISSION
+[Investigation Nos. 701-TA-802-804 and 731-TA-1799-1803 (Preliminary)]
+Linear Hydraulic Cylinders From Canada, China, India, Mexico, and
+South Korea, Determinations
+On the basis of the record \\1\\ developed in the subject
+investigations, the United States International Trade Commission
+(``Commission'') determines, pursuant to the Tariff Act of 1930 (``the
+Act''), that there is a reasonable indication that an industry in the
+United States is materially injured by reason of imports of linear
+hydraulic cylinders from Canada, China, India, Mexico, and South Korea,
+provided for in subheadings 8412.21.00 and 8412.90.90 of the Harmonized
+Tariff Schedule of the United States.\\2\\ \\3\\
+---------------------------------------------------------------------------
+Commencement of Final Phase Investigations
+"""
+
+
+class ItcDeterminations(unittest.TestCase):
+    def test_korea_outcome_from_the_determination_paragraph(self):
+        o = w.itc_outcome(OCTG_ITC)
+        self.assertEqual((o["phase"], o["korea"], o["dissent"]), ("일몰 재심", "긍정", []))   # 우크라이나 반대표는 한국 아님
+        self.assertIn("would be likely to lead to continuation", o["quote"])
+        o = w.itc_outcome(LHC_ITC)
+        self.assertEqual((o["phase"], o["korea"]), ("예비", "긍정"))
+        neg = OCTG_ITC.replace("would be likely to lead", "would not be likely to lead")
+        self.assertEqual(w.itc_outcome(neg)["korea"], "부정")
+        final_neg = LHC_ITC.replace("(Preliminary)", "(Final)").replace(
+            "that there is a reasonable indication that an industry in the\nUnited States is materially injured",
+            "that an industry in the United States is not materially injured or threatened with material injury")
+        self.assertEqual(w.itc_outcome(final_neg)[ "phase"], "최종")
+        self.assertEqual(w.itc_outcome(final_neg)["korea"], "부정")
+        mixed = OCTG_ITC.replace("Ukraine, and Vietnam would be likely to lead to continuation or\nrecurrence of material injury to an industry in the United States\nwithin a reasonably foreseeable time.",
+                                 "Turkey would be likely to lead to continuation or recurrence of material injury; and that revocation of the order on South Korea would not be likely to lead to continuation.")
+        self.assertEqual(w.itc_outcome(mixed)["korea"], "섞임")   # 같은 고시에 한국 긍정·부정 둘 다
+        self.assertIsNone(w.itc_outcome("no determination here"))
+        self.assertTrue(w.BEAT_PRODUCTS.search("Oil Country Tubular Goods"))
+
+    def test_itc_body_read_once_and_cached(self):
+        fr = {"results": [{"title": "Oil Country Tubular Goods From India, South Korea, Turkey, Ukraine, and Vietnam; Determinations",
+                           "publication_date": "2026-09-29", "html_url": "https://www.federalregister.gov/d/2026-19879", "document_number": "2026-19879",
+                           "agencies": [{"name": "International Trade Commission"}], "raw_text_url": "https://www.federalregister.gov/full_text/2026-19879.txt"}]}
+        calls = []
+
+        def get(url, params=None, headers=None, timeout=None):
+            calls.append(url)
+            return R(body=fr) if url == w.FR_API else R(text=OCTG_ITC)
+        rows, err, read = w.federal_register(NOW, None, get=get, sleep=lambda s: None)
+        self.assertEqual((rows[0]["itcOutcome"]["korea"], rows[0]["beatProduct"], read), ("긍정", True, 1))   # 본문은 한 번만
+        again, _, read2 = w.federal_register(NOW, {"federalRegister": rows}, get=get, sleep=lambda s: None)
+        self.assertEqual((read2, again[0]["itcOutcome"]["phase"]), (0, "일몰 재심"))
