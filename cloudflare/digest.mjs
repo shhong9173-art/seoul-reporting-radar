@@ -425,6 +425,14 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
     push(strong ? 'B' : 'C', W['kr-signals'], { kind: '산업부 발표', id: x.id, date: x.date, company: (x.companies ?? []).join('·') || x.dept,
       fact: `산업통상부 ${x.kind}: ${x.title}${x.embargo ? ` (엠바고: ${x.embargo})` : ''}${tradeLine}`, url: x.url });
   }
+  // 공정위 보도·참고·설명자료: 제목에 출입처 이름이 있으면 B, 업종 낱말·관련 기업만이면 C(공개 발표 — 단독 근거 아님)
+  for (const x of ks?.ftcPress ?? []) {
+    if (!(all || String(x.date ?? '') >= cutDay)) continue;
+    const named = (x.companies ?? []).length;
+    push(named ? 'B' : 'C', W['kr-signals'], { kind: x.kind === '설명' ? '공정위 설명자료' : '공정위 발표', id: x.id, date: x.date,
+      company: [...(x.companies ?? []), ...(x.related ?? [])].join('·') || x.dept,
+      fact: `공정위 ${x.kind}${x.dept ? `(${x.dept})` : ''}: ${x.title}`, url: x.url, check: named ? hint(x.companies[0], ['공정위']) : undefined });
+  }
   for (const e of ks?.events ?? []) {
     if (!recent(e.detectedAt)) continue;
     const tier = e.kind === '원자재 가격' ? (/최고|최저/.test(e.signal ?? '') ? 'B' : 'C') : 'B';

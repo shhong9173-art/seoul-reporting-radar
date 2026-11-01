@@ -5,6 +5,8 @@
 - 한전 전자입찰(전력데이터개방포털 electContract, KEPCO_API_KEY): 최근 14일 공고 중 전력기기·전선 품목만. 열쇠 없으면 '미설정'.
 - 산업통상부 보도·참고자료(motir.go.kr, 열쇠 없음): 최근 두 쪽에서 출입처 업종 낱말·출입처 이름이 제목에 있는 것. '○년 ○월 수출입 동향'은
   본문의 주요 품목 표에서 출입처 품목(자동차·부품·철강·비철·석유화학·이차전지·전기기기 등) 수출액·증감률을 적힌 그대로 남긴다.
+- 공정위 보도·참고자료(두 쪽)와 설명자료(한 쪽)(ftc.go.kr 게시판, 열쇠 없음): 제목에 출입처 이름이나 출입 업종 낱말이 있는 것.
+  정책브리핑 RSS·API가 끊겨 부처 게시판을 직접 읽는다. 이 구역 첫 실행은 기준선(신규 표시 없음).
 - 원자재 가격(KOMIS 광물자원가격, 열쇠 없음): 설정한 광종·가격 기준(LME CASH 등)의 일별 가격·LME 재고.
   같은 기준·같은 단위로만 비교하고, 설정한 since 이전 값과는 비교하지 않는다. 'N개월 만에 최고'는 조회 범위 안의 사실만.
 - 결과는 기자 전용 저장소(kr-signals)로만. 공개 로그는 건수만. 조회 실패는 0건이 아니다.
@@ -572,6 +574,78 @@ def motir(cfg, now, previous, http):
                    **({"error": err} if err else {})}
 
 
+# ---------- 공정위 보도·참고·설명자료 ----------
+# 정책브리핑(korea.kr) RSS는 2026-07-01 중단, 공공데이터포털 정책브리핑 API(policyNewsService2)는 '서비스 없거나 폐기됨'(코드 12, 11-01 확인)이라
+# 공정위 누리집 게시판 목록 첫 쪽들을 직접 읽는다(robots.txt는 /www/search.do만 막음). 보도자료는 보통 의결서 공개보다 몇 달 먼저 나온다.
+
+FTC_HOME = "https://www.ftc.go.kr/www/"
+FTC_PRESS = FTC_HOME + "selectBbsNttList.do"
+FTC_PRESS_VIEW = FTC_HOME + "selectBbsNttView.do"
+FTC_BOARDS = (("12", "01,02", 2, "보도·참고자료"), ("13", "03", 1, "설명자료"))  # key, searchCtgry, 읽을 쪽 수, 이름
+FTC_PRESS_KEEP_DAYS = 60
+FTC_TOPIC = re.compile(r"자동차|완성차|차량|부품|철강|강판|강관|철근|고철|비철|아연|구리|전력|변압기|전선|케이블|"
+                       r"석유화학|화학|석유|정유|타이어|배터리|이차전지|수소|원전")
+_COMMENT = re.compile(r"(?s)<!--.*?-->")
+
+
+def _cell(html):
+    return _norm(re.sub(r"(?s)<[^>]+>", " ", _COMMENT.sub(" ", html)))
+
+
+def parse_ftc_press(text, key, ctg):
+    """공정위 게시판 목록(서버 HTML): 번호, 분류(보도·참고·설명), 제목, 담당부서, 등록일, 첨부."""
+    body = text.split("<tbody", 1)[-1].split("</tbody>", 1)[0]
+    rows = []
+    for row in re.split(r"<tr[\s>]", body)[1:]:
+        link = re.search(r'<a href="\./selectBbsNttView\.do\?[^"]*?nttSn=(\d+)[^"]*"[^>]*>(.*?)</a>', row, re.S)
+        if not link:
+            continue
+        cells = [_cell(c) for c in re.findall(r"<td[^>]*>(.*?)</td>", row, re.S)]
+        di = next((i for i, c in enumerate(cells) if re.fullmatch(r"\d{4}-\d{2}-\d{2}", c)), None)
+        title = re.sub(r"^\d{6,8}\s+", "", _cell(link.group(2)))  # 설명자료 앞의 '20261029 ' 같은 날짜
+        rows.append({"id": f"ftcpress:{link.group(1)}", "title": title, "kind": cells[1] if len(cells) > 1 else "",
+                     "dept": cells[di - 1] if di else "", "date": cells[di] if di is not None else "",
+                     "url": f"{FTC_PRESS_VIEW}?bordCd=3&key={key}&searchCtgry={ctg}&nttSn={link.group(1)}"})
+    return rows
+
+
+def ftc_press(cfg, now, previous, http):
+    had = isinstance((previous or {}).get("ftcPress"), list)  # 이 구역 첫 실행은 모두 기준선(신규 표시 없음)
+    prev = {x["id"]: x for x in (previous or {}).get("ftcPress", []) if isinstance(x, dict) and x.get("id")}
+    stamp = now.isoformat(timespec="seconds")
+    patterns = company_patterns(cfg)
+    rows, errs, seen = [], [], set()
+    for key, ctg, pages, label in FTC_BOARDS:
+        for page in range(1, pages + 1):
+            r, err = http.call("GET", FTC_PRESS, params={"bordCd": "3", "key": key, "searchCtgry": ctg, "pageIndex": page})
+            if err:
+                errs.append(f"{label} {err}")
+                break
+            got = [x for x in parse_ftc_press(r.text, key, ctg) if x["id"] not in seen]
+            if not got:
+                if page == 1:
+                    errs.append(f"{label} 목록 형식(행 없음)")  # 첫 쪽에는 늘 글이 있다
+                break
+            seen.update(x["id"] for x in got)
+            rows += got
+    kept = dict(prev)
+    for x in rows:
+        names = sorted({c for c, rx, rel in patterns if not rel and rx.search(x["title"])})
+        related = sorted({c for c, rx, rel in patterns if rel and rx.search(x["title"])} - set(names))
+        if not (names or related or FTC_TOPIC.search(x["title"])):
+            continue
+        old = prev.get(x["id"])
+        kept[x["id"]] = {**x, "companies": names, "related": related, "firstSeen": (old or {}).get("firstSeen") or stamp,
+                         "isNew": had and old is None}
+    keep_from = (now.date() - dt.timedelta(days=FTC_PRESS_KEEP_DAYS)).isoformat()
+    items = sorted((x for x in kept.values() if str(x.get("date") or "") >= keep_from),
+                   key=lambda x: (x.get("date") or "", x["id"]), reverse=True)
+    status = "failed" if errs and not rows else ("partial" if errs else "ok")
+    listed = {x["id"] for x in rows}
+    return items, {"source": "공정위 보도자료", "status": status, "listed": len(rows), "kept": sum(1 for x in items if x["id"] in listed),
+                   **({"error": "; ".join(errs)} if errs else {})}
+
+
 # ---------- run ----------
 
 def run(cfg, *, now, previous=None, http=None, kepco_key=""):
@@ -581,7 +655,8 @@ def run(cfg, *, now, previous=None, http=None, kepco_key=""):
     bids, bid_events, kcheck = kepco(cfg, kepco_key, now, previous, http)
     prices, px_events, pchecks = komis(cfg, now, previous, http)
     releases, mcheck = motir(cfg, now, previous, http)
-    checks = [fcheck, kcheck, mcheck, *pchecks]
+    press, pcheck = ftc_press(cfg, now, previous, http)
+    checks = [fcheck, kcheck, mcheck, pcheck, *pchecks]
     keep_from = (now - dt.timedelta(days=EVENT_KEEP_DAYS)).isoformat()
     events = [e for e in (previous or {}).get("events", []) if isinstance(e, dict) and e.get("detectedAt", "") >= keep_from]
     have = {e.get("id") for e in events}
@@ -590,11 +665,12 @@ def run(cfg, *, now, previous=None, http=None, kepco_key=""):
     failed = [c for c in checks if c["status"] not in ("ok", "unset")]
     return {"schema": SCHEMA, "generatedAt": stamp, "status": "partial" if failed else "complete", "checks": checks,
             "baselineSince": (previous or {}).get("baselineSince") or stamp,
-            "decisions": decisions, "ftcSeen": seen, "kepco": bids, "motir": releases, "prices": prices, "events": events[:400],
+            "decisions": decisions, "ftcSeen": seen, "kepco": bids, "motir": releases, "ftcPress": press, "prices": prices, "events": events[:400],
             "rules": ["공정위 의결서는 의결일과 파일 등록(파일번호 앞자리)이 다르다. 보도자료는 보통 의결 전후에 먼저 나오니 news_check로 선행 보도를 본다.",
                       "'발주처'는 출입처가 입찰을 낸 쪽(피해·구매자)이라는 뜻이다. 제재 대상(피심인)과 섞어 쓰지 않는다.",
                       "주문 발췌의 금액은 의결서에 적힌 그대로다. 합계·감경 전후는 원문에서 확인한다.",
                       "한전 공고의 추정가격은 발주 예정 금액이다. 낙찰 금액·낙찰사가 아니다.",
+                      "공정위 보도·참고자료는 공개 발표다(의결서보다 먼저 나온다). 설명자료는 기사에 대한 공정위 해명이다. 단독 근거가 아니다.",
                       "산업통상부 보도자료는 공개 발표다. 단독 근거가 아니라 확인할 공식 변화이며, 첨부 파일명의 엠바고(조간·석간)를 지킨다.",
                       "원자재 가격은 KOMIS 게시값(같은 가격 기준·단위)이다. '이후 최고'는 조회 범위 안의 사실이고, 역대 최고가 아니다.",
                       "조회 실패는 0건이 아니라 미확인."],
@@ -602,7 +678,7 @@ def run(cfg, *, now, previous=None, http=None, kepco_key=""):
 
 
 def main():
-    argparse.ArgumentParser(description="공정위 의결서·한전 입찰·원자재 가격 감시(기자 전용 저장소로)").parse_args()
+    argparse.ArgumentParser(description="공정위 의결서·보도자료·한전 입찰·산업부 보도자료·원자재 가격 감시(기자 전용 저장소로)").parse_args()
     now = now_kst()
     token = os.environ.get("MCP_ACCESS_TOKEN", "").strip()
     cfg = json.loads(CONFIG.read_text(encoding="utf-8"))
@@ -620,10 +696,11 @@ def main():
     k = next(c for c in doc["checks"] if c["source"] == "한전 전자입찰")
     p = [c for c in doc["checks"] if c["source"].startswith("KOMIS ")]
     m = next(c for c in doc["checks"] if c["source"] == "산업통상부 보도자료")
+    fp = next(c for c in doc["checks"] if c["source"] == "공정위 보도자료")
     new_ev = sum(1 for e in doc["events"] if e["detectedAt"] == doc["generatedAt"])
     print(f"::notice title=kr-signals::공정위 의결서 {f['status']} 목록 {f.get('listed', 0)}건·의결 {f.get('decisions', 0)}건·전문 {f.get('read', 0)}건 읽음·"
           f"대기 {f.get('pending', 0)}·출입처 관련 {f.get('kept', 0)}건 · 한전 {k['status']} {k.get('kept', 0)}/{k.get('returned', 0)} · "
-          f"산업부 {m['status']} {m.get('kept', 0)}/{m.get('listed', 0)} · 원자재 {sum(1 for c in p if c['status'] == 'ok')}/{len(p)} · 새 이벤트 {new_ev}")
+          f"산업부 {m['status']} {m.get('kept', 0)}/{m.get('listed', 0)} · 공정위 보도 {fp['status']} {fp.get('kept', 0)}/{fp.get('listed', 0)} · 원자재 {sum(1 for c in p if c['status'] == 'ok')}/{len(p)} · 새 이벤트 {new_ev}")
     errors = sorted({c.get("error") for c in doc["checks"] if c.get("error")})
     if errors:
         print(f"::notice title=kr-signals-errors::{', '.join(errors)[:400]}")

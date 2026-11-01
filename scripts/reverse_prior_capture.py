@@ -180,6 +180,8 @@ def _signals(d, add):
         add(mem("kr-signals", x.get("id"), [x.get("company")], f"한전 입찰 {x.get('name')}", x.get("noticeDate"), None))
     for x in d.get("motir") or []:
         add(mem("kr-signals", x.get("id"), x.get("companies") or [], f"산업부 {x.get('title')}", x.get("date"), x.get("url")))
+    for x in d.get("ftcPress") or []:
+        add(mem("kr-signals", x.get("id"), x.get("companies") or [], f"공정위 {x.get('title')}", x.get("date"), x.get("url")))
 
 
 def _comments(d, add):
