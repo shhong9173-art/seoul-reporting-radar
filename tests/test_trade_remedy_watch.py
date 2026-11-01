@@ -650,6 +650,30 @@ class DutyRates(unittest.TestCase):
         third, _, read3 = w.federal_register(NOW, {"federalRegister": again}, get=self.fr_get(docs, bodies, calls), sleep=lambda s: None)
         self.assertEqual((read3, third[0]["rateTable"]["v"], third[0]["prior"]["final"]["id"]), (1, w.RATE_RULES, "fr:2026-09691"))
 
+    def test_rate_limited_reads_keep_stored_rates_and_stop_for_the_run(self):
+        # 11-01 14:00 운영: 규칙을 올린 직후 실행에서 관보 본문이 HTTP 429 — 13:55에 읽은 세율이 모두 빠졌다
+        stored = {"id": "fr:2026-20698", "rateTable": {"kind": "반덤핑", "rates": {"KG스틸": {"rate": 23.4, "via": "표"}}, "othersRate": 20.58, "rows": 3},
+                  "prior": {"final": {"rates": {"KG스틸": 0.0}, "othersRate": None, "date": "2026-05-14"}}, "named": [], "memoTopics": []}
+        calls = []
+
+        def get(url, params=None, headers=None, timeout=None):
+            calls.append(url)
+            if url == w.FR_API:
+                return R(body={"results": [{"title": CORE_AD_TITLE, "publication_date": "2026-10-08", "document_number": "2026-20698", "html_url": "https://x",
+                                            "raw_text_url": "https://x/full_text/2026-20698.txt", "docket_ids": ["A-580-878"]},
+                                           {"title": CORE_AD_TITLE.replace("Corrosion-Resistant", "Cold-Rolled"), "publication_date": "2026-10-07",
+                                            "document_number": "2026-1", "html_url": "https://y", "raw_text_url": "https://x/full_text/2026-1.txt"}]})
+            return R(429)
+        rows, err, read = w.federal_register(NOW, {"federalRegister": [stored]}, get=get, sleep=lambda s: None)
+        row = next(x for x in rows if x["id"] == "fr:2026-20698")
+        self.assertEqual((row["rateTable"]["rates"]["KG스틸"]["rate"], row["prior"]["final"]["date"]), (23.4, "2026-05-14"))   # 예전 값 그대로
+        self.assertEqual(row["rateChange"], [{"company": "KG스틸", "rate": 23.4, "before": 0.0}])
+        self.assertIn("HTTP 429", err)
+        self.assertEqual(sum(1 for u in calls if "full_text" in u), 1)   # 429 뒤로는 본문을 더 부르지 않는다
+        doc = w.run({"pages": [], "taricSeeds": []}, now=NOW, previous={"federalRegister": [stored]}, get=get, sleep=lambda s: None)
+        fr_check = next(c for c in doc["checks"] if c["source"] == "미국 관보")
+        self.assertEqual((fr_check["status"], len(doc["federalRegister"])), ("partial", 2))   # 목록은 이번 것, 본문만 일부 미확인
+
     def test_same_rates_as_last_final_is_no_change_and_sunset_is_not_compared(self):
         row = {"id": "fr:2026-22343", "date": "2026-11-02", "title": "Large Power Transformers From the Republic of Korea: Preliminary Results of Antidumping Duty Administrative Review; 2024-2025",
                "rateTable": w.rate_table(LPT, "… Antidumping …"),
