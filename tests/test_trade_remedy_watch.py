@@ -324,6 +324,27 @@ class ForeignPages(unittest.TestCase):
         self.assertEqual(doc["status"], "partial")
 
 
+class PetrochemNames(unittest.TestCase):
+    """11-01 석유화학·정유 출입처: 자회사·비슷한 낱말은 걸지 않는다."""
+
+    def names(self, text):
+        import re
+        return [n for n, rx in w.BEAT_NAMES if re.search(rx, text, re.I)]
+
+    def test_new_beats_and_lookalikes(self):
+        self.assertEqual(self.names("Korea Kumho Petrochemical Co., Ltd."), ["금호석유화학"])
+        self.assertEqual(self.names("Kumho Tire Co., Inc."), ["금호타이어"])
+        self.assertEqual(self.names("S-Oil Corporation"), ["S-OIL"])
+        self.assertEqual(self.names("remediation of contaminated soil"), [])
+        self.assertEqual(self.names("LG Chem, Ltd."), ["LG화학"])
+        self.assertEqual(self.names("LG Energy Solution, Ltd."), [])
+        self.assertEqual(self.names("Lotte Chemical Titan Holding"), [])
+        self.assertEqual(self.names("HD Hyundai Oilbank Co., Ltd."), ["HD현대오일뱅크"])
+        self.assertEqual(self.names("SK Innovation Co., Ltd."), ["SK이노베이션"])
+        self.assertEqual(self.names("SK Geo Centric Co., Ltd."), [])
+        self.assertTrue(w.BEAT_PRODUCTS.search("Emulsion Styrene-Butadiene Rubber From the Republic of Korea"))
+
+
 if __name__ == "__main__":
     unittest.main()
 

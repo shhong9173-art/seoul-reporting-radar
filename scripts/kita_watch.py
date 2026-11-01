@@ -37,6 +37,9 @@ FIRMS = [
     ("동성케미칼", r"Dongsung\s+Chemical"), ("GS칼텍스", r"GS\s+Caltex"), ("두산에너빌리티", r"Doosan\s+(?:Enerbility|Heavy)"),
     ("한국타이어", r"Hankook\s+Tire"), ("금호타이어", r"Kumho\s+Tire"), ("넥센타이어", r"Nexen\s+Tire"), ("현대차", r"Hyundai\s+Motor"),
     ("기아", r"\bKia\s+(?:Corporation|Motors)"), ("현대모비스", r"Hyundai\s+Mobis"),
+    # 11-01 기자 명시: 석유화학·정유(자회사 Kumho P&B·SK Energy·SK Geo Centric은 아님)
+    ("LG화학", r"\bLG\s+Chem(?:ical)?\b"), ("롯데케미칼", r"Lotte\s+Chemical(?!\s*Titan)"), ("금호석유화학", r"Kumho\s+Petrochemical"),
+    ("S-OIL", r"\bS-Oil\b"), ("HD현대오일뱅크", r"Hyundai\s+Oil\s*bank"), ("SK이노베이션", r"\bSK\s+Innovation"),
 ]
 FIRM_RX = [(ko, re.compile(rx, re.I)) for ko, rx in FIRMS]
 STAGE_RX = re.compile(r"^(.+?)\s*\((\d{4})\.(\d{2})\.(\d{2})\)\s*$")
