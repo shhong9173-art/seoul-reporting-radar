@@ -205,6 +205,35 @@ function quotaLine(q) {
 
 // 국내 무역위원회(ktc_watch.py): 회의 약 1주 전에 올라오는 개요 PDF의 안건, 2019년 이후 개시한 진행 사건과 마지막 진행일정,
 // 진행 목록에서 빠진 사건. 진행 목록에는 2000년대 옛 불공정무역행위 사건도 '조사실행'으로 남아 있어(10-30 44건 중 20건) 숨긴다.
+// 미국 관보 판정의 출입처 세율(관보 원문 표)과 같은 사건 직전 판정 세율(trade_remedy_watch.rate_table·prior_rates).
+// 11-01 역추적: 10-08 도금강판 반덤핑 예비 KG스틸 23.40%·동국씨엠 19.43%(직전 최종 0.00%)를 레이더가 79.5시간 먼저 잡았지만 세율이 없었다.
+const pct = (v) => `${Number(v).toFixed(2)}%`;
+export function rateText(x) {
+  const t = x.rateTable;
+  if (!t) return '';
+  const fin = x.prior?.final;
+  const pre = x.prior?.prelim && (!fin || String(x.prior.prelim.date) > String(fin.date)) ? x.prior.prelim : null;
+  const before = (p, c, v) => p?.rates?.[c] ?? (v.via === '비선정' ? p?.othersRate : undefined);
+  const entries = Object.entries(t.rates ?? {});
+  if (!entries.length) {
+    return t.rows ? ` · 세율 표에 출입처 줄 없음${t.othersRate != null ? `(비선정 업체 ${pct(t.othersRate)})` : ''}` : ' · 세율 표 못 읽음(원문 표 확인)';
+  }
+  const parts = entries.map(([c, v]) => {
+    const prior = [fin && before(fin, c, v) != null ? `직전 최종 ${pct(before(fin, c, v))}` : fin ? '직전 최종에 없음' : '',
+      pre && before(pre, c, v) != null ? `예비 ${pct(before(pre, c, v))}` : ''].filter(Boolean).join('·');
+    return `${c} ${pct(v.rate)}${v.via === '비선정' ? '(비선정 업체 세율)' : ''}${prior ? `(${prior})` : ''}`;
+  });
+  const when = fin ? ` [직전 최종 ${fin.date}${pre ? `·예비 ${pre.date}` : ''}]` : pre ? ` [직전 예비 ${pre.date}]`
+    : x.prior?.none ? ' [같은 사건 직전 판정 세율 못 찾음]' : x.priorError ? ` [직전 판정 조회 실패(${x.priorError}) — 미확인]` : '';
+  return ` · ${t.kind} 세율(관보 표): ${parts.join(' · ')}${t.othersRate != null && !entries.some(([, v]) => v.via === '비선정') ? ` · 비선정 업체 ${pct(t.othersRate)}` : ''}${when}`;
+}
+
+export function rateChangeText(x) {
+  const ch = x.rateChange ?? [];
+  if (!ch.length) return '';
+  return ch.slice(0, 5).map((c) => (c.before == null ? `${c.company} 새 조사에서 ${pct(c.rate)}` : `${c.company} ${pct(c.before)}→${pct(c.rate)}`)).join(', ');
+}
+
 export function ktcSection(k, q = '', limit = 15) {
   if (!k) return ['\n[국내 무역위원회] 아직 수집 전 — 미확인'];
   const out = [];
@@ -334,6 +363,8 @@ export async function tradeRemedies(ctx, args) {
     out.push(`\n[미국 상무부·ITC 고시 · 최근 45일] ${fr.length}건 · 본문에 출입처 이름 ${fr.filter((x) => (x.named ?? []).length).length}건`);
     for (const x of sorted.slice(0, limit)) {
       out.push(`- ${x.isNew ? '[신규] ' : ''}${x.date} · ${x.stage}${x.section337 ? ' · 337조' : ''} · ${x.title}`);
+      if (x.rateChange?.length) out.push(`   세율 크게 바뀜: ${rateChangeText(x)}`);
+      if (x.rateTable) out.push(`   세율${rateText(x).replace(/^ · /, ' — ')}`);
       for (const n of (x.named ?? []).slice(0, 5)) out.push(`   본문의 ${n.company}(${n.mentions}곳): ${n.lines.map((l) => `"${l}"`).join(' / ')}`);
       for (const t of (x.memoUnusual ?? []).slice(0, 3)) out.push(`   결정문 목차 — 흔치 않은 항목(관보 부록 원문): "${t}"`);
       for (const t of (x.memoNamed ?? []).slice(0, 3)) out.push(`   결정문 목차 — 출입처 이름(관보 부록 원문): "${t}"`);
@@ -341,7 +372,7 @@ export async function tradeRemedies(ctx, args) {
       out.push(`   원문: ${x.url}`);
     }
     if (sorted.length > limit) out.push(`… 남은 ${sorted.length - limit}건`);
-    out.push('   검증 상태: 관보 제목·본문 줄(자동). 세율·판정은 원문 표로 확인. 회사명 일치≠해당 회사 사건 — 조사 대상 목록 확인. 결정문 목차는 쟁점 제목일 뿐 결론이 아니다(\'흔치 않은\'은 자주 나오는 보조금 낱말이 없다는 뜻)');
+    out.push('   검증 상태: 관보 제목·본문 줄(자동). 세율은 관보 원문 표에서 자동으로 읽은 값(예비 판정은 확정 아님 — 최종에서 바뀔 수 있음, 기사 전 원문 표 대조). \'비선정 업체 세율\'은 개별 조사를 받지 않은 업체에 매긴 세율. 직전 판정은 같은 사건 번호(docket)의 최근 최종(·예비) 판정. 회사명 일치≠해당 회사 사건 — 조사 대상 목록 확인. 결정문 목차는 쟁점 제목일 뿐 결론이 아니다(\'흔치 않은\'은 자주 나오는 보조금 낱말이 없다는 뜻)');
   }
 
   if (!section || section === 'ktc') out.push(...ktcSection(doc.ktc, q, limit));

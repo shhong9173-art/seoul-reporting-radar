@@ -467,3 +467,164 @@ class PagePattern(unittest.TestCase):
         self.assertEqual(w.korea_lines(raw), {})  # 기본 'korea'로는 안 잡힌다
         uk = '<table><tr><td><a href="/public/case/AD0099/">Case Hot-rolled steel plate from South Korea</a></td><td>Initiated</td></tr></table>'
         self.assertTrue(any("Hot-rolled steel plate from South Korea" in k for k in w.korea_lines(uk)))
+
+
+# 관보 원문(raw text) 표 — 2026-10-08 도금강판 상계관세·반덤핑 예비, 2026-05-14 반덤핑 최종, 2026-08-14 변압기 반덤핑 최종(줄 그대로)
+CORE_CVD_PRELIM = """Preliminary Results of Review
+------------------------------------------------------------------------
+Subsidy rate
+Company (percent ad
+valorem)
+------------------------------------------------------------------------
+Hyundai Steel Company \\12\\.............................. 0.58
+KG Dongbu Steel Co., Ltd.\\13\\........................... 4.82
+Companies Not Selected for Individual Review \\14\\....... 2.22
+------------------------------------------------------------------------
+Disclosure
+Appendix II
+Non-Selected Companies Under Review
+1. POSCO
+2. POSCO International
+3. POSCO Coated & Color Steel Co., Ltd.
+4. POSCO Steeleon Co., Ltd.
+5. SeAH Coated Metal
+6. SeAH Steel Corporation
+7. TCC Steel Corp.
+[FR Doc. 2026-20699 Filed 10-7-26; 8:45 am]
+"""
+CORE_AD_PRELIM = """Preliminary Results
+We preliminarily determine the following weighted-average dumping
+margins for the period July 1, 2024, through June 30, 2025:
+------------------------------------------------------------------------
+Weighted-
+average
+Exporter/producer dumping
+margin
+(percent)
+------------------------------------------------------------------------
+KG Dongbu Steel Co., Ltd.................................... 23.40
+Dongkuk Coated Metal Co., Ltd./Aju Steel Co., Ltd........... 19.43
+Companies Not Selected for Individual Review \\12\\........... 20.58
+------------------------------------------------------------------------
+Disclosure
+Appendix II
+Non-Selected Companies Under Review
+1. Hyundai Steel Company
+2. POSCO
+5. SeAH Steel Corporation
+[FR Doc. 2026-20698 Filed 10-7-26; 8:45 am]
+"""
+CORE_AD_FINAL = """Final Results of Review
+------------------------------------------------------------------------
+Weighted-
+average
+Exporter/producer \\6\\ dumping
+margin
+(percent)
+------------------------------------------------------------------------
+Dongbu Incheon Steel Co., Ltd............................... 0.00
+Dongkuk Coated Metal Co., Ltd............................... 0.00
+Dongkuk Steel Mill Co., Ltd................................. 0.00
+Hyundai Steel Company....................................... 0.00
+KG Steel Corporation; KG Dongbu Steel Co., Ltd.............. 0.00
+POSCO....................................................... 0.00
+POSCO International Corporation............................. 0.00
+POSCO STEELEON Co., Ltd..................................... 0.00
+SeAH Coated Metal Corporation............................... 0.00
+SeAH Steel Corporation...................................... 0.00
+------------------------------------------------------------------------
+[[Page 27253]]
+Disclosure
+"""
+LPT = """------------------------------------------------------------------------
+Weighted-
+average
+Producer/exporter dumping
+margin
+(percent)
+------------------------------------------------------------------------
+HD Hyundai Electric Co., Ltd............................... 0.00
+Iljin Electric Co., Ltd.................................... 0.00
+LS Electric Co., Ltd....................................... 4.32
+Hyosung Heavy Industries Corporation....................... 4.32
+------------------------------------------------------------------------
+"""
+CORE_AD_TITLE = "Certain Corrosion-Resistant Steel Products From the Republic of Korea: Preliminary Results and Rescission, in Part, of Antidumping Duty Administrative Review; 2024-2025"
+
+
+class DutyRates(unittest.TestCase):
+    def test_rate_rows_from_real_tables(self):
+        t = w.rate_table(CORE_CVD_PRELIM, "Certain Corrosion-Resistant Steel Products From the Republic of Korea: Preliminary Results and Recission, In Part, of Countervailing Duty Administrative Review; 2024")
+        self.assertEqual(t["kind"], "상계관세")
+        self.assertEqual({k: (v["rate"], v["via"]) for k, v in t["rates"].items()},
+                         {"현대제철": (0.58, "표"), "KG스틸": (4.82, "표"), "포스코": (2.22, "비선정"), "세아제강": (2.22, "비선정")})
+        self.assertEqual(t["othersRate"], 2.22)
+        t = w.rate_table(CORE_AD_PRELIM, CORE_AD_TITLE)
+        self.assertEqual((t["kind"], t["rates"]["KG스틸"]["rate"], t["rates"]["동국씨엠"]["rate"], t["othersRate"]), ("반덤핑", 23.40, 19.43, 20.58))
+        self.assertEqual((t["rates"]["현대제철"]["via"], t["rates"]["포스코"]["rate"]), ("비선정", 20.58))
+        f = w.rate_table(CORE_AD_FINAL, "… Final Results and Rescission, in Part, of Antidumping Duty Administrative Review; 2023-2024")
+        self.assertEqual(sorted(f["rates"]), sorted(["동국씨엠", "동국제강", "현대제철", "KG스틸", "포스코", "세아제강"]))
+        self.assertEqual(f["rates"]["포스코"]["name"], "POSCO")   # POSCO International 줄이 아니라 POSCO 줄
+        self.assertEqual(f["rows"], 10)
+        lpt = w.rate_table(LPT, "Large Power Transformers From the Republic of Korea: Final Results of Antidumping Duty Administrative Review; 2023-2024")
+        self.assertEqual({k: v["rate"] for k, v in lpt["rates"].items()},
+                         {"HD현대일렉트릭": 0.0, "LS일렉트릭": 4.32, "효성중공업(관련)": 4.32, "일진전기(관련)": 0.0})
+        self.assertIsNone(w.rate_table("no table here\nCommerce ... determines", CORE_AD_TITLE))
+        # 두 줄로 나뉜 이름
+        rows = w.rate_rows("----------------------------------------\nHyundai Steel Company and Hyundai\nSteel Pipe Co., Ltd. ............ 1.23\n"
+                           "[[Page 27253]]\nSeAH Steel Corporation........ 9.80\n----------------------------------------\nDisclosure\nCommerce intends\n")
+        self.assertEqual(rows, [("Hyundai Steel Company and Hyundai Steel Pipe Co., Ltd", 1.23), ("SeAH Steel Corporation", 9.8)])
+
+    def fr_get(self, docket_docs, bodies, calls):
+        def get(url, params=None, headers=None, timeout=None):
+            calls.append((url, dict(params or [])))
+            if url == w.FR_API:
+                p = dict(params or [])
+                if "conditions[docket_id]" in p:
+                    return R(body={"results": docket_docs.get(p["conditions[docket_id]"], [])})
+                return R(body={"results": [{"title": CORE_AD_TITLE, "publication_date": "2026-10-08", "html_url": "https://www.federalregister.gov/d/2026-20698",
+                                            "document_number": "2026-20698", "agencies": [{"name": "International Trade Administration"}],
+                                            "raw_text_url": "https://www.federalregister.gov/full_text/2026-20698.txt", "docket_ids": ["A-580-878"]}]})
+            if "full_text" in url:
+                return R(text=bodies.get(url.rsplit("/", 1)[1].replace(".txt", ""), "<pre>nothing</pre>"))
+            return R(404)
+        return get
+
+    def test_prelim_compared_with_last_final_of_the_same_docket(self):
+        docs = {"A-580-878": [
+            {"title": CORE_AD_TITLE, "publication_date": "2026-10-08", "document_number": "2026-20698", "raw_text_url": "https://x/full_text/2026-20698.txt"},
+            {"title": "Certain Corrosion-Resistant Steel Products From the Republic of Korea: Final Results and Rescission, in Part, of Antidumping Duty Administrative Review; 2023-2024",
+             "publication_date": "2026-05-14", "document_number": "2026-09691", "html_url": "https://www.federalregister.gov/d/2026-09691", "raw_text_url": "https://x/full_text/2026-09691.txt"},
+            {"title": "Certain Corrosion-Resistant Steel Products from the Republic of Korea: Initiation of Circumvention Inquiry on the Antidumping and Countervailing Duty Orders",
+             "publication_date": "2026-04-02", "document_number": "2026-06449", "raw_text_url": "https://x/full_text/2026-06449.txt"},
+            {"title": "Certain Corrosion-Resistant Steel Products From the Republic of Korea: Preliminary Results of Antidumping Duty Administrative Review; 2023-2024",
+             "publication_date": "2026-01-08", "document_number": "2026-00191", "raw_text_url": "https://x/full_text/2026-00191.txt"}]}
+        bodies = {"2026-20698": CORE_AD_PRELIM, "2026-09691": CORE_AD_FINAL}
+        calls = []
+        rows, err, read = w.federal_register(NOW, None, get=self.fr_get(docs, bodies, calls), sleep=lambda s: None)
+        row = rows[0]
+        self.assertEqual((err, row["dockets"]), (None, ["A-580-878"]))
+        self.assertEqual(row["prior"]["final"]["id"], "fr:2026-09691")
+        self.assertNotIn("prelim", row["prior"])   # 최종을 먼저 찾으면 그 앞 예비는 읽지 않는다
+        self.assertEqual(sorted((c["company"], c["rate"], c["before"]) for c in row["rateChange"]),
+                         [("KG스틸", 23.4, 0.0), ("동국씨엠", 19.43, 0.0), ("세아제강", 20.58, 0.0), ("포스코", 20.58, 0.0), ("현대제철", 20.58, 0.0)])
+        self.assertFalse(any("2026-06449" in u or "2026-00191" in u for u, _ in calls))   # 우회 조사·더 오래된 예비는 읽지 않음
+        n = len(calls)
+        again, _, read2 = w.federal_register(NOW, {"federalRegister": rows}, get=self.fr_get(docs, bodies, calls), sleep=lambda s: None)
+        self.assertEqual((read2, len(calls) - n), (0, 1))   # 목록 조회 한 번뿐 — 본문·직전 판정은 저장본
+        self.assertEqual(again[0]["rateChange"], row["rateChange"])
+
+    def test_same_rates_as_last_final_is_no_change_and_sunset_is_not_compared(self):
+        row = {"id": "fr:2026-22343", "date": "2026-11-02", "title": "Large Power Transformers From the Republic of Korea: Preliminary Results of Antidumping Duty Administrative Review; 2024-2025",
+               "rateTable": w.rate_table(LPT, "… Antidumping …"),
+               "prior": {"final": {"rates": {"HD현대일렉트릭": 0.0, "일진전기(관련)": 0.0, "LS일렉트릭": 4.32, "효성중공업(관련)": 4.32}, "othersRate": None}}}
+        self.assertEqual(w.rate_change(row), [])
+        row["prior"]["final"]["rates"]["LS일렉트릭"] = 0.0
+        self.assertEqual(w.rate_change(row), [])   # 0→4.32는 5%p도, 5% 이상도 아님
+        row["rateTable"]["rates"]["LS일렉트릭"]["rate"] = 6.1
+        self.assertEqual(w.rate_change(row), [("LS일렉트릭", 6.1, 0.0)])
+        row["title"] = "Passenger Vehicle and Light Truck Tires From the Republic of Korea: Final Results of the Expedited First Sunset Reviews of the Antidumping Duty Orders"
+        self.assertEqual(w.rate_change(row), [])
+        inv = {"title": "Certain Steel Wire From the Republic of Korea: Affirmative Preliminary Determination of Sales at Less-Than-Fair-Value",
+               "rateTable": {"rates": {"고려아연": {"rate": 31.0, "via": "표"}, "포스코": {"rate": 2.0, "via": "표"}}}, "prior": {"none": True}}
+        self.assertEqual(w.rate_change(inv), [("고려아연", 31.0, None)])   # 새 조사: 처음 매긴 5% 이상

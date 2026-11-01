@@ -321,6 +321,157 @@ def topic_flags(topics):
     return named[:6], unusual[:6]
 
 
+# ---------- Duty rates in AD/CVD results (rate table rows: "KG Dongbu Steel Co., Ltd.......... 23.40") ----------
+# 11-01 경쟁지 단독 역추적: 레이더가 먼저 잡은 단독 2건이 모두 미국 관보였는데(37~80시간 앞) 레이더 줄에는 회사 이름만 있었다.
+# 10-08 도금강판 반덤핑 예비 KG스틸(KG Dongbu) 23.40%·동국씨엠 19.43%(직전 최종 2026-05-14 모두 0.00%) → 10-30 경쟁지
+# 「[단독] 美 도금강판 관세 70%대 위협…동국씨엠·KG스틸」. 세율과 같은 사건 직전 판정 세율을 함께 남긴다.
+RATE_ROW = re.compile(r"^(?P<name>[A-Za-z0-9(].*?)\s*\.{3,}\s*(?P<val>\d{1,3}(?:\.\d+)?)\b(?P<rest>[^A-Za-z]*)$")
+FOOTNOTE = re.compile(r"\\\s*\d+\s*\\")
+SEPARATOR = re.compile(r"^-{20,}$")
+OTHERS = re.compile(r"Not Selected|Non-Selected|Non-Examined|All[- ]Others|Review-Specific", re.I)
+NONSELECTED_HEAD = re.compile(r"(?:Companies|Respondents)\s+(?:Not Selected|Under Review Not Selected)|Non-(?:Selected|Examined)\s+(?:Companies|Respondents)", re.I)
+RATE_STAGE = re.compile(r"Final Results|Final Determination|Amended Final", re.I)
+RATE_TITLE = re.compile(r"Preliminary Results|Final Results|Preliminary Determination|Final Determination|Amended Final", re.I)
+# 일몰 재심(조사 당시 마진을 다시 적는다)·우회·범위 판정은 직전 연례 재심 세율과 견주지 않는다
+NOT_RATE_CASE = re.compile(r"Sunset|Five-Year|Circumvention|Scope Ruling|Changed Circumstances", re.I)
+INVESTIGATION = re.compile(r"Less-Than-Fair-Value|Less Than Fair Value|Countervailing Duty Investigation|Antidumping Duty Investigation|"
+                           r"Affirmative (?:Preliminary|Final) Determination", re.I)
+
+
+def duty_kind(title):
+    ad, cvd = bool(re.search(r"Antidumping|Anti-Dumping", title or "", re.I)), bool(re.search(r"Countervailing", title or "", re.I))
+    return "반덤핑" if ad and not cvd else "상계관세" if cvd and not ad else "관세"
+
+
+def rate_rows(text):
+    """[(이름, 세율)] — 관보 원문(raw text) 표의 점선 줄. 두 줄로 나뉜 이름은 앞줄과 붙인다."""
+    lines = [ln.rstrip() for ln in re.split(r"\r?\n", text or "")]
+    out, prev_kind = [], "other"   # prev_kind: row | sep | text
+    pending = None
+    for ln in lines:
+        s = ln.strip()
+        if not s:
+            continue
+        if SEPARATOR.match(s):
+            prev_kind, pending = "sep", None
+            continue
+        if re.match(r"^\[\[Page \d+\]\]$", s):
+            continue   # 쪽 표시는 표 중간에도 끼어든다
+        m = RATE_ROW.match(s)
+        if m:
+            name = FOOTNOTE.sub(" ", m.group("name")).strip(" .;:")
+            if pending:
+                name = f"{pending} {name}"
+            out.append((re.sub(r"\s+", " ", name), float(m.group("val"))))
+            prev_kind, pending = "row", None
+            continue
+        # 표 안에서 다음 줄로 넘어간 이름 앞부분(앞줄이 표 줄·구분선일 때만)
+        pending = s if prev_kind in ("row", "sep") and len(s) < 80 and not re.search(r"percent|margin|rate|\(|\)", s, re.I) else None
+        prev_kind = "text"
+    return out
+
+
+def nonselected_beat(text):
+    """'Non-Selected Companies Under Review' 부록에 나온 출입처(비선정 업체 세율을 받는다)."""
+    text = text or ""
+    for m in NONSELECTED_HEAD.finditer(text):
+        start, end = text.rfind("\n", 0, m.start()) + 1, text.find("\n", m.end())
+        line = text[start: end if end >= 0 else len(text)]
+        if re.search(r"\.{3,}|\d\s*$", line):
+            continue   # 표의 '비선정 업체' 줄이지 부록 제목이 아니다
+        seg = re.split(r"\[FR Doc\.|BILLING CODE|\nAppendix\s+[IVX]+\b", text[m.end(): m.end() + 6000])[0]
+        return [name for name, rx in BEAT_NAMES if re.search(rx, seg, re.I)]
+    return []
+
+
+def rate_table(text, title):
+    """{'kind', 'rates': {출입처: {'rate', 'name', 'via'}}, 'othersRate', 'rows'} 또는 None(세율 표 없음)."""
+    rows = rate_rows(text)
+    if not rows:
+        return None
+    rates, others = {}, None
+    for name, val in rows:
+        if OTHERS.search(name):
+            others = val if others is None else others
+            continue
+        for company, rx in BEAT_NAMES:
+            if re.search(rx, name, re.I) and company not in rates:
+                rates[company] = {"rate": val, "name": name[:120], "via": "표"}
+    if others is not None:
+        for company in nonselected_beat(text):
+            rates.setdefault(company, {"rate": others, "name": "비선정 업체", "via": "비선정"})
+    return {"kind": duty_kind(title), "rates": rates, "othersRate": others, "rows": len(rows)}
+
+
+PRIOR_BUDGET = 6   # 직전 판정 원문 읽기(실행당)
+
+
+def prior_rates(row, dockets, *, get, sleep, budget):
+    """같은 사건(docket) 직전 판정의 세율: 최근 최종 판정 하나(그 사이 예비 판정이 있으면 그것도). (prior, 읽은 수, 오류)."""
+    used = 0
+    for docket in dockets[:2]:
+        params = [("conditions[docket_id]", docket), ("order", "newest"), ("per_page", "12")]
+        for f in ("title", "publication_date", "html_url", "document_number", "raw_text_url"):
+            params.append(("fields[]", f))
+        try:
+            r = get(FR_API, params=params, headers={"User-Agent": UA, "Accept": "application/json"}, timeout=40)
+            if r.status_code != 200:
+                return None, used, f"사건 목록 HTTP {r.status_code}"
+            docs = r.json().get("results") or []
+        except Exception as e:  # noqa: BLE001
+            return None, used, f"사건 목록 {type(e).__name__}"
+        out = {"docket": docket}
+        for d in docs:
+            if f"fr:{d.get('document_number')}" == row["id"] or str(d.get("publication_date") or "") >= str(row.get("date") or "9"):
+                continue
+            title = d.get("title") or ""
+            if not RATE_TITLE.search(title) or NOT_RATE_CASE.search(title) or not d.get("raw_text_url"):
+                continue
+            final = bool(RATE_STAGE.search(title))
+            if (final and "final" in out) or (not final and ("prelim" in out or "final" in out)):
+                continue
+            if used >= budget:
+                break
+            used += 1
+            body, err = get_text(d["raw_text_url"], get=get, headers={"User-Agent": UA, "Accept": "text/plain,text/html"})
+            sleep(0.5)
+            table = rate_table(text_lines(body), title) if body is not None else None
+            if table is None:
+                continue
+            out["final" if final else "prelim"] = {"id": f"fr:{d.get('document_number')}", "date": d.get("publication_date"), "title": title[:200],
+                                                    "url": d.get("html_url"), "rates": {k: v["rate"] for k, v in table["rates"].items()},
+                                                    "othersRate": table["othersRate"]}
+            if final:
+                break
+        if "final" in out or "prelim" in out:
+            return out, used, None
+    return {"docket": dockets[0] if dockets else None, "none": True}, used, None
+
+
+def rate_change(row):
+    """출입처 세율이 직전 최종(없으면 직전 예비) 판정보다 크게 바뀐 회사: [(회사, 지금, 직전)]. 5%p 이상 차이, 또는 0.5% 미만↔5% 이상."""
+    table, prior = row.get("rateTable") or {}, row.get("prior") or {}
+    if not table.get("rates") or NOT_RATE_CASE.search(row.get("title") or ""):
+        return []
+    base = prior.get("final") or prior.get("prelim")
+    if not base:
+        # 새 조사(덤핑·보조금 조사 예비·최종)에서 처음 매겨진 출입처 세율 5% 이상
+        if INVESTIGATION.search(row.get("title") or "") and prior.get("none"):
+            return [(c, v["rate"], None) for c, v in table["rates"].items() if v["rate"] >= 5]
+        return []
+    out = []
+    for company, v in table["rates"].items():
+        before = base["rates"].get(company)
+        if before is None and v.get("via") == "비선정":
+            before = base.get("othersRate")
+        if before is None:
+            continue
+        now_r = v["rate"]
+        if abs(now_r - before) >= 5 or (before < 0.5 <= 5 <= now_r) or (now_r < 0.5 <= 5 <= before):
+            out.append((company, now_r, before))
+    return out
+
+
 def federal_register(now, previous=None, *, get=None, sleep=time.sleep):
     """ITA·ITC notices from the last FR_DAYS that name Korea in the title, plus omnibus notices (review initiations,
     337 complaints) — bodies are scanned once for beat company names and the result is cached by document number."""
@@ -329,7 +480,7 @@ def federal_register(now, previous=None, *, get=None, sleep=time.sleep):
               ("conditions[agencies][]", "international-trade-administration"),
               ("conditions[agencies][]", "international-trade-commission"),
               ("order", "newest"), ("per_page", "100")]
-    for f in ("title", "publication_date", "html_url", "document_number", "type", "agencies", "raw_text_url"):
+    for f in ("title", "publication_date", "html_url", "document_number", "type", "agencies", "raw_text_url", "docket_ids"):
         params.append(("fields[]", f))
     if get is None:
         import requests
@@ -342,7 +493,7 @@ def federal_register(now, previous=None, *, get=None, sleep=time.sleep):
     except Exception as e:
         return [], type(e).__name__, 0
     prev = {x["id"]: x for x in (previous or {}).get("federalRegister", []) if isinstance(x, dict) and x.get("id")}
-    rows, budget = [], BODY_BUDGET
+    rows, budget, prior_budget = [], BODY_BUDGET, PRIOR_BUDGET
     for x in data.get("results") or []:
         title = x.get("title") or ""
         in_title = bool(re.search(r"korea", title, re.I))
@@ -354,12 +505,17 @@ def federal_register(now, previous=None, *, get=None, sleep=time.sleep):
                "stage": stage_of(title), "koreaInTitle": in_title, "omnibus": not in_title,
                "section337": is_337(title),
                "beatProduct": bool(BEAT_PRODUCTS.search(title))}
+        dockets = [d.strip() for v in x.get("docket_ids") or [] for d in str(v).split(",") if d.strip()]
+        if dockets:
+            row["dockets"] = dockets
         old = prev.get(did) or {}
-        for k in ("named", "memoTopics", "memoNamed", "memoUnusual"):
+        for k in ("named", "memoTopics", "memoNamed", "memoUnusual", "rateTable", "prior"):
             if k in old:
                 row[k] = old[k]
+        results = in_title and bool(RATE_TITLE.search(title))
         wants_memo = in_title and bool(re.search(r"Results|Determination", title)) and "memoTopics" not in row
-        if ("named" not in row or wants_memo) and x.get("raw_text_url") and budget > 0:
+        wants_rates = results and "rateTable" not in row   # 세율 규칙 전에 읽은 고시도 한 번 다시 읽는다
+        if ("named" not in row or wants_memo or wants_rates) and x.get("raw_text_url") and budget > 0:
             budget -= 1
             body, err = get_text(x["raw_text_url"], get=get, headers={"User-Agent": UA, "Accept": "text/plain,text/html"})
             sleep(0.5)
@@ -372,8 +528,21 @@ def federal_register(now, previous=None, *, get=None, sleep=time.sleep):
                     row["memoNamed"], row["memoUnusual"] = topic_flags(topics)
                 elif wants_memo:
                     row["memoTopics"] = []
+                if results:
+                    row["rateTable"] = rate_table(lines, title) or {"kind": duty_kind(title), "rates": {}, "othersRate": None, "rows": 0}
             else:
                 row["bodyError"] = err
+        table = row.get("rateTable") or {}
+        if (table.get("rates") or table.get("othersRate") is not None) and "prior" not in row and dockets and prior_budget > 0:
+            prior, used, perr = prior_rates(row, dockets, get=get, sleep=sleep, budget=prior_budget)
+            prior_budget -= max(used, 1)
+            if prior is not None:
+                row["prior"] = prior
+            else:
+                row["priorError"] = perr   # 다음 실행에 다시 본다
+        changed = rate_change(row)
+        if changed:
+            row["rateChange"] = [{"company": c, "rate": a, "before": b} for c, a, b in changed]
         if row["omnibus"] and "named" in row and not row["named"]:
             continue  # omnibus notice that names no beat company
         rows.append(row)
@@ -649,6 +818,10 @@ def main():
     print(f"::notice title=trade-remedy::{doc['quarter']} 분기 쿼터 {len(q)}/{len(doc['quotas'])} 조회 · 소진 {exhausted} · 표시 {hot} · "
           f"미국 관보 {len(doc['federalRegister'])}건(출입처 이름 {named}) · 이번 신규 이벤트 {new_events}")
     print(f"::notice title=trade-remedy-checks::{checks}")
+    frs = doc.get("federalRegister") or []
+    print(f"::notice title=trade-remedy-rates::관보 판정 세율 표 {sum(1 for x in frs if (x.get('rateTable') or {}).get('rows'))}건(출입처 줄 "
+          f"{sum(1 for x in frs if (x.get('rateTable') or {}).get('rates'))}건) · 직전 판정 찾음 {sum(1 for x in frs if (x.get('prior') or {}).get('final') or (x.get('prior') or {}).get('prelim'))} · "
+          f"못 찾음 {sum(1 for x in frs if (x.get('prior') or {}).get('none'))} · 조회 실패 {sum(1 for x in frs if x.get('priorError'))} · 크게 바뀜 {sum(1 for x in frs if x.get('rateChange'))}건")
     k = doc.get("ktc") or {}
     kev = [e for e in doc["events"] if e.get("pageId") == "ktc" and e["detectedAt"] == doc["generatedAt"]]
     print(f"::notice title=trade-remedy-ktc::무역위 진행 사건 {len([c for c in k.get('cases', []) if not c.get('stale')])} · "

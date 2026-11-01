@@ -1977,6 +1977,42 @@ test('trade remedies: an unusual decision-memo topic in a notice naming a beat c
   assert.deepEqual(items.items.find((x) => x.id === 'fr:2026-20778').check.terms, ['관세', '보조금']);
 });
 
+test('trade remedies: a beat duty rate far from the last final of the same docket reaches A with both rates; same rates stay B', async () => {
+  // 10-08 도금강판 반덤핑 예비(KG스틸 23.40%·동국씨엠 19.43%, 직전 최종 2026-05-14 모두 0.00%) → 10-30 경쟁지 [단독] '美 도금강판 관세 70%대'
+  const opts = PRIVATE();
+  const env = opts.env;
+  const core = { id: 'fr:2026-20698', date: '2026-10-24', stage: '예비 판정', url: 'https://www.federalregister.gov/d/2026-20698',
+    title: 'Certain Corrosion-Resistant Steel Products From the Republic of Korea: Preliminary Results and Rescission, in Part, of Antidumping Duty Administrative Review; 2024-2025',
+    named: [{ company: 'KG스틸', mentions: 3, lines: ['KG Dongbu Steel Co., Ltd........ 23.40'] }, { company: '동국씨엠', mentions: 2, lines: ['Dongkuk Coated Metal'] }],
+    rateTable: { kind: '반덤핑', othersRate: 20.58, rows: 3, rates: { 'KG스틸': { rate: 23.4, name: 'KG Dongbu Steel Co., Ltd', via: '표' },
+      '동국씨엠': { rate: 19.43, name: 'Dongkuk Coated Metal Co., Ltd./Aju Steel Co., Ltd', via: '표' }, '포스코': { rate: 20.58, name: '비선정 업체', via: '비선정' } } },
+    prior: { docket: 'A-580-878', final: { id: 'fr:2026-09691', date: '2026-05-14', title: 'Final Results', rates: { 'KG스틸': 0, '동국씨엠': 0, '포스코': 0 }, othersRate: null } },
+    rateChange: [{ company: 'KG스틸', rate: 23.4, before: 0 }, { company: '동국씨엠', rate: 19.43, before: 0 }, { company: '포스코', rate: 20.58, before: 0 }],
+    firstSeen: '2026-10-25T07:40:00+09:00' };
+  const lpt = { id: 'fr:2026-22343', date: '2026-10-24', stage: '예비 판정', url: 'https://www.federalregister.gov/d/2026-22343',
+    title: 'Large Power Transformers From the Republic of Korea: Preliminary Results of Antidumping Duty Administrative Review; 2024-2025',
+    named: [{ company: 'LS일렉트릭', mentions: 2, lines: ['LS Electric Co., Ltd........ 4.32'] }, { company: 'HD현대일렉트릭', mentions: 2, lines: ['HD Hyundai Electric'] }],
+    rateTable: { kind: '반덤핑', othersRate: null, rows: 4, rates: { 'HD현대일렉트릭': { rate: 0, name: 'HD Hyundai Electric Co., Ltd', via: '표' }, 'LS일렉트릭': { rate: 4.32, name: 'LS Electric Co., Ltd', via: '표' } } },
+    prior: { docket: 'A-580-867', final: { id: 'fr:2026-16663', date: '2026-08-14', rates: { 'HD현대일렉트릭': 0, 'LS일렉트릭': 4.32 }, othersRate: null } },
+    firstSeen: '2026-10-25T07:40:00+09:00' };
+  const unread = { id: 'fr:x', date: '2026-10-24', stage: '최종 판정', url: 'https://x', title: 'Welded Line Pipe From the Republic of Korea: Final Results of Antidumping Duty Administrative Review; 2024-2025',
+    named: [{ company: '세아제강', mentions: 1, lines: ['SeAH'] }], rateTable: { kind: '반덤핑', rates: {}, othersRate: null, rows: 0 }, firstSeen: '2026-10-25T07:40:00+09:00' };
+  await worker.fetch(new Request(ORIGIN + '/ingest/trade-remedy', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify({
+    schema: 'trade_remedy/v1', generatedAt: '2026-10-25T07:40:00+09:00', checks: [], quotas: [], events: [], federalRegister: [core, lpt, unread] }) }), env, {});
+  const r = await call('radar_today', { hours: 72 }, opts);
+  const a = r.text.split('[A · ')[1].split('[B · ')[0];
+  assert.match(a, /무역구제 · KG스틸·동국씨엠·포스코\n   미국 관보 예비 판정: Certain Corrosion-Resistant[^\n]* — 세율 크게 바뀜: KG스틸 0\.00%→23\.40%, 동국씨엠 0\.00%→19\.43%, 포스코 0\.00%→20\.58% — 본문에 KG스틸·동국씨엠 · 반덤핑 세율\(관보 표\): KG스틸 23\.40%\(직전 최종 0\.00%\) · 동국씨엠 19\.43%\(직전 최종 0\.00%\) · 포스코 20\.58%\(비선정 업체 세율\)\(직전 최종 0\.00%\) \[직전 최종 2026-05-14\]/);
+  const b = r.text.split('[B · ')[1].split('[C · ')[0];
+  assert.match(b, /Large Power Transformers[^\n]* — 본문에 LS일렉트릭·HD현대일렉트릭 · 반덤핑 세율\(관보 표\): HD현대일렉트릭 0\.00%\(직전 최종 0\.00%\) · LS일렉트릭 4\.32%\(직전 최종 4\.32%\) \[직전 최종 2026-08-14\]/);
+  assert.match(b, /Welded Line Pipe[^\n]* · 세율 표 못 읽음\(원문 표 확인\)/);
+  const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
+  const hit = items.items.find((x) => x.id === 'fr:2026-20698');
+  assert.deepEqual([hit.tier, hit.check.who, hit.check.terms], ['A', 'KG스틸', ['관세', '반덤핑']]);
+  const t = await call('trade_remedies', { section: 'us' }, opts);
+  assert.match(t.text, /세율 크게 바뀜: KG스틸 0\.00%→23\.40%/);
+  assert.match(t.text, /세율 — 반덤핑 세율\(관보 표\): HD현대일렉트릭 0\.00%/);
+});
+
 test('us_recalls: NHTSA full-file recalls with Korean links reach A; imports alone are B; tool shows supplier box', async () => {
   const opts = PRIVATE();
   const env = opts.env;
