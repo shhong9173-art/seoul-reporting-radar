@@ -399,8 +399,6 @@ class GatewayRetry(unittest.TestCase):
             w.fetch("고려아연", "k", get=lambda *a, **k: R(403, '{"OpenAPI_ServiceResponse":{"cmmMsgHeader":{"returnReasonCode":"30"}}}'), sleep=lambda s: None)
 
 
-if __name__ == "__main__":
-    unittest.main()
 
 
 class NewBeatBaseline(unittest.TestCase):
@@ -421,3 +419,21 @@ class NewBeatBaseline(unittest.TestCase):
         self.assertNotIn("화치", new[0]["text"])
         # 예전 회사는 그대로(기준선 아님): 같은 실행에서 영풍 배출구가 빠지면 평소 규칙대로 센다
         self.assertTrue(any(s["company"] == "영풍" for s in doc["sites"]))
+
+
+class RunBudget(unittest.TestCase):
+    def test_slow_api_stops_new_searches_and_keeps_what_was_read(self):
+        # 11-01 07:32: API가 멈춰 10분 작업 한도에 걸리면 아무것도 저장되지 않는다 — 시간 한도 뒤 검색어는 '일부'로 남긴다
+        ticks = iter(range(0, 10_000, 200))   # 검색 한 번마다 200초가 흐르는 느린 API(검색어 3개 중 1개만)
+        t = T0
+        doc = w.run(CFG_SMALL, now=t, previous=None, key="k", get=Api(world(t)), sleep=lambda s: None, clock=lambda: next(ticks))
+        chk = doc["checks"][0]
+        self.assertEqual(doc["status"], "partial")
+        self.assertIn("실행 시간 한도", chk["error"])
+        done, total = map(int, chk["terms"].split("/"))
+        self.assertTrue(0 < done < total)
+        self.assertTrue(doc["sites"])
+
+
+if __name__ == "__main__":
+    unittest.main()

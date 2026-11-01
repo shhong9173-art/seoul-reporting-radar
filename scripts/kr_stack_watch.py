@@ -183,6 +183,12 @@ def retier_marginal(events):
             e["text"] = (e.get("text") or "") + f" — 기준을 {MARGINAL - 1:.0%} 안쪽으로 넘은 값이라 {pair[1]}로 바로잡음"
 
 
+# 11-01 07:32 운영: 검색어 30개로 늘린 첫 실행이 API 응답 없이 10분 작업 한도에 걸려 아무것도 저장하지 못했다(15분 뒤 다시 돌리니 36초).
+# 검색 한 번은 연결 10초·응답 45초까지, 실행 전체는 RUN_BUDGET초까지만 새 검색을 시작한다 — 남은 검색어는 실패(일부)로 두고 읽은 것은 저장한다.
+FETCH_TIMEOUT = (10, 45)
+RUN_BUDGET = 360
+
+
 def fetch(term, key, *, get=None, sleep=time.sleep):
     """사업장명 포함 검색 한 번(이 API는 한 번에 전체를 준다). 실패는 한 번 더."""
     if get is None:
@@ -193,7 +199,7 @@ def fetch(term, key, *, get=None, sleep=time.sleep):
         if attempt:
             sleep(3.0)
         try:
-            r = get(API, params={"serviceKey": key, "type": "json", "numOfRows": 1000, "pageNo": 1, "factManageNm": term}, timeout=60)
+            r = get(API, params={"serviceKey": key, "type": "json", "numOfRows": 1000, "pageNo": 1, "factManageNm": term}, timeout=FETCH_TIMEOUT)
         except Exception as e:  # noqa: BLE001 — class name only
             err = type(e).__name__
             continue
@@ -323,7 +329,8 @@ def stack_state(st, now=None, judge=None):
     return "unknown", base
 
 
-def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep):
+def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep, clock=time.monotonic):
+    started = clock()
     stamp = now.isoformat(timespec="seconds")
     prev = previous if isinstance(previous, dict) else {}
     first = not prev.get("sites")
@@ -360,6 +367,10 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep):
         off = judge is not None and not judge(now)  # 평일 교대 공장의 쉬는 시간: 빠짐을 세지 않는다
         rows, ok = [], True
         for term in comp["terms"]:
+            if clock() - started > RUN_BUDGET:
+                errors.append(f"{term}(실행 시간 한도 — 다음 실행에)")
+                ok = False
+                continue
             try:
                 rows += fetch(term, key, get=get, sleep=sleep)
                 ok_terms += 1

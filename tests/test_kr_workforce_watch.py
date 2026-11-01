@@ -253,8 +253,6 @@ class GatewayRetry(unittest.TestCase):
         self.assertEqual(api.calls, 1)  # 키 오류는 다시 부르지 않음
 
 
-if __name__ == "__main__":
-    unittest.main()
 
 
 class NewBeatBaselineTest(unittest.TestCase):
@@ -280,3 +278,7 @@ class NewBeatBaselineTest(unittest.TestCase):
         self.assertEqual(doc["companies"], ["LG화학", "기아", "현대제철"])
         again = w.run(cfg, now=NOW + dt.timedelta(hours=14), previous=doc, api=FakeApi(r2, d2, p), clock=Clock())
         self.assertIn("새 달 없음", again["checks"][0].get("note", ""))   # 다음 실행은 평소대로(다시 읽지 않음)
+
+
+if __name__ == "__main__":
+    unittest.main()
