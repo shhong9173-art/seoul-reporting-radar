@@ -16,6 +16,7 @@ export const BROWSER_CITIES = {
   // GitHub에서 들쑥날쑥한 곳: 직접 조회가 실패한 날만 이 수집으로 대신한다.
   양산시: 'https://eminwon.yangsan.go.kr',
   '광주 광산구': 'https://eminwon.gwangsan.go.kr',
+  나주시: 'https://eminwon.naju.go.kr',  // 11-01 석유화학 출입처(LG화학 나주공장) — GitHub 직접 조회가 안 되는 날 대신
 };
 const BLOB = 'kr_local_browser';
 const SCHEMA = 'kr_local_browser/v1';

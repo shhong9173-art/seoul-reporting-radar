@@ -79,6 +79,9 @@ CITIES = [
     ("광주 광산구", "https://eminwon.gwangsan.go.kr", "금호타이어(광주공장)"),
     ("광주 서구", "https://eminwon.seogu.gwangju.kr", "기아(오토랜드 광주)"),  # 목록이 표가 아니라 <ul><li> 형식(10-30)
     ("광명시", "https://eminwon.gm.go.kr", "기아(오토랜드 광명)"),  # 칸 사이 빈 <td> 형식(10-30), 접속이 들쑥날쑥(시간 초과면 미확인)
+    # 11-01 석유화학 출입처: 나주시(LG화학 나주공장). 일요일 저녁 탐침 75는 GitHub에서 접속 시간 초과(같은 날 다른 15곳도 시간 초과) —
+    # 직접 조회가 안 되면 기자 컴퓨터 브라우저 수집으로 대신한다(BROWSER_BACKUP).
+    ("나주시", "https://eminwon.naju.go.kr", "LG화학(나주)"),
 ]
 
 # 해외 IP(GitHub 러너)에서는 접속 시간 초과지만 국내 컴퓨터에서는 열리는 시·군(10-30 기자 컴퓨터 브라우저로 확인: 부평 목록 30줄 5초,
@@ -91,7 +94,7 @@ BROWSER_CITIES = [
     ("순천시", "https://eminwon.suncheon.go.kr", "현대제철(순천)"),
     ("함평군", "https://eminwon.hampyeong.go.kr", "금호타이어(함평 이전 공장)"),
 ]
-BROWSER_BACKUP = {"양산시", "광주 광산구"}  # GitHub에서 들쑥날쑥한 곳: 직접 조회가 실패하면 브라우저 수집으로 대신
+BROWSER_BACKUP = {"양산시", "광주 광산구", "나주시"}  # GitHub에서 들쑥날쑥한 곳: 직접 조회가 실패하면 브라우저 수집으로 대신
 BROWSER_FRESH_HOURS = 30
 BROWSER_FRESH_MONDAY = 78  # 예약 작업은 평일 오전뿐: 월요일 오전 실행은 금요일 수집(약 70시간 전)까지 받아 준다
 
