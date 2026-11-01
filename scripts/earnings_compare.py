@@ -27,6 +27,10 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 import governance_watch as gw  # noqa: E402  (BEATS, resolve_codes)
 
+# 지분공시는 없지만 분기·반기·사업보고서를 내는 비상장 출입처(공모 회사채 발행사) — 실적 비교표에만 더한다.
+# 11-01: HD현대오일뱅크(석유화학·정유 출입처, DART 고유번호 00105174 — dart_filings로 확인).
+EXTRA = [("전력·에너지", ["HD현대오일뱅크"])]
+
 API = "https://opendart.fss.or.kr/api"
 KST = dt.timezone(dt.timedelta(hours=9))
 OUT = ROOT / "digests" / "earnings_compare_latest.json"
@@ -320,7 +324,7 @@ def build(key, *, year, report, now=None, get=None, sleep=time.sleep, registry=N
         return base_get(url, params={"crtfc_key": key, **params}, **kw)
     now = now or dt.datetime.now(KST)
     companies, unresolved = [], []
-    for team, names in gw.BEATS:
+    for team, names in list(gw.BEATS) + EXTRA:
         codes, missing = gw.resolve_codes(names, registry, table)
         codes.pop("_spellings", None)
         unresolved += missing
