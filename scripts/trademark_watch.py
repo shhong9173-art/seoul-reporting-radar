@@ -279,7 +279,7 @@ def main():
         except private_store.StoreError as e:
             print(f"::warning title=trademarks-state::이전 상태 조회 실패({e}) — 저장하지 않고 끝냄(기준선 재설정 방지)")
             sys.exit(1)
-    if private_store.late_scheduled_duplicate(previous, now):
+    if private_store.late_scheduled_duplicate(previous, now) or private_store.recent_duplicate(previous, now):
         return
     ledger = KiprisAccountLedger(now=now) if key else None
     try:

@@ -163,3 +163,21 @@ def late_scheduled_duplicate(previous, now, *, hours=LATE_HOURS, env=None):
         print(f"::notice title=skip-late-schedule::직전 결과가 {age:.1f}시간 전 — 늦게 도착한 GitHub 예약 실행이라 건너뜀(결과 유지)")
         return True
     return False
+
+
+def recent_duplicate(previous, now, *, hours=LATE_HOURS, env=None):
+    """True when the same watch already produced a result within `hours`, for any trigger — for watches that spend a shared
+    call quota (KIPRIS 상표): the Cloudflare request and GitHub's cron can both arrive on the same morning. A manual run with
+    FORCE_RUN=true still goes ahead."""
+    env = os.environ if env is None else env
+    if str(env.get("FORCE_RUN", "")).lower() in ("1", "true", "yes") or not isinstance(previous, dict):
+        return False
+    try:
+        age = (now - dt.datetime.fromisoformat(str(previous.get("generatedAt")))).total_seconds() / 3600
+    except (TypeError, ValueError):
+        return False
+    if 0 <= age < hours:
+        print(f"::notice title=skip-recent-run::직전 결과가 {age:.1f}시간 전 — 같은 아침 두 번째 실행이라 건너뜀(호출 한도 아낌, 결과 유지)")
+        return True
+    return False
+

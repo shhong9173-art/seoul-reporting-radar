@@ -682,7 +682,7 @@ export function buildingLine(x) {
 }
 async function buildingSection(ctx, q, days, limit) {
   const doc = await readFeed(ctx, 'kr-building');
-  if (!doc) return ['\n[공장 부지 건축허가] 결과 없음 — 미확인(월 07:45 실행 확인)'];
+  if (!doc) return ['\n[공장 부지 건축허가] 결과 없음 — 미확인(월 07:50 실행 확인)'];
   if (doc.broken) return ['\n[공장 부지 건축허가] 저장 형식 오류 — 미확인'];
   const checks = doc.checks ?? [];
   const from = new Date(ctx.now.getTime() + 9 * 3600000 - days * 86400000).toISOString().slice(0, 10);

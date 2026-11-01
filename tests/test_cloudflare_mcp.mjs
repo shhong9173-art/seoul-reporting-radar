@@ -1956,6 +1956,11 @@ test('press check is dispatched after the morning watches and after the evening 
   assert.deepEqual(dueAt(new Date('2026-11-01T08:10:00Z')), ['us-recalls.yml']);   // Sun 17:10 KST
   assert.deepEqual(dueAt(new Date('2026-10-30T21:30:00Z')), []);                   // Sat 06:30 KST (page-watch·kr-local 평일만)
   assert.deepEqual(dueAt(new Date('2026-10-31T09:50:00Z')), []);                   // Sat 18:50 KST (보도 대조 평일만)
+  // 주 1회(월) 감시: 상표 07:10·공장 부지 건축허가 07:50 — 화요일·일요일에는 없음
+  assert.deepEqual(dueAt(new Date('2026-11-01T22:10:00Z')), ['scoop-screen.yml', 'trademark-watch.yml']);   // Mon 07:10 KST
+  assert.deepEqual(dueAt(new Date('2026-11-01T22:50:00Z')), ['us-litigation.yml', 'kr-building.yml']);      // Mon 07:50 KST
+  assert.deepEqual(dueAt(new Date('2026-11-02T22:10:00Z')), ['scoop-screen.yml']);                          // Tue 07:10 KST
+  assert.deepEqual(dueAt(new Date('2026-10-31T22:10:00Z')), []);                                            // Sun 07:10 KST
 });
 
 test('trade remedies: an unusual decision-memo topic in a notice naming a beat company reaches A with the appendix line', async () => {

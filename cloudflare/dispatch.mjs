@@ -8,7 +8,8 @@ const KST_MS = 9 * 3600000;
 const LOG_BLOB = 'dispatch_log';
 const LOG_KEEP = 200;
 
-// KST weekday (Mon–Fri) slots, matching each workflow's GitHub cron. `daily: true` slots also run on Sat·Sun:
+// KST weekday (Mon–Fri) slots, matching each workflow's GitHub cron. `days: [1]` limits a slot to those KST days (0=일 … 6=토).
+// `daily: true` slots also run on Sat·Sun:
 // 주말에 GitHub 예약만 믿던 매일 감시가 늦거나 빠졌다(10-31 토: OSHA 06:40 예약이 돌지 않음, EPA·연비는 3시간 반 늦게).
 export const SLOTS = [
   // 영국 Companies House: 영국 업무일이 끝난 뒤.
@@ -28,11 +29,15 @@ export const SLOTS = [
   { at: '06:50', workflow: 'overseas-awards.yml' },
   { at: '07:00', workflow: 'partner-filings.yml' },
   { at: '07:10', workflow: 'scoop-screen.yml' },
+  // 주 1회(월) 감시: GitHub 예약만 믿으면 늦거나 한 주를 통째로 거를 수 있다(10-31 토 OSHA 예약 누락). 상표는 KIPRIS 무료 한도를 쓰므로
+  // 수집기가 6시간 안 직전 결과가 있으면 건너뛴다(GitHub 예약과 겹쳐도 한 번만 호출).
+  { at: '07:10', workflow: 'trademark-watch.yml', days: [1] },
   // 협력사 회생·파산(대법원 공고): 아침에 전날 공고, 저녁에 그날 공고.
   { at: '07:20', workflow: 'kr-insolvency.yml' },
   { at: '07:30', workflow: 'kr-stats.yml' },
   { at: '07:40', workflow: 'trade-remedy.yml' },
   { at: '07:50', workflow: 'us-litigation.yml' },
+  { at: '07:50', workflow: 'kr-building.yml', days: [1] },
   { at: '08:00', workflow: 'scoop-radar.yml' },
   { at: '08:10', workflow: 'kr-official.yml' },
   { at: '08:20', workflow: 'us-comments.yml' },
@@ -74,7 +79,7 @@ export function dueAt(when) {
   const day = k.getUTCDay();
   const weekend = day === 0 || day === 6;
   const slot = `${String(k.getUTCHours()).padStart(2, '0')}:${String(Math.floor(k.getUTCMinutes() / 10) * 10).padStart(2, '0')}`;
-  return SLOTS.filter((s) => s.at === slot && (!weekend || s.daily)).map((s) => s.workflow);
+  return SLOTS.filter((s) => s.at === slot && (s.days ? s.days.includes(day) : (!weekend || s.daily))).map((s) => s.workflow);
 }
 
 async function appendLog(ctx, entries) {

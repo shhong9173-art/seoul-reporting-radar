@@ -117,7 +117,7 @@
 
 ## 상표 출원(trademarks, 기자 전용)
 
-- GitHub Actions `Trademark Watch`가 월요일 07:10 KST 주 1회 실행(병합 때는 돌지 않음). 결과는 `trademarks` 비공개 저장소로만. Secrets: `KIPRIS_SERVICE_KEY`(특허와 같은 키), `MCP_ACCESS_TOKEN`.
+- GitHub Actions `Trademark Watch`가 월요일 07:10 KST 주 1회 실행(병합 때는 돌지 않음). 시간은 Cloudflare가 workflow_dispatch로 맞추고(11-01부터, `days: [1]` 칸) GitHub 예약은 예비다 — 10-28에 만든 뒤 첫 예약(11-02)까지 한 번도 돌지 않아 '결과 없음'이었다. 같은 아침 두 번째 실행(직전 결과 6시간 안)은 어떤 경로로 와도 건너뛴다(KIPRIS 한도 아낌, 수동 실행 `force`로만 다시 조회). 결과는 `trademarks` 비공개 저장소로만. Secrets: `KIPRIS_SERVICE_KEY`(특허와 같은 키), `MCP_ACCESS_TOKEN`.
 - KIPRIS Plus 상표 출원 속보 `trademarkInfoSearchService/getAdvancedSearch`를 출원인 이름(특허 수집과 같은 법인명)·출원일 최근 90일로 회사당 1회(500건 넘으면 2쪽까지). 출입처 28곳(효성중공업·일진전기는 관련 기업, 최고 C). KG모빌리티·르노코리아·한국GM·GS칼텍스 이름은 첫 실제 조회 전까지 미확인.
 - 호출은 `KIPRIS 공용 장부`(docs/kipris-account-ledger.md)를 거친다. 무료 월 1,000회 중 상표 몫 150회, 실행당 34회. 응답 22면 상표만 72시간 대기 — radar_today에 '대기'(실패·0건 아님)로 표시.
 - 처음 보는 출원번호만 새 출원(첫 성공 실행은 기준선). 같은 날 같은 이름의 여러 상품류는 한 건. 처음 보는 이름+업종 핵심 상품류(완성차 12·7·9류 등) → B, 나머지 → C. radar_today에는 처음 본 날부터 7일 보인다.
@@ -271,7 +271,7 @@
 - 새 허가: 신축이고 연면적 1,000㎡ 이상 A, 증축·그 밖 B, 300㎡ 미만 C. 증축 허가의 연면적은 증축분이 아니라 건물 전체일 수 있다(첫 실행에서 '본관동 장비출입구' 증축에 66,680㎡). 이미 본 허가에 사용승인일이 붙으면 B(준공). 첫 실행 기준선.
 - **키 2개: ① Secret `JUSO_CONFM_KEY` = 도로명주소 검색API 승인키(business.juso.go.kr, 무료) ② 공공데이터포털 15136267 건축인허가 활용신청이 된 키**(KR_FUEL_API_KEY → DATA_GO_KR_KEY → CUSTOMS_API_KEY → G2B_API_KEY 순서로 시도). 없으면 radar_today에 '미설정(…)'. 주소 API가 연속 3번 접속 실패하면 그 실행은 멈추고 '실패'로 남긴다(0건 아님). 한 번 실행은 주소 13분·전체 25분 한도, 남은 공장은 다음 실행에서 이어 간다.
 - 건축허가에는 건축주 이름이 없다. '공장과 같은 번지'일 뿐 — 건축주·용도·투자 규모는 회사·지자체 건축과 확인. 큰 공장의 다른 번지 허가는 못 볼 수 있다.
-- 매주 월 07:45 KST. 결과는 `kr-building` 비공개 저장소로만. `kr_official`(section 비우거나 `building`) 아래 '[공장 부지 건축허가]'.
+- 매주 월 07:50 KST(Cloudflare 요청, GitHub 예약 07:45는 예비 — 늦게 오면 건너뜀). 결과는 `kr-building` 비공개 저장소로만. `kr_official`(section 비우거나 `building`) 아래 '[공장 부지 건축허가]'.
 
 ## 지자체 고시·공고(kr_official 안, 기자 전용)
 
