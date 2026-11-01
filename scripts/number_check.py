@@ -14,7 +14,7 @@ KO_TOKEN = re.compile(r"(\d[\d,]*(?:\.\d+)?)|([조억만천백십])")
 BIG = {"조": 1e12, "억": 1e8, "만": 1e4}
 SMALL = {"천": 1e3, "백": 1e2, "십": 10.0}
 
-EN_NUM = re.compile(r"(\d[\d,]*(?:\.\d+)?)(?:\s*(thousand|million|billion|trillion|mln|mn|bn|trn|tn|k|m|b|t)(?![a-z]))?", re.I)
+EN_NUM = re.compile(r"(\d[\d,]*(?:\.\d+)?)(?:[\s-]*(thousand|million|billion|trillion|mln|mn|bn|trn|tn|k|m|b|t)(?![a-z]))?", re.I)
 MULT = {"k": 1e3, "thousand": 1e3, "m": 1e6, "mn": 1e6, "mln": 1e6, "million": 1e6, "b": 1e9, "bn": 1e9, "billion": 1e9,
         "t": 1e12, "tn": 1e12, "trn": 1e12, "trillion": 1e12}
 WORDS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
@@ -22,7 +22,9 @@ WORDS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven"
          "eighteen": 18, "nineteen": 19, "twenty": 20, "thirty": 30, "forty": 40, "fifty": 50, "sixty": 60, "seventy": 70,
          "eighty": 80, "ninety": 90, "hundred": 100, "dozen": 12, "twice": 2, "double": 2, "triple": 3, "quadruple": 4,
          "first": 1, "second": 2, "third": 3, "fourth": 4, "fifth": 5, "sixth": 6, "seventh": 7, "eighth": 8, "ninth": 9, "tenth": 10,
-         "half": 50, "quarter": 25}   # 'half' → 50%, 'quarter' → 25%·4분기는 '4'로 따로 잡힌다
+         "half": 50, "quarter": 25,   # 'half' → 50%, 'quarter' → 25%·4분기는 '4'로 따로 잡힌다
+         # 'in a year' → '1년'(11-01 운영 첫 실행: 도요타 '1년 만에'가 걸림). 값 1만 맞춰 주므로 '1조' 같은 큰 수는 그대로 본다
+         "a": 1, "an": 1, "once": 1, "single": 1}
 _MONTH_NAMES = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"]
 MONTHS = {**{m: i + 1 for i, m in enumerate(_MONTH_NAMES)}, **{m[:3]: i + 1 for i, m in enumerate(_MONTH_NAMES)}, "sept": 9}
 WORD_RE = re.compile(r"[a-z]+", re.I)
