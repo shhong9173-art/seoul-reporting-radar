@@ -36,8 +36,8 @@ BEATS = [
     ("자동차", ["현대자동차", "기아", "현대모비스", "현대위아", "HL만도", "KG모빌리티", "한국타이어앤테크놀로지",
               "넥센타이어", "금호타이어"]),
     ("철강·비철", ["포스코홀딩스", "현대제철", "KG스틸", "세아홀딩스", "세아제강", "동국제강", "동국씨엠", "고려아연", "영풍"]),
-    ("전력·에너지", ["HD현대일렉트릭", "엘에스일렉트릭", "대한전선", "LS", "두산에너빌리티", "GS"]),
-    ("화학·소재", ["한화솔루션", "OCI", "OCI홀딩스", "태광", "동성케미칼"]),
+    ("전력·에너지", ["HD현대일렉트릭", "엘에스일렉트릭", "대한전선", "LS", "두산에너빌리티", "GS", "S-Oil", "SK이노베이션"]),
+    ("화학·소재", ["한화솔루션", "OCI", "OCI홀딩스", "태광", "동성케미칼", "LG화학", "롯데케미칼", "금호석유화학"]),
 ]
 INSTITUTION = re.compile(r"국민연금|자산운용|투자신탁|투자자문|증권|은행|보험|공제회|BlackRock|블랙록|Vanguard|뱅가드|"
                          r"Capital|Investment|Asset|Fund|Trust|Norges|GIC|템플턴|피델리티|Fidelity", re.I)
@@ -48,7 +48,7 @@ PLAIN_REASON = re.compile(r"단순\s*(추가)?\s*취득\s*(/|및|·)?\s*(처분)
 TOP_EXEC = re.compile(r"회장|부회장|사장|대표이사")
 GROUP_MIN = 5  # same company, same day, this many insider reports → one grouped line
 # Beat name → other exact spellings tried only against DART's corpCode table (never fuzzy).
-DART_SPELLINGS = {"동성케미칼": ["동성케미컬"]}
+DART_SPELLINGS = {"동성케미칼": ["동성케미컬"], "S-Oil": ["에쓰-오일", "에쓰오일"]}
 
 
 class TransientError(RuntimeError):

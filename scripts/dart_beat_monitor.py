@@ -40,7 +40,9 @@ BEATS={
  "전력기기·전선":("HD현대일렉트릭","엘에스일렉트릭","일진전기",
        "효성중공업","대한전선","LS전선","가온전선","LS"),
  "에너지·화학":("두산에너빌리티","한화솔루션","OCI","OCI홀딩스",
-       "GS","GS칼텍스","한국전력공사","SK이노베이션","씨에스윈드")
+       "GS","GS칼텍스","한국전력공사","SK이노베이션","씨에스윈드",
+       # 11-01 기자 명시: 석유화학 3·정유(S-Oil·HD현대오일뱅크; SK이노베이션은 이미 있음)
+       "LG화학","롯데케미칼","금호석유화학","S-Oil","HD현대오일뱅크")
 }
 TARGETS={name:group for group,names in BEATS.items() for name in names}
 if sum(map(len,BEATS.values()))!=len(TARGETS):
