@@ -210,6 +210,9 @@ def run(cfg, *, now, previous=None, api, clock=time.monotonic, budget=BUDGET_S):
     errors, checks = [], []
     month = prev.get("month")
     scan_status = prev.get("scanStatus")
+    # 새로 넣은 출입처(11-01 석유화학·정유 6곳)는 같은 달이어도 그 회사만 한 번 읽어 기준선으로 둔다(이벤트 없음)
+    prev_companies = set(prev.get("companies") or []) or ({s["company"] for s in sites.values()} | {p["company"] for p in projects.values()})
+    new_set = set() if first else {c["company"] for c in cfg["companies"]} - prev_companies
 
     def emit(eid, *a, **k):
         if eid not in known_events:
@@ -228,11 +231,13 @@ def run(cfg, *, now, previous=None, api, clock=time.monotonic, budget=BUDGET_S):
                     month, scan_status, sites, projects, seen_projects, events, api)
 
     scanned_companies = set()
-    if latest != month or scan_status != "complete":
+    full = latest != month or scan_status != "complete"
+    if full or new_set:
         # 2) 새 달 전체 읽기: 출입처별 검색어로 최신 달 줄만(최신 달이 먼저 나오고, 앞 달 줄이 섞이면 멈춘다)
         prior_month, month = month, latest
         seen_now, failed_terms, by_company_new = set(), [], {}
-        for comp in cfg["companies"]:
+        for comp in (cfg["companies"] if full else [c for c in cfg["companies"] if c["company"] in new_set]):
+            comp_first = first or comp["company"] in new_set
             own_rx, word_rx = re.compile(comp["own"]), re.compile(comp["word"])
             ok = True
             for term in comp["terms"]:
@@ -278,9 +283,9 @@ def run(cfg, *, now, previous=None, api, clock=time.monotonic, budget=BUDGET_S):
                                 continue
                             rec = {"id": key, "company": comp["company"], "title": title, "names": [name], "sites": 1, "region": region,
                                    "addr": (x.get("wkplRoadNmDtlAddr") or "").strip() or None, "seq": x.get("seq"), "month": latest, "tier": tier,
-                                   "firstSeen": stamp, "baseline": first}
+                                   "firstSeen": stamp, "baseline": comp_first}
                             projects[key] = rec
-                            if not first:
+                            if not comp_first:
                                 by_company_new.setdefault(comp["company"], []).append(rec)
                     if len(cur) < len(items) or len(items) < ROWS:
                         break
@@ -314,7 +319,7 @@ def run(cfg, *, now, previous=None, api, clock=time.monotonic, budget=BUDGET_S):
         if not first:
             for sid in sorted(seen_now):
                 s = sites[sid]
-                if s.get("_new"):
+                if s.get("_new") and s["company"] not in new_set:
                     adpt = str(s.get("adptDt") or "")
                     if adpt and adpt[:6] >= month_before(latest, 6):
                         emit(f"wf:new:{sid}", "새 자사 사업장", "A", s["company"], latest,
@@ -412,7 +417,8 @@ def run(cfg, *, now, previous=None, api, clock=time.monotonic, budget=BUDGET_S):
                      "error": "; ".join(([checks[0]["error"]] if checks[0].get("error") else []) + errors)[:400]}
     events = fresh_events + events
     status = "failed" if checks[0]["status"] == "failed" else ("partial" if any(c["status"] != "ok" for c in checks) else "complete")
-    return _doc(prev, stamp, status, checks, month, scan_status, sites, projects, seen_projects, events, api)
+    return _doc(prev, stamp, status, checks, month, scan_status, sites, projects, seen_projects, events, api,
+                companies=sorted(prev_companies | scanned_companies))
 
 
 def _project_line(r, short=False):
@@ -426,12 +432,13 @@ def _project_line(r, short=False):
             f" — {ym_label(r.get('month'))} 자료, 시공사가 붙인 현장 이름만 확인(사업 규모·발주 내용은 회사 확인)")
 
 
-def _doc(prev, stamp, status, checks, month, scan_status, sites, projects, seen_projects, events, api):
+def _doc(prev, stamp, status, checks, month, scan_status, sites, projects, seen_projects, events, api, companies=None):
     keep = sorted(projects.values(), key=lambda p: (p.get("month") or "", p.get("firstSeen") or ""), reverse=True)[:KEEP_PROJECTS]
     for p in keep:
         p["names"] = (p.get("names") or [])[:10]
     return {"schema": SCHEMA, "generatedAt": stamp, "status": status, "checks": checks, "month": month, "scanStatus": scan_status,
             "baselineSince": prev.get("baselineSince") or stamp, "apiCalls": api.calls,
+            "companies": companies if companies is not None else prev.get("companies") or [],
             "sites": sorted(sites.values(), key=lambda s: (s["company"], s["name"])), "projects": keep,
             "projectSeen": sorted(seen_projects)[-SEEN_MAX:], "events": events[:400],
             "rules": ["국민연금 가입자 수는 사업장 전체 직원 수가 아니다(만 60세 이상·일부 외국인·단시간 근로자 등 빠질 수 있음). 본사 일괄 신고 사업장은 공장별 숫자가 아니다.",

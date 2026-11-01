@@ -327,6 +327,8 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep):
     stamp = now.isoformat(timespec="seconds")
     prev = previous if isinstance(previous, dict) else {}
     first = not prev.get("sites")
+    # 새로 넣은 출입처(11-01 석유화학·정유 6곳)는 그 회사의 첫 실행을 기준선으로 — 사업장·배출구가 모두 '새것'으로 뜨지 않게
+    known_companies = {s.get("company") for s in (prev.get("sites") or []) if isinstance(s, dict)}
     sites = {s["id"]: s for s in prev.get("sites") or [] if isinstance(s, dict) and s.get("id")}
     keep_from = (now - dt.timedelta(days=KEEP_EVENTS_DAYS)).isoformat()
     events = collapse_bursts([e for e in prev.get("events") or [] if isinstance(e, dict) and e.get("detectedAt", "") >= keep_from])
@@ -353,6 +355,7 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep):
     scanned = set()
     for comp in cfg["companies"]:
         own = re.compile(comp["own"])
+        comp_first = first or comp["company"] not in known_companies
         judge = working if comp.get("schedule") == "weekday" else None
         off = judge is not None and not judge(now)  # 평일 교대 공장의 쉬는 시간: 빠짐을 세지 않는다
         rows, ok = [], True
@@ -379,7 +382,7 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep):
                 s = {"id": sid, "company": comp["company"], "name": name, "area": xs[0].get("area_nm"), "firstSeen": stamp, "stacks": {}}
                 sites[sid] = s
                 watched = age_days(prev.get("baselineSince"), now) if prev.get("baselineSince") else 0.0
-                if not first:
+                if not comp_first:
                     # 감시를 14일 넘게 돌린 뒤 처음 나타난 사업장만 A(초기에는 검색 결과가 덜 차거나 쉬던 사업장일 수 있다)
                     tier = new_tier(watched)
                     emit(f"stk:newsite:{sid}", "새 사업장(굴뚝 측정)", tier, comp["company"], name,
@@ -401,7 +404,7 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep):
                 if st is None:
                     st = {"firstSeen": stamp, "obs": []}
                     stacks[code] = st
-                    if not first and not s.get("firstSeen") == stamp:
+                    if not comp_first and not s.get("firstSeen") == stamp:
                         new_codes.append((code, x))
                 mdt = x.get("mesure_dt")
                 st.pop("workMissing", None)
@@ -425,7 +428,7 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep):
                     odd = " — 기준의 20배 넘는 값이라 측정기 이상값일 수 있음" if m > lim * 20 else ""
                     what = f"{name} 배출구 {code}번 {POL_KO[p]} 측정값 {m:g}이 배출허용기준 {lim:g}을 넘음(기준의 {m / lim:.1f}배, 측정 {mdt}){odd}"
                     tail = " · 실시간 자동측정 값(확정 전). 측정기 점검·교정 중 값일 수 있음 — 초과 판정·행정처분은 한국환경공단·관할 지자체 확인"
-                    if first:
+                    if comp_first:
                         continue
                     # 기준을 5% 안쪽으로 넘은 값은 한 단계 낮춘다(처음 C, 지속 B) — 실시간 값의 반올림·교정 오차 범위일 수 있다
                     # (10-31 운영: 고려아연 온산제련소 77번 황산화물 141.58/140, 기준의 1.01배 한 번이 B로 떴다).
@@ -462,7 +465,7 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep):
                     what = f"{name} 배출구 {code}번이 굴뚝 자동측정 목록에서 {MISSING_RUNS}번 연속 빠짐 — 설비 폐쇄·측정 대상 변경일 수 있음(회사 확인)"
                     # 6번 넘게 관측된 배출구만(초기에는 측정 자료가 늦게 들어와 목록이 들쑥날쑥하다).
                     # B는 평일 일하는 시간에 2번 연속 빠졌을 때만 — 쉬는 시간에 빠진 것은 C로 알리고 평일에 다시 본다.
-                    if not first and len(st.get("obs") or []) >= MIN_OBS:
+                    if not comp_first and len(st.get("obs") or []) >= MIN_OBS:
                         if st["missing"] == MISSING_RUNS:
                             emit(f"stk:gone:{sid}:{code}:{day}", "배출구 목록에서 빠짐", "B" if wm >= MISSING_RUNS else "C", comp["company"], name,
                                  what + ("" if wm >= MISSING_RUNS else REST_NOTE))
