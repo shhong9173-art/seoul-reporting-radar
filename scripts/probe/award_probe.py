@@ -1,24 +1,28 @@
-"""Probe 87: 출입처 공장 시·도 보도자료(투자협약 발표가 먼저 나오는 곳) — 울산·전남·충남·경북·경남 누리집이 GitHub에서 열리는지,
-robots.txt, 첫 화면의 RSS·보도자료 링크(공개, 사이트당 두 번)."""
+"""Probe 88: 시·도 보도자료 목록 원본 행 형식(울산·전남·충남·경북) — 파서 설계용, 목록 첫 쪽 한 번씩(공개)."""
 import re
 
 import requests
 
 H = {"User-Agent": "newsroom-official-research/1.0 (github.com/shhong9173-art/seoul-reporting-radar)"}
 out = []
-for name, home in [("울산", "https://www.ulsan.go.kr"), ("전남", "https://www.jeonnam.go.kr"), ("충남", "https://www.chungnam.go.kr"),
-                   ("경북", "https://www.gb.go.kr"), ("경남", "https://www.gyeongnam.go.kr")]:
+for name, url in [("울산", "https://www.ulsan.go.kr/u/rep/bbs/list.ulsan?bbsId=BBS_0000000000000027&mId=001004003001000000"),
+                  ("전남", "https://www.jeonnam.go.kr/M7116/boardList.do?menuId=jeonnam0202000000"),
+                  ("충남", "https://www.chungnam.go.kr/cnportal/cnapcPressList/cnapcPress/list.do?menuNo=500498"),
+                  ("경북", "https://www.gb.go.kr/page/link.do?mn=10107&pageNo=10004")]:
     try:
-        rb = requests.get(home + "/robots.txt", headers=H, timeout=25)
-        out.append(f"{name} robots HTTP {rb.status_code}: " + re.sub(r"\s+", " ", rb.text[:200]))
+        r = requests.get(url, headers=H, timeout=30)
+        t = r.text
+        body = t.split("<tbody", 1)[-1].split("</tbody>", 1)[0] if "<tbody" in t else ""
+        trs = re.split(r"(?=<tr[\s>])", body)[1:]
+        out.append(f"{name} HTTP {r.status_code} final {r.url[:120]} len {len(t)} trs {len(trs)}")
+        if trs:
+            out.append("  row " + re.sub(r"\s+", " ", trs[0])[:900])
+        else:
+            i = t.find("보도")
+            out.append("  noTbody ctx " + re.sub(r"\s+", " ", t[i:i + 600]))
+        dates = re.findall(r"20\d\d[-.]\d\d[-.]\d\d", t)
+        out.append(f"  dates {dates[:5]}")
     except Exception as e:  # noqa: BLE001
-        out.append(f"{name} robots {type(e).__name__}")
-    try:
-        r = requests.get(home, headers=H, timeout=25)
-        links = sorted(set(re.findall(r'href="([^"]*(?:rss|RSS|Rss)[^"]*)"', r.text)))[:6]
-        press = sorted(set(m.group(1) for m in re.finditer(r'<a[^>]+href="([^"]+)"[^>]*>\s*(?:<[^>]+>\s*)*보도자료', r.text)))[:4]
-        out.append(f"{name} home HTTP {r.status_code} len {len(r.text)} rss {links} press {press}")
-    except Exception as e:  # noqa: BLE001
-        out.append(f"{name} home {type(e).__name__}")
+        out.append(f"{name} {type(e).__name__} {str(e)[:60]}")
 open("/tmp/probe_out.txt", "w").write("\n".join(out))
 print("\n".join(out)[:600])
