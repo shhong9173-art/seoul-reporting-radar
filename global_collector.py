@@ -245,6 +245,21 @@ STRICT_KOREA = {"Utility Dive", "pv magazine", "Energy-Storage.news", "GMK Cente
 CONTENT = "{http://purl.org/rss/1.0/modules/content/}encoded"
 
 
+# 판매·광고·팟캐스트 안내는 기사로 올리지 않는다(11-01 운영: 'available now on EV.com!'·'ANC Podcast'·
+# 'pre-order deals'가 출입처 외신에 섞였다). '공급 계약(deal)'·'매각(sale)' 같은 기사 낱말은 건드리지 않게 좁게 잡는다.
+NOT_NEWS = re.compile(r"\bpodcast\b|\bwebinar\b|\bsponsored\b|available now on\b|\bgreen deals\b|\b(?:pre-order|launch|best) deals?\b|"
+                      r"\bpromo code\b|\bcoupons?\b", re.I)
+MODEL_ONLY = re.compile(r"^(?:19|20)\d{2}\s+\S+(?:\s+\S+){0,3}$")   # '2027 Hyundai Ioniq 5' 같은 차종 소개·판매 페이지
+# 차 판매 중개 사이트 — 외신 화면에는 남기되 기자 전용 레이더(출입처 외신)로는 보내지 않는다
+MARKETPLACES = {"ev.com"}
+NOT_NEWS_DROPPED = []
+
+
+def not_news(title: str) -> bool:
+    t = (title or "").strip()
+    return bool(NOT_NEWS.search(t) or MODEL_ONLY.match(t))
+
+
 SOURCE_SEP = re.compile(r"\s+[-–—|]\s+")
 
 
@@ -296,6 +311,9 @@ def parse_publisher(source: str, url: str) -> list[dict]:
         title = clean(item.findtext("title") or "")
         link = (item.findtext("link") or "").strip()
         if not title or not link.startswith("https://") or looks_korean(title):
+            continue
+        if not_news(title):
+            NOT_NEWS_DROPPED.append(source)
             continue
         try:
             dt = parsedate_to_datetime((item.findtext("pubDate") or "").strip()).astimezone(KST)
@@ -381,6 +399,9 @@ def parse(source: str, query: str) -> list[dict]:
         src = item.find("source")
         actual_source = (src.text or "").strip() if src is not None else source
         title = strip_source_suffix(title, actual_source)
+        if not_news(title):
+            NOT_NEWS_DROPPED.append(actual_source or source)
+            continue
         if not title or not link:
             continue
         if DOMESTIC_EN.search(actual_source or "") or looks_korean(title) or looks_korean(actual_source or ""):
@@ -451,7 +472,8 @@ def push_beat(rows: list[dict], stamp: str) -> None:
     items = [{"id": "gl:" + __import__("hashlib").sha1(x["url"].encode()).hexdigest()[:12], "url": x["url"], "title": x.get("title", ""),
               "koTitle": x.get("koTitle", ""), "koSummary": (x.get("koSummary") or "")[:500], "source": x.get("sourceName") or x.get("globalSource"),
               "published": x.get("published"), "firstSeen": x.get("firstSeen"), "beatCompanies": x.get("beatCompanies") or [],
-              "checkTerms": x.get("checkTerms") or []} for x in rows if x.get("beatCompanies")]
+              "checkTerms": x.get("checkTerms") or []} for x in rows
+             if x.get("beatCompanies") and (x.get("sourceName") or "").strip().lower() not in MARKETPLACES]
     refused = sorted({c["category"] for c in GLOBAL_FEED_CHECKS if c.get("status") == "transport_or_xml_error"})
     doc = {"schema": "global_beat/v1", "generatedAt": stamp, "items": items, "checks": [{"source": "외신 수집", "status": "ok"}],
            "feedErrors": refused,
@@ -522,6 +544,7 @@ def main() -> None:
     for x in unique:
         statuses[x.get("translationStatus")]=statuses.get(x.get("translationStatus"),0)+1
     print(f"global translation status counts: {statuses}")
+    print(f"global not-news dropped: {len(NOT_NEWS_DROPPED)} (판매·광고·팟캐스트 안내)")
     print(f"global summaries: {sum(1 for x in unique if x.get('summaryTranslationStatus')=='summarized_ai')} AI 요약 / "
           f"publisher RSS rows {len(publisher_rows)}")
     print(f"global radar: {len(unique)} source-filtered translated records; "

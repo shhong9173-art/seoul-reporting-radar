@@ -145,7 +145,8 @@ class GlobalCollectorBeatTests(unittest.TestCase):
         scripts.private_store=fake
         try:
             rows=[{**item("Doosan wins SMR vessel order","https://w/a"),"beatCompanies":["두산에너빌리티"],"checkTerms":["원자로"],"koTitle":"두산, SMR 용기 수주","firstSeen":"2026-11-01T09:00:00+09:00"},
-                  {**item("CATL opens plant","https://w/b"),"beatCompanies":[]}]
+                  {**item("CATL opens plant","https://w/b"),"beatCompanies":[]},
+                  {**item("Toyota bZ Closes In on Hyundai Ioniq 5","https://w/c"),"beatCompanies":["현대차"],"sourceName":"EV.com"}]
             gc.push_beat(rows,"2026-11-01T09:00:00+09:00")
         finally:
             os.environ.pop("MCP_ACCESS_TOKEN",None)
@@ -157,6 +158,17 @@ class GlobalCollectorBeatTests(unittest.TestCase):
         self.assertEqual((name,doc["schema"],[x["url"] for x in doc["items"]]),("global-beat","global_beat/v1",["https://w/a"]))
         self.assertTrue(doc["items"][0]["id"].startswith("gl:"))
         self.assertEqual(doc["items"][0]["checkTerms"],["원자로"])
+
+    def test_sales_ads_and_podcasts_are_not_news(self):
+        for t in ["2027 Kia EV3 for $36,105, available now on EV.com!","2027 Hyundai Ioniq 5",
+                  "ANC Podcast: Oct. 30, 2026 | The week’s top stories and Hyundai’s Steve Flamand on sales, cars, EVs",
+                  "Bluetti 288Wh Elite 30 Mini power station exclusive pre-order deals, Aventon Abound SR + L",
+                  "Green Deals: EcoFlow power stations"]:
+            self.assertTrue(gc.not_news(t),t)
+        for t in ["Hyundai signs exclusive supply deal with Rivian","Hyundai puts Russian plant up for sale",
+                  "Mazda adds solar power deals at Miyoshi and new KD Center","2027 Kia EV9 Gets Some Standard Features That Used To Be Optional",
+                  "Tesla drops car referral rewards, now pays owners in FSD for referrals","Korea Zinc cuts zinc price 20% off benchmark"]:
+            self.assertFalse(gc.not_news(t),t)   # 계약·매각·가격 기사는 그대로
 
     def test_beat_queries_cover_non_auto_beats(self):
         q = " ".join(x[1] for x in gc.QUERIES)
