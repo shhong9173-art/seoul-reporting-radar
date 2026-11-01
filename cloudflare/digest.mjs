@@ -7,7 +7,7 @@ import { dispatchHealth } from './dispatch.mjs';
 import { clampInt, safeEqual, textResult, uniqueList } from './common.mjs';
 import { classLabel, waitReason } from './trademarks.mjs';
 import { billLine, groupBillEvents } from './assembly.mjs';
-import { buildingLine, factoryEventText, identityNote, rateChangeText, rateText } from './overseas.mjs';
+import { buildingLine, factoryEventText, identityNote, itcText, productOf, rateChangeText, rateText } from './overseas.mjs';
 
 const KST_MS = 9 * 3600000;
 const kstDate = (ms) => new Date(ms + KST_MS).toISOString().slice(0, 10);
@@ -472,8 +472,25 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
       fact: `${e.label}: ${e.text}${e.repeats ? ` — 목록 일련번호만 바뀌어 ${e.repeats}번 다시 잡힌 줄이라 이 감지도 번호 이동일 수 있음(원문 개시일 확인)` : ''}`, url: e.url });
   }
   const frBase = baselineOf(tr?.federalRegister ?? []);
+  // ITC 고시에는 회사 이름이 거의 없다 — 같은 품목의 상무부 고시에 나온 출입처를 빌려 쓴다(유정용 강관 → 세아제강·현대제철)
+  const byProduct = new Map();
+  for (const y of tr?.federalRegister ?? []) {
+    const n = (y.named ?? []).map((v) => v.company);
+    if (n.length && !/International Trade Commission/.test(y.agency ?? '')) byProduct.set(productOf(y.title), [...new Set([...(byProduct.get(productOf(y.title)) ?? []), ...n])]);
+  }
   for (const x of tr?.federalRegister ?? []) {
     if (!fresh(x, frBase, 'date')) continue;
+    const itc = x.itcOutcome;
+    if (itc?.korea && x.beatProduct) {
+      // 한국산 철폐·종결·최종 부과는 A, 일몰 유지·예비 계속·섞임은 B(09-29 유정용 강관 일몰 재심: 한국산 반덤핑 유지)
+      const linked = (x.named ?? []).map((n) => n.company);
+      const who = linked.length ? linked : byProduct.get(productOf(x.title)) ?? [];
+      const tierI = itc.korea === '부정' || (itc.korea === '긍정' && itc.phase === '최종') ? 'A' : 'B';
+      push(tierI, W['trade-remedy'], { kind: '미국 ITC 피해 판정', id: x.id, date: x.date, company: who.join('·') || '한국산',
+        fact: `미국 ITC ${itc.phase} 판정: ${x.title} — ${itcText(itc)}${who.length && !linked.length ? ` · 같은 품목 상무부 고시의 출입처: ${who.join('·')}` : ''} · 원문 "${String(itc.quote ?? '').slice(0, 200)}"`,
+        url: x.url, check: hint(who[0], ['ITC', itc.korea === '부정' ? (itc.phase === '일몰 재심' ? '철폐' : '종결') : itc.phase === '일몰 재심' ? '유지' : '판정']) });
+      continue;
+    }
     const names = (x.named ?? []).map((n) => n.company);
     // An unusual topic in the decision-memo appendix of a notice naming a beat company is the story (10-09 열연 'Workplace Nursery' → 10-23 [단독]).
     const odd = names.length ? (x.memoUnusual ?? []) : [];

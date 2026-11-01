@@ -228,6 +228,19 @@ export function rateText(x) {
   return ` · ${t.kind} 세율(관보 표): ${parts.join(' · ')}${t.othersRate != null && !entries.some(([, v]) => v.via === '비선정') ? ` · 비선정 업체 ${pct(t.othersRate)}` : ''}${when}`;
 }
 
+// 미국 ITC 피해 판정(trade_remedy_watch.itc_outcome): 한국산에 대한 결과를 한국어로.
+const ITC_LABEL = {
+  '일몰 재심': { 긍정: '관세 유지(철폐하면 피해 재발 — 5년 더)', 부정: '관세 철폐(피해 재발 가능성 없음)' },
+  예비: { 긍정: '피해 가능성 있음 — 조사 계속(상무부 판정으로)', 부정: '피해 가능성 없음 — 한국산 조사 종결' },
+  최종: { 긍정: '피해 있음 — 관세 부과 확정', 부정: '피해 없음 — 관세 부과 안 함' },
+};
+export function itcText(o) {
+  if (!o?.korea) return '';
+  const label = o.korea === '섞임' ? '한국 관련 결과가 둘 이상(긍정·부정) — 원문 확인' : ITC_LABEL[o.phase]?.[o.korea] ?? o.korea;
+  return `한국산 ${label}${(o.dissent ?? []).length ? ` · 반대 의견: "${String(o.dissent[0]).slice(0, 120)}"` : ''}`;
+}
+export const productOf = (title) => String(title ?? '').split(/\s+From\s+/i)[0].replace(/^Certain\s+/i, '').trim().toLowerCase();
+
 export function rateChangeText(x) {
   const ch = x.rateChange ?? [];
   if (!ch.length) return '';
@@ -363,6 +376,7 @@ export async function tradeRemedies(ctx, args) {
     out.push(`\n[미국 상무부·ITC 고시 · 최근 45일] ${fr.length}건 · 본문에 출입처 이름 ${fr.filter((x) => (x.named ?? []).length).length}건`);
     for (const x of sorted.slice(0, limit)) {
       out.push(`- ${x.isNew ? '[신규] ' : ''}${x.date} · ${x.stage}${x.section337 ? ' · 337조' : ''} · ${x.title}`);
+      if (x.itcOutcome?.korea) out.push(`   ITC ${x.itcOutcome.phase} 판정: ${itcText(x.itcOutcome)} — 원문 "${String(x.itcOutcome.quote ?? '').slice(0, 220)}"`);
       if (x.rateChange?.length) out.push(`   세율 크게 바뀜: ${rateChangeText(x)}`);
       if (x.rateTable) out.push(`   세율${rateText(x).replace(/^ · /, ' — ')}`);
       for (const n of (x.named ?? []).slice(0, 5)) out.push(`   본문의 ${n.company}(${n.mentions}곳): ${n.lines.map((l) => `"${l}"`).join(' / ')}`);

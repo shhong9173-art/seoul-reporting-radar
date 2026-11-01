@@ -2025,6 +2025,32 @@ test('trade remedies: a beat duty rate far from the last final of the same docke
   assert.match(t.text, /세율 — 반덤핑 세율\(관보 표\): HD현대일렉트릭 0\.00%/);
 });
 
+test('trade remedies: ITC votes on Korean beat products show the outcome; revocation or no-injury is A, continuation is B', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const seen = '2026-10-25T07:40:00+09:00';
+  const commerce = { id: 'fr:octg', date: '2026-10-24', stage: '최종 판정', agency: 'International Trade Administration', url: 'https://x/octg',
+    title: 'Certain Oil Country Tubular Goods From the Republic of Korea: Final Results of Antidumping Duty Administrative Review; 2023-2024',
+    named: [{ company: '세아제강', mentions: 1, lines: ['SeAH'] }, { company: '현대제철', mentions: 1, lines: ['Hyundai Steel'] }], beatProduct: true, firstSeen: seen };
+  const keep = { id: 'fr:itc1', date: '2026-10-24', stage: '기타', agency: 'International Trade Commission', url: 'https://x/itc1', beatProduct: true, named: [],
+    title: 'Oil Country Tubular Goods From India, South Korea, Turkey, Ukraine, and Vietnam; Determinations', firstSeen: seen,
+    itcOutcome: { phase: '일몰 재심', korea: '긍정', quote: "determines that revocation of the antidumping duty orders on oil country tubular goods from India, South Korea … would be likely to lead to continuation", dissent: [] } };
+  const gone = { id: 'fr:itc2', date: '2026-10-24', stage: '기타', agency: 'International Trade Commission', url: 'https://x/itc2', beatProduct: true, named: [],
+    title: 'Large Power Transformers From Korea; Determinations', firstSeen: seen,
+    itcOutcome: { phase: '일몰 재심', korea: '부정', quote: 'determines that revocation of the antidumping duty order on large power transformers from Korea would not be likely to lead to continuation', dissent: [] } };
+  await worker.fetch(new Request(ORIGIN + '/ingest/trade-remedy', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify({
+    schema: 'trade_remedy/v1', generatedAt: seen, checks: [], quotas: [], events: [], federalRegister: [commerce, keep, gone] }) }), env, {});
+  const r = await call('radar_today', { hours: 72 }, opts);
+  const a = r.text.split('[A · ')[1].split('[B · ')[0];
+  const b = r.text.split('[B · ')[1].split('[C · ')[0];
+  assert.match(a, /미국 ITC 일몰 재심 판정: Large Power Transformers From Korea; Determinations — 한국산 관세 철폐\(피해 재발 가능성 없음\)/);
+  assert.match(b, /무역구제 · 세아제강·현대제철\n   미국 ITC 일몰 재심 판정: Oil Country Tubular Goods[^\n]* — 한국산 관세 유지\(철폐하면 피해 재발 — 5년 더\) · 같은 품목 상무부 고시의 출입처: 세아제강·현대제철 · 원문 "determines that revocation/);
+  const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
+  assert.deepEqual(items.items.find((x) => x.id === 'fr:itc1').check.terms, ['ITC', '유지']);
+  const t = await call('trade_remedies', { section: 'us' }, opts);
+  assert.match(t.text, /ITC 일몰 재심 판정: 한국산 관세 철폐\(피해 재발 가능성 없음\) — 원문 "determines that revocation/);
+});
+
 test('us_recalls: NHTSA full-file recalls with Korean links reach A; imports alone are B; tool shows supplier box', async () => {
   const opts = PRIVATE();
   const env = opts.env;
