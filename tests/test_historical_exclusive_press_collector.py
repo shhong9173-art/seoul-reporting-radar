@@ -9,8 +9,10 @@ from xml.sax.saxutils import escape
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from scripts.historical_exclusive_press_collector import (
     STATUS, BEATS, MONTHS, planned_searches, parse_observed_headlines,
-    merge_history, month_bounds, tracked_industry_companies, recent_searches
+    merge_history, month_bounds, tracked_industry_companies, recent_searches, QUERIES_PER_RUN
 )
+N=len(BEATS)            # 출입 묶음 수(11-01 석유화학·정유 추가로 6)
+ALL=MONTHS*N           # 13개월 × 묶음
 
 KST=timezone(timedelta(hours=9))
 NOW=datetime(2026,10,18,22,0,tzinfo=KST)
@@ -75,9 +77,9 @@ class HistoricalExclusiveIndexTests(unittest.TestCase):
                        "errorType":"TimeoutError"} for w in recent[1:])
         snapshot=merge_history(None,data,[check(matched=0)],now=NOW,
                                recent_checks=checks)
-        self.assertEqual(snapshot["recentBeatQueriesAttempted"],5)
+        self.assertEqual(snapshot["recentBeatQueriesAttempted"],N)
         self.assertEqual(snapshot["recentBeatQueriesSucceeded"],1)
-        self.assertEqual(snapshot["recentBeatQueriesFailed"],4)
+        self.assertEqual(snapshot["recentBeatQueriesFailed"],N-1)
         self.assertFalse(snapshot["recentBeatQueriesAllChecked"])
         self.assertEqual(snapshot["recentObservedHeadlinesRetained"],1)
         self.assertFalse(snapshot["recentSearchCoverageExhaustive"])
@@ -89,7 +91,7 @@ class HistoricalExclusiveIndexTests(unittest.TestCase):
                                  {"windowId":w["windowId"],"status":"failed",
                                   "errorType":"TimeoutError"} for w in recent])
         self.assertEqual(outage["itemCount"],1)
-        self.assertEqual(outage["recentBeatQueriesFailed"],5)
+        self.assertEqual(outage["recentBeatQueriesFailed"],N)
         self.assertEqual(outage["recentObservedHeadlinesRetained"],1)
         self.assertEqual(outage["recentLastSuccessfulAt"],
                          snapshot["recentLastSuccessfulAt"])
@@ -106,32 +108,32 @@ class HistoricalExclusiveIndexTests(unittest.TestCase):
 
     def test_unchecked_windows_are_first_even_after_clock_jump(self):
         first=planned_searches(NOW,previous=None)
-        self.assertEqual(len(first),5)
+        self.assertEqual(len(first),QUERIES_PER_RUN)
         self.assertEqual({x["start"] for x in first},{"2026-10-01"})
         checked=[{"windowId":w["windowId"],"status":"checked","matched":0}
                  for w in first]
         history=merge_history(None,[],checked,now=NOW)
         next_run=planned_searches(NOW+timedelta(minutes=45),
                                    previous=history)
-        self.assertEqual(len(next_run),5)
+        self.assertEqual(len(next_run),QUERIES_PER_RUN)
         self.assertEqual({x["start"] for x in next_run},{"2026-09-01"})
         self.assertFalse({x["windowId"] for x in first}
                          .intersection(x["windowId"] for x in next_run))
 
-    def test_all_65_month_beat_windows_covered_before_rechecking(self):
+    def test_all_month_beat_windows_covered_before_rechecking(self):
         history=None
         executed=set()
         for i in range(13):
             now=NOW+timedelta(minutes=i*15)
             windows=planned_searches(now,previous=history)
-            self.assertEqual(len(windows),5)
+            self.assertEqual(len(windows),QUERIES_PER_RUN)
             self.assertFalse(set(x["windowId"] for x in windows)&executed)
             executed.update(x["windowId"] for x in windows)
             checks=[{"windowId":x["windowId"],"status":"checked","matched":0}
                     for x in windows]
             history=merge_history(history,[],checks,now=now)
-        self.assertEqual(len(executed),65)
-        self.assertEqual(history["searchedWindowsWithPriorSuccess"],65)
+        self.assertEqual(len(executed),ALL)
+        self.assertEqual(history["searchedWindowsWithPriorSuccess"],ALL)
         self.assertEqual(history["unvisitedBeatMonthWindows"],0)
         self.assertEqual(history["selectedBeatMonthWindows"],[
             x["windowId"] for x in windows])
@@ -139,7 +141,7 @@ class HistoricalExclusiveIndexTests(unittest.TestCase):
         self.assertFalse(history["allDomesticIndustryExclusivesCovered"])
         refresh=planned_searches(NOW+timedelta(hours=4),
                                  previous=history)
-        self.assertEqual(len(refresh),5)
+        self.assertEqual(len(refresh),QUERIES_PER_RUN)
         self.assertEqual({x["windowId"] for x in refresh},
                          {x["windowId"] for x in planned_searches(NOW)})
 
@@ -154,7 +156,7 @@ class HistoricalExclusiveIndexTests(unittest.TestCase):
                      **({"errorType":"TimeoutError"} if i==0 else {})}
                     for x in windows]
             history=merge_history(history,[],checks,now=now)
-        self.assertEqual(history["unvisitedBeatMonthWindows"],5)
+        self.assertEqual(history["unvisitedBeatMonthWindows"],QUERIES_PER_RUN)
         review=planned_searches(NOW+timedelta(hours=4),previous=history)
         self.assertEqual({w["windowId"] for w in review},
                          {w["windowId"] for w in planned_searches(NOW)})
@@ -170,7 +172,7 @@ class HistoricalExclusiveIndexTests(unittest.TestCase):
             now=datetime(2026,11,3,12,0,tzinfo=KST))
         self.assertNotIn("auto:2025-10-01",after["windowHealth"])
         self.assertIn("auto:2026-11-01",after["windowHealth"])
-        self.assertLessEqual(len(after["windowHealth"]),65)
+        self.assertLessEqual(len(after["windowHealth"]),ALL)
 
     def test_explicit_batch_is_still_bounded_and_replayable(self):
         baseline=merge_history(None,[],[check(matched=0)],now=NOW)
@@ -182,11 +184,11 @@ class HistoricalExclusiveIndexTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             planned_searches(NOW,previous=baseline,batch=13)
 
-    def test_real_month_windows_rotate_65_beat_month_slots(self):
+    def test_real_month_windows_rotate_all_beat_month_slots(self):
         batches=[planned_searches(NOW,batch=i) for i in range(13)]
         urls=[r for part in batches for r in part]
         self.assertEqual(len(urls),MONTHS*len(BEATS))
-        self.assertEqual(len({r["windowId"] for r in urls}),65)
+        self.assertEqual(len({r["windowId"] for r in urls}),ALL)
         self.assertEqual(month_bounds(NOW,12)[0].isoformat(),"2025-10-01")
         self.assertTrue(all("after%3A" in u["url"]
                             and "before%3A" in u["url"] for u in urls))
@@ -198,7 +200,6 @@ class HistoricalExclusiveIndexTests(unittest.TestCase):
         battery=next(x for x in recent if x["beat"]=="parts_battery")
         self.assertIn("천보",battery["query"])
         self.assertEqual(len(recent),len(BEATS))
-        self.assertEqual(len(recent),5)
 
     def test_actual_2025_homonyms_are_not_auto_steel_exclusives(self):
         misleading=[

@@ -27,6 +27,8 @@ INDUSTRY_COMPANIES={
     "HD현대일렉트릭","LS일렉트릭","엘에스일렉트릭","LS전선","대한전선",
     "효성중공업","일진전기","두산에너빌리티","한화솔루션","OCI","OCI홀딩스",
     "SK이노베이션","LG에너지솔루션","삼성SDI","SK온","천보","씨에스윈드",
+    # 11-01 기자 명시: 석유화학·정유
+    "LG화학","롯데케미칼","금호석유화학","금호석화","S-OIL","에쓰오일","HD현대오일뱅크","현대오일뱅크",
 }
 KINDS=(
     # SUBJECT categories detected from article HEADLINES only. They do not

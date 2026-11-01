@@ -48,11 +48,13 @@ RULES = [("현대차", r"HYUNDAI MOTOR (?:MANUFACTURING|GROUP METAPLANT|AMERICA)
          ("LS전선", r"\bLS CABLE|LS GREENLINK"), ("LS전선(자회사)", r"SUPERIOR ESSEX"), ("대한전선", r"TAIHAN"),
          ("두산에너빌리티", r"DOOSAN (?:ENERBILITY|HEAVY)"),
          ("한화솔루션", r"HANWHA Q ?CELLS|\bQCELLS\b|HANWHA SOLUTIONS|HANWHA ADVANCED MATERIALS"),
-         ("OCI", r"MISSION SOLAR|\bOCI ENERGY"), ("효성중공업(관련)", r"HYOSUNG")]
+         ("OCI", r"MISSION SOLAR|\bOCI ENERGY"), ("효성중공업(관련)", r"HYOSUNG"),
+         # 11-01 기자 명시: 석유화학(미국 사업장 — LG화학 테네시 양극재, 롯데케미칼 루이지애나)
+         ("LG화학", r"\bLG CHEM\b"), ("롯데케미칼", r"LOTTE CHEMICAL")]
 LIKES = ["%HYUNDAI MOTOR%", "%HMGMA%", "%HL-GA%", "%HLGA%", "%KIA %", "%MOBIS%", "%HYUNDAI WIA%", "%WIA %", "%MANDO%", "%KLEMOVE%",
          "%HANKOOK%", "%NEXEN%", "%KUMHO%", "%POSCO%", "%HYUNDAI STEEL%", "%SEAH%", "%DONGKUK%", "%KOREA ZINC%", "%HYUNDAI POWER%",
          "%HD HYUNDAI%", "%LS ELECTRIC%", "%LS CABLE%", "%GREENLINK%", "%SUPERIOR ESSEX%", "%TAIHAN%", "%DOOSAN%", "%HANWHA%", "%QCELLS%",
-         "%MISSION SOLAR%", "%OCI ENERGY%", "%HYOSUNG%"]
+         "%MISSION SOLAR%", "%OCI ENERGY%", "%HYOSUNG%", "%LG CHEM%", "%LOTTE CHEM%"]
 INSP_FIELDS = "activity_nr,estab_name,site_address,site_city,site_state,site_zip,open_date,insp_type,insp_scope,close_case_date,naics_code,nr_in_estab"
 ADDR_CHUNK = 8      # 공장 주소 몇 개씩 in으로 묻나
 SITES_MAX = 80
