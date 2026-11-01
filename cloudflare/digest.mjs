@@ -333,7 +333,14 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
     // (10-31 운영: 10-07·10-12 공개특허 두 건이 A에 남아 A 3건 중 2건)
     // 국내 리콜 공지(자동차리콜센터)는 공개 공지라 그 자체로 단독이 아니다 — 미보도 후보여도 B(대상 대수·생산기간·반복 결함 확인)
     else if (c.verdict === '미보도 후보' && c.kind === '리콜') push('B', W['scoop-screen'], { kind, verdict: c.verdict, id: c.id, date: c.published ?? c.filedOn, company: c.company, fact: `${title} — 보도 대조 '미보도 후보' · 리콜 공지만으로는 단독이 아님(대상 대수·생산기간·같은 결함 반복 확인)`, url: c.url });
-    else if (c.verdict === '미보도 후보' && c.kind === '특허') push('B', W['scoop-screen'], { kind, verdict: c.verdict, id: c.id, date: c.published ?? c.filedOn, company: c.company, fact: `${title} (특허) — 보도 대조 '미보도 후보' · 특허 공개만으로는 단독이 아님(사업화·생산·수주 연결 확인)`, url: c.url });
+    // 공개된 지 14일 넘은 특허를 레이더가 늦게 본 것은 새 신호가 아니다 — KIPRIS 조회가 막혔다 풀리면 밀린 공개가 한꺼번에 들어온다
+    // (11-01 운영: 10-07·10-12 공개특허가 10-31에 처음 심사돼 월요일 B에 남음 — KIPRIS는 10-13 이후 응답 22로 멈춤)
+    else if (c.verdict === '미보도 후보' && c.kind === '특허') {
+      const lag = ((c.firstSeen ? Date.parse(c.firstSeen) : now) - Date.parse(c.published ?? c.filedOn ?? '')) / 86400000;
+      const late = Number.isFinite(lag) && lag > 14;
+      push(late ? 'C' : 'B', W['scoop-screen'], { kind, verdict: c.verdict, id: c.id, date: c.published ?? c.filedOn, company: c.company,
+        fact: `${title} (특허) — 보도 대조 '미보도 후보' · 특허 공개만으로는 단독이 아님(사업화·생산·수주 연결 확인)${late ? ` · 공개 ${Math.floor(lag)}일 뒤에 레이더가 처음 봄(밀린 공개)` : ''}`, url: c.url });
+    }
     else if (c.verdict === '미보도 후보') push('A', W['scoop-screen'], { kind, verdict: c.verdict, id: c.id, date: c.published ?? c.filedOn, company: c.company, fact: `${title} (${c.kind ?? ''}) — 보도 대조 '미보도 후보'${brief}${cmp}`, url: c.url });
     else if (c.verdict === '미확인') push('B', W['scoop-screen'], { kind, verdict: c.verdict, id: c.id, date: c.published ?? c.filedOn, company: c.company, fact: `${title} — 보도 대조 미확인(채널 실패)`, url: c.url });
     // 정정 중 큰 변경(금액 ±10%·기간 90일+·해지): '관련 보도 있음'이어도 그 기사는 원 계약 기사일 수 있다 — B로 올린다

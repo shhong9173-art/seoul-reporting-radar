@@ -1253,6 +1253,9 @@ test('radar_today ranks EDGAR mentions by deal words and hides items the reporte
   await post('scoop-screen', { schema: 'scoop_screen/v1', generatedAt: '2026-10-26T07:10:00+09:00', counts: {},
     candidates: [{ id: 'p1', verdict: '미보도 후보', company: '기아', title: '고정자 냉각 장치', kind: '특허' },
       { id: 'p2', verdict: '미보도 후보', company: '현대제철', title: '판재 냉각 제어', kind: '특허' },
+      // 공개 2026-10-07, 레이더가 처음 본 때 10-25 — 밀린 공개(KIPRIS 조회가 풀린 뒤 한꺼번에)라 C
+      { id: 'p3', verdict: '미보도 후보', company: '현대제철', title: '상변태 기반 판재 냉각', kind: '특허', published: '2026-10-07', firstSeen: '2026-10-25T20:00:00+09:00' },
+      { id: 'p4', verdict: '미보도 후보', company: '기아', title: '배터리 냉각판', kind: '특허', published: '2026-10-20', firstSeen: '2026-10-25T20:00:00+09:00' },
       { id: 'rc1', verdict: '미보도 후보', company: '기아', title: '기아, 10월 30일 리콜 공지 1건 — [기아] 쏘렌토 - 저압연료라인 어셈블리 관련 리콜', kind: '리콜' }] });
   const r = await call('radar_today', {}, opts);
   const a = r.text.split('[A · ')[1].split('[B · ')[0];
@@ -1263,6 +1266,10 @@ test('radar_today ranks EDGAR mentions by deal words and hides items the reporte
   assert.match(b, /id p1/);  // 특허 공개 미보도 후보는 B(그 자체로 단독 아님, 10-31)
   assert.doesNotMatch(a, /고정자 냉각 장치/);
   assert.match(b, /고정자 냉각 장치 \(특허\) — 보도 대조 '미보도 후보' · 특허 공개만으로는 단독이 아님/);
+  assert.match(b, /배터리 냉각판 \(특허\)/);   // 공개 5일 뒤 처음 봄 — B
+  assert.doesNotMatch(b, /상변태 기반 판재 냉각/);
+  const minor = await call('radar_today', { include_minor: true }, opts);
+  assert.match(minor.text.split('[C · ')[1], /상변태 기반 판재 냉각 \(특허\)[^\n]* · 공개 18일 뒤에 레이더가 처음 봄\(밀린 공개\)/);
   assert.doesNotMatch(a, /쏘렌토/);  // 국내 리콜 공지 미보도 후보도 B(공개 공지, 10-31)
   assert.match(b, /\[기아\] 쏘렌토 - 저압연료라인 어셈블리 관련 리콜 — 보도 대조 '미보도 후보' · 리콜 공지만으로는 단독이 아님/);
   const fb = await call('candidate_feedback', { verdict: '봤음', item_ids: ['p1', 'edgar:hig'] }, opts);
