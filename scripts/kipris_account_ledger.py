@@ -6,7 +6,7 @@
 - 이 저장소가 보낸 요청만 센다. KIPRIS Plus 계정의 실제 사용량이 아니다
   (다른 곳에서 같은 키를 쓰거나 이 장부가 생기기 전 호출은 빠진다).
 - KIPRIS Plus 무료 한도는 매월 1,000회(매월 1일 초기화, 서비스 수수료 안내). 여유를 두고
-  월 900회에서 멈추고, 묶음별 상한(특허 730·상표 150·진단 20)을 둔다.
+  월 900회에서 멈추고, 묶음별 상한(특허 700·상표 180·진단 20)을 둔다.
 - 제공기관 응답 코드 22를 받으면 그 묶음(특허/상표/진단)이 72시간 쉰다. 코드의 뜻은
   제공기관이 밝히지 않았으므로 '월 한도 초과'로 단정하지 않는다. 서비스별 신청 문제일 수도
   있어 한 묶음의 22로 다른 묶음을 막지 않는다(묶음당 72시간에 1건만 더 쓴다).
@@ -28,7 +28,8 @@ PATH = "digests/kipris_account_ledger_latest.json"
 LEGACY_PATH = "digests/kipris_source_request_budget_latest.json"
 STATUS = "repository_requests_counted_not_account_quota"
 MONTHLY_LIMIT = 900
-GROUP_LIMITS = {"patent": 730, "trademark": 150, "diagnostic": 20}
+# 11-01: 상표 감시에 석유화학·정유 6곳(34곳, 실행당 약 34~36회 × 월 최대 5번 월요일)을 더해 상표 150→180, 특허 730→700.
+GROUP_LIMITS = {"patent": 700, "trademark": 180, "diagnostic": 20}
 PURPOSES = {
     "patent_source": "patent",
     "patent_deep": "patent",
