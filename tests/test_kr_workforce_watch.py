@@ -255,3 +255,28 @@ class GatewayRetry(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class NewBeatBaselineTest(unittest.TestCase):
+    def test_company_added_in_the_same_month_is_read_once_as_baseline(self):
+        # 11-01: 석유화학·정유 6곳을 같은 달(9월 자료) 중간에 넣었다 — 새 달을 기다리지 않고 그 회사만 읽어 기준선으로(이벤트 없음)
+        r, d, p = world()
+        first = w.run(CFG, now=NOW, api=FakeApi(r, d, p), clock=Clock())
+        self.assertEqual(first["companies"], ["기아", "현대제철"])
+        lg = {"company": "LG화학", "terms": ["엘지화학"], "own": "^\\(주\\)엘지화학", "word": "엘지화학|LG화학"}
+        cfg = {"sentinel": CFG["sentinel"], "companies": CFG["companies"] + [lg]}
+        r2 = r + [rec(5001, "202609", "(주)엘지화학", "11", "560"),
+                  rec(5002, "202609", "주식회사진흥플랜트-(상용)(주)엘지화학 여수공장 신설공사", "46", "130"),
+                  rec(5003, "202608", "(주)엘지화학", "11", "560")]
+        d2 = {**d, 5001: det(12000, "19470101", "화학"), 5003: det(11900, "19470101", "화학"), 5002: det(40, "20260901", "기계설치")}
+        api = FakeApi(r2, d2, p)
+        doc = w.run(cfg, now=NOW + dt.timedelta(hours=7), previous=first, api=api, clock=Clock())
+        searched = {x[1] for x in api.log if x[0] == "getBassInfoSearchV2"}
+        self.assertIn("엘지화학", searched)
+        self.assertNotIn("기아", searched)   # 같은 달이라 예전 회사는 다시 검색하지 않는다
+        self.assertFalse([e for e in doc["events"] if e["company"] == "LG화학"])   # 기준선: 새 사업장·새 공사 이벤트 없음
+        self.assertTrue(any(s["company"] == "LG화학" for s in doc["sites"]))
+        self.assertTrue(all(pr.get("baseline") for pr in doc["projects"] if pr["company"] == "LG화학"))
+        self.assertEqual(doc["companies"], ["LG화학", "기아", "현대제철"])
+        again = w.run(cfg, now=NOW + dt.timedelta(hours=14), previous=doc, api=FakeApi(r2, d2, p), clock=Clock())
+        self.assertIn("새 달 없음", again["checks"][0].get("note", ""))   # 다음 실행은 평소대로(다시 읽지 않음)

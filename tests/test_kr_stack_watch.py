@@ -401,3 +401,23 @@ class GatewayRetry(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class NewBeatBaseline(unittest.TestCase):
+    def test_company_added_later_starts_with_a_baseline(self):
+        # 11-01: 석유화학·정유 6곳을 감시 중간에 넣었다 — 그 회사 첫 실행에 사업장·배출구가 모두 '새것'으로 뜨면 안 된다
+        doc = series(8)
+        cfg = {"companies": CFG_SMALL["companies"] + [{"company": "LG화학", "terms": ["엘지화학"], "own": "^[㈜(주)\\s]*엘지화학"}]}
+        t = T0 + dt.timedelta(hours=27)
+        lg = [row("㈜엘지화학 여수공장(화치)", "전라남도", str(c), t, 30.0) for c in (1, 2, 3)]
+        doc = w.run(cfg, now=t, previous=doc, key="k", get=Api(world(t, extra=lg)), sleep=lambda s: None)
+        self.assertFalse([e for e in doc["events"] if e["company"] == "LG화학"])   # 첫 실행 기준선
+        self.assertTrue(any(s["company"] == "LG화학" for s in doc["sites"]))
+        t2 = t + dt.timedelta(hours=3)
+        lg2 = lg + [row("㈜엘지화학 대산공장", "충청남도", "1", t2, 20.0)]
+        doc = w.run(cfg, now=t2, previous=doc, key="k", get=Api(world(t2, extra=lg2)), sleep=lambda s: None)
+        new = [e for e in doc["events"] if e["company"] == "LG화학"]
+        self.assertEqual([e["kind"] for e in new], ["새 사업장(굴뚝 측정)"])   # 다음 실행부터는 평소대로
+        self.assertNotIn("화치", new[0]["text"])
+        # 예전 회사는 그대로(기준선 아님): 같은 실행에서 영풍 배출구가 빠지면 평소 규칙대로 센다
+        self.assertTrue(any(s["company"] == "영풍" for s in doc["sites"]))
