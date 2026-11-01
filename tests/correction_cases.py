@@ -107,4 +107,5 @@ class CorrectionTests(unittest.TestCase):
         self.assertTrue(result[0]['details'])
         self.assertIn('단독 아님', result[0]['verification'])
         self.assertEqual(scoop.build_public_signals([], [{**row,'date':'20200101'}], now, numeric_rows=numeric), [])
-        self.assertEqual(scoop.build_public_signals([], [{**current,'corpName':'LG화학'}], now, numeric_rows=numeric), [])
+        # LG화학은 11-01부터 출입처(석유화학) — 출입처 밖 화학사는 코오롱인더로 본다
+        self.assertEqual(scoop.build_public_signals([], [{**current,'corpName':'코오롱인더'}], now, numeric_rows=numeric), [])
