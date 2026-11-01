@@ -69,6 +69,19 @@ class Partners(unittest.TestCase):
         self.assertEqual(efts[1]["startdt"], "2026-09-27")
         self.assertIn("seoul-reporting-radar", efts[2]["User-Agent"])
 
+    def test_phrase_added_later_reads_old_filings_as_baseline(self):
+        # 11-01: 석유화학 6곳 문구를 더한 첫 실행에 지난 30일 공시가 '새 공시'로 뜨지 않게(미국 의견서와 같은 문제)
+        prev = {"items": [], "checks": [{"source": "EDGAR", "target": "POSCO", "status": "ok"}]}
+        later = NOW + dt.timedelta(days=3)   # 10-30: 10-21 공시는 7일 전
+        doc = w.run(CFG, now=later, previous=prev, get=fake([]), sleep=lambda s: None)
+        steel = next(x for x in doc["items"] if x["source"] == "EDGAR")
+        self.assertEqual((steel["baseline"], steel["isNew"]), (True, False))   # 'Hyundai Steel'은 새 문구
+        again = w.run(CFG, now=later + dt.timedelta(days=1), previous=doc, get=fake([]), sleep=lambda s: None)
+        self.assertTrue(next(x for x in again["items"] if x["source"] == "EDGAR")["baseline"])
+        known = {"items": [], "checks": [{"source": "EDGAR", "target": t, "status": "ok"} for t in ("POSCO", "Hyundai Steel")]}
+        doc2 = w.run(CFG, now=later, previous=known, get=fake([]), sleep=lambda s: None)
+        self.assertNotIn("baseline", next(x for x in doc2["items"] if x["source"] == "EDGAR"))   # 아는 문구로 잡힌 새 공시는 그대로
+
     def test_legacy_asx_shape_and_failures_are_recorded(self):
         legacy = {"data": [{"document_release_date": "2026-10-25T10:00:00+1100", "header": "Binding offtake with Kia", "url": "https://www.asx.com.au/asxpdf/x.pdf",
                             "market_sensitive": True}]}
