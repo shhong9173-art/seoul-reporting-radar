@@ -36,6 +36,17 @@ def shortlist(raw,*,limit=40):
         x.get("globalScore",0),x["published"]),reverse=True)[:limit]
 
 
+def shortlist_with_beats(raw,*,limit=60,beat_limit=20):
+    """점수 상위 limit개 + 그 밖의 직접 출입처 외신(beatCompanies 있는 출입처 검색 결과) 최신 beat_limit개.
+    11-01: 출입처 외신은 점수가 낮은 편(석유화학·정유는 업종 낱말이 적다)이라 자동차 일반 외신 60개에 밀려 번역·저장에서 빠질 수 있었다."""
+    picked=shortlist(raw,limit=limit)
+    have={norm_title(x["title"]) for x in picked}
+    beats=[x for x in raw if isinstance(x,dict) and x.get("globalBeat") and x.get("beatCompanies")]
+    extra=[x for x in sorted(shortlist(beats,limit=80),key=lambda x:x["published"],reverse=True)
+           if norm_title(x["title"]) not in have][:beat_limit]
+    return picked+extra
+
+
 # AI 번역 규칙(프롬프트·매체 이름 떼기)을 바꾸면 올린다 — 예전 규칙으로 만든 번역은 다시 번역한다(11-01: v1 번역에 매체 이름·없는 사실이 섞임).
 # v3(11-01): v2는 제목의 ' – 뒤 글'을 매체 이름으로 보고 잘라 번역했다('Three in a row – Nexen Tire …' → '3연패').
 AI_TRANSLATION_VERSION=3

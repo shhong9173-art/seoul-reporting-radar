@@ -12,7 +12,7 @@ from email.utils import parsedate_to_datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 from scripts.rss_concurrent import collect_feeds
-from scripts.global_news_pipeline import shortlist, summarize_selected, translate_selected
+from scripts.global_news_pipeline import shortlist_with_beats, summarize_selected, translate_selected
 from scripts.auto_news_feed_health import build as build_feed_health, persist as persist_feed_health
 
 KST = ZoneInfo("Asia/Seoul")
@@ -63,6 +63,8 @@ KOREA_SIGNALS = [
     # 철강·비철·전력기기·전선·에너지·화학·타이어 출입처
     "hyundai steel", "dongkuk", "seah", "kg steel", "korea zinc", "young poong", "ls mnm", "ls electric", "ls cable", "taihan",
     "hd hyundai electric", "hyosung heavy", "doosan enerbility", "qcells", "oci holdings", "gs caltex", "hankook tire", "kumho tire", "nexen tire",
+    # 11-01 석유화학·정유
+    "lg chem", "lotte chemical", "kumho petrochemical", "s-oil", "hyundai oilbank", "hd hyundai oilbank",
 ]
 INDUSTRY = [
     "ev", "electric vehicle", "battery", "ess", "autonomous", "self-driving", "tariff", "trade", "recall",
@@ -71,6 +73,9 @@ INDUSTRY = [
     "steel", "steelmaker", "zinc", "copper", "smelter", "transformer", "transformers", "cable", "cables", "grid", "power equipment",
     "solar", "polysilicon", "refinery", "refiner", "petrochemical", "chemical", "tire", "tires", "nuclear", "turbine", "antidumping", "anti-dumping",
     "reactor", "reactors", "smr", "wind", "offshore wind", "subsea", "hvdc", "substation", "module", "modules", "wafer", "cell", "cells", "lng",
+    # 11-01 석유화학·정유('refining'·'naphtha cracker'가 없어 출입처·석유화학정유 검색 결과가 모두 점수 없음으로 빠졌다)
+    "refining", "refineries", "petrochemicals", "chemicals", "naphtha", "cracker", "crackers", "ethylene", "propylene",
+    "polyethylene", "polypropylene", "olefins", "aromatics", "paraxylene", "synthetic rubber", "crude", "jet fuel",
 ]
 HIGH_IMPACT = [
     "tariff", "investment", "contract", "order", "supply", "factory", "plant", "production", "recall",
@@ -423,6 +428,9 @@ def parse(source: str, query: str) -> list[dict]:
         if dt < cutoff:
             continue
         scored = score_text((title + " " + desc).lower())
+        if not scored and source.startswith("출입처") and beat_companies(title + " " + desc):
+            # 출입처 이름 검색: 업종 낱말 목록에 없는 사업(11-01 석유화학·정유 6곳이 그랬다)이어도 출입처 이름이 있으면 둔다
+            scored = (55, 1)
         if not scored:
             continue
         score = scored[0]
@@ -520,7 +528,7 @@ def main() -> None:
     for name,feed_url in PUBLISHER_FEEDS:   # 매체 RSS를 차례로(한 곳당 한 번)
         publisher_rows+=parse_publisher(name,feed_url)
     raw_globals=attach_publisher_text(raw_globals,publisher_rows)
-    candidates=shortlist(raw_globals,limit=60)
+    candidates=shortlist_with_beats(raw_globals,limit=60,beat_limit=20)
     unique=translate_selected(candidates,translate,
         previous=previous_global,workers=2)
     unique=summarize_selected(unique,worker_summarize,previous=previous_global,workers=2)
