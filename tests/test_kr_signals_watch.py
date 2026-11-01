@@ -623,6 +623,33 @@ class BriefingAgencies(unittest.TestCase):
             self.assertIsNone(topic["조달청"].search(title), title)
 
 
+class BriefingNewMinistryBaseline(unittest.TestCase):
+    def test_added_ministry_first_read_is_baseline_and_sale_campaign_dropped(self):
+        # 11-01 운영: 관세청·조달청을 더한 첫 실행 줄이 [신규]로 떴고, 관세청이 함께 낸 할인 행사 보도자료가 '자동차'로 잡혔다
+        old_doc = {"briefing": [{"id": "briefing:156787389", "title": "2026년 수소발전 입찰시장 개설", "date": "2026-10-30", "ministry": "기후에너지환경부",
+                                 "companies": []}],
+                   "briefingRead": ["국토교통부", "기후에너지환경부"]}
+        items, check = w.briefing(CFG, NOW, old_doc, http(briefing_routes()))
+        new = {x["id"]: x["ministry"] for x in items if x["isNew"]}
+        self.assertNotIn("조달청", new.values())  # 처음 읽은 청은 기준선
+        self.assertIn("briefing:156787100", new)  # 이미 읽던 국토부의 새 줄은 신규
+        self.assertEqual(check["read"], ["관세청", "국토교통부", "기후에너지환경부", "조달청"])
+        sale = brief_page([brief_row("156786670", "자동차·가전부터 한우·수산물까지...최대 50% 할인 정부, 「제2회 코리아 그랜드 페스티벌」 시작(10.29~11.15)",
+                                     "2026-10-27", "관세청", "B00003")])
+        routes = briefing_routes()
+        base = routes[w.BRIEFING_LIST]
+
+        def with_sale(m, u, kw):
+            p = kw.get("params") or {}
+            return Resp(sale) if p.get("repCode") == "B00003" and int(p.get("pageIndex", 1)) == 1 else base(m, u, kw)
+        routes[w.BRIEFING_LIST] = with_sale
+        items, _ = w.briefing(CFG, NOW, None, http(routes))
+        self.assertNotIn("briefing:156786670", {x["id"] for x in items})
+        stale = {"briefing": [{"id": "briefing:156786670", "title": "자동차·가전부터 한우·수산물까지...최대 50% 할인", "date": "2026-10-27", "ministry": "관세청", "companies": []}]}
+        items, _ = w.briefing(CFG, NOW, stale, http(briefing_routes()))
+        self.assertNotIn("briefing:156786670", {x["id"] for x in items})  # 저장된 줄도 다시 거름
+
+
 class RunDoc(unittest.TestCase):
     def test_document_shape_and_unset_kepco_not_partial(self):
         routes = {**ftc_routes([KUMHO]), **komis_routes({"MNRL0023": komis_series("2026-01-01", "2026-10-26")}), **motir_routes(), **ftc_press_routes(), **briefing_routes()}
