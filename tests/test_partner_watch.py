@@ -90,6 +90,12 @@ class Partners(unittest.TestCase):
             "Chief Financial Officer of Valeritas Holdings, Inc.")}
         w.classify(it)
         self.assertIn("경력", it.get("routine", ""))
+        # 'Inc.'·'Ltd.' 뒤에서 문장이 잘려도(11-01 Verastem 8-K) 경력 소개로 본다
+        cut = {"phrases": ["LG Chem"], "form": "8-K", "snippet": (
+            "Mr. Bailey served as president and chief executive officer of AVEO Pharmaceuticals, Inc. (\u201cAVEO\u201d), an LG Chem Ltd. "
+            "company from January 2015 to June 2026, and has served as a member of its board of directors since January 2015.")}
+        w.classify(cut)
+        self.assertIn("경력", cut.get("routine", ""))
         deal = {"phrases": ["LG Chem"], "form": "8-K", "snippet": "The Company entered into a supply agreement with LG Chem, Ltd. for cathode materials."}
         w.classify(deal)
         self.assertNotIn("routine", deal)

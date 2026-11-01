@@ -62,6 +62,15 @@ BIO = re.compile(r"\b(?:was|served|serves|has served|previously served|prior to 
                  r"\b(?:officer|director|president|chairman|ceo|cfo|coo|cto|vice president|general counsel|partner)\b", re.I)
 
 
+def beat_windows(sn, phrases, width=220):
+    """출입처 이름 앞뒤 글(문장 나누기는 'Inc.'·'Ltd.' 뒤에서 잘못 끊긴다 — 11-01 Verastem 'AVEO …, an LG Chem, Ltd. Company')."""
+    out = []
+    for ph in phrases:
+        for m in re.finditer(re.escape(ph), sn, re.I):
+            out.append(sn[max(0, m.start() - width):m.end() + width])
+    return out
+
+
 def beat_sentences(sn, phrases):
     return [x for x in SENTENCE.split(sn) if any(ph.lower() in x.lower() for ph in phrases)]
 
@@ -91,7 +100,7 @@ def classify(it):
             it["hearsay"] = "출입처 이름이 보도 인용 문장(reportedly 등)에만 나옴 — 두 회사 간 거래 공시가 아님"
         elif all(BOILERPLATE.search(x) for x in sents):
             it["boilerplate"] = "출입처 이름이 전망·위험 고지 문구(risks and uncertainties 등)에만 나옴 — 새 거래 공시가 아님(이미 있던 약정 언급일 수 있음)"
-        elif all(BIO.search(x) for x in sents):
+        elif all(BIO.search(x) for x in beat_windows(sn, it.get("phrases") or [])):
             it["routine"] = "임원·이사 경력 소개 문장에만 나옴 — 출입처와의 거래 아님"
             return
     digits = sum(ch.isdigit() for ch in sn)
