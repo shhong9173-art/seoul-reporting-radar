@@ -383,13 +383,18 @@
         "name": "울산광역시",
         "list": "https://www.ulsan.go.kr/u/rep/bbs/list.ulsan?bbsId=BBS_0000000000000027&mId=001004003001000000",
         "idParam": "dataId",
-        "pages": 3
+        "pages": 3,
+        "pageParam": "page"
       },
       {
         "name": "충청남도",
         "list": "https://www.chungnam.go.kr/cnportal/cnapcPressList/cnapcPress/list.do?menuNo=500498",
         "idParam": "nttId",
-        "pages": 2
+        "pages": 1,
+        "pageParam": "pageIndex",
+        "params": {
+          "pageUnit": "30"
+        }
       }
     ]
   }

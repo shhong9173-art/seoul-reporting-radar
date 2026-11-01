@@ -770,7 +770,9 @@ def province(cfg, now, previous, http):
     for site in pc.get("sites", []):
         got_ids = set()
         for page in range(1, int(site.get("pages", 1)) + 1):
-            r, err = http.call("GET", site["list"], params={"pageIndex": page} if page > 1 else None, timeout=30)
+            # 쪽 넘김 칸 이름은 시·도마다 다르다(11-01 probe 89: 울산 listForm 'page', 충남 'pageIndex'·'pageUnit')
+            params = {**(site.get("params") or {}), **({site.get("pageParam", "pageIndex"): page} if page > 1 else {})}
+            r, err = http.call("GET", site["list"], params=params or None, timeout=30)
             if err:
                 errs.append(f"{site['name']} {err}")
                 break
