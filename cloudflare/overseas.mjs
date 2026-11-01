@@ -998,13 +998,13 @@ export async function krSignals(ctx, args) {
   const doc = await readFeed(ctx, 'kr-signals');
   if (!doc) return energy.length ? textResult([missing('공정위 의결서·한전 입찰·원자재 가격', '평일 08:30·15:20').content[0].text, ...energy].join('\n'), true) : missing('공정위 의결서·한전 입찰·원자재 가격', '평일 08:30·15:20');
   if (doc.broken) return textResult(['저장된 국내 신호 결과 형식 오류 — 미확인.', ...energy].join('\n'), true);
-  const section = ['ftc', 'kepco', 'motir', 'price'].includes(args.section) ? args.section : null;
+  const section = ['ftc', 'ftc_press', 'kepco', 'motir', 'price'].includes(args.section) ? args.section : null;
   const q = String(args.company ?? '').trim();
   const days = clampInt(args.days, 1, 365, 60);
   const limit = clampInt(args.limit, 1, 60, 15);
   const checks = doc.checks ?? [];
   const bad = checks.filter((c) => c.status !== 'ok');
-  const out = [`국내 신호(공정위 의결서·한전 전자입찰·원자재 가격) · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt)}`,
+  const out = [`국내 신호(공정위 의결서·보도자료·한전 전자입찰·산업부 보도자료·원자재 가격) · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt)}`,
     `질의 ${checks.length - bad.length}/${checks.length} 정상${bad.length ? ` · 미확인(0건 아님): ${bad.slice(0, 6).map((c) => `${c.source}(${c.error ?? c.status}${c.pending ? `, 전문 대기 ${c.pending}건` : ''})`).join(', ')}` : ''}`,
     ...(doc.rules ?? []).map((r) => `규칙: ${r}`)];
   if (!section || section === 'ftc') {
@@ -1028,6 +1028,21 @@ export async function krSignals(ctx, args) {
     }
     if (!rows.length) out.push('없음(전문 대기·목록 실패분은 미확인)');
     out.push('   검증 상태: 공정위 공개 의결서(자동 대조). 보도자료·선행 기사 여부는 news_check, 금액·감경은 원문에서 확인');
+  }
+  if (!section || section === 'ftc_press') {
+    const from = new Date(ctx.now.getTime() + 9 * 3600000 - Math.min(days, 60) * 86400000).toISOString().slice(0, 10);
+    const rows = (doc.ftcPress ?? []).filter((x) => String(x.date ?? '') >= from && matches(q, x.title, x.dept, ...(x.companies ?? []), ...(x.related ?? [])));
+    if (!Array.isArray(doc.ftcPress)) out.push('\n[공정위 보도·참고·설명자료] 아직 수집 전 — 미확인(0건 아님)');
+    else {
+      out.push(`\n[공정위 보도·참고·설명자료 · 제목에 출입처 이름·출입 업종 낱말 · 최근 ${Math.min(days, 60)}일] ${rows.length}건`);
+      for (const x of rows.slice(0, limit)) {
+        out.push(`- ${x.isNew ? '[신규] ' : ''}${x.date} · ${x.dept} · ${x.kind}`);
+        out.push(`   제목: ${x.title}${(x.companies ?? []).length ? ` · 출입처 이름: ${x.companies.join('·')}` : ''}${(x.related ?? []).length ? ` · 관련 기업: ${x.related.join('·')}` : ''}`);
+        out.push(`   원문: ${x.url}`);
+      }
+      if (!rows.length) out.push('없음');
+      out.push('   검증 상태: 공정위 공개 발표(누리집 게시판 목록). 의결서는 몇 달 뒤 공개 — 금액·피심인 범위는 첨부 원문에서 확인, 같은 날 기사는 news_check');
+    }
   }
   if (!section || section === 'kepco') {
     const k = checks.find((c) => c.source === '한전 전자입찰');

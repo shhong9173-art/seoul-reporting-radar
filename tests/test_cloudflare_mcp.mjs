@@ -1438,6 +1438,10 @@ test('kr_signals shows FTC decisions by role, KEPCO bids and commodity prices, a
         trade: { period: '2026-09', exports: { value: '1,209.4', yoy: '+83.5' }, items: { 자동차: { value: '61', yoy: '-5' }, 철강: { value: '22', yoy: '+3' } } } },
       { id: 'motir:172335', title: '자동차·가전부터 한우·수산물까지...최대 50% 할인', kind: '보도자료', dept: '유통물류과', date: '2026-10-25', companies: [],
         embargo: '27석간, 27일(화) 국무회의 종료시 엠바고', url: 'https://www.motir.go.kr/y' }],
+    ftcPress: [{ id: 'ftcpress:48163', title: '현대자동차 (주) 의 하도급법 위반행위 제재', kind: '보도', dept: '제조하도급과', date: '2026-10-24', companies: ['현대차'], related: [],
+        isNew: true, url: 'https://www.ftc.go.kr/www/selectBbsNttView.do?bordCd=3&key=12&searchCtgry=01,02&nttSn=48163' },
+      { id: 'ftcpress:48160', title: '정유 4사의 석유제품 가격 담합 제재', kind: '보도', dept: '카르텔조사국', date: '2026-10-24', companies: [], related: [],
+        url: 'https://www.ftc.go.kr/www/selectBbsNttView.do?bordCd=3&key=12&searchCtgry=01,02&nttSn=48160' }],
     prices: [{ id: 'zinc', name: '아연', basis: 'LME CASH', unit: 'USD/ton', beats: ['고려아연', '영풍'], since: '2024-01-01',
       summary: { date: '2026-10-23', price: 3900, day: 2.9, week: 3.28, month: -3.94, monthFrom: '2026-09-25', ytd: 25.56, ytdFrom: '2026-01-02', stock: 166950, stockMonth: 37.29,
         high: { date: '2026-09-09', price: 4186 }, low: { date: '2024-02-14', price: 2285.5 }, span: ['2024-01-02', '2026-10-23'] },
@@ -1461,6 +1465,10 @@ test('kr_signals shows FTC decisions by role, KEPCO bids and commodity prices, a
   assert.match(m.text, /\[산업통상부 보도·참고자료 · 출입처 업종 낱말·출입처 이름 · 최근 60일\] 3건/);
   assert.match(m.text, /2026-10-25 · 유통물류과 · 보도자료 · 엠바고\(27석간, 27일\(화\) 국무회의 종료시 엠바고\)/);
   assert.match(m.text, /2026-09 수출 1,209\.4억달러\(\+83\.5%\) · 출입처 품목: 자동차 61억달러\(-5%\) · 철강 22억달러\(\+3%\)/);
+  const fp = await call('kr_signals', { section: 'ftc_press' }, opts);
+  assert.match(fp.text, /\[공정위 보도·참고·설명자료 · 제목에 출입처 이름·출입 업종 낱말 · 최근 60일\] 2건/);
+  assert.match(fp.text, /\[신규\] 2026-10-24 · 제조하도급과 · 보도\n   제목: 현대자동차 \(주\) 의 하도급법 위반행위 제재 · 출입처 이름: 현대차/);
+  assert.doesNotMatch(fp.text, /\[한전 전자입찰|\[산업통상부 보도|\[공정위 의결서/);  // section only
   const r = await call('radar_today', {}, opts);
   assert.match(r.text, /공정위·한전·원자재: 미설정 한전 전자입찰\(KEPCO_API_KEY 미설정\) · 공정위 의결서 원문 대기 24건\(실행당 읽기 한도, 다음 실행에서 읽음\)/);
   assert.doesNotMatch(r.text, /공정위·한전·원자재: 일부 실패/);
@@ -1474,6 +1482,8 @@ test('kr_signals shows FTC decisions by role, KEPCO bids and commodity prices, a
   assert.match(b, /산업통상부 보도자료: 무역위, 중국산 아연도금냉연, 옵셋인쇄판 덤핑조사 최종판정/);
   assert.match(b, /산업통상부 보도자료: 2026년 9월 수출입 동향 — 2026-09 수출 1,209\.4억달러\(\+83\.5%\) · 자동차 61억달러\(-5%\) · 철강 22억달러\(\+3%\)/);
   assert.doesNotMatch(b, /한우·수산물/);  // topic word only (자동차 in a sale campaign) → C
+  assert.match(b, /공정위 보도\(제조하도급과\): 현대자동차 \(주\) 의 하도급법 위반행위 제재/);  // beat name in an FTC release → B
+  assert.doesNotMatch(a + b, /정유 4사의 석유제품 가격 담합/);  // industry word only → C
   assert.doesNotMatch(a + b, /롯데케미칼|배전용 변압기|재고 \+37\.3%/);  // body mention, small bid, stock move → C
   const minor = await call('radar_today', { include_minor: true }, opts);
   assert.match(minor.text, /「\(연간단가\)고효율주상변압기,50KVA\(광유\)-2,338대-0\d\(일반\)」 외 같은 공고 2건\(합계 약 149억원\) · 추정가격 약 50억원/);

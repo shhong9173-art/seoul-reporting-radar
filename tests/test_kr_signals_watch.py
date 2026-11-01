@@ -409,13 +409,85 @@ class MotirWatch(unittest.TestCase):
         self.assertEqual(trade["items"]["석유화학"], {"value": "40", "yoy": "+5"})
 
 
+def ftc_row(no, kind, ntt, title, dept, date, key="12", ctg="01,02", new=False):
+    badge = '\n<!--<span class="krds-badge bg4">New</span>--> ' if new else "\n"
+    return (f'<tr>\n<td>{no}</td>\n<td>{kind}</td>\n<td class="p-subject">\n'
+            f'<a href="./selectBbsNttView.do?pageUnit=10&amp;pageIndex=1&amp;searchCnd=all&amp;key={key}&amp;bordCd=3&amp;searchCtgry={ctg}&amp;nttSn={ntt}">\n'
+            f'<span class="p-table__text">{title}</span>{badge}</a>\n</td>\n<td>{dept}</td>\n<td>{date}</td>\n<td class="p-file">\n'
+            f'<a href="./downloadBbsFileAll.do?atchmnflNo={ntt}" class="btn btn-txt ico-down">파일다운로드</a>\n</td>\n</tr>')
+
+
+def ftc_page(rows):
+    return f"<table><thead><tr><th>번호</th></tr></thead><tbody>\n{''.join(rows)}\n</tbody></table>"
+
+
+# 11-01 운영 목록 형식(probe 80): 제목 뒤 주석 처리된 New 배지, 설명자료 제목 앞 날짜
+FTC_PRESS_PAGE = ftc_page([
+    ftc_row("9811", "보도", "48168", "한세모빌리티㈜의 기술자료 관련 하도급법 위반행위 제재", "기술유용조사과", "2026-10-30", new=True),
+    ftc_row("9810", "참고", "48165", "2026년 공정거래 학술연구 지원사업 최종발표회 개최", "경쟁정책과", "2026-10-29"),
+    ftc_row("9808", "보도", "48163", "현대자동차㈜의 하도급법 위반행위 제재", "제조하도급과", "2026-10-29"),
+    ftc_row("9807", "보도", "48160", "정유 4사의 석유제품 가격 담합 제재", "카르텔조사국", "2026-10-28"),
+    ftc_row("9700", "보도", "47000", "한국전력공사 발주 변압기 입찰 담합 제재", "입찰담합조사과", "2026-08-01")])
+FTC_EXPLAIN_PAGE = ftc_page([
+    ftc_row("1146", "설명", "48166", "20261029 [설명] 국민일보(10.29.) 기업 때리니 로펌대박 공정위 發 기이한 호황 등 기사 관련", "심판총괄담당관", "2026-10-29", key="13", ctg="03"),
+    ftc_row("1145", "설명", "48161", "[설명] 한국경제(10.28.) 포스코 하도급 대금 관련 기사", "제조하도급과", "2026-10-28", key="13", ctg="03")])
+
+
+def ftc_press_routes(fail=False, empty12=False):
+    def lst(method, url, kw):
+        p = kw.get("params") or {}
+        if fail:
+            return Resp("", 503)
+        if p.get("key") == "13":
+            return Resp(FTC_EXPLAIN_PAGE)
+        return Resp(ftc_page([]) if empty12 or int(p.get("pageIndex", 1)) > 1 else FTC_PRESS_PAGE)
+    return {w.FTC_PRESS: lst}
+
+
+class FtcPressWatch(unittest.TestCase):
+    def test_list_parsing(self):
+        rows = w.parse_ftc_press(FTC_PRESS_PAGE, "12", "01,02")
+        self.assertEqual(len(rows), 5)
+        self.assertEqual(rows[0], {"id": "ftcpress:48168", "title": "한세모빌리티 (주) 의 기술자료 관련 하도급법 위반행위 제재", "kind": "보도",
+                                   "dept": "기술유용조사과", "date": "2026-10-30",
+                                   "url": "https://www.ftc.go.kr/www/selectBbsNttView.do?bordCd=3&key=12&searchCtgry=01,02&nttSn=48168"})
+        ex = w.parse_ftc_press(FTC_EXPLAIN_PAGE, "13", "03")
+        self.assertEqual(ex[0]["title"], "[설명] 국민일보(10.29.) 기업 때리니 로펌대박 공정위 發 기이한 호황 등 기사 관련")  # 앞 날짜 뗌
+        self.assertEqual(ex[0]["kind"], "설명")
+
+    def test_beat_filter_names_and_window(self):
+        items, check = w.ftc_press(CFG, NOW, None, http(ftc_press_routes()))
+        by = {x["id"]: x for x in items}
+        self.assertEqual(by["ftcpress:48163"]["companies"], ["현대차"])  # 출입처 이름
+        self.assertIn("ftcpress:48160", by)  # 정유 업종 낱말
+        self.assertEqual(by["ftcpress:48161"]["companies"], ["포스코"])  # 설명자료도 출입처 이름이면
+        self.assertNotIn("ftcpress:48168", by)  # 출입처 밖 하도급 제재(회사 이름 속 '모빌리티'는 업종 낱말로 보지 않음)
+        self.assertNotIn("ftcpress:48165", by)
+        self.assertNotIn("ftcpress:48166", by)
+        self.assertNotIn("ftcpress:47000", by)  # 60일 밖
+        self.assertEqual((check["status"], check["listed"], check["kept"]), ("ok", 7, 3))
+        self.assertFalse(any(x["isNew"] for x in items))  # 첫 실행은 기준선
+
+    def test_new_only_after_baseline_and_failures_are_unconfirmed(self):
+        first, _ = w.ftc_press(CFG, NOW, None, http(ftc_press_routes()))
+        prev = {"ftcPress": [x for x in first if x["id"] != "ftcpress:48160"]}
+        items, _ = w.ftc_press(CFG, NOW, prev, http(ftc_press_routes()))
+        self.assertEqual([x["id"] for x in items if x["isNew"]], ["ftcpress:48160"])
+        items, check = w.ftc_press(CFG, NOW, prev, http(ftc_press_routes(fail=True)))
+        self.assertEqual(check["status"], "failed")
+        self.assertEqual(len(items), len(prev["ftcPress"]))  # 이전 줄 유지
+        _, check = w.ftc_press(CFG, NOW, None, http(ftc_press_routes(empty12=True)))
+        self.assertEqual(check["status"], "partial")
+        self.assertIn("보도·참고자료 목록 형식(행 없음)", check["error"])
+
+
 class RunDoc(unittest.TestCase):
     def test_document_shape_and_unset_kepco_not_partial(self):
-        routes = {**ftc_routes([KUMHO]), **komis_routes({"MNRL0023": komis_series("2026-01-01", "2026-10-26")}), **motir_routes()}
+        routes = {**ftc_routes([KUMHO]), **komis_routes({"MNRL0023": komis_series("2026-01-01", "2026-10-26")}), **motir_routes(), **ftc_press_routes()}
         doc = w.run(flat_cfg(), now=NOW, previous=None, http=http(routes), kepco_key="")
         self.assertEqual(doc["schema"], "kr_signals/v1")
         self.assertEqual(doc["status"], "complete")
-        self.assertEqual([c["source"] for c in doc["checks"]], ["공정위 의결서", "한전 전자입찰", "산업통상부 보도자료", "KOMIS 아연"])
+        self.assertEqual([c["source"] for c in doc["checks"]], ["공정위 의결서", "한전 전자입찰", "산업통상부 보도자료", "공정위 보도자료", "KOMIS 아연"])
         self.assertEqual(doc["confirmedScoops"], 0)
         self.assertTrue(isinstance(doc["prices"], list) and doc["prices"])
 
