@@ -37,6 +37,8 @@ QUERIES = [
     ("출입처·철강비철", '"POSCO" OR "Hyundai Steel" OR "Dongkuk Steel" OR "SeAH Steel" OR "KG Steel" OR "Korea Zinc" OR "Young Poong" OR "LS MnM"'),
     ("출입처·전력기기전선", '"HD Hyundai Electric" OR "LS Electric" OR "Hyosung Heavy Industries" OR "LS Cable" OR "Taihan Cable" OR "Doosan Enerbility"'),
     ("출입처·에너지화학", '"Hanwha Qcells" OR "Hanwha Solutions" OR "OCI Holdings" OR "GS Caltex" OR "Korean refiner" OR "Korean steelmakers"'),
+    # 11-01 기자 명시: 석유화학·정유 6곳(자회사 SK Energy·SK Geo Centric·LG Energy Solution은 출입처 아님)
+    ("출입처·석유화학정유", '"LG Chem" OR "Lotte Chemical" OR "Kumho Petrochemical" OR "S-Oil" OR "SK Innovation" OR "Hyundai Oilbank"'),
     ("출입처·타이어부품", '"Hankook Tire" OR "Kumho Tire" OR "Nexen Tire" OR "Hyundai Mobis" OR "HL Mando" OR "Hyundai Wia" OR "KG Mobility" OR "GM Korea"'),
 ]
 
@@ -46,7 +48,8 @@ FOREIGN_OK = re.compile(r"reuters|bloomberg|nikkei|financial times|\bft\b|wall s
                         r"s&p global|platts|fastmarkets|argus|mining\.com|kallanish|metal bulletin|utility dive|power engineering|t&d world|recharge|pv magazine|pv tech|"
                         r"electrek|insideevs|automotive news|automotive world|just auto|just-auto|wardsauto|tire business|tyrepress|rubber|tire technology|"
                         r"energy-storage|energy storage news|chemical & engineering|icis|hydrogen insight|financial post|politico|axios|the information|"
-                        r"south china morning post|scmp|caixin|nikkei asia|the japan times|asahi|digitimes|electrive|autocar|carscoops|motor1|the verge|techcrunch", re.I)
+                        r"south china morning post|scmp|caixin|nikkei asia|the japan times|asahi|digitimes|electrive|autocar|carscoops|motor1|the verge|techcrunch|"
+                        r"hydrocarbon processing|chemical week|chemweek|oil & gas journal|\bogj\b|energy intelligence|\bopis\b", re.I)
 
 # 국내 매체 영문판·국내 통신 — 외신 화면에서 뺀다(이미 국내 보도).
 DOMESTIC_EN = re.compile(r"korea herald|korea times|joongang|yonhap|korea economic daily|ked global|businesskorea|business korea|pulse by maeil|maeil|"
@@ -98,10 +101,12 @@ BEAT_EN = [
     (r"hd hyundai electric", "HD현대일렉트릭"), (r"ls electric", "LS일렉트릭"), (r"ls cable", "LS전선"), (r"taihan", "대한전선"),
     (r"doosan enerbility|doosan(?!\s+(?:bobcat|robotics|fuel cell|tesna|corp))", "두산에너빌리티"),
     (r"hanwha solutions|hanwha q\s?cells|\bq\s?cells\b", "한화솔루션"), (r"oci holdings|\boci\b", "OCI"), (r"gs caltex", "GS칼텍스"),
+    (r"lg chem\b", "LG화학"), (r"lotte chemical(?!\s+titan)", "롯데케미칼"), (r"kumho petrochemical", "금호석유화학"),
+    (r"s-oil\b", "S-OIL"), (r"(?:hd\s+)?hyundai oil\s?bank", "HD현대오일뱅크"), (r"sk innovation", "SK이노베이션"),
     (r"hankook tire", "한국타이어"), (r"kumho tire", "금호타이어"), (r"nexen tire", "넥센타이어"),
     (r"hyundai mobis", "현대모비스"), (r"hl mando|\bmando\b", "HL만도"), (r"hyundai wia", "현대위아"),
     (r"kg mobility", "KG모빌리티"), (r"gm korea", "한국GM"), (r"renault korea", "르노코리아"),
-    (r"(?<!hd )hyundai(?:\s+motor)?(?!\s+(?:steel|mobis|wia|engineering|e&c|heavy|rotem|glovis|marine|merchant|card|capital|department|hope|transys|elevator|electric))", "현대차"),
+    (r"(?<!hd )hyundai(?:\s+motor)?(?!\s+(?:steel|mobis|wia|engineering|e&c|heavy|rotem|glovis|marine|merchant|card|capital|department|hope|transys|elevator|electric|oil\s?bank))", "현대차"),
     (r"\bkia\b", "기아"),
 ]
 BEAT_RE = [(re.compile(r"(?<![a-z0-9])" + p, re.I), ko) for p, ko in BEAT_EN]
@@ -120,7 +125,10 @@ KO_EVENTS = [("원자로", r"원자로|원전|SMR|소형모듈"), ("해상풍력
              ("모노파일", r"모노파일"), ("제련소", r"제련"), ("관세", r"관세|반덤핑|상계"), ("리콜", r"리콜"), ("소송", r"소송|제소|고소"),
              ("수주", r"수주|공급\s?계약"), ("공장", r"공장|생산기지|생산\s?시설|제조\s?시설"), ("투자", r"투자"), ("MOU", r"MOU|양해각서"),
              ("입찰", r"입찰"), ("인수", r"인수|매각"), ("파업", r"파업|노조"), ("감산", r"감산|생산\s?중단|가동\s?중단"), ("ESS", r"ESS|에너지\s?저장"),
-             ("태양광", r"태양광|폴리실리콘"), ("철강", r"철강|강판|열연|냉연"), ("배터리", r"배터리"), ("타이어", r"타이어")]
+             ("태양광", r"태양광|폴리실리콘"), ("철강", r"철강|강판|열연|냉연"), ("배터리", r"배터리"), ("타이어", r"타이어"),
+             # 11-01 석유화학·정유 — '석유화학'은 금호석유화학 이름에 들어 있어 그 회사 기사에서는 위 규칙대로 빠진다
+             ("구조조정", r"구조조정|사업\s?재편|통폐합"), ("나프타", r"나프타|NCC|크래커|에틸렌"), ("정제마진", r"정제\s?마진|정유"),
+             ("석유화학", r"석유화학|유화")]
 
 
 def check_terms(ko_title: str, companies: list[str]) -> list[str]:
