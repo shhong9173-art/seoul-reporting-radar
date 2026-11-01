@@ -541,6 +541,8 @@ MOLIT_PAGE = brief_page([
     brief_row("156787238", "울산화력발전소 보일러타워 붕괴사고 조사결과", "2026-10-30", "국토교통부", "A00006"),
     brief_row("156787184", "&#039;26년 9월 주택통계", "2026-10-30", "국토교통부", "A00006"),
     brief_row("156787100", "기아 등 5개사 12개 차종 3만 2천여 대 자발적 시정조치(리콜)", "2026.10.29", "국토교통부", "A00006")])
+CUSTOMS_PAGE = brief_page([brief_row("156787106", "관세청, 특송물품 악용한 마약밀수 차단을 위한 검사 강화 현장점검 실시", "2026-10-29", "관세청", "B00003")])
+PPS_PAGE = brief_page([brief_row("156786754", "조달청, 한국수출입은행과 함께 공공비축 확대 나선다", "2026-10-28", "조달청", "B00013")])
 MIXED_PAGE = brief_page([brief_row("156787418", "[연구행정 혁신+-⑨] 협력의 문은 넓게", "2026.11.01", "과학기술정보통신부")])
 
 
@@ -553,7 +555,7 @@ def briefing_routes(fail=None, mixed=None):
             return Resp(brief_page([]))
         if p.get("repCode") == mixed:
             return Resp(MIXED_PAGE)
-        return Resp(ME_PAGE if p.get("repCode") == "A00019" else MOLIT_PAGE)
+        return Resp({"A00019": ME_PAGE, "A00006": MOLIT_PAGE, "B00003": CUSTOMS_PAGE, "B00013": PPS_PAGE}[p.get("repCode")])
     return {w.BRIEFING_LIST: lst}
 
 
@@ -572,14 +574,16 @@ class BriefingWatch(unittest.TestCase):
             self.assertIn(kept, by)  # 부처별 업종 낱말(수소발전·자동차·발전소)
         for dropped in ("briefing:156786947", "briefing:156787184", "briefing:156787339"):
             self.assertNotIn(dropped, by)
-        self.assertEqual((check["status"], check["listed"], check["kept"]), ("ok", 8, 5))
+        self.assertIn("briefing:156786754", by)  # 조달청 공공비축
+        self.assertNotIn("briefing:156787106", by)  # 관세청 마약 단속
+        self.assertEqual((check["status"], check["listed"], check["kept"]), ("ok", 10, 6))
         self.assertFalse(any(x["isNew"] for x in items))
 
     def test_unfiltered_page_and_failure_are_unconfirmed(self):
         items, check = w.briefing(CFG, NOW, None, http(briefing_routes(mixed="A00006")))
         self.assertEqual(check["status"], "partial")
         self.assertIn("국토교통부 목록 형식(다른 부처 섞임)", check["error"])
-        self.assertFalse(any(x["ministry"] != "기후에너지환경부" for x in items))
+        self.assertFalse(any(x["ministry"] == "국토교통부" for x in items))  # 섞인 쪽은 버림
         first, _ = w.briefing(CFG, NOW, None, http(briefing_routes()))
         prev = {"briefing": [x for x in first if x["id"] != "briefing:156787100"]}
         items, check = w.briefing(CFG, NOW, prev, http(briefing_routes(fail="A00019")))
@@ -602,6 +606,21 @@ class BriefingTopicNarrowing(unittest.TestCase):
         ids = {x["id"] for x in items}
         self.assertNotIn("briefing:1", ids)
         self.assertIn("briefing:2", ids)  # 출입처 이름이 있으면 둔다
+
+
+class BriefingAgencies(unittest.TestCase):
+    def test_customs_and_procurement_topics(self):
+        # 11-01 운영 첫 쪽(probe 86): 마약·짝퉁·면세점은 빠지고 공공비축·원산지 세탁·우회수출은 남는다
+        topic = {m["name"]: re.compile(m["topic"]) for m in CFG["briefing"]["ministries"]}
+        self.assertEqual({m["code"] for m in CFG["briefing"]["ministries"]} >= {"B00003", "B00013"}, True)
+        for title in ("관세청, 특송물품 악용한 마약밀수 차단을 위한 검사 강화 현장점검 실시", "2026년 면세점 쇼핑 축제 「코리아 듀티프리 페스타」 개막",
+                      "관세청, 해외 관세당국과 'K-브랜드' 짝퉁 합동단속 및 마약 밀수 정보교환 체계 구축 추진"):
+            self.assertIsNone(topic["관세청"].search(title), title)
+        for title in ("중국산 철강재 원산지 세탁 우회수출 업체 적발", "관세청, 수입 강판 원산지 표시 위반 일제 점검"):
+            self.assertIsNotNone(topic["관세청"].search(title), title)
+        self.assertIsNotNone(topic["조달청"].search("조달청, 한국수출입은행과 함께 공공비축 확대 나선다"))
+        for title in ("조달청, 11월 대형사업 총 342건, 2조 9,938억 원 상당 입찰 예정", "우리 아이들이 사용하는 칠판, 더 안전해진다"):
+            self.assertIsNone(topic["조달청"].search(title), title)
 
 
 class RunDoc(unittest.TestCase):

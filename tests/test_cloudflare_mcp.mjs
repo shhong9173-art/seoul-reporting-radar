@@ -1474,7 +1474,7 @@ test('kr_signals shows FTC decisions by role, KEPCO bids and commodity prices, a
   assert.match(fp.text, /\[신규\] 2026-10-24 · 제조하도급과 · 보도\n   제목: 현대자동차 \(주\) 의 하도급법 위반행위 제재 · 출입처 이름: 현대차/);
   assert.doesNotMatch(fp.text, /\[한전 전자입찰|\[산업통상부 보도|\[공정위 의결서/);  // section only
   const bf = await call('kr_signals', { section: 'briefing' }, opts);
-  assert.match(bf.text, /\[기후에너지환경부·국토교통부 보도자료\(정책브리핑 목록\) · 제목에 출입처 이름·업종 낱말 · 최근 60일\] 2건/);
+  assert.match(bf.text, /\[부처 보도자료\(정책브리핑 목록: 기후부·국토부·관세청·조달청\) · 제목에 출입처 이름·업종 낱말 · 최근 60일\] 2건/);
   assert.match(bf.text, /\[신규\] 2026-10-24 · 국토교통부\n   제목: 기아 등 5개사 12개 차종 3만 2천여 대 자발적 시정조치\(리콜\) · 출입처 이름: 기아/);
   const r = await call('radar_today', {}, opts);
   assert.match(r.text, /공정위·한전·원자재: 미설정 한전 전자입찰\(KEPCO_API_KEY 미설정\) · 공정위 의결서 원문 대기 24건\(실행당 읽기 한도, 다음 실행에서 읽음\)/);
