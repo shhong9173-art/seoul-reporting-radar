@@ -18,7 +18,7 @@ from scripts.news_headline_identity import normalize_title, obvious_sports_homon
 
 ROOT=Path(__file__).resolve().parents[1]
 TREE=ast.parse((ROOT/"collector.py").read_text(encoding="utf-8"))
-NAMES={"norm_title","parse_feed","dedupe","exclusive"}
+NAMES={"norm_title","parse_feed","dedupe","exclusive","error_label","failure_summary"}
 FUNS=[n for n in TREE.body if isinstance(n,ast.FunctionDef) and n.name in NAMES]
 assert len(FUNS)==len(NAMES)
 KST=ZoneInfo("Asia/Seoul")
@@ -50,6 +50,19 @@ def rss(rows):
 class ProductionRssDateAndIdentity(unittest.TestCase):
     def setUp(self):
         NAMESPACE["FEED_CHECKS"].clear()
+
+    def test_stopped_run_says_why_in_counts_only(self):
+        # 11-01 11:30·12:10 KST: 'collection returned only N items'로 멈췄지만 Actions 화면에 이유가 없었다
+        import urllib.error
+        def fail(_url):
+            raise urllib.error.HTTPError("https://news.google.com/rss/search?q=x", 503, "Service Unavailable", {}, None)
+        NAMESPACE["get"]=fail
+        self.assertEqual(parse_feed("완성차","현대차"),[])
+        self.assertEqual(NAMESPACE["FEED_CHECKS"][-1]["errorType"],"HTTPError 503")
+        checks=NAMESPACE["FEED_CHECKS"]+[{"status":"transport_or_xml_error","errorType":"URLError"},{"status":"checked_no_recent_rows"},{"status":"checked_recent_rows"}]
+        line=NAMESPACE["failure_summary"](checks,4)
+        self.assertEqual(line,"국내 뉴스 수집 4건(문턱 10) — 검색 4개 중 실패 2(HTTPError 503 ×1, URLError ×1) · 최근 기사 없음 1")
+        self.assertNotIn("news.google",line)
 
     def run_feed(self,rows):
         NAMESPACE["get"]=lambda _url:rss(rows)
