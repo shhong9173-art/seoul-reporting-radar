@@ -673,16 +673,21 @@ CN_PAGE = table([cn_row("3089", "2185409", "충남도립대 건축인테리어�
                  cn_row("3088", "2185400", "도, 현대제철 당진제철소와 탄소중립 업무협약", "기후환경정책과", "2026-10-30")])
 
 
-def province_routes(fail=None):
-    def make(page, name):
+ULSAN_PAGE2 = table([ulsan_row("51804", "184800", "울산시, 에쓰오일 샤힌 프로젝트 준공 지원 점검", "산업정책과", "2026.10.29")])
+
+
+def province_routes(fail=None, seen=None):
+    def make(page, name, param, page2):
         def fn(method, url, kw):
+            if seen is not None:
+                seen.append((name, dict(kw.get("params") or {})))
             if name == fail:
                 return ConnectionError("blocked")
-            p = int((kw.get("params") or {}).get("pageIndex", 1))
-            return Resp(page if p == 1 else table([]))
+            p = int((kw.get("params") or {}).get(param, 1))
+            return Resp(page if p == 1 else page2 if p == 2 else table([]))
         return fn
-    return {"https://www.ulsan.go.kr/u/rep/bbs/list.ulsan": make(ULSAN_PAGE, "울산광역시"),
-            "https://www.chungnam.go.kr/cnportal/cnapcPressList/cnapcPress/list.do": make(CN_PAGE, "충청남도")}
+    return {"https://www.ulsan.go.kr/u/rep/bbs/list.ulsan": make(ULSAN_PAGE, "울산광역시", "page", ULSAN_PAGE2),
+            "https://www.chungnam.go.kr/cnportal/cnapcPressList/cnapcPress/list.do": make(CN_PAGE, "충청남도", "pageIndex", table([]))}
 
 
 class ProvincePress(unittest.TestCase):
@@ -700,8 +705,12 @@ class ProvincePress(unittest.TestCase):
         self.assertIn("province:울산광역시:184849", by)  # 석유화학 + 위기
         self.assertNotIn("province:울산광역시:184854", by)
         self.assertNotIn("province:충청남도:2185409", by)
-        self.assertEqual((check["status"], check["listed"], check["kept"]), ("ok", 5, 3))
+        self.assertEqual(by["province:울산광역시:184800"]["companies"], ["S-OIL"])  # 울산 2쪽('page' 칸)
+        self.assertEqual((check["status"], check["listed"], check["kept"]), ("ok", 6, 4))
         self.assertFalse(any(x["isNew"] for x in items))
+        seen = []
+        w.province(CFG, NOW, None, http(province_routes(seen=seen)))
+        self.assertEqual(seen, [("울산광역시", {}), ("울산광역시", {"page": 2}), ("울산광역시", {"page": 3}), ("충청남도", {"pageUnit": "30"})])
 
     def test_blocked_runner_is_unconfirmed_and_keeps_rows(self):
         first, _ = w.province(CFG, NOW, None, http(province_routes()))
