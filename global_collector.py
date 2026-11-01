@@ -87,6 +87,54 @@ def hits(patterns, text: str) -> int:
     return sum(1 for p in patterns if p.search(text))
 
 
+# 직접 출입처(AGENTS.md 목록)만 — 계열사·부분 일치는 빼고(포스코퓨처엠·포스코인터내셔널은 포스코가 아님, HD현대중공업·현대엔지니어링·
+# 두산밥캣은 출입처 아님), 긴 이름을 먼저 본다. 외신 출입처 항목은 오늘의 레이더(출입처 외신)와 자동 보도 대조에 오른다.
+BEAT_EN = [
+    (r"posco holdings", "포스코홀딩스"),
+    (r"posco(?!\s+(?:holdings|future\s*m|international|e&c|dx|steeleon|m-tech|eco))", "포스코"),
+    (r"hyundai steel", "현대제철"), (r"dongkuk\s+(?:cm|coated)", "동국씨엠"), (r"dongkuk(?!\s+(?:cm|coated))", "동국제강"),
+    (r"seah steel", "세아제강"), (r"seah holdings", "세아홀딩스"), (r"kg steel", "KG스틸"),
+    (r"korea zinc", "고려아연"), (r"young\s?poong", "영풍"), (r"ls\s?mnm", "LS MnM"),
+    (r"hd hyundai electric", "HD현대일렉트릭"), (r"ls electric", "LS일렉트릭"), (r"ls cable", "LS전선"), (r"taihan", "대한전선"),
+    (r"doosan enerbility|doosan(?!\s+(?:bobcat|robotics|fuel cell|tesna|corp))", "두산에너빌리티"),
+    (r"hanwha solutions|hanwha q\s?cells|\bq\s?cells\b", "한화솔루션"), (r"oci holdings|\boci\b", "OCI"), (r"gs caltex", "GS칼텍스"),
+    (r"hankook tire", "한국타이어"), (r"kumho tire", "금호타이어"), (r"nexen tire", "넥센타이어"),
+    (r"hyundai mobis", "현대모비스"), (r"hl mando|\bmando\b", "HL만도"), (r"hyundai wia", "현대위아"),
+    (r"kg mobility", "KG모빌리티"), (r"gm korea", "한국GM"), (r"renault korea", "르노코리아"),
+    (r"(?<!hd )hyundai(?:\s+motor)?(?!\s+(?:steel|mobis|wia|engineering|e&c|heavy|rotem|glovis|marine|merchant|card|capital|department|hope|transys|elevator|electric))", "현대차"),
+    (r"\bkia\b", "기아"),
+]
+BEAT_RE = [(re.compile(r"(?<![a-z0-9])" + p, re.I), ko) for p, ko in BEAT_EN]
+
+
+def beat_companies(text: str) -> list[str]:
+    out = []
+    for rx, ko in BEAT_RE:
+        if rx.search(text or "") and ko not in out:
+            out.append(ko)
+    return out
+
+
+# 국내 기사 제목에 나올 사건 낱말(한국어 제목에서 고른다) — 자동 보도 대조 검색어. 회사 이름에 든 낱말(한국'타이어')은 쓰지 않는다.
+KO_EVENTS = [("원자로", r"원자로|원전|SMR|소형모듈"), ("해상풍력", r"해상풍력"), ("해저케이블", r"해저\s?케이블|HVDC"), ("변압기", r"변압기"),
+             ("모노파일", r"모노파일"), ("제련소", r"제련"), ("관세", r"관세|반덤핑|상계"), ("리콜", r"리콜"), ("소송", r"소송|제소|고소"),
+             ("수주", r"수주|공급\s?계약"), ("공장", r"공장|생산기지|생산\s?시설|제조\s?시설"), ("투자", r"투자"), ("MOU", r"MOU|양해각서"),
+             ("입찰", r"입찰"), ("인수", r"인수|매각"), ("파업", r"파업|노조"), ("감산", r"감산|생산\s?중단|가동\s?중단"), ("ESS", r"ESS|에너지\s?저장"),
+             ("태양광", r"태양광|폴리실리콘"), ("철강", r"철강|강판|열연|냉연"), ("배터리", r"배터리"), ("타이어", r"타이어")]
+
+
+def check_terms(ko_title: str, companies: list[str]) -> list[str]:
+    out = []
+    for term, pat in KO_EVENTS:
+        if any(term in c for c in companies):
+            continue
+        if re.search(pat, ko_title or "") and term not in out:
+            out.append(term)
+        if len(out) == 2:
+            break
+    return out
+
+
 def title_only(summary: str, title: str) -> bool:
     """구글 뉴스 RSS 설명 칸은 '제목 + 매체 이름'뿐이다 — 이걸 '요약'으로 번역하지 않는다(11-01: 요약 칸이 제목 번역 되풀이)."""
     norm = lambda t: re.sub(r"[^a-z0-9]+", "", (t or "").lower())
@@ -244,7 +292,8 @@ def parse_publisher(source: str, url: str) -> list[dict]:
                      "globalSource": source, "summary": "", "globalScore": scored[0], "koTitle": "", "koSummary": "",
                      "translationStatus": "not_attempted_until_deduplication", "articleText": body[:2000], "summarySource": f"{source} RSS",
                      "globalWhy": "한국 자동차·부품·배터리·전력·에너지 산업과 연결되거나 글로벌 공급망·통상·생산 변화가 큰 해외 신호입니다.",
-                     "globalBeat": scored[1] > 0 and source in STRICT_KOREA, "globalPitch": scored[0] >= 70})
+                     "globalBeat": scored[1] > 0 and source in STRICT_KOREA, "globalPitch": scored[0] >= 70,
+                     "beatCompanies": beat_companies(title + " " + body[:1500])})
     GLOBAL_FEED_CHECKS.append({"category": source[:40], "globalFeed": True, "status": "checked_recent_rows" if rows else "checked_no_recent_rows",
                                "recentRows": min(100, len(rows)), "errorType": None, "durationMs": min(600000, int((time.monotonic() - started) * 1000))})
     return rows
@@ -261,7 +310,8 @@ def attach_publisher_text(google_rows: list[dict], publisher_rows: list[dict]) -
         k = title_key(g.get("title", ""))
         p = by_key.get(k)
         if p and k:
-            g = {**g, "url": p["url"], "articleText": p["articleText"], "summarySource": p["summarySource"]}
+            g = {**g, "url": p["url"], "articleText": p["articleText"], "summarySource": p["summarySource"],
+                 "beatCompanies": list(dict.fromkeys((g.get("beatCompanies") or []) + (p.get("beatCompanies") or [])))}
             used.add(k)
         out.append(g)
     out += [p for k, p in by_key.items() if k not in used]
@@ -346,6 +396,7 @@ def parse(source: str, query: str) -> list[dict]:
             "globalWhy": ("출입처 관련 해외 보도" if source.startswith("출입처") else
                           "한국 자동차·부품·배터리 산업과 연결되거나 글로벌 공급망·통상·생산 변화가 큰 해외 신호입니다."),
             "globalBeat": source.startswith("출입처"),
+            "beatCompanies": beat_companies(title + " " + desc),
             "globalPitch": score >= 70,
         })
     GLOBAL_FEED_CHECKS.append({
@@ -354,6 +405,30 @@ def parse(source: str, query: str) -> list[dict]:
         "recentRows":min(100,len(rows)),"errorType":None,
         "durationMs":min(600000,int((time.monotonic()-started)*1000))})
     return rows
+
+
+def push_beat(rows: list[dict], stamp: str) -> None:
+    """직접 출입처 이름이 나온 외신만 기자 전용 저장소(global-beat)로 — 오늘의 레이더 '출입처 외신'과 자동 보도 대조가 읽는다.
+    공개 자료(외신 제목·한국어 요약)라도 레이더 판단과 함께 보이므로 저장소로 보낸다. 공개 로그는 건수만."""
+    import os
+    token = os.environ.get("MCP_ACCESS_TOKEN", "").strip()
+    if not token:
+        return
+    from scripts import private_store
+    items = [{"id": "gl:" + __import__("hashlib").sha1(x["url"].encode()).hexdigest()[:12], "url": x["url"], "title": x.get("title", ""),
+              "koTitle": x.get("koTitle", ""), "koSummary": (x.get("koSummary") or "")[:500], "source": x.get("sourceName") or x.get("globalSource"),
+              "published": x.get("published"), "firstSeen": x.get("firstSeen"), "beatCompanies": x.get("beatCompanies") or [],
+              "checkTerms": x.get("checkTerms") or []} for x in rows if x.get("beatCompanies")]
+    refused = sorted({c["category"] for c in GLOBAL_FEED_CHECKS if c.get("status") == "transport_or_xml_error"})
+    doc = {"schema": "global_beat/v1", "generatedAt": stamp, "items": items, "checks": [{"source": "외신 수집", "status": "ok"}],
+           "feedErrors": refused,
+           "rules": ["해외 매체 기사(구글 뉴스·매체 RSS) 중 직접 출입처 이름이 나온 것만. 제목·요약은 AI 번역·요약이라 원문 확인.",
+                     "사건 낱말(공장·투자·수주·원자로 등)이 한국어 제목에 있으면 B(자동 보도 대조), 없으면 참고(C)."]}
+    try:
+        status = private_store.put("global-beat", doc, token)
+        print(f"global beat push: {len(items)} items, HTTP {status}")
+    except Exception as exc:  # noqa: BLE001
+        print(f"::warning title=global-beat-push::기자 전용 저장소 전송 실패({type(exc).__name__}) — 레이더의 출입처 외신은 이전 결과")
 
 
 def unexpected_feed_error(category,is_global,error_type):
@@ -394,6 +469,14 @@ def main() -> None:
     # Do not overwrite previously verified worldwide stories with a blackout.
     if not unique:
         raise SystemExit("No translated global stories: previous news dataset preserved")
+
+    # 처음 본 시각(주소 기준)과 자동 보도 대조 낱말
+    stamp=datetime.now(KST).isoformat(timespec="seconds")
+    seen_at={x.get("url"):x.get("firstSeen") for x in previous_global if isinstance(x,dict) and x.get("firstSeen")}
+    for x in unique:
+        x["firstSeen"]=seen_at.get(x.get("url")) or stamp
+        x["checkTerms"]=check_terms(x.get("koTitle",""),x.get("beatCompanies") or []) if x.get("beatCompanies") else []
+    push_beat(unique,stamp)
 
     merged = domestic + unique
     merged.sort(key=lambda x: x.get("published", ""), reverse=True)

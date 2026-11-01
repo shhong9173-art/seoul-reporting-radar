@@ -115,6 +115,48 @@ class GlobalCollectorBeatTests(unittest.TestCase):
         self.assertNotIn("Automotive News Europe",gc.STRICT_KOREA)   # 자동차 매체는 자동차 기준 그대로
         self.assertGreaterEqual(gc.hits(gc.INDUSTRY_RE,"ls cable wins hvdc subsea cable order for offshore wind"),3)
 
+    def test_beat_companies_direct_list_only(self):
+        f=gc.beat_companies
+        self.assertEqual(f("Doosan to manufacture upper reactor vessel for NuScale SMR"),["두산에너빌리티"])
+        self.assertEqual(f("Doosan Bobcat posts record sales"),[])
+        self.assertEqual(f("POSCO Future M signs cathode deal"),[])                       # 포스코퓨처엠은 포스코 아님
+        self.assertEqual(f("POSCO Holdings and Hyundai Steel weigh US mill"),["포스코홀딩스","현대제철"])
+        self.assertEqual(f("HD Hyundai Heavy wins LNG carrier order"),[])                 # HD현대중공업 아님
+        self.assertEqual(f("Hyundai Engineering agrees to cooperate with US SMR developers"),[])
+        self.assertEqual(f("Hyundai to invest US$450m in Alabama plant; Kia recalls EV9"),["현대차","기아"])
+        self.assertEqual(f("HD Hyundai Electric wins transformer order"),["HD현대일렉트릭"])
+        self.assertEqual(f("LS Cable and Taihan bid for HVDC link; Q Cells expands Georgia"),["LS전선","대한전선","한화솔루션"])
+        self.assertEqual(f("Social impact of associated costs"),[])                        # oci 부분 일치 아님
+
+    def test_check_terms_from_korean_title(self):
+        self.assertEqual(gc.check_terms("두산, 뉴스케일 소형모듈원전 상부 원자로 용기 제작",["두산에너빌리티"]),["원자로"])
+        self.assertEqual(gc.check_terms("현대차, 4억5천만달러 앨라배마 공장 투자해 신형 투싼 생산",["현대차"]),["공장","투자"])
+        self.assertEqual(gc.check_terms("넥센타이어, 에코바디스 골드 3년 연속",["넥센타이어"]),[])          # 회사 이름에 든 '타이어'는 안 씀
+        self.assertEqual(gc.check_terms("현대차, 영국서 신형 아이오닉 6 가격 공개",["현대차"]),[])
+
+    def test_push_beat_sends_only_beat_items(self):
+        import os, types, sys as _sys
+        sent=[]
+        fake=types.SimpleNamespace(put=lambda name,doc,token: sent.append((name,doc,token)) or 200)
+        os.environ["MCP_ACCESS_TOKEN"]="t"*20
+        _sys.modules["scripts.private_store"]=fake
+        import scripts
+        orig=getattr(scripts,"private_store",None)
+        scripts.private_store=fake
+        try:
+            rows=[{**item("Doosan wins SMR vessel order","https://w/a"),"beatCompanies":["두산에너빌리티"],"checkTerms":["원자로"],"koTitle":"두산, SMR 용기 수주","firstSeen":"2026-11-01T09:00:00+09:00"},
+                  {**item("CATL opens plant","https://w/b"),"beatCompanies":[]}]
+            gc.push_beat(rows,"2026-11-01T09:00:00+09:00")
+        finally:
+            os.environ.pop("MCP_ACCESS_TOKEN",None)
+            if orig is not None: scripts.private_store=orig
+            _sys.modules.pop("scripts.private_store",None)
+        self.assertEqual(len(sent),1)
+        name,doc,_=sent[0]
+        self.assertEqual((name,doc["schema"],[x["url"] for x in doc["items"]]),("global-beat","global_beat/v1",["https://w/a"]))
+        self.assertTrue(doc["items"][0]["id"].startswith("gl:"))
+        self.assertEqual(doc["items"][0]["checkTerms"],["원자로"])
+
     def test_beat_queries_cover_non_auto_beats(self):
         q = " ".join(x[1] for x in gc.QUERIES)
         for name in ("Hyundai Steel", "Korea Zinc", "LS Electric", "HD Hyundai Electric", "LS Cable", "Hanwha Qcells", "GS Caltex", "Hankook Tire"):

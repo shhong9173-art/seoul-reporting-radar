@@ -60,7 +60,7 @@ function filtered(){
   if(view==='exclusive')a=a.filter(x=>isAutomotiveExclusive(x)||isIndustrialExclusive(x));
   if(view==='follow')a=a.filter(x=>x.followUp&&!x.global);
   if(view==='competition')a=a.filter(x=>(x.clusterCount||1)>=2&&!x.global);
-  if(view==='global')a=a.filter(x=>x.global);
+  if(view==='global')a=a.filter(x=>x.global&&(!globalBeatOnly||(x.beatCompanies||[]).length));
   if(view==='company'&&company)a=a.filter(x=>(x.companies||[]).includes(company));
   if(cat)a=a.filter(x=>x.category===cat);
   if(query){const q=query.toLowerCase();a=a.filter(x=>(titleOf(x)+' '+summaryOf(x)+' '+x.sourceName+' '+x.category+' '+(x.companies||[]).join(' ')).toLowerCase().includes(q));}
@@ -71,7 +71,15 @@ function filtered(){
 function article(x){
   const score=view==='today'?unifiedScore(x):(x.score||x.industryPriorityScore||0);
   const industryLabel=x.industrySource?'<span class="tag">'+esc(x.category)+'</span>':'';
-  return '<article class="card '+cls(x)+'" onclick="openItem(\''+esc(x.id)+'\')"><div class="card-top"><span class="badge '+cls(x)+'">'+badge(x)+'</span><span class="score">'+score+'점</span></div><div class="meta"><b>'+esc(beatOf(x))+'</b> · '+esc(x.sourceName)+' · '+esc(x.publishedLabel||x.published)+' · '+esc(x.category)+'</div><div class="title">'+esc(titleOf(x))+'</div>'+(x.global&&x.title!==x.koTitle?'<div class="muted" style="font-size:11px;margin-bottom:7px">원문: '+esc(x.title)+(x.translationStatus==='translated_fallback'?' · 보조 번역기(품질 낮음 — 다음 수집 때 다시 번역)':x.translationStatus==='translated_ai'?' · AI 자동 번역 — 사실은 원문으로 확인':'')+(x.summaryTranslationStatus==='summarized_ai'?' · 요약은 '+(x.summarySource||'매체 RSS')+' 본문 발췌로 AI가 만든 것':'')+'</div>':'')+'<div class="summary"><b class="why">'+esc(view==='today'?priorityReason(x):(x.whyNow||''))+'</b><br>'+esc(summaryOf(x))+'</div><div class="signal-row"><span class="signal">이슈 '+esc(x.clusterId||'-')+'</span><span class="signal">관련 '+(x.clusterCount||1)+'건</span>'+(hasConcrete(x)?'<span class="signal">숫자 확인</span>':'')+(x.earliestObservedSource?'<span class="signal">최초 '+esc(x.earliestObservedSource)+'</span>':'')+'</div><div class="bottom">'+industryLabel+(x.companies||[]).slice(0,5).map(t=>'<span class="tag">'+esc(t)+'</span>').join('')+(x.tags||[]).slice(0,4).map(t=>'<span class="tag">'+esc(t)+'</span>').join('')+'</div></article>';
+  return '<article class="card '+cls(x)+'" onclick="openItem(\''+esc(x.id)+'\')"><div class="card-top"><span class="badge '+cls(x)+'">'+badge(x)+'</span><span class="score">'+score+'점</span></div><div class="meta"><b>'+esc(beatOf(x))+'</b> · '+esc(x.sourceName)+' · '+esc(x.publishedLabel||x.published)+' · '+esc(x.category)+'</div><div class="title">'+esc(titleOf(x))+'</div>'+(x.global&&x.title!==x.koTitle?'<div class="muted" style="font-size:11px;margin-bottom:7px">원문: '+esc(x.title)+(x.translationStatus==='translated_fallback'?' · 보조 번역기(품질 낮음 — 다음 수집 때 다시 번역)':x.translationStatus==='translated_ai'?' · AI 자동 번역 — 사실은 원문으로 확인':'')+(x.summaryTranslationStatus==='summarized_ai'?' · 요약은 '+(x.summarySource||'매체 RSS')+' 본문 발췌로 AI가 만든 것':'')+'</div>':'')+'<div class="summary"><b class="why">'+esc(view==='today'?priorityReason(x):(x.whyNow||''))+'</b><br>'+esc(summaryOf(x))+'</div><div class="signal-row"><span class="signal">이슈 '+esc(x.clusterId||'-')+'</span><span class="signal">관련 '+(x.clusterCount||1)+'건</span>'+(hasConcrete(x)?'<span class="signal">숫자 확인</span>':'')+(x.earliestObservedSource?'<span class="signal">최초 '+esc(x.earliestObservedSource)+'</span>':'')+'</div><div class="bottom">'+industryLabel+((x.global?x.beatCompanies:null)||x.companies||[]).slice(0,5).map(t=>'<span class="tag">'+esc(t)+'</span>').join('')+(x.tags||[]).slice(0,4).map(t=>'<span class="tag">'+esc(t)+'</span>').join('')+'</div></article>';
+}
+// 외신 화면 '출입처만'(11-01): 직접 출입처 이름이 나온 외신만(global_collector.py beatCompanies)
+let globalBeatOnly=false;
+function globalBar(){
+  const all=items.filter(x=>x.global),beat=all.filter(x=>(x.beatCompanies||[]).length);
+  const b=(on,label,val)=>'<button type="button" class="secondary" style="padding:7px 12px;'+(on?'border-color:#17202a;font-weight:700':'')+'" onclick="globalBeatOnly='+val+';render()">'+label+'</button>';
+  return '<div class="card" style="cursor:auto;display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:12px 14px">'+b(!globalBeatOnly,'전체 '+all.length,'false')+b(globalBeatOnly,'출입처만 '+beat.length,'true')+
+    '<span class="muted" style="font-size:12px">제목·요약은 AI 번역·요약 — 숫자·이름은 원문 확인. 출입처 외신은 오늘의 레이더(단독감·미보도 탭)에 올라 자동 보도 대조를 거친다.</span></div>';
 }
 function render(){
   const cards=$('#cards');
@@ -80,7 +88,7 @@ function render(){
   if(view==='calls')return renderCalls();
   if(view==='company'&&!company)return renderCompanies();
   const a=filtered();
-  cards.innerHTML=a.length?a.map(article).join(''):'<div class="card"><div class="summary">현재 조건에 맞는 기사가 없습니다.</div></div>';
+  cards.innerHTML=(view==='global'?globalBar():'')+(a.length?a.map(article).join(''):'<div class="card"><div class="summary">현재 조건에 맞는 기사가 없습니다.</div></div>');
   $('#resultCount').textContent=a.length+'건';
 }
 function renderCalls(){
