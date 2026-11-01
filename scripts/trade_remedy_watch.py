@@ -329,7 +329,6 @@ RATE_ROW = re.compile(r"^(?P<name>[A-Za-z0-9(].*?)\s*\.{3,}\s*(?P<val>\d{1,3}(?:
 FOOTNOTE = re.compile(r"\\\s*\d+\s*\\")
 SEPARATOR = re.compile(r"^-{20,}$")
 OTHERS = re.compile(r"Not Selected|Non-Selected|Non-Examined|All[- ]Others|Review-Specific", re.I)
-NONSELECTED_HEAD = re.compile(r"(?:Companies|Respondents)\s+(?:Not Selected|Under Review Not Selected)|Non-(?:Selected|Examined)\s+(?:Companies|Respondents)", re.I)
 RATE_STAGE = re.compile(r"Final Results|Final Determination|Amended Final", re.I)
 RATE_TITLE = re.compile(r"Preliminary Results|Final Results|Preliminary Determination|Final Determination|Amended Final", re.I)
 # 일몰 재심(조사 당시 마진을 다시 적는다)·우회·범위 판정은 직전 연례 재심 세율과 견주지 않는다
@@ -372,16 +371,36 @@ def rate_rows(text):
 
 
 def nonselected_beat(text):
-    """'Non-Selected Companies Under Review' 부록에 나온 출입처(비선정 업체 세율을 받는다)."""
-    text = text or ""
-    for m in NONSELECTED_HEAD.finditer(text):
-        start, end = text.rfind("\n", 0, m.start()) + 1, text.find("\n", m.end())
-        line = text[start: end if end >= 0 else len(text)]
-        if re.search(r"\.{3,}|\d\s*$", line):
-            continue   # 표의 '비선정 업체' 줄이지 부록 제목이 아니다
-        seg = re.split(r"\[FR Doc\.|BILLING CODE|\nAppendix\s+[IVX]+\b", text[m.end(): m.end() + 6000])[0]
-        return [name for name, rx in BEAT_NAMES if re.search(rx, seg, re.I)]
+    """비선정 업체 세율을 받는 출입처 — 제목에 'Not Selected·Non-Selected·Non-Examined'가 든 부록의 목록.
+    11-01 운영: 10-08 반덤핑 예비 부록 II 제목이 'Review-Specific Rate Applicable to Companies Not Selected for / Individual Review'
+    (현대제철·포스코·세아제강), 부록 III 'Companies With No Reviewable Entries'(동국제강 등, 재심 취소)는 세율을 받지 않는다."""
+    for seg in re.split(r"\n\s*Appendix\s+[IVX]+\b\s*[-—:.]?\s*", "\n" + (text or ""))[1:]:
+        seg = re.split(r"\[FR Doc\.|BILLING CODE", seg)[0]
+        title = " ".join(ln.strip() for ln in seg.strip().splitlines()[:2] if not re.match(r"\s*\d+\.\s", ln))
+        if re.search(r"Not Selected|Non-Selected|Non-Examined", title, re.I) and not re.search(r"No Reviewable|Rescind", title, re.I):
+            return [name for name, rx in BEAT_NAMES if re.search(rx, seg, re.I)]
     return []
+
+
+ALIAS = re.compile(r"([A-Z][A-Za-z0-9&.,'/\- ]{2,90}?)\s*\((?:``)?([A-Z][A-Za-z0-9&\- ]{1,30}?)(?:'')?\)")
+
+
+def aliases(text):
+    """본문이 정한 줄임말 → 출입처('SeAH Steel Corporation (SeAH)' → SeAH: 세아제강). 그 고시 안에서만 쓴다."""
+    out = {}
+    for full, short in ALIAS.findall(re.sub(r"\s+", " ", text or "")):
+        if any(re.search(rx, short, re.I) for _, rx in BEAT_NAMES):
+            continue   # 줄임말이 이미 출입처 이름이면 그대로 맞는다
+        # 괄호 바로 앞 회사 이름만(뒤에 'Co., Ltd.' 같은 꼬리만 남을 때) — 'Hyundai Steel and Dongbu Incheon (Dongbu Incheon)'은 아님
+        best = None
+        for name, rx in BEAT_NAMES:
+            for m in re.finditer(rx, full, re.I):
+                tail = full[m.end():]
+                if len(tail) <= 40 and not re.search(r"\b(?:and|or|with|to)\b|[;:]", tail, re.I) and (best is None or m.end() > best[1]):
+                    best = (name, m.end())
+        if best and short.strip() not in out:
+            out[short.strip()] = best[0]
+    return out
 
 
 def rate_table(text, title):
@@ -389,21 +408,23 @@ def rate_table(text, title):
     rows = rate_rows(text)
     if not rows:
         return None
-    rates, others = {}, None
+    rates, others, short = {}, None, aliases(text)
     for name, val in rows:
         if OTHERS.search(name):
             others = val if others is None else others
             continue
-        for company, rx in BEAT_NAMES:
-            if re.search(rx, name, re.I) and company not in rates:
+        hits = [company for company, rx in BEAT_NAMES if re.search(rx, name, re.I)] or ([short[name]] if name in short else [])
+        for company in hits:
+            if company not in rates:
                 rates[company] = {"rate": val, "name": name[:120], "via": "표"}
     if others is not None:
         for company in nonselected_beat(text):
             rates.setdefault(company, {"rate": others, "name": "비선정 업체", "via": "비선정"})
-    return {"kind": duty_kind(title), "rates": rates, "othersRate": others, "rows": len(rows)}
+    return {"kind": duty_kind(title), "rates": rates, "othersRate": others, "rows": len(rows), "v": RATE_RULES}
 
 
 PRIOR_BUDGET = 6   # 직전 판정 원문 읽기(실행당)
+RATE_RULES = 2     # 세율 읽는 규칙을 바꾸면 올린다 — 저장된 세율·직전 판정을 다시 읽는다(v2: 비선정 부록 제목·본문 줄임말)
 
 
 def prior_rates(row, dockets, *, get, sleep, budget):
@@ -512,6 +533,9 @@ def federal_register(now, previous=None, *, get=None, sleep=time.sleep):
         for k in ("named", "memoTopics", "memoNamed", "memoUnusual", "rateTable", "prior"):
             if k in old:
                 row[k] = old[k]
+        if (row.get("rateTable") or {}).get("v") != RATE_RULES:
+            row.pop("rateTable", None)
+            row.pop("prior", None)
         results = in_title and bool(RATE_TITLE.search(title))
         wants_memo = in_title and bool(re.search(r"Results|Determination", title)) and "memoTopics" not in row
         wants_rates = results and "rateTable" not in row   # 세율 규칙 전에 읽은 고시도 한 번 다시 읽는다
@@ -529,7 +553,7 @@ def federal_register(now, previous=None, *, get=None, sleep=time.sleep):
                 elif wants_memo:
                     row["memoTopics"] = []
                 if results:
-                    row["rateTable"] = rate_table(lines, title) or {"kind": duty_kind(title), "rates": {}, "othersRate": None, "rows": 0}
+                    row["rateTable"] = rate_table(lines, title) or {"kind": duty_kind(title), "rates": {}, "othersRate": None, "rows": 0, "v": RATE_RULES}
             else:
                 row["bodyError"] = err
         table = row.get("rateTable") or {}
