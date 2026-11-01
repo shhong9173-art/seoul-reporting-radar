@@ -378,6 +378,13 @@ class MotirWatch(unittest.TestCase):
         for title in ("(참고자료)EU, 수입 하이브리드 자동차에 대한 글로벌 세이프가드 조사 개시", "외국의 통상조치로 인한 피해까지 지원대상 늘린다",
                       "민관 원팀으로 중동發 공급망 위기 넘어, 구조개편 가속화로 화학산업 재도약 다짐", "K-원전, 글로벌 공급망에 올라탄다!"):
             self.assertTrue(w.motir_topic(title), title)
+
+    def test_refining_titles_are_beat_topics(self):
+        # 11-01 출입처에 정유 3사(S-OIL·SK이노베이션·HD현대오일뱅크) 추가 — 정유·원유·나프타 제목도 업종 안
+        for title in ("정유업계 간담회 개최, 중동 정세에 따른 석유제품 수급 점검", "나프타 수입선 다변화 지원", "국제유가 급등 대비 원유 비축 방출 검토"):
+            self.assertTrue(w.motir_topic(title), title)
+        for title in ("유가족 지원 협약 체결", "K-뷰티 수출 상담회 개최"):
+            self.assertFalse(w.motir_topic(title), title)
         # 예전 실행이 남긴 업종 밖 줄도 걸러진다(출입처 이름이 있으면 둔다)
         prev = {"motir": [{"id": "motir:1", "title": "통상교섭본부장, K-콘텐츠 기업과 함께", "date": "2026-10-30", "companies": []},
                           {"id": "motir:2", "title": "현대차, 바이오 연료 실증", "date": "2026-10-30", "companies": ["현대차"]}]}
