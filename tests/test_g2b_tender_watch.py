@@ -103,6 +103,26 @@ class Tender(unittest.TestCase):
    refusals.append(uri);raise p.ProviderError("HTTP 403")
   with self.assertRaises(p.ProviderCallsFailed):p.build("fake-key",get=refused,now=NOW,sleep=lambda s:None)
   self.assertEqual(len(refusals),2)  # 물품·공사 한 번씩만(거절은 다시 부르지 않음)
+ def test_gateway_hiccup_is_retried_once_after_30s_but_key_refusal_is_not(self):
+  # 11-01: 10-31 14:55 물품·공사 둘 다 'gateway non-JSON response' — 다음 실행(10-30 16:08 등)엔 정상인 일시 장애
+  calls=[];waits=[]
+  def hiccup(uri):
+   calls.append(uri)
+   if sum("Cnstwk" in c for c in calls)==1 and "Cnstwk" in uri:raise p.ProviderError("gateway non-JSON response (HTML 'Service Unavailable' 512B)")
+   return make()
+  out=p.build("fake-key",get=hiccup,now=NOW,sleep=waits.append)
+  self.assertEqual([c["status"] for c in out["checks"]],["checked","checked"])
+  self.assertEqual(waits,[p.GATEWAY_WAIT])
+  for msg in ("gateway 05 SERVICE_TIMEOUT","HTTP 503"):
+   self.assertTrue(p.transient_gateway(p.ProviderError(msg)))
+  for msg in ("gateway 22 LIMITED_NUMBER_OF_SERVICE_REQUESTS_EXCEEDS_ERROR","gateway 30 SERVICE_KEY_IS_NOT_REGISTERED_ERROR","HTTP 403"):
+   self.assertFalse(p.transient_gateway(p.ProviderError(msg)))
+ def test_non_json_body_shape_has_no_url_or_key(self):
+  self.assertEqual(p.body_shape(""),"empty")
+  self.assertEqual(p.body_shape("<html><head><title>Service Unavailable</title></head><body>x</body></html>")[:27],"HTML 'Service Unavailable' ")
+  self.assertTrue(p.body_shape("<?xml version='1.0'?><OpenAPI_ServiceResponse>").startswith("XML <OpenAPI_ServiceResponse>"))
+  self.assertNotIn("abc",p.body_shape("<title>serviceKey=abc</title>"))
+  self.assertEqual(p.body_shape("plain serviceKey=abc"),"text 20B")   # 본문 글자는 남기지 않는다
  def test_window_ends_before_run_time_not_midnight(self):
   seen=[]
   def fake(uri):
