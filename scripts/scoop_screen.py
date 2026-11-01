@@ -61,7 +61,17 @@ BOILER = re.compile(
     r"사업의\s*내용|분기|반기|누적|전년|대비|기준|현황|정보|제출|기업|계획|PBR\s*개선|주요|단일판매ㆍ공급계약|"
     r"단일판매·공급계약|특수관계인(?:에대한|으로부터)?|대량보유\(5%\)|임원[·ㆍ]\s*주요주주|"
     # 레이더가 붙인 안내 문구(10-31 운영: '두산에너빌리티 항목 대조'·'현대모비스 분할 항목'으로 검색)
-    r"항목\s*대조\s*필요")
+    r"항목\s*대조\s*필요|"
+    # 해외 단서 꼬리표(11-01 운영: 미국 관보 열연 상계관세 단서를 '포스코 문서'·'포스코 문서 명시적'으로 찾아 '미보도 후보' A)
+    r"명시적\s*법인명\s*언급|법인명\s*언급|명시적|단서")
+# 영어 원문 제목의 사건·품목 낱말 → 국내 기사 낱말. 영어 낱말은 국내 제목에 안 나오니 버리기 전에 바꿔 둔다(무역구제 먼저, 품목, 단계).
+EN_EVENTS = [(re.compile(rx, re.I), ko) for rx, ko in (
+    (r"countervailing", "상계관세"), (r"anti-?dumping", "반덤핑"), (r"safeguard", "세이프가드"), (r"circumvention", "우회수출"),
+    (r"hot-rolled", "열연"), (r"cold-rolled", "냉연"), (r"corrosion-resistant", "도금강판"), (r"oil country tubular", "유정용강관"),
+    (r"power transformers?", "변압기"), (r"rebar|reinforcing bar", "철근"), (r"cut-to-length plate", "후판"), (r"stainless", "스테인리스"),
+    (r"welded (?:line )?pipe|line pipe|pipe and tube", "강관"), (r"rubber", "합성고무"), (r"polyethylene terephthalate|\bPET resin", "PET"),
+    (r"administrative review", "연례재심"), (r"sunset review|five-year review|expedited sunset", "일몰재심"))]
+EN_REMEDY = {"상계관세", "반덤핑", "세이프가드", "우회수출"}
 STOP = {"공급계약", "공시", "회사", "국내", "해외", "기타", "합계", "제품", "사업", "부문", "대한", "관한", "통해",
         "에서", "으로", "그리고", "보고", "건", "등", "및", "의", "수", "약", "총", "이를", "위한", "통한", "있는", "하는",
         "따른", "대해", "관련된", "포함", "이상", "이하", "경우", "방법", "장치", "시스템"}
@@ -178,6 +188,9 @@ def terms_from(text, company):
     for a in sorted(set(aliases(company) + [company] + list(LEGAL)), key=len, reverse=True):
         t = t.replace(a, " ")
     t = BOILER.sub(" ", t)
+    en = [ko for rx, ko in EN_EVENTS if rx.search(t)]
+    if set(en) & EN_REMEDY:   # 품목만('Hot-Rolled Steel From Korea')으로는 '포스코 열연' 같은 넓은 검색이 된다 — 무역구제 낱말이 있을 때만
+        t = " ".join(en) + " " + t
     t = re.sub(r"[\[\](){}<>·ㆍ—\-–/,:;|~→+%=\"'“”‘’…]", " ", t)
     words = []
     for w in t.split():

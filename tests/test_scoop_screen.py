@@ -44,6 +44,21 @@ class Numbers(unittest.TestCase):
         self.assertIn("2.1배", s.ratio_forms("228651", "484052"))
 
 
+class EnglishTradeTitles(unittest.TestCase):
+    def test_trade_remedy_words_become_korean_query_words(self):
+        # 11-01 운영: 미국 관보 열연 상계관세 단서를 '포스코 문서'·'포스코 문서 명시적'으로 찾아 '미보도 후보' A
+        # (같은 고시는 10-23·10-28 경쟁지 [단독]이 있었다)
+        t = ("Certain Hot-Rolled Steel Flat Products From the Republic of Korea: Final Results of Countervailing Duty "
+             "Administrative Review; 2023 — 공식 문서 명시적 법인명 언급 (단서)")
+        c = s.from_clue({"id": "x", "companies": ["포스코"], "title": t, "url": "https://www.federalregister.gov/x",
+                         "source": "OVERSEAS", "tier": "취재 단서·단독 미확정"})
+        self.assertEqual(c["terms"][:3], ["상계관세", "열연", "연례재심"])
+        self.assertEqual(s.queries(c), ["포스코 상계관세", "포스코 상계관세 열연"])
+        self.assertNotIn("명시적", c["terms"])
+        self.assertEqual(s.terms_from("Large Power Transformers From the Republic of Korea: Preliminary Results of Antidumping "
+                                      "Duty Administrative Review", "HD현대일렉트릭")[:2], ["반덤핑", "변압기"])
+
+
 class Selection(unittest.TestCase):
     def test_strong_and_fresh_clues_and_strong_stats_only(self):
         rows = s.select(CLUES, STATS, now=NOW)
