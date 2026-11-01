@@ -58,6 +58,9 @@ function isFresh(x, cut, cutDay, base, dateKey) {
   const seen = Date.parse(x.firstSeen);
   const own = String(x[dateKey] ?? '').slice(0, 10);
   if (own && own >= cutDay) return true;
+  // 감시 도중 더한 출입처·원천의 첫 읽기(항목에 baseline: true)는 그 항목 날짜로만 센다
+  // (11-01: 석유화학 6곳을 더한 첫 실행에 롯데케미칼 6월 의견서 3건이 오늘 B로 떴다).
+  if (x.baseline === true) return false;
   return Number.isFinite(seen) && seen >= cut && !(base !== null && Math.abs(seen - base) < 120000);
 }
 

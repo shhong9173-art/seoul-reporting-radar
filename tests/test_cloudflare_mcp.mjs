@@ -1202,7 +1202,11 @@ test('radar_today merges the private watches, ranks new items and lists failed o
       holding: "Sustaining the Department of Commerce's second remand redetermination in its countervailing duty order review.", holdingKo: '유지',
       reading: '원고 쪽 청구가 받아들여지지 않았다는 뜻으로 읽힘(판결문 본문 확인 전)', url: 'https://cl/op1' },
       { id: 'op:0', beat: ['현대제철'], courtId: 'cafc', caseName: 'Old v. United States', role: '피고·참가인 등', dateFiled: '2026-10-01', firstSeen: base }] });
-  await post('us-comments', { schema: 'us_comments/v1', generatedAt: '2026-10-22T08:20:00+09:00', checks: [], items: [] });
+  // 11-01: 감시 도중 더한 회사의 첫 읽기(baseline: true)는 오래된 의견서라면 새 항목이 아니다
+  await post('us-comments', { schema: 'us_comments/v1', generatedAt: '2026-10-22T08:20:00+09:00', checks: [], items: [
+    { id: 'OLD-1', company: '기아', submitter: 'Kia America', agency: 'EPA', postedDate: '2026-05-01', firstSeen: '2026-10-20T08:20:00+09:00' },
+    { id: 'USTR-1', company: '롯데케미칼', submitter: 'Lotte Chemical California, Inc.', agency: 'USTR', postedDate: '2026-06-03', firstSeen: '2026-10-25T08:20:00+09:00', baseline: true },
+    { id: 'EPA-2', company: '현대차', submitter: 'Hyundai Motor Group', agency: 'EPA', postedDate: '2026-10-20', firstSeen: '2026-10-25T08:20:00+09:00' }] });
   await post('page-watch', { schema: 'page_watch/v1', generatedAt: '2026-10-26T06:30:00+09:00', pages: [],
     events: [{ pageId: 'site:hyundaiusa.com', scope: 'site', company: '현대차', label: '현대차 미국 사이트 공통', detectedAt: '2026-10-25T18:30:00+09:00', added: { timing: ['Coming 2027'] } }] });
   await call('candidate_feedback', { item_id: 's2', verdict: '킬', reason: '이미 확인' }, opts);
@@ -1223,6 +1227,8 @@ test('radar_today merges the private watches, ranks new items and lists failed o
   const b = r.text.split('[B · ')[1].split('[C · ')[0];
   assert.match(b, /관보 입법예고 국토교통부/);
   assert.match(b, /미국 관보 예비 판정: Certain Steel From Korea — 본문에 현대제철/);
+  assert.match(b, /Hyundai Motor Group → EPA 의견서/);
+  assert.doesNotMatch(r.text, /Lotte Chemical California|Kia America → EPA/);
   assert.doesNotMatch(r.text, /오래된 고시|오래된 공고/);
   assert.match(r.text, /\[C · 참고\(접힘\)\] 3건/);
   const narrowed = await call('radar_today', { hours: 24, company: '세아' }, opts);

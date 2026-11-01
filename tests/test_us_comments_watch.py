@@ -71,6 +71,32 @@ class Comments(unittest.TestCase):
         self.assertEqual(q["api_key"], "KEY")
         self.assertEqual(q["filter[postedDate][ge]"], "2026-04-30")
 
+    def test_phrase_added_later_reads_old_comments_as_baseline(self):
+        # 11-01: 석유화학 6곳을 더한 첫 실행에 롯데케미칼 6월 의견서가 오늘 B로 떴다
+        later = dt.datetime(2026, 11, 2, 8, 20, tzinfo=KST)
+        lotte = {"data": [comment("USTR-2026-0232-0137", "Comment from Lotte Chemical California, Inc.", "2026-06-11"),
+                          comment("EPA-HQ-2026-0001-0009", "Comment from Lotte Chemical Corporation", "2026-10-30")]}
+        prev = {"items": [], "checks": [{"company": c, "phrase": ph, "status": "ok"} for c, ph, _ in w.COMPANIES
+                                          if ph != "Lotte Chemical"]}
+        doc = w.collect("KEY", now=later, previous=prev, get=fake({'"Lotte Chemical"': R(200, lotte)}, []), sleep=lambda s: None)
+        by = {x["id"]: x for x in doc["items"]}
+        self.assertEqual((by["USTR-2026-0232-0137"]["baseline"], by["USTR-2026-0232-0137"]["isNew"]), (True, False))
+        self.assertEqual((by["EPA-HQ-2026-0001-0009"]["baseline"], by["EPA-HQ-2026-0001-0009"]["isNew"]), (False, True))
+        # 다음 실행에도 기준선 표시는 이어진다
+        again = w.collect("KEY", now=later + dt.timedelta(days=1), previous=doc, get=fake({'"Lotte Chemical"': R(200, lotte)}, []),
+                          sleep=lambda s: None)
+        self.assertTrue(next(x for x in again["items"] if x["id"] == "USTR-2026-0232-0137")["baseline"])
+
+    def test_items_stored_new_on_1101_for_added_companies_are_repaired(self):
+        later = dt.datetime(2026, 11, 2, 8, 20, tzinfo=KST)
+        lotte = {"data": [comment("USTR-2026-0232-0106", "Comment from Lotte Chemical California, Inc.", "2026-06-03")]}
+        prev = {"items": [{"id": "USTR-2026-0232-0106", "company": "롯데케미칼", "firstSeen": "2026-11-01T16:40:12+09:00",
+                           "postedDate": "2026-06-03", "attachments": [], "excerpt": "x"}],
+                "checks": [{"company": c, "phrase": ph, "status": "ok"} for c, ph, _ in w.COMPANIES]}
+        doc = w.collect("KEY", now=later, previous=prev, get=fake({'"Lotte Chemical"': R(200, lotte)}, []), sleep=lambda s: None)
+        self.assertTrue(doc["items"][0]["baseline"])
+        self.assertFalse(doc["items"][0]["isNew"])
+
     def test_budget_marks_the_rest_as_skipped_not_zero(self):
         calls = []
         doc = w.collect("DEMO_KEY", now=NOW, get=fake({}, calls), sleep=lambda s: None, budget=w.Budget(3))

@@ -97,7 +97,8 @@ BROWSER_FRESH_MONDAY = 78  # 예약 작업은 평일 오전뿐: 월요일 오전
 
 
 def browser_limit(now):
-    return BROWSER_FRESH_MONDAY if now.weekday() == 0 and now.hour < 12 else BROWSER_FRESH_HOURS
+    # 예약 작업은 평일 오전뿐이라 토·일과 월요일 오전에는 금요일 수집까지 받아 준다(11-01 일요일 병합 실행: 5곳이 '48시간 전' 실패로 뜸)
+    return BROWSER_FRESH_MONDAY if now.weekday() >= 5 or (now.weekday() == 0 and now.hour < 12) else BROWSER_FRESH_HOURS
 
 
 def browser_rows(browser, city, now):

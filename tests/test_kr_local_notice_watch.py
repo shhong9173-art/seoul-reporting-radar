@@ -236,6 +236,9 @@ class Local(unittest.TestCase):
         monday, tuesday = dt.datetime(2026, 11, 2, 6, 30, tzinfo=KST), dt.datetime(2026, 11, 3, 6, 30, tzinfo=KST)
         self.assertIsNotNone(w.browser_rows(browser, "양산시", monday)[0])
         self.assertIsNone(w.browser_rows(browser, "양산시", tuesday)[0])
+        # 토·일도 금요일 수집을 받는다(11-01 일요일 병합 실행: 브라우저 5곳이 '48시간 전' 실패로 뜸)
+        sunday = dt.datetime(2026, 11, 1, 16, 36, tzinfo=KST)
+        self.assertIsNotNone(w.browser_rows(browser, "양산시", sunday)[0])
         browser["cities"][0]["error"] = "TypeError: Failed to fetch"
         self.assertIn("브라우저 수집 실패", w.browser_rows(browser, "양산시", NOW + dt.timedelta(hours=8))[1])
         del browser["cities"][0]["error"]
