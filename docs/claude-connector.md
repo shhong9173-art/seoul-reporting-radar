@@ -361,6 +361,7 @@
 - 들어간 곳: DART 공시·지배구조·단독 후보 이름표(#529), 굴뚝 측정·국민연금 사업장(#530, 회사별 첫 실행 기준선), 지자체 고시·전기위원회 허가(#531), 미국 관보·EDIS·무역협회 수입규제DB·미국 소송(CourtListener)·미국 규제 의견서(regulations.gov).
 - 영문 표기: LG Chem, Lotte Chemical, (Korea) Kumho Petrochemical, S-Oil(하이픈 필수 — 대소문자 무시라 'soil'이 걸린다), (HD) Hyundai Oilbank, SK Innovation. 금호타이어 규칙(Kumho)은 Kumho Petrochemical·Kumho P&B를 뺀다.
 - 미국 소송은 넷째 묶음 '석유화학·정유'로 따로 묻는다(LG Chem 배터리 상해 소송이 많아 다른 묶음 쪽수를 밀어내지 않게). 제조물책임은 C. 넷째 묶음이 늘린 호출은 실행 예산 24번 안에서 마지막으로 쓴다 — 예산이 바닥나면 그 묶음은 '일부'(0건 아님).
+- 국내: 공정위 의결서 회사 이름(엘지화학·롯데케미칼·금호석유화학·에쓰-오일·에이치디현대오일뱅크·에스케이이노베이션, 새 의결서부터), 월간 통계 출입처 표시(에틸렌·폴리에틸렌 생산·재고 = LG화학·롯데케미칼, 미국 수입 석유제품 HS 2710 = S-OIL·SK이노베이션·HD현대오일뱅크), 겹친 신호 장소(나주, 에이치디현대오일뱅크 굴뚝 = 서산).
 - 미국 관보 품목 낱말에 rubber·polypropylene·polyvinyl·polystyrene·acrylonitrile를 더했다(한국산 ITC 판정을 출입 품목으로 보는 기준, 예: 유화 스티렌부타디엔 고무).
 
 ## 겹친 신호(radar_today 맨 위, 기자 전용)
