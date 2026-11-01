@@ -44,12 +44,12 @@ SEEN_MAX = 400  # management numbers kept per city
 CITIES = [
     ("당진시", "https://eminwon.dangjin.go.kr", "현대제철·KG스틸·동국제강"),
     ("아산시", "https://eminwon.asan.go.kr", "현대차"),
-    ("여수시", "https://eminwon.yeosu.go.kr", "GS칼텍스·DL케미칼·한화솔루션"),
-    ("울주군", "http://eminwon.ulju.ulsan.kr", "고려아연·LS MnM·현대차"),
-    ("울산 남구", "https://eminwon.ulsannamgu.go.kr", "현대모비스·고려아연"),
+    ("여수시", "https://eminwon.yeosu.go.kr", "GS칼텍스·DL케미칼·한화솔루션·LG화학·롯데케미칼·금호석유화학"),
+    ("울주군", "http://eminwon.ulju.ulsan.kr", "고려아연·LS MnM·현대차·S-OIL(온산)"),
+    ("울산 남구", "https://eminwon.ulsannamgu.go.kr", "현대모비스·고려아연·롯데케미칼(울산)·금호석유화학(LATEX)"),
     ("군산시", "https://eminwon.gunsan.go.kr", "세아베스틸·OCI"),
     ("익산시", "http://eminwon.iksan.go.kr", "OCI"),
-    ("서산시", "https://eminwon.seosan.go.kr", "현대모비스·한화"),
+    ("서산시", "https://eminwon.seosan.go.kr", "현대모비스·한화·LG화학·롯데케미칼·HD현대오일뱅크(대산)"),
     ("화성시", "https://eminwon.hscity.go.kr", "기아"),
     ("금산군", "https://eminwon.geumsan.go.kr", "한국타이어"),
     ("대전 대덕구", "https://eminwon.daedeok.go.kr", "한국타이어"),
@@ -87,7 +87,7 @@ CITIES = [
 BROWSER_CITIES = [
     ("인천 부평구", "https://eminwon.icbp.go.kr", "한국GM(부평공장)"),
     ("구미시", "https://eminwon.gumi.go.kr", "LS전선(구미)"),
-    ("청주시", "https://www.cheongju.go.kr", "LS일렉트릭(청주)"),  # 홈페이지 고시공고 게시판(HOMEPAGE_BOARDS)
+    ("청주시", "https://www.cheongju.go.kr", "LS일렉트릭·LG화학(청주)"),  # 홈페이지 고시공고 게시판(HOMEPAGE_BOARDS)
     ("순천시", "https://eminwon.suncheon.go.kr", "현대제철(순천)"),
     ("함평군", "https://eminwon.hampyeong.go.kr", "금호타이어(함평 이전 공장)"),
 ]
@@ -134,6 +134,9 @@ COMPANIES = [
     ("두산에너빌리티", r"두산에너빌리티"), ("GS칼텍스", r"GS칼텍스|지에스칼텍스"), ("한화솔루션", r"한화솔루션"),
     ("OCI", r"OCI(?![A-Za-z])|오씨아이"), ("태광", r"태광산업"), ("동성케미칼", r"동성케미[칼컬]"), ("DL케미칼", r"DL케미칼|디엘케미칼"),
     ("효성중공업(관련)", r"효성중공업"),
+    # 11-01 기자 명시: 석유화학·정유
+    ("LG화학", r"LG화학|엘지화학"), ("롯데케미칼", r"롯데케미칼"), ("금호석유화학", r"금호석유화학|금호석화"),
+    ("S-OIL", r"S-OIL|S-Oil|(?<![가-힣])에쓰-?오일"), ("HD현대오일뱅크", r"현대오일뱅크"), ("SK이노베이션", r"SK이노베이션|에스케이이노베이션"),
 ]
 PROJECT = re.compile(r"증설|신설|신규|설치|건설|건립|공장|라인|환경영향평가|매립|산업단지|착공|확장|이전|안전점검|사업")
 GENERIC = re.compile(r"제철소|제련소|공장\s*(?:증설|신설|설립)|공장증설|산업단지\s*계획|일반산업단지|국가산업단지|산업단지.{0,12}(?:지정|변경|승인)|발전사업|전기사업|발전소\s*(?:건설|설치)")
