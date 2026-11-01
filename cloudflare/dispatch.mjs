@@ -8,16 +8,17 @@ const KST_MS = 9 * 3600000;
 const LOG_BLOB = 'dispatch_log';
 const LOG_KEEP = 200;
 
-// KST weekday (Mon–Fri) slots, matching each workflow's GitHub cron.
+// KST weekday (Mon–Fri) slots, matching each workflow's GitHub cron. `daily: true` slots also run on Sat·Sun:
+// 주말에 GitHub 예약만 믿던 매일 감시가 늦거나 빠졌다(10-31 토: OSHA 06:40 예약이 돌지 않음, EPA·연비는 3시간 반 늦게).
 export const SLOTS = [
   // 영국 Companies House: 영국 업무일이 끝난 뒤.
   { at: '06:00', workflow: 'overseas-registry.yml' },
-  { at: '06:10', workflow: 'kr-fuel.yml' },
+  { at: '06:10', workflow: 'kr-fuel.yml', daily: true },
   // EPA·vPIC: GitHub 예약('20 21 * * *')이 10-29 아침에 돌지 않았다.
-  { at: '06:20', workflow: 'us-epa.yml' },
+  { at: '06:20', workflow: 'us-epa.yml', daily: true },
   { at: '06:30', workflow: 'page-watch.yml' },
   // 미국 OSHA: 노동부 API는 매일 적재. 호출 간 12초라 2~3분.
-  { at: '06:40', workflow: 'us-osha.yml' },
+  { at: '06:40', workflow: 'us-osha.yml', daily: true },
   // 지자체 고시·공고(새올): 아침·오후 한 번씩.
   { at: '06:30', workflow: 'kr-local.yml' },
   // 공식 원자료 직접 수집(pre_scoop.json: 대법원·NTIS·IRIS 등). GitHub 예약 '7,37 * * * *'은 10-28에 4번만 돌았다.
@@ -48,7 +49,8 @@ export const SLOTS = [
   // 국민연금 사업장(월 자료): 표지 조회로 새 달만 전체를 읽고, 남는 시간에 지난 12개월을 채운다(최대 22분).
   { at: '15:50', workflow: 'kr-workforce.yml' },
   { at: '16:20', workflow: 'kr-local.yml' },
-  { at: '17:10', workflow: 'us-recalls.yml' },
+  // 미국 리콜·소비자 신고·TSB: 토요일 17:10이 미국 금요일 파일을 받는다(평일만 돌면 금요일 리콜이 월요일 저녁에야 잡혔다).
+  { at: '17:10', workflow: 'us-recalls.yml', daily: true },
   { at: '17:20', workflow: 'kr-insolvency.yml' },
   { at: '17:30', workflow: 'overseas-awards.yml' },
   { at: '17:40', workflow: 'assembly-bills.yml' },
@@ -70,9 +72,9 @@ export function newsDue(when) {
 export function dueAt(when) {
   const k = new Date(when.getTime() + KST_MS);
   const day = k.getUTCDay();
-  if (day === 0 || day === 6) return [];
+  const weekend = day === 0 || day === 6;
   const slot = `${String(k.getUTCHours()).padStart(2, '0')}:${String(Math.floor(k.getUTCMinutes() / 10) * 10).padStart(2, '0')}`;
-  return SLOTS.filter((s) => s.at === slot).map((s) => s.workflow);
+  return SLOTS.filter((s) => s.at === slot && (!weekend || s.daily)).map((s) => s.workflow);
 }
 
 async function appendLog(ctx, entries) {
@@ -129,7 +131,7 @@ export async function dispatchNow(ctx, workflow, by) {
   return status;
 }
 
-// The next KST weekday slot after `when` (for telling the reporter when the first request will go out).
+// The next KST slot after `when` (for telling the reporter when the first request will go out).
 export function nextSlot(when) {
   for (let i = 1; i <= 7 * 24 * 6; i++) {
     const t = new Date(when.getTime() + i * 600000);

@@ -384,7 +384,7 @@ export function factoryEventText(doc, e) {
 
 export async function usRecalls(ctx, args) {
   const doc = await readFeed(ctx, 'us-recalls');
-  if (!doc) return missing('미국 리콜(NHTSA 전체)', '평일 17:10');
+  if (!doc) return missing('미국 리콜(NHTSA 전체)', '매일 17:10');
   if (doc.broken) return textResult('저장된 미국 리콜 결과 형식 오류 — 미확인.', true);
   const q = String(args.company ?? '').trim();
   const onlyNew = args.only_new === true || args.only_new === 'true';
