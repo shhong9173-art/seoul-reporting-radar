@@ -100,6 +100,11 @@ def submitter_of(title):
     return m.group(1) if m else None
 
 
+# 11-01 석유화학·정유 6곳을 더한 첫 실행(#532 병합 뒤)이 그 회사들의 지난 의견서(6월 롯데케미칼 3건)를 새것으로 저장했다.
+# 그날 처음 본, 14일보다 오래된 그 회사 의견서는 기준선으로 고쳐 둔다.
+ADDED_1101 = {"LG화학", "롯데케미칼", "금호석유화학", "S-OIL", "HD현대오일뱅크", "SK이노베이션"}
+
+
 def collect(key, *, now, previous=None, get=None, sleep=time.sleep, budget=None):
     # DEMO_KEY allows about 30 calls an hour per IP; a free api.data.gov key allows 1,000.
     budget = budget or Budget(int(os.environ.get("REGS_CALL_BUDGET", "28" if key == "DEMO_KEY" else "150")))
@@ -107,7 +112,11 @@ def collect(key, *, now, previous=None, get=None, sleep=time.sleep, budget=None)
     prev = {x["id"]: x for x in (previous or {}).get("items", []) if isinstance(x, dict) and x.get("id")}
     dockets = dict((previous or {}).get("docketTitles") or {})
     checks, found = [], {}
+    # 감시 도중 더한 검색 문구: 그 문구의 첫 읽기는 기준선(지난 의견서가 새것으로 뜨지 않게). 첫 실행 전체는 원래대로 isNew로 다룬다.
+    known = {c.get("phrase") for c in (previous or {}).get("checks") or [] if c.get("status") == "ok"}
+    new_since = (now - dt.timedelta(days=NEW_DAYS)).strftime("%Y-%m-%d")
     for company, phrase, pattern in COMPANIES:
+        fresh_phrase = bool(known) and phrase not in known
         status, body = call("/comments", {"filter[searchTerm]": f'"{phrase}"', "filter[postedDate][ge]": since,
                                           "page[size]": 50, "sort": "-postedDate"}, key, get=get, budget=budget, sleep=sleep)
         if status != "ok":
@@ -129,6 +138,13 @@ def collect(key, *, now, previous=None, get=None, sleep=time.sleep, budget=None)
                 "url": f"https://www.regulations.gov/comment/{cid}",
                 "firstSeen": prev.get(cid, {}).get("firstSeen") or now.isoformat(timespec="seconds"),
             }
+            old = prev.get(cid)
+            if old is not None:
+                repair = (company in ADDED_1101 and str(old.get("firstSeen", "")).startswith("2026-11-01")
+                          and "baseline" not in old and item["postedDate"] < new_since)
+                item["baseline"] = bool(old.get("baseline")) or repair
+            else:
+                item["baseline"] = fresh_phrase and item["postedDate"] < new_since
             for k in ("docketTitle", "attachments", "excerpt"):
                 if prev.get(cid, {}).get(k):
                     item[k] = prev[cid][k]
@@ -156,9 +172,8 @@ def collect(key, *, now, previous=None, get=None, sleep=time.sleep, budget=None)
                             files.append(f["fileUrl"])
                 item["attachments"] = files[:5]
     items = sorted(found.values(), key=lambda x: (x["postedDate"], x["id"]), reverse=True)
-    new_since = (now - dt.timedelta(days=NEW_DAYS)).strftime("%Y-%m-%d")
     for x in items:
-        x["isNew"] = x["postedDate"] >= new_since or x["id"] not in prev
+        x["isNew"] = x["postedDate"] >= new_since or (x["id"] not in prev and not x.get("baseline"))
     failed = [c for c in checks if c["status"] != "ok"]
     return {
         "schema": SCHEMA, "generatedAt": now.isoformat(timespec="seconds"), "lookbackDays": LOOKBACK_DAYS,
