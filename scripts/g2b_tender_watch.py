@@ -42,6 +42,18 @@ def provider_message(text):
  code=found.get("returnReasonCode") or found.get("resultCode") or "?"
  msg=found.get("returnAuthMsg") or found.get("resultMsg") or found.get("errMsg") or ""
  return f"{code} {msg}".strip()
+def body_shape(text):
+ """비JSON 응답의 모양만(빈 응답·HTML 제목·XML 뿌리 태그·길이). 본문·주소·키는 남기지 않는다."""
+ t=(text or "").strip()
+ if not t:return "empty"
+ m=re.search(r"<title[^>]*>\s*([^<]{1,60})",t,re.I)
+ if m:
+  title=re.sub(r"[^\w\s.:()-]","",m.group(1)).strip()[:40]
+  if re.search(r"key|[A-Za-z0-9]{20,}",title,re.I):title="(제목 생략)"
+  return f"HTML '{title}' {len(t)}B"
+ m=re.match(r"(?:<\?xml[^>]*>\s*)?<([A-Za-z_][\w:.-]{0,40})",t)
+ if m:return f"XML <{m.group(1)}> {len(t)}B"
+ return f"text {len(t)}B"
 def fetch(url):
  try:
   with urlopen(Request(url,headers={"Accept":"application/json","User-Agent":"official-industry-reporter/1.0"}),
@@ -56,7 +68,7 @@ def fetch(url):
   payload=json.loads(text)
  except ValueError:
   # data.go.kr gateway refusals come back as XML even when type=json.
-  raise ProviderError("gateway "+(provider_message(text) or "non-JSON response")) from None
+  raise ProviderError("gateway "+(provider_message(text) or f"non-JSON response ({body_shape(text)})")) from None
  if isinstance(payload,dict) and "OpenAPI_ServiceResponse" in payload:
   raise ProviderError("gateway "+(provider_message(text) or "refusal"))
  return payload
@@ -100,11 +112,21 @@ def official_link(value):
 
 # 일일 공고가 많은 날은 이틀 창이 1,000건을 넘는다(10-27 물품 921건). 상한 20쪽(2,000건), 하루 1회 실행.
 # 연결 오류(URLError·시간 초과·연결 끊김)만 한 번 다시: 10-30 공사 목록 1쪽이 URLError로 실패해 그날 상태가 source_error가 됐다.
-# 응답이 온 거절(HTTP 오류·게이트웨이 거절·형식 오류)은 다시 부르지 않는다.
+# 응답이 온 거절(HTTP 4xx·게이트웨이 키·한도 거절·형식 오류)은 다시 부르지 않는다.
+# 11-01: 게이트웨이가 코드 없는 비JSON(물품·공사 둘 다, 10-31 14:55)이나 04 HTTP_ERROR·05 SERVICE_TIMEOUT·HTTP 5xx를 주면
+# 거절이 아니라 일시 장애로 보고 30초 뒤 한 번만 다시 부른다(굴뚝 측정 감시와 같은 기준). 키·한도 거절(20·22·30·31·32 등)은 그대로.
 RETRY_WAIT=5
+GATEWAY_WAIT=30
 TRANSIENT=(URLError,TimeoutError,ConnectionError)
+def transient_gateway(e):
+ msg=str(e)
+ return bool(re.match(r"gateway non-JSON response|gateway 0?[45]\b|HTTP 5\d\d",msg))
 def call_once_more(get,url,sleep):
  try:
+  return get(url)
+ except ProviderError as e:
+  if not transient_gateway(e):raise
+  sleep(GATEWAY_WAIT)
   return get(url)
  except TRANSIENT as e:
   if isinstance(e,HTTPError):raise
