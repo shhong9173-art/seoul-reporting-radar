@@ -1,5 +1,5 @@
 {
-  "note": "국내 월간 통계 감시 설정. ECOS(한국은행 물가지수, 품목별·지수 기준은 품목마다 다름 — 같은 품목 안에서만 비교), KOSIS(철강협회 생산, 광공업동향 품목), KAIDA(수입 승용차 브랜드별 신규등록). since 이전과는 비교하지 않는다.",
+  "note": "국내 월간 통계 감시 설정. ECOS(한국은행 물가지수, 품목별·지수 기준은 품목마다 다름 — 같은 품목 안에서만 비교), KOSIS(철강협회 생산, 광공업동향 품목), KAIDA(수입 승용차 브랜드별 신규등록). since 이전과는 비교하지 않는다. 11-01 석유화학·정유: 나프타·휘발유·경유·에틸렌·프로필렌·PE·PP·SBR·BR 생산자물가와 휘발유·제트유·경유·PE·SBR 수출물가(원화)를 더함 — 유가·제품가 변동이 커서 전년 대비 문턱을 석유제품 20%·화학 15%로 둔다. 새로 더한 계열은 다음 새 달부터 신호를 낸다.",
   "since": "2016-01",
   "ecos": [
     {
@@ -293,6 +293,200 @@
       ],
       "kind": "price",
       "yoyPct": 10
+    },
+    {
+      "id": "ppi-naphtha",
+      "stat": "404Y016",
+      "item": "30412101AA",
+      "label": "생산자물가 나프타",
+      "beats": [
+        "LG화학",
+        "롯데케미칼",
+        "S-OIL",
+        "SK이노베이션",
+        "HD현대오일뱅크"
+      ],
+      "kind": "price",
+      "yoyPct": 20
+    },
+    {
+      "id": "ppi-gasoline",
+      "stat": "404Y016",
+      "item": "30412201AA",
+      "label": "생산자물가 휘발유",
+      "beats": [
+        "S-OIL",
+        "SK이노베이션",
+        "HD현대오일뱅크",
+        "GS칼텍스"
+      ],
+      "kind": "price",
+      "yoyPct": 20
+    },
+    {
+      "id": "ppi-diesel",
+      "stat": "404Y016",
+      "item": "30412501AA",
+      "label": "생산자물가 경유",
+      "beats": [
+        "S-OIL",
+        "SK이노베이션",
+        "HD현대오일뱅크",
+        "GS칼텍스"
+      ],
+      "kind": "price",
+      "yoyPct": 20
+    },
+    {
+      "id": "ppi-ethylene",
+      "stat": "404Y016",
+      "item": "30511101AA",
+      "label": "생산자물가 에틸렌",
+      "beats": [
+        "LG화학",
+        "롯데케미칼",
+        "한화솔루션",
+        "GS칼텍스"
+      ],
+      "kind": "price",
+      "yoyPct": 15
+    },
+    {
+      "id": "ppi-propylene",
+      "stat": "404Y016",
+      "item": "30511102AA",
+      "label": "생산자물가 프로필렌",
+      "beats": [
+        "LG화학",
+        "롯데케미칼",
+        "S-OIL"
+      ],
+      "kind": "price",
+      "yoyPct": 15
+    },
+    {
+      "id": "ppi-pe",
+      "stat": "404Y016",
+      "item": "30521101AA",
+      "label": "생산자물가 폴리에틸렌수지",
+      "beats": [
+        "LG화학",
+        "롯데케미칼",
+        "한화솔루션",
+        "DL케미칼"
+      ],
+      "kind": "price",
+      "yoyPct": 15
+    },
+    {
+      "id": "ppi-pp",
+      "stat": "404Y016",
+      "item": "30521105AA",
+      "label": "생산자물가 폴리프로필렌수지",
+      "beats": [
+        "LG화학",
+        "롯데케미칼",
+        "S-OIL"
+      ],
+      "kind": "price",
+      "yoyPct": 15
+    },
+    {
+      "id": "ppi-sbr",
+      "stat": "404Y016",
+      "item": "30521201AA",
+      "label": "생산자물가 스티렌부타디엔고무",
+      "beats": [
+        "금호석유화학",
+        "LG화학"
+      ],
+      "kind": "price",
+      "yoyPct": 15
+    },
+    {
+      "id": "ppi-br",
+      "stat": "404Y016",
+      "item": "30521202AA",
+      "label": "생산자물가 부타디엔고무",
+      "beats": [
+        "금호석유화학",
+        "LG화학"
+      ],
+      "kind": "price",
+      "yoyPct": 15
+    },
+    {
+      "id": "xp-gasoline",
+      "stat": "402Y016",
+      "item": "30412201AA",
+      "variant": "W",
+      "label": "수출물가(원화) 휘발유",
+      "beats": [
+        "S-OIL",
+        "SK이노베이션",
+        "HD현대오일뱅크",
+        "GS칼텍스"
+      ],
+      "kind": "price",
+      "yoyPct": 20
+    },
+    {
+      "id": "xp-jet",
+      "stat": "402Y016",
+      "item": "30412301AA",
+      "variant": "W",
+      "label": "수출물가(원화) 제트유",
+      "beats": [
+        "S-OIL",
+        "SK이노베이션",
+        "HD현대오일뱅크",
+        "GS칼텍스"
+      ],
+      "kind": "price",
+      "yoyPct": 20
+    },
+    {
+      "id": "xp-diesel",
+      "stat": "402Y016",
+      "item": "30412501AA",
+      "variant": "W",
+      "label": "수출물가(원화) 경유",
+      "beats": [
+        "S-OIL",
+        "SK이노베이션",
+        "HD현대오일뱅크",
+        "GS칼텍스"
+      ],
+      "kind": "price",
+      "yoyPct": 20
+    },
+    {
+      "id": "xp-pe",
+      "stat": "402Y016",
+      "item": "30521101AA",
+      "variant": "W",
+      "label": "수출물가(원화) 폴리에틸렌수지",
+      "beats": [
+        "LG화학",
+        "롯데케미칼",
+        "한화솔루션",
+        "DL케미칼"
+      ],
+      "kind": "price",
+      "yoyPct": 15
+    },
+    {
+      "id": "xp-sbr",
+      "stat": "402Y016",
+      "item": "30521201AA",
+      "variant": "W",
+      "label": "수출물가(원화) 스티렌부타디엔고무",
+      "beats": [
+        "금호석유화학",
+        "LG화학"
+      ],
+      "kind": "price",
+      "yoyPct": 15
     }
   ],
   "kosis": [
