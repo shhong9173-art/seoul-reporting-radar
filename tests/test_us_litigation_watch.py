@@ -130,6 +130,16 @@ def run(previous=None, **k):
 
 
 class Litigation(unittest.TestCase):
+    def test_group_added_later_reads_old_cases_as_baseline(self):
+        # 11-01 '석유화학·정유' 묶음처럼 감시 도중 더한 묶음의 첫 읽기: 접수 3일보다 오래된 사건은 기준선
+        prev = {"cases": [], "checks": [{"source": f"CourtListener {g}", "status": "ok"} for g, _ in w.GROUPS if g != "전력·에너지·화학"]}
+        doc = run(previous=prev)
+        cases = {x["id"]: x for x in doc["cases"]}
+        self.assertTrue(cases["cl:8"].get("baseline"))            # 전력 묶음이 새 묶음, 10-22 접수
+        self.assertNotIn("baseline", cases["cl:4"])               # 아는 묶음(철강)의 사건은 그대로
+        again = w.run("t", now=NOW, previous=doc, get=fake(), sleep=lambda s: None)
+        self.assertTrue({x["id"]: x for x in again["cases"]}["cl:8"].get("baseline"))   # 이어짐
+
     def test_party_matching_and_classification(self):
         doc = run()
         cases = {x["id"]: x for x in doc["cases"]}

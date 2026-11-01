@@ -400,6 +400,10 @@ def window_start(now, previous):
 
 def litigation(token, now, previous, *, get=None, sleep=time.sleep, budget=None):
     since = window_start(now, previous)
+    # 감시 도중 더한 질의 묶음(11-01 '석유화학·정유')의 첫 읽기: 접수 3일보다 오래된 사건은 기준선(baseline) —
+    # 미국 의견서·파트너 공시와 같은 규칙. 레이더는 baseline 항목을 접수일로만 센다.
+    known = {c.get("source") for c in (previous or {}).get("checks") or [] if c.get("status") == "ok"}
+    recent_from = (now - dt.timedelta(days=3)).strftime("%Y-%m-%d")
     prev = {x["id"]: x for x in (previous or {}).get("cases", []) if isinstance(x, dict) and x.get("id")}
     found, checks = {}, []
     budget = budget or Budget(MAX_CALLS)
@@ -432,6 +436,9 @@ def litigation(token, now, previous, *, get=None, sleep=time.sleep, budget=None)
                 "role": "원고" if plaintiff else "신청·항소인(In re)" if in_re else "피고·기타 당사자", "matchedParties": matched, "partyCount": len(parties),
                 "url": CL_SITE + (x.get("docket_absolute_url") or ""),
                 "firstSeen": prev.get(did, {}).get("firstSeen") or now.isoformat(timespec="seconds"),
+                **({"baseline": True} if (prev.get(did, {}).get("baseline") or (
+                    did not in prev and known and f"CourtListener {group}" not in known
+                    and str(x.get("dateFiled") or "") < recent_from)) else {}),
             }
         status = "failed" if err and not rows else ("partial" if err or not complete else "ok")
         checks.append({"source": f"CourtListener {group}", "status": status, "returned": len(rows), "own": own, "since": since,
