@@ -1479,7 +1479,7 @@ test('kr_signals shows FTC decisions by role, KEPCO bids and commodity prices, a
   assert.match(bf.text, /\[부처 보도자료\(정책브리핑 목록: 기후부·국토부·관세청·조달청\) · 제목에 출입처 이름·업종 낱말 · 최근 60일\] 2건/);
   assert.match(bf.text, /\[신규\] 2026-10-24 · 국토교통부\n   제목: 기아 등 5개사 12개 차종 3만 2천여 대 자발적 시정조치\(리콜\) · 출입처 이름: 기아/);
   const pv = await call('kr_signals', { section: 'province' }, opts);
-  assert.match(pv.text, /\[시·도 보도자료\(울산·충남\) · 제목에 출입처 이름, 또는 투자협약·증설·위기\+업종 낱말 · 최근 60일\] 1건/);
+  assert.match(pv.text, /\[시·도 보도자료\(울산·충남·전남광주\) · 제목에 출입처 이름, 또는 투자협약·증설·위기\+업종 낱말 · 최근 60일\] 1건/);
   assert.match(pv.text, /\[신규\] 2026-10-24 · 울산광역시 · 투자유치과\n   제목: 울산시, 고려아연과 온산제련소 이차전지 소재 증설 투자협약 · 출입처 이름: 고려아연/);
   const r = await call('radar_today', {}, opts);
   assert.match(r.text, /공정위·한전·원자재: 미설정 한전 전자입찰\(KEPCO_API_KEY 미설정\) · 공정위 의결서 원문 대기 24건\(실행당 읽기 한도, 다음 실행에서 읽음\)/);
