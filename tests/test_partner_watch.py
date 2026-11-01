@@ -198,6 +198,24 @@ class Partners(unittest.TestCase):
         self.assertNotIn("asx:OLD", [x["id"] for x in doc["items"]])
 
 
+    def test_signature_block_party_is_labeled_not_folded(self):
+        # 11-01 운영: Forge Nano 8-K EX-10.3(등록권 계약) 서명란
+        it = {"phrases": ["LG Chem"], "form": "8-K", "snippet": (
+            "nagement, LLC, its manager By: /s/ Michael Freeburg Name: Michael Freeburg Title: Member VOLKSWAGEN GROUP OF AMERICA "
+            "INVESTMENTS, LLC By: /s/ Kevin Duke Name: Kevin Duke Title: VP & Secretary HOLDER: HzO, Inc. By: /s/ Kamal Bherwani "
+            "Name: Kamal Bherwani Title: Executive Chairman LG CHEM FUND I LLC By: LG Technology Ventures LLC, its Manager By: /s/ "
+            "Dong-Su Kim Name: Dong-Su Kim Title: Chief Execut")}
+        w.classify(it)
+        self.assertIn("서명란", it.get("signer", ""))
+        self.assertNotIn("routine", it)
+        # 서명란이 출입처 이름에서 멀리 떨어져 있으면 붙이지 않는다
+        far = {"phrases": ["LG Chem"], "form": "8-K", "snippet": "The Company entered into a supply agreement with LG Chem, Ltd. for cathode materials. "
+               + "x" * 400 + " By: /s/ Jane Doe Name: Jane Doe Title: CFO"}
+        w.classify(far)
+        self.assertNotIn("signer", far)
+        self.assertTrue(far["dealNear"])
+
+
 class EdgarNoise(unittest.TestCase):
     HARTFORD = ("Basic industry 1,198 1,151 1.8 % Transportation 907 844 1.3 % Other 617 610 0.9 % Total $ 25,618 $ 24,052 37.2 % "
                 "Top Ten Exposures by Issuer [1] TPG Partners X $ 309 $ 308 0.5 % Goldman Sachs Group Inc. 196 178 0.3 % "
