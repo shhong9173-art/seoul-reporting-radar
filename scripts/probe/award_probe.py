@@ -11,7 +11,7 @@ import kr_stack_watch as stacks  # noqa: E402
 import kr_workforce_watch as wf  # noqa: E402
 import kr_official_watch as off  # noqa: E402
 
-KEY = (os.environ.get("DATA_GO_KR_KEY") or "").strip()
+KEY = (os.environ.get("DATA_GO_KR_KEY") or os.environ.get("KR_FUEL_API_KEY") or "").strip()   # 운영 워크플로와 같은 대체 키
 TERMS = ["엘지화학", "LG화학", "롯데케미칼", "금호석유화학", "에쓰-오일", "에쓰오일", "에스오일", "S-OIL",
          "현대오일뱅크", "에이치디현대오일뱅크", "HD현대오일뱅크", "에스케이이노베이션", "SK이노베이션"]
 out = [f"key length {len(KEY)}"]
