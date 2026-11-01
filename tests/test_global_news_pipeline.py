@@ -171,6 +171,10 @@ class GlobalCollectorBeatTests(unittest.TestCase):
         self.assertEqual(unmatched_numbers("2026년 계획",src),["2026년"])
         self.assertEqual(unmatched_numbers("2026년 계획",src,allow=[2026]),[])   # 기사 발행 연도('올해')는 허용
         self.assertEqual(unmatched_numbers("앨라배마에 4억5천만달러",src.replace("US$450m","US$449.6m")),[])   # 반올림은 같은 수
+        # 11-01 운영 첫 실행: 'more than doubled in a year' → '1년 만에'는 맞음, '€449-million' → '449억원'(잘못 환산)·'near-ubiquitous' → '100%'는 표시
+        self.assertEqual(unmatched_numbers("1년 만에 두 배",'Toyota EV sales more than doubled in a year'),[])
+        self.assertEqual(unmatched_numbers("4억 4900만 유로 공장, 약 449억원",'Vingroup to build a €449-million EV plant'),["449억원"])
+        self.assertEqual(unmatched_numbers("보급률 거의 100% 수준",'electric buses near-ubiquitous'),["100%"])
 
     def test_summarize_step_records_numbers_not_in_source(self):
         rows=[{**item("Hyundai to invest US$450m in Alabama","https://e/a",summary="",published="2026-10-30T09:00:00+09:00"),
