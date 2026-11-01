@@ -1,55 +1,42 @@
-"""Probe 73: registry spellings of the new petrochemical/refining beats (11-01) in three public sources —
-CleanSYS stack TMS, NPS workplace list, factory registration. Prints names as the registries write them
-(public facility/company names) and counts; no keys."""
+"""Probe 74: 출입처·석유화학정유 외신 검색(구글 뉴스, 운영 수집과 같은 질의·같은 요청 이름)의 매체 이름 분포 —
+운영 진단(11-01 18:27): 100줄 중 국내 영문판 60, 허용 외신 목록 밖 38, 7일 지남 2. 공개 기사 목록의 매체 이름·건수만 남긴다."""
 import collections
-import os
-import sys
-import time
+import re
+import urllib.parse
+import urllib.request
+import xml.etree.ElementTree as ET
+from datetime import datetime, timedelta, timezone
+from email.utils import parsedate_to_datetime
 
-sys.path.insert(0, "scripts")
-import kr_stack_watch as stacks  # noqa: E402
-import kr_workforce_watch as wf  # noqa: E402
-import kr_official_watch as off  # noqa: E402
-
-KEY = (os.environ.get("DATA_GO_KR_KEY") or os.environ.get("KR_FUEL_API_KEY") or "").strip()   # 운영 워크플로와 같은 대체 키
-TERMS = ["엘지화학", "LG화학", "롯데케미칼", "금호석유화학", "에쓰-오일", "에쓰오일", "에스오일", "S-OIL",
-         "현대오일뱅크", "에이치디현대오일뱅크", "HD현대오일뱅크", "에스케이이노베이션", "SK이노베이션"]
-out = [f"key length {len(KEY)}"]
-
-out.append("\n== CleanSYS (굴뚝)")
-for t in TERMS:
+FOREIGN_OK = re.compile(r"reuters|bloomberg|nikkei|financial times|\bft\b|wall street journal|\bwsj\b|cnbc|associated press|\bap news\b|economist|fortune|barron|"
+                        r"s&p global|platts|fastmarkets|argus|mining\.com|kallanish|metal bulletin|utility dive|power engineering|t&d world|recharge|pv magazine|pv tech|"
+                        r"electrek|insideevs|automotive news|automotive world|just auto|just-auto|wardsauto|tire business|tyrepress|rubber|tire technology|"
+                        r"energy-storage|energy storage news|chemical & engineering|icis|hydrogen insight|financial post|politico|axios|the information|"
+                        r"south china morning post|scmp|caixin|nikkei asia|the japan times|asahi|digitimes|electrive|autocar|carscoops|motor1|the verge|techcrunch|"
+                        r"hydrocarbon processing|chemical week|chemweek|oil & gas journal|\bogj\b|energy intelligence|\bopis\b", re.I)
+DOMESTIC_EN = re.compile(r"korea herald|korea times|joongang|yonhap|korea economic daily|ked global|businesskorea|business korea|pulse by maeil|maeil|"
+                         r"chosun|donga|hankyoreh|aju|seoul economic|the investor|korea bizwire|korea\.net|arirang|kbs|mbc|sbs|kpop|asiae|"
+                         r"etnews|thelec|the elec|biz\.chosun|koreatechtoday|koreaittimes|newsis|news1|edaily|businesspost|mk\.co\.kr|hankyung", re.I)
+QUERY = '"LG Chem" OR "Lotte Chemical" OR "Kumho Petrochemical" OR "S-Oil" OR "SK Innovation" OR "Hyundai Oilbank"'
+KST = timezone(timedelta(hours=9))
+url = "https://news.google.com/rss/search?q=" + urllib.parse.quote(QUERY) + "&hl=en-US&gl=US&ceid=US:en"
+req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 AutoIndustryGlobalRadar/1.1", "Accept": "application/rss+xml,application/xml,text/xml,*/*"})
+root = ET.fromstring(urllib.request.urlopen(req, timeout=20).read())
+cut = datetime.now(KST) - timedelta(hours=168)
+c = collections.Counter()
+recent = collections.Counter()
+for it in root.findall("./channel/item"):
+    src = (it.findtext("source") or "").strip()
+    kind = "domestic" if DOMESTIC_EN.search(src) else ("ok" if FOREIGN_OK.search(src) else "outlet")
     try:
-        rows = stacks.fetch(t, KEY, sleep=time.sleep)
-        names = collections.Counter(str(x.get("fact_manage_nm") or "").strip() for x in rows)
-        out.append(f"{t}: {len(rows)} rows · " + " | ".join(f"{n}({c},{next((x.get('area_nm') for x in rows if x.get('fact_manage_nm') == n), '')})" for n, c in names.most_common(12)))
-    except Exception as e:  # noqa: BLE001
-        out.append(f"{t}: {type(e).__name__} {str(e)[:80]}")
-    time.sleep(0.5)
-
-out.append("\n== NPS (국민연금 사업장)")
-api = wf.Api(KEY)
-for t in TERMS:
-    try:
-        _, items = api.call("getBassInfoSearchV2", {"wkplNm": t}, page=1)
-        names = collections.Counter(f"{str(x.get('wkplNm') or '').strip()}[{str(x.get('wkplRoadNmDtlAddr') or x.get('ldongAddrMgplDgCd') or '')[:12]}]" for x in items)
-        out.append(f"{t}: {len(items)} rows · " + " | ".join(n for n, _ in names.most_common(10)))
-    except Exception as e:  # noqa: BLE001
-        out.append(f"{t}: {type(e).__name__} {str(e)[:80]}")
-    time.sleep(0.5)
-
-out.append("\n== 공장등록")
-for t in ["엘지화학", "LG화학", "롯데케미칼", "금호석유화학", "에쓰-오일", "에쓰오일", "현대오일뱅크", "에이치디현대오일뱅크", "HD현대오일뱅크"]:
-    try:
-        text, err = off.call(off.FACTORY_API, {"serviceKey": KEY, "pageNo": 1, "numOfRows": 50, "type": "json", "cmpnyNm": t})
-        if err:
-            out.append(f"{t}: {err}")
-            continue
-        code, total, items = off.parse_factories(text)
-        names = collections.Counter(f"{x['cmpnyNm']}[{x['rnAdres'][:14]}]" for x in items)
-        out.append(f"{t}: total {total} · " + " | ".join(n for n, _ in names.most_common(10)))
-    except Exception as e:  # noqa: BLE001
-        out.append(f"{t}: {type(e).__name__} {str(e)[:120]}")
-    time.sleep(0.5)
-
+        new = parsedate_to_datetime(it.findtext("pubDate")).astimezone(KST) >= cut
+    except Exception:
+        new = False
+    c[(kind, src)] += 1
+    if new:
+        recent[(kind, src)] += 1
+out = ["items %d" % sum(c.values())]
+for (kind, src), n in c.most_common(60):
+    out.append(f"{kind} | {src} | {n} (7일 안 {recent[(kind, src)]})")
 open("/tmp/probe_out.txt", "w").write("\n".join(out))
-print("\n".join(out)[:600])
+print("\n".join(out)[:500])
