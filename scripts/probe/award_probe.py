@@ -1,18 +1,24 @@
-"""Probe 86: 정책브리핑 보도자료 목록 — 청 단위 코드(관세청 B00003·조달청 B00013) 거르기가 되는지, 첫 쪽 제목·날짜(공개 목록, 각 한 번)."""
+"""Probe 87: 출입처 공장 시·도 보도자료(투자협약 발표가 먼저 나오는 곳) — 울산·전남·충남·경북·경남 누리집이 GitHub에서 열리는지,
+robots.txt, 첫 화면의 RSS·보도자료 링크(공개, 사이트당 두 번)."""
 import re
 
 import requests
 
 H = {"User-Agent": "newsroom-official-research/1.0 (github.com/shhong9173-art/seoul-reporting-radar)"}
-URL = "https://www.korea.kr/briefing/pressReleaseList.do"
-ROW = re.compile(r'pressReleaseView\.do\?newsId=(\d+)[^"]*">\s*<span class="text">\s*<strong>(.*?)</strong>.*?<span class="source">\s*<span>([\d.\-]+)</span>\s*<span>([^<]+)</span>', re.S)
 out = []
-for name, c in (("관세청", "B00003"), ("조달청", "B00013")):
-    rr = requests.get(URL, params={"repCodeType": c[0], "repCode": c}, headers=H, timeout=30)
-    rows = ROW.findall(rr.text)
-    tot = re.search(r"총\s*<strong>([\d,]+)", rr.text)
-    out.append(f"{name} {c} HTTP {rr.status_code} rows {len(rows)} total {tot.group(1) if tot else '-'} depts {sorted({d.strip() for *_, d in rows})}")
-    for nid, title, date, _ in rows[:20]:
-        out.append(f"  {date} {nid} | {re.sub(r'<[^>]+>', '', title).strip()[:70]}")
+for name, home in [("울산", "https://www.ulsan.go.kr"), ("전남", "https://www.jeonnam.go.kr"), ("충남", "https://www.chungnam.go.kr"),
+                   ("경북", "https://www.gb.go.kr"), ("경남", "https://www.gyeongnam.go.kr")]:
+    try:
+        rb = requests.get(home + "/robots.txt", headers=H, timeout=25)
+        out.append(f"{name} robots HTTP {rb.status_code}: " + re.sub(r"\s+", " ", rb.text[:200]))
+    except Exception as e:  # noqa: BLE001
+        out.append(f"{name} robots {type(e).__name__}")
+    try:
+        r = requests.get(home, headers=H, timeout=25)
+        links = sorted(set(re.findall(r'href="([^"]*(?:rss|RSS|Rss)[^"]*)"', r.text)))[:6]
+        press = sorted(set(m.group(1) for m in re.finditer(r'<a[^>]+href="([^"]+)"[^>]*>\s*(?:<[^>]+>\s*)*보도자료', r.text)))[:4]
+        out.append(f"{name} home HTTP {r.status_code} len {len(r.text)} rss {links} press {press}")
+    except Exception as e:  # noqa: BLE001
+        out.append(f"{name} home {type(e).__name__}")
 open("/tmp/probe_out.txt", "w").write("\n".join(out))
 print("\n".join(out)[:600])
