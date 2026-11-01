@@ -102,6 +102,19 @@ class GlobalCollectorBeatTests(unittest.TestCase):
         self.assertTrue(gc.title_only("", t))
         self.assertFalse(gc.title_only("The company said on Monday it would spend $7.4 billion on a smelter in Tennessee, its first outside Korea.", t))
 
+    def test_one_fixed_request_name_no_retry_with_another(self):
+        import inspect
+        src=inspect.getsource(gc)
+        self.assertNotIn("FEED_UA",src)
+        self.assertEqual(list(inspect.signature(gc.get).parameters),["url","timeout"])   # 요청 이름을 바꿀 수 있는 인자 없음
+
+    def test_beat_trade_press_feeds_require_korean_mention(self):
+        names={n for n,_ in gc.PUBLISHER_FEEDS}
+        for n in ("GMK Center","World Nuclear News","offshoreWIND.biz","PV Tech","Tire Business","Transformers Magazine"):
+            self.assertIn(n,names); self.assertIn(n,gc.STRICT_KOREA)
+        self.assertNotIn("Automotive News Europe",gc.STRICT_KOREA)   # 자동차 매체는 자동차 기준 그대로
+        self.assertGreaterEqual(gc.hits(gc.INDUSTRY_RE,"ls cable wins hvdc subsea cable order for offshore wind"),3)
+
     def test_beat_queries_cover_non_auto_beats(self):
         q = " ".join(x[1] for x in gc.QUERIES)
         for name in ("Hyundai Steel", "Korea Zinc", "LS Electric", "HD Hyundai Electric", "LS Cable", "Hanwha Qcells", "GS Caltex", "Hankook Tire"):
@@ -115,7 +128,7 @@ class GlobalCollectorBeatTests(unittest.TestCase):
             gc.worker_translate = lambda t: (calls.append(("ai", t)) or "고려아연, 미국 제련소 검토 착수")
             self.assertEqual(gc.translate("Korea Zinc starts US smelter study"), ("고려아연, 미국 제련소 검토 착수", "translated_ai"))
             gc.worker_translate = lambda t: ""   # 워커 실패 → 구글 → 보조
-            def fake_get(url, timeout=15, ua=None):
+            def fake_get(url, timeout=15):
                 if "googleapis" in url:
                     raise OSError("blocked")
                 return '{"responseData":{"translatedText":"보조 번역"}}'.encode()
@@ -186,7 +199,7 @@ class GlobalCollectorBeatTests(unittest.TestCase):
              "</channel></rss>").encode()
         orig=gc.get
         try:
-            gc.get=lambda url,timeout=15,ua=None: xml
+            gc.get=lambda url,timeout=15: xml
             rows=gc.parse_publisher("Electrek","https://electrek.co/feed/")
             strict=gc.parse_publisher("Utility Dive","https://www.utilitydive.com/feeds/news/")
         finally:
