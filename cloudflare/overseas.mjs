@@ -998,7 +998,7 @@ export async function krSignals(ctx, args) {
   const doc = await readFeed(ctx, 'kr-signals');
   if (!doc) return energy.length ? textResult([missing('공정위 의결서·한전 입찰·원자재 가격', '평일 08:30·15:20').content[0].text, ...energy].join('\n'), true) : missing('공정위 의결서·한전 입찰·원자재 가격', '평일 08:30·15:20');
   if (doc.broken) return textResult(['저장된 국내 신호 결과 형식 오류 — 미확인.', ...energy].join('\n'), true);
-  const section = ['ftc', 'ftc_press', 'kepco', 'motir', 'briefing', 'price'].includes(args.section) ? args.section : null;
+  const section = ['ftc', 'ftc_press', 'kepco', 'motir', 'briefing', 'province', 'price'].includes(args.section) ? args.section : null;
   const q = String(args.company ?? '').trim();
   const days = clampInt(args.days, 1, 365, 60);
   const limit = clampInt(args.limit, 1, 60, 15);
@@ -1090,6 +1090,22 @@ export async function krSignals(ctx, args) {
       }
       if (!rows.length) out.push('없음');
       out.push('   검증 상태: 정부 공개 발표(제목만 저장). 내용·수치·엠바고는 원문에서 확인, 같은 날 기사는 news_check');
+    }
+  }
+  if (!section || section === 'province') {
+    const from = new Date(ctx.now.getTime() + 9 * 3600000 - Math.min(days, 60) * 86400000).toISOString().slice(0, 10);
+    const rows = (doc.province ?? []).filter((x) => String(x.date ?? '') >= from && matches(q, x.title, x.site, x.dept, ...(x.companies ?? [])));
+    const rc = checks.find((c) => c.source === '시·도 보도자료');
+    if (!Array.isArray(doc.province)) out.push('\n[시·도 보도자료(울산·충남)] 아직 수집 전 — 미확인(0건 아님)');
+    else {
+      out.push(`\n[시·도 보도자료(울산·충남) · 제목에 출입처 이름, 또는 투자협약·증설·위기+업종 낱말 · 최근 ${Math.min(days, 60)}일] ${rows.length}건${rc?.error ? ` · 미확인(0건 아님): ${rc.error}` : ''}`);
+      for (const x of rows.slice(0, limit)) {
+        out.push(`- ${x.isNew ? '[신규] ' : ''}${x.date} · ${x.site}${x.dept ? ` · ${x.dept}` : ''}`);
+        out.push(`   제목: ${x.title}${(x.companies ?? []).length ? ` · 출입처 이름: ${x.companies.join('·')}` : ''}`);
+        out.push(`   원문: ${x.url}`);
+      }
+      if (!rows.length) out.push('없음');
+      out.push('   검증 상태: 지자체 공개 발표(제목만 저장). 투자 규모·일정은 지자체 주장 — 회사 확인, 같은 날 기사는 news_check');
     }
   }
   if (!section || section === 'price') {
