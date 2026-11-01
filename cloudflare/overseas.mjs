@@ -1096,9 +1096,9 @@ export async function krSignals(ctx, args) {
     const from = new Date(ctx.now.getTime() + 9 * 3600000 - Math.min(days, 60) * 86400000).toISOString().slice(0, 10);
     const rows = (doc.province ?? []).filter((x) => String(x.date ?? '') >= from && matches(q, x.title, x.site, x.dept, ...(x.companies ?? [])));
     const rc = checks.find((c) => c.source === '시·도 보도자료');
-    if (!Array.isArray(doc.province)) out.push('\n[시·도 보도자료(울산·충남)] 아직 수집 전 — 미확인(0건 아님)');
+    if (!Array.isArray(doc.province)) out.push('\n[시·도 보도자료(울산·충남·전남광주)] 아직 수집 전 — 미확인(0건 아님)');
     else {
-      out.push(`\n[시·도 보도자료(울산·충남) · 제목에 출입처 이름, 또는 투자협약·증설·위기+업종 낱말 · 최근 ${Math.min(days, 60)}일] ${rows.length}건${rc?.error ? ` · 미확인(0건 아님): ${rc.error}` : ''}`);
+      out.push(`\n[시·도 보도자료(울산·충남·전남광주) · 제목에 출입처 이름, 또는 투자협약·증설·위기+업종 낱말 · 최근 ${Math.min(days, 60)}일] ${rows.length}건${rc?.error ? ` · 미확인(0건 아님): ${rc.error}` : ''}`);
       for (const x of rows.slice(0, limit)) {
         out.push(`- ${x.isNew ? '[신규] ' : ''}${x.date} · ${x.site}${x.dept ? ` · ${x.dept}` : ''}`);
         out.push(`   제목: ${x.title}${(x.companies ?? []).length ? ` · 출입처 이름: ${x.companies.join('·')}` : ''}`);

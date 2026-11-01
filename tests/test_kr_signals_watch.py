@@ -673,6 +673,15 @@ CN_PAGE = table([cn_row("3089", "2185409", "충남도립대 건축인테리어�
                  cn_row("3088", "2185400", "도, 현대제철 당진제철소와 탄소중립 업무협약", "기후환경정책과", "2026-10-30")])
 
 
+def jg_row(no, seq, title, date):
+    return (f'<tr> <td data-title="번호" class="num"> {no}</td> <td data-title="제목" class="subject"> <a href="/boardView.do?pageId=jngj22&amp;'
+            f'boardId=JG_0000000003&amp;seq={seq}&amp;movePage=1&amp;recordCnt=10" data-view="L" data-seq="{seq}"> {title}</a> </td> '
+            f'<td data-title="작성일" class="date"> {date}</td> <td data-title="조회" class="hit"> 79</td> </tr>')
+
+
+# 11-01 운영 형식(probe 91): 부서 칸 없음
+JG_PAGE = table([jg_row("1066", "1081", "광주 우치동물원, 해남서 일본원숭이 중성화수술 지원", "2026-11-01"),
+                 jg_row("1065", "1080", "여수산단 석유화학 구조개편 지원 협약 체결…LG화학·롯데케미칼 참여", "2026-10-31")])
 ULSAN_PAGE2 = table([ulsan_row("51804", "184800", "울산시, 에쓰오일 샤힌 프로젝트 준공 지원 점검", "산업정책과", "2026.10.29")])
 
 
@@ -687,7 +696,8 @@ def province_routes(fail=None, seen=None):
             return Resp(page if p == 1 else page2 if p == 2 else table([]))
         return fn
     return {"https://www.ulsan.go.kr/u/rep/bbs/list.ulsan": make(ULSAN_PAGE, "울산광역시", "page", ULSAN_PAGE2),
-            "https://www.chungnam.go.kr/cnportal/cnapcPressList/cnapcPress/list.do": make(CN_PAGE, "충청남도", "pageIndex", table([]))}
+            "https://www.chungnam.go.kr/cnportal/cnapcPressList/cnapcPress/list.do": make(CN_PAGE, "충청남도", "pageIndex", table([])),
+            "https://www.jeonnam-gwangju.go.kr/boardList.do": make(JG_PAGE, "전남광주통합특별시", "movePage", table([]))}
 
 
 class ProvincePress(unittest.TestCase):
@@ -706,11 +716,16 @@ class ProvincePress(unittest.TestCase):
         self.assertNotIn("province:울산광역시:184854", by)
         self.assertNotIn("province:충청남도:2185409", by)
         self.assertEqual(by["province:울산광역시:184800"]["companies"], ["S-OIL"])  # 울산 2쪽('page' 칸)
-        self.assertEqual((check["status"], check["listed"], check["kept"]), ("ok", 6, 4))
+        jg = by["province:전남광주통합특별시:1080"]
+        self.assertEqual((jg["companies"], jg["dept"], jg["date"]), (["LG화학", "롯데케미칼"], "", "2026-10-31"))
+        self.assertEqual(jg["url"], "https://www.jeonnam-gwangju.go.kr/boardView.do?pageId=jngj22&boardId=JG_0000000003&seq=1080&movePage=1&recordCnt=10")
+        self.assertNotIn("province:전남광주통합특별시:1081", by)
+        self.assertEqual((check["status"], check["listed"], check["kept"]), ("ok", 8, 5))
         self.assertFalse(any(x["isNew"] for x in items))
         seen = []
         w.province(CFG, NOW, None, http(province_routes(seen=seen)))
-        self.assertEqual(seen, [("울산광역시", {}), ("울산광역시", {"page": 2}), ("울산광역시", {"page": 3}), ("충청남도", {"pageUnit": "30"})])
+        self.assertEqual(seen, [("울산광역시", {}), ("울산광역시", {"page": 2}), ("울산광역시", {"page": 3}), ("충청남도", {"pageUnit": "30"}),
+                                ("전남광주통합특별시", {"recordCnt": "30"}), ("전남광주통합특별시", {"recordCnt": "30", "movePage": 2})])
 
     def test_blocked_runner_is_unconfirmed_and_keeps_rows(self):
         first, _ = w.province(CFG, NOW, None, http(province_routes()))
