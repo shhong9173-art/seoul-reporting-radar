@@ -37,7 +37,7 @@ COMPANIES = [
     ("HL만도", "HL Mando", r"\bmando\b"),
     ("한국타이어", "Hankook Tire", r"hankook"),
     ("넥센타이어", "Nexen Tire", r"nexen"),
-    ("금호타이어", "Kumho Tire", r"kumho"),
+    ("금호타이어", "Kumho Tire", r"kumho(?!\s*(?:petrochemical|p&b))"),
     ("포스코", "POSCO", r"\bposco\b"),
     ("현대제철", "Hyundai Steel", r"hyundai steel"),
     ("세아제강", "SeAH Steel", r"\bseah\b"),
@@ -52,6 +52,10 @@ COMPANIES = [
     ("한화솔루션", "Hanwha Qcells", r"hanwha|qcells|q cells"),
     ("OCI", "OCI Holdings", r"\boci\b|mission solar"),
     ("GS칼텍스", "GS Caltex", r"gs caltex"),
+    # 11-01 기자 명시: 석유화학·정유
+    ("LG화학", "LG Chem", r"\blg chem\b"), ("롯데케미칼", "Lotte Chemical", r"lotte chemical"),
+    ("금호석유화학", "Kumho Petrochemical", r"kumho petrochemical"), ("S-OIL", "S-Oil", r"\bs-oil\b"),
+    ("HD현대오일뱅크", "Hyundai Oilbank", r"hyundai oil ?bank"), ("SK이노베이션", "SK Innovation", r"\bsk innovation"),
     ("KG모빌리티", "KG Mobility", r"kg mobility"),
 ]
 SUBMITTER = re.compile(r"^\s*comments?\s+(?:from|submitted\s+by|by)\s+(.+?)\s*$", re.I)

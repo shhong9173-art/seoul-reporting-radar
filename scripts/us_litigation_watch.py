@@ -65,12 +65,15 @@ GROUPS = [
     ("철강·비철", ["POSCO", "Hyundai Steel", "SeAH Steel", "Dongkuk", "Korea Zinc", "KG Dongbu Steel", "KG Steel"]),
     ("전력·에너지·화학", ["Hyundai Power Transformers", "HD Hyundai Electric", "LS Electric", "LS Cable", "LS GreenLink", "Taihan",
                     "Doosan Enerbility", "Hanwha Q Cells", "Qcells", "Mission Solar", "GS Caltex", "Hyosung HICO", "Iljin Electric"]),
+    # 11-01 기자 명시: 석유화학·정유. 따로 묶어 LG Chem 배터리 상해 소송(다수, 제조물책임 C)이 위 묶음의 쪽수를 밀어내지 않게 한다.
+    # 'S-Oil'만 쓰면 낱말이 쪼개져(s oil) 엉뚱한 사건이 쏟아질 수 있어 법인명으로 찾는다.
+    ("석유화학·정유", ["LG Chem", "Lotte Chemical", "Kumho Petrochemical", "S-Oil Corporation", "SK Innovation", "Hyundai Oilbank"]),
 ]
 # (출입처, 당사자 판정 정규식). 계열사·약어 오인을 막기 위해 당사자 이름으로 확인한다.
 PARTIES = [
     ("현대차", r"Hyundai Motor|Genesis Motor"), ("기아", r"\bKia\b"), ("현대모비스", r"Hyundai Mobis|\bMobis\b"),
     ("현대위아", r"Hyundai WIA"), ("HL만도", r"\bMando\b"), ("한국타이어", r"Hankook"), ("넥센타이어", r"Nexen Tire"),
-    ("금호타이어", r"Kumho"), ("KG모빌리티", r"KG Mobility|SsangYong"),
+    ("금호타이어", r"Kumho(?!\s*(?:Petrochemical|P&B))"), ("KG모빌리티", r"KG Mobility|SsangYong"),
     ("포스코", r"\bPOSCO\b(?!\s*(?:International|Future|E&C|DX))"), ("현대제철", r"Hyundai Steel"), ("세아제강", r"SeAH"),
     ("동국제강·동국씨엠", r"Dongkuk"), ("고려아연", r"Korea Zinc"),
     # KG스틸(옛 동부제철): CIT 사건명은 'KG Dongbu Steel Co. v. United States'(Slip Op. 26-130, 10-20) — 10-29까지 빠져 있었다.
@@ -78,6 +81,8 @@ PARTIES = [
     ("HD현대일렉트릭", r"Hyundai Power Transformers|HD Hyundai Electric|Hyundai Electric"), ("LS일렉트릭", r"\bLS Electric"),
     ("LS전선", r"\bLS Cable|LS GreenLink"), ("대한전선", r"Taihan"), ("두산에너빌리티", r"Doosan"), ("한화솔루션", r"Hanwha|Q ?Cells"),
     ("OCI", r"Mission Solar|\bOCI\b"), ("GS칼텍스", r"GS Caltex"), ("효성중공업(관련)", r"Hyosung"), ("일진전기(관련)", r"Iljin"),
+    ("LG화학", r"\bLG Chem\b"), ("롯데케미칼", r"Lotte Chemical"), ("금호석유화학", r"Kumho Petrochemical"), ("S-OIL", r"\bS-Oil\b"),
+    ("HD현대오일뱅크", r"Hyundai Oil ?bank"), ("SK이노베이션", r"\bSK Innovation"),
 ]
 CALL_GAP = 13.0      # seconds between CourtListener calls (5 a minute)
 MAX_CALLS = 24       # per run (daily cap 125, hourly 50)

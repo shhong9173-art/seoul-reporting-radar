@@ -43,7 +43,8 @@ PRODUCTS = [("721070", "컬러강판(유기코팅)"), ("721240", "컬러강판(�
             ("7301", "시트파일"), ("7302", "철도용 강재")]
 BEAT_PRODUCTS = re.compile(r"steel|iron|pipe|tube|tubular|wire|rebar|plate|sheet|coil|stainless|transformer|cable|conductor|aluminum|"
                            r"zinc|copper|tire|tyre|polysilicon|solar|silicon|chemical|resin|polyethylene|terephthal|fiber|"
-                           r"rod|bar|strip|electrical|vehicle|automotive|battery|graphite|lithium", re.I)
+                           r"rod|bar|strip|electrical|vehicle|automotive|battery|graphite|lithium|"
+                           r"rubber|polypropylene|polyvinyl|polystyrene|acrylonitrile", re.I)
 # Beat companies as they appear in US trade notices (respondents, rate tables). 동국제강 and 동국씨엠 are separate companies;
 # POSCO International / POSCO Future M are not 포스코.
 BEAT_NAMES = [
@@ -60,6 +61,10 @@ BEAT_NAMES = [
     # 네덜란드 비료·메탄올 OCI(OCI N.V.·OCI Global·OCI Nitrogen)는 OCI가 아니다 — 미국 ITC 비료(UAN) 사건에 나온다
     ("OCI", r"\bOCI\b(?!\s*(?:N\.?\s?V\b|Global|Nitrogen|Methanol|Partners|Fertili[sz]er|Agro|Beaumont|Iowa))"), ("GS칼텍스", r"GS Caltex"),
     ("태광", r"Taekwang"), ("DL케미칼", r"DL Chemical"), ("동성케미칼", r"Dongsung Chemical"), ("KG모빌리티", r"KG Mobility"),
+    # 11-01 기자 명시: 석유화학·정유. 자회사(LG Energy Solution·Kumho P&B·Lotte Chemical Titan·SK Energy·SK Geo Centric)는 아니다.
+    # S-Oil은 하이픈을 꼭 둔다(대소문자 무시라 'soil'이 걸린다).
+    ("LG화학", r"\bLG Chem(?:ical)?\b"), ("롯데케미칼", r"Lotte Chemical(?!\s*Titan)"), ("금호석유화학", r"Kumho Petrochemical"),
+    ("S-OIL", r"\bS-Oil\b"), ("HD현대오일뱅크", r"Hyundai Oil ?bank"), ("SK이노베이션", r"\bSK Innovation"),
 ]
 STAGE = [("개시", r"initiation|institution of|commencement"), ("예비 판정", r"preliminary"), ("최종 판정", r"final"),
          ("연례 재심", r"administrative review"), ("일몰 재심", r"sunset|five-year|expiry"), ("범위 판정", r"scope"),

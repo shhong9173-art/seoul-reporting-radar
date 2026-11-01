@@ -167,7 +167,7 @@ class Litigation(unittest.TestCase):
         calls = []
         doc = run(cl_code=401, calls=calls)
         cl = dockets_checks(doc)
-        self.assertEqual(len(cl), 3)
+        self.assertEqual(len(cl), len(w.GROUPS))
         self.assertEqual(cl[0]["error"], "HTTP 401 토큰 거부")
         self.assertTrue(all(c["status"] == "failed" for c in cl))
         op = next(c for c in doc["checks"] if c.get("kind") == "opinions")
@@ -176,15 +176,15 @@ class Litigation(unittest.TestCase):
         self.assertEqual(sum(1 for u in calls if u.startswith(w.CL_BASE)), 1)  # no opinion search, no details after a refusal
         self.assertIsNone(doc["coveredThrough"])
 
-    def test_three_group_queries_spaced_and_or_joined(self):
+    def test_group_queries_spaced_and_or_joined(self):
         log, sleeps = [], []
         doc = w.run("t", now=NOW, get=fake(log=log), sleep=sleeps.append)
         searches = [p for u, p in log if u.startswith(w.CL_API) and p.get("type") == "r"]
-        self.assertEqual(len(searches), 3)
+        self.assertEqual(len(searches), 4)  # 자동차·철강·전력/에너지/화학·석유화학/정유(11-01)
         cl_all = [u for u, _ in log if u.startswith(w.CL_BASE)]
-        # 3 docket searches + 1 Federal Circuit docket detail + 1 opinion search + 2 opinion texts, all spaced
-        self.assertEqual(len(cl_all), 7)
-        self.assertEqual(sleeps.count(w.CALL_GAP), 7)
+        # 4 docket searches + 1 Federal Circuit docket detail + 1 opinion search + 2 opinion texts, all spaced
+        self.assertEqual(len(cl_all), 8)
+        self.assertEqual(sleeps.count(w.CALL_GAP), 8)
         self.assertEqual(doc["coveredThrough"], NOW.isoformat(timespec="seconds"))
         self.assertTrue(all(c["since"] == "2026-09-12" for c in dockets_checks(doc)))
 
@@ -200,7 +200,7 @@ class Litigation(unittest.TestCase):
         cl = [c for c in doc["checks"] if c["source"].startswith("CourtListener")]
         self.assertEqual(cl[0]["error"], "HTTP 429 호출 한도(재시도 85774초 뒤)")
         self.assertTrue(all(c["status"] == "failed" for c in cl))
-        self.assertEqual(len(cl), 4)  # three groups + rulings
+        self.assertEqual(len(cl), len(w.GROUPS) + 1)  # groups + rulings
         self.assertEqual(sum(1 for u in calls if u.startswith(w.CL_BASE)), 1)
 
     def test_window_narrows_after_a_complete_run(self):
@@ -217,6 +217,7 @@ class Rulings(unittest.TestCase):
         self.assertEqual((q["court"], q["filed_after"], q["order_by"]), ("cit cafc", "2026-10-06", "dateFiled desc"))
         self.assertIn('"POSCO"', q["q"])
         self.assertIn('"LS Electric"', q["q"])
+        self.assertIn('"S-Oil Corporation"', q["q"])
         ops = {x["id"]: x for x in doc["opinions"]}
         self.assertEqual(sorted(ops), ["op:11046079", "op:500"])  # citing-only CIT case and a state court left out
         posco = ops["op:11046079"]
