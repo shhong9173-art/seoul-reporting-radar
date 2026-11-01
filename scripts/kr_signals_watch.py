@@ -506,18 +506,31 @@ def parse_motir_list(text):
     return rows
 
 
+def _tight(t):
+    """11-01 '10월 수출입 동향'부터 본문이 낱말마다 태그로 쪼개져 '10 월 수출 1,153 억 달러 (+93.7%) ,'·'( △ 44)'처럼 띄어 나온다.
+    9월까지의 붙은 형식('9월 수출 1,209.4억 달러(+83.5%),')으로 되돌린다."""
+    t = re.sub(r"(\d)\s+월", r"\1월", t)
+    t = re.sub(r"\s*억\s*달러", "억 달러", t)
+    t = re.sub(r"\(\s+", "(", t)
+    t = re.sub(r"\s+\)", ")", t)
+    t = re.sub(r"달러\s+\(", "달러(", t)
+    t = re.sub(r"\s+([,%])", r"\1", t)
+    return re.sub(r"△\s+", "△", t)
+
+
 def parse_trade(text):
     """'○년 ○월 수출입 동향' body: totals and the main-items table (names then '값 (증감)' cells, in the same order)."""
-    t = _norm(text)
+    t = _tight(_norm(text))
     out = {}
     tot = re.search(r"\*\s*\d{1,2}월\s*수출\s*([\d,.]+)억\s*달러\(([+△\-]?[\d.]+)%\),\s*수입\s*([\d,.]+)억\s*달러\(([+△\-]?[\d.]+)%\)", t)
     if tot:
         out["exports"] = {"value": tot.group(1), "yoy": tot.group(2).replace("△", "-")}
         out["imports"] = {"value": tot.group(3), "yoy": tot.group(4).replace("△", "-")}
-    seg = re.search(r"【\d{1,2}월\s*\d+대\s*주요\s*품목별\s*수출액[^】]*】(.*?)(?:\(IT\)|【)", t)
+    seg = re.search(r"【\s*\d{1,2}월\s*\d+\s*대\s*주요\s*품목별\s*수출액[^】]*】(.*?)(?:\(IT\)|【)", t)
     items = {}
     if seg:
         chunk = seg.group(1).replace("총 수출액", "총수출액")
+        chunk = re.sub(r"([\d,.]+)\s+([+△\-][\d.]+)\s*$", r"\1 (\2)", chunk.strip())  # 10월: 끝의 총 수출액이 '1,153 +94'(괄호 없음)
         names = re.findall(r"[가-힣]+", re.sub(r"[\d,.]+\s*\([+△\-]?[\d.]+\)", " ", chunk))
         vals = re.findall(r"([\d,.]+)\s*\(([+△\-]?[\d.]+)\)", chunk)
         if names and len(names) == len(vals):
@@ -529,7 +542,7 @@ def parse_trade(text):
     for n in TRADE_ITEMS:  # prose fallback: '자동차(60.5억 달러, △5.5%)'
         if n in items:
             continue
-        m = re.search(rf"(?<![가-힣]){n}\(([\d,.]+)억\s*달러,\s*([+△\-]?[\d.]+)%\)", t)
+        m = re.search(rf"(?<![가-힣]){n}(?:\s*수출)?\s*\(([\d,.]+)억\s*달러,\s*([+△\-]?[\d.]+)%\)", t)
         if m:
             items[n] = {"value": m.group(1), "yoy": m.group(2).replace("△", "-"), "from": "본문"}
     out["items"] = items
@@ -560,7 +573,8 @@ def motir(cfg, now, previous, http):
         old = prev.get(x["id"])
         row = {**x, "companies": names, "trade": (old or {}).get("trade"), "firstSeen": (old or {}).get("firstSeen") or stamp,
                "isNew": bool(previous) and old is None}
-        if trade and not row["trade"]:
+        stale = row["trade"] and (row["trade"].get("error") or row["trade"].get("tableError") or not row["trade"].get("exports"))
+        if trade and (not row["trade"] or stale):  # 해석 실패·조회 실패분은 다음 실행에서 다시 읽는다
             d, e = http.call("GET", x["url"])
             row["trade"] = {"period": f"{trade.group(1)}-{int(trade.group(2)):02d}", **(parse_trade(re.sub(r"(?s)<[^>]+>", " ", d.text)) if not e else {"error": e})}
         kept[x["id"]] = row
