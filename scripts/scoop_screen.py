@@ -94,6 +94,7 @@ NEWS_TERMS = {
     "중대재해발생": ["중대재해", "사망", "사고"], "중대재해": ["중대재해", "사망", "사고"],
     "영업양도": ["영업양도", "양도", "매각"], "생산중단": ["생산 중단", "가동 중단", "생산중단"],
     "회사분할": ["분할"], "회사합병": ["합병"], "타법인주식및출자증권취득": ["지분 인수", "인수", "취득"],
+    "타법인주식및출자증권처분": ["지분 매각", "매각", "처분"],
     "유형자산취득": ["투자", "취득", "증설"], "유형자산처분": ["매각", "처분"], "신규시설투자": ["투자", "증설"],
     "단일판매ㆍ공급계약체결": ["수주", "공급계약"], "공급계약": ["수주", "공급계약"],
     # 10-31 운영: 'LS전선 교환사채권발행'·'HD현대일렉트릭 타인에대한채무보증'으로 찾아 미보도 후보 — 기사는 '교환사채'·'채무보증'
@@ -517,6 +518,29 @@ def holder_terms(c):
         if len(name) >= 2 and name != c.get("company"):
             return [name, "지분"], {"지분": HOLDER_STAKE}
     return None
+
+
+# 타법인주식 취득·처분: 기사는 상대 회사 이름과 '지분'으로 쓴다(11-01 운영: LG화학 10-28 LG에너지솔루션 지분 2.5조원 처분을
+# 'LG화학 타법인주식및출자증권처분'으로 찾아 '미보도 후보' — 같은 날 「LG화학, 2.5조 규모 LG에너지솔루션 지분 매각」 등 수십 건).
+STAKE_EVENT = {"타법인주식처분": ["지분", "매각", "처분", "블록딜", "교환사채", "유동화"],
+               "타법인주식취득": ["지분", "인수", "취득", "출자", "투자"]}
+TARGET_SHORT = {"LG에너지솔루션": ["LG엔솔"]}   # 기사가 흔히 쓰는 줄임말
+
+
+def stake_terms(c):
+    """(terms, alts) 또는 None. 원문 '회사명'(상대 회사)을 못 읽으면 None."""
+    f = c.get("filing") or {}
+    words = STAKE_EVENT.get(f.get("type"))
+    if not words or f.get("error"):
+        return None
+    got = {k: str(v or "") for k, v in (f.get("facts") or []) if isinstance(k, str)}
+    target = re.sub(r"\s+", " ", got.get("회사명", "")).strip()
+    target = re.sub(r"^(?:주식회사|\(주\)|㈜)\s*|\s*(?:주식회사|\(주\)|㈜)$", "", target).strip()
+    if len(target) < 2 or len(target) > 40 or target == c.get("company"):
+        return None
+    names = [target] + TARGET_SHORT.get(target, []) + [a for a in aliases(target) if a != target]
+    terms = [target, "지분"] + [t for t in c.get("terms") or [] if t not in (target, "지분")]
+    return terms, {**(c.get("alts") or {}), target: list(dict.fromkeys(names)), "지분": words}
 
 
 # 유형자산 취득·처분·신규시설투자: 제목 낱말('투자')만으로는 다른 기사를 잡는다(10-31 운영: 금호타이어 함평 부지 취득 정정을
@@ -1042,7 +1066,7 @@ def main():
         targets = sorted(cands, key=lambda r: (not is_lawsuit(r), not r.get("bodyTitle")))
         dart_filing_facts.enrich(targets, dart_key, dart_filing_facts.load_corp_codes(), fetch_documents=zip_documents, get=requests.get)
         for c in cands:
-            better=lawsuit_terms(c) or holder_terms(c) or asset_terms(c)
+            better=lawsuit_terms(c) or holder_terms(c) or stake_terms(c) or asset_terms(c)
             if better:
                 c["terms"],c["alts"]=better
         inputs["lawsuitIdentityRead"] = sum(bool(case_identity(c)[0]) for c in cands if is_lawsuit(c))
