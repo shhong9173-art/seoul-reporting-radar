@@ -79,6 +79,23 @@ def exclusive(t):
     ]
     return any(re.search(p,s,re.I) for p in pats)
 
+def error_label(exc):
+    """Class name plus the HTTP status when there is one ('HTTPError 503') — counts-only diagnostics, no URL or query."""
+    code=getattr(exc,'code',None)
+    return f"{type(exc).__name__} {code}" if isinstance(code,int) else type(exc).__name__
+
+def failure_summary(checks,items,threshold=10):
+    """One counts-only line for the Actions log: why the run stopped (11-01: 11:30·12:10 KST runs stopped with no visible cause)."""
+    bad=[c for c in checks if c.get('status') in ('transport_or_xml_error','malformed_rss')]
+    kinds={}
+    for c in bad:
+        k=c.get('errorType') or c.get('status')
+        kinds[k]=kinds.get(k,0)+1
+    empty=sum(1 for c in checks if c.get('status')=='checked_no_recent_rows')
+    detail=', '.join(f'{k} ×{v}' for k,v in sorted(kinds.items(),key=lambda kv:-kv[1]))
+    return (f"국내 뉴스 수집 {items}건(문턱 {threshold}) — 검색 {len(checks)}개 중 실패 {len(bad)}"
+            f"{f'({detail})' if detail else ''} · 최근 기사 없음 {empty}")
+
 def parse_feed(category,query,global_feed=False,source_hint=''):
     start=time.monotonic()
     lang,gl=('en-US','US') if global_feed else ('ko','KR')
@@ -91,7 +108,7 @@ def parse_feed(category,query,global_feed=False,source_hint=''):
         FEED_CHECKS.append({"category":category,"globalFeed":bool(global_feed),
             "status":"malformed_rss" if isinstance(exc,(ET.ParseError,ValueError))
                  else "transport_or_xml_error",
-            "recentRows":0,"errorType":type(exc).__name__,
+            "recentRows":0,"errorType":error_label(exc),
             "exclusiveQuery":category=="단독",
             "durationMs":min(600000,int((time.monotonic()-start)*1000))})
         return []
@@ -213,7 +230,11 @@ items=enrich(dedupe(raw)+global_items);items.sort(key=lambda x:(x.get('global',F
 health=build_feed_health(FEED_CHECKS,expected=len(FEEDS)+len(GLOBAL_FEEDS),
     news_items=len(items),now=datetime.now(KST),threshold=10)
 persist_feed_health(health,Path("digests/auto_news_feed_health_latest.json"))
-if len(items)<10:raise SystemExit(f'collection returned only {len(items)} items; feed health: {health["status"]}, errors {health["errorQueries"]}')
+if len(items)<10:
+    print(f"::error title=news-collect-stopped::{failure_summary(FEED_CHECKS,len(items))} — 이전 결과 유지(발행 안 함)")
+    raise SystemExit(f'collection returned only {len(items)} items; feed health: {health["status"]}, errors {health["errorQueries"]}')
+if health.get("errorQueries"):
+    print(f"::warning title=news-collect-partial::{failure_summary(FEED_CHECKS,len(items))}")
 payload=json.dumps(items,ensure_ascii=False,separators=(',',':'))
 JSON_OUT.write_text(payload,encoding='utf-8');OUT.write_text('window.ITEMS = '+payload+';\n',encoding='utf-8')
 print(f'wrote {len(items)} items including {len(global_items)} global items')
