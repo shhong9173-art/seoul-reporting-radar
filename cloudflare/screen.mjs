@@ -38,6 +38,7 @@ export const FEEDS = {
   'kr-local-browser': { blob: 'kr_local_browser', schema: 'kr_local_browser/v1', list: 'cities' },
   // 기자 컴퓨터 브라우저로 읽은 무역구제 공고 목록(호주 TRN 등; local_notice_submit pages → trade-remedy 감시가 GET).
   'trade-remedy-browser': { blob: 'trade_remedy_browser', schema: 'trade_remedy_browser/v1', list: 'pages' },
+  'global-beat': { blob: 'global_beat', schema: 'global_beat/v1', list: 'items' },
 };
 
 // Official trade-remedy listing pages that do not answer GitHub runners (ReadTimeout). Collectors fetch them through

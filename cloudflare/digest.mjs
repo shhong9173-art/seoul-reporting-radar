@@ -44,6 +44,8 @@ export const WATCHES = [
   { feed: 'kr-local', label: '지자체 고시·공고', tool: 'kr_official', schedule: '평일 06:30·16:20' },
   { feed: 'kr-workforce', label: '사업장 인력(국민연금)', tool: 'kr_official', schedule: '평일 15:50', staleHours: 80 },
   { feed: 'kr-stacks', label: '굴뚝 측정(공장 가동 신호)', tool: 'kr_official', schedule: '3시간마다', staleHours: 12 },
+  // 해외 매체 기사 중 직접 출입처 이름이 나온 것(global_collector.py, 뉴스 수집 20분마다) — AI 번역·요약이라 원문 확인
+  { feed: 'global-beat', label: '출입처 외신', tool: 'source_document', schedule: '20분마다', staleHours: 6 },
 ];
 
 // Items first seen in a watch's very first run are a baseline, not news: they only count when their own date is recent.
@@ -63,6 +65,8 @@ function isFresh(x, cut, cutDay, base, dateKey) {
 // subject is a beat company (or a bill's law name) get one; the checker screens nothing else. Hints are search words,
 // not facts — the item's own line stays as collected.
 const ALT = {
+  // 출입처 외신 사건 낱말(global_collector.py KO_EVENTS)
+  원자로: ['원자로', '원전', 'SMR', '소형모듈원전', '소형원전', '원자로 용기'], 해상풍력: ['해상풍력', '풍력'], 해저케이블: ['해저케이블', '해저 케이블', 'HVDC', '케이블'], 변압기: ['변압기', '전력기기'], 모노파일: ['모노파일', '하부구조물'], 제련소: ['제련소', '제련'], 투자: ['투자', '증설', '건설'], MOU: ['MOU', '양해각서', '협약', '협력'], 입찰: ['입찰', '경쟁입찰'], 인수: ['인수', '매각', 'M&A'], 파업: ['파업', '노조', '쟁의'], 감산: ['감산', '생산 중단', '가동 중단'], ESS: ['ESS', '에너지저장'], 태양광: ['태양광', '폴리실리콘', '모듈'], 철강: ['철강', '강판', '열연', '냉연'], 배터리: ['배터리', '이차전지'], 타이어: ['타이어'],
   소송: ['소송', '제소', '판결', '항소', '불복'], 국제무역법원: ['국제무역법원', '무역법원', 'CIT'], 항소: ['항소', '불복', '소송', '항소법원'],
   특허: ['특허', '특허심판원', 'PTAB', '무효'], 판결: ['판결', '패소', '승소', '기각', '판정', '결정'], 상계관세: ['상계관세', '보조금'],
   반덤핑: ['반덤핑', '덤핑'], ITC: ['ITC', '무역위원회'], 특허침해: ['특허', '침해', '337조', '수입 금지', '제소'],
@@ -555,6 +559,19 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
         + `${years.length ? `(${years[0]}${years.length > 1 && years[years.length - 1] !== years[0] ? `~${years[years.length - 1]}` : ''}년형)` : ''} · ${x.campaign ? `캠페인 ${x.campaign} · ` : ''}문서 ${x.docCount > 1 ? `${x.docCount}건` : x.doc} · 「${clipAt(x.summary ?? '', 160)}」`
         + ' — 딜러용 통신이라 리콜·결함 인정 아님, 국내 무상수리 해당 여부는 회사 확인',
       url: x.url, check: x.tier === 'C' ? undefined : (models.length ? hint(brand, [models[0], '무상수리'], [models[0]], models) : hint(brand, ['무상수리', '미국'])) });
+  }
+
+  // 출입처 외신(global_collector.py): 한국어 제목에 사건 낱말(공장·투자·수주·원자로 등)이 있으면 B(자동 보도 대조), 없으면 참고(C).
+  // 첫 수집에 잡힌 기존 기사는 자기 게재일이 최근일 때만(fresh). AI 번역·요약 — 원문 확인.
+  const gbItems = docs['global-beat']?.items ?? [];
+  const gbBase = baselineOf(gbItems);
+  for (const x of gbItems) {
+    if (!fresh(x, gbBase, 'published')) continue;
+    const companies = x.beatCompanies ?? [];
+    const terms = (x.checkTerms ?? []).slice(0, 2);
+    push(terms.length ? 'B' : 'C', W['global-beat'], { kind: '출입처 외신', id: x.id, date: x.published, company: companies.join('·'),
+      fact: `외신 ${x.source ?? ''} 「${x.koTitle || x.title}」${x.koSummary ? ` — ${clipAt(x.koSummary, 220)}` : ''} · 원제 "${clipAt(x.title ?? '', 140)}" (AI 번역·요약 — 원문 확인)`,
+      url: x.url, check: terms.length && companies.length ? hint(companies[0], terms) : undefined });
   }
 
   // US OSHA: new inspection (fatality/accident A, complaint/referral B), new citations (willful/repeat or $100k+ A, serious B), fatal accident summary A.

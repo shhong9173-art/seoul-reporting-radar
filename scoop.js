@@ -27,7 +27,7 @@
   }
   function setCount(html){const m=/data-a="(\d+)" data-b="(\d+)"/.exec(html||'');const c=document.querySelector('#countScoop');if(m&&c)c.textContent=String(Number(m[1])+Number(m[2]));}
   function privateBox(){
-    return '<section class="rb-home"><h2 class="scoop-section-title">오늘의 레이더 <span>기자 전용 감시 23곳의 새 항목 A·B · 자동 보도 대조(미보도 후보)</span></h2>'+
+    return '<section class="rb-home"><h2 class="scoop-section-title">오늘의 레이더 <span>기자 전용 감시 24곳의 새 항목 A·B · 자동 보도 대조(미보도 후보)</span></h2>'+
       '<div class="rb-home-tools" style="display:flex;gap:8px;align-items:center;margin:6px 0 10px"><select id="rbHours"><option value="">기본(24시간, 월요일 72시간)</option><option value="72">72시간</option><option value="168">7일</option></select><button type="button" id="rbLogout" class="secondary" style="display:none">로그아웃</button></div>'+
       '<div id="rbBody"><div class="card"><div class="summary">불러오는 중…</div></div></div></section>';
   }
