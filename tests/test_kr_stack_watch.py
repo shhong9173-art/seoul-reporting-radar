@@ -263,16 +263,57 @@ class StackTest(unittest.TestCase):
         t = T0 + dt.timedelta(hours=12)
         doc = w.run(CFG_SMALL, now=t, previous=doc, key="k", get=Api(drop_yp(t)), sleep=lambda s: None)
         self.assertEqual([e["tier"] for e in doc["events"] if e["kind"].startswith("사업장 목록에서 빠짐")], ["C"])
-        doc = series(8)
+        # 평일 일하는 시간에 2번 연속 빠지면 B, 다시 나타나면 C
+        mon = dt.datetime(2026, 11, 2, 7, 0, tzinfo=KST)
+        doc = series(8, start=mon)
         for k in range(2):
-            t = T0 + dt.timedelta(hours=24 + 3 * k)
+            t = mon + dt.timedelta(hours=24 + 3 * k)   # 화 07:00·10:00
             doc = w.run(CFG_SMALL, now=t, previous=doc, key="k", get=Api(drop_yp(t)), sleep=lambda s: None)
         self.assertEqual([e["tier"] for e in doc["events"] if e["kind"].startswith("사업장 목록에서 빠짐")], ["B"])
-        t = T0 + dt.timedelta(hours=30)
+        t = mon + dt.timedelta(hours=30)
         doc = w.run(CFG_SMALL, now=t, previous=doc, key="k", get=Api(world(t)), sleep=lambda s: None)
         back = [e for e in doc["events"] if e["kind"].startswith("사업장 목록에서 빠짐")]
         self.assertEqual([e["tier"] for e in back], ["C"])
         self.assertIn("이후 다시 나타남", back[0]["text"])
+
+    def test_list_disappearance_in_rest_time_is_C_until_weekday_confirms(self):
+        # 11-01(일) 운영: 09:13 동국제강 포항·KG스틸 당진·세아제강 창원 '사업장 목록에서 빠짐', 04:22 현대제철 포항1공장 배출구 3개 '빠짐'이 B
+        # (연속 가동 회사라도) — 이 API는 값이 없는 사업장·배출구를 싣지 않는다. 쉬는 시간에 빠지면 C, 평일 일하는 시간에도 2번 빠지면 B
+        def drop_yp(t):
+            return [x for x in world(t) if x["fact_manage_nm"] != "㈜영풍석포제련소"]
+        doc = series(8)   # 금 12:00 ~ 토 09:00
+        for k in range(2):
+            t = T0 + dt.timedelta(hours=24 + 3 * k)   # 토 12:00·15:00
+            doc = w.run(CFG_SMALL, now=t, previous=doc, key="k", get=Api(drop_yp(t)), sleep=lambda s: None)
+        gone = [e for e in doc["events"] if e["kind"].startswith("사업장 목록에서 빠짐")]
+        self.assertEqual([e["tier"] for e in gone], ["C"])
+        self.assertIn("주말·공휴일·밤(0~7시)에 빠진 것이라", gone[0]["text"])
+        for h in (8, 11):   # 월 08:00·11:00 — 평일 일하는 시간에도 빠짐
+            t = dt.datetime(2026, 11, 2, h, 0, tzinfo=KST)
+            doc = w.run(CFG_SMALL, now=t, previous=doc, key="k", get=Api(drop_yp(t)), sleep=lambda s: None)
+        gone = [e for e in doc["events"] if e["kind"].startswith("사업장 목록에서 빠짐")]
+        self.assertEqual(sorted((e["tier"], e["id"].endswith(":work:2026-11-02")) for e in gone), [("B", True), ("C", False)])
+        self.assertIn("쉬는 시간부터 4번 연속 굴뚝 자동측정 목록에서 빠졌고 평일 일하는 시간에도 2번 연속 없음", next(e for e in gone if e["tier"] == "B")["text"])
+        t = dt.datetime(2026, 11, 2, 14, 0, tzinfo=KST)
+        doc = w.run(CFG_SMALL, now=t, previous=doc, key="k", get=Api(world(t)), sleep=lambda s: None)
+        self.assertEqual([e["tier"] for e in doc["events"] if e["kind"].startswith("사업장 목록에서 빠짐")], ["C", "C"])   # 다시 나타나면 둘 다 C
+        # 배출구: 일요일 새벽에 빠지면 C
+        doc = series(8)
+        for k in range(2):
+            t = dt.datetime(2026, 11, 1, 1, 0, tzinfo=KST) + dt.timedelta(hours=3 * k)   # 일 01:00·04:00
+            rows = [x for x in world(t) if not (x["fact_manage_nm"] == "현대제철㈜포항2공장" and x["stack_code"] == "2")]
+            doc = w.run(CFG_SMALL, now=t, previous=doc, key="k", get=Api(rows), sleep=lambda s: None)
+        self.assertEqual([e["tier"] for e in doc["events"] if e["kind"] == "배출구 목록에서 빠짐"], ["C"])
+
+    def test_stored_rest_time_disappearances_are_lowered_for_every_company(self):
+        sun = "2026-11-01T09:13:00+09:00"
+        ev = [{"id": "stk:sitegone:동국제강:x", "kind": "사업장 목록에서 빠짐(굴뚝 측정)", "tier": "B", "company": "동국제강", "detectedAt": sun, "text": "빠짐"},
+              {"id": "stk:gone:현대제철:y:10:2026-11-01", "kind": "배출구 목록에서 빠짐", "tier": "B", "company": "현대제철", "detectedAt": "2026-11-01T04:22:00+09:00", "text": "빠짐"},
+              {"id": "stk:sitegone:세아:z", "kind": "사업장 목록에서 빠짐(굴뚝 측정)", "tier": "B", "company": "세아", "detectedAt": "2026-11-02T10:13:00+09:00", "text": "빠짐"},
+              {"id": "stk:sitegone:세아:z:work:2026-11-02", "kind": "사업장 목록에서 빠짐(굴뚝 측정)", "tier": "B", "company": "세아", "detectedAt": "2026-11-02T10:13:00+09:00", "text": "빠짐"},
+              {"id": "stk:stop:포스코:w:2026-11-01", "kind": "배출구 멈춤 신호", "tier": "B", "company": "포스코", "detectedAt": sun, "text": "멈춤"}]
+        w.retier_rest_gone(ev)
+        self.assertEqual([e["tier"] for e in ev], ["C", "C", "B", "B", "B"])   # 평일 낮 빠짐·멈춤 신호는 그대로
 
     def test_stored_burst_of_new_stack_A_is_collapsed(self):
         at = "2026-10-30T13:36:00+09:00"

@@ -122,6 +122,28 @@ def retier_offhours(events, weekday_companies, judge=None):
             e["text"] = (e.get("text") or "") + " — 평일 교대 공장의 주말·휴일·밤에 잡힌 것이라 휴무일 수 있어 C로 바로잡음"
 
 
+GONE_KINDS = ("사업장 목록에서 빠짐(굴뚝 측정)", "배출구 목록에서 빠짐")
+REST_NOTE = (" — 주말·공휴일·밤(0~7시)에 빠진 것이라 쉬는 동안 측정 값이 없어 목록에 안 나온 것일 수 있음"
+             "(평일 일하는 시간에도 2번 연속 빠지면 B로 다시 알림)")
+
+
+def retier_rest_gone(events, judge=None):
+    """목록에서 빠짐(사업장·배출구)이 쉬는 시간에 잡혔으면 회사와 상관없이 C로 내린다(평일 일하는 시간 확인 B는 그대로).
+    11-01(일) 운영: 04:22 현대제철 포항1공장 배출구 3개, 09:13 동국제강 포항·KG스틸 당진·세아제강 창원 사업장이 '빠짐' B —
+    포스코 포항 135번은 같은 날 다시 나타났다. 이 API는 값이 없는 배출구·사업장을 목록에 싣지 않는다."""
+    judge = judge or working
+    for e in events:
+        if e.get("kind") not in GONE_KINDS or e.get("tier") == "C" or ":work" in str(e.get("id", "")):
+            continue
+        try:
+            at = dt.datetime.fromisoformat(str(e.get("detectedAt")))
+        except (TypeError, ValueError):
+            continue
+        if not judge(at):
+            e["tier"] = "C"
+            e["text"] = (e.get("text") or "") + REST_NOTE
+
+
 def retier_new(events, sites, baseline_since):
     """저장된 '새 배출구'·'새 사업장' 이벤트를 지켜본 기간 규칙으로 다시 매긴다(예전 규칙으로 하루 만에 A가 된 것 바로잡기)."""
     for e in events:
@@ -311,6 +333,7 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep):
     retier_new(events, sites, prev.get("baselineSince"))
     weekday_companies = {c["company"] for c in cfg["companies"] if c.get("schedule") == "weekday"}
     retier_offhours(events, weekday_companies)
+    retier_rest_gone(events)
     retier_marginal(events)
     known = {e["id"] for e in events}
     fresh, errors, ok_terms, seen_sites = [], [], 0, set()
@@ -381,6 +404,7 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep):
                     if not first and not s.get("firstSeen") == stamp:
                         new_codes.append((code, x))
                 mdt = x.get("mesure_dt")
+                st.pop("workMissing", None)
                 if st.get("lastDt") == mdt and st.get("obs"):
                     st["missing"] = 0
                     continue  # 측정 시각이 그대로면 같은 관측을 두 번 쌓지 않는다
@@ -432,10 +456,20 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep):
             for code, st in stacks.items():
                 if code not in present and not off:
                     st["missing"] = st.get("missing", 0) + 1
-                    # 6번 넘게 관측된 배출구만(초기에는 측정 자료가 늦게 들어와 목록이 들쑥날쑥하다)
-                    if st["missing"] == MISSING_RUNS and not first and len(st.get("obs") or []) >= MIN_OBS:
-                        emit(f"stk:gone:{sid}:{code}:{day}", "배출구 목록에서 빠짐", "B", comp["company"], name,
-                             f"{name} 배출구 {code}번이 굴뚝 자동측정 목록에서 {MISSING_RUNS}번 연속 빠짐 — 설비 폐쇄·측정 대상 변경일 수 있음(회사 확인)")
+                    if working(now):
+                        st["workMissing"] = st.get("workMissing", 0) + 1
+                    wm = st.get("workMissing", 0)
+                    what = f"{name} 배출구 {code}번이 굴뚝 자동측정 목록에서 {MISSING_RUNS}번 연속 빠짐 — 설비 폐쇄·측정 대상 변경일 수 있음(회사 확인)"
+                    # 6번 넘게 관측된 배출구만(초기에는 측정 자료가 늦게 들어와 목록이 들쑥날쑥하다).
+                    # B는 평일 일하는 시간에 2번 연속 빠졌을 때만 — 쉬는 시간에 빠진 것은 C로 알리고 평일에 다시 본다.
+                    if not first and len(st.get("obs") or []) >= MIN_OBS:
+                        if st["missing"] == MISSING_RUNS:
+                            emit(f"stk:gone:{sid}:{code}:{day}", "배출구 목록에서 빠짐", "B" if wm >= MISSING_RUNS else "C", comp["company"], name,
+                                 what + ("" if wm >= MISSING_RUNS else REST_NOTE))
+                        elif wm == MISSING_RUNS:
+                            emit(f"stk:gone:{sid}:{code}:{day}:work", "배출구 목록에서 빠짐", "B", comp["company"], name,
+                                 f"{name} 배출구 {code}번이 쉬는 시간부터 {st['missing']}번 연속 굴뚝 자동측정 목록에서 빠졌고 평일 일하는 시간에도 "
+                                 f"{MISSING_RUNS}번 연속 없음 — 설비 폐쇄·측정 대상 변경일 수 있음(회사 확인)")
 
             # 사업장 가동 판단: 평소 움직이던 배출구 가운데 멈춘 것
             judged = {code: stack_state(st, now, judge) for code, st in stacks.items() if code in present}
@@ -482,17 +516,27 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep):
             if s["company"] in weekday_companies and not working(now):
                 continue  # 평일 교대 공장은 쉬는 시간에 목록에서 빠져도 세지 않는다(값이 없으면 목록에 안 나온다)
             s["missingRuns"] = s.get("missingRuns", 0) + 1
+            if working(now):
+                s["workMissing"] = s.get("workMissing", 0) + 1
+            wm = s.get("workMissing", 0)
             if s.get("runs", 0) < MATURE_RUNS:  # 예전 규칙으로 B가 된 이른 사업장의 '빠짐'도 C로(10-30 엘에스엠앤엠)
                 settle(f"stk:sitegone:{sid}", f" — 이 사업장을 {s.get('runs', 0) or '몇'}번만 봐서 일시적 누락일 수 있음")
+            mature = s.get("runs", 0) >= MATURE_RUNS
+            # B는 평일 일하는 시간에 2번 연속 빠졌을 때만. 주말·공휴일·밤에 빠진 것은 C로 먼저 알리고, 평일에도 빠져 있으면 그때 B.
             if s["missingRuns"] == MISSING_RUNS and not first:
-                mature = s.get("runs", 0) >= MATURE_RUNS
-                emit(f"stk:sitegone:{sid}", "사업장 목록에서 빠짐(굴뚝 측정)", "B" if mature else "C", s["company"], s["name"],
+                emit(f"stk:sitegone:{sid}", "사업장 목록에서 빠짐(굴뚝 측정)", "B" if mature and wm >= MISSING_RUNS else "C", s["company"], s["name"],
                      f"{s['name']}이 굴뚝 자동측정 목록에서 {MISSING_RUNS}번 연속 빠짐 — "
-                     + ("폐쇄·이름 변경·측정 대상 제외 확인" if mature else f"이 사업장을 {s.get('runs', 0)}번만 봐서 일시적 누락일 수 있음"))
+                     + (("폐쇄·이름 변경·측정 대상 제외 확인" + ("" if wm >= MISSING_RUNS else REST_NOTE)) if mature
+                        else f"이 사업장을 {s.get('runs', 0)}번만 봐서 일시적 누락일 수 있음"))
+            elif mature and wm == MISSING_RUNS and s["missingRuns"] > MISSING_RUNS and not first:
+                emit(f"stk:sitegone:{sid}:work:{day}", "사업장 목록에서 빠짐(굴뚝 측정)", "B", s["company"], s["name"],
+                     f"{s['name']}이 쉬는 시간부터 {s['missingRuns']}번 연속 굴뚝 자동측정 목록에서 빠졌고 평일 일하는 시간에도 {MISSING_RUNS}번 연속 없음 — "
+                     "폐쇄·이름 변경·측정 대상 제외 확인")
         elif sid in seen_sites:
             if s.get("missingRuns", 0) >= MISSING_RUNS:
                 settle(f"stk:sitegone:{sid}", f" — 이후 다시 나타남({stamp[:16]}, 일시적 누락)")
             s["missingRuns"] = 0
+            s.pop("workMissing", None)
 
     total_terms = sum(len(c["terms"]) for c in cfg["companies"])
     status = "failed" if ok_terms == 0 else ("partial" if errors else "complete")
