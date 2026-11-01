@@ -998,13 +998,13 @@ export async function krSignals(ctx, args) {
   const doc = await readFeed(ctx, 'kr-signals');
   if (!doc) return energy.length ? textResult([missing('공정위 의결서·한전 입찰·원자재 가격', '평일 08:30·15:20').content[0].text, ...energy].join('\n'), true) : missing('공정위 의결서·한전 입찰·원자재 가격', '평일 08:30·15:20');
   if (doc.broken) return textResult(['저장된 국내 신호 결과 형식 오류 — 미확인.', ...energy].join('\n'), true);
-  const section = ['ftc', 'ftc_press', 'kepco', 'motir', 'price'].includes(args.section) ? args.section : null;
+  const section = ['ftc', 'ftc_press', 'kepco', 'motir', 'briefing', 'price'].includes(args.section) ? args.section : null;
   const q = String(args.company ?? '').trim();
   const days = clampInt(args.days, 1, 365, 60);
   const limit = clampInt(args.limit, 1, 60, 15);
   const checks = doc.checks ?? [];
   const bad = checks.filter((c) => c.status !== 'ok');
-  const out = [`국내 신호(공정위 의결서·보도자료·한전 전자입찰·산업부 보도자료·원자재 가격) · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt)}`,
+  const out = [`국내 신호(공정위 의결서·보도자료·한전 전자입찰·산업부·기후부·국토부 보도자료·원자재 가격) · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt)}`,
     `질의 ${checks.length - bad.length}/${checks.length} 정상${bad.length ? ` · 미확인(0건 아님): ${bad.slice(0, 6).map((c) => `${c.source}(${c.error ?? c.status}${c.pending ? `, 전문 대기 ${c.pending}건` : ''})`).join(', ')}` : ''}`,
     ...(doc.rules ?? []).map((r) => `규칙: ${r}`)];
   if (!section || section === 'ftc') {
@@ -1076,6 +1076,21 @@ export async function krSignals(ctx, args) {
     }
     if (!rows.length) out.push('없음');
     out.push('   검증 상태: 정부 공개 발표. 단독 근거가 아니다 — 같은 날 기사 확인(news_check), 엠바고 준수');
+  }
+  if (!section || section === 'briefing') {
+    const from = new Date(ctx.now.getTime() + 9 * 3600000 - Math.min(days, 60) * 86400000).toISOString().slice(0, 10);
+    const rows = (doc.briefing ?? []).filter((x) => String(x.date ?? '') >= from && matches(q, x.title, x.ministry, ...(x.companies ?? [])));
+    if (!Array.isArray(doc.briefing)) out.push('\n[기후에너지환경부·국토교통부 보도자료] 아직 수집 전 — 미확인(0건 아님)');
+    else {
+      out.push(`\n[기후에너지환경부·국토교통부 보도자료(정책브리핑 목록) · 제목에 출입처 이름·업종 낱말 · 최근 ${Math.min(days, 60)}일] ${rows.length}건`);
+      for (const x of rows.slice(0, limit)) {
+        out.push(`- ${x.isNew ? '[신규] ' : ''}${x.date} · ${x.ministry}`);
+        out.push(`   제목: ${x.title}${(x.companies ?? []).length ? ` · 출입처 이름: ${x.companies.join('·')}` : ''}`);
+        out.push(`   원문: ${x.url}`);
+      }
+      if (!rows.length) out.push('없음');
+      out.push('   검증 상태: 정부 공개 발표(제목만 저장). 내용·수치·엠바고는 원문에서 확인, 같은 날 기사는 news_check');
+    }
   }
   if (!section || section === 'price') {
     const rows = (doc.prices ?? []).filter((p) => matches(q, p.name, p.id, ...(p.beats ?? [])));

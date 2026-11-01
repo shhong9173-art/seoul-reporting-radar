@@ -519,13 +519,81 @@ class TradeOctoberFormat(unittest.TestCase):
         self.assertFalse(any("/172254/view" in c[1] for c in calls.s.calls))  # 해석된 것은 다시 읽지 않음
 
 
+def brief_row(nid, title, date, dept, code="A00019"):
+    return (f'<li> <a href="/briefing/pressReleaseView.do?newsId={nid}&amp;pageIndex=1&amp;repCodeType={code[0]}&amp;repCode={code}&amp;startDate=2025-11-01'
+            f'&amp;endDate=2026-11-01&srchWord=&amp;period="> <span class="text"> <strong>{title}</strong> <span class="lead"> ▷ 요약 문장 … </span> '
+            f'<span class="source"> <span>{date}</span> <span>{dept}</span> </span> </span> </a> </li>')
+
+
+def brief_page(rows):
+    return f'<div class="list_type"> <ul> {"".join(rows)} </ul> </div>'
+
+
+# 11-01 운영 목록 형식(probe 82·85): 부처 코드로 거른 쪽은 날짜가 '2026-10-30', 거르지 않은 쪽은 '2026.11.01'
+ME_PAGE = brief_page([
+    brief_row("156787389", "2026년 수소발전 입찰시장 개설", "2026-10-30", "기후에너지환경부"),
+    brief_row("156787339", "고준위위원회, 고준위 방사성폐기물 관리시설 부적합지역 배제기준 확정", "2026-10-30", "기후에너지환경부"),
+    brief_row("156786947", "국립생물자원관, 도시 야생동물과의 안전한 공존을 위한 과학적 관리 방안 모색", "2026-10-29", "기후에너지환경부"),
+    brief_row("156786456", "자동차 연료첨가제, 민간 전문기관과 함께 철저히 관리한다", "2026-10-26", "기후에너지환경부"),
+    brief_row("156786000", "현대제철 당진공장 배출권 할당 변경 공고", "2026-10-20", "기후에너지환경부")])
+MOLIT_PAGE = brief_page([
+    brief_row("156787238", "울산화력발전소 보일러타워 붕괴사고 조사결과", "2026-10-30", "국토교통부", "A00006"),
+    brief_row("156787184", "&#039;26년 9월 주택통계", "2026-10-30", "국토교통부", "A00006"),
+    brief_row("156787100", "기아 등 5개사 12개 차종 3만 2천여 대 자발적 시정조치(리콜)", "2026.10.29", "국토교통부", "A00006")])
+MIXED_PAGE = brief_page([brief_row("156787418", "[연구행정 혁신+-⑨] 협력의 문은 넓게", "2026.11.01", "과학기술정보통신부")])
+
+
+def briefing_routes(fail=None, mixed=None):
+    def lst(method, url, kw):
+        p = kw.get("params") or {}
+        if p.get("repCode") == fail:
+            return Resp("", 503)
+        if int(p.get("pageIndex", 1)) > 1:
+            return Resp(brief_page([]))
+        if p.get("repCode") == mixed:
+            return Resp(MIXED_PAGE)
+        return Resp(ME_PAGE if p.get("repCode") == "A00019" else MOLIT_PAGE)
+    return {w.BRIEFING_LIST: lst}
+
+
+class BriefingWatch(unittest.TestCase):
+    def test_parse_and_filter(self):
+        rows = w.parse_briefing(MOLIT_PAGE)
+        self.assertEqual(rows[2], {"id": "briefing:156787100", "title": "기아 등 5개사 12개 차종 3만 2천여 대 자발적 시정조치(리콜)", "date": "2026-10-29",
+                                   "ministry": "국토교통부", "url": "https://www.korea.kr/briefing/pressReleaseView.do?newsId=156787100"})
+        self.assertEqual(rows[1]["title"], "'26년 9월 주택통계")
+        self.assertNotIn("요약", json.dumps(rows, ensure_ascii=False))  # 요약(lead)은 남기지 않는다
+        items, check = w.briefing(CFG, NOW, None, http(briefing_routes()))
+        by = {x["id"]: x for x in items}
+        self.assertEqual(by["briefing:156787100"]["companies"], ["기아"])
+        self.assertEqual(by["briefing:156786000"]["companies"], ["현대제철"])
+        for kept in ("briefing:156787389", "briefing:156786456", "briefing:156787238"):
+            self.assertIn(kept, by)  # 부처별 업종 낱말(수소발전·자동차·발전소)
+        for dropped in ("briefing:156786947", "briefing:156787184", "briefing:156787339"):
+            self.assertNotIn(dropped, by)
+        self.assertEqual((check["status"], check["listed"], check["kept"]), ("ok", 8, 5))
+        self.assertFalse(any(x["isNew"] for x in items))
+
+    def test_unfiltered_page_and_failure_are_unconfirmed(self):
+        items, check = w.briefing(CFG, NOW, None, http(briefing_routes(mixed="A00006")))
+        self.assertEqual(check["status"], "partial")
+        self.assertIn("국토교통부 목록 형식(다른 부처 섞임)", check["error"])
+        self.assertFalse(any(x["ministry"] != "기후에너지환경부" for x in items))
+        first, _ = w.briefing(CFG, NOW, None, http(briefing_routes()))
+        prev = {"briefing": [x for x in first if x["id"] != "briefing:156787100"]}
+        items, check = w.briefing(CFG, NOW, prev, http(briefing_routes(fail="A00019")))
+        self.assertEqual(check["status"], "partial")
+        self.assertEqual([x["id"] for x in items if x["isNew"]], ["briefing:156787100"])
+        self.assertIn("briefing:156787389", {x["id"] for x in items})  # 실패한 부처의 이전 줄 유지
+
+
 class RunDoc(unittest.TestCase):
     def test_document_shape_and_unset_kepco_not_partial(self):
-        routes = {**ftc_routes([KUMHO]), **komis_routes({"MNRL0023": komis_series("2026-01-01", "2026-10-26")}), **motir_routes(), **ftc_press_routes()}
+        routes = {**ftc_routes([KUMHO]), **komis_routes({"MNRL0023": komis_series("2026-01-01", "2026-10-26")}), **motir_routes(), **ftc_press_routes(), **briefing_routes()}
         doc = w.run(flat_cfg(), now=NOW, previous=None, http=http(routes), kepco_key="")
         self.assertEqual(doc["schema"], "kr_signals/v1")
         self.assertEqual(doc["status"], "complete")
-        self.assertEqual([c["source"] for c in doc["checks"]], ["공정위 의결서", "한전 전자입찰", "산업통상부 보도자료", "공정위 보도자료", "KOMIS 아연"])
+        self.assertEqual([c["source"] for c in doc["checks"]], ["공정위 의결서", "한전 전자입찰", "산업통상부 보도자료", "공정위 보도자료", "정책브리핑 부처 보도자료", "KOMIS 아연"])
         self.assertEqual(doc["confirmedScoops"], 0)
         self.assertTrue(isinstance(doc["prices"], list) and doc["prices"])
 
