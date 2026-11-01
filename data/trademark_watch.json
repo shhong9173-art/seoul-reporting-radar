@@ -1,55 +1,405 @@
 {
-  "_note": "출원인 이름은 특허 수집(patent_hunt.APPLICANTS)에서 쓰는 법인명과 같다(같은 특허고객 기록). nameVerified=false는 상표에서 아직 실제 조회로 확인하지 않은 이름 — 첫 실행의 rawTotal로 확인한다. related=true는 관련 기업(직접 출입처 아님) — 최고 C.",
+  "_note": "출원인 이름은 특허 수집(patent_hunt.APPLICANTS)에서 쓰는 법인명과 같다(같은 특허고객 기록). nameVerified=false는 상표에서 아직 실제 조회로 확인하지 않은 이름 — 첫 실행의 rawTotal로 확인한다. related=true는 관련 기업(직접 출입처 아님) — 최고 C. 11-01 석유화학·정유 6곳 추가(LG화학·롯데케미칼·금호석유화학·S-OIL·HD현대오일뱅크·SK이노베이션, 업종 화학·정유) — KIPRIS 장부 상표 몫 150→180, 실행당 34→40. 특허에는 넣지 않는다(LG화학 출원량이 커서 특허 실행당 28회 한도를 넘는다).",
   "windowDays": 90,
   "rowsPerPage": 500,
   "maxPagesPerApplicant": 2,
-  "runCallCap": 34,
+  "runCallCap": 40,
   "keepFilingDays": 120,
   "keepSeenDays": 400,
   "industries": {
-    "auto": {"label": "완성차", "core": ["12", "07", "09", "37", "39", "42"]},
-    "parts": {"label": "부품", "core": ["12", "07", "09", "42"]},
-    "tire": {"label": "타이어", "core": ["12", "17", "37"]},
-    "steel": {"label": "철강", "core": ["06", "19", "37", "40"]},
-    "nonferrous": {"label": "비철", "core": ["01", "06", "14", "40"]},
-    "electric": {"label": "전력기기·전선", "core": ["06", "07", "09", "11", "17", "37", "42"]},
-    "energy": {"label": "에너지 설비", "core": ["07", "09", "11", "37", "40", "42"]},
-    "chemical": {"label": "화학·정유", "core": ["01", "04", "09", "11", "17", "19", "40"]}
+    "auto": {
+      "label": "완성차",
+      "core": [
+        "12",
+        "07",
+        "09",
+        "37",
+        "39",
+        "42"
+      ]
+    },
+    "parts": {
+      "label": "부품",
+      "core": [
+        "12",
+        "07",
+        "09",
+        "42"
+      ]
+    },
+    "tire": {
+      "label": "타이어",
+      "core": [
+        "12",
+        "17",
+        "37"
+      ]
+    },
+    "steel": {
+      "label": "철강",
+      "core": [
+        "06",
+        "19",
+        "37",
+        "40"
+      ]
+    },
+    "nonferrous": {
+      "label": "비철",
+      "core": [
+        "01",
+        "06",
+        "14",
+        "40"
+      ]
+    },
+    "electric": {
+      "label": "전력기기·전선",
+      "core": [
+        "06",
+        "07",
+        "09",
+        "11",
+        "17",
+        "37",
+        "42"
+      ]
+    },
+    "energy": {
+      "label": "에너지 설비",
+      "core": [
+        "07",
+        "09",
+        "11",
+        "37",
+        "40",
+        "42"
+      ]
+    },
+    "chemical": {
+      "label": "화학·정유",
+      "core": [
+        "01",
+        "04",
+        "09",
+        "11",
+        "17",
+        "19",
+        "40"
+      ]
+    }
   },
   "classNames": {
-    "01": "화학품", "03": "화장품·세제", "04": "연료·윤활유", "06": "금속재", "07": "기계·엔진", "09": "전기·전자·소프트웨어",
-    "11": "조명·냉난방·태양광", "12": "차량·부품", "14": "귀금속", "16": "인쇄물", "17": "고무·절연재", "18": "가죽·가방",
-    "19": "비금속 건축재", "21": "생활용품", "25": "의류", "28": "완구·스포츠", "35": "광고·사업관리", "36": "금융·부동산",
-    "37": "건설·수리", "38": "통신", "39": "운송·물류", "40": "재료 가공", "41": "교육·오락", "42": "과학기술·SW 서비스", "43": "음식·숙박"
+    "01": "화학품",
+    "03": "화장품·세제",
+    "04": "연료·윤활유",
+    "06": "금속재",
+    "07": "기계·엔진",
+    "09": "전기·전자·소프트웨어",
+    "11": "조명·냉난방·태양광",
+    "12": "차량·부품",
+    "14": "귀금속",
+    "16": "인쇄물",
+    "17": "고무·절연재",
+    "18": "가죽·가방",
+    "19": "비금속 건축재",
+    "21": "생활용품",
+    "25": "의류",
+    "28": "완구·스포츠",
+    "35": "광고·사업관리",
+    "36": "금융·부동산",
+    "37": "건설·수리",
+    "38": "통신",
+    "39": "운송·물류",
+    "40": "재료 가공",
+    "41": "교육·오락",
+    "42": "과학기술·SW 서비스",
+    "43": "음식·숙박"
   },
   "applicants": [
-    {"company": "현대자동차", "industry": "auto", "names": ["현대자동차주식회사", "현대자동차 주식회사"]},
-    {"company": "기아", "industry": "auto", "names": ["기아주식회사", "기아 주식회사"]},
-    {"company": "KG모빌리티", "industry": "auto", "names": ["케이지모빌리티주식회사", "케이지모빌리티 주식회사"], "nameVerified": false},
-    {"company": "르노코리아", "industry": "auto", "names": ["르노코리아주식회사", "르노코리아 주식회사"], "nameVerified": false},
-    {"company": "한국GM", "industry": "auto", "names": ["한국지엠주식회사", "한국지엠 주식회사"], "nameVerified": false},
-    {"company": "현대모비스", "industry": "parts", "names": ["현대모비스주식회사", "현대모비스 주식회사"]},
-    {"company": "현대위아", "industry": "parts", "names": ["현대위아주식회사", "현대위아 주식회사"]},
-    {"company": "HL만도", "industry": "parts", "names": ["주식회사에이치엘만도", "주식회사 에이치엘만도"]},
-    {"company": "한국타이어", "industry": "tire", "names": ["한국타이어앤테크놀로지주식회사", "한국타이어앤테크놀로지 주식회사"]},
-    {"company": "넥센타이어", "industry": "tire", "names": ["넥센타이어주식회사", "넥센타이어 주식회사"]},
-    {"company": "금호타이어", "industry": "tire", "names": ["금호타이어주식회사", "금호타이어 주식회사"]},
-    {"company": "현대제철", "industry": "steel", "names": ["현대제철주식회사", "현대제철 주식회사"]},
-    {"company": "포스코", "industry": "steel", "names": ["주식회사포스코", "주식회사 포스코"]},
-    {"company": "포스코홀딩스", "industry": "steel", "names": ["주식회사포스코홀딩스", "주식회사 포스코홀딩스"]},
-    {"company": "동국제강", "industry": "steel", "names": ["동국제강주식회사", "동국제강 주식회사"]},
-    {"company": "세아제강", "industry": "steel", "names": ["주식회사세아제강", "주식회사 세아제강"]},
-    {"company": "고려아연", "industry": "nonferrous", "names": ["고려아연주식회사", "고려아연 주식회사"]},
-    {"company": "영풍", "industry": "nonferrous", "names": ["주식회사영풍", "주식회사 영풍"]},
-    {"company": "HD현대일렉트릭", "industry": "electric", "names": ["에이치디현대일렉트릭주식회사", "에이치디현대일렉트릭 주식회사"]},
-    {"company": "LS일렉트릭", "industry": "electric", "names": ["엘에스일렉트릭주식회사", "엘에스일렉트릭 주식회사"]},
-    {"company": "대한전선", "industry": "electric", "names": ["대한전선주식회사", "대한전선 주식회사"]},
-    {"company": "LS전선", "industry": "electric", "names": ["엘에스전선주식회사", "엘에스전선 주식회사"]},
-    {"company": "효성중공업", "industry": "electric", "names": ["효성중공업주식회사", "효성중공업 주식회사"], "related": true},
-    {"company": "일진전기", "industry": "electric", "names": ["일진전기주식회사", "일진전기 주식회사"], "related": true},
-    {"company": "두산에너빌리티", "industry": "energy", "names": ["두산에너빌리티주식회사", "두산에너빌리티 주식회사"]},
-    {"company": "한화솔루션", "industry": "chemical", "names": ["한화솔루션주식회사", "한화솔루션 주식회사"]},
-    {"company": "OCI", "industry": "chemical", "names": ["오씨아이주식회사", "오씨아이 주식회사"]},
-    {"company": "GS칼텍스", "industry": "chemical", "names": ["지에스칼텍스주식회사", "지에스칼텍스 주식회사"], "nameVerified": false}
+    {
+      "company": "현대자동차",
+      "industry": "auto",
+      "names": [
+        "현대자동차주식회사",
+        "현대자동차 주식회사"
+      ]
+    },
+    {
+      "company": "기아",
+      "industry": "auto",
+      "names": [
+        "기아주식회사",
+        "기아 주식회사"
+      ]
+    },
+    {
+      "company": "KG모빌리티",
+      "industry": "auto",
+      "names": [
+        "케이지모빌리티주식회사",
+        "케이지모빌리티 주식회사"
+      ],
+      "nameVerified": false
+    },
+    {
+      "company": "르노코리아",
+      "industry": "auto",
+      "names": [
+        "르노코리아주식회사",
+        "르노코리아 주식회사"
+      ],
+      "nameVerified": false
+    },
+    {
+      "company": "한국GM",
+      "industry": "auto",
+      "names": [
+        "한국지엠주식회사",
+        "한국지엠 주식회사"
+      ],
+      "nameVerified": false
+    },
+    {
+      "company": "현대모비스",
+      "industry": "parts",
+      "names": [
+        "현대모비스주식회사",
+        "현대모비스 주식회사"
+      ]
+    },
+    {
+      "company": "현대위아",
+      "industry": "parts",
+      "names": [
+        "현대위아주식회사",
+        "현대위아 주식회사"
+      ]
+    },
+    {
+      "company": "HL만도",
+      "industry": "parts",
+      "names": [
+        "주식회사에이치엘만도",
+        "주식회사 에이치엘만도"
+      ]
+    },
+    {
+      "company": "한국타이어",
+      "industry": "tire",
+      "names": [
+        "한국타이어앤테크놀로지주식회사",
+        "한국타이어앤테크놀로지 주식회사"
+      ]
+    },
+    {
+      "company": "넥센타이어",
+      "industry": "tire",
+      "names": [
+        "넥센타이어주식회사",
+        "넥센타이어 주식회사"
+      ]
+    },
+    {
+      "company": "금호타이어",
+      "industry": "tire",
+      "names": [
+        "금호타이어주식회사",
+        "금호타이어 주식회사"
+      ]
+    },
+    {
+      "company": "현대제철",
+      "industry": "steel",
+      "names": [
+        "현대제철주식회사",
+        "현대제철 주식회사"
+      ]
+    },
+    {
+      "company": "포스코",
+      "industry": "steel",
+      "names": [
+        "주식회사포스코",
+        "주식회사 포스코"
+      ]
+    },
+    {
+      "company": "포스코홀딩스",
+      "industry": "steel",
+      "names": [
+        "주식회사포스코홀딩스",
+        "주식회사 포스코홀딩스"
+      ]
+    },
+    {
+      "company": "동국제강",
+      "industry": "steel",
+      "names": [
+        "동국제강주식회사",
+        "동국제강 주식회사"
+      ]
+    },
+    {
+      "company": "세아제강",
+      "industry": "steel",
+      "names": [
+        "주식회사세아제강",
+        "주식회사 세아제강"
+      ]
+    },
+    {
+      "company": "고려아연",
+      "industry": "nonferrous",
+      "names": [
+        "고려아연주식회사",
+        "고려아연 주식회사"
+      ]
+    },
+    {
+      "company": "영풍",
+      "industry": "nonferrous",
+      "names": [
+        "주식회사영풍",
+        "주식회사 영풍"
+      ]
+    },
+    {
+      "company": "HD현대일렉트릭",
+      "industry": "electric",
+      "names": [
+        "에이치디현대일렉트릭주식회사",
+        "에이치디현대일렉트릭 주식회사"
+      ]
+    },
+    {
+      "company": "LS일렉트릭",
+      "industry": "electric",
+      "names": [
+        "엘에스일렉트릭주식회사",
+        "엘에스일렉트릭 주식회사"
+      ]
+    },
+    {
+      "company": "대한전선",
+      "industry": "electric",
+      "names": [
+        "대한전선주식회사",
+        "대한전선 주식회사"
+      ]
+    },
+    {
+      "company": "LS전선",
+      "industry": "electric",
+      "names": [
+        "엘에스전선주식회사",
+        "엘에스전선 주식회사"
+      ]
+    },
+    {
+      "company": "효성중공업",
+      "industry": "electric",
+      "names": [
+        "효성중공업주식회사",
+        "효성중공업 주식회사"
+      ],
+      "related": true
+    },
+    {
+      "company": "일진전기",
+      "industry": "electric",
+      "names": [
+        "일진전기주식회사",
+        "일진전기 주식회사"
+      ],
+      "related": true
+    },
+    {
+      "company": "두산에너빌리티",
+      "industry": "energy",
+      "names": [
+        "두산에너빌리티주식회사",
+        "두산에너빌리티 주식회사"
+      ]
+    },
+    {
+      "company": "한화솔루션",
+      "industry": "chemical",
+      "names": [
+        "한화솔루션주식회사",
+        "한화솔루션 주식회사"
+      ]
+    },
+    {
+      "company": "OCI",
+      "industry": "chemical",
+      "names": [
+        "오씨아이주식회사",
+        "오씨아이 주식회사"
+      ]
+    },
+    {
+      "company": "GS칼텍스",
+      "industry": "chemical",
+      "names": [
+        "지에스칼텍스주식회사",
+        "지에스칼텍스 주식회사"
+      ],
+      "nameVerified": false
+    },
+    {
+      "company": "LG화학",
+      "industry": "chemical",
+      "names": [
+        "주식회사엘지화학",
+        "주식회사 엘지화학"
+      ],
+      "nameVerified": false
+    },
+    {
+      "company": "롯데케미칼",
+      "industry": "chemical",
+      "names": [
+        "롯데케미칼주식회사",
+        "롯데케미칼 주식회사"
+      ],
+      "nameVerified": false
+    },
+    {
+      "company": "금호석유화학",
+      "industry": "chemical",
+      "names": [
+        "금호석유화학주식회사",
+        "금호석유화학 주식회사"
+      ],
+      "nameVerified": false
+    },
+    {
+      "company": "S-OIL",
+      "industry": "chemical",
+      "names": [
+        "에쓰-오일주식회사",
+        "에쓰-오일 주식회사"
+      ],
+      "nameVerified": false
+    },
+    {
+      "company": "HD현대오일뱅크",
+      "industry": "chemical",
+      "names": [
+        "에이치디현대오일뱅크주식회사",
+        "에이치디현대오일뱅크 주식회사"
+      ],
+      "nameVerified": false
+    },
+    {
+      "company": "SK이노베이션",
+      "industry": "chemical",
+      "names": [
+        "에스케이이노베이션주식회사",
+        "에스케이이노베이션 주식회사"
+      ],
+      "nameVerified": false
+    }
   ]
 }
