@@ -3,6 +3,7 @@
 dates, one-month moves, LME stock), baseline and budget handling, failures kept as failures."""
 import datetime as dt
 import json
+import re
 import sys
 import unittest
 from pathlib import Path
@@ -585,6 +586,22 @@ class BriefingWatch(unittest.TestCase):
         self.assertEqual(check["status"], "partial")
         self.assertEqual([x["id"] for x in items if x["isNew"]], ["briefing:156787100"])
         self.assertIn("briefing:156787389", {x["id"] for x in items})  # 실패한 부처의 이전 줄 유지
+
+
+class BriefingTopicNarrowing(unittest.TestCase):
+    def test_carbon_neutral_slogans_dropped_and_old_rows_refiltered(self):
+        # 11-01 운영: '탄소'가 '탄소중립' 구호마다 걸려 친환경 가방·쓰레기 에너지 보도자료까지 잡혔다
+        topic = re.compile(next(m["topic"] for m in CFG["briefing"]["ministries"] if m["name"] == "기후에너지환경부"))
+        for title in ("친환경 가방 다시 쓰고, 잔반 줄이고… 미래세대의 탄소중립 제안 시범 적용", "쓰레기도 에너지가 된다… 탄소중립 시대, 새로운 해법 찾는다"):
+            self.assertIsNone(topic.search(title), title)
+        for title in ("기후대응위, 민관 협력으로 철강산업 저탄소 전환 해법 모색", "2026년 수소발전 입찰시장 개설", "석탄발전 폐지에 대응한 고용 안정과 일자리 전환 방안 논의"):
+            self.assertIsNotNone(topic.search(title), title)
+        prev = {"briefing": [{"id": "briefing:1", "title": "쓰레기도 에너지가 된다… 탄소중립 시대", "date": "2026-10-20", "ministry": "기후에너지환경부", "companies": []},
+                             {"id": "briefing:2", "title": "현대차 사회공헌 협약", "date": "2026-10-20", "ministry": "기후에너지환경부", "companies": ["현대차"]}]}
+        items, _ = w.briefing(CFG, NOW, prev, http(briefing_routes()))
+        ids = {x["id"] for x in items}
+        self.assertNotIn("briefing:1", ids)
+        self.assertIn("briefing:2", ids)  # 출입처 이름이 있으면 둔다
 
 
 class RunDoc(unittest.TestCase):

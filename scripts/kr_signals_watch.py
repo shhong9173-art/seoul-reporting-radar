@@ -717,7 +717,12 @@ def briefing(cfg, now, previous, http):
         old = prev.get(x["id"])
         kept[x["id"]] = {**x, "companies": names, "firstSeen": (old or {}).get("firstSeen") or stamp, "isNew": had and old is None}
     keep_from = (now.date() - dt.timedelta(days=BRIEFING_KEEP_DAYS)).isoformat()
-    items = sorted((x for x in kept.values() if str(x.get("date") or "") >= keep_from), key=lambda x: (x.get("date") or "", x["id"]), reverse=True)
+
+    def wanted(x):  # 설정 낱말을 좁히면 예전 실행이 남긴 줄도 같은 기준으로 다시 거른다
+        t = topics.get(x.get("ministry"))
+        return bool(x.get("companies")) or bool(t and t.search(str(x.get("title") or "")))
+    items = sorted((x for x in kept.values() if str(x.get("date") or "") >= keep_from and wanted(x)),
+                   key=lambda x: (x.get("date") or "", x["id"]), reverse=True)
     listed = {x["id"] for x in rows}
     status = "unset" if not bc.get("ministries") else ("failed" if errs and not rows else ("partial" if errs else "ok"))
     return items, {"source": "정책브리핑 부처 보도자료", "status": status, "listed": len(rows), "kept": sum(1 for x in items if x["id"] in listed),
