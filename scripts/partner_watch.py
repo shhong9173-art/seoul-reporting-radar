@@ -301,6 +301,9 @@ def run(cfg, *, now, previous=None, get=None, sleep=time.sleep, snippet_budget=2
                           "relation": p["relation"], "relationEvidence": p["evidence"], "date": a["date"], "time": a["time"],
                           "title": a["title"], "category": a["category"], "url": a["url"], "flags": flags,
                           **({"routine": routine} if routine else {}), "firstSeen": old.get("firstSeen") or stamp}
+    # 감시 도중 더한 문구(11-01 석유화학·정유 6곳): 그 문구로만 처음 잡힌, NEW_DAYS보다 오래된 공시는 기준선
+    known = {c.get("target") for c in (previous or {}).get("checks") or [] if c.get("source") == "EDGAR" and c.get("status") == "ok"}
+    new_from = (now - dt.timedelta(days=NEW_DAYS)).strftime("%Y-%m-%d")
     for beat, phrase in cfg.get("edgarPhrases", []):
         status, body = edgar_search(phrase, start, end, get=get)
         sleep(0.4)
@@ -320,8 +323,11 @@ def run(cfg, *, now, previous=None, get=None, sleep=time.sleep, snippet_budget=2
             old = items.get(h["id"], {})
             beats = sorted(set(old.get("beat", [])) | {beat})
             phrases = sorted(set(old.get("phrases", [])) | {phrase})
+            base = (bool(old.get("baseline")) if h["id"] in prev else
+                    bool(known) and all(p not in known for p in phrases) and (h.get("date") or "") < new_from)
             items[h["id"]] = {**old, **h, "source": "EDGAR", "beat": beats, "phrases": phrases,
-                              "title": f"{h['form']} {h['description']}".strip(), "firstSeen": old.get("firstSeen") or stamp}
+                              "title": f"{h['form']} {h['description']}".strip(), "firstSeen": old.get("firstSeen") or stamp,
+                              **({"baseline": True} if base else {})}
         checks.append({"source": "EDGAR", "target": phrase, "status": "ok", "returned": len(hits), "kept": kept})
     # Context sentences for new EDGAR documents (budgeted).
     for it in sorted(items.values(), key=lambda x: x.get("date") or "", reverse=True):
@@ -375,10 +381,9 @@ def run(cfg, *, now, previous=None, get=None, sleep=time.sleep, snippet_budget=2
             it["repeatOf"] = first["id"]
         else:
             text_seen.setdefault(fp, {"id": it["id"], "date": it.get("date")})
-    new_from = (now - dt.timedelta(days=NEW_DAYS)).strftime("%Y-%m-%d")
     out = sorted((x for x in items.values() if not x.get("noise")), key=lambda x: (x.get("date") or "", x["id"]), reverse=True)
     for x in out:
-        x["isNew"] = x["id"] not in prev or (x.get("date") or "") >= new_from
+        x["isNew"] = (x.get("date") or "") >= new_from or (x["id"] not in prev and not x.get("baseline"))
     failed = [c for c in checks if c["status"] != "ok"]
     return {"schema": SCHEMA, "generatedAt": stamp, "windowDays": WINDOW_DAYS, "status": "partial" if failed else "complete",
             "checks": checks, "items": out[:400], "textSeen": dict(list(text_seen.items())[-3000:]),
