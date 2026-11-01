@@ -62,6 +62,11 @@ BIO = re.compile(r"\b(?:was|served|serves|has served|previously served|prior to 
                  r"\b(?:officer|director|president|chairman|ceo|cfo|coo|cto|vice president|general counsel|partner)\b", re.I)
 
 
+# 계약서 서명란(11-01 운영: Forge Nano 8-K EX-10.3 등록권 계약 끝 'LG CHEM FUND I LLC By: LG Technology Ventures LLC, its Manager
+# By: /s/ … Name: … Title: …') — 출입처(계열 투자 법인 포함)가 계약 당사자로 서명했다는 뜻이다. 접지 않고 이름표를 붙인다.
+SIGNATURE = re.compile(r"\bBy:\s*/s/|\bName:\s*[A-Z][^:]{1,60}\bTitle:", re.I)
+
+
 def beat_windows(sn, phrases, width=220):
     """출입처 이름 앞뒤 글(문장 나누기는 'Inc.'·'Ltd.' 뒤에서 잘못 끊긴다 — 11-01 Verastem 'AVEO …, an LG Chem, Ltd. Company')."""
     out = []
@@ -91,8 +96,12 @@ def classify(it):
     notes, often restating an existing arrangement → never A. dealNear: a deal word in a sentence that names the
     beat company. hearsay: that sentence cites press reports. Text only; the original decides."""
     sn = it.get("snippet") or ""
-    for k in ("routine", "finNote", "dealNear", "hearsay", "boilerplate"):
+    for k in ("routine", "finNote", "dealNear", "hearsay", "boilerplate", "signer"):
         it.pop(k, None)
+    near = beat_windows(sn, it.get("phrases") or [], width=160)
+    if near and any(SIGNATURE.search(x) for x in near):
+        it["signer"] = "출입처(계열 투자 법인 포함) 이름이 계약 서명란에 나옴 — 계약 당사자. 계약 종류(등록권·투자·공급 등)는 원문 제목·첫머리에서 확인"
+        return
     sents = beat_sentences(sn, it.get("phrases") or [])
     if sents:  # 발췌가 잘려 이름이 안 보이면 판단하지 않는다(예전 규칙: 발췌 전체의 낱말)
         it["dealNear"] = any(DEAL.search(x) for x in sents)
