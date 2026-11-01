@@ -1,34 +1,22 @@
-"""Probe 91: 전남광주통합특별시 보도자료 목록(boardId=JG_0000000003) 행 형식·게시판 이름, 경북 보도자료 목록 li 앞부분(제목 칸) 형식(공개, 한 번씩)."""
+"""Probe 92: 시·도 보도자료(울산·충남·전남광주) 첫 30줄 중 출입처·업종 낱말이 든 제목(거르기 점검용, 공개 목록 제목만, 사이트당 한 번)."""
 import re
 
 import requests
 
 H = {"User-Agent": "newsroom-official-research/1.0 (github.com/shhong9173-art/seoul-reporting-radar)"}
+W = re.compile(r"현대|기아|포스코|고려아연|에쓰|S-?OIL|SK|LG|롯데|금호|한화|석유|정유|화학|철강|제철|자동차|수소|전력|배터리|이차전지|산단|산업단지|투자|협약|기업")
 out = []
-try:
-    r = requests.get("https://www.jeonnam-gwangju.go.kr/boardList.do", params={"boardId": "JG_0000000003", "pageId": "jngj22"}, headers=H, timeout=30)
-    t = r.text
-    title = re.search(r"<title>(.*?)</title>", t, re.S)
-    body = t.split("<tbody", 1)[-1].split("</tbody>", 1)[0] if "<tbody" in t else ""
-    trs = re.split(r"(?=<tr[\s>])", body)[1:]
-    out.append(f"jg HTTP {r.status_code} title {re.sub(r'\\s+', ' ', title.group(1))[:80] if title else '-'} trs {len(trs)} fields {sorted(set(re.findall(r'name=\"([A-Za-z_]+)\"', t)))[:20]}")
-    if trs:
-        out.append("  row " + re.sub(r"\s+", " ", trs[0])[:800])
-    else:
-        i = t.find("boardView.do")
-        out.append("  ctx " + re.sub(r"\s+", " ", t[max(0, i - 300):i + 700]))
-except Exception as e:  # noqa: BLE001
-    out.append(f"jg {type(e).__name__} {str(e)[:60]}")
-try:
-    r = requests.get("https://www.gb.go.kr/page/10107/10004.do", headers=H, timeout=30)
-    t = r.text
-    k = t.find('<div class="classify">')
-    li = t.rfind("<li", 0, k)
-    out.append(f"gb HTTP {r.status_code} li-count {t.count('<div class=\"classify\">')}")
-    out.append("  li " + re.sub(r"\s+", " ", t[li:li + 700]))
-    pg = re.findall(r'(?:href|onclick)="([^"]*(?:page|Page)[^"]*)"[^>]*>\s*(?:<[^>]+>)?\s*2\s*<', t)
-    out.append(f"  page2 {pg[:3]}")
-except Exception as e:  # noqa: BLE001
-    out.append(f"gb {type(e).__name__}")
+for name, url, params in [("울산", "https://www.ulsan.go.kr/u/rep/bbs/list.ulsan?bbsId=BBS_0000000000000027&mId=001004003001000000", {}),
+                          ("충남", "https://www.chungnam.go.kr/cnportal/cnapcPressList/cnapcPress/list.do?menuNo=500498", {"pageUnit": "30"}),
+                          ("전남광주", "https://www.jeonnam-gwangju.go.kr/boardList.do?boardId=JG_0000000003&pageId=jngj22", {"recordCnt": "30"})]:
+    try:
+        r = requests.get(url, params=params, headers=H, timeout=30)
+        titles = [re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", m)).strip() for m in re.findall(r'<a[^>]+href="[^"]*(?:dataId|nttId|seq)=\d+[^"]*"[^>]*>(.*?)</a>', r.text, re.S)]
+        hit = [t for t in titles if W.search(t)]
+        out.append(f"{name} HTTP {r.status_code} titles {len(titles)} hits {len(hit)}")
+        for t in hit[:12]:
+            out.append(f"  {t[:80]}")
+    except Exception as e:  # noqa: BLE001
+        out.append(f"{name} {type(e).__name__}")
 open("/tmp/probe_out.txt", "w").write("\n".join(out))
 print("\n".join(out)[:600])
