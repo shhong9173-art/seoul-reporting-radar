@@ -12,7 +12,7 @@ begin = (now - timedelta(days=3)).date()
 SCOOP = re.compile(r"\[\s*단독\s*\]|<단독>|【단독】")
 companies = ["현대차", "기아", "현대모비스", "포스코", "현대제철", "고려아연", "HD현대일렉트릭", "LS일렉트릭", "LS전선", "대한전선", "두산에너빌리티",
              "한화솔루션", "LG화학", "롯데케미칼", "SK이노베이션", "에쓰오일", "금호석유화학", "한국타이어", "KG모빌리티", "GS칼텍스"]
-cid, sec = os.environ.get("NAVER_CLIENT_ID", ""), os.environ.get("NAVER_CLIENT_SECRET", "")
+cid, sec = os.environ.get("NAVER_CLIENT_ID", "").strip(), os.environ.get("NAVER_CLIENT_SECRET", "").strip()
 def clean(t):
     return re.sub(r"<[^>]+>", "", t or "").replace("&quot;", '"').replace("&amp;", "&").strip()
 naver = {}
