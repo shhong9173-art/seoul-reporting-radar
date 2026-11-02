@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-11-02T11:40:22+09:00",
-  "periodStart": "20261012",
-  "periodEnd": "20261102",
+  "generatedAt": "2026-11-03T08:13:39+09:00",
+  "periodStart": "20261013",
+  "periodEnd": "20261103",
   "source": "OpenDART 회사별 공시검색 list.json 및 조회된 경우 document.xml",
   "scope": "직접 출입처 13개사의 21일 내 공급계약·신규시설투자·생산중단·재개 공시",
   "sourceChecks": [
@@ -53,7 +53,7 @@
     {
       "company": "영풍",
       "status": "checked",
-      "matchedContractEvents": 0
+      "matchedContractEvents": 1
     },
     {
       "company": "포스코",
@@ -71,10 +71,50 @@
       "matchedContractEvents": 0
     }
   ],
-  "totalMatchingListEvents": 5,
-  "inspectedDetails": 5,
+  "totalMatchingListEvents": 6,
+  "inspectedDetails": 6,
   "allEventsInspected": true,
   "items": [
+    {
+      "company": "영풍",
+      "corpCode": "00141307",
+      "receiptNo": "20261102800394",
+      "published": "20261102",
+      "report": "[기재정정]생산중단              ",
+      "category": "생산중단",
+      "isCorrection": true,
+      "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261102800394",
+      "status": "original_not_verified",
+      "evidenceStatus": "원문에서 원공시의 명시적 접수번호 확인 불가; 날짜·제목만으로 계약 연결 금지",
+      "originalReceiptNo": null,
+      "originalSourceUrl": null,
+      "changes": [],
+      "issuerCorrectionTable": {
+        "status": "issuer_table_unavailable_or_nonmaterial",
+        "changes": [],
+        "totalMaterialRows": 0,
+        "conflictingFieldCount": 0,
+        "skippedRows": 0,
+        "independentOriginalDocumentCompared": false,
+        "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261102800394"
+      },
+      "unverifiedSameDateCandidates": [
+        {
+          "receiptNo": "20251002800425",
+          "report": "[기재정정]생산중단              ",
+          "date": "20251002",
+          "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20251002800425",
+          "status": "같은 날짜의 후보일 뿐 동일 사건 미검증"
+        }
+      ],
+      "sourceError": false,
+      "scoopStatus": "기보도 및 원자료·회사 답변 확인 전 · 단독 미확정",
+      "questions": [
+        "원문 원계약·정정 전후 계약금액, 고객사, 적용 기간이 명시됐는가?",
+        "해당 공급계약·투자에 관한 이전 DART 공시·기업 발표·전문지 보도가 있는가?",
+        "공식 계약 확정과 입찰/협약/옵션 계약의 구분 및 실제 산업 영향은 무엇인가?"
+      ]
+    },
     {
       "company": "효성중공업",
       "corpCode": "01316245",
