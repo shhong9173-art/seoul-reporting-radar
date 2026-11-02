@@ -200,7 +200,9 @@ export function kepcoHint(name) {
 // 굴뚝 측정: 사업장 지명을 검색에 넣고, 그 지명이 없는 기사는 같은 사건으로 치지 않는다(10-31: 포스코 광양 배출구 멈춤 ↔ 포항제철소 기사)
 export function stackHint(e) {
   const city = siteCity(e.site ?? e.text);
-  const words = /배출허용기준/.test(e.kind) ? ['배출허용기준', '초과'] : /재가동/.test(e.kind) ? ['재가동'] : /새/.test(e.kind) ? ['신설', '가동'] : ['가동 중단', '정비'];
+  // 사흘 넘게 멈춘 배출구는 개수(고로·설비 보수) 기사와도 맞춰 본다(11-02 경향 [단독] '포스코 광양 2고로 전면 개수')
+  const words = /배출허용기준/.test(e.kind) ? ['배출허용기준', '초과'] : /재가동/.test(e.kind) ? ['재가동'] : /새/.test(e.kind) ? ['신설', '가동']
+    : /오래 멈춤/.test(e.kind) ? ['가동 중단', '개수', '정비'] : ['가동 중단', '정비'];
   return hint(e.company, [city, ...words], [city], [city]);
 }
 // 국민연금 가입자 변화의 방향 → 기사 낱말(늘면 채용·증원, 줄면 인력 감축). 사업장 주소의 시·군을 넣고, 그 지명이 없는 기사는
@@ -998,9 +1000,12 @@ export function background(docs, nowMs) {
     if (!(s.stopped ?? []).length) continue;
     // 배출구가 많은 제철소의 한두 개 멈춤은 일상 정비 수준이라 배경으로도 묶지 않는다(굴뚝 감시의 B 기준과 같은 5%)
     // (10-31 운영: 포스코 광양 137개 중 2개·포항 101개 중 2개가 '겹친 신호' 배경으로 붙어 감시 2곳 묶음을 만들었다)
-    if ((s.meaningful ?? 0) >= 40 && s.stopped.length < Math.ceil(s.meaningful * 0.05)) continue;
+    // 다만 사흘 넘게 멈춘 배출구(굴뚝 감시가 '오래 멈춤'으로 알린 것)는 일상 정비보다 길어 개수와 상관없이 묶는다
+    const long = s.stopped.filter((c) => s.stacks?.[c]?.longStopFor);
+    if (!long.length && (s.meaningful ?? 0) >= 40 && s.stopped.length < Math.ceil(s.meaningful * 0.05)) continue;
     out.push({ id: `bg:stk:${s.id}`, background: true, tier: 'B', tool: 'kr_official', watch: W['kr-stacks'].label, company: s.company, date: docs['kr-stacks'].generatedAt,
-      fact: `${s.name} 굴뚝 배출구 멈춤 ${s.stopped.length}개(평소 움직이던 ${s.meaningful ?? '?'}개 중)` });
+      fact: `${s.name} 굴뚝 배출구 멈춤 ${s.stopped.length}개(평소 움직이던 ${s.meaningful ?? '?'}개 중)`
+        + (long.length ? ` · 사흘 넘게 멈춤 ${long.length}개(${long.slice(0, 3).map((c) => `${c}번 ${s.stacks[c].stoppedSince}부터`).join(', ')})` : '') });
   }
   return out;
 }

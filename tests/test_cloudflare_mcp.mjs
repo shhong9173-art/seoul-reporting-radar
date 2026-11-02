@@ -872,7 +872,8 @@ test('kr_official stacks: plants with stopped stacks first, events, young sites 
     sites: [
       { id: 'a', company: '현대제철', name: '현대제철㈜포항2공장', area: '경상북도', meaningful: 2, stopped: ['1', '2'],
         stacks: { 1: { lastDt: '2026-10-31 09:00', obs: Array(9).fill(['x', 0]) }, 2: { lastDt: '2026-10-31 09:00', obs: Array(9).fill(['x', 0]) } } },
-      { id: 'b', company: '포스코', name: '㈜포스코 광양제철소', area: '전라남도', meaningful: 150, stopped: ['17'], stacks: { 17: { lastDt: '2026-10-31 09:00', obs: Array(9).fill(['x', 0]) } },
+      { id: 'b', company: '포스코', name: '㈜포스코 광양제철소', area: '전라남도', meaningful: 150, stopped: ['17'],
+        stacks: { 17: { lastDt: '2026-10-31 09:00', obs: Array(9).fill(['x', 0]), stoppedSince: '2026-10-27 21:00', longStopFor: '2026-10-27 21:00' } },
         exceedLog: [{ stack: '40', pollutant: 'nox', value: 61.2, limit: 50, at: '2026-10-31 06:00' }, { stack: '40', pollutant: 'nox', value: 70.5, limit: 50, at: '2026-10-31 09:00' }] },
       { id: 'c', company: '고려아연', name: '고려아연㈜온산제련소', area: '울산광역시', meaningful: 0, stopped: [], stacks: { 11: { obs: [['x', 5]] } } },
       { id: 'd', company: '동국제강', name: '동국제강㈜ 포항공장', area: '경상북도', meaningful: 3, stopped: [], missingRuns: 3, workMissing: 1,
@@ -890,6 +891,7 @@ test('kr_official stacks: plants with stopped stacks first, events, young sites 
   assert.match(r.text, /멈춤으로 판단한 배출구가 있는 사업장 2곳/);
   assert.ok(r.text.indexOf('포항2공장(경상북도)') < r.text.indexOf('광양제철소(전라남도)'));  // 멈춘 비율 높은 순
   assert.match(r.text, /평소 움직이던 배출구 2개 중 멈춤 2개: 1번\(측정 2026-10-31 09:00\), 2번/);
+  assert.match(r.text, /멈춤 1개: 17번\(측정 2026-10-31 09:00, 멈춤 2026-10-27 21:00부터·사흘 넘음\)/);
   assert.match(r.text, /관측이 아직 6번이 안 된 사업장 1곳/);
   assert.match(r.text, /A · .* · 사업장 가동 중단 신호 · 현대제철/);
   assert.match(r.text, /- 배출허용기준 넘은 측정값\(이 감시가 본 것, 사업장마다 최근 20건\) 2건\n  2026-10-31 09:00 · 포스코 · ㈜포스코 광양제철소 배출구 40번 질소산화물 70\.5\(기준 50\)/);
@@ -1000,6 +1002,11 @@ test('converging signals: background (workforce project, recent permit, stopped 
   const bg = background(docs, now);
   assert.equal(bg.length, 5);
   assert.deepEqual(bg.filter((x) => x.id.startsWith('bg:stk:')).map((x) => x.id), ['bg:stk:s1', 'bg:stk:s3']);
+  // 사흘 넘게 멈춘 배출구(굴뚝 감시 '오래 멈춤')는 큰 제철소의 한두 개라도 배경(11-02 경향 [단독] '포스코 광양 2고로 전면 개수')
+  const long = structuredClone(docs);
+  long['kr-stacks'].sites[1].stacks = { 129: { stoppedSince: '2026-10-31 02:00', longStopFor: '2026-10-31 02:00' }, 135: { stoppedSince: '2026-11-01 08:00' } };
+  const s2 = background(long, now).find((x) => x.id === 'bg:stk:s2');
+  assert.equal(s2.fact, '㈜포스코 광양제철소 굴뚝 배출구 멈춤 2개(평소 움직이던 137개 중) · 사흘 넘게 멈춤 1개(129번 2026-10-31 02:00부터)');
   const fresh = [{ id: 'l1', tier: 'A', tool: 'kr_official', watch: '지자체 고시·공고', company: '기아', date: '2026-10-29', fact: '화성시 고시 「기아 오토랜드 화성 PBV 2공장」' }];
   const g = convergence([...fresh, ...bg], { cut: Date.parse('2026-10-29T03:00:00Z') });  // 10-29 12:00 KST(24시간 창)
   assert.deepEqual(g.map((x) => [x.company, x.place, x.watches.length, x.fresh]), [['기아', '화성', 2, true]]);
@@ -2886,6 +2893,7 @@ test('press-check hints: place words narrow the search but are marked, workforce
   const sh = stackHint({ company: '포스코', site: '㈜포스코 광양제철소', kind: '배출구 멈춤 신호' });
   assert.deepEqual([sh.terms, sh.places, sh.must], [['광양', '가동 중단', '정비'], ['광양'], ['광양']]);
   assert.deepEqual(stackHint({ company: '현대제철', site: '현대제철㈜', kind: '배출구 멈춤 신호' }).must, undefined);
+  assert.deepEqual(stackHint({ company: '포스코', site: '㈜포스코 광양제철소', kind: '배출구 오래 멈춤' }).terms, ['광양', '가동 중단', '개수', '정비']);
   const kh = kepcoHint('765kV 전력용변압기 1Bank(3대) - 신안성S/S');  // 10-31 운영: 예전엔 "한국전력공사 한전"으로 찾았다
   assert.deepEqual([kh.who, kh.terms, kh.places], ['한전', ['765kV', '변압기', '발주'], ['765kV']]);
   assert.deepEqual(kepcoHint('배전용 자재 구매').terms, ['발주']);
