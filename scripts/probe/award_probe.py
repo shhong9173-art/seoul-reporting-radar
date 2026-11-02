@@ -1,4 +1,4 @@
-"""Probe 95e(2024년부터 0건인 3곳, 붙여 쓴 이름):
+"""Probe 95f(영풍: 운영 조회 이름의 응답 출원인 이름 1줄, 띄어 쓴 이름 긴 기간):
 같은 기간(2026-08-04~2026-11-02) 한 번씩. 건수와 응답 출원인 이름 한 줄만(공개 정보). KIPRIS 호출 10회 — 장부 밖(진단 여유분)으로 기록."""
 import os
 import re
@@ -14,7 +14,7 @@ FLAGS = ("application", "registration", "refused", "expiration", "withdrawal", "
          "internationalMark", "certMark", "geoCertMark",
          "character", "figure", "compositionCharacter", "figureComposition", "sound", "fragrance", "color",
          "dimension", "colorMixed", "hologram", "motion", "visual", "invisible")
-NAMES = [(n, "20240101~20261102") for n in ("한국지엠주식회사", "금호석유화학주식회사", "에쓰-오일주식회사")]
+NAMES = [("주식회사영풍", "20260804~20261102"), ("주식회사 영풍", "20240101~20261102")]
 out = [f"key length {len(KEY)}"]
 for n, span in NAMES:
     params = {"applicantName": n, "applicationDate": span, "numOfRows": "3", "pageNo": "1", **{f: "true" for f in FLAGS}, "ServiceKey": KEY}
@@ -24,7 +24,7 @@ for n, span in NAMES:
         total = re.search(r"<totalCount>(\d+)</totalCount>", t)
         code = re.search(r"<resultCode>([^<]*)</resultCode>", t)
         msg = re.search(r"<resultMsg>([^<]*)</resultMsg>", t)
-        apps = re.findall(r"<applicantName>([^<]*)</applicantName>", t)[:2]
+        apps = re.findall(r"<applicantName>([^<]*)</applicantName>", t)[:3]
         out.append(f"{n} {span}: HTTP {r.status_code} code {code.group(1) if code else '-'} {(msg.group(1) if msg else '')[:40]} total {total.group(1) if total else '-'} applicants {apps}")
     except Exception as e:  # noqa: BLE001
         out.append(f"{n}: {type(e).__name__}")
