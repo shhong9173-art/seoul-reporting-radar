@@ -1,32 +1,37 @@
-"""probe 108: 공개 꾸러미 patent-client-agents의 EUIPO 상표 검색 응답 모델 — 칸 이름만(검색 응답 구조 파악용, 호출 없음)."""
-import glob, os, re, subprocess, tarfile, zipfile
-out = []
-d = "/tmp/pca"
-os.makedirs(d, exist_ok=True)
-r = subprocess.run(["python", "-m", "pip", "download", "--no-deps", "patent-client-agents", "-d", d], capture_output=True, text=True)
-out.append("pip " + (r.stdout.strip().splitlines() or [""])[-1][:120] + " " + (r.stderr.strip().splitlines() or [""])[-1][:120])
-for f in glob.glob(d + "/*"):
-    if f.endswith(".whl"):
-        zipfile.ZipFile(f).extractall(d + "/x")
-    elif f.endswith(".tar.gz"):
-        tarfile.open(f).extractall(d + "/x")
-files = [f for f in glob.glob(d + "/x/**/*.py", recursive=True) if "euipo_trademarks" in f]
-out.append("files " + ", ".join(os.path.relpath(f, d + "/x") for f in files))
-for f in files:
-    t = open(f, encoding="utf-8", errors="replace").read()
-    fields = re.findall(r"^\s+(\w+)\s*:\s*([^=\n]+?)(?:\s*=.*)?$", t, re.M)
-    classes = re.findall(r"^class\s+(\w+)", t, re.M)
-    if classes:
-        out.append(f"== {os.path.basename(f)} classes {classes[:30]}")
-        out.append("   fields " + "; ".join(f"{a}:{b.strip()[:30]}" for a, b in fields[:90]))
-    for m in re.finditer(r"alias=\"(\w+)\"", t):
-        pass
-    al = sorted(set(re.findall(r"alias=\"(\w+)\"", t)))
-    if al:
-        out.append("   aliases " + ", ".join(al[:120]))
-    q = [m.group(0) for m in re.finditer(r"(?:query|params)\s*=\s*\{[^}]{0,300}\}", t)]
-    if q:
-        out.append("   params " + " | ".join(re.sub(r"\s+", " ", x)[:200] for x in q[:3]))
-text = "\n".join(out)
+"""probe 109: 출입처 외신 검색(구글 뉴스 RSS)에서 '매체 허용 목록 밖'으로 버린 매체 분포 — 석유화학·정유·에너지화학·철강·전력(매체 이름·건수·7일 안 건수만)."""
+import collections, re, sys, urllib.parse, xml.etree.ElementTree as ET
+from datetime import datetime, timedelta, timezone
+from email.utils import parsedate_to_datetime
+import requests
+sys.path.insert(0, ".")
+import global_collector as g
+OUT = []
+def p(*a):
+    OUT.append(" ".join(str(x) for x in a))
+now = datetime.now(timezone.utc)
+for cat, q in g.QUERIES if hasattr(g, "QUERIES") else []:
+    pass
+queries = [(c, q) for c, q in getattr(g, "SOURCES", getattr(g, "QUERIES", [])) if c.startswith("출입처")]
+p("queries", [c for c, _ in queries])
+for cat, q in queries:
+    url = "https://news.google.com/rss/search?q=" + urllib.parse.quote(q) + "&hl=en-US&gl=US&ceid=US:en"
+    r = requests.get(url, headers={"User-Agent": "Mozilla/5.0 AutoIndustryGlobalRadar/1.1"}, timeout=30)
+    root = ET.fromstring(r.content)
+    outlet, recent = collections.Counter(), collections.Counter()
+    for it in root.findall("./channel/item"):
+        src = it.find("source")
+        s = (src.text or "").strip() if src is not None else "?"
+        title = it.findtext("title") or ""
+        if g.DOMESTIC_EN.search(s) or g.looks_korean(title) or g.looks_korean(s) or g.FOREIGN_OK.search(s):
+            continue
+        outlet[s] += 1
+        try:
+            if parsedate_to_datetime(it.findtext("pubDate") or "") > now - timedelta(days=7):
+                recent[s] += 1
+        except Exception:
+            pass
+    p(f"== {cat}: 허용 밖 {sum(outlet.values())} · 7일 안 {sum(recent.values())}")
+    p("   " + ", ".join(f"{k} {v}({recent.get(k, 0)})" for k, v in outlet.most_common(25)))
+text = "\n".join(OUT)
 open("/tmp/probe_out.txt", "w").write(text)
 print(text[:800])
