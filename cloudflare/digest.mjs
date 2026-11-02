@@ -734,9 +734,11 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
       continue;
     }
     const more = (x.winnerCount ?? (x.winners ?? []).length) - Math.min(2, (x.winners ?? []).length);
-    const who = ((x.winners ?? []).slice(0, 2).join('·') + (more > 0 ? ` 외 ${more}곳` : '')) || '보고서 줄 참조';
+    // 바레인 월간 보고서 줄은 낙찰자 칸이 따로 없다 — 이름이 맞은 출입처로 적고, 공고일 대신 보고서 달(낙찰 결정 달)
+    const who = ((x.winners ?? []).slice(0, 2).join('·') + (more > 0 ? ` 외 ${more}곳` : '')) || (x.company ? `${x.company}(보고서 줄${x.ocr ? ', 글자 인식' : ''})` : '보고서 줄 참조');
+    const buyer = where && String(x.buyer ?? '').startsWith(where) ? String(x.buyer).slice(where.length).trim() : x.buyer;
     push(tier, W['overseas-awards'], { kind: `${x.source} ${x.kind}`, id: x.id, date: x.published ?? x.firstSeen, company: x.company ?? '',
-      fact: `해외 ${x.kind}(${x.source}): ${where ? `${where} ` : ''}${x.buyer} ← ${who} · ${String(x.title ?? '').slice(0, 120)}${value}${x.concluded ? ` · 계약 ${x.concluded}` : ''} · 공고 ${x.published ?? '?'}`,
+      fact: `해외 ${x.kind}(${x.source}): ${where ? `${where} ` : ''}${buyer} ← ${who} · ${String(x.title ?? '').slice(0, x.ocr ? 220 : 120)}${value}${x.concluded ? ` · 계약 ${x.concluded}` : ''} · ${x.published ? `공고 ${x.published}` : x.reportMonth ? `${x.reportMonth} 월간 낙찰 보고서` : '공고 ?'}`,
       url: x.url, check: tier === 'C' ? undefined : hint(x.company, [where, '수주'], [where]) });
   }
 

@@ -245,6 +245,20 @@ class Award(unittest.TestCase):
         w.run(now=NOW + dt.timedelta(hours=11), previous=doc, get=get2, post=post2, sleep=lambda s: None)
         self.assertEqual(calls2["bh_pdf"], 0)
 
+    def test_stored_first_ocr_line_is_tidied(self):
+        # 11-02 운영 첫 OCR 저장본 그대로: 앞 낙찰(KANOO)의 끝 두 줄이 붙어 레이더 줄에서 핵심(국적·사업명)이 잘렸다
+        x = {"id": "bh:Aug 2026 Awarding Report.pdf:0", "source": "바레인 입찰위원회", "company": "일진전기", "ocr": True,
+             "buyer": "바레인 정부 발주처(보고서 줄 참조)", "report": "2 Awarded Tenders Report - August 2026 8.7 MB",
+             "title": "9,564,000 KANOO VEHICLE 4 : / LEASING B.S.C. JAY 79 / ILJINELECTRIC COLTD, 1 cle Lasy 400KV and 220KV Feeder t-ilis "
+                      "5100/2025/4669 17 / 34,968,319.628 SOUTH KOREA SIGE 5 Cable Works for / Awsighl Establishment of New / Sitra 400KV Grid"}
+        w.tidy_ocr_item(x)
+        self.assertTrue(x["title"].startswith("ILJINELECTRIC COLTD"))
+        self.assertEqual((x["buyer"], x["reportMonth"]), ("정부 발주처(보고서 줄 참조)", "2026-08"))
+        w.tidy_ocr_item(x)
+        self.assertTrue(x["title"].startswith("ILJINELECTRIC COLTD"))   # 두 번 해도 같음
+        self.assertEqual(w.report_month("1 Awarded Tenders Report - September 2026 15.8 MB"), "2026-09")
+        self.assertIsNone(w.report_month("Awarded Tenders 2026-09.pdf"))
+
     def test_ocr_name_rules_and_tools(self):
         self.assertEqual(w.beat_of_ocr("HYOSUNGHEAVY INDUSTRIES"), "효성중공업")
         self.assertEqual(w.beat_of_ocr("LSCABLE & SYSTEM LTD"), "LS전선")

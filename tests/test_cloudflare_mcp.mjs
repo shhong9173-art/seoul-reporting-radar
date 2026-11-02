@@ -2579,7 +2579,12 @@ test('overseas awards: a Bahrain opened bid is a bid, not an award — lowest bi
   const doc = { schema: 'overseas_awards/v1', generatedAt: '2026-10-25T17:30:00+09:00', status: 'complete', coverage: 'EU TED · 바레인 입찰위원회 월간 낙찰 보고서·개찰 결과',
     checks: [{ source: '바레인 입찰위원회 개찰', query: '개찰 결과(응찰 회사·응찰가)', status: 'ok', returned: 40, matched: 3,
       note: '목록 40건(개찰 2026-10-01~2026-10-25) · 새 개찰 3 · 상세 3' }], rules: [],
-    items: [b('bhopen:9001:일진전기'),
+    items: [{ id: 'bh:Aug 2026 Awarding Report.pdf:0', source: '바레인 입찰위원회', published: null, kind: '낙찰(월간 보고서)', buyer: '정부 발주처(보고서 줄 참조)',
+      buyerCountry: 'BHR', winners: [], winnerCountry: [], winnerIds: [], company: '일진전기', companies: ['일진전기'], ocr: true, reportMonth: '2026-08',
+      title: 'ILJINELECTRIC COLTD, 1 cle Lasy 400KV and 220KV Feeder t-ilis 5100/2025/4669 17 / 34,968,319.628 SOUTH KOREA SIGE 5 Cable Works for / Awsighl Establishment of New / Sitra 400KV Grid',
+      report: '2 Awarded Tenders Report - August 2026 8.7 MB', value: null, currency: null, url: 'https://www.tenderboard.gov.bh/MediaHandler/ImageHandler/Pdf/Awarded/Aug%202026%20Awarding%20Report.pdf',
+      firstSeen: '2026-10-26T06:50:00+09:00', isNew: true, baseline: false, tier: 'B' },  // 다음 실행에 읽은 보고서(날짜 없는 줄은 처음 본 때로)
+      b('bhopen:9001:일진전기'),
       b('bhopen:9001:LS전선', { company: 'LS전선', companies: ['LS전선'], bidder: 'LS CABLE AND SYSTEM LTD', value: 46659985.55, rank: 3, lowest: false, tier: 'B',
         lowestBid: { name: 'ILJIN ELECTRIC', value: 35004118.33 } }),
       b('bhopen:8001:LS일렉트릭', { company: 'LS일렉트릭', companies: ['LS일렉트릭'], bidder: 'LS ELECTRIC CO., LTD.', published: '2026-09-01', value: null,
@@ -2589,6 +2594,8 @@ test('overseas awards: a Bahrain opened bid is a bid, not an award — lowest bi
   const sec = (t) => r.text.split(`[${t} · `)[1].split(/\n\[[ABC] · /)[0];
   assert.match(sec('A'), /해외 개찰\(바레인 입찰위원회 개찰\): 바레인 Electricity and Water Authority \(Planning\) · 4669\/2025\/5100 400kV[^\n]* — ILJIN ELECTRIC BHD 35,004,118 · 응찰가 1위\/3곳\(최저가\) · 개찰 2026-10-25 · 낙찰 아님/);
   assert.match(sec('B'), /— LS CABLE AND SYSTEM LTD BHD 46,659,986 · 응찰가 3위\/3곳 · 최저 ILJIN ELECTRIC BHD 35,004,118/);
+  // 월간 보고서 줄(글자 인식): '바레인 바레인' 겹침 없이, 낙찰자는 이름이 맞은 출입처, 공고일 대신 보고서 달
+  assert.match(sec('B'), /해외 낙찰\(월간 보고서\)\(바레인 입찰위원회\): 바레인 정부 발주처\(보고서 줄 참조\) ← 일진전기\(보고서 줄, 글자 인식\) · ILJINELECTRIC COLTD[^\n]*SOUTH KOREA[^\n]*Sitra 400KV Grid · 금액 미기재 · 2026-08 월간 낙찰 보고서/);
   assert.doesNotMatch(r.text, /66KV Switchgear/);  // 이 원천 첫 실행의 예전 개찰(기준선)은 오늘 항목이 아니다
   const t = await call('partner_filings', { company: '일진' }, opts);
   assert.match(t.text, /\[신규\] 2026-10-25 · 바레인 입찰위원회 개찰 개찰\(응찰\) · 일진전기 · 발주 Electricity and Water Authority \(Planning\)\(BHR\)\n   잡힌 사실: 응찰 ILJIN ELECTRIC BHD 35,004,118\.33 · 상태 Accepted · 응찰가 1위\/3곳\(최저가\) · 응찰 3곳 · 다른 응찰 TAIHAN ELECTRIC WIRE CO LTD BHD 45,648,300 \/ LS CABLE AND SYSTEM LTD BHD 46,659,985\.55/);
