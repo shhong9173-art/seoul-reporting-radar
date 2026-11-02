@@ -26,6 +26,7 @@ jobs:
           KR_FUEL_API_KEY: ${{ secrets.KR_FUEL_API_KEY }}
           DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
+          KIPRIS_SERVICE_KEY: ${{ secrets.KIPRIS_SERVICE_KEY }}
         run: python scripts/probe/award_probe.py
       - run: python scripts/probe/print_part.py 0
       - run: python scripts/probe/print_part.py 1
