@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-11-02T09:56:53.915039+09:00",
+  "generatedAt": "2026-11-02T15:46:07.811911+09:00",
   "feeds": [
     {
       "name": "DART",
       "status": "ready",
       "rows": 1,
-      "generatedAt": "2026-10-30T11:59:58+09:00",
+      "generatedAt": "2026-11-02T11:46:10+09:00",
       "checkedQueries": null,
       "failedQueries": null
     },
@@ -13,7 +13,7 @@
       "name": "OVERSEAS",
       "status": "ready",
       "rows": 8,
-      "generatedAt": "2026-11-01T06:28:38+09:00",
+      "generatedAt": "2026-11-02T11:40:15+09:00",
       "checkedQueries": 16,
       "failedQueries": 0
     },
@@ -21,7 +21,7 @@
       "name": "CUSTOMS",
       "status": "ready",
       "rows": 4,
-      "generatedAt": "2026-10-26T09:47:04+09:00",
+      "generatedAt": "2026-11-02T10:55:34+09:00",
       "checkedQueries": null,
       "failedQueries": null
     },
@@ -37,7 +37,7 @@
       "name": "DART_METRIC",
       "status": "ready",
       "rows": 24,
-      "generatedAt": "2026-11-01T17:54:07+09:00",
+      "generatedAt": "2026-11-02T14:59:21+09:00",
       "checkedQueries": null,
       "failedQueries": null
     },
@@ -52,8 +52,8 @@
     {
       "name": "나라장터 공공조달",
       "status": "ready",
-      "rows": 0,
-      "generatedAt": "2026-11-02T09:56:49+09:00"
+      "rows": 6,
+      "generatedAt": "2026-11-02T15:45:47+09:00"
     },
     {
       "name": "NTIS 연구과제",
@@ -363,6 +363,48 @@
       "fact": "관세청 구분별 공개 집계(202609) · 기업 실적 아님",
       "url": "https://www.data.go.kr/data/15101634/openapi.do",
       "verification": "시도·성질/국가별 모집단·단위 확인"
+    },
+    {
+      "source": "나라장터 공공조달",
+      "headline": "HVDC Power Supply 2EA 외 2종",
+      "fact": "조달청 공개 입찰공고 · 한국원자력연구원 · 낙찰·계약·당사자 공급업체 미확인",
+      "url": "https://www.g2b.go.kr/link/PNPE027_01/single/?bidPbancNo=R26BK01803062&bidPbancOrd=000",
+      "verification": "원문 공고번호 R26BK01803062 확인 후 낙찰자·계약·공급사·기보도 대조"
+    },
+    {
+      "source": "나라장터 공공조달",
+      "headline": "동량2지구 수리시설개보수사업 지급자재(배전반) 제조구매",
+      "fact": "조달청 공개 입찰공고 · 한국농어촌공사 충북지역본부 · 낙찰·계약·당사자 공급업체 미확인",
+      "url": "https://www.g2b.go.kr/link/PNPE027_01/single/?bidPbancNo=R26BK01803760&bidPbancOrd=000",
+      "verification": "원문 공고번호 R26BK01803760 확인 후 낙찰자·계약·공급사·기보도 대조"
+    },
+    {
+      "source": "나라장터 공공조달",
+      "headline": "원전 압력방출장치 용량인증 설비 제작",
+      "fact": "조달청 공개 입찰공고 · 한국기계연구원 · 낙찰·계약·당사자 공급업체 미확인",
+      "url": "https://www.g2b.go.kr/link/PNPE027_01/single/?bidPbancNo=R26BK01764877&bidPbancOrd=001",
+      "verification": "원문 공고번호 R26BK01764877 확인 후 낙찰자·계약·공급사·기보도 대조"
+    },
+    {
+      "source": "나라장터 공공조달",
+      "headline": "대구용전초등학교 수배전반 개선 전기공사",
+      "fact": "조달청 공개 입찰공고 · 대구광역시교육청 대구광역시남부교육지원청 · 낙찰·계약·당사자 공급업체 미확인",
+      "url": "https://www.g2b.go.kr/link/PNPE027_01/single/?bidPbancNo=R26BK01802727&bidPbancOrd=000",
+      "verification": "원문 공고번호 R26BK01802727 확인 후 낙찰자·계약·공급사·기보도 대조"
+    },
+    {
+      "source": "나라장터 공공조달",
+      "headline": "대구감삼초등학교 수배전반 개선 전기공사",
+      "fact": "조달청 공개 입찰공고 · 대구광역시교육청 대구광역시남부교육지원청 · 낙찰·계약·당사자 공급업체 미확인",
+      "url": "https://www.g2b.go.kr/link/PNPE027_01/single/?bidPbancNo=R26BK01802758&bidPbancOrd=000",
+      "verification": "원문 공고번호 R26BK01802758 확인 후 낙찰자·계약·공급사·기보도 대조"
+    },
+    {
+      "source": "나라장터 공공조달",
+      "headline": "광주효동초 등 4교(문흥중앙초, 용두초, 일동중) 전기차충전기 설치 전기공사 수의계약 안내공고",
+      "fact": "조달청 공개 입찰공고 · 전남광주통합특별시교육청 전남광주통합특별시광주동부교육지원청 · 낙찰·계약·당사자 공급업체 미확인",
+      "url": "https://www.g2b.go.kr/link/PNPE027_01/single/?bidPbancNo=R26BK01804234&bidPbancOrd=000",
+      "verification": "원문 공고번호 R26BK01804234 확인 후 낙찰자·계약·공급사·기보도 대조"
     }
   ],
   "confirmedScoops": 0,
