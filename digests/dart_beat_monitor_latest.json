@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-02T00:31:03+09:00",
+  "generatedAt": "2026-11-02T11:36:07+09:00",
   "status": "industry_beat_official_receipt_review",
   "windowStart": "20261004",
   "windowEnd": "20261102",
@@ -8,9 +8,9 @@
   "companiesUnresolved": 3,
   "companiesWithSourceErrors": 0,
   "sourceComplete": false,
-  "relevantFilings": 55,
+  "relevantFilings": 58,
   "detailBound": 12,
-  "detailsAttempted": 0,
+  "detailsAttempted": 2,
   "valueupOfficialDocumentAttempts": 0,
   "shareCancellationDocumentAttempts": 0,
   "businessCessationDocumentAttempts": 0,
@@ -22,10 +22,10 @@
   "shareCancellationDocumentUnavailable": 0,
   "valueupOfficialDocumentReads": 3,
   "valueupOfficialDocumentUnavailable": 0,
-  "detailBacklogQueued": 0,
+  "detailBacklogQueued": 2,
   "detailNotAttemptedThisRun": 0,
-  "unsupportedOriginalDetailTypes": 33,
-  "uninspectedListedDetails": 33,
+  "unsupportedOriginalDetailTypes": 34,
+  "uninspectedListedDetails": 34,
   "uninspectedRelevantDetails": 0,
   "firstRunBaseline": false,
   "sourceChecks": [
@@ -113,8 +113,8 @@
       "company": "금호타이어",
       "beat": "자동차·부품·타이어",
       "status": "checked",
-      "officialRows": 4,
-      "relevantRows": 1,
+      "officialRows": 6,
+      "relevantRows": 2,
       "pagesRead": 1
     },
     {
@@ -246,8 +246,8 @@
       "company": "포스코인터내셔널",
       "beat": "철강",
       "status": "checked",
-      "officialRows": 1,
-      "relevantRows": 0,
+      "officialRows": 2,
+      "relevantRows": 1,
       "pagesRead": 1
     },
     {
@@ -406,8 +406,8 @@
       "company": "씨에스윈드",
       "beat": "에너지·화학",
       "status": "checked",
-      "officialRows": 4,
-      "relevantRows": 2,
+      "officialRows": 5,
+      "relevantRows": 3,
       "pagesRead": 1
     },
     {
@@ -452,6 +452,195 @@
     }
   ],
   "records": [
+    {
+      "company": "씨에스윈드",
+      "beat": "에너지·화학",
+      "corpCode": "00670340",
+      "receiptNo": "20261102800240",
+      "published": "20261102",
+      "report": "단일판매ㆍ공급계약체결              ",
+      "category": "공급계약",
+      "isCorrection": false,
+      "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261102800240",
+      "sourceType": "official_list_receipt",
+      "originalDocumentVerified": false,
+      "companyImpactVerified": false,
+      "scoopConfirmed": false,
+      "status": "official_document_read",
+      "observedFields": {
+        "contract_subject": "WIND TOWER 공급계약 체결",
+        "contract_amount": "83,098,217,738",
+        "recent_sales": "2,931,648,581,449",
+        "sales_ratio": "2.8",
+        "counterparty": "Siemens Gamesa Renewable Energy",
+        "supply_region": "영국",
+        "contract_start": "2026-10-30",
+        "contract_end": "2027-10-08"
+      },
+      "observedFieldEvidence": {
+        "contract_subject": {
+          "sourceLabel": "- 체결계약명",
+          "rowPattern": "two_cell_explicit_label",
+          "basis": "same_official_table_row",
+          "independentBusinessVerification": false,
+          "distinctDocumentRows": 1
+        },
+        "contract_amount": {
+          "sourceLabel": "계약금액(원)",
+          "rowPattern": "three_cell_explicit_label",
+          "basis": "same_official_table_row",
+          "independentBusinessVerification": false,
+          "distinctDocumentRows": 1
+        },
+        "recent_sales": {
+          "sourceLabel": "최근매출액(원)",
+          "rowPattern": "two_cell_explicit_label",
+          "basis": "same_official_table_row",
+          "independentBusinessVerification": false,
+          "distinctDocumentRows": 1
+        },
+        "sales_ratio": {
+          "sourceLabel": "매출액대비(%)",
+          "rowPattern": "two_cell_explicit_label",
+          "basis": "same_official_table_row",
+          "independentBusinessVerification": false,
+          "distinctDocumentRows": 1
+        },
+        "counterparty": {
+          "sourceLabel": "3. 계약상대",
+          "rowPattern": "two_cell_explicit_label",
+          "basis": "same_official_table_row",
+          "independentBusinessVerification": false,
+          "distinctDocumentRows": 1
+        },
+        "supply_region": {
+          "sourceLabel": "4. 판매ㆍ공급지역",
+          "rowPattern": "two_cell_explicit_label",
+          "basis": "same_official_table_row",
+          "independentBusinessVerification": false,
+          "distinctDocumentRows": 1
+        },
+        "contract_start": {
+          "sourceLabel": "시작일",
+          "rowPattern": "three_cell_explicit_label",
+          "basis": "same_official_table_row",
+          "independentBusinessVerification": false,
+          "distinctDocumentRows": 2
+        },
+        "contract_end": {
+          "sourceLabel": "종료일",
+          "rowPattern": "contract_period_rowspan",
+          "basis": "same_official_table_row",
+          "independentBusinessVerification": false,
+          "distinctDocumentRows": 1
+        }
+      },
+      "conflictingDocumentFields": [],
+      "documentTablesExamined": 1,
+      "documentFieldExtractionStatus": "official_table_terms_not_business_effect",
+      "evidenceStatus": "공식 DART 원문 표의 동일 행 필드만 수집. 공시상 기재값이며 실제 납품·매출·효력 확인 아님",
+      "scoopStatus": "기보도 및 원자료·회사 답변 확인 전 · 단독 미확정",
+      "questions": [
+        "원문 원계약·정정 전후 계약금액, 고객사, 적용 기간이 명시됐는가?",
+        "해당 공급계약·투자에 관한 이전 DART 공시·기업 발표·전문지 보도가 있는가?",
+        "공식 계약 확정과 입찰/협약/옵션 계약의 구분 및 실제 산업 영향은 무엇인가?"
+      ],
+      "firstObservedAt": "2026-11-02T11:36:07+09:00",
+      "firstObservedThisRun": true,
+      "detailTypeSupported": true,
+      "detailStatus": "official_document_read",
+      "independentContractComparisonVerified": false,
+      "approvedForPitch": false
+    },
+    {
+      "company": "포스코인터내셔널",
+      "beat": "철강",
+      "corpCode": "00124504",
+      "receiptNo": "20261102800220",
+      "published": "20261102",
+      "report": "연결재무제표기준영업(잠정)실적(공정공시)              ",
+      "category": "정기·주요공시",
+      "isCorrection": false,
+      "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261102800220",
+      "sourceType": "official_list_receipt",
+      "originalDocumentVerified": false,
+      "companyImpactVerified": false,
+      "scoopConfirmed": false,
+      "firstObservedAt": "2026-11-02T11:36:07+09:00",
+      "firstObservedThisRun": true,
+      "detailTypeSupported": false,
+      "detailStatus": "original_detail_type_unsupported",
+      "independentContractComparisonVerified": false,
+      "approvedForPitch": false
+    },
+    {
+      "company": "금호타이어",
+      "beat": "자동차·부품·타이어",
+      "corpCode": "00481454",
+      "receiptNo": "20261102800014",
+      "published": "20261102",
+      "report": "생산중단              ",
+      "category": "생산중단",
+      "isCorrection": false,
+      "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261102800014",
+      "sourceType": "official_list_receipt",
+      "originalDocumentVerified": false,
+      "companyImpactVerified": false,
+      "scoopConfirmed": false,
+      "status": "official_document_read",
+      "observedFields": {
+        "production_site": "금호타이어(주) 광주공장",
+        "recent_sales": "4,701,282,075,494",
+        "sales_ratio": "11.1",
+        "production_restart": "2026-11-02"
+      },
+      "observedFieldEvidence": {
+        "production_site": {
+          "sourceLabel": "1. 생산중단분야",
+          "rowPattern": "two_cell_explicit_label",
+          "basis": "same_official_table_row",
+          "independentBusinessVerification": false,
+          "distinctDocumentRows": 1
+        },
+        "recent_sales": {
+          "sourceLabel": "최근매출액(원)",
+          "rowPattern": "two_cell_explicit_label",
+          "basis": "same_official_table_row",
+          "independentBusinessVerification": false,
+          "distinctDocumentRows": 1
+        },
+        "sales_ratio": {
+          "sourceLabel": "매출액대비(%)",
+          "rowPattern": "two_cell_explicit_label",
+          "basis": "same_official_table_row",
+          "independentBusinessVerification": false,
+          "distinctDocumentRows": 1
+        },
+        "production_restart": {
+          "sourceLabel": "8. 생산재개예정일자",
+          "rowPattern": "two_cell_explicit_label",
+          "basis": "same_official_table_row",
+          "independentBusinessVerification": false,
+          "distinctDocumentRows": 1
+        }
+      },
+      "conflictingDocumentFields": [],
+      "documentTablesExamined": 1,
+      "documentFieldExtractionStatus": "official_table_terms_not_business_effect",
+      "evidenceStatus": "공식 DART 원문 표의 동일 행 필드만 수집. 공시상 기재값이며 실제 납품·매출·효력 확인 아님",
+      "scoopStatus": "기보도 및 원자료·회사 답변 확인 전 · 단독 미확정",
+      "questions": [
+        "원문 원계약·정정 전후 계약금액, 고객사, 적용 기간이 명시됐는가?",
+        "해당 공급계약·투자에 관한 이전 DART 공시·기업 발표·전문지 보도가 있는가?",
+        "공식 계약 확정과 입찰/협약/옵션 계약의 구분 및 실제 산업 영향은 무엇인가?"
+      ],
+      "firstObservedAt": "2026-11-02T11:36:07+09:00",
+      "firstObservedThisRun": true,
+      "detailTypeSupported": true,
+      "detailStatus": "official_document_read",
+      "independentContractComparisonVerified": false,
+      "approvedForPitch": false
+    },
     {
       "company": "효성중공업",
       "beat": "전력기기·전선",
@@ -2809,7 +2998,10 @@
     "20261020800241": "2026-11-01T16:23:30+09:00",
     "20261019800117": "2026-11-01T16:23:30+09:00",
     "20261019800110": "2026-11-01T16:23:30+09:00",
-    "20261008800790": "2026-11-01T16:23:30+09:00"
+    "20261008800790": "2026-11-01T16:23:30+09:00",
+    "20261102800240": "2026-11-02T11:36:07+09:00",
+    "20261102800220": "2026-11-02T11:36:07+09:00",
+    "20261102800014": "2026-11-02T11:36:07+09:00"
   },
   "confirmedScoops": 0,
   "approvedArticles": 0,
