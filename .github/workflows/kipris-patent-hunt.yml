@@ -41,8 +41,18 @@ jobs:
           import datetime as dt, json, os
           skip = "false"
           try:
-              d = json.load(open("digests/kipris_source_request_budget_latest.json", encoding="utf-8"))
-              last = dt.datetime.fromisoformat(str(d.get("lastProviderResponseAt")))
+              # 공용 장부(kipris_account_ledger)의 특허 묶음 마지막 성공 시각이 먼저다. 옛 장부의 lastProviderResponseAt은
+              # 11월부터 비어 있어(None) 늦은 예약 실행이 건너뛰지 못하고 같은 날 두 번 불렀다(11-02 08:30·09:56, 특허 92회).
+              stamps = []
+              for path, pick in (("digests/kipris_account_ledger_latest.json", lambda d: (d.get("lastSuccessAt") or {}).get("patent")),
+                                 ("digests/kipris_source_request_budget_latest.json", lambda d: d.get("lastProviderResponseAt"))):
+                  try:
+                      v = pick(json.load(open(path, encoding="utf-8")))
+                  except (OSError, ValueError):
+                      continue
+                  if v:
+                      stamps.append(dt.datetime.fromisoformat(str(v)))
+              last = max(stamps)
               age = (dt.datetime.now(dt.timezone.utc) - last).total_seconds() / 3600
               if os.environ.get("EVENT") == "schedule" and age < 6:
                   skip = "true"
