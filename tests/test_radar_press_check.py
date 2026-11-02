@@ -80,6 +80,15 @@ class Candidates(unittest.TestCase):
         self.assertEqual(by["fac:9"]["alts"], {})
         self.assertEqual(by["cl:74869986"]["numbers"], [])  # no number matching for radar items
 
+    def test_hint_since_overrides_the_item_date(self):
+        # 바레인 월간 보고서 줄: 처음 본 날(11-02)이 아니라 낙찰 결정 달(08-01)부터 대조 — 10-20 [단독]이 '앞선 기사'로 빠지지 않게
+        item = {"tier": "B", "watch": "해외 발주처 낙찰", "id": "bh:Aug 2026 Awarding Report.pdf:0", "date": "2026-11-02T11:17:00+09:00",
+                "company": "일진전기", "fact": "해외 낙찰(월간 보고서)", "check": {"who": "일진전기", "terms": ["바레인", "수주"], "places": ["바레인"], "since": "2026-08-01"}}
+        row = rpc.candidates([item], now=NOW)[0]
+        self.assertEqual(row["since"], "2026-07-29")
+        item["check"].pop("since")
+        self.assertEqual(rpc.candidates([item], now=NOW)[0]["since"], "2026-10-30")
+
     def test_limit(self):
         many = [dict(ITEMS[1], id=f"x{i}") for i in range(60)]
         self.assertEqual(len(rpc.candidates(many, now=NOW)), rpc.MAX_ITEMS)

@@ -129,6 +129,8 @@ export const insolvencyWord = (kind) => (/파산/.test(String(kind ?? '')) ? '�
 // 출입처 외신 대조 낱말: 나라 이름이 있으면 검색어에 더하고(places — 사건 낱말로는 안 셈) 기사 본문에 있어야 같은 건(must).
 export const gbHint = (who, terms, country) => (country ? hint(who, [...terms, country], [country], [country]) : hint(who, terms));
 
+const sinceMonth = (h, month) => (h && /^\d{4}-\d{2}$/.test(String(month ?? '')) ? { ...h, since: `${month}-01` } : h);
+
 export function hint(who, terms, places = [], must = [], names = []) {
   const subject = String(who ?? '').split('·')[0].replace(/\(.*?\)/g, '').trim();
   const t = [...new Set(terms.filter(Boolean).map(String))];
@@ -739,7 +741,9 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
     const buyer = where && String(x.buyer ?? '').startsWith(where) ? String(x.buyer).slice(where.length).trim() : x.buyer;
     push(tier, W['overseas-awards'], { kind: `${x.source} ${x.kind}`, id: x.id, date: x.published ?? x.firstSeen, company: x.company ?? '',
       fact: `해외 ${x.kind}(${x.source}): ${where ? `${where} ` : ''}${buyer} ← ${who} · ${String(x.title ?? '').slice(0, x.ocr ? 220 : 120)}${value}${x.concluded ? ` · 계약 ${x.concluded}` : ''} · ${x.published ? `공고 ${x.published}` : x.reportMonth ? `${x.reportMonth} 월간 낙찰 보고서` : '공고 ?'}`,
-      url: x.url, check: tier === 'C' ? undefined : hint(x.company, [where, '수주'], [where]) });
+      // 월간 보고서 줄은 낙찰 결정 달이 기준 — 보도 대조는 그 달부터 본다(11-02: 8월 보고서 일진전기 낙찰을 11-02부터 찾아 10-20 더구루 [단독]을
+      // '앞선 기사'로 두고 미보도 후보라 했다)
+      url: x.url, check: tier === 'C' ? undefined : sinceMonth(hint(x.company, [where, '수주'], [where]), x.reportMonth) });
   }
 
   // Court insolvency notices (대법원 회생·파산 공고, 회생회사 M&A 공고): a beat-industry manufacturer (공장등록 업종) entering
