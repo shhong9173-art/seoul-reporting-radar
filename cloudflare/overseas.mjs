@@ -122,7 +122,7 @@ async function awardSection(ctx, q, onlyNew, limit) {
     const who = (x.winners ?? []).slice(0, 2).join(' / ') + (more > 0 ? ` 외 ${more}곳` : '');
     out.push(`   잡힌 사실: 낙찰자 ${who || '보고서 줄 참조'}${(x.winnerCountry ?? []).length ? `(${more > 0 ? '낙찰자 전체 국가 ' : ''}${x.winnerCountry.join('·')}${ids})` : ''} · ${x.title} · ${value}${x.priceKind ? `(${x.priceKind})` : ''}${x.concluded ? ` · 계약 ${x.concluded}` : ''}${x.report ? ` · ${x.report}` : ''}`);
     out.push(`   원문: ${x.url ?? '링크 없음'}${x.official ? ` · 정부전자조달망 ${x.official}` : ''}`);
-    out.push(`   검증 상태: 공고의 낙찰자 칸${x.source === '바레인 입찰위원회' ? '(월간 보고서 줄 — 발주처·금액은 PDF 원문 확인)' : x.official ? '(대만 PCC 공고의 得標廠商 — g0v 공개 미러로 찾음, 금액 NT$)' : ''}. 계약 범위·금액·출입처 공시·보도 여부는 원문과 news_check로 확인`);
+    out.push(`   검증 상태: 공고의 낙찰자 칸${x.source === '바레인 입찰위원회' ? (x.ocr ? '(월간 보고서 스캔 이미지를 글자 인식(OCR)으로 읽은 줄 — 이름·금액 오독 가능, 발주처·금액·낙찰자는 PDF 원문 확인)' : '(월간 보고서 줄 — 발주처·금액은 PDF 원문 확인)') : x.official ? '(대만 PCC 공고의 得標廠商 — g0v 공개 미러로 찾음, 금액 NT$)' : ''}. 계약 범위·금액·출입처 공시·보도 여부는 원문과 news_check로 확인`);
   }
   if (rows.length > limit) out.push(`… 남은 ${rows.length - limit}건`);
   if (!rows.length) out.push('조건에 맞는 출입처 낙찰 없음(위 미확인 원천은 0건 아님).');

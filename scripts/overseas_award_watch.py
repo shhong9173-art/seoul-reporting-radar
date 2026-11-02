@@ -29,7 +29,10 @@ import io
 import json
 import os
 import re
+import shutil
+import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -81,6 +84,38 @@ COMPANIES = [
     ("고려아연", r"\bkorea\s+zinc", "Korea Zinc", None),
 ]
 COMPANY_RX = [(ko, re.compile(rx, re.I)) for ko, rx, _, _ in COMPANIES]
+
+
+def _top_alternatives(rx):
+    out, depth, cur = [], 0, ""
+    for ch in rx:
+        depth += ch == "("
+        depth -= ch == ")"
+        if ch == "|" and depth == 0:
+            out.append(cur)
+            cur = ""
+        else:
+            cur += ch
+    return out + [cur]
+
+
+# 스캔 PDF 글자 인식(OCR)은 낱말 사이 띄어쓰기를 자주 잃는다(11-02 바레인 8월 보고서: 'ILJINELECTRIC COLTD'). 영문자만 남긴 줄에
+# 두 낱말 이상 이름 규칙을 붙여 쓴 형태로 맞춘다. 짧은 약어(POSCO·KEPCO·LSIS·KHNP)는 붙여 쓴 글자 속 우연 일치가 많아 빼고 원래 규칙으로만 본다.
+COMPACT_RX = [(ko, re.compile("|".join(a for a in (re.sub(r"\\s[+*]|\\b", "", x) for x in _top_alternatives(rx)) if len(re.sub(r"\W", "", a)) >= 8)))
+              for ko, rx, _, _ in COMPANIES]
+COMPACT_RX = [(ko, c) for ko, c in COMPACT_RX if c.pattern]
+
+
+def beat_of_ocr(line):
+    """글자 인식 줄: 원래 이름 규칙, 안 되면 띄어쓰기를 지운 형태로."""
+    hit = beat_of(line)
+    if hit:
+        return hit
+    flat = re.sub(r"[^a-z0-9&]", "", str(line or "").lower())
+    for ko, rx in COMPACT_RX:
+        if rx.search(flat):
+            return ko
+    return None
 KOREA_RX = re.compile(r"\bkorea\b(?!\s*,?\s*(?:democratic|dprk|north))|\bkor\b|republic\s+of\s+korea", re.I)
 COUNTRY_KO = {"DNK": "덴마크", "SWE": "스웨덴", "FIN": "핀란드", "NOR": "노르웨이", "ESP": "스페인", "PRT": "포르투갈", "GBR": "영국",
               "DEU": "독일", "NLD": "네덜란드", "BEL": "벨기에", "FRA": "프랑스", "ITA": "이탈리아", "IRL": "아일랜드", "AUT": "오스트리아",
@@ -427,14 +462,47 @@ def pdf_text(raw):
     return "\n".join((p.extract_text() or "") for p in reader.pages)
 
 
-def bh_items(text, report, href):
+# 바레인 월간 낙찰 보고서는 8·9월분이 스캔 이미지 PDF(글자 0자)다. 11-02 탐침: tesseract 5(영문)로 200dpi 14쪽 17~25초,
+# 8월 보고서에서 'ILJINELECTRIC COLTD … SOUTH KOREA … 400KV and 220KV Feeder Cable Works for Establishment of New Sitra 400KV Grid
+# Substations · 34,968,319.628'을 읽었다(아랍어 칸은 깨진 글자). 도구가 없으면(로컬 등) 예전처럼 '스캔 — 미확인'으로 남긴다.
+OCR_DPI = 200
+OCR_MAX_PAGES = 40
+OCR_BUDGET = 300  # 초(실행당)
+
+
+def ocr_pdf(raw, *, run=subprocess.run, which=shutil.which, budget=OCR_BUDGET, clock=time.monotonic):
+    """(글자, 오류). pdftoppm으로 쪽 그림을 만들고 tesseract로 읽는다."""
+    if not (which("pdftoppm") and which("tesseract")):
+        return None, "글자 인식 도구 없음"
+    started = clock()
+    with tempfile.TemporaryDirectory() as d:
+        pdf = os.path.join(d, "r.pdf")
+        with open(pdf, "wb") as f:
+            f.write(raw)
+        r = run(["pdftoppm", "-r", str(OCR_DPI), "-gray", "-png", "-l", str(OCR_MAX_PAGES), pdf, os.path.join(d, "pg")],
+                capture_output=True, timeout=budget)
+        if r.returncode != 0:
+            return None, "쪽 그림 변환 실패"
+        pages, texts = sorted(f for f in os.listdir(d) if f.startswith("pg")), []
+        for f in pages:
+            left = budget - (clock() - started)
+            if left <= 5:
+                return ("\n".join(texts) or None), f"글자 인식 시간 상한({len(texts)}/{len(pages)}쪽)"
+            out = run(["tesseract", os.path.join(d, f), "-", "--psm", "6"], capture_output=True, text=True, timeout=left)
+            texts.append(out.stdout or "")
+        return "\n".join(texts), None
+
+
+def bh_items(text, report, href, *, ocr=False):
     out, seen = [], set()
     lines = [norm_space(x) for x in text.splitlines() if norm_space(x)]
-    for i, line in enumerate(lines):
-        beat = beat_of(line)
-        if not beat and not re.search(r"\bkorea\b", line, re.I):
-            continue
-        snippet = " / ".join(lines[max(0, i - 2): i + 2])[:400]
+    find = beat_of_ocr if ocr else beat_of
+    beats = {i: b for i, b in ((i, find(line)) for i, line in enumerate(lines)) if b}
+    hits = sorted(set(beats) | {i for i, line in enumerate(lines) if re.search(r"\bkorea\b", line, re.I)
+                                and not any(abs(i - j) <= 2 for j in beats)})  # 이름 줄 옆 'SOUTH KOREA'(국적 칸)는 같은 낙찰
+    for i in hits:
+        beat = beats.get(i)
+        snippet = " / ".join(lines[max(0, i - 2): i + (4 if ocr else 2)])[:500 if ocr else 400]
         key = (beat, snippet[:120])
         if key in seen:
             continue
@@ -444,11 +512,12 @@ def bh_items(text, report, href):
             "buyer": "바레인 정부 발주처(보고서 줄 참조)", "buyerCountry": "BHR", "winners": [], "winnerCountry": [], "winnerIds": [],
             "company": beat, "companies": [beat] if beat else [], "title": snippet, "report": report, "value": None, "currency": None,
             "concluded": None, "noticeType": "awarded-report", "url": BH_SITE + href.replace(" ", "%20"),
+            **({"ocr": True} if ocr else {}),
         })
     return out[:20]
 
 
-def bahrain(previous_seen, *, get=None):
+def bahrain(previous_seen, *, get=None, ocr_done=None, ocr=None):
     try:
         r = _get(get, BH_LIST, headers={**UA, "Accept": "text/html"})
         if r.status_code != 200:
@@ -457,12 +526,16 @@ def bahrain(previous_seen, *, get=None):
         if not reports:
             raise RuntimeError("보고서 목록 형식 미상")
     except Exception as e:  # noqa: BLE001
-        return [], [{"source": "바레인 입찰위원회", "query": "월간 낙찰 보고서", "status": "failed", "error": str(e)[:80] or type(e).__name__}], previous_seen
+        return [], [{"source": "바레인 입찰위원회", "query": "월간 낙찰 보고서", "status": "failed", "error": str(e)[:80] or type(e).__name__}], previous_seen, ocr_done
     # First run: older reports are remembered unread; only the newest one is read.
     seen = list(previous_seen) if previous_seen else [x["href"] for x in reports[1:]]
+    # 글자 인식을 붙이기 전(ocr_done 없음)에 '스캔 — 미확인'으로 넘긴 최근 두 보고서는 한 번 다시 받아 읽는다(8·9월분).
+    recheck = set() if ocr_done is not None else {x["href"] for x in reports[:2]}
+    done = list(ocr_done or [])
+    ocr = ocr_pdf if ocr is None else ocr
     items, checks = [], []
     for rep in reports[:2]:
-        if rep["href"] in seen:
+        if rep["href"] in seen and rep["href"] not in recheck:
             continue
         try:
             pr = _get(get, BH_SITE + rep["href"].replace(" ", "%20"), headers={**UA, "Accept": "application/pdf"}, timeout=120)
@@ -471,20 +544,28 @@ def bahrain(previous_seen, *, get=None):
             if len(pr.content) > BH_MAX_BYTES:
                 raise RuntimeError("파일이 너무 큼")
             text = pdf_text(pr.content)
-            seen.append(rep["href"])
-            if len(text.strip()) < 500:
-                # 10-29: August 2026 report (8.7MB) is a scanned image — 9 characters. Not retried; the report stays unread.
-                checks.append({"source": "바레인 입찰위원회", "query": rep["subject"], "status": "ok", "returned": 1, "matched": None,
-                               "note": "스캔 이미지 PDF — 자동 판독 불가, 이 보고서는 미확인(원문 직접 확인)", "url": BH_SITE + rep["href"].replace(" ", "%20")})
-                continue
-            got = bh_items(text, rep["subject"], rep["href"])
+            if rep["href"] not in seen:
+                seen.append(rep["href"])
+            scanned = len(text.strip()) < 500
+            if scanned:
+                # 10-29: August 2026 report (8.7MB) is a scanned image — 9 characters. 11-02부터 글자 인식(OCR)으로 읽는다.
+                text, err = ocr(pr.content)
+                if not text or len(text.strip()) < 500:
+                    checks.append({"source": "바레인 입찰위원회", "query": rep["subject"], "status": "ok", "returned": 1, "matched": None,
+                                   "note": f"스캔 이미지 PDF — 글자 인식 실패({err or '글자 적음'}), 이 보고서는 미확인(원문 직접 확인)",
+                                   "url": BH_SITE + rep["href"].replace(" ", "%20")})
+                    continue
+                if rep["href"] not in done:
+                    done.append(rep["href"])
+            got = bh_items(text, rep["subject"], rep["href"], ocr=scanned)
             items += got
-            checks.append({"source": "바레인 입찰위원회", "query": rep["subject"], "status": "ok", "returned": 1, "matched": len(got)})
+            checks.append({"source": "바레인 입찰위원회", "query": rep["subject"], "status": "ok", "returned": 1, "matched": len(got),
+                           **({"note": f"스캔 이미지 PDF — 글자 인식(OCR)으로 읽음{' · ' + err if err else ''}. 이름·금액 오독 가능, 원문 확인"} if scanned else {})})
         except Exception as e:  # noqa: BLE001
             checks.append({"source": "바레인 입찰위원회", "query": rep["subject"], "status": "failed", "error": str(e)[:80] or type(e).__name__})
     if not checks:
         checks.append({"source": "바레인 입찰위원회", "query": "월간 낙찰 보고서", "status": "ok", "returned": len(reports), "matched": 0, "note": "새 보고서 없음"})
-    return items, checks, seen[-60:]
+    return items, checks, seen[-60:], done[-24:]
 
 
 # ---------------------------------------------------------------- Bahrain Tender Board opened bids (개찰 결과)
@@ -835,6 +916,33 @@ def since_of(previous, now):
         return floor
 
 
+BH_REF = re.compile(r"\b\d{2,6}/\d{4}/\d{2,6}\b")
+
+
+def link_bahrain_reports(reports, pool):
+    """월간 낙찰 보고서 줄의 입찰 번호가 앞서 잡은 개찰(응찰가 공개)과 같으면 그 개찰을 붙인다. 보고서는 번호 순서가 거꾸로다
+    (8월 보고서 '5100/2025/4669' = 개찰 '4669/2025/5100' 일진전기 최저가 BHD 35,004,118 → 보고서 34,968,319.628)."""
+    opened = {}
+    for x in pool:
+        if isinstance(x, dict) and x.get("source") == BH_OPEN_SOURCE and x.get("company"):
+            for ref in BH_REF.findall(str(x.get("title") or "")[:40]):
+                opened.setdefault(tuple(sorted(ref.split("/"))), []).append(x)
+    for it in reports:
+        if not it.get("company"):
+            continue
+        for ref in BH_REF.findall(it.get("title") or ""):
+            same = [x for x in opened.get(tuple(sorted(ref.split("/"))), []) if x.get("company") == it["company"]]
+            if same:
+                o = same[0]
+                money = f"{o['currency']} {o['value']:,.0f}" if o.get("value") and o.get("currency") else "응찰가 미공개"
+                it["openedBid"] = {"id": o.get("id"), "published": o.get("published"), "rank": o.get("rank"), "priced": o.get("priced"),
+                                   "value": o.get("value"), "currency": o.get("currency")}
+                rank = f" · 응찰가 {o['rank']}위/{o.get('priced') or '?'}곳" if o.get("rank") else ""
+                it["title"] = (f"{it['title']} ‖ 같은 입찰의 개찰 기록: {o.get('published') or '?'} {o.get('bidder') or it['company']} {money}{rank}"
+                               " — 월간 낙찰 보고서에 실림")
+                break
+
+
 def run(*, now, previous=None, get=None, post=None, sleep=time.sleep):
     stamp = now.isoformat(timespec="seconds")
     baseline = not (isinstance(previous, dict) and previous.get("items") is not None)
@@ -845,7 +953,8 @@ def run(*, now, previous=None, get=None, post=None, sleep=time.sleep):
         got, ch = fn()
         found += got
         checks += ch
-    bh_got, bh_checks, bh_seen = bahrain((previous or {}).get("bahrainSeen"), get=get)
+    bh_got, bh_checks, bh_seen, bh_ocr = bahrain((previous or {}).get("bahrainSeen"), get=get,
+                                                 ocr_done=(previous or {}).get("bahrainOcr") if previous else [])
     found += bh_got
     checks += bh_checks
     open_prev = (previous or {}).get("bahrainOpenSeen")
@@ -878,6 +987,7 @@ def run(*, now, previous=None, get=None, post=None, sleep=time.sleep):
     found += pcc_got
     checks += pcc_checks
     old = {x["id"]: x for x in (previous or {}).get("items") or []}
+    link_bahrain_reports(bh_got, list(old.values()) + bo_got)
     items = dict(old)
     for it in found:
         prev = old.get(it["id"])
@@ -908,7 +1018,7 @@ def run(*, now, previous=None, get=None, post=None, sleep=time.sleep):
         "schema": SCHEMA, "generatedAt": stamp, "status": status,
         "lastSuccess": stamp if status != "failed" else (previous or {}).get("lastSuccess"),
         "baselineSince": (previous or {}).get("baselineSince") or stamp, "windowStart": since.date().isoformat(),
-        "checks": checks, "items": kept[:KEEP_MAX], "bahrainSeen": bh_seen, "bahrainOpenSeen": bo_seen, "pccLastRun": pcc_last, "rules": RULES,
+        "checks": checks, "items": kept[:KEEP_MAX], "bahrainSeen": bh_seen, "bahrainOcr": bh_ocr, "bahrainOpenSeen": bo_seen, "pccLastRun": pcc_last, "rules": RULES,
         "coverage": "EU TED(유럽 공공·유틸리티) · 영국 Find a Tender · 세계은행 낙찰 공고 · 바레인 입찰위원회 월간 낙찰 보고서·개찰 결과 · 대만 정부조달(PCC)",
     }
 
