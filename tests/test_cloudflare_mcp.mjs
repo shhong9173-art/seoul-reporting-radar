@@ -1298,7 +1298,7 @@ test('radar_today ranks EDGAR mentions by deal words and hides items the reporte
 });
 
 test('Cloudflare cron asks GitHub to run each watch at its KST weekday slot and logs the result', async () => {
-  assert.deepEqual(dueAt(new Date('2026-10-26T22:40:05Z')), ['trade-remedy.yml']);        // Tue 07:40 KST
+  assert.deepEqual(dueAt(new Date('2026-10-26T22:40:05Z')), ['trade-remedy.yml', 'dart-beat-monitor.yml']);        // Tue 07:40 KST
   assert.deepEqual(dueAt(new Date('2026-10-26T22:10:30Z')), ['scoop-screen.yml', 'trademark-watch.yml']);  // Tue 07:10 KST(상표는 실패한 회사만 재시도)
   assert.deepEqual(dueAt(new Date('2026-10-27T06:10:00Z')), ['scoop-screen.yml']);        // 15:10 KST
   assert.deepEqual(dueAt(new Date('2026-10-27T07:00:00Z')), []);                          // no slot (16:00 KST)
@@ -1307,12 +1307,13 @@ test('Cloudflare cron asks GitHub to run each watch at its KST weekday slot and 
   assert.deepEqual(dueAt(new Date('2026-11-01T00:20:00Z')), ['kr-stacks.yml']);           // Sun 09:20 KST 굴뚝(주말 포함 3시간 칸)
   assert.deepEqual(dueAt(new Date('2026-11-01T15:25:00Z')), ['kr-stacks.yml']);           // Mon 00:20 KST
   assert.deepEqual(dueAt(new Date('2026-11-01T16:20:00Z')), []);                          // Mon 01:20 KST(3시간 칸 아님)
-  assert.deepEqual(dueAt(new Date('2026-10-31T22:40:00Z')), []);                          // Sun 07:40 KST
+  assert.deepEqual(dueAt(new Date('2026-10-31T22:40:00Z')), ['dart-beat-monitor.yml']);   // Sun 07:40 KST — DART 공시 감시만(매일)
+  assert.deepEqual(dueAt(new Date('2026-11-01T01:40:00Z')), ['dart-beat-monitor.yml']);   // Sun 10:40 KST 재시도 칸(직전 결과가 4시간 안이면 워크플로가 건너뜀)
   const opts = PRIVATE({ GITHUB_DISPATCH_TOKEN: 'ghp_test' });
   const seen = [];
   const fetchMock = async (url, init) => { seen.push({ url, init }); return new Response(null, { status: 204 }); };
   const res = await runSchedule(opts.env, new Date('2026-10-26T22:40:05Z'), { fetch: fetchMock });
-  assert.deepEqual(res.map((e) => [e.workflow, e.status]), [['trade-remedy.yml', 'ok']]);
+  assert.deepEqual(res.map((e) => [e.workflow, e.status]), [['trade-remedy.yml', 'ok'], ['dart-beat-monitor.yml', 'ok']]);
   assert.equal(seen[0].url, 'https://api.github.com/repos/shhong9173-art/seoul-reporting-radar/actions/workflows/trade-remedy.yml/dispatches');
   assert.equal(seen[0].init.headers.Authorization, 'Bearer ghp_test');
   assert.deepEqual(JSON.parse(seen[0].init.body), { ref: 'main' });
@@ -1326,19 +1327,19 @@ test('Cloudflare cron asks GitHub to run each watch at its KST weekday slot and 
   const sunday = await runSchedule(opts.env, new Date('2026-11-01T01:30:00Z'), { fetch: async (url) => { newsSeen.push(url); return new Response(null, { status: 204 }); } });
   assert.deepEqual(sunday.map((e) => [e.workflow, e.status]), [['auto-desk.yml', 'ok']]);
   assert.match(newsSeen[0], /workflows\/auto-desk\.yml\/dispatches$/);
-  assert.deepEqual(await runSchedule(opts.env, new Date('2026-11-01T01:40:00Z'), { fetch: async () => { throw new Error('must not call'); } }), []);
+  assert.deepEqual(await runSchedule(opts.env, new Date('2026-11-01T01:20:00Z'), { fetch: async () => { throw new Error('must not call'); } }), []);
   const none = PRIVATE();
   // Mon 2026-10-26 07:40 KST — the same KST day as the test clock (09:00 KST)
   const skipped = await runSchedule(none.env, new Date('2026-10-25T22:40:00Z'), { fetch: async () => { throw new Error('must not call'); } });
-  assert.deepEqual(skipped.map((e) => e.status), ['no-token']);
+  assert.deepEqual(skipped.map((e) => e.status), ['no-token', 'no-token']);
   const today = await call('radar_today', {}, none);
   assert.match(today.text, /예약 요청\(Cloudflare\): 토큰 없음 — GitHub 예약만 사용 중\(지연 가능\) · 지금도 워커에서 GITHUB_DISPATCH_TOKEN이 보이지 않음/);
   // the reporter adds the secret after the morning slots: the line says so before the next slot comes round
   const later = await call('radar_today', {}, { ...none, env: { ...none.env, GITHUB_DISPATCH_TOKEN: 'ghp_test' } });
   assert.match(later.text, /예약 요청\(Cloudflare\): 오늘 앞선 칸은 토큰 없이 지나감 · 지금은 토큰 보임 — 다음 칸\(10-26 09:20 kr-stacks\.yml\)부터 요청/);
-  assert.equal(nextSlot(new Date('2026-10-30T10:00:00Z')), '10-30 21:20 kr-stacks.yml');  // Fri 19:00 KST → 21:20 굴뚝(매일 3시간 칸)
+  assert.equal(nextSlot(new Date('2026-10-30T10:00:00Z')), '10-30 20:40 dart-beat-monitor.yml');  // Fri 19:00 KST → 20:40 DART 재시도 칸(매일)
   assert.equal(nextSlot(new Date('2026-10-30T12:30:00Z')), '10-31 00:20 kr-stacks.yml');  // Fri 21:30 KST → Sat 00:20
-  assert.equal(nextSlot(new Date('2026-11-01T09:30:00Z')), '11-01 21:20 kr-stacks.yml');  // Sun 18:30 KST → 21:20 굴뚝
+  assert.equal(nextSlot(new Date('2026-11-01T09:30:00Z')), '11-01 20:40 dart-beat-monitor.yml');  // Sun 18:30 KST → 20:40 DART 재시도 칸
   const fresh = await call('radar_today', {}, PRIVATE());
   assert.match(fresh.text, /예약 요청\(Cloudflare\): 기록 없음 · 지금도 워커에서 GITHUB_DISPATCH_TOKEN이 보이지 않음/);
   const freshWithToken = await call('radar_today', {}, PRIVATE({ GITHUB_DISPATCH_TOKEN: 'ghp_test' }));
@@ -1778,7 +1779,7 @@ test('assembly bills: same-law same-day filings are one line, core laws are B, s
   const steel = items.items.find((x) => x.id.startsWith('bills:') && x.fact.includes('철강산업'));
   assert.deepEqual([steel.check.who, steel.check.names.at(-1)], ['K-스틸법', '철강산업 경쟁력 강화 및 탄소중립 전환을 위한 특별법']);
   assert.deepEqual(dueAt(new Date('2026-10-27T23:40:00Z')), ['assembly-bills.yml']);  // Wed 08:40 KST
-  assert.deepEqual(dueAt(new Date('2026-10-28T08:40:00Z')), ['assembly-bills.yml']);  // Wed 17:40 KST
+  assert.deepEqual(dueAt(new Date('2026-10-28T08:40:00Z')), ['assembly-bills.yml', 'dart-beat-monitor.yml']);  // Wed 17:40 KST
 });
 
 test('trademarks: weekly filings grouped by name, new names in core classes are B, waits are not failures and radar_today keeps them a week', async () => {

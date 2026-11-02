@@ -432,6 +432,38 @@ class BeatCoverageTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             m.fetch_official_list("key","현대자동차","WRONG","20261001","20261015")
 
+class NetworkBailTests(unittest.TestCase):
+    def test_consecutive_network_failures_stop_asking_and_keep_the_reason(self):
+        # 11-02 10:51 KST: 48곳 모두 15초 시간 초과(12분). 앞 5곳이 연달아 망 오류면 나머지는 묻지 않는다.
+        from urllib.error import URLError
+        codes={name:{"corp_code":f"{i:08d}"} for i,name in enumerate(m.TARGETS)}
+        asked=[]
+        def down(key,company,code,start,end):
+            asked.append(company)
+            raise URLError(TimeoutError("timed out"))
+        d=m.collect(codes,"key",now=NOW,query=down,detail=fake_detail)
+        self.assertEqual(len(asked),m.NETWORK_BAIL)
+        self.assertEqual(d["companiesCodeVerified"],0)
+        errs=[c for c in d["sourceChecks"] if c["status"]=="source_error"]
+        self.assertEqual(len(errs),len(m.TARGETS))
+        self.assertEqual(errs[0]["error"],"timed out")
+        self.assertEqual(errs[-1]["errorType"],"skipped_after_network_failures")
+        # 한 곳이라도 성공했으면 끝까지 묻는다(한두 곳 일시 오류)
+        asked.clear()
+        def flaky(key,company,code,start,end):
+            asked.append(company)
+            if len(asked)==1:
+                return fake_list(key,company,code,start,end)
+            raise URLError("reset")
+        m.collect(codes,"key",now=NOW,query=flaky,detail=fake_detail)
+        self.assertEqual(len(asked),len(m.TARGETS))
+
+    def test_error_text_never_keeps_the_key_or_address(self):
+        self.assertEqual(m.safe_error(RuntimeError("OpenDART list error 020")),"OpenDART list error 020")
+        self.assertNotIn("SECRET",m.safe_error(ValueError("bad https://opendart.fss.or.kr/api/list.json?crtfc_key=SECRET")))
+        self.assertNotIn("SECRET",m.safe_error(ValueError("crtfc_key=SECRET&x=1")))
+
+
 class RegistryTests(unittest.TestCase):
     def sample_zip(self):
         entries=[("<list><corp_code>00164742</corp_code><corp_name>(주)현대자동차</corp_name></list>"),
