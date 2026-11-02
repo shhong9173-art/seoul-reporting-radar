@@ -404,5 +404,131 @@
       ],
       "nameNote": "11-02 KIPRIS 실제 조회로 확인(2024-01-01~ 기간, 응답 출원인 이름이 이 글자 그대로) — 띄어 쓴 이름을 먼저 보낸다"
     }
-  ]
+  ],
+  "euipo": {
+    "_note": "유럽연합 상표 출원(EUIPO Trademark Search). query는 applicants.name 와일드카드(RSQL), accept는 응답 출원인 이름을 다시 거르는 규칙(대소문자 무시). 11-02 기준 운영 검색이 403(구독 승인 대기) — 열리면 첫 실행이 회사별 기준선. 회사별 0건이 이어지면 영문 출원인 이름 형식을 확인한다. docs/euipo-api.md",
+    "windowDays": 120,
+    "size": 30,
+    "keepDays": 180,
+    "applicants": [
+      {
+        "company": "현대자동차",
+        "industry": "auto",
+        "query": "*Hyundai Motor Company*"
+      },
+      {
+        "company": "기아",
+        "industry": "auto",
+        "query": "*Kia Corporation*"
+      },
+      {
+        "company": "KG모빌리티",
+        "industry": "auto",
+        "query": "*KG Mobility*"
+      },
+      {
+        "company": "현대모비스",
+        "industry": "parts",
+        "query": "*Hyundai Mobis*"
+      },
+      {
+        "company": "HL만도",
+        "industry": "parts",
+        "query": "*HL Mando*"
+      },
+      {
+        "company": "한국타이어",
+        "industry": "tire",
+        "query": "*Hankook Tire*"
+      },
+      {
+        "company": "넥센타이어",
+        "industry": "tire",
+        "query": "*Nexen Tire*"
+      },
+      {
+        "company": "금호타이어",
+        "industry": "tire",
+        "query": "*Kumho Tire*"
+      },
+      {
+        "company": "현대제철",
+        "industry": "steel",
+        "query": "*Hyundai Steel*"
+      },
+      {
+        "company": "포스코",
+        "industry": "steel",
+        "query": "*POSCO*",
+        "accept": "^POSCO(?: Holdings)?(?: Inc\\.?| Co\\.?,? Ltd\\.?)?$|^POSCO$",
+        "exclude": "Future\\s*M|International|E&C|DX|Steeleon|M-?Tech|Eco"
+      },
+      {
+        "company": "고려아연",
+        "industry": "nonferrous",
+        "query": "*Korea Zinc*"
+      },
+      {
+        "company": "HD현대일렉트릭",
+        "industry": "electric",
+        "query": "*HD Hyundai Electric*"
+      },
+      {
+        "company": "LS일렉트릭",
+        "industry": "electric",
+        "query": "*LS Electric*"
+      },
+      {
+        "company": "LS전선",
+        "industry": "electric",
+        "query": "*LS Cable*"
+      },
+      {
+        "company": "대한전선",
+        "industry": "electric",
+        "query": "*Taihan*"
+      },
+      {
+        "company": "효성중공업",
+        "industry": "electric",
+        "query": "*Hyosung Heavy*"
+      },
+      {
+        "company": "두산에너빌리티",
+        "industry": "energy",
+        "query": "*Doosan Enerbility*"
+      },
+      {
+        "company": "한화솔루션",
+        "industry": "energy",
+        "query": "*Hanwha Solutions*"
+      },
+      {
+        "company": "LG화학",
+        "industry": "chemical",
+        "query": "*LG Chem*",
+        "exclude": "LG Chemical America|Chemicals? Europe"
+      },
+      {
+        "company": "롯데케미칼",
+        "industry": "chemical",
+        "query": "*Lotte Chemical*"
+      },
+      {
+        "company": "금호석유화학",
+        "industry": "chemical",
+        "query": "*Kumho Petrochemical*"
+      },
+      {
+        "company": "S-OIL",
+        "industry": "chemical",
+        "query": "*S-Oil*"
+      },
+      {
+        "company": "SK이노베이션",
+        "industry": "chemical",
+        "query": "*SK Innovation*"
+      }
+    ]
+  }
 }

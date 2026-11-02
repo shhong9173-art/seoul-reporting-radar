@@ -1791,6 +1791,11 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   const doc = { schema: 'trademarks/v1', generatedAt: '2026-10-26T07:10:00+09:00', source: 'KIPRIS Plus 상표 출원 속보(getAdvancedSearch)', status: 'partial',
     window: { from: '2026-07-28', to: '2026-10-26', field: '출원일' }, baselineSince: '2026-10-19T07:10:00+09:00',
     retry: { at: '2026-10-27T07:10:12+09:00', companies: ['영풍'] },
+    eu: { source: 'EUIPO', generatedAt: '2026-10-26T07:10:30+09:00', status: 'partial', window: { from: '2026-06-28', to: '2026-10-26' }, blocked: null,
+      checks: [{ company: '현대자동차', status: 'ok', rawTotal: 3, kept: 2 }, { company: '포스코', status: 'ok', rawTotal: 0, kept: 0 }, { company: 'LG화학', status: 'failed', error: 'HTTP 500' }],
+      filings: [{ id: 'euipo:019000002', company: '현대자동차', applicationNumber: '019000002', title: 'AERO DRIVE', applicationDate: '2026-10-20', classes: ['12', '35'],
+        coreClasses: ['12'], status: 'RECEIVED', applicants: ['Hyundai Motor Company'], firstSeen: '2026-10-26T07:10:30+09:00', isNew: true, titleNew: true, tier: 'B',
+        url: 'https://euipo.europa.eu/eSearch/#details/trademarks/019000002' }] },
     checks: [{ source: '상표 현대자동차', status: 'ok', rawTotal: 4, kept: 4, filings: 3, requests: 1 },
       { source: '상표 KG모빌리티', status: 'ok', rawTotal: 0, kept: 0, filings: 0, requests: 1, nameVerified: false },
       { source: '상표 포스코', status: 'waiting', reason: 'provider_22_cooldown', until: '2026-10-29T07:10:00+09:00' },
@@ -1806,6 +1811,9 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   const t = await call('trademarks', {}, opts);
   assert.match(t.text, /이름 일부만 같은 다른 출원인만 나온 곳\(이 회사 0건\): 영풍\(영풍제약 주식회사\)/);
   assert.match(t.text, /평일 재시도 10-27T07:10: 영풍 — 월요일에 실패·대기한 회사만 다시 조회/);
+  assert.match(t.text, /\[유럽 상표 출원\(EUIPO\) · 출원일 2026-06-28~2026-10-26 · 확인 2026-10-26T07:10\] 조회 정상 2\/3/);
+  assert.match(t.text, /미확인\(0건 아님\): LG화학\(HTTP 500\)\n검색 0건\(영문 출원인 이름 형식 확인\): 포스코/);
+  assert.match(t.text, /- \[B · 처음 보는 이름\] 현대자동차 · 「AERO DRIVE」 · 출원 2026-10-20 · 12류\(차량·부품\), 35류\(광고·사업관리\) · 출원번호 019000002 · 출원인 Hyundai Motor Company/);
   assert.match(t.text, /조회 정상 3\/4 · 대기 1곳\(제공기관 응답 22 뒤 72시간 대기, 2026-10-29T07:10부터 재시도\)/);
   assert.match(t.text, /KIPRIS 호출 장부\(2026-10\): 상표 10\/150 · 전체 40\/900 — 이 저장소가 센 수, 계정 실제 사용량 아님/);
   assert.match(t.text, /출원인 이름 미확인 \+ 0건: KG모빌리티/);
@@ -1823,6 +1831,7 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   const b = r.text.split('[B · ')[1].split('[C · ')[0];
   assert.match(b, /상표 출원 · 현대자동차\n   상표 출원 「AERO DRIVE」 12류\(차량·부품\), 35류\(광고·사업관리\) — 감시 시작 이후 처음 보는 이름 \(출원 2026-10-20, 출원번호 [0-9]+ 외 1\)/);
   assert.doesNotMatch(r.text, /OLDNEW/);  // first seen two weeks ago: off the digest
+  assert.match(b, /유럽연합\(EUIPO\) 상표 출원 「AERO DRIVE」 12류\(차량·부품\), 35류\(광고·사업관리\) — 감시 시작 이후 처음 보는 이름 \(출원 2026-10-20, 출원번호 019000002, 출원인 Hyundai Motor Company\)/);
   const minor = await call('radar_today', { include_minor: true }, opts);
   assert.match(minor.text, /상표 출원 「NUTRIMACY」[^\n]* — 같은 이름 상품류 추가/);
   const list = await rpc('tools/list', {}, { path: `/mcp/${TOKEN}`, env });
