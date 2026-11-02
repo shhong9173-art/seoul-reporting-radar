@@ -1,4 +1,4 @@
-"""probe 105: EUIPO 운영 토큰 한 번(11-02 정오 재시도). 되면 상표 검색: 현대자동차 최근 출원 5건(이름·출원일·상품류만). 키·토큰 값은 남기지 않는다."""
+"""probe 106: EUIPO 운영 토큰 — 공개 클라이언트들이 쓰는 CAS 주소(euipo.europa.eu/cas-server-webapp/oidc/accessToken)로 한 번. 되면 상표 검색: 현대자동차 최근 출원 5건(이름·출원일·상품류만). 키·토큰 값은 남기지 않는다."""
 import os, re
 import requests
 out = []
@@ -6,8 +6,9 @@ CID = os.environ.get("EUIPO_CLIENT_ID", "").strip()
 SEC = os.environ.get("EUIPO_CLIENT_SECRET", "").strip()
 out.append(f"id len {len(CID)} secret len {len(SEC)}")
 try:
-    rr = requests.post("https://auth.euipo.europa.eu/oidc/accessToken", data={"grant_type": "client_credentials", "scope": "uid"},
-                       auth=(CID, SEC), headers={"Content-Type": "application/x-www-form-urlencoded"}, timeout=40)
+    rr = requests.post("https://euipo.europa.eu/cas-server-webapp/oidc/accessToken",
+                       data={"grant_type": "client_credentials", "client_id": CID, "client_secret": SEC, "scope": "uid"},
+                       headers={"Content-Type": "application/x-www-form-urlencoded", "Accept": "application/json"}, timeout=40)
     ct = rr.headers.get("content-type", "")
     out.append(f"token HTTP {rr.status_code} ctype {ct[:40]} " + (f"keys {sorted(rr.json().keys())}" if ct.startswith("application/json") else re.sub(r"\s+", " ", rr.text[:160])))
     tok = rr.json().get("access_token") if ct.startswith("application/json") else None
