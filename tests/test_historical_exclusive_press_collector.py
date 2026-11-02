@@ -9,7 +9,8 @@ from xml.sax.saxutils import escape
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from scripts.historical_exclusive_press_collector import (
     STATUS, BEATS, MONTHS, planned_searches, parse_observed_headlines,
-    merge_history, month_bounds, tracked_industry_companies, recent_searches, QUERIES_PER_RUN
+    merge_history, month_bounds, tracked_industry_companies, recent_searches, QUERIES_PER_RUN,
+    parse_naver_headlines, naver_recent, _title_key
 )
 N=len(BEATS)            # 출입 묶음 수(11-01 석유화학·정유 추가로 6)
 ALL=MONTHS*N           # 13개월 × 묶음
@@ -333,3 +334,44 @@ class HistoricalExclusiveIndexTests(unittest.TestCase):
 
 if __name__=="__main__":
     unittest.main()
+
+
+class NaverSupplementTests(unittest.TestCase):
+    """11-02 탐침 111: 최근 4일 출입처 [단독] 제목 — 구글 RSS 10·네이버 10, 네이버에만 4건."""
+    NOW=datetime(2026,11,2,13,30,tzinfo=KST)
+
+    def item(self,title,day="Mon, 02 Nov 2026 09:10:00 +0900",link="https://www.khan.co.kr/article/202611020910001"):
+        return {"title":title,"originallink":link,"link":"https://n.news.naver.com/x","pubDate":day,"description":""}
+
+    def test_parse_keeps_beat_exclusives_and_skips_known_titles(self):
+        items=[self.item("[단독] &#039;저탄소 전환&#039; 위해 부분개수 한다던 <b>포스코</b>, 광양 2고로 전면…"),
+               self.item("<b>포스코</b> 광양 2고로 개수 착수"),                                          # 단독 아님
+               self.item("[단독] 현대차 울산공장 라인 증설",day="Mon, 26 Oct 2026 09:00:00 +0900"),      # 4일 창 밖
+               self.item("[단독] 손흥민 이적설"),                                                        # 출입처 아님
+               self.item("[단독] 현대모비스, 인도 첸나이에 이동검진차 기증",link="https://www.the-today.com/news/1")]
+        rows,stats=parse_naver_headlines(items,now=self.NOW,known_titles={_title_key("[단독] 현대모비스, 인도 첸나이에 이동검진차 기증 - 투데이신문")})
+        self.assertEqual([r["title"] for r in rows],["[단독] '저탄소 전환' 위해 부분개수 한다던 포스코, 광양 2고로 전면…"])
+        r=rows[0]
+        self.assertEqual((r["sourceName"],r["naverIndexed"],r["rssIndexedHeadlineOnly"],r["fulltextReviewed"]),("khan.co.kr",True,True,False))
+        self.assertEqual(r["published"],"2026-11-02T09:10:00+09:00")
+        self.assertEqual((stats["nonExclusive"],stats["outsideWindow"],stats["offBeatOrSport"],stats["duplicate"]),(1,1,1,1))
+
+    def test_recent_search_counts_failures_and_dedupes_across_companies(self):
+        same=self.item("[단독] 현대차·기아, 미국 관세 대응 TF 가동",link="https://www.hankyung.com/a/1")
+        def search(q):
+            if q.endswith("포스코"):
+                raise TimeoutError("timed out")
+            return [same] if q in ("단독 현대차","단독 기아") else []
+        rows,health=naver_recent(self.NOW,[],search=search,companies=("현대차","기아","포스코"))
+        self.assertEqual(len(rows),1)                                    # 두 회사 검색에 같은 기사 → 한 줄
+        self.assertEqual((health["succeeded"],health["failed"],health["newRows"]),(2,1,1))
+        self.assertEqual(health["errors"],[{"company":"포스코","errorType":"TimeoutError"}])
+        merged=merge_history(None,rows,[check()],now=self.NOW,recent_checks=[],naver=health)
+        self.assertEqual(merged["itemCount"],1)
+        self.assertEqual(merged["naverRecent"]["succeeded"],2)
+
+    def test_no_keys_means_no_naver_rows(self):
+        import os
+        from unittest.mock import patch
+        with patch.dict(os.environ,{"NAVER_CLIENT_ID":"","NAVER_CLIENT_SECRET":""}):
+            self.assertEqual(naver_recent(self.NOW,[]),([],None))

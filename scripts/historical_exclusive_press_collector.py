@@ -273,6 +273,100 @@ def parse_observed_headlines(raw,window,*,now):
     return observed,stats
 
 
+# 네이버 뉴스 API(검색 API HUB) 보강: 11-02 탐침 111 — 최근 4일 출입처 [단독] 제목을 구글 RSS 10건·네이버 10건 잡았는데 네이버에만
+# 4건(한국경제 '네이버·카카오 내비, 현대차 속으로', 경향 '포스코, 광양 2고로 전면…' 등). 회사 이름마다 '단독 회사' 최신순 100건.
+NAVER_COMPANIES=("현대차","기아","현대모비스","KG모빌리티","한국GM","르노코리아","HL만도","현대위아","한국타이어","금호타이어","넥센타이어",
+                 "포스코","현대제철","동국제강","KG스틸","세아제강","고려아연","영풍",
+                 "HD현대일렉트릭","LS일렉트릭","LS전선","대한전선","효성중공업","두산에너빌리티",
+                 "한화솔루션","OCI","GS칼텍스","LG화학","롯데케미칼","금호석유화학","에쓰오일","SK이노베이션","HD현대오일뱅크")
+NAVER_TAG=re.compile(r"<[^>]+>")
+
+
+def _naver_clean(text):
+    import html as _html
+    return re.sub(r"\s+"," ",_html.unescape(NAVER_TAG.sub("",text or ""))).strip()
+
+
+def _title_key(title):
+    return re.sub(r"[^0-9A-Za-z가-힣]","",re.sub(r"\s+-\s+[^-]{1,40}$","",title or ""))[:40]
+
+
+def parse_naver_headlines(items,*,now,known_titles=()):
+    """네이버 뉴스 API items → 색인 행(구글 RSS 행과 같은 칸). 이미 아는 제목(구글로 잡힌 같은 기사)은 건너뛴다."""
+    begin=(now-timedelta(days=RECENT_WINDOW_DAYS-1)).date()
+    known=set(known_titles)
+    out=[]
+    stats={"rows":0,"outsideWindow":0,"nonExclusive":0,"offBeatOrSport":0,"duplicate":0,"matched":0}
+    for it in items or []:
+        if not isinstance(it,dict):
+            continue
+        stats["rows"]+=1
+        title=_naver_clean(it.get("title"))
+        link=str(it.get("originallink") or it.get("link") or "").strip()
+        try:
+            when=parsedate_to_datetime(str(it.get("pubDate") or "")).astimezone(KST)
+        except (ValueError,TypeError,OverflowError,IndexError):
+            stats["outsideWindow"]+=1
+            continue
+        if not(begin<=when.date() and when<=now+timedelta(hours=3)):
+            stats["outsideWindow"]+=1
+            continue
+        if not SCOOP_MARKER.search(title):
+            stats["nonExclusive"]+=1
+            continue
+        companies=tracked_industry_companies(title)
+        url=urllib.parse.urlsplit(link)
+        if not companies or url.scheme not in ("https","http") or not url.hostname or len(title)>300 or len(link)>1200:
+            stats["offBeatOrSport"]+=1
+            continue
+        key=_title_key(title)
+        if key in known:
+            stats["duplicate"]+=1
+            continue
+        known.add(key)
+        host=re.sub(r"^(?:www|m|news)\.","",url.hostname.lower())
+        row={"title":title,"sourceName":host,"url":link,"published":when.isoformat(timespec="seconds"),
+             "companies":companies[:8],"global":False,"fulltextReviewed":False,"coverageIndexOnly":True,
+             "publisherOriginalUrlVerified":False,"publisherPublicationTimeVerified":False,
+             "rssIndexedHeadlineOnly":True,"naverIndexed":True,
+             "historicalBackfillWindow":"recent:naver","historicalBeatGroup":"naver"}
+        row["id"]=article_id(row)
+        out.append(row)
+        stats["matched"]+=1
+    return out,stats
+
+
+def naver_recent(now,known_titles,*,search=None,companies=NAVER_COMPANIES):
+    """회사마다 '단독 {회사}' 최신순 100건. 키가 없으면 (빈 목록, None). 실패는 상태에 남기고 0건으로 세지 않는다."""
+    import os
+    cid=os.environ.get("NAVER_CLIENT_ID","").strip()
+    sec=os.environ.get("NAVER_CLIENT_SECRET","").strip()
+    if search is None:
+        if not cid or not sec:
+            return [],None
+        sys_path=str(Path(__file__).resolve().parent)
+        import sys
+        if sys_path not in sys.path:
+            sys.path.insert(0,sys_path)
+        import naver_api
+        search=lambda q: naver_api.news_search(cid,sec,{"query":q,"display":100,"sort":"date"},timeout=15)[1]
+    rows,ok,failed,matched=[],0,[],0
+    known=set(known_titles)
+    for c in companies:
+        try:
+            got,stats=parse_naver_headlines(search("단독 "+c),now=now,known_titles=known)
+        except Exception as exc:  # noqa: BLE001
+            failed.append({"company":c,"errorType":type(exc).__name__})
+            continue
+        ok+=1
+        matched+=stats["matched"]
+        for r in got:
+            known.add(_title_key(r["title"]))
+        rows+=got
+    return rows,{"source":"네이버 뉴스 API","queries":len(companies),"succeeded":ok,"failed":len(failed),
+                 "errors":failed[:5],"newRows":matched,"checkedAt":now.isoformat(timespec="seconds")}
+
+
 def _previous_valid(prior):
     if prior is None:
         return
@@ -293,7 +387,7 @@ def _previous_valid(prior):
             raise ValueError("unsafe_history_row")
 
 
-def merge_history(prior,observed,checks,*,now,recent_checks=None):
+def merge_history(prior,observed,checks,*,now,recent_checks=None,naver=None):
     _previous_valid(prior)
     if now.tzinfo is None or now.utcoffset() is None:
         raise ValueError("timezone_required")
@@ -422,7 +516,8 @@ def merge_history(prior,observed,checks,*,now,recent_checks=None):
         "pressArticleFulltextsReviewed":False,
         "humanReviewedYPN":0,
         "confirmedScoops":0,
-        "warning":"Google 뉴스 RSS에서 관측된 불완전한 365일 기사 제목 색인. 기아호적·포스코이앤씨 건설·스포츠 등 동명이의어 오분류는 제외. 빈 검색은 미보도 증명 아님. 기사 전문·정확한 발행일·원자료·단독성은 별도 검증",
+        **({"naverRecent":naver} if naver else ({"naverRecent":(prior or {}).get("naverRecent")} if (prior or {}).get("naverRecent") else {})),
+        "warning":"Google 뉴스 RSS(+최근 4일 네이버 뉴스 API)에서 관측된 불완전한 365일 기사 제목 색인. 기아호적·포스코이앤씨 건설·스포츠 등 동명이의어 오분류는 제외. 빈 검색은 미보도 증명 아님. 기사 전문·정확한 발행일·원자료·단독성은 별도 검증",
     }
 
 
@@ -456,8 +551,13 @@ def main():
             target=recent_checks if window["windowId"].startswith("recent:") else checks
             target.append({"windowId":window["windowId"],"status":"failed",
                            "matched":None,"errorType":type(exc).__name__})
+    naver=None
+    if args.batch is None:
+        known=[_title_key(r.get("title")) for r in (previous or {}).get("items",[])]+[_title_key(r.get("title")) for r in observed]
+        rows,naver=naver_recent(now,known)
+        observed.extend(rows)
     result=merge_history(previous,observed,checks,now=now,
-                         recent_checks=recent_checks)
+                         recent_checks=recent_checks,naver=naver)
     path.parent.mkdir(parents=True,exist_ok=True)
     tmp=path.with_suffix(path.suffix+".tmp")
     tmp.write_text(json.dumps(result,ensure_ascii=False,separators=(",",":"))
@@ -469,6 +569,7 @@ def main():
           "failed",result["failedWindowsThisRun"],
           "recent",result["recentBeatQueriesSucceeded"],"/",result["recentBeatQueriesExpected"],
           "recent observed",result["recentObservedHeadlinesRetained"],
+          "naver",(f"{naver['succeeded']}/{naver['queries']} new {naver['newRows']}" if naver else "unset"),
           "(no Y/P/N, no exclusivity claims)")
 
 
