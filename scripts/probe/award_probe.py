@@ -1,33 +1,37 @@
-"""Probe 95f(영풍: 운영 조회 이름의 응답 출원인 이름 1줄, 띄어 쓴 이름 긴 기간):
-같은 기간(2026-08-04~2026-11-02) 한 번씩. 건수와 응답 출원인 이름 한 줄만(공개 정보). KIPRIS 호출 10회 — 장부 밖(진단 여유분)으로 기록."""
+"""Probe 96: 나라장터 낙찰정보 서비스(data.go.kr 15129397, /1230000/as/ScsbidInfoService) — 물품 낙찰 목록·개찰결과를 하루 범위로 한 번씩.
+건수·응답 코드·필드 이름만 남긴다(응답 원문·업체명은 남기지 않음)."""
+import json
 import os
 import re
-from urllib.parse import urlencode
 
 import requests
 
-KEY = os.environ.get("KIPRIS_SERVICE_KEY", "").strip()
-BASE = "https://plus.kipris.or.kr/kipo-api/kipi/trademarkInfoSearchService/getAdvancedSearch"
-# 운영(trademark_watch.FLAGS)과 같은 플래그 — 그룹마다 1개 이상 true가 필수(probe 95 첫 시도는 권리구분만 넣어 코드 10)
-FLAGS = ("application", "registration", "refused", "expiration", "withdrawal", "publication", "cancel", "abandonment",
-         "trademark", "serviceMark", "trademarkServiceMark", "businessEmblem", "collectiveMark", "geoOrgMark",
-         "internationalMark", "certMark", "geoCertMark",
-         "character", "figure", "compositionCharacter", "figureComposition", "sound", "fragrance", "color",
-         "dimension", "colorMixed", "hologram", "motion", "visual", "invisible")
-NAMES = [("주식회사영풍", "20260804~20261102"), ("주식회사 영풍", "20240101~20261102")]
+KEY = (os.environ.get("G2B_API_KEY") or os.environ.get("CUSTOMS_API_KEY") or "").strip()
+H = {"User-Agent": "newsroom-official-research/1.0 (github.com/shhong9173-art/seoul-reporting-radar)"}
+BASE = "https://apis.data.go.kr/1230000/as/ScsbidInfoService"
 out = [f"key length {len(KEY)}"]
-for n, span in NAMES:
-    params = {"applicantName": n, "applicationDate": span, "numOfRows": "3", "pageNo": "1", **{f: "true" for f in FLAGS}, "ServiceKey": KEY}
+for op in ("getScsbidListSttusThng", "getOpengResultListInfoThng"):
+    params = {"serviceKey": KEY, "numOfRows": "5", "pageNo": "1", "inqryDiv": "1", "inqryBgnDt": "202610300000", "inqryEndDt": "202610302359", "type": "json"}
     try:
-        r = requests.get(BASE + "?" + urlencode(params), timeout=40)
+        r = requests.get(f"{BASE}/{op}", params=params, headers=H, timeout=40)
         t = r.text
-        total = re.search(r"<totalCount>(\d+)</totalCount>", t)
-        code = re.search(r"<resultCode>([^<]*)</resultCode>", t)
-        msg = re.search(r"<resultMsg>([^<]*)</resultMsg>", t)
-        apps = re.findall(r"<applicantName>([^<]*)</applicantName>", t)[:3]
-        out.append(f"{n} {span}: HTTP {r.status_code} code {code.group(1) if code else '-'} {(msg.group(1) if msg else '')[:40]} total {total.group(1) if total else '-'} applicants {apps}")
+        out.append(f"{op} HTTP {r.status_code} ctype {r.headers.get('content-type', '')[:30]} len {len(t)}")
+        try:
+            j = r.json()
+            body = (j.get("response") or {}).get("body") or {}
+            head = (j.get("response") or {}).get("header") or {}
+            items = body.get("items") or []
+            if isinstance(items, dict):
+                items = items.get("item") or []
+            if isinstance(items, dict):
+                items = [items]
+            out.append(f"  code {head.get('resultCode')} {head.get('resultMsg')} total {body.get('totalCount')} items {len(items)}")
+            if items:
+                out.append("  fields " + ", ".join(sorted(items[0].keys()))[:900])
+        except ValueError:
+            out.append("  not JSON: " + re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", t))[:200].replace(KEY, "<KEY>"))
     except Exception as e:  # noqa: BLE001
-        out.append(f"{n}: {type(e).__name__}")
+        out.append(f"{op} {type(e).__name__} {str(e)[:80]}")
 text = "\n".join(out)
 if KEY:
     text = text.replace(KEY, "<KEY>")
