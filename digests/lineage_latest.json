@@ -1,98 +1,10 @@
 {
-  "generatedAt": "2026-10-30T10:27:17+09:00",
-  "digestGeneratedAt": "2026-10-30T10:27:13+09:00",
+  "generatedAt": "2026-11-02T10:04:58+09:00",
+  "digestGeneratedAt": "2026-11-02T10:04:58+09:00",
   "scope": "명시적 원공시 접수번호에 한해 독립 검증. 후보 매칭은 미확정",
-  "correctionCount": 2,
-  "processedCount": 2,
+  "correctionCount": 0,
+  "processedCount": 0,
   "collectionComplete": true,
-  "status": "checked",
-  "items": [
-    {
-      "receiptNo": "20261027800518",
-      "company": "효성중공업",
-      "report": "[기재정정]단일판매ㆍ공급계약체결",
-      "status": "original_unverified",
-      "originReceiptNo": null,
-      "originalDocumentVerified": false,
-      "changes": [],
-      "candidateOrigins": [
-        {
-          "receiptNo": "20260210801094",
-          "report": "[기재정정]단일판매ㆍ공급계약체결              ",
-          "date": "20260210",
-          "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260210801094",
-          "status": "같은 날짜의 후보일 뿐 동일 사건 미검증"
-        },
-        {
-          "receiptNo": "20260210800044",
-          "report": "단일판매ㆍ공급계약체결              ",
-          "date": "20260210",
-          "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260210800044",
-          "status": "같은 날짜의 후보일 뿐 동일 사건 미검증"
-        }
-      ],
-      "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261027800518",
-      "issuerCorrectionTable": {
-        "status": "issuer_table_material_changes_for_review",
-        "changes": [
-          {
-            "fieldLabel": "2. 계약내역 - 계약금액(원)",
-            "before": "113,586,046,173",
-            "after": "113,044,698,813",
-            "category": "amount",
-            "basis": "issuer_reported_amendment_table_only",
-            "amendedSourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261027800518",
-            "originalReceiptIndependentlyVerified": false,
-            "commercialEffectVerified": false,
-            "sameEventPriorCoverageVerified": false,
-            "oneSideUnspecified": false
-          }
-        ],
-        "totalMaterialRows": 1,
-        "conflictingFieldCount": 0,
-        "skippedRows": 0,
-        "independentOriginalDocumentCompared": false,
-        "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261027800518"
-      },
-      "questions": [],
-      "referencedFilingDate": "2026-02-10",
-      "reason": "원문에서 원공시의 명시적 접수번호 확인 불가; 날짜·제목만으로 계약 연결 금지"
-    },
-    {
-      "receiptNo": "20261026800529",
-      "company": "두산에너빌리티",
-      "report": "[기재정정]단일판매ㆍ공급계약체결",
-      "status": "original_unverified",
-      "originReceiptNo": null,
-      "originalDocumentVerified": false,
-      "changes": [],
-      "candidateOrigins": [],
-      "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261026800529",
-      "issuerCorrectionTable": {
-        "status": "issuer_table_material_changes_for_review",
-        "changes": [
-          {
-            "fieldLabel": "5. 계약기간 종료일",
-            "before": "2029-07-01",
-            "after": "2030-01-28",
-            "category": "contract_period",
-            "basis": "issuer_reported_amendment_table_only",
-            "amendedSourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261026800529",
-            "originalReceiptIndependentlyVerified": false,
-            "commercialEffectVerified": false,
-            "sameEventPriorCoverageVerified": false,
-            "oneSideUnspecified": false
-          }
-        ],
-        "totalMaterialRows": 1,
-        "conflictingFieldCount": 0,
-        "skippedRows": 0,
-        "independentOriginalDocumentCompared": false,
-        "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261026800529"
-      },
-      "questions": [],
-      "referencedFilingDate": "2026-10-26",
-      "reason": "원문에서 원공시의 명시적 접수번호 확인 불가; 날짜·제목만으로 계약 연결 금지"
-    }
-  ]
+  "status": "no_relevant_corrections",
+  "items": []
 }
