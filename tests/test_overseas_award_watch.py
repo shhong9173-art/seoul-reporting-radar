@@ -170,12 +170,13 @@ def fakes(ted_rows=(TED_HYOSUNG, TED_FRAMEWORK, TED_SUBSIDIARY, TED_OTHER_KR, TE
 
 class Award(unittest.TestCase):
     def setUp(self):
-        self._pdf = w.pdf_text
+        self._pdf, self._ocr = w.pdf_text, w.ocr_pdf
+        w.ocr_pdf = lambda raw: (None, "글자 인식 도구 없음")
         w.pdf_text = lambda raw: ("Awarded Tenders\nTender 12/2026 EWA 400kV transformers\nHYOSUNG HEAVY INDUSTRIES BHD 4,200,000\n"
                                   + "\n".join(f"Tender {i}/2026 Ministry of Works road maintenance ALMOAYYED W.L.L. BHD {i}00" for i in range(30)))
 
     def tearDown(self):
-        w.pdf_text = self._pdf
+        w.pdf_text, w.ocr_pdf = self._pdf, self._ocr
 
     def test_ted_winner_fields_only(self):
         items = {x["id"]: x for x in w.ted_items([TED_HYOSUNG, TED_FRAMEWORK, TED_SUBSIDIARY, TED_OTHER_KR, TED_NOT_KR])}
@@ -201,7 +202,73 @@ class Award(unittest.TestCase):
         bh = [c for c in doc["checks"] if c["source"] == "바레인 입찰위원회"]
         self.assertEqual((bh[0]["status"], bh[0]["matched"]), ("ok", None))
         self.assertIn("스캔 이미지", bh[0]["note"])
+        self.assertIn("글자 인식 실패(글자 인식 도구 없음)", bh[0]["note"])
         self.assertIn("/MediaHandler/GenericHandler/Pdf/Awarded/Awarded Tenders 2026-09.pdf", doc["bahrainSeen"])  # not retried
+
+    def test_scanned_report_read_by_ocr(self):
+        # 11-02 탐침: 바레인 8월 보고서(스캔 이미지) 200dpi 글자 인식 줄 그대로 — 이름 띄어쓰기가 사라지고 아랍어 칸은 깨진 글자
+        ocr_text = ("9,564,000 KANOO VEHICLE 4 :\nLEASING B.S.C. JAY 79\nILJINELECTRIC COLTD, 1 cle Lasy 400KV and 220KV Feeder t-ilis 5100/2025/4669 17\n"
+                    "34,968,319.628 SOUTH KOREA SIGE 5 Cable Works for\nAwsighl Establishment of New\nSitra 400KV Grid\nSubstations\n"
+                    + "\n".join(f"{i},000.000 ALMOAYYED W.L.L. Gleedls lll Procurement {i}" for i in range(40))
+                    + "\n120,000.000 KOREA TRADING W.L.L. Supply of uniforms 33/2026 4")
+        w.pdf_text = lambda raw: "  "
+        w.ocr_pdf = lambda raw: (ocr_text, None)
+        get, post, calls = fakes()
+        opened = {"id": "bhopen:9001:일진전기", "source": w.BH_OPEN_SOURCE, "published": "2026-10-25", "company": "일진전기", "companies": ["일진전기"],
+                  "title": "4669/2025/5100 400kV and 220kV Feeder Cable Works", "bidder": "ILJIN ELECTRIC", "value": 35004118.33, "currency": "BHD",
+                  "rank": 1, "priced": 3, "firstSeen": "2026-10-25T17:30:00+09:00", "tier": "A"}
+        prev = {"items": [opened], "generatedAt": (NOW - dt.timedelta(days=1)).isoformat(), "pccLastRun": NOW.isoformat(), "bahrainOpenSeen": ["9002", "9003"],
+                "bahrainSeen": ["/MediaHandler/GenericHandler/Pdf/Awarded/Awarded Tenders 2026-09.pdf",
+                                "/MediaHandler/GenericHandler/Pdf/Awarded/Awarded Tenders 2026-08.pdf"]}
+        doc = w.run(now=NOW, previous=prev, get=get, post=post, sleep=lambda s: None)
+        # 글자 인식 전에 '스캔 — 미확인'으로 넘긴 최근 두 보고서를 한 번 다시 읽는다
+        self.assertEqual(calls["bh_pdf"], 2)
+        self.assertEqual(len(doc["bahrainOcr"]), 2)
+        bh = [x for x in doc["items"] if x["source"] == "바레인 입찰위원회" and x["id"].startswith("bh:Awarded Tenders 2026-08")]
+        iljin = [x for x in bh if x["company"] == "일진전기"]
+        self.assertEqual(len(iljin), 1)
+        self.assertTrue(iljin[0]["ocr"] and iljin[0]["isNew"])
+        self.assertIn("34,968,319.628 SOUTH KOREA", iljin[0]["title"])
+        self.assertIn("Sitra 400KV Grid", iljin[0]["title"])
+        self.assertEqual(w.tier_of(iljin[0]), "B")
+        # 보고서의 거꾸로 적힌 입찰 번호(5100/2025/4669)로 10-25 개찰 기록(4669/2025/5100)과 잇는다
+        self.assertEqual(iljin[0]["openedBid"]["id"], "bhopen:9001:일진전기")
+        self.assertIn("같은 입찰의 개찰 기록: 2026-10-25 ILJIN ELECTRIC BHD 35,004,118 · 응찰가 1위/3곳 — 월간 낙찰 보고서에 실림", iljin[0]["title"])
+        # 이름 줄 옆 국적 칸('SOUTH KOREA')은 따로 잡지 않고, 멀리 떨어진 한국 업체 줄은 C로 남긴다
+        others = [x for x in bh if not x["company"]]
+        self.assertEqual(len(others), 1)
+        self.assertIn("KOREA TRADING", others[0]["title"])
+        chk = [c for c in doc["checks"] if c["source"] == "바레인 입찰위원회"]
+        self.assertTrue(all("글자 인식(OCR)으로 읽음" in c["note"] for c in chk))
+        # 다음 실행은 다시 받지 않는다
+        get2, post2, calls2 = fakes()
+        w.run(now=NOW + dt.timedelta(hours=11), previous=doc, get=get2, post=post2, sleep=lambda s: None)
+        self.assertEqual(calls2["bh_pdf"], 0)
+
+    def test_ocr_name_rules_and_tools(self):
+        self.assertEqual(w.beat_of_ocr("HYOSUNGHEAVY INDUSTRIES"), "효성중공업")
+        self.assertEqual(w.beat_of_ocr("LSCABLE & SYSTEM LTD"), "LS전선")
+        self.assertIsNone(w.beat_of_ocr("PURPOSCO NTRACT"))        # 붙여 쓴 글자 속 짧은 약어(POSCO)는 안 맞춤
+        self.assertIsNone(w.beat_of_ocr("ELECTRICAL CABLE WORKS"))
+        self.assertEqual(self._ocr(b"%PDF", which=lambda name: None), (None, "글자 인식 도구 없음"))
+        ran = []
+
+        class R:
+            def __init__(self, out=""):
+                self.returncode, self.stdout = 0, out
+
+        def run(cmd, **kw):
+            ran.append(cmd[0])
+            if cmd[0] == "pdftoppm":
+                for n in (1, 2, 3):
+                    open(cmd[-1] + f"-{n}.png", "wb").close()
+                return R()
+            return R("ILJINELECTRIC COLTD")
+        ticks = iter([0, 1, 2, 400, 401])
+        text, err = self._ocr(b"%PDF", run=run, which=lambda name: "/usr/bin/" + name, budget=300, clock=lambda: next(ticks))
+        self.assertEqual(ran, ["pdftoppm", "tesseract", "tesseract"])
+        self.assertIn("ILJINELECTRIC", text)
+        self.assertEqual(err, "글자 인식 시간 상한(2/3쪽)")
 
     def test_world_bank_older_layout_without_vendor_number(self):
         old = dict(WB_AWARD, id="OP00999", notice_text="Awarded Bidder(s): LS CABLE & SYSTEM LTD Country: Korea, Republic of Signed Contract Price USD 12,000,000.00")
