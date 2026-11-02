@@ -851,6 +851,12 @@ export async function stacksSection(ctx, q, days, limit) {
   }
   const young = sites.filter((s) => obsOf(s) < 6).length;
   if (young) out.push(`  (관측이 아직 6번이 안 된 사업장 ${young}곳 — 판단 전)`);
+  // 지금 목록에서 빠져 있는 사업장(직전 실행에 안 보임): '빠짐' 이벤트가 풀렸는지 여기서 바로 본다
+  const gone = sites.filter((s) => (s.missingRuns ?? 0) > 0).sort((a, b) => (b.missingRuns ?? 0) - (a.missingRuns ?? 0));
+  out.push(`- 지금 목록에서 빠져 있는 사업장 ${gone.length}곳${gone.length ? '' : ' — 없음(주말·밤에 빠졌던 곳도 다시 측정됨)'}`);
+  for (const s of gone.slice(0, limit)) {
+    out.push(`  ${s.company} · ${s.name}(${s.area ?? '지역 미상'}) · 연속 ${s.missingRuns}번 빠짐(평일 일하는 시간 ${s.workMissing ?? 0}번) · 마지막으로 보인 실행 ${String(s.lastSeen ?? '?').slice(0, 16)}`);
+  }
   const KO = { tsp: '먼지', sox: '황산화물', nox: '질소산화물', hcl: '염화수소', hf: '불화수소', nh3: '암모니아', co: '일산화탄소' };
   const over = sites.flatMap((s) => (s.exceedLog ?? []).map((x) => ({ ...x, site: s.name, company: s.company }))).sort((a, b) => String(b.at).localeCompare(String(a.at)));
   out.push(`- 배출허용기준 넘은 측정값(이 감시가 본 것, 사업장마다 최근 20건) ${over.length}건${over.length ? '' : ' — 없음'}`);

@@ -296,7 +296,18 @@ class StackTest(unittest.TestCase):
         self.assertIn("쉬는 시간부터 4번 연속 굴뚝 자동측정 목록에서 빠졌고 평일 일하는 시간에도 2번 연속 없음", next(e for e in gone if e["tier"] == "B")["text"])
         t = dt.datetime(2026, 11, 2, 14, 0, tzinfo=KST)
         doc = w.run(CFG_SMALL, now=t, previous=doc, key="k", get=Api(world(t)), sleep=lambda s: None)
-        self.assertEqual([e["tier"] for e in doc["events"] if e["kind"].startswith("사업장 목록에서 빠짐")], ["C", "C"])   # 다시 나타나면 둘 다 C
+        back = [e for e in doc["events"] if e["kind"].startswith("사업장 목록에서 빠짐")]
+        self.assertEqual([e["tier"] for e in back], ["C", "C"])   # 다시 나타나면 둘 다 C
+        # 이미 C였던 주말 이벤트에도 '다시 나타남'이 붙는다(11-02: 주말에 빠졌던 세 곳이 다시 측정됐는지 화면에서 안 보였다)
+        self.assertTrue(all("이후 다시 나타남" in e["text"] for e in back))
+        self.assertEqual(sum(e["text"].count("다시 나타남") for e in back), 2)
+        # 같은 사업장이 며칠 뒤 평일에 다시 빠지면 새 이벤트(예전 주말 이벤트 id에 묻히지 않게 날짜를 붙인다)
+        for h in (8, 11):
+            t = dt.datetime(2026, 11, 4, h, 0, tzinfo=KST)
+            doc = w.run(CFG_SMALL, now=t, previous=doc, key="k", get=Api(drop_yp(t)), sleep=lambda s: None)
+        again = [e for e in doc["events"] if e["kind"].startswith("사업장 목록에서 빠짐") and e["id"].endswith(":2026-11-04")]
+        self.assertEqual([e["tier"] for e in again], ["B"])
+        self.assertNotIn("주말", again[0]["text"])
         # 배출구: 일요일 새벽에 빠지면 C
         doc = series(8)
         for k in range(2):
@@ -437,6 +448,24 @@ class RunBudget(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SettleStoredGone(unittest.TestCase):
+    def test_gone_events_of_sites_and_stacks_already_back_are_marked(self):
+        # 11-02 운영: 일요일에 C로 뜬 동국제강 포항 '빠짐'이 월요일에 다시 측정됐는데도 표시가 없었다(이미 C면 손대지 않던 규칙)
+        doc = series(8)
+        sid = next(s["id"] for s in doc["sites"] if s["name"] == "㈜영풍석포제련소")
+        code = next(iter(next(s for s in doc["sites"] if s["id"] == sid)["stacks"]))
+        doc["events"] = [{"id": f"stk:sitegone:{sid}", "kind": "사업장 목록에서 빠짐(굴뚝 측정)", "tier": "C", "company": "영풍", "site": "x",
+                          "detectedAt": "2026-11-01T09:13:00+09:00", "text": "빠짐"},
+                         {"id": f"stk:gone:{sid}:{code}:2026-11-01", "kind": "배출구 목록에서 빠짐", "tier": "C", "company": "영풍", "site": "x",
+                          "detectedAt": "2026-11-01T04:22:00+09:00", "text": "빠짐"}]
+        t = T0 + dt.timedelta(hours=24)
+        doc = w.run(CFG_SMALL, now=t, previous=doc, key="k", get=Api(world(t)), sleep=lambda s: None)
+        texts = {e["id"]: e["text"] for e in doc["events"] if e["id"].startswith(("stk:sitegone:", "stk:gone:"))}
+        self.assertTrue(all("이후 다시 나타남" in v for v in texts.values()), texts)
+        doc = w.run(CFG_SMALL, now=t + dt.timedelta(hours=3), previous=doc, key="k", get=Api(world(t + dt.timedelta(hours=3))), sleep=lambda s: None)
+        self.assertTrue(all(e["text"].count("다시 나타남") == 1 for e in doc["events"] if e["id"].startswith(("stk:sitegone:", "stk:gone:"))))
 
 
 class RunGap(unittest.TestCase):

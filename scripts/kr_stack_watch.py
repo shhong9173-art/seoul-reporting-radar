@@ -348,11 +348,15 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep, clock=time.
     fresh, errors, ok_terms, seen_sites = [], [], 0, set()
     day = now.date().isoformat()
 
-    def settle(prefix, note):
-        """목록에서 빠졌다던 것이 다시 나타나면 그 이벤트를 C로 내리고 '다시 나타남'을 붙인다(일시적 누락)."""
+    def settle(prefix, note, marker="다시 나타남"):
+        """목록에서 빠졌다던 것이 다시 나타나면 그 이벤트를 C로 내리고 '다시 나타남'을 붙인다(일시적 누락).
+        이미 C인 것(주말·밤에 빠진 것)에도 붙인다 — 11-02 동국제강 포항·KG스틸 당진·세아제강 창원이 다시 측정됐는지 화면에서 안 보였다."""
         for e in fresh + events:
-            if str(e.get("id", "")).startswith(prefix) and e.get("tier") != "C":
-                e["tier"], e["text"] = "C", (e.get("text") or "") + note
+            eid = str(e.get("id", ""))
+            if eid == prefix or eid.startswith(prefix + ":"):
+                if marker not in (e.get("text") or ""):
+                    e["text"] = (e.get("text") or "") + note
+                e["tier"] = "C"
 
     def emit(eid, kind, tier, company, site, text):
         if eid not in known:
@@ -410,8 +414,8 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep, clock=time.
                     continue
                 present.add(code)
                 st = stacks.get(code)
-                if st is not None and st.get("missing", 0) >= MISSING_RUNS:
-                    settle(f"stk:gone:{sid}:{code}:", f" — 이후 다시 나타남(측정 {x.get('mesure_dt')}, 일시적 누락)")
+                if st is not None:  # 빠졌다던 배출구가 지금 있으면(예전 저장본에서 이미 돌아온 것도) 그 이벤트에 '다시 나타남'
+                    settle(f"stk:gone:{sid}:{code}", f" — 이후 다시 나타남(측정 {x.get('mesure_dt')}, 일시적 누락)")
                 if st is None:
                     st = {"firstSeen": stamp, "obs": []}
                     stacks[code] = st
@@ -534,11 +538,11 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep, clock=time.
                 s["workMissing"] = s.get("workMissing", 0) + 1
             wm = s.get("workMissing", 0)
             if s.get("runs", 0) < MATURE_RUNS:  # 예전 규칙으로 B가 된 이른 사업장의 '빠짐'도 C로(10-30 엘에스엠앤엠)
-                settle(f"stk:sitegone:{sid}", f" — 이 사업장을 {s.get('runs', 0) or '몇'}번만 봐서 일시적 누락일 수 있음")
+                settle(f"stk:sitegone:{sid}", f" — 이 사업장을 {s.get('runs', 0) or '몇'}번만 봐서 일시적 누락일 수 있음", marker="일시적 누락일 수 있음")
             mature = s.get("runs", 0) >= MATURE_RUNS
             # B는 평일 일하는 시간에 2번 연속 빠졌을 때만. 주말·공휴일·밤에 빠진 것은 C로 먼저 알리고, 평일에도 빠져 있으면 그때 B.
             if s["missingRuns"] == MISSING_RUNS and not first:
-                emit(f"stk:sitegone:{sid}", "사업장 목록에서 빠짐(굴뚝 측정)", "B" if mature and wm >= MISSING_RUNS else "C", s["company"], s["name"],
+                emit(f"stk:sitegone:{sid}:{day}", "사업장 목록에서 빠짐(굴뚝 측정)", "B" if mature and wm >= MISSING_RUNS else "C", s["company"], s["name"],
                      f"{s['name']}이 굴뚝 자동측정 목록에서 {MISSING_RUNS}번 연속 빠짐 — "
                      + (("폐쇄·이름 변경·측정 대상 제외 확인" + ("" if wm >= MISSING_RUNS else REST_NOTE)) if mature
                         else f"이 사업장을 {s.get('runs', 0)}번만 봐서 일시적 누락일 수 있음"))
@@ -547,8 +551,8 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep, clock=time.
                      f"{s['name']}이 쉬는 시간부터 {s['missingRuns']}번 연속 굴뚝 자동측정 목록에서 빠졌고 평일 일하는 시간에도 {MISSING_RUNS}번 연속 없음 — "
                      "폐쇄·이름 변경·측정 대상 제외 확인")
         elif sid in seen_sites:
-            if s.get("missingRuns", 0) >= MISSING_RUNS:
-                settle(f"stk:sitegone:{sid}", f" — 이후 다시 나타남({stamp[:16]}, 일시적 누락)")
+            # 지금 목록에 있으면 그 사업장의 '빠짐' 이벤트는 모두 풀린 것 — 예전 실행에서 이미 돌아와 표시가 빠진 것도 여기서 붙인다
+            settle(f"stk:sitegone:{sid}", f" — 이후 다시 나타남(확인 {stamp[:16]}, 일시적 누락)")
             s["missingRuns"] = 0
             s.pop("workMissing", None)
 
