@@ -724,7 +724,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
     if (!fresh(x, x.baseline ? Date.parse(x.firstSeen) : oaBase, 'published')) continue;
     const tier = x.tier ?? (x.company ? 'A' : 'C');
     const money = (v) => `${x.currency ?? ''} ${Number(v).toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
-    const value = x.value ? ` · ${money(x.value)}` : ' · 금액 미기재';
+    const value = x.value ? ` · ${money(x.value)}${x.valueOcr ? '(글자 인식 값)' : ''}` : ' · 금액 미기재';
     const where = countryKo(x.buyerCountry);
     if (x.bidder) {  // 개찰(응찰가 공개) — 낙찰 아님
       const rank = x.rank ? `응찰가 ${x.rank}위/${x.priced}곳${x.lowest ? '(최저가)' : x.lowestBid ? ` · 최저 ${x.lowestBid.name} ${money(x.lowestBid.value)}` : ''}` : '응찰가 순위 없음(가격 미공개·탈락)';

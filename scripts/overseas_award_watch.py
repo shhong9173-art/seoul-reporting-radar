@@ -503,6 +503,20 @@ def report_month(report):
     return f"{m.group(2)}-{MONTHS[m.group(1).lower()]:02d}" if m else None
 
 
+# 바레인 디나르 금액은 소수 셋째 자리(필스)까지 적힌다: '34,968,319.628'. 글자 인식 줄에서 이 꼴(천 단위 쉼표 + 점 + 세 자리)만 금액으로 본다
+# ('47.115.868'처럼 점으로 읽힌 것·쉼표만 있는 '9,564,000'은 옆 줄 다른 낙찰일 수 있어 쓰지 않는다).
+BHD_AMOUNT = re.compile(r"(?<![\d.,])(\d{1,3}(?:,\d{3})+\.\d{3})(?![\d,])")
+
+
+def ocr_amount(lines):
+    """이름 줄과 바로 다음 줄에서 첫 BHD 금액."""
+    for line in lines[:2]:
+        m = BHD_AMOUNT.search(line)
+        if m:
+            return float(m.group(1).replace(",", ""))
+    return None
+
+
 def tidy_ocr_item(x):
     """예전 저장본(11-02 첫 OCR): 이름 줄 앞 두 줄(앞 낙찰의 끝)을 떼고, 발주처 문구·보고서 달을 지금 규칙으로."""
     if x.get("source") != "바레인 입찰위원회":
@@ -516,6 +530,11 @@ def tidy_ocr_item(x):
         k = next((n for n, part in enumerate(parts) if beat_of_ocr(part)), 0)
         if k:
             x["title"] = " / ".join(parts[k:])
+            parts = parts[k:]
+        if x.get("value") is None:
+            v = ocr_amount(parts)
+            if v:
+                x["value"], x["currency"], x["valueOcr"] = v, "BHD", True
 
 
 def bh_items(text, report, href, *, ocr=False):
@@ -541,6 +560,10 @@ def bh_items(text, report, href, *, ocr=False):
             "concluded": None, "noticeType": "awarded-report", "url": BH_SITE + href.replace(" ", "%20"),
             **({"reportMonth": month} if month else {}), **({"ocr": True} if ocr else {}),
         })
+        if ocr and beat:
+            v = ocr_amount(lines[i: i + 2])
+            if v:
+                out[-1].update(value=v, currency="BHD", valueOcr=True)
     return out[:20]
 
 

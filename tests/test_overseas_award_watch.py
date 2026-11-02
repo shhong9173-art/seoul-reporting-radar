@@ -229,6 +229,7 @@ class Award(unittest.TestCase):
         self.assertEqual(len(iljin), 1)
         self.assertTrue(iljin[0]["ocr"] and iljin[0]["isNew"])
         self.assertIn("34,968,319.628 SOUTH KOREA", iljin[0]["title"])
+        self.assertEqual((iljin[0]["value"], iljin[0]["currency"], iljin[0]["valueOcr"]), (34968319.628, "BHD", True))
         self.assertIn("Sitra 400KV Grid", iljin[0]["title"])
         self.assertEqual(w.tier_of(iljin[0]), "B")
         # 보고서의 거꾸로 적힌 입찰 번호(5100/2025/4669)로 10-25 개찰 기록(4669/2025/5100)과 잇는다
@@ -254,6 +255,8 @@ class Award(unittest.TestCase):
         w.tidy_ocr_item(x)
         self.assertTrue(x["title"].startswith("ILJINELECTRIC COLTD"))
         self.assertEqual((x["buyer"], x["reportMonth"]), ("정부 발주처(보고서 줄 참조)", "2026-08"))
+        self.assertEqual((x["value"], x["currency"]), (34968319.628, "BHD"))   # 저장본 금액도 이름 줄·다음 줄에서
+        self.assertIsNone(w.ocr_amount(["9,564,000 KANOO VEHICLE", "47.115.868 BNET B.S.C"]))   # 쉼표만·점으로 읽힌 값은 금액으로 안 봄
         w.tidy_ocr_item(x)
         self.assertTrue(x["title"].startswith("ILJINELECTRIC COLTD"))   # 두 번 해도 같음
         self.assertEqual(w.report_month("1 Awarded Tenders Report - September 2026 15.8 MB"), "2026-09")
