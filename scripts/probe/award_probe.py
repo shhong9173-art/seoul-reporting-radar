@@ -1,4 +1,4 @@
-"""Probe 95d(나머지 9곳, 2024-01-01부터 긴 기간, 띄어 쓴 이름): KIPRIS 상표 출원인 이름 형식 — 11-02 07:10 첫 실행에서 rawTotal 0인 10곳을 띄어 쓴 법인명(설정의 두 번째 이름)으로
+"""Probe 95e(2024년부터 0건인 3곳, 붙여 쓴 이름):
 같은 기간(2026-08-04~2026-11-02) 한 번씩. 건수와 응답 출원인 이름 한 줄만(공개 정보). KIPRIS 호출 10회 — 장부 밖(진단 여유분)으로 기록."""
 import os
 import re
@@ -14,8 +14,7 @@ FLAGS = ("application", "registration", "refused", "expiration", "withdrawal", "
          "internationalMark", "certMark", "geoCertMark",
          "character", "figure", "compositionCharacter", "figureComposition", "sound", "fragrance", "color",
          "dimension", "colorMixed", "hologram", "motion", "visual", "invisible")
-NAMES = [(n, "20240101~20261102") for n in ("케이지모빌리티 주식회사", "르노코리아 주식회사", "한국지엠 주식회사", "지에스칼텍스 주식회사",
-         "롯데케미칼 주식회사", "금호석유화학 주식회사", "에쓰-오일 주식회사", "에이치디현대오일뱅크 주식회사", "에스케이이노베이션 주식회사")]
+NAMES = [(n, "20240101~20261102") for n in ("한국지엠주식회사", "금호석유화학주식회사", "에쓰-오일주식회사")]
 out = [f"key length {len(KEY)}"]
 for n, span in NAMES:
     params = {"applicantName": n, "applicationDate": span, "numOfRows": "3", "pageNo": "1", **{f: "true" for f in FLAGS}, "ServiceKey": KEY}
