@@ -1,6 +1,7 @@
 name: Trademark Watch
 # 출입처 상표 출원(KIPRIS Plus 상표 출원 속보). 월요일 07:10 KST 주 1회 — 시간은 Cloudflare가 workflow_dispatch로 맞추고 아래 cron은 예비.
 # 같은 아침에 두 번 오면(Cloudflare 요청 + GitHub 예약) 두 번째는 건너뛴다(직전 결과 6시간 안, force 입력으로만 다시 조회).
+# 화~금 07:10(Cloudflare)은 재시도 칸: 월요일에 실패·대기한 회사만 다시 묻고, 모두 정상이었으면 KIPRIS를 부르지 않고 끝난다.
 # 무료 한도(월 1,000회)를 특허와 나눠 쓰므로 병합(push) 때는 돌지 않는다. 모든 호출은 KIPRIS 공용 장부(상표 몫 월 150회)를 거친다.
 # 결과는 기자 전용 저장소로만. 공개 저장소에는 호출 건수 장부만 남는다.
 on:

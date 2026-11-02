@@ -219,6 +219,32 @@ class Watch(unittest.TestCase):
             self.assertTrue(next(f for f in doc2["filings"] if f["title"] == "NEOCHEM")["isNew"])
             self.assertNotIn("baseline", next(c for c in doc2["checks"] if c["source"] == "상표 LG화학"))
 
+    def test_weekday_retry_asks_only_failed_or_waiting_companies(self):
+        # 11-02: 영풍이 월요일에 실패한 채 다음 월요일까지 미확인 — 화~금 같은 칸에 실패·대기한 회사만 다시 묻는다
+        with tempfile.TemporaryDirectory() as folder:
+            first, _, _ = self.first_run(folder)
+            first["checks"][1] = {"source": "상표 효성중공업", "status": "failed", "error": "제공기관 코드 99(뜻 미공개)"}
+            tue = NOW + timedelta(days=1)
+            env = {"GITHUB_EVENT_NAME": "workflow_dispatch"}
+            only = tw.retry_targets(CFG, first, tue, env=env)
+            self.assertEqual(only, {"효성중공업"})
+            fake = Fake({"효성중공업주식회사": reply([item("4020260100009", "HICO GRID", "20261020", "09", owner="효성중공업주식회사")])})
+            book = ledger(folder, now=tue)
+            doc = tw.run(CFG, now=tue, previous=first, key="k", ledger=book, fetch=book.fetcher("trademark", fake), only=only)
+            self.assertEqual(len(fake.urls), 1)                                   # 현대차는 다시 묻지 않음
+            self.assertTrue(all("효성중공업" in u or "%ED%9A%A8%EC%84%B1" in u for u in fake.urls))
+            self.assertEqual(doc["checks"][0], first["checks"][0])                # 월요일 결과 그대로
+            self.assertEqual((doc["checks"][1]["status"], doc["checks"][1]["retriedAt"][:10]), ("ok", "2026-11-03"))
+            self.assertEqual(doc["retry"]["companies"], ["효성중공업"])
+            self.assertEqual(doc["window"], first["window"])
+            self.assertEqual(len([f for f in doc["filings"] if f["company"] == "현대자동차"]), 2)  # 저장된 출원 유지
+            # 모두 정상이면 빈 집합(건너뜀), 월요일·강제·오래된 결과는 전체 실행
+            self.assertEqual(tw.retry_targets(CFG, doc, tue + timedelta(days=1), env=env), set())
+            self.assertIsNone(tw.retry_targets(CFG, first, NOW + timedelta(days=7), env=env))           # 다음 월요일
+            self.assertIsNone(tw.retry_targets(CFG, first, tue, env={"FORCE_RUN": "true"}))
+            self.assertIsNone(tw.retry_targets(CFG, first, NOW + timedelta(days=9), env=env))          # 6일 넘음
+            self.assertIsNone(tw.retry_targets(CFG, None, tue, env=env))
+
     def test_config_fits_trademark_budget(self):
         cfg = json.loads(tw.CONFIG.read_text(encoding="utf-8"))
         from kipris_account_ledger import GROUP_LIMITS

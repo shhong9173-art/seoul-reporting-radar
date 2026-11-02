@@ -148,7 +148,33 @@ def group_filings(company_cfg, rows, *, variants, seen, titles_before, stamp, ba
     return filings, unmatched, bad
 
 
-def run(cfg, *, now, previous=None, key="", ledger=None, fetch=None):
+RETRY_DAYS = 6  # 월요일 정기 실행 뒤 이 안의 평일(화~금)에는 실패·대기한 회사만 다시 묻는다
+
+
+def retry_targets(cfg, previous, now, *, env=None):
+    """None이면 전체 실행(월요일·강제·직전 결과 없음·오래됨). 집합이면 그 회사만 다시 묻는다(빈 집합이면 건너뜀).
+    11-02: 영풍이 '응답 출원인 이름 불일치'로 실패한 채 다음 월요일까지 미확인으로 남았다 — KIPRIS 한도를 아끼며 실패한 곳만 평일에 다시."""
+    env = os.environ if env is None else env
+    if str(env.get("FORCE_RUN", "")).lower() in ("1", "true", "yes") or now.astimezone(KST).weekday() == 0:
+        return None
+    if not isinstance(previous, dict) or previous.get("schema") != SCHEMA or not previous.get("baselineSince"):
+        return None
+    try:
+        age = (now - dt.datetime.fromisoformat(str(previous.get("generatedAt")))).total_seconds() / 86400
+    except (TypeError, ValueError):
+        return None
+    if not 0 <= age < RETRY_DAYS:
+        return None
+    by_src = {c.get("source"): c for c in previous.get("checks") or [] if isinstance(c, dict)}
+    out = set()
+    for c in cfg["applicants"]:
+        pc = by_src.get(f"상표 {c['company']}")
+        if pc is None or pc.get("status") in ("failed", "waiting"):
+            out.add(c["company"])
+    return out
+
+
+def run(cfg, *, now, previous=None, key="", ledger=None, fetch=None, only=None):
     stamp = now.isoformat(timespec="seconds")
     prev = previous if isinstance(previous, dict) and previous.get("schema") == SCHEMA else None
     # A stored document without a baseline (every earlier run failed or waited) is still a baseline run.
@@ -165,6 +191,9 @@ def run(cfg, *, now, previous=None, key="", ledger=None, fetch=None):
     used = 0
     for c in cfg["applicants"]:
         src = f"상표 {c['company']}"
+        if only is not None and c["company"] not in only and src in prev_checks:
+            checks.append(prev_checks[src])  # 평일 재시도: 정상이던 회사는 월요일 결과 그대로
+            continue
         if not key:
             checks.append({"source": src, "status": "unset", "error": "KIPRIS_SERVICE_KEY 없음"})
             continue
@@ -242,6 +271,8 @@ def run(cfg, *, now, previous=None, key="", ledger=None, fetch=None):
             chk["nameVerified"] = False
             if res["total"] == 0:
                 chk["note"] = "출원인 이름 미확인 — 0건이 이름 불일치 때문일 수 있음"
+        if only is not None:
+            chk["retriedAt"] = stamp
         checks.append(chk)
     keep_from = (end - dt.timedelta(days=int(cfg.get("keepFilingDays", 120)))).isoformat()
     filings = [f for f in old_filings.values() if str(f.get("firstSeen", ""))[:10] >= keep_from
@@ -258,7 +289,9 @@ def run(cfg, *, now, previous=None, key="", ledger=None, fetch=None):
         "status": ("unset" if all(c["status"] == "unset" for c in checks) else
                    "complete" if not bad and not waiting and any_ok else
                    "waiting" if waiting and not any_ok and not bad else "partial"),
-        "window": {"from": start.isoformat(), "to": end.isoformat(), "field": "출원일"},
+        "window": ((prev or {}).get("window") if only is not None and (prev or {}).get("window") else
+                   {"from": start.isoformat(), "to": end.isoformat(), "field": "출원일"}),
+        **({"retry": {"at": stamp, "companies": sorted(only)}} if only is not None else {}),
         "baselineSince": (prev or {}).get("baselineSince") or (stamp if any_ok else None),
         "checks": checks, "filings": filings[:1500], "fresh": fresh,
         "seen": seen, "titles": titles,
@@ -291,9 +324,15 @@ def main():
             sys.exit(1)
     if private_store.late_scheduled_duplicate(previous, now) or private_store.recent_duplicate(previous, now):
         return
+    only = retry_targets(cfg, previous, now)
+    if only is not None and not only:
+        print("::notice title=trademarks::이번 주 정기 조회가 모두 정상 — 평일 재시도할 회사 없음(KIPRIS 호출 0)")
+        return
+    if only is not None:
+        print(f"::notice title=trademarks-retry::평일 재시도 — 실패·대기한 회사만: {', '.join(sorted(only))}")
     ledger = KiprisAccountLedger(now=now) if key else None
     try:
-        doc = run(cfg, now=now, previous=previous, key=key, ledger=ledger,
+        doc = run(cfg, now=now, previous=previous, key=key, ledger=ledger, only=only,
                   fetch=ledger.fetcher("trademark", request_xml) if ledger else None)
     finally:
         if ledger is not None:

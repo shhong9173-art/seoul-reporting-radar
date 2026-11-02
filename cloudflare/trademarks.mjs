@@ -34,6 +34,7 @@ export async function trademarks(ctx, args) {
   const out = [`상표 출원(출입처 ${checks.length}곳 · 출원일 ${doc.window?.from ?? '?'}~${doc.window?.to ?? '?'}) · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt, 192, true)}`,
     `조회 정상 ${ok.length}/${checks.length}${waiting.length ? ` · 대기 ${waiting.length}곳(${[...new Set(waiting.map((c) => waitReason(c.reason)))].join(', ')}${waiting[0]?.until ? `, ${String(waiting[0].until).slice(0, 16)}부터 재시도` : ''})` : ''}`
       + `${bad.length ? ` · 미확인(0건 아님): ${bad.slice(0, 6).map((c) => `${c.source.replace('상표 ', '')}(${c.error ?? c.status})`).join(', ')}` : ''}`,
+    doc.retry ? `평일 재시도 ${String(doc.retry.at).slice(5, 16)}: ${(doc.retry.companies ?? []).join(', ')} — 월요일에 실패·대기한 회사만 다시 조회(나머지는 월요일 결과)` : '',
     kip.month ? `KIPRIS 호출 장부(${kip.month}): 상표 ${kip.groupUsed?.trademark ?? '?'}/${kip.groupLimits?.trademark ?? '?'} · 전체 ${kip.counted ?? '?'}/${kip.monthlyLimit ?? '?'} — 이 저장소가 센 수, 계정 실제 사용량 아님` : '',
     ...(doc.rules ?? []).map((r) => `규칙: ${r}`)].filter(Boolean);
   if (!doc.baselineSince) out.push('\n아직 기준선 없음(첫 성공 실행 전) — 새 출원 판단은 첫 성공 다음 주부터.');

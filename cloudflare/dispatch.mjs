@@ -32,6 +32,8 @@ export const SLOTS = [
   // 주 1회(월) 감시: GitHub 예약만 믿으면 늦거나 한 주를 통째로 거를 수 있다(10-31 토 OSHA 예약 누락). 상표는 KIPRIS 무료 한도를 쓰므로
   // 수집기가 6시간 안 직전 결과가 있으면 건너뛴다(GitHub 예약과 겹쳐도 한 번만 호출).
   { at: '07:10', workflow: 'trademark-watch.yml', days: [1] },
+  // 화~금 같은 칸: 월요일에 실패·대기한 회사만 다시 묻는다(모두 정상이면 KIPRIS를 부르지 않고 끝남 — 11-02 영풍 이름 불일치 실패가 한 주 남았다).
+  { at: '07:10', workflow: 'trademark-watch.yml', days: [2, 3, 4, 5] },
   // 협력사 회생·파산(대법원 공고): 아침에 전날 공고, 저녁에 그날 공고.
   { at: '07:20', workflow: 'kr-insolvency.yml' },
   { at: '07:30', workflow: 'kr-stats.yml' },
