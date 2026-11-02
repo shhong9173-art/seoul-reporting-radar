@@ -1,47 +1,38 @@
-"""Probe 98: 나라장터 낙찰정보 — 물품·공사·용역·외자 낙찰 목록 1주(10-26~10-30)에서 출입처 대기업 이름(전력기기·전선·철강·완성차·타이어)이
-낙찰자 칸에 어떻게 적히는지. 출입처 이름 줄만(대기업 법인명·금액·수요기관·공고명 앞부분), 나머지는 건수만."""
-import os
-import re
-from collections import Counter
-
-import requests
-
-KEY = (os.environ.get("G2B_API_KEY") or os.environ.get("CUSTOMS_API_KEY") or "").strip()
-H = {"User-Agent": "newsroom-official-research/1.0 (github.com/shhong9173-art/seoul-reporting-radar)"}
-BASE = "https://apis.data.go.kr/1230000/as/ScsbidInfoService"
-BEAT = re.compile(r"엘에스|LS|에이치디현대|HD현대|현대일렉|효성중공업|일진전기|대한전선|가온전선|현대제철|동국제강|동국씨엠|포스코|세아|케이지스틸|KG스틸|"
-                  r"현대자동차|기아|한국타이어|넥센타이어|금호타이어|두산에너빌|고려아연|한화솔루션|엘지화학|LG화학", re.I)
-out = []
-for op in ("getScsbidListSttusThng", "getScsbidListSttusCnstwk", "getScsbidListSttusServc", "getScsbidListSttusFrgcpt"):
-    rows, total, err = [], None, None
-    for page in (1, 2, 3):
-        try:
-            r = requests.get(f"{BASE}/{op}", params={"serviceKey": KEY, "numOfRows": "999", "pageNo": str(page), "inqryDiv": "1",
-                                                      "inqryBgnDt": "202610260000", "inqryEndDt": "202610302359", "type": "json"}, headers=H, timeout=60)
-            j = r.json()
-            head = (j.get("response") or {}).get("header") or {}
-            body = (j.get("response") or {}).get("body") or {}
-            if str(head.get("resultCode")) not in ("00", "0"):
-                err = f"code {head.get('resultCode')} {head.get('resultMsg')}"
-                break
-            items = body.get("items") or []
-            if isinstance(items, dict):
-                items = items.get("item") or []
-            total = body.get("totalCount")
-            rows += items
-            if len(rows) >= int(total or 0) or not items:
-                break
-        except Exception as e:  # noqa: BLE001
-            err = f"{type(e).__name__} {str(e)[:60]}"
-            break
-    hits = [x for x in rows if BEAT.search(str(x.get("bidwinnrNm") or ""))]
-    names = Counter(str(x.get("bidwinnrNm")) for x in hits)
-    out.append(f"{op}: total {total} read {len(rows)} beat-like {len(hits)} err {err}")
-    out.append("  names " + ", ".join(f"{n}({c})" for n, c in names.most_common(15)))
-    for x in sorted(hits, key=lambda x: -float(x.get("sucsfbidAmt") or 0))[:6]:
-        out.append(f"  {x.get('bidwinnrNm')} | {x.get('bidwinnrBizno')} | {x.get('sucsfbidAmt')} | {x.get('dminsttNm')} | {str(x.get('bidNtceNm'))[:40]} | {x.get('fnlSucsfDate')}")
-text = "\n".join(out)
-if KEY:
-    text = text.replace(KEY, "<KEY>")
-open("/tmp/probe_out.txt", "w").write(text)
-print(text[:600])
+"""probe 99: 공장등록(B550624) API 응답 시간·형식 — 출입처 이름 1개로 몇 가지 변형. 건수·시간·결과코드만 출력."""
+import os, time, re, requests
+OUT = []
+def p(*a):
+    OUT.append(" ".join(str(x) for x in a))
+key = (os.environ.get("CUSTOMS_API_KEY") or os.environ.get("KR_FUEL_API_KEY") or "").strip()
+p("key len", len(key))
+base = "https://apis.data.go.kr/B550624/fctryRegistInfo/getFctryPrdctnService_v2"
+variants = [
+    ("https rows10 json", base, {"pageNo": 1, "numOfRows": 10, "type": "json", "cmpnyNm": "현대자동차"}),
+    ("https rows100 json", base, {"pageNo": 1, "numOfRows": 100, "type": "json", "cmpnyNm": "현대자동차"}),
+    ("http rows10", base.replace("https://", "http://"), {"pageNo": 1, "numOfRows": 10, "cmpnyNm": "현대자동차"}),
+    ("https rows10 noName", base, {"pageNo": 1, "numOfRows": 10}),
+    ("https rows10 금호석유화학", base, {"pageNo": 1, "numOfRows": 10, "type": "json", "cmpnyNm": "금호석유화학"}),
+]
+for label, url, params in variants:
+    t = time.time()
+    try:
+        r = requests.get(url, params={"serviceKey": key, **params}, timeout=(15, 150))
+        txt = r.text
+        code = re.search(r'"resultCode"\s*:\s*"?([^",}]+)|<resultCode>([^<]+)|<returnReasonCode>([^<]+)', txt)
+        total = re.search(r'"totalCount"\s*:\s*(\d+)|<totalCount>(\d+)', txt)
+        p(label, "HTTP", r.status_code, f"{time.time()-t:.1f}s", "len", len(txt), "code", code and next(g for g in code.groups() if g),
+          "total", total and next(g for g in total.groups() if g), "head", re.sub(r"\s+", " ", txt[:120]) if not total else "")
+    except Exception as e:
+        p(label, "ERR", type(e).__name__, f"{time.time()-t:.1f}s")
+    time.sleep(2)
+for label, url in [("law.go.kr", "https://www.law.go.kr/DRF/lawSearch.do?OC=test&target=admrul&type=XML&query=%EC%A0%84%EA%B8%B0"),
+                   ("gwanbo", "https://gwanbo.go.kr")]:
+    t = time.time()
+    try:
+        r = requests.get(url, timeout=(15, 60))
+        p(label, "HTTP", r.status_code, f"{time.time()-t:.1f}s", "len", len(r.text))
+    except Exception as e:
+        p(label, "ERR", type(e).__name__, f"{time.time()-t:.1f}s")
+text = "\n".join(OUT)
+open("probe_out.txt", "w").write(text)
+print(text)
