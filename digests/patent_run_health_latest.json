@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-11-02T08:33:16+09:00",
-  "workflowRunId": "41362435166",
+  "generatedAt": "2026-11-02T09:58:44+09:00",
+  "workflowRunId": "41369851321",
   "workflowAttempt": "1",
-  "workflowEvent": "workflow_dispatch",
+  "workflowEvent": "schedule",
   "steps": {
     "checks": "success",
     "source": "success",
@@ -18,7 +18,7 @@
     "source": {
       "path": "digests/patent_hunt_latest.json",
       "exists": true,
-      "generatedAt": "2026-11-02T08:31:20+09:00",
+      "generatedAt": "2026-11-02T09:57:22+09:00",
       "consistent": true,
       "complete": true,
       "validCompanies": 24,
@@ -28,34 +28,34 @@
     "deep": {
       "path": "digests/patent_deep_latest.json",
       "exists": true,
-      "generatedAt": "2026-11-02T08:32:11+09:00",
+      "generatedAt": "2026-11-02T09:57:58+09:00",
       "consistent": true
     },
     "story": {
       "path": "digests/patent_story_latest.json",
       "exists": true,
-      "generatedAt": "2026-11-02T08:32:41+09:00",
+      "generatedAt": "2026-11-02T09:58:12+09:00",
       "consistent": true,
-      "leads": 319,
-      "coverageQueries": 180
+      "leads": 121,
+      "coverageQueries": 204
     },
     "quality": {
       "path": "digests/patent_quality_latest.json",
       "exists": true,
-      "generatedAt": "2026-11-02T08:32:50+09:00",
+      "generatedAt": "2026-11-02T09:58:22+09:00",
       "consistent": true,
       "humanReviewedCurrentCandidates": 0
     },
     "claims": {
       "path": "digests/patent_claim_review_latest.json",
       "exists": true,
-      "generatedAt": "2026-11-02T08:32:50+09:00",
+      "generatedAt": "2026-11-02T09:58:22+09:00",
       "consistent": true
     },
     "desk": {
       "path": "digests/patent_desk_latest.json",
       "exists": true,
-      "generatedAt": "2026-11-02T08:33:11+09:00",
+      "generatedAt": "2026-11-02T09:58:42+09:00",
       "consistent": true,
       "shortlistCount": 5,
       "publicationReady": 0
@@ -63,14 +63,14 @@
     "cross": {
       "path": "digests/patent_cross_evidence_latest.json",
       "exists": true,
-      "generatedAt": "2026-11-02T08:33:16+09:00",
+      "generatedAt": "2026-11-02T09:58:43+09:00",
       "consistent": true,
-      "technicalMatches": 3
+      "technicalMatches": 0
     },
     "triage": {
       "path": "digests/patent_reporting_triage_latest.json",
       "exists": true,
-      "generatedAt": "2026-11-02T08:33:16+09:00",
+      "generatedAt": "2026-11-02T09:58:43+09:00",
       "consistent": true,
       "humanFinalSample": 0
     }
