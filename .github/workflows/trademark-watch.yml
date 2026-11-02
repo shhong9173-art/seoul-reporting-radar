@@ -1,6 +1,7 @@
 name: Trademark Watch
 # 출입처 상표 출원(KIPRIS Plus 상표 출원 속보). 월요일 07:10 KST 주 1회 — 시간은 Cloudflare가 workflow_dispatch로 맞추고 아래 cron은 예비.
 # 같은 아침에 두 번 오면(Cloudflare 요청 + GitHub 예약) 두 번째는 건너뛴다(직전 결과 6시간 안, force 입력으로만 다시 조회).
+# 유럽(EUIPO Trademark Search)도 같은 실행에서 본다(월요일 전체, 화~금은 직전이 완료가 아닐 때만 — 11-02 운영 검색 403 구독 승인 대기).
 # 화~금 07:10(Cloudflare)은 재시도 칸: 월요일에 실패·대기한 회사만 다시 묻고, 모두 정상이었으면 KIPRIS를 부르지 않고 끝난다.
 # 무료 한도(월 1,000회)를 특허와 나눠 쓰므로 병합(push) 때는 돌지 않는다. 모든 호출은 KIPRIS 공용 장부(상표 몫 월 150회)를 거친다.
 # 결과는 기자 전용 저장소로만. 공개 저장소에는 호출 건수 장부만 남는다.
@@ -33,12 +34,14 @@ jobs:
           python-version: '3.12'
       - run: python -m pip install "requests>=2.31,<3"
       - name: Test parsing and budget before any request
-        run: python -m unittest tests.test_trademark_watch tests.test_kipris_account_ledger tests.test_private_store -v
+        run: python -m unittest tests.test_trademark_watch tests.test_euipo_trademarks tests.test_kipris_account_ledger tests.test_private_store -v
       - name: Watch beat-company trademark applications (counts-only log)
         id: watch
         env:
           MCP_ACCESS_TOKEN: ${{ secrets.MCP_ACCESS_TOKEN }}
           KIPRIS_SERVICE_KEY: ${{ secrets.KIPRIS_SERVICE_KEY }}
+          EUIPO_CLIENT_ID: ${{ secrets.EUIPO_CLIENT_ID }}
+          EUIPO_CLIENT_SECRET: ${{ secrets.EUIPO_CLIENT_SECRET }}
           FORCE_RUN: ${{ inputs.force && 'true' || 'false' }}
         run: python scripts/trademark_watch.py
       - name: Publish KIPRIS request ledger (counts only)

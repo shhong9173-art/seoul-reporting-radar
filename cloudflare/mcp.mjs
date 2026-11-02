@@ -195,7 +195,7 @@ export const TOOLS = [
     inputSchema: obj({ section: { type: 'string', enum: ['kaida', 'price', 'production', 'us_imports', 'carsales'] }, company: str('기업·품목·브랜드·모델·공장 낱말'),
       show_all: bool('신호 없는 계열도 보기'), limit: int('구역별 줄 수', 1, 60) }) },
   { name: 'trademarks', access: 'private', handler: trademarks,
-    description: '출입처 상표 출원(KIPRIS Plus, 주 1회 월요일 수집): 새로 본 출원을 회사·상표명·상품류로 묶어 보여 줌(같은 날 같은 이름은 한 건). 처음 보는 이름+업종 핵심 상품류는 B. 저장된 결과만 읽고 KIPRIS를 새로 부르지 않음. 출원은 출시·진출 확정이 아님.',
+    description: '출입처 상표 출원(KIPRIS Plus, 주 1회 월요일 수집 · 유럽연합 EUIPO 출원 구역 함께): 새로 본 출원을 회사·상표명·상품류로 묶어 보여 줌(같은 날 같은 이름은 한 건). 처음 보는 이름+업종 핵심 상품류는 B. 저장된 결과만 읽고 KIPRIS를 새로 부르지 않음. 출원은 출시·진출 확정이 아님.',
     inputSchema: obj({ company: str('회사 낱말'), name: str('상표명 낱말'), class: str('상품류 번호(예: 12)'),
       days: int('최근 N일(기본 30)', 1, 120), show_all: bool('기존(기준선) 출원도 보기'), limit: int('줄 수', 1, 80) }) },
   { name: 'assembly_bills', access: 'private', handler: assemblyBills,

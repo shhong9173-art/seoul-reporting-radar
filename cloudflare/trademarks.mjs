@@ -58,7 +58,33 @@ export async function trademarks(ctx, args) {
   }
   if (rows.length > limit) out.push(`… 남은 ${rows.length - limit}건(company·name·class로 좁히기)`);
   if (!rows.length) out.push(waiting.length || bad.length ? '없음 — 다만 대기·실패한 회사는 미확인' : '없음');
+  out.push(...euSection(doc.eu, { q, name, cls: args.class ? cls : '', all, from, limit }));
   out.push('\n검증 상태: KIPRIS 공개 출원 정보(자동 수집). 원문은 KIPRIS(kipris.or.kr)에서 출원번호로 조회 — 견본 이미지·지정상품 확인.');
   out.push('다음: 같은 이름 과거 출원(KIPRIS 상표명 검색) → news_check(상표명·회사명) → 회사에 "출원 사실과 용도(차명·서비스명·방어 출원)" 확인. 상표 출원만으로 출시·진출을 쓰지 않는다.');
   return textResult(out.join('\n'));
+}
+
+// 유럽 상표 출원(EUIPO Trademark Search) — trademark_watch.py가 같은 실행에서 'eu' 칸에 저장. 운영 검색이 막혀 있으면(403) 승인 대기로 보인다.
+function euSection(eu, { q, name, cls, all, from, limit }) {
+  if (!eu) return [];
+  const checks = eu.checks ?? [];
+  const ok = checks.filter((c) => c.status === 'ok');
+  const out = [`\n[유럽 상표 출원(EUIPO) · 출원일 ${eu.window?.from ?? '?'}~${eu.window?.to ?? '?'} · 확인 ${String(eu.generatedAt ?? '').slice(0, 16)}] 조회 정상 ${ok.length}/${checks.length}`];
+  if (eu.blocked) out.push(`대기: ${eu.blocked} — EUIPO 개발자 포털에서 앱 구독 상태 확인(0건이 아니라 미확인)`);
+  const bad = checks.filter((c) => !['ok', 'waiting'].includes(c.status));
+  if (bad.length) out.push(`미확인(0건 아님): ${bad.slice(0, 6).map((c) => `${c.company}(${c.error ?? c.status})`).join(', ')}`);
+  const zero = ok.filter((c) => !c.rawTotal);
+  if (zero.length) out.push(`검색 0건(영문 출원인 이름 형식 확인): ${zero.map((c) => c.company).join(', ')}`);
+  const rows = (eu.filings ?? []).filter((f) => all || f.isNew)
+    .filter((f) => String(f.firstSeen ?? '').slice(0, 10) >= from || (all && String(f.applicationDate ?? '') >= from))
+    .filter((f) => matches(q, f.company) && matches(name, f.title) && (!cls || (f.classes ?? []).includes(cls)))
+    .sort((a, b) => (a.tier ?? 'Z').localeCompare(b.tier ?? 'Z') || String(b.applicationDate).localeCompare(String(a.applicationDate)));
+  out.push(`[${all ? '저장된 유럽 출원' : '새로 본 유럽 출원'}] ${rows.length}건`);
+  for (const f of rows.slice(0, limit)) {
+    out.push(`- ${f.isNew ? `[${f.tier ?? 'C'}${f.titleNew ? ' · 처음 보는 이름' : ''}] ` : ''}${f.company} · 「${f.title}」 · 출원 ${f.applicationDate || '?'} · ${(f.classes ?? []).map(classLabel).join(', ') || '상품류 미기재'}`
+      + ` · 출원번호 ${f.applicationNumber} · 출원인 ${(f.applicants ?? []).join(' | ') || '?'} · 상태 ${f.status ?? '?'}`);
+  }
+  if (!rows.length) out.push(eu.blocked || bad.length ? '없음 — 다만 대기·실패한 회사는 미확인' : '없음');
+  out.push('검증 상태: EUIPO 공개 출원 정보(자동 수집). 원문은 EUIPO eSearch plus에서 출원번호로 조회 — 출원인(유럽 법인일 수 있음)·지정상품 확인.');
+  return out;
 }

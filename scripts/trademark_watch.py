@@ -325,18 +325,35 @@ def main():
     if private_store.late_scheduled_duplicate(previous, now) or private_store.recent_duplicate(previous, now):
         return
     only = retry_targets(cfg, previous, now)
-    if only is not None and not only:
+    prev_eu = (previous or {}).get("eu") if isinstance(previous, dict) else None
+    eu_cid, eu_sec = os.environ.get("EUIPO_CLIENT_ID", "").strip(), os.environ.get("EUIPO_CLIENT_SECRET", "").strip()
+    # 유럽(EUIPO): 월요일 전체 실행, 평일에는 직전이 완료가 아니면(승인 대기·실패) 그 회사들만 다시
+    eu_due = bool(cfg.get("euipo")) and bool(eu_cid or prev_eu) and (only is None or not (prev_eu and prev_eu.get("status") == "complete"))
+    if only is not None and not only and not eu_due:
         print("::notice title=trademarks::이번 주 정기 조회가 모두 정상 — 평일 재시도할 회사 없음(KIPRIS 호출 0)")
         return
-    if only is not None:
+    if only is not None and only:
         print(f"::notice title=trademarks-retry::평일 재시도 — 실패·대기한 회사만: {', '.join(sorted(only))}")
-    ledger = KiprisAccountLedger(now=now) if key else None
-    try:
-        doc = run(cfg, now=now, previous=previous, key=key, ledger=ledger, only=only,
-                  fetch=ledger.fetcher("trademark", request_xml) if ledger else None)
-    finally:
-        if ledger is not None:
-            ledger.persist()
+    if only is not None and not only:
+        doc = dict(previous)  # 국내(KIPRIS)는 다시 묻지 않고 유럽만
+    else:
+        ledger = KiprisAccountLedger(now=now) if key else None
+        try:
+            doc = run(cfg, now=now, previous=previous, key=key, ledger=ledger, only=only,
+                      fetch=ledger.fetcher("trademark", request_xml) if ledger else None)
+        finally:
+            if ledger is not None:
+                ledger.persist()
+    if eu_due:
+        import requests
+        import euipo_trademarks
+        doc["eu"] = euipo_trademarks.run({**cfg["euipo"], "industries": cfg["industries"]}, prev_eu, now, client_id=eu_cid, secret=eu_sec,
+                                         post=requests.post, get=requests.get, only_unsettled=only is not None)
+        eu = doc["eu"]
+        print(f"::notice title=trademarks-eu::유럽(EUIPO) 상태 {eu['status']} · 정상 {sum(1 for c in eu['checks'] if c['status'] == 'ok')}/{len(eu['checks'])}"
+              f" · 새 출원 {len(eu['fresh'])}{' · ' + eu['blocked'] if eu.get('blocked') else ''}")
+    elif prev_eu:
+        doc["eu"] = prev_eu
     counts = {}
     for c in doc["checks"]:
         counts[c["status"]] = counts.get(c["status"], 0) + 1
