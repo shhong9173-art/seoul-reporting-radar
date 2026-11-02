@@ -108,6 +108,11 @@ class GlobalCollectorBeatTests(unittest.TestCase):
             self.assertTrue(gc.FOREIGN_OK.search(name), name)
         for name in ("BigGo Finance", "TradingView", "Yahoo Finance", "WBRZ", "UA.NEWS", "헤럴드경제"):
             self.assertFalse(gc.FOREIGN_OK.search(name), name)
+        # 11-02 탐침 109: 업계 전문지·통신은 받고, 주가 모음·보도자료 배포는 그대로 뺀다
+        for name in ("Manufacturing Dive", "Data Center Dynamics", "Tire Review Magazine", "Modern Tire Dealer", "GMK Center", "upi", "EC&M"):
+            self.assertTrue(gc.FOREIGN_OK.search(name), name)
+        for name in ("Business Wire", "PR Newswire", "GlobeNewswire", "www.marketscreener.com", "Investing.com", "Stock Titan", "Groupie"):
+            self.assertFalse(gc.FOREIGN_OK.search(name), name)
 
     def test_title_only_google_news_description(self):
         t = "Korea Zinc starts US smelter study - Reuters"
