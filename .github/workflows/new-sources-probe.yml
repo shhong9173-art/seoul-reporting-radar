@@ -27,6 +27,8 @@ jobs:
           DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
           KIPRIS_SERVICE_KEY: ${{ secrets.KIPRIS_SERVICE_KEY }}
+          EUIPO_CLIENT_ID: ${{ secrets.EUIPO_CLIENT_ID }}
+          EUIPO_CLIENT_SECRET: ${{ secrets.EUIPO_CLIENT_SECRET }}
         run: python scripts/probe/award_probe.py
       - run: python scripts/probe/print_part.py 0
       - run: python scripts/probe/print_part.py 1

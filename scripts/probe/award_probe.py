@@ -1,39 +1,51 @@
-"""Probe 96: 나라장터 낙찰정보 서비스(data.go.kr 15129397, /1230000/as/ScsbidInfoService) — 물품 낙찰 목록·개찰결과를 하루 범위로 한 번씩.
-건수·응답 코드·필드 이름만 남긴다(응답 원문·업체명은 남기지 않음)."""
-import json
+"""Probe 97: EUIPO 상표 검색 API — (1) 공개 클라이언트 꾸러미(euipo-tm-client)에서 운영·시험 주소 확인, (2) 공유 비밀(EUIPO_CLIENT_ID/SECRET)이
+들어갔는지(길이만), (3) 운영 토큰 발급 응답 코드만. 키·토큰 값은 남기지 않는다."""
+import glob
 import os
 import re
+import subprocess
+import tarfile
+import zipfile
 
 import requests
 
-KEY = (os.environ.get("G2B_API_KEY") or os.environ.get("CUSTOMS_API_KEY") or "").strip()
-H = {"User-Agent": "newsroom-official-research/1.0 (github.com/shhong9173-art/seoul-reporting-radar)"}
-BASE = "https://apis.data.go.kr/1230000/as/ScsbidInfoService"
-out = [f"key length {len(KEY)}"]
-for op in ("getScsbidListSttusThng", "getOpengResultListInfoThng"):
-    params = {"serviceKey": KEY, "numOfRows": "5", "pageNo": "1", "inqryDiv": "1", "inqryBgnDt": "202610300000", "inqryEndDt": "202610302359", "type": "json"}
+out = []
+CID = os.environ.get("EUIPO_CLIENT_ID", "").strip()
+SEC = os.environ.get("EUIPO_CLIENT_SECRET", "").strip()
+out.append(f"secrets: id length {len(CID)} · secret length {len(SEC)}")
+d = "/tmp/euipo_pkg"
+os.makedirs(d, exist_ok=True)
+r = subprocess.run(["python", "-m", "pip", "download", "--no-deps", "euipo-tm-client", "-d", d], capture_output=True, text=True)
+out.append("pip " + ("ok" if r.returncode == 0 else r.stderr[-200:]))
+for f in glob.glob(d + "/*"):
+    if f.endswith(".whl"):
+        zipfile.ZipFile(f).extractall(d + "/x")
+    elif f.endswith(".tar.gz"):
+        tarfile.open(f).extractall(d + "/x")
+urls = set()
+for f in glob.glob(d + "/x/**/*.py", recursive=True):
+    t = open(f, encoding="utf-8", errors="replace").read()
+    urls.update(re.findall(r"https://[A-Za-z0-9.\-/_{}]+", t))
+    for m in re.finditer(r"(token|scope|grant_type|X-IBM|headers)[^\n]{0,120}", t):
+        out.append("  ctx " + m.group(0)[:140])
+out.append("urls " + ", ".join(sorted(urls))[:900])
+prod = sorted(u for u in urls if "euipo" in u and "sandbox" not in u)
+tok = [u for u in prod if "token" in u or "auth" in u]
+out.append(f"token candidates {tok[:4]}")
+for u in tok[:2]:
     try:
-        r = requests.get(f"{BASE}/{op}", params=params, headers=H, timeout=40)
-        t = r.text
-        out.append(f"{op} HTTP {r.status_code} ctype {r.headers.get('content-type', '')[:30]} len {len(t)}")
-        try:
-            j = r.json()
-            body = (j.get("response") or {}).get("body") or {}
-            head = (j.get("response") or {}).get("header") or {}
-            items = body.get("items") or []
-            if isinstance(items, dict):
-                items = items.get("item") or []
-            if isinstance(items, dict):
-                items = [items]
-            out.append(f"  code {head.get('resultCode')} {head.get('resultMsg')} total {body.get('totalCount')} items {len(items)}")
-            if items:
-                out.append("  fields " + ", ".join(sorted(items[0].keys()))[:900])
-        except ValueError:
-            out.append("  not JSON: " + re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", t))[:200].replace(KEY, "<KEY>"))
+        rr = requests.post(u, data={"grant_type": "client_credentials", "client_id": CID, "client_secret": SEC, "scope": "uid"}, timeout=40)
+        body = rr.text
+        for v in (CID, SEC):
+            if v:
+                body = body.replace(v, "<X>")
+        ct = rr.headers.get("content-type", "")
+        out.append(f"POST {u} -> HTTP {rr.status_code} " + (f"keys {sorted(rr.json().keys())}" if ct.startswith("application/json") else re.sub(r"\s+", " ", body[:160])))
     except Exception as e:  # noqa: BLE001
-        out.append(f"{op} {type(e).__name__} {str(e)[:80]}")
+        out.append(f"POST {u} {type(e).__name__} {str(e)[:80]}")
 text = "\n".join(out)
-if KEY:
-    text = text.replace(KEY, "<KEY>")
+for v in (CID, SEC):
+    if v:
+        text = text.replace(v, "<X>")
 open("/tmp/probe_out.txt", "w").write(text)
 print(text[:600])
