@@ -72,6 +72,8 @@ CONCEPTS = [
     ("가동·중단", r"가동|중단|셧다운|정지|휴업|멈춰|멈춘|재가동|조업", r"가동 중단|멈춤|재가동|새 배출구|배출구"),
     ("입법·규제", r"법안|입법|개정안|국회|규제|시행령|입법예고", r"법률안|개정안|입법예고|bill|regulation|rule"),
     ("보육·복지", r"어린이집|보육|직장", r"nursery|child ?care|daycare|어린이집"),
+    # 굴뚝 배출허용기준 초과(실시간 측정값) ↔ 대기오염·배출 기사
+    ("대기 배출", r"배출|대기오염|오염물질|미세먼지|질소산화물|황산화물|굴뚝|TMS", r"배출허용기준|대기 배출|질소산화물|황산화물"),
     ("가격", r"가격|값|인상|인하", r"MSRP|price|\$\s?\d|가격"),
     ("배터리", r"배터리|셀|전지", r"battery|cell|배터리"),
     # 레이더 쪽은 차량 항목(EPA 연비 인증·VIN 새 모델명·국내 연비 신고)의 낱말만: 맨 'EPA'·'range'는 EPA 규제 의견서·영문 공시에도 나온다
@@ -294,10 +296,18 @@ def _workforce(d, add):
         add(mem("kr-workforce", e.get("id"), [e.get("company")], f"{e.get('kind')} {e.get('text')} {words}", e.get("detectedAt"), None))
 
 
+STACK_OPS = ("가동 중단", "재가동", "멈춤", "새 배출구", "새 사업장", "빠짐", "목록 보강")
+
+
 def _stacks(d, add):
-    # 굴뚝 측정 가동 신호(사업장 가동 중단·배출구 멈춤·새 배출구·재가동)
+    # 굴뚝 측정 가동 신호(사업장 가동 중단·배출구 멈춤·새 배출구·재가동)는 '공장 가동' 사건, 배출허용기준 초과는 '대기 배출' 사건.
+    # 사업장 이름의 '공장'(여수1공장·포항1공장)은 사건 낱말이 아니다 — 11-02 철강금속신문 '[단독] 포스코 포항 2열연, 가열로 한 기 더'가
+    # 포스코 포항제철소 질소산화물 초과 측정값과 '공장·생산·포항'으로 묶였다.
     for e in d.get("events") or []:
-        add(mem("kr-stacks", e.get("id"), [e.get("company")], f"{e.get('kind')} {e.get('text')} 공장 가동", e.get("detectedAt"), None))
+        kind = str(e.get("kind") or "")
+        text = str(e.get("text") or "").replace("공장", "사업장")
+        tail = " 공장 가동" if any(k in kind for k in STACK_OPS) else " 대기 배출"
+        add(mem("kr-stacks", e.get("id"), [e.get("company")], f"{kind} {text}{tail}", e.get("detectedAt"), None))
 
 
 def _screen(d, add):
