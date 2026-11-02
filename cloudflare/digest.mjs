@@ -444,6 +444,14 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
     push(named ? 'B' : 'C', W['kr-signals'], { kind: `${x.ministry} 발표`, id: x.id, date: x.date, company: (x.companies ?? []).join('·') || x.ministry,
       fact: `${x.ministry} 보도자료: ${x.title}`, url: x.url, check: named ? hint(x.companies[0], [x.ministry.replace(/부$/, '')]) : undefined });
   }
+  // 나라장터 낙찰: 출입처가 낙찰자이고 10억원 이상이면 B(낙찰 ≠ 계약), 그 밖(관용차 등 소액·관련 기업)은 C
+  for (const x of ks?.g2bAwards ?? []) {
+    if (!(all || String(x.date ?? '') >= cutDay)) continue;
+    const eokW = (v) => (v ? `약 ${Math.round(v / 1e8).toLocaleString('en-US')}억원` : '금액 미기재');
+    push(x.big ? 'B' : 'C', W['kr-signals'], { kind: `나라장터 낙찰(${x.kind})`, id: x.id, date: x.date, company: [...(x.companies ?? []), ...(x.related ?? [])].join('·'),
+      fact: `나라장터 ${x.kind} 낙찰: ${x.winner} · 「${x.title}」 · ${eokW(x.amount)} · 수요기관 ${x.buyer} · 공고 ${x.noticeNo} — 낙찰은 계약 체결이 아님`,
+      check: x.big ? hint((x.companies ?? [])[0], ['수주', '납품'].filter(Boolean)) : undefined });
+  }
   // 시·도 보도자료(울산·충남): 제목에 출입처 이름이면 B(지자체 발표 — 투자 규모는 회사 확인 전 지자체 주장), 투자·위기+업종 낱말만이면 C
   for (const x of ks?.province ?? []) {
     if (!(all || String(x.date ?? '') >= cutDay)) continue;

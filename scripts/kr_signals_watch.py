@@ -9,6 +9,8 @@
   정책브리핑 RSS·API가 끊겨 부처 게시판을 직접 읽는다. 이 구역 첫 실행은 기준선(신규 표시 없음).
 - 기후에너지환경부·국토교통부·관세청·조달청 보도자료(정책브리핑 목록을 부처 코드로 거름, 두 쪽씩): 제목에 출입처 이름이나 부처별 업종 낱말이 있는 것.
   제목·날짜·부처·주소만 남긴다(정책브리핑이 7-1 RSS를 권리 보호로 끊음 — 요약·본문은 남기지 않음).
+- 나라장터 낙찰(조달청 낙찰정보 서비스, G2B_API_KEY 또는 CUSTOMS_API_KEY): 최근 3일 물품·공사·용역·외자 낙찰 중 낙찰자 칸에 출입처 법인명이 있는 것.
+  10억원 이상이면 큰 낙찰. 낙찰은 계약 체결이 아니다.
 - 시·도 보도자료(울산광역시 세 쪽·충청남도 30줄·전남광주통합특별시 임시 누리집 30줄씩 두 쪽): 제목에 출입처 이름, 또는 투자협약·증설·산업위기 낱말과 출입 업종 낱말이 함께 있는 것.
   러너에 따라 접속이 막히는 날이 있어 실패는 미확인(이전 줄 유지).
 - 원자재 가격(KOMIS 광물자원가격, 열쇠 없음): 설정한 광종·가격 기준(LME CASH 등)의 일별 가격·LME 재고.
@@ -809,9 +811,92 @@ def province(cfg, now, previous, http):
                    "read": sorted(n for n in seen_before | read_ok if n), **({"error": "; ".join(errs)} if errs else {})}
 
 
+# ---------- 나라장터 낙찰(출입처가 낙찰자) ----------
+# 조달청 낙찰정보 서비스. 낙찰자 칸에 출입처 법인명이 있는 줄만 남긴다(공정위 이름표·이름 규칙 — '세아화학'·'씨엘에스푸드'는 안 걸림).
+# 낙찰은 계약 체결이 아니고 한전 자체 조달·수의계약은 없다. 사업자번호(공개 법인 번호)는 같은 이름 다른 회사 확인용으로 남긴다.
+
+G2B_AWARD = "https://apis.data.go.kr/1230000/as/ScsbidInfoService"
+G2B_ROWS = 999
+G2B_MAX_PAGES = 4
+G2B_KEEP_DAYS = 60
+
+
+def _won(v):
+    try:
+        return int(float(str(v).replace(",", "")))
+    except (TypeError, ValueError):
+        return None
+
+
+def g2b_awards(cfg, key, now, previous, http):
+    gc = cfg.get("g2bAwards") or {}
+    had = isinstance((previous or {}).get("g2bAwards"), list)  # 이 구역 첫 실행은 기준선
+    prev = {x["id"]: x for x in (previous or {}).get("g2bAwards", []) if isinstance(x, dict) and x.get("id")}
+    if not key:
+        return list(prev.values()), {"source": "나라장터 낙찰", "status": "unset", "error": "G2B_API_KEY·CUSTOMS_API_KEY 미설정"}
+    stamp = now.isoformat(timespec="seconds")
+    patterns = company_patterns(cfg)
+    start = (now - dt.timedelta(days=int(gc.get("days", 3)))).strftime("%Y%m%d0000")
+    end = now.strftime("%Y%m%d%H%M")
+    big = int(gc.get("bigWon", 1_000_000_000))
+    kept, errs, read, found = dict(prev), [], 0, set()
+    for kind, op in (gc.get("ops") or {}).items():
+        got, total = [], None
+        for page in range(1, G2B_MAX_PAGES + 1):
+            r, err = http.call("GET", f"{G2B_AWARD}/{op}", params={"serviceKey": key, "numOfRows": G2B_ROWS, "pageNo": page, "inqryDiv": "1",
+                                                                  "inqryBgnDt": start, "inqryEndDt": end, "type": "json"}, timeout=60)
+            if err:
+                errs.append(f"{kind} {err}")
+                break
+            try:
+                j = r.json()
+            except ValueError:
+                errs.append(f"{kind} 응답 형식(JSON 아님)")
+                break
+            head = (j.get("response") or {}).get("header") or {}
+            body = (j.get("response") or {}).get("body") or {}
+            if str(head.get("resultCode")) not in ("00", "0"):
+                errs.append(f"{kind} 결과코드 {head.get('resultCode')}")
+                break
+            items = body.get("items") or []
+            if isinstance(items, dict):
+                items = items.get("item") or []
+            if isinstance(items, dict):
+                items = [items]
+            total = int(body.get("totalCount") or 0)
+            got += items
+            if len(got) >= total or not items:
+                break
+        else:
+            if total is not None and len(got) < total:
+                errs.append(f"{kind} {total}건 중 {len(got)}건만 읽음(쪽 한도)")
+        read += len(got)
+        for x in got:
+            winner = _norm(x.get("bidwinnrNm"))
+            names = sorted({c for c, rx, rel in patterns if not rel and rx.search(winner)})
+            related = sorted({c for c, rx, rel in patterns if rel and rx.search(winner)} - set(names))
+            if not (names or related):
+                continue
+            iid = "g2baward:" + "-".join(str(x.get(k) or "") for k in ("bidNtceNo", "bidNtceOrd", "bidClsfcNo", "rbidNo"))
+            amount = _won(x.get("sucsfbidAmt"))
+            found.add(iid)
+            old = prev.get(iid)
+            kept[iid] = {"id": iid, "kind": kind, "noticeNo": f"{x.get('bidNtceNo')}-{x.get('bidNtceOrd')}", "title": _norm(x.get("bidNtceNm"))[:160],
+                         "winner": winner, "bizno": str(x.get("bidwinnrBizno") or ""), "companies": names, "related": related,
+                         "amount": amount, "rate": str(x.get("sucsfbidRate") or ""), "buyer": _norm(x.get("dminsttNm")),
+                         "date": str(x.get("fnlSucsfDate") or x.get("rlOpengDt") or "")[:10], "bidders": str(x.get("prtcptCnum") or ""),
+                         "big": bool(names and amount and amount >= big),
+                         "firstSeen": (old or {}).get("firstSeen") or stamp, "isNew": had and old is None}
+    keep_from = (now.date() - dt.timedelta(days=G2B_KEEP_DAYS)).isoformat()
+    items = sorted((x for x in kept.values() if str(x.get("date") or "") >= keep_from), key=lambda x: (x.get("date") or "", x["id"]), reverse=True)
+    status = "failed" if errs and not read else ("partial" if errs else "ok")
+    return items, {"source": "나라장터 낙찰", "status": status, "read": read, "kept": len(found),
+                   **({"error": "; ".join(errs)} if errs else {})}
+
+
 # ---------- run ----------
 
-def run(cfg, *, now, previous=None, http=None, kepco_key=""):
+def run(cfg, *, now, previous=None, http=None, kepco_key="", g2b_key=""):
     http = http or Http()
     stamp = now.isoformat(timespec="seconds")
     decisions, seen, fcheck = ftc(cfg, now, previous, http)
@@ -821,7 +906,8 @@ def run(cfg, *, now, previous=None, http=None, kepco_key=""):
     press, pcheck = ftc_press(cfg, now, previous, http)
     briefs, bcheck = briefing(cfg, now, previous, http)
     provs, rcheck = province(cfg, now, previous, http)
-    checks = [fcheck, kcheck, mcheck, pcheck, bcheck, rcheck, *pchecks]
+    awards, acheck = g2b_awards(cfg, g2b_key, now, previous, http)
+    checks = [fcheck, kcheck, mcheck, pcheck, bcheck, rcheck, acheck, *pchecks]
     keep_from = (now - dt.timedelta(days=EVENT_KEEP_DAYS)).isoformat()
     events = [e for e in (previous or {}).get("events", []) if isinstance(e, dict) and e.get("detectedAt", "") >= keep_from]
     have = {e.get("id") for e in events}
@@ -831,7 +917,7 @@ def run(cfg, *, now, previous=None, http=None, kepco_key=""):
     return {"schema": SCHEMA, "generatedAt": stamp, "status": "partial" if failed else "complete", "checks": checks,
             "baselineSince": (previous or {}).get("baselineSince") or stamp,
             "decisions": decisions, "ftcSeen": seen, "kepco": bids, "motir": releases, "ftcPress": press, "briefing": briefs, "briefingRead": bcheck.get("read", []),
-            "province": provs, "provinceRead": rcheck.get("read", []), "prices": prices, "events": events[:400],
+            "province": provs, "provinceRead": rcheck.get("read", []), "g2bAwards": awards, "prices": prices, "events": events[:400],
             "rules": ["공정위 의결서는 의결일과 파일 등록(파일번호 앞자리)이 다르다. 보도자료는 보통 의결 전후에 먼저 나오니 news_check로 선행 보도를 본다.",
                       "'발주처'는 출입처가 입찰을 낸 쪽(피해·구매자)이라는 뜻이다. 제재 대상(피심인)과 섞어 쓰지 않는다.",
                       "주문 발췌의 금액은 의결서에 적힌 그대로다. 합계·감경 전후는 원문에서 확인한다.",
@@ -839,6 +925,7 @@ def run(cfg, *, now, previous=None, http=None, kepco_key=""):
                       "공정위 보도·참고자료는 공개 발표다(의결서보다 먼저 나온다). 설명자료는 기사에 대한 공정위 해명이다. 단독 근거가 아니다.",
                       "정책브리핑 부처 보도자료(기후에너지환경부·국토교통부·관세청·조달청)도 공개 발표다. 제목만 남긴다 — 내용·수치는 원문에서 확인한다.",
                       "시·도 보도자료(울산·충남·전남광주)는 지자체 발표다. 투자 규모·일정은 회사 확인 전 지자체 주장으로 쓴다.",
+                      "나라장터 낙찰은 계약 체결이 아니다. 낙찰자 이름이 같아도 사업자번호로 같은 회사인지 확인한다. 한전 자체 조달·수의계약은 이 목록에 없다.",
                       "산업통상부 보도자료는 공개 발표다. 단독 근거가 아니라 확인할 공식 변화이며, 첨부 파일명의 엠바고(조간·석간)를 지킨다.",
                       "원자재 가격은 KOMIS 게시값(같은 가격 기준·단위)이다. '이후 최고'는 조회 범위 안의 사실이고, 역대 최고가 아니다.",
                       "조회 실패는 0건이 아니라 미확인."],
@@ -859,7 +946,8 @@ def main():
             print(f"::warning title=kr-signals-state::이전 상태 조회 실패({e}) — 새 의결서 판단은 다음 실행부터")
     if private_store.late_scheduled_duplicate(previous, now):
         return
-    doc = run(cfg, now=now, previous=previous, kepco_key=os.environ.get("KEPCO_API_KEY", "").strip())
+    doc = run(cfg, now=now, previous=previous, kepco_key=os.environ.get("KEPCO_API_KEY", "").strip(),
+              g2b_key=(os.environ.get("G2B_API_KEY") or os.environ.get("CUSTOMS_API_KEY") or "").strip())
     f = next(c for c in doc["checks"] if c["source"] == "공정위 의결서")
     k = next(c for c in doc["checks"] if c["source"] == "한전 전자입찰")
     p = [c for c in doc["checks"] if c["source"].startswith("KOMIS ")]
@@ -867,10 +955,11 @@ def main():
     fp = next(c for c in doc["checks"] if c["source"] == "공정위 보도자료")
     bp = next(c for c in doc["checks"] if c["source"] == "정책브리핑 부처 보도자료")
     rp = next(c for c in doc["checks"] if c["source"] == "시·도 보도자료")
+    ga = next(c for c in doc["checks"] if c["source"] == "나라장터 낙찰")
     new_ev = sum(1 for e in doc["events"] if e["detectedAt"] == doc["generatedAt"])
     print(f"::notice title=kr-signals::공정위 의결서 {f['status']} 목록 {f.get('listed', 0)}건·의결 {f.get('decisions', 0)}건·전문 {f.get('read', 0)}건 읽음·"
           f"대기 {f.get('pending', 0)}·출입처 관련 {f.get('kept', 0)}건 · 한전 {k['status']} {k.get('kept', 0)}/{k.get('returned', 0)} · "
-          f"산업부 {m['status']} {m.get('kept', 0)}/{m.get('listed', 0)} · 공정위 보도 {fp['status']} {fp.get('kept', 0)}/{fp.get('listed', 0)} · 부처 보도 {bp['status']} {bp.get('kept', 0)}/{bp.get('listed', 0)} · 시·도 보도 {rp['status']} {rp.get('kept', 0)}/{rp.get('listed', 0)} · 원자재 {sum(1 for c in p if c['status'] == 'ok')}/{len(p)} · 새 이벤트 {new_ev}")
+          f"산업부 {m['status']} {m.get('kept', 0)}/{m.get('listed', 0)} · 공정위 보도 {fp['status']} {fp.get('kept', 0)}/{fp.get('listed', 0)} · 부처 보도 {bp['status']} {bp.get('kept', 0)}/{bp.get('listed', 0)} · 시·도 보도 {rp['status']} {rp.get('kept', 0)}/{rp.get('listed', 0)} · 나라장터 낙찰 {ga['status']} {ga.get('kept', 0)}/{ga.get('read', 0)} · 원자재 {sum(1 for c in p if c['status'] == 'ok')}/{len(p)} · 새 이벤트 {new_ev}")
     errors = sorted({c.get("error") for c in doc["checks"] if c.get("error")})
     if errors:
         print(f"::notice title=kr-signals-errors::{', '.join(errors)[:400]}")

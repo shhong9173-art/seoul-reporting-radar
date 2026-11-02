@@ -998,7 +998,7 @@ export async function krSignals(ctx, args) {
   const doc = await readFeed(ctx, 'kr-signals');
   if (!doc) return energy.length ? textResult([missing('공정위 의결서·한전 입찰·원자재 가격', '평일 08:30·15:20').content[0].text, ...energy].join('\n'), true) : missing('공정위 의결서·한전 입찰·원자재 가격', '평일 08:30·15:20');
   if (doc.broken) return textResult(['저장된 국내 신호 결과 형식 오류 — 미확인.', ...energy].join('\n'), true);
-  const section = ['ftc', 'ftc_press', 'kepco', 'motir', 'briefing', 'province', 'price'].includes(args.section) ? args.section : null;
+  const section = ['ftc', 'ftc_press', 'kepco', 'g2b', 'motir', 'briefing', 'province', 'price'].includes(args.section) ? args.section : null;
   const q = String(args.company ?? '').trim();
   const days = clampInt(args.days, 1, 365, 60);
   const limit = clampInt(args.limit, 1, 60, 15);
@@ -1090,6 +1090,23 @@ export async function krSignals(ctx, args) {
       }
       if (!rows.length) out.push('없음');
       out.push('   검증 상태: 정부 공개 발표(제목만 저장). 내용·수치·엠바고는 원문에서 확인, 같은 날 기사는 news_check');
+    }
+  }
+  if (!section || section === 'g2b') {
+    const ga = checks.find((c) => c.source === '나라장터 낙찰');
+    if (!Array.isArray(doc.g2bAwards)) out.push('\n[나라장터 낙찰 · 출입처가 낙찰자] 아직 수집 전 — 미확인(0건 아님)');
+    else if (ga?.status === 'unset') out.push('\n[나라장터 낙찰] 미설정 — G2B_API_KEY 또는 CUSTOMS_API_KEY 필요. 0건이 아니라 미확인.');
+    else {
+      const from = new Date(ctx.now.getTime() + 9 * 3600000 - Math.min(days, 60) * 86400000).toISOString().slice(0, 10);
+      const rows = (doc.g2bAwards ?? []).filter((x) => String(x.date ?? '') >= from && matches(q, x.title, x.winner, x.buyer, ...(x.companies ?? []), ...(x.related ?? [])))
+        .sort((a, b) => (b.amount ?? 0) - (a.amount ?? 0));
+      out.push(`\n[나라장터 낙찰 · 출입처가 낙찰자 · 낙찰일 최근 ${Math.min(days, 60)}일 · 금액 큰 순] ${rows.length}건${ga?.error ? ` · 미확인(0건 아님): ${ga.error}` : ''}`);
+      for (const x of rows.slice(0, limit)) {
+        out.push(`- ${x.isNew ? '[신규] ' : ''}${x.date} · ${x.kind} · ${x.winner}${(x.related ?? []).length && !(x.companies ?? []).length ? '(관련 기업)' : ''}${x.big ? ' · 큰 낙찰' : ''} · ${eok(x.amount)}${x.rate ? ` · 낙찰률 ${x.rate}%` : ''}`);
+        out.push(`   공고: 「${x.title}」 · 수요기관 ${x.buyer} · 공고번호 ${x.noticeNo}${x.bidders ? ` · 참가 ${x.bidders}곳` : ''} · 사업자번호 ${x.bizno || '?'} (원문: 나라장터에서 공고번호로)`);
+      }
+      if (!rows.length) out.push('없음');
+      out.push('   검증 상태: 조달청 낙찰정보(자동). 낙찰은 계약 체결이 아니다 — 계약·납품은 나라장터 계약정보·회사로 확인. 한전 자체 조달·수의계약은 없음');
     }
   }
   if (!section || section === 'province') {

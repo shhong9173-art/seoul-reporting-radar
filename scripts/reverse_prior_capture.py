@@ -184,6 +184,8 @@ def _signals(d, add):
         add(mem("kr-signals", x.get("id"), x.get("companies") or [], f"공정위 {x.get('title')}", x.get("date"), x.get("url")))
     for x in d.get("briefing") or []:
         add(mem("kr-signals", x.get("id"), x.get("companies") or [], f"{x.get('ministry')} {x.get('title')}", x.get("date"), x.get("url")))
+    for x in d.get("g2bAwards") or []:
+        add(mem("kr-signals", x.get("id"), x.get("companies") or [], f"나라장터 낙찰 {x.get('title')}", x.get("date"), None))
     for x in d.get("province") or []:
         add(mem("kr-signals", x.get("id"), x.get("companies") or [], f"{x.get('site')} {x.get('title')}", x.get("date"), x.get("url")))
 

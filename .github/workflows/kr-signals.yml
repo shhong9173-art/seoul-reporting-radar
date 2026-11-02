@@ -1,5 +1,5 @@
 name: KR Signals Watch
-# 공정위 의결서(출입처 이름)·공정위 보도자료·한전 전자입찰(전력기기·전선)·산업부·부처·시도 보도자료·원자재 가격(KOMIS). 평일 08:30·15:20 KST(Cloudflare 요청, GitHub 예약은 예비).
+# 공정위 의결서(출입처 이름)·공정위 보도자료·한전 전자입찰(전력기기·전선)·나라장터 낙찰·산업부·부처·시도 보도자료·원자재 가격(KOMIS). 평일 08:30·15:20 KST(Cloudflare 요청, GitHub 예약은 예비).
 # 결과는 기자 전용 저장소로만. 공개 로그는 건수만. 공정위 전문은 실행당 최대 40건, 목록은 최대 30쪽.
 on:
   push:
@@ -37,4 +37,6 @@ jobs:
         env:
           MCP_ACCESS_TOKEN: ${{ secrets.MCP_ACCESS_TOKEN }}
           KEPCO_API_KEY: ${{ secrets.KEPCO_API_KEY }}
+          G2B_API_KEY: ${{ secrets.G2B_API_KEY }}
+          CUSTOMS_API_KEY: ${{ secrets.CUSTOMS_API_KEY }}
         run: python scripts/kr_signals_watch.py
