@@ -1,4 +1,4 @@
-"""probe 100: 바레인 입찰위원회 월간 낙찰 보고서(스캔 이미지 PDF) OCR 가능성 — 쪽수·쪽당 OCR 시간·출입처 영문 이름 일치 줄."""
+"""probe 101: 바레인 입찰위원회 월간 낙찰 보고서(스캔 이미지 PDF) OCR 가능성 — 쪽수·쪽당 OCR 시간·출입처 영문 이름 일치 줄."""
 import io, os, re, subprocess, sys, tempfile, time
 import requests
 sys.path.insert(0, "scripts")
@@ -36,10 +36,24 @@ for rep in reps[:2]:
             text.append(out)
         p("ocr pages", len(text), f"{time.time()-t:.0f}s", "chars", sum(map(len, text)))
         full = "\n".join(text)
-        kor = [ln.strip() for ln in full.splitlines() if re.search(r"korea", ln, re.I)]
-        p("korea lines", len(kor))
-        for ln in kor[:12]:
-            p("  K|", ln[:200])
+        lines = [ln.strip() for ln in full.splitlines() if ln.strip()]
+        rx = re.compile(r"korea|hyundai|hyosung|iljin|ls\s*cable|ls\s*electric|taihan|posco|kepco|doosan|samsung|daewoo|\bgs\b|hanwha|cable works", re.I)
+        hits = [i for i, ln in enumerate(lines) if rx.search(ln)]
+        p("hint lines", len(hits))
+        for i in hits[:10]:
+            p("  ctx|", " // ".join(lines[max(0, i - 3): i + 4])[:700])
+        # 300dpi on the page holding the first korea hit (better OCR?)
+        kpage = next((n for n, tx in enumerate(text) if re.search(r"korea", tx, re.I)), None)
+        if kpage is not None:
+            subprocess.run(["pdftoppm", "-r", "300", "-gray", "-png", "-f", str(kpage + 1), "-l", str(kpage + 1), pdf, os.path.join(d, "hi")], check=True)
+            hi = sorted(f for f in os.listdir(d) if f.startswith("hi"))[0]
+            for psm in ("6", "4", "11"):
+                out = subprocess.run(["tesseract", os.path.join(d, hi), "-", "--psm", psm], capture_output=True, text=True).stdout
+                ls = [x.strip() for x in out.splitlines() if x.strip()]
+                ks = [j for j, x in enumerate(ls) if re.search(r"korea|cable", x, re.I)]
+                p(f"  300dpi psm{psm} korea/cable lines", len(ks))
+                for j in ks[:4]:
+                    p("   ", " // ".join(ls[max(0, j - 4): j + 5])[:800])
         if beat_of:
             hits = [(beat_of(ln), ln.strip()) for ln in full.splitlines() if beat_of(ln)]
             p("beat lines", len(hits))
