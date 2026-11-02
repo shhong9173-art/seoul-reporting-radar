@@ -1,37 +1,53 @@
-"""probe 110: 건축인허가 기본개요의 주용도가 빈 허가(고려아연 8공장 부지 울주 온산읍 원산리 920, pk 1000000000000000989011)를
-동별개요(getApDongOulnInfo)·층별개요(getApFlrOulnInfo)에서 찾을 수 있는지. 칸 이름·값(용도·면적)만."""
-import json, os, re
+"""probe 111: 경쟁지 [단독] 색인 — 구글 뉴스 RSS(지금 쓰는 것)와 네이버 뉴스 API가 최근 4일 출입처 [단독] 제목을 각각 몇 건 잡는지(매체·건수만)."""
+import collections, os, re, urllib.parse, xml.etree.ElementTree as ET
+from datetime import datetime, timedelta, timezone
+from email.utils import parsedate_to_datetime
 import requests
 OUT = []
 def p(*a):
     OUT.append(" ".join(str(x) for x in a))
-key = (os.environ.get("CUSTOMS_API_KEY") or os.environ.get("KR_FUEL_API_KEY") or "").strip()
-r = requests.get("https://apis.data.go.kr/1741000/StanReginCd/getStanReginCdList",
-                 params={"serviceKey": key, "locatadd_nm": "울산광역시 울주군 온산읍 원산리", "type": "json", "numOfRows": 10, "pageNo": 1}, timeout=40)
-rows = []
-try:
-    body = r.json()
-    for part in body.get("StanReginCd", []):
-        rows += part.get("row", []) if isinstance(part, dict) else []
-except Exception as e:
-    p("region parse", type(e).__name__, r.text[:200])
-code = next((x["region_cd"] for x in rows if str(x.get("locatadd_nm", "")).strip() == "울산광역시 울주군 온산읍 원산리"), None)
-p("region", code)
-if code:
-    base = {"sigunguCd": code[:5], "bjdongCd": code[5:10], "platGbCd": "0", "bun": "0920", "ji": "0000", "numOfRows": 50, "pageNo": 1, "_type": "json"}
-    for op in ("getApBasisOulnInfo", "getApDongOulnInfo", "getApFlrOulnInfo", "getApTitleInfo" ):
+KST = timezone(timedelta(hours=9))
+now = datetime.now(KST)
+begin = (now - timedelta(days=3)).date()
+SCOOP = re.compile(r"\[\s*단독\s*\]|<단독>|【단독】")
+companies = ["현대차", "기아", "현대모비스", "포스코", "현대제철", "고려아연", "HD현대일렉트릭", "LS일렉트릭", "LS전선", "대한전선", "두산에너빌리티",
+             "한화솔루션", "LG화학", "롯데케미칼", "SK이노베이션", "에쓰오일", "금호석유화학", "한국타이어", "KG모빌리티", "GS칼텍스"]
+cid, sec = os.environ.get("NAVER_CLIENT_ID", ""), os.environ.get("NAVER_CLIENT_SECRET", "")
+def clean(t):
+    return re.sub(r"<[^>]+>", "", t or "").replace("&quot;", '"').replace("&amp;", "&").strip()
+naver = {}
+for c in companies:
+    r = requests.get("https://openapi.naver.com/v1/search/news.json", params={"query": f"단독 {c}", "display": 100, "sort": "date"},
+                     headers={"X-Naver-Client-Id": cid, "X-Naver-Client-Secret": sec}, timeout=20)
+    if r.status_code != 200:
+        p("naver", c, "HTTP", r.status_code); continue
+    for it in r.json().get("items", []):
+        t = clean(it.get("title"))
         try:
-            rr = requests.get(f"https://apis.data.go.kr/1613000/ArchPmsHubService/{op}", params={"serviceKey": key, **base}, timeout=40)
-            j = rr.json()
-            items = (((j.get("response") or {}).get("body") or {}).get("items") or {})
-            items = items.get("item") if isinstance(items, dict) else items
-            items = items if isinstance(items, list) else ([items] if items else [])
-            p(f"== {op} HTTP {rr.status_code} items {len(items)}")
-            for it in items[:6]:
-                small = {k: v for k, v in it.items() if re.search(r"Pk|Purps|Area|Nm|Day|dong|flr", k, re.I) and v not in (None, "", " ")}
-                p("   ", json.dumps(small, ensure_ascii=False)[:500])
-        except Exception as e:
-            p(f"== {op} ERR", type(e).__name__, str(e)[:120], rr.text[:160] if 'rr' in dir() else "")
+            d = parsedate_to_datetime(it.get("pubDate")).astimezone(KST).date()
+        except Exception:
+            continue
+        if d >= begin and SCOOP.search(t) and c.replace("현대차", "현대") in t.replace("현대자동차", "현대"):
+            naver[re.sub(r"\s+", "", t)] = (t, urllib.parse.urlsplit(it.get("originallink") or it.get("link")).hostname, str(d))
+google = {}
+beats = ["현대차 OR 기아 OR KG모빌리티", "현대모비스 OR 한국타이어", "포스코 OR 현대제철 OR 고려아연", "HD현대일렉트릭 OR LS일렉트릭 OR 대한전선 OR LS전선 OR 두산에너빌리티",
+         "한화솔루션 OR GS칼텍스", "LG화학 OR 롯데케미칼 OR 금호석유화학 OR 에쓰오일 OR SK이노베이션"]
+for q0 in beats:
+    q = f"[단독] ({q0}) after:{begin} before:{now.date() + timedelta(days=1)}"
+    r = requests.get("https://news.google.com/rss/search?q=" + urllib.parse.quote(q) + "&hl=ko&gl=KR&ceid=KR:ko", timeout=20)
+    root = ET.fromstring(r.content)
+    for it in root.findall("./channel/item"):
+        t = (it.findtext("title") or "").strip()
+        src = it.find("source")
+        s = (src.text or "") if src is not None else ""
+        t2 = re.sub(r"\s+-\s+[^-]+$", "", t)
+        if SCOOP.search(t2):
+            google[re.sub(r"\s+", "", t2)] = (t2, s)
+only_naver = [v for k, v in naver.items() if not any(k[:25] in g or g[:25] in k for g in google)]
+p(f"최근 4일 출입처 [단독] 제목: 네이버 {len(naver)} · 구글 {len(google)} · 네이버에만 {len(only_naver)}")
+p("네이버에만 매체:", collections.Counter(v[1] for v in only_naver).most_common(15))
+for t, h, d in only_naver[:12]:
+    p("  N|", d, h, t[:90])
 text = "\n".join(OUT)
 open("/tmp/probe_out.txt", "w").write(text)
 print(text[:600])
