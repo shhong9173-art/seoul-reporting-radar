@@ -38,6 +38,9 @@ export const SLOTS = [
   { at: '07:20', workflow: 'kr-insolvency.yml' },
   { at: '07:30', workflow: 'kr-stats.yml' },
   { at: '07:40', workflow: 'trade-remedy.yml' },
+  // DART 출입처 공시(목록·원문): GitHub 예약 07:45가 11-02에 10:50에야 돌았고 OpenDART 시간 초과로 실패했다. 정시 07:45·17:45,
+  // 재시도 10:45·20:45(직전 결과가 4시간 안이면 워크플로 첫 단계에서 건너뜀). 주말에도 공시가 올라온다(정정·자회사).
+  { at: '07:40', workflow: 'dart-beat-monitor.yml', daily: true },
   { at: '07:50', workflow: 'us-litigation.yml' },
   { at: '07:50', workflow: 'kr-building.yml', days: [1] },
   { at: '08:00', workflow: 'scoop-radar.yml' },
@@ -52,6 +55,7 @@ export const SLOTS = [
   { at: '09:30', workflow: 'g2b-tender-official.yml' },
   // 공장등록·관보·법제처 낮 재시도: 아침 실행이 실패·시간 상한으로 못 읽은 질의가 있을 때만 스크립트가 다시 읽는다(11-02 공장등록 API 아침 시간 초과).
   { at: '13:10', workflow: 'kr-official.yml' },
+  { at: '10:40', workflow: 'dart-beat-monitor.yml', daily: true },
   { at: '15:00', workflow: 'scoop-radar.yml' },
   { at: '15:10', workflow: 'scoop-screen.yml' },
   { at: '15:20', workflow: 'kr-signals.yml' },
@@ -65,10 +69,12 @@ export const SLOTS = [
   { at: '17:20', workflow: 'kr-insolvency.yml' },
   { at: '17:30', workflow: 'overseas-awards.yml' },
   { at: '17:40', workflow: 'assembly-bills.yml' },
+  { at: '17:40', workflow: 'dart-beat-monitor.yml', daily: true },
   { at: '18:00', workflow: 'scoop-radar.yml' },
   { at: '18:10', workflow: 'kr-energy.yml' },
   { at: '18:30', workflow: 'page-watch.yml' },
   { at: '18:50', workflow: 'radar-press-check.yml' },
+  { at: '20:40', workflow: 'dart-beat-monitor.yml', daily: true },
   // 굴뚝 자동측정(3시간 칸, 주말 포함): GitHub 예약('23 */3 * * *')이 10-30~11-01에 4~10시간 간격으로만 돌아 평일 '2번 연속 빠짐'
   // 확인(동국제강 포항·KG스틸 당진·세아제강 창원)이 반나절 늦었다. 늦게 온 GitHub 예약은 스크립트가 100분 간격 규칙으로 건너뛴다.
   ...['00:20', '03:20', '06:20', '09:20', '12:20', '15:20', '18:20', '21:20'].map((at) => ({ at, workflow: 'kr-stacks.yml', daily: true })),

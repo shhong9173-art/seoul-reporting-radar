@@ -73,6 +73,17 @@ def interesting(title):
     return None
 
 
+NETWORK_BAIL=5
+
+
+def safe_error(exc):
+    """오류 문구(로그·저장용). 주소·키는 남기지 않는다: OpenDART 상태 코드·시간 초과·HTTP 코드 정도만."""
+    text=str(getattr(exc,"reason",None) or exc)
+    text=re.sub(r"https?://\S+","<url>",text)
+    text=re.sub(r"crtfc_key=\w+","crtfc_key=<key>",text)
+    return text[:80]
+
+
 def fetch_official_list(key,company,code,start,end,*,get=api_json,max_pages=MAX_PAGES):
     if (not key or company not in TARGETS or not isinstance(code,str)
         or not CODE.fullmatch(code) or not DAY.fullmatch(start)
@@ -246,7 +257,15 @@ def collect(codes,key,*,now=None,previous=None,query=fetch_official_list,
     first_seen=dict(previous.get("firstSeen",{})) if prior_ok else {}
     checks=[]
     rows=[]
+    network_fail=0
     for name in TARGETS:
+        # 11-02 10:51 KST: 48곳이 모두 15초 시간 초과로 12분을 쓰고 끝났다. 앞의 회사들이 연달아 망 오류면 나머지는 묻지 않는다.
+        if network_fail>=NETWORK_BAIL and not any(c["status"]=="checked" for c in checks):
+            checks.append({"company":name,"beat":TARGETS[name],"status":"source_error",
+                           "errorType":"skipped_after_network_failures",
+                           "error":f"앞 {network_fail}곳 연속 망 오류 — 이번 실행은 묻지 않음",
+                           "officialRows":None,"relevantRows":None})
+            continue
         obj=codes.get(name)
         number=obj.get("corp_code") if isinstance(obj,dict) else None
         if not isinstance(number,str) or not CODE.fullmatch(number):
@@ -276,8 +295,9 @@ def collect(codes,key,*,now=None,previous=None,query=fetch_official_list,
                            "officialRows":got.get("totalOfficialFilings"),
                            "relevantRows":len(validated),"pagesRead":got.get("pagesRead")})
         except (ValueError,RuntimeError,URLError,TimeoutError,OSError) as exc:
+            network_fail=network_fail+1 if isinstance(exc,(URLError,TimeoutError,OSError)) else 0
             checks.append({"company":name,"beat":TARGETS[name],"status":"source_error",
-                           "errorType":type(exc).__name__,
+                           "errorType":type(exc).__name__,"error":safe_error(exc),
                            "officialRows":None,"relevantRows":None})
     official_count=len(rows)
     dedup={}
@@ -643,6 +663,12 @@ def main():
     except (OSError,ValueError):previous=None
     result=collect(companies,key,previous=previous,limit=a.detail_limit)
     if result["companiesCodeVerified"]==0:
+        errs={}
+        for c in result.get("sourceChecks",[]):
+            if c.get("status")=="source_error":
+                k=f'{c.get("errorType")}: {c.get("error","")}'
+                errs[k]=errs.get(k,0)+1
+        print("::warning title=dart-beat::OpenDART 응답 없음 — "+"; ".join(f"{k} ×{n}" for k,n in sorted(errs.items(),key=lambda x:-x[1])[:4]))
         raise SystemExit("OpenDART no successful company sources: preserve previous snapshots")
     signals=change_review(result,previous=previous)
     for path,data in ((a.source,result),(a.changes,signals)):
