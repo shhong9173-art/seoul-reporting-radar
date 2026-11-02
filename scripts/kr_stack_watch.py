@@ -570,6 +570,26 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep, clock=time.
             "confirmedScoops": 0}
 
 
+# 실행 간격: '연달아 N번'(멈춤 3번·빠짐 2번)을 실행 수로 세므로, 실행이 몰리면(Cloudflare 예약 요청 뒤 늦게 온 GitHub 예약, 코드 push)
+# 몇 분 만에 '2번 연속 빠짐'이 된다. 직전 실행이 이만큼 안이면 건너뛴다(수동 실행 force는 예외).
+MIN_GAP_MINUTES = 100
+
+
+def too_soon(previous, now, gap=MIN_GAP_MINUTES):
+    """직전 실행이 gap분 안이면 그 경과 분(int), 아니면 None."""
+    stamp = (previous or {}).get("generatedAt") if isinstance(previous, dict) else None
+    if not stamp:
+        return None
+    try:
+        last = dt.datetime.fromisoformat(stamp)
+    except ValueError:
+        return None
+    if last.tzinfo is None:
+        last = last.replace(tzinfo=KST)
+    minutes = (now - last).total_seconds() / 60
+    return int(minutes) if 0 <= minutes < gap else None
+
+
 def main():
     argparse.ArgumentParser(description="출입처 공장 굴뚝 측정(가동 신호) 감시(기자 전용 저장소로)").parse_args()
     import private_store
@@ -585,6 +605,10 @@ def main():
             previous = private_store.get("kr-stacks", token)
         except private_store.StoreError as e:
             print(f"::warning title=kr-stacks-state::이전 상태 조회 실패({e}) — 이번 실행은 기준선")
+    gap = too_soon(previous, now)
+    if gap is not None and not os.environ.get("STACKS_FORCE", "").strip():
+        print(f"::notice title=kr-stacks::직전 실행 {gap}분 전 — 건너뜀(실행 간격 {MIN_GAP_MINUTES}분 이상 유지: '연달아 N번' 판단이 몇 분 만에 차지 않게)")
+        return
     cfg = json.loads(CONFIG.read_text(encoding="utf-8"))
     doc = run(cfg, now=now, previous=previous, key=key)
     new = [e for e in doc["events"] if e["detectedAt"] == doc["generatedAt"]]
