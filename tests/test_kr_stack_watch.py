@@ -132,6 +132,60 @@ class StackTest(unittest.TestCase):
         ev = [e for e in series(10, at=at3)["events"] if e["site"] == "현대제철㈜포항2공장"]
         self.assertEqual([(e["kind"], e["tier"]) for e in ev], [("배출구 멈춤 신호", "B")])
 
+    def test_long_stop_of_small_stacks_is_B_once_and_clears_on_restart(self):
+        # 11-02: 경향 [단독] '포스코 광양 2고로 전면 개수'(10-30) — 광양 129·135번이 10-31부터 멈췄지만 137개 중 2개라 C로만 남았다.
+        # 일상 정비보다 긴 멈춤(사흘 넘게)은 사업장 크기와 상관없이 B 한 번.
+        big = tuple([60.0, 55.0, 50.0] + [20.0] * 57)
+        off = big[:10] + (0.0, 0.0) + big[12:]
+
+        def at(i):
+            return {"pohang2": big if i < 6 else off}
+        longs = lambda d: [e for e in d["events"] if e["kind"] == "배출구 오래 멈춤"]
+        doc = series(30, at=at)  # 멈춘 첫 관측(6번째 실행, T0+18h)부터 마지막 실행까지 71시간 남짓
+        self.assertEqual(longs(doc), [])
+        site = next(x for x in doc["sites"] if x["name"] == "현대제철㈜포항2공장")
+        self.assertEqual(site["stacks"]["11"]["stoppedSince"], (T0 + dt.timedelta(hours=18)).strftime("%Y-%m-%d %H:%M"))
+        doc = series(42, at=at)  # 72시간을 넘긴 뒤 계속 멈춰 있어도(관측 4일치가 밀려나도) 한 번만
+        ev = longs(doc)
+        self.assertEqual([(e["tier"], e["site"]) for e in ev], [("B", "현대제철㈜포항2공장")])
+        self.assertIn("배출구 2개가 사흘 넘게 평소의 10% 아래", ev[0]["text"])
+        self.assertIn("11번(평소 20.0→최근 0.0, 10-31 06:00부터 72시간)", ev[0]["text"])
+        self.assertEqual(dt.datetime.fromisoformat(ev[0]["detectedAt"]), T0 + dt.timedelta(hours=90, minutes=20))
+        # 다시 움직이면 멈춤 시작이 지워지고, 다시 멈추면 새로 센다
+        t = T0 + dt.timedelta(hours=3 * 42)
+        doc = w.run(CFG_SMALL, now=t, previous=doc, key="k", get=Api(world(t, pohang2=big)), sleep=lambda s: None)
+        site = next(x for x in doc["sites"] if x["name"] == "현대제철㈜포항2공장")
+        self.assertNotIn("stoppedSince", site["stacks"]["11"])
+        self.assertNotIn("longStopFor", site["stacks"]["11"])
+
+    def test_a_long_site_stop_stays_stopped_and_is_not_a_false_restart(self):
+        # 관측은 4일치만 쌓인다 — 멈춤이 이틀쯤 이어지면 낮은 값이 평소 값(중앙값)을 끌어내려 '판단 안 함'이 되고,
+        # 멈춤 목록이 줄어 '재가동 신호'가 거짓으로 떴다. 멈추기 전 평소 값을 붙들어 둔다.
+        doc = series(40, at=lambda i: {"pohang2": (0.1, 0.0)} if i >= 6 else {})
+        site = next(x for x in doc["sites"] if x["name"] == "현대제철㈜포항2공장")
+        self.assertEqual(site["stopped"], ["1", "2"])
+        self.assertEqual(site["stacks"]["1"]["usual"], 20.0)
+        kinds = [e["kind"] for e in doc["events"] if e["site"] == "현대제철㈜포항2공장"]
+        self.assertEqual(sorted(kinds), ["배출구 오래 멈춤", "사업장 가동 중단 신호"])
+
+    def test_a_stack_stopped_before_the_usual_value_was_kept_is_recovered(self):
+        # 11-02 11:07 운영: 포스코 광양 129·135번(10-31부터 0)이 멈춤 목록에서 빠졌다 — 평소 값을 붙들기 전에 멈춘 배출구
+        t = T0
+        st = {"obs": [[(t + dt.timedelta(hours=3 * i)).strftime("%Y-%m-%d %H:%M"), 41.0 if i < 12 else 0.0] for i in range(32)]}
+        st["lastDt"] = st["obs"][-1][0]
+        self.assertEqual(w.baseline(st["obs"]), 0.0)  # 예전 판단: 원래 거의 0 → 판단 안 함
+        self.assertEqual(w.stack_state(st, t + dt.timedelta(hours=94)), ("stopped", 41.0))
+        self.assertEqual(w.stopped_since(st, 41.0), t + dt.timedelta(hours=36))
+        # 간헐 가동 배출구(대부분 0, 가끔 값)는 여전히 판단 안 함
+        st2 = {"obs": [[o[0], 5.0 if i % 8 == 0 else 0.0] for i, o in enumerate(st["obs"])], "lastDt": st["lastDt"]}
+        self.assertEqual(w.stack_state(st2, t + dt.timedelta(hours=94))[0], "unknown")
+
+    def test_long_stop_of_a_weekday_plant_counts_working_hours(self):
+        since = dt.datetime(2026, 10, 30, 9, 0, tzinfo=KST)  # 금 09:00
+        mon = dt.datetime(2026, 11, 2, 16, 0, tzinfo=KST)
+        self.assertLess(w.working_hours_between(since, mon, w.working), w.LONG_STOP_HOURS)  # 금 15시간 + 월 9시간
+        self.assertGreaterEqual((mon - since).total_seconds() / 3600, w.LONG_STOP_HOURS)  # 달력으로는 79시간
+
     def test_stale_measurement_counts_as_stopped(self):
         doc = series(8)
         # 영풍 석포 배출구의 측정 시각이 13시간째 그대로 → 멈춤(사업장 전체 1개라 A는 아님: 배출구 2개 이상일 때만)

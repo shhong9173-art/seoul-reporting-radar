@@ -304,6 +304,35 @@ def is_low(v, base):
 
 
 STALE_HOURS = 12
+# 오래 멈춘 배출구: 일상 정비는 보통 하루 안이다. 사흘(평일 교대 공장은 일하는 시간 72시간) 넘게 평소의 10% 아래면
+# 사업장 크기와 상관없이 B — 11-02 경향 [단독] '포스코, 광양 2고로 전면 개수'(10-30): 광양 129·135번이 10-31부터 멈췄지만
+# 137개 중 2개라 '일상 정비 수준' C로만 남았다(어느 설비인지는 자료에 없음).
+LONG_STOP_HOURS = 72
+
+
+def pre_stop_base(obs):
+    """끝의 낮은 관측(STOP_RUNS개 이상)이 시작되기 전 관측의 중앙값 — 멈추기 전 평소 값. 그런 꼴이 아니면 None.
+    평소 값을 붙들어 두기 전(11-02 전)에 멈춘 배출구를 되살린다: 포스코 광양 129·135번(10-31부터)이 11-02 11시 목록에서 빠졌다."""
+    vals = [v for _, v in obs]
+    for k in range(MIN_OBS, len(vals) - STOP_RUNS + 1):
+        pre = [v for v in vals[:k] if v is not None]
+        if len(pre) < MIN_OBS:
+            continue
+        b = statistics.median(pre)
+        if b >= MEANINGFUL and not is_low(vals[k - 1], b) and all(is_low(v, b) for v in vals[k:]):
+            return b
+    return None
+
+
+def stopped_since(st, base, judge=None):
+    """끝에서부터 연달아 낮은 관측의 첫 측정 시각(멈춤 판단 창 관측만). 없으면 None."""
+    obs = judged_obs(st.get("obs") or [], judge)
+    first = None
+    for mdt, v in reversed(obs):
+        if not is_low(v, base):
+            break
+        first = mdt
+    return obs_time(first) if first else None
 
 
 def stack_state(st, now=None, judge=None):
@@ -311,6 +340,11 @@ def stack_state(st, now=None, judge=None):
     judge가 있으면(평일 교대 공장) 일하는 시간 관측만 보고, 측정 시각 멈춤도 일하는 시간으로 센다."""
     obs = judged_obs(st.get("obs") or [], judge)
     prior = baseline(obs)
+    # 멈춤이 이어지는 동안은 멈추기 전 평소 값으로 본다 — 관측이 4일치만 쌓여, 이틀쯤 지나면 낮은 값이 중앙값을 끌어내려
+    # '원래 거의 0'(판단 안 함)으로 바뀌고 멈춤 목록에서 조용히 빠졌다.
+    usual = st.get("usual") if st.get("stoppedSince") else pre_stop_base(obs)
+    if usual is not None and (prior is None or prior < usual):
+        prior = usual
     vals = [v for _, v in obs if v is not None]
     base = prior if prior is not None else (statistics.median(vals) if len(vals) >= MIN_OBS else None)
     if base is None or base < MEANINGFUL:
@@ -496,6 +530,32 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep, clock=time.
             was = set(s.get("stopped") or [])
             newly = [c for c in stopped if c not in was]
             s["stopped"], s["meaningful"] = stopped, len(meaningful)
+            # 오래 멈춘 배출구(사흘 넘게): 사업장 크기와 상관없이 B 한 번. 멈춤 시작 시각은 배출구에 남긴다(관측은 4일치만 쌓여
+            # 다시 셀 때마다 시작이 밀린다) — 다시 움직이면 지운다.
+            for c, (state, _) in judged.items():
+                if state == "running":
+                    for k in ("stoppedSince", "usual", "longStopFor"):
+                        stacks[c].pop(k, None)
+            fresh_long = []
+            for c in stopped:
+                st = stacks[c]
+                since = obs_time(st.get("stoppedSince")) if st.get("stoppedSince") else None
+                if since is None:
+                    since = stopped_since(st, judged[c][1] or 0, judge) or obs_time(st.get("lastDt"))
+                    if since is None:
+                        continue
+                    st["stoppedSince"], st["usual"] = f"{since:%Y-%m-%d %H:%M}", round(judged[c][1] or 0, 3)
+                hours = working_hours_between(since, now, judge) if judge else (now - since).total_seconds() / 3600
+                if hours >= LONG_STOP_HOURS and st.get("longStopFor") != st["stoppedSince"]:
+                    st["longStopFor"] = st["stoppedSince"]
+                    fresh_long.append((c, since, hours))
+            if fresh_long and not comp_first:
+                emit(f"stk:longstop:{sid}:{','.join(c for c, _, _ in fresh_long[:6])}:{day}", "배출구 오래 멈춤", "B", comp["company"], name,
+                     f"{name}: 배출구 {len(fresh_long)}개가 사흘 넘게 평소의 10% 아래 — "
+                     + ", ".join(f"{c}번(평소 {judged[c][1]:.1f}→최근 {stacks[c]['obs'][-1][1] if stacks[c].get('obs') else '?'}, "
+                                 f"{since:%m-%d %H:%M}부터 {'일하는 시간 ' if judge else ''}{h:.0f}시간)" for c, since, h in fresh_long[:6])
+                     + f" · 사업장 전체 평소 움직이던 {len(meaningful)}개 중 지금 멈춤 {len(stopped)}개. 일상 정비보다 긴 멈춤 — "
+                     "설비 정지·개수·연료 전환·측정기 이상 중 무엇인지는 회사 확인(배출구 번호만 있고 설비 이름은 자료에 없음)")
             top = sorted(meaningful, key=lambda c: -(meaningful[c] or 0))[:3]
             share = len(stopped) / len(meaningful) if meaningful else 0
             load = sum(v or 0 for v in meaningful.values()) or 1
@@ -567,6 +627,7 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep, clock=time.
                       "측정값이 평소의 10% 아래로 떨어진 것은 설비 정지·정비·측정기 점검·연료 전환일 수 있다. 가동 중단은 회사 확인 전 미확인.",
                       "평소 값이 1 미만인 배출구(원래 거의 0)는 멈춤 판단을 하지 않는다. 관측이 6번 모이기 전에는 판단하지 않는다.",
                       "배출구 멈춤 B는 새로 멈춘 배출구가 사업장 평소 움직이던 배출구의 5%(최소 2개) 이상, 큰 배출구(평소 값 상위 3), 또는 평소 값 합의 10% 이상일 때. 큰 제철소의 배출구 한두 개는 일상 정비일 수 있어 화면 목록에만 보인다.",
+                      f"다만 사흘(평일 교대 공장은 일하는 시간 {LONG_STOP_HOURS}시간) 넘게 멈춘 배출구는 사업장 크기와 상관없이 '배출구 오래 멈춤' B로 한 번 알린다. 멈춤이 이어지는 동안은 멈추기 전 평소 값으로 본다.",
                       "평일 교대 공장(완성차·타이어·전선·변압기·중공업)은 주말·공휴일·밤(0~7시) 관측을 멈춤 판단·평소 값에서 빼고, 그 시간의 목록 빠짐도 세지 않는다. 제철·제련·석유화학 같은 연속 가동 사업장은 주말 멈춤도 그대로 본다.",
                       f"새 배출구 번호·새 사업장은 쉬던 설비가 다시 측정돼도 생긴다. 그 사업장을 {NEW_A_DAYS}일 넘게 지켜본 뒤 처음 보인 것만 A, {NEW_B_DAYS}~{NEW_A_DAYS}일 B, 그 전은 C.",
                       "배출허용기준 초과는 같은 줄에 실린 그 배출구의 물질별 기준과 실시간 측정값을 비교한 것이다. 처음 넘으면 B, 다음 실행에도 넘으면 A(기준을 5% 안쪽으로 넘은 값은 한 단계 낮춰 C·B). 측정기 점검·교정 값일 수 있고 초과 판정·처분은 환경공단·지자체 확인.",
