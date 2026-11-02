@@ -129,7 +129,8 @@ class Collect(unittest.TestCase):
         data = {("admrul", "원자력"): [admrul("2100000271001", "원자력안전위원회 인사운영규정", "20261006", org="원자력안전위원회", kind="훈령"),
                                        admrul("2100000271002", "(원자력안전위원회) 사용후핵연료 저장ㆍ처분 안전성 확보를 위한 핵심기술개발 사업 운영관리규정",
                                               "20261026", org="원자력안전위원회", kind="훈령")],
-                ("admrul", "자동차"): [admrul("2100000271003", "화물자동차 유가보조금 관리 규정", "20261001", org="국토교통부")],
+                ("admrul", "자동차"): [admrul("2100000271003", "화물자동차 유가보조금 관리 규정", "20261001", org="국토교통부"),
+                                       admrul("2100000286948", "자동차보험진료수가 심사업무처리에 관한 규정", "20261101", org="국토교통부")],
                 ("expc", "에너지"): [expc("343843", "기후에너지환경부 - 주민지원사업 중 간접지원사업의 지원대상 포함 여부", "2026.10.01"),
                                     expc("344169", "민원인 - 삼상유도전동기를 수입한 자가 「에너지이용 합리화법」 제15조제3항의 ‘수입업자’에 해당하는지 여부",
                                          "2026.10.29")]}
@@ -139,6 +140,7 @@ class Collect(unittest.TestCase):
         self.assertNotIn("expc:343843", ids)
         self.assertEqual(ids["admrul:2100000271002"]["tier"], "B")   # 핵연료
         self.assertEqual(ids["admrul:2100000271003"]["tier"], "C")   # 유가보조금
+        self.assertEqual(ids["admrul:2100000286948"]["tier"], "C")   # 자동차보험 진료비 심사(11-02 운영)
         self.assertEqual(ids["expc:344169"]["tier"], "B")
 
     def test_stored_items_are_retiered_with_current_rules(self):
