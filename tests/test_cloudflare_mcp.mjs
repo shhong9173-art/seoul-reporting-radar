@@ -2000,11 +2000,12 @@ test('radar-items hands hinted A/B items to the press checker; radar_today shows
   assert.match(r.text, /보도 대조\(자동\)는 네이버 뉴스 API·빙·구글에서 항목 날짜 3일 전부터 찾은 결과다/);
   assert.doesNotMatch(r.text, /보도 대조\(자동\): 결과 없음/);
   const none = await call('radar_today', {}, PRIVATE());
-  assert.match(none.text, /보도 대조\(자동\): 결과 없음 — 미확인\(평일 08:50·18:50 실행 확인\)/);
+  assert.match(none.text, /보도 대조\(자동\): 결과 없음 — 미확인\(평일 08:50·12:50·18:50 실행 확인\)/);
 });
 
 test('press check is dispatched after the morning watches and after the evening page watch', () => {
   assert.deepEqual(dueAt(new Date('2026-10-27T23:50:00Z')), ['radar-press-check.yml']);  // Wed 08:50 KST
+  assert.deepEqual(dueAt(new Date('2026-10-28T03:50:00Z')), ['radar-press-check.yml']);  // Wed 12:50 KST — 오전에 새로 잡힌 A·B
   // 공식 원자료 직접 수집: 06:40·08:00·15:00·18:00 KST 평일
   assert.deepEqual(dueAt(new Date('2026-10-28T21:40:00Z')), ['us-osha.yml', 'scoop-radar.yml']);  // Thu 06:40 KST
   assert.deepEqual(dueAt(new Date('2026-10-28T23:00:00Z')), ['scoop-radar.yml']);  // Thu 08:00 KST
