@@ -407,5 +407,16 @@
         "pages": 2
       }
     ]
+  },
+  "g2bAwards": {
+    "note": "나라장터 낙찰정보 서비스(data.go.kr 15129397, /1230000/as/ScsbidInfoService). 낙찰자 칸에 출입처 법인명이 있는 것만(공정위 이름표와 같은 규칙). 낙찰은 계약 체결이 아니다. 한전 자체 조달(srm.kepco.net)·수의계약은 이 목록에 없다. 11-02 probe 98: 10-26~30 물품 2,706·공사 2,310·용역 1,664·외자 11건 중 출입처 낙찰은 물품 4건(LS전선 1·현대차 관용차 3).",
+    "ops": {
+      "물품": "getScsbidListSttusThng",
+      "공사": "getScsbidListSttusCnstwk",
+      "용역": "getScsbidListSttusServc",
+      "외자": "getScsbidListSttusFrgcpt"
+    },
+    "days": 3,
+    "bigWon": 1000000000
   }
 }

@@ -735,13 +735,63 @@ class ProvincePress(unittest.TestCase):
         self.assertIn("province:울산광역시:184850", {x["id"] for x in items})
 
 
+def g2b_item(no, title, winner, bizno, amount, buyer, date="2026-10-27"):
+    return {"bidNtceNo": no, "bidNtceOrd": "000", "bidClsfcNo": "1", "rbidNo": "0", "bidNtceNm": title, "bidwinnrNm": winner,
+            "bidwinnrBizno": bizno, "sucsfbidAmt": str(amount), "sucsfbidRate": "87.745", "dminsttNm": buyer, "fnlSucsfDate": date, "prtcptCnum": "5"}
+
+
+# 11-02 probe 98(10-26~30 물품 낙찰) 운영 줄 형식
+G2B_THNG = [g2b_item("R26BK01", "다목적 방사광가속기 전력인입공사 관급자재(전력케이블 부속재) 구입", "엘에스전선 주식회사", "1388147634", 2073720000, "충청북도"),
+            g2b_item("R26BK02", "수원시 장안구청 대형버스 교체 구입", "현대자동차 주식회사", "1018109147", 228480000, "경기도 수원시 장안구"),
+            g2b_item("R26BK03", "탈취제 구매", "세아화학", "5034870161", 85840170, "수도권매립지관리공사"),
+            g2b_item("R26BK04", "부식 구매", "(주)씨엘에스푸드", "1428601419", 3720900, "법무부 부산소년원"),
+            g2b_item("R26BK05", "배전반 구매", "효성중공업 주식회사", "1234567890", 1500000000, "한국수자원공사")]
+
+
+def g2b_routes(fail=False, code="00"):
+    def fn(method, url, kw):
+        if fail:
+            return Resp("", 503)
+        op = url.rsplit("/", 1)[-1]
+        items = G2B_THNG if op == "getScsbidListSttusThng" else []
+        return Resp(payload={"response": {"header": {"resultCode": code, "resultMsg": "정상"},
+                                          "body": {"items": items, "totalCount": len(items), "numOfRows": 999, "pageNo": 1}}})
+    return {w.G2B_AWARD: fn}
+
+
+class G2bAwards(unittest.TestCase):
+    def test_beat_winners_only_big_flag_and_baseline(self):
+        items, check = w.g2b_awards(CFG, "k", NOW, None, http(g2b_routes()))
+        by = {x["winner"]: x for x in items}
+        self.assertEqual(set(by), {"엘에스전선 주식회사", "현대자동차 주식회사", "효성중공업 주식회사"})  # 세아화학·씨엘에스푸드는 이름 규칙 밖
+        ls = by["엘에스전선 주식회사"]
+        self.assertEqual((ls["companies"], ls["amount"], ls["big"], ls["kind"], ls["buyer"]), (["LS전선"], 2073720000, True, "물품", "충청북도"))
+        self.assertFalse(by["현대자동차 주식회사"]["big"])                  # 2.3억 관용차
+        hy = by["효성중공업 주식회사"]
+        self.assertEqual((hy["companies"], hy["related"], hy["big"]), ([], ["효성중공업"], False))  # 관련 기업은 큰 낙찰로 안 올림
+        self.assertEqual((check["status"], check["read"], check["kept"]), ("ok", 5, 3))
+        self.assertFalse(any(x["isNew"] for x in items))
+        again, _ = w.g2b_awards(CFG, "k", NOW, {"g2bAwards": [x for x in items if x["winner"] != "현대자동차 주식회사"]}, http(g2b_routes()))
+        self.assertEqual([x["winner"] for x in again if x["isNew"]], ["현대자동차 주식회사"])
+
+    def test_unset_failure_and_provider_code(self):
+        _, check = w.g2b_awards(CFG, "", NOW, None, http(g2b_routes()))
+        self.assertEqual(check["status"], "unset")
+        prev = {"g2bAwards": [{"id": "g2baward:x", "date": "2026-10-27", "winner": "엘에스전선 주식회사"}]}
+        items, check = w.g2b_awards(CFG, "k", NOW, prev, http(g2b_routes(fail=True)))
+        self.assertEqual(check["status"], "failed")
+        self.assertEqual([x["id"] for x in items], ["g2baward:x"])  # 이전 줄 유지
+        _, check = w.g2b_awards(CFG, "k", NOW, None, http(g2b_routes(code="22")))
+        self.assertIn("결과코드 22", check["error"])
+
+
 class RunDoc(unittest.TestCase):
     def test_document_shape_and_unset_kepco_not_partial(self):
         routes = {**ftc_routes([KUMHO]), **komis_routes({"MNRL0023": komis_series("2026-01-01", "2026-10-26")}), **motir_routes(), **ftc_press_routes(), **briefing_routes(), **province_routes()}
         doc = w.run(flat_cfg(), now=NOW, previous=None, http=http(routes), kepco_key="")
         self.assertEqual(doc["schema"], "kr_signals/v1")
         self.assertEqual(doc["status"], "complete")
-        self.assertEqual([c["source"] for c in doc["checks"]], ["공정위 의결서", "한전 전자입찰", "산업통상부 보도자료", "공정위 보도자료", "정책브리핑 부처 보도자료", "시·도 보도자료", "KOMIS 아연"])
+        self.assertEqual([c["source"] for c in doc["checks"]], ["공정위 의결서", "한전 전자입찰", "산업통상부 보도자료", "공정위 보도자료", "정책브리핑 부처 보도자료", "시·도 보도자료", "나라장터 낙찰", "KOMIS 아연"])
         self.assertEqual(doc["confirmedScoops"], 0)
         self.assertTrue(isinstance(doc["prices"], list) and doc["prices"])
 
