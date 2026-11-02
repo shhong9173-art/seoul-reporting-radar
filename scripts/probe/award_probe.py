@@ -3,8 +3,14 @@ import collections, re, sys, urllib.parse, xml.etree.ElementTree as ET
 from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 import requests
-sys.path.insert(0, ".")
-import global_collector as g
+import ast, types
+src = open("global_collector.py", encoding="utf-8").read()
+tree = ast.parse(src)
+keep = [n for n in tree.body if isinstance(n, ast.Assign) and any(getattr(t, "id", "") in ("QUERIES", "FOREIGN_OK", "DOMESTIC_EN") for t in n.targets)]
+keep += [n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "looks_korean"]
+ns = {"re": re}
+exec(compile(ast.Module(body=keep, type_ignores=[]), "gc", "exec"), ns)
+g = types.SimpleNamespace(**ns)
 OUT = []
 def p(*a):
     OUT.append(" ".join(str(x) for x in a))
