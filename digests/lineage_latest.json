@@ -1,10 +1,42 @@
 {
-  "generatedAt": "2026-11-02T11:43:47+09:00",
-  "digestGeneratedAt": "2026-11-02T11:43:47+09:00",
+  "generatedAt": "2026-11-03T06:55:50+09:00",
+  "digestGeneratedAt": "2026-11-03T06:55:48+09:00",
   "scope": "명시적 원공시 접수번호에 한해 독립 검증. 후보 매칭은 미확정",
-  "correctionCount": 0,
-  "processedCount": 0,
+  "correctionCount": 1,
+  "processedCount": 1,
   "collectionComplete": true,
-  "status": "no_relevant_corrections",
-  "items": []
+  "status": "checked",
+  "items": [
+    {
+      "receiptNo": "20261102800394",
+      "company": "영풍",
+      "report": "[기재정정]생산중단",
+      "status": "original_unverified",
+      "originReceiptNo": null,
+      "originalDocumentVerified": false,
+      "changes": [],
+      "candidateOrigins": [
+        {
+          "receiptNo": "20251002800425",
+          "report": "[기재정정]생산중단              ",
+          "date": "20251002",
+          "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20251002800425",
+          "status": "같은 날짜의 후보일 뿐 동일 사건 미검증"
+        }
+      ],
+      "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261102800394",
+      "issuerCorrectionTable": {
+        "status": "issuer_table_unavailable_or_nonmaterial",
+        "changes": [],
+        "totalMaterialRows": 0,
+        "conflictingFieldCount": 0,
+        "skippedRows": 0,
+        "independentOriginalDocumentCompared": false,
+        "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261102800394"
+      },
+      "questions": [],
+      "referencedFilingDate": "2025-10-02",
+      "reason": "원문에서 원공시의 명시적 접수번호 확인 불가; 날짜·제목만으로 계약 연결 금지"
+    }
+  ]
 }
