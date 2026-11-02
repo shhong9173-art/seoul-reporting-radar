@@ -34,5 +34,5 @@ for label, url in [("law.go.kr", "https://www.law.go.kr/DRF/lawSearch.do?OC=test
     except Exception as e:
         p(label, "ERR", type(e).__name__, f"{time.time()-t:.1f}s")
 text = "\n".join(OUT)
-open("probe_out.txt", "w").write(text)
+open("/tmp/probe_out.txt", "w").write(text)
 print(text)
