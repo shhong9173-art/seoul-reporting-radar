@@ -422,10 +422,18 @@ def fetch_page(base, page, post, sleep):
     raise last
 
 
-def fetch_city(city, base, post, sleep):
-    """Rows of the first PAGES pages, and a note when a later page failed (the first page's rows are kept)."""
+GAP_PAGES = 6  # 앞 쪽들에 지난 실행 공고가 없으면(주말 사이 공고가 많은 시·군 — 11-02 천안 60건 넘음) 이 쪽까지 더 읽는다
+
+
+def fetch_city(city, base, post, sleep, known=None):
+    """Rows of the first PAGES pages (more, up to GAP_PAGES, until a notice seen last run shows up), and a note when a later
+    page failed (the first page's rows are kept)."""
     rows = []
-    for page in range(1, PAGES + 1):
+    known = set(known or ())
+    last = GAP_PAGES if known else PAGES
+    for page in range(1, last + 1):
+        if page > PAGES and any(r["mgt"] in known for r in rows):
+            break
         try:
             text = fetch_page(base, page, post, sleep)
         except Exception as e:  # noqa: BLE001
@@ -489,7 +497,7 @@ def run(*, now, previous=None, post=None, sleep=time.sleep, cities=CITIES, brows
     def one(c):
         city, base, plants = c
         try:
-            rows, note = fetch_city(city, base, post, sleep)
+            rows, note = fetch_city(city, base, post, sleep, known=seen.get(city))
             return c, rows, note
         except Exception as e:  # noqa: BLE001
             return c, None, error_kind(e)
