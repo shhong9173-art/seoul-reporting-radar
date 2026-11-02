@@ -1,43 +1,32 @@
-"""probe 107(403 내용): EUIPO 운영 토큰 — 공개 클라이언트들이 쓰는 CAS 주소(euipo.europa.eu/cas-server-webapp/oidc/accessToken)로 한 번. 되면 상표 검색: 현대자동차 최근 출원 5건(이름·출원일·상품류만). 키·토큰 값은 남기지 않는다."""
-import os, re
-import requests
+"""probe 108: 공개 꾸러미 patent-client-agents의 EUIPO 상표 검색 응답 모델 — 칸 이름만(검색 응답 구조 파악용, 호출 없음)."""
+import glob, os, re, subprocess, tarfile, zipfile
 out = []
-CID = os.environ.get("EUIPO_CLIENT_ID", "").strip()
-SEC = os.environ.get("EUIPO_CLIENT_SECRET", "").strip()
-out.append(f"id len {len(CID)} secret len {len(SEC)}")
-try:
-    rr = requests.post("https://euipo.europa.eu/cas-server-webapp/oidc/accessToken",
-                       data={"grant_type": "client_credentials", "client_id": CID, "client_secret": SEC, "scope": "uid"},
-                       headers={"Content-Type": "application/x-www-form-urlencoded", "Accept": "application/json"}, timeout=40)
-    ct = rr.headers.get("content-type", "")
-    out.append(f"token HTTP {rr.status_code} ctype {ct[:40]} " + (f"keys {sorted(rr.json().keys())}" if ct.startswith("application/json") else re.sub(r"\s+", " ", rr.text[:160])))
-    tok = rr.json().get("access_token") if ct.startswith("application/json") else None
-    if tok:
-        q = 'applicants.name=="*HYUNDAI MOTOR*"'
-        sr = requests.get("https://api.euipo.europa.eu/trademark-search/trademarks", params={"query": q, "size": 10, "sort": "applicationDate:desc"},
-                          headers={"Authorization": f"Bearer {tok}", "X-IBM-Client-Id": CID, "Accept": "application/json"}, timeout=40)
-        sct = sr.headers.get("content-type", "")
-        out.append(f"search HTTP {sr.status_code} ctype {sct[:30]}")
-        if sct.startswith("application/json"):
-            j = sr.json()
-            items = j.get("trademarks") or j.get("content") or []
-            out.append(f"  keys {sorted(j.keys())[:12]} items {len(items)} total {j.get('totalElements')}")
-            if sr.status_code != 200:
-                out.append(f"  title {str(j.get('title'))[:120]} | detail {str(j.get('detail'))[:300]} | type {str(j.get('type'))[:120]}")
-            out.append(f"  token scope {rr.json().get('scope')} expires {rr.json().get('expires_in')}")
-            if items:
-                out.append("  fields " + ", ".join(sorted(items[0].keys()))[:700])
-            for it in items[:5]:
-                wv = (it.get("wordMarkSpecification") or {}).get("verbalElement") if isinstance(it.get("wordMarkSpecification"), dict) else None
-                out.append(f"  - {it.get('applicationNumber')} {it.get('applicationDate')} {wv or it.get('markFeature')} classes {it.get('niceClasses')} status {it.get('status')} applicants {[a.get('name') for a in it.get('applicants') or [] if isinstance(a, dict)][:2]}")
-        else:
-            out.append("  " + re.sub(r"\s+", " ", sr.text[:200]))
-except Exception as e:  # noqa: BLE001
-    out.append(f"token {type(e).__name__} {str(e)[:100]}")
+d = "/tmp/pca"
+os.makedirs(d, exist_ok=True)
+r = subprocess.run(["python", "-m", "pip", "download", "--no-deps", "patent-client-agents", "-d", d], capture_output=True, text=True)
+out.append("pip " + (r.stdout.strip().splitlines() or [""])[-1][:120] + " " + (r.stderr.strip().splitlines() or [""])[-1][:120])
+for f in glob.glob(d + "/*"):
+    if f.endswith(".whl"):
+        zipfile.ZipFile(f).extractall(d + "/x")
+    elif f.endswith(".tar.gz"):
+        tarfile.open(f).extractall(d + "/x")
+files = [f for f in glob.glob(d + "/x/**/*.py", recursive=True) if "euipo_trademarks" in f]
+out.append("files " + ", ".join(os.path.relpath(f, d + "/x") for f in files))
+for f in files:
+    t = open(f, encoding="utf-8", errors="replace").read()
+    fields = re.findall(r"^\s+(\w+)\s*:\s*([^=\n]+?)(?:\s*=.*)?$", t, re.M)
+    classes = re.findall(r"^class\s+(\w+)", t, re.M)
+    if classes:
+        out.append(f"== {os.path.basename(f)} classes {classes[:30]}")
+        out.append("   fields " + "; ".join(f"{a}:{b.strip()[:30]}" for a, b in fields[:90]))
+    for m in re.finditer(r"alias=\"(\w+)\"", t):
+        pass
+    al = sorted(set(re.findall(r"alias=\"(\w+)\"", t)))
+    if al:
+        out.append("   aliases " + ", ".join(al[:120]))
+    q = [m.group(0) for m in re.finditer(r"(?:query|params)\s*=\s*\{[^}]{0,300}\}", t)]
+    if q:
+        out.append("   params " + " | ".join(re.sub(r"\s+", " ", x)[:200] for x in q[:3]))
 text = "\n".join(out)
-for v in (CID, SEC):
-    if v:
-        text = text.replace(v, "<X>")
-text = re.sub(r"eyJ[A-Za-z0-9_\-\.]{20,}", "<TOKEN>", text)
 open("/tmp/probe_out.txt", "w").write(text)
-print(text[:600])
+print(text[:800])
