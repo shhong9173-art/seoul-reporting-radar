@@ -110,6 +110,10 @@ jobs:
           print('History index includes',index['itemCount'],'domestic observed headlines; no unreported claims')
           PY
       - name: Backfill historical industry [단독] headlines from rotating month×beat index queries
+        env:
+          # 11-02: 최근 4일은 네이버 뉴스 API로도 '단독 {출입처}'를 본다(구글 RSS에 없는 [단독] 제목 보강)
+          NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
+          NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
         run: |
           python -m unittest discover -s tests -p 'test_historical_exclusive_press_collector.py' -v
           python -m scripts.historical_exclusive_press_collector
