@@ -6,6 +6,11 @@ Cached translations only apply when original URL, title AND summary match.
 from concurrent.futures import ThreadPoolExecutor
 import re
 
+try:
+    from scripts.number_check import unmatched_numbers
+except ImportError:   # tests put scripts/ itself on sys.path
+    from number_check import unmatched_numbers
+
 
 def norm_title(title):
     return re.sub(r"\s+"," ",str(title or "").strip()).casefold()
@@ -31,11 +36,29 @@ def shortlist(raw,*,limit=40):
         x.get("globalScore",0),x["published"]),reverse=True)[:limit]
 
 
+def shortlist_with_beats(raw,*,limit=60,beat_limit=20):
+    """점수 상위 limit개 + 그 밖의 직접 출입처 외신(beatCompanies 있는 출입처 검색 결과) 최신 beat_limit개.
+    11-01: 출입처 외신은 점수가 낮은 편(석유화학·정유는 업종 낱말이 적다)이라 자동차 일반 외신 60개에 밀려 번역·저장에서 빠질 수 있었다."""
+    picked=shortlist(raw,limit=limit)
+    have={norm_title(x["title"]) for x in picked}
+    beats=[x for x in raw if isinstance(x,dict) and x.get("globalBeat") and x.get("beatCompanies")]
+    extra=[x for x in sorted(shortlist(beats,limit=80),key=lambda x:x["published"],reverse=True)
+           if norm_title(x["title"]) not in have][:beat_limit]
+    return picked+extra
+
+
+# AI 번역 규칙(프롬프트·매체 이름 떼기)을 바꾸면 올린다 — 예전 규칙으로 만든 번역은 다시 번역한다(11-01: v1 번역에 매체 이름·없는 사실이 섞임).
+# v3(11-01): v2는 제목의 ' – 뒤 글'을 매체 이름으로 보고 잘라 번역했다('Three in a row – Nexen Tire …' → '3연패').
+AI_TRANSLATION_VERSION=3
+
+
 def same_text_identity(new,old):
     return (isinstance(old,dict) and
         all(new.get(k)==old.get(k) for k in ("title","url","summary")) and
         isinstance(old.get("koTitle"),str) and old["koTitle"].strip() and
-        old.get("translationStatus") in ("translated","translated_fallback","already_ko") and
+        # 보조 번역기(MyMemory) 결과는 다시 쓰지 않고 다음 실행에 주 번역기로 다시 번역한다(11-01: 품질이 낮았다)
+        (old.get("translationStatus") in ("translated","already_ko") or
+         (old.get("translationStatus")=="translated_ai" and old.get("translationVersion")==AI_TRANSLATION_VERSION)) and
         isinstance(old.get("koSummary"),str))
 
 
@@ -49,7 +72,7 @@ def translate_selected(rows,translator,*,previous=None,workers=3):
         out=dict(row)
         old=cache.get(out.get("url"))
         if same_text_identity(out,old):
-            for field in ("koTitle","koSummary","translationStatus","summaryTranslationStatus"):
+            for field in ("koTitle","koSummary","translationStatus","summaryTranslationStatus","translationVersion"):
                 if field in old:out[field]=old[field]
             out["translationCacheUsed"]=True
             return out
@@ -57,15 +80,57 @@ def translate_selected(rows,translator,*,previous=None,workers=3):
             ko_title,title_status=translator(out["title"])
             if title_status=="translation_failed" or not ko_title:
                 return None
-            ko_summary,summary_status=translator((out.get("summary") or "")[:900])
+            summary=(out.get("summary") or "")[:900]
+            # 본문 설명이 없는 항목(구글 뉴스는 제목뿐)은 요약을 번역하지 않는다 — 제목 번역을 요약처럼 되풀이하지 않게
+            ko_summary,summary_status=translator(summary) if summary.strip() else ("","no_summary")
         except Exception:
             return None
         out["koTitle"]=ko_title
         out["koSummary"]=ko_summary if summary_status!="translation_failed" else ""
         out["translationStatus"]=title_status
+        if title_status=="translated_ai":out["translationVersion"]=AI_TRANSLATION_VERSION
         out["summaryTranslationStatus"]=summary_status
         out["translationCacheUsed"]=False
         return out
     with ThreadPoolExecutor(max_workers=workers,thread_name_prefix="global-translate") as pool:
         all_rows=list(pool.map(translate_one,rows))
     return [x for x in all_rows if x is not None]
+
+
+# 한국어 요약(11-01 기자 요청: 외신을 한국어로 요약·번역). 매체 RSS 본문 발췌(articleText)가 있는 항목만 — 본문이 없으면 요약하지 않는다.
+# 같은 주소·같은 제목·같은 요약 규칙 버전이면 지난 요약을 다시 쓴다. 영어 본문(articleText)은 결과에서 지운다(공개 저장소에 원문을 싣지 않게).
+SUMMARY_VERSION=1
+
+
+def summarize_selected(rows,summarizer,*,previous=None,workers=2):
+    if not callable(summarizer) or not 1<=workers<=4 or not isinstance(rows,list):
+        raise ValueError("invalid_summary_task")
+    cache={x.get("url"):x for x in (previous if isinstance(previous,list) else [])
+        if isinstance(x,dict) and isinstance(x.get("url"),str)}
+    def one(row):
+        out=dict(row)
+        text=str(out.pop("articleText","") or "")
+        old=cache.get(out.get("url"))
+        if (isinstance(old,dict) and old.get("title")==out.get("title") and old.get("summaryTranslationStatus")=="summarized_ai"
+                and old.get("summaryVersion")==SUMMARY_VERSION and isinstance(old.get("koSummary"),str) and old["koSummary"].strip()):
+            out.update(koSummary=old["koSummary"],summaryTranslationStatus="summarized_ai",summaryVersion=SUMMARY_VERSION)
+        elif text.strip() and not out.get("koSummary"):
+            try:
+                ko=summarizer(out.get("title",""),text)
+            except Exception:
+                ko=""
+            if ko:
+                out.update(koSummary=ko,summaryTranslationStatus="summarized_ai",summaryVersion=SUMMARY_VERSION)
+        return check_numbers(out,text)
+    with ThreadPoolExecutor(max_workers=workers,thread_name_prefix="global-summary") as pool:
+        return list(pool.map(one,rows))
+
+
+# 11-01 기자 승인: AI 번역·요약에 원문에 없는 숫자가 들어가면 표시. AI가 받은 영어(제목·구글 설명·매체 RSS 발췌)와 맞춰 본다.
+# 기사 발행 연도는 '올해'를 연도로 옮긴 것일 수 있어 허용한다. 영어 발췌는 저장하지 않으므로 여기(발췌가 있을 때)서 한 번 본다.
+def check_numbers(out,text=""):
+    korean="\n".join(str(out.get(k) or "") for k in ("koTitle","koSummary"))
+    source="\n".join(str(out.get(k) or "") for k in ("title","summary"))+"\n"+(text or "")
+    year=str(out.get("published") or "")[:4]
+    out["numbersNotInSource"]=unmatched_numbers(korean,source,allow=[int(year)] if year.isdigit() else [])
+    return out
