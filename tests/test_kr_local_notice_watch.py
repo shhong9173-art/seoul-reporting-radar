@@ -312,6 +312,60 @@ class Local(unittest.TestCase):
                       sleep=lambda s: None, cities=CITIES[1:], browser_cities=(), get=get)
         self.assertNotIn("details", stale)
 
+    def test_attachment_notice_gives_project_outline(self):
+        # 11-02 탐침 104: 울주 68156 공고문.hwpx 본문(사업 개요) — 상세 페이지 본문에는 없는 공사기간·시공자·규모
+        import io as _io, zipfile as _zf
+        outline = ("<hp:t>4. 사업내역 가. 사 업 명: #2ASU O2 COMPRESSOR ROOM 토건공사 나. 공사기간: 2026. 9. ~ 2027. 2. ※ 주요공정계획서 별도 첨부 참조 "
+                   "다. 위 치: 울주군 온산읍 원산리 892번지 일원 마. 발주자/시공자: 고려아연(주) / 서동건설산업(주) 바. 설 계 자: 김진길건축사사무소 "
+                   "아. 규 모: 철근콘크리트구조 지상1층 5. 안전점검 수행기관 세부평가기준 ► [붙임 1] 참조 6. 안전점검 개요 가. 점검종류: 정기점검 "
+                   "다. 안전점검 비용: 금 4,000,000원(부가세별도) 7. 착공일 가. 주요공정계획서 ► [붙임 4] 참조 나. 착공일 : 2026. 9. 8. 신청자격 및 결정방법</hp:t>")
+        buf = _io.BytesIO()
+        with _zf.ZipFile(buf, "w") as z:
+            z.writestr("Contents/section0.xml", "<?xml version='1.0'?><hs:sec>" + outline + "</hs:sec>")
+        hwpx = buf.getvalue()
+        detail = ULJU_DETAIL.replace('<a href="#">예정공정표.pdf</a>',
+                                     "<a href=\"javascript:goDownLoad('예정공정표.pdf','예정공정표_ofr_1.pdf','/ntishome/file/upload/ofr/ofr/20261030')\">예정공정표.pdf</a>")
+        detail = detail.replace('<a href="#">안전점검 수행기관 지정 공고문',
+                                "<a href=\"javascript:goDownLoad('안전점검 수행기관 지정 공고문[온산 고려아연(주) 2ASU O2 COMPRESSOR ROOM 토건공사].hwpx',"
+                                "'공고문_ofr_4.hwpx','/ntishome/file/upload/ofr/ofr/20261030')\">안전점검 수행기관 지정 공고문")
+        got = w.parse_detail(detail, "건설공사 안전점검 수행기관 지정 공고[온산 고려아연(주), #2ASU O...")
+        self.assertEqual([l["sys"] for l in got["links"]], ["예정공정표_ofr_1.pdf", "공고문_ofr_4.hwpx"])
+        asked = []
+
+        class Bin:
+            def __init__(self, content):
+                self.status_code, self.content = 200, content
+
+        def get(url, headers=None, timeout=None):
+            asked.append(url)
+            if "FileDown.jsp" in url:
+                return Bin(hwpx if "hwpx" in url else b"%PDF-1.4 scanned")
+            return Resp(detail)
+        x = {"url": "http://eminwon.ulju.ulsan.kr/emwp/gov/mogaha/ntis/web/ofr/action/OfrAction.do?method=selectOfrNotAncmt&not_ancmt_mgt_no=68156",
+             "title": "건설공사 안전점검 수행기관 지정 공고[온산 고려아연(주), #2ASU O...", "tier": "A", "companies": ["고려아연"]}
+        real_pdf = w.pdf_text
+        self.addCleanup(setattr, w, "pdf_text", real_pdf)
+        w.pdf_text = lambda raw: "  "
+        res = w.read_details([x], get, lambda s: None)
+        self.assertEqual(res["read"], 1)
+        self.assertTrue(asked[1].startswith("http://eminwon.ulju.ulsan.kr/emwp/jsp/ofr/FileDown.jsp?user_file_nm="))
+        att = {a["name"][-8:]: a for a in x["attachments"]}
+        self.assertEqual(att["토건공사].hwpx"[-8:]]["facts"], {
+            "사업명": "#2ASU O2 COMPRESSOR ROOM 토건공사", "공사기간": "2026. 9. ~ 2027. 2.", "위치": "울주군 온산읍 원산리 892번지 일원",
+            "발주자/시공자": "고려아연(주) / 서동건설산업(주)", "설계자": "김진길건축사사무소", "규모": "철근콘크리트구조 지상1층", "착공일": "2026. 9. 8."})
+        self.assertTrue(x["attachments"][0]["name"].endswith("토건공사].hwpx"))   # 공고문을 먼저 읽는다
+        self.assertEqual(att["예정공정표.pdf"[-8:]]["note"], "글자 없음(스캔 이미지일 수 있음)")
+        self.assertNotIn("links", x["detail"])  # 내려받기 경로는 저장하지 않는다
+
+    def test_hwp5_paragraph_records(self):
+        import struct as _st
+
+        def rec(tag, payload):
+            return _st.pack("<I", tag | (len(payload) << 20)) + payload
+        text = "가. 공사기간: 2026. 9. ~ 2027. 2.".encode("utf-16le")
+        data = rec(66, b"\x00" * 22) + rec(67, "\x0d".encode("utf-16le") + text) + rec(68, b"\x01\x02") + rec(67, "규 모: 지상1층".encode("utf-16le"))
+        self.assertEqual(w.hwp_section_text(data), "가. 공사기간: 2026. 9. ~ 2027. 2. 규 모: 지상1층")
+
     def test_full_title_regrades(self):
         # 목록 제목이 잘려 사업 낱말이 빠졌던 B가 전체 제목으로 A가 된다
         items = [{"url": "http://x/1", "title": "고려아연(주) 온산제련소 ...", "tier": "B", "companies": ["고려아연"], "company": "고려아연"}]

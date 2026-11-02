@@ -778,7 +778,13 @@ async function localSection(ctx, q, days, limit) {
     out.push(`- ${x.isNew ? '[신규] ' : x.baseline ? '[첫 조회 기준선] ' : ''}${x.date ?? '?'} · ${x.city} · ${x.company ?? '출입처 이름 없음'} · ${x.tier}`);
     out.push(`   잡힌 사실: ${x.no ?? ''} 「${x.detail?.title ?? x.title}」 · ${x.dept ?? '담당 부서 미기재'}${x.plants ? ` (이 시·군의 출입처 공장: ${x.plants})` : ''}`);
     if (x.detail?.body) out.push(`   본문 앞부분(상세 페이지): ${x.detail.body}`);
-    if ((x.detail?.files ?? []).length) out.push(`   첨부 파일(열지 않음): ${x.detail.files.join(' · ')}`);
+    const outline = attachmentOutline(x);
+    if (outline) out.push(`   첨부 원문에서 뽑은 사업 개요(자동 — 첨부 원문 확인): ${outline}`);
+    const unread = (x.attachments ?? []).filter((a) => a.error || a.note).map((a) => `${a.name}(${a.error ?? a.note})`);
+    if (unread.length) out.push(`   못 읽은 첨부: ${unread.join(' · ')}`);
+    const opened = new Set((x.attachments ?? []).map((a) => a.name));
+    const rest = (x.detail?.files ?? []).filter((f) => !opened.has(f));
+    if (rest.length) out.push(`   첨부 파일(열지 않음): ${rest.join(' · ')}`);
     if (x.listTier) out.push(`   등급: 목록 제목으로 ${x.listTier} → 전체 제목으로 ${x.tier}`);
     if (x.detailError) out.push(`   상세 페이지: 못 읽음(${x.detailError}) — 제목만 확인`);
     out.push(`   원문: ${x.url}`);
@@ -831,6 +837,13 @@ export async function workforceSection(ctx, q, days, limit) {
   }
   out.push('   검증 상태: 국민연금 공개 자료(자동). 가입자 수≠전체 직원 수, 본사 일괄 신고는 공장별 수치 아님. 증감 이유·공사 규모는 회사 확인 전 미확인');
   return out;
+}
+
+// 지자체 공고 첨부(hwpx·hwp·pdf)에서 뽑은 '항목: 값'(사업명·공사기간·위치·발주자/시공자·규모·공사비·착공일). 파일 여럿이면 앞의 값을 쓴다.
+export function attachmentOutline(x, keys = ['사업명', '공사기간', '착공일', '위치', '발주자/시공자', '발주자', '시공자', '규모', '공사비', '설계자', '감리자']) {
+  const facts = {};
+  for (const a of x?.attachments ?? []) for (const [k, v] of Object.entries(a.facts ?? {})) if (!(k in facts)) facts[k] = v;
+  return keys.filter((k) => facts[k]).map((k) => `${k} ${facts[k]}`).join(' · ');
 }
 
 // Stack monitoring of beat plants (kr-stacks feed, 굴뚝 자동측정 TMS): which plants have stacks that stopped, and recent events.

@@ -8,7 +8,7 @@
 - 등급: 출입처 이름 + 사업 낱말(증설·신설·설치·건설·공장·환경영향평가·매립·산업단지 등) = A, 출입처 이름만 = B,
   출입처 이름 없이 제철소·제련소·산업단지 계획·발전사업 = C. 담배 소매인 지정 같은 생활 공고는 버린다.
   출입처 이름이 없는 소규모 발전사업 양도·양수 인가·공시송달·용역 입찰도 버린다(이름이 있으면 그대로 A·B).
-- 고시·공고 제목만 본다(첨부 HWP·PDF는 열지 않는다). 사업 규모·내용은 첨부 원문과 회사 확인.
+- 고시·공고 제목을 보고, 새 A·B는 상세 페이지와 첨부(hwpx·hwp·pdf) 사업 개요까지 읽는다. 사업 규모·내용은 첨부 원문과 회사 확인.
 - 해외 IP에서 응답이 느린 시·군(포항 33초·평택 57초)은 75초까지 기다린다. 그래도 시간 초과면 '실패' — 0건이 아니라 미확인.
 - 결과는 기자 전용 저장소(kr-local)로만. 공개 로그는 건수만.
 """
@@ -16,10 +16,14 @@ from __future__ import annotations
 
 import datetime as dt
 import html as htmllib
+import io
 import os
 import re
+import struct
 import sys
 import time
+import zipfile
+import zlib
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -150,8 +154,8 @@ NOISE = re.compile(r"담배\s*소매|소매인\s*지정|일자리\s*박람회|�
 # (청주 '다다2호 태양광발전소 등 4건 양도·양수 인가', 예산 '예당2일반산업단지 진입도로 건설공사 폐기물처리용역 입찰' 등).
 ROUTINE = re.compile(r"양도\s*[·ㆍ・,]?\s*양수|양수\s*인가|전기사업법\s*위반|공시\s*송달|입찰\s*공고|용역\s*입찰|폐기물\s*처리\s*용역")
 RULES = [
-    "지자체 고시·공고 목록 제목을 본다. 출입처 이름이 든 새 공고(A·B)는 상세 페이지의 전체 제목·본문 앞부분·첨부 파일 이름까지 읽는다"
-    "(첨부 원문은 열지 않음). 사업 규모·내용은 첨부와 회사·지자체 확인.",
+    "지자체 고시·공고 목록 제목을 본다. 출입처 이름이 든 새 공고(A·B)는 상세 페이지의 전체 제목·본문 앞부분과 첨부(hwpx·hwp·pdf, 공고마다 3개까지)의 "
+    "사업 개요(공사기간·위치·발주자/시공자·규모·공사비·착공일 등 '항목: 값')를 읽는다. 자동 추출이라 원문과 다를 수 있다 — 첨부 원문·회사·지자체 확인.",
     "출입처 이름 + 사업 낱말 = A, 출입처 이름만 = B, 출입처 이름 없이 제철소·제련소·산업단지 계획·발전사업 = C"
     "(이름 없는 소규모 발전사업 양도·양수 인가·공시송달·용역 입찰은 버림).",
     "건설공사 안전점검 수행기관 지정 공고는 공사가 정해졌다는 뜻이지 착공·완공이 아니다.",
@@ -245,7 +249,132 @@ def parse_detail(page, title):
         if FILE_EXT.search(t) and t not in files:
             files.append(t[:120])
     text = norm_space(" ".join(body))
-    return {"title": full, "body": text[:BODY_CHARS] + ("…" if len(text) > BODY_CHARS else ""), "files": files[:6]}
+    # 새올 첨부 링크: javascript:goDownLoad('보이는 이름','저장 이름','경로') → /emwp/jsp/ofr/FileDown.jsp(11-02 탐침 104: 울주 68156 내려받기 확인)
+    links = [{"name": htmllib.unescape(a)[:120], "sys": htmllib.unescape(b), "path": htmllib.unescape(c)}
+             for a, b, c in re.findall(r"goDownLoad\(\s*'([^']*)'\s*,\s*'([^']*)'\s*,\s*'([^']*)'\s*\)", page or "")][:6]
+    return {"title": full, "body": text[:BODY_CHARS] + ("…" if len(text) > BODY_CHARS else ""), "files": files[:6],
+            **({"links": links} if links else {})}
+
+
+# ---------- 첨부 원문(공고문) ----------
+# 11-02 탐침 104: 울주 68156 「…[온산 고려아연(주), #2ASU O2 COMPRESSOR ROOM 토건공사]」 공고문.hwpx 본문에
+# '공사기간: 2026. 9. ~ 2027. 2. · 위치: 울주군 온산읍 원산리 892번지 일원 · 발주자/시공자: 고려아연(주) / 서동건설산업(주) ·
+# 규모: 철근콘크리트구조 지상1층 · 착공일: 2026. 9. 8.'이 있다(상세 페이지 본문에는 없음). 예정공정표.pdf는 스캔 이미지(글자 2자).
+ATTACH_MAX = 3            # 공고당
+ATTACH_BACKFILL_DAYS = 14  # 이 기능 전에 상세만 읽은 공고도 이 안이면 첨부까지 한 번
+ATTACH_BYTES = 6_000_000
+ATTACH_TIMEOUT = 45
+FILEDOWN = "/emwp/jsp/ofr/FileDown.jsp"
+ATTACH_READ = re.compile(r"\.(?:hwpx|hwp|pdf)$", re.I)
+ATTACH_FIRST = re.compile(r"공고문|공고|개요|계획서|고시문|열람")
+FACT_LABELS = [
+    ("사업명", r"공\s*사\s*명|사\s*업\s*명|건\s*명"), ("공사기간", r"공\s*사\s*기\s*간|사\s*업\s*기\s*간"),
+    ("위치", r"위\s*치|대\s*상\s*지|사\s*업\s*위\s*치|소\s*재\s*지"),
+    ("발주자/시공자", r"발\s*주\s*자\s*/\s*시\s*공\s*자"), ("발주자", r"발\s*주\s*자|발\s*주\s*처|사\s*업\s*시\s*행\s*자|사\s*업\s*자"),
+    ("시공자", r"시\s*공\s*자|시\s*공\s*사"), ("설계자", r"설\s*계\s*자"), ("감리자", r"감\s*리\s*자"),
+    ("규모", r"규\s*모|연\s*면\s*적|면\s*적"), ("공사비", r"공\s*사\s*비|총\s*사\s*업\s*비|사\s*업\s*비|공\s*사\s*금\s*액"),
+    ("착공일", r"착\s*공\s*일|착\s*공\s*예\s*정\s*일|착\s*공"),
+]
+# 다음 항목 머리. 날짜 속 '2026. 9.'의 ' 9. '는 머리가 아니다(앞 글자가 '숫자.')
+FACT_END = re.compile(r"(?<!\d\.)\s(?:[가-하]\.|\d{1,2}\.|[①-⑳]|※|►|\[붙임|□|○|ㅇ)\s")
+DATE_ONLY = re.compile(r"[\d.\s~∼\-–년월일()]+")
+
+
+def hwpx_text(raw):
+    z = zipfile.ZipFile(io.BytesIO(raw))
+    secs = sorted(n for n in z.namelist() if re.fullmatch(r"Contents/section\d+\.xml", n))
+    return norm_space(" ".join(htmllib.unescape(re.sub(r"<[^>]+>", " ", z.read(n).decode("utf-8", "ignore"))) for n in secs))
+
+
+def hwp_text(raw):
+    """HWP 5.0(OLE): BodyText/Section* 스트림의 문단 글자(HWPTAG_PARA_TEXT=67). olefile이 없으면 None."""
+    try:
+        import olefile
+    except ImportError:
+        return None
+    ole = olefile.OleFileIO(io.BytesIO(raw))
+    compressed = bool(ole.openstream("FileHeader").read()[36] & 1)
+    out = []
+    for entry in sorted((e for e in ole.listdir() if len(e) == 2 and e[0] == "BodyText"), key=lambda e: int(re.sub(r"\D", "", e[1]) or 0)):
+        data = ole.openstream(entry).read()
+        out.append(hwp_section_text(zlib.decompress(data, -15) if compressed else data))
+    return norm_space(" ".join(out))
+
+
+def hwp_section_text(data):
+    """HWP 본문 레코드(머리 4바이트: 태그 10비트·크기 12비트, 크기 0xFFF면 다음 4바이트)에서 문단 글자(태그 67)만."""
+    out, i = [], 0
+    while i + 4 <= len(data):
+        head = struct.unpack_from("<I", data, i)[0]
+        tag, size = head & 0x3FF, (head >> 20) & 0xFFF
+        i += 4
+        if size == 0xFFF:
+            size = struct.unpack_from("<I", data, i)[0]
+            i += 4
+        if tag == 67:
+            out.append(re.sub(r"[\x00-\x1f\ue000-\uf8ff]", " ", data[i:i + size].decode("utf-16le", "ignore")))
+        i += size
+    return norm_space(" ".join(out))
+
+
+def pdf_text(raw):
+    from pypdf import PdfReader
+    return norm_space(" ".join((pg.extract_text() or "") for pg in PdfReader(io.BytesIO(raw)).pages[:20]))
+
+
+def attachment_facts(text):
+    """공고문 사업 개요의 '항목: 값' — 값은 다음 항목 머리(가. 1. ※ ► 등) 앞까지, 80자 안."""
+    facts = {}
+    for label, rx in FACT_LABELS:
+        if label in facts:
+            continue
+        m = re.search(r"(?:^|\s)(?:" + rx + r")\s*[:：]\s*(.+?)(?=" + FACT_END.pattern + r"|$)", text)
+        if m:
+            val = norm_space(m.group(1))[:80].strip(" ,·")
+            if label in ("공사기간", "착공일"):  # 날짜 칸은 날짜까지만('2026. 9. 8. 신청자격 및…' → '2026. 9. 8.')
+                d = DATE_ONLY.match(val)
+                val = d.group(0).strip(" (") if d and re.search(r"\d{4}", d.group(0)) else val
+            if val and not (label == "발주자" and "발주자/시공자" in facts):
+                facts[label] = val
+    return facts
+
+
+def read_attachments(x, page_url, get, sleep):
+    """새 A·B 공고의 첨부(hwpx·hwp·pdf) 글자에서 사업 개요를 뽑는다. 실패는 그 파일에만 적는다(공고는 그대로)."""
+    links = (x.get("detail") or {}).get("links") or []
+    pick = sorted((l for l in links if ATTACH_READ.search(l["name"])), key=lambda l: not ATTACH_FIRST.search(l["name"]))[:ATTACH_MAX]
+    if not pick:
+        return None
+    from urllib.parse import urlencode, urlsplit
+    origin = "{0.scheme}://{0.netloc}".format(urlsplit(page_url))
+    out = []
+    for l in pick:
+        row = {"name": l["name"]}
+        try:
+            r = get(f"{origin}{FILEDOWN}?" + urlencode({"user_file_nm": l["name"], "sys_file_nm": l["sys"], "file_path": l["path"]}),
+                    headers={**UA, "Referer": page_url}, timeout=ATTACH_TIMEOUT)
+            if r.status_code != 200:
+                raise RuntimeError(f"HTTP {r.status_code}")
+            raw = r.content
+            if len(raw) > ATTACH_BYTES:
+                raise RuntimeError("파일이 큼")
+            ext = l["name"].rsplit(".", 1)[-1].lower()
+            text = (hwpx_text(raw) if raw[:2] == b"PK" else pdf_text(raw) if raw[:4] == b"%PDF"
+                    else hwp_text(raw) if raw[:4] == b"\xd0\xcf\x11\xe0" else None)
+            if text is None:
+                raise RuntimeError(f"{ext} 형식 미상" if raw[:4] != b"\xd0\xcf\x11\xe0" else "hwp 판독 도구 없음")
+            row["chars"] = len(text)
+            if len(text) < 50:
+                row["note"] = "글자 없음(스캔 이미지일 수 있음)"
+            else:
+                facts = attachment_facts(text)
+                if facts:
+                    row["facts"] = facts
+        except Exception as e:  # noqa: BLE001
+            row["error"] = error_kind(e) if not isinstance(e, RuntimeError) else str(e)[:40]
+        out.append(row)
+        sleep(1.0)
+    return out
 
 
 def classify(title):
@@ -335,6 +464,8 @@ def read_details(items, get, sleep, budget=DETAIL_MAX):
             continue
         x["detail"] = d
         read += 1
+        x["attachments"] = read_attachments(x, x["url"], get, sleep) or []  # 빈 목록 = 읽을 첨부 없음(다시 시도 안 함)
+        d.pop("links", None)
         tier, hits = classify(d["title"])
         if tier and (tier, hits) != (x["tier"], x["companies"]):
             x["listTier"] = x["tier"]
@@ -414,8 +545,11 @@ def run(*, now, previous=None, post=None, sleep=time.sleep, cities=CITIES, brows
     via_browser = {c[0] for c in browser_cities} | set(sources)
     # 이번에 새로 잡힌 것 + 최근 3일 안에 잡혔는데 아직 상세를 안 읽은 것(이 기능 전 저장분, 한 번만 — 실패도 기록돼 다시 안 읽음)
     since = (now - dt.timedelta(days=DETAIL_BACKFILL_DAYS)).isoformat()
+    att_since = (now - dt.timedelta(days=ATTACH_BACKFILL_DAYS)).isoformat()
     fresh = [x for x in out.values() if x["tier"] in ("A", "B") and not x.get("baseline") and x["city"] not in via_browser
-             and (x.get("isNew") or (str(x.get("firstSeen")) >= since and "detail" not in x and "detailError" not in x))
+             and (x.get("isNew") or (str(x.get("firstSeen")) >= since and "detail" not in x and "detailError" not in x)
+                  # 첨부 읽기 전에 상세만 읽은 최근 공고(11-02 이전 저장분)는 한 번 더 열어 첨부까지
+                  or (str(x.get("firstSeen")) >= att_since and "detail" in x and "attachments" not in x))
              and not any(x["url"].startswith(b) for b in HOMEPAGE_BOARDS)]
     fresh.sort(key=lambda x: (not x.get("isNew"), x["tier"]))
     details = read_details(fresh, get, sleep) if get and fresh else None

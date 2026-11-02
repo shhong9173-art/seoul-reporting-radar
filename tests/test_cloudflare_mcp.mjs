@@ -2920,6 +2920,18 @@ test('kr local notices: a beat plant notice in a city is A, a city baseline is h
   assert.match(t2.text, /상세 페이지: 못 읽음\(ReadTimeout\) — 제목만 확인/);
   const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=168', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: new Date('2026-10-26T01:00:00Z') })).json();
   assert.deepEqual(items.items.find((x) => x.id === 'local:울주군:68156').check.terms, ['울주', '산소공장', '공장']);
+  // 첨부 공고문에서 뽑은 사업 개요(11-02 탐침 104 울주 68156 공고문.hwpx): 레이더 줄은 본문 앞부분 대신 개요, 화면에는 개요·못 읽은 첨부·안 연 첨부
+  doc.items.push(it('local:울주군:68160', { no: '울산광역시 울주군 공고 제2026-2799호', title: '건설공사 안전점검 수행기관 지정 공고[온산 고려아연(주), #3 TANK 토건공사]',
+    detail: { title: '건설공사 안전점검 수행기관 지정 공고[온산 고려아연(주), #3 TANK 토건공사]', body: '우리 군 온산읍 일원 공장 용도 건축공사', files: ['예정공정표.pdf', '공고문.hwpx', '붙임1.hwpx'] },
+    attachments: [{ name: '공고문.hwpx', chars: 2542, facts: { 사업명: '#3 TANK 토건공사', 공사기간: '2026. 9. ~ 2027. 2.', 위치: '울주군 온산읍 원산리 892번지 일원',
+      '발주자/시공자': '고려아연(주) / 서동건설산업(주)', 규모: '철근콘크리트구조 지상1층', 착공일: '2026. 9. 8.' } },
+      { name: '예정공정표.pdf', chars: 2, note: '글자 없음(스캔 이미지일 수 있음)' }] }));
+  await worker.fetch(new Request(ORIGIN + '/ingest/kr-local', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {});
+  const r3 = await call('radar_today', { hours: 72 }, opts);
+  assert.match(r3.text, /#3 TANK 토건공사\]」 · 건축과 · 등록 2026-10-25 · 첨부 개요: 공사기간 2026\. 9\. ~ 2027\. 2\. · 착공일 2026\. 9\. 8\. · 발주자\/시공자 고려아연\(주\) \/ 서동건설산업\(주\) · 규모 철근콘크리트구조 지상1층 — 제목·본문·첨부 개요 자동 추출/);
+  const t3 = await call('kr_official', { section: 'local', company: '고려아연' }, opts);
+  assert.match(t3.text, /첨부 원문에서 뽑은 사업 개요\(자동 — 첨부 원문 확인\): 사업명 #3 TANK 토건공사 · 공사기간 2026\. 9\. ~ 2027\. 2\. · 착공일 2026\. 9\. 8\. · 위치 울주군 온산읍 원산리 892번지 일원 · 발주자\/시공자 고려아연\(주\) \/ 서동건설산업\(주\) · 규모 철근콘크리트구조 지상1층/);
+  assert.match(t3.text, /못 읽은 첨부: 예정공정표\.pdf\(글자 없음\(스캔 이미지일 수 있음\)\)\n   첨부 파일\(열지 않음\): 붙임1\.hwpx/);
   assert.deepEqual(dueAt(new Date('2026-10-26T21:30:00Z')), ['page-watch.yml', 'kr-local.yml']);  // Tue 06:30 KST
   assert.deepEqual(dueAt(new Date('2026-10-27T07:20:00Z')), ['kr-local.yml']);                    // Tue 16:20 KST
 });
