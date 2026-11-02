@@ -7,7 +7,7 @@ import { dispatchHealth } from './dispatch.mjs';
 import { clampInt, safeEqual, textResult, uniqueList } from './common.mjs';
 import { classLabel, waitReason } from './trademarks.mjs';
 import { billLine, groupBillEvents } from './assembly.mjs';
-import { buildingLine, factoryEventText, identityNote, itcText, productOf, rateChangeText, rateText } from './overseas.mjs';
+import { attachmentOutline, buildingLine, factoryEventText, identityNote, itcText, productOf, rateChangeText, rateText } from './overseas.mjs';
 
 const KST_MS = 9 * 3600000;
 const kstDate = (ms) => new Date(ms + KST_MS).toISOString().slice(0, 10);
@@ -786,8 +786,10 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
     // 상세 페이지를 읽었으면 전체 제목·본문 앞부분(목록 제목은 '...'로 잘린다 — 10-31 울주 '#2ASU O...' → 'O2 COMPRESSOR ROOM 토건공사')
     const d = x.detail;
     const title = d?.title ?? x.title;
-    const body = d?.body ? ` · 본문: ${String(d.body).slice(0, 140)}${String(d.body).length > 140 ? '…' : ''}` : '';
-    const scope = d ? '제목·본문 앞부분 확인(첨부 원문·규모는 지자체·회사 확인)' : '제목만 확인(첨부 원문·규모는 지자체·회사 확인)';
+    // 첨부 공고문에서 뽑은 사업 개요가 있으면 본문 앞부분 대신(공사기간·시공자·규모가 본문보다 쓸모 있다 — 11-02 울주 고려아연 #2ASU)
+    const outline = attachmentOutline(x, ['공사기간', '착공일', '발주자/시공자', '시공자', '규모', '공사비']);
+    const body = outline ? ` · 첨부 개요: ${outline}` : d?.body ? ` · 본문: ${String(d.body).slice(0, 140)}${String(d.body).length > 140 ? '…' : ''}` : '';
+    const scope = outline ? '제목·본문·첨부 개요 자동 추출(첨부 원문·회사 확인)' : d ? '제목·본문 앞부분 확인(첨부 원문·규모는 지자체·회사 확인)' : '제목만 확인(첨부 원문·규모는 지자체·회사 확인)';
     push(x.tier ?? 'C', W['kr-local'], { kind: '지자체 고시·공고', id: x.id, date: x.date ?? String(x.firstSeen).slice(0, 10), company: x.company ?? x.city,
       fact: `${x.city} ${x.no ?? ''} 「${title}」 · ${x.dept ?? '담당 부서 미기재'} · 등록 ${x.date ?? '?'}${body} — ${scope}`,
       url: x.url, check: x.tier === 'C' || !x.company ? undefined
