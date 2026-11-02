@@ -2616,6 +2616,7 @@ test('overseas awards: a Bahrain opened bid is a bid, not an award — lowest bi
   assert.match(all.text, /2026-09-01 · 바레인 입찰위원회 개찰 개찰\(응찰\) · LS일렉트릭[^\n]*\n   잡힌 사실: 응찰 LS ELECTRIC CO\., LTD\. 응찰가 미공개 · 상태 Accepted · 응찰가 순위 없음/);
   const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
   assert.deepEqual(items.items.find((x) => x.id === 'bhopen:9001:일진전기').check.terms, ['바레인', '입찰']);
+  assert.equal(items.items.find((x) => x.id === 'bh:Aug 2026 Awarding Report.pdf:0').check.since, '2026-08-01');  // 보고서 달부터 보도 대조
   assert.deepEqual(items.items.find((x) => x.id === 'bhopen:9001:일진전기').check.places, ['바레인']);
 });
 

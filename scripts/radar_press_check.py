@@ -51,7 +51,8 @@ def candidates(items, *, now, limit=MAX_ITEMS):
     for x in items:
         hint = x.get("check") or {}
         who, terms = subject(hint.get("who")), [str(t) for t in hint.get("terms") or [] if str(t).strip()]
-        day = item_day(x) or now.date()
+        # 항목이 대조 시작일을 따로 주면(바레인 월간 보고서: 낙찰 결정 달) 그날부터
+        day = item_day({"date": hint.get("since")}) or item_day(x) or now.date()
         if not who or not terms:
             continue
         rows.append({"id": str(x["id"]), "tier": x.get("tier"), "watch": x.get("watch"), "company": who, "terms": terms,
