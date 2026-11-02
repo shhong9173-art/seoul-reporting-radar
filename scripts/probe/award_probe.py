@@ -17,8 +17,8 @@ def clean(t):
     return re.sub(r"<[^>]+>", "", t or "").replace("&quot;", '"').replace("&amp;", "&").strip()
 naver = {}
 for c in companies:
-    r = requests.get("https://openapi.naver.com/v1/search/news.json", params={"query": f"단독 {c}", "display": 100, "sort": "date"},
-                     headers={"X-Naver-Client-Id": cid, "X-Naver-Client-Secret": sec}, timeout=20)
+    r = requests.get("https://naverapihub.apigw.ntruss.com/search/v1/news", params={"query": f"단독 {c}", "display": 100, "sort": "date"},
+                     headers={"X-NCP-APIGW-API-KEY-ID": cid, "X-NCP-APIGW-API-KEY": sec}, timeout=20)
     if r.status_code != 200:
         p("naver", c, "HTTP", r.status_code); continue
     for it in r.json().get("items", []):
