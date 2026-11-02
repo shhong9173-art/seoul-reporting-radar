@@ -732,7 +732,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
       const rank = x.rank ? `응찰가 ${x.rank}위/${x.priced}곳${x.lowest ? '(최저가)' : x.lowestBid ? ` · 최저 ${x.lowestBid.name} ${money(x.lowestBid.value)}` : ''}` : '응찰가 순위 없음(가격 미공개·탈락)';
       push(tier, W['overseas-awards'], { kind: `${x.source} ${x.kind}`, id: x.id, date: x.published ?? x.firstSeen, company: x.company ?? '',
         fact: `해외 개찰(${x.source}): ${where ? `${where} ` : ''}${x.buyer} · ${String(x.title ?? '').slice(0, 120)} — ${x.bidder}${x.value ? ` ${money(x.value)}` : ' 응찰가 미공개'} · ${rank} · 개찰 ${x.published ?? '?'} · 낙찰 아님`,
-        url: x.url, check: tier === 'C' ? undefined : hint(x.company, [where, '입찰'], [where]) });
+        url: x.url, check: tier === 'C' ? undefined : hint(x.company, [where, '입찰'], [where], [where]) });
       continue;
     }
     const more = (x.winnerCount ?? (x.winners ?? []).length) - Math.min(2, (x.winners ?? []).length);
@@ -743,7 +743,8 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
       fact: `해외 ${x.kind}(${x.source}): ${where ? `${where} ` : ''}${buyer} ← ${who} · ${String(x.title ?? '').slice(0, x.ocr ? 220 : 120)}${value}${x.concluded ? ` · 계약 ${x.concluded}` : ''} · ${x.published ? `공고 ${x.published}` : x.reportMonth ? `${x.reportMonth} 월간 낙찰 보고서` : '공고 ?'}`,
       // 월간 보고서 줄은 낙찰 결정 달이 기준 — 보도 대조는 그 달부터 본다(11-02: 8월 보고서 일진전기 낙찰을 11-02부터 찾아 10-20 더구루 [단독]을
       // '앞선 기사'로 두고 미보도 후보라 했다)
-      url: x.url, check: tier === 'C' ? undefined : sinceMonth(hint(x.company, [where, '수주'], [where]), x.reportMonth) });
+      // 나라 이름이 기사에 있어야 같은 건(11-02 12:55: 바레인 낙찰 줄이 '일진전기 2분기 영업익…해외수주'·'영국 해상풍력 추가 수주'로 '관련 보도 있음')
+      url: x.url, check: tier === 'C' ? undefined : sinceMonth(hint(x.company, [where, '수주'], [where], [where]), x.reportMonth) });
   }
 
   // Court insolvency notices (대법원 회생·파산 공고, 회생회사 M&A 공고): a beat-industry manufacturer (공장등록 업종) entering
