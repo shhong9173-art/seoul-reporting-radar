@@ -192,6 +192,31 @@ class Watch(unittest.TestCase):
             doc = tw.run(CFG, now=NOW, previous=empty, key="k", ledger=book, fetch=book.fetcher("trademark", fake))
             self.assertFalse(any(f["isNew"] for f in doc["filings"]))
 
+    def test_company_with_changed_or_unverified_name_is_its_own_baseline(self):
+        # 11-02: '주식회사엘지화학'으로 0건(이름 미확인) → 실제 응답 이름 '주식회사 엘지화학'을 먼저 보내도록 바꾼 첫 실행
+        cfg = json.loads(json.dumps(CFG))
+        cfg["applicants"].append({"company": "LG화학", "industry": "electric", "names": ["주식회사 엘지화학", "주식회사엘지화학"]})
+        with tempfile.TemporaryDirectory() as folder:
+            first, _, _ = self.first_run(folder)
+            first["checks"].append({"source": "상표 LG화학", "status": "ok", "rawTotal": 0, "nameVerified": False})
+            later = NOW + timedelta(days=7)
+            lg = [item("4020260300001", "LUCETTE", "20261001", "09", owner="주식회사 엘지화학")]
+            fake = Fake({"현대자동차주식회사": reply(BASE_ROWS), "주식회사 엘지화학": reply(lg)})
+            book = ledger(folder, now=later)
+            doc = tw.run(cfg, now=later, previous=first, key="k", ledger=book, fetch=book.fetcher("trademark", fake))
+            lucette = next(f for f in doc["filings"] if f["title"] == "LUCETTE")
+            self.assertFalse(lucette["isNew"])  # 그 회사 첫 읽기 — 기준선
+            chk = next(c for c in doc["checks"] if c["source"] == "상표 LG화학")
+            self.assertEqual((chk["query"], chk.get("baseline")), ("주식회사 엘지화학", True))
+            # 다음 실행(같은 이름)부터는 새 출원이 신규
+            again = later + timedelta(days=7)
+            lg2 = lg + [item("4020260300002", "NEOCHEM", "20261101", "09", owner="주식회사 엘지화학")]
+            fake = Fake({"현대자동차주식회사": reply(BASE_ROWS), "주식회사 엘지화학": reply(lg2)})
+            book = ledger(folder, now=again)
+            doc2 = tw.run(cfg, now=again, previous=doc, key="k", ledger=book, fetch=book.fetcher("trademark", fake))
+            self.assertTrue(next(f for f in doc2["filings"] if f["title"] == "NEOCHEM")["isNew"])
+            self.assertNotIn("baseline", next(c for c in doc2["checks"] if c["source"] == "상표 LG화학"))
+
     def test_config_fits_trademark_budget(self):
         cfg = json.loads(tw.CONFIG.read_text(encoding="utf-8"))
         from kipris_account_ledger import GROUP_LIMITS
