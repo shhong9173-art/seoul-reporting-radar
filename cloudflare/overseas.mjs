@@ -106,7 +106,7 @@ async function awardSection(ctx, q, onlyNew, limit) {
     ...Object.entries(by).filter(([, b]) => b.scope).map(([k, b]) => `범위: ${k} — ${b.scope}`),
     ...(doc.rules ?? []).map((r) => `규칙: ${r}`)];
   for (const x of rows.slice(0, limit)) {
-    const value = x.value ? `${x.currency ?? ''} ${Number(x.value).toLocaleString('en-US', { maximumFractionDigits: 0 })}` : '금액 미기재';
+    const value = x.value ? `${x.currency ?? ''} ${Number(x.value).toLocaleString('en-US', { maximumFractionDigits: 0 })}${x.valueOcr ? '(글자 인식 값 — PDF 확인)' : ''}` : '금액 미기재';
     const ids = (x.winnerIds ?? []).length ? `, 식별번호 ${x.winnerIds.join('·')}` : '';
     out.push(`\n${x.isNew ? '[신규] ' : ''}${x.published ?? '공고일 미기재'} · ${x.source} ${x.kind} · ${x.company ?? '출입처 밖 한국 기업'} · 발주 ${x.buyer}${x.buyerCountry ? `(${x.buyerCountry})` : ''}`);
     if (x.bidder) {  // 바레인 개찰: 응찰 회사·응찰가 공개(낙찰 아님)
