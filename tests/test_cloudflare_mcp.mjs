@@ -1262,7 +1262,10 @@ test('radar_today ranks EDGAR mentions by deal words and hides items the reporte
       // 공개 2026-10-07, 레이더가 처음 본 때 10-25 — 밀린 공개(KIPRIS 조회가 풀린 뒤 한꺼번에)라 C
       { id: 'p3', verdict: '미보도 후보', company: '현대제철', title: '상변태 기반 판재 냉각', kind: '특허', published: '2026-10-07', firstSeen: '2026-10-25T20:00:00+09:00' },
       { id: 'p4', verdict: '미보도 후보', company: '기아', title: '배터리 냉각판', kind: '특허', published: '2026-10-20', firstSeen: '2026-10-25T20:00:00+09:00' },
-      { id: 'rc1', verdict: '미보도 후보', company: '기아', title: '기아, 10월 30일 리콜 공지 1건 — [기아] 쏘렌토 - 저압연료라인 어셈블리 관련 리콜', kind: '리콜' }] });
+      { id: 'rc1', verdict: '미보도 후보', company: '기아', title: '기아, 10월 30일 리콜 공지 1건 — [기아] 쏘렌토 - 저압연료라인 어셈블리 관련 리콜', kind: '리콜' },
+      // 11-02 운영: 새 출입처의 80일 전 반기보고서 표 숫자 — 첫 심사라 firstSeen은 오늘
+      { id: 'st1', verdict: '미보도 후보', company: '금호석유화학', title: '금호석유화학 · 운 송/서비스 — 공식 2025→2026 동일기간·단위 숫자 4426 → 5577 (백만원)', kind: '단서',
+        staleDays: 80, url: 'https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814002302', firstSeen: '2026-10-26T07:10:00+09:00' }] });
   const r = await call('radar_today', {}, opts);
   const a = r.text.split('[A · ')[1].split('[B · ')[0];
   const b = r.text.split('[B · ')[1].split('[C · ')[0];
@@ -1274,7 +1277,9 @@ test('radar_today ranks EDGAR mentions by deal words and hides items the reporte
   assert.match(b, /고정자 냉각 장치 \(특허\) — 보도 대조 '미보도 후보' · 특허 공개만으로는 단독이 아님/);
   assert.match(b, /배터리 냉각판 \(특허\)/);   // 공개 5일 뒤 처음 봄 — B
   assert.doesNotMatch(b, /상변태 기반 판재 냉각/);
+  assert.doesNotMatch(a + b, /운 송\/서비스/);  // 오래된 표 숫자는 A·B가 아니다
   const minor = await call('radar_today', { include_minor: true }, opts);
+  assert.match(minor.text.split('[C · ')[1], /운 송\/서비스[^\n]* · 오래된 자료\(접수 80일 전 — 새 시점 고리 필요\)/);
   assert.match(minor.text.split('[C · ')[1], /상변태 기반 판재 냉각 \(특허\)[^\n]* · 공개 18일 뒤에 레이더가 처음 봄\(밀린 공개\)/);
   assert.doesNotMatch(a, /쏘렌토/);  // 국내 리콜 공지 미보도 후보도 B(공개 공지, 10-31)
   assert.match(b, /\[기아\] 쏘렌토 - 저압연료라인 어셈블리 관련 리콜 — 보도 대조 '미보도 후보' · 리콜 공지만으로는 단독이 아님/);

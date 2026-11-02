@@ -344,6 +344,10 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
       push(late ? 'C' : 'B', W['scoop-screen'], { kind, verdict: c.verdict, id: c.id, date: c.published ?? c.filedOn, company: c.company,
         fact: `${title} (특허) — 보도 대조 '미보도 후보' · 특허 공개만으로는 단독이 아님(사업화·생산·수주 연결 확인)${late ? ` · 공개 ${Math.floor(lag)}일 뒤에 레이더가 처음 봄(밀린 공개)` : ''}`, url: c.url });
     }
+    // 반기·연간 보고서 표 숫자가 오래된 것(staleDays, scoop_screen.age_mark)은 새 시점 고리가 없으면 오늘 단서가 아니다 — 참고
+    // (11-02 운영: 11-01 출입처에 더한 금호석유화학의 08-14 반기보고서 '운송/서비스 4426→5577'이 첫 심사에서 A로 떴다)
+    else if (c.verdict === '미보도 후보' && c.staleDays) push('C', W['scoop-screen'], { kind, verdict: c.verdict, id: c.id, date: c.published ?? c.filedOn, company: c.company,
+      fact: `${title} (${c.kind ?? ''}) — 보도 대조 '미보도 후보' · 오래된 자료(접수 ${c.staleDays}일 전 — 새 시점 고리 필요)`, url: c.url });
     else if (c.verdict === '미보도 후보') push('A', W['scoop-screen'], { kind, verdict: c.verdict, id: c.id, date: c.published ?? c.filedOn, company: c.company, fact: `${title} (${c.kind ?? ''}) — 보도 대조 '미보도 후보'${brief}${cmp}`, url: c.url });
     else if (c.verdict === '미확인') push('B', W['scoop-screen'], { kind, verdict: c.verdict, id: c.id, date: c.published ?? c.filedOn, company: c.company, fact: `${title} — 보도 대조 미확인(채널 실패)`, url: c.url });
     // 정정 중 큰 변경(금액 ±10%·기간 90일+·해지): '관련 보도 있음'이어도 그 기사는 원 계약 기사일 수 있다 — B로 올린다
