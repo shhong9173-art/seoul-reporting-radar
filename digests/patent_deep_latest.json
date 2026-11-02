@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-11-02T09:57:58+09:00",
-  "patentDatasetGeneratedAt": "2026-11-02T09:57:22+09:00",
-  "inputPatents": 983,
-  "sourceCandidateCount": 983,
-  "uniquePublicationCount": 613,
-  "jointApplications": 379,
-  "outsideBeatJointPublications": 101,
+  "generatedAt": "2026-11-03T08:32:10+09:00",
+  "patentDatasetGeneratedAt": "2026-11-03T08:31:32+09:00",
+  "inputPatents": 1006,
+  "sourceCandidateCount": 1006,
+  "uniquePublicationCount": 633,
+  "jointApplications": 384,
+  "outsideBeatJointPublications": 105,
   "partnerInvestigations": [
     {
       "company": "기아",
@@ -423,6 +423,81 @@
       "priority": 53
     },
     {
+      "company": "현대모비스",
+      "applicants": [
+        "현대모비스 주식회사",
+        "에스피비 오디오 랩 불가리아 제이에스씨"
+      ],
+      "applicationNumber": "1020250053903",
+      "publicationNumber": "1020260157850",
+      "applicationDate": "20250424",
+      "publicationDate": "20261102",
+      "registrationDate": null,
+      "registerStatus": "공개",
+      "title": "가변 수렴인자를 적용한 능동소음제어 방법 및 이를 이용하는 능동소음제어 장치",
+      "abstract": "본 발명의 일 실시예에 의한 가변 수렴인자를 적용한 능동소음제어 방법에 있어서 차량에 포함된 가속도 센서를 통해 도로 소음 RMS(Root Mean Square) 레벨을 측정하는 단계; 측정된 RMS 레벨에 따라, 도로 소음 조절과 관련된 필터의 수렴인자 값을 설정하는 단계; 측정한 도로 소음 RMS 레벨 및 설정된 수렴인자 값을 테이블로 저장하는 단계; 저장된 테이블에 기초하여 RMS 레벨에 따른 수렴인자 수식을 생성하는 단계; 그리고 차량 내 가속도 센서별로 상기 수렴인자 수식에 기초하여 계산된 가변 수렴인자 값을 각각 적용하는 단계를 포함한다.",
+      "ipc": "G10K 11/178|B60W 40/10|B60W 50/00",
+      "themes": [],
+      "priorityScore": 20,
+      "themeMatched": false,
+      "classificationStatus": "기존 기술사전에 없음 · 공동출원인/초록 검토",
+      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
+      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
+      "lookupNumber": "1020260157850",
+      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
+      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
+      "questions": [
+        "공개번호 1020260157850의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
+        "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
+        "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
+        "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
+      ],
+      "scoopConfirmed": false,
+      "previouslyObserved": false,
+      "firstObservedAt": "2026-11-03",
+      "initialBaseline": false,
+      "historicalBackfill": true,
+      "freshObservation": false,
+      "observationNote": "직전 스냅샷 이전 공개 공보를 뒤늦게 수집(신규 공개 아님)",
+      "coveredCompanies": [
+        "현대모비스"
+      ],
+      "sourceRecordCount": 1,
+      "investigativeThemes": [
+        "관련 출입처 기술·세부 활용처 확인"
+      ],
+      "outsideBeatCoApplicants": [
+        "에스피비 오디오 랩 불가리아 제이에스씨"
+      ],
+      "officialApplicantCount": 2,
+      "jointApplicantGroup": true,
+      "crossOrganizationLead": true,
+      "partnerStatus": "공동출원 명의만 확인 · 역할/사업화/협업 계약 미확인",
+      "partnerQuestions": [
+        "출입처 외 공동출원인 각각이 담당한 효소·소재·공정·차량 적용 기술은 무엇인가?",
+        "특허의 청구항이 폐차 재료의 실제 재생·신차 적용을 설명하는가, 연구 단계인가?",
+        "양산 적용 시점·공급 계약 및 기존 유사 기술과의 차이·선행 보도는 확인됐는가?"
+      ],
+      "newsroomScore": 70,
+      "techNoveltyStatus": "특허 청구항·기존 기술과의 실질 차이 미확인",
+      "commercialStatus": "기업 직접 확인 전 제품화·양산·수주 미확인",
+      "priorFullTitleCheck": {
+        "status": "동일 제목 공보 미확인(다른 명칭의 선행기술은 검증 전)",
+        "queryFields": {
+          "title": "가변 수렴인자를 적용한 능동소음제어 방법 및 이를 이용하는 능동소음제어 장치",
+          "period": "20230101~20261101"
+        },
+        "rawTotal": 0,
+        "complete": true,
+        "checkedItems": 0,
+        "matches": [],
+        "claimComparison": "미조회: 청구항 원문 데이터는 이 검색 API 결과에 포함되지 않음",
+        "foreignFamilyComparison": "미조회: KIPRISPlus 별도 패밀리·우선권 또는 해외 공식 API 필요"
+      },
+      "relatedRecent": [],
+      "priority": 2
+    },
+    {
       "company": "기아",
       "applicants": [
         "현대자동차주식회사",
@@ -710,20 +785,11 @@
       "techNoveltyStatus": "특허 청구항·기존 기술과의 실질 차이 미확인",
       "commercialStatus": "기업 직접 확인 전 제품화·양산·수주 미확인",
       "priorFullTitleCheck": {
-        "status": "동일 제목 공보 미확인(다른 명칭의 선행기술은 검증 전)",
-        "queryFields": {
-          "title": "기준국 단위 RTCM 메시지 통합 및 패킷 길이 정보 포함에 기반한 방송망 최적화 전송 방법 및 장치",
-          "period": "20230101~20260930"
-        },
-        "rawTotal": 0,
-        "complete": true,
-        "checkedItems": 0,
-        "matches": [],
-        "claimComparison": "미조회: 청구항 원문 데이터는 이 검색 API 결과에 포함되지 않음",
-        "foreignFamilyComparison": "미조회: KIPRISPlus 별도 패밀리·우선권 또는 해외 공식 API 필요"
+        "status": "미검색",
+        "matches": []
       },
       "relatedRecent": [],
-      "priority": 2
+      "priority": 17
     },
     {
       "company": "기아",
@@ -1091,7 +1157,7 @@
         "matches": []
       },
       "relatedRecent": [],
-      "priority": 125
+      "priority": 126
     },
     {
       "company": "기아",
@@ -1160,7 +1226,7 @@
         "matches": []
       },
       "relatedRecent": [],
-      "priority": 132
+      "priority": 135
     },
     {
       "company": "기아",
@@ -1229,7 +1295,7 @@
         "matches": []
       },
       "relatedRecent": [],
-      "priority": 139
+      "priority": 144
     },
     {
       "company": "기아",
@@ -1298,7 +1364,7 @@
         "matches": []
       },
       "relatedRecent": [],
-      "priority": 146
+      "priority": 151
     },
     {
       "company": "현대제철",
@@ -1451,7 +1517,7 @@
           "titleSimilarity": 1.0
         }
       ],
-      "priority": 17
+      "priority": 31
     },
     {
       "company": "현대모비스",
@@ -1528,7 +1594,7 @@
           "titleSimilarity": 1.0
         }
       ],
-      "priority": 31
+      "priority": 43
     },
     {
       "company": "기아",
@@ -1597,7 +1663,7 @@
         "matches": []
       },
       "relatedRecent": [],
-      "priority": 152
+      "priority": 156
     },
     {
       "company": "기아",
@@ -1685,55 +1751,54 @@
         "matches": []
       },
       "relatedRecent": [],
-      "priority": 157
+      "priority": 161
     },
     {
-      "company": "현대제철",
+      "company": "현대모비스",
       "applicants": [
-        "현대제철 주식회사",
-        "한국항공대학교산학협력단"
+        "현대모비스 주식회사",
+        "명지대학교 산학협력단"
       ],
-      "applicationNumber": "1020250034066",
-      "publicationNumber": "1020260140753",
-      "applicationDate": "20250317",
-      "publicationDate": "20260928",
+      "applicationNumber": "1020250074491",
+      "publicationNumber": "1020260157973",
+      "applicationDate": "20250609",
+      "publicationDate": "20261102",
       "registrationDate": null,
       "registerStatus": "공개",
-      "title": "용해로용 랜스 및 이의 제어방법",
-      "abstract": "본 발명에 따른 용해로용 랜스는, 주 공급유체를 유동시키는 메인바디, 상기 메인바디의 전방 측에 구비되어 용해로의 로내 측으로 주 공급유체를 분사하도록 마련되는 분사노즐, 상기 메인바디 및 상기 분사노즐 사이에 연결되는 제트공급용 커넥터, 그리고 상기 제트공급용 커넥터에 연결되어 상기 주 공급유체에 교차하는 방향으로 편향제어용 제트를 선택적으로 유동시키는 제트공급라인을 포함할 수 있다.",
-      "ipc": "C21C 5/46|C21C 5/52|F27D 3/16",
+      "title": "AI/ML 포지셔닝을 위한 방법 및 이를 위한 장치",
+      "abstract": "AI/ML 포지셔닝을 위한 방법 및 이를 위한 장치가 제공된다. 이를 위한 사용자 기기(UE)의 포지셔닝(positioning) 데이터 전송 방법은, 네트워크의 기지국으로부터 RS (Reference Signal)을 수신하고; 상기 RS에 기반한 채널 측정 정보를 포함하는 파트 A 정보를 생성하고; AI(Artificial Intelligence)/ML(Machine Learning) 모델을 위한 라벨(label) 정보를 포함하는 파트 B 정보를 생성하며; 그리고 상기 파트 A 정보 또는 상기 파트 B 정보 중 하나 이상을 포함하는 포지셔닝 데이터를 상기 네트워크의 LMF(Location Management Function)에 전송하는 것을 포함하되, 상기 포지셔닝 데이터는, 상기 UE가 PRU (Positioning Reference Unit)인지 여부, 상기 파트 A 정보 및 상기 파트 B 정보의 생성 시간, 또는 상기 UE가 AI/ML 방식을 사용하는지 여부 중 하나 이상에 기반하여 결정된다.",
+      "ipc": "H04W 64/00|H04W 24/08|H04W 24/02|H04L 5/00|G06N 20/00",
       "themes": [],
       "priorityScore": 20,
       "themeMatched": false,
       "classificationStatus": "기존 기술사전에 없음 · 공동출원인/초록 검토",
       "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
       "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
-      "lookupNumber": "1020260140753",
+      "lookupNumber": "1020260157973",
       "status": "공개된 특허 문헌: 기술 방향 취재 후보",
       "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
       "questions": [
-        "공개번호 1020260140753의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
+        "공개번호 1020260157973의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
         "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
         "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
         "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
       ],
       "scoopConfirmed": false,
-      "previouslyObserved": true,
-      "firstObservedAt": "2026-10-13",
+      "previouslyObserved": false,
+      "firstObservedAt": "2026-11-03",
       "initialBaseline": false,
-      "historicalBackfill": false,
+      "historicalBackfill": true,
       "freshObservation": false,
-      "observationNote": "이전 검증 공개공보 유지(이번 실행 신규 조회 아님)",
-      "reusedFromPriorVerifiedSnapshot": true,
+      "observationNote": "직전 스냅샷 이전 공개 공보를 뒤늦게 수집(신규 공개 아님)",
       "coveredCompanies": [
-        "현대제철"
+        "현대모비스"
       ],
       "sourceRecordCount": 1,
       "investigativeThemes": [
         "관련 출입처 기술·세부 활용처 확인"
       ],
       "outsideBeatCoApplicants": [
-        "한국항공대학교산학협력단"
+        "명지대학교 산학협력단"
       ],
       "officialApplicantCount": 2,
       "jointApplicantGroup": true,
@@ -1744,7 +1809,7 @@
         "특허의 청구항이 폐차 재료의 실제 재생·신차 적용을 설명하는가, 연구 단계인가?",
         "양산 적용 시점·공급 계약 및 기존 유사 기술과의 차이·선행 보도는 확인됐는가?"
       ],
-      "newsroomScore": 65,
+      "newsroomScore": 61,
       "techNoveltyStatus": "특허 청구항·기존 기술과의 실질 차이 미확인",
       "commercialStatus": "기업 직접 확인 전 제품화·양산·수주 미확인",
       "priorFullTitleCheck": {
@@ -1752,7 +1817,75 @@
         "matches": []
       },
       "relatedRecent": [],
-      "priority": 18
+      "priority": 54
+    },
+    {
+      "company": "기아",
+      "applicants": [
+        "현대자동차주식회사",
+        "기아 주식회사",
+        "조선대학교산학협력단"
+      ],
+      "applicationNumber": "1020250053828",
+      "publicationNumber": "1020260157827",
+      "applicationDate": "20250424",
+      "publicationDate": "20261102",
+      "registrationDate": null,
+      "registerStatus": "공개",
+      "title": "물성이 개선된 버섯 균사체 매트의 제조방법 및 이를 통해 제조된 버섯 균사체 매트",
+      "abstract": "본 발명은 물성이 개선된 버섯 균사체 매트의 제조방법 및 상기 방법으로 제조된 물성이 강화된 버섯 균사체 매트에 관한 것이다. 본 발명의 버섯 균사체 매트의 제조방법은 버섯 균사체를 굴 패각 파우더를 포함하는 배지에서 배양함으로써 굴 패각에 다량 함유된 탄산칼슘 성분을 이용하여 균사체의 세포벽 강화 및 균사 생장을 촉진시킬 수 있으며, 직물 (織物) 소재를 배지 상부에 적층하여 균사체를 배양함으로써 버섯 균사체가 직물의 메쉬 (mesh) 구조에 얽히면서 성장할 수 있어 직물 자체적인 물성이 더해지는 이점이 있다. 따라서 상기 제조방법은 상업적으로 우수한 품질의 버섯 균사체 매트를 생산하기 위하여 유용하게 사용될 수 있다. 또한, 본 발명의 방법으로 제조된 버섯 균사체 매트는 인장강도, 연신율 및 영률과 같은 물성이 증진된 특징을 갖는바, 가죽 소재와 같은 산업소재로 활용도가 높은 이점이 있다.",
+      "ipc": "A01G 18/20|A01G 18/50|A01G 18/40",
+      "themes": [],
+      "priorityScore": 20,
+      "themeMatched": false,
+      "classificationStatus": "기존 기술사전에 없음 · 공동출원인/초록 검토",
+      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
+      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
+      "lookupNumber": "1020260157827",
+      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
+      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
+      "questions": [
+        "공개번호 1020260157827의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
+        "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
+        "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
+        "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
+      ],
+      "scoopConfirmed": false,
+      "previouslyObserved": false,
+      "firstObservedAt": "2026-11-03",
+      "initialBaseline": false,
+      "historicalBackfill": true,
+      "freshObservation": false,
+      "observationNote": "직전 스냅샷 이전 공개 공보를 뒤늦게 수집(신규 공개 아님)",
+      "coveredCompanies": [
+        "기아",
+        "현대자동차"
+      ],
+      "sourceRecordCount": 2,
+      "investigativeThemes": [
+        "관련 출입처 기술·세부 활용처 확인"
+      ],
+      "outsideBeatCoApplicants": [
+        "조선대학교산학협력단"
+      ],
+      "officialApplicantCount": 3,
+      "jointApplicantGroup": true,
+      "crossOrganizationLead": true,
+      "partnerStatus": "공동출원 명의만 확인 · 역할/사업화/협업 계약 미확인",
+      "partnerQuestions": [
+        "출입처 외 공동출원인 각각이 담당한 효소·소재·공정·차량 적용 기술은 무엇인가?",
+        "특허의 청구항이 폐차 재료의 실제 재생·신차 적용을 설명하는가, 연구 단계인가?",
+        "양산 적용 시점·공급 계약 및 기존 유사 기술과의 차이·선행 보도는 확인됐는가?"
+      ],
+      "newsroomScore": 61,
+      "techNoveltyStatus": "특허 청구항·기존 기술과의 실질 차이 미확인",
+      "commercialStatus": "기업 직접 확인 전 제품화·양산·수주 미확인",
+      "priorFullTitleCheck": {
+        "status": "미검색",
+        "matches": []
+      },
+      "relatedRecent": [],
+      "priority": 181
     },
     {
       "company": "기아",
@@ -1821,7 +1954,7 @@
         "matches": []
       },
       "relatedRecent": [],
-      "priority": 175
+      "priority": 185
     },
     {
       "company": "기아",
@@ -1890,7 +2023,7 @@
         "matches": []
       },
       "relatedRecent": [],
-      "priority": 178
+      "priority": 188
     },
     {
       "company": "기아",
@@ -1959,7 +2092,7 @@
         "matches": []
       },
       "relatedRecent": [],
-      "priority": 181
+      "priority": 191
     },
     {
       "company": "기아",
@@ -2028,7 +2161,7 @@
         "matches": []
       },
       "relatedRecent": [],
-      "priority": 183
+      "priority": 193
     },
     {
       "company": "기아",
@@ -2097,7 +2230,7 @@
         "matches": []
       },
       "relatedRecent": [],
-      "priority": 185
+      "priority": 195
     },
     {
       "company": "기아",
@@ -2177,7 +2310,7 @@
           "titleSimilarity": 1.0
         }
       ],
-      "priority": 187
+      "priority": 197
     },
     {
       "company": "기아",
@@ -2326,7 +2459,7 @@
         "matches": []
       },
       "relatedRecent": [],
-      "priority": 189
+      "priority": 199
     },
     {
       "company": "기아",
@@ -2395,7 +2528,7 @@
         "matches": []
       },
       "relatedRecent": [],
-      "priority": 191
+      "priority": 201
     },
     {
       "company": "기아",
@@ -2474,7 +2607,7 @@
         "matches": []
       },
       "relatedRecent": [],
-      "priority": 193
+      "priority": 203
     },
     {
       "company": "기아",
@@ -2545,7 +2678,7 @@
         "matches": []
       },
       "relatedRecent": [],
-      "priority": 195
+      "priority": 205
     },
     {
       "company": "기아",
@@ -2624,7 +2757,7 @@
         "matches": []
       },
       "relatedRecent": [],
-      "priority": 197
+      "priority": 207
     },
     {
       "company": "기아",
@@ -2693,7 +2826,7 @@
         "matches": []
       },
       "relatedRecent": [],
-      "priority": 199
+      "priority": 209
     },
     {
       "company": "기아",
@@ -2773,7 +2906,7 @@
           "titleSimilarity": 0.833
         }
       ],
-      "priority": 201
+      "priority": 211
     },
     {
       "company": "기아",
@@ -2852,7 +2985,7 @@
         "matches": []
       },
       "relatedRecent": [],
-      "priority": 203
+      "priority": 213
     },
     {
       "company": "LS전선",
@@ -2995,7 +3128,7 @@
         "matches": []
       },
       "relatedRecent": [],
-      "priority": 43
+      "priority": 64
     },
     {
       "company": "기아",
@@ -3064,7 +3197,7 @@
         "matches": []
       },
       "relatedRecent": [],
-      "priority": 205
+      "priority": 215
     },
     {
       "company": "기아",
@@ -3133,7 +3266,7 @@
         "matches": []
       },
       "relatedRecent": [],
-      "priority": 207
+      "priority": 217
     },
     {
       "company": "기아",
@@ -3222,7 +3355,7 @@
           "titleSimilarity": 0.667
         }
       ],
-      "priority": 209
+      "priority": 219
     },
     {
       "company": "기아",
@@ -3291,7 +3424,7 @@
         "matches": []
       },
       "relatedRecent": [],
-      "priority": 211
+      "priority": 221
     },
     {
       "company": "두산에너빌리티",
@@ -3445,7 +3578,7 @@
         "matches": []
       },
       "relatedRecent": [],
-      "priority": 213
+      "priority": 223
     },
     {
       "company": "기아",
@@ -3524,7 +3657,7 @@
         "matches": []
       },
       "relatedRecent": [],
-      "priority": 215
+      "priority": 225
     },
     {
       "company": "기아",
@@ -3604,7 +3737,7 @@
           "titleSimilarity": 1.0
         }
       ],
-      "priority": 217
+      "priority": 227
     },
     {
       "company": "기아",
@@ -3684,7 +3817,7 @@
           "titleSimilarity": 0.833
         }
       ],
-      "priority": 219
+      "priority": 229
     },
     {
       "company": "기아",
@@ -3774,7 +3907,152 @@
           "titleSimilarity": 0.5
         }
       ],
-      "priority": 247
+      "priority": 259
+    },
+    {
+      "company": "현대모비스",
+      "applicants": [
+        "현대모비스 주식회사",
+        "명지대학교 산학협력단"
+      ],
+      "applicationNumber": "1020250074490",
+      "publicationNumber": "1020260157972",
+      "applicationDate": "20250609",
+      "publicationDate": "20261102",
+      "registrationDate": null,
+      "registerStatus": "공개",
+      "title": "안테나 타입을 고려한 ISAC",
+      "abstract": "안테나 타입을 고려한 ISAC (Integrated Sensing and Communication) 기술이 제공된다. 이를 위해, 사용자 기기(UE)가 TRP(Transmission Reception Point)와 센싱을 결합한 통신을 수행하는 방법은, 상기 TRP에 상기 UE의 성능 정보를 전송하고; 상기 TRP로부터 상기 UE가 센싱을 수행할 신호에 대한 센싱 방식 정보를 수신하며; 그리고 상기 센싱 방식 정보에 기반하여 센싱을 수행하는 것을 포함하되, 상기 UE의 성능 정보는, 상기 UE의 안테나가 수평 방향 및 수직 방향 각도를 동시에 추정할 수 있는 제 1 타입 안테나, 또는 수평 방향 또는 수직 방향 중 어느 한 방향 각도를 추정할 수 있는 제 2 타입 안테나 중 어느 타입의 안테나인지에 대한 직접 또는 간접 정보를 포함한다.",
+      "ipc": "H04W 64/00|H04W 8/24|H04W 4/38|H04W 24/08|H04B 7/06|G01S 13/00|G01S 13/88|H04W 84/06",
+      "themes": [],
+      "priorityScore": 20,
+      "themeMatched": false,
+      "classificationStatus": "기존 기술사전에 없음 · 공동출원인/초록 검토",
+      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
+      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
+      "lookupNumber": "1020260157972",
+      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
+      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
+      "questions": [
+        "공개번호 1020260157972의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
+        "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
+        "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
+        "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
+      ],
+      "scoopConfirmed": false,
+      "previouslyObserved": false,
+      "firstObservedAt": "2026-11-03",
+      "initialBaseline": false,
+      "historicalBackfill": true,
+      "freshObservation": false,
+      "observationNote": "직전 스냅샷 이전 공개 공보를 뒤늦게 수집(신규 공개 아님)",
+      "coveredCompanies": [
+        "현대모비스"
+      ],
+      "sourceRecordCount": 1,
+      "investigativeThemes": [
+        "관련 출입처 기술·세부 활용처 확인"
+      ],
+      "outsideBeatCoApplicants": [
+        "명지대학교 산학협력단"
+      ],
+      "officialApplicantCount": 2,
+      "jointApplicantGroup": true,
+      "crossOrganizationLead": true,
+      "partnerStatus": "공동출원 명의만 확인 · 역할/사업화/협업 계약 미확인",
+      "partnerQuestions": [
+        "출입처 외 공동출원인 각각이 담당한 효소·소재·공정·차량 적용 기술은 무엇인가?",
+        "특허의 청구항이 폐차 재료의 실제 재생·신차 적용을 설명하는가, 연구 단계인가?",
+        "양산 적용 시점·공급 계약 및 기존 유사 기술과의 차이·선행 보도는 확인됐는가?"
+      ],
+      "newsroomScore": 56,
+      "techNoveltyStatus": "특허 청구항·기존 기술과의 실질 차이 미확인",
+      "commercialStatus": "기업 직접 확인 전 제품화·양산·수주 미확인",
+      "priorFullTitleCheck": {
+        "status": "미검색",
+        "matches": []
+      },
+      "relatedRecent": [],
+      "priority": 73
+    },
+    {
+      "company": "기아",
+      "applicants": [
+        "현대자동차주식회사",
+        "기아 주식회사",
+        "대동하이렉스 주식회사"
+      ],
+      "applicationNumber": "1020250053255",
+      "publicationNumber": "1020260157636",
+      "applicationDate": "20250423",
+      "publicationDate": "20261102",
+      "registrationDate": null,
+      "registerStatus": "공개",
+      "title": "적재함 커버 및 이를 포함하는 차량",
+      "abstract": "개시된 실시예에 따른 적재함 커버는 차량의 적재함 폭 방향 양측에 회전 가능하게 구비되는 가이드 레일; 상기 가이드 레일을 회전시키는 구동부; 상기 가이드 레일을 따라 슬라이드 이동하여 접철 가능하게 구비되는 커버 패널; 및 상기 가이드 레일에 착탈 가능하게 결합되고, 내측에 텐트 커버가 구비된 텐트 프레임;을 포함할 수 있다.",
+      "ipc": "B60J 7/04|B60J 7/02|B60J 7/057|B60J 7/20|E04H 15/02",
+      "themes": [],
+      "priorityScore": 20,
+      "themeMatched": false,
+      "classificationStatus": "기존 기술사전에 없음 · 공동출원인/초록 검토",
+      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
+      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
+      "lookupNumber": "1020260157636",
+      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
+      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
+      "questions": [
+        "공개번호 1020260157636의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
+        "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
+        "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
+        "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
+      ],
+      "scoopConfirmed": false,
+      "previouslyObserved": false,
+      "firstObservedAt": "2026-11-03",
+      "initialBaseline": false,
+      "historicalBackfill": true,
+      "freshObservation": false,
+      "observationNote": "직전 스냅샷 이전 공개 공보를 뒤늦게 수집(신규 공개 아님)",
+      "coveredCompanies": [
+        "기아",
+        "현대자동차"
+      ],
+      "sourceRecordCount": 2,
+      "investigativeThemes": [
+        "차량 제어·파워트레인(자율주행 미확정)"
+      ],
+      "outsideBeatCoApplicants": [
+        "대동하이렉스 주식회사"
+      ],
+      "officialApplicantCount": 3,
+      "jointApplicantGroup": true,
+      "crossOrganizationLead": true,
+      "partnerStatus": "공동출원 명의만 확인 · 역할/사업화/협업 계약 미확인",
+      "partnerQuestions": [
+        "출입처 외 공동출원인 각각이 담당한 효소·소재·공정·차량 적용 기술은 무엇인가?",
+        "특허의 청구항이 폐차 재료의 실제 재생·신차 적용을 설명하는가, 연구 단계인가?",
+        "양산 적용 시점·공급 계약 및 기존 유사 기술과의 차이·선행 보도는 확인됐는가?"
+      ],
+      "newsroomScore": 56,
+      "techNoveltyStatus": "특허 청구항·기존 기술과의 실질 차이 미확인",
+      "commercialStatus": "기업 직접 확인 전 제품화·양산·수주 미확인",
+      "priorFullTitleCheck": {
+        "status": "미검색",
+        "matches": []
+      },
+      "relatedRecent": [
+        {
+          "publicationNumber": "1020260152813",
+          "title": "적재함 커버 및 이를 포함하는 차량",
+          "companies": [
+            "기아",
+            "현대자동차"
+          ],
+          "publicationDate": "20261021",
+          "titleSimilarity": 1.0
+        }
+      ],
+      "priority": 261
     },
     {
       "company": "현대제철",
@@ -3860,7 +4138,7 @@
           "titleSimilarity": 0.667
         }
       ],
-      "priority": 32
+      "priority": 18
     },
     {
       "company": "기아",
@@ -3931,7 +4209,7 @@
         "matches": []
       },
       "relatedRecent": [],
-      "priority": 249
+      "priority": 263
     },
     {
       "company": "기아",
@@ -4011,7 +4289,7 @@
           "titleSimilarity": 1.0
         }
       ],
-      "priority": 251
+      "priority": 265
     },
     {
       "company": "기아",
@@ -4080,7 +4358,7 @@
         "matches": []
       },
       "relatedRecent": [],
-      "priority": 253
+      "priority": 267
     },
     {
       "company": "기아",
@@ -4168,7 +4446,7 @@
           "titleSimilarity": 0.5
         }
       ],
-      "priority": 255
+      "priority": 269
     },
     {
       "company": "기아",
@@ -4237,7 +4515,7 @@
         "matches": []
       },
       "relatedRecent": [],
-      "priority": 257
+      "priority": 271
     },
     {
       "company": "기아",
@@ -4315,7 +4593,7 @@
         "matches": []
       },
       "relatedRecent": [],
-      "priority": 259
+      "priority": 273
     },
     {
       "company": "기아",
@@ -4415,7 +4693,7 @@
           "titleSimilarity": 0.5
         }
       ],
-      "priority": 261
+      "priority": 275
     },
     {
       "company": "기아",
@@ -4483,8 +4761,19 @@
         "status": "미검색",
         "matches": []
       },
-      "relatedRecent": [],
-      "priority": 263
+      "relatedRecent": [
+        {
+          "publicationNumber": "1020260157636",
+          "title": "적재함 커버 및 이를 포함하는 차량",
+          "companies": [
+            "기아",
+            "현대자동차"
+          ],
+          "publicationDate": "20261102",
+          "titleSimilarity": 1.0
+        }
+      ],
+      "priority": 277
     },
     {
       "company": "기아",
@@ -4553,7 +4842,7 @@
         "matches": []
       },
       "relatedRecent": [],
-      "priority": 265
+      "priority": 279
     },
     {
       "company": "기아",
@@ -4653,7 +4942,7 @@
           "titleSimilarity": 0.5
         }
       ],
-      "priority": 267
+      "priority": 281
     },
     {
       "company": "기아",
@@ -4764,7 +5053,7 @@
           "titleSimilarity": 0.5
         }
       ],
-      "priority": 269
+      "priority": 283
     },
     {
       "company": "기아",
@@ -4844,7 +5133,7 @@
           "titleSimilarity": 0.5
         }
       ],
-      "priority": 271
+      "priority": 285
     },
     {
       "company": "기아",
@@ -4931,19 +5220,9 @@
           ],
           "publicationDate": "20261006",
           "titleSimilarity": 1.0
-        },
-        {
-          "publicationNumber": "1020260140642",
-          "title": "차량용 휠 및 이를 포함하는 차량",
-          "companies": [
-            "기아",
-            "현대자동차"
-          ],
-          "publicationDate": "20260928",
-          "titleSimilarity": 0.5
         }
       ],
-      "priority": 273
+      "priority": 287
     },
     {
       "company": "기아",
@@ -5012,7 +5291,7 @@
         "matches": []
       },
       "relatedRecent": [],
-      "priority": 275
+      "priority": 289
     },
     {
       "company": "기아",
@@ -5092,7 +5371,7 @@
           "titleSimilarity": 1.0
         }
       ],
-      "priority": 277
+      "priority": 291
     },
     {
       "company": "기아",
@@ -5161,7 +5440,7 @@
         "matches": []
       },
       "relatedRecent": [],
-      "priority": 279
+      "priority": 293
     },
     {
       "company": "기아",
@@ -5230,7 +5509,7 @@
         "matches": []
       },
       "relatedRecent": [],
-      "priority": 281
+      "priority": 295
     },
     {
       "company": "기아",
@@ -5318,7 +5597,7 @@
           "titleSimilarity": 0.5
         }
       ],
-      "priority": 283
+      "priority": 297
     },
     {
       "company": "기아",
@@ -5400,7 +5679,7 @@
           "titleSimilarity": 0.5
         }
       ],
-      "priority": 285
+      "priority": 299
     },
     {
       "company": "기아",
@@ -5510,7 +5789,7 @@
           "titleSimilarity": 1.0
         }
       ],
-      "priority": 287
+      "priority": 301
     },
     {
       "company": "기아",
@@ -5592,7 +5871,7 @@
           "titleSimilarity": 0.5
         }
       ],
-      "priority": 289
+      "priority": 303
     },
     {
       "company": "기아",
@@ -5702,7 +5981,7 @@
           "titleSimilarity": 1.0
         }
       ],
-      "priority": 291
+      "priority": 305
     },
     {
       "company": "기아",
@@ -5812,7 +6091,7 @@
           "titleSimilarity": 0.667
         }
       ],
-      "priority": 293
+      "priority": 307
     },
     {
       "company": "기아",
@@ -5883,7 +6162,7 @@
         "matches": []
       },
       "relatedRecent": [],
-      "priority": 295
+      "priority": 309
     },
     {
       "company": "기아",
@@ -5962,7 +6241,7 @@
         "matches": []
       },
       "relatedRecent": [],
-      "priority": 297
+      "priority": 311
     },
     {
       "company": "기아",
@@ -6073,7 +6352,7 @@
           "titleSimilarity": 0.5
         }
       ],
-      "priority": 299
+      "priority": 313
     },
     {
       "company": "기아",
@@ -6142,7 +6421,7 @@
         "matches": []
       },
       "relatedRecent": [],
-      "priority": 301
+      "priority": 315
     },
     {
       "company": "기아",
@@ -6211,7 +6490,7 @@
         "matches": []
       },
       "relatedRecent": [],
-      "priority": 303
+      "priority": 317
     },
     {
       "company": "기아",
@@ -6280,7 +6559,7 @@
         "matches": []
       },
       "relatedRecent": [],
-      "priority": 305
+      "priority": 319
     },
     {
       "company": "기아",
@@ -6349,7 +6628,7 @@
         "matches": []
       },
       "relatedRecent": [],
-      "priority": 307
+      "priority": 321
     },
     {
       "company": "기아",
@@ -6417,19 +6696,8 @@
         "status": "미검색",
         "matches": []
       },
-      "relatedRecent": [
-        {
-          "publicationNumber": "1020260140642",
-          "title": "차량용 휠 및 이를 포함하는 차량",
-          "companies": [
-            "기아",
-            "현대자동차"
-          ],
-          "publicationDate": "20260928",
-          "titleSimilarity": 0.5
-        }
-      ],
-      "priority": 309
+      "relatedRecent": [],
+      "priority": 323
     },
     {
       "company": "기아",
@@ -6498,7 +6766,7 @@
         "matches": []
       },
       "relatedRecent": [],
-      "priority": 311
+      "priority": 325
     },
     {
       "company": "기아",
@@ -6580,7 +6848,7 @@
           "titleSimilarity": 0.667
         }
       ],
-      "priority": 313
+      "priority": 327
     },
     {
       "company": "기아",
@@ -6670,19 +6938,9 @@
           ],
           "publicationDate": "20261007",
           "titleSimilarity": 0.5
-        },
-        {
-          "publicationNumber": "1020260140642",
-          "title": "차량용 휠 및 이를 포함하는 차량",
-          "companies": [
-            "기아",
-            "현대자동차"
-          ],
-          "publicationDate": "20260928",
-          "titleSimilarity": 0.5
         }
       ],
-      "priority": 315
+      "priority": 329
     },
     {
       "company": "포스코",
@@ -6837,7 +7095,7 @@
         "matches": []
       },
       "relatedRecent": [],
-      "priority": 317
+      "priority": 331
     },
     {
       "company": "기아",
@@ -6916,7 +7174,7 @@
         "matches": []
       },
       "relatedRecent": [],
-      "priority": 319
+      "priority": 333
     },
     {
       "company": "기아",
@@ -7025,7 +7283,7 @@
           "titleSimilarity": 0.5
         }
       ],
-      "priority": 321
+      "priority": 335
     },
     {
       "company": "기아",
@@ -7094,7 +7352,7 @@
         "matches": []
       },
       "relatedRecent": [],
-      "priority": 323
+      "priority": 337
     },
     {
       "company": "기아",
@@ -7232,7 +7490,7 @@
         "matches": []
       },
       "relatedRecent": [],
-      "priority": 64
+      "priority": 91
     },
     {
       "company": "기아",
@@ -7301,7 +7559,7 @@
         "matches": []
       },
       "relatedRecent": [],
-      "priority": 325
+      "priority": 339
     },
     {
       "company": "기아",
@@ -7370,7 +7628,7 @@
         "matches": []
       },
       "relatedRecent": [],
-      "priority": 327
+      "priority": 341
     },
     {
       "company": "기아",
@@ -7439,7 +7697,7 @@
         "matches": []
       },
       "relatedRecent": [],
-      "priority": 331
+      "priority": 345
     },
     {
       "company": "기아",
@@ -7508,7 +7766,7 @@
         "matches": []
       },
       "relatedRecent": [],
-      "priority": 337
+      "priority": 351
     },
     {
       "company": "기아",
@@ -7577,7 +7835,7 @@
         "matches": []
       },
       "relatedRecent": [],
-      "priority": 339
+      "priority": 353
     },
     {
       "company": "기아",
@@ -7646,7 +7904,7 @@
         "matches": []
       },
       "relatedRecent": [],
-      "priority": 347
+      "priority": 361
     },
     {
       "company": "현대제철",
@@ -7732,7 +7990,7 @@
           "titleSimilarity": 0.667
         }
       ],
-      "priority": 55
+      "priority": 44
     },
     {
       "company": "기아",
@@ -7801,7 +8059,7 @@
         "matches": []
       },
       "relatedRecent": [],
-      "priority": 384
+      "priority": 404
     },
     {
       "company": "기아",
@@ -7870,7 +8128,7 @@
         "matches": []
       },
       "relatedRecent": [],
-      "priority": 417
+      "priority": 437
     }
   ],
   "invalidDuplicateNumbers": [],
@@ -7975,41 +8233,39 @@
       "company": "현대모비스",
       "applicants": [
         "현대모비스 주식회사",
-        "한국방송공사",
-        "정수아"
+        "에스피비 오디오 랩 불가리아 제이에스씨"
       ],
-      "applicationNumber": "1020260043798",
-      "publicationNumber": "1020260143498",
-      "applicationDate": "20260311",
-      "publicationDate": "20261001",
+      "applicationNumber": "1020250053903",
+      "publicationNumber": "1020260157850",
+      "applicationDate": "20250424",
+      "publicationDate": "20261102",
       "registrationDate": null,
       "registerStatus": "공개",
-      "title": "기준국 단위 RTCM 메시지 통합 및 패킷 길이 정보 포함에 기반한 방송망 최적화 전송 방법 및 장치",
-      "abstract": "방송 서버에 의해 복수 기준국들에 댓한 RTCM(Real-Time Correction Message) 메시지를 방송망에 기반하여 로버 단말로 전송하는 RTCM 메시지 전송 방법에 있어서, 하나의 기준국 단위로 복수의 RTCM 메시지들을 수집하고 상기 복수의 RTCM 메시지들에 기반하여 하나의 컨테이너 메시지를 생성하는 단계; 상기 하나의 컨테이너 메시지에 포함된 적어도 하나의 RTCM 메시지의 스테이션 아이디(Station ID)를 나타내는 비트 영역 및 예약(Reserve)을 나타내는 비트 영역을 기지국을 식별하기 위한 기준국 번호으로 설정하는 단계; 및 상기 적어도 하나의 RTCM 메시지의 끝부분에 상기 컨테이너 메시지를 구성하는 전체 메시지에 대해 계산된 그룹 CRC를 추가하는 단계; 를 포함하는, RTCM 메시지 전송 방법.",
-      "ipc": "G01S 19/07|G01S 19/08|H04H 20/51",
+      "title": "가변 수렴인자를 적용한 능동소음제어 방법 및 이를 이용하는 능동소음제어 장치",
+      "abstract": "본 발명의 일 실시예에 의한 가변 수렴인자를 적용한 능동소음제어 방법에 있어서 차량에 포함된 가속도 센서를 통해 도로 소음 RMS(Root Mean Square) 레벨을 측정하는 단계; 측정된 RMS 레벨에 따라, 도로 소음 조절과 관련된 필터의 수렴인자 값을 설정하는 단계; 측정한 도로 소음 RMS 레벨 및 설정된 수렴인자 값을 테이블로 저장하는 단계; 저장된 테이블에 기초하여 RMS 레벨에 따른 수렴인자 수식을 생성하는 단계; 그리고 차량 내 가속도 센서별로 상기 수렴인자 수식에 기초하여 계산된 가변 수렴인자 값을 각각 적용하는 단계를 포함한다.",
+      "ipc": "G10K 11/178|B60W 40/10|B60W 50/00",
       "themes": [],
       "priorityScore": 20,
       "themeMatched": false,
       "classificationStatus": "기존 기술사전에 없음 · 공동출원인/초록 검토",
       "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
       "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
-      "lookupNumber": "1020260143498",
+      "lookupNumber": "1020260157850",
       "status": "공개된 특허 문헌: 기술 방향 취재 후보",
       "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
       "questions": [
-        "공개번호 1020260143498의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
+        "공개번호 1020260157850의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
         "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
         "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
         "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
       ],
       "scoopConfirmed": false,
-      "previouslyObserved": true,
-      "firstObservedAt": "2026-10-13",
+      "previouslyObserved": false,
+      "firstObservedAt": "2026-11-03",
       "initialBaseline": false,
-      "historicalBackfill": false,
+      "historicalBackfill": true,
       "freshObservation": false,
-      "observationNote": "이전 검증 공개공보 유지(이번 실행 신규 조회 아님)",
-      "reusedFromPriorVerifiedSnapshot": true,
+      "observationNote": "직전 스냅샷 이전 공개 공보를 뒤늦게 수집(신규 공개 아님)",
       "coveredCompanies": [
         "현대모비스"
       ],
@@ -8018,10 +8274,9 @@
         "관련 출입처 기술·세부 활용처 확인"
       ],
       "outsideBeatCoApplicants": [
-        "한국방송공사",
-        "정수아"
+        "에스피비 오디오 랩 불가리아 제이에스씨"
       ],
-      "officialApplicantCount": 3,
+      "officialApplicantCount": 2,
       "jointApplicantGroup": true,
       "crossOrganizationLead": true,
       "partnerStatus": "공동출원 명의만 확인 · 역할/사업화/협업 계약 미확인",
@@ -8036,8 +8291,8 @@
       "priorFullTitleCheck": {
         "status": "동일 제목 공보 미확인(다른 명칭의 선행기술은 검증 전)",
         "queryFields": {
-          "title": "기준국 단위 RTCM 메시지 통합 및 패킷 길이 정보 포함에 기반한 방송망 최적화 전송 방법 및 장치",
-          "period": "20230101~20260930"
+          "title": "가변 수렴인자를 적용한 능동소음제어 방법 및 이를 이용하는 능동소음제어 장치",
+          "period": "20230101~20261101"
         },
         "rawTotal": 0,
         "complete": true,
@@ -8909,6 +9164,15 @@
       },
       "relatedRecent": [
         {
+          "publicationNumber": "1020260157924",
+          "title": "공기입 타이어",
+          "companies": [
+            "한국타이어앤테크놀로지"
+          ],
+          "publicationDate": "20261102",
+          "titleSimilarity": 1.0
+        },
+        {
           "publicationNumber": "1020260151466",
           "title": "공기입 타이어",
           "companies": [
@@ -8924,15 +9188,6 @@
             "한국타이어앤테크놀로지"
           ],
           "publicationDate": "20261006",
-          "titleSimilarity": 1.0
-        },
-        {
-          "publicationNumber": "1020260142648",
-          "title": "공기입 타이어",
-          "companies": [
-            "한국타이어앤테크놀로지"
-          ],
-          "publicationDate": "20260929",
           "titleSimilarity": 1.0
         }
       ],
@@ -9080,28 +9335,29 @@
       "company": "현대모비스",
       "applicants": [
         "현대모비스 주식회사",
-        "국민대학교산학협력단"
+        "한국방송공사",
+        "정수아"
       ],
-      "applicationNumber": "1020250112276",
-      "publicationNumber": "1020260147017",
-      "applicationDate": "20250813",
-      "publicationDate": "20261007",
+      "applicationNumber": "1020260043798",
+      "publicationNumber": "1020260143498",
+      "applicationDate": "20260311",
+      "publicationDate": "20261001",
       "registrationDate": null,
       "registerStatus": "공개",
-      "title": "제어 채널 반복 전송 장치 및 방법",
-      "abstract": "본 발명의 일 실시예에 따라 무선 통신 시스템에서 사용자 기기(UE)가 하향링크 제어 채널을 수신하기 위한 방법이 제안되며, 상기 방법은 타입0 PDCCH CSS 세트에 대한 PDCCH 반복 전송을 지시하는 정보를 포함하는 시스템 정보를 수신하는 단계; 및 상기 수신된 시스템 정보에 기반하여, 첫번째 자원 슬롯에서 상기 하향링크 제어 채널의 초기 전송을 수신하고, 상기 첫번째 자원 슬롯에서 미리 설정된 간격만큼 이격된 두번째 자원 슬롯에서 상기 하향링크 제어 채널의 반복 전송을 수신하는 단계를 포함하도록 구성될 수 있다.",
-      "ipc": "H04L 5/00|H04L 1/08|H04L 1/00|H04W 48/10|H04W 72/0446|H04W 72/23",
+      "title": "기준국 단위 RTCM 메시지 통합 및 패킷 길이 정보 포함에 기반한 방송망 최적화 전송 방법 및 장치",
+      "abstract": "방송 서버에 의해 복수 기준국들에 댓한 RTCM(Real-Time Correction Message) 메시지를 방송망에 기반하여 로버 단말로 전송하는 RTCM 메시지 전송 방법에 있어서, 하나의 기준국 단위로 복수의 RTCM 메시지들을 수집하고 상기 복수의 RTCM 메시지들에 기반하여 하나의 컨테이너 메시지를 생성하는 단계; 상기 하나의 컨테이너 메시지에 포함된 적어도 하나의 RTCM 메시지의 스테이션 아이디(Station ID)를 나타내는 비트 영역 및 예약(Reserve)을 나타내는 비트 영역을 기지국을 식별하기 위한 기준국 번호으로 설정하는 단계; 및 상기 적어도 하나의 RTCM 메시지의 끝부분에 상기 컨테이너 메시지를 구성하는 전체 메시지에 대해 계산된 그룹 CRC를 추가하는 단계; 를 포함하는, RTCM 메시지 전송 방법.",
+      "ipc": "G01S 19/07|G01S 19/08|H04H 20/51",
       "themes": [],
       "priorityScore": 20,
       "themeMatched": false,
       "classificationStatus": "기존 기술사전에 없음 · 공동출원인/초록 검토",
       "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
       "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
-      "lookupNumber": "1020260147017",
+      "lookupNumber": "1020260143498",
       "status": "공개된 특허 문헌: 기술 방향 취재 후보",
       "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
       "questions": [
-        "공개번호 1020260147017의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
+        "공개번호 1020260143498의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
         "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
         "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
         "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
@@ -9122,9 +9378,10 @@
         "관련 출입처 기술·세부 활용처 확인"
       ],
       "outsideBeatCoApplicants": [
-        "국민대학교산학협력단"
+        "한국방송공사",
+        "정수아"
       ],
-      "officialApplicantCount": 2,
+      "officialApplicantCount": 3,
       "jointApplicantGroup": true,
       "crossOrganizationLead": true,
       "partnerStatus": "공동출원 명의만 확인 · 역할/사업화/협업 계약 미확인",
@@ -9133,59 +9390,49 @@
         "특허의 청구항이 폐차 재료의 실제 재생·신차 적용을 설명하는가, 연구 단계인가?",
         "양산 적용 시점·공급 계약 및 기존 유사 기술과의 차이·선행 보도는 확인됐는가?"
       ],
-      "newsroomScore": 65,
+      "newsroomScore": 70,
       "techNoveltyStatus": "특허 청구항·기존 기술과의 실질 차이 미확인",
       "commercialStatus": "기업 직접 확인 전 제품화·양산·수주 미확인",
       "priorFullTitleCheck": {
         "status": "미검색",
         "matches": []
       },
-      "relatedRecent": [
-        {
-          "publicationNumber": "1020260147018",
-          "title": "제어 채널 반복 전송 장치 및 방법",
-          "companies": [
-            "현대모비스"
-          ],
-          "publicationDate": "20261007",
-          "titleSimilarity": 1.0
-        }
-      ],
+      "relatedRecent": [],
       "priority": 17
     },
     {
       "company": "현대제철",
       "applicants": [
         "현대제철 주식회사",
-        "한국항공대학교산학협력단"
+        "울산과학기술원"
       ],
-      "applicationNumber": "1020250034066",
-      "publicationNumber": "1020260140753",
-      "applicationDate": "20250317",
-      "publicationDate": "20260928",
+      "applicationNumber": "1020250161159",
+      "publicationNumber": "1020260157348",
+      "applicationDate": "20251030",
+      "publicationDate": "20261030",
       "registrationDate": null,
       "registerStatus": "공개",
-      "title": "용해로용 랜스 및 이의 제어방법",
-      "abstract": "본 발명에 따른 용해로용 랜스는, 주 공급유체를 유동시키는 메인바디, 상기 메인바디의 전방 측에 구비되어 용해로의 로내 측으로 주 공급유체를 분사하도록 마련되는 분사노즐, 상기 메인바디 및 상기 분사노즐 사이에 연결되는 제트공급용 커넥터, 그리고 상기 제트공급용 커넥터에 연결되어 상기 주 공급유체에 교차하는 방향으로 편향제어용 제트를 선택적으로 유동시키는 제트공급라인을 포함할 수 있다.",
-      "ipc": "C21C 5/46|C21C 5/52|F27D 3/16",
+      "title": "무방향성 전기강판 및 그 제조방법",
+      "abstract": "본 출원은 무방향성 전기강판 및 그 제조방법에 관한 것이다. 본 출원에 의하면, 자기적 특성이 우수, 구체적으로 고주파에서 낮은 철손을 가질 뿐 아니라, 저주파 대비 고주파에서의 철손 개선 효과가 우수한 무방향성 전기강판 및 그 제조방법을 제공할 수 있다.",
+      "ipc": "C22C 38/02|C22C 38/04|C22C 38/06|C22C 38/14|C22C 38/00|C21D 8/1216|C21D 8/1244|H01F 1/147",
       "themes": [],
       "priorityScore": 20,
       "themeMatched": false,
       "classificationStatus": "기존 기술사전에 없음 · 공동출원인/초록 검토",
       "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
       "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
-      "lookupNumber": "1020260140753",
+      "lookupNumber": "1020260157348",
       "status": "공개된 특허 문헌: 기술 방향 취재 후보",
       "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
       "questions": [
-        "공개번호 1020260140753의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
+        "공개번호 1020260157348의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
         "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
         "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
         "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
       ],
       "scoopConfirmed": false,
       "previouslyObserved": true,
-      "firstObservedAt": "2026-10-13",
+      "firstObservedAt": "2026-11-02",
       "initialBaseline": false,
       "historicalBackfill": false,
       "freshObservation": false,
@@ -9199,7 +9446,7 @@
         "관련 출입처 기술·세부 활용처 확인"
       ],
       "outsideBeatCoApplicants": [
-        "한국항공대학교산학협력단"
+        "울산과학기술원"
       ],
       "officialApplicantCount": 2,
       "jointApplicantGroup": true,
@@ -9210,14 +9457,33 @@
         "특허의 청구항이 폐차 재료의 실제 재생·신차 적용을 설명하는가, 연구 단계인가?",
         "양산 적용 시점·공급 계약 및 기존 유사 기술과의 차이·선행 보도는 확인됐는가?"
       ],
-      "newsroomScore": 65,
+      "newsroomScore": 56,
       "techNoveltyStatus": "특허 청구항·기존 기술과의 실질 차이 미확인",
       "commercialStatus": "기업 직접 확인 전 제품화·양산·수주 미확인",
       "priorFullTitleCheck": {
         "status": "미검색",
         "matches": []
       },
-      "relatedRecent": [],
+      "relatedRecent": [
+        {
+          "publicationNumber": "1020260157347",
+          "title": "무방향성 전기강판 및 그 제조방법",
+          "companies": [
+            "현대제철"
+          ],
+          "publicationDate": "20261030",
+          "titleSimilarity": 1.0
+        },
+        {
+          "publicationNumber": "1020260142083",
+          "title": "무방향성 전기강판 및 무방향성 전기강판 제조 방법",
+          "companies": [
+            "현대제철"
+          ],
+          "publicationDate": "20260929",
+          "titleSimilarity": 0.667
+        }
+      ],
       "priority": 18
     },
     {
@@ -9909,6 +10175,15 @@
       },
       "relatedRecent": [
         {
+          "publicationNumber": "1020260157924",
+          "title": "공기입 타이어",
+          "companies": [
+            "한국타이어앤테크놀로지"
+          ],
+          "publicationDate": "20261102",
+          "titleSimilarity": 1.0
+        },
+        {
           "publicationNumber": "1020260151462",
           "title": "공기입 타이어",
           "companies": [
@@ -9924,15 +10199,6 @@
             "한국타이어앤테크놀로지"
           ],
           "publicationDate": "20261006",
-          "titleSimilarity": 1.0
-        },
-        {
-          "publicationNumber": "1020260142648",
-          "title": "공기입 타이어",
-          "companies": [
-            "한국타이어앤테크놀로지"
-          ],
-          "publicationDate": "20260929",
           "titleSimilarity": 1.0
         }
       ],
@@ -10023,26 +10289,26 @@
         "현대모비스 주식회사",
         "국민대학교산학협력단"
       ],
-      "applicationNumber": "1020250112277",
-      "publicationNumber": "1020260147018",
+      "applicationNumber": "1020250112276",
+      "publicationNumber": "1020260147017",
       "applicationDate": "20250813",
       "publicationDate": "20261007",
       "registrationDate": null,
       "registerStatus": "공개",
       "title": "제어 채널 반복 전송 장치 및 방법",
-      "abstract": "본 발명의 일 실시예에 따라 무선 통신 시스템에서 사용자 기기(UE)가 하향링크 제어 채널을 수신하기 위한 방법이 제안되며, 상기 방법은 타입0 PDCCH CSS 세트에 대한 두 자원 슬롯을 통한 PDCCH 반복 전송을 지시하는 정보를 포함하는 시스템 정보를 수신하는 단계; 및 상기 두 자원 슬롯에서의 상기 PDCCH 반복 전송을 위한 PDCCH 후보 세트의 수 가 N(N은 0보다 큰 정수)인 것에 기반하여, PDCCH를 모니터링하는 단계를 포함하도록 구성될 수 있다.",
-      "ipc": "H04L 5/00|H04L 1/08|H04L 1/00|H04W 72/23|H04W 72/0446",
+      "abstract": "본 발명의 일 실시예에 따라 무선 통신 시스템에서 사용자 기기(UE)가 하향링크 제어 채널을 수신하기 위한 방법이 제안되며, 상기 방법은 타입0 PDCCH CSS 세트에 대한 PDCCH 반복 전송을 지시하는 정보를 포함하는 시스템 정보를 수신하는 단계; 및 상기 수신된 시스템 정보에 기반하여, 첫번째 자원 슬롯에서 상기 하향링크 제어 채널의 초기 전송을 수신하고, 상기 첫번째 자원 슬롯에서 미리 설정된 간격만큼 이격된 두번째 자원 슬롯에서 상기 하향링크 제어 채널의 반복 전송을 수신하는 단계를 포함하도록 구성될 수 있다.",
+      "ipc": "H04L 5/00|H04L 1/08|H04L 1/00|H04W 48/10|H04W 72/0446|H04W 72/23",
       "themes": [],
       "priorityScore": 20,
       "themeMatched": false,
       "classificationStatus": "기존 기술사전에 없음 · 공동출원인/초록 검토",
       "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
       "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
-      "lookupNumber": "1020260147018",
+      "lookupNumber": "1020260147017",
       "status": "공개된 특허 문헌: 기술 방향 취재 후보",
       "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
       "questions": [
-        "공개번호 1020260147018의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
+        "공개번호 1020260147017의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
         "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
         "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
         "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
@@ -10083,7 +10349,7 @@
       },
       "relatedRecent": [
         {
-          "publicationNumber": "1020260147017",
+          "publicationNumber": "1020260147018",
           "title": "제어 채널 반복 전송 장치 및 방법",
           "companies": [
             "현대모비스"
@@ -10097,36 +10363,35 @@
     {
       "company": "현대제철",
       "applicants": [
-        "현대제철 주식회사",
-        "울산과학기술원"
+        "현대제철 주식회사"
       ],
-      "applicationNumber": "1020250161159",
-      "publicationNumber": "1020260157348",
-      "applicationDate": "20251030",
-      "publicationDate": "20261030",
+      "applicationNumber": "1020250041856",
+      "publicationNumber": "1020260147331",
+      "applicationDate": "20250401",
+      "publicationDate": "20261008",
       "registrationDate": null,
       "registerStatus": "공개",
-      "title": "무방향성 전기강판 및 그 제조방법",
-      "abstract": "본 출원은 무방향성 전기강판 및 그 제조방법에 관한 것이다. 본 출원에 의하면, 자기적 특성이 우수, 구체적으로 고주파에서 낮은 철손을 가질 뿐 아니라, 저주파 대비 고주파에서의 철손 개선 효과가 우수한 무방향성 전기강판 및 그 제조방법을 제공할 수 있다.",
-      "ipc": "C22C 38/02|C22C 38/04|C22C 38/06|C22C 38/14|C22C 38/00|C21D 8/1216|C21D 8/1244|H01F 1/147",
+      "title": "선재 냉각 방법, 선재 냉각 시스템 및 선재",
+      "abstract": "본 발명에 따른 선재(Wire Rod) 소재에 냉매를 분사하여 상기 선재 소재를 냉각하는 선재 냉각 방법은 데이터 수집부가 상기 선재 소재에 대한 성분 데이터 및 압연 공정에서의 공정 데이터를 수집하는 (a)단계, 상기 데이터 수집부가 상기 선재 소재의 냉각 공정에서 촬영된 열화상 이미지를 수집하는 (b)단계, 이미지 처리부가 이미지분할 모델에 상기 열화상 이미지를 입력값으로 제공하여 소재온도 데이터를 추출하는 (c)단계, 데이터 분석부가 물성예측 모델에 상기 성분 데이터, 상기 공정 데이터 및 상기 소재온도 데이터를 입력값으로 제공하여 상기 선재 소재의 부위 별 물성을 예측하여 1차 물성예측 데이터를 도출하는 (d)단계 및 제어부가 상기 1차 물성예측 데이터를 통해 상기 선재 소재에 분사되는 냉매의 유량을 조절하는 (e)단계를 포함한다.",
+      "ipc": "B21B 37/76|B21B 45/02|B21B 38/00|B21B 1/16",
       "themes": [],
       "priorityScore": 20,
       "themeMatched": false,
       "classificationStatus": "기존 기술사전에 없음 · 공동출원인/초록 검토",
       "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
       "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
-      "lookupNumber": "1020260157348",
+      "lookupNumber": "1020260147331",
       "status": "공개된 특허 문헌: 기술 방향 취재 후보",
       "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
       "questions": [
-        "공개번호 1020260157348의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
+        "공개번호 1020260147331의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
         "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
         "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
         "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
       ],
       "scoopConfirmed": false,
       "previouslyObserved": true,
-      "firstObservedAt": "2026-11-02",
+      "firstObservedAt": "2026-10-13",
       "initialBaseline": false,
       "historicalBackfill": false,
       "freshObservation": false,
@@ -10139,45 +10404,20 @@
       "investigativeThemes": [
         "관련 출입처 기술·세부 활용처 확인"
       ],
-      "outsideBeatCoApplicants": [
-        "울산과학기술원"
-      ],
-      "officialApplicantCount": 2,
-      "jointApplicantGroup": true,
-      "crossOrganizationLead": true,
+      "outsideBeatCoApplicants": [],
+      "officialApplicantCount": 1,
+      "jointApplicantGroup": false,
+      "crossOrganizationLead": false,
       "partnerStatus": "공동출원 명의만 확인 · 역할/사업화/협업 계약 미확인",
-      "partnerQuestions": [
-        "출입처 외 공동출원인 각각이 담당한 효소·소재·공정·차량 적용 기술은 무엇인가?",
-        "특허의 청구항이 폐차 재료의 실제 재생·신차 적용을 설명하는가, 연구 단계인가?",
-        "양산 적용 시점·공급 계약 및 기존 유사 기술과의 차이·선행 보도는 확인됐는가?"
-      ],
-      "newsroomScore": 56,
+      "partnerQuestions": [],
+      "newsroomScore": 50,
       "techNoveltyStatus": "특허 청구항·기존 기술과의 실질 차이 미확인",
       "commercialStatus": "기업 직접 확인 전 제품화·양산·수주 미확인",
       "priorFullTitleCheck": {
         "status": "미검색",
         "matches": []
       },
-      "relatedRecent": [
-        {
-          "publicationNumber": "1020260157347",
-          "title": "무방향성 전기강판 및 그 제조방법",
-          "companies": [
-            "현대제철"
-          ],
-          "publicationDate": "20261030",
-          "titleSimilarity": 1.0
-        },
-        {
-          "publicationNumber": "1020260142083",
-          "title": "무방향성 전기강판 및 무방향성 전기강판 제조 방법",
-          "companies": [
-            "현대제철"
-          ],
-          "publicationDate": "20260929",
-          "titleSimilarity": 0.667
-        }
-      ],
+      "relatedRecent": [],
       "priority": 32
     },
     {
@@ -10450,54 +10690,43 @@
       "applicants": [
         "주식회사 포스코"
       ],
-      "applicationNumber": "1020250048169",
-      "publicationNumber": "1020260152969",
-      "applicationDate": "20250414",
-      "publicationDate": "20261021",
+      "applicationNumber": "1020250052994",
+      "publicationNumber": "1020260157616",
+      "applicationDate": "20250423",
+      "publicationDate": "20261102",
       "registrationDate": null,
       "registerStatus": "공개",
-      "title": "전기로의 커버 장치, 용강의 제조 방법 및 이를 이용하여 제조된 제품",
-      "abstract": "본 발명의 실시예는 전기로의 노체를 커버할 수 있는 커버 장치로서, 개구를 가지고, 노체의 상부에 배치될 수 있는 제1덮개 및 제1덮개의 개구에 배치될 수 있고, 복수의 부재를 가지며, 일 부재는 전극봉이 삽입될 수 있고 타 부재에 대하여 반입 및 반출될 수 있는 제2덮개를 포함할 수 있다.  따라서, 본 발명의 실시예들에 의하면, 커버 장치를 용이하게 유지 보수 할 수 있다. 또한, 커버 장치의 유지 보수를 위한 비용을 절감할 수 있다.",
-      "ipc": "F27D 1/18|F27D 11/10|F27D 1/12|C21C 5/52",
-      "themes": [
-        {
-          "theme": "저탄소 제철",
-          "titleHits": [
-            "전기로"
-          ],
-          "abstractHits": [
-            "전기로"
-          ]
-        }
-      ],
-      "priorityScore": 60,
-      "themeMatched": true,
-      "classificationStatus": "기술 키워드 일치 · 별도 원문 검증 필요",
+      "title": "캔용 강판의 단열 코팅층 형성용 조성물, 캔용 강판 및 캔용 강판의 제조방법",
+      "abstract": "본 발명의 일 실시예에 의한 캔용 강판의 단열코팅층 형성용 조성물은 수지 100 중량부, 비다공성 실리카 1 내지 100 중량부 및 Al, Si, Mg 및 Fe 중 2종 이상을 포함하는 복합 산화물을 그 합량으로 1 내지 100 중량부 포함한다.",
+      "ipc": "C09D 5/18|C09D 7/61|C09D 7/40|C08K 3/36|C08K 3/22|C08K 7/26|H01M 10/658|H01M 50/124|H01M 50/122|H01M 50/143",
+      "themes": [],
+      "priorityScore": 20,
+      "themeMatched": false,
+      "classificationStatus": "기존 기술사전에 없음 · 공동출원인/초록 검토",
       "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
       "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
-      "lookupNumber": "1020260152969",
+      "lookupNumber": "1020260157616",
       "status": "공개된 특허 문헌: 기술 방향 취재 후보",
       "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
       "questions": [
-        "공개번호 1020260152969의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
+        "공개번호 1020260157616의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
         "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
         "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
         "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
       ],
       "scoopConfirmed": false,
-      "previouslyObserved": true,
-      "firstObservedAt": "2026-11-02",
+      "previouslyObserved": false,
+      "firstObservedAt": "2026-11-03",
       "initialBaseline": false,
-      "historicalBackfill": false,
+      "historicalBackfill": true,
       "freshObservation": false,
-      "observationNote": "이전 검증 공개공보 유지(이번 실행 신규 조회 아님)",
-      "reusedFromPriorVerifiedSnapshot": true,
+      "observationNote": "직전 스냅샷 이전 공개 공보를 뒤늦게 수집(신규 공개 아님)",
       "coveredCompanies": [
         "포스코"
       ],
       "sourceRecordCount": 1,
       "investigativeThemes": [
-        "저탄소 제철"
+        "관련 출입처 기술·세부 활용처 확인"
       ],
       "outsideBeatCoApplicants": [],
       "officialApplicantCount": 1,
@@ -10512,7 +10741,26 @@
         "status": "미검색",
         "matches": []
       },
-      "relatedRecent": [],
+      "relatedRecent": [
+        {
+          "publicationNumber": "1020260157617",
+          "title": "캔용 강판의 난연 코팅층 형성용 조성물, 캔용 강판 및 캔용 강판의 제조방법",
+          "companies": [
+            "포스코"
+          ],
+          "publicationDate": "20261102",
+          "titleSimilarity": 0.778
+        },
+        {
+          "publicationNumber": "1020260157618",
+          "title": "캔용 강판의 난연 코팅층 형성용 조성물, 캔용 강판 및 캔용 강판의 제조방법",
+          "companies": [
+            "포스코"
+          ],
+          "publicationDate": "20261102",
+          "titleSimilarity": 0.778
+        }
+      ],
       "priority": 37
     },
     {
@@ -10852,26 +11100,26 @@
         "현대모비스 주식회사",
         "국민대학교산학협력단"
       ],
-      "applicationNumber": "1020250112278",
-      "publicationNumber": "1020260147019",
+      "applicationNumber": "1020250112277",
+      "publicationNumber": "1020260147018",
       "applicationDate": "20250813",
       "publicationDate": "20261007",
       "registrationDate": null,
       "registerStatus": "공개",
-      "title": "데이터 채널 반복 송수신을 위한 장치 및 방법",
-      "abstract": "본 발명의 일 실시예에 따라 무선 통신 시스템에서 사용자 기기(UE)가 하향링크 데이터 채널을 수신하기 위한 방법이 제안되며, 상기 방법은 시스템 정보(SIB1)를 포함하는 하향링크 데이터 채널에 대한 반복 전송 설정을 획득하는 단계; 상기 하향링크 데이터 채널을 지시하는 하향링크 제어 채널을 수신하는 단계; 및 상기 반복 전송 설정에 따라 상기 하향링크 제어 채널에 기반하여 상기 하향링크 데이터 채널을 복수의 자원 슬롯에서 수신하는 단계를 포함하도록 구성될 수 있다.",
-      "ipc": "H04L 1/08|H04L 5/00|H04W 48/10|H04W 72/0446|H04W 72/1273|H04W 72/232",
+      "title": "제어 채널 반복 전송 장치 및 방법",
+      "abstract": "본 발명의 일 실시예에 따라 무선 통신 시스템에서 사용자 기기(UE)가 하향링크 제어 채널을 수신하기 위한 방법이 제안되며, 상기 방법은 타입0 PDCCH CSS 세트에 대한 두 자원 슬롯을 통한 PDCCH 반복 전송을 지시하는 정보를 포함하는 시스템 정보를 수신하는 단계; 및 상기 두 자원 슬롯에서의 상기 PDCCH 반복 전송을 위한 PDCCH 후보 세트의 수 가 N(N은 0보다 큰 정수)인 것에 기반하여, PDCCH를 모니터링하는 단계를 포함하도록 구성될 수 있다.",
+      "ipc": "H04L 5/00|H04L 1/08|H04L 1/00|H04W 72/23|H04W 72/0446",
       "themes": [],
       "priorityScore": 20,
       "themeMatched": false,
       "classificationStatus": "기존 기술사전에 없음 · 공동출원인/초록 검토",
       "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
       "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
-      "lookupNumber": "1020260147019",
+      "lookupNumber": "1020260147018",
       "status": "공개된 특허 문헌: 기술 방향 취재 후보",
       "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
       "questions": [
-        "공개번호 1020260147019의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
+        "공개번호 1020260147018의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
         "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
         "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
         "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
@@ -10903,48 +11151,59 @@
         "특허의 청구항이 폐차 재료의 실제 재생·신차 적용을 설명하는가, 연구 단계인가?",
         "양산 적용 시점·공급 계약 및 기존 유사 기술과의 차이·선행 보도는 확인됐는가?"
       ],
-      "newsroomScore": 61,
+      "newsroomScore": 65,
       "techNoveltyStatus": "특허 청구항·기존 기술과의 실질 차이 미확인",
       "commercialStatus": "기업 직접 확인 전 제품화·양산·수주 미확인",
       "priorFullTitleCheck": {
         "status": "미검색",
         "matches": []
       },
-      "relatedRecent": [],
+      "relatedRecent": [
+        {
+          "publicationNumber": "1020260147017",
+          "title": "제어 채널 반복 전송 장치 및 방법",
+          "companies": [
+            "현대모비스"
+          ],
+          "publicationDate": "20261007",
+          "titleSimilarity": 1.0
+        }
+      ],
       "priority": 43
     },
     {
       "company": "현대제철",
       "applicants": [
-        "현대제철 주식회사"
+        "현대제철 주식회사",
+        "울산과학기술원"
       ],
-      "applicationNumber": "1020250041856",
-      "publicationNumber": "1020260147331",
-      "applicationDate": "20250401",
-      "publicationDate": "20261008",
+      "applicationNumber": "1020250161156",
+      "publicationNumber": "1020260157347",
+      "applicationDate": "20251030",
+      "publicationDate": "20261030",
       "registrationDate": null,
       "registerStatus": "공개",
-      "title": "선재 냉각 방법, 선재 냉각 시스템 및 선재",
-      "abstract": "본 발명에 따른 선재(Wire Rod) 소재에 냉매를 분사하여 상기 선재 소재를 냉각하는 선재 냉각 방법은 데이터 수집부가 상기 선재 소재에 대한 성분 데이터 및 압연 공정에서의 공정 데이터를 수집하는 (a)단계, 상기 데이터 수집부가 상기 선재 소재의 냉각 공정에서 촬영된 열화상 이미지를 수집하는 (b)단계, 이미지 처리부가 이미지분할 모델에 상기 열화상 이미지를 입력값으로 제공하여 소재온도 데이터를 추출하는 (c)단계, 데이터 분석부가 물성예측 모델에 상기 성분 데이터, 상기 공정 데이터 및 상기 소재온도 데이터를 입력값으로 제공하여 상기 선재 소재의 부위 별 물성을 예측하여 1차 물성예측 데이터를 도출하는 (d)단계 및 제어부가 상기 1차 물성예측 데이터를 통해 상기 선재 소재에 분사되는 냉매의 유량을 조절하는 (e)단계를 포함한다.",
-      "ipc": "B21B 37/76|B21B 45/02|B21B 38/00|B21B 1/16",
+      "title": "무방향성 전기강판 및 그 제조방법",
+      "abstract": "본 출원은 무방향성 전기강판 및 그 제조방법에 관한 것이다. 본 출원에 의하면, 자기적 특성이 우수, 구체적으로 낮은 철손을 가지는 무방향성 전기강판 및 그 제조방법을 제공할 수 있다.",
+      "ipc": "C22C 38/02|C22C 38/04|C22C 38/06|C22C 38/14|C22C 38/00|C21D 8/1216|C21D 8/1244|H01F 1/147",
       "themes": [],
       "priorityScore": 20,
       "themeMatched": false,
       "classificationStatus": "기존 기술사전에 없음 · 공동출원인/초록 검토",
       "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
       "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
-      "lookupNumber": "1020260147331",
+      "lookupNumber": "1020260157347",
       "status": "공개된 특허 문헌: 기술 방향 취재 후보",
       "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
       "questions": [
-        "공개번호 1020260147331의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
+        "공개번호 1020260157347의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
         "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
         "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
         "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
       ],
       "scoopConfirmed": false,
       "previouslyObserved": true,
-      "firstObservedAt": "2026-10-13",
+      "firstObservedAt": "2026-11-02",
       "initialBaseline": false,
       "historicalBackfill": false,
       "freshObservation": false,
@@ -10957,20 +11216,45 @@
       "investigativeThemes": [
         "관련 출입처 기술·세부 활용처 확인"
       ],
-      "outsideBeatCoApplicants": [],
-      "officialApplicantCount": 1,
-      "jointApplicantGroup": false,
-      "crossOrganizationLead": false,
+      "outsideBeatCoApplicants": [
+        "울산과학기술원"
+      ],
+      "officialApplicantCount": 2,
+      "jointApplicantGroup": true,
+      "crossOrganizationLead": true,
       "partnerStatus": "공동출원 명의만 확인 · 역할/사업화/협업 계약 미확인",
-      "partnerQuestions": [],
-      "newsroomScore": 50,
+      "partnerQuestions": [
+        "출입처 외 공동출원인 각각이 담당한 효소·소재·공정·차량 적용 기술은 무엇인가?",
+        "특허의 청구항이 폐차 재료의 실제 재생·신차 적용을 설명하는가, 연구 단계인가?",
+        "양산 적용 시점·공급 계약 및 기존 유사 기술과의 차이·선행 보도는 확인됐는가?"
+      ],
+      "newsroomScore": 48,
       "techNoveltyStatus": "특허 청구항·기존 기술과의 실질 차이 미확인",
       "commercialStatus": "기업 직접 확인 전 제품화·양산·수주 미확인",
       "priorFullTitleCheck": {
         "status": "미검색",
         "matches": []
       },
-      "relatedRecent": [],
+      "relatedRecent": [
+        {
+          "publicationNumber": "1020260157348",
+          "title": "무방향성 전기강판 및 그 제조방법",
+          "companies": [
+            "현대제철"
+          ],
+          "publicationDate": "20261030",
+          "titleSimilarity": 1.0
+        },
+        {
+          "publicationNumber": "1020260142083",
+          "title": "무방향성 전기강판 및 무방향성 전기강판 제조 방법",
+          "companies": [
+            "현대제철"
+          ],
+          "publicationDate": "20260929",
+          "titleSimilarity": 0.667
+        }
+      ],
       "priority": 44
     },
     {
@@ -11038,38 +11322,37 @@
       "applicants": [
         "두산에너빌리티 주식회사"
       ],
-      "applicationNumber": "1020250050913",
-      "publicationNumber": "1020260155900",
-      "applicationDate": "20250418",
-      "publicationDate": "20261028",
+      "applicationNumber": "1020250053514",
+      "publicationNumber": "1020260157681",
+      "applicationDate": "20250424",
+      "publicationDate": "20261102",
       "registrationDate": null,
       "registerStatus": "공개",
-      "title": "터빈 베인 캐리어의 밀봉장치, 이를 포함하는 터빈 및 가스 터빈",
-      "abstract": "본 발명은 터빈 베인 캐리어의 밀봉장치, 이를 포함하는 터빈 및 가스 터빈에 관한 것으로서, 터빈 베인 캐리어와, 링 세그먼트 사이에서 환형 형상의 코드 씰(cord seal)이 수용되는 씰 그루브에 보강 심(pressing shim)을 추가로 배치함으로써, 코드 씰에 면압을 형성하여 코드 씰의 손상을 방지하고, 코드 씰과, 링 세그먼트 사이의 갭을 제거함으로써 밀봉 효과를 증대할 수 있는 터빈 베인 캐리어의 밀봉장치, 이를 포함하는 터빈 및 가스 터빈을 제공한다.",
-      "ipc": "F01D 11/00|F01D 25/24|F02C 7/28",
+      "title": "터빈 블레이드의 연소 가스 누출 방지장치 및 이를 포함하는 가스 터빈",
+      "abstract": "본 발명은 터빈 블레이드의 연소 가스 누출 방지장치 및 이를 포함하는 가스 터빈에 관한 것으로서, 터빈 블레이드의 플랫폼과 생크부 사이에 축방향을 따라 길게 연장되어 배치되며 핀 슬롯에 삽입된 제1 댐퍼 핀; 상기 제1 댐퍼 핀의 양측 하부에 각각 배치되며 핀 슬롯에 삽입된 제2 댐퍼 핀과 제3 댐퍼 핀; 및 상기 제2 댐퍼 핀과 상기 제3 댐퍼 핀의 하부에 배치된 리테이너 플레이트를 포함하고, 상기 제2 댐퍼 핀과 상기 제3 댐퍼 핀은, 중공부를 가지는 본체부; 상기 본체부의 양단의 둘레면으로부터 외측을 향해 연장된 굴곡 연장부;를 포함하며, 상기 굴곡 연장부는, 일측의 상기 제1 댐퍼 핀의 접촉 단부 및 타측의 상기 리테이너 플레이트의 접촉 단부가 삽입되는 절개홈부를 포함하는 터빈 블레이드의 연소 가스 누출 방지장치를 제공한다.",
+      "ipc": "F01D 5/10|F01D 11/00|F01D 25/06",
       "themes": [],
       "priorityScore": 20,
       "themeMatched": false,
       "classificationStatus": "기존 기술사전에 없음 · 공동출원인/초록 검토",
       "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
       "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
-      "lookupNumber": "1020260155900",
+      "lookupNumber": "1020260157681",
       "status": "공개된 특허 문헌: 기술 방향 취재 후보",
       "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
       "questions": [
-        "공개번호 1020260155900의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
+        "공개번호 1020260157681의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
         "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
         "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
         "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
       ],
       "scoopConfirmed": false,
-      "previouslyObserved": true,
-      "firstObservedAt": "2026-11-02",
+      "previouslyObserved": false,
+      "firstObservedAt": "2026-11-03",
       "initialBaseline": false,
-      "historicalBackfill": false,
+      "historicalBackfill": true,
       "freshObservation": false,
-      "observationNote": "이전 검증 공개공보 유지(이번 실행 신규 조회 아님)",
-      "reusedFromPriorVerifiedSnapshot": true,
+      "observationNote": "직전 스냅샷 이전 공개 공보를 뒤늦게 수집(신규 공개 아님)",
       "coveredCompanies": [
         "두산에너빌리티"
       ],
@@ -11092,12 +11375,12 @@
       },
       "relatedRecent": [
         {
-          "publicationNumber": "1020260155901",
-          "title": "터빈 베인 캐리어의 밀봉장치, 이를 포함하는 터빈 및 가스 터빈",
+          "publicationNumber": "1020260152169",
+          "title": "터빈 블레이드의 연소 가스 누출 방지장치",
           "companies": [
             "두산에너빌리티"
           ],
-          "publicationDate": "20261028",
+          "publicationDate": "20261020",
           "titleSimilarity": 1.0
         }
       ],
@@ -11178,38 +11461,37 @@
       "applicants": [
         "주식회사 포스코"
       ],
-      "applicationNumber": "1020250043751",
-      "publicationNumber": "1020260148770",
-      "applicationDate": "20250403",
-      "publicationDate": "20261013",
+      "applicationNumber": "1020250052995",
+      "publicationNumber": "1020260157617",
+      "applicationDate": "20250423",
+      "publicationDate": "20261102",
       "registrationDate": null,
       "registerStatus": "공개",
-      "title": "연속 주조 설비용 몰드 클램프 실린더 테스트 장치",
-      "abstract": "본 발명은 몰드 클램프 실린더 테스트 장치를 제공한다. 상기 몰드 클램프 실린더 테스트 장치는 외력이 제공되는 경우 돌출되고, 외력이 제거되면 탄성 스프링의 탄성력에 의해 원위치로 복귀하는 축을 갖는 몰드 클램프 실린더를 테스트한다. 상기 몰드 클램프 실린더 테스트 장치는, 베이스 부와, 상기 베이스 부 상에 구비되며, 상기 몰드 클램프 실린더가 안착되는 실린더 안착부; 및, 상기 축과 동일선 상으로 따르도록 상기 실린더 안착부와 대응되도록 상기 베이스 부에 구비되며, 돌출된 상기 축을 원위치로 복귀시키도록 상기 축의 끝단에 설정되는 탄성력을 제공하는 탄성 제공부;를 포함한다.",
-      "ipc": "G01M 99/00|F15B 19/00|B22D 11/16|B22D 11/057",
+      "title": "캔용 강판의 난연 코팅층 형성용 조성물, 캔용 강판 및 캔용 강판의 제조방법",
+      "abstract": "본 발명의 일 실시예에 의한 캔용 강판의 난연코팅층 형성용 조성물은 수지 100 중량부, 실리카 1 내지 100 중량부, Al, Si, Mg 및 Fe 중 2종 이상을 포함하는 복합 산화물을 그 합량으로 1 내지 100 중량부 및 할로겐계 난연제 1 내지 120 중량부 포함한다.",
+      "ipc": "C09D 5/18|C09D 7/61|C09D 7/63|C09D 7/40|C08K 3/22|C08K 3/34|C08K 3/36|C08K 3/016|C08K 5/00|H01M 50/124|H01M 50/122|H01M 50/143",
       "themes": [],
       "priorityScore": 20,
       "themeMatched": false,
       "classificationStatus": "기존 기술사전에 없음 · 공동출원인/초록 검토",
       "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
       "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
-      "lookupNumber": "1020260148770",
+      "lookupNumber": "1020260157617",
       "status": "공개된 특허 문헌: 기술 방향 취재 후보",
       "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
       "questions": [
-        "공개번호 1020260148770의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
+        "공개번호 1020260157617의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
         "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
         "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
         "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
       ],
       "scoopConfirmed": false,
-      "previouslyObserved": true,
-      "firstObservedAt": "2026-11-02",
+      "previouslyObserved": false,
+      "firstObservedAt": "2026-11-03",
       "initialBaseline": false,
-      "historicalBackfill": false,
+      "historicalBackfill": true,
       "freshObservation": false,
-      "observationNote": "이전 검증 공개공보 유지(이번 실행 신규 조회 아님)",
-      "reusedFromPriorVerifiedSnapshot": true,
+      "observationNote": "직전 스냅샷 이전 공개 공보를 뒤늦게 수집(신규 공개 아님)",
       "coveredCompanies": [
         "포스코"
       ],
@@ -11230,7 +11512,26 @@
         "status": "미검색",
         "matches": []
       },
-      "relatedRecent": [],
+      "relatedRecent": [
+        {
+          "publicationNumber": "1020260157618",
+          "title": "캔용 강판의 난연 코팅층 형성용 조성물, 캔용 강판 및 캔용 강판의 제조방법",
+          "companies": [
+            "포스코"
+          ],
+          "publicationDate": "20261102",
+          "titleSimilarity": 1.0
+        },
+        {
+          "publicationNumber": "1020260157616",
+          "title": "캔용 강판의 단열 코팅층 형성용 조성물, 캔용 강판 및 캔용 강판의 제조방법",
+          "companies": [
+            "포스코"
+          ],
+          "publicationDate": "20261102",
+          "titleSimilarity": 0.778
+        }
+      ],
       "priority": 48
     },
     {
@@ -11589,66 +11890,60 @@
     {
       "company": "현대모비스",
       "applicants": [
-        "현대모비스 주식회사"
+        "현대모비스 주식회사",
+        "명지대학교 산학협력단"
       ],
-      "applicationNumber": "1020250040458",
-      "publicationNumber": "1020260147237",
-      "applicationDate": "20250328",
-      "publicationDate": "20261008",
+      "applicationNumber": "1020250074491",
+      "publicationNumber": "1020260157973",
+      "applicationDate": "20250609",
+      "publicationDate": "20261102",
       "registrationDate": null,
       "registerStatus": "공개",
-      "title": "자율주행 시뮬레이션 기반 가상영상 인식성능 통합 테스트 방법 및 그 장치",
-      "abstract": "본 발명은 컴퓨터 시스템의 적어도 하나의 프로세서에 의해 각 단계가 수행되는 자율주행 시뮬레이션 기반 가상영상 인식성능 통합 테스트 방법에 관한 것으로, 자율주행 관련 원본 시뮬레이션 데이터를 취득하는 데이터 취득 단계, 취득한 원본 시뮬레이션 데이터를 이용하여 MIL, SIL, 및 PIL을 포함하는 자율주행 인식성능 로직을 수행함으로써 MIL, SIL, 및 PIL에 따른 각각의 출력 값을 취득하는 로직 수행 단계, 취득한 원본 시뮬레이션 데이터 및 MIL, SIL, 및 PIL에 따른 각각의 출력 값을 전처리하여 스탠다드 포맷으로 변환하는 데이터 전처리 단계, 전처리된 출력 값을 각 객체의 정확한 정보를 포함한 정답 데이터와 매칭하는 데이터 매칭 단계, 매칭된 결과를 바탕으로 인식 성능을 구분하고 각 객체 모듈별로 성능 지표를 계산하는 데이터 평가 단계, 및 데이터 매칭 및 평가 결과를 시각화하고 자동으로 보고서를 생성하는 보고서 작성 단계를 포함하는 것이다. 또한, 본 발명에 따른 자율주행 시뮬레이션 기반 가상영상 인식성능 통합 테스트 장치는 상술한 자율주행 시뮬레이션 기반 가상영상 인식성능 통합 테스트 방법의 각 단계를 수행하도록 컴퓨터 시스템의 적어도 하나의 프로세서에 의해 구현되는 것이다. 이에 따라, 효율적이고 정확한 평가를 진행하여 자율주행의 안전성을 향상시킬 수 있다.",
-      "ipc": "G06V 10/776|G06V 20/20|G06V 20/56|G06V 10/54|G06V 10/56|B60W 40/02|G06F 30/20|G06F 11/3668|G06Q 10/10|G06F 111/18",
-      "themes": [
-        {
-          "theme": "자율주행·SDV",
-          "titleHits": [
-            "자율주행",
-            "자율 주행"
-          ],
-          "abstractHits": [
-            "자율주행",
-            "자율 주행"
-          ]
-        }
-      ],
-      "priorityScore": 60,
-      "themeMatched": true,
-      "classificationStatus": "기술 키워드 일치 · 별도 원문 검증 필요",
+      "title": "AI/ML 포지셔닝을 위한 방법 및 이를 위한 장치",
+      "abstract": "AI/ML 포지셔닝을 위한 방법 및 이를 위한 장치가 제공된다. 이를 위한 사용자 기기(UE)의 포지셔닝(positioning) 데이터 전송 방법은, 네트워크의 기지국으로부터 RS (Reference Signal)을 수신하고; 상기 RS에 기반한 채널 측정 정보를 포함하는 파트 A 정보를 생성하고; AI(Artificial Intelligence)/ML(Machine Learning) 모델을 위한 라벨(label) 정보를 포함하는 파트 B 정보를 생성하며; 그리고 상기 파트 A 정보 또는 상기 파트 B 정보 중 하나 이상을 포함하는 포지셔닝 데이터를 상기 네트워크의 LMF(Location Management Function)에 전송하는 것을 포함하되, 상기 포지셔닝 데이터는, 상기 UE가 PRU (Positioning Reference Unit)인지 여부, 상기 파트 A 정보 및 상기 파트 B 정보의 생성 시간, 또는 상기 UE가 AI/ML 방식을 사용하는지 여부 중 하나 이상에 기반하여 결정된다.",
+      "ipc": "H04W 64/00|H04W 24/08|H04W 24/02|H04L 5/00|G06N 20/00",
+      "themes": [],
+      "priorityScore": 20,
+      "themeMatched": false,
+      "classificationStatus": "기존 기술사전에 없음 · 공동출원인/초록 검토",
       "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
       "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
-      "lookupNumber": "1020260147237",
+      "lookupNumber": "1020260157973",
       "status": "공개된 특허 문헌: 기술 방향 취재 후보",
       "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
       "questions": [
-        "공개번호 1020260147237의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
+        "공개번호 1020260157973의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
         "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
         "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
         "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
       ],
       "scoopConfirmed": false,
-      "previouslyObserved": true,
-      "firstObservedAt": "2026-10-13",
+      "previouslyObserved": false,
+      "firstObservedAt": "2026-11-03",
       "initialBaseline": false,
-      "historicalBackfill": false,
+      "historicalBackfill": true,
       "freshObservation": false,
-      "observationNote": "이전 검증 공개공보 유지(이번 실행 신규 조회 아님)",
-      "reusedFromPriorVerifiedSnapshot": true,
+      "observationNote": "직전 스냅샷 이전 공개 공보를 뒤늦게 수집(신규 공개 아님)",
       "coveredCompanies": [
         "현대모비스"
       ],
       "sourceRecordCount": 1,
       "investigativeThemes": [
-        "자율주행·SDV"
+        "관련 출입처 기술·세부 활용처 확인"
       ],
-      "outsideBeatCoApplicants": [],
-      "officialApplicantCount": 1,
-      "jointApplicantGroup": false,
-      "crossOrganizationLead": false,
+      "outsideBeatCoApplicants": [
+        "명지대학교 산학협력단"
+      ],
+      "officialApplicantCount": 2,
+      "jointApplicantGroup": true,
+      "crossOrganizationLead": true,
       "partnerStatus": "공동출원 명의만 확인 · 역할/사업화/협업 계약 미확인",
-      "partnerQuestions": [],
-      "newsroomScore": 56,
+      "partnerQuestions": [
+        "출입처 외 공동출원인 각각이 담당한 효소·소재·공정·차량 적용 기술은 무엇인가?",
+        "특허의 청구항이 폐차 재료의 실제 재생·신차 적용을 설명하는가, 연구 단계인가?",
+        "양산 적용 시점·공급 계약 및 기존 유사 기술과의 차이·선행 보도는 확인됐는가?"
+      ],
+      "newsroomScore": 61,
       "techNoveltyStatus": "특허 청구항·기존 기술과의 실질 차이 미확인",
       "commercialStatus": "기업 직접 확인 전 제품화·양산·수주 미확인",
       "priorFullTitleCheck": {
@@ -11661,41 +11956,39 @@
     {
       "company": "현대제철",
       "applicants": [
-        "현대제철 주식회사",
-        "울산과학기술원"
+        "현대제철 주식회사"
       ],
-      "applicationNumber": "1020250161156",
-      "publicationNumber": "1020260157347",
-      "applicationDate": "20251030",
-      "publicationDate": "20261030",
+      "applicationNumber": "1020250053857",
+      "publicationNumber": "1020260157833",
+      "applicationDate": "20250424",
+      "publicationDate": "20261102",
       "registrationDate": null,
       "registerStatus": "공개",
-      "title": "무방향성 전기강판 및 그 제조방법",
-      "abstract": "본 출원은 무방향성 전기강판 및 그 제조방법에 관한 것이다. 본 출원에 의하면, 자기적 특성이 우수, 구체적으로 낮은 철손을 가지는 무방향성 전기강판 및 그 제조방법을 제공할 수 있다.",
-      "ipc": "C22C 38/02|C22C 38/04|C22C 38/06|C22C 38/14|C22C 38/00|C21D 8/1216|C21D 8/1244|H01F 1/147",
+      "title": "압력용기용 노멀라이징 열처리 강재의 충격천이온도 예측방법 및 이를 이용한 강재의 제조방법",
+      "abstract": "본 발명에 개시된 압력용기용 노멀라이징 열처리 강재의 충격천이온도 예측방법은 압력용기용 노멀라이징 열처리 강재의 충격천이온도(DBTT) 예측 모델을 제공하는 단계로서, i) 상기 강재의 항복강도, ii) 상기 강재의 인장강도, iii) 상기 강재의 미세조직에서 페라이트 결정립의 평균 원상당 직경, iv) 노멀라이징 열처리의 열처리 온도 및 v) 노멀라이징 열처리의 열처리 시간 중에서 선택된 적어도 둘 이상을 독립변수로 설정하고 상기 강재의 충격천이온도를 종속변수로 설정하여 회귀분석을 수행하는 단계; 및 상기 회귀분석으로 상기 독립변수와 상기 종속변수의 관계식을 산출하는 단계;를 포함한다.",
+      "ipc": "G01N 3/60|G01N 3/30|G06F 17/18|G06F 30/20|G06F 119/08",
       "themes": [],
       "priorityScore": 20,
       "themeMatched": false,
       "classificationStatus": "기존 기술사전에 없음 · 공동출원인/초록 검토",
       "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
       "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
-      "lookupNumber": "1020260157347",
+      "lookupNumber": "1020260157833",
       "status": "공개된 특허 문헌: 기술 방향 취재 후보",
       "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
       "questions": [
-        "공개번호 1020260157347의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
+        "공개번호 1020260157833의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
         "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
         "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
         "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
       ],
       "scoopConfirmed": false,
-      "previouslyObserved": true,
-      "firstObservedAt": "2026-11-02",
+      "previouslyObserved": false,
+      "firstObservedAt": "2026-11-03",
       "initialBaseline": false,
-      "historicalBackfill": false,
+      "historicalBackfill": true,
       "freshObservation": false,
-      "observationNote": "이전 검증 공개공보 유지(이번 실행 신규 조회 아님)",
-      "reusedFromPriorVerifiedSnapshot": true,
+      "observationNote": "직전 스냅샷 이전 공개 공보를 뒤늦게 수집(신규 공개 아님)",
       "coveredCompanies": [
         "현대제철"
       ],
@@ -11703,19 +11996,13 @@
       "investigativeThemes": [
         "관련 출입처 기술·세부 활용처 확인"
       ],
-      "outsideBeatCoApplicants": [
-        "울산과학기술원"
-      ],
-      "officialApplicantCount": 2,
-      "jointApplicantGroup": true,
-      "crossOrganizationLead": true,
+      "outsideBeatCoApplicants": [],
+      "officialApplicantCount": 1,
+      "jointApplicantGroup": false,
+      "crossOrganizationLead": false,
       "partnerStatus": "공동출원 명의만 확인 · 역할/사업화/협업 계약 미확인",
-      "partnerQuestions": [
-        "출입처 외 공동출원인 각각이 담당한 효소·소재·공정·차량 적용 기술은 무엇인가?",
-        "특허의 청구항이 폐차 재료의 실제 재생·신차 적용을 설명하는가, 연구 단계인가?",
-        "양산 적용 시점·공급 계약 및 기존 유사 기술과의 차이·선행 보도는 확인됐는가?"
-      ],
-      "newsroomScore": 48,
+      "partnerQuestions": [],
+      "newsroomScore": 41,
       "techNoveltyStatus": "특허 청구항·기존 기술과의 실질 차이 미확인",
       "commercialStatus": "기업 직접 확인 전 제품화·양산·수주 미확인",
       "priorFullTitleCheck": {
@@ -11724,22 +12011,13 @@
       },
       "relatedRecent": [
         {
-          "publicationNumber": "1020260157348",
-          "title": "무방향성 전기강판 및 그 제조방법",
+          "publicationNumber": "1020260157834",
+          "title": "압력용기용 열처리 강재의 충격천이온도 예측방법",
           "companies": [
             "현대제철"
           ],
-          "publicationDate": "20261030",
-          "titleSimilarity": 1.0
-        },
-        {
-          "publicationNumber": "1020260142083",
-          "title": "무방향성 전기강판 및 무방향성 전기강판 제조 방법",
-          "companies": [
-            "현대제철"
-          ],
-          "publicationDate": "20260929",
-          "titleSimilarity": 0.667
+          "publicationDate": "20261102",
+          "titleSimilarity": 0.625
         }
       ],
       "priority": 55
@@ -11809,14 +12087,14 @@
       "applicants": [
         "두산에너빌리티 주식회사"
       ],
-      "applicationNumber": "1020250050914",
-      "publicationNumber": "1020260155901",
+      "applicationNumber": "1020250050913",
+      "publicationNumber": "1020260155900",
       "applicationDate": "20250418",
       "publicationDate": "20261028",
       "registrationDate": null,
       "registerStatus": "공개",
       "title": "터빈 베인 캐리어의 밀봉장치, 이를 포함하는 터빈 및 가스 터빈",
-      "abstract": "본 발명은 터빈 베인 캐리어의 밀봉장치, 이를 포함하는 터빈 및 가스 터빈에 관한 것으로서, 터빈 베인 캐리어와 링 세그먼트 사이의 환형 공간에 수용되어 밀봉하는 코드 씰(cord seal); 및 상기 코드 씰의 일 측에 구비되고 상기 코드 씰에 면압이 형성되도록 온도에 따라 선택적으로 변형되면서 상기 코드 씰에 압력을 인가하기 위한 바이메탈로 이루어진 굽힘력 전달체;를 포함하는 터빈 베인 캐리어의 밀봉장치, 이를 포함하는 터빈 및 가스 터빈을 제공한다.",
+      "abstract": "본 발명은 터빈 베인 캐리어의 밀봉장치, 이를 포함하는 터빈 및 가스 터빈에 관한 것으로서, 터빈 베인 캐리어와, 링 세그먼트 사이에서 환형 형상의 코드 씰(cord seal)이 수용되는 씰 그루브에 보강 심(pressing shim)을 추가로 배치함으로써, 코드 씰에 면압을 형성하여 코드 씰의 손상을 방지하고, 코드 씰과, 링 세그먼트 사이의 갭을 제거함으로써 밀봉 효과를 증대할 수 있는 터빈 베인 캐리어의 밀봉장치, 이를 포함하는 터빈 및 가스 터빈을 제공한다.",
       "ipc": "F01D 11/00|F01D 25/24|F02C 7/28",
       "themes": [],
       "priorityScore": 20,
@@ -11824,11 +12102,11 @@
       "classificationStatus": "기존 기술사전에 없음 · 공동출원인/초록 검토",
       "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
       "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
-      "lookupNumber": "1020260155901",
+      "lookupNumber": "1020260155900",
       "status": "공개된 특허 문헌: 기술 방향 취재 후보",
       "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
       "questions": [
-        "공개번호 1020260155901의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
+        "공개번호 1020260155900의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
         "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
         "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
         "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
@@ -11863,7 +12141,7 @@
       },
       "relatedRecent": [
         {
-          "publicationNumber": "1020260155900",
+          "publicationNumber": "1020260155901",
           "title": "터빈 베인 캐리어의 밀봉장치, 이를 포함하는 터빈 및 가스 터빈",
           "companies": [
             "두산에너빌리티"
@@ -11949,38 +12227,37 @@
       "applicants": [
         "주식회사 포스코"
       ],
-      "applicationNumber": "1020250036490",
-      "publicationNumber": "1020260142560",
-      "applicationDate": "20250321",
-      "publicationDate": "20260929",
+      "applicationNumber": "1020250052996",
+      "publicationNumber": "1020260157618",
+      "applicationDate": "20250423",
+      "publicationDate": "20261102",
       "registrationDate": null,
       "registerStatus": "공개",
-      "title": "가스터빈의 로터 블레이드 가공장치 및 가공방법",
-      "abstract": "본 개시에 따르면 프레임과, 링 세그먼트의 형상을 측정하도록 가스터빈의 로터에 장착 가능한 형상 측정장치와, 형상 측정장치로 측정한 형상을 바탕으로 동일한 형상을 생성하도록 프레임에 설치된 형상 복제장치 및 형상 복제장치에 의해 형성된 형상을 따라 블레이드를 가공하도록 프레임에 설치된 작업장치를 포함한다.",
-      "ipc": "B24B 19/14|B24B 49/10|F01D 21/00",
+      "title": "캔용 강판의 난연 코팅층 형성용 조성물, 캔용 강판 및 캔용 강판의 제조방법",
+      "abstract": "본 발명의 일 실시예에 의한 캔용 강판의 난연코팅층 형성용 조성물은 수지 100 중량부, 실리카 1 내지 100 중량부, Al, Si, Mg 및 Fe 중 2종 이상을 포함하는 복합 산화물을 그 합량으로 1 내지 100 중량부 및 무기계 난연제 1 내지 120 중량부 포함한다.",
+      "ipc": "C09D 5/18|C09D 7/61|C09D 7/63|C09D 7/40|C08K 3/22|C08K 3/34|C08K 3/36|C08K 3/016|C08K 5/00|H01M 50/124|H01M 50/122|H01M 50/143",
       "themes": [],
       "priorityScore": 20,
       "themeMatched": false,
       "classificationStatus": "기존 기술사전에 없음 · 공동출원인/초록 검토",
       "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
       "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
-      "lookupNumber": "1020260142560",
+      "lookupNumber": "1020260157618",
       "status": "공개된 특허 문헌: 기술 방향 취재 후보",
       "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
       "questions": [
-        "공개번호 1020260142560의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
+        "공개번호 1020260157618의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
         "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
         "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
         "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
       ],
       "scoopConfirmed": false,
-      "previouslyObserved": true,
-      "firstObservedAt": "2026-10-13",
+      "previouslyObserved": false,
+      "firstObservedAt": "2026-11-03",
       "initialBaseline": false,
-      "historicalBackfill": false,
+      "historicalBackfill": true,
       "freshObservation": false,
-      "observationNote": "이전 검증 공개공보 유지(이번 실행 신규 조회 아님)",
-      "reusedFromPriorVerifiedSnapshot": true,
+      "observationNote": "직전 스냅샷 이전 공개 공보를 뒤늦게 수집(신규 공개 아님)",
       "coveredCompanies": [
         "포스코"
       ],
@@ -12001,7 +12278,26 @@
         "status": "미검색",
         "matches": []
       },
-      "relatedRecent": [],
+      "relatedRecent": [
+        {
+          "publicationNumber": "1020260157617",
+          "title": "캔용 강판의 난연 코팅층 형성용 조성물, 캔용 강판 및 캔용 강판의 제조방법",
+          "companies": [
+            "포스코"
+          ],
+          "publicationDate": "20261102",
+          "titleSimilarity": 1.0
+        },
+        {
+          "publicationNumber": "1020260157616",
+          "title": "캔용 강판의 단열 코팅층 형성용 조성물, 캔용 강판 및 캔용 강판의 제조방법",
+          "companies": [
+            "포스코"
+          ],
+          "publicationDate": "20261102",
+          "titleSimilarity": 0.778
+        }
+      ],
       "priority": 59
     },
     {
@@ -12065,5 +12361,5 @@
       "priority": 60
     }
   ],
-  "unshown": 553
+  "unshown": 573
 }
