@@ -1,23 +1,22 @@
-"""Probe 93: USPTO 상표 일일 XML(TRTDXFAP)을 키 없이 받을 수 있는지 — ODP 목록 API·웹 페이지·옛 bulkdata 주소에 각 한 번(공개 데이터, 응답 코드·크기만)."""
+"""Probe 94: 공장등록 API(B550624 fctryRegistInfo) 응답 — 월 08:10 실행에서 43곳 모두 ReadTimeout·결과코드 None. 지금 한 번(공개, 회사 하나)."""
+import os
 import re
+import time
 
 import requests
 
+KEY = (os.environ.get("DATA_GO_KR_KEY") or os.environ.get("CUSTOMS_API_KEY") or "").strip()
 H = {"User-Agent": "newsroom-official-research/1.0 (github.com/shhong9173-art/seoul-reporting-radar)"}
-out = []
-for url in ("https://api.uspto.gov/api/v1/datasets/products/TRTDXFAP",
-            "https://api.uspto.gov/api/v1/datasets/products/TRTDXFAP?latest=true",
-            "https://data.uspto.gov/bulkdata/datasets/trtdxfap",
-            "https://bulkdata.uspto.gov/data/trademark/dailyxml/applications/",
-            "https://data.uspto.gov/ui/datasets/products/TRTDXFAP"):
+out = [f"key length {len(KEY)}"]
+for typ in ("json",):
+    t0 = time.time()
     try:
-        r = requests.get(url, headers=H, timeout=40, allow_redirects=True)
-        t = r.text
-        files = re.findall(r"apc\d{6}[^\"'<> ]*\.zip", t)
-        out.append(f"{url} -> HTTP {r.status_code} final {r.url[:90]} ctype {r.headers.get('content-type','')[:40]} len {len(t)} zips {len(files)} {files[:3]}")
-        if r.status_code != 200 or len(t) < 600:
-            out.append("  head " + re.sub(r"\s+", " ", t[:300]))
+        r = requests.get("https://apis.data.go.kr/B550624/fctryRegistInfo/getFctryPrdctnService_v2",
+                         params={"serviceKey": KEY, "pageNo": 1, "numOfRows": 5, "type": typ, "cmpnyNm": "현대제철"}, headers=H, timeout=60)
+        t = r.text.replace(KEY, "<KEY>") if KEY else r.text
+        out.append(f"{typ} HTTP {r.status_code} {time.time()-t0:.1f}s len {len(t)} ctype {r.headers.get('content-type','')[:40]}")
+        out.append("  head " + re.sub(r"\s+", " ", t[:400]))
     except Exception as e:  # noqa: BLE001
-        out.append(f"{url} {type(e).__name__} {str(e)[:80]}")
+        out.append(f"{typ} {type(e).__name__} {time.time()-t0:.1f}s {str(e)[:80]}")
 open("/tmp/probe_out.txt", "w").write("\n".join(out))
 print("\n".join(out)[:600])
