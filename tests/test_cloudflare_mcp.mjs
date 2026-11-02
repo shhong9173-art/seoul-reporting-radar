@@ -874,7 +874,9 @@ test('kr_official stacks: plants with stopped stacks first, events, young sites 
         stacks: { 1: { lastDt: '2026-10-31 09:00', obs: Array(9).fill(['x', 0]) }, 2: { lastDt: '2026-10-31 09:00', obs: Array(9).fill(['x', 0]) } } },
       { id: 'b', company: '포스코', name: '㈜포스코 광양제철소', area: '전라남도', meaningful: 150, stopped: ['17'], stacks: { 17: { lastDt: '2026-10-31 09:00', obs: Array(9).fill(['x', 0]) } },
         exceedLog: [{ stack: '40', pollutant: 'nox', value: 61.2, limit: 50, at: '2026-10-31 06:00' }, { stack: '40', pollutant: 'nox', value: 70.5, limit: 50, at: '2026-10-31 09:00' }] },
-      { id: 'c', company: '고려아연', name: '고려아연㈜온산제련소', area: '울산광역시', meaningful: 0, stopped: [], stacks: { 11: { obs: [['x', 5]] } } }],
+      { id: 'c', company: '고려아연', name: '고려아연㈜온산제련소', area: '울산광역시', meaningful: 0, stopped: [], stacks: { 11: { obs: [['x', 5]] } } },
+      { id: 'd', company: '동국제강', name: '동국제강㈜ 포항공장', area: '경상북도', meaningful: 3, stopped: [], missingRuns: 3, workMissing: 1,
+        lastSeen: '2026-10-31T06:20:00+09:00', stacks: { 1: { obs: Array(9).fill(['x', 5]) } } }],
     events: [{ id: 'stk:down:a:2026-10-31', kind: '사업장 가동 중단 신호', tier: 'A', company: '현대제철', site: '현대제철㈜포항2공장', detectedAt: recent,
       text: '현대제철㈜포항2공장: 평소 움직이던 배출구 2개 중 2개가 3번 연속 평소의 10% 아래' },
       { id: 'stk:exceed2:b:40:nox:2026-10-31 06:00', kind: '배출허용기준 초과 지속', tier: 'A', company: '포스코', site: '㈜포스코 광양제철소', detectedAt: recent,
@@ -883,7 +885,8 @@ test('kr_official stacks: plants with stopped stacks first, events, young sites 
   assert.equal(post.status, 200);
   const opts = { path: `/mcp/${TOKEN}`, env };
   const r = await call('kr_official', { section: 'stacks' }, opts);
-  assert.match(r.text, /\[굴뚝 측정\(공장 가동 신호\) · 출입처 사업장 3곳 · 배출구 4개/);
+  assert.match(r.text, /\[굴뚝 측정\(공장 가동 신호\) · 출입처 사업장 4곳 · 배출구 5개/);
+  assert.match(r.text, /- 지금 목록에서 빠져 있는 사업장 1곳\n  동국제강 · 동국제강㈜ 포항공장\(경상북도\) · 연속 3번 빠짐\(평일 일하는 시간 1번\) · 마지막으로 보인 실행 2026-10-31T06:20/);
   assert.match(r.text, /멈춤으로 판단한 배출구가 있는 사업장 2곳/);
   assert.ok(r.text.indexOf('포항2공장(경상북도)') < r.text.indexOf('광양제철소(전라남도)'));  // 멈춘 비율 높은 순
   assert.match(r.text, /평소 움직이던 배출구 2개 중 멈춤 2개: 1번\(측정 2026-10-31 09:00\), 2번/);
