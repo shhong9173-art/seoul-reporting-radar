@@ -1,4 +1,4 @@
-"""probe 106: EUIPO 운영 토큰 — 공개 클라이언트들이 쓰는 CAS 주소(euipo.europa.eu/cas-server-webapp/oidc/accessToken)로 한 번. 되면 상표 검색: 현대자동차 최근 출원 5건(이름·출원일·상품류만). 키·토큰 값은 남기지 않는다."""
+"""probe 107(403 내용): EUIPO 운영 토큰 — 공개 클라이언트들이 쓰는 CAS 주소(euipo.europa.eu/cas-server-webapp/oidc/accessToken)로 한 번. 되면 상표 검색: 현대자동차 최근 출원 5건(이름·출원일·상품류만). 키·토큰 값은 남기지 않는다."""
 import os, re
 import requests
 out = []
@@ -22,6 +22,9 @@ try:
             j = sr.json()
             items = j.get("trademarks") or j.get("content") or []
             out.append(f"  keys {sorted(j.keys())[:12]} items {len(items)} total {j.get('totalElements')}")
+            if sr.status_code != 200:
+                out.append(f"  title {str(j.get('title'))[:120]} | detail {str(j.get('detail'))[:300]} | type {str(j.get('type'))[:120]}")
+            out.append(f"  token scope {rr.json().get('scope')} expires {rr.json().get('expires_in')}")
             if items:
                 out.append("  fields " + ", ".join(sorted(items[0].keys()))[:700])
             for it in items[:5]:
