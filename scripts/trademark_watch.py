@@ -156,6 +156,7 @@ def run(cfg, *, now, previous=None, key="", ledger=None, fetch=None):
     seen = dict((prev or {}).get("seen") or {})
     titles = {c: dict(v) for c, v in ((prev or {}).get("titles") or {}).items() if isinstance(v, dict)}
     old_filings = {f["id"]: f for f in (prev or {}).get("filings", []) if isinstance(f, dict) and f.get("id")}
+    prev_checks = {x.get("source"): x for x in (prev or {}).get("checks", []) if isinstance(x, dict)}
     end = now.astimezone(KST).date()
     start = end - dt.timedelta(days=int(cfg.get("windowDays", 90)))
     s8, e8 = start.strftime("%Y%m%d"), end.strftime("%Y%m%d")
@@ -193,11 +194,16 @@ def run(cfg, *, now, previous=None, key="", ledger=None, fetch=None):
             checks.append({"source": src, "status": "failed", "error": type(e).__name__})
             continue
         used += res["requests"]
+        # 회사마다 첫 읽기는 기준선: 새로 더한 회사, 조회 이름을 바꾼 회사, 예전 결과에 이름 미확인으로 남은 회사
+        # (11-02: 석유화학·정유 6곳 등 10곳이 '이름 미확인·0건' — 띄어 쓴 법인명으로 바꾼 첫 실행에 90일 치 출원이 신규로 뜨면 안 된다)
+        query = c["names"][0]
+        pc = prev_checks.get(src)
+        first_read = baseline or pc is None or (pc.get("query") != query if "query" in pc else pc.get("nameVerified") is False)
         variants = name_variants(c["names"])
         core = cfg["industries"][c["industry"]]["core"]
         before = set(titles.get(c["company"], {}))
         filings, unmatched, bad = group_filings(c, res["rows"], variants=variants, seen=seen, titles_before=before,
-                                                stamp=stamp, baseline=baseline, core=core)
+                                                stamp=stamp, baseline=first_read, core=core)
         for f in filings:
             for n in f["applicationNumbers"]:
                 seen.setdefault(n, end.isoformat())
@@ -218,7 +224,7 @@ def run(cfg, *, now, previous=None, key="", ledger=None, fetch=None):
                 fresh.append(f["id"])
         chk = {"source": src, "status": "ok" if res["complete"] else "partial", "rawTotal": res["total"],
                "kept": sum(len(f["applicationNumbers"]) for f in filings), "filings": len(filings),
-               "requests": res["requests"]}
+               "requests": res["requests"], "query": query, **({"baseline": True} if first_read and not baseline else {})}
         if not res["complete"]:
             chk["error"] = f"{res['total']}건 중 {len(res['rows'])}건만 읽음(쪽 한도)"
         if unmatched:
