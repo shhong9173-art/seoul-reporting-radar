@@ -52,7 +52,11 @@ FOREIGN_OK = re.compile(r"reuters|bloomberg|nikkei|financial times|\bft\b|wall s
                         r"hydrocarbon processing|chemical week|chemweek|oil & gas journal|\bogj\b|energy intelligence|\bopis\b|"
                         # 11-01 탐침 74(석유화학·정유 검색 매체 분포): 에너지·화학 전문지
                         r"quantum commodity intelligence|hydrocarbon engineering|rigzone|\bupstream\b|energy voice|plastics news|plasticstoday|"
-                        r"european rubber journal|chemanager", re.I)
+                        r"european rubber journal|chemanager|"
+                        # 11-02 탐침 109(출입처 검색에서 허용 밖으로 버린 매체 7일치): 업계 전문지·통신만 더한다. 주가 모음(BigGo·TradingView·
+                        # Yahoo Finance·MarketScreener·Investing.com)·보도자료 배포(Business Wire·PR Newswire·GlobeNewswire)·지역 방송은 그대로 뺀다.
+                        r"manufacturing dive|data ?center dynamics|datacenterdynamics|\bdcd\b|tire review|modern tire dealer|gmk center|"
+                        r"industrial info resources|\bec&m\b|\bupi\b|united press international", re.I)
 
 # 국내 매체 영문판·국내 통신 — 외신 화면에서 뺀다(이미 국내 보도).
 DOMESTIC_EN = re.compile(r"korea herald|korea times|joongang|yonhap|korea economic daily|ked global|businesskorea|business korea|pulse by maeil|maeil|"
