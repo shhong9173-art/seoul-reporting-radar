@@ -2397,7 +2397,10 @@ test('출입처 외신 (global-beat): event words → B with press-check hint, n
   const doc = { schema: 'global_beat/v1', generatedAt: now, checks: [{ source: '외신 수집', status: 'ok' }], feedErrors: ['Automotive News'], items: [
     it('gl:a'),
     it('gl:b', { title: 'Nexen Tire receives EcoVadis Gold', koTitle: '넥센타이어, 에코바디스 골드 3년 연속', koSummary: '넥센타이어가 약 30억 원 규모 상을 받았다.', source: 'Tyrepress', beatCompanies: ['넥센타이어'], checkTerms: [], numbersNotInSource: ['30억 원'] }),
-    it('gl:old', { published: base, firstSeen: base, koTitle: '포스코, 오래된 기사', beatCompanies: ['포스코'], checkTerms: ['투자'] })] };
+    it('gl:old', { published: base, firstSeen: base, koTitle: '포스코, 오래된 기사', beatCompanies: ['포스코'], checkTerms: ['투자'] }),
+    // 11-02 운영: 나라 이름이 든 외신 — 대조 낱말에 나라를 더하고 기사에 그 나라가 있어야 같은 건
+    it('gl:cz', { title: 'KHNP ends negotiations with construction consortium for Czech units', koTitle: '한국수력원자력, 체코 원전 건설 컨소시엄과 협상 종료' }),
+    it('gl:us', { title: 'Hyundai to invest US$450m in Alabama plant', koTitle: '현대차, 4억 5천만 달러 미국 앨라배마 공장 투자', beatCompanies: ['현대차'], checkTerms: ['공장', '투자'] })] };
   assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/global-beat', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
   const r = await call('radar_today', { include_minor: true }, opts);
   const b = r.text.split('[B · ')[1].split('[C · ')[0];
@@ -2410,6 +2413,10 @@ test('출입처 외신 (global-beat): event words → B with press-check hint, n
   const hit = items.items.find((x) => x.id === 'gl:a');
   assert.deepEqual([hit.tier, hit.check.who, hit.check.terms, hit.check.alts['원자로'].includes('SMR')], ['B', '두산에너빌리티', ['원자로'], true]);
   assert.ok(!items.items.find((x) => x.id === 'gl:b'));   // 참고(C)는 보도 대조 안 함
+  const cz = items.items.find((x) => x.id === 'gl:cz');
+  assert.deepEqual([cz.check.terms, cz.check.places, cz.check.must], [['원자로', '체코'], ['체코'], ['체코']]);
+  const us = items.items.find((x) => x.id === 'gl:us');   // 美로 줄이는 나라는 필수어로 쓰지 않는다
+  assert.deepEqual([us.check.terms, us.check.must], [['공장', '투자'], undefined]);
 });
 
 test('scoop_reverse shows automatic prior-capture candidates by source with lead time, separate from human Y/P/N', async () => {

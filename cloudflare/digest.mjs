@@ -126,6 +126,9 @@ export function insolvencyLine(e) {
 // (10-31 운영: 케이아이씨·남양테크 파산 선고가 "케이아이씨 회생"으로 대조돼 '미보도 후보').
 export const insolvencyWord = (kind) => (/파산/.test(String(kind ?? '')) ? '파산' : /M&A|매각/.test(String(kind ?? '')) ? '매각' : '회생');
 
+// 출입처 외신 대조 낱말: 나라 이름이 있으면 검색어에 더하고(places — 사건 낱말로는 안 셈) 기사 본문에 있어야 같은 건(must).
+export const gbHint = (who, terms, country) => (country ? hint(who, [...terms, country], [country], [country]) : hint(who, terms));
+
 export function hint(who, terms, places = [], must = [], names = []) {
   const subject = String(who ?? '').split('·')[0].replace(/\(.*?\)/g, '').trim();
   const t = [...new Set(terms.filter(Boolean).map(String))];
@@ -621,6 +624,9 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
 
   // 출입처 외신(global_collector.py): 한국어 제목에 사건 낱말(공장·투자·수주·원자로 등)이 있으면 B(자동 보도 대조), 없으면 참고(C).
   // 첫 수집에 잡힌 기존 기사는 자기 게재일이 최근일 때만(fresh). AI 번역·요약 — 원문 확인.
+  // 한국어 제목의 나라 이름은 검색을 좁히고 기사 본문에 있어야 같은 건으로 센다(11-02 운영: KHNP '체코 원전 컨소시엄 협상 종료' 외신이
+  // "두산에너빌리티 원자로"로 대조돼 뉴스케일 SMR 계약 기사로 '관련 보도 있음'). 美·中·日처럼 제목에서 한 글자로 줄이는 나라는 쓰지 않는다.
+  const GB_COUNTRY = /체코|폴란드|루마니아|불가리아|헝가리|슬로바키아|멕시코|캐나다|브라질|칠레|페루|튀르키예|이집트|카타르|쿠웨이트|오만|모로코|필리핀|태국|말레이시아|베트남|싱가포르|우즈베키스탄|카자흐스탄|네덜란드|스웨덴|노르웨이|핀란드|덴마크|스페인|포르투갈|이탈리아|그리스|아일랜드/;
   const gbItems = docs['global-beat']?.items ?? [];
   const gbBase = baselineOf(gbItems);
   for (const x of gbItems) {
@@ -631,7 +637,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
       fact: `외신 ${x.source ?? ''} 「${x.koTitle || x.title}」${x.koSummary ? ` — ${clipAt(x.koSummary, 220)}` : ''} · 원제 "${clipAt(x.title ?? '', 140)}" (AI 번역·요약 — 원문 확인)`
         // AI가 받은 영어(제목·RSS 발췌)에서 같은 값을 못 찾은 숫자 — 지어냈거나 환산했거나 표기가 달라 못 맞춘 것(global_news_pipeline.check_numbers)
         + (Array.isArray(x.numbersNotInSource) && x.numbersNotInSource.length ? ` · ⚠ 원문 발췌에 없는 숫자: ${x.numbersNotInSource.slice(0, 4).join(', ')} — 기사에 쓰기 전 원문 대조` : ''),
-      url: x.url, check: terms.length && companies.length ? hint(companies[0], terms) : undefined });
+      url: x.url, check: terms.length && companies.length ? gbHint(companies[0], terms, (GB_COUNTRY.exec(String(x.koTitle ?? '')) ?? [])[0]) : undefined });
   }
 
   // US OSHA: new inspection (fatality/accident A, complaint/referral B), new citations (willful/repeat or $100k+ A, serious B), fatal accident summary A.
