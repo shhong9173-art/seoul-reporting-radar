@@ -493,6 +493,31 @@ def ocr_pdf(raw, *, run=subprocess.run, which=shutil.which, budget=OCR_BUDGET, c
         return "\n".join(texts), None
 
 
+MONTHS = {m: i for i, m in enumerate(("january", "february", "march", "april", "may", "june", "july", "august", "september",
+                                       "october", "november", "december"), 1)}
+
+
+def report_month(report):
+    """'Awarded Tenders Report - August 2026 8.7 MB' → '2026-08'(보고서 달 — 낙찰 결정 달, 공고일 아님)."""
+    m = re.search(r"\b(" + "|".join(MONTHS) + r")\s+(20\d\d)\b", str(report or ""), re.I)
+    return f"{m.group(2)}-{MONTHS[m.group(1).lower()]:02d}" if m else None
+
+
+def tidy_ocr_item(x):
+    """예전 저장본(11-02 첫 OCR): 이름 줄 앞 두 줄(앞 낙찰의 끝)을 떼고, 발주처 문구·보고서 달을 지금 규칙으로."""
+    if x.get("source") != "바레인 입찰위원회":
+        return
+    if x.get("buyer") == "바레인 정부 발주처(보고서 줄 참조)":
+        x["buyer"] = "정부 발주처(보고서 줄 참조)"
+    if not x.get("reportMonth") and report_month(x.get("report")):
+        x["reportMonth"] = report_month(x.get("report"))
+    if x.get("ocr") and x.get("company"):
+        parts = str(x.get("title") or "").split(" / ")
+        k = next((n for n, part in enumerate(parts) if beat_of_ocr(part)), 0)
+        if k:
+            x["title"] = " / ".join(parts[k:])
+
+
 def bh_items(text, report, href, *, ocr=False):
     out, seen = [], set()
     lines = [norm_space(x) for x in text.splitlines() if norm_space(x)]
@@ -500,19 +525,21 @@ def bh_items(text, report, href, *, ocr=False):
     beats = {i: b for i, b in ((i, find(line)) for i, line in enumerate(lines)) if b}
     hits = sorted(set(beats) | {i for i, line in enumerate(lines) if re.search(r"\bkorea\b", line, re.I)
                                 and not any(abs(i - j) <= 2 for j in beats)})  # 이름 줄 옆 'SOUTH KOREA'(국적 칸)는 같은 낙찰
+    month = report_month(report)
     for i in hits:
         beat = beats.get(i)
-        snippet = " / ".join(lines[max(0, i - 2): i + (4 if ocr else 2)])[:500 if ocr else 400]
+        # 글자 인식 줄은 앞줄이 대개 앞 낙찰(다른 회사)의 끝이라 이름 줄부터 뒤로 4줄(국적·금액·사업명이 이어짐)
+        snippet = " / ".join(lines[i: i + 5] if ocr and beat else lines[max(0, i - 2): i + (4 if ocr else 2)])[:500 if ocr else 400]
         key = (beat, snippet[:120])
         if key in seen:
             continue
         seen.add(key)
         out.append({
             "id": f"bh:{href.rsplit('/', 1)[-1]}:{len(out)}", "source": "바레인 입찰위원회", "published": None, "kind": "낙찰(월간 보고서)",
-            "buyer": "바레인 정부 발주처(보고서 줄 참조)", "buyerCountry": "BHR", "winners": [], "winnerCountry": [], "winnerIds": [],
+            "buyer": "정부 발주처(보고서 줄 참조)", "buyerCountry": "BHR", "winners": [], "winnerCountry": [], "winnerIds": [],
             "company": beat, "companies": [beat] if beat else [], "title": snippet, "report": report, "value": None, "currency": None,
             "concluded": None, "noticeType": "awarded-report", "url": BH_SITE + href.replace(" ", "%20"),
-            **({"ocr": True} if ocr else {}),
+            **({"reportMonth": month} if month else {}), **({"ocr": True} if ocr else {}),
         })
     return out[:20]
 
@@ -987,6 +1014,8 @@ def run(*, now, previous=None, get=None, post=None, sleep=time.sleep):
     found += pcc_got
     checks += pcc_checks
     old = {x["id"]: x for x in (previous or {}).get("items") or []}
+    for x in old.values():
+        tidy_ocr_item(x)
     link_bahrain_reports(bh_got, list(old.values()) + bo_got)
     items = dict(old)
     for it in found:
