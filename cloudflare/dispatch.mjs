@@ -58,6 +58,8 @@ export const SLOTS = [
   { at: '08:50', workflow: 'radar-press-check.yml' },
   // 나라장터 입찰공고: GitHub 예약(00:35 UTC = 09:35 KST)이 10-16~10-30 평일 내내 14:00~15:30 KST에야 돌았다(4.5~6시간 늦음).
   { at: '09:30', workflow: 'g2b-tender-official.yml' },
+  // 낮 보도 대조: 08:50 뒤 오전에 새로 잡힌 A·B(11-02: 바레인 월간 보고서 일진전기 낙찰 11:17, 지자체 공고 첨부 개요)가 18:50까지 대조 없이 남았다.
+  { at: '12:50', workflow: 'radar-press-check.yml' },
   // 공장등록·관보·법제처 낮 재시도: 아침 실행이 실패·시간 상한으로 못 읽은 질의가 있을 때만 스크립트가 다시 읽는다(11-02 공장등록 API 아침 시간 초과).
   { at: '13:10', workflow: 'kr-official.yml' },
   { at: '10:40', workflow: 'dart-beat-monitor.yml', daily: true },
