@@ -230,8 +230,12 @@ def run(cfg, *, now, previous=None, key="", ledger=None, fetch=None):
         if unmatched:
             chk["otherApplicants"] = unmatched
             if not filings and res["rows"]:
-                chk["status"] = "failed"
-                chk["error"] = f"응답 출원인 이름이 설정과 안 맞음({unmatched}건) — 이름 형식 확인 필요"
+                # KIPRIS 출원인 검색은 이름 일부만 같아도 돌려준다(11-02 probe 95f: '주식회사영풍' → '영풍제약 주식회사',
+                # '주식회사 영풍' → '주식회사 영풍큐비클'). 이 회사 출원이 있었다면 같은 검색에 함께 나온다 — 실패가 아니라 0건이다.
+                others = sorted({re.sub(r"\(?\d{6,}\)?", "", p).strip()[:40] for r in res["rows"]
+                                 for p in re.split(r"[|;]", str(r.get("applicantName") or ""))
+                                 if p.strip() and not owner_matches(p, variants)})[:3]
+                chk["note"] = f"응답 {unmatched}건은 이름 일부만 같은 다른 출원인({', '.join(others)}) — 이 회사 출원 없음"
         if bad:
             chk["badRows"] = bad
         if c.get("nameVerified") is False:

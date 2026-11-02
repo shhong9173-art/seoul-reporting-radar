@@ -1773,7 +1773,8 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
     window: { from: '2026-07-28', to: '2026-10-26', field: '출원일' }, baselineSince: '2026-10-19T07:10:00+09:00',
     checks: [{ source: '상표 현대자동차', status: 'ok', rawTotal: 4, kept: 4, filings: 3, requests: 1 },
       { source: '상표 KG모빌리티', status: 'ok', rawTotal: 0, kept: 0, filings: 0, requests: 1, nameVerified: false },
-      { source: '상표 포스코', status: 'waiting', reason: 'provider_22_cooldown', until: '2026-10-29T07:10:00+09:00' }],
+      { source: '상표 포스코', status: 'waiting', reason: 'provider_22_cooldown', until: '2026-10-29T07:10:00+09:00' },
+      { source: '상표 영풍', status: 'ok', rawTotal: 1, kept: 0, filings: 0, requests: 1, otherApplicants: 1, note: '응답 1건은 이름 일부만 같은 다른 출원인(영풍제약 주식회사) — 이 회사 출원 없음' }],
     filings: [filing('현대자동차', 'AERO DRIVE', '2026-10-20', ['12', '35'], { isNew: true, titleNew: true, tier: 'B', firstSeen: '2026-10-26T07:10:00+09:00' }),
       filing('현대자동차', 'NUTRIMACY', '2026-09-10', ['07', '09', '12'], { isNew: true, tier: 'C', addedClassesAt: '2026-10-26T07:10:00+09:00' }),
       filing('현대자동차', 'PLEOS', '2026-08-01', ['09']),
@@ -1783,7 +1784,8 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
     rules: ['상표 출원은 출원 사실이다. 제품 출시·사업 진출·차명 확정이 아니다(방어 출원·예비 출원이 흔함).'], confirmedScoops: 0 };
   assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/trademarks', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
   const t = await call('trademarks', {}, opts);
-  assert.match(t.text, /조회 정상 2\/3 · 대기 1곳\(제공기관 응답 22 뒤 72시간 대기, 2026-10-29T07:10부터 재시도\)/);
+  assert.match(t.text, /이름 일부만 같은 다른 출원인만 나온 곳\(이 회사 0건\): 영풍\(영풍제약 주식회사\)/);
+  assert.match(t.text, /조회 정상 3\/4 · 대기 1곳\(제공기관 응답 22 뒤 72시간 대기, 2026-10-29T07:10부터 재시도\)/);
   assert.match(t.text, /KIPRIS 호출 장부\(2026-10\): 상표 10\/150 · 전체 40\/900 — 이 저장소가 센 수, 계정 실제 사용량 아님/);
   assert.match(t.text, /출원인 이름 미확인 \+ 0건: KG모빌리티/);
   assert.match(t.text, /- \[B · 처음 보는 이름\] 현대자동차 · 「AERO DRIVE」 · 출원 2026-10-20\n   상품류: 12류\(차량·부품\), 35류\(광고·사업관리\) · 업종 핵심 12류/);
