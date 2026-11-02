@@ -18,6 +18,12 @@ JUSO_DB = {"광산구 벽계길 17": ("광주광역시 광산구 하남동 1", "
            "충청남도 아산시 인주면 현대로 1077": ("충청남도 아산시 인주면 금성리 196", "4420034022", "0", "196", "0")}
 
 
+# 11-02 탐침 110(울주 온산읍 원산리 920): 기본개요 주용도가 빈 허가의 동별개요 — 컨테이너·강파이프 '가설건축물'
+DONG_DB = {"0001": [{"mgmPmsrgstPk": "P3", "mainPurpsCdNm": "가설건축물", "strctCdNm": "컨테이너조", "totArea": "270"},
+                    {"mgmPmsrgstPk": "P3", "mainPurpsCdNm": "가설건축물", "strctCdNm": "강파이프구조", "totArea": "281"},
+                    {"mgmPmsrgstPk": "P4", "mainPurpsCdNm": "기타공장", "strctCdNm": "경량철골구조", "totArea": "1950"}]}
+
+
 class Resp:
     def __init__(self, text, status=200):
         self.text, self.status_code = text, status
@@ -46,6 +52,9 @@ def fake(permits_by_bun, refuse=(), down=False):
         if url == b.REGION:
             rows = REGION_DB.get(params["locatadd_nm"], [])
             return Resp(json.dumps({"StanReginCd": [{"head": [{"totalCount": len(rows)}]}, {"row": rows}]}, ensure_ascii=False))
+        if url == b.DONG:
+            rows = DONG_DB.get(params["bun"], [])
+            return Resp(json.dumps({"response": {"header": {"resultCode": "00"}, "body": {"items": {"item": rows}, "totalCount": len(rows)}}}, ensure_ascii=False))
         if url == b.ARCH:
             if "arch" in refuse or key == "bad":
                 return Resp('{"response":{"header":{"resultCode":"30"}}}', 403)
@@ -94,6 +103,25 @@ class Building(unittest.TestCase):
         self.assertEqual((new["bld:P1"]["kind"], new["bld:P1"]["tier"]), ("사용승인(준공)", "B"))
         self.assertEqual((new["bld:P2"]["kind"], new["bld:P2"]["tier"]), ("새 허가", "B"))
         self.assertFalse(any(u == b.JUSO for u, _ in get2.calls))  # 번지는 저장분 재사용
+
+    def test_permit_without_main_purpose_gets_dong_purposes_and_temporary_is_c(self):
+        get = fake({"0001": [permit("P1")]})
+        first = go([("K", "good")], FACS[:1], now=NOW, previous=None, get=get)
+        get2 = fake({"0001": [permit("P1"), permit("P3", kind="신축", purpose="", area="551", day="20261029"),
+                              permit("P4", kind="신축", purpose="", area="1950", day="20261030")]})
+        second = go([("K", "good")], FACS[:1], now=NOW + dt.timedelta(days=7), previous=first, get=get2)
+        by = {x["id"]: x for x in second["permits"]}
+        self.assertEqual([d["purpose"] for d in by["bld:P3"]["dongs"]], ["가설건축물", "가설건축물"])
+        self.assertEqual(by["bld:P3"]["tier"], "C")                 # 가설건축물만 — 공장 신·증설 아님
+        self.assertEqual((by["bld:P4"]["tier"], by["bld:P4"]["purposeFrom"]), ("A", "동별개요"))
+        self.assertIsNone(by["bld:P1"].get("dongs"))                 # 주용도가 있는 허가는 묻지 않음
+        self.assertEqual(sum(1 for u, _ in get2.calls if u == b.DONG), 1)
+        # 다음 실행은 저장된 동별 용도를 그대로 쓰고 다시 묻지 않는다
+        get3 = fake({"0001": [permit("P1"), permit("P3", kind="신축", purpose="", area="551", day="20261029")]})
+        third = go([("K", "good")], FACS[:1], now=NOW + dt.timedelta(days=14), previous=second, get=get3)
+        self.assertEqual(next(x for x in third["permits"] if x["id"] == "bld:P3")["tier"], "C")
+        self.assertEqual(sum(1 for u, _ in get3.calls if u == b.DONG), 0)
+        self.assertEqual(b.dong_label(by["bld:P3"]["dongs"]), "가설건축물 2동")
 
     def test_other_lot_on_same_bun_is_one_tier_lower_and_errors_are_counted(self):
         own = permit("P1")  # 고대리 1-1번지 = KG스틸 parcel 1-1

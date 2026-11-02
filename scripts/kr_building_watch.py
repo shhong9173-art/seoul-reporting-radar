@@ -287,10 +287,17 @@ ARCH_MAX_PAGES = 5
 RETRY_WAITS = (2.0, 5.0)  # empty bodies, 503s and timeouts were momentary on 10-29
 
 
-def arch_page(caller, params, page, sleep):
+# 기본개요(getApBasisOulnInfo)에 주용도가 빈 허가가 많다(11-02 탐침 110: 울주 온산읍 원산리 920 고려아연 부지 43건 중 다수 —
+# 동별개요를 보니 18~281㎡ '가설건축물'(컨테이너·강파이프 구조)). 새·최근 A·B 허가의 용도가 비면 같은 번지 동별개요로 채운다.
+DONG = "https://apis.data.go.kr/1613000/ArchPmsHubService/getApDongOulnInfo"
+DONG_LOTS_MAX = 12      # 실행당 동별개요를 읽을 번지 수
+TEMPORARY = re.compile(r"가설건축물|임시")
+
+
+def arch_page(caller, params, page, sleep, url=ARCH):
     for attempt in range(len(RETRY_WAITS) + 1):
         try:
-            text = caller.call("arch", ARCH, {**params, "numOfRows": ARCH_PAGE, "pageNo": page, "_type": "json"})
+            text = caller.call("arch", url, {**params, "numOfRows": ARCH_PAGE, "pageNo": page, "_type": "json"})
             code = gateway_code(text)
             if code == "03":  # NODATA
                 return [], 0
@@ -305,13 +312,13 @@ def arch_page(caller, params, page, sleep):
             sleep(RETRY_WAITS[attempt])
 
 
-def arch_rows(caller, params, sleep):
+def arch_rows(caller, params, sleep, url=ARCH):
     """Every permit at one parcel (본번): a big plant's lot can hold more than one page (LS일렉트릭 청주 송정동 1 = 140)."""
-    rows, total = arch_page(caller, params, 1, sleep)
+    rows, total = arch_page(caller, params, 1, sleep, url)
     page = 1
     while len(rows) < total and page < ARCH_MAX_PAGES:
         page += 1
-        more, _ = arch_page(caller, params, page, sleep)
+        more, _ = arch_page(caller, params, page, sleep, url)
         if not more:
             break
         rows += more
@@ -327,10 +334,33 @@ def lot_of(r):
     return (int(m.group(1)), int(m.group(2) or 0)) if m else None
 
 
+def dong_summary(rows):
+    """동별개요 행 → 허가 번호별 [(용도, 구조, 연면적)]."""
+    out = {}
+    for r in rows:
+        pk = str(r.get("mgmPmsrgstPk") or "")
+        if pk:
+            out.setdefault(pk, []).append({"purpose": norm_space(r.get("mainPurpsCdNm")) or None, "structure": norm_space(r.get("strctCdNm")) or None,
+                                           "area": area(r.get("totArea"))})
+    return out
+
+
+def dong_label(dongs):
+    """['기타공장', '가설건축물', '가설건축물'] → '기타공장 1동·가설건축물 2동'."""
+    count = {}
+    for d in dongs:
+        k = d.get("purpose") or "용도 미기재"
+        count[k] = count.get(k, 0) + 1
+    return "·".join(f"{k} {n}동" for k, n in sorted(count.items(), key=lambda kv: -kv[1]))
+
+
 def tier_of(p):
     a = p.get("totArea") or 0
     if a < SMALL_AREA:
         return "C"
+    dongs = p.get("dongs") or []
+    if dongs and all(TEMPORARY.search(d.get("purpose") or "") for d in dongs):
+        return "C"  # 가설건축물(공사 현장 사무실·창고 등)만 — 공장 신·증설이 아니다
     t = "A" if p.get("archGbCdNm") == "신축" and a >= BIG_AREA else "B"  # 증축: totArea is the whole building, not the addition
     if p.get("sameLot") is False:  # same 본번, another 부번: may be a neighbour's building
         t = {"A": "B", "B": "C"}[t]
@@ -440,7 +470,7 @@ def run(keys, factories, *, now, previous=None, get=None, sleep=time.sleep, cloc
         p = parcels.get(f["id"]) or {}
         if p.get("sigunguCd"):
             by_parcel.setdefault((p["sigunguCd"], p["bjdongCd"], p["platGbCd"], p["bun"]), []).append(f)
-    queried = fail = arch_left = 0
+    queried = fail = arch_left = dong_lots = dong_errors = 0
     arch_refused, errs, arch_failed = None, {}, []
     # rows trimmed at KEEP_MAX were the oldest: one older than everything kept is not new when it shows up again
     trim_floor = min((str(x.get("permitted") or "") for x in old.values()), default="") if len(old) >= KEEP_MAX else ""
@@ -463,6 +493,7 @@ def run(keys, factories, *, now, previous=None, get=None, sleep=time.sleep, cloc
             arch_failed.append({"company": facs[0]["company"], "plant": facs[0].get("cmpnyNm"), "parcel": p0.get("jibun") or p0.get("road"), "error": k})
             continue
         own_lots = {(int((parcels.get(f["id"]) or {}).get("bun") or 0), int((parcels.get(f["id"]) or {}).get("ji") or 0)) for f in facs}
+        lot_recs = []
         # permits at a parcel looked at for the first time (first run, a parcel left over by the time limit,
         # a newly registered plant) are its baseline, not new
         # a lot is fully seen only after one clean query of all its pages (archPaged): until then its rows are a baseline
@@ -488,6 +519,8 @@ def run(keys, factories, *, now, previous=None, get=None, sleep=time.sleep, cloc
             if pid not in old and trim_floor and (rec["permitted"] or "0000") < trim_floor:
                 continue  # trimmed at KEEP_MAX before, not new
             prev = old.get(pid)
+            if prev and prev.get("dongs") is not None:
+                rec["dongs"] = prev["dongs"]
             rec["kind"] = "새 허가"
             rec["firstSeen"] = prev["firstSeen"] if prev else stamp
             rec["baseline"] = bool(prev.get("baseline")) if prev else first_look
@@ -498,6 +531,23 @@ def run(keys, factories, *, now, previous=None, get=None, sleep=time.sleep, cloc
             elif prev:
                 rec["changedAt"] = prev.get("changedAt")
             out[pid] = rec
+            lot_recs.append(rec)
+        # 주용도가 빈 새·최근 A·B 허가: 같은 번지 동별개요로 용도·구조를 채우고 등급을 다시 매긴다(한 번 읽으면 저장, 다시 안 읽음)
+        need = [x for x in lot_recs if not x.get("mainPurpsCdNm") and x.get("dongs") is None
+                and (x.get("isNew") or (x.get("tier") in ("A", "B") and (x.get("permitted") or "") >= (now - dt.timedelta(days=120)).date().isoformat()))]
+        if need and dong_lots < DONG_LOTS_MAX and clock() - start <= TOTAL_BUDGET_S:
+            dong_lots += 1
+            try:
+                by_pk = dong_summary(arch_rows(caller, {"sigunguCd": sg, "bjdongCd": bj, "platGbCd": gb, "bun": bun}, sleep, url=DONG))
+                for x in need:
+                    x["dongs"] = by_pk.get(x["id"].split(":", 1)[1], [])
+                    if x["dongs"]:
+                        x["purposeFrom"] = "동별개요"
+                    x["tier"] = tier_of(x) if x.get("kind") == "새 허가" else x["tier"]
+            except Refused:
+                pass
+            except Exception:  # noqa: BLE001
+                dong_errors += 1
     if not by_parcel:
         # nothing to query is not '0 permits': the parcels are unknown
         checks.append({"source": "건축인허가", "status": "unset" if refused or not juso else "failed",
