@@ -234,6 +234,30 @@ class Views(unittest.TestCase):
         self.assertTrue(by["자동차 뉴스 수집"]["problem"])  # file missing in fixture
         self.assertIn("0건이 아니다", health["rule"])
 
+    def test_kipris_row_reads_the_shared_ledger_not_the_old_budget_file(self):
+        # 11-02: 예전 예산 파일만 읽어 'KIPRIS 특허: ok · 다음 1회 확인 None'이 떴다
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        fixture(tmp.name, True)
+        write(tmp.name, "digests/kipris_source_request_budget_latest.json", {"nextProviderProbeAt": None, "lastProviderResponseAt": "2026-10-20T08:00:00+09:00"})
+        write(tmp.name, "digests/kipris_account_ledger_latest.json", {
+            "month": "2026-11", "counted": 160, "monthlyLimit": 900, "effectiveNextProbeAt": {},
+            "lastSuccessAt": {"patent": (NOW - timedelta(hours=2)).isoformat(), "trademark": (NOW - timedelta(hours=3)).isoformat()}})
+        rows = {r["source"]: r for r in v.build_health(Path(tmp.name), NOW)["items"]}
+        k = rows["KIPRIS 특허·상표"]
+        self.assertNotIn("KIPRIS 특허", rows)
+        self.assertFalse(k["problem"])
+        self.assertIn("장부 160/900회", k["note"])
+        self.assertIn("대기 없음", k["note"])
+        self.assertNotIn("None", k["note"])
+        write(tmp.name, "digests/kipris_account_ledger_latest.json", {
+            "month": "2026-11", "counted": 161, "monthlyLimit": 900, "effectiveNextProbeAt": {"trademark": "2026-11-03T07:10:00+09:00"},
+            "lastSuccessAt": {"patent": (NOW - timedelta(hours=80)).isoformat()}})
+        k = {r["source"]: r for r in v.build_health(Path(tmp.name), NOW)["items"]}["KIPRIS 특허·상표"]
+        self.assertTrue(k["problem"])                       # 특허 3일 넘게 성공 없음
+        self.assertEqual(k["status"], "waiting")
+        self.assertIn("제공기관 대기 상표 2026-11-03T07:10부터", k["note"])
+
     def test_big_picture_has_no_private_reporter_state(self):
         big = self.build()["big_picture"]
         blob = json.dumps(big, ensure_ascii=False)

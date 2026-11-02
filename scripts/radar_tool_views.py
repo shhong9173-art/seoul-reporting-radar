@@ -888,13 +888,28 @@ def build_health(root: Path, now: datetime):
                  "status": g2b.get("status", "missing"), "generatedAt": g2b.get("generatedAt"),
                  "ageHours": age_hours(g2b.get("generatedAt"), now), "expectedMaxAgeHours": 30,
                  "problem": g2b.get("status") != "checked", "note": g2b.get("note")})
-    kipris = load(root / "digests/kipris_source_request_budget_latest.json") or {}
+    # KIPRIS: 11-01부터 특허·상표가 공용 장부(kipris_account_ledger_latest.json)를 쓴다. 예전 예산 파일은 갱신이 멈춰
+    # '다음 1회 확인 None'이 떴다(11-02). 장부가 있으면 장부로, 없을 때만 예전 파일로.
+    ledger = load(root / "digests/kipris_account_ledger_latest.json") or {}
+    kipris = {} if ledger else (load(root / "digests/kipris_source_request_budget_latest.json") or {})
+    if ledger:
+        last = ledger.get("lastSuccessAt") or {}
+        waits = {k: v for k, v in (ledger.get("effectiveNextProbeAt") or {}).items() if v}
+        group_ko = {"patent": "특허", "trademark": "상표"}
+        wait_txt = ", ".join(f"{group_ko.get(k, k)} {str(v)[:16]}부터" for k, v in sorted(waits.items()))
+        rows.append({"source": "KIPRIS 특허·상표", "file": "digests/kipris_account_ledger_latest.json",
+                     "status": "waiting" if waits else "ok", "generatedAt": last.get("patent"),
+                     "ageHours": age_hours(last.get("patent"), now), "expectedMaxAgeHours": 72,
+                     "problem": not last.get("patent") or (age_hours(last.get("patent"), now) or 0) > 72,
+                     "note": (f"이번 달({ledger.get('month')}) 장부 {ledger.get('counted')}/{ledger.get('monthlyLimit')}회(이 저장소가 센 수 — 계정 실제 사용량 아님)"
+                              f" · 마지막 성공 특허 {str(last.get('patent') or '없음')[:16]} · 상표 {str(last.get('trademark') or '없음')[:16]}"
+                              f" · {('제공기관 대기 ' + wait_txt) if waits else '대기 없음'}")})
     if kipris:
         rows.append({"source": "KIPRIS 특허", "file": "digests/kipris_source_request_budget_latest.json",
                      "status": f"provider_code_{kipris.get('lastProviderResultCode')}" if kipris.get("lastProviderResultCode") else "ok",
                      "generatedAt": kipris.get("lastProviderResponseAt"), "ageHours": age_hours(kipris.get("lastProviderResponseAt"), now),
                      "expectedMaxAgeHours": 72, "problem": bool(kipris.get("lastProviderResultCode")),
-                     "note": f"다음 1회 확인 {kipris.get('nextProviderProbeAt')}. 계정 사용량 미검증"})
+                     "note": f"다음 1회 확인 {kipris.get('nextProviderProbeAt') or '대기 없음'}. 계정 사용량 미검증"})
     pre = load(root / "pre_scoop.json") or {}
     for name, obs in sorted(((pre.get("sourceObservations") or {}).get("sources") or {}).items()):
         if not isinstance(obs, dict) or not name.startswith("direct:"):
