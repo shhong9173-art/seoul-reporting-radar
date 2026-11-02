@@ -185,6 +185,23 @@ class Local(unittest.TestCase):
         self.assertIn("지난 실행 공고가 없음", doc["checks"][0]["error"])
         self.assertEqual((doc["checks"][0]["status"], doc["status"]), ("partial", "partial"))
 
+    def test_gap_reads_more_pages_until_last_runs_notice(self):
+        # 11-02 운영: 천안 '최신 60건 안에 지난 실행 공고가 없음'(주말 사이 공고가 많음) — 지난 실행 공고가 보일 때까지 더 읽는다
+        first = w.run(now=NOW, previous=None, post=fake({"https://eminwon.dangjin.go.kr": page(DJ1, TD_ROW)}), sleep=lambda s: None, cities=CITIES[:1], browser_cities=())
+        pages = {1: [(str(61000 + i), str(500 + i), f"공고 {i}", "2026-11-02") for i in range(3)],
+                 2: [(str(60000 + i), str(400 + i), f"공고 {i}", "2026-11-01") for i in range(3)],
+                 3: DJ1, 4: [("10", "1", "옛 공고", "2026-10-01")]}
+        asked = []
+
+        def post(url, data=None, headers=None, timeout=None):
+            n = int(data["pageIndex"])
+            asked.append(n)
+            return Resp(page(pages.get(n, []), TD_ROW) if pages.get(n) else "<table>" + HEAD + "</table>")
+        doc = w.run(now=NOW + dt.timedelta(days=3), previous=first, post=post, sleep=lambda s: None, cities=CITIES[:1], browser_cities=())
+        self.assertEqual(asked, [1, 2, 3])                      # 3쪽에서 지난 실행 공고를 보고 멈춤
+        self.assertEqual(doc["checks"][0]["status"], "ok")
+        self.assertEqual(doc["checks"][0]["returned"], 8)
+
     def test_all_down_is_failed(self):
         doc = w.run(now=NOW, previous=None, post=fake({"https://eminwon.dangjin.go.kr": "", "http://eminwon.ulju.ulsan.kr": ""},
                                                       down=("https://eminwon.dangjin.go.kr", "http://eminwon.ulju.ulsan.kr")),
