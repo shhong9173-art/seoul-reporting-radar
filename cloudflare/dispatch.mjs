@@ -26,6 +26,9 @@ export const SLOTS = [
   // 07:10 단독 후보 심사·08:50 보도 대조·08:57 아침 발제 전에 한 번씩 새로 받는다.
   { at: '06:40', workflow: 'scoop-radar.yml' },
   // 해외 발주처 낙찰(TED는 평일 17시께 KST에 그날 공고를 낸다): 아침에 밤사이 FTS·세계은행, 저녁에 그날 TED.
+  // 아침 DART 요약(reporter-morning)·지분공시(governance-watch)·해외 계약 단서(official-overseas-contracts): GitHub 예약이 11-02에 각각
+  // 06:50→10:03, 07:40→10:48, 08:10→11:28. 늦게 온 예약 사본은 워크플로가 건너뛴다(6시간 안 정시 실행 성공 시).
+  { at: '06:50', workflow: 'reporter-morning.yml' },
   { at: '06:50', workflow: 'overseas-awards.yml' },
   { at: '07:00', workflow: 'partner-filings.yml' },
   { at: '07:10', workflow: 'scoop-screen.yml' },
@@ -41,10 +44,12 @@ export const SLOTS = [
   // DART 출입처 공시(목록·원문): GitHub 예약 07:45가 11-02에 10:50에야 돌았고 OpenDART 시간 초과로 실패했다. 정시 07:45·17:45,
   // 재시도 10:45·20:45(직전 결과가 4시간 안이면 워크플로 첫 단계에서 건너뜀). 주말에도 공시가 올라온다(정정·자회사).
   { at: '07:40', workflow: 'dart-beat-monitor.yml', daily: true },
+  { at: '07:40', workflow: 'governance-watch.yml' },
   { at: '07:50', workflow: 'us-litigation.yml' },
   { at: '07:50', workflow: 'kr-building.yml', days: [1] },
   { at: '08:00', workflow: 'scoop-radar.yml' },
   { at: '08:10', workflow: 'kr-official.yml' },
+  { at: '08:10', workflow: 'official-overseas-contracts.yml' },
   { at: '08:20', workflow: 'us-comments.yml' },
   { at: '08:30', workflow: 'kr-signals.yml' },
   // KIPRIS 특허 공보: GitHub 예약 06:30이 10-29에 10시까지 오지 않아 22 재조회(08:25 이후)가 밀렸다. 늦은 예약 실행은 워크플로가 건너뛴다.
