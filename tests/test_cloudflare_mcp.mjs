@@ -1299,7 +1299,7 @@ test('radar_today ranks EDGAR mentions by deal words and hides items the reporte
 
 test('Cloudflare cron asks GitHub to run each watch at its KST weekday slot and logs the result', async () => {
   assert.deepEqual(dueAt(new Date('2026-10-26T22:40:05Z')), ['trade-remedy.yml']);        // Tue 07:40 KST
-  assert.deepEqual(dueAt(new Date('2026-10-26T22:10:30Z')), ['scoop-screen.yml']);
+  assert.deepEqual(dueAt(new Date('2026-10-26T22:10:30Z')), ['scoop-screen.yml', 'trademark-watch.yml']);  // Tue 07:10 KST(상표는 실패한 회사만 재시도)
   assert.deepEqual(dueAt(new Date('2026-10-27T06:10:00Z')), ['scoop-screen.yml']);        // 15:10 KST
   assert.deepEqual(dueAt(new Date('2026-10-27T07:00:00Z')), []);                          // no slot (16:00 KST)
   assert.deepEqual(dueAt(new Date('2026-11-02T00:31:00Z')), ['g2b-tender-official.yml']);  // Mon 09:30 KST(GitHub 예약은 4.5~6시간 늦었다)
@@ -1789,6 +1789,7 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
     statuses: ['출원'], agent: '대리인', applicants: '현대자동차주식회사', isNew: false, titleNew: false, tier: null, firstSeen: '2026-10-19T07:10:00+09:00', ...extra });
   const doc = { schema: 'trademarks/v1', generatedAt: '2026-10-26T07:10:00+09:00', source: 'KIPRIS Plus 상표 출원 속보(getAdvancedSearch)', status: 'partial',
     window: { from: '2026-07-28', to: '2026-10-26', field: '출원일' }, baselineSince: '2026-10-19T07:10:00+09:00',
+    retry: { at: '2026-10-27T07:10:12+09:00', companies: ['영풍'] },
     checks: [{ source: '상표 현대자동차', status: 'ok', rawTotal: 4, kept: 4, filings: 3, requests: 1 },
       { source: '상표 KG모빌리티', status: 'ok', rawTotal: 0, kept: 0, filings: 0, requests: 1, nameVerified: false },
       { source: '상표 포스코', status: 'waiting', reason: 'provider_22_cooldown', until: '2026-10-29T07:10:00+09:00' },
@@ -1803,6 +1804,7 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/trademarks', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
   const t = await call('trademarks', {}, opts);
   assert.match(t.text, /이름 일부만 같은 다른 출원인만 나온 곳\(이 회사 0건\): 영풍\(영풍제약 주식회사\)/);
+  assert.match(t.text, /평일 재시도 10-27T07:10: 영풍 — 월요일에 실패·대기한 회사만 다시 조회/);
   assert.match(t.text, /조회 정상 3\/4 · 대기 1곳\(제공기관 응답 22 뒤 72시간 대기, 2026-10-29T07:10부터 재시도\)/);
   assert.match(t.text, /KIPRIS 호출 장부\(2026-10\): 상표 10\/150 · 전체 40\/900 — 이 저장소가 센 수, 계정 실제 사용량 아님/);
   assert.match(t.text, /출원인 이름 미확인 \+ 0건: KG모빌리티/);
@@ -2022,7 +2024,8 @@ test('press check is dispatched after the morning watches and after the evening 
   // 주 1회(월) 감시: 상표 07:10·공장 부지 건축허가 07:50 — 화요일·일요일에는 없음
   assert.deepEqual(dueAt(new Date('2026-11-01T22:10:00Z')), ['scoop-screen.yml', 'trademark-watch.yml']);   // Mon 07:10 KST
   assert.deepEqual(dueAt(new Date('2026-11-01T22:50:00Z')), ['us-litigation.yml', 'kr-building.yml']);      // Mon 07:50 KST
-  assert.deepEqual(dueAt(new Date('2026-11-02T22:10:00Z')), ['scoop-screen.yml']);                          // Tue 07:10 KST
+  assert.deepEqual(dueAt(new Date('2026-11-02T22:10:00Z')), ['scoop-screen.yml', 'trademark-watch.yml']);   // Tue 07:10 KST — 월요일에 실패·대기한 회사만(스크립트가 판단)
+  assert.deepEqual(dueAt(new Date('2026-11-06T22:10:00Z')), []);                                            // Sat 07:10 KST
   assert.deepEqual(dueAt(new Date('2026-10-31T22:10:00Z')), []);                                            // Sun 07:10 KST
 });
 
