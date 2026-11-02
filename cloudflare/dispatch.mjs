@@ -46,6 +46,8 @@ export const SLOTS = [
   { at: '08:30', workflow: 'kipris-patent-hunt.yml' },
   { at: '08:40', workflow: 'assembly-bills.yml' },
   { at: '08:50', workflow: 'radar-press-check.yml' },
+  // 나라장터 입찰공고: GitHub 예약(00:35 UTC = 09:35 KST)이 10-16~10-30 평일 내내 14:00~15:30 KST에야 돌았다(4.5~6시간 늦음).
+  { at: '09:30', workflow: 'g2b-tender-official.yml' },
   { at: '15:00', workflow: 'scoop-radar.yml' },
   { at: '15:10', workflow: 'scoop-screen.yml' },
   { at: '15:20', workflow: 'kr-signals.yml' },
