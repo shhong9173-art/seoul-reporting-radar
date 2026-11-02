@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-02T11:36:42+09:00",
+  "generatedAt": "2026-11-02T15:55:36+09:00",
   "status": "official_date_triage",
   "windowStart": "2026-10-31",
   "windowEnd": "2026-11-02",
@@ -8,8 +8,8 @@
     {
       "name": "recent_contracts",
       "status": "checked_source",
-      "sourceAt": "2026-11-02T11:28:55+09:00",
-      "sourceAgeHours": 0.1,
+      "sourceAt": "2026-11-02T11:40:22+09:00",
+      "sourceAgeHours": 4.3,
       "records": 5,
       "checkedQueries": 13,
       "failedQueries": 0,
@@ -18,8 +18,8 @@
     {
       "name": "overseas_official",
       "status": "checked_source",
-      "sourceAt": "2026-11-02T11:28:48+09:00",
-      "sourceAgeHours": 0.1,
+      "sourceAt": "2026-11-02T11:40:15+09:00",
+      "sourceAgeHours": 4.3,
       "records": 8,
       "checkedQueries": 16,
       "failedQueries": 0,
@@ -27,9 +27,9 @@
     },
     {
       "name": "investigation_hunt",
-      "status": "snapshot_older_than_24h",
-      "sourceAt": "2026-10-30T11:59:58+09:00",
-      "sourceAgeHours": 71.6,
+      "status": "checked_source",
+      "sourceAt": "2026-11-02T11:46:10+09:00",
+      "sourceAgeHours": 4.2,
       "records": 1,
       "checkedQueries": null,
       "failedQueries": null,
@@ -38,8 +38,8 @@
     {
       "name": "recent_metric_changes",
       "status": "checked_source",
-      "sourceAt": "2026-11-02T10:52:00+09:00",
-      "sourceAgeHours": 0.7,
+      "sourceAt": "2026-11-02T14:59:21+09:00",
+      "sourceAgeHours": 0.9,
       "records": 24,
       "checkedQueries": null,
       "failedQueries": null,
@@ -48,8 +48,8 @@
     {
       "name": "nhtsa_official",
       "status": "partial_collection",
-      "sourceAt": "2026-11-02T01:48:13.512107+09:00",
-      "sourceAgeHours": 9.8,
+      "sourceAt": "2026-11-02T15:55:36.080589+09:00",
+      "sourceAgeHours": 0.0,
       "records": 78,
       "checkedQueries": 7,
       "failedQueries": 1,
@@ -68,7 +68,6 @@
     }
   ],
   "incompleteOrStaleFeeds": [
-    "investigation_hunt",
     "nhtsa_official",
     "dart_beat_monitor"
   ],
@@ -1076,5 +1075,5 @@
   ],
   "beatWideDartExcluded": 8,
   "beatWideDartSourceAt": "2026-11-02T11:36:07+09:00",
-  "baseTriageGeneratedAt": "2026-11-02T11:36:42+09:00"
+  "baseTriageGeneratedAt": "2026-11-02T15:55:36+09:00"
 }
