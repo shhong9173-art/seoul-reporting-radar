@@ -437,3 +437,20 @@ class RunBudget(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RunGap(unittest.TestCase):
+    """실행이 몰리면(Cloudflare 요청 뒤 늦게 온 GitHub 예약·push) 몇 분 만에 '2번 연속 빠짐'이 된다 — 100분 안 실행은 건너뛴다."""
+
+    def test_runs_closer_than_the_gap_are_skipped(self):
+        now = dt.datetime(2026, 11, 2, 10, 13, tzinfo=KST)
+        self.assertEqual(w.too_soon({"generatedAt": "2026-11-02T09:20:31+09:00"}, now), 52)
+        self.assertIsNone(w.too_soon({"generatedAt": "2026-11-02T07:11:00+09:00"}, now))   # 3시간 전: 실행
+        self.assertIsNone(w.too_soon({"generatedAt": "2026-11-01T22:11:41+00:00"}, now))   # UTC 표기(07:11 KST)
+        self.assertIsNone(w.too_soon(None, now))                                           # 첫 실행
+        self.assertIsNone(w.too_soon({"generatedAt": "bad"}, now))
+        self.assertIsNone(w.too_soon({"generatedAt": "2026-11-02T11:00:00+09:00"}, now))   # 미래 시각(시계 차이)은 막지 않음
+
+    def test_gap_is_shorter_than_the_three_hour_slot(self):
+        self.assertLess(w.MIN_GAP_MINUTES, 180)
+        self.assertGreater(w.MIN_GAP_MINUTES, 60)

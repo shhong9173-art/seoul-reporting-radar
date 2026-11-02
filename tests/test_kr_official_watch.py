@@ -388,5 +388,40 @@ class Deadline(unittest.TestCase):
         self.assertEqual(events, [])  # '목록에서 빠짐'으로 오판하지 않음
 
 
+class AfternoonRetry(unittest.TestCase):
+    """13:10 재시도 칸: 아침에 못 읽은 질의가 있을 때만 다시 읽는다(11-02 공장등록 0/43 시간 초과)."""
+    NOON = dt.datetime(2026, 11, 2, 13, 12, tzinfo=KST)
+    ENV = {"GITHUB_EVENT_NAME": "workflow_dispatch"}
+
+    def prev(self, *checks, at="2026-11-02T08:28:41+09:00"):
+        return {"generatedAt": at, "checks": list(checks)}
+
+    def test_morning_failures_are_read_again_at_noon(self):
+        need, why = w.retry_needed(self.prev({"source": "공장등록 현대자동차", "status": "failed", "error": "ReadTimeout"},
+                                             {"source": "관보 입법예고", "status": "ok"}), self.NOON, env=self.ENV)
+        self.assertTrue(need)
+        self.assertIn("공장등록", why)
+        need, _ = w.retry_needed(self.prev({"source": "공장등록 DL케미칼", "status": "partial", "error": "실행 시간 상한 — 다음 실행에서 조회"}),
+                                 self.NOON, env=self.ENV)
+        self.assertTrue(need)
+
+    def test_clean_morning_is_not_read_twice(self):
+        need, why = w.retry_needed(self.prev({"source": "공장등록 현대자동차", "status": "ok"},
+                                             {"source": "공장등록 태광", "status": "partial", "error": "5쪽 초과(612건)"},  # 매번 같은 쪽 한도는 재시도 사유 아님
+                                             {"source": "관보 입법예고", "status": "ok"}), self.NOON, env=self.ENV)
+        self.assertFalse(need)
+        self.assertIn("정상", why)
+
+    def test_morning_slot_push_force_and_no_result_today_always_run(self):
+        clean = self.prev({"source": "관보 입법예고", "status": "ok"})
+        self.assertTrue(w.retry_needed(clean, dt.datetime(2026, 11, 2, 8, 10, tzinfo=KST), env=self.ENV)[0])  # 아침 칸
+        self.assertTrue(w.retry_needed(clean, self.NOON, env={"GITHUB_EVENT_NAME": "push"})[0])
+        self.assertTrue(w.retry_needed(clean, self.NOON, env={**self.ENV, "FORCE_RUN": "1"})[0])
+        self.assertTrue(w.retry_needed(self.prev({"source": "관보 입법예고", "status": "ok"}, at="2026-10-30T08:20:00+09:00"),
+                                       self.NOON, env=self.ENV)[0])                       # 오늘 결과 없음(주말 뒤 월요일 등)
+        self.assertTrue(w.retry_needed(None, self.NOON, env=self.ENV)[0])
+        self.assertTrue(w.retry_needed(self.prev(at="2026-11-01T23:28:41+00:00"), self.NOON, env=self.ENV)[0] is False)  # UTC 표기 = 오늘 08:28
+
+
 if __name__ == "__main__":
     unittest.main()

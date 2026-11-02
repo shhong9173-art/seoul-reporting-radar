@@ -584,6 +584,32 @@ def run(cfg, key, *, now, previous=None, get=None, sleep=time.sleep, post=None, 
             "confirmedScoops": 0}
 
 
+# 오후 재시도(Cloudflare 13:10 칸): 공장등록(공공데이터포털 B550624)이 11-02 아침 08:10 ReadTimeout·09:54 ConnectTimeout으로 0/43이었다가
+# 11시께 다시 2초 안에 응답했다. 아침 실행이 실패·시간 상한으로 못 읽은 게 있으면 낮에 한 번 더 읽고, 다 읽었으면 건너뛴다.
+RETRY_FROM_HOUR = 12
+
+
+def retry_needed(previous, now, *, env=None):
+    """낮(12시 이후) 요청에서만 판단: 오늘 결과가 있고 실패·시간 상한으로 못 읽은 질의가 없으면 '(False, 이유)'(건너뜀).
+    push·강제(FORCE_RUN)·아침 실행·오늘 결과 없음은 늘 '(True, 이유)'."""
+    env = os.environ if env is None else env
+    if env.get("GITHUB_EVENT_NAME") == "push" or str(env.get("FORCE_RUN", "")).lower() in ("1", "true", "yes"):
+        return True, "push·강제 실행"
+    if now.hour < RETRY_FROM_HOUR or not isinstance(previous, dict):
+        return True, "아침 실행"
+    try:
+        last = dt.datetime.fromisoformat(str(previous.get("generatedAt")))
+    except (TypeError, ValueError):
+        return True, "직전 결과 시각 없음"
+    if last.astimezone(KST).date() != now.date():
+        return True, "오늘 결과 없음"
+    bad = [c for c in previous.get("checks") or [] if isinstance(c, dict) and (
+        c.get("status") == "failed" or (c.get("status") == "partial" and "쪽 초과" not in str(c.get("error") or "")))]
+    if bad:
+        return True, f"오늘 아침 못 읽은 질의 {len(bad)}건({', '.join(sorted({str(c.get('source')).split(' ')[0] for c in bad}))})"
+    return False, "오늘 아침 실행이 모두 정상"
+
+
 def main():
     argparse.ArgumentParser(description="공장등록·관보 입법예고 감시(기자 전용 저장소로)").parse_args()
     now = dt.datetime.now(KST)
@@ -603,6 +629,12 @@ def main():
             print(f"::warning title=kr-official-state::이전 상태 조회 실패({e}) — 변경 비교는 다음 실행부터")
     if private_store.late_scheduled_duplicate(previous, now):
         return
+    need, why = retry_needed(previous, now)
+    if not need:
+        print(f"::notice title=kr-official-retry::{why} — 낮 재시도 건너뜀(결과 유지)")
+        return
+    if now.hour >= RETRY_FROM_HOUR:
+        print(f"::notice title=kr-official-retry::낮 재시도 — {why}")
     t0 = time.monotonic()
     doc = run(cfg, key, now=now, previous=previous, budget=True, law_key=law_key)
     print(f"::notice title=kr-official-time::실행 {round(time.monotonic() - t0)}초 · 시간 상한으로 건너뛴 질의 "

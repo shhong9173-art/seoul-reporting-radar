@@ -48,6 +48,8 @@ export const SLOTS = [
   { at: '08:50', workflow: 'radar-press-check.yml' },
   // 나라장터 입찰공고: GitHub 예약(00:35 UTC = 09:35 KST)이 10-16~10-30 평일 내내 14:00~15:30 KST에야 돌았다(4.5~6시간 늦음).
   { at: '09:30', workflow: 'g2b-tender-official.yml' },
+  // 공장등록·관보·법제처 낮 재시도: 아침 실행이 실패·시간 상한으로 못 읽은 질의가 있을 때만 스크립트가 다시 읽는다(11-02 공장등록 API 아침 시간 초과).
+  { at: '13:10', workflow: 'kr-official.yml' },
   { at: '15:00', workflow: 'scoop-radar.yml' },
   { at: '15:10', workflow: 'scoop-screen.yml' },
   { at: '15:20', workflow: 'kr-signals.yml' },
@@ -65,6 +67,9 @@ export const SLOTS = [
   { at: '18:10', workflow: 'kr-energy.yml' },
   { at: '18:30', workflow: 'page-watch.yml' },
   { at: '18:50', workflow: 'radar-press-check.yml' },
+  // 굴뚝 자동측정(3시간 칸, 주말 포함): GitHub 예약('23 */3 * * *')이 10-30~11-01에 4~10시간 간격으로만 돌아 평일 '2번 연속 빠짐'
+  // 확인(동국제강 포항·KG스틸 당진·세아제강 창원)이 반나절 늦었다. 늦게 온 GitHub 예약은 스크립트가 100분 간격 규칙으로 건너뛴다.
+  ...['00:20', '03:20', '06:20', '09:20', '12:20', '15:20', '18:20', '21:20'].map((at) => ({ at, workflow: 'kr-stacks.yml', daily: true })),
 ];
 
 // 뉴스 수집(auto-desk.yml: 국내·산업·외신 기사)은 GitHub 예약('*/15 * * * *')이 10-31~11-01 24시간에 5번만 돌았다 —
