@@ -304,6 +304,10 @@ def _stacks(d, add):
     # 사업장 이름의 '공장'(여수1공장·포항1공장)은 사건 낱말이 아니다 — 11-02 철강금속신문 '[단독] 포스코 포항 2열연, 가열로 한 기 더'가
     # 포스코 포항제철소 질소산화물 초과 측정값과 '공장·생산·포항'으로 묶였다.
     for e in d.get("events") or []:
+        # 참고(C)·일시적 누락(다시 나타남)은 사건이 아니다 — 11-02 '[단독] 포스코 포항 2열연 가열로'가 이번엔 포항제철소 배출구 135번
+        # '목록에서 빠짐 — 이후 다시 나타남'(C)과 묶였다
+        if e.get("tier") not in ("A", "B") or "다시 나타남" in str(e.get("text") or ""):
+            continue
         kind = str(e.get("kind") or "")
         text = str(e.get("text") or "").replace("공장", "사업장")
         tail = " 공장 가동" if any(k in kind for k in STACK_OPS) else " 대기 배출"

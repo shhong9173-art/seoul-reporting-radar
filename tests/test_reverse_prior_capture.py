@@ -120,9 +120,14 @@ class Capture(unittest.TestCase):
         # 11-02: '[단독] 포스코 포항 2열연, 가열로 한 기 더'가 포항제철소 질소산화물 초과 측정값과 '공장·생산·포항'으로 묶였다
         stacks = {"kr-stacks": {"events": [
             {"id": "stk:exceed2:포스코:x:228:nox", "kind": "배출허용기준 초과 지속", "company": "포스코", "detectedAt": "2026-11-01T17:18:00+09:00",
-             "text": "㈜포스코 포항제철소 배출구 228번 질소산화물 측정값 152.71이 배출허용기준 140을 넘음"},
+             "tier": "A", "text": "㈜포스코 포항제철소 배출구 228번 질소산화물 측정값 152.71이 배출허용기준 140을 넘음"},
             {"id": "stk:exceed:롯데케미칼:y:916:nox", "kind": "배출허용기준 초과(측정값)", "company": "롯데케미칼", "detectedAt": "2026-11-01T16:00:00+09:00",
-             "text": "롯데케미칼㈜ 여수1공장 배출구 916번 질소산화물 측정값 69.95이 배출허용기준 63.8을 넘음"}]}}
+             "tier": "B", "text": "롯데케미칼㈜ 여수1공장 배출구 916번 질소산화물 측정값 69.95이 배출허용기준 63.8을 넘음"},
+            # 같은 날 C '배출구 목록에서 빠짐 — 이후 다시 나타남'(일시적 누락)은 사건으로 세지 않는다
+            {"id": "stk:gone:포스코:x:135:2026-11-01", "kind": "배출구 목록에서 빠짐", "company": "포스코", "detectedAt": "2026-11-01T04:22:00+09:00", "tier": "C",
+             "text": "㈜포스코 포항제철소 배출구 135번이 굴뚝 자동측정 목록에서 2번 연속 빠짐 — 이후 다시 나타남(측정 2026-11-01 08:00, 일시적 누락)"},
+            {"id": "stk:stop:포스코:x:2026-10-31", "kind": "배출구 멈춤 신호", "company": "포스코", "detectedAt": "2026-10-31T09:17:00+09:00", "tier": "B",
+             "text": "㈜포스코 포항제철소: 배출구 3개가 3번 연속 평소의 10% 아래 — 다시 측정 중", "_note": "다시 나타남 없음"}]}}
         trace = {"generatedAt": "2026-11-02T10:46:00+09:00", "items": [
             {"articleId": "s1", "title": "[단독] 포스코 포항 2열연, 가열로 한 기 더…연산 500만 톤 생산체계 다진다", "published": "2026-11-02T05:00:00+09:00",
              "sourceName": "철강금속신문", "companies": ["포스코"]},
@@ -132,7 +137,12 @@ class Capture(unittest.TestCase):
              "sourceName": "Y", "companies": ["롯데케미칼"]}]}
         doc = r.run(trace, stacks, {"items": []}, now=dt.datetime(2026, 11, 2, 11, 0, tzinfo=r.KST))
         by = {a["articleId"]: a for a in doc["articles"]}
-        self.assertEqual(by["s1"]["verdict"], "같은 회사 항목만")
+        self.assertEqual(by["s1"]["verdict"], "먼저 잡은 후보")   # B '배출구 멈춤 신호'(가동 사건)와는 묶인다 — 같은 사건인지는 사람이 본다
+        self.assertEqual(by["s1"]["best"]["id"], "stk:stop:포스코:x:2026-10-31")
+        stacks["kr-stacks"]["events"] = [e for e in stacks["kr-stacks"]["events"] if e["id"] != "stk:stop:포스코:x:2026-10-31"]
+        doc = r.run(trace, stacks, {"items": []}, now=dt.datetime(2026, 11, 2, 11, 0, tzinfo=r.KST))
+        by = {a["articleId"]: a for a in doc["articles"]}
+        self.assertEqual(by["s1"]["verdict"], "같은 회사 항목만")   # C 일시적 누락·배출 초과만 남으면 묶지 않는다
         self.assertEqual(by["s2"]["verdict"], "먼저 잡은 후보")
         self.assertIn("대기 배출", by["s2"]["best"]["why"])
         self.assertEqual(by["s3"]["verdict"], "같은 회사 항목만")   # 사업장 이름의 '공장'은 증설 기사와 묶지 않는다
