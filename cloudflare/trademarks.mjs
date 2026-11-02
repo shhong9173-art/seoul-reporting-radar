@@ -39,6 +39,9 @@ export async function trademarks(ctx, args) {
   if (!doc.baselineSince) out.push('\n아직 기준선 없음(첫 성공 실행 전) — 새 출원 판단은 첫 성공 다음 주부터.');
   const unverified = checks.filter((c) => c.nameVerified === false && c.status === 'ok' && !c.rawTotal);
   if (unverified.length) out.push(`⚠ 출원인 이름 미확인 + 0건: ${unverified.map((c) => c.source.replace('상표 ', '')).join(', ')} — 이름 불일치일 수 있음(0건 아님)`);
+  // KIPRIS 출원인 검색은 이름 일부만 같아도 돌려준다 — 다른 회사만 나온 곳은 그 회사 0건(11-02 영풍 → 영풍제약)
+  const others = checks.filter((c) => c.status === 'ok' && !c.kept && c.otherApplicants && c.note);
+  if (others.length) out.push(`이름 일부만 같은 다른 출원인만 나온 곳(이 회사 0건): ${others.map((c) => `${c.source.replace('상표 ', '')}(${String(c.note).replace(/^응답 \d+건은 이름 일부만 같은 다른 출원인\(|\) — 이 회사 출원 없음$/g, '')})`).join(', ')}`);
 
   const rows = (doc.filings ?? [])
     .filter((f) => all || f.isNew)

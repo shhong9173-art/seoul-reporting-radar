@@ -120,7 +120,7 @@ class Watch(unittest.TestCase):
             self.assertFalse(by_title["PLEOS"]["isNew"])
             self.assertEqual(set(doc["fresh"]), {by_title[t]["id"] for t in ("AERO DRIVE", "STORE CAFE", "NUTRIMACY", "GRIDMAX")})
 
-    def test_other_applicants_dropped_and_all_mismatch_is_a_failure_not_zero(self):
+    def test_other_applicants_dropped_and_all_mismatch_is_zero_with_names(self):
         with tempfile.TemporaryDirectory() as folder:
             rows = [item("4020260100009", "X", "20261001", "12", owner="현대자동차그룹재단"),
                     item("4020260100010", "Y", "20261001", "12", owner="현대자동차주식회사|기아주식회사")]
@@ -130,7 +130,9 @@ class Watch(unittest.TestCase):
             hy = next(c for c in doc["checks"] if c["source"] == "상표 현대자동차")
             self.assertEqual((hy["status"], hy["kept"], hy["otherApplicants"]), ("ok", 1, 1))
             hs = next(c for c in doc["checks"] if c["source"] == "상표 효성중공업")
-            self.assertEqual(hs["status"], "failed")
+            # KIPRIS 출원인 검색은 부분 일치(11-02 probe 95f) — 다른 회사만 돌아오면 이 회사 0건
+            self.assertEqual((hs["status"], hs["kept"]), ("ok", 0))
+            self.assertIn("딴회사", hs["note"])
 
     def test_customer_number_and_short_form_still_match(self):
         self.assertTrue(tw.owner_matches("현대자동차주식회사(119980045698)", tw.name_variants(["현대자동차주식회사"])))
