@@ -2617,6 +2617,7 @@ test('overseas awards: a Bahrain opened bid is a bid, not an award — lowest bi
   const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
   assert.deepEqual(items.items.find((x) => x.id === 'bhopen:9001:일진전기').check.terms, ['바레인', '입찰']);
   assert.equal(items.items.find((x) => x.id === 'bh:Aug 2026 Awarding Report.pdf:0').check.since, '2026-08-01');  // 보고서 달부터 보도 대조
+  assert.deepEqual(items.items.find((x) => x.id === 'bh:Aug 2026 Awarding Report.pdf:0').check.must, ['바레인']);  // 나라 이름이 기사에 있어야 같은 건
   assert.deepEqual(items.items.find((x) => x.id === 'bhopen:9001:일진전기').check.places, ['바레인']);
 });
 
