@@ -1555,7 +1555,7 @@ test('kr_signals shows FTC decisions by role, KEPCO bids and commodity prices, a
   const minor = await call('radar_today', { include_minor: true }, opts);
   assert.match(minor.text, /「\(연간단가\)고효율주상변압기,50KVA\(광유\)-2,338대-0\d\(일반\)」 외 같은 공고 2건\(합계 약 149억원\) · 추정가격 약 50억원/);
   assert.equal((minor.text.match(/고효율주상변압기/g) ?? []).length, 1);  // three lots, one line
-  assert.match(r.text, /기자 전용 감시 24개/);
+  assert.match(r.text, /기자 전용 감시 25개/);
   assert.deepEqual(dueAt(new Date('2026-10-26T23:30:00Z')), ['kr-signals.yml', 'kipris-patent-hunt.yml']);  // Tue 08:30 KST
   assert.deepEqual(dueAt(new Date('2026-10-27T06:20:00Z')), ['kr-signals.yml', 'kr-stacks.yml']);  // Tue 15:20 KST
 });
@@ -1853,7 +1853,7 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   assert.doesNotMatch((await call('trademarks', { name: 'aero' }, opts)).text, /NUTRIMACY/);
   assert.doesNotMatch((await call('trademarks', { class: '35' }, opts)).text, /NUTRIMACY/);
   const r = await call('radar_today', {}, opts);
-  assert.match(r.text, /기자 전용 감시 24개/);
+  assert.match(r.text, /기자 전용 감시 25개/);
   assert.match(r.text, /- 상표 출원: 대기 1곳\(제공기관 응답 22 뒤 72시간 대기\) — 해당 부분 0건은 미확인/);
   assert.doesNotMatch(r.text, /상표 출원: [^\n]*시간 전 결과/);
   const b = r.text.split('[B · ')[1].split('[C · ')[0];
@@ -1864,7 +1864,7 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   assert.match(minor.text, /상표 출원 「NUTRIMACY」[^\n]* — 같은 이름 상품류 추가/);
   const list = await rpc('tools/list', {}, { path: `/mcp/${TOKEN}`, env });
   assert.ok(list.body.result.tools.some((x) => x.name === 'trademarks'));
-  assert.match(list.body.result.tools.find((x) => x.name === 'radar_today').description, /감시 24개\([^)]*상표 출원, 국회 법안, 미국 리콜, 미국 EPA 인증, 국내 연비 신고, 해외 발주처 낙찰, 협력사 회생·파산, 전기위·원안위, 공장 부지 건축허가, 해외 법인 등기, 지자체 고시·공고, 사업장 인력, 굴뚝 측정, 출입처 외신\)/);
+  assert.match(list.body.result.tools.find((x) => x.name === 'radar_today').description, /감시 25개\([^)]*상표 출원, 국회 법안, 미국 리콜, 미국 EPA 인증, 국내 연비 신고, 해외 발주처 낙찰, 협력사 회생·파산, 전기위·원안위, 공장 부지 건축허가, 해외 법인 등기, 지자체 고시·공고, 사업장 인력, 굴뚝 측정, 출입처 외신\)/);
   assert.ok(!(await rpc('tools/list', {}, { env })).body.result.tools.some((x) => x.name === 'trademarks'));  // private only
 });
 
@@ -2483,6 +2483,39 @@ test('출입처 외신 (global-beat): event words → B with press-check hint, n
   // '인도네시아'를 '인도'로 자르지 않고, '인도량'(차량 인도)은 나라로 보지 않는다
   assert.deepEqual(items.items.find((x) => x.id === 'gl:id').check.must, ['인도네시아']);
   assert.equal(items.items.find((x) => x.id === 'gl:dl').check.must, undefined);
+});
+
+test('미국 주 환경 허가·공고(us-state-env): radar_today에 허가 신청 A·제재 B, us_litigation 구역에 기준선·신규', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const now = new Date(NOW.getTime() - 3600000).toISOString();
+  const old = new Date(NOW.getTime() - 5 * 86400000).toISOString();
+  const doc = { schema: 'us_state_env/v1', generatedAt: now, status: 'complete',
+    checks: [{ source: '조지아 EPD 주간 공고', status: 'ok', returned: 2 }, { source: '앨라배마 ADEM 공고', status: 'ok', returned: 38 }, { source: '루이지애나 LDEQ 공고', status: 'ok', returned: 20 }],
+    notices: [
+      { id: 'ga:30376:pa1026-1', source: 'ga', state: '조지아', company: '한화솔루션', facility: 'Hanwha Q Cells Georgia, Inc.', county: 'Bartow', address: '100 Qcells Pkwy, White, 30184',
+        noticeType: 'Permit Application', appNo: '30376', operation: 'Semiconductors and Related Devices', reason: 'The addition of a rotary concentrator, a regenerative thermal oxidizer',
+        deadline: '2026-11-06', week: '2026-10-05', code: 'pa1026-1', url: 'https://epd.georgia.gov/document/document/pa1026-1/download', firstSeen: old, baseline: true },
+      { id: 'ga:29866:pa1126-1', source: 'ga', state: '조지아', company: '현대차', facility: 'Hyundai Motor Group Metaplant America LLC', county: 'Bryan', noticeType: 'Proposed Permit',
+        appNo: '29866', reason: 'Construction of a second paint shop', deadline: '2026-12-04', code: 'pa1126-1', url: 'https://epd.georgia.gov/document/document/pa1126-1/download', firstSeen: now }],
+    events: [
+      { id: 'ga:29866:pa1126-1', kind: '주 환경청 허가·공고', tier: 'A', company: '현대차', state: '조지아', detectedAt: now, url: 'https://epd.georgia.gov/document/document/pa1126-1/download',
+        text: '조지아 주간 공고 pa1126-1 · Hyundai Motor Group Metaplant America LLC(Bryan County) · Proposed Permit · 신청 29866 · 이유 「Construction of a second paint shop」 — 신설·증설 낱말이 있는 신청(회사 확인) · 주 정부 공개 공고(허가 신청≠착공·투자 확정)' },
+      { id: 'adem:11-26hpt.html', kind: '주 환경청 제재 공고', tier: 'B', company: 'HD현대일렉트릭', state: '앨라배마', detectedAt: now, url: 'https://adem.alabama.gov/sites/default/files/2026-11/11-26hpt.html',
+        text: '앨라배마 공고 · Hyundai Power Transformers USA, Inc. · 동의명령(제재)' }] };
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/us-state-env', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
+  const r = await call('radar_today', { include_minor: true }, opts);
+  assert.match(r.text.split('[A · ')[1].split('[B · ')[0], /미국 주 환경 허가·공고 · 현대차\n   조지아 주간 공고 pa1126-1 · Hyundai Motor Group Metaplant/);
+  assert.match(r.text.split('[B · ')[1].split('[C · ')[0], /미국 주 환경 허가·공고 · HD현대일렉트릭\n   앨라배마 공고 · Hyundai Power Transformers USA, Inc\. · 동의명령\(제재\)/);
+  assert.doesNotMatch(r.text, /Hanwha Q Cells/);   // 기준선은 레이더 새 항목이 아니다
+  const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
+  const hit = items.items.find((x) => x.id === 'ga:29866:pa1126-1');
+  assert.deepEqual([hit.check.who, hit.check.terms, hit.check.must], ['현대차', ['조지아', '허가'], ['조지아']]);
+  const u = await call('us_litigation', {}, opts);
+  assert.match(u.text, /\[미국 주 환경 허가·공고 · 출입처 미국 공장 · 확인 [^\]]+\] 2건 · 원천 조지아 EPD 주간 공고 ok · 앨라배마 ADEM 공고 ok · 루이지애나 LDEQ 공고 ok/);
+  assert.match(u.text, /- \[기준선\] 조지아 · 한화솔루션 · Hanwha Q Cells Georgia, Inc\.\(Bartow County · 100 Qcells Pkwy, White, 30184\) · Permit Application · 신청 30376 · 공고 주 2026-10-05 · 의견 마감 2026-11-06/);
+  assert.match(u.text, /- \[신규\] 조지아 · 현대차 · Hyundai Motor Group Metaplant America LLC/);
+  assert.match(u.text, /신청 이유: 「The addition of a rotary concentrator/);
 });
 
 test('scoop_reverse shows automatic prior-capture candidates by source with lead time, separate from human Y/P/N', async () => {

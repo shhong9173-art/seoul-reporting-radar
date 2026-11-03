@@ -197,6 +197,18 @@
 - 원천별로 먼저 잡은 건수와 몇 시간 앞섰는지(중간값)를 보여 준다 — 어떤 원천을 늘릴지 정하는 근거.
 - 사람 판정 Y/P/N(`exclusive_reverse_trace.py`, 기사 전문·원자료 비교)과 별개이며 그 수를 바꾸지 않는다. 지금 저장된 결과만 기억이라 보관 기간이 지난 항목은 '없음'으로 나올 수 있다.
 
+## 미국 주 환경 허가·공고(us_litigation 안, 기자 전용, 감시 25번째)
+
+- 수집: `scripts/us_state_env_watch.py`, `.github/workflows/us-state-env.yml`(매일 07:05 KST Cloudflare 요청, GitHub 예약 대비용). 결과는 기자 전용 저장소 `us-state-env`로만, 공개 로그는 건수만.
+- 원천(11-03 탐침 124~126, 실제 응답):
+  - 조지아 EPD 주간 공고 PDF `epd.georgia.gov/document/document/paMMYY-N/download`(이번 달·지난달 -1~-5, 본 번호는 다시 받지 않음). 항목은 'Facility Name · Application No · Facility Address · EPD Notice Type · Description of Operation · Reason for Application', 군(COUNTY) 머리와 의견 마감('received by …'). 2026년 PDF 40개에서 현대차 메타플랜트(01월 허가안)·한화큐셀 조지아(10월 허가 신청 — 회전 농축기·축열식 산화기 추가, 의견 11-06까지)가 나왔다. 현대트랜시스(계열사)는 출입처가 아니다.
+  - 앨라배마 ADEM 공고 목록 `adem.alabama.gov/public-notices`: 제목이 시설·회사 이름. 출입처 이름이면 본문 앞부분을 읽고 동의명령(제재)인지 가린다(08-05 현대차 앨라배마 유해폐기물 위반 동의명령 $16,760 같은 공고).
+  - 루이지애나 LDEQ 공고 `deq.louisiana.gov/public-notices`: 의견 링크의 AIName·Subject·AI 번호(현대제철 루이지애나 제철소·롯데케미칼 레이크찰스 대상).
+  - 테네시 TDEC 공고 목록은 GitHub에서 연결 오류·403이라 넣지 않았다(LG화학 클라크스빌·한국타이어 클라크스빌·효성 멤피스는 미확인). 조지아 발급 허가 검색(air.gaepd.org/Permits/Search, Name·Permit·DateFrom·DateTo)은 다음 단계.
+- 이름 규칙은 미국 OSHA 감시(`us_osha_watch.RULES`)와 같다. 첫 실행은 기준선(목록에만 남김, 이벤트 없음) — 목록 원천은 처음 정상으로 읽은 실행이 기준선이다(실패한 실행은 기준선이 아님).
+- 등급: 신청 이유에 신설·증설 낱말(construction·expansion·new facility/plant/line·capacity increase)이 있으면 A, 나머지 허가 공고·제재 공고 B. 허가 신청≠착공·투자 확정 — 규모·일정은 공고 원문(PDF)과 회사 확인.
+- 화면: `us_litigation` 끝 '미국 주 환경 허가·공고' 구역([신규]·[기준선], 군·주소·공고 종류·신청 번호·공고 주·의견 마감·작업·신청 이유). 보도 대조 낱말은 회사+주 이름+허가(제재는 과징금), 주 이름이 기사에 있어야 같은 건.
+
 ## 미국 OSHA 점검·위반(us_litigation 안, 기자 전용)
 
 - GitHub Actions `US OSHA Watch`(`scripts/us_osha_watch.py`)가 매일 06:40 KST(Cloudflare 요청, GitHub 예약은 대비용)에 미국 노동부 데이터 API(`https://apiprod.dol.gov/v4/get/OSHA/...`, GitHub 비밀값 `DOL_API_KEY`, 무료)를 읽어 `us-osha` 비공개 저장소에 넣는다. `us_litigation` 결과 끝에 [미국 OSHA 점검·위반] 구역으로 나온다(소송 결과가 없어도 이 구역은 나옴).
