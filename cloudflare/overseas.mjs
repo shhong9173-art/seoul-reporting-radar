@@ -909,7 +909,7 @@ export async function councilSection(ctx, q, days, limit, includeMinor = false) 
     `원천: ${c.source ?? '?'} ${c.status ?? '?'}(새 회의록 ${c.returned ?? 0}, 상세 ${c.opened ?? 0}${c.pending ? `, 남은 ${c.pending}` : ''}${c.error ? `, ${c.error}` : ''}${c.note ? `, ${c.note}` : ''})`];
   for (const x of rows.slice(0, limit)) {
     const d = String(x.date ?? '');
-    out.push(`- ${x.tier} · ${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)} · ${x.council} ${x.meeting ?? ''} · ${x.company}${x.agenda ? ` · 안건 ${String(x.agenda).slice(0, 80)}` : ''}`);
+    out.push(`- ${x.tier} · ${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)} · ${x.council} ${x.meeting ?? ''} · ${x.company}${x.old ? ' · 옛 회의(늦게 공개 — 사건 낱말 있지만 C)' : ''}${x.agenda ? ` · 안건 ${String(x.agenda).slice(0, 80)}` : ''}`);
     for (const sn of (x.snippets ?? []).slice(0, 2)) out.push(`   대목: 「${String(sn).slice(0, 300)}」`);
     out.push(`   원문: ${x.url || `회의록 번호 ${x.docid}(국회도서관 지방의정포털 검색)`}`);
   }
