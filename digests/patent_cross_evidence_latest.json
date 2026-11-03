@@ -1,9 +1,9 @@
 {
-  "generatedAt": "2026-11-04T02:11:08+09:00",
-  "deskSourceGeneratedAt": "2026-11-03T08:32:54+09:00",
+  "generatedAt": "2026-11-04T08:33:13+09:00",
+  "deskSourceGeneratedAt": "2026-11-04T08:33:10+09:00",
   "crossSourceGeneratedAt": {
     "dartBusiness": "2026-11-03T12:45:51+09:00",
-    "dartContracts": "2026-11-03T08:13:39+09:00",
+    "dartContracts": "2026-11-04T08:11:30+09:00",
     "dartInvestmentChange": "2026-11-03T13:04:15+09:00"
   },
   "inputAvailability": {
@@ -11,16 +11,162 @@
     "dartContracts": true,
     "dartInvestmentChange": true
   },
-  "candidateCount": 129,
+  "candidateCount": 143,
   "candidateWithSpecificTermOverlap": 0,
   "checkEvents": 0,
   "publicChecksOnCurrentCandidates": 0,
   "stageCounts": {
     "hold_prior_coverage_or_known_case": 1,
-    "patent_only_no_project_identity": 79,
-    "research_only_press_not_checked": 49
+    "patent_only_no_project_identity": 83,
+    "research_only_press_not_checked": 59
   },
   "prioritized": [
+    {
+      "publicationNumber": "1020260157850",
+      "title": "가변 수렴인자를 적용한 능동소음제어 방법 및 이를 이용하는 능동소음제어 장치",
+      "coveredCompanies": [
+        "현대모비스"
+      ],
+      "topic": "자율주행·차량제어",
+      "technicalTerms": [],
+      "sameIssuerDartRowsObserved": 4,
+      "sameIssuerBackgroundSources": [
+        {
+          "company": "현대모비스",
+          "sourceType": "dart_business_table",
+          "reference": "segmentSales",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814004065",
+          "published": "20260814",
+          "linkState": "same_company_only_no_patent_relation"
+        }
+      ],
+      "independentDartTechnicalOverlap": [],
+      "humanPublicCheckStatuses": {
+        "prior_coverage": "not_reviewed",
+        "company_response": "not_reviewed",
+        "actual_application": "not_reviewed",
+        "industry_impact": "not_reviewed",
+        "reporting_angle": "not_reviewed"
+      },
+      "missingVerification": [
+        "prior_coverage",
+        "company_response",
+        "actual_application",
+        "industry_impact",
+        "reporting_angle"
+      ],
+      "stage": "patent_only_no_project_identity",
+      "publicCompanyResponseMarkedByReporter": false,
+      "independentlyValidatedCompanyResponse": false,
+      "specificProjectLinkVerified": false,
+      "impactCausalityVerified": false,
+      "approvedForPublication": false,
+      "confirmedExclusive": false,
+      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
+    },
+    {
+      "publicationNumber": "1020260157827",
+      "title": "물성이 개선된 버섯 균사체 매트의 제조방법 및 이를 통해 제조된 버섯 균사체 매트",
+      "coveredCompanies": [
+        "현대차",
+        "기아"
+      ],
+      "topic": "제조공정·자동화",
+      "technicalTerms": [],
+      "sameIssuerDartRowsObserved": 18,
+      "sameIssuerBackgroundSources": [
+        {
+          "company": "현대차",
+          "sourceType": "dart_business_table",
+          "reference": "orderBacklog",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003521",
+          "published": "20260814",
+          "linkState": "same_company_only_no_patent_relation"
+        },
+        {
+          "company": "기아",
+          "sourceType": "dart_business_table",
+          "reference": "investment",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
+          "published": "20260916",
+          "linkState": "same_company_only_no_patent_relation"
+        },
+        {
+          "company": "기아",
+          "sourceType": "dart_business_table",
+          "reference": "orderBacklog",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
+          "published": "20260916",
+          "linkState": "same_company_only_no_patent_relation"
+        }
+      ],
+      "independentDartTechnicalOverlap": [],
+      "humanPublicCheckStatuses": {
+        "prior_coverage": "not_reviewed",
+        "company_response": "not_reviewed",
+        "actual_application": "not_reviewed",
+        "industry_impact": "not_reviewed",
+        "reporting_angle": "not_reviewed"
+      },
+      "missingVerification": [
+        "prior_coverage",
+        "company_response",
+        "actual_application",
+        "industry_impact",
+        "reporting_angle"
+      ],
+      "stage": "patent_only_no_project_identity",
+      "publicCompanyResponseMarkedByReporter": false,
+      "independentlyValidatedCompanyResponse": false,
+      "specificProjectLinkVerified": false,
+      "impactCausalityVerified": false,
+      "approvedForPublication": false,
+      "confirmedExclusive": false,
+      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
+    },
+    {
+      "publicationNumber": "1020260157973",
+      "title": "AI/ML 포지셔닝을 위한 방법 및 이를 위한 장치",
+      "coveredCompanies": [
+        "현대모비스"
+      ],
+      "topic": "미분류·이종산업 탐색",
+      "technicalTerms": [],
+      "sameIssuerDartRowsObserved": 4,
+      "sameIssuerBackgroundSources": [
+        {
+          "company": "현대모비스",
+          "sourceType": "dart_business_table",
+          "reference": "segmentSales",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814004065",
+          "published": "20260814",
+          "linkState": "same_company_only_no_patent_relation"
+        }
+      ],
+      "independentDartTechnicalOverlap": [],
+      "humanPublicCheckStatuses": {
+        "prior_coverage": "not_reviewed",
+        "company_response": "not_reviewed",
+        "actual_application": "not_reviewed",
+        "industry_impact": "not_reviewed",
+        "reporting_angle": "not_reviewed"
+      },
+      "missingVerification": [
+        "prior_coverage",
+        "company_response",
+        "actual_application",
+        "industry_impact",
+        "reporting_angle"
+      ],
+      "stage": "patent_only_no_project_identity",
+      "publicCompanyResponseMarkedByReporter": false,
+      "independentlyValidatedCompanyResponse": false,
+      "specificProjectLinkVerified": false,
+      "impactCausalityVerified": false,
+      "approvedForPublication": false,
+      "confirmedExclusive": false,
+      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
+    },
     {
       "publicationNumber": "1020260157347",
       "title": "무방향성 전기강판 및 그 제조방법",
@@ -115,162 +261,6 @@
           "linkState": "same_company_only_no_patent_relation"
         }
       ],
-      "independentDartTechnicalOverlap": [],
-      "humanPublicCheckStatuses": {
-        "prior_coverage": "not_reviewed",
-        "company_response": "not_reviewed",
-        "actual_application": "not_reviewed",
-        "industry_impact": "not_reviewed",
-        "reporting_angle": "not_reviewed"
-      },
-      "missingVerification": [
-        "prior_coverage",
-        "company_response",
-        "actual_application",
-        "industry_impact",
-        "reporting_angle"
-      ],
-      "stage": "patent_only_no_project_identity",
-      "publicCompanyResponseMarkedByReporter": false,
-      "independentlyValidatedCompanyResponse": false,
-      "specificProjectLinkVerified": false,
-      "impactCausalityVerified": false,
-      "approvedForPublication": false,
-      "confirmedExclusive": false,
-      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
-    },
-    {
-      "publicationNumber": "1020260155217",
-      "title": "재활용 소재용 복합 저감제의 평가 방법",
-      "coveredCompanies": [
-        "현대차",
-        "기아"
-      ],
-      "topic": "순환소재·폐차재활용",
-      "technicalTerms": [],
-      "sameIssuerDartRowsObserved": 18,
-      "sameIssuerBackgroundSources": [
-        {
-          "company": "현대차",
-          "sourceType": "dart_business_table",
-          "reference": "orderBacklog",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003521",
-          "published": "20260814",
-          "linkState": "same_company_only_no_patent_relation"
-        },
-        {
-          "company": "기아",
-          "sourceType": "dart_business_table",
-          "reference": "investment",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
-          "published": "20260916",
-          "linkState": "same_company_only_no_patent_relation"
-        },
-        {
-          "company": "기아",
-          "sourceType": "dart_business_table",
-          "reference": "orderBacklog",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
-          "published": "20260916",
-          "linkState": "same_company_only_no_patent_relation"
-        }
-      ],
-      "independentDartTechnicalOverlap": [],
-      "humanPublicCheckStatuses": {
-        "prior_coverage": "not_reviewed",
-        "company_response": "not_reviewed",
-        "actual_application": "not_reviewed",
-        "industry_impact": "not_reviewed",
-        "reporting_angle": "not_reviewed"
-      },
-      "missingVerification": [
-        "prior_coverage",
-        "company_response",
-        "actual_application",
-        "industry_impact",
-        "reporting_angle"
-      ],
-      "stage": "patent_only_no_project_identity",
-      "publicCompanyResponseMarkedByReporter": false,
-      "independentlyValidatedCompanyResponse": false,
-      "specificProjectLinkVerified": false,
-      "impactCausalityVerified": false,
-      "approvedForPublication": false,
-      "confirmedExclusive": false,
-      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
-    },
-    {
-      "publicationNumber": "1020260153393",
-      "title": "반응성 증류를 이용한 폴리에틸렌테레프탈레이트의 해중합방법",
-      "coveredCompanies": [
-        "현대차",
-        "기아"
-      ],
-      "topic": "순환소재·폐차재활용",
-      "technicalTerms": [],
-      "sameIssuerDartRowsObserved": 18,
-      "sameIssuerBackgroundSources": [
-        {
-          "company": "현대차",
-          "sourceType": "dart_business_table",
-          "reference": "orderBacklog",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003521",
-          "published": "20260814",
-          "linkState": "same_company_only_no_patent_relation"
-        },
-        {
-          "company": "기아",
-          "sourceType": "dart_business_table",
-          "reference": "investment",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
-          "published": "20260916",
-          "linkState": "same_company_only_no_patent_relation"
-        },
-        {
-          "company": "기아",
-          "sourceType": "dart_business_table",
-          "reference": "orderBacklog",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
-          "published": "20260916",
-          "linkState": "same_company_only_no_patent_relation"
-        }
-      ],
-      "independentDartTechnicalOverlap": [],
-      "humanPublicCheckStatuses": {
-        "prior_coverage": "not_reviewed",
-        "company_response": "not_reviewed",
-        "actual_application": "not_reviewed",
-        "industry_impact": "not_reviewed",
-        "reporting_angle": "not_reviewed"
-      },
-      "missingVerification": [
-        "prior_coverage",
-        "company_response",
-        "actual_application",
-        "industry_impact",
-        "reporting_angle"
-      ],
-      "stage": "patent_only_no_project_identity",
-      "publicCompanyResponseMarkedByReporter": false,
-      "independentlyValidatedCompanyResponse": false,
-      "specificProjectLinkVerified": false,
-      "impactCausalityVerified": false,
-      "approvedForPublication": false,
-      "confirmedExclusive": false,
-      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
-    },
-    {
-      "publicationNumber": "1020260145290",
-      "title": "케이블 부착식 부분방전 센서 및 이를 포함하는 부분방전 검출 시스템",
-      "coveredCompanies": [
-        "LS전선"
-      ],
-      "topic": "전력망·전력기기",
-      "technicalTerms": [
-        "부분방전"
-      ],
-      "sameIssuerDartRowsObserved": 0,
-      "sameIssuerBackgroundSources": [],
       "independentDartTechnicalOverlap": [],
       "humanPublicCheckStatuses": {
         "prior_coverage": "not_reviewed",
@@ -298,6 +288,152 @@
   ],
   "reviews": [
     {
+      "publicationNumber": "1020260157850",
+      "title": "가변 수렴인자를 적용한 능동소음제어 방법 및 이를 이용하는 능동소음제어 장치",
+      "coveredCompanies": [
+        "현대모비스"
+      ],
+      "topic": "자율주행·차량제어",
+      "technicalTerms": [],
+      "sameIssuerDartRowsObserved": 4,
+      "sameIssuerBackgroundSources": [
+        {
+          "company": "현대모비스",
+          "sourceType": "dart_business_table",
+          "reference": "segmentSales",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814004065",
+          "published": "20260814",
+          "linkState": "same_company_only_no_patent_relation"
+        }
+      ],
+      "independentDartTechnicalOverlap": [],
+      "humanPublicCheckStatuses": {
+        "prior_coverage": "not_reviewed",
+        "company_response": "not_reviewed",
+        "actual_application": "not_reviewed",
+        "industry_impact": "not_reviewed",
+        "reporting_angle": "not_reviewed"
+      },
+      "missingVerification": [
+        "prior_coverage",
+        "company_response",
+        "actual_application",
+        "industry_impact",
+        "reporting_angle"
+      ],
+      "stage": "patent_only_no_project_identity",
+      "publicCompanyResponseMarkedByReporter": false,
+      "independentlyValidatedCompanyResponse": false,
+      "specificProjectLinkVerified": false,
+      "impactCausalityVerified": false,
+      "approvedForPublication": false,
+      "confirmedExclusive": false,
+      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
+    },
+    {
+      "publicationNumber": "1020260157827",
+      "title": "물성이 개선된 버섯 균사체 매트의 제조방법 및 이를 통해 제조된 버섯 균사체 매트",
+      "coveredCompanies": [
+        "현대차",
+        "기아"
+      ],
+      "topic": "제조공정·자동화",
+      "technicalTerms": [],
+      "sameIssuerDartRowsObserved": 18,
+      "sameIssuerBackgroundSources": [
+        {
+          "company": "현대차",
+          "sourceType": "dart_business_table",
+          "reference": "orderBacklog",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003521",
+          "published": "20260814",
+          "linkState": "same_company_only_no_patent_relation"
+        },
+        {
+          "company": "기아",
+          "sourceType": "dart_business_table",
+          "reference": "investment",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
+          "published": "20260916",
+          "linkState": "same_company_only_no_patent_relation"
+        },
+        {
+          "company": "기아",
+          "sourceType": "dart_business_table",
+          "reference": "orderBacklog",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
+          "published": "20260916",
+          "linkState": "same_company_only_no_patent_relation"
+        }
+      ],
+      "independentDartTechnicalOverlap": [],
+      "humanPublicCheckStatuses": {
+        "prior_coverage": "not_reviewed",
+        "company_response": "not_reviewed",
+        "actual_application": "not_reviewed",
+        "industry_impact": "not_reviewed",
+        "reporting_angle": "not_reviewed"
+      },
+      "missingVerification": [
+        "prior_coverage",
+        "company_response",
+        "actual_application",
+        "industry_impact",
+        "reporting_angle"
+      ],
+      "stage": "patent_only_no_project_identity",
+      "publicCompanyResponseMarkedByReporter": false,
+      "independentlyValidatedCompanyResponse": false,
+      "specificProjectLinkVerified": false,
+      "impactCausalityVerified": false,
+      "approvedForPublication": false,
+      "confirmedExclusive": false,
+      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
+    },
+    {
+      "publicationNumber": "1020260157973",
+      "title": "AI/ML 포지셔닝을 위한 방법 및 이를 위한 장치",
+      "coveredCompanies": [
+        "현대모비스"
+      ],
+      "topic": "미분류·이종산업 탐색",
+      "technicalTerms": [],
+      "sameIssuerDartRowsObserved": 4,
+      "sameIssuerBackgroundSources": [
+        {
+          "company": "현대모비스",
+          "sourceType": "dart_business_table",
+          "reference": "segmentSales",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814004065",
+          "published": "20260814",
+          "linkState": "same_company_only_no_patent_relation"
+        }
+      ],
+      "independentDartTechnicalOverlap": [],
+      "humanPublicCheckStatuses": {
+        "prior_coverage": "not_reviewed",
+        "company_response": "not_reviewed",
+        "actual_application": "not_reviewed",
+        "industry_impact": "not_reviewed",
+        "reporting_angle": "not_reviewed"
+      },
+      "missingVerification": [
+        "prior_coverage",
+        "company_response",
+        "actual_application",
+        "industry_impact",
+        "reporting_angle"
+      ],
+      "stage": "patent_only_no_project_identity",
+      "publicCompanyResponseMarkedByReporter": false,
+      "independentlyValidatedCompanyResponse": false,
+      "specificProjectLinkVerified": false,
+      "impactCausalityVerified": false,
+      "approvedForPublication": false,
+      "confirmedExclusive": false,
+      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
+    },
+    {
       "publicationNumber": "1020260157347",
       "title": "무방향성 전기강판 및 그 제조방법",
       "coveredCompanies": [
@@ -483,6 +619,66 @@
         "기아"
       ],
       "topic": "순환소재·폐차재활용",
+      "technicalTerms": [],
+      "sameIssuerDartRowsObserved": 18,
+      "sameIssuerBackgroundSources": [
+        {
+          "company": "현대차",
+          "sourceType": "dart_business_table",
+          "reference": "orderBacklog",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003521",
+          "published": "20260814",
+          "linkState": "same_company_only_no_patent_relation"
+        },
+        {
+          "company": "기아",
+          "sourceType": "dart_business_table",
+          "reference": "investment",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
+          "published": "20260916",
+          "linkState": "same_company_only_no_patent_relation"
+        },
+        {
+          "company": "기아",
+          "sourceType": "dart_business_table",
+          "reference": "orderBacklog",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
+          "published": "20260916",
+          "linkState": "same_company_only_no_patent_relation"
+        }
+      ],
+      "independentDartTechnicalOverlap": [],
+      "humanPublicCheckStatuses": {
+        "prior_coverage": "not_reviewed",
+        "company_response": "not_reviewed",
+        "actual_application": "not_reviewed",
+        "industry_impact": "not_reviewed",
+        "reporting_angle": "not_reviewed"
+      },
+      "missingVerification": [
+        "prior_coverage",
+        "company_response",
+        "actual_application",
+        "industry_impact",
+        "reporting_angle"
+      ],
+      "stage": "patent_only_no_project_identity",
+      "publicCompanyResponseMarkedByReporter": false,
+      "independentlyValidatedCompanyResponse": false,
+      "specificProjectLinkVerified": false,
+      "impactCausalityVerified": false,
+      "approvedForPublication": false,
+      "confirmedExclusive": false,
+      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
+    },
+    {
+      "publicationNumber": "1020260151469",
+      "title": "자율 주행을 위한 환경 적응형 이종 센서의 융합 시스템 및 방법",
+      "coveredCompanies": [
+        "현대차",
+        "기아"
+      ],
+      "topic": "자율주행·차량제어",
       "technicalTerms": [],
       "sameIssuerDartRowsObserved": 18,
       "sameIssuerBackgroundSources": [
@@ -702,6 +898,109 @@
       "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
     },
     {
+      "publicationNumber": "1020260157636",
+      "title": "적재함 커버 및 이를 포함하는 차량",
+      "coveredCompanies": [
+        "현대차",
+        "기아"
+      ],
+      "topic": "미분류·이종산업 탐색",
+      "technicalTerms": [],
+      "sameIssuerDartRowsObserved": 18,
+      "sameIssuerBackgroundSources": [
+        {
+          "company": "현대차",
+          "sourceType": "dart_business_table",
+          "reference": "orderBacklog",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003521",
+          "published": "20260814",
+          "linkState": "same_company_only_no_patent_relation"
+        },
+        {
+          "company": "기아",
+          "sourceType": "dart_business_table",
+          "reference": "investment",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
+          "published": "20260916",
+          "linkState": "same_company_only_no_patent_relation"
+        },
+        {
+          "company": "기아",
+          "sourceType": "dart_business_table",
+          "reference": "orderBacklog",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
+          "published": "20260916",
+          "linkState": "same_company_only_no_patent_relation"
+        }
+      ],
+      "independentDartTechnicalOverlap": [],
+      "humanPublicCheckStatuses": {
+        "prior_coverage": "not_reviewed",
+        "company_response": "not_reviewed",
+        "actual_application": "not_reviewed",
+        "industry_impact": "not_reviewed",
+        "reporting_angle": "not_reviewed"
+      },
+      "missingVerification": [
+        "prior_coverage",
+        "company_response",
+        "actual_application",
+        "industry_impact",
+        "reporting_angle"
+      ],
+      "stage": "patent_only_no_project_identity",
+      "publicCompanyResponseMarkedByReporter": false,
+      "independentlyValidatedCompanyResponse": false,
+      "specificProjectLinkVerified": false,
+      "impactCausalityVerified": false,
+      "approvedForPublication": false,
+      "confirmedExclusive": false,
+      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
+    },
+    {
+      "publicationNumber": "1020260157972",
+      "title": "안테나 타입을 고려한 ISAC",
+      "coveredCompanies": [
+        "현대모비스"
+      ],
+      "topic": "미분류·이종산업 탐색",
+      "technicalTerms": [],
+      "sameIssuerDartRowsObserved": 4,
+      "sameIssuerBackgroundSources": [
+        {
+          "company": "현대모비스",
+          "sourceType": "dart_business_table",
+          "reference": "segmentSales",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814004065",
+          "published": "20260814",
+          "linkState": "same_company_only_no_patent_relation"
+        }
+      ],
+      "independentDartTechnicalOverlap": [],
+      "humanPublicCheckStatuses": {
+        "prior_coverage": "not_reviewed",
+        "company_response": "not_reviewed",
+        "actual_application": "not_reviewed",
+        "industry_impact": "not_reviewed",
+        "reporting_angle": "not_reviewed"
+      },
+      "missingVerification": [
+        "prior_coverage",
+        "company_response",
+        "actual_application",
+        "industry_impact",
+        "reporting_angle"
+      ],
+      "stage": "patent_only_no_project_identity",
+      "publicCompanyResponseMarkedByReporter": false,
+      "independentlyValidatedCompanyResponse": false,
+      "specificProjectLinkVerified": false,
+      "impactCausalityVerified": false,
+      "approvedForPublication": false,
+      "confirmedExclusive": false,
+      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
+    },
+    {
       "publicationNumber": "1020260157040",
       "title": "자동차용 내장재 및 이의 제조방법",
       "coveredCompanies": [
@@ -889,66 +1188,6 @@
         "기아"
       ],
       "topic": "제조공정·자동화",
-      "technicalTerms": [],
-      "sameIssuerDartRowsObserved": 18,
-      "sameIssuerBackgroundSources": [
-        {
-          "company": "현대차",
-          "sourceType": "dart_business_table",
-          "reference": "orderBacklog",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003521",
-          "published": "20260814",
-          "linkState": "same_company_only_no_patent_relation"
-        },
-        {
-          "company": "기아",
-          "sourceType": "dart_business_table",
-          "reference": "investment",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
-          "published": "20260916",
-          "linkState": "same_company_only_no_patent_relation"
-        },
-        {
-          "company": "기아",
-          "sourceType": "dart_business_table",
-          "reference": "orderBacklog",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
-          "published": "20260916",
-          "linkState": "same_company_only_no_patent_relation"
-        }
-      ],
-      "independentDartTechnicalOverlap": [],
-      "humanPublicCheckStatuses": {
-        "prior_coverage": "not_reviewed",
-        "company_response": "not_reviewed",
-        "actual_application": "not_reviewed",
-        "industry_impact": "not_reviewed",
-        "reporting_angle": "not_reviewed"
-      },
-      "missingVerification": [
-        "prior_coverage",
-        "company_response",
-        "actual_application",
-        "industry_impact",
-        "reporting_angle"
-      ],
-      "stage": "patent_only_no_project_identity",
-      "publicCompanyResponseMarkedByReporter": false,
-      "independentlyValidatedCompanyResponse": false,
-      "specificProjectLinkVerified": false,
-      "impactCausalityVerified": false,
-      "approvedForPublication": false,
-      "confirmedExclusive": false,
-      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
-    },
-    {
-      "publicationNumber": "1020260152328",
-      "title": "탄소나노튜브 필름 및 이를 포함하는 이차전지",
-      "coveredCompanies": [
-        "현대차",
-        "기아"
-      ],
-      "topic": "배터리·전동화",
       "technicalTerms": [],
       "sameIssuerDartRowsObserved": 18,
       "sameIssuerBackgroundSources": [
@@ -1422,13 +1661,13 @@
       "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
     },
     {
-      "publicationNumber": "1020260152344",
-      "title": "파워모듈 냉각 장치",
+      "publicationNumber": "1020260151493",
+      "title": "다공성 수송층, 이를 포함하는 수전해 셀 및 다공성 수송층의 제조방법",
       "coveredCompanies": [
         "현대차",
         "기아"
       ],
-      "topic": "제조공정·자동화",
+      "topic": "배터리·전동화",
       "technicalTerms": [],
       "sameIssuerDartRowsObserved": 18,
       "sameIssuerBackgroundSources": [
@@ -1521,49 +1760,6 @@
           "reference": "segmentSales",
           "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260819000281",
           "published": "20260819",
-          "linkState": "same_company_only_no_patent_relation"
-        }
-      ],
-      "independentDartTechnicalOverlap": [],
-      "humanPublicCheckStatuses": {
-        "prior_coverage": "not_reviewed",
-        "company_response": "not_reviewed",
-        "actual_application": "not_reviewed",
-        "industry_impact": "not_reviewed",
-        "reporting_angle": "not_reviewed"
-      },
-      "missingVerification": [
-        "prior_coverage",
-        "company_response",
-        "actual_application",
-        "industry_impact",
-        "reporting_angle"
-      ],
-      "stage": "patent_only_no_project_identity",
-      "publicCompanyResponseMarkedByReporter": false,
-      "independentlyValidatedCompanyResponse": false,
-      "specificProjectLinkVerified": false,
-      "impactCausalityVerified": false,
-      "approvedForPublication": false,
-      "confirmedExclusive": false,
-      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
-    },
-    {
-      "publicationNumber": "1020260157850",
-      "title": "가변 수렴인자를 적용한 능동소음제어 방법 및 이를 이용하는 능동소음제어 장치",
-      "coveredCompanies": [
-        "현대모비스"
-      ],
-      "topic": "자율주행·차량제어",
-      "technicalTerms": [],
-      "sameIssuerDartRowsObserved": 4,
-      "sameIssuerBackgroundSources": [
-        {
-          "company": "현대모비스",
-          "sourceType": "dart_business_table",
-          "reference": "segmentSales",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814004065",
-          "published": "20260814",
           "linkState": "same_company_only_no_patent_relation"
         }
       ],
@@ -1832,13 +2028,255 @@
       "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
     },
     {
-      "publicationNumber": "1020260142525",
-      "title": "선택적 광투과성을 가진 메타렌즈 및 이를 포함하는 자율주행용 센서",
+      "publicationNumber": "1020260152328",
+      "title": "탄소나노튜브 필름 및 이를 포함하는 이차전지",
       "coveredCompanies": [
         "현대차",
         "기아"
       ],
-      "topic": "자율주행·차량제어",
+      "topic": "배터리·전동화",
+      "technicalTerms": [],
+      "sameIssuerDartRowsObserved": 18,
+      "sameIssuerBackgroundSources": [
+        {
+          "company": "현대차",
+          "sourceType": "dart_business_table",
+          "reference": "orderBacklog",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003521",
+          "published": "20260814",
+          "linkState": "same_company_only_no_patent_relation"
+        },
+        {
+          "company": "기아",
+          "sourceType": "dart_business_table",
+          "reference": "investment",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
+          "published": "20260916",
+          "linkState": "same_company_only_no_patent_relation"
+        },
+        {
+          "company": "기아",
+          "sourceType": "dart_business_table",
+          "reference": "orderBacklog",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
+          "published": "20260916",
+          "linkState": "same_company_only_no_patent_relation"
+        }
+      ],
+      "independentDartTechnicalOverlap": [],
+      "humanPublicCheckStatuses": {
+        "prior_coverage": "not_reviewed",
+        "company_response": "not_reviewed",
+        "actual_application": "not_reviewed",
+        "industry_impact": "not_reviewed",
+        "reporting_angle": "not_reviewed"
+      },
+      "missingVerification": [
+        "prior_coverage",
+        "company_response",
+        "actual_application",
+        "industry_impact",
+        "reporting_angle"
+      ],
+      "stage": "patent_only_no_project_identity",
+      "publicCompanyResponseMarkedByReporter": false,
+      "independentlyValidatedCompanyResponse": false,
+      "specificProjectLinkVerified": false,
+      "impactCausalityVerified": false,
+      "approvedForPublication": false,
+      "confirmedExclusive": false,
+      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
+    },
+    {
+      "publicationNumber": "1020260151494",
+      "title": "페라이트 펠릿을 포함하는 자성체, 이를 제조하는 방법 및 이를 포함하는 무선 충전 소자",
+      "coveredCompanies": [
+        "현대차",
+        "기아"
+      ],
+      "topic": "배터리·전동화",
+      "technicalTerms": [],
+      "sameIssuerDartRowsObserved": 18,
+      "sameIssuerBackgroundSources": [
+        {
+          "company": "현대차",
+          "sourceType": "dart_business_table",
+          "reference": "orderBacklog",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003521",
+          "published": "20260814",
+          "linkState": "same_company_only_no_patent_relation"
+        },
+        {
+          "company": "기아",
+          "sourceType": "dart_business_table",
+          "reference": "investment",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
+          "published": "20260916",
+          "linkState": "same_company_only_no_patent_relation"
+        },
+        {
+          "company": "기아",
+          "sourceType": "dart_business_table",
+          "reference": "orderBacklog",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
+          "published": "20260916",
+          "linkState": "same_company_only_no_patent_relation"
+        }
+      ],
+      "independentDartTechnicalOverlap": [],
+      "humanPublicCheckStatuses": {
+        "prior_coverage": "not_reviewed",
+        "company_response": "not_reviewed",
+        "actual_application": "not_reviewed",
+        "industry_impact": "not_reviewed",
+        "reporting_angle": "not_reviewed"
+      },
+      "missingVerification": [
+        "prior_coverage",
+        "company_response",
+        "actual_application",
+        "industry_impact",
+        "reporting_angle"
+      ],
+      "stage": "patent_only_no_project_identity",
+      "publicCompanyResponseMarkedByReporter": false,
+      "independentlyValidatedCompanyResponse": false,
+      "specificProjectLinkVerified": false,
+      "impactCausalityVerified": false,
+      "approvedForPublication": false,
+      "confirmedExclusive": false,
+      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
+    },
+    {
+      "publicationNumber": "1020260151495",
+      "title": "소결체, 소결체의 제조방법 및 이의 응용",
+      "coveredCompanies": [
+        "현대차",
+        "기아"
+      ],
+      "topic": "제조공정·자동화",
+      "technicalTerms": [
+        "양극재"
+      ],
+      "sameIssuerDartRowsObserved": 18,
+      "sameIssuerBackgroundSources": [
+        {
+          "company": "현대차",
+          "sourceType": "dart_business_table",
+          "reference": "orderBacklog",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003521",
+          "published": "20260814",
+          "linkState": "same_company_only_no_patent_relation"
+        },
+        {
+          "company": "기아",
+          "sourceType": "dart_business_table",
+          "reference": "investment",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
+          "published": "20260916",
+          "linkState": "same_company_only_no_patent_relation"
+        },
+        {
+          "company": "기아",
+          "sourceType": "dart_business_table",
+          "reference": "orderBacklog",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
+          "published": "20260916",
+          "linkState": "same_company_only_no_patent_relation"
+        }
+      ],
+      "independentDartTechnicalOverlap": [],
+      "humanPublicCheckStatuses": {
+        "prior_coverage": "not_reviewed",
+        "company_response": "not_reviewed",
+        "actual_application": "not_reviewed",
+        "industry_impact": "not_reviewed",
+        "reporting_angle": "not_reviewed"
+      },
+      "missingVerification": [
+        "prior_coverage",
+        "company_response",
+        "actual_application",
+        "industry_impact",
+        "reporting_angle"
+      ],
+      "stage": "patent_only_no_project_identity",
+      "publicCompanyResponseMarkedByReporter": false,
+      "independentlyValidatedCompanyResponse": false,
+      "specificProjectLinkVerified": false,
+      "impactCausalityVerified": false,
+      "approvedForPublication": false,
+      "confirmedExclusive": false,
+      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
+    },
+    {
+      "publicationNumber": "1020260151514",
+      "title": "객체에 대한 충돌 회피 시스템을 이용하여 로봇의 주행을 제어하는 방법 및 장치",
+      "coveredCompanies": [
+        "현대차",
+        "기아"
+      ],
+      "topic": "제조공정·자동화",
+      "technicalTerms": [],
+      "sameIssuerDartRowsObserved": 18,
+      "sameIssuerBackgroundSources": [
+        {
+          "company": "현대차",
+          "sourceType": "dart_business_table",
+          "reference": "orderBacklog",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003521",
+          "published": "20260814",
+          "linkState": "same_company_only_no_patent_relation"
+        },
+        {
+          "company": "기아",
+          "sourceType": "dart_business_table",
+          "reference": "investment",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
+          "published": "20260916",
+          "linkState": "same_company_only_no_patent_relation"
+        },
+        {
+          "company": "기아",
+          "sourceType": "dart_business_table",
+          "reference": "orderBacklog",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
+          "published": "20260916",
+          "linkState": "same_company_only_no_patent_relation"
+        }
+      ],
+      "independentDartTechnicalOverlap": [],
+      "humanPublicCheckStatuses": {
+        "prior_coverage": "not_reviewed",
+        "company_response": "not_reviewed",
+        "actual_application": "not_reviewed",
+        "industry_impact": "not_reviewed",
+        "reporting_angle": "not_reviewed"
+      },
+      "missingVerification": [
+        "prior_coverage",
+        "company_response",
+        "actual_application",
+        "industry_impact",
+        "reporting_angle"
+      ],
+      "stage": "patent_only_no_project_identity",
+      "publicCompanyResponseMarkedByReporter": false,
+      "independentlyValidatedCompanyResponse": false,
+      "specificProjectLinkVerified": false,
+      "impactCausalityVerified": false,
+      "approvedForPublication": false,
+      "confirmedExclusive": false,
+      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
+    },
+    {
+      "publicationNumber": "1020260151515",
+      "title": "승강기를 이용하는 로봇의 주행을 제어하는 방법 및 장치",
+      "coveredCompanies": [
+        "현대차",
+        "기아"
+      ],
+      "topic": "제조공정·자동화",
       "technicalTerms": [],
       "sameIssuerDartRowsObserved": 18,
       "sameIssuerBackgroundSources": [
@@ -2499,126 +2937,6 @@
       "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
     },
     {
-      "publicationNumber": "1020260141185",
-      "title": "방열 조성물, 이를 적용한 절연-방열체 및 구조",
-      "coveredCompanies": [
-        "현대차",
-        "기아"
-      ],
-      "topic": "전력망·전력기기",
-      "technicalTerms": [],
-      "sameIssuerDartRowsObserved": 18,
-      "sameIssuerBackgroundSources": [
-        {
-          "company": "현대차",
-          "sourceType": "dart_business_table",
-          "reference": "orderBacklog",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003521",
-          "published": "20260814",
-          "linkState": "same_company_only_no_patent_relation"
-        },
-        {
-          "company": "기아",
-          "sourceType": "dart_business_table",
-          "reference": "investment",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
-          "published": "20260916",
-          "linkState": "same_company_only_no_patent_relation"
-        },
-        {
-          "company": "기아",
-          "sourceType": "dart_business_table",
-          "reference": "orderBacklog",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
-          "published": "20260916",
-          "linkState": "same_company_only_no_patent_relation"
-        }
-      ],
-      "independentDartTechnicalOverlap": [],
-      "humanPublicCheckStatuses": {
-        "prior_coverage": "not_reviewed",
-        "company_response": "not_reviewed",
-        "actual_application": "not_reviewed",
-        "industry_impact": "not_reviewed",
-        "reporting_angle": "not_reviewed"
-      },
-      "missingVerification": [
-        "prior_coverage",
-        "company_response",
-        "actual_application",
-        "industry_impact",
-        "reporting_angle"
-      ],
-      "stage": "patent_only_no_project_identity",
-      "publicCompanyResponseMarkedByReporter": false,
-      "independentlyValidatedCompanyResponse": false,
-      "specificProjectLinkVerified": false,
-      "impactCausalityVerified": false,
-      "approvedForPublication": false,
-      "confirmedExclusive": false,
-      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
-    },
-    {
-      "publicationNumber": "1020260142423",
-      "title": "열경화성 수지 조성물 및 이의 제조방법",
-      "coveredCompanies": [
-        "현대차",
-        "기아"
-      ],
-      "topic": "화학소재·고분자",
-      "technicalTerms": [],
-      "sameIssuerDartRowsObserved": 18,
-      "sameIssuerBackgroundSources": [
-        {
-          "company": "현대차",
-          "sourceType": "dart_business_table",
-          "reference": "orderBacklog",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003521",
-          "published": "20260814",
-          "linkState": "same_company_only_no_patent_relation"
-        },
-        {
-          "company": "기아",
-          "sourceType": "dart_business_table",
-          "reference": "investment",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
-          "published": "20260916",
-          "linkState": "same_company_only_no_patent_relation"
-        },
-        {
-          "company": "기아",
-          "sourceType": "dart_business_table",
-          "reference": "orderBacklog",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
-          "published": "20260916",
-          "linkState": "same_company_only_no_patent_relation"
-        }
-      ],
-      "independentDartTechnicalOverlap": [],
-      "humanPublicCheckStatuses": {
-        "prior_coverage": "not_reviewed",
-        "company_response": "not_reviewed",
-        "actual_application": "not_reviewed",
-        "industry_impact": "not_reviewed",
-        "reporting_angle": "not_reviewed"
-      },
-      "missingVerification": [
-        "prior_coverage",
-        "company_response",
-        "actual_application",
-        "industry_impact",
-        "reporting_angle"
-      ],
-      "stage": "patent_only_no_project_identity",
-      "publicCompanyResponseMarkedByReporter": false,
-      "independentlyValidatedCompanyResponse": false,
-      "specificProjectLinkVerified": false,
-      "impactCausalityVerified": false,
-      "approvedForPublication": false,
-      "confirmedExclusive": false,
-      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
-    },
-    {
       "publicationNumber": "1020260156005",
       "title": "다축 자/공전 반응고 교반기 기어박스",
       "coveredCompanies": [
@@ -2866,6 +3184,66 @@
         "기아"
       ],
       "topic": "미분류·이종산업 탐색",
+      "technicalTerms": [],
+      "sameIssuerDartRowsObserved": 18,
+      "sameIssuerBackgroundSources": [
+        {
+          "company": "현대차",
+          "sourceType": "dart_business_table",
+          "reference": "orderBacklog",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003521",
+          "published": "20260814",
+          "linkState": "same_company_only_no_patent_relation"
+        },
+        {
+          "company": "기아",
+          "sourceType": "dart_business_table",
+          "reference": "investment",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
+          "published": "20260916",
+          "linkState": "same_company_only_no_patent_relation"
+        },
+        {
+          "company": "기아",
+          "sourceType": "dart_business_table",
+          "reference": "orderBacklog",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
+          "published": "20260916",
+          "linkState": "same_company_only_no_patent_relation"
+        }
+      ],
+      "independentDartTechnicalOverlap": [],
+      "humanPublicCheckStatuses": {
+        "prior_coverage": "not_reviewed",
+        "company_response": "not_reviewed",
+        "actual_application": "not_reviewed",
+        "industry_impact": "not_reviewed",
+        "reporting_angle": "not_reviewed"
+      },
+      "missingVerification": [
+        "prior_coverage",
+        "company_response",
+        "actual_application",
+        "industry_impact",
+        "reporting_angle"
+      ],
+      "stage": "patent_only_no_project_identity",
+      "publicCompanyResponseMarkedByReporter": false,
+      "independentlyValidatedCompanyResponse": false,
+      "specificProjectLinkVerified": false,
+      "impactCausalityVerified": false,
+      "approvedForPublication": false,
+      "confirmedExclusive": false,
+      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
+    },
+    {
+      "publicationNumber": "1020260152344",
+      "title": "파워모듈 냉각 장치",
+      "coveredCompanies": [
+        "현대차",
+        "기아"
+      ],
+      "topic": "제조공정·자동화",
       "technicalTerms": [],
       "sameIssuerDartRowsObserved": 18,
       "sameIssuerBackgroundSources": [
@@ -3459,126 +3837,6 @@
       "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
     },
     {
-      "publicationNumber": "1020260141249",
-      "title": "태양전지 모듈 제조 방법",
-      "coveredCompanies": [
-        "현대차",
-        "기아"
-      ],
-      "topic": "배터리·전동화",
-      "technicalTerms": [],
-      "sameIssuerDartRowsObserved": 18,
-      "sameIssuerBackgroundSources": [
-        {
-          "company": "현대차",
-          "sourceType": "dart_business_table",
-          "reference": "orderBacklog",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003521",
-          "published": "20260814",
-          "linkState": "same_company_only_no_patent_relation"
-        },
-        {
-          "company": "기아",
-          "sourceType": "dart_business_table",
-          "reference": "investment",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
-          "published": "20260916",
-          "linkState": "same_company_only_no_patent_relation"
-        },
-        {
-          "company": "기아",
-          "sourceType": "dart_business_table",
-          "reference": "orderBacklog",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
-          "published": "20260916",
-          "linkState": "same_company_only_no_patent_relation"
-        }
-      ],
-      "independentDartTechnicalOverlap": [],
-      "humanPublicCheckStatuses": {
-        "prior_coverage": "not_reviewed",
-        "company_response": "not_reviewed",
-        "actual_application": "not_reviewed",
-        "industry_impact": "not_reviewed",
-        "reporting_angle": "not_reviewed"
-      },
-      "missingVerification": [
-        "prior_coverage",
-        "company_response",
-        "actual_application",
-        "industry_impact",
-        "reporting_angle"
-      ],
-      "stage": "patent_only_no_project_identity",
-      "publicCompanyResponseMarkedByReporter": false,
-      "independentlyValidatedCompanyResponse": false,
-      "specificProjectLinkVerified": false,
-      "impactCausalityVerified": false,
-      "approvedForPublication": false,
-      "confirmedExclusive": false,
-      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
-    },
-    {
-      "publicationNumber": "1020260141812",
-      "title": "연료 전지 장치 및 그의 제어 방법",
-      "coveredCompanies": [
-        "현대차",
-        "기아"
-      ],
-      "topic": "배터리·전동화",
-      "technicalTerms": [],
-      "sameIssuerDartRowsObserved": 18,
-      "sameIssuerBackgroundSources": [
-        {
-          "company": "현대차",
-          "sourceType": "dart_business_table",
-          "reference": "orderBacklog",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003521",
-          "published": "20260814",
-          "linkState": "same_company_only_no_patent_relation"
-        },
-        {
-          "company": "기아",
-          "sourceType": "dart_business_table",
-          "reference": "investment",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
-          "published": "20260916",
-          "linkState": "same_company_only_no_patent_relation"
-        },
-        {
-          "company": "기아",
-          "sourceType": "dart_business_table",
-          "reference": "orderBacklog",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
-          "published": "20260916",
-          "linkState": "same_company_only_no_patent_relation"
-        }
-      ],
-      "independentDartTechnicalOverlap": [],
-      "humanPublicCheckStatuses": {
-        "prior_coverage": "not_reviewed",
-        "company_response": "not_reviewed",
-        "actual_application": "not_reviewed",
-        "industry_impact": "not_reviewed",
-        "reporting_angle": "not_reviewed"
-      },
-      "missingVerification": [
-        "prior_coverage",
-        "company_response",
-        "actual_application",
-        "industry_impact",
-        "reporting_angle"
-      ],
-      "stage": "patent_only_no_project_identity",
-      "publicCompanyResponseMarkedByReporter": false,
-      "independentlyValidatedCompanyResponse": false,
-      "specificProjectLinkVerified": false,
-      "impactCausalityVerified": false,
-      "approvedForPublication": false,
-      "confirmedExclusive": false,
-      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
-    },
-    {
       "publicationNumber": "1020260146861",
       "title": "플로어 카페트 및 이를 포함하는 차량",
       "coveredCompanies": [
@@ -3586,66 +3844,6 @@
         "기아"
       ],
       "topic": "자율주행·차량제어",
-      "technicalTerms": [],
-      "sameIssuerDartRowsObserved": 18,
-      "sameIssuerBackgroundSources": [
-        {
-          "company": "현대차",
-          "sourceType": "dart_business_table",
-          "reference": "orderBacklog",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003521",
-          "published": "20260814",
-          "linkState": "same_company_only_no_patent_relation"
-        },
-        {
-          "company": "기아",
-          "sourceType": "dart_business_table",
-          "reference": "investment",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
-          "published": "20260916",
-          "linkState": "same_company_only_no_patent_relation"
-        },
-        {
-          "company": "기아",
-          "sourceType": "dart_business_table",
-          "reference": "orderBacklog",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
-          "published": "20260916",
-          "linkState": "same_company_only_no_patent_relation"
-        }
-      ],
-      "independentDartTechnicalOverlap": [],
-      "humanPublicCheckStatuses": {
-        "prior_coverage": "not_reviewed",
-        "company_response": "not_reviewed",
-        "actual_application": "not_reviewed",
-        "industry_impact": "not_reviewed",
-        "reporting_angle": "not_reviewed"
-      },
-      "missingVerification": [
-        "prior_coverage",
-        "company_response",
-        "actual_application",
-        "industry_impact",
-        "reporting_angle"
-      ],
-      "stage": "patent_only_no_project_identity",
-      "publicCompanyResponseMarkedByReporter": false,
-      "independentlyValidatedCompanyResponse": false,
-      "specificProjectLinkVerified": false,
-      "impactCausalityVerified": false,
-      "approvedForPublication": false,
-      "confirmedExclusive": false,
-      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
-    },
-    {
-      "publicationNumber": "1020260157827",
-      "title": "물성이 개선된 버섯 균사체 매트의 제조방법 및 이를 통해 제조된 버섯 균사체 매트",
-      "coveredCompanies": [
-        "현대차",
-        "기아"
-      ],
-      "topic": "제조공정·자동화",
       "technicalTerms": [],
       "sameIssuerDartRowsObserved": 18,
       "sameIssuerBackgroundSources": [
@@ -3854,75 +4052,6 @@
       "technicalTerms": [],
       "sameIssuerDartRowsObserved": 4,
       "sameIssuerBackgroundSources": [
-        {
-          "company": "현대모비스",
-          "sourceType": "dart_business_table",
-          "reference": "segmentSales",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814004065",
-          "published": "20260814",
-          "linkState": "same_company_only_no_patent_relation"
-        }
-      ],
-      "independentDartTechnicalOverlap": [],
-      "humanPublicCheckStatuses": {
-        "prior_coverage": "not_reviewed",
-        "company_response": "not_reviewed",
-        "actual_application": "not_reviewed",
-        "industry_impact": "not_reviewed",
-        "reporting_angle": "not_reviewed"
-      },
-      "missingVerification": [
-        "prior_coverage",
-        "company_response",
-        "actual_application",
-        "industry_impact",
-        "reporting_angle"
-      ],
-      "stage": "patent_only_no_project_identity",
-      "publicCompanyResponseMarkedByReporter": false,
-      "independentlyValidatedCompanyResponse": false,
-      "specificProjectLinkVerified": false,
-      "impactCausalityVerified": false,
-      "approvedForPublication": false,
-      "confirmedExclusive": false,
-      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
-    },
-    {
-      "publicationNumber": "1020260141871",
-      "title": "차량의 현가장치 지지구조",
-      "coveredCompanies": [
-        "현대모비스",
-        "현대차",
-        "기아"
-      ],
-      "topic": "미분류·이종산업 탐색",
-      "technicalTerms": [],
-      "sameIssuerDartRowsObserved": 22,
-      "sameIssuerBackgroundSources": [
-        {
-          "company": "현대차",
-          "sourceType": "dart_business_table",
-          "reference": "orderBacklog",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003521",
-          "published": "20260814",
-          "linkState": "same_company_only_no_patent_relation"
-        },
-        {
-          "company": "기아",
-          "sourceType": "dart_business_table",
-          "reference": "investment",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
-          "published": "20260916",
-          "linkState": "same_company_only_no_patent_relation"
-        },
-        {
-          "company": "기아",
-          "sourceType": "dart_business_table",
-          "reference": "orderBacklog",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
-          "published": "20260916",
-          "linkState": "same_company_only_no_patent_relation"
-        },
         {
           "company": "현대모비스",
           "sourceType": "dart_business_table",
@@ -4317,56 +4446,13 @@
       "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
     },
     {
-      "publicationNumber": "1020260141948",
-      "title": "AVN 시스템 생산설비의 영상부분 검증장치 및 그 방법",
-      "coveredCompanies": [
-        "현대모비스"
-      ],
-      "topic": "미분류·이종산업 탐색",
-      "technicalTerms": [],
-      "sameIssuerDartRowsObserved": 4,
-      "sameIssuerBackgroundSources": [
-        {
-          "company": "현대모비스",
-          "sourceType": "dart_business_table",
-          "reference": "segmentSales",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814004065",
-          "published": "20260814",
-          "linkState": "same_company_only_no_patent_relation"
-        }
-      ],
-      "independentDartTechnicalOverlap": [],
-      "humanPublicCheckStatuses": {
-        "prior_coverage": "not_reviewed",
-        "company_response": "not_reviewed",
-        "actual_application": "not_reviewed",
-        "industry_impact": "not_reviewed",
-        "reporting_angle": "not_reviewed"
-      },
-      "missingVerification": [
-        "prior_coverage",
-        "company_response",
-        "actual_application",
-        "industry_impact",
-        "reporting_angle"
-      ],
-      "stage": "patent_only_no_project_identity",
-      "publicCompanyResponseMarkedByReporter": false,
-      "independentlyValidatedCompanyResponse": false,
-      "specificProjectLinkVerified": false,
-      "impactCausalityVerified": false,
-      "approvedForPublication": false,
-      "confirmedExclusive": false,
-      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
-    },
-    {
-      "publicationNumber": "1020260151469",
-      "title": "자율 주행을 위한 환경 적응형 이종 센서의 융합 시스템 및 방법",
+      "publicationNumber": "1020260158325",
+      "title": "탄소나노튜브 복합체 및 이의 제조방법",
       "coveredCompanies": [
         "현대차",
         "기아"
       ],
-      "topic": "자율주행·차량제어",
+      "topic": "제조공정·자동화",
       "technicalTerms": [],
       "sameIssuerDartRowsObserved": 18,
       "sameIssuerBackgroundSources": [
@@ -4410,7 +4496,67 @@
         "industry_impact",
         "reporting_angle"
       ],
-      "stage": "research_only_press_not_checked",
+      "stage": "patent_only_no_project_identity",
+      "publicCompanyResponseMarkedByReporter": false,
+      "independentlyValidatedCompanyResponse": false,
+      "specificProjectLinkVerified": false,
+      "impactCausalityVerified": false,
+      "approvedForPublication": false,
+      "confirmedExclusive": false,
+      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
+    },
+    {
+      "publicationNumber": "1020260158417",
+      "title": "데이터 셀 기반 동적 레퍼런스를 활용한 비휘발성 저항성 메모리 장치 및 그것의 읽기 방법",
+      "coveredCompanies": [
+        "현대차",
+        "기아"
+      ],
+      "topic": "배터리·전동화",
+      "technicalTerms": [],
+      "sameIssuerDartRowsObserved": 18,
+      "sameIssuerBackgroundSources": [
+        {
+          "company": "현대차",
+          "sourceType": "dart_business_table",
+          "reference": "orderBacklog",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003521",
+          "published": "20260814",
+          "linkState": "same_company_only_no_patent_relation"
+        },
+        {
+          "company": "기아",
+          "sourceType": "dart_business_table",
+          "reference": "investment",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
+          "published": "20260916",
+          "linkState": "same_company_only_no_patent_relation"
+        },
+        {
+          "company": "기아",
+          "sourceType": "dart_business_table",
+          "reference": "orderBacklog",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
+          "published": "20260916",
+          "linkState": "same_company_only_no_patent_relation"
+        }
+      ],
+      "independentDartTechnicalOverlap": [],
+      "humanPublicCheckStatuses": {
+        "prior_coverage": "not_reviewed",
+        "company_response": "not_reviewed",
+        "actual_application": "not_reviewed",
+        "industry_impact": "not_reviewed",
+        "reporting_angle": "not_reviewed"
+      },
+      "missingVerification": [
+        "prior_coverage",
+        "company_response",
+        "actual_application",
+        "industry_impact",
+        "reporting_angle"
+      ],
+      "stage": "patent_only_no_project_identity",
       "publicCompanyResponseMarkedByReporter": false,
       "independentlyValidatedCompanyResponse": false,
       "specificProjectLinkVerified": false,
@@ -4943,66 +5089,6 @@
       "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
     },
     {
-      "publicationNumber": "1020260141870",
-      "title": "시트 쿠션 틸팅 장치",
-      "coveredCompanies": [
-        "현대차",
-        "기아"
-      ],
-      "topic": "미분류·이종산업 탐색",
-      "technicalTerms": [],
-      "sameIssuerDartRowsObserved": 18,
-      "sameIssuerBackgroundSources": [
-        {
-          "company": "현대차",
-          "sourceType": "dart_business_table",
-          "reference": "orderBacklog",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003521",
-          "published": "20260814",
-          "linkState": "same_company_only_no_patent_relation"
-        },
-        {
-          "company": "기아",
-          "sourceType": "dart_business_table",
-          "reference": "investment",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
-          "published": "20260916",
-          "linkState": "same_company_only_no_patent_relation"
-        },
-        {
-          "company": "기아",
-          "sourceType": "dart_business_table",
-          "reference": "orderBacklog",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
-          "published": "20260916",
-          "linkState": "same_company_only_no_patent_relation"
-        }
-      ],
-      "independentDartTechnicalOverlap": [],
-      "humanPublicCheckStatuses": {
-        "prior_coverage": "not_reviewed",
-        "company_response": "not_reviewed",
-        "actual_application": "not_reviewed",
-        "industry_impact": "not_reviewed",
-        "reporting_angle": "not_reviewed"
-      },
-      "missingVerification": [
-        "prior_coverage",
-        "company_response",
-        "actual_application",
-        "industry_impact",
-        "reporting_angle"
-      ],
-      "stage": "patent_only_no_project_identity",
-      "publicCompanyResponseMarkedByReporter": false,
-      "independentlyValidatedCompanyResponse": false,
-      "specificProjectLinkVerified": false,
-      "impactCausalityVerified": false,
-      "approvedForPublication": false,
-      "confirmedExclusive": false,
-      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
-    },
-    {
       "publicationNumber": "1020260151610",
       "title": "회전 노브 오픈 방식 트레이",
       "coveredCompanies": [
@@ -5072,8 +5158,8 @@
       "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
     },
     {
-      "publicationNumber": "1020260152309",
-      "title": "차량의 시트",
+      "publicationNumber": "1020260158522",
+      "title": "시트",
       "coveredCompanies": [
         "현대차",
         "기아"
@@ -5122,369 +5208,7 @@
         "industry_impact",
         "reporting_angle"
       ],
-      "stage": "research_only_press_not_checked",
-      "publicCompanyResponseMarkedByReporter": false,
-      "independentlyValidatedCompanyResponse": false,
-      "specificProjectLinkVerified": false,
-      "impactCausalityVerified": false,
-      "approvedForPublication": false,
-      "confirmedExclusive": false,
-      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
-    },
-    {
-      "publicationNumber": "1020260152471",
-      "title": "동영상 데이터의 인트라 예측 코딩을 위한 방법 및 장치",
-      "coveredCompanies": [
-        "현대차",
-        "기아"
-      ],
-      "topic": "미분류·이종산업 탐색",
-      "technicalTerms": [],
-      "sameIssuerDartRowsObserved": 18,
-      "sameIssuerBackgroundSources": [
-        {
-          "company": "현대차",
-          "sourceType": "dart_business_table",
-          "reference": "orderBacklog",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003521",
-          "published": "20260814",
-          "linkState": "same_company_only_no_patent_relation"
-        },
-        {
-          "company": "기아",
-          "sourceType": "dart_business_table",
-          "reference": "investment",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
-          "published": "20260916",
-          "linkState": "same_company_only_no_patent_relation"
-        },
-        {
-          "company": "기아",
-          "sourceType": "dart_business_table",
-          "reference": "orderBacklog",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
-          "published": "20260916",
-          "linkState": "same_company_only_no_patent_relation"
-        }
-      ],
-      "independentDartTechnicalOverlap": [],
-      "humanPublicCheckStatuses": {
-        "prior_coverage": "not_reviewed",
-        "company_response": "not_reviewed",
-        "actual_application": "not_reviewed",
-        "industry_impact": "not_reviewed",
-        "reporting_angle": "not_reviewed"
-      },
-      "missingVerification": [
-        "prior_coverage",
-        "company_response",
-        "actual_application",
-        "industry_impact",
-        "reporting_angle"
-      ],
-      "stage": "research_only_press_not_checked",
-      "publicCompanyResponseMarkedByReporter": false,
-      "independentlyValidatedCompanyResponse": false,
-      "specificProjectLinkVerified": false,
-      "impactCausalityVerified": false,
-      "approvedForPublication": false,
-      "confirmedExclusive": false,
-      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
-    },
-    {
-      "publicationNumber": "1020260151493",
-      "title": "다공성 수송층, 이를 포함하는 수전해 셀 및 다공성 수송층의 제조방법",
-      "coveredCompanies": [
-        "현대차",
-        "기아"
-      ],
-      "topic": "배터리·전동화",
-      "technicalTerms": [],
-      "sameIssuerDartRowsObserved": 18,
-      "sameIssuerBackgroundSources": [
-        {
-          "company": "현대차",
-          "sourceType": "dart_business_table",
-          "reference": "orderBacklog",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003521",
-          "published": "20260814",
-          "linkState": "same_company_only_no_patent_relation"
-        },
-        {
-          "company": "기아",
-          "sourceType": "dart_business_table",
-          "reference": "investment",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
-          "published": "20260916",
-          "linkState": "same_company_only_no_patent_relation"
-        },
-        {
-          "company": "기아",
-          "sourceType": "dart_business_table",
-          "reference": "orderBacklog",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
-          "published": "20260916",
-          "linkState": "same_company_only_no_patent_relation"
-        }
-      ],
-      "independentDartTechnicalOverlap": [],
-      "humanPublicCheckStatuses": {
-        "prior_coverage": "not_reviewed",
-        "company_response": "not_reviewed",
-        "actual_application": "not_reviewed",
-        "industry_impact": "not_reviewed",
-        "reporting_angle": "not_reviewed"
-      },
-      "missingVerification": [
-        "prior_coverage",
-        "company_response",
-        "actual_application",
-        "industry_impact",
-        "reporting_angle"
-      ],
-      "stage": "research_only_press_not_checked",
-      "publicCompanyResponseMarkedByReporter": false,
-      "independentlyValidatedCompanyResponse": false,
-      "specificProjectLinkVerified": false,
-      "impactCausalityVerified": false,
-      "approvedForPublication": false,
-      "confirmedExclusive": false,
-      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
-    },
-    {
-      "publicationNumber": "1020260151494",
-      "title": "페라이트 펠릿을 포함하는 자성체, 이를 제조하는 방법 및 이를 포함하는 무선 충전 소자",
-      "coveredCompanies": [
-        "현대차",
-        "기아"
-      ],
-      "topic": "배터리·전동화",
-      "technicalTerms": [],
-      "sameIssuerDartRowsObserved": 18,
-      "sameIssuerBackgroundSources": [
-        {
-          "company": "현대차",
-          "sourceType": "dart_business_table",
-          "reference": "orderBacklog",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003521",
-          "published": "20260814",
-          "linkState": "same_company_only_no_patent_relation"
-        },
-        {
-          "company": "기아",
-          "sourceType": "dart_business_table",
-          "reference": "investment",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
-          "published": "20260916",
-          "linkState": "same_company_only_no_patent_relation"
-        },
-        {
-          "company": "기아",
-          "sourceType": "dart_business_table",
-          "reference": "orderBacklog",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
-          "published": "20260916",
-          "linkState": "same_company_only_no_patent_relation"
-        }
-      ],
-      "independentDartTechnicalOverlap": [],
-      "humanPublicCheckStatuses": {
-        "prior_coverage": "not_reviewed",
-        "company_response": "not_reviewed",
-        "actual_application": "not_reviewed",
-        "industry_impact": "not_reviewed",
-        "reporting_angle": "not_reviewed"
-      },
-      "missingVerification": [
-        "prior_coverage",
-        "company_response",
-        "actual_application",
-        "industry_impact",
-        "reporting_angle"
-      ],
-      "stage": "research_only_press_not_checked",
-      "publicCompanyResponseMarkedByReporter": false,
-      "independentlyValidatedCompanyResponse": false,
-      "specificProjectLinkVerified": false,
-      "impactCausalityVerified": false,
-      "approvedForPublication": false,
-      "confirmedExclusive": false,
-      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
-    },
-    {
-      "publicationNumber": "1020260151495",
-      "title": "소결체, 소결체의 제조방법 및 이의 응용",
-      "coveredCompanies": [
-        "현대차",
-        "기아"
-      ],
-      "topic": "제조공정·자동화",
-      "technicalTerms": [
-        "양극재"
-      ],
-      "sameIssuerDartRowsObserved": 18,
-      "sameIssuerBackgroundSources": [
-        {
-          "company": "현대차",
-          "sourceType": "dart_business_table",
-          "reference": "orderBacklog",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003521",
-          "published": "20260814",
-          "linkState": "same_company_only_no_patent_relation"
-        },
-        {
-          "company": "기아",
-          "sourceType": "dart_business_table",
-          "reference": "investment",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
-          "published": "20260916",
-          "linkState": "same_company_only_no_patent_relation"
-        },
-        {
-          "company": "기아",
-          "sourceType": "dart_business_table",
-          "reference": "orderBacklog",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
-          "published": "20260916",
-          "linkState": "same_company_only_no_patent_relation"
-        }
-      ],
-      "independentDartTechnicalOverlap": [],
-      "humanPublicCheckStatuses": {
-        "prior_coverage": "not_reviewed",
-        "company_response": "not_reviewed",
-        "actual_application": "not_reviewed",
-        "industry_impact": "not_reviewed",
-        "reporting_angle": "not_reviewed"
-      },
-      "missingVerification": [
-        "prior_coverage",
-        "company_response",
-        "actual_application",
-        "industry_impact",
-        "reporting_angle"
-      ],
-      "stage": "research_only_press_not_checked",
-      "publicCompanyResponseMarkedByReporter": false,
-      "independentlyValidatedCompanyResponse": false,
-      "specificProjectLinkVerified": false,
-      "impactCausalityVerified": false,
-      "approvedForPublication": false,
-      "confirmedExclusive": false,
-      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
-    },
-    {
-      "publicationNumber": "1020260151514",
-      "title": "객체에 대한 충돌 회피 시스템을 이용하여 로봇의 주행을 제어하는 방법 및 장치",
-      "coveredCompanies": [
-        "현대차",
-        "기아"
-      ],
-      "topic": "제조공정·자동화",
-      "technicalTerms": [],
-      "sameIssuerDartRowsObserved": 18,
-      "sameIssuerBackgroundSources": [
-        {
-          "company": "현대차",
-          "sourceType": "dart_business_table",
-          "reference": "orderBacklog",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003521",
-          "published": "20260814",
-          "linkState": "same_company_only_no_patent_relation"
-        },
-        {
-          "company": "기아",
-          "sourceType": "dart_business_table",
-          "reference": "investment",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
-          "published": "20260916",
-          "linkState": "same_company_only_no_patent_relation"
-        },
-        {
-          "company": "기아",
-          "sourceType": "dart_business_table",
-          "reference": "orderBacklog",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
-          "published": "20260916",
-          "linkState": "same_company_only_no_patent_relation"
-        }
-      ],
-      "independentDartTechnicalOverlap": [],
-      "humanPublicCheckStatuses": {
-        "prior_coverage": "not_reviewed",
-        "company_response": "not_reviewed",
-        "actual_application": "not_reviewed",
-        "industry_impact": "not_reviewed",
-        "reporting_angle": "not_reviewed"
-      },
-      "missingVerification": [
-        "prior_coverage",
-        "company_response",
-        "actual_application",
-        "industry_impact",
-        "reporting_angle"
-      ],
-      "stage": "research_only_press_not_checked",
-      "publicCompanyResponseMarkedByReporter": false,
-      "independentlyValidatedCompanyResponse": false,
-      "specificProjectLinkVerified": false,
-      "impactCausalityVerified": false,
-      "approvedForPublication": false,
-      "confirmedExclusive": false,
-      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
-    },
-    {
-      "publicationNumber": "1020260151515",
-      "title": "승강기를 이용하는 로봇의 주행을 제어하는 방법 및 장치",
-      "coveredCompanies": [
-        "현대차",
-        "기아"
-      ],
-      "topic": "제조공정·자동화",
-      "technicalTerms": [],
-      "sameIssuerDartRowsObserved": 18,
-      "sameIssuerBackgroundSources": [
-        {
-          "company": "현대차",
-          "sourceType": "dart_business_table",
-          "reference": "orderBacklog",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003521",
-          "published": "20260814",
-          "linkState": "same_company_only_no_patent_relation"
-        },
-        {
-          "company": "기아",
-          "sourceType": "dart_business_table",
-          "reference": "investment",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
-          "published": "20260916",
-          "linkState": "same_company_only_no_patent_relation"
-        },
-        {
-          "company": "기아",
-          "sourceType": "dart_business_table",
-          "reference": "orderBacklog",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
-          "published": "20260916",
-          "linkState": "same_company_only_no_patent_relation"
-        }
-      ],
-      "independentDartTechnicalOverlap": [],
-      "humanPublicCheckStatuses": {
-        "prior_coverage": "not_reviewed",
-        "company_response": "not_reviewed",
-        "actual_application": "not_reviewed",
-        "industry_impact": "not_reviewed",
-        "reporting_angle": "not_reviewed"
-      },
-      "missingVerification": [
-        "prior_coverage",
-        "company_response",
-        "actual_application",
-        "industry_impact",
-        "reporting_angle"
-      ],
-      "stage": "research_only_press_not_checked",
+      "stage": "patent_only_no_project_identity",
       "publicCompanyResponseMarkedByReporter": false,
       "independentlyValidatedCompanyResponse": false,
       "specificProjectLinkVerified": false,
@@ -5914,512 +5638,6 @@
       "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
     },
     {
-      "publicationNumber": "1020260151516",
-      "title": "음영지역 감지 및 관리를 위한 통신 커버리지 관리 장치 및 방법",
-      "coveredCompanies": [
-        "현대차",
-        "기아"
-      ],
-      "topic": "제조공정·자동화",
-      "technicalTerms": [],
-      "sameIssuerDartRowsObserved": 18,
-      "sameIssuerBackgroundSources": [
-        {
-          "company": "현대차",
-          "sourceType": "dart_business_table",
-          "reference": "orderBacklog",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003521",
-          "published": "20260814",
-          "linkState": "same_company_only_no_patent_relation"
-        },
-        {
-          "company": "기아",
-          "sourceType": "dart_business_table",
-          "reference": "investment",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
-          "published": "20260916",
-          "linkState": "same_company_only_no_patent_relation"
-        },
-        {
-          "company": "기아",
-          "sourceType": "dart_business_table",
-          "reference": "orderBacklog",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
-          "published": "20260916",
-          "linkState": "same_company_only_no_patent_relation"
-        }
-      ],
-      "independentDartTechnicalOverlap": [],
-      "humanPublicCheckStatuses": {
-        "prior_coverage": "not_reviewed",
-        "company_response": "not_reviewed",
-        "actual_application": "not_reviewed",
-        "industry_impact": "not_reviewed",
-        "reporting_angle": "not_reviewed"
-      },
-      "missingVerification": [
-        "prior_coverage",
-        "company_response",
-        "actual_application",
-        "industry_impact",
-        "reporting_angle"
-      ],
-      "stage": "research_only_press_not_checked",
-      "publicCompanyResponseMarkedByReporter": false,
-      "independentlyValidatedCompanyResponse": false,
-      "specificProjectLinkVerified": false,
-      "impactCausalityVerified": false,
-      "approvedForPublication": false,
-      "confirmedExclusive": false,
-      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
-    },
-    {
-      "publicationNumber": "1020260148543",
-      "title": "하이브리드 분말 코팅 장치",
-      "coveredCompanies": [
-        "현대차",
-        "기아"
-      ],
-      "topic": "제조공정·자동화",
-      "technicalTerms": [],
-      "sameIssuerDartRowsObserved": 18,
-      "sameIssuerBackgroundSources": [
-        {
-          "company": "현대차",
-          "sourceType": "dart_business_table",
-          "reference": "orderBacklog",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003521",
-          "published": "20260814",
-          "linkState": "same_company_only_no_patent_relation"
-        },
-        {
-          "company": "기아",
-          "sourceType": "dart_business_table",
-          "reference": "investment",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
-          "published": "20260916",
-          "linkState": "same_company_only_no_patent_relation"
-        },
-        {
-          "company": "기아",
-          "sourceType": "dart_business_table",
-          "reference": "orderBacklog",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
-          "published": "20260916",
-          "linkState": "same_company_only_no_patent_relation"
-        }
-      ],
-      "independentDartTechnicalOverlap": [],
-      "humanPublicCheckStatuses": {
-        "prior_coverage": "not_reviewed",
-        "company_response": "not_reviewed",
-        "actual_application": "not_reviewed",
-        "industry_impact": "not_reviewed",
-        "reporting_angle": "not_reviewed"
-      },
-      "missingVerification": [
-        "prior_coverage",
-        "company_response",
-        "actual_application",
-        "industry_impact",
-        "reporting_angle"
-      ],
-      "stage": "research_only_press_not_checked",
-      "publicCompanyResponseMarkedByReporter": false,
-      "independentlyValidatedCompanyResponse": false,
-      "specificProjectLinkVerified": false,
-      "impactCausalityVerified": false,
-      "approvedForPublication": false,
-      "confirmedExclusive": false,
-      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
-    },
-    {
-      "publicationNumber": "1020260150337",
-      "title": "게이트웨이 장치, 게이트웨이 제어 방법, 및 차량 시스템",
-      "coveredCompanies": [
-        "현대차",
-        "기아"
-      ],
-      "topic": "미분류·이종산업 탐색",
-      "technicalTerms": [],
-      "sameIssuerDartRowsObserved": 18,
-      "sameIssuerBackgroundSources": [
-        {
-          "company": "현대차",
-          "sourceType": "dart_business_table",
-          "reference": "orderBacklog",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003521",
-          "published": "20260814",
-          "linkState": "same_company_only_no_patent_relation"
-        },
-        {
-          "company": "기아",
-          "sourceType": "dart_business_table",
-          "reference": "investment",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
-          "published": "20260916",
-          "linkState": "same_company_only_no_patent_relation"
-        },
-        {
-          "company": "기아",
-          "sourceType": "dart_business_table",
-          "reference": "orderBacklog",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
-          "published": "20260916",
-          "linkState": "same_company_only_no_patent_relation"
-        }
-      ],
-      "independentDartTechnicalOverlap": [],
-      "humanPublicCheckStatuses": {
-        "prior_coverage": "not_reviewed",
-        "company_response": "not_reviewed",
-        "actual_application": "not_reviewed",
-        "industry_impact": "not_reviewed",
-        "reporting_angle": "not_reviewed"
-      },
-      "missingVerification": [
-        "prior_coverage",
-        "company_response",
-        "actual_application",
-        "industry_impact",
-        "reporting_angle"
-      ],
-      "stage": "research_only_press_not_checked",
-      "publicCompanyResponseMarkedByReporter": false,
-      "independentlyValidatedCompanyResponse": false,
-      "specificProjectLinkVerified": false,
-      "impactCausalityVerified": false,
-      "approvedForPublication": false,
-      "confirmedExclusive": false,
-      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
-    },
-    {
-      "publicationNumber": "1020260150481",
-      "title": "차량의 시트 진동 상쇄 장치 및 방법",
-      "coveredCompanies": [
-        "현대차",
-        "기아"
-      ],
-      "topic": "미분류·이종산업 탐색",
-      "technicalTerms": [],
-      "sameIssuerDartRowsObserved": 18,
-      "sameIssuerBackgroundSources": [
-        {
-          "company": "현대차",
-          "sourceType": "dart_business_table",
-          "reference": "orderBacklog",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003521",
-          "published": "20260814",
-          "linkState": "same_company_only_no_patent_relation"
-        },
-        {
-          "company": "기아",
-          "sourceType": "dart_business_table",
-          "reference": "investment",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
-          "published": "20260916",
-          "linkState": "same_company_only_no_patent_relation"
-        },
-        {
-          "company": "기아",
-          "sourceType": "dart_business_table",
-          "reference": "orderBacklog",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
-          "published": "20260916",
-          "linkState": "same_company_only_no_patent_relation"
-        }
-      ],
-      "independentDartTechnicalOverlap": [],
-      "humanPublicCheckStatuses": {
-        "prior_coverage": "not_reviewed",
-        "company_response": "not_reviewed",
-        "actual_application": "not_reviewed",
-        "industry_impact": "not_reviewed",
-        "reporting_angle": "not_reviewed"
-      },
-      "missingVerification": [
-        "prior_coverage",
-        "company_response",
-        "actual_application",
-        "industry_impact",
-        "reporting_angle"
-      ],
-      "stage": "research_only_press_not_checked",
-      "publicCompanyResponseMarkedByReporter": false,
-      "independentlyValidatedCompanyResponse": false,
-      "specificProjectLinkVerified": false,
-      "impactCausalityVerified": false,
-      "approvedForPublication": false,
-      "confirmedExclusive": false,
-      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
-    },
-    {
-      "publicationNumber": "1020260149165",
-      "title": "차량의 안테나 장치",
-      "coveredCompanies": [
-        "현대차",
-        "기아"
-      ],
-      "topic": "미분류·이종산업 탐색",
-      "technicalTerms": [],
-      "sameIssuerDartRowsObserved": 18,
-      "sameIssuerBackgroundSources": [
-        {
-          "company": "현대차",
-          "sourceType": "dart_business_table",
-          "reference": "orderBacklog",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003521",
-          "published": "20260814",
-          "linkState": "same_company_only_no_patent_relation"
-        },
-        {
-          "company": "기아",
-          "sourceType": "dart_business_table",
-          "reference": "investment",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
-          "published": "20260916",
-          "linkState": "same_company_only_no_patent_relation"
-        },
-        {
-          "company": "기아",
-          "sourceType": "dart_business_table",
-          "reference": "orderBacklog",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
-          "published": "20260916",
-          "linkState": "same_company_only_no_patent_relation"
-        }
-      ],
-      "independentDartTechnicalOverlap": [],
-      "humanPublicCheckStatuses": {
-        "prior_coverage": "not_reviewed",
-        "company_response": "not_reviewed",
-        "actual_application": "not_reviewed",
-        "industry_impact": "not_reviewed",
-        "reporting_angle": "not_reviewed"
-      },
-      "missingVerification": [
-        "prior_coverage",
-        "company_response",
-        "actual_application",
-        "industry_impact",
-        "reporting_angle"
-      ],
-      "stage": "research_only_press_not_checked",
-      "publicCompanyResponseMarkedByReporter": false,
-      "independentlyValidatedCompanyResponse": false,
-      "specificProjectLinkVerified": false,
-      "impactCausalityVerified": false,
-      "approvedForPublication": false,
-      "confirmedExclusive": false,
-      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
-    },
-    {
-      "publicationNumber": "1020260149631",
-      "title": "색차블록을 복원하는 방법 및 영상 복호화 장치",
-      "coveredCompanies": [
-        "현대차",
-        "기아"
-      ],
-      "topic": "미분류·이종산업 탐색",
-      "technicalTerms": [],
-      "sameIssuerDartRowsObserved": 18,
-      "sameIssuerBackgroundSources": [
-        {
-          "company": "현대차",
-          "sourceType": "dart_business_table",
-          "reference": "orderBacklog",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003521",
-          "published": "20260814",
-          "linkState": "same_company_only_no_patent_relation"
-        },
-        {
-          "company": "기아",
-          "sourceType": "dart_business_table",
-          "reference": "investment",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
-          "published": "20260916",
-          "linkState": "same_company_only_no_patent_relation"
-        },
-        {
-          "company": "기아",
-          "sourceType": "dart_business_table",
-          "reference": "orderBacklog",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
-          "published": "20260916",
-          "linkState": "same_company_only_no_patent_relation"
-        }
-      ],
-      "independentDartTechnicalOverlap": [],
-      "humanPublicCheckStatuses": {
-        "prior_coverage": "not_reviewed",
-        "company_response": "not_reviewed",
-        "actual_application": "not_reviewed",
-        "industry_impact": "not_reviewed",
-        "reporting_angle": "not_reviewed"
-      },
-      "missingVerification": [
-        "prior_coverage",
-        "company_response",
-        "actual_application",
-        "industry_impact",
-        "reporting_angle"
-      ],
-      "stage": "research_only_press_not_checked",
-      "publicCompanyResponseMarkedByReporter": false,
-      "independentlyValidatedCompanyResponse": false,
-      "specificProjectLinkVerified": false,
-      "impactCausalityVerified": false,
-      "approvedForPublication": false,
-      "confirmedExclusive": false,
-      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
-    },
-    {
-      "publicationNumber": "1020260157973",
-      "title": "AI/ML 포지셔닝을 위한 방법 및 이를 위한 장치",
-      "coveredCompanies": [
-        "현대모비스"
-      ],
-      "topic": "미분류·이종산업 탐색",
-      "technicalTerms": [],
-      "sameIssuerDartRowsObserved": 4,
-      "sameIssuerBackgroundSources": [
-        {
-          "company": "현대모비스",
-          "sourceType": "dart_business_table",
-          "reference": "segmentSales",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814004065",
-          "published": "20260814",
-          "linkState": "same_company_only_no_patent_relation"
-        }
-      ],
-      "independentDartTechnicalOverlap": [],
-      "humanPublicCheckStatuses": {
-        "prior_coverage": "not_reviewed",
-        "company_response": "not_reviewed",
-        "actual_application": "not_reviewed",
-        "industry_impact": "not_reviewed",
-        "reporting_angle": "not_reviewed"
-      },
-      "missingVerification": [
-        "prior_coverage",
-        "company_response",
-        "actual_application",
-        "industry_impact",
-        "reporting_angle"
-      ],
-      "stage": "research_only_press_not_checked",
-      "publicCompanyResponseMarkedByReporter": false,
-      "independentlyValidatedCompanyResponse": false,
-      "specificProjectLinkVerified": false,
-      "impactCausalityVerified": false,
-      "approvedForPublication": false,
-      "confirmedExclusive": false,
-      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
-    },
-    {
-      "publicationNumber": "1020260157636",
-      "title": "적재함 커버 및 이를 포함하는 차량",
-      "coveredCompanies": [
-        "현대차",
-        "기아"
-      ],
-      "topic": "미분류·이종산업 탐색",
-      "technicalTerms": [],
-      "sameIssuerDartRowsObserved": 18,
-      "sameIssuerBackgroundSources": [
-        {
-          "company": "현대차",
-          "sourceType": "dart_business_table",
-          "reference": "orderBacklog",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003521",
-          "published": "20260814",
-          "linkState": "same_company_only_no_patent_relation"
-        },
-        {
-          "company": "기아",
-          "sourceType": "dart_business_table",
-          "reference": "investment",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
-          "published": "20260916",
-          "linkState": "same_company_only_no_patent_relation"
-        },
-        {
-          "company": "기아",
-          "sourceType": "dart_business_table",
-          "reference": "orderBacklog",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
-          "published": "20260916",
-          "linkState": "same_company_only_no_patent_relation"
-        }
-      ],
-      "independentDartTechnicalOverlap": [],
-      "humanPublicCheckStatuses": {
-        "prior_coverage": "not_reviewed",
-        "company_response": "not_reviewed",
-        "actual_application": "not_reviewed",
-        "industry_impact": "not_reviewed",
-        "reporting_angle": "not_reviewed"
-      },
-      "missingVerification": [
-        "prior_coverage",
-        "company_response",
-        "actual_application",
-        "industry_impact",
-        "reporting_angle"
-      ],
-      "stage": "research_only_press_not_checked",
-      "publicCompanyResponseMarkedByReporter": false,
-      "independentlyValidatedCompanyResponse": false,
-      "specificProjectLinkVerified": false,
-      "impactCausalityVerified": false,
-      "approvedForPublication": false,
-      "confirmedExclusive": false,
-      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
-    },
-    {
-      "publicationNumber": "1020260157972",
-      "title": "안테나 타입을 고려한 ISAC",
-      "coveredCompanies": [
-        "현대모비스"
-      ],
-      "topic": "미분류·이종산업 탐색",
-      "technicalTerms": [],
-      "sameIssuerDartRowsObserved": 4,
-      "sameIssuerBackgroundSources": [
-        {
-          "company": "현대모비스",
-          "sourceType": "dart_business_table",
-          "reference": "segmentSales",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814004065",
-          "published": "20260814",
-          "linkState": "same_company_only_no_patent_relation"
-        }
-      ],
-      "independentDartTechnicalOverlap": [],
-      "humanPublicCheckStatuses": {
-        "prior_coverage": "not_reviewed",
-        "company_response": "not_reviewed",
-        "actual_application": "not_reviewed",
-        "industry_impact": "not_reviewed",
-        "reporting_angle": "not_reviewed"
-      },
-      "missingVerification": [
-        "prior_coverage",
-        "company_response",
-        "actual_application",
-        "industry_impact",
-        "reporting_angle"
-      ],
-      "stage": "research_only_press_not_checked",
-      "publicCompanyResponseMarkedByReporter": false,
-      "independentlyValidatedCompanyResponse": false,
-      "specificProjectLinkVerified": false,
-      "impactCausalityVerified": false,
-      "approvedForPublication": false,
-      "confirmedExclusive": false,
-      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
-    },
-    {
       "publicationNumber": "1020260157849",
       "title": "라이다 데이터의 보정방법, 차량, 및 라이다 데이터의 보정방법을 수행하는 명령어를 포함하는 컴퓨터 판독 가능한 기록매체",
       "coveredCompanies": [
@@ -6482,6 +5700,126 @@
     {
       "publicationNumber": "1020260157861",
       "title": "희토류 자석 분말 제조방법 및 이에 의해 제조되는 희토류 자석 분말",
+      "coveredCompanies": [
+        "현대차",
+        "기아"
+      ],
+      "topic": "제조공정·자동화",
+      "technicalTerms": [],
+      "sameIssuerDartRowsObserved": 18,
+      "sameIssuerBackgroundSources": [
+        {
+          "company": "현대차",
+          "sourceType": "dart_business_table",
+          "reference": "orderBacklog",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003521",
+          "published": "20260814",
+          "linkState": "same_company_only_no_patent_relation"
+        },
+        {
+          "company": "기아",
+          "sourceType": "dart_business_table",
+          "reference": "investment",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
+          "published": "20260916",
+          "linkState": "same_company_only_no_patent_relation"
+        },
+        {
+          "company": "기아",
+          "sourceType": "dart_business_table",
+          "reference": "orderBacklog",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
+          "published": "20260916",
+          "linkState": "same_company_only_no_patent_relation"
+        }
+      ],
+      "independentDartTechnicalOverlap": [],
+      "humanPublicCheckStatuses": {
+        "prior_coverage": "not_reviewed",
+        "company_response": "not_reviewed",
+        "actual_application": "not_reviewed",
+        "industry_impact": "not_reviewed",
+        "reporting_angle": "not_reviewed"
+      },
+      "missingVerification": [
+        "prior_coverage",
+        "company_response",
+        "actual_application",
+        "industry_impact",
+        "reporting_angle"
+      ],
+      "stage": "research_only_press_not_checked",
+      "publicCompanyResponseMarkedByReporter": false,
+      "independentlyValidatedCompanyResponse": false,
+      "specificProjectLinkVerified": false,
+      "impactCausalityVerified": false,
+      "approvedForPublication": false,
+      "confirmedExclusive": false,
+      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
+    },
+    {
+      "publicationNumber": "1020260151516",
+      "title": "음영지역 감지 및 관리를 위한 통신 커버리지 관리 장치 및 방법",
+      "coveredCompanies": [
+        "현대차",
+        "기아"
+      ],
+      "topic": "제조공정·자동화",
+      "technicalTerms": [],
+      "sameIssuerDartRowsObserved": 18,
+      "sameIssuerBackgroundSources": [
+        {
+          "company": "현대차",
+          "sourceType": "dart_business_table",
+          "reference": "orderBacklog",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003521",
+          "published": "20260814",
+          "linkState": "same_company_only_no_patent_relation"
+        },
+        {
+          "company": "기아",
+          "sourceType": "dart_business_table",
+          "reference": "investment",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
+          "published": "20260916",
+          "linkState": "same_company_only_no_patent_relation"
+        },
+        {
+          "company": "기아",
+          "sourceType": "dart_business_table",
+          "reference": "orderBacklog",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
+          "published": "20260916",
+          "linkState": "same_company_only_no_patent_relation"
+        }
+      ],
+      "independentDartTechnicalOverlap": [],
+      "humanPublicCheckStatuses": {
+        "prior_coverage": "not_reviewed",
+        "company_response": "not_reviewed",
+        "actual_application": "not_reviewed",
+        "industry_impact": "not_reviewed",
+        "reporting_angle": "not_reviewed"
+      },
+      "missingVerification": [
+        "prior_coverage",
+        "company_response",
+        "actual_application",
+        "industry_impact",
+        "reporting_angle"
+      ],
+      "stage": "research_only_press_not_checked",
+      "publicCompanyResponseMarkedByReporter": false,
+      "independentlyValidatedCompanyResponse": false,
+      "specificProjectLinkVerified": false,
+      "impactCausalityVerified": false,
+      "approvedForPublication": false,
+      "confirmedExclusive": false,
+      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
+    },
+    {
+      "publicationNumber": "1020260148543",
+      "title": "하이브리드 분말 코팅 장치",
       "coveredCompanies": [
         "현대차",
         "기아"
@@ -6860,6 +6198,366 @@
       "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
     },
     {
+      "publicationNumber": "1020260152309",
+      "title": "차량의 시트",
+      "coveredCompanies": [
+        "현대차",
+        "기아"
+      ],
+      "topic": "미분류·이종산업 탐색",
+      "technicalTerms": [],
+      "sameIssuerDartRowsObserved": 18,
+      "sameIssuerBackgroundSources": [
+        {
+          "company": "현대차",
+          "sourceType": "dart_business_table",
+          "reference": "orderBacklog",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003521",
+          "published": "20260814",
+          "linkState": "same_company_only_no_patent_relation"
+        },
+        {
+          "company": "기아",
+          "sourceType": "dart_business_table",
+          "reference": "investment",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
+          "published": "20260916",
+          "linkState": "same_company_only_no_patent_relation"
+        },
+        {
+          "company": "기아",
+          "sourceType": "dart_business_table",
+          "reference": "orderBacklog",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
+          "published": "20260916",
+          "linkState": "same_company_only_no_patent_relation"
+        }
+      ],
+      "independentDartTechnicalOverlap": [],
+      "humanPublicCheckStatuses": {
+        "prior_coverage": "not_reviewed",
+        "company_response": "not_reviewed",
+        "actual_application": "not_reviewed",
+        "industry_impact": "not_reviewed",
+        "reporting_angle": "not_reviewed"
+      },
+      "missingVerification": [
+        "prior_coverage",
+        "company_response",
+        "actual_application",
+        "industry_impact",
+        "reporting_angle"
+      ],
+      "stage": "research_only_press_not_checked",
+      "publicCompanyResponseMarkedByReporter": false,
+      "independentlyValidatedCompanyResponse": false,
+      "specificProjectLinkVerified": false,
+      "impactCausalityVerified": false,
+      "approvedForPublication": false,
+      "confirmedExclusive": false,
+      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
+    },
+    {
+      "publicationNumber": "1020260152471",
+      "title": "동영상 데이터의 인트라 예측 코딩을 위한 방법 및 장치",
+      "coveredCompanies": [
+        "현대차",
+        "기아"
+      ],
+      "topic": "미분류·이종산업 탐색",
+      "technicalTerms": [],
+      "sameIssuerDartRowsObserved": 18,
+      "sameIssuerBackgroundSources": [
+        {
+          "company": "현대차",
+          "sourceType": "dart_business_table",
+          "reference": "orderBacklog",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003521",
+          "published": "20260814",
+          "linkState": "same_company_only_no_patent_relation"
+        },
+        {
+          "company": "기아",
+          "sourceType": "dart_business_table",
+          "reference": "investment",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
+          "published": "20260916",
+          "linkState": "same_company_only_no_patent_relation"
+        },
+        {
+          "company": "기아",
+          "sourceType": "dart_business_table",
+          "reference": "orderBacklog",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
+          "published": "20260916",
+          "linkState": "same_company_only_no_patent_relation"
+        }
+      ],
+      "independentDartTechnicalOverlap": [],
+      "humanPublicCheckStatuses": {
+        "prior_coverage": "not_reviewed",
+        "company_response": "not_reviewed",
+        "actual_application": "not_reviewed",
+        "industry_impact": "not_reviewed",
+        "reporting_angle": "not_reviewed"
+      },
+      "missingVerification": [
+        "prior_coverage",
+        "company_response",
+        "actual_application",
+        "industry_impact",
+        "reporting_angle"
+      ],
+      "stage": "research_only_press_not_checked",
+      "publicCompanyResponseMarkedByReporter": false,
+      "independentlyValidatedCompanyResponse": false,
+      "specificProjectLinkVerified": false,
+      "impactCausalityVerified": false,
+      "approvedForPublication": false,
+      "confirmedExclusive": false,
+      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
+    },
+    {
+      "publicationNumber": "1020260150337",
+      "title": "게이트웨이 장치, 게이트웨이 제어 방법, 및 차량 시스템",
+      "coveredCompanies": [
+        "현대차",
+        "기아"
+      ],
+      "topic": "미분류·이종산업 탐색",
+      "technicalTerms": [],
+      "sameIssuerDartRowsObserved": 18,
+      "sameIssuerBackgroundSources": [
+        {
+          "company": "현대차",
+          "sourceType": "dart_business_table",
+          "reference": "orderBacklog",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003521",
+          "published": "20260814",
+          "linkState": "same_company_only_no_patent_relation"
+        },
+        {
+          "company": "기아",
+          "sourceType": "dart_business_table",
+          "reference": "investment",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
+          "published": "20260916",
+          "linkState": "same_company_only_no_patent_relation"
+        },
+        {
+          "company": "기아",
+          "sourceType": "dart_business_table",
+          "reference": "orderBacklog",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
+          "published": "20260916",
+          "linkState": "same_company_only_no_patent_relation"
+        }
+      ],
+      "independentDartTechnicalOverlap": [],
+      "humanPublicCheckStatuses": {
+        "prior_coverage": "not_reviewed",
+        "company_response": "not_reviewed",
+        "actual_application": "not_reviewed",
+        "industry_impact": "not_reviewed",
+        "reporting_angle": "not_reviewed"
+      },
+      "missingVerification": [
+        "prior_coverage",
+        "company_response",
+        "actual_application",
+        "industry_impact",
+        "reporting_angle"
+      ],
+      "stage": "research_only_press_not_checked",
+      "publicCompanyResponseMarkedByReporter": false,
+      "independentlyValidatedCompanyResponse": false,
+      "specificProjectLinkVerified": false,
+      "impactCausalityVerified": false,
+      "approvedForPublication": false,
+      "confirmedExclusive": false,
+      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
+    },
+    {
+      "publicationNumber": "1020260150481",
+      "title": "차량의 시트 진동 상쇄 장치 및 방법",
+      "coveredCompanies": [
+        "현대차",
+        "기아"
+      ],
+      "topic": "미분류·이종산업 탐색",
+      "technicalTerms": [],
+      "sameIssuerDartRowsObserved": 18,
+      "sameIssuerBackgroundSources": [
+        {
+          "company": "현대차",
+          "sourceType": "dart_business_table",
+          "reference": "orderBacklog",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003521",
+          "published": "20260814",
+          "linkState": "same_company_only_no_patent_relation"
+        },
+        {
+          "company": "기아",
+          "sourceType": "dart_business_table",
+          "reference": "investment",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
+          "published": "20260916",
+          "linkState": "same_company_only_no_patent_relation"
+        },
+        {
+          "company": "기아",
+          "sourceType": "dart_business_table",
+          "reference": "orderBacklog",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
+          "published": "20260916",
+          "linkState": "same_company_only_no_patent_relation"
+        }
+      ],
+      "independentDartTechnicalOverlap": [],
+      "humanPublicCheckStatuses": {
+        "prior_coverage": "not_reviewed",
+        "company_response": "not_reviewed",
+        "actual_application": "not_reviewed",
+        "industry_impact": "not_reviewed",
+        "reporting_angle": "not_reviewed"
+      },
+      "missingVerification": [
+        "prior_coverage",
+        "company_response",
+        "actual_application",
+        "industry_impact",
+        "reporting_angle"
+      ],
+      "stage": "research_only_press_not_checked",
+      "publicCompanyResponseMarkedByReporter": false,
+      "independentlyValidatedCompanyResponse": false,
+      "specificProjectLinkVerified": false,
+      "impactCausalityVerified": false,
+      "approvedForPublication": false,
+      "confirmedExclusive": false,
+      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
+    },
+    {
+      "publicationNumber": "1020260149165",
+      "title": "차량의 안테나 장치",
+      "coveredCompanies": [
+        "현대차",
+        "기아"
+      ],
+      "topic": "미분류·이종산업 탐색",
+      "technicalTerms": [],
+      "sameIssuerDartRowsObserved": 18,
+      "sameIssuerBackgroundSources": [
+        {
+          "company": "현대차",
+          "sourceType": "dart_business_table",
+          "reference": "orderBacklog",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003521",
+          "published": "20260814",
+          "linkState": "same_company_only_no_patent_relation"
+        },
+        {
+          "company": "기아",
+          "sourceType": "dart_business_table",
+          "reference": "investment",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
+          "published": "20260916",
+          "linkState": "same_company_only_no_patent_relation"
+        },
+        {
+          "company": "기아",
+          "sourceType": "dart_business_table",
+          "reference": "orderBacklog",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
+          "published": "20260916",
+          "linkState": "same_company_only_no_patent_relation"
+        }
+      ],
+      "independentDartTechnicalOverlap": [],
+      "humanPublicCheckStatuses": {
+        "prior_coverage": "not_reviewed",
+        "company_response": "not_reviewed",
+        "actual_application": "not_reviewed",
+        "industry_impact": "not_reviewed",
+        "reporting_angle": "not_reviewed"
+      },
+      "missingVerification": [
+        "prior_coverage",
+        "company_response",
+        "actual_application",
+        "industry_impact",
+        "reporting_angle"
+      ],
+      "stage": "research_only_press_not_checked",
+      "publicCompanyResponseMarkedByReporter": false,
+      "independentlyValidatedCompanyResponse": false,
+      "specificProjectLinkVerified": false,
+      "impactCausalityVerified": false,
+      "approvedForPublication": false,
+      "confirmedExclusive": false,
+      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
+    },
+    {
+      "publicationNumber": "1020260149631",
+      "title": "색차블록을 복원하는 방법 및 영상 복호화 장치",
+      "coveredCompanies": [
+        "현대차",
+        "기아"
+      ],
+      "topic": "미분류·이종산업 탐색",
+      "technicalTerms": [],
+      "sameIssuerDartRowsObserved": 18,
+      "sameIssuerBackgroundSources": [
+        {
+          "company": "현대차",
+          "sourceType": "dart_business_table",
+          "reference": "orderBacklog",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003521",
+          "published": "20260814",
+          "linkState": "same_company_only_no_patent_relation"
+        },
+        {
+          "company": "기아",
+          "sourceType": "dart_business_table",
+          "reference": "investment",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
+          "published": "20260916",
+          "linkState": "same_company_only_no_patent_relation"
+        },
+        {
+          "company": "기아",
+          "sourceType": "dart_business_table",
+          "reference": "orderBacklog",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
+          "published": "20260916",
+          "linkState": "same_company_only_no_patent_relation"
+        }
+      ],
+      "independentDartTechnicalOverlap": [],
+      "humanPublicCheckStatuses": {
+        "prior_coverage": "not_reviewed",
+        "company_response": "not_reviewed",
+        "actual_application": "not_reviewed",
+        "industry_impact": "not_reviewed",
+        "reporting_angle": "not_reviewed"
+      },
+      "missingVerification": [
+        "prior_coverage",
+        "company_response",
+        "actual_application",
+        "industry_impact",
+        "reporting_angle"
+      ],
+      "stage": "research_only_press_not_checked",
+      "publicCompanyResponseMarkedByReporter": false,
+      "independentlyValidatedCompanyResponse": false,
+      "specificProjectLinkVerified": false,
+      "impactCausalityVerified": false,
+      "approvedForPublication": false,
+      "confirmedExclusive": false,
+      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
+    },
+    {
       "publicationNumber": "1020260157795",
       "title": "금속 기어 및 금속 기어 제조 방법",
       "coveredCompanies": [
@@ -6878,6 +6576,38 @@
           "linkState": "same_company_only_no_patent_relation"
         }
       ],
+      "independentDartTechnicalOverlap": [],
+      "humanPublicCheckStatuses": {
+        "prior_coverage": "not_reviewed",
+        "company_response": "not_reviewed",
+        "actual_application": "not_reviewed",
+        "industry_impact": "not_reviewed",
+        "reporting_angle": "not_reviewed"
+      },
+      "missingVerification": [
+        "prior_coverage",
+        "company_response",
+        "actual_application",
+        "industry_impact",
+        "reporting_angle"
+      ],
+      "stage": "research_only_press_not_checked",
+      "publicCompanyResponseMarkedByReporter": false,
+      "independentlyValidatedCompanyResponse": false,
+      "specificProjectLinkVerified": false,
+      "impactCausalityVerified": false,
+      "approvedForPublication": false,
+      "confirmedExclusive": false,
+      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
+    },
+    {
+      "publicationNumber": "1020260157893",
+      "title": "블레이드 및 이를 포함하는 타이어 몰드",
+      "coveredCompanies": [],
+      "topic": "제조공정·자동화",
+      "technicalTerms": [],
+      "sameIssuerDartRowsObserved": 0,
+      "sameIssuerBackgroundSources": [],
       "independentDartTechnicalOverlap": [],
       "humanPublicCheckStatuses": {
         "prior_coverage": "not_reviewed",
@@ -7302,38 +7032,6 @@
       "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
     },
     {
-      "publicationNumber": "1020260157893",
-      "title": "블레이드 및 이를 포함하는 타이어 몰드",
-      "coveredCompanies": [],
-      "topic": "제조공정·자동화",
-      "technicalTerms": [],
-      "sameIssuerDartRowsObserved": 0,
-      "sameIssuerBackgroundSources": [],
-      "independentDartTechnicalOverlap": [],
-      "humanPublicCheckStatuses": {
-        "prior_coverage": "not_reviewed",
-        "company_response": "not_reviewed",
-        "actual_application": "not_reviewed",
-        "industry_impact": "not_reviewed",
-        "reporting_angle": "not_reviewed"
-      },
-      "missingVerification": [
-        "prior_coverage",
-        "company_response",
-        "actual_application",
-        "industry_impact",
-        "reporting_angle"
-      ],
-      "stage": "research_only_press_not_checked",
-      "publicCompanyResponseMarkedByReporter": false,
-      "independentlyValidatedCompanyResponse": false,
-      "specificProjectLinkVerified": false,
-      "impactCausalityVerified": false,
-      "approvedForPublication": false,
-      "confirmedExclusive": false,
-      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
-    },
-    {
       "publicationNumber": "1020260157930",
       "title": "파워 모듈 유닛",
       "coveredCompanies": [
@@ -7370,66 +7068,6 @@
         "reporting_angle"
       ],
       "stage": "research_only_press_not_checked",
-      "publicCompanyResponseMarkedByReporter": false,
-      "independentlyValidatedCompanyResponse": false,
-      "specificProjectLinkVerified": false,
-      "impactCausalityVerified": false,
-      "approvedForPublication": false,
-      "confirmedExclusive": false,
-      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
-    },
-    {
-      "publicationNumber": "1020260147319",
-      "title": "자동차용 플라스틱 부품을 재생하는 방법, 폴리에스테르 수지를 제조하는 방법, 자동차용 부품을 제조하는 방법 및 자동차를 제조하는 방법",
-      "coveredCompanies": [
-        "현대차",
-        "기아"
-      ],
-      "topic": "순환소재·폐차재활용",
-      "technicalTerms": [],
-      "sameIssuerDartRowsObserved": 18,
-      "sameIssuerBackgroundSources": [
-        {
-          "company": "현대차",
-          "sourceType": "dart_business_table",
-          "reference": "orderBacklog",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003521",
-          "published": "20260814",
-          "linkState": "same_company_only_no_patent_relation"
-        },
-        {
-          "company": "기아",
-          "sourceType": "dart_business_table",
-          "reference": "investment",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
-          "published": "20260916",
-          "linkState": "same_company_only_no_patent_relation"
-        },
-        {
-          "company": "기아",
-          "sourceType": "dart_business_table",
-          "reference": "orderBacklog",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
-          "published": "20260916",
-          "linkState": "same_company_only_no_patent_relation"
-        }
-      ],
-      "independentDartTechnicalOverlap": [],
-      "humanPublicCheckStatuses": {
-        "prior_coverage": "not_reviewed",
-        "company_response": "not_reviewed",
-        "actual_application": "not_reviewed",
-        "industry_impact": "not_reviewed",
-        "reporting_angle": "not_reviewed"
-      },
-      "missingVerification": [
-        "prior_coverage",
-        "company_response",
-        "actual_application",
-        "industry_impact",
-        "reporting_angle"
-      ],
-      "stage": "hold_prior_coverage_or_known_case",
       "publicCompanyResponseMarkedByReporter": false,
       "independentlyValidatedCompanyResponse": false,
       "specificProjectLinkVerified": false,
@@ -7677,6 +7315,1061 @@
     {
       "publicationNumber": "1020260157956",
       "title": "스테빌라이저바 어셈블리",
+      "coveredCompanies": [
+        "현대모비스"
+      ],
+      "topic": "미분류·이종산업 탐색",
+      "technicalTerms": [],
+      "sameIssuerDartRowsObserved": 4,
+      "sameIssuerBackgroundSources": [
+        {
+          "company": "현대모비스",
+          "sourceType": "dart_business_table",
+          "reference": "segmentSales",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814004065",
+          "published": "20260814",
+          "linkState": "same_company_only_no_patent_relation"
+        }
+      ],
+      "independentDartTechnicalOverlap": [],
+      "humanPublicCheckStatuses": {
+        "prior_coverage": "not_reviewed",
+        "company_response": "not_reviewed",
+        "actual_application": "not_reviewed",
+        "industry_impact": "not_reviewed",
+        "reporting_angle": "not_reviewed"
+      },
+      "missingVerification": [
+        "prior_coverage",
+        "company_response",
+        "actual_application",
+        "industry_impact",
+        "reporting_angle"
+      ],
+      "stage": "research_only_press_not_checked",
+      "publicCompanyResponseMarkedByReporter": false,
+      "independentlyValidatedCompanyResponse": false,
+      "specificProjectLinkVerified": false,
+      "impactCausalityVerified": false,
+      "approvedForPublication": false,
+      "confirmedExclusive": false,
+      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
+    },
+    {
+      "publicationNumber": "1020260158317",
+      "title": "차선 변경 알림 장치 및 방법",
+      "coveredCompanies": [
+        "현대차",
+        "기아"
+      ],
+      "topic": "자율주행·차량제어",
+      "technicalTerms": [],
+      "sameIssuerDartRowsObserved": 18,
+      "sameIssuerBackgroundSources": [
+        {
+          "company": "현대차",
+          "sourceType": "dart_business_table",
+          "reference": "orderBacklog",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003521",
+          "published": "20260814",
+          "linkState": "same_company_only_no_patent_relation"
+        },
+        {
+          "company": "기아",
+          "sourceType": "dart_business_table",
+          "reference": "investment",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
+          "published": "20260916",
+          "linkState": "same_company_only_no_patent_relation"
+        },
+        {
+          "company": "기아",
+          "sourceType": "dart_business_table",
+          "reference": "orderBacklog",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
+          "published": "20260916",
+          "linkState": "same_company_only_no_patent_relation"
+        }
+      ],
+      "independentDartTechnicalOverlap": [],
+      "humanPublicCheckStatuses": {
+        "prior_coverage": "not_reviewed",
+        "company_response": "not_reviewed",
+        "actual_application": "not_reviewed",
+        "industry_impact": "not_reviewed",
+        "reporting_angle": "not_reviewed"
+      },
+      "missingVerification": [
+        "prior_coverage",
+        "company_response",
+        "actual_application",
+        "industry_impact",
+        "reporting_angle"
+      ],
+      "stage": "research_only_press_not_checked",
+      "publicCompanyResponseMarkedByReporter": false,
+      "independentlyValidatedCompanyResponse": false,
+      "specificProjectLinkVerified": false,
+      "impactCausalityVerified": false,
+      "approvedForPublication": false,
+      "confirmedExclusive": false,
+      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
+    },
+    {
+      "publicationNumber": "1020260158396",
+      "title": "화물 측정 방법 및 장치",
+      "coveredCompanies": [
+        "현대차",
+        "기아"
+      ],
+      "topic": "자율주행·차량제어",
+      "technicalTerms": [],
+      "sameIssuerDartRowsObserved": 18,
+      "sameIssuerBackgroundSources": [
+        {
+          "company": "현대차",
+          "sourceType": "dart_business_table",
+          "reference": "orderBacklog",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003521",
+          "published": "20260814",
+          "linkState": "same_company_only_no_patent_relation"
+        },
+        {
+          "company": "기아",
+          "sourceType": "dart_business_table",
+          "reference": "investment",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
+          "published": "20260916",
+          "linkState": "same_company_only_no_patent_relation"
+        },
+        {
+          "company": "기아",
+          "sourceType": "dart_business_table",
+          "reference": "orderBacklog",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
+          "published": "20260916",
+          "linkState": "same_company_only_no_patent_relation"
+        }
+      ],
+      "independentDartTechnicalOverlap": [],
+      "humanPublicCheckStatuses": {
+        "prior_coverage": "not_reviewed",
+        "company_response": "not_reviewed",
+        "actual_application": "not_reviewed",
+        "industry_impact": "not_reviewed",
+        "reporting_angle": "not_reviewed"
+      },
+      "missingVerification": [
+        "prior_coverage",
+        "company_response",
+        "actual_application",
+        "industry_impact",
+        "reporting_angle"
+      ],
+      "stage": "research_only_press_not_checked",
+      "publicCompanyResponseMarkedByReporter": false,
+      "independentlyValidatedCompanyResponse": false,
+      "specificProjectLinkVerified": false,
+      "impactCausalityVerified": false,
+      "approvedForPublication": false,
+      "confirmedExclusive": false,
+      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
+    },
+    {
+      "publicationNumber": "1020260158397",
+      "title": "화물 측정 방법 및 장치",
+      "coveredCompanies": [
+        "현대차",
+        "기아"
+      ],
+      "topic": "자율주행·차량제어",
+      "technicalTerms": [],
+      "sameIssuerDartRowsObserved": 18,
+      "sameIssuerBackgroundSources": [
+        {
+          "company": "현대차",
+          "sourceType": "dart_business_table",
+          "reference": "orderBacklog",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003521",
+          "published": "20260814",
+          "linkState": "same_company_only_no_patent_relation"
+        },
+        {
+          "company": "기아",
+          "sourceType": "dart_business_table",
+          "reference": "investment",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
+          "published": "20260916",
+          "linkState": "same_company_only_no_patent_relation"
+        },
+        {
+          "company": "기아",
+          "sourceType": "dart_business_table",
+          "reference": "orderBacklog",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
+          "published": "20260916",
+          "linkState": "same_company_only_no_patent_relation"
+        }
+      ],
+      "independentDartTechnicalOverlap": [],
+      "humanPublicCheckStatuses": {
+        "prior_coverage": "not_reviewed",
+        "company_response": "not_reviewed",
+        "actual_application": "not_reviewed",
+        "industry_impact": "not_reviewed",
+        "reporting_angle": "not_reviewed"
+      },
+      "missingVerification": [
+        "prior_coverage",
+        "company_response",
+        "actual_application",
+        "industry_impact",
+        "reporting_angle"
+      ],
+      "stage": "research_only_press_not_checked",
+      "publicCompanyResponseMarkedByReporter": false,
+      "independentlyValidatedCompanyResponse": false,
+      "specificProjectLinkVerified": false,
+      "impactCausalityVerified": false,
+      "approvedForPublication": false,
+      "confirmedExclusive": false,
+      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
+    },
+    {
+      "publicationNumber": "1020260158398",
+      "title": "화물 측정 방법 및 장치",
+      "coveredCompanies": [
+        "현대차",
+        "기아"
+      ],
+      "topic": "자율주행·차량제어",
+      "technicalTerms": [],
+      "sameIssuerDartRowsObserved": 18,
+      "sameIssuerBackgroundSources": [
+        {
+          "company": "현대차",
+          "sourceType": "dart_business_table",
+          "reference": "orderBacklog",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003521",
+          "published": "20260814",
+          "linkState": "same_company_only_no_patent_relation"
+        },
+        {
+          "company": "기아",
+          "sourceType": "dart_business_table",
+          "reference": "investment",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
+          "published": "20260916",
+          "linkState": "same_company_only_no_patent_relation"
+        },
+        {
+          "company": "기아",
+          "sourceType": "dart_business_table",
+          "reference": "orderBacklog",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
+          "published": "20260916",
+          "linkState": "same_company_only_no_patent_relation"
+        }
+      ],
+      "independentDartTechnicalOverlap": [],
+      "humanPublicCheckStatuses": {
+        "prior_coverage": "not_reviewed",
+        "company_response": "not_reviewed",
+        "actual_application": "not_reviewed",
+        "industry_impact": "not_reviewed",
+        "reporting_angle": "not_reviewed"
+      },
+      "missingVerification": [
+        "prior_coverage",
+        "company_response",
+        "actual_application",
+        "industry_impact",
+        "reporting_angle"
+      ],
+      "stage": "research_only_press_not_checked",
+      "publicCompanyResponseMarkedByReporter": false,
+      "independentlyValidatedCompanyResponse": false,
+      "specificProjectLinkVerified": false,
+      "impactCausalityVerified": false,
+      "approvedForPublication": false,
+      "confirmedExclusive": false,
+      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
+    },
+    {
+      "publicationNumber": "1020260158399",
+      "title": "화물 측정 방법 및 장치",
+      "coveredCompanies": [
+        "현대차",
+        "기아"
+      ],
+      "topic": "자율주행·차량제어",
+      "technicalTerms": [],
+      "sameIssuerDartRowsObserved": 18,
+      "sameIssuerBackgroundSources": [
+        {
+          "company": "현대차",
+          "sourceType": "dart_business_table",
+          "reference": "orderBacklog",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003521",
+          "published": "20260814",
+          "linkState": "same_company_only_no_patent_relation"
+        },
+        {
+          "company": "기아",
+          "sourceType": "dart_business_table",
+          "reference": "investment",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
+          "published": "20260916",
+          "linkState": "same_company_only_no_patent_relation"
+        },
+        {
+          "company": "기아",
+          "sourceType": "dart_business_table",
+          "reference": "orderBacklog",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
+          "published": "20260916",
+          "linkState": "same_company_only_no_patent_relation"
+        }
+      ],
+      "independentDartTechnicalOverlap": [],
+      "humanPublicCheckStatuses": {
+        "prior_coverage": "not_reviewed",
+        "company_response": "not_reviewed",
+        "actual_application": "not_reviewed",
+        "industry_impact": "not_reviewed",
+        "reporting_angle": "not_reviewed"
+      },
+      "missingVerification": [
+        "prior_coverage",
+        "company_response",
+        "actual_application",
+        "industry_impact",
+        "reporting_angle"
+      ],
+      "stage": "research_only_press_not_checked",
+      "publicCompanyResponseMarkedByReporter": false,
+      "independentlyValidatedCompanyResponse": false,
+      "specificProjectLinkVerified": false,
+      "impactCausalityVerified": false,
+      "approvedForPublication": false,
+      "confirmedExclusive": false,
+      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
+    },
+    {
+      "publicationNumber": "1020260158400",
+      "title": "화물 측정 방법 및 장치",
+      "coveredCompanies": [
+        "현대차",
+        "기아"
+      ],
+      "topic": "자율주행·차량제어",
+      "technicalTerms": [],
+      "sameIssuerDartRowsObserved": 18,
+      "sameIssuerBackgroundSources": [
+        {
+          "company": "현대차",
+          "sourceType": "dart_business_table",
+          "reference": "orderBacklog",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003521",
+          "published": "20260814",
+          "linkState": "same_company_only_no_patent_relation"
+        },
+        {
+          "company": "기아",
+          "sourceType": "dart_business_table",
+          "reference": "investment",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
+          "published": "20260916",
+          "linkState": "same_company_only_no_patent_relation"
+        },
+        {
+          "company": "기아",
+          "sourceType": "dart_business_table",
+          "reference": "orderBacklog",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
+          "published": "20260916",
+          "linkState": "same_company_only_no_patent_relation"
+        }
+      ],
+      "independentDartTechnicalOverlap": [],
+      "humanPublicCheckStatuses": {
+        "prior_coverage": "not_reviewed",
+        "company_response": "not_reviewed",
+        "actual_application": "not_reviewed",
+        "industry_impact": "not_reviewed",
+        "reporting_angle": "not_reviewed"
+      },
+      "missingVerification": [
+        "prior_coverage",
+        "company_response",
+        "actual_application",
+        "industry_impact",
+        "reporting_angle"
+      ],
+      "stage": "research_only_press_not_checked",
+      "publicCompanyResponseMarkedByReporter": false,
+      "independentlyValidatedCompanyResponse": false,
+      "specificProjectLinkVerified": false,
+      "impactCausalityVerified": false,
+      "approvedForPublication": false,
+      "confirmedExclusive": false,
+      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
+    },
+    {
+      "publicationNumber": "1020260158598",
+      "title": "자동 차량 홀드의 브레이크 오일 압력 제어 장치 및 그 방법",
+      "coveredCompanies": [
+        "현대차",
+        "기아"
+      ],
+      "topic": "제조공정·자동화",
+      "technicalTerms": [],
+      "sameIssuerDartRowsObserved": 18,
+      "sameIssuerBackgroundSources": [
+        {
+          "company": "현대차",
+          "sourceType": "dart_business_table",
+          "reference": "orderBacklog",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003521",
+          "published": "20260814",
+          "linkState": "same_company_only_no_patent_relation"
+        },
+        {
+          "company": "기아",
+          "sourceType": "dart_business_table",
+          "reference": "investment",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
+          "published": "20260916",
+          "linkState": "same_company_only_no_patent_relation"
+        },
+        {
+          "company": "기아",
+          "sourceType": "dart_business_table",
+          "reference": "orderBacklog",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
+          "published": "20260916",
+          "linkState": "same_company_only_no_patent_relation"
+        }
+      ],
+      "independentDartTechnicalOverlap": [],
+      "humanPublicCheckStatuses": {
+        "prior_coverage": "not_reviewed",
+        "company_response": "not_reviewed",
+        "actual_application": "not_reviewed",
+        "industry_impact": "not_reviewed",
+        "reporting_angle": "not_reviewed"
+      },
+      "missingVerification": [
+        "prior_coverage",
+        "company_response",
+        "actual_application",
+        "industry_impact",
+        "reporting_angle"
+      ],
+      "stage": "research_only_press_not_checked",
+      "publicCompanyResponseMarkedByReporter": false,
+      "independentlyValidatedCompanyResponse": false,
+      "specificProjectLinkVerified": false,
+      "impactCausalityVerified": false,
+      "approvedForPublication": false,
+      "confirmedExclusive": false,
+      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
+    },
+    {
+      "publicationNumber": "1020260158493",
+      "title": "차량용 램프",
+      "coveredCompanies": [
+        "현대모비스"
+      ],
+      "topic": "차체·교통약자 접근성",
+      "technicalTerms": [],
+      "sameIssuerDartRowsObserved": 4,
+      "sameIssuerBackgroundSources": [
+        {
+          "company": "현대모비스",
+          "sourceType": "dart_business_table",
+          "reference": "segmentSales",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814004065",
+          "published": "20260814",
+          "linkState": "same_company_only_no_patent_relation"
+        }
+      ],
+      "independentDartTechnicalOverlap": [],
+      "humanPublicCheckStatuses": {
+        "prior_coverage": "not_reviewed",
+        "company_response": "not_reviewed",
+        "actual_application": "not_reviewed",
+        "industry_impact": "not_reviewed",
+        "reporting_angle": "not_reviewed"
+      },
+      "missingVerification": [
+        "prior_coverage",
+        "company_response",
+        "actual_application",
+        "industry_impact",
+        "reporting_angle"
+      ],
+      "stage": "research_only_press_not_checked",
+      "publicCompanyResponseMarkedByReporter": false,
+      "independentlyValidatedCompanyResponse": false,
+      "specificProjectLinkVerified": false,
+      "impactCausalityVerified": false,
+      "approvedForPublication": false,
+      "confirmedExclusive": false,
+      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
+    },
+    {
+      "publicationNumber": "1020260158497",
+      "title": "차량용 램프",
+      "coveredCompanies": [
+        "현대모비스"
+      ],
+      "topic": "차체·교통약자 접근성",
+      "technicalTerms": [],
+      "sameIssuerDartRowsObserved": 4,
+      "sameIssuerBackgroundSources": [
+        {
+          "company": "현대모비스",
+          "sourceType": "dart_business_table",
+          "reference": "segmentSales",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814004065",
+          "published": "20260814",
+          "linkState": "same_company_only_no_patent_relation"
+        }
+      ],
+      "independentDartTechnicalOverlap": [],
+      "humanPublicCheckStatuses": {
+        "prior_coverage": "not_reviewed",
+        "company_response": "not_reviewed",
+        "actual_application": "not_reviewed",
+        "industry_impact": "not_reviewed",
+        "reporting_angle": "not_reviewed"
+      },
+      "missingVerification": [
+        "prior_coverage",
+        "company_response",
+        "actual_application",
+        "industry_impact",
+        "reporting_angle"
+      ],
+      "stage": "research_only_press_not_checked",
+      "publicCompanyResponseMarkedByReporter": false,
+      "independentlyValidatedCompanyResponse": false,
+      "specificProjectLinkVerified": false,
+      "impactCausalityVerified": false,
+      "approvedForPublication": false,
+      "confirmedExclusive": false,
+      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
+    },
+    {
+      "publicationNumber": "1020260158517",
+      "title": "차량용 배터리 시스템 및 이를 구비하는 차량",
+      "coveredCompanies": [
+        "현대모비스"
+      ],
+      "topic": "배터리·전동화",
+      "technicalTerms": [],
+      "sameIssuerDartRowsObserved": 4,
+      "sameIssuerBackgroundSources": [
+        {
+          "company": "현대모비스",
+          "sourceType": "dart_business_table",
+          "reference": "segmentSales",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814004065",
+          "published": "20260814",
+          "linkState": "same_company_only_no_patent_relation"
+        }
+      ],
+      "independentDartTechnicalOverlap": [],
+      "humanPublicCheckStatuses": {
+        "prior_coverage": "not_reviewed",
+        "company_response": "not_reviewed",
+        "actual_application": "not_reviewed",
+        "industry_impact": "not_reviewed",
+        "reporting_angle": "not_reviewed"
+      },
+      "missingVerification": [
+        "prior_coverage",
+        "company_response",
+        "actual_application",
+        "industry_impact",
+        "reporting_angle"
+      ],
+      "stage": "research_only_press_not_checked",
+      "publicCompanyResponseMarkedByReporter": false,
+      "independentlyValidatedCompanyResponse": false,
+      "specificProjectLinkVerified": false,
+      "impactCausalityVerified": false,
+      "approvedForPublication": false,
+      "confirmedExclusive": false,
+      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
+    },
+    {
+      "publicationNumber": "1020260158714",
+      "title": "무방향성 전기강판 및 그 제조 방법",
+      "coveredCompanies": [
+        "현대제철"
+      ],
+      "topic": "철강·비철 소재",
+      "technicalTerms": [],
+      "sameIssuerDartRowsObserved": 7,
+      "sameIssuerBackgroundSources": [
+        {
+          "company": "현대제철",
+          "sourceType": "dart_business_table",
+          "reference": "productionCapacity",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003379",
+          "published": "20260814",
+          "linkState": "same_company_only_no_patent_relation"
+        },
+        {
+          "company": "현대제철",
+          "sourceType": "dart_business_table",
+          "reference": "utilization",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003379",
+          "published": "20260814",
+          "linkState": "same_company_only_no_patent_relation"
+        },
+        {
+          "company": "현대제철",
+          "sourceType": "dart_business_table",
+          "reference": "segmentSales",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003379",
+          "published": "20260814",
+          "linkState": "same_company_only_no_patent_relation"
+        }
+      ],
+      "independentDartTechnicalOverlap": [],
+      "humanPublicCheckStatuses": {
+        "prior_coverage": "not_reviewed",
+        "company_response": "not_reviewed",
+        "actual_application": "not_reviewed",
+        "industry_impact": "not_reviewed",
+        "reporting_angle": "not_reviewed"
+      },
+      "missingVerification": [
+        "prior_coverage",
+        "company_response",
+        "actual_application",
+        "industry_impact",
+        "reporting_angle"
+      ],
+      "stage": "research_only_press_not_checked",
+      "publicCompanyResponseMarkedByReporter": false,
+      "independentlyValidatedCompanyResponse": false,
+      "specificProjectLinkVerified": false,
+      "impactCausalityVerified": false,
+      "approvedForPublication": false,
+      "confirmedExclusive": false,
+      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
+    },
+    {
+      "publicationNumber": "1020260158561",
+      "title": "단안 영상으로부터 3차원 공간에서의 신체 작업 부하도를 예측하는 방법 및 장치",
+      "coveredCompanies": [
+        "현대차",
+        "기아"
+      ],
+      "topic": "미분류·이종산업 탐색",
+      "technicalTerms": [],
+      "sameIssuerDartRowsObserved": 18,
+      "sameIssuerBackgroundSources": [
+        {
+          "company": "현대차",
+          "sourceType": "dart_business_table",
+          "reference": "orderBacklog",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003521",
+          "published": "20260814",
+          "linkState": "same_company_only_no_patent_relation"
+        },
+        {
+          "company": "기아",
+          "sourceType": "dart_business_table",
+          "reference": "investment",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
+          "published": "20260916",
+          "linkState": "same_company_only_no_patent_relation"
+        },
+        {
+          "company": "기아",
+          "sourceType": "dart_business_table",
+          "reference": "orderBacklog",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
+          "published": "20260916",
+          "linkState": "same_company_only_no_patent_relation"
+        }
+      ],
+      "independentDartTechnicalOverlap": [],
+      "humanPublicCheckStatuses": {
+        "prior_coverage": "not_reviewed",
+        "company_response": "not_reviewed",
+        "actual_application": "not_reviewed",
+        "industry_impact": "not_reviewed",
+        "reporting_angle": "not_reviewed"
+      },
+      "missingVerification": [
+        "prior_coverage",
+        "company_response",
+        "actual_application",
+        "industry_impact",
+        "reporting_angle"
+      ],
+      "stage": "research_only_press_not_checked",
+      "publicCompanyResponseMarkedByReporter": false,
+      "independentlyValidatedCompanyResponse": false,
+      "specificProjectLinkVerified": false,
+      "impactCausalityVerified": false,
+      "approvedForPublication": false,
+      "confirmedExclusive": false,
+      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
+    },
+    {
+      "publicationNumber": "1020260158353",
+      "title": "가스 터빈용 연소기 고온부의 열차폐 코팅방법 및 이에 의해 형성된 열차폐 코팅층",
+      "coveredCompanies": [
+        "두산에너빌리티"
+      ],
+      "topic": "미분류·이종산업 탐색",
+      "technicalTerms": [],
+      "sameIssuerDartRowsObserved": 38,
+      "sameIssuerBackgroundSources": [
+        {
+          "company": "두산에너빌리티",
+          "sourceType": "dart_business_table",
+          "reference": "utilization",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003782",
+          "published": "20260814",
+          "linkState": "same_company_only_no_patent_relation"
+        },
+        {
+          "company": "두산에너빌리티",
+          "sourceType": "dart_business_table",
+          "reference": "investment",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003782",
+          "published": "20260814",
+          "linkState": "same_company_only_no_patent_relation"
+        },
+        {
+          "company": "두산에너빌리티",
+          "sourceType": "dart_business_table",
+          "reference": "segmentSales",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003782",
+          "published": "20260814",
+          "linkState": "same_company_only_no_patent_relation"
+        },
+        {
+          "company": "두산에너빌리티",
+          "sourceType": "dart_contract_title",
+          "reference": "공급계약",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261026800529",
+          "published": "20261026",
+          "linkState": "same_company_only_no_patent_relation"
+        }
+      ],
+      "independentDartTechnicalOverlap": [],
+      "humanPublicCheckStatuses": {
+        "prior_coverage": "not_reviewed",
+        "company_response": "not_reviewed",
+        "actual_application": "not_reviewed",
+        "industry_impact": "not_reviewed",
+        "reporting_angle": "not_reviewed"
+      },
+      "missingVerification": [
+        "prior_coverage",
+        "company_response",
+        "actual_application",
+        "industry_impact",
+        "reporting_angle"
+      ],
+      "stage": "research_only_press_not_checked",
+      "publicCompanyResponseMarkedByReporter": false,
+      "independentlyValidatedCompanyResponse": false,
+      "specificProjectLinkVerified": false,
+      "impactCausalityVerified": false,
+      "approvedForPublication": false,
+      "confirmedExclusive": false,
+      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
+    },
+    {
+      "publicationNumber": "1020260158386",
+      "title": "파워 모듈 유닛",
+      "coveredCompanies": [
+        "현대모비스"
+      ],
+      "topic": "전력망·전력기기",
+      "technicalTerms": [
+        "전력변환"
+      ],
+      "sameIssuerDartRowsObserved": 4,
+      "sameIssuerBackgroundSources": [
+        {
+          "company": "현대모비스",
+          "sourceType": "dart_business_table",
+          "reference": "segmentSales",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814004065",
+          "published": "20260814",
+          "linkState": "same_company_only_no_patent_relation"
+        }
+      ],
+      "independentDartTechnicalOverlap": [],
+      "humanPublicCheckStatuses": {
+        "prior_coverage": "not_reviewed",
+        "company_response": "not_reviewed",
+        "actual_application": "not_reviewed",
+        "industry_impact": "not_reviewed",
+        "reporting_angle": "not_reviewed"
+      },
+      "missingVerification": [
+        "prior_coverage",
+        "company_response",
+        "actual_application",
+        "industry_impact",
+        "reporting_angle"
+      ],
+      "stage": "research_only_press_not_checked",
+      "publicCompanyResponseMarkedByReporter": false,
+      "independentlyValidatedCompanyResponse": false,
+      "specificProjectLinkVerified": false,
+      "impactCausalityVerified": false,
+      "approvedForPublication": false,
+      "confirmedExclusive": false,
+      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
+    },
+    {
+      "publicationNumber": "1020260158591",
+      "title": "자동차 조향 제어 장치 및 그 방법",
+      "coveredCompanies": [
+        "현대모비스"
+      ],
+      "topic": "자율주행·차량제어",
+      "technicalTerms": [],
+      "sameIssuerDartRowsObserved": 4,
+      "sameIssuerBackgroundSources": [
+        {
+          "company": "현대모비스",
+          "sourceType": "dart_business_table",
+          "reference": "segmentSales",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814004065",
+          "published": "20260814",
+          "linkState": "same_company_only_no_patent_relation"
+        }
+      ],
+      "independentDartTechnicalOverlap": [],
+      "humanPublicCheckStatuses": {
+        "prior_coverage": "not_reviewed",
+        "company_response": "not_reviewed",
+        "actual_application": "not_reviewed",
+        "industry_impact": "not_reviewed",
+        "reporting_angle": "not_reviewed"
+      },
+      "missingVerification": [
+        "prior_coverage",
+        "company_response",
+        "actual_application",
+        "industry_impact",
+        "reporting_angle"
+      ],
+      "stage": "research_only_press_not_checked",
+      "publicCompanyResponseMarkedByReporter": false,
+      "independentlyValidatedCompanyResponse": false,
+      "specificProjectLinkVerified": false,
+      "impactCausalityVerified": false,
+      "approvedForPublication": false,
+      "confirmedExclusive": false,
+      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
+    },
+    {
+      "publicationNumber": "1020260158856",
+      "title": "차량의 승객 안전을 위한 윈도우 관리 시스템",
+      "coveredCompanies": [
+        "현대모비스"
+      ],
+      "topic": "자율주행·차량제어",
+      "technicalTerms": [],
+      "sameIssuerDartRowsObserved": 4,
+      "sameIssuerBackgroundSources": [
+        {
+          "company": "현대모비스",
+          "sourceType": "dart_business_table",
+          "reference": "segmentSales",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814004065",
+          "published": "20260814",
+          "linkState": "same_company_only_no_patent_relation"
+        }
+      ],
+      "independentDartTechnicalOverlap": [],
+      "humanPublicCheckStatuses": {
+        "prior_coverage": "not_reviewed",
+        "company_response": "not_reviewed",
+        "actual_application": "not_reviewed",
+        "industry_impact": "not_reviewed",
+        "reporting_angle": "not_reviewed"
+      },
+      "missingVerification": [
+        "prior_coverage",
+        "company_response",
+        "actual_application",
+        "industry_impact",
+        "reporting_angle"
+      ],
+      "stage": "research_only_press_not_checked",
+      "publicCompanyResponseMarkedByReporter": false,
+      "independentlyValidatedCompanyResponse": false,
+      "specificProjectLinkVerified": false,
+      "impactCausalityVerified": false,
+      "approvedForPublication": false,
+      "confirmedExclusive": false,
+      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
+    },
+    {
+      "publicationNumber": "1020260147319",
+      "title": "자동차용 플라스틱 부품을 재생하는 방법, 폴리에스테르 수지를 제조하는 방법, 자동차용 부품을 제조하는 방법 및 자동차를 제조하는 방법",
+      "coveredCompanies": [
+        "현대차",
+        "기아"
+      ],
+      "topic": "순환소재·폐차재활용",
+      "technicalTerms": [],
+      "sameIssuerDartRowsObserved": 18,
+      "sameIssuerBackgroundSources": [
+        {
+          "company": "현대차",
+          "sourceType": "dart_business_table",
+          "reference": "orderBacklog",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003521",
+          "published": "20260814",
+          "linkState": "same_company_only_no_patent_relation"
+        },
+        {
+          "company": "기아",
+          "sourceType": "dart_business_table",
+          "reference": "investment",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
+          "published": "20260916",
+          "linkState": "same_company_only_no_patent_relation"
+        },
+        {
+          "company": "기아",
+          "sourceType": "dart_business_table",
+          "reference": "orderBacklog",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
+          "published": "20260916",
+          "linkState": "same_company_only_no_patent_relation"
+        }
+      ],
+      "independentDartTechnicalOverlap": [],
+      "humanPublicCheckStatuses": {
+        "prior_coverage": "not_reviewed",
+        "company_response": "not_reviewed",
+        "actual_application": "not_reviewed",
+        "industry_impact": "not_reviewed",
+        "reporting_angle": "not_reviewed"
+      },
+      "missingVerification": [
+        "prior_coverage",
+        "company_response",
+        "actual_application",
+        "industry_impact",
+        "reporting_angle"
+      ],
+      "stage": "hold_prior_coverage_or_known_case",
+      "publicCompanyResponseMarkedByReporter": false,
+      "independentlyValidatedCompanyResponse": false,
+      "specificProjectLinkVerified": false,
+      "impactCausalityVerified": false,
+      "approvedForPublication": false,
+      "confirmedExclusive": false,
+      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
+    },
+    {
+      "publicationNumber": "1020260158287",
+      "title": "차량용 마운트 장치",
+      "coveredCompanies": [
+        "현대모비스"
+      ],
+      "topic": "미분류·이종산업 탐색",
+      "technicalTerms": [],
+      "sameIssuerDartRowsObserved": 4,
+      "sameIssuerBackgroundSources": [
+        {
+          "company": "현대모비스",
+          "sourceType": "dart_business_table",
+          "reference": "segmentSales",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814004065",
+          "published": "20260814",
+          "linkState": "same_company_only_no_patent_relation"
+        }
+      ],
+      "independentDartTechnicalOverlap": [],
+      "humanPublicCheckStatuses": {
+        "prior_coverage": "not_reviewed",
+        "company_response": "not_reviewed",
+        "actual_application": "not_reviewed",
+        "industry_impact": "not_reviewed",
+        "reporting_angle": "not_reviewed"
+      },
+      "missingVerification": [
+        "prior_coverage",
+        "company_response",
+        "actual_application",
+        "industry_impact",
+        "reporting_angle"
+      ],
+      "stage": "research_only_press_not_checked",
+      "publicCompanyResponseMarkedByReporter": false,
+      "independentlyValidatedCompanyResponse": false,
+      "specificProjectLinkVerified": false,
+      "impactCausalityVerified": false,
+      "approvedForPublication": false,
+      "confirmedExclusive": false,
+      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
+    },
+    {
+      "publicationNumber": "1020260158411",
+      "title": "차량용 브라켓 모듈",
+      "coveredCompanies": [
+        "현대모비스"
+      ],
+      "topic": "미분류·이종산업 탐색",
+      "technicalTerms": [],
+      "sameIssuerDartRowsObserved": 4,
+      "sameIssuerBackgroundSources": [
+        {
+          "company": "현대모비스",
+          "sourceType": "dart_business_table",
+          "reference": "segmentSales",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814004065",
+          "published": "20260814",
+          "linkState": "same_company_only_no_patent_relation"
+        }
+      ],
+      "independentDartTechnicalOverlap": [],
+      "humanPublicCheckStatuses": {
+        "prior_coverage": "not_reviewed",
+        "company_response": "not_reviewed",
+        "actual_application": "not_reviewed",
+        "industry_impact": "not_reviewed",
+        "reporting_angle": "not_reviewed"
+      },
+      "missingVerification": [
+        "prior_coverage",
+        "company_response",
+        "actual_application",
+        "industry_impact",
+        "reporting_angle"
+      ],
+      "stage": "research_only_press_not_checked",
+      "publicCompanyResponseMarkedByReporter": false,
+      "independentlyValidatedCompanyResponse": false,
+      "specificProjectLinkVerified": false,
+      "impactCausalityVerified": false,
+      "approvedForPublication": false,
+      "confirmedExclusive": false,
+      "nextStep": "동일 출입처 DART 자료에서 특정 특허-사업 연결 근거 미발견 · 기업 문의 필요"
+    },
+    {
+      "publicationNumber": "1020260158860",
+      "title": "차량용 과하중 밸런싱 장치",
       "coveredCompanies": [
         "현대모비스"
       ],
