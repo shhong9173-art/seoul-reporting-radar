@@ -900,8 +900,29 @@ export async function stacksSection(ctx, q, days, limit) {
   for (const x of over.slice(0, limit)) out.push(`  ${x.at} · ${x.company} · ${x.site} 배출구 ${x.stack}번 ${KO[x.pollutant] ?? x.pollutant} ${x.value}(기준 ${x.limit})`);
   const from = new Date(ctx.now.getTime() - days * 86400000).toISOString();
   const ev = (doc.events ?? []).filter((e) => String(e.detectedAt) >= from && matches(q, e.company, e.site, e.text));
-  out.push(`- 감지된 변화 · 최근 ${days}일 ${ev.length}건`);
-  for (const e of ev.slice(0, limit)) out.push(`  ${e.tier} · ${String(e.detectedAt).slice(0, 16)} · ${e.kind} · ${e.company}: ${e.text}`);
+  // 빠졌다가 다시 나타난 '목록에서 빠짐'(일시적 누락)은 사업장·날짜별 한 줄로 접는다 — 11-03: 최근 14일 98건 대부분이 이것이라
+  // 남은 A·B가 묻혔다. 나머지는 등급(A→B→C)·최신 순.
+  const resolved = (e) => /빠짐/.test(e.kind ?? '') && /다시 나타남/.test(e.text ?? '');
+  const rank = { A: 0, B: 1, C: 2 };
+  const open = ev.filter((e) => !resolved(e)).sort((a, b) => (rank[a.tier] ?? 3) - (rank[b.tier] ?? 3) || String(b.detectedAt).localeCompare(String(a.detectedAt)));
+  const back = new Map();
+  for (const e of ev.filter(resolved)) {
+    const key = `${e.company}|${e.site}|${String(e.detectedAt).slice(0, 10)}`;
+    const g = back.get(key) ?? { company: e.company, site: e.site, day: String(e.detectedAt).slice(0, 10), stacks: new Set(), whole: 0, n: 0 };
+    const m = /배출구 (\S+?)번/.exec(e.text ?? '');
+    if (m && /배출구/.test(e.kind ?? '')) g.stacks.add(m[1]); else g.whole += 1;
+    g.n += 1;
+    back.set(key, g);
+  }
+  out.push(`- 감지된 변화 · 최근 ${days}일 ${ev.length}건(빠졌다 다시 나타난 것 ${ev.length - open.length}건은 아래에 사업장·날짜별로 접음)`);
+  for (const e of open.slice(0, limit)) out.push(`  ${e.tier} · ${String(e.detectedAt).slice(0, 16)} · ${e.kind} · ${e.company}: ${e.text}`);
+  if (back.size) {
+    out.push(`- 목록에서 빠졌다가 다시 나타남(일시적 누락) · ${back.size}묶음`);
+    for (const g of [...back.values()].sort((a, b) => b.day.localeCompare(a.day)).slice(0, limit)) {
+      const st = [...g.stacks].sort((a, b) => a.length - b.length || a.localeCompare(b));
+      out.push(`  ${g.day} · ${g.company} · ${g.site}: ${g.whole ? '사업장 통째' + (st.length ? ' · ' : '') : ''}${st.length ? `배출구 ${st.slice(0, 12).join('·')}번${st.length > 12 ? ` 외 ${st.length - 12}` : ''}` : ''} (이벤트 ${g.n}건)`);
+    }
+  }
   out.push('   검증 상태: 한국환경공단 굴뚝 자동측정 실시간 값(자동)을 이 감시가 쌓은 이력. 배출구 이름·설비 종류 없음, 값 하락은 정지·정비·점검 중 무엇인지 모름 — 회사 확인 전 미확인. 기준 초과 값은 확정 전 실시간 값(측정기 점검·교정 가능) — 초과 판정·처분은 환경공단·지자체 확인');
   return out;
 }
