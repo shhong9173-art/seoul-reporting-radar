@@ -82,6 +82,14 @@ COMPANIES = [
     ("현대모비스", r"\bhyundai\s+mobis", "Hyundai Mobis", None),
     ("현대로템", r"\bhyundai\s+rotem", "Hyundai Rotem", "Hyundai Rotem"),
     ("고려아연", r"\bkorea\s+zinc", "Korea Zinc", None),
+    # 석유화학·정유 6곳(11-01 출입처): 해외 공공 낙찰자로 나올 일은 드물어 TED·세계은행 질의는 더하지 않고(호출 수 그대로),
+    # 다른 질의로 받은 낙찰 목록에 이름이 나오면 잡는다. 'S-Oil'은 하이픈까지 — 'soil'(흙)은 입찰 공고에 흔하다.
+    ("LG화학", r"\blg\s+chem(?:ical)?(?![a-z])", None, None),
+    ("롯데케미칼", r"\blotte\s+chemical", None, None),
+    ("금호석유화학", r"\bkumho\s+petrochemical", None, None),
+    ("S-OIL", r"\bs-oil\b", None, None),
+    ("SK이노베이션", r"\bsk\s+innovation", None, None),
+    ("HD현대오일뱅크", r"\b(?:hd\s+)?hyundai\s+oilbank", None, None),
 ]
 COMPANY_RX = [(ko, re.compile(rx, re.I)) for ko, rx, _, _ in COMPANIES]
 
