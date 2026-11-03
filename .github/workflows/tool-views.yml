@@ -25,6 +25,7 @@ on:
     branches: [main]
     paths:
       - 'scripts/radar_tool_views.py'
+      - 'scripts/exclusive_reverse_trace.py'
       - 'tests/test_radar_tool_views.py'
       - '.github/workflows/tool-views.yml'
   schedule:

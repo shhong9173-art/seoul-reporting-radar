@@ -48,8 +48,10 @@ def fixture(root, with_index=True):
         ]})
         write(root, "digests/historical_exclusive_press_index_latest.json", {"generatedAt": "2026-10-26T06:00:00+09:00",
               "status": "ok", "items": [
-                  {"title": "[단독] 현대제철, 인천 전기로 신설 - 매체A", "sourceName": "매체A",
+                  {"title": "[단독] 현대제철, 인천 전기로 신설…2028년 가동 목표 - 매체A", "sourceName": "매체A",
                    "published": "2026-10-25T09:00:00+09:00", "companies": ["현대제철"], "url": "https://news.example/2"},
+                  {"title": "[단독] 현대제철, 인천 전기로 신설…2028년...", "sourceName": "news.example",   # 네이버 잘린 제목 — 같은 기사
+                   "published": "2026-10-25T10:00:00+09:00", "companies": ["현대제철"], "url": "https://news.example/2n"},
                   {"title": "[단독] 오래된 기사 - 매체B", "sourceName": "매체B",
                    "published": "2026-03-01T09:00:00+09:00", "companies": ["현대차"], "url": "https://news.example/3"},
               ]})
@@ -224,7 +226,7 @@ class Views(unittest.TestCase):
 
     def test_dandok_strips_publisher_and_drops_old_rows(self):
         dandok = self.build()["dandok"]
-        self.assertEqual([r["title"] for r in dandok["items"]], ["[단독] 현대제철, 인천 전기로 신설"])
+        self.assertEqual([r["title"] for r in dandok["items"]], ["[단독] 현대제철, 인천 전기로 신설…2028년 가동 목표"])
         self.assertEqual(dandok["items"][0]["team"], "철강·비철")
 
     def test_health_marks_missing_and_not_connected_sources(self):

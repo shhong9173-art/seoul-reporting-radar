@@ -828,16 +828,23 @@ def build_stats(root: Path, now: datetime):
 
 
 def build_dandok(root: Path, now: datetime, keep_days=120):
+    from scripts.exclusive_reverse_trace import aware, best_title, fold_same_story
     rows, seen = [], set()
     data = load(root / "digests/historical_exclusive_press_index_latest.json") or {}
     cutoff = (now - timedelta(days=keep_days)).strftime("%Y-%m-%d")
-    for x in data.get("items", []) or []:
-        if not isinstance(x, dict) or not x.get("title"):
+    raw = [dict(x, id=x.get("id") or f"row{i}") for i, x in enumerate(data.get("items", []) or [])
+           if isinstance(x, dict) and x.get("title") and (day(x.get("published")) or "") >= cutoff]
+    # 같은 기사(네이버 잘린 제목·같은 매체 다른 주소·재게시)는 한 줄 — 역추적과 같은 규칙(11-03)
+    foldable = [x for x in raw if aware(x.get("published")) is not None]
+    folded = fold_same_story(foldable)
+    others = {}
+    for dup, lead in folded.items():
+        others.setdefault(lead, []).append(next(x for x in foldable if x["id"] == dup))
+    for x in raw:
+        if x["id"] in folded:
             continue
         published = day(x.get("published"))
-        if not published or published < cutoff:
-            continue
-        title = re.sub(r"\s+-\s+[^-]{1,40}$", "", str(x["title"])).strip()
+        title = re.sub(r"\s+-\s+[^-]{1,40}$", "", str(best_title(x, others.get(x["id"])))).strip()
         key = (title, x.get("sourceName"))
         if key in seen:
             continue
