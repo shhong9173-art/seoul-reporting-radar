@@ -2667,7 +2667,7 @@ test('kr insolvency: a beat-industry manufacturer entering court proceedings is 
   // 파산 선고는 '파산'으로, M&A 매각 공고는 '매각'으로 찾는다(10-31 운영: 케이아이씨 파산 선고를 "케이아이씨 회생"으로 대조)
   assert.deepEqual([insolvencyWord('파산 선고'), insolvencyWord('파산 폐지'), insolvencyWord('M&A 매각 공고'), insolvencyWord('포괄적 금지명령'), insolvencyWord('회생 개시')],
     ['파산', '파산', '매각', '회생', '회생']);
-  assert.deepEqual(dueAt(new Date('2026-10-28T22:20:00Z')), ['kr-insolvency.yml']);  // Thu 07:20 KST
+  assert.deepEqual(dueAt(new Date('2026-10-28T22:20:00Z')), ['kr-insolvency.yml', 'reverse-check.yml']);  // Thu 07:20 KST(+ 경쟁지 단독 역추적, 11-03)
   assert.deepEqual(dueAt(new Date('2026-10-29T08:20:00Z')), ['kr-insolvency.yml']);  // Thu 17:20 KST
 });
 

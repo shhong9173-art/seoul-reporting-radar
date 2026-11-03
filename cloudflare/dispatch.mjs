@@ -39,6 +39,8 @@ export const SLOTS = [
   { at: '07:10', workflow: 'trademark-watch.yml', days: [2, 3, 4, 5] },
   // 협력사 회생·파산(대법원 공고): 아침에 전날 공고, 저녁에 그날 공고.
   { at: '07:20', workflow: 'kr-insolvency.yml' },
+  // 경쟁지 [단독] 역추적: GitHub 예약(19:20 KST)이 11-03엔 05:25에야 돌았다(10시간 늦음). 아침 레이더 전에 한 번 더.
+  { at: '07:20', workflow: 'reverse-check.yml', daily: true },
   { at: '07:30', workflow: 'kr-stats.yml' },
   { at: '07:40', workflow: 'trade-remedy.yml' },
   // DART 출입처 공시(목록·원문): GitHub 예약 07:45가 11-02에 10:50에야 돌았고 OpenDART 시간 초과로 실패했다. 정시 07:45·17:45,
