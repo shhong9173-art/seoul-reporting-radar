@@ -529,6 +529,15 @@ class Screen(unittest.TestCase):
         # 원문을 못 읽어도 제목 낱말은 기사 말로 바뀐다
         self.assertEqual(s.news_terms(["타법인주식및출자증권처분"])[0], ["지분 매각"])
 
+    def test_production_halt_matches_shutdown_order_headlines(self):
+        # 11-02 운영: 영풍 [기재정정]생산중단(석포 조업정지)이 '미보도 후보' — 같은 날 [단독] '영풍, 조업정지 10일 취소소송 1심 승소'
+        terms, alts = s.news_terms(["생산중단"])
+        row = {"id": "clue:yp2", "kind": "단서", "company": "영풍", "title": "영풍 · [기재정정]생산중단", "terms": terms, "alts": alts,
+               "numbers": [], "ratios": [], "unit": "", "strength": 1, "published": "2026-11-02"}
+        hit = {"title": "[단독] 영풍, '조업정지 10일' 취소소송 1심 승소… 法 \"가중처분 위법\"", "text": "", "url": "c", "date": "2026-11-02"}
+        verdict, ev = s.judge(row, channels([hit]), now=dt.datetime(2026, 11, 2, 18, 50, tzinfo=KST))
+        self.assertEqual((verdict, [e["url"] for e in ev]), ("관련 보도 있음", ["c"]))
+
     def test_trade_plan_is_searched_by_the_reporting_holder(self):
         row = {"id": "clue:yp", "kind": "단서", "company": "영풍", "title": "영풍 · 임원ㆍ주요주주특정증권등거래계획보고서",
                "terms": ["거래계획"], "alts": {}, "numbers": [], "ratios": [], "unit": "", "strength": 1,
