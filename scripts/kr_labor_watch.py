@@ -183,12 +183,17 @@ def run(now, previous=None, get=None, sleep=time.sleep, rules=None):
             key = f"{m['cmitCd']}:{m['mtgId']}:{m['mtgSn']}"
             if key in seen:
                 continue
-            sleep(PAUSE)
-            try:
-                d = get(detail_url(m), timeout=30)
-                info = parse_detail(d.text) if d.status_code == 200 else None
-            except Exception:
-                info = None
+            info = None
+            # 11-03 첫 운영 실행: 상세 43건 중 2건 읽기 실패 — 오늘 회의만 보이므로 다음 날 다시 읽을 수 없다. 한 번만 더(5초 뒤) 묻는다.
+            for wait in (PAUSE, 5.0):
+                sleep(wait)
+                try:
+                    d = get(detail_url(m), timeout=30)
+                    info = parse_detail(d.text) if d.status_code == 200 else None
+                except Exception:
+                    info = None
+                if info:
+                    break
             if not info:
                 bad += 1
                 continue
