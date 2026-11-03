@@ -123,11 +123,15 @@ def mem(source, iid, companies, text, seen, url=None, origin=None):
             **({"origin": str(origin)[:40]} if origin else {})}
 
 
+# 단서 원천 이름 중 영문 코드(11-03 역추적 화면: '공개 원자료 단서(OVERSEAS)')
+ORIGIN_KO = {"OVERSEAS": "해외 원자료", "DART_METRIC": "DART 수치", "CUSTOMS_FIVE": "관세청 수출입"}
+
+
 def label_of(m):
     """원천 이름. 공개 원자료 단서는 단서마다 실제 원천(DART·미 연방관보·나라장터 등)을 붙인다 — 11-03 역추적: 미국 관보 상계관세 문서가
     '공개 원자료 단서(DART 등)'로 보였다."""
     if m.get("source") == "clues" and m.get("origin"):
-        return f"공개 원자료 단서({m['origin']})"
+        return f"공개 원자료 단서({ORIGIN_KO.get(m['origin'], m['origin'])})"
     return LABEL.get(m["source"], m["source"])
 
 

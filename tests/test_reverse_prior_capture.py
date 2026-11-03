@@ -66,6 +66,7 @@ class Capture(unittest.TestCase):
         self.assertEqual(r.label_of(m), "공개 원자료 단서(미 연방관보)")
         self.assertEqual(r.label_of(r.mem("clues", "y", ["현대제철"], "t", "2026-11-01")), "공개 원자료 단서(DART 등)")
         self.assertEqual(r.label_of(r.mem("kr-stacks", "z", ["포스코"], "t", "2026-11-01")), "굴뚝 측정(가동 신호)")
+        self.assertEqual(r.label_of(r.mem("clues", "o", ["현대제철"], "t", "2026-11-01", origin="OVERSEAS")), "공개 원자료 단서(해외 원자료)")
 
     def test_one_feed_with_an_unexpected_shape_does_not_stop_the_others(self):
         bad = {**DOCS, "kr-signals": {"decisions": [{"id": "d1", "mentions": ["포스코"], "name": "x", "fileDate": "2026-10-01"}]},
