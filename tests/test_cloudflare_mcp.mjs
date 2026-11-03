@@ -882,7 +882,11 @@ test('kr_official stacks: plants with stopped stacks first, events, young sites 
     events: [{ id: 'stk:down:a:2026-10-31', kind: '사업장 가동 중단 신호', tier: 'A', company: '현대제철', site: '현대제철㈜포항2공장', detectedAt: recent,
       text: '현대제철㈜포항2공장: 평소 움직이던 배출구 2개 중 2개가 3번 연속 평소의 10% 아래' },
       { id: 'stk:exceed2:b:40:nox:2026-10-31 06:00', kind: '배출허용기준 초과 지속', tier: 'A', company: '포스코', site: '㈜포스코 광양제철소', detectedAt: recent,
-        text: '㈜포스코 광양제철소 배출구 40번 질소산화물 측정값 70.5이 배출허용기준 50을 넘음(기준의 1.4배, 측정 2026-10-31 09:00) — 2026-10-31 06:00 측정부터 이 감시의 실행 2번 연속 초과(처음 61.2)' }] };
+        text: '㈜포스코 광양제철소 배출구 40번 질소산화물 측정값 70.5이 배출허용기준 50을 넘음(기준의 1.4배, 측정 2026-10-31 09:00) — 2026-10-31 06:00 측정부터 이 감시의 실행 2번 연속 초과(처음 61.2)' },
+      ...['3', '58', '4'].map((c) => ({ id: `stk:gone:영풍:x:${c}:d`, kind: '배출구 목록에서 빠짐', tier: 'C', company: '영풍', site: '㈜영풍석포제련소', detectedAt: recent,
+        text: `㈜영풍석포제련소 배출구 ${c}번이 굴뚝 자동측정 목록에서 2번 연속 빠짐 — 이후 다시 나타남(측정 x, 일시적 누락)` })),
+      { id: 'stk:sitegone:영풍:x:d', kind: '사업장 목록에서 빠짐(굴뚝 측정)', tier: 'C', company: '영풍', site: '㈜영풍석포제련소', detectedAt: recent,
+        text: '㈜영풍석포제련소이 굴뚝 자동측정 목록에서 2번 연속 빠짐 — 이후 다시 나타남(확인 x, 일시적 누락)' }] };
   const post = await worker.fetch(new Request(ORIGIN + '/ingest/kr-stacks', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {});
   assert.equal(post.status, 200);
   const opts = { path: `/mcp/${TOKEN}`, env };
@@ -896,6 +900,10 @@ test('kr_official stacks: plants with stopped stacks first, events, young sites 
   assert.match(r.text, /- 측정값 대신 상태 글자가 온 배출구: 미수신 1 · 보수중 1 · 가동중지 1 \(가동중지·보수중 = 사업장이 보낸 멈춤·보수 상태 — 다른 칸 숫자가 남은 줄은 분석기 보수일 수 있음, 나머지는 측정 쪽 사정\)\n  포스코 · ㈜포스코 광양제철소 · 미수신 1 · 보수중 1 · 가동중지 1/);
   assert.match(r.text, /관측이 아직 6번이 안 된 사업장 1곳/);
   assert.match(r.text, /A · .* · 사업장 가동 중단 신호 · 현대제철/);
+  // 빠졌다 다시 나타난 것은 사업장·날짜별 한 줄(11-03: 14일 98건 대부분)
+  assert.match(r.text, /감지된 변화 · 최근 14일 6건\(빠졌다 다시 나타난 것 4건은 아래에 사업장·날짜별로 접음\)/);
+  assert.match(r.text, /- 목록에서 빠졌다가 다시 나타남\(일시적 누락\) · 1묶음\n  \d{4}-\d{2}-\d{2} · 영풍 · ㈜영풍석포제련소: 사업장 통째 · 배출구 3·4·58번 \(이벤트 4건\)/);
+  assert.ok(!/C · .* · 배출구 목록에서 빠짐 · 영풍/.test(r.text));
   assert.match(r.text, /- 배출허용기준 넘은 측정값\(이 감시가 본 것, 사업장마다 최근 20건\) 2건\n  2026-10-31 09:00 · 포스코 · ㈜포스코 광양제철소 배출구 40번 질소산화물 70\.5\(기준 50\)/);
   assert.match(r.text, /기준 초과 값은 확정 전 실시간 값/);
   const today = (await call('radar_today', {}, opts)).text;
