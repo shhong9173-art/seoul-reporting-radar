@@ -165,6 +165,32 @@ def late_scheduled_duplicate(previous, now, *, hours=LATE_HOURS, env=None):
     return False
 
 
+def midday_retry_done(previous, now, *, from_hour, env=None):
+    """True (건너뜀) when this is the midday retry request and today's morning run already stored a good result.
+    Once-a-day watches keep yesterday's result when the morning run fails (11-03 06:40: 미국 노동부 OSHA API HTTP 502 네 묶음
+    — 다음 실행이 하루 뒤였다). A Cloudflare retry slot after `from_hour` KST reruns only when today has no stored result or the
+    stored one is not complete. Push·FORCE_RUN·morning runs never skip."""
+    env = os.environ if env is None else env
+    if env.get("GITHUB_EVENT_NAME") == "push" or str(env.get("FORCE_RUN", "")).lower() in ("1", "true", "yes"):
+        return False
+    if now.hour < from_hour or not isinstance(previous, dict):
+        return False
+    try:
+        last = dt.datetime.fromisoformat(str(previous.get("generatedAt")))
+    except (TypeError, ValueError):
+        return False
+    kst = dt.timezone(dt.timedelta(hours=9))
+    if last.astimezone(kst).date() != now.astimezone(kst).date():
+        print(f"::notice title=midday-retry::오늘 결과 없음(직전 {last.astimezone(kst):%m-%d %H:%M}) — 낮 재시도")
+        return False
+    bad = [c for c in previous.get("checks") or [] if isinstance(c, dict) and c.get("status") in ("failed", "partial")]
+    if bad or previous.get("status") in ("failed", "partial"):
+        print(f"::notice title=midday-retry::오늘 결과가 일부만 — 낮 재시도")
+        return False
+    print("::notice title=midday-retry::오늘 아침 실행이 정상 — 낮 재시도 건너뜀(결과 유지)")
+    return True
+
+
 def recent_duplicate(previous, now, *, hours=LATE_HOURS, env=None):
     """True when the same watch already produced a result within `hours`, for any trigger — for watches that spend a shared
     call quota (KIPRIS 상표): the Cloudflare request and GitHub's cron can both arrive on the same morning. A manual run with
