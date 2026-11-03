@@ -670,9 +670,12 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
   for (const x of gbItems) {
     if (!fresh(x, gbBase, 'published')) continue;
     const companies = x.beatCompanies ?? [];
-    const terms = (x.checkTerms ?? []).slice(0, 2);
+    // 본문 첫머리 주체가 계열사(global_collector.affiliate_lead) — 참고(C)로 내리고 보도 대조도 하지 않는다(11-03 운영: 포스코퓨처엠 계약이 '포스코' B)
+    const affiliate = (x.affiliateLead ?? []).filter(Boolean);
+    const terms = affiliate.length ? [] : (x.checkTerms ?? []).slice(0, 2);
     push(terms.length ? 'B' : 'C', W['global-beat'], { kind: '출입처 외신', id: x.id, date: x.published, company: companies.join('·'),
-      fact: `외신 ${x.source ?? ''} 「${x.koTitle || x.title}」${x.koSummary ? ` — ${clipAt(x.koSummary, 220)}` : ''} · 원제 "${clipAt(x.title ?? '', 140)}" (AI 번역·요약 — 원문 확인)`
+      fact: (affiliate.length ? `⚠ 본문 첫머리 주체가 계열사(${affiliate.join('·')}) — 출입처 외일 수 있음 · ` : '')
+        + `외신 ${x.source ?? ''} 「${x.koTitle || x.title}」${x.koSummary ? ` — ${clipAt(x.koSummary, 220)}` : ''} · 원제 "${clipAt(x.title ?? '', 140)}" (AI 번역·요약 — 원문 확인)`
         // AI가 받은 영어(제목·RSS 발췌)에서 같은 값을 못 찾은 숫자 — 지어냈거나 환산했거나 표기가 달라 못 맞춘 것(global_news_pipeline.check_numbers)
         + (Array.isArray(x.numbersNotInSource) && x.numbersNotInSource.length ? ` · ⚠ 원문 발췌에 없는 숫자: ${x.numbersNotInSource.slice(0, 4).join(', ')} — 기사에 쓰기 전 원문 대조` : ''),
       url: x.url, check: terms.length && companies.length ? gbHint(companies[0], terms, (GB_COUNTRY.exec(String(x.koTitle ?? '')) ?? [])[0], x.published) : undefined });

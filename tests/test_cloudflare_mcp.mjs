@@ -2498,7 +2498,10 @@ test('출입처 외신 (global-beat): event words → B with press-check hint, n
     it('gl:cz', { title: 'KHNP ends negotiations with construction consortium for Czech units', koTitle: '한국수력원자력, 체코 원전 건설 컨소시엄과 협상 종료' }),
     it('gl:us', { title: 'Hyundai to invest US$450m in Alabama plant', koTitle: '현대차, 4억 5천만 달러 미국 앨라배마 공장 투자', beatCompanies: ['현대차'], checkTerms: ['공장', '투자'] }),
     it('gl:id', { title: 'Hyundai expands Indonesia plant', koTitle: '현대차, 인도네시아 공장 투자', beatCompanies: ['현대차'], checkTerms: ['투자'] }),
-    it('gl:dl', { title: 'Kia deliveries', koTitle: '기아, 3분기 인도량 늘려 투자', beatCompanies: ['기아'], checkTerms: ['투자'] })] };
+    it('gl:dl', { title: 'Kia deliveries', koTitle: '기아, 3분기 인도량 늘려 투자', beatCompanies: ['기아'], checkTerms: ['투자'] }),
+    // 11-03 운영: 영어 제목은 그룹 이름, 본문 주체는 계열사 → 참고(C)·대조 안 함
+    it('gl:af', { title: 'Posco to supply new battery materials to LGES', koTitle: '포스코, LG에너지솔루션에 신규 배터리 소재 공급', beatCompanies: ['포스코'],
+      checkTerms: ['배터리'], affiliateLead: ['포스코퓨처엠'] })] };
   assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/global-beat', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
   const r = await call('radar_today', { include_minor: true }, opts);
   const b = r.text.split('[B · ')[1].split('[C · ')[0];
@@ -2521,6 +2524,8 @@ test('출입처 외신 (global-beat): event words → B with press-check hint, n
   // '인도네시아'를 '인도'로 자르지 않고, '인도량'(차량 인도)은 나라로 보지 않는다
   assert.deepEqual(items.items.find((x) => x.id === 'gl:id').check.must, ['인도네시아']);
   assert.equal(items.items.find((x) => x.id === 'gl:dl').check.must, undefined);
+  assert.ok(!items.items.find((x) => x.id === 'gl:af'));
+  assert.match(r.text.split('[C · ')[1], /⚠ 본문 첫머리 주체가 계열사\(포스코퓨처엠\) — 출입처 외일 수 있음 · 외신 World Nuclear News 「포스코, LG에너지솔루션에 신규 배터리 소재 공급」/);
 });
 
 test('미국 주 환경 허가·공고(us-state-env): radar_today에 허가 신청 A·제재 B, us_litigation 구역에 기준선·신규', async () => {
