@@ -241,6 +241,34 @@ def retier_maintenance_stops(events):
         e["text"] = text + MAINT_NOTE
 
 
+# '가동중지' 전환·해제(11-03 저녁부터): 사업장이 보낸 시설 멈춤 신고라 글자가 오래 간다 — 11-03 확인에서 10:30에 '가동중지'로 바뀐
+# 17개 중 16개가 12:30에, 17개 모두가 13:00에 그대로였다(측정기 쪽 '보수중'은 42개 중 11~13개가 숫자로 돌아왔다 다시 바뀌기도 했다). 멈춤 신호(3번 연속, 6~9시간 뒤)보다
+# 먼저 알 수 있어, 멈춤 B와 같은 사업장 크기 기준(5%·최소 2개, 큰 배출구, 평소 값 합 10%)이면 B. 예전 '보수·가동중지' 이름 이벤트는 그대로 C.
+HALT_KINDS = ("배출구 가동중지 전환", "배출구 가동중지 해제")
+HALT_NOTE = (" — '가동중지'는 사업장이 보낸 시설 멈춤 신고(11-03 확인: 10:30에 바뀐 17개가 13:00에도 모두 그대로, 측정기 쪽 '보수중'은 42개 중 11~13개가 숫자로 돌아왔다 다시 바뀌기도 함)")
+HALT_SMALL_NOTE = " — 사업장 크기 기준(5%·최소 2개, 큰 배출구, 평소 값 합 10%)에 못 미쳐 C"
+
+
+def size_rule(codes, judged, top_base):
+    """멈춤 B와 같은 사업장 크기 기준: 평소 값이 있는 배출구 수의 5%(최소 2개) 이상, 큰 배출구(상위 3), 또는 2개 이상이 평소 값 합의 10% 이상."""
+    based = {c: b for c, (_, b) in judged.items() if b is not None and b >= MEANINGFUL}
+    load = sum(based.values()) or 1
+    return (len(codes) >= max(2, math.ceil(len(based) * STOP_B_SHARE)) or any(c in top_base for c in codes)
+            or (len(codes) >= 2 and sum(based.get(c) or 0 for c in codes) >= STOP_B_LOAD * load))
+
+
+def announced_halts(events, sid, now, hours=24):
+    """이 사업장에서 최근 hours시간 안에 B로 알린 '가동중지 전환'의 배출구 → 알린 시각."""
+    cut = (now - dt.timedelta(hours=hours)).isoformat(timespec="seconds")
+    told = {}
+    for e in events:
+        if e.get("kind") == HALT_KINDS[0] and e.get("tier") == "B" and str(e.get("id", "")).startswith(f"stk:halt:{sid}:") \
+                and str(e.get("detectedAt") or "") >= cut:
+            for c in re.findall(r"(\S+?)번\(직전 값", e.get("text") or ""):
+                told.setdefault(c, str(e.get("detectedAt")))
+    return told
+
+
 def retier_status_transitions(events):
     """예전 규칙으로 B가 된 상태 글자 전환·해제를 C로(한 번만 설명을 붙인다)."""
     for e in events:
@@ -842,18 +870,22 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep, clock=time.
             # 포스코 광양 배출구 34개 '보수중'·8개 '가동중지' — 예전엔 숫자만 읽어 보이지 않았다. 언제부터인지는 이 감시가 본 뒤부터만 안다)
             # 큰 배출구는 평소 값 기준(방금 바뀐 배출구는 아직 '멈춤' 판단 전이라 meaningful에 없다)
             top_base = sorted((c for c, (_, b) in judged.items() if b is not None and b >= MEANINGFUL), key=lambda c: -(judged[c][1] or 0))[:3]
-            if halted and not comp_first and not off and (len(halted) >= 3 or any(c in top_base for c, _, _ in halted)):
+            halt_b = bool(halted) and size_rule([c for c, _, _ in halted], judged, top_base)
+            if halted and not comp_first and not off and (halt_b or len(halted) >= 3):
                 now_halt = {k: sum(1 for v in stacks.values() if (v.get("status") or [None])[0] == k) for k in SHOWN_STATUS}
-                emit(f"stk:halt:{sid}:{day}:{','.join(c for c, _, _ in halted[:6])}", "배출구 보수·가동중지 전환", STATUS_TRANSITION_TIER, comp["company"], name,
+                emit(f"stk:halt:{sid}:{day}:{','.join(c for c, _, _ in halted[:6])}", HALT_KINDS[0], "B" if halt_b else "C", comp["company"], name,
                      f"{name}: 배출구 {len(halted)}개가 이번 측정에서 상태 글자 '가동중지'로 바뀜(사업장이 보낸 시설 멈춤 신고) — "
                      + ", ".join(f"{c}번(직전 값 {v:g}→'{t}')" for c, t, v in halted[:8])
-                     + f" · 사업장 전체 지금 가동중지 {now_halt['가동중지']}개(측정기 보수중 {now_halt['보수중']}개). 정기보수·설비 개수·가동 조정 중 무엇인지는 회사 확인" + STATUS_OBSERVE_NOTE)
-            if resumed and not comp_first and not off and (len(resumed) >= 3 or any(c in top_base for c, _, _, _ in resumed)):
+                     + f" · 사업장 전체 지금 가동중지 {now_halt['가동중지']}개(측정기 보수중 {now_halt['보수중']}개). 정기보수·설비 개수·가동 조정 중 무엇인지는 회사 확인"
+                     + HALT_NOTE + ("" if halt_b else HALT_SMALL_NOTE))
+            resume_b = bool(resumed) and size_rule([c for c, _, _, _ in resumed], judged, top_base)
+            if resumed and not comp_first and not off and (resume_b or len(resumed) >= 3):
                 now_halt = {k: sum(1 for v in stacks.values() if (v.get("status") or [None])[0] == k) for k in SHOWN_STATUS}
-                emit(f"stk:resume:{sid}:{day}:{','.join(c for c, _, _, _ in resumed[:6])}", "배출구 보수·가동중지 해제", STATUS_TRANSITION_TIER, comp["company"], name,
+                emit(f"stk:resume:{sid}:{day}:{','.join(c for c, _, _, _ in resumed[:6])}", HALT_KINDS[1], "B" if resume_b else "C", comp["company"], name,
                      f"{name}: '가동중지'였던 배출구 {len(resumed)}개가 다시 측정값을 보냄 — "
                      + ", ".join(f"{c}번('{t}', 처음 본 측정 {since[5:] or '?'} → 지금 {v:g})" for c, t, since, v in resumed[:8])
-                     + f" · 사업장 전체 지금 가동중지 {now_halt['가동중지']}개(측정기 보수중 {now_halt['보수중']}개). 재가동인지는 회사 확인" + STATUS_OBSERVE_NOTE)
+                     + f" · 사업장 전체 지금 가동중지 {now_halt['가동중지']}개(측정기 보수중 {now_halt['보수중']}개). 재가동인지는 회사 확인"
+                     + HALT_NOTE + ("" if resume_b else HALT_SMALL_NOTE))
             share = len(stopped) / len(meaningful) if meaningful else 0
             load = sum(v or 0 for v in meaningful.values()) or 1
             # 예전 규칙(2개 이상이면 B)으로 저장된 작은 멈춤은 사업장 크기 기준으로 다시 본다(10-31 09:17 포스코 광양 137개 중 2개).
@@ -885,9 +917,12 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep, clock=time.
                 # 배출구 100개 넘는 제철소에서 2개 멈춤은 일상 정비일 수 있다(10-31 포스코 광양 137개 중 2개 B) — 사업장 크기에 맞춘다
                 elif (len(newly) >= max(2, math.ceil(len(meaningful) * STOP_B_SHARE)) or any(c in top for c in newly)
                       or (len(newly) >= 2 and sum(judged[c][1] or 0 for c in newly) >= STOP_B_LOAD * (sum(v or 0 for v in meaningful.values()) or 1))):
-                    emit(f"stk:stop:{sid}:{day}", "배출구 멈춤 신호", "B", comp["company"], name,
+                    told = announced_halts(fresh + events, sid, now)
+                    early = told and all(c in told for c in newly)
+                    emit(f"stk:stop:{sid}:{day}", "배출구 멈춤 신호", "C" if early else "B", comp["company"], name,
                          f"{name}: 배출구 {len(newly)}개가 {STOP_RUNS}번 연속 평소의 10% 아래(사업장 전체 평소 움직이던 {len(meaningful)}개 중 멈춤 {len(stopped)}개) — "
-                         + ", ".join(desc(c) for c in newly[:6]) + " · 정비·점검일 수 있음(회사 확인)")
+                         + ", ".join(desc(c) for c in newly[:6]) + " · 정비·점검일 수 있음(회사 확인)"
+                         + (f" — 같은 배출구를 {min(told[c] for c in newly)[5:16].replace('T', ' ')} '가동중지 전환'(B)으로 먼저 알려 C" if early else ""))
             if was and len(was) >= 2 and len(stopped) <= len(was) / 2 and s.get("downFlag"):
                 emit(f"stk:up:{sid}:{day}", "사업장 재가동 신호", "B", comp["company"], name,
                      f"{name}: 멈췄던 배출구 {len(was)}개 중 {len(was) - len(stopped)}개 측정값이 평소 수준으로 돌아옴")
@@ -950,7 +985,7 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep, clock=time.
                       "멈췄다 다시 움직인 배출구는 시작·끝을 남겨(11-03부터, 최근 8번·90일) 다음 멈춤 알림에 최근 30일 앞선 멈춤을 함께 적는다 — 되풀이되는 짧은 멈춤은 일상 정비·간헐 가동일 수 있다. 기록 시작 전 멈춤은 모른다.",
                       "배출구 멈춤 B는 새로 멈춘 배출구가 사업장 평소 움직이던 배출구의 5%(최소 2개) 이상, 큰 배출구(평소 값 상위 3), 또는 평소 값 합의 10% 이상일 때. 큰 제철소의 배출구 한두 개는 일상 정비일 수 있어 화면 목록에만 보인다.",
                       "측정값 칸에 숫자 대신 상태 글자가 오면 그대로 남긴다: '측정자료확인중(가동중지)'는 사업장이 보낸 시설 멈춤 신고(값 0으로 셈), '보수중'·'기기점검'·'미수신'·'측정자료확인중'은 측정기 쪽 상태(판단 안 함).",
-                      "숫자로 돌던 배출구가 '가동중지'로 바뀐 것이 한 실행에 3개 이상이거나 큰 배출구면 알린다(연속 가동 사업장만) — 검증 전까지 C. 거꾸로 '가동중지'였던 배출구가 다시 숫자를 보내면 '해제'(C).",
+                      "숫자로 돌던 배출구가 '가동중지'(사업장이 보낸 시설 멈춤 신고)로 바뀐 순간을 알린다(연속 가동 사업장만): 멈춤 B와 같은 사업장 크기 기준(5%·최소 2개, 큰 배출구, 평소 값 합 10%)이면 B, 아니면 3개 이상일 때 C. 거꾸로 다시 숫자를 보내면 '해제'(같은 기준). 먼저 B로 알린 배출구의 멈춤 신호(3번 연속)는 C. 11-03 확인: '가동중지'는 2시간 뒤에도 17개 중 16개 그대로였다.",
                       "한 사업장 배출구가 같은 실행에 3개 이상 한꺼번에 목록에서 빠지면 측정 자료 지연일 수 있어 C(멈춘 배출구는 목록에 '가동중지'로 남는다).",
                       "배출구·사업장이 사흘(평일 교대 공장은 일하는 시간 72시간) 넘게 목록에 없으면 '오래 빠짐' B 한 번 — 멈춘 배출구는 '가동중지'로 남으므로 측정 대상에서 빠진 것(폐쇄·철거·측정 대상 변경)일 수 있다. 같은 사업장 같은 실행 3개 이상이면 한 줄만 B. 다시 나타나면 C.",
                       f"다만 사흘(평일 교대 공장은 일하는 시간 {LONG_STOP_HOURS}시간) 넘게 멈춘 배출구는 사업장 크기와 상관없이 '배출구 오래 멈춤' B로 한 번 알린다. 멈춤이 이어지는 동안은 멈추기 전 평소 값으로 본다.",

@@ -468,9 +468,11 @@ class StackTest(unittest.TestCase):
         self.assertEqual(site["stopped"], ["1"])
         self.assertEqual(site["stacks"]["1"]["status"], ["가동중지", (T0 + dt.timedelta(hours=18)).strftime("%Y-%m-%d %H:%M")])
         ev = [e for e in doc["events"] if e["site"] == "현대제철㈜"]
-        self.assertEqual(sorted((e["kind"], e["tier"]) for e in ev), [("배출구 멈춤 신호", "B"), ("배출구 보수·가동중지 전환", "C")])
+        # 큰 배출구가 '가동중지'로 바뀐 순간 B로 알리고(사업장 크기 기준), 9시간 뒤 같은 배출구 멈춤 신호는 먼저 알렸으니 C
+        self.assertEqual(sorted((e["kind"], e["tier"]) for e in ev), [("배출구 가동중지 전환", "B"), ("배출구 멈춤 신호", "C")])
         stop = next(e for e in ev if e["kind"] == "배출구 멈춤 신호")
         self.assertIn("상태 '가동중지'(처음 본 측정 10-31 06:00)", stop["text"])
+        self.assertIn("'가동중지 전환'(B)으로 먼저 알려 C", stop["text"])
 
     def test_switch_to_maintenance_status_is_flagged_for_three_or_a_big_stack(self):
         # 11-03 탐침 117: 포스코 광양 배출구 34개 '보수중' — 숫자로 돌던 배출구가 상태 글자로 바뀌는 순간을 사업장 단위로 알린다
@@ -486,14 +488,29 @@ class StackTest(unittest.TestCase):
                         if x["fact_manage_nm"] == "현대제철㈜포항2공장" and x["stack_code"] in switch:
                             x.update(tsp_mesure_value=None, sox_mesure_value=None, nox_mesure_value=text)
                 doc = w.run(CFG_SMALL, now=t + dt.timedelta(minutes=20), previous=doc, key="k", get=Api(rows), sleep=lambda s: None)
-            return [e for e in doc["events"] if e["kind"] == "배출구 보수·가동중지 전환"], doc
+            return [e for e in doc["events"] if e["kind"] == "배출구 가동중지 전환"], doc
         ev, doc = go(9, switch=("10", "11", "12"))
-        self.assertEqual([e["tier"] for e in ev], ["C"])   # 11-03 첫 읽기 뒤 글자가 몇 시간 안에 바뀌는 사례 — 검증 전까지 C
-        self.assertIn("검증 전", ev[0]["text"])
+        # 11-03 확인: '가동중지'는 2시간 뒤에도 17개 중 16개 그대로 — 멈춤 B와 같은 사업장 크기 기준(20개 중 3개 ≥ 5%·최소 2개)이면 B
+        self.assertEqual([e["tier"] for e in ev], ["B"])
+        self.assertIn("17개가 13:00에도 모두 그대로", ev[0]["text"])
         self.assertIn("배출구 3개가 이번 측정에서 상태 글자 '가동중지'로 바뀜", ev[0]["text"])
         self.assertIn("10번(직전 값 20→'가동중지')", ev[0]["text"])
         self.assertIn("지금 가동중지 3개(측정기 보수중 0개)", ev[0]["text"])
         self.assertEqual(go(9, switch=("10", "11", "12"), text="보수중")[0], [])   # 측정기 보수 상태는 전환 아님
+        # 배출구가 많은 사업장(100개)의 3개는 사업장 크기 기준(5% = 5개)에 못 미쳐 C(설명 붙임)
+        many = tuple([60.0, 55.0, 50.0] + [20.0] * 97)
+        doc = None
+        for i in range(9):
+            t = T0 + dt.timedelta(hours=3 * i)
+            rows = world(t, pohang2=many)
+            if i == 8:
+                for x in rows:
+                    if x["fact_manage_nm"] == "현대제철㈜포항2공장" and x["stack_code"] in ("10", "11", "12"):
+                        x.update(tsp_mesure_value=None, sox_mesure_value=None, nox_mesure_value="측정자료확인중(가동중지)")
+            doc = w.run(CFG_SMALL, now=t + dt.timedelta(minutes=20), previous=doc, key="k", get=Api(rows), sleep=lambda s: None)
+        small = [e for e in doc["events"] if e["kind"] == "배출구 가동중지 전환"]
+        self.assertEqual([e["tier"] for e in small], ["C"])
+        self.assertIn("사업장 크기 기준", small[0]["text"])
         self.assertEqual(go(9, switch=("10",))[0], [])                      # 작은 배출구 하나는 이벤트 없음
         self.assertEqual(len(go(9, switch=("1",), text="측정자료확인중(가동중지)")[0]), 1)   # 큰 배출구(평소 값 상위 3)는 하나도
         self.assertEqual(go(9, switch=("10", "11", "12"), text="미수신")[0], [])  # 측정 쪽 사정은 아님
@@ -508,7 +525,7 @@ class StackTest(unittest.TestCase):
                         if x["fact_manage_nm"] == "현대제철㈜포항2공장" and x["stack_code"] in ("10", "11", "12"):
                             x.update(sox_mesure_value="보수중", nox_mesure_value="보수중", tsp_mesure_value="19.0")
                 doc = w.run(CFG_SMALL, now=t + dt.timedelta(minutes=20), previous=doc, key="k", get=Api(rows), sleep=lambda s: None)
-            return [e for e in doc["events"] if e["kind"] == "배출구 보수·가동중지 전환"]
+            return [e for e in doc["events"] if e["kind"] == "배출구 가동중지 전환"]
         self.assertEqual(mixed(), [])
         # 평일 교대 공장(기아 화성)은 전환을 세지 않는다(교대 끝난 저녁의 가동중지는 일상, 보수중은 측정기 상태)
         cfg = {"companies": [c for c in CFG["companies"] if c["company"] == "기아"]}
@@ -523,7 +540,7 @@ class StackTest(unittest.TestCase):
                     for x in rows[:3]:
                         x.update(tsp_mesure_value=None, sox_mesure_value=None, nox_mesure_value=text)
                 doc = w.run(cfg, now=t + dt.timedelta(minutes=20), previous=doc, key="k", get=Api(rows), sleep=lambda s: None)
-            return [e for e in doc["events"] if e["kind"] == "배출구 보수·가동중지 전환"]
+            return [e for e in doc["events"] if e["kind"] == "배출구 가동중지 전환"]
         self.assertEqual(kia("측정자료확인중(가동중지)"), [])
         self.assertEqual(kia("보수중"), [])
 
@@ -584,8 +601,8 @@ class StackTest(unittest.TestCase):
                     if x["fact_manage_nm"] == "현대제철㈜포항2공장" and x["stack_code"] in ("10", "11", "12"):
                         x.update(tsp_mesure_value=None, sox_mesure_value=None, nox_mesure_value="측정자료확인중(가동중지)")
             doc = w.run(CFG_SMALL, now=t + dt.timedelta(minutes=20), previous=doc, key="k", get=Api(rows), sleep=lambda s: None)
-        ev = [e for e in doc["events"] if e["kind"] == "배출구 보수·가동중지 해제"]
-        self.assertEqual([e["tier"] for e in ev], ["C"])
+        ev = [e for e in doc["events"] if e["kind"] == "배출구 가동중지 해제"]
+        self.assertEqual([e["tier"] for e in ev], ["B"])   # 20개 중 3개 — 사업장 크기 기준
         self.assertIn("'가동중지'였던 배출구 3개가 다시 측정값을 보냄", ev[0]["text"])
         self.assertIn("10번('가동중지', 처음 본 측정 10-31 12:00 → 지금 20)", ev[0]["text"])
         site = next(x for x in doc["sites"] if x["name"] == "현대제철㈜포항2공장")
