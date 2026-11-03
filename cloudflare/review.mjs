@@ -52,11 +52,24 @@ export async function myArticlesLines(ctx, days) {
   // 레이더가 놓친 기사(11-04 기자 요청 뒤): 어떤 원천을 더할지 보려고 종류별로 묶고 '없음' 제목을 보여 준다(기자 전용 화면).
   const byKind = (rs) => Object.entries(rs.reduce((m, a) => ({ ...m, [a.kind ?? '기타']: (m[a.kind ?? '기타'] ?? 0) + 1 }), {}))
     .sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${v}`).join(' · ');
-  const miss = rows.filter((a) => a.verdict === '없음');
-  const sameOnly = rows.filter((a) => a.verdict === '같은 회사 항목만');
+  // 보도자료·공시 기사 가리기(11-04 기자: "내 기사 대부분이 보도자료") — 레이더는 자체·선행 기사로만 본다
+  const pc = (k) => rows.filter((a) => (a.press ?? '미확인') === k).length;
+  const own = rows.filter((a) => a.press === '자체' || a.press === '선행');
+  if (rows.some((a) => a.press)) {
+    const on = (v) => own.filter((a) => a.verdict === v).length;
+    out.push(`보도자료·공시 추정 ${pc('보도자료·공시')} · 자체 ${pc('자체')} · 선행 ${pc('선행')}${pc('미확인') ? ` · 미확인 ${pc('미확인')}` : ''} — 자체·선행 ${own.length}건 중 레이더가 먼저 잡은 후보 ${on('먼저 잡은 후보')} · 같은 회사 항목만 ${on('같은 회사 항목만')} · 없음 ${on('없음')}${on('회사 미상') ? ` · 회사 미상 ${on('회사 미상')}` : ''}`);
+    const lead = rows.filter((a) => a.press === '선행');
+    if (lead.length) {
+      out.push(`기자 기사가 먼저 나오고 다른 매체가 따라온 기사(선행) ${lead.length}건`);
+      for (const a of lead.slice(0, 8)) out.push(`  · ${String(a.published).slice(5, 10)} 「${String(a.title).slice(0, 60)}」 — 뒤따른 비슷한 기사 ${a.pressN ?? '?'}건`);
+    }
+  }
+  const pool = rows.some((a) => a.press) ? own.concat(rows.filter((a) => !a.press)) : rows;   // 보도자료로 정해진 기사는 '놓친 기사'에서 뺀다
+  const miss = pool.filter((a) => a.verdict === '없음');
+  const sameOnly = pool.filter((a) => a.verdict === '같은 회사 항목만');
   if (miss.length) {
-    out.push(`레이더에 같은 회사 항목도 없던 기사 ${miss.length}건 — ${byKind(miss)}`);
-    for (const a of miss.slice(0, 15)) out.push(`  · ${String(a.published).slice(5, 10)} [${a.kind ?? '기타'}] 「${String(a.title).slice(0, 60)}」${a.verified === false ? '(작성자 미확인)' : ''}`);
+    out.push(`레이더에 같은 회사 항목도 없던 기사 ${miss.length}건${rows.some((a) => a.press) ? '(보도자료·공시 추정 뺌)' : ''} — ${byKind(miss)}`);
+    for (const a of miss.slice(0, 15)) out.push(`  · ${String(a.published).slice(5, 10)} [${a.kind ?? '기타'}${a.press ? `·${a.press}` : ''}] 「${String(a.title).slice(0, 60)}」${a.verified === false ? '(작성자 미확인)' : ''}`);
     if (miss.length > 15) out.push(`  … ${miss.length - 15}건 더`);
   }
   if (sameOnly.length) out.push(`같은 회사 항목만 있던 기사 ${sameOnly.length}건(사건은 달랐음) — ${byKind(sameOnly)}`);

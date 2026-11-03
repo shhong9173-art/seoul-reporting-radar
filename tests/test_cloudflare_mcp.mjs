@@ -2706,17 +2706,20 @@ test('기자 기사 자동 대조(my-articles): radar_today 항목에 기자 기
     verdict: '먼저 잡은 후보', sameCompanyItems: 1, best: { source: 'council-minutes', label: '지방의회 회의록', id: 'clik:CLIKC1', text: ev.text, seen: now.slice(0, 16), why: ['신차', '야적'], leadHours: 26.5 } };
   const doc = { schema: 'my_articles/v1', generatedAt: now, status: 'complete', author: '홍성효',
     checks: [{ source: '아이뉴스24 뉴스 사이트맵', status: 'ok', returned: 815, candidates: 40, opened: 40, mineNew: 1 }],
-    articles: [{ ...art, kind: '논란·법적' }, { ...art, url: null, title: '금호타이어, 롯데카드와 제휴카드 출시', companies: ['금호타이어'], verified: false, verdict: '없음', best: null, kind: '제품·마케팅' },
-      { ...art, url: null, title: 'KG스틸, 3분기 영업익 248억원', companies: ['KG스틸'], verified: true, verdict: '같은 회사 항목만', best: null, kind: '실적' }],
+    articles: [{ ...art, kind: '논란·법적', press: '자체', pressN: 0 }, { ...art, url: null, title: '금호타이어, 롯데카드와 제휴카드 출시', companies: ['금호타이어'], verified: false, verdict: '없음', best: null, kind: '제품·마케팅', press: '보도자료·공시', pressN: 3 },
+      { ...art, url: null, title: 'KG스틸, 3분기 영업익 248억원', companies: ['KG스틸'], verified: true, verdict: '같은 회사 항목만', best: null, kind: '실적', press: '보도자료·공시', pressN: 5 },
+      { ...art, url: null, title: '대미 타이어 수출 25% 감소…유럽이 메웠지만 관세 복병', companies: [], verified: true, verdict: '회사 미상', best: null, kind: '통계·시장', press: '선행', pressN: 2 }],
     counts: { '먼저 잡은 후보': 1, '같은 회사 항목만': 0, '없음': 1, '회사 미상': 0 },
     itemHits: { 'clik:CLIKC1': { title: art.title, published: now, url: art.url, verified: true } } };
   assert.equal((await post('my-articles', doc)).status, 200);
   const r = await call('radar_today', {}, opts);
   assert.match(r.text, /id clik:CLIKC1 〔기자 기사\(자동 대조\) \d\d-\d\d 「기아, 화성 신차 불법 야적 논란⋯시의회 "공장 부지 허가 위반"」〕/);
   const w = await call('candidate_weekly_review', { days: 14 }, opts);
-  assert.match(w.text, /기사 3건\(그중 1건은 첫 실행 구글 색인이라 작성자 미확인\) — 레이더가 먼저 잡은 후보 1 · 같은 회사 항목만 1 · 없음 1/);
-  assert.match(w.text, /레이더에 같은 회사 항목도 없던 기사 1건 — 제품·마케팅 1\n  · \d\d-\d\d \[제품·마케팅\] 「금호타이어, 롯데카드와 제휴카드 출시」\(작성자 미확인\)/);
-  assert.match(w.text, /같은 회사 항목만 있던 기사 1건\(사건은 달랐음\) — 실적 1/);
+  assert.match(w.text, /기사 4건\(그중 1건은 첫 실행 구글 색인이라 작성자 미확인\) — 레이더가 먼저 잡은 후보 1 · 같은 회사 항목만 1 · 없음 1 · 회사 미상 1/);
+  assert.match(w.text, /보도자료·공시 추정 2 · 자체 1 · 선행 1 — 자체·선행 2건 중 레이더가 먼저 잡은 후보 1 · 같은 회사 항목만 0 · 없음 0 · 회사 미상 1/);
+  assert.match(w.text, /기자 기사가 먼저 나오고 다른 매체가 따라온 기사\(선행\) 1건\n  · \d\d-\d\d 「대미 타이어 수출 25% 감소…유럽이 메웠지만 관세 복병」 — 뒤따른 비슷한 기사 2건/);
+  assert.doesNotMatch(w.text, /레이더에 같은 회사 항목도 없던 기사/);   // 금호타이어 제휴카드는 보도자료라 '놓친 기사'에서 뺌
+  assert.doesNotMatch(w.text, /같은 회사 항목만 있던 기사/);
   assert.match(w.text, /감시별\(먼저 잡은 후보\): 지방의회 회의록 1/);
   assert.match(w.text, /레이더: [^\n]*지방의회 회의록 — [^\n]*\(26\.5시간 앞, 겹친 낱말 신차·야적\) · id clik:CLIKC1/);
   assert.match(w.text, /안 쓴 항목은 킬이 아니다/);

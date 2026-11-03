@@ -120,6 +120,44 @@ class MyArticles(unittest.TestCase):
         self.assertEqual((bad["status"], bad["checks"][0]["status"]), ("failed", "failed"))
         self.assertIn("사이트맵:ConnectionError", bad["checks"][0]["error"])
 
+    def test_press_release_split_11_04(self):
+        # 11-04 기자: "내 기사 대부분이 보도자료". 같은 때 다른 매체 비슷한 제목이 먼저 2곳 이상 → 보도자료·공시, 모두 뒤면 선행
+        a = {"title": "KG스틸, 3분기 영업익 248억원⋯전년比 53.9% 감소", "published": "2026-11-03T15:51:02+09:00"}
+        items = [{"title": "<b>KG스틸</b>, 3분기 영업익 248억원…전년比 53.9% 감소(종합)", "originallink": "https://www.news1.kr/x", "pubDate": "Tue, 03 Nov 2026 15:20:00 +0900"},
+                 {"title": "KG스틸 3분기 영업이익 248억원, 전년 대비 53.9% 감소", "originallink": "https://www.newsis.com/x", "pubDate": "Tue, 03 Nov 2026 15:31:00 +0900"},
+                 {"title": "KG스틸, 3분기 영업익 248억원⋯전년比 53.9% 감소", "originallink": "https://www.inews24.com/view/1", "pubDate": "Tue, 03 Nov 2026 15:51:02 +0900"},
+                 {"title": "철강업계 3분기 실적 희비", "originallink": "https://x.com/y", "pubDate": "Tue, 03 Nov 2026 16:00:00 +0900"}]
+        self.assertEqual(w.press_label(a, items), ("보도자료·공시", 2))
+        b = {"title": "대미 타이어 수출 25% 감소…유럽이 메웠지만 관세 '복병'", "published": "2026-11-03T14:00:00+09:00"}
+        self.assertEqual(w.press_label(b, [{"title": "대미 타이어 수출 25% 감소…관세 복병", "originallink": "https://a.kr/1", "pubDate": "Tue, 03 Nov 2026 18:00:00 +0900"}]),
+                         ("선행", 1))                                                  # 기자 기사 4시간 뒤 다른 매체
+        self.assertEqual(w.press_label(b, items), ("자체", 0))
+
+    def test_run_marks_press_once_and_counts_own_articles(self):
+        calls = []
+
+        def search(params):
+            calls.append(params["query"])
+            if "금호타이어" in params["query"]:
+                return [{"title": "금호타이어, 롯데카드와 제휴카드 출시", "originallink": f"https://o{i}.kr", "pubDate": "Mon, 02 Nov 2026 10:00:00 +0900"} for i in range(3)]
+            return []
+        get, _ = fake()
+        doc = w.run(NOW, None, DOCS, {}, get=get, sleep=lambda s: None, search=search)
+        by = {a["title"][:6]: a for a in doc["articles"]}
+        self.assertEqual(by["금호타이어,"]["press"], "보도자료·공시")
+        self.assertEqual(by["기아, 화성"]["press"], "자체")
+        self.assertEqual(doc["pressCounts"]["보도자료·공시"], 1)
+        self.assertEqual(doc["ownCounts"]["먼저 잡은 후보"], 1)
+        n = len(calls)
+        doc2 = w.run(NOW + dt.timedelta(hours=6), doc, DOCS, {}, get=fake()[0], sleep=lambda s: None, search=search)
+        self.assertEqual(len(calls), n)                                              # 한 번 정한 기사는 다시 묻지 않음
+        self.assertEqual(doc2["pressCounts"], doc["pressCounts"])
+
+        def refused(params):
+            raise RuntimeError("키 거부")
+        doc3 = w.run(NOW, None, DOCS, {}, get=fake()[0], sleep=lambda s: None, search=refused)
+        self.assertEqual(doc3["pressCounts"]["미확인"], len(doc3["articles"]))         # 검색 실패는 판정 안 함
+        self.assertIn("뉴스 검색:RuntimeError", doc3["checks"][0]["error"])
 
 if __name__ == "__main__":
     unittest.main()
