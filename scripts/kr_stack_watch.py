@@ -177,6 +177,22 @@ STATUS_OBSERVE_NOTE = (" — 상태 글자는 11-03부터 읽기 시작해 검�
 STATUS_KINDS = ("배출구 보수·가동중지 전환", "배출구 보수·가동중지 해제")
 
 
+MAINT_NOTE = " — '보수중'은 측정기 보수 상태로 바로잡음(11-03): 그 배출구는 멈춤 근거가 아닐 수 있음"
+STOP_KINDS_ALL = ("배출구 멈춤 신호", "사업장 가동 중단 신호", "배출구 오래 멈춤")
+
+
+def retier_maintenance_stops(events):
+    """#599~#614 동안 '보수중'을 멈춤으로 센 저장 이벤트: 든 배출구가 모두 '보수중'이면 C, 섞였으면 설명만(한 번)."""
+    for e in events:
+        text = e.get("text") or ""
+        if e.get("kind") not in STOP_KINDS_ALL or "상태 '보수중'" not in text or MAINT_NOTE in text:
+            continue
+        parts = re.findall(r"\S+?번\(평소[^)]*(?:\([^)]*\)[^)]*)*\)", text)
+        if parts and all("상태 '보수중'" in x for x in parts):
+            e["tier"] = "C"
+        e["text"] = text + MAINT_NOTE
+
+
 def retier_status_transitions(events):
     """예전 규칙으로 B가 된 상태 글자 전환·해제를 C로(한 번만 설명을 붙인다)."""
     for e in events:
@@ -257,10 +273,13 @@ def peak(x):
     return max(vals) if vals else None
 
 
-# 측정값 칸에 숫자 대신 오는 상태 글자(11-03 탐침 113: 출입처 932줄 중 176줄) — 사업장이 보낸 상태다.
-# '측정자료확인중(가동중지)' 77·'보수중' 36은 설비가 멈춘 것, '미수신' 42·'기기점검' 14·'측정자료확인중' 8은 측정 쪽 사정.
+# 측정값 칸에 숫자 대신 오는 상태 글자(11-03 탐침 113: 출입처 932줄 중 176줄).
+# '측정자료확인중(가동중지)'만 배출시설이 멈췄다는 신고로 본다. '보수중'·'기기점검'·'미수신'·'측정자료확인중'은 측정기 쪽 상태다 —
+# 굴뚝 원격감시 특허(KR100896018B1)는 측정기 상태를 '정상·교정중·동작불량·전원단절·보수중'으로 적고, 11-03 운영에서 S-OIL 온산
+# 8개가 09:20 숫자 → '기기점검' → 10:30 측정 '보수중'으로 바뀌었다(측정기 점검·보수 흐름). 처음(#599)엔 '보수중'도 멈춤으로 셌다.
 # 예전에는 숫자만 읽어, 가동중지라고 적힌 배출구(포스코 광양 135번 등)가 값 없음(판단 안 함)으로 남았다.
-STOP_STATUS = ("가동중지", "보수중")
+STOP_STATUS = ("가동중지",)
+SHOWN_STATUS = ("가동중지", "보수중")   # 설명에 수를 함께 적는 글자
 NUM_RX = re.compile(r"^-?\d+(?:\.\d+)?$")
 
 
@@ -277,7 +296,7 @@ def status_of(x):
 
 
 def reading(x):
-    """관측으로 쌓을 값: 숫자 최댓값. 숫자가 없고 '가동중지'·'보수중'이면 0(설비가 멈췄다고 사업장이 보냄), 측정 쪽 사정이면 None."""
+    """관측으로 쌓을 값: 숫자 최댓값. 숫자가 없고 '가동중지'면 0(시설이 멈췄다고 사업장이 보냄), 측정기 쪽 상태면 None."""
     v = peak(x)
     if v is None and status_of(x) in STOP_STATUS:
         return 0.0
@@ -291,7 +310,7 @@ def status_note(st):
 
 
 def backfill_status_gap(st, stt):
-    """'가동중지'·'보수중' 줄이 왔을 때, 바로 앞의 값 없는 관측(예전엔 상태 글자를 못 읽어 None으로 쌓임)을 0으로 바꾼다 —
+    """'가동중지' 줄이 왔을 때, 바로 앞의 값 없는 관측(예전엔 상태 글자를 못 읽어 None으로 쌓임)을 0으로 바꾼다 —
     멈춤 시작·평소 값이 상태 글자를 읽기 시작한 날(11-03)이 아니라 실제로 숫자가 끊긴 때를 가리키게. 바꾼 수를 돌려준다."""
     if stt not in STOP_STATUS:
         return 0
@@ -463,6 +482,7 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep, clock=time.
     retier_rest_gone(events)
     retier_marginal(events)
     retier_status_transitions(events)
+    retier_maintenance_stops(events)
     known = {e["id"] for e in events}
     fresh, errors, ok_terms, seen_sites = [], [], 0, set()
     day = now.date().isoformat()
@@ -546,20 +566,20 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep, clock=time.
                 before = (st.get("status") or [None])[0]
                 last_v = (st.get("obs") or [[None, None]])[-1][1]
                 if stt is None or (before in STOP_STATUS and stt not in STOP_STATUS):
-                    # '보수중'·'가동중지'였던 배출구가 다시 평소 같은 숫자를 보냄 — 보수 끝·재가동일 수 있다(아래에서 사업장 단위로 묶음)
+                    # '가동중지'였던 배출구가 다시 평소 같은 숫자를 보냄 — 재가동일 수 있다(아래에서 사업장 단위로 묶음).
+                    # 평일 교대 공장은 세지 않는다(아침마다 가동중지 → 숫자가 일상)
                     cur = peak(x)
-                    if before in STOP_STATUS and cur is not None and cur >= MEANINGFUL and (judge is None or before == "보수중"):
+                    if before in STOP_STATUS and cur is not None and cur >= MEANINGFUL and judge is None:
                         resumed.append((code, before, str((st.get("status") or [None, ""])[1]), cur))
                 if stt is None:
                     st.pop("status", None)
                 elif before != stt:
                     st["status"] = [stt, mdt]
-                    # 숫자로 돌던 배출구가 이번 측정에 '보수중'·'가동중지'로 바뀐 것(사업장이 보낸 상태) — 아래에서 사업장 단위로 묶는다
-                    # 평일 교대 공장은 '보수중'만 센다 — 교대가 끝난 저녁에 '가동중지'로 바뀌는 것은 일상이다
-                    # 다른 물질 칸에 숫자가 평소처럼 남아 있으면(탐침 117b: 영풍 석포 3번 sox·nox '보수중'·먼지 1.67) 측정기 쪽 보수로 본다
+                    # 숫자로 돌던 배출구가 이번 측정에 '가동중지'로 바뀐 것(사업장이 보낸 시설 멈춤 신고) — 아래에서 사업장 단위로 묶는다.
+                    # 평일 교대 공장은 세지 않는다(교대가 끝난 저녁의 가동중지는 일상). 다른 칸 숫자가 평소처럼 남아 있으면 세지 않는다.
                     cur = peak(x)
                     if (stt in STOP_STATUS and before not in STOP_STATUS and last_v is not None and last_v >= MEANINGFUL
-                            and (cur is None or is_low(cur, last_v)) and (judge is None or stt == "보수중")):
+                            and (cur is None or is_low(cur, last_v)) and judge is None):
                         halted.append((code, stt, last_v))
                 if st.get("lastDt") == mdt and st.get("obs"):
                     st["missing"] = 0
@@ -673,17 +693,17 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep, clock=time.
             # 큰 배출구는 평소 값 기준(방금 바뀐 배출구는 아직 '멈춤' 판단 전이라 meaningful에 없다)
             top_base = sorted((c for c, (_, b) in judged.items() if b is not None and b >= MEANINGFUL), key=lambda c: -(judged[c][1] or 0))[:3]
             if halted and not comp_first and not off and (len(halted) >= 3 or any(c in top_base for c, _, _ in halted)):
-                now_halt = {k: sum(1 for v in stacks.values() if (v.get("status") or [None])[0] == k) for k in STOP_STATUS}
+                now_halt = {k: sum(1 for v in stacks.values() if (v.get("status") or [None])[0] == k) for k in SHOWN_STATUS}
                 emit(f"stk:halt:{sid}:{day}:{','.join(c for c, _, _ in halted[:6])}", "배출구 보수·가동중지 전환", STATUS_TRANSITION_TIER, comp["company"], name,
-                     f"{name}: 배출구 {len(halted)}개가 이번 측정에서 상태 글자 '보수중'·'가동중지'로 바뀜(사업장이 보낸 상태) — "
+                     f"{name}: 배출구 {len(halted)}개가 이번 측정에서 상태 글자 '가동중지'로 바뀜(사업장이 보낸 시설 멈춤 신고) — "
                      + ", ".join(f"{c}번(직전 값 {v:g}→'{t}')" for c, t, v in halted[:8])
-                     + f" · 사업장 전체 지금 보수중 {now_halt['보수중']}개·가동중지 {now_halt['가동중지']}개. 정기보수·설비 개수·가동 조정 중 무엇인지는 회사 확인" + STATUS_OBSERVE_NOTE)
+                     + f" · 사업장 전체 지금 가동중지 {now_halt['가동중지']}개(측정기 보수중 {now_halt['보수중']}개). 정기보수·설비 개수·가동 조정 중 무엇인지는 회사 확인" + STATUS_OBSERVE_NOTE)
             if resumed and not comp_first and not off and (len(resumed) >= 3 or any(c in top_base for c, _, _, _ in resumed)):
-                now_halt = {k: sum(1 for v in stacks.values() if (v.get("status") or [None])[0] == k) for k in STOP_STATUS}
+                now_halt = {k: sum(1 for v in stacks.values() if (v.get("status") or [None])[0] == k) for k in SHOWN_STATUS}
                 emit(f"stk:resume:{sid}:{day}:{','.join(c for c, _, _, _ in resumed[:6])}", "배출구 보수·가동중지 해제", STATUS_TRANSITION_TIER, comp["company"], name,
-                     f"{name}: '보수중'·'가동중지'였던 배출구 {len(resumed)}개가 다시 측정값을 보냄 — "
+                     f"{name}: '가동중지'였던 배출구 {len(resumed)}개가 다시 측정값을 보냄 — "
                      + ", ".join(f"{c}번('{t}', 처음 본 측정 {since[5:] or '?'} → 지금 {v:g})" for c, t, since, v in resumed[:8])
-                     + f" · 사업장 전체 지금 보수중 {now_halt['보수중']}개·가동중지 {now_halt['가동중지']}개. 보수 완료·재가동인지는 회사 확인" + STATUS_OBSERVE_NOTE)
+                     + f" · 사업장 전체 지금 가동중지 {now_halt['가동중지']}개(측정기 보수중 {now_halt['보수중']}개). 재가동인지는 회사 확인" + STATUS_OBSERVE_NOTE)
             share = len(stopped) / len(meaningful) if meaningful else 0
             load = sum(v or 0 for v in meaningful.values()) or 1
             # 예전 규칙(2개 이상이면 B)으로 저장된 작은 멈춤은 사업장 크기 기준으로 다시 본다(10-31 09:17 포스코 광양 137개 중 2개)
@@ -755,8 +775,8 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep, clock=time.
                       "측정값이 평소의 10% 아래로 떨어진 것은 설비 정지·정비·측정기 점검·연료 전환일 수 있다. 가동 중단은 회사 확인 전 미확인.",
                       "평소 값이 1 미만인 배출구(원래 거의 0)는 멈춤 판단을 하지 않는다. 관측이 6번 모이기 전에는 판단하지 않는다.",
                       "배출구 멈춤 B는 새로 멈춘 배출구가 사업장 평소 움직이던 배출구의 5%(최소 2개) 이상, 큰 배출구(평소 값 상위 3), 또는 평소 값 합의 10% 이상일 때. 큰 제철소의 배출구 한두 개는 일상 정비일 수 있어 화면 목록에만 보인다.",
-                      "측정값 칸에 숫자 대신 상태 글자가 오면 그대로 남긴다: '가동중지'·'보수중'은 사업장이 보낸 설비 멈춤(값 0으로 셈), '기기점검'·'미수신'·'측정자료확인중'은 측정 쪽 사정(판단 안 함).",
-                      "숫자로 돌던 배출구가 '보수중'·'가동중지'로 바뀐 것이 한 실행에 3개 이상이거나 큰 배출구면 알린다(평일 교대 공장은 '보수중'만) — 11-03 첫 읽기에서 글자가 몇 시간 안에 바뀌는 사례가 있어 검증 전까지 C. 정기보수·개수·가동 조정 중 무엇인지는 회사 확인. 거꾸로 '보수중'·'가동중지'였던 배출구가 다시 숫자를 보내면 같은 기준으로 '해제' B.",
+                      "측정값 칸에 숫자 대신 상태 글자가 오면 그대로 남긴다: '측정자료확인중(가동중지)'는 사업장이 보낸 시설 멈춤 신고(값 0으로 셈), '보수중'·'기기점검'·'미수신'·'측정자료확인중'은 측정기 쪽 상태(판단 안 함).",
+                      "숫자로 돌던 배출구가 '가동중지'로 바뀐 것이 한 실행에 3개 이상이거나 큰 배출구면 알린다(연속 가동 사업장만) — 검증 전까지 C. 거꾸로 '가동중지'였던 배출구가 다시 숫자를 보내면 '해제'(C).",
                       "한 사업장 배출구가 같은 실행에 3개 이상 한꺼번에 목록에서 빠지면 측정 자료 지연일 수 있어 C(멈춘 배출구는 목록에 '가동중지'로 남는다).",
                       f"다만 사흘(평일 교대 공장은 일하는 시간 {LONG_STOP_HOURS}시간) 넘게 멈춘 배출구는 사업장 크기와 상관없이 '배출구 오래 멈춤' B로 한 번 알린다. 멈춤이 이어지는 동안은 멈추기 전 평소 값으로 본다.",
                       "평일 교대 공장(완성차·타이어·전선·변압기·중공업)은 주말·공휴일·밤(0~7시) 관측을 멈춤 판단·평소 값에서 빼고, 그 시간의 목록 빠짐도 세지 않는다. 제철·제련·석유화학 같은 연속 가동 사업장은 주말 멈춤도 그대로 본다.",
