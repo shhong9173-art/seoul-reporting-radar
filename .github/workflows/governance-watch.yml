@@ -60,6 +60,7 @@ jobs:
       - name: Collect OpenDART stake filings
         env:
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
+          MCP_ACCESS_TOKEN: ${{ secrets.MCP_ACCESS_TOKEN }}
         run: python scripts/governance_watch.py --days 30
       - name: Publish
         run: |

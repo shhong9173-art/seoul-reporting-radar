@@ -56,6 +56,8 @@ export const WATCHES = [
   { feed: 'india-filings', label: '인도 법인 공시(현대차 인도)', tool: 'partner_filings', schedule: '평일 13:10·16:10·19:10·22:10', staleHours: 80 },
   // 타사 공시 속 출입처(dart_counterparty_watch.py): 출입처 아닌 회사의 양수도·공급계약·생산중단 공시에 출입처가 거래상대로 적힌 것
   { feed: 'dart-counterparty', label: '타사 공시 속 출입처(거래상대)', tool: 'kr_signals', schedule: '평일 10:50·13:50·16:50·19:50', staleHours: 80 },
+  // 지분·자사주 변동(governance_watch.py, OpenDART 지분공시·자기주식 처분 결정): 임원 집단 보고·보유분 절반 넘는 임직원 보상 자사주 처분·매각 목적 처분 B
+  { feed: 'governance', label: '지분·자사주 변동', tool: 'governance_changes', schedule: '평일 07:40' },
   // 해외 매체 기사 중 직접 출입처 이름이 나온 것(global_collector.py, 뉴스 수집 20분마다) — AI 번역·요약이라 원문 확인
   { feed: 'global-beat', label: '출입처 외신', tool: 'source_document', schedule: '20분마다', staleHours: 6 },
 ];
@@ -96,6 +98,8 @@ const ALT = {
   노동쟁의: ['쟁의', '파업', '조정 신청', '조정신청', '조정 중지', '조정중지', '노동위', '중노위', '지노위'],
   부당노동행위: ['부당노동행위', '노동위', '중노위', '지노위'], 교섭: ['교섭', '하청', '원청', '노란봉투'],
   부당해고: ['부당해고', '해고', '노동위', '중노위', '지노위'], 노동위: ['노동위', '중노위', '지노위', '노동위원회'],
+  // 지분·자사주 변동(governance)
+  자사주: ['자사주', '자기주식'], 임원: ['임원', '지분', '주식 보상'],
   // 노조 성명·보도자료(union-notices): 사고·고발 낱말 묶음
   불법: ['불법', '위반', '야적', '행정처분'], 오염: ['오염', '유출', '악취', '배출'], 의회: ['의회', '시의회', '도의회', '군의회', '의원'],
   고발: ['고발', '고소', '가처분', '소송'],
@@ -866,6 +870,17 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
     if (!recent(e.detectedAt)) continue;
     push(['A', 'B'].includes(e.tier) ? e.tier : 'C', W['kr-labor'], { kind: e.kind, id: e.id, date: e.detectedAt, company: e.company,
       fact: e.text, url: e.url, check: hint(e.company, [e.word || '노동위']) });
+  }
+
+  // 지분·자사주 변동(11-04): 기자 기사 「주주가치 높인다며 산 자사주…KG스틸, 임직원 보상에 쓴다」(10-24)는 10-15 처분 결정과 10-23 임원 15명
+  // 같은 날 보고로 쓸 수 있었다. 임원 집단 보고(같은 날 5명 이상)·일상 아닌 자사주 처분 결정만 B(공개 공시 — 각도는 기자가 만든다)
+  for (const x of docs.governance?.items ?? []) {
+    if (x.routine || !['임원 집단 보고', '자사주 처분 결정'].includes(x.kind) || !fresh(x, null, 'date')) continue;
+    const treasury = x.kind === '자사주 처분 결정';
+    push('B', W.governance, { kind: x.kind, id: x.groupKey ?? `treasury:${x.receiptNo}`, date: x.date, company: x.company, url: x.url ?? undefined,
+      fact: treasury ? `${x.company} 자기주식 처분 결정 — ${x.reason}${x.period && x.period !== '~' ? ` · 처분 기간 ${x.period}` : ''} ${(x.tags ?? []).join(' ')}`
+        : `${x.company} ${x.reporter} 같은 날 지분 보고 — ${x.reason} ${(x.tags ?? []).join(' ')}`,
+      check: hint(x.company, [treasury ? '자사주' : '임원']) });
   }
 
   // 지방의회 회의록: 출입처 이름 대목에 인허가·불법·위반·오염·민원·특혜·감면·증설·이전·폐쇄·야적 낱말 A(그 밖은 저장만). 의원 질의는 주장

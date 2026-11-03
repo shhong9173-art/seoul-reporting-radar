@@ -164,5 +164,43 @@ class Governance(unittest.TestCase):
         self.assertIsNone(g.day("미상"))
 
 
+# 11-04 탐침 162 실제 응답(OpenDART tsstkDpDecsn)
+KG_TREASURY = {"status": "000", "list": [{"rcept_no": "20261015000414", "corp_cls": "Y", "corp_code": "00115676", "corp_name": "KG스틸",
+    "aq_wtn_div_ostk": "2,456,184", "eaq_ostk": "5,807", "eaq_estk": "678", "dppln_stk_ostk": "2,461,991", "dppln_stk_estk": "-",
+    "dppln_prc_ostk": "13,688,669,960", "dppln_prc_estk": "-", "dpprpd_bgd": "2026년 10월 16일", "dpprpd_edd": "2027년 01월 15일",
+    "dp_pp": "임직원 지급을 위한\n자기주식 처분", "dp_m_mkt": "-", "dp_m_ovtm": "-", "dp_m_otc": "-", "dp_m_etc": "2,461,991", "dp_dd": "2026년 10월 15일"}]}
+HMC_TREASURY_ROW = {"rcept_no": "20260326001343", "corp_code": "00164742", "corp_name": "현대자동차", "aq_wtn_div_ostk": "2,006,508",
+    "eaq_ostk": "-", "dppln_stk_ostk": "50,458", "dppln_prc_ostk": "25,279,458,000", "dpprpd_bgd": "2026년 04월 01일",
+    "dpprpd_edd": "2026년 04월 01일", "dp_pp": "임원 대상 자기주식 지급", "dp_m_otc": "50,458", "dp_dd": "2026년 03월 26일"}
+
+
+class Treasury(unittest.TestCase):
+    def test_kg_steel_disposal_is_flagged_hyundai_annual_grant_is_routine(self):
+        kg = g.treasury_item("KG스틸", "철강·비철", KG_TREASURY["list"][0], "2026-10-01")
+        self.assertEqual((kg["date"], kg["routine"], kg["shares"], kg["amount"]), ("2026-10-15", False, 2461991, 13688669960))
+        self.assertEqual(kg["tags"], ["[처분목적: 임직원 보상]", "[보유 자사주의 100%]"])
+        self.assertIn('처분목적 "임직원 지급을 위한 자기주식 처분" · 2,461,991주·136.9억원 · 처분 전 보유 2,461,991주의 100% · 방법 기타', kg["reason"])
+        hmc = g.treasury_item("현대자동차", "자동차", HMC_TREASURY_ROW, "2026-03-01")
+        self.assertEqual((hmc["routine"], hmc["tags"]), (True, ["[처분목적: 임직원 보상]"]))   # 보유분의 2.5% — 해마다 하는 임원 지급
+
+    def test_insider_group_after_disposal_is_linked(self):
+        g.BEATS[:] = [("철강·비철", ["KG스틸"])]
+        rows = [{"rcept_no": f"202610230003{i:02d}", "rcept_dt": "20261023", "repror": f"임원{i}", "isu_exctv_rgist_at": "비등기임원",
+                 "isu_exctv_ofcps": "상무보", "sp_stock_lmp_cnt": "5,450", "sp_stock_lmp_irds_cnt": "5,000",
+                 "sp_stock_lmp_rate": "0.01", "sp_stock_lmp_irds_rate": "0.01"} for i in range(15)]
+        try:
+            r = g.build("K", now=datetime(2026, 10, 26, 9, 0, tzinfo=KST), days=30, sleep=lambda s: None,
+                        registry={"companies": {"KG스틸": {"corp_code": "00115676"}}},
+                        get=fake({("elestock.json", "00115676"): {"status": "000", "list": rows}, ("tsstkDpDecsn.json", "00115676"): KG_TREASURY}))
+        finally:
+            import importlib
+            importlib.reload(g)
+        grp = next(x for x in r["items"] if x["kind"] == "임원 집단 보고")
+        self.assertIn("[자사주 처분 연결]", grp["tags"])
+        self.assertIn('10-15 자기주식 처분 결정(처분목적 "임직원 지급을 위한 자기주식 처분", 2,461,991주) 뒤 — 주식 보상 지급으로 보임', grp["reason"])
+        self.assertEqual(r["schema"], "governance/v1")
+        self.assertTrue(any(x["kind"] == "자사주 처분 결정" and not x["routine"] for x in r["items"]))
+        self.assertIn({"company": "KG스틸", "endpoint": "tsstkDpDecsn.json", "status": "checked", "rowsReturned": 1, "rowsInWindow": 1}, r["checks"])
+
 if __name__ == "__main__":
     unittest.main()
