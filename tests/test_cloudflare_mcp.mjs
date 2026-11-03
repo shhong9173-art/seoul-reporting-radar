@@ -878,6 +878,8 @@ test('kr_official stacks: plants with stopped stacks first, events, young sites 
           135: { lastDt: '2026-10-31 09:00', obs: [], status: ['가동중지', '2026-10-31 08:00'] }, 3: { lastDt: '2026-10-31 09:00', obs: [], status: ['미수신', '2026-10-31 09:00'] } },
         exceedLog: [{ stack: '40', pollutant: 'nox', value: 61.2, limit: 50, at: '2026-10-31 06:00' }, { stack: '40', pollutant: 'nox', value: 70.5, limit: 50, at: '2026-10-31 09:00' }] },
       { id: 'c', company: '고려아연', name: '고려아연㈜온산제련소', area: '울산광역시', meaningful: 0, stopped: [], stacks: { 11: { obs: [['x', 5]] } } },
+      { id: 'e', company: 'SK이노베이션', name: '에스케이이노베이션 주식회사', area: '전라남도', meaningful: 0, stopped: [], note: '발전 사업장으로 보임(공장등록 화력 발전업)',
+        stacks: { 1: { obs: [], status: ['가동중지', '2026-10-31 08:00'] } } },
       { id: 'd', company: '동국제강', name: '동국제강㈜ 포항공장', area: '경상북도', meaningful: 3, stopped: [], missingRuns: 3, workMissing: 1,
         lastSeen: '2026-10-31T06:20:00+09:00', stacks: { 1: { obs: Array(9).fill(['x', 5]) } } }],
     events: [{ id: 'stk:down:a:2026-10-31', kind: '사업장 가동 중단 신호', tier: 'A', company: '현대제철', site: '현대제철㈜포항2공장', detectedAt: recent,
@@ -894,21 +896,23 @@ test('kr_official stacks: plants with stopped stacks first, events, young sites 
   assert.equal(post.status, 200);
   const opts = { path: `/mcp/${TOKEN}`, env };
   const r = await call('kr_official', { section: 'stacks' }, opts);
-  assert.match(r.text, /\[굴뚝 측정\(공장 가동 신호\) · 출입처 사업장 4곳 · 배출구 7개/);
+  assert.match(r.text, /\[굴뚝 측정\(공장 가동 신호\) · 출입처 사업장 5곳 · 배출구 8개/);
+  // 설정 메모(siteNotes)가 있는 사업장은 '가동중지' 줄에 메모를 붙인다
+  assert.match(r.text, /SK이노베이션 · 에스케이이노베이션 주식회사\(전라남도\) · 배출구 1개 중 1개: 1번\(10-31 08:00\) · ⓘ 발전 사업장으로 보임\(공장등록 화력 발전업\)/);
   assert.match(r.text, /- 지금 목록에서 빠져 있는 사업장 1곳\n  동국제강 · 동국제강㈜ 포항공장\(경상북도\) · 연속 3번 빠짐\(평일 일하는 시간 1번\) · 마지막으로 보인 실행 2026-10-31T06:20/);
   assert.match(r.text, /멈춤으로 판단한 배출구가 있는 사업장 2곳/);
   assert.ok(r.text.indexOf('포항2공장(경상북도)') < r.text.indexOf('광양제철소(전라남도)'));  // 멈춘 비율 높은 순
   assert.match(r.text, /평소 움직이던 배출구 2개 중 멈춤 2개: 1번\(측정 2026-10-31 09:00\), 2번\(측정 2026-10-31 09:00, 앞선 멈춤 2번\(마지막 10-25 06:00~10-26 09:00\)\)/);
   assert.match(r.text, /멈춤 1개: 17번\(측정 2026-10-31 09:00, 멈춤 2026-10-27 21:00부터·사흘 넘음, 상태 '보수중'\)/);
-  assert.match(r.text, /- 측정값 대신 상태 글자가 온 배출구: 미수신 1 · 보수중 1 · 가동중지 1 \(가동중지 = 사업장이 보낸 시설 멈춤 신고, 보수중·기기점검·미수신·측정자료확인중 = 측정기 쪽 상태\)\n  포스코 · ㈜포스코 광양제철소 · 미수신 1 · 보수중 1 · 가동중지 1/);
-  assert.match(r.text, /관측이 아직 6번이 안 된 사업장 1곳/);
+  assert.match(r.text, /- 측정값 대신 상태 글자가 온 배출구: 가동중지 2 · 미수신 1 · 보수중 1 \(가동중지 = 사업장이 보낸 시설 멈춤 신고, 보수중·기기점검·미수신·측정자료확인중 = 측정기 쪽 상태\)\n  포스코 · ㈜포스코 광양제철소 · 미수신 1 · 보수중 1 · 가동중지 1/);
+  assert.match(r.text, /관측이 아직 6번이 안 된 사업장 2곳/);
   assert.match(r.text, /A · .* · 사업장 가동 중단 신호 · 현대제철/);
   // 빠졌다 다시 나타난 것은 사업장·날짜별 한 줄(11-03: 14일 98건 대부분)
   assert.match(r.text, /감지된 변화 · 최근 14일 7건\(빠졌다 다시 나타난 것 4건은 아래에 사업장·날짜별로 접음\)/);
   assert.match(r.text, /- 목록에서 빠졌다가 다시 나타남\(일시적 누락\) · 1묶음\n  \d{4}-\d{2}-\d{2} · 영풍 · ㈜영풍석포제련소: 사업장 통째 · 배출구 3·4·58번 \(이벤트 4건\)/);
   assert.ok(!/C · .* · 배출구 목록에서 빠짐 · 영풍/.test(r.text));
   // 가동중지 신고 배출구 목록(11-03)
-  assert.match(r.text, /- 시설 멈춤 신고\('가동중지'\) 배출구가 있는 사업장 1곳\(번호·이 감시가 처음 본 측정 — 그 전부터였을 수 있음\)\n  포스코 · ㈜포스코 광양제철소\(전라남도\) · 배출구 3개 중 1개: 135번\(10-31 08:00\)/);
+  assert.match(r.text, /- 시설 멈춤 신고\('가동중지'\) 배출구가 있는 사업장 2곳\(번호·이 감시가 처음 본 측정 — 그 전부터였을 수 있음\)\n  포스코 · ㈜포스코 광양제철소\(전라남도\) · 배출구 3개 중 1개: 135번\(10-31 08:00\)/);
   assert.match(r.text, /- 배출허용기준 넘은 측정값\(이 감시가 본 것, 사업장마다 최근 20건\) 2건\n  2026-10-31 09:00 · 포스코 · ㈜포스코 광양제철소 배출구 40번 질소산화물 70\.5\(기준 50\)/);
   assert.match(r.text, /기준 초과 값은 확정 전 실시간 값/);
   const today = (await call('radar_today', {}, opts)).text;
