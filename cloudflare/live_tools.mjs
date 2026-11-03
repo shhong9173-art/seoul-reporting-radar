@@ -66,13 +66,30 @@ function googleNews(ctx, q, days) {
 
 // Google News answers 503 to many Cloudflare egress IPs, so Bing News RSS is a
 // second web index. Its links are click-tracking URLs carrying the original.
-function bingNews(ctx, q, days) {
-  return rssChannel(ctx, `https://www.bing.com/news/search?q=${encodeURIComponent(q)}&format=rss&setlang=ko-KR&cc=KR`, days, (x) => {
+// (11-03: 자동 보도 대조 radar_press_check는 GitHub Actions에서 돌아 구글이 정상 — 막히는 건 Worker의 즉석 news_check뿐.)
+const BING_MARKETS = { KR: 'setlang=ko-KR&cc=KR', US: 'setlang=en-US&cc=US' };
+function bingEdition(ctx, q, days, market) {
+  return rssChannel(ctx, `https://www.bing.com/news/search?q=${encodeURIComponent(q)}&format=rss&${BING_MARKETS[market]}`, days, (x) => {
     let url = x.url;
     try { url = new URL(x.url).searchParams.get('url') || x.url; } catch { /* keep */ }
     const host = (/^https?:\/\/(?:www\.)?([^/]+)/.exec(url) || [])[1] ?? '';
     return { ...x, url, source: x.source || host };
   });
+}
+
+// 한글 없는 영문 낱말이면 미국판도 본다 — 미국 공장·주 정부 공고 같은 해외 단서는 현지 매체가 먼저 쓴다
+// (11-03 'Qcells Cartersville air permit': 한국판만 봤다). 판정 기준은 그대로 한국판이고, 미국판은 더해 보는 것:
+// 미국판이 실패하면 '현지 보도 미확인'으로 적을 뿐 채널 상태를 바꾸지 않는다.
+export const isLatinQuery = (q) => /[A-Za-z]/.test(q) && !/[\uAC00-\uD7A3\u3131-\u318E]/.test(q);
+
+async function bingNews(ctx, q, days) {
+  if (!isLatinQuery(q)) return bingEdition(ctx, q, days, 'KR');
+  const [kr, us] = await Promise.all([bingEdition(ctx, q, days, 'KR'), bingEdition(ctx, q, days, 'US')]);
+  const usOk = us.status === 'ok' || us.status === 'partial';
+  const seen = new Set(kr.items.map((x) => x.url));
+  const extra = usOk ? us.items.filter((x) => !seen.has(x.url) && seen.add(x.url)) : [];
+  const note = usOk ? `한국판 ${kr.items.length}건 + 미국판 ${extra.length}건(겹침 뺌)` : `미국판 조회 실패(${us.error}) — 현지 보도 미확인`;
+  return { ...kr, items: [...kr.items, ...extra], returned: (kr.returned ?? 0) + (usOk ? us.returned ?? 0 : 0), note };
 }
 
 // Naver news search moved to NAVER API HUB (NCP). HUB keys go first; keys from the old Developers
@@ -173,7 +190,8 @@ export async function newsCheck(ctx, args) {
   if (dandok.status !== 'ok') incomplete.push('[단독] 색인');
   for (const [name, ch] of Object.entries(channels)) {
     if (ch.status !== 'ok') {
-      out.push(`\n■ ${name}: ${ch.status} — ${ch.error}`);
+      const standIn = name === '구글 뉴스' && bing.status === 'ok' ? ' (웹 색인은 빙이 대신 — 판정에 영향 없음)' : '';
+      out.push(`\n■ ${name}: ${ch.status} — ${ch.error}${standIn}`);
       continue;
     }
     hits += ch.items.length;
