@@ -39,7 +39,7 @@ export async function myArticlesLines(ctx, days) {
   const n = (v) => rows.filter((a) => a.verdict === v).length;
   const unverified = rows.filter((a) => a.verified === false).length;
   const out = [`\n[자동 대조: 기자 기사 ↔ 레이더 · 아이뉴스24 ${doc.author ?? ''} 기사 · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt)} · 최근 ${days}일]`,
-    `기사 ${rows.length}건(출입처 이름이 제목에 든 것${unverified ? `, 그중 ${unverified}건은 구글 색인이라 작성자 미확인` : ''}) — 레이더가 먼저 잡은 후보 ${n('먼저 잡은 후보')} · 같은 회사 항목만 ${n('같은 회사 항목만')} · 없음 ${n('없음')}${n('회사 미상') ? ` · 회사 미상 ${n('회사 미상')}` : ''}`,
+    `기사 ${rows.length}건${unverified ? `(그중 ${unverified}건은 첫 실행 구글 색인이라 작성자 미확인)` : ''} — 레이더가 먼저 잡은 후보 ${n('먼저 잡은 후보')} · 같은 회사 항목만 ${n('같은 회사 항목만')} · 없음 ${n('없음')}${n('회사 미상') ? ` · 회사 미상 ${n('회사 미상')}(제목에 출입처 이름 없음 — 업계·당직 기사)` : ''}`,
     `원천: ${c.source ?? '?'} ${c.status ?? '?'}(사이트맵 ${c.returned ?? 0}, 출입처 제목 새 기사 ${c.candidates ?? 0}, 작성자 확인 ${c.opened ?? 0}${c.error ? `, ${c.error}` : ''})`];
   const by = {};
   for (const a of rows.filter((x) => x.verdict === '먼저 잡은 후보' && x.best)) (by[a.best.label] ??= []).push(a);

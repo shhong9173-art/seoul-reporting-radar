@@ -2713,7 +2713,7 @@ test('기자 기사 자동 대조(my-articles): radar_today 항목에 기자 기
   const r = await call('radar_today', {}, opts);
   assert.match(r.text, /id clik:CLIKC1 〔기자 기사\(자동 대조\) \d\d-\d\d 「기아, 화성 신차 불법 야적 논란⋯시의회 "공장 부지 허가 위반"」〕/);
   const w = await call('candidate_weekly_review', { days: 14 }, opts);
-  assert.match(w.text, /기사 2건\(출입처 이름이 제목에 든 것, 그중 1건은 구글 색인이라 작성자 미확인\) — 레이더가 먼저 잡은 후보 1 · 같은 회사 항목만 0 · 없음 1/);
+  assert.match(w.text, /기사 2건\(그중 1건은 첫 실행 구글 색인이라 작성자 미확인\) — 레이더가 먼저 잡은 후보 1 · 같은 회사 항목만 0 · 없음 1/);
   assert.match(w.text, /감시별\(먼저 잡은 후보\): 지방의회 회의록 1/);
   assert.match(w.text, /레이더: [^\n]*지방의회 회의록 — [^\n]*\(26\.5시간 앞, 겹친 낱말 신차·야적\) · id clik:CLIKC1/);
   assert.match(w.text, /안 쓴 항목은 킬이 아니다/);
