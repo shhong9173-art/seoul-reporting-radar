@@ -259,6 +259,45 @@ PUBLISHER_FEEDS = [
     ("PV Tech", "https://www.pv-tech.org/feed/"), ("Tire Business", "https://www.tirebusiness.com/arc/outboundfeeds/rss/"),
     ("Tyrepress", "https://www.tyrepress.com/feed/"), ("Automotive News Europe", "https://europe.autonews.com/arc/outboundfeeds/rss/"),
 ]
+# 거절하는 매체 RSS는 쉬었다가 다시 묻는다(1·2·4…24시간). 11-01 오후부터 Automotive News·Tire Business·Automotive News Europe
+# (같은 회사 Crain의 /arc/outboundfeeds/rss/)가 HTTPError — 이 수집은 15~20분마다 돌아 하루 70번 넘게 같은 거절을 받았다.
+# 요청 이름은 바꾸지 않는다(11-01 기자 결정). 쉬는 동안은 '수집 실패'(BackoffAfterRefusal)로 남겨 0건으로 세지 않는다.
+FEED_HEALTH = Path("digests/global_news_feed_health_latest.json")
+BACKOFF_MAX_HOURS = 24
+
+
+def load_backoff(path=FEED_HEALTH):
+    try:
+        doc = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    b = doc.get("publisherFeedBackoff") if isinstance(doc, dict) else None
+    return {k: v for k, v in (b or {}).items() if isinstance(v, dict)}
+
+
+def fetch_publishers(feeds, backoff, now, parse=None):
+    """매체 RSS를 차례로 읽는다. 쉬는 중인 매체는 건너뛰고, 실패하면 쉬는 시간을 두 배로. (기사 줄, 새 쉬는 표)."""
+    parse = parse or parse_publisher
+    rows, out = [], {}
+    stamp = now.isoformat(timespec="seconds")
+    for name, url in feeds:
+        b = backoff.get(name)
+        if b and str(b.get("until") or "") > stamp:
+            GLOBAL_FEED_CHECKS.append({"category": name[:40], "globalFeed": True, "status": "transport_or_xml_error", "recentRows": 0,
+                                       "errorType": "BackoffAfterRefusal", "durationMs": 0})
+            out[name] = b
+            continue
+        before = len(GLOBAL_FEED_CHECKS)
+        rows += parse(name, url)
+        err = next((c.get("errorType") for c in GLOBAL_FEED_CHECKS[before:]
+                    if c.get("category") == name[:40] and c.get("status") == "transport_or_xml_error"), None)
+        if err:
+            n = int((b or {}).get("failures") or 0) + 1
+            out[name] = {"failures": n, "since": (b or {}).get("since") or stamp, "errorType": err,
+                         "until": (now + timedelta(hours=min(BACKOFF_MAX_HOURS, 2 ** (n - 1)))).isoformat(timespec="seconds")}
+    return rows, out
+
+
 # 전력·태양광·에너지저장 전문지는 한국 회사 이름이 나올 때만(미국 전력망 일반 기사로 넘치지 않게)
 STRICT_KOREA = {"Utility Dive", "pv magazine", "Energy-Storage.news", "GMK Center", "MetalMiner", "Northern Miner", "Transformers Magazine",
                 "offshoreWIND.biz", "Offshore Energy", "Canary Media", "World Nuclear News", "PV Tech", "Tire Business", "Tyrepress"}
@@ -540,9 +579,7 @@ def main() -> None:
     _,raw_globals=collect_feeds([],QUERIES,
         lambda cat,q,global_feed=False,source_hint="":parse(source_hint,q),
         on_error=unexpected_feed_error,workers=3)
-    publisher_rows=[]
-    for name,feed_url in PUBLISHER_FEEDS:   # 매체 RSS를 차례로(한 곳당 한 번)
-        publisher_rows+=parse_publisher(name,feed_url)
+    publisher_rows,backoff=fetch_publishers(PUBLISHER_FEEDS,load_backoff(),datetime.now(KST))   # 매체 RSS를 차례로(한 곳당 한 번)
     raw_globals=attach_publisher_text(raw_globals,publisher_rows)
     candidates=shortlist_with_beats(raw_globals,limit=60,beat_limit=20)
     unique=translate_selected(candidates,translate,
@@ -552,7 +589,8 @@ def main() -> None:
             x.get("translationStatus")!="translation_failed"]
     diagnostic=build_feed_health(GLOBAL_FEED_CHECKS,expected=len(QUERIES)+len(PUBLISHER_FEEDS),
         news_items=len(unique),now=datetime.now(KST),threshold=1)
-    persist_feed_health(diagnostic,Path("digests/global_news_feed_health_latest.json"))
+    diagnostic["publisherFeedBackoff"]=backoff
+    persist_feed_health(diagnostic,FEED_HEALTH)
     # Do not overwrite previously verified worldwide stories with a blackout.
     if not unique:
         raise SystemExit("No translated global stories: previous news dataset preserved")
