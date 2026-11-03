@@ -561,8 +561,13 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep, clock=time.
                          f"{name} 굴뚝 자동측정 목록에 배출구 {len(codes)}개가 새로 보임({', '.join(codes[:12])}{' 외' if len(codes) > 12 else ''}) — "
                          + ("한꺼번에 여러 개라 " if len(codes) >= BURST else f"이 사업장을 {days:.1f}일·{s['runs'] - 1}번만 봐서 ")
                          + "간헐 가동·측정 자료 지연일 수 있어 새 설비로 보지 않음")
+            # 사업장이 직전 실행에 통째로 목록에서 빠졌다가 돌아왔으면, 그 전에 빠졌던 배출구 횟수를 이어 세지 않는다
+            # (11-03 09:20 고려아연 온산 15개: 11-02 18:20 빠짐 → 21:20~06:20 사업장 통째 빠짐 → 09:20 '2번 연속' B. 15시간 사이 두 번이었다)
+            came_back = s.get("missingRuns", 0) > 0
             for code, st in stacks.items():
                 if code not in present and not off:
+                    if came_back:
+                        st["missing"], st["workMissing"] = 0, 0
                     st["missing"] = st.get("missing", 0) + 1
                     if working(now):
                         st["workMissing"] = st.get("workMissing", 0) + 1
