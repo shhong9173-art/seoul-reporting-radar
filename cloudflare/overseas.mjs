@@ -895,6 +895,27 @@ export async function workforceSection(ctx, q, days, limit) {
   return out;
 }
 
+// 노조 성명·보도자료(union-notices feed): 금속노조·화섬식품노조 공개 게시판 새 글에 출입처 이름. kr_official labor 구역 아래.
+export async function unionSection(ctx, q, days, limit, includeMinor = false) {
+  const doc = await readFeed(ctx, 'union-notices');
+  if (!doc) return ['\n[노조 성명·보도자료] 아직 수집 전 — 미확인(매일 09:30·12:30·15:30·18:30·21:30)'];
+  if (doc.broken) return ['\n[노조 성명·보도자료] 저장 형식 오류 — 미확인'];
+  const from = new Date(ctx.now.getTime() - days * 86400000).toISOString();
+  const base = (doc.posts ?? []).filter((x) => String(x.firstSeen) >= from && matches(q, x.company, x.title, x.board, x.excerpt, ...(x.companies ?? [])));
+  const rows = base.filter((x) => includeMinor || x.tier !== 'C');
+  const out = [`\n[노조 성명·보도자료 · 금속노조·화섬식품노조 공개 게시판 · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt)} · 최근 ${days}일] ${rows.length}건`,
+    `원천: ${(doc.checks ?? []).map((c) => `${c.source} ${c.status}${c.error ? `(${c.error})` : ''}${c.note ? `(${c.note})` : ''}`).join(' · ')}`];
+  for (const x of rows.slice(0, limit)) {
+    out.push(`- ${x.tier} · ${String(x.date ?? x.firstSeen ?? '').slice(0, 16).replace('T', ' ')} · ${x.board} · 「${x.title}」 · 출입처 ${(x.companies ?? [x.company]).join('·')}${x.inTitle ? '' : '(본문에만)'}`);
+    if (x.excerpt) out.push(`   앞부분: 「${String(x.excerpt).slice(0, 220)}」`);
+    out.push(`   원문: ${x.url}`);
+  }
+  if (base.length > rows.length) out.push(`(이름이 본문에만 있고 사건 낱말 없는 글 ${base.length - rows.length}건 접음)`);
+  if (!rows.length) out.push('조건에 맞는 글 없음(첫 실행은 기준선, 조회 실패면 미확인).');
+  out.push('   검증 상태: 노조 공개 발표(자동). 한쪽 주장 — 회사 입장·사실관계(사고 경위·교섭 일정·매각 조건) 확인');
+  return out;
+}
+
 // 노동위원회 회의(kr-labor feed): 중앙·지방 14곳 첫 화면 '오늘 회의'의 사건명 앞 당사자가 출입처인 것. Shown under kr_official.
 export async function laborSection(ctx, q, days, limit) {
   const doc = await readFeed(ctx, 'kr-labor');
@@ -1027,7 +1048,8 @@ export async function krOfficial(ctx, args) {
   if (section === 'local') return textResult((await localSection(ctx, q, clampInt(args.days, 1, 120, 30), clampInt(args.limit, 1, 80, 20))).join('\n').trim());
   if (section === 'workforce') return textResult((await workforceSection(ctx, q, clampInt(args.days, 1, 120, 45), clampInt(args.limit, 1, 80, 20))).join('\n').trim());
   if (section === 'stacks') return textResult((await stacksSection(ctx, q, clampInt(args.days, 1, 60, 14), clampInt(args.limit, 1, 80, 20))).join('\n').trim());
-  if (section === 'labor') return textResult((await laborSection(ctx, q, clampInt(args.days, 1, 120, 30), clampInt(args.limit, 1, 80, 20))).join('\n').trim());
+  if (section === 'labor') return textResult([...await laborSection(ctx, q, clampInt(args.days, 1, 120, 30), clampInt(args.limit, 1, 80, 20)),
+    ...await unionSection(ctx, q, clampInt(args.days, 1, 60, 14), clampInt(args.limit, 1, 80, 20), args.show_all === true || args.show_all === 'true')].join('\n').trim());
   const insolvency = !section || section === 'insolvency'
     ? await insolvencySection(ctx, q, clampInt(args.days, 1, 120, 30), clampInt(args.limit, 1, 80, 20)) : [];
   if (section === 'insolvency') return textResult(insolvency.join('\n').trim());
@@ -1039,6 +1061,7 @@ export async function krOfficial(ctx, args) {
   if (!section) insolvency.push(...await workforceSection(ctx, q, clampInt(args.days, 1, 120, 45), clampInt(args.limit, 1, 80, 10)));
   if (!section) insolvency.push(...await stacksSection(ctx, q, clampInt(args.days, 1, 60, 14), clampInt(args.limit, 1, 80, 10)));
   if (!section) insolvency.push(...await laborSection(ctx, q, clampInt(args.days, 1, 120, 30), clampInt(args.limit, 1, 80, 10)));
+  if (!section) insolvency.push(...await unionSection(ctx, q, clampInt(args.days, 1, 60, 14), clampInt(args.limit, 1, 80, 10)));
   const doc = await readFeed(ctx, 'kr-official');
   if (!doc) return insolvency.length ? textResult([missing('공장등록·관보 입법예고', '평일 08:10').content[0].text, ...insolvency].join('\n'), true) : missing('공장등록·관보 입법예고', '평일 08:10');
   if (doc.broken) return textResult(['저장된 국내 공식 원천 결과 형식 오류 — 미확인.', ...insolvency].join('\n'), true);

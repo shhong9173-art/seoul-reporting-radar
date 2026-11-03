@@ -1,0 +1,38 @@
+name: Union Public Statements Watch
+# 노조 성명·보도자료 — 금속노조(kmwu.kr)·화섬식품노조(kctfu.org) 공개 게시판 새 글에 출입처 이름이 나온 것.
+# 매일 09:30·12:30·15:30·18:30·21:30 KST(Cloudflare 요청, GitHub 예약 :35는 대비용 — 직전 2시간 안이면 건너뜀). 2초 간격, 게시판마다 15건.
+# 결과는 기자 전용 저장소로만. 공개 로그는 건수만.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/union_watch.py'
+      - 'tests/test_union_watch.py'
+      - '.github/workflows/union-notices.yml'
+  schedule:
+    - cron: '35 0,3,6,9,12 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: union-notices-watch
+  cancel-in-progress: false
+jobs:
+  union:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install "requests>=2.31,<3"
+      - name: Test union board parsing
+        run: python -m unittest tests.test_union_watch tests.test_private_store -v
+      - name: Watch union statements (counts-only log)
+        env:
+          MCP_ACCESS_TOKEN: ${{ secrets.MCP_ACCESS_TOKEN }}
+        run: python scripts/union_watch.py

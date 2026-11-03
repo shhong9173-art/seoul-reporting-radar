@@ -48,6 +48,8 @@ export const WATCHES = [
   { feed: 'kr-stacks', label: '굴뚝 측정(공장 가동 신호)', tool: 'kr_official', schedule: '3시간마다', staleHours: 12 },
   // 노동위원회 회의(kr_labor_watch.py): 중앙·지방 14곳 첫 화면 '오늘 회의'의 사건명 앞 당사자가 출입처인 것 — 노동쟁의 조정·교섭·부당노동행위 A
   { feed: 'kr-labor', label: '노동위 회의(조정·심판)', tool: 'kr_official', schedule: '평일 08:20', staleHours: 80 },
+  // 노조 성명·보도자료(union_watch.py): 금속노조·화섬식품노조 공개 게시판 새 글에 출입처 이름 — 사망·사고·파업·매각·분할·가처분 등 A
+  { feed: 'union-notices', label: '노조 성명·보도자료', tool: 'kr_official', schedule: '매일 09:30·12:30·15:30·18:30·21:30', staleHours: 30 },
   // 인도 상장 법인 공시(india_filings_watch.py): NSE 공시 RSS의 현대차 인도법인 공시 — 인수·설비·로열티 A, 이사회 결과·보도자료 B
   { feed: 'india-filings', label: '인도 법인 공시(현대차 인도)', tool: 'partner_filings', schedule: '평일 13:10·16:10·19:10·22:10', staleHours: 80 },
   // 타사 공시 속 출입처(dart_counterparty_watch.py): 출입처 아닌 회사의 양수도·공급계약·생산중단 공시에 출입처가 거래상대로 적힌 것
@@ -92,9 +94,11 @@ const ALT = {
   노동쟁의: ['쟁의', '파업', '조정 신청', '조정신청', '조정 중지', '조정중지', '노동위', '중노위', '지노위'],
   부당노동행위: ['부당노동행위', '노동위', '중노위', '지노위'], 교섭: ['교섭', '하청', '원청', '노란봉투'],
   부당해고: ['부당해고', '해고', '노동위', '중노위', '지노위'], 노동위: ['노동위', '중노위', '지노위', '노동위원회'],
+  // 노조 성명·보도자료(union-notices): 사고·고발 낱말 묶음
+  고발: ['고발', '고소', '가처분', '소송'],
   // 미국 주 상공위원회 안건(us-state-env): 세제 감면·인센티브
   감면: ['감면', '세제 혜택', '세금 혜택', '인센티브', '세액'],
-  OSHA: ['OSHA', '산업안전보건청', '미국 노동부', '산업안전'], 벌금: ['벌금', '과징금', '제재', '위반'], 사고: ['사고', '사망', '부상', '숨져', '중상'],
+  OSHA: ['OSHA', '산업안전보건청', '미국 노동부', '산업안전'], 벌금: ['벌금', '과징금', '제재', '위반'], 사고: ['사고', '사망', '부상', '숨져', '중상', '끼임', '추락', '화재', '폭발', '중대재해', '산재'],   // 노조 성명(11-03)도 같은 묶음
     공정위: ['공정위', '공정거래위원회'], 과징금: ['과징금', '제재', '시정명령', '고발', '경고'], 한전: ['한전', '한국전력'],
   수주: ['수주', '입찰', '낙찰', '공급', '계약'], 관세: ['관세', '반덤핑', '상계관세', '덤핑'], 판정: ['판정', '예비', '최종', '재심', '연례재심'],
   계약: ['계약', '협약', '합의', '공급', '합작', 'MOU'], 의견서: ['의견서', '의견', '제출', '요청'], 상표: ['상표', '출원', '브랜드', '명칭'],
@@ -859,6 +863,16 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
     if (!recent(e.detectedAt)) continue;
     push(['A', 'B'].includes(e.tier) ? e.tier : 'C', W['kr-labor'], { kind: e.kind, id: e.id, date: e.detectedAt, company: e.company,
       fact: e.text, url: e.url, check: hint(e.company, [e.word || '노동위']) });
+  }
+
+  // 노조 성명·보도자료: 사망·사고·파업·매각·분할·가처분 등 A, 그 밖 B(이름이 본문에만 있으면 한 단계 내림). 노조 발표는 한쪽 주장
+  for (const e of docs['union-notices']?.events ?? []) {
+    if (!recent(e.detectedAt)) continue;
+    const t = String(e.title ?? '');
+    const word = /사망|숨|중대재해|끼임|추락|폭발|화재|사고/.test(t) ? '사고' : /파업|쟁의|결렬/.test(t) ? '파업' : /매각|분할/.test(t) ? '인수'
+      : /구조조정|희망퇴직|해고/.test(t) ? '감원' : /가처분|고발|고소/.test(t) ? '고발' : /교섭/.test(t) ? '교섭' : '노조';
+    push(['A', 'B'].includes(e.tier) ? e.tier : 'C', W['union-notices'], { kind: e.kind ?? '노조 성명·보도자료', id: e.id, date: e.detectedAt, company: e.company,
+      fact: e.text, url: e.url, check: hint(e.company, [word]) });
   }
 
   // 타사 공시 속 출입처: 자산·영업·지분 거래 상대·공급계약 해지 A, 공급계약 500억원 이상 A·그 밖 B, 생산중단·투자판단 B. 기사엔 상대 회사 이름이 있어야 같은 건

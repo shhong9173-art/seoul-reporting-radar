@@ -29,6 +29,7 @@ export const FEEDS = {
   'kr-labor': { blob: 'kr_labor', schema: 'kr_labor/v1', list: 'notices' },
   'india-filings': { blob: 'india_filings', schema: 'india_filings/v1', list: 'filings' },
   'dart-counterparty': { blob: 'dart_counterparty', schema: 'dart_counterparty/v1', list: 'items' },
+  'union-notices': { blob: 'union_notices', schema: 'union_notices/v1', list: 'posts' },
   'kr-fuel': { blob: 'kr_fuel', schema: 'kr_fuel/v1', list: 'vehicles' },
   'overseas-awards': { blob: 'overseas_awards', schema: 'overseas_awards/v1', list: 'items' },
   'kr-local': { blob: 'kr_local', schema: 'kr_local/v1', list: 'items' },
