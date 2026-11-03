@@ -7,7 +7,7 @@ from datetime import datetime,timezone,timedelta
 from pathlib import Path
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
-from scripts.exclusive_reverse_trace import build,kind_for
+from scripts.exclusive_reverse_trace import build,fold_same_story,kind_for
 
 KST=timezone(timedelta(hours=9))
 NOW=datetime(2026,10,18,22,0,tzinfo=KST)
@@ -369,6 +369,40 @@ class ExclusiveReverseTrace(unittest.TestCase):
             build({"status":"observed_domestic_press_index_not_complete_coverage",
                    "itemCount":1,"items":[]},now=NOW)
 
+
+class SameStory(unittest.TestCase):
+    """11-03 역추적: 철강금속신문 = snmnews.com(네이버 '...' 잘린 제목), SBS Biz '[많이 본 경제기사]' 재게시가 2~4줄씩."""
+    def row(self,key,title,date,source="경제뉴스",company="포스코"):
+        r=article(key,title,company,date);r["sourceName"]=source;return r
+
+    def test_clipped_naver_title_and_republish_fold_into_one(self):
+        g=self.row("a","[단독] 포스코 포항 2열연, 가열로 한 기 더…연산 500만 톤 생산체계 다진다 - 철강금속신문","2026-11-02T05:00:00+09:00","철강금속신문")
+        n=self.row("b","[단독] 포스코 포항 2열연, 가열로 한 기 더…연산 500만 톤 생산체계 다...","2026-11-02T06:42:00+09:00","snmnews.com")
+        r1=self.row("c","[단독] 폭스바겐 멈춘 배터리 불량…현대모비스 스페인 수장 교체 - SBS Biz","2026-10-28T11:24:00+09:00","SBS Biz","현대모비스")
+        r2=self.row("d","[단독] 폭스바겐 멈춘 배터리 불량…현대모비스 스페인 수장 교체 [많이 본 경제기사] - SBS Biz","2026-10-29T16:52:00+09:00","SBS Biz","현대모비스")
+        late=self.row("e","[단독] 폭스바겐 멈춘 배터리 불량…현대모비스 스페인 수장 교체 - SBS Biz","2026-11-05T08:00:00+09:00","SBS Biz","현대모비스")
+        self.assertEqual(fold_same_story([g,n,r1,r2,late]),{"b"*24:"a"*24,"d"*24:"c"*24})   # 3일 넘게 뒤 재게시는 따로
+        # 잘린 제목이 먼저 나와 대표가 돼도 화면 제목은 온전한 것
+        n["published"]="2026-11-02T04:00:00+09:00"
+        d=build(index(g,n),now=datetime(2026,11,3,10,0,tzinfo=KST))
+        self.assertEqual(d["sameStoryRowsFolded"],1)
+        self.assertEqual([x["articleId"] for x in d["items"]],["b"*24])
+        self.assertTrue(d["items"][0]["title"].endswith("다진다 - 철강금속신문"))
+        self.assertEqual(d["items"][0]["sameStoryElsewhere"][0]["sourceName"],"철강금속신문")
+
+    def test_clipped_prefix_does_not_join_two_different_stories_and_reviewed_rows_stay(self):
+        a=self.row("a","[단독] 현대차 울산공장 파업…G80 하이브리드 투입 마찰","2026-11-02T13:26:00+09:00",company="현대차")
+        b=self.row("b","[단독] 현대차 울산공장 라인정지…노조 특근 거부","2026-11-02T14:00:00+09:00",company="현대차")
+        c=self.row("c","[단독] 현대차 울산공장...","2026-11-02T13:00:00+09:00","asiae.co.kr","현대차")
+        folded=fold_same_story([a,b,c])
+        self.assertLessEqual(len(folded),1)   # 잘린 줄은 하나에만 붙고, 서로 다른 두 기사는 남는다
+        self.assertNotIn("a"*24,folded);self.assertNotIn("b"*24,folded)
+        self.assertEqual(fold_same_story([a,a|{"id":"f"*24}],keep={"f"*24}),{"a"*24:"f"*24})   # 사람 검토 id가 대표(접히지 않음)
+
+    def test_short_titles_need_exact_match(self):
+        a=self.row("a","[단독] 포스코 감산","2026-11-02T05:00:00+09:00")
+        b=self.row("b","[단독] 포스코 감산 확대","2026-11-02T06:00:00+09:00")
+        self.assertEqual(fold_same_story([a,b]),{})
 
 if __name__=="__main__":
     unittest.main()
