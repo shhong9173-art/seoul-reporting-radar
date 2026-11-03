@@ -208,7 +208,7 @@ export const TOOLS = [
       item_ids: strList('여러 id를 한 번에(최대 60)'), verdict: { type: 'string', enum: FEEDBACK_VERDICTS },
       reason: str('이유 한 줄(봤음은 생략 가능)') }, ['verdict']) },
   { name: 'candidate_weekly_review', access: 'private', handler: weeklyReview,
-    description: '주간 품질 점검: 최근 N일 판정(씀·킬·보류·봤음)을 감시별·종류별(DART는 공시 종류)·판정 때 등급별로 묶고, 킬이 몰린 묶음·일상(B)/C로 내렸는데 쓴 항목을 점검 후보로 표시. 가중치는 자동으로 바꾸지 않는다.',
+    description: '주간 품질 점검: 최근 N일 판정(씀·킬·보류·봤음)을 감시별·종류별(DART는 공시 종류)·판정 때 등급별로 묶고, 킬이 몰린 묶음·일상(B)/C로 내렸는데 쓴 항목을 점검 후보로 표시. 끝에 자동 대조: 기자(홍성효)가 쓴 아이뉴스24 출입처 기사마다 레이더가 먼저 잡은 항목이 있었는지(감시별). 가중치는 자동으로 바꾸지 않는다.',
     inputSchema: obj({ days: int('최근 N일(기본 7, 최대 60)', 1, 60) }) },
 ];
 

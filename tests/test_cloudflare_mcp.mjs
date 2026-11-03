@@ -1406,7 +1406,8 @@ test('Cloudflare cron asks GitHub to run each watch at its KST weekday slot and 
   assert.equal(nextSlot(new Date('2026-10-30T10:00:00Z')), '10-30 19:10 india-filings.yml');  // Fri 19:00 KST → 19:10 인도 공시 칸(평일)
   assert.equal(nextSlot(new Date('2026-10-30T13:00:00Z')), '10-30 22:10 india-filings.yml');  // Fri 22:00 KST → 22:10 인도 공시 마지막 칸
   assert.equal(nextSlot(new Date('2026-10-30T13:15:00Z')), '10-31 00:20 kr-stacks.yml');  // Fri 22:15 KST → Sat 00:20(인도 공시 22:10 칸 뒤)
-  assert.equal(nextSlot(new Date('2026-11-01T09:30:00Z')), '11-01 20:40 dart-beat-monitor.yml');  // Sun 18:30 KST → 20:40 DART 재시도 칸
+  assert.equal(nextSlot(new Date('2026-11-01T09:30:00Z')), '11-01 19:40 my-articles.yml');  // Sun 18:30 KST → 19:40 기자 기사 대조(매일, 11-03 추가)
+  assert.equal(nextSlot(new Date('2026-11-01T10:45:00Z')), '11-01 20:40 dart-beat-monitor.yml');  // Sun 19:45 KST → 20:40 DART 재시도 칸
   const fresh = await call('radar_today', {}, PRIVATE());
   assert.match(fresh.text, /예약 요청\(Cloudflare\): 기록 없음 · 지금도 워커에서 GITHUB_DISPATCH_TOKEN이 보이지 않음/);
   const freshWithToken = await call('radar_today', {}, PRIVATE({ GITHUB_DISPATCH_TOKEN: 'ghp_test' }));
@@ -2689,6 +2690,33 @@ test('노조 성명·보도자료(union-notices): radar_today A·대조 낱말, 
   assert.match(k.text, /- A · [^\n]+ · 금속노조 보도자료\/성명 · 「\[보도자료\] 금호타이어 광주공장 끼임 중대재해 규탄 금속노조 기자회견」 · 출입처 금호타이어\n   앞부분: 「금호타이어 관련 본문 앞부분」\n   원문: https:\/\/www\.kmwu\.kr\/bbs\/board\.php\?bo_table=ce_B12&wr_id=220887/);
   assert.match(k.text, /이름이 본문에만 있고 사건 낱말 없는 글 1건 접음/);
   assert.match((await call('kr_official', { section: 'labor', show_all: true }, opts)).text, /노동절 집회 안내」 · 출입처 현대제철\(본문에만\)/);
+});
+
+test('기자 기사 자동 대조(my-articles): radar_today 항목에 기자 기사 표시, candidate_weekly_review 끝에 감시별 먼저 잡은 수(판정과 별개)', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const now = new Date(NOW.getTime() - 3600000).toISOString();
+  const post = (feed, body) => worker.fetch(new Request(ORIGIN + '/ingest/' + feed, { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(body) }), env, {});
+  assert.match((await call('candidate_weekly_review', { days: 14 }, opts)).text, /\[자동 대조: 기자 기사 ↔ 레이더\] 아직 수집 전 — 미확인/);
+  const ev = { id: 'clik:CLIKC1', tier: 'A', kind: '지방의회 회의록', company: '기아', council: '화성시의회', detectedAt: now,
+    text: '화성시의회 제300회 본회의(20261020) 회의록 · 기아 대목 「신차 2000대가 공장 시설로 허가받은 땅에 야적」' };
+  assert.equal((await post('council-minutes', { schema: 'council_minutes/v1', generatedAt: now, status: 'complete', items: [], events: [ev],
+    checks: [{ source: '국회도서관 지방의회 회의록(CLIK)', status: 'ok', returned: 1, opened: 1 }] })).status, 200);
+  const art = { url: 'https://www.inews24.com/view/3000001', title: '기아, 화성 신차 불법 야적 논란⋯시의회 "공장 부지 허가 위반"', published: now, companies: ['기아'], verified: true,
+    verdict: '먼저 잡은 후보', sameCompanyItems: 1, best: { source: 'council-minutes', label: '지방의회 회의록', id: 'clik:CLIKC1', text: ev.text, seen: now.slice(0, 16), why: ['신차', '야적'], leadHours: 26.5 } };
+  const doc = { schema: 'my_articles/v1', generatedAt: now, status: 'complete', author: '홍성효',
+    checks: [{ source: '아이뉴스24 뉴스 사이트맵', status: 'ok', returned: 815, candidates: 40, opened: 40, mineNew: 1 }],
+    articles: [art, { ...art, url: null, title: '금호타이어, 롯데카드와 제휴카드 출시', companies: ['금호타이어'], verified: false, verdict: '없음', best: null }],
+    counts: { '먼저 잡은 후보': 1, '같은 회사 항목만': 0, '없음': 1, '회사 미상': 0 },
+    itemHits: { 'clik:CLIKC1': { title: art.title, published: now, url: art.url, verified: true } } };
+  assert.equal((await post('my-articles', doc)).status, 200);
+  const r = await call('radar_today', {}, opts);
+  assert.match(r.text, /id clik:CLIKC1 〔기자 기사\(자동 대조\) \d\d-\d\d 「기아, 화성 신차 불법 야적 논란⋯시의회 "공장 부지 허가 위반"」〕/);
+  const w = await call('candidate_weekly_review', { days: 14 }, opts);
+  assert.match(w.text, /기사 2건\(출입처 이름이 제목에 든 것, 그중 1건은 구글 색인이라 작성자 미확인\) — 레이더가 먼저 잡은 후보 1 · 같은 회사 항목만 0 · 없음 1/);
+  assert.match(w.text, /감시별\(먼저 잡은 후보\): 지방의회 회의록 1/);
+  assert.match(w.text, /레이더: [^\n]*지방의회 회의록 — [^\n]*\(26\.5시간 앞, 겹친 낱말 신차·야적\) · id clik:CLIKC1/);
+  assert.match(w.text, /안 쓴 항목은 킬이 아니다/);
 });
 
 test('지방의회 회의록(council-minutes): 키 없으면 미설정(0건 아님), 있으면 A·대조 낱말(의회 이름 필수)·kr_official council 구역', async () => {
