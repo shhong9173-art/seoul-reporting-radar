@@ -139,13 +139,15 @@ AFFILIATE_LEAD = {
 }
 
 
-def affiliate_lead(companies: list[str], text: str) -> list[str]:
-    """본문 첫 400자에 나온 출입처 계열사 이름(출입처별 하나). 본문이 없으면 빈 목록."""
+def affiliate_lead(companies: list[str], text: str, ko_summary: str = "") -> list[str]:
+    """본문 첫 400자(영어) 또는 한국어 요약 첫 150자에 나온 출입처 계열사 이름(출입처별 하나).
+    11-03 운영: 매체 RSS 창에서 빠진 뒤엔 본문(articleText) 없이 번역 캐시로만 다시 올라와 영어 본문을 못 본다 — 한국어 요약도 본다."""
     lead = (text or "")[:400].lower()
+    ko = (ko_summary or "")[:150]
     out = []
     for c in companies or []:
         for rx, name in AFFILIATE_LEAD.get(c, []):
-            if re.search(rx, lead) and name not in out:
+            if (re.search(rx, lead) or any(n and n in ko for n in name.split("·"))) and name not in out:
                 out.append(name)
                 break
     return out
@@ -629,7 +631,7 @@ def main() -> None:
     for x in unique:
         x["firstSeen"]=seen_at.get(x.get("url")) or stamp
         x["checkTerms"]=check_terms(x.get("koTitle",""),x.get("beatCompanies") or []) if x.get("beatCompanies") else []
-        x["affiliateLead"]=affiliate_lead(x.get("beatCompanies") or [], x.get("articleText") or x.get("summary") or "")
+        x["affiliateLead"]=affiliate_lead(x.get("beatCompanies") or [], x.get("articleText") or x.get("summary") or "", x.get("koSummary") or "")
     push_beat(unique,stamp)
 
     merged = domestic + unique
