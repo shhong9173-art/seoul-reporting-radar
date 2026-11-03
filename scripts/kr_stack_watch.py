@@ -196,6 +196,33 @@ def restore_size_retier(events):
     return n
 
 
+LATE_START_NOTE = " — 멈춤 시작(끝에서부터 연달아 낮은 첫 측정): "
+LATE_START_TAIL = " — 상태 글자를 11-03부터 읽어 이때 처음 멈춤으로 잡혔지만 그 전부터 멈춰 있었음"
+
+
+def annotate_late_starts(events, sites, now, hours=48):
+    """상태 글자를 읽기 시작한 뒤 처음 멈춤으로 잡힌 저장 알림(멈춤 시작을 안 적던 때)에 실제 멈춤 시작을 한 번 덧붙인다.
+    11-03 11:45 현대제철 순천 81~83번 A — 알림은 오늘이지만 숫자는 10-31 13:30·20:30부터 끊겨 있었다. 알림보다 6시간 넘게 이른 것만."""
+    cut = (now - dt.timedelta(hours=hours)).isoformat(timespec="seconds")
+    for e in events:
+        text, eid = e.get("text") or "", str(e.get("id") or "")
+        if e.get("kind") not in ("배출구 멈춤 신호", "사업장 가동 중단 신호") or LATE_START_NOTE in text or str(e.get("detectedAt") or "") < cut:
+            continue
+        m = re.match(r"stk:(?:stop|down):(.+):\d{4}-\d{2}-\d{2}$", eid)
+        site = sites.get(m.group(1)) if m else None
+        seen = obs_time(str(e.get("detectedAt") or "")[:16].replace("T", " "))
+        if not site or seen is None:
+            continue
+        early = []
+        for code in re.findall(r"(\S+?)번\(평소", text):
+            since = (site.get("stacks", {}).get(code) or {}).get("stoppedSince")
+            t = obs_time(since) if since else None
+            if t is not None and (seen - t).total_seconds() > 6 * 3600 and f"{code}번(평소" in text and f"멈춤 {str(since)[5:16]}부터" not in text:
+                early.append(f"{code}번 {str(since)[5:16]}")
+        if early:
+            e["text"] = text + LATE_START_NOTE + ", ".join(early) + LATE_START_TAIL
+
+
 def retier_maintenance_stops(events):
     """#599~#614 동안 '보수중'을 멈춤으로 센 저장 이벤트: 든 배출구가 모두 '보수중'이면 C, 섞였으면 설명만(한 번)."""
     for e in events:
@@ -773,9 +800,13 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep, clock=time.
                     e["text"] = (e.get("text") or "") + (f" — 평소 움직이던 {len(meaningful)}개 중 {len(codes)}개라 일상 정비 수준일 수 있어 C로 바로잡음"
                                                          "(사업장 크기 기준: 5%·상위 3·평소 값 10%)")
             if newly:
+                # 멈춤 시작(끝에서부터 연달아 낮은 첫 측정)을 함께 적는다 — 상태 글자를 11-03에야 읽기 시작해, 그 전부터 '가동중지'였던
+                # 배출구가 오늘 처음 멈춤으로 잡혔다(11-03 11:45 현대제철 순천 81~83번 A: 실제로는 10-31 13:30·20:30부터).
                 def desc(c):
                     st = stacks[c]
-                    return f"{c}번(평소 {judged[c][1]:.1f}→최근 {st['obs'][-1][1] if st.get('obs') else '?'}, 측정 {st.get('lastDt')}{status_note(st)}{stop_history(st, now)})"
+                    began = f", 멈춤 {str(st['stoppedSince'])[5:16]}부터" if st.get("stoppedSince") and st.get("stoppedSince") != st.get("lastDt") else ""
+                    return (f"{c}번(평소 {judged[c][1]:.1f}→최근 {st['obs'][-1][1] if st.get('obs') else '?'}, 측정 {st.get('lastDt')}{began}"
+                            f"{status_note(st)}{stop_history(st, now)})")
                 if len(stopped) >= 2 and share >= 0.5:
                     emit(f"stk:down:{sid}:{day}", "사업장 가동 중단 신호", "A", comp["company"], name,
                          f"{name}: 평소 움직이던 배출구 {len(meaningful)}개 중 {len(stopped)}개가 {STOP_RUNS}번 연속 평소의 10% 아래 — "
@@ -819,6 +850,7 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep, clock=time.
             s["missingRuns"] = 0
             s.pop("workMissing", None)
 
+    annotate_late_starts(events, sites, now)
     collapse_gone_bursts(fresh + events)
     total_terms = sum(len(c["terms"]) for c in cfg["companies"])
     status = "failed" if ok_terms == 0 else ("partial" if errors else "complete")

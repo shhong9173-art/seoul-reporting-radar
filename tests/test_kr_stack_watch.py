@@ -142,7 +142,7 @@ class StackTest(unittest.TestCase):
         ev = sorted((e for e in doc["events"] if e["kind"] == "배출구 멈춤 신호" and e["site"] == "현대제철㈜"), key=lambda e: e["detectedAt"])
         self.assertEqual(len(ev), 2)
         self.assertNotIn("앞선 멈춤", ev[0]["text"])
-        self.assertIn("1번(평소 30.0→최근 0.0, 측정 2026-11-01 15:00, 최근 30일 앞선 멈춤 1번(10-31 06:00~15:00 9시간))", ev[1]["text"])
+        self.assertIn("1번(평소 30.0→최근 0.0, 측정 2026-11-01 15:00, 멈춤 11-01 09:00부터, 최근 30일 앞선 멈춤 1번(10-31 06:00~15:00 9시간))", ev[1]["text"])
         # 기록은 STOP_LOG_KEEP번까지, 같은 멈춤을 두 번 적지 않는다
         st2 = {"stoppedSince": "2026-11-01 09:00", "stopLog": [["2026-10-0%d 00:00" % d, "2026-10-0%d 03:00" % d] for d in range(1, 9)]}
         now = dt.datetime(2026, 11, 2, 12, 0, tzinfo=KST)
@@ -516,6 +516,27 @@ class StackTest(unittest.TestCase):
         ev = [e for e in doc["events"] if e["site"] == "현대제철㈜" and e["kind"] == "배출구 멈춤 신호"]
         self.assertEqual(len(ev), 1)
         self.assertIn("처음 본 측정", ev[0]["text"])
+        # 알림에 실제 멈춤 시작(숫자가 끊긴 첫 관측)을 함께 적는다 — 상태 글자를 처음 본 때(오늘)보다 이르다(11-03 현대제철 순천 81~83번)
+        self.assertIn(f"멈춤 {(T0 + dt.timedelta(hours=21)):%m-%d %H:%M}부터, 상태 '가동중지'(처음 본 측정", ev[0]["text"])
+
+    def test_stored_alert_gets_the_real_stop_start_once(self):
+        # 11-03 11:45 저장된 순천 A(멈춤 시작 없이 '처음 본 측정 11-03 10:30')에 실제 시작(10-31)을 한 번 덧붙인다. 6시간 안쪽은 안 붙임
+        text = ("현대제철㈜순천공장: 평소 움직이던 배출구 6개 중 3개가 3번 연속 평소의 10% 아래 — 83번(평소 31.4→최근 0.0, 측정 2026-11-03 10:30, "
+                "상태 '가동중지'(처음 본 측정 11-03 10:30)), 81번(평소 23.3→최근 0.0, 측정 2026-11-03 10:30, 상태 '가동중지'(처음 본 측정 11-03 10:30)), "
+                "5번(평소 9.0→최근 0.0, 측정 2026-11-03 10:30) · 설비 정지·정비·측정기 점검일 수 있음(회사 확인)")
+        ev = {"id": "stk:down:현대제철:현대제철(주)순천공장:2026-11-03", "kind": "사업장 가동 중단 신호", "tier": "A", "detectedAt": "2026-11-03T11:45:10+09:00", "text": text}
+        sites = {"현대제철:현대제철(주)순천공장": {"stacks": {"83": {"stoppedSince": "2026-10-31 20:30"}, "81": {"stoppedSince": "2026-10-31 13:30"},
+                                                          "5": {"stoppedSince": "2026-11-03 07:30"}}}}
+        now = dt.datetime(2026, 11, 3, 14, 0, tzinfo=KST)
+        w.annotate_late_starts([ev], sites, now)
+        self.assertTrue(ev["text"].endswith(" — 멈춤 시작(끝에서부터 연달아 낮은 첫 측정): 83번 10-31 20:30, 81번 10-31 13:30"
+                                            " — 상태 글자를 11-03부터 읽어 이때 처음 멈춤으로 잡혔지만 그 전부터 멈춰 있었음"))
+        once = ev["text"]
+        w.annotate_late_starts([ev], sites, now)
+        self.assertEqual(ev["text"], once)
+        old = dict(ev, text=text, detectedAt="2026-10-31T11:45:10+09:00")   # 이틀 넘은 알림은 그대로
+        w.annotate_late_starts([old], sites, now)
+        self.assertEqual(old["text"], text)
 
     def test_maintenance_ending_is_flagged_for_three_stacks(self):
         # '보수중'이던 배출구 3개가 다시 평소 같은 값 → 보수 끝·재가동일 수 있다(포스코 광양 34개 '보수중' — 끝나는 날을 알려 줌)
