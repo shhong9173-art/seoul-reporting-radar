@@ -126,6 +126,21 @@ class Run(unittest.TestCase):
         self.assertEqual(len(doc2["events"]), 3)
         self.assertEqual(len(doc2["notices"]), 3)
 
+    def test_detail_read_is_retried_once(self):
+        get, calls = site()
+        flaky = {"n": 0}
+
+        def get2(url, timeout=None):
+            if "2610151732500052964" in url and flaky["n"] == 0:
+                flaky["n"] += 1
+                raise type("ReadTimeout", (Exception,), {})("x")
+            return get(url, timeout=timeout)
+        waits = []
+        doc = w.run(NOW, None, get=get2, sleep=waits.append)
+        self.assertIn("2026조정88", {e["caseNo"] for e in doc["events"]})
+        self.assertIn(5.0, waits)
+        self.assertEqual(doc["status"], "complete")
+
     def test_cap_and_failures_are_marked(self):
         get, _ = site(five=True, fail=("/nlrc/seoul/main.do",))
         doc = w.run(NOW, None, get=get, sleep=lambda s: None)

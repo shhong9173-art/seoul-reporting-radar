@@ -2567,7 +2567,8 @@ test('노동위 회의(kr-labor): radar_today에 조정·부당노동행위 A·�
     n('2026부해900', '현대차', 'B', '현대자동차 주식회사 부당해고 구제신청', '심판회의', '경북지방노동위원회')];
   const doc = { schema: 'kr_labor/v1', generatedAt: now, status: 'complete',
     checks: [{ source: '중앙노동위원회', status: 'ok', returned: 5, note: '첫 화면 5건 상한 — 뒤 회의가 빠졌을 수 있음' }, { source: '충남지방노동위원회', status: 'ok', returned: 5, note: '첫 화면 5건 상한 — 뒤 회의가 빠졌을 수 있음' },
-      { source: '경북지방노동위원회', status: 'ok', returned: 3 }, { source: '서울지방노동위원회', status: 'failed', error: 'ConnectTimeout: x' }],
+      { source: '경북지방노동위원회', status: 'ok', returned: 3 }, { source: '서울지방노동위원회', status: 'failed', error: 'ConnectTimeout: x' },
+      { source: '경남지방노동위원회', status: 'partial', returned: 4, error: '회의 상세 1건 읽기 실패' }],
     counts: { meetings: 43, details: 43, cases: 87, '조정 사건': 5 }, seen: {}, notices,
     events: [
       { id: notices[0].id, tier: 'A', kind: '노동위 조정 회의', company: '포스코', commission: '경북지방노동위원회', caseNo: '2026조정88', word: '노동쟁의', url: notices[0].url, detectedAt: now,
@@ -2584,7 +2585,7 @@ test('노동위 회의(kr-labor): radar_today에 조정·부당노동행위 A·�
   assert.deepEqual([hit.check.who, hit.check.terms, hit.check.alts['노동쟁의'].slice(0, 2)], ['포스코', ['노동쟁의'], ['쟁의', '파업']]);
   const k = await call('kr_official', { section: 'labor' }, opts);
   assert.match(k.text, /\[노동위 회의\(조정·심판\) · 출입처가 사건 당사자 · 확인 [^\]]+\]/);
-  assert.match(k.text, /원천: 노동위원회 3\/4곳 정상 · 오늘 회의 43건\(사건 87, 조정 5\) · 미확인\(0건 아님\): 서울지방노동위원회 · 첫 화면 5건 상한\(뒤 회의 빠졌을 수 있음\): 중노위, 충남지노위/);
+  assert.match(k.text, /원천: 노동위원회 3\/5곳 정상 · 오늘 회의 43건\(사건 87, 조정 5\) · 미확인\(0건 아님\): 서울지방노동위원회 · 일부 미확인: 경남지노위\(회의 상세 1건 읽기 실패\) · 첫 화면 5건 상한\(뒤 회의 빠졌을 수 있음\): 중노위, 충남지노위/);
   assert.match(k.text, /- 출입처 사건 · 최근 30일 2건\n  A · 2026-10-26 14:00 · 포스코 · 경북지방노동위원회 1차조정회의 · 사건 2026조정88 「주식회사 포스코 노동쟁의 조정신청사건」\n     원문: https:\/\/www\.nlrc\.go\.kr\/nlrc\/gyeongbuk\/meetingSche\/detail\.do\?mtgId=2026조정88/);
   assert.match((await call('kr_official', {}, opts)).text, /\[노동위 회의\(조정·심판\)/);   // section 없이도 붙는다
   assert.doesNotMatch((await call('kr_official', { section: 'labor', company: '포스코' }, opts)).text, /현대자동차 주식회사/);

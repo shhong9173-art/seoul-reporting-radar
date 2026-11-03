@@ -873,12 +873,15 @@ export async function laborSection(ctx, q, days, limit) {
   if (doc.broken) return ['\n[노동위 회의(조정·심판)] 저장 형식 오류 — 미확인'];
   const checks = doc.checks ?? [];
   const failed = checks.filter((c) => c.status === 'failed');
+  const partial = checks.filter((c) => c.status === 'partial');
   const capped = checks.filter((c) => c.note);
   const c = doc.counts ?? {};
+  const short = (x) => x.source.replace(/지방노동위원회$/, '지노위').replace(/^중앙노동위원회$/, '중노위');
   const out = [`\n[노동위 회의(조정·심판) · 출입처가 사건 당사자 · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt)}]`,
-    `원천: 노동위원회 ${checks.length - failed.length}/${checks.length}곳 정상 · 오늘 회의 ${c.meetings ?? '?'}건(사건 ${c.cases ?? '?'}, 조정 ${c['조정 사건'] ?? '?'})`
+    `원천: 노동위원회 ${checks.length - failed.length - partial.length}/${checks.length}곳 정상 · 오늘 회의 ${c.meetings ?? '?'}건(사건 ${c.cases ?? '?'}, 조정 ${c['조정 사건'] ?? '?'})`
       + `${failed.length ? ` · 미확인(0건 아님): ${failed.map((x) => x.source).join(', ')}` : ''}`
-      + `${capped.length ? ` · 첫 화면 5건 상한(뒤 회의 빠졌을 수 있음): ${capped.map((x) => x.source.replace(/지방노동위원회$/, '지노위').replace(/^중앙노동위원회$/, '중노위')).join(', ')}` : ''}`,
+      + `${partial.length ? ` · 일부 미확인: ${partial.map((x) => `${short(x)}(${x.error ?? '상세 일부 실패'})`).join(', ')}` : ''}`
+      + `${capped.length ? ` · 첫 화면 5건 상한(뒤 회의 빠졌을 수 있음): ${capped.map(short).join(', ')}` : ''}`,
     ...(doc.rules ?? []).map((r) => `규칙: ${r}`)];
   const from = new Date(ctx.now.getTime() - days * 86400000).toISOString();
   const rows = (doc.notices ?? []).filter((n) => String(n.firstSeen) >= from && matches(q, n.company, n.caseName, n.commissionName));
