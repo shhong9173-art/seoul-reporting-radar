@@ -256,6 +256,36 @@ test('news_check: Bing stands in for Google and unwraps the original link', asyn
   assert.match(d.text, /판정: 미확인 — 웹 색인\(구글·빙 모두\)/);
 });
 
+test('news_check: English words also search the US edition of Bing (Korean words stay KR only)', async () => {
+  const item = (title, url, day) => `<item><title>${title}</title><link>https://www.bing.com/news/apiclick.aspx?url=${encodeURIComponent(url)}</link><pubDate>${day}</pubDate></item>`;
+  const rss = (...items) => new Response(`<rss><channel>${items.join('')}</channel></rss>`);
+  const env = PRIVATE({ NAVER_CLIENT_ID: 'i', NAVER_CLIENT_SECRET: 's' });
+  const routes = (us) => ({
+    'https://news.google.com/': new Response('blocked', { status: 503 }),
+    'https://www.bing.com/news/search?q=Qcells%20Cartersville%20air%20permit&format=rss&setlang=ko-KR&cc=KR': rss(item('Qcells adds line', 'https://kr.example/1', 'Fri, 23 Oct 2026 03:00:00 GMT')),
+    'https://www.bing.com/news/search?q=Qcells%20Cartersville%20air%20permit&format=rss&setlang=en-US&cc=US': us,
+    'https://www.bing.com/news/search?q=': rss(),
+    'https://naverapihub.apigw.ntruss.com/': Response.json({ items: [] }),
+  });
+  const fetch = fakeFetch(routes(rss(item('Qcells adds line', 'https://kr.example/1', 'Fri, 23 Oct 2026 03:00:00 GMT'),
+    item('Qcells seeks air permit for Cartersville plant', 'https://local.example/2', 'Sat, 24 Oct 2026 12:00:00 GMT'))));
+  const r = await call('news_check', { q: 'Qcells Cartersville air permit', days: 30 }, { ...env, fetch });
+  assert.match(r.text, /빙 뉴스: 2건 \(응답 3건\) · 한국판 1건 \+ 미국판 1건\(겹침 뺌\)/);
+  assert.match(r.text, /https:\/\/local\.example\/2/);
+  assert.match(r.text, /구글 뉴스: failed — HTTP 503 \(웹 색인은 빙이 대신 — 판정에 영향 없음\)/);
+  assert.match(r.text, /판정: 관련 보도 후보 2건/);
+  // 미국판 실패는 현지 보도 미확인으로만 — 한국판이 정상이면 판정 기준은 그대로
+  const down = fakeFetch(routes(new Response('x', { status: 503 })));
+  const d = await call('news_check', { q: 'Qcells Cartersville air permit', days: 30 }, { ...env, fetch: down });
+  assert.match(d.text, /빙 뉴스: 1건 \(응답 1건\) · 미국판 조회 실패\(HTTP 503\) — 현지 보도 미확인/);
+  assert.match(d.text, /판정: 관련 보도 후보 1건/);
+  // 한글 낱말은 한국판 한 번만
+  const ko = fakeFetch(routes(rss()));
+  await call('news_check', { q: '한화큐셀 조지아 허가', days: 30 }, { ...env, fetch: ko });
+  assert.equal(ko.calls.filter((c) => c.url.startsWith('https://www.bing.com/')).length, 1);
+  assert.ok(ko.calls.some((c) => c.url.includes('setlang=ko-KR&cc=KR')));
+});
+
 test('news_check: Naver pages past the newest 100 until the window is covered', async () => {
   const env = PRIVATE({ NAVER_CLIENT_ID: 'i', NAVER_CLIENT_SECRET: 's' });
   const item = (i, day) => ({ title: `기아 광명 ${i}`, originallink: `https://news.example.kr/${i}`, link: 'x', pubDate: `${day} 09:00:00 +0900` });
