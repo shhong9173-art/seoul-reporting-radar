@@ -554,8 +554,9 @@ class StackTest(unittest.TestCase):
                 "상태 '가동중지'(처음 본 측정 11-03 10:30)), 81번(평소 23.3→최근 0.0, 측정 2026-11-03 10:30, 상태 '가동중지'(처음 본 측정 11-03 10:30)), "
                 "5번(평소 9.0→최근 0.0, 측정 2026-11-03 10:30) · 설비 정지·정비·측정기 점검일 수 있음(회사 확인)")
         ev = {"id": "stk:down:현대제철:현대제철(주)순천공장:2026-11-03", "kind": "사업장 가동 중단 신호", "tier": "A", "detectedAt": "2026-11-03T11:45:10+09:00", "text": text}
-        sites = {"현대제철:현대제철(주)순천공장": {"stacks": {"83": {"stoppedSince": "2026-10-31 20:30"}, "81": {"stoppedSince": "2026-10-31 13:30"},
-                                                          "5": {"stoppedSince": "2026-11-03 07:30"}}}}
+        sites = {"현대제철:현대제철(주)순천공장": {"stacks": {"83": {"stoppedSince": "2026-10-31 20:30", "status": ["가동중지", "2026-11-03 10:30"]},
+                                                          "81": {"stoppedSince": "2026-10-31 13:30", "status": ["가동중지", "2026-11-03 10:30"]},
+                                                          "5": {"stoppedSince": "2026-11-03 02:30"}}}}   # 5번: 9시간 앞 — 3번 연속 낮아야 알리니 보통
         now = dt.datetime(2026, 11, 3, 14, 0, tzinfo=KST)
         w.annotate_late_starts([ev], sites, now)
         self.assertTrue(ev["text"].endswith(" — 멈춤 시작(끝에서부터 연달아 낮은 첫 측정): 83번 10-31 20:30, 81번 10-31 13:30"
@@ -563,6 +564,10 @@ class StackTest(unittest.TestCase):
         once = ev["text"]
         w.annotate_late_starts([ev], sites, now)
         self.assertEqual(ev["text"], once)
+        # 상태 글자 없이 값만 오래 낮았던 배출구는 상태 글자 이야기를 쓰지 않는다
+        plain = dict(ev, text=text)
+        w.annotate_late_starts([plain], {"현대제철:현대제철(주)순천공장": {"stacks": {"83": {"stoppedSince": "2026-11-02 20:30"}}}}, now)
+        self.assertTrue(plain["text"].endswith("83번 11-02 20:30 — 알림보다 최대 15시간 앞서 멈춰 있었음"))
         old = dict(ev, text=text, detectedAt="2026-10-31T11:45:10+09:00")   # 이틀 넘은 알림은 그대로
         w.annotate_late_starts([old], sites, now)
         self.assertEqual(old["text"], text)

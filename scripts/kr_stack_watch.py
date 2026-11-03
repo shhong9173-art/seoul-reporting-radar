@@ -198,11 +198,14 @@ def restore_size_retier(events):
 
 LATE_START_NOTE = " — 멈춤 시작(끝에서부터 연달아 낮은 첫 측정): "
 LATE_START_TAIL = " — 상태 글자를 11-03부터 읽어 이때 처음 멈춤으로 잡혔지만 그 전부터 멈춰 있었음"
+LATE_START_HOURS = 12   # 3번 연속(6~9시간)·자료 지연(1.5시간)보다 넉넉히
 
 
 def annotate_late_starts(events, sites, now, hours=48):
     """상태 글자를 읽기 시작한 뒤 처음 멈춤으로 잡힌 저장 알림(멈춤 시작을 안 적던 때)에 실제 멈춤 시작을 한 번 덧붙인다.
-    11-03 11:45 현대제철 순천 81~83번 A — 알림은 오늘이지만 숫자는 10-31 13:30·20:30부터 끊겨 있었다. 알림보다 6시간 넘게 이른 것만."""
+    11-03 11:45 현대제철 순천 81~83번 A — 알림은 오늘이지만 숫자는 10-31 13:30·20:30부터 끊겨 있었다.
+    멈춤은 3번 연속 낮아야 알리므로 시작은 원래 알림보다 6~9시간 이르다 — LATE_START_HOURS 넘게 이른 것만, 끝 설명은 그 배출구가
+    지금 '가동중지'일 때만 상태 글자 이야기를 쓴다."""
     cut = (now - dt.timedelta(hours=hours)).isoformat(timespec="seconds")
     for e in events:
         text, eid = e.get("text") or "", str(e.get("id") or "")
@@ -213,14 +216,17 @@ def annotate_late_starts(events, sites, now, hours=48):
         seen = obs_time(str(e.get("detectedAt") or "")[:16].replace("T", " "))
         if not site or seen is None:
             continue
-        early = []
+        early, halted, lead = [], True, 0.0
         for code in re.findall(r"(\S+?)번\(평소", text):
-            since = (site.get("stacks", {}).get(code) or {}).get("stoppedSince")
+            st = site.get("stacks", {}).get(code) or {}
+            since = st.get("stoppedSince")
             t = obs_time(since) if since else None
-            if t is not None and (seen - t).total_seconds() > 6 * 3600 and f"{code}번(평소" in text and f"멈춤 {str(since)[5:16]}부터" not in text:
+            if t is not None and (seen - t).total_seconds() > LATE_START_HOURS * 3600 and f"멈춤 {str(since)[5:16]}부터" not in text:
                 early.append(f"{code}번 {str(since)[5:16]}")
+                halted = halted and (st.get("status") or [None])[0] in STOP_STATUS
+                lead = max(lead, (seen - t).total_seconds() / 3600)
         if early:
-            e["text"] = text + LATE_START_NOTE + ", ".join(early) + LATE_START_TAIL
+            e["text"] = text + LATE_START_NOTE + ", ".join(early) + (LATE_START_TAIL if halted else f" — 알림보다 최대 {lead:.0f}시간 앞서 멈춰 있었음")
 
 
 def retier_maintenance_stops(events):
