@@ -82,7 +82,7 @@ class Run(unittest.TestCase):
         self.assertIn("화성시의회 제300회 본회의(20261020) 회의록 · 기아 대목 「", ev[0]["text"])
         self.assertIn("신차 2000대가 공장 시설로 허가받은 땅에 야적", ev[0]["text"])
         self.assertIn("회의록 번호 CLIKC1(국회도서관 지방의정포털)", ev[0]["text"])
-        self.assertIsNone(ev[0]["url"])                             # 원본 파일 주소가 빈 값이면 회의록 번호로 찾게 둔다
+        self.assertEqual(ev[0]["url"], "https://clik.nanet.go.kr/potal/search/searchView.do?collection=minutes&DOCID=CLIKC1")   # 원본 파일 주소가 비면 포털 회의록 화면(탐침 154)
 
     def test_failures(self):
         get, _ = fake({})
