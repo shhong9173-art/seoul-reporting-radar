@@ -32,6 +32,8 @@ sys.path.insert(0, str(ROOT / "scripts"))
 KST = dt.timezone(dt.timedelta(hours=9))
 SCHEMA = "council_minutes/v1"
 API = "https://clik.nanet.go.kr/openapi/minutes.do"
+# 회의록 화면(11-03 탐침 154: 당진시의회 행정문화위원회 회의록 번호로 열어 의회·회의 이름 확인). API 원본 파일 주소는 빈 값이라 이걸 원문 링크로.
+VIEW = "https://clik.nanet.go.kr/potal/search/searchView.do?collection=minutes&DOCID={}"
 UA = {"User-Agent": "seoul-reporting-radar (newsroom research; local council minutes)"}
 PAUSE = 1.0
 LIST_COUNT = 30
@@ -199,7 +201,7 @@ def run(now, previous=None, *, key=None, get=None, sleep=time.sleep):
             rid = f"clik:{did}" if c == comp else f"clik:{did}:{c}"
             rec = {"id": rid, "company": c, "term": term, "council": tidy(row.get("RASMBLY_NM")), "meeting": tidy(row.get("MTGNM")), "date": row.get("MTG_DE"),
                    "session": row.get("RASMBLY_SESN"), "agenda": tidy(det.get("MTR_SJ"))[:200], "snippets": [x[:320] for x in snips], "tier": tier,
-                   "docid": did, "url": tidy(det.get("ORGINL_FILE_URL")) or "", "firstSeen": stamp, **({"old": True} if old and near else {})}
+                   "docid": did, "url": tidy(det.get("ORGINL_FILE_URL")) or VIEW.format(did), "firstSeen": stamp, **({"old": True} if old and near else {})}
             known[rid] = rec
             if tier == "A":
                 events.append({"id": rid, "tier": "A", "kind": "지방의회 회의록", "company": c, "council": rec["council"], "detectedAt": stamp,
