@@ -88,6 +88,8 @@ const ALT = {
   노동쟁의: ['쟁의', '파업', '조정 신청', '조정신청', '조정 중지', '조정중지', '노동위', '중노위', '지노위'],
   부당노동행위: ['부당노동행위', '노동위', '중노위', '지노위'], 교섭: ['교섭', '하청', '원청', '노란봉투'],
   부당해고: ['부당해고', '해고', '노동위', '중노위', '지노위'], 노동위: ['노동위', '중노위', '지노위', '노동위원회'],
+  // 미국 주 상공위원회 안건(us-state-env): 세제 감면·인센티브
+  감면: ['감면', '세제 혜택', '세금 혜택', '인센티브', '세액'],
   OSHA: ['OSHA', '산업안전보건청', '미국 노동부', '산업안전'], 벌금: ['벌금', '과징금', '제재', '위반'], 사고: ['사고', '사망', '부상', '숨져', '중상'],
     공정위: ['공정위', '공정거래위원회'], 과징금: ['과징금', '제재', '시정명령', '고발', '경고'], 한전: ['한전', '한국전력'],
   수주: ['수주', '입찰', '낙찰', '공급', '계약'], 관세: ['관세', '반덤핑', '상계관세', '덤핑'], 판정: ['판정', '예비', '최종', '재심', '연례재심'],
@@ -689,7 +691,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
   for (const e of docs['us-state-env']?.events ?? []) {
     if (!recent(e.detectedAt)) continue;
     push(['A', 'B'].includes(e.tier) ? e.tier : 'C', W['us-state-env'], { kind: e.kind, id: e.id, date: e.detectedAt, company: e.company,
-      fact: e.text, url: e.url, check: hint(e.company, [e.state, /제재/.test(e.kind ?? '') ? '과징금' : '허가'], [e.state], [e.state]) });
+      fact: e.text, url: e.url, check: hint(e.company, [e.state, /제재/.test(e.kind ?? '') ? '과징금' : /상공위원회/.test(e.kind ?? '') ? '감면' : '허가'], [e.state], [e.state]) });
   }
 
   for (const v of docs['us-epa']?.vehicles ?? []) {

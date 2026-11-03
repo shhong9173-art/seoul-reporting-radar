@@ -2535,7 +2535,13 @@ test('미국 주 환경 허가·공고(us-state-env): radar_today에 허가 신�
         noticeType: 'Permit Application', appNo: '30376', operation: 'Semiconductors and Related Devices', reason: 'The addition of a rotary concentrator, a regenerative thermal oxidizer',
         deadline: '2026-11-06', week: '2026-10-05', code: 'pa1026-1', url: 'https://epd.georgia.gov/document/document/pa1026-1/download', firstSeen: old, baseline: true },
       { id: 'ga:29866:pa1126-1', source: 'ga', state: '조지아', company: '현대차', facility: 'Hyundai Motor Group Metaplant America LLC', county: 'Bryan', noticeType: 'Proposed Permit',
-        appNo: '29866', reason: 'Construction of a second paint shop', deadline: '2026-12-04', code: 'pa1126-1', url: 'https://epd.georgia.gov/document/document/pa1126-1/download', firstSeen: now }],
+        appNo: '29866', reason: 'Construction of a second paint shop', deadline: '2026-12-04', code: 'pa1126-1', url: 'https://epd.georgia.gov/document/document/pa1126-1/download', firstSeen: now },
+      { id: 'gap:3711-029-0015-P-02-0', source: 'gap', state: '조지아', company: '현대차', facility: 'Hyundai Motor Group Metaplant America LLC', fid: '029-00015',
+        permit: '3711-029-0015-P-02-0', issued: '2026-10-20', permitType: 'PSD/NSR', noticeType: '대기 허가 발급(PSD/NSR)', reason: '', operation: '',
+        docs: [{ label: 'Narrative', url: 'https://air.gaepd.org/Permits/View/ON-31000' }], url: 'https://air.gaepd.org/Permits/View/OP-31000', firstSeen: now },
+      { id: 'laci:20240515-A-ITE:2026-12-10', source: 'laci', state: '루이지애나', company: '롯데케미칼', facility: 'Lotte Chemical Louisiana LLC Calcasieu', appNo: '20240515-A-ITE',
+        meeting: '2026-12-10', amount: '$3,902,899', noticeType: '상공위원회 안건(세제 감면·고용 인센티브)', reason: '20240515-A-ITE Lotte Chemical Louisiana LLC Calcasieu $3,902,899 $95,000 12',
+        url: 'https://admin.opportunitylouisiana.gov/wp-content/uploads/2026/11/CI-Agenda-PUBVer-DEC-10-2026.pdf', firstSeen: now }],
     events: [
       { id: 'ga:29866:pa1126-1', kind: '주 환경청 허가·공고', tier: 'A', company: '현대차', state: '조지아', detectedAt: now, url: 'https://epd.georgia.gov/document/document/pa1126-1/download',
         text: '조지아 주간 공고 pa1126-1 · Hyundai Motor Group Metaplant America LLC(Bryan County) · Proposed Permit · 신청 29866 · 이유 「Construction of a second paint shop」 — 신설·증설 낱말이 있는 신청(회사 확인) · 주 정부 공개 공고(허가 신청≠착공·투자 확정)' },
@@ -2550,10 +2556,13 @@ test('미국 주 환경 허가·공고(us-state-env): radar_today에 허가 신�
   const hit = items.items.find((x) => x.id === 'ga:29866:pa1126-1');
   assert.deepEqual([hit.check.who, hit.check.terms, hit.check.must], ['현대차', ['조지아', '허가'], ['조지아']]);
   const u = await call('us_litigation', {}, opts);
-  assert.match(u.text, /\[미국 주 환경 허가·공고 · 출입처 미국 공장 · 확인 [^\]]+\] 2건 · 원천 조지아 EPD 주간 공고 ok · 앨라배마 ADEM 공고 ok · 루이지애나 LDEQ 공고 ok/);
+  assert.match(u.text, /\[미국 주 환경 허가·공고 · 출입처 미국 공장 · 확인 [^\]]+\] 4건 · 원천 조지아 EPD 주간 공고 ok · 앨라배마 ADEM 공고 ok · 루이지애나 LDEQ 공고 ok/);
   assert.match(u.text, /- \[기준선\] 조지아 · 한화솔루션 · Hanwha Q Cells Georgia, Inc\.\(Bartow County · 100 Qcells Pkwy, White, 30184\) · Permit Application · 신청 30376 · 공고 주 2026-10-05 · 의견 마감 2026-11-06/);
   assert.match(u.text, /- \[신규\] 조지아 · 현대차 · Hyundai Motor Group Metaplant America LLC/);
   assert.match(u.text, /신청 이유: 「The addition of a rotary concentrator/);
+  assert.match(u.text, /- 조지아 · 현대차 · Hyundai Motor Group Metaplant America LLC · 대기 허가 발급\(PSD\/NSR\) · 허가 3711-029-0015-P-02-0\(시설 029-00015\) · 발급 2026-10-20\n   원문: https:\/\/air\.gaepd\.org\/Permits\/View\/OP-31000\n   문서: Narrative https:\/\/air\.gaepd\.org\/Permits\/View\/ON-31000/);
+  assert.match(u.text, /- 루이지애나 · 롯데케미칼 · Lotte Chemical Louisiana LLC Calcasieu · 상공위원회 안건\(세제 감면·고용 인센티브\) · 신청 20240515-A-ITE · 회의 2026-12-10 · 금액 칸 첫 값 \$3,902,899\n   안건 줄: 「20240515-A-ITE Lotte/);
+  assert.match(u.text, /\] 4건 · 원천/);
 });
 
 test('노동위 회의(kr-labor): radar_today에 조정·부당노동행위 A·해고 B, kr_official labor 구역에 상한·사건, 보도 대조 낱말', async () => {
