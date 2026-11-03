@@ -8,9 +8,12 @@ from business_content import CORPS
 NOW=datetime(2026,10,13,tzinfo=timezone(timedelta(hours=9)))
 
 class Tests(unittest.TestCase):
-    def test_dart_direct_beat_21_companies(self):
-        self.assertEqual(len(CORPS),21)
-        self.assertEqual(len(set(CORPS)),21)
+    def test_dart_direct_beat_27_companies(self):
+        # 11-01 석유화학·정유 6곳(LG화학·롯데케미칼·금호석유화학·S-Oil·SK이노베이션·HD현대오일뱅크) 추가로 21→27
+        self.assertEqual(len(CORPS),27)
+        self.assertEqual(len(set(CORPS)),27)
+        for c in ("LG화학","롯데케미칼","금호석유화학","S-Oil","SK이노베이션","HD현대오일뱅크"):
+            self.assertIn(c,CORPS)
         self.assertIn("현대모비스",CORPS)
         self.assertIn("고려아연",CORPS)
         self.assertIn("두산에너빌리티",CORPS)

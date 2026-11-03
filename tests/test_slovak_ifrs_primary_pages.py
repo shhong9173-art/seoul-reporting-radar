@@ -62,6 +62,27 @@ class PrimaryPDF(unittest.TestCase):
         self.assertFalse(result["financialFiguresInterpreted"])
         self.assertFalse(result["exclusiveConfirmed"])
 
+    def test_dropped_connection_keeps_the_previously_hash_verified_report(self):
+        # 11-01 06:23 운영: 2025 보고서 첨부 조회가 RemoteDisconnected로 끊겨 2023·2024 행만 남았다(하류 시험이 매일 실패)
+        good=m.analyze(source(),now=NOW,fetch=mock_source,pdf_text=mock_pages)
+        first_report=good["reports"][0]["reportId"]
+        def flaky(url,limit):
+            if url.startswith(m.ATTACHMENTS) and str(first_report+10000) in url:
+                raise ConnectionResetError("RemoteDisconnected")
+            return mock_source(url,limit)
+        d=m.analyze(source(),now=NOW+timedelta(days=1),fetch=flaky,pdf_text=mock_pages,previous=good)
+        self.assertEqual((d["sourceQueriesFailed"],d["verifiedPdfCount"],d.get("carriedOverReports")),(1,2,1))
+        kept=d["reports"][0]
+        self.assertEqual((kept["status"],kept["sha256"],kept["carriedOverFrom"],kept["lastAttemptErrorType"]),
+                         ("official_pdf_text_passages_for_manual_review",SHA,good["generatedAt"],"ConnectionResetError"))
+        self.assertEqual(d["verifiedPageExcerpts"],good["verifiedPageExcerpts"])
+        # 직전에 없던 보고서·해시가 안 맞는 경우는 이어 쓰지 않는다
+        self.assertEqual(m.analyze(source(),now=NOW,fetch=flaky,pdf_text=mock_pages)["reports"][0]["status"],"official_metadata_or_attachment_error")
+        def wrong(url,limit):
+            if url.startswith(m.ATTACHMENTS):return b"%PDF-1.4\n"+b"not correct"*120
+            return mock_source(url,limit)
+        self.assertEqual(m.analyze(source(),now=NOW,fetch=wrong,pdf_text=mock_pages,previous=good)["verifiedPdfCount"],0)
+
     def test_checksum_mismatch_suppresses_all_excerpts(self):
         def wrong(url,limit):
             if url.startswith(m.ATTACHMENTS):return b"%PDF-1.4\n"+b"not correct"*120

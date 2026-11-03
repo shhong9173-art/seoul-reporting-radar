@@ -125,7 +125,17 @@ def source_snapshot_valid(src):
     if not isinstance(src.get("statements"),list):return False
     return True
 
-def analyze(source,*,now=None,fetch=get_data,pdf_text=extract_pages):
+def carried_row(previous,stmt,report):
+    """직전 결과에서 같은 보고서(같은 statementId·reportId)를 해시 확인까지 마친 행. 공시 PDF는 바뀌지 않으므로
+    이번 조회가 끊기면 그 행을 그대로 쓴다(11-01 06:23 운영: 2025 보고서 RemoteDisconnected → 2023·2024 행만 남아 하류 시험이 매일 실패)."""
+    for row in (previous or {}).get("reports") or []:
+        if (isinstance(row,dict) and row.get("statementId")==stmt and row.get("reportId")==report
+                and row.get("pdfReadAndOfficialHashVerified") is True and row.get("sha256")):
+            return row
+    return None
+
+
+def analyze(source,*,now=None,fetch=get_data,pdf_text=extract_pages,previous=None):
     now=now or datetime.now(KST)
     if now.utcoffset() is None or not source_snapshot_valid(source):
         raise ValueError("unverified_production_issuer_identity")
@@ -203,10 +213,17 @@ def analyze(source,*,now=None,fetch=get_data,pdf_text=extract_pages):
                         row["status"]="verified_pdf_text_not_extractable"
                         row["textErrorType"]=type(err).__name__
         except (ValueError,URLError,HTTPError,OSError,TimeoutError,json.JSONDecodeError) as err:
-            row["status"]="official_metadata_or_attachment_error"
-            row["errorType"]=type(err).__name__
             r["sourceQueriesFailed"]+=1
             r["errors"].append(type(err).__name__)
+            old=carried_row(previous,stmt,report)
+            if old is not None and "mismatch" not in str(err):
+                row=dict(old,carriedOverFrom=(previous or {}).get("generatedAt"),lastAttemptErrorType=type(err).__name__)
+                r["verifiedPdfCount"]+=1
+                r["verifiedPageExcerpts"]+=len(row.get("pageClues") or [])
+                r["carriedOverReports"]=r.get("carriedOverReports",0)+1
+            else:
+                row["status"]="official_metadata_or_attachment_error"
+                row["errorType"]=type(err).__name__
         r["reports"].append(row)
     r["reportCount"]=len(r["reports"])
     r["annualAccountingMatrix"]=reconcile(r["reports"])
@@ -222,7 +239,11 @@ def main():
     ap.add_argument("--out",default="digests/slovak_ifrs_primary_pages_latest.json")
     args=ap.parse_args()
     source=json.loads(Path(args.source).read_text(encoding="utf-8"))
-    result=analyze(source)
+    try:
+        previous=json.loads(Path(args.out).read_text(encoding="utf-8"))
+    except (OSError,ValueError):
+        previous=None
+    result=analyze(source,previous=previous)
     dest=Path(args.out);dest.parent.mkdir(parents=True,exist_ok=True)
     tmp=dest.with_suffix(".json.tmp")
     tmp.write_text(json.dumps(result,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
