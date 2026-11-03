@@ -864,7 +864,7 @@ export async function stacksSection(ctx, q, days, limit) {
   const down = sites.filter((s) => (s.stopped ?? []).length).sort((a, b) => (b.stopped.length / Math.max(1, b.meaningful ?? 1)) - (a.stopped.length / Math.max(1, a.meaningful ?? 1)));
   out.push(`- 지금 멈춤으로 판단한 배출구가 있는 사업장 ${down.length}곳(관측 6번 전 사업장은 판단 안 함)`);
   for (const s of down.slice(0, limit)) {
-    out.push(`  ${s.company} · ${s.name}(${s.area ?? '지역 미상'}) · 평소 움직이던 배출구 ${s.meaningful ?? '?'}개 중 멈춤 ${s.stopped.length}개: ${s.stopped.slice(0, 8).map((c) => `${c}번(측정 ${s.stacks?.[c]?.lastDt ?? '?'}${s.stacks?.[c]?.stoppedSince ? `, 멈춤 ${s.stacks[c].stoppedSince}부터${s.stacks[c].longStopFor ? '·사흘 넘음' : ''}` : ''}${s.stacks?.[c]?.status ? `, 상태 '${s.stacks[c].status[0]}'` : ''})`).join(', ')}`);
+    out.push(`  ${s.company} · ${s.name}(${s.area ?? '지역 미상'}) · 평소 움직이던 배출구 ${s.meaningful ?? '?'}개 중 멈춤 ${s.stopped.length}개: ${s.stopped.slice(0, 8).map((c) => `${c}번(측정 ${s.stacks?.[c]?.lastDt ?? '?'}${s.stacks?.[c]?.stoppedSince ? `, 멈춤 ${s.stacks[c].stoppedSince}부터${s.stacks[c].longStopFor ? '·사흘 넘음' : ''}` : ''}${s.stacks?.[c]?.status ? `, 상태 '${s.stacks[c].status[0]}'` : ''}${s.stacks?.[c]?.stopLog?.length ? `, 앞선 멈춤 ${s.stacks[c].stopLog.length}번(마지막 ${String(s.stacks[c].stopLog.at(-1)[0]).slice(5, 16)}~${String(s.stacks[c].stopLog.at(-1)[1]).slice(5, 16)})` : ''})`).join(', ')}`);
   }
   const young = sites.filter((s) => obsOf(s) < 6).length;
   if (young) out.push(`  (관측이 아직 6번이 안 된 사업장 ${young}곳 — 판단 전)`);

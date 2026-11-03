@@ -438,6 +438,41 @@ def stopped_since(st, base, judge=None):
     return obs_time(first) if first else None
 
 
+# 배출구 멈춤 기록: 멈췄다 다시 움직이면 시작·끝을 남긴다. 같은 배출구가 자주 짧게 멈췄다면 일상 정비·간헐 가동일 수 있어
+# 멈춤 알림에 앞선 멈춤을 함께 적는다(11-03: 현대제철 순천 81~83번처럼 처음 보는 멈춤인지 되풀이인지 화면에서 알 수 없었다).
+# 관측은 4일치만 쌓여 그 전 멈춤은 이 기록으로만 안다 — 기록은 11-03부터라 그 전 멈춤은 없다고 단정하지 않는다.
+STOP_LOG_KEEP = 8
+STOP_LOG_DAYS = 90
+
+
+def log_stop_end(st, end, now):
+    """멈춤이 끝난 배출구(running으로 돌아옴): [시작, 끝]을 stopLog에 더한다(최근 STOP_LOG_KEEP번·STOP_LOG_DAYS일). 시작이 없으면 그대로."""
+    start = st.get("stoppedSince")
+    if not start:
+        return False
+    cut = f"{now - dt.timedelta(days=STOP_LOG_DAYS):%Y-%m-%d %H:%M}"
+    log = [e for e in st.get("stopLog") or [] if isinstance(e, list) and len(e) == 2 and str(e[1]) >= cut]
+    if not log or log[-1][0] != start:
+        log.append([start, str(end or "")[:16]])
+    st["stopLog"] = log[-STOP_LOG_KEEP:]
+    return True
+
+
+def stop_history(st, now, days=30):
+    """멈춤 알림에 붙일 앞선 멈춤 문구 — 최근 days일 안에 끝난 멈춤만. 없으면 ''(기록 시작 전은 모름)."""
+    cut = f"{now - dt.timedelta(days=days):%Y-%m-%d %H:%M}"
+    log = [e for e in st.get("stopLog") or [] if isinstance(e, list) and len(e) == 2 and str(e[1]) >= cut]
+    if not log:
+        return ""
+    def span(e):
+        a, b = obs_time(e[0]), obs_time(e[1])
+        hours = f" {((b - a).total_seconds() / 3600):.0f}시간" if a and b and b >= a else ""
+        end = str(e[1])[11:16] if str(e[1])[:10] == str(e[0])[:10] else str(e[1])[5:16]
+        return f"{str(e[0])[5:16]}~{end}{hours}"
+    shown = " · ".join(span(e) for e in log[-3:])
+    return f", 최근 {days}일 앞선 멈춤 {len(log)}번({shown}{' 등' if len(log) > 3 else ''})"
+
+
 def stack_state(st, now=None, judge=None):
     """'stopped' | 'running' | 'unknown'(관측 부족·원래 거의 0). 측정 시각이 STALE_HOURS 넘게 그대로면(값이 안 들어옴) 멈춤으로 본다.
     judge가 있으면(평일 교대 공장) 일하는 시간 관측만 보고, 측정 시각 멈춤도 일하는 시간으로 센다."""
@@ -665,6 +700,7 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep, clock=time.
             # 다시 셀 때마다 시작이 밀린다) — 다시 움직이면 지운다.
             for c, (state, _) in judged.items():
                 if state == "running":
+                    log_stop_end(stacks[c], stacks[c].get("lastDt"), now)
                     for k in ("stoppedSince", "usual", "longStopFor"):
                         stacks[c].pop(k, None)
             fresh_long = []
@@ -719,7 +755,7 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep, clock=time.
             if newly:
                 def desc(c):
                     st = stacks[c]
-                    return f"{c}번(평소 {judged[c][1]:.1f}→최근 {st['obs'][-1][1] if st.get('obs') else '?'}, 측정 {st.get('lastDt')}{status_note(st)})"
+                    return f"{c}번(평소 {judged[c][1]:.1f}→최근 {st['obs'][-1][1] if st.get('obs') else '?'}, 측정 {st.get('lastDt')}{status_note(st)}{stop_history(st, now)})"
                 if len(stopped) >= 2 and share >= 0.5:
                     emit(f"stk:down:{sid}:{day}", "사업장 가동 중단 신호", "A", comp["company"], name,
                          f"{name}: 평소 움직이던 배출구 {len(meaningful)}개 중 {len(stopped)}개가 {STOP_RUNS}번 연속 평소의 10% 아래 — "
@@ -774,6 +810,7 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep, clock=time.
             "rules": ["굴뚝 자동측정(TMS) 실시간 값을 이 감시가 3시간마다 쌓은 이력이다. 배출구 이름·설비 종류는 자료에 없다(번호만).",
                       "측정값이 평소의 10% 아래로 떨어진 것은 설비 정지·정비·측정기 점검·연료 전환일 수 있다. 가동 중단은 회사 확인 전 미확인.",
                       "평소 값이 1 미만인 배출구(원래 거의 0)는 멈춤 판단을 하지 않는다. 관측이 6번 모이기 전에는 판단하지 않는다.",
+                      "멈췄다 다시 움직인 배출구는 시작·끝을 남겨(11-03부터, 최근 8번·90일) 다음 멈춤 알림에 최근 30일 앞선 멈춤을 함께 적는다 — 되풀이되는 짧은 멈춤은 일상 정비·간헐 가동일 수 있다. 기록 시작 전 멈춤은 모른다.",
                       "배출구 멈춤 B는 새로 멈춘 배출구가 사업장 평소 움직이던 배출구의 5%(최소 2개) 이상, 큰 배출구(평소 값 상위 3), 또는 평소 값 합의 10% 이상일 때. 큰 제철소의 배출구 한두 개는 일상 정비일 수 있어 화면 목록에만 보인다.",
                       "측정값 칸에 숫자 대신 상태 글자가 오면 그대로 남긴다: '측정자료확인중(가동중지)'는 사업장이 보낸 시설 멈춤 신고(값 0으로 셈), '보수중'·'기기점검'·'미수신'·'측정자료확인중'은 측정기 쪽 상태(판단 안 함).",
                       "숫자로 돌던 배출구가 '가동중지'로 바뀐 것이 한 실행에 3개 이상이거나 큰 배출구면 알린다(연속 가동 사업장만) — 검증 전까지 C. 거꾸로 '가동중지'였던 배출구가 다시 숫자를 보내면 '해제'(C).",

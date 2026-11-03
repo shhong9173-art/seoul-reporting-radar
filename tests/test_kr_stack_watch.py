@@ -132,6 +132,30 @@ class StackTest(unittest.TestCase):
         ev = [e for e in series(10, at=at3)["events"] if e["site"] == "현대제철㈜포항2공장"]
         self.assertEqual([(e["kind"], e["tier"]) for e in ev], [("배출구 멈춤 신호", "B")])
 
+    def test_a_repeat_stop_names_the_earlier_stop_of_the_same_stack(self):
+        # 당진 큰 배출구(30)가 10-31 06:00~15:00 멈췄다 돌아온 뒤 11-01에 다시 멈춤 → 두 번째 알림에 앞선 멈춤(시작~끝, 시간)
+        def at(i):
+            return {"dangjin": (0.0, 8.0, 0.1)} if 6 <= i <= 8 or i >= 15 else {}
+        doc = series(18, at=at)
+        st = next(x for x in doc["sites"] if x["name"] == "현대제철㈜")["stacks"]["1"]
+        self.assertEqual(st["stopLog"], [["2026-10-31 06:00", "2026-10-31 15:00"]])
+        ev = sorted((e for e in doc["events"] if e["kind"] == "배출구 멈춤 신호" and e["site"] == "현대제철㈜"), key=lambda e: e["detectedAt"])
+        self.assertEqual(len(ev), 2)
+        self.assertNotIn("앞선 멈춤", ev[0]["text"])
+        self.assertIn("1번(평소 30.0→최근 0.0, 측정 2026-11-01 15:00, 최근 30일 앞선 멈춤 1번(10-31 06:00~15:00 9시간))", ev[1]["text"])
+        # 기록은 STOP_LOG_KEEP번까지, 같은 멈춤을 두 번 적지 않는다
+        st2 = {"stoppedSince": "2026-11-01 09:00", "stopLog": [["2026-10-0%d 00:00" % d, "2026-10-0%d 03:00" % d] for d in range(1, 9)]}
+        now = dt.datetime(2026, 11, 2, 12, 0, tzinfo=KST)
+        self.assertTrue(w.log_stop_end(st2, "2026-11-01 18:00", now))
+        self.assertEqual(len(st2["stopLog"]), w.STOP_LOG_KEEP)
+        self.assertEqual(st2["stopLog"][-1], ["2026-11-01 09:00", "2026-11-01 18:00"])
+        w.log_stop_end(st2, "2026-11-01 21:00", now)
+        self.assertEqual(st2["stopLog"][-1], ["2026-11-01 09:00", "2026-11-01 18:00"])
+        self.assertFalse(w.log_stop_end({}, "2026-11-01 18:00", now))
+        # 30일 안(10-04~10-08 다섯 번 + 11-01)만, 최근 3번만 적고 '등'
+        self.assertEqual(w.stop_history(st2, now), ", 최근 30일 앞선 멈춤 6번(10-07 00:00~03:00 3시간 · 10-08 00:00~03:00 3시간 · 11-01 09:00~18:00 9시간 등)")
+        self.assertEqual(w.stop_history({"stopLog": [["2026-09-01 00:00", "2026-09-02 00:00"]]}, now), "")  # 30일 넘은 것은 안 적음
+
     def test_long_stop_of_small_stacks_is_B_once_and_clears_on_restart(self):
         # 11-02: 경향 [단독] '포스코 광양 2고로 전면 개수'(10-30) — 광양 129·135번이 10-31부터 멈췄지만 137개 중 2개라 C로만 남았다.
         # 일상 정비보다 긴 멈춤(사흘 넘게)은 사업장 크기와 상관없이 B 한 번.
