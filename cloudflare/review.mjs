@@ -49,7 +49,18 @@ export async function myArticlesLines(ctx, days) {
     out.push(`- 기사 ${String(a.published).slice(5, 16).replace('T', ' ')} 「${String(a.title).slice(0, 60)}」${a.verified === false ? '(작성자 미확인)' : ''}`);
     out.push(`   레이더: ${String(a.best.seen).slice(5, 16).replace('T', ' ')} ${a.best.label} — ${String(a.best.text ?? '').slice(0, 90)} (${a.best.leadHours}시간 앞${(a.best.why ?? []).length ? `, 겹친 낱말 ${a.best.why.join('·')}` : ''}) · id ${a.best.id}`);
   }
-  out.push('읽는 법: 자동 대조다(같은 사건인지는 열어 봐야 함). 쓴 기사만 찾는다 — 안 쓴 항목은 킬이 아니다(이유 모름). 출입처 이름이 제목에 없는 업계 기사·당직 기사는 빠진다.');
+  // 레이더가 놓친 기사(11-04 기자 요청 뒤): 어떤 원천을 더할지 보려고 종류별로 묶고 '없음' 제목을 보여 준다(기자 전용 화면).
+  const byKind = (rs) => Object.entries(rs.reduce((m, a) => ({ ...m, [a.kind ?? '기타']: (m[a.kind ?? '기타'] ?? 0) + 1 }), {}))
+    .sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${v}`).join(' · ');
+  const miss = rows.filter((a) => a.verdict === '없음');
+  const sameOnly = rows.filter((a) => a.verdict === '같은 회사 항목만');
+  if (miss.length) {
+    out.push(`레이더에 같은 회사 항목도 없던 기사 ${miss.length}건 — ${byKind(miss)}`);
+    for (const a of miss.slice(0, 15)) out.push(`  · ${String(a.published).slice(5, 10)} [${a.kind ?? '기타'}] 「${String(a.title).slice(0, 60)}」${a.verified === false ? '(작성자 미확인)' : ''}`);
+    if (miss.length > 15) out.push(`  … ${miss.length - 15}건 더`);
+  }
+  if (sameOnly.length) out.push(`같은 회사 항목만 있던 기사 ${sameOnly.length}건(사건은 달랐음) — ${byKind(sameOnly)}`);
+  out.push('읽는 법: 자동 대조다(같은 사건인지는 열어 봐야 함). 쓴 기사만 찾는다 — 안 쓴 항목은 킬이 아니다(이유 모름). 출입처 이름이 제목에 없는 업계 기사·당직 기사는 빠진다. 실적·인사·제품 기사는 보도자료·공시로 나와 공개 원천이 앞서기 어렵다.');
   return out;
 }
 

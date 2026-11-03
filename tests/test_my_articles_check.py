@@ -72,6 +72,12 @@ class MyArticles(unittest.TestCase):
         self.assertEqual(w.companies_in("현대차·기아, 'K-세일페스타' 할인 공세"), ["현대차", "기아"])
         self.assertEqual(w.companies_in("LS전선·LS마린솔루션, 504MW 태안해상풍력 해저케이블"), ["LS전선"])
         self.assertEqual(w.companies_in("영풍 석포제련소 앞 낙동강, 사계절 내내 수달 포착"), ["영풍"])
+        # 기사 종류(11-04: 기자 기사 7일 제목 실제 예)
+        self.assertEqual([w.kind_of(t) for t in ["KG스틸, 3분기 영업익 248억원⋯전년比 53.9% 감소", "SK이노베이션, 총괄사장에 정승일⋯\"전력사업자 전환 총괄\"",
+                                                "금호타이어, 롯데카드와 제휴카드 출시…최대 80만원 선할인", "LS전선, 구미에 3500억원 들여 희토류 영구자석 공장 짓는다",
+                                                "두산에너빌리티, 美 뉴스케일파워 SMR 상부 원자로 제작 계약", "대미 타이어 수출 25% 감소…유럽이 메웠지만 관세 '복병'",
+                                                "효성중공업, 사무노조 전면파업 예고에 \"깊은 유감\"", "LS전선·LS마린솔루션, 504MW 태안해상풍력 해저케이블 일정 확보"]],
+                         ["실적", "인사·조직", "제품·마케팅", "투자·공장", "수주·계약", "통계·시장", "노사·안전", "기타"])
 
     def test_run_matches_own_articles_with_radar(self):
         get, calls = fake()
@@ -81,6 +87,7 @@ class MyArticles(unittest.TestCase):
         self.assertEqual(doc["checks"][0]["mineNew"], 1)
         by = {a["title"][:6]: a for a in doc["articles"]}
         self.assertEqual(by["기아, 화성"]["verdict"], "먼저 잡은 후보")
+        self.assertEqual((by["기아, 화성"]["kind"], by["금호타이어,"]["kind"]), ("논란·법적", "제품·마케팅"))
         self.assertEqual(by["기아, 화성"]["best"]["label"], "지방의회 회의록")              # 11-03 추가 감시도 레이더 기억에 든다
         self.assertTrue(by["기아, 화성"]["verified"])
         self.assertEqual(doc["itemHits"]["clik:CLIKC1"]["title"][:8], "기아, 화성 신")
