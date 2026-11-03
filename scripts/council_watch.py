@@ -69,6 +69,54 @@ def tidy(s):
     return re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", str(s or "")))).strip()
 
 
+# 출입처 공장이 있는 지역 의회만 A(11-04 운영 첫 본문: 밀양시의회 결산 회의에서 의원이 "포스코 같은 경우 대기업에서는 한 곳에
+# 안전사고가 나면 전체가 다 스톱됩니다"라고 비유한 대목이 '사고'로 A — 밀양에는 포스코 공장이 없다). 지역은 공장등록 감시(kr-official)가
+# 모은 출입처 공장 도로명 주소에서 만든다. 그 회사 공장 주소를 모르면(목록에 없음·조회 실패) 이 규칙을 쓰지 않는다.
+def _stem(tok):
+    return re.sub(r"(특별자치도|특별자치시|통합특별시|광역시|특별시|도|시|군|구)$", "", tok or "")
+
+
+def regions_from_factories(factories):
+    """{회사: {("p", 시·도), ("c", 시·군)}} — 공장 도로명 주소 앞 두 낱말."""
+    out = {}
+    for f in factories or []:
+        parts = str(f.get("rnAdres") or "").split()
+        if not parts or not f.get("company"):
+            continue
+        r = out.setdefault(f["company"], set())
+        r.add(("p", _stem(parts[0])))
+        if len(parts) > 1 and re.search(r"(시|군)$", parts[1]):
+            r.add(("c", _stem(parts[1])))          # 전남광주통합특별시 광양시 → 광양, 울산광역시 울주군 → 울주
+        elif re.search(r"(광역시|특별시)$", parts[0]):
+            r.add(("c", _stem(parts[0])))          # 울산광역시 북구 → 울산
+    return out
+
+
+def council_region(name):
+    """'경상남도 밀양시의회' → ("c", 밀양), '경상북도의회' → ("p", 경상북), '울산광역시 북구의회' → ("c", 울산)."""
+    toks = str(name or "").split()
+    if not toks:
+        return None
+    base = re.sub(r"의회$", "", toks[-1])
+    if re.search(r"(광역시|특별시|특별자치시|도)$", base):
+        return ("p", _stem(base))
+    if base.endswith("구") and len(toks) > 1:
+        return ("c", _stem(toks[0]))
+    if re.search(r"(시|군)$", base):
+        return ("c", _stem(base))
+    return None
+
+
+def in_region(regions, company, council):
+    """True/False, 또는 모르면 None(규칙 안 씀)."""
+    if not regions or company not in regions:
+        return None
+    reg = council_region(council)
+    if not reg:
+        return None
+    return reg in regions[company]
+
+
 def unwrap(body):
     """응답 맨 바깥 목록 `[ {SERVICE, RESULT_CODE, …} ]`에서 첫 사전(사전이면 그대로)."""
     if isinstance(body, list):
@@ -122,7 +170,7 @@ def interleave(fresh):
     return out
 
 
-def run(now, previous=None, *, key=None, get=None, sleep=time.sleep):
+def run(now, previous=None, *, key=None, get=None, sleep=time.sleep, regions=None):
     if get is None:
         import requests
         get = requests.get
@@ -203,11 +251,13 @@ def run(now, previous=None, *, key=None, get=None, sleep=time.sleep):
             if any((x.get("council"), str(x.get("date") or ""), x.get("company"), re.sub(r"\s", "", (x.get("snippets") or [""])[0])[:60]) == same
                    for x in known.values()):
                 continue
-            tier = "A" if near and not old else "C"
+            local = in_region(regions, c, tidy(row.get("RASMBLY_NM")))
+            tier = "A" if near and not old and local is not False else "C"
             rid = f"clik:{did}" if c == comp else f"clik:{did}:{c}"
             rec = {"id": rid, "company": c, "term": term, "council": tidy(row.get("RASMBLY_NM")), "meeting": tidy(row.get("MTGNM")), "date": row.get("MTG_DE"),
                    "session": row.get("RASMBLY_SESN"), "agenda": tidy(det.get("MTR_SJ"))[:200], "snippets": [x[:320] for x in snips], "tier": tier,
-                   "docid": did, "url": tidy(det.get("ORGINL_FILE_URL")) or VIEW.format(did), "firstSeen": stamp, **({"old": True} if old and near else {})}
+                   "docid": did, "url": tidy(det.get("ORGINL_FILE_URL")) or VIEW.format(did), "firstSeen": stamp, **({"old": True} if old and near else {}),
+                   **({"outside": True} if near and local is False else {})}
             known[rid] = rec
             if tier == "A":
                 events.append({"id": rid, "tier": "A", "kind": "지방의회 회의록", "company": c, "council": rec["council"], "detectedAt": stamp,
@@ -215,6 +265,11 @@ def run(now, previous=None, *, key=None, get=None, sleep=time.sleep):
                                "text": (f"{rec['council']} {rec['meeting'] or ''}({rec['date']}) 회의록 · {c} 대목 「{snips[0][:240]}」"
                                         + (f" · 안건 {rec['agenda'][:80]}" if rec["agenda"] else "") + f" · 회의록 번호 {did}(국회도서관 지방의정포털)"
                                         + " · 의원 질의는 주장 — 집행부 답변·회사 확인")})
+    for e in events:
+        if e.get("tier") == "A" and in_region(regions, e.get("company"), e.get("council")) is False:
+            e["tier"], e["outside"] = "C", True
+            if e.get("id") in known:
+                known[e["id"]] = {**known[e["id"]], "tier": "C", "outside": True}
     keep = (now - dt.timedelta(days=KEEP_DAYS)).isoformat(timespec="seconds")
     status = "failed" if fatal or (errors and len(errors) >= len(TERMS)) else "partial" if errors else "complete"
     return {"schema": SCHEMA, "generatedAt": stamp, "status": status, "baselineAt": prev.get("baselineAt") or stamp, "listCount": LIST_COUNT,
@@ -229,6 +284,7 @@ def run(now, previous=None, *, key=None, get=None, sleep=time.sleep):
             "rules": ["국회도서관 지방의정포털 회의록에서 출입처 이름으로 찾은 새 회의록의 대목(이름 앞뒤 150자). 의원 질의·발언은 주장이다 — 집행부 답변·회사 확인.",
                       "회사 이름 앞뒤 60자 안에 인허가·불법·위반·오염·민원·특혜·감면·보조금·증설·공장 이전·폐쇄·매각·사고·사망·야적·체납 낱말이 있으면 A, 없으면 참고(C).",
                       f"회의일이 {OLD_DAYS}일보다 오래된 회의록(늦게 공개)은 사건 낱말이 있어도 C — 지금 이야기인지 따로 확인.",
+                      "그 출입처 공장이 없는 지역 의회(공장등록 주소 기준)의 대목은 사건 낱말이 있어도 C — 비유·일반론일 때가 많다.",
                       "포털 검색은 낱말을 쪼개 찾는다 — 본문의 회사 이름으로 다시 확인. 검색어마다 회의일 순 최신 60건만 봐서, 늦게 공개된 오래 전 회의는 빠질 수 있다(미확인).",
                       "회의록은 회의 뒤 몇 주 늦게 올라온다 — 회의일과 공개일이 다르다. 첫 실행은 기준선, 조회 실패·한도 초과는 미확인."]}
 
@@ -245,7 +301,14 @@ def main():
             print(f"::warning title=council-minutes-state::이전 상태 조회 실패({e}) — 이번 실행은 기준선")
         if private_store.late_scheduled_duplicate(previous, now):
             return
-    doc = run(now, previous)
+    regions = None
+    if token:
+        try:   # 출입처 공장 주소(공장등록 감시) — 못 읽으면 지역 규칙 없이(전과 같이) 돈다
+            regions = regions_from_factories((private_store.get("kr-official", token) or {}).get("factories"))
+        except Exception as e:  # noqa: BLE001
+            print(f"::warning title=council-minutes-regions::공장 주소 조회 실패({type(e).__name__}) — 지역 규칙 없이")
+    doc = run(now, previous, regions=regions)
+    doc["checks"][0]["regions"] = len(regions or {})
     c = doc["checks"][0]
     new = [e for e in doc.get("events") or [] if e["detectedAt"] == doc["generatedAt"]]
     print(f"::notice title=council-minutes::상태 {doc['status']} · 새 회의록 {c.get('returned', 0)} · 상세 {c.get('opened', 0)} · 이번 새 이벤트 {len(new)}"

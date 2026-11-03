@@ -194,6 +194,33 @@ class Run(unittest.TestCase):
         self.assertEqual(doc["checks"][0]["returned"], 30)                    # 앞 30건만 새 회의록 후보
         self.assertIn("CLIKD44", doc["seen"])                                # 뒤쪽 15건은 기준선
         self.assertEqual(doc["listCount"], 60)
+    def test_plant_region_rule_11_04(self):
+        facs = [{"company": "포스코", "rnAdres": "경상북도 포항시 남구 동해안로 6261"}, {"company": "포스코", "rnAdres": "전남광주통합특별시 광양시 폭포사랑길 20-26"},
+                {"company": "현대차", "rnAdres": "울산광역시 북구 염포로 700"}, {"company": "현대제철", "rnAdres": "충청남도 당진시 송악읍 북부산업로 1480"}]
+        reg = w.regions_from_factories(facs)
+        self.assertEqual(w.council_region("경상남도 밀양시의회"), ("c", "밀양"))
+        self.assertEqual(w.council_region("경상북도의회"), ("p", "경상북"))
+        self.assertEqual(w.council_region("울산광역시 북구의회"), ("c", "울산"))
+        self.assertEqual(w.council_region("전남광주통합특별시 순천시의회"), ("c", "순천"))
+        self.assertIs(w.in_region(reg, "포스코", "경상남도 밀양시의회"), False)     # 밀양: 포스코 공장 없음
+        self.assertIs(w.in_region(reg, "포스코", "경상북도의회"), True)
+        self.assertIs(w.in_region(reg, "포스코", "전남광주통합특별시 광양시의회"), True)
+        self.assertIs(w.in_region(reg, "현대차", "울산광역시의회"), True)
+        self.assertIs(w.in_region(reg, "현대제철", "충청남도 당진시의회"), True)
+        self.assertIsNone(w.in_region(reg, "기아", "화성시의회"))                  # 공장 주소 모름 — 규칙 안 씀
+        # 실제 대목(밀양시의회 총무위원회 2026-09-14) — 사건 낱말('사고')이 있어도 공장 없는 지역이라 C, 앞서 낸 A 이벤트도 C로
+        get, _ = fake({})
+        doc = w.run(NOW, None, key="k", get=get, sleep=lambda s: None)
+        doc["events"] = [{"id": "clik:OLDA", "tier": "A", "company": "포스코", "council": "경상남도 밀양시의회", "detectedAt": "2026-11-04T08:05:00+09:00"}]
+        DETAIL["CLIKMY"] = {"MTR_SJ": "결산", "MINTS_HTML": "<p>그래서 우리가 포스코나 이런 건설 현장에서 여러 가지 일들이 생기면서 포스코 같은 경우 대기업에서는 한 곳에 안전사고가 나면 전체가 다 스톱됩니다.</p>"}
+        try:
+            doc2 = w.run(NOW + dt.timedelta(days=1), doc, key="k", get=fake({"포스코": lst(row("CLIKMY", "경상남도 밀양시의회", "20261014"))})[0],
+                         sleep=lambda s: None, regions=reg)
+        finally:
+            DETAIL.pop("CLIKMY", None)
+        it = {x["id"]: x for x in doc2["items"]}["clik:CLIKMY"]
+        self.assertEqual((it["tier"], it["outside"]), ("C", True))
+        self.assertEqual([(e["id"], e["tier"]) for e in doc2["events"]], [("clik:OLDA", "C")])
 
 if __name__ == "__main__":
     unittest.main()
