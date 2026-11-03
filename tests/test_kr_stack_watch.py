@@ -398,7 +398,7 @@ class StackTest(unittest.TestCase):
         ev = [e for e in doc["events"] if e["site"] == "현대제철㈜"]
         self.assertEqual(sorted((e["kind"], e["tier"]) for e in ev), [("배출구 멈춤 신호", "B"), ("배출구 보수·가동중지 전환", "B")])
         stop = next(e for e in ev if e["kind"] == "배출구 멈춤 신호")
-        self.assertIn("상태 '보수중'(10-31 06:00부터)", stop["text"])
+        self.assertIn("상태 '보수중'(처음 본 측정 10-31 06:00)", stop["text"])
 
     def test_switch_to_maintenance_status_is_B_once_for_three_or_a_big_stack(self):
         # 11-03 탐침 117: 포스코 광양 배출구 34개 '보수중' — 숫자로 돌던 배출구가 상태 글자로 바뀌는 순간을 사업장 단위로 알린다
@@ -452,6 +452,25 @@ class StackTest(unittest.TestCase):
             return [e for e in doc["events"] if e["kind"] == "배출구 보수·가동중지 전환"]
         self.assertEqual(kia("측정자료확인중(가동중지)"), [])
         self.assertEqual(len(kia("보수중")), 1)
+
+    def test_status_read_late_backfills_the_unreadable_gap(self):
+        # 11-03 전에는 상태 글자를 못 읽어 값 없는 관측(None)으로 쌓였다 — 처음 '보수중'을 읽을 때 그 앞 빈칸을 0으로 바꿔
+        # 멈춤 시작·평소 값이 실제로 숫자가 끊긴 때를 가리키게 한다
+        doc = None
+        for i in range(11):
+            t = T0 + dt.timedelta(hours=3 * i)
+            rows = world(t)
+            for x in rows:
+                if x["fact_manage_nm"] == "현대제철㈜" and x["stack_code"] == "1" and i >= 7:
+                    x.update(tsp_mesure_value=None, sox_mesure_value=None, nox_mesure_value=None if i < 10 else "보수중")
+            doc = w.run(CFG_SMALL, now=t + dt.timedelta(minutes=20), previous=doc, key="k", get=Api(rows), sleep=lambda s: None)
+        st = next(x for x in doc["sites"] if x["name"] == "현대제철㈜")["stacks"]["1"]
+        self.assertEqual([v for _, v in st["obs"][-4:]], [0.0, 0.0, 0.0, 0.0])
+        self.assertTrue(st["statusBackfilled"])
+        self.assertEqual(st["stoppedSince"], (T0 + dt.timedelta(hours=21)).strftime("%Y-%m-%d %H:%M"))   # 숫자가 끊긴 첫 관측
+        ev = [e for e in doc["events"] if e["site"] == "현대제철㈜" and e["kind"] == "배출구 멈춤 신호"]
+        self.assertEqual(len(ev), 1)
+        self.assertIn("처음 본 측정", ev[0]["text"])
 
     def test_many_stacks_leaving_the_list_at_once_is_C(self):
         # 11-03 09:20 운영: 고려아연 온산 배출구 15개가 '목록에서 빠짐' B 15줄 — 같은 날 오전 탐침에서 값과 함께 모두 다시 보였다
