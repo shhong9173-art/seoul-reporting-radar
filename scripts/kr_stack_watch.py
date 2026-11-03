@@ -492,7 +492,7 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep, clock=time.
             stacks = s.setdefault("stacks", {})
             # 이 사업장을 본 실행 수(예전 저장본에는 없으니 배출구 관측 수 가운데 가장 큰 값으로 시작)
             s["runs"] = s.get("runs", max([len(v.get("obs") or []) for v in stacks.values()] or [0])) + 1
-            present, new_codes = set(), []
+            present, new_codes, halted = set(), [], []
             for x in xs:
                 code = str(x.get("stack_code") or "").strip()
                 if not code:
@@ -509,10 +509,17 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep, clock=time.
                 mdt = x.get("mesure_dt")
                 st.pop("workMissing", None)
                 stt = status_of(x)
+                before = (st.get("status") or [None])[0]
+                last_v = (st.get("obs") or [[None, None]])[-1][1]
                 if stt is None:
                     st.pop("status", None)
-                elif (st.get("status") or [None])[0] != stt:
+                elif before != stt:
                     st["status"] = [stt, mdt]
+                    # 숫자로 돌던 배출구가 이번 측정에 '보수중'·'가동중지'로 바뀐 것(사업장이 보낸 상태) — 아래에서 사업장 단위로 묶는다
+                    # 평일 교대 공장은 '보수중'만 센다 — 교대가 끝난 저녁에 '가동중지'로 바뀌는 것은 일상이다
+                    if (stt in STOP_STATUS and before not in STOP_STATUS and last_v is not None and last_v >= MEANINGFUL
+                            and (judge is None or stt == "보수중")):
+                        halted.append((code, stt, last_v))
                 if st.get("lastDt") == mdt and st.get("obs"):
                     st["missing"] = 0
                     continue  # 측정 시각이 그대로면 같은 관측을 두 번 쌓지 않는다
@@ -618,6 +625,16 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep, clock=time.
                      + f" · 사업장 전체 평소 움직이던 {len(meaningful)}개 중 지금 멈춤 {len(stopped)}개. 일상 정비보다 긴 멈춤 — "
                      "설비 정지·개수·연료 전환·측정기 이상 중 무엇인지는 회사 확인(배출구 번호만 있고 설비 이름은 자료에 없음)")
             top = sorted(meaningful, key=lambda c: -(meaningful[c] or 0))[:3]
+            # 상태 글자 전환: 한 실행에 3개 이상, 또는 큰 배출구(평소 값 상위 3)가 '보수중'·'가동중지'로 바뀌면 B(11-03 탐침 117:
+            # 포스코 광양 배출구 34개 '보수중'·8개 '가동중지' — 예전엔 숫자만 읽어 보이지 않았다. 언제부터인지는 이 감시가 본 뒤부터만 안다)
+            # 큰 배출구는 평소 값 기준(방금 바뀐 배출구는 아직 '멈춤' 판단 전이라 meaningful에 없다)
+            top_base = sorted((c for c, (_, b) in judged.items() if b is not None and b >= MEANINGFUL), key=lambda c: -(judged[c][1] or 0))[:3]
+            if halted and not comp_first and not off and (len(halted) >= 3 or any(c in top_base for c, _, _ in halted)):
+                now_halt = {k: sum(1 for v in stacks.values() if (v.get("status") or [None])[0] == k) for k in STOP_STATUS}
+                emit(f"stk:halt:{sid}:{day}:{','.join(c for c, _, _ in halted[:6])}", "배출구 보수·가동중지 전환", "B", comp["company"], name,
+                     f"{name}: 배출구 {len(halted)}개가 이번 측정에서 상태 글자 '보수중'·'가동중지'로 바뀜(사업장이 보낸 상태) — "
+                     + ", ".join(f"{c}번(직전 값 {v:g}→'{t}')" for c, t, v in halted[:8])
+                     + f" · 사업장 전체 지금 보수중 {now_halt['보수중']}개·가동중지 {now_halt['가동중지']}개. 정기보수·설비 개수·가동 조정 중 무엇인지는 회사 확인")
             share = len(stopped) / len(meaningful) if meaningful else 0
             load = sum(v or 0 for v in meaningful.values()) or 1
             # 예전 규칙(2개 이상이면 B)으로 저장된 작은 멈춤은 사업장 크기 기준으로 다시 본다(10-31 09:17 포스코 광양 137개 중 2개)
@@ -690,6 +707,7 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep, clock=time.
                       "평소 값이 1 미만인 배출구(원래 거의 0)는 멈춤 판단을 하지 않는다. 관측이 6번 모이기 전에는 판단하지 않는다.",
                       "배출구 멈춤 B는 새로 멈춘 배출구가 사업장 평소 움직이던 배출구의 5%(최소 2개) 이상, 큰 배출구(평소 값 상위 3), 또는 평소 값 합의 10% 이상일 때. 큰 제철소의 배출구 한두 개는 일상 정비일 수 있어 화면 목록에만 보인다.",
                       "측정값 칸에 숫자 대신 상태 글자가 오면 그대로 남긴다: '가동중지'·'보수중'은 사업장이 보낸 설비 멈춤(값 0으로 셈), '기기점검'·'미수신'·'측정자료확인중'은 측정 쪽 사정(판단 안 함).",
+                      "숫자로 돌던 배출구가 '보수중'·'가동중지'로 바뀐 것이 한 실행에 3개 이상이거나 큰 배출구면 B(평일 교대 공장은 '보수중'만). 정기보수·개수·가동 조정 중 무엇인지는 회사 확인.",
                       "한 사업장 배출구가 같은 실행에 3개 이상 한꺼번에 목록에서 빠지면 측정 자료 지연일 수 있어 C(멈춘 배출구는 목록에 '가동중지'로 남는다).",
                       f"다만 사흘(평일 교대 공장은 일하는 시간 {LONG_STOP_HOURS}시간) 넘게 멈춘 배출구는 사업장 크기와 상관없이 '배출구 오래 멈춤' B로 한 번 알린다. 멈춤이 이어지는 동안은 멈추기 전 평소 값으로 본다.",
                       "평일 교대 공장(완성차·타이어·전선·변압기·중공업)은 주말·공휴일·밤(0~7시) 관측을 멈춤 판단·평소 값에서 빼고, 그 시간의 목록 빠짐도 세지 않는다. 제철·제련·석유화학 같은 연속 가동 사업장은 주말 멈춤도 그대로 본다.",
