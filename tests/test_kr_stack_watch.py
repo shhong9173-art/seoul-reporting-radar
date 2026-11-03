@@ -657,6 +657,34 @@ class StackTest(unittest.TestCase):
         site = next(s for s in doc["sites"] if s["name"] == "현대제철㈜")
         self.assertEqual([x["value"] for x in site["exceedLog"]], [150.0, 160.0, 155.0, 151.0])
 
+    def test_exceedance_right_after_a_stop_is_one_step_lower_first_time(self):
+        # 11-03 13:47 운영: 금호석유화학 여수제1에너지 4번이 10:30 '가동중지' → 12:30 먼지 47.99/20·질소산화물 88.24/59.5 —
+        # 가동 개시 직후 값일 수 있어 처음은 C, 다음 실행에도 넘으면 그대로 지속 A
+        doc = None
+        kinds = []
+        for i in range(10):
+            t = T0 + dt.timedelta(hours=3 * i)
+            rows = world(t, dangjin=((30.0 if i < 6 else 150.0), 8.0, 0.1))
+            for x in rows:
+                if x["fact_manage_nm"] == "현대제철㈜" and x["stack_code"] == "1" and i in (6, 7):
+                    x.update(tsp_mesure_value=None, sox_mesure_value="측정자료확인중(가동중지)", nox_mesure_value=None)
+            doc = w.run(CFG_SMALL, now=t + dt.timedelta(minutes=20), previous=doc, key="k", get=Api(rows), sleep=lambda s: None)
+            kinds.append([(e["kind"], e["tier"]) for e in doc["events"] if "배출허용기준" in e["kind"] and e["detectedAt"] == doc["generatedAt"]])
+        self.assertEqual(kinds[8:], [[("배출허용기준 초과(측정값)", "C")], [("배출허용기준 초과 지속", "A")]])
+        first = next(e for e in doc["events"] if e["kind"] == "배출허용기준 초과(측정값)")
+        self.assertIn("가동 개시 직후 값일 수 있음(처음 넘은 값은 한 단계 낮춤)", first["text"])
+        self.assertIn("가동 개시 직후 값일 수 있음", next(e for e in doc["events"] if e["kind"] == "배출허용기준 초과 지속")["text"])
+
+    def test_stored_exceedance_right_after_a_stop_is_lowered(self):
+        sites = {"금호석유화학:x": {"stacks": {"4": {"obs": [["2026-11-03 07:30", 30.0], ["2026-11-03 10:30", 0.0], ["2026-11-03 12:30", 88.24]]}}}}
+        ev = {"id": "stk:exceed:금호석유화학:x:4:tsp:2026-11-03 12:30", "kind": "배출허용기준 초과(측정값)", "tier": "B",
+              "detectedAt": "2026-11-03T13:47:00+09:00", "text": "x 배출구 4번 먼지 측정값 47.99이 배출허용기준 20을 넘음"}
+        keep = dict(ev, id="stk:exceed:금호석유화학:x:4:tsp:2026-11-03 10:30")   # 바로 앞 관측이 평소 값(30)이면 그대로
+        now = dt.datetime(2026, 11, 3, 15, 30, tzinfo=KST)
+        w.retier_restart_exceed([ev, keep], sites, now)
+        self.assertEqual((ev["tier"], keep["tier"]), ("C", "B"))
+        self.assertIn("가동 개시 직후 값일 수 있음(처음 넘은 값이라 C로 바로잡음)", ev["text"])
+
     def test_marginal_exceedance_is_one_step_lower(self):
         # 10-31 운영: 고려아연 온산제련소 77번 황산화물 141.58/140(1.01배) 한 번이 B로 떴다 → C, 두 번 연속이면 B
         doc = series(2)
