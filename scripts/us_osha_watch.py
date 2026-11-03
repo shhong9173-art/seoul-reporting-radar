@@ -294,6 +294,9 @@ def run(*, now, key, previous=None, get=None, sleep=time.sleep):
             "confirmedScoops": 0}
 
 
+RETRY_FROM_HOUR = 11
+
+
 def main():
     argparse.ArgumentParser(description="미국 OSHA 점검·위반 감시(기자 전용 저장소로)").parse_args()
     now = dt.datetime.now(KST)
@@ -309,6 +312,9 @@ def main():
         except private_store.StoreError as e:
             print(f"::warning title=us-osha-state::이전 상태 조회 실패({e}) — 신규 표시는 다음 실행부터")
     if private_store.late_scheduled_duplicate(previous, now):
+        return
+    # 낮 재시도 칸(12:40 KST): 오늘 아침 결과가 정상이면 건너뛰고, 아침이 실패해 어제 결과만 있으면 다시 읽는다
+    if private_store.midday_retry_done(previous, now, from_hour=RETRY_FROM_HOUR):
         return
     t0 = time.monotonic()
     doc = run(now=now, key=key, previous=previous)

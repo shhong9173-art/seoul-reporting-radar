@@ -197,6 +197,7 @@
 ## 미국 OSHA 점검·위반(us_litigation 안, 기자 전용)
 
 - GitHub Actions `US OSHA Watch`(`scripts/us_osha_watch.py`)가 매일 06:40 KST(Cloudflare 요청, GitHub 예약은 대비용)에 미국 노동부 데이터 API(`https://apiprod.dol.gov/v4/get/OSHA/...`, GitHub 비밀값 `DOL_API_KEY`, 무료)를 읽어 `us-osha` 비공개 저장소에 넣는다. `us_litigation` 결과 끝에 [미국 OSHA 점검·위반] 구역으로 나온다(소송 결과가 없어도 이 구역은 나옴).
+- 낮 재시도(11-03): 12:40 KST Cloudflare 칸이 한 번 더 요청하고, 오늘 결과가 정상으로 저장돼 있으면 스크립트가 건너뛴다(`private_store.midday_retry_done`). 11-03 06:40 노동부 API가 HTTP 502(네 묶음 모두)라 실패했고 다음 실행은 하루 뒤였다. 수동 실행은 `force`.
 - 사업장 이름 like 31개(HYUNDAI MOTOR·KIA ·MOBIS·HANKOOK·QCELLS·HANWHA·LS CABLE·SUPERIOR ESSEX 등)를 5개씩 OR로 묻고(31개를 한 번에 묻으면 주소가 길어 403, 10-31 탐침), 호출 사이 12초를 둔다(빠르게 10번 넘으면 429 — 한 번은 30초 뒤 다시). 점검 7번 + 위반·사고 연결 2~3번, 2분 남짓.
 - 출입처 판별은 회사별 이름 규칙이다(HYUNDAI MOTOR MANUFACTURING·KIA GEORGIA·HANKOOK TIRE·HANWHA QCELLS·LS GREENLINK 등). like에 걸린 현대·기아 딜러, 이름 일부가 겹친 업체는 버리고, 버린 이름은 도구 맨 아래에 보인다(빠진 출입처 확인용).
 - 공장 주소 하도급·협력사: 이름 규칙으로 잡힌 점검의 사업장 주소(site_address)를 쌓아(sites, 최대 80곳) 같은 주소로 열린 다른 사업장 점검을 8곳씩 in 질의로 더 본다 — 하도급사 이름으로 열린 공장·건설 현장 안 점검. 주소 표기가 다르면 빠진다. 그 회사(하도급사) 점검이라 출입처 책임으로 쓰지 않는다: 사망·중대사고·사고 점검만 A, 일반 점검 C, 위반 통지는 한 단계 낮춤(B·C), 도구에선 사망·중대사고만 보이고 나머지는 include_routine. 건식 실행(탐침 49): 주소 12곳, 하도급 점검 4건(한국타이어 회부 3·한화 1), 호출 11번 151초.

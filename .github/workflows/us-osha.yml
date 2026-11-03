@@ -1,5 +1,6 @@
 name: US OSHA Watch
-# 미국 OSHA(노동부 API) 점검·위반·사고 — 출입처 미국 법인·공장. 매일 06:40 KST(Cloudflare 요청, GitHub 예약은 대비용).
+# 미국 OSHA(노동부 API) 점검·위반·사고 — 출입처 미국 법인·공장. 매일 06:40 KST(Cloudflare 요청, GitHub 예약은 대비용),
+# 12:40 KST 낮 재시도(아침 실패로 오늘 결과가 없을 때만 — 11-03 06:40 노동부 API HTTP 502).
 # 결과는 기자 전용 저장소로만. 공개 로그는 건수만(사업장 이름·주소·서술은 찍지 않는다).
 on:
   push:
@@ -11,6 +12,11 @@ on:
   schedule:
     - cron: '40 21 * * *'
   workflow_dispatch:
+    inputs:
+      force:
+        description: '낮 재시도 판단 없이 바로 실행'
+        type: boolean
+        default: false
 permissions:
   contents: read
 concurrency:
@@ -35,4 +41,5 @@ jobs:
         env:
           MCP_ACCESS_TOKEN: ${{ secrets.MCP_ACCESS_TOKEN }}
           DOL_API_KEY: ${{ secrets.DOL_API_KEY }}
+          FORCE_RUN: ${{ inputs.force && '1' || '' }}
         run: python scripts/us_osha_watch.py

@@ -153,6 +153,24 @@ class LateSchedule(unittest.TestCase):
         self.assertFalse(ps.recent_duplicate({"generatedAt": "2026-10-26T07:12:00+09:00"}, now, env={}))   # 지난주 결과
         self.assertFalse(ps.recent_duplicate(None, now, env={}))
 
+    def test_midday_retry_runs_only_when_today_has_no_good_result(self):
+        import contextlib
+        import datetime as dt
+        import io
+        kst = dt.timezone(dt.timedelta(hours=9))
+        noon = dt.datetime(2026, 11, 3, 12, 40, tzinfo=kst)
+        good = {"generatedAt": "2026-11-03T06:41:00+09:00", "checks": [{"status": "ok"}]}
+        failed_morning = {"generatedAt": "2026-11-02T09:59:00+09:00", "checks": [{"status": "ok"}]}   # 11-03 06:40 HTTP 502 → 어제 결과 유지
+        partial = {"generatedAt": "2026-11-03T06:41:00+09:00", "checks": [{"status": "partial"}]}
+        env = {"GITHUB_EVENT_NAME": "workflow_dispatch"}
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertTrue(ps.midday_retry_done(good, noon, from_hour=11, env=env))
+            self.assertFalse(ps.midday_retry_done(failed_morning, noon, from_hour=11, env=env))
+            self.assertFalse(ps.midday_retry_done(partial, noon, from_hour=11, env=env))
+            self.assertFalse(ps.midday_retry_done(good, dt.datetime(2026, 11, 3, 6, 40, tzinfo=kst), from_hour=11, env=env))   # 아침 칸
+            self.assertFalse(ps.midday_retry_done(good, noon, from_hour=11, env={**env, "FORCE_RUN": "1"}))
+            self.assertFalse(ps.midday_retry_done(None, noon, from_hour=11, env=env))
+
 
 if __name__ == "__main__":
     unittest.main()
