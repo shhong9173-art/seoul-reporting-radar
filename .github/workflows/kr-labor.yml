@@ -1,0 +1,38 @@
+name: Labor Commission Meetings Watch
+# 노동위원회 회의 — 중앙·지방 14곳 첫 화면 '오늘 회의' 칸과 회의 상세(공개)에서 출입처가 사건명 앞 당사자인 노동쟁의 조정·심판 사건.
+# 평일 08:20 KST(Cloudflare 요청, GitHub 예약은 대비용). 요청 2초 간격, 본 회의 상세는 다시 읽지 않는다(하루 40여 건).
+# 결과는 기자 전용 저장소로만. 공개 로그는 건수만(사건명·회사·위원 이름은 찍지 않는다).
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/kr_labor_watch.py'
+      - 'tests/test_kr_labor_watch.py'
+      - '.github/workflows/kr-labor.yml'
+  schedule:
+    - cron: '25 23 * * 0-4'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: kr-labor-watch
+  cancel-in-progress: false
+jobs:
+  labor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install "requests>=2.31,<3"
+      - name: Test meeting parsing
+        run: python -m unittest tests.test_kr_labor_watch tests.test_private_store -v
+      - name: Watch labor commission meetings (counts-only log)
+        env:
+          MCP_ACCESS_TOKEN: ${{ secrets.MCP_ACCESS_TOKEN }}
+        run: python scripts/kr_labor_watch.py

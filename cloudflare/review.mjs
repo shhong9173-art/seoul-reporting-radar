@@ -4,6 +4,7 @@
 import { storeOp, candidateFeedback } from './store.mjs';
 import { itemIndex } from './digest.mjs';
 import { clampInt, kstStamp, textResult } from './common.mjs';
+import { readFeed, ageNote } from './screen.mjs';
 
 const VERDICTS = ['씀', '킬', '보류', '봤음'];
 const MIN_SAMPLE = 5;   // groups smaller than this get counts only, no "점검 후보" note
@@ -24,6 +25,32 @@ function groupBy(rows, key) {
   const m = new Map();
   for (const r of rows) { const k = key(r); if (!m.has(k)) m.set(k, []); m.get(k).push(r); }
   return [...m.entries()].sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]));
+}
+
+// 기자 기사 자동 대조(my_articles_check.py): 기자가 쓴 출입처 기사마다 레이더가 먼저 잡은 항목이 있었는지. 판정과 별개인 자동 기록 —
+// 쓴 기사는 자동으로 찾지만, 안 쓴 항목은 이유를 모르므로 킬로 세지 않는다.
+export async function myArticlesLines(ctx, days) {
+  const doc = await readFeed(ctx, 'my-articles');
+  if (!doc) return ['\n[자동 대조: 기자 기사 ↔ 레이더] 아직 수집 전 — 미확인(매일 13:00·19:40)'];
+  if (doc.broken) return ['\n[자동 대조: 기자 기사 ↔ 레이더] 저장 형식 오류 — 미확인'];
+  const c = (doc.checks ?? [])[0] ?? {};
+  const from = new Date(ctx.now.getTime() - days * 86400000).toISOString();
+  const rows = (doc.articles ?? []).filter((a) => String(a.published) >= from);
+  const n = (v) => rows.filter((a) => a.verdict === v).length;
+  const unverified = rows.filter((a) => a.verified === false).length;
+  const out = [`\n[자동 대조: 기자 기사 ↔ 레이더 · 아이뉴스24 ${doc.author ?? ''} 기사 · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt)} · 최근 ${days}일]`,
+    `기사 ${rows.length}건(출입처 이름이 제목에 든 것${unverified ? `, 그중 ${unverified}건은 구글 색인이라 작성자 미확인` : ''}) — 레이더가 먼저 잡은 후보 ${n('먼저 잡은 후보')} · 같은 회사 항목만 ${n('같은 회사 항목만')} · 없음 ${n('없음')}${n('회사 미상') ? ` · 회사 미상 ${n('회사 미상')}` : ''}`,
+    `원천: ${c.source ?? '?'} ${c.status ?? '?'}(사이트맵 ${c.returned ?? 0}, 출입처 제목 새 기사 ${c.candidates ?? 0}, 작성자 확인 ${c.opened ?? 0}${c.error ? `, ${c.error}` : ''})`];
+  const by = {};
+  for (const a of rows.filter((x) => x.verdict === '먼저 잡은 후보' && x.best)) (by[a.best.label] ??= []).push(a);
+  const groups = Object.entries(by).sort((a, b) => b[1].length - a[1].length);
+  if (groups.length) out.push('감시별(먼저 잡은 후보): ' + groups.map(([k, v]) => `${k} ${v.length}`).join(' · '));
+  for (const a of rows.filter((x) => x.verdict === '먼저 잡은 후보' && x.best).slice(0, 8)) {
+    out.push(`- 기사 ${String(a.published).slice(5, 16).replace('T', ' ')} 「${String(a.title).slice(0, 60)}」${a.verified === false ? '(작성자 미확인)' : ''}`);
+    out.push(`   레이더: ${String(a.best.seen).slice(5, 16).replace('T', ' ')} ${a.best.label} — ${String(a.best.text ?? '').slice(0, 90)} (${a.best.leadHours}시간 앞${(a.best.why ?? []).length ? `, 겹친 낱말 ${a.best.why.join('·')}` : ''}) · id ${a.best.id}`);
+  }
+  out.push('읽는 법: 자동 대조다(같은 사건인지는 열어 봐야 함). 쓴 기사만 찾는다 — 안 쓴 항목은 킬이 아니다(이유 모름). 출입처 이름이 제목에 없는 업계 기사·당직 기사는 빠진다.');
+  return out;
 }
 
 export async function weeklyReview(ctx, args) {
@@ -48,6 +75,7 @@ export async function weeklyReview(ctx, args) {
   if (!items.length) {
     out.push('판정 기록이 없다. radar_today·scoop_screen 줄의 id로 candidate_feedback(씀·킬·보류·봤음)을 남기면 감시별·공시 종류별로 묶어 보여 준다.');
     out.push('가중치는 자동으로 바꾸지 않는다. 바꿀지는 기자가 정한다.');
+    out.push(...await myArticlesLines(ctx, days));
     return textResult(out.join('\n'));
   }
 
@@ -91,5 +119,6 @@ export async function weeklyReview(ctx, args) {
   }
   if (items.some((r) => r.labelled === 'now')) out.push('※ 일부 항목은 판정 때 표시가 없어 지금 목록 기준으로 붙였다.');
   out.push(`읽는 법: ${MIN_SAMPLE}개 미만 묶음은 비율로 판단하지 않는다. 점검 후보는 기자가 볼 목록일 뿐 — 가중치·등급 규칙은 자동으로 바꾸지 않는다. 바꿀지는 기자가 정한다.`);
+  out.push(...await myArticlesLines(ctx, days));
   return textResult(out.join('\n'));
 }

@@ -159,8 +159,11 @@ export async function partnerFilings(ctx, args) {
   const q = String(args.company ?? '').trim();
   const onlyNewArg = args.only_new === true || args.only_new === 'true';
   const limitArg = clampInt(args.limit, 1, 60, 20);
-  const src = ['ASX', 'HKEX', 'EDGAR'].includes(args.source) ? args.source : null;
-  const awards = src ? [] : [...await awardSection(ctx, q, onlyNewArg, limitArg), ...await registrySection(ctx, q, onlyNewArg, limitArg)];
+  const src = ['ASX', 'HKEX', 'EDGAR', 'NSE'].includes(args.source) ? args.source : null;
+  const routineArg = args.include_routine === true || args.include_routine === 'true';
+  if (src === 'NSE') return textResult(indiaSection(await readFeed(ctx, 'india-filings'), q, onlyNewArg, limitArg, routineArg, ctx).join('\n').trim());
+  const awards = src ? [] : [...indiaSection(await readFeed(ctx, 'india-filings'), q, onlyNewArg, limitArg, routineArg, ctx),
+    ...await awardSection(ctx, q, onlyNewArg, limitArg), ...await registrySection(ctx, q, onlyNewArg, limitArg)];
   const doc = await readFeed(ctx, 'partner-filings');
   if (!doc) return awards.length ? textResult([missing('해외 파트너 공시', '평일 07:00').content[0].text, ...awards].join('\n')) : missing('해외 파트너 공시', '평일 07:00');
   if (doc.broken) return textResult(['저장된 파트너 공시 결과 형식 오류 — 미확인.', ...awards].join('\n'), true);
@@ -193,6 +196,30 @@ export async function partnerFilings(ctx, args) {
   out.push('\n다음: EDGAR 원문은 source_document(sec.gov)로, ASX·HKEX 공시 PDF는 브라우저로 연다 → 출입처 이름·지분·물량·가격·조건 문구 확인 → news_check.'
     + (awards.length ? ' 해외 낙찰은 공고 원문(TED·FTS·세계은행)에서 낙찰자·금액·계약일 확인 → 출입처 DART 단일판매·공급계약 공시 여부(dart_find_text) → news_check.' : ''));
   return textResult(out.join('\n'));
+}
+
+// 인도 상장 법인 공시(india-filings feed): NSE 공시 RSS의 현대차 인도법인 공시. partner_filings 아래(source 비우거나 NSE).
+export function indiaSection(doc, q = '', onlyNew = false, limit = 20, routine = false, ctx = null) {
+  if (!doc) return ['\n[인도 법인 공시 · 현대차 인도법인(NSE)] 아직 수집 전 — 미확인(평일 13:10·16:10·19:10·22:10)'];
+  if (doc.broken) return ['\n[인도 법인 공시 · 현대차 인도법인(NSE)] 저장 결과 형식 오류 — 미확인'];
+  const newIds = new Set((doc.events ?? []).map((e) => e.id));
+  const base = (doc.filings ?? []).filter((x) => (!onlyNew || newIds.has(x.id)) && matches(q, x.company, x.issuer, x.subject, x.desc, x.excerpt));
+  const rows = base.filter((x) => routine || x.tier !== 'C');
+  const c = (doc.checks ?? [])[0] ?? {};
+  const out = [`\n[인도 법인 공시 · 현대차 인도법인(NSE) · 확인 ${String(doc.generatedAt).slice(0, 16)}${ctx ? ageNote(ctx, doc.generatedAt) : ''}] ${rows.length}건`
+    + ` · 원천 NSE 공시 RSS ${c.status ?? '?'}${c.error ? `(${c.error})` : ''}${c.note ? ` · ${c.note}` : ''}`];
+  for (const x of rows.slice(0, limit)) {
+    out.push(`- ${newIds.has(x.id) ? '[신규] ' : x.baseline ? '[기준선] ' : ''}${x.tier} · ${String(x.published ?? '').slice(0, 16).replace('T', ' ')} KST · ${x.issuer} · ${x.subject || '종류 미기재'}`);
+    if (x.desc) out.push(`   설명: 「${String(x.desc).slice(0, 240)}」`);
+    if (x.excerpt) out.push(`   첨부 첫머리: 「${String(x.excerpt).slice(0, 400)}」`);
+    else if (x.excerptError) out.push(`   첨부: ${x.excerptError}`);
+    out.push(`   원문: ${x.url}`);
+  }
+  if (rows.length > limit) out.push(`… 남은 ${rows.length - limit}건`);
+  if (base.length > rows.length) out.push(`(녹취록·거래 제한 기간·신문 공고·애널리스트 미팅 안내 등 C ${base.length - rows.length}건 숨김 — include_routine=true)`);
+  if (!rows.length) out.push('조건에 맞는 공시 없음(첫 실행은 기준선, 조회 실패면 미확인).');
+  out.push('   검증 상태: 인도 거래소 공시 목록(자동). 현대차 자회사(별도 상장사) 공시 — 기사에는 인도법인으로 구분. 내용은 첨부 PDF 원문, 낱말 분류는 참고');
+  return out;
 }
 
 const fmtT = (v) => (v == null ? '?' : `${Number(v).toLocaleString('en-US', { maximumFractionDigits: 1 })}t`);
@@ -608,7 +635,7 @@ export async function usLitigation(ctx, args) {
   // 소송 결과가 없거나 깨져도 OSHA 구역은 따로 보여 준다(다른 저장소)
   if (!doc || doc.broken) {
     const head = doc ? '저장된 소송 결과 형식 오류 — 미확인.' : missing('미국 소송·ITC', '평일 07:50').content[0].text;
-    return textResult([head, ...oshaSection(await readFeed(ctx, 'us-osha'), q, limit, onlyNew, routine, ctx)].join('\n'), true);
+    return textResult([head, ...oshaSection(await readFeed(ctx, 'us-osha'), q, limit, onlyNew, routine, ctx), ...stateEnvSection(await readFeed(ctx, 'us-state-env'), q, limit, onlyNew, ctx)].join('\n'), true);
   }
   const checks = doc.checks ?? [];
   const failed = checks.filter((c) => c.status !== 'ok');
@@ -647,6 +674,7 @@ export async function usLitigation(ctx, args) {
     out.push(`   원문: ${x.url}`);
   }
   out.push(...oshaSection(await readFeed(ctx, 'us-osha'), q, limit, onlyNew, routine, ctx));
+  out.push(...stateEnvSection(await readFeed(ctx, 'us-state-env'), q, limit, onlyNew, ctx));
   out.push('\n다음: 판결은 PDF(원문)에서 결론·세율·당사자 주장 확인 → news_check로 보도 대조. 사건은 소장(Complaint) 열람 → 청구 원인·금액·상대방 확인 → 회사 확인. ITC 고시는 source_document(federalregister.gov)로 연다. OSHA는 원문(osha.gov 점검 상세)에서 위반 기준·벌금·이의 제기 여부 확인 → 현지 보도·회사 확인.');
   return textResult(out.join('\n'));
 }
@@ -680,6 +708,30 @@ export function oshaSection(doc, q = '', limit = 20, onlyNew = false, routine = 
   if (!rows.length) out.push('조건에 맞는 점검 없음(첫 실행은 기준선, 조회 실패면 미확인).');
   if ((doc.dropped ?? []).length) out.push(`(이름 검색에 걸렸지만 출입처 규칙 밖이라 뺀 사업장 ${doc.dropped.length}곳 — 딜러·이름 겹침 등. 빠진 출입처가 있는지 확인: ${doc.dropped.slice(0, routine ? 60 : 12).map(([n, k]) => `${n}(${k})`).join(', ')}${!routine && doc.dropped.length > 12 ? ' …' : ''})`);
   out.push('   검증 상태: OSHA 노동부 API(자동). 점검≠위반 확정, 벌금은 최초 부과액(이의 제기·합의로 바뀜). 하도급 점검은 출입처 점검과 같은 주소로 열린 것만 — 주소 표기가 다르면 빠진다. 사망자·경위는 원문·현지 보도로');
+  return out;
+}
+
+// 미국 주 환경청 허가·공고(us_state_env_watch.py): 조지아 EPD 주간 공고 PDF·앨라배마 ADEM·루이지애나 LDEQ에서 출입처 미국 공장 이름이 나온 것.
+export function stateEnvSection(doc, q = '', limit = 20, onlyNew = false, ctx = null) {
+  if (!doc) return ['\n[미국 주 환경 허가·공고] 아직 수집 전 — 미확인'];
+  if (doc.broken) return ['\n[미국 주 환경 허가·공고] 저장 결과 형식 오류 — 미확인'];
+  const checks = (doc.checks ?? []).map((c) => `${c.source} ${c.status}${c.error ? `(${c.error})` : ''}`).join(' · ');
+  const newIds = new Set((doc.events ?? []).map((e) => e.id));
+  const rows = (doc.notices ?? []).filter((x) => (!onlyNew || newIds.has(x.id)) && matches(q, x.company, x.facility, x.state, x.noticeType, x.reason));
+  const out = [`\n[미국 주 환경 허가·공고 · 출입처 미국 공장 · 확인 ${String(doc.generatedAt).slice(0, 16)}${ctx ? ageNote(ctx, doc.generatedAt, 60, true) : ''}] ${rows.length}건 · 원천 ${checks}`];
+  for (const x of rows.slice(0, limit)) {
+    const where = [x.county ? `${x.county} County` : '', x.address ?? ''].filter(Boolean).join(' · ');
+    out.push(`- ${newIds.has(x.id) ? '[신규] ' : x.baseline ? '[기준선] ' : ''}${x.state} · ${x.company} · ${x.facility}${where ? `(${where})` : ''} · ${x.noticeType ?? '공고'}`
+      + `${x.appNo ? ` · 신청 ${x.appNo}` : ''}${x.week ? ` · 공고 주 ${x.week}` : x.posted ? ` · 게시 ${x.posted}` : ''}${x.deadline ? ` · 의견 마감 ${x.deadline}` : ''}`
+      + `${x.permit ? ` · 허가 ${x.permit}${x.fid ? `(시설 ${x.fid})` : ''}` : ''}${x.issued ? ` · 발급 ${x.issued}` : ''}${x.meeting ? ` · 회의 ${x.meeting}` : ''}${x.amount ? ` · 금액 칸 첫 값 ${x.amount}` : ''}`);
+    if (x.operation) out.push(`   작업: ${x.operation}`);
+    if (x.reason) out.push(`   ${x.source === 'ga' ? '신청 이유' : x.source === 'laci' ? '안건 줄' : '공고 본문 앞부분'}: 「${String(x.reason).slice(0, 300)}」`);
+    out.push(`   원문: ${x.url}${x.code ? ` (${x.code})` : ''}`);
+    if ((x.docs ?? []).length) out.push(`   문서: ${x.docs.map((d) => `${d.label} ${d.url}`).join(' · ')}`);
+  }
+  if (rows.length > limit) out.push(`… 남은 ${rows.length - limit}건`);
+  if (!rows.length) out.push('조건에 맞는 공고 없음(첫 실행은 기준선, 조회 실패면 미확인).');
+  out.push('   검증 상태: 주 정부 공개 공고·허가 발급 목록·상공위원회 안건(자동). 허가 신청·허가안·발급은 착공·투자 확정이 아니고, 상공위 안건은 심의 대상(승인 아님) — 규모·일정·금액 뜻은 원문(PDF·설명서)과 회사 확인. 계열사(현대트랜시스 등)는 출입처가 아니라 뺀다');
   return out;
 }
 
@@ -843,6 +895,80 @@ export async function workforceSection(ctx, q, days, limit) {
   return out;
 }
 
+// 지방의회 회의록(council-minutes feed): 국회도서관 지방의정포털 회의록에서 출입처 이름 대목. kr_official section=council.
+export async function councilSection(ctx, q, days, limit, includeMinor = false) {
+  const doc = await readFeed(ctx, 'council-minutes');
+  if (!doc) return ['\n[지방의회 회의록] 아직 수집 전 — 미확인(매일 09:10)'];
+  if (doc.broken) return ['\n[지방의회 회의록] 저장 형식 오류 — 미확인'];
+  const c = (doc.checks ?? [])[0] ?? {};
+  if (c.status === 'unset') return [`\n[지방의회 회의록] 미설정 — ${c.error ?? 'CLIK_API_KEY 없음'} (0건 아님)`];
+  const from = new Date(ctx.now.getTime() - days * 86400000).toISOString();
+  const base = (doc.items ?? []).filter((x) => String(x.firstSeen) >= from && matches(q, x.company, x.council, x.meeting, x.agenda, ...(x.snippets ?? [])));
+  const rows = base.filter((x) => includeMinor || x.tier !== 'C');
+  const out = [`\n[지방의회 회의록 · 국회도서관 지방의정포털 · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt)} · 처음 본 날 최근 ${days}일] ${rows.length}건`,
+    `원천: ${c.source ?? '?'} ${c.status ?? '?'}(새 회의록 ${c.returned ?? 0}, 상세 ${c.opened ?? 0}${c.pending ? `, 남은 ${c.pending}` : ''}${c.error ? `, ${c.error}` : ''}${c.note ? `, ${c.note}` : ''})`];
+  for (const x of rows.slice(0, limit)) {
+    const d = String(x.date ?? '');
+    out.push(`- ${x.tier} · ${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)} · ${x.council} ${x.meeting ?? ''} · ${x.company}${x.old ? ' · 옛 회의(늦게 공개 — 사건 낱말 있지만 C)' : ''}${x.agenda ? ` · 안건 ${String(x.agenda).slice(0, 80)}` : ''}`);
+    for (const sn of (x.snippets ?? []).slice(0, 2)) out.push(`   대목: 「${String(sn).slice(0, 300)}」`);
+    out.push(`   원문: ${x.url || `회의록 번호 ${x.docid}(국회도서관 지방의정포털 검색)`}`);
+  }
+  if (base.length > rows.length) out.push(`(사건 낱말 없는 언급 ${base.length - rows.length}건 접음 — show_all=true)`);
+  if (!rows.length) out.push('조건에 맞는 회의록 없음(첫 실행은 기준선, 조회 실패면 미확인).');
+  out.push('   검증 상태: 지방의회 회의록(자동). 의원 질의는 주장 — 집행부 답변·회사 확인. 회의록은 회의 뒤 몇 주 늦게 공개');
+  return out;
+}
+
+// 노조 성명·보도자료(union-notices feed): 금속노조·화섬식품노조 공개 게시판 새 글에 출입처 이름. kr_official labor 구역 아래.
+export async function unionSection(ctx, q, days, limit, includeMinor = false) {
+  const doc = await readFeed(ctx, 'union-notices');
+  if (!doc) return ['\n[노조 성명·보도자료] 아직 수집 전 — 미확인(매일 09:30·12:30·15:30·18:30·21:30)'];
+  if (doc.broken) return ['\n[노조 성명·보도자료] 저장 형식 오류 — 미확인'];
+  const from = new Date(ctx.now.getTime() - days * 86400000).toISOString();
+  const base = (doc.posts ?? []).filter((x) => String(x.firstSeen) >= from && matches(q, x.company, x.title, x.board, x.excerpt, ...(x.companies ?? [])));
+  const rows = base.filter((x) => includeMinor || x.tier !== 'C');
+  const out = [`\n[노조 성명·보도자료 · 금속노조·화섬식품노조 공개 게시판 · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt)} · 최근 ${days}일] ${rows.length}건`,
+    `원천: ${(doc.checks ?? []).map((c) => `${c.source} ${c.status}${c.error ? `(${c.error})` : ''}${c.note ? `(${c.note})` : ''}`).join(' · ')}`];
+  for (const x of rows.slice(0, limit)) {
+    out.push(`- ${x.tier} · ${String(x.date ?? x.firstSeen ?? '').slice(0, 16).replace('T', ' ')} · ${x.board} · 「${x.title}」 · 출입처 ${(x.companies ?? [x.company]).join('·')}${x.inTitle ? '' : '(본문에만)'}`);
+    if (x.excerpt) out.push(`   앞부분: 「${String(x.excerpt).slice(0, 220)}」`);
+    out.push(`   원문: ${x.url}`);
+  }
+  if (base.length > rows.length) out.push(`(이름이 본문에만 있고 사건 낱말 없는 글 ${base.length - rows.length}건 접음)`);
+  if (!rows.length) out.push('조건에 맞는 글 없음(첫 실행은 기준선, 조회 실패면 미확인).');
+  out.push('   검증 상태: 노조 공개 발표(자동). 한쪽 주장 — 회사 입장·사실관계(사고 경위·교섭 일정·매각 조건) 확인');
+  return out;
+}
+
+// 노동위원회 회의(kr-labor feed): 중앙·지방 14곳 첫 화면 '오늘 회의'의 사건명 앞 당사자가 출입처인 것. Shown under kr_official.
+export async function laborSection(ctx, q, days, limit) {
+  const doc = await readFeed(ctx, 'kr-labor');
+  if (!doc) return ['\n[노동위 회의(조정·심판)] 결과 없음 — 미확인(평일 08:20 실행 확인)'];
+  if (doc.broken) return ['\n[노동위 회의(조정·심판)] 저장 형식 오류 — 미확인'];
+  const checks = doc.checks ?? [];
+  const failed = checks.filter((c) => c.status === 'failed');
+  const partial = checks.filter((c) => c.status === 'partial');
+  const capped = checks.filter((c) => c.note);
+  const c = doc.counts ?? {};
+  const short = (x) => x.source.replace(/지방노동위원회$/, '지노위').replace(/^중앙노동위원회$/, '중노위');
+  const out = [`\n[노동위 회의(조정·심판) · 출입처가 사건 당사자 · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt)}]`,
+    `원천: 노동위원회 ${checks.length - failed.length - partial.length}/${checks.length}곳 정상 · 이번 실행 첫 화면 회의 ${c.meetings ?? '?'}건 · 오늘 읽은 회의 상세 ${c.details ?? '?'}건(사건 ${c.cases ?? '?'}, 조정 ${c['조정 사건'] ?? '?'})`
+      + `${failed.length ? ` · 미확인(0건 아님): ${failed.map((x) => x.source).join(', ')}` : ''}`
+      + `${partial.length ? ` · 일부 미확인: ${partial.map((x) => `${short(x)}(${x.error ?? '상세 일부 실패'})`).join(', ')}` : ''}`
+      + `${capped.length ? ` · 첫 화면 5건 상한(뒤 회의 빠졌을 수 있음): ${capped.map(short).join(', ')}` : ''}`,
+    ...(doc.rules ?? []).map((r) => `규칙: ${r}`)];
+  const from = new Date(ctx.now.getTime() - days * 86400000).toISOString();
+  const rows = (doc.notices ?? []).filter((n) => String(n.firstSeen) >= from && matches(q, n.company, n.caseName, n.commissionName));
+  out.push(`- 출입처 사건 · 최근 ${days}일 ${rows.length}건`);
+  for (const n of rows.slice(0, limit)) {
+    out.push(`  ${n.tier} · ${n.day} ${n.time} · ${n.company} · ${n.commissionName} ${n.meeting} · 사건 ${n.caseNo} 「${n.caseName}」`);
+    out.push(`     원문: ${n.url}`);
+  }
+  if (rows.length > limit) out.push(`  … 남은 ${rows.length - limit}건(company 낱말로 좁히기)`);
+  out.push('   검증 상태: 노동위원회 공개 회의 일정(자동). 사건명은 신청 주장 — 조정 중지·성립, 인정·기각 결정과 신청 내용은 위원회·노사 확인. 같은 사건이 여러 회의일에 다시 나올 수 있다');
+  return out;
+}
+
 // 지자체 공고 첨부(hwpx·hwp·pdf)에서 뽑은 '항목: 값'(사업명·공사기간·위치·발주자/시공자·규모·공사비·착공일). 파일 여럿이면 앞의 값을 쓴다.
 export function attachmentOutline(x, keys = ['사업명', '공사기간', '착공일', '위치', '발주자/시공자', '발주자', '시공자', '규모', '공사비', '설계자', '감리자']) {
   const facts = {};
@@ -864,7 +990,7 @@ export async function stacksSection(ctx, q, days, limit) {
   const down = sites.filter((s) => (s.stopped ?? []).length).sort((a, b) => (b.stopped.length / Math.max(1, b.meaningful ?? 1)) - (a.stopped.length / Math.max(1, a.meaningful ?? 1)));
   out.push(`- 지금 멈춤으로 판단한 배출구가 있는 사업장 ${down.length}곳(관측 6번 전 사업장은 판단 안 함)`);
   for (const s of down.slice(0, limit)) {
-    out.push(`  ${s.company} · ${s.name}(${s.area ?? '지역 미상'}) · 평소 움직이던 배출구 ${s.meaningful ?? '?'}개 중 멈춤 ${s.stopped.length}개: ${s.stopped.slice(0, 8).map((c) => `${c}번(측정 ${s.stacks?.[c]?.lastDt ?? '?'}${s.stacks?.[c]?.stoppedSince ? `, 멈춤 ${s.stacks[c].stoppedSince}부터${s.stacks[c].longStopFor ? '·사흘 넘음' : ''}` : ''}${s.stacks?.[c]?.status ? `, 상태 '${s.stacks[c].status[0]}'` : ''}${s.stacks?.[c]?.stopLog?.length ? `, 앞선 멈춤 ${s.stacks[c].stopLog.length}번(마지막 ${String(s.stacks[c].stopLog.at(-1)[0]).slice(5, 16)}~${String(s.stacks[c].stopLog.at(-1)[1]).slice(5, 16)})` : ''})`).join(', ')}`);
+    out.push(`  ${s.company} · ${s.name}(${s.area ?? '지역 미상'}) · 평소 움직이던 배출구 ${s.meaningful ?? '?'}개 중 멈춤 ${s.stopped.length}개: ${s.stopped.slice(0, 8).map((c) => `${c}번(측정 ${s.stacks?.[c]?.lastDt ?? '?'}${s.stacks?.[c]?.stoppedSince ? `, 멈춤 ${s.stacks[c].stoppedSince}부터${s.stacks[c].longStopFor ? '·사흘 넘음' : ''}` : ''}${s.stacks?.[c]?.status ? `, 상태 '${s.stacks[c].status[0]}'` : ''}${s.stacks?.[c]?.stopLog?.length ? `, 앞선 멈춤 ${s.stacks[c].stopLog.length}번(마지막 ${String(s.stacks[c].stopLog.at(-1)[0]).slice(5, 16)}~${String(s.stacks[c].stopLog.at(-1)[1]).slice(5, 16)})` : ''})`).join(', ')}${s.note ? ` · ⓘ ${s.note}` : ''}`);
   }
   const young = sites.filter((s) => obsOf(s) < 6).length;
   if (young) out.push(`  (관측이 아직 6번이 안 된 사업장 ${young}곳 — 판단 전)`);
@@ -898,7 +1024,7 @@ export async function stacksSection(ctx, q, days, limit) {
     for (const [s, l] of halts.slice(0, limit)) {
       const total = Object.keys(s.stacks ?? {}).length;
       const codes = l.sort((a, b) => a[0].length - b[0].length || a[0].localeCompare(b[0])).slice(0, 10).map(([c, st]) => `${c}번(${String(st.status[1] ?? '').slice(5)})`);
-      out.push(`  ${s.company} · ${s.name}(${s.area ?? '지역 미상'}) · 배출구 ${total}개 중 ${l.length}개: ${codes.join(', ')}${l.length > 10 ? ` 외 ${l.length - 10}` : ''}`);
+      out.push(`  ${s.company} · ${s.name}(${s.area ?? '지역 미상'}) · 배출구 ${total}개 중 ${l.length}개: ${codes.join(', ')}${l.length > 10 ? ` 외 ${l.length - 10}` : ''}${s.note ? ` · ⓘ ${s.note}` : ''}`);
     }
   }
   // 지금 목록에서 빠져 있는 사업장(직전 실행에 안 보임): '빠짐' 이벤트가 풀렸는지 여기서 바로 본다
@@ -941,11 +1067,14 @@ export async function stacksSection(ctx, q, days, limit) {
 }
 
 export async function krOfficial(ctx, args) {
-  const section = ['factory', 'gazette', 'law', 'insolvency', 'building', 'local', 'workforce', 'stacks'].includes(args.section) ? args.section : null;
+  const section = ['factory', 'gazette', 'law', 'insolvency', 'building', 'local', 'workforce', 'stacks', 'labor', 'council'].includes(args.section) ? args.section : null;
   const q = String(args.company ?? '').trim();
   if (section === 'local') return textResult((await localSection(ctx, q, clampInt(args.days, 1, 120, 30), clampInt(args.limit, 1, 80, 20))).join('\n').trim());
   if (section === 'workforce') return textResult((await workforceSection(ctx, q, clampInt(args.days, 1, 120, 45), clampInt(args.limit, 1, 80, 20))).join('\n').trim());
   if (section === 'stacks') return textResult((await stacksSection(ctx, q, clampInt(args.days, 1, 60, 14), clampInt(args.limit, 1, 80, 20))).join('\n').trim());
+  if (section === 'council') return textResult((await councilSection(ctx, q, clampInt(args.days, 1, 180, 60), clampInt(args.limit, 1, 80, 20), args.show_all === true || args.show_all === 'true')).join('\n').trim());
+  if (section === 'labor') return textResult([...await laborSection(ctx, q, clampInt(args.days, 1, 120, 30), clampInt(args.limit, 1, 80, 20)),
+    ...await unionSection(ctx, q, clampInt(args.days, 1, 60, 14), clampInt(args.limit, 1, 80, 20), args.show_all === true || args.show_all === 'true')].join('\n').trim());
   const insolvency = !section || section === 'insolvency'
     ? await insolvencySection(ctx, q, clampInt(args.days, 1, 120, 30), clampInt(args.limit, 1, 80, 20)) : [];
   if (section === 'insolvency') return textResult(insolvency.join('\n').trim());
@@ -956,6 +1085,9 @@ export async function krOfficial(ctx, args) {
   if (!section) insolvency.push(...await localSection(ctx, q, clampInt(args.days, 1, 120, 30), clampInt(args.limit, 1, 80, 20)));
   if (!section) insolvency.push(...await workforceSection(ctx, q, clampInt(args.days, 1, 120, 45), clampInt(args.limit, 1, 80, 10)));
   if (!section) insolvency.push(...await stacksSection(ctx, q, clampInt(args.days, 1, 60, 14), clampInt(args.limit, 1, 80, 10)));
+  if (!section) insolvency.push(...await laborSection(ctx, q, clampInt(args.days, 1, 120, 30), clampInt(args.limit, 1, 80, 10)));
+  if (!section) insolvency.push(...await unionSection(ctx, q, clampInt(args.days, 1, 60, 14), clampInt(args.limit, 1, 80, 10)));
+  if (!section) insolvency.push(...await councilSection(ctx, q, clampInt(args.days, 1, 180, 60), clampInt(args.limit, 1, 80, 10)));
   const doc = await readFeed(ctx, 'kr-official');
   if (!doc) return insolvency.length ? textResult([missing('공장등록·관보 입법예고', '평일 08:10').content[0].text, ...insolvency].join('\n'), true) : missing('공장등록·관보 입법예고', '평일 08:10');
   if (doc.broken) return textResult(['저장된 국내 공식 원천 결과 형식 오류 — 미확인.', ...insolvency].join('\n'), true);
@@ -1067,10 +1199,38 @@ async function energySection(ctx, q, days, limit) {
   return out;
 }
 
+// 타사 공시 속 출입처(dart-counterparty feed): 출입처 아닌 회사의 공시에 출입처가 거래상대·계약상대로 적힌 것. kr_signals 아래.
+async function counterpartySection(ctx, q, days, limit, includeMinor = false) {
+  const doc = await readFeed(ctx, 'dart-counterparty');
+  if (!doc) return ['\n[타사 공시 속 출입처(거래상대)] 아직 수집 전 — 미확인(평일 10:50·13:50·16:50·19:50)'];
+  if (doc.broken) return ['\n[타사 공시 속 출입처(거래상대)] 저장 결과 형식 오류 — 미확인'];
+  const newIds = new Set((doc.events ?? []).map((e) => e.id));
+  const from = new Date(ctx.now.getTime() + 9 * 3600000 - days * 86400000).toISOString().slice(0, 10).replace(/-/g, '');
+  const base = (doc.items ?? []).filter((x) => String(x.date ?? '') >= from && matches(q, x.company, x.filer, x.report, x.context, ...(x.others ?? [])));
+  const rows = base.filter((x) => includeMinor || x.tier !== 'C');
+  const c = doc.counts ?? {};
+  const out = [`\n[타사 공시 속 출입처(거래상대) · DART 시장 전체 · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt)} · 접수 최근 ${days}일] ${rows.length}건`,
+    `원천: ${(doc.checks ?? []).map((k) => `${k.source} ${k.status}(${k.returned ?? 0}${k.error ? `, ${k.error}` : ''}${k.pending ? `, 남은 ${k.pending}건` : ''})`).join(' · ')}`
+      + (c.listed != null ? ` · 이번 실행 목록 ${c.listed} · 종류로 거른 후보 ${c.candidates} · 원문 ${c.opened}` : '')];
+  for (const x of rows.slice(0, limit)) {
+    const d = String(x.date ?? '');
+    out.push(`- ${newIds.has(x.id) ? '[신규] ' : x.baseline ? '[기준선] ' : ''}${x.tier} · ${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)} · ${x.filer} 「${x.report}」 → ${x.company}${(x.others ?? []).length ? `(외 ${x.others.join('·')})` : ''} · ${x.role}${x.sameGroup ? ' · 같은 그룹 계열사 공시' : ''}`);
+    out.push(`   원문 발췌: 「${x.context}」${x.amount ? ` · 금액 ${Number(x.amount).toLocaleString('en-US')}원` : ''}`);
+    out.push(`   원문: ${x.url}`);
+  }
+  if (base.length > rows.length) out.push(`(같은 그룹 계열사 공시 ${base.length - rows.length}건 접음 — include_mentions=true)`);
+  if (!rows.length) out.push('조건에 맞는 공시 없음(첫 실행은 기준선, 조회 실패면 미확인).');
+  out.push('   검증 상태: 상대 회사의 DART 공시(자동). 출입처 쪽 조건·시점·사유는 출입처 공시·회사 확인. 이름만 같은 다른 회사일 수 있어 원문 확인');
+  return out;
+}
+
 export async function krSignals(ctx, args) {
   const energyQ = String(args.company ?? '').trim();
-  const energy = !args.section || args.section === 'energy'
-    ? await energySection(ctx, energyQ, clampInt(args.days, 1, 365, 60), clampInt(args.limit, 1, 60, 15)) : [];
+  const counterparty = !args.section || args.section === 'counterparty'
+    ? await counterpartySection(ctx, energyQ, clampInt(args.days, 1, 120, 30), clampInt(args.limit, 1, 60, 15), args.include_mentions === true || args.include_mentions === 'true') : [];
+  if (args.section === 'counterparty') return textResult(counterparty.join('\n').trim());
+  const energy = [...counterparty, ...(!args.section || args.section === 'energy'
+    ? await energySection(ctx, energyQ, clampInt(args.days, 1, 365, 60), clampInt(args.limit, 1, 60, 15)) : [])];
   if (args.section === 'energy') return textResult(energy.join('\n').trim());
   const doc = await readFeed(ctx, 'kr-signals');
   if (!doc) return energy.length ? textResult([missing('공정위 의결서·한전 입찰·원자재 가격', '평일 08:30·15:20').content[0].text, ...energy].join('\n'), true) : missing('공정위 의결서·한전 입찰·원자재 가격', '평일 08:30·15:20');

@@ -35,6 +35,8 @@ export const WATCHES = [
   { feed: 'us-recalls', label: '미국 리콜(NHTSA 전체)', tool: 'us_recalls', schedule: '매일 17:10' },
   { feed: 'us-epa', label: '미국 EPA 인증', tool: 'us_epa', schedule: '매일 06:20', staleHours: 60 },
   { feed: 'us-osha', label: '미국 OSHA 점검·위반', tool: 'us_litigation', schedule: '매일 06:40', staleHours: 60 },
+  // 미국 주 환경청 허가·공고(us_state_env_watch.py): 조지아 EPD 주간 공고 PDF·앨라배마 ADEM·루이지애나 LDEQ — 출입처 미국 공장의 대기 허가 신청·제재
+  { feed: 'us-state-env', label: '미국 주 환경 허가·공고', tool: 'us_litigation', schedule: '매일 07:05', staleHours: 60 },
   { feed: 'kr-fuel', label: '국내 연비 신고', tool: 'kr_fuel', schedule: '매일 06:10', staleHours: 60 },
   { feed: 'overseas-awards', label: '해외 발주처 낙찰', tool: 'partner_filings', schedule: '평일 06:50·17:30' },
   { feed: 'kr-insolvency', label: '협력사 회생·파산', tool: 'kr_official', schedule: '평일 07:20·17:20' },
@@ -44,6 +46,16 @@ export const WATCHES = [
   { feed: 'kr-local', label: '지자체 고시·공고', tool: 'kr_official', schedule: '평일 06:30·16:20' },
   { feed: 'kr-workforce', label: '사업장 인력(국민연금)', tool: 'kr_official', schedule: '평일 15:50', staleHours: 80 },
   { feed: 'kr-stacks', label: '굴뚝 측정(공장 가동 신호)', tool: 'kr_official', schedule: '3시간마다', staleHours: 12 },
+  // 노동위원회 회의(kr_labor_watch.py): 중앙·지방 14곳 첫 화면 '오늘 회의'의 사건명 앞 당사자가 출입처인 것 — 노동쟁의 조정·교섭·부당노동행위 A
+  { feed: 'kr-labor', label: '노동위 회의(조정·심판)', tool: 'kr_official', schedule: '평일 08:20', staleHours: 80 },
+  // 노조 성명·보도자료(union_watch.py): 금속노조·화섬식품노조 공개 게시판 새 글에 출입처 이름 — 사망·사고·파업·매각·분할·가처분 등 A
+  { feed: 'union-notices', label: '노조 성명·보도자료', tool: 'kr_official', schedule: '매일 09:30·12:30·15:30·18:30·21:30', staleHours: 30 },
+  // 지방의회 회의록(council_watch.py): 국회도서관 지방의정포털 회의록 API — 출입처 이름 대목에 인허가·불법·오염·감면·증설·이전 등이면 A
+  { feed: 'council-minutes', label: '지방의회 회의록', tool: 'kr_official', schedule: '매일 09:10', staleHours: 60 },
+  // 인도 상장 법인 공시(india_filings_watch.py): NSE 공시 RSS의 현대차 인도법인 공시 — 인수·설비·로열티 A, 이사회 결과·보도자료 B
+  { feed: 'india-filings', label: '인도 법인 공시(현대차 인도)', tool: 'partner_filings', schedule: '평일 13:10·16:10·19:10·22:10', staleHours: 80 },
+  // 타사 공시 속 출입처(dart_counterparty_watch.py): 출입처 아닌 회사의 양수도·공급계약·생산중단 공시에 출입처가 거래상대로 적힌 것
+  { feed: 'dart-counterparty', label: '타사 공시 속 출입처(거래상대)', tool: 'kr_signals', schedule: '평일 10:50·13:50·16:50·19:50', staleHours: 80 },
   // 해외 매체 기사 중 직접 출입처 이름이 나온 것(global_collector.py, 뉴스 수집 20분마다) — AI 번역·요약이라 원문 확인
   { feed: 'global-beat', label: '출입처 외신', tool: 'source_document', schedule: '20분마다', staleHours: 6 },
 ];
@@ -80,7 +92,16 @@ const ALT = {
   // (10-31 운영: 기아 가입자 증가가 「'효율·고용' 절충…현대차·기아 공장 재편안」으로 '관련 보도 있음').
   채용: ['채용', '증원', '충원', '신입', '공채', '인력 확대', '인원 확대', '인력 증가', '인원 증가'],
   감원: ['감원', '감축', '구조조정', '희망퇴직', '인력 감소', '인원 감소', '인력 축소', '정리해고'],
-  OSHA: ['OSHA', '산업안전보건청', '미국 노동부', '산업안전'], 벌금: ['벌금', '과징금', '제재', '위반'], 사고: ['사고', '사망', '부상', '숨져', '중상'],
+  // 노동위 회의(kr-labor): 사건 종류 낱말 — 회사 이름과 함께 제목에 있어야 같은 사건 후보
+  노동쟁의: ['쟁의', '파업', '조정 신청', '조정신청', '조정 중지', '조정중지', '노동위', '중노위', '지노위'],
+  부당노동행위: ['부당노동행위', '노동위', '중노위', '지노위'], 교섭: ['교섭', '하청', '원청', '노란봉투'],
+  부당해고: ['부당해고', '해고', '노동위', '중노위', '지노위'], 노동위: ['노동위', '중노위', '지노위', '노동위원회'],
+  // 노조 성명·보도자료(union-notices): 사고·고발 낱말 묶음
+  불법: ['불법', '위반', '야적', '행정처분'], 오염: ['오염', '유출', '악취', '배출'], 의회: ['의회', '시의회', '도의회', '군의회', '의원'],
+  고발: ['고발', '고소', '가처분', '소송'],
+  // 미국 주 상공위원회 안건(us-state-env): 세제 감면·인센티브
+  감면: ['감면', '세제 혜택', '세금 혜택', '인센티브', '세액'],
+  OSHA: ['OSHA', '산업안전보건청', '미국 노동부', '산업안전'], 벌금: ['벌금', '과징금', '제재', '위반'], 사고: ['사고', '사망', '부상', '숨져', '중상', '끼임', '추락', '화재', '폭발', '중대재해', '산재'],   // 노조 성명(11-03)도 같은 묶음
     공정위: ['공정위', '공정거래위원회'], 과징금: ['과징금', '제재', '시정명령', '고발', '경고'], 한전: ['한전', '한국전력'],
   수주: ['수주', '입찰', '낙찰', '공급', '계약'], 관세: ['관세', '반덤핑', '상계관세', '덤핑'], 판정: ['판정', '예비', '최종', '재심', '연례재심'],
   계약: ['계약', '협약', '합의', '공급', '합작', 'MOU'], 의견서: ['의견서', '의견', '제출', '요청'], 상표: ['상표', '출원', '브랜드', '명칭'],
@@ -660,9 +681,12 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
   for (const x of gbItems) {
     if (!fresh(x, gbBase, 'published')) continue;
     const companies = x.beatCompanies ?? [];
-    const terms = (x.checkTerms ?? []).slice(0, 2);
+    // 본문 첫머리 주체가 계열사(global_collector.affiliate_lead) — 참고(C)로 내리고 보도 대조도 하지 않는다(11-03 운영: 포스코퓨처엠 계약이 '포스코' B)
+    const affiliate = (x.affiliateLead ?? []).filter(Boolean);
+    const terms = affiliate.length ? [] : (x.checkTerms ?? []).slice(0, 2);
     push(terms.length ? 'B' : 'C', W['global-beat'], { kind: '출입처 외신', id: x.id, date: x.published, company: companies.join('·'),
-      fact: `외신 ${x.source ?? ''} 「${x.koTitle || x.title}」${x.koSummary ? ` — ${clipAt(x.koSummary, 220)}` : ''} · 원제 "${clipAt(x.title ?? '', 140)}" (AI 번역·요약 — 원문 확인)`
+      fact: (affiliate.length ? `⚠ 본문 첫머리 주체가 계열사(${affiliate.join('·')}) — 출입처 외일 수 있음 · ` : '')
+        + `외신 ${x.source ?? ''} 「${x.koTitle || x.title}」${x.koSummary ? ` — ${clipAt(x.koSummary, 220)}` : ''} · 원제 "${clipAt(x.title ?? '', 140)}" (AI 번역·요약 — 원문 확인)`
         // AI가 받은 영어(제목·RSS 발췌)에서 같은 값을 못 찾은 숫자 — 지어냈거나 환산했거나 표기가 달라 못 맞춘 것(global_news_pipeline.check_numbers)
         + (Array.isArray(x.numbersNotInSource) && x.numbersNotInSource.length ? ` · ⚠ 원문 발췌에 없는 숫자: ${x.numbersNotInSource.slice(0, 4).join(', ')} — 기사에 쓰기 전 원문 대조` : ''),
       url: x.url, check: terms.length && companies.length ? gbHint(companies[0], terms, (GB_COUNTRY.exec(String(x.koTitle ?? '')) ?? [])[0], x.published) : undefined });
@@ -677,6 +701,13 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
   }
 
   // US EPA certification file: a model new to the company is A, an EV range change B, model-year carryover C.
+  // 미국 주 환경청 허가·공고: 신설·증설 낱말이 든 허가 신청 A, 나머지 허가 공고·제재 공고 B(첫 실행 기준선은 이벤트 없음)
+  for (const e of docs['us-state-env']?.events ?? []) {
+    if (!recent(e.detectedAt)) continue;
+    push(['A', 'B'].includes(e.tier) ? e.tier : 'C', W['us-state-env'], { kind: e.kind, id: e.id, date: e.detectedAt, company: e.company,
+      fact: e.text, url: e.url, check: hint(e.company, [e.state, /제재/.test(e.kind ?? '') ? '과징금' : /상공위원회/.test(e.kind ?? '') ? '감면' : '허가'], [e.state], [e.state]) });
+  }
+
   for (const v of docs['us-epa']?.vehicles ?? []) {
     if (!recent(v.firstSeen) && !(all || String(v.created ?? '') >= cutDay)) continue;  // first seen in the window, or registered in it
     const tier = v.kind === '새 모델' ? 'A' : v.kind === '주행거리 변화' ? 'B' : 'C';
@@ -828,6 +859,56 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
     const tier = e.kind === '인력 변동' && grew ? 'C' : e.tier ?? 'B';
     push(tier, W['kr-workforce'], { kind: e.kind, id: e.id, date: e.detectedAt, company: e.company, fact: e.text,
       check: tier === 'C' ? undefined : workforceHint(e) });
+  }
+
+  // 노동위 회의: 출입처가 사건명 앞 당사자인 오늘 회의 — 노동쟁의 조정·교섭·부당노동행위 A, 그 밖의 구제신청(해고·징계 등) B
+  for (const e of docs['kr-labor']?.events ?? []) {
+    if (!recent(e.detectedAt)) continue;
+    push(['A', 'B'].includes(e.tier) ? e.tier : 'C', W['kr-labor'], { kind: e.kind, id: e.id, date: e.detectedAt, company: e.company,
+      fact: e.text, url: e.url, check: hint(e.company, [e.word || '노동위']) });
+  }
+
+  // 지방의회 회의록: 출입처 이름 대목에 인허가·불법·위반·오염·민원·특혜·감면·증설·이전·폐쇄·야적 낱말 A(그 밖은 저장만). 의원 질의는 주장
+  for (const e of docs['council-minutes']?.events ?? []) {
+    if (!recent(e.detectedAt)) continue;
+    const t = String(e.text ?? '');
+    const word = /야적|불법|위반|행정처분/.test(t) ? '불법' : /오염|유출|악취/.test(t) ? '오염' : /감면|보조금|특혜|지방세|체납/.test(t) ? '감면'
+      : /증설|신설/.test(t) ? '증설' : /이전|폐쇄|철수/.test(t) ? '폐쇄' : '의회';
+    const council = String(e.council ?? '').replace(/의회$/, '');
+    push(['A', 'B'].includes(e.tier) ? e.tier : 'C', W['council-minutes'], { kind: e.kind ?? '지방의회 회의록', id: e.id, date: e.detectedAt, company: e.company,
+      fact: e.text, url: e.url ?? undefined, check: hint(e.company, [word], [], council ? [council] : []) });
+  }
+
+  // 노조 성명·보도자료: 사망·사고·파업·매각·분할·가처분 등 A, 그 밖 B(이름이 본문에만 있으면 한 단계 내림). 노조 발표는 한쪽 주장
+  for (const e of docs['union-notices']?.events ?? []) {
+    if (!recent(e.detectedAt)) continue;
+    const t = String(e.title ?? '');
+    const word = /사망|숨|중대재해|끼임|추락|폭발|화재|사고/.test(t) ? '사고' : /파업|쟁의|결렬/.test(t) ? '파업' : /매각|분할/.test(t) ? '인수'
+      : /구조조정|희망퇴직|해고/.test(t) ? '감원' : /가처분|고발|고소/.test(t) ? '고발' : /교섭/.test(t) ? '교섭' : '노조';
+    push(['A', 'B'].includes(e.tier) ? e.tier : 'C', W['union-notices'], { kind: e.kind ?? '노조 성명·보도자료', id: e.id, date: e.detectedAt, company: e.company,
+      fact: e.text, url: e.url, check: hint(e.company, [word]) });
+  }
+
+  // 타사 공시 속 출입처: 자산·영업·지분 거래 상대·공급계약 해지 A, 공급계약 500억원 이상 A·그 밖 B, 생산중단·투자판단 B. 기사엔 상대 회사 이름이 있어야 같은 건
+  for (const e of docs['dart-counterparty']?.events ?? []) {
+    if (!recent(e.detectedAt)) continue;
+    const rep = String(e.report ?? '');
+    const word = /해지/.test(rep) ? '해지' : /생산중단/.test(rep) ? '감산' : /공급계약|단일판매/.test(rep) ? '공급' : /합병/.test(rep) ? '합병'
+      : /분할/.test(rep) ? '분할' : /양수|양도|영업|취득|처분/.test(rep) ? '인수' : '거래';
+    const filer = String(e.filer ?? '').replace(/주식회사|㈜|\(주\)/g, '').trim();
+    push(['A', 'B'].includes(e.tier) ? e.tier : 'C', W['dart-counterparty'], { kind: e.kind ?? '타사 공시', id: e.id, date: e.detectedAt, company: e.company,
+      fact: e.text, url: e.url, check: hint(e.company, [word], [], filer ? [filer] : []) });
+  }
+
+  // 인도 법인 공시(NSE): 현대차 인도법인 — 인수·설비·로열티 A, 이사회 결과·보도자료·임원 변경 B. 기사 제목엔 '인도'가 있어야 같은 건
+  for (const e of docs['india-filings']?.events ?? []) {
+    if (!recent(e.detectedAt)) continue;
+    const subj = `${e.subject ?? ''} ${e.text ?? ''}`;   // 종류(Updates 등)만으로는 모자라 설명 문장까지 본다
+    const word = /acqui|amalgamat|merger/i.test(subj) ? '인수' : /plant|capacity|expansion|capex|capital expenditure/i.test(subj) ? '공장'
+      : /board meeting/i.test(subj) ? '이사회' : /director|management|key managerial|kmp|appoint|resign/i.test(subj) ? '선임'
+        : /rating/i.test(subj) ? '신용등급' : /royalt|related party/i.test(subj) ? '로열티' : '인도법인';
+    push(['A', 'B'].includes(e.tier) ? e.tier : 'C', W['india-filings'], { kind: e.kind ?? '인도 법인 공시', id: e.id, date: e.detectedAt, company: e.company,
+      fact: e.text, url: e.url, check: hint(e.company, ['인도', word], [], ['인도']) });
   }
 
   // 굴뚝 자동측정(TMS): 사업장 가동 중단 신호·(14일 넘게 지켜본 뒤의) 새 배출구·새 사업장 A, 배출구 멈춤·목록에서 빠짐·재가동 B. 측정값만으로는 정지·정비·점검을 가르지 못한다.
@@ -1132,6 +1213,9 @@ export async function radarTodayData(ctx, args) {
   // Competitor exclusives the radar had first (reverse_prior_capture.py). Shown here too, so the reporter can prepare Y/P/N
   // judgments even when the chat's connector list is stale and scoop_reverse is not offered.
   const rev = await readFeed(ctx, 'reverse-check');
+  // 기자 기사 자동 대조(my_articles_check.py): 레이더 항목 id → 그 뒤 기자가 쓴 아이뉴스24 기사(같은 회사·사건 낱말). 판정이 아니라 표시만.
+  const mine = await readFeed(ctx, 'my-articles');
+  const wrote = new Map(Object.entries(mine && !mine.broken ? mine.itemHits ?? {} : {}));
   let firsts = [];
   if (rev && !rev.broken) {
     const from = Date.parse(rev.generatedAt) - 14 * 86400000;
@@ -1140,7 +1224,7 @@ export async function radarTodayData(ctx, args) {
       .sort((a, b) => String(b.published).localeCompare(String(a.published)));
   }
   return { now: ctx.now, hours, monday, defaultHours: !args.hours, q, limit, showC, judged, hiddenBy, press, checked, pressOf, rank,
-    tiers: { A: byTier('A'), B: byTier('B'), C: byTier('C') }, health: h, conv, coveredGroup, rev, firsts };
+    tiers: { A: byTier('A'), B: byTier('B'), C: byTier('C') }, health: h, conv, coveredGroup, rev, firsts, wrote };
 }
 
 export async function radarTodayText(ctx, args) {
@@ -1177,7 +1261,8 @@ export async function radarTodayText(ctx, args) {
       out.push(`- ${x.date ? `${String(x.date).length > 10 ? kstStamp(x.date) : x.date} · ` : ''}${x.watch}${x.company ? ` · ${x.company}` : ''}`);
       out.push(`   ${x.fact}`);
       out.push(...pressLines(checked.get(String(x.id)), kstStamp(press?.generatedAt)));
-      out.push(`   ${x.url ? `원문: ${x.url} · ` : ''}자세히: ${x.tool} · id ${x.id}${judged.get(x.id) ? ` 〔판정: ${judged.get(x.id)}〕` : ''}`);
+      const w = d.wrote?.get(String(x.id));
+      out.push(`   ${x.url ? `원문: ${x.url} · ` : ''}자세히: ${x.tool} · id ${x.id}${judged.get(x.id) ? ` 〔판정: ${judged.get(x.id)}〕` : ''}${w ? ` 〔기자 기사(자동 대조) ${String(w.published).slice(5, 10)} 「${String(w.title).slice(0, 40)}」〕` : ''}`);
     }
     if (rows.length > limit) out.push(`… 남은 ${rows.length - limit}건(limit 또는 company로 좁히기)`);
     if (!rows.length) out.push('없음');

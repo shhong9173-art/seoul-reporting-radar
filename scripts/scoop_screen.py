@@ -663,8 +663,24 @@ def rss(url, *, get=None, unwrap=False):
     return {"status": "ok", "items": items}
 
 
-def bing(q, *, get=None):
-    return rss(f"https://www.bing.com/news/search?q={quote(q)}&format=rss&setlang=ko-KR&cc=KR", get=get, unwrap=True)
+# 빙 RSS 기본 결과는 관련도 순 10여 건이라 날짜가 섞인다(11-03 탐침 127: '동국씨엠 컬러강판' 11건 중 60일 안 5건, 최신순은 11건 모두
+# 10-30~11-02). 보도 대조는 항목 날짜 3일 전 이후 기사를 보므로 최신순(빙 화면의 '최신순' 선택)도 받아 겹침을 빼고 붙인다.
+# 채널 상태는 관련도 순 기준 그대로 — 최신순이 실패하면 그 사실만 남긴다.
+BING_NEWEST = "&qft=sortbydate%3d%221%22"
+
+
+def bing(q, *, get=None, sleep=time.sleep):
+    url = f"https://www.bing.com/news/search?q={quote(q)}&format=rss&setlang=ko-KR&cc=KR"
+    base = rss(url, get=get, unwrap=True)
+    if base["status"] != "ok":
+        return base
+    sleep(0.3)
+    new = rss(url + BING_NEWEST, get=get, unwrap=True)
+    if new["status"] != "ok":
+        return {**base, "note": f"최신순 실패({new.get('error')})"}
+    seen = {x["url"] for x in base["items"]}
+    extra = [x for x in new["items"] if x["url"] not in seen and not seen.add(x["url"])]
+    return {**base, "items": base["items"] + extra}
 
 
 def google(q, *, get=None):
@@ -897,7 +913,7 @@ def screen(cands, *, now, get=None, sleep=time.sleep):
                                        else "not_configured" if "not_configured" in n_status else "failed")
         if via:
             channels["naver"]["via"] = via
-        channels["bing"] = bing(qs[-1], get=get)
+        channels["bing"] = bing(qs[-1], get=get, sleep=sleep)
         sleep(0.3)
         channels["google"] = google(qs[-1], get=get)
         sleep(0.3)
@@ -906,7 +922,8 @@ def screen(cands, *, now, get=None, sleep=time.sleep):
                     "channels": {k: {"status": v.get("status"), "returned": len(v.get("items", [])),
                                      "invalidDates": sum(article_day(a.get("date")) is None or article_day(a.get("date")) > now.date() for a in v.get("items", [])),
                                      **({"via": v["via"]} if v.get("via") else {}),
-                                     **({"error": v["error"]} if v.get("error") else {})} for k, v in channels.items()}})
+                                     **({"error": v["error"]} if v.get("error") else {}),
+                                     **({"note": v["note"]} if v.get("note") else {})} for k, v in channels.items()}})
     order = {"미보도 후보": 0, "관련 보도 있음": 1, "미확인": 2, "같은 수치 선행": 3}
     out.sort(key=lambda r: (order[r["verdict"]], -r["strength"]))
     return out
@@ -985,7 +1002,7 @@ def check_corrections(rows, *, now, get=None, sleep=time.sleep, limit=MAX_CORREC
                 channels["naver"]["status"] = got["status"]
             channels["naver"]["items"] += got["items"]
             sleep(0.12)
-        channels["bing"] = bing(cc["queries"][-1], get=get)
+        channels["bing"] = bing(cc["queries"][-1], get=get, sleep=sleep)
         sleep(0.3)
         channels["google"] = google(cc["queries"][-1], get=get)
         sleep(0.3)

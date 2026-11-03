@@ -20,6 +20,25 @@ export const SLOTS = [
   { at: '06:30', workflow: 'page-watch.yml' },
   // 미국 OSHA: 노동부 API는 매일 적재. 호출 간 12초라 2~3분.
   { at: '06:40', workflow: 'us-osha.yml', daily: true },
+  // 미국 주 환경청 허가·공고: 조지아 주간 공고 PDF는 주 초에, ADEM·LDEQ 목록은 수시로 바뀐다. 하루 한 번.
+  { at: '07:05', workflow: 'us-state-env.yml', daily: true },
+  // 노동위원회 회의: 첫 화면은 오늘 회의만 — 평일 아침 한 번(회의는 09:30 무렵부터). 보도 대조 08:50·아침 발제 08:57 전에 끝나게.
+  { at: '08:20', workflow: 'kr-labor.yml' },
+  // 인도 거래소(NSE) 공시: 인도 업무시간(한국 12:30~21:30)에 몰린다. RSS가 최신 약 1,400건(11-03: 17시간 폭)뿐이라 세 시간마다.
+  { at: '13:10', workflow: 'india-filings.yml' }, { at: '16:10', workflow: 'india-filings.yml' },
+  { at: '19:10', workflow: 'india-filings.yml' }, { at: '22:10', workflow: 'india-filings.yml' },
+  // 타사 공시 속 출입처(DART 시장 전체 목록, 최근 2일): 공시가 몰리는 낮 시간 세 시간마다 + 장 마감 뒤.
+  { at: '10:50', workflow: 'dart-counterparty.yml' }, { at: '13:50', workflow: 'dart-counterparty.yml' },
+  { at: '16:50', workflow: 'dart-counterparty.yml' }, { at: '19:50', workflow: 'dart-counterparty.yml' },
+  // 노조 성명·보도자료(금속노조·화섬식품노조 게시판): 주말에도 올린다 — 매일 세 시간마다(즉시 알림 :43 전에 끝나게 :30).
+  { at: '09:30', workflow: 'union-notices.yml', daily: true }, { at: '12:30', workflow: 'union-notices.yml', daily: true },
+  { at: '15:30', workflow: 'union-notices.yml', daily: true }, { at: '18:30', workflow: 'union-notices.yml', daily: true },
+  { at: '21:30', workflow: 'union-notices.yml', daily: true },
+  // 지방의회 회의록(국회도서관 API, 키 CLIK_API_KEY): 회의록은 몇 주 늦게 올라온다 — 하루 한 번.
+  { at: '09:10', workflow: 'council-minutes.yml', daily: true },
+  // 기자 기사 자동 대조(아이뉴스24 사이트맵·작성자 메타): 점심·저녁 기사 출고 뒤.
+  { at: '13:00', workflow: 'my-articles.yml', daily: true },
+  { at: '19:40', workflow: 'my-articles.yml', daily: true },
   // 지자체 고시·공고(새올): 아침·오후 한 번씩.
   { at: '06:30', workflow: 'kr-local.yml' },
   // 공식 원자료 직접 수집(pre_scoop.json: 대법원·NTIS·IRIS 등). GitHub 예약 '7,37 * * * *'은 10-28에 4번만 돌았다.

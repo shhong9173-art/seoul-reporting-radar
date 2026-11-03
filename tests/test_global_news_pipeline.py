@@ -185,6 +185,21 @@ class GlobalCollectorBeatTests(unittest.TestCase):
         self.assertEqual(f("LS Cable and Taihan bid for HVDC link; Q Cells expands Georgia"),["LS전선","대한전선","한화솔루션"])
         self.assertEqual(f("Social impact of associated costs"),[])                        # oci 부분 일치 아님
 
+    def test_affiliate_lead_from_article_start(self):
+        # 11-03 운영: Just Auto 「Posco to supply new battery materials to LGES」 — 본문 주체는 포스코퓨처엠
+        body = ("POSCO Group's battery materials unit Posco Future M has signed a preliminary agreement to supply LG Energy Solution "
+                "with 720,000 tonnes of battery materials over seven years.")
+        self.assertEqual(gc.beat_companies("Posco to supply new battery materials to LGES"), ["포스코"])
+        self.assertEqual(gc.affiliate_lead(["포스코"], body), ["포스코퓨처엠"])
+        self.assertEqual(gc.affiliate_lead(["포스코"], "POSCO restarts No.2 blast furnace at Gwangyang after relining."), [])
+        self.assertEqual(gc.affiliate_lead(["포스코"], "x" * 500 + " Posco Future M"), [])   # 첫머리(400자) 밖은 보지 않는다
+        self.assertEqual(gc.affiliate_lead(["LG화학", "현대차"], "LG Energy Solution and Hyundai Motor Group JV ..."), ["LG에너지솔루션"])
+        self.assertEqual(gc.affiliate_lead(["포스코"], ""), [])
+        # 본문 없이 번역 캐시로만 올라온 항목: 한국어 요약 첫머리로 본다(11-03 운영 실제 요약)
+        ko = "포스코그룹의 화학소재 전문기업 포스코퓨처엠이 LG에너지솔루션과 7년간 72만t의 배터리 소재를 공급하는 예비 계약을 체결했다."
+        self.assertEqual(gc.affiliate_lead(["포스코"], "", ko), ["포스코퓨처엠"])
+        self.assertEqual(gc.affiliate_lead(["현대차"], "", "현대차는 인도 푸네 공장에서 ... " + "가" * 200 + " 현대글로비스"), [])   # 150자 밖
+
     def test_check_terms_from_korean_title(self):
         self.assertEqual(gc.check_terms("두산, 뉴스케일 소형모듈원전 상부 원자로 용기 제작",["두산에너빌리티"]),["원자로"])
         self.assertEqual(gc.check_terms("현대차, 4억5천만달러 앨라배마 공장 투자해 신형 투싼 생산",["현대차"]),["공장","투자"])

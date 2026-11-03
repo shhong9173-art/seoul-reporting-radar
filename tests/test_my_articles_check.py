@@ -1,0 +1,112 @@
+"""기자 기사 자동 대조: 아이뉴스24 사이트맵(11-03 탐침 159 실제 모양)·작성자 메타로 홍성효 기사만, 구글 색인은 첫 실행만(작성자 미확인),
+레이더 항목과 대조(11-03 추가 감시 이벤트 포함), 안 쓴 항목은 세지 않음."""
+import datetime as dt
+import sys
+import unittest
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+import my_articles_check as w  # noqa: E402
+
+KST = dt.timezone(dt.timedelta(hours=9))
+NOW = dt.datetime(2026, 11, 4, 19, 40, tzinfo=KST)
+SITEMAP = """<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:news="http://www.google.com/schemas/sitemap-news/0.9">
+  <url>
+   <loc>https://www.inews24.com/view/2019957</loc>
+   <news:news>
+\t<news:publication>
+\t\t<news:name>아이뉴스24</news:name>
+\t\t<news:language>ko</news:language>
+\t</news:publication>
+   \t<news:publication_date>2026-11-03T23:00:00+09:00</news:publication_date>
+     <news:title>&quot;업무 맥락 이해하는 AI 에이전트&quot;⋯스노우플레이크, 기업용 에이전트 기능 고도화</news:title>
+    </news:news>
+\t</url>
+  <url><loc>https://www.inews24.com/view/3000001</loc><news:news><news:publication_date>2026-11-04T10:00:00+09:00</news:publication_date>
+     <news:title>기아, 화성 신차 불법 야적 논란⋯시의회 "공장 부지 허가 위반"</news:title></news:news></url>
+  <url><loc>https://www.inews24.com/view/3000002</loc><news:news><news:publication_date>2026-11-04T11:00:00+09:00</news:publication_date>
+     <news:title>포스코퓨처엠, 양극재 증설</news:title></news:news></url>
+  <url><loc>https://www.inews24.com/view/3000003</loc><news:news><news:publication_date>2026-11-04T12:00:00+09:00</news:publication_date>
+     <news:title>현대제철, 3분기 영업익 871억원</news:title></news:news></url>
+</urlset>"""
+PAGES = {"https://www.inews24.com/view/3000001": '<meta property="og:article:author"\tcontent="홍성효"/><meta property="article:author" content="홍성효">',
+         "https://www.inews24.com/view/3000003": '<meta property="article:author" content="최효경">'}
+RSS = """<rss><channel>
+<item><title>금호타이어, 롯데카드와 제휴카드 출시…최대 80만원 선할인 - 아이뉴스24</title><pubDate>Tue, 03 Nov 2026 01:26:18 GMT</pubDate></item>
+<item><title>트럼프 "바이낸스 해킹 北 소행이면 北과 대화" - 아이뉴스24</title><pubDate>Sun, 01 Nov 2026 05:14:01 GMT</pubDate></item>
+</channel></rss>"""
+DOCS = {"council-minutes": {"events": [
+    {"id": "clik:CLIKC1", "tier": "A", "kind": "지방의회 회의록", "company": "기아", "detectedAt": "2026-10-21T09:10:00+09:00",
+     "text": "화성시의회 제300회 본회의(20261020) 회의록 · 기아 대목 「신차 2000대가 공장 시설로 허가받은 땅에 야적되고 있습니다. 불법 아닙니까?」"},
+    {"id": "clik:C", "tier": "C", "kind": "지방의회 회의록", "company": "현대제철", "detectedAt": "2026-10-21T09:10:00+09:00", "text": "봉사"}]}}
+
+
+class R:
+    def __init__(self, text="", code=200):
+        self.text, self.status_code, self.content = text, code, text.encode()
+
+
+def fake(fail=()):
+    calls = []
+
+    def get(url, headers=None, timeout=None, params=None):
+        calls.append(url)
+        if url == w.SITEMAP:
+            return R(SITEMAP)
+        if url.startswith(w.GOOGLE):
+            return R(RSS)
+        if url in fail:
+            raise type("ReadTimeout", (Exception,), {})("x")
+        return R(PAGES.get(url, '<meta property="article:author" content="다른기자">'))
+    return get, calls
+
+
+class MyArticles(unittest.TestCase):
+    def test_sitemap_author_and_beat_titles(self):
+        rows = w.parse_sitemap(SITEMAP)
+        self.assertEqual(rows[0], {"url": "https://www.inews24.com/view/2019957", "published": "2026-11-03T23:00:00+09:00",
+                                   "title": '"업무 맥락 이해하는 AI 에이전트"⋯스노우플레이크, 기업용 에이전트 기능 고도화'})
+        self.assertEqual(w.author_of(PAGES["https://www.inews24.com/view/3000001"]), "홍성효")
+        self.assertEqual(w.companies_in("포스코퓨처엠, 양극재 증설"), [])                 # 계열사는 출입처 아님
+        self.assertEqual(w.companies_in("현대차·기아, 'K-세일페스타' 할인 공세"), ["현대차", "기아"])
+        self.assertEqual(w.companies_in("LS전선·LS마린솔루션, 504MW 태안해상풍력 해저케이블"), ["LS전선"])
+        self.assertEqual(w.companies_in("영풍 석포제련소 앞 낙동강, 사계절 내내 수달 포착"), ["영풍"])
+
+    def test_run_matches_own_articles_with_radar(self):
+        get, calls = fake()
+        doc = w.run(NOW, None, DOCS, {}, get=get, sleep=lambda s: None)
+        opened = [u for u in calls if "/view/" in u]
+        self.assertEqual(opened, ["https://www.inews24.com/view/3000001", "https://www.inews24.com/view/3000003"])   # 출입처 제목만, 계열사 제목은 안 엶
+        self.assertEqual(doc["checks"][0]["mineNew"], 1)
+        by = {a["title"][:6]: a for a in doc["articles"]}
+        self.assertEqual(by["기아, 화성"]["verdict"], "먼저 잡은 후보")
+        self.assertEqual(by["기아, 화성"]["best"]["label"], "지방의회 회의록")              # 11-03 추가 감시도 레이더 기억에 든다
+        self.assertTrue(by["기아, 화성"]["verified"])
+        self.assertEqual(doc["itemHits"]["clik:CLIKC1"]["title"][:8], "기아, 화성 신")
+        self.assertFalse(by["금호타이어,"]["verified"])                                   # 첫 실행 구글 색인 — 작성자 미확인
+        self.assertEqual(by["금호타이어,"]["verdict"], "없음")
+        self.assertEqual(by["트럼프 \"바"]["verdict"], "회사 미상")                       # 당직 기사 — 출입처 아님
+        self.assertNotIn("현대제철, 3", by)                                             # 다른 기자 기사
+        self.assertEqual(doc["checked"]["https://www.inews24.com/view/3000003"], "최효경")
+        # 다음 실행: 본 주소는 다시 열지 않고, 구글 색인도 다시 부르지 않는다
+        get2, calls2 = fake()
+        doc2 = w.run(NOW + dt.timedelta(hours=6), doc, DOCS, {}, get=get2, sleep=lambda s: None)
+        self.assertEqual([u for u in calls2 if "/view/" in u or u.startswith(w.GOOGLE)], [])
+        self.assertEqual(len(doc2["articles"]), len(doc["articles"]))
+
+    def test_failed_article_is_retried_and_sitemap_failure_is_not_zero(self):
+        get, _ = fake(fail=("https://www.inews24.com/view/3000001",))
+        doc = w.run(NOW, {"schema": w.SCHEMA, "backfilledAt": "x"}, DOCS, {}, get=get, sleep=lambda s: None)
+        self.assertNotIn("https://www.inews24.com/view/3000001", doc["checked"])   # 다음 실행에 다시
+        self.assertEqual(doc["status"], "partial")
+
+        def down(url, **k):
+            raise type("ConnectionError", (Exception,), {})("x")
+        bad = w.run(NOW, {"schema": w.SCHEMA, "backfilledAt": "x"}, DOCS, {}, get=down, sleep=lambda s: None)
+        self.assertEqual((bad["status"], bad["checks"][0]["status"]), ("failed", "failed"))
+        self.assertIn("사이트맵:ConnectionError", bad["checks"][0]["error"])
+
+
+if __name__ == "__main__":
+    unittest.main()
