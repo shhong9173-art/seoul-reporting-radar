@@ -1,8 +1,9 @@
 {
- "generatedAt": "2026-11-04T07:44:20+09:00",
+ "schema": "governance/v1",
+ "generatedAt": "2026-11-04T08:51:42+09:00",
  "windowStart": "2026-10-05",
  "windowDays": 30,
- "source": "OpenDART 지분공시 종합정보(majorstock·elestock)",
+ "source": "OpenDART 지분공시 종합정보(majorstock·elestock)·주요사항보고서 자기주식 처분 결정(tsstkDpDecsn)",
  "status": "complete",
  "checks": [
   {
@@ -20,6 +21,13 @@
    "rowsInWindow": 0
   },
   {
+   "company": "현대자동차",
+   "endpoint": "tsstkDpDecsn.json",
+   "status": "checked",
+   "rowsReturned": 1,
+   "rowsInWindow": 1
+  },
+  {
    "company": "기아",
    "endpoint": "majorstock.json",
    "status": "checked",
@@ -32,6 +40,13 @@
    "status": "checked",
    "rowsReturned": 274,
    "rowsInWindow": 0
+  },
+  {
+   "company": "기아",
+   "endpoint": "tsstkDpDecsn.json",
+   "status": "checked",
+   "rowsReturned": 1,
+   "rowsInWindow": 1
   },
   {
    "company": "현대모비스",
@@ -48,6 +63,13 @@
    "rowsInWindow": 0
   },
   {
+   "company": "현대모비스",
+   "endpoint": "tsstkDpDecsn.json",
+   "status": "checked",
+   "rowsReturned": 1,
+   "rowsInWindow": 1
+  },
+  {
    "company": "현대위아",
    "endpoint": "majorstock.json",
    "status": "checked",
@@ -59,6 +81,13 @@
    "endpoint": "elestock.json",
    "status": "checked",
    "rowsReturned": 8,
+   "rowsInWindow": 0
+  },
+  {
+   "company": "현대위아",
+   "endpoint": "tsstkDpDecsn.json",
+   "status": "no_data",
+   "rowsReturned": 0,
    "rowsInWindow": 0
   },
   {
@@ -76,6 +105,13 @@
    "rowsInWindow": 7
   },
   {
+   "company": "HL만도",
+   "endpoint": "tsstkDpDecsn.json",
+   "status": "no_data",
+   "rowsReturned": 0,
+   "rowsInWindow": 0
+  },
+  {
    "company": "KG모빌리티",
    "endpoint": "majorstock.json",
    "status": "checked",
@@ -87,6 +123,13 @@
    "endpoint": "elestock.json",
    "status": "checked",
    "rowsReturned": 1,
+   "rowsInWindow": 0
+  },
+  {
+   "company": "KG모빌리티",
+   "endpoint": "tsstkDpDecsn.json",
+   "status": "no_data",
+   "rowsReturned": 0,
    "rowsInWindow": 0
   },
   {
@@ -104,6 +147,13 @@
    "rowsInWindow": 0
   },
   {
+   "company": "한국타이어앤테크놀로지",
+   "endpoint": "tsstkDpDecsn.json",
+   "status": "no_data",
+   "rowsReturned": 0,
+   "rowsInWindow": 0
+  },
+  {
    "company": "넥센타이어",
    "endpoint": "majorstock.json",
    "status": "checked",
@@ -118,6 +168,13 @@
    "rowsInWindow": 0
   },
   {
+   "company": "넥센타이어",
+   "endpoint": "tsstkDpDecsn.json",
+   "status": "no_data",
+   "rowsReturned": 0,
+   "rowsInWindow": 0
+  },
+  {
    "company": "금호타이어",
    "endpoint": "majorstock.json",
    "status": "checked",
@@ -129,6 +186,13 @@
    "endpoint": "elestock.json",
    "status": "checked",
    "rowsReturned": 1,
+   "rowsInWindow": 0
+  },
+  {
+   "company": "금호타이어",
+   "endpoint": "tsstkDpDecsn.json",
+   "status": "no_data",
+   "rowsReturned": 0,
    "rowsInWindow": 0
   },
   {
@@ -146,6 +210,13 @@
    "rowsInWindow": 0
   },
   {
+   "company": "포스코홀딩스",
+   "endpoint": "tsstkDpDecsn.json",
+   "status": "no_data",
+   "rowsReturned": 0,
+   "rowsInWindow": 0
+  },
+  {
    "company": "현대제철",
    "endpoint": "majorstock.json",
    "status": "checked",
@@ -157,6 +228,13 @@
    "endpoint": "elestock.json",
    "status": "checked",
    "rowsReturned": 17,
+   "rowsInWindow": 0
+  },
+  {
+   "company": "현대제철",
+   "endpoint": "tsstkDpDecsn.json",
+   "status": "no_data",
+   "rowsReturned": 0,
    "rowsInWindow": 0
   },
   {
@@ -174,6 +252,13 @@
    "rowsInWindow": 16
   },
   {
+   "company": "KG스틸",
+   "endpoint": "tsstkDpDecsn.json",
+   "status": "checked",
+   "rowsReturned": 1,
+   "rowsInWindow": 1
+  },
+  {
    "company": "세아홀딩스",
    "endpoint": "majorstock.json",
    "status": "checked",
@@ -188,6 +273,13 @@
    "rowsInWindow": 0
   },
   {
+   "company": "세아홀딩스",
+   "endpoint": "tsstkDpDecsn.json",
+   "status": "no_data",
+   "rowsReturned": 0,
+   "rowsInWindow": 0
+  },
+  {
    "company": "세아제강",
    "endpoint": "majorstock.json",
    "status": "checked",
@@ -199,6 +291,13 @@
    "endpoint": "elestock.json",
    "status": "checked",
    "rowsReturned": 2,
+   "rowsInWindow": 0
+  },
+  {
+   "company": "세아제강",
+   "endpoint": "tsstkDpDecsn.json",
+   "status": "no_data",
+   "rowsReturned": 0,
    "rowsInWindow": 0
   },
   {
@@ -216,6 +315,13 @@
    "rowsInWindow": 0
   },
   {
+   "company": "동국제강",
+   "endpoint": "tsstkDpDecsn.json",
+   "status": "no_data",
+   "rowsReturned": 0,
+   "rowsInWindow": 0
+  },
+  {
    "company": "동국씨엠",
    "endpoint": "majorstock.json",
    "status": "checked",
@@ -227,6 +333,13 @@
    "endpoint": "elestock.json",
    "status": "checked",
    "rowsReturned": 11,
+   "rowsInWindow": 0
+  },
+  {
+   "company": "동국씨엠",
+   "endpoint": "tsstkDpDecsn.json",
+   "status": "no_data",
+   "rowsReturned": 0,
    "rowsInWindow": 0
   },
   {
@@ -244,6 +357,13 @@
    "rowsInWindow": 1
   },
   {
+   "company": "고려아연",
+   "endpoint": "tsstkDpDecsn.json",
+   "status": "no_data",
+   "rowsReturned": 0,
+   "rowsInWindow": 0
+  },
+  {
    "company": "영풍",
    "endpoint": "majorstock.json",
    "status": "checked",
@@ -255,6 +375,13 @@
    "endpoint": "elestock.json",
    "status": "checked",
    "rowsReturned": 23,
+   "rowsInWindow": 0
+  },
+  {
+   "company": "영풍",
+   "endpoint": "tsstkDpDecsn.json",
+   "status": "no_data",
+   "rowsReturned": 0,
    "rowsInWindow": 0
   },
   {
@@ -272,6 +399,13 @@
    "rowsInWindow": 0
   },
   {
+   "company": "HD현대일렉트릭",
+   "endpoint": "tsstkDpDecsn.json",
+   "status": "no_data",
+   "rowsReturned": 0,
+   "rowsInWindow": 0
+  },
+  {
    "company": "엘에스일렉트릭",
    "endpoint": "majorstock.json",
    "status": "checked",
@@ -286,6 +420,13 @@
    "rowsInWindow": 0
   },
   {
+   "company": "엘에스일렉트릭",
+   "endpoint": "tsstkDpDecsn.json",
+   "status": "no_data",
+   "rowsReturned": 0,
+   "rowsInWindow": 0
+  },
+  {
    "company": "대한전선",
    "endpoint": "majorstock.json",
    "status": "checked",
@@ -297,6 +438,13 @@
    "endpoint": "elestock.json",
    "status": "checked",
    "rowsReturned": 7,
+   "rowsInWindow": 0
+  },
+  {
+   "company": "대한전선",
+   "endpoint": "tsstkDpDecsn.json",
+   "status": "no_data",
+   "rowsReturned": 0,
    "rowsInWindow": 0
   },
   {
@@ -314,6 +462,13 @@
    "rowsInWindow": 1
   },
   {
+   "company": "LS",
+   "endpoint": "tsstkDpDecsn.json",
+   "status": "no_data",
+   "rowsReturned": 0,
+   "rowsInWindow": 0
+  },
+  {
    "company": "두산에너빌리티",
    "endpoint": "majorstock.json",
    "status": "checked",
@@ -325,6 +480,13 @@
    "endpoint": "elestock.json",
    "status": "checked",
    "rowsReturned": 121,
+   "rowsInWindow": 0
+  },
+  {
+   "company": "두산에너빌리티",
+   "endpoint": "tsstkDpDecsn.json",
+   "status": "no_data",
+   "rowsReturned": 0,
    "rowsInWindow": 0
   },
   {
@@ -342,6 +504,13 @@
    "rowsInWindow": 0
   },
   {
+   "company": "GS",
+   "endpoint": "tsstkDpDecsn.json",
+   "status": "no_data",
+   "rowsReturned": 0,
+   "rowsInWindow": 0
+  },
+  {
    "company": "S-Oil",
    "endpoint": "majorstock.json",
    "status": "checked",
@@ -356,6 +525,13 @@
    "rowsInWindow": 3
   },
   {
+   "company": "S-Oil",
+   "endpoint": "tsstkDpDecsn.json",
+   "status": "no_data",
+   "rowsReturned": 0,
+   "rowsInWindow": 0
+  },
+  {
    "company": "SK이노베이션",
    "endpoint": "majorstock.json",
    "status": "checked",
@@ -367,6 +543,13 @@
    "endpoint": "elestock.json",
    "status": "checked",
    "rowsReturned": 18,
+   "rowsInWindow": 0
+  },
+  {
+   "company": "SK이노베이션",
+   "endpoint": "tsstkDpDecsn.json",
+   "status": "no_data",
+   "rowsReturned": 0,
    "rowsInWindow": 0
   },
   {
@@ -384,6 +567,13 @@
    "rowsInWindow": 1
   },
   {
+   "company": "한화솔루션",
+   "endpoint": "tsstkDpDecsn.json",
+   "status": "no_data",
+   "rowsReturned": 0,
+   "rowsInWindow": 0
+  },
+  {
    "company": "OCI",
    "endpoint": "majorstock.json",
    "status": "checked",
@@ -396,6 +586,13 @@
    "status": "checked",
    "rowsReturned": 6,
    "rowsInWindow": 2
+  },
+  {
+   "company": "OCI",
+   "endpoint": "tsstkDpDecsn.json",
+   "status": "no_data",
+   "rowsReturned": 0,
+   "rowsInWindow": 0
   },
   {
    "company": "OCI홀딩스",
@@ -412,6 +609,13 @@
    "rowsInWindow": 1
   },
   {
+   "company": "OCI홀딩스",
+   "endpoint": "tsstkDpDecsn.json",
+   "status": "no_data",
+   "rowsReturned": 0,
+   "rowsInWindow": 0
+  },
+  {
    "company": "태광",
    "endpoint": "majorstock.json",
    "status": "checked",
@@ -423,6 +627,13 @@
    "endpoint": "elestock.json",
    "status": "checked",
    "rowsReturned": 2,
+   "rowsInWindow": 0
+  },
+  {
+   "company": "태광",
+   "endpoint": "tsstkDpDecsn.json",
+   "status": "no_data",
+   "rowsReturned": 0,
    "rowsInWindow": 0
   },
   {
@@ -440,6 +651,13 @@
    "rowsInWindow": 1
   },
   {
+   "company": "동성케미칼",
+   "endpoint": "tsstkDpDecsn.json",
+   "status": "no_data",
+   "rowsReturned": 0,
+   "rowsInWindow": 0
+  },
+  {
    "company": "LG화학",
    "endpoint": "majorstock.json",
    "status": "checked",
@@ -451,6 +669,13 @@
    "endpoint": "elestock.json",
    "status": "checked",
    "rowsReturned": 19,
+   "rowsInWindow": 0
+  },
+  {
+   "company": "LG화학",
+   "endpoint": "tsstkDpDecsn.json",
+   "status": "no_data",
+   "rowsReturned": 0,
    "rowsInWindow": 0
   },
   {
@@ -468,6 +693,13 @@
    "rowsInWindow": 0
   },
   {
+   "company": "롯데케미칼",
+   "endpoint": "tsstkDpDecsn.json",
+   "status": "no_data",
+   "rowsReturned": 0,
+   "rowsInWindow": 0
+  },
+  {
    "company": "금호석유화학",
    "endpoint": "majorstock.json",
    "status": "checked",
@@ -480,6 +712,13 @@
    "status": "checked",
    "rowsReturned": 60,
    "rowsInWindow": 2
+  },
+  {
+   "company": "금호석유화학",
+   "endpoint": "tsstkDpDecsn.json",
+   "status": "no_data",
+   "rowsReturned": 0,
+   "rowsInWindow": 0
   }
  ],
  "failedCount": 0,
@@ -487,7 +726,7 @@
  "dartSpellings": {
   "동성케미칼": "동성케미컬"
  },
- "count": 40,
+ "count": 44,
  "items": [
   {
    "company": "금호석유화학",
@@ -506,6 +745,77 @@
    ],
    "routine": false,
    "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261102000111"
+  },
+  {
+   "company": "기아",
+   "team": "자동차",
+   "kind": "자사주 처분 결정",
+   "date": "2026-10-30",
+   "receiptNo": "20261030000550",
+   "reporter": "기아",
+   "role": "",
+   "sharesChange": -1754496.0,
+   "shares": 1754496.0,
+   "held": 1756955.0,
+   "amount": 190011916800.0,
+   "purpose": "2026년 임금협상 결과에 따른 회사주식 지급",
+   "method": "기타",
+   "decidedOn": "2026년 10월 30일",
+   "period": "2026년 11월 30일~2026년 11월 30일",
+   "reason": "처분목적 \"2026년 임금협상 결과에 따른 회사주식 지급\" · 1,754,496주·1,900.1억원 · 처분 전 보유 1,756,955주의 100% · 방법 기타",
+   "tags": [
+    "[처분목적: 2026년 임금협상 결과에 따른 회사주식 지]",
+    "[보유 자사주의 100%]"
+   ],
+   "routine": false,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261030000550"
+  },
+  {
+   "company": "현대모비스",
+   "team": "자동차",
+   "kind": "자사주 처분 결정",
+   "date": "2026-10-30",
+   "receiptNo": "20261030000571",
+   "reporter": "현대모비스",
+   "role": "",
+   "sharesChange": -96136.0,
+   "shares": 96136.0,
+   "held": 1552000.0,
+   "amount": 33936008000.0,
+   "purpose": "2026년 단체교섭에 따른 회사주식 지급",
+   "method": "기타",
+   "decidedOn": "2026년 10월 30일",
+   "period": "2026년 11월 30일~2026년 11월 30일",
+   "reason": "처분목적 \"2026년 단체교섭에 따른 회사주식 지급\" · 96,136주·339.4억원 · 처분 전 보유 1,552,000주의 6% · 방법 기타",
+   "tags": [
+    "[처분목적: 2026년 단체교섭에 따른 회사주식 지급]"
+   ],
+   "routine": false,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261030000571"
+  },
+  {
+   "company": "현대자동차",
+   "team": "자동차",
+   "kind": "자사주 처분 결정",
+   "date": "2026-10-29",
+   "receiptNo": "20261029000247",
+   "reporter": "현대자동차",
+   "role": "",
+   "sharesChange": -917385.0,
+   "shares": 917385.0,
+   "held": 1047534.0,
+   "amount": 271545960000.0,
+   "purpose": "2026년 임금협상 결과에 따른 주식지급",
+   "method": "기타",
+   "decidedOn": "2026년 10월 29일",
+   "period": "2026년 11월 20일~2026년 11월 20일",
+   "reason": "처분목적 \"2026년 임금협상 결과에 따른 주식지급\" · 917,385주·2,715.5억원 · 처분 전 보유 1,047,534주의 88% · 방법 기타",
+   "tags": [
+    "[처분목적: 2026년 임금협상 결과에 따른 주식지급]",
+    "[보유 자사주의 88%]"
+   ],
+   "routine": false,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261029000247"
   },
   {
    "company": "KG스틸",
@@ -611,11 +921,13 @@
     "20261023000339",
     "20261023000151"
    ],
-   "reason": "매수 15명·매도 0명 · 순증감 +134,222주(보고서별 합계, 취득 경위는 원문 확인)",
+   "reason": "매수 15명·매도 0명 · 순증감 +134,222주(보고서별 합계, 취득 경위는 원문 확인) · 10-15 자기주식 처분 결정(처분목적 \"임직원 지급을 위한 자기주식 처분\", 2,461,991주) 뒤 — 주식 보상 지급으로 보임",
    "tags": [
-    "[같은 날 15명 보고]"
+    "[같은 날 15명 보고]",
+    "[자사주 처분 연결]"
    ],
    "routine": false,
+   "treasury": "20261015000414",
    "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261023000155"
   },
   {
@@ -635,6 +947,30 @@
    ],
    "routine": false,
    "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261022000135"
+  },
+  {
+   "company": "KG스틸",
+   "team": "철강·비철",
+   "kind": "자사주 처분 결정",
+   "date": "2026-10-15",
+   "receiptNo": "20261015000414",
+   "reporter": "KG스틸",
+   "role": "",
+   "sharesChange": -2461991.0,
+   "shares": 2461991.0,
+   "held": 2461991.0,
+   "amount": 13688669960.0,
+   "purpose": "임직원 지급을 위한 자기주식 처분",
+   "method": "기타",
+   "decidedOn": "2026년 10월 15일",
+   "period": "2026년 10월 16일~2027년 01월 15일",
+   "reason": "처분목적 \"임직원 지급을 위한 자기주식 처분\" · 2,461,991주·136.9억원 · 처분 전 보유 2,461,991주의 100% · 방법 기타",
+   "tags": [
+    "[처분목적: 임직원 보상]",
+    "[보유 자사주의 100%]"
+   ],
+   "routine": false,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261015000414"
   },
   {
    "company": "KG스틸",
@@ -1181,7 +1517,8 @@
   "조회 실패·미해결 회사는 0건이 아니라 미확인이다.",
   "routine은 기관 약식·단순 보고 등 뒤로 미룬 것이지 삭제가 아니다.",
   "임원 집단 보고는 같은 날 보고서의 합계일 뿐, 취득 경위(장내매수·주식보상 등)는 원문 확인 전 미확인이다.",
-  "보고자 관계(오너 일가·계열)는 원문에 적힌 것만 쓴다."
+  "보고자 관계(오너 일가·계열)는 원문에 적힌 것만 쓴다.",
+  "자기주식 처분 결정은 처분목적이 임직원 보상이어도 보유 자사주의 절반 미만이면 해마다 하는 보상이라 일상(routine)으로 둔다. 임원 집단 보고가 60일 안 임직원 보상 처분 뒤에 나오면 이어 보여 주지만, 실제 지급 여부는 원문(취득 경위) 확인 전 미확인이다."
  ],
  "confirmedScoops": 0
 }
