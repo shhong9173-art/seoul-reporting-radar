@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-11-02T14:51:26+09:00",
-  "status": "incomplete",
+  "generatedAt": "2026-11-03T10:31:53+09:00",
+  "status": "checked",
   "checks": [
     {
       "issuer": "현대자동차",
@@ -20,9 +20,11 @@
     },
     {
       "issuer": "기아",
-      "status": "source_error",
-      "errorType": "ValueError",
-      "reason": "network_or_provider_response_error"
+      "status": "checked",
+      "scanned": 750,
+      "matchedIds": 750,
+      "unqueriedIds": 0,
+      "facilityCandidates": 379
     },
     {
       "issuer": "포스코",
@@ -57,7 +59,7 @@
       "facilityCandidates": 0
     }
   ],
-  "candidateCount": null,
-  "observedCandidateCount": 37,
+  "candidateCount": 416,
+  "observedCandidateCount": 416,
   "warning": "전체 조회 실패·일부 누락은 시설 0곳이 아님. 기존 정상 자료와 현재 원천 상태를 구분"
 }
