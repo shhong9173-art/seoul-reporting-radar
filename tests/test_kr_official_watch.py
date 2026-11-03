@@ -375,6 +375,12 @@ class Eia(unittest.TestCase):
         items, _, _ = w.eia(self.cfg, self.now, {"eiaSeen": seen, "eia": []}, post=post2, get=get2, sleep=lambda s: None)
         self.assertEqual([(x["company"], x["stage"], x["kind"], x["isNew"]) for x in items], [("고려아연", "본안(진행)", "환경영향평가", True)])
 
+    def test_start_rotates_by_day_so_the_same_tail_does_not_always_time_out(self):
+        # 11-03 14:41: 목록 끝 회사만 연결 시간 초과 — 날마다 시작점을 돌린다
+        post, get, posts = self.fake()
+        w.eia(self.cfg, self.now + w.dt.timedelta(days=1), None, post=post, get=get, sleep=lambda s: None)
+        self.assertEqual(posts, ["포스코", "포스코", "고려아연", "고려아연"])
+
     def test_one_timeout_is_retried(self):
         post, get, posts = self.fake()
         fails = {"n": 0}
