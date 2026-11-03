@@ -379,6 +379,28 @@ def fnum(v):
 MARGINAL = 1.05  # 측정값/기준이 이 아래면 '조금 넘은 값'
 
 
+RESTART_NOTE = " — 직전까지 '가동중지'·멈춤이던 배출구가 다시 값을 보내며 넘은 것이라 가동 개시 직후 값일 수 있음(처음 넘은 값은 한 단계 낮춤)"
+
+
+EXCEED_ID = re.compile(r"^stk:exceed:(.+):([^:]+):(tsp|sox|nox|hcl|hf|nh3|co):(\d{4}-\d{2}-\d{2} \d{2}:\d{2})$")
+
+
+def retier_restart_exceed(events, sites, now, hours=48):
+    """재가동 직후 처음 넘은 값을 B로 저장한 것(규칙 전)을 C로: 그 측정 바로 앞 관측이 0 근처('가동중지'는 0으로 쌓임)면."""
+    cut = (now - dt.timedelta(hours=hours)).isoformat(timespec="seconds")
+    for e in events:
+        if e.get("kind") != "배출허용기준 초과(측정값)" or e.get("tier") != "B" or "가동 개시 직후 값일 수 있음" in str(e.get("text") or "") \
+                or str(e.get("detectedAt") or "") < cut:
+            continue
+        m = EXCEED_ID.match(str(e.get("id") or ""))
+        st = ((sites.get(m.group(1)) or {}).get("stacks") or {}).get(m.group(2)) if m else None
+        obs = (st or {}).get("obs") or []
+        i = next((k for k, o in enumerate(obs) if o[0] == m.group(4)), None) if m else None
+        if i and obs[i - 1][1] is not None and obs[i - 1][1] <= LOW_ABS:
+            e["tier"] = "C"
+            e["text"] = str(e.get("text") or "") + RESTART_NOTE.replace("(처음 넘은 값은 한 단계 낮춤)", "(처음 넘은 값이라 C로 바로잡음)")
+
+
 def exceedances(x):
     """측정값이 그 배출구의 배출허용기준(같은 줄의 *_exhst_perm_stdr_value)을 넘은 오염물질: [(물질, 측정값, 기준)]."""
     out = []
@@ -559,6 +581,7 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep, clock=time.
     retier_offhours(events, weekday_companies)
     retier_rest_gone(events)
     retier_marginal(events)
+    retier_restart_exceed(events, sites, now)
     retier_status_transitions(events)
     retier_maintenance_stops(events)
     known = {e["id"] for e in events}
@@ -578,7 +601,7 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep, clock=time.
     def emit(eid, kind, tier, company, site, text):
         if eid not in known:
             known.add(eid)
-            fresh.append({"id": eid, "kind": kind, "tier": tier, "company": company, "site": site, "text": text[:700], "detectedAt": stamp})
+            fresh.append({"id": eid, "kind": kind, "tier": tier, "company": company, "site": site, "text": text[:1000], "detectedAt": stamp})
 
     scanned = set()
     for comp in cfg["companies"]:
@@ -672,8 +695,11 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep, clock=time.
                 for p in list(runs):
                     if p not in over:
                         del runs[p]
+                # 직전까지 '가동중지'였거나 멈춤으로 판단하던 배출구가 다시 값을 보내며 넘은 것: 가동 개시 직후 값일 수 있다
+                # (11-03 13:47 금호석유화학 여수제1에너지 4번: 10:30 '가동중지' → 12:30 먼지 47.99/20·질소산화물 88.24/59.5)
+                restarting = before in STOP_STATUS or bool(st.get("stoppedSince"))
                 for p, (m, lim) in over.items():
-                    ep = runs.get(p) or {"start": mdt, "count": 0, "first": [m, lim]}
+                    ep = runs.get(p) or {"start": mdt, "count": 0, "first": [m, lim], **({"restart": True} if restarting else {})}
                     ep["count"] += 1
                     runs[p] = ep
                     s.setdefault("exceedLog", [])
@@ -687,9 +713,12 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep, clock=time.
                     # (10-31 운영: 고려아연 온산제련소 77번 황산화물 141.58/140, 기준의 1.01배 한 번이 B로 떴다).
                     small = max(m / lim, ep["first"][0] / ep["first"][1]) < MARGINAL
                     note = f" — 기준을 {MARGINAL - 1:.0%} 안쪽으로 넘은 값이라 한 단계 낮춤" if small else ""
+                    # 재가동 직후 처음 넘은 값은 한 단계 낮춘다(B→C). 다음 실행에도 넘으면(지속) 그대로 A — 가동 개시 값만으로 설명되지 않는다.
+                    if ep.get("restart"):
+                        note += RESTART_NOTE
                     if ep["count"] == 1:
-                        emit(f"stk:exceed:{sid}:{code}:{p}:{ep['start']}", "배출허용기준 초과(측정값)", "C" if small else "B", comp["company"], name,
-                             what + note + tail)
+                        emit(f"stk:exceed:{sid}:{code}:{p}:{ep['start']}", "배출허용기준 초과(측정값)", "C" if small or ep.get("restart") else "B",
+                             comp["company"], name, what + note + tail)
                     elif ep["count"] == 2:
                         emit(f"stk:exceed2:{sid}:{code}:{p}:{ep['start']}", "배출허용기준 초과 지속", "B" if small else "A", comp["company"], name,
                              f"{what} — {ep['start']} 측정부터 이 감시의 실행 2번 연속 초과(처음 {ep['first'][0]:g}){note}" + tail)
@@ -871,6 +900,7 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep, clock=time.
                       "평일 교대 공장(완성차·타이어·전선·변압기·중공업)은 주말·공휴일·밤(0~7시) 관측을 멈춤 판단·평소 값에서 빼고, 그 시간의 목록 빠짐도 세지 않는다. 제철·제련·석유화학 같은 연속 가동 사업장은 주말 멈춤도 그대로 본다.",
                       f"새 배출구 번호·새 사업장은 쉬던 설비가 다시 측정돼도 생긴다. 그 사업장을 {NEW_A_DAYS}일 넘게 지켜본 뒤 처음 보인 것만 A, {NEW_B_DAYS}~{NEW_A_DAYS}일 B, 그 전은 C.",
                       "배출허용기준 초과는 같은 줄에 실린 그 배출구의 물질별 기준과 실시간 측정값을 비교한 것이다. 처음 넘으면 B, 다음 실행에도 넘으면 A(기준을 5% 안쪽으로 넘은 값은 한 단계 낮춰 C·B). 측정기 점검·교정 값일 수 있고 초과 판정·처분은 환경공단·지자체 확인.",
+                      "직전까지 '가동중지'·멈춤이던 배출구가 다시 값을 보내며 처음 넘은 값은 가동 개시 직후 값일 수 있어 한 단계 낮춘다(B→C). 다음 실행에도 넘으면 지속 A 그대로.",
                       "조회 실패는 0이 아니라 미확인."],
             "confirmedScoops": 0}
 
