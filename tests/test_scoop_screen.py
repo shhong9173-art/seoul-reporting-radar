@@ -378,6 +378,22 @@ class Screen(unittest.TestCase):
             rows, _ = s.check_corrections([guide], now=now, get=news, sleep=lambda x: None)
         g = rows[0]["correctionCheck"]
         self.assertEqual((g["word"], g["verdict"], [e["url"] for e in g["evidence"]]), ("하향", "관련 보도 있음", ["https://n/g", "https://n/hk"]))
+        # 사업 낱말의 다른 표기도 필수 낱말로 맞는다(11-03 운영: 영풍 생산중단 정정 '조업정지처분취소 소송 1심 판결' —
+        # 「영풍, 석포제련소 10일 조업정지 취소소송 1심 승소」가 '생산 중단 없음'으로 약한 근거였다)
+        yp = {"id": "clue:yp", "kind": "단서", "company": "영풍", "title": "영풍 [기재정정]생산중단", "published": "2026-11-02",
+              "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261102800394", "terms": ["생산 중단"],
+              "alts": {"생산 중단": ["생산 중단", "가동 중단", "생산중단", "조업정지", "조업 정지", "가동중단"]}, "verdict": "관련 보도 있음",
+              "filing": {"type": "생산중단", "correction": {"reason": "조업정지처분취소 소송 1심 판결에 따른 정정", "material": ["사유에 해지·취소"]}}}
+
+        def yp_news(url, params=None, headers=None, timeout=None):
+            if "naverapihub" in url:
+                return R(200, {"items": [{"title": "영풍, 석포제련소 10일 조업정지 취소소송 1심 승소 [공시pick]", "description": "",
+                                          "originallink": "https://n/yp", "pubDate": "Mon, 02 Nov 2026 17:00:00 +0900"}]})
+            return R(200, content=b"<rss><channel></channel></rss>")
+        with patch.dict(os.environ, {"NAVER_CLIENT_ID": "i", "NAVER_CLIENT_SECRET": "k"}):
+            rows, _ = s.check_corrections([yp], now=dt.datetime(2026, 11, 3, 15, 10, tzinfo=KST), get=yp_news, sleep=lambda x: None)
+        y = rows[0]["correctionCheck"]
+        self.assertEqual((y["word"], y["verdict"], y["evidence"][0]["url"]), ("해지", "관련 보도 있음", "https://n/yp"))
         # 낱말 고르기: 해지 > 금액 > 기간, 취득완료로 당겨지면 '완료'
         self.assertEqual(s.change_word({"material": ["계약금액 -40%", "사유에 해지·취소"]}), "해지")
         self.assertEqual(s.change_word({"material": ["예상투자금액 -10%"]}), "감액")

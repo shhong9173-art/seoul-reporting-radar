@@ -762,7 +762,9 @@ def judge(c, channels, *, now):
                 t_hits = [t for t in words if any(w in title_e for w in alts.get(t, [t]))]
                 x_hits = [t for t in words if any(w in text_e for w in alts.get(t, [t]))]
                 must = [m for m in c.get("must") or [] if m]
-                if company_in_title(c["company"], title, text) and (t_hits or len(x_hits) >= 2) and must and not any(m in text for m in must):
+                # 필수 낱말도 그 낱말의 다른 표기로 맞춘다(정정 대조의 사업 낱말 '생산 중단' ↔ 기사 '조업정지' — 11-03 영풍 1심 승소 기사)
+                if company_in_title(c["company"], title, text) and (t_hits or len(x_hits) >= 2) and must \
+                        and not any(any(w in text for w in alts.get(m, [m])) for m in must):
                     # 사업장이 여럿인 회사: 그 사업장 지명이 없는 기사는 다른 사업장 이야기일 수 있다(10-31 포스코 광양 ↔ 포항 기사).
                     # 해외 파트너 공시: 공시 회사 이름(퍼스트솔라 등)이 없는 기사는 다른 건이다(10-31 한화솔루션 특허 기사).
                     why, rank = f"제목에 회사·낱말({', '.join((t_hits or x_hits)[:3])})이 있으나 {'·'.join(must)} 없음 — 다른 사업장·다른 건 기사일 수 있음", 0
@@ -960,8 +962,9 @@ def correction_check_of(c):
     if not word or not subject or not since:
         return None
     qs = [f"{c['company']} {' '.join(subject)}", f"{c['company']} {subject[-1]} {word}"]
+    own = c.get("alts") or {}
     return {"id": c["id"], "company": c["company"], "title": c.get("title", ""), "kind": c.get("kind"), "terms": [word],
-            "alts": {word: CHANGE_WORDS[word]}, "strict": True, "must": subject, "generic": [], "names": [], "numbers": [],
+            "alts": {word: CHANGE_WORDS[word], **{t: own[t] for t in subject if own.get(t)}}, "strict": True, "must": subject, "generic": [], "names": [], "numbers": [],
             "unit": "", "since": since.isoformat(), "queries": qs}
 
 
@@ -989,7 +992,7 @@ def check_corrections(rows, *, now, get=None, sleep=time.sleep, limit=MAX_CORREC
         verdict, evidence = judge(cc, channels, now=now)
         # 같은 등급 안에서는 제목에 사업 낱말까지 있는 기사를 앞에(요약에만 있는 기사는 다른 각도일 수 있다)
         evidence.sort(key=lambda e: (bool(e.get("before")) or "동일 사건 미확정" not in str(e.get("why") or ""),
-                                     not any(m in str(e.get("title") or "") for m in cc["must"])))
+                                     not any(any(w in str(e.get("title") or "") for w in cc["alts"].get(m, [m])) for m in cc["must"])))
         r["correctionCheck"] = {"word": cc["terms"][0], "subject": cc["must"], "since": cc["since"], "queries": cc["queries"],
                                 "verdict": verdict, "evidence": evidence[:3],
                                 "channels": {k: v.get("status") for k, v in channels.items()}}
