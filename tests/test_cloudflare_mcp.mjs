@@ -1403,8 +1403,9 @@ test('Cloudflare cron asks GitHub to run each watch at its KST weekday slot and 
   // the reporter adds the secret after the morning slots: the line says so before the next slot comes round
   const later = await call('radar_today', {}, { ...none, env: { ...none.env, GITHUB_DISPATCH_TOKEN: 'ghp_test' } });
   assert.match(later.text, /예약 요청\(Cloudflare\): 오늘 앞선 칸은 토큰 없이 지나감 · 지금은 토큰 보임 — 다음 칸\(10-26 09:20 kr-stacks\.yml\)부터 요청/);
-  assert.equal(nextSlot(new Date('2026-10-30T10:00:00Z')), '10-30 20:40 dart-beat-monitor.yml');  // Fri 19:00 KST → 20:40 DART 재시도 칸(매일)
-  assert.equal(nextSlot(new Date('2026-10-30T12:30:00Z')), '10-31 00:20 kr-stacks.yml');  // Fri 21:30 KST → Sat 00:20
+  assert.equal(nextSlot(new Date('2026-10-30T10:00:00Z')), '10-30 19:10 india-filings.yml');  // Fri 19:00 KST → 19:10 인도 공시 칸(평일)
+  assert.equal(nextSlot(new Date('2026-10-30T13:00:00Z')), '10-30 22:10 india-filings.yml');  // Fri 22:00 KST → 22:10 인도 공시 마지막 칸
+  assert.equal(nextSlot(new Date('2026-10-30T13:15:00Z')), '10-31 00:20 kr-stacks.yml');  // Fri 22:15 KST → Sat 00:20(인도 공시 22:10 칸 뒤)
   assert.equal(nextSlot(new Date('2026-11-01T09:30:00Z')), '11-01 20:40 dart-beat-monitor.yml');  // Sun 18:30 KST → 20:40 DART 재시도 칸
   const fresh = await call('radar_today', {}, PRIVATE());
   assert.match(fresh.text, /예약 요청\(Cloudflare\): 기록 없음 · 지금도 워커에서 GITHUB_DISPATCH_TOKEN이 보이지 않음/);
@@ -1593,7 +1594,7 @@ test('kr_signals shows FTC decisions by role, KEPCO bids and commodity prices, a
   const minor = await call('radar_today', { include_minor: true }, opts);
   assert.match(minor.text, /「\(연간단가\)고효율주상변압기,50KVA\(광유\)-2,338대-0\d\(일반\)」 외 같은 공고 2건\(합계 약 149억원\) · 추정가격 약 50억원/);
   assert.equal((minor.text.match(/고효율주상변압기/g) ?? []).length, 1);  // three lots, one line
-  assert.match(r.text, /기자 전용 감시 26개/);
+  assert.match(r.text, /기자 전용 감시 27개/);
   assert.deepEqual(dueAt(new Date('2026-10-26T23:30:00Z')), ['kr-signals.yml', 'kipris-patent-hunt.yml']);  // Tue 08:30 KST
   assert.deepEqual(dueAt(new Date('2026-10-27T06:20:00Z')), ['kr-signals.yml', 'kr-stacks.yml']);  // Tue 15:20 KST
 });
@@ -1891,7 +1892,7 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   assert.doesNotMatch((await call('trademarks', { name: 'aero' }, opts)).text, /NUTRIMACY/);
   assert.doesNotMatch((await call('trademarks', { class: '35' }, opts)).text, /NUTRIMACY/);
   const r = await call('radar_today', {}, opts);
-  assert.match(r.text, /기자 전용 감시 26개/);
+  assert.match(r.text, /기자 전용 감시 27개/);
   assert.match(r.text, /- 상표 출원: 대기 1곳\(제공기관 응답 22 뒤 72시간 대기\) — 해당 부분 0건은 미확인/);
   assert.doesNotMatch(r.text, /상표 출원: [^\n]*시간 전 결과/);
   const b = r.text.split('[B · ')[1].split('[C · ')[0];
@@ -1902,7 +1903,7 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   assert.match(minor.text, /상표 출원 「NUTRIMACY」[^\n]* — 같은 이름 상품류 추가/);
   const list = await rpc('tools/list', {}, { path: `/mcp/${TOKEN}`, env });
   assert.ok(list.body.result.tools.some((x) => x.name === 'trademarks'));
-  assert.match(list.body.result.tools.find((x) => x.name === 'radar_today').description, /감시 26개\([^)]*상표 출원, 국회 법안, 미국 리콜, 미국 EPA 인증, 국내 연비 신고, 해외 발주처 낙찰, 협력사 회생·파산, 전기위·원안위, 공장 부지 건축허가, 해외 법인 등기, 지자체 고시·공고, 사업장 인력, 굴뚝 측정, 노동위 회의, 출입처 외신\)/);
+  assert.match(list.body.result.tools.find((x) => x.name === 'radar_today').description, /감시 27개\([^)]*상표 출원, 국회 법안, 미국 리콜, 미국 EPA 인증, 국내 연비 신고, 해외 발주처 낙찰, 협력사 회생·파산, 전기위·원안위, 공장 부지 건축허가, 해외 법인 등기, 지자체 고시·공고, 사업장 인력, 굴뚝 측정, 노동위 회의, 인도 법인 공시, 출입처 외신\)/);
   assert.ok(!(await rpc('tools/list', {}, { env })).body.result.tools.some((x) => x.name === 'trademarks'));  // private only
 });
 
@@ -2603,6 +2604,38 @@ test('노동위 회의(kr-labor): radar_today에 조정·부당노동행위 A·�
   assert.match(k.text, /- 출입처 사건 · 최근 30일 2건\n  A · 2026-10-26 14:00 · 포스코 · 경북지방노동위원회 1차조정회의 · 사건 2026조정88 「주식회사 포스코 노동쟁의 조정신청사건」\n     원문: https:\/\/www\.nlrc\.go\.kr\/nlrc\/gyeongbuk\/meetingSche\/detail\.do\?mtgId=2026조정88/);
   assert.match((await call('kr_official', {}, opts)).text, /\[노동위 회의\(조정·심판\)/);   // section 없이도 붙는다
   assert.doesNotMatch((await call('kr_official', { section: 'labor', company: '포스코' }, opts)).text, /현대자동차 주식회사/);
+});
+
+test('인도 법인 공시(india-filings): radar_today에 설비 A·이사회 B, 대조 낱말에 인도 필수, partner_filings 구역(NSE)', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const now = new Date(NOW.getTime() - 3600000).toISOString();
+  const f = (id, tier, subject, desc, extra = {}) => ({ id, company: '현대차(인도 법인)', issuer: 'Hyundai Motor India Limited', subject, desc, tier,
+    published: now, url: `https://nsearchives.nseindia.com/corporate/${id.slice(4)}`, firstSeen: now, ...extra });
+  const filings = [f('nse:HMILNSE_cap.pdf', 'A', 'Updates', 'Hyundai Motor India Limited has informed the Exchange regarding capacity expansion at Talegaon plant.',
+      { excerpt: 'Talegaon plant capacity will be increased' }),
+    f('nse:HMILNSE_board.pdf', 'B', 'Outcome of Board Meeting', 'Hyundai Motor India Limited has informed the Exchange regarding Board meeting held on November 04, 2026.'),
+    f('nse:HMILNSE_tr.pdf', 'C', 'Analysts/Institutional Investor Meet/Con. Call Updates', 'Hyundai Motor India Limited has informed the Exchange about Transcript', { baseline: true })];
+  const ev = (x) => ({ id: x.id, tier: x.tier, kind: '인도 법인 공시', company: x.company, detectedAt: now, url: x.url, subject: x.subject,
+    text: `Hyundai Motor India Limited NSE 공시 · ${x.subject} · 「${x.desc}」 · 거래소 공시 원문(PDF) 확인 — 현대차 자회사(별도 상장사)` });
+  const doc = { schema: 'india_filings/v1', generatedAt: now, status: 'complete', span: { oldest: now, newest: now },
+    checks: [{ source: 'NSE 공시 RSS', status: 'ok', returned: 1405, note: 'RSS가 덮는 시간 2026-11-03T03:30 ~ 2026-11-03T21:03' }],
+    filings, events: [ev(filings[0]), ev(filings[1])], rules: ['NSE 공시 RSS에서 현대차 인도법인 공시만.'] };
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/india-filings', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
+  const r = await call('radar_today', {}, opts);
+  assert.match(r.text.split('[A · ')[1].split('[B · ')[0], /인도 법인 공시\(현대차 인도\) · 현대차\(인도 법인\)\n   Hyundai Motor India Limited NSE 공시 · Updates/);
+  assert.match(r.text.split('[B · ')[1], /인도 법인 공시\(현대차 인도\) · 현대차\(인도 법인\)\n   Hyundai Motor India Limited NSE 공시 · Outcome of Board Meeting/);
+  const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
+  const cap = items.items.find((x) => x.id === 'nse:HMILNSE_cap.pdf');
+  assert.deepEqual([cap.check.who, cap.check.terms, cap.check.must], ['현대차', ['인도', '공장'], ['인도']]);
+  assert.deepEqual(items.items.find((x) => x.id === 'nse:HMILNSE_board.pdf').check.terms, ['인도', '이사회']);
+  const nse = await call('partner_filings', { source: 'NSE' }, opts);
+  assert.match(nse.text, /\[인도 법인 공시 · 현대차 인도법인\(NSE\) · 확인 [^\]]+\] 2건 · 원천 NSE 공시 RSS ok · RSS가 덮는 시간 2026-11-03T03:30 ~ 2026-11-03T21:03/);
+  assert.match(nse.text, /- \[신규\] A · [^\n]+ KST · Hyundai Motor India Limited · Updates\n   설명: 「Hyundai Motor India Limited has informed the Exchange regarding capacity expansion at Talegaon plant\.」\n   첨부 첫머리: 「Talegaon plant capacity will be increased」/);
+  assert.match(nse.text, /C 1건 숨김 — include_routine=true/);
+  assert.doesNotMatch(nse.text, /Transcript/);
+  assert.match((await call('partner_filings', { source: 'NSE', include_routine: true }, opts)).text, /\[기준선\] C · [^\n]+ · Analysts\/Institutional Investor Meet/);
+  assert.match((await call('partner_filings', {}, opts)).text, /\[인도 법인 공시 · 현대차 인도법인\(NSE\)/);   // source 비우면 함께
 });
 
 test('scoop_reverse shows automatic prior-capture candidates by source with lead time, separate from human Y/P/N', async () => {

@@ -199,6 +199,15 @@
 - 원천별로 먼저 잡은 건수와 몇 시간 앞섰는지(중간값)를 보여 준다 — 어떤 원천을 늘릴지 정하는 근거.
 - 사람 판정 Y/P/N(`exclusive_reverse_trace.py`, 기사 전문·원자료 비교)과 별개이며 그 수를 바꾸지 않는다. 지금 저장된 결과만 기억이라 보관 기간이 지난 항목은 '없음'으로 나올 수 있다.
 
+## 인도 법인 공시(partner_filings 안, 기자 전용, 감시 27번째)
+
+- 수집: `scripts/india_filings_watch.py`, `.github/workflows/india-filings.yml`(평일 13:10·16:10·19:10·22:10 KST Cloudflare 요청, GitHub 예약 :15는 대비용 — 직전 결과가 2시간 안이면 건너뜀). 결과는 기자 전용 저장소 `india-filings`로만, 공개 로그는 건수만.
+- 원천(11-03 탐침 141~143): NSE 공시 RSS `nsearchives.nseindia.com/content/RSS/Online_announcements.xml`(전 상장사 최신 약 1,400건 — 11-03 21시 기준 03:30~21:03, 약 17시간 폭). `www.nseindia.com` robots.txt는 전체 허용, nsearchives는 robots.txt 없음. 정직한 이름(UA)으로 열린다. BSE API는 Access Denied(403)라 쓰지 않는다(머리글을 바꿔 우회하지 않음). 첫 요청이 한 번 실패한 일이 있어 10초 뒤 한 번만 다시 묻는다.
+- 대상: 현대차 인도법인(Hyundai Motor India Limited) — 현대차 자회사(별도 상장사)라 레이더에는 '현대차(인도 법인)', 기사에는 인도법인으로 구분해 쓴다.
+- 등급(공시 종류·설명 낱말): 인수·합병·설비·공장·생산능력·로열티·특수관계 거래 A, 이사회 결과·보도자료·임원 변경·신용등급 등 B(첨부 PDF 첫머리 600자, 한 실행 4건까지·3초 간격), 녹취록·거래 제한 기간·신문 공고·애널리스트 미팅 안내 C(화면에서 접음). 첫 실행은 기준선. 직전 실행의 가장 새 공시보다 이번 RSS의 가장 오래된 공시가 늦으면 '일부'(밀려난 공시가 있을 수 있음).
+- 보도 대조 낱말: 회사(현대차) + '인도'(필수) + 종류 낱말(공장·인수·이사회·선임·신용등급·로열티·인도법인).
+- 화면: `partner_filings`(source 비우면 함께, `source=NSE`면 이것만) '[인도 법인 공시 · 현대차 인도법인(NSE)]'.
+
 ## 노동위 회의(조정·심판)(kr_official section=labor, 기자 전용, 감시 26번째)
 
 - 수집: `scripts/kr_labor_watch.py`, `.github/workflows/kr-labor.yml`(평일 08:20 KST Cloudflare 요청, GitHub 예약 08:25는 대비용 — 늦게 오면 건너뜀). 결과는 기자 전용 저장소 `kr-labor`로만, 공개 로그는 건수만(사건명·회사·위원 이름 없음). 위원 이름은 저장하지 않는다.
