@@ -114,12 +114,21 @@ def parse_time(v):
         return None
 
 
-def mem(source, iid, companies, text, seen, url=None):
+def mem(source, iid, companies, text, seen, url=None, origin=None):
     when = parse_time(seen)
     names = sorted({canon(c) for c in companies if isinstance(c, str) and c.strip()})
     if not when or not names:
         return None
-    return {"source": source, "id": str(iid), "companies": names, "text": re.sub(r"\s+", " ", str(text or ""))[:500], "seen": when, "url": url}
+    return {"source": source, "id": str(iid), "companies": names, "text": re.sub(r"\s+", " ", str(text or ""))[:500], "seen": when, "url": url,
+            **({"origin": str(origin)[:40]} if origin else {})}
+
+
+def label_of(m):
+    """원천 이름. 공개 원자료 단서는 단서마다 실제 원천(DART·미 연방관보·나라장터 등)을 붙인다 — 11-03 역추적: 미국 관보 상계관세 문서가
+    '공개 원자료 단서(DART 등)'로 보였다."""
+    if m.get("source") == "clues" and m.get("origin"):
+        return f"공개 원자료 단서({m['origin']})"
+    return LABEL.get(m["source"], m["source"])
 
 
 def split_names(v):
@@ -321,7 +330,8 @@ def _screen(d, add):
 
 def _clues(d, add):
     for x in d.get("items") or []:
-        add(mem("clues", x.get("id"), x.get("companies") or [], x.get("title"), x.get("firstSeen") or x.get("published"), x.get("url")))
+        add(mem("clues", x.get("id"), x.get("companies") or [], x.get("title"), x.get("firstSeen") or x.get("published"), x.get("url"),
+                origin=x.get("source")))
 
 
 ADAPTERS = [("us-litigation", _litigation), ("partner-filings", _partners), ("trade-remedy", _trade), ("kr-official", _official), ("kr-official", _eia),
@@ -366,7 +376,7 @@ def match(article, items):
     else:
         verdict = "없음"
     if best:
-        best = {"source": best["source"], "label": LABEL.get(best["source"], best["source"]), "id": best["id"], "text": best["text"][:240],
+        best = {"source": best["source"], "label": label_of(best), "id": best["id"], "text": best["text"][:240],
                 "seen": best["seen"].isoformat(timespec="minutes"), "url": best.get("url"), "why": best["why"][:6],
                 "leadHours": round((pub - best["seen"]).total_seconds() / 3600, 1)}
     return verdict, best, len(same)
