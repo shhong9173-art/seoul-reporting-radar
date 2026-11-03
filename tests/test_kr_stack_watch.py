@@ -373,6 +373,35 @@ class StackTest(unittest.TestCase):
         self.assertEqual([e["tier"] for e in back], ["C"])
         self.assertIn("이후 다시 나타남", back[0]["text"])
 
+    def test_stack_or_site_gone_for_three_days_is_B_once_and_reappearance_settles_it(self):
+        # 멈춘 배출구는 '가동중지'로 목록에 남는다 — 사흘 넘게 목록에 없으면 측정 대상에서 빠진 것일 수 있어 B 한 번
+        doc = series(8)
+        t = T0 + dt.timedelta(hours=21)
+        for k in range(1, 8):   # 12시간 간격 7번(84시간): 당진 1번 배출구·영풍석포제련소가 목록에 없음
+            t = T0 + dt.timedelta(hours=21 + 12 * k)
+            rows = [x for x in world(t) if not (x["fact_manage_nm"] == "현대제철㈜" and x["stack_code"] == "1") and "영풍석포" not in x["fact_manage_nm"]]
+            doc = w.run(CFG_SMALL, now=t + dt.timedelta(minutes=20), previous=doc, key="k", get=Api(rows), sleep=lambda s: None)
+        lg = [e for e in doc["events"] if e["kind"] == "배출구 오래 빠짐"]
+        self.assertEqual([(e["tier"], e["site"]) for e in lg], [("B", "현대제철㈜")])
+        self.assertIn("현대제철㈜ 배출구 1번이 사흘 넘게 굴뚝 자동측정 목록에 없음 — 마지막 측정 2026-10-31 09:00(평소 30.0), 그 뒤", lg[0]["text"])
+        sg = [e for e in doc["events"] if e["kind"] == "사업장 오래 빠짐(굴뚝 측정)"]
+        self.assertEqual([(e["tier"], e["site"]) for e in sg], [("B", "㈜영풍석포제련소")])
+        # 다시 나타나면 C로 내리고 '다시 나타남'
+        t += dt.timedelta(hours=12)
+        doc = w.run(CFG_SMALL, now=t + dt.timedelta(minutes=20), previous=doc, key="k", get=Api(world(t)), sleep=lambda s: None)
+        lg = next(e for e in doc["events"] if e["kind"] == "배출구 오래 빠짐")
+        sg = next(e for e in doc["events"] if e["kind"] == "사업장 오래 빠짐(굴뚝 측정)")
+        self.assertEqual((lg["tier"], sg["tier"]), ("C", "C"))
+        self.assertIn("이후 다시 나타남", lg["text"])
+        self.assertIn("이후 다시 나타남", sg["text"])
+
+    def test_many_long_gone_stacks_of_one_site_in_one_run_keep_one_B(self):
+        es = [{"id": f"stk:longgone:s:{c}:2026-11-01", "kind": "배출구 오래 빠짐", "tier": "B", "company": "롯데케미칼", "site": "x", "detectedAt": "t", "text": "x"}
+              for c in ("129", "3", "4")]
+        w.collapse_long_gone(es)
+        self.assertEqual(sorted(e["tier"] for e in es), ["B", "C", "C"])
+        self.assertIn("배출구 3개가 함께 사흘 넘게 빠짐", next(e for e in es if e["tier"] == "C")["text"])
+
     def test_list_disappearance_in_rest_time_is_C_until_weekday_confirms(self):
         # 11-01(일) 운영: 09:13 동국제강 포항·KG스틸 당진·세아제강 창원 '사업장 목록에서 빠짐', 04:22 현대제철 포항1공장 배출구 3개 '빠짐'이 B
         # (연속 가동 회사라도) — 이 API는 값이 없는 사업장·배출구를 싣지 않는다. 쉬는 시간에 빠지면 C, 평일 일하는 시간에도 2번 빠지면 B
