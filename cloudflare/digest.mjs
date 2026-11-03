@@ -35,6 +35,8 @@ export const WATCHES = [
   { feed: 'us-recalls', label: '미국 리콜(NHTSA 전체)', tool: 'us_recalls', schedule: '매일 17:10' },
   { feed: 'us-epa', label: '미국 EPA 인증', tool: 'us_epa', schedule: '매일 06:20', staleHours: 60 },
   { feed: 'us-osha', label: '미국 OSHA 점검·위반', tool: 'us_litigation', schedule: '매일 06:40', staleHours: 60 },
+  // 미국 주 환경청 허가·공고(us_state_env_watch.py): 조지아 EPD 주간 공고 PDF·앨라배마 ADEM·루이지애나 LDEQ — 출입처 미국 공장의 대기 허가 신청·제재
+  { feed: 'us-state-env', label: '미국 주 환경 허가·공고', tool: 'us_litigation', schedule: '매일 07:05', staleHours: 60 },
   { feed: 'kr-fuel', label: '국내 연비 신고', tool: 'kr_fuel', schedule: '매일 06:10', staleHours: 60 },
   { feed: 'overseas-awards', label: '해외 발주처 낙찰', tool: 'partner_filings', schedule: '평일 06:50·17:30' },
   { feed: 'kr-insolvency', label: '협력사 회생·파산', tool: 'kr_official', schedule: '평일 07:20·17:20' },
@@ -677,6 +679,13 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
   }
 
   // US EPA certification file: a model new to the company is A, an EV range change B, model-year carryover C.
+  // 미국 주 환경청 허가·공고: 신설·증설 낱말이 든 허가 신청 A, 나머지 허가 공고·제재 공고 B(첫 실행 기준선은 이벤트 없음)
+  for (const e of docs['us-state-env']?.events ?? []) {
+    if (!recent(e.detectedAt)) continue;
+    push(['A', 'B'].includes(e.tier) ? e.tier : 'C', W['us-state-env'], { kind: e.kind, id: e.id, date: e.detectedAt, company: e.company,
+      fact: e.text, url: e.url, check: hint(e.company, [e.state, /제재/.test(e.kind ?? '') ? '과징금' : '허가'], [e.state], [e.state]) });
+  }
+
   for (const v of docs['us-epa']?.vehicles ?? []) {
     if (!recent(v.firstSeen) && !(all || String(v.created ?? '') >= cutDay)) continue;  // first seen in the window, or registered in it
     const tier = v.kind === '새 모델' ? 'A' : v.kind === '주행거리 변화' ? 'B' : 'C';

@@ -608,7 +608,7 @@ export async function usLitigation(ctx, args) {
   // 소송 결과가 없거나 깨져도 OSHA 구역은 따로 보여 준다(다른 저장소)
   if (!doc || doc.broken) {
     const head = doc ? '저장된 소송 결과 형식 오류 — 미확인.' : missing('미국 소송·ITC', '평일 07:50').content[0].text;
-    return textResult([head, ...oshaSection(await readFeed(ctx, 'us-osha'), q, limit, onlyNew, routine, ctx)].join('\n'), true);
+    return textResult([head, ...oshaSection(await readFeed(ctx, 'us-osha'), q, limit, onlyNew, routine, ctx), ...stateEnvSection(await readFeed(ctx, 'us-state-env'), q, limit, onlyNew, ctx)].join('\n'), true);
   }
   const checks = doc.checks ?? [];
   const failed = checks.filter((c) => c.status !== 'ok');
@@ -647,6 +647,7 @@ export async function usLitigation(ctx, args) {
     out.push(`   원문: ${x.url}`);
   }
   out.push(...oshaSection(await readFeed(ctx, 'us-osha'), q, limit, onlyNew, routine, ctx));
+  out.push(...stateEnvSection(await readFeed(ctx, 'us-state-env'), q, limit, onlyNew, ctx));
   out.push('\n다음: 판결은 PDF(원문)에서 결론·세율·당사자 주장 확인 → news_check로 보도 대조. 사건은 소장(Complaint) 열람 → 청구 원인·금액·상대방 확인 → 회사 확인. ITC 고시는 source_document(federalregister.gov)로 연다. OSHA는 원문(osha.gov 점검 상세)에서 위반 기준·벌금·이의 제기 여부 확인 → 현지 보도·회사 확인.');
   return textResult(out.join('\n'));
 }
@@ -680,6 +681,28 @@ export function oshaSection(doc, q = '', limit = 20, onlyNew = false, routine = 
   if (!rows.length) out.push('조건에 맞는 점검 없음(첫 실행은 기준선, 조회 실패면 미확인).');
   if ((doc.dropped ?? []).length) out.push(`(이름 검색에 걸렸지만 출입처 규칙 밖이라 뺀 사업장 ${doc.dropped.length}곳 — 딜러·이름 겹침 등. 빠진 출입처가 있는지 확인: ${doc.dropped.slice(0, routine ? 60 : 12).map(([n, k]) => `${n}(${k})`).join(', ')}${!routine && doc.dropped.length > 12 ? ' …' : ''})`);
   out.push('   검증 상태: OSHA 노동부 API(자동). 점검≠위반 확정, 벌금은 최초 부과액(이의 제기·합의로 바뀜). 하도급 점검은 출입처 점검과 같은 주소로 열린 것만 — 주소 표기가 다르면 빠진다. 사망자·경위는 원문·현지 보도로');
+  return out;
+}
+
+// 미국 주 환경청 허가·공고(us_state_env_watch.py): 조지아 EPD 주간 공고 PDF·앨라배마 ADEM·루이지애나 LDEQ에서 출입처 미국 공장 이름이 나온 것.
+export function stateEnvSection(doc, q = '', limit = 20, onlyNew = false, ctx = null) {
+  if (!doc) return ['\n[미국 주 환경 허가·공고] 아직 수집 전 — 미확인'];
+  if (doc.broken) return ['\n[미국 주 환경 허가·공고] 저장 결과 형식 오류 — 미확인'];
+  const checks = (doc.checks ?? []).map((c) => `${c.source} ${c.status}${c.error ? `(${c.error})` : ''}`).join(' · ');
+  const newIds = new Set((doc.events ?? []).map((e) => e.id));
+  const rows = (doc.notices ?? []).filter((x) => (!onlyNew || newIds.has(x.id)) && matches(q, x.company, x.facility, x.state, x.noticeType, x.reason));
+  const out = [`\n[미국 주 환경 허가·공고 · 출입처 미국 공장 · 확인 ${String(doc.generatedAt).slice(0, 16)}${ctx ? ageNote(ctx, doc.generatedAt, 60, true) : ''}] ${rows.length}건 · 원천 ${checks}`];
+  for (const x of rows.slice(0, limit)) {
+    const where = [x.county ? `${x.county} County` : '', x.address ?? ''].filter(Boolean).join(' · ');
+    out.push(`- ${newIds.has(x.id) ? '[신규] ' : x.baseline ? '[기준선] ' : ''}${x.state} · ${x.company} · ${x.facility}${where ? `(${where})` : ''} · ${x.noticeType ?? '공고'}`
+      + `${x.appNo ? ` · 신청 ${x.appNo}` : ''}${x.week ? ` · 공고 주 ${x.week}` : x.posted ? ` · 게시 ${x.posted}` : ''}${x.deadline ? ` · 의견 마감 ${x.deadline}` : ''}`);
+    if (x.operation) out.push(`   작업: ${x.operation}`);
+    if (x.reason) out.push(`   ${x.source === 'ga' ? '신청 이유' : '공고 본문 앞부분'}: 「${String(x.reason).slice(0, 300)}」`);
+    out.push(`   원문: ${x.url}${x.code ? ` (${x.code})` : ''}`);
+  }
+  if (rows.length > limit) out.push(`… 남은 ${rows.length - limit}건`);
+  if (!rows.length) out.push('조건에 맞는 공고 없음(첫 실행은 기준선, 조회 실패면 미확인).');
+  out.push('   검증 상태: 주 정부 공개 공고(자동). 허가 신청·허가안은 착공·투자 확정이 아니다 — 규모·일정은 공고 원문(PDF)과 회사 확인. 계열사(현대트랜시스 등)는 출입처가 아니라 뺀다');
   return out;
 }
 
