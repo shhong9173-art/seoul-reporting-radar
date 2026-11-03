@@ -126,8 +126,15 @@ export function insolvencyLine(e) {
 // (10-31 운영: 케이아이씨·남양테크 파산 선고가 "케이아이씨 회생"으로 대조돼 '미보도 후보').
 export const insolvencyWord = (kind) => (/파산/.test(String(kind ?? '')) ? '파산' : /M&A|매각/.test(String(kind ?? '')) ? '매각' : '회생');
 
-// 출입처 외신 대조 낱말: 나라 이름이 있으면 검색어에 더하고(places — 사건 낱말로는 안 셈) 기사 본문에 있어야 같은 건(must).
-export const gbHint = (who, terms, country) => (country ? hint(who, [...terms, country], [country], [country]) : hint(who, terms));
+// 출입처 외신 대조 낱말: 나라·주 이름이 있으면 검색어 둘째 낱말로 넣고(places — 사건 낱말로는 안 셈) 기사 본문에 있어야 같은 건(must).
+// 둘째에 넣어야 두 번째 질의('회사 사건 지명')가 좁혀진다 — 셋째면 질의에 안 들어간다(scoop_screen.queries는 앞 두 낱말만).
+// since: 외신은 국내 기사보다 늦게 나오는 일이 많아 대조 시작을 게재일 GB_LEAD_DAYS일 전으로 당긴다(대조기의 3일 여유를 더해 10일).
+export const GB_LEAD_DAYS = 7;
+export const gbHint = (who, terms, country, published) => {
+  const h = country ? hint(who, [terms[0], country, ...terms.slice(1)], [country], [country]) : hint(who, terms);
+  const t = Date.parse(published ?? '');
+  return h && Number.isFinite(t) ? { ...h, since: kstDate(t - GB_LEAD_DAYS * 86400000) } : h;
+};
 
 const sinceMonth = (h, month) => (h && /^\d{4}-\d{2}$/.test(String(month ?? '')) ? { ...h, since: `${month}-01` } : h);
 
@@ -638,7 +645,9 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
   // 첫 수집에 잡힌 기존 기사는 자기 게재일이 최근일 때만(fresh). AI 번역·요약 — 원문 확인.
   // 한국어 제목의 나라 이름은 검색을 좁히고 기사 본문에 있어야 같은 건으로 센다(11-02 운영: KHNP '체코 원전 컨소시엄 협상 종료' 외신이
   // "두산에너빌리티 원자로"로 대조돼 뉴스케일 SMR 계약 기사로 '관련 보도 있음'). 美·中·日처럼 제목에서 한 글자로 줄이는 나라는 쓰지 않는다.
-  const GB_COUNTRY = /체코|폴란드|루마니아|불가리아|헝가리|슬로바키아|멕시코|캐나다|브라질|칠레|페루|튀르키예|이집트|카타르|쿠웨이트|오만|모로코|필리핀|태국|말레이시아|베트남|싱가포르|우즈베키스탄|카자흐스탄|네덜란드|스웨덴|노르웨이|핀란드|덴마크|스페인|포르투갈|이탈리아|그리스|아일랜드/;
+  // 미국은 주 이름을 쓴다 — 국내 기사도 '美 앨라배마'처럼 주 이름을 그대로 적는다(11-03 운영: WardsAuto '현대차 앨라배마 4억5천만 달러 투자'가
+  // "현대차 투자"로 대조돼 새만금 기사로 '관련 보도 있음'). '인도량'(차량 인도)은 나라가 아니다.
+  const GB_COUNTRY = /체코|폴란드|루마니아|불가리아|헝가리|슬로바키아|멕시코|캐나다|브라질|칠레|페루|아르헨티나|콜롬비아|튀르키예|이집트|카타르|쿠웨이트|오만|사우디|아랍에미리트|이라크|요르단|모로코|남아공|필리핀|태국|말레이시아|베트남|싱가포르|인도네시아|인도(?!량|분)|대만|몽골|호주|뉴질랜드|우즈베키스탄|카자흐스탄|네덜란드|스웨덴|노르웨이|핀란드|덴마크|스페인|포르투갈|이탈리아|그리스|아일랜드|독일|영국|프랑스|오스트리아|벨기에|스위스|앨라배마|조지아|텍사스|테네시|사우스캐롤라이나|노스캐롤라이나|미시간|오하이오|켄터키|인디애나|애리조나|루이지애나|캘리포니아|일리노이|펜실베이니아|버지니아|뉴저지|네바다|미시시피|오클라호마|캔자스|위스콘신|미네소타|아이오와|유타|콜로라도|온타리오|퀘벡|누에보레온/;
   const gbItems = docs['global-beat']?.items ?? [];
   const gbBase = baselineOf(gbItems);
   for (const x of gbItems) {
@@ -649,7 +658,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
       fact: `외신 ${x.source ?? ''} 「${x.koTitle || x.title}」${x.koSummary ? ` — ${clipAt(x.koSummary, 220)}` : ''} · 원제 "${clipAt(x.title ?? '', 140)}" (AI 번역·요약 — 원문 확인)`
         // AI가 받은 영어(제목·RSS 발췌)에서 같은 값을 못 찾은 숫자 — 지어냈거나 환산했거나 표기가 달라 못 맞춘 것(global_news_pipeline.check_numbers)
         + (Array.isArray(x.numbersNotInSource) && x.numbersNotInSource.length ? ` · ⚠ 원문 발췌에 없는 숫자: ${x.numbersNotInSource.slice(0, 4).join(', ')} — 기사에 쓰기 전 원문 대조` : ''),
-      url: x.url, check: terms.length && companies.length ? gbHint(companies[0], terms, (GB_COUNTRY.exec(String(x.koTitle ?? '')) ?? [])[0]) : undefined });
+      url: x.url, check: terms.length && companies.length ? gbHint(companies[0], terms, (GB_COUNTRY.exec(String(x.koTitle ?? '')) ?? [])[0], x.published) : undefined });
   }
 
   // US OSHA: new inspection (fatality/accident A, complaint/referral B), new citations (willful/repeat or $100k+ A, serious B), fatal accident summary A.

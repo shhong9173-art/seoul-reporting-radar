@@ -2453,7 +2453,9 @@ test('출입처 외신 (global-beat): event words → B with press-check hint, n
     it('gl:old', { published: base, firstSeen: base, koTitle: '포스코, 오래된 기사', beatCompanies: ['포스코'], checkTerms: ['투자'] }),
     // 11-02 운영: 나라 이름이 든 외신 — 대조 낱말에 나라를 더하고 기사에 그 나라가 있어야 같은 건
     it('gl:cz', { title: 'KHNP ends negotiations with construction consortium for Czech units', koTitle: '한국수력원자력, 체코 원전 건설 컨소시엄과 협상 종료' }),
-    it('gl:us', { title: 'Hyundai to invest US$450m in Alabama plant', koTitle: '현대차, 4억 5천만 달러 미국 앨라배마 공장 투자', beatCompanies: ['현대차'], checkTerms: ['공장', '투자'] })] };
+    it('gl:us', { title: 'Hyundai to invest US$450m in Alabama plant', koTitle: '현대차, 4억 5천만 달러 미국 앨라배마 공장 투자', beatCompanies: ['현대차'], checkTerms: ['공장', '투자'] }),
+    it('gl:id', { title: 'Hyundai expands Indonesia plant', koTitle: '현대차, 인도네시아 공장 투자', beatCompanies: ['현대차'], checkTerms: ['투자'] }),
+    it('gl:dl', { title: 'Kia deliveries', koTitle: '기아, 3분기 인도량 늘려 투자', beatCompanies: ['기아'], checkTerms: ['투자'] })] };
   assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/global-beat', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
   const r = await call('radar_today', { include_minor: true }, opts);
   const b = r.text.split('[B · ')[1].split('[C · ')[0];
@@ -2468,8 +2470,14 @@ test('출입처 외신 (global-beat): event words → B with press-check hint, n
   assert.ok(!items.items.find((x) => x.id === 'gl:b'));   // 참고(C)는 보도 대조 안 함
   const cz = items.items.find((x) => x.id === 'gl:cz');
   assert.deepEqual([cz.check.terms, cz.check.places, cz.check.must], [['원자로', '체코'], ['체코'], ['체코']]);
-  const us = items.items.find((x) => x.id === 'gl:us');   // 美로 줄이는 나라는 필수어로 쓰지 않는다
-  assert.deepEqual([us.check.terms, us.check.must], [['공장', '투자'], undefined]);
+  // 외신은 국내 기사보다 늦게 나오는 일이 많아 대조 시작을 게재일 7일 전으로(대조기가 3일을 더 당긴다)
+  assert.equal(cz.check.since, new Date(Date.parse(now) - 7 * 86400000 + 9 * 3600000).toISOString().slice(0, 10));
+  // 美로 줄이는 '미국'은 필수어로 쓰지 않고, 기사에도 그대로 나오는 주 이름(앨라배마)을 둘째 낱말·필수어로(11-03 운영: "현대차 투자"가 새만금 기사를 잡음)
+  const us = items.items.find((x) => x.id === 'gl:us');
+  assert.deepEqual([us.check.terms, us.check.places, us.check.must], [['공장', '앨라배마', '투자'], ['앨라배마'], ['앨라배마']]);
+  // '인도네시아'를 '인도'로 자르지 않고, '인도량'(차량 인도)은 나라로 보지 않는다
+  assert.deepEqual(items.items.find((x) => x.id === 'gl:id').check.must, ['인도네시아']);
+  assert.equal(items.items.find((x) => x.id === 'gl:dl').check.must, undefined);
 });
 
 test('scoop_reverse shows automatic prior-capture candidates by source with lead time, separate from human Y/P/N', async () => {
