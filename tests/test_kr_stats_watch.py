@@ -160,8 +160,8 @@ class KaidaWatch(unittest.TestCase):
         top = {r["brand"]: r for r in brands}
         self.assertEqual((top["BMW"]["rank"], top["BMW"]["prevRank"]), (1, 2))
         texts = [s["text"] for s in sig]
-        self.assertIn("BMW 순위 2위 → 1위(2026-08 → 2026-09)", texts)
-        self.assertIn("Mercedes-Benz 순위 1위 → 2위(2026-08 → 2026-09)", texts)
+        self.assertIn("순위 맞바꿈: BMW 2위 → 1위 · Mercedes-Benz 1위 → 2위(2026-08 → 2026-09)", texts)
+        self.assertNotIn("Mercedes-Benz 순위 1위 → 2위(2026-08 → 2026-09)", texts)   # 맞바꿈은 한 줄(11-03)
         self.assertIn("순위 역전: BYD 3위 · Audi 6위(2026-09) — 직전 달은 Audi 3위 · BYD 7위", texts)
         self.assertTrue(any(t.startswith("Honda 신규등록 24대 · 2022-10 이후 최저(조회 범위 안)") for t in texts), texts)
         self.assertFalse(any(s["brand"] == "Volvo" for s in sig))  # not a beat brand: only context for beat brands
@@ -212,7 +212,7 @@ class RunDoc(unittest.TestCase):
         texts = [e["text"] for e in d3["events"]]
         self.assertTrue(any(t.startswith("생산자물가 열연강대및강판 2026-09 80(2020=100) · 2016-01 이후 최저(조회 범위 안)") for t in texts), texts)
         self.assertTrue(any("전년 같은 달(2025-09, 100) 대비 -20.0%" in t for t in texts), texts)
-        self.assertIn("KAIDA 2026-09 · BMW 순위 2위 → 1위(2026-08 → 2026-09)", texts)
+        self.assertIn("KAIDA 2026-09 · 순위 맞바꿈: BMW 2위 → 1위 · Mercedes-Benz 1위 → 2위(2026-08 → 2026-09)", texts)
         d4 = run(cfg, now=NOW + dt.timedelta(days=3), previous=d3, http=http(self.route(ecos2, kosis_vals, table2)), ecos_key="e", kosis_key="k")
         self.assertEqual(len(d4["events"]), len(d3["events"]))  # no repeats
 
@@ -281,6 +281,21 @@ class Census(unittest.TestCase):
         nxt = run(cfg, now=NOW + dt.timedelta(days=30), previous=added, http=http(route(vals + [("2026-09", 500_000_000)])), census_key="c")
         texts = [e["text"] for e in nxt["events"] if e.get("series") == cfg["census"][0]["id"]]
         self.assertTrue(any(t.startswith("미국 수입(한국산) 변압기·전력변환기(HS 8504) 2026-09 500(백만달러) · 2016-01 이후 최고") for t in texts), texts)
+
+
+class KaidaRankSwap(unittest.TestCase):
+    def test_two_beat_brands_swapping_ranks_is_one_line(self):
+        # 11-03 운영: BMW 2위→3위·Mercedes-Benz 3위→2위가 B 두 줄 — 맞바꿈은 올라간 쪽 한 줄
+        import kr_stats_watch as k
+        def month(units):
+            return {"brands": {b: {"units": u, "share": 0} for b, u in units.items()}}
+        months = {"2026-09": month({"Tesla": 9000, "BMW": 6000, "Mercedes-Benz": 5800, "Volvo": 1000}),
+                  "2026-10": month({"Tesla": 9000, "BMW": 5633, "Mercedes-Benz": 5900, "Volvo": 1000})}
+        cfg = {"kaida": {"beats": {"BMW": "BMW코리아", "Mercedes-Benz": "메르세데스-벤츠 코리아", "Volvo": "볼보"}}}
+        _, out = k.kaida_signals(months, cfg, {})
+        ranks = [x for x in out if x["kind"] == "순위 변화"]
+        self.assertEqual([(x["brand"], x["text"]) for x in ranks],
+                         [("Mercedes-Benz", "순위 맞바꿈: Mercedes-Benz 3위 → 2위 · BMW 2위 → 3위(2026-09 → 2026-10)")])
 
 
 if __name__ == "__main__":
