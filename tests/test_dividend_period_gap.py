@@ -4,6 +4,11 @@ from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/"scripts"))
 from dividend_period_gap import build_gap
 
+# 운영 출력 대신 고정 사본: 11-01 06:23 운영 실행에서 슬로바키아 2025 보고서 조회가 끊겨(RemoteDisconnected) 2023·2024 행만
+# 남았고, 이 시험이 그 출력을 읽어 크로스보더 워크플로가 매일 재생성 전에 실패했다(11-02~03).
+FIXTURE=Path(__file__).resolve().parent/"fixtures"/"crossborder_kia_slovakia_20261101.json"
+
+
 def fixture():
     return {"companyGroup":"기아","officialFact":{
         "recognizedFromEntity":"Kia Slovakia s.r.o.(KaSK)",
@@ -31,8 +36,7 @@ class TimingGate(unittest.TestCase):
         self.assertEqual(build_gap(x)["slovakAuditedPaymentCalendarYears"],[])
     def test_real_kia_slovakia_government_pdf_same_year_comparatives(self):
         import json
-        doc=json.loads((Path(__file__).resolve().parents[1]/
-            "digests/crossborder_source_gap_latest.json").read_text(encoding="utf-8"))
+        doc=json.loads(FIXTURE.read_text(encoding="utf-8"))
         ds=[x for x in doc.get("items",[])
             if x.get("type")=="foreign_subsidiary_dividend_accounting"
             and x.get("companyGroup")=="기아"]
@@ -56,8 +60,7 @@ class TimingGate(unittest.TestCase):
 
     def test_wrong_or_missing_government_document_cannot_forge_profit_delta(self):
         import copy, json
-        doc=json.loads((Path(__file__).resolve().parents[1]/
-            "digests/crossborder_source_gap_latest.json").read_text(encoding="utf-8"))
+        doc=json.loads(FIXTURE.read_text(encoding="utf-8"))
         base=next(x for x in doc["items"] if
              x.get("type")=="foreign_subsidiary_dividend_accounting")
         source=copy.deepcopy(base)
@@ -82,7 +85,7 @@ class TimingGate(unittest.TestCase):
     def test_public_financial_service_already_printed_same_profits(self):
         import copy,json
         root=Path(__file__).resolve().parents[1]
-        source=json.loads((root/"digests/crossborder_source_gap_latest.json").read_text(encoding="utf-8"))
+        source=json.loads(FIXTURE.read_text(encoding="utf-8"))
         prior=json.loads((root/"data/public_financial_metric_prior_checks.json").read_text(encoding="utf-8"))
         d=next(x for x in source["items"] if x.get("type")=="foreign_subsidiary_dividend_accounting")
         gap=build_gap(d,prior)
@@ -113,7 +116,7 @@ class TimingGate(unittest.TestCase):
     def test_finstat_number_does_not_establish_2026_dividend_disbursement(self):
         import json
         root=Path(__file__).resolve().parents[1]
-        source=json.loads((root/"digests/crossborder_source_gap_latest.json").read_text(encoding="utf-8"))
+        source=json.loads(FIXTURE.read_text(encoding="utf-8"))
         prior=json.loads((root/"data/public_financial_metric_prior_checks.json").read_text(encoding="utf-8"))
         d=next(x for x in source["items"] if x.get("type")=="foreign_subsidiary_dividend_accounting")
         gap=build_gap(d,prior)
