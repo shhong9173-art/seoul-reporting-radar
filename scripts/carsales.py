@@ -264,6 +264,20 @@ def already_low(mo, ym):
     return p1 is not None and None not in pb and sum(pb) > 0 and p1 < (sum(pb) / 3) * DROP_RATIO
 
 
+def lumpy_months(mo, ym, months=12):
+    """첫 판매 뒤 지난 months개월 가운데 거의 0인 달(판매 있던 달 평균의 STOP_RATIO 이하) — 원래 들쭉날쭉한 계열인지 본다.
+    11-03 운영: 기아 Tasman(특수) 수출 9월 12대가 '판매 끊김' B — 그 계열은 26-06에도 0(04 106·05 100·06 0·07 600·08 452)."""
+    sold = sorted(k for k, v in mo.items() if v and v > 0)
+    if not sold:
+        return []
+    keys = [k for k in (ym_add(ym, -i) for i in range(1, months + 1)) if k > sold[0] and mo.get(k) is not None]
+    active = [mo[k] for k in keys if mo[k] > 0]
+    if len(active) < 3:
+        return []
+    mean = sum(active) / len(active)
+    return sorted(k for k in keys if mo[k] <= mean * STOP_RATIO)
+
+
 def _base(mo, ym):
     prev = [mo.get(ym_add(ym, -i)) for i in (1, 2, 3)]
     return prev, (sum(prev) / 3 if None not in prev else None), mo.get(ym_add(ym, -12))
@@ -342,7 +356,11 @@ def signals(series, maker, kind, ym):
                 sig = ("세대 교체로 보임", "B", f"{name} — 직전 3개월 평균 {fmt(base)}대에서 끊김. {swap}")
             else:
                 big = base >= PLANT_BASE and not export  # 수출은 선적 일정으로 한 달 비는 일이 잦다
-                sig = ("판매 끊김", "A" if big else "B", f"{name} — 직전 3개월 평균 {fmt(base)}대{ytxt}. 판매(출고)가 거의 끊김 — 단종·생산 중단·물량 조정 여부는 회사 확인")
+                gaps = lumpy_months(mo, ym)
+                tier = ("B" if big else "C") if gaps else ("A" if big else "B")
+                note = (f" · 이 계열은 지난 12개월에도 거의 0인 달이 {len(gaps)}번({', '.join(gaps[-3:])}) — 선적·출고가 원래 들쭉날쭉해 한 단계 낮춤"
+                        if gaps else "")
+                sig = ("판매 끊김", tier, f"{name} — 직전 3개월 평균 {fmt(base)}대{ytxt}. 판매(출고)가 거의 끊김 — 단종·생산 중단·물량 조정 여부는 회사 확인{note}")
         elif base is not None and base >= DROP_BASE and v < base * DROP_RATIO and not (with_whole and not newer) and (
                 (yoy is not None and v < yoy * DROP_RATIO) or (yoy is None and v < base * DROP_RATIO_NO_YOY)):
             detail = f"{name} — 직전 3개월 평균 {fmt(base)}대의 {_ratio(v, base)}{ytxt}" + (f"({_ratio(v, yoy)})" if yoy else "")
@@ -358,7 +376,7 @@ def signals(series, maker, kind, ym):
             out.append({"id": f"cs:{s['id']}:{ym}:{sig[0]}", "series": s["id"], "maker": MAKERS[maker], "signal": sig[0], "tier": sig[1],
                         "period": ym, "scope": s["scope"], "label": s["label"], "value": v, "base": None if base is None else round(base),
                         "yoy": yoy, "text": sig[2]})
-    order = {"A": 0, "B": 1}
+    order = {"A": 0, "B": 1, "C": 2}
     out.sort(key=lambda x: (order[x["tier"]], -(x["base"] or x["value"] or 0)))
     return out
 
@@ -475,6 +493,6 @@ def collect(prev, now, http, *, baseline):
     block = {"files": files, "latest": latest, "series": rows, "signals": sigs, "checkedAt": stamp, "unchangedFiles": same,
              "rules": ["현대차·기아 IR 엑셀(회사 발표 잠정치). 그 달 엑셀은 매달 1일 판매 보도자료보다 2~4주 늦게 올라온다 — 국내 모델별 수치는 이미 보도됐을 수 있다.",
                        "같은 회사·같은 구분(국내 판매·국내 공장 수출·해외 공장)·같은 모델(세대 코드까지) 안에서만 비교한다.",
-                       "급감·급증은 직전 3개월 평균과 전년 같은 달을 함께 본다. 끊김은 같은 이름 다른 세대가 막 늘었으면 세대 교체로 낮춘다.",
+                       "급감·급증은 직전 3개월 평균과 전년 같은 달을 함께 본다. 끊김은 같은 이름 다른 세대가 막 늘었으면 세대 교체로 낮추고, 지난 12개월(첫 판매 뒤)에도 거의 0인 달이 있던 계열(선적이 들쭉날쭉)은 한 단계 낮춘다.",
                        "이유(단종·생산 중단·물량 조정·재고)는 엑셀에 없다. 회사 확인 전에는 모른다."]}
     return block, events, check
