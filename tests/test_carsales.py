@@ -247,6 +247,9 @@ class Signals(unittest.TestCase):
         self.assertEqual((x["signal"], x["tier"]), ("판매 끊김", "C"))
         self.assertIn("이 계열은 지난 12개월에도 거의 0인 달이 1번(2026-06) — 선적·출고가 원래 들쭉날쭉해 한 단계 낮춤", x["text"])
         self.assertEqual(cs.lumpy_months(tas["months"], "2026-09"), ["2026-06"])   # 첫 판매 전(2025-08의 0)은 세지 않음
+        many = ser("국내 공장 수출(CKD 제외)", "Tasman (특수)", [5, 0, 300, 0, 300, 0, 300, 0, 300, 400, 300, 300, 400, 12], start="2025-08", maker="kia")
+        z = next(x for x in cs.signals([many], "kia", "model", "2026-09") if x["label"] == "Tasman (특수)")
+        self.assertIn("거의 0인 달이 4번(2025-11, 2026-01, 2026-03 등)", z["text"])   # 다 적지 않으면 '등'
         # 고르게 팔리던 계열은 그대로
         even = ser("국내 공장 수출", "Kona (SX2)", [700] * 13 + [20], start="2025-08")
         y = next(x for x in cs.signals([even], "hmc", "model", "2026-09") if x["label"] == "Kona (SX2)")
