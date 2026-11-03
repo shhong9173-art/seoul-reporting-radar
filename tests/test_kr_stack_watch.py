@@ -396,8 +396,49 @@ class StackTest(unittest.TestCase):
         self.assertEqual(site["stopped"], ["1"])
         self.assertEqual(site["stacks"]["1"]["status"], ["보수중", (T0 + dt.timedelta(hours=18)).strftime("%Y-%m-%d %H:%M")])
         ev = [e for e in doc["events"] if e["site"] == "현대제철㈜"]
-        self.assertEqual([(e["kind"], e["tier"]) for e in ev], [("배출구 멈춤 신호", "B")])
-        self.assertIn("상태 '보수중'(10-31 06:00부터)", ev[0]["text"])
+        self.assertEqual(sorted((e["kind"], e["tier"]) for e in ev), [("배출구 멈춤 신호", "B"), ("배출구 보수·가동중지 전환", "B")])
+        stop = next(e for e in ev if e["kind"] == "배출구 멈춤 신호")
+        self.assertIn("상태 '보수중'(10-31 06:00부터)", stop["text"])
+
+    def test_switch_to_maintenance_status_is_B_once_for_three_or_a_big_stack(self):
+        # 11-03 탐침 117: 포스코 광양 배출구 34개 '보수중' — 숫자로 돌던 배출구가 상태 글자로 바뀌는 순간을 사업장 단위로 알린다
+        big = tuple([60.0, 55.0, 50.0] + [20.0] * 17)
+
+        def go(n, switch=(), text="보수중"):
+            doc = None
+            for i in range(n):
+                t = T0 + dt.timedelta(hours=3 * i)
+                rows = world(t, pohang2=big)
+                if i >= n - 1:
+                    for x in rows:
+                        if x["fact_manage_nm"] == "현대제철㈜포항2공장" and x["stack_code"] in switch:
+                            x.update(tsp_mesure_value=None, sox_mesure_value=None, nox_mesure_value=text)
+                doc = w.run(CFG_SMALL, now=t + dt.timedelta(minutes=20), previous=doc, key="k", get=Api(rows), sleep=lambda s: None)
+            return [e for e in doc["events"] if e["kind"] == "배출구 보수·가동중지 전환"], doc
+        ev, doc = go(9, switch=("10", "11", "12"))
+        self.assertEqual([e["tier"] for e in ev], ["B"])
+        self.assertIn("배출구 3개가 이번 측정에서 상태 글자 '보수중'·'가동중지'로 바뀜", ev[0]["text"])
+        self.assertIn("10번(직전 값 20→'보수중')", ev[0]["text"])
+        self.assertIn("지금 보수중 3개·가동중지 0개", ev[0]["text"])
+        self.assertEqual(go(9, switch=("10",))[0], [])                      # 작은 배출구 하나는 이벤트 없음
+        self.assertEqual(len(go(9, switch=("1",), text="측정자료확인중(가동중지)")[0]), 1)   # 큰 배출구(평소 값 상위 3)는 하나도
+        self.assertEqual(go(9, switch=("10", "11", "12"), text="미수신")[0], [])  # 측정 쪽 사정은 아님
+        # 평일 교대 공장(기아 화성)은 '가동중지' 전환은 세지 않고 '보수중'만
+        cfg = {"companies": [c for c in CFG["companies"] if c["company"] == "기아"]}
+        start = dt.datetime(2026, 11, 2, 7, 0, tzinfo=KST)  # 월요일
+
+        def kia(text):
+            doc = None
+            for i in range(9):
+                t = start + dt.timedelta(hours=3 * i) if i < 5 else dt.datetime(2026, 11, 3, 7, 0, tzinfo=KST) + dt.timedelta(hours=3 * (i - 5))
+                rows = [row("기아㈜화성공장", "경기도", str(c), t, 20.0) for c in (1, 2, 3, 4)]
+                if i == 8:
+                    for x in rows[:3]:
+                        x.update(tsp_mesure_value=None, sox_mesure_value=None, nox_mesure_value=text)
+                doc = w.run(cfg, now=t + dt.timedelta(minutes=20), previous=doc, key="k", get=Api(rows), sleep=lambda s: None)
+            return [e for e in doc["events"] if e["kind"] == "배출구 보수·가동중지 전환"]
+        self.assertEqual(kia("측정자료확인중(가동중지)"), [])
+        self.assertEqual(len(kia("보수중")), 1)
 
     def test_many_stacks_leaving_the_list_at_once_is_C(self):
         # 11-03 09:20 운영: 고려아연 온산 배출구 15개가 '목록에서 빠짐' B 15줄 — 같은 날 오전 탐침에서 값과 함께 모두 다시 보였다
