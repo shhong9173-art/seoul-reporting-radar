@@ -879,11 +879,12 @@ export async function stacksSection(ctx, q, days, limit) {
       tally[k] = (tally[k] ?? 0) + 1;
       own[k] = (own[k] ?? 0) + 1;
     }
-    const halt = (own['가동중지'] ?? 0) + (own['보수중'] ?? 0);
+    // 시설 멈춤 신고(가동중지)가 많은 순, 같으면 측정기 보수중 순(11-03: 보수중은 측정기 상태로 바로잡음)
+    const halt = (own['가동중지'] ?? 0) * 1000 + (own['보수중'] ?? 0);
     if (halt) bySite.push([halt, s, own]);
   }
   if (Object.keys(tally).length) {
-    out.push(`- 측정값 대신 상태 글자가 온 배출구: ${Object.entries(tally).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} ${n}`).join(' · ')} (가동중지·보수중 = 사업장이 보낸 멈춤·보수 상태 — 다른 칸 숫자가 남은 줄은 분석기 보수일 수 있음, 나머지는 측정 쪽 사정)`);
+    out.push(`- 측정값 대신 상태 글자가 온 배출구: ${Object.entries(tally).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} ${n}`).join(' · ')} (가동중지 = 사업장이 보낸 시설 멈춤 신고, 보수중·기기점검·미수신·측정자료확인중 = 측정기 쪽 상태)`);
     for (const [, s, own] of bySite.sort((a, b) => b[0] - a[0]).slice(0, 5)) {
       out.push(`  ${s.company} · ${s.name} · ${Object.entries(own).map(([k, n]) => `${k} ${n}`).join(' · ')}`);
     }
