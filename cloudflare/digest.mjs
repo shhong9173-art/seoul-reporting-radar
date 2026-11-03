@@ -1213,6 +1213,9 @@ export async function radarTodayData(ctx, args) {
   // Competitor exclusives the radar had first (reverse_prior_capture.py). Shown here too, so the reporter can prepare Y/P/N
   // judgments even when the chat's connector list is stale and scoop_reverse is not offered.
   const rev = await readFeed(ctx, 'reverse-check');
+  // 기자 기사 자동 대조(my_articles_check.py): 레이더 항목 id → 그 뒤 기자가 쓴 아이뉴스24 기사(같은 회사·사건 낱말). 판정이 아니라 표시만.
+  const mine = await readFeed(ctx, 'my-articles');
+  const wrote = new Map(Object.entries(mine && !mine.broken ? mine.itemHits ?? {} : {}));
   let firsts = [];
   if (rev && !rev.broken) {
     const from = Date.parse(rev.generatedAt) - 14 * 86400000;
@@ -1221,7 +1224,7 @@ export async function radarTodayData(ctx, args) {
       .sort((a, b) => String(b.published).localeCompare(String(a.published)));
   }
   return { now: ctx.now, hours, monday, defaultHours: !args.hours, q, limit, showC, judged, hiddenBy, press, checked, pressOf, rank,
-    tiers: { A: byTier('A'), B: byTier('B'), C: byTier('C') }, health: h, conv, coveredGroup, rev, firsts };
+    tiers: { A: byTier('A'), B: byTier('B'), C: byTier('C') }, health: h, conv, coveredGroup, rev, firsts, wrote };
 }
 
 export async function radarTodayText(ctx, args) {
@@ -1258,7 +1261,8 @@ export async function radarTodayText(ctx, args) {
       out.push(`- ${x.date ? `${String(x.date).length > 10 ? kstStamp(x.date) : x.date} · ` : ''}${x.watch}${x.company ? ` · ${x.company}` : ''}`);
       out.push(`   ${x.fact}`);
       out.push(...pressLines(checked.get(String(x.id)), kstStamp(press?.generatedAt)));
-      out.push(`   ${x.url ? `원문: ${x.url} · ` : ''}자세히: ${x.tool} · id ${x.id}${judged.get(x.id) ? ` 〔판정: ${judged.get(x.id)}〕` : ''}`);
+      const w = d.wrote?.get(String(x.id));
+      out.push(`   ${x.url ? `원문: ${x.url} · ` : ''}자세히: ${x.tool} · id ${x.id}${judged.get(x.id) ? ` 〔판정: ${judged.get(x.id)}〕` : ''}${w ? ` 〔기자 기사(자동 대조) ${String(w.published).slice(5, 10)} 「${String(w.title).slice(0, 40)}」〕` : ''}`);
     }
     if (rows.length > limit) out.push(`… 남은 ${rows.length - limit}건(limit 또는 company로 좁히기)`);
     if (!rows.length) out.push('없음');

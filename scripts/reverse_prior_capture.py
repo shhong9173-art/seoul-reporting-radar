@@ -25,13 +25,17 @@ WINDOW_DAYS = 30
 LOOKBACK_DAYS = 60   # how far before an article a radar item can count
 FEEDS = ["us-litigation", "partner-filings", "trade-remedy", "kr-official", "kr-signals", "us-comments", "page-watch",
          "trademarks", "assembly-bills", "us-recalls", "scoop-screen", "us-epa", "kr-fuel", "overseas-awards",
-         "kr-insolvency", "kr-energy", "kr-building", "overseas-registry", "kr-local", "kr-workforce", "kr-stacks"]
+         "kr-insolvency", "kr-energy", "kr-building", "overseas-registry", "kr-local", "kr-workforce", "kr-stacks",
+         # 11-03 추가 감시(이벤트 모양이 같다: id·company·kind·text|title·detectedAt·url) — 역추적·기자 기사 대조가 이 감시들도 본다
+         "us-osha", "us-state-env", "kr-labor", "india-filings", "dart-counterparty", "union-notices", "council-minutes"]
 LABEL = {"us-litigation": "미국 소송·판결", "partner-filings": "해외 파트너 공시", "trade-remedy": "무역구제·미국 관보",
          "kr-official": "공장등록·관보", "kr-signals": "공정위·한전·산업부", "us-comments": "미 연방 의견서", "page-watch": "해외 공식 페이지",
          "trademarks": "상표 출원", "assembly-bills": "국회 법안", "us-recalls": "미국 리콜", "scoop-screen": "단독 후보 심사",
          "us-epa": "미국 EPA 인증", "kr-fuel": "국내 연비 신고", "overseas-awards": "해외 발주처 낙찰",
          "kr-insolvency": "협력사 회생·파산", "kr-energy": "전기위·원안위", "kr-building": "공장 부지 건축허가", "overseas-registry": "해외 법인 등기", "kr-local": "지자체 고시·공고",
-         "kr-workforce": "사업장 인력(국민연금)", "kr-stacks": "굴뚝 측정(가동 신호)", "clues": "공개 원자료 단서(DART 등)"}
+         "kr-workforce": "사업장 인력(국민연금)", "kr-stacks": "굴뚝 측정(가동 신호)", "clues": "공개 원자료 단서(DART 등)",
+         "us-osha": "미국 OSHA 점검·위반", "us-state-env": "미국 주 환경 허가·공고", "kr-labor": "노동위 회의", "india-filings": "인도 법인 공시",
+         "dart-counterparty": "타사 공시 속 출입처", "union-notices": "노조 성명·보도자료", "council-minutes": "지방의회 회의록"}
 # Group-level names: an article about 포스코 and a radar item about 포스코홀딩스 concern the same group.
 GROUP = {"현대자동차": "현대차", "제네시스": "현대차", "현대차(제네시스)": "현대차", "포스코홀딩스": "포스코", "엘에스일렉트릭": "LS일렉트릭",
          "아우디코리아": "아우디", "폭스바겐코리아": "폭스바겐", "BMW코리아": "BMW", "메르세데스-벤츠 코리아": "벤츠", "혼다코리아": "혼다",
@@ -332,6 +336,18 @@ def _screen(d, add):
         add(mem("scoop-screen", x.get("id"), split_names(x.get("company")), x.get("title"), x.get("published") or x.get("filedOn"), x.get("url")))
 
 
+def _events_of(source):
+    """11-03 추가 감시들의 이벤트(A·B만 — C는 참고)."""
+    def fn(d, add):
+        for e in d.get("events") or []:
+            if e.get("tier") not in ("A", "B"):
+                continue
+            comps = e.get("companies") if isinstance(e.get("companies"), list) else [e.get("company")]
+            add(mem(source, e.get("id"), [c for c in comps if c], f"{e.get('kind') or ''} {e.get('text') or e.get('title') or ''}",
+                    e.get("detectedAt"), e.get("url")))
+    return fn
+
+
 def _clues(d, add):
     for x in d.get("items") or []:
         add(mem("clues", x.get("id"), x.get("companies") or [], x.get("title"), x.get("firstSeen") or x.get("published"), x.get("url"),
@@ -342,7 +358,8 @@ ADAPTERS = [("us-litigation", _litigation), ("partner-filings", _partners), ("tr
             ("kr-signals", _signals), ("us-comments", _comments), ("page-watch", _pages), ("trademarks", _marks),
             ("us-recalls", _recalls), ("scoop-screen", _screen), ("us-epa", _epa), ("us-epa", _vin), ("kr-fuel", _fuel), ("overseas-awards", _awards),
             ("us-recalls", _investigations), ("kr-insolvency", _insolvency), ("kr-energy", _energy), ("kr-building", _building),
-            ("overseas-registry", _registry), ("kr-local", _local), ("kr-workforce", _workforce), ("kr-stacks", _stacks), ("clues", _clues)]
+            ("overseas-registry", _registry), ("kr-local", _local), ("kr-workforce", _workforce), ("kr-stacks", _stacks), ("clues", _clues),
+            *[(f, _events_of(f)) for f in ("us-osha", "us-state-env", "kr-labor", "india-filings", "dart-counterparty", "union-notices", "council-minutes")]]
 
 
 def nouns(title):
