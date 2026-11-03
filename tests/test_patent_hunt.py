@@ -375,6 +375,10 @@ class PatentScoutTests(unittest.TestCase):
         tags=p.tech_tags("HVDC 변환기 제어","고압직류 시스템")
         self.assertTrue(any(t["theme"]=="전력망·HVDC" for t in tags))
         self.assertFalse(p.tech_tags("차량의 컵홀더","컵 음료 수납"))
+        # 11-03: 현대모비스 '전력 반도체 소자'(공개 10-07)가 기술사전 밖이라 점수 20 — 11-02 [단독] 'SiC 전력반도체 특허 공개'
+        self.assertEqual([t["theme"] for t in p.tech_tags("전력 반도체 소자","제1 전극 상의 반도체층")], ["전력반도체·파워모듈"])
+        self.assertIn("석유화학·정유 공정", [t["theme"] for t in p.tech_tags("나프타 분해로의 코크 제거 방법","에틸렌 수율")])
+        self.assertFalse(p.tech_tags("기본 차량 음악 재생 장치","basic music system"))   # 짧은 영문 sic·gan 오탐 없음
 
 
 class SafeDiagnosticTests(unittest.TestCase):
