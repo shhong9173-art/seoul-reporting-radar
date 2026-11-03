@@ -2774,6 +2774,25 @@ test('지방의회 회의록(council-minutes): 키 없으면 미설정(0건 아�
   assert.match(k.text, /사건 낱말 없는 언급 1건 접음 — show_all=true/);
 });
 
+test('경쟁지 단독 역추적: 종류·매체별 집계(scoop_reverse·주간 점검)', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const at = new Date(NOW.getTime() - 3600000).toISOString();
+  const art = (id, title, source, type, verdict) => ({ articleId: id, title, published: at, source, companies: ['포스코'], type, verdict,
+    best: verdict === '먼저 잡은 후보' ? { source: 'trade-remedy', label: '무역구제·미국 관보', id: 'fr:1', text: 'Final Results', seen: at, why: ['관세'], leadHours: 37.3 } : null });
+  const doc = { schema: 'reverse_check/v1', generatedAt: at, windowDays: 30, memoryItems: 10, feedsLoaded: { 'trade-remedy': true },
+    articles: [art('a', '[단독] 포스코, 미국 상계관세 소송서 패소', '뉴스저널리즘', '논란·법적', '먼저 잡은 후보'),
+      art('b', '[단독] 美 도금강판 관세 70%대 위협', '철강금속신문', '정책·통상', '먼저 잡은 후보'),
+      art('c', '[단독] 현대차 로봇사업 수장 영입', '머니투데이', '인사·조직', '없음'), art('d', '[단독] 현대차 CEO 진단', '머니투데이', '인사·조직', '같은 회사 항목만')],
+    counts: { '먼저 잡은 후보': 2, '같은 회사 항목만': 1, '없음': 1, '회사 미상': 0 } };
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/reverse-check', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
+  const r = await call('scoop_reverse', {}, opts);
+  assert.match(r.text, /종류별: 인사·조직 2\(먼저 0·같은 회사 1·없음 1\) · 논란·법적 1\(먼저 1·같은 회사 0·없음 0\) · 정책·통상 1\(먼저 1·같은 회사 0·없음 0\)/);
+  assert.match(r.text, /매체별: 머니투데이 2\(먼저 0·같은 회사 1·없음 1\)/);
+  const w = await call('candidate_weekly_review', { days: 14 }, opts);
+  assert.match(w.text, /\[경쟁지 단독 · 최근 14일 4건 · 레이더 대조\(자동\)\]\n종류별: 인사·조직 2/);
+});
+
 test('scoop_reverse shows automatic prior-capture candidates by source with lead time, separate from human Y/P/N', async () => {
   const opts = PRIVATE();
   const env = opts.env;

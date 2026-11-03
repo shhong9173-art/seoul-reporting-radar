@@ -5,6 +5,7 @@ import { storeOp, candidateFeedback } from './store.mjs';
 import { itemIndex } from './digest.mjs';
 import { clampInt, kstStamp, textResult } from './common.mjs';
 import { readFeed, ageNote } from './screen.mjs';
+import { reverseTallyLines } from './overseas.mjs';
 
 const VERDICTS = ['씀', '킬', '보류', '봤음'];
 const MIN_SAMPLE = 5;   // groups smaller than this get counts only, no "점검 후보" note
@@ -29,6 +30,16 @@ function groupBy(rows, key) {
 
 // 기자 기사 자동 대조(my_articles_check.py): 기자가 쓴 출입처 기사마다 레이더가 먼저 잡은 항목이 있었는지. 판정과 별개인 자동 기록 —
 // 쓴 기사는 자동으로 찾지만, 안 쓴 항목은 이유를 모르므로 킬로 세지 않는다.
+// 경쟁지 단독 역추적 종류·매체별 한 묶음(scoop_reverse 전문)
+async function rivalLines(ctx, days) {
+  const doc = await readFeed(ctx, 'reverse-check');
+  if (!doc || doc.broken) return [];
+  const from = Date.parse(doc.generatedAt) - Math.min(days, 30) * 86400000;
+  const rows = (doc.articles ?? []).filter((x) => Date.parse(x.published) >= from);
+  const lines = reverseTallyLines(rows, 6);
+  return lines.length ? [`\n[경쟁지 단독 · 최근 ${Math.min(days, 30)}일 ${rows.length}건 · 레이더 대조(자동)]`, ...lines, '자세히: scoop_reverse'] : [];
+}
+
 export async function myArticlesLines(ctx, days) {
   const doc = await readFeed(ctx, 'my-articles');
   if (!doc) return ['\n[자동 대조: 기자 기사 ↔ 레이더] 아직 수집 전 — 미확인(매일 13:00·19:40)'];
@@ -99,7 +110,7 @@ export async function weeklyReview(ctx, args) {
   if (!items.length) {
     out.push('판정 기록이 없다. radar_today·scoop_screen 줄의 id로 candidate_feedback(씀·킬·보류·봤음)을 남기면 감시별·공시 종류별로 묶어 보여 준다.');
     out.push('가중치는 자동으로 바꾸지 않는다. 바꿀지는 기자가 정한다.');
-    out.push(...await myArticlesLines(ctx, days));
+    out.push(...await myArticlesLines(ctx, days), ...await rivalLines(ctx, days));
     return textResult(out.join('\n'));
   }
 
@@ -143,6 +154,6 @@ export async function weeklyReview(ctx, args) {
   }
   if (items.some((r) => r.labelled === 'now')) out.push('※ 일부 항목은 판정 때 표시가 없어 지금 목록 기준으로 붙였다.');
   out.push(`읽는 법: ${MIN_SAMPLE}개 미만 묶음은 비율로 판단하지 않는다. 점검 후보는 기자가 볼 목록일 뿐 — 가중치·등급 규칙은 자동으로 바꾸지 않는다. 바꿀지는 기자가 정한다.`);
-  out.push(...await myArticlesLines(ctx, days));
+  out.push(...await myArticlesLines(ctx, days), ...await rivalLines(ctx, days));
   return textResult(out.join('\n'));
 }
