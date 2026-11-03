@@ -47,7 +47,8 @@ def fake(lists, fail_detail=(), code=None):
         if params["displayType"] == "list":
             if code:
                 return R([{"SERVICE": "minutes", "RESULT_CODE": code, "RESULT_MESSAGE": "인증키 오류"}])
-            return R(lists.get(params["searchKeyword"], lst()))
+            body = lists.get(params["searchKeyword"], lst())
+            return R([{**body[0], "LIST": body[0]["LIST"][:params["listCount"]]}])   # 실제 API처럼 listCount건까지만
         if params["docid"] in fail_detail:
             raise type("ReadTimeout", (Exception,), {})("x")
         if params["docid"] not in DETAIL:   # 없는 번호: SUCCESS에 칸만 빔(11-03 탐침 150)
@@ -148,7 +149,7 @@ class Run(unittest.TestCase):
         opened = [c["docid"] for c in calls2 if c["displayType"] == "detail"]
         self.assertEqual(len(opened), w.DETAIL_BUDGET)
         self.assertEqual(opened[:2], ["CLIKM", "CLIKP0"])          # 검색어마다 돌아가며 — 포스코 70건이 앞을 다 차지하지 않음
-        self.assertEqual(doc2["checks"][0]["pending"], 71 - w.DETAIL_BUDGET)
+        self.assertEqual(doc2["checks"][0]["pending"], 1 + w.LIST_COUNT - w.DETAIL_BUDGET)   # 목록은 검색어마다 LIST_COUNT건까지
         by = {x["id"]: x for x in doc2["items"]}
         self.assertEqual((by["clik:CLIKM"]["company"], by["clik:CLIKM"]["tier"]), ("현대차", "C"))
         self.assertEqual((by["clik:CLIKM:현대제철"]["company"], by["clik:CLIKM:현대제철"]["tier"]), ("현대제철", "A"))   # 같은 회의록의 다른 출입처
@@ -180,6 +181,19 @@ class Run(unittest.TestCase):
         self.assertEqual(by["clik:CLIKS1"]["tier"], "A")
         self.assertEqual((by["clik:CLIKOLD"]["tier"], by["clik:CLIKOLD"]["old"]), ("C", True))   # 3년 전 회의 — 늦게 공개된 옛 이야기
         self.assertEqual([e["id"] for e in doc2["events"]], ["clik:CLIKS1"])
+    def test_widening_the_list_baselines_the_newly_visible_tail(self):
+        # 11-04: 목록을 30→60건으로 넓힌다. 이전 실행(listCount 없음 = 30)이 못 보던 31~60번째는 열지 않고 기준선으로만
+        prev = {"schema": w.SCHEMA, "baselineAt": "2026-11-03T23:12:00+09:00", "seen": {}, "items": [], "events": []}
+        rows = [row(f"CLIKD{i}", "당진시의회", "20261020") for i in range(45)]
+        DETAIL.update({f"CLIKD{i}": {"MTR_SJ": "", "MINTS_HTML": "<p>봉사</p>"} for i in range(45)})
+        try:
+            doc = w.run(NOW, prev, key="k", get=fake({"현대제철": lst(*rows)})[0], sleep=lambda s: None)
+        finally:
+            for i in range(45):
+                DETAIL.pop(f"CLIKD{i}", None)
+        self.assertEqual(doc["checks"][0]["returned"], 30)                    # 앞 30건만 새 회의록 후보
+        self.assertIn("CLIKD44", doc["seen"])                                # 뒤쪽 15건은 기준선
+        self.assertEqual(doc["listCount"], 60)
 
 if __name__ == "__main__":
     unittest.main()

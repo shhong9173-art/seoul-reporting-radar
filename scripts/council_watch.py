@@ -9,7 +9,7 @@
 - 실제 응답(11-03 탐침 150, 키 넣은 첫 호출): 맨 바깥이 목록 `[{SERVICE, RESULT_CODE, RESULT_MESSAGE, TOTAL_COUNT, LIST_COUNT, LIST: [{ROW: {…}}]}]`.
   상세도 `[{…, DOCID, MTR_SJ, MINTS_HTML(본문 HTML, 수십만 자), ORGINL_FILE_URL(빈 값일 수 있음), MTGNM}]` — 칸이 맨 바깥 사전에 바로 든다.
   없는 회의록 번호도 RESULT_CODE SUCCESS에 칸만 비어 온다 — 본문이 비면 실패로 세고 다음 실행에 다시(3번까지).
-- 출입처 이름으로 최신 회의록 30건씩 찾고(회의일 내림차순), 새 회의록만 상세를 열어 이름 앞뒤 150자를 2곳까지 남긴다(한 실행 60건,
+- 출입처 이름으로 최신 회의록 60건씩 찾고(회의일 내림차순), 새 회의록만 상세를 열어 이름 앞뒤 150자를 2곳까지 남긴다(한 실행 60건,
   검색어마다 돌아가며 — 한 검색어가 상한을 다 쓰지 않게). 포털 검색은 낱말을 쪼개 찾는다('대한전선' 3만 건, 따옴표도 같음 — 탐침 152)
   — 그래서 본문에서 회사 이름 정규식으로 다시 확인하고, 연 회의록은 출입처 전부의 이름을 본다(같은 회의록에 다른 출입처도).
 - 등급: 회사 이름 앞뒤 60자 안에 인허가·불법·위반·오염·민원·특혜·감면·보조금·증설·공장 이전·폐쇄·매각·사고·사망·야적·체납 낱말이 있으면 A,
@@ -36,7 +36,9 @@ API = "https://clik.nanet.go.kr/openapi/minutes.do"
 VIEW = "https://clik.nanet.go.kr/potal/search/searchView.do?collection=minutes&DOCID={}"
 UA = {"User-Agent": "seoul-reporting-radar (newsroom research; local council minutes)"}
 PAUSE = 1.0
-LIST_COUNT = 30
+# 검색어마다 회의일 순 최신 60건(API 한 번 100건 한도). 포털은 등록일 정렬이 없어서 몇 주~몇 달 늦게 공개된 회의는 최신 목록 뒤쪽에 들어온다
+# — 30건이면 '현대자동차'(3만8천 건)처럼 많이 걸리는 검색어에서 빠질 수 있었다(11-04 넓힘). 넓힐 때 새로 보이는 뒤쪽은 기준선으로만 기억한다.
+LIST_COUNT = 60
 DETAIL_BUDGET = 60
 NEAR = 60
 OLD_DAYS = 120   # 회의일이 이보다 오래면 늦게 공개된 옛 회의 — A 대신 C
@@ -137,6 +139,7 @@ def run(now, previous=None, *, key=None, get=None, sleep=time.sleep):
     events = [e for e in prev.get("events") or [] if isinstance(e, dict)]
     first = not prev.get("baselineAt")
     tries = {k: v for k, v in (prev.get("tries") or {}).items() if isinstance(v, int)}
+    depth = int(prev.get("listCount") or 30) if not first else LIST_COUNT   # 이전 실행이 본 목록 길이(11-04 전은 30)
     errors, fresh, fatal = [], [], False
     for i, (term, comp, pat) in enumerate(TERMS):
         if i:
@@ -155,9 +158,12 @@ def run(now, previous=None, *, key=None, get=None, sleep=time.sleep):
                 fatal = True
                 break
             continue
-        for row in rows_of(body):
+        for k, row in enumerate(rows_of(body)):
             did = str(row.get("DOCID") or "")
             if not did or did in seen or any(f[0] == did for f in fresh):
+                continue
+            if k >= depth:   # 목록을 넓혀 처음 보이는 뒤쪽 — 새로 공개된 것이 아니라 전에 안 보던 범위라 기준선으로만
+                seen[did] = str(row.get("MTG_DE") or "")
                 continue
             fresh.append((did, term, comp, pat, row))
     if first:   # 기준선: 지금 목록의 회의록 번호만 기억
@@ -211,7 +217,7 @@ def run(now, previous=None, *, key=None, get=None, sleep=time.sleep):
                                         + " · 의원 질의는 주장 — 집행부 답변·회사 확인")})
     keep = (now - dt.timedelta(days=KEEP_DAYS)).isoformat(timespec="seconds")
     status = "failed" if fatal or (errors and len(errors) >= len(TERMS)) else "partial" if errors else "complete"
-    return {"schema": SCHEMA, "generatedAt": stamp, "status": status, "baselineAt": prev.get("baselineAt") or stamp,
+    return {"schema": SCHEMA, "generatedAt": stamp, "status": status, "baselineAt": prev.get("baselineAt") or stamp, "listCount": LIST_COUNT,
             "checks": [{"source": "국회도서관 지방의회 회의록(CLIK)", "status": "failed" if status == "failed" else "partial" if errors else "ok",
                         "returned": len(fresh), "opened": opened, **({"pending": pending} if pending else {}),
                         **({"error": "; ".join(errors[:4])} if errors else {}),
@@ -223,7 +229,7 @@ def run(now, previous=None, *, key=None, get=None, sleep=time.sleep):
             "rules": ["국회도서관 지방의정포털 회의록에서 출입처 이름으로 찾은 새 회의록의 대목(이름 앞뒤 150자). 의원 질의·발언은 주장이다 — 집행부 답변·회사 확인.",
                       "회사 이름 앞뒤 60자 안에 인허가·불법·위반·오염·민원·특혜·감면·보조금·증설·공장 이전·폐쇄·매각·사고·사망·야적·체납 낱말이 있으면 A, 없으면 참고(C).",
                       f"회의일이 {OLD_DAYS}일보다 오래된 회의록(늦게 공개)은 사건 낱말이 있어도 C — 지금 이야기인지 따로 확인.",
-                      "포털 검색은 낱말을 쪼개 찾는다 — 본문의 회사 이름으로 다시 확인. 검색어마다 회의일 순 최신 30건만 봐서, 늦게 공개된 오래 전 회의는 빠질 수 있다(미확인).",
+                      "포털 검색은 낱말을 쪼개 찾는다 — 본문의 회사 이름으로 다시 확인. 검색어마다 회의일 순 최신 60건만 봐서, 늦게 공개된 오래 전 회의는 빠질 수 있다(미확인).",
                       "회의록은 회의 뒤 몇 주 늦게 올라온다 — 회의일과 공개일이 다르다. 첫 실행은 기준선, 조회 실패·한도 초과는 미확인."]}
 
 
