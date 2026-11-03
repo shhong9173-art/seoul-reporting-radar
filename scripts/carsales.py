@@ -358,7 +358,7 @@ def signals(series, maker, kind, ym):
                 big = base >= PLANT_BASE and not export  # 수출은 선적 일정으로 한 달 비는 일이 잦다
                 gaps = lumpy_months(mo, ym)
                 tier = ("B" if big else "C") if gaps else ("A" if big else "B")
-                note = (f" · 이 계열은 지난 12개월에도 거의 0인 달이 {len(gaps)}번({', '.join(gaps[-3:])}) — 선적·출고가 원래 들쭉날쭉해 한 단계 낮춤"
+                note = (f" · 이 계열은 지난 12개월에도 거의 0인 달이 {len(gaps)}번({', '.join(gaps[-3:])}{' 등' if len(gaps) > 3 else ''}) — 선적·출고가 원래 들쭉날쭉해 한 단계 낮춤"
                         if gaps else "")
                 sig = ("판매 끊김", tier, f"{name} — 직전 3개월 평균 {fmt(base)}대{ytxt}. 판매(출고)가 거의 끊김 — 단종·생산 중단·물량 조정 여부는 회사 확인{note}")
         elif base is not None and base >= DROP_BASE and v < base * DROP_RATIO and not (with_whole and not newer) and (
