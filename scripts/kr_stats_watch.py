@@ -267,8 +267,16 @@ def kaida_signals(months, cfg, rules):
         if brand not in beats:
             continue
         if r["prevRank"] and r["rank"] != r["prevRank"]:
-            out.append({"brand": brand, "kind": "순위 변화", "text": f"{brand} 순위 {r['prevRank']}위 → {r['rank']}위({prev_ym(cur_p)} → {cur_p})",
-                        "top": min(r["rank"], r["prevRank"]) <= 3})
+            # 출입처 두 브랜드가 순위를 맞바꾸면 한 줄(올라간 쪽 이름으로) — 11-03: BMW 2→3위·벤츠 3→2위가 B 두 줄
+            mate = next((b for b in beats if b != brand and b in rank and b in prank
+                         and rank[b] == r["prevRank"] and prank[b] == r["rank"]), None)
+            if mate and r["rank"] > r["prevRank"]:
+                pass  # 내려간 쪽은 올라간 쪽 줄에 함께 적는다
+            else:
+                text = f"{brand} 순위 {r['prevRank']}위 → {r['rank']}위({prev_ym(cur_p)} → {cur_p})"
+                if mate:
+                    text = f"순위 맞바꿈: {brand} {r['prevRank']}위 → {r['rank']}위 · {mate} {prank[mate]}위 → {rank[mate]}위({prev_ym(cur_p)} → {cur_p})"
+                out.append({"brand": brand, "kind": "순위 변화", "text": text, "top": min(r["rank"], r["prevRank"]) <= 3})
         for s in sig:
             if s["kind"] in ("조회 범위 최고", "조회 범위 최저", "최고(기간)", "최저(기간)", "전년 대비 큰 변동"):
                 out.append({"brand": brand, "kind": s["kind"], "text": f"{brand} 신규등록 {r['units']:,.0f}대 · {s['text']}", "top": s["kind"] != "전년 대비 큰 변동"})
