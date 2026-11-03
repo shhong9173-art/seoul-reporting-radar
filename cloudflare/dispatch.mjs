@@ -34,6 +34,8 @@ export const SLOTS = [
   { at: '09:30', workflow: 'union-notices.yml', daily: true }, { at: '12:30', workflow: 'union-notices.yml', daily: true },
   { at: '15:30', workflow: 'union-notices.yml', daily: true }, { at: '18:30', workflow: 'union-notices.yml', daily: true },
   { at: '21:30', workflow: 'union-notices.yml', daily: true },
+  // 지방의회 회의록(국회도서관 API, 키 CLIK_API_KEY): 회의록은 몇 주 늦게 올라온다 — 하루 한 번.
+  { at: '09:10', workflow: 'council-minutes.yml', daily: true },
   // 지자체 고시·공고(새올): 아침·오후 한 번씩.
   { at: '06:30', workflow: 'kr-local.yml' },
   // 공식 원자료 직접 수집(pre_scoop.json: 대법원·NTIS·IRIS 등). GitHub 예약 '7,37 * * * *'은 10-28에 4번만 돌았다.

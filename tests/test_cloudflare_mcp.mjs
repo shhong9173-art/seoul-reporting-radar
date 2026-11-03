@@ -1402,7 +1402,7 @@ test('Cloudflare cron asks GitHub to run each watch at its KST weekday slot and 
   assert.match(today.text, /예약 요청\(Cloudflare\): 토큰 없음 — GitHub 예약만 사용 중\(지연 가능\) · 지금도 워커에서 GITHUB_DISPATCH_TOKEN이 보이지 않음/);
   // the reporter adds the secret after the morning slots: the line says so before the next slot comes round
   const later = await call('radar_today', {}, { ...none, env: { ...none.env, GITHUB_DISPATCH_TOKEN: 'ghp_test' } });
-  assert.match(later.text, /예약 요청\(Cloudflare\): 오늘 앞선 칸은 토큰 없이 지나감 · 지금은 토큰 보임 — 다음 칸\(10-26 09:20 kr-stacks\.yml\)부터 요청/);
+  assert.match(later.text, /예약 요청\(Cloudflare\): 오늘 앞선 칸은 토큰 없이 지나감 · 지금은 토큰 보임 — 다음 칸\(10-26 09:10 council-minutes\.yml\)부터 요청/);
   assert.equal(nextSlot(new Date('2026-10-30T10:00:00Z')), '10-30 19:10 india-filings.yml');  // Fri 19:00 KST → 19:10 인도 공시 칸(평일)
   assert.equal(nextSlot(new Date('2026-10-30T13:00:00Z')), '10-30 22:10 india-filings.yml');  // Fri 22:00 KST → 22:10 인도 공시 마지막 칸
   assert.equal(nextSlot(new Date('2026-10-30T13:15:00Z')), '10-31 00:20 kr-stacks.yml');  // Fri 22:15 KST → Sat 00:20(인도 공시 22:10 칸 뒤)
@@ -1594,7 +1594,7 @@ test('kr_signals shows FTC decisions by role, KEPCO bids and commodity prices, a
   const minor = await call('radar_today', { include_minor: true }, opts);
   assert.match(minor.text, /「\(연간단가\)고효율주상변압기,50KVA\(광유\)-2,338대-0\d\(일반\)」 외 같은 공고 2건\(합계 약 149억원\) · 추정가격 약 50억원/);
   assert.equal((minor.text.match(/고효율주상변압기/g) ?? []).length, 1);  // three lots, one line
-  assert.match(r.text, /기자 전용 감시 29개/);
+  assert.match(r.text, /기자 전용 감시 30개/);
   assert.deepEqual(dueAt(new Date('2026-10-26T23:30:00Z')), ['kr-signals.yml', 'kipris-patent-hunt.yml']);  // Tue 08:30 KST
   assert.deepEqual(dueAt(new Date('2026-10-27T06:20:00Z')), ['kr-signals.yml', 'kr-stacks.yml']);  // Tue 15:20 KST
 });
@@ -1892,7 +1892,7 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   assert.doesNotMatch((await call('trademarks', { name: 'aero' }, opts)).text, /NUTRIMACY/);
   assert.doesNotMatch((await call('trademarks', { class: '35' }, opts)).text, /NUTRIMACY/);
   const r = await call('radar_today', {}, opts);
-  assert.match(r.text, /기자 전용 감시 29개/);
+  assert.match(r.text, /기자 전용 감시 30개/);
   assert.match(r.text, /- 상표 출원: 대기 1곳\(제공기관 응답 22 뒤 72시간 대기\) — 해당 부분 0건은 미확인/);
   assert.doesNotMatch(r.text, /상표 출원: [^\n]*시간 전 결과/);
   const b = r.text.split('[B · ')[1].split('[C · ')[0];
@@ -1903,7 +1903,7 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   assert.match(minor.text, /상표 출원 「NUTRIMACY」[^\n]* — 같은 이름 상품류 추가/);
   const list = await rpc('tools/list', {}, { path: `/mcp/${TOKEN}`, env });
   assert.ok(list.body.result.tools.some((x) => x.name === 'trademarks'));
-  assert.match(list.body.result.tools.find((x) => x.name === 'radar_today').description, /감시 29개\([^)]*상표 출원, 국회 법안, 미국 리콜, 미국 EPA 인증, 국내 연비 신고, 해외 발주처 낙찰, 협력사 회생·파산, 전기위·원안위, 공장 부지 건축허가, 해외 법인 등기, 지자체 고시·공고, 사업장 인력, 굴뚝 측정, 노동위 회의, 노조 성명, 인도 법인 공시, 타사 공시 속 출입처, 출입처 외신\)/);
+  assert.match(list.body.result.tools.find((x) => x.name === 'radar_today').description, /감시 30개\([^)]*상표 출원, 국회 법안, 미국 리콜, 미국 EPA 인증, 국내 연비 신고, 해외 발주처 낙찰, 협력사 회생·파산, 전기위·원안위, 공장 부지 건축허가, 해외 법인 등기, 지자체 고시·공고, 사업장 인력, 굴뚝 측정, 노동위 회의, 노조 성명, 지방의회 회의록, 인도 법인 공시, 타사 공시 속 출입처, 출입처 외신\)/);
   assert.ok(!(await rpc('tools/list', {}, { env })).body.result.tools.some((x) => x.name === 'trademarks'));  // private only
 });
 
@@ -2689,6 +2689,33 @@ test('노조 성명·보도자료(union-notices): radar_today A·대조 낱말, 
   assert.match(k.text, /- A · [^\n]+ · 금속노조 보도자료\/성명 · 「\[보도자료\] 금호타이어 광주공장 끼임 중대재해 규탄 금속노조 기자회견」 · 출입처 금호타이어\n   앞부분: 「금호타이어 관련 본문 앞부분」\n   원문: https:\/\/www\.kmwu\.kr\/bbs\/board\.php\?bo_table=ce_B12&wr_id=220887/);
   assert.match(k.text, /이름이 본문에만 있고 사건 낱말 없는 글 1건 접음/);
   assert.match((await call('kr_official', { section: 'labor', show_all: true }, opts)).text, /노동절 집회 안내」 · 출입처 현대제철\(본문에만\)/);
+});
+
+test('지방의회 회의록(council-minutes): 키 없으면 미설정(0건 아님), 있으면 A·대조 낱말(의회 이름 필수)·kr_official council 구역', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const now = new Date(NOW.getTime() - 3600000).toISOString();
+  const unset = { schema: 'council_minutes/v1', generatedAt: now, status: 'not_configured', items: [], events: [],
+    checks: [{ source: '국회도서관 지방의회 회의록(CLIK)', status: 'unset', error: 'CLIK_API_KEY 미설정 — clik.nanet.go.kr 로그인 뒤 인증키 신청, GitHub 비밀값으로' }] };
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/council-minutes', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(unset) }), env, {})).status, 200);
+  assert.match((await call('radar_today', {}, opts)).text, /- 지방의회 회의록: 미설정 국회도서관 지방의회 회의록\(CLIK\)\(CLIK_API_KEY 미설정/);
+  assert.match((await call('kr_official', { section: 'council' }, opts)).text, /\[지방의회 회의록\] 미설정 — CLIK_API_KEY 미설정[^\n]*\(0건 아님\)/);
+  const it = { id: 'clik:CLIKC1', company: '기아', term: '기아자동차', council: '화성시의회', meeting: '제300회 본회의', date: '20261020', agenda: '1. 시정에 관한 질문',
+    snippets: ['김의원: 화성시 우정읍 기아 오토랜드 화성 인근 부지에 신차 2000대가 공장 시설로 허가받은 땅에 야적되고 있습니다. 불법 아닙니까?'], tier: 'A', docid: 'CLIKC1', url: '', firstSeen: now };
+  const doc = { schema: 'council_minutes/v1', generatedAt: now, status: 'complete', items: [it, { ...it, id: 'clik:CLIKC2', company: '현대제철', council: '당진시의회', tier: 'C', snippets: ['현대제철 봉사활동 감사'] }],
+    checks: [{ source: '국회도서관 지방의회 회의록(CLIK)', status: 'ok', returned: 3, opened: 3 }],
+    events: [{ id: it.id, tier: 'A', kind: '지방의회 회의록', company: '기아', council: '화성시의회', detectedAt: now,
+      text: '화성시의회 제300회 본회의(20261020) 회의록 · 기아 대목 「…신차 2000대가 공장 시설로 허가받은 땅에 야적되고 있습니다. 불법 아닙니까?」 · 회의록 번호 CLIKC1(국회도서관 지방의정포털) · 의원 질의는 주장' }] };
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/council-minutes', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
+  const r = await call('radar_today', {}, opts);
+  assert.match(r.text.split('[A · ')[1].split('[B · ')[0], /지방의회 회의록 · 기아\n   화성시의회 제300회 본회의\(20261020\) 회의록 · 기아 대목/);
+  const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
+  const hit = items.items.find((x) => x.id === 'clik:CLIKC1');
+  assert.deepEqual([hit.check.who, hit.check.terms, hit.check.must], ['기아', ['불법'], ['화성시']]);
+  const k = await call('kr_official', { section: 'council' }, opts);
+  assert.match(k.text, /- A · 2026-10-20 · 화성시의회 제300회 본회의 · 기아 · 안건 1\. 시정에 관한 질문\n   대목: 「김의원: 화성시 우정읍 기아 오토랜드/);
+  assert.match(k.text, /원문: 회의록 번호 CLIKC1\(국회도서관 지방의정포털 검색\)/);
+  assert.match(k.text, /사건 낱말 없는 언급 1건 접음 — show_all=true/);
 });
 
 test('scoop_reverse shows automatic prior-capture candidates by source with lead time, separate from human Y/P/N', async () => {

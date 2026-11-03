@@ -50,6 +50,8 @@ export const WATCHES = [
   { feed: 'kr-labor', label: '노동위 회의(조정·심판)', tool: 'kr_official', schedule: '평일 08:20', staleHours: 80 },
   // 노조 성명·보도자료(union_watch.py): 금속노조·화섬식품노조 공개 게시판 새 글에 출입처 이름 — 사망·사고·파업·매각·분할·가처분 등 A
   { feed: 'union-notices', label: '노조 성명·보도자료', tool: 'kr_official', schedule: '매일 09:30·12:30·15:30·18:30·21:30', staleHours: 30 },
+  // 지방의회 회의록(council_watch.py): 국회도서관 지방의정포털 회의록 API — 출입처 이름 대목에 인허가·불법·오염·감면·증설·이전 등이면 A
+  { feed: 'council-minutes', label: '지방의회 회의록', tool: 'kr_official', schedule: '매일 09:10', staleHours: 60 },
   // 인도 상장 법인 공시(india_filings_watch.py): NSE 공시 RSS의 현대차 인도법인 공시 — 인수·설비·로열티 A, 이사회 결과·보도자료 B
   { feed: 'india-filings', label: '인도 법인 공시(현대차 인도)', tool: 'partner_filings', schedule: '평일 13:10·16:10·19:10·22:10', staleHours: 80 },
   // 타사 공시 속 출입처(dart_counterparty_watch.py): 출입처 아닌 회사의 양수도·공급계약·생산중단 공시에 출입처가 거래상대로 적힌 것
@@ -95,6 +97,7 @@ const ALT = {
   부당노동행위: ['부당노동행위', '노동위', '중노위', '지노위'], 교섭: ['교섭', '하청', '원청', '노란봉투'],
   부당해고: ['부당해고', '해고', '노동위', '중노위', '지노위'], 노동위: ['노동위', '중노위', '지노위', '노동위원회'],
   // 노조 성명·보도자료(union-notices): 사고·고발 낱말 묶음
+  불법: ['불법', '위반', '야적', '행정처분'], 오염: ['오염', '유출', '악취', '배출'], 의회: ['의회', '시의회', '도의회', '군의회', '의원'],
   고발: ['고발', '고소', '가처분', '소송'],
   // 미국 주 상공위원회 안건(us-state-env): 세제 감면·인센티브
   감면: ['감면', '세제 혜택', '세금 혜택', '인센티브', '세액'],
@@ -863,6 +866,17 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
     if (!recent(e.detectedAt)) continue;
     push(['A', 'B'].includes(e.tier) ? e.tier : 'C', W['kr-labor'], { kind: e.kind, id: e.id, date: e.detectedAt, company: e.company,
       fact: e.text, url: e.url, check: hint(e.company, [e.word || '노동위']) });
+  }
+
+  // 지방의회 회의록: 출입처 이름 대목에 인허가·불법·위반·오염·민원·특혜·감면·증설·이전·폐쇄·야적 낱말 A(그 밖은 저장만). 의원 질의는 주장
+  for (const e of docs['council-minutes']?.events ?? []) {
+    if (!recent(e.detectedAt)) continue;
+    const t = String(e.text ?? '');
+    const word = /야적|불법|위반|행정처분/.test(t) ? '불법' : /오염|유출|악취/.test(t) ? '오염' : /감면|보조금|특혜|지방세|체납/.test(t) ? '감면'
+      : /증설|신설/.test(t) ? '증설' : /이전|폐쇄|철수/.test(t) ? '폐쇄' : '의회';
+    const council = String(e.council ?? '').replace(/의회$/, '');
+    push(['A', 'B'].includes(e.tier) ? e.tier : 'C', W['council-minutes'], { kind: e.kind ?? '지방의회 회의록', id: e.id, date: e.detectedAt, company: e.company,
+      fact: e.text, url: e.url ?? undefined, check: hint(e.company, [word], [], council ? [council] : []) });
   }
 
   // 노조 성명·보도자료: 사망·사고·파업·매각·분할·가처분 등 A, 그 밖 B(이름이 본문에만 있으면 한 단계 내림). 노조 발표는 한쪽 주장
