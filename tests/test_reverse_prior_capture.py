@@ -60,6 +60,13 @@ class Capture(unittest.TestCase):
         self.assertEqual(doc["bySource"]["해외 파트너 공시"]["leadHours"] if "leadHours" in doc["bySource"]["해외 파트너 공시"] else
                          doc["bySource"]["해외 파트너 공시"]["leadHoursMedian"], 11.3)
 
+    def test_clue_label_names_its_real_origin(self):
+        # 11-03 역추적: 미국 관보 상계관세 문서가 '공개 원자료 단서(DART 등)'로 보였다
+        m = r.mem("clues", "x", ["현대제철"], "Certain Hot-Rolled Steel ... Final Results", "2026-11-01T00:43:00+09:00", origin="미 연방관보")
+        self.assertEqual(r.label_of(m), "공개 원자료 단서(미 연방관보)")
+        self.assertEqual(r.label_of(r.mem("clues", "y", ["현대제철"], "t", "2026-11-01")), "공개 원자료 단서(DART 등)")
+        self.assertEqual(r.label_of(r.mem("kr-stacks", "z", ["포스코"], "t", "2026-11-01")), "굴뚝 측정(가동 신호)")
+
     def test_one_feed_with_an_unexpected_shape_does_not_stop_the_others(self):
         bad = {**DOCS, "kr-signals": {"decisions": [{"id": "d1", "mentions": ["포스코"], "name": "x", "fileDate": "2026-10-01"}]},
                "page-watch": {"events": [{"pageId": "p", "company": ["not", "a", "string"], "added": ["Coming 2027"], "detectedAt": "2026-10-20T06:30:00+09:00"}]}}
