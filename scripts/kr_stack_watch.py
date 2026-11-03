@@ -517,8 +517,10 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep, clock=time.
                     st["status"] = [stt, mdt]
                     # 숫자로 돌던 배출구가 이번 측정에 '보수중'·'가동중지'로 바뀐 것(사업장이 보낸 상태) — 아래에서 사업장 단위로 묶는다
                     # 평일 교대 공장은 '보수중'만 센다 — 교대가 끝난 저녁에 '가동중지'로 바뀌는 것은 일상이다
+                    # 다른 물질 칸에 숫자가 평소처럼 남아 있으면(탐침 117b: 영풍 석포 3번 sox·nox '보수중'·먼지 1.67) 측정기 쪽 보수로 본다
+                    cur = peak(x)
                     if (stt in STOP_STATUS and before not in STOP_STATUS and last_v is not None and last_v >= MEANINGFUL
-                            and (judge is None or stt == "보수중")):
+                            and (cur is None or is_low(cur, last_v)) and (judge is None or stt == "보수중")):
                         halted.append((code, stt, last_v))
                 if st.get("lastDt") == mdt and st.get("obs"):
                     st["missing"] = 0

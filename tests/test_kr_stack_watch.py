@@ -423,6 +423,19 @@ class StackTest(unittest.TestCase):
         self.assertEqual(go(9, switch=("10",))[0], [])                      # 작은 배출구 하나는 이벤트 없음
         self.assertEqual(len(go(9, switch=("1",), text="측정자료확인중(가동중지)")[0]), 1)   # 큰 배출구(평소 값 상위 3)는 하나도
         self.assertEqual(go(9, switch=("10", "11", "12"), text="미수신")[0], [])  # 측정 쪽 사정은 아님
+
+        def mixed(n=9):   # 가스 칸만 '보수중', 먼지 값은 평소처럼 — 측정기 보수
+            doc = None
+            for i in range(n):
+                t = T0 + dt.timedelta(hours=3 * i)
+                rows = world(t, pohang2=big)
+                if i == n - 1:
+                    for x in rows:
+                        if x["fact_manage_nm"] == "현대제철㈜포항2공장" and x["stack_code"] in ("10", "11", "12"):
+                            x.update(sox_mesure_value="보수중", nox_mesure_value="보수중", tsp_mesure_value="19.0")
+                doc = w.run(CFG_SMALL, now=t + dt.timedelta(minutes=20), previous=doc, key="k", get=Api(rows), sleep=lambda s: None)
+            return [e for e in doc["events"] if e["kind"] == "배출구 보수·가동중지 전환"]
+        self.assertEqual(mixed(), [])
         # 평일 교대 공장(기아 화성)은 '가동중지' 전환은 세지 않고 '보수중'만
         cfg = {"companies": [c for c in CFG["companies"] if c["company"] == "기아"]}
         start = dt.datetime(2026, 11, 2, 7, 0, tzinfo=KST)  # 월요일
