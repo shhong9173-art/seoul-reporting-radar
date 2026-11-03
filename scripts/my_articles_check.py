@@ -74,6 +74,49 @@ KINDS = [("실적", r"영업익|영업이익|매출|순이익|순손실|실적|�
          ("통계·시장", r"수출|수입|재고|판매량|판매|점유율|생산량|가격|시황|감소|증가|최저|최고"),
          ("정책·통상", r"관세|규제|법안|보조금|정부|무역|통상|정책")]
 KIND_RX = [(k, re.compile(rx)) for k, rx in KINDS]
+# 보도자료·공시 기사 가리기(11-04 기자: "내 기사 대부분이 보도자료"). 레이더가 앞설 수 없는 기사를 빼고 자체 기사만으로 레이더를 본다.
+# 네이버 뉴스 검색에서 기자 기사 제목으로 찾아, 발행 앞뒤 36시간 안에 다른 매체가 비슷한 제목(낱말 겹침 50% 이상)을 냈는지 센다.
+# - 기자 기사보다 먼저(또는 30분 안에) 2곳 이상, 또는 모두 3곳 이상이면서 먼저 1곳 이상 → '보도자료·공시'(추정)
+# - 비슷한 기사가 모두 기자 기사 뒤(30분 넘게) → '선행'(기자가 먼저, 다른 매체가 따라옴)
+# - 그 밖 → '자체'. 검색 실패·키 없음은 '미확인'(판정 안 함)
+PRESS_BUDGET = 40
+PRESS_SIM = 0.5
+PRESS_WINDOW = dt.timedelta(hours=36)
+PRESS_GRACE = dt.timedelta(minutes=30)
+TITLE_STOP = {"아이뉴스24", "종합", "속보", "단독", "포토", "영상"}
+
+
+def title_tokens(t):
+    t = re.sub(r"\[[^\]]*\]|\([^)]*\)|<[^>]+>", " ", html.unescape(str(t or "")))
+    return {w for w in re.findall(r"[가-힣A-Za-z0-9]{2,}", t) if w not in TITLE_STOP and not re.fullmatch(r"\d+", w)}
+
+
+def title_similar(a, b):
+    A, B = title_tokens(a), title_tokens(b)
+    return len(A & B) / max(1, min(len(A), len(B)))
+
+
+def press_label(article, items):
+    """(라벨, 비슷한 다른 매체 기사 수) — items: 네이버 뉴스 검색 결과(title·originallink·pubDate)."""
+    pub = rpc.parse_time(article.get("published"))
+    if not pub:
+        return None, 0
+    when = []
+    for it in items or []:
+        if "inews24.com" in str(it.get("originallink") or it.get("link") or ""):
+            continue
+        try:
+            t = parsedate_to_datetime(it.get("pubDate") or "").astimezone(KST)
+        except (TypeError, ValueError, IndexError):
+            continue
+        if abs(t - pub) <= PRESS_WINDOW and title_similar(it.get("title"), article.get("title")) >= PRESS_SIM:
+            when.append(t)
+    before = sum(1 for t in when if t <= pub + PRESS_GRACE)
+    if before >= 2 or (len(when) >= 3 and before >= 1):
+        return "보도자료·공시", len(when)
+    if when and not before:
+        return "선행", len(when)
+    return "자체", len(when)
 
 
 def kind_of(title):
@@ -132,7 +175,7 @@ def key_of(a):
     return re.sub(r"\s", "", a.get("title") or "")[:60] + "|" + str(a.get("published") or "")[:10]
 
 
-def run(now, previous=None, docs=None, clues=None, *, get=None, sleep=time.sleep):
+def run(now, previous=None, docs=None, clues=None, *, get=None, sleep=time.sleep, search=None):
     if get is None:
         import requests
         get = requests.get
@@ -177,6 +220,25 @@ def run(now, previous=None, docs=None, clues=None, *, get=None, sleep=time.sleep
             backfill = len(got)
         except Exception as e:  # noqa: BLE001
             errors.append(f"구글 색인:{type(e).__name__}")
+    # 보도자료·공시 기사 가리기(한 실행 40건, 한 번 정한 기사는 다시 묻지 않음)
+    since_press = (now - dt.timedelta(days=WINDOW_DAYS)).isoformat(timespec="seconds")
+    asked, press_err = 0, None
+    if search is not None:
+        for a in sorted(mine.values(), key=lambda x: str(x.get("published")), reverse=True):
+            if a.get("press") or str(a.get("published")) < since_press or asked >= PRESS_BUDGET:
+                continue
+            asked += 1
+            try:
+                items = search({"query": re.sub(r"[\"'“”‘’…⋯·]", " ", a["title"])[:80], "display": 30, "sort": "sim"})
+            except Exception as e:  # noqa: BLE001
+                press_err = f"뉴스 검색:{type(e).__name__}"
+                break   # 키 거부·한도 — 이번 실행은 여기까지(다음 실행에 다시)
+            label, n = press_label(a, items)
+            if label:
+                a["press"], a["pressN"], a["pressAt"] = label, n, stamp
+            sleep(0.3)
+    if press_err:
+        errors.append(press_err)
     keep = (now - dt.timedelta(days=KEEP_DAYS)).isoformat(timespec="seconds")
     mine_list = sorted((a for a in mine.values() if str(a.get("published")) >= keep), key=lambda a: a["published"], reverse=True)
     # 레이더 기억과 대조(최근 30일 기사)
@@ -188,7 +250,7 @@ def run(now, previous=None, docs=None, clues=None, *, get=None, sleep=time.sleep
         if str(a["published"]) < since:
             continue
         verdict, best, n = rpc.match({"published": a["published"], "title": a["title"], "companies": a.get("companies") or []}, items)
-        rows.append({**{k: a.get(k) for k in ("url", "title", "published", "companies", "verified")}, "kind": kind_of(a["title"]),
+        rows.append({**{k: a.get(k) for k in ("url", "title", "published", "companies", "verified", "press", "pressN")}, "kind": kind_of(a["title"]),
                      "verdict": verdict, "best": best, "sameCompanyItems": n})
         if verdict == "먼저 잡은 후보" and best:
             hits.setdefault(best["id"], {"title": a["title"], "published": a["published"], "url": a.get("url"), "verified": a.get("verified", False)})
@@ -199,24 +261,29 @@ def run(now, previous=None, docs=None, clues=None, *, get=None, sleep=time.sleep
             s["caught"] += 1
             s["lead"].append(r_["best"]["leadHours"])
     counts = {v: sum(1 for r_ in rows if r_["verdict"] == v) for v in ("먼저 잡은 후보", "같은 회사 항목만", "없음", "회사 미상")}
+    press_counts = {k: sum(1 for r_ in rows if (r_.get("press") or "미확인") == k) for k in ("보도자료·공시", "자체", "선행", "미확인")}
+    own = [r_ for r_ in rows if r_.get("press") in ("자체", "선행")]
+    own_counts = {v: sum(1 for r_ in own if r_["verdict"] == v) for v in ("먼저 잡은 후보", "같은 회사 항목만", "없음", "회사 미상")}
     status = "failed" if not entries and errors and not backfill else "partial" if errors else "complete"
     pending = max(0, len(cands) - OPEN_BUDGET)
     return {"schema": SCHEMA, "generatedAt": stamp, "status": status, "author": AUTHOR,
             **({"backfilledAt": prev.get("backfilledAt") or (stamp if backfill is not None else None)} if (prev.get("backfilledAt") or backfill is not None) else {}),
             "checks": [{"source": "아이뉴스24 뉴스 사이트맵", "status": "failed" if status == "failed" else "partial" if errors else "ok",
                         "returned": len(entries), "candidates": len(cands), "opened": opened, **({"pending": pending} if pending else {}),
-                        "mineNew": found,
+                        "mineNew": found, "pressAsked": asked,
                         **({"backfill": backfill} if backfill is not None else {}),
                         **({"error": "; ".join(errors[:4])} if errors else {})}],
             "checked": dict(list(checked.items())[-4000:]), "mine": mine_list[:600],
-            "articles": rows, "counts": counts, "bySource": {k: {"caught": v["caught"], "leadHoursMedian": median(v["lead"])}
+            "articles": rows, "counts": counts, "pressCounts": press_counts, "ownCounts": own_counts, "bySource": {k: {"caught": v["caught"], "leadHoursMedian": median(v["lead"])}
                                                              for k, v in sorted(by_source.items(), key=lambda t: -t[1]["caught"])},
             "itemHits": hits, "memoryItems": len(items), "adapterErrors": adapter_errors,
             "rules": [f"기자({AUTHOR}) 기사는 아이뉴스24 사이트맵에서 제목에 출입처 이름이 든 기사의 작성자 메타로 확인한다(verified). "
                       "출입처 이름이 제목에 없는 기사(업계 전체 기사)·당직 기사는 대조에서 빠진다.",
                       "첫 실행의 지난 30일은 구글 뉴스 제목 색인(작성자 미확인, verified=false)이다.",
                       "'먼저 잡은 후보'는 같은 회사(그룹) 레이더 항목을 기사 60일 전~직전에 처음 봤고 사건 낱말이 겹친 경우다. 같은 사건인지는 열어 봐야 한다.",
-                      "기자 판정(씀·킬·보류·봤음)과 별개인 자동 기록이다. 안 쓴 항목은 이유를 모르므로 킬로 세지 않는다."]}
+                      "기자 판정(씀·킬·보류·봤음)과 별개인 자동 기록이다. 안 쓴 항목은 이유를 모르므로 킬로 세지 않는다.",
+                      "보도자료·공시 기사는 네이버 뉴스 검색에서 같은 때(36시간 안) 다른 매체의 비슷한 제목이 기자 기사보다 먼저 2곳 이상(또는 3곳 이상)이면 추정한다. "
+                      "비슷한 기사가 모두 뒤에 나왔으면 '선행'. 레이더 평가는 자체·선행 기사만으로 본다."]}
 
 
 def main():
@@ -239,11 +306,17 @@ def main():
         except Exception as e:  # noqa: BLE001
             failed.append(f"{f}:{type(e).__name__}")
     clues = json.loads((ROOT / "tools" / "clues.json").read_text(encoding="utf-8"))
-    doc = run(now, previous, docs, clues)
+    cid, secret = os.environ.get("NAVER_CLIENT_ID", "").strip(), os.environ.get("NAVER_CLIENT_SECRET", "").strip()
+    search = None
+    if cid and secret:
+        import naver_api
+        search = lambda params: naver_api.news_search(cid, secret, params)[1]  # noqa: E731
+    doc = run(now, previous, docs, clues, search=search)
     doc["feedsFailed"] = failed
     c = doc["checks"][0]
     print(f"::notice title=my-articles::상태 {doc['status']} · 사이트맵 {c['returned']} · 출입처 제목 새 기사 {c['candidates']} · 열람 {c['opened']}"
           f" · 기자 기사(30일) {len(doc['articles'])} · {json.dumps(doc['counts'], ensure_ascii=False)}"
+          + f" · 보도자료 가리기 {c.get('pressAsked', 0)}건 {json.dumps(doc['pressCounts'], ensure_ascii=False)}"
           + (f" · 구글 색인 채움 {c['backfill']}" if "backfill" in c else "") + (f" · 감시 조회 실패 {failed}" if failed else "")
           + (f" · {c['error']}" if c.get("error") else ""))
     try:
