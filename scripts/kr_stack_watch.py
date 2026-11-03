@@ -229,6 +229,20 @@ def annotate_late_starts(events, sites, now, hours=48):
             e["text"] = text + LATE_START_NOTE + ", ".join(early) + (LATE_START_TAIL if halted else f" — 알림보다 최대 {lead:.0f}시간 앞서 멈춰 있었음")
 
 
+# 사업장 메모(설정 siteNotes): 굴뚝 자료에는 업종이 없다 — 발전 사업장처럼 멈춤의 뜻이 다른 곳은 다른 공식 자료로 확인한 범위만 적어 둔다
+# (11-03: SK이노베이션 전남 사업장 배출구 4개 '가동중지' — 공장등록에 같은 회사 광양시 금호동 '화력 발전업'이 있다. 같은 곳인지는 미확인).
+NOTE_KINDS = ("배출구 멈춤 신호", "사업장 가동 중단 신호", "배출구 오래 멈춤", "배출구 가동중지 전환", "배출구 가동중지 해제", "사업장 재가동 신호",
+              "배출구 목록에서 빠짐", "사업장 목록에서 빠짐(굴뚝 측정)", "배출구 오래 빠짐", "사업장 오래 빠짐(굴뚝 측정)")
+
+
+def site_note(comp, name, area):
+    """설정 siteNotes 가운데 이 사업장(이름 정규식·시도)에 맞는 메모. 없으면 None."""
+    for n in comp.get("siteNotes") or []:
+        if re.search(n["site"], name or "") and (not n.get("area") or n["area"] == area):
+            return n["note"]
+    return None
+
+
 def retier_maintenance_stops(events):
     """#599~#614 동안 '보수중'을 멈춤으로 센 저장 이벤트: 든 배출구가 모두 '보수중'이면 C, 섞였으면 설명만(한 번)."""
     for e in events:
@@ -653,7 +667,11 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep, clock=time.
                     e["text"] = (e.get("text") or "") + note
                 e["tier"] = "C"
 
+    notes = {x["name"]: x["note"] for x in sites.values() if x.get("note") and x.get("name")}
+
     def emit(eid, kind, tier, company, site, text):
+        if kind in NOTE_KINDS and notes.get(site):
+            text = f"{text} · ⓘ {notes[site]}"
         if eid not in known:
             known.add(eid)
             fresh.append({"id": eid, "kind": kind, "tier": tier, "company": company, "site": site, "text": text[:1000], "detectedAt": stamp})
@@ -699,6 +717,12 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep, clock=time.
                          f"{name}({xs[0].get('area_nm') or '지역 미상'}) 굴뚝 자동측정 목록에 새로 나타남 — 배출구 {len(xs)}개. 새 공장·설비 가동 또는 이름 변경일 수 있음(회사 확인)"
                          + ("" if tier == "A" else f" · 감시 {watched:.1f}일째라 쉬던 사업장이 다시 측정된 것일 수 있음"))
             s.update(name=name, area=xs[0].get("area_nm") or s.get("area"), lastSeen=stamp)
+            note = site_note(comp, name, s.get("area"))
+            if note:
+                s["note"], notes[name] = note, note
+            else:
+                s.pop("note", None)
+                notes.pop(name, None)
             stacks = s.setdefault("stacks", {})
             # 이 사업장을 본 실행 수(예전 저장본에는 없으니 배출구 관측 수 가운데 가장 큰 값으로 시작)
             s["runs"] = s.get("runs", max([len(v.get("obs") or []) for v in stacks.values()] or [0])) + 1

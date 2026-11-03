@@ -175,6 +175,25 @@ class StackTest(unittest.TestCase):
                "text": "x — 평소 움직이던 137개 중 2개라 일상 정비 수준일 수 있어 C로 바로잡음(사업장 크기 기준: 5%·상위 3·평소 값 10%)"}
         self.assertEqual(w.restore_size_retier([old]), 0)   # 규칙 전 이벤트는 그대로 C
 
+    def test_site_note_from_config_is_kept_and_added_to_stop_alerts(self):
+        # 11-03: SK이노베이션 전남 사업장 배출구 4개 '가동중지' — 공장등록에 같은 회사 광양 '화력 발전업'이 있어 급전 지시 정지일 수 있다는 메모
+        sk = next(c for c in CFG["companies"] if c["company"] == "SK이노베이션")
+        self.assertTrue(sk.get("siteNotes"))
+        cfg = {"companies": [sk]}
+        doc = None
+        for i in range(10):
+            t = T0 + dt.timedelta(hours=3 * i)
+            rows = [row("에스케이이노베이션 주식회사", "전라남도", str(c), t, 0.0 if i >= 6 else 20.0) for c in (1, 2, 3, 4)]
+            doc = w.run(cfg, now=t + dt.timedelta(minutes=20), previous=doc, key="k", get=Api(rows), sleep=lambda s: None)
+        site = next(x for x in doc["sites"] if x["area"] == "전라남도")
+        self.assertIn("화력 발전업", site["note"])
+        down = [e for e in doc["events"] if e["kind"] == "사업장 가동 중단 신호"]
+        self.assertTrue(down)
+        self.assertTrue(all("급전 지시" in e["text"] for e in down))
+        # 시도가 다르면 메모를 붙이지 않는다
+        self.assertIsNone(w.site_note(sk, "에스케이이노베이션 주식회사", "울산광역시"))
+        self.assertIsNone(w.site_note(sk, "에스케이이노베이션 주식회사 울산공장", "전라남도"))
+
     def test_long_stop_of_small_stacks_is_B_once_and_clears_on_restart(self):
         # 11-02: 경향 [단독] '포스코 광양 2고로 전면 개수'(10-30) — 광양 129·135번이 10-31부터 멈췄지만 137개 중 2개라 C로만 남았다.
         # 일상 정비보다 긴 멈춤(사흘 넘게)은 사업장 크기와 상관없이 B 한 번.
