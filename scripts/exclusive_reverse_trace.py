@@ -112,6 +112,76 @@ def candidate(row):
     return article_id(row) is not None and aware(row.get("published")) is not None
 
 
+# 같은 기사(같은 매체의 다른 주소·네이버 잘린 제목·'많이 본 기사' 재게시): 제목 낱말 열의 앞부분이 같으면 하나로 접는다.
+# 11-03 역추적 5일 31건 중: 철강금속신문 = snmnews.com(네이버 제목 '...다...'로 잘림), 아시아경제 같은 제목 4건,
+# SBS Biz '[많이 본 경제기사]' 10-29·10-31 두 번 — 같은 기사가 2~4줄씩.
+STORY_SUFFIX=re.compile(r"\s+-\s+[^-]{1,40}$")
+STORY_TAIL=re.compile(r"(?:\s*\[(?!\s*단독)[^\]]{1,20}\]|\s*(?:\.{2,}|…))+\s*$")
+STORY_MIN=16
+STORY_DAYS=3
+
+
+def story_key(title):
+    t=STORY_SUFFIX.sub("",str(title or ""))
+    t=STORY_TAIL.sub("",t)
+    return re.sub(r"[^0-9A-Za-z가-힣]","",t)
+
+
+def same_story(a,b):
+    ka,kb=story_key(a),story_key(b)
+    short,long_=sorted((ka,kb),key=len)
+    if len(short)<STORY_MIN:
+        return ka==kb
+    return long_.startswith(short)
+
+
+def _clipped(title):
+    return bool(re.search(r"(?:\.{2,}|…)\s*$",STORY_SUFFIX.sub("",str(title or ""))))
+
+
+def fold_same_story(rows,keep=()):
+    """{접힌 id: 대표 id}. 같은 회사가 겹치고 3일 안에 나온 같은 기사 묶음에서 사람 검토·우선 id → 가장 이른 것 → 긴 제목을 대표로.
+    잘린 제목(네이버 '...')이 서로 다른 두 온전한 제목을 잇지는 않는다 — 묶음 안 온전한 제목끼리도 같은 기사여야 합친다."""
+    keep=set(keep)
+    buckets={}
+    for r in rows:
+        k=story_key(r.get("title"))
+        buckets.setdefault(k[:STORY_MIN] if len(k)>=STORY_MIN else k,[]).append(r)
+    group_of={r["id"]:[r] for r in rows}
+    for bucket in buckets.values():
+        for i,a in enumerate(bucket):
+            for b in bucket[i+1:]:
+                ga,gb=group_of[a["id"]],group_of[b["id"]]
+                if ga is gb or not (set(a.get("companies") or [])&set(b.get("companies") or [])
+                                    and abs((aware(a["published"])-aware(b["published"])).total_seconds())<=STORY_DAYS*86400
+                                    and same_story(a["title"],b["title"])):
+                    continue
+                full_a=[x for x in ga if not _clipped(x["title"])]
+                full_b=[x for x in gb if not _clipped(x["title"])]
+                if not all(same_story(x["title"],y["title"]) for x in full_a for y in full_b):
+                    continue
+                merged=ga+gb
+                for x in merged:
+                    group_of[x["id"]]=merged
+    folded,done=set(),{}
+    for g in group_of.values():
+        if id(g) in done or len(g)<2:
+            continue
+        done[id(g)]=True
+        lead=sorted(g,key=lambda r:(r["id"] not in keep,r["published"],-len(story_key(r["title"]))))[0]
+        for r in g:
+            if r["id"]!=lead["id"] and r["id"] not in keep:
+                folded.add((r["id"],lead["id"]))
+    return dict(folded)
+
+
+def best_title(row,others):
+    """대표 줄 제목: 같은 기사 중 잘리지 않은 가장 긴 제목(네이버 '...' 제목이 대표가 될 때)."""
+    cands=[row]+list(others or [])
+    full=[r for r in cands if not _clipped(r["title"])] or cands
+    return max(full,key=lambda r:len(story_key(r["title"])))["title"]
+
+
 def kind_for(headline):
     for label,pattern in KINDS:
         if pattern.search(headline):return label
@@ -252,7 +322,11 @@ def build(press, reviews=None, *, now=None, max_candidates=400, history=None,
     for row in press["items"]:
         if candidate(row):
             all_candidates[row["id"]]=row
-    observed_by_date=sorted(all_candidates.values(),
+    folded=fold_same_story(list(all_candidates.values()),keep=set(labelled)|set(evidence_priority_ids or ()))
+    others={}
+    for dup,lead in folded.items():
+        others.setdefault(lead,[]).append(all_candidates[dup])
+    observed_by_date=sorted((r for r in all_candidates.values() if r["id"] not in folded),
                   key=lambda r:(r["published"],r["id"]),reverse=True)
     # A rolling top-400 newsroom digest must not permanently hide manually
     # investigated historical records as more recent headlines accumulate.
@@ -271,11 +345,13 @@ def build(press, reviews=None, *, now=None, max_candidates=400, history=None,
     for row in sample:
         proof=validate_review(labelled[row["id"]],row) if row["id"] in labelled else None
         items.append({
-            "articleId":row["id"],"title":row["title"],
+            "articleId":row["id"],"title":best_title(row,others.get(row["id"])),
             "published":row["published"],
             "sourceName":row["sourceName"],
             "articleUrl":row["url"],
             "companies":list(row.get("companies") or [])[:8],
+            "sameStoryElsewhere":[{"sourceName":o.get("sourceName"),"published":o.get("published"),"articleId":o["id"]}
+                                  for o in sorted(others.get(row["id"],[]),key=lambda o:o["published"])[:5]],
             "kind":kind_for(row["title"]),
             "publicTraceClass":proof["verdict"] if proof else "U",
             "humanReviewStatus":"verified_comparison" if proof else "not_reviewed_or_invalid_evidence",
@@ -319,6 +395,7 @@ def build(press, reviews=None, *, now=None, max_candidates=400, history=None,
         "targetHistoricalExclusiveArticles":400,
         "totalObservedExclusiveHeadlines":len(sample),
         "availableObservedExclusiveHeadlinesBeforeCap":len(observed_by_date),
+        "sameStoryRowsFolded":len(folded),
         "candidateDisplayLimit":max_candidates,
         "evidencePriorityObservedItemsRetained":len(selected_ids),
         "evidencePriorityIdsNotObserved":len(priority-set(all_candidates)),
