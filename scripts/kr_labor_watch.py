@@ -163,6 +163,10 @@ def run(now, previous=None, get=None, sleep=time.sleep, rules=None):
     notices = {n["id"]: n for n in prev.get("notices") or [] if isinstance(n, dict) and n.get("id")}
     events = list(prev.get("events") or [])
     checks, counts = [], {"meetings": 0, "details": 0, "cases": 0, "조정 사건": 0}
+    # 상세는 처음 볼 때만 읽으므로 사건 수는 그날 실행을 이어 센다(11-03: 두 번째 실행 화면이 '사건 10'으로 줄어 보였다)
+    if str(prev.get("generatedAt") or "")[:10] == stamp[:10]:
+        for k in ("details", "cases", "조정 사건"):
+            counts[k] = int((prev.get("counts") or {}).get(k) or 0)
     first = True
     for slug, cname in COMMISSIONS:
         if not first:

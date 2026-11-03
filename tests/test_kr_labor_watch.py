@@ -124,6 +124,9 @@ class Run(unittest.TestCase):
         doc2 = w.run(NOW + dt.timedelta(hours=5), doc, get=get2, sleep=lambda s: None)
         self.assertFalse([u for u in calls2 if "detail.do" in u])
         self.assertEqual(len(doc2["events"]), 3)
+        self.assertEqual(doc2["counts"], {"meetings": 3, "details": 3, "cases": 8, "조정 사건": 2})   # 같은 날은 이어 센다
+        doc3 = w.run(NOW + dt.timedelta(days=1), doc2, get=site()[0], sleep=lambda s: None)
+        self.assertEqual(doc3["counts"]["cases"], 0)   # 다음 날은 새로(본 회의는 다시 안 읽음)
         self.assertEqual(len(doc2["notices"]), 3)
 
     def test_detail_read_is_retried_once(self):

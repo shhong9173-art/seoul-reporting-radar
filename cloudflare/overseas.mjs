@@ -878,7 +878,7 @@ export async function laborSection(ctx, q, days, limit) {
   const c = doc.counts ?? {};
   const short = (x) => x.source.replace(/지방노동위원회$/, '지노위').replace(/^중앙노동위원회$/, '중노위');
   const out = [`\n[노동위 회의(조정·심판) · 출입처가 사건 당사자 · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt)}]`,
-    `원천: 노동위원회 ${checks.length - failed.length - partial.length}/${checks.length}곳 정상 · 오늘 회의 ${c.meetings ?? '?'}건(사건 ${c.cases ?? '?'}, 조정 ${c['조정 사건'] ?? '?'})`
+    `원천: 노동위원회 ${checks.length - failed.length - partial.length}/${checks.length}곳 정상 · 이번 실행 첫 화면 회의 ${c.meetings ?? '?'}건 · 오늘 읽은 회의 상세 ${c.details ?? '?'}건(사건 ${c.cases ?? '?'}, 조정 ${c['조정 사건'] ?? '?'})`
       + `${failed.length ? ` · 미확인(0건 아님): ${failed.map((x) => x.source).join(', ')}` : ''}`
       + `${partial.length ? ` · 일부 미확인: ${partial.map((x) => `${short(x)}(${x.error ?? '상세 일부 실패'})`).join(', ')}` : ''}`
       + `${capped.length ? ` · 첫 화면 5건 상한(뒤 회의 빠졌을 수 있음): ${capped.map(short).join(', ')}` : ''}`,
