@@ -837,6 +837,18 @@ class RunGap(unittest.TestCase):
         self.assertIsNone(w.too_soon({"generatedAt": "bad"}, now))
         self.assertIsNone(w.too_soon({"generatedAt": "2026-11-02T11:00:00+09:00"}, now))   # 미래 시각(시계 차이)은 막지 않음
 
+    def test_a_push_run_does_not_push_the_next_scheduled_slot_away(self):
+        # 11-03: 13:47 push 실행 → 15:20 정기 실행이 100분 문턱에 걸릴 뻔 — 직전이 push면 정기·수동 실행은 45분이면 돈다
+        self.assertEqual(w.gap_for({"trigger": "push"}, "workflow_dispatch"), w.PUSH_GAP_MINUTES)
+        self.assertEqual(w.gap_for({"trigger": "push"}, "schedule"), w.PUSH_GAP_MINUTES)
+        self.assertEqual(w.gap_for({"trigger": "push"}, "push"), w.MIN_GAP_MINUTES)        # push 둘은 그대로 100분
+        self.assertEqual(w.gap_for({"trigger": "workflow_dispatch"}, "workflow_dispatch"), w.MIN_GAP_MINUTES)
+        self.assertEqual(w.gap_for({}, "schedule"), w.MIN_GAP_MINUTES)
+        prev = {"generatedAt": "2026-11-03T13:47:00+09:00", "trigger": "push"}
+        now = dt.datetime(2026, 11, 3, 15, 20, tzinfo=KST)
+        self.assertIsNone(w.too_soon(prev, now, w.gap_for(prev, "workflow_dispatch")))   # 93분 — 돈다
+        self.assertEqual(w.too_soon(prev, now, w.gap_for(prev, "push")), 93)
+
     def test_gap_is_shorter_than_the_three_hour_slot(self):
         self.assertLess(w.MIN_GAP_MINUTES, 180)
         self.assertGreater(w.MIN_GAP_MINUTES, 60)

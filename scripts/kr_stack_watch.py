@@ -965,6 +965,15 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep, clock=time.
 # 실행 간격: '연달아 N번'(멈춤 3번·빠짐 2번)을 실행 수로 세므로, 실행이 몰리면(Cloudflare 예약 요청 뒤 늦게 온 GitHub 예약, 코드 push)
 # 몇 분 만에 '2번 연속 빠짐'이 된다. 직전 실행이 이만큼 안이면 건너뛴다(수동 실행 force는 예외).
 MIN_GAP_MINUTES = 100
+# 코드 병합(push)으로 돈 실행은 정기 실행(3시간 칸)을 밀어내지 않는다 — 11-03 13:47 push 실행 때문에 15:20 정기 실행이 100분 문턱에
+# 걸려 건너뛰어져 다음 실행이 18:20(6시간 반 간격)이 될 뻔했다. 직전 실행이 push면 정기 실행은 PUSH_GAP_MINUTES만 지나면 돈다.
+PUSH_GAP_MINUTES = 45
+
+
+def gap_for(previous, event):
+    """이번 실행의 최소 간격(분): 직전이 push 실행이고 이번이 정기·수동 실행이면 PUSH_GAP_MINUTES, 아니면 MIN_GAP_MINUTES."""
+    prev_trigger = (previous or {}).get("trigger") if isinstance(previous, dict) else None
+    return PUSH_GAP_MINUTES if prev_trigger == "push" and event and event != "push" else MIN_GAP_MINUTES
 
 
 def too_soon(previous, now, gap=MIN_GAP_MINUTES):
@@ -997,12 +1006,16 @@ def main():
             previous = private_store.get("kr-stacks", token)
         except private_store.StoreError as e:
             print(f"::warning title=kr-stacks-state::이전 상태 조회 실패({e}) — 이번 실행은 기준선")
-    gap = too_soon(previous, now)
+    event = os.environ.get("GITHUB_EVENT_NAME", "").strip()
+    need = gap_for(previous, event)
+    gap = too_soon(previous, now, need)
     if gap is not None and not os.environ.get("STACKS_FORCE", "").strip():
-        print(f"::notice title=kr-stacks::직전 실행 {gap}분 전 — 건너뜀(실행 간격 {MIN_GAP_MINUTES}분 이상 유지: '연달아 N번' 판단이 몇 분 만에 차지 않게)")
+        print(f"::notice title=kr-stacks::직전 실행 {gap}분 전 — 건너뜀(실행 간격 {need}분 이상 유지: '연달아 N번' 판단이 몇 분 만에 차지 않게)")
         return
     cfg = json.loads(CONFIG.read_text(encoding="utf-8"))
     doc = run(cfg, now=now, previous=previous, key=key)
+    if event:
+        doc["trigger"] = event
     new = [e for e in doc["events"] if e["detectedAt"] == doc["generatedAt"]]
     stacks = sum(len(s.get("stacks") or {}) for s in doc["sites"])
     stopped = sum(len(s.get("stopped") or []) for s in doc["sites"])
