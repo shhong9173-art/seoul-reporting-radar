@@ -2919,6 +2919,12 @@ test('press-check hints: place words narrow the search but are marked, workforce
   assert.deepEqual([sh.terms, sh.places, sh.must], [['광양', '가동 중단', '정비'], ['광양'], ['광양']]);
   assert.deepEqual(stackHint({ company: '현대제철', site: '현대제철㈜', kind: '배출구 멈춤 신호' }).must, undefined);
   assert.deepEqual(stackHint({ company: '포스코', site: '㈜포스코 광양제철소', kind: '배출구 오래 멈춤' }).terms, ['광양', '가동 중단', '개수', '정비']);
+  // 사흘 넘게 목록에서 빠진 배출구·사업장은 폐쇄 기사와 맞춰 본다
+  assert.deepEqual(stackHint({ company: '롯데케미칼', site: '롯데케미칼㈜ 울산1공장', kind: '배출구 오래 빠짐' }).terms, ['울산', '폐쇄', '가동 중단']);
+  assert.deepEqual(stackHint({ company: '금호석유화학', site: '금호석유화학㈜ 울산고무공장', kind: '사업장 오래 빠짐(굴뚝 측정)' }).terms, ['울산', '폐쇄', '가동 중단']);
+  // 지명은 출입처 공장 시·군 목록에서 먼저 찾는다('공장' 앞 두 글자는 '고무'·'무제'가 됐다)
+  assert.deepEqual(['금호석유화학(주)여수고무제1공장', '현대제철㈜ 인천공장', '한화솔루션㈜ 진천사업장', '기아㈜ 광주2공장', '고려아연㈜온산제련소', '에스케이이노베이션 주식회사'].map(siteCity),
+    ['여수', '인천', '진천', '광주', '온산', undefined]);
   const kh = kepcoHint('765kV 전력용변압기 1Bank(3대) - 신안성S/S');  // 10-31 운영: 예전엔 "한국전력공사 한전"으로 찾았다
   assert.deepEqual([kh.who, kh.terms, kh.places], ['한전', ['765kV', '변압기', '발주'], ['765kV']]);
   assert.deepEqual(kepcoHint('배전용 자재 구매').terms, ['발주']);

@@ -430,6 +430,21 @@ def collapse_gone_bursts(events):
             e["tier"] = "C"
 
 
+def collapse_long_gone(events):
+    """같은 사업장·같은 실행에 '배출구 오래 빠짐'이 BURST개 이상이면 첫 줄만 B, 나머지는 C(같은 설비 묶음일 수 있음)."""
+    groups = {}
+    for e in events:
+        if e.get("kind") == "배출구 오래 빠짐":
+            groups.setdefault((e.get("company"), e.get("site"), e.get("detectedAt")), []).append(e)
+    for es in groups.values():
+        if len(es) < BURST:
+            continue
+        for e in sorted(es, key=lambda e: e.get("id") or "")[1:]:
+            if "함께 사흘 넘게 빠짐" not in (e.get("text") or ""):
+                e["text"] = (e.get("text") or "") + f" — 같은 실행에 이 사업장 배출구 {len(es)}개가 함께 사흘 넘게 빠짐(한 줄만 B)"
+            e["tier"] = "C"
+
+
 def collapse_bursts(events):
     """저장된 '새 배출구' 이벤트 가운데 같은 사업장·같은 실행에 BURST개 이상이면 C '배출구 목록 보강' 한 줄로 바꾼다
     (10-30 13:36: 고려아연 온산제련소 배출구 24개가 한꺼번에 A로 뜸 — 첫 실행 기준선 때 일부 배출구 값이 아직 없었던 것)."""
@@ -475,6 +490,12 @@ STALE_HOURS = 12
 # 사업장 크기와 상관없이 B — 11-02 경향 [단독] '포스코, 광양 2고로 전면 개수'(10-30): 광양 129·135번이 10-31부터 멈췄지만
 # 137개 중 2개라 '일상 정비 수준' C로만 남았다(어느 설비인지는 자료에 없음).
 LONG_STOP_HOURS = 72
+
+
+# 오래 빠진 배출구·사업장: 멈춘 배출구는 목록에 '가동중지'로 남는다 — 사흘(평일 교대 공장은 일하는 시간 72시간) 넘게 목록에 없으면
+# 측정 대상에서 빠진 것(설비 폐쇄·철거·측정 대상 제외)일 가능성이 2번 빠짐보다 훨씬 크다. 한 번만 B로 알린다
+# (11-03 롯데케미칼 울산1공장 3·4·129번, 금호석유화학 울산고무공장 — 이틀 안팎 빠짐은 자료 지연과 가르기 어렵다).
+LONG_GONE_HOURS = 72
 
 
 def pre_stop_base(obs):
@@ -656,6 +677,9 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep, clock=time.
                 st = stacks.get(code)
                 if st is not None:  # 빠졌다던 배출구가 지금 있으면(예전 저장본에서 이미 돌아온 것도) 그 이벤트에 '다시 나타남'
                     settle(f"stk:gone:{sid}:{code}", f" — 이후 다시 나타남(측정 {x.get('mesure_dt')}, 일시적 누락)")
+                    if st.get("longGoneFor"):
+                        settle(f"stk:longgone:{sid}:{code}", f" — 이후 다시 나타남(측정 {x.get('mesure_dt')})")
+                        st.pop("longGoneFor", None)
                 if st is None:
                     st = {"firstSeen": stamp, "obs": []}
                     stacks[code] = st
@@ -760,6 +784,18 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep, clock=time.
                             emit(f"stk:gone:{sid}:{code}:{day}:work", "배출구 목록에서 빠짐", "B", comp["company"], name,
                                  f"{name} 배출구 {code}번이 쉬는 시간부터 {st['missing']}번 연속 굴뚝 자동측정 목록에서 빠졌고 평일 일하는 시간에도 "
                                  f"{MISSING_RUNS}번 연속 없음 — 설비 폐쇄·측정 대상 변경일 수 있음(회사 확인)")
+                    last_t = obs_time(st.get("lastDt"))
+                    if not comp_first and len(st.get("obs") or []) >= MIN_OBS and last_t is not None and st["missing"] >= MISSING_RUNS \
+                            and st.get("longGoneFor") != st.get("lastDt"):
+                        gone_h = working_hours_between(last_t, now, judge) if judge else (now - last_t).total_seconds() / 3600
+                        if gone_h >= LONG_GONE_HOURS:
+                            st["longGoneFor"] = st.get("lastDt")
+                            vals = [v for _, v in st.get("obs") or [] if v is not None]
+                            usual = statistics.median(vals) if vals else None
+                            emit(f"stk:longgone:{sid}:{code}:{str(st.get('lastDt'))[:10]}", "배출구 오래 빠짐", "B", comp["company"], name,
+                                 f"{name} 배출구 {code}번이 사흘 넘게 굴뚝 자동측정 목록에 없음 — 마지막 측정 {st.get('lastDt')}"
+                                 + (f"(평소 {usual:.1f})" if usual is not None else "") + f", 그 뒤 {'일하는 시간 ' if judge else ''}{gone_h:.0f}시간. "
+                                 "멈춘 배출구는 목록에 '가동중지'로 남으므로 측정 대상에서 빠진 것일 수 있음 — 설비 폐쇄·철거·측정 대상 변경인지 회사·환경공단 확인")
 
             # 사업장 가동 판단: 평소 움직이던 배출구 가운데 멈춘 것
             judged = {code: stack_state(st, now, judge) for code, st in stacks.items() if code in present}
@@ -873,14 +909,28 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep, clock=time.
                 emit(f"stk:sitegone:{sid}:work:{day}", "사업장 목록에서 빠짐(굴뚝 측정)", "B", s["company"], s["name"],
                      f"{s['name']}이 쉬는 시간부터 {s['missingRuns']}번 연속 굴뚝 자동측정 목록에서 빠졌고 평일 일하는 시간에도 {MISSING_RUNS}번 연속 없음 — "
                      "폐쇄·이름 변경·측정 대상 제외 확인")
+            seen_t = dt.datetime.fromisoformat(s["lastSeen"]) if s.get("lastSeen") else None
+            if mature and not first and seen_t is not None and s["missingRuns"] >= MISSING_RUNS and s.get("longGoneFor") != s.get("lastSeen"):
+                weekday = s["company"] in weekday_companies
+                gone_h = working_hours_between(seen_t, now, working) if weekday else (now - seen_t).total_seconds() / 3600
+                if gone_h >= LONG_GONE_HOURS:
+                    s["longGoneFor"] = s.get("lastSeen")
+                    emit(f"stk:longsitegone:{sid}:{str(s.get('lastSeen'))[:10]}", "사업장 오래 빠짐(굴뚝 측정)", "B", s["company"], s["name"],
+                         f"{s['name']}이 사흘 넘게 굴뚝 자동측정 목록에 없음 — 마지막으로 보인 실행 {str(s.get('lastSeen'))[:16]}, "
+                         f"그 뒤 {'일하는 시간 ' if weekday else ''}{gone_h:.0f}시간·{s['missingRuns']}번 연속(배출구 {len(s.get('stacks') or {})}개). "
+                         "폐쇄·이름 변경(새 이름 사업장으로 다시 나타났는지)·측정 대상 제외인지 회사·환경공단 확인")
         elif sid in seen_sites:
             # 지금 목록에 있으면 그 사업장의 '빠짐' 이벤트는 모두 풀린 것 — 예전 실행에서 이미 돌아와 표시가 빠진 것도 여기서 붙인다
             settle(f"stk:sitegone:{sid}", f" — 이후 다시 나타남(확인 {stamp[:16]}, 일시적 누락)")
+            if s.get("longGoneFor"):
+                settle(f"stk:longsitegone:{sid}", f" — 이후 다시 나타남(확인 {stamp[:16]})")
+                s.pop("longGoneFor", None)
             s["missingRuns"] = 0
             s.pop("workMissing", None)
 
     annotate_late_starts(events, sites, now)
     collapse_gone_bursts(fresh + events)
+    collapse_long_gone(fresh + events)
     total_terms = sum(len(c["terms"]) for c in cfg["companies"])
     status = "failed" if ok_terms == 0 else ("partial" if errors else "complete")
     checks = [{"source": "굴뚝 자동측정(CleanSYS)", "status": "ok" if not errors else ("failed" if not ok_terms else "partial"),
@@ -896,6 +946,7 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep, clock=time.
                       "측정값 칸에 숫자 대신 상태 글자가 오면 그대로 남긴다: '측정자료확인중(가동중지)'는 사업장이 보낸 시설 멈춤 신고(값 0으로 셈), '보수중'·'기기점검'·'미수신'·'측정자료확인중'은 측정기 쪽 상태(판단 안 함).",
                       "숫자로 돌던 배출구가 '가동중지'로 바뀐 것이 한 실행에 3개 이상이거나 큰 배출구면 알린다(연속 가동 사업장만) — 검증 전까지 C. 거꾸로 '가동중지'였던 배출구가 다시 숫자를 보내면 '해제'(C).",
                       "한 사업장 배출구가 같은 실행에 3개 이상 한꺼번에 목록에서 빠지면 측정 자료 지연일 수 있어 C(멈춘 배출구는 목록에 '가동중지'로 남는다).",
+                      "배출구·사업장이 사흘(평일 교대 공장은 일하는 시간 72시간) 넘게 목록에 없으면 '오래 빠짐' B 한 번 — 멈춘 배출구는 '가동중지'로 남으므로 측정 대상에서 빠진 것(폐쇄·철거·측정 대상 변경)일 수 있다. 같은 사업장 같은 실행 3개 이상이면 한 줄만 B. 다시 나타나면 C.",
                       f"다만 사흘(평일 교대 공장은 일하는 시간 {LONG_STOP_HOURS}시간) 넘게 멈춘 배출구는 사업장 크기와 상관없이 '배출구 오래 멈춤' B로 한 번 알린다. 멈춤이 이어지는 동안은 멈추기 전 평소 값으로 본다.",
                       "평일 교대 공장(완성차·타이어·전선·변압기·중공업)은 주말·공휴일·밤(0~7시) 관측을 멈춤 판단·평소 값에서 빼고, 그 시간의 목록 빠짐도 세지 않는다. 제철·제련·석유화학 같은 연속 가동 사업장은 주말 멈춤도 그대로 본다.",
                       f"새 배출구 번호·새 사업장은 쉬던 설비가 다시 측정돼도 생긴다. 그 사업장을 {NEW_A_DAYS}일 넘게 지켜본 뒤 처음 보인 것만 A, {NEW_B_DAYS}~{NEW_A_DAYS}일 B, 그 전은 C.",
