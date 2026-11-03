@@ -267,8 +267,23 @@ def reading(x):
 
 
 def status_note(st):
+    """상태 글자와 이 감시가 그 글자를 처음 본 측정 시각(그 전부터였을 수 있다)."""
     stt = st.get("status")
-    return f", 상태 '{stt[0]}'({str(stt[1])[5:]}부터)" if stt else ""
+    return f", 상태 '{stt[0]}'(처음 본 측정 {str(stt[1])[5:]})" if stt else ""
+
+
+def backfill_status_gap(st, stt):
+    """'가동중지'·'보수중' 줄이 왔을 때, 바로 앞의 값 없는 관측(예전엔 상태 글자를 못 읽어 None으로 쌓임)을 0으로 바꾼다 —
+    멈춤 시작·평소 값이 상태 글자를 읽기 시작한 날(11-03)이 아니라 실제로 숫자가 끊긴 때를 가리키게. 바꾼 수를 돌려준다."""
+    if stt not in STOP_STATUS:
+        return 0
+    n = 0
+    for o in reversed(st.get("obs") or []):
+        if o[1] is not None:
+            break
+        o[1] = 0.0
+        n += 1
+    return n
 
 
 POL_KO = {"tsp": "먼지", "sox": "황산화물", "nox": "질소산화물", "hcl": "염화수소", "hf": "불화수소", "nh3": "암모니아", "co": "일산화탄소"}
@@ -525,6 +540,8 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep, clock=time.
                 if st.get("lastDt") == mdt and st.get("obs"):
                     st["missing"] = 0
                     continue  # 측정 시각이 그대로면 같은 관측을 두 번 쌓지 않는다
+                if backfill_status_gap(st, stt):
+                    st["statusBackfilled"] = True
                 st["obs"] = (st.get("obs") or [])[-(OBS_KEEP - 1):] + [[mdt, reading(x)]]
                 st["lastDt"], st["missing"] = mdt, 0
                 # 배출허용기준 초과: 새 측정 시각마다 한 번. 처음 넘으면 B, 다음 측정(이 감시의 다음 실행)에도 넘으면 A(지속)
