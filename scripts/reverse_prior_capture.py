@@ -94,6 +94,28 @@ RULING_ITEM = re.compile(r"\bopinion\b|Sustain|Remand|Affirm|Revers|holding|판�
 # (10-31: 쿠키뉴스 'E-pit 상표권 현대엔지니어링 이전' [단독] ↔ Hyundai Motor Company v. The Partnerships … Schedule A). 상표명·특허 이름 같은 낱말이 함께 겹쳐야 한다.
 WEAK_CONCEPTS = {"공장·생산", "배터리", "가격", "신차·인증", "특허·상표"}
 GENERIC_WORDS = {"공장", "배터리", "미국", "생산", "가격", "투자", "계약", "중국", "한국", "글로벌", "사업", "신규"}
+# 장소가 있는 항목(건축허가·굴뚝·지자체 공고·국민연금 현장·공장등록·지방의회·미국 주 환경·OSHA)은 기사 제목에 같은 지역 이름이
+# 있어야 사건 대조에 넣는다. 11-04 기자 기사 대조: 구미 진평동 공장 건축허가가 'LS전선·LS마린솔루션, 504MW 태안해상풍력 해저케이블
+# 일정 확보'와, 광양 태인동 공장 건축허가가 'OCI그룹, 반도체소재사업본부·AX조직 신설'과 '허가·건축·신설' 낱말만으로 묶였다.
+# 기사 제목에 지역 이름이 없으면(예: '포스코 2열연') 놓칠 수 있다 — 정확도를 우선한다(같은 회사 항목으로는 남는다).
+PLACE_SOURCES = {"kr-building", "kr-stacks", "kr-local", "kr-workforce", "kr-official", "council-minutes", "us-state-env", "us-osha"}
+# 흔한 낱말과 겹치는 지명(예산·음성·상주·장성)은 뺐다
+KR_PLACES = ["포항", "광양", "당진", "울산", "울주", "온산", "여수", "대산", "서산", "아산", "천안", "화성", "평택", "광명", "광주", "구미",
+             "김천", "영천", "경주", "창원", "김해", "양산", "거제", "통영", "사천", "진주", "부산", "인천", "시흥", "안산", "김포", "파주",
+             "이천", "여주", "용인", "안성", "오산", "청주", "충주", "제천", "진천", "군산", "익산", "전주", "완주", "순천", "목포", "나주",
+             "함평", "영암", "해남", "무안", "곡성", "고흥", "보성", "담양", "봉화", "석포", "태안", "서천", "보령", "대전", "세종", "원주",
+             "춘천", "강릉", "동해", "삼척"]
+US_PLACES = [("조지아", r"Georgia|조지아"), ("앨라배마", r"Alabama|앨라배마"), ("루이지애나", r"Louisiana|루이지애나"), ("테네시", r"Tennessee|테네시"),
+             ("텍사스", r"Texas|텍사스"), ("캘리포니아", r"California|캘리포니아"), ("오하이오", r"Ohio|오하이오"), ("미시간", r"Michigan|미시간"),
+             ("인디애나", r"Indiana|인디애나"), ("켄터키", r"Kentucky|켄터키"), ("사우스캐롤라이나", r"South Carolina|사우스캐롤라이나"),
+             ("노스캐롤라이나", r"North Carolina|노스캐롤라이나"), ("애리조나", r"Arizona|애리조나"), ("일리노이", r"Illinois|일리노이"),
+             ("펜실베이니아", r"Pennsylvania|펜실베이니아"), ("미시시피", r"Mississippi|미시시피"), ("버지니아", r"(?<!West )Virginia|(?<!웨스트)버지니아")]
+US_PLACE_RX = [(name, re.compile(rx, re.I)) for name, rx in US_PLACES]
+
+
+def places_in(text):
+    t = str(text or "")
+    return {p for p in KR_PLACES if p in t} | {name for name, rx in US_PLACE_RX if rx.search(t)}
 STOP = {"단독", "기자", "업계", "관계자", "국내", "최대", "최초", "올해", "내년", "전략", "본격", "사업", "추진", "확대", "주목", "위해",
         "이유", "속도", "결국", "다시", "직접", "모두", "현대", "그룹"}
 
@@ -377,9 +399,14 @@ def match(article, items):
     concepts = {name for name, ko, _ in CONCEPTS if re.search(ko, title)}
     words = nouns(title) - comps
     same = [m for m in items if comps & set(m["companies"]) and pub - dt.timedelta(days=LOOKBACK_DAYS) <= m["seen"] < pub]
+    tplaces = places_in(title)
     best, best_score = None, 0
     concept_words = {w for w in words if any(name in concepts and re.search(ko, w) for name, ko, _ in CONCEPTS)}
     for m in same:
+        if m["source"] in PLACE_SOURCES:
+            mp = places_in(m["text"])
+            if mp and not (mp & tplaces):
+                continue   # 다른 지역(또는 기사에 지역 없음) — 같은 회사 항목으로만 센다
         hit_c = sorted(name for name, _, rx in CONCEPTS if name in concepts and re.search(rx, m["text"], re.I))
         if "소송·판결" in hit_c and RULING_TITLE.search(title) and not RULING_ITEM.search(m["text"]):
             hit_c.remove("소송·판결")
@@ -436,6 +463,7 @@ def run(trace, docs, clues, *, now):
             "bySource": summary, "memoryItems": len(items), "feedsLoaded": loaded, "adapterErrors": adapter_errors, "traceGeneratedAt": trace.get("generatedAt"),
             "rules": ["자동 후보다. 사람이 기사 전문과 원자료를 비교하는 Y/P/N 판정(역추적 기록)과 다르고, 그 수를 바꾸지 않는다.",
                       "'먼저 잡은 후보'는 같은 회사(그룹) 항목을 기사 60일 전~직전에 레이더가 처음 봤고, 사건 낱말(한·영 대응)이 겹친 경우다. 같은 사건인지는 열어 봐야 한다.",
+                      "장소가 있는 항목(건축허가·굴뚝·지자체 공고·국민연금 현장·공장등록·지방의회·미국 주 정부·OSHA)은 기사 제목에 같은 지역 이름이 있어야 센다.",
                       "레이더 기억은 지금 저장된 결과뿐이다(보관 기간이 지나 지워진 항목·저장 실패한 감시는 '없음'으로 나올 수 있다 — 0건 아님).",
                       "경쟁지 [단독] 목록은 구글 뉴스 제목 색인(최근 4일은 네이버 뉴스 검색 보강)이라 일부다."],
             "confirmedScoops": 0}

@@ -236,6 +236,27 @@ class Capture(unittest.TestCase):
         self.assertEqual((a["verdict"], a["best"]["id"]), ("먼저 잡은 후보", "op:1"))
 
 
+class Places(unittest.TestCase):
+    """11-04 기자 기사 대조: 장소 있는 항목은 기사 제목에 같은 지역 이름이 있어야 '먼저 잡은 후보'."""
+    ITEMS = [r.mem("kr-building", "bld:947602", ["LS전선"], "공장 건축허가 경상북도 구미시 진평동 643번지 증설 신축 plant factory", "2026-10-29T16:21:00+09:00"),
+             r.mem("kr-building", "bld:857775", ["OCI"], "공장 건축허가 증축 공장 전남광주통합특별시 광양시 태인동 1658번지 증설 신축 plant factory", "2026-10-29T17:14:00+09:00")]
+
+    def verdict(self, title, comp, when):
+        return r.match({"title": title, "companies": [comp], "published": when}, [m for m in self.ITEMS if m])
+
+    def test_same_city_matches_other_city_or_none_does_not(self):
+        v, best, _ = self.verdict("LS전선, 구미에 3500억원 들여 희토류 영구자석 공장 짓는다", "LS전선", "2026-10-30T10:49:00+09:00")
+        self.assertEqual((v, best["id"]), ("먼저 잡은 후보", "bld:947602"))
+        v, best, n = self.verdict("LS전선·LS마린솔루션, 504MW 태안해상풍력 해저케이블 일정 확보", "LS전선", "2026-11-02T11:27:00+09:00")
+        self.assertEqual((v, n), ("같은 회사 항목만", 1))                   # 태안 기사 ↔ 구미 허가: 낱말만 겹침
+        v, _, _ = self.verdict("OCI그룹, 반도체소재사업본부·AX조직 신설", "OCI", "2026-11-02T11:26:00+09:00")
+        self.assertEqual(v, "같은 회사 항목만")                              # 지역 없는 조직 기사 ↔ 광양 허가
+
+    def test_place_names(self):
+        self.assertEqual(r.places_in("Hanwha Q Cells Cartersville, Georgia air permit"), {"조지아"})
+        self.assertEqual(r.places_in("㈜포스코 포항제철소 배출구 39번"), {"포항"})
+        self.assertEqual(r.places_in("2027년 예산 음성 안내"), set())     # 흔한 낱말과 겹치는 지명은 안 셈
+
 if __name__ == "__main__":
     unittest.main()
 
