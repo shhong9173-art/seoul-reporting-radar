@@ -27,6 +27,9 @@ export const SLOTS = [
   // 인도 거래소(NSE) 공시: 인도 업무시간(한국 12:30~21:30)에 몰린다. RSS가 최신 약 1,400건(11-03: 17시간 폭)뿐이라 세 시간마다.
   { at: '13:10', workflow: 'india-filings.yml' }, { at: '16:10', workflow: 'india-filings.yml' },
   { at: '19:10', workflow: 'india-filings.yml' }, { at: '22:10', workflow: 'india-filings.yml' },
+  // 타사 공시 속 출입처(DART 시장 전체 목록, 최근 2일): 공시가 몰리는 낮 시간 세 시간마다 + 장 마감 뒤.
+  { at: '10:50', workflow: 'dart-counterparty.yml' }, { at: '13:50', workflow: 'dart-counterparty.yml' },
+  { at: '16:50', workflow: 'dart-counterparty.yml' }, { at: '19:50', workflow: 'dart-counterparty.yml' },
   // 지자체 고시·공고(새올): 아침·오후 한 번씩.
   { at: '06:30', workflow: 'kr-local.yml' },
   // 공식 원자료 직접 수집(pre_scoop.json: 대법원·NTIS·IRIS 등). GitHub 예약 '7,37 * * * *'은 10-28에 4번만 돌았다.
