@@ -817,7 +817,9 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
   // 굴뚝 자동측정(TMS): 사업장 가동 중단 신호·(14일 넘게 지켜본 뒤의) 새 배출구·새 사업장 A, 배출구 멈춤·목록에서 빠짐·재가동 B. 측정값만으로는 정지·정비·점검을 가르지 못한다.
   for (const e of docs['kr-stacks']?.events ?? []) {
     if (!recent(e.detectedAt)) continue;
-    push(e.tier ?? 'B', W['kr-stacks'], { kind: e.kind, id: e.id, date: e.detectedAt, company: e.company, fact: e.text,
+    // 상태 글자 전환·해제는 검증 전 C — 저장분이 다음 굴뚝 실행 전에도 B로 올라오지 않게(11-03 11:45 첫 읽기 17개 사업장 B)
+    const tier = /보수·가동중지 (전환|해제)/.test(e.kind ?? '') ? 'C' : e.tier ?? 'B';
+    push(tier, W['kr-stacks'], { kind: e.kind, id: e.id, date: e.detectedAt, company: e.company, fact: e.text,
       check: stackHint(e) });
   }
 
