@@ -124,6 +124,33 @@ BEAT_EN = [
 BEAT_RE = [(re.compile(r"(?<![a-z0-9])" + p, re.I), ko) for p, ko in BEAT_EN]
 
 
+# 영어 제목은 그룹 이름만 쓰고(「Posco to supply new battery materials to LGES」) 본문 첫머리 주체는 계열사인 기사가 있다
+# (11-03 운영: Just Auto — 실제는 포스코퓨처엠·LG에너지솔루션 예비 계약인데 '포스코' 외신 B로 떴다). 본문 첫 400자에 계열사 이름이 나오면
+# 그 계열사를 적어 둔다 — 레이더는 참고(C)로 내리고 '출입처 외일 수 있음'을 붙인다(빼지는 않는다: 그룹 기사일 수도 있다).
+AFFILIATE_LEAD = {
+    "포스코": [(r"posco\s+future\s*m", "포스코퓨처엠"), (r"posco\s+international", "포스코인터내셔널"), (r"posco\s+e&c", "포스코이앤씨"),
+             (r"posco\s+dx", "포스코DX")],
+    "LG화학": [(r"lg energy solution|\blges\b", "LG에너지솔루션")],
+    "SK이노베이션": [(r"\bsk on\b", "SK온"), (r"\bsk energy\b", "SK에너지"), (r"sk geo\s?centric", "SK지오센트릭"), (r"\bsk e&s\b", "SK E&S")],
+    "현대차": [(r"hyundai rotem", "현대로템"), (r"hyundai glovis", "현대글로비스"), (r"hyundai transys", "현대트랜시스"),
+             (r"hyundai (?:engineering|e&c)", "현대건설·현대엔지니어링")],
+    "두산에너빌리티": [(r"doosan bobcat", "두산밥캣"), (r"doosan robotics", "두산로보틱스")],
+    "한화솔루션": [(r"hanwha aerospace", "한화에어로스페이스"), (r"hanwha ocean", "한화오션")],
+}
+
+
+def affiliate_lead(companies: list[str], text: str) -> list[str]:
+    """본문 첫 400자에 나온 출입처 계열사 이름(출입처별 하나). 본문이 없으면 빈 목록."""
+    lead = (text or "")[:400].lower()
+    out = []
+    for c in companies or []:
+        for rx, name in AFFILIATE_LEAD.get(c, []):
+            if re.search(rx, lead) and name not in out:
+                out.append(name)
+                break
+    return out
+
+
 def beat_companies(text: str) -> list[str]:
     out = []
     for rx, ko in BEAT_RE:
@@ -543,7 +570,8 @@ def push_beat(rows: list[dict], stamp: str) -> None:
     items = [{"id": "gl:" + __import__("hashlib").sha1(x["url"].encode()).hexdigest()[:12], "url": x["url"], "title": x.get("title", ""),
               "koTitle": x.get("koTitle", ""), "koSummary": (x.get("koSummary") or "")[:500], "source": x.get("sourceName") or x.get("globalSource"),
               "published": x.get("published"), "firstSeen": x.get("firstSeen"), "beatCompanies": x.get("beatCompanies") or [],
-              "checkTerms": x.get("checkTerms") or [], "numbersNotInSource": (x.get("numbersNotInSource") or [])[:6]} for x in rows
+              "checkTerms": x.get("checkTerms") or [], "numbersNotInSource": (x.get("numbersNotInSource") or [])[:6],
+              "affiliateLead": (x.get("affiliateLead") or [])[:3]} for x in rows
              if x.get("beatCompanies") and (x.get("sourceName") or "").strip().lower() not in MARKETPLACES]
     refused = sorted({c["category"] for c in GLOBAL_FEED_CHECKS if c.get("status") == "transport_or_xml_error"})
     doc = {"schema": "global_beat/v1", "generatedAt": stamp, "items": items, "checks": [{"source": "외신 수집", "status": "ok"}],
@@ -601,6 +629,7 @@ def main() -> None:
     for x in unique:
         x["firstSeen"]=seen_at.get(x.get("url")) or stamp
         x["checkTerms"]=check_terms(x.get("koTitle",""),x.get("beatCompanies") or []) if x.get("beatCompanies") else []
+        x["affiliateLead"]=affiliate_lead(x.get("beatCompanies") or [], x.get("articleText") or x.get("summary") or "")
     push_beat(unique,stamp)
 
     merged = domestic + unique
