@@ -889,6 +889,18 @@ export async function stacksSection(ctx, q, days, limit) {
       out.push(`  ${s.company} · ${s.name} · ${Object.entries(own).map(([k, n]) => `${k} ${n}`).join(' · ')}`);
     }
   }
+  // 시설 멈춤 신고('가동중지') 배출구 번호와 이 감시가 처음 본 측정 — 평소 값이 없어 '멈춤 판단'에 안 잡히는 오래된 가동중지도 보이게
+  // (11-03: SK이노베이션 한 사업장 배출구 4개 전부 가동중지 — 멈춤 목록에는 없었다)
+  const halts = sites.map((s) => [s, Object.entries(s.stacks ?? {}).filter(([, st]) => st.status?.[0] === '가동중지')]).filter(([, l]) => l.length)
+    .sort((a, b) => b[1].length - a[1].length);
+  if (halts.length) {
+    out.push(`- 시설 멈춤 신고('가동중지') 배출구가 있는 사업장 ${halts.length}곳(번호·이 감시가 처음 본 측정 — 그 전부터였을 수 있음)`);
+    for (const [s, l] of halts.slice(0, limit)) {
+      const total = Object.keys(s.stacks ?? {}).length;
+      const codes = l.sort((a, b) => a[0].length - b[0].length || a[0].localeCompare(b[0])).slice(0, 10).map(([c, st]) => `${c}번(${String(st.status[1] ?? '').slice(5)})`);
+      out.push(`  ${s.company} · ${s.name}(${s.area ?? '지역 미상'}) · 배출구 ${total}개 중 ${l.length}개: ${codes.join(', ')}${l.length > 10 ? ` 외 ${l.length - 10}` : ''}`);
+    }
+  }
   // 지금 목록에서 빠져 있는 사업장(직전 실행에 안 보임): '빠짐' 이벤트가 풀렸는지 여기서 바로 본다
   const gone = sites.filter((s) => (s.missingRuns ?? 0) > 0).sort((a, b) => (b.missingRuns ?? 0) - (a.missingRuns ?? 0));
   out.push(`- 지금 목록에서 빠져 있는 사업장 ${gone.length}곳${gone.length ? '' : ' — 없음(주말·밤에 빠졌던 곳도 다시 측정됨)'}`);

@@ -906,6 +906,8 @@ test('kr_official stacks: plants with stopped stacks first, events, young sites 
   assert.match(r.text, /감지된 변화 · 최근 14일 7건\(빠졌다 다시 나타난 것 4건은 아래에 사업장·날짜별로 접음\)/);
   assert.match(r.text, /- 목록에서 빠졌다가 다시 나타남\(일시적 누락\) · 1묶음\n  \d{4}-\d{2}-\d{2} · 영풍 · ㈜영풍석포제련소: 사업장 통째 · 배출구 3·4·58번 \(이벤트 4건\)/);
   assert.ok(!/C · .* · 배출구 목록에서 빠짐 · 영풍/.test(r.text));
+  // 가동중지 신고 배출구 목록(11-03)
+  assert.match(r.text, /- 시설 멈춤 신고\('가동중지'\) 배출구가 있는 사업장 1곳\(번호·이 감시가 처음 본 측정 — 그 전부터였을 수 있음\)\n  포스코 · ㈜포스코 광양제철소\(전라남도\) · 배출구 3개 중 1개: 135번\(10-31 08:00\)/);
   assert.match(r.text, /- 배출허용기준 넘은 측정값\(이 감시가 본 것, 사업장마다 최근 20건\) 2건\n  2026-10-31 09:00 · 포스코 · ㈜포스코 광양제철소 배출구 40번 질소산화물 70\.5\(기준 50\)/);
   assert.match(r.text, /기준 초과 값은 확정 전 실시간 값/);
   const today = (await call('radar_today', {}, opts)).text;
