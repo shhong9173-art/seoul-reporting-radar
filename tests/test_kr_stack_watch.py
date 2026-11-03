@@ -472,6 +472,25 @@ class StackTest(unittest.TestCase):
         self.assertEqual(len(ev), 1)
         self.assertIn("처음 본 측정", ev[0]["text"])
 
+    def test_maintenance_ending_is_B_for_three_stacks(self):
+        # '보수중'이던 배출구 3개가 다시 평소 같은 값 → 보수 끝·재가동일 수 있다(포스코 광양 34개 '보수중' — 끝나는 날을 알려 줌)
+        big = tuple([60.0, 55.0, 50.0] + [20.0] * 17)
+        doc = None
+        for i in range(12):
+            t = T0 + dt.timedelta(hours=3 * i)
+            rows = world(t, pohang2=big)
+            if 8 <= i <= 10:
+                for x in rows:
+                    if x["fact_manage_nm"] == "현대제철㈜포항2공장" and x["stack_code"] in ("10", "11", "12"):
+                        x.update(tsp_mesure_value=None, sox_mesure_value=None, nox_mesure_value="보수중")
+            doc = w.run(CFG_SMALL, now=t + dt.timedelta(minutes=20), previous=doc, key="k", get=Api(rows), sleep=lambda s: None)
+        ev = [e for e in doc["events"] if e["kind"] == "배출구 보수·가동중지 해제"]
+        self.assertEqual([e["tier"] for e in ev], ["B"])
+        self.assertIn("'보수중'·'가동중지'였던 배출구 3개가 다시 측정값을 보냄", ev[0]["text"])
+        self.assertIn("10번('보수중', 처음 본 측정 10-31 12:00 → 지금 20)", ev[0]["text"])
+        site = next(x for x in doc["sites"] if x["name"] == "현대제철㈜포항2공장")
+        self.assertNotIn("status", site["stacks"]["10"])
+
     def test_many_stacks_leaving_the_list_at_once_is_C(self):
         # 11-03 09:20 운영: 고려아연 온산 배출구 15개가 '목록에서 빠짐' B 15줄 — 같은 날 오전 탐침에서 값과 함께 모두 다시 보였다
         five = (20.0, 15.0, 12.0, 10.0, 9.0)
