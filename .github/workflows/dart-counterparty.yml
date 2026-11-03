@@ -1,0 +1,39 @@
+name: DART Counterparty Filings Watch
+# 타사 공시 속 출입처 — 출입처가 아닌 회사의 DART 공시(양수도·영업양수·지분 거래·공급계약·생산중단)에 출입처가 거래상대·계약상대로 적힌 것.
+# 평일 10:50·13:50·16:50·19:50 KST(Cloudflare 요청, GitHub 예약 :55는 대비용 — 직전 2시간 안이면 건너뜀). 목록 쪽수·원문 60건 상한, 0.6초 간격.
+# 결과는 기자 전용 저장소로만. 공개 로그는 건수만(회사 이름·공시 제목은 찍지 않는다).
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/dart_counterparty_watch.py'
+      - 'tests/test_dart_counterparty_watch.py'
+      - '.github/workflows/dart-counterparty.yml'
+  schedule:
+    - cron: '55 1,4,7,10 * * 1-5'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: dart-counterparty-watch
+  cancel-in-progress: false
+jobs:
+  counterparty:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install "requests>=2.31,<3"
+      - name: Test counterparty matching
+        run: python -m unittest tests.test_dart_counterparty_watch tests.test_private_store -v
+      - name: Watch counterparty filings (counts-only log)
+        env:
+          DART_API_KEY: ${{ secrets.DART_API_KEY }}
+          MCP_ACCESS_TOKEN: ${{ secrets.MCP_ACCESS_TOKEN }}
+        run: python scripts/dart_counterparty_watch.py

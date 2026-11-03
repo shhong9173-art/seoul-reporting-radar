@@ -1150,10 +1150,38 @@ async function energySection(ctx, q, days, limit) {
   return out;
 }
 
+// 타사 공시 속 출입처(dart-counterparty feed): 출입처 아닌 회사의 공시에 출입처가 거래상대·계약상대로 적힌 것. kr_signals 아래.
+async function counterpartySection(ctx, q, days, limit, includeMinor = false) {
+  const doc = await readFeed(ctx, 'dart-counterparty');
+  if (!doc) return ['\n[타사 공시 속 출입처(거래상대)] 아직 수집 전 — 미확인(평일 10:50·13:50·16:50·19:50)'];
+  if (doc.broken) return ['\n[타사 공시 속 출입처(거래상대)] 저장 결과 형식 오류 — 미확인'];
+  const newIds = new Set((doc.events ?? []).map((e) => e.id));
+  const from = new Date(ctx.now.getTime() + 9 * 3600000 - days * 86400000).toISOString().slice(0, 10).replace(/-/g, '');
+  const base = (doc.items ?? []).filter((x) => String(x.date ?? '') >= from && matches(q, x.company, x.filer, x.report, x.context, ...(x.others ?? [])));
+  const rows = base.filter((x) => includeMinor || x.tier !== 'C');
+  const c = doc.counts ?? {};
+  const out = [`\n[타사 공시 속 출입처(거래상대) · DART 시장 전체 · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt)} · 접수 최근 ${days}일] ${rows.length}건`,
+    `원천: ${(doc.checks ?? []).map((k) => `${k.source} ${k.status}(${k.returned ?? 0}${k.error ? `, ${k.error}` : ''}${k.pending ? `, 남은 ${k.pending}건` : ''})`).join(' · ')}`
+      + (c.listed != null ? ` · 이번 실행 목록 ${c.listed} · 종류로 거른 후보 ${c.candidates} · 원문 ${c.opened}` : '')];
+  for (const x of rows.slice(0, limit)) {
+    const d = String(x.date ?? '');
+    out.push(`- ${newIds.has(x.id) ? '[신규] ' : x.baseline ? '[기준선] ' : ''}${x.tier} · ${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)} · ${x.filer} 「${x.report}」 → ${x.company}${(x.others ?? []).length ? `(외 ${x.others.join('·')})` : ''} · ${x.role}${x.sameGroup ? ' · 같은 그룹 계열사 공시' : ''}`);
+    out.push(`   원문 발췌: 「${x.context}」${x.amount ? ` · 금액 ${Number(x.amount).toLocaleString('en-US')}원` : ''}`);
+    out.push(`   원문: ${x.url}`);
+  }
+  if (base.length > rows.length) out.push(`(같은 그룹 계열사 공시 ${base.length - rows.length}건 접음 — include_mentions=true)`);
+  if (!rows.length) out.push('조건에 맞는 공시 없음(첫 실행은 기준선, 조회 실패면 미확인).');
+  out.push('   검증 상태: 상대 회사의 DART 공시(자동). 출입처 쪽 조건·시점·사유는 출입처 공시·회사 확인. 이름만 같은 다른 회사일 수 있어 원문 확인');
+  return out;
+}
+
 export async function krSignals(ctx, args) {
   const energyQ = String(args.company ?? '').trim();
-  const energy = !args.section || args.section === 'energy'
-    ? await energySection(ctx, energyQ, clampInt(args.days, 1, 365, 60), clampInt(args.limit, 1, 60, 15)) : [];
+  const counterparty = !args.section || args.section === 'counterparty'
+    ? await counterpartySection(ctx, energyQ, clampInt(args.days, 1, 120, 30), clampInt(args.limit, 1, 60, 15), args.include_mentions === true || args.include_mentions === 'true') : [];
+  if (args.section === 'counterparty') return textResult(counterparty.join('\n').trim());
+  const energy = [...counterparty, ...(!args.section || args.section === 'energy'
+    ? await energySection(ctx, energyQ, clampInt(args.days, 1, 365, 60), clampInt(args.limit, 1, 60, 15)) : [])];
   if (args.section === 'energy') return textResult(energy.join('\n').trim());
   const doc = await readFeed(ctx, 'kr-signals');
   if (!doc) return energy.length ? textResult([missing('공정위 의결서·한전 입찰·원자재 가격', '평일 08:30·15:20').content[0].text, ...energy].join('\n'), true) : missing('공정위 의결서·한전 입찰·원자재 가격', '평일 08:30·15:20');

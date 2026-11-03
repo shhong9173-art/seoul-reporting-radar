@@ -50,6 +50,8 @@ export const WATCHES = [
   { feed: 'kr-labor', label: '노동위 회의(조정·심판)', tool: 'kr_official', schedule: '평일 08:20', staleHours: 80 },
   // 인도 상장 법인 공시(india_filings_watch.py): NSE 공시 RSS의 현대차 인도법인 공시 — 인수·설비·로열티 A, 이사회 결과·보도자료 B
   { feed: 'india-filings', label: '인도 법인 공시(현대차 인도)', tool: 'partner_filings', schedule: '평일 13:10·16:10·19:10·22:10', staleHours: 80 },
+  // 타사 공시 속 출입처(dart_counterparty_watch.py): 출입처 아닌 회사의 양수도·공급계약·생산중단 공시에 출입처가 거래상대로 적힌 것
+  { feed: 'dart-counterparty', label: '타사 공시 속 출입처(거래상대)', tool: 'kr_signals', schedule: '평일 10:50·13:50·16:50·19:50', staleHours: 80 },
   // 해외 매체 기사 중 직접 출입처 이름이 나온 것(global_collector.py, 뉴스 수집 20분마다) — AI 번역·요약이라 원문 확인
   { feed: 'global-beat', label: '출입처 외신', tool: 'source_document', schedule: '20분마다', staleHours: 6 },
 ];
@@ -857,6 +859,17 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
     if (!recent(e.detectedAt)) continue;
     push(['A', 'B'].includes(e.tier) ? e.tier : 'C', W['kr-labor'], { kind: e.kind, id: e.id, date: e.detectedAt, company: e.company,
       fact: e.text, url: e.url, check: hint(e.company, [e.word || '노동위']) });
+  }
+
+  // 타사 공시 속 출입처: 자산·영업·지분 거래 상대·공급계약 해지 A, 공급계약 500억원 이상 A·그 밖 B, 생산중단·투자판단 B. 기사엔 상대 회사 이름이 있어야 같은 건
+  for (const e of docs['dart-counterparty']?.events ?? []) {
+    if (!recent(e.detectedAt)) continue;
+    const rep = String(e.report ?? '');
+    const word = /해지/.test(rep) ? '해지' : /생산중단/.test(rep) ? '감산' : /공급계약|단일판매/.test(rep) ? '공급' : /합병/.test(rep) ? '합병'
+      : /분할/.test(rep) ? '분할' : /양수|양도|영업|취득|처분/.test(rep) ? '인수' : '거래';
+    const filer = String(e.filer ?? '').replace(/주식회사|㈜|\(주\)/g, '').trim();
+    push(['A', 'B'].includes(e.tier) ? e.tier : 'C', W['dart-counterparty'], { kind: e.kind ?? '타사 공시', id: e.id, date: e.detectedAt, company: e.company,
+      fact: e.text, url: e.url, check: hint(e.company, [word], [], filer ? [filer] : []) });
   }
 
   // 인도 법인 공시(NSE): 현대차 인도법인 — 인수·설비·로열티 A, 이사회 결과·보도자료·임원 변경 B. 기사 제목엔 '인도'가 있어야 같은 건

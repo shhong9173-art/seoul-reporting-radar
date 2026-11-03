@@ -1594,7 +1594,7 @@ test('kr_signals shows FTC decisions by role, KEPCO bids and commodity prices, a
   const minor = await call('radar_today', { include_minor: true }, opts);
   assert.match(minor.text, /「\(연간단가\)고효율주상변압기,50KVA\(광유\)-2,338대-0\d\(일반\)」 외 같은 공고 2건\(합계 약 149억원\) · 추정가격 약 50억원/);
   assert.equal((minor.text.match(/고효율주상변압기/g) ?? []).length, 1);  // three lots, one line
-  assert.match(r.text, /기자 전용 감시 27개/);
+  assert.match(r.text, /기자 전용 감시 28개/);
   assert.deepEqual(dueAt(new Date('2026-10-26T23:30:00Z')), ['kr-signals.yml', 'kipris-patent-hunt.yml']);  // Tue 08:30 KST
   assert.deepEqual(dueAt(new Date('2026-10-27T06:20:00Z')), ['kr-signals.yml', 'kr-stacks.yml']);  // Tue 15:20 KST
 });
@@ -1892,7 +1892,7 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   assert.doesNotMatch((await call('trademarks', { name: 'aero' }, opts)).text, /NUTRIMACY/);
   assert.doesNotMatch((await call('trademarks', { class: '35' }, opts)).text, /NUTRIMACY/);
   const r = await call('radar_today', {}, opts);
-  assert.match(r.text, /기자 전용 감시 27개/);
+  assert.match(r.text, /기자 전용 감시 28개/);
   assert.match(r.text, /- 상표 출원: 대기 1곳\(제공기관 응답 22 뒤 72시간 대기\) — 해당 부분 0건은 미확인/);
   assert.doesNotMatch(r.text, /상표 출원: [^\n]*시간 전 결과/);
   const b = r.text.split('[B · ')[1].split('[C · ')[0];
@@ -1903,7 +1903,7 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   assert.match(minor.text, /상표 출원 「NUTRIMACY」[^\n]* — 같은 이름 상품류 추가/);
   const list = await rpc('tools/list', {}, { path: `/mcp/${TOKEN}`, env });
   assert.ok(list.body.result.tools.some((x) => x.name === 'trademarks'));
-  assert.match(list.body.result.tools.find((x) => x.name === 'radar_today').description, /감시 27개\([^)]*상표 출원, 국회 법안, 미국 리콜, 미국 EPA 인증, 국내 연비 신고, 해외 발주처 낙찰, 협력사 회생·파산, 전기위·원안위, 공장 부지 건축허가, 해외 법인 등기, 지자체 고시·공고, 사업장 인력, 굴뚝 측정, 노동위 회의, 인도 법인 공시, 출입처 외신\)/);
+  assert.match(list.body.result.tools.find((x) => x.name === 'radar_today').description, /감시 28개\([^)]*상표 출원, 국회 법안, 미국 리콜, 미국 EPA 인증, 국내 연비 신고, 해외 발주처 낙찰, 협력사 회생·파산, 전기위·원안위, 공장 부지 건축허가, 해외 법인 등기, 지자체 고시·공고, 사업장 인력, 굴뚝 측정, 노동위 회의, 인도 법인 공시, 타사 공시 속 출입처, 출입처 외신\)/);
   assert.ok(!(await rpc('tools/list', {}, { env })).body.result.tools.some((x) => x.name === 'trademarks'));  // private only
 });
 
@@ -2636,6 +2636,33 @@ test('인도 법인 공시(india-filings): radar_today에 설비 A·이사회 B,
   assert.doesNotMatch(nse.text, /Transcript/);
   assert.match((await call('partner_filings', { source: 'NSE', include_routine: true }, opts)).text, /\[기준선\] C · [^\n]+ · Analysts\/Institutional Investor Meet/);
   assert.match((await call('partner_filings', {}, opts)).text, /\[인도 법인 공시 · 현대차 인도법인\(NSE\)/);   // source 비우면 함께
+});
+
+test('타사 공시 속 출입처(dart-counterparty): radar_today A·대조 낱말(상대 회사 필수), kr_signals counterparty 구역·같은 그룹 접음', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const now = new Date(NOW.getTime() - 3600000).toISOString();
+  const item = (id, filer, report, company, role, tier, extra = {}) => ({ id, company, others: [], filer, report, rceptNo: id.slice(4), date: '20261026', role,
+    context: '1. 양수영업 ㈜LG화학 대산 BPA 생산 및 판매 사업일체', amount: 78437000000, tier, sameGroup: false, url: `https://dart.fss.or.kr/dsaf001/main.do?rcpNo=${id.slice(4)}`, firstSeen: now, ...extra });
+  const items = [item('dcp:20261026800562', '국도화학', '영업양수결정(종속회사의주요경영사항)', 'LG화학', '자산·영업·지분 거래 상대', 'A'),
+    item('dcp:20261027900002', '현대글로비스', '단일판매ㆍ공급계약체결', '현대차', '공급계약 상대', 'C', { sameGroup: true, context: '계약상대 현대자동차 주식회사' })];
+  const doc = { schema: 'dart_counterparty/v1', generatedAt: now, status: 'complete',
+    checks: [{ source: 'OpenDART 공시검색(시장 전체 B·I)', status: 'ok', returned: 812 }, { source: '공시 원문', status: 'ok', returned: 41 }],
+    counts: { listed: 812, candidates: 41, opened: 41, matched: 2 }, seen: {}, items,
+    events: [{ id: items[0].id, tier: 'A', kind: '타사 공시 · 자산·영업·지분 거래 상대', company: 'LG화학', filer: '국도화학', report: items[0].report, detectedAt: now, url: items[0].url,
+      text: '국도화학 공시 「영업양수결정(종속회사의주요경영사항)」(20261026) — LG화학이(가) 자산·영업·지분 거래 상대 · 금액 78,437,000,000원(약 784억원) · 원문 「1. 양수영업 ㈜LG화학 대산 BPA 생산 및 판매 사업일체」 · 상대 회사 공시(출입처 공시 아님)' }] };
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/dart-counterparty', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
+  const r = await call('radar_today', {}, opts);
+  assert.match(r.text.split('[A · ')[1].split('[B · ')[0], /타사 공시 속 출입처\(거래상대\) · LG화학\n   국도화학 공시 「영업양수결정\(종속회사의주요경영사항\)」\(20261026\) — LG화학이\(가\) 자산·영업·지분 거래 상대 · 금액 78,437,000,000원\(약 784억원\)/);
+  const radar = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
+  const hit = radar.items.find((x) => x.id === 'dcp:20261026800562');
+  assert.deepEqual([hit.check.who, hit.check.terms, hit.check.must, hit.check.alts['인수']], ['LG화학', ['인수'], ['국도화학'], ['인수', '매각', 'M&A']]);
+  const k = await call('kr_signals', { section: 'counterparty' }, opts);
+  assert.match(k.text, /\[타사 공시 속 출입처\(거래상대\) · DART 시장 전체 · 확인 [^\]]+ · 접수 최근 30일\] 1건/);
+  assert.match(k.text, /원천: OpenDART 공시검색\(시장 전체 B·I\) ok\(812\) · 공시 원문 ok\(41\) · 이번 실행 목록 812 · 종류로 거른 후보 41 · 원문 41/);
+  assert.match(k.text, /- \[신규\] A · 2026-10-26 · 국도화학 「영업양수결정\(종속회사의주요경영사항\)」 → LG화학 · 자산·영업·지분 거래 상대\n   원문 발췌: 「1\. 양수영업 ㈜LG화학 대산 BPA 생산 및 판매 사업일체」 · 금액 78,437,000,000원\n   원문: https:\/\/dart\.fss\.or\.kr\/dsaf001\/main\.do\?rcpNo=20261026800562/);
+  assert.match(k.text, /같은 그룹 계열사 공시 1건 접음 — include_mentions=true/);
+  assert.match((await call('kr_signals', { section: 'counterparty', include_mentions: true }, opts)).text, /현대글로비스 「단일판매ㆍ공급계약체결」 → 현대차 · 공급계약 상대 · 같은 그룹 계열사 공시/);
 });
 
 test('scoop_reverse shows automatic prior-capture candidates by source with lead time, separate from human Y/P/N', async () => {
