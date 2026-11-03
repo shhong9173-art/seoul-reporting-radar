@@ -370,6 +370,55 @@ class StackTest(unittest.TestCase):
             doc = w.run(CFG_SMALL, now=t, previous=doc, key="k", get=Api(rows), sleep=lambda s: None)
         self.assertEqual([e["tier"] for e in doc["events"] if e["kind"] == "배출구 목록에서 빠짐"], ["C"])
 
+    def test_status_text_in_value_fields(self):
+        # 11-03 탐침 113: 측정값 칸에 숫자 대신 상태 글자(출입처 932줄 중 176줄) — 포스코 광양 135번 nox '측정자료확인중(가동중지)'·sox '0.00'
+        r = row("㈜포스코 광양제철소", "전라남도", "135", T0, 18.0)
+        r.update(tsp_mesure_value=None, sox_mesure_value="0.00", nox_mesure_value="측정자료확인중(가동중지)")
+        self.assertEqual((w.status_of(r), w.reading(r)), ("가동중지", 0.0))
+        r.update(sox_mesure_value=None, nox_mesure_value="보수중")
+        self.assertEqual((w.status_of(r), w.reading(r)), ("보수중", 0.0))
+        for text, label in (("미수신", "미수신"), ("기기점검", "기기점검"), ("측정자료확인중", "측정자료확인중")):
+            r.update(nox_mesure_value=text)
+            self.assertEqual((w.status_of(r), w.reading(r)), (label, None))  # 측정 쪽 사정은 판단 안 함
+        self.assertIsNone(w.status_of(row("x", "y", "1", T0, 10.0)))
+
+        # 큰 배출구가 '보수중'으로 바뀌면(숫자 없음) 멈춤으로 보고, 설명에 상태 글자를 붙인다
+        doc = None
+        for i in range(10):
+            t = T0 + dt.timedelta(hours=3 * i)
+            rows = world(t)
+            if i >= 6:
+                for x in rows:
+                    if x["fact_manage_nm"] == "현대제철㈜" and x["stack_code"] == "1":
+                        x.update(tsp_mesure_value=None, sox_mesure_value=None, nox_mesure_value="보수중")
+            doc = w.run(CFG_SMALL, now=t + dt.timedelta(minutes=20), previous=doc, key="k", get=Api(rows), sleep=lambda s: None)
+        site = next(x for x in doc["sites"] if x["name"] == "현대제철㈜")
+        self.assertEqual(site["stopped"], ["1"])
+        self.assertEqual(site["stacks"]["1"]["status"], ["보수중", (T0 + dt.timedelta(hours=18)).strftime("%Y-%m-%d %H:%M")])
+        ev = [e for e in doc["events"] if e["site"] == "현대제철㈜"]
+        self.assertEqual([(e["kind"], e["tier"]) for e in ev], [("배출구 멈춤 신호", "B")])
+        self.assertIn("상태 '보수중'(10-31 06:00부터)", ev[0]["text"])
+
+    def test_many_stacks_leaving_the_list_at_once_is_C(self):
+        # 11-03 09:20 운영: 고려아연 온산 배출구 15개가 '목록에서 빠짐' B 15줄 — 같은 날 오전 탐침에서 값과 함께 모두 다시 보였다
+        five = (20.0, 15.0, 12.0, 10.0, 9.0)
+        doc = series(8, at=lambda i: {"pohang2": five})
+        for h in (9, 12):   # 월 평일 일하는 시간 2번
+            t = dt.datetime(2026, 11, 2, h, 0, tzinfo=KST)
+            rows = [x for x in world(t, pohang2=five) if not (x["fact_manage_nm"] == "현대제철㈜포항2공장" and x["stack_code"] in ("2", "3", "4"))]
+            doc = w.run(CFG_SMALL, now=t, previous=doc, key="k", get=Api(rows), sleep=lambda s: None)
+        gone = [e for e in doc["events"] if e["kind"] == "배출구 목록에서 빠짐"]
+        self.assertEqual(sorted(e["tier"] for e in gone), ["C", "C", "C"])
+        self.assertIn("배출구 3개가 한꺼번에 빠져 측정 자료 지연일 수 있어 C로 바로잡음", gone[0]["text"])
+        # 저장된 B 묶음도 다음 실행에 C로(한 번만 붙임)
+        for e in gone:
+            e["tier"] = "B"
+        t = dt.datetime(2026, 11, 2, 15, 0, tzinfo=KST)
+        doc = w.run(CFG_SMALL, now=t, previous=doc, key="k", get=Api(world(t, pohang2=five)), sleep=lambda s: None)
+        gone = [e for e in doc["events"] if e["kind"] == "배출구 목록에서 빠짐"]
+        self.assertEqual([e["tier"] for e in gone], ["C", "C", "C"])
+        self.assertTrue(all(e["text"].count("한꺼번에 빠져") == 1 and "다시 나타남" in e["text"] for e in gone))
+
     def test_stored_rest_time_disappearances_are_lowered_for_every_company(self):
         sun = "2026-11-01T09:13:00+09:00"
         ev = [{"id": "stk:sitegone:동국제강:x", "kind": "사업장 목록에서 빠짐(굴뚝 측정)", "tier": "B", "company": "동국제강", "detectedAt": sun, "text": "빠짐"},
