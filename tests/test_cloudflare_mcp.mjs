@@ -1368,8 +1368,8 @@ test('Cloudflare cron asks GitHub to run each watch at its KST weekday slot and 
   assert.deepEqual(dueAt(new Date('2026-10-26T22:10:30Z')), ['scoop-screen.yml', 'trademark-watch.yml']);  // Tue 07:10 KST(상표는 실패한 회사만 재시도)
   assert.deepEqual(dueAt(new Date('2026-10-27T06:10:00Z')), ['scoop-screen.yml']);        // 15:10 KST
   assert.deepEqual(dueAt(new Date('2026-10-27T07:00:00Z')), []);                          // no slot (16:00 KST)
-  assert.deepEqual(dueAt(new Date('2026-11-02T00:31:00Z')), ['g2b-tender-official.yml']);  // Mon 09:30 KST(GitHub 예약은 4.5~6시간 늦었다)
-  assert.deepEqual(dueAt(new Date('2026-11-01T00:30:00Z')), []);                          // Sun
+  assert.deepEqual(dueAt(new Date('2026-11-02T00:31:00Z')), ['union-notices.yml', 'g2b-tender-official.yml']);  // Mon 09:30 KST(GitHub 예약은 4.5~6시간 늦었다) + 노조 성명(매일)
+  assert.deepEqual(dueAt(new Date('2026-11-01T00:30:00Z')), ['union-notices.yml']);       // Sun(노조 성명만 매일)
   assert.deepEqual(dueAt(new Date('2026-11-01T00:20:00Z')), ['kr-stacks.yml']);           // Sun 09:20 KST 굴뚝(주말 포함 3시간 칸)
   assert.deepEqual(dueAt(new Date('2026-11-01T15:25:00Z')), ['kr-stacks.yml']);           // Mon 00:20 KST
   assert.deepEqual(dueAt(new Date('2026-11-01T16:20:00Z')), []);                          // Mon 01:20 KST(3시간 칸 아님)
@@ -1594,7 +1594,7 @@ test('kr_signals shows FTC decisions by role, KEPCO bids and commodity prices, a
   const minor = await call('radar_today', { include_minor: true }, opts);
   assert.match(minor.text, /「\(연간단가\)고효율주상변압기,50KVA\(광유\)-2,338대-0\d\(일반\)」 외 같은 공고 2건\(합계 약 149억원\) · 추정가격 약 50억원/);
   assert.equal((minor.text.match(/고효율주상변압기/g) ?? []).length, 1);  // three lots, one line
-  assert.match(r.text, /기자 전용 감시 28개/);
+  assert.match(r.text, /기자 전용 감시 29개/);
   assert.deepEqual(dueAt(new Date('2026-10-26T23:30:00Z')), ['kr-signals.yml', 'kipris-patent-hunt.yml']);  // Tue 08:30 KST
   assert.deepEqual(dueAt(new Date('2026-10-27T06:20:00Z')), ['kr-signals.yml', 'kr-stacks.yml']);  // Tue 15:20 KST
 });
@@ -1892,7 +1892,7 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   assert.doesNotMatch((await call('trademarks', { name: 'aero' }, opts)).text, /NUTRIMACY/);
   assert.doesNotMatch((await call('trademarks', { class: '35' }, opts)).text, /NUTRIMACY/);
   const r = await call('radar_today', {}, opts);
-  assert.match(r.text, /기자 전용 감시 28개/);
+  assert.match(r.text, /기자 전용 감시 29개/);
   assert.match(r.text, /- 상표 출원: 대기 1곳\(제공기관 응답 22 뒤 72시간 대기\) — 해당 부분 0건은 미확인/);
   assert.doesNotMatch(r.text, /상표 출원: [^\n]*시간 전 결과/);
   const b = r.text.split('[B · ')[1].split('[C · ')[0];
@@ -1903,7 +1903,7 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   assert.match(minor.text, /상표 출원 「NUTRIMACY」[^\n]* — 같은 이름 상품류 추가/);
   const list = await rpc('tools/list', {}, { path: `/mcp/${TOKEN}`, env });
   assert.ok(list.body.result.tools.some((x) => x.name === 'trademarks'));
-  assert.match(list.body.result.tools.find((x) => x.name === 'radar_today').description, /감시 28개\([^)]*상표 출원, 국회 법안, 미국 리콜, 미국 EPA 인증, 국내 연비 신고, 해외 발주처 낙찰, 협력사 회생·파산, 전기위·원안위, 공장 부지 건축허가, 해외 법인 등기, 지자체 고시·공고, 사업장 인력, 굴뚝 측정, 노동위 회의, 인도 법인 공시, 타사 공시 속 출입처, 출입처 외신\)/);
+  assert.match(list.body.result.tools.find((x) => x.name === 'radar_today').description, /감시 29개\([^)]*상표 출원, 국회 법안, 미국 리콜, 미국 EPA 인증, 국내 연비 신고, 해외 발주처 낙찰, 협력사 회생·파산, 전기위·원안위, 공장 부지 건축허가, 해외 법인 등기, 지자체 고시·공고, 사업장 인력, 굴뚝 측정, 노동위 회의, 노조 성명, 인도 법인 공시, 타사 공시 속 출입처, 출입처 외신\)/);
   assert.ok(!(await rpc('tools/list', {}, { env })).body.result.tools.some((x) => x.name === 'trademarks'));  // private only
 });
 
@@ -2663,6 +2663,32 @@ test('타사 공시 속 출입처(dart-counterparty): radar_today A·대조 낱�
   assert.match(k.text, /- \[신규\] A · 2026-10-26 · 국도화학 「영업양수결정\(종속회사의주요경영사항\)」 → LG화학 · 자산·영업·지분 거래 상대\n   원문 발췌: 「1\. 양수영업 ㈜LG화학 대산 BPA 생산 및 판매 사업일체」 · 금액 78,437,000,000원\n   원문: https:\/\/dart\.fss\.or\.kr\/dsaf001\/main\.do\?rcpNo=20261026800562/);
   assert.match(k.text, /같은 그룹 계열사 공시 1건 접음 — include_mentions=true/);
   assert.match((await call('kr_signals', { section: 'counterparty', include_mentions: true }, opts)).text, /현대글로비스 「단일판매ㆍ공급계약체결」 → 현대차 · 공급계약 상대 · 같은 그룹 계열사 공시/);
+});
+
+test('노조 성명·보도자료(union-notices): radar_today A·대조 낱말, kr_official labor 구역에 노동위와 함께', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const now = new Date(NOW.getTime() - 3600000).toISOString();
+  const post = (id, title, company, tier, extra = {}) => ({ id, board: '금속노조 보도자료/성명', title, date: now, companies: [company], company, tier, inTitle: true,
+    excerpt: `${company} 관련 본문 앞부분`, url: `https://www.kmwu.kr/bbs/board.php?bo_table=ce_B12&wr_id=${id.split(':')[2]}`, firstSeen: now, ...extra });
+  const posts = [post('un:ce_B12:220887', '[보도자료] 금호타이어 광주공장 끼임 중대재해 규탄 금속노조 기자회견', '금호타이어', 'A'),
+    post('un:ce_B12:220880', '[성명] 노동절 집회 안내', '현대제철', 'C', { inTitle: false })];
+  const doc = { schema: 'union_notices/v1', generatedAt: now, status: 'complete', seen: {},
+    checks: [{ source: '금속노조 보도자료/성명', status: 'ok', returned: 15 }, { source: '화섬식품노조 보도자료/성명', status: 'ok', returned: 15 }], posts,
+    events: [{ id: posts[0].id, tier: 'A', kind: '노조 성명·보도자료', company: '금호타이어', board: posts[0].board, title: posts[0].title, detectedAt: now, url: posts[0].url,
+      text: '금속노조 보도자료/성명 「[보도자료] 금호타이어 광주공장 끼임 중대재해 규탄 금속노조 기자회견」 · 노조 발표(한쪽 주장) — 회사 입장·사실관계 확인' }] };
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/union-notices', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
+  const r = await call('radar_today', {}, opts);
+  assert.match(r.text.split('[A · ')[1].split('[B · ')[0], /노조 성명·보도자료 · 금호타이어\n   금속노조 보도자료\/성명 「\[보도자료\] 금호타이어 광주공장 끼임 중대재해/);
+  const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
+  const hit = items.items.find((x) => x.id === posts[0].id);
+  assert.deepEqual([hit.check.who, hit.check.terms, hit.check.alts['사고'].includes('끼임')], ['금호타이어', ['사고'], true]);
+  const k = await call('kr_official', { section: 'labor' }, opts);
+  assert.match(k.text, /\[노동위 회의\(조정·심판\)\] 결과 없음 — 미확인/);
+  assert.match(k.text, /\[노조 성명·보도자료 · 금속노조·화섬식품노조 공개 게시판 · 확인 [^\]]+ · 최근 14일\] 1건\n원천: 금속노조 보도자료\/성명 ok · 화섬식품노조 보도자료\/성명 ok/);
+  assert.match(k.text, /- A · [^\n]+ · 금속노조 보도자료\/성명 · 「\[보도자료\] 금호타이어 광주공장 끼임 중대재해 규탄 금속노조 기자회견」 · 출입처 금호타이어\n   앞부분: 「금호타이어 관련 본문 앞부분」\n   원문: https:\/\/www\.kmwu\.kr\/bbs\/board\.php\?bo_table=ce_B12&wr_id=220887/);
+  assert.match(k.text, /이름이 본문에만 있고 사건 낱말 없는 글 1건 접음/);
+  assert.match((await call('kr_official', { section: 'labor', show_all: true }, opts)).text, /노동절 집회 안내」 · 출입처 현대제철\(본문에만\)/);
 });
 
 test('scoop_reverse shows automatic prior-capture candidates by source with lead time, separate from human Y/P/N', async () => {
