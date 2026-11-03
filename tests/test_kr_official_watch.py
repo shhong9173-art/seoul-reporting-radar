@@ -2,6 +2,7 @@
 gazette legislative notice filtering, failures kept as failures."""
 import datetime as dt
 import json
+import re
 import sys
 import unittest
 from pathlib import Path
@@ -254,6 +255,25 @@ class CommonNames(unittest.TestCase):
         doc = w.run(CFG, "k", now=NOW, get=get, sleep=lambda s: None)
         self.assertEqual(seen, [40, 60])
         self.assertEqual(next(c for c in doc["checks"] if c["source"] == "관보 입법예고")["status"], "ok")
+
+
+class PetrochemFactoryRules(unittest.TestCase):
+    def test_petrochem_and_refining_names_from_the_real_registry(self):
+        # 11-03 탐침 123(공장등록 실제 응답): 석유화학·정유 6곳(11-01 출입처)을 공장 감시에 넣기 전 이름 규칙 확인
+        import json as _json
+        from pathlib import Path as _P
+        cfg = {c["company"]: c for c in _json.loads((_P(w.__file__).resolve().parent.parent / "data" / "factory_watch.json").read_text(encoding="utf-8"))["companies"]}
+        cases = [("LG화학", "(주)엘지화학 VCM공장", True), ("LG화학", "주식회사 엘지화학", True), ("LG화학", "(주)LG화학 파주공장", True),
+                 ("롯데케미칼", "롯데케미칼(주) 울산1공장", True), ("금호석유화학", "금호석유화학(주) 여수고무 제1공장", True),
+                 ("S-OIL", "에쓰-오일(주) 2공장", True), ("S-OIL", "에쓰오일(주)", True),
+                 ("S-OIL", "에쓰-오일토탈에너지스윤활유(주)", False), ("S-OIL", "임대사업자 에쓰-오일(주)", False),
+                 ("SK이노베이션", "에스케이이노베이션(주)", True), ("SK이노베이션", "SK이노베이션(주)", True), ("SK이노베이션", "엘에스케이이노베이션", False),
+                 ("HD현대오일뱅크", "에이치디현대오일뱅크(주) MTBE공장", True)]
+        for co, name, want in cases:
+            self.assertEqual(bool(re.compile(cfg[co]["accept"]).search(w.norm(name))), want, (co, name))
+        ind = re.compile(cfg["HD현대오일뱅크"]["industryAccept"])
+        self.assertFalse(ind.search("비주거용 건물 임대업"))   # 옛 이름 '현대오일뱅크(주)' 인천 임대 등록
+        self.assertTrue(ind.search("원유 정제처리업"))
 
 
 class GazetteSubject(unittest.TestCase):
