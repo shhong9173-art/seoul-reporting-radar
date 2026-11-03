@@ -871,7 +871,8 @@ test('kr_official stacks: plants with stopped stacks first, events, young sites 
     checks: [{ source: '굴뚝 자동측정(CleanSYS)', status: 'ok', returned: 3, terms: '24/24' }], rules: ['배출구 이름·설비 종류는 자료에 없다(번호만).'],
     sites: [
       { id: 'a', company: '현대제철', name: '현대제철㈜포항2공장', area: '경상북도', meaningful: 2, stopped: ['1', '2'],
-        stacks: { 1: { lastDt: '2026-10-31 09:00', obs: Array(9).fill(['x', 0]) }, 2: { lastDt: '2026-10-31 09:00', obs: Array(9).fill(['x', 0]) } } },
+        stacks: { 1: { lastDt: '2026-10-31 09:00', obs: Array(9).fill(['x', 0]) },
+          2: { lastDt: '2026-10-31 09:00', obs: Array(9).fill(['x', 0]), stopLog: [['2026-10-20 03:00', '2026-10-20 12:00'], ['2026-10-25 06:00', '2026-10-26 09:00']] } } },
       { id: 'b', company: '포스코', name: '㈜포스코 광양제철소', area: '전라남도', meaningful: 150, stopped: ['17'],
         stacks: { 17: { lastDt: '2026-10-31 09:00', obs: Array(9).fill(['x', 0]), stoppedSince: '2026-10-27 21:00', longStopFor: '2026-10-27 21:00', status: ['보수중', '2026-10-27 21:00'] },
           135: { lastDt: '2026-10-31 09:00', obs: [], status: ['가동중지', '2026-10-31 08:00'] }, 3: { lastDt: '2026-10-31 09:00', obs: [], status: ['미수신', '2026-10-31 09:00'] } },
@@ -897,7 +898,7 @@ test('kr_official stacks: plants with stopped stacks first, events, young sites 
   assert.match(r.text, /- 지금 목록에서 빠져 있는 사업장 1곳\n  동국제강 · 동국제강㈜ 포항공장\(경상북도\) · 연속 3번 빠짐\(평일 일하는 시간 1번\) · 마지막으로 보인 실행 2026-10-31T06:20/);
   assert.match(r.text, /멈춤으로 판단한 배출구가 있는 사업장 2곳/);
   assert.ok(r.text.indexOf('포항2공장(경상북도)') < r.text.indexOf('광양제철소(전라남도)'));  // 멈춘 비율 높은 순
-  assert.match(r.text, /평소 움직이던 배출구 2개 중 멈춤 2개: 1번\(측정 2026-10-31 09:00\), 2번/);
+  assert.match(r.text, /평소 움직이던 배출구 2개 중 멈춤 2개: 1번\(측정 2026-10-31 09:00\), 2번\(측정 2026-10-31 09:00, 앞선 멈춤 2번\(마지막 10-25 06:00~10-26 09:00\)\)/);
   assert.match(r.text, /멈춤 1개: 17번\(측정 2026-10-31 09:00, 멈춤 2026-10-27 21:00부터·사흘 넘음, 상태 '보수중'\)/);
   assert.match(r.text, /- 측정값 대신 상태 글자가 온 배출구: 미수신 1 · 보수중 1 · 가동중지 1 \(가동중지 = 사업장이 보낸 시설 멈춤 신고, 보수중·기기점검·미수신·측정자료확인중 = 측정기 쪽 상태\)\n  포스코 · ㈜포스코 광양제철소 · 미수신 1 · 보수중 1 · 가동중지 1/);
   assert.match(r.text, /관측이 아직 6번이 안 된 사업장 1곳/);
