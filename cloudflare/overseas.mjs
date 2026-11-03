@@ -866,6 +866,32 @@ export async function workforceSection(ctx, q, days, limit) {
   return out;
 }
 
+// 노동위원회 회의(kr-labor feed): 중앙·지방 14곳 첫 화면 '오늘 회의'의 사건명 앞 당사자가 출입처인 것. Shown under kr_official.
+export async function laborSection(ctx, q, days, limit) {
+  const doc = await readFeed(ctx, 'kr-labor');
+  if (!doc) return ['\n[노동위 회의(조정·심판)] 결과 없음 — 미확인(평일 08:20 실행 확인)'];
+  if (doc.broken) return ['\n[노동위 회의(조정·심판)] 저장 형식 오류 — 미확인'];
+  const checks = doc.checks ?? [];
+  const failed = checks.filter((c) => c.status === 'failed');
+  const capped = checks.filter((c) => c.note);
+  const c = doc.counts ?? {};
+  const out = [`\n[노동위 회의(조정·심판) · 출입처가 사건 당사자 · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt)}]`,
+    `원천: 노동위원회 ${checks.length - failed.length}/${checks.length}곳 정상 · 오늘 회의 ${c.meetings ?? '?'}건(사건 ${c.cases ?? '?'}, 조정 ${c['조정 사건'] ?? '?'})`
+      + `${failed.length ? ` · 미확인(0건 아님): ${failed.map((x) => x.source).join(', ')}` : ''}`
+      + `${capped.length ? ` · 첫 화면 5건 상한(뒤 회의 빠졌을 수 있음): ${capped.map((x) => x.source.replace(/지방노동위원회$/, '지노위').replace(/^중앙노동위원회$/, '중노위')).join(', ')}` : ''}`,
+    ...(doc.rules ?? []).map((r) => `규칙: ${r}`)];
+  const from = new Date(ctx.now.getTime() - days * 86400000).toISOString();
+  const rows = (doc.notices ?? []).filter((n) => String(n.firstSeen) >= from && matches(q, n.company, n.caseName, n.commissionName));
+  out.push(`- 출입처 사건 · 최근 ${days}일 ${rows.length}건`);
+  for (const n of rows.slice(0, limit)) {
+    out.push(`  ${n.tier} · ${n.day} ${n.time} · ${n.company} · ${n.commissionName} ${n.meeting} · 사건 ${n.caseNo} 「${n.caseName}」`);
+    out.push(`     원문: ${n.url}`);
+  }
+  if (rows.length > limit) out.push(`  … 남은 ${rows.length - limit}건(company 낱말로 좁히기)`);
+  out.push('   검증 상태: 노동위원회 공개 회의 일정(자동). 사건명은 신청 주장 — 조정 중지·성립, 인정·기각 결정과 신청 내용은 위원회·노사 확인. 같은 사건이 여러 회의일에 다시 나올 수 있다');
+  return out;
+}
+
 // 지자체 공고 첨부(hwpx·hwp·pdf)에서 뽑은 '항목: 값'(사업명·공사기간·위치·발주자/시공자·규모·공사비·착공일). 파일 여럿이면 앞의 값을 쓴다.
 export function attachmentOutline(x, keys = ['사업명', '공사기간', '착공일', '위치', '발주자/시공자', '발주자', '시공자', '규모', '공사비', '설계자', '감리자']) {
   const facts = {};
@@ -964,11 +990,12 @@ export async function stacksSection(ctx, q, days, limit) {
 }
 
 export async function krOfficial(ctx, args) {
-  const section = ['factory', 'gazette', 'law', 'insolvency', 'building', 'local', 'workforce', 'stacks'].includes(args.section) ? args.section : null;
+  const section = ['factory', 'gazette', 'law', 'insolvency', 'building', 'local', 'workforce', 'stacks', 'labor'].includes(args.section) ? args.section : null;
   const q = String(args.company ?? '').trim();
   if (section === 'local') return textResult((await localSection(ctx, q, clampInt(args.days, 1, 120, 30), clampInt(args.limit, 1, 80, 20))).join('\n').trim());
   if (section === 'workforce') return textResult((await workforceSection(ctx, q, clampInt(args.days, 1, 120, 45), clampInt(args.limit, 1, 80, 20))).join('\n').trim());
   if (section === 'stacks') return textResult((await stacksSection(ctx, q, clampInt(args.days, 1, 60, 14), clampInt(args.limit, 1, 80, 20))).join('\n').trim());
+  if (section === 'labor') return textResult((await laborSection(ctx, q, clampInt(args.days, 1, 120, 30), clampInt(args.limit, 1, 80, 20))).join('\n').trim());
   const insolvency = !section || section === 'insolvency'
     ? await insolvencySection(ctx, q, clampInt(args.days, 1, 120, 30), clampInt(args.limit, 1, 80, 20)) : [];
   if (section === 'insolvency') return textResult(insolvency.join('\n').trim());
@@ -979,6 +1006,7 @@ export async function krOfficial(ctx, args) {
   if (!section) insolvency.push(...await localSection(ctx, q, clampInt(args.days, 1, 120, 30), clampInt(args.limit, 1, 80, 20)));
   if (!section) insolvency.push(...await workforceSection(ctx, q, clampInt(args.days, 1, 120, 45), clampInt(args.limit, 1, 80, 10)));
   if (!section) insolvency.push(...await stacksSection(ctx, q, clampInt(args.days, 1, 60, 14), clampInt(args.limit, 1, 80, 10)));
+  if (!section) insolvency.push(...await laborSection(ctx, q, clampInt(args.days, 1, 120, 30), clampInt(args.limit, 1, 80, 10)));
   const doc = await readFeed(ctx, 'kr-official');
   if (!doc) return insolvency.length ? textResult([missing('공장등록·관보 입법예고', '평일 08:10').content[0].text, ...insolvency].join('\n'), true) : missing('공장등록·관보 입법예고', '평일 08:10');
   if (doc.broken) return textResult(['저장된 국내 공식 원천 결과 형식 오류 — 미확인.', ...insolvency].join('\n'), true);

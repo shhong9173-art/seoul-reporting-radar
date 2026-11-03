@@ -1593,7 +1593,7 @@ test('kr_signals shows FTC decisions by role, KEPCO bids and commodity prices, a
   const minor = await call('radar_today', { include_minor: true }, opts);
   assert.match(minor.text, /「\(연간단가\)고효율주상변압기,50KVA\(광유\)-2,338대-0\d\(일반\)」 외 같은 공고 2건\(합계 약 149억원\) · 추정가격 약 50억원/);
   assert.equal((minor.text.match(/고효율주상변압기/g) ?? []).length, 1);  // three lots, one line
-  assert.match(r.text, /기자 전용 감시 25개/);
+  assert.match(r.text, /기자 전용 감시 26개/);
   assert.deepEqual(dueAt(new Date('2026-10-26T23:30:00Z')), ['kr-signals.yml', 'kipris-patent-hunt.yml']);  // Tue 08:30 KST
   assert.deepEqual(dueAt(new Date('2026-10-27T06:20:00Z')), ['kr-signals.yml', 'kr-stacks.yml']);  // Tue 15:20 KST
 });
@@ -1891,7 +1891,7 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   assert.doesNotMatch((await call('trademarks', { name: 'aero' }, opts)).text, /NUTRIMACY/);
   assert.doesNotMatch((await call('trademarks', { class: '35' }, opts)).text, /NUTRIMACY/);
   const r = await call('radar_today', {}, opts);
-  assert.match(r.text, /기자 전용 감시 25개/);
+  assert.match(r.text, /기자 전용 감시 26개/);
   assert.match(r.text, /- 상표 출원: 대기 1곳\(제공기관 응답 22 뒤 72시간 대기\) — 해당 부분 0건은 미확인/);
   assert.doesNotMatch(r.text, /상표 출원: [^\n]*시간 전 결과/);
   const b = r.text.split('[B · ')[1].split('[C · ')[0];
@@ -1902,7 +1902,7 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   assert.match(minor.text, /상표 출원 「NUTRIMACY」[^\n]* — 같은 이름 상품류 추가/);
   const list = await rpc('tools/list', {}, { path: `/mcp/${TOKEN}`, env });
   assert.ok(list.body.result.tools.some((x) => x.name === 'trademarks'));
-  assert.match(list.body.result.tools.find((x) => x.name === 'radar_today').description, /감시 25개\([^)]*상표 출원, 국회 법안, 미국 리콜, 미국 EPA 인증, 국내 연비 신고, 해외 발주처 낙찰, 협력사 회생·파산, 전기위·원안위, 공장 부지 건축허가, 해외 법인 등기, 지자체 고시·공고, 사업장 인력, 굴뚝 측정, 출입처 외신\)/);
+  assert.match(list.body.result.tools.find((x) => x.name === 'radar_today').description, /감시 26개\([^)]*상표 출원, 국회 법안, 미국 리콜, 미국 EPA 인증, 국내 연비 신고, 해외 발주처 낙찰, 협력사 회생·파산, 전기위·원안위, 공장 부지 건축허가, 해외 법인 등기, 지자체 고시·공고, 사업장 인력, 굴뚝 측정, 노동위 회의, 출입처 외신\)/);
   assert.ok(!(await rpc('tools/list', {}, { env })).body.result.tools.some((x) => x.name === 'trademarks'));  // private only
 });
 
@@ -2554,6 +2554,40 @@ test('미국 주 환경 허가·공고(us-state-env): radar_today에 허가 신�
   assert.match(u.text, /- \[기준선\] 조지아 · 한화솔루션 · Hanwha Q Cells Georgia, Inc\.\(Bartow County · 100 Qcells Pkwy, White, 30184\) · Permit Application · 신청 30376 · 공고 주 2026-10-05 · 의견 마감 2026-11-06/);
   assert.match(u.text, /- \[신규\] 조지아 · 현대차 · Hyundai Motor Group Metaplant America LLC/);
   assert.match(u.text, /신청 이유: 「The addition of a rotary concentrator/);
+});
+
+test('노동위 회의(kr-labor): radar_today에 조정·부당노동행위 A·해고 B, kr_official labor 구역에 상한·사건, 보도 대조 낱말', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const now = new Date(NOW.getTime() - 3600000).toISOString();
+  const u = (id) => `https://www.nlrc.go.kr/nlrc/gyeongbuk/meetingSche/detail.do?mtgId=${id}&mtgSn=1&mtgYmd=20261026&cmitCd=06`;
+  const n = (no, company, tier, name, meeting, cmit) => ({ id: `labor:06:${no}:2026-10-26`, company, commission: '경북', commissionName: cmit, meeting, day: '2026-10-26', time: '14:00',
+    caseNo: no, caseName: name, party: name.split(' 노동')[0], tier, url: u(no), firstSeen: now });
+  const notices = [n('2026조정88', '포스코', 'A', '주식회사 포스코 노동쟁의 조정신청사건', '1차조정회의', '경북지방노동위원회'),
+    n('2026부해900', '현대차', 'B', '현대자동차 주식회사 부당해고 구제신청', '심판회의', '경북지방노동위원회')];
+  const doc = { schema: 'kr_labor/v1', generatedAt: now, status: 'complete',
+    checks: [{ source: '중앙노동위원회', status: 'ok', returned: 5, note: '첫 화면 5건 상한 — 뒤 회의가 빠졌을 수 있음' }, { source: '충남지방노동위원회', status: 'ok', returned: 5, note: '첫 화면 5건 상한 — 뒤 회의가 빠졌을 수 있음' },
+      { source: '경북지방노동위원회', status: 'ok', returned: 3 }, { source: '서울지방노동위원회', status: 'failed', error: 'ConnectTimeout: x' }],
+    counts: { meetings: 43, details: 43, cases: 87, '조정 사건': 5 }, seen: {}, notices,
+    events: [
+      { id: notices[0].id, tier: 'A', kind: '노동위 조정 회의', company: '포스코', commission: '경북지방노동위원회', caseNo: '2026조정88', word: '노동쟁의', url: notices[0].url, detectedAt: now,
+        text: '경북지방노동위원회 1차조정회의 2026-10-26 14:00 · 사건 2026조정88 「주식회사 포스코 노동쟁의 조정신청사건」 · 노동위 회의 일정(공개) — 사건명은 신청 주장, 내용·결정은 위원회·당사자 확인' },
+      { id: notices[1].id, tier: 'B', kind: '노동위 심판 회의', company: '현대차', commission: '경북지방노동위원회', caseNo: '2026부해900', word: '부당해고', url: notices[1].url, detectedAt: now,
+        text: '경북지방노동위원회 심판회의 2026-10-26 14:00 · 사건 2026부해900 「현대자동차 주식회사 부당해고 구제신청」 · 노동위 회의 일정(공개)' }],
+    rules: ['사건명은 신청인 주장이다.'] };
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/kr-labor', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
+  const r = await call('radar_today', {}, opts);
+  assert.match(r.text.split('[A · ')[1].split('[B · ')[0], /노동위 회의\(조정·심판\) · 포스코\n   경북지방노동위원회 1차조정회의 2026-10-26 14:00 · 사건 2026조정88/);
+  assert.match(r.text.split('[B · ')[1], /노동위 회의\(조정·심판\) · 현대차\n   경북지방노동위원회 심판회의/);
+  const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
+  const hit = items.items.find((x) => x.id === notices[0].id);
+  assert.deepEqual([hit.check.who, hit.check.terms, hit.check.alts['노동쟁의'].slice(0, 2)], ['포스코', ['노동쟁의'], ['쟁의', '파업']]);
+  const k = await call('kr_official', { section: 'labor' }, opts);
+  assert.match(k.text, /\[노동위 회의\(조정·심판\) · 출입처가 사건 당사자 · 확인 [^\]]+\]/);
+  assert.match(k.text, /원천: 노동위원회 3\/4곳 정상 · 오늘 회의 43건\(사건 87, 조정 5\) · 미확인\(0건 아님\): 서울지방노동위원회 · 첫 화면 5건 상한\(뒤 회의 빠졌을 수 있음\): 중노위, 충남지노위/);
+  assert.match(k.text, /- 출입처 사건 · 최근 30일 2건\n  A · 2026-10-26 14:00 · 포스코 · 경북지방노동위원회 1차조정회의 · 사건 2026조정88 「주식회사 포스코 노동쟁의 조정신청사건」\n     원문: https:\/\/www\.nlrc\.go\.kr\/nlrc\/gyeongbuk\/meetingSche\/detail\.do\?mtgId=2026조정88/);
+  assert.match((await call('kr_official', {}, opts)).text, /\[노동위 회의\(조정·심판\)/);   // section 없이도 붙는다
+  assert.doesNotMatch((await call('kr_official', { section: 'labor', company: '포스코' }, opts)).text, /현대자동차 주식회사/);
 });
 
 test('scoop_reverse shows automatic prior-capture candidates by source with lead time, separate from human Y/P/N', async () => {

@@ -46,6 +46,8 @@ export const WATCHES = [
   { feed: 'kr-local', label: '지자체 고시·공고', tool: 'kr_official', schedule: '평일 06:30·16:20' },
   { feed: 'kr-workforce', label: '사업장 인력(국민연금)', tool: 'kr_official', schedule: '평일 15:50', staleHours: 80 },
   { feed: 'kr-stacks', label: '굴뚝 측정(공장 가동 신호)', tool: 'kr_official', schedule: '3시간마다', staleHours: 12 },
+  // 노동위원회 회의(kr_labor_watch.py): 중앙·지방 14곳 첫 화면 '오늘 회의'의 사건명 앞 당사자가 출입처인 것 — 노동쟁의 조정·교섭·부당노동행위 A
+  { feed: 'kr-labor', label: '노동위 회의(조정·심판)', tool: 'kr_official', schedule: '평일 08:20', staleHours: 80 },
   // 해외 매체 기사 중 직접 출입처 이름이 나온 것(global_collector.py, 뉴스 수집 20분마다) — AI 번역·요약이라 원문 확인
   { feed: 'global-beat', label: '출입처 외신', tool: 'source_document', schedule: '20분마다', staleHours: 6 },
 ];
@@ -82,6 +84,10 @@ const ALT = {
   // (10-31 운영: 기아 가입자 증가가 「'효율·고용' 절충…현대차·기아 공장 재편안」으로 '관련 보도 있음').
   채용: ['채용', '증원', '충원', '신입', '공채', '인력 확대', '인원 확대', '인력 증가', '인원 증가'],
   감원: ['감원', '감축', '구조조정', '희망퇴직', '인력 감소', '인원 감소', '인력 축소', '정리해고'],
+  // 노동위 회의(kr-labor): 사건 종류 낱말 — 회사 이름과 함께 제목에 있어야 같은 사건 후보
+  노동쟁의: ['쟁의', '파업', '조정 신청', '조정신청', '조정 중지', '조정중지', '노동위', '중노위', '지노위'],
+  부당노동행위: ['부당노동행위', '노동위', '중노위', '지노위'], 교섭: ['교섭', '하청', '원청', '노란봉투'],
+  부당해고: ['부당해고', '해고', '노동위', '중노위', '지노위'], 노동위: ['노동위', '중노위', '지노위', '노동위원회'],
   OSHA: ['OSHA', '산업안전보건청', '미국 노동부', '산업안전'], 벌금: ['벌금', '과징금', '제재', '위반'], 사고: ['사고', '사망', '부상', '숨져', '중상'],
     공정위: ['공정위', '공정거래위원회'], 과징금: ['과징금', '제재', '시정명령', '고발', '경고'], 한전: ['한전', '한국전력'],
   수주: ['수주', '입찰', '낙찰', '공급', '계약'], 관세: ['관세', '반덤핑', '상계관세', '덤핑'], 판정: ['판정', '예비', '최종', '재심', '연례재심'],
@@ -837,6 +843,13 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
     const tier = e.kind === '인력 변동' && grew ? 'C' : e.tier ?? 'B';
     push(tier, W['kr-workforce'], { kind: e.kind, id: e.id, date: e.detectedAt, company: e.company, fact: e.text,
       check: tier === 'C' ? undefined : workforceHint(e) });
+  }
+
+  // 노동위 회의: 출입처가 사건명 앞 당사자인 오늘 회의 — 노동쟁의 조정·교섭·부당노동행위 A, 그 밖의 구제신청(해고·징계 등) B
+  for (const e of docs['kr-labor']?.events ?? []) {
+    if (!recent(e.detectedAt)) continue;
+    push(['A', 'B'].includes(e.tier) ? e.tier : 'C', W['kr-labor'], { kind: e.kind, id: e.id, date: e.detectedAt, company: e.company,
+      fact: e.text, url: e.url, check: hint(e.company, [e.word || '노동위']) });
   }
 
   // 굴뚝 자동측정(TMS): 사업장 가동 중단 신호·(14일 넘게 지켜본 뒤의) 새 배출구·새 사업장 A, 배출구 멈춤·목록에서 빠짐·재가동 B. 측정값만으로는 정지·정비·점검을 가르지 못한다.

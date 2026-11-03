@@ -26,6 +26,7 @@ export const FEEDS = {
   'us-epa': { blob: 'us_epa', schema: 'us_epa/v1', list: 'vehicles' },
   'us-osha': { blob: 'us_osha', schema: 'us_osha/v1', list: 'inspections' },
   'us-state-env': { blob: 'us_state_env', schema: 'us_state_env/v1', list: 'notices' },
+  'kr-labor': { blob: 'kr_labor', schema: 'kr_labor/v1', list: 'notices' },
   'kr-fuel': { blob: 'kr_fuel', schema: 'kr_fuel/v1', list: 'vehicles' },
   'overseas-awards': { blob: 'overseas_awards', schema: 'overseas_awards/v1', list: 'items' },
   'kr-local': { blob: 'kr_local', schema: 'kr_local/v1', list: 'items' },

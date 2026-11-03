@@ -22,6 +22,8 @@ export const SLOTS = [
   { at: '06:40', workflow: 'us-osha.yml', daily: true },
   // 미국 주 환경청 허가·공고: 조지아 주간 공고 PDF는 주 초에, ADEM·LDEQ 목록은 수시로 바뀐다. 하루 한 번.
   { at: '07:05', workflow: 'us-state-env.yml', daily: true },
+  // 노동위원회 회의: 첫 화면은 오늘 회의만 — 평일 아침 한 번(회의는 09:30 무렵부터). 보도 대조 08:50·아침 발제 08:57 전에 끝나게.
+  { at: '08:20', workflow: 'kr-labor.yml' },
   // 지자체 고시·공고(새올): 아침·오후 한 번씩.
   { at: '06:30', workflow: 'kr-local.yml' },
   // 공식 원자료 직접 수집(pre_scoop.json: 대법원·NTIS·IRIS 등). GitHub 예약 '7,37 * * * *'은 10-28에 4번만 돌았다.
