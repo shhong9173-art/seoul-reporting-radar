@@ -91,6 +91,37 @@ class BeatShortlist(unittest.TestCase):
 class GlobalCollectorBeatTests(unittest.TestCase):
     """11-01 기자 요청: 출입처(철강·전력기기·에너지·화학·타이어) 외신, 국내 매체 영문판 제외, 제목뿐인 설명은 요약으로 번역하지 않음."""
 
+    def test_refusing_publisher_feed_backs_off_and_counts_as_unchecked(self):
+        # 11-01 오후부터 Crain RSS 3곳이 HTTPError — 15~20분마다 같은 거절을 받았다. 1·2·4…24시간 쉬었다가 다시 묻는다.
+        from datetime import datetime, timedelta
+        now = datetime(2026, 11, 3, 10, 0, tzinfo=gc.KST)
+        calls = []
+
+        def parse(name, url):
+            calls.append(name)
+            if name == "Tire Business":
+                gc.GLOBAL_FEED_CHECKS.append({"category": name, "globalFeed": True, "status": "transport_or_xml_error", "recentRows": 0,
+                                              "errorType": "HTTPError", "durationMs": 5})
+                return []
+            return [{"title": "ok", "source": name}]
+        feeds = [("Tire Business", "https://www.tirebusiness.com/arc/outboundfeeds/rss/"), ("Electrek", "https://electrek.co/feed/")]
+        gc.GLOBAL_FEED_CHECKS.clear()
+        rows, b = gc.fetch_publishers(feeds, {}, now, parse=parse)
+        self.assertEqual((len(rows), b["Tire Business"]["failures"], b["Tire Business"]["until"]), (1, 1, "2026-11-03T11:00:00+09:00"))
+        gc.GLOBAL_FEED_CHECKS.clear()
+        rows, b2 = gc.fetch_publishers(feeds, b, now + timedelta(minutes=20), parse=parse)       # 쉬는 중: 묻지 않음
+        self.assertEqual(calls.count("Tire Business"), 1)
+        skip = next(c for c in gc.GLOBAL_FEED_CHECKS if c["category"] == "Tire Business")
+        self.assertEqual((skip["status"], skip["errorType"]), ("transport_or_xml_error", "BackoffAfterRefusal"))
+        self.assertEqual(b2["Tire Business"], b["Tire Business"])
+        gc.GLOBAL_FEED_CHECKS.clear()
+        _, b3 = gc.fetch_publishers(feeds, b2, now + timedelta(hours=1, minutes=5), parse=parse)  # 다시 묻고 또 거절 → 2시간
+        self.assertEqual((b3["Tire Business"]["failures"], b3["Tire Business"]["since"]), (2, "2026-11-03T10:00:00+09:00"))
+        self.assertEqual(b3["Tire Business"]["until"], "2026-11-03T13:05:00+09:00")
+        _, b4 = gc.fetch_publishers(feeds, {"Electrek": {"failures": 9, "until": "2026-11-03T09:00:00+09:00"}}, now, parse=parse)
+        self.assertNotIn("Electrek", b4)                                                           # 다시 열리면 지움
+        gc.GLOBAL_FEED_CHECKS.clear()
+
     def test_word_boundaries_not_substrings(self):
         self.assertEqual(gc.hits(gc.INDUSTRY_RE, "every business needs less seven"), 0)       # ev·ess 부분 문자열 아님
         self.assertEqual(gc.hits(gc.KOREA_RE, "social media associated"), 0)                 # oci 아님
