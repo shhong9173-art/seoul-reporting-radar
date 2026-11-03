@@ -192,6 +192,12 @@ class Award(unittest.TestCase):
     def test_names_tiers_and_scanned_pdf(self):
         self.assertEqual(w.beat_of("DE_HYOSUNG HEAVY INDUSTRIES CORPORATION"), "효성중공업")  # TED 국가 접두어
         self.assertIsNone(w.beat_of("Hanwha Aerospace Co., Ltd."))  # 방산은 출입처 밖
+        # 석유화학·정유 6곳(11-01 출입처) — 'soil'(흙)·'LG Chemistry'는 아님
+        self.assertEqual([w.beat_of(x) for x in ("S-Oil Corporation", "LG Chem Europe GmbH", "SK Innovation Co., Ltd", "HD Hyundai Oilbank Co.",
+                                                 "Lotte Chemical Corporation", "Kumho Petrochemical Co., Ltd.")],
+                         ["S-OIL", "LG화학", "SK이노베이션", "HD현대오일뱅크", "롯데케미칼", "금호석유화학"])
+        self.assertIsNone(w.beat_of("Supply of soil testing services"))
+        self.assertIsNone(w.beat_of_ocr("LGCHEMISTRYLABORATORY"))
         local = dict(TED_HYOSUNG, **{"publication-number": "700001-2026", "winner-name": {"ces": ["Hyundai Motor Czech s.r.o."]}, "winner-country": ["CZE"]})
         hq = dict(TED_HYOSUNG, **{"publication-number": "700002-2026", "winner-name": {"eng": ["Hyundai Motor Company"]}, "winner-country": ["KOR"]})
         got = {x["id"]: w.tier_of(x) for x in w.ted_items([local, hq])}
