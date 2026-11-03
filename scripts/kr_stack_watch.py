@@ -239,6 +239,38 @@ def peak(x):
     return max(vals) if vals else None
 
 
+# 측정값 칸에 숫자 대신 오는 상태 글자(11-03 탐침 113: 출입처 932줄 중 176줄) — 사업장이 보낸 상태다.
+# '측정자료확인중(가동중지)' 77·'보수중' 36은 설비가 멈춘 것, '미수신' 42·'기기점검' 14·'측정자료확인중' 8은 측정 쪽 사정.
+# 예전에는 숫자만 읽어, 가동중지라고 적힌 배출구(포스코 광양 135번 등)가 값 없음(판단 안 함)으로 남았다.
+STOP_STATUS = ("가동중지", "보수중")
+NUM_RX = re.compile(r"^-?\d+(?:\.\d+)?$")
+
+
+def status_of(x):
+    """측정값 칸의 상태 글자 → '가동중지'·'보수중'·'기기점검'·'미수신'·'측정자료확인중' (숫자만 있으면 None)."""
+    texts = [str(x.get(f"{p}_mesure_value")).strip() for p in POLLUTANTS
+             if x.get(f"{p}_mesure_value") not in (None, "") and not NUM_RX.match(str(x.get(f"{p}_mesure_value")).strip())]
+    if not texts:
+        return None
+    for key in ("가동중지", "보수", "점검", "미수신", "확인중"):
+        if any(key in t for t in texts):
+            return {"보수": "보수중", "점검": "기기점검", "확인중": "측정자료확인중"}.get(key, key)
+    return texts[0][:20]
+
+
+def reading(x):
+    """관측으로 쌓을 값: 숫자 최댓값. 숫자가 없고 '가동중지'·'보수중'이면 0(설비가 멈췄다고 사업장이 보냄), 측정 쪽 사정이면 None."""
+    v = peak(x)
+    if v is None and status_of(x) in STOP_STATUS:
+        return 0.0
+    return v
+
+
+def status_note(st):
+    stt = st.get("status")
+    return f", 상태 '{stt[0]}'({str(stt[1])[5:]}부터)" if stt else ""
+
+
 POL_KO = {"tsp": "먼지", "sox": "황산화물", "nox": "질소산화물", "hcl": "염화수소", "hf": "불화수소", "nh3": "암모니아", "co": "일산화탄소"}
 EXCEED_KEEP = 20
 
@@ -261,6 +293,25 @@ def exceedances(x):
         if m is not None and s is not None and s > 0 and m > s:
             out.append((p, m, s))
     return out
+
+
+GONE_BURST_NOTE = (" — 같은 실행에 이 사업장 배출구 {n}개가 한꺼번에 빠져 측정 자료 지연일 수 있어 C로 바로잡음"
+                   "(이 API는 멈춘 배출구도 '가동중지' 상태 글자로 싣는다. 11-03 09:20 고려아연 온산 15개가 같은 날 오전 값과 함께 다시 나옴)")
+
+
+def collapse_gone_bursts(events):
+    """배출구 '목록에서 빠짐'이 같은 사업장·같은 실행에 BURST개 이상이면 모두 C로(목록이 한꺼번에 줄어든 것 — 자료 지연)."""
+    groups = {}
+    for e in events:
+        if e.get("kind") == "배출구 목록에서 빠짐":
+            groups.setdefault((e.get("company"), e.get("site"), e.get("detectedAt")), []).append(e)
+    for es in groups.values():
+        if len(es) < BURST:
+            continue
+        for e in es:
+            if "한꺼번에 빠져" not in (e.get("text") or ""):
+                e["text"] = (e.get("text") or "") + GONE_BURST_NOTE.format(n=len(es))
+            e["tier"] = "C"
 
 
 def collapse_bursts(events):
@@ -457,10 +508,15 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep, clock=time.
                         new_codes.append((code, x))
                 mdt = x.get("mesure_dt")
                 st.pop("workMissing", None)
+                stt = status_of(x)
+                if stt is None:
+                    st.pop("status", None)
+                elif (st.get("status") or [None])[0] != stt:
+                    st["status"] = [stt, mdt]
                 if st.get("lastDt") == mdt and st.get("obs"):
                     st["missing"] = 0
                     continue  # 측정 시각이 그대로면 같은 관측을 두 번 쌓지 않는다
-                st["obs"] = (st.get("obs") or [])[-(OBS_KEEP - 1):] + [[mdt, peak(x)]]
+                st["obs"] = (st.get("obs") or [])[-(OBS_KEEP - 1):] + [[mdt, reading(x)]]
                 st["lastDt"], st["missing"] = mdt, 0
                 # 배출허용기준 초과: 새 측정 시각마다 한 번. 처음 넘으면 B, 다음 측정(이 감시의 다음 실행)에도 넘으면 A(지속)
                 over = {p: (m, lim) for p, m, lim in exceedances(x)}
@@ -553,7 +609,7 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep, clock=time.
                 emit(f"stk:longstop:{sid}:{','.join(c for c, _, _ in fresh_long[:6])}:{day}", "배출구 오래 멈춤", "B", comp["company"], name,
                      f"{name}: 배출구 {len(fresh_long)}개가 사흘 넘게 평소의 10% 아래 — "
                      + ", ".join(f"{c}번(평소 {judged[c][1]:.1f}→최근 {stacks[c]['obs'][-1][1] if stacks[c].get('obs') else '?'}, "
-                                 f"{since:%m-%d %H:%M}부터 {'일하는 시간 ' if judge else ''}{h:.0f}시간)" for c, since, h in fresh_long[:6])
+                                 f"{since:%m-%d %H:%M}부터 {'일하는 시간 ' if judge else ''}{h:.0f}시간{status_note(stacks[c])})" for c, since, h in fresh_long[:6])
                      + f" · 사업장 전체 평소 움직이던 {len(meaningful)}개 중 지금 멈춤 {len(stopped)}개. 일상 정비보다 긴 멈춤 — "
                      "설비 정지·개수·연료 전환·측정기 이상 중 무엇인지는 회사 확인(배출구 번호만 있고 설비 이름은 자료에 없음)")
             top = sorted(meaningful, key=lambda c: -(meaningful[c] or 0))[:3]
@@ -572,7 +628,7 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep, clock=time.
             if newly:
                 def desc(c):
                     st = stacks[c]
-                    return f"{c}번(평소 {judged[c][1]:.1f}→최근 {st['obs'][-1][1] if st.get('obs') else '?'}, 측정 {st.get('lastDt')})"
+                    return f"{c}번(평소 {judged[c][1]:.1f}→최근 {st['obs'][-1][1] if st.get('obs') else '?'}, 측정 {st.get('lastDt')}{status_note(st)})"
                 if len(stopped) >= 2 and share >= 0.5:
                     emit(f"stk:down:{sid}:{day}", "사업장 가동 중단 신호", "A", comp["company"], name,
                          f"{name}: 평소 움직이던 배출구 {len(meaningful)}개 중 {len(stopped)}개가 {STOP_RUNS}번 연속 평소의 10% 아래 — "
@@ -616,6 +672,7 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep, clock=time.
             s["missingRuns"] = 0
             s.pop("workMissing", None)
 
+    collapse_gone_bursts(fresh + events)
     total_terms = sum(len(c["terms"]) for c in cfg["companies"])
     status = "failed" if ok_terms == 0 else ("partial" if errors else "complete")
     checks = [{"source": "굴뚝 자동측정(CleanSYS)", "status": "ok" if not errors else ("failed" if not ok_terms else "partial"),
@@ -627,6 +684,8 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep, clock=time.
                       "측정값이 평소의 10% 아래로 떨어진 것은 설비 정지·정비·측정기 점검·연료 전환일 수 있다. 가동 중단은 회사 확인 전 미확인.",
                       "평소 값이 1 미만인 배출구(원래 거의 0)는 멈춤 판단을 하지 않는다. 관측이 6번 모이기 전에는 판단하지 않는다.",
                       "배출구 멈춤 B는 새로 멈춘 배출구가 사업장 평소 움직이던 배출구의 5%(최소 2개) 이상, 큰 배출구(평소 값 상위 3), 또는 평소 값 합의 10% 이상일 때. 큰 제철소의 배출구 한두 개는 일상 정비일 수 있어 화면 목록에만 보인다.",
+                      "측정값 칸에 숫자 대신 상태 글자가 오면 그대로 남긴다: '가동중지'·'보수중'은 사업장이 보낸 설비 멈춤(값 0으로 셈), '기기점검'·'미수신'·'측정자료확인중'은 측정 쪽 사정(판단 안 함).",
+                      "한 사업장 배출구가 같은 실행에 3개 이상 한꺼번에 목록에서 빠지면 측정 자료 지연일 수 있어 C(멈춘 배출구는 목록에 '가동중지'로 남는다).",
                       f"다만 사흘(평일 교대 공장은 일하는 시간 {LONG_STOP_HOURS}시간) 넘게 멈춘 배출구는 사업장 크기와 상관없이 '배출구 오래 멈춤' B로 한 번 알린다. 멈춤이 이어지는 동안은 멈추기 전 평소 값으로 본다.",
                       "평일 교대 공장(완성차·타이어·전선·변압기·중공업)은 주말·공휴일·밤(0~7시) 관측을 멈춤 판단·평소 값에서 빼고, 그 시간의 목록 빠짐도 세지 않는다. 제철·제련·석유화학 같은 연속 가동 사업장은 주말 멈춤도 그대로 본다.",
                       f"새 배출구 번호·새 사업장은 쉬던 설비가 다시 측정돼도 생긴다. 그 사업장을 {NEW_A_DAYS}일 넘게 지켜본 뒤 처음 보인 것만 A, {NEW_B_DAYS}~{NEW_A_DAYS}일 B, 그 전은 C.",
