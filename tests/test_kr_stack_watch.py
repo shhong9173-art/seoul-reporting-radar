@@ -419,6 +419,22 @@ class StackTest(unittest.TestCase):
         self.assertEqual([e["tier"] for e in gone], ["C", "C", "C"])
         self.assertTrue(all(e["text"].count("한꺼번에 빠져") == 1 and "다시 나타남" in e["text"] for e in gone))
 
+    def test_stack_misses_do_not_carry_over_a_whole_site_absence(self):
+        five = (20.0, 15.0, 12.0, 10.0, 9.0)
+        doc = series(8, at=lambda i: {"pohang2": five})
+
+        def rows(t, drop_site=False):
+            out = [x for x in world(t, pohang2=five) if not (x["fact_manage_nm"] == "현대제철㈜포항2공장" and x["stack_code"] == "2")]
+            return [x for x in out if x["fact_manage_nm"] != "현대제철㈜포항2공장"] if drop_site else out
+        plan = [(dt.datetime(2026, 11, 2, 18, 0, tzinfo=KST), False), (dt.datetime(2026, 11, 2, 21, 0, tzinfo=KST), True),
+                (dt.datetime(2026, 11, 3, 0, 0, tzinfo=KST), True), (dt.datetime(2026, 11, 3, 9, 0, tzinfo=KST), False)]
+        for t, drop in plan:
+            doc = w.run(CFG_SMALL, now=t, previous=doc, key="k", get=Api(rows(t, drop)), sleep=lambda s: None)
+        self.assertEqual([e for e in doc["events"] if e["kind"] == "배출구 목록에서 빠짐"], [])   # 돌아온 첫 실행은 1번째
+        t = dt.datetime(2026, 11, 3, 12, 0, tzinfo=KST)
+        doc = w.run(CFG_SMALL, now=t, previous=doc, key="k", get=Api(rows(t)), sleep=lambda s: None)
+        self.assertEqual([e["tier"] for e in doc["events"] if e["kind"] == "배출구 목록에서 빠짐"], ["B"])
+
     def test_stored_rest_time_disappearances_are_lowered_for_every_company(self):
         sun = "2026-11-01T09:13:00+09:00"
         ev = [{"id": "stk:sitegone:동국제강:x", "kind": "사업장 목록에서 빠짐(굴뚝 측정)", "tier": "B", "company": "동국제강", "detectedAt": sun, "text": "빠짐"},
