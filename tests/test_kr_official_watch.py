@@ -96,6 +96,13 @@ class Factory(unittest.TestCase):
         kinds = {(e["kind"], e["factoryId"]) for e in doc["events"]}
         self.assertIn(("새 공장", "fac:5"), kinds)
         self.assertIn(("목록에서 빠짐", "fac:4"), kinds)
+        gone = next(e for e in doc["events"] if e["kind"] == "목록에서 빠짐")
+        self.assertRegex(gone["text"], r"이 회사 조회 공장 \d+→\d+곳$")
+        self.assertNotIn("tier", gone)
+        # 11-03 대한전선: 여러 곳이 한꺼번에 빠지면 그렇게 적고, 하나도 안 잡히면(정상 응답 0건) 조회 이상일 수 있어 C
+        empty = run(previous=first, posco=[], now=NOW + dt.timedelta(days=1))
+        gone = [e for e in empty["events"] if e["kind"] == "목록에서 빠짐" and e["company"] == "포스코"]
+        self.assertTrue(gone and all("한꺼번에 빠짐" in e["text"] and e["tier"] == "C" for e in gone))
         ch = next(e for e in doc["events"] if e["kind"] == "등록 내용 변경")
         self.assertIn("고용 9,000→8,000명", ch["text"])
         self.assertIn("주생산품 '열연강판'→'열연강판, 전기강판'", ch["text"])

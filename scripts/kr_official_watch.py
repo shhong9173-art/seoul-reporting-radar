@@ -361,11 +361,25 @@ def factories(cfg, key, now, previous, *, get=None, sleep=time.sleep, deadline=N
                                "name": f["cmpnyNm"], "text": text, "tier": tier, "detectedAt": stamp})
         f["tags"] = tags
     # factories that disappeared from a company whose queries all completed
+    # 회사 전체 공장 수 변화를 함께 적는다 — 11-03 대한전선: 당진 공장 3곳이 한꺼번에 빠지고 남은 등록은 '대한전선(주)' 송악읍 1곳
+    # (같은 날 탐침에서 '대한전선' 조회 총 1건 확인). 여러 곳이 한꺼번에 빠지면 통합 등록·정정일 수도 있다.
+    before_n = {co: sum(1 for o in prev.values() if o.get("company") == co) for co in complete_companies}
+    after_n = {co: sum(1 for f in out.values() if f.get("company") == co) for co in complete_companies}
+    gone_n = {}
     for fid, old in prev.items():
         if fid not in out and old.get("company") in complete_companies and old.get("company") in comparable:
-            events.append({"id": f"{fid}:gone:{stamp[:10]}", "kind": "목록에서 빠짐", "company": old.get("company"), "factoryId": fid,
-                           "name": old.get("cmpnyNm"), "text": f"{old.get('cmpnyNm')} · {old.get('rnAdres')} — 이번 조회 목록에 없음(폐업·이전·이름 변경 가능, 확인 필요)",
-                           "detectedAt": stamp})
+            gone_n[old.get("company")] = gone_n.get(old.get("company"), 0) + 1
+    for fid, old in prev.items():
+        if fid not in out and old.get("company") in complete_companies and old.get("company") in comparable:
+            co = old.get("company")
+            many = f" · 이 회사 조회 공장 {before_n[co]}→{after_n[co]}곳({gone_n[co]}곳 한꺼번에 빠짐 — 통합 등록·정정일 수도 있음)" if gone_n[co] >= 2 else \
+                f" · 이 회사 조회 공장 {before_n[co]}→{after_n[co]}곳"
+            # 회사 공장이 하나도 안 잡힌 '정상' 응답은 조회 쪽 이상일 가능성이 크다 — C로 남기고 다음 실행에서 다시 본다
+            empty = after_n[co] == 0
+            events.append({"id": f"{fid}:gone:{stamp[:10]}", "kind": "목록에서 빠짐", "company": co, "factoryId": fid,
+                           "name": old.get("cmpnyNm"), "text": f"{old.get('cmpnyNm')} · {old.get('rnAdres')} — 이번 조회 목록에 없음(폐업·이전·이름 변경 가능, 확인 필요)" + many
+                           + (" — 이 회사 공장이 하나도 안 잡혀 조회 이상일 수 있음(C, 다음 실행에서 다시 나오는지 확인)" if empty else ""),
+                           **({"tier": "C"} if empty else {}), "detectedAt": stamp})
         elif fid not in out and old.get("company") not in complete_companies:
             out[fid] = dict(old, stale=True)  # query failed: keep the last record
     return sorted(out.values(), key=lambda x: (x["company"], x.get("cmpnyNm") or "")), checks, events, sigs, rule_counts
