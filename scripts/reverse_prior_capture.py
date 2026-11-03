@@ -118,6 +118,25 @@ US_PLACES = [("조지아", r"Georgia|조지아"), ("앨라배마", r"Alabama|앨
 US_PLACE_RX = [(name, re.compile(rx, re.I)) for name, rx in US_PLACES]
 
 
+# 기사 종류(제목 낱말, 첫 일치) — 레이더가 놓친 기사를 어떤 원천으로 메울지 보려고 묶는다. 순서가 판정 순서다
+# ('금호타이어, 롯데카드와 제휴카드 출시'는 계약이 아니라 제품·마케팅, '대미 타이어 수출 25% 감소…관세 복병'은 통계·시장).
+KINDS = [("실적", r"영업익|영업이익|매출|순이익|순손실|실적|흑자|적자|어닝"), ("인사·조직", r"사장|회장|대표이사|임원|인사|선임|승진|조직|본부|영입|CEO"),
+         ("노사·안전", r"노조|파업|임단협|교섭|노사|사망|사고|산재|중대재해"),
+         # 11-04 첫 화면: '고려아연 자사주 공개매수 손배소'가 '공개'로, '동국제강, 하나카드와 맞손'이 '카드'로 제품·마케팅에 들어갔다
+         ("논란·법적", r"불법|위반|논란|의혹|소송|손배|제소|항소|판결|승소|패소|법원|명령|검찰|과징금|제재|리콜|결함"),
+         ("자본·지배구조", r"자사주|배당|지분|유상증자|주주|공개매수|인수|매각|경영권"),
+         ("제품·마케팅", r"출시|할인|프로모션|신차|사전예약|시승|세일|캠페인"),
+         ("투자·공장", r"공장|투자|증설|착공|준공|라인|짓는다|부지|설비|가동"),
+         ("수주·계약", r"수주|계약|공급|MOU|협약|제휴|합작|파트너|낙찰|맞손|협력|턴키"),
+         ("통계·시장", r"수출|수입|재고|판매량|판매|점유율|생산량|가격|시황|감소|증가|최저|최고"),
+         ("정책·통상", r"관세|규제|법안|보조금|정부|무역|통상|정책")]
+KIND_RX = [(k, re.compile(rx)) for k, rx in KINDS]
+
+
+def kind_of(title):
+    return next((k for k, rx in KIND_RX if rx.search(title or "")), "기타")
+
+
 def places_in(text):
     t = str(text or "")
     return {p for p in KR_PLACES if p in t} | {name for name, rx in US_PLACE_RX if rx.search(t)}
@@ -462,8 +481,10 @@ def run(trace, docs, clues, *, now):
             continue
         seen_titles.add(tkey)
         verdict, best, n = match(a, items)
-        rows.append({"articleId": a.get("articleId"), "title": re.sub(r"\s+-\s+[^-]{1,40}$", "", a.get("title") or "")[:200], "published": a.get("published"),
-                     "source": a.get("sourceName"), "companies": a.get("companies") or [], "kind": a.get("kind"), "verdict": verdict,
+        clean_title = re.sub(r"\s+-\s+[^-]{1,40}$", "", a.get("title") or "")
+        rows.append({"articleId": a.get("articleId"), "title": clean_title[:200], "published": a.get("published"),
+                     "source": a.get("sourceName"), "companies": a.get("companies") or [], "kind": a.get("kind"),
+                     "type": kind_of(re.sub(r"^\s*[\[(【][^\])】]*단독[^\])】]*[\])】]\s*", "", clean_title)), "verdict": verdict,
                      "best": best, "sameCompanyItems": n})
     rows.sort(key=lambda r: r["published"] or "", reverse=True)
     by_source = {}
@@ -474,8 +495,17 @@ def run(trace, docs, clues, *, now):
             s["lead"].append(r["best"]["leadHours"])
     summary = {k: {"caught": v["caught"], "leadHoursMedian": median(v["lead"])} for k, v in sorted(by_source.items(), key=lambda t: -t[1]["caught"])}
     counts = {v: sum(1 for r in rows if r["verdict"] == v) for v in ("먼저 잡은 후보", "같은 회사 항목만", "없음", "회사 미상")}
+    # 11-04: 어디서 지는지 — 기사 종류(기자 기사 대조와 같은 규칙)·매체별 판정 수
+    def tally(key):
+        out = {}
+        for r in rows:
+            t = out.setdefault(r.get(key) or "기타", {"total": 0, **{v: 0 for v in counts}})
+            t["total"] += 1
+            t[r["verdict"]] += 1
+        return dict(sorted(out.items(), key=lambda kv: -kv[1]["total"]))
+    by_type, by_outlet = tally("type"), tally("source")
     loaded = {f: f in docs for f in FEEDS}
-    return {"schema": SCHEMA, "generatedAt": now.isoformat(timespec="seconds"), "windowDays": WINDOW_DAYS, "articles": rows, "counts": counts,
+    return {"schema": SCHEMA, "generatedAt": now.isoformat(timespec="seconds"), "windowDays": WINDOW_DAYS, "articles": rows, "counts": counts, "byType": by_type, "byOutlet": by_outlet,
             "bySource": summary, "memoryItems": len(items), "feedsLoaded": loaded, "adapterErrors": adapter_errors, "traceGeneratedAt": trace.get("generatedAt"),
             "rules": ["자동 후보다. 사람이 기사 전문과 원자료를 비교하는 Y/P/N 판정(역추적 기록)과 다르고, 그 수를 바꾸지 않는다.",
                       "'먼저 잡은 후보'는 같은 회사(그룹) 항목을 기사 60일 전~직전에 레이더가 처음 봤고, 사건 낱말(한·영 대응)이 겹친 경우다. 같은 사건인지는 열어 봐야 한다.",

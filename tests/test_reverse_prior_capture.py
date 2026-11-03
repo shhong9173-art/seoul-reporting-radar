@@ -268,6 +268,17 @@ class Governance(unittest.TestCase):
         v, best, _ = r.match({"title": "주주가치 높인다며 산 자사주…KG스틸, 임직원 보상에 쓴다", "companies": ["KG스틸"], "published": "2026-10-24T09:00:00+09:00"}, items)
         self.assertEqual((v, best["label"]), ("먼저 잡은 후보", "지분·자사주 변동"))
 
+class Tally(unittest.TestCase):
+    def test_type_and_outlet_tallies(self):
+        trace = {"items": [
+            {"articleId": "s1", "title": "[단독] 포스코, 미국 상계관세 소송서 패소 - 뉴스저널리즘", "published": "2026-10-28T10:50:00+09:00", "sourceName": "뉴스저널리즘", "companies": ["포스코"]},
+            {"articleId": "s2", "title": "[단독] LG그룹, 현대차 로봇사업 수장 영입", "published": "2026-10-23T09:00:00+09:00", "sourceName": "Y", "companies": ["현대차"]},
+            {"articleId": "s3", "title": "[단독] 현대차, 앨라배마 공장 증설", "published": "2026-10-23T09:00:00+09:00", "sourceName": "Y", "companies": ["현대차"]}]}
+        doc = r.run(trace, {}, {}, now=NOW)
+        self.assertEqual({x["articleId"]: x["type"] for x in doc["articles"]}, {"s1": "논란·법적", "s2": "인사·조직", "s3": "투자·공장"})
+        self.assertEqual(doc["byOutlet"]["Y"]["total"], 2)
+        self.assertEqual(doc["byType"]["인사·조직"]["없음"], 1)
+
 if __name__ == "__main__":
     unittest.main()
 

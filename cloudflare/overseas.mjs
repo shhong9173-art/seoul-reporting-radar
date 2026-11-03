@@ -540,6 +540,24 @@ export function tsbSection(ts, check, q, limit, onlyNew, showAll) {
 
 const kmd = (v) => { const t = Date.parse(v); return Number.isFinite(t) ? new Date(t + 9 * 3600000).toISOString().slice(5, 16).replace('T', ' ') : String(v ?? '').slice(5, 16); };
 
+// 11-04: 경쟁지 단독을 기사 종류(기자 기사 대조와 같은 제목 낱말 규칙)·매체별로 — 어디서 지는지, 레이더로 따라잡을 종류가 무엇인지
+export function reverseTallyLines(rows, top = 8) {
+  const tally = (key) => {
+    const m = new Map();
+    for (const x of rows) {
+      const k = x[key] || '기타';
+      const t = m.get(k) ?? { total: 0, first: 0, same: 0, none: 0 };
+      t.total += 1;
+      if (x.verdict === '먼저 잡은 후보') t.first += 1; else if (x.verdict === '같은 회사 항목만') t.same += 1; else if (x.verdict === '없음') t.none += 1;
+      m.set(k, t);
+    }
+    return [...m.entries()].sort((a, b) => b[1].total - a[1].total);
+  };
+  const fmt = ([k, t]) => `${k} ${t.total}(먼저 ${t.first}·같은 회사 ${t.same}·없음 ${t.none})`;
+  if (!rows.length || !rows.some((x) => x.type)) return [];
+  return [`종류별: ${tally('type').slice(0, top).map(fmt).join(' · ')}`, `매체별: ${tally('source').slice(0, top).map(fmt).join(' · ')}`];
+}
+
 // Competitor exclusives checked against what the radar had seen before them (reverse_prior_capture.py). Automatic candidates only.
 export async function scoopReverse(ctx, args) {
   const doc = await readFeed(ctx, 'reverse-check');
@@ -559,6 +577,7 @@ export async function scoopReverse(ctx, args) {
   const out = [`경쟁지 [단독] 자동 역추적 · 최근 ${days}일 ${rows.length}건 · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt, 48)}`,
     `먼저 잡은 후보 ${n('먼저 잡은 후보')} · 같은 회사 항목만 ${n('같은 회사 항목만')} · 없음 ${n('없음')} · 회사 미상 ${n('회사 미상')} (레이더 기억 ${doc.memoryItems}건, 감시 ${loaded}/${Object.keys(doc.feedsLoaded ?? {}).length} 읽음${(doc.feedsFailed ?? []).length ? `, 실패 ${doc.feedsFailed.join('·')} — 미확인` : ''}${(doc.feedsEmpty ?? []).length ? `, 저장 결과 없음 ${doc.feedsEmpty.join('·')} — 그 감시 항목은 대조 못 함` : ''})`,
     `원천별 먼저 잡은 후보: ${Object.entries(by).sort((a, b) => b[1].length - a[1].length).map(([k, v]) => `${k} ${v.length}건(중간 ${Math.round(med(v))}시간 앞)`).join(' · ') || '없음'}`,
+    ...reverseTallyLines(rows),
     ...(doc.rules ?? []).map((r) => `규칙: ${r}`)];
   for (const v of want ? [want] : ['먼저 잡은 후보', '같은 회사 항목만', '없음']) {
     const g = rows.filter((x) => x.verdict === v);
