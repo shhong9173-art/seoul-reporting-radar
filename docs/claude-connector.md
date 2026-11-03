@@ -216,7 +216,9 @@
   - 조지아 EPD 주간 공고 PDF `epd.georgia.gov/document/document/paMMYY-N/download`(이번 달·지난달 -1~-5, 본 번호는 다시 받지 않음). 항목은 'Facility Name · Application No · Facility Address · EPD Notice Type · Description of Operation · Reason for Application', 군(COUNTY) 머리와 의견 마감('received by …'). 2026년 PDF 40개에서 현대차 메타플랜트(01월 허가안)·한화큐셀 조지아(10월 허가 신청 — 회전 농축기·축열식 산화기 추가, 의견 11-06까지)가 나왔다. 현대트랜시스(계열사)는 출입처가 아니다.
   - 앨라배마 ADEM 공고 목록 `adem.alabama.gov/public-notices`: 제목이 시설·회사 이름. 출입처 이름이면 본문 앞부분을 읽고 동의명령(제재)인지 가린다(08-05 현대차 앨라배마 유해폐기물 위반 동의명령 $16,760 같은 공고).
   - 루이지애나 LDEQ 공고 `deq.louisiana.gov/public-notices`: 의견 링크의 AIName·Subject·AI 번호(현대제철 루이지애나 제철소·롯데케미칼 레이크찰스 대상).
-  - 테네시 TDEC 공고 목록은 GitHub에서 연결 오류·403이라 넣지 않았다(LG화학 클라크스빌·한국타이어 클라크스빌·효성 멤피스는 미확인). 조지아 발급 허가 검색(air.gaepd.org/Permits/Search, Name·Permit·DateFrom·DateTo)은 다음 단계.
+  - 테네시 TDEC 공고 목록은 GitHub에서 연결 오류·403이라 넣지 않았다(LG화학 클라크스빌·한국타이어 클라크스빌·효성 멤피스는 미확인).
+  - 조지아 대기 허가 발급(11-03 추가, 탐침 137~138): `air.gaepd.org/Permits/Search?Name=`(Hanwha·Hyundai·KIA·Kumho·Mando·HL-GA·Mobis, 2초 간격, robots.txt 없음) 결과 줄의 시설 ID·허가 번호·발급일·종류·설명서(Narrative) 주소. 기준선 뒤 새 허가 번호이고 발급일이 60일 안이면 이벤트 — PSD/NSR(대형 신·증설) A, 그 밖 B. 메타플랜트 3711-029-0015-P-01-4(2026-02-12)·한화큐셀 USA 달튼 3674-313-0165-E-02-0(2026-06-01)이 기준선. 검색 결과 쪽에 시설 전체 목록(JSON)이 붙어 한 번에 약 540KB. 11-03 탐침 중 한 번 연결 시간 초과가 있었다(실패는 미확인).
+  - 루이지애나 상공위원회 안건(11-03 추가): `opportunitylouisiana.gov` 위원회 쪽의 안건 PDF(규칙 위원회 안건 제외, 올린 달 기준 120일 안, 한 실행 2개까지, 안건 서버 robots Crawl-delay 10초를 지켜 PDF 사이 10초). 신청 번호(`20240515-A-ITE` 꼴) 줄에 출입처 미국 법인 이름(롯데케미칼 루이지애나·현대제철 루이지애나 등)이 나오면 B. 안건은 심의 대상이지 승인·투자 확정이 아니고, '금액 칸 첫 값'이 투자액인지 감면액인지는 원문 표 머리로 확인. 루이지애나 발급 문서함(EDMS)은 robots.txt 전체 금지라 쓰지 않는다 — 10-29 경쟁지 [단독](현대제철 루이지애나 대기 허가 승인)의 원천은 이 감시로 못 본다.
 - 이름 규칙은 미국 OSHA 감시(`us_osha_watch.RULES`)와 같다. 첫 실행은 기준선(목록에만 남김, 이벤트 없음) — 목록 원천은 처음 정상으로 읽은 실행이 기준선이다(실패한 실행은 기준선이 아님).
 - 등급: 신청 이유에 신설·증설 낱말(construction·expansion·new facility/plant/line·capacity increase)이 있으면 A, 나머지 허가 공고·제재 공고 B. 허가 신청≠착공·투자 확정 — 규모·일정은 공고 원문(PDF)과 회사 확인.
 - 화면: `us_litigation` 끝 '미국 주 환경 허가·공고' 구역([신규]·[기준선], 군·주소·공고 종류·신청 번호·공고 주·의견 마감·작업·신청 이유). 보도 대조 낱말은 회사+주 이름+허가(제재는 과징금), 주 이름이 기사에 있어야 같은 건.

@@ -6,6 +6,12 @@
 - 앨라배마 ADEM 공고 목록(adem.alabama.gov/public-notices): 공고 제목이 시설·회사 이름이다(허가·동의명령(제재)). 11-03 탐침 125.
 - 루이지애나 LDEQ 공고(deq.louisiana.gov/public-notices): 의견 링크의 AIName(시설 이름)·Subject(공고 종류)·AI 번호. 현대제철 루이지애나
   제철소·롯데케미칼 레이크찰스가 대상. 11-03 탐침 124.
+- 조지아 대기 허가 발급(air.gaepd.org/Permits/Search?Name=…): 시설 ID·허가 번호·발급일·허가 종류(SIP·PSD/NSR·Title V)·설명서(Narrative).
+  11-03 탐침 137~138: 메타플랜트 3711-029-0015-P-01-4(2026-02-12), 한화큐셀 USA(달튼) 3674-313-0165-E-02-0(2026-06-01). 신청(주간 공고)
+  다음 단계인 '발급'을 본다 — 10-29 경쟁지 [단독]은 루이지애나 제철소 대기 허가 '승인'이었다(루이지애나 발급 문서함 EDMS는 robots 전체 금지라 못 봄).
+- 루이지애나 상공위원회(Board of Commerce and Industry) 안건 PDF(opportunitylouisiana.gov 위원회 쪽 링크): 산업 재산세 감면(ITEP)·
+  Quality Jobs 등 신청 번호·회사·패리시·투자액 줄. 11-03 탐침 137: 04-22 안건에 Lotte Chemical Louisiana LLC(20240515-A-ITE). 안건 파일 서버는
+  robots Crawl-delay 10초라 PDF 사이 10초를 둔다. 안건 = 심의 대상(승인·투자 확정 아님).
 - 출입처 이름 규칙은 미국 OSHA 감시(us_osha_watch.RULES)와 같다 — 현대트랜시스 같은 계열사는 출입처가 아니다.
 - 첫 실행은 기준선(이벤트 없음, 목록에는 남김). 공고는 공개 문서라 그 자체로 단독이 아니다 — 허가 신청은 증설·신설 신호일 수 있어 회사 확인.
 - 결과는 기자 전용 저장소로만. 공개 로그는 건수만. 조회 실패는 0건이 아니라 미확인.
@@ -34,6 +40,17 @@ GA_PDF = "https://epd.georgia.gov/document/document/{code}/download"
 ADEM_LIST = "https://adem.alabama.gov/public-notices"
 ADEM_SITE = "https://adem.alabama.gov"
 LDEQ_LIST = "https://deq.louisiana.gov/public-notices"
+GAP_SEARCH = "https://air.gaepd.org/Permits/Search"
+GAP_SITE = "https://air.gaepd.org"
+# 조지아 출입처 시설 이름 낱말(11-03 탐침 137 시설 목록: 한화큐셀 조지아·USA, 한화 첨단소재 조지아, 금호타이어 조지아, 메타플랜트, HL-GA,
+# HL만도 아메리카, 기아 조지아). 검색은 부분 일치 — 결과는 RULES로 다시 거른다(현대트랜시스·'SRM Hyundai Plant'(레미콘) 제외).
+GAP_NAMES = ["Hanwha", "Hyundai", "KIA", "Kumho", "Mando", "HL-GA", "Mobis"]
+GAP_RECENT_DAYS = 60
+LACI_PAGE = "https://www.opportunitylouisiana.gov/boards-reports-and-rules/louisiana-board-of-commerce-and-industry"
+LACI_PDF = re.compile(r'href="(https://admin\.opportunitylouisiana\.gov/wp-content/uploads/(\d{4})/(\d{2})/[^"]*?Agenda[^"]*?\.pdf)"', re.I)
+LACI_DELAY = 10.0    # admin.opportunitylouisiana.gov robots.txt: Crawl-delay: 10
+LACI_MAX = 2         # 한 실행에 받는 새 안건 PDF 수
+LACI_RECENT_DAYS = 120
 PAUSE = 2.0
 WEEKS = 5            # 조지아 주간 공고는 달마다 -1 ~ -5
 KEEP_DAYS = 180
@@ -223,15 +240,139 @@ def ldeq(get):
                   **({} if items else {"error": "공고 0줄 — 형식 바뀜일 수 있음"})}
 
 
+# ---------- 조지아 대기 허가 발급 ----------
+
+GAP_ROW = re.compile(r'<tr>\s*<th[^>]*data-label="Facility ID"[^>]*>(?P<fid>.*?)</th>\s*<td[^>]*>(?P<name>.*?)</td>\s*<td[^>]*>(?P<permit>.*?)</td>'
+                     r'\s*<td[^>]*>(?P<date>.*?)</td>\s*<td[^>]*>(?P<docs>.*?)</td>\s*<td[^>]*>(?P<type>.*?)</td>\s*</tr>', re.S)
+HREF = re.compile(r'href="([^"]+)"[^>]*>(.*?)</a>', re.S)
+
+
+def gap_date(s):
+    s = tidy(s).replace("\u2011", "-")
+    try:
+        return dt.datetime.strptime(s, "%d-%b-%Y").date().isoformat()
+    except ValueError:
+        return None
+
+
+def gap_rows(page):
+    out = []
+    for m in GAP_ROW.finditer(page or ""):
+        name = tidy(re.sub(r"<[^>]+>", " ", m.group("name")))
+        link = HREF.search(m.group("permit"))
+        permit = tidy(re.sub(r"<[^>]+>", " ", link.group(2) if link else m.group("permit")))
+        docs = [(tidy(re.sub(r"<[^>]+>", " ", lab)), (GAP_SITE + h) if h.startswith("/") else h) for h, lab in HREF.findall(m.group("docs"))]
+        out.append({"fid": tidy(m.group("fid")), "facility": name, "permit": permit, "issued": gap_date(m.group("date")),
+                    "type": tidy(re.sub(r"<[^>]+>", " ", m.group("type"))),
+                    "permitUrl": ((GAP_SITE + link.group(1)) if link and link.group(1).startswith("/") else link.group(1) if link else None),
+                    "docs": [{"label": lab, "url": u} for lab, u in docs]})
+    return out
+
+
+def ga_permits(get, sleep):
+    rows, got, failed, seen = [], 0, [], set()
+    for i, name in enumerate(GAP_NAMES):
+        if i:
+            sleep(PAUSE)
+        try:
+            r = get(GAP_SEARCH, params={"Name": name}, headers=UA, timeout=40)
+        except Exception as e:  # noqa: BLE001
+            failed.append(f"{name}:{type(e).__name__}")
+            continue
+        if r.status_code != 200:
+            failed.append(f"{name}:HTTP {r.status_code}")
+            continue
+        got += 1
+        for x in gap_rows(r.text):
+            company = beat_of(x["facility"])
+            if not company or not x["permit"] or x["permit"] in seen:
+                continue
+            seen.add(x["permit"])
+            narrative = next((d["url"] for d in x["docs"] if d["label"].lower().startswith("narrative")), None)
+            rows.append({"id": f"gap:{x['permit']}", "source": "gap", "state": "조지아", "company": company, "facility": x["facility"],
+                         "fid": x["fid"], "permit": x["permit"], "issued": x["issued"], "permitType": x["type"],
+                         "noticeType": f"대기 허가 발급({x['type'] or '종류 미기재'})", "operation": "", "reason": "",
+                         "docs": x["docs"], "url": x["permitUrl"] or narrative or GAP_SEARCH})
+    status = "failed" if failed and not got else "partial" if failed else "ok"
+    return rows, {"source": "조지아 대기 허가 발급", "status": status, "returned": len(rows), **({"error": "; ".join(failed[:4])} if failed else {})}
+
+
+# ---------- 루이지애나 상공위원회 안건 ----------
+
+LACI_APP = re.compile(r"\b(\d{8}-(?:[A-Z]-)?[A-Z]{2,4})\b")
+
+
+def laci_rows(text, url):
+    text = re.sub(r"\s+", " ", text or "")
+    meeting = us_date(text[:600]) or us_date(text)
+    marks = list(LACI_APP.finditer(text))
+    out = []
+    for i, m in enumerate(marks):
+        end = marks[i + 1].start() if i + 1 < len(marks) else min(len(text), m.end() + 260)
+        row = text[m.start(): min(end, m.start() + 260)].strip()
+        company = beat_of(row)
+        if not company:
+            continue
+        amount = re.search(r"\$[\d,]{4,}", row)
+        out.append({"appNo": m.group(1), "row": row[:220], "company": company, "meeting": meeting, "amount": amount.group(0) if amount else None,
+                    "url": url})
+    return out
+
+
+def louisiana_ci(now, seen, get, sleep):
+    """위원회 쪽에서 최근(올린 달 기준 120일) 안건 PDF 중 아직 안 본 것을 한 실행에 2개까지. (출입처 줄, 받은 주소, 점검)"""
+    try:
+        r = get(LACI_PAGE, headers=UA, timeout=40)
+    except Exception as e:  # noqa: BLE001
+        return [], [], {"source": "루이지애나 상공위원회 안건", "status": "failed", "returned": 0, "error": type(e).__name__}
+    if r.status_code != 200:
+        return [], [], {"source": "루이지애나 상공위원회 안건", "status": "failed", "returned": 0, "error": f"HTTP {r.status_code}"}
+    cutoff = (now.date() - dt.timedelta(days=LACI_RECENT_DAYS)).strftime("%Y%m")
+    links = []
+    for u, y, mo in LACI_PDF.findall(r.text):
+        if "rules" in u.lower() or f"{y}{mo}" < cutoff or u in seen or u in links:
+            continue
+        links.append(u)
+    rows, got, failed = [], [], []
+    for u in sorted(links)[:LACI_MAX]:
+        sleep(LACI_DELAY)
+        try:
+            d = get(u, headers=UA, timeout=60)
+            if d.status_code != 200:
+                raise RuntimeError(f"HTTP {d.status_code}")
+            for x in laci_rows(pdf_text(d.content), u):
+                rows.append({"id": f"laci:{x['appNo']}:{x['meeting'] or u.rsplit('/', 1)[-1]}", "source": "laci", "state": "루이지애나",
+                             "company": x["company"], "facility": re.sub(r"^\S+\s+", "", x["row"].split("$")[0]).strip()[:100],
+                             "appNo": x["appNo"], "meeting": x["meeting"],
+                             "amount": x["amount"], "noticeType": "상공위원회 안건(세제 감면·고용 인센티브)", "operation": "",
+                             "reason": x["row"], "url": u})
+            got.append(u)
+        except Exception as e:  # noqa: BLE001
+            failed.append(f"{u.rsplit('/', 1)[-1][:40]}:{type(e).__name__}")
+    status = "partial" if failed else "ok"
+    return rows, got, {"source": "루이지애나 상공위원회 안건", "status": status, "returned": len(got), "pending": max(0, len(links) - LACI_MAX),
+                       **({"error": "; ".join(failed[:3])} if failed else {})}
+
+
 # ---------- 합치기 ----------
 
 def tier_of(x):
     if x["source"] == "adem" and x.get("noticeType") == "동의명령(제재)":
         return "B"
+    if x["source"] == "gap":   # 대형 신·증설 허가(PSD/NSR)는 A, 그 밖의 발급·변경은 B
+        return "A" if re.search(r"PSD|NSR", x.get("permitType") or "") else "B"
+    if x["source"] == "laci":
+        return "B"
     return "A" if A_WORDS.search(f"{x.get('reason') or ''} {x.get('noticeType') or ''}") else "B"
 
 
 def line(x):
+    if x["source"] == "gap":
+        return (f"조지아 대기 허가 발급 · {x['facility']}(시설 {x['fid']}) · 허가 {x['permit']} · 발급 {x.get('issued') or '날짜 미기재'}"
+                f" · 종류 {x.get('permitType') or '미기재'}")
+    if x["source"] == "laci":
+        return (f"루이지애나 상공위원회 안건({x.get('meeting') or '회의일 미확인'}) · 신청 {x['appNo']}"
+                + (f" · 금액 칸 첫 값 {x['amount']}" if x.get("amount") else "") + f" · 줄 「{x['reason'][:200]}」")
     where = " · ".join(v for v in (x.get("county") and f"{x['county']} County", x.get("address")) if v)
     return (f"{x['state']} {('주간 공고 ' + x['code']) if x['source'] == 'ga' else '공고'} · {x['facility']}"
             + (f"({where})" if where else "") + f" · {x.get('noticeType') or '공고'}"
@@ -248,46 +389,63 @@ def run(now, previous=None, *, get=None, sleep=time.sleep):
     prev = previous or {}
     stamp = now.isoformat(timespec="seconds")
     seen = prev.get("seen") or {}
-    first = {k: k not in seen for k in ("ga", "adem", "ldeq")}
+    first = {k: k not in seen for k in ("ga", "adem", "ldeq", "gap", "laci")}
     ga_rows, ga_got, ga_check = georgia(now, set(seen.get("ga") or []), get, sleep)
     sleep(PAUSE)
     ad_rows, ad_check = adem(get, sleep)
     sleep(PAUSE)
     ld_rows, ld_check = ldeq(get)
+    sleep(PAUSE)
+    gp_rows, gp_check = ga_permits(get, sleep)
+    sleep(PAUSE)
+    lc_rows, lc_got, lc_check = louisiana_ci(now, set(seen.get("laci") or []), get, sleep)
     known = {x["id"]: x for x in prev.get("notices") or [] if isinstance(x, dict) and x.get("id")}
     events = [e for e in prev.get("events") or [] if isinstance(e, dict)]
     have = {e["id"] for e in events}
+    recent_from = (now.date() - dt.timedelta(days=GAP_RECENT_DAYS)).isoformat()
     for src, rows, ok in (("ga", ga_rows, ga_check["status"] != "failed"), ("adem", ad_rows, ad_check["status"] == "ok"),
-                          ("ldeq", ld_rows, ld_check["status"] == "ok")):
+                          ("ldeq", ld_rows, ld_check["status"] == "ok"), ("gap", gp_rows, gp_check["status"] == "ok"),
+                          ("laci", lc_rows, lc_check["status"] != "failed")):
         for x in rows:
             if x["id"] in known:
                 known[x["id"]]["lastSeen"] = stamp
                 continue
             base = first[src]
             known[x["id"]] = {**x, "firstSeen": stamp, "lastSeen": stamp, **({"baseline": True} if base else {})}
-            if not base and ok and x["id"] not in have:
+            # 발급 허가는 기준선 뒤 처음 보인 번호라도 발급일이 오래됐으면(목록 정리·검색 낱말 변경) 목록에만 남긴다
+            stale = src == "gap" and not (x.get("issued") and x["issued"] >= recent_from)
+            if not base and ok and not stale and x["id"] not in have:
                 tier = tier_of(x)
-                events.append({"id": x["id"], "kind": "주 환경청 제재 공고" if x.get("noticeType") == "동의명령(제재)" else "주 환경청 허가·공고",
+                kind = ("주 환경청 제재 공고" if x.get("noticeType") == "동의명령(제재)" else "주 대기 허가 발급" if src == "gap"
+                        else "주 상공위원회 안건" if src == "laci" else "주 환경청 허가·공고")
+                events.append({"id": x["id"], "kind": kind,
                                "tier": tier, "company": x["company"], "state": x["state"], "detectedAt": stamp, "url": x["url"],
-                               "text": line(x) + (" — 신설·증설 낱말이 있는 신청(회사 확인)" if tier == "A" else "")
-                               + " · 주 정부 공개 공고(허가 신청≠착공·투자 확정)"})
+                               "text": line(x) + (" — 대형 신·증설 허가(PSD/NSR)" if src == "gap" and tier == "A"
+                                                  else " — 신설·증설 낱말이 있는 신청(회사 확인)" if tier == "A" else "")
+                               + (" · 주 정부 허가 발급 목록(발급≠착공·가동, 허가 내용은 설명서 원문)" if src == "gap"
+                                  else " · 주 상공위원회 공개 안건(심의 대상 — 승인·투자 확정 아님, 금액 칸 뜻은 원문 표 머리로 확인)" if src == "laci"
+                                  else " · 주 정부 공개 공고(허가 신청≠착공·투자 확정)")})
                 have.add(x["id"])
     # 목록 원천은 처음 정상으로 읽은 실행이 기준선 — 실패한 실행으로 기준선을 잡으면 다음 실행에 기존 공고가 모두 새것으로 뜬다
     new_seen = {"ga": sorted(set(seen.get("ga") or []) | set(ga_got))[-60:]}
-    for k, c in (("adem", ad_check), ("ldeq", ld_check)):
+    for k, c in (("adem", ad_check), ("ldeq", ld_check), ("gap", gp_check)):
         if seen.get(k) or c["status"] == "ok":
             new_seen[k] = True
+    if seen.get("laci") or lc_got:
+        new_seen["laci"] = sorted(set(seen.get("laci") or []) | set(lc_got))[-40:]
     if not ga_got and not seen.get("ga") and ga_check["status"] == "failed":
         new_seen.pop("ga", None)
     keep_from = (now - dt.timedelta(days=KEEP_DAYS)).isoformat()
     notices = sorted((x for x in known.values() if str(x.get("lastSeen") or x.get("firstSeen")) >= keep_from),
                      key=lambda x: str(x.get("firstSeen")), reverse=True)[:300]
     events = sorted((e for e in events if str(e.get("detectedAt")) >= keep_from), key=lambda e: e["detectedAt"], reverse=True)[:200]
-    checks = [ga_check, ad_check, ld_check]
+    checks = [ga_check, ad_check, ld_check, gp_check, lc_check]
     status = "failed" if all(c["status"] == "failed" for c in checks) else "partial" if any(c["status"] != "ok" for c in checks) else "complete"
     return {"schema": SCHEMA, "generatedAt": stamp, "status": status, "checks": checks, "seen": new_seen,
             "notices": notices, "events": events,
             "rules": ["주 환경청 공개 공고(조지아 EPD 주간 공고 PDF·앨라배마 ADEM 공고·루이지애나 LDEQ 공고)에서 출입처 미국 공장 이름이 나온 것만(이름 규칙은 미국 OSHA 감시와 같다).",
+                      "조지아 대기 허가 발급 목록: 기준선 뒤 새 허가 번호이고 발급일이 60일 안인 것만 알린다. PSD/NSR(대형 신·증설)은 A, 그 밖의 발급·변경은 B. 발급≠착공·가동 — 무엇을 허가했는지는 설명서(Narrative) 원문.",
+                      "루이지애나 상공위원회 안건: 세제 감면(ITEP)·고용 인센티브 신청·변경 줄에 출입처 미국 법인 이름이 나온 것. 안건은 심의 대상이지 승인·투자 확정이 아니다. 금액 칸의 뜻(투자액·감면액)은 원문 표 머리로 확인.",
                       "허가 신청·허가안은 착공·투자 확정이 아니다. 신청 이유에 신설·증설 낱말이 있으면 A, 나머지 허가 공고·제재 공고는 B. 규모·일정은 공고 원문과 회사로 확인.",
                       "첫 실행은 기준선(목록에만 남김). 조회 실패는 0건이 아니라 미확인. 계열사(현대트랜시스 등)는 출입처가 아니다."]}
 

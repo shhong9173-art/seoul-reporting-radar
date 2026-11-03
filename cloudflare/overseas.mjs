@@ -695,14 +695,16 @@ export function stateEnvSection(doc, q = '', limit = 20, onlyNew = false, ctx = 
   for (const x of rows.slice(0, limit)) {
     const where = [x.county ? `${x.county} County` : '', x.address ?? ''].filter(Boolean).join(' · ');
     out.push(`- ${newIds.has(x.id) ? '[신규] ' : x.baseline ? '[기준선] ' : ''}${x.state} · ${x.company} · ${x.facility}${where ? `(${where})` : ''} · ${x.noticeType ?? '공고'}`
-      + `${x.appNo ? ` · 신청 ${x.appNo}` : ''}${x.week ? ` · 공고 주 ${x.week}` : x.posted ? ` · 게시 ${x.posted}` : ''}${x.deadline ? ` · 의견 마감 ${x.deadline}` : ''}`);
+      + `${x.appNo ? ` · 신청 ${x.appNo}` : ''}${x.week ? ` · 공고 주 ${x.week}` : x.posted ? ` · 게시 ${x.posted}` : ''}${x.deadline ? ` · 의견 마감 ${x.deadline}` : ''}`
+      + `${x.permit ? ` · 허가 ${x.permit}${x.fid ? `(시설 ${x.fid})` : ''}` : ''}${x.issued ? ` · 발급 ${x.issued}` : ''}${x.meeting ? ` · 회의 ${x.meeting}` : ''}${x.amount ? ` · 금액 칸 첫 값 ${x.amount}` : ''}`);
     if (x.operation) out.push(`   작업: ${x.operation}`);
-    if (x.reason) out.push(`   ${x.source === 'ga' ? '신청 이유' : '공고 본문 앞부분'}: 「${String(x.reason).slice(0, 300)}」`);
+    if (x.reason) out.push(`   ${x.source === 'ga' ? '신청 이유' : x.source === 'laci' ? '안건 줄' : '공고 본문 앞부분'}: 「${String(x.reason).slice(0, 300)}」`);
     out.push(`   원문: ${x.url}${x.code ? ` (${x.code})` : ''}`);
+    if ((x.docs ?? []).length) out.push(`   문서: ${x.docs.map((d) => `${d.label} ${d.url}`).join(' · ')}`);
   }
   if (rows.length > limit) out.push(`… 남은 ${rows.length - limit}건`);
   if (!rows.length) out.push('조건에 맞는 공고 없음(첫 실행은 기준선, 조회 실패면 미확인).');
-  out.push('   검증 상태: 주 정부 공개 공고(자동). 허가 신청·허가안은 착공·투자 확정이 아니다 — 규모·일정은 공고 원문(PDF)과 회사 확인. 계열사(현대트랜시스 등)는 출입처가 아니라 뺀다');
+  out.push('   검증 상태: 주 정부 공개 공고·허가 발급 목록·상공위원회 안건(자동). 허가 신청·허가안·발급은 착공·투자 확정이 아니고, 상공위 안건은 심의 대상(승인 아님) — 규모·일정·금액 뜻은 원문(PDF·설명서)과 회사 확인. 계열사(현대트랜시스 등)는 출입처가 아니라 뺀다');
   return out;
 }
 

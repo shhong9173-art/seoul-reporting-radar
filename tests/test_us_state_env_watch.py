@@ -33,18 +33,50 @@ LDEQ_HTML = ('<a href="https://internet.deq.louisiana.gov/portal/DIVISIONS/PPPSD
              '<a href="https://internet.deq.louisiana.gov/portal/DIVISIONS/PPPSD/PUBLIC-COMMENTS?AIName=Hyundai Steel Louisiana, LLC - Donaldsonville Steel Mill&amp;Subject=PROPOSED PART 70 AIR PERMIT&amp;AI=245566">Comment URL</a>')
 
 
+# 11-03 탐침 138b: 조지아 허가 검색 결과 줄(실제 HTML 모양)
+def gap_row(fid, name, permit, op, date, ptype, narrative=True):
+    docs = f'<a target="_blank" href="/Permits/View/ON-{op}">Narrative</a>' if narrative else ""
+    return (f'<tr> <th scope="row" class="text-nowrap fw-normal" data-label="Facility ID">{fid}</th> <td data-label="Facility Name">{name}</td> '
+            f'<td data-label="Permit" class="text-nowrap"> <a target="_blank" href="/Permits/View/OP-{op}">{permit}</a> </td> '
+            f'<td data-label="Issuance Date">{date}</td> <td data-label="Other Documents"> {docs} </td> <td data-label="Permit Type">{ptype}</td> </tr>')
+
+
+GAP_HEAD = ('<table><tr> <th scope="col" class="text-nowrap">Facility ID</th> <th scope="col" class="text-nowrap">Facility Name</th> '
+            '<th scope="col" class="text-nowrap">Permit</th> <th scope="col">Issuance Date</th> <th scope="col">Other Documents</th> <th scope="col">Permit Type</th> </tr>')
+GAP_HYUNDAI = (GAP_HEAD + gap_row("029-00015", "Hyundai Motor Group Metaplant America LLC", "3711-029-0015-P-01-0", "21001", "22&#x2011;Dec&#x2011;2022", "PSD/NSR")
+               + gap_row("029-00015", "Hyundai Motor Group Metaplant America LLC", "3711-029-0015-P-01-4", "29001", "12&#x2011;Feb&#x2011;2026", "SIP")
+               + gap_row("285-00087", "Hyundai-Transys Georgia Powertrain Inc.", "3714-285-0087-B-02-0", "29500", "16&#x2011;Jun&#x2011;2026", "SIP")
+               + gap_row("029-00022", "SRM Hyundai Plant 4", "3273-029-0022-R-01-0", "25000", "10&#x2011;Oct&#x2011;2023", "SIP", False) + "</table>")
+GAP_HANWHA = (GAP_HEAD + gap_row("313-00165", "Hanwha Q Cells USA, Inc.", "3674-313-0165-E-02-0", "29300", "1&#x2011;Jun&#x2011;2026", "SIP") + "</table>")
+# 11-03 탐침 137·138b: 루이지애나 상공위원회 04-22 안건 글자(줄 모양)
+LACI_TEXT = ("LOUISIANA BOARD OF COMMERCE AND INDUSTRY April 22, 2026 9:30 a.m. AGENDA 7. Industrial Tax Exemption Program NEW 2018 Rules Application "
+             "20240073-ITE Valero Refining-New Orleans, LLC St. Charles $41,850,000 Renewal Applications 20240515-A-ITE Lotte Chemical Louisiana LLC "
+             "Calcasieu $3,902,899 $95,000 12 20220056-C-ITE ASH Industries, Inc. Lafayette $1,130,237")
+LACI_PAGE_HTML = ('<a href="https://admin.opportunitylouisiana.gov/wp-content/uploads/2026/10/CI-Agenda-PUBVer-OCT-29-2026-compressed.pdf">Agenda</a>'
+                  '<a href="https://admin.opportunitylouisiana.gov/wp-content/uploads/2026/09/CI-Agenda-PUBVer-SEPT-23-2026_reduced.pdf">Agenda</a>'
+                  '<a href="https://admin.opportunitylouisiana.gov/wp-content/uploads/2024/05/CI-RULES-AGENDA-MAY-3-2024.pdf">Rules</a>'
+                  '<a href="https://admin.opportunitylouisiana.gov/wp-content/uploads/2026/04/CI-Board-Agenda-PUBVer-Apr-22-2026.pdf">Agenda</a>')
+
+
 class R:
     def __init__(self, status=200, text="", content=b"", ctype="text/html"):
         self.status_code, self.text, self.content, self.headers = status, text, content, {"content-type": ctype}
 
 
-def fake(pdfs, adem=ADEM_HTML, ldeq=LDEQ_HTML, fail=()):
+def fake(pdfs, adem=ADEM_HTML, ldeq=LDEQ_HTML, fail=(), gap=None, laci_page=LACI_PAGE_HTML):
     calls = []
+    gap = gap or {"Hyundai": GAP_HYUNDAI, "Hanwha": GAP_HANWHA}
 
-    def get(url, headers=None, timeout=None):
-        calls.append(url)
+    def get(url, headers=None, timeout=None, params=None):
+        calls.append(url + (f"?Name={params['Name']}" if params else ""))
         if any(f in url for f in fail):
             raise type("ConnectTimeout", (Exception,), {})("x")
+        if url == w.GAP_SEARCH:
+            return R(200, gap.get(params["Name"], GAP_HEAD + "</table>"))
+        if url == w.LACI_PAGE:
+            return R(200, laci_page)
+        if "admin.opportunitylouisiana.gov" in url:
+            return R(200, content=("laci:" + url).encode(), ctype="application/pdf")
         if "epd.georgia.gov" in url:
             code = url.split("/document/document/")[1].split("/")[0]
             return R(200, content=code.encode(), ctype="application/pdf") if code in pdfs else R(404, "missing")
@@ -81,7 +113,7 @@ class Run(unittest.TestCase):
     def setUp(self):
         self.texts = {"pa1026-1": GA_1026_1, "pa0126-1": GA_0126_1, "pa1126-1": GA_0126_1.replace("Week of January 5, 2026", "Week of November 2, 2026")}
         self.orig = w.pdf_text
-        w.pdf_text = lambda content: self.texts[content.decode()]
+        w.pdf_text = lambda content: LACI_TEXT if content.startswith(b"laci:") else self.texts[content.decode()]
 
     def tearDown(self):
         w.pdf_text = self.orig
@@ -90,7 +122,7 @@ class Run(unittest.TestCase):
         get, calls = fake({"pa1026-1"}, adem=ADEM_HTML.replace('<li><a href="/sites/default/files/2026-11/11-26hpt.html">Hyundai Power Transformers USA, Inc.</a></li>', ""))
         doc = w.run(NOW, None, get=get, sleep=lambda s: None)
         self.assertEqual(doc["events"], [])
-        self.assertEqual(sorted((x["company"], x["source"], x.get("baseline")) for x in doc["notices"]),
+        self.assertEqual(sorted((x["company"], x["source"], x.get("baseline")) for x in doc["notices"] if x["source"] in ("ga", "ldeq")),
                          [("한화솔루션", "ga", True), ("현대제철", "ldeq", True)])
         self.assertEqual(doc["seen"]["ga"], ["pa1026-1"])
         self.assertTrue(doc["seen"]["adem"] and doc["seen"]["ldeq"])
@@ -104,20 +136,82 @@ class Run(unittest.TestCase):
         self.assertIn("의견 마감 2026-02-04", ev["현대차"]["text"])
         self.assertIn("허가 신청≠착공·투자 확정", ev["현대차"]["text"])
         self.assertEqual((ev["HD현대일렉트릭"]["tier"], ev["HD현대일렉트릭"]["kind"]), ("B", "주 환경청 제재 공고"))
-        self.assertEqual(len(doc2["events"]), 2)
+        self.assertEqual(len([e for e in doc2["events"] if e["id"].startswith(("ga:", "adem:"))]), 2)
 
     def test_failures_are_unconfirmed_and_do_not_set_a_baseline(self):
         get, _ = fake({"pa1026-1"}, fail=("adem.alabama.gov", "deq.louisiana.gov"))
         doc = w.run(NOW, None, get=get, sleep=lambda s: None)
-        self.assertEqual([c["status"] for c in doc["checks"]], ["ok", "failed", "failed"])
+        self.assertEqual([c["status"] for c in doc["checks"]], ["ok", "failed", "failed", "ok", "ok"])
         self.assertEqual(doc["status"], "partial")
         self.assertNotIn("adem", doc["seen"])   # 실패한 실행은 기준선이 아니다 — 다음 성공 실행이 기준선
         get2, _ = fake({"pa1026-1"})
         doc2 = w.run(NOW + dt.timedelta(hours=1), doc, get=get2, sleep=lambda s: None)
         self.assertFalse([e for e in doc2["events"] if e["id"].startswith(("adem:", "ldeq:"))])
-        get3, _ = fake(set(), fail=("epd.georgia.gov", "adem.alabama.gov", "deq.louisiana.gov"))
+        get3, _ = fake(set(), fail=("epd.georgia.gov", "adem.alabama.gov", "deq.louisiana.gov", "air.gaepd.org", "opportunitylouisiana.gov"))
         self.assertEqual(w.run(NOW, None, get=get3, sleep=lambda s: None)["status"], "failed")
 
+
+
+class PermitsAndIncentives(unittest.TestCase):
+    def setUp(self):
+        self.orig = w.pdf_text
+        w.pdf_text = lambda content: (LACI_TEXT.replace("April 22, 2026", "December 10, 2026") if b"DEC-10" in content else LACI_TEXT) \
+            if content.startswith(b"laci:") else ""
+
+    def tearDown(self):
+        w.pdf_text = self.orig
+
+    def test_gap_rows_parse_real_layout_and_beat_rule(self):
+        rows = w.gap_rows(GAP_HYUNDAI)
+        self.assertEqual([(r["fid"], r["permit"], r["issued"], r["type"]) for r in rows][:2],
+                         [("029-00015", "3711-029-0015-P-01-0", "2022-12-22", "PSD/NSR"), ("029-00015", "3711-029-0015-P-01-4", "2026-02-12", "SIP")])
+        self.assertEqual(rows[1]["permitUrl"], "https://air.gaepd.org/Permits/View/OP-29001")
+        self.assertEqual(rows[1]["docs"], [{"label": "Narrative", "url": "https://air.gaepd.org/Permits/View/ON-29001"}])
+        self.assertEqual([w.beat_of(r["facility"]) for r in rows], ["현대차", "현대차", None, None])   # 현대트랜시스·레미콘 'SRM Hyundai' 제외
+        self.assertEqual(w.beat_of("HYUNDAI-POSCO Louisiana Steel LLC"), "현대제철")   # 합작 법인은 포스코가 아니라 현대제철(최대주주)
+
+    def test_laci_rows_find_beat_lines_only(self):
+        rows = w.laci_rows(LACI_TEXT, "u")
+        self.assertEqual([(r["appNo"], r["company"], r["meeting"], r["amount"]) for r in rows],
+                         [("20240515-A-ITE", "롯데케미칼", "2026-04-22", "$3,902,899")])
+        self.assertTrue(rows[0]["row"].startswith("20240515-A-ITE Lotte Chemical Louisiana LLC Calcasieu"))
+        self.assertNotIn("ASH Industries", rows[0]["row"])   # 다음 신청 번호 앞에서 자름
+
+    def test_baseline_then_new_permit_and_new_agenda_events(self):
+        waits = []
+        get, calls = fake({"pa1026-1"})
+        doc = w.run(NOW, None, get=get, sleep=waits.append)
+        self.assertFalse([e for e in doc["events"] if e["id"].startswith(("gap:", "laci:"))])   # 첫 실행은 기준선
+        gap = [x for x in doc["notices"] if x["source"] == "gap"]
+        self.assertEqual(sorted(x["permit"] for x in gap), ["3674-313-0165-E-02-0", "3711-029-0015-P-01-0", "3711-029-0015-P-01-4"])
+        self.assertTrue(all(x.get("baseline") for x in gap))
+        # 최근 120일 안 안건만(04월 안건·위원회 규칙 안건은 안 받음), PDF 사이 10초
+        self.assertEqual([c for c in calls if "admin.opportunitylouisiana" in c],
+                         ["https://admin.opportunitylouisiana.gov/wp-content/uploads/2026/09/CI-Agenda-PUBVer-SEPT-23-2026_reduced.pdf",
+                          "https://admin.opportunitylouisiana.gov/wp-content/uploads/2026/10/CI-Agenda-PUBVer-OCT-29-2026-compressed.pdf"])
+        self.assertEqual(waits.count(10.0), 2)
+        self.assertEqual(len(doc["seen"]["laci"]), 2)
+        # 다음 실행: 메타플랜트 새 PSD 허가(발급 60일 안) → A, 오래된 새 번호는 목록에만, 새 안건의 롯데케미칼 줄 → B
+        new_hyundai = GAP_HYUNDAI.replace("</table>", gap_row("029-00015", "Hyundai Motor Group Metaplant America LLC", "3711-029-0015-P-02-0", "31000",
+                                                              "20&#x2011;Oct&#x2011;2026", "PSD/NSR")
+                                          + gap_row("199-00028", "HL Mando America Corporation", "3714-199-0028-S-01-0", "18000", "2&#x2011;Mar&#x2011;2019", "SIP")
+                                          + "</table>")
+        page2 = LACI_PAGE_HTML + '<a href="https://admin.opportunitylouisiana.gov/wp-content/uploads/2026/11/CI-Agenda-PUBVer-DEC-10-2026.pdf">Agenda</a>'
+        get2, calls2 = fake({"pa1026-1"}, gap={"Hyundai": new_hyundai, "Hanwha": GAP_HANWHA}, laci_page=page2)
+        doc2 = w.run(NOW + dt.timedelta(days=1), doc, get=get2, sleep=lambda s: None)
+        ev = {e["id"]: e for e in doc2["events"] if e["id"].startswith(("gap:", "laci:"))}
+        self.assertEqual(sorted(ev), ["gap:3711-029-0015-P-02-0", "laci:20240515-A-ITE:2026-12-10"])
+        g = ev["gap:3711-029-0015-P-02-0"]
+        self.assertEqual((g["tier"], g["kind"], g["company"]), ("A", "주 대기 허가 발급", "현대차"))
+        self.assertIn("조지아 대기 허가 발급 · Hyundai Motor Group Metaplant America LLC(시설 029-00015) · 허가 3711-029-0015-P-02-0 · 발급 2026-10-20 · 종류 PSD/NSR", g["text"])
+        self.assertIn("발급≠착공·가동", g["text"])
+        self.assertEqual(g["url"], "https://air.gaepd.org/Permits/View/OP-31000")
+        self.assertIn("gap:3714-199-0028-S-01-0", {x["id"] for x in doc2["notices"]})   # 2019년 발급 — 목록에만
+        lc = ev["laci:20240515-A-ITE:2026-12-10"]
+        self.assertEqual((lc["tier"], lc["kind"], lc["company"]), ("B", "주 상공위원회 안건", "롯데케미칼"))
+        self.assertIn("심의 대상 — 승인·투자 확정 아님", lc["text"])
+        self.assertEqual([c for c in calls2 if "admin.opportunitylouisiana" in c],
+                         ["https://admin.opportunitylouisiana.gov/wp-content/uploads/2026/11/CI-Agenda-PUBVer-DEC-10-2026.pdf"])   # 본 안건은 다시 안 받음
 
 if __name__ == "__main__":
     unittest.main()
