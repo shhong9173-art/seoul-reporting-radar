@@ -132,6 +132,13 @@ class MyArticles(unittest.TestCase):
         self.assertEqual(w.press_label(b, [{"title": "대미 타이어 수출 25% 감소…관세 복병", "originallink": "https://a.kr/1", "pubDate": "Tue, 03 Nov 2026 18:00:00 +0900"}]),
                          ("선행", 1))                                                  # 기자 기사 4시간 뒤 다른 매체
         self.assertEqual(w.press_label(b, items), ("자체", 0))
+        # 11-04 보정: 같은 출입처 + 다른 낱말 2개(자사주·공개매수) 겹침도 비슷한 제목
+        c = {"title": "고려아연, 자사주 공개매수 손배소 승소에 \"정당한 경영판단 인정\"", "published": "2026-10-22T16:00:00+09:00"}
+        others = [{"title": "법원, 고려아연 자사주 공개매수 손배소서 영풍 패소 판결", "originallink": "https://a.kr/1", "pubDate": "Thu, 22 Oct 2026 14:30:00 +0900"},
+                  {"title": "영풍·MBK, 고려아연 <b>자사주</b> 공개매수 손배소 패소에 \"즉각 항소\"", "originallink": "https://b.kr/1", "pubDate": "Thu, 22 Oct 2026 15:10:00 +0900"},
+                  {"title": "고려아연, 3분기 영업익 발표", "originallink": "https://c.kr/1", "pubDate": "Thu, 22 Oct 2026 15:00:00 +0900"}]
+        self.assertEqual(w.press_label(c, others), ("보도자료·공시", 2))
+        self.assertFalse(w.press_similar("고려아연, 3분기 영업익 발표", "고려아연, 자사주 공개매수 손배소 승소"))   # 회사만 같음
 
     def test_run_marks_press_once_and_counts_own_articles(self):
         calls = []

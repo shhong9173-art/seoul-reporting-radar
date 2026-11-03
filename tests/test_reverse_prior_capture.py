@@ -108,7 +108,7 @@ class Capture(unittest.TestCase):
         self.assertEqual(sent["doc"]["feedsEmpty"], ["trademarks"])
         self.assertEqual(sent["doc"]["feedsFailed"], ["kr-signals:StoreError"])
         self.assertIn("저장 결과 없음 ['trademarks']", buf.getvalue())
-        self.assertIn("감시 읽음 26/28", buf.getvalue())   # 11-03: 새 감시 7개 더함
+        self.assertIn("감시 읽음 27/29", buf.getvalue())   # 11-03: 새 감시 7개, 11-04: 지분·자사주 변동
 
 
     def test_plant_permit_before_the_article(self):
@@ -256,6 +256,17 @@ class Places(unittest.TestCase):
         self.assertEqual(r.places_in("Hanwha Q Cells Cartersville, Georgia air permit"), {"조지아"})
         self.assertEqual(r.places_in("㈜포스코 포항제철소 배출구 39번"), {"포항"})
         self.assertEqual(r.places_in("2027년 예산 음성 안내"), set())     # 흔한 낱말과 겹치는 지명은 안 셈
+
+class Governance(unittest.TestCase):
+    def test_kg_steel_treasury_article_matches_disposal(self):
+        docs = {"governance": {"items": [
+            {"company": "KG스틸", "kind": "자사주 처분 결정", "date": "2026-10-15", "receiptNo": "20261015000414", "routine": False,
+             "reason": '처분목적 "임직원 지급을 위한 자기주식 처분" · 2,461,991주·136.9억원', "tags": ["[처분목적: 임직원 보상]", "[보유 자사주의 100%]"]},
+            {"company": "현대자동차", "kind": "자사주 처분 결정", "date": "2026-03-26", "receiptNo": "x", "routine": True, "reason": "임원 대상"}]}}
+        items = r.memory(docs, {})
+        self.assertEqual([m["id"] for m in items if m["source"] == "governance"], ["20261015000414"])   # 일상 보상은 기억에 안 넣음
+        v, best, _ = r.match({"title": "주주가치 높인다며 산 자사주…KG스틸, 임직원 보상에 쓴다", "companies": ["KG스틸"], "published": "2026-10-24T09:00:00+09:00"}, items)
+        self.assertEqual((v, best["label"]), ("먼저 잡은 후보", "지분·자사주 변동"))
 
 if __name__ == "__main__":
     unittest.main()

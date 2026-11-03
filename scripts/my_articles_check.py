@@ -80,6 +80,7 @@ KIND_RX = [(k, re.compile(rx)) for k, rx in KINDS]
 # - 비슷한 기사가 모두 기자 기사 뒤(30분 넘게) → '선행'(기자가 먼저, 다른 매체가 따라옴)
 # - 그 밖 → '자체'. 검색 실패·키 없음은 '미확인'(판정 안 함)
 PRESS_BUDGET = 40
+PRESS_V = 2   # 판정 규칙 판(바뀌면 기사를 다시 묻는다). 2(11-04): 같은 출입처 + 다른 낱말 2개 겹침도 비슷한 제목
 PRESS_SIM = 0.5
 PRESS_WINDOW = dt.timedelta(hours=36)
 PRESS_GRACE = dt.timedelta(minutes=30)
@@ -96,6 +97,18 @@ def title_similar(a, b):
     return len(A & B) / max(1, min(len(A), len(B)))
 
 
+def press_similar(a, b):
+    """비슷한 제목: 낱말 겹침 50% 이상, 또는 같은 출입처 이름 + 그 밖 낱말 2개 이상 겹침(11-04: 같은 날 여러 매체가 쓴
+    「고려아연 자사주 공개매수 손배소」 기사들이 제목이 달라 '자체'로 남았다)."""
+    if title_similar(a, b) >= PRESS_SIM:
+        return True
+    ca, cb = set(companies_in(html.unescape(re.sub(r"<[^>]+>", "", str(a or ""))))), set(companies_in(html.unescape(re.sub(r"<[^>]+>", "", str(b or "")))))
+    if not (ca & cb):
+        return False
+    rest = {w for w in title_tokens(a) & title_tokens(b) if not any(rx.search(w) for _n, rx in BEAT)}
+    return len(rest) >= 2
+
+
 def press_label(article, items):
     """(라벨, 비슷한 다른 매체 기사 수) — items: 네이버 뉴스 검색 결과(title·originallink·pubDate)."""
     pub = rpc.parse_time(article.get("published"))
@@ -109,7 +122,7 @@ def press_label(article, items):
             t = parsedate_to_datetime(it.get("pubDate") or "").astimezone(KST)
         except (TypeError, ValueError, IndexError):
             continue
-        if abs(t - pub) <= PRESS_WINDOW and title_similar(it.get("title"), article.get("title")) >= PRESS_SIM:
+        if abs(t - pub) <= PRESS_WINDOW and press_similar(it.get("title"), article.get("title")):
             when.append(t)
     before = sum(1 for t in when if t <= pub + PRESS_GRACE)
     if before >= 2 or (len(when) >= 3 and before >= 1):
@@ -225,7 +238,7 @@ def run(now, previous=None, docs=None, clues=None, *, get=None, sleep=time.sleep
     asked, press_err = 0, None
     if search is not None:
         for a in sorted(mine.values(), key=lambda x: str(x.get("published")), reverse=True):
-            if a.get("press") or str(a.get("published")) < since_press or asked >= PRESS_BUDGET:
+            if (a.get("press") and a.get("pressV") == PRESS_V) or str(a.get("published")) < since_press or asked >= PRESS_BUDGET:
                 continue
             asked += 1
             try:
@@ -235,7 +248,7 @@ def run(now, previous=None, docs=None, clues=None, *, get=None, sleep=time.sleep
                 break   # 키 거부·한도 — 이번 실행은 여기까지(다음 실행에 다시)
             label, n = press_label(a, items)
             if label:
-                a["press"], a["pressN"], a["pressAt"] = label, n, stamp
+                a["press"], a["pressN"], a["pressAt"], a["pressV"] = label, n, stamp, PRESS_V
             sleep(0.3)
     if press_err:
         errors.append(press_err)

@@ -32,6 +32,7 @@ export const FEEDS = {
   'union-notices': { blob: 'union_notices', schema: 'union_notices/v1', list: 'posts' },
   'council-minutes': { blob: 'council_minutes', schema: 'council_minutes/v1', list: 'items' },
   'my-articles': { blob: 'my_articles', schema: 'my_articles/v1', list: 'articles' },
+  'governance': { blob: 'governance', schema: 'governance/v1', list: 'items' },
   'kr-fuel': { blob: 'kr_fuel', schema: 'kr_fuel/v1', list: 'vehicles' },
   'overseas-awards': { blob: 'overseas_awards', schema: 'overseas_awards/v1', list: 'items' },
   'kr-local': { blob: 'kr_local', schema: 'kr_local/v1', list: 'items' },

@@ -27,7 +27,9 @@ FEEDS = ["us-litigation", "partner-filings", "trade-remedy", "kr-official", "kr-
          "trademarks", "assembly-bills", "us-recalls", "scoop-screen", "us-epa", "kr-fuel", "overseas-awards",
          "kr-insolvency", "kr-energy", "kr-building", "overseas-registry", "kr-local", "kr-workforce", "kr-stacks",
          # 11-03 추가 감시(이벤트 모양이 같다: id·company·kind·text|title·detectedAt·url) — 역추적·기자 기사 대조가 이 감시들도 본다
-         "us-osha", "us-state-env", "kr-labor", "india-filings", "dart-counterparty", "union-notices", "council-minutes"]
+         "us-osha", "us-state-env", "kr-labor", "india-filings", "dart-counterparty", "union-notices", "council-minutes",
+         # 11-04: 지분·자사주 변동(임원 집단 보고·자기주식 처분 결정) — KG스틸 자사주 임직원 보상 기사가 '없음'이었다
+         "governance"]
 LABEL = {"us-litigation": "미국 소송·판결", "partner-filings": "해외 파트너 공시", "trade-remedy": "무역구제·미국 관보",
          "kr-official": "공장등록·관보", "kr-signals": "공정위·한전·산업부", "us-comments": "미 연방 의견서", "page-watch": "해외 공식 페이지",
          "trademarks": "상표 출원", "assembly-bills": "국회 법안", "us-recalls": "미국 리콜", "scoop-screen": "단독 후보 심사",
@@ -35,9 +37,10 @@ LABEL = {"us-litigation": "미국 소송·판결", "partner-filings": "해외 �
          "kr-insolvency": "협력사 회생·파산", "kr-energy": "전기위·원안위", "kr-building": "공장 부지 건축허가", "overseas-registry": "해외 법인 등기", "kr-local": "지자체 고시·공고",
          "kr-workforce": "사업장 인력(국민연금)", "kr-stacks": "굴뚝 측정(가동 신호)", "clues": "공개 원자료 단서(DART 등)",
          "us-osha": "미국 OSHA 점검·위반", "us-state-env": "미국 주 환경 허가·공고", "kr-labor": "노동위 회의", "india-filings": "인도 법인 공시",
-         "dart-counterparty": "타사 공시 속 출입처", "union-notices": "노조 성명·보도자료", "council-minutes": "지방의회 회의록"}
+         "dart-counterparty": "타사 공시 속 출입처", "union-notices": "노조 성명·보도자료", "council-minutes": "지방의회 회의록",
+         "governance": "지분·자사주 변동"}
 # Group-level names: an article about 포스코 and a radar item about 포스코홀딩스 concern the same group.
-GROUP = {"현대자동차": "현대차", "제네시스": "현대차", "현대차(제네시스)": "현대차", "포스코홀딩스": "포스코", "엘에스일렉트릭": "LS일렉트릭",
+GROUP = {"한국타이어앤테크놀로지": "한국타이어", "S-Oil": "S-OIL", "현대자동차": "현대차", "제네시스": "현대차", "현대차(제네시스)": "현대차", "포스코홀딩스": "포스코", "엘에스일렉트릭": "LS일렉트릭",
          "아우디코리아": "아우디", "폭스바겐코리아": "폭스바겐", "BMW코리아": "BMW", "메르세데스-벤츠 코리아": "벤츠", "혼다코리아": "혼다",
          "효성중공업(관련)": "효성중공업", "일진전기(관련)": "일진전기", "OCI홀딩스": "OCI", "세아홀딩스": "세아제강", "LS지주": "LS",
          # 아우디는 폭스바겐그룹 브랜드: 10-26 '[단독] 아우디, 미국서 Q4 e-트론 9048대 리콜…SK온 배터리'는 회사가 '폭스바겐·SK온'으로
@@ -72,6 +75,8 @@ CONCEPTS = [
     ("회생·파산", r"회생|파산|법정관리|부도|워크아웃", r"회생|파산|포괄적 금지명령"),
     ("허가·원전", r"허가|원전|원자력|발전사업|해상풍력|계속운전|원안위", r"허가|원자력|발전사업|해상풍력|계속운전|원안의결|심의"),
     ("법인 설립", r"법인|현지법인|자회사|설립", r"법인 설립|incorporat|Companies House|LIMITED|LTD"),
+    # 11-04: 「주주가치 높인다며 산 자사주…KG스틸, 임직원 보상에 쓴다」가 자기주식 처분 결정과 '자사주' 한 낱말만 겹쳐 '같은 회사 항목만'이었다
+    ("자사주·주주환원", r"자사주|자기주식|주주환원|주식\s*소각|주주가치", r"자기주식|자사주|treasury|share buyback|소각"),
     ("인력·고용", r"인력|감원|희망퇴직|구조조정|채용|고용|직원|인원|감축", r"국민연금 가입자|인력 감소|인력 증가|취득|상실"),
     ("가동·중단", r"가동|중단|셧다운|정지|휴업|멈춰|멈춘|재가동|조업", r"가동 중단|멈춤|재가동|새 배출구|배출구"),
     ("입법·규제", r"법안|입법|개정안|국회|규제|시행령|입법예고", r"법률안|개정안|입법예고|bill|regulation|rule"),
@@ -370,6 +375,17 @@ def _events_of(source):
     return fn
 
 
+def _governance(d, add):
+    """지분·자사주 변동(공개 공시): 일상(routine) 아닌 것만. 자기주식 처분은 '자사주'·'보상' 낱말로도 찾게 붙인다."""
+    for x in d.get("items") or []:
+        if x.get("routine"):
+            continue
+        tags = " ".join(x.get("tags") or [])
+        extra = (" 자사주 자기주식 처분" if x.get("kind") == "자사주 처분 결정" else " 임원 지분") + (" 임직원 보상" if "임직원 보상" in tags or "보상" in str(x.get("reason")) else "")
+        add(mem("governance", x.get("groupKey") or x.get("receiptNo"), [x.get("company")], f"{x.get('kind')} {x.get('reason') or ''} {tags}{extra}",
+                x.get("date"), x.get("url")))
+
+
 def _clues(d, add):
     for x in d.get("items") or []:
         add(mem("clues", x.get("id"), x.get("companies") or [], x.get("title"), x.get("firstSeen") or x.get("published"), x.get("url"),
@@ -381,7 +397,7 @@ ADAPTERS = [("us-litigation", _litigation), ("partner-filings", _partners), ("tr
             ("us-recalls", _recalls), ("scoop-screen", _screen), ("us-epa", _epa), ("us-epa", _vin), ("kr-fuel", _fuel), ("overseas-awards", _awards),
             ("us-recalls", _investigations), ("kr-insolvency", _insolvency), ("kr-energy", _energy), ("kr-building", _building),
             ("overseas-registry", _registry), ("kr-local", _local), ("kr-workforce", _workforce), ("kr-stacks", _stacks), ("clues", _clues),
-            *[(f, _events_of(f)) for f in ("us-osha", "us-state-env", "kr-labor", "india-filings", "dart-counterparty", "union-notices", "council-minutes")]]
+            ("governance", _governance), *[(f, _events_of(f)) for f in ("us-osha", "us-state-env", "kr-labor", "india-filings", "dart-counterparty", "union-notices", "council-minutes")]]
 
 
 def nouns(title):
