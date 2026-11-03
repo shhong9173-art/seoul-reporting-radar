@@ -367,7 +367,19 @@ def tier_of(p):
     return t
 
 
-def run(keys, factories, *, now, previous=None, get=None, sleep=time.sleep, clock=time.monotonic, juso_key=None):
+def retry_lots(previous, now, *, env=None):
+    """평일(화~금) 재시도: 월요일 실행에서 조회 실패한 번지 이름 집합. None이면 전체 실행(월요일·강제·직전 결과 없음),
+    빈 집합이면 건너뜀. 11-03: 월요일 실행에서 4개 번지(빈 응답 3·HTTP 503 1)가 실패한 채 다음 월요일까지 미확인으로 남았다."""
+    env = os.environ if env is None else env
+    if str(env.get("FORCE_RUN", "")).lower() in ("1", "true", "yes") or env.get("GITHUB_EVENT_NAME") == "push":
+        return None
+    if now.astimezone(KST).weekday() == 0 or not isinstance(previous, dict) or not previous.get("baselineSince"):
+        return None
+    return {str(x.get("parcel")) for x in previous.get("archFailed") or [] if x.get("parcel")}
+
+
+def run(keys, factories, *, now, previous=None, get=None, sleep=time.sleep, clock=time.monotonic, juso_key=None, only=None):
+    """only: 다시 조회할 번지 이름 집합(평일 재시도). 주소 변환은 건너뛰고 저장된 번지로 그 번지만 묻는다."""
     stamp = now.isoformat(timespec="seconds")
     # a stored '미설정' result (datasets not approved yet) is not a baseline: the first run that really queries is
     baseline = not (isinstance(previous, dict) and previous.get("baselineSince"))
@@ -414,7 +426,7 @@ def run(keys, factories, *, now, previous=None, get=None, sleep=time.sleep, cloc
     start = clock()
     juso = Juso(juso_key, get=get, sleep=sleep) if juso_key else None
     regions = {}
-    for f in factories if juso else []:
+    for f in factories if juso and only is None else []:
         fid = f["id"]
         p = parcels.get(fid)
         if p and p.get("road") == road_query(f.get("rnAdres")) and str(p.get("checkedAt")) >= ttl and not p.get("error"):
@@ -449,7 +461,10 @@ def run(keys, factories, *, now, previous=None, get=None, sleep=time.sleep, cloc
             addr_fail += 1
             streak = streak + 1 if conn else 0
             unreachable = streak >= CONNECT_STREAK
-    if not juso:
+    prev_addr = next((c for c in (previous or {}).get("checks") or [] if c.get("source") == "주소 변환"), None)
+    if only is not None and prev_addr:
+        checks.append(dict(prev_addr))  # 재시도는 주소 변환을 다시 하지 않는다 — 월요일 결과 그대로
+    elif not juso:
         checks.append({"source": "주소 변환", "status": "unset", "error": JUSO_HELP})
     elif refused:
         checks.append({"source": "주소 변환", "status": "unset", "error": refused})
@@ -476,6 +491,9 @@ def run(keys, factories, *, now, previous=None, get=None, sleep=time.sleep, cloc
     trim_floor = min((str(x.get("permitted") or "") for x in old.values()), default="") if len(old) >= KEEP_MAX else ""
     show_cut = (now - dt.timedelta(days=SHOW_DAYS)).date().isoformat()
     for (sg, bj, gb, bun), facs in by_parcel.items():
+        if only is not None and not any(str((parcels.get(f["id"]) or {}).get("jibun") or (parcels.get(f["id"]) or {}).get("road")) in only
+                                        for f in facs):
+            continue
         if clock() - start > TOTAL_BUDGET_S:
             arch_left += 1
             continue
@@ -557,7 +575,8 @@ def run(keys, factories, *, now, previous=None, get=None, sleep=time.sleep, cloc
     else:
         kinds = ", ".join(f"{k} {n}" for k, n in sorted(errs.items(), key=lambda kv: -kv[1])[:3])
         err = "; ".join(e for e in (f"{fail}개 번지 조회 실패({kinds})" if fail else "", f"시간 한도 — 남은 {arch_left}개 번지 미조회" if arch_left else "") if e)
-        checks.append({"source": "건축인허가", "status": "ok" if not err else "partial", "returned": queried, **({"error": err} if err else {})})
+        checks.append({"source": "건축인허가", "status": "ok" if not err else "partial", "returned": queried, **({"error": err} if err else {}),
+                       **({"retriedAt": stamp, "retried": len(only)} if only is not None else {})})
     current = {f["id"] for f in factories}
     for pid, x in out.items():
         if pid in old and x is old[pid]:
@@ -597,7 +616,13 @@ def main():
         print(f"::warning title=kr-building-state::이전 상태 조회 실패({e}) — 이번 실행은 기준선")
     if private_store.late_scheduled_duplicate(previous, now):
         return
-    doc = run(resolve_keys(), factories, now=now, previous=previous, juso_key=os.environ.get("JUSO_CONFM_KEY", "").strip() or None)
+    only = retry_lots(previous, now)
+    if only is not None and not only:
+        print("::notice title=kr-building::월요일 실행에 조회 실패 번지 없음 — 평일 재시도 건너뜀(결과 유지)")
+        return
+    if only:
+        print(f"::notice title=kr-building::평일 재시도 — 월요일에 조회 실패한 번지 {len(only)}곳만 다시 조회")
+    doc = run(resolve_keys(), factories, now=now, previous=previous, juso_key=os.environ.get("JUSO_CONFM_KEY", "").strip() or None, only=only)
     new = [x for x in doc["permits"] if x.get("isNew")]
     print(f"::notice title=kr-building::상태 {doc['status']} · 공장 {doc.get('plants')} · 번지 확인 {doc.get('parcelsResolved')} · "
           + " · ".join(f"{c['source']} {c['status']}{('(' + c['error'] + ')') if c.get('error') else ''}"

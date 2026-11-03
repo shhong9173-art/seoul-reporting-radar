@@ -147,6 +147,35 @@ class Building(unittest.TestCase):
         self.assertIn("1개 번지 조회 실패(응답 코드 22 1)", doc2["checks"][1]["error"])
         self.assertEqual([(x["company"], x["error"]) for x in doc2["archFailed"]], [("현대차", "응답 코드 22")])
 
+    def test_weekday_retry_reads_only_monday_failed_lots(self):
+        # 11-03: 월요일 실행에서 4개 번지가 조회 실패(빈 응답 3·HTTP 503 1)한 채 다음 월요일까지 미확인으로 남았다
+        own = permit("P1")
+        base = fake({"0001": [own], "0196": [permit("P9", kind="신축", area="2000", day="20261101")]})
+
+        def flaky(url, params=None, headers=None, timeout=None):
+            if url == b.ARCH and params["bun"] == "0196":
+                return Resp("<OpenAPI_ServiceResponse><cmmMsgHeader><returnReasonCode>22</returnReasonCode></cmmMsgHeader></OpenAPI_ServiceResponse>")
+            return base(url, params=params, headers=headers, timeout=timeout)
+        monday = go([("K", "good")], FACS, now=NOW, previous=None, get=flaky)
+        self.assertEqual(len(monday["archFailed"]), 1)
+        tue = NOW + dt.timedelta(days=1)
+        only = b.retry_lots(monday, tue, env={"GITHUB_EVENT_NAME": "workflow_dispatch"})
+        self.assertEqual(only, {monday["archFailed"][0]["parcel"]})
+        get = fake({"0001": [own], "0196": [permit("P9", kind="신축", area="2000", day="20261101")]})
+        doc = go([("K", "good")], FACS, now=tue, previous=monday, get=get, only=only)
+        asked = [p["bun"] for u, p in get.calls if u == b.ARCH]
+        self.assertEqual(set(asked), {"0196"})                       # 실패 번지만
+        self.assertFalse(any(u == b.JUSO for u, _ in get.calls))       # 주소 변환은 다시 안 함
+        self.assertEqual((doc["status"], doc["archFailed"]), ("complete", []))
+        arch = next(c for c in doc["checks"] if c["source"] == "건축인허가")
+        self.assertEqual((arch["status"], arch["retried"]), ("ok", 1))
+        self.assertIn("bld:P1", {x["id"] for x in doc["permits"]})    # 월요일 결과는 그대로
+        self.assertTrue(next(x for x in doc["permits"] if x["id"] == "bld:P9")["baseline"])  # 처음 본 번지는 기준선
+        # 실패 없으면 건너뜀, 월요일·강제는 전체
+        self.assertEqual(b.retry_lots(doc, tue + dt.timedelta(days=1), env={}), set())
+        self.assertIsNone(b.retry_lots(monday, NOW + dt.timedelta(days=7), env={}))
+        self.assertIsNone(b.retry_lots(monday, tue, env={"FORCE_RUN": "1"}))
+
     def test_big_parcel_is_paged_and_empty_body_is_retried(self):
         many = [permit(f"Q{i}", day="20261001") for i in range(140)]
         base = fake({"0001": many})
