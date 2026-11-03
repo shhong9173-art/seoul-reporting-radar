@@ -39,6 +39,7 @@ GAZETTE_KEEP = 60
 FACTORY_FIELDS = ("fctryManageNo", "cmpnyNm", "rnAdres", "rprsntvNm", "cvplChrgOrgnztNm", "allEmplyCo", "frstFctryRegistDe",
                   "indutyNm", "mainProductCn", "rprsntvIndutyCode", "irsttNm")
 EIASS = "https://www.eiass.go.kr/searchApi/search.do"
+EIA_PAUSE = 1.0   # 질의 사이(초) — 0.4초로 연달아 물으면 목록 끝에서 연결 시간 초과(11-03)
 EIASS_PAGE = "https://www.eiass.go.kr/biz/base/info/searchListNew.do?menu=biz&biz_gubn="
 EIASS_CA = "http://crt.sectigo.com/SectigoRSADomainValidationSecureServerCA.crt"
 EIA_KINDS = [  # (분류, urlString, viewName) — 누리집 검색 화면이 보내는 값 그대로(10-29 열람)
@@ -510,7 +511,13 @@ def eia(cfg, now, previous, *, post=None, get=None, sleep=time.sleep, deadline=N
     items = {x["id"]: x for x in prev.get("eia") or [] if isinstance(x, dict) and x.get("id")}
     checks, ok, failed = [], 0, []
     ids_now = set()
-    for c in cfg["companies"]:
+    # 11-03 14:41 실행: 목록 끝 회사(동성케미칼·DL케미칼·효성중공업)만 EIASS 연결 시간 초과 — 연달아 묻다 막히는 것으로 보인다.
+    # 시작점을 날마다 돌려 같은 회사가 매번 빠지지 않게 하고, 질의 사이를 EIA_PAUSE초 띄운다(석유화학·정유 6곳을 더해 질의 78개).
+    companies = list(cfg["companies"])
+    if companies:
+        k = now.toordinal() % len(companies)
+        companies = companies[k:] + companies[:k]
+    for c in companies:
         if deadline is not None and time.monotonic() > deadline:
             failed.append(f"실행 시간 상한 — {c['company']}부터 다음 실행에서")
             break
@@ -541,7 +548,7 @@ def eia(cfg, now, previous, *, post=None, get=None, sleep=time.sleep, deadline=N
                 if eid in seen or baseline or eid in items or x["received"] < since:
                     continue
                 items[eid] = {"id": eid, "company": c["company"], "kind": kind, **x, "url": EIASS_PAGE, "firstSeen": stamp}
-            sleep(0.4)
+            sleep(EIA_PAUSE)
     total = len(cfg["companies"]) * len(EIA_KINDS)
     checks.append({"source": "환경영향평가(EIASS)", "status": "ok" if ok == total else ("partial" if ok else "failed"),
                    "returned": ok, **({"error": "; ".join(failed[:4])} if failed else {})})
