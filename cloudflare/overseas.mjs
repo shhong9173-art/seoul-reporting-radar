@@ -883,7 +883,7 @@ export async function stacksSection(ctx, q, days, limit) {
     if (halt) bySite.push([halt, s, own]);
   }
   if (Object.keys(tally).length) {
-    out.push(`- 측정값 대신 상태 글자가 온 배출구: ${Object.entries(tally).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} ${n}`).join(' · ')} (가동중지·보수중 = 사업장이 보낸 설비 멈춤, 나머지는 측정 쪽 사정)`);
+    out.push(`- 측정값 대신 상태 글자가 온 배출구: ${Object.entries(tally).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} ${n}`).join(' · ')} (가동중지·보수중 = 사업장이 보낸 멈춤·보수 상태 — 다른 칸 숫자가 남은 줄은 분석기 보수일 수 있음, 나머지는 측정 쪽 사정)`);
     for (const [, s, own] of bySite.sort((a, b) => b[0] - a[0]).slice(0, 5)) {
       out.push(`  ${s.company} · ${s.name} · ${Object.entries(own).map(([k, n]) => `${k} ${n}`).join(' · ')}`);
     }
