@@ -159,8 +159,11 @@ export async function partnerFilings(ctx, args) {
   const q = String(args.company ?? '').trim();
   const onlyNewArg = args.only_new === true || args.only_new === 'true';
   const limitArg = clampInt(args.limit, 1, 60, 20);
-  const src = ['ASX', 'HKEX', 'EDGAR'].includes(args.source) ? args.source : null;
-  const awards = src ? [] : [...await awardSection(ctx, q, onlyNewArg, limitArg), ...await registrySection(ctx, q, onlyNewArg, limitArg)];
+  const src = ['ASX', 'HKEX', 'EDGAR', 'NSE'].includes(args.source) ? args.source : null;
+  const routineArg = args.include_routine === true || args.include_routine === 'true';
+  if (src === 'NSE') return textResult(indiaSection(await readFeed(ctx, 'india-filings'), q, onlyNewArg, limitArg, routineArg, ctx).join('\n').trim());
+  const awards = src ? [] : [...indiaSection(await readFeed(ctx, 'india-filings'), q, onlyNewArg, limitArg, routineArg, ctx),
+    ...await awardSection(ctx, q, onlyNewArg, limitArg), ...await registrySection(ctx, q, onlyNewArg, limitArg)];
   const doc = await readFeed(ctx, 'partner-filings');
   if (!doc) return awards.length ? textResult([missing('해외 파트너 공시', '평일 07:00').content[0].text, ...awards].join('\n')) : missing('해외 파트너 공시', '평일 07:00');
   if (doc.broken) return textResult(['저장된 파트너 공시 결과 형식 오류 — 미확인.', ...awards].join('\n'), true);
@@ -193,6 +196,30 @@ export async function partnerFilings(ctx, args) {
   out.push('\n다음: EDGAR 원문은 source_document(sec.gov)로, ASX·HKEX 공시 PDF는 브라우저로 연다 → 출입처 이름·지분·물량·가격·조건 문구 확인 → news_check.'
     + (awards.length ? ' 해외 낙찰은 공고 원문(TED·FTS·세계은행)에서 낙찰자·금액·계약일 확인 → 출입처 DART 단일판매·공급계약 공시 여부(dart_find_text) → news_check.' : ''));
   return textResult(out.join('\n'));
+}
+
+// 인도 상장 법인 공시(india-filings feed): NSE 공시 RSS의 현대차 인도법인 공시. partner_filings 아래(source 비우거나 NSE).
+export function indiaSection(doc, q = '', onlyNew = false, limit = 20, routine = false, ctx = null) {
+  if (!doc) return ['\n[인도 법인 공시 · 현대차 인도법인(NSE)] 아직 수집 전 — 미확인(평일 13:10·16:10·19:10·22:10)'];
+  if (doc.broken) return ['\n[인도 법인 공시 · 현대차 인도법인(NSE)] 저장 결과 형식 오류 — 미확인'];
+  const newIds = new Set((doc.events ?? []).map((e) => e.id));
+  const base = (doc.filings ?? []).filter((x) => (!onlyNew || newIds.has(x.id)) && matches(q, x.company, x.issuer, x.subject, x.desc, x.excerpt));
+  const rows = base.filter((x) => routine || x.tier !== 'C');
+  const c = (doc.checks ?? [])[0] ?? {};
+  const out = [`\n[인도 법인 공시 · 현대차 인도법인(NSE) · 확인 ${String(doc.generatedAt).slice(0, 16)}${ctx ? ageNote(ctx, doc.generatedAt) : ''}] ${rows.length}건`
+    + ` · 원천 NSE 공시 RSS ${c.status ?? '?'}${c.error ? `(${c.error})` : ''}${c.note ? ` · ${c.note}` : ''}`];
+  for (const x of rows.slice(0, limit)) {
+    out.push(`- ${newIds.has(x.id) ? '[신규] ' : x.baseline ? '[기준선] ' : ''}${x.tier} · ${String(x.published ?? '').slice(0, 16).replace('T', ' ')} KST · ${x.issuer} · ${x.subject || '종류 미기재'}`);
+    if (x.desc) out.push(`   설명: 「${String(x.desc).slice(0, 240)}」`);
+    if (x.excerpt) out.push(`   첨부 첫머리: 「${String(x.excerpt).slice(0, 400)}」`);
+    else if (x.excerptError) out.push(`   첨부: ${x.excerptError}`);
+    out.push(`   원문: ${x.url}`);
+  }
+  if (rows.length > limit) out.push(`… 남은 ${rows.length - limit}건`);
+  if (base.length > rows.length) out.push(`(녹취록·거래 제한 기간·신문 공고·애널리스트 미팅 안내 등 C ${base.length - rows.length}건 숨김 — include_routine=true)`);
+  if (!rows.length) out.push('조건에 맞는 공시 없음(첫 실행은 기준선, 조회 실패면 미확인).');
+  out.push('   검증 상태: 인도 거래소 공시 목록(자동). 현대차 자회사(별도 상장사) 공시 — 기사에는 인도법인으로 구분. 내용은 첨부 PDF 원문, 낱말 분류는 참고');
+  return out;
 }
 
 const fmtT = (v) => (v == null ? '?' : `${Number(v).toLocaleString('en-US', { maximumFractionDigits: 1 })}t`);

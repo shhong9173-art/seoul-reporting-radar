@@ -24,6 +24,9 @@ export const SLOTS = [
   { at: '07:05', workflow: 'us-state-env.yml', daily: true },
   // 노동위원회 회의: 첫 화면은 오늘 회의만 — 평일 아침 한 번(회의는 09:30 무렵부터). 보도 대조 08:50·아침 발제 08:57 전에 끝나게.
   { at: '08:20', workflow: 'kr-labor.yml' },
+  // 인도 거래소(NSE) 공시: 인도 업무시간(한국 12:30~21:30)에 몰린다. RSS가 최신 약 1,400건(11-03: 17시간 폭)뿐이라 세 시간마다.
+  { at: '13:10', workflow: 'india-filings.yml' }, { at: '16:10', workflow: 'india-filings.yml' },
+  { at: '19:10', workflow: 'india-filings.yml' }, { at: '22:10', workflow: 'india-filings.yml' },
   // 지자체 고시·공고(새올): 아침·오후 한 번씩.
   { at: '06:30', workflow: 'kr-local.yml' },
   // 공식 원자료 직접 수집(pre_scoop.json: 대법원·NTIS·IRIS 등). GitHub 예약 '7,37 * * * *'은 10-28에 4번만 돌았다.

@@ -48,6 +48,8 @@ export const WATCHES = [
   { feed: 'kr-stacks', label: '굴뚝 측정(공장 가동 신호)', tool: 'kr_official', schedule: '3시간마다', staleHours: 12 },
   // 노동위원회 회의(kr_labor_watch.py): 중앙·지방 14곳 첫 화면 '오늘 회의'의 사건명 앞 당사자가 출입처인 것 — 노동쟁의 조정·교섭·부당노동행위 A
   { feed: 'kr-labor', label: '노동위 회의(조정·심판)', tool: 'kr_official', schedule: '평일 08:20', staleHours: 80 },
+  // 인도 상장 법인 공시(india_filings_watch.py): NSE 공시 RSS의 현대차 인도법인 공시 — 인수·설비·로열티 A, 이사회 결과·보도자료 B
+  { feed: 'india-filings', label: '인도 법인 공시(현대차 인도)', tool: 'partner_filings', schedule: '평일 13:10·16:10·19:10·22:10', staleHours: 80 },
   // 해외 매체 기사 중 직접 출입처 이름이 나온 것(global_collector.py, 뉴스 수집 20분마다) — AI 번역·요약이라 원문 확인
   { feed: 'global-beat', label: '출입처 외신', tool: 'source_document', schedule: '20분마다', staleHours: 6 },
 ];
@@ -855,6 +857,17 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
     if (!recent(e.detectedAt)) continue;
     push(['A', 'B'].includes(e.tier) ? e.tier : 'C', W['kr-labor'], { kind: e.kind, id: e.id, date: e.detectedAt, company: e.company,
       fact: e.text, url: e.url, check: hint(e.company, [e.word || '노동위']) });
+  }
+
+  // 인도 법인 공시(NSE): 현대차 인도법인 — 인수·설비·로열티 A, 이사회 결과·보도자료·임원 변경 B. 기사 제목엔 '인도'가 있어야 같은 건
+  for (const e of docs['india-filings']?.events ?? []) {
+    if (!recent(e.detectedAt)) continue;
+    const subj = `${e.subject ?? ''} ${e.text ?? ''}`;   // 종류(Updates 등)만으로는 모자라 설명 문장까지 본다
+    const word = /acqui|amalgamat|merger/i.test(subj) ? '인수' : /plant|capacity|expansion|capex|capital expenditure/i.test(subj) ? '공장'
+      : /board meeting/i.test(subj) ? '이사회' : /director|management|key managerial|kmp|appoint|resign/i.test(subj) ? '선임'
+        : /rating/i.test(subj) ? '신용등급' : /royalt|related party/i.test(subj) ? '로열티' : '인도법인';
+    push(['A', 'B'].includes(e.tier) ? e.tier : 'C', W['india-filings'], { kind: e.kind ?? '인도 법인 공시', id: e.id, date: e.detectedAt, company: e.company,
+      fact: e.text, url: e.url, check: hint(e.company, ['인도', word], [], ['인도']) });
   }
 
   // 굴뚝 자동측정(TMS): 사업장 가동 중단 신호·(14일 넘게 지켜본 뒤의) 새 배출구·새 사업장 A, 배출구 멈춤·목록에서 빠짐·재가동 B. 측정값만으로는 정지·정비·점검을 가르지 못한다.
