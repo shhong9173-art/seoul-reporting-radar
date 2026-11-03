@@ -296,6 +296,38 @@ class R:
         return self.body
 
 
+class BingNewest(unittest.TestCase):
+    """11-03 탐침 127: 빙 RSS 기본 결과는 관련도 순이라 최근 기사가 빠질 수 있다 — 최신순도 받아 겹침을 빼고 붙인다."""
+    @staticmethod
+    def rss(*items):
+        body = "".join(f"<item><title>{t}</title><link>https://www.bing.com/news/apiclick.aspx?url={u}</link><pubDate>{d}</pubDate></item>"
+                       for t, u, d in items)
+        return f"<rss><channel>{body}</channel></rss>".encode()
+
+    def test_newest_first_results_are_added_without_duplicates(self):
+        old = ("동국씨엠 컬러강판 증설", "https%3a%2f%2fa.kr%2f1", "Mon, 01 Dec 2025 03:00:00 GMT")
+        fresh = ("동국씨엠 컬러강판 라인 가동", "https%3a%2f%2fb.kr%2f2", "Mon, 26 Oct 2026 03:00:00 GMT")
+        urls, waits = [], []
+        def get(url, headers=None, timeout=None):
+            urls.append(url)
+            return R(200, content=self.rss(old, fresh) if "sortbydate" in url else self.rss(old))
+        r = s.bing("동국씨엠 컬러강판", get=get, sleep=waits.append)
+        self.assertEqual([x["url"] for x in r["items"]], ["https://a.kr/1", "https://b.kr/2"])
+        self.assertEqual((r["status"], len(urls), waits), ("ok", 2, [0.3]))
+        self.assertTrue(urls[1].endswith("&qft=sortbydate%3d%221%22"))
+
+    def test_newest_first_failure_keeps_the_relevance_channel_and_notes_it(self):
+        def get(url, headers=None, timeout=None):
+            return R(503, content=b"x") if "sortbydate" in url else R(200, content=b"<rss><channel></channel></rss>")
+        r = s.bing("동국씨엠 컬러강판", get=get, sleep=lambda x: None)
+        self.assertEqual((r["status"], r["note"]), ("ok", "최신순 실패(HTTP 503)"))
+        def down(url, headers=None, timeout=None):
+            return R(503, content=b"x")
+        calls = []
+        r = s.bing("동국씨엠 컬러강판", get=lambda u, **k: calls.append(u) or down(u), sleep=lambda x: None)
+        self.assertEqual((r["status"], len(calls)), ("failed", 1))   # 기본이 실패하면 최신순은 묻지 않는다
+
+
 class Screen(unittest.TestCase):
     def test_end_to_end_with_fake_channels_and_counts_only_log(self):
         rss_empty = b"<rss><channel></channel></rss>"

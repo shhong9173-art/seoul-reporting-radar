@@ -67,9 +67,20 @@ function googleNews(ctx, q, days) {
 // Google News answers 503 to many Cloudflare egress IPs, so Bing News RSS is a
 // second web index. Its links are click-tracking URLs carrying the original.
 // (11-03: 자동 보도 대조 radar_press_check는 GitHub Actions에서 돌아 구글이 정상 — 막히는 건 Worker의 즉석 news_check뿐.)
-const BING_MARKETS = { KR: 'setlang=ko-KR&cc=KR', US: 'setlang=en-US&cc=US' };
-function bingEdition(ctx, q, days, market) {
-  return rssChannel(ctx, `https://www.bing.com/news/search?q=${encodeURIComponent(q)}&format=rss&${BING_MARKETS[market]}`, days, (x) => {
+//
+// 빙 RSS 기본 결과는 관련도 순 10여 건이라 날짜가 섞인다 — 11-03 탐침 127: 'Hyundai Metaplant' 한국판 11건 중 60일 안 2건,
+// 최신순(qft=sortbydate="1", 빙 화면의 '최신순' 선택)은 12건 모두 10-29~11-02. 둘 다 받아 겹침을 빼고 합친다(오래된 앞선 기사는 관련도 순이 잡는다).
+// 한글 없는 영문 낱말이면 미국판(en-US)도 본다 — 미국 공장·주 정부 공고 단서는 현지 매체가 먼저 쓴다(11-03 'Qcells Cartersville air permit').
+// 판정 기준(채널 상태)은 한국판 관련도 순 하나다. 나머지는 더해 보는 것이라 실패하면 그 사실만 적는다.
+const NEWEST = '&qft=sortbydate%3d%221%22';
+const BING_EDITIONS = [
+  { label: '한국판', params: 'setlang=ko-KR&cc=KR' },
+  { label: '한국판 최신순', params: 'setlang=ko-KR&cc=KR' + NEWEST },
+  { label: '미국판', params: 'setlang=en-US&cc=US', latin: true },
+  { label: '미국판 최신순', params: 'setlang=en-US&cc=US' + NEWEST, latin: true },
+];
+function bingEdition(ctx, q, days, params) {
+  return rssChannel(ctx, `https://www.bing.com/news/search?q=${encodeURIComponent(q)}&format=rss&${params}`, days, (x) => {
     let url = x.url;
     try { url = new URL(x.url).searchParams.get('url') || x.url; } catch { /* keep */ }
     const host = (/^https?:\/\/(?:www\.)?([^/]+)/.exec(url) || [])[1] ?? '';
@@ -77,19 +88,26 @@ function bingEdition(ctx, q, days, market) {
   });
 }
 
-// 한글 없는 영문 낱말이면 미국판도 본다 — 미국 공장·주 정부 공고 같은 해외 단서는 현지 매체가 먼저 쓴다
-// (11-03 'Qcells Cartersville air permit': 한국판만 봤다). 판정 기준은 그대로 한국판이고, 미국판은 더해 보는 것:
-// 미국판이 실패하면 '현지 보도 미확인'으로 적을 뿐 채널 상태를 바꾸지 않는다.
 export const isLatinQuery = (q) => /[A-Za-z]/.test(q) && !/[\uAC00-\uD7A3\u3131-\u318E]/.test(q);
 
 async function bingNews(ctx, q, days) {
-  if (!isLatinQuery(q)) return bingEdition(ctx, q, days, 'KR');
-  const [kr, us] = await Promise.all([bingEdition(ctx, q, days, 'KR'), bingEdition(ctx, q, days, 'US')]);
-  const usOk = us.status === 'ok' || us.status === 'partial';
-  const seen = new Set(kr.items.map((x) => x.url));
-  const extra = usOk ? us.items.filter((x) => !seen.has(x.url) && seen.add(x.url)) : [];
-  const note = usOk ? `한국판 ${kr.items.length}건 + 미국판 ${extra.length}건(겹침 뺌)` : `미국판 조회 실패(${us.error}) — 현지 보도 미확인`;
-  return { ...kr, items: [...kr.items, ...extra], returned: (kr.returned ?? 0) + (usOk ? us.returned ?? 0 : 0), note };
+  const eds = BING_EDITIONS.filter((e) => !e.latin || isLatinQuery(q));
+  const rs = await Promise.all(eds.map((e) => bingEdition(ctx, q, days, e.params)));
+  const base = rs[0];
+  const seen = new Set(base.items.map((x) => x.url));
+  const items = [...base.items];
+  const parts = [`${eds[0].label} ${base.items.length}건`];
+  let returned = base.returned ?? 0;
+  eds.slice(1).forEach((e, i) => {
+    const r = rs[i + 1];
+    if (r.status !== 'ok' && r.status !== 'partial') { parts.push(`${e.label} 실패(${r.error})`); return; }
+    const extra = r.items.filter((x) => !seen.has(x.url) && seen.add(x.url));
+    items.push(...extra);
+    returned += r.returned ?? 0;
+    parts.push(`${e.label} +${extra.length}건`);
+  });
+  const usDown = eds.some((e, i) => e.latin && rs[i].status !== 'ok' && rs[i].status !== 'partial');
+  return { ...base, items, returned, note: parts.join(' · ') + ' (겹침 뺌)' + (usDown ? ' — 미국판 실패분은 현지 보도 미확인' : '') };
 }
 
 // Naver news search moved to NAVER API HUB (NCP). HUB keys go first; keys from the old Developers
