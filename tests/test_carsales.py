@@ -240,6 +240,19 @@ class Signals(unittest.TestCase):
         self.assertIn(("Avante (CN7)", "급감"), m)  # CN8 1대는 세대 교체 근거가 아니다
         self.assertNotIn(("Avante (CN7)", "세대 교체로 보임"), m)
 
+    def test_stop_of_a_lumpy_series_is_one_step_lower(self):
+        # 11-03 운영: 기아 Tasman(특수) 국내 공장 수출 9월 12대 '판매 끊김' B — 그 계열은 6월에도 0(선적이 들쭉날쭉)
+        tas = ser("국내 공장 수출(CKD 제외)", "Tasman (특수)", [0, 22, 30, 60, 80, 90, 100, 120, 106, 100, 0, 600, 452, 12], start="2025-08", maker="kia")
+        x = next(x for x in cs.signals([tas], "kia", "model", "2026-09") if x["label"] == "Tasman (특수)")
+        self.assertEqual((x["signal"], x["tier"]), ("판매 끊김", "C"))
+        self.assertIn("이 계열은 지난 12개월에도 거의 0인 달이 1번(2026-06) — 선적·출고가 원래 들쭉날쭉해 한 단계 낮춤", x["text"])
+        self.assertEqual(cs.lumpy_months(tas["months"], "2026-09"), ["2026-06"])   # 첫 판매 전(2025-08의 0)은 세지 않음
+        # 고르게 팔리던 계열은 그대로
+        even = ser("국내 공장 수출", "Kona (SX2)", [700] * 13 + [20], start="2025-08")
+        y = next(x for x in cs.signals([even], "hmc", "model", "2026-09") if x["label"] == "Kona (SX2)")
+        self.assertEqual((y["signal"], y["tier"]), ("판매 끊김", "B"))
+        self.assertNotIn("들쭉날쭉", y["text"])
+
     def test_plant_total_deep_drop_is_a(self):
         # 운영 10-30: 현대차 HMGMA 2026-09 1,121대 — 직전 3개월 평균 3,707·전년 같은 달 4,027
         hmgma = ser("미국 조지아(HMGMA) 공장", "공장 합계", [4027] + [3700] * 9 + [3600, 3821, 1121], start="2025-09", total=True, kind="plant")
