@@ -47,6 +47,8 @@ export const SLOTS = [
   { at: '07:40', workflow: 'governance-watch.yml' },
   { at: '07:50', workflow: 'us-litigation.yml' },
   { at: '07:50', workflow: 'kr-building.yml', days: [1] },
+  // 건축허가 평일 재시도: 월요일 실행에서 조회 실패한 번지만 다시(11-03: 빈 응답 3·HTTP 503 1개 번지가 한 주 미확인). 실패 번지가 없으면 스크립트가 건너뛴다.
+  { at: '13:30', workflow: 'kr-building.yml', days: [2, 3, 4, 5] },
   { at: '08:00', workflow: 'scoop-radar.yml' },
   { at: '08:10', workflow: 'kr-official.yml' },
   { at: '08:10', workflow: 'official-overseas-contracts.yml' },

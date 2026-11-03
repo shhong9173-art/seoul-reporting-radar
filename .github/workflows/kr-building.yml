@@ -12,6 +12,11 @@ on:
   schedule:
     - cron: '45 22 * * 0'
   workflow_dispatch:
+    inputs:
+      force:
+        description: '평일 재시도 판단 없이 전체 실행'
+        type: boolean
+        default: false
 permissions:
   contents: read
 concurrency:
@@ -40,4 +45,5 @@ jobs:
           DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
           CUSTOMS_API_KEY: ${{ secrets.CUSTOMS_API_KEY }}
           G2B_API_KEY: ${{ secrets.G2B_API_KEY }}
+          FORCE_RUN: ${{ inputs.force && '1' || '' }}
         run: python scripts/kr_building_watch.py
