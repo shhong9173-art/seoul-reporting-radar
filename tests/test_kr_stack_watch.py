@@ -119,7 +119,7 @@ class StackTest(unittest.TestCase):
 
         # 예전 규칙으로 저장된 B(2개 멈춤)는 다음 실행에 C로
         doc["events"] = [{"id": "stk:stop:현대제철:현대제철(주)포항2공장:2026-10-31", "kind": "배출구 멈춤 신호", "tier": "B", "company": "현대제철",
-                          "site": "현대제철㈜포항2공장", "detectedAt": doc["generatedAt"],
+                          "site": "현대제철㈜포항2공장", "detectedAt": "2026-10-31T09:17:00+09:00",
                           "text": "현대제철㈜포항2공장: 배출구 2개가 … — 11번(평소 20.0→최근 0.0, 측정 x), 12번(평소 20.0→최근 0.0, 측정 x) · 정비·점검일 수 있음(회사 확인)"}] + doc["events"]
         t = T0 + dt.timedelta(hours=30)
         doc = w.run(CFG_SMALL, now=t, previous=doc, key="k", get=Api(world(t, pohang2=big[:10] + (0.0, 0.0) + big[12:])), sleep=lambda s: None)
@@ -155,6 +155,25 @@ class StackTest(unittest.TestCase):
         # 30일 안(10-04~10-08 다섯 번 + 11-01)만, 최근 3번만 적고 '등'
         self.assertEqual(w.stop_history(st2, now), ", 최근 30일 앞선 멈춤 6번(10-07 00:00~03:00 3시간 · 10-08 00:00~03:00 3시간 · 11-01 09:00~18:00 9시간 등)")
         self.assertEqual(w.stop_history({"stopLog": [["2026-09-01 00:00", "2026-09-02 00:00"]]}, now), "")  # 30일 넘은 것은 안 적음
+
+    def test_stop_B_judged_by_the_site_size_rule_is_not_lowered_later(self):
+        # 11-03 13:47 운영: 11:45에 '평소 움직이던 5개 중 1개'(큰 배출구)로 B였던 현대제철 포항1공장 7번이, 다른 배출구가 목록에서 빠져
+        # 평소 움직이던 수가 1개로 줄자 '1개 중 1개라 일상 정비 수준'으로 C가 됐다 — 규칙 뒤 이벤트는 다시 보지 않고, 그렇게 내린 것은 되돌린다.
+        big = (24.2, 8.0, 0.1)
+        doc = series(10, at=lambda i: {"dangjin": big if i < 6 else (0.0, 8.0, 0.1)})
+        ev = next(e for e in doc["events"] if e["kind"] == "배출구 멈춤 신호" and e["site"] == "현대제철㈜")
+        self.assertEqual(ev["tier"], "B")
+        t = T0 + dt.timedelta(hours=31)
+        only = [x for x in world(t, dangjin=(0.0, 8.0, 0.1)) if not (x["fact_manage_nm"] == "현대제철㈜" and x["stack_code"] == "1")]  # 멈춘 배출구가 목록에서 빠짐
+        doc = w.run(CFG_SMALL, now=t, previous=doc, key="k", get=Api(only), sleep=lambda s: None)
+        self.assertEqual(next(e for e in doc["events"] if e["id"] == ev["id"])["tier"], "B")
+        # 그렇게 내려 저장된 것은 되돌린다(설명도 지움)
+        stored = dict(ev, tier="C", text=ev["text"] + " — 평소 움직이던 1개 중 1개라 일상 정비 수준일 수 있어 C로 바로잡음(사업장 크기 기준: 5%·상위 3·평소 값 10%)")
+        self.assertEqual(w.restore_size_retier([stored]), 1)
+        self.assertEqual((stored["tier"], stored["text"]), ("B", ev["text"]))
+        old = {"kind": "배출구 멈춤 신호", "tier": "C", "detectedAt": "2026-10-31T09:17:00+09:00",
+               "text": "x — 평소 움직이던 137개 중 2개라 일상 정비 수준일 수 있어 C로 바로잡음(사업장 크기 기준: 5%·상위 3·평소 값 10%)"}
+        self.assertEqual(w.restore_size_retier([old]), 0)   # 규칙 전 이벤트는 그대로 C
 
     def test_long_stop_of_small_stacks_is_B_once_and_clears_on_restart(self):
         # 11-02: 경향 [단독] '포스코 광양 2고로 전면 개수'(10-30) — 광양 129·135번이 10-31부터 멈췄지만 137개 중 2개라 C로만 남았다.

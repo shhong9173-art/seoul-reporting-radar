@@ -181,6 +181,21 @@ MAINT_NOTE = " — '보수중'은 측정기 보수 상태로 바로잡음(11-03)
 STOP_KINDS_ALL = ("배출구 멈춤 신호", "사업장 가동 중단 신호", "배출구 오래 멈춤")
 
 
+SIZE_RULE_FROM = "2026-10-31T09:30"   # #422(사업장 크기에 맞춘 멈춤 B 문턱) 병합 시각
+SIZE_NOTE_RX = re.compile(r" — 평소 움직이던 \d+개 중 \d+개라 일상 정비 수준일 수 있어 C로 바로잡음\(사업장 크기 기준: 5%·상위 3·평소 값 10%\)")
+
+
+def restore_size_retier(events):
+    """사업장 크기 규칙 뒤에 생긴 멈춤 B를 다시 보다가 C로 내린 것(11-03 13:47 실행)을 되돌린다: 설명을 지우고 B로."""
+    n = 0
+    for e in events:
+        text = e.get("text") or ""
+        if e.get("kind") == "배출구 멈춤 신호" and str(e.get("detectedAt") or "") >= SIZE_RULE_FROM and SIZE_NOTE_RX.search(text):
+            e["text"], e["tier"] = SIZE_NOTE_RX.sub("", text), "B"
+            n += 1
+    return n
+
+
 def retier_maintenance_stops(events):
     """#599~#614 동안 '보수중'을 멈춤으로 센 저장 이벤트: 든 배출구가 모두 '보수중'이면 C, 섞였으면 설명만(한 번)."""
     for e in events:
@@ -513,6 +528,7 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep, clock=time.
     events = collapse_bursts([e for e in prev.get("events") or [] if isinstance(e, dict) and e.get("detectedAt", "") >= keep_from])
     retier_new(events, sites, prev.get("baselineSince"))
     weekday_companies = {c["company"] for c in cfg["companies"] if c.get("schedule") == "weekday"}
+    restore_size_retier(events)
     retier_offhours(events, weekday_companies)
     retier_rest_gone(events)
     retier_marginal(events)
@@ -742,9 +758,13 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep, clock=time.
                      + f" · 사업장 전체 지금 가동중지 {now_halt['가동중지']}개(측정기 보수중 {now_halt['보수중']}개). 재가동인지는 회사 확인" + STATUS_OBSERVE_NOTE)
             share = len(stopped) / len(meaningful) if meaningful else 0
             load = sum(v or 0 for v in meaningful.values()) or 1
-            # 예전 규칙(2개 이상이면 B)으로 저장된 작은 멈춤은 사업장 크기 기준으로 다시 본다(10-31 09:17 포스코 광양 137개 중 2개)
+            # 예전 규칙(2개 이상이면 B)으로 저장된 작은 멈춤은 사업장 크기 기준으로 다시 본다(10-31 09:17 포스코 광양 137개 중 2개).
+            # 사업장 크기 규칙(SIZE_RULE_FROM) 뒤에 생긴 이벤트는 그 규칙으로 이미 판정했다 — 다시 보면 그때그때 평소 움직이던 수가
+            # 달라져(배출구가 목록에서 빠지거나 상태 글자로 판단 안 함이 되면) '1개 중 1개'처럼 엉뚱하게 내려간다(11-03 13:47 현대제철 포항1공장 7번).
             for e in events:
                 if e.get("tier") != "B" or e.get("kind") != "배출구 멈춤 신호" or not str(e.get("id", "")).startswith(f"stk:stop:{sid}:"):
+                    continue
+                if str(e.get("detectedAt") or "") >= SIZE_RULE_FROM:
                     continue
                 codes = re.findall(r"(\S+?)번\(평소", e.get("text") or "")
                 if (codes and len(codes) < max(2, math.ceil(len(meaningful) * STOP_B_SHARE)) and not any(c in top for c in codes)
