@@ -577,6 +577,33 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
     push(e.repeats ? 'C' : e.pageId === 'taric' && /한국 전용/.test(e.label) ? 'A' : 'B', W['trade-remedy'], { kind: e.pageId === 'taric' ? 'EU 쿼터(TARIC)' : `해외 조사 ${e.pageId}`, id: e.id, date: e.detectedAt, company: e.country,
       fact: `${e.label}: ${e.text}${e.repeats ? ` — 목록 일련번호만 바뀌어 ${e.repeats}번 다시 잡힌 줄이라 이 감지도 번호 이동일 수 있음(원문 개시일 확인)` : ''}`, url: e.url });
   }
+  // 기사 준비(11-04): 레이더가 먼저 잡은 경쟁지 [단독] 5건 중 4건이 무역구제(철강금속신문) — 판정이 뜬 날 바로 쓸 수 있게
+  // 다음 절차(미국 법정 기한)와 회사에 물을 것을 붙인다. 기한은 관보 게재일 기준 법정 기한이고, 관보 본문 날짜가 있으면 그 날짜가 우선.
+  const tradeReady = (x) => {
+    const t = String(x.title ?? '');
+    const day = /^\d{4}-\d{2}-\d{2}/.test(String(x.date ?? '')) ? String(x.date).slice(0, 10) : null;
+    if (!day) return {};
+    const plus = (n) => new Date(Date.parse(`${day}T00:00:00Z`) + n * 86400000).toISOString().slice(5, 10);
+    const review = /administrative review/i.test(t);
+    const invest = /investigation|less[- ]than[- ]fair[- ]value|affirmative (?:preliminary|final) determination/i.test(t) && !review;
+    if (x.stage === '예비 판정' && review) {
+      return { next: `연례 재심 최종 판정은 예비 게재(${day.slice(5)})부터 120일 안(${plus(120)}까지, 최대 180일 ${plus(180)}로 연장 가능) — 최종에서 세율이 바뀔 수 있음 · 의견서(사건 요지서) 마감은 관보 본문 날짜 확인`,
+        ask: '회사: 최종 판정 전 의견서 제출 계획 · 이 세율로 확정될 때 대미 수출 물량·가격 대응 · 미국 현지 생산 대응 여부' };
+    }
+    if (x.stage === '최종 판정' && review) {
+      return { next: `미국 국제무역법원(CIT) 제소 기한은 게재(${day.slice(5)})부터 30일(${plus(30)}) · 확정 세율로 수입 정산 지시는 보통 게재 15일 뒤(${plus(15)} 무렵)`,
+        ask: '회사: CIT 제소 여부(기한 안) · 확정 세율로 정산될 관세 규모(예치금 대비) · 다음 연례 재심 요청 여부' };
+    }
+    if (x.stage === '예비 판정' && invest) {
+      return { next: `원심 최종 판정은 예비 게재(${day.slice(5)})부터 75일 안(${plus(75)}, 연기 시 135일 ${plus(135)}) → 그 뒤 ITC 최종 피해 판정`,
+        ask: '회사: 예비 세율 현금 예치 영향 · 최종 판정 전 대응(검증 실사·의견서) · 대미 수출 계약 조정' };
+    }
+    if (x.stage === '최종 판정' && invest) {
+      return { next: `ITC 최종 피해 판정은 상무부 최종(${day.slice(5)}) 뒤 보통 45일 안(${plus(45)} 무렵) — 긍정이면 부과 명령`,
+        ask: '회사: ITC 최종 판정 대응 · 부과 시 대미 수출 계획 · CIT 제소 검토' };
+    }
+    return {};
+  };
   const frBase = baselineOf(tr?.federalRegister ?? []);
   // ITC 고시에는 회사 이름이 거의 없다 — 같은 품목의 상무부 고시에 나온 출입처를 빌려 쓴다(유정용 강관 → 세아제강·현대제철)
   const byProduct = new Map();
@@ -607,8 +634,10 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
     const rates = names.length || changed.length ? rateText(x) : '';
     const kind = changed.length ? '미국 관보 세율 변화' : odd.length ? '미국 관보 결정문 목차' : '미국 관보';
     const who = changed.length ? changed.map((c) => c.company) : names;
-    push(odd.length || changed.length ? 'A' : names.length ? 'B' : 'C', W['trade-remedy'], { kind, id: x.id, date: x.date, company: [...new Set([...who, ...names])].join('·'),
+    const frTier = odd.length || changed.length ? 'A' : names.length ? 'B' : 'C';
+    push(frTier, W['trade-remedy'], { kind, id: x.id, date: x.date, company: [...new Set([...who, ...names])].join('·'),
       fact: `미국 관보 ${x.stage}: ${x.title}${changed.length ? ` — 세율 크게 바뀜: ${rateChangeText(x)}` : ''}${names.length ? ` — 본문에 ${names.join('·')}` : ''}${rates}${memo}`, url: x.url,
+      ...(frTier === 'A' || (frTier === 'B' && x.rateTable) ? tradeReady(x) : {}),
       check: hint(who[0], ['관세', changed.length ? (x.rateTable?.kind === '상계관세' ? '상계관세' : '반덤핑') : odd.length ? '보조금' : '판정']) });
   }
 
@@ -1407,6 +1436,9 @@ export async function radarTodayText(ctx, args) {
     for (const x of rows.slice(0, limit)) {
       out.push(`- ${x.date ? `${String(x.date).length > 10 ? kstStamp(x.date) : x.date} · ` : ''}${x.watch}${x.company ? ` · ${x.company}` : ''}`);
       out.push(`   ${x.fact}`);
+      // 기사 준비(무역구제 등): 다음 절차·회사에 물을 것
+      if (x.next) out.push(`   〔기사 준비〕 다음 절차: ${x.next}`);
+      if (x.ask) out.push(`   물을 것: ${x.ask}`);
       out.push(...pressLines(checked.get(String(x.id)), kstStamp(press?.generatedAt)));
       const w = d.wrote?.get(String(x.id));
       out.push(`   ${x.url ? `원문: ${x.url} · ` : ''}자세히: ${x.tool} · id ${x.id}${judged.get(x.id) ? ` 〔판정: ${judged.get(x.id)}〕` : ''}${w ? ` 〔기자 기사(자동 대조) ${String(w.published).slice(5, 10)} 「${String(w.title).slice(0, 40)}」〕` : ''}${x.alert ? ` 〔즉시 알림 대상: ${x.alert}〕` : ''}`);

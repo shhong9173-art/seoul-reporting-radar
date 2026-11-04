@@ -2281,8 +2281,11 @@ test('trade remedies: a beat duty rate far from the last final of the same docke
   const r = await call('radar_today', { hours: 72 }, opts);
   const a = r.text.split('[A · ')[1].split('[B · ')[0];
   assert.match(a, /무역구제 · KG스틸·동국씨엠·포스코\n   미국 관보 예비 판정: Certain Corrosion-Resistant[^\n]* — 세율 크게 바뀜: KG스틸 0\.00%→23\.40%, 동국씨엠 0\.00%→19\.43%, 포스코 0\.00%→20\.58% — 본문에 KG스틸·동국씨엠 · 반덤핑 세율\(관보 표\): KG스틸 23\.40%\(직전 최종 0\.00%\) · 동국씨엠 19\.43%\(직전 최종 0\.00%\) · 포스코 20\.58%\(비선정 업체 세율\)\(직전 최종 0\.00%\) \[직전 최종 2026-05-14\]/);
+  // 11-04 기사 준비: 다음 절차(미국 법정 기한, 게재일 기준)와 회사에 물을 것
+  assert.match(a, /\[직전 최종 2026-05-14\]\n   〔기사 준비〕 다음 절차: 연례 재심 최종 판정은 예비 게재\(10-24\)부터 120일 안\(02-21까지, 최대 180일 04-22로 연장 가능\) — 최종에서 세율이 바뀔 수 있음 · 의견서\(사건 요지서\) 마감은 관보 본문 날짜 확인\n   물을 것: 회사: 최종 판정 전 의견서 제출 계획/);
   const b = r.text.split('[B · ')[1].split('[C · ')[0];
   assert.match(b, /Large Power Transformers[^\n]* — 본문에 LS일렉트릭·HD현대일렉트릭 · 반덤핑 세율\(관보 표\): HD현대일렉트릭 0\.00%\(직전 최종 0\.00%\) · LS일렉트릭 4\.32%\(직전 최종 4\.32%\) \[직전 최종 2026-08-14\]/);
+  assert.match(b, /Welded Line Pipe[^\n]*\n   〔기사 준비〕 다음 절차: 미국 국제무역법원\(CIT\) 제소 기한은 게재\(10-24\)부터 30일\(11-23\) · 확정 세율로 수입 정산 지시는 보통 게재 15일 뒤\(11-08 무렵\)\n   물을 것: 회사: CIT 제소 여부/);
   assert.match(b, /Welded Line Pipe[^\n]* · 세율 표 못 읽음\(원문 표 확인\)/);
   const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
   const hit = items.items.find((x) => x.id === 'fr:2026-20698');
