@@ -4,7 +4,8 @@
 import { readFeed, weekdayHours } from './screen.mjs';
 import { storeOp } from './store.mjs';
 import { dispatchHealth } from './dispatch.mjs';
-import { clampInt, safeEqual, textResult, uniqueList } from './common.mjs';
+import { clampInt, fetchJson, safeEqual, textResult, uniqueList } from './common.mjs';
+import { peerLines } from './radar_tools.mjs';
 import { classLabel, waitReason } from './trademarks.mjs';
 import { billLine, groupBillEvents } from './assembly.mjs';
 import { attachmentOutline, buildingLine, factoryEventText, identityNote, itcText, productOf, rateChangeText, rateText } from './overseas.mjs';
@@ -1290,6 +1291,13 @@ export function convergenceRows(g, max = 4) {
   return { rows: rows.slice(0, max), more: Math.max(0, rows.length - max) };
 }
 
+// 최근 72시간 안에 처음 본 업종 비교 후보가 있을 때만 줄을 낸다(머리·읽는 법만 남으면 빼기)
+function recentPeers(v, q, nowMs) {
+  if (!v) return [];
+  const lines = peerLines(v, { q, limit: 6, since: new Date(nowMs - 72 * 3600000).toISOString() });
+  return lines.some((l) => l.startsWith('- ')) ? lines : [];
+}
+
 export async function radarToday(ctx, args) {
   return textResult(await radarTodayText(ctx, args));
 }
@@ -1344,6 +1352,9 @@ export async function radarTodayData(ctx, args) {
   // 굴뚝 측정 항목의 즉시 알림 대상(11-04 기자 결정: 굴뚝 실시간 신호만 있는 항목 9건을 모두 킬 — '뒷받침할 증거가 없음').
   // 화면에는 그대로 두고, 아래 둘 중 하나일 때만 〔즉시 알림 대상〕을 붙인다(즉시 알림 예약 작업이 이 표시만 본다).
   for (const t of ['A', 'B']) for (const x of byTierRows[t]) { const why = stackAlert(x, conv, docs['kr-stacks'], nowMs, judged); if (why) x.alert = why; }
+  // 실적 업종 비교(11-04, earnings_compare 공개 결과): 최근 72시간 안에 처음 본 데이터 기사 후보만 radar_today에 올린다.
+  let peerV = null;
+  try { peerV = await fetchJson(ctx, 'digests/earnings_compare_latest.json'); } catch { peerV = null; }
   // Competitor exclusives the radar had first (reverse_prior_capture.py). Shown here too, so the reporter can prepare Y/P/N
   // judgments even when the chat's connector list is stale and scoop_reverse is not offered.
   const rev = await readFeed(ctx, 'reverse-check');
@@ -1358,7 +1369,8 @@ export async function radarTodayData(ctx, args) {
       .sort((a, b) => String(b.published).localeCompare(String(a.published)));
   }
   return { now: ctx.now, hours, monday, defaultHours: !args.hours, q, limit, showC, judged, hiddenBy, press, checked, pressOf, rank,
-    tiers: byTierRows, health: h, conv, coveredGroup, rev, firsts, wrote };
+    tiers: byTierRows, health: h, conv, coveredGroup, rev, firsts, wrote,
+    peers: recentPeers(peerV, q, nowMs) };
 }
 
 export async function radarTodayText(ctx, args) {
@@ -1378,6 +1390,7 @@ export async function radarTodayText(ctx, args) {
     if (conv.length > 5) out.push(`… 남은 ${conv.length - 5}곳(company로 좁히기)`);
     out.push('   읽는 법: 같은 시군 이름이 문장에 있으면 묶는다(같은 공장·같은 사업이라는 확인이 아님). 같은 시군이라도 서로 다른 공장 이름(울산1공장·울산2공장)이 적힌 항목은 공장별로 나눠 묶고, 공장 이름이 없는 항목(주소만 있는 국민연금·공장등록)은 양쪽에 붙인다. 각 원문을 열어 같은 부지·사업인지 본다.');
   }
+  if ((d.peers ?? []).length) out.push(...d.peers);
   const tiers = [['A', '단독 후보·직접 변화 — 원문·보도 대조부터'], ['B', '확인할 공식 변화'], ['C', '참고(접힘)']];
   for (const [t, title] of tiers) {
     const rows = d.tiers[t];

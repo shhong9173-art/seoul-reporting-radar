@@ -56,9 +56,19 @@ const VIEWS = {
       { company: '현대제철', team: '철강·비철', status: 'filed', basis: '연결', filedOn: '2026-11-13', url: 'https://dart.fss.or.kr/a',
         quarter: { ratios: { costRatio: 92, sgaRatio: 6, opMargin: 2 }, deltaPp: { costRatio: 3.54, sgaRatio: 1.19, opMargin: -4.73 } },
         cumulative: { ratios: { costRatio: 90.32 }, deltaPp: {} },
-        employees: { count: 9500, changePct: 5.6, asOf: '2026.09.30' }, tags: ['[원가율 +3.5%p]', '[직원 +5.6%]'] },
+        employees: { count: 9500, changePct: 5.6, asOf: '2026.09.30', avgSalary: 51234567, salaryPct: 4.2 },
+        capex: { current: 767945535814, prior: 904537052601, changePct: -15.1 }, tags: ['[원가율 +3.5%p]', '[직원 +5.6%]'] },
       { company: '고려아연', team: '철강·비철', status: 'not_filed' },
-      { company: '영풍', team: '철강·비철', status: 'failed', error: 'HTTP 503' }] },
+      { company: '영풍', team: '철강·비철', status: 'failed', error: 'HTTP 503' }],
+    peers: { groups: [{ group: '석유화학', members: ['LG화학', '롯데케미칼', '금호석유화학', '한화솔루션'], filed: ['LG화학', '롯데케미칼', '금호석유화학', '한화솔루션'], metrics: {} },
+      { group: '철강', members: ['현대제철', 'KG스틸', '세아제강', '동국제강', '동국씨엠'], filed: ['현대제철'], metrics: {} }],
+    leads: [
+      { id: 'p1', group: '석유화학', metric: 'opMarginPp', company: '금호석유화학', value: 2.1, why: '혼자 반대 방향', filedOn: '2026-11-13', url: 'https://dart.fss.or.kr/k',
+        text: '석유화학 4곳 2026년 3분기 누적 영업이익률 변화: 금호석유화학 +2.1%p — 나머지 3곳 -3.1%p~-1.0%p(나머지 중앙값 -2.0%p) · 혼자 반대 방향',
+        question: '왜 석유화학에서 금호석유화학만 누적 영업이익률 변화이(가) 다른 방향 — 회사 IR·공시 원문(사업의 내용·주석)으로 먼저 확인할 것', firstSeen: '2026-10-25T18:40:00+09:00' },
+      { id: 'p2', group: '석유화학', metric: 'capexPct', company: '한화솔루션', value: 95, why: '혼자 반대 방향', filedOn: '2026-11-12',
+        text: '석유화학 4곳 2026년 3분기 설비투자(유형자산 취득) 증감률: 한화솔루션 +95.0% — 나머지 3곳 -64.8%~-20.0%(나머지 중앙값 -30.0%) · 혼자 반대 방향',
+        question: '질문2', firstSeen: '2026-10-20T18:40:00+09:00' }] } },
   'digests/governance_latest.json': { generatedAt: '2026-10-26T07:40:00+09:00', status: 'partial', unresolvedCompanies: ['태광'],
     checks: [{ company: '영풍', endpoint: 'majorstock.json', status: 'failed', error: 'HTTP 503' }],
     items: [
@@ -195,6 +205,21 @@ test('earnings_compare shows same-period deltas and keeps not-filed and failed a
   assert.match(r.text, /영풍 — 조회 실패\(0 아님\): HTTP 503/);
   const f = await call('earnings_compare', { flagged_only: true });
   assert.doesNotMatch(f.text, /고려아연/);
+  // 11-04: 설비투자·평균 급여, 업종 비교 데이터 기사 후보
+  assert.match(r.text, /1인 평균 급여\(누적\) 5,123만원\(전년 같은 보고서 대비 \+4\.2%\)/);
+  assert.match(r.text, /설비투자\(유형자산 취득, 누적\) 7,679억원\(전년 같은 기간 9,045억원 대비 -15\.1%\)/);
+  assert.match(r.text, /\[업종 비교 · 데이터 기사 후보 — 2026년 3분기 공시 수치\] 2건 · 제출: 석유화학 4\/4, 철강 1\/5/);
+  assert.match(r.text, /- 석유화학 4곳 2026년 3분기 누적 영업이익률 변화: 금호석유화학 \+2\.1%p[^\n]*혼자 반대 방향 · 2026-11-13 제출\n   질문: 왜 석유화학에서 금호석유화학만/);
+  assert.ok(r.text.indexOf('[업종 비교') < r.text.indexOf('■ 철강·비철'));
+  assert.doesNotMatch((await call('earnings_compare', { team: '자동차' })).text, /금호석유화학 \+2\.1%p/);
+});
+
+test('radar_today: 실적 업종 비교 후보는 최근 72시간 안에 처음 본 것만', async () => {
+  const r = (await call('radar_today', {}, PRIVATE())).text;
+  assert.match(r, /\[업종 비교 · 데이터 기사 후보 — 2026년 3분기 공시 수치\] 1건/);
+  assert.match(r, /금호석유화학 \+2\.1%p/);
+  assert.doesNotMatch(r, /한화솔루션 \+95\.0%/);   // 10-20에 처음 본 후보는 radar_today에서 뺀다(earnings_compare에는 남음)
+  assert.ok(r.indexOf('[업종 비교') < r.indexOf('[A · '));
 });
 
 test('news_check: public naver is unavailable so the verdict stays 미확인', async () => {
@@ -1951,7 +1976,7 @@ test('assembly bills: same-law same-day filings are one line, core laws are B, s
   const steel = items.items.find((x) => x.id.startsWith('bills:') && x.fact.includes('철강산업'));
   assert.deepEqual([steel.check.who, steel.check.names.at(-1)], ['K-스틸법', '철강산업 경쟁력 강화 및 탄소중립 전환을 위한 특별법']);
   assert.deepEqual(dueAt(new Date('2026-10-27T23:40:00Z')), ['assembly-bills.yml']);  // Wed 08:40 KST
-  assert.deepEqual(dueAt(new Date('2026-10-28T08:40:00Z')), ['assembly-bills.yml', 'dart-beat-monitor.yml']);  // Wed 17:40 KST
+  assert.deepEqual(dueAt(new Date('2026-10-28T08:40:00Z')), ['earnings-compare.yml', 'assembly-bills.yml', 'dart-beat-monitor.yml']);  // Wed 17:40 KST(실적 업종 비교 11-04 추가)
 });
 
 test('trademarks: weekly filings grouped by name, new names in core classes are B, waits are not failures and radar_today keeps them a week', async () => {

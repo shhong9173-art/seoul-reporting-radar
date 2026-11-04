@@ -182,6 +182,25 @@ function ratioLine(block) {
   return parts.join(' · ');
 }
 
+// 업종 비교 후보 줄(earnings_compare 도구·radar_today가 같이 쓴다). 숫자는 공시 값, 원인은 회사 확인.
+const GROUP_TEAM = { 완성차: '자동차', '자동차 부품': '자동차', 타이어: '자동차', 철강: '철강·비철', 비철: '철강·비철', '전력기기·전선': '전력·에너지', 정유: '전력·에너지', 석유화학: '화학·소재' };
+export function peerLines(v, { teams = new Set(), q = '', limit = 10, since = null } = {}) {
+  const peers = v?.peers;
+  if (!peers) return [];
+  const leads = (peers.leads ?? []).filter((x) => (!teams.size || teams.has(GROUP_TEAM[x.group])) && matchesQuery(q, x.company, x.group)
+    && (!since || String(x.firstSeen ?? '') >= since));
+  const filedGroups = (peers.groups ?? []).filter((g) => (g.filed ?? []).length);
+  if (!leads.length && !filedGroups.length) return [];
+  const out = [`\n[업종 비교 · 데이터 기사 후보 — ${v.period?.label ?? ''} 공시 수치] ${leads.length}건 · 제출: ${filedGroups.map((g) => `${g.group} ${g.filed.length}/${g.members.length}`).join(', ') || '없음'}`];
+  for (const x of leads.slice(0, limit)) {
+    out.push(`- ${x.text}${x.filedOn ? ` · ${x.filedOn} 제출` : ''}`);
+    out.push(`   질문: ${x.question}${x.url ? ` · 원문 ${x.url}` : ''}`);
+  }
+  if (leads.length > limit) out.push(`… 남은 ${leads.length - limit}건`);
+  out.push('   읽는 법: 같은 업종 3곳 넘게 제출했을 때만 후보. 혼자 반대 방향 = 나머지가 모두 같은 방향. 연결 범위가 회사마다 달라 참고용 — 원인은 회사 확인 전 미확인.');
+  return out;
+}
+
 export async function earnings(ctx, args) {
   let v;
   try { v = await fetchJson(ctx, 'digests/earnings_compare_latest.json'); } catch {
@@ -195,6 +214,8 @@ export async function earnings(ctx, args) {
       ((v.unresolvedCompanies ?? []).length ? ` · 고유번호 미해결 ${v.unresolvedCompanies.join('·')}` : ''),
     `수집 ${String(v.generatedAt ?? '').slice(0, 16)} · 상태 ${v.status}`,
     '규칙: 같은 보고기간의 전년 동기와만 비교. 회사마다 연결/별도 기준이 다를 수 있음. 비율 변화는 취재 질문이지 원인·단독이 아님. 미제출·실패는 0이 아님.'];
+  // 업종 비교(11-04): 같은 업종 3곳 넘게 제출하면 혼자 반대 방향·업종과 차이 큰 회사를 데이터 기사 후보로(누가 웃나·왜 혼자)
+  out.push(...peerLines(v, { teams, q: args.company ?? args.q }));
   const rows = (v.companies ?? []).filter((x) => (!teams.size || teams.has(x.team))
     && matchesQuery(args.company ?? args.q, x.company) && (!flaggedOnly || (x.tags ?? []).length));
   let team = null; let shown = 0;
@@ -214,6 +235,9 @@ export async function earnings(ctx, args) {
     if (typeof e.count === 'number') {
       out.push(`   직원 ${e.count.toLocaleString('en-US')}명${typeof e.changePct === 'number' ? `(전년 같은 보고서 대비 ${e.changePct > 0 ? '+' : ''}${e.changePct}%)` : '(전년 미확인)'}${e.asOf ? ` · 기준 ${e.asOf}` : ''}${e.note ? ` · ${e.note}` : ''}`);
     } else if (e.note || e.error) out.push(`   직원 수 미확인: ${e.note ?? e.error}`);
+    if (typeof e.avgSalary === 'number') out.push(`   1인 평균 급여(누적) ${Math.round(e.avgSalary / 10000).toLocaleString('en-US')}만원${typeof e.salaryPct === 'number' ? `(전년 같은 보고서 대비 ${e.salaryPct > 0 ? '+' : ''}${e.salaryPct}%)` : ''}`);
+    const cx = x.capex ?? {};
+    if (typeof cx.current === 'number') out.push(`   설비투자(유형자산 취득, 누적) ${Math.round(cx.current / 1e8).toLocaleString('en-US')}억원${typeof cx.changePct === 'number' ? `(전년 같은 기간 ${Math.round(cx.prior / 1e8).toLocaleString('en-US')}억원 대비 ${cx.changePct > 0 ? '+' : ''}${cx.changePct}%)` : cx.note ? ` · ${cx.note}` : ''}`);
     if (x.warning) out.push(`   주의: ${x.warning}`);
     if (x.derived?.sga) out.push(`   판관비 = ${x.derived.sga}`);
     if (x.unmatched) out.push(`   계정 못 찾음(비율 미산출): ${(x.unmatched.metrics ?? []).map((m) => ({ cost: '매출원가', sga: '판관비', operating: '영업이익' }[m] ?? m)).join('·')}`);

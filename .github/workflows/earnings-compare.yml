@@ -1,6 +1,7 @@
 name: Earnings Season Compare
-# 출입처 원가율·판관비율·영업이익률·직원 수 — 같은 보고기간 전년 동기 비교. 평일 18:40 KST.
-# 코드가 바뀐 push와 수동 실행(기본값)은 운영 JSON을 쓰지 않고 요약만 남긴다(격리 검증).
+# 출입처 원가율·판관비율·영업이익률·직원 수·설비투자·평균 급여 — 같은 보고기간 전년 동기 비교, 업종 비교 데이터 기사 후보.
+# 평일 17:40·21:40 KST(Cloudflare 요청 — 11-04 추가, 공시 마감 주간에 하루 두 번) + GitHub 예약 18:40(대비용).
+# 코드가 바뀐 push는 운영 JSON을 쓰지 않고 요약만 남긴다(격리 검증). 수동·Cloudflare 실행은 publish=false를 주지 않으면 운영 JSON 갱신.
 on:
   push:
     branches: [main]
@@ -23,7 +24,7 @@ on:
       publish:
         description: 'true면 운영 JSON 갱신, false면 요약만'
         required: false
-        default: 'false'
+        default: 'true'
 permissions:
   contents: write
 concurrency:
@@ -50,7 +51,7 @@ jobs:
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
           YEAR: ${{ github.event.inputs.year }}
           REPORT: ${{ github.event.inputs.report }}
-          PUBLISH: ${{ github.event_name == 'schedule' || github.event.inputs.publish == 'true' }}
+          PUBLISH: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish != 'false') }}
         run: |
           args=()
           [ -n "$YEAR" ] && args+=(--year "$YEAR")
@@ -61,7 +62,7 @@ jobs:
             python scripts/earnings_compare.py "${args[@]}" --annotate-only
           fi
       - name: Publish
-        if: github.event_name == 'schedule' || github.event.inputs.publish == 'true'
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish != 'false')
         run: |
           set -e
           git config user.name "github-actions[bot]"
