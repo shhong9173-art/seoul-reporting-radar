@@ -1086,7 +1086,7 @@ test('굴뚝 즉시 알림 대상(11-04 기자 결정): 다른 감시가 같은 
     sites: [
       { id: '현대제철:현대제철(주)순천공장', company: '현대제철', name: '현대제철㈜순천공장', stopped: ['81'], meaningful: 7, stacks: { 81: halt(80) } },
       { id: 'KG스틸:케이지스틸(주)인천공장', company: 'KG스틸', name: '케이지스틸㈜ 인천공장', stopped: ['5', '6', '9', '10'], meaningful: 6,
-        stacks: { 5: halt(90), 6: halt(90), 9: halt(80), 10: halt(75), 12: halt(20), 11: { obs: [] } } },
+        stacks: { 5: halt(90), 6: halt(90), 9: halt(80), 10: { ...halt(20), stoppedSince: kst(75) }, 12: halt(20), 11: { obs: [] } } },   // 10번: 상태는 20시간 전 처음 봤지만 숫자는 75시간 전부터 끊김
       { id: '세아:(주)세아창원특수강', company: '세아', name: '㈜세아창원특수강', stopped: ['191'], meaningful: 9, stacks: { 191: halt(100) } }],
     events: [
       ev('stk:down:현대제철:현대제철(주)순천공장:d', '사업장 가동 중단 신호', 'A', '현대제철', '현대제철㈜순천공장', '현대제철㈜순천공장: 평소 움직이던 배출구 7개 중 4개가 3번 연속 평소의 10% 아래'),
@@ -1100,10 +1100,12 @@ test('굴뚝 즉시 알림 대상(11-04 기자 결정): 다른 감시가 같은 
   assert.match(idLine('stk:down:KG스틸:케이지스틸(주)인천공장:d'), /〔즉시 알림 대상: 장기 가동중지 신고 — 평소 움직이던 배출구 6개 중 4개가 사흘 넘게 '가동중지'〕$/);
   assert.doesNotMatch(idLine('stk:longstop:세아:(주)세아창원특수강:191:d'), /즉시 알림 대상/);   // 굴뚝 신호만(9개 중 1개)
   assert.doesNotMatch(idLine('wf:delta:현대제철:순천'), /즉시 알림 대상/);   // 굴뚝 아닌 항목엔 붙이지 않는다
-  // 겹친 신호를 킬하면 그 항목은 증거로 세지 않는다
+  // 겹친 신호를 킬하면 그 항목은 증거로 세지 않는다(include_judged로 볼 때도)
   await call('candidate_feedback', { item_id: 'wf:delta:현대제철:순천', verdict: '킬', reason: '작음' }, opts);
-  const r2 = (await call('radar_today', {}, opts)).text;
-  assert.doesNotMatch(r2.split('\n').find((l) => l.includes('id stk:down:현대제철:현대제철(주)순천공장:d') && l.includes('자세히:')), /즉시 알림 대상/);
+  for (const args of [{}, { include_judged: true }]) {
+    const r2 = (await call('radar_today', args, opts)).text;
+    assert.doesNotMatch(r2.split('\n').find((l) => l.includes('id stk:down:현대제철:현대제철(주)순천공장:d') && l.includes('자세히:')), /즉시 알림 대상/);
+  }
 });
 
 test('converging signals: the new item comes first and background from one watch is one line (10-31 금호타이어 함평)', () => {

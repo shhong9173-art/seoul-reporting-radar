@@ -1181,19 +1181,22 @@ export function background(docs, nowMs) {
 // 굴뚝 측정 항목이 즉시 알림 대상인지(11-04): ① 같은 출입처·같은 시군을 다른 감시의 새 항목(배경 아님, 킬 안 한 것)이 함께 가리킴,
 // ② 그 사업장에서 평소 움직이던 배출구의 절반 넘게가 사흘 넘게 '가동중지'(사업장이 보낸 시설 멈춤 신고). 아니면 null.
 export const STACK_ALERT_HOURS = 72;
-export function stackAlert(x, conv, stacksDoc, nowMs) {
+export function stackAlert(x, conv, stacksDoc, nowMs, judged = new Map()) {
   const label = WATCHES.find((w) => w.feed === 'kr-stacks')?.label;
   if (!label || x.watch !== label || !['A', 'B'].includes(x.tier)) return null;
   for (const g of conv ?? []) {
     if (!g.items.some((y) => y.id === x.id)) continue;
-    const others = [...new Set(g.items.filter((y) => !y.background && y.watch !== label).map((y) => y.watch))];
+    // 킬한 항목은 증거로 세지 않는다(include_judged로 화면에 보일 때도)
+    const others = [...new Set(g.items.filter((y) => !y.background && y.watch !== label && judged.get(y.id) !== '킬').map((y) => y.watch))];
     if (others.length) return `겹친 신호 — ${g.place}에서 ${others.join('·')}도 이 회사를 가리킴`;
   }
   const s = (stacksDoc?.sites ?? []).find((y) => y.company === x.company && (y.name === x.site || String(x.id).includes(`:${y.name}:`)));
   const m = s?.meaningful ?? 0;
   if (m >= 2) {
     const at = (v) => Date.parse(`${String(v ?? '').replace(' ', 'T')}:00+09:00`);
-    const long = Object.values(s.stacks ?? {}).filter((st) => (st.status ?? [])[0] === '가동중지' && nowMs - at(st.status[1]) >= STACK_ALERT_HOURS * 3600000).length;
+    // 멈춘 때는 숫자가 끊긴 첫 측정(stoppedSince)을 먼저 쓴다 — 상태 글자는 11-03부터 읽어 '처음 본 때'가 실제 멈춤보다 늦다(순천 10-31 멈춤 → 11-03 10:30 처음 봄)
+    const long = Object.values(s.stacks ?? {}).filter((st) => (st.status ?? [])[0] === '가동중지'
+      && nowMs - Math.min(...[at(st.stoppedSince), at(st.status[1])].filter(Number.isFinite)) >= STACK_ALERT_HOURS * 3600000).length;
     if (long * 2 > m) return `장기 가동중지 신고 — 평소 움직이던 배출구 ${m}개 중 ${long}개가 사흘 넘게 '가동중지'`;
   }
   return null;
@@ -1304,7 +1307,7 @@ export async function radarTodayData(ctx, args) {
   conv.sort((a, b) => Number(coveredGroup(a)) - Number(coveredGroup(b)));
   // 굴뚝 측정 항목의 즉시 알림 대상(11-04 기자 결정: 굴뚝 실시간 신호만 있는 항목 9건을 모두 킬 — '뒷받침할 증거가 없음').
   // 화면에는 그대로 두고, 아래 둘 중 하나일 때만 〔즉시 알림 대상〕을 붙인다(즉시 알림 예약 작업이 이 표시만 본다).
-  for (const t of ['A', 'B']) for (const x of byTierRows[t]) { const why = stackAlert(x, conv, docs['kr-stacks'], nowMs); if (why) x.alert = why; }
+  for (const t of ['A', 'B']) for (const x of byTierRows[t]) { const why = stackAlert(x, conv, docs['kr-stacks'], nowMs, judged); if (why) x.alert = why; }
   // Competitor exclusives the radar had first (reverse_prior_capture.py). Shown here too, so the reporter can prepare Y/P/N
   // judgments even when the chat's connector list is stale and scoop_reverse is not offered.
   const rev = await readFeed(ctx, 'reverse-check');
