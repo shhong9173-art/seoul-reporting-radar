@@ -46,7 +46,8 @@ MAX_COMPANIES=175000
 # Unlike a name alias, an exact six-digit listed ticker can distinguish two
 # records bearing the same cleaned Korean name. Never use a third-party stock
 # value as a corporation ID: verify the code *inside the official ZIP*.
-STOCK_IDENTITY={"KG스틸":"016380"}
+# 태광산업: 같은 법인명의 비상장 회사가 있을 수 있어 상장 종목코드로 함께 구분한다.
+STOCK_IDENTITY={"KG스틸":"016380","태광산업":"003240"}
 STOCK_KEY_PREFIX="__official_listed_stock__:"
 
 

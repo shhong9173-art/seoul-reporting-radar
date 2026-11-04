@@ -42,7 +42,10 @@ BEATS={
  "에너지·화학":("두산에너빌리티","한화솔루션","OCI","OCI홀딩스",
        "GS","GS칼텍스","한국전력공사","SK이노베이션","씨에스윈드",
        # 11-01 기자 명시: 석유화학 3·정유(S-Oil·HD현대오일뱅크; SK이노베이션은 이미 있음)
-       "LG화학","롯데케미칼","금호석유화학","S-Oil","HD현대오일뱅크")
+       "LG화학","롯데케미칼","금호석유화학","S-Oil","HD현대오일뱅크",
+       # 11-04: 기자 명시 출입처 '태광'의 DART 법인명. 고유번호 00153393(상장 003240)을
+       # OpenDART 공시 목록·정기보고서 회사명으로 확인. 태광실업·대한화섬 등은 별개 법인이라 넣지 않음.
+       "태광산업")
 }
 TARGETS={name:group for group,names in BEATS.items() for name in names}
 if sum(map(len,BEATS.values()))!=len(TARGETS):
