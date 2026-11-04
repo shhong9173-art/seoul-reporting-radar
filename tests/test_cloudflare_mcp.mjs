@@ -2739,7 +2739,7 @@ test('노동위 ↔ 노조 같은 회사 7일 안 이어 보기: 조정 회의 �
   assert.match(k.text, /A · [^\n]+ · LG화학 · 충남지방노동위원회 2차조정회의 · 사건 2026조정59 「주식회사 LG화학 노동쟁의 조정신청사건」 · 같은 사건 앞선 회의 10-28\n/);
 });
 
-test('노동위 달력(local_notice_submit labor): 고정 위원회·숫자 값만 받아 저장, kr-labor 실행 요청은 6시간에 한 번, kr_official에 달력·예정 표시', async () => {
+test('노동위 달력(local_notice_submit labor): 고정 위원회·숫자 값만 받아 저장, kr-labor 실행 요청은 5시간에 한 번, kr_official에 달력·예정 표시', async () => {
   const opts = PRIVATE();
   const env = opts.env;
   const asked = [];
@@ -2762,8 +2762,10 @@ test('노동위 달력(local_notice_submit labor): 고정 위원회·숫자 값�
   const again = await call('local_notice_submit', { labor: [{ commission: '충남지방노동위원회', rows: [`2611021110520048685/4/${ymd(0)}/`] }] }, opts);
   assert.match(again.text, /노동위 감시 실행 요청은 \d+분 전에 이미 함/);
   assert.equal(asked.filter((u) => u.includes('kr-labor.yml')).length, 1);
+  const str = await call('local_notice_submit', { labor: JSON.stringify([{ commission: '제주지방노동위원회', rows: [`2611031444300005590/1/${ymd(1)}/심판회의`] }]) }, opts);
+  assert.match(str.text, /- 노동위 회의일정 1곳\(정상 1\) · 회의 1건/);   // 옛 도구 목록을 가진 클라이언트가 JSON 글자로 넘겨도 받는다
   const kept = await (await worker.fetch(new Request(ORIGIN + '/ingest/kr-labor-browser', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, {})).json();
-  assert.deepEqual(kept.commissions.map((x) => x.commission), ['충남지방노동위원회', '서울지방노동위원회']);   // 이번에 안 올린 위원회는 남긴다
+  assert.deepEqual(kept.commissions.map((x) => x.commission), ['제주지방노동위원회', '충남지방노동위원회', '서울지방노동위원회']);   // 이번에 안 올린 위원회는 남긴다
 
   const now = new Date(NOW.getTime() - 3600000).toISOString();
   const day = (d) => `${ymd(d).slice(0, 4)}-${ymd(d).slice(4, 6)}-${ymd(d).slice(6)}`;
