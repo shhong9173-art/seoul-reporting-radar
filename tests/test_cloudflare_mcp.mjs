@@ -1557,6 +1557,30 @@ test('weekly review groups judgments by watch and DART filing type, and keeps la
   assert.match(later.text, /- 감시 미상\(지금 목록에 없음\) 2 — 봤음 2/);
 });
 
+test('주간 점검: 즉시 알림 성적(보낸 id ↔ 판정), 킬이 몰린 감시에 사유·제안, 이미 바꾼 기준(굴뚝 11-04)은 바뀐 뒤 판정만 본다', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const recent = new Date(NOW.getTime() - 3600000).toISOString();
+  const post = (feed, doc) => worker.fetch(new Request(ORIGIN + `/ingest/${feed}`, { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {});
+  const day = new Date(NOW.getTime() + 9 * 3600000).toISOString().slice(0, 10);
+  const lab = [1, 2, 3, 4, 5].map((i) => ({ id: `labor:04:2026조정${i}:${day}`, company: 'LG화학', commission: '충남', commissionName: '충남지방노동위원회', meeting: '조정회의', day, time: '15:00',
+    caseNo: `2026조정${i}`, caseName: '주식회사 LG화학 노동쟁의 조정신청사건', tier: 'A', url: 'https://www.nlrc.go.kr/x', firstSeen: recent }));
+  await post('kr-labor', { schema: 'kr_labor/v1', generatedAt: recent, status: 'complete', checks: [], counts: {}, seen: {}, notices: lab,
+    events: lab.map((n) => ({ id: n.id, tier: 'A', kind: '노동위 조정 회의', company: 'LG화학', caseNo: n.caseNo, word: '노동쟁의', url: n.url, detectedAt: recent, text: `충남지방노동위원회 조정회의 ${n.caseNo}` })) });
+  const stk = [1, 2, 3, 4, 5].map((i) => ({ id: `stk:longstop:현대제철:현대제철(주)순천공장:8${i},82:d`, kind: '배출구 오래 멈춤', tier: 'B', company: '현대제철', site: '현대제철㈜순천공장', text: `현대제철㈜순천공장: 배출구 ${i}`, detectedAt: recent }));
+  await post('kr-stacks', { schema: 'kr_stacks/v1', generatedAt: recent, status: 'complete', baselineSince: '2026-10-01T00:00:00+09:00', checks: [], sites: [], events: stk });
+  await call('candidate_feedback', { item_ids: lab.map((x) => x.id), verdict: '킬', reason: '조정 신청만으로는 약함' }, opts);
+  await call('candidate_feedback', { item_ids: stk.map((x) => x.id), verdict: '킬', reason: '굴뚝 신호만' }, opts);
+  await call('package_save', { name: `alert-${day.replaceAll('-', '')}`, state: '미발제·확인 필요', title: '단독 후보 즉시 알림',
+    body: `[단독 후보 알림 10:45] 4건\n…\n보낸 id: ${stk[0].id}, ${lab[0].id}, ${lab[1].id}, ${lab[2].id}` }, opts);
+  const r = (await call('candidate_weekly_review', {}, opts)).text;
+  assert.match(r, /노동위 회의\(조정·심판\): 5개 중 킬 5 — 등급·문턱 점검 후보 · 킬 사유 '조정 신청만으로는 약함'\(5\) · 제안: 즉시 알림·아침 발제는 다른 감시와 겹칠 때만/);
+  assert.match(r, /굴뚝 측정\(공장 가동 신호\): 5개 중 킬 5 — 11-04에 기준을 이미 바꿈\(즉시 알림·아침 발제는 〔즉시 알림 대상〕[^)]*\)[^·]*· 바뀐 뒤 판정 0건\(킬 0\)이라 아직 판단 안 함/);
+  assert.match(r, /\[즉시 알림 성적 · 최근 7일\] 알림 1일치 · 보낸 항목 4건 — 킬 4/);
+  assert.match(r, /- 노동위 회의\(조정·심판\) 3 — 킬 3 · 제안: 이 감시 즉시 알림 기준 좁히기/);   // id 안 쉼표('8x,82')에도 4건으로 나눔
+  assert.match(r, /- 굴뚝 측정\(공장 가동 신호\) 1 — 킬 1 · 11-04 기준 변경 뒤 보낸 것 0건/);
+});
+
 test('kr_signals shows FTC decisions by role, KEPCO bids and commodity prices, and radar_today ranks them', async () => {
   const opts = PRIVATE();
   const env = opts.env;
