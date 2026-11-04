@@ -185,6 +185,49 @@ class Earnings(unittest.TestCase):
         self.assertTrue(all(p.get("crtfc_key") == "SECRET" for _, p in get.calls))
         self.assertNotIn("SECRET", str(r))
 
+    def test_capex_from_cash_flow_same_period_only(self):
+        # 11-04 탐침 169: 반기보고서 현금흐름표 '유형자산의 취득' — 당기(누적)·전기 같은 기간, 양수로 들어온다(롯데케미칼 3,299억 vs 9,376억)
+        cf = lambda th, fr, thn="제 50 기 3분기", frn="제 49 기 3분기", aid="ifrs-full_PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities": {  # noqa: E731
+            "sj_div": "CF", "account_id": aid, "account_nm": "유형자산의 취득", "account_detail": "-", "currency": "KRW",
+            "thstrm_amount": th, "frmtrm_amount": fr, "thstrm_nm": thn, "frmtrm_nm": frn}
+        self.assertEqual(ec.capex({"list": [cf("329,913,087,443", "937,608,011,307")]}),
+                         {"current": 329913087443, "prior": 937608011307, "changePct": -64.8})
+        self.assertEqual(ec.capex({"list": [cf("-1,000", "-500")]})["changePct"], 100.0)   # 음수로 적힌 지출도 크기로
+        self.assertIn("changePct", ec.capex({"list": [cf("1,000", "500", frn="제 49 기")]}))   # 한쪽에만 기간 낱말이 있으면 비교한다
+        self.assertIn("note", ec.capex({"list": [cf("1,000", "500", thn="제 50 기 3분기", frn="제 49 기 반기")]}))
+        self.assertIsNone(ec.capex({"list": [row("ifrs-full_Revenue", "매출액", "1", "1", "1", "1")]}))
+
+    def test_average_salary_from_headcount_rows(self):
+        emp = {"status": "000", "list": [
+            {"fo_bbm": "석유화학", "sexdstn": "남", "sm": "2,785", "fyer_salary_totamt": "180,890,000,000"},
+            {"fo_bbm": "석유화학", "sexdstn": "여", "sm": "724", "fyer_salary_totamt": "27,227,000,000"}]}
+        n, _, how = ec.headcount(emp, explain=True)
+        self.assertEqual((n, how["salaryTotal"]), (3509, 208117000000))
+        self.assertIsNone(ec.headcount({"list": [{"fo_bbm": "a", "sexdstn": "남", "sm": "10"}]}, explain=True)[2]["salaryTotal"])
+
+    def test_peer_leads_alone_against_the_group_and_far_from_the_median(self):
+        def co(name, op, capex=None, emp=None, sal=None):
+            return {"company": name, "status": "filed", "url": f"https://dart/{name}", "filedOn": "2026-11-13",
+                    "cumulative": {"deltaPp": {"opMargin": op}}, "capex": {"changePct": capex} if capex is not None else {},
+                    "employees": {"changePct": emp, "salaryPct": sal}}
+        companies = [co("LG화학", -2.0, capex=-30), co("롯데케미칼", -3.1, capex=-64.8), co("금호석유화학", 2.1, capex=-20), co("한화솔루션", -1.0, capex=95),
+                     co("S-Oil", 1.0), co("SK이노베이션", 1.2), {"company": "HD현대오일뱅크", "status": "not_filed"}]
+        v = ec.peers(companies, "2026년 3분기")
+        texts = [x["text"] for x in v["leads"]]
+        self.assertIn("석유화학 4곳 2026년 3분기 누적 영업이익률 변화: 금호석유화학 +2.1%p — 나머지 3곳 -3.1%p~-1.0%p(나머지 중앙값 -2.0%p) · 혼자 반대 방향", texts)
+        self.assertIn("석유화학 4곳 2026년 3분기 설비투자(유형자산 취득) 증감률: 한화솔루션 +95.0% — 나머지 3곳 -64.8%~-20.0%(나머지 중앙값 -30.0%) · 혼자 반대 방향", texts)
+        self.assertEqual(v["leads"][0]["why"], "혼자 반대 방향")
+        self.assertFalse(any(x["group"] == "정유" for x in v["leads"]))   # 2곳만 제출 — 값만
+        self.assertEqual(next(g for g in v["groups"] if g["group"] == "정유")["metrics"]["opMarginPp"]["median"], 1.1)
+        lead = next(x for x in v["leads"] if x["company"] == "금호석유화학")
+        self.assertIn("회사 IR·공시 원문", lead["question"])
+        self.assertEqual(lead["url"], "https://dart/금호석유화학")
+        # 처음 본 때는 직전 결과에서 이어 받는다
+        prev = {"leads": [{"id": lead["id"], "firstSeen": "2026-11-12T18:40:00+09:00"}]}
+        again = ec.stamp_peers(ec.peers(companies, "2026년 3분기", prev), dt.datetime(2026, 11, 14, 18, 40, tzinfo=KST))
+        self.assertEqual(next(x for x in again["leads"] if x["id"] == lead["id"])["firstSeen"], "2026-11-12T18:40:00+09:00")
+        self.assertTrue(all(x["firstSeen"] for x in again["leads"]))
+
     def test_annual_report_compares_with_the_prior_year(self):
         body = {"status": "000", "list": [
             {"rcept_no": "20270310000111", "sj_div": "IS", "account_id": "ifrs-full_Revenue", "account_nm": "매출액",

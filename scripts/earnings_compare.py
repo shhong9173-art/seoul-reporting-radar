@@ -3,6 +3,10 @@
 같은 보고기간의 전년 동기만 비교한다(3분기 vs 전년 3분기). 반기와 사업보고서, 1분기를 섞지 않는다.
 - 재무: 단일회사 전체 재무제표(fnlttSinglAcntAll) · 연결(CFS) 우선, 없으면 별도(OFS) · 표준 계정ID 우선
 - 직원: 직원 현황(empSttus) · 같은 보고서 종류의 전년 값과 비교
+- 설비투자(11-04): 현금흐름표 '유형자산의 취득'(분기·반기는 누적) · 전년 같은 기간과 비교
+- 평균 급여(11-04): 직원 현황의 연간급여 총액 합 ÷ 직원 수(보고기간 누적 급여) · 같은 보고서 종류의 전년과 비교
+- 업종 비교(11-04): 같은 업종(완성차·부품·타이어·철강·전력기기·전선·정유·석유화학) 3곳 넘게 제출하면 지표마다 중앙값과 비교해
+  혼자 반대 방향이거나 업종과 차이가 큰 회사를 '데이터 기사 후보'로 남긴다(누가 웃나·왜 혼자). 숫자는 공시 값, 원인은 회사 확인.
 
 원칙
 - 공개 공시 수치다. 비율 변화는 취재 질문이지 원인·단독이 아니다.
@@ -52,7 +56,29 @@ ACCOUNTS = {
                    "ifrs_ProfitLossFromOperatingActivities"}, {"영업이익", "영업이익(손실)", "영업손익"}),
 }
 # Flags are reading aids, not judgments.
-FLAG = {"costRatio": 3.0, "sgaRatio": 2.0, "opMargin": 3.0, "employeesPct": 5.0}
+FLAG = {"costRatio": 3.0, "sgaRatio": 2.0, "opMargin": 3.0, "employeesPct": 5.0, "capexPct": 30.0, "salaryPct": 10.0}
+CAPEX_IDS = {"ifrs-full_PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities", "ifrs-full_PurchaseOfPropertyPlantAndEquipment",
+             "ifrs_PurchaseOfPropertyPlantAndEquipment"}
+CAPEX_NAMES = {"유형자산의취득", "유형자산취득", "유형자산의증가"}
+# 업종 비교 묶음(BEATS 팀은 정유와 전력기기가 섞여 있어 따로 정한다). 지주사(포스코홀딩스·LS·GS)는 사업이 섞여 같은 업종 비교에서 뺀다.
+PEER_GROUPS = [
+    ("완성차", ["현대자동차", "기아", "KG모빌리티"]),
+    ("자동차 부품", ["현대모비스", "현대위아", "HL만도"]),
+    ("타이어", ["한국타이어앤테크놀로지", "넥센타이어", "금호타이어"]),
+    ("철강", ["현대제철", "KG스틸", "세아제강", "동국제강", "동국씨엠"]),
+    ("비철", ["고려아연", "영풍"]),
+    ("전력기기·전선", ["HD현대일렉트릭", "엘에스일렉트릭", "대한전선", "두산에너빌리티"]),
+    ("정유", ["S-Oil", "SK이노베이션", "HD현대오일뱅크"]),
+    ("석유화학", ["LG화학", "롯데케미칼", "금호석유화학", "한화솔루션"]),
+]
+# 지표: (이름, 단위, 같은 방향으로 볼 최소 크기, 업종 중앙값과의 큰 차이)
+PEER_METRICS = {
+    "opMarginPp": ("누적 영업이익률 변화", "%p", 0.5, 3.0),
+    "costRatioPp": ("누적 원가율 변화", "%p", 0.5, 3.0),
+    "capexPct": ("설비투자(유형자산 취득) 증감률", "%", 10.0, 50.0),
+    "employeesPct": ("직원 수 증감률", "%", 2.0, 6.0),
+    "salaryPct": ("1인 평균 급여 증감률", "%", 3.0, 10.0),
+}
 LABEL = {"costRatio": "원가율", "sgaRatio": "판관비율", "opMargin": "영업이익률"}
 
 
@@ -207,6 +233,39 @@ def financials(body, report):
     return result, sorted(receipts)
 
 
+PERIOD_WORD = re.compile(r"(3분기|반기|1분기|분기|기말|연간)")
+
+
+def capex(body):
+    """현금흐름표 '유형자산의 취득' — 당기(분기·반기는 누적)와 전기 같은 기간. 지출이라 부호와 상관없이 크기로 본다.
+    기간 이름(thstrm_nm·frmtrm_nm)의 '3분기·반기' 낱말이 다르면 같은 기간이 아니라 비교하지 않는다."""
+    rows = []
+    for r in body.get("list") or []:
+        if not isinstance(r, dict) or r.get("sj_div") != "CF" or str(r.get("currency") or "KRW") not in ("KRW", "원"):
+            continue
+        if str(r.get("account_detail") or "-").strip() not in ("", "-"):
+            continue
+        aid = str(r.get("account_id") or "").strip()
+        name = re.sub(r"\s+", "", str(r.get("account_nm") or ""))
+        if aid in CAPEX_IDS or name in CAPEX_NAMES:
+            rows.append(r)
+    if not rows:
+        return None
+    cur = {abs(v) for v in (amount(r.get("thstrm_amount")) for r in rows) if v is not None}
+    pri = {abs(v) for v in (amount(r.get("frmtrm_amount")) for r in rows) if v is not None}
+    if len(cur) != 1:
+        return {"note": "유형자산의 취득 값이 여럿이거나 없음 — 미확인"}
+    out = {"current": next(iter(cur))}
+    pw = [PERIOD_WORD.search(str(rows[0].get(k) or "")) for k in ("thstrm_nm", "frmtrm_nm")]
+    if len(pri) == 1 and not (pw[0] and pw[1] and pw[0].group(1) != pw[1].group(1)):
+        out["prior"] = next(iter(pri))
+        if out["prior"]:
+            out["changePct"] = round((out["current"] - out["prior"]) / out["prior"] * 100, 1)
+    elif pw[0] and pw[1] and pw[0].group(1) != pw[1].group(1):
+        out["note"] = f"전기 값 기간이 다름({rows[0].get('frmtrm_nm')}) — 비교 안 함"
+    return out
+
+
 TOTAL_WORD = re.compile(r"\s*(합\s*계|총\s*계|계|전\s*체)\s*")
 SUBTOTAL_WORD = re.compile(r".*소\s*계.*")
 
@@ -234,8 +293,10 @@ def headcount(body, *, explain=False):
     values = [amount(r.get("sm")) for r in picked]
     stlm = next((str(r.get("stlm_dt")) for r in rows if r.get("stlm_dt")), None)
     total = sum(values) if values and all(v is not None for v in values) else None
+    pay = [amount(r.get("fyer_salary_totamt")) for r in picked]
+    salary = sum(pay) if pay and all(v is not None for v in pay) else None
     if explain:
-        return total, stlm, {"method": method, "rowsUsed": len(picked), "rows": len(rows),
+        return total, stlm, {"method": method, "rowsUsed": len(picked), "rows": len(rows), "salaryTotal": salary,
                              "raw": [[r.get("fo_bbm"), r.get("sexdstn"), r.get("sm")] for r in rows][:40]}
     return total, stlm
 
@@ -254,6 +315,11 @@ def tags_for(fin, emp):
             tags.append(f"[{LABEL[k]} {d:+.1f}%p]")
     if emp and emp.get("changePct") is not None and abs(emp["changePct"]) >= FLAG["employeesPct"]:
         tags.append(f"[직원 {emp['changePct']:+.1f}%]")
+    if emp and emp.get("salaryPct") is not None and abs(emp["salaryPct"]) >= FLAG["salaryPct"]:
+        tags.append(f"[평균급여 {emp['salaryPct']:+.1f}%]")
+    cx = fin.get("capex") or {}
+    if cx.get("changePct") is not None and abs(cx["changePct"]) >= FLAG["capexPct"]:
+        tags.append(f"[설비투자 {cx['changePct']:+.1f}%]")
     return tags
 
 
@@ -272,6 +338,9 @@ def company_record(name, team, code, year, report, *, get, sleep):
             rec["status"] = "not_filed"
             return rec
         fin, receipts = financials(body, report)
+        cx = capex(body)
+        if cx:
+            fin["capex"] = cx
         rec.update({"basis": "연결" if basis == "CFS" else "별도", "receipts": receipts,
                     "filedOn": receipt_day(receipts[0]) if receipts else None,
                     "url": f"https://dart.fss.or.kr/dsaf001/main.do?rcpNo={receipts[0]}" if receipts else None})
@@ -292,9 +361,17 @@ def company_record(name, team, code, year, report, *, get, sleep):
                              get=get, sleep=sleep)
                 counts[y] = headcount(b, explain=True) if st == "ok" else (None, None, None)
             now_n, now_dt, how = counts[emp_year]
-            pri_n, pri_dt, _ = counts[emp_year - 1]
+            pri_n, pri_dt, pri_how = counts[emp_year - 1]
             emp = {"report": f"{emp_year}년 {REPORTS[emp_report]['label']}", "count": now_n, "asOf": now_dt,
                    "priorCount": pri_n, "priorAsOf": pri_dt}
+            # 1인 평균 급여 = 연간급여 총액 합 ÷ 직원 수(분기·반기는 그때까지 누적 급여) — 같은 보고서 종류의 전년과만 비교
+            pay_now, pay_pri = (how or {}).get("salaryTotal"), (pri_how or {}).get("salaryTotal")
+            if pay_now and now_n:
+                emp["avgSalary"] = round(pay_now / now_n)
+            if pay_pri and pri_n:
+                emp["priorAvgSalary"] = round(pay_pri / pri_n)
+            if emp.get("avgSalary") and emp.get("priorAvgSalary"):
+                emp["salaryPct"] = round((emp["avgSalary"] - emp["priorAvgSalary"]) / emp["priorAvgSalary"] * 100, 1)
             if how:
                 emp["method"] = how["method"]
                 if DEBUG:
@@ -314,7 +391,78 @@ def company_record(name, team, code, year, report, *, get, sleep):
     return rec
 
 
-def build(key, *, year, report, now=None, get=None, sleep=time.sleep, registry=None, table=None):
+def stamp_peers(view, now):
+    for x in view["leads"]:
+        x["firstSeen"] = x.get("firstSeen") or now.isoformat(timespec="seconds")
+    return view
+
+
+def metric_values(c):
+    """업종 비교에 쓰는 회사 지표(누적 기준 — 사업보고서는 연간)."""
+    if c.get("status") != "filed":
+        return {}
+    main = c.get("cumulative") or c.get("annual") or {}
+    d = main.get("deltaPp") or {}
+    e = c.get("employees") or {}
+    out = {"opMarginPp": d.get("opMargin"), "costRatioPp": d.get("costRatio"),
+           "capexPct": (c.get("capex") or {}).get("changePct"), "employeesPct": e.get("changePct"), "salaryPct": e.get("salaryPct")}
+    return {k: v for k, v in out.items() if v is not None}
+
+
+def fmt_value(metric, v):
+    unit = PEER_METRICS[metric][1]
+    return f"{v:+.1f}{unit}"
+
+
+def peers(companies, period_label, previous=None):
+    """업종 묶음마다 지표 비교: 혼자 반대 방향(나머지가 모두 같은 방향인데 혼자 반대) 또는 업종 중앙값과 큰 차이.
+    previous(직전 운영 JSON의 peers)에서 같은 id의 처음 본 때를 이어 받는다."""
+    import statistics
+    by_name = {c["company"]: c for c in companies}
+    seen = {x["id"]: x.get("firstSeen") for x in ((previous or {}).get("leads") or []) if isinstance(x, dict) and x.get("id")}
+    groups, leads = [], []
+    for group, names in PEER_GROUPS:
+        filed = [n for n in names if by_name.get(n, {}).get("status") == "filed"]
+        g = {"group": group, "members": names, "filed": filed, "metrics": {}}
+        for metric, (label, unit, eps, gap) in PEER_METRICS.items():
+            vals = [(n, metric_values(by_name[n]).get(metric)) for n in filed]
+            vals = [(n, v) for n, v in vals if v is not None]
+            if len(vals) < 2:
+                continue
+            med = round(statistics.median(v for _, v in vals), 2)
+            g["metrics"][metric] = {"values": vals, "median": med}
+            if len(vals) < 3:
+                continue
+            for n, v in vals:
+                rest = [x for m, x in vals if m != n]
+                sign = (v > eps) - (v < -eps)
+                rest_signs = [(x > eps) - (x < -eps) for x in rest]
+                why = None
+                if sign and all(rs == -sign for rs in rest_signs):
+                    why = "혼자 반대 방향"
+                elif abs(v - statistics.median(rest)) >= gap:
+                    why = "업종과 차이 큼"
+                if not why:
+                    continue
+                lid = f"{period_label}:{group}:{metric}:{n}"
+                lo, hi = min(rest), max(rest)
+                text = (f"{group} {len(vals)}곳 {period_label} {label}: {n} {fmt_value(metric, v)} — 나머지 {len(rest)}곳 "
+                        f"{fmt_value(metric, lo)}~{fmt_value(metric, hi)}(나머지 중앙값 {fmt_value(metric, statistics.median(rest))}) · {why}")
+                c = by_name[n]
+                leads.append({"id": lid, "group": group, "metric": metric, "label": label, "company": n, "value": v, "why": why,
+                              "rest": [[m, x] for m, x in vals if m != n], "text": text, "url": c.get("url"), "filedOn": c.get("filedOn"),
+                              "question": f"왜 {group}에서 {n}만 {label}이(가) {'다른 방향' if why == '혼자 반대 방향' else '크게 다른가'} — 회사 IR·공시 원문(사업의 내용·주석)으로 먼저 확인할 것",
+                              "firstSeen": seen.get(lid)})
+        groups.append(g)
+    order = {"혼자 반대 방향": 0, "업종과 차이 큼": 1}
+    leads.sort(key=lambda x: (order[x["why"]], -abs(x["value"]) / PEER_METRICS[x["metric"]][3]))
+    return {"groups": groups, "leads": leads,
+            "rules": ["같은 업종 3곳 넘게 제출해야 후보를 만든다(2곳은 값만).", "누적(사업보고서는 연간) 기준 · 연결 우선 — 회사마다 연결 범위가 달라 참고용.",
+                      "숫자는 공시 값이고 원인은 회사 확인 전 미확인. '혼자 반대 방향'은 나머지가 모두 같은 방향일 때만.",
+                      "지주사(포스코홀딩스·LS·GS 등)는 사업이 섞여 업종 비교에서 뺀다."]}
+
+
+def build(key, *, year, report, now=None, get=None, sleep=time.sleep, registry=None, table=None, previous=None):
     if get is None:
         import requests
         base_get = requests.get
@@ -342,6 +490,9 @@ def build(key, *, year, report, now=None, get=None, sleep=time.sleep, registry=N
         "counts": counts, "unresolvedCompanies": unresolved,
         "status": "partial" if counts["failed"] or unresolved else "complete",
         "companies": companies,
+        "peers": stamp_peers(peers(companies, f"{year}년 {meta['label']}",
+                                   previous.get("peers") if isinstance(previous, dict) and (previous.get("period") or {}).get("report") == report
+                                   and (previous.get("period") or {}).get("year") == year else None), now),
         "rules": ["같은 보고기간의 전년 동기만 비교(3개월은 전년 같은 분기, 누적은 전년 같은 누적).",
                   "연결 우선·없으면 별도. 회사마다 기준이 다를 수 있어 회사 간 비율 비교는 참고용.",
                   "매출원가 계정이 없으면 원가율을 만들지 않는다(지주사 영업수익·영업비용 방식 등).",
@@ -364,9 +515,12 @@ def annotate(report):
         lines.append(f"{c['company']}|{c['status']}|{c.get('basis', '')}|rev={q.get('values', {}).get('revenue')}"
                      f"|cumRev={cu.get('values', {}).get('revenue')}|원가율={r.get('costRatio')}({d.get('costRatio')})"
                      f"|판관={r.get('sgaRatio')}({d.get('sgaRatio')})|OPM={r.get('opMargin')}({d.get('opMargin')})"
-                     f"|직원={e.get('count')}/{e.get('priorCount')}@{e.get('asOf')}|{c.get('warning', '')}{c.get('error', '')}")
+                     f"|직원={e.get('count')}/{e.get('priorCount')}@{e.get('asOf')}|급여%={e.get('salaryPct')}"
+                     f"|설비투자%={(c.get('capex') or {}).get('changePct')}|{c.get('warning', '')}{c.get('error', '')}")
     for i in range(0, len(lines), 6):
         print("::notice title=earnings-%d::%s" % (i // 6 + 1, " ;; ".join(lines[i:i + 6])))
+    for i, x in enumerate((report.get("peers") or {}).get("leads", [])[:6]):
+        print(f"::notice title=earnings-peer-{i + 1}::{x['text']}")
     odd = []
     for c in report["companies"]:
         e = c.get("employees") or {}
@@ -397,7 +551,12 @@ def main():
         table = dart_watch.load_corp_codes(key)
     except SystemExit:
         table = None
-    result = build(key, year=year, report=report, registry=registry, table=table)
+    previous = None
+    try:
+        previous = json.loads(Path(a.out).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        previous = None
+    result = build(key, year=year, report=report, registry=registry, table=table, previous=previous)
     attempted = len(result["companies"])
     if a.annotate_only:
         annotate(result)
