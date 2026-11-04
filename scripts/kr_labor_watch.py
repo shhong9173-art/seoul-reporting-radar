@@ -216,13 +216,18 @@ def run(now, previous=None, get=None, sleep=time.sleep, rules=None, browser=None
             sleep(PAUSE)
         first = False
         url = f"{BASE}/nlrc/{slug}/main.do" if slug else f"{BASE}/"
+        widget_error = None
         try:
             r = get(url, timeout=30)
             if r.status_code != 200:
                 raise RuntimeError(f"HTTP {r.status_code}")
             ms = meetings_of(r.text)
         except Exception as e:  # network/HTTP: unconfirmed, not zero
-            checks.append({"source": cname, "status": "failed", "error": f"{type(e).__name__}: {str(e)[:60]}"})
+            widget_error = f"{type(e).__name__}: {str(e)[:60]}"
+            ms = []
+        # 11-04 첫 달력 실행: 서울지노위 첫 화면이 실패해 달력 회의 46건까지 건너뛰었다 — 첫 화면이 실패해도 달력 회의는 읽는다
+        if widget_error and cal_state.get(cname, {}).get("status") not in ("ok", "stale"):
+            checks.append({"source": cname, "status": "failed", "error": widget_error})
             continue
         counts["meetings"] += len(ms)
         widget = len(ms)
@@ -288,10 +293,12 @@ def run(now, previous=None, get=None, sleep=time.sleep, rules=None, browser=None
                                "url": n["url"], "detectedAt": stamp, **({"prior": prior[-5:]} if prior else {}), **({"ahead": ahead} if ahead > 0 else {})})
         covered = cal_state.get(cname, {}).get("status") in ("ok", "stale")
         capped = widget >= WIDGET_CAP and not covered
-        checks.append({"source": cname, "status": "ok" if not bad else "partial", "returned": widget,
+        if widget_error:
+            bad_note = f"첫 화면 조회 실패({widget_error}) — 달력 회의만 읽음" + (f", 회의 상세 {bad}건 읽기 실패" if bad else "")
+        checks.append({"source": cname, "status": "ok" if not bad and not widget_error else "partial", "returned": widget,
                        **({"calendar": len(cal.get(cname, []))} if covered else {}),
                        **({"note": f"첫 화면 {WIDGET_CAP}건 상한 — 뒤 회의가 빠졌을 수 있음"} if capped else {}),
-                       **({"error": f"회의 상세 {bad}건 읽기 실패"} if bad else {})})
+                       **({"error": bad_note} if widget_error else {"error": f"회의 상세 {bad}건 읽기 실패"} if bad else {})})
     keep = (now - dt.timedelta(days=KEEP_DAYS)).isoformat(timespec="seconds")
     ok = sum(1 for c in checks if c["status"] == "ok")
     status = "complete" if ok == len(checks) else "failed" if not any(c["status"] in ("ok", "partial") for c in checks) else "partial"

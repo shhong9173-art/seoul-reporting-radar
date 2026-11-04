@@ -223,6 +223,18 @@ class Run(unittest.TestCase):
         self.assertEqual(doc3["seen"]["06:2611101000000000001:1"], "20261110")
         self.assertEqual(sum(1 for e in doc3["events"] if e["id"] == "labor:06:2026조정88:2026-11-10"), 1)
 
+    def test_widget_failure_still_reads_calendar_meetings(self):
+        base, calls = site(fail=("gyeongbuk/main.do",))
+        browser = {"commissions": [{"commission": "경북지방노동위원회", "fetchedAt": NOW.isoformat(),
+                                    "rows": [{"mtgId": "2610151732500052964", "mtgSn": "1", "mtgYmd": "20261103", "cmitCd": "06", "title": "조정회의"}]}]}
+        doc = w.run(NOW, None, get=base, sleep=lambda s: None, browser=browser)
+        gb = next(c for c in doc["checks"] if c["source"] == "경북지방노동위원회")
+        self.assertEqual(gb["status"], "partial")
+        self.assertIn("첫 화면 조회 실패(ConnectTimeout: x) — 달력 회의만 읽음", gb["error"])
+        self.assertIn("2026조정88", {e["caseNo"] for e in doc["events"]})
+        doc = w.run(NOW, None, get=site(fail=("gyeongbuk/main.do",))[0], sleep=lambda s: None)
+        self.assertEqual(next(c for c in doc["checks"] if c["source"] == "경북지방노동위원회")["status"], "failed")
+
     def test_stale_or_missing_calendar_keeps_widget_cap_note(self):
         get, _ = site(five=True)
         old = {"commissions": [{"commission": "중앙노동위원회", "fetchedAt": (NOW - dt.timedelta(days=4)).isoformat(),
