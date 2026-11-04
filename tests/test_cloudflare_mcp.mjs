@@ -13,7 +13,7 @@ import { ageNote, handleIngest, weekdayHours } from '../cloudflare/screen.mjs';
 import { dueAt, newsDue, nextSlot, runSchedule } from '../cloudflare/dispatch.mjs';
 import { boardKey, factParts, groupSame, splitTop } from '../cloudflare/board.mjs';
 import { cleanOutput, cleanSummary, LLM_MODELS, MT_MODEL } from '../cloudflare/translate.mjs';
-import { background, billHint, clipAt, convergence, convergenceRows, countForms, hint, insolvencyWord, usRecallHint, usRecallModels, kepcoHint, localWord, radarItems, siteCity, stackHint, workforceHint } from '../cloudflare/digest.mjs';
+import { background, billHint, clipAt, convergence, convergenceRows, countForms, hint, insolvencyWord, usRecallHint, usRecallModels, kepcoHint, localWord, plantTokens, radarItems, siteCity, stackAlert, stackHint, workforceHint } from '../cloudflare/digest.mjs';
 
 const ORIGIN = 'https://seoul-reporting-radar.shhong9173.workers.dev';
 const TOKEN = 'test-token-0123456789abcdef';
@@ -1096,7 +1096,7 @@ test('굴뚝 즉시 알림 대상(11-04 기자 결정): 다른 감시가 같은 
     { id: 'wf:delta:현대제철:순천', kind: '인력 감소', tier: 'B', company: '현대제철', month: '202610', detectedAt: recent, text: '현대제철(전라남도 순천시) 국민연금 가입자 1,020→940명(-80명)' }] });
   const r = (await call('radar_today', {}, opts)).text;
   const idLine = (id) => r.split('\n').find((l) => l.includes(`id ${id}`) && l.includes('자세히:'));
-  assert.match(idLine('stk:down:현대제철:현대제철(주)순천공장:d'), /〔즉시 알림 대상: 겹친 신호 — 순천에서 사업장 인력\(국민연금\)도 이 회사를 가리킴〕$/);
+  assert.match(idLine('stk:down:현대제철:현대제철(주)순천공장:d'), /〔즉시 알림 대상: 겹친 신호 — 순천에서 사업장 인력\(국민연금\)도 이 회사를 가리킴\(시군까지만 맞춤 — 같은 공장인지 원문 확인\)〕$/);
   assert.match(idLine('stk:down:KG스틸:케이지스틸(주)인천공장:d'), /〔즉시 알림 대상: 장기 가동중지 신고 — 평소 움직이던 배출구 6개 중 4개가 사흘 넘게 '가동중지'〕$/);
   assert.doesNotMatch(idLine('stk:longstop:세아:(주)세아창원특수강:191:d'), /즉시 알림 대상/);   // 굴뚝 신호만(9개 중 1개)
   assert.doesNotMatch(idLine('wf:delta:현대제철:순천'), /즉시 알림 대상/);   // 굴뚝 아닌 항목엔 붙이지 않는다
@@ -1106,6 +1106,20 @@ test('굴뚝 즉시 알림 대상(11-04 기자 결정): 다른 감시가 같은 
     const r2 = (await call('radar_today', args, opts)).text;
     assert.doesNotMatch(r2.split('\n').find((l) => l.includes('id stk:down:현대제철:현대제철(주)순천공장:d') && l.includes('자세히:')), /즉시 알림 대상/);
   }
+});
+
+test('굴뚝 겹친 신호 공장 이름 맞춤: 같은 시군의 다른 공장 이름은 증거 아님, 같은 공장 이름은 맞음 표시, 숫자뿐인 공장 이름은 무시', () => {
+  assert.deepEqual(plantTokens('롯데케미칼㈜울산2공장'), ['울산2공장']);
+  assert.deepEqual(plantTokens('㈜엘지화학 여수공장(용성1단지)'), ['여수공장', '용성1단지']);
+  assert.deepEqual(plantTokens('기아 오토랜드 화성 PBV 2공장 증설'), []);
+  assert.deepEqual(plantTokens('㈜포스코 포항제철소'), ['포항제철소']);
+  const label = '굴뚝 측정(공장 가동 신호)';
+  const x = { id: 'stk:down:롯데케미칼:롯데케미칼(주)울산2공장:d', tier: 'A', watch: label, company: '롯데케미칼', site: '롯데케미칼㈜울산2공장' };
+  const g = (fact, watch = '지자체 고시·공고') => [{ place: '울산', items: [x, { id: 'o', tier: 'A', watch, company: '롯데케미칼', fact }] }];
+  const doc = { sites: [{ company: '롯데케미칼', name: '롯데케미칼㈜울산2공장', meaningful: 3, stacks: {} }] };
+  assert.equal(stackAlert(x, g('울주군 공고 「롯데케미칼 울산1공장 증설 공사」'), doc, Date.now()), null);   // 다른 공장
+  assert.match(stackAlert(x, g('울주군 공고 「롯데케미칼 울산2공장 설비 철거」'), doc, Date.now()), /공장 이름까지 맞음/);
+  assert.match(stackAlert(x, g('롯데케미칼(울산광역시 남구) 국민연금 가입자 -40명', '사업장 인력(국민연금)'), doc, Date.now()), /시군까지만 맞춤/);
 });
 
 test('converging signals: the new item comes first and background from one watch is one line (10-31 금호타이어 함평)', () => {

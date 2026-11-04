@@ -1181,16 +1181,30 @@ export function background(docs, nowMs) {
 // 굴뚝 측정 항목이 즉시 알림 대상인지(11-04): ① 같은 출입처·같은 시군을 다른 감시의 새 항목(배경 아님, 킬 안 한 것)이 함께 가리킴,
 // ② 그 사업장에서 평소 움직이던 배출구의 절반 넘게가 사흘 넘게 '가동중지'(사업장이 보낸 시설 멈춤 신고). 아니면 null.
 export const STACK_ALERT_HOURS = 72;
+// 공장 이름 조각(11-04): '현대제철㈜순천공장' → 순천공장, '롯데케미칼㈜울산2공장' → 울산2공장, '㈜엘지화학 여수공장(용성1단지)' → 여수공장·용성1단지.
+// 숫자뿐인 앞말('PBV 2공장'의 2공장)은 어느 공장인지 말해 주지 않아 뺀다.
+export function plantTokens(text) {
+  const t = String(text ?? '').replace(/㈜|\(주\)|주식회사/g, ' ');
+  return [...new Set([...t.matchAll(/([가-힣0-9]{1,8})(공장|제철소|제련소|단지)/g)].filter((m) => /[가-힣]/.test(m[1])).map((m) => m[1] + m[2]))];
+}
 export function stackAlert(x, conv, stacksDoc, nowMs, judged = new Map()) {
   const label = WATCHES.find((w) => w.feed === 'kr-stacks')?.label;
   if (!label || x.watch !== label || !['A', 'B'].includes(x.tier)) return null;
+  const s = (stacksDoc?.sites ?? []).find((y) => y.company === x.company && (y.name === x.site || String(x.id).includes(`:${y.name}:`)));
+  const mine = plantTokens(s?.name ?? x.site ?? '');
   for (const g of conv ?? []) {
     if (!g.items.some((y) => y.id === x.id)) continue;
-    // 킬한 항목은 증거로 세지 않는다(include_judged로 화면에 보일 때도)
-    const others = [...new Set(g.items.filter((y) => !y.background && y.watch !== label && judged.get(y.id) !== '킬').map((y) => y.watch))];
-    if (others.length) return `겹친 신호 — ${g.place}에서 ${others.join('·')}도 이 회사를 가리킴`;
+    // 킬한 항목은 증거로 세지 않는다(include_judged로 화면에 보일 때도). 같은 시군이라도 다른 공장 이름이 적힌 항목
+    // (울산1공장 굴뚝 ↔ 울산2공장 공고)은 다른 공장이라 세지 않는다. 공장 이름이 없으면 시군까지만 맞춘 것으로 센다.
+    const ev = g.items.filter((y) => !y.background && y.watch !== label && judged.get(y.id) !== '킬').map((y) => {
+      const theirs = plantTokens(y.fact);
+      return { y, same: theirs.length && mine.length ? theirs.some((k) => mine.includes(k)) : null };
+    }).filter((e) => e.same !== false);
+    if (ev.length) {
+      const others = [...new Set(ev.map((e) => e.y.watch))];
+      return `겹친 신호 — ${g.place}에서 ${others.join('·')}도 이 회사를 가리킴(${ev.some((e) => e.same) ? '공장 이름까지 맞음' : '시군까지만 맞춤 — 같은 공장인지 원문 확인'})`;
+    }
   }
-  const s = (stacksDoc?.sites ?? []).find((y) => y.company === x.company && (y.name === x.site || String(x.id).includes(`:${y.name}:`)));
   const m = s?.meaningful ?? 0;
   if (m >= 2) {
     const at = (v) => Date.parse(`${String(v ?? '').replace(' ', 'T')}:00+09:00`);
