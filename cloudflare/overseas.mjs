@@ -974,13 +974,21 @@ export async function laborSection(ctx, q, days, limit) {
     `원천: 노동위원회 ${checks.length - failed.length - partial.length}/${checks.length}곳 정상 · 이번 실행 첫 화면 회의 ${c.meetings ?? '?'}건 · 오늘 읽은 회의 상세 ${c.details ?? '?'}건(사건 ${c.cases ?? '?'}, 조정 ${c['조정 사건'] ?? '?'})`
       + `${failed.length ? ` · 미확인(0건 아님): ${failed.map((x) => x.source).join(', ')}` : ''}`
       + `${partial.length ? ` · 일부 미확인: ${partial.map((x) => `${short(x)}(${x.error ?? '상세 일부 실패'})`).join(', ')}` : ''}`
-      + `${capped.length ? ` · 첫 화면 5건 상한(뒤 회의 빠졌을 수 있음): ${capped.map(short).join(', ')}` : ''}`,
-    ...(doc.rules ?? []).map((r) => `규칙: ${r}`)];
+      + `${capped.length ? ` · 첫 화면 5건 상한(뒤 회의 빠졌을 수 있음): ${capped.map(short).join(', ')}` : ''}`];
+  const cal = doc.calendar;
+  const sname = (x) => short({ source: x });
+  out.push(!cal || cal.status === 'unset' ? '달력(기자 컴퓨터 브라우저 수집): 없음 — 첫 화면 칸(오늘 회의, 위원회마다 5건 상한)만 읽음'
+    : `달력(기자 컴퓨터 브라우저 수집 ${Number.isFinite(Date.parse(cal.fetchedAt)) ? `${new Date(Date.parse(cal.fetchedAt) + 9 * 3600000).toISOString().slice(5, 16).replace('T', ' ')} KST` : '?'}): 오늘부터 ${cal.ahead}일 회의 ${cal.meetings}건 · 이번 실행 미리 읽은 회의 ${c.ahead ?? 0}건`
+      + `${cal.left ? ` · 다음 실행에 남김 ${cal.left}건` : ''}`
+      + `${(cal.missing ?? []).length ? ` · 달력 미확인: ${cal.missing.map(sname).join(', ')}` : ''}`
+      + `${(cal.stale ?? []).length ? ` · 30시간 넘은 달력: ${cal.stale.map(sname).join(', ')}` : ''}`);
+  out.push(...(doc.rules ?? []).map((r) => `규칙: ${r}`));
   const from = new Date(ctx.now.getTime() - days * 86400000).toISOString();
+  const todayKst = new Date(ctx.now.getTime() + 9 * 3600000).toISOString().slice(0, 10);
   const rows = (doc.notices ?? []).filter((n) => String(n.firstSeen) >= from && matches(q, n.company, n.caseName, n.commissionName));
   out.push(`- 출입처 사건 · 최근 ${days}일 ${rows.length}건`);
   for (const n of rows.slice(0, limit)) {
-    out.push(`  ${n.tier} · ${n.day} ${n.time} · ${n.company} · ${n.commissionName} ${n.meeting} · 사건 ${n.caseNo} 「${n.caseName}」`
+    out.push(`  ${n.tier} · ${n.day} ${n.time}${n.day > todayKst ? '(예정)' : ''} · ${n.company} · ${n.commissionName} ${n.meeting} · 사건 ${n.caseNo} 「${n.caseName}」`
       + `${(n.prior ?? []).length ? ` · 같은 사건 앞선 회의 ${n.prior.map((d) => String(d).slice(5)).join(', ')}` : ''}`);
     out.push(`     원문: ${n.url}`);
   }

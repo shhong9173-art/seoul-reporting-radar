@@ -155,6 +155,85 @@ class Run(unittest.TestCase):
         jn = [e for e in new if e["commission"] == "전남지방노동위원회"]
         self.assertEqual((len(jn), "prior" in jn[0], jn[0]["kind"]), (1, False, "노동위 조정 회의"))
 
+    def test_calendar_from_reporter_browser_reads_beyond_widget_and_ahead(self):
+        # 11-04: 기자 컴퓨터 브라우저 달력 수집(kr-labor-browser) — 5건 상한 밖 회의와 미리 잡힌 회의를 읽는다
+        base, calls = site()
+        ahead = detail_html("경북", "2차조정회의", "조정회의실", "2026-11-10", "10:00", [("2026조정88", "주식회사 포스코 노동쟁의 조정신청사건", "10:00")])
+        extra = detail_html("경북", "심판회의", "심판정", "2026-11-03", "16:00", [("2026부해950", "현대제철 주식회사 부당해고 구제신청", "16:00")])
+        judge = detail_html("경북", "심판회의", "심판정", "2026-11-05", "10:00", [("2026부해951", "한일 연합의원 부당해고 구제신청", "10:00")])
+
+        def get(url, timeout=None):
+            if "mtgId=2611101000000000001" in url:
+                calls.append(url)
+                return R(200, ahead)
+            if "mtgId=2611031600000000001" in url:
+                calls.append(url)
+                return R(200, extra)
+            if "mtgId=2611051000000000001" in url:
+                calls.append(url)
+                return R(200, judge)
+            return base(url, timeout)
+        stamp = NOW.isoformat()
+        row = lambda mid, ymd, title: {"mtgId": mid, "mtgSn": "1", "mtgYmd": ymd, "cmitCd": "06", "title": title}  # noqa: E731
+        browser = {"schema": "kr_labor_browser/v1", "commissions": [
+            {"commission": "경북지방노동위원회", "fetchedAt": stamp, "rows": [
+                row("2610151732500052964", "20261103", "조정회의"),      # 첫 화면 칸과 같은 회의 — 한 번만 읽는다
+                row("2611031600000000001", "20261103", "심판회의"),      # 첫 화면 칸 밖 오늘 회의
+                row("2611051000000000001", "20261105", "심판회의"),
+                row("2611101000000000001", "20261110", "2차조정회의"),   # 미리 잡힌 조정회의
+                row("2612011000000000001", "20261201", "심판회의"),      # 14일 넘게 뒤 — 안 읽음
+                {"mtgId": "../x", "mtgSn": "1", "mtgYmd": "20261104", "cmitCd": "06"}]},
+            {"commission": "서울지방노동위원회", "fetchedAt": stamp, "rows": [], "error": "TypeError: Failed to fetch"}]}
+        w.DETAIL_BUDGET, keep = 1, w.DETAIL_BUDGET
+        try:
+            doc = w.run(NOW, None, get=get, sleep=lambda s: None, browser=browser)
+        finally:
+            w.DETAIL_BUDGET = keep
+        read = [u.split("mtgId=")[1].split("&")[0] for u in calls if "detail.do" in u]
+        self.assertEqual(read.count("2610151732500052964"), 1)
+        self.assertIn("2611031600000000001", read)                 # 오늘 회의는 상한과 상관없이 다 읽는다
+        self.assertIn("2611101000000000001", read)                 # 앞으로 회의 1건 상한 — 조정회의가 먼저
+        self.assertNotIn("2611051000000000001", read)
+        self.assertNotIn("2612011000000000001", read)
+        self.assertEqual((doc["calendar"]["left"], doc["calendar"]["meetings"], doc["calendar"]["status"]), (1, 4, "partial"))
+        self.assertIn("서울지방노동위원회", doc["calendar"]["missing"])
+        ev = {e["caseNo"]: e for e in doc["events"]}
+        self.assertEqual(ev["2026부해950"]["company"], "현대제철")
+        fut = [e for e in doc["events"] if e["id"] == "labor:06:2026조정88:2026-11-10"][0]
+        self.assertEqual((fut["tier"], fut["ahead"], fut["prior"]), ("A", 7, ["2026-11-03"]))
+        self.assertEqual(fut["kind"], "노동위 조정 회의 (미리 잡힌 회의) (같은 사건 다시)")
+        self.assertIn("2차조정회의 2026-11-10 10:00 · 사건 2026조정88", fut["text"])
+        self.assertIn("· 미리 잡힌 회의(7일 뒤, 달력) · 같은 사건 앞선 회의 11-03", fut["text"])
+        self.assertEqual(doc["seen"]["06:2611101000000000001:1"], "20261110@20261103")
+        gb = next(c for c in doc["checks"] if c["source"] == "경북지방노동위원회")
+        self.assertEqual((gb["returned"], gb["calendar"], "note" in gb), (1, 4, False))
+        self.assertEqual(doc["counts"]["ahead"], 1)
+        # 다음 날: 남은 회의(11-05)를 읽고, 미리 읽은 회의는 회의일 전이라 다시 안 읽는다
+        calls.clear()
+        doc2 = w.run(NOW + dt.timedelta(days=1), doc, get=get, sleep=lambda s: None, browser=browser)
+        read2 = [u.split("mtgId=")[1].split("&")[0] for u in calls if "detail.do" in u]
+        self.assertIn("2611051000000000001", read2)
+        self.assertNotIn("2611101000000000001", read2)
+        self.assertEqual(doc2["calendar"]["left"], 0)
+        # 회의 당일: 한 번 더 읽되 같은 사건은 다시 알리지 않는다
+        calls.clear()
+        later = dict(browser, commissions=[dict(browser["commissions"][0], fetchedAt=(NOW + dt.timedelta(days=7)).isoformat())])
+        doc3 = w.run(NOW + dt.timedelta(days=7), doc2, get=get, sleep=lambda s: None, browser=later)
+        self.assertIn("2611101000000000001", [u.split("mtgId=")[1].split("&")[0] for u in calls if "detail.do" in u])
+        self.assertEqual(doc3["seen"]["06:2611101000000000001:1"], "20261110")
+        self.assertEqual(sum(1 for e in doc3["events"] if e["id"] == "labor:06:2026조정88:2026-11-10"), 1)
+
+    def test_stale_or_missing_calendar_keeps_widget_cap_note(self):
+        get, _ = site(five=True)
+        old = {"commissions": [{"commission": "중앙노동위원회", "fetchedAt": (NOW - dt.timedelta(days=4)).isoformat(),
+                                "rows": [{"mtgId": "2611101000000000009", "mtgSn": "1", "mtgYmd": "20261104", "cmitCd": "00"}]}]}
+        doc = w.run(NOW, None, get=get, sleep=lambda s: None, browser=old)
+        central = next(c for c in doc["checks"] if c["source"] == "중앙노동위원회")
+        self.assertIn("note", central)
+        self.assertEqual((doc["calendar"]["status"], doc["calendar"]["meetings"]), ("partial", 0))
+        doc = w.run(NOW, None, get=site(five=True)[0], sleep=lambda s: None)
+        self.assertEqual(doc["calendar"]["status"], "unset")
+
     def test_detail_read_is_retried_once(self):
         get, calls = site()
         flaky = {"n": 0}
