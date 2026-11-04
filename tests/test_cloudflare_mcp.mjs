@@ -2705,6 +2705,40 @@ test('노조 성명·보도자료(union-notices): radar_today A·대조 낱말, 
   assert.match((await call('kr_official', { section: 'labor', show_all: true }, opts)).text, /노동절 집회 안내」 · 출입처 현대제철\(본문에만\)/);
 });
 
+test('노동위 ↔ 노조 같은 회사 7일 안 이어 보기: 조정 회의 줄에 노조 글, 노조 글 줄에 노동위 회의, 같은 사건 앞선 회의, 제목에 이름 없는 글·8일 넘은 글은 안 붙음', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const now = new Date(NOW.getTime() - 3600000).toISOString();
+  const day = now.slice(0, 10);
+  const shift = (d) => new Date(Date.parse(`${day}T09:00:00+09:00`) + d * 86400000).toISOString();
+  const nid = `labor:13:2026조정59:${day}`;
+  const notices = [{ id: nid, company: 'LG화학', commission: '충남', commissionName: '충남지방노동위원회', meeting: '2차조정회의', day, time: '15:00',
+    caseNo: '2026조정59', caseName: '주식회사 LG화학 노동쟁의 조정신청사건', party: '주식회사 LG화학', tier: 'A', url: 'https://www.nlrc.go.kr/nlrc/chungnam/meetingSche/detail.do?mtgId=1&cmitCd=13',
+    firstSeen: now, prior: ['2026-10-28'] }];
+  const labor = { schema: 'kr_labor/v1', generatedAt: now, status: 'complete', checks: [{ source: '충남지방노동위원회', status: 'ok', returned: 2 }], counts: {}, seen: {}, notices,
+    events: [{ id: nid, tier: 'A', kind: '노동위 조정 회의 (같은 사건 다시)', company: 'LG화학', commission: '충남지방노동위원회', caseNo: '2026조정59', word: '노동쟁의', url: notices[0].url,
+      detectedAt: now, prior: ['2026-10-28'], text: `충남지방노동위원회 2차조정회의 ${day} 15:00 · 사건 2026조정59 「주식회사 LG화학 노동쟁의 조정신청사건」 · 같은 사건 앞선 회의 10-28` }] };
+  const post = (id, title, company, date, extra = {}) => ({ id, board: '화섬식품노조 보도자료/성명', title, date, companies: [company], company, tier: 'B', inTitle: true,
+    excerpt: '본문', url: `https://kctfu.org/bbs/${id}`, firstSeen: now, ...extra });
+  const posts = [post('un:k:1', '[성명] LG화학 대산공장 교섭 결렬, 쟁의행위 찬반투표 돌입', 'LG화학', shift(-3)),
+    post('un:k:2', '[성명] 화학업계 공동 집회', 'LG화학', shift(-2), { inTitle: false }),
+    post('un:k:3', '[보도자료] LG화학 여수 하청 임금체불', 'LG화학', shift(-9))];
+  const union = { schema: 'union_notices/v1', generatedAt: now, status: 'complete', seen: {}, checks: [{ source: '화섬식품노조 보도자료/성명', status: 'ok', returned: 15 }], posts,
+    events: [{ id: 'un:k:1', tier: 'A', kind: '노조 성명·보도자료', company: 'LG화학', board: posts[0].board, title: posts[0].title, detectedAt: now, url: posts[0].url,
+      text: `화섬식품노조 보도자료/성명 「${posts[0].title}」 · 노조 발표(한쪽 주장)` }] };
+  for (const [feed, doc] of [['kr-labor', labor], ['union-notices', union]]) {
+    assert.equal((await worker.fetch(new Request(ORIGIN + `/ingest/${feed}`, { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
+  }
+  const a = (await call('radar_today', {}, opts)).text.split('[A · ')[1].split('[B · ')[0];
+  const laborLine = a.split('\n').find((l) => l.includes('2026조정59') && l.includes('2차조정회의'));
+  assert.match(laborLine, /같은 사건 앞선 회의 10-28 · 노조 게시판 같은 회사 글\(7일 안\): 「\[성명\] LG화학 대산공장 교섭 결렬, 쟁의행위 찬반투표 돌입」\(화섬식품노조 보도자료\/성명 \d{2}-\d{2}\)$/);
+  assert.doesNotMatch(laborLine, /공동 집회|임금체불/);   // 제목에 이름 없는 글, 9일 앞선 글은 안 붙는다
+  const unionLine = a.split('\n').find((l) => l.includes('교섭 결렬') && l.startsWith('   화섬식품노조'));
+  assert.match(unionLine, / · 노동위 같은 회사 회의\(7일 안\): 충남지방노동위원회 \d{2}-\d{2} 2026조정59 「주식회사 LG화학 노동쟁의 조정신청사건」$/);
+  const k = await call('kr_official', { section: 'labor' }, opts);
+  assert.match(k.text, /A · [^\n]+ · LG화학 · 충남지방노동위원회 2차조정회의 · 사건 2026조정59 「주식회사 LG화학 노동쟁의 조정신청사건」 · 같은 사건 앞선 회의 10-28\n/);
+});
+
 test('지분·자사주 변동(governance): 임원 집단 보고·일상 아닌 자사주 처분은 B, 일상 보상 처분은 숨김', async () => {
   const opts = PRIVATE();
   const env = opts.env;

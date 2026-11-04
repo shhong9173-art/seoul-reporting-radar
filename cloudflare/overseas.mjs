@@ -980,7 +980,8 @@ export async function laborSection(ctx, q, days, limit) {
   const rows = (doc.notices ?? []).filter((n) => String(n.firstSeen) >= from && matches(q, n.company, n.caseName, n.commissionName));
   out.push(`- 출입처 사건 · 최근 ${days}일 ${rows.length}건`);
   for (const n of rows.slice(0, limit)) {
-    out.push(`  ${n.tier} · ${n.day} ${n.time} · ${n.company} · ${n.commissionName} ${n.meeting} · 사건 ${n.caseNo} 「${n.caseName}」`);
+    out.push(`  ${n.tier} · ${n.day} ${n.time} · ${n.company} · ${n.commissionName} ${n.meeting} · 사건 ${n.caseNo} 「${n.caseName}」`
+      + `${(n.prior ?? []).length ? ` · 같은 사건 앞선 회의 ${n.prior.map((d) => String(d).slice(5)).join(', ')}` : ''}`);
     out.push(`     원문: ${n.url}`);
   }
   if (rows.length > limit) out.push(`  … 남은 ${rows.length - limit}건(company 낱말로 좁히기)`);
