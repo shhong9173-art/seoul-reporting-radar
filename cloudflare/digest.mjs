@@ -984,7 +984,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
     if (!recent(e.detectedAt)) continue;
     // 예전 이름('보수·가동중지 전환·해제', 11-03 11:45 첫 읽기 17개 사업장 B)은 C. 새 이름('가동중지 전환·해제')은 굴뚝 감시가 정한 등급 그대로
     const tier = /보수·가동중지 (전환|해제)/.test(e.kind ?? '') ? 'C' : e.tier ?? 'B';
-    push(tier, W['kr-stacks'], { kind: e.kind, id: e.id, date: e.detectedAt, company: e.company, fact: e.text,
+    push(tier, W['kr-stacks'], { kind: e.kind, id: e.id, date: e.detectedAt, company: e.company, site: e.site, fact: e.text,
       check: stackHint(e) });
   }
 
@@ -1178,6 +1178,27 @@ export function background(docs, nowMs) {
   return out;
 }
 
+// 굴뚝 측정 항목이 즉시 알림 대상인지(11-04): ① 같은 출입처·같은 시군을 다른 감시의 새 항목(배경 아님, 킬 안 한 것)이 함께 가리킴,
+// ② 그 사업장에서 평소 움직이던 배출구의 절반 넘게가 사흘 넘게 '가동중지'(사업장이 보낸 시설 멈춤 신고). 아니면 null.
+export const STACK_ALERT_HOURS = 72;
+export function stackAlert(x, conv, stacksDoc, nowMs) {
+  const label = WATCHES.find((w) => w.feed === 'kr-stacks')?.label;
+  if (!label || x.watch !== label || !['A', 'B'].includes(x.tier)) return null;
+  for (const g of conv ?? []) {
+    if (!g.items.some((y) => y.id === x.id)) continue;
+    const others = [...new Set(g.items.filter((y) => !y.background && y.watch !== label).map((y) => y.watch))];
+    if (others.length) return `겹친 신호 — ${g.place}에서 ${others.join('·')}도 이 회사를 가리킴`;
+  }
+  const s = (stacksDoc?.sites ?? []).find((y) => y.company === x.company && (y.name === x.site || String(x.id).includes(`:${y.name}:`)));
+  const m = s?.meaningful ?? 0;
+  if (m >= 2) {
+    const at = (v) => Date.parse(`${String(v ?? '').replace(' ', 'T')}:00+09:00`);
+    const long = Object.values(s.stacks ?? {}).filter((st) => (st.status ?? [])[0] === '가동중지' && nowMs - at(st.status[1]) >= STACK_ALERT_HOURS * 3600000).length;
+    if (long * 2 > m) return `장기 가동중지 신고 — 평소 움직이던 배출구 ${m}개 중 ${long}개가 사흘 넘게 '가동중지'`;
+  }
+  return null;
+}
+
 export function convergence(items, { cut } = {}) {
   const groups = new Map();
   for (const x of items) {
@@ -1264,6 +1285,7 @@ export async function radarTodayData(ctx, args) {
   const rank = (x) => PRESS_RANK[pressOf(x)] ?? 1;
   const byTier = (t) => all.filter((x) => x.tier === t)
     .sort((a, b) => rank(a) - rank(b) || String(b.date ?? '').localeCompare(String(a.date ?? '')));
+  const byTierRows = { A: byTier('A'), B: byTier('B'), C: byTier('C') };
   const h = health(ctx, docs);
   const dh = await dispatchHealth(ctx);
   if (dh) h.unshift(`- ${dh}`);
@@ -1280,6 +1302,9 @@ export async function radarTodayData(ctx, args) {
   // 부지 취득 완료 정정은 10-28 '함평 이전 부지 1160억원에 취득 완료' 기사로 '관련 보도 있음'인데 맨 위에 표시 없이 떴다)
   const coveredGroup = (g) => g.items.filter((x) => !x.background).every((x) => rank(x) === 2);
   conv.sort((a, b) => Number(coveredGroup(a)) - Number(coveredGroup(b)));
+  // 굴뚝 측정 항목의 즉시 알림 대상(11-04 기자 결정: 굴뚝 실시간 신호만 있는 항목 9건을 모두 킬 — '뒷받침할 증거가 없음').
+  // 화면에는 그대로 두고, 아래 둘 중 하나일 때만 〔즉시 알림 대상〕을 붙인다(즉시 알림 예약 작업이 이 표시만 본다).
+  for (const t of ['A', 'B']) for (const x of byTierRows[t]) { const why = stackAlert(x, conv, docs['kr-stacks'], nowMs); if (why) x.alert = why; }
   // Competitor exclusives the radar had first (reverse_prior_capture.py). Shown here too, so the reporter can prepare Y/P/N
   // judgments even when the chat's connector list is stale and scoop_reverse is not offered.
   const rev = await readFeed(ctx, 'reverse-check');
@@ -1294,7 +1319,7 @@ export async function radarTodayData(ctx, args) {
       .sort((a, b) => String(b.published).localeCompare(String(a.published)));
   }
   return { now: ctx.now, hours, monday, defaultHours: !args.hours, q, limit, showC, judged, hiddenBy, press, checked, pressOf, rank,
-    tiers: { A: byTier('A'), B: byTier('B'), C: byTier('C') }, health: h, conv, coveredGroup, rev, firsts, wrote };
+    tiers: byTierRows, health: h, conv, coveredGroup, rev, firsts, wrote };
 }
 
 export async function radarTodayText(ctx, args) {
@@ -1332,7 +1357,7 @@ export async function radarTodayText(ctx, args) {
       out.push(`   ${x.fact}`);
       out.push(...pressLines(checked.get(String(x.id)), kstStamp(press?.generatedAt)));
       const w = d.wrote?.get(String(x.id));
-      out.push(`   ${x.url ? `원문: ${x.url} · ` : ''}자세히: ${x.tool} · id ${x.id}${judged.get(x.id) ? ` 〔판정: ${judged.get(x.id)}〕` : ''}${w ? ` 〔기자 기사(자동 대조) ${String(w.published).slice(5, 10)} 「${String(w.title).slice(0, 40)}」〕` : ''}`);
+      out.push(`   ${x.url ? `원문: ${x.url} · ` : ''}자세히: ${x.tool} · id ${x.id}${judged.get(x.id) ? ` 〔판정: ${judged.get(x.id)}〕` : ''}${w ? ` 〔기자 기사(자동 대조) ${String(w.published).slice(5, 10)} 「${String(w.title).slice(0, 40)}」〕` : ''}${x.alert ? ` 〔즉시 알림 대상: ${x.alert}〕` : ''}`);
     }
     if (rows.length > limit) out.push(`… 남은 ${rows.length - limit}건(limit 또는 company로 좁히기)`);
     if (!rows.length) out.push('없음');
