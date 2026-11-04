@@ -1067,7 +1067,8 @@ function health(ctx, docs) {
     const ageH = /^평일/.test(w.schedule) ? weekdayHours(Date.parse(d.generatedAt), ctx.now.getTime()) : rawH;
     const waiting = (d.checks ?? []).filter((c) => c.status === 'partial' && !c.error && c.pending);  // read budget, not a failure
     const paused = (d.checks ?? []).filter((c) => c.status === 'waiting');  // call budget or provider cooldown: 미확인, not a failure
-    const failed = (d.checks ?? []).filter((c) => c.status && !['ok', 'unset', 'waiting'].includes(c.status) && !waiting.includes(c) && !String(c.source ?? '').startsWith('공장등록 이름 규칙'));
+    // 지분 감시(governance)는 정상 조회를 'checked', 자료 없음을 'no_data'로 적는다(11-04 첫 화면: '일부 실패 102건'으로 잘못 보임)
+    const failed = (d.checks ?? []).filter((c) => c.status && !['ok', 'unset', 'waiting', 'checked', 'no_data'].includes(c.status) && !waiting.includes(c) && !String(c.source ?? '').startsWith('공장등록 이름 규칙'));
     const unset = (d.checks ?? []).filter((c) => c.status === 'unset');
     const issues = [];
     if (Number.isFinite(ageH) && ageH > (w.staleHours ?? 36)) issues.push(`⚠ ${Math.round(rawH)}시간 전 결과`);
