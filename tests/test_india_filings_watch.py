@@ -114,6 +114,19 @@ class Run(unittest.TestCase):
         self.assertEqual((bad["status"], bad["checks"][0]["status"]), ("failed", "failed"))
         self.assertEqual(bad["filings"], doc["filings"])   # 실패해도 보관한 목록은 그대로
 
+    def test_daily_reset_after_late_run_is_not_a_gap(self):
+        # 11-04: RSS는 인도 자정(03:30 KST)에 새로 시작한다. 03:10 칸(인도 23:40) 실행 뒤면 20분만 못 본 것 — '일부'가 아니라 메모
+        late = item("Hyundai Motor India Limited", "HMILNSE_03112026233500_Press.pdf", "Hyundai Motor India Limited has informed the Exchange about Press Release",
+                    "Press Release", "03-Nov-2026 23:35:00")
+        first = item("Amanta Healthcare Limited", "AMANTA_04112026000400_X.pdf", "Amanta Healthcare Limited has informed the Exchange", "Updates", "04-Nov-2026 00:04:00")
+        get, _ = fake(rss(HMIL_TRANSCRIPT, late))
+        at = dt.datetime(2026, 11, 4, 3, 10, tzinfo=KST)
+        doc = w.run(at, None, get=get, sleep=lambda s: None)
+        get2, _ = fake(rss(first, HMIL_BOARD))
+        doc2 = w.run(at + dt.timedelta(hours=10), doc, get=get2, sleep=lambda s: None)
+        self.assertEqual((doc2["status"], doc2["checks"][0]["status"]), ("complete", "ok"))
+        self.assertEqual(doc2["checks"][0]["reset"], "RSS가 인도 자정(03:30 KST)에 새로 시작 — 직전 실행(03:10) 뒤 20분은 못 봄")
+
 
 if __name__ == "__main__":
     unittest.main()

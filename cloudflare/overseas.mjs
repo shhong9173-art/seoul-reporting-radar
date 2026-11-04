@@ -207,7 +207,7 @@ export function indiaSection(doc, q = '', onlyNew = false, limit = 20, routine =
   const rows = base.filter((x) => routine || x.tier !== 'C');
   const c = (doc.checks ?? [])[0] ?? {};
   const out = [`\n[인도 법인 공시 · 현대차 인도법인(NSE) · 확인 ${String(doc.generatedAt).slice(0, 16)}${ctx ? ageNote(ctx, doc.generatedAt) : ''}] ${rows.length}건`
-    + ` · 원천 NSE 공시 RSS ${c.status ?? '?'}${c.error ? `(${c.error})` : ''}${c.note ? ` · ${c.note}` : ''}`];
+    + ` · 원천 NSE 공시 RSS ${c.status ?? '?'}${c.error ? `(${c.error})` : ''}${c.note ? ` · ${c.note}` : ''}${c.reset ? ` · ${c.reset}` : ''}`];
   for (const x of rows.slice(0, limit)) {
     out.push(`- ${newIds.has(x.id) ? '[신규] ' : x.baseline ? '[기준선] ' : ''}${x.tier} · ${String(x.published ?? '').slice(0, 16).replace('T', ' ')} KST · ${x.issuer} · ${x.subject || '종류 미기재'}`);
     if (x.desc) out.push(`   설명: 「${String(x.desc).slice(0, 240)}」`);

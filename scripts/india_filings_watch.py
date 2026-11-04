@@ -113,6 +113,21 @@ def run(now, previous=None, *, get=None, sleep=time.sleep):
     span = {"oldest": times[0] if times else None, "newest": times[-1] if times else None}
     # 직전 실행의 가장 새 공시보다 이번 RSS의 가장 오래된 공시가 늦으면 그 사이를 못 봤을 수 있다
     gap = bool(prev.get("span", {}).get("newest") and span["oldest"] and span["oldest"] > prev["span"]["newest"])
+    # 11-04: RSS는 인도 자정(03:30 KST)에 하루치를 새로 시작한다(05:04 실행이 13건, 03:34부터). 직전 실행이 자정 전 60분 안(03:10 칸)이면
+    # 그 뒤 몇 분만 못 본 것이라 '일부'로 올리지 않고 메모로 남긴다. 그보다 앞(22:10 칸)이면 그날 인도 저녁 공시를 못 봤을 수 있어 '일부'.
+    reset_note = None
+    if gap:
+        try:
+            last = dt.datetime.fromisoformat(str(prev.get("generatedAt")))
+            reset = last.astimezone(KST).replace(hour=3, minute=30, second=0, microsecond=0)
+            if reset <= last:
+                reset += dt.timedelta(days=1)
+            oldest = dt.datetime.fromisoformat(span["oldest"]).astimezone(KST)
+            if oldest >= reset and (reset - last) <= dt.timedelta(minutes=60):
+                gap = False
+                reset_note = f"RSS가 인도 자정(03:30 KST)에 새로 시작 — 직전 실행({last.astimezone(KST):%H:%M}) 뒤 {int((reset - last).total_seconds() // 60)}분은 못 봄"
+        except (TypeError, ValueError):
+            pass
     pdfs = 0
     for x in rows:
         comp = beat_of(x["company"])
@@ -146,11 +161,12 @@ def run(now, previous=None, *, get=None, sleep=time.sleep):
             "baselineAt": prev.get("baselineAt") or stamp, "span": span,
             "checks": [{"source": "NSE 공시 RSS", "status": "ok" if not gap else "partial", "returned": len(rows),
                         "note": f"RSS가 덮는 시간 {span['oldest'][:16] if span['oldest'] else '?'} ~ {span['newest'][:16] if span['newest'] else '?'}",
-                        **({"error": "직전 실행 뒤 공시 일부가 RSS에서 밀려났을 수 있음"} if gap else {})}],
+                        **({"error": "직전 실행 뒤 공시 일부가 RSS에서 밀려났을 수 있음"} if gap else {}),
+                        **({"reset": reset_note} if reset_note else {})}],
             "filings": filings[:300], "events": sorted((e for e in events if str(e.get("detectedAt")) >= keep), key=lambda e: e["detectedAt"], reverse=True)[:200],
             "rules": ["NSE(인도 국립증권거래소) 공시 RSS에서 현대차 인도법인(Hyundai Motor India Limited) 공시만. 현대차 자회사(별도 상장사)라 기사에는 인도법인으로 구분한다.",
                       "인수·합병·설비·생산능력·로열티·특수관계 거래 낱말 A, 이사회 결과·보도자료·임원 변경 등 B, 녹취록·거래 제한·신문 공고·애널리스트 미팅 안내 C. 낱말 분류일 뿐 — 내용은 첨부 PDF 원문.",
-                      "첫 실행은 기준선. RSS는 최신 약 1,400건뿐이라 실행 사이 공시가 밀려나면 못 볼 수 있다(그때는 '일부'로 표시). 조회 실패는 0건이 아니라 미확인."]}
+                      "첫 실행은 기준선. RSS는 인도 자정(03:30 KST)에 하루치를 새로 시작한다 — 평일 22:10 실행 뒤 인도 저녁 공시는 화~토 03:10 실행이 읽는다. 실행 사이 공시가 밀려나면 못 볼 수 있다(그때는 '일부'로 표시). 조회 실패는 0건이 아니라 미확인."]}
 
 
 def main():
