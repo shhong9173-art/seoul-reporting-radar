@@ -182,6 +182,10 @@ class Treasury(unittest.TestCase):
         self.assertIn('처분목적 "임직원 지급을 위한 자기주식 처분" · 2,461,991주·136.9억원 · 처분 전 보유 2,461,991주의 100% · 방법 기타', kg["reason"])
         hmc = g.treasury_item("현대자동차", "자동차", HMC_TREASURY_ROW, "2026-03-01")
         self.assertEqual((hmc["routine"], hmc["tags"]), (True, ["[처분목적: 임직원 보상]"]))   # 보유분의 2.5% — 해마다 하는 임원 지급
+        # 11-04 첫 화면: 임단협 주식 지급(기아 보유분 100%)은 해마다 임단협 결과와 함께 보도 — 일상
+        kia = g.treasury_item("기아", "자동차", {"rcept_no": "20261030000550", "dp_pp": "2026년 임금협상 결과에 따른 회사주식 지급",
+                                               "aq_wtn_div_ostk": "1,756,955", "dppln_stk_ostk": "1,754,496", "dppln_prc_ostk": "190,010,000,000"}, "2026-10-01")
+        self.assertEqual((kia["routine"], kia["tags"]), (True, ["[처분목적: 임단협 주식 지급]", "[보유 자사주의 100%]"]))
 
     def test_insider_group_after_disposal_is_linked(self):
         g.BEATS[:] = [("철강·비철", ["KG스틸"])]

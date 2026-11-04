@@ -2696,7 +2696,8 @@ test('지분·자사주 변동(governance): 임원 집단 보고·일상 아닌 
   const opts = PRIVATE();
   const env = opts.env;
   const today = new Date(NOW.getTime() - 3600000).toISOString().slice(0, 10);
-  const doc = { schema: 'governance/v1', generatedAt: new Date(NOW.getTime() - 3600000).toISOString(), status: 'complete', checks: [], items: [
+  const doc = { schema: 'governance/v1', generatedAt: new Date(NOW.getTime() - 3600000).toISOString(), status: 'complete',
+    checks: [{ company: 'KG스틸', endpoint: 'elestock.json', status: 'checked' }, { company: 'KG스틸', endpoint: 'tsstkDpDecsn.json', status: 'no_data' }], items: [
     { company: 'KG스틸', team: '철강·비철', kind: '자사주 처분 결정', date: today, receiptNo: '20261015000414', reporter: 'KG스틸',
       reason: '처분목적 "임직원 지급을 위한 자기주식 처분" · 2,461,991주·136.9억원 · 처분 전 보유 2,461,991주의 100% · 방법 기타', period: '2026년 10월 16일~2027년 01월 15일',
       tags: ['[처분목적: 임직원 보상]', '[보유 자사주의 100%]'], routine: false, url: 'https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261015000414' },
@@ -2710,6 +2711,7 @@ test('지분·자사주 변동(governance): 임원 집단 보고·일상 아닌 
   assert.match(b, /지분·자사주 변동 · KG스틸\n   KG스틸 자기주식 처분 결정 — 처분목적 "임직원 지급을 위한 자기주식 처분" · 2,461,991주·136\.9억원 · 처분 전 보유 2,461,991주의 100% · 방법 기타 · 처분 기간 2026년 10월 16일~2027년 01월 15일 \[처분목적: 임직원 보상\] \[보유 자사주의 100%\]/);
   assert.match(b, /KG스틸 임원·주요주주 15명 같은 날 지분 보고 — 매수 15명·매도 0명[^\n]*주식 보상 지급으로 보임 \[같은 날 15명 보고\] \[자사주 처분 연결\]/);
   assert.doesNotMatch(r.text, /임원 대상 자기주식 지급/);   // 보유분 일부의 해마다 하는 임원 지급은 일상
+  assert.doesNotMatch(r.text, /지분·자사주 변동: 일부 실패/);   // 'checked'·'no_data'는 정상(11-04 첫 화면 '일부 실패 102건')
   const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
   assert.deepEqual(items.items.find((x) => x.id === 'treasury:20261015000414').check.terms, ['자사주']);
 });

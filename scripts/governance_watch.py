@@ -53,7 +53,10 @@ CONTROL = re.compile(r"경영(권|참가|참여)|보유목적|목적\s*변경|�
 PLAIN_REASON = re.compile(r"단순\s*(추가)?\s*취득\s*(/|및|·)?\s*(처분)?|단순\s*처분|장내\s*(매수|매도)")
 TOP_EXEC = re.compile(r"회장|부회장|사장|대표이사")
 GROUP_MIN = 5  # same company, same day, this many insider reports → one grouped line
-TREASURY_COMP = re.compile(r"임직원|임원|직원|보상|상여|성과|우리사주|스톡|주식\s*기준")
+TREASURY_COMP = re.compile(r"임직원|임원|직원|보상|상여|성과|우리사주|스톡|주식\s*기준|임금\s*협상|단체\s*교섭|임단협|회사\s*주식\s*지급|주식\s*지급")
+# 임단협 타결에 따른 전 직원 주식 지급(11-04 첫 화면: 기아 1,754,496주·현대차 917,385주 — 보유분 거의 전부)은 해마다 임단협 결과와 함께
+# 보도되는 지급이라 보유분 비율과 상관없이 일상으로 둔다
+TREASURY_UNION = re.compile(r"임금\s*협상|단체\s*교섭|임단협|노사\s*합의")
 TREASURY_BIG = 0.5    # 처분 예정 주식 / 처분 전 보유 자사주(보통주) — 이 이상이면 일상 보상이 아니다
 TREASURY_LINK_DAYS = 60   # 처분 결정 뒤 이 기간 안의 임원 집단 보고는 그 처분과 이어 보여 준다
 SCHEMA = "governance/v1"
@@ -190,10 +193,11 @@ def treasury_item(company, team, row, start):
     methods = [label for k, label in (("dp_m_mkt", "장내"), ("dp_m_ovtm", "시간외대량"), ("dp_m_otc", "장외"), ("dp_m_etc", "기타"))
                if num(row.get(k))]
     comp = bool(TREASURY_COMP.search(purpose))
-    tags = ["[처분목적: 임직원 보상]" if comp else f"[처분목적: {purpose[:24]}]"]
+    union = bool(TREASURY_UNION.search(purpose))
+    tags = ["[처분목적: 임단협 주식 지급]" if union else "[처분목적: 임직원 보상]" if comp else f"[처분목적: {purpose[:24]}]"]
     if share is not None and share >= TREASURY_BIG:
         tags.append(f"[보유 자사주의 {min(share, 1) * 100:.0f}%]")
-    routine = comp and not (share is not None and share >= TREASURY_BIG)
+    routine = union or (comp and not (share is not None and share >= TREASURY_BIG))
     eok = f"{amount / 1e8:,.1f}억원" if amount else "금액 미기재"
     return {
         "company": company, "team": team, "kind": "자사주 처분 결정", "date": date, "inWindow": date >= start,
