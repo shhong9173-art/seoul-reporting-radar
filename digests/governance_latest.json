@@ -1,7 +1,7 @@
 {
  "schema": "governance/v1",
- "generatedAt": "2026-11-04T09:08:03+09:00",
- "windowStart": "2026-10-05",
+ "generatedAt": "2026-11-05T07:43:53+09:00",
+ "windowStart": "2026-10-06",
  "windowDays": 30,
  "source": "OpenDART 지분공시 종합정보(majorstock·elestock)·주요사항보고서 자기주식 처분 결정(tsstkDpDecsn)",
  "status": "complete",
@@ -290,8 +290,8 @@
    "company": "세아제강",
    "endpoint": "elestock.json",
    "status": "checked",
-   "rowsReturned": 2,
-   "rowsInWindow": 0
+   "rowsReturned": 3,
+   "rowsInWindow": 1
   },
   {
    "company": "세아제강",
@@ -726,8 +726,26 @@
  "dartSpellings": {
   "동성케미칼": "동성케미컬"
  },
- "count": 44,
+ "count": 45,
  "items": [
+  {
+   "company": "세아제강",
+   "team": "철강·비철",
+   "kind": "임원·주요주주",
+   "date": "2026-11-04",
+   "receiptNo": "20261104000253",
+   "reporter": "이주성",
+   "role": "등기임원 사장 사실상지배주주",
+   "shares": 15000.0,
+   "sharesChange": 1704.0,
+   "ratio": 0.52,
+   "ratioChange": 0.06,
+   "tags": [
+    "[최고경영진]"
+   ],
+   "routine": false,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261104000253"
+  },
   {
    "company": "금호석유화학",
    "team": "화학·소재",
