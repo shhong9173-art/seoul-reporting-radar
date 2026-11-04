@@ -102,7 +102,7 @@ const LABOR_ROW = /^(\d{10,22})\/(\d{1,3})\/(\d{8})\/([^/]{0,40})$/;
 const LABOR_BLOB = 'kr_labor_browser';
 const LABOR_SCHEMA = 'kr_labor_browser/v1';
 const MAX_LABOR_ROWS = 300;
-const LABOR_DISPATCH_GAP_MS = 6 * 3600000;  // 아침(08:40)·오후(16:40) 수집마다 한 번씩
+const LABOR_DISPATCH_GAP_MS = 5 * 3600000;  // 아침(08:40)·오후(16:40) 수집마다 한 번씩
 const DAY = (d) => d.toISOString().slice(0, 10).replaceAll('-', '');
 
 async function submitLabor(ctx, given, nowIso) {
@@ -159,7 +159,10 @@ async function submitLabor(ctx, given, nowIso) {
 export async function localNoticeSubmit(ctx, args) {
   const given = Array.isArray(args.cities) ? args.cities : [];
   const pages = Array.isArray(args.pages) ? args.pages : [];
-  const labor = Array.isArray(args.labor) ? args.labor : [];
+  // 도구 목록을 아직 옛것으로 가진 클라이언트는 새 인자(labor)를 JSON 글자로 넘긴다(11-04 확인) — 글자면 한 번 풀어 본다
+  let labor = args.labor;
+  if (typeof labor === 'string') { try { labor = JSON.parse(labor); } catch { labor = []; } }
+  labor = Array.isArray(labor) ? labor : [];
   if (!given.length && !pages.length && !labor.length) return textResult('cities·pages·labor가 비었음 — 저장하지 않음.', true);
   const nowIso = ctx.now.toISOString();
   const laborResult = labor.length ? await submitLabor(ctx, labor, nowIso) : { lines: [] };

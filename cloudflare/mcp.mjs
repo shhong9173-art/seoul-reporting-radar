@@ -130,7 +130,7 @@ export const TOOLS = [
     description: `후보를 재점검해 저장(하루 추천 ${POLICY.dailyLimit}건 한도, 같은 날 중복 제목 제외).`,
     inputSchema: obj({ candidates: { type: 'array', items: CANDIDATE_SCHEMA, maxItems: 10 } }, ['candidates']) },
   { name: 'local_notice_submit', access: 'private', handler: localNoticeSubmit,
-    description: `기자 컴퓨터 브라우저로 읽은 목록 올리기(예약 작업용). cities: 해외 IP에서 막히는 시·군 새올 고시·공고(${Object.keys(BROWSER_CITIES).join('·')}) — 목록 첫 쪽 줄마다 관리번호(searchDetail 안 숫자)와 칸 글자만, 저장 뒤 지자체 고시·공고 감시를 한 번 실행 요청(1시간 안 재요청 없음). pages: 해외 IP에서 막히는 무역구제 공고 목록(${Object.keys(BROWSER_PAGES).join('·')}) — 한국이 든 줄의 칸 글자와 그 줄 링크(같은 사이트)만, 다음 정기 무역구제 감시에 반영. labor: 노동위원회 회의일정 달력(중앙·지방 14곳)이 돌려준 회의마다 '회의번호/순번/회의일/회의명' 한 줄(오늘부터 45일 안), 저장 뒤 노동위 회의 감시를 한 번 실행 요청(6시간 안 재요청 없음). 글자를 고치거나 요약하지 말 것. 읽지 못한 곳은 rows 없이 error에 이유.`,
+    description: `기자 컴퓨터 브라우저로 읽은 목록 올리기(예약 작업용). cities: 해외 IP에서 막히는 시·군 새올 고시·공고(${Object.keys(BROWSER_CITIES).join('·')}) — 목록 첫 쪽 줄마다 관리번호(searchDetail 안 숫자)와 칸 글자만, 저장 뒤 지자체 고시·공고 감시를 한 번 실행 요청(1시간 안 재요청 없음). pages: 해외 IP에서 막히는 무역구제 공고 목록(${Object.keys(BROWSER_PAGES).join('·')}) — 한국이 든 줄의 칸 글자와 그 줄 링크(같은 사이트)만, 다음 정기 무역구제 감시에 반영. labor: 노동위원회 회의일정 달력(중앙·지방 14곳)이 돌려준 회의마다 '회의번호/순번/회의일/회의명' 한 줄(오늘부터 45일 안), 저장 뒤 노동위 회의 감시를 한 번 실행 요청(5시간 안 재요청 없음). 글자를 고치거나 요약하지 말 것. 읽지 못한 곳은 rows 없이 error에 이유.`,
     inputSchema: obj({ labor: { type: 'array', maxItems: 14, items: obj({ commission: { type: 'string', enum: BROWSER_LABOR },
       rows: { type: 'array', maxItems: 300, items: { type: 'string' }, description: "회의마다 '회의번호/순번/회의일/회의명' 한 줄(예: 2611021110520048685/4/20261104/조정회의)" },
       error: str('읽지 못했을 때 이유') }, ['commission']) },
