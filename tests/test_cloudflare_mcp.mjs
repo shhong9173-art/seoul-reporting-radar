@@ -1074,6 +1074,38 @@ test('converging signals: background (workforce project, recent permit, stopped 
   assert.ok(!g.some((x) => x.place === '당진'));
 });
 
+test('굴뚝 즉시 알림 대상(11-04 기자 결정): 다른 감시가 같은 회사·시군을 가리키거나 배출구 절반 넘게 사흘 넘게 가동중지일 때만 표시', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const recent = new Date(NOW.getTime() - 2 * 3600000).toISOString();
+  const kst = (h) => new Date(NOW.getTime() + 9 * 3600000 - h * 3600000).toISOString().slice(0, 16).replace('T', ' ');
+  const post = (feed, doc) => worker.fetch(new Request(ORIGIN + `/ingest/${feed}`, { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {});
+  const ev = (id, kind, tier, company, site, text) => ({ id, kind, tier, company, site, text, detectedAt: recent });
+  const halt = (h) => ({ status: ['가동중지', kst(h)], obs: [] });
+  await post('kr-stacks', { schema: 'kr_stacks/v1', generatedAt: recent, status: 'complete', baselineSince: '2026-10-01T00:00:00+09:00', checks: [{ source: '굴뚝 자동측정(CleanSYS)', status: 'ok' }],
+    sites: [
+      { id: '현대제철:현대제철(주)순천공장', company: '현대제철', name: '현대제철㈜순천공장', stopped: ['81'], meaningful: 7, stacks: { 81: halt(80) } },
+      { id: 'KG스틸:케이지스틸(주)인천공장', company: 'KG스틸', name: '케이지스틸㈜ 인천공장', stopped: ['5', '6', '9', '10'], meaningful: 6,
+        stacks: { 5: halt(90), 6: halt(90), 9: halt(80), 10: halt(75), 12: halt(20), 11: { obs: [] } } },
+      { id: '세아:(주)세아창원특수강', company: '세아', name: '㈜세아창원특수강', stopped: ['191'], meaningful: 9, stacks: { 191: halt(100) } }],
+    events: [
+      ev('stk:down:현대제철:현대제철(주)순천공장:d', '사업장 가동 중단 신호', 'A', '현대제철', '현대제철㈜순천공장', '현대제철㈜순천공장: 평소 움직이던 배출구 7개 중 4개가 3번 연속 평소의 10% 아래'),
+      ev('stk:down:KG스틸:케이지스틸(주)인천공장:d', '사업장 가동 중단 신호', 'A', 'KG스틸', '케이지스틸㈜ 인천공장', '케이지스틸㈜ 인천공장: 평소 움직이던 배출구 6개 중 4개가 3번 연속 평소의 10% 아래'),
+      ev('stk:longstop:세아:(주)세아창원특수강:191:d', '배출구 오래 멈춤', 'B', '세아', '㈜세아창원특수강', '㈜세아창원특수강: 배출구 1개가 사흘 넘게 평소의 10% 아래')] });
+  await post('kr-workforce', { schema: 'kr_workforce/v1', generatedAt: recent, month: '202610', sites: [], projects: [], checks: [], events: [
+    { id: 'wf:delta:현대제철:순천', kind: '인력 감소', tier: 'B', company: '현대제철', month: '202610', detectedAt: recent, text: '현대제철(전라남도 순천시) 국민연금 가입자 1,020→940명(-80명)' }] });
+  const r = (await call('radar_today', {}, opts)).text;
+  const idLine = (id) => r.split('\n').find((l) => l.includes(`id ${id}`) && l.includes('자세히:'));
+  assert.match(idLine('stk:down:현대제철:현대제철(주)순천공장:d'), /〔즉시 알림 대상: 겹친 신호 — 순천에서 사업장 인력\(국민연금\)도 이 회사를 가리킴〕$/);
+  assert.match(idLine('stk:down:KG스틸:케이지스틸(주)인천공장:d'), /〔즉시 알림 대상: 장기 가동중지 신고 — 평소 움직이던 배출구 6개 중 4개가 사흘 넘게 '가동중지'〕$/);
+  assert.doesNotMatch(idLine('stk:longstop:세아:(주)세아창원특수강:191:d'), /즉시 알림 대상/);   // 굴뚝 신호만(9개 중 1개)
+  assert.doesNotMatch(idLine('wf:delta:현대제철:순천'), /즉시 알림 대상/);   // 굴뚝 아닌 항목엔 붙이지 않는다
+  // 겹친 신호를 킬하면 그 항목은 증거로 세지 않는다
+  await call('candidate_feedback', { item_id: 'wf:delta:현대제철:순천', verdict: '킬', reason: '작음' }, opts);
+  const r2 = (await call('radar_today', {}, opts)).text;
+  assert.doesNotMatch(r2.split('\n').find((l) => l.includes('id stk:down:현대제철:현대제철(주)순천공장:d') && l.includes('자세히:')), /즉시 알림 대상/);
+});
+
 test('converging signals: the new item comes first and background from one watch is one line (10-31 금호타이어 함평)', () => {
   const g = { company: '금호타이어', place: '함평', items: [
     { id: 'bg:wf:a', background: true, tier: 'A', watch: '사업장 인력(국민연금)', date: '2026-10-30T09:43:00+09:00', fact: '국민연금 공사 현장 「금호타이어함평공장정련동외철근콘크리트공사」 현장 1곳' },
