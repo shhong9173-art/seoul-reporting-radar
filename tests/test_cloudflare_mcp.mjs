@@ -1572,11 +1572,12 @@ test('주간 점검: 즉시 알림 성적(보낸 id ↔ 판정), 킬이 몰린 �
   await call('candidate_feedback', { item_ids: lab.map((x) => x.id), verdict: '킬', reason: '조정 신청만으로는 약함' }, opts);
   await call('candidate_feedback', { item_ids: stk.map((x) => x.id), verdict: '킬', reason: '굴뚝 신호만' }, opts);
   await call('package_save', { name: `alert-${day.replaceAll('-', '')}`, state: '미발제·확인 필요', title: '단독 후보 즉시 알림',
-    body: `[단독 후보 알림 10:45] 4건\n…\n보낸 id: ${stk[0].id}, ${lab[0].id}, ${lab[1].id}, ${lab[2].id}` }, opts);
+    body: `[단독 후보 알림 10:45] 4건\n…\n보낸 id: ${stk[0].id}, ${lab[0].id}, ${lab[1].id}, ${lab[2].id}, ins:000249:20263030000212:72:1` }, opts);
   const r = (await call('candidate_weekly_review', {}, opts)).text;
   assert.match(r, /노동위 회의\(조정·심판\): 5개 중 킬 5 — 등급·문턱 점검 후보 · 킬 사유 '조정 신청만으로는 약함'\(5\) · 제안: 즉시 알림·아침 발제는 다른 감시와 겹칠 때만/);
   assert.match(r, /굴뚝 측정\(공장 가동 신호\): 5개 중 킬 5 — 11-04에 기준을 이미 바꿈\(즉시 알림·아침 발제는 〔즉시 알림 대상〕[^)]*\)[^·]*· 바뀐 뒤 판정 0건\(킬 0\)이라 아직 판단 안 함/);
-  assert.match(r, /\[즉시 알림 성적 · 최근 7일\] 알림 1일치 · 보낸 항목 4건 — 킬 4/);
+  assert.match(r, /\[즉시 알림 성적 · 최근 7일\] 알림 1일치 · 보낸 항목 5건 — 킬 4 · 판정 없음 1/);
+  assert.match(r, /- 협력사 회생·파산 1 — 판정 없음 1/);   // 목록에 없는 id는 앞말로 감시를 짐작
   assert.match(r, /- 노동위 회의\(조정·심판\) 3 — 킬 3 · 제안: 이 감시 즉시 알림 기준 좁히기/);   // id 안 쉼표('8x,82')에도 4건으로 나눔
   assert.match(r, /- 굴뚝 측정\(공장 가동 신호\) 1 — 킬 1 · 11-04 기준 변경 뒤 보낸 것 0건/);
 });

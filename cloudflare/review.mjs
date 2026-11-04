@@ -2,7 +2,7 @@
 // (watch, kind such as 'DART 채무보증', tier, '일상' flag) so the review can show which watches and filing types
 // the reporter actually uses or kills. It only shows counts — weights and tier rules never change automatically.
 import { storeOp, candidateFeedback } from './store.mjs';
-import { itemIndex } from './digest.mjs';
+import { itemIndex, WATCHES } from './digest.mjs';
 import { clampInt, kstStamp, textResult } from './common.mjs';
 import { readFeed, ageNote } from './screen.mjs';
 import { reverseTallyLines } from './overseas.mjs';
@@ -49,8 +49,12 @@ async function alertLines(ctx, days, judgedById, index) {
     for (const id of line ? line[1].split(/,\s+/).map((x) => x.trim()).filter(Boolean) : []) if (!sent.some((x) => x.id === id)) sent.push({ id, day: name.slice(6) });
   }
   const real = (w) => (w && !String(w).startsWith('감시 미상') ? w : null);
-  const watchOf = (id) => real(judgedById.get(id)?.watch) || real(index.get(id)?.watch)
-    || (/^stk:/.test(id) ? '굴뚝 측정(공장 가동 신호)' : /^labor:/.test(id) ? '노동위 회의(조정·심판)' : '감시 미상');
+  // 판정·지금 목록에 없는 id는 앞말로 감시를 짐작한다(11-03 알림의 회생 공고 'ins:'가 '감시 미상'으로 떴다)
+  const PREFIX = { stk: 'kr-stacks', labor: 'kr-labor', ins: 'kr-insolvency', un: 'union-notices', clik: 'council-minutes', fac: 'kr-official',
+    wf: 'kr-workforce', local: 'kr-local', bld: 'kr-building', edgar: 'partner-filings', nse: 'india-filings', clue: 'scoop-screen', gl: 'global-beat',
+    gov: 'governance', cp: 'dart-counterparty' };
+  const byPrefix = (id) => WATCHES.find((w) => w.feed === PREFIX[String(id).split(':')[0]])?.label;
+  const watchOf = (id) => real(judgedById.get(id)?.watch) || real(index.get(id)?.watch) || byPrefix(id) || '감시 미상';
   const rowsOut = sent.map((x) => ({ ...x, watch: watchOf(x.id), verdict: judgedById.get(x.id)?.verdict ?? '판정 없음', r: judgedById.get(x.id) }));
   const count = (rs) => ['씀', '킬', '보류', '봤음', '판정 없음'].map((v) => [v, rs.filter((x) => x.verdict === v).length]).filter(([, n]) => n).map(([v, n]) => `${v} ${n}`).join(' · ');
   const out = [`\n[즉시 알림 성적 · 최근 ${days}일] 알림 ${names.length}일치 · 보낸 항목 ${rowsOut.length}건 — ${count(rowsOut)}`];
