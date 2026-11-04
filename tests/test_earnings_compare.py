@@ -228,6 +228,22 @@ class Earnings(unittest.TestCase):
         self.assertEqual(next(x for x in again["leads"] if x["id"] == lead["id"])["firstSeen"], "2026-11-12T18:40:00+09:00")
         self.assertTrue(all(x["firstSeen"] for x in again["leads"]))
 
+    def test_peer_comparison_skips_suspicious_salary_and_scope_changes(self):
+        # 11-04 반기 실제 실행: HD현대일렉트릭 직원 2,207→2,207명인데 평균 급여 -49.3%가 '혼자 반대 방향'으로 떴다
+        def co(name, emp, sal, count=100, prior=100):
+            return {"company": name, "status": "filed", "cumulative": {"deltaPp": {}}, "capex": {},
+                    "employees": {"changePct": emp, "salaryPct": sal, "count": count, "priorCount": prior}}
+        companies = [co("HD현대일렉트릭", 0.0, -49.3, 2207, 2207), co("엘에스일렉트릭", 3.0, 9.6, 103, 100), co("대한전선", 2.5, 10.5, 102, 100),
+                     co("두산에너빌리티", 40.0, 12.0, 140, 100)]
+        v = ec.peers(companies, "2026년 반기")
+        self.assertFalse(any(x["company"] == "HD현대일렉트릭" and x["metric"] == "salaryPct" for x in v["leads"]))
+        g = next(x for x in v["groups"] if x["group"] == "전력기기·전선")
+        self.assertIn(["HD현대일렉트릭", "salaryPct", "평균 급여 -49.3% — 공시 급여 총액·기간 확인 전 업종 비교에서 뺌"], g["skipped"])
+        self.assertIn(["두산에너빌리티", "employeesPct", "직원 수 +40.0% — 합병·분할 등 범위 변화 확인 전 업종 비교에서 뺌"], g["skipped"])
+        self.assertNotIn("두산에너빌리티", [n for n, _ in g["metrics"]["employeesPct"]["values"]])
+        same = ec.skipped_metrics(co("x", 0.0, -12.0, 50, 50))
+        self.assertEqual(same, {"salaryPct": "직원 수가 전년과 똑같은데 급여만 크게 바뀜 — 자료 확인 전 업종 비교에서 뺌"})
+
     def test_annual_report_compares_with_the_prior_year(self):
         body = {"status": "000", "list": [
             {"rcept_no": "20270310000111", "sj_div": "IS", "account_id": "ifrs-full_Revenue", "account_nm": "매출액",

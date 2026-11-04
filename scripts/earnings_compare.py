@@ -397,6 +397,23 @@ def stamp_peers(view, now):
     return view
 
 
+# 업종 비교에서 빼는 값(11-04 반기 실제 실행): HD현대일렉트릭 직원 2,207→2,207명인데 평균 급여 -49.3% — 자료 이상으로 보인다.
+# 직원 수가 30% 넘게 바뀌면 합병·분할 같은 범위 변화일 수 있어 직원·급여 비교에서 뺀다(회사 줄에는 그대로 남는다).
+SALARY_LIMIT, HEADCOUNT_LIMIT = 30.0, 30.0
+
+
+def skipped_metrics(c):
+    e = c.get("employees") or {}
+    out = {}
+    if e.get("changePct") is not None and abs(e["changePct"]) >= HEADCOUNT_LIMIT:
+        out["employeesPct"] = out["salaryPct"] = f"직원 수 {e['changePct']:+.1f}% — 합병·분할 등 범위 변화 확인 전 업종 비교에서 뺌"
+    if e.get("salaryPct") is not None and abs(e["salaryPct"]) >= SALARY_LIMIT:
+        out["salaryPct"] = f"평균 급여 {e['salaryPct']:+.1f}% — 공시 급여 총액·기간 확인 전 업종 비교에서 뺌"
+    elif e.get("salaryPct") is not None and e.get("count") and e.get("count") == e.get("priorCount") and abs(e["salaryPct"]) >= 10:
+        out["salaryPct"] = "직원 수가 전년과 똑같은데 급여만 크게 바뀜 — 자료 확인 전 업종 비교에서 뺌"
+    return out
+
+
 def metric_values(c):
     """업종 비교에 쓰는 회사 지표(누적 기준 — 사업보고서는 연간)."""
     if c.get("status") != "filed":
@@ -406,7 +423,8 @@ def metric_values(c):
     e = c.get("employees") or {}
     out = {"opMarginPp": d.get("opMargin"), "costRatioPp": d.get("costRatio"),
            "capexPct": (c.get("capex") or {}).get("changePct"), "employeesPct": e.get("changePct"), "salaryPct": e.get("salaryPct")}
-    return {k: v for k, v in out.items() if v is not None}
+    skip = skipped_metrics(c)
+    return {k: v for k, v in out.items() if v is not None and k not in skip}
 
 
 def fmt_value(metric, v):
@@ -423,7 +441,8 @@ def peers(companies, period_label, previous=None):
     groups, leads = [], []
     for group, names in PEER_GROUPS:
         filed = [n for n in names if by_name.get(n, {}).get("status") == "filed"]
-        g = {"group": group, "members": names, "filed": filed, "metrics": {}}
+        g = {"group": group, "members": names, "filed": filed, "metrics": {},
+             "skipped": [[n, m, why] for n in filed for m, why in skipped_metrics(by_name[n]).items()]}
         for metric, (label, unit, eps, gap) in PEER_METRICS.items():
             vals = [(n, metric_values(by_name[n]).get(metric)) for n in filed]
             vals = [(n, v) for n, v in vals if v is not None]
@@ -459,7 +478,9 @@ def peers(companies, period_label, previous=None):
     return {"groups": groups, "leads": leads,
             "rules": ["같은 업종 3곳 넘게 제출해야 후보를 만든다(2곳은 값만).", "누적(사업보고서는 연간) 기준 · 연결 우선 — 회사마다 연결 범위가 달라 참고용.",
                       "숫자는 공시 값이고 원인은 회사 확인 전 미확인. '혼자 반대 방향'은 나머지가 모두 같은 방향일 때만.",
-                      "지주사(포스코홀딩스·LS·GS 등)는 사업이 섞여 업종 비교에서 뺀다."]}
+                      "지주사(포스코홀딩스·LS·GS 등)는 사업이 섞여 업종 비교에서 뺀다.",
+                      "직원 수가 30% 넘게 바뀐 회사(합병·분할 등)의 직원·급여, 평균 급여가 30% 넘게 바뀐 값, 직원 수가 같은데 급여만 10% 넘게 바뀐 값은 업종 비교에서 뺀다.",
+                      "평균 급여는 보고기간 누적 급여라 성과급 지급 시기에 따라 크게 달라질 수 있다."]}
 
 
 def build(key, *, year, report, now=None, get=None, sleep=time.sleep, registry=None, table=None, previous=None):
