@@ -1183,9 +1183,31 @@ export function background(docs, nowMs) {
 export const STACK_ALERT_HOURS = 72;
 // 공장 이름 조각(11-04): '현대제철㈜순천공장' → 순천공장, '롯데케미칼㈜울산2공장' → 울산2공장, '㈜엘지화학 여수공장(용성1단지)' → 여수공장·용성1단지.
 // 숫자뿐인 앞말('PBV 2공장'의 2공장)은 어느 공장인지 말해 주지 않아 뺀다.
+// 앞말이 '신·새·증설·전기차' 같은 일반 낱말이면 어느 공장인지 말해 주지 않는다('기아 화성 증설공장'은 화성공장과 다른 공장이 아님).
+const GENERIC_PLANT = /^(?:[가-힣]|증설|신설|신규|전용|전기차|배터리|합작|해외|국내|현지|생산|완성차|부품|소재|기존|제2|제3|미국|중국|인도|유럽|베트남|멕시코|산업)$/;
 export function plantTokens(text) {
   const t = String(text ?? '').replace(/㈜|\(주\)|주식회사/g, ' ');
-  return [...new Set([...t.matchAll(/([가-힣0-9]{1,8})(공장|제철소|제련소|단지)/g)].filter((m) => /[가-힣]/.test(m[1])).map((m) => m[1] + m[2]))];
+  return [...new Set([...t.matchAll(/([가-힣0-9]{1,8})(공장|제철소|제련소|단지)/g)]
+    .filter((m) => /[가-힣]/.test(m[1]) && !GENERIC_PLANT.test(m[1].replace(/\d/g, '')) && !GENERIC_PLANT.test(m[1])).map((m) => m[1] + m[2]))];
+}
+// 같은 공장 이름인가: 회사 이름이 붙어 '금호타이어함평공장'처럼 뽑혀도 '함평공장'과 같은 공장으로 본다(끝이 같으면 같음).
+export const samePlant = (a, b) => a.endsWith(b) || b.endsWith(a);
+// 같은 출입처·같은 시군 묶음을 공장 이름으로 나눈다(11-04): 공장 이름이 적힌 항목끼리 겹치지 않으면 다른 공장 묶음.
+// 공장 이름이 없는 항목(국민연금 주소·공장등록 주소)은 어느 공장인지 몰라 나뉜 묶음 모두에 붙는다.
+export function splitByPlant(g) {
+  const tok = new Map(g.items.map((x) => [x.id, plantTokens(`${x.fact ?? ''} ${x.site ?? ''}`)]));
+  const clusters = [];
+  for (const x of g.items.filter((y) => tok.get(y.id).length)) {
+    const mine = tok.get(x.id);
+    const hit = clusters.filter((c) => [...c.tokens].some((k) => mine.some((m) => samePlant(k, m))));
+    const merged = { tokens: new Set(mine), items: [x] };
+    for (const c of hit) { c.tokens.forEach((k) => merged.tokens.add(k)); merged.items.push(...c.items); clusters.splice(clusters.indexOf(c), 1); }
+    clusters.push(merged);
+  }
+  if (clusters.length < 2) return [g];
+  const plain = g.items.filter((x) => !tok.get(x.id).length);
+  const short = (ks) => [...ks].sort((a, b) => a.length - b.length)[0];
+  return clusters.map((c) => ({ ...g, plant: short(c.tokens), items: [...c.items, ...plain] }));
 }
 export function stackAlert(x, conv, stacksDoc, nowMs, judged = new Map()) {
   const label = WATCHES.find((w) => w.feed === 'kr-stacks')?.label;
@@ -1198,7 +1220,7 @@ export function stackAlert(x, conv, stacksDoc, nowMs, judged = new Map()) {
     // (울산1공장 굴뚝 ↔ 울산2공장 공고)은 다른 공장이라 세지 않는다. 공장 이름이 없으면 시군까지만 맞춘 것으로 센다.
     const ev = g.items.filter((y) => !y.background && y.watch !== label && judged.get(y.id) !== '킬').map((y) => {
       const theirs = plantTokens(y.fact);
-      return { y, same: theirs.length && mine.length ? theirs.some((k) => mine.includes(k)) : null };
+      return { y, same: theirs.length && mine.length ? theirs.some((k) => mine.some((m) => samePlant(k, m))) : null };
     }).filter((e) => e.same !== false);
     if (ev.length) {
       const others = [...new Set(ev.map((e) => e.y.watch))];
@@ -1231,7 +1253,7 @@ export function convergence(items, { cut } = {}) {
     }
   }
   const out = [];
-  for (const g of groups.values()) {
+  for (const g of [...groups.values()].flatMap(splitByPlant)) {
     const watches = [...new Set(g.items.map((x) => x.watch))];
     // 배경(기준선 공사 현장·최근 허가·지금 멈춘 굴뚝)만으로는 묶지 않는다 — 최근 14일 A·B 항목이 하나는 있어야 한다
     if (watches.length < 2 || !g.items.some((x) => !x.background)) continue;
@@ -1348,13 +1370,13 @@ export async function radarTodayText(ctx, args) {
   if (conv.length) {
     out.push(`\n[겹친 신호 · 최근 14일 같은 출입처·같은 시군을 감시 여러 곳이 가리킴] ${conv.length}곳 — 하나씩은 공개 자료, 함께 보면 투자·가동 변화 단서(배경: 국민연금 공사 현장·120일 안 건축허가·지금 멈춘 굴뚝)`);
     for (const g of conv.slice(0, 5)) {
-      out.push(`- ${g.fresh ? '[새 항목 포함] ' : ''}${g.company} · ${g.place} — 감시 ${g.watches.length}곳(${g.watches.join(', ')})${coveredGroup(g) ? ' · 새 신호는 모두 관련 보도 있음(같은 사건인지 열어 볼 것)' : ''}`);
+      out.push(`- ${g.fresh ? '[새 항목 포함] ' : ''}${g.company} · ${g.place}${g.plant ? ` · ${g.plant}` : ''} — 감시 ${g.watches.length}곳(${g.watches.join(', ')})${coveredGroup(g) ? ' · 새 신호는 모두 관련 보도 있음(같은 사건인지 열어 볼 것)' : ''}`);
       const { rows, more } = convergenceRows(g);
       for (const x of rows) out.push(`   ${x.background ? '(배경) ' : `${x.tier} · ${pressOf(x) ? `[${pressOf(x)}] ` : ''}`}${x.date ? `${String(x.date).length > 10 ? kstStamp(x.date) : x.date} · ` : ''}${x.watch}: ${clipAt(x.fact, 110)} · id ${x.id}`);
       if (more) out.push(`   … 같은 묶음 ${more}줄 더`);
     }
     if (conv.length > 5) out.push(`… 남은 ${conv.length - 5}곳(company로 좁히기)`);
-    out.push('   읽는 법: 같은 시군 이름이 문장에 있으면 묶는다(같은 공장·같은 사업이라는 확인이 아님). 각 원문을 열어 같은 부지·사업인지 본다.');
+    out.push('   읽는 법: 같은 시군 이름이 문장에 있으면 묶는다(같은 공장·같은 사업이라는 확인이 아님). 같은 시군이라도 서로 다른 공장 이름(울산1공장·울산2공장)이 적힌 항목은 공장별로 나눠 묶고, 공장 이름이 없는 항목(주소만 있는 국민연금·공장등록)은 양쪽에 붙인다. 각 원문을 열어 같은 부지·사업인지 본다.');
   }
   const tiers = [['A', '단독 후보·직접 변화 — 원문·보도 대조부터'], ['B', '확인할 공식 변화'], ['C', '참고(접힘)']];
   for (const [t, title] of tiers) {

@@ -13,7 +13,7 @@ import { ageNote, handleIngest, weekdayHours } from '../cloudflare/screen.mjs';
 import { dueAt, newsDue, nextSlot, runSchedule } from '../cloudflare/dispatch.mjs';
 import { boardKey, factParts, groupSame, splitTop } from '../cloudflare/board.mjs';
 import { cleanOutput, cleanSummary, LLM_MODELS, MT_MODEL } from '../cloudflare/translate.mjs';
-import { background, billHint, clipAt, convergence, convergenceRows, countForms, hint, insolvencyWord, usRecallHint, usRecallModels, kepcoHint, localWord, plantTokens, radarItems, siteCity, stackAlert, stackHint, workforceHint } from '../cloudflare/digest.mjs';
+import { background, billHint, clipAt, convergence, convergenceRows, countForms, hint, insolvencyWord, usRecallHint, usRecallModels, kepcoHint, localWord, plantTokens, radarItems, siteCity, splitByPlant, stackAlert, stackHint, workforceHint } from '../cloudflare/digest.mjs';
 
 const ORIGIN = 'https://seoul-reporting-radar.shhong9173.workers.dev';
 const TOKEN = 'test-token-0123456789abcdef';
@@ -1120,6 +1120,24 @@ test('굴뚝 겹친 신호 공장 이름 맞춤: 같은 시군의 다른 공장 
   assert.equal(stackAlert(x, g('울주군 공고 「롯데케미칼 울산1공장 증설 공사」'), doc, Date.now()), null);   // 다른 공장
   assert.match(stackAlert(x, g('울주군 공고 「롯데케미칼 울산2공장 설비 철거」'), doc, Date.now()), /공장 이름까지 맞음/);
   assert.match(stackAlert(x, g('롯데케미칼(울산광역시 남구) 국민연금 가입자 -40명', '사업장 인력(국민연금)'), doc, Date.now()), /시군까지만 맞춤/);
+});
+
+test('겹친 신호 공장별 묶음: 같은 시군의 다른 공장 이름은 따로, 회사 이름이 붙은 공장 이름은 같은 공장, 일반 낱말 공장은 무시', () => {
+  assert.deepEqual(plantTokens('기아 화성 증설공장 착공'), []);
+  assert.deepEqual(plantTokens('「금호타이어함평공장정련동외철근콘크리트공사」'), ['금호타이어함평공장']);
+  assert.deepEqual(plantTokens('제2공장 신공장 새공장'), []);
+  const it = (id, watch, fact, extra = {}) => ({ id, tier: 'B', tool: 'kr_official', watch, company: '롯데케미칼', date: '2026-11-04', fact, ...extra });
+  const items = [it('s1', '굴뚝 측정(공장 가동 신호)', '롯데케미칼㈜울산2공장: 배출구 2개 멈춤'), it('l1', '지자체 고시·공고', '울주군 공고 「롯데케미칼 울산1공장 증설 공사」'),
+    it('w1', '사업장 인력(국민연금)', '롯데케미칼(울산광역시 남구) 국민연금 가입자 -40명')];
+  const parts = splitByPlant({ company: '롯데케미칼', place: '울산', items });
+  assert.deepEqual(parts.map((g) => [g.plant, g.items.map((x) => x.id)]), [['울산2공장', ['s1', 'w1']], ['울산1공장', ['l1', 'w1']]]);
+  const g = convergence(items, { cut: Date.parse('2026-11-03T15:00:00Z') });
+  assert.deepEqual(g.map((x) => [x.plant, x.watches.length]), [['울산2공장', 2], ['울산1공장', 2]]);
+  // 회사 이름이 붙어 뽑힌 공장 이름은 같은 공장
+  const ham = [it('h1', '굴뚝 측정(공장 가동 신호)', '금호타이어㈜ 함평공장 배출구 멈춤', { company: '금호타이어' }), it('h2', '사업장 인력(국민연금)', '국민연금 공사 현장 「금호타이어함평공장정련동외철근콘크리트공사」', { company: '금호타이어' })];
+  assert.equal(splitByPlant({ company: '금호타이어', place: '함평', items: ham }).length, 1);
+  // 공장 이름이 한쪽에만 있으면 나누지 않는다
+  assert.equal(splitByPlant({ company: '롯데케미칼', place: '울산', items: [items[0], items[2]] }).length, 1);
 });
 
 test('converging signals: the new item comes first and background from one watch is one line (10-31 금호타이어 함평)', () => {
