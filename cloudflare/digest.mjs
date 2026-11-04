@@ -126,6 +126,26 @@ const EDGAR_KO = { FSLR: '퍼스트솔라', NEXA: '넥사', CLF: '클리블랜�
   RIVN: '리비안', NUE: '뉴코어', STLD: '스틸다이내믹스', X: 'US스틸', FCX: '프리포트', SQM: 'SQM', LAC: '리튬아메리카스', ENPH: '엔페이즈', NEE: '넥스트에라' };
 // 발췌가 소송·특허 서술이면 '계약' 대신 '특허'로 찾는다(10-31: 퍼스트솔라 10-Q의 한화큐셀 특허침해 USITC 청원 문단)
 const LITIGATION = /\b(?:infring\w*|lawsuit|complaint|petition|USITC|litigation|patent\w*)\b/i;
+// 발췌에 적힌 거래 날짜(11-04: Rhythm 10-Q 'On January 4, 2024, … entered into a license agreement … with LG Chem', Aptiv 10-Q
+// 'On August 14, 2026, Hyundai … invested approximately $250 million in Motional'이 A — 이미 있던 거래를 다시 적은 것이다)
+const MONTHS = { january: 1, february: 2, march: 3, april: 4, may: 5, june: 6, july: 7, august: 8, september: 9, october: 10, november: 11, december: 12 };
+export function snippetDates(text) {
+  const out = [];
+  for (const m of String(text ?? '').matchAll(/\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(?:(\d{1,2}),\s*)?(20\d\d)\b/gi)) {
+    out.push(`${m[3]}-${String(MONTHS[m[1].toLowerCase()]).padStart(2, '0')}-${String(m[2] ?? 1).padStart(2, '0')}`);
+  }
+  return out;
+}
+const PERIODIC = /^(?:10-Q|10-K|20-F|40-F|10-KT|10-QT)\b/i;   // 정기 보고서 — 날짜 없는 계약 서술은 기존 약정 반복일 때가 많다
+const OLD_DEAL_DAYS = 45;
+function oldDealOf(x) {
+  if (x.source !== 'EDGAR') return null;
+  const filed = Date.parse(String(x.date ?? '').slice(0, 10));
+  const ds = snippetDates(x.snippet).filter((d) => Number.isFinite(Date.parse(d)));
+  if (!ds.length || !Number.isFinite(filed)) return null;
+  const recent = ds.some((d) => (filed - Date.parse(d)) / 86400000 <= OLD_DEAL_DAYS);
+  return recent ? null : ds.sort().at(-1);
+}
 const COUNTRY_KO = {
   DNK: '덴마크', SWE: '스웨덴', FIN: '핀란드', NOR: '노르웨이', ESP: '스페인', PRT: '포르투갈', GBR: '영국', DEU: '독일', NLD: '네덜란드', BEL: '벨기에',
   FRA: '프랑스', ITA: '이탈리아', IRL: '아일랜드', AUT: '오스트리아', POL: '폴란드', CZE: '체코', SVK: '슬로바키아', HUN: '헝가리', ROU: '루마니아',
@@ -754,8 +774,13 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
     // 보도 인용 문장에만 이름이 나온 것은 그 회사 공시가 아니라 기사 인용이다 — 참고(10-31: 넥사 6-K의 '고려아연·텍 벤치마크 TC' 인용)
     else if (x.hearsay || x.boilerplate) tier = 'C';  // 전망·위험 고지 문구 속 언급도 참고(10-31: Cleveland-Cliffs 8-K의 'MOU with POSCO' 위험 요인)
     else if (x.signer) tier = 'B';  // 계약 서명란의 당사자(11-01: Forge Nano 등록권 계약의 LG CHEM FUND I LLC) — 계약 종류는 원문으로
+    else if (oldDealOf(x)) tier = 'B';   // 발췌의 거래 날짜가 공시일보다 45일 넘게 오래됨 — 이미 있던 거래 서술(11-04)
+    else if (x.source === 'EDGAR' && PERIODIC.test(String(x.title ?? '')) && !snippetDates(x.snippet).length) tier = 'B';   // 날짜 없는 정기 보고서 서술
     else tier = (x.dealNear ?? DEAL_WORDS.test(String(x.snippet ?? ''))) && !x.finNote ? 'A' : 'B';
+    const old = tier === 'B' && !LITIGATION.test(String(x.snippet ?? '')) ? oldDealOf(x) : null;   // 소송 문단은 절차 서술로 따로 적는다
     const deal = x.routine ? ` — ${x.routine}` : x.source === 'ASX' || x.source === 'HKEX' ? '' : x.hearsay ? ` — ${x.hearsay}` : x.boilerplate ? ` — ${x.boilerplate}` : x.signer ? ` — ${x.signer}` : x.finNote ? ` — ${x.finNote}`
+      : old ? ` — 발췌의 거래 날짜 ${old}(공시일보다 ${OLD_DEAL_DAYS}일 넘게 전) — 이미 있던 거래를 다시 적은 것일 수 있음`
+      : tier === 'B' && x.source === 'EDGAR' && PERIODIC.test(String(x.title ?? '')) && !snippetDates(x.snippet).length ? ' — 정기 보고서 속 서술(날짜 없음 — 새 내용인지 원문 확인)'
       : tier === 'B' && x.dealNear === false && DEAL_WORDS.test(String(x.snippet ?? '')) ? ' — 계약·공급 낱말이 출입처 이름과 다른 문장에 있음(업계 일반 서술일 수 있음)'
       // 소송·특허 서술은 '계약 낱말 없음'이 아니라 절차 서술이다 — 단계(청원·답변 기한·철회)는 원문으로(10-31: FSLR 10-Q의 USITC 청원 문단)
       : tier === 'B' && LITIGATION.test(String(x.snippet ?? '')) ? ' — 소송·특허 절차 서술(진행 단계·당사자는 원문 확인)'
