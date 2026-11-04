@@ -1780,7 +1780,16 @@ test('partner filings: EDGAR holdings tables and repeated text fold to C, financ
       ed('m1', 'MINER CORP', 'Our supply contracts are with steel mills. Hyundai Motor Company is one of the largest automakers.', { dealNear: false }),
       // 10-31: 퍼스트솔라 10-Q의 특허침해 USITC 청원 문단 — 질의는 한국 표기 + '특허'
       ed('f1', 'FIRST SOLAR, INC.  (FSLR)', 'First Solar filed a petition with the USITC asserting that entities affiliated with Hyundai Motor Company infringe a First Solar patent.',
-        { dealNear: false })],
+        { dealNear: false }),
+      // 11-04 운영: 이미 있던 거래를 다시 적은 정기 보고서가 A였다(Rhythm 10-Q 2024-01-04 계약, Aptiv 10-Q 08-14 투자). 새 계약 개정을 알린 실적 자료는 A 그대로
+      ed('r1', 'RHYTHM PHARMACEUTICALS, INC.  (RYTM)', '3. Asset Acquisitions LG Chem, Ltd. On January 4, 2024, the Company entered into a license agreement and share issuance agreement with Hyundai Motor Company,',
+        { dealNear: true, title: '10-Q 10-Q', date: '2026-10-25' }),
+      ed('a1', 'Aptiv PLC  (APTV)', 'Motional Joint Venture Funding and Ownership Restructuring Transactions On August 14, 2026, Hyundai Motor Group ("Hyundai") invested approximately $ 250 million in Motional',
+        { dealNear: true, title: '10-Q 10-Q', date: '2026-10-25' }),
+      ed('r2', 'RHYTHM PHARMACEUTICALS, INC.  (RYTM)', '-- Rhythm and Hyundai Motor Company amend bivamelagon licensing agreement -- -- Five-year term loan facility secured',
+        { dealNear: true, title: '8-K EX-99.1', date: '2026-10-25' }),
+      ed('p1', 'POWERBANK Corp  (PBK)', 'm the Company a total of four ground-mount solar power projects (the "Qcells Projects"). Qcells is a subsidiary of Hyundai Motor Company. agreement',
+        { dealNear: true, title: '20-F 20-F', date: '2026-10-25' })],
     confirmedScoops: 0 };
   assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/partner-filings', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
   const r = await call('radar_today', { include_minor: true, limit: 60 }, opts);
@@ -1789,6 +1798,10 @@ test('partner filings: EDGAR holdings tables and repeated text fold to C, financ
   assert.match(sec('B'), /KT CORP: 6-K EX-99\.1 — 재무제표 주석/);
   assert.match(sec('C'), /HARTFORD INSURANCE GROUP: 6-K EX-99\.1 — 투자 보유 목록/);
   assert.doesNotMatch(sec('A'), /KT CORP|HARTFORD|NEXA|MINER/);
+  assert.match(sec('B'), /RHYTHM PHARMACEUTICALS, INC\.  \(RYTM\): 10-Q 10-Q — 발췌의 거래 날짜 2024-01-04\(공시일보다 45일 넘게 전\) — 이미 있던 거래를 다시 적은 것일 수 있음/);
+  assert.match(sec('B'), /Aptiv PLC  \(APTV\): 10-Q 10-Q — 발췌의 거래 날짜 2026-08-14/);
+  assert.match(sec('B'), /POWERBANK Corp  \(PBK\): 20-F 20-F — 정기 보고서 속 서술\(날짜 없음 — 새 내용인지 원문 확인\)/);
+  assert.match(sec('A'), /RHYTHM PHARMACEUTICALS, INC\.  \(RYTM\): 8-K EX-99\.1/);
   assert.match(sec('C'), /NEXA RESOURCES: 6-K EX-99\.1 — 출입처 이름이 보도 인용 문장/);  // 기사 인용일 뿐 — 참고(10-31)
   assert.doesNotMatch(sec('B'), /NEXA RESOURCES/);
   assert.match(sec('B'), /MINER CORP: 6-K EX-99\.1 — 계약·공급 낱말이 출입처 이름과 다른 문장에 있음/);
