@@ -217,10 +217,15 @@ def run(now, previous=None, get=None, sleep=time.sleep, rules=None):
                      "day": info["day"], "time": c["time"], "caseNo": c["no"], "caseName": c["name"][:160],
                      "party": party_of(c["name"])[:80], "tier": tier_of(c["name"], info["meeting"]), "url": detail_url(m),
                      "firstSeen": stamp}
+                # 같은 사건(위원회·사건번호)의 앞선 회의(11-04): 조정은 회의가 두세 번 열리고 마지막 회의에서 조정 중지·성립이 난다
+                prior = sorted({x["day"] for x in notices.values() if x.get("caseNo") == c["no"] and x.get("commission") == info["commission"] and x["day"] < info["day"]})
+                if prior:
+                    n["prior"] = prior[-5:]
                 notices[nid] = n
-                events.append({"id": nid, "tier": n["tier"], "kind": "노동위 조정 회의" if n["tier"] == "A" and "조정" in (c["no"] + info["meeting"]) else
-                               "노동위 심판 회의", "company": comp, "commission": cname, "caseNo": c["no"], "word": word_of(c["name"], c["no"]),
-                               "text": line(n), "url": n["url"], "detectedAt": stamp})
+                events.append({"id": nid, "tier": n["tier"], "kind": ("노동위 조정 회의" if n["tier"] == "A" and "조정" in (c["no"] + info["meeting"]) else
+                               "노동위 심판 회의") + (" (같은 사건 다시)" if prior else ""), "company": comp, "commission": cname, "caseNo": c["no"],
+                               "word": word_of(c["name"], c["no"]), "text": line(n) + (f" · 같은 사건 앞선 회의 {', '.join(d[5:] for d in prior[-3:])}" if prior else ""),
+                               "url": n["url"], "detectedAt": stamp, **({"prior": prior[-5:]} if prior else {})})
         capped = len(ms) >= WIDGET_CAP
         checks.append({"source": cname, "status": "ok" if not bad else "partial", "returned": len(ms),
                        **({"note": f"첫 화면 {WIDGET_CAP}건 상한 — 뒤 회의가 빠졌을 수 있음"} if capped else {}),

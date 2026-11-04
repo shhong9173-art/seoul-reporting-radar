@@ -129,6 +129,32 @@ class Run(unittest.TestCase):
         self.assertEqual(doc3["counts"]["cases"], 0)   # 다음 날은 새로(본 회의는 다시 안 읽음)
         self.assertEqual(len(doc2["notices"]), 3)
 
+    def test_same_case_next_meeting_is_alerted_again_with_prior_dates(self):
+        # 조정은 1차·2차 회의가 따로 열리고 마지막 회의에서 조정 중지·성립이 난다 — 같은 사건번호가 다른 날 다시 나오면 다시 알리고 앞선 회의 날짜를 붙인다
+        doc = w.run(NOW, None, get=site()[0], sleep=lambda s: None)
+        later = detail_html("경북", "2차조정회의", "조정회의실", "2026-11-10", "10:00", [("2026조정88", "주식회사 포스코 노동쟁의 조정신청사건", "10:00")])
+        other = detail_html("전남", "1차조정회의", "조정회의실", "2026-11-10", "10:00", [("2026조정88", "주식회사 포스코 노동쟁의 조정신청사건", "11:00")])
+
+        def get(url, timeout=None):
+            if "meetingSche/detail.do" in url:
+                return R(200, later if "mtgId=2611" in url and "cmitCd=06" in url else other)
+            if url.endswith("/gyeongbuk/main.do"):
+                return R(200, "<html>" + meeting_tag("gyeongbuk", "2611091200000000001", "20261110", "06", "조정") + "</html>")
+            if url.endswith("/jeonnam/main.do"):   # 다른 위원회의 같은 번호는 다른 사건
+                return R(200, "<html>" + meeting_tag("jeonnam", "2611091200000000002", "20261110", "05", "조정") + "</html>")
+            return R(200, "<html><p>금일 회의가 없습니다.</p></html>")
+        doc2 = w.run(NOW + dt.timedelta(days=7), doc, get=get, sleep=lambda s: None)
+        new = [e for e in doc2["events"] if e["detectedAt"] == doc2["generatedAt"]]
+        again = [e for e in new if e["commission"] == "경북지방노동위원회"]
+        self.assertEqual(len(again), 1)
+        self.assertEqual((again[0]["tier"], again[0]["kind"], again[0]["prior"]), ("A", "노동위 조정 회의 (같은 사건 다시)", ["2026-11-03"]))
+        self.assertIn("2차조정회의 2026-11-10 10:00 · 사건 2026조정88", again[0]["text"])
+        self.assertTrue(again[0]["text"].endswith("· 같은 사건 앞선 회의 11-03"))
+        n = next(x for x in doc2["notices"] if x["id"] == again[0]["id"])
+        self.assertEqual(n["prior"], ["2026-11-03"])
+        jn = [e for e in new if e["commission"] == "전남지방노동위원회"]
+        self.assertEqual((len(jn), "prior" in jn[0], jn[0]["kind"]), (1, False, "노동위 조정 회의"))
+
     def test_detail_read_is_retried_once(self):
         get, calls = site()
         flaky = {"n": 0}

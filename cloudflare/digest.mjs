@@ -890,11 +890,23 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
       check: tier === 'C' ? undefined : workforceHint(e) });
   }
 
+  // 노동위 회의 ↔ 노조 게시판 같은 회사 7일 안(11-04): 조정 신청과 노조 성명(파업·교섭 결렬)은 한 사건의 두 면이다 — 한 줄로 이어 보여 준다
+  const WEEK = 7 * 86400000;
+  const near = (list, company, at, dateOf) => (list ?? []).filter((y) => (y.company === company || (y.companies ?? []).includes(company))
+    && Math.abs(Date.parse(dateOf(y)) - Date.parse(at)) <= WEEK);
+  // 노조 글은 회사 이름이 제목에 든 것만(본문에만 이름이 있는 글은 다른 회사 이야기일 때가 많다), 날짜는 글 작성일(없으면 처음 본 때)
+  const unionPosts = (docs['union-notices']?.posts ?? []).filter((y) => y.inTitle !== false);
+  const laborNotices = docs['kr-labor']?.notices ?? [];
+  const postDay = (y) => y.date ?? y.firstSeen;
+  const meetingDay = (y) => `${y.day}T09:00:00+09:00`;
   // 노동위 회의: 출입처가 사건명 앞 당사자인 오늘 회의 — 노동쟁의 조정·교섭·부당노동행위 A, 그 밖의 구제신청(해고·징계 등) B
   for (const e of docs['kr-labor']?.events ?? []) {
     if (!recent(e.detectedAt)) continue;
+    const day = /:(\d{4}-\d{2}-\d{2})$/.exec(String(e.id))?.[1];   // id 끝이 회의 날짜 — 노조 글은 회의 날짜 앞뒤 7일
+    const posts = near(unionPosts, e.company, day ? `${day}T09:00:00+09:00` : e.detectedAt, postDay).slice(0, 2);
+    const link = posts.length ? ` · 노조 게시판 같은 회사 글(7일 안): ${posts.map((y) => `「${String(y.title).slice(0, 50)}」(${y.board ?? ''} ${String(y.date ?? '').slice(5, 10)})`).join(' / ')}` : '';
     push(['A', 'B'].includes(e.tier) ? e.tier : 'C', W['kr-labor'], { kind: e.kind, id: e.id, date: e.detectedAt, company: e.company,
-      fact: e.text, url: e.url, check: hint(e.company, [e.word || '노동위']) });
+      fact: `${e.text}${link}`, url: e.url, check: hint(e.company, [e.word || '노동위']) });
   }
 
   // 지분·자사주 변동(11-04): 기자 기사 「주주가치 높인다며 산 자사주…KG스틸, 임직원 보상에 쓴다」(10-24)는 10-15 처분 결정과 10-23 임원 15명
@@ -925,8 +937,11 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
     const t = String(e.title ?? '');
     const word = /사망|숨|중대재해|끼임|추락|폭발|화재|사고/.test(t) ? '사고' : /파업|쟁의|결렬/.test(t) ? '파업' : /매각|분할/.test(t) ? '인수'
       : /구조조정|희망퇴직|해고/.test(t) ? '감원' : /가처분|고발|고소/.test(t) ? '고발' : /교섭/.test(t) ? '교섭' : '노조';
+    const own = unionPosts.find((y) => y.id === e.id);
+    const cases = near(laborNotices, e.company, own ? postDay(own) : e.detectedAt, meetingDay).slice(0, 2);
+    const link = cases.length ? ` · 노동위 같은 회사 회의(7일 안): ${cases.map((y) => `${y.commissionName ?? ''} ${String(y.day).slice(5)} ${y.caseNo} 「${String(y.caseName).slice(0, 40)}」`).join(' / ')}` : '';
     push(['A', 'B'].includes(e.tier) ? e.tier : 'C', W['union-notices'], { kind: e.kind ?? '노조 성명·보도자료', id: e.id, date: e.detectedAt, company: e.company,
-      fact: e.text, url: e.url, check: hint(e.company, [word]) });
+      fact: `${e.text}${link}`, url: e.url, check: hint(e.company, [word]) });
   }
 
   // 타사 공시 속 출입처: 자산·영업·지분 거래 상대·공급계약 해지 A, 공급계약 500억원 이상 A·그 밖 B, 생산중단·투자판단 B. 기사엔 상대 회사 이름이 있어야 같은 건
