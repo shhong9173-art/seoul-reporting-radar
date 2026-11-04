@@ -2739,6 +2739,46 @@ test('노동위 ↔ 노조 같은 회사 7일 안 이어 보기: 조정 회의 �
   assert.match(k.text, /A · [^\n]+ · LG화학 · 충남지방노동위원회 2차조정회의 · 사건 2026조정59 「주식회사 LG화학 노동쟁의 조정신청사건」 · 같은 사건 앞선 회의 10-28\n/);
 });
 
+test('노동위 달력(local_notice_submit labor): 고정 위원회·숫자 값만 받아 저장, kr-labor 실행 요청은 6시간에 한 번, kr_official에 달력·예정 표시', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const asked = [];
+  env.GITHUB_DISPATCH_TOKEN = 'x';
+  opts.fetch = async (url, init) => { asked.push(String(url)); return new Response(null, { status: 204 }); };
+  const kst = new Date(NOW.getTime() + 9 * 3600000);
+  const ymd = (d) => new Date(kst.getTime() + d * 86400000).toISOString().slice(0, 10).replaceAll('-', '');
+  const r = await call('local_notice_submit', { labor: [
+    { commission: '충남지방노동위원회', rows: [`2611021110520048685/4/${ymd(0)}/조정회의`, `2611101000000000001/1/${ymd(6)}/2차조정회의`,
+      `https://evil.example/x/1/${ymd(1)}/심판회의`, `2612301000000000001/1/${ymd(90)}/심판회의`, `2611101000000000001/1/${ymd(6)}/2차조정회의`] },
+    { commission: '서울지방노동위원회', error: 'TypeError: Failed to fetch' },
+    { commission: '가짜노동위원회', rows: [] }] }, opts);
+  assert.match(r.text, /- 노동위 회의일정 2곳\(정상 1\) · 회의 2건 · 미확인: 서울지노위\(TypeError: Failed to fetch\) · 버린 줄 3/);
+  assert.match(r.text, /받지 않은 위원회\(허용 밖\): 가짜노동위원회/);
+  assert.match(r.text, /노동위 회의 감시\(kr-labor\) 실행 요청함/);
+  assert.equal(asked.filter((u) => u.includes('kr-labor.yml')).length, 1);
+  const stored = await (await worker.fetch(new Request(ORIGIN + '/ingest/kr-labor-browser', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, {})).json();
+  assert.equal(stored.schema, 'kr_labor_browser/v1');
+  assert.deepEqual(stored.commissions[0].rows.map((x) => [x.mtgId, x.mtgSn, x.cmitCd, x.title]), [['2611021110520048685', '4', '04', '조정회의'], ['2611101000000000001', '1', '04', '2차조정회의']]);
+  const again = await call('local_notice_submit', { labor: [{ commission: '충남지방노동위원회', rows: [`2611021110520048685/4/${ymd(0)}/`] }] }, opts);
+  assert.match(again.text, /노동위 감시 실행 요청은 \d+분 전에 이미 함/);
+  assert.equal(asked.filter((u) => u.includes('kr-labor.yml')).length, 1);
+  const kept = await (await worker.fetch(new Request(ORIGIN + '/ingest/kr-labor-browser', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, {})).json();
+  assert.deepEqual(kept.commissions.map((x) => x.commission), ['충남지방노동위원회', '서울지방노동위원회']);   // 이번에 안 올린 위원회는 남긴다
+
+  const now = new Date(NOW.getTime() - 3600000).toISOString();
+  const day = (d) => `${ymd(d).slice(0, 4)}-${ymd(d).slice(4, 6)}-${ymd(d).slice(6)}`;
+  const notices = [{ id: `labor:04:2026조정59:${day(6)}`, company: 'LG화학', commission: '충남', commissionName: '충남지방노동위원회', meeting: '2차조정회의', day: day(6), time: '10:00',
+    caseNo: '2026조정59', caseName: '주식회사 LG화학 노동쟁의 조정신청사건', tier: 'A', url: 'https://www.nlrc.go.kr/nlrc/chungnam/meetingSche/detail.do?mtgId=2611101000000000001', firstSeen: now, ahead: 6 }];
+  const doc = { schema: 'kr_labor/v1', generatedAt: now, status: 'complete', checks: [{ source: '충남지방노동위원회', status: 'ok', returned: 5, calendar: 2 }, { source: '서울지방노동위원회', status: 'ok', returned: 5, note: '첫 화면 5건 상한 — 뒤 회의가 빠졌을 수 있음' }],
+    counts: { meetings: 10, details: 12, cases: 30, '조정 사건': 2, ahead: 1 }, calendar: { status: 'partial', ahead: 14, meetings: 2, left: 0, fetchedAt: '2026-11-03T23:40:00.000Z', missing: ['서울지방노동위원회'], stale: [] },
+    seen: {}, notices, events: [], rules: [] };
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/kr-labor', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
+  const k = (await call('kr_official', { section: 'labor' }, opts)).text;
+  assert.match(k, /달력\(기자 컴퓨터 브라우저 수집 11-04 08:40 KST\): 오늘부터 14일 회의 2건 · 이번 실행 미리 읽은 회의 1건 · 달력 미확인: 서울지노위/);
+  assert.match(k, /첫 화면 5건 상한\(뒤 회의 빠졌을 수 있음\): 서울지노위/);
+  assert.match(k, new RegExp(`A · ${day(6)} 10:00\\(예정\\) · LG화학 · 충남지방노동위원회 2차조정회의`));
+});
+
 test('지분·자사주 변동(governance): 임원 집단 보고·일상 아닌 자사주 처분은 B, 일상 보상 처분은 숨김', async () => {
   const opts = PRIVATE();
   const env = opts.env;
