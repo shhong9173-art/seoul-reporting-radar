@@ -341,10 +341,10 @@ def main():
     doc = run(now, previous, browser=browser)
     new = [e for e in doc["events"] if e["detectedAt"] == doc["generatedAt"]]
     c = doc["counts"]
-    print(f"::notice title=kr-labor::상태 {doc['status']} · 오늘 회의 {c['meetings']} · 새로 읽은 상세 {c['details']} · 사건 {c['cases']}"
+    print(f"::notice title=kr-labor::상태 {doc['status']} · 오늘 회의 {c['meetings']} · 오늘 읽은 상세(그날 누적) {c['details']} · 사건(누적) {c['cases']}"
           f"(조정 {c['조정 사건']}) · 출입처 새 이벤트 {len(new)} · 위원회 정상 {sum(1 for x in doc['checks'] if x['status'] == 'ok')}/{len(doc['checks'])}"
           f" · 5건 상한 {sum(1 for x in doc['checks'] if x.get('note'))}곳 · 달력 {doc['calendar']['status']}(회의 {doc['calendar']['meetings']}"
-          f", 미리 읽음 {c.get('ahead', 0)}, 남김 {doc['calendar']['left']})")
+          f", 이번 실행 미리 읽음 {c.get('ahead', 0)}, 남김 {doc['calendar']['left']})")
     if not token:
         print("::warning title=kr-labor-push::MCP_ACCESS_TOKEN 미설정 — 결과를 저장하지 않음")
         return
