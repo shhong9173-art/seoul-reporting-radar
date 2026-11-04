@@ -1,6 +1,6 @@
 name: India Exchange Filings Watch
 # 인도 상장 법인 공시 — NSE 공시 RSS(전 상장사 최신 약 1,400건)에서 현대차 인도법인(Hyundai Motor India Limited) 공시.
-# 평일 13:10·16:10·19:10·22:10 KST(Cloudflare 요청, GitHub 예약 :15는 대비용 — 늦게 오면 건너뜀). RSS 1번 + 새 A·B 공시의 첨부 PDF 몇 건(3초 간격).
+# 평일 13:10·16:10·19:10·22:10 KST + 화~토 03:10 KST(인도 자정 RSS 초기화 전)(Cloudflare 요청, GitHub 예약 :15는 대비용 — 늦게 오면 건너뜀). RSS 1번 + 새 A·B 공시의 첨부 PDF 몇 건(3초 간격).
 # 결과는 기자 전용 저장소로만. 공개 로그는 건수만.
 on:
   push:
@@ -11,6 +11,7 @@ on:
       - '.github/workflows/india-filings.yml'
   schedule:
     - cron: '15 4,7,10,13 * * 1-5'
+    - cron: '15 18 * * 1-5'   # 화~토 03:15 KST(인도 월~금 23:45) — RSS가 인도 자정에 새로 시작하기 전
   workflow_dispatch:
 permissions:
   contents: read
