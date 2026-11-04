@@ -10,6 +10,62 @@ import { reverseTallyLines } from './overseas.mjs';
 const VERDICTS = ['씀', '킬', '보류', '봤음'];
 const MIN_SAMPLE = 5;   // groups smaller than this get counts only, no "점검 후보" note
 const KILL_SHARE = 0.6; // kill share at or above this (with enough items) is worth a look
+const ALERT_MIN = 3;    // 즉시 알림 성적: 이 감시로 보낸 알림이 이만큼 넘어야 제안을 붙인다
+// 기자가 이미 바꾼 알림·발제 기준(11-04~). 이 시각 앞 판정은 바뀐 기준의 성적이 아니라 따로 센다.
+export const DECIDED = [
+  { watch: '굴뚝 측정(공장 가동 신호)', since: '2026-11-04T05:13:00Z',
+    rule: '즉시 알림·아침 발제는 〔즉시 알림 대상〕(다른 감시와 겹친 신호·배출구 절반 넘게 72시간 넘는 가동중지 신고)만' },
+];
+const topReasons = (rs, n = 2) => {
+  const c = {};
+  for (const r of rs.filter((x) => x.verdict === '킬')) c[r.reason || '사유 없음'] = (c[r.reason || '사유 없음'] ?? 0) + 1;
+  return Object.entries(c).sort((a, b) => b[1] - a[1]).slice(0, n).map(([k, v]) => `'${String(k).slice(0, 40)}'(${v})`).join(', ');
+};
+// 킬이 몰린 묶음의 점검 문구: 이미 바꾼 기준이면 바뀐 뒤 판정만 보고, 아니면 사유와 함께 바꿀 안을 붙인다(바꾸는 건 기자).
+function killNote(label, rs, killed, watch) {
+  const d = DECIDED.find((x) => x.watch === watch);
+  if (d) {
+    const after = rs.filter((r) => String(r.created_at) >= d.since);
+    const ak = after.filter((r) => r.verdict === '킬').length;
+    if (after.length < MIN_SAMPLE) return `${label}: ${rs.length}개 중 킬 ${killed} — ${d.since.slice(5, 10)}에 기준을 이미 바꿈(${d.rule}) · 바뀐 뒤 판정 ${after.length}건(킬 ${ak})이라 아직 판단 안 함`;
+    if (ak / after.length < KILL_SHARE) return `${label}: 바뀐 기준(${d.since.slice(5, 10)}) 뒤 판정 ${after.length}건 중 킬 ${ak} — 기준 변경 뒤 나아짐`;
+    return `${label}: 바뀐 기준(${d.since.slice(5, 10)}) 뒤에도 ${after.length}건 중 킬 ${ak} — 더 좁힐지 점검 · 킬 사유 ${topReasons(after)}`;
+  }
+  return `${label}: ${rs.length}개 중 킬 ${killed} — 등급·문턱 점검 후보 · 킬 사유 ${topReasons(rs)} · 제안: 즉시 알림·아침 발제는 다른 감시와 겹칠 때만(굴뚝 11-04 방식) 또는 등급 한 단계 내림 — 바꿀지는 기자가 정함`;
+}
+
+// 즉시 알림 성적(11-04): 단독 후보 즉시 알림이 저장한 alert-YYYYMMDD 패키지의 '보낸 id:' 줄과 기자 판정을 맞춘다.
+// id 안의 쉼표(배출구 '83,82')는 띄어쓰기가 없어 ', '로만 나눈다.
+async function alertLines(ctx, days, judgedById, index) {
+  let rows = [];
+  try { ({ rows } = await storeOp(ctx, 'packages.list', {})); } catch { return []; }
+  const from = new Date(ctx.now.getTime() + 9 * 3600000 - days * 86400000).toISOString().slice(0, 10).replaceAll('-', '');
+  const names = (rows ?? []).filter((r) => /^alert-\d{8}$/.test(r.name) && r.name.slice(6) >= from).map((r) => r.name);
+  if (!names.length) return [`\n[즉시 알림 성적 · 최근 ${days}일] 저장된 알림 없음(alert-YYYYMMDD 패키지)`];
+  const sent = [];
+  for (const name of names) {
+    const { row } = await storeOp(ctx, 'packages.get', { name });
+    const line = [...String(row?.body ?? '').matchAll(/보낸 id:\s*(.+)$/gm)].pop();
+    for (const id of line ? line[1].split(/,\s+/).map((x) => x.trim()).filter(Boolean) : []) if (!sent.some((x) => x.id === id)) sent.push({ id, day: name.slice(6) });
+  }
+  const real = (w) => (w && !String(w).startsWith('감시 미상') ? w : null);
+  const watchOf = (id) => real(judgedById.get(id)?.watch) || real(index.get(id)?.watch)
+    || (/^stk:/.test(id) ? '굴뚝 측정(공장 가동 신호)' : /^labor:/.test(id) ? '노동위 회의(조정·심판)' : '감시 미상');
+  const rowsOut = sent.map((x) => ({ ...x, watch: watchOf(x.id), verdict: judgedById.get(x.id)?.verdict ?? '판정 없음', r: judgedById.get(x.id) }));
+  const count = (rs) => ['씀', '킬', '보류', '봤음', '판정 없음'].map((v) => [v, rs.filter((x) => x.verdict === v).length]).filter(([, n]) => n).map(([v, n]) => `${v} ${n}`).join(' · ');
+  const out = [`\n[즉시 알림 성적 · 최근 ${days}일] 알림 ${names.length}일치 · 보낸 항목 ${rowsOut.length}건 — ${count(rowsOut)}`];
+  for (const [watch, rs] of groupBy(rowsOut, (x) => x.watch)) {
+    const killed = rs.filter((x) => x.verdict === '킬').length;
+    const d = DECIDED.find((x) => x.watch === watch);
+    const afterRs = d ? rs.filter((x) => `${x.day.slice(0, 4)}-${x.day.slice(4, 6)}-${x.day.slice(6)}T23:59:59Z` >= d.since && (!x.r || String(x.r.created_at) >= d.since)) : rs;
+    let note = '';
+    if (d) note = ` · ${d.since.slice(5, 10)} 기준 변경 뒤 보낸 것 ${afterRs.length}건${afterRs.length ? `(${count(afterRs)})` : ''}`;
+    else if (rs.length >= ALERT_MIN && killed / rs.length >= KILL_SHARE) note = ` · 제안: 이 감시 즉시 알림 기준 좁히기(다른 감시와 겹칠 때만·A만 등) — 킬 사유 ${topReasons(rs.map((x) => x.r).filter(Boolean))} · 바꿀지는 기자가 정함`;
+    out.push(`- ${watch} ${rs.length} — ${count(rs)}${note}`);
+  }
+  out.push('   읽는 법: 알림이 보낸 항목만 센다(화면에만 있던 항목 제외). 판정 없음은 기자가 아직 안 본 것일 수 있다 — 킬로 세지 않는다.');
+  return out;
+}
 
 async function safeIndex(ctx) {
   try { return await itemIndex(ctx); } catch { return new Map(); }  // labels are best-effort; the judgment still saves
@@ -110,6 +166,7 @@ export async function weeklyReview(ctx, args) {
   if (!items.length) {
     out.push('판정 기록이 없다. radar_today·scoop_screen 줄의 id로 candidate_feedback(씀·킬·보류·봤음)을 남기면 감시별·공시 종류별로 묶어 보여 준다.');
     out.push('가중치는 자동으로 바꾸지 않는다. 바꿀지는 기자가 정한다.');
+    out.push(...await alertLines(ctx, days, new Map(), new Map()));
     out.push(...await myArticlesLines(ctx, days), ...await rivalLines(ctx, days));
     return textResult(out.join('\n'));
   }
@@ -120,7 +177,7 @@ export async function weeklyReview(ctx, args) {
     const tiers = groupBy(rs.filter((r) => r.tier), (r) => r.tier).sort((a, b) => a[0].localeCompare(b[0]));
     out.push(`- ${watch} ${rs.length} — ${fmt(rs)}${tiers.length ? ` | ${tiers.map(([t, x]) => `${t} ${x.length}(${fmt(x)})`).join(' · ')}` : ''}`);
     const killed = rs.filter((r) => r.verdict === '킬').length;
-    if (rs.length >= MIN_SAMPLE && killed / rs.length >= KILL_SHARE) notes.push(`${watch}: ${rs.length}개 중 킬 ${killed} — 등급·문턱 점검 후보`);
+    if (rs.length >= MIN_SAMPLE && killed / rs.length >= KILL_SHARE) notes.push(killNote(watch, rs, killed, watch));
   }
 
   const kinds = groupBy(items.filter((r) => r.kind), (r) => `${r.watch} · ${r.kind}`);
@@ -130,7 +187,7 @@ export async function weeklyReview(ctx, args) {
       const routine = rs.filter((r) => r.flag === '일상');
       out.push(`- ${k} ${rs.length} — ${fmt(rs)}${routine.length ? ` | 일상(B) ${routine.length}: ${fmt(routine)}` : ''}`);
       const killed = rs.filter((r) => r.verdict === '킬').length;
-      if (rs.length >= MIN_SAMPLE && killed / rs.length >= KILL_SHARE) notes.push(`${k}: ${rs.length}개 중 킬 ${killed} — 등급·문턱 점검 후보`);
+      if (rs.length >= MIN_SAMPLE && killed / rs.length >= KILL_SHARE) notes.push(killNote(k, rs, killed, rs[0].watch));
     }
     if (kinds.length > 15) out.push(`… 종류 ${kinds.length - 15}개 더`);
   }
@@ -154,6 +211,8 @@ export async function weeklyReview(ctx, args) {
   }
   if (items.some((r) => r.labelled === 'now')) out.push('※ 일부 항목은 판정 때 표시가 없어 지금 목록 기준으로 붙였다.');
   out.push(`읽는 법: ${MIN_SAMPLE}개 미만 묶음은 비율로 판단하지 않는다. 점검 후보는 기자가 볼 목록일 뿐 — 가중치·등급 규칙은 자동으로 바꾸지 않는다. 바꿀지는 기자가 정한다.`);
+  const judgedById = new Map(items.map((r) => [r.item_id, r]));
+  out.push(...await alertLines(ctx, days, judgedById, index));
   out.push(...await myArticlesLines(ctx, days), ...await rivalLines(ctx, days));
   return textResult(out.join('\n'));
 }
