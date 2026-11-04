@@ -63,7 +63,8 @@ def candidates(items, *, now, limit=MAX_ITEMS):
                      "must": [str(m) for m in hint.get("must") or [] if str(m).strip()],
                      "names": [str(n) for n in hint.get("names") or [] if str(n).strip()],
                      "title": x.get("fact") or "", "date": str(x.get("date") or ""),
-                     "since": (day - dt.timedelta(days=LEAD_DAYS)).isoformat()})
+                     # check.after: 그날부터만 센다(노동위 조정 결과 확인 — 회의 전 분쟁 기사는 결과 보도가 아니다)
+                     "since": (item_day({"date": hint.get("after")}) or (day - dt.timedelta(days=LEAD_DAYS))).isoformat()})
     a = sorted([r for r in rows if r["tier"] == "A"], key=lambda r: r["date"], reverse=True)
     b = sorted([r for r in rows if r["tier"] != "A"], key=lambda r: r["date"], reverse=True)
     return (a + b)[:limit]

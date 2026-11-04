@@ -96,6 +96,8 @@ const ALT = {
   감원: ['감원', '감축', '구조조정', '희망퇴직', '인력 감소', '인원 감소', '인력 축소', '정리해고'],
   // 노동위 회의(kr-labor): 사건 종류 낱말 — 회사 이름과 함께 제목에 있어야 같은 사건 후보
   노동쟁의: ['쟁의', '파업', '조정 신청', '조정신청', '조정 중지', '조정중지', '노동위', '중노위', '지노위'],
+  // 조정 회의 다음 날 결과 확인(11-04): 회의일 이후 기사만 센다(check.after) — 중지·성립·연장·파업권 낱말
+  '조정 결과': ['조정 중지', '조정중지', '조정 성립', '조정안', '조정 연장', '조정 결렬', '쟁의권', '파업권', '쟁의행위', '파업 찬반', '파업'],
   부당노동행위: ['부당노동행위', '노동위', '중노위', '지노위'], 교섭: ['교섭', '하청', '원청', '노란봉투'],
   부당해고: ['부당해고', '해고', '노동위', '중노위', '지노위'], 노동위: ['노동위', '중노위', '지노위', '노동위원회'],
   // 지분·자사주 변동(governance)
@@ -899,6 +901,17 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
   const laborNotices = docs['kr-labor']?.notices ?? [];
   const postDay = (y) => y.date ?? y.firstSeen;
   const meetingDay = (y) => `${y.day}T09:00:00+09:00`;
+  // 노동위 조정 회의 다음 날 결과 확인(11-04): 조정 중지(쟁의권 확보)·성립·연장은 공개 일정에 나오지 않는다. A 조정 회의가 끝난 다음 날
+  // 09시 날짜로 B를 다시 올려 자동 보도 대조(회의일 이후 기사만)에 태운다. '미보도 후보'면 결과를 노사에 물을 차례. 원래 항목을 킬했으면 안 올린다(parent).
+  const todayKst = kstDate(now);
+  for (const n of laborNotices) {
+    if (n.tier !== 'A' || !/조정|중재/.test(`${n.caseNo ?? ''} ${n.meeting ?? ''}`) || !(String(n.day) < todayKst)) continue;
+    const next = new Date(Date.parse(`${n.day}T09:00:00+09:00`) + 86400000);
+    if (!Number.isFinite(next.getTime()) || !recent(next.toISOString())) continue;
+    push('B', W['kr-labor'], { kind: '노동위 조정 결과 확인', id: `${n.id}:result`, parent: n.id, date: next.toISOString(), company: n.company,
+      fact: `${n.commissionName ?? ''} ${n.meeting ?? ''} ${n.day} ${n.time ?? ''} 회의 지남 · 사건 ${n.caseNo} 「${n.caseName}」 — 조정 중지(쟁의권)·성립·연장 결과는 공개 일정에 나오지 않음. 회의일 이후 보도 대조가 '미보도 후보'면 노사에 결과 확인`,
+      url: n.url, check: { ...hint(n.company, ['조정 결과']), after: n.day } });
+  }
   // 노동위 회의: 출입처가 사건명 앞 당사자인 오늘 회의 — 노동쟁의 조정·교섭·부당노동행위 A, 그 밖의 구제신청(해고·징계 등) B
   for (const e of docs['kr-labor']?.events ?? []) {
     if (!recent(e.detectedAt)) continue;
@@ -1053,7 +1066,7 @@ export async function radarItems(request, env, deps = {}) {
   const { rows: fb } = await storeOp(ctx, 'feedback.latest', {});
   const judged = new Map(fb.map((r) => [r.item_id, r.verdict]));
   const items = collect(docs, cut, kstDate(cut), { now: nowMs })
-    .filter((x) => (x.tier === 'A' || x.tier === 'B') && x.check && !PRESS_SKIP.has(judged.get(x.id)))
+    .filter((x) => (x.tier === 'A' || x.tier === 'B') && x.check && !PRESS_SKIP.has(judged.get(x.id)) && !(x.parent && judged.get(x.parent) === '킬'))
     .map(({ tier, watch, id, date, company, fact, url, check }) => ({ tier, watch, id: String(id), date, company, fact: String(fact ?? '').slice(0, 300), url, check }));
   return Response.json({ generatedAt: ctx.now.toISOString(), hours, items }, { headers: { 'Cache-Control': 'no-store' } });
 }
@@ -1235,7 +1248,8 @@ export async function radarTodayData(ctx, args) {
   const { rows: fb } = await storeOp(ctx, 'feedback.latest', {});
   const judged = new Map(fb.map((r) => [r.item_id, r.verdict]));
   const showJudged = args.include_judged === true || args.include_judged === 'true';
-  const found = collect(docs, cut, cutDay, { now: nowMs }).filter((x) => has(q, x.company, x.fact, x.watch));
+  // 이어 올린 항목(노동위 조정 결과 확인 등)은 원래 항목을 킬했으면 숨긴다
+  const found = collect(docs, cut, cutDay, { now: nowMs }).filter((x) => has(q, x.company, x.fact, x.watch) && !(x.parent && judged.get(x.parent) === '킬'));
   const hiddenBy = {};
   const all = found.filter((x) => {
     const v = judged.get(x.id);

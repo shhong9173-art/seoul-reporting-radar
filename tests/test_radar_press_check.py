@@ -89,6 +89,12 @@ class Candidates(unittest.TestCase):
         item["check"].pop("since")
         self.assertEqual(rpc.candidates([item], now=NOW)[0]["since"], "2026-10-30")
 
+    def test_hint_after_is_the_exact_start(self):
+        # 노동위 조정 결과 확인(11-04): 회의일(after)부터만 센다 — 회의 전 분쟁 기사는 결과 보도가 아니다
+        item = {"tier": "B", "watch": "노동위 회의(조정·심판)", "id": "labor:04:2026조정59:2026-11-04:result", "date": "2026-11-05T00:00:00+00:00",
+                "company": "LG화학", "fact": "조정 결과 확인", "check": {"who": "LG화학", "terms": ["조정 결과"], "after": "2026-11-04"}}
+        self.assertEqual(rpc.candidates([item], now=NOW)[0]["since"], "2026-11-04")
+
     def test_limit(self):
         many = [dict(ITEMS[1], id=f"x{i}") for i in range(60)]
         self.assertEqual(len(rpc.candidates(many, now=NOW)), rpc.MAX_ITEMS)

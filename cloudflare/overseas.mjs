@@ -985,6 +985,13 @@ export async function laborSection(ctx, q, days, limit) {
   out.push(...(doc.rules ?? []).map((r) => `규칙: ${r}`));
   const from = new Date(ctx.now.getTime() - days * 86400000).toISOString();
   const todayKst = new Date(ctx.now.getTime() + 9 * 3600000).toISOString().slice(0, 10);
+  // 앞으로 열릴 출입처 회의(11-04, 달력 수집): 날짜 순 — 아침 발제 '이번 주 노동위 일정'에 옮긴다
+  const ahead = (doc.notices ?? []).filter((n) => String(n.day) >= todayKst && matches(q, n.company, n.caseName, n.commissionName))
+    .sort((a, b) => `${a.day} ${a.time}`.localeCompare(`${b.day} ${b.time}`));
+  if (ahead.length) {
+    out.push(`- 앞으로 열릴 출입처 회의(오늘 포함, 달력·첫 화면) ${ahead.length}건 — 미뤄지거나 취소될 수 있음`);
+    for (const n of ahead.slice(0, limit)) out.push(`  ${n.day} ${n.time} · ${n.tier} · ${n.company} · ${n.commissionName} ${n.meeting} · 사건 ${n.caseNo} 「${n.caseName}」`);
+  }
   const rows = (doc.notices ?? []).filter((n) => String(n.firstSeen) >= from && matches(q, n.company, n.caseName, n.commissionName));
   out.push(`- 출입처 사건 · 최근 ${days}일 ${rows.length}건`);
   for (const n of rows.slice(0, limit)) {

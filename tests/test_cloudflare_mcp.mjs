@@ -2781,6 +2781,33 @@ test('노동위 달력(local_notice_submit labor): 고정 위원회·숫자 값�
   assert.match(k, new RegExp(`A · ${day(6)} 10:00\\(예정\\) · LG화학 · 충남지방노동위원회 2차조정회의`));
 });
 
+test('노동위 조정 결과 확인: A 조정 회의 다음 날 B로 다시 올려 회의일 이후만 보도 대조, B 사건·킬한 사건은 안 올림, kr_official 앞으로 열릴 회의', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const day = (d) => new Date(NOW.getTime() + 9 * 3600000 + d * 86400000).toISOString().slice(0, 10);
+  const seen = new Date(NOW.getTime() - 2 * 86400000).toISOString();
+  const n = (no, company, tier, d, extra = {}) => ({ id: `labor:04:${no}:${day(d)}`, company, commission: '충남', commissionName: '충남지방노동위원회', meeting: '조정회의', day: day(d), time: '15:00',
+    caseNo: no, caseName: `주식회사 ${company} 노동쟁의 조정신청사건`, tier, url: `https://www.nlrc.go.kr/nlrc/chungnam/meetingSche/detail.do?mtgId=${no}`, firstSeen: seen, ...extra });
+  const notices = [n('2026조정59', 'LG화학', 'A', -1), n('2026조정60', '롯데케미칼', 'A', -1), n('2026부해61', '현대차', 'B', -1, { meeting: '심판회의', caseName: '현대자동차 주식회사 부당해고 구제신청' }),
+    n('2026조정62', '포스코', 'A', 0), n('2026조정63', '현대제철', 'A', 6), n('2026조정64', '기아', 'A', -5)];
+  const doc = { schema: 'kr_labor/v1', generatedAt: seen, status: 'complete', checks: [{ source: '충남지방노동위원회', status: 'ok', returned: 3 }], counts: {}, seen: {}, notices, events: [], rules: [] };
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/kr-labor', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
+  await call('candidate_feedback', { item_id: notices[1].id, verdict: '킬', reason: '작음' }, opts);
+  const r = (await call('radar_today', {}, opts)).text;
+  const b = r.split('[B · ')[1] ?? '';
+  assert.match(b, new RegExp(`노동위 회의\\(조정·심판\\) · LG화학\\n   충남지방노동위원회 조정회의 ${day(-1)} 15:00 회의 지남 · 사건 2026조정59 「주식회사 LG화학 노동쟁의 조정신청사건」 — 조정 중지\\(쟁의권\\)·성립·연장 결과는 공개 일정에 나오지 않음`));
+  assert.doesNotMatch(r, /2026조정60[^\n]*회의 지남/);   // 원래 항목을 킬했다
+  assert.doesNotMatch(r, /2026부해61[^\n]*회의 지남/);   // B 구제신청은 결과 확인 대상 아님
+  assert.doesNotMatch(r, /2026조정62[^\n]*회의 지남|2026조정63[^\n]*회의 지남/);   // 오늘·앞날 회의는 아직
+  assert.doesNotMatch(r, /2026조정64[^\n]*회의 지남/);   // 오래된 회의는 창 밖
+  const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
+  const hit = items.items.find((x) => x.id === `${notices[0].id}:result`);
+  assert.deepEqual([hit.tier, hit.check.who, hit.check.terms, hit.check.after, hit.check.alts['조정 결과'].includes('쟁의권')], ['B', 'LG화학', ['조정 결과'], day(-1), true]);
+  assert.ok(!items.items.some((x) => x.id === `${notices[1].id}:result`));
+  const k = (await call('kr_official', { section: 'labor' }, opts)).text;
+  assert.match(k, new RegExp(`- 앞으로 열릴 출입처 회의\\(오늘 포함, 달력·첫 화면\\) 2건 — 미뤄지거나 취소될 수 있음\\n  ${day(0)} 15:00 · A · 포스코 · 충남지방노동위원회 조정회의 · 사건 2026조정62[^\\n]*\\n  ${day(6)} 15:00 · A · 현대제철`));
+});
+
 test('지분·자사주 변동(governance): 임원 집단 보고·일상 아닌 자사주 처분은 B, 일상 보상 처분은 숨김', async () => {
   const opts = PRIVATE();
   const env = opts.env;
