@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-11-05T08:11:22+09:00",
+  "generatedAt": "2026-11-06T08:11:38+09:00",
   "lookbackDays": 30,
-  "windowStart": "2026-10-06",
+  "windowStart": "2026-10-07",
   "scope": "US Federal Register 8개 검색 + EU TED 8개 검색. 회사명 검색 결과만 검토하며 주·카운티 인허가 및 EPA 시설별 환경허가는 별도 확인 필요",
   "limits": "미국 주·카운티 건축/환경 인허가, EU 각국 소액 조달, 모든 세계 공장 인허가를 망라하지 않음",
   "checks": [
@@ -9,9 +9,9 @@
       "provider": "US Federal Register",
       "query": "Hyundai Motor",
       "status": "checked",
-      "returned": 0,
+      "returned": 1,
       "matched": 0,
-      "unverified": 0
+      "unverified": 1
     },
     {
       "provider": "US Federal Register",
@@ -81,17 +81,17 @@
       "provider": "US Federal Register",
       "query": "Hyundai Steel",
       "status": "checked",
-      "returned": 3,
-      "matched": 1,
-      "unverified": 2
+      "returned": 6,
+      "matched": 2,
+      "unverified": 4
     },
     {
       "provider": "US Federal Register",
       "query": "POSCO",
       "status": "checked",
-      "returned": 3,
+      "returned": 4,
       "matched": 1,
-      "unverified": 2
+      "unverified": 3
     },
     {
       "provider": "US Federal Register",
@@ -135,6 +135,53 @@
     }
   ],
   "documents": [
+    {
+      "source": "US Federal Register",
+      "sourceType": "federal_notice",
+      "sourceId": "2026-22630",
+      "published": "2026-11-05",
+      "companiesMentioned": [
+        "현대제철"
+      ],
+      "companySearchTerm": "Hyundai Steel",
+      "nameVerified": true,
+      "title": "Circular Welded Non-Alloy Steel Pipe From the Republic of Korea: Final Results of Antidumping Duty Administrative Review; 2023-2024",
+      "abstract": "The U.S. Department of Commerce (Commerce) determines that Hyundai Steel Company (Hyundai Steel) and Hyundai Steel Pipe Co., Ltd. (HSP) made sales of subject merchandise at less than normal value (NV) during the period of review (POR), November 1, 2023, through October 31, 2024. Commerce determines that Husteel Co., Ltd. (Husteel) did not make sale",
+      "sourceUrl": "https://www.federalregister.gov/documents/2026/11/05/2026-22630/circular-welded-non-alloy-steel-pipe-from-the-republic-of-korea-final-results-of-antidumping-duty",
+      "evidence": "공식 연방 고시의 제목·요약에 기업명 등장",
+      "notProven": "지역 공장허가 취득·회사 사업 확정·직접 수주 여부 미확인",
+      "exclusiveStatus": "공개 문서 취재 단서·단독 미확정"
+    },
+    {
+      "source": "US Federal Register",
+      "sourceType": "federal_notice",
+      "sourceId": "2026-22629",
+      "published": "2026-11-05",
+      "companiesMentioned": [],
+      "companySearchTerm": "Hyundai Motor",
+      "nameVerified": false,
+      "title": "Initiation of Antidumping and Countervailing Duty Administrative Reviews",
+      "abstract": "The U.S. Department of Commerce (Commerce) has received requests to conduct administrative reviews of various antidumping duty (AD) and countervailing duty (CVD) orders with September anniversary dates. In accordance with Commerce's regulations, we are initiating those administrative reviews.",
+      "sourceUrl": "https://www.federalregister.gov/documents/2026/11/05/2026-22629/initiation-of-antidumping-and-countervailing-duty-administrative-reviews",
+      "evidence": "연방 고시 검색 색인 일치: 기업명·사건 관계를 원문에서 확인하지 못함",
+      "notProven": "지역 공장허가 취득·회사 사업 확정·직접 수주 여부 미확인",
+      "exclusiveStatus": "공개 문서 취재 단서·단독 미확정"
+    },
+    {
+      "source": "US Federal Register",
+      "sourceType": "federal_notice",
+      "sourceId": "2026-22626",
+      "published": "2026-11-05",
+      "companiesMentioned": [],
+      "companySearchTerm": "Hyundai Steel",
+      "nameVerified": false,
+      "title": "Certain Cut-To-Length Carbon-Quality Steel Plate From the Republic of Korea: Final Results of Countervailing Duty Administrative Review; 2024",
+      "abstract": "The U.S. Department of Commerce (Commerce) determines that certain producers and exporters of certain cut-to-length carbon-quality steel plate (CTL plate) from the Republic of Korea (Korea) received countervailable subsidies during the period of review (POR) January 1, 2024, through December 31, 2024.",
+      "sourceUrl": "https://www.federalregister.gov/documents/2026/11/05/2026-22626/certain-cut-to-length-carbon-quality-steel-plate-from-the-republic-of-korea-final-results-of",
+      "evidence": "연방 고시 검색 색인 일치: 기업명·사건 관계를 원문에서 확인하지 못함",
+      "notProven": "지역 공장허가 취득·회사 사업 확정·직접 수주 여부 미확인",
+      "exclusiveStatus": "공개 문서 취재 단서·단독 미확정"
+    },
     {
       "source": "EU TED",
       "sourceType": "eu_procurement_notice",
@@ -259,8 +306,8 @@
       "exclusiveStatus": "공개 문서 취재 단서·단독 미확정"
     }
   ],
-  "matchedCount": 1,
-  "unverifiedSearchMatches": 7,
+  "matchedCount": 2,
+  "unverifiedSearchMatches": 9,
   "sourceErrors": 0,
   "scoopConfirmed": 0
 }
