@@ -493,7 +493,8 @@ def filings_part(key, now, beat_codes, watch, state, *, get, sleep, doc_budget, 
                                   f"{short} 주총 소집공고({filed}) 이사 후보 — {p.get('name')} {kx.birth_key(p.get('birth'))[:4] + '년생 ' if kx.birth_key(p.get('birth')) else ''}"
                                   f"{p.get('kind', '')} · 주된 직업 「{p.get('job', '')[:60]}」 · 추천 {p.get('rec', '-')}"
                                   f"{' · 경력 「' + p.get('career', '')[:160] + '」' if p.get('career') else ''}",
-                                  url, person={"name": p.get("name"), "birth": p.get("birth"), "career": p.get("career", "")[:300], "rel": p.get("rel")},
+                                  url, person={"name": p.get("name"), "birth": p.get("birth"), "career": p.get("career", "")[:600], "rel": p.get("rel"),
+                                               "kind": (p.get("kind") or "")[:20], "job": (p.get("job") or "")[:80]},   # 문제 임원 점검이 후보 경력으로 다시 본다
                                   flags=flags, source="주총 소집공고", key=f"{rc}|{kx.name_key(p.get('name'))}"))
     checks.append({"source": "수시 임원 공시 원문", "status": "ok" if not failed else "partial", "returned": opened,
                    **({"error": f"원문 못 읽음 {failed}건"} if failed else {}), **({"pending": waiting} if waiting else {})})

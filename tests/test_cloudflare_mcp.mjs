@@ -2915,6 +2915,18 @@ test('문제 임원 점검(kr-exec-check): radar_today A·B(단서 표시), kr_s
   assert.match(sScreen, /   공식 제재: 개인정보위 2022-03-18 한빛카드 — 안전조치의무 — 과징금 7,088만원 · 경력 「한빛카드 대표이사 2019~2021」 기간 겹침 · https:\/\/www\.pipc\.go\.kr\/x/);
   assert.match(sScreen, /   공식 제재\(C\): 금감원 오성증권㈜ 제재 3건\(2013-02-01~2015-01-01\) · 경력 「오성증권 사장 \?~\?」 재임 기간 미확인 · 그 회사 연말 등기임원 명단\(2014·2015\)에 없음/);
   assert.match(sScreen, /   공식 제재\(C\): 금감원 2021-03-01 한빛은행 — 기관주의 · 위반 기간 2016-01~2018-09\(재임 기간 밖\) · 사업보고서 임원 명단 「한빛은행 은행장 2020~2021」 기간 겹침/);
+  // 공정위 원문 요약(과징금·사건명·의결서 대표이사 칸)과 주총 이사 후보 점검
+  const ftcDoc = structuredClone(sanc);
+  ftcDoc.people[0].sanctions = [{ agency: '공정위', org: '한빛리테일', date: '2023-01-19', inst: '과징금', amount: '15억8200만원', title: '(주) 한빛리테일의 대규모유통업법 위반행위에 대한 건',
+    ceoSurname: '김○○', timing: 'overlap', strong: true, url: 'https://case.ftc.go.kr/x', career: { org: '한빛리테일', role: '대표이사', start: 2016, end: 2024 } }];
+  ftcDoc.candidates = [{ id: '후보|현대차|신후보|196005', company: '현대차', name: '신후보', birth: '1960', ofcps: '이사 후보', reg: '사외이사', report: '주총 소집공고 2026-11-01',
+    url: 'https://dart.fss.or.kr/agm', flags: [{ kind: '이사 후보: 선임되면 다른 회사 이사·감사 2곳 이상(3호)', tier: 'A', text: '주총 소집공고 후보 — 같은 이름·출생년월이 다른 회사 등기임원 명단에 2곳' }] },
+    { id: '후보|현대차|평온후보|197001', company: '현대차', name: '평온후보', birth: '1970', reg: '사내이사', report: '주총 소집공고 2026-11-01', flags: [] }];
+  await worker.fetch(new Request(ORIGIN + '/ingest/kr-exec-check', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(ftcDoc) }), env, {});
+  const fScreen = (await call('kr_signals', { section: 'exec' }, opts)).text;
+  assert.match(fScreen, /공식 제재: 공정위 2023-01-19 한빛리테일 — 과징금 — 15억8200만원 — 「\(주\) 한빛리테일의 대규모유통업법 위반행위에 대한 건」 — 의결서 피심인 대표이사 칸 '김○○'\(성·글자 수 같음\)/);
+  assert.match(fScreen, /\[주총 이사 후보 점검\] 후보 2명 · 표시 1명\n- A · 현대차 · 신후보 1960년생 사외이사 후보 · 주총 소집공고 2026-11-01\n   이사 후보: 선임되면 다른 회사 이사·감사 2곳 이상\(3호\): 주총 소집공고 후보/);
+  assert.doesNotMatch(fScreen, /평온후보/);
   for (const status of ['inactive', 'unconfirmed', undefined]) {
     const historical = { ...doc, events: doc.events.map((e) => ({ ...e, reviewStatus: status })) };
     await worker.fetch(new Request(ORIGIN + '/ingest/kr-exec-check', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(historical) }), env, {});
