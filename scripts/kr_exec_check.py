@@ -12,8 +12,8 @@
      2곳 넘게 있으면 A. 경력 칸 '현(現)' 마디만으로는 B '겸직 확인'(11-05 실제: 기간 표기 '(\'17 ~ \'19)'를 잘못 끊어 끝난 대표이사를 현직으로 셌다)
    - 1호: 계열회사 상무 종사자이거나 최근 3년 안 종사 → 경력 칸에 같은 그룹 이름 + 직원·임원 직함 + 최근 3년 연도(또는 현재)
 2. 과거 논란 기사 — 네이버 뉴스에서 '이름 + 회사'(사외이사는 '이름 + 경력의 주된 기관'도) 제목에 비위·사고·제재 낱말이 있는 기사.
-   기사 제목에 그 사람 이름이 있는 것만. 강한 낱말(횡령·배임·기소·구속·압수수색·고발·해킹·유출·갑질·성비위·음주운전·뇌물·담합·분식·중대재해·징계·경질)이면 A,
-   그 밖(본문에만 이름, 소송·논란·사퇴 등) B. 같은 이름의 다른 사람일 수 있다 — 기사 원문 확인.
+   기사 제목에 그 사람 이름이 있는 것만. 제목 낱말은 원문 검토 대상 선정에만 사용한다. 본문에서 인물·소속·사건 문맥을 연결한 경우에도 B 확인 단서만 부여한다.
+   원문 실패·불명확·무죄 등 처분 문맥은 알림에서 제외하고 미확인으로 보존한다. 동일 인물·비위 사실·단독 판정이 아니다.
 
 원칙
 - 공개 공시·공개 기사만. 혐의·비위를 단정하지 않는다(기사 제목을 그대로 옮기고 확인할 것으로 둔다).
@@ -39,6 +39,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 import earnings_compare as ec  # noqa: E402
 import governance_watch as gw  # noqa: E402
 import kr_exec_watch as kx  # noqa: E402
+import executive_article_evidence as ae  # noqa: E402
 
 SCHEMA = "kr_exec_check/v1"
 KST = ec.KST
@@ -217,8 +218,8 @@ def reconcile_events(events, people, checks, stamp):
         e["reviewReason"] = "현재 명단·동일 인물 확인 부족"
         if len(candidates) == 1:
             p = candidates[0]
-            if e.get("kind") == "과거 논란 기사" and p.get("newsStatus") not in ("ok", "cached"):
-                e["reviewReason"] = "기사 재검색 미완료 — 과거 기록만 보존"
+            if e.get("kind") == "과거 논란 기사" and (p.get("newsStatus") not in ("ok", "cached") or p.get("bodyStatus") == "unconfirmed"):
+                e["reviewReason"] = "기사 검색·본문 연결 미확인 — 과거 기록만 보존"
                 continue
             active = any(f.get("kind") == e.get("kind") and f.get("text") == old.get("text")
                          for f in p["flags"] for old in e.get("flags", []))
@@ -239,7 +240,7 @@ def market_index(market_doc):
 
 
 def run(key, *, now=None, previous=None, exec_doc=None, market_doc=None, get=None, news=None, sleep=time.sleep, registry=None, table=None,
-        news_budget=None):
+        news_budget=None, article_fetch=ae.fetch_article, article_budget=30):
     if get is None:
         import requests
         get = requests.get
@@ -263,6 +264,8 @@ def run(key, *, now=None, previous=None, exec_doc=None, market_doc=None, get=Non
     checks, people = [], []
     budget = [news_budget if news_budget is not None else NEWS_BUDGET]
     news_fail = queried = 0
+    reviewer = ae.Reviewer(article_fetch, article_budget, priority=[h.get("url") for p in old_people.values() for h in p.get("news", []) if (h.get("bodyReview") or {}).get("status") == "budget_exhausted"])
+    article_counts = {}
     for name in names:
         code = codes.get(name)
         short = kx.SHORT.get(name, name)
@@ -324,7 +327,7 @@ def run(key, *, now=None, previous=None, exec_doc=None, market_doc=None, get=Non
             rec["internal_skip"] = ([short, short[:3]] + own + ([_latin.group(0)] if _latin else [])) if _internal else ()
             due = REFRESH or old.get("newsStatus") not in ("ok", "cached") or not old.get("newsAt") or old["newsAt"] < (now - dt.timedelta(days=RECHECK_DAYS)).isoformat()
             if due and budget[0] > 0:
-                anchors_ = [short] + own[:3]      # 이름은 기준어가 아니다(동명이인 — 11-05: KG모빌리티 사외이사 ↔ 다른 박순애 기사)
+                anchors_ = [short, name]      # 이름은 기준어가 아니다(동명이인 — 11-05: KG모빌리티 사외이사 ↔ 다른 박순애 기사)
                 internal = not (outside or re.search(r"기타\s*비상무", p["reg"] + p["ofcps"]))
                 latin = re.match(r"[A-Za-z]{2,}", short)
                 # 제목이 잘린 회사 이름('송명준 HD현대...', '…치닫는 HL...')도 자기 회사 기사로 본다
@@ -366,11 +369,30 @@ def run(key, *, now=None, previous=None, exec_doc=None, market_doc=None, get=Non
                 rec["newsStatus"] = "budget_exhausted" if due else "cached"
             rec["news"] = [h for h in rec.get("news") or [] if keep_title(h.get("title", ""), p["name"], rec.get("internal_skip") or ())]
             rec.pop("internal_skip", None)
-            if rec.get("news") and rec["newsStatus"] in ("ok", "cached"):
-                strong = any(h["strong"] for h in rec["news"])
-                rec["flags"].append({"kind": "과거 논란 기사", "tier": "A" if strong else "B",
-                                     "text": " / ".join(f"「{h['title']}」({h.get('date') or '날짜 미상'}, '{h['word']}')" for h in rec["news"][:2])
-                                             + " — 같은 이름의 다른 사람일 수 있음, 기사 원문 확인"})
+            anchors = [short, name]
+            former = main_org(p.get("career"), own) if not _internal else None
+            if former:
+                anchors.append(former)
+            reviewed = []
+            for hit in rec["news"]:
+                h = dict(hit)  # Do not mutate the prior stored document.
+                prior = next((v.get("bodyReview") for v in old.get("news", []) if v.get("url") == h.get("url")), None) or {}
+                valid = prior.get("version") == ae.VERSION and prior.get("contextKey") == ae.context_key(p["name"], anchors) and prior.get("checkedAt", "") >= (now - dt.timedelta(days=1)).isoformat()
+                if valid and prior.get("status") != "budget_exhausted" and not REFRESH:
+                    h["bodyReview"] = prior
+                else:
+                    h["bodyReview"] = reviewer.review(h.get("url"), p["name"], anchors,
+                                                       re.compile(STRONG.pattern + "|" + WEAK.pattern), stamp)
+                state = h["bodyReview"]["status"]
+                article_counts[state] = article_counts.get(state, 0) + 1
+                reviewed.append(h)
+            rec["news"] = reviewed
+            linked = [h for h in reviewed if h["bodyReview"]["status"] == "context_linked"]
+            rec["bodyStatus"] = "linked" if linked else "unconfirmed" if reviewed else "no_candidates"
+            if linked and rec["newsStatus"] in ("ok", "cached"):
+                rec["flags"].append({"kind": "과거 논란 기사", "tier": "B", "evidenceVersion": ae.VERSION,
+                                     "text": " / ".join(f"「{h['title']}」({h.get('date') or '날짜 미상'}, '{h['word']}')" for h in linked[:2])
+                                             + " — 본문 인물·소속·사건 문맥 연결, 동일 인물·사실관계와 후속 처분은 기자 확인(기보도·단독 아님)"})
             people.append(rec)
         checks.append({"source": short, "status": "ok", "returned": len([x for x in api if x["reg"] != "미등기"]), "tops": len(tops), "report": kx.period_label(y, r)})
     if news_fail:
@@ -378,13 +400,21 @@ def run(key, *, now=None, previous=None, exec_doc=None, market_doc=None, get=Non
     if budget[0] <= 0:
         checks.append({"source": "네이버 뉴스", "status": "partial", "pending": sum(1 for p in people if p.get("newsStatus") not in ("ok", "cached")),
                        "error": "한 실행 검색 한도 — 남은 사람은 다음 실행"})
-    events = dict(old_events)
+    if article_counts:
+        unresolved = sum(v for k, v in article_counts.items() if k != "context_linked")
+        checks.append({"source": "기사 본문", "status": "partial" if unresolved else "ok",
+                       "returned": article_counts.get("context_linked", 0), "outcomes": article_counts,
+                       "pending": unresolved, "note": "본문 문맥 연결은 동일 인물·비위 사실 확정이 아님"})
+    events = {k: dict(v) for k, v in old_events.items()}
     fresh = 0
     first = not prev      # 첫 실행은 지금 표시 전부가 '새로' 생긴다 — 오늘의 레이더엔 올리지 않고(기준선) kr_signals 목록으로 본다
     for p in people:
         for f in p["flags"]:
             eid = "execc:" + hashlib.sha256(f"{p['id']}|{f['kind']}|{f['text'][:60]}".encode()).hexdigest()[:16]
             if eid in events:
+                if f["kind"] == "과거 논란 기사":
+                    events[eid].update(tier=f["tier"], flags=[f])
+                    events[eid]["text"] = f"{p['company']} {p['name']} — {f['text']}"
                 continue
             fresh += 1
             events[eid] = {"id": eid, "personId": p["id"], "tier": f["tier"], "kind": f["kind"], "company": p["company"], "detectedAt": stamp, "url": p["url"],
@@ -405,12 +435,12 @@ def run(key, *, now=None, previous=None, exec_doc=None, market_doc=None, get=Non
                    "activeEvents": sum(e.get("reviewStatus") == "active" for e in ev),
                    "inactiveEvents": sum(e.get("reviewStatus") == "inactive" for e in ev),
                    "unconfirmedEvents": sum(e.get("reviewStatus") == "unconfirmed" for e in ev),
-                   "newsChecked": queried},
+                   "newsChecked": queried, "articleReview": article_counts},
         "unresolvedCompanies": missing,
         "rules": [
             "출입처 최근 정기보고서 등기임원(임원 현황)과 미등기 사장급을 한 사람씩 본다. 표시는 확인할 단서지 판정이 아니다.",
             "독립(사외)이사 법정 결격 가능 — 상법 시행령 제34조⑤: 7호 같은 회사 6년 초과(재직기간 칸이 기간이거나 6년 넘은 시작일일 때만), 3호 해당 회사 외 2곳 이상 다른 회사 이사·감사(다른 상장사·출입처 공시 명단에 같은 이름·출생년월이 2곳 넘게 있을 때 A, 경력 칸 현직만이면 B '겸직 확인'), 1호 계열회사 최근 3년 내 상무 종사(경력 칸 같은 그룹 + 직함 + 연도).",
-            "과거 논란 기사: 네이버 뉴스 '이름 + 회사'(사외·기타비상무이사는 '이름 + 경력의 주된 기관'도)에서 제목에 비위·사고·제재 낱말이 있는 기사. 사내 임원(사내이사·미등기 사장급)은 제목에 지금 회사 이름이 있는 기사(회사 사고·담합 등 — 이미 보도된 회사 기사)를 뺀다. 첫 실행 표시는 기준선(오늘의 레이더엔 안 올림). 기사 제목에 그 사람 이름이 있는 것만. 강한 낱말(횡령·배임·기소·구속·고발·해킹·유출·갑질·성비위·음주운전·뇌물·담합·분식·중대재해·징계·경질 등)이면 A. 같은 이름의 다른 사람일 수 있다.",
+            "과거 논란 기사: 네이버 뉴스 '이름 + 회사'(사외·기타비상무이사는 '이름 + 경력의 주된 기관'도)에서 제목에 비위·사고·제재 낱말이 있는 기사. 사내 임원(사내이사·미등기 사장급)은 제목에 지금 회사 이름이 있는 기사(회사 사고·담합 등 — 이미 보도된 회사 기사)를 뺀다. 첫 실행 표시는 기준선(오늘의 레이더엔 안 올림). 기사 제목에 그 사람 이름이 있는 것만. 제목 낱말은 본문 확인 대상 선정에만 사용. 본문 인물·소속·사건 연결을 읽었어도 B 확인 단서이며 동일 인물·혐의·비위 확정이 아니다. 본문 실패·불명확·무죄 등 후속 처분 문맥은 미확인으로 보존하고 알림에서 제외한다.",
             "혐의·비위를 단정하지 않는다. 기사 제목은 그대로 옮기고, 결격 여부·사실관계는 회사·당사자 확인. 조회 실패는 0건이 아니라 미확인.",
         ],
     }
@@ -438,6 +468,7 @@ def main():
     ap = argparse.ArgumentParser(description="문제 임원 점검")
     ap.add_argument("--annotate-only", action="store_true")
     ap.add_argument("--news-budget", type=int)
+    ap.add_argument("--article-budget", type=int, default=30)
     ap.add_argument("--refresh-news", action="store_true")
     a = ap.parse_args()
     global REFRESH
@@ -469,13 +500,14 @@ def main():
     except SystemExit:
         table = None
     doc = run(key, previous=None if a.annotate_only else previous, exec_doc=exec_doc, market_doc=market_doc, registry=registry, table=table,
-              news_budget=NEWS_BUDGET)
+              news_budget=NEWS_BUDGET, article_budget=a.article_budget)
     if a.annotate_only:
         annotate(doc)
         return
     c = doc["counts"]
     print(f"::notice title=kr-exec-check::점검 {c['people']}명(사외·독립 {c['outside']}) · 표시 {c['flagged']}명(A {c['A']}) · 새 항목 {c['newEvents']} · 기사 점검 {c['newsChecked']}명")
     print(f"::notice title=kr-exec-check-review::현재 근거 {c['activeEvents']} · 과거 기록 {c['inactiveEvents']} · 재확인 필요 {c['unconfirmedEvents']}")
+    print(f"::notice title=kr-exec-check-articles::{json.dumps(c['articleReview'], ensure_ascii=False)}")
     if not token:
         print("::warning title=kr-exec-check-push::MCP_ACCESS_TOKEN 미설정 — 결과를 저장하지 않음")
         return

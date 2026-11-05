@@ -2850,7 +2850,7 @@ test('문제 임원 점검(kr-exec-check): radar_today A·B(단서 표시), kr_s
   const env = opts.env;
   const now = new Date(NOW.getTime() - 3600000).toISOString();
   const flag6 = { kind: '법정 한도: 재직 6년 초과 가능', tier: 'A', text: '재직기간 칸 「7년 2개월」 → 7년 2개월(2026년 반기(6-30 기준) 기준) — 상법 시행령 제34조⑤7호' };
-  const news = { kind: '과거 논란 기사', tier: 'B', text: '「한빛카드, 소송 휘말려」(2025-01-02, \'소송\') — 같은 이름의 다른 사람일 수 있음, 기사 원문 확인' };
+  const news = { kind: '과거 논란 기사', tier: 'B', evidenceVersion: 'executive_article/v1', text: '「한빛카드, 소송 휘말려」(2025-01-02, \'소송\') — 같은 이름의 다른 사람일 수 있음, 기사 원문 확인' };
   const doc = { schema: 'kr_exec_check/v1', generatedAt: now, status: 'complete', checks: [{ source: '현대차', status: 'ok', returned: 12 }],
     counts: { people: 420, outside: 180, flagged: 2, A: 1, newEvents: 2, newsChecked: 250 },
     people: [
@@ -2875,6 +2875,15 @@ test('문제 임원 점검(kr-exec-check): radar_today A·B(단서 표시), kr_s
   assert.match(k.text, /- \[신규\] B · 기아 · 박논란 1960년생 사장\(미등기\)[^\n]*\n   과거 논란 기사: [^\n]+\n   기사: https:\/\/news\.example\/1/);
   assert.doesNotMatch(k.text, /이무탈/);
   assert.doesNotMatch((await call('kr_signals', { section: 'exec', company: '현대차' }, opts)).text, /박논란/);
+  const legacy = structuredClone(doc);
+  delete legacy.people[1].flags[0].evidenceVersion;
+  delete legacy.events[1].flags[0].evidenceVersion;
+  await worker.fetch(new Request(ORIGIN + '/ingest/kr-exec-check', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(legacy) }), env, {});
+  const legacyRadar = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
+  assert(!legacyRadar.items.some((x) => x.id === 'execc:bbbb'));
+  const legacyScreen = await call('kr_signals', { section: 'exec' }, opts);
+  assert.match(legacyScreen.text, /미확인 · 기아 · 박논란/);
+  assert.match(legacyScreen.text, /본문 확인: 미검증/);
   for (const status of ['inactive', 'unconfirmed', undefined]) {
     const historical = { ...doc, events: doc.events.map((e) => ({ ...e, reviewStatus: status })) };
     await worker.fetch(new Request(ORIGIN + '/ingest/kr-exec-check', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(historical) }), env, {});
