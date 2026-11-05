@@ -271,6 +271,46 @@ class Runs(unittest.TestCase):
         doc = self.go(previous=first)                                  # 하루 안이라도 못 읽은 것은 다시 읽는다
         self.assertEqual(doc["counts"]["articleReview"], {"context_linked": 1})
 
+    # ---- 공식 제재 기록 대조 ----
+    def test_official_sanctions_overlap_is_b_unknown_timing_is_c(self):
+        from unittest.mock import patch
+        import official_sanctions as osn
+        body = self.data[("00164742", 2026, "11012")]
+        body["list"][1]["main_career"] = "(2019~2021) 한빛카드 대표이사 / 前) 오성증권 사장"
+        prev = {"schema": kc.SCHEMA, "people": [], "events": [], "sanctions": {
+            "fss": {"done": True, "rows": {"fss:202100001-1": {"id": "fss:202100001-1", "org": "한빛카드주식회사", "date": "2021-10-26"},
+                                           "fss:201500001-1": {"id": "fss:201500001-1", "org": "오성증권㈜", "date": "2015-01-01"}}},
+            "pipc": {"posts": {"1": [{"agency": "개인정보위", "id": "pipc:1:1", "org": "한빛카드", "date": "2022-03-18", "what": "안전조치의무",
+                                       "inst": "과징금 7,088만원", "major": True, "url": "https://www.pipc.go.kr/x"}]}}}}
+
+        class W:
+            def __init__(self, text="", content=b""):
+                self.text, self.content, self.status_code = text, content, 200
+        pages = []
+
+        def web(url, **kw):
+            pages.append(url)
+            if "selectBoard" in url or "list.do" in url:
+                return W("")
+            if "view.do" in url:
+                return W('<a href="/fss.hpdownload?path=/dtm/opn/&amp;file=x.pdf">x.pdf</a>')
+            return W(content=b"%PDF-1.4")
+        pdf = ("3. 제재조치내용 대상 내용 기 관 기관경고 임 원 주의적 경고 : 2명 직 원 등 견책 1명 4. 제재대상사실 가. 문책사항")
+        with patch.object(osn, "pdf_text", lambda raw, n=4: pdf):
+            doc = self.go(previous=prev, web_get=web)
+        p = next(x for x in doc["people"] if x["name"] == "김오래")
+        f = next(f for f in p["flags"] if f["kind"] == "공식 제재: 재임 중 소속 회사 제재")
+        self.assertEqual(f["tier"], "B")
+        self.assertIn("한빛카드 대표이사(경력 칸 2019~2021) — 개인정보위 2022-03-18 제재: 안전조치의무 — 과징금 7,088만원", f["text"])
+        self.assertIn("금감원 2021-10-26 제재: 임원 주의적 경고 : 2명", f["text"])
+        self.assertIn("공개 기록엔 개인 이름이 없음", f["text"])
+        c = next(x for x in p["sanctions"] if x["org"] == "오성증권㈜")
+        self.assertEqual((c["timing"], c["strong"]), ("timing_unknown", False))      # 시점 미확인 → C(목록만)
+        self.assertEqual(sum(1 for u in pages if "view.do" in u), 1)                  # 공개안은 기간이 겹친 것만 연다
+        again = self.go(previous=doc)                                                 # web_get 없음 → 앞 상태·공개안 요약 재사용
+        self.assertTrue(any(f["kind"].startswith("공식 제재") for x in again["people"] if x["name"] == "김오래" for f in x["flags"]))
+        self.assertEqual(again["counts"]["newEvents"], 0)
+
     # ---- 겸직 명단 직접 대조(3호) ----
     def boards(self, first=("1955년 01월", "사외이사"), second=("1955년 01월", "감사")):
         self.data[("00999001", 2026, "11012")] = api("20260814000001", [("김오래", first[0], "이사", first[1], "", "2년")])

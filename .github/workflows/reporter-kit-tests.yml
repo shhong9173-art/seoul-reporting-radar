@@ -184,6 +184,7 @@ jobs:
       - run: python -m unittest discover -s tests -p 'test_business_coverage.py' -v
       - run: python -m unittest discover -s tests -p 'test_recent_business_scout.py' -v
       - run: python -m unittest discover -s tests -p 'test_kr_exec_check.py' -v
+      - run: python -m unittest discover -s tests -p 'test_official_sanctions.py' -v
       - run: python -m unittest discover -s tests -p 'test_executive_article_evidence.py' -v
       - run: python -m unittest discover -s tests -p 'test_case_metrics_regression.py' -v
       - run: python -m unittest discover -s tests -p 'test_official_foreign_contracts.py' -v
