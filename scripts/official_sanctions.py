@@ -364,7 +364,7 @@ def refresh_ftc(state, *, get, now, backfill_pages=100, new_pages=3, pause=None,
                    "backfillDone": bool(state.get("done")), **({"error": err} if err else {})}
 
 
-FTC_DETAIL_VERSION = 1
+FTC_DETAIL_VERSION = 2       # 2: 피심인 이름을 영문 약자·한글 읽기 둘 다로 찾는다('LG전자'로는 5쪽 안에 없고 '엘지전자'로는 4쪽 — 탐침 187)
 
 
 def won_text(digits, unit="원"):
@@ -383,15 +383,19 @@ def ftc_case_detail(record, *, get, now, pages=5, pause=None, ks=None):
         import kr_signals_watch as ks
     csno = record["id"].split(":")[1]
     hit = None
+    names = [record["org"]] + sorted(k for k in org_keys(record["org"]) if k != re.sub(r"\s+", "", record["org"]).upper())
     try:
-        for page in range(1, pages + 1):
-            if pause:
-                pause(0.5)
-            r = get(FTC_LIST, params={"startRceptDt": FTC_SINCE, "endRceptDt": now.date().isoformat(), "pageIndex": page,
-                                      "searchKrwd": record["org"]}, headers=UA, timeout=40)
-            rows, last = ks.parse_ftc_list(r.text)
-            hit = next((x for x in rows if x.get("csno") == csno), None)
-            if hit or not rows or (last and page >= last):
+        for name in names[:2]:
+            for page in range(1, pages + 1):
+                if pause:
+                    pause(0.5)
+                r = get(FTC_LIST, params={"startRceptDt": FTC_SINCE, "endRceptDt": now.date().isoformat(), "pageIndex": page,
+                                          "searchKrwd": name}, headers=UA, timeout=40)
+                rows, last = ks.parse_ftc_list(r.text)
+                hit = next((x for x in rows if x.get("csno") == csno), None)
+                if hit or not rows or (last and page >= last):
+                    break
+            if hit:
                 break
         if not hit:
             return {"status": "not_found", "v": FTC_DETAIL_VERSION}

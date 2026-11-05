@@ -144,6 +144,15 @@ class Parse(unittest.TestCase):
         d = osn.ftc_case_detail({"id": "ftc:2020서경0001:0", "org": "한빛리테일"}, get=get, now=NOW, ks=KS)
         self.assertEqual((d["status"], d["amount"], d["ceos"], pages), ("ok", "15억8200만원", ["허○○", "김○○"], [1, 2]))
         self.assertIn("대규모유통업법", d["title"])
+        seen = []
+
+        def get2(url, params=None, **kw):
+            if url == "doc":
+                return R(text="원문")
+            seen.append(params["searchKrwd"])
+            return R(text="p2" if params["searchKrwd"] == "케이비리테일" else "p1")
+        d2 = osn.ftc_case_detail({"id": "ftc:2020서경0001:0", "org": "KB리테일"}, get=get2, now=NOW, ks=KS, pages=1)
+        self.assertEqual((d2["status"], seen), ("ok", ["KB리테일", "케이비리테일"]))          # 영문 약자로 못 찾으면 한글 읽기로
 
     def test_org_keys_read_latin(self):
         self.assertTrue(osn.org_keys("KB증권") & osn.org_keys("케이비증권 주식회사"))
