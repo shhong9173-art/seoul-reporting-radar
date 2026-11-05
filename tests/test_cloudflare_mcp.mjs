@@ -2857,7 +2857,8 @@ test('문제 임원 점검(kr-exec-check): radar_today A·B(단서 표시), kr_s
       { id: '현대자동차|김오래|195501', company: '현대차', name: '김오래', birth: '1955', ofcps: '이사', reg: '사외이사', report: '2026년 반기(6-30 기준)', url: 'https://dart.fss.or.kr/x1', flags: [flag6], news: [] },
       { id: '기아|박논란|196001', company: '기아', name: '박논란', birth: '1960', ofcps: '사장', reg: '미등기', report: '2026년 반기(6-30 기준)', url: 'https://dart.fss.or.kr/x2', flags: [news],
         news: [{ title: '한빛카드, 소송 휘말려', url: 'https://news.example/1', date: '2025-01-02' }] },
-      { id: '기아|이무탈|197001', company: '기아', name: '이무탈', birth: '1970', ofcps: '이사', reg: '사외이사', report: '2026년 반기(6-30 기준)', url: 'https://dart.fss.or.kr/x3', flags: [], news: [] }],
+      { id: '기아|이무탈|197001', company: '기아', name: '이무탈', birth: '1970', ofcps: '이사', reg: '사외이사', report: '2026년 반기(6-30 기준)', url: 'https://dart.fss.or.kr/x3', flags: [], news: [],
+        directorChecks: [{ org: '디비손보', status: 'confirmed', reg: '사외이사', report: '2026년 반기(6-30 기준)' }, { org: '에스부품', status: 'absent' }] }],
     events: [{ id: 'execc:aaaa', reviewStatus: 'active', tier: 'A', kind: flag6.kind, company: '현대차', detectedAt: now, url: 'https://dart.fss.or.kr/x1', person: { name: '김오래' }, flags: [flag6],
       text: `현대차 이사(사외이사) 김오래 1955년생 — ${flag6.kind}: ${flag6.text}` },
     { id: 'execc:bbbb', reviewStatus: 'active', tier: 'B', kind: news.kind, company: '기아', detectedAt: now, url: 'https://dart.fss.or.kr/x2', person: { name: '박논란' }, flags: [news],
@@ -2874,6 +2875,9 @@ test('문제 임원 점검(kr-exec-check): radar_today A·B(단서 표시), kr_s
   assert.match(k.text, /- \[신규\] A · 현대차 · 김오래 1955년생 이사\(사외이사\) · 2026년 반기\(6-30 기준\)\n   법정 한도: 재직 6년 초과 가능: 재직기간 칸 「7년 2개월」/);
   assert.match(k.text, /- \[신규\] B · 기아 · 박논란 1960년생 사장\(미등기\)[^\n]*\n   과거 논란 기사: [^\n]+\n   기사: https:\/\/news\.example\/1/);
   assert.doesNotMatch(k.text, /이무탈/);
+  // 표시가 없어도 이름으로 물으면 겸직 명단 대조 결과(왜 3호가 아닌지)를 보여 준다
+  assert.match((await call('kr_signals', { section: 'exec', company: '이무탈' }, opts)).text,
+    /- 참고 · 기아 · 이무탈 1970년생 이사\(사외이사\)[^\n]*\n   겸직 명단 대조\(3호 해당 안 됨\): 디비손보 명단 확인\(사외이사·2026년 반기\(6-30 기준\)\) \/ 에스부품 최근 명단에 없음/);
   assert.doesNotMatch((await call('kr_signals', { section: 'exec', company: '현대차' }, opts)).text, /박논란/);
   const legacy = structuredClone(doc);
   delete legacy.people[1].flags[0].evidenceVersion;

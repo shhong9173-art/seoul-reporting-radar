@@ -1298,13 +1298,21 @@ async function execSection(ctx, q, days, limit, showAll = false) {
 }
 
 // 문제 임원 점검(kr-exec-check feed): 출입처 임원 한 사람씩 법정 결격 가능·과거 논란 기사. 지금 표시가 있는 사람 전부(새로 생긴 것은 [신규]).
+const DIRECTOR_LABEL = {
+  confirmed: '명단 확인', absent: '최근 명단에 없음', namesake: '같은 이름 다른 출생연도(동명이인)', identity_incomplete: '출생년월 불완전 — 확인 필요',
+  birth_mismatch: '같은 이름·같은 해 다른 달 — 확인 필요', unresolved: 'DART 고유번호 못 찾음(확인 불가)', no_report: '최근 정기보고서 없음(확인 불가)',
+  failed: '조회 실패(미확인)', budget: '조회 한도(다음 실행)', filed: '명단 순환·출입처 명단에서 확인',
+};
+
 async function execCheckSection(ctx, q, limit) {
   const doc = await readFeed(ctx, 'kr-exec-check');
   if (!doc) return ['\n[문제 임원 점검] 아직 수집 전 — 미확인(매일 05:50)'];
   if (doc.broken) return ['\n[문제 임원 점검] 저장 결과 형식 오류 — 미확인'];
   const c = doc.counts ?? {};
   const rank = (p) => (p.flags ?? []).some((f) => f.tier === 'A') ? 0 : (p.flags ?? []).length ? 1 : 2;
-  const flagged = (doc.people ?? []).map((p) => ({ ...p, flags: (p.flags ?? []).filter((f) => f.kind !== '과거 논란 기사' || f.evidenceVersion === 'executive_article/v1') })).filter((p) => ((p.flags ?? []).length || (p.news ?? []).length) && matches(q, p.company, p.name, p.career, ...(p.flags ?? []).map((f) => `${f.kind} ${f.text}`)))
+  // 겸직 명단 대조 결과는 표시가 없어도 이름·회사로 물으면 보여 준다(왜 B가 사라졌는지 — 명단에 없음·동명이인)
+  const boards = (p) => (p.directorChecks ?? []).filter((d) => d.status !== 'filed' || (p.directorChecks ?? []).length > 1);
+  const flagged = (doc.people ?? []).map((p) => ({ ...p, flags: (p.flags ?? []).filter((f) => f.kind !== '과거 논란 기사' || f.evidenceVersion === 'executive_article/v1') })).filter((p) => ((p.flags ?? []).length || (p.news ?? []).length || (q && boards(p).length)) && matches(q, p.company, p.name, p.career, ...(p.flags ?? []).map((f) => `${f.kind} ${f.text}`)))
     .sort((a, b) => rank(a) - rank(b) || String(a.company).localeCompare(String(b.company)));
   const bad = (doc.checks ?? []).filter((k) => !['ok', 'no_data'].includes(k.status));
   const fresh = new Set((doc.events ?? []).filter((e) => e.detectedAt === doc.generatedAt).map((e) => `${e.company}|${e.person?.name}`));
@@ -1312,7 +1320,10 @@ async function execCheckSection(ctx, q, limit) {
     ...(bad.length ? [`미확인: ${bad.map((k) => `${k.source}(${k.error ?? k.status})`).join(', ')}`] : []),
     ...(doc.rules ?? []).map((r) => `규칙: ${r}`)];
   for (const p of flagged.slice(0, limit)) {
-    out.push(`- ${fresh.has(`${p.company}|${p.name}`) ? '[신규] ' : ''}${rank(p) === 0 ? 'A' : rank(p) === 1 ? 'B' : '미확인'} · ${p.company} · ${p.name}${p.birth ? ` ${p.birth}년생` : ''} ${p.ofcps}(${p.reg}) · ${p.report}`);
+    out.push(`- ${fresh.has(`${p.company}|${p.name}`) ? '[신규] ' : ''}${rank(p) === 0 ? 'A' : rank(p) === 1 ? 'B' : (p.news ?? []).length ? '미확인' : '참고'} · ${p.company} · ${p.name}${p.birth ? ` ${p.birth}년생` : ''} ${p.ofcps}(${p.reg}) · ${p.report}`);
+    if (!(p.flags ?? []).some((f) => /다른 회사|겸직/.test(f.kind)) && boards(p).length) {
+      out.push(`   겸직 명단 대조(3호 해당 안 됨): ${boards(p).slice(0, 6).map((d) => `${d.org} ${DIRECTOR_LABEL[d.status] ?? d.status}${d.status === 'confirmed' && d.report ? `(${d.reg ?? d.ofcps ?? ''}·${d.report})` : ''}`).join(' / ')}`);
+    }
     if (p.newsStatus && !['ok', 'cached'].includes(p.newsStatus)) out.push('   기사 검색 미완료 — 아래 과거 기사로 현재 논란을 확인한 것은 아님');
     for (const f of p.flags) out.push(`   ${f.kind}: ${f.text}`);
     for (const h of (p.news ?? []).slice(0, 2)) {

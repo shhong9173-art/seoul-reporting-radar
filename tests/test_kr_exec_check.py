@@ -261,6 +261,16 @@ class Runs(unittest.TestCase):
         self.assertEqual(p["news"][0]["url"], "n1")                      # 원문 주소는 그대로
         self.assertEqual(p["bodyStatus"], "linked")
 
+    def test_unread_body_is_retried_next_run(self):
+        base = self.article
+        self.article = lambda url: {"status": "unsupported_source"}
+        first = self.go()
+        self.assertEqual(first["counts"]["articleReview"], {"unsupported_source": 1})
+        self.assertTrue(any(c["source"] == "기사 본문" and c.get("hosts") for c in first["checks"]))
+        self.article = base
+        doc = self.go(previous=first)                                  # 하루 안이라도 못 읽은 것은 다시 읽는다
+        self.assertEqual(doc["counts"]["articleReview"], {"context_linked": 1})
+
     # ---- 겸직 명단 직접 대조(3호) ----
     def boards(self, first=("1955년 01월", "사외이사"), second=("1955년 01월", "감사")):
         self.data[("00999001", 2026, "11012")] = api("20260814000001", [("김오래", first[0], "이사", first[1], "", "2년")])
