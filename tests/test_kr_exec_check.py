@@ -97,9 +97,10 @@ class Runs(unittest.TestCase):
         p = {x["name"]: x for x in doc["people"] if x["company"] == "현대차"}
         self.assertEqual(set(p), {"정회장", "김오래", "이최근", "박사장"})                 # 미등기 사장급도 기사 점검
         kinds = {f["kind"]: f for f in p["김오래"]["flags"]}
-        self.assertEqual(set(kinds), {"법정 한도: 재직 6년 초과 가능", "법정 한도: 다른 회사 이사·감사 2곳 이상 가능", "과거 논란 기사"})
+        self.assertEqual(set(kinds), {"법정 한도: 재직 6년 초과 가능", "겸직 확인: 경력 칸 현직 이사·감사", "과거 논란 기사"})
         self.assertIn("7년 2개월", kinds["법정 한도: 재직 6년 초과 가능"]["text"])
-        self.assertIn("다른 출입처 명단: 기아", kinds["법정 한도: 다른 회사 이사·감사 2곳 이상 가능"]["text"])
+        self.assertEqual(kinds["겸직 확인: 경력 칸 현직 이사·감사"]["tier"], "B")         # 경력 칸만으로는 B
+        self.assertIn("다른 상장사 명단: 기아", kinds["겸직 확인: 경력 칸 현직 이사·감사"]["text"])
         self.assertEqual(kinds["과거 논란 기사"]["tier"], "A")
         self.assertIn("고객정보 유출 책임지고 사퇴", kinds["과거 논란 기사"]["text"])
         self.assertEqual([f["kind"] for f in p["이최근"]["flags"]], ["독립성: 같은 그룹 최근 근무 가능"])
@@ -111,6 +112,18 @@ class Runs(unittest.TestCase):
         self.assertEqual(again["counts"]["newEvents"], 0)
         self.assertEqual(again["counts"]["newsChecked"], 0)                               # 14일 안엔 기사를 다시 찾지 않는다
         self.assertEqual({f["kind"] for x in again["people"] if x["name"] == "김오래" for f in x["flags"]}, set(kinds))
+
+    def test_listed_rosters_confirm_two_other_boards(self):
+        import hashlib
+        h = hashlib.sha256("김오래|195501".encode()).hexdigest()[:8]
+        market = {"companies": {"00999001": {"n": "디비보험", "p": "202611012", "dk": [h]}, "00999002": {"n": "에스부품", "p": "202611012", "dk": [h]}}}
+        exec_doc = {"rosters": {}}
+        doc = kc.run("k", now=NOW, exec_doc=exec_doc, market_doc=market, get=self.get, news=self.news, sleep=lambda s: None,
+                     registry={"companies": {"현대자동차": {"corp_code": "00164742"}}}, table={})
+        f = next(f for x in doc["people"] if x["name"] == "김오래" for f in x["flags"] if f["kind"].startswith("법정 한도: 다른 회사"))
+        self.assertEqual(f["tier"], "A")
+        self.assertIn("디비보험·에스부품", f["text"])
+        self.assertEqual(kc.current_directorships("('17 ~ '19) ㈜GS글로벌 대표이사 / ('20 ~ 현재) 코스맥스㈜ 감사", OWN), ["('20 ~ 현재) 코스맥스㈜ 감사"])
 
     def test_news_budget_and_failure(self):
         doc = self.go(news_budget=2)

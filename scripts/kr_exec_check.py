@@ -8,11 +8,11 @@
 점검(표시는 판정이 아니라 확인할 단서 — 기자가 판단)
 1. 독립(사외)이사 법정 결격 가능 — 상법 시행령 제34조 제5항(2026-07 개정)
    - 7호: 같은 회사에서 사외·독립이사로 6년 초과(계열사 합산 9년) → '재직기간' 칸이 기간(n년 n개월·n개월)이거나 6년 넘은 시작일일 때만
-   - 3호: 해당 회사 외 2곳 이상 다른 회사 이사·집행임원·감사 재임 → 경력 칸 '현(現)' 마디의 회사 이사·감사 직함(학회·재단·협회·대학 등은 뺌)과
-     다른 출입처 명단 겹침
+   - 3호: 해당 회사 외 2곳 이상 다른 회사 이사·집행임원·감사 재임 → 다른 상장사(명단 순환)·출입처 정기보고서 등기임원 명단에 같은 이름·출생년월이
+     2곳 넘게 있으면 A. 경력 칸 '현(現)' 마디만으로는 B '겸직 확인'(11-05 실제: 기간 표기 '(\'17 ~ \'19)'를 잘못 끊어 끝난 대표이사를 현직으로 셌다)
    - 1호: 계열회사 상무 종사자이거나 최근 3년 안 종사 → 경력 칸에 같은 그룹 이름 + 직원·임원 직함 + 최근 3년 연도(또는 현재)
 2. 과거 논란 기사 — 네이버 뉴스에서 '이름 + 회사'(사외이사는 '이름 + 경력의 주된 기관'도) 제목에 비위·사고·제재 낱말이 있는 기사.
-   이름이 제목에 있고 강한 낱말(횡령·배임·기소·구속·압수수색·고발·해킹·유출·갑질·성비위·음주운전·뇌물·담합·분식·중대재해·징계·경질)이면 A,
+   기사 제목에 그 사람 이름이 있는 것만. 강한 낱말(횡령·배임·기소·구속·압수수색·고발·해킹·유출·갑질·성비위·음주운전·뇌물·담합·분식·중대재해·징계·경질)이면 A,
    그 밖(본문에만 이름, 소송·논란·사퇴 등) B. 같은 이름의 다른 사람일 수 있다 — 기사 원문 확인.
 
 원칙
@@ -149,6 +149,8 @@ def news_hits(items, name, anchors, *, skip_in_title=()):
             continue
         if any(x and x in title for x in skip_in_title):
             continue
+        if name not in title:      # 11-05 실제: 본문에만 이름이 있는 기사는 거의 다른 사람·다른 일(LS 사외이사 ↔ '명노현 LS 부회장 … 논란')
+            continue
         strong, weak = STRONG.search(title), WEAK.search(title)
         if not strong and not weak:
             continue
@@ -164,7 +166,16 @@ def person_id(company, p):
     return f"{company}|{kx.person_key(p)}"
 
 
-def run(key, *, now=None, previous=None, exec_doc=None, get=None, news=None, sleep=time.sleep, registry=None, table=None,
+def market_index(market_doc):
+    """kr-exec-market 명단 순환의 등기임원 키 해시 → [(회사, 기간)]"""
+    idx = {}
+    for code, c in ((market_doc or {}).get("companies") or {}).items():
+        for h in c.get("dk") or []:
+            idx.setdefault(h, []).append((c.get("n") or code, c.get("p")))
+    return idx
+
+
+def run(key, *, now=None, previous=None, exec_doc=None, market_doc=None, get=None, news=None, sleep=time.sleep, registry=None, table=None,
         news_budget=None):
     if get is None:
         import requests
@@ -183,6 +194,8 @@ def run(key, *, now=None, previous=None, exec_doc=None, get=None, news=None, sle
     codes, missing = gw.resolve_codes(names, registry, table)
     codes.pop("_spellings", None)
     rosters = (exec_doc or {}).get("rosters") or {}
+    midx = market_index(market_doc)
+    covered = sum(1 for c in ((market_doc or {}).get("companies") or {}).values() if c.get("p"))
     beat_keys = {n: {kx.person_key(p) for p in kx.unpack(v.get("people") or []) if p.get("reg") != "미등기"} for n, v in rosters.items()}
     checks, people = [], []
     budget = [news_budget if news_budget is not None else NEWS_BUDGET]
@@ -224,12 +237,19 @@ def run(key, *, now=None, previous=None, exec_doc=None, get=None, news=None, sle
                     rec["flags"].append({"kind": "법정 한도: 재직 6년 초과 가능", "tier": "A",
                                          "text": f"재직기간 칸 「{p.get('period')}」 → {months // 12}년 {months % 12}개월({kx.period_label(y, r)} 기준) — 상법 시행령 제34조⑤7호(같은 회사 6년 초과 결격). 연임 경위·계산 기준은 회사 확인"})
                 cur = current_directorships(p.get("career"), own)
-                others = sorted(o for o, ks in beat_keys.items() if o != name and kx.person_key(p) in ks)
-                n = len(cur) + len([o for o in others if not any(kx.SHORT.get(o, o) in c or o in c for c in cur)])
-                if n >= 2:
+                others = sorted(kx.SHORT.get(o, o) for o, ks in beat_keys.items() if o != name and kx.person_key(p) in ks)
+                h = hashlib.sha256(kx.person_key(p).encode()).hexdigest()[:8]
+                listed = sorted({n_ for n_, _ in midx.get(h, [])} - {short, name} - set(others))
+                filed = others + listed                     # 공시 명단으로 확인된 다른 회사 등기임원 자리
+                if len(filed) >= 2:
                     rec["flags"].append({"kind": "법정 한도: 다른 회사 이사·감사 2곳 이상 가능", "tier": "A",
-                                         "text": f"경력 '현' 마디 「{' / '.join(cur[:4])}」{' · 다른 출입처 명단: ' + '·'.join(kx.SHORT.get(o, o) for o in others) if others else ''}"
-                                                 " — 상법 시행령 제34조⑤3호(해당 회사 외 2곳 이상 다른 회사 이사·감사 재임 결격). 비상장·비영리 여부와 실제 재임은 확인"})
+                                         "text": f"같은 이름·출생년월이 다른 상장사 등기임원 명단에도 있음: {'·'.join(filed[:5])}(각 회사 최근 정기보고서)"
+                                                 f"{' · 경력 현직 「' + ' / '.join(cur[:3]) + '」' if cur else ''}"
+                                                 " — 상법 시행령 제34조⑤3호(해당 회사 외 2곳 이상 다른 회사 이사·감사 재임 결격). 겸직 시점·동명이인은 각 회사 공시로 확인"})
+                elif len(cur) + len(filed) >= 2 and cur:
+                    rec["flags"].append({"kind": "겸직 확인: 경력 칸 현직 이사·감사", "tier": "B",
+                                         "text": f"경력 '현' 마디 「{' / '.join(cur[:3])}」{' · 다른 상장사 명단: ' + '·'.join(filed) if filed else ''}"
+                                                 f" — 공시 명단으로 2곳 확인은 안 됨(명단 순환 {covered}곳 기준·비상장 못 봄). 상법 시행령 제34조⑤3호 기준 확인"})
                 aff = affiliate_recent(p.get("career"), own, as_of)
                 if aff:
                     rec["flags"].append({"kind": "독립성: 같은 그룹 최근 근무 가능", "tier": "B",
@@ -266,6 +286,7 @@ def run(key, *, now=None, previous=None, exec_doc=None, get=None, news=None, sle
                     rec["newsAt"] = stamp
             else:
                 rec["news"], rec["newsAt"] = old.get("news") or [], old.get("newsAt")
+            rec["news"] = [h for h in rec.get("news") or [] if p["name"] in h.get("title", "")]
             if rec.get("news"):
                 strong = any(h["strong"] for h in rec["news"])
                 rec["flags"].append({"kind": "과거 논란 기사", "tier": "A" if strong else "B",
@@ -305,8 +326,8 @@ def run(key, *, now=None, previous=None, exec_doc=None, get=None, news=None, sle
         "unresolvedCompanies": missing,
         "rules": [
             "출입처 최근 정기보고서 등기임원(임원 현황)과 미등기 사장급을 한 사람씩 본다. 표시는 확인할 단서지 판정이 아니다.",
-            "독립(사외)이사 법정 결격 가능 — 상법 시행령 제34조⑤: 7호 같은 회사 6년 초과(재직기간 칸이 기간이거나 6년 넘은 시작일일 때만), 3호 해당 회사 외 2곳 이상 다른 회사 이사·감사(경력 '현' 마디 + 다른 출입처 명단), 1호 계열회사 최근 3년 내 상무 종사(경력 칸 같은 그룹 + 직함 + 연도).",
-            "과거 논란 기사: 네이버 뉴스 '이름 + 회사'(사외·기타비상무이사는 '이름 + 경력의 주된 기관'도)에서 제목에 비위·사고·제재 낱말이 있는 기사. 사내 임원(사내이사·미등기 사장급)은 제목에 지금 회사 이름이 있는 기사(회사 사고·담합 등 — 이미 보도된 회사 기사)를 뺀다. 첫 실행 표시는 기준선(오늘의 레이더엔 안 올림). 이름이 제목에 있고 강한 낱말(횡령·배임·기소·구속·고발·해킹·유출·갑질·성비위·음주운전·뇌물·담합·분식·중대재해·징계·경질 등)이면 A. 같은 이름의 다른 사람일 수 있다.",
+            "독립(사외)이사 법정 결격 가능 — 상법 시행령 제34조⑤: 7호 같은 회사 6년 초과(재직기간 칸이 기간이거나 6년 넘은 시작일일 때만), 3호 해당 회사 외 2곳 이상 다른 회사 이사·감사(다른 상장사·출입처 공시 명단에 같은 이름·출생년월이 2곳 넘게 있을 때 A, 경력 칸 현직만이면 B '겸직 확인'), 1호 계열회사 최근 3년 내 상무 종사(경력 칸 같은 그룹 + 직함 + 연도).",
+            "과거 논란 기사: 네이버 뉴스 '이름 + 회사'(사외·기타비상무이사는 '이름 + 경력의 주된 기관'도)에서 제목에 비위·사고·제재 낱말이 있는 기사. 사내 임원(사내이사·미등기 사장급)은 제목에 지금 회사 이름이 있는 기사(회사 사고·담합 등 — 이미 보도된 회사 기사)를 뺀다. 첫 실행 표시는 기준선(오늘의 레이더엔 안 올림). 기사 제목에 그 사람 이름이 있는 것만. 강한 낱말(횡령·배임·기소·구속·고발·해킹·유출·갑질·성비위·음주운전·뇌물·담합·분식·중대재해·징계·경질 등)이면 A. 같은 이름의 다른 사람일 수 있다.",
             "혐의·비위를 단정하지 않는다. 기사 제목은 그대로 옮기고, 결격 여부·사실관계는 회사·당사자 확인. 조회 실패는 0건이 아니라 미확인.",
         ],
     }
@@ -341,9 +362,9 @@ def main():
         sys.exit("DART_API_KEY 없음 — 이전 결과 유지")
     token = os.environ.get("MCP_ACCESS_TOKEN", "").strip()
     import private_store
-    previous = exec_doc = None
+    previous = exec_doc = market_doc = None
     if token:
-        for feed in ("kr-exec-check", "kr-exec"):
+        for feed in ("kr-exec-check", "kr-exec", "kr-exec-market"):
             try:
                 got = private_store.get(feed, token)
             except private_store.StoreError as e:
@@ -351,15 +372,18 @@ def main():
                 got = None
             if feed == "kr-exec-check":
                 previous = got
-            else:
+            elif feed == "kr-exec":
                 exec_doc = got
+            else:
+                market_doc = got
     registry = json.loads((ROOT / "dart_corp_codes.json").read_text(encoding="utf-8"))
     try:
         import dart_watch
         table = dart_watch.load_corp_codes(key)
     except SystemExit:
         table = None
-    doc = run(key, previous=None if a.annotate_only else previous, exec_doc=exec_doc, registry=registry, table=table, news_budget=NEWS_BUDGET)
+    doc = run(key, previous=None if a.annotate_only else previous, exec_doc=exec_doc, market_doc=market_doc, registry=registry, table=table,
+              news_budget=NEWS_BUDGET)
     if a.annotate_only:
         annotate(doc)
         return

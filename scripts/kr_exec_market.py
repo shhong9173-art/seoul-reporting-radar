@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import hashlib
 import json
 import os
 import re
@@ -105,7 +106,7 @@ GROUP_NAMES = {
 TITLE = re.compile(r"회장|부회장|사장|부사장|전무|상무보|상무|대표|CEO|CFO|CTO|COO|CSO|CHRO|본부장|사업부장|연구소장|연구원장|센터장|법인장|"
                    r"사외이사|독립이사|기타비상무이사|사내이사|이사(?!회|장)")
 SENIOR = re.compile(r"회장|사장|전무|대표|CEO|CFO|CTO|COO|CSO|사내이사")
-SEG = re.compile(r"[/ㆍ·•\n;|]|\s-\s|-(?=\s*[前現])|(?<=\S)\s*-(?=\s*\d)|(?=\(?['’]\d{2}[.~)])|(?<![\d~])(?=\d{4}\s*[.~년)])|(?=[前現]\s*\S)|(?=[전현]\s*\))|(?=\s[전현]\))")
+SEG = re.compile(r"[/ㆍ·•\n;|]|\s-\s|-(?=\s*[前現])|(?<=\S)\s*-(?=\s*\d)|(?<!~)(?<!~ )(?=\(?['’]\d{2}[.~)])|(?<![\d~])(?<!~ )(?=\d{4}\s*[.~년)])|(?=[前現]\s*\S)|(?=[전현]\s*\))|(?=\s[전현]\))")
 NONE = re.compile(r"^\s*(-|–|없음|없\s*음|해당\s*사항\s*없음|해당\s*없음|해당사항없음|N/?A|無|×|x|X|미해당|0)?\s*\.?\s*$")
 
 
@@ -569,7 +570,9 @@ def roster_part(key, now, universe, watch, state, *, get, sleep, budget, ind_bud
                                   f"https://dart.fss.or.kr/dsaf001/main.do?rcpNo={rcept}",
                                   person={k2: p.get(k2) for k2 in ("name", "birth", "ofcps", "reg", "career")}, flags=hits,
                                   source="임원 현황", key=f"{code}|{period}|{k}", beat=beats[0] if beats else None))
-        comps[code] = {"r": rcept, "p": period, "k": sorted(flagged), "t": today}
+        # 등기임원 전원 키(해시 8자리) — 문제 임원 점검이 '같은 사람이 다른 상장사 등기임원에도 있나'(시행령 34조⑤3호 겸직)를 본다
+        dk = sorted({hashlib.sha256(kx.person_key(p).encode()).hexdigest()[:8] for p in people})
+        comps[code] = {"r": rcept, "p": period, "k": sorted(flagged), "t": today, "n": name[:20], "dk": dk}
         # 출입처 출신 타사 등기임원 현황(기준선 포함 — 지금 어디 이사로 가 있나)
         alumni = state.setdefault("alumni", {})
         rows_ = [{"company": name, "name": re.sub(r"\s+", " ", p["name"]).strip(), "birth": kx.birth_key(p["birth"])[:4], "ofcps": kx.norm_ofcps(p["ofcps"]), "reg": p["reg"],
