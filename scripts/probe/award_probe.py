@@ -1,10 +1,8 @@
-"""probe 187: (a) 금감원 공개안 중 위반 기간을 못 뽑은 건(2020-07-08 우리은행 등)의 제재대상사실 날짜 표기, (b) 공정위 의결서 목록에서
-사건번호로 원문(개방문서) 찾기 — searchKrwd 회사명 + 쪽 넘김, 원문 주문·과징금 발췌. 저장 안 함. 공개 처분 기록(법인)."""
+"""probe 188: 공정위 의결서 목록 건수 — 접수연도 창별 총수(쪽 수·마지막 쪽 줄 수)와 한 창 전체의 사건번호 중복. 저장 안 함. 공개 목록."""
 import re, sys, time
 import requests
 
 sys.path.insert(0, "scripts")
-import official_sanctions as osn  # noqa: E402
 import kr_signals_watch as ks  # noqa: E402
 
 OUT = []
@@ -15,61 +13,53 @@ def log(*a):
 
 
 s = requests.Session()
-s.headers.update(osn.UA)
+s.headers.update({"User-Agent": "Mozilla/5.0 (compatible; ReporterRadar/1.0; public records)"})
 t0 = time.time()
-log("# 금감원 위반 기간 표기")
-for rid in ("fss:201800707-2", "fss:201800707-1", "fss:201800707-3"):
-    try:
-        r = s.get(osn.fss_url(rid), timeout=30)
-        hrefs = re.findall(r'href="([^"]*hpdownload[^"]*\.pdf[^"]*)"', r.text)
-        if not hrefs:
-            log(rid, "no pdf")
-            continue
-        p = s.get(requests.compat.urljoin("https://www.fss.or.kr/", hrefs[0].replace("&amp;", "&")), timeout=40)
-        t = osn.pdf_text(p.content, 6)
-        flat = re.sub(r"\s+", " ", t)
-        k = flat.find("제재대상사실")
-        log(f"\n {rid} chars {len(flat)} summary {({x: osn.fss_summary(t).get(x) for x in ('inst', 'exec', 'violation')})}")
-        tail = flat[k:k + 5000]
-        dates = re.findall(r"[^\s]{0,6}(?:(?:19|20)\d{2}|['’]\d{2})\s*[.년]\s*\d{1,2}[^\s]{0,12}", tail)
-        log("  date tokens:", dates[:25])
-        for m in re.finditer(r"기간\s*중|부터|까지|∼|~", tail):
-            log("  ctx:", tail[max(0, m.start() - 50):m.end() + 20])
-            if m.start() > 3000:
-                break
-    except Exception as e:
-        log(rid, "error", type(e).__name__, str(e)[:100])
-    time.sleep(0.5)
 
-log("\n# 공정위 사건번호 → 원문")
-for org, csno in (("지에스리테일", "2020서경1005"), ("엘지전자", "2019기감1114"), ("롯데지주", "2017건하2612")):
+
+def page(start, end, n):
+    r = s.get(ks.FTC_LIST, params={"startRceptDt": start, "endRceptDt": end, "pageIndex": n}, timeout=40)
+    rows, last = ks.parse_ftc_list(r.text)
+    total = re.search(r"총\s*([\d,]+)\s*건|전체\s*([\d,]+)", r.text)
+    return rows, last, (total.group(1) or total.group(2)) if total else None
+
+
+tot = 0
+for y in range(2014, 2027):
     try:
-        found = None
-        for page in range(1, 6):
-            r = s.get(ks.FTC_LIST, params={"startRceptDt": "2016-01-01", "endRceptDt": "2026-11-05", "pageIndex": page, "searchKrwd": org}, timeout=40)
-            rows, last = ks.parse_ftc_list(r.text)
-            hit = next((x for x in rows if x["csno"] == csno), None)
-            if hit:
-                found = (page, hit)
-                break
-            if not rows or (last and page >= last):
-                break
-            time.sleep(0.5)
-        if not found:
-            log(f"\n {org} {csno}: 5쪽 안에 없음 (last {last})")
-            continue
-        page, hit = found
-        log(f"\n {org} {csno}: page {page} name {hit['name'][:80]} action {hit['action']} doc {bool(hit.get('doc'))}")
-        if hit.get("doc"):
-            d = s.get(ks.FTC_TEXT, params={"docId": hit["doc"]["docId"], "docCnvrMnNo": hit["doc"]["docCnvrMnNo"]}, timeout=60)
-            text = ks.doc_text(d.text)
-            resp, order = ks.sections(text)
-            amounts = re.findall(r"([\d,]{4,})\s*(백만원|천원|원)", order)
-            log("  resp:", resp[:200])
-            log("  order:", order[:400])
-            log("  amounts:", amounts[:5])
+        rows, last, shown = page(f"{y}-01-01", f"{y}-12-31", 1)
+        n_last = len(page(f"{y}-01-01", f"{y}-12-31", last)[0]) if last and last > 1 else len(rows)
+        est = (last - 1) * 10 + n_last if last else len(rows)
+        tot += est if y >= 2016 else 0
+        dec = [x["decidedOn"] for x in rows]
+        log(f" 접수 {y}: 쪽 {last} 마지막 쪽 {n_last}줄 → 약 {est}건 · 표시 총수 {shown} · 첫 쪽 의결일 {min(dec) if dec else None}~{max(dec) if dec else None}")
     except Exception as e:
-        log(org, "error", type(e).__name__, str(e)[:100])
-    time.sleep(0.5)
+        log(f" {y} error {type(e).__name__}")
+    time.sleep(0.4)
+log(f" 2016~ 접수 창 합계 약 {tot}건")
+# 전체(2016-01-01~) 목록 정렬 기준·중복: 1~40쪽 사건번호
+seen, dup, n = {}, 0, 0
+for p_ in range(1, 41):
+    rows, last, _ = page("2016-01-01", "2026-11-05", p_)
+    for x in rows:
+        n += 1
+        if x["csno"] in seen:
+            dup += 1
+        seen[x["csno"]] = p_
+    time.sleep(0.3)
+log(f" 전체 목록 1~40쪽: 줄 {n} · 고유 사건번호 {len(seen)} · 중복 {dup} · last {last}")
+# 접수일 창 2016 전체 스캔
+rows_all, p_ = [], 1
+while True:
+    rows, last, _ = page("2016-01-01", "2016-12-31", p_)
+    rows_all += rows
+    if not rows or (last and p_ >= last):
+        break
+    p_ += 1
+    time.sleep(0.3)
+ids = [x["csno"] for x in rows_all]
+log(f" 접수 2016 창 전체: 줄 {len(ids)} · 고유 {len(set(ids))} · 빈 사건번호 {sum(1 for i in ids if not i)}")
+dec = sorted(x["decidedOn"] for x in rows_all if x.get("decidedOn"))
+log(f"   의결일 범위 {dec[0] if dec else None}~{dec[-1] if dec else None}")
 log(f"\n{time.time() - t0:.0f}s")
 open("/tmp/probe_out.txt", "w").write("\n".join(OUT))
