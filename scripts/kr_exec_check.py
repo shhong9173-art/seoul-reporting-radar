@@ -142,10 +142,28 @@ def main_org(career, company_aliases):
     return None
 
 
+GOV_POST = r"\s*[^\s,…]{0,8}?(장관|차관|청장|지검장|검사장|검찰총장|총장|위원장|권한대행|의원|차장|국장)"
+QUOTE = re.compile(r"[\"“”「」]([^\"“”「」]{2,80})[\"“”「」]|[\"“「]([^\"“”「」]{2,80})(\.\.\.|…)?$")   # 홑따옴표는 강조라 발언으로 보지 않는다
+
+
+def official_noise(title, name):
+    """공직 시절 발언·공무 기사(11-05 실제: 「김현웅 법무부장관, … "불법파업 책임 추궁할…"」, 「유영숙 환경부장관, 칠곡 고엽제 의혹 … 방문」).
+    이름 뒤에 공직 직함이 붙고, 비위 낱말이 따옴표 안(그 사람 이름이 없는 인용)에만 있거나 약한 낱말뿐이면 그 사람 문제가 아니다."""
+    if not re.search(re.escape(name) + GOV_POST, title):
+        return False
+    quoted = [q for g in QUOTE.findall(title) for q in g[:2] if q]
+    outside = title
+    for q in quoted:
+        if name in q:
+            return False          # 남이 그 사람을 두고 한 말(의혹 제기)은 남긴다
+        outside = outside.replace(q, " ")
+    return not STRONG.search(outside)
+
+
 def keep_title(title, name, skip=()):
     """저장된 기사도 지금 규칙으로 다시 거른다(제목만으로 볼 수 있는 것)"""
     if name not in title or COLUMN.search(title) or re.search(r"\[[^\]]*" + re.escape(name) + r"[^\]]*\]", title) \
-            or re.search(re.escape(name) + SPEAKER, title) or any(x and x in title for x in skip):
+            or re.search(re.escape(name) + SPEAKER, title) or any(x and x in title for x in skip) or official_noise(title, name):
         return False
     return bool(STRONG.search(title) or WEAK.search(title))
 
@@ -164,7 +182,8 @@ def news_hits(items, name, anchors, *, skip_in_title=()):
             continue
         if name not in title:      # 11-05 실제: 본문에만 이름이 있는 기사는 거의 다른 사람·다른 일(LS 사외이사 ↔ '명노현 LS 부회장 … 논란')
             continue
-        if COLUMN.search(title) or re.search(r"\[[^\]]*" + re.escape(name) + r"[^\]]*\]", title) or re.search(re.escape(name) + SPEAKER, title):
+        if COLUMN.search(title) or re.search(r"\[[^\]]*" + re.escape(name) + r"[^\]]*\]", title) or re.search(re.escape(name) + SPEAKER, title) \
+                or official_noise(title, name):
             continue
         strong, weak = STRONG.search(title), WEAK.search(title)
         if not strong and not weak:
