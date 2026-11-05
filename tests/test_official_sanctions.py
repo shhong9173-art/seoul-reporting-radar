@@ -116,5 +116,17 @@ class Refresh(unittest.TestCase):
         self.assertFalse(any("FileDown" in u for u in calls))                   # 이미 읽은 글은 다시 안 읽는다
 
 
+    def test_pipc_unread_posts_are_retried(self):
+        listing = '<a href="/np/cop/bbs/selectBoardArticle.do?bbsId=BS258&amp;mCode=C010040000&amp;nttId=12608">공표</a>'
+        view = "<a href=\"javascript:fn_egov_downFileCnv('FILE_1','0','pdf')\">다운로드</a>"
+        state = {"posts": {"12608": []}}                                         # 예전 실행: 첨부를 못 읽어 빈 글로 저장
+        html_err = lambda url, **kw: R(listing if "pageIndex=1" in url else "") if "selectBoardList" in url else R(view) if "selectBoardArticle" in url else R(text="<html>", content=b"<html>")
+        st, c = osn.refresh_pipc(state, get=html_err, now=NOW, read_pdf=lambda raw, pages: PIPC)
+        self.assertEqual((c["status"], c["posts"], st["posts"]), ("partial", 0, {}))
+        self.assertIn("not_pdf:200:", next(iter(c["outcomes"])))
+        ok = lambda url, **kw: R(listing if "pageIndex=1" in url else "") if "selectBoardList" in url else R(view) if "selectBoardArticle" in url else R(content=b"%PDF-1.4")
+        st2, c2 = osn.refresh_pipc(st, get=ok, now=NOW, read_pdf=lambda raw, pages: PIPC)
+        self.assertEqual((c2["status"], c2["rows"]), ("ok", 2))
+
 if __name__ == "__main__":
     unittest.main()

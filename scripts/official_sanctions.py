@@ -76,7 +76,7 @@ def fss_records(state):
     return [{"agency": "금감원", **r, "url": fss_url(r["id"])} for r in (state or {}).get("rows", {}).values()]
 
 
-def refresh_fss(state, *, get, now, backfill_pages=100, new_pages=5):
+def refresh_fss(state, *, get, now, backfill_pages=200, new_pages=5, pause=None):
     """앞쪽(새 공개) 몇 쪽 + 뒤쪽 채우기 몇 쪽. state: {"rows": {id: row}, "nextPage": n, "done": bool, "since": …}.
     반환: (state, {"status", "pages", "new", "error"?})"""
     state = dict(state or {})
@@ -86,6 +86,8 @@ def refresh_fss(state, *, get, now, backfill_pages=100, new_pages=5):
     fresh, pages, err = 0, 0, None
 
     def page(n):
+        if pause:
+            pause(0.2)                                  # 공개 누리집 — 쪽 사이 잠깐 쉰다
         r = get(f"{FSS_LIST}&sdate={since}&edate={edate}&pageIndex={n}", headers=UA, timeout=30)
         if getattr(r, "status_code", 200) != 200:
             raise RuntimeError(f"HTTP {r.status_code}")
@@ -187,11 +189,13 @@ def pipc_rows(pdf_text):
     return out
 
 
-def refresh_pipc(state, *, get, now, max_posts=40, read_pdf=None):
-    """결과의 공표 게시판의 새 글만 첨부 PDF를 읽는다. state: {"posts": {nttId: [records]}}."""
+def refresh_pipc(state, *, get, now, max_posts=40, read_pdf=None, pause=None):
+    """결과의 공표 게시판의 새 글만 첨부 PDF를 읽는다. state: {"posts": {nttId: [records]}}.
+    첨부를 못 읽은 글은 저장하지 않아 다음 실행에 다시 본다(11-05 첫 실행: 세션 없이 내려받아 29건 모두 PDF가 아니었다 — 빈 목록으로 저장돼
+    다시 안 읽힐 뻔). 첨부 내려받기는 글을 연 세션 쿠키가 필요하다(탐침 181은 Session으로 성공)."""
     state = dict(state or {})
-    posts = dict(state.get("posts") or {})
-    err, read = None, 0
+    posts = {k: v for k, v in (state.get("posts") or {}).items() if v}       # 빈 글(예전 실패)은 다시 읽는다
+    err, read, outcome = None, 0, {}
     try:
         ids = []
         for n in range(1, 6):
@@ -206,21 +210,33 @@ def refresh_pipc(state, *, get, now, max_posts=40, read_pdf=None):
         for ntt in [x for x in ids if x not in posts][:max_posts]:
             v = get(PIPC_VIEW + ntt, headers=UA, timeout=30)
             files = re.findall(r"fn_egov_downFile\w*\(\s*'([^']+)'\s*,\s*'([^']+)'", v.text)
-            recs = []
+            recs, got_pdf = [], False
+            if not files:
+                outcome["no_file"] = outcome.get("no_file", 0) + 1
             for fid, sn in files[:3]:
-                f = get(PIPC_FILE.format(fid, sn), headers=UA, timeout=40)
+                f = get(PIPC_FILE.format(fid, sn), headers={**UA, "Referer": PIPC_VIEW + ntt}, timeout=40)
                 if getattr(f, "status_code", 200) != 200 or f.content[:4] != b"%PDF":
+                    k = f"not_pdf:{getattr(f, 'status_code', '?')}:{str(getattr(f, 'headers', {}).get('Content-Type', ''))[:20]}"
+                    outcome[k] = outcome.get(k, 0) + 1
                     continue
+                got_pdf = True
                 for x in pipc_rows((read_pdf or pdf_text)(f.content, 6)):
                     recs.append({**x, "id": f"pipc:{ntt}:{x['no']}", "url": PIPC_VIEW + ntt})
-            posts[ntt] = recs
-            read += 1
+            if recs:
+                posts[ntt] = recs
+                read += 1
+                outcome["ok"] = outcome.get("ok", 0) + 1
+            elif got_pdf:
+                outcome["parsed_empty"] = outcome.get("parsed_empty", 0) + 1
+            if pause:
+                pause(0.2)
     except Exception as e:
         err = f"{type(e).__name__}: {str(e)[:60]}"
     state.update(posts=posts, checkedAt=now.isoformat(timespec="seconds"))
     rows = sum(len(v) for v in posts.values())
-    return state, {"source": "개인정보위 결과의 공표", "status": "partial" if err else "ok", "posts": len(posts), "read": read, "rows": rows,
-                   **({"error": err} if err else {})}
+    unread = sum(v for k, v in outcome.items() if k != "ok")
+    return state, {"source": "개인정보위 결과의 공표", "status": "partial" if err or unread else "ok", "posts": len(posts), "read": read, "rows": rows,
+                   "outcomes": outcome, **({"error": err} if err else {})}
 
 
 # ---------- 경력 칸과 잇기 ----------
