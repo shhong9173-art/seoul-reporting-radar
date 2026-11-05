@@ -57,6 +57,18 @@ class Rules(unittest.TestCase):
         self.assertEqual([h["url"] for h in hits], ["c2"])
         self.assertEqual(kc.current_directorships("현) 교보생명 사외이사 / 현) KPMG ACI(감사위원회 지원센터) 자문교수", OWN), ["현) 교보생명 사외이사"])
 
+    def test_columns_speeches_and_namesakes_are_not_leads(self):
+        items = [{"title": "[시론/오윤]해외유출 탈세자금에 ‘방울’ 달자", "text": "롯데케미칼", "url": "x1"},
+                 {"title": "김현웅 법무부장관 \"불법 집회, 끝까지 추적\"", "text": "HD현대오일뱅크", "url": "x2"},
+                 {"title": "박현주 시옷 대표 “車 해킹 취약”", "text": "LS", "url": "x3"},
+                 {"title": "이호준 중견련 상근부회장, 중기소식", "text": "OCI", "url": "x4"},
+                 {"title": "허연수 책임론…GS리테일 166만명 정보 유출", "text": "GS", "url": "x5"}]
+        names = {"x1": "오윤", "x2": "김현웅", "x3": "박현주", "x4": "이호준", "x5": "허연수"}
+        kept = [it["url"] for it in items if kc.news_hits([it], names[it["url"]], ["롯데케미칼", "HD현대오일뱅크", "LS", "OCI", "GS"])]
+        self.assertEqual(kept, ["x5"])
+        self.assertTrue(kc.keep_title("허연수 책임론…GS리테일 정보 유출", "허연수"))
+        self.assertFalse(kc.keep_title("[박재환 교수의 회계로 읽는 자본시장] 피싱과 분식회계", "박재환"))
+
     def test_news_hits(self):
         items = [{"title": "홍길동 전 한빛카드 대표, 해킹 사고 책임지고 사퇴", "text": "한빛카드 …", "date": "2025-12-10", "url": "u1"},
                  {"title": "현대차, 신차 출시", "text": "홍길동 사외이사 …", "date": "2026-01-01", "url": "u2"},
