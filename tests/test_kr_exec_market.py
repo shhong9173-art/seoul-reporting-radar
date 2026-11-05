@@ -107,6 +107,10 @@ class CareerRules(unittest.TestCase):
         self.assertEqual(km.beat_origin("현대자동차 협력사 대표"), [])      # 협력사 대표는 그 회사 출신이 아니다
         self.assertEqual(km.beat_origin("현대중공업 부사장"), [])            # 그룹 회사일 뿐 출입처 아님
         self.assertEqual([x["beat"] for x in km.beat_origin("前 두산중공업 부사장")], ["두산에너빌리티"])   # 옛 이름
+        # 11-05 실제 자료(시알홀딩스 사외이사): '- 前' 이어 쓴 경력 — 포스코 직함은 '구매센터장'(고위 아님), 포스메이트 대표는 별개
+        o = km.beat_origin("- 前 포스코건설 구매계약 임원- 前 포스코 동반성장 사무국장, 구매센터장- 前 포스메이트 대표이사- 前 포항공대법인 본부장")
+        self.assertEqual([(x["beat"], x["senior"]) for x in o], [("포스코", False)])
+        self.assertEqual([(x["beat"], x["senior"]) for x in km.beat_origin("포스코사장, 포스코차이나 대표법인장")], [("포스코", True)])
 
     def test_same_group_moves_are_not_flagged(self):
         flags, origins = km.person_flags("현대글로비스", "현대자동차 재경사업부장(상무)", WATCH)
