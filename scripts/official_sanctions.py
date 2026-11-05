@@ -76,7 +76,8 @@ def fss_records(state):
     return [{"agency": "금감원", **r, "url": fss_url(r["id"])} for r in (state or {}).get("rows", {}).values()]
 
 
-def refresh_fss(state, *, get, now, backfill_pages=200, new_pages=5, pause=None):
+def refresh_fss(state, *, get, now, backfill_pages=60, new_pages=5, pause=None):
+    # 11-05 실제: 한 실행 200쪽(쪽당 약 0.6MB)을 받은 다음 실행에서 금감원 연결 시간 초과 — 실행당 60쪽·쪽 사이 0.5초로 줄인다(남은 채우기 약 2~3일)
     """앞쪽(새 공개) 몇 쪽 + 뒤쪽 채우기 몇 쪽. state: {"rows": {id: row}, "nextPage": n, "done": bool, "since": …}.
     반환: (state, {"status", "pages", "new", "error"?})"""
     state = dict(state or {})
@@ -87,7 +88,7 @@ def refresh_fss(state, *, get, now, backfill_pages=200, new_pages=5, pause=None)
 
     def page(n):
         if pause:
-            pause(0.2)                                  # 공개 누리집 — 쪽 사이 잠깐 쉰다
+            pause(0.5)                                  # 공개 누리집 — 쪽 사이 잠깐 쉰다
         r = get(f"{FSS_LIST}&sdate={since}&edate={edate}&pageIndex={n}", headers=UA, timeout=30)
         if getattr(r, "status_code", 200) != 200:
             raise RuntimeError(f"HTTP {r.status_code}")
