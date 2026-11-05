@@ -52,6 +52,8 @@ export const FEEDS = {
   'kr-exec': { blob: 'kr_exec', schema: 'kr_exec/v1', list: 'events' },
   // 수시 임원 공시(독립이사 신고·대표이사 변경·출입처 소집공고)와 상장사 등기임원 명단 속 출입처 출신(kr_exec_market.py, 11-05)
   'kr-exec-market': { blob: 'kr_exec_market', schema: 'kr_exec_market/v1', list: 'events' },
+  // 문제 임원 점검(kr_exec_check.py, 11-05): 출입처 임원 한 사람씩 법정 결격·한도와 과거 논란 기사
+  'kr-exec-check': { blob: 'kr_exec_check', schema: 'kr_exec_check/v1', list: 'people' },
   'global-beat': { blob: 'global_beat', schema: 'global_beat/v1', list: 'items' },
 };
 

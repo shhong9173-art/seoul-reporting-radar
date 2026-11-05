@@ -76,6 +76,8 @@ export const SLOTS = [
   // 11-05: 수시 임원 공시(독립이사 신고·대표이사 변경·소집공고) + 상장사 등기임원 명단 순환 — 매일 세 번(주말에도 정정·수시 공시가 있다)
   { at: '06:20', workflow: 'kr-exec-market.yml', daily: true }, { at: '12:20', workflow: 'kr-exec-market.yml', daily: true },
   { at: '18:20', workflow: 'kr-exec-market.yml', daily: true },
+  // 11-05: 문제 임원 점검(법정 결격·과거 논란 기사) — 아침 발제(08:57) 전, 매일(사람마다 기사 점검은 14일 간격)
+  { at: '05:50', workflow: 'kr-exec-check.yml', daily: true },
   { at: '07:50', workflow: 'kr-building.yml', days: [1] },
   // 건축허가 평일 재시도: 월요일 실행에서 조회 실패한 번지만 다시(11-03: 빈 응답 3·HTTP 503 1개 번지가 한 주 미확인). 실패 번지가 없으면 스크립트가 건너뛴다.
   { at: '13:30', workflow: 'kr-building.yml', days: [2, 3, 4, 5] },

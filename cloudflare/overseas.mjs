@@ -1264,8 +1264,8 @@ const kstAt = (v) => { const t = Date.parse(v); return Number.isFinite(t) ? new 
 // 임원 명단 변화(kr-exec feed): 출입처 정기보고서 '임원 현황'을 바로 앞 보고서와 비교한 것. kr_signals 아래(section=exec).
 async function execSection(ctx, q, days, limit, showAll = false) {
   const doc = await readFeed(ctx, 'kr-exec');
-  if (!doc) return ['\n[임원 명단 변화(정기보고서)] 아직 수집 전 — 미확인(평일 07:50·21:50)', ...(await execMarketSection(ctx, q, days, limit, showAll))];
-  if (doc.broken) return ['\n[임원 명단 변화(정기보고서)] 저장 결과 형식 오류 — 미확인', ...(await execMarketSection(ctx, q, days, limit, showAll))];
+  if (!doc) return ['\n[임원 명단 변화(정기보고서)] 아직 수집 전 — 미확인(평일 07:50·21:50)', ...(await execCheckSection(ctx, q, limit)), ...(await execMarketSection(ctx, q, days, limit, showAll))];
+  if (doc.broken) return ['\n[임원 명단 변화(정기보고서)] 저장 결과 형식 오류 — 미확인', ...(await execCheckSection(ctx, q, limit)), ...(await execMarketSection(ctx, q, days, limit, showAll))];
   const p = doc.period ?? {};
   const c = doc.counts ?? {};
   const since = ctx.now.getTime() - days * 86400000;
@@ -1294,7 +1294,33 @@ async function execSection(ctx, q, days, limit, showAll = false) {
   if (rows.length > limit) out.push(`… 남은 ${rows.length - limit}건(company 낱말로 좁히기)`);
   if (!rows.length) out.push(`조건에 맞는 변화 없음${notFiled.length ? ` — 미제출 ${notFiled.length}곳은 0건이 아니라 미확인` : ''}.`);
   out.push('   검증 상태: 공개 정기보고서 임원 현황(자동 비교). 명단에 새로 보인 것은 기준일 사이 변화 — 선임일·영입 경위·퇴임 사유는 회사 확인. 경력 낱말 표시는 같은 이름 다른 회사일 수 있어 원문 확인. 오너 일가는 관계 칸 글자 그대로(추정 아님)');
-  return [...out, ...(await execMarketSection(ctx, q, days, limit, showAll))];
+  return [...out, ...(await execCheckSection(ctx, q, limit)), ...(await execMarketSection(ctx, q, days, limit, showAll))];
+}
+
+// 문제 임원 점검(kr-exec-check feed): 출입처 임원 한 사람씩 법정 결격 가능·과거 논란 기사. 지금 표시가 있는 사람 전부(새로 생긴 것은 [신규]).
+async function execCheckSection(ctx, q, limit) {
+  const doc = await readFeed(ctx, 'kr-exec-check');
+  if (!doc) return ['\n[문제 임원 점검] 아직 수집 전 — 미확인(매일 05:50)'];
+  if (doc.broken) return ['\n[문제 임원 점검] 저장 결과 형식 오류 — 미확인'];
+  const c = doc.counts ?? {};
+  const rank = (p) => (p.flags ?? []).some((f) => f.tier === 'A') ? 0 : 1;
+  const flagged = (doc.people ?? []).filter((p) => (p.flags ?? []).length && matches(q, p.company, p.name, p.career, ...(p.flags ?? []).map((f) => `${f.kind} ${f.text}`)))
+    .sort((a, b) => rank(a) - rank(b) || String(a.company).localeCompare(String(b.company)));
+  const bad = (doc.checks ?? []).filter((k) => !['ok', 'no_data'].includes(k.status));
+  const fresh = new Set((doc.events ?? []).filter((e) => e.detectedAt === doc.generatedAt).map((e) => `${e.company}|${e.person?.name}`));
+  const out = [`\n[문제 임원 점검 · 확인 ${kstAt(doc.generatedAt)}${ageNote(ctx, doc.generatedAt)}] 점검 ${c.people ?? '?'}명(사외·독립이사 ${c.outside ?? '?'}) · 표시 ${flagged.length}명${q ? '' : `(A ${c.A ?? '?'})`}`,
+    ...(bad.length ? [`미확인: ${bad.map((k) => `${k.source}(${k.error ?? k.status})`).join(', ')}`] : []),
+    ...(doc.rules ?? []).map((r) => `규칙: ${r}`)];
+  for (const p of flagged.slice(0, limit)) {
+    out.push(`- ${fresh.has(`${p.company}|${p.name}`) ? '[신규] ' : ''}${rank(p) === 0 ? 'A' : 'B'} · ${p.company} · ${p.name}${p.birth ? ` ${p.birth}년생` : ''} ${p.ofcps}(${p.reg}) · ${p.report}`);
+    for (const f of p.flags) out.push(`   ${f.kind}: ${f.text}`);
+    for (const h of (p.news ?? []).slice(0, 2)) out.push(`   기사: ${h.url}`);
+    out.push(`   원문: ${p.url}`);
+  }
+  if (flagged.length > limit) out.push(`… 남은 ${flagged.length - limit}명(company 낱말로 좁히기)`);
+  if (!flagged.length) out.push('표시 있는 사람 없음(조회 실패·검색 한도로 못 본 사람은 미확인).');
+  out.push('   검증 상태: 공개 공시·기사(자동). 확인할 단서일 뿐 — 결격·비위를 단정하지 않는다. 같은 이름의 다른 사람·재직기간 계산 기준은 회사·당사자 확인');
+  return out;
 }
 
 // 수시 임원 공시·타사 임원 명단(kr-exec-market feed): 독립이사 신고·대표이사 변경(시장 전체 중 출입처 출신·주의 회사 출신)·출입처 소집공고
