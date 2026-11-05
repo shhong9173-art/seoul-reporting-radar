@@ -157,13 +157,25 @@ def fss_summary(pdf_text):
     spans = [(f"{a_}-{int(b_):02d}", f"{c_ or a_}-{int(d_ or e_):02d}") for a_, b_, c_, d_, e_ in rng if 1 <= int(d_ or e_) <= 12 and 1 <= int(b_) <= 12]
     viol = (min(x for x, _ in spans), max(y for _, y in spans)) if spans else None
     fact = re.search(r"4\s*\.\s*제\s*재\s*대\s*상\s*사\s*실\s*/?\s*(.{0,200})", flat)
-    ceo = bool(re.search(r"(?:前|전|현)?\s*대표\s*이사|최고경영자|\bCEO\b|은행장", flat))
+    # 최고 경영자 언급(11-05 기자 승인 — 근거 보강): 제재대상사실 안에서만 찾고 앞뒤 짧은 원문을 남긴다.
+    # 공개안엔 사람 이름이 없다(甲·○명) — 그 사람이라는 근거가 아니라 '최고 경영자 행위가 사실에 적혔다'는 근거.
+    facts = re.sub(r"\s*/\s*", " ", flat[k + len("제재대상사실"):k + 8000]).strip() if k >= 0 else ""
+    cm = CEO_WORDS.search(facts)
+    ceo_text = None
+    if cm:
+        a_, b_ = max(0, cm.start() - 45), min(len(facts), cm.end() + 70)
+        ceo_text = ("…" if a_ else "") + facts[a_:b_].strip() + ("…" if b_ < len(facts) else "")
     return {"inst": inst, "exec": exe, "execSanctioned": bool(exe) and not re.match(r"해당\s*사항\s*없", exe or ""),
-            "ceoMentioned": ceo, "fact": re.sub(r"\s*/\s*", " ", fact.group(1)).strip()[:160] if fact else None,
+            "ceoMentioned": bool(cm), "fact": re.sub(r"\s*/\s*", " ", fact.group(1)).strip()[:160] if fact else None,
+            **({"ceoText": ceo_text, "ceoWord": re.sub(r"\s+", "", cm.group(0))} if cm else {}),
             **({"violation": f"{viol[0]}~{viol[1]}"} if viol else {})}
 
 
-DETAIL_VERSION = 4       # 4: 위반 기간 '～'·끝 해 생략·'YYYY.MM월'(탐침 187). 2: 띄어쓰기 없는 예전 공개안·직권재심·위반 기간(탐침 185), 3: 「…기관경고임원…」처럼 앞 글자에 붙은 칸 — 앞 판 요약은 다시 연다
+# 제재대상사실 속 최고 경영자 낱말. '부사장'·'대표이사 직무대행' 앞뒤도 대표 자리라 남기되 '대표이사의 지시를 받은 직원' 같은 줄도 걸린다 — 근거 줄로만 쓴다.
+CEO_WORDS = re.compile(r"(?:前|전|現|현|당시)?\s*(?:대\s*표\s*이\s*사|대표\s*집행\s*임원|최\s*고\s*경\s*영\s*자|\bCEO\b|은\s*행\s*장)")
+
+
+DETAIL_VERSION = 5       # 5: 제재대상사실 속 최고 경영자 언급 앞뒤 원문(ceoText). 4: 위반 기간 '～'·끝 해 생략·'YYYY.MM월'(탐침 187). 2: 띄어쓰기 없는 예전 공개안·직권재심·위반 기간(탐침 185), 3: 「…기관경고임원…」처럼 앞 글자에 붙은 칸 — 앞 판 요약은 다시 연다
 
 
 def fss_detail(row, *, get, read_pdf=None):

@@ -43,8 +43,18 @@ class Parse(unittest.TestCase):
         self.assertEqual(s["inst"], "기관경고, 과태료 53억 1,110만원 부과")
         self.assertEqual(s["exec"], "주의적 경고 : 2명")
         self.assertTrue(s["execSanctioned"] and s["ceoMentioned"])
+        self.assertEqual(s["ceoWord"], "前대표이사")
+        self.assertIn("한빛카드㈜ 前 대표이사 등은", s["ceoText"])             # 제재대상사실 속 앞뒤 원문
         n = osn.fss_summary(PDF_NONE)
         self.assertFalse(n["execSanctioned"])
+        self.assertFalse(n["ceoMentioned"])
+        # 제재대상사실 밖(머리·주소 칸)의 '대표이사'는 언급으로 치지 않는다
+        head = osn.fss_summary("제재내용 공개안 1. 금융기관명 : 한빛카드㈜(대표이사 갑) 3. 제재조치내용 기 관 과태료 1,800만원 4. 제재대상사실 가. 직원 甲은 2019.1.2.∼2019.3.4. 기간중")
+        self.assertFalse(head["ceoMentioned"])
+        self.assertNotIn("ceoText", head)
+        glued = osn.fss_summary("3.제재조치내용제재대상제재내용기관기관경고임원문책경고1명4.제재대상사실 ◦한빛은행은행장甲은2019.1.2.∼2019.8.7.기간중 사모펀드 내부통제기준을 마련하지 않음" + "가" * 200)
+        self.assertEqual(glued["ceoWord"], "은행장")
+        self.assertTrue(glued["ceoText"].startswith("◦한빛은행은행장甲은") and glued["ceoText"].endswith("…"))
 
     def test_fss_summary_old_formats_probe185(self):
         old = ("- 1 - 제재내용공개안1.금융회사명:㈜한빛은행2.제재조치일:2022.11.9.3.제재조치내용제재대상제재내용기관업무의일부[신규업무]정지3월과태료76.6억원"

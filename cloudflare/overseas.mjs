@@ -1352,6 +1352,7 @@ async function execCheckSection(ctx, q, limit) {
       const absent = (c.rosterAbsent ?? []).length ? ` · 그 회사 연말 등기임원 명단(${c.rosterAbsent.join('·')})에 없음 — 미등기였거나 다른 시기` : '';
       if (x.count) out.push(`   공식 제재(C): ${x.agency} ${x.org} 제재 ${x.count}건(${x.first}~${x.last}) · ${career} 재임 기간 미확인${absent} — 기간이 겹치는 것만 의미 있음${x.url ? ` · ${x.url}` : ''}`);
       else out.push(`   공식 제재${x.strong ? '' : '(C)'}: ${x.agency} ${x.date} ${x.org}${act ? ` — ${act}` : ''}${x.violation ? ` · 위반 기간 ${x.violation}${x.violationOutside ? '(재임 기간 밖)' : ''}` : ''}${x.detail ? ` · 공개안 못 읽음(${x.detail})` : ''} · ${career} ${x.timing === 'overlap' ? '기간 겹침' : '시점 미확인'}${x.url ? ` · ${x.url}` : ''}`);
+      if (!x.count && x.ceoText) out.push(`     제재대상사실 최고 경영자 언급(공개안엔 이름 없음 — 그 사람이라는 근거 아님): 「${String(x.ceoText).slice(0, 160)}」`);
     }
     out.push(`   원문: ${p.url}`);
   }
