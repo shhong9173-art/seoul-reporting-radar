@@ -1,17 +1,88 @@
 {
-  "generatedAt": "2026-11-05T10:45:07.241723+09:00",
+  "generatedAt": "2026-11-05T20:12:20.557363+09:00",
   "source": "NHTSA ODI full post-2010 recall archive",
   "sourceUrl": "https://static.nhtsa.gov/odi/ffdd/rcl/FLAT_RCL_POST_2010.zip",
-  "archiveLatestReceived": "2026-10-29",
+  "archiveLatestReceived": "2026-11-02",
   "lookbackDays": 45,
-  "recentSourceRowsExamined": 1627,
-  "beatRows": 18,
-  "campaignCount": 3,
+  "recentSourceRowsExamined": 1669,
+  "beatRows": 45,
+  "campaignCount": 4,
   "status": "official_us_recalls_to_review",
   "domesticSourceStatus": "not_connected",
   "firstSeenWarning": "Initial run is a baseline, not newly published scoops",
   "confirmedScoops": 0,
   "leads": [
+    {
+      "id": "26V728000",
+      "officialDate": "20261102",
+      "makes": [
+        "HYUNDAI"
+      ],
+      "models": [
+        {
+          "model": "KONA ELECTRIC",
+          "year": "2019"
+        },
+        {
+          "model": "KONA ELECTRIC",
+          "year": "2020"
+        },
+        {
+          "model": "KONA ELECTRIC",
+          "year": "2021"
+        },
+        {
+          "model": "KONA ELECTRIC",
+          "year": "2022"
+        },
+        {
+          "model": "KONA ELECTRIC",
+          "year": "2023"
+        },
+        {
+          "model": "VELOSTER N",
+          "year": "2019"
+        },
+        {
+          "model": "VELOSTER N",
+          "year": "2020"
+        },
+        {
+          "model": "VELOSTER N",
+          "year": "2021"
+        },
+        {
+          "model": "VELOSTER N",
+          "year": "2022"
+        }
+      ],
+      "modelCount": 9,
+      "component": "AIR BAGS: AIR BAG/RESTRAINT CONTROL MODULE:SOFTWARE",
+      "defect": "Hyundai Motor America (Hyundai) is recalling certain 2019-2022 Veloster N, 2019-2023 Kona Electric vehicles. A software error in the air bag control unit (ACU) may improperly deactivate the air bag system and seat belt pretensioners.",
+      "consequence": "Air bags and seat belt pretensioners that do not activate in a crash increases the risk of injury.",
+      "remedy": "Dealers will update the ACU software,  free of charge. Owner notification letters are expected to be mailed January 1, 2027. Owners may contact Hyundai customer service at 1-855-371-9460. Hyundai's number for this recall is 311. Vehicle Identification Numbers (VINs) involved in this recall will become searchable on NHTSA.gov on November 6, 2026.",
+      "flags": [
+        "older_vehicle_model"
+      ],
+      "priorityScore": 50,
+      "sourceUrl": "https://api.nhtsa.gov/recalls/campaignNumber?campaignNumber=26V728000",
+      "reportSearchUrl": "https://www.nhtsa.gov/recalls?nhtsaId=26V728000",
+      "officialEvidence": "NHTSA US recall record only",
+      "usRecallExists": true,
+      "part573ChronologyVerified": false,
+      "koreanIncidentVerified": false,
+      "koreanPartMatchVerified": false,
+      "koreanRecallChecked": false,
+      "priorCoverageChecked": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "mustCheck": [
+        "Open complete Part 573 chronology and search Korea / thermal event; no claim until original text verified",
+        "Compare exact seat/component part numbers and specifications of Korea-sold variants",
+        "Check Korea recall and free repair in car.go.kr and ask KATRI/MOLIT if inaccessible",
+        "Check domestic/overseas news for the same angle; US recall itself is not exclusive"
+      ]
+    },
     {
       "id": "26V693000",
       "officialDate": "20261020",
@@ -40,7 +111,7 @@
       "component": "WHEELS:LUGS/NUTS/BOLTS/STUDS",
       "defect": "Hyundai Motor America (Hyundai) is recalling certain 2026 Venue, Elantra N, Elantra Hybrid, and Elantra vehicles. The wheel lug nuts may loosen and allow the wheel to detach.",
       "consequence": "Wheel detachment can cause a loss of vehicle control or create a road hazard, increasing the risk of a crash or injury.",
-      "remedy": "Dealers will inspect and tighten the wheel assembly lug nuts, and replace the hub bearing assembly, as necessary, free of charge. Owner notification letters are expected to be mailed December 19, 2026. Owners may contact Hyundai customer service at 1-855-371-9460. Hyundai's number for this recall is 310. Vehicle Identification Numbers (VINs) involved in this recall will become searchable on NHTSA.gov on October 23, 2026.",
+      "remedy": "Dealers will replace the hub bearing assemblies and reinstall the wheels, free of charge. Owner notification letters are expected to be mailed December 19, 2026. Owners may contact Hyundai customer service at 1-855-371-9460. Hyundai's number for this recall is 310. Vehicle Identification Numbers (VINs) involved in this recall will become searchable on NHTSA.gov on October 23, 2026.",
       "flags": [],
       "priorityScore": 40,
       "sourceUrl": "https://api.nhtsa.gov/recalls/campaignNumber?campaignNumber=26V693000",
@@ -81,7 +152,7 @@
       "component": "SUSPENSION:FRONT:MACPHERSON STRUT",
       "defect": "Hyundai Motor America (Hyundai) is recalling certain 2026 Tucson Hybrid and Elantra vehicles. The front strut assembly fasteners may not be tightened properly, which can result in a loss of vehicle steering control.",
       "consequence": "A loss of vehicle steering control increases the risk of a crash.",
-      "remedy": "Dealers will inspect and replace the front strut assembly fasteners and perform a wheel alignment, as necessary, free of charge. Owner notification letters are expected to be mailed December 19, 2026. Owners may contact Hyundai customer service at 1-855-371-9460. Hyundai's number for this recall is 309. Vehicle Identification Numbers (VINs) involved in this recall will become searchable on NHTSA.gov on October 23, 2026.",
+      "remedy": "Dealers will inspect and tighten the front strut assembly fasteners and perform a wheel alignment, as necessary, free of charge. Owner notification letters are expected to be mailed December 19, 2026. Owners may contact Hyundai customer service at 1-855-371-9460. Hyundai's number for this recall is 309. Vehicle Identification Numbers (VINs) involved in this recall will become searchable on NHTSA.gov on October 23, 2026.",
       "flags": [],
       "priorityScore": 40,
       "sourceUrl": "https://api.nhtsa.gov/recalls/campaignNumber?campaignNumber=26V692000",
