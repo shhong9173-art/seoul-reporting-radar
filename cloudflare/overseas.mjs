@@ -1316,7 +1316,8 @@ async function execCheckSection(ctx, q, limit) {
     .sort((a, b) => rank(a) - rank(b) || String(a.company).localeCompare(String(b.company)));
   const bad = (doc.checks ?? []).filter((k) => !['ok', 'no_data'].includes(k.status));
   const fresh = new Set((doc.events ?? []).filter((e) => e.detectedAt === doc.generatedAt).map((e) => `${e.company}|${e.person?.name}`));
-  const out = [`\n[문제 임원 점검 · 확인 ${kstAt(doc.generatedAt)}${ageNote(ctx, doc.generatedAt)}] 점검 ${c.people ?? '?'}명(사외·독립이사 ${c.outside ?? '?'}) · 표시 ${flagged.length}명${q ? '' : `(A ${flagged.filter((p) => rank(p) === 0).length})`}`,
+  const refOnly = flagged.filter((p) => !(p.flags ?? []).length && !(p.news ?? []).length).length;   // 겸직 명단 대조만 있는 '참고'는 표시 수에서 뺀다
+  const out = [`\n[문제 임원 점검 · 확인 ${kstAt(doc.generatedAt)}${ageNote(ctx, doc.generatedAt)}] 점검 ${c.people ?? '?'}명(사외·독립이사 ${c.outside ?? '?'}) · 표시 ${flagged.length - refOnly}명${q ? '' : `(A ${flagged.filter((p) => rank(p) === 0).length})`}${refOnly ? ` · 참고 ${refOnly}명` : ''}`,
     ...(bad.length ? [`미확인: ${bad.map((k) => `${k.source}(${k.error ?? k.status})`).join(', ')}`] : []),
     ...(doc.rules ?? []).map((r) => `규칙: ${r}`)];
   for (const p of flagged.slice(0, limit)) {
