@@ -1298,6 +1298,11 @@ async function execSection(ctx, q, days, limit, showAll = false) {
 }
 
 // 문제 임원 점검(kr-exec-check feed): 출입처 임원 한 사람씩 법정 결격 가능·과거 논란 기사. 지금 표시가 있는 사람 전부(새로 생긴 것은 [신규]).
+const BODY_LABEL = {
+  context_linked: '본문 연결(인물·소속·사건)', context_mentioned: '본문 언급(C — 같은 문장에 이름·회사·사건 낱말)', context_unconfirmed: '본문에 연결 문장 없음',
+  outcome_requires_review: '무죄·불기소 등 처분 문맥 — 원문 확인', unsupported_source: '읽지 않는 주소', body_missing: '본문 구조 못 읽음(미확인)',
+  http_error: 'HTTP 오류(미확인)', fetch_failed: '읽기 실패(미확인)', budget_exhausted: '실행 한도(다음 실행)', too_large: '문서 너무 큼(미확인)',
+};
 const DIRECTOR_LABEL = {
   confirmed: '명단 확인', absent: '최근 명단에 없음', namesake: '같은 이름 다른 출생연도(동명이인)', identity_incomplete: '출생년월 불완전 — 확인 필요',
   birth_mismatch: '같은 이름·같은 해 다른 달 — 확인 필요', unresolved: 'DART 고유번호 못 찾음(확인 불가)', no_report: '최근 정기보고서 없음(확인 불가)',
@@ -1309,19 +1314,24 @@ async function execCheckSection(ctx, q, limit) {
   if (!doc) return ['\n[문제 임원 점검] 아직 수집 전 — 미확인(매일 05:50)'];
   if (doc.broken) return ['\n[문제 임원 점검] 저장 결과 형식 오류 — 미확인'];
   const c = doc.counts ?? {};
-  const rank = (p) => (p.flags ?? []).some((f) => f.tier === 'A') ? 0 : (p.flags ?? []).length ? 1 : 2;
+  // A·B(표시) → C(본문 언급: 같은 문장에 이름·회사·사건 낱말, 알림 없음) → 미확인(기사만) → 참고(겸직 대조만)
+  const mentioned = (p) => (p.news ?? []).some((h) => h.bodyReview?.status === 'context_mentioned');
+  const rank = (p) => (p.flags ?? []).some((f) => f.tier === 'A') ? 0 : (p.flags ?? []).length ? 1 : mentioned(p) ? 2 : (p.news ?? []).length ? 3 : 4;
+  const LABEL = ['A', 'B', 'C', '미확인', '참고'];
   // 겸직 명단 대조 결과는 표시가 없어도 이름·회사로 물으면 보여 준다(왜 B가 사라졌는지 — 명단에 없음·동명이인)
   const boards = (p) => (p.directorChecks ?? []).filter((d) => d.status !== 'filed' || (p.directorChecks ?? []).length > 1);
   const flagged = (doc.people ?? []).map((p) => ({ ...p, flags: (p.flags ?? []).filter((f) => f.kind !== '과거 논란 기사' || f.evidenceVersion === 'executive_article/v1') })).filter((p) => ((p.flags ?? []).length || (p.news ?? []).length || (q && boards(p).length)) && matches(q, p.company, p.name, p.career, ...(p.flags ?? []).map((f) => `${f.kind} ${f.text}`)))
     .sort((a, b) => rank(a) - rank(b) || String(a.company).localeCompare(String(b.company)));
   const bad = (doc.checks ?? []).filter((k) => !['ok', 'no_data'].includes(k.status));
   const fresh = new Set((doc.events ?? []).filter((e) => e.detectedAt === doc.generatedAt).map((e) => `${e.company}|${e.person?.name}`));
-  const refOnly = flagged.filter((p) => !(p.flags ?? []).length && !(p.news ?? []).length).length;   // 겸직 명단 대조만 있는 '참고'는 표시 수에서 뺀다
-  const out = [`\n[문제 임원 점검 · 확인 ${kstAt(doc.generatedAt)}${ageNote(ctx, doc.generatedAt)}] 점검 ${c.people ?? '?'}명(사외·독립이사 ${c.outside ?? '?'}) · 표시 ${flagged.length - refOnly}명${q ? '' : `(A ${flagged.filter((p) => rank(p) === 0).length})`}${refOnly ? ` · 참고 ${refOnly}명` : ''}`,
+  // 표시(A·B)와 C·미확인·참고는 따로 센다 — 겸직 대조만 있는 '참고'와 기사만 있는 사람은 표시가 아니다
+  const n = [0, 1, 2, 3, 4].map((k) => flagged.filter((p) => rank(p) === k).length);
+  const extra = [[2, 'C(본문 언급)'], [3, '기사 미확인'], [4, '참고']].filter(([k]) => n[k]).map(([k, t]) => ` · ${t} ${n[k]}명`).join('');
+  const out = [`\n[문제 임원 점검 · 확인 ${kstAt(doc.generatedAt)}${ageNote(ctx, doc.generatedAt)}] 점검 ${c.people ?? '?'}명(사외·독립이사 ${c.outside ?? '?'}) · 표시 ${n[0] + n[1]}명${q ? '' : `(A ${n[0]})`}${extra}`,
     ...(bad.length ? [`미확인: ${bad.map((k) => `${k.source}(${k.error ?? k.status})`).join(', ')}`] : []),
     ...(doc.rules ?? []).map((r) => `규칙: ${r}`)];
   for (const p of flagged.slice(0, limit)) {
-    out.push(`- ${fresh.has(`${p.company}|${p.name}`) ? '[신규] ' : ''}${rank(p) === 0 ? 'A' : rank(p) === 1 ? 'B' : (p.news ?? []).length ? '미확인' : '참고'} · ${p.company} · ${p.name}${p.birth ? ` ${p.birth}년생` : ''} ${p.ofcps}(${p.reg}) · ${p.report}`);
+    out.push(`- ${fresh.has(`${p.company}|${p.name}`) ? '[신규] ' : ''}${LABEL[rank(p)]} · ${p.company} · ${p.name}${p.birth ? ` ${p.birth}년생` : ''} ${p.ofcps}(${p.reg}) · ${p.report}`);
     if (!(p.flags ?? []).some((f) => /다른 회사|겸직/.test(f.kind)) && boards(p).length) {
       out.push(`   겸직 명단 대조(3호 해당 안 됨): ${boards(p).slice(0, 6).map((d) => `${d.org} ${DIRECTOR_LABEL[d.status] ?? d.status}${d.status === 'confirmed' && d.report ? `(${d.reg ?? d.ofcps ?? ''}·${d.report})` : ''}`).join(' / ')}`);
     }
@@ -1330,8 +1340,8 @@ async function execCheckSection(ctx, q, limit) {
     for (const h of (p.news ?? []).slice(0, 2)) {
       out.push(`   기사: ${h.url}`);
       const b = h.bodyReview ?? {};
-      out.push(`   본문 확인: ${b.status ?? '미검증'}${b.checkedAt ? ` · ${kstAt(b.checkedAt)}` : ''} — 동일 인물·비위 확정 아님`);
-      if (b.excerpt) out.push(`   본문 발췌: ${String(b.excerpt).slice(0, 120)}`);
+      out.push(`   본문 확인: ${BODY_LABEL[b.status] ?? b.status ?? '미검증'}${b.checkedAt ? ` · ${kstAt(b.checkedAt)}` : ''} — 동일 인물·비위 확정 아님`);
+      if (b.excerpt) out.push(`   본문 ${b.status === 'context_mentioned' ? '언급' : '발췌'}: ${String(b.excerpt).slice(0, 120)}`);
     }
     out.push(`   원문: ${p.url}`);
   }

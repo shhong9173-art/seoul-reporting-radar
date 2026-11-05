@@ -20,11 +20,13 @@ HOSTS = ("naver.com", "inews24.com", "yna.co.kr", "yonhapnewstv.co.kr", "newsis.
          "edaily.co.kr", "mt.co.kr", "etnews.com", "koreatimes.co.kr")
 BODY_IDS = {"dic_area", "newsct_article", "articleBody", "article-body", "article_body",
             "article-view-content-div", "articleBodyContents", "newsView", "article_text"}
-BODY_CLASSES = {"article-body", "article_body", "article-view-content-div", "article_txt", "article-text", "article-cont"}
+BODY_CLASSES = {"article-body", "article_body", "article-view-content-div", "article_txt", "article-text", "article-cont",
+                "article-view__body", "article-content"}   # 11-05 탐침 178: 파이낸셜뉴스 article-view__body, 피플워치 article-content
 SKIP = {"script", "style", "nav", "aside", "footer", "header", "noscript", "button", "form", "figure", "figcaption"}
 VOID = {"br", "img", "meta", "link", "hr", "input", "source", "wbr", "embed"}
 OUTCOME = re.compile(r"무죄|무혐의|혐의\s*없|불기소|불송치|누명|다른\s*사람|동명이인|기소.{0,8}(?:아니|않)|혐의.{0,8}부인")
 ROLE = r"(?:전\s*|현\s*)?(?:대표(?:이사)?|회장|부회장|사장|부사장|이사|감사|장관|차관|교수|위원장|원장)"
+SPEECH = re.compile(r"밝혔|말했|지적했|설명했|주장했|비판했|강조했|언급했|덧붙였|답했|물었|촉구했|요구했|반박했|해명했|에\s*따르면|라고\s|고\s*했")
 
 
 def public_host(host, resolve=None):
@@ -67,7 +69,9 @@ class ArticleParser(HTMLParser):
         a = dict(attrs)
         parent = self.stack[-1] if self.stack else ("", False, False, False)
         selected = a.get("id") in BODY_IDS or bool(set(a.get("class", "").split()) & BODY_CLASSES) or a.get("itemprop") == "articleBody"
-        state = (tag, parent[1] or selected, parent[2] or tag in SKIP,
+        # 본문 컨테이너를 고르면 바깥의 건너뛰기(ASP.NET 페이지 전체를 감싼 <form> 등)는 이어받지 않는다 — 11-05 탐침 178: 노컷뉴스
+        # pnlContent(itemprop=articleBody)가 페이지 전체 <form> 안에 있어 본문을 통째로 버렸다. 컨테이너 안의 nav·figure 등은 그대로 뺀다.
+        state = (tag, parent[1] or selected, (parent[2] and not (selected and not parent[1])) or tag in SKIP,
                  tag == "script" and a.get("type", "").lower() == "application/ld+json")
         if tag not in VOID:
             self.stack.append(state)
@@ -193,6 +197,20 @@ def assess(article, name, anchors, incident):
                     out.update(status="context_linked", excerpt=s[max(0, m.start()):m.end() + event.end()][:120],
                                organization=org, eventTerm=event.group(0))
                     return out
+    # 본문 언급(C, 11-05 기자 승인): 위 엄격한 연결은 못 했지만 한 문장 안에 이름·회사(기관)·사건 낱말이 같이 있는 것.
+    # 알림·표시 없이 목록에만 근거 문장으로 보인다. 따옴표·발언 동사가 있는 문장(그 사람이 말한 것·남의 사건을 지적한 것)은 뺀다.
+    for s in contexts:
+        if re.search(r"[\"“”「」『』]", s) or SPEECH.search(s):
+            continue
+        event = incident.search(s)
+        if not event:
+            continue
+        org = next(a for a in anchors if mention(s, a))
+        i = s.find(name)
+        lo, hi = min(i, event.start()), max(i + len(name), event.end())
+        start = max(0, lo - 15) if hi - lo <= 100 else max(0, i - 10)
+        out.update(status="context_mentioned", excerpt=s[start:start + 120], organization=org, eventTerm=event.group(0))
+        return out
     out["status"] = "context_unconfirmed"
     return out
 

@@ -130,5 +130,24 @@ class Evidence(unittest.TestCase):
         self.assertEqual(ae.fetch_article('https://www.example-press.kr/a/1', get=get, resolve=resolver)['status'], 'unsupported_source')
         self.assertEqual(calls, ['https://www.example-press.kr/a/1'])
 
+    def test_sentence_mention_is_c_only(self):
+        r = self.review('한빛카드에서 고객정보 유출이 일어날 당시 홍길동 한빛카드 부회장이 회사를 이끌고 있었다.')
+        self.assertEqual(r['status'], 'context_mentioned')
+        self.assertIn('홍길동', r['excerpt'])
+        self.assertLessEqual(len(r['excerpt']), 120)
+        for text in ('홍길동 한빛카드 대표는 "유출은 없었다"며 해명했다.',             # 따옴표·해명 — 그 사람의 말
+                     '홍길동 한빛카드 대표는 업계의 유출 사고가 늘고 있다고 말했다.',   # 발언
+                     '홍길동 한빛카드 대표는 신제품을 냈다. 다른 회사는 유출 사고를 냈다.'):
+            self.assertEqual(self.review(text)['status'], 'context_unconfirmed', text)
+
+    def test_probe178_containers(self):
+        body = '홍길동 한빛카드 대표는 고객정보 유출 사고의 책임을 지고 사퇴했다. 이 문장은 가상 사례이며 실제 사건을 가리키지 않는다. 경계 시험용 문장이다.'
+        # 노컷뉴스: 페이지 전체가 ASP.NET <form> 안, 본문은 itemprop=articleBody
+        raw = '<form id="aspnetForm"><nav>메뉴 횡령</nav><div id="pnlContent" itemprop="articleBody">' + body + '<figure>사진 설명</figure></div><aside>관련 기사</aside></form>'
+        self.assertEqual(ae.extract_article(raw)['body'], body)
+        self.assertEqual(ae.extract_article('<form><nav>메뉴</nav><p>' + body + '</p></form>')['status'], 'body_missing')   # 컨테이너 없으면 그대로 건너뜀
+        self.assertEqual(ae.extract_article('<article class="article-view"><div class="article-view__body"><p>' + body + '</p></div></article>')['body'], body)
+        self.assertEqual(ae.extract_article('<div class="article-content fs-5"><p>' + body + '</p></div>')['body'], body)
+
 if __name__ == '__main__':
     unittest.main()
