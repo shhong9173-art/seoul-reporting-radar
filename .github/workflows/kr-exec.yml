@@ -1,0 +1,95 @@
+name: Beat Executive Roster Watch
+# 출입처 분기·반기·사업보고서 '임원 현황'을 바로 앞 보고서와 비교(새로 보인·빠진 임원, 직위·등기 변경, 제출일까지 변동) — 11-05 기자 요청.
+# 평일 07:50·21:50 KST(Cloudflare 요청) + GitHub 예약 22:20 KST(대비용, 6시간 안 정시 요청 성공이면 건너뜀).
+# 코드가 바뀐 push는 저장하지 않고 요약만(이름 가림) 남긴다(격리 검증). 결과는 기자 전용 저장소(kr-exec)에만 — 공개 JSON 없음.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/kr_exec_watch.py'
+      - 'tests/test_kr_exec_watch.py'
+      - 'data/kr_exec_watch.json'
+      - '.github/workflows/kr-exec.yml'
+  schedule:
+    - cron: '20 13 * * 1-5'
+  workflow_dispatch:
+    inputs:
+      year:
+        description: '사업연도(비우면 시즌에 맞춰 자동)'
+        required: false
+        default: ''
+      report:
+        description: '11013 1분기 / 11012 반기 / 11014 3분기 / 11011 사업보고서 (비우면 자동)'
+        required: false
+        default: ''
+      publish:
+        description: 'true면 기자 전용 저장소 갱신, false면 요약만'
+        required: false
+        default: 'true'
+      baseline:
+        description: 'true면 이번 기간 명단만 저장(항목 없음) — 다음 분기 비교용 기준선'
+        required: false
+        default: 'false'
+permissions:
+  contents: read
+concurrency:
+  group: kr-exec-watch
+  cancel-in-progress: false
+jobs:
+  late-cron-gate:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+    outputs:
+      run: ${{ steps.g.outputs.run }}
+    steps:
+      - id: g
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WF: kr-exec.yml
+        run: |
+          if [ "$GITHUB_EVENT_NAME" != "schedule" ]; then echo run=true >> "$GITHUB_OUTPUT"; exit 0; fi
+          since=$(date -u -d '-6 hours' +%Y-%m-%dT%H:%M:%SZ)
+          n=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$WF/runs?event=workflow_dispatch&created=%3E%3D$since&per_page=10" \
+                --jq '[.workflow_runs[] | select(.conclusion == "success")] | length' 2>/dev/null || echo 0)
+          if [ "${n:-0}" -gt 0 ]; then
+            echo "::notice title=late-cron::6시간 안 정시 요청 실행이 성공 — 늦게 온 GitHub 예약은 건너뜀"
+            echo run=false >> "$GITHUB_OUTPUT"
+          else
+            echo run=true >> "$GITHUB_OUTPUT"
+          fi
+  roster:
+    needs: late-cron-gate
+    if: needs.late-cron-gate.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install API client
+        run: python -m pip install "requests>=2.31,<3"
+      - name: Test roster parsing and flags
+        run: python -m unittest discover -s tests -p 'test_kr_exec_watch.py' -v
+      - name: Compare executive rosters (counts-only log)
+        env:
+          DART_API_KEY: ${{ secrets.DART_API_KEY }}
+          MCP_ACCESS_TOKEN: ${{ secrets.MCP_ACCESS_TOKEN }}
+          YEAR: ${{ github.event.inputs.year }}
+          REPORT: ${{ github.event.inputs.report }}
+          BASELINE: ${{ github.event.inputs.baseline }}
+          PUBLISH: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish != 'false') }}
+        run: |
+          args=()
+          [ -n "$YEAR" ] && args+=(--year "$YEAR")
+          [ -n "$REPORT" ] && args+=(--report "$REPORT")
+          [ "$BASELINE" = "true" ] && args+=(--baseline)
+          if [ "$PUBLISH" = "true" ]; then
+            python scripts/kr_exec_watch.py "${args[@]}"
+          else
+            python scripts/kr_exec_watch.py --annotate-only "${args[@]}"
+          fi

@@ -48,6 +48,8 @@ export const FEEDS = {
   'trade-remedy-browser': { blob: 'trade_remedy_browser', schema: 'trade_remedy_browser/v1', list: 'pages' },
   // 기자 컴퓨터 브라우저로 읽은 노동위 회의일정 달력(local_notice_submit labor → kr-labor 감시가 GET).
   'kr-labor-browser': { blob: 'kr_labor_browser', schema: 'kr_labor_browser/v1', list: 'commissions' },
+  // 출입처 정기보고서 '임원 현황' 비교(kr_exec_watch.py, 11-05) — 새로 보인·빠진 임원과 경력·관계 칸 표시
+  'kr-exec': { blob: 'kr_exec', schema: 'kr_exec/v1', list: 'events' },
   'global-beat': { blob: 'global_beat', schema: 'global_beat/v1', list: 'items' },
 };
 

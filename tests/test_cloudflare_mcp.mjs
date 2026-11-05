@@ -1475,7 +1475,7 @@ test('Cloudflare cron asks GitHub to run each watch at its KST weekday slot and 
   assert.equal(seen[0].init.headers.Authorization, 'Bearer ghp_test');
   assert.deepEqual(JSON.parse(seen[0].init.body), { ref: 'main' });
   const fail = await runSchedule(opts.env, new Date('2026-10-26T22:50:00Z'), { fetch: async () => new Response('{}', { status: 403 }) });
-  assert.deepEqual(fail.map((e) => [e.workflow, e.status]), [['us-litigation.yml', 'HTTP 403'], ['auto-desk.yml', 'HTTP 403']]);   // 07:50 칸 + 뉴스(50분)
+  assert.deepEqual(fail.map((e) => [e.workflow, e.status]), [['us-litigation.yml', 'HTTP 403'], ['kr-exec.yml', 'HTTP 403'], ['auto-desk.yml', 'HTTP 403']]);   // 07:50 칸(임원 명단 11-05) + 뉴스(50분)
   // 뉴스 수집은 20분마다(KST 매시 10·30·50분), 주말에도 — GitHub 예약 '*/15'가 하루 5번만 돌았다(10-31~11-01)
   assert.equal(newsDue(new Date('2026-11-01T01:10:30Z')), true);    // 일 10:10 KST
   assert.equal(newsDue(new Date('2026-11-01T01:20:00Z')), false);
@@ -1711,7 +1711,7 @@ test('kr_signals shows FTC decisions by role, KEPCO bids and commodity prices, a
   const minor = await call('radar_today', { include_minor: true }, opts);
   assert.match(minor.text, /「\(연간단가\)고효율주상변압기,50KVA\(광유\)-2,338대-0\d\(일반\)」 외 같은 공고 2건\(합계 약 149억원\) · 추정가격 약 50억원/);
   assert.equal((minor.text.match(/고효율주상변압기/g) ?? []).length, 1);  // three lots, one line
-  assert.match(r.text, /기자 전용 감시 31개/);
+  assert.match(r.text, /기자 전용 감시 32개/);
   assert.deepEqual(dueAt(new Date('2026-10-26T23:30:00Z')), ['kr-signals.yml', 'kipris-patent-hunt.yml']);  // Tue 08:30 KST
   assert.deepEqual(dueAt(new Date('2026-10-27T06:20:00Z')), ['kr-signals.yml', 'kr-stacks.yml']);  // Tue 15:20 KST
 });
@@ -2022,7 +2022,7 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   assert.doesNotMatch((await call('trademarks', { name: 'aero' }, opts)).text, /NUTRIMACY/);
   assert.doesNotMatch((await call('trademarks', { class: '35' }, opts)).text, /NUTRIMACY/);
   const r = await call('radar_today', {}, opts);
-  assert.match(r.text, /기자 전용 감시 31개/);
+  assert.match(r.text, /기자 전용 감시 32개/);
   assert.match(r.text, /- 상표 출원: 대기 1곳\(제공기관 응답 22 뒤 72시간 대기\) — 해당 부분 0건은 미확인/);
   assert.doesNotMatch(r.text, /상표 출원: [^\n]*시간 전 결과/);
   const b = r.text.split('[B · ')[1].split('[C · ')[0];
@@ -2033,7 +2033,7 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   assert.match(minor.text, /상표 출원 「NUTRIMACY」[^\n]* — 같은 이름 상품류 추가/);
   const list = await rpc('tools/list', {}, { path: `/mcp/${TOKEN}`, env });
   assert.ok(list.body.result.tools.some((x) => x.name === 'trademarks'));
-  assert.match(list.body.result.tools.find((x) => x.name === 'radar_today').description, /감시 31개\([^)]*상표 출원, 국회 법안, 미국 리콜, 미국 EPA 인증, 국내 연비 신고, 해외 발주처 낙찰, 협력사 회생·파산, 전기위·원안위, 공장 부지 건축허가, 해외 법인 등기, 지자체 고시·공고, 사업장 인력, 굴뚝 측정, 노동위 회의, 노조 성명, 지방의회 회의록, 인도 법인 공시, 타사 공시 속 출입처, 지분·자사주 변동, 출입처 외신\)/);
+  assert.match(list.body.result.tools.find((x) => x.name === 'radar_today').description, /감시 32개\([^)]*상표 출원, 국회 법안, 미국 리콜, 미국 EPA 인증, 국내 연비 신고, 해외 발주처 낙찰, 협력사 회생·파산, 전기위·원안위, 공장 부지 건축허가, 해외 법인 등기, 지자체 고시·공고, 사업장 인력, 굴뚝 측정, 노동위 회의, 노조 성명, 지방의회 회의록, 인도 법인 공시, 타사 공시 속 출입처, 지분·자사주 변동, 임원 명단 변화, 출입처 외신\)/);
   assert.ok(!(await rpc('tools/list', {}, { env })).body.result.tools.some((x) => x.name === 'trademarks'));  // private only
 });
 
@@ -2231,7 +2231,7 @@ test('press check is dispatched after the morning watches and after the evening 
   assert.deepEqual(dueAt(new Date('2026-10-31T09:50:00Z')), []);                   // Sat 18:50 KST (보도 대조 평일만)
   // 주 1회(월) 감시: 상표 07:10·공장 부지 건축허가 07:50 — 화요일·일요일에는 없음
   assert.deepEqual(dueAt(new Date('2026-11-01T22:10:00Z')), ['scoop-screen.yml', 'trademark-watch.yml']);   // Mon 07:10 KST
-  assert.deepEqual(dueAt(new Date('2026-11-01T22:50:00Z')), ['us-litigation.yml', 'kr-building.yml']);      // Mon 07:50 KST
+  assert.deepEqual(dueAt(new Date('2026-11-01T22:50:00Z')), ['us-litigation.yml', 'kr-exec.yml', 'kr-building.yml']);      // Mon 07:50 KST
   assert.deepEqual(dueAt(new Date('2026-11-02T22:10:00Z')), ['scoop-screen.yml', 'trademark-watch.yml']);   // Tue 07:10 KST — 월요일에 실패·대기한 회사만(스크립트가 판단)
   assert.deepEqual(dueAt(new Date('2026-11-06T22:10:00Z')), []);                                            // Sat 07:10 KST
   assert.deepEqual(dueAt(new Date('2026-10-31T22:10:00Z')), []);                                            // Sun 07:10 KST
@@ -2769,6 +2769,40 @@ test('인도 법인 공시(india-filings): radar_today에 설비 A·이사회 B,
   assert.doesNotMatch(nse.text, /Transcript/);
   assert.match((await call('partner_filings', { source: 'NSE', include_routine: true }, opts)).text, /\[기준선\] C · [^\n]+ · Analysts\/Institutional Investor Meet/);
   assert.match((await call('partner_filings', {}, opts)).text, /\[인도 법인 공시 · 현대차 인도법인\(NSE\)/);   // source 비우면 함께
+});
+
+test('임원 명단 변화(kr-exec): radar_today A·B(사람 이름 필수 대조), kr_signals exec 구역·C 접음·미제출 미확인', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const now = new Date(NOW.getTime() - 3600000).toISOString();
+  const ev = (key, tier, kind, text, person, flags = []) => ({ id: `exec:00138242:202611014:${key}`, tier, kind, company: 'KG모빌리티', dartName: 'KG모빌리티',
+    corpCode: '00138242', key, person, flags, text, url: 'https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261114000002', baseUrl: 'https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814000002',
+    period: '2026년 3분기(9-30 기준)', base: '2026년 반기(6-30 기준)', season: 'mid', detectedAt: now });
+  const doc = { schema: 'kr_exec/v1', generatedAt: now, status: 'partial', season: 'mid',
+    period: { year: 2026, report: '11014', label: '2026년 3분기(9-30 기준)', base: { year: 2026, report: '11012', label: '2026년 반기(6-30 기준)' }, deadline: '2026-11-14' },
+    checks: [{ source: 'KG모빌리티', status: 'ok', coverage: '원문 표(등기 3·미등기 33)', baseCoverage: '원문 표(등기 3·미등기 31)' },
+      { source: '현대제철', status: 'ok', coverage: 'API 줄만(등기 9·미등기 0) — 원문에서 임원 표를 못 찾음' }, { source: '기아', status: 'no_data', note: '3분기 미제출' }],
+    counts: { companies: 3, filed: 2, notFiled: 1, failed: 0, waiting: 0, newEvents: 3, A: 1, B: 0, C: 2 }, seen: {}, rosters: {},
+    events: [ev('새 임원|유경쟁|197405', 'A', '새 임원', 'KG모빌리티 2026년 3분기(9-30 기준) 임원 명단에 새로 보임 — 유경쟁 1974년생 상무(미등기·상근) · 경력 「현대자동차 글로벌KD사업실장」 · 2026년 반기(6-30 기준)에는 없음',
+      { name: '유경쟁', ofcps: '상무', reg: '미등기' }, [{ kind: '경쟁사 출신', text: "경력에 다른 출입처 '현대자동차'" }]),
+    ev('명단에서 빠짐|김보통|197001', 'C', '명단에서 빠짐', 'KG모빌리티 2026년 3분기(9-30 기준) 임원 명단에서 빠짐 — 2026년 반기(6-30 기준) 김보통 1970년생 상무(미등기)', { name: '김보통' }),
+    ev('count', 'C', '임원 수 변화', 'KG모빌리티 미등기 임원 31→33명', null)], rules: ["'새로 보임'은 두 기준일 사이 변화일 뿐 선임일·사유가 아니다 — 회사 확인."] };
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/kr-exec', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
+  const r = await call('radar_today', {}, opts);
+  assert.match(r.text.split('[A · ')[1].split('[B · ')[0], /임원 명단 변화\(정기보고서\) · KG모빌리티\n   KG모빌리티 2026년 3분기\(9-30 기준\) 임원 명단에 새로 보임 — 유경쟁 1974년생 상무\(미등기·상근\) · 경력 「현대자동차 글로벌KD사업실장」 · 2026년 반기\(6-30 기준\)에는 없음 〔표시: 경력에 다른 출입처 '현대자동차'〕 \(보고서 명단 비교 — 선임일·영입 경위·사유는 회사 확인\)/);
+  assert.doesNotMatch(r.text, /김보통/);
+  const radar = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
+  const hit = radar.items.find((x) => x.id === 'exec:00138242:202611014:새 임원|유경쟁|197405');
+  assert.deepEqual([hit.check.who, hit.check.terms, hit.check.must, hit.check.alts['인사'].slice(0, 3)], ['KG모빌리티', ['유경쟁', '인사'], ['유경쟁'], ['인사', '영입', '선임']]);
+  const k = await call('kr_signals', { section: 'exec' }, opts);
+  assert.match(k.text, /\[임원 명단 변화 · 2026년 3분기\(9-30 기준\) ← 2026년 반기\(6-30 기준\) · 확인 [^\]]+ · 최근 60일\] A 1 · B 0 · C 2\(C는 show_all=true 또는 company 낱말로\)/);
+  assert.match(k.text, /원천: OpenDART 정기보고서 임원 현황 · 제출 2\/3곳 · 마감 2026-11-14 · 미제출 1곳\(기아\)/);
+  assert.match(k.text, /범위: 현대제철는 원문 표를 못 읽어 API 줄\(등기임원\)만 비교 — 미등기 임원 변화는 미확인/);
+  assert.match(k.text, /- \[신규\] A · [\d-]+ [\d:]+ · KG모빌리티 · 새 임원\n   잡힌 사실: KG모빌리티 2026년 3분기[^\n]+\n   표시: 경쟁사 출신 — 경력에 다른 출입처 '현대자동차'\n   원문: https:\/\/dart\.fss\.or\.kr\/dsaf001\/main\.do\?rcpNo=20261114000002 \(앞 보고서 https:\/\/dart\.fss\.or\.kr\/dsaf001\/main\.do\?rcpNo=20260814000002\)/);
+  assert.doesNotMatch(k.text, /김보통/);
+  assert.match((await call('kr_signals', { section: 'exec', show_all: true }, opts)).text, /C · [\d-]+ [\d:]+ · KG모빌리티 · 명단에서 빠짐/);
+  assert.match((await call('kr_signals', { section: 'exec', company: '김보통' }, opts)).text, /김보통 1970년생 상무/);
+  assert.match((await call('kr_signals', {}, opts)).text, /\[임원 명단 변화 · 2026년 3분기\(9-30 기준\) ← 2026년 반기\(6-30 기준\) · 확인 [^\]]+ · 최근 14일\] A 1/);
 });
 
 test('타사 공시 속 출입처(dart-counterparty): radar_today A·대조 낱말(상대 회사 필수), kr_signals counterparty 구역·같은 그룹 접음', async () => {
