@@ -2877,7 +2877,7 @@ test('문제 임원 점검(kr-exec-check): radar_today A·B(단서 표시), kr_s
   assert.doesNotMatch(k.text, /이무탈/);
   // 표시가 없어도 이름으로 물으면 겸직 명단 대조 결과(왜 3호가 아닌지)를 보여 준다
   assert.match((await call('kr_signals', { section: 'exec', company: '이무탈' }, opts)).text,
-    /- 참고 · 기아 · 이무탈 1970년생 이사\(사외이사\)[^\n]*\n   겸직 명단 대조\(3호 해당 안 됨\): 디비손보 명단 확인\(사외이사·2026년 반기\(6-30 기준\)\) \/ 에스부품 최근 명단에 없음/);
+    /표시 0명 · 참고 1명[\s\S]*- 참고 · 기아 · 이무탈 1970년생 이사\(사외이사\)[^\n]*\n   겸직 명단 대조\(3호 해당 안 됨\): 디비손보 명단 확인\(사외이사·2026년 반기\(6-30 기준\)\) \/ 에스부품 최근 명단에 없음/);
   assert.doesNotMatch((await call('kr_signals', { section: 'exec', company: '현대차' }, opts)).text, /박논란/);
   const legacy = structuredClone(doc);
   delete legacy.people[1].flags[0].evidenceVersion;
