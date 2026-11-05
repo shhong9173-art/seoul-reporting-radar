@@ -289,7 +289,9 @@ def confirm_tenure(rec, roles, found, birth, *, key, get, sleep, idx_fn, now, ol
             continue
         years = {int(m["record"]["date"][:4]) for m in ms}
         cand = sorted({y - d for y in years for d in (0, 1, 2)} & set(range(TENURE_FROM, now.year)), reverse=True)
-        for y in [y for y in cand if y not in t["checked"]]:
+        # 재직기간 시작일(since)을 남기기 전 판에서 찾은 해는 한 번 다시 연다
+        redo = set(t["years"]) if t["years"] and not t.get("sinceChecked") else set()
+        for y in [y for y in cand if y not in t["checked"] or y in redo]:
             if calls[0] >= budget:
                 t["status"] = "budget"
                 break
@@ -312,6 +314,8 @@ def confirm_tenure(rec, roles, found, birth, *, key, get, sleep, idx_fn, now, ol
                         t["since"] = min(t.get("since") or since, since)
         t["code"] = code
         t["years"], t["checked"] = sorted(set(t["years"])), sorted(set(t["checked"]))
+        if t.get("status") not in ("budget", "failed"):
+            t["sinceChecked"] = True
         if t.get("status") not in ("budget", "failed"):
             t["status"] = "found" if t["years"] else ("absent" if t.get("reports") else "no_report")
         tenure[k] = t

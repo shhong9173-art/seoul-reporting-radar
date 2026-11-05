@@ -408,6 +408,15 @@ class Runs(unittest.TestCase):
         f = next(f for f in p["flags"] if f["kind"].startswith("공식 제재"))
         self.assertIn("한빛은행 은행장(사업보고서 임원 명단 2020~2020, 재직 2020-03-24~) — 금감원 2020-07-08", f["text"])
         self.assertNotIn("2020-03-04", f["text"])
+        # 앞 판(시작일 없이 찾은 해만 저장)에서 넘어오면 찾은 해를 한 번 다시 연다
+        for x in doc["people"]:
+            if x.get("tenure"):
+                x["tenure"]["한빛은행"].pop("since"), x["tenure"]["한빛은행"].pop("sinceChecked")
+        self.codes.clear()
+        with patch.object(osn, "pdf_text", lambda raw, n=4: pdf):
+            again = self.go(previous=doc, web_get=web, table={"한빛은행": [["00888003", ""]]})
+        self.assertEqual(self.codes.count("00888003"), 1)
+        self.assertEqual(next(x for x in again["people"] if x["name"] == "김오래")["tenure"]["한빛은행"]["since"], "2020-03-24")
 
     # ---- 겸직 명단 직접 대조(3호) ----
     def boards(self, first=("1955년 01월", "사외이사"), second=("1955년 01월", "감사")):
