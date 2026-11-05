@@ -2813,6 +2813,8 @@ test('수시 임원 공시·타사 임원 명단(kr-exec-market): radar_today A�
     checks: [{ source: '공시 목록 기타공시(독립이사 신고·소집공고)', status: 'ok', returned: 120 }, { source: '수시 임원 공시 원문', status: 'ok', returned: 3 },
       { source: '상장사 등기임원 명단 순환', status: 'ok', returned: 400, covered: 800, universe: 4013 }],
     counts: { listed: 160, picked: 3, opened: 3, newEvents: 3, A: 1, B: 1, C: 1 }, seen: {}, industry: {}, companies: {}, cursor: 400,
+    alumni: { '00999001': [{ company: '부품사', name: '김전무', birth: '1962', ofcps: '사외이사', reg: '사외이사', beats: ['현대차'], senior: true, text: '현대자동차 구매본부장(전무)', period: '202611012' }],
+      '00999005': [{ company: '철강상사', name: '정상무', birth: '1966', ofcps: '대표이사', reg: '사내이사', beats: ['포스코'], senior: false, text: '포스코 마케팅본부 상무', period: '202611012' }] },
     events: [
       { id: 'execm:20260225005348|이승조', tier: 'A', kind: '이사 후보', company: '현대차', source: '주총 소집공고', detectedAt: now, url: 'https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260225005348',
         text: '현대차 주총 소집공고(2026-02-25) 이사 후보 — 이승조 1969년생 사내이사', person: { name: '이승조' },
@@ -2837,6 +2839,10 @@ test('수시 임원 공시·타사 임원 명단(kr-exec-market): radar_today A�
   assert.match(k.text, /- \[신규\] B · [\d-]+ [\d:]+ · 부품사 · 독립이사 신고 독립이사 선임 · 출입처 현대차 출신\n   잡힌 사실: 부품사 독립이사 선임 신고/);
   assert.doesNotMatch(k.text, /박작은/);
   assert.match((await call('kr_signals', { section: 'exec', company: '박작은' }, opts)).text, /작은회사 … 박작은/);
+  assert.match(k.text, /\[출입처 출신 타사 등기임원 현황 · 명단 순환 800\/4013곳 기준\] 2명 — 현대차 1 · 포스코 1/);
+  const ph = (await call('kr_signals', { section: 'exec', company: '포스코' }, opts)).text;
+  assert.match(ph, /- 철강상사 · 정상무 1966년생 대표이사\(사내이사\) · 포스코 출신 · 경력 「포스코 마케팅본부 상무」/);
+  assert.doesNotMatch(ph, /- 부품사 · 김전무/);
 });
 
 test('타사 공시 속 출입처(dart-counterparty): radar_today A·대조 낱말(상대 회사 필수), kr_signals counterparty 구역·같은 그룹 접음', async () => {
