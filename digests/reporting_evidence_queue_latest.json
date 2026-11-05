@@ -1,12 +1,12 @@
 {
-  "generatedAt": "2026-11-05T17:42:30+09:00",
+  "generatedAt": "2026-11-06T01:50:52+09:00",
   "status": "reporter_evidence_queue_not_exclusive",
   "sourceCoverage": "partial_source_coverage_not_zero_news",
   "sourceHealth": {
     "officialEvents": {
       "status": "source_partial_coverage",
-      "generatedAt": "2026-11-05T16:28:24+09:00",
-      "rows": 10,
+      "generatedAt": "2026-11-05T17:42:32+09:00",
+      "rows": 15,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false,
       "incompleteOrStaleFeeds": [
@@ -16,11 +16,11 @@
     },
     "dartBeat": {
       "status": "source_partial_coverage",
-      "generatedAt": "2026-11-05T17:41:53+09:00",
-      "rows": 79,
+      "generatedAt": "2026-11-06T01:50:16+09:00",
+      "rows": 78,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false,
-      "uninspectedRelevantDetails": 1
+      "uninspectedRelevantDetails": 0
     },
     "investment": {
       "status": "source_snapshot_checked",
@@ -31,7 +31,7 @@
     },
     "metrics": {
       "status": "source_snapshot_checked",
-      "generatedAt": "2026-11-05T15:43:19+09:00",
+      "generatedAt": "2026-11-06T00:22:25+09:00",
       "rows": 24,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false
@@ -59,8 +59,8 @@
     }
   },
   "countsByEvidenceTier": {
-    "new_official_receipt_review": 10,
-    "new_official_list_heading_review": 1,
+    "new_official_receipt_review": 12,
+    "new_official_list_heading_review": 0,
     "verified_historical_investment_delta": 3,
     "verified_historical_numeric_delta": 24,
     "issuer_only_correction_unverified_original": 3,
@@ -68,21 +68,21 @@
     "unlinked_correction_text_followup": 1
   },
   "sourceDateWindow": {
-    "recentFrom": "2026-11-03",
-    "through": "2026-11-05"
+    "recentFrom": "2026-11-04",
+    "through": "2026-11-06"
   },
-  "checkedOfficialRecentCandidates": 11,
-  "recentOfficialTitleOnlyCount": 1,
-  "todayOnlyCount": 11,
+  "checkedOfficialRecentCandidates": 12,
+  "recentOfficialTitleOnlyCount": 0,
+  "todayOnlyCount": 12,
   "historicalResearchCount": 33,
   "unlinkedHistoryTextMatchCount": 1,
   "correctionHistorySourceGate": "reviewed_unlinked_candidates_only",
-  "totalRows": 44,
+  "totalRows": 45,
   "excluded": {
     "invalid_original_identity": 0,
-    "old_and_not_relevant": 0,
+    "old_and_not_relevant": 3,
     "unverified_correction": 0,
-    "same_receipt_merged": 2
+    "same_receipt_merged": 3
   },
   "confirmedScoops": 0,
   "approvedArticles": 0,
@@ -126,6 +126,126 @@
       "actualShipmentsVerified": false,
       "pressIndexNoHitsIsNotNoCoverage": true,
       "editorialPriority": "new_official_filing_manual_review"
+    },
+    {
+      "id": "new_official_receipt_review:DART:20261105800291",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "한온시스템",
+      "title": "한온시스템 · 정기·주요공시 · 연결재무제표기준영업(잠정)실적(공정공시)",
+      "officialDocumentDate": "2026-11-05",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261105800291"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
+        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
+        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
+      ]
+    },
+    {
+      "id": "new_official_receipt_review:DART:20261105800303",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "LG화학",
+      "title": "LG화학 · 정기·주요공시 · 연결재무제표기준영업(잠정)실적(공정공시)",
+      "officialDocumentDate": "2026-11-05",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261105800303"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
+        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
+        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
+      ]
+    },
+    {
+      "id": "new_official_receipt_review:DART:20261105800350",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "GS",
+      "title": "GS · 정기·주요공시 · 연결재무제표기준영업(잠정)실적(공정공시)",
+      "officialDocumentDate": "2026-11-05",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261105800350"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
+        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
+        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
+      ]
+    },
+    {
+      "id": "new_official_receipt_review:DART:20261105800854",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "영풍",
+      "title": "영풍 · 정기·주요공시 · 주식소각결정",
+      "officialDocumentDate": "2026-11-05",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261105800854"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
+        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
+        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
+      ]
+    },
+    {
+      "id": "new_official_receipt_review:DART:20261105800867",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "현대오토에버",
+      "title": "현대오토에버 · 정기·주요공시 · [기재정정]타법인주식및출자증권취득결정",
+      "officialDocumentDate": "2026-11-05",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261105800867"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
+        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
+        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
+      ]
     },
     {
       "id": "new_official_receipt_review:DART:20261104800215",
@@ -270,111 +390,6 @@
         "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
         "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
       ]
-    },
-    {
-      "id": "new_official_receipt_review:DART:20261103000294",
-      "tier": "new_official_receipt_review",
-      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
-      "company": "KG스틸",
-      "title": "KG스틸 · 정기·주요공시 · [기재정정]주요사항보고서(타법인주식및출자증권양수결정)",
-      "officialDocumentDate": "2026-11-03",
-      "officialDateIsSourcePublicationNotScrape": true,
-      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
-      "officialUrls": [
-        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261103000294"
-      ],
-      "pressFulltextReviewed": false,
-      "sameAngleCoverageVerified": false,
-      "companyImpactVerified": false,
-      "futurePlanVerified": false,
-      "exclusiveConfirmed": false,
-      "approvedForPitch": false,
-      "nextChecks": [
-        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
-        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
-        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
-      ]
-    },
-    {
-      "id": "new_official_receipt_review:DART:20261103800249",
-      "tier": "new_official_receipt_review",
-      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
-      "company": "KG스틸",
-      "title": "KG스틸 · 정기·주요공시 · 영업(잠정)실적(공정공시)",
-      "officialDocumentDate": "2026-11-03",
-      "officialDateIsSourcePublicationNotScrape": true,
-      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
-      "officialUrls": [
-        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261103800249"
-      ],
-      "pressFulltextReviewed": false,
-      "sameAngleCoverageVerified": false,
-      "companyImpactVerified": false,
-      "futurePlanVerified": false,
-      "exclusiveConfirmed": false,
-      "approvedForPitch": false,
-      "nextChecks": [
-        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
-        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
-        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
-      ]
-    },
-    {
-      "id": "new_official_receipt_review:DART:20261103800261",
-      "tier": "new_official_receipt_review",
-      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
-      "company": "KG스틸",
-      "title": "KG스틸 · 정기·주요공시 · 연결재무제표기준영업(잠정)실적(공정공시)",
-      "officialDocumentDate": "2026-11-03",
-      "officialDateIsSourcePublicationNotScrape": true,
-      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
-      "officialUrls": [
-        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261103800261"
-      ],
-      "pressFulltextReviewed": false,
-      "sameAngleCoverageVerified": false,
-      "companyImpactVerified": false,
-      "futurePlanVerified": false,
-      "exclusiveConfirmed": false,
-      "approvedForPitch": false,
-      "nextChecks": [
-        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
-        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
-        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
-      ]
-    },
-    {
-      "id": "new_official_list_heading_review:DART:20261105800854",
-      "tier": "new_official_list_heading_review",
-      "tierLabel": "최근 DART 중요 공시 · 제목만 확인",
-      "company": "영풍",
-      "title": "영풍 · 주식소각결정",
-      "officialDocumentDate": "2026-11-05",
-      "officialDateIsSourcePublicationNotScrape": true,
-      "evidenceSummary": "공식 DART 목록의 공시 제목·접수번호·접수일만 확인. 가치제고 목표·주식소각 수량·확정 재무영향은 본문 대조 전이며, 기보도·기업 답변 모두 미확인.",
-      "officialUrls": [
-        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261105800854"
-      ],
-      "pressFulltextReviewed": false,
-      "sameAngleCoverageVerified": false,
-      "companyImpactVerified": false,
-      "futurePlanVerified": false,
-      "exclusiveConfirmed": false,
-      "approvedForPitch": false,
-      "nextChecks": [
-        "공식 공시 본문에서 수치·대상·결의일, 완료/예정 상태 확인",
-        "이전 가치제고 계획·자사주 처분/소각 공시와 수치 차이 검산",
-        "기존 매체 기사 전문 및 최초 공표 시각 대조",
-        "기업의 이미 공개된 공시 내용만 확인"
-      ],
-      "officialListTitleOnly": true,
-      "officialDocumentBodyReviewed": false,
-      "filingTypeFromOfficialTitle": "주식소각결정",
-      "disclosedFinancialImpactVerified": false,
-      "priorPressArticleFulltextReviewed": false,
-      "companyResponseVerified": false,
-      "firstObservedHereNotFirstReported": true,
-      "editorialPriority": "primary_title_manual_document_review_only"
     },
     {
       "id": "verified_historical_investment_delta:20260814003228:변압기 철심공장",
