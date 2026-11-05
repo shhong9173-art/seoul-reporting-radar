@@ -69,6 +69,40 @@ class Parse(unittest.TestCase):
         t3 = "처분내용1양평군청舊 보호법제28조제1항취급자 관리‧감독 소홀2026.8.26.시정조치 권고2경성대학교보호법제29조,제35조제3항안전조치의무 위반,개인정보 열람 요구 부당 거부2026.8.26.과태료 1,350만원, 시정조치 명령, 공표명령2026년  9월  8일개 인 정 보"
         self.assertEqual([(r["org"], r["what"][:6]) for r in osn.pipc_rows(t3)], [("양평군청", "취급자 관리"), ("경성대학교", "안전조치의무")])
 
+    def test_ftc_respondents_from_title(self):
+        self.assertEqual(osn.ftc_respondents("(주) 해성산업개발의 부당한 광고행위에 대한 건"), ["해성산업개발"])
+        self.assertEqual(osn.ftc_respondents("한빛자동차(주) 및 오성(주)의 부당한 하도급대금 결정 행위에 대한 건"), ["한빛자동차", "오성"])
+        self.assertEqual(osn.ftc_respondents("4개 시중은행의 부당한 공동행위에 대한 건"), [])
+        self.assertEqual(osn.ftc_respondents("6개 건설사들의 입찰담합 행위에 대한 건"), [])
+
+    def test_ftc_refresh_and_records(self):
+        pages = {1: [{"csno": "2026서경0001", "name": "한빛카드(주)의 부당한 고객유인행위에 대한 건", "decidedOn": "2026-10-07", "action": "과징금"}],
+                 2: [{"csno": "2020서경0009", "name": "4개 시중은행의 부당한 공동행위에 대한 건", "decidedOn": "2020-03-01", "action": "과징금"}], 3: []}
+
+        def get(url, params=None, **kw):
+            return R(text=str(params["pageIndex"]))
+        parse = lambda text: (pages[int(text)], 3)
+        st, c = osn.refresh_ftc(None, get=get, now=NOW, parse=parse, new_pages=1)
+        self.assertEqual((c["status"], c["rows"], st["done"]), ("ok", 2, True))
+        recs = osn.ftc_records(st)
+        self.assertEqual([(r["org"], r["date"], r["inst"]) for r in recs], [("한빛카드", "2026-10-07", "과징금")])
+        self.assertIn("caseNo=2026서경0001", recs[0]["url"])
+
+    def test_pipc_probe184_variants(self):
+        t = ("처분내용1한빛연구재단법 제29조안전조치의무위반2026.1.28과징금, 시정명령,공표명령, 징계권고, 개선권고법 제34조제1항유출통지의무 위반2026.1.28과태료, 시정명령"
+             "2026년 3월 6일개 인 정 보 보 호 위 원 회")
+        rows = osn.pipc_rows(t)
+        self.assertEqual([(r["org"], r["date"]) for r in rows], [("한빛연구재단", "2026-01-28")])
+        t2 = ("처분내용1오성공단 보호법 제29조 안전조치의무 위반 2026. 5. 1. 과징금 4억 7,800만원, 공표명령 2한빛구청 보호법 제26조제1항위탁업무와 수탁자 공개 미흡 2026. 5. 1. 과태료 300만원"
+              " 2026년 5월 9일 개인정보 보호위원회")
+        self.assertEqual([r["org"] for r in osn.pipc_rows(t2)], ["오성공단", "한빛구청"])
+        self.assertEqual(osn.pipc_rows("처분내용1경북한빛병원 汤捯 보호법 제34조 유출통지 지연 2026. 1. 28. 과태료 360만 원")[0]["org"], "경북한빛병원")
+
+    def test_ftc_titles_probe184(self):
+        self.assertEqual(osn.ftc_respondents("한빛조선해양 주식회사 및 오성중공업 주식회사 의 불공정하도급거래행위에 대한 건"), ["한빛조선해양", "오성중공업"])
+        self.assertEqual(osn.ftc_respondents("(합)한빛종합건설의 불공정하도급거래행위에 대한 건"), ["한빛종합건설"])
+        self.assertEqual(osn.ftc_respondents("용인시 오성중학교 발주 교복 입찰 관련 4개 사업자의 부당한 공동행위에 대한 건"), [])
+
     def test_org_keys_read_latin(self):
         self.assertTrue(osn.org_keys("KB증권") & osn.org_keys("케이비증권 주식회사"))
         self.assertTrue(osn.org_keys("DB손해보험") & osn.org_keys("DB손해보험주식회사"))

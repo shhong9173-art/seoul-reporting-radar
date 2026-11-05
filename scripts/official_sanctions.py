@@ -160,8 +160,9 @@ def fss_detail(row, *, get, read_pdf=None):
 PIPC_LIST = "https://www.pipc.go.kr/np/cop/bbs/selectBoardList.do?bbsId=BS258&mCode=C010040000"
 PIPC_VIEW = "https://www.pipc.go.kr/np/cop/bbs/selectBoardArticle.do?bbsId=BS258&mCode=C010040000&nttId="
 PIPC_FILE = "https://www.pipc.go.kr/np/cmm/fms/FileDown.do?atchFileId={}&fileSn={}"
-LAW = r"(?:舊\s*)?(?:개인정보\s*)?보호법"
-DATE = r"(20\d{2})\s*\.\s*(\d{1,2})\s*\.\s*(\d{1,2})\s*\."
+# 탐침 184: 위반조항을 '법 제29조'로 줄여 쓴 공표도 있다('1한국연구재단법 제29조…'), 처분일 끝 점이 없는 것도('2026.1.28과징금')
+LAW = r"(?:(?:舊\s*)?(?:개인정보\s*)?보호법|법(?=\s*제\s*\d))"
+DATE = r"(20\d{2})\s*\.\s*(\d{1,2})\s*\.\s*(\d{1,2})(?!\d)\s*\.?"
 
 
 def pipc_records(state):
@@ -177,7 +178,8 @@ def pipc_rows(pdf_text):
     t = re.split(r"\*\s*舊\s*보호법\s*:|20\d{2}년\s*\d{1,2}월\s*\d{1,2}일\s*개\s*인\s*정\s*보", t)[0]
     starts, pos, n = [], 0, 1
     while n < 200:
-        m = re.compile(r"(?<!\d)" + str(n) + r"(?![\d.,])\s*((?:㈜|\(주\))?\s*[^\d\s*][^*]{0,40}?)\s*" + LAW).search(t, pos)
+        # 순번 뒤가 금액·조항 낱말이면 순번이 아니다(탐침 184: '과징금 4억 7,800만원'의 4, '제1항위탁업무'의 1)
+        m = re.compile(r"(?<![\d제])" + str(n) + r"(?![\d.,])(?!\s*(?:억|만|천|원|개|명|일|월|년|조|항|호|%))\s*((?:㈜|\(주\))?\s*[^\d\s*][^*]{0,40}?)\s*" + LAW).search(t, pos)
         if not m:
             break
         starts.append(m)
@@ -192,6 +194,7 @@ def pipc_rows(pdf_text):
         what = re.sub(r"\s+", " ", what).strip()[:80]
         acts = re.findall(r"과징금\s*[\d,억만\s]+?원|과태료(?:\s*부과)?\s*[\d,억만\s]+?원|시정조치\s*(?:명령|권고)|공표\s*명령|개선\s*권고|징계\s*권고", seg[d.end():])
         org = re.sub(r"^(?:㈜|\(주\))\s*|\s*(?:㈜|\(주\))$", "", m.group(1).strip())
+        org = re.sub(r"\s+", " ", re.sub(r"[\u4e00-\u9fff]", "", org)).strip()          # HWP 제어 글자가 한자처럼 섞인 것('경북대학교 병원 汤捯')
         out.append({"agency": "개인정보위", "no": str(i + 1), "org": org[:60], "date": f"{d.group(1)}-{int(d.group(2)):02d}-{int(d.group(3)):02d}",
                     "what": what, "inst": ", ".join(dict.fromkeys(re.sub(r"\s+", " ", a).strip() for a in acts))[:120],
                     "major": any(a.startswith("과징금") for a in acts)})
@@ -262,6 +265,88 @@ def refresh_pipc(state, *, get, now, max_posts=40, read_pdf=None, pause=None):
     unread = sum(v for k, v in outcome.items() if k != "ok")
     return state, {"source": "개인정보위 결과의 공표", "status": "partial" if err or unread else "ok", "posts": len(posts), "read": read, "rows": rows,
                    "outcomes": outcome, **({"error": err} if err else {})}
+
+
+# ---------- 공정위 ----------
+
+FTC_LIST = "https://case.ftc.go.kr/ocp/co/ltfr.do"
+FTC_SINCE = "2016-01-01"
+
+
+def ftc_respondents(title):
+    """사건명 앞 '…의 '까지를 피심인으로: '현대자동차(주) 및 기아(주)의 부당한 …' → ['현대자동차', '기아'].
+    '4개 시중은행의 …'처럼 이름 없는 묶음은 [] (탐침 183 — 이런 건은 사건명으로 회사를 알 수 없다)."""
+    m = re.match(r"\s*(.+?)의\s", title or "")
+    head = m.group(1).split("관련")[-1] if m else ""        # '…발주 … 입찰 관련 ○○의 부당한 공동행위'는 '관련' 뒤가 피심인
+    if not head or re.search(r"\d+\s*개|사업자들|업체들|사들$|\s등$|발주", head):
+        return []
+    out = []
+    for x in re.split(r"\s+및\s+|\s*,\s*|\s*[·ㆍ]\s*", head):
+        x = re.sub(r"\((?:주|유|합|사|재)\)|㈜|주식회사|유한회사|\s+", "", x).strip()
+        if 2 <= len(x) <= 30 and not re.search(r"(?:등|들)$", x):
+            out.append(x)
+    return out
+
+
+def refresh_ftc(state, *, get, now, backfill_pages=100, new_pages=3, pause=None, parse=None):
+    """공정위 의결서 목록(case.ftc.go.kr ltfr.do, 2016년부터 4,960건·496쪽 — 탐침 183). 앞 몇 쪽 + 뒤 채우기.
+    저장은 짧게: 사건번호·피심인(사건명에서)·의결일·조치."""
+    if parse is None:
+        import kr_signals_watch as ks
+        parse = ks.parse_ftc_list
+    state = dict(state or {})
+    rows = dict(state.get("rows") or {})
+    since = state.get("since") or FTC_SINCE
+    fresh, pages, err = 0, 0, None
+
+    def page(n):
+        if pause:
+            pause(0.5)
+        r = get(FTC_LIST, params={"startRceptDt": since, "endRceptDt": now.date().isoformat(), "pageIndex": n}, headers=UA, timeout=40)
+        if getattr(r, "status_code", 200) != 200:
+            raise RuntimeError(f"HTTP {r.status_code}")
+        got, last = parse(r.text)
+        return [{"id": f"ftc:{x['csno']}", "o": ftc_respondents(x["name"]), "d": x.get("decidedOn") or "", "a": (x.get("action") or "")[:20]}
+                for x in got if x.get("csno")], last
+
+    try:
+        for n in range(1, new_pages + 1):
+            got, _ = page(n)
+            pages += 1
+            new = [x for x in got if x["id"] not in rows]
+            for x in new:
+                rows[x["id"]] = x
+            fresh += len(new)
+            if len(new) < len(got) or not got:
+                break
+        if not state.get("done"):
+            n = int(state.get("nextPage") or 1)
+            for _ in range(backfill_pages):
+                got, last = page(n)
+                pages += 1
+                for x in got:
+                    rows.setdefault(x["id"], x)
+                if not got or (last and n >= last):
+                    state["done"] = True
+                    break
+                n += 1
+            state["nextPage"] = n
+    except Exception as e:
+        err = f"{type(e).__name__}: {str(e)[:60]}"
+    state.update(rows=rows, since=since, checkedAt=now.isoformat(timespec="seconds"))
+    return state, {"source": "공정위 의결서 목록", "status": "partial" if err else "ok", "pages": pages, "new": fresh, "rows": len(rows),
+                   "backfillDone": bool(state.get("done")), **({"error": err} if err else {})}
+
+
+def ftc_records(state):
+    out = []
+    for r in ((state or {}).get("rows") or {}).values():
+        if not re.match(r"\d{4}-\d{2}-\d{2}", r.get("d") or ""):
+            continue
+        for i, org in enumerate(r.get("o") or []):
+            out.append({"agency": "공정위", "id": f"{r['id']}:{i}", "org": org, "date": r["d"], "inst": r.get("a"),
+                        "url": f"{FTC_LIST}?caseNo={r['id'][4:]}"})
+    return out
 
 
 # ---------- 경력 칸과 잇기 ----------
