@@ -42,6 +42,7 @@ import earnings_compare as ec  # noqa: E402
 import governance_watch as gw  # noqa: E402
 import kr_exec_watch as kx  # noqa: E402
 import executive_article_evidence as ae  # noqa: E402
+import official_sanctions as osn  # noqa: E402
 from urllib.parse import urlsplit  # noqa: E402
 
 SCHEMA = "kr_exec_check/v1"
@@ -241,6 +242,63 @@ def reconcile_events(events, people, checks, stamp):
             e["reviewReason"] = "현재 점검 명단에서 확인 안 됨(퇴임 확정 아님)"
 
 
+SANCTION_DETAIL_BUDGET = 20   # 금감원 공개안 PDF는 경력과 기간이 겹친 것만, 한 실행 20건
+
+
+def link_sanctions(people, state, *, web_get, budget):
+    """경력 칸 최고 경영 자리(회사·기간) × 공식 제재(금감원·개인정보위). 기간이 겹치고 무거운 처분(금감원 임원 조치·개인정보위 과징금)이면 B,
+    그 밖(회사만 제재·시점 미확인)은 C — 목록에만. 공개 기록엔 개인 이름이 없다: 그 사람이 제재 대상이었는지는 확인 대상."""
+    fss = state.get("fss") or {}
+    records = osn.fss_records(fss) + osn.pipc_records(state.get("pipc"))
+    details = dict(fss.get("details") or {})
+    used, matched = 0, 0
+    for rec in people:
+        roles = rec.pop("_roles", None) or []
+        if not roles or not records:
+            continue
+        found = osn.match(roles, records)
+        if not found:
+            continue
+        matched += 1
+        out = []
+        for m in found:
+            r, role = m["record"], m["role"]
+            item = {"agency": r["agency"], "org": r["org"], "date": r["date"], "url": r.get("url"), "timing": m["timing"],
+                    "career": {k: role[k] for k in ("org", "role", "start", "end")}}
+            if r["agency"] == "개인정보위":
+                item.update(what=r.get("what"), inst=r.get("inst"))
+                strong = m["timing"] == "overlap" and bool(r.get("major"))
+            else:
+                det = details.get(r["id"])
+                if det is None and m["timing"] == "overlap" and web_get is not None and used < budget:
+                    det = osn.fss_detail(r, get=web_get)
+                    used += 1
+                    if det.get("status") == "ok":
+                        details[r["id"]] = det
+                if det and det.get("status") == "ok":
+                    item.update(inst=det.get("inst"), exec=det.get("exec"), fact=det.get("fact"))
+                strong = m["timing"] == "overlap" and bool(det and det.get("execSanctioned"))
+            item["strong"] = strong
+            out.append(item)
+        out.sort(key=lambda x: x["date"], reverse=True)
+        out.sort(key=lambda x: (not x["strong"], x["timing"] != "overlap"))
+        rec["sanctions"] = out[:6]
+        strong = [x for x in out if x["strong"]]
+        if strong:
+            def line(x):
+                c = x["career"]
+                period = f"{c['start'] or '?'}~{c['end'] or '?'}"
+                act = x.get("exec") and f"임원 {x['exec']}" or x.get("inst") or ""
+                return f"{c['org']} {c['role']}(경력 칸 {period}) — {x['agency']} {x['date']} 제재: {x.get('what') + ' — ' if x.get('what') else ''}{act}"
+            rec["flags"].append({"kind": "공식 제재: 재임 중 소속 회사 제재", "tier": "B",
+                                 "text": " / ".join(line(x) for x in strong[:2])
+                                         + " — 공개 기록엔 개인 이름이 없음. 그 사람이 제재·책임 대상이었는지와 재임 시점은 원문·회사 확인"})
+    if fss:
+        fss["details"] = details
+    return {"source": "공식 제재 대조", "status": "ok" if records else "no_data", "matched": matched, "detailsFetched": used,
+            "records": len(records)}
+
+
 def market_index(market_doc):
     """kr-exec-market 명단 순환의 등기임원 키 해시 → [(회사, 기간)]"""
     idx = {}
@@ -418,7 +476,7 @@ def verify_directorships(people, key, *, now, table, old_people, get, sleep, bud
 
 
 def run(key, *, now=None, previous=None, exec_doc=None, market_doc=None, get=None, news=None, sleep=time.sleep, registry=None, table=None,
-        news_budget=None, article_fetch=ae.fetch_article, article_budget=30):
+        news_budget=None, article_fetch=ae.fetch_article, article_budget=30, web_get=None):
     if get is None:
         import requests
         get = requests.get
@@ -568,9 +626,19 @@ def run(key, *, now=None, previous=None, exec_doc=None, market_doc=None, get=Non
                 rec["flags"].append({"kind": "과거 논란 기사", "tier": "B", "evidenceVersion": ae.VERSION,
                                      "text": " / ".join(f"「{h['title']}」({h.get('date') or '날짜 미상'}, '{h['word']}')" for h in linked[:2])
                                              + " — 본문 인물·소속·사건 문맥 연결, 동일 인물·사실관계와 후속 처분은 기자 확인(기보도·단독 아님)"})
+            # 공식 제재 대조용: 경력 칸의 다른 회사 최고 경영 자리(같은 그룹 빼고)
+            rec["_roles"] = [x for x in osn.top_roles(p.get("career"), segs, now=now)
+                             if not any(kx.mentions(x["org"], a) or osn.org_keys(a) & osn.org_keys(x["org"]) for a in own + [short, name])]
             people.append(rec)
         checks.append({"source": short, "status": "ok", "returned": len([x for x in api if x["reg"] != "미등기"]), "tops": len(tops), "report": kx.period_label(y, r)})
     conc = verify_directorships(people, key, now=now, table=table, old_people=old_people, get=get, sleep=sleep, budget=DIRECTOR_BUDGET)
+    # 공식 제재 기록(금감원·개인정보위): web_get이 없으면(시험) 앞 상태만 쓴다
+    sanctions = dict(prev.get("sanctions") or {})
+    if web_get is not None:
+        sanctions["fss"], c1 = osn.refresh_fss(sanctions.get("fss"), get=web_get, now=now)
+        sanctions["pipc"], c2 = osn.refresh_pipc(sanctions.get("pipc"), get=web_get, now=now)
+        checks += [c1, c2]
+    checks.append(link_sanctions(people, sanctions, web_get=web_get, budget=SANCTION_DETAIL_BUDGET))
     if not table and conc["returned"] == 0 and any(d.get("status") == "unresolved" for p in people for d in p.get("directorChecks") or []):
         conc.update(status="partial", error="DART 고유번호 표 없음 — 다른 회사 명단 미확인")
     checks.append({**conc, "coveredMarket": covered})
@@ -610,7 +678,7 @@ def run(key, *, now=None, previous=None, exec_doc=None, market_doc=None, get=Non
     status = "complete" if ok == len(checks) else "failed" if not any(c["status"] in ("ok", "no_data") for c in checks) else "partial"
     flagged = [p for p in people if p["flags"]]
     return {
-        "schema": SCHEMA, "generatedAt": stamp, "status": status, "checks": checks, "people": people, "events": ev,
+        "schema": SCHEMA, "generatedAt": stamp, "status": status, "checks": checks, "people": people, "events": ev, "sanctions": sanctions,
         "counts": {"people": len(people), "outside": sum(1 for p in people if OUTSIDE.search(p["reg"] + p["ofcps"])), "flagged": len(flagged),
                    "A": sum(1 for p in flagged if any(f["tier"] == "A" for f in p["flags"])), "newEvents": fresh,
                    "activeEvents": sum(e.get("reviewStatus") == "active" for e in ev),
@@ -642,6 +710,11 @@ def annotate(doc):
             rows.append(f"{f['tier']} {p['company']} {p['ofcps']}({p['reg']}) {mask(p['name'])} · {f['kind']} · {t.replace(p['name'], mask(p['name']))[:200]}")
     for i, line in enumerate(sorted(rows)[:40]):
         print(f"::notice title=kr-exec-check-{i + 1}::{line}")
+
+
+def requests_get():
+    import requests
+    return requests.get
 
 
 def main():
@@ -681,7 +754,7 @@ def main():
     except SystemExit:
         table = None
     doc = run(key, previous=None if a.annotate_only else previous, exec_doc=exec_doc, market_doc=market_doc, registry=registry, table=table,
-              news_budget=NEWS_BUDGET, article_budget=a.article_budget)
+              news_budget=NEWS_BUDGET, article_budget=a.article_budget, web_get=requests_get())
     if a.annotate_only:
         annotate(doc)
         return
@@ -692,6 +765,8 @@ def main():
     for k in doc["checks"]:
         if k.get("source") == "기사 본문" and k.get("hosts"):
             print(f"::notice title=kr-exec-check-article-hosts::{json.dumps(k['hosts'], ensure_ascii=False)}")
+        if k.get("source") in ("금감원 제재내용공개", "개인정보위 결과의 공표", "공식 제재 대조"):
+            print(f"::notice title=kr-exec-check-sanctions::{k['source']} · {k.get('status')} · " + json.dumps({x: k[x] for x in ("pages", "new", "rows", "backfillDone", "posts", "read", "matched", "detailsFetched", "records", "error") if x in k}, ensure_ascii=False))
         if k.get("source") == "겸직 명단 대조":
             print(f"::notice title=kr-exec-check-boards::조회 {k.get('returned')}회 · 회사 {k.get('companies')}곳 · {k.get('status')}{' · ' + k['error'] if k.get('error') else ''}")
     if not token:

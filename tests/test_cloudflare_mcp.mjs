@@ -2894,10 +2894,25 @@ test('문제 임원 점검(kr-exec-check): radar_today A·B(단서 표시), kr_s
     bodyReview: { status: 'context_mentioned', excerpt: '유출 당시 이무탈 한빛카드 부회장이 회사를 이끌었다', checkedAt: now } }];
   await worker.fetch(new Request(ORIGIN + '/ingest/kr-exec-check', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(withC) }), env, {});
   const cScreen = (await call('kr_signals', { section: 'exec' }, opts)).text;
-  assert.match(cScreen, /표시 2명\(A 1\) · C\(본문 언급\) 1명/);
+  assert.match(cScreen, /표시 2명\(A 1\) · C\(본문 언급·공식 제재\) 1명/);
   assert.match(cScreen, /- C · 기아 · 이무탈[^\n]*\n(?:[^\n]*\n)*?   본문 확인: 본문 언급\(C[^\n]*\n   본문 언급: 유출 당시 이무탈 한빛카드 부회장이/);
   const cRadar = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
   assert(!cRadar.items.some((x) => /이무탈/.test(JSON.stringify(x))));
+  // 공식 제재(금감원·개인정보위 × 경력 칸 최고 경영 자리): 겹치고 무거우면 B 알림(대조 낱말 '제재'), 시점 미확인은 C 목록만
+  const sanc = structuredClone(withC);
+  const sflag = { kind: '공식 제재: 재임 중 소속 회사 제재', tier: 'B', text: '한빛카드 대표이사(경력 칸 2019~2021) — 개인정보위 2022-03-18 제재: 안전조치의무 — 과징금 7,088만원 — 공개 기록엔 개인 이름이 없음' };
+  sanc.people[0].flags.push(sflag);
+  sanc.people[0].sanctions = [{ agency: '개인정보위', org: '한빛카드', date: '2022-03-18', what: '안전조치의무', inst: '과징금 7,088만원', timing: 'overlap', strong: true, url: 'https://www.pipc.go.kr/x',
+    career: { org: '한빛카드', role: '대표이사', start: 2019, end: 2021 } },
+  { agency: '금감원', org: '오성증권㈜', date: '2015-01-01', inst: '기관주의', timing: 'timing_unknown', strong: false, url: 'https://www.fss.or.kr/y', career: { org: '오성증권', role: '사장', start: null, end: null } }];
+  sanc.events.push({ id: 'execc:cccc', reviewStatus: 'active', tier: 'B', kind: sflag.kind, company: '현대차', detectedAt: now, url: 'https://dart.fss.or.kr/x1', person: { name: '김오래' }, flags: [sflag],
+    text: `현대차 이사(사외이사) 김오래 1955년생 — ${sflag.kind}: ${sflag.text}` });
+  await worker.fetch(new Request(ORIGIN + '/ingest/kr-exec-check', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(sanc) }), env, {});
+  const sRadar = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
+  assert.deepEqual(sRadar.items.find((x) => x.id === 'execc:cccc').check.terms, ['김오래', '제재']);
+  const sScreen = (await call('kr_signals', { section: 'exec', company: '김오래' }, opts)).text;
+  assert.match(sScreen, /   공식 제재: 개인정보위 2022-03-18 한빛카드 — 안전조치의무 — 과징금 7,088만원 · 경력 「한빛카드 대표이사 2019~2021」 기간 겹침 · https:\/\/www\.pipc\.go\.kr\/x/);
+  assert.match(sScreen, /   공식 제재\(C\): 금감원 2015-01-01 오성증권㈜ — 기관주의 · 경력 「오성증권 사장 \?~\?」 시점 미확인/);
   for (const status of ['inactive', 'unconfirmed', undefined]) {
     const historical = { ...doc, events: doc.events.map((e) => ({ ...e, reviewStatus: status })) };
     await worker.fetch(new Request(ORIGIN + '/ingest/kr-exec-check', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(historical) }), env, {});

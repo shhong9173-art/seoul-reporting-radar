@@ -1315,18 +1315,18 @@ async function execCheckSection(ctx, q, limit) {
   if (doc.broken) return ['\n[문제 임원 점검] 저장 결과 형식 오류 — 미확인'];
   const c = doc.counts ?? {};
   // A·B(표시) → C(본문 언급: 같은 문장에 이름·회사·사건 낱말, 알림 없음) → 미확인(기사만) → 참고(겸직 대조만)
-  const mentioned = (p) => (p.news ?? []).some((h) => h.bodyReview?.status === 'context_mentioned');
+  const mentioned = (p) => (p.news ?? []).some((h) => h.bodyReview?.status === 'context_mentioned') || (p.sanctions ?? []).length > 0;
   const rank = (p) => (p.flags ?? []).some((f) => f.tier === 'A') ? 0 : (p.flags ?? []).length ? 1 : mentioned(p) ? 2 : (p.news ?? []).length ? 3 : 4;
   const LABEL = ['A', 'B', 'C', '미확인', '참고'];
   // 겸직 명단 대조 결과는 표시가 없어도 이름·회사로 물으면 보여 준다(왜 B가 사라졌는지 — 명단에 없음·동명이인)
   const boards = (p) => (p.directorChecks ?? []).filter((d) => d.status !== 'filed' || (p.directorChecks ?? []).length > 1);
-  const flagged = (doc.people ?? []).map((p) => ({ ...p, flags: (p.flags ?? []).filter((f) => f.kind !== '과거 논란 기사' || f.evidenceVersion === 'executive_article/v1') })).filter((p) => ((p.flags ?? []).length || (p.news ?? []).length || (q && boards(p).length)) && matches(q, p.company, p.name, p.career, ...(p.flags ?? []).map((f) => `${f.kind} ${f.text}`)))
+  const flagged = (doc.people ?? []).map((p) => ({ ...p, flags: (p.flags ?? []).filter((f) => f.kind !== '과거 논란 기사' || f.evidenceVersion === 'executive_article/v1') })).filter((p) => ((p.flags ?? []).length || (p.news ?? []).length || (p.sanctions ?? []).length || (q && boards(p).length)) && matches(q, p.company, p.name, p.career, ...(p.flags ?? []).map((f) => `${f.kind} ${f.text}`)))
     .sort((a, b) => rank(a) - rank(b) || String(a.company).localeCompare(String(b.company)));
   const bad = (doc.checks ?? []).filter((k) => !['ok', 'no_data'].includes(k.status));
   const fresh = new Set((doc.events ?? []).filter((e) => e.detectedAt === doc.generatedAt).map((e) => `${e.company}|${e.person?.name}`));
   // 표시(A·B)와 C·미확인·참고는 따로 센다 — 겸직 대조만 있는 '참고'와 기사만 있는 사람은 표시가 아니다
   const n = [0, 1, 2, 3, 4].map((k) => flagged.filter((p) => rank(p) === k).length);
-  const extra = [[2, 'C(본문 언급)'], [3, '기사 미확인'], [4, '참고']].filter(([k]) => n[k]).map(([k, t]) => ` · ${t} ${n[k]}명`).join('');
+  const extra = [[2, 'C(본문 언급·공식 제재)'], [3, '기사 미확인'], [4, '참고']].filter(([k]) => n[k]).map(([k, t]) => ` · ${t} ${n[k]}명`).join('');
   const out = [`\n[문제 임원 점검 · 확인 ${kstAt(doc.generatedAt)}${ageNote(ctx, doc.generatedAt)}] 점검 ${c.people ?? '?'}명(사외·독립이사 ${c.outside ?? '?'}) · 표시 ${n[0] + n[1]}명${q ? '' : `(A ${n[0]})`}${extra}`,
     ...(bad.length ? [`미확인: ${bad.map((k) => `${k.source}(${k.error ?? k.status})`).join(', ')}`] : []),
     ...(doc.rules ?? []).map((r) => `규칙: ${r}`)];
@@ -1342,6 +1342,12 @@ async function execCheckSection(ctx, q, limit) {
       const b = h.bodyReview ?? {};
       out.push(`   본문 확인: ${BODY_LABEL[b.status] ?? b.status ?? '미검증'}${b.checkedAt ? ` · ${kstAt(b.checkedAt)}` : ''} — 동일 인물·비위 확정 아님`);
       if (b.excerpt) out.push(`   본문 ${b.status === 'context_mentioned' ? '언급' : '발췌'}: ${String(b.excerpt).slice(0, 120)}`);
+    }
+    // 공식 제재 기록(금감원·개인정보위) × 경력 칸 최고 경영 자리 — 공개 기록엔 개인 이름이 없다
+    for (const x of (p.sanctions ?? []).slice(0, 3)) {
+      const c = x.career ?? {};
+      const act = [x.what, x.exec ? `임원 ${x.exec}` : x.inst].filter(Boolean).join(' — ');
+      out.push(`   공식 제재${x.strong ? '' : '(C)'}: ${x.agency} ${x.date} ${x.org}${act ? ` — ${act}` : ''} · 경력 「${c.org ?? ''} ${c.role ?? ''} ${c.start ?? '?'}~${c.end ?? '?'}」 ${x.timing === 'overlap' ? '기간 겹침' : '시점 미확인'}${x.url ? ` · ${x.url}` : ''}`);
     }
     out.push(`   원문: ${p.url}`);
   }

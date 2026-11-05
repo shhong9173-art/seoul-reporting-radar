@@ -1001,7 +1001,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
     if (e.reviewStatus !== 'active') continue; // 과거 오탐·재검색 실패·구버전 미검증 기록은 알림으로 재노출하지 않음
     if (!['A', 'B'].includes(e.tier) || e.baseline || !recent(e.detectedAt)) continue;   // 첫 실행 표시는 kr_signals 목록으로만
     const name = String(e.person?.name ?? '').trim();
-    const word = /논란 기사/.test(e.kind) ? '논란' : '사외이사';
+    const word = /논란 기사/.test(e.kind) ? '논란' : /공식 제재/.test(e.kind) ? '제재' : '사외이사';
     push(e.tier, W['kr-exec-check'], { kind: e.kind, id: e.id, date: e.detectedAt, company: e.company, url: e.url ?? undefined,
       fact: `${e.text} (확인할 단서 — 결격·비위 단정 아님, 회사·당사자 확인)`,
       check: name ? hint(e.company, [name, word], [], [name]) : hint(e.company, [word]) });
