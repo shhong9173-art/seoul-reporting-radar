@@ -1395,7 +1395,7 @@ async function execMarketSection(ctx, q, days, limit, showAll = false) {
       + (roster ? ` · 명단 순환 ${roster.covered ?? '?'}/${roster.universe ?? '?'}곳 본 적 있음(처음 본 회사는 기준선)` : ''),
     ...(doc.rules ?? []).map((r) => `규칙: ${r}`)];
   for (const e of rows.slice(0, limit)) {
-    out.push(`- ${e.detectedAt === doc.generatedAt ? '[신규] ' : ''}${e.tier} · ${kstAt(e.detectedAt)} · ${e.company} · ${e.source ?? ''} ${e.kind}${e.beat ? ` · 출입처 ${e.beat} 출신` : ''}`);
+    out.push(`- ${e.baseline ? '[지난 공고·기준선] ' : e.detectedAt === doc.generatedAt ? '[신규] ' : ''}${e.tier} · ${kstAt(e.detectedAt)} · ${e.company} · ${e.source ?? ''} ${e.kind}${e.beat ? ` · 출입처 ${e.beat} 출신` : ''}`);
     out.push(`   잡힌 사실: ${e.text}`);
     if ((e.flags ?? []).length) out.push(`   표시: ${e.flags.map((f) => `${f.kind} — ${f.text}`).join(' / ')}`);
     out.push(`   원문: ${e.url ?? '링크 없음'}`);

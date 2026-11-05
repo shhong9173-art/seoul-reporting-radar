@@ -222,6 +222,20 @@ class Runs(unittest.TestCase):
         back = next(c for c in doc["checks"] if c["source"].startswith("출입처 소집공고 되짚기"))
         self.assertEqual((back["status"], back["returned"]), ("ok", 1))
 
+    def test_disqualification_column_none_words_real_1105(self):
+        # 11-05 실제(고려아연 2026-08-11 소집공고): 「결격사유 없음」을 '없음 아님'으로 읽어 후보 6명이 A가 됐다
+        for v in ("결격사유 없음", "결격 사유 없음.", "체납사실 없음", "해당사항 없음", "부실기업 경영진 아님", "-", "無"):
+            self.assertTrue(km.none_value(v), v)
+        for v in ("결격사유 있음", "2019년 ○○건설 회생절차 사내이사", "있음", "해당"):
+            self.assertFalse(km.none_value(v), v)
+        old = {"kind": "이사 후보", "tier": "A", "flags": [{"kind": "결격·부실 칸", "text": "법령상 결격 사유 칸 「결격사유 없음」(회사 기재 그대로)"},
+                                                       {"kind": "전관", "text": "경력에 '판사'"}]}
+        self.assertTrue(km.refresh_agm_flags(old))
+        self.assertEqual((old["tier"], [f["kind"] for f in old["flags"]]), ("B", ["전관"]))
+        real = {"kind": "이사 후보", "tier": "A", "flags": [{"kind": "결격·부실 칸", "text": "부실기업 경영진 여부 칸 「○○건설(2019 회생절차) 사내이사 재직」(회사 기재 그대로)"}]}
+        self.assertFalse(km.refresh_agm_flags(real))
+        self.assertEqual(real["tier"], "A")
+
     def test_roster_baseline_then_new_flagged_director(self):
         def roster(rc, people):
             return {"status": "000", "list": [{"rcept_no": rc, "nm": n, "birth_ym": b, "ofcps": o, "rgist_exctv_at": "사내이사", "fte_at": "상근",
