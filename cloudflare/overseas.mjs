@@ -1303,19 +1303,24 @@ async function execCheckSection(ctx, q, limit) {
   if (!doc) return ['\n[문제 임원 점검] 아직 수집 전 — 미확인(매일 05:50)'];
   if (doc.broken) return ['\n[문제 임원 점검] 저장 결과 형식 오류 — 미확인'];
   const c = doc.counts ?? {};
-  const rank = (p) => (p.flags ?? []).some((f) => f.tier === 'A') ? 0 : 1;
-  const flagged = (doc.people ?? []).filter((p) => (p.flags ?? []).length && matches(q, p.company, p.name, p.career, ...(p.flags ?? []).map((f) => `${f.kind} ${f.text}`)))
+  const rank = (p) => (p.flags ?? []).some((f) => f.tier === 'A') ? 0 : (p.flags ?? []).length ? 1 : 2;
+  const flagged = (doc.people ?? []).map((p) => ({ ...p, flags: (p.flags ?? []).filter((f) => f.kind !== '과거 논란 기사' || f.evidenceVersion === 'executive_article/v1') })).filter((p) => ((p.flags ?? []).length || (p.news ?? []).length) && matches(q, p.company, p.name, p.career, ...(p.flags ?? []).map((f) => `${f.kind} ${f.text}`)))
     .sort((a, b) => rank(a) - rank(b) || String(a.company).localeCompare(String(b.company)));
   const bad = (doc.checks ?? []).filter((k) => !['ok', 'no_data'].includes(k.status));
   const fresh = new Set((doc.events ?? []).filter((e) => e.detectedAt === doc.generatedAt).map((e) => `${e.company}|${e.person?.name}`));
-  const out = [`\n[문제 임원 점검 · 확인 ${kstAt(doc.generatedAt)}${ageNote(ctx, doc.generatedAt)}] 점검 ${c.people ?? '?'}명(사외·독립이사 ${c.outside ?? '?'}) · 표시 ${flagged.length}명${q ? '' : `(A ${c.A ?? '?'})`}`,
+  const out = [`\n[문제 임원 점검 · 확인 ${kstAt(doc.generatedAt)}${ageNote(ctx, doc.generatedAt)}] 점검 ${c.people ?? '?'}명(사외·독립이사 ${c.outside ?? '?'}) · 표시 ${flagged.length}명${q ? '' : `(A ${flagged.filter((p) => rank(p) === 0).length})`}`,
     ...(bad.length ? [`미확인: ${bad.map((k) => `${k.source}(${k.error ?? k.status})`).join(', ')}`] : []),
     ...(doc.rules ?? []).map((r) => `규칙: ${r}`)];
   for (const p of flagged.slice(0, limit)) {
-    out.push(`- ${fresh.has(`${p.company}|${p.name}`) ? '[신규] ' : ''}${rank(p) === 0 ? 'A' : 'B'} · ${p.company} · ${p.name}${p.birth ? ` ${p.birth}년생` : ''} ${p.ofcps}(${p.reg}) · ${p.report}`);
+    out.push(`- ${fresh.has(`${p.company}|${p.name}`) ? '[신규] ' : ''}${rank(p) === 0 ? 'A' : rank(p) === 1 ? 'B' : '미확인'} · ${p.company} · ${p.name}${p.birth ? ` ${p.birth}년생` : ''} ${p.ofcps}(${p.reg}) · ${p.report}`);
     if (p.newsStatus && !['ok', 'cached'].includes(p.newsStatus)) out.push('   기사 검색 미완료 — 아래 과거 기사로 현재 논란을 확인한 것은 아님');
     for (const f of p.flags) out.push(`   ${f.kind}: ${f.text}`);
-    for (const h of (p.news ?? []).slice(0, 2)) out.push(`   기사: ${h.url}`);
+    for (const h of (p.news ?? []).slice(0, 2)) {
+      out.push(`   기사: ${h.url}`);
+      const b = h.bodyReview ?? {};
+      out.push(`   본문 확인: ${b.status ?? '미검증'}${b.checkedAt ? ` · ${kstAt(b.checkedAt)}` : ''} — 동일 인물·비위 확정 아님`);
+      if (b.excerpt) out.push(`   본문 발췌: ${String(b.excerpt).slice(0, 120)}`);
+    }
     out.push(`   원문: ${p.url}`);
   }
   if (flagged.length > limit) out.push(`… 남은 ${flagged.length - limit}명(company 낱말로 좁히기)`);

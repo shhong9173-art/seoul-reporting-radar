@@ -105,11 +105,16 @@ class Runs(unittest.TestCase):
             return {"status": "ok", "items": [{"title": "김오래 한빛카드 대표, 고객정보 유출 책임지고 사퇴", "text": "한빛카드 해킹", "date": "2025-12-10", "url": "n1"}]}
         return {"status": "ok", "items": []}
 
+    def article(self, url):
+        return {"status": "ok", "url": url, "method": "fixture", "body":
+                "김오래 한빛카드 대표는 고객정보 유출 사고의 책임을 지고 사퇴했다. "
+                "이 자료는 테스트용 가상 인물과 기업을 사용하며 실제 사건을 뜻하지 않는다. " * 2}
+
     def go(self, previous=None, **kw):
         exec_doc = {"rosters": {"현대자동차": {"people": [["박사장", "1966.02", "사장", "미등기", "", "", "제조"]]},
                                 "기아": {"people": [["김오래", "1955.01", "이사", "사외이사", "", "", ""]]}}}
         return kc.run("k", now=NOW, previous=previous, exec_doc=exec_doc, get=self.get, news=self.news, sleep=lambda s: None,
-                      registry={"companies": {"현대자동차": {"corp_code": "00164742"}}}, table={}, **kw)
+                      registry={"companies": {"현대자동차": {"corp_code": "00164742"}}}, table={}, article_fetch=self.article, **kw)
 
     def test_flags(self):
         doc = self.go()
@@ -120,7 +125,7 @@ class Runs(unittest.TestCase):
         self.assertIn("7년 2개월", kinds["법정 한도: 재직 6년 초과 가능"]["text"])
         self.assertEqual(kinds["겸직 확인: 경력 칸 현직 이사·감사"]["tier"], "B")         # 경력 칸만으로는 B
         self.assertIn("다른 상장사 명단: 기아", kinds["겸직 확인: 경력 칸 현직 이사·감사"]["text"])
-        self.assertEqual(kinds["과거 논란 기사"]["tier"], "A")
+        self.assertEqual(kinds["과거 논란 기사"]["tier"], "B")
         self.assertIn("고객정보 유출 책임지고 사퇴", kinds["과거 논란 기사"]["text"])
         self.assertEqual([f["kind"] for f in p["이최근"]["flags"]], ["독립성: 같은 그룹 최근 근무 가능"])
         self.assertEqual(p["정회장"]["flags"], [])                                        # 사내이사는 법정 한도 점검 대상 아님
@@ -132,13 +137,33 @@ class Runs(unittest.TestCase):
         self.assertEqual(again["counts"]["newsChecked"], 0)                               # 14일 안엔 기사를 다시 찾지 않는다
         self.assertEqual({f["kind"] for x in again["people"] if x["name"] == "김오래" for f in x["flags"]}, set(kinds))
 
+    def test_body_failure_preserves_history_without_live_flag(self):
+        first = self.go()
+        from unittest.mock import patch
+        self.article = lambda url: {"status": "fetch_failed"}
+        with patch.object(kc, "REFRESH", True):
+            doc = self.go(previous=first)
+        p = next(p for p in doc["people"] if p["name"] == "김오래")
+        self.assertEqual(p["newsStatus"], "ok")
+        self.assertEqual(p["bodyStatus"], "unconfirmed")
+        self.assertFalse(any(f["kind"] == "과거 논란 기사" for f in p["flags"]))
+        self.assertEqual(next(e["reviewStatus"] for e in doc["events"] if e["kind"] == "과거 논란 기사"), "unconfirmed")
+        self.assertEqual(doc["counts"]["articleReview"], {"fetch_failed": 1})
+
+    def test_body_budget_is_retried_without_researching_news(self):
+        first = self.go(article_budget=0)
+        self.assertEqual(first["counts"]["articleReview"], {"budget_exhausted": 1})
+        doc = self.go(previous=first)
+        self.assertEqual(doc["counts"]["newsChecked"], 0)
+        self.assertEqual(doc["counts"]["articleReview"], {"context_linked": 1})
+
     def test_listed_rosters_confirm_two_other_boards(self):
         import hashlib
         h = hashlib.sha256("김오래|195501".encode()).hexdigest()[:8]
         market = {"companies": {"00999001": {"n": "디비보험", "p": "202611012", "dk": [h]}, "00999002": {"n": "에스부품", "p": "202611012", "dk": [h]}}}
         exec_doc = {"rosters": {}}
         doc = kc.run("k", now=NOW, exec_doc=exec_doc, market_doc=market, get=self.get, news=self.news, sleep=lambda s: None,
-                     registry={"companies": {"현대자동차": {"corp_code": "00164742"}}}, table={})
+                     registry={"companies": {"현대자동차": {"corp_code": "00164742"}}}, table={}, article_fetch=self.article)
         f = next(f for x in doc["people"] if x["name"] == "김오래" for f in x["flags"] if f["kind"].startswith("법정 한도: 다른 회사"))
         self.assertEqual(f["tier"], "A")
         self.assertIn("디비보험·에스부품", f["text"])

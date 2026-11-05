@@ -997,6 +997,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
 
   // 문제 임원 점검(kr-exec-check): A·B. 법정 한도는 '사외이사', 과거 논란은 '논란' 낱말과 그 사람 이름으로 보도 대조
   for (const e of docs['kr-exec-check']?.events ?? []) {
+    if (e.kind === '과거 논란 기사' && !(e.flags ?? []).some((f) => f.evidenceVersion === 'executive_article/v1')) continue;
     if (e.reviewStatus !== 'active') continue; // 과거 오탐·재검색 실패·구버전 미검증 기록은 알림으로 재노출하지 않음
     if (!['A', 'B'].includes(e.tier) || e.baseline || !recent(e.detectedAt)) continue;   // 첫 실행 표시는 kr_signals 목록으로만
     const name = String(e.person?.name ?? '').trim();
