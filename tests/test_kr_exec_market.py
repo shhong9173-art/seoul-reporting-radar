@@ -170,13 +170,13 @@ class Runs(unittest.TestCase):
         doc = run(g, skip_roster=True)
         ev = {(e["source"], e["company"], e["person"].get("name")): e for e in doc["events"]}
         hire = ev[("독립이사 신고", "부품사", "김전무")]
-        self.assertEqual(hire["tier"], "B")                   # 출입처 고위 임원 출신이 다른 회사 독립이사로
+        self.assertEqual(hire["tier"], "A")                   # 출입처 고위 임원(전무) 출신이 다른 회사 독립이사로(11-05 기자: 출입처 출신이 목적)
         self.assertEqual(hire["beat"], "현대차")
         self.assertNotIn(("독립이사 신고", "부품사", "박교수"), ev)   # 다른 회사는 표시 있는 사람만
         quit_ = ev[("독립이사 신고", "현대차", "이사퇴")]
         self.assertEqual(quit_["tier"], "A")                  # 출입처 독립이사 중도퇴임
         ceo = ev[("대표이사 변경", "강판가공", "최현수")]
-        self.assertEqual(ceo["tier"], "B")
+        self.assertEqual(ceo["tier"], "A")                    # 포스코 부사장 출신이 다른 회사 대표로
         self.assertIn("변경 전 「이동열, 최현수」 → 변경 후 「최현수」", ceo["text"])
         bad = ev[("주총 소집공고", "현대차", "이승조")]
         self.assertEqual(bad["tier"], "A")
@@ -209,6 +209,10 @@ class Runs(unittest.TestCase):
         ev = [e for e in second["events"] if e["source"] == "임원 현황"]
         self.assertEqual([(e["company"], e["person"]["name"], e["tier"]) for e in ev], [("부품사", "신임", "A")])   # 주의 회사 + 같은 업종 고위 출신
         self.assertIn("앞 조사(2026년 반기(6-30 기준))에는 없음", ev[0]["text"])
+        alumni = second["alumni"]["00999001"]
+        self.assertEqual([(a["name"], a["beats"], a["senior"]) for a in alumni], [("기존", ["현대위아"], False), ("신임", ["기아"], True)])
+        self.assertIn("00999001", first["alumni"])                                          # 기준선 실행에도 현황은 남는다
+        self.assertNotIn("00999004", second["alumni"])                                      # 같은 그룹(현대글로비스)은 현황에도 없음
 
     def test_list_failure_is_unconfirmed(self):
         class Down(Fake):

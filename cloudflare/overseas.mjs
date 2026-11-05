@@ -1325,6 +1325,21 @@ async function execMarketSection(ctx, q, days, limit, showAll = false) {
   }
   if (rows.length > limit) out.push(`… 남은 ${rows.length - limit}건(company 낱말로 좁히기)`);
   if (!rows.length) out.push('조건에 맞는 공시·명단 변화 없음(조회 실패·한도로 못 본 것은 0건이 아니라 미확인).');
+  // 출입처 출신 타사 등기임원 현황(11-05 기자: "내 출입처 회사들") — 명단 순환에서 본 그대로(기준선 포함)
+  const alumni = Object.values(doc.alumni ?? {}).flat();
+  if (alumni.length) {
+    const byBeat = new Map();
+    for (const a of alumni) for (const b of a.beats ?? []) byBeat.set(b, (byBeat.get(b) ?? 0) + 1);
+    const tops = [...byBeat.entries()].sort((a, b) => b[1] - a[1]);
+    out.push(`\n[출입처 출신 타사 등기임원 현황 · 명단 순환 ${roster?.covered ?? '?'}/${roster?.universe ?? '?'}곳 기준] ${alumni.length}명 — ${tops.slice(0, 12).map(([b, n]) => `${b} ${n}`).join(' · ')}`);
+    const hits = q ? alumni.filter((a) => matches(q, a.company, a.name, a.text, ...(a.beats ?? []))) : [];
+    if (!q) out.push('(company 낱말 — 출입처·회사·사람 이름 — 으로 명단을 본다. 고위 = 대표·사장·부사장·전무·C레벨·사내이사 경력)');
+    for (const a of hits.sort((x, y) => Number(y.senior) - Number(x.senior)).slice(0, limit)) {
+      out.push(`- ${a.company} · ${a.name}${a.birth ? ` ${a.birth}년생` : ''} ${a.ofcps}(${a.reg}) · ${(a.beats ?? []).join('·')} 출신${a.senior ? '(고위)' : ''} · 경력 「${a.text}」`);
+    }
+    if (q && hits.length > limit) out.push(`… 남은 ${hits.length - limit}명`);
+    if (q && !hits.length) out.push('이 낱말에 맞는 사람 없음(명단 순환이 아직 못 본 회사는 미확인).');
+  }
   out.push('   검증 상태: 공개 공시(자동). 경력 칸 낱말 일치 — 같은 이름의 다른 회사·직책일 수 있다. 부실기업·체납·결격 칸은 회사 기재 그대로, 선임 경위·사유는 회사 확인');
   return out;
 }

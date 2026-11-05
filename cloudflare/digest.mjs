@@ -59,10 +59,10 @@ export const WATCHES = [
   { feed: 'dart-counterparty', label: '타사 공시 속 출입처(거래상대)', tool: 'kr_signals', schedule: '평일 10:50·13:50·16:50·19:50', staleHours: 80 },
   // 지분·자사주 변동(governance_watch.py, OpenDART 지분공시·자기주식 처분 결정): 임원 집단 보고·보유분 절반 넘는 임직원 보상 자사주 처분·매각 목적 처분 B
   { feed: 'governance', label: '지분·자사주 변동', tool: 'governance_changes', schedule: '평일 07:40' },
-  // 임원 명단 변화(kr_exec_watch.py, 11-05 기자 요청 — 선배 매의눈이 보고서 속 롯데카드 전 대표 이사 등재를 잡은 것처럼):
+  // 임원 명단 변화(kr_exec_watch.py, 11-05 기자 요청 — 선배 매의눈이 보고서 속 한 회사 전 대표 이사 등재를 잡은 것처럼, 출입처 회사에):
   // 분기·반기·사업보고서 '임원 현황'을 바로 앞 보고서와 비교 — 오너 일가·주의 회사 출신·임기 중 빠짐·수시 인사 철 경쟁사 출신 영입 A
   { feed: 'kr-exec', label: '임원 명단 변화(정기보고서)', tool: 'kr_signals', schedule: '평일 07:50·21:50', staleHours: 60 },
-  // 수시 임원 공시·타사 임원 명단(kr_exec_market.py, 11-05): 독립이사 선임·중도퇴임 신고·대표이사 변경(시장 전체, 출입처 출신·주의 회사 출신만)과
+  // 수시 임원 공시·타사 임원 명단(kr_exec_market.py, 11-05): 독립이사 선임·중도퇴임 신고·대표이사 변경(시장 전체, 출입처 회사 출신만 — 고위 출신 A)과
   // 출입처 소집공고 이사 후보(부실기업 경영진 여부 등), 상장사 등기임원 명단 순환 조회
   { feed: 'kr-exec-market', label: '수시 임원 공시·타사 임원 명단', tool: 'kr_signals', schedule: '매일 06:20·12:20·18:20', staleHours: 30 },
   // 해외 매체 기사 중 직접 출입처 이름이 나온 것(global_collector.py, 뉴스 수집 20분마다) — AI 번역·요약이라 원문 확인

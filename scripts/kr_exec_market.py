@@ -1,6 +1,7 @@
 """타사 임원 명단 속 출입처 출신·주의 회사 출신 + 출입처 수시 임원 공시 (OpenDART, 11-05 기자 요청).
 
-선배 매의눈이 다른 회사 보고서에서 롯데카드 전 대표의 이사 등재를 잡은 것처럼, 출입처 보고서 밖으로 넓힌다.
+선배 매의눈이 다른 회사 보고서에서 한 회사 전 대표의 이사 등재를 잡은 것처럼, 출입처 회사 출신(전 대표·고위 임원)이 다른 회사
+이사·대표로 오르는 것을 잡는다(11-05 기자: "내 출입처 회사들"). 출입처 보고서 밖, 상장사 전체로 넓힌다.
 
 1) 수시 공시(실행마다, 최근 3일 시장 전체 목록)
    - 독립이사의 선임ㆍ해임 또는 중도퇴임에 관한 신고(기타공시 E — 2026 상법 개정 전 이름 '사외이사의 …'): 신임·퇴임 이사의
@@ -429,9 +430,11 @@ def filings_part(key, now, beat_codes, watch, state, *, get, sleep, doc_budget, 
                     kinds = {f["kind"] for f in flags}
                     if not beat and not flags:
                         continue
-                    if "주의 회사 출신" in kinds or (beat and side == "left" and re.search(r"중도|사임|해임|사퇴", p.get("reason", "") + p.get("kind", "") + verb)):
+                    # 11-05 기자: 출입처 회사 출신(전 대표·고위 임원)이 다른 회사 이사로 오르는 것이 목적 — 고위 출신 A, 그 밖 임원 출신 B
+                    if "주의 회사 출신" in kinds or any(o["senior"] for o in origins) \
+                            or (beat and side == "left" and re.search(r"중도|사임|해임|사퇴", p.get("reason", "") + p.get("kind", "") + verb)):
                         tier = "A"
-                    elif beat or any(o["senior"] for o in origins) or (ic and "같은 업종" in " ".join(f["text"] for f in flags)):
+                    elif beat or origins:
                         tier = "B"
                     else:
                         tier = "C"
@@ -459,7 +462,7 @@ def filings_part(key, now, beat_codes, watch, state, *, get, sleep, doc_budget, 
                     if not flags:
                         continue
                 kinds = {f["kind"] for f in flags}
-                tier = "A" if "주의 회사 출신" in kinds else "B" if beat or any(o["senior"] for o in origins) else "C"
+                tier = "A" if "주의 회사 출신" in kinds or any(o["senior"] for o in origins) else "B" if beat or origins else "C"
                 events.append(_ev("대표이사 변경", tier, short,
                                   f"{short} 대표이사 변경 공시({filed}) — 변경 전 「{c['before'] or '?'}」 → 변경 후 「{c['after'] or '?'}」"
                                   f"{' · 사유 「' + c['reason'][:120] + '」' if c['reason'] else ''}{' · 변경일 ' + c['date'] if c['date'] else ''}"
@@ -549,7 +552,7 @@ def roster_part(key, now, universe, watch, state, *, get, sleep, budget, ind_bud
                 same = any("같은 업종" in f["text"] for f in hits)
                 top = bool(re.search(r"대표", p["ofcps"] + p["job"]))
                 senior = any(o["senior"] for o in origins)
-                tier = "A" if "주의 회사 출신" in kinds or (same and senior) else "B" if same or (top and origins) else "C"
+                tier = "A" if "주의 회사 출신" in kinds or senior else "B" if origins else "C"
                 beats = sorted({o["beat"] for o in origins})
                 events.append(_ev("타사 등기임원", tier, name,
                                   f"{name} {kx.period_label(y, r)} 등기임원 명단에 새로 보임 — {p['name']}"
@@ -560,6 +563,16 @@ def roster_part(key, now, universe, watch, state, *, get, sleep, budget, ind_bud
                                   person={k2: p.get(k2) for k2 in ("name", "birth", "ofcps", "reg", "career")}, flags=hits,
                                   source="임원 현황", key=f"{code}|{period}|{k}", beat=beats[0] if beats else None))
         comps[code] = {"r": rcept, "p": period, "k": sorted(flagged), "t": today}
+        # 출입처 출신 타사 등기임원 현황(기준선 포함 — 지금 어디 이사로 가 있나)
+        alumni = state.setdefault("alumni", {})
+        rows_ = [{"company": name, "name": p["name"], "birth": kx.birth_key(p["birth"])[:4], "ofcps": kx.norm_ofcps(p["ofcps"]), "reg": p["reg"],
+                  "beats": sorted({o["beat"] for o in origins}), "senior": any(o["senior"] for o in origins),
+                  "text": " / ".join(o["text"] for o in origins[:2])[:160], "period": period, "rcept": rcept}
+                 for p, hits, origins in flagged.values() if origins]
+        if rows_:
+            alumni[code] = rows_
+        else:
+            alumni.pop(code, None)
     state["cursor"] = i
     covered = sum(1 for c in comps.values() if c.get("p"))
     check = {"source": "상장사 등기임원 명단 순환", "status": "ok" if not failed else "partial", "returned": done,
@@ -581,7 +594,7 @@ def run(key, *, now=None, previous=None, get=None, sleep=time.sleep, registry=No
     watch = kx.load_watch() if watch is None else watch
     prev = previous if isinstance(previous, dict) and previous.get("schema") == SCHEMA else {}
     state = {"seen": dict(prev.get("seen") or {}), "industry": dict(prev.get("industry") or {}),
-             "companies": dict(prev.get("companies") or {}), "cursor": prev.get("cursor") or 0}
+             "companies": dict(prev.get("companies") or {}), "cursor": prev.get("cursor") or 0, "alumni": dict(prev.get("alumni") or {})}
     names = [n for n, _, _ in kx.BEATS]
     codes, missing = gw.resolve_codes(names, registry, table)
     codes.pop("_spellings", None)
@@ -619,14 +632,15 @@ def run(key, *, now=None, previous=None, get=None, sleep=time.sleep, registry=No
     status = "complete" if ok == len(checks) else "failed" if not any(c["status"] in ("ok", "partial") for c in checks) else "partial"
     return {
         "schema": SCHEMA, "generatedAt": stamp, "status": status, "checks": checks, "events": events,
-        "seen": state["seen"], "industry": state["industry"], "companies": state["companies"], "cursor": state["cursor"],
+        "seen": state["seen"], "industry": state["industry"], "companies": state["companies"], "cursor": state["cursor"], "alumni": state["alumni"],
         "counts": {**fcount, "newEvents": len(new), **{t: sum(1 for e in new if e["tier"] == t) for t in ("A", "B", "C")},
                    "rosterCovered": sum(1 for c in state["companies"].values() if c.get("p")), "rosterUniverse": None},
         "unresolvedCompanies": missing, "watchCompanies": [w["name"] for w in watch],
         "rules": [
             "독립이사 선임·해임·중도퇴임 신고·대표이사 변경 공시는 시장 전체 최근 3일 목록에서, 주총 소집공고는 출입처만 읽는다. 출입처의 독립이사 중도퇴임·해임은 A.",
             "다른 회사는 경력 칸에 출입처 이름과 임원 직함(30자 안)이 같이 있거나 주의 회사가 나온 사람만 남긴다. 같은 그룹 계열사 사이 이동은 뺀다(회사 이름 규칙 — 틀릴 수 있음).",
-            "주의 회사 출신·이사 후보의 부실기업 경영진 여부·체납·결격 칸이 '없음'이 아니면 A. 같은 업종(표준산업분류) 회사로 간 출입처 고위 임원 출신 A, 같은 업종이거나 대표로 간 출입처 출신 B.",
+            "출입처 회사 고위 임원(대표·사장·부사장·전무·C레벨·사내이사) 출신이 다른 회사 등기임원·대표·독립이사로 새로 오르면 A, 그 밖 임원 출신 B(11-05 기자). 이사 후보의 부실기업 경영진 여부·체납·결격 칸이 '없음'이 아니면 A.",
+            "출입처 출신 타사 등기임원 현황은 명단 순환에서 본 그대로다(기준선 포함) — kr_signals section=exec에 company 낱말(출입처·회사·사람)로 본다.",
             "상장사 등기임원 명단은 실행마다 일부씩 돌아가며 본다. 회사마다 처음 본 명단은 앞 기간 보고서로 깐 기준선이라 항목을 만들지 않는다.",
             "경력 칸 낱말 일치일 뿐 — 같은 이름의 다른 회사·직책일 수 있다. 결격·부실 칸은 회사 기재 그대로, 내용은 원문 확인. 선임·영입 경위는 회사 확인.",
             "조회 실패·한도로 못 본 공시·회사는 0건이 아니라 미확인.",
