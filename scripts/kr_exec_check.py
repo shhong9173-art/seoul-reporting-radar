@@ -396,7 +396,8 @@ def link_sanctions(people, state, *, web_get, budget, key=None, get=None, sleep=
                         details[r["id"]] = det
                 if det and det.get("status") == "ok":
                     item.update(inst=det.get("inst"), exec=det.get("exec"), fact=det.get("fact"),
-                                **({"violation": det["violation"]} if det.get("violation") else {}))
+                                **({"violation": det["violation"]} if det.get("violation") else {}),
+                                **({"ceoText": det["ceoText"][:160]} if det.get("ceoText") else {}))
                 elif det:
                     item["detail"] = det.get("status")
                 # 위반 기간이 재임 기간 밖(예: 전임 때 일을 재임 중에 제재)이면 무거운 처분이어도 B가 아니다
@@ -421,7 +422,7 @@ def link_sanctions(people, state, *, web_get, budget, key=None, get=None, sleep=
                 g["first"], g["last"] = min(g["first"], x["date"]), max(g["last"], x["date"])
         for g in groups.values():
             g["date"] = g["last"]
-            g.pop("inst", None), g.pop("exec", None), g.pop("what", None), g.pop("fact", None)
+            g.pop("inst", None), g.pop("exec", None), g.pop("what", None), g.pop("fact", None), g.pop("ceoText", None)
             g["url"] = osn.FSS_LIST if g["agency"] == "금감원" else g.get("url")
         known.sort(key=lambda x: x["date"], reverse=True)
         known.sort(key=lambda x: not x["strong"])

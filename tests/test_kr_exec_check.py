@@ -400,13 +400,15 @@ class Runs(unittest.TestCase):
             if "view.do" in url:
                 return W('<a href="/fss.hpdownload?path=/dtm/opn/&amp;file=x.pdf">x.pdf</a>')
             return W("", content=b"%PDF-1.4")
-        pdf = "3.제재조치내용제재대상제재내용기관기관경고임원퇴직자위법부당사항(문책경고상당)1명직원감봉1명4.제재대상사실 ◦한빛카드는2016.1.4.∼2018.9.27.기간중"
+        pdf = "3.제재조치내용제재대상제재내용기관기관경고임원퇴직자위법부당사항(문책경고상당)1명직원감봉1명4.제재대상사실 ◦한빛카드는2016.1.4.∼2018.9.27.기간중 前대표이사甲이 지시"
         with patch.object(osn, "pdf_text", lambda raw, n=4: pdf):
             doc = self.go(previous=prev, web_get=web)
         p = next(x for x in doc["people"] if x["name"] == "김오래")
         self.assertFalse(any(f["kind"].startswith("공식 제재") for f in p["flags"]))       # 전임 때 일(2016~2018)을 재임 중(2021) 제재
         x = p["sanctions"][0]
         self.assertEqual((x["violation"], x.get("violationOutside"), x["strong"]), ("2016-01~2018-09", True, False))
+        self.assertIn("前대표이사甲이 지시", x["ceoText"])                                  # 공개안 최고 경영자 언급 원문
+        self.assertEqual(doc["sanctions"]["fss"]["details"]["fss:202100001-1"]["v"], osn.DETAIL_VERSION)
 
     def test_sanction_before_tenure_month_is_not_b(self):
         from unittest.mock import patch

@@ -2905,7 +2905,7 @@ test('문제 임원 점검(kr-exec-check): radar_today A·B(단서 표시), kr_s
   sanc.people[0].sanctions = [{ agency: '개인정보위', org: '한빛카드', date: '2022-03-18', what: '안전조치의무', inst: '과징금 7,088만원', timing: 'overlap', strong: true, url: 'https://www.pipc.go.kr/x',
     career: { org: '한빛카드', role: '대표이사', start: 2019, end: 2021 } },
   { agency: '금감원', org: '오성증권㈜', date: '2015-01-01', timing: 'timing_unknown', strong: false, count: 3, first: '2013-02-01', last: '2015-01-01', url: 'https://www.fss.or.kr/y', career: { org: '오성증권', role: '사장', start: null, end: null, rosterAbsent: [2014, 2015] } },
-  { agency: '금감원', org: '한빛은행', date: '2021-03-01', timing: 'overlap', strong: false, inst: '기관주의', violation: '2016-01~2018-09', violationOutside: true, url: 'https://www.fss.or.kr/z', career: { org: '한빛은행', role: '은행장', start: 2020, end: 2021, source: '명단' } }];
+  { agency: '금감원', org: '한빛은행', date: '2021-03-01', timing: 'overlap', strong: false, inst: '기관주의', violation: '2016-01~2018-09', violationOutside: true, ceoText: '…한빛은행은 前 은행장 甲 재임 중 내부통제기준을…', url: 'https://www.fss.or.kr/z', career: { org: '한빛은행', role: '은행장', start: 2020, end: 2021, source: '명단' } }];
   sanc.events.push({ id: 'execc:cccc', reviewStatus: 'active', tier: 'B', kind: sflag.kind, company: '현대차', detectedAt: now, url: 'https://dart.fss.or.kr/x1', person: { name: '김오래' }, flags: [sflag],
     text: `현대차 이사(사외이사) 김오래 1955년생 — ${sflag.kind}: ${sflag.text}` });
   await worker.fetch(new Request(ORIGIN + '/ingest/kr-exec-check', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(sanc) }), env, {});
@@ -2915,6 +2915,7 @@ test('문제 임원 점검(kr-exec-check): radar_today A·B(단서 표시), kr_s
   assert.match(sScreen, /   공식 제재: 개인정보위 2022-03-18 한빛카드 — 안전조치의무 — 과징금 7,088만원 · 경력 「한빛카드 대표이사 2019~2021」 기간 겹침 · https:\/\/www\.pipc\.go\.kr\/x/);
   assert.match(sScreen, /   공식 제재\(C\): 금감원 오성증권㈜ 제재 3건\(2013-02-01~2015-01-01\) · 경력 「오성증권 사장 \?~\?」 재임 기간 미확인 · 그 회사 연말 등기임원 명단\(2014·2015\)에 없음/);
   assert.match(sScreen, /   공식 제재\(C\): 금감원 2021-03-01 한빛은행 — 기관주의 · 위반 기간 2016-01~2018-09\(재임 기간 밖\) · 사업보고서 임원 명단 「한빛은행 은행장 2020~2021」 기간 겹침/);
+  assert.match(sScreen, /기간 겹침 · https:\/\/www\.fss\.or\.kr\/z\n     제재대상사실 최고 경영자 언급\(공개안엔 이름 없음 — 그 사람이라는 근거 아님\): 「…한빛은행은 前 은행장 甲 재임 중 내부통제기준을…」/);
   // 공정위 원문 요약(과징금·사건명·의결서 대표이사 칸)과 주총 이사 후보 점검
   const ftcDoc = structuredClone(sanc);
   ftcDoc.people[0].sanctions = [{ agency: '공정위', org: '한빛리테일', date: '2023-01-19', inst: '과징금', amount: '15억8200만원', title: '(주) 한빛리테일의 대규모유통업법 위반행위에 대한 건',
