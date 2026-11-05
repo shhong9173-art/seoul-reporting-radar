@@ -39,6 +39,9 @@ import kr_exec_watch as kx  # noqa: E402
 SCHEMA = "kr_exec_market/v1"
 KST = ec.KST
 LOOKBACK_DAYS = int(os.environ.get("KR_EXEC_LOOKBACK") or 3)
+# 출입처 소집공고 되짚기(11-05 기자 승인 — 이사 후보 점검을 실제 공시로 확인): 0이면 끔. 켜면 출입처마다 이 기간 기타공시 목록에서 소집공고를 읽는다.
+# 지난 공고에서 나온 후보 항목은 기준선(오늘의 레이더엔 안 올림) — 이미 주총이 끝났을 수 있다.
+AGM_DAYS = int(os.environ.get("KR_EXEC_AGM_DAYS") or 0)
 PROGRESS = bool(os.environ.get("KR_EXEC_PROGRESS"))  # 공시별 읽은 사람 수(이름 없음)를 stderr로
 LIST_PAGES = 30          # 목록 한 종류당 쪽(100건) 한도 — 넘으면 미확인 표시
 DOC_BUDGET = 40          # 수시 공시 원문 한도(작은 문서 — 대표이사 변경 5KB, 독립이사 신고 10KB, 소집공고 수 MB)
@@ -393,6 +396,24 @@ def filings_part(key, now, beat_codes, watch, state, *, get, sleep, doc_budget, 
         except (ec.TransientError, RuntimeError) as e:
             checks.append({"source": f"공시 목록 {label}", "status": "failed", "error": str(e)[:80]})
     beat_by_code = {c: n for n, c in beat_codes.items()}
+    if AGM_DAYS > LOOKBACK_DAYS:
+        have, back, failed_back = {x.get("rcept_no") for x in rows}, 0, 0
+        bstart = (now - dt.timedelta(days=AGM_DAYS)).strftime("%Y%m%d")
+        for n_, code_ in beat_codes.items():
+            try:
+                st_, body_ = dart(key, "list.json", {"corp_code": code_, "bgn_de": bstart, "end_de": end, "pblntf_ty": "E", "page_count": 100},
+                                  get=get, sleep=sleep)
+            except (ec.TransientError, RuntimeError):
+                failed_back += 1
+                continue
+            for x in (body_ or {}).get("list") or [] if st_ == "ok" else []:
+                if AGM_FILING.search(x.get("report_nm") or "") and x.get("rcept_no") not in have:
+                    x["_backfill"] = (x.get("rcept_dt") or "") < start
+                    rows.append(x)
+                    have.add(x.get("rcept_no"))
+                    back += 1
+        checks.append({"source": f"출입처 소집공고 되짚기({AGM_DAYS}일)", "status": "partial" if failed_back else "ok", "returned": back,
+                       **({"error": f"목록 실패 {failed_back}곳"} if failed_back else {})})
     picked = []
     for x in rows:
         rc, nm, code = x.get("rcept_no"), x.get("report_nm") or "", x.get("corp_code")
@@ -495,7 +516,8 @@ def filings_part(key, now, beat_codes, watch, state, *, get, sleep, doc_budget, 
                                   f"{' · 경력 「' + p.get('career', '')[:160] + '」' if p.get('career') else ''}",
                                   url, person={"name": p.get("name"), "birth": p.get("birth"), "career": p.get("career", "")[:600], "rel": p.get("rel"),
                                                "kind": (p.get("kind") or "")[:20], "job": (p.get("job") or "")[:80]},   # 문제 임원 점검이 후보 경력으로 다시 본다
-                                  flags=flags, source="주총 소집공고", key=f"{rc}|{kx.name_key(p.get('name'))}"))
+                                  flags=flags, source="주총 소집공고", key=f"{rc}|{kx.name_key(p.get('name'))}",
+                                  extra={"filed": filed, **({"baseline": True} if x.get("_backfill") else {})}))
     checks.append({"source": "수시 임원 공시 원문", "status": "ok" if not failed else "partial", "returned": opened,
                    **({"error": f"원문 못 읽음 {failed}건"} if failed else {}), **({"pending": waiting} if waiting else {})})
     cut = (now - dt.timedelta(days=SEEN_DAYS)).date().isoformat()

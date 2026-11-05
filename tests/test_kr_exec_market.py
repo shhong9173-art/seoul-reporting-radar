@@ -193,6 +193,35 @@ class Runs(unittest.TestCase):
         self.assertEqual(again["counts"]["newEvents"], 0)
         self.assertEqual(again["counts"]["opened"], 0)        # 본 접수번호는 다시 열지 않는다
 
+    def test_agm_backfill_reads_older_beat_notices_as_baseline(self):
+        class Dated(Fake):   # 목록이 기간·회사로 거른다(실제 OpenDART처럼)
+            def __call__(self, url, params=None, **kw):
+                if url.endswith("list.json"):
+                    self.calls.append(("list.json", params.get("corp_code") or params.get("pblntf_ty"), None))
+                    rows = [f for f in self.filings if f["ty"] == params["pblntf_ty"] and params["bgn_de"] <= f["rcept_dt"] <= params["end_de"]
+                            and (not params.get("corp_code") or f["corp_code"] == params["corp_code"])]
+                    return R({"status": "000" if rows else "013", "total_page": 1, "list": rows})
+                return super().__call__(url, params, **kw)
+        files = [filing("E", "20260910000111", "임시주주총회소집공고", "현대자동차", "00164742"),
+                 filing("E", "20260601000222", "주주총회소집공고", "현대자동차", "00164742"),     # 120일 밖
+                 filing("E", "20260911000333", "임시주주총회소집공고", "남의회사", "00999003")]
+        g = Dated(files, {"20260910000111": AGM})
+        old = km.AGM_DAYS
+        try:
+            km.AGM_DAYS = 0
+            off = run(g, skip_roster=True)
+            self.assertEqual([e for e in off["events"] if e["source"] == "주총 소집공고"], [])   # 끄면 3일 목록만
+            km.AGM_DAYS = 120
+            doc = run(Dated(files, {"20260910000111": AGM}), skip_roster=True)
+        finally:
+            km.AGM_DAYS = old
+        agm = [e for e in doc["events"] if e["source"] == "주총 소집공고"]
+        self.assertTrue(agm)
+        self.assertTrue(all(e.get("baseline") and e.get("filed") == "2026-09-10" for e in agm))   # 지난 공고 후보는 기준선(오늘의 레이더 X)
+        self.assertEqual({e["url"][-14:] for e in agm}, {"20260910000111"})                       # 120일 밖·출입처 아닌 회사 공고는 안 읽음
+        back = next(c for c in doc["checks"] if c["source"].startswith("출입처 소집공고 되짚기"))
+        self.assertEqual((back["status"], back["returned"]), ("ok", 1))
+
     def test_roster_baseline_then_new_flagged_director(self):
         def roster(rc, people):
             return {"status": "000", "list": [{"rcept_no": rc, "nm": n, "birth_ym": b, "ofcps": o, "rgist_exctv_at": "사내이사", "fte_at": "상근",

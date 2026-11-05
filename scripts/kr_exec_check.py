@@ -460,7 +460,8 @@ def candidate_people(market_doc, now, people, beat_keys, midx):
     out, seen = [], set()
     for e in (market_doc or {}).get("events") or []:
         p = e.get("person") or {}
-        if e.get("kind") != "이사 후보" or not p.get("name") or str(e.get("detectedAt", ""))[:10] < cut:
+        filed = str(e.get("filed") or e.get("detectedAt") or "")[:10]   # 되짚기로 읽은 지난 공고는 접수일 기준
+        if e.get("kind") != "이사 후보" or not p.get("name") or filed < cut:
             continue
         short = e.get("company") or ""
         name = short_to_name.get(short, short)
@@ -474,7 +475,8 @@ def candidate_people(market_doc, now, people, beat_keys, midx):
         kind = str(p.get("kind") or "")
         career = str(p.get("career") or "") + " " + str(p.get("job") or "")
         rec = {"id": cid, "company": short, "dartName": name, "name": p["name"], "birth": bk[:4], "ofcps": "이사 후보", "reg": kind[:20] or "후보",
-               "career": career[:300], "report": f"주총 소집공고 {str(e.get('detectedAt', ''))[:10]}", "url": e.get("url"), "flags": [], "candidate": True,
+               "career": career[:300], "report": f"주총 소집공고 {filed}{' (지난 공고 — 주총이 이미 끝났을 수 있음)' if e.get('baseline') else ''}",
+               "url": e.get("url"), "flags": [], "candidate": True, **({"past": True} if e.get("baseline") else {}),
                "_birth": p.get("birth"),
                "_roles": [x for x in osn.top_roles(career, segs, now=now)
                           if not any(kx.mentions(x["org"], a) or osn.org_keys(a) & osn.org_keys(x["org"]) for a in own + [short, name])]}
@@ -898,9 +900,9 @@ def run(key, *, now=None, previous=None, exec_doc=None, market_doc=None, get=Non
                     e_.pop("baseline", None)
                     fresh += 1
                 continue
-            fresh += 1
+            fresh += 0 if p.get("past") else 1
             events[eid] = {"id": eid, "personId": p["id"], "tier": f["tier"], "kind": f["kind"], "company": p["company"], "detectedAt": stamp, "url": p["url"],
-                           **({"baseline": True} if first else {}),
+                           **({"baseline": True} if first or p.get("past") else {}),   # 지난 소집공고 후보는 기준선(목록에만)
                            "person": {"name": p["name"], "birth": p["birth"], "ofcps": p["ofcps"], "reg": p["reg"]}, "flags": [f],
                            "text": f"{p['company']} {p['ofcps']}({p['reg']}) {p['name']}{' ' + p['birth'] + '년생' if p['birth'] else ''} — {f['kind']}: {f['text']}"}
     reconcile_events(events, people + cands, checks, stamp)
