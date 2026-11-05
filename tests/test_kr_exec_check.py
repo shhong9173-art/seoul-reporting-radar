@@ -90,12 +90,13 @@ class Runs(unittest.TestCase):
         self.data = {("00164742", 2026, "11014"): None,
                      ("00164742", 2026, "11012"): api("20260814003521", [
                          ("정회장", "1970년 10월", "회장", "사내이사", "기아자동차 사장", "2025.3.20~"),
-                         ("김오래", "1955년 01월", "이사", "독립이사", "前 한빛카드 대표이사 / 現) ○○전자㈜ 사외이사 / 現) △△화학 감사", "7년 2개월"),
+                         ("김오래", "1955년 01월", "이사", "독립이사", "前 한빛카드 대표이사 / 現) 오성전자㈜ 사외이사 / 現) 한결화학 감사", "7년 2개월"),
                          ("이최근", "1962년 03월", "이사", "독립이사", "2021~2024 현대모비스 전무", "1년")])}
-        self.calls = []
+        self.calls, self.codes = [], []
 
     def get(self, url, params=None, **kw):
         self.calls.append(url.rsplit("/", 1)[-1])
+        self.codes.append(params["corp_code"])
         body = self.data.get((params["corp_code"], int(params["bsns_year"]), params["reprt_code"]))
         return R(body or {"status": "013"})
 
@@ -110,11 +111,12 @@ class Runs(unittest.TestCase):
                 "김오래 한빛카드 대표는 고객정보 유출 사고의 책임을 지고 사퇴했다. "
                 "이 자료는 테스트용 가상 인물과 기업을 사용하며 실제 사건을 뜻하지 않는다. " * 2}
 
-    def go(self, previous=None, **kw):
-        exec_doc = {"rosters": {"현대자동차": {"people": [["박사장", "1966.02", "사장", "미등기", "", "", "제조"]]},
-                                "기아": {"people": [["김오래", "1955.01", "이사", "사외이사", "", "", ""]]}}}
+    def go(self, previous=None, table=None, exec_doc=None, **kw):
+        exec_doc = exec_doc if exec_doc is not None else {"rosters": {"현대자동차": {"people": [["박사장", "1966.02", "사장", "미등기", "", "", "제조"]]},
+                                                                    "기아": {"people": [["김오래", "1955.01", "이사", "사외이사", "", "", ""]]}}}
         return kc.run("k", now=NOW, previous=previous, exec_doc=exec_doc, get=self.get, news=self.news, sleep=lambda s: None,
-                      registry={"companies": {"현대자동차": {"corp_code": "00164742"}}}, table={}, article_fetch=self.article, **kw)
+                      registry={"companies": {"현대자동차": {"corp_code": "00164742"}}}, table=table if table is not None else {},
+                      article_fetch=self.article, **kw)
 
     def test_flags(self):
         doc = self.go()
@@ -124,7 +126,8 @@ class Runs(unittest.TestCase):
         self.assertEqual(set(kinds), {"법정 한도: 재직 6년 초과 가능", "겸직 확인: 경력 칸 현직 이사·감사", "과거 논란 기사"})
         self.assertIn("7년 2개월", kinds["법정 한도: 재직 6년 초과 가능"]["text"])
         self.assertEqual(kinds["겸직 확인: 경력 칸 현직 이사·감사"]["tier"], "B")         # 경력 칸만으로는 B
-        self.assertIn("다른 상장사 명단: 기아", kinds["겸직 확인: 경력 칸 현직 이사·감사"]["text"])
+        self.assertIn("기아: 명단 순환·출입처 명단에서 확인", kinds["겸직 확인: 경력 칸 현직 이사·감사"]["text"])
+        self.assertIn("오성전자: DART 고유번호 못 찾음", kinds["겸직 확인: 경력 칸 현직 이사·감사"]["text"])   # 표가 없으면 확인 불가로 남긴다
         self.assertEqual(kinds["과거 논란 기사"]["tier"], "B")
         self.assertIn("고객정보 유출 책임지고 사퇴", kinds["과거 논란 기사"]["text"])
         self.assertEqual([f["kind"] for f in p["이최근"]["flags"]], ["독립성: 같은 그룹 최근 근무 가능"])
@@ -166,7 +169,8 @@ class Runs(unittest.TestCase):
                      registry={"companies": {"현대자동차": {"corp_code": "00164742"}}}, table={}, article_fetch=self.article)
         f = next(f for x in doc["people"] if x["name"] == "김오래" for f in x["flags"] if f["kind"].startswith("법정 한도: 다른 회사"))
         self.assertEqual(f["tier"], "A")
-        self.assertIn("디비보험·에스부품", f["text"])
+        self.assertIn("디비보험: 명단 순환·출입처 명단에서 확인", f["text"])
+        self.assertIn("에스부품: 명단 순환·출입처 명단에서 확인", f["text"])
         self.assertEqual(kc.current_directorships("('17 ~ '19) ㈜GS글로벌 대표이사 / ('20 ~ 현재) 코스맥스㈜ 감사", OWN), ["('20 ~ 현재) 코스맥스㈜ 감사"])
 
     def test_news_budget_and_failure(self):
@@ -237,6 +241,91 @@ class Runs(unittest.TestCase):
         kc.reconcile_events({"legacy":event},people,[{"source":"현대차","status":"ok"}],NOW.isoformat())
         self.assertEqual(event["reviewStatus"],"unconfirmed")
 
+
+    def test_naver_inlink_is_read_first_original_kept(self):
+        fetched, base = [], self.article
+        def article(url):
+            fetched.append(url)
+            return base(url)
+        self.article = article
+        original = self.news
+        def news(q):
+            res = original(q)
+            for it in res["items"]:
+                it["naverUrl"] = "https://n.news.naver.com/mnews/article/001/0000000001"
+            return res
+        self.news = news
+        doc = self.go()
+        p = next(x for x in doc["people"] if x["name"] == "김오래")
+        self.assertEqual(fetched, ["https://n.news.naver.com/mnews/article/001/0000000001"])
+        self.assertEqual(p["news"][0]["url"], "n1")                      # 원문 주소는 그대로
+        self.assertEqual(p["bodyStatus"], "linked")
+
+    # ---- 겸직 명단 직접 대조(3호) ----
+    def boards(self, first=("1955년 01월", "사외이사"), second=("1955년 01월", "감사")):
+        self.data[("00999001", 2026, "11012")] = api("20260814000001", [("김오래", first[0], "이사", first[1], "", "2년")])
+        self.data[("00999002", 2026, "11012")] = api("20260814000002", [("김오래", second[0], "감사", second[1], "", "1년")])
+        return {"오성전자": [["00999001", "111111"]], "한결화학": [["00999002", ""]], "한결화학(주)": [["00999002", ""]]}
+
+    def test_named_boards_are_opened_and_confirmed(self):
+        doc = self.go(table=self.boards(), exec_doc={"rosters": {}})
+        p = next(x for x in doc["people"] if x["name"] == "김오래")
+        f = next(f for f in p["flags"] if f["kind"] == "법정 한도: 다른 회사 이사·감사 2곳 이상 가능")
+        self.assertEqual(f["tier"], "A")
+        self.assertIn("오성전자: 명단 확인(사외이사·2026년 반기(6-30 기준))", f["text"])
+        self.assertIn("한결화학: 명단 확인", f["text"])
+        self.assertIn("동시 재임·선임일은 각 회사 공시로 확인", f["text"])
+        self.assertFalse(any(f["kind"].startswith("겸직 확인") for f in p["flags"]))
+        self.assertEqual({d["status"] for d in p["directorChecks"]}, {"confirmed"})
+        self.assertTrue(any(c["source"] == "겸직 명단 대조" and c["status"] == "ok" and c["companies"] == 2 for c in doc["checks"]))
+        # 14일 안엔 다시 열지 않는다
+        self.codes.clear()
+        again = self.go(previous=doc, table=self.boards(), exec_doc={"rosters": {}})
+        self.assertNotIn("00999001", self.codes)
+        self.assertEqual(again["counts"]["newEvents"], 0)
+
+    def test_namesake_and_absent_are_not_counted(self):
+        table = self.boards(second=("1961년 03월", "감사"))          # 같은 이름 다른 출생연도
+        doc = self.go(table=table, exec_doc={"rosters": {}})
+        p = next(x for x in doc["people"] if x["name"] == "김오래")
+        self.assertFalse(any("다른 회사" in f["kind"] or f["kind"].startswith("겸직 확인") for f in p["flags"]))
+        self.assertEqual({d["org"]: d["status"] for d in p["directorChecks"]}, {"오성전자": "confirmed", "한결화학": "namesake"})
+        del self.data[("00999002", 2026, "11012")]                    # 보고서 없음 → 현직 표기라 확인 불가 → B
+        doc = self.go(table=table, exec_doc={"rosters": {}})
+        p = next(x for x in doc["people"] if x["name"] == "김오래")
+        f = next(f for f in p["flags"] if f["kind"].startswith("겸직 확인"))
+        self.assertEqual(f["tier"], "B")
+        self.assertIn("한결화학: 최근 정기보고서 없음(확인 불가)", f["text"])
+
+    def test_same_company_from_market_is_counted_once(self):
+        import hashlib
+        h = hashlib.sha256("김오래|195501".encode()).hexdigest()[:8]
+        market = {"companies": {"00999001": {"n": "오성전자", "p": "202611012", "dk": [h]}}}
+        table = self.boards()
+        self.data[("00999002", 2026, "11012")] = api("20260814000002", [("다른사람", "1950년 01월", "감사", "감사", "", "1년")])
+        doc = self.go(table=table, exec_doc={"rosters": {}}, market_doc=market)
+        p = next(x for x in doc["people"] if x["name"] == "김오래")
+        self.assertFalse(any("다른 회사" in f["kind"] or f["kind"].startswith("겸직 확인") for f in p["flags"]))   # 오성전자 1곳뿐
+        self.assertNotIn("00999001", self.codes)                     # 명단 순환에서 본 회사는 다시 열지 않는다
+        self.assertEqual({d["org"]: d["status"] for d in p["directorChecks"]}, {"오성전자": "filed", "한결화학": "absent"})
+
+    def test_lookup_budget_is_unconfirmed_not_zero(self):
+        from unittest.mock import patch
+        with patch.object(kc, "DIRECTOR_BUDGET", 0):
+            doc = self.go(table=self.boards(), exec_doc={"rosters": {}})
+        p = next(x for x in doc["people"] if x["name"] == "김오래")
+        f = next(f for f in p["flags"] if f["kind"].startswith("겸직 확인"))
+        self.assertIn("한 실행 조회 한도", f["text"])
+        self.assertTrue(any(c["source"] == "겸직 명단 대조" and c["status"] == "partial" for c in doc["checks"]))
+        again = self.go(previous=doc, table=self.boards(), exec_doc={"rosters": {}})   # 한도로 못 본 것은 다음 실행에 연다
+        self.assertTrue(any(f["kind"].startswith("법정 한도: 다른 회사") for x in again["people"] if x["name"] == "김오래" for f in x["flags"]))
+
+    def test_director_orgs_from_glued_career(self):
+        career = ("現)디비손보(주) 독립이사 (現)엘에이치자산(주) 부문장 에스부품(주) 독립이사케이자산운용 경영자문역 금융투자협회 비상근 부회장"
+                  "케이자산운용 대표이사 사장 / ('17 ~ '19) ㈜지에스글로벌 대표이사 / 2019~2021 대성산업 사외이사 / 現) 한국경영학회 이사 / 前) 오성건설 사외이사")
+        got = [(o["org"], o["current"]) for o in kc.director_orgs(career, OWN)]
+        self.assertEqual(got, [("디비손보", True), ("에스부품", True), ("케이자산운용", False)])
+        self.assertEqual(kc.director_orgs("現) 현대모비스 사외이사 / 現)법무법인(유) 율촌 변호사 兼)(주)노브랜드 독립이사", OWN)[0]["org"], "노브랜드")
 
 if __name__ == "__main__":
     unittest.main()

@@ -101,5 +101,34 @@ class Evidence(unittest.TestCase):
         self.assertEqual(r.review('waiting', '홍길동', ['한빛카드'], EVENT, 'now')['status'], 'context_linked')
 
 
+    def test_public_hosts_outside_list_need_global_addresses(self):
+        def resolver(addr):
+            return lambda host, port, proto=0: [(2, 1, 6, "", (addr, port))]
+        self.assertTrue(ae.allowed_url("https://www.the-today.com/news/articleView.html?idxno=1", resolver("211.43.203.9")))
+        for addr in ("10.0.0.5", "127.0.0.1", "169.254.169.254", "192.168.0.2", "::1"):
+            self.assertFalse(ae.allowed_url("https://news.example-press.kr/a/1", resolver(addr)), addr)
+        def broken(host, port, proto=0):
+            raise OSError("dns")
+        self.assertFalse(ae.allowed_url("https://news.example-press.kr/a/1", broken))
+        self.assertFalse(ae.allowed_url("https://8.8.8.8/a/1", resolver("8.8.8.8")))             # IP 직접 입력 금지
+        self.assertFalse(ae.allowed_url("https://intranet.local/a/1", resolver("8.8.8.8")))
+        self.assertFalse(ae.allowed_url("https://press.kr:8443/a/1", resolver("8.8.8.8")))       # 다른 포트 금지
+
+    def test_redirect_to_private_address_is_blocked(self):
+        class Response:
+            status_code = 302
+            headers = {'Location': 'https://cdn.example-press.kr/x'}
+            encoding = 'utf-8'
+            def __enter__(self): return self
+            def __exit__(self, *args): pass
+        calls = []
+        def get(url, **kw):
+            calls.append(url)
+            return Response()
+        def resolver(host, port, proto=0):
+            return [(2, 1, 6, "", ("10.1.2.3" if host.startswith("cdn.") else "211.43.203.9", port))]
+        self.assertEqual(ae.fetch_article('https://www.example-press.kr/a/1', get=get, resolve=resolver)['status'], 'unsupported_source')
+        self.assertEqual(calls, ['https://www.example-press.kr/a/1'])
+
 if __name__ == '__main__':
     unittest.main()

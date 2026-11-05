@@ -636,7 +636,10 @@ def naver(q, *, get=None):
         return {"status": "failed", "error": type(e).__name__, "items": []}
     return {"status": "ok", "via": via, "items": [
         {"title": strip(x.get("title")), "text": strip(x.get("description")), "url": x.get("originallink") or x.get("link"),
-         "date": kst_day(x.get("pubDate"))} for x in items]}
+         "date": kst_day(x.get("pubDate")),
+         # 네이버 제휴 기사(n.news.naver.com)는 본문 구조가 하나라 본문 확인에 먼저 쓴다(원문 주소는 url 그대로)
+         **({"naverUrl": x["link"]} if re.match(r"https://n\.news\.naver\.com/", str(x.get("link") or "")) and x.get("link") != x.get("originallink") else {})}
+        for x in items]}
 
 
 def rss(url, *, get=None, unwrap=False):
