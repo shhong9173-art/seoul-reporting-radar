@@ -1711,7 +1711,7 @@ test('kr_signals shows FTC decisions by role, KEPCO bids and commodity prices, a
   const minor = await call('radar_today', { include_minor: true }, opts);
   assert.match(minor.text, /「\(연간단가\)고효율주상변압기,50KVA\(광유\)-2,338대-0\d\(일반\)」 외 같은 공고 2건\(합계 약 149억원\) · 추정가격 약 50억원/);
   assert.equal((minor.text.match(/고효율주상변압기/g) ?? []).length, 1);  // three lots, one line
-  assert.match(r.text, /기자 전용 감시 33개/);
+  assert.match(r.text, /기자 전용 감시 34개/);
   assert.deepEqual(dueAt(new Date('2026-10-26T23:30:00Z')), ['kr-signals.yml', 'kipris-patent-hunt.yml']);  // Tue 08:30 KST
   assert.deepEqual(dueAt(new Date('2026-10-27T06:20:00Z')), ['kr-signals.yml', 'kr-stacks.yml']);  // Tue 15:20 KST
 });
@@ -2022,7 +2022,7 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   assert.doesNotMatch((await call('trademarks', { name: 'aero' }, opts)).text, /NUTRIMACY/);
   assert.doesNotMatch((await call('trademarks', { class: '35' }, opts)).text, /NUTRIMACY/);
   const r = await call('radar_today', {}, opts);
-  assert.match(r.text, /기자 전용 감시 33개/);
+  assert.match(r.text, /기자 전용 감시 34개/);
   assert.match(r.text, /- 상표 출원: 대기 1곳\(제공기관 응답 22 뒤 72시간 대기\) — 해당 부분 0건은 미확인/);
   assert.doesNotMatch(r.text, /상표 출원: [^\n]*시간 전 결과/);
   const b = r.text.split('[B · ')[1].split('[C · ')[0];
@@ -2033,7 +2033,7 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   assert.match(minor.text, /상표 출원 「NUTRIMACY」[^\n]* — 같은 이름 상품류 추가/);
   const list = await rpc('tools/list', {}, { path: `/mcp/${TOKEN}`, env });
   assert.ok(list.body.result.tools.some((x) => x.name === 'trademarks'));
-  assert.match(list.body.result.tools.find((x) => x.name === 'radar_today').description, /감시 33개\([^)]*상표 출원, 국회 법안, 미국 리콜, 미국 EPA 인증, 국내 연비 신고, 해외 발주처 낙찰, 협력사 회생·파산, 전기위·원안위, 공장 부지 건축허가, 해외 법인 등기, 지자체 고시·공고, 사업장 인력, 굴뚝 측정, 노동위 회의, 노조 성명, 지방의회 회의록, 인도 법인 공시, 타사 공시 속 출입처, 지분·자사주 변동, 임원 명단 변화, 수시 임원 공시·타사 임원 명단, 출입처 외신\)/);
+  assert.match(list.body.result.tools.find((x) => x.name === 'radar_today').description, /감시 34개\([^)]*상표 출원, 국회 법안, 미국 리콜, 미국 EPA 인증, 국내 연비 신고, 해외 발주처 낙찰, 협력사 회생·파산, 전기위·원안위, 공장 부지 건축허가, 해외 법인 등기, 지자체 고시·공고, 사업장 인력, 굴뚝 측정, 노동위 회의, 노조 성명, 지방의회 회의록, 인도 법인 공시, 타사 공시 속 출입처, 지분·자사주 변동, 임원 명단 변화, 수시 임원 공시·타사 임원 명단, 문제 임원 점검, 출입처 외신\)/);
   assert.ok(!(await rpc('tools/list', {}, { env })).body.result.tools.some((x) => x.name === 'trademarks'));  // private only
 });
 
@@ -2843,6 +2843,38 @@ test('수시 임원 공시·타사 임원 명단(kr-exec-market): radar_today A�
   const ph = (await call('kr_signals', { section: 'exec', company: '포스코' }, opts)).text;
   assert.match(ph, /- 철강상사 · 정상무 1966년생 대표이사\(사내이사\) · 포스코 출신 · 경력 「포스코 마케팅본부 상무」/);
   assert.doesNotMatch(ph, /- 부품사 · 김전무/);
+});
+
+test('문제 임원 점검(kr-exec-check): radar_today A·B(단서 표시), kr_signals exec 안 표시 있는 사람만', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const now = new Date(NOW.getTime() - 3600000).toISOString();
+  const flag6 = { kind: '법정 한도: 재직 6년 초과 가능', tier: 'A', text: '재직기간 칸 「7년 2개월」 → 7년 2개월(2026년 반기(6-30 기준) 기준) — 상법 시행령 제34조⑤7호' };
+  const news = { kind: '과거 논란 기사', tier: 'B', text: '「한빛카드, 소송 휘말려」(2025-01-02, \'소송\') — 같은 이름의 다른 사람일 수 있음, 기사 원문 확인' };
+  const doc = { schema: 'kr_exec_check/v1', generatedAt: now, status: 'complete', checks: [{ source: '현대차', status: 'ok', returned: 12 }],
+    counts: { people: 420, outside: 180, flagged: 2, A: 1, newEvents: 2, newsChecked: 250 },
+    people: [
+      { id: '현대자동차|김오래|195501', company: '현대차', name: '김오래', birth: '1955', ofcps: '이사', reg: '사외이사', report: '2026년 반기(6-30 기준)', url: 'https://dart.fss.or.kr/x1', flags: [flag6], news: [] },
+      { id: '기아|박논란|196001', company: '기아', name: '박논란', birth: '1960', ofcps: '사장', reg: '미등기', report: '2026년 반기(6-30 기준)', url: 'https://dart.fss.or.kr/x2', flags: [news],
+        news: [{ title: '한빛카드, 소송 휘말려', url: 'https://news.example/1', date: '2025-01-02' }] },
+      { id: '기아|이무탈|197001', company: '기아', name: '이무탈', birth: '1970', ofcps: '이사', reg: '사외이사', report: '2026년 반기(6-30 기준)', url: 'https://dart.fss.or.kr/x3', flags: [], news: [] }],
+    events: [{ id: 'execc:aaaa', tier: 'A', kind: flag6.kind, company: '현대차', detectedAt: now, url: 'https://dart.fss.or.kr/x1', person: { name: '김오래' }, flags: [flag6],
+      text: `현대차 이사(사외이사) 김오래 1955년생 — ${flag6.kind}: ${flag6.text}` },
+    { id: 'execc:bbbb', tier: 'B', kind: news.kind, company: '기아', detectedAt: now, url: 'https://dart.fss.or.kr/x2', person: { name: '박논란' }, flags: [news],
+      text: `기아 사장(미등기) 박논란 1960년생 — ${news.kind}: ${news.text}` }],
+    rules: ['표시는 확인할 단서지 판정이 아니다.'] };
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/kr-exec-check', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
+  const r = await call('radar_today', {}, opts);
+  assert.match(r.text.split('[A · ')[1].split('[B · ')[0], /문제 임원 점검 · 현대차\n   현대차 이사\(사외이사\) 김오래 1955년생 — 법정 한도: 재직 6년 초과 가능: 재직기간 칸 「7년 2개월」[^\n]*\(확인할 단서 — 결격·비위 단정 아님, 회사·당사자 확인\)/);
+  const radar = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
+  assert.deepEqual(radar.items.find((x) => x.id === 'execc:aaaa').check.terms, ['김오래', '사외이사']);
+  assert.deepEqual(radar.items.find((x) => x.id === 'execc:bbbb').check.terms, ['박논란', '논란']);
+  const k = await call('kr_signals', { section: 'exec' }, opts);
+  assert.match(k.text, /\[문제 임원 점검 · 확인 [^\]]+\] 점검 420명\(사외·독립이사 180\) · 표시 2명\(A 1\)/);
+  assert.match(k.text, /- \[신규\] A · 현대차 · 김오래 1955년생 이사\(사외이사\) · 2026년 반기\(6-30 기준\)\n   법정 한도: 재직 6년 초과 가능: 재직기간 칸 「7년 2개월」/);
+  assert.match(k.text, /- \[신규\] B · 기아 · 박논란 1960년생 사장\(미등기\)[^\n]*\n   과거 논란 기사: [^\n]+\n   기사: https:\/\/news\.example\/1/);
+  assert.doesNotMatch(k.text, /이무탈/);
+  assert.doesNotMatch((await call('kr_signals', { section: 'exec', company: '현대차' }, opts)).text, /박논란/);
 });
 
 test('타사 공시 속 출입처(dart-counterparty): radar_today A·대조 낱말(상대 회사 필수), kr_signals counterparty 구역·같은 그룹 접음', async () => {

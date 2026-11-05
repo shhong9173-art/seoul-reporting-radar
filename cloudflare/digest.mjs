@@ -65,6 +65,9 @@ export const WATCHES = [
   // 수시 임원 공시·타사 임원 명단(kr_exec_market.py, 11-05): 독립이사 선임·중도퇴임 신고·대표이사 변경(시장 전체, 출입처 회사 출신만 — 고위 출신 A)과
   // 출입처 소집공고 이사 후보(부실기업 경영진 여부 등), 상장사 등기임원 명단 순환 조회
   { feed: 'kr-exec-market', label: '수시 임원 공시·타사 임원 명단', tool: 'kr_signals', schedule: '매일 06:20·12:20·18:20', staleHours: 30 },
+  // 문제 임원 점검(kr_exec_check.py, 11-05 기자: "임원에 대한 단독 — 문제 있는 임원"): 출입처 등기임원·미등기 사장급 한 사람씩
+  // 독립이사 법정 결격 가능(상법 시행령 제34조⑤ 7호 6년·3호 겸직·1호 계열사 최근 근무)과 과거 논란 기사(이름+회사, 제목에 비위·사고·제재 낱말)
+  { feed: 'kr-exec-check', label: '문제 임원 점검', tool: 'kr_signals', schedule: '매일 05:50', staleHours: 40 },
   // 해외 매체 기사 중 직접 출입처 이름이 나온 것(global_collector.py, 뉴스 수집 20분마다) — AI 번역·요약이라 원문 확인
   { feed: 'global-beat', label: '출입처 외신', tool: 'source_document', schedule: '20분마다', staleHours: 6 },
 ];
@@ -106,6 +109,7 @@ const ALT = {
   // 조정 회의 다음 날 결과 확인(11-04): 회의일 이후 기사만 센다(check.after) — 중지·성립·연장·파업권 낱말
   // 임원 명단 변화(kr-exec): 사람 이름과 함께 인사 낱말 — 기사엔 그 사람 이름이 있어야 같은 건(must)
   인사: ['인사', '영입', '선임', '승진', '퇴임', '사임', '물러', '교체', '발탁', '내정', '임원', '이사회'],
+  사외이사: ['사외이사', '독립이사', '겸직', '결격', '임기', '연임'], 논란: ['논란', '의혹', '사퇴', '책임', '수사', '기소', '고발', '징계', '해킹', '유출', '횡령', '배임'],
   '조정 결과': ['조정 중지', '조정중지', '조정 성립', '조정안', '조정 연장', '조정 결렬', '쟁의권', '파업권', '쟁의행위', '파업 찬반', '파업'],
   부당노동행위: ['부당노동행위', '노동위', '중노위', '지노위'], 교섭: ['교섭', '하청', '원청', '노란봉투'],
   부당해고: ['부당해고', '해고', '노동위', '중노위', '지노위'], 노동위: ['노동위', '중노위', '지노위', '노동위원회'],
@@ -989,6 +993,16 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
     push(e.tier, W['kr-exec-market'], { kind: `${e.source ?? '임원 공시'} · ${e.kind}`, id: e.id, date: e.detectedAt, company: e.company, url: e.url ?? undefined,
       fact: `${e.text}${flags ? ` 〔표시: ${flags}〕` : ''}${e.source === '임원 현황' ? ' (보고서 명단 비교 — 선임일·경위는 회사 확인)' : ''}`,
       check: name ? hint(e.company, [name, '인사'], [], [name]) : hint(e.company, ['인사']) });
+  }
+
+  // 문제 임원 점검(kr-exec-check): A·B. 법정 한도는 '사외이사', 과거 논란은 '논란' 낱말과 그 사람 이름으로 보도 대조
+  for (const e of docs['kr-exec-check']?.events ?? []) {
+    if (!['A', 'B'].includes(e.tier) || e.baseline || !recent(e.detectedAt)) continue;   // 첫 실행 표시는 kr_signals 목록으로만
+    const name = String(e.person?.name ?? '').trim();
+    const word = /논란 기사/.test(e.kind) ? '논란' : '사외이사';
+    push(e.tier, W['kr-exec-check'], { kind: e.kind, id: e.id, date: e.detectedAt, company: e.company, url: e.url ?? undefined,
+      fact: `${e.text} (확인할 단서 — 결격·비위 단정 아님, 회사·당사자 확인)`,
+      check: name ? hint(e.company, [name, word], [], [name]) : hint(e.company, [word]) });
   }
 
   // 지방의회 회의록: 출입처 이름 대목에 인허가·불법·위반·오염·민원·특혜·감면·증설·이전·폐쇄·야적 낱말 A(그 밖은 저장만). 의원 질의는 주장
