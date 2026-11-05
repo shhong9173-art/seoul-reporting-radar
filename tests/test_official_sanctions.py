@@ -52,6 +52,23 @@ class Parse(unittest.TestCase):
         self.assertEqual(rows[0]["inst"], "과징금 7,088만원, 과태료 360만원")
         self.assertEqual(rows[0]["what"], "안전조치의무")
 
+    def test_pipc_rows_without_spaces_pypdf5(self):
+        # 탐침 182: 운영 pypdf 5.9 글자(띄어쓰기 없이 칸이 붙음) — 회사는 가상으로 바꿈
+        t = ("개인정보보호법 위반 행정처분 결과 공표 … 공표합니다.순번위반행위를 한 자위반행위의 내용행정처분의 내용 및 결과명칭위반조항위반내용처분일자처분내용"
+             "1㈜한빛크린텍舊 보호법*제29조안전조치의무 2026. 9. 18.과징금 7,088만원과태료 360만원2㈜서울오성티브이舊 보호법*제29조안전조치의무2026. 9. 18."
+             "과징금 2,225만원과태료 420만원舊 보호법*제39조의4제1항개인정보 유출등의 통지·신고에 대한 특례2026. 9. 18.과태료 부과 360만원 * 舊 보호법 : 2020. 8. 5. 시행,"
+             " 법률 제16930호2026년 9월 18일개 인 정 보 보 호 위 원 회")
+        rows = osn.pipc_rows(t)
+        self.assertEqual([(r["no"], r["org"], r["date"], r["major"]) for r in rows], [("1", "한빛크린텍", "2026-09-18", True), ("2", "서울오성티브이", "2026-09-18", True)])
+        self.assertEqual(rows[0]["inst"], "과징금 7,088만원, 과태료 360만원")
+        t2 = ("처분내용1(주)한빛텔레콤보호법제29조안전조치의무 위반2026. 7. 29.과징금 539억 7,900만원, 시정조치 명령, 공표명령, 개선권고2(주)한빛텔레콤舊 보호법"
+              "제39조의4제1항개인정보 유출등의 통지·신고에 대한 특례2026. 8. 26.과태료 360만원 * 舊 보호법 : 2020. 8. 5. 시행")
+        rows = osn.pipc_rows(t2)
+        self.assertEqual(rows[0]["inst"], "과징금 539억 7,900만원, 시정조치 명령, 공표명령, 개선권고")
+        self.assertEqual((rows[1]["org"], rows[1]["date"], rows[1]["major"]), ("한빛텔레콤", "2026-08-26", False))
+        t3 = "처분내용1양평군청舊 보호법제28조제1항취급자 관리‧감독 소홀2026.8.26.시정조치 권고2경성대학교보호법제29조,제35조제3항안전조치의무 위반,개인정보 열람 요구 부당 거부2026.8.26.과태료 1,350만원, 시정조치 명령, 공표명령2026년  9월  8일개 인 정 보"
+        self.assertEqual([(r["org"], r["what"][:6]) for r in osn.pipc_rows(t3)], [("양평군청", "취급자 관리"), ("경성대학교", "안전조치의무")])
+
     def test_org_keys_read_latin(self):
         self.assertTrue(osn.org_keys("KB증권") & osn.org_keys("케이비증권 주식회사"))
         self.assertTrue(osn.org_keys("DB손해보험") & osn.org_keys("DB손해보험주식회사"))
@@ -123,7 +140,7 @@ class Refresh(unittest.TestCase):
         html_err = lambda url, **kw: R(listing if "pageIndex=1" in url else "") if "selectBoardList" in url else R(view) if "selectBoardArticle" in url else R(text="<html>", content=b"<html>")
         st, c = osn.refresh_pipc(state, get=html_err, now=NOW, read_pdf=lambda raw, pages: PIPC)
         self.assertEqual((c["status"], c["posts"], st["posts"]), ("partial", 0, {}))
-        self.assertIn("not_pdf:200:", next(iter(c["outcomes"])))
+        self.assertIn("unread:200:", next(iter(c["outcomes"])))
         ok = lambda url, **kw: R(listing if "pageIndex=1" in url else "") if "selectBoardList" in url else R(view) if "selectBoardArticle" in url else R(content=b"%PDF-1.4")
         st2, c2 = osn.refresh_pipc(st, get=ok, now=NOW, read_pdf=lambda raw, pages: PIPC)
         self.assertEqual((c2["status"], c2["rows"]), ("ok", 2))

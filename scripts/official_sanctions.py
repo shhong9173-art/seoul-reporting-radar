@@ -168,25 +168,48 @@ def pipc_records(state):
 
 
 def pipc_rows(pdf_text):
-    """'개인정보보호법 위반 행정처분 결과 공표' 표: 순번 | 위반행위를 한 자 | 위반조항 | 위반내용 | 처분일자 | 처분내용 (탐침 181)."""
+    """'개인정보보호법 위반 행정처분 결과 공표' 표: 순번 | 위반행위를 한 자 | 위반조항 | 위반내용 | 처분일자 | 처분내용 (탐침 181·182).
+    운영 pypdf(5.x)는 칸 사이 띄어쓰기 없이 이어 붙인다('처분내용1㈜한성크린텍舊 보호법*제29조안전조치의무 2026. 9. 18.과징금 7,088만원과태료 360만원2㈜…') —
+    순번을 1, 2, 3 차례로 찾아 줄을 나눈다(앞 줄 금액 '360만원' 뒤에 붙은 '2'를 순번으로)."""
     t = re.sub(r"\s+", " ", pdf_text or "")
     t = t[t.find("처분내용") + 4:] if "처분내용" in t else t
-    starts = list(re.finditer(r"(?:^|\s)(\d{1,3})\s+(\S.{0,50}?)\s+" + LAW, t))
+    t = re.split(r"\*\s*舊\s*보호법\s*:|20\d{2}년\s*\d{1,2}월\s*\d{1,2}일\s*개\s*인\s*정\s*보", t)[0]
+    starts, pos, n = [], 0, 1
+    while n < 200:
+        m = re.compile(r"(?<!\d)" + str(n) + r"(?![\d.,])\s*((?:㈜|\(주\))?\s*[^\d\s*][^*]{0,40}?)\s*" + LAW).search(t, pos)
+        if not m:
+            break
+        starts.append(m)
+        pos, n = m.end(), n + 1
     out = []
     for i, m in enumerate(starts):
         seg = t[m.end():starts[i + 1].start() if i + 1 < len(starts) else len(t)]
-        seg = re.split(r"\*\s*舊\s*보호법\s*:|20\d{2}년\s*\d{1,2}월\s*\d{1,2}일\s*개\s*인\s*정\s*보", seg)[0]
         d = re.search(DATE, seg)
         if not d:
             continue
         what = re.sub(r"제\d+조(?:의\d+)?(?:\s*제\d+항)?|[*,]", " ", seg[:d.start()])
         what = re.sub(r"\s+", " ", what).strip()[:80]
-        acts = re.findall(r"과징금\s*[\d,억만]+\s*원|과태료(?:\s*부과)?\s*[\d,억만]+\s*원|시정조치\s*(?:명령|권고)|공표\s*명령|개선\s*권고|징계\s*권고", seg[d.end():])
-        org = re.sub(r"^(?:㈜|\(주\))\s*|\s*(?:㈜|\(주\))$", "", m.group(2).strip())
-        out.append({"agency": "개인정보위", "no": m.group(1), "org": org[:60], "date": f"{d.group(1)}-{int(d.group(2)):02d}-{int(d.group(3)):02d}",
-                    "what": what, "inst": ", ".join(dict.fromkeys(re.sub(r"\s+", " ", a) for a in acts))[:120],
+        acts = re.findall(r"과징금\s*[\d,억만\s]+?원|과태료(?:\s*부과)?\s*[\d,억만\s]+?원|시정조치\s*(?:명령|권고)|공표\s*명령|개선\s*권고|징계\s*권고", seg[d.end():])
+        org = re.sub(r"^(?:㈜|\(주\))\s*|\s*(?:㈜|\(주\))$", "", m.group(1).strip())
+        out.append({"agency": "개인정보위", "no": str(i + 1), "org": org[:60], "date": f"{d.group(1)}-{int(d.group(2)):02d}-{int(d.group(3)):02d}",
+                    "what": what, "inst": ", ".join(dict.fromkeys(re.sub(r"\s+", " ", a).strip() for a in acts))[:120],
                     "major": any(a.startswith("과징금") for a in acts)})
     return out
+
+
+def attachment_text(raw, read_pdf=None):
+    """결과의 공표 첨부: PDF(대부분)·HWP(OLE)·HWPX(zip). 그림(PNG)은 None(탐침 182: PDF 24·HWP 2·HWPX 1·PNG 2)."""
+    if raw[:4] == b"%PDF":
+        return (read_pdf or pdf_text)(raw, 6)
+    try:
+        import kr_local_notice_watch as kl
+        if raw[:4] == b"\xd0\xcf\x11\xe0":
+            return kl.hwp_text(raw)
+        if raw[:4] == b"PK\x03\x04":
+            return kl.hwpx_text(raw)
+    except Exception:
+        return None
+    return None
 
 
 def refresh_pipc(state, *, get, now, max_posts=40, read_pdf=None, pause=None):
@@ -215,12 +238,13 @@ def refresh_pipc(state, *, get, now, max_posts=40, read_pdf=None, pause=None):
                 outcome["no_file"] = outcome.get("no_file", 0) + 1
             for fid, sn in files[:3]:
                 f = get(PIPC_FILE.format(fid, sn), headers={**UA, "Referer": PIPC_VIEW + ntt}, timeout=40)
-                if getattr(f, "status_code", 200) != 200 or f.content[:4] != b"%PDF":
-                    k = f"not_pdf:{getattr(f, 'status_code', '?')}:{str(getattr(f, 'headers', {}).get('Content-Type', ''))[:20]}"
+                body = attachment_text(f.content, read_pdf) if getattr(f, "status_code", 200) == 200 else None
+                if body is None:
+                    k = f"unread:{getattr(f, 'status_code', '?')}:{f.content[:4]!r}"
                     outcome[k] = outcome.get(k, 0) + 1
                     continue
                 got_pdf = True
-                for x in pipc_rows((read_pdf or pdf_text)(f.content, 6)):
+                for x in pipc_rows(body):
                     recs.append({**x, "id": f"pipc:{ntt}:{x['no']}", "url": PIPC_VIEW + ntt})
             if recs:
                 posts[ntt] = recs
