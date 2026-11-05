@@ -320,10 +320,18 @@ def ftc_respondents(title):
         return []
     out = []
     for x in re.split(r"\s+및\s+|\s*,\s*|\s*[·ㆍ]\s*", head):
-        x = re.sub(r"\((?:주|유|합|사|재)\)|㈜|주식회사|유한회사|\s+", "", x).strip()
+        x = clean_respondent(re.sub(r"\((?:주|유|합|사|재)\)|㈜|주식회사|유한회사|\s+", "", x).strip())
         if 2 <= len(x) <= 30 and not re.search(r"(?:등|들)$", x):
             out.append(x)
     return out
+
+
+def clean_respondent(x):
+    """피심인 이름 꼬리·머리 떼기(탐침 190): '지에스리테일(슈퍼부문)'·'홈플러스[슈퍼부문]' → 회사, '상호출자제한기업집단지에스소속지에스리테일' → 회사.
+    저장된 옛 줄도 읽을 때 같은 규칙(ftc_records)."""
+    x = re.sub(r"^(?:상호출자제한|공시대상)?기업집단.{1,20}?소속", "", x or "")
+    x = re.sub(r"[(\[][^)\]]{0,12}부문[)\]]$", "", x)
+    return x.strip()
 
 
 FTC_AUDIT_PAGES = 80        # 한 해 창 최대 쪽(탐침 188: 2015년 67쪽이 가장 많다)
@@ -422,7 +430,7 @@ def refresh_ftc(state, *, get, now, backfill_pages=100, new_pages=3, pause=None,
                    **({"error": err} if err else {})}
 
 
-FTC_DETAIL_VERSION = 2       # 2: 피심인 이름을 영문 약자·한글 읽기 둘 다로 찾는다('LG전자'로는 5쪽 안에 없고 '엘지전자'로는 4쪽 — 탐침 187)
+FTC_DETAIL_VERSION = 3       # 3: 빈 목록은 못 찾음이 아니라 실패, 못 찾음은 14일 뒤 다시(11-05 운영: 탐침에선 열리는 GS리테일 2건이 안 붙었다). 2: 피심인 이름을 영문 약자·한글 읽기 둘 다로 찾는다('LG전자'로는 5쪽 안에 없고 '엘지전자'로는 4쪽 — 탐침 187)
 
 
 def won_text(digits, unit="원"):
@@ -440,7 +448,7 @@ def ftc_case_detail(record, *, get, now, pages=5, pause=None, ks=None):
     if ks is None:
         import kr_signals_watch as ks
     csno = record["id"].split(":")[1]
-    hit = None
+    hit, listed = None, 0
     names = [record["org"]] + sorted(k for k in org_keys(record["org"]) if k != re.sub(r"\s+", "", record["org"]).upper())
     try:
         for name in names[:2]:
@@ -450,13 +458,14 @@ def ftc_case_detail(record, *, get, now, pages=5, pause=None, ks=None):
                 r = get(FTC_LIST, params={"startRceptDt": FTC_SINCE, "endRceptDt": now.date().isoformat(), "pageIndex": page,
                                           "searchKrwd": name}, headers=UA, timeout=40)
                 rows, last = ks.parse_ftc_list(r.text)
+                listed += len(rows)
                 hit = next((x for x in rows if x.get("csno") == csno), None)
                 if hit or not rows or (last and page >= last):
                     break
             if hit:
                 break
-        if not hit:
-            return {"status": "not_found", "v": FTC_DETAIL_VERSION}
+        if not hit:   # 목록이 아예 비면(오류 쪽·막힘) 못 찾은 게 아니라 실패 — 저장하지 않고 다음 실행에 다시
+            return {"status": "not_found", "v": FTC_DETAIL_VERSION} if listed else {"status": "failed", "error": "empty_list"}
         out = {"status": "ok", "v": FTC_DETAIL_VERSION, "title": (hit.get("name") or "")[:120]}
         if hit.get("doc"):
             d = get(ks.FTC_TEXT, params={"docId": hit["doc"]["docId"], "docCnvrMnNo": hit["doc"]["docCnvrMnNo"]}, headers=UA, timeout=60)
@@ -478,7 +487,7 @@ def ftc_records(state):
         if not re.match(r"\d{4}-\d{2}-\d{2}", r.get("d") or ""):
             continue
         for i, org in enumerate(r.get("o") or []):
-            out.append({"agency": "공정위", "id": f"{r['id']}:{i}", "org": org, "date": r["d"], "inst": r.get("a"),
+            out.append({"agency": "공정위", "id": f"{r['id']}:{i}", "org": clean_respondent(org), "date": r["d"], "inst": r.get("a"),
                         "url": f"{FTC_LIST}?caseNo={r['id'][4:]}"})
     return out
 

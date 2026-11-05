@@ -336,7 +336,8 @@ def link_sanctions(people, state, *, web_get, budget, key=None, get=None, sleep=
     used, matched, calls, idx = 0, 0, [0], [None]
     old_people = old_people or {}
     ftc = state.get("ftc") or {}
-    fdetails, fused = dict(ftc.get("details") or {}), [0]
+    fdetails, fused, fout = dict(ftc.get("details") or {}), [0], {}
+    recheck = (now - dt.timedelta(days=14)).isoformat(timespec="seconds") if now else ""   # 못 찾은 의결서는 14일 뒤 다시
 
     def idx_fn():
         if idx[0] is None:
@@ -375,11 +376,14 @@ def link_sanctions(people, state, *, web_get, budget, key=None, get=None, sleep=
                 if strong:                                   # 무거운 처분은 의결서 원문에서 사건명·과징금·피심인 대표이사 칸(가린 이름)
                     ck = r["id"].rsplit(":", 1)[0]
                     fdet = fdetails.get(ck)
-                    if (fdet is None or fdet.get("v") != osn.FTC_DETAIL_VERSION) and web_get is not None and fused[0] < FTC_DETAIL_BUDGET:
+                    stale = bool(fdet and fdet.get("status") == "not_found" and str(fdet.get("at", "")) < str(recheck))
+                    if (fdet is None or fdet.get("v") != osn.FTC_DETAIL_VERSION or stale) and web_get is not None and fused[0] < FTC_DETAIL_BUDGET:
                         fdet = osn.ftc_case_detail(r, get=web_get, now=now or dt.datetime.now(KST), pause=sleep)
                         fused[0] += 1
+                        o_ = f"{fdet.get('status')}{':' + fdet['error'] if fdet.get('error') else ''}"
+                        fout[o_] = fout.get(o_, 0) + 1       # 실패 원인(11-05: 탐침에선 열리는 GS리테일 2건이 운영에선 안 붙었다)
                         if fdet.get("status") in ("ok", "not_found"):
-                            fdetails[ck] = fdet
+                            fdetails[ck] = {**fdet, **({"at": now.isoformat(timespec="seconds")} if now and fdet.get("status") == "not_found" else {})}
                     if fdet and fdet.get("status") == "ok":
                         item.update(title=fdet.get("title"), amount=fdet.get("amount"), order=(fdet.get("order") or "")[:160] or None)
                         same = [c for c in fdet.get("ceos") or [] if c[:1] == rec["name"][:1] and len(c) == len(rec["name"])]
@@ -447,7 +451,7 @@ def link_sanctions(people, state, *, web_get, budget, key=None, get=None, sleep=
         ftc["details"] = fdetails
     limited = calls[0] >= TENURE_BUDGET
     return {"source": "공식 제재 대조", "status": ("partial" if limited else "ok") if records else "no_data", "matched": matched, "detailsFetched": used,
-            "records": len(records), "tenureCalls": calls[0], "ftcDetails": fused[0], **({"error": "재임 확인 조회 한도 — 남은 회사는 다음 실행"} if limited else {})}
+            "records": len(records), "tenureCalls": calls[0], "ftcDetails": fused[0], **({"ftcDetailOutcomes": fout} if fout else {}), **({"error": "재임 확인 조회 한도 — 남은 회사는 다음 실행"} if limited else {})}
 
 
 CAND_DAYS = 120               # 주총 소집공고 이사 후보를 점검하는 기간(수시 임원 공시 감시가 남긴 후보 항목)
@@ -1006,7 +1010,7 @@ def main():
         if k.get("source") == "기사 본문" and k.get("hosts"):
             print(f"::notice title=kr-exec-check-article-hosts::{json.dumps(k['hosts'], ensure_ascii=False)}")
         if k.get("source") in ("금감원 제재내용공개", "개인정보위 결과의 공표", "공정위 의결서 목록", "공식 제재 대조"):
-            print(f"::notice title=kr-exec-check-sanctions::{k['source']} · {k.get('status')} · " + json.dumps({x: k[x] for x in ("pages", "new", "rows", "backfillDone", "audit", "auditedYears", "auditAdded", "posts", "read", "outcomes", "matched", "detailsFetched", "records", "tenureCalls", "ftcDetails", "error") if x in k}, ensure_ascii=False))
+            print(f"::notice title=kr-exec-check-sanctions::{k['source']} · {k.get('status')} · " + json.dumps({x: k[x] for x in ("pages", "new", "rows", "backfillDone", "audit", "auditedYears", "auditAdded", "posts", "read", "outcomes", "matched", "detailsFetched", "records", "tenureCalls", "ftcDetails", "ftcDetailOutcomes", "error") if x in k}, ensure_ascii=False))
         if k.get("source") == "겸직 명단 대조":
             print(f"::notice title=kr-exec-check-boards::조회 {k.get('returned')}회 · 회사 {k.get('companies')}곳 · {k.get('status')}{' · ' + k['error'] if k.get('error') else ''}")
     if not token:
