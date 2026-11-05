@@ -288,11 +288,26 @@ class Runs(unittest.TestCase):
         self.assertFalse(any(f["kind"].startswith("겸직 확인") for f in p["flags"]))
         self.assertEqual({d["status"] for d in p["directorChecks"]}, {"confirmed"})
         self.assertTrue(any(c["source"] == "겸직 명단 대조" and c["status"] == "ok" and c["companies"] == 2 for c in doc["checks"]))
-        # 14일 안엔 다시 열지 않는다
+        # 앞 철(반기) 보고서로 본 것은 3일 안엔 다시 열지 않고, 3일이 지나면 새 분기보고서를 찾으러 다시 연다
         self.codes.clear()
         again = self.go(previous=doc, table=self.boards(), exec_doc={"rosters": {}})
         self.assertNotIn("00999001", self.codes)
         self.assertEqual(again["counts"]["newEvents"], 0)
+        later = kc.run("k", now=NOW + kc.dt.timedelta(days=4), previous=doc, exec_doc={"rosters": {}}, get=self.get, news=self.news,
+                       sleep=lambda s: None, registry={"companies": {"현대자동차": {"corp_code": "00164742"}}}, table=self.boards(),
+                       article_fetch=self.article)
+        self.assertIn("00999001", self.codes)
+        self.data[("00999001", 2026, "11014")] = api("20261114000001", [("김오래", "1955년 01월", "이사", "사외이사", "", "2년")])
+        self.codes.clear()
+        q3 = kc.run("k", now=NOW + kc.dt.timedelta(days=9), previous=later, exec_doc={"rosters": {}}, get=self.get, news=self.news,
+                    sleep=lambda s: None, registry={"companies": {"현대자동차": {"corp_code": "00164742"}}}, table=self.boards(),
+                    article_fetch=self.article)
+        d = next(d for x in q3["people"] if x["name"] == "김오래" for d in x["directorChecks"] if d["org"] == "오성전자")
+        self.assertEqual((d["period"], d["report"][:9]), ("202611014", "2026년 3분기"))
+        self.codes.clear()
+        kc.run("k", now=NOW + kc.dt.timedelta(days=14), previous=q3, exec_doc={"rosters": {}}, get=self.get, news=self.news,
+               sleep=lambda s: None, registry={"companies": {"현대자동차": {"corp_code": "00164742"}}}, table=self.boards(), article_fetch=self.article)
+        self.assertNotIn("00999001", self.codes)                        # 지금 철 보고서까지 본 것은 14일 재사용
 
     def test_namesake_and_absent_are_not_counted(self):
         table = self.boards(second=("1961년 03월", "감사"))          # 같은 이름 다른 출생연도

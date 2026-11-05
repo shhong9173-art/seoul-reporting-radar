@@ -198,7 +198,7 @@ def news_hits(items, name, anchors, *, skip_in_title=()):
     return out[:3]
 
 
-REUSABLE_BODY = ("context_linked", "context_unconfirmed", "outcome_requires_review")
+REUSABLE_BODY = ("context_linked", "context_mentioned", "context_unconfirmed", "outcome_requires_review")
 
 
 def body_url(hit):
@@ -255,7 +255,8 @@ def market_index(market_doc):
 # 경력 칸 낱말만으로는 현직 여부도 모른다(OCI홀딩스 사외이사 경력 칸: '現)… 부문장 에스엘(주) 독립이사KB자산운용 …'처럼 줄이 붙어 있음).
 # 그래서 경력 칸에 이사·감사로 적힌 회사의 최근 정기보고서 임원 현황을 직접 열어 같은 이름·출생년월(YYYYMM)인지 본다.
 DIRECTOR_BUDGET = 240         # 한 실행 임원 현황 조회 한도(회사 단위로 실행 안 캐시)
-DIRECTOR_RECHECK_DAYS = 14    # 같은 사람·회사 대조 재사용 기간
+DIRECTOR_RECHECK_DAYS = 14    # 같은 사람·회사 대조 재사용 기간(지금 철 보고서까지 본 것)
+DIRECTOR_STALE_DAYS = 3       # 앞 철 보고서로 본 것·보고서 없음은 3일마다 다시(새 분기보고서가 들어오면 바로 반영 — 11-05 기자 승인)
 PAST_SEG = re.compile(r"前|^\s*[\(\[]?\s*전\s*[\)\]]|\(\s*전\s*\)|역임")
 OPEN_SEG = re.compile(r"現|현\s*\)|\(\s*현\s*\)|현재|兼|~\s*$|~\s*[\)\]]")
 CLOSED_RANGE = re.compile(r"(?:(?:19|20)\d{2}|['’]\d{2})[^~∼\-–]{0,6}[~∼\-–]\s*(?:(?:19|20)\d{2}|['’]\d{2})")
@@ -337,9 +338,11 @@ def verify_directorships(people, key, *, now, table, old_people, get, sleep, bud
     명단에 없거나(퇴임 가능) 동명이인이면 세지 않는다. 각 회사 보고서 기준일이 달라 동시 재임 확정은 아니다."""
     stamp = now.isoformat(timespec="seconds")
     fresh_cut = (now - dt.timedelta(days=DIRECTOR_RECHECK_DAYS)).isoformat()
+    stale_cut = (now - dt.timedelta(days=DIRECTOR_STALE_DAYS)).isoformat()
     idx, rosters, calls, limited = None, {}, [0], [False]
     year, report = ec.target_period(now)
     dy, base_report = kx.BASE[report]
+    target = f"{year}{report}"
 
     def roster(code):
         if code in rosters:
@@ -348,17 +351,17 @@ def verify_directorships(people, key, *, now, table, old_people, get, sleep, bud
         for y, r in ((year, report), (year + dy, base_report)):
             if calls[0] >= budget:
                 limited[0] = True
-                return ("budget", [], None, None)
+                return ("budget", [], None, None, None)
             calls[0] += 1
             try:
                 st, api, rcept = kx.api_roster(key, code, y, r, get=get, sleep=sleep)
             except (ec.TransientError, RuntimeError):
-                res = ("failed", [], None, None)
+                res = ("failed", [], None, None, None)
                 break
             if st == "ok":
-                res = ("ok", api, rcept, kx.period_label(y, r))
+                res = ("ok", api, rcept, kx.period_label(y, r), f"{y}{r}")
                 break
-        rosters[code] = res or ("no_report", [], None, None)
+        rosters[code] = res or ("no_report", [], None, None, None)
         return rosters[code]
 
     for rec in people:
@@ -374,8 +377,10 @@ def verify_directorships(people, key, *, now, table, old_people, get, sleep, bud
         for o in orgs:
             k = org_key(o["org"])
             old = prior.get(k)
+            current_season = old and (old.get("period") == target or old.get("status") == "unresolved")
+            cut = fresh_cut if current_season else stale_cut
             if old and old.get("status") in ("confirmed", "absent", "namesake", "identity_incomplete", "birth_mismatch", "unresolved", "no_report") \
-                    and str(old.get("checkedAt", "")) >= fresh_cut:
+                    and str(old.get("checkedAt", "")) >= cut:
                 checks_.append({**old, "current": o["current"]})
                 continue
             d = {"org": o["org"], "orgKey": k, "current": o["current"], "checkedAt": stamp}
@@ -385,13 +390,13 @@ def verify_directorships(people, key, *, now, table, old_people, get, sleep, bud
             if not code:
                 d["status"] = "unresolved"
             else:
-                st, api, rcept, label = roster(code)
+                st, api, rcept, label, period = roster(code)
                 d.update(code=code)
                 if st != "ok":
                     d["status"] = st
                 else:
                     m, row = roster_match(api, {"name": rec["name"], "birth": conc["birth"]})
-                    d.update(status=m, report=label, url=f"https://dart.fss.or.kr/dsaf001/main.do?rcpNo={rcept}" if rcept else None)
+                    d.update(status=m, report=label, period=period, url=f"https://dart.fss.or.kr/dsaf001/main.do?rcpNo={rcept}" if rcept else None)
                     if row:
                         d.update(ofcps=kx.norm_ofcps(row.get("ofcps")), reg=row.get("reg"), birth=kx.birth_key(row.get("birth")))
             checks_.append(d)
@@ -556,7 +561,9 @@ def run(key, *, now=None, previous=None, exec_doc=None, market_doc=None, get=Non
                 reviewed.append(h)
             rec["news"] = reviewed
             linked = [h for h in reviewed if h["bodyReview"]["status"] == "context_linked"]
-            rec["bodyStatus"] = "linked" if linked else "unconfirmed" if reviewed else "no_candidates"
+            mentioned = [h for h in reviewed if h["bodyReview"]["status"] == "context_mentioned"]
+            # 본문 언급(C): 표시·알림 없이 목록에만(근거 문장과 함께) — 11-05 기자 승인
+            rec["bodyStatus"] = "linked" if linked else "mentioned" if mentioned else "unconfirmed" if reviewed else "no_candidates"
             if linked and rec["newsStatus"] in ("ok", "cached"):
                 rec["flags"].append({"kind": "과거 논란 기사", "tier": "B", "evidenceVersion": ae.VERSION,
                                      "text": " / ".join(f"「{h['title']}」({h.get('date') or '날짜 미상'}, '{h['word']}')" for h in linked[:2])
@@ -573,7 +580,8 @@ def run(key, *, now=None, previous=None, exec_doc=None, market_doc=None, get=Non
         checks.append({"source": "네이버 뉴스", "status": "partial", "pending": sum(1 for p in people if p.get("newsStatus") not in ("ok", "cached")),
                        "error": "한 실행 검색 한도 — 남은 사람은 다음 실행"})
     if article_counts:
-        unresolved = sum(v for k, v in article_counts.items() if k != "context_linked")
+        # 본문을 읽고 내린 판정(연결·언급·미연결·처분 문맥)은 실패가 아니다 — 못 읽은 것만 '미확인'
+        unresolved = sum(v for k, v in article_counts.items() if k not in REUSABLE_BODY)
         checks.append({"source": "기사 본문", "status": "partial" if unresolved else "ok",
                        "returned": article_counts.get("context_linked", 0), "outcomes": article_counts,
                        "pending": unresolved, "note": "본문 문맥 연결은 동일 인물·비위 사실 확정이 아님",

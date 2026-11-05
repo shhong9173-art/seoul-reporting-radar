@@ -2888,6 +2888,16 @@ test('문제 임원 점검(kr-exec-check): radar_today A·B(단서 표시), kr_s
   const legacyScreen = await call('kr_signals', { section: 'exec' }, opts);
   assert.match(legacyScreen.text, /미확인 · 기아 · 박논란/);
   assert.match(legacyScreen.text, /본문 확인: 미검증/);
+  // C(본문 언급): 표시·알림 없이 목록에만 근거 문장과 함께
+  const withC = structuredClone(doc);
+  withC.people[2].news = [{ title: '한빛카드 정보 유출 논란', url: 'https://news.example/c', date: '2025-03-01',
+    bodyReview: { status: 'context_mentioned', excerpt: '유출 당시 이무탈 한빛카드 부회장이 회사를 이끌었다', checkedAt: now } }];
+  await worker.fetch(new Request(ORIGIN + '/ingest/kr-exec-check', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(withC) }), env, {});
+  const cScreen = (await call('kr_signals', { section: 'exec' }, opts)).text;
+  assert.match(cScreen, /표시 2명\(A 1\) · C\(본문 언급\) 1명/);
+  assert.match(cScreen, /- C · 기아 · 이무탈[^\n]*\n(?:[^\n]*\n)*?   본문 확인: 본문 언급\(C[^\n]*\n   본문 언급: 유출 당시 이무탈 한빛카드 부회장이/);
+  const cRadar = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
+  assert(!cRadar.items.some((x) => /이무탈/.test(JSON.stringify(x))));
   for (const status of ['inactive', 'unconfirmed', undefined]) {
     const historical = { ...doc, events: doc.events.map((e) => ({ ...e, reviewStatus: status })) };
     await worker.fetch(new Request(ORIGIN + '/ingest/kr-exec-check', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(historical) }), env, {});
