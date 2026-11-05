@@ -18,6 +18,10 @@ on:
         description: '네이버 뉴스 검색 한도(비우면 250)'
         required: false
         default: ''
+      refresh_news:
+        description: 'true면 14일 간격과 상관없이 기사 다시 찾기(기준 바꾼 뒤)'
+        required: false
+        default: 'false'
       publish:
         description: 'true면 기자 전용 저장소 갱신, false면 요약만'
         required: false
@@ -74,10 +78,12 @@ jobs:
           NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
           NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
           BUDGET: ${{ github.event.inputs.news_budget }}
+          REFRESH: ${{ github.event.inputs.refresh_news }}
           PUBLISH: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish != 'false') }}
         run: |
           args=()
           [ -n "$BUDGET" ] && args+=(--news-budget "$BUDGET")
+          [ "$REFRESH" = "true" ] && args+=(--refresh-news)
           if [ "$PUBLISH" = "true" ]; then
             python scripts/kr_exec_check.py "${args[@]}"
           else

@@ -46,11 +46,16 @@ NEWS_BUDGET = 250        # 네이버 뉴스 검색 한 실행 한도
 RECHECK_DAYS = 14        # 같은 사람 기사 점검 간격
 KEEP_DAYS = 180
 PAUSE = 0.3
+REFRESH = False          # --refresh-news: 14일 간격과 상관없이 다시 찾기(기준을 바꾼 뒤)
 OUTSIDE = re.compile(r"사외이사|독립이사")
 TOP = re.compile(r"(?<!부)사장|회장|대표|\bC[EFOTS]O\b")
-STRONG = re.compile(r"횡령|배임|기소|구속|압수\s*수색|고발|해킹|유출|갑질|성희롱|성추행|성비위|성범죄|음주\s*운전|뇌물|비리|담합|분식|"
+STRONG = re.compile(r"횡령|배임|(?<!중)기소(?!식)|구속|압수\s*수색|고발|해킹|유출|갑질|성희롱|성추행|성비위|성범죄|음주\s*운전|뇌물|비리|담합|분식|"
                     r"중대\s*재해|사망\s*사고|징계|경질|실형|집행유예|유죄|송치|입건|불법")
-WEAK = re.compile(r"소송|피소|논란|사퇴|책임\s*지고|물러나|제재|과징금|벌금|수사|검찰\s*조사|의혹|파문|구설|고소")
+WEAK = re.compile(r"소송|피소|논란|사퇴|책임\s*지고|책임론|제재|과징금|벌금|(?<!송무·)수사(?!대응|·송무)|검찰\s*조사|의혹|파문|구설|고소")
+# 11-05 첫 실행 잡음: 본인 칼럼(「[시론/오윤]…」·「[박재환 교수의 …]」), 공직 시절 발언(「김현웅 법무부장관 "불법 집회…"」),
+# 인터뷰(「박현주 시옷 대표 "…해킹 취약"」) — 그 사람의 문제가 아니다
+COLUMN = re.compile(r"칼럼|시론|기고|오피니언|논단|사설|인터뷰|대담|특강|교수의|에세이|기자수첩")
+SPEAKER = r"\s*[^\s\"“'‘「]{0,12}\s*(장관|차관|지검장|검사장|검찰총장|청장|총장|변호사|교수|위원장|후보자|원장|대표|회장|사장|의원|이사장)\s*[\"“'‘「]"
 NONCOMPANY = re.compile(r"학회|협회|재단|위원회|연구원|연구소|대학|학교|병원|조합|포럼|센터|연합회|진흥원|공단|공사|정부|부처|청$|법원|"
                         r"검찰|국회|자문|평가|심사|운영|후원|봉사|교회|사단|사회|클럽|로터리|라이온스|NGO|Foundation|Society|Association|University",
                         re.I)
@@ -137,6 +142,14 @@ def main_org(career, company_aliases):
     return None
 
 
+def keep_title(title, name, skip=()):
+    """저장된 기사도 지금 규칙으로 다시 거른다(제목만으로 볼 수 있는 것)"""
+    if name not in title or COLUMN.search(title) or re.search(r"\[[^\]]*" + re.escape(name) + r"[^\]]*\]", title) \
+            or re.search(re.escape(name) + SPEAKER, title) or any(x and x in title for x in skip):
+        return False
+    return bool(STRONG.search(title) or WEAK.search(title))
+
+
 def news_hits(items, name, anchors, *, skip_in_title=()):
     """기사 중 이름과 기준어(회사·기관)가 있고 제목에 비위·사고·제재 낱말이 있는 것.
     skip_in_title: 제목에 이 낱말(지금 회사 이름)이 있으면 뺀다 — 사내 임원의 자기 회사 사고·담합 기사는 회사 기사(이미 보도)라서(11-05 실제 실행:
@@ -150,6 +163,8 @@ def news_hits(items, name, anchors, *, skip_in_title=()):
         if any(x and x in title for x in skip_in_title):
             continue
         if name not in title:      # 11-05 실제: 본문에만 이름이 있는 기사는 거의 다른 사람·다른 일(LS 사외이사 ↔ '명노현 LS 부회장 … 논란')
+            continue
+        if COLUMN.search(title) or re.search(r"\[[^\]]*" + re.escape(name) + r"[^\]]*\]", title) or re.search(re.escape(name) + SPEAKER, title):
             continue
         strong, weak = STRONG.search(title), WEAK.search(title)
         if not strong and not weak:
@@ -256,11 +271,16 @@ def run(key, *, now=None, previous=None, exec_doc=None, market_doc=None, get=Non
                                          "text": f"경력 「{' / '.join(aff[:2])}」 — 상법 시행령 제34조⑤1호(계열회사 상무 종사자·최근 3년 내 종사자 결격). 근무 기간·직무는 확인"})
             # 과거 논란 기사
             old = old_people.get(pid) or {}
-            due = not old.get("newsAt") or old["newsAt"] < (now - dt.timedelta(days=RECHECK_DAYS)).isoformat()
+            _internal = not (outside or re.search(r"기타\s*비상무", p["reg"] + p["ofcps"]))
+            _latin = re.match(r"[A-Za-z]{2,}", short)
+            rec["internal_skip"] = ([short, short[:3]] + own + ([_latin.group(0)] if _latin else [])) if _internal else ()
+            due = REFRESH or not old.get("newsAt") or old["newsAt"] < (now - dt.timedelta(days=RECHECK_DAYS)).isoformat()
             if due and budget[0] > 0:
-                anchors_ = [short, name] + own[:3]
+                anchors_ = [short] + own[:3]      # 이름은 기준어가 아니다(동명이인 — 11-05: KG모빌리티 사외이사 ↔ 다른 박순애 기사)
                 internal = not (outside or re.search(r"기타\s*비상무", p["reg"] + p["ofcps"]))
-                skip = ([short, name] + own) if internal else ()
+                latin = re.match(r"[A-Za-z]{2,}", short)
+                # 제목이 잘린 회사 이름('송명준 HD현대...', '…치닫는 HL...')도 자기 회사 기사로 본다
+                skip = ([short, short[:3]] + own + ([latin.group(0)] if latin else [])) if internal else ()
                 queries = [(f"{p['name']} {short}", anchors_, skip)]
                 org = main_org(p.get("career"), own) if not internal else None
                 if org:
@@ -286,7 +306,8 @@ def run(key, *, now=None, previous=None, exec_doc=None, market_doc=None, get=Non
                     rec["newsAt"] = stamp
             else:
                 rec["news"], rec["newsAt"] = old.get("news") or [], old.get("newsAt")
-            rec["news"] = [h for h in rec.get("news") or [] if p["name"] in h.get("title", "")]
+            rec["news"] = [h for h in rec.get("news") or [] if keep_title(h.get("title", ""), p["name"], rec.get("internal_skip") or ())]
+            rec.pop("internal_skip", None)
             if rec.get("news"):
                 strong = any(h["strong"] for h in rec["news"])
                 rec["flags"].append({"kind": "과거 논란 기사", "tier": "A" if strong else "B",
@@ -355,7 +376,10 @@ def main():
     ap = argparse.ArgumentParser(description="문제 임원 점검")
     ap.add_argument("--annotate-only", action="store_true")
     ap.add_argument("--news-budget", type=int)
+    ap.add_argument("--refresh-news", action="store_true")
     a = ap.parse_args()
+    global REFRESH
+    REFRESH = a.refresh_news
     NEWS_BUDGET = a.news_budget if a.news_budget is not None else NEWS_BUDGET
     key = os.environ.get("DART_API_KEY", "").strip()
     if not key:
