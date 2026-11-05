@@ -333,6 +333,19 @@ class Runs(unittest.TestCase):
         f = next(f for f in p["flags"] if f["kind"].startswith("공식 제재"))
         self.assertIn("공정위 2020-06-01 제재: 과징금 15억8200만원 「(주) 한빛카드의 부당한 고객유인행위에 대한 건」(의결서 피심인 대표이사 칸 '김○○' — 성·글자 수 같음)", f["text"])
         self.assertEqual(calls, ["ftc:2020서경0001:0"])                                # 원문 요약은 한 번만
+        ck = next(c for c in doc["checks"] if c["source"] == "공식 제재 대조")
+        self.assertEqual(ck["ftcDetailOutcomes"], {"ok": 1})                           # 원문 요약 결과 수(실패 원인 진단)
+        # 못 찾은 의결서는 14일 뒤 다시 찾는다
+        nf = {"status": "not_found", "v": osn.FTC_DETAIL_VERSION}
+        calls.clear()
+        with patch.object(osn, "ftc_case_detail", lambda r, **kw: calls.append(r["id"]) or nf):
+            miss = self.go(previous=prev, web_get=lambda *a, **k: None)
+            soon = self.go(previous=miss, web_get=lambda *a, **k: None)
+            late = kc.run("k", now=NOW + kc.dt.timedelta(days=15), previous=miss, exec_doc={"rosters": {}}, get=self.get, news=self.news,
+                          sleep=lambda s: None, registry={"companies": {"현대자동차": {"corp_code": "00164742"}}}, table={},
+                          article_fetch=self.article, web_get=lambda *a, **k: None)
+        self.assertEqual(len(calls), 2)                                                # 처음 + 15일 뒤(바로 다음 실행은 쉼)
+        self.assertTrue(miss["sanctions"]["ftc"]["details"]["ftc:2020서경0001"]["at"].startswith("2026-11-05"))
         self.assertEqual(again["counts"]["newEvents"], 0)
         # 앞 실행엔 원문 요약이 없던 표시(글이 짧음) → 같은 항목을 고쳐 쓰고 '현재 근거'로 남긴다(새로 알리지 않음)
         old = dict(doc)

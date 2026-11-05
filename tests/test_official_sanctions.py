@@ -95,6 +95,12 @@ class Parse(unittest.TestCase):
         self.assertEqual(osn.ftc_respondents("한빛자동차(주) 및 오성(주)의 부당한 하도급대금 결정 행위에 대한 건"), ["한빛자동차", "오성"])
         self.assertEqual(osn.ftc_respondents("4개 시중은행의 부당한 공동행위에 대한 건"), [])
         self.assertEqual(osn.ftc_respondents("6개 건설사들의 입찰담합 행위에 대한 건"), [])
+        # 탐침 190(실제 사건명, 회사는 가상): 사업부문 꼬리·기업집단 머리를 떼야 회사 표와 이어진다
+        self.assertEqual(osn.ftc_respondents("(주) 한빛리테일(슈퍼부문)의 대규모유통업법 위반행위에 대한 건"), ["한빛리테일"])
+        self.assertEqual(osn.ftc_respondents("오성마트 (주) [슈퍼부문]의 대규모유통업법 위반행위에 대한 건"), ["오성마트"])
+        self.assertEqual(osn.ftc_respondents("상호출자제한기업집단 한빛 소속 (주) 한빛리테일의 주식소유현황 등 신고 규정 위반행위에 대한 건"), ["한빛리테일"])
+        st = {"rows": {"ftc:2018유통1950": {"id": "ftc:2018유통1950", "o": ["한빛리테일(슈퍼부문)"], "d": "2021-05-06", "a": "과징금"}}}
+        self.assertEqual(osn.ftc_records(st)[0]["org"], "한빛리테일")                                  # 저장된 옛 줄도 읽을 때 떼기
 
     def test_ftc_refresh_and_records(self):
         pages = {1: [{"csno": "2026서경0001", "name": "한빛카드(주)의 부당한 고객유인행위에 대한 건", "decidedOn": "2026-10-07", "action": "과징금"}],
@@ -206,6 +212,13 @@ class Parse(unittest.TestCase):
             return R(text="p2" if params["searchKrwd"] == "케이비리테일" else "p1")
         d2 = osn.ftc_case_detail({"id": "ftc:2020서경0001:0", "org": "KB리테일"}, get=get2, now=NOW, ks=KS, pages=1)
         self.assertEqual((d2["status"], seen), ("ok", ["KB리테일", "케이비리테일"]))          # 영문 약자로 못 찾으면 한글 읽기로
+        miss = osn.ftc_case_detail({"id": "ftc:2099서경0009:0", "org": "한빛리테일"}, get=get, now=NOW, ks=KS, pages=1)
+        self.assertEqual(miss["status"], "not_found")                                   # 목록은 읽었는데 사건번호가 없음
+
+        class Empty(KS):
+            parse_ftc_list = staticmethod(lambda text: ([], None))
+        blank = osn.ftc_case_detail({"id": "ftc:2020서경0001:0", "org": "한빛리테일"}, get=get, now=NOW, ks=Empty)
+        self.assertEqual(blank, {"status": "failed", "error": "empty_list"})           # 빈 목록(오류 쪽)은 못 찾음으로 저장하지 않는다
 
     def test_org_keys_read_latin(self):
         self.assertTrue(osn.org_keys("KB증권") & osn.org_keys("케이비증권 주식회사"))
