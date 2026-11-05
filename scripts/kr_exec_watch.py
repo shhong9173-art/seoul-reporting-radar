@@ -401,7 +401,7 @@ def parse_document(text):
     return persons, changes, notes
 
 
-def fetch_document(key, rcept, *, get, sleep):
+def fetch_document(key, rcept, *, get, sleep, want="임원"):
     """document.xml(zip) → 본문 파일 글자들('임원' 낱말이 든 파일, 큰 순). 실패는 None과 이유.
     11-05 probe 173: 포스코홀딩스·포스코·넥센타이어·금호타이어 반기보고서는 zip 안 가장 큰 파일이 본문이 아니었다."""
     last = None
@@ -425,9 +425,9 @@ def fetch_document(key, rcept, *, get, sleep):
                     except UnicodeDecodeError:
                         continue
                 text = text if text is not None else raw.decode("utf-8", "replace")
-                if "임원" in text:
+                if not want or want in text:
                     texts.append(text)
-            return (texts or None), (None if texts else "원문 파일에 '임원' 낱말 없음")
+            return (texts or None), (None if texts else f"원문 파일에 '{want}' 낱말 없음")
         except (ec.TransientError, OSError, ValueError, zipfile.BadZipFile) as e:
             last = f"{type(e).__name__}: {str(e)[:60]}"
         except Exception as e:  # noqa: BLE001 — requests errors: unconfirmed, not zero

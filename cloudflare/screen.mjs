@@ -50,6 +50,8 @@ export const FEEDS = {
   'kr-labor-browser': { blob: 'kr_labor_browser', schema: 'kr_labor_browser/v1', list: 'commissions' },
   // 출입처 정기보고서 '임원 현황' 비교(kr_exec_watch.py, 11-05) — 새로 보인·빠진 임원과 경력·관계 칸 표시
   'kr-exec': { blob: 'kr_exec', schema: 'kr_exec/v1', list: 'events' },
+  // 수시 임원 공시(독립이사 신고·대표이사 변경·출입처 소집공고)와 상장사 등기임원 명단 속 출입처 출신(kr_exec_market.py, 11-05)
+  'kr-exec-market': { blob: 'kr_exec_market', schema: 'kr_exec_market/v1', list: 'events' },
   'global-beat': { blob: 'global_beat', schema: 'global_beat/v1', list: 'items' },
 };
 

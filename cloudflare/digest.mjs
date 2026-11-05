@@ -62,6 +62,9 @@ export const WATCHES = [
   // 임원 명단 변화(kr_exec_watch.py, 11-05 기자 요청 — 선배 매의눈이 보고서 속 롯데카드 전 대표 이사 등재를 잡은 것처럼):
   // 분기·반기·사업보고서 '임원 현황'을 바로 앞 보고서와 비교 — 오너 일가·주의 회사 출신·임기 중 빠짐·수시 인사 철 경쟁사 출신 영입 A
   { feed: 'kr-exec', label: '임원 명단 변화(정기보고서)', tool: 'kr_signals', schedule: '평일 07:50·21:50', staleHours: 60 },
+  // 수시 임원 공시·타사 임원 명단(kr_exec_market.py, 11-05): 독립이사 선임·중도퇴임 신고·대표이사 변경(시장 전체, 출입처 출신·주의 회사 출신만)과
+  // 출입처 소집공고 이사 후보(부실기업 경영진 여부 등), 상장사 등기임원 명단 순환 조회
+  { feed: 'kr-exec-market', label: '수시 임원 공시·타사 임원 명단', tool: 'kr_signals', schedule: '매일 06:20·12:20·18:20', staleHours: 30 },
   // 해외 매체 기사 중 직접 출입처 이름이 나온 것(global_collector.py, 뉴스 수집 20분마다) — AI 번역·요약이라 원문 확인
   { feed: 'global-beat', label: '출입처 외신', tool: 'source_document', schedule: '20분마다', staleHours: 6 },
 ];
@@ -976,6 +979,16 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
     push(e.tier, W['kr-exec'], { kind: `임원 ${e.kind}`, id: e.id, date: e.detectedAt, company: e.company, url: e.url ?? undefined,
       fact: `${e.text}${flags ? ` 〔표시: ${flags}〕` : ''} (보고서 명단 비교 — 선임일·영입 경위·사유는 회사 확인)`,
       check: name ? hint(e.company, [name, '인사'], [], [name]) : hint(e.company, ['인사', '감원']) });
+  }
+
+  // 수시 임원 공시·타사 임원 명단(kr-exec-market): A·B만. 회사는 공시 낸 회사(타사면 그 회사) — 기사엔 그 사람 이름이 있어야 같은 건
+  for (const e of docs['kr-exec-market']?.events ?? []) {
+    if (!['A', 'B'].includes(e.tier) || !recent(e.detectedAt)) continue;
+    const name = String(e.person?.name ?? '').trim();
+    const flags = (e.flags ?? []).map((f) => f.text).filter(Boolean).join(' / ');
+    push(e.tier, W['kr-exec-market'], { kind: `${e.source ?? '임원 공시'} · ${e.kind}`, id: e.id, date: e.detectedAt, company: e.company, url: e.url ?? undefined,
+      fact: `${e.text}${flags ? ` 〔표시: ${flags}〕` : ''}${e.source === '임원 현황' ? ' (보고서 명단 비교 — 선임일·경위는 회사 확인)' : ''}`,
+      check: name ? hint(e.company, [name, '인사'], [], [name]) : hint(e.company, ['인사']) });
   }
 
   // 지방의회 회의록: 출입처 이름 대목에 인허가·불법·위반·오염·민원·특혜·감면·증설·이전·폐쇄·야적 낱말 A(그 밖은 저장만). 의원 질의는 주장

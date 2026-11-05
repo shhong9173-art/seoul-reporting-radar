@@ -1264,8 +1264,8 @@ const kstAt = (v) => { const t = Date.parse(v); return Number.isFinite(t) ? new 
 // 임원 명단 변화(kr-exec feed): 출입처 정기보고서 '임원 현황'을 바로 앞 보고서와 비교한 것. kr_signals 아래(section=exec).
 async function execSection(ctx, q, days, limit, showAll = false) {
   const doc = await readFeed(ctx, 'kr-exec');
-  if (!doc) return ['\n[임원 명단 변화(정기보고서)] 아직 수집 전 — 미확인(평일 07:50·21:50)'];
-  if (doc.broken) return ['\n[임원 명단 변화(정기보고서)] 저장 결과 형식 오류 — 미확인'];
+  if (!doc) return ['\n[임원 명단 변화(정기보고서)] 아직 수집 전 — 미확인(평일 07:50·21:50)', ...(await execMarketSection(ctx, q, days, limit, showAll))];
+  if (doc.broken) return ['\n[임원 명단 변화(정기보고서)] 저장 결과 형식 오류 — 미확인', ...(await execMarketSection(ctx, q, days, limit, showAll))];
   const p = doc.period ?? {};
   const c = doc.counts ?? {};
   const since = ctx.now.getTime() - days * 86400000;
@@ -1294,6 +1294,38 @@ async function execSection(ctx, q, days, limit, showAll = false) {
   if (rows.length > limit) out.push(`… 남은 ${rows.length - limit}건(company 낱말로 좁히기)`);
   if (!rows.length) out.push(`조건에 맞는 변화 없음${notFiled.length ? ` — 미제출 ${notFiled.length}곳은 0건이 아니라 미확인` : ''}.`);
   out.push('   검증 상태: 공개 정기보고서 임원 현황(자동 비교). 명단에 새로 보인 것은 기준일 사이 변화 — 선임일·영입 경위·퇴임 사유는 회사 확인. 경력 낱말 표시는 같은 이름 다른 회사일 수 있어 원문 확인. 오너 일가는 관계 칸 글자 그대로(추정 아님)');
+  return [...out, ...(await execMarketSection(ctx, q, days, limit, showAll))];
+}
+
+// 수시 임원 공시·타사 임원 명단(kr-exec-market feed): 독립이사 신고·대표이사 변경(시장 전체 중 출입처 출신·주의 회사 출신)·출입처 소집공고
+// 이사 후보, 상장사 등기임원 명단 순환 조회. execSection 뒤에 붙인다.
+async function execMarketSection(ctx, q, days, limit, showAll = false) {
+  const doc = await readFeed(ctx, 'kr-exec-market');
+  if (!doc) return ['\n[수시 임원 공시·타사 임원 명단] 아직 수집 전 — 미확인(매일 06:20·12:20·18:20)'];
+  if (doc.broken) return ['\n[수시 임원 공시·타사 임원 명단] 저장 결과 형식 오류 — 미확인'];
+  const since = ctx.now.getTime() - days * 86400000;
+  const all = (doc.events ?? []).filter((e) => !(Date.parse(e.detectedAt) < since)
+    && matches(q, e.company, e.beat, e.text, e.kind, e.source, e.person?.name, e.person?.career, ...(e.flags ?? []).map((f) => `${f.kind} ${f.text}`)));
+  const rank = { A: 0, B: 1, C: 2 };
+  const rows = all.filter((e) => showAll || q || e.tier !== 'C')
+    .sort((a, b) => (rank[a.tier] ?? 3) - (rank[b.tier] ?? 3) || String(b.detectedAt).localeCompare(String(a.detectedAt)));
+  const tally = ['A', 'B', 'C'].map((t) => `${t} ${all.filter((e) => e.tier === t).length}`).join(' · ');
+  const c = doc.counts ?? {};
+  const roster = (doc.checks ?? []).find((k) => k.source === '상장사 등기임원 명단 순환');
+  const out = [`\n[수시 임원 공시·타사 임원 명단 · 확인 ${kstAt(doc.generatedAt)}${ageNote(ctx, doc.generatedAt)} · 최근 ${days}일] ${tally}${!showAll && !q && all.some((e) => e.tier === 'C') ? '(C는 show_all=true 또는 company 낱말로)' : ''}`,
+    `원천: ${(doc.checks ?? []).map((k) => `${k.source} ${k.status}(${k.returned ?? 0}${k.error ? `, ${k.error}` : ''}${k.pending ? `, 원문 대기 ${k.pending}건` : ''})`).join(' · ')}`
+      + ` · 이번 실행 수시 공시 목록 ${c.listed ?? '?'} · 고른 ${c.picked ?? '?'} · 원문 ${c.opened ?? '?'}`
+      + (roster ? ` · 명단 순환 ${roster.covered ?? '?'}/${roster.universe ?? '?'}곳 본 적 있음(처음 본 회사는 기준선)` : ''),
+    ...(doc.rules ?? []).map((r) => `규칙: ${r}`)];
+  for (const e of rows.slice(0, limit)) {
+    out.push(`- ${e.detectedAt === doc.generatedAt ? '[신규] ' : ''}${e.tier} · ${kstAt(e.detectedAt)} · ${e.company} · ${e.source ?? ''} ${e.kind}${e.beat ? ` · 출입처 ${e.beat} 출신` : ''}`);
+    out.push(`   잡힌 사실: ${e.text}`);
+    if ((e.flags ?? []).length) out.push(`   표시: ${e.flags.map((f) => `${f.kind} — ${f.text}`).join(' / ')}`);
+    out.push(`   원문: ${e.url ?? '링크 없음'}`);
+  }
+  if (rows.length > limit) out.push(`… 남은 ${rows.length - limit}건(company 낱말로 좁히기)`);
+  if (!rows.length) out.push('조건에 맞는 공시·명단 변화 없음(조회 실패·한도로 못 본 것은 0건이 아니라 미확인).');
+  out.push('   검증 상태: 공개 공시(자동). 경력 칸 낱말 일치 — 같은 이름의 다른 회사·직책일 수 있다. 부실기업·체납·결격 칸은 회사 기재 그대로, 선임 경위·사유는 회사 확인');
   return out;
 }
 
