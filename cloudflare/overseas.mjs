@@ -1346,7 +1346,8 @@ async function execCheckSection(ctx, q, limit) {
     // 공식 제재 기록(금감원·개인정보위) × 경력 칸 최고 경영 자리 — 공개 기록엔 개인 이름이 없다
     for (const x of (p.sanctions ?? []).slice(0, 4)) {
       const c = x.career ?? {};
-      const act = [x.what, x.exec ? `임원 ${x.exec}` : x.inst].filter(Boolean).join(' — ');
+      const act = [x.what, x.exec ? `임원 ${x.exec}` : x.inst, x.amount, x.title ? `「${x.title}」` : null,
+        x.ceoSurname ? `의결서 피심인 대표이사 칸 '${x.ceoSurname}'(성·글자 수 같음)` : null].filter(Boolean).join(' — ');
       const career = c.source === '명단' ? `사업보고서 임원 명단 「${c.org ?? ''} ${c.role ?? ''} ${c.start}~${c.end}${c.since ? `, 재직 ${c.since}~` : ''}」${x.beforeTenure ? ' 취임 전 제재' : ''}` : `경력 「${c.org ?? ''} ${c.role ?? ''} ${c.start ?? '?'}~${c.end ?? '?'}」`;
       const absent = (c.rosterAbsent ?? []).length ? ` · 그 회사 연말 등기임원 명단(${c.rosterAbsent.join('·')})에 없음 — 미등기였거나 다른 시기` : '';
       if (x.count) out.push(`   공식 제재(C): ${x.agency} ${x.org} 제재 ${x.count}건(${x.first}~${x.last}) · ${career} 재임 기간 미확인${absent} — 기간이 겹치는 것만 의미 있음${x.url ? ` · ${x.url}` : ''}`);
@@ -1356,6 +1357,18 @@ async function execCheckSection(ctx, q, limit) {
   }
   if (flagged.length > limit) out.push(`… 남은 ${flagged.length - limit}명(company 낱말로 좁히기)`);
   if (!flagged.length) out.push('표시 있는 사람 없음(조회 실패·검색 한도로 못 본 사람은 미확인).');
+  // 주총 이사 후보(출입처 소집공고, 최근 120일) — 선임 전 같은 점검. 후보는 아직 이사가 아니다
+  const cands = (doc.candidates ?? []).filter((p) => matches(q, p.company, p.name, p.career, ...(p.flags ?? []).map((f) => `${f.kind} ${f.text}`)));
+  if ((doc.candidates ?? []).length) {
+    const cf = cands.filter((p) => (p.flags ?? []).length || (p.sanctions ?? []).length);
+    out.push(`[주총 이사 후보 점검] 후보 ${(doc.candidates ?? []).length}명 · 표시 ${cf.filter((p) => (p.flags ?? []).length).length}명`);
+    for (const p of cf.slice(0, limit)) {
+      out.push(`- ${(p.flags ?? []).some((f) => f.tier === 'A') ? 'A' : (p.flags ?? []).length ? 'B' : 'C'} · ${p.company} · ${p.name}${p.birth ? ` ${p.birth}년생` : ''} ${p.reg} 후보 · ${p.report}`);
+      for (const f of p.flags ?? []) out.push(`   ${f.kind}: ${f.text}`);
+      for (const x of (p.sanctions ?? []).filter((x) => !x.strong).slice(0, 2)) out.push(`   공식 제재(C): ${x.agency} ${x.count ? `${x.org} 제재 ${x.count}건(${x.first}~${x.last})` : `${x.date} ${x.org}`}`);
+      if (p.url) out.push(`   원문: ${p.url}`);
+    }
+  }
   out.push('   검증 상태: 공개 공시·기사(자동). 확인할 단서일 뿐 — 결격·비위를 단정하지 않는다. 같은 이름의 다른 사람·재직기간 계산 기준은 회사·당사자 확인');
   return out;
 }

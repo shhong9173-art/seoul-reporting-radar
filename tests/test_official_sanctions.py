@@ -114,6 +114,37 @@ class Parse(unittest.TestCase):
         self.assertEqual(osn.ftc_respondents("(합)한빛종합건설의 불공정하도급거래행위에 대한 건"), ["한빛종합건설"])
         self.assertEqual(osn.ftc_respondents("용인시 오성중학교 발주 교복 입찰 관련 4개 사업자의 부당한 공동행위에 대한 건"), [])
 
+    def test_ftc_case_detail_and_won(self):
+        self.assertEqual(osn.won_text("1,582,000,000"), "15억8200만원")
+        self.assertEqual(osn.won_text("44,000,000"), "4400만원")
+        self.assertEqual(osn.won_text("120", "백만원"), "1억2000만원")
+
+        class KS:
+            FTC_TEXT = "doc"
+
+            @staticmethod
+            def parse_ftc_list(text):
+                rows = [{"csno": "2020서경0001" if text == "p2" else "x", "name": "(주) 한빛리테일의 대규모유통업법 위반행위에 대한 건",
+                         "doc": {"docId": "D", "docCnvrMnNo": "N"}}]
+                return rows, 3
+
+            doc_text = staticmethod(lambda raw: raw)
+
+            @staticmethod
+            def sections(text):
+                return ("주식회사 한빛리테일 서울 대표이사 허○○, 김○○ 대리인 변호사 전○○",
+                        "1. 피심인은 … 하여서는 아니 된다. 2. 피심인은 과징금을 국고에 납부하여야 한다. 가. 과징금액 : 1,582,000,000원 나. 납부기한")
+        pages = []
+
+        def get(url, params=None, **kw):
+            if url == "doc":
+                return R(text="원문")
+            pages.append(params["pageIndex"])
+            return R(text="p2" if params["pageIndex"] == 2 else "p1")
+        d = osn.ftc_case_detail({"id": "ftc:2020서경0001:0", "org": "한빛리테일"}, get=get, now=NOW, ks=KS)
+        self.assertEqual((d["status"], d["amount"], d["ceos"], pages), ("ok", "15억8200만원", ["허○○", "김○○"], [1, 2]))
+        self.assertIn("대규모유통업법", d["title"])
+
     def test_org_keys_read_latin(self):
         self.assertTrue(osn.org_keys("KB증권") & osn.org_keys("케이비증권 주식회사"))
         self.assertTrue(osn.org_keys("DB손해보험") & osn.org_keys("DB손해보험주식회사"))

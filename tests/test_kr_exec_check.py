@@ -307,12 +307,32 @@ class Runs(unittest.TestCase):
         self.assertIn("금감원 2021-10-26 제재: 임원 주의적 경고 : 2명", f["text"])
         ftc = {x["inst"]: x["strong"] for x in p["sanctions"] if x["agency"] == "공정위"}
         self.assertEqual(ftc, {"과징금": True, "경고": False})                          # 공정위는 과징금·고발만 무거운 처분
+
         self.assertIn("공개 기록엔 개인 이름이 없음", f["text"])
         c = next(x for x in p["sanctions"] if x["org"] == "오성증권㈜")
         self.assertEqual((c["timing"], c["strong"], c["count"]), ("timing_unknown", False, 1))   # 시점 미확인 → C(목록만), 회사별 한 줄
         self.assertEqual(sum(1 for u in pages if "view.do" in u), 1)                  # 공개안은 기간이 겹친 것만 연다
         again = self.go(previous=doc)                                                 # web_get 없음 → 앞 상태·공개안 요약 재사용
         self.assertTrue(any(f["kind"].startswith("공식 제재") for x in again["people"] if x["name"] == "김오래" for f in x["flags"]))
+        self.assertEqual(again["counts"]["newEvents"], 0)
+
+    def test_ftc_case_detail_attached_to_b(self):
+        from unittest.mock import patch
+        import official_sanctions as osn
+        body = self.data[("00164742", 2026, "11012")]
+        body["list"][1]["main_career"] = "(2019~2021) 한빛카드 대표이사"
+        prev = {"schema": kc.SCHEMA, "people": [], "events": [], "sanctions": {
+            "ftc": {"done": True, "rows": {"ftc:2020서경0001": {"id": "ftc:2020서경0001", "o": ["한빛카드"], "d": "2020-06-01", "a": "과징금"}}}}}
+        detail = {"status": "ok", "v": osn.FTC_DETAIL_VERSION, "title": "(주) 한빛카드의 부당한 고객유인행위에 대한 건", "amount": "15억8200만원",
+                  "order": "1. 피심인은 …", "ceos": ["김○○", "이○○"]}
+        calls = []
+        with patch.object(osn, "ftc_case_detail", lambda r, **kw: calls.append(r["id"]) or detail):
+            doc = self.go(previous=prev, web_get=lambda *a, **k: None)
+            again = self.go(previous=doc, web_get=lambda *a, **k: None)
+        p = next(x for x in doc["people"] if x["name"] == "김오래")
+        f = next(f for f in p["flags"] if f["kind"].startswith("공식 제재"))
+        self.assertIn("공정위 2020-06-01 제재: 과징금 15억8200만원 「(주) 한빛카드의 부당한 고객유인행위에 대한 건」(의결서 피심인 대표이사 칸 '김○○' — 성·글자 수 같음)", f["text"])
+        self.assertEqual(calls, ["ftc:2020서경0001:0"])                                # 원문 요약은 한 번만
         self.assertEqual(again["counts"]["newEvents"], 0)
 
     def test_tenure_from_sanctioned_company_rosters(self):
@@ -417,6 +437,33 @@ class Runs(unittest.TestCase):
             again = self.go(previous=doc, web_get=web, table={"한빛은행": [["00888003", ""]]})
         self.assertEqual(self.codes.count("00888003"), 1)
         self.assertEqual(next(x for x in again["people"] if x["name"] == "김오래")["tenure"]["한빛은행"]["since"], "2020-03-24")
+
+    # ---- 주총 이사 후보 ----
+    def test_agm_candidates_checked_before_election(self):
+        market = {"companies": {}, "events": [
+            {"kind": "이사 후보", "company": "현대차", "detectedAt": "2026-11-01T06:20:00+09:00", "url": "agm1",
+             "person": {"name": "김오래", "birth": "1955.01", "kind": "사외이사", "career": "前 한빛카드 대표이사", "job": "교수"}},
+            {"kind": "이사 후보", "company": "현대차", "detectedAt": "2026-11-01T06:20:00+09:00", "url": "agm1",
+             "person": {"name": "신후보", "birth": "1960.05", "kind": "사외이사", "career": "現) 오성전자㈜ 사외이사 / 現) 한결화학 감사", "job": "변호사"}},
+            {"kind": "이사 후보", "company": "현대차", "detectedAt": "2026-03-01T06:20:00+09:00", "url": "old",          # 120일 지난 후보는 안 본다
+             "person": {"name": "옛후보", "birth": "1950.01", "kind": "사외이사", "career": ""}}]}
+        self.data[("00999001", 2026, "11012")] = api("20260814000001", [("신후보", "1960년 05월", "이사", "사외이사", "", "2년")])
+        self.data[("00999002", 2026, "11012")] = api("20260814000002", [("신후보", "1960년 05월", "감사", "감사", "", "1년")])
+        table = {"오성전자": [["00999001", "111111"]], "한결화학": [["00999002", ""]]}
+        doc = self.go(market_doc=market, table=table)
+        c = {x["name"]: x for x in doc["candidates"]}
+        self.assertEqual(set(c), {"김오래", "신후보"})
+        self.assertEqual([(f["kind"], f["tier"]) for f in c["김오래"]["flags"]], [("이사 후보: 법정 한도: 재선임되면 6년 초과", "A")])
+        self.assertIn("7년 2개월", c["김오래"]["flags"][0]["text"])
+        f = next(f for f in c["신후보"]["flags"] if "3호" in f["kind"])
+        self.assertEqual((f["kind"], f["tier"]), ("이사 후보: 선임되면 다른 회사 이사·감사 2곳 이상(3호)", "A"))
+        self.assertTrue(f["text"].startswith("주총 소집공고 후보 — "))
+        self.assertEqual(doc["counts"]["candidates"], 2)
+        ev = [e for e in doc["events"] if e["personId"].startswith("후보|")]
+        self.assertEqual(len(ev), 2)
+        again = self.go(previous=doc, market_doc=market, table=table)
+        self.assertEqual(again["counts"]["newEvents"], 0)
+        self.assertTrue(all(e["reviewStatus"] == "active" for e in again["events"] if e["personId"].startswith("후보|")))
 
     # ---- 겸직 명단 직접 대조(3호) ----
     def boards(self, first=("1955년 01월", "사외이사"), second=("1955년 01월", "감사")):

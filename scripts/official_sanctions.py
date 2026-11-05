@@ -151,9 +151,11 @@ def fss_summary(pdf_text):
         exe = re.split(r"\d\s*\.\s*제\s*재", exe)[0].strip() or None
     # 위반 기간: 제재대상사실의 'YYYY.M.D.∼YYYY.M.D. 기간중' 범위들 — 재임 전 일이면 그 사람 재임 중 제재가 아니다(재임 직후 제재 오탐 방지)
     k = flat.find("제재대상사실")
-    rng = re.findall(r"((?:19|20)\d{2})\s*\.\s*(\d{1,2})\s*\.(?:\s*\d{1,2}\s*\.)?\s*[∼~\-–]\s*((?:19|20)\d{2})\s*\.\s*(\d{1,2})",
-                     flat[k:k + 6000] if k >= 0 else "")
-    viol = (min(f"{a_}-{int(b_):02d}" for a_, b_, _, _ in rng), max(f"{c_}-{int(d_):02d}" for _, _, c_, d_ in rng)) if rng else None
+    # 탐침 187: '2018.6.13.～6.28.'(전각 물결, 끝 해 생략)·'(2017.11월~2018.10월)' 꼴도 있다
+    rng = re.findall(r"((?:19|20)\d{2})\s*\.\s*(\d{1,2})\s*(?:\.|월)(?:\s*\d{1,2}\s*\.)?\s*[∼~\-–～〜]\s*"
+                     r"(?:((?:19|20)\d{2})\s*\.\s*(\d{1,2})|(\d{1,2})\s*\.\s*\d{1,2}\s*\.)", flat[k:k + 6000] if k >= 0 else "")
+    spans = [(f"{a_}-{int(b_):02d}", f"{c_ or a_}-{int(d_ or e_):02d}") for a_, b_, c_, d_, e_ in rng if 1 <= int(d_ or e_) <= 12 and 1 <= int(b_) <= 12]
+    viol = (min(x for x, _ in spans), max(y for _, y in spans)) if spans else None
     fact = re.search(r"4\s*\.\s*제\s*재\s*대\s*상\s*사\s*실\s*/?\s*(.{0,200})", flat)
     ceo = bool(re.search(r"(?:前|전|현)?\s*대표\s*이사|최고경영자|\bCEO\b|은행장", flat))
     return {"inst": inst, "exec": exe, "execSanctioned": bool(exe) and not re.match(r"해당\s*사항\s*없", exe or ""),
@@ -161,7 +163,7 @@ def fss_summary(pdf_text):
             **({"violation": f"{viol[0]}~{viol[1]}"} if viol else {})}
 
 
-DETAIL_VERSION = 3       # 2: 띄어쓰기 없는 예전 공개안·직권재심·위반 기간(탐침 185), 3: 「…기관경고임원…」처럼 앞 글자에 붙은 칸 — 앞 판 요약은 다시 연다
+DETAIL_VERSION = 4       # 4: 위반 기간 '～'·끝 해 생략·'YYYY.MM월'(탐침 187). 2: 띄어쓰기 없는 예전 공개안·직권재심·위반 기간(탐침 185), 3: 「…기관경고임원…」처럼 앞 글자에 붙은 칸 — 앞 판 요약은 다시 연다
 
 
 def fss_detail(row, *, get, read_pdf=None):
@@ -360,6 +362,52 @@ def refresh_ftc(state, *, get, now, backfill_pages=100, new_pages=3, pause=None,
     state.update(rows=rows, since=since, checkedAt=now.isoformat(timespec="seconds"))
     return state, {"source": "공정위 의결서 목록", "status": "partial" if err else "ok", "pages": pages, "new": fresh, "rows": len(rows),
                    "backfillDone": bool(state.get("done")), **({"error": err} if err else {})}
+
+
+FTC_DETAIL_VERSION = 1
+
+
+def won_text(digits, unit="원"):
+    """'1,582,000,000원' → '15억8200만원'(백만원·천원 단위도)."""
+    n = int(re.sub(r"\D", "", digits or "0") or 0) * {"원": 1, "천원": 1000, "백만원": 1_000_000}.get(unit, 1)
+    if n < 10_000:
+        return f"{n:,}원"
+    eok, man = divmod(n // 10_000, 10_000)
+    return (f"{eok}억" if eok else "") + (f"{man}만" if man else "") + "원"
+
+
+def ftc_case_detail(record, *, get, now, pages=5, pause=None, ks=None):
+    """사건번호로 공정위 의결서 원문(개방문서)을 찾아 사건명·주문 발췌·과징금·피심인 칸 대표이사(가린 이름) — 탐침 187.
+    목록을 피심인 이름(searchKrwd)으로 찾고 쪽을 넘겨 같은 사건번호를 찾는다. 의결서 대표이사 칸은 '허○○'처럼 성만 남는다."""
+    if ks is None:
+        import kr_signals_watch as ks
+    csno = record["id"].split(":")[1]
+    hit = None
+    try:
+        for page in range(1, pages + 1):
+            if pause:
+                pause(0.5)
+            r = get(FTC_LIST, params={"startRceptDt": FTC_SINCE, "endRceptDt": now.date().isoformat(), "pageIndex": page,
+                                      "searchKrwd": record["org"]}, headers=UA, timeout=40)
+            rows, last = ks.parse_ftc_list(r.text)
+            hit = next((x for x in rows if x.get("csno") == csno), None)
+            if hit or not rows or (last and page >= last):
+                break
+        if not hit:
+            return {"status": "not_found", "v": FTC_DETAIL_VERSION}
+        out = {"status": "ok", "v": FTC_DETAIL_VERSION, "title": (hit.get("name") or "")[:120]}
+        if hit.get("doc"):
+            d = get(ks.FTC_TEXT, params={"docId": hit["doc"]["docId"], "docCnvrMnNo": hit["doc"]["docCnvrMnNo"]}, headers=UA, timeout=60)
+            resp, order = ks.sections(ks.doc_text(d.text))
+            amt = re.search(r"과징금\S{0,6}\s*[:：]?\s*([\d,]{4,})\s*(백만원|천원|원)", order) or re.search(r"([\d,]{4,})\s*(백만원|천원|원)", order)
+            ceos = re.findall(r"대표이사\s+((?:[가-힣]○{1,3}|○{2,4})(?:\s*,\s*(?:[가-힣]○{1,3}|○{2,4}))*)", resp)
+            out.update(order=order[:240], amount=won_text(amt.group(1), amt.group(2)) if amt else None,
+                       ceos=[x.strip() for c in ceos for x in c.split(",")][:6])
+        else:
+            out["note"] = "개방문서 없음(PDF만)"
+        return out
+    except Exception as e:
+        return {"status": "failed", "error": type(e).__name__}
 
 
 def ftc_records(state):
