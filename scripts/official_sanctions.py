@@ -326,8 +326,24 @@ def ftc_respondents(title):
     return out
 
 
-def refresh_ftc(state, *, get, now, backfill_pages=100, new_pages=3, pause=None, parse=None):
-    """공정위 의결서 목록(case.ftc.go.kr ltfr.do, 2016년부터 4,960건·496쪽 — 탐침 183). 앞 몇 쪽 + 뒤 채우기.
+FTC_AUDIT_PAGES = 80        # 한 해 창 최대 쪽(탐침 188: 2015년 67쪽이 가장 많다)
+FTC_AUDIT_DAYS = 30         # 올해 창은 한 달마다 다시(지난 해 창은 한 번)
+
+
+def _ftc_put(rows, x, prefer=False):
+    """같은 사건번호의 '의결'·'결정(고발)' 두 줄(탐침 189 — 5~7%)은 한 건으로, 의결 줄(조치·의결일)을 남긴다. 새로 넣었으면 True.
+    prefer: 창 점검에선 의결 줄로 덮는다(11-05 전에 저장한 줄은 의결·결정 표시가 없다)."""
+    old = rows.get(x["id"])
+    if old is None:
+        rows[x["id"]] = x
+        return True
+    if (old.get("k") == "결정" or prefer) and not x.get("k"):
+        rows[x["id"]] = x
+    return False
+
+
+def refresh_ftc(state, *, get, now, backfill_pages=100, new_pages=3, pause=None, parse=None, audit=True):
+    """공정위 의결서 목록(case.ftc.go.kr ltfr.do, 2016년부터 4,960줄·496쪽 — 탐침 183). 앞 몇 쪽 + 뒤 채우기 + 해마다 창 점검.
     저장은 짧게: 사건번호·피심인(사건명에서)·의결일·조치."""
     if parse is None:
         import kr_signals_watch as ks
@@ -335,27 +351,27 @@ def refresh_ftc(state, *, get, now, backfill_pages=100, new_pages=3, pause=None,
     state = dict(state or {})
     rows = dict(state.get("rows") or {})
     since = state.get("since") or FTC_SINCE
-    fresh, pages, err = 0, 0, None
+    today = now.date().isoformat()
+    fresh, pages, err, audited = 0, 0, None, None
 
-    def page(n):
+    def page(n, start=None, end=None):
         if pause:
             pause(0.5)
-        r = get(FTC_LIST, params={"startRceptDt": since, "endRceptDt": now.date().isoformat(), "pageIndex": n}, headers=UA, timeout=40)
+        r = get(FTC_LIST, params={"startRceptDt": start or since, "endRceptDt": end or today, "pageIndex": n}, headers=UA, timeout=40)
         if getattr(r, "status_code", 200) != 200:
             raise RuntimeError(f"HTTP {r.status_code}")
         got, last = parse(r.text)
-        return [{"id": f"ftc:{x['csno']}", "o": ftc_respondents(x["name"]), "d": x.get("decidedOn") or "", "a": (x.get("action") or "")[:20]}
+        return [{"id": f"ftc:{x['csno']}", "o": ftc_respondents(x["name"]), "d": x.get("decidedOn") or "", "a": (x.get("action") or "")[:20],
+                 **({"k": "결정"} if str(x.get("blno") or "").startswith("결정") else {})}
                 for x in got if x.get("csno")], last
 
     try:
         for n in range(1, new_pages + 1):
             got, _ = page(n)
             pages += 1
-            new = [x for x in got if x["id"] not in rows]
-            for x in new:
-                rows[x["id"]] = x
-            fresh += len(new)
-            if len(new) < len(got) or not got:
+            new = sum(_ftc_put(rows, x) for x in got)
+            fresh += new
+            if new < len(got) or not got:
                 break
         if not state.get("done"):
             n = int(state.get("nextPage") or 1)
@@ -363,17 +379,47 @@ def refresh_ftc(state, *, get, now, backfill_pages=100, new_pages=3, pause=None,
                 got, last = page(n)
                 pages += 1
                 for x in got:
-                    rows.setdefault(x["id"], x)
+                    _ftc_put(rows, x)
                 if not got or (last and n >= last):
                     state["done"] = True
                     break
                 n += 1
             state["nextPage"] = n
+        elif audit:
+            # 해마다 창(의결일 기준 1년)을 끝까지 다시 훑어 빠진 줄을 채운다(11-05 탐침 188·189: 전체 목록 4,960줄인데 저장 4,537건 —
+            # 같은 사건 두 줄을 빼도 모자라 보였다). 실행마다 한 해. 지난 해 창은 한 번, 올해 창은 한 달마다.
+            aud = dict(state.get("audit") or {})
+            years = [str(y) for y in range(int(since[:4]), now.year + 1)]
+            stale = (now - dt.timedelta(days=FTC_AUDIT_DAYS)).isoformat(timespec="seconds")
+            todo = [y for y in years if y not in aud] or [y for y in years[-1:] if aud[y].get("at", "") < stale]
+            if todo:
+                y = todo[0]
+                ids, n_rows, added, n, complete = set(), 0, 0, 1, False
+                while n <= FTC_AUDIT_PAGES:
+                    got, last = page(n, f"{y}-01-01", min(f"{y}-12-31", today))
+                    pages += 1
+                    n_rows += len(got)
+                    for x in got:
+                        ids.add(x["id"])
+                        added += _ftc_put(rows, x, prefer=True)
+                    if not got or (last and n >= last) or (not last and len(got) < 10):
+                        complete = True
+                        break
+                    n += 1
+                fresh += added
+                audited = {"year": y, "rows": n_rows, "cases": len(ids), "added": added, "complete": complete}
+                if complete:
+                    aud[y] = {"rows": n_rows, "cases": len(ids), "added": added, "at": now.isoformat(timespec="seconds")}
+                state["audit"] = aud
     except Exception as e:
         err = f"{type(e).__name__}: {str(e)[:60]}"
     state.update(rows=rows, since=since, checkedAt=now.isoformat(timespec="seconds"))
+    aud = state.get("audit") or {}
     return state, {"source": "공정위 의결서 목록", "status": "partial" if err else "ok", "pages": pages, "new": fresh, "rows": len(rows),
-                   "backfillDone": bool(state.get("done")), **({"error": err} if err else {})}
+                   "backfillDone": bool(state.get("done")),
+                   **({"audit": audited} if audited else {}),
+                   **({"auditedYears": len(aud), "auditAdded": sum(v.get("added", 0) for v in aud.values())} if aud else {}),
+                   **({"error": err} if err else {})}
 
 
 FTC_DETAIL_VERSION = 2       # 2: 피심인 이름을 영문 약자·한글 읽기 둘 다로 찾는다('LG전자'로는 5쪽 안에 없고 '엘지전자'로는 4쪽 — 탐침 187)

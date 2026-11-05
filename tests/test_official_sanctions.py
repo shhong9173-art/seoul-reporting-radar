@@ -109,6 +109,49 @@ class Parse(unittest.TestCase):
         self.assertEqual([(r["org"], r["date"], r["inst"]) for r in recs], [("한빛카드", "2026-10-07", "과징금")])
         self.assertIn("caseNo=2026서경0001", recs[0]["url"])
 
+    def test_ftc_year_window_audit_fills_gaps_probe189(self):
+        # 뒤 채우기가 끝난 뒤 해마다 창을 한 번씩 끝까지 다시 훑는다. 같은 사건번호 '의결'·'결정(고발)' 두 줄은 한 건(의결 줄을 남김)
+        win = {"2024": {1: [{"csno": "2023서경0001", "blno": "결정2024-001", "name": "한빛카드(주)의 부당한 고객유인행위에 대한 건", "decidedOn": "2024-03-02", "action": "고발"},
+                            {"csno": "2023서경0001", "blno": "의결2024-010", "name": "한빛카드(주)의 부당한 고객유인행위에 대한 건", "decidedOn": "2024-03-20", "action": "과징금, 고발"}] +
+                           [{"csno": f"2023서경01{i:02d}", "blno": f"의결2024-1{i:02d}", "name": f"오성{i}(주)의 하도급법 위반행위에 대한 건", "decidedOn": "2024-05-01", "action": "경고"}
+                            for i in range(8)],
+                        2: [{"csno": "2023서경0099", "blno": "의결2024-199", "name": "누리상사(주)의 표시광고법 위반행위에 대한 건", "decidedOn": "2024-12-01", "action": "과징금"}]},
+               "2025": {1: []}, "2026": {1: [{"csno": "2026서경0001", "blno": "의결2026-001", "name": "한빛화학(주)의 하도급법 위반행위에 대한 건", "decidedOn": "2026-10-07", "action": "과징금"}]}}
+        calls = []
+
+        def get(url, params=None, **kw):
+            calls.append((params["startRceptDt"], params["pageIndex"]))
+            return R(text=f"{params['startRceptDt']}|{params['endRceptDt']}|{params['pageIndex']}")
+
+        def parse(text):
+            a, b, n = text.split("|")
+            if a == "2024-01-01" and b == NOW.date().isoformat():      # 전체 목록 앞쪽(새 의결)
+                return win["2026"][1], 1
+            y = win[a[:4]]
+            return y.get(int(n), []), max(y)
+        prev = {"since": "2024-01-01", "done": True,
+                "rows": {"ftc:2023서경0001": {"id": "ftc:2023서경0001", "o": ["한빛카드"], "d": "2024-03-02", "a": "고발", "k": "결정"},
+                         "ftc:2026서경0001": {"id": "ftc:2026서경0001", "o": ["한빛화학"], "d": "2026-10-07", "a": "과징금"}}}
+        st, c = osn.refresh_ftc(prev, get=get, now=NOW, parse=parse)
+        self.assertEqual(c["audit"], {"year": "2024", "rows": 11, "cases": 10, "added": 9, "complete": True})
+        self.assertEqual((c["rows"], c["auditedYears"], c["auditAdded"]), (11, 1, 9))
+        self.assertEqual((st["rows"]["ftc:2023서경0001"]["d"], st["rows"]["ftc:2023서경0001"]["a"]), ("2024-03-20", "과징금, 고발"))   # 의결 줄로 바꿈
+        self.assertNotIn("k", st["rows"]["ftc:2023서경0001"])
+        old_row = {**prev, "rows": {"ftc:2023서경0001": {"id": "ftc:2023서경0001", "o": ["한빛카드"], "d": "2024-03-02", "a": "고발"}}}   # 표시 없는 옛 줄
+        self.assertEqual(osn.refresh_ftc(old_row, get=get, now=NOW, parse=parse)[0]["rows"]["ftc:2023서경0001"]["d"], "2024-03-20")
+        st, c = osn.refresh_ftc(st, get=get, now=NOW, parse=parse)
+        st, c = osn.refresh_ftc(st, get=get, now=NOW, parse=parse)
+        self.assertEqual(sorted(st["audit"]), ["2024", "2025", "2026"])
+        calls.clear()
+        st, c = osn.refresh_ftc(st, get=get, now=NOW + dt.timedelta(days=3), parse=parse)
+        self.assertNotIn("audit", c)                                     # 다 봤으면 쉰다
+        self.assertEqual(calls, [("2024-01-01", 1)])
+        st, c = osn.refresh_ftc(st, get=get, now=NOW + dt.timedelta(days=31), parse=parse)
+        self.assertEqual(c["audit"]["year"], "2026")                     # 올해 창은 한 달마다
+        bad = lambda url, params=None, **k: R(status=500) if params["endRceptDt"] == "2024-12-31" else get(url, params=params)
+        failing, c = osn.refresh_ftc(prev, get=bad, now=NOW, parse=parse)
+        self.assertEqual((c["status"], failing.get("audit")), ("partial", None))   # 실패한 창은 점검으로 치지 않는다(다음 실행에 다시)
+
     def test_pipc_probe184_variants(self):
         t = ("처분내용1한빛연구재단법 제29조안전조치의무위반2026.1.28과징금, 시정명령,공표명령, 징계권고, 개선권고법 제34조제1항유출통지의무 위반2026.1.28과태료, 시정명령"
              "2026년 3월 6일개 인 정 보 보 호 위 원 회")
