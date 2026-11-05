@@ -1,0 +1,83 @@
+name: Executive Filings and Market Roster Watch
+# 수시 임원 공시(시장 전체 독립이사 선임·해임·중도퇴임 신고·대표이사 변경, 출입처 주총 소집공고 이사 후보)와 상장사 등기임원 명단 순환 조회 속
+# 출입처 임원 출신·주의 회사 출신 — 11-05 기자 요청(선배 매의눈의 롯데카드 전 대표 이사 등재 사례).
+# 매일 06:20·12:20·18:20 KST(Cloudflare 요청) + GitHub 예약 19:50 KST(대비용, 6시간 안 정시 요청 성공이면 건너뜀).
+# 코드가 바뀐 push는 저장하지 않고 요약만(이름 가림) 남긴다(격리 검증). 결과는 기자 전용 저장소(kr-exec-market)에만 — 공개 JSON 없음.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/kr_exec_market.py'
+      - 'tests/test_kr_exec_market.py'
+      - '.github/workflows/kr-exec-market.yml'
+  schedule:
+    - cron: '50 10 * * *'
+  workflow_dispatch:
+    inputs:
+      roster_budget:
+        description: '등기임원 명단 순환 조회 회사 수(비우면 400)'
+        required: false
+        default: ''
+      publish:
+        description: 'true면 기자 전용 저장소 갱신, false면 요약만'
+        required: false
+        default: 'true'
+permissions:
+  contents: read
+concurrency:
+  group: kr-exec-market
+  cancel-in-progress: false
+jobs:
+  late-cron-gate:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+    outputs:
+      run: ${{ steps.g.outputs.run }}
+    steps:
+      - id: g
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WF: kr-exec-market.yml
+        run: |
+          if [ "$GITHUB_EVENT_NAME" != "schedule" ]; then echo run=true >> "$GITHUB_OUTPUT"; exit 0; fi
+          since=$(date -u -d '-6 hours' +%Y-%m-%dT%H:%M:%SZ)
+          n=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$WF/runs?event=workflow_dispatch&created=%3E%3D$since&per_page=10" \
+                --jq '[.workflow_runs[] | select(.conclusion == "success")] | length' 2>/dev/null || echo 0)
+          if [ "${n:-0}" -gt 0 ]; then
+            echo "::notice title=late-cron::6시간 안 정시 요청 실행이 성공 — 늦게 온 GitHub 예약은 건너뜀"
+            echo run=false >> "$GITHUB_OUTPUT"
+          else
+            echo run=true >> "$GITHUB_OUTPUT"
+          fi
+  market:
+    needs: late-cron-gate
+    if: needs.late-cron-gate.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install API client
+        run: python -m pip install "requests>=2.31,<3"
+      - name: Test filing parsers and career rules
+        run: python -m unittest discover -s tests -p 'test_kr_exec_market.py' -v
+      - name: Read executive filings and market rosters (counts-only log)
+        env:
+          DART_API_KEY: ${{ secrets.DART_API_KEY }}
+          MCP_ACCESS_TOKEN: ${{ secrets.MCP_ACCESS_TOKEN }}
+          BUDGET: ${{ github.event.inputs.roster_budget }}
+          PUBLISH: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish != 'false') }}
+        run: |
+          args=()
+          [ -n "$BUDGET" ] && args+=(--roster-budget "$BUDGET")
+          if [ "$PUBLISH" = "true" ]; then
+            python scripts/kr_exec_market.py "${args[@]}"
+          else
+            python scripts/kr_exec_market.py --annotate-only --roster-budget 60 "${args[@]}"
+          fi
