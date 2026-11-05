@@ -334,6 +334,14 @@ class Runs(unittest.TestCase):
         self.assertIn("공정위 2020-06-01 제재: 과징금 15억8200만원 「(주) 한빛카드의 부당한 고객유인행위에 대한 건」(의결서 피심인 대표이사 칸 '김○○' — 성·글자 수 같음)", f["text"])
         self.assertEqual(calls, ["ftc:2020서경0001:0"])                                # 원문 요약은 한 번만
         self.assertEqual(again["counts"]["newEvents"], 0)
+        # 앞 실행엔 원문 요약이 없던 표시(글이 짧음) → 같은 항목을 고쳐 쓰고 '현재 근거'로 남긴다(새로 알리지 않음)
+        old = dict(doc)
+        old["events"] = [dict(e, text="짧은 예전 글", flags=[dict(e["flags"][0], text="예전 표시 글")]) for e in doc["events"]]
+        with patch.object(osn, "ftc_case_detail", lambda r, **kw: detail):
+            third = self.go(previous=old, web_get=lambda *a, **k: None)
+        ev = [e for e in third["events"] if e["kind"].startswith("공식 제재")]
+        self.assertEqual((len(ev), third["counts"]["newEvents"], ev[0]["reviewStatus"]), (1, 0, "active"))
+        self.assertIn("15억8200만원", ev[0]["text"])
 
     def test_tenure_from_sanctioned_company_rosters(self):
         from unittest.mock import patch
