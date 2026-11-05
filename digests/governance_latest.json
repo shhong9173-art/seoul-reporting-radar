@@ -1,7 +1,7 @@
 {
  "schema": "governance/v1",
- "generatedAt": "2026-11-05T07:43:53+09:00",
- "windowStart": "2026-10-06",
+ "generatedAt": "2026-11-06T07:40:59+09:00",
+ "windowStart": "2026-10-07",
  "windowDays": 30,
  "source": "OpenDART 지분공시 종합정보(majorstock·elestock)·주요사항보고서 자기주식 처분 결정(tsstkDpDecsn)",
  "status": "complete",
@@ -38,7 +38,7 @@
    "company": "기아",
    "endpoint": "elestock.json",
    "status": "checked",
-   "rowsReturned": 274,
+   "rowsReturned": 273,
    "rowsInWindow": 0
   },
   {
@@ -102,7 +102,7 @@
    "endpoint": "elestock.json",
    "status": "checked",
    "rowsReturned": 24,
-   "rowsInWindow": 7
+   "rowsInWindow": 6
   },
   {
    "company": "HL만도",
@@ -206,8 +206,8 @@
    "company": "포스코홀딩스",
    "endpoint": "elestock.json",
    "status": "checked",
-   "rowsReturned": 43,
-   "rowsInWindow": 0
+   "rowsReturned": 44,
+   "rowsInWindow": 1
   },
   {
    "company": "포스코홀딩스",
@@ -242,7 +242,7 @@
    "endpoint": "majorstock.json",
    "status": "checked",
    "rowsReturned": 9,
-   "rowsInWindow": 3
+   "rowsInWindow": 2
   },
   {
    "company": "KG스틸",
@@ -395,8 +395,8 @@
    "company": "HD현대일렉트릭",
    "endpoint": "elestock.json",
    "status": "checked",
-   "rowsReturned": 34,
-   "rowsInWindow": 0
+   "rowsReturned": 36,
+   "rowsInWindow": 2
   },
   {
    "company": "HD현대일렉트릭",
@@ -459,7 +459,7 @@
    "endpoint": "elestock.json",
    "status": "checked",
    "rowsReturned": 8,
-   "rowsInWindow": 1
+   "rowsInWindow": 0
   },
   {
    "company": "LS",
@@ -522,7 +522,7 @@
    "endpoint": "elestock.json",
    "status": "checked",
    "rowsReturned": 16,
-   "rowsInWindow": 3
+   "rowsInWindow": 2
   },
   {
    "company": "S-Oil",
@@ -606,7 +606,7 @@
    "endpoint": "elestock.json",
    "status": "checked",
    "rowsReturned": 15,
-   "rowsInWindow": 1
+   "rowsInWindow": 0
   },
   {
    "company": "OCI홀딩스",
@@ -726,7 +726,7 @@
  "dartSpellings": {
   "동성케미칼": "동성케미컬"
  },
- "count": 45,
+ "count": 43,
  "items": [
   {
    "company": "세아제강",
@@ -976,23 +976,52 @@
    "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261014000316"
   },
   {
-   "company": "KG스틸",
+   "company": "포스코홀딩스",
    "team": "철강·비철",
-   "kind": "대량보유(5%)",
-   "date": "2026-10-06",
-   "receiptNo": "20261006000389",
-   "reporter": "캑터스스페셜시츄에이션제1호",
-   "reportType": "일반",
-   "shares": 13496886.0,
-   "sharesChange": 13496886.0,
-   "ratio": 13.49,
-   "ratioChange": 13.49,
-   "reason": "KG에코솔루션과의 연명보고 제외에 따른 신규 보고",
-   "tags": [
-    "[지분율 +13.49%p]"
-   ],
-   "routine": false,
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261006000389"
+   "kind": "임원·주요주주",
+   "date": "2026-11-05",
+   "receiptNo": "20261105000168",
+   "reporter": "김준기",
+   "role": "등기임원 독립이사",
+   "shares": 510.0,
+   "sharesChange": 41.0,
+   "ratio": 0.0,
+   "ratioChange": 0.0,
+   "tags": [],
+   "routine": true,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261105000168"
+  },
+  {
+   "company": "HD현대일렉트릭",
+   "team": "전력·에너지",
+   "kind": "임원·주요주주",
+   "date": "2026-11-05",
+   "receiptNo": "20261105000139",
+   "reporter": "김선길",
+   "role": "비등기임원 상무",
+   "shares": 4000.0,
+   "sharesChange": 4000.0,
+   "ratio": 0.0,
+   "ratioChange": 0.0,
+   "tags": [],
+   "routine": true,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261105000139"
+  },
+  {
+   "company": "HD현대일렉트릭",
+   "team": "전력·에너지",
+   "kind": "임원·주요주주",
+   "date": "2026-11-05",
+   "receiptNo": "20261105000483",
+   "reporter": "김지홍",
+   "role": "비등기임원 상무",
+   "shares": 253.0,
+   "sharesChange": 253.0,
+   "ratio": 0.0,
+   "ratioChange": 0.0,
+   "tags": [],
+   "routine": true,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261105000483"
   },
   {
    "company": "OCI",
@@ -1464,70 +1493,6 @@
    "tags": [],
    "routine": true,
    "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261007000044"
-  },
-  {
-   "company": "HL만도",
-   "team": "자동차",
-   "kind": "임원·주요주주",
-   "date": "2026-10-06",
-   "receiptNo": "20261006000234",
-   "reporter": "국민연금공단",
-   "role": "10%이상주주",
-   "shares": 4958264.0,
-   "sharesChange": -20749.0,
-   "ratio": 10.56,
-   "ratioChange": -0.04,
-   "tags": [],
-   "routine": true,
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261006000234"
-  },
-  {
-   "company": "LS",
-   "team": "전력·에너지",
-   "kind": "임원·주요주주",
-   "date": "2026-10-06",
-   "receiptNo": "20261006000163",
-   "reporter": "국민연금공단",
-   "role": "10%이상주주",
-   "shares": 4195210.0,
-   "sharesChange": 271655.0,
-   "ratio": 13.45,
-   "ratioChange": 0.87,
-   "tags": [],
-   "routine": true,
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261006000163"
-  },
-  {
-   "company": "S-Oil",
-   "team": "전력·에너지",
-   "kind": "임원·주요주주",
-   "date": "2026-10-06",
-   "receiptNo": "20261006000181",
-   "reporter": "국민연금공단",
-   "role": "10%이상주주",
-   "shares": 11517537.0,
-   "sharesChange": 203349.0,
-   "ratio": 9.88,
-   "ratioChange": 0.18,
-   "tags": [],
-   "routine": true,
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261006000181"
-  },
-  {
-   "company": "OCI홀딩스",
-   "team": "화학·소재",
-   "kind": "임원·주요주주",
-   "date": "2026-10-06",
-   "receiptNo": "20261006000170",
-   "reporter": "국민연금공단",
-   "role": "10%이상주주",
-   "shares": 2348215.0,
-   "sharesChange": -125862.0,
-   "ratio": 12.58,
-   "ratioChange": -0.67,
-   "tags": [],
-   "routine": true,
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261006000170"
   }
  ],
  "rules": [
