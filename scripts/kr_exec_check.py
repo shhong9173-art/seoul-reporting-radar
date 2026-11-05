@@ -877,13 +877,26 @@ def run(key, *, now=None, previous=None, exec_doc=None, market_doc=None, get=Non
     events = {k: dict(v) for k, v in old_events.items()}
     fresh = 0
     first = not prev      # 첫 실행은 지금 표시 전부가 '새로' 생긴다 — 오늘의 레이더엔 올리지 않고(기준선) kr_signals 목록으로 본다
+    # 같은 사람·같은 종류 표시는 한 항목으로 고쳐 쓴다(11-05 실제: 공정위 원문 요약이 붙어 표시 글이 바뀌자 예전 항목은 '과거 기록',
+    # 새 항목은 [신규]로 다시 올라왔다). 등급이 A로 오를 때만 새로 알린다.
+    by_kind = {}
+    for k_, e_ in events.items():
+        by_kind.setdefault((e_.get("personId"), e_.get("kind")), k_)
     for p in people + cands:
         for f in p["flags"]:
             eid = "execc:" + hashlib.sha256(f"{p['id']}|{f['kind']}|{f['text'][:60]}".encode()).hexdigest()[:16]
+            if eid not in events and (p["id"], f["kind"]) in by_kind:
+                eid = by_kind[(p["id"], f["kind"])]
             if eid in events:
-                if f["kind"] == "과거 논란 기사":
-                    events[eid].update(tier=f["tier"], flags=[f])
-                    events[eid]["text"] = f"{p['company']} {p['name']} — {f['text']}"
+                e_ = events[eid]
+                up = f["tier"] == "A" and e_.get("tier") != "A"
+                e_.update(tier=f["tier"], flags=[f], kind=f["kind"],
+                          text=(f"{p['company']} {p['name']} — {f['text']}" if f["kind"] == "과거 논란 기사" else
+                                f"{p['company']} {p['ofcps']}({p['reg']}) {p['name']}{' ' + p['birth'] + '년생' if p['birth'] else ''} — {f['kind']}: {f['text']}"))
+                if up:
+                    e_["detectedAt"] = stamp
+                    e_.pop("baseline", None)
+                    fresh += 1
                 continue
             fresh += 1
             events[eid] = {"id": eid, "personId": p["id"], "tier": f["tier"], "kind": f["kind"], "company": p["company"], "detectedAt": stamp, "url": p["url"],
