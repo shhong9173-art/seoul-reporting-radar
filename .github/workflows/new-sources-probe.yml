@@ -1,0 +1,40 @@
+name: New Sources Probe (isolated, branch only)
+# 격리 탐색: 해외 낙찰·계약 공개 원천 형식(TED·세계은행·영국 FTS·USAspending·걸프 조달). 저장하지 않음. probe/ 브랜치 push에서만.
+on:
+  push:
+    branches: ['probe/new-sources']
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install "requests>=2.31,<3" pypdf openpyxl
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq tesseract-ocr poppler-utils >/dev/null
+      - env:
+          ASSEMBLY_API_KEY: ${{ secrets.ASSEMBLY_API_KEY }}
+          CENSUS_API_KEY: ${{ secrets.CENSUS_API_KEY }}
+          COURTLISTENER_TOKEN: ${{ secrets.COURTLISTENER_TOKEN }}
+          CUSTOMS_API_KEY: ${{ secrets.CUSTOMS_API_KEY }}
+          G2B_API_KEY: ${{ secrets.G2B_API_KEY }}
+          NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
+          NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
+          KEPCO_API_KEY: ${{ secrets.KEPCO_API_KEY }}
+          KR_FUEL_API_KEY: ${{ secrets.KR_FUEL_API_KEY }}
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
+          DART_API_KEY: ${{ secrets.DART_API_KEY }}
+          CLIK_API_KEY: ${{ secrets.CLIK_API_KEY }}
+          KIPRIS_SERVICE_KEY: ${{ secrets.KIPRIS_SERVICE_KEY }}
+          EUIPO_CLIENT_ID: ${{ secrets.EUIPO_CLIENT_ID }}
+          EUIPO_CLIENT_SECRET: ${{ secrets.EUIPO_CLIENT_SECRET }}
+        run: python scripts/probe/award_probe.py
+      - run: python scripts/probe/print_part.py 0
+      - run: python scripts/probe/print_part.py 1
+      - run: python scripts/probe/print_part.py 2
