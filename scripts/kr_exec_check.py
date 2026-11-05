@@ -361,14 +361,24 @@ def link_sanctions(people, state, *, web_get, budget, key=None, get=None, sleep=
                 strong = m["timing"] == "overlap" and bool(re.search(r"과징금|고발", r.get("inst") or ""))
             else:
                 det = details.get(r["id"])
+                if det and det.get("v") != osn.DETAIL_VERSION:
+                    det = None                               # 앞 판 요약(예전 공개안을 못 나눔)은 다시 연다
                 if det is None and m["timing"] == "overlap" and web_get is not None and used < budget:
                     det = osn.fss_detail(r, get=web_get)
                     used += 1
                     if det.get("status") == "ok":
                         details[r["id"]] = det
                 if det and det.get("status") == "ok":
-                    item.update(inst=det.get("inst"), exec=det.get("exec"), fact=det.get("fact"))
-                strong = m["timing"] == "overlap" and bool(det and det.get("execSanctioned"))
+                    item.update(inst=det.get("inst"), exec=det.get("exec"), fact=det.get("fact"),
+                                **({"violation": det["violation"]} if det.get("violation") else {}))
+                elif det:
+                    item["detail"] = det.get("status")
+                # 위반 기간이 재임 기간 밖(예: 전임 때 일을 재임 중에 제재)이면 무거운 처분이어도 B가 아니다
+                v = det.get("violation") if det else None
+                inside = not v or not (role.get("start") and role.get("end")) or (int(v[:4]) <= role["end"] and int(v[-7:-3]) >= role["start"])
+                if v and not inside:
+                    item["violationOutside"] = True
+                strong = m["timing"] == "overlap" and bool(det and det.get("execSanctioned")) and inside
             item["strong"] = strong
             out.append(item)
         # 시점 미확인은 회사·기관별 한 줄로(건수·첫·끝 날짜) — 11-05 실제: 기간 없는 '우리은행 은행장' 경력에 2026년 제재 3줄이 붙었다
@@ -393,7 +403,8 @@ def link_sanctions(people, state, *, web_get, budget, key=None, get=None, sleep=
                 period = f"{c['start'] or '?'}~{c['end'] or '?'}"
                 act = x.get("exec") and f"임원 {x['exec']}" or x.get("inst") or ""
                 where = f"사업보고서 임원 명단 {period}" if c.get("source") == "명단" else f"경력 칸 {period}"
-                return f"{c['org']} {c['role']}({where}) — {x['agency']} {x['date']} 제재: {x.get('what') + ' — ' if x.get('what') else ''}{act}"
+                viol = f"(위반 기간 {x['violation']})" if x.get("violation") else ""
+                return f"{c['org']} {c['role']}({where}) — {x['agency']} {x['date']} 제재{viol}: {x.get('what') + ' — ' if x.get('what') else ''}{act}"
             rec["flags"].append({"kind": "공식 제재: 재임 중 소속 회사 제재", "tier": "B",
                                  "text": " / ".join(line(x) for x in strong[:2])
                                          + " — 공개 기록엔 개인 이름이 없음. 그 사람이 제재·책임 대상이었는지와 재임 시점은 원문·회사 확인"})

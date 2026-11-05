@@ -1350,7 +1350,7 @@ async function execCheckSection(ctx, q, limit) {
       const career = c.source === '명단' ? `사업보고서 임원 명단 「${c.org ?? ''} ${c.role ?? ''} ${c.start}~${c.end}」` : `경력 「${c.org ?? ''} ${c.role ?? ''} ${c.start ?? '?'}~${c.end ?? '?'}」`;
       const absent = (c.rosterAbsent ?? []).length ? ` · 그 회사 연말 등기임원 명단(${c.rosterAbsent.join('·')})에 없음 — 미등기였거나 다른 시기` : '';
       if (x.count) out.push(`   공식 제재(C): ${x.agency} ${x.org} 제재 ${x.count}건(${x.first}~${x.last}) · ${career} 재임 기간 미확인${absent} — 기간이 겹치는 것만 의미 있음${x.url ? ` · ${x.url}` : ''}`);
-      else out.push(`   공식 제재${x.strong ? '' : '(C)'}: ${x.agency} ${x.date} ${x.org}${act ? ` — ${act}` : ''} · ${career} ${x.timing === 'overlap' ? '기간 겹침' : '시점 미확인'}${x.url ? ` · ${x.url}` : ''}`);
+      else out.push(`   공식 제재${x.strong ? '' : '(C)'}: ${x.agency} ${x.date} ${x.org}${act ? ` — ${act}` : ''}${x.violation ? ` · 위반 기간 ${x.violation}${x.violationOutside ? '(재임 기간 밖)' : ''}` : ''}${x.detail ? ` · 공개안 못 읽음(${x.detail})` : ''} · ${career} ${x.timing === 'overlap' ? '기간 겹침' : '시점 미확인'}${x.url ? ` · ${x.url}` : ''}`);
     }
     out.push(`   원문: ${p.url}`);
   }

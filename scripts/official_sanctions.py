@@ -124,20 +124,44 @@ def refresh_fss(state, *, get, now, backfill_pages=60, new_pages=5, pause=None):
 
 
 def fss_summary(pdf_text):
-    """'제재내용 공개안' 앞부분: 기관·임원·직원 조치와 제재대상사실 첫 줄. 사람 이름은 공개안에 없다."""
+    """'제재내용 공개안' 앞부분: 기관·임원·직원 조치와 제재대상사실 첫 줄. 사람 이름은 공개안에 없다(임원 ○명·甲).
+    탐침 185: 예전 공개안은 띄어쓰기 없이 붙는다('3.제재조치내용제재대상제재내용기관과태료1,800만원직원자율처리필요사항1건4.제재대상사실',
+    '…임원퇴직자위법․부당사항(문책경고상당)1명직원…'). '직권재심 공개안'은 '◦회사:기관경고 ◦임직원甲甲등11명:정직3월~주의' 꼴."""
     t = re.sub(r"[ \t]+", " ", pdf_text or "")
     flat = re.sub(r"\s*\n\s*", " / ", t)
-    body = flat[flat.find("제재조치내용"):] if "제재조치내용" in flat else flat   # '금융기관명'의 '기관'을 피한다
+    i = flat.find("제재조치내용")
+    j = re.search(r"4\s*\.\s*제\s*재\s*대\s*상\s*사\s*실", flat[i:]) if i >= 0 else None
+    sec = flat[i + len("제재조치내용"): i + j.start()] if i >= 0 and j else (flat[i + len("제재조치내용"):][:600] if i >= 0 else "")
+    sec = re.sub(r"^[\s/]*(?:제\s*재\s*대\s*상\s*/?\s*제\s*재\s*내\s*용|대\s*상\s*/?\s*내\s*용)", "", sec)
+    L = {"기관": r"기\s*관", "임원": r"임\s*원", "직원": r"직\s*원"}
 
     def part(label, nxt):
-        m = re.search(r"(?:^|[/\s])" + label + r"\s+(.*?)\s*(?:/\s*)?(?<![가-힣])" + nxt, body)
-        return re.sub(r"\s*/\s*", " ", m.group(1)).strip(" /")[:160] if m else None
-    inst = part(r"기\s*관", r"임\s*원")
-    exe = part(r"임\s*원", r"직\s*원")
-    fact = re.search(r"4\.\s*제재대상사실\s*/?\s*(.{0,200})", flat)
+        m = re.search(r"(?:^|[/\s]|(?<=[\d건명원월]))(?<!임)" + L[label] + r"(?!경고|주의)\s*(.*?)\s*(?:/\s*)?(?:(?<!임)" + "|(?<!임)".join(L[x] for x in nxt) + r"|$)", sec)
+        if not m:
+            return None
+        v = re.sub(r"\s*/\s*", " ", m.group(1)).strip(" /")
+        return v[:160] or None
+    inst = part("기관", ["임원", "직원"])
+    exe = part("임원", ["직원"])
+    if not sec:                                   # 직권재심 공개안
+        a = re.search(r"회\s*사\s*[:：]\s*([^◦□/]{2,60})", flat)
+        b = re.search(r"임\s*직\s*원[^:：]{0,20}[:：]\s*([^◦□/]{2,60})", flat)
+        inst, exe = (a.group(1).strip() if a else None), (b.group(1).strip() if b else None)
+    if exe:
+        exe = re.split(r"\d\s*\.\s*제\s*재", exe)[0].strip() or None
+    # 위반 기간: 제재대상사실의 'YYYY.M.D.∼YYYY.M.D. 기간중' 범위들 — 재임 전 일이면 그 사람 재임 중 제재가 아니다(재임 직후 제재 오탐 방지)
+    k = flat.find("제재대상사실")
+    rng = re.findall(r"((?:19|20)\d{2})\s*\.\s*(\d{1,2})\s*\.(?:\s*\d{1,2}\s*\.)?\s*[∼~\-–]\s*((?:19|20)\d{2})\s*\.\s*(\d{1,2})",
+                     flat[k:k + 6000] if k >= 0 else "")
+    viol = (min(f"{a_}-{int(b_):02d}" for a_, b_, _, _ in rng), max(f"{c_}-{int(d_):02d}" for _, _, c_, d_ in rng)) if rng else None
+    fact = re.search(r"4\s*\.\s*제\s*재\s*대\s*상\s*사\s*실\s*/?\s*(.{0,200})", flat)
     ceo = bool(re.search(r"(?:前|전|현)?\s*대표\s*이사|최고경영자|\bCEO\b|은행장", flat))
     return {"inst": inst, "exec": exe, "execSanctioned": bool(exe) and not re.match(r"해당\s*사항\s*없", exe or ""),
-            "ceoMentioned": ceo, "fact": re.sub(r"\s*/\s*", " ", fact.group(1)).strip()[:160] if fact else None}
+            "ceoMentioned": ceo, "fact": re.sub(r"\s*/\s*", " ", fact.group(1)).strip()[:160] if fact else None,
+            **({"violation": f"{viol[0]}~{viol[1]}"} if viol else {})}
+
+
+DETAIL_VERSION = 2       # 2: 띄어쓰기 없는 예전 공개안·직권재심·위반 기간(탐침 185) — 앞 판 요약은 다시 연다
 
 
 def fss_detail(row, *, get, read_pdf=None):
@@ -150,7 +174,7 @@ def fss_detail(row, *, get, read_pdf=None):
         p = get(urljoin("https://www.fss.or.kr/", hrefs[0].replace("&amp;", "&")), headers=UA, timeout=40)
         if getattr(p, "status_code", 200) != 200 or not p.content[:4] == b"%PDF":
             return {"status": "pdf_failed"}
-        return {"status": "ok", **fss_summary((read_pdf or pdf_text)(p.content, 3))}
+        return {"status": "ok", "v": DETAIL_VERSION, **fss_summary((read_pdf or pdf_text)(p.content, 3))}
     except Exception as e:
         return {"status": "failed", "error": type(e).__name__}
 

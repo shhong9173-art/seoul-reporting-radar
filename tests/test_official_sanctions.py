@@ -46,6 +46,17 @@ class Parse(unittest.TestCase):
         n = osn.fss_summary(PDF_NONE)
         self.assertFalse(n["execSanctioned"])
 
+    def test_fss_summary_old_formats_probe185(self):
+        old = ("- 1 - 제재내용공개안1.금융회사명:㈜한빛은행2.제재조치일:2022.11.9.3.제재조치내용제재대상제재내용기관업무의일부[신규업무]정지3월과태료76.6억원"
+               "임원퇴직자위법․부당사항(문책경고상당)1명직원감봉(3월)3명4.제재대상사실가.문책(1)사모펀드불완전판매 ◦한빛은행은2019.1.2.∼2019.8.7.기간중")
+        d = osn.fss_summary(old)
+        self.assertEqual((d["inst"], d["exec"], d["execSanctioned"], d["violation"]),
+                         ("업무의일부[신규업무]정지3월과태료76.6억원", "퇴직자위법․부당사항(문책경고상당)1명", True, "2019-01~2019-08"))
+        none = osn.fss_summary("제재내용공개안1.금융회사명:㈜한빛은행2.제재조치일:2021.2.5.3.제재조치내용제재대상제재내용기관과태료1,800만원직원자율처리필요사항1건4.제재대상사실가.")
+        self.assertEqual((none["inst"], none["exec"], none["execSanctioned"]), ("과태료1,800만원", None, False))
+        re_ = osn.fss_summary("직권재심 공개안Ⅰ.재심취지 … 1.제재개요□제재일자:2020.3.4.□제재대상자및제재종류 ◦회사:기관경고 ◦임직원甲甲등11명:정직3월~주의2.제재대상사실")
+        self.assertEqual((re_["inst"], re_["exec"]), ("기관경고", "정직3월~주의"))
+
     def test_pipc_rows(self):
         rows = osn.pipc_rows(PIPC)
         self.assertEqual([(r["org"], r["date"], r["major"]) for r in rows], [("한빛카드", "2024-03-18", True), ("서울오성티브이", "2024-03-18", True)])
