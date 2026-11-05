@@ -2904,7 +2904,8 @@ test('문제 임원 점검(kr-exec-check): radar_today A·B(단서 표시), kr_s
   sanc.people[0].flags.push(sflag);
   sanc.people[0].sanctions = [{ agency: '개인정보위', org: '한빛카드', date: '2022-03-18', what: '안전조치의무', inst: '과징금 7,088만원', timing: 'overlap', strong: true, url: 'https://www.pipc.go.kr/x',
     career: { org: '한빛카드', role: '대표이사', start: 2019, end: 2021 } },
-  { agency: '금감원', org: '오성증권㈜', date: '2015-01-01', timing: 'timing_unknown', strong: false, count: 3, first: '2013-02-01', last: '2015-01-01', url: 'https://www.fss.or.kr/y', career: { org: '오성증권', role: '사장', start: null, end: null } }];
+  { agency: '금감원', org: '오성증권㈜', date: '2015-01-01', timing: 'timing_unknown', strong: false, count: 3, first: '2013-02-01', last: '2015-01-01', url: 'https://www.fss.or.kr/y', career: { org: '오성증권', role: '사장', start: null, end: null, rosterAbsent: [2014, 2015] } },
+  { agency: '금감원', org: '한빛은행', date: '2021-03-01', timing: 'overlap', strong: false, inst: '기관주의', url: 'https://www.fss.or.kr/z', career: { org: '한빛은행', role: '은행장', start: 2020, end: 2021, source: '명단' } }];
   sanc.events.push({ id: 'execc:cccc', reviewStatus: 'active', tier: 'B', kind: sflag.kind, company: '현대차', detectedAt: now, url: 'https://dart.fss.or.kr/x1', person: { name: '김오래' }, flags: [sflag],
     text: `현대차 이사(사외이사) 김오래 1955년생 — ${sflag.kind}: ${sflag.text}` });
   await worker.fetch(new Request(ORIGIN + '/ingest/kr-exec-check', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(sanc) }), env, {});
@@ -2912,7 +2913,8 @@ test('문제 임원 점검(kr-exec-check): radar_today A·B(단서 표시), kr_s
   assert.deepEqual(sRadar.items.find((x) => x.id === 'execc:cccc').check.terms, ['김오래', '제재']);
   const sScreen = (await call('kr_signals', { section: 'exec', company: '김오래' }, opts)).text;
   assert.match(sScreen, /   공식 제재: 개인정보위 2022-03-18 한빛카드 — 안전조치의무 — 과징금 7,088만원 · 경력 「한빛카드 대표이사 2019~2021」 기간 겹침 · https:\/\/www\.pipc\.go\.kr\/x/);
-  assert.match(sScreen, /   공식 제재\(C\): 금감원 오성증권㈜ 제재 3건\(2013-02-01~2015-01-01\) · 경력 「오성증권 사장 \?~\?」 재임 기간 미확인/);
+  assert.match(sScreen, /   공식 제재\(C\): 금감원 오성증권㈜ 제재 3건\(2013-02-01~2015-01-01\) · 경력 「오성증권 사장 \?~\?」 재임 기간 미확인 · 그 회사 연말 등기임원 명단\(2014·2015\)에 없음/);
+  assert.match(sScreen, /   공식 제재\(C\): 금감원 2021-03-01 한빛은행 — 기관주의 · 사업보고서 임원 명단 「한빛은행 은행장 2020~2021」 기간 겹침/);
   for (const status of ['inactive', 'unconfirmed', undefined]) {
     const historical = { ...doc, events: doc.events.map((e) => ({ ...e, reviewStatus: status })) };
     await worker.fetch(new Request(ORIGIN + '/ingest/kr-exec-check', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(historical) }), env, {});
