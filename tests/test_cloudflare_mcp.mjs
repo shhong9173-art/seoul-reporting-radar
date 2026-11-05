@@ -2822,23 +2822,28 @@ test('수시 임원 공시·타사 임원 명단(kr-exec-market): radar_today A�
       { id: 'execm:20261104000229|appointed|김전무', tier: 'B', kind: '독립이사 선임', company: '부품사', beat: '현대차', source: '독립이사 신고', detectedAt: now,
         url: 'https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261104000229', text: '부품사 독립이사 선임 신고(2026-11-04 접수) — 김전무 1962년생 · 경력 「현대자동차 구매본부장(전무)」',
         person: { name: '김전무' }, flags: [{ kind: '출입처 출신', text: '경력 「현대자동차 구매본부장(전무)」 · 같은 업종 회사' }] },
-      { id: 'execm:00999009|202611012|x', tier: 'C', kind: '타사 등기임원', company: '작은회사', source: '임원 현황', detectedAt: now, url: 'https://dart.fss.or.kr/x', text: '작은회사 … 박작은', person: { name: '박작은' }, flags: [] }],
+      { id: 'execm:00999009|202611012|x', tier: 'C', kind: '타사 등기임원', company: '작은회사', source: '임원 현황', detectedAt: now, url: 'https://dart.fss.or.kr/x', text: '작은회사 … 박작은', person: { name: '박작은' }, flags: [] },
+      { id: 'execm:20260811000705|지난후보', tier: 'B', kind: '이사 후보', company: '고려아연', source: '주총 소집공고', detectedAt: now, baseline: true, filed: '2026-08-11',
+        url: 'https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260811000705', text: '고려아연 주총 소집공고(2026-08-11) 이사 후보 — 지난후보 1960년생 독립이사', person: { name: '지난후보' },
+        flags: [{ kind: '전관', text: '경력에 \'판사\'' }] }],
     rules: ['조회 실패·한도로 못 본 공시·회사는 0건이 아니라 미확인.'] };
   assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/kr-exec-market', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
   const r = await call('radar_today', {}, opts);
   assert.match(r.text.split('[A · ')[1].split('[B · ')[0], /수시 임원 공시·타사 임원 명단 · 현대차\n   현대차 주총 소집공고\(2026-02-25\) 이사 후보 — 이승조 1969년생 사내이사 〔표시: 부실기업 경영진 여부 칸/);
   assert.match(r.text, /수시 임원 공시·타사 임원 명단 · 부품사\n   부품사 독립이사 선임 신고/);
   assert.doesNotMatch(r.text, /박작은/);
+  assert.doesNotMatch(r.text, /지난후보/);                       // 지난 소집공고 되짚기 항목은 오늘의 레이더에 안 올림
   const radar = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
   const hit = radar.items.find((x) => x.id === 'execm:20261104000229|appointed|김전무');
   assert.deepEqual([hit.check.who, hit.check.terms, hit.check.must], ['부품사', ['김전무', '인사'], ['김전무']]);
   const k = await call('kr_signals', { section: 'exec' }, opts);
   assert.match(k.text, /\[임원 명단 변화\(정기보고서\)\] 아직 수집 전/);
-  assert.match(k.text, /\[수시 임원 공시·타사 임원 명단 · 확인 [^\]]+ · 최근 60일\] A 1 · B 1 · C 1\(C는 show_all=true 또는 company 낱말로\)/);
+  assert.match(k.text, /\[수시 임원 공시·타사 임원 명단 · 확인 [^\]]+ · 최근 60일\] A 1 · B 2 · C 1\(C는 show_all=true 또는 company 낱말로\)/);
   assert.match(k.text, /명단 순환 800\/4013곳 본 적 있음\(처음 본 회사는 기준선\)/);
   assert.match(k.text, /- \[신규\] B · [\d-]+ [\d:]+ · 부품사 · 독립이사 신고 독립이사 선임 · 출입처 현대차 출신\n   잡힌 사실: 부품사 독립이사 선임 신고/);
   assert.doesNotMatch(k.text, /박작은/);
   assert.match((await call('kr_signals', { section: 'exec', company: '박작은' }, opts)).text, /작은회사 … 박작은/);
+  assert.match(k.text, /- \[지난 공고·기준선\] B · [\d-]+ [\d:]+ · 고려아연 · 주총 소집공고 이사 후보/);
   assert.match(k.text, /\[출입처 출신 타사 등기임원 현황 · 명단 순환 800\/4013곳 기준\] 2명 — 현대차 1 · 포스코 1/);
   const ph = (await call('kr_signals', { section: 'exec', company: '포스코' }, opts)).text;
   assert.match(ph, /- 철강상사 · 정상무 1966년생 대표이사\(사내이사\) · 포스코 출신 · 경력 「포스코 마케팅본부 상무」/);

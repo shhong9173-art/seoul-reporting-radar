@@ -111,6 +111,26 @@ TITLE = re.compile(r"회장|부회장|사장|부사장|전무|상무보|상무|�
 SENIOR = re.compile(r"회장|사장|전무|대표|CEO|CFO|CTO|COO|CSO|사내이사")
 SEG = re.compile(r"[/ㆍ·•\n;|]|\s-\s|-(?=\s*[前現])|(?<=\S)\s*-(?=\s*\d)|(?<!~)(?<!~ )(?=\(?['’]\d{2}[.~)])|(?<![\d~])(?<!~ )(?=\d{4}\s*[.~년)])|(?=[前現]\s*\S)|(?=[전현]\s*\))|(?=\s[전현]\))")
 NONE = re.compile(r"^\s*(-|–|없음|없\s*음|해당\s*사항\s*없음|해당\s*없음|해당사항없음|N/?A|無|×|x|X|미해당|0)?\s*\.?\s*$")
+# 11-05 실제(고려아연 2026-08-11 소집공고): 결격 칸에 「결격사유 없음」 — 칸 이름 낱말 + '없음'도 없음이다. '있음'·내용이 적힌 칸만 남긴다.
+NONE_WORDS = re.compile(r"(?:결격\s*사유|결격|체납\s*사실|체납|부실\s*기업\s*경영진|부실기업|해당\s*사항|해당\s*사실|해당|사실|사유)?\s*"
+                        r"(?:없음|없습니다|없다|無|아님|아니오|아니요|미해당|해당\s*없음|해당\s*사항\s*없음)\s*\.?")
+
+
+def none_value(v):
+    t = str(v or "").strip()
+    return bool(NONE.match(t) or re.fullmatch(NONE_WORDS, t))
+
+
+def refresh_agm_flags(e):
+    """저장된 이사 후보 항목의 결격·부실 칸 표시를 지금 규칙으로 다시(값이 '결격사유 없음' 같은 줄은 뺀다). 등급도 다시."""
+    if e.get("kind") != "이사 후보":
+        return False
+    keep = [f for f in e.get("flags") or [] if not (f.get("kind") == "결격·부실 칸" and none_value((re.search(r"「(.*)」", f.get("text") or "") or [None, ""])[1]))]
+    if len(keep) == len(e.get("flags") or []):
+        return False
+    kinds = {f["kind"] for f in keep}
+    e["flags"], e["tier"] = keep, "A" if kinds & {"결격·부실 칸", "주의 회사 출신"} else "B" if kinds else "C"
+    return True
 
 
 # ---------- career rules ----------
@@ -505,7 +525,7 @@ def filings_part(key, now, beat_codes, watch, state, *, get, sleep, doc_budget, 
                       file=sys.stderr, flush=True)
             for p in parse_agm_candidates(text):
                 bad = [(lab, p.get(f)) for f, lab in (("insolvent", "부실기업 경영진 여부"), ("tax", "체납사실 여부"), ("disq", "법령상 결격 사유"))
-                       if p.get(f) and not NONE.match(p.get(f))]
+                       if p.get(f) and not none_value(p.get(f))]
                 flags = [{"kind": "결격·부실 칸", "text": f"{lab} 칸 「{v}」(회사 기재 그대로)"} for lab, v in bad]
                 flags += [f for f in [kx.owner_flag(p)] if f] + kx.career_flags(beat, p.get("career", "") + " " + p.get("job", ""), watch)
                 kinds = {f["kind"] for f in flags}
@@ -658,6 +678,9 @@ def run(key, *, now=None, previous=None, get=None, sleep=time.sleep, registry=No
             continue
         e["detectedAt"] = stamp
         new.append(e)
+    fixed = sum(refresh_agm_flags(e) for e in old.values())
+    if fixed:
+        checks.append({"source": "이사 후보 결격 칸 다시 판정", "status": "ok", "returned": fixed})
     keep = (now - dt.timedelta(days=KEEP_DAYS)).isoformat(timespec="seconds")
     events = [e for e in list(old.values()) + new if str(e.get("detectedAt", "")) >= keep]
     events.sort(key=lambda e: (e.get("detectedAt", ""), {"A": 0, "B": 1, "C": 2}.get(e.get("tier"), 3)), reverse=True)
