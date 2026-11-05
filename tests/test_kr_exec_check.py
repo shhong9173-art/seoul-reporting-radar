@@ -338,7 +338,7 @@ class Runs(unittest.TestCase):
             if "view.do" in url:
                 return W('<a href="/fss.hpdownload?path=/dtm/opn/&amp;file=x.pdf">x.pdf</a>')
             return W("" if ("list.do" in url or "selectBoard" in url) else "", content=b"%PDF-1.4")
-        pdf = "3. 제재조치내용 대상 내용 기 관 기관경고 임 원 문책경고 : 1명 직 원 등 견책 1명 4. 제재대상사실 前 대표이사 등은"
+        pdf = "3. 제재조치내용 대상 내용 기 관 기관경고 임 원 문책경고 : 1명 직 원 등 견책 1명 4. 제재대상사실 前 대표이사 등은 2020.3.1.∼2021.6.30. 기간중"
         table = {"한빛카드": [["00888001", ""]], "오성증권": [["00888002", "000002"]]}
         with patch.object(osn, "pdf_text", lambda raw, n=4: pdf):
             doc = self.go(previous=prev, web_get=web, table=table)
@@ -346,7 +346,7 @@ class Runs(unittest.TestCase):
         t = p["tenure"]
         self.assertEqual((t["한빛카드"]["years"], t["한빛카드"]["status"]), ([2020, 2021], "found"))
         f = next(f for f in p["flags"] if f["kind"] == "공식 제재: 재임 중 소속 회사 제재")
-        self.assertIn("한빛카드 대표이사(사업보고서 임원 명단 2020~2021) — 금감원 2021-10-26 제재: 임원 문책경고 : 1명", f["text"])
+        self.assertIn("한빛카드 대표이사(사업보고서 임원 명단 2020~2021) — 금감원 2021-10-26 제재(위반 기간 2020-03~2021-06): 임원 문책경고 : 1명", f["text"])
         self.assertFalse(any(x["date"] == "2015-03-01" for x in p["sanctions"]))      # 명단 기간 밖 제재는 빠진다
         o = next(x for x in p["sanctions"] if x["org"] == "오성증권㈜")
         self.assertEqual(o["career"].get("rosterAbsent"), [2023, 2024, 2025])           # 그 회사 명단에 없던 해 — 버리지 않고 C
@@ -354,6 +354,31 @@ class Runs(unittest.TestCase):
         again = self.go(previous=doc, web_get=web, table=table)                         # 확인한 해는 다시 열지 않는다
         self.assertNotIn("00888001", self.codes)
         self.assertEqual(again["counts"]["newEvents"], 0)
+
+    def test_violation_before_tenure_is_not_b(self):
+        from unittest.mock import patch
+        import official_sanctions as osn
+        body = self.data[("00164742", 2026, "11012")]
+        body["list"][1]["main_career"] = "(2020~2021) 한빛카드 대표이사"
+        prev = {"schema": kc.SCHEMA, "people": [], "events": [], "sanctions": {
+            "fss": {"done": True, "rows": {"fss:202100001-1": {"id": "fss:202100001-1", "org": "한빛카드주식회사", "date": "2021-10-26"}},
+                    "details": {"fss:202100001-1": {"status": "ok", "inst": "x", "exec": "y"}}}}}            # 앞 판 요약 — 다시 연다
+
+        class W:
+            def __init__(self, text="", content=b""):
+                self.text, self.content, self.status_code = text, content, 200
+
+        def web(url, **kw):
+            if "view.do" in url:
+                return W('<a href="/fss.hpdownload?path=/dtm/opn/&amp;file=x.pdf">x.pdf</a>')
+            return W("", content=b"%PDF-1.4")
+        pdf = "3.제재조치내용제재대상제재내용기관기관경고임원퇴직자위법부당사항(문책경고상당)1명직원감봉1명4.제재대상사실 ◦한빛카드는2016.1.4.∼2018.9.27.기간중"
+        with patch.object(osn, "pdf_text", lambda raw, n=4: pdf):
+            doc = self.go(previous=prev, web_get=web)
+        p = next(x for x in doc["people"] if x["name"] == "김오래")
+        self.assertFalse(any(f["kind"].startswith("공식 제재") for f in p["flags"]))       # 전임 때 일(2016~2018)을 재임 중(2021) 제재
+        x = p["sanctions"][0]
+        self.assertEqual((x["violation"], x.get("violationOutside"), x["strong"]), ("2016-01~2018-09", True, False))
 
     # ---- 겸직 명단 직접 대조(3호) ----
     def boards(self, first=("1955년 01월", "사외이사"), second=("1955년 01월", "감사")):
