@@ -198,6 +198,9 @@ def news_hits(items, name, anchors, *, skip_in_title=()):
     return out[:3]
 
 
+REUSABLE_BODY = ("context_linked", "context_unconfirmed", "outcome_requires_review")
+
+
 def body_url(hit):
     """본문 확인에 쓸 주소: 네이버 제휴 기사면 네이버 주소(본문 구조 하나), 아니면 원문 주소"""
     return hit.get("naverUrl") or hit.get("url")
@@ -539,7 +542,8 @@ def run(key, *, now=None, previous=None, exec_doc=None, market_doc=None, get=Non
                 h = dict(hit)  # Do not mutate the prior stored document.
                 prior = next((v.get("bodyReview") for v in old.get("news", []) if v.get("url") == h.get("url")), None) or {}
                 valid = prior.get("version") == ae.VERSION and prior.get("contextKey") == ae.context_key(p["name"], anchors) and prior.get("checkedAt", "") >= (now - dt.timedelta(days=1)).isoformat()
-                if valid and prior.get("status") != "budget_exhausted" and not REFRESH:
+                # 본문을 읽고 내린 판정만 하루 재사용 — 못 읽은 것(목록 밖·실패·한도)은 다음 실행에 다시 읽는다
+                if valid and prior.get("status") in REUSABLE_BODY and not REFRESH:
                     h["bodyReview"] = prior
                 else:
                     h["bodyReview"] = reviewer.review(body_url(h), p["name"], anchors,
