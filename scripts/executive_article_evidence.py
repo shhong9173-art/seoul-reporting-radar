@@ -5,8 +5,10 @@ navigation and whole-page text are never substitutes. Store a short excerpt + ha
 """
 from __future__ import annotations
 import hashlib
+import ipaddress
 import json
 import re
+import socket
 from html.parser import HTMLParser
 from urllib.parse import urlsplit, urljoin
 
@@ -25,11 +27,33 @@ OUTCOME = re.compile(r"무죄|무혐의|혐의\s*없|불기소|불송치|누명|
 ROLE = r"(?:전\s*|현\s*)?(?:대표(?:이사)?|회장|부회장|사장|부사장|이사|감사|장관|차관|교수|위원장|원장)"
 
 
-def allowed_url(url):
+def public_host(host, resolve=None):
+    """목록 밖 언론사(11-05 실제: 기사 23건 중 16건이 목록 밖이라 unsupported_source — 투데이신문·뉴스핌·노컷뉴스 등)는
+    이름이 공인 IP로만 풀릴 때 읽는다. IP 직접 입력·내부망·루프백·링크로컬·사설 주소는 막는다(요청할 때마다·리다이렉트마다 다시 본다)."""
+    host = (host or "").strip(".").lower()
+    if not host or "." not in host or host.endswith((".local", ".internal", ".localhost", ".test", ".invalid", ".example")):
+        return False
+    try:
+        ipaddress.ip_address(host)
+        return False
+    except ValueError:
+        pass
+    try:
+        infos = (resolve or socket.getaddrinfo)(host, 443, proto=socket.IPPROTO_TCP)
+        addrs = {str(i[4][0]).split("%")[0] for i in infos}
+        return bool(addrs) and all(ipaddress.ip_address(a).is_global for a in addrs)
+    except (OSError, ValueError, UnicodeError):
+        return False
+
+
+def allowed_url(url, resolve=None):
     try:
         u = urlsplit(url)
-        return (u.scheme in ("http", "https") and not u.username and not u.password
-                and u.port in (None, 80, 443) and any(u.hostname == h or (u.hostname or "").endswith("." + h) for h in HOSTS))
+        if not (u.scheme in ("http", "https") and not u.username and not u.password and u.port in (None, 80, 443)):
+            return False
+        if any(u.hostname == h or (u.hostname or "").endswith("." + h) for h in HOSTS):
+            return True
+        return public_host(u.hostname, resolve)
     except (ValueError, TypeError):
         return False
 
@@ -98,13 +122,13 @@ def extract_article(raw):
     return {"status": "ok", "body": body, "method": method} if len(body) >= 80 else {"status": "body_missing"}
 
 
-def fetch_article(url, *, get=None):
+def fetch_article(url, *, get=None, resolve=None):
     if get is None:
         import requests
         get = requests.get
     try:
         for _ in range(3):
-            if not allowed_url(url):
+            if not allowed_url(url, resolve):
                 return {"status": "unsupported_source"}
             with get(url, timeout=(4, 8), allow_redirects=False, stream=True,
                      headers={"User-Agent": "Mozilla/5.0 (compatible; ReporterEvidence/1.0)"}) as r:
