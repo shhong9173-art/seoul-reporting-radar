@@ -454,7 +454,9 @@ class Runs(unittest.TestCase):
             {"kind": "이사 후보", "company": "현대차", "detectedAt": "2026-11-01T06:20:00+09:00", "url": "agm1",
              "person": {"name": "신후보", "birth": "1960.05", "kind": "사외이사", "career": "現) 오성전자㈜ 사외이사 / 現) 한결화학 감사", "job": "변호사"}},
             {"kind": "이사 후보", "company": "현대차", "detectedAt": "2026-03-01T06:20:00+09:00", "url": "old",          # 120일 지난 후보는 안 본다
-             "person": {"name": "옛후보", "birth": "1950.01", "kind": "사외이사", "career": ""}}]}
+             "person": {"name": "옛후보", "birth": "1950.01", "kind": "사외이사", "career": ""}},
+            {"kind": "이사 후보", "company": "현대차", "detectedAt": "2026-11-05T06:20:00+09:00", "url": "back", "filed": "2026-03-02",  # 되짚기 — 접수일로 거른다
+             "baseline": True, "person": {"name": "되짚기옛", "birth": "1950.02", "kind": "사외이사", "career": ""}}]}
         self.data[("00999001", 2026, "11012")] = api("20260814000001", [("신후보", "1960년 05월", "이사", "사외이사", "", "2년")])
         self.data[("00999002", 2026, "11012")] = api("20260814000002", [("신후보", "1960년 05월", "감사", "감사", "", "1년")])
         table = {"오성전자": [["00999001", "111111"]], "한결화학": [["00999002", ""]]}
@@ -472,6 +474,17 @@ class Runs(unittest.TestCase):
         again = self.go(previous=doc, market_doc=market, table=table)
         self.assertEqual(again["counts"]["newEvents"], 0)
         self.assertTrue(all(e["reviewStatus"] == "active" for e in again["events"] if e["personId"].startswith("후보|")))
+        # 소집공고 되짚기로 읽은 지난 공고 후보: 점검·목록엔 넣되 표시는 기준선(오늘의 레이더·신규 수 X)
+        market["events"].append({"kind": "이사 후보", "company": "현대차", "detectedAt": "2026-11-05T06:20:00+09:00", "url": "back2", "filed": "2026-09-10",
+                                 "baseline": True, "person": {"name": "지난후보", "birth": "1961.02", "kind": "사외이사",
+                                                              "career": "現) 누리전자㈜ 사외이사 / 現) 누리화학 감사"}})
+        later = self.go(previous=again, market_doc=market, table=table)
+        past = next(x for x in later["candidates"] if x["name"] == "지난후보")
+        self.assertTrue(past["past"])
+        self.assertEqual(past["report"], "주총 소집공고 2026-09-10 (지난 공고 — 주총이 이미 끝났을 수 있음)")
+        self.assertTrue(past["flags"])
+        self.assertTrue(all(e.get("baseline") for e in later["events"] if "지난후보" in e["personId"]))
+        self.assertEqual(later["counts"]["newEvents"], 0)
 
     # ---- 겸직 명단 직접 대조(3호) ----
     def boards(self, first=("1955년 01월", "사외이사"), second=("1955년 01월", "감사")):

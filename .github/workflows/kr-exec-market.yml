@@ -22,6 +22,10 @@ on:
         description: 'true면 기자 전용 저장소 갱신, false면 요약만'
         required: false
         default: 'true'
+      agm_days:
+        description: '출입처 주총 소집공고 되짚기 일수(비우면 끔, 예: 120) — 지난 공고 후보는 기준선'
+        required: false
+        default: ''
 permissions:
   contents: read
 concurrency:
@@ -72,6 +76,7 @@ jobs:
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
           MCP_ACCESS_TOKEN: ${{ secrets.MCP_ACCESS_TOKEN }}
           BUDGET: ${{ github.event.inputs.roster_budget }}
+          KR_EXEC_AGM_DAYS: ${{ github.event.inputs.agm_days }}
           PUBLISH: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish != 'false') }}
         run: |
           args=()

@@ -987,7 +987,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
 
   // 수시 임원 공시·타사 임원 명단(kr-exec-market): A·B만. 회사는 공시 낸 회사(타사면 그 회사) — 기사엔 그 사람 이름이 있어야 같은 건
   for (const e of docs['kr-exec-market']?.events ?? []) {
-    if (!['A', 'B'].includes(e.tier) || !recent(e.detectedAt)) continue;
+    if (!['A', 'B'].includes(e.tier) || !recent(e.detectedAt) || e.baseline) continue;   // 지난 소집공고 되짚기 후보는 기준선
     const name = String(e.person?.name ?? '').trim();
     const flags = (e.flags ?? []).map((f) => f.text).filter(Boolean).join(' / ');
     push(e.tier, W['kr-exec-market'], { kind: `${e.source ?? '임원 공시'} · ${e.kind}`, id: e.id, date: e.detectedAt, company: e.company, url: e.url ?? undefined,
