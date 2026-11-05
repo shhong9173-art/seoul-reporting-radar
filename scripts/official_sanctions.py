@@ -260,29 +260,37 @@ ONLY_PERIOD = re.compile(r"[\s()\[\]\d.,~∼\-–'’년월현재現]+")
 
 def top_roles(career, segments, *, now):
     """경력 칸에서 '회사 + 최고 경영 직함' → [{org, role, start, end, current, seg}]. 기간을 못 읽으면 start/end None.
-    한 마디에 여러 자리가 붙어 있으면('KB자산운용 대표이사 사장 SK증권 대표이사 사장') 자리마다. 기간이 뒤 괄호로 따로 끊긴 마디('(2024~현재)')는 앞 자리에 붙인다."""
+    한 마디에 여러 자리가 붙어 있으면('…부문장 에스엘 독립이사KB자산운용 대표이사 사장 SK증권 대표이사 사장') 자리마다 따로 보고,
+    기간·현직 표시는 그 자리 몫의 글자(앞 자리 끝 ~ 다음 자리 앞)에서만 읽는다 — 11-05 실제: 마디 첫머리 '現)'를 뒤 자리들에도 붙여
+    'SK증권 대표이사 ?~2026'으로 읽었다. 기간이 뒤 괄호로 따로 끊긴 마디('(2024~현재)')는 마지막 자리에 붙인다."""
     out = []
     segs = segments(career)
     for i, seg in enumerate(segs):
         tail = segs[i + 1] if i + 1 < len(segs) and ONLY_PERIOD.fullmatch(segs[i + 1]) else ""
-        whole = seg + " " + tail if tail else seg
+        roles = list(TOP_ROLE.finditer(seg))
         prev = 0
-        for role in TOP_ROLE.finditer(seg):
-            pre = re.sub(r"^(?:[\s\-·ㆍ•()\[\]~∼\d.,년월'’]|現|前|現\)|前\)|현\s*\)|전\s*\)|\(현\)|\(전\)|현재)+", "", seg[prev:role.start()])
+        for j, role in enumerate(roles):
+            raw_pre = seg[prev:role.start()]
+            nxt = roles[j + 1].start() if j + 1 < len(roles) else len(seg)
+            own = raw_pre + seg[role.start():nxt] + (" " + tail if j + 1 == len(roles) and tail else "")
             prev = role.end()
+            pre = re.sub(r"^(?:[\s\-·ㆍ•()\[\]~∼\d.,년월'’]|現|前|現\)|前\)|현\s*\)|전\s*\)|\(현\)|\(전\)|현재)+", "", raw_pre)
             toks = re.findall(r"(?:㈜|\(주\))?[가-힣A-Za-z0-9&][가-힣A-Za-z0-9&\.\-]*(?:㈜|\(주\))?", pre)
-            toks = [t for t in toks if not re.fullmatch(r"전|현|前|現|겸|및|등|상임|비상임|비상근|상근|부문|그룹|이사|대표이사|대표", t)]
+            toks = [t for t in toks if not re.fullmatch(r"전|현|前|現|겸|및|등|상임|비상임|비상근|상근|부문|그룹|이사|대표이사|대표|사장|부사장", t)]
             if not toks:
                 continue
             org = re.sub(r"^(?:㈜|\(주\))|(?:㈜|\(주\))$", "", toks[-1])
             if len(org) < 2 or re.search(r"대학|학회|협회|재단|위원회|연구원|정부|부처|청$|법원|검찰|공단|공사$|법무법인|회계법인", org) \
                     or re.search(r"법무법인|회계법인|세무법인|학회|협회|대학교?\s*\S*$", pre[-30:]):
                 continue
-            years = _years(whole, now)
-            cur = bool(re.search(r"現|현\s*\)|\(현\)|현재|~\s*$|~\s*\)", whole))
+            years = _years(own, now)
+            # 현직: 이 자리 몫에 現·현재·열린 기간이 있거나, 마디 첫 자리이고 마디 머리에 現
+            cur = bool(re.search(r"現|현\s*\)|\(현\)|현재|~\s*$|~\s*\)", own)) or (j == 0 and bool(re.match(r"\s*[\(\[]?\s*(?:現|현\s*\))", seg)))
+            past = bool(re.search(r"前|전\s*\)|\(전\)", raw_pre)) or (j == 0 and bool(re.match(r"\s*[\(\[]?\s*(?:前|전\s*\))", seg)))
+            cur = cur and not past
             start = min(years) if years else None
-            end = now.year if cur else (max(years) if len(years) >= 2 else (start if start and not re.search(r"~|∼|-", whole) else None))
-            out.append({"org": org, "role": seg[role.start():role.end()], "start": start, "end": end, "current": cur, "seg": whole[:100]})
+            end = now.year if cur else (max(years) if len(years) >= 2 else (start if start and not re.search(r"~|∼|-", own) else None))
+            out.append({"org": org, "role": seg[role.start():role.end()], "start": start, "end": end, "current": cur, "seg": own.strip()[:100]})
     return out
 
 
