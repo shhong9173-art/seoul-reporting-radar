@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-11-05T07:46:19+09:00",
+  "generatedAt": "2026-11-05T11:53:13+09:00",
   "status": "reporter_evidence_queue_not_exclusive",
   "sourceCoverage": "partial_source_coverage_not_zero_news",
   "sourceHealth": {
     "officialEvents": {
       "status": "source_partial_coverage",
-      "generatedAt": "2026-11-05T02:59:17+09:00",
+      "generatedAt": "2026-11-05T07:46:22+09:00",
       "rows": 9,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false,
@@ -16,8 +16,8 @@
     },
     "dartBeat": {
       "status": "source_partial_coverage",
-      "generatedAt": "2026-11-05T07:45:29+09:00",
-      "rows": 73,
+      "generatedAt": "2026-11-05T11:52:24+09:00",
+      "rows": 74,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false,
       "uninspectedRelevantDetails": 0
@@ -31,35 +31,35 @@
     },
     "metrics": {
       "status": "source_snapshot_checked",
-      "generatedAt": "2026-11-05T00:21:11+09:00",
+      "generatedAt": "2026-11-05T11:50:58+09:00",
       "rows": 24,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false
     },
     "contracts": {
       "status": "source_snapshot_checked",
-      "generatedAt": "2026-11-04T08:11:43+09:00",
+      "generatedAt": "2026-11-05T08:11:51+09:00",
       "rows": 5,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false
     },
     "recentLedger": {
       "status": "source_snapshot_checked",
-      "generatedAt": "2026-11-04T08:11:30+09:00",
+      "generatedAt": "2026-11-05T08:11:37+09:00",
       "rows": 5,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false
     },
     "correctionHistory": {
       "status": "source_snapshot_checked",
-      "generatedAt": "2026-11-04T08:11:45+09:00",
+      "generatedAt": "2026-11-05T08:11:52+09:00",
       "rows": 3,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false
     }
   },
   "countsByEvidenceTier": {
-    "new_official_receipt_review": 9,
+    "new_official_receipt_review": 10,
     "new_official_list_heading_review": 0,
     "verified_historical_investment_delta": 3,
     "verified_historical_numeric_delta": 24,
@@ -71,13 +71,13 @@
     "recentFrom": "2026-11-03",
     "through": "2026-11-05"
   },
-  "checkedOfficialRecentCandidates": 9,
+  "checkedOfficialRecentCandidates": 10,
   "recentOfficialTitleOnlyCount": 0,
-  "todayOnlyCount": 9,
+  "todayOnlyCount": 10,
   "historicalResearchCount": 33,
   "unlinkedHistoryTextMatchCount": 1,
   "correctionHistorySourceGate": "reviewed_unlinked_candidates_only",
-  "totalRows": 42,
+  "totalRows": 43,
   "excluded": {
     "invalid_original_identity": 0,
     "old_and_not_relevant": 0,
@@ -88,6 +88,45 @@
   "approvedArticles": 0,
   "warning": "공식 발행일≠수집일, 투자 종료 예정월 변경≠실제 지연, 정정문 변경란≠원공시 대조, 보도 검색 0건≠미보도. 미수집/부분수집≠사건 0건.",
   "items": [
+    {
+      "id": "new_official_receipt_review:DART:20261105800225",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "씨에스윈드",
+      "title": "씨에스윈드 · WIND TOWER 공급계약 체결 (공시 원문)",
+      "officialDocumentDate": "2026-11-05",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 원문 표 확인: WIND TOWER 공급계약 체결 · 계약금액 79,736,125,834원 · 상대 Vestas American Wind Technology. 실제 외부 신규고객 수주·출하·매출 실현은 미확인.",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261105800225"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "동일 계약 보도 기사 전문·첫 공시 날짜 확인",
+        "공시 표상 계약상대·관계·금액·기간 확인",
+        "공개된 최종 고객 자료와 발행법인 구분",
+        "내부 공급망 변경·장래 매출은 추정하지 않음"
+      ],
+      "officialTableTermsRetrieved": true,
+      "verifiedOfficialTableFields": {
+        "contract_subject": "WIND TOWER 공급계약 체결",
+        "contract_amount": "79,736,125,834",
+        "counterparty": "Vestas American Wind Technology",
+        "supply_region": "미국",
+        "contract_start": "2026-11-05",
+        "contract_end": "2027-08-20"
+      },
+      "inGroupCounterpartyPerIssuerFiling": false,
+      "externalNewCustomerVerified": false,
+      "actualShipmentsVerified": false,
+      "pressIndexNoHitsIsNotNoCoverage": true,
+      "editorialPriority": "new_official_filing_manual_review"
+    },
     {
       "id": "new_official_receipt_review:DART:20261104800215",
       "tier": "new_official_receipt_review",
