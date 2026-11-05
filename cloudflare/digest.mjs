@@ -59,6 +59,9 @@ export const WATCHES = [
   { feed: 'dart-counterparty', label: '타사 공시 속 출입처(거래상대)', tool: 'kr_signals', schedule: '평일 10:50·13:50·16:50·19:50', staleHours: 80 },
   // 지분·자사주 변동(governance_watch.py, OpenDART 지분공시·자기주식 처분 결정): 임원 집단 보고·보유분 절반 넘는 임직원 보상 자사주 처분·매각 목적 처분 B
   { feed: 'governance', label: '지분·자사주 변동', tool: 'governance_changes', schedule: '평일 07:40' },
+  // 임원 명단 변화(kr_exec_watch.py, 11-05 기자 요청 — 선배 매의눈이 보고서 속 롯데카드 전 대표 이사 등재를 잡은 것처럼):
+  // 분기·반기·사업보고서 '임원 현황'을 바로 앞 보고서와 비교 — 오너 일가·주의 회사 출신·임기 중 빠짐·수시 인사 철 경쟁사 출신 영입 A
+  { feed: 'kr-exec', label: '임원 명단 변화(정기보고서)', tool: 'kr_signals', schedule: '평일 07:50·21:50', staleHours: 60 },
   // 해외 매체 기사 중 직접 출입처 이름이 나온 것(global_collector.py, 뉴스 수집 20분마다) — AI 번역·요약이라 원문 확인
   { feed: 'global-beat', label: '출입처 외신', tool: 'source_document', schedule: '20분마다', staleHours: 6 },
 ];
@@ -98,6 +101,8 @@ const ALT = {
   // 노동위 회의(kr-labor): 사건 종류 낱말 — 회사 이름과 함께 제목에 있어야 같은 사건 후보
   노동쟁의: ['쟁의', '파업', '조정 신청', '조정신청', '조정 중지', '조정중지', '노동위', '중노위', '지노위'],
   // 조정 회의 다음 날 결과 확인(11-04): 회의일 이후 기사만 센다(check.after) — 중지·성립·연장·파업권 낱말
+  // 임원 명단 변화(kr-exec): 사람 이름과 함께 인사 낱말 — 기사엔 그 사람 이름이 있어야 같은 건(must)
+  인사: ['인사', '영입', '선임', '승진', '퇴임', '사임', '물러', '교체', '발탁', '내정', '임원', '이사회'],
   '조정 결과': ['조정 중지', '조정중지', '조정 성립', '조정안', '조정 연장', '조정 결렬', '쟁의권', '파업권', '쟁의행위', '파업 찬반', '파업'],
   부당노동행위: ['부당노동행위', '노동위', '중노위', '지노위'], 교섭: ['교섭', '하청', '원청', '노란봉투'],
   부당해고: ['부당해고', '해고', '노동위', '중노위', '지노위'], 노동위: ['노동위', '중노위', '지노위', '노동위원회'],
@@ -961,6 +966,16 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
       fact: treasury ? `${x.company} 자기주식 처분 결정 — ${x.reason}${x.period && x.period !== '~' ? ` · 처분 기간 ${x.period}` : ''} ${(x.tags ?? []).join(' ')}`
         : `${x.company} ${x.reporter} 같은 날 지분 보고 — ${x.reason} ${(x.tags ?? []).join(' ')}`,
       check: hint(x.company, [treasury ? '자사주' : '임원']) });
+  }
+
+  // 임원 명단 변화(kr-exec): A·B만. 공개 정기보고서지만 '새로 보임'은 두 기준일 사이 변화일 뿐 — 선임일·영입 경위는 회사 확인
+  for (const e of docs['kr-exec']?.events ?? []) {
+    if (!['A', 'B'].includes(e.tier) || !recent(e.detectedAt)) continue;
+    const name = String(e.person?.name ?? '').trim();
+    const flags = (e.flags ?? []).map((f) => f.text).filter(Boolean).join(' / ');
+    push(e.tier, W['kr-exec'], { kind: `임원 ${e.kind}`, id: e.id, date: e.detectedAt, company: e.company, url: e.url ?? undefined,
+      fact: `${e.text}${flags ? ` 〔표시: ${flags}〕` : ''} (보고서 명단 비교 — 선임일·영입 경위·사유는 회사 확인)`,
+      check: name ? hint(e.company, [name, '인사'], [], [name]) : hint(e.company, ['인사', '감원']) });
   }
 
   // 지방의회 회의록: 출입처 이름 대목에 인허가·불법·위반·오염·민원·특혜·감면·증설·이전·폐쇄·야적 낱말 A(그 밖은 저장만). 의원 질의는 주장
