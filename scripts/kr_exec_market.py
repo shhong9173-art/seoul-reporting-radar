@@ -105,7 +105,7 @@ GROUP_NAMES = {
 TITLE = re.compile(r"회장|부회장|사장|부사장|전무|상무보|상무|대표|CEO|CFO|CTO|COO|CSO|CHRO|본부장|사업부장|연구소장|연구원장|센터장|법인장|"
                    r"사외이사|독립이사|기타비상무이사|사내이사|이사(?!회|장)")
 SENIOR = re.compile(r"회장|사장|전무|대표|CEO|CFO|CTO|COO|CSO|사내이사")
-SEG = re.compile(r"[/ㆍ·•\n;|]|\s-\s|(?=\(?['’]\d{2}[.~)])|(?<![\d~])(?=\d{4}\s*[.~년)])|(?=[前現전현]\s*\))|(?=\s[전현]\))")
+SEG = re.compile(r"[/ㆍ·•\n;|]|\s-\s|-(?=\s*[前現])|(?<=\S)\s*-(?=\s*\d)|(?=\(?['’]\d{2}[.~)])|(?<![\d~])(?=\d{4}\s*[.~년)])|(?=[前現]\s*\S)|(?=[전현]\s*\))|(?=\s[전현]\))")
 NONE = re.compile(r"^\s*(-|–|없음|없\s*음|해당\s*사항\s*없음|해당\s*없음|해당사항없음|N/?A|無|×|x|X|미해당|0)?\s*\.?\s*$")
 
 
@@ -126,16 +126,23 @@ def beat_origin(career):
             if not span or any(s <= span[0] < e for s, e in taken):
                 continue
             taken.append(span)
-            title = TITLE.search(seg[span[1]:span[1] + 30])
+            window = seg[span[1]:span[1] + 30]
+            # 다음 회사 이름(㈜·주식회사·다른 출입처) 앞에서 끊는다 — '포스코 구매센터장, 포스메이트 대표이사'의 '대표'는 포스코 직함이 아니다
+            cut = re.search(r"[,，]\s*\S+(㈜|\(주\)|주식회사)|[,，]\s*(前|現|전\)|현\))", window)
+            window = window[:cut.start()] if cut else window
+            title = TITLE.search(window)
             # '현대자동차 협력사 대표'·'포스코 납품업체 사장'은 그 회사 출신이 아니다
-            if not title or re.search(r"협력|납품|대리점|거래처|고객사|지정|1차|2차|벤더", seg[span[1]:span[1] + title.start()]):
+            if not title or re.search(r"협력|납품|대리점|거래처|고객사|지정|1차|2차|벤더", window[:title.start()]):
                 continue
             beat = BEAT_ALIAS[a]
             if (beat, seg) in seen:
                 continue
             seen.add((beat, seg))
-            out.append({"beat": beat, "alias": a, "text": seg[:120], "senior": bool(SENIOR.search(seg[span[1]:span[1] + 30]))
-                        and not re.search(r"사외이사|독립이사|비상무", seg[span[1]:span[1] + 30])})
+            # 고위 여부는 그 회사 바로 뒤 첫 직함만 본다
+            paren = re.match(r"\s*\(([^)]{0,12})\)", window[title.end():])      # '구매본부장(전무)'
+            first = title.group(0) + (" " + paren.group(1) if paren else "")
+            out.append({"beat": beat, "alias": a, "text": seg[:120],
+                        "senior": bool(SENIOR.search(first)) and not re.search(r"사외이사|독립이사|비상무", first)})
     return out
 
 
@@ -565,7 +572,7 @@ def roster_part(key, now, universe, watch, state, *, get, sleep, budget, ind_bud
         comps[code] = {"r": rcept, "p": period, "k": sorted(flagged), "t": today}
         # 출입처 출신 타사 등기임원 현황(기준선 포함 — 지금 어디 이사로 가 있나)
         alumni = state.setdefault("alumni", {})
-        rows_ = [{"company": name, "name": p["name"], "birth": kx.birth_key(p["birth"])[:4], "ofcps": kx.norm_ofcps(p["ofcps"]), "reg": p["reg"],
+        rows_ = [{"company": name, "name": re.sub(r"\s+", " ", p["name"]).strip(), "birth": kx.birth_key(p["birth"])[:4], "ofcps": kx.norm_ofcps(p["ofcps"]), "reg": p["reg"],
                   "beats": sorted({o["beat"] for o in origins}), "senior": any(o["senior"] for o in origins),
                   "text": " / ".join(o["text"] for o in origins[:2])[:160], "period": period, "rcept": rcept}
                  for p, hits, origins in flagged.values() if origins]
