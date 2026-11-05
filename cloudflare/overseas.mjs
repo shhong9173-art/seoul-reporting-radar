@@ -1313,6 +1313,7 @@ async function execCheckSection(ctx, q, limit) {
     ...(doc.rules ?? []).map((r) => `규칙: ${r}`)];
   for (const p of flagged.slice(0, limit)) {
     out.push(`- ${fresh.has(`${p.company}|${p.name}`) ? '[신규] ' : ''}${rank(p) === 0 ? 'A' : 'B'} · ${p.company} · ${p.name}${p.birth ? ` ${p.birth}년생` : ''} ${p.ofcps}(${p.reg}) · ${p.report}`);
+    if (p.newsStatus && !['ok', 'cached'].includes(p.newsStatus)) out.push('   기사 검색 미완료 — 아래 과거 기사로 현재 논란을 확인한 것은 아님');
     for (const f of p.flags) out.push(`   ${f.kind}: ${f.text}`);
     for (const h of (p.news ?? []).slice(0, 2)) out.push(`   기사: ${h.url}`);
     out.push(`   원문: ${p.url}`);
