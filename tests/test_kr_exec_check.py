@@ -69,6 +69,13 @@ class Rules(unittest.TestCase):
         self.assertTrue(kc.keep_title("허연수 책임론…GS리테일 정보 유출", "허연수"))
         self.assertFalse(kc.keep_title("[박재환 교수의 회계로 읽는 자본시장] 피싱과 분식회계", "박재환"))
 
+    def test_official_duty_quotes(self):
+        self.assertFalse(kc.keep_title('김현웅 법무부장관, 민노총 총파업 대회 예고에 "불법파업 책임 추궁할...', "김현웅"))
+        self.assertFalse(kc.keep_title("유영숙 환경부장관, 칠곡 고엽제 의혹 캠프캐럴 방문", "유영숙"))
+        self.assertTrue(kc.keep_title("박순애 교육부장관 후보자, '음주운전'에 '논문표절' 논란", "박순애"))       # 그 사람의 일
+        self.assertTrue(kc.keep_title("영풍·MBK “최윤범, 회사자금 유용 의혹에 직접 답해야”", "최윤범"))       # 남이 그 사람을 두고 한 말
+        self.assertTrue(kc.keep_title("GS리테일 166만명 정보 유출…전담조직도 없었다, 허연수·허서홍 책임은...", "허연수"))
+
     def test_news_hits(self):
         items = [{"title": "홍길동 전 한빛카드 대표, 해킹 사고 책임지고 사퇴", "text": "한빛카드 …", "date": "2025-12-10", "url": "u1"},
                  {"title": "현대차, 신차 출시", "text": "홍길동 사외이사 …", "date": "2026-01-01", "url": "u2"},
