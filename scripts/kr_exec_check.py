@@ -635,8 +635,8 @@ def run(key, *, now=None, previous=None, exec_doc=None, market_doc=None, get=Non
     # 공식 제재 기록(금감원·개인정보위): web_get이 없으면(시험) 앞 상태만 쓴다
     sanctions = dict(prev.get("sanctions") or {})
     if web_get is not None:
-        sanctions["fss"], c1 = osn.refresh_fss(sanctions.get("fss"), get=web_get, now=now)
-        sanctions["pipc"], c2 = osn.refresh_pipc(sanctions.get("pipc"), get=web_get, now=now)
+        sanctions["fss"], c1 = osn.refresh_fss(sanctions.get("fss"), get=web_get, now=now, pause=sleep)
+        sanctions["pipc"], c2 = osn.refresh_pipc(sanctions.get("pipc"), get=web_get, now=now, pause=sleep)
         checks += [c1, c2]
     checks.append(link_sanctions(people, sanctions, web_get=web_get, budget=SANCTION_DETAIL_BUDGET))
     if not table and conc["returned"] == 0 and any(d.get("status") == "unresolved" for p in people for d in p.get("directorChecks") or []):
@@ -713,8 +713,9 @@ def annotate(doc):
 
 
 def requests_get():
+    """공식 제재 원천용 — 세션(쿠키) 유지: 개인정보위 첨부는 글을 연 세션이라야 내려받힌다(탐침 181)."""
     import requests
-    return requests.get
+    return requests.Session().get
 
 
 def main():
@@ -766,7 +767,7 @@ def main():
         if k.get("source") == "기사 본문" and k.get("hosts"):
             print(f"::notice title=kr-exec-check-article-hosts::{json.dumps(k['hosts'], ensure_ascii=False)}")
         if k.get("source") in ("금감원 제재내용공개", "개인정보위 결과의 공표", "공식 제재 대조"):
-            print(f"::notice title=kr-exec-check-sanctions::{k['source']} · {k.get('status')} · " + json.dumps({x: k[x] for x in ("pages", "new", "rows", "backfillDone", "posts", "read", "matched", "detailsFetched", "records", "error") if x in k}, ensure_ascii=False))
+            print(f"::notice title=kr-exec-check-sanctions::{k['source']} · {k.get('status')} · " + json.dumps({x: k[x] for x in ("pages", "new", "rows", "backfillDone", "posts", "read", "outcomes", "matched", "detailsFetched", "records", "error") if x in k}, ensure_ascii=False))
         if k.get("source") == "겸직 명단 대조":
             print(f"::notice title=kr-exec-check-boards::조회 {k.get('returned')}회 · 회사 {k.get('companies')}곳 · {k.get('status')}{' · ' + k['error'] if k.get('error') else ''}")
     if not token:
