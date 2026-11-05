@@ -200,6 +200,35 @@ def person_id(company, p):
     return f"{company}|{kx.person_key(p)}"
 
 
+def complete_identity(p):
+    birth = kx.birth_key(p.get("birth"))
+    return bool(kx.name_key(p.get("name")) and re.fullmatch(r"(?:19|20)\d{2}(?:0[1-9]|1[0-2])", birth))
+
+
+def reconcile_events(events, people, checks, stamp):
+    """Keep history, but never keep withdrawn or unverified flags as live alerts."""
+    checked = {c["source"] for c in checks if c.get("status") == "ok"}
+    for e in events.values():
+        candidates = [p for p in people if (p["id"] == e.get("personId") if e.get("personId") else
+                      p["company"] == e.get("company") and p["name"] == (e.get("person") or {}).get("name")
+                      and p.get("birth") == (e.get("person") or {}).get("birth"))]
+        e["reviewedAt"] = stamp
+        e["reviewStatus"] = "unconfirmed"
+        e["reviewReason"] = "현재 명단·동일 인물 확인 부족"
+        if len(candidates) == 1:
+            p = candidates[0]
+            if e.get("kind") == "과거 논란 기사" and p.get("newsStatus") not in ("ok", "cached"):
+                e["reviewReason"] = "기사 재검색 미완료 — 과거 기록만 보존"
+                continue
+            active = any(f.get("kind") == e.get("kind") and f.get("text") == old.get("text")
+                         for f in p["flags"] for old in e.get("flags", []))
+            e["reviewStatus"] = "active" if active else "inactive"
+            e["reviewReason"] = "현재 근거 재확인" if active else "현재 규칙·근거에서 표시 제외(무혐의 판단 아님)"
+        elif not candidates and e.get("company") in checked:
+            e["reviewStatus"] = "inactive"
+            e["reviewReason"] = "현재 점검 명단에서 확인 안 됨(퇴임 확정 아님)"
+
+
 def market_index(market_doc):
     """kr-exec-market 명단 순환의 등기임원 키 해시 → [(회사, 기간)]"""
     idx = {}
@@ -271,9 +300,9 @@ def run(key, *, now=None, previous=None, exec_doc=None, market_doc=None, get=Non
                     rec["flags"].append({"kind": "법정 한도: 재직 6년 초과 가능", "tier": "A",
                                          "text": f"재직기간 칸 「{p.get('period')}」 → {months // 12}년 {months % 12}개월({kx.period_label(y, r)} 기준) — 상법 시행령 제34조⑤7호(같은 회사 6년 초과 결격). 연임 경위·계산 기준은 회사 확인"})
                 cur = current_directorships(p.get("career"), own)
-                others = sorted(kx.SHORT.get(o, o) for o, ks in beat_keys.items() if o != name and kx.person_key(p) in ks)
+                others = sorted(kx.SHORT.get(o, o) for o, ks in beat_keys.items() if complete_identity(p) and o != name and kx.person_key(p) in ks)
                 h = hashlib.sha256(kx.person_key(p).encode()).hexdigest()[:8]
-                listed = sorted({n_ for n_, _ in midx.get(h, [])} - {short, name} - set(others))
+                listed = sorted({n_ for n_, _ in midx.get(h, [])} - {short, name} - set(others)) if complete_identity(p) else []
                 filed = others + listed                     # 공시 명단으로 확인된 다른 회사 등기임원 자리
                 if len(filed) >= 2:
                     rec["flags"].append({"kind": "법정 한도: 다른 회사 이사·감사 2곳 이상 가능", "tier": "A",
@@ -293,7 +322,7 @@ def run(key, *, now=None, previous=None, exec_doc=None, market_doc=None, get=Non
             _internal = not (outside or re.search(r"기타\s*비상무", p["reg"] + p["ofcps"]))
             _latin = re.match(r"[A-Za-z]{2,}", short)
             rec["internal_skip"] = ([short, short[:3]] + own + ([_latin.group(0)] if _latin else [])) if _internal else ()
-            due = REFRESH or not old.get("newsAt") or old["newsAt"] < (now - dt.timedelta(days=RECHECK_DAYS)).isoformat()
+            due = REFRESH or old.get("newsStatus") not in ("ok", "cached") or not old.get("newsAt") or old["newsAt"] < (now - dt.timedelta(days=RECHECK_DAYS)).isoformat()
             if due and budget[0] > 0:
                 anchors_ = [short] + own[:3]      # 이름은 기준어가 아니다(동명이인 — 11-05: KG모빌리티 사외이사 ↔ 다른 박순애 기사)
                 internal = not (outside or re.search(r"기타\s*비상무", p["reg"] + p["ofcps"]))
@@ -304,30 +333,40 @@ def run(key, *, now=None, previous=None, exec_doc=None, market_doc=None, get=Non
                 org = main_org(p.get("career"), own) if not internal else None
                 if org:
                     queries.append((f"{p['name']} {org}", [org], ()))
-                hits, failed = [], False
+                hits, failed, completed = [], False, 0
                 queried += 1
                 for q, anchors, skip_t in queries:
                     if budget[0] <= 0:
+                        failed = True
                         break
                     budget[0] -= 1
-                    res = news(q)
+                    try:
+                        res = news(q)
+                    except Exception:
+                        res = {"status": "failed", "items": []}
                     sleep(PAUSE)
                     if res.get("status") != "ok":
                         failed = True
                         continue
+                    completed += 1
                     hits += news_hits(res.get("items") or [], p["name"], anchors, skip_in_title=skip_t)
-                if failed and not hits:
+                rec["newsStatus"] = "partial" if failed and completed else "failed" if failed else "ok"
+                rec["newsAttemptedAt"] = stamp
+                rec["newsQueriesCompleted"] = completed
+                rec["newsQueriesExpected"] = len(queries)
+                if failed:
                     news_fail += 1
-                    rec["news"], rec["newsAt"] = old.get("news") or [], old.get("newsAt")
+                    rec["news"], rec["newsAt"] = hits or old.get("news") or [], old.get("newsAt")
                 else:
                     seen = set()
                     rec["news"] = [h for h in hits if not (h["url"] in seen or seen.add(h["url"]))][:3]
                     rec["newsAt"] = stamp
             else:
                 rec["news"], rec["newsAt"] = old.get("news") or [], old.get("newsAt")
+                rec["newsStatus"] = "budget_exhausted" if due else "cached"
             rec["news"] = [h for h in rec.get("news") or [] if keep_title(h.get("title", ""), p["name"], rec.get("internal_skip") or ())]
             rec.pop("internal_skip", None)
-            if rec.get("news"):
+            if rec.get("news") and rec["newsStatus"] in ("ok", "cached"):
                 strong = any(h["strong"] for h in rec["news"])
                 rec["flags"].append({"kind": "과거 논란 기사", "tier": "A" if strong else "B",
                                      "text": " / ".join(f"「{h['title']}」({h.get('date') or '날짜 미상'}, '{h['word']}')" for h in rec["news"][:2])
@@ -337,7 +376,7 @@ def run(key, *, now=None, previous=None, exec_doc=None, market_doc=None, get=Non
     if news_fail:
         checks.append({"source": "네이버 뉴스", "status": "partial", "error": f"검색 실패 {news_fail}명(다음 실행 다시)"})
     if budget[0] <= 0:
-        checks.append({"source": "네이버 뉴스", "status": "partial", "pending": sum(1 for p in people if not p.get("newsAt")),
+        checks.append({"source": "네이버 뉴스", "status": "partial", "pending": sum(1 for p in people if p.get("newsStatus") not in ("ok", "cached")),
                        "error": "한 실행 검색 한도 — 남은 사람은 다음 실행"})
     events = dict(old_events)
     fresh = 0
@@ -348,10 +387,11 @@ def run(key, *, now=None, previous=None, exec_doc=None, market_doc=None, get=Non
             if eid in events:
                 continue
             fresh += 1
-            events[eid] = {"id": eid, "tier": f["tier"], "kind": f["kind"], "company": p["company"], "detectedAt": stamp, "url": p["url"],
+            events[eid] = {"id": eid, "personId": p["id"], "tier": f["tier"], "kind": f["kind"], "company": p["company"], "detectedAt": stamp, "url": p["url"],
                            **({"baseline": True} if first else {}),
                            "person": {"name": p["name"], "birth": p["birth"], "ofcps": p["ofcps"], "reg": p["reg"]}, "flags": [f],
                            "text": f"{p['company']} {p['ofcps']}({p['reg']}) {p['name']}{' ' + p['birth'] + '년생' if p['birth'] else ''} — {f['kind']}: {f['text']}"}
+    reconcile_events(events, people, checks, stamp)
     keep = (now - dt.timedelta(days=KEEP_DAYS)).isoformat(timespec="seconds")
     ev = sorted((e for e in events.values() if str(e.get("detectedAt", "")) >= keep),
                 key=lambda e: (e.get("detectedAt", ""), {"A": 0, "B": 1}.get(e.get("tier"), 2)), reverse=True)
@@ -362,6 +402,9 @@ def run(key, *, now=None, previous=None, exec_doc=None, market_doc=None, get=Non
         "schema": SCHEMA, "generatedAt": stamp, "status": status, "checks": checks, "people": people, "events": ev,
         "counts": {"people": len(people), "outside": sum(1 for p in people if OUTSIDE.search(p["reg"] + p["ofcps"])), "flagged": len(flagged),
                    "A": sum(1 for p in flagged if any(f["tier"] == "A" for f in p["flags"])), "newEvents": fresh,
+                   "activeEvents": sum(e.get("reviewStatus") == "active" for e in ev),
+                   "inactiveEvents": sum(e.get("reviewStatus") == "inactive" for e in ev),
+                   "unconfirmedEvents": sum(e.get("reviewStatus") == "unconfirmed" for e in ev),
                    "newsChecked": queried},
         "unresolvedCompanies": missing,
         "rules": [
@@ -432,12 +475,16 @@ def main():
         return
     c = doc["counts"]
     print(f"::notice title=kr-exec-check::점검 {c['people']}명(사외·독립 {c['outside']}) · 표시 {c['flagged']}명(A {c['A']}) · 새 항목 {c['newEvents']} · 기사 점검 {c['newsChecked']}명")
+    print(f"::notice title=kr-exec-check-review::현재 근거 {c['activeEvents']} · 과거 기록 {c['inactiveEvents']} · 재확인 필요 {c['unconfirmedEvents']}")
     if not token:
         print("::warning title=kr-exec-check-push::MCP_ACCESS_TOKEN 미설정 — 결과를 저장하지 않음")
         return
     if doc["status"] == "failed":
         sys.exit("임원 현황 조회 전체 실패 — 이전 결과 유지(0건 아님)")
-    print(f"::notice title=kr-exec-check-push::기자 전용 저장소 전송 HTTP {private_store.put('kr-exec-check', doc, token)}")
+    status = private_store.put('kr-exec-check', doc, token)
+    print(f"::notice title=kr-exec-check-push::기자 전용 저장소 전송 HTTP {status}")
+    if status != 200:
+        sys.exit("기자 전용 저장소 갱신 실패 — 운영 반영 미완료")
 
 
 if __name__ == "__main__":

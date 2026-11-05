@@ -151,6 +151,67 @@ class Runs(unittest.TestCase):
         doc2 = self.go()
         self.assertTrue(any(c["source"] == "네이버 뉴스" and "검색 실패" in c.get("error", "") for c in doc2["checks"]))
 
+    def test_incomplete_birth_cannot_confirm_other_boards(self):
+        import hashlib
+        for birth in ("", "1955", "1955년", "1955.13"):
+            body = self.data[("00164742", 2026, "11012")]
+            body["list"][1]["birth_ym"] = birth
+            h = hashlib.sha256(f"김오래|{kc.kx.birth_key(birth)}".encode()).hexdigest()[:8]
+            market = {"companies": {str(i): {"n": f"비교회사{i}", "p": "202611012", "dk": [h]} for i in range(2)}}
+            doc = self.go(market_doc=market)
+            flags = next(p["flags"] for p in doc["people"] if p["name"] == "김오래")
+            self.assertFalse(any(f["kind"].startswith("법정 한도: 다른 회사") for f in flags), birth)
+
+    def test_partial_search_keeps_last_complete_time_and_retries(self):
+        first = self.go()
+        from unittest.mock import patch
+        original = self.news
+        def partial(q):
+            return {"status": "failed", "items": []} if q == "김오래 현대차" else original(q)
+        self.news = partial
+        with patch.object(kc, "REFRESH", True):
+            doc = self.go(previous=first)
+        person = next(p for p in doc["people"] if p["name"] == "김오래")
+        self.assertEqual(person["newsStatus"], "partial")
+        self.assertEqual((person["newsQueriesCompleted"],person["newsQueriesExpected"]),(1,2))
+        self.assertFalse(any(f["kind"] == "과거 논란 기사" for f in person["flags"]))
+        self.assertTrue(any(c["source"] == "네이버 뉴스" and c["status"] == "partial" for c in doc["checks"]))
+        self.calls.clear()
+        self.go(previous=doc)
+        self.assertIn(("news", "김오래 한빛카드"), self.calls)
+        event = next(e for e in doc["events"] if e["kind"] == "과거 논란 기사")
+        self.assertEqual(event["reviewStatus"], "unconfirmed")
+
+    def test_budget_mid_person_is_not_a_complete_search(self):
+        doc = self.go(news_budget=2) # 정회장 1회, 김오래의 2개 질의 중 1회만
+        p = next(p for p in doc["people"] if p["name"] == "김오래")
+        self.assertEqual(p["newsStatus"], "partial")
+        self.assertIsNone(p["newsAt"])
+
+    def test_removed_flag_stays_history_but_not_live_event(self):
+        doc = self.go()
+        event = next(e for e in doc["events"] if e["kind"] == "과거 논란 기사")
+        for p in doc["people"]:
+            if p["name"] == "김오래":
+                p["news"] = [{"title": '[시론/김오래] 정보 유출 예방', "strong": True, "word": "유출", "url": "noise"}]
+        new = self.go(previous=doc)
+        old = next(e for e in new["events"] if e["id"] == event["id"])
+        self.assertEqual(old["reviewStatus"], "inactive")
+        self.assertEqual(old["detectedAt"], event["detectedAt"])
+
+    def test_failed_roster_does_not_resolve_old_flags(self):
+        doc = self.go()
+        self.get = lambda *a, **kw: (_ for _ in ()).throw(RuntimeError("unavailable"))
+        new = self.go(previous=doc)
+        self.assertTrue(new["events"])
+        self.assertTrue(all(e["reviewStatus"] == "unconfirmed" for e in new["events"]))
+
+    def test_legacy_ambiguous_person_is_not_reactivated(self):
+        event = {"id":"legacy", "company":"현대차", "person":{"name":"동명이인", "birth":"1960"}, "flags":[{"kind":"과거 논란 기사","text":"old"}]}
+        people = [dict(id=str(i),company="현대차",name="동명이인",birth="1960",flags=event["flags"],newsStatus="ok") for i in range(2)]
+        kc.reconcile_events({"legacy":event},people,[{"source":"현대차","status":"ok"}],NOW.isoformat())
+        self.assertEqual(event["reviewStatus"],"unconfirmed")
+
 
 if __name__ == "__main__":
     unittest.main()

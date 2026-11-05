@@ -2858,9 +2858,9 @@ test('문제 임원 점검(kr-exec-check): radar_today A·B(단서 표시), kr_s
       { id: '기아|박논란|196001', company: '기아', name: '박논란', birth: '1960', ofcps: '사장', reg: '미등기', report: '2026년 반기(6-30 기준)', url: 'https://dart.fss.or.kr/x2', flags: [news],
         news: [{ title: '한빛카드, 소송 휘말려', url: 'https://news.example/1', date: '2025-01-02' }] },
       { id: '기아|이무탈|197001', company: '기아', name: '이무탈', birth: '1970', ofcps: '이사', reg: '사외이사', report: '2026년 반기(6-30 기준)', url: 'https://dart.fss.or.kr/x3', flags: [], news: [] }],
-    events: [{ id: 'execc:aaaa', tier: 'A', kind: flag6.kind, company: '현대차', detectedAt: now, url: 'https://dart.fss.or.kr/x1', person: { name: '김오래' }, flags: [flag6],
+    events: [{ id: 'execc:aaaa', reviewStatus: 'active', tier: 'A', kind: flag6.kind, company: '현대차', detectedAt: now, url: 'https://dart.fss.or.kr/x1', person: { name: '김오래' }, flags: [flag6],
       text: `현대차 이사(사외이사) 김오래 1955년생 — ${flag6.kind}: ${flag6.text}` },
-    { id: 'execc:bbbb', tier: 'B', kind: news.kind, company: '기아', detectedAt: now, url: 'https://dart.fss.or.kr/x2', person: { name: '박논란' }, flags: [news],
+    { id: 'execc:bbbb', reviewStatus: 'active', tier: 'B', kind: news.kind, company: '기아', detectedAt: now, url: 'https://dart.fss.or.kr/x2', person: { name: '박논란' }, flags: [news],
       text: `기아 사장(미등기) 박논란 1960년생 — ${news.kind}: ${news.text}` }],
     rules: ['표시는 확인할 단서지 판정이 아니다.'] };
   assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/kr-exec-check', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
@@ -2875,6 +2875,14 @@ test('문제 임원 점검(kr-exec-check): radar_today A·B(단서 표시), kr_s
   assert.match(k.text, /- \[신규\] B · 기아 · 박논란 1960년생 사장\(미등기\)[^\n]*\n   과거 논란 기사: [^\n]+\n   기사: https:\/\/news\.example\/1/);
   assert.doesNotMatch(k.text, /이무탈/);
   assert.doesNotMatch((await call('kr_signals', { section: 'exec', company: '현대차' }, opts)).text, /박논란/);
+  for (const status of ['inactive', 'unconfirmed', undefined]) {
+    const historical = { ...doc, events: doc.events.map((e) => ({ ...e, reviewStatus: status })) };
+    await worker.fetch(new Request(ORIGIN + '/ingest/kr-exec-check', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(historical) }), env, {});
+    const hidden = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
+    assert(!hidden.items.some((x) => x.id.startsWith('execc:')), `historical ${status} must not reappear`);
+    const screen = await call('radar_today', {}, opts);
+    assert.doesNotMatch(screen.text, /김오래|박논란/);
+  }
 });
 
 test('타사 공시 속 출입처(dart-counterparty): radar_today A·대조 낱말(상대 회사 필수), kr_signals counterparty 구역·같은 그룹 접음', async () => {
