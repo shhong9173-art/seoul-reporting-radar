@@ -47,6 +47,10 @@ class Parse(unittest.TestCase):
         self.assertIn("한빛카드㈜ 前 대표이사 등은", s["ceoText"])             # 제재대상사실 속 앞뒤 원문
         n = osn.fss_summary(PDF_NONE)
         self.assertFalse(n["execSanctioned"])
+        for v in ("-", " – ", "해당사항 없음", "해당사항없음", "없음", None, ""):           # 탐침 191: 2025년 공개안 임원 칸 「-」
+            self.assertFalse(osn.exec_sanctioned(v), v)
+        for v in ("주의적 경고 : 2명", "퇴직자 위법･부당사항 통보(문책경고상당) : 1명", "정직3월~주의"):
+            self.assertTrue(osn.exec_sanctioned(v), v)
         self.assertFalse(n["ceoMentioned"])
         # 제재대상사실 밖(머리·주소 칸)의 '대표이사'는 언급으로 치지 않는다
         head = osn.fss_summary("제재내용 공개안 1. 금융기관명 : 한빛카드㈜(대표이사 갑) 3. 제재조치내용 기 관 과태료 1,800만원 4. 제재대상사실 가. 직원 甲은 2019.1.2.∼2019.3.4. 기간중")

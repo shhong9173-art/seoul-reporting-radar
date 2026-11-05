@@ -409,7 +409,7 @@ def link_sanctions(people, state, *, web_get, budget, key=None, get=None, sleep=
                 inside = not v or not (role.get("start") and role.get("end")) or (int(v[:4]) <= role["end"] and int(v[-7:-3]) >= role["start"])
                 if v and not inside:
                     item["violationOutside"] = True
-                strong = m["timing"] == "overlap" and bool(det and det.get("execSanctioned")) and inside
+                strong = m["timing"] == "overlap" and bool(det and osn.exec_sanctioned(det.get("exec"))) and inside   # 저장된 요약도 지금 규칙으로
             # 취임 전 제재: 재직기간 칸의 시작 달보다 제재일이 앞서면(같은 해라도) 그 사람 재임 중 제재가 아니다
             if role.get("since") and r["date"] < role["since"]:           # 같은 달인데 날을 모르면(YYYY-MM) 앞이라고 하지 않는다
                 item["beforeTenure"] = True

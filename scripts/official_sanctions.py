@@ -165,10 +165,16 @@ def fss_summary(pdf_text):
     if cm:
         a_, b_ = max(0, cm.start() - 45), min(len(facts), cm.end() + 70)
         ceo_text = ("…" if a_ else "") + facts[a_:b_].strip() + ("…" if b_ < len(facts) else "")
-    return {"inst": inst, "exec": exe, "execSanctioned": bool(exe) and not re.match(r"해당\s*사항\s*없", exe or ""),
+    return {"inst": inst, "exec": exe, "execSanctioned": exec_sanctioned(exe),
             "ceoMentioned": bool(cm), "fact": re.sub(r"\s*/\s*", " ", fact.group(1)).strip()[:160] if fact else None,
             **({"ceoText": ceo_text, "ceoWord": re.sub(r"\s+", "", cm.group(0))} if cm else {}),
             **({"violation": f"{viol[0]}~{viol[1]}"} if viol else {})}
+
+
+def exec_sanctioned(exe):
+    """임원 칸에 조치가 적혔나. 탐침 191: 2025년 공개안 여럿이 임원 칸 「-」 — 조치 없음이다(예전엔 있음으로 셌다)."""
+    t = (exe or "").strip()
+    return bool(t) and not re.fullmatch(r"[-–―ㅡ\s.]*|(?:해당\s*사항|해당)?\s*없\s*음.*|무", t) and not re.match(r"해당\s*사항\s*없", t)
 
 
 # 제재대상사실 속 최고 경영자 낱말. '부사장'·'대표이사 직무대행' 앞뒤도 대표 자리라 남기되 '대표이사의 지시를 받은 직원' 같은 줄도 걸린다 — 근거 줄로만 쓴다.

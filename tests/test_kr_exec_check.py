@@ -315,6 +315,13 @@ class Runs(unittest.TestCase):
         again = self.go(previous=doc)                                                 # web_get 없음 → 앞 상태·공개안 요약 재사용
         self.assertTrue(any(f["kind"].startswith("공식 제재") for x in again["people"] if x["name"] == "김오래" for f in x["flags"]))
         self.assertEqual(again["counts"]["newEvents"], 0)
+        # 저장된 요약이 임원 칸 「-」(탐침 191)인데 예전 규칙으로 execSanctioned=True — 지금 규칙으로 다시 보면 무거운 처분이 아니다
+        dash = dict(doc)
+        dash["sanctions"] = {**doc["sanctions"], "fss": {**doc["sanctions"]["fss"], "details": {
+            "fss:202100001-1": {"status": "ok", "v": osn.DETAIL_VERSION, "inst": "기관주의", "exec": "-", "execSanctioned": True}}}}
+        third = self.go(previous=dash)
+        x = next(x for p_ in third["people"] if p_["name"] == "김오래" for x in p_["sanctions"] if x["agency"] == "금감원" and x.get("timing") == "overlap")
+        self.assertFalse(x["strong"])
 
     def test_ftc_case_detail_attached_to_b(self):
         from unittest.mock import patch
