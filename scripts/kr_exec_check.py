@@ -305,13 +305,18 @@ def confirm_tenure(rec, roles, found, birth, *, key, get, sleep, idx_fn, now, ol
                 m_, _row = roster_match(api, {"name": rec["name"], "birth": birth})
                 if m_ == "confirmed":
                     t["years"].append(y)
+                    # 재직기간 칸('2020.03.24~')의 시작 달 — 연도만으로는 취임 전 제재(같은 해 3월 이전)를 못 가린다
+                    ym = re.search(r"((?:19|20)\d{2})\s*[.\-년]\s*(\d{1,2})(?:\s*[.\-월]\s*(\d{1,2}))?", str((_row or {}).get("period") or ""))
+                    if ym:
+                        since = f"{ym.group(1)}-{int(ym.group(2)):02d}" + (f"-{int(ym.group(3)):02d}" if ym.group(3) else "")
+                        t["since"] = min(t.get("since") or since, since)
         t["code"] = code
         t["years"], t["checked"] = sorted(set(t["years"])), sorted(set(t["checked"]))
         if t.get("status") not in ("budget", "failed"):
             t["status"] = "found" if t["years"] else ("absent" if t.get("reports") else "no_report")
         tenure[k] = t
         if t["years"]:
-            role.update(start=min(t["years"]), end=max(t["years"]), source="명단")
+            role.update(start=min(t["years"]), end=max(t["years"]), source="명단", **({"since": t["since"]} if t.get("since") else {}))
         elif t["status"] == "absent":
             role["rosterAbsent"] = sorted(set(t.get("reports") or []))
     return tenure
@@ -352,6 +357,7 @@ def link_sanctions(people, state, *, web_get, budget, key=None, get=None, sleep=
             item = {"agency": r["agency"], "org": r["org"], "date": r["date"], "url": r.get("url"), "timing": m["timing"],
                     "career": {**{k: role[k] for k in ("org", "role", "start", "end")},
                                **({"source": role["source"]} if role.get("source") else {}),
+                               **({"since": role["since"]} if role.get("since") else {}),
                                **({"rosterAbsent": role["rosterAbsent"]} if role.get("rosterAbsent") else {})}}
             if r["agency"] == "개인정보위":
                 item.update(what=r.get("what"), inst=r.get("inst"))
@@ -379,6 +385,10 @@ def link_sanctions(people, state, *, web_get, budget, key=None, get=None, sleep=
                 if v and not inside:
                     item["violationOutside"] = True
                 strong = m["timing"] == "overlap" and bool(det and det.get("execSanctioned")) and inside
+            # 취임 전 제재: 재직기간 칸의 시작 달보다 제재일이 앞서면(같은 해라도) 그 사람 재임 중 제재가 아니다
+            if role.get("since") and r["date"] < role["since"]:           # 같은 달인데 날을 모르면(YYYY-MM) 앞이라고 하지 않는다
+                item["beforeTenure"] = True
+                strong = False
             item["strong"] = strong
             out.append(item)
         # 시점 미확인은 회사·기관별 한 줄로(건수·첫·끝 날짜) — 11-05 실제: 기간 없는 '우리은행 은행장' 경력에 2026년 제재 3줄이 붙었다
@@ -402,7 +412,7 @@ def link_sanctions(people, state, *, web_get, budget, key=None, get=None, sleep=
                 c = x["career"]
                 period = f"{c['start'] or '?'}~{c['end'] or '?'}"
                 act = x.get("exec") and f"임원 {x['exec']}" or x.get("inst") or ""
-                where = f"사업보고서 임원 명단 {period}" if c.get("source") == "명단" else f"경력 칸 {period}"
+                where = (f"사업보고서 임원 명단 {period}" + (f", 재직 {c['since']}~" if c.get("since") else "")) if c.get("source") == "명단" else f"경력 칸 {period}"
                 viol = f"(위반 기간 {x['violation']})" if x.get("violation") else ""
                 return f"{c['org']} {c['role']}({where}) — {x['agency']} {x['date']} 제재{viol}: {x.get('what') + ' — ' if x.get('what') else ''}{act}"
             rec["flags"].append({"kind": "공식 제재: 재임 중 소속 회사 제재", "tier": "B",

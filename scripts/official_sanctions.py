@@ -136,7 +136,7 @@ def fss_summary(pdf_text):
     L = {"기관": r"기\s*관", "임원": r"임\s*원", "직원": r"직\s*원"}
 
     def part(label, nxt):
-        m = re.search(r"(?:^|[/\s]|(?<=[\d건명원월]))(?<!임)" + L[label] + r"(?!경고|주의)\s*(.*?)\s*(?:/\s*)?(?:(?<!임)" + "|(?<!임)".join(L[x] for x in nxt) + r"|$)", sec)
+        m = re.search(r"(?<!임)" + L[label] + r"(?!경고|주의)\s*(.*?)\s*(?:/\s*)?(?:(?<!임)" + "|(?<!임)".join(L[x] for x in nxt) + r"|$)", sec)
         if not m:
             return None
         v = re.sub(r"\s*/\s*", " ", m.group(1)).strip(" /")
@@ -161,7 +161,7 @@ def fss_summary(pdf_text):
             **({"violation": f"{viol[0]}~{viol[1]}"} if viol else {})}
 
 
-DETAIL_VERSION = 2       # 2: 띄어쓰기 없는 예전 공개안·직권재심·위반 기간(탐침 185) — 앞 판 요약은 다시 연다
+DETAIL_VERSION = 3       # 2: 띄어쓰기 없는 예전 공개안·직권재심·위반 기간(탐침 185), 3: 「…기관경고임원…」처럼 앞 글자에 붙은 칸 — 앞 판 요약은 다시 연다
 
 
 def fss_detail(row, *, get, read_pdf=None):

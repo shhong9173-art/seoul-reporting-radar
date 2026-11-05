@@ -380,6 +380,35 @@ class Runs(unittest.TestCase):
         x = p["sanctions"][0]
         self.assertEqual((x["violation"], x.get("violationOutside"), x["strong"]), ("2016-01~2018-09", True, False))
 
+    def test_sanction_before_tenure_month_is_not_b(self):
+        from unittest.mock import patch
+        import official_sanctions as osn
+        body = self.data[("00164742", 2026, "11012")]
+        body["list"][1]["main_career"] = "前) 한빛은행 은행장"
+        for y in (2020, 2021):
+            self.data[("00888003", y, "11011")] = api(f"{y + 1}0315000003", [("김오래", "1955년 01월", "은행장", "사내이사", "", "2020.03.24~")])
+        prev = {"schema": kc.SCHEMA, "people": [], "events": [], "sanctions": {
+            "fss": {"done": True, "rows": {"fss:201900001-1": {"id": "fss:201900001-1", "org": "한빛은행", "date": "2020-03-04"},
+                                           "fss:201900002-1": {"id": "fss:201900002-1", "org": "한빛은행", "date": "2020-07-08"}}}}}
+
+        class W:
+            def __init__(self, text="", content=b""):
+                self.text, self.content, self.status_code = text, content, 200
+
+        def web(url, **kw):
+            return W('<a href="/fss.hpdownload?path=/dtm/opn/&amp;file=x.pdf">x.pdf</a>') if "view.do" in url else W("", content=b"%PDF-1.4")
+        pdf = "3.제재조치내용제재대상제재내용기관기관경고임원문책경고1명직원감봉1명4.제재대상사실"
+        with patch.object(osn, "pdf_text", lambda raw, n=4: pdf):
+            doc = self.go(previous=prev, web_get=web, table={"한빛은행": [["00888003", ""]]})
+        p = next(x for x in doc["people"] if x["name"] == "김오래")
+        self.assertEqual(p["tenure"]["한빛은행"]["since"], "2020-03-24")
+        by = {x["date"]: x for x in p["sanctions"]}
+        self.assertTrue(by["2020-03-04"].get("beforeTenure") and not by["2020-03-04"]["strong"])   # 취임(3월 24일) 전 제재
+        self.assertTrue(by["2020-07-08"]["strong"])
+        f = next(f for f in p["flags"] if f["kind"].startswith("공식 제재"))
+        self.assertIn("한빛은행 은행장(사업보고서 임원 명단 2020~2020, 재직 2020-03-24~) — 금감원 2020-07-08", f["text"])
+        self.assertNotIn("2020-03-04", f["text"])
+
     # ---- 겸직 명단 직접 대조(3호) ----
     def boards(self, first=("1955년 01월", "사외이사"), second=("1955년 01월", "감사")):
         self.data[("00999001", 2026, "11012")] = api("20260814000001", [("김오래", first[0], "이사", first[1], "", "2년")])
