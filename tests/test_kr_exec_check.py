@@ -305,7 +305,7 @@ class Runs(unittest.TestCase):
         self.assertIn("금감원 2021-10-26 제재: 임원 주의적 경고 : 2명", f["text"])
         self.assertIn("공개 기록엔 개인 이름이 없음", f["text"])
         c = next(x for x in p["sanctions"] if x["org"] == "오성증권㈜")
-        self.assertEqual((c["timing"], c["strong"]), ("timing_unknown", False))      # 시점 미확인 → C(목록만)
+        self.assertEqual((c["timing"], c["strong"], c["count"]), ("timing_unknown", False, 1))   # 시점 미확인 → C(목록만), 회사별 한 줄
         self.assertEqual(sum(1 for u in pages if "view.do" in u), 1)                  # 공개안은 기간이 겹친 것만 연다
         again = self.go(previous=doc)                                                 # web_get 없음 → 앞 상태·공개안 요약 재사용
         self.assertTrue(any(f["kind"].startswith("공식 제재") for x in again["people"] if x["name"] == "김오래" for f in x["flags"]))

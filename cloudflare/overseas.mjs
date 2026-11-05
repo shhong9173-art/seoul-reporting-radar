@@ -1344,10 +1344,12 @@ async function execCheckSection(ctx, q, limit) {
       if (b.excerpt) out.push(`   본문 ${b.status === 'context_mentioned' ? '언급' : '발췌'}: ${String(b.excerpt).slice(0, 120)}`);
     }
     // 공식 제재 기록(금감원·개인정보위) × 경력 칸 최고 경영 자리 — 공개 기록엔 개인 이름이 없다
-    for (const x of (p.sanctions ?? []).slice(0, 3)) {
+    for (const x of (p.sanctions ?? []).slice(0, 4)) {
       const c = x.career ?? {};
       const act = [x.what, x.exec ? `임원 ${x.exec}` : x.inst].filter(Boolean).join(' — ');
-      out.push(`   공식 제재${x.strong ? '' : '(C)'}: ${x.agency} ${x.date} ${x.org}${act ? ` — ${act}` : ''} · 경력 「${c.org ?? ''} ${c.role ?? ''} ${c.start ?? '?'}~${c.end ?? '?'}」 ${x.timing === 'overlap' ? '기간 겹침' : '시점 미확인'}${x.url ? ` · ${x.url}` : ''}`);
+      const career = `경력 「${c.org ?? ''} ${c.role ?? ''} ${c.start ?? '?'}~${c.end ?? '?'}」`;
+      if (x.count) out.push(`   공식 제재(C): ${x.agency} ${x.org} 제재 ${x.count}건(${x.first}~${x.last}) · ${career} 재임 기간 미확인 — 기간이 겹치는 것만 의미 있음${x.url ? ` · ${x.url}` : ''}`);
+      else out.push(`   공식 제재${x.strong ? '' : '(C)'}: ${x.agency} ${x.date} ${x.org}${act ? ` — ${act}` : ''} · ${career} ${x.timing === 'overlap' ? '기간 겹침' : '시점 미확인'}${x.url ? ` · ${x.url}` : ''}`);
     }
     out.push(`   원문: ${p.url}`);
   }

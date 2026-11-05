@@ -168,25 +168,48 @@ def pipc_records(state):
 
 
 def pipc_rows(pdf_text):
-    """'개인정보보호법 위반 행정처분 결과 공표' 표: 순번 | 위반행위를 한 자 | 위반조항 | 위반내용 | 처분일자 | 처분내용 (탐침 181)."""
+    """'개인정보보호법 위반 행정처분 결과 공표' 표: 순번 | 위반행위를 한 자 | 위반조항 | 위반내용 | 처분일자 | 처분내용 (탐침 181·182).
+    운영 pypdf(5.x)는 칸 사이 띄어쓰기 없이 이어 붙인다('처분내용1㈜한성크린텍舊 보호법*제29조안전조치의무 2026. 9. 18.과징금 7,088만원과태료 360만원2㈜…') —
+    순번을 1, 2, 3 차례로 찾아 줄을 나눈다(앞 줄 금액 '360만원' 뒤에 붙은 '2'를 순번으로)."""
     t = re.sub(r"\s+", " ", pdf_text or "")
     t = t[t.find("처분내용") + 4:] if "처분내용" in t else t
-    starts = list(re.finditer(r"(?:^|\s)(\d{1,3})\s+(\S.{0,50}?)\s+" + LAW, t))
+    t = re.split(r"\*\s*舊\s*보호법\s*:|20\d{2}년\s*\d{1,2}월\s*\d{1,2}일\s*개\s*인\s*정\s*보", t)[0]
+    starts, pos, n = [], 0, 1
+    while n < 200:
+        m = re.compile(r"(?<!\d)" + str(n) + r"(?![\d.,])\s*((?:㈜|\(주\))?\s*[^\d\s*][^*]{0,40}?)\s*" + LAW).search(t, pos)
+        if not m:
+            break
+        starts.append(m)
+        pos, n = m.end(), n + 1
     out = []
     for i, m in enumerate(starts):
         seg = t[m.end():starts[i + 1].start() if i + 1 < len(starts) else len(t)]
-        seg = re.split(r"\*\s*舊\s*보호법\s*:|20\d{2}년\s*\d{1,2}월\s*\d{1,2}일\s*개\s*인\s*정\s*보", seg)[0]
         d = re.search(DATE, seg)
         if not d:
             continue
         what = re.sub(r"제\d+조(?:의\d+)?(?:\s*제\d+항)?|[*,]", " ", seg[:d.start()])
         what = re.sub(r"\s+", " ", what).strip()[:80]
-        acts = re.findall(r"과징금\s*[\d,억만]+\s*원|과태료(?:\s*부과)?\s*[\d,억만]+\s*원|시정조치\s*(?:명령|권고)|공표\s*명령|개선\s*권고|징계\s*권고", seg[d.end():])
-        org = re.sub(r"^(?:㈜|\(주\))\s*|\s*(?:㈜|\(주\))$", "", m.group(2).strip())
-        out.append({"agency": "개인정보위", "no": m.group(1), "org": org[:60], "date": f"{d.group(1)}-{int(d.group(2)):02d}-{int(d.group(3)):02d}",
-                    "what": what, "inst": ", ".join(dict.fromkeys(re.sub(r"\s+", " ", a) for a in acts))[:120],
+        acts = re.findall(r"과징금\s*[\d,억만\s]+?원|과태료(?:\s*부과)?\s*[\d,억만\s]+?원|시정조치\s*(?:명령|권고)|공표\s*명령|개선\s*권고|징계\s*권고", seg[d.end():])
+        org = re.sub(r"^(?:㈜|\(주\))\s*|\s*(?:㈜|\(주\))$", "", m.group(1).strip())
+        out.append({"agency": "개인정보위", "no": str(i + 1), "org": org[:60], "date": f"{d.group(1)}-{int(d.group(2)):02d}-{int(d.group(3)):02d}",
+                    "what": what, "inst": ", ".join(dict.fromkeys(re.sub(r"\s+", " ", a).strip() for a in acts))[:120],
                     "major": any(a.startswith("과징금") for a in acts)})
     return out
+
+
+def attachment_text(raw, read_pdf=None):
+    """결과의 공표 첨부: PDF(대부분)·HWP(OLE)·HWPX(zip). 그림(PNG)은 None(탐침 182: PDF 24·HWP 2·HWPX 1·PNG 2)."""
+    if raw[:4] == b"%PDF":
+        return (read_pdf or pdf_text)(raw, 6)
+    try:
+        import kr_local_notice_watch as kl
+        if raw[:4] == b"\xd0\xcf\x11\xe0":
+            return kl.hwp_text(raw)
+        if raw[:4] == b"PK\x03\x04":
+            return kl.hwpx_text(raw)
+    except Exception:
+        return None
+    return None
 
 
 def refresh_pipc(state, *, get, now, max_posts=40, read_pdf=None, pause=None):
@@ -215,12 +238,13 @@ def refresh_pipc(state, *, get, now, max_posts=40, read_pdf=None, pause=None):
                 outcome["no_file"] = outcome.get("no_file", 0) + 1
             for fid, sn in files[:3]:
                 f = get(PIPC_FILE.format(fid, sn), headers={**UA, "Referer": PIPC_VIEW + ntt}, timeout=40)
-                if getattr(f, "status_code", 200) != 200 or f.content[:4] != b"%PDF":
-                    k = f"not_pdf:{getattr(f, 'status_code', '?')}:{str(getattr(f, 'headers', {}).get('Content-Type', ''))[:20]}"
+                body = attachment_text(f.content, read_pdf) if getattr(f, "status_code", 200) == 200 else None
+                if body is None:
+                    k = f"unread:{getattr(f, 'status_code', '?')}:{f.content[:4]!r}"
                     outcome[k] = outcome.get(k, 0) + 1
                     continue
                 got_pdf = True
-                for x in pipc_rows((read_pdf or pdf_text)(f.content, 6)):
+                for x in pipc_rows(body):
                     recs.append({**x, "id": f"pipc:{ntt}:{x['no']}", "url": PIPC_VIEW + ntt})
             if recs:
                 posts[ntt] = recs
@@ -260,29 +284,37 @@ ONLY_PERIOD = re.compile(r"[\s()\[\]\d.,~∼\-–'’년월현재現]+")
 
 def top_roles(career, segments, *, now):
     """경력 칸에서 '회사 + 최고 경영 직함' → [{org, role, start, end, current, seg}]. 기간을 못 읽으면 start/end None.
-    한 마디에 여러 자리가 붙어 있으면('KB자산운용 대표이사 사장 SK증권 대표이사 사장') 자리마다. 기간이 뒤 괄호로 따로 끊긴 마디('(2024~현재)')는 앞 자리에 붙인다."""
+    한 마디에 여러 자리가 붙어 있으면('…부문장 에스엘 독립이사KB자산운용 대표이사 사장 SK증권 대표이사 사장') 자리마다 따로 보고,
+    기간·현직 표시는 그 자리 몫의 글자(앞 자리 끝 ~ 다음 자리 앞)에서만 읽는다 — 11-05 실제: 마디 첫머리 '現)'를 뒤 자리들에도 붙여
+    'SK증권 대표이사 ?~2026'으로 읽었다. 기간이 뒤 괄호로 따로 끊긴 마디('(2024~현재)')는 마지막 자리에 붙인다."""
     out = []
     segs = segments(career)
     for i, seg in enumerate(segs):
         tail = segs[i + 1] if i + 1 < len(segs) and ONLY_PERIOD.fullmatch(segs[i + 1]) else ""
-        whole = seg + " " + tail if tail else seg
+        roles = list(TOP_ROLE.finditer(seg))
         prev = 0
-        for role in TOP_ROLE.finditer(seg):
-            pre = re.sub(r"^(?:[\s\-·ㆍ•()\[\]~∼\d.,년월'’]|現|前|現\)|前\)|현\s*\)|전\s*\)|\(현\)|\(전\)|현재)+", "", seg[prev:role.start()])
+        for j, role in enumerate(roles):
+            raw_pre = seg[prev:role.start()]
+            nxt = roles[j + 1].start() if j + 1 < len(roles) else len(seg)
+            own = raw_pre + seg[role.start():nxt] + (" " + tail if j + 1 == len(roles) and tail else "")
             prev = role.end()
+            pre = re.sub(r"^(?:[\s\-·ㆍ•()\[\]~∼\d.,년월'’]|現|前|現\)|前\)|현\s*\)|전\s*\)|\(현\)|\(전\)|현재)+", "", raw_pre)
             toks = re.findall(r"(?:㈜|\(주\))?[가-힣A-Za-z0-9&][가-힣A-Za-z0-9&\.\-]*(?:㈜|\(주\))?", pre)
-            toks = [t for t in toks if not re.fullmatch(r"전|현|前|現|겸|및|등|상임|비상임|비상근|상근|부문|그룹|이사|대표이사|대표", t)]
+            toks = [t for t in toks if not re.fullmatch(r"전|현|前|現|겸|및|등|상임|비상임|비상근|상근|부문|그룹|이사|대표이사|대표|사장|부사장", t)]
             if not toks:
                 continue
             org = re.sub(r"^(?:㈜|\(주\))|(?:㈜|\(주\))$", "", toks[-1])
             if len(org) < 2 or re.search(r"대학|학회|협회|재단|위원회|연구원|정부|부처|청$|법원|검찰|공단|공사$|법무법인|회계법인", org) \
                     or re.search(r"법무법인|회계법인|세무법인|학회|협회|대학교?\s*\S*$", pre[-30:]):
                 continue
-            years = _years(whole, now)
-            cur = bool(re.search(r"現|현\s*\)|\(현\)|현재|~\s*$|~\s*\)", whole))
+            years = _years(own, now)
+            # 현직: 이 자리 몫에 現·현재·열린 기간이 있거나, 마디 첫 자리이고 마디 머리에 現
+            cur = bool(re.search(r"現|현\s*\)|\(현\)|현재|~\s*$|~\s*\)", own)) or (j == 0 and bool(re.match(r"\s*[\(\[]?\s*(?:現|현\s*\))", seg)))
+            past = bool(re.search(r"前|전\s*\)|\(전\)", raw_pre)) or (j == 0 and bool(re.match(r"\s*[\(\[]?\s*(?:前|전\s*\))", seg)))
+            cur = cur and not past
             start = min(years) if years else None
-            end = now.year if cur else (max(years) if len(years) >= 2 else (start if start and not re.search(r"~|∼|-", whole) else None))
-            out.append({"org": org, "role": seg[role.start():role.end()], "start": start, "end": end, "current": cur, "seg": whole[:100]})
+            end = now.year if cur else (max(years) if len(years) >= 2 else (start if start and not re.search(r"~|∼|-", own) else None))
+            out.append({"org": org, "role": seg[role.start():role.end()], "start": start, "end": end, "current": cur, "seg": own.strip()[:100]})
     return out
 
 

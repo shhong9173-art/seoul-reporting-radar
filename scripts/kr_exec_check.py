@@ -66,7 +66,7 @@ NONCOMPANY = re.compile(r"학회|협회|재단|위원회|연구원|연구소|대
                         re.I)
 CURRENT = re.compile(r"^\s*[\(\[]?\s*(現|현\)|현\s*\)|현재|現\))|~\s*(현재|現)|\(\s*현\s*\)|현재\)?\s*$|~\s*$")
 # '감사위원회 지원센터 자문교수'(11-05 실제: 세아제강 사외이사)는 감사가 아니다 — 직함으로 쓰인 감사·감사위원만
-ROLE_DIRECTOR = re.compile(r"사외이사|독립이사|기타\s*비상무\s*이사|비상임\s*이사|감사위원(?!회)|감사(?!원|팀|실|부|위원회|인|법인|기관|센터|지원)|이사(?!회|장|대우)")
+ROLE_DIRECTOR = re.compile(r"사외이사|독립이사|기타\s*비상무\s*이사|비상임\s*이사|(?:사내|상근|상임|비상근|전무|상무|대표)\s*이사|감사위원(?!회)|감사(?!원|팀|실|부|위원회|인|법인|기관|센터|지원)|이사(?!회|장|대우)")
 EMPLOYEE = re.compile(r"부장|팀장|실장|상무|전무|부사장|사장|본부장|센터장|연구원|직원|임원|대표|그룹장|담당|매니저|과장|차장")
 
 
@@ -280,9 +280,21 @@ def link_sanctions(people, state, *, web_get, budget):
                 strong = m["timing"] == "overlap" and bool(det and det.get("execSanctioned"))
             item["strong"] = strong
             out.append(item)
-        out.sort(key=lambda x: x["date"], reverse=True)
-        out.sort(key=lambda x: (not x["strong"], x["timing"] != "overlap"))
-        rec["sanctions"] = out[:6]
+        # 시점 미확인은 회사·기관별 한 줄로(건수·첫·끝 날짜) — 11-05 실제: 기간 없는 '우리은행 은행장' 경력에 2026년 제재 3줄이 붙었다
+        known = [x for x in out if x["timing"] == "overlap"]
+        groups = {}
+        for x in out:
+            if x["timing"] != "overlap":
+                g = groups.setdefault((x["agency"], x["org"]), {**x, "count": 0, "first": x["date"], "last": x["date"]})
+                g["count"] += 1
+                g["first"], g["last"] = min(g["first"], x["date"]), max(g["last"], x["date"])
+        for g in groups.values():
+            g["date"] = g["last"]
+            g.pop("inst", None), g.pop("exec", None), g.pop("what", None), g.pop("fact", None)
+            g["url"] = osn.FSS_LIST if g["agency"] == "금감원" else g.get("url")
+        known.sort(key=lambda x: x["date"], reverse=True)
+        known.sort(key=lambda x: not x["strong"])
+        rec["sanctions"] = known[:4] + sorted(groups.values(), key=lambda g: g["last"], reverse=True)[:2]
         strong = [x for x in out if x["strong"]]
         if strong:
             def line(x):
@@ -345,7 +357,11 @@ def director_orgs(career, own_aliases):
             org = re.sub(r"^(?:現|現\)|兼\)?|현\)|前|전\))", "", org)
             # 줄바꿈이 사라져 붙은 앞 직함('…비상근 부회장KB자산운용 대표이사')을 떼어 낸다
             org = re.sub(r"^(?:(?:부회장|회장|부사장|사장|전무|상무|부문장|본부장|대표|고문|자문역|위원|교수|변호사|회계사)(?=[A-Za-z가-힣]{2}))+", "", org)
+            org = re.sub(r"^(?:이사|감사)(?=[가-힣A-Za-z]{2})", "", org)          # 붙은 앞 직함('이사한국바스프')
             k = org_key(org)
+            # 부서·직함 낱말은 회사가 아니다(11-05 실제: '철강생산본부장'·'공동대표'·'PB사업팀'·'회장'이 회사 칸에 잡혔다)
+            if re.search(r"(?:팀|실|본부|부문|센터|사업부|본부장|실장|팀장|센터장|대표|회장|사장|부장|위원|교수|변호사)$", org) or org in ("한국", "개방"):
+                continue
             if len(k) < 2 or k in seen or NONCOMPANY.search(org) or re.search(r"법무법인|회계법인|세무법인|로펌|LLC|LLP|대학|협회|학회", org):
                 continue
             if any(kx.mentions(org, a) or org_key(a) == k for a in own_aliases):
