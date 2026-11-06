@@ -854,12 +854,12 @@ async function localSection(ctx, q, days, limit) {
     out.push(`   잡힌 사실: ${x.no ?? ''} 「${x.detail?.title ?? x.title}」 · ${x.dept ?? '담당 부서 미기재'}${x.plants ? ` (이 시·군의 출입처 공장: ${x.plants})` : ''}`);
     if (x.detail?.body) out.push(`   본문 앞부분(상세 페이지${x.detailVia === 'browser' ? ', 기자 컴퓨터에서 읽음' : ''}): ${x.detail.body}`);
     const outline = attachmentOutline(x);
-    if (outline) out.push(`   첨부 원문에서 뽑은 사업 개요(자동 — 첨부 원문 확인): ${outline}`);
+    if (outline) out.push(`   첨부 원문에서 뽑은 사업 개요(자동${x.detailVia === 'browser' ? '·기자 컴퓨터에서 읽음' : ''} — 첨부 원문 확인): ${outline}`);
     const unread = (x.attachments ?? []).filter((a) => a.error || a.note).map((a) => `${a.name}(${a.error ?? a.note})`);
     if (unread.length) out.push(`   못 읽은 첨부: ${unread.join(' · ')}`);
     const opened = new Set((x.attachments ?? []).map((a) => a.name));
     const rest = (x.detail?.files ?? []).filter((f) => !opened.has(f));
-    if (rest.length) out.push(`   첨부 파일(열지 않음${x.detailVia === 'browser' ? ' — 해외 IP 차단 시·군이라 첨부는 기자가 직접' : ''}): ${rest.join(' · ')}`);
+    if (rest.length) out.push(`   첨부 파일(열지 않음${x.detailVia === 'browser' && !(x.attachments ?? []).length ? ' — 해외 IP 차단 시·군이라 첨부는 기자가 직접' : ''}): ${rest.join(' · ')}`);
     if (x.listTier) out.push(`   등급: 목록 제목으로 ${x.listTier} → 전체 제목으로 ${x.tier}`);
     if (x.detailError) out.push(`   상세 페이지: 못 읽음(${x.detailError}) — 제목만 확인`);
     out.push(`   원문: ${x.url}`);

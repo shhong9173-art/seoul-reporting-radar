@@ -3760,6 +3760,8 @@ test('local_notice_submit via Aside: 출입처 줄 상세(제목·본문 앞·�
   assert.ok(tool.inputSchema.properties.cities.items.properties.rows.items.properties.detail);
   const rows = Array.from({ length: 10 }, (_, i) => ({ mgt: String(500 + i), cells: [`공고 ${i}`, '2026-11-06'],
     detail: { title: `LG화학 나주공장 공고 ${i} `.repeat(30), body: '본문 '.repeat(300), files: ['a.hwp', ' ', 'b.pdf', 'c', 'd', 'e', 'f', 'g'] } }));
+  rows[0].detail.attachments = [{ name: '공고문.hwpx', text: '공 사 명 : 시험 '.repeat(600) }, { name: '도면.pdf', error: 'pdf — 기자 컴퓨터에서는 안 읽음' },
+    { name: '' }, { name: '빈.hwpx' }, { name: '넷째.hwpx', text: 'x' }];
   rows.push({ mgt: '999', cells: ['제목 없는 상세'], detail: { body: 'x' } });
   const r = await call('local_notice_submit', { via: 'aside', cities: [{ city: '나주시', rows }] }, opts);
   assert.equal(r.isError, false);
@@ -3773,6 +3775,10 @@ test('local_notice_submit via Aside: 출입처 줄 상세(제목·본문 앞·�
   const d = city.rows[0].detail;
   assert.ok(d.title.length <= 300 && d.body.length <= 420);
   assert.deepEqual(d.files, ['a.hwp', 'b.pdf', 'c', 'd', 'e']);  // 6개까지, 빈 이름은 버림
+  assert.equal(d.attachments.length, 2);                            // 3개까지 보고 이름 없는 것은 버림
+  assert.equal(d.attachments[0].text.length, 4000);
+  assert.deepEqual(d.attachments[1], { name: '도면.pdf', error: 'pdf — 기자 컴퓨터에서는 안 읽음' });
+  assert.equal(city.rows[1].detail.attachments, undefined);
   assert.equal(city.rows.filter((x) => x.detail).length, 8);     // 시·군마다 8줄까지
   assert.equal(city.rows.at(-1).detail, undefined);              // 제목 없는 상세는 버림
   // 모르는 수집 길은 남기지 않는다
@@ -3845,5 +3851,11 @@ test('local_notice_submit: the reporter computer posts browser-read 새올 rows 
   assert.match(local, /기자 컴퓨터 브라우저로 읽은 곳\(해외 IP 차단\): 인천 부평구\(2026-10-25 23:45\), 나주시\(2026-11-06 08:45 Aside\)/);
   assert.match(local, /본문 앞부분\(상세 페이지, 기자 컴퓨터에서 읽음\): 나주시 송월동 일원/);
   assert.match(local, /첨부 파일\(열지 않음 — 해외 IP 차단 시·군이라 첨부는 기자가 직접\): 공고문\.hwpx/);
+  doc.items.at(-1).attachments = [{ name: '공고문.hwpx', chars: 900, facts: { 공사기간: '2026. 11. ~ 2027. 6.' } }];
+  doc.generatedAt = '2026-11-06T09:50:00+09:00';
+  await worker.fetch(new Request(ORIGIN + '/ingest/kr-local', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), opts.env, {});
+  const local2 = (await call('kr_official', { section: 'local' }, opts)).text;
+  assert.match(local2, /첨부 원문에서 뽑은 사업 개요\(자동·기자 컴퓨터에서 읽음 — 첨부 원문 확인\): 공사기간 2026\. 11\. ~ 2027\. 6\./);
+  assert.doesNotMatch(local2, /첨부는 기자가 직접/);
   assert.match(local, /등급: 목록 제목으로 B → 전체 제목으로 A/);
 });
