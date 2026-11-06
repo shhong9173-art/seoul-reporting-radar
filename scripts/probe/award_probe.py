@@ -1,4 +1,4 @@
-"""probe 195: 개인정보위 위원회 결정문 첨부 내려받기 경로(JS 함수 본문) 찾기 + 시도. 공개 자료. 저장 안 함."""
+"""probe 196: 개인정보위 위원회 결정문 첨부 내려받기 경로(JS 함수 본문) 찾기 + 시도. 공개 자료. 저장 안 함."""
 import html, re, sys, time
 import requests
 
@@ -27,26 +27,30 @@ for m in re.finditer(r"CYLFILE_000000020771", t):
     break
 log("action 후보 " + str(sorted(set(re.findall(r"['\"](/[\w/]+\.do)['\"]", t)))[:20]))
 ref = v.url
-tries = [("GET", "https://www.pipc.go.kr/np/cmm/fms/FileDown.do", {"atchFileId": "CYLFILE_000000020771", "fileSn": "3"}),
-         ("GET", "https://www.pipc.go.kr/np/cmm/fms/FileDown.do", {"atchFileId": "CYLFILE_000000020771", "fileSn": "3", "fileExt": "pdf"}),
-         ("POST", "https://www.pipc.go.kr/np/cmm/fms/FileDown.do", {"atchFileId": "CYLFILE_000000020771", "fileSn": "3", "fileExt": "pdf"}),
-         ("GET", "https://www.pipc.go.kr/np/default/agendaFileDown.do", {"atchFileId": "CYLFILE_000000020771", "fileSn": "3", "fileExt": "pdf"}),
-         ("GET", "https://www.pipc.go.kr/np/cmm/fms/FileDownPdf.do", {"atchFileId": "CYLFILE_000000020771", "fileSn": "3"})]
-for meth, url, data in tries:
+F = "https://www.pipc.go.kr/np/cmm/fms/FileDown.do"
+tries = [("GETx", {"atchFileId": "CYLFILE_000000020771", "fileSn": "3", "fileExtsn": "pdf", "cnvCnt": "1"}),
+         ("MULTI", {"atchFileId": "CYLFILE_000000020771", "fileSn": "3", "fileExtsn": "pdf", "cnvCnt": "1"}),
+         ("MULTI", {"atchFileId": "CYLFILE_000000020771", "fileSn": "3", "fileExtsn": "hwp", "cnvCnt": "1"}),
+         ("FORM", {"atchFileId": "CYLFILE_000000020771", "fileSn": "3", "fileExtsn": "pdf", "cnvCnt": "1"})]
+for meth, data in tries:
     try:
-        r = s.get(url, params=data, headers={"Referer": ref}, timeout=40) if meth == "GET" else s.post(url, data=data, headers={"Referer": ref}, timeout=40)
+        if meth == "GETx":
+            r = s.get(F, params=data, headers={"Referer": ref}, timeout=40)
+        elif meth == "MULTI":
+            r = s.post(F, files={k: (None, v) for k, v in data.items()}, headers={"Referer": ref}, timeout=40)
+        else:
+            r = s.post(F, data=data, headers={"Referer": ref}, timeout=40)
         txt = osn.attachment_text(r.content) if r.status_code == 200 else None
-        log(f"{meth} {url.rsplit('/', 1)[-1]} {data.get('fileExt', '')} → HTTP {r.status_code} 머리 {r.content[:4]!r} 크기 {len(r.content)} 형식 {r.headers.get('Content-Type', '')[:40]} 글자 {len(txt or '')}")
+        log(f"{meth} {data.get('fileExtsn')} → HTTP {r.status_code} 머리 {r.content[:4]!r} 크기 {len(r.content)} 형식 {r.headers.get('Content-Type', '')[:40]} 이름 {r.headers.get('Content-Disposition', '')[:80]} 글자 {len(txt or '')}")
         if txt:
             tt = re.sub(r"\s+", " ", txt)
-            log("   첫머리 " + tt[:600])
-            for w in ("피 심 인", "피심인", "대 표 자", "대표자", "위반기간", "과 징 금", "과징금"):
-                i = tt.find(w)
-                if i >= 0:
-                    log(f"   {w}: …{tt[max(0, i - 20):i + 160]}…")
+            log("   첫머리 " + tt[:700])
+            for w in ("피 심 인", "피심인", "대 표 자", "대표자", "대표이사", "위반기간", "기간", "과 징 금", "과징금", "의결연월일"):
+                for m in list(re.finditer(re.escape(w), tt))[:2]:
+                    log(f"   {w}: …{tt[max(0, m.start() - 20):m.start() + 160]}…")
             break
     except Exception as e:
-        log(meth, url, type(e).__name__)
+        log(meth, type(e).__name__, str(e)[:80])
     time.sleep(0.6)
 log(f"\n{time.time() - t0:.0f}s")
 open("/tmp/probe_out.txt", "w").write("\n".join(OUT))
