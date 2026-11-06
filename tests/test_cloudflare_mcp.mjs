@@ -3743,9 +3743,13 @@ test('Aside 직접 올리기(/upload/browser): 등록한 열쇠 지문과 맞을
   assert.match((await call('browser_upload_key', {}, opts)).text, /마지막 올림 20\d\d-/);
   assert.equal((await (await post(key, {})).json()).ok, false);  // 빈 인자는 저장하지 않음
   assert.equal((await browserUpload(new Request(ORIGIN + '/upload/browser', { method: 'POST', headers: { Authorization: `Bearer ${key}` }, body: 'x'.repeat(400_001) }), opts.env, { fetch })).status, 413);
-  // 새 열쇠를 등록하면 이전 열쇠는 못 쓴다
-  assert.match((await call('browser_upload_key', { sha256: sha('n'.repeat(43)) }, opts)).text, /이전 열쇠는 이제 못 씀/);
+  // 새 열쇠를 등록하면 이전 열쇠는 못 쓴다 — local_notice_submit으로도 등록(새 도구를 모르는 세션용)
+  const viaSubmit = await call('local_notice_submit', { uploadKeySha256: sha('n'.repeat(43)) }, opts);
+  assert.ok(!viaSubmit.isError);
+  assert.match(viaSubmit.text, /열쇠 등록함 · 지문 [0-9a-f]{8}… · .*이전 열쇠는 이제 못 씀/);
   assert.equal((await post(key, { via: 'aside' })).status, 404);
+  assert.equal((await post('n'.repeat(43), { via: 'aside', labor: [{ commission: '제주지방노동위원회', error: '시험' }] })).status, 200);
+  assert.ok((await call('local_notice_submit', { uploadKeySha256: 'zz' }, opts)).isError);
 });
 
 test('local_notice_submit via Aside: 출입처 줄 상세(제목·본문 앞·첨부 이름)를 글자만 크기 제한해 받고, 수집 길(via)을 남긴다', async () => {
