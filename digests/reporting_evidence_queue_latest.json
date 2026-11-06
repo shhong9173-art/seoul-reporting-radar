@@ -1,12 +1,12 @@
 {
-  "generatedAt": "2026-11-06T11:54:35+09:00",
+  "generatedAt": "2026-11-06T16:51:20+09:00",
   "status": "reporter_evidence_queue_not_exclusive",
   "sourceCoverage": "partial_source_coverage_not_zero_news",
   "sourceHealth": {
     "officialEvents": {
       "status": "source_partial_coverage",
-      "generatedAt": "2026-11-06T07:42:28+09:00",
-      "rows": 12,
+      "generatedAt": "2026-11-06T16:27:51+09:00",
+      "rows": 13,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false,
       "incompleteOrStaleFeeds": [
@@ -24,14 +24,14 @@
     },
     "investment": {
       "status": "source_snapshot_checked",
-      "generatedAt": "2026-11-05T12:45:58+09:00",
+      "generatedAt": "2026-11-06T12:41:54+09:00",
       "rows": 1,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false
     },
     "metrics": {
       "status": "source_snapshot_checked",
-      "generatedAt": "2026-11-06T11:53:00+09:00",
+      "generatedAt": "2026-11-06T15:41:32+09:00",
       "rows": 24,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false
@@ -59,7 +59,7 @@
     }
   },
   "countsByEvidenceTier": {
-    "new_official_receipt_review": 12,
+    "new_official_receipt_review": 13,
     "new_official_list_heading_review": 0,
     "verified_historical_investment_delta": 3,
     "verified_historical_numeric_delta": 24,
@@ -71,13 +71,13 @@
     "recentFrom": "2026-11-04",
     "through": "2026-11-06"
   },
-  "checkedOfficialRecentCandidates": 12,
+  "checkedOfficialRecentCandidates": 13,
   "recentOfficialTitleOnlyCount": 0,
-  "todayOnlyCount": 12,
+  "todayOnlyCount": 13,
   "historicalResearchCount": 33,
   "unlinkedHistoryTextMatchCount": 1,
   "correctionHistorySourceGate": "reviewed_unlinked_candidates_only",
-  "totalRows": 45,
+  "totalRows": 46,
   "excluded": {
     "invalid_original_identity": 0,
     "old_and_not_relevant": 0,
@@ -234,6 +234,30 @@
       "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
       "officialUrls": [
         "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261105800867"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
+        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
+        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
+      ]
+    },
+    {
+      "id": "new_official_receipt_review:FOREIGN_NOTICE:US Federal Register:2026-22630",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "현대제철",
+      "title": "Circular Welded Non-Alloy Steel Pipe From the Republic of Korea: Final Results of Antidumping Duty Administrative Review; 2023-2024",
+      "officialDocumentDate": "2026-11-05",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "미국 연방고시/유럽 공고의 제목·요약에 출입처 법인명 명시(실제 적용·사업 영향 미확인)",
+      "officialUrls": [
+        "https://www.federalregister.gov/documents/2026/11/05/2026-22630/circular-welded-non-alloy-steel-pipe-from-the-republic-of-korea-final-results-of-antidumping-duty"
       ],
       "pressFulltextReviewed": false,
       "sameAngleCoverageVerified": false,
