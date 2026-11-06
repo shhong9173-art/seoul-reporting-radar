@@ -430,6 +430,19 @@ class Runs(unittest.TestCase):
         self.assertIn("前대표이사甲이 지시", x["ceoText"])                                  # 공개안 최고 경영자 언급 원문
         self.assertEqual(doc["sanctions"]["fss"]["details"]["fss:202100001-1"]["v"], osn.DETAIL_VERSION)
 
+    def test_pipc_decision_board_record_is_b(self):
+        # 11-06: 개인정보위 위원회 결정문(결과의 공표에 없는 건) — 과징금이면 기간 겹칠 때 B
+        body = self.data[("00164742", 2026, "11012")]
+        body["list"][1]["main_career"] = "(2019~2021) 한빛카드 대표이사"
+        prev = {"schema": kc.SCHEMA, "people": [], "events": [], "sanctions": {"pipcd": {"done": True, "read": {"2021-0100": [
+            {"agency": "개인정보위", "id": "pipcd:제2021-010-100호", "org": "한빛카드", "date": "2021-05-12", "what": "결정문 제2021-010-100호",
+             "inst": "과징금 12억3400만원, 과태료 600만원", "major": True, "url": "https://www.pipc.go.kr/np/default/agenda.do?op=view&mCode=E030010000&idxId=2021-0100"}]}}}}
+        doc = self.go(previous=prev)
+        p = next(x for x in doc["people"] if x["name"] == "김오래")
+        f = next(f for f in p["flags"] if f["kind"] == "공식 제재: 재임 중 소속 회사 제재")
+        self.assertEqual(f["tier"], "B")
+        self.assertIn("개인정보위 2021-05-12 제재: 결정문 제2021-010-100호 — 과징금 12억3400만원, 과태료 600만원", f["text"])
+
     def test_sanction_before_tenure_month_is_not_b(self):
         from unittest.mock import patch
         import official_sanctions as osn

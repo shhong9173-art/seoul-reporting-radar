@@ -166,6 +166,49 @@ class Parse(unittest.TestCase):
         failing, c = osn.refresh_ftc(prev, get=bad, now=NOW, parse=parse)
         self.assertEqual((c["status"], failing.get("audit")), ("partial", None))   # 실패한 창은 점검으로 치지 않는다(다음 실행에 다시)
 
+    def test_pipc_decision_board_probe196(self):
+        # 탐침 196 실제 결정문 첫머리(GS리테일 2026-08-26) — 피심인·의결연월일·주문 금액
+        real = ("- 1 - 개 인 정 보 보 호 위 원 회 심의ㆍ의결 안 건 번 호제2026-017-107호 안 건 명 개인정보보호 법규 위반행위에 대한 시정조치에 관한 건 "
+                "피 심 인 ㈜지에스리테일 (사업자등록번호 : ) 대표자 의결연월일 2026. 8. 26. 주 문 1.피심인에 대하여 다음과 같이 시정조치를 명한다. "
+                "2. 피심인에 대하여 다음과 같이 과징금, 과태료를 부과한다. 가. 과 징 금 : 12,836,000,000원 나. 과 태 료 : 3,000,000원 다. 납부기한 "
+                "- 3 - 이 유 Ⅰ. 기초 사실 … 과 징 금 : 9,999,000,000원")
+        d = osn.pipc_decision(real)
+        self.assertEqual(d, [{"case": "제2026-017-107호", "org": "지에스리테일", "date": "2026-08-26", "fine": "128억3600만원", "penalty": "300만원"}])
+        bundle = ("안 건 번 호 제2026-016-101호 피 심 인 한빛상사㈜ (사업자등록번호 : ) 의결연월일 2026. 9. 9. 주 문 가. 과 태 료 : 6,000,000원 이 유 … "
+                  "안 건 번 호 제2026-016-102호 피 심 인 홍○○ (사업자등록번호 : ) 의결연월일 2026. 9. 9. 주 문 시정명령")
+        self.assertEqual([(x["org"], x.get("fine"), x.get("penalty")) for x in osn.pipc_decision(bundle)],
+                         [("한빛상사", None, "600만원"), ("홍○○", None, None)])
+        listing = ('<table><tr><td>2819</td><td>위원회</td><td><a href="agenda.do?op=view&amp;idxId=2026-0723">개인정보보호 법규 위반행위에 대한 시정조치에 관한 건(2025조이0004)</a></td>'
+                   '<td>2026-08-26</td><td>첨부</td></tr>'
+                   '<tr><td>2818</td><td>위원회</td><td><a href="agenda.do?op=view&amp;idxId=2026-0679">공공기관의 개인정보보호법규 위반행위에 대한 시정조치에 관한 건</a></td><td>2026-08-26</td></tr>'
+                   '<tr><td>2817</td><td>1소위원회</td><td><a href="agenda.do?op=view&amp;idxId=2026-0851">「의료법 시행규칙」 침해요인 평가에 관한 건</a></td><td>2026-08-25</td></tr></table>')
+        old = '<tr><td>1</td><td>위원회</td><td><a href="agenda.do?op=view&amp;idxId=2020-0001">개인정보보호 법규 위반행위에 대한 시정조치에 관한 건</a></td><td>2020-08-01</td></tr>'
+        calls = []
+
+        def get(url, params=None, **kw):
+            calls.append((url.rsplit("/", 1)[-1][:40], (params or {}).get("page") or (params or {}).get("fileSn")))
+            if url.startswith(osn.PIPC_AGENDA_VIEW):
+                return R(text="<a onclick=\"fn_egov_downFileCnv('CYLFILE_1','3','pdf');\">pdf</a> <a onclick=\"fn_egov_downFileCnv('CYLFILE_1','3','hwp');\">hwp</a>")
+            if url == osn.PIPC_FILE_DL:
+                return R(content=b"%PDF-1.4")
+            return R(text=listing if params["page"] == 1 else old if params["page"] == 4 else "<table></table>")
+        st, c = osn.refresh_pipc_decisions(None, get=get, now=NOW, read_pdf=lambda raw, n: real)
+        self.assertEqual((c["status"], c["read"], c["queued"], c["backfillDone"]), ("ok", 1, 0, True))   # 공공기관·평가 건은 안 읽음, 2020-08 앞이면 뒤 채우기 끝
+        rec = osn.pipc_decision_records(st)
+        self.assertEqual((rec[0]["org"], rec[0]["date"], rec[0]["inst"], rec[0]["major"]), ("지에스리테일", "2026-08-26", "과징금 128억3600만원, 과태료 300만원", True))
+        self.assertEqual(rec[0]["url"], osn.PIPC_AGENDA_VIEW + "2026-0723")
+        self.assertEqual(sum(1 for x in calls if x[0] == "FileDown.do"), 1)                       # 같은 첨부의 pdf 한 번만
+        calls.clear()
+        st2, c2 = osn.refresh_pipc_decisions(st, get=get, now=NOW, read_pdf=lambda raw, n: real)
+        self.assertEqual((c2["read"], sum(1 for x in calls if x[0] == "FileDown.do")), (0, 0))      # 읽은 결정문은 다시 안 내려받음
+        # 결과의 공표와 겹치는 같은 회사·같은 날은 결정문 한 줄만
+        pub = {"posts": {"9": [{"agency": "개인정보위", "id": "pipc:9:1", "org": "㈜지에스리테일", "date": "2026-08-26", "inst": "과징금 128억", "major": True}]}}
+        self.assertEqual([r["id"] for r in osn.pipc_all_records(pub, st)], ["pipcd:제2026-017-107호"])
+        # 첨부가 PDF가 아니면(HTML 안내 쪽) 줄에 남겨 다음 실행에 다시
+        bad = lambda url, params=None, **kw: R(content=b"<!DO") if url == osn.PIPC_FILE_DL else get(url, params)
+        st3, c3 = osn.refresh_pipc_decisions(None, get=bad, now=NOW, read_pdf=lambda raw, n: real)
+        self.assertEqual((c3["status"], c3["queued"], list(c3["outcomes"])), ("partial", 1, ["unread:200:b'<!DO'"]))
+
     def test_pipc_probe184_variants(self):
         t = ("처분내용1한빛연구재단법 제29조안전조치의무위반2026.1.28과징금, 시정명령,공표명령, 징계권고, 개선권고법 제34조제1항유출통지의무 위반2026.1.28과태료, 시정명령"
              "2026년 3월 6일개 인 정 보 보 호 위 원 회")
