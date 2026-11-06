@@ -342,6 +342,8 @@ def clean_respondent(x):
 
 FTC_AUDIT_PAGES = 80        # 한 해 창 최대 쪽(탐침 188: 2015년 67쪽이 가장 많다)
 FTC_AUDIT_DAYS = 30         # 올해 창은 한 달마다 다시(지난 해 창은 한 번)
+FTC_AUDIT_YEARS = 3         # 실행마다 볼 해 수(11-06: 하루 한 번 실행)
+FTC_AUDIT_BUDGET = 220      # 실행마다 창 점검 쪽 한도(해당 0.5초 쉼 — 약 2분)
 
 
 def _ftc_put(rows, x, prefer=False):
@@ -401,17 +403,22 @@ def refresh_ftc(state, *, get, now, backfill_pages=100, new_pages=3, pause=None,
             state["nextPage"] = n
         elif audit:
             # 해마다 창(의결일 기준 1년)을 끝까지 다시 훑어 빠진 줄을 채운다(11-05 탐침 188·189: 전체 목록 4,960줄인데 저장 4,537건 —
-            # 같은 사건 두 줄을 빼도 모자라 보였다). 실행마다 한 해. 지난 해 창은 한 번, 올해 창은 한 달마다.
+            # 같은 사건 두 줄을 빼도 모자라 보였다). 지난 해 창은 한 번, 올해 창은 한 달마다.
+            # 11-06: 하루 한 번 실행이라 한 해씩이면 11일 — 실행마다 세 해(쪽 한도 FTC_AUDIT_BUDGET)로 앞당긴다.
             aud = dict(state.get("audit") or {})
             years = [str(y) for y in range(int(since[:4]), now.year + 1)]
             stale = (now - dt.timedelta(days=FTC_AUDIT_DAYS)).isoformat(timespec="seconds")
             todo = [y for y in years if y not in aud] or [y for y in years[-1:] if aud[y].get("at", "") < stale]
-            if todo:
-                y = todo[0]
+            budget = FTC_AUDIT_BUDGET
+            audited = []
+            for y in todo[:FTC_AUDIT_YEARS]:
+                if budget < FTC_AUDIT_PAGES:
+                    break
                 ids, n_rows, added, n, complete = set(), 0, 0, 1, False
                 while n <= FTC_AUDIT_PAGES:
                     got, last = page(n, f"{y}-01-01", min(f"{y}-12-31", today))
                     pages += 1
+                    budget -= 1
                     n_rows += len(got)
                     for x in got:
                         ids.add(x["id"])
@@ -421,10 +428,10 @@ def refresh_ftc(state, *, get, now, backfill_pages=100, new_pages=3, pause=None,
                         break
                     n += 1
                 fresh += added
-                audited = {"year": y, "rows": n_rows, "cases": len(ids), "added": added, "complete": complete}
+                audited.append({"year": y, "rows": n_rows, "cases": len(ids), "added": added, "complete": complete})
                 if complete:
                     aud[y] = {"rows": n_rows, "cases": len(ids), "added": added, "at": now.isoformat(timespec="seconds")}
-                state["audit"] = aud
+                state["audit"] = aud                  # 해마다 저장 — 다음 해에서 끊겨도 앞 해는 남는다
     except Exception as e:
         err = f"{type(e).__name__}: {str(e)[:60]}"
     state.update(rows=rows, since=since, checkedAt=now.isoformat(timespec="seconds"))
