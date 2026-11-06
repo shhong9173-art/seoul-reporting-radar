@@ -201,8 +201,106 @@ def person_flags(target, career, watch, *, industry=None):
 
 # ---------- filing parsers ----------
 
-def _rows(part):
-    return [r for r in ([kx.clean(c[1]) for c in kx.CELL.findall(tr)] for tr in kx.ROW.findall(part)) if any(r)]
+AGM_PARSE_VERSION = 2      # 2: 세부경력 칸 기간·내용 짝짓기(11-06)
+LINE_TAG = re.compile(r"<\s*br\s*/?\s*>|</\s*p\s*>", re.I)
+
+
+def _rows(part, lines=False):
+    """lines=True: 칸 안 줄바꿈(<BR>·</P>)을 '¶'로 남긴다(세부경력 칸 짝짓기용)."""
+    if lines:
+        part = LINE_TAG.sub(" ¶ ", part)
+    rows = [[kx.clean(c[1]) for c in kx.CELL.findall(tr)] for tr in kx.ROW.findall(part)]
+    if lines:
+        rows = [[re.sub(r"^(?:¶\s*)+|(?:\s*¶)+$", "", c).strip() for c in r] for r in rows]
+    return [r for r in rows if any(r)]
+
+
+# ---------- 세부경력 칸 짝짓기(11-06 탐침 192) ----------
+# 출입처 소집공고 39건 중 기아·HL만도·금호타이어·세아제강·고려아연·영풍·대한전선·두산에너빌리티·LG화학 등은 경력 표의 '기간' 칸과
+# '내용' 칸에 여러 줄이 줄바꿈 없이 붙어 있다('22~현21~2219~21…' / '고려아연㈜ 사외이사롯데웰푸드㈜ 사외이사…').
+# 기간을 하나씩 떼고 내용을 같은 수로 나눌 수 있을 때만 '기간 내용' 마디로 짝짓는다. 수가 안 맞으면 기간은 따로 두고
+# 내용만 마디로 나눈다(현직 여부를 경력 칸만으로 정하지 않는다 — 명단 대조로만).
+_Y4 = r"(?:19|20)\d{2}(?:\s*\.\s*\d{1,2})?\.?(?:\s*년(?:\s*\d{1,2}\s*월)?)?"
+_Y2 = r"['’]?\d{2}(?:\s*\.\s*\d{1,2})?\.?"
+_P4 = re.compile(rf"\(?\s*({_Y4})\s*(?:[~∼\-–]\s*(현\s*재|현|{_Y4})?)?\s*\)?")
+_P2 = re.compile(rf"\(?\s*({_Y2})\s*[~∼\-–]\s*(현\s*재|현|{_Y2})?\s*\)?")
+
+
+def _norm_year(y):
+    y = re.sub(r"\s+", "", y or "")
+    if re.fullmatch(r"\d{2}(?:\.\d{0,2})?\.?", y):
+        y = "'" + y
+    return y.replace("’", "'").rstrip(".") if not y.endswith("년") else y
+
+
+def split_periods(cell):
+    """'22~현21~2219~21' → ["'22~현재", "'21~'22", "'19~'21"]. 다 못 읽으면 None."""
+    t, i, out = (cell or "").replace("¶", " "), 0, []
+    while i < len(t):
+        if t[i] in " ,/·":
+            i += 1
+            continue
+        m = _P4.match(t, i)
+        if not m or m.end() == i:
+            m = _P2.match(t, i)
+        if not m or m.end() == i:
+            return None
+        a, b = _norm_year(m.group(1)), m.group(2)
+        b = "현재" if b and re.fullmatch(r"현\s*재|현", b) else _norm_year(b) if b else ""
+        dash = bool(re.search(r"[~∼\-–]", m.group(0)))
+        out.append(f"{a}~{b}" if dash else a)
+        i = m.end()
+    return out
+
+
+_TITLE = re.compile(r"(?:사외이사|사내이사|기타\s*비상무이사|비상무이사|이사회\s*의장|이사장|상임이사|비상임이사|감사위원장|감사위원|상임감사|감사|"
+                    r"대표이사|대표변호사|대표세무사|대표|부회장|회장|부사장|사장|전무|상무보|상무|위원장|위원|부교수|조교수|초빙교수|교수|변호사|회계사|"
+                    r"세무사|본부장|부문장|사업부장|실장|팀장|센터장|부원장|원장|장관|차관|국장|청장|의장|고문|파트너|담당|단장|소장|학장|처장|총장|"
+                    r"CEO|CFO|COO|CTO|이사)")
+# 직함 바로 뒤가 새 마디: 글자·(주)로 시작하고, 더 긴 낱말('위원회'·'이사장')이나 이어지는 직함('대표'+'이사')이 아닐 때
+_NEXT = r"(?=[가-힣A-Za-z㈜]|\((?:주|유|사|재)\))(?![회단원실관직급부님들])(?!" + _TITLE.pattern + ")"
+
+
+def _cut(text, points):
+    pts = sorted({p for p in points if 0 < p < len(text)})
+    return [text[a:b] for a, b in zip([0] + pts, pts + [len(text)])]
+
+
+def split_items(cell, n):
+    """내용 칸을 n개 마디로. 센 경계(줄바꿈·現)/前)·'- '·직함 바로 뒤 붙은 회사·괄호 뒤 붙은 글자)부터, 모자라면 약한 경계(직함 + 띄어쓰기 + 직함 아닌 낱말)."""
+    items = []
+    for part in re.split(r"\s*¶\s*", cell or ""):
+        bits = re.split(r"(?=(?:現|前|兼)\s*\))|(?=\((?:현|전)\))", part)
+        for b in bits:
+            if b.strip().startswith("-") or len(re.findall(r"-\s+", b)) >= 2:
+                b_parts = re.split(r"(?:^|(?<=\S))\s*-\s+", b)
+            else:
+                b_parts = [b]
+            for x in b_parts:
+                pts = [m.end() for m in re.finditer(_TITLE.pattern + _NEXT, x)]
+                pts += [m.end() for m in re.finditer(r"\(([^()]{2,40})\)(?=[가-힣A-Za-z㈜])", x)]
+                items += _cut(x, pts)
+    items = [x.strip(" -·,") for x in items if x.strip(" -·,")]
+    if len(items) < n:
+        weak = []
+        for x in items:
+            pts = [m.end() for m in re.finditer(_TITLE.pattern + r"(?![회단원실관직급님들])(?=\s+(?!" + _TITLE.pattern + r"|및|겸|등|\((?!(?:주|유|사|재)\)))\S)", x)]
+            weak += [y.strip() for y in _cut(x, pts) if y.strip()]
+        if len(weak) == n:
+            items = weak
+    return items
+
+
+def pair_career(pcell, ccell):
+    """기간 칸 + 내용 칸 → '기간 내용 / 기간 내용'. 짝이 안 맞으면 '기간 …(따로) / 내용 / 내용'."""
+    flat = re.sub(r"\s*¶\s*", " ", ccell or "").strip()
+    ps = split_periods(pcell)
+    if not ps or len(ps) < 2:
+        return f"{(pcell or '').replace('¶', ' ')} {flat}".strip()
+    items = split_items(ccell, len(ps))
+    if len(items) == len(ps):
+        return " / ".join(f"{p} {x}" for p, x in zip(ps, items))
+    return f"기간(내용과 짝 안 맞음) {' , '.join(ps)} / " + " / ".join(items or [flat])
 
 
 def _ix(head, pats):
@@ -325,14 +423,20 @@ def parse_agm_candidates(text):
             continue
         if re.search(r"세부\s*경력|주된\s*직업", hj):
             cur = None
-            for r in rows[hi + 1:]:
+            lrows = _rows(part, lines=True)
+            lrows = lrows if len(lrows) == len(rows) else rows              # 줄 수가 다르면 예전 방식
+            for r, lr in zip(rows[hi + 1:], lrows[hi + 1:]):
                 if not r or set(r) <= {"기간", "내용"}:
                     continue
                 if len(r) >= len(head) and not PERIOD.search(r[ni]):
                     cur = slot(r[ni])
                     cur["job"] = (r[ix["job"]] if ix["job"] is not None and ix["job"] < len(r) else "")[:120]
-                    rest = r[(ix["job"] if ix["job"] is not None else ni) + 1:]
-                    cur["career"] = " ".join(rest)[:600]
+                    at = (ix["job"] if ix["job"] is not None else ni) + 1
+                    rest, lrest = r[at:], lr[at:] if len(lr) == len(r) else r[at:]
+                    if len(lrest) >= 2 and PERIOD.search(lrest[0]) and not PERIOD.search(lrest[1][:6]):
+                        cur["career"] = " ".join([pair_career(lrest[0], lrest[1])] + rest[2:])[:600]
+                    else:
+                        cur["career"] = " ".join(rest)[:600]
                 elif cur is not None:
                     cur["career"] = (cur.get("career", "") + " / " + " ".join(r)).strip(" /")[:600]
             continue
@@ -653,6 +757,12 @@ def run(key, *, now=None, previous=None, get=None, sleep=time.sleep, registry=No
     codes.pop("_spellings", None)
     beat_codes = {n: c for n, c in codes.items()}
     old = {e["id"]: e for e in prev.get("events") or [] if isinstance(e, dict) and e.get("id")}
+    if prev and prev.get("agmParse") != AGM_PARSE_VERSION:
+        # 경력 칸 읽는 법이 바뀌면 저장된 이사 후보의 소집공고를 다시 읽을 수 있게 '본 접수번호'에서 뺀다(되짚기·3일 목록에 다시 오르면 읽힘)
+        for e in old.values():
+            m = re.search(r"rcpNo=(\d{14})", str(e.get("url") or ""))
+            if e.get("kind") == "이사 후보" and m:
+                state["seen"].pop(m.group(1), None)
     doc_budget, ind_budget = [DOC_BUDGET], [INDUSTRY_BUDGET]
     checks, fresh = [], []
     fc, fe, fcount = filings_part(key, now, beat_codes, watch, state, get=get, sleep=sleep, doc_budget=doc_budget, ind_budget=ind_budget)
@@ -671,13 +781,19 @@ def run(key, *, now=None, previous=None, get=None, sleep=time.sleep, registry=No
             fresh += re_
         else:
             checks.append({"source": "상장사 등기임원 명단 순환", "status": "failed", "error": "DART 고유번호 표 없음"})
-    new = []
+    new, reparsed = [], 0
     for e in fresh:
         e["id"] = f"execm:{e['key']}"
         if e["id"] in old:
+            o = old[e["id"]]
+            if o.get("kind") == "이사 후보" and (o.get("person") or {}).get("career") != (e.get("person") or {}).get("career"):
+                o.update({k: e[k] for k in ("text", "person", "flags", "tier") if k in e}, reparsed=stamp)   # 처음 잡힌 때·기준선은 그대로
+                reparsed += 1
             continue
         e["detectedAt"] = stamp
         new.append(e)
+    if reparsed:
+        checks.append({"source": "이사 후보 경력 다시 읽기", "status": "ok", "returned": reparsed})
     fixed = sum(refresh_agm_flags(e) for e in old.values())
     if fixed:
         checks.append({"source": "이사 후보 결격 칸 다시 판정", "status": "ok", "returned": fixed})
@@ -689,6 +805,7 @@ def run(key, *, now=None, previous=None, get=None, sleep=time.sleep, registry=No
     return {
         "schema": SCHEMA, "generatedAt": stamp, "status": status, "checks": checks, "events": events,
         "seen": state["seen"], "industry": state["industry"], "companies": state["companies"], "cursor": state["cursor"], "alumni": state["alumni"],
+        "agmParse": AGM_PARSE_VERSION,
         "counts": {**fcount, "newEvents": len(new), **{t: sum(1 for e in new if e["tier"] == t) for t in ("A", "B", "C")},
                    "rosterCovered": sum(1 for c in state["companies"].values() if c.get("p")), "rosterUniverse": None},
         "unresolvedCompanies": missing, "watchCompanies": [w["name"] for w in watch],
