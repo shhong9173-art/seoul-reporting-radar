@@ -167,11 +167,15 @@ export async function localNoticeSubmit(ctx, args) {
   let labor = args.labor;
   if (typeof labor === 'string') { try { labor = JSON.parse(labor); } catch { labor = []; } }
   labor = Array.isArray(labor) ? labor : [];
+  // 직접 올리기 열쇠 지문 등록(browser_upload_key와 같음) — 도구 목록을 옛것으로 가진 세션(새 도구를 못 부름)도 이 도구로 등록할 수 있게
+  const keyLine = args.uploadKeySha256 !== undefined ? (await browserUploadKey(ctx, { sha256: args.uploadKeySha256 })) : null;
+  if (keyLine && !given.length && !pages.length && !labor.length) return keyLine;
   if (!given.length && !pages.length && !labor.length) return textResult('cities·pages·labor가 비었음 — 저장하지 않음.', true);
   const nowIso = ctx.now.toISOString();
   const laborResult = labor.length ? await submitLabor(ctx, labor, nowIso) : { lines: [] };
   const pageResult = pages.length ? await submitPages(ctx, pages, nowIso) : { lines: [] };
   pageResult.lines.push(...laborResult.lines);
+  if (keyLine) pageResult.lines.push(keyLine.content[0].text);
   if (!given.length) return textResult([`브라우저 수집 저장 · ${nowIso.slice(0, 16)}Z`, ...pageResult.lines].join('\n'));
   const accepted = [];
   const refused = [];
