@@ -201,7 +201,7 @@ def person_flags(target, career, watch, *, industry=None):
 
 # ---------- filing parsers ----------
 
-AGM_PARSE_VERSION = 2      # 2: 세부경력 칸 기간·내용 짝짓기(11-06)
+AGM_PARSE_VERSION = 3      # 3: 짝짓기 경계 보강(11-06 실제 오짝). 2: 세부경력 칸 기간·내용 짝짓기(11-06)
 LINE_TAG = re.compile(r"<\s*br\s*/?\s*>|</\s*p\s*>", re.I)
 
 
@@ -256,9 +256,11 @@ def split_periods(cell):
 _TITLE = re.compile(r"(?:사외이사|사내이사|기타\s*비상무이사|비상무이사|이사회\s*의장|이사장|상임이사|비상임이사|감사위원장|감사위원|상임감사|감사|"
                     r"대표이사|대표변호사|대표세무사|대표|부회장|회장|부사장|사장|전무|상무보|상무|위원장|위원|부교수|조교수|초빙교수|교수|변호사|회계사|"
                     r"세무사|본부장|부문장|사업부장|실장|팀장|센터장|부원장|원장|장관|차관|국장|청장|의장|고문|파트너|담당|단장|소장|학장|처장|총장|"
+                    r"자문역|자문|심판관|조사관|감독관|비서관|행정관|부장판사|판사|검사장|부장검사|연구위원|"
                     r"CEO|CFO|COO|CTO|이사)")
-# 직함 바로 뒤가 새 마디: 글자·(주)로 시작하고, 더 긴 낱말('위원회'·'이사장')이나 이어지는 직함('대표'+'이사')이 아닐 때
-_NEXT = r"(?=[가-힣A-Za-z㈜]|\((?:주|유|사|재)\))(?![회단원실관직급부님들])(?!" + _TITLE.pattern + ")"
+# 직함 바로 뒤가 새 마디: 글자·(주)로 시작하고, 더 긴 낱말('위원회'·'이사장'·'감사본부')이나 이어지는 직함('대표'+'이사')이 아닐 때
+# 11-06 실제(고려아연 2026-08-11): '교수부산항만공사'(부산), '자문단국대'(자문), '회계감사본부'(감사+본부) — '부'는 '부문·부서·부속·부처·부장'만 뺀다
+_NEXT = r"(?=[가-힣A-Za-z㈜]|\((?:주|유|사|재)\))(?![회단원실관직급님들본장사역소])(?!부(?:문|서|속|처|장))(?!" + _TITLE.pattern + ")"
 
 
 def _cut(text, points):
@@ -298,7 +300,9 @@ def pair_career(pcell, ccell):
     if not ps or len(ps) < 2:
         return f"{(pcell or '').replace('¶', ' ')} {flat}".strip()
     items = split_items(ccell, len(ps))
-    if len(items) == len(ps):
+    # 수가 맞아도 조각이 너무 짧거나(2글자 이하) 부서 꼬리('본부'·'부문')로 시작하면 잘못 자른 것 — 짝짓지 않는다
+    sane = all(len(re.sub(r"\s", "", x)) >= 3 and not re.match(r"(?:본부|부문|부서|사업부|팀|실)\b", x) for x in items)
+    if len(items) == len(ps) and sane:
         return " / ".join(f"{p} {x}" for p, x in zip(ps, items))
     return f"기간(내용과 짝 안 맞음) {' , '.join(ps)} / " + " / ".join(items or [flat])
 
