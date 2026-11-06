@@ -55,7 +55,16 @@ class AsideCollect(unittest.TestCase):
     def test_only_listed_sites(self):
         hosts = set(re.findall(r"https://([a-z0-9.-]+)", "".join(PARTS[1:])))
         allowed = {re.match(r"https://([^/]+)", u).group(1) for _, u in re.findall(r"\['([^']+)', '(https://[^']+)'\]", PARTS[1])}
-        self.assertEqual(hosts - allowed, {"www.industry.gov.au", "www.nlrc.go.kr"})
+        self.assertEqual(hosts - allowed, {"www.industry.gov.au", "www.nlrc.go.kr", "seoul-reporting-radar.shhong9173.workers.dev"})
+
+    def test_upload_never_prints_key(self):
+        # 열쇠는 사이트 저장소에서 읽어 보내기만 한다 — console.log에 열쇠 변수가 들어가면 안 됨
+        reg = (ROOT / "scripts" / "aside" / "register_upload_key.js").read_text(encoding="utf-8")
+        for code in (PARTS[5], reg):
+            for line in re.findall(r"console\.log\((.*)\);", code):
+                self.assertNotRegex(line, r"\bk\b|localStorage|radarUploadKey")
+        self.assertIn("radarUploadKey", PARTS[5])
+        self.assertIn("'/upload/browser'", PARTS[5])  # 같은 사이트(창)에서만 보낸다
 
     @unittest.skipUnless(shutil.which("node"), "node 없음")
     def test_parts_parse(self):

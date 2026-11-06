@@ -4,7 +4,7 @@
 // same rules as its own fetches (parse_cells) and runs right after (workflow_dispatch). Fixed city list, size caps,
 // no URLs or HTML accepted: the session cannot point the watch anywhere else.
 import { storeOp } from './store.mjs';
-import { textResult } from './common.mjs';
+import { safeEqual, sha256Hex, textResult } from './common.mjs';
 import { dispatchNow } from './dispatch.mjs';
 
 export const BROWSER_CITIES = {
@@ -227,4 +227,52 @@ export async function localNoticeSubmit(ctx, args) {
     ...(refused.length ? [`받지 않은 이름(허용 목록 밖): ${refused.join(', ')}`] : []),
     dispatch, ...pageResult.lines];
   return textResult(lines.join('\n'));
+}
+
+// 기자 컴퓨터 Aside가 직접 올리는 길(11-06): 예약 작업 모델이 50KB 가까운 인자를 그대로 옮겨 적지 않게 한다.
+// 열쇠(32바이트 난수)는 기자 컴퓨터 Aside 브라우저 프로필의 이 사이트 저장소(localStorage)에만 있고, Worker는 그 SHA-256만 둔다
+// (browser_upload_key 도구로 등록 — 열쇠 글자는 대화·저장소·로그 어디에도 나오지 않는다). 받은 인자는 local_notice_submit과 같은 규칙으로 걸러
+// 같은 문서에 넣고 같은 간격으로만 감시 실행을 요청한다. 열쇠가 틀리면 404(경로가 있는지도 알리지 않음).
+const KEY_BLOB = 'browser_upload_key';
+const UPLOAD_MAX = 400_000;
+const UPLOAD_PAGE = '<!doctype html><meta charset="utf-8"><title>radar upload</title><p>취재 레이더 기자 컴퓨터 수집 올리기 창(내용 없음)</p>';
+
+async function readKey(ctx) {
+  const { row } = await storeOp(ctx, 'blobs.get', { name: KEY_BLOB });
+  try { return row ? JSON.parse(row.body) : null; } catch { return null; }
+}
+
+export async function browserUploadKey(ctx, args) {
+  const prev = await readKey(ctx);
+  const hash = String(args?.sha256 ?? '').trim().toLowerCase();
+  if (!hash) {
+    return textResult(prev?.sha256 ? `등록된 열쇠: 지문 ${prev.sha256.slice(0, 8)}… · 등록 ${String(prev.registeredAt).slice(0, 16)}Z`
+      + ` · 마지막 올림 ${prev.lastUploadAt ? `${String(prev.lastUploadAt).slice(0, 16)}Z` : '없음'}` : '등록된 열쇠 없음 — Aside 직접 올리기 꺼짐(예약 작업은 local_notice_submit으로 올림)');
+  }
+  if (!/^[0-9a-f]{64}$/.test(hash)) return textResult('sha256은 16진수 64자여야 함 — 등록하지 않음.', true);
+  const nowIso = ctx.now.toISOString();
+  await storeOp(ctx, 'blobs.put', { name: KEY_BLOB, body: JSON.stringify({ sha256: hash, registeredAt: nowIso, lastUploadAt: null }) });
+  return textResult(`열쇠 등록함 · 지문 ${hash.slice(0, 8)}… · ${nowIso.slice(0, 16)}Z${prev?.sha256 && prev.sha256 !== hash ? ' · 이전 열쇠는 이제 못 씀' : ''}`);
+}
+
+export async function browserUpload(request, env, deps = {}) {
+  if (request.method === 'GET') {
+    return new Response(UPLOAD_PAGE, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex',
+      'Content-Security-Policy': "default-src 'none'; connect-src 'self'; frame-ancestors 'none'" } });
+  }
+  if (request.method !== 'POST') return new Response('Method not allowed', { status: 405, headers: { Allow: 'GET, POST' } });
+  const notFound = new Response('Not found', { status: 404 });
+  const m = /^Bearer\s+([A-Za-z0-9_-]{32,128})$/.exec(request.headers.get('Authorization') ?? '');
+  if (!m) return notFound;
+  const ctx = { env, private: true, fetch: deps.fetch ?? ((...a) => fetch(...a)), now: deps.now ?? new Date() };
+  const key = await readKey(ctx);
+  if (!key?.sha256 || !(await safeEqual(await sha256Hex(m[1]), key.sha256))) return notFound;
+  const text = await request.text();
+  if (text.length > UPLOAD_MAX) return Response.json({ error: 'too large' }, { status: 413 });
+  let args;
+  try { args = JSON.parse(text); } catch { return Response.json({ error: 'bad json' }, { status: 400 }); }
+  if (!args || typeof args !== 'object' || Array.isArray(args)) return Response.json({ error: 'bad json' }, { status: 400 });
+  const result = await localNoticeSubmit(ctx, { cities: args.cities, pages: args.pages, labor: args.labor, via: args.via });
+  await storeOp(ctx, 'blobs.put', { name: KEY_BLOB, body: JSON.stringify({ ...key, lastUploadAt: ctx.now.toISOString() }) });
+  return Response.json({ ok: !result.isError, text: result.content?.[0]?.text ?? '' }, { headers: { 'Cache-Control': 'no-store' } });
 }

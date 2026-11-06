@@ -1,10 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { deflateRawSync } from 'node:zlib';
+import { createHash } from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
 import worker from '../cloudflare/worker.mjs';
 import { handleMcp, TOOLS } from '../cloudflare/mcp.mjs';
 import { RadarStore } from '../cloudflare/store.mjs';
+import { browserUpload } from '../cloudflare/local_browser.mjs';
 import { checkCandidate } from '../cloudflare/scoring.mjs';
 import { readZip } from '../cloudflare/zip.mjs';
 import { publicationDate, verifyEvidence } from '../cloudflare/evidence.mjs';
@@ -3709,6 +3711,41 @@ test('kr local notices: a beat plant notice in a city is A, a city baseline is h
   assert.match(t3.text, /못 읽은 첨부: 예정공정표\.pdf\(글자 없음\(스캔 이미지일 수 있음\)\)\n   첨부 파일\(열지 않음\): 붙임1\.hwpx/);
   assert.deepEqual(dueAt(new Date('2026-10-26T21:30:00Z')), ['page-watch.yml', 'kr-local.yml']);  // Tue 06:30 KST
   assert.deepEqual(dueAt(new Date('2026-10-27T07:20:00Z')), ['kr-local.yml']);                    // Tue 16:20 KST
+});
+
+test('Aside 직접 올리기(/upload/browser): 등록한 열쇠 지문과 맞을 때만 local_notice_submit과 같은 규칙으로 저장, 틀리면 404', async () => {
+  const seen = [];
+  const fetch = async (url) => { seen.push(url); return new Response(null, { status: 204 }); };
+  const opts = { ...PRIVATE({ GITHUB_DISPATCH_TOKEN: 'ghp_test' }), fetch };
+  const page = await worker.fetch(new Request(ORIGIN + '/upload/browser'), opts.env, {});
+  assert.equal(page.status, 200);
+  assert.match(page.headers.get('Content-Security-Policy'), /connect-src 'self'/);
+  assert.doesNotMatch(await page.text(), /script/i);
+  const sha = (k) => createHash('sha256').update(k).digest('hex');
+  const key = 'k'.repeat(43);
+  const post = (k, body) => browserUpload(new Request(ORIGIN + '/upload/browser', { method: 'POST',
+    headers: { Authorization: `Bearer ${k}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body) }), opts.env, { fetch });
+  assert.equal((await post(key, { via: 'aside' })).status, 404);  // 등록 전
+  assert.match((await call('browser_upload_key', {}, opts)).text, /등록된 열쇠 없음/);
+  assert.ok((await call('browser_upload_key', { sha256: 'xyz' }, opts)).isError);
+  assert.match((await call('browser_upload_key', { sha256: sha(key) }, opts)).text, /열쇠 등록함 · 지문 [0-9a-f]{8}…/);
+  assert.equal((await post('w'.repeat(43), { via: 'aside' })).status, 404);  // 틀린 열쇠
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/upload/browser', { method: 'POST', body: '{}' }), opts.env, {})).status, 404);  // 열쇠 없음
+  const ok = await (await post(key, { via: 'aside', cities: [{ city: '나주시', rows: [{ mgt: '42465',
+    cells: ['나주시 고시 제2026-253호', '도로명주소 부여 고시', '시민봉사과', '2026-11-06'] }, { mgt: "1');x", cells: ['x'] }] }, { city: '서울 강남구' }] })).json();
+  assert.equal(ok.ok, true);
+  assert.match(ok.text, /· Aside · 시·군 1곳 \(정상 1\)/);
+  assert.match(ok.text, /- 나주시: 1줄 · 버린 줄 1/);
+  assert.match(ok.text, /받지 않은 이름\(허용 목록 밖\): 서울 강남구/);
+  assert.deepEqual(seen.map((u) => u.split('/').slice(-2)[0]), ['kr-local.yml']);
+  const got = await (await worker.fetch(new Request(ORIGIN + '/ingest/kr-local-browser', { headers: { Authorization: `Bearer ${TOKEN}` } }), opts.env, {})).json();
+  assert.equal(got.cities.find((c) => c.city === '나주시').via, 'aside');
+  assert.match((await call('browser_upload_key', {}, opts)).text, /마지막 올림 20\d\d-/);
+  assert.equal((await (await post(key, {})).json()).ok, false);  // 빈 인자는 저장하지 않음
+  assert.equal((await browserUpload(new Request(ORIGIN + '/upload/browser', { method: 'POST', headers: { Authorization: `Bearer ${key}` }, body: 'x'.repeat(400_001) }), opts.env, { fetch })).status, 413);
+  // 새 열쇠를 등록하면 이전 열쇠는 못 쓴다
+  assert.match((await call('browser_upload_key', { sha256: sha('n'.repeat(43)) }, opts)).text, /이전 열쇠는 이제 못 씀/);
+  assert.equal((await post(key, { via: 'aside' })).status, 404);
 });
 
 test('local_notice_submit via Aside: 출입처 줄 상세(제목·본문 앞·첨부 이름)를 글자만 크기 제한해 받고, 수집 길(via)을 남긴다', async () => {

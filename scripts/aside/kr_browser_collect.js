@@ -2,8 +2,9 @@
 // 차례로 mcp aside repl(code=…)에 그대로 넣는다. 11-06 기자 승인: 내장 브라우저로 시·군 목록을 하나씩 열던 방식(한 번에 8분 넘게)을 대신한다.
 // 하는 일(읽기만): 해외 IP(GitHub)에서 막히는 시·군 8곳 새올 고시·공고 목록 첫 쪽, 호주 무역구제 공지(TRN) 목록, 노동위원회
 // 회의일정 달력 14곳. 시·군 목록에서 출입처 이름이 든 줄은 상세 페이지(제목 전체·본문 앞 400자·첨부 파일 이름)까지 읽는다.
-// 마지막 토막이 sdds local_notice_submit 인자({cities, pages, labor, via}) 한 줄 JSON을 찍는다 — 예약 작업은 글자를 고치지 않고 올린다.
-// 지킬 것: 아래 10개 사이트 밖은 열지 않는다. 로그인·글쓰기·첨부 내려받기 없음. 사이트마다 목록 요청 한 번(실패 시 subCheck=N 한 번).
+// 마지막 토막이 레이더(Worker /upload/browser)에 직접 올린다 — 열쇠는 Aside 브라우저의 그 사이트 저장소에만 있고(scripts/aside/register_upload_key.js로 한 번 만듦)
+// Worker는 SHA-256 지문만 안다. 열쇠가 없거나 실패하면 sdds local_notice_submit 인자 한 줄 JSON(SUBMIT)을 찍고, 예약 작업이 글자를 고치지 않고 올린다.
+// 지킬 것: 아래 10개 사이트와 레이더 올리기 창 밖은 열지 않는다. 로그인·글쓰기·첨부 내려받기 없음. 사이트마다 목록 요청 한 번(실패 시 subCheck=N 한 번).
 // REPL 사정(11-06 시험):
 // - DOMParser·euc-kr 해독은 REPL엔 없고 브라우저 탭 안에만 있다 — 받은 바이트를 빈 탭으로 넘겨 읽는다.
 // - 기자 컴퓨터 중계가 한 번 호출을 60초까지만 기다린다(전부 한 번에 돌리면 끊김) — 토막마다 45초 안에 끝나게 자른다.
@@ -204,9 +205,10 @@
     + `${R.labor.reduce((n, x) => n + (x.rows ? x.rows.length : 0), 0)}건 · ${((Date.now() - T0) / 1000).toFixed(1)}초`);
 }
 
-// ===== 토막 5: local_notice_submit 인자 한 줄(SUBMIT 뒤 JSON을 고치지 말고 그대로 올린다) =====
+// ===== 토막 5: 레이더에 직접 올리기(열쇠가 없거나 실패하면 SUBMIT 줄 — 예약 작업이 그 JSON을 고치지 말고 local_notice_submit으로 올린다) =====
 {
   const R = globalThis.__R;
+  const UPLOAD = 'https://seoul-reporting-radar.shhong9173.workers.dev/upload/browser';
   const CITY_NAMES = ['인천 부평구', '구미시', '청주시', '순천시', '함평군', '양산시', '광주 광산구', '나주시'];
   const lost = '수집 세션이 끊김(Aside 재시작 등) — 다시 수집 필요';
   const cities = CITY_NAMES.map((name) => {
@@ -217,7 +219,34 @@
   const labor = R && R.labor ? R.labor : ['중앙노동위원회', '서울지방노동위원회', '부산지방노동위원회', '경기지방노동위원회', '인천지방노동위원회',
     '강원지방노동위원회', '충북지방노동위원회', '충남지방노동위원회', '전북지방노동위원회', '전남지방노동위원회', '경북지방노동위원회',
     '경남지방노동위원회', '울산지방노동위원회', '제주지방노동위원회'].map((commission) => ({ commission, error: lost }));
+  const payload = { cities, pages, labor, via: 'aside' };
   try { if (R && R.tab) await closeTab(R.tab); } catch (e) { /* 그대로 둔다 */ }
   console.log('TIMING ' + JSON.stringify(R ? R.timing : {}));
-  console.log('SUBMIT ' + JSON.stringify({ cities, pages, labor, via: 'aside' }));
+  if (!R || !R.cities || !R.cities.length) {
+    // 토막 사이에 Aside REPL이 새로 시작돼 앞 결과가 사라졌다 — 오류만 든 인자를 올리지 않고 예약 작업이 토막 1부터 한 번 다시 한다
+    console.log('LOST 앞 토막 결과가 없음(REPL 새로 시작) — 토막 1부터 한 번 다시. 두 번째도 LOST면 아래 SUBMIT을 그대로 올린다');
+    console.log('SUBMIT ' + JSON.stringify(payload));
+  } else {
+    // 직접 올리기(11-06): 열쇠는 이 사이트 저장소(localStorage)에만 있다 — 코드는 읽어서 보내기만 하고 찍지 않는다
+    let up = null;
+    try {
+      const ut = await openTab(UPLOAD);
+      try {
+        up = await ut.evaluate(async (body) => {
+          const k = localStorage.getItem('radarUploadKey');
+          if (!k) return { skip: '열쇠 없음' };
+          const r = await fetch('/upload/browser', { method: 'POST', headers: { Authorization: 'Bearer ' + k, 'Content-Type': 'application/json' }, body });
+          return { status: r.status, body: (await r.text()).slice(0, 6000) };
+        }, JSON.stringify(payload));
+      } finally { try { await closeTab(ut); } catch (e) { /* 그대로 둔다 */ } }
+    } catch (e) { up = { error: String(e && e.message || e).slice(0, 100) }; }
+    let done = false;
+    if (up && up.status === 200) {
+      try { const j = JSON.parse(up.body); if (j.ok) { console.log('UPLOADED ' + j.text); done = true; } else { up = { error: '레이더가 거절: ' + String(j.text).slice(0, 200) }; } } catch (e) { up = { error: '응답 형식' }; }
+    }
+    if (!done) {
+      console.log('UPLOAD 못 함(' + (up ? (up.skip || up.error || 'HTTP ' + up.status) : '?') + ') — 아래 SUBMIT을 local_notice_submit으로 올린다');
+      console.log('SUBMIT ' + JSON.stringify(payload));
+    }
+  }
 }
