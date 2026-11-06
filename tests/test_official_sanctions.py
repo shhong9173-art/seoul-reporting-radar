@@ -178,6 +178,13 @@ class Parse(unittest.TestCase):
                   "안 건 번 호 제2026-016-102호 피 심 인 홍○○ (사업자등록번호 : ) 의결연월일 2026. 9. 9. 주 문 시정명령")
         self.assertEqual([(x["org"], x.get("fine"), x.get("penalty")) for x in osn.pipc_decision(bundle)],
                          [("한빛상사", None, "600만원"), ("홍○○", None, None)])
+        # 탐침 197: 소위원회 결정문 안건번호의 긴 줄표·띄어쓰기('제2026–220 –441호')
+        sub = ("개 인 정 보 보 호 위 원 회 제 2 소 위 원 회 심의ㆍ의결 안 건 번 호 제2026–218–434호 안 건 명개인정보보호 법규 위반행위에 대한 시정조치에 관한 건 "
+               "피 심 인㈜한빛조인 (사업자등록번호 : ) 대 표 자 : 의결연월일 2026. 9. 18. 주 문 1. 피심인 ㈜한빛조인에 대하여 다음과 같이 과태료를 부과한다. "
+               "가. 과 태 료 : 5,400,000원 나. 납부기한 - 2 - 이 유")
+        self.assertEqual(osn.pipc_decision(sub), [{"case": "제2026-218-434호", "org": "한빛조인", "date": "2026-09-18", "penalty": "540만원"}])
+        self.assertEqual(osn.pipc_decision("안 건 번 호 제2026–220 –441호 피 심 인 오성소프트 (사업자등록번호 : ) 대표자 의결연월일 2026. 10. 14. 주 문")[0]["case"],
+                         "제2026-220-441호")
         listing = ('<table><tr><td>2819</td><td>위원회</td><td><a href="agenda.do?op=view&amp;idxId=2026-0723">개인정보보호 법규 위반행위에 대한 시정조치에 관한 건(2025조이0004)</a></td>'
                    '<td>2026-08-26</td><td>첨부</td></tr>'
                    '<tr><td>2818</td><td>위원회</td><td><a href="agenda.do?op=view&amp;idxId=2026-0679">공공기관의 개인정보보호법규 위반행위에 대한 시정조치에 관한 건</a></td><td>2026-08-26</td></tr>'
@@ -205,6 +212,12 @@ class Parse(unittest.TestCase):
         pub = {"posts": {"9": [{"agency": "개인정보위", "id": "pipc:9:1", "org": "㈜지에스리테일", "date": "2026-08-26", "inst": "과징금 128억", "major": True}]}}
         self.assertEqual([r["id"] for r in osn.pipc_all_records(pub, st)], ["pipcd:제2026-017-107호"])
         # 첨부가 PDF가 아니면(HTML 안내 쪽) 줄에 남겨 다음 실행에 다시
+        # 예전 판에서 못 읽은(빈) 결정문은 판이 바뀌면 다시 줄에 넣어 읽는다
+        stale = dict(st, read={}, empty={"2026-0723": 1})
+        st4, c4 = osn.refresh_pipc_decisions(stale, get=get, now=NOW, read_pdf=lambda raw, n: real)
+        self.assertEqual((c4["read"], st4["empty"]), (1, {}))
+        st5, c5 = osn.refresh_pipc_decisions(dict(st, read={}), get=get, now=NOW, read_pdf=lambda raw, n: "꼴 아님")
+        self.assertEqual(st5["empty"]["2026-0723"]["v"], osn.PIPC_DECISION_VERSION)          # 같은 판에선 다시 안 읽음
         bad = lambda url, params=None, **kw: R(content=b"<!DO") if url == osn.PIPC_FILE_DL else get(url, params)
         st3, c3 = osn.refresh_pipc_decisions(None, get=bad, now=NOW, read_pdf=lambda raw, n: real)
         self.assertEqual((c3["status"], c3["queued"], list(c3["outcomes"])), ("partial", 1, ["unread:200:b'<!DO'"]))

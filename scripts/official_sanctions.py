@@ -219,7 +219,7 @@ PIPC_AGENDA_VIEW = PIPC_AGENDA + "?op=view&mCode=E030010000&idxId="
 PIPC_FILE_DL = "https://www.pipc.go.kr/np/cmm/fms/FileDown.do"
 PIPC_DECISION_TITLE = re.compile(r"시정조치|과징금|과태료|처분")
 PIPC_SINCE = "2020-08-05"          # 개인정보위 중앙행정기관 출범
-PIPC_DECISION_VERSION = 1
+PIPC_DECISION_VERSION = 2          # 2: 긴 줄표 안건번호(소위원회). 판이 바뀌면 못 읽은 결정문을 다시 줄에 넣는다
 
 
 def pipc_agenda_rows(html_text):
@@ -238,11 +238,12 @@ def pipc_agenda_rows(html_text):
 def pipc_decision(text):
     """결정문 PDF 글자 → [{case, org, date, fine, penalty}] (안건번호마다 한 줄). 피심인이 개인·가린 이름이면 그대로 둔다(회사 대조에서 안 걸림)."""
     t = re.sub(r"\s+", " ", text or "")
-    heads = list(re.finditer(r"안\s*건\s*번\s*호\s*(제?\s*\d{4}\s*-\s*\d{3}\s*-\s*\d{3}\s*호)", t))
+    # 11-06 탐침 197: 소위원회 결정문은 '제2026–220 –441호'(긴 줄표·띄어쓰기) — 운영 첫 실행 25건 중 17건을 못 읽은 까닭
+    heads = list(re.finditer(r"안\s*건\s*번\s*호\s*(제?\s*\d{4}\s*[-–—‐]\s*\d{2,4}\s*[-–—‐]\s*\d{2,4}\s*호)", t))
     out, seen = [], set()
     for i, h in enumerate(heads):
         seg = t[h.start():heads[i + 1].start() if i + 1 < len(heads) else len(t)]
-        case = re.sub(r"\s+", "", h.group(1))
+        case = re.sub(r"[–—‐]", "-", re.sub(r"\s+", "", h.group(1)))
         if case in seen:
             continue
         m = re.search(r"피\s*심\s*인\s*(.{2,60}?)\s*\(\s*(?:사업자|법인)", seg) or re.search(r"피\s*심\s*인\s*(.{2,40}?)\s*대\s*표\s*자", seg)
@@ -250,7 +251,7 @@ def pipc_decision(text):
         if not m or not d:
             continue
         seen.add(case)
-        org = re.sub(r"^(?:㈜|\(주\)|주식회사)\s*|\s*(?:㈜|\(주\)|주식회사)$", "", m.group(1).strip()).strip()
+        org = re.sub(r"^(?:㈜|\(주\)|주식회사|유한회사)\s*|\s*(?:㈜|\(주\)|주식회사|유한회사|\(유\))$", "", m.group(1).strip()).strip()
         main = seg[:seg.find("이 유")] if "이 유" in seg else seg[:4000]
         fine = re.search(r"과\s*징\s*금\s*:\s*([\d,]+)\s*원", main)
         pen = re.search(r"과\s*태\s*료\s*:\s*([\d,]+)\s*원", main)
@@ -264,13 +265,18 @@ def refresh_pipc_decisions(state, *, get, now, pause=None, front_pages=3, backfi
     state: {"queue": {idx: {date, title}}, "read": {idx: [records]}, "empty": {idx: v}, "nextPage", "done"}"""
     state = dict(state or {})
     queue, read, empty = dict(state.get("queue") or {}), dict(state.get("read") or {}), dict(state.get("empty") or {})
+    for idx, v in list(empty.items()):                 # 읽는 법이 바뀌면 못 읽었던 결정문을 다시 줄에(판·날짜·제목을 같이 남겨 둠)
+        meta = v if isinstance(v, dict) else {"v": v}
+        if meta.get("v") != PIPC_DECISION_VERSION:
+            queue[idx] = {"date": meta.get("date", ""), "title": meta.get("title", "")}
+            empty.pop(idx)
     err, pages, got_n, outcome = None, 0, 0, {}
 
     def take(rows):
         new = 0
         for x in rows:
             if PIPC_DECISION_TITLE.search(x["title"]) and not re.search(r"공공기관", x["title"]) and x["date"] >= PIPC_SINCE and x["idx"] not in read \
-                    and empty.get(x["idx"]) != PIPC_DECISION_VERSION and x["idx"] not in queue:
+                    and x["idx"] not in empty and x["idx"] not in queue:
                 queue[x["idx"]] = {"date": x["date"], "title": x["title"][:90]}
                 new += 1
         return new
@@ -327,7 +333,7 @@ def refresh_pipc_decisions(state, *, get, now, pause=None, front_pages=3, backfi
                 got_n += 1
                 outcome["ok"] = outcome.get("ok", 0) + 1
             elif ok:                                   # 읽었는데 피심인·의결일 꼴이 아님 — 같은 판에선 다시 안 읽음
-                empty[idx] = PIPC_DECISION_VERSION
+                empty[idx] = {"v": PIPC_DECISION_VERSION, **queue[idx]}
                 queue.pop(idx, None)
                 outcome["parsed_empty"] = outcome.get("parsed_empty", 0) + 1
     except Exception as e:
