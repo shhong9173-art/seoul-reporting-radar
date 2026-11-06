@@ -7,6 +7,7 @@ import { radarItems } from './digest.mjs';
 import { board, boardPart } from './board.mjs';
 import { check, login } from './auth.mjs';
 import { translateRoute } from './translate.mjs';
+import { browserUpload } from './local_browser.mjs';
 export { RadarStore } from './store.mjs';
 
 export default {
@@ -19,6 +20,7 @@ export default {
     if (pathname === '/auth/login') return login(request, env);       // 홈페이지 로그인(아이디·비밀번호 → 30일 세션)
     if (pathname === '/auth/check') return check(request, env);       // 사이트 첫 화면 잠금(gate.js)의 세션 확인
     if (pathname === '/ingest/translate') return translateRoute(request, env);   // 외신 제목 번역(Workers AI)
+    if (pathname === '/upload/browser') return browserUpload(request, env);   // 기자 컴퓨터 Aside 직접 올리기(열쇠 지문 확인)
     if (pathname.startsWith('/ingest/')) return handleIngest(request, env);
     return redirect.fetch(request, env, ctx);
   },
