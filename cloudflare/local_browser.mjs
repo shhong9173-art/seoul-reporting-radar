@@ -24,6 +24,10 @@ const MAX_ROWS = 60;
 const MAX_CELLS = 14;
 const MAX_CELL = 300;
 const MGT = /^[0-9A-Za-z_-]{1,40}$/;
+const MAX_DETAILS = 8;          // 시·군마다 상세 페이지 줄
+const MAX_DETAIL_TITLE = 300;
+const MAX_DETAIL_BODY = 420;    // 본문 앞 400자 + '…'
+export const VIAS = ['aside', 'browser'];
 const DISPATCH_GAP_MS = 60 * 60000;  // 같은 시간 안에 다시 올려도 kr-local은 한 번만 요청
 
 const clean = (s, n) => String(s ?? '').replace(/\s+/g, ' ').trim().slice(0, n);
@@ -171,6 +175,7 @@ export async function localNoticeSubmit(ctx, args) {
   if (!given.length) return textResult([`브라우저 수집 저장 · ${nowIso.slice(0, 16)}Z`, ...pageResult.lines].join('\n'));
   const accepted = [];
   const refused = [];
+  const via = VIAS.includes(args.via) ? args.via : null;     // 수집 길(aside = Aside REPL, browser = 내장 브라우저)
   for (const c of given.slice(0, 20)) {
     const city = clean(c?.city, 40);
     if (!Object.hasOwn(BROWSER_CITIES, city)) { refused.push(city || '(이름 없음)'); continue; }
@@ -178,14 +183,20 @@ export async function localNoticeSubmit(ctx, args) {
     const error = clean(c?.error, 120);
     const rows = [];
     let dropped = 0;
+    let details = 0;
     for (const r of Array.isArray(c?.rows) ? c.rows : []) {
       const mgt = clean(r?.mgt, 40);
       const cells = (Array.isArray(r?.cells) ? r.cells : []).slice(0, MAX_CELLS).map((x) => clean(x, MAX_CELL)).filter(Boolean);
       if (!MGT.test(mgt) || !cells.length || rows.some((x) => x.mgt === mgt)) { dropped += 1; continue; }
       if (rows.length >= MAX_ROWS) { dropped += 1; continue; }
-      rows.push({ mgt, cells });
+      // 상세 페이지(11-06 Aside 수집 — 수집 쪽이 출입처 이름 든 줄만 읽음): 제목·본문 앞·첨부 이름 글자만 받는다(HTML·주소는 받지 않음)
+      const d = r?.detail && typeof r.detail === 'object' ? r.detail : null;
+      const detail = details < MAX_DETAILS && d && clean(d.title, MAX_DETAIL_TITLE) ? { title: clean(d.title, MAX_DETAIL_TITLE),
+        body: clean(d.body, MAX_DETAIL_BODY), files: (Array.isArray(d.files) ? d.files : []).slice(0, 6).map((x) => clean(x, 120)).filter(Boolean) } : null;
+      if (detail) details += 1;
+      rows.push({ mgt, cells, ...(detail ? { detail } : {}) });
     }
-    accepted.push({ city, fetchedAt: nowIso, rows, dropped, ...(error ? { error } : {}),
+    accepted.push({ city, fetchedAt: nowIso, rows, dropped, ...(via ? { via } : {}), ...(details ? { details } : {}), ...(error ? { error } : {}),
       ...(!error && !rows.length ? { error: '목록 0줄(사이트 형식 변경 또는 빈 응답) — 0건 아님' } : {}) });
   }
   if (!accepted.length) {
@@ -196,7 +207,7 @@ export async function localNoticeSubmit(ctx, args) {
   try { prev = row ? JSON.parse(row.body) : {}; } catch { prev = {}; }
   const keep = (Array.isArray(prev.cities) ? prev.cities : []).filter((x) => Object.hasOwn(BROWSER_CITIES, x?.city)
     && !accepted.some((a) => a.city === x.city));
-  const doc = { schema: SCHEMA, updatedAt: nowIso, cities: [...accepted, ...keep], lastDispatchAt: prev.lastDispatchAt ?? null };
+  const doc = { schema: SCHEMA, updatedAt: nowIso, ...(via ? { via } : {}), cities: [...accepted, ...keep], lastDispatchAt: prev.lastDispatchAt ?? null };
   const ok = accepted.filter((x) => !x.error);
   let dispatch = '감시 실행 요청 안 함(성공한 시·군 없음)';
   if (ok.length) {
@@ -211,8 +222,8 @@ export async function localNoticeSubmit(ctx, args) {
     }
   }
   await storeOp(ctx, 'blobs.put', { name: BLOB, body: JSON.stringify(doc) });
-  const lines = [`브라우저 수집 저장 · ${nowIso.slice(0, 16)}Z · 시·군 ${accepted.length}곳 (정상 ${ok.length})`,
-    ...accepted.map((x) => `- ${x.city}: ${x.error ? `미확인(${x.error})` : `${x.rows.length}줄`}${x.dropped ? ` · 버린 줄 ${x.dropped}` : ''}`),
+  const lines = [`브라우저 수집 저장 · ${nowIso.slice(0, 16)}Z${via ? ` · ${via === 'aside' ? 'Aside' : '내장 브라우저'}` : ''} · 시·군 ${accepted.length}곳 (정상 ${ok.length})`,
+    ...accepted.map((x) => `- ${x.city}: ${x.error ? `미확인(${x.error})` : `${x.rows.length}줄`}${x.details ? ` · 상세 ${x.details}` : ''}${x.dropped ? ` · 버린 줄 ${x.dropped}` : ''}`),
     ...(refused.length ? [`받지 않은 이름(허용 목록 밖): ${refused.join(', ')}`] : []),
     dispatch, ...pageResult.lines];
   return textResult(lines.join('\n'));

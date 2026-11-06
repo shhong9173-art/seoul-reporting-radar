@@ -3711,6 +3711,36 @@ test('kr local notices: a beat plant notice in a city is A, a city baseline is h
   assert.deepEqual(dueAt(new Date('2026-10-27T07:20:00Z')), ['kr-local.yml']);                    // Tue 16:20 KST
 });
 
+test('local_notice_submit via Aside: 출입처 줄 상세(제목·본문 앞·첨부 이름)를 글자만 크기 제한해 받고, 수집 길(via)을 남긴다', async () => {
+  const fetch = async () => new Response(null, { status: 204 });
+  const opts = { ...PRIVATE({ GITHUB_DISPATCH_TOKEN: 'ghp_test' }), fetch };
+  const tool = (await rpc('tools/list', {}, opts)).body.result.tools.find((x) => x.name === 'local_notice_submit');
+  assert.deepEqual(tool.inputSchema.properties.via.enum, ['aside', 'browser']);
+  assert.ok(tool.inputSchema.properties.cities.items.properties.rows.items.properties.detail);
+  const rows = Array.from({ length: 10 }, (_, i) => ({ mgt: String(500 + i), cells: [`공고 ${i}`, '2026-11-06'],
+    detail: { title: `LG화학 나주공장 공고 ${i} `.repeat(30), body: '본문 '.repeat(300), files: ['a.hwp', ' ', 'b.pdf', 'c', 'd', 'e', 'f', 'g'] } }));
+  rows.push({ mgt: '999', cells: ['제목 없는 상세'], detail: { body: 'x' } });
+  const r = await call('local_notice_submit', { via: 'aside', cities: [{ city: '나주시', rows }] }, opts);
+  assert.equal(r.isError, false);
+  assert.match(r.text, /브라우저 수집 저장 · [^\n]*· Aside · 시·군 1곳/);
+  assert.match(r.text, /- 나주시: 11줄 · 상세 8/);
+  const got = await (await worker.fetch(new Request(ORIGIN + '/ingest/kr-local-browser', { headers: { Authorization: `Bearer ${TOKEN}` } }), opts.env, {})).json();
+  assert.equal(got.via, 'aside');
+  const city = got.cities.find((c) => c.city === '나주시');
+  assert.equal(city.via, 'aside');
+  assert.equal(city.details, 8);
+  const d = city.rows[0].detail;
+  assert.ok(d.title.length <= 300 && d.body.length <= 420);
+  assert.deepEqual(d.files, ['a.hwp', 'b.pdf', 'c', 'd', 'e']);  // 6개까지, 빈 이름은 버림
+  assert.equal(city.rows.filter((x) => x.detail).length, 8);     // 시·군마다 8줄까지
+  assert.equal(city.rows.at(-1).detail, undefined);              // 제목 없는 상세는 버림
+  // 모르는 수집 길은 남기지 않는다
+  await call('local_notice_submit', { via: 'evil', cities: [{ city: '구미시', rows: [{ mgt: '7', cells: ['x'] }] }] }, opts);
+  const got2 = await (await worker.fetch(new Request(ORIGIN + '/ingest/kr-local-browser', { headers: { Authorization: `Bearer ${TOKEN}` } }), opts.env, {})).json();
+  assert.equal(got2.via, undefined);
+  assert.equal(got2.cities.find((c) => c.city === '구미시').via, undefined);
+});
+
 test('local_notice_submit: the reporter computer posts browser-read 새올 rows for fixed cities, kr-local runs once an hour at most', async () => {
   const seen = [];
   const fetch = async (url, init) => { seen.push({ url, init }); return new Response(null, { status: 204 }); };
@@ -3762,7 +3792,17 @@ test('local_notice_submit: the reporter computer posts browser-read 새올 rows 
   assert.ok((await call('local_notice_submit', {}, opts)).isError);
   // kr_official names the cities read on the reporter's computer
   const doc = { schema: 'kr_local/v1', generatedAt: '2026-10-26T08:50:00+09:00', status: 'complete', items: [],
-    checks: [{ source: '인천 부평구', status: 'ok', returned: 30, via: '기자 컴퓨터 브라우저 수집 2026-10-25T23:45' }, { source: '당진시', status: 'ok', returned: 60 }] };
+    checks: [{ source: '인천 부평구', status: 'ok', returned: 30, via: '기자 컴퓨터 브라우저 수집 2026-10-25T23:45' }, { source: '당진시', status: 'ok', returned: 60 },
+      { source: '나주시', status: 'ok', returned: 30, via: '기자 컴퓨터 브라우저 수집 2026-11-06T08:45 KST · Aside' }] };
+  doc.items.push({ id: 'local:나주시:7001', city: '나주시', no: '나주시 공고 제2026-900호', title: 'LG화학(주) 관련 공고', dept: '건축과', date: '2026-11-06',
+    company: 'LG화학', companies: ['LG화학'], tier: 'A', listTier: 'B', firstSeen: '2026-11-06T08:50:00+09:00', isNew: true, detailVia: 'browser',
+    detail: { title: '건설공사 안전점검 수행기관 지정 공고[LG화학 나주공장 증설공사]', body: '나주시 송월동 일원', files: ['공고문.hwpx'] },
+    url: 'https://eminwon.naju.go.kr/x', listUrl: 'https://eminwon.naju.go.kr/y' });
+  doc.generatedAt = '2026-11-06T08:50:00+09:00';
   await worker.fetch(new Request(ORIGIN + '/ingest/kr-local', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), opts.env, {});
-  assert.match((await call('kr_official', { section: 'local' }, opts)).text, /기자 컴퓨터 브라우저로 읽은 곳\(해외 IP 차단\): 인천 부평구\(2026-10-25 23:45\)/);
+  const local = (await call('kr_official', { section: 'local' }, opts)).text;
+  assert.match(local, /기자 컴퓨터 브라우저로 읽은 곳\(해외 IP 차단\): 인천 부평구\(2026-10-25 23:45\), 나주시\(2026-11-06 08:45 Aside\)/);
+  assert.match(local, /본문 앞부분\(상세 페이지, 기자 컴퓨터에서 읽음\): 나주시 송월동 일원/);
+  assert.match(local, /첨부 파일\(열지 않음 — 해외 IP 차단 시·군이라 첨부는 기자가 직접\): 공고문\.hwpx/);
+  assert.match(local, /등급: 목록 제목으로 B → 전체 제목으로 A/);
 });

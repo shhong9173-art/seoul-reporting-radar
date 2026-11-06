@@ -122,11 +122,29 @@ def browser_rows(browser, city, now):
             return None, f"브라우저 수집이 {age:.0f}시간 전 — 컴퓨터·앱이 꺼졌을 수 있음"
         if c.get("error"):
             return None, f"브라우저 수집 실패({str(c['error'])[:40]})"
-        rows = [r for r in (parse_cells(x.get("mgt"), x.get("cells") or []) for x in c.get("rows") or [] if isinstance(x, dict)) if r]
+        rows = []
+        for x in c.get("rows") or []:
+            r = parse_cells(x.get("mgt"), x.get("cells") or []) if isinstance(x, dict) else None
+            if not r:
+                continue
+            d = browser_detail(x.get("detail"))
+            if d:
+                r["detail"] = d
+            rows.append(r)
         if not rows:  # 빈 목록으로 기준선을 만들면 다음 수집 때 첫 쪽 전체가 '신규'가 된다
             return None, "브라우저 수집 0줄(형식 변경 가능)"
-        return rows, at.astimezone(KST).strftime("%Y-%m-%dT%H:%M") + " KST"
+        via = {"aside": " · Aside"}.get(c.get("via") or browser.get("via"), "")
+        return rows, at.astimezone(KST).strftime("%Y-%m-%dT%H:%M") + " KST" + via
     return None, "브라우저 수집 없음(예약 작업 전이거나 컴퓨터·앱이 꺼짐)"
+
+
+def browser_detail(d):
+    """기자 컴퓨터가 읽어 올린 상세(11-06 Aside 수집: 목록 제목에 출입처 이름이 든 줄만) — parse_detail과 같은 모양의 글자 세 칸만 받는다."""
+    if not isinstance(d, dict) or not norm_space(str(d.get("title") or "")):
+        return None
+    files = [norm_space(f)[:120] for f in d.get("files") or [] if isinstance(f, str) and norm_space(f)][:6]
+    body = norm_space(str(d.get("body") or ""))
+    return {"title": norm_space(str(d["title"]))[:300], "body": body[:BODY_CHARS + 1], "files": files}
 
 
 # (출입처, 제목 규칙)
@@ -455,6 +473,15 @@ def error_kind(e):
     return name if name in ("ConnectTimeout", "ReadTimeout", "ConnectionError", "SSLError", "Timeout") else (str(e)[:40] or name)
 
 
+def retier(x, full_title):
+    """상세 페이지 전체 제목으로 다시 매긴다(목록 제목은 잘려 출입처 이름·사업 낱말이 빠질 수 있다). 바뀌면 목록 등급을 listTier로 남긴다."""
+    tier, hits = classify(full_title)
+    if tier and (tier, hits) != (x["tier"], x["companies"]):
+        x.setdefault("listTier", x["tier"])
+        x["tier"], x["companies"] = tier, hits or x["companies"]
+        x["company"] = x["companies"][0] if x["companies"] else None
+
+
 def read_details(items, get, sleep, budget=DETAIL_MAX):
     """새 A·B 공고의 상세 페이지를 읽어 전체 제목으로 다시 매긴다. 실패는 detailError로 남긴다(제목만 확인한 상태 그대로)."""
     read = failed = 0
@@ -474,11 +501,7 @@ def read_details(items, get, sleep, budget=DETAIL_MAX):
         read += 1
         x["attachments"] = read_attachments(x, x["url"], get, sleep) or []  # 빈 목록 = 읽을 첨부 없음(다시 시도 안 함)
         d.pop("links", None)
-        tier, hits = classify(d["title"])
-        if tier and (tier, hits) != (x["tier"], x["companies"]):
-            x["listTier"] = x["tier"]
-            x["tier"], x["companies"] = tier, hits or x["companies"]
-            x["company"] = x["companies"][0] if x["companies"] else None
+        retier(x, d["title"])
         sleep(1.0)
     return {"read": read, "failed": failed, "skipped": max(0, len(items) - budget)}
 
@@ -524,18 +547,29 @@ def run(*, now, previous=None, post=None, sleep=time.sleep, cities=CITIES, brows
         baseline = city not in seen  # a city read for the first time is its own baseline
         new = 0
         for r in rows:
+            iid = f"local:{city}:{r['mgt']}"
             if r["mgt"] in known:
+                # 지난 실행에 목록 제목으로만 잡힌 공고에 이번 수집의 상세가 붙어 오면(기자 컴퓨터 수집) 그때 붙이고 다시 매긴다
+                x = out.get(iid)
+                if r.get("detail") and x is not None and "detail" not in x:
+                    x["detail"], x["detailVia"] = r["detail"], "browser"
+                    x.pop("detailError", None)
+                    retier(x, r["detail"]["title"])
                 continue
             known.add(r["mgt"])
             tier, hits = classify(r["title"])
+            if not tier and r.get("detail"):  # 목록 제목이 잘려 출입처 이름이 빠진 경우 — 전체 제목으로 한 번 더
+                tier, hits = classify(r["detail"]["title"])
             if not tier:
                 continue
-            iid = f"local:{city}:{r['mgt']}"
             if iid in out:
                 continue
             out[iid] = {"id": iid, "city": city, "plants": plants, "no": r["no"], "title": r["title"], "dept": r["dept"], "date": r["date"],
                         "companies": hits, "company": hits[0] if hits else None, "tier": tier, "url": detail_url(base, r["mgt"]),
                         "listUrl": list_url(base), "firstSeen": stamp, "baseline": baseline, "isNew": not baseline}
+            if r.get("detail"):
+                out[iid]["detail"], out[iid]["detailVia"] = r["detail"], "browser"
+                retier(out[iid], r["detail"]["title"])
             new += 1
         order = [r["mgt"] for r in rows] + [m for m in seen.get(city) or [] if m not in {r["mgt"] for r in rows}]
         seen[city] = order[:SEEN_MAX]

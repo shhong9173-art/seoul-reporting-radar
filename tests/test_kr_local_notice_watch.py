@@ -240,6 +240,38 @@ class Local(unittest.TestCase):
                      sleep=lambda s: None, cities=CITIES[:1], browser=browser, browser_cities=bp)
         self.assertEqual([x["id"] for x in doc2["items"] if x["isNew"]], ["local:인천 부평구:91010"])
 
+    def test_browser_details_from_aside(self):
+        # 11-06 Aside 수집: 출입처 이름이 든 줄은 기자 컴퓨터가 상세 페이지까지 읽어 제목·본문 앞·첨부 이름을 함께 올린다
+        bp = [("나주시", "https://eminwon.naju.go.kr", "LG화학(나주)")]
+        full = "건설공사 안전점검 수행기관 지정 공고[LG화학 나주공장 가소제 생산라인 증설공사]"
+        browser = {"via": "aside", "cities": [{"city": "나주시", "via": "aside", "fetchedAt": (NOW - dt.timedelta(hours=1)).isoformat(), "rows": [
+            {"mgt": "7001", "cells": ["나주시 공고 제2026-900호", "LG화학(주) 관련 공고", "건축과", "2026-10-29"],
+             "detail": {"title": full, "body": "  나주시 송월동 일원\n공장 증설 " * 40, "files": ["공고문.hwpx", 3, " ", "도면.pdf"]}},
+            {"mgt": "7000", "cells": ["나주시 공고 제2026-899호", "도로점용 허가 공고", "건설과", "2026-10-29"], "detail": {"body": "제목 없음"}}]}]}
+        first = w.run(now=NOW, previous=None, post=fake({}), sleep=lambda s: None, cities=[], browser=browser, browser_cities=bp)
+        self.assertIn("· Aside", first["checks"][0]["via"])
+        x = first["items"][0]
+        self.assertEqual((x["listTier"], x["tier"], x["detailVia"]), ("B", "A", "browser"))  # 목록 제목은 B, 전체 제목에 '증설' → A
+        self.assertEqual(x["detail"]["title"], full)
+        self.assertEqual(x["detail"]["files"], ["공고문.hwpx", "도면.pdf"])
+        self.assertLessEqual(len(x["detail"]["body"]), w.BODY_CHARS + 1)
+        self.assertNotIn("\n", x["detail"]["body"])
+        # 지난 실행에 목록 제목만으로 잡힌 공고에 다음 수집의 상세가 붙어 오면 그때 붙인다(새 항목은 아님)
+        browser["cities"][0]["rows"][0].pop("detail")
+        base = w.run(now=NOW, previous=None, post=fake({}), sleep=lambda s: None, cities=[], browser=browser, browser_cities=bp)
+        self.assertNotIn("detail", base["items"][0])
+        browser["cities"][0]["rows"][0]["detail"] = {"title": full, "body": "본문", "files": []}
+        browser["cities"][0]["fetchedAt"] = (NOW + dt.timedelta(hours=8)).isoformat()
+        later = w.run(now=NOW + dt.timedelta(hours=9), previous=base, post=fake({}), sleep=lambda s: None, cities=[], browser=browser, browser_cities=bp)
+        y = later["items"][0]
+        self.assertEqual((y["tier"], y["listTier"], y["detail"]["body"], y["isNew"]), ("A", "B", "본문", False))
+        # 목록 제목이 잘려 출입처 이름이 빠졌어도 상세 전체 제목에 있으면 잡는다
+        browser["cities"][0]["rows"].insert(0, {"mgt": "7002", "cells": ["나주시 공고 제2026-901호", "건설공사 안전점검 수행기관 지정 공고[송월동 ...", "건축과", "2026-10-30"],
+                                               "detail": {"title": "건설공사 안전점검 수행기관 지정 공고[송월동 엘지화학 나주공장 신설공사]", "body": "", "files": []}})
+        again = w.run(now=NOW + dt.timedelta(hours=10), previous=later, post=fake({}), sleep=lambda s: None, cities=[], browser=browser, browser_cities=bp)
+        z = next(i for i in again["items"] if i["id"] == "local:나주시:7002")
+        self.assertEqual((z["company"], z["tier"], z["isNew"]), ("LG화학", "A", True))
+
     def test_browser_backup_and_monday(self):
         cities = [("양산시", "https://eminwon.yangsan.go.kr", "넥센타이어(양산)")]
         browser = {"cities": [{"city": "양산시", "fetchedAt": "2026-10-30T08:45:00+09:00",

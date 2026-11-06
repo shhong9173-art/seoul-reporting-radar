@@ -847,19 +847,19 @@ async function localSection(ctx, q, days, limit) {
     || String(b.date ?? '').localeCompare(String(a.date ?? '')));
   const out = [`\n[지자체 고시·공고 · 출입처 공장 시·군 ${checks.length}곳 새올 목록 · 처음 본 날 최근 ${days}일] 출입처 관련 ${rows.length}건${all.length - rows.length ? ` · 참고(제철소·산업단지 계획 등) ${all.length - rows.length}건(company 낱말로 보기)` : ''} · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt)}`,
     `원천: 시·군 ${checks.length - bad.length}/${checks.length} 정상${bad.length ? ` · 미확인(0건 아님): ${bad.slice(0, 8).map((c) => `${c.source}(${c.status === 'failed' ? c.error ?? '실패' : '일부'})`).join(', ')}` : ''}`,
-    ...(checks.some((c) => c.via) ? [`기자 컴퓨터 브라우저로 읽은 곳(해외 IP 차단): ${checks.filter((c) => c.via).map((c) => `${c.source}(${String(c.via).match(/\d{4}-\d\d-\d\dT\d\d:\d\d/)?.[0]?.replace('T', ' ') ?? '?'})`).join(', ')}`] : []),
+    ...(checks.some((c) => c.via) ? [`기자 컴퓨터 브라우저로 읽은 곳(해외 IP 차단): ${checks.filter((c) => c.via).map((c) => `${c.source}(${String(c.via).match(/\d{4}-\d\d-\d\dT\d\d:\d\d/)?.[0]?.replace('T', ' ') ?? '?'}${/Aside/.test(c.via) ? ' Aside' : ''})`).join(', ')}`] : []),
     ...(doc.rules ?? []).map((r) => `규칙: ${r}`)];
   for (const x of rows.slice(0, limit)) {
     out.push(`- ${x.isNew ? '[신규] ' : x.baseline ? '[첫 조회 기준선] ' : ''}${x.date ?? '?'} · ${x.city} · ${x.company ?? '출입처 이름 없음'} · ${x.tier}`);
     out.push(`   잡힌 사실: ${x.no ?? ''} 「${x.detail?.title ?? x.title}」 · ${x.dept ?? '담당 부서 미기재'}${x.plants ? ` (이 시·군의 출입처 공장: ${x.plants})` : ''}`);
-    if (x.detail?.body) out.push(`   본문 앞부분(상세 페이지): ${x.detail.body}`);
+    if (x.detail?.body) out.push(`   본문 앞부분(상세 페이지${x.detailVia === 'browser' ? ', 기자 컴퓨터에서 읽음' : ''}): ${x.detail.body}`);
     const outline = attachmentOutline(x);
     if (outline) out.push(`   첨부 원문에서 뽑은 사업 개요(자동 — 첨부 원문 확인): ${outline}`);
     const unread = (x.attachments ?? []).filter((a) => a.error || a.note).map((a) => `${a.name}(${a.error ?? a.note})`);
     if (unread.length) out.push(`   못 읽은 첨부: ${unread.join(' · ')}`);
     const opened = new Set((x.attachments ?? []).map((a) => a.name));
     const rest = (x.detail?.files ?? []).filter((f) => !opened.has(f));
-    if (rest.length) out.push(`   첨부 파일(열지 않음): ${rest.join(' · ')}`);
+    if (rest.length) out.push(`   첨부 파일(열지 않음${x.detailVia === 'browser' ? ' — 해외 IP 차단 시·군이라 첨부는 기자가 직접' : ''}): ${rest.join(' · ')}`);
     if (x.listTier) out.push(`   등급: 목록 제목으로 ${x.listTier} → 전체 제목으로 ${x.tier}`);
     if (x.detailError) out.push(`   상세 페이지: 못 읽음(${x.detailError}) — 제목만 확인`);
     out.push(`   원문: ${x.url}`);
