@@ -130,12 +130,40 @@ def browser_rows(browser, city, now):
             d = browser_detail(x.get("detail"))
             if d:
                 r["detail"] = d
+                atts = browser_attachments((x.get("detail") or {}).get("attachments"))
+                if atts is not None:
+                    r["attachments"] = atts
             rows.append(r)
         if not rows:  # 빈 목록으로 기준선을 만들면 다음 수집 때 첫 쪽 전체가 '신규'가 된다
             return None, "브라우저 수집 0줄(형식 변경 가능)"
         via = {"aside": " · Aside"}.get(c.get("via") or browser.get("via"), "")
         return rows, at.astimezone(KST).strftime("%Y-%m-%dT%H:%M") + " KST" + via
     return None, "브라우저 수집 없음(예약 작업 전이거나 컴퓨터·앱이 꺼짐)"
+
+
+def browser_attachments(atts):
+    """기자 컴퓨터가 내려받아 푼 첨부 공고문 글자(11-06 Aside: hwpx만, 앞 4000자) → read_attachments와 같은 모양(사업 개요는 여기서 뽑는다).
+    목록이 없으면 None(아직 안 읽음), 빈 목록이면 읽을 첨부가 없었음."""
+    if not isinstance(atts, list):
+        return None
+    out = []
+    for a in atts[:ATTACH_MAX]:
+        if not isinstance(a, dict) or not norm_space(str(a.get("name") or "")):
+            continue
+        row = {"name": norm_space(str(a["name"]))[:120]}
+        text = norm_space(str(a.get("text") or ""))
+        if text:
+            row["chars"] = len(text)
+            if len(text) < 50:
+                row["note"] = "글자 없음(스캔 이미지일 수 있음)"
+            else:
+                facts = attachment_facts(text)
+                if facts:
+                    row["facts"] = facts
+        else:
+            row["error"] = norm_space(str(a.get("error") or "못 읽음"))[:40]
+        out.append(row)
+    return out
 
 
 def browser_detail(d):
@@ -555,6 +583,8 @@ def run(*, now, previous=None, post=None, sleep=time.sleep, cities=CITIES, brows
                     x["detail"], x["detailVia"] = r["detail"], "browser"
                     x.pop("detailError", None)
                     retier(x, r["detail"]["title"])
+                if r.get("attachments") is not None and x is not None and "attachments" not in x:
+                    x["attachments"] = r["attachments"]
                 continue
             known.add(r["mgt"])
             tier, hits = classify(r["title"])
@@ -570,6 +600,8 @@ def run(*, now, previous=None, post=None, sleep=time.sleep, cities=CITIES, brows
             if r.get("detail"):
                 out[iid]["detail"], out[iid]["detailVia"] = r["detail"], "browser"
                 retier(out[iid], r["detail"]["title"])
+            if r.get("attachments") is not None:
+                out[iid]["attachments"] = r["attachments"]
             new += 1
         order = [r["mgt"] for r in rows] + [m for m in seen.get(city) or [] if m not in {r["mgt"] for r in rows}]
         seen[city] = order[:SEEN_MAX]

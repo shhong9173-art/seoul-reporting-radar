@@ -27,6 +27,7 @@ const MGT = /^[0-9A-Za-z_-]{1,40}$/;
 const MAX_DETAILS = 8;          // 시·군마다 상세 페이지 줄
 const MAX_DETAIL_TITLE = 300;
 const MAX_DETAIL_BODY = 420;    // 본문 앞 400자 + '…'
+const MAX_ATTACH_TEXT = 4000;   // 첨부 공고문 글자 앞부분
 export const VIAS = ['aside', 'browser'];
 const DISPATCH_GAP_MS = 60 * 60000;  // 같은 시간 안에 다시 올려도 kr-local은 한 번만 요청
 
@@ -195,8 +196,16 @@ export async function localNoticeSubmit(ctx, args) {
       if (rows.length >= MAX_ROWS) { dropped += 1; continue; }
       // 상세 페이지(11-06 Aside 수집 — 수집 쪽이 출입처 이름 든 줄만 읽음): 제목·본문 앞·첨부 이름 글자만 받는다(HTML·주소는 받지 않음)
       const d = r?.detail && typeof r.detail === 'object' ? r.detail : null;
+      // 첨부 공고문 글자(11-06 Aside: hwpx만, 공고마다 3개, 앞 4000자) — 사업 개요 뽑기는 감시(attachment_facts)가 한다
+      const atts = Array.isArray(d?.attachments) ? d.attachments.slice(0, 3).map((a) => {
+        const name = clean(a?.name, 120);
+        if (!name) return null;
+        const text = clean(a?.text, MAX_ATTACH_TEXT);
+        return text ? { name, text } : { name, error: clean(a?.error, 60) || '못 읽음' };
+      }).filter(Boolean) : null;
       const detail = details < MAX_DETAILS && d && clean(d.title, MAX_DETAIL_TITLE) ? { title: clean(d.title, MAX_DETAIL_TITLE),
-        body: clean(d.body, MAX_DETAIL_BODY), files: (Array.isArray(d.files) ? d.files : []).slice(0, 6).map((x) => clean(x, 120)).filter(Boolean) } : null;
+        body: clean(d.body, MAX_DETAIL_BODY), files: (Array.isArray(d.files) ? d.files : []).slice(0, 6).map((x) => clean(x, 120)).filter(Boolean),
+        ...(atts ? { attachments: atts } : {}) } : null;
       if (detail) details += 1;
       rows.push({ mgt, cells, ...(detail ? { detail } : {}) });
     }

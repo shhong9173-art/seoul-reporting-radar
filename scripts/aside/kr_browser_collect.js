@@ -1,10 +1,11 @@
-// Aside(기자 컴퓨터의 AI 브라우저) REPL에서 돌리는 수집 코드 — 예약 작업 '새올 고시·공고 브라우저 수집'이 아래 다섯 토막을
+// Aside(기자 컴퓨터의 AI 브라우저) REPL에서 돌리는 수집 코드 — 예약 작업 '새올 고시·공고 브라우저 수집'이 아래 여섯 토막을
 // 차례로 mcp aside repl(code=…)에 그대로 넣는다. 11-06 기자 승인: 내장 브라우저로 시·군 목록을 하나씩 열던 방식(한 번에 8분 넘게)을 대신한다.
 // 하는 일(읽기만): 해외 IP(GitHub)에서 막히는 시·군 8곳 새올 고시·공고 목록 첫 쪽, 호주 무역구제 공지(TRN) 목록, 노동위원회
-// 회의일정 달력 14곳. 시·군 목록에서 출입처 이름이 든 줄은 상세 페이지(제목 전체·본문 앞 400자·첨부 파일 이름)까지 읽는다.
+// 회의일정 달력 14곳. 시·군 목록에서 출입처 이름이 든 줄은 상세 페이지(제목 전체·본문 앞 400자·첨부 파일 이름)까지 읽고,
+// 그 공고의 첨부 공고문(hwpx, 공고마다 3개까지 — 11-06 기자 승인)을 같은 사이트에서 내려받아 글자만 앞 4000자 보낸다(파일은 저장하지 않음).
 // 마지막 토막이 레이더(Worker /upload/browser)에 직접 올린다 — 열쇠는 Aside 브라우저의 그 사이트 저장소에만 있고(scripts/aside/register_upload_key.js로 한 번 만듦)
 // Worker는 SHA-256 지문만 안다. 열쇠가 없거나 실패하면 sdds local_notice_submit 인자 한 줄 JSON(SUBMIT)을 찍고, 예약 작업이 글자를 고치지 않고 올린다.
-// 지킬 것: 아래 10개 사이트와 레이더 올리기 창 밖은 열지 않는다. 로그인·글쓰기·첨부 내려받기 없음. 사이트마다 목록 요청 한 번(실패 시 subCheck=N 한 번).
+// 지킬 것: 아래 10개 사이트와 레이더 올리기 창 밖은 열지 않는다. 로그인·글쓰기 없음. 첨부는 출입처 줄의 공고문만(디스크에 저장 안 함). 사이트마다 목록 요청 한 번(실패 시 subCheck=N 한 번).
 // REPL 사정(11-06 시험):
 // - DOMParser·euc-kr 해독은 REPL엔 없고 브라우저 탭 안에만 있다 — 받은 바이트를 빈 탭으로 넘겨 읽는다.
 // - 기자 컴퓨터 중계가 한 번 호출을 60초까지만 기다린다(전부 한 번에 돌리면 끊김) — 토막마다 45초 안에 끝나게 자른다.
@@ -124,7 +125,10 @@
       for (const t of nodes.slice(i + 1)) { if (/^(?:첨부\s*파일|목록\s*보기|목록|이전\s*글|다음\s*글)(?![가-힣A-Za-z0-9_])/.test(t)) break; body.push(t); }   // 끝 낱말 규칙은 파이썬 \b와 같게
       const files = [...new Set(nodes.slice(i + 1).filter((t) => /\.(?:pdf|hwpx?|docx?|xlsx?|zip|jpg|png)$/i.test(t)))].slice(0, 6).map((t) => t.slice(0, 120));
       const text = body.join(' ').replace(/\s+/g, ' ').trim();
-      return { title: nodes[i].slice(0, 300), body: text.slice(0, 400) + (text.length > 400 ? '…' : ''), files };
+      // 새올 첨부 링크: javascript:goDownLoad('보이는 이름','저장 이름','경로') — 토막 4가 내려받는다(파이썬 parse_detail의 links와 같음)
+      const un2 = (s) => { ta.innerHTML = s; return ta.value; };
+      const links = [...html.matchAll(/goDownLoad\(\s*'([^']*)'\s*,\s*'([^']*)'\s*,\s*'([^']*)'\s*\)/g)].slice(0, 6).map((m) => ({ name: un2(m[1]).slice(0, 120), sys: un2(m[2]), path: un2(m[3]) }));
+      return { title: nodes[i].slice(0, 300), body: text.slice(0, 400) + (text.length > 400 ? '…' : ''), files, links };
     };
     let read = 0, failed = 0;
     await Promise.all(R.cities.filter((c) => c.rows).map(async (c) => {
@@ -135,6 +139,7 @@
           if (d.status !== 200) throw new Error('HTTP ' + d.status);
           const got = await R.tab.evaluate(parseDetail, [...(await R.bytes(d)), titleOf(row.cells)]);
           if (got.error) throw new Error(got.error);
+          row.links = got.links; row.ref = detailUrl(c.base, row.mgt); delete got.links;
           row.detail = got; read += 1;
         } catch (e) { failed += 1; }
       }
@@ -144,7 +149,71 @@
   }
 }
 
-// ===== 토막 4: 호주 무역구제 공지(TRN)와 노동위 달력 14곳(동시에, 40초 안) =====
+// ===== 토막 4: 상세를 읽은 줄의 첨부 공고문(hwpx) 글자(공고마다 3개까지, 40초 안) =====
+{
+  // 파이썬 read_attachments와 같은 고르기(hwpx·hwp·pdf 중 이름에 공고문·공고·개요·계획서·고시문·열람이 든 것 먼저)와 같은 내려받기 주소
+  // (/emwp/jsp/ofr/FileDown.jsp). hwpx만 기자 컴퓨터에서 글자로 푼다(zip 안 Contents/section*.xml) — hwp·pdf는 '못 읽음'으로 남긴다.
+  // 글자는 앞 4000자까지 보내고 사업 개요(공사기간·위치·발주자 등) 뽑기는 레이더(파이썬 attachment_facts)가 한다. 11-06 시험: 구미 74608 공고문.hwpx 0.1초·491자.
+  const R = globalThis.__R;
+  const rows = R && R.cities ? R.cities.flatMap((c) => (c.rows || []).filter((x) => x.detail && x.links && x.links.length).map((x) => [c, x])) : [];
+  if (!rows.length) { console.log('ATTACH 없음(상세에 첨부 링크가 있는 출입처 줄 없음)'); } else {
+    const T0 = Date.now();
+    const READ = /\.(?:hwpx|hwp|pdf)$/i;
+    const FIRST = /공고문|공고|개요|계획서|고시문|열람/;
+    const hwpxText = async (b64) => {
+      const u8 = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+      const dv = new DataView(u8.buffer);
+      let e = -1;
+      for (let i = u8.length - 22; i >= Math.max(0, u8.length - 65557); i--) if (dv.getUint32(i, true) === 0x06054b50) { e = i; break; }
+      if (e < 0) return { error: 'hwpx 형식 미상' };
+      const secs = [];
+      let p = dv.getUint32(e + 16, true);
+      for (let k = dv.getUint16(e + 10, true); k > 0 && dv.getUint32(p, true) === 0x02014b50; k--) {
+        const method = dv.getUint16(p + 10, true), size = dv.getUint32(p + 20, true), nl = dv.getUint16(p + 28, true);
+        const name = new TextDecoder().decode(u8.subarray(p + 46, p + 46 + nl)), lho = dv.getUint32(p + 42, true);
+        p += 46 + nl + dv.getUint16(p + 30, true) + dv.getUint16(p + 32, true);
+        if (!/^Contents\/section\d+\.xml$/.test(name)) continue;
+        const start = lho + 30 + dv.getUint16(lho + 26, true) + dv.getUint16(lho + 28, true);
+        const data = u8.subarray(start, start + size);
+        const xml = method === 0 ? new TextDecoder().decode(data) : method === 8
+          ? await new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).text() : '';
+        secs.push([name, xml]);
+      }
+      secs.sort((a, b) => (a[0] < b[0] ? -1 : 1));   // 파이썬 sorted()와 같은 순서
+      const ta = document.createElement('textarea');
+      const text = secs.map(([, x]) => { ta.innerHTML = x.replace(/<[^>]+>/g, ' ').replace(/</g, ' '); return ta.value; }).join(' ').replace(/\s+/g, ' ').trim();
+      return { text: text.slice(0, 4000), chars: text.length };
+    };
+    let read = 0, failed = 0;
+    for (const [c, row] of rows.slice(0, 8)) {
+      const pick = row.links.filter((l) => READ.test(l.name)).sort((a, b) => (FIRST.test(a.name) ? 0 : 1) - (FIRST.test(b.name) ? 0 : 1)).slice(0, 3);
+      const out = [];
+      for (const l of pick) {
+        if (Date.now() - T0 > 34000) { out.push({ name: l.name, error: '시간 부족 — 다음 수집' }); failed += 1; continue; }   // 45초 안에 끝내기
+        try {
+          const url = c.base + '/emwp/jsp/ofr/FileDown.jsp?' + new URLSearchParams({ user_file_nm: l.name, sys_file_nm: l.sys, file_path: l.path }).toString();
+          const r = await R.within(fetch(url, { headers: { Referer: row.ref } }), 15000, '첨부');
+          if (r.status !== 200) throw new Error('HTTP ' + r.status);
+          const buf = Buffer.from(await r.arrayBuffer());
+          if (buf.length > 6000000) throw new Error('파일이 큼');
+          const head = buf.subarray(0, 4).toString('hex');
+          if (head.startsWith('504b')) {
+            const got = await R.tab.evaluate(hwpxText, buf.toString('base64'));
+            if (got.error) throw new Error(got.error);
+            out.push({ name: l.name, text: got.text }); read += 1;
+          } else {
+            throw new Error(head === '25504446' ? 'pdf — 기자 컴퓨터에서는 안 읽음' : head === 'd0cf11e0' ? 'hwp — 기자 컴퓨터에서는 안 읽음' : '형식 미상');
+          }
+        } catch (e) { out.push({ name: l.name, error: String(e && e.message || e).slice(0, 40) }); failed += 1; }
+      }
+      row.detail.attachments = out;
+    }
+    R.timing.attachments = Date.now() - T0;
+    console.log(`ATTACH 읽음 ${read} · 못 읽음 ${failed} · ${((Date.now() - T0) / 1000).toFixed(1)}초`);
+  }
+}
+
+// ===== 토막 5: 호주 무역구제 공지(TRN)와 노동위 달력 14곳(동시에, 40초 안) =====
 {
   const R = globalThis.__R || (globalThis.__R = { cities: [], timing: {} });
   const T0 = Date.now();
@@ -205,7 +274,7 @@
     + `${R.labor.reduce((n, x) => n + (x.rows ? x.rows.length : 0), 0)}건 · ${((Date.now() - T0) / 1000).toFixed(1)}초`);
 }
 
-// ===== 토막 5: 레이더에 직접 올리기(열쇠가 없거나 실패하면 SUBMIT 줄 — 예약 작업이 그 JSON을 고치지 말고 local_notice_submit으로 올린다) =====
+// ===== 토막 6: 레이더에 직접 올리기(열쇠가 없거나 실패하면 SUBMIT 줄 — 예약 작업이 그 JSON을 고치지 말고 local_notice_submit으로 올린다) =====
 {
   const R = globalThis.__R;
   const UPLOAD = 'https://seoul-reporting-radar.shhong9173.workers.dev/upload/browser';
@@ -213,7 +282,8 @@
   const lost = '수집 세션이 끊김(Aside 재시작 등) — 다시 수집 필요';
   const cities = CITY_NAMES.map((name) => {
     const c = R && R.cities.find((x) => x.city === name);
-    return !c ? { city: name, error: lost } : c.error ? { city: name, error: c.error } : { city: name, rows: c.rows };
+    return !c ? { city: name, error: lost } : c.error ? { city: name, error: c.error }
+      : { city: name, rows: c.rows.map((x) => ({ mgt: x.mgt, cells: x.cells, ...(x.detail ? { detail: x.detail } : {}) })) };   // 첨부 링크·Referer는 보내지 않음
   });
   const pages = [R && R.pages ? R.pages : { id: 'au-trn', error: lost }];
   const labor = R && R.labor ? R.labor : ['중앙노동위원회', '서울지방노동위원회', '부산지방노동위원회', '경기지방노동위원회', '인천지방노동위원회',

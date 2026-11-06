@@ -23,7 +23,7 @@ def worker_block(name):
 
 class AsideCollect(unittest.TestCase):
     def test_four_parts(self):
-        self.assertEqual(len(PARTS), 6)  # 머리말 + 토막 5개
+        self.assertEqual(len(PARTS), 7)  # 머리말 + 토막 6개
         for p in PARTS[1:]:
             self.assertTrue(p.strip().startswith("{") and p.strip().endswith("}"), "토막마다 블록 { } — REPL 맨 위 이름이 남기 때문")
 
@@ -37,14 +37,14 @@ class AsideCollect(unittest.TestCase):
         self.assertEqual(dict(part1), watch)
         worker = dict(re.findall(r"'?([가-힣][가-힣 ]*)'?: '(https://[^']+)'", worker_block("BROWSER_CITIES")))
         self.assertEqual(dict(part1), worker)
-        names = json.loads("[" + re.search(r"const CITY_NAMES = \[(.*?)\];", PARTS[5]).group(1).replace("'", '"') + "]")
+        names = json.loads("[" + re.search(r"const CITY_NAMES = \[(.*?)\];", PARTS[6]).group(1).replace("'", '"') + "]")
         self.assertEqual(names, [n for n, _ in part1])
 
     def test_labor_and_trn_match_worker(self):
         cmit = dict(re.findall(r"'?([가-힣]+위원회)'?: '(\d\d)'", worker_block("LABOR_CMIT")))
-        part3 = {n: cd for n, _, cd in re.findall(r"\['([가-힣]+위원회)', '([a-z]*)', '(\d\d)'\]", PARTS[4])}
+        part3 = {n: cd for n, _, cd in re.findall(r"\['([가-힣]+위원회)', '([a-z]*)', '(\d\d)'\]", PARTS[5])}
         self.assertEqual(part3, cmit)
-        self.assertIn(re.search(r"url: '([^']+)'", worker_block("BROWSER_PAGES")).group(1), PARTS[4])
+        self.assertIn(re.search(r"url: '([^']+)'", worker_block("BROWSER_PAGES")).group(1), PARTS[5])
 
     def test_detail_url_matches_watch(self):
         # 토막 2가 여는 상세 주소 = 감시가 저장하는 원문 주소(기자가 누르는 링크)
@@ -60,11 +60,23 @@ class AsideCollect(unittest.TestCase):
     def test_upload_never_prints_key(self):
         # 열쇠는 사이트 저장소에서 읽어 보내기만 한다 — console.log에 열쇠 변수가 들어가면 안 됨
         reg = (ROOT / "scripts" / "aside" / "register_upload_key.js").read_text(encoding="utf-8")
-        for code in (PARTS[5], reg):
+        for code in (PARTS[6], reg):
             for line in re.findall(r"console\.log\((.*)\);", code):
                 self.assertNotRegex(line, r"\bk\b|localStorage|radarUploadKey")
-        self.assertIn("radarUploadKey", PARTS[5])
-        self.assertIn("'/upload/browser'", PARTS[5])  # 같은 사이트(창)에서만 보낸다
+        self.assertIn("radarUploadKey", PARTS[6])
+        self.assertIn("'/upload/browser'", PARTS[6])  # 같은 사이트(창)에서만 보낸다
+
+    def test_attachment_rules_match_watch(self):
+        # 토막 4가 고르는 첨부·내려받기 주소·글자 한도 = 감시 read_attachments
+        self.assertIn(w.FILEDOWN, PARTS[4])
+        self.assertIn("/" + w.ATTACH_READ.pattern + "/i", PARTS[4])
+        self.assertIn("/" + w.ATTACH_FIRST.pattern + "/", PARTS[4])
+        self.assertIn(f".slice(0, {w.ATTACH_MAX})", PARTS[4])
+        self.assertIn("text.slice(0, 4000)", PARTS[4])
+        self.assertEqual(w.ATTACH_BYTES, 6_000_000)
+        self.assertIn("6000000", PARTS[4])
+        # 보내는 줄에는 첨부 링크·Referer를 넣지 않는다
+        self.assertIn("({ mgt: x.mgt, cells: x.cells, ...(x.detail ? { detail: x.detail } : {}) })", PARTS[6])
 
     @unittest.skipUnless(shutil.which("node"), "node 없음")
     def test_parts_parse(self):

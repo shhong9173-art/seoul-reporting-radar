@@ -271,6 +271,19 @@ class Local(unittest.TestCase):
         again = w.run(now=NOW + dt.timedelta(hours=10), previous=later, post=fake({}), sleep=lambda s: None, cities=[], browser=browser, browser_cities=bp)
         z = next(i for i in again["items"] if i["id"] == "local:나주시:7002")
         self.assertEqual((z["company"], z["tier"], z["isNew"]), ("LG화학", "A", True))
+        # 첨부 공고문 글자(Aside가 hwpx를 풀어 앞 4000자): 사업 개요는 감시가 뽑는다. 지난 실행 항목에도 붙인다
+        text = ("나주시 공고 제2026-900호 건설공사 안전점검 수행기관 지정 공고 1. 사업 개요 가. 공 사 명 : LG화학 나주공장 가소제 생산라인 증설공사 "
+                "나. 공사기간 : 2026. 11. ~ 2027. 6. 다. 위 치 : 나주시 송월동 일원 라. 발주자/시공자 : LG화학 / 시험건설(주) 2. 신청 자격")
+        browser["cities"][0]["rows"][1]["detail"] = {"title": full, "body": "본문", "files": ["공고문.hwpx", "도면.pdf"],
+                                                    "attachments": [{"name": "공고문.hwpx", "text": text}, {"name": "도면.pdf", "error": "pdf — 기자 컴퓨터에서는 안 읽음"}, "x"]}
+        last = w.run(now=NOW + dt.timedelta(hours=11), previous=again, post=fake({}), sleep=lambda s: None, cities=[], browser=browser, browser_cities=bp)
+        y = next(i for i in last["items"] if i["id"] == "local:나주시:7001")
+        self.assertEqual(y["attachments"][0]["facts"], {"사업명": "LG화학 나주공장 가소제 생산라인 증설공사", "공사기간": "2026. 11. ~ 2027. 6.",
+                                                        "위치": "나주시 송월동 일원", "발주자/시공자": "LG화학 / 시험건설(주)"})
+        self.assertEqual(y["attachments"][1], {"name": "도면.pdf", "error": "pdf — 기자 컴퓨터에서는 안 읽음"})
+        self.assertEqual(len(y["attachments"]), 2)
+        self.assertEqual(w.browser_attachments(None), None)
+        self.assertEqual(w.browser_attachments([]), [])
 
     def test_browser_backup_and_monday(self):
         cities = [("양산시", "https://eminwon.yangsan.go.kr", "넥센타이어(양산)")]
