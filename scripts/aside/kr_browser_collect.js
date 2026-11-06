@@ -1,0 +1,198 @@
+// Aside(기자 컴퓨터의 AI 브라우저) REPL에서 돌리는 수집 코드 — 예약 작업 '새올 고시·공고 브라우저 수집'이 아래 네 토막을
+// 차례로 mcp aside repl(code=…)에 그대로 넣는다. 11-06 기자 승인: 내장 브라우저로 시·군 목록을 하나씩 열던 방식(한 번에 8분 넘게)을 대신한다.
+// 하는 일(읽기만): 해외 IP(GitHub)에서 막히는 시·군 8곳 새올 고시·공고 목록 첫 쪽, 호주 무역구제 공지(TRN) 목록, 노동위원회
+// 회의일정 달력 14곳. 시·군 목록에서 출입처 이름이 든 줄은 상세 페이지(제목 전체·본문 앞 400자·첨부 파일 이름)까지 읽는다.
+// 마지막 토막이 sdds local_notice_submit 인자({cities, pages, labor, via}) 한 줄 JSON을 찍는다 — 예약 작업은 글자를 고치지 않고 올린다.
+// 지킬 것: 아래 10개 사이트 밖은 열지 않는다. 로그인·글쓰기·첨부 내려받기 없음. 사이트마다 목록 요청 한 번(실패 시 subCheck=N 한 번).
+// REPL 사정(11-06 시험):
+// - DOMParser·euc-kr 해독은 REPL엔 없고 브라우저 탭 안에만 있다 — 받은 바이트를 빈 탭으로 넘겨 읽는다.
+// - 기자 컴퓨터 중계가 한 번 호출을 60초까지만 기다린다(전부 한 번에 돌리면 끊김) — 토막마다 45초 안에 끝나게 자른다.
+// - 호출이 끝나면 뒤에서 도는 작업은 멈춘다(시작만 하고 나중에 확인하는 방식 불가) — 토막마다 끝까지 기다린다.
+// - 맨 위 이름은 세션 안에서 계속 남는다 — 결과는 globalThis.__R에 두고, 코드는 블록 { } 안에 둔다.
+// 출입처 이름 정규식(BEAT)은 scripts/kr_local_notice_watch.py COMPANIES를 이은 것 — tests/test_aside_collect.py가 같음을 확인한다.
+
+// ===== 토막 1: 시·군 8곳 목록(동시에, 40초 안) =====
+{
+  const T0 = Date.now();
+  const CITIES = [
+    ['인천 부평구', 'https://eminwon.icbp.go.kr'], ['구미시', 'https://eminwon.gumi.go.kr'], ['청주시', 'https://www.cheongju.go.kr'],
+    ['순천시', 'https://eminwon.suncheon.go.kr'], ['함평군', 'https://eminwon.hampyeong.go.kr'], ['양산시', 'https://eminwon.yangsan.go.kr'],
+    ['광주 광산구', 'https://eminwon.gwangsan.go.kr'], ['나주시', 'https://eminwon.naju.go.kr'],
+  ];
+  const P = '/emwp/gov/mogaha/ntis/web/ofr/action/OfrAction.do';
+  const form = (sub) => new URLSearchParams({ method: 'selectListOfrNotAncmt', methodnm: 'selectListOfrNotAncmtHomepage', homepage_pbs_yn: 'Y',
+    subCheck: sub, ofr_pageSize: '30', not_ancmt_se_code: '01,02,03,04,05', initValue: 'Y', countYn: 'Y', list_gubun: 'A',
+    jndinm: 'OfrNotAncmtEJB', context: 'NTIS', method_type: '', pageIndex: '1' }).toString();
+  const within = (p, ms, what) => Promise.race([p, new Promise((_, no) => setTimeout(() => no(new Error(`${what} 시간 초과 ${ms / 1000}초`)), ms))]);
+  const isCj = (base) => base.includes('cheongju');
+  const listReq = (base, sub) => isCj(base) ? fetch(base + '/www/selectEminwonNoticeList.do?key=281&pageUnit=60')
+    : fetch(base + P, { method: 'POST', body: form(sub), headers: { 'Content-Type': 'application/x-www-form-urlencoded', Referer: base + P } });
+  const bytes = async (r) => {
+    const cs = (/charset=([\w-]+)/i.exec(r.headers.get('content-type') || '') || [])[1] || 'utf-8';
+    return [Buffer.from(await r.arrayBuffer()).toString('base64'), cs];
+  };
+  // 목록 → [{mgt, cells}] (예전 내장 브라우저 [시작 코드]와 같은 규칙: 번호·조회수·게시 기간 칸은 뺌, 최근 7일 줄(적어도 맨 위 5줄))
+  const parseList = (args) => {
+    const [b64, cs] = args;
+    const u = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+    let text; try { text = new TextDecoder(cs).decode(u); } catch (e) { text = new TextDecoder('utf-8').decode(u); }
+    const doc = new DOMParser().parseFromString(text, 'text/html');
+    const rows = []; const seen = new Set();
+    for (const b of [...doc.querySelectorAll('tr'), ...doc.querySelectorAll('.dbody ul')]) {
+      if (b.tagName === 'TR' && b.querySelector('tr')) continue;
+      const m = /searchDetail\(\s*'([^']+)'/.exec(b.innerHTML) || /not_?[aA]ncmt_?[mM]gt_?[nN]o=([0-9A-Za-z_-]+)/.exec(b.innerHTML);
+      if (!m || seen.has(m[1])) continue;
+      const cells = [...b.querySelectorAll(b.tagName === 'TR' ? ':scope > td' : ':scope > li')].map((c) => c.textContent.replace(/\s+/g, ' ').trim())
+        .filter((c) => c && !/^[\d,]+$/.test(c) && !/^\d{4}-\d\d-\d\d ~ \d{4}-\d\d-\d\d$/.test(c));
+      if (cells.length) { seen.add(m[1]); rows.push({ mgt: m[1], cells }); }
+    }
+    const since = new Date(Date.now() + 9 * 3600e3 - 7 * 86400e3).toISOString().slice(0, 10);
+    return rows.filter((x, i) => i < 5 || x.cells.some((c) => /^\d{4}-\d\d-\d\d$/.test(c) && c >= since));
+  };
+  const tab = await openTab('about:blank');
+  globalThis.__R = { at: Date.now(), P, within, isCj, bytes, tab, cities: [], pages: null, labor: null, timing: {} };
+  const one = async ([name, base]) => {
+    const t = Date.now();
+    try {
+      let r = await within(listReq(base, 'Y'), 38000, '목록');
+      if (r.status === 500 && !isCj(base)) r = await within(listReq(base, 'N'), Math.max(5000, 40000 - (Date.now() - t)), '목록(subCheck=N)');
+      if (r.status !== 200) throw new Error('HTTP ' + r.status);
+      const rows = await tab.evaluate(parseList, await bytes(r));
+      return { city: name, base, ...(rows.length ? { rows } : { error: '목록 0줄' }), ms: Date.now() - t };
+    } catch (e) { return { city: name, base, error: String(e && e.message || e).slice(0, 100), ms: Date.now() - t }; }
+  };
+  globalThis.__R.cities = await Promise.all(CITIES.map(one));
+  globalThis.__R.timing.lists = Date.now() - T0;
+  console.log('LISTS ' + globalThis.__R.cities.map((c) => `${c.city} ${c.error ? '실패(' + c.error + ')' : c.rows.length + '줄'} ${(c.ms / 1000).toFixed(1)}초`).join(' · '));
+}
+
+// ===== 토막 2: 출입처 이름이 든 줄의 상세 페이지(시·군마다 4건까지, 동시에, 40초 안) =====
+{
+  const R = globalThis.__R;
+  if (!R || !R.cities.length) { console.log('DETAILS 건너뜀(토막 1 결과 없음 — 세션이 바뀜)'); } else {
+    const T0 = Date.now();
+    const BEAT = /현대자동차|현대차(?!증권)|기아(?:\s*\(주\)|㈜|자동차|\s*오토랜드)|현대모비스|현대위아|HL만도|에이치엘만도|한국지엠|한국GM|케이지모빌리티|KG모빌리티|르노코리아|한국타이어|넥센타이어|금호타이어|포스코(?!퓨처엠|인터내셔널|이앤씨|DX|엠텍|스틸리온|모빌리티솔루션)|POSCO|현대제철|KG스틸|케이지스틸|세아(?:제강|베스틸|창원특수강|홀딩스|씨엠)|동국제강|동국씨엠|고려아연|영풍\s*(?:석포|\(주\)|㈜)|석포제련소|HD현대일렉트릭|에이치디현대일렉트릭|현대일렉트릭|LS일렉트릭|엘에스일렉트릭|대한전선|LS전선|엘에스전선|LS\s*MnM|엘에스엠앤엠|LS엠앤엠|두산에너빌리티|GS칼텍스|지에스칼텍스|한화솔루션|OCI(?![A-Za-z])|오씨아이|태광산업|동성케미[칼컬]|DL케미칼|디엘케미칼|효성중공업|LG화학|엘지화학|롯데케미칼|금호석유화학|금호석화|S-OIL|S-Oil|(?<![가-힣])에쓰-?오일|현대오일뱅크|SK이노베이션|에스케이이노베이션/;
+    const DETAIL_MAX = 4;
+    // 제목 칸: kr_local_notice_watch.parse_cells와 같은 규칙(공고번호 칸 다음 칸, 없으면 숫자·날짜 아닌 첫 칸)
+    const titleOf = (cells) => {
+      const i = cells.findIndex((c) => /(?:고시|공고|공시)\s*제?\s*[\d-]+\s*호/.test(c));
+      if (i >= 0 && i + 1 < cells.length) return cells[i + 1];
+      return cells.find((c) => !/^[\d,]+$/.test(c) && !/^\d{4}-\d{2}-\d{2}$/.test(c)) || cells.join(' ');
+    };
+    const detailUrl = (base, mgt) => R.isCj(base) ? `${base}/www/selectEminwonNoticeView.do?key=281&notAncmtMgtNo=${encodeURIComponent(mgt)}`
+      : `${base}${R.P}?method=selectOfrNotAncmt&methodnm=selectOfrNotAncmtRegst&not_ancmt_mgt_no=${encodeURIComponent(mgt)}&homepage_pbs_yn=Y&subCheck=Y&jndinm=OfrNotAncmtEJB&context=NTIS`;
+    // 상세 → {title, body, files} (kr_local_notice_watch.parse_detail과 같은 규칙: 목록 제목 앞 30자가 든 글 조각부터 '첨부 파일·목록' 전까지)
+    const parseDetail = (args) => {
+      const [b64, cs, title] = args;
+      const u = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+      let html; try { html = new TextDecoder(cs).decode(u); } catch (e) { html = new TextDecoder('utf-8').decode(u); }
+      html = html.replace(/<(script|style)\b[\s\S]*?<\/\1>/gi, ' ');
+      const ta = document.createElement('textarea');
+      const un = (s) => { ta.innerHTML = s; return ta.value; };
+      const nodes = [...html.matchAll(/>([^<]+)</g)].map((m) => un(m[1]).replace(/\s+/g, ' ').trim()).filter(Boolean);
+      const prefix = title.replace(/\s+/g, ' ').replace(/(?:\.{2,}|…)\s*$/, '').trim().slice(0, 30);
+      if (prefix.length < 6) return { error: '목록 제목이 짧음' };
+      const i = nodes.findIndex((t) => t.includes(prefix));
+      if (i < 0) return { error: '상세 형식 미상' };
+      const body = [];
+      for (const t of nodes.slice(i + 1)) { if (/^(?:첨부\s*파일|목록\s*보기|목록|이전\s*글|다음\s*글)(?:\s|$)/.test(t)) break; body.push(t); }
+      const files = [...new Set(nodes.slice(i + 1).filter((t) => /\.(?:pdf|hwpx?|docx?|xlsx?|zip|jpg|png)$/i.test(t)))].slice(0, 6).map((t) => t.slice(0, 120));
+      const text = body.join(' ').replace(/\s+/g, ' ').trim();
+      return { title: nodes[i].slice(0, 300), body: text.slice(0, 400) + (text.length > 400 ? '…' : ''), files };
+    };
+    let read = 0, failed = 0;
+    await Promise.all(R.cities.filter((c) => c.rows).map(async (c) => {
+      for (const row of c.rows.filter((x) => BEAT.test(titleOf(x.cells))).slice(0, DETAIL_MAX)) {
+        if (Date.now() - T0 > 36000) { failed += 1; continue; }          // 45초 안에 끝내기
+        try {
+          const d = await R.within(fetch(detailUrl(c.base, row.mgt), { headers: { Referer: c.base + (R.isCj(c.base) ? '/www/' : R.P) } }), 10000, '상세');
+          if (d.status !== 200) throw new Error('HTTP ' + d.status);
+          const got = await R.tab.evaluate(parseDetail, [...(await R.bytes(d)), titleOf(row.cells)]);
+          if (got.error) throw new Error(got.error);
+          row.detail = got; read += 1;
+        } catch (e) { failed += 1; }
+      }
+    }));
+    R.timing.details = Date.now() - T0;
+    console.log(`DETAILS 읽음 ${read} · 못 읽음 ${failed} · ${((Date.now() - T0) / 1000).toFixed(1)}초`);
+  }
+}
+
+// ===== 토막 3: 호주 무역구제 공지(TRN)와 노동위 달력 14곳(동시에, 40초 안) =====
+{
+  const R = globalThis.__R || (globalThis.__R = { cities: [], timing: {} });
+  const T0 = Date.now();
+  const within = (p, ms, what) => Promise.race([p, new Promise((_, no) => setTimeout(() => no(new Error(`${what} 시간 초과 ${ms / 1000}초`)), ms))]);
+  const TRN = 'https://www.industry.gov.au/australian-trade-remedies-commission/trade-remedies-notices-trns';
+  const LABOR = 'https://www.nlrc.go.kr/nlrc/meetingSche/index.do';
+  const NAMES = ['중앙노동위원회', '서울지방노동위원회', '부산지방노동위원회', '경기지방노동위원회', '인천지방노동위원회', '강원지방노동위원회',
+    '충북지방노동위원회', '충남지방노동위원회', '전북지방노동위원회', '전남지방노동위원회', '경북지방노동위원회', '경남지방노동위원회',
+    '울산지방노동위원회', '제주지방노동위원회'];
+  const trn = async () => {
+    try {
+      const r = await within(fetch(TRN), 35000, 'TRN');
+      if (r.status !== 200) throw new Error('HTTP ' + r.status);
+      const tab = R.tab || await openTab('about:blank');
+      const b64 = Buffer.from(await r.arrayBuffer()).toString('base64');
+      const rows = await tab.evaluate((a) => {
+        const u = Uint8Array.from(atob(a), (c) => c.charCodeAt(0));
+        const d = new DOMParser().parseFromString(new TextDecoder('utf-8').decode(u), 'text/html');
+        return [...d.querySelectorAll('tr')].filter((tr) => /korea/i.test(tr.textContent)).map((tr) => ({
+          cells: [...tr.querySelectorAll('td,th')].map((c) => c.textContent.replace(/\s+/g, ' ').trim()).filter(Boolean),
+          links: [...tr.querySelectorAll('a')].map((x) => x.getAttribute('href')).filter(Boolean).slice(0, 4) })).filter((x) => x.cells.length).slice(0, 200);
+      }, b64);
+      return rows.length ? { id: 'au-trn', rows } : { id: 'au-trn', error: '한국 줄 0줄' };
+    } catch (e) { return { id: 'au-trn', error: String(e && e.message || e).slice(0, 100) }; }
+  };
+  const labor = async () => {
+    try {
+      const lt = await within(openTab(LABOR), 20000, '노동위 달력 열기');
+      const out = await within(lt.evaluate(async () => {   // 달력 화면 자신의 요청(같은 사이트·같은 세션) — 예전 [노동위 시작 코드]와 같음
+        const C = [['중앙노동위원회', '', '00'], ['서울지방노동위원회', 'seoul', '01'], ['부산지방노동위원회', 'busan', '02'], ['경기지방노동위원회', 'gyeonggi', '03'],
+          ['인천지방노동위원회', 'incheon', '08'], ['강원지방노동위원회', 'gangwon', '09'], ['충북지방노동위원회', 'chungbuk', '10'], ['충남지방노동위원회', 'chungnam', '04'],
+          ['전북지방노동위원회', 'jeonbuk', '11'], ['전남지방노동위원회', 'jeonnam', '05'], ['경북지방노동위원회', 'gyeongbuk', '06'], ['경남지방노동위원회', 'gyeongnam', '07'],
+          ['울산지방노동위원회', 'ulsan', '13'], ['제주지방노동위원회', 'jeju', '12']];
+        const day = (d) => new Date(Date.now() + 9 * 3600e3 + d * 86400e3).toISOString().slice(0, 10);
+        const from = day(0), to = day(14);
+        const res = [];
+        for (const [commission, slug, cd] of C) {
+          try {
+            if (typeof $ === 'undefined' || !$.ajax) throw new Error('달력 화면이 아님(jQuery 없음)');
+            const r = await $.ajax({ url: slug ? `/nlrc/${slug}/meetingSche/selectMeetingSche.do` : '/nlrc/meetingSche/selectMeetingSche.do', method: 'post',
+              dataType: 'json', timeout: 15000, data: { cmitCd: cd, icdnNo: '', kornIcdnNo: '', likeColumn: 'ICDN_NO', initialDate: from, whereStartDate: from, whereEndDate: to } });
+            const lo = from.replaceAll('-', ''), hi = to.replaceAll('-', '');
+            const rows = [...new Set((r.mtgScdlList || []).filter((x) => x.cmitCd === cd && x.mtgYmd >= lo && x.mtgYmd <= hi)
+              .map((x) => `${x.mtgId}/${x.mtgSn}/${x.mtgYmd}/${String(x.mtgNm || '').replace(/[\/\s]+/g, ' ').trim().slice(0, 30)}`))].slice(0, 300);
+            res.push(rows.length ? { commission, rows } : { commission, error: '회의 0건' });
+          } catch (e) { res.push({ commission, error: String(e && (e.statusText || e.message) || e).slice(0, 100) }); }
+          await new Promise((ok) => setTimeout(ok, 300));
+        }
+        return res;
+      }), 38000, '노동위 달력');
+      try { await closeTab(lt); } catch (e) { /* 탭은 남아도 된다 */ }
+      return out;
+    } catch (e) { return NAMES.map((commission) => ({ commission, error: String(e && e.message || e).slice(0, 100) })); }
+  };
+  [R.pages, R.labor] = await Promise.all([trn(), labor()]);
+  R.timing.trnLabor = Date.now() - T0;
+  console.log(`TRN ${R.pages.error ? '실패(' + R.pages.error + ')' : R.pages.rows.length + '줄'} · 노동위 ${R.labor.filter((x) => !x.error).length}/14곳 `
+    + `${R.labor.reduce((n, x) => n + (x.rows ? x.rows.length : 0), 0)}건 · ${((Date.now() - T0) / 1000).toFixed(1)}초`);
+}
+
+// ===== 토막 4: local_notice_submit 인자 한 줄(SUBMIT 뒤 JSON을 고치지 말고 그대로 올린다) =====
+{
+  const R = globalThis.__R;
+  const CITY_NAMES = ['인천 부평구', '구미시', '청주시', '순천시', '함평군', '양산시', '광주 광산구', '나주시'];
+  const lost = '수집 세션이 끊김(Aside 재시작 등) — 다시 수집 필요';
+  const cities = CITY_NAMES.map((name) => {
+    const c = R && R.cities.find((x) => x.city === name);
+    return !c ? { city: name, error: lost } : c.error ? { city: name, error: c.error } : { city: name, rows: c.rows };
+  });
+  const pages = [R && R.pages ? R.pages : { id: 'au-trn', error: lost }];
+  const labor = R && R.labor ? R.labor : ['중앙노동위원회', '서울지방노동위원회', '부산지방노동위원회', '경기지방노동위원회', '인천지방노동위원회',
+    '강원지방노동위원회', '충북지방노동위원회', '충남지방노동위원회', '전북지방노동위원회', '전남지방노동위원회', '경북지방노동위원회',
+    '경남지방노동위원회', '울산지방노동위원회', '제주지방노동위원회'].map((commission) => ({ commission, error: lost }));
+  try { if (R && R.tab) await closeTab(R.tab); } catch (e) { /* 그대로 둔다 */ }
+  console.log('TIMING ' + JSON.stringify(R ? R.timing : {}));
+  console.log('SUBMIT ' + JSON.stringify({ cities, pages, labor, via: 'aside' }));
+}
