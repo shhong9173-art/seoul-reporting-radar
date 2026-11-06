@@ -23,7 +23,7 @@ def worker_block(name):
 
 class AsideCollect(unittest.TestCase):
     def test_four_parts(self):
-        self.assertEqual(len(PARTS), 5)  # 머리말 + 토막 4개
+        self.assertEqual(len(PARTS), 6)  # 머리말 + 토막 5개
         for p in PARTS[1:]:
             self.assertTrue(p.strip().startswith("{") and p.strip().endswith("}"), "토막마다 블록 { } — REPL 맨 위 이름이 남기 때문")
 
@@ -37,20 +37,20 @@ class AsideCollect(unittest.TestCase):
         self.assertEqual(dict(part1), watch)
         worker = dict(re.findall(r"'?([가-힣][가-힣 ]*)'?: '(https://[^']+)'", worker_block("BROWSER_CITIES")))
         self.assertEqual(dict(part1), worker)
-        names = json.loads("[" + re.search(r"const CITY_NAMES = \[(.*?)\];", PARTS[4]).group(1).replace("'", '"') + "]")
+        names = json.loads("[" + re.search(r"const CITY_NAMES = \[(.*?)\];", PARTS[5]).group(1).replace("'", '"') + "]")
         self.assertEqual(names, [n for n, _ in part1])
 
     def test_labor_and_trn_match_worker(self):
         cmit = dict(re.findall(r"'?([가-힣]+위원회)'?: '(\d\d)'", worker_block("LABOR_CMIT")))
-        part3 = {n: cd for n, _, cd in re.findall(r"\['([가-힣]+위원회)', '([a-z]*)', '(\d\d)'\]", PARTS[3])}
+        part3 = {n: cd for n, _, cd in re.findall(r"\['([가-힣]+위원회)', '([a-z]*)', '(\d\d)'\]", PARTS[4])}
         self.assertEqual(part3, cmit)
-        self.assertIn(re.search(r"url: '([^']+)'", worker_block("BROWSER_PAGES")).group(1), PARTS[3])
+        self.assertIn(re.search(r"url: '([^']+)'", worker_block("BROWSER_PAGES")).group(1), PARTS[4])
 
     def test_detail_url_matches_watch(self):
         # 토막 2가 여는 상세 주소 = 감시가 저장하는 원문 주소(기자가 누르는 링크)
-        self.assertIn("method=selectOfrNotAncmt&methodnm=selectOfrNotAncmtRegst&not_ancmt_mgt_no=", PARTS[2])
-        self.assertIn(w.HOMEPAGE_BOARDS["https://www.cheongju.go.kr"][1].split("{")[0], PARTS[2])
-        self.assertIn(f"{w.BODY_CHARS}", PARTS[2])
+        self.assertIn("method=selectOfrNotAncmt&methodnm=selectOfrNotAncmtRegst&not_ancmt_mgt_no=", PARTS[3])
+        self.assertIn(w.HOMEPAGE_BOARDS["https://www.cheongju.go.kr"][1].split("{")[0], PARTS[3])
+        self.assertIn(f"{w.BODY_CHARS}", PARTS[3])
 
     def test_only_listed_sites(self):
         hosts = set(re.findall(r"https://([a-z0-9.-]+)", "".join(PARTS[1:])))

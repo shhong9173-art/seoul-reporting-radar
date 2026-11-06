@@ -1,4 +1,4 @@
-// Aside(기자 컴퓨터의 AI 브라우저) REPL에서 돌리는 수집 코드 — 예약 작업 '새올 고시·공고 브라우저 수집'이 아래 네 토막을
+// Aside(기자 컴퓨터의 AI 브라우저) REPL에서 돌리는 수집 코드 — 예약 작업 '새올 고시·공고 브라우저 수집'이 아래 다섯 토막을
 // 차례로 mcp aside repl(code=…)에 그대로 넣는다. 11-06 기자 승인: 내장 브라우저로 시·군 목록을 하나씩 열던 방식(한 번에 8분 넘게)을 대신한다.
 // 하는 일(읽기만): 해외 IP(GitHub)에서 막히는 시·군 8곳 새올 고시·공고 목록 첫 쪽, 호주 무역구제 공지(TRN) 목록, 노동위원회
 // 회의일정 달력 14곳. 시·군 목록에서 출입처 이름이 든 줄은 상세 페이지(제목 전체·본문 앞 400자·첨부 파일 이름)까지 읽는다.
@@ -49,8 +49,9 @@
     const since = new Date(Date.now() + 9 * 3600e3 - 7 * 86400e3).toISOString().slice(0, 10);
     return rows.filter((x, i) => i < 5 || x.cells.some((c) => /^\d{4}-\d\d-\d\d$/.test(c) && c >= since));
   };
+  try { if (globalThis.__R && globalThis.__R.tab) await closeTab(globalThis.__R.tab); } catch (e) { /* 지난 실행이 중간에 끊겨 남은 탭 */ }
   const tab = await openTab('about:blank');
-  globalThis.__R = { at: Date.now(), P, within, isCj, bytes, tab, cities: [], pages: null, labor: null, timing: {} };
+  globalThis.__R = { at: Date.now(), P, within, isCj, bytes, listReq, parseList, tab, cities: [], pages: null, labor: null, timing: {} };
   const one = async ([name, base]) => {
     const t = Date.now();
     try {
@@ -66,7 +67,31 @@
   console.log('LISTS ' + globalThis.__R.cities.map((c) => `${c.city} ${c.error ? '실패(' + c.error + ')' : c.rows.length + '줄'} ${(c.ms / 1000).toFixed(1)}초`).join(' · '));
 }
 
-// ===== 토막 2: 출입처 이름이 든 줄의 상세 페이지(시·군마다 4건까지, 동시에, 40초 안) =====
+// ===== 토막 2: 시간 초과한 시·군만 목록 한 번 더(동시에, 40초 안) =====
+{
+  // 11-06 운영 시험: 첫 요청에서 구미·양산·광산이 38초 시간 초과 → 바로 다시 요청하니 7.5~15.1초에 200. 첫 연결이 느린 날이 있다.
+  const R = globalThis.__R;
+  const bad = R && R.listReq ? R.cities.filter((c) => c.error) : [];
+  if (!bad.length) { console.log('RETRY 없음'); } else {
+    const T0 = Date.now();
+    await Promise.all(bad.map(async (c) => {
+      const t = Date.now();
+      try {
+        let r = await R.within(R.listReq(c.base, 'Y'), 38000, '다시');
+        if (r.status === 500 && !R.isCj(c.base)) r = await R.within(R.listReq(c.base, 'N'), Math.max(5000, 40000 - (Date.now() - t)), '다시(subCheck=N)');
+        if (r.status !== 200) throw new Error('HTTP ' + r.status);
+        const rows = await R.tab.evaluate(R.parseList, await R.bytes(r));
+        if (!rows.length) throw new Error('목록 0줄');
+        delete c.error; c.rows = rows; c.retried = true;
+      } catch (e) { c.error = `${c.error} → ${String(e && e.message || e).slice(0, 50)}`; }
+      c.ms += Date.now() - t;
+    }));
+    R.timing.retry = Date.now() - T0;
+    console.log('RETRY ' + bad.map((c) => `${c.city} ${c.error ? '실패(' + c.error + ')' : c.rows.length + '줄'}`).join(' · ') + ` · ${((Date.now() - T0) / 1000).toFixed(1)}초`);
+  }
+}
+
+// ===== 토막 3: 출입처 이름이 든 줄의 상세 페이지(시·군마다 4건까지, 동시에, 40초 안) =====
 {
   const R = globalThis.__R;
   if (!R || !R.cities.length) { console.log('DETAILS 건너뜀(토막 1 결과 없음 — 세션이 바뀜)'); } else {
@@ -95,7 +120,7 @@
       const i = nodes.findIndex((t) => t.includes(prefix));
       if (i < 0) return { error: '상세 형식 미상' };
       const body = [];
-      for (const t of nodes.slice(i + 1)) { if (/^(?:첨부\s*파일|목록\s*보기|목록|이전\s*글|다음\s*글)(?:\s|$)/.test(t)) break; body.push(t); }
+      for (const t of nodes.slice(i + 1)) { if (/^(?:첨부\s*파일|목록\s*보기|목록|이전\s*글|다음\s*글)(?![가-힣A-Za-z0-9_])/.test(t)) break; body.push(t); }   // 끝 낱말 규칙은 파이썬 \b와 같게
       const files = [...new Set(nodes.slice(i + 1).filter((t) => /\.(?:pdf|hwpx?|docx?|xlsx?|zip|jpg|png)$/i.test(t)))].slice(0, 6).map((t) => t.slice(0, 120));
       const text = body.join(' ').replace(/\s+/g, ' ').trim();
       return { title: nodes[i].slice(0, 300), body: text.slice(0, 400) + (text.length > 400 ? '…' : ''), files };
@@ -118,7 +143,7 @@
   }
 }
 
-// ===== 토막 3: 호주 무역구제 공지(TRN)와 노동위 달력 14곳(동시에, 40초 안) =====
+// ===== 토막 4: 호주 무역구제 공지(TRN)와 노동위 달력 14곳(동시에, 40초 안) =====
 {
   const R = globalThis.__R || (globalThis.__R = { cities: [], timing: {} });
   const T0 = Date.now();
@@ -179,7 +204,7 @@
     + `${R.labor.reduce((n, x) => n + (x.rows ? x.rows.length : 0), 0)}건 · ${((Date.now() - T0) / 1000).toFixed(1)}초`);
 }
 
-// ===== 토막 4: local_notice_submit 인자 한 줄(SUBMIT 뒤 JSON을 고치지 말고 그대로 올린다) =====
+// ===== 토막 5: local_notice_submit 인자 한 줄(SUBMIT 뒤 JSON을 고치지 말고 그대로 올린다) =====
 {
   const R = globalThis.__R;
   const CITY_NAMES = ['인천 부평구', '구미시', '청주시', '순천시', '함평군', '양산시', '광주 광산구', '나주시'];
