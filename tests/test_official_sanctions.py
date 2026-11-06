@@ -1,6 +1,7 @@
 import datetime as dt
 import sys
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
@@ -143,21 +144,24 @@ class Parse(unittest.TestCase):
                 "rows": {"ftc:2023서경0001": {"id": "ftc:2023서경0001", "o": ["한빛카드"], "d": "2024-03-02", "a": "고발", "k": "결정"},
                          "ftc:2026서경0001": {"id": "ftc:2026서경0001", "o": ["한빛화학"], "d": "2026-10-07", "a": "과징금"}}}
         st, c = osn.refresh_ftc(prev, get=get, now=NOW, parse=parse)
-        self.assertEqual(c["audit"], {"year": "2024", "rows": 11, "cases": 10, "added": 9, "complete": True})
-        self.assertEqual((c["rows"], c["auditedYears"], c["auditAdded"]), (11, 1, 9))
+        self.assertEqual(c["audit"][0], {"year": "2024", "rows": 11, "cases": 10, "added": 9, "complete": True})
+        self.assertEqual([a["year"] for a in c["audit"]], ["2024", "2025", "2026"])          # 실행마다 세 해(11-06)
+        self.assertEqual((c["rows"], c["auditedYears"], c["auditAdded"]), (11, 3, 9))
         self.assertEqual((st["rows"]["ftc:2023서경0001"]["d"], st["rows"]["ftc:2023서경0001"]["a"]), ("2024-03-20", "과징금, 고발"))   # 의결 줄로 바꿈
         self.assertNotIn("k", st["rows"]["ftc:2023서경0001"])
         old_row = {**prev, "rows": {"ftc:2023서경0001": {"id": "ftc:2023서경0001", "o": ["한빛카드"], "d": "2024-03-02", "a": "고발"}}}   # 표시 없는 옛 줄
         self.assertEqual(osn.refresh_ftc(old_row, get=get, now=NOW, parse=parse)[0]["rows"]["ftc:2023서경0001"]["d"], "2024-03-20")
-        st, c = osn.refresh_ftc(st, get=get, now=NOW, parse=parse)
-        st, c = osn.refresh_ftc(st, get=get, now=NOW, parse=parse)
         self.assertEqual(sorted(st["audit"]), ["2024", "2025", "2026"])
         calls.clear()
         st, c = osn.refresh_ftc(st, get=get, now=NOW + dt.timedelta(days=3), parse=parse)
         self.assertNotIn("audit", c)                                     # 다 봤으면 쉰다
         self.assertEqual(calls, [("2024-01-01", 1)])
         st, c = osn.refresh_ftc(st, get=get, now=NOW + dt.timedelta(days=31), parse=parse)
-        self.assertEqual(c["audit"]["year"], "2026")                     # 올해 창은 한 달마다
+        self.assertEqual([a["year"] for a in c["audit"]], ["2026"])      # 올해 창은 한 달마다
+        small = dict(prev)
+        with patch.object(osn, "FTC_AUDIT_BUDGET", 81):                 # 쪽 한도가 한 창(80쪽)보다 적게 남으면 멈춘다
+            _, c = osn.refresh_ftc(small, get=get, now=NOW, parse=parse)
+        self.assertEqual([a["year"] for a in c["audit"]], ["2024"])
         bad = lambda url, params=None, **k: R(status=500) if params["endRceptDt"] == "2024-12-31" else get(url, params=params)
         failing, c = osn.refresh_ftc(prev, get=bad, now=NOW, parse=parse)
         self.assertEqual((c["status"], failing.get("audit")), ("partial", None))   # 실패한 창은 점검으로 치지 않는다(다음 실행에 다시)
