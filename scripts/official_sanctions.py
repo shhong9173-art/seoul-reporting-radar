@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import datetime as dt
 import io
+import html
 import re
 from urllib.parse import urljoin
 
@@ -209,6 +210,146 @@ LAW = r"(?:(?:舊\s*)?(?:개인정보\s*)?보호법|법(?=\s*제\s*\d))"
 DATE = r"(20\d{2})\s*\.\s*(\d{1,2})\s*\.\s*(\d{1,2})(?!\d)\s*\.?"
 
 
+# ---------- 개인정보위 위원회 결정문(agenda.do) ----------
+# 11-06 탐침 193~196: '결과의 공표' 게시판(BS258)엔 공표 명령 받은 건만 늦게 올라온다(GS리테일 128억 — 8-26 의결, 11-06까지 미게시).
+# 위원회 결정문 게시판은 전체회의·소위원회 의결서를 다 올린다. 제목엔 회사 이름이 없고('개인정보보호 법규 위반행위에 대한 시정조치에 관한 건
+# (2025조이0004)'), 첨부 PDF 첫 쪽에 안건번호·피심인·의결연월일·주문(과징금·과태료)이 있다. 첨부는 FileDown.do에 fileExtsn=pdf·cnvCnt=1.
+PIPC_AGENDA = "https://www.pipc.go.kr/np/default/agenda.do"
+PIPC_AGENDA_VIEW = PIPC_AGENDA + "?op=view&mCode=E030010000&idxId="
+PIPC_FILE_DL = "https://www.pipc.go.kr/np/cmm/fms/FileDown.do"
+PIPC_DECISION_TITLE = re.compile(r"시정조치|과징금|과태료|처분")
+PIPC_SINCE = "2020-08-05"          # 개인정보위 중앙행정기관 출범
+PIPC_DECISION_VERSION = 1
+
+
+def pipc_agenda_rows(html_text):
+    """결정문 목록 → [{no, kind, title, date, idx}]"""
+    out = []
+    for tr in re.findall(r"<tr\b.*?</tr>", html_text or "", re.S | re.I):
+        tds = re.findall(r"<td\b[^>]*>(.*?)</td>", tr, re.S | re.I)
+        idx = re.search(r"idxId=([\d-]+)", tr)
+        if len(tds) >= 4 and idx:
+            c = [re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", x))).strip() for x in tds[:4]]
+            d = re.search(r"(\d{4})-(\d{2})-(\d{2})", c[3])
+            out.append({"no": c[0], "kind": c[1], "title": c[2], "date": d.group(0) if d else "", "idx": idx.group(1)})
+    return out
+
+
+def pipc_decision(text):
+    """결정문 PDF 글자 → [{case, org, date, fine, penalty}] (안건번호마다 한 줄). 피심인이 개인·가린 이름이면 그대로 둔다(회사 대조에서 안 걸림)."""
+    t = re.sub(r"\s+", " ", text or "")
+    heads = list(re.finditer(r"안\s*건\s*번\s*호\s*(제?\s*\d{4}\s*-\s*\d{3}\s*-\s*\d{3}\s*호)", t))
+    out, seen = [], set()
+    for i, h in enumerate(heads):
+        seg = t[h.start():heads[i + 1].start() if i + 1 < len(heads) else len(t)]
+        case = re.sub(r"\s+", "", h.group(1))
+        if case in seen:
+            continue
+        m = re.search(r"피\s*심\s*인\s*(.{2,60}?)\s*\(\s*(?:사업자|법인)", seg) or re.search(r"피\s*심\s*인\s*(.{2,40}?)\s*대\s*표\s*자", seg)
+        d = re.search(r"의\s*결\s*연\s*월\s*일\s*(\d{4})\s*\.\s*(\d{1,2})\s*\.\s*(\d{1,2})", seg)
+        if not m or not d:
+            continue
+        seen.add(case)
+        org = re.sub(r"^(?:㈜|\(주\)|주식회사)\s*|\s*(?:㈜|\(주\)|주식회사)$", "", m.group(1).strip()).strip()
+        main = seg[:seg.find("이 유")] if "이 유" in seg else seg[:4000]
+        fine = re.search(r"과\s*징\s*금\s*:\s*([\d,]+)\s*원", main)
+        pen = re.search(r"과\s*태\s*료\s*:\s*([\d,]+)\s*원", main)
+        out.append({"case": case, "org": org[:60], "date": f"{d.group(1)}-{int(d.group(2)):02d}-{int(d.group(3)):02d}",
+                    **({"fine": won_text(fine.group(1))} if fine else {}), **({"penalty": won_text(pen.group(1))} if pen else {})})
+    return out
+
+
+def refresh_pipc_decisions(state, *, get, now, pause=None, front_pages=3, backfill_pages=15, max_read=25, read_pdf=None):
+    """결정문 목록에서 처분 제목(공공기관 건 제외)을 모아 첨부 PDF를 읽는다. 앞 몇 쪽 + 뒤 채우기(2020-08 출범까지) + 실행당 읽기 한도.
+    state: {"queue": {idx: {date, title}}, "read": {idx: [records]}, "empty": {idx: v}, "nextPage", "done"}"""
+    state = dict(state or {})
+    queue, read, empty = dict(state.get("queue") or {}), dict(state.get("read") or {}), dict(state.get("empty") or {})
+    err, pages, got_n, outcome = None, 0, 0, {}
+
+    def take(rows):
+        new = 0
+        for x in rows:
+            if PIPC_DECISION_TITLE.search(x["title"]) and not re.search(r"공공기관", x["title"]) and x["date"] >= PIPC_SINCE and x["idx"] not in read \
+                    and empty.get(x["idx"]) != PIPC_DECISION_VERSION and x["idx"] not in queue:
+                queue[x["idx"]] = {"date": x["date"], "title": x["title"][:90]}
+                new += 1
+        return new
+
+    def lst(n):
+        if pause:
+            pause(0.4)
+        r = get(PIPC_AGENDA, params={"mCode": "E030010000", "page": n}, headers=UA, timeout=30)
+        if getattr(r, "status_code", 200) != 200:
+            raise RuntimeError(f"HTTP {r.status_code}")
+        return pipc_agenda_rows(r.text)
+
+    try:
+        for n in range(1, front_pages + 1):
+            rows = lst(n)
+            pages += 1
+            if not take(rows) and n > 1:
+                break
+        if not state.get("done"):
+            n = int(state.get("nextPage") or front_pages + 1)
+            for _ in range(backfill_pages):
+                rows = lst(n)
+                pages += 1
+                take(rows)
+                if not rows or min(x["date"] for x in rows if x["date"]) < PIPC_SINCE:
+                    state["done"] = True
+                    break
+                n += 1
+            state["nextPage"] = n
+        for idx in sorted(queue, key=lambda k: queue[k]["date"], reverse=True)[:max_read]:
+            if pause:
+                pause(0.5)
+            v = get(PIPC_AGENDA_VIEW + idx, headers=UA, timeout=30)
+            files = list(dict.fromkeys(re.findall(r"fn_egov_downFileCnv\(\s*'([^']+)'\s*,\s*'(\d+)'\s*,\s*'pdf'", v.text)))
+            recs, ok = [], False
+            for fid, sn in files[:4]:
+                f = get(PIPC_FILE_DL, params={"atchFileId": fid, "fileSn": sn, "fileExtsn": "pdf", "cnvCnt": "1"},
+                        headers={**UA, "Referer": PIPC_AGENDA_VIEW + idx}, timeout=60)
+                raw = getattr(f, "content", b"") or b""
+                if getattr(f, "status_code", 200) != 200 or raw[:4] != b"%PDF":
+                    k = f"unread:{getattr(f, 'status_code', '?')}:{raw[:4]!r}"
+                    outcome[k] = outcome.get(k, 0) + 1
+                    continue
+                ok = True
+                for x in pipc_decision((read_pdf or pdf_text)(raw, 40)):
+                    recs.append({"agency": "개인정보위", "id": f"pipcd:{x['case']}", "org": x["org"], "date": x["date"],
+                                 "what": f"결정문 {x['case']}", "inst": ", ".join(f"{k} {x[k2]}" for k, k2 in (("과징금", "fine"), ("과태료", "penalty")) if x.get(k2)),
+                                 "major": bool(x.get("fine")), "url": PIPC_AGENDA_VIEW + idx})
+            if not files:
+                outcome["no_file"] = outcome.get("no_file", 0) + 1
+            if recs:
+                read[idx] = recs
+                queue.pop(idx, None)
+                got_n += 1
+                outcome["ok"] = outcome.get("ok", 0) + 1
+            elif ok:                                   # 읽었는데 피심인·의결일 꼴이 아님 — 같은 판에선 다시 안 읽음
+                empty[idx] = PIPC_DECISION_VERSION
+                queue.pop(idx, None)
+                outcome["parsed_empty"] = outcome.get("parsed_empty", 0) + 1
+    except Exception as e:
+        err = f"{type(e).__name__}: {str(e)[:60]}"
+    state.update(queue=queue, read=read, empty=empty, checkedAt=now.isoformat(timespec="seconds"))
+    return state, {"source": "개인정보위 위원회 결정문", "status": "partial" if err or queue else "ok", "pages": pages, "read": got_n,
+                   "decisions": len(read), "records": sum(len(v) for v in read.values()), "queued": len(queue), "backfillDone": bool(state.get("done")),
+                   **({"outcomes": outcome} if outcome else {}), **({"error": err} if err else {})}
+
+
+def pipc_decision_records(state):
+    return [r for recs in ((state or {}).get("read") or {}).values() for r in recs]
+
+
+def pipc_all_records(pipc_state, decisions_state):
+    """결과의 공표 + 결정문. 같은 회사·같은 날은 결정문(금액·안건번호) 쪽만."""
+    dec = pipc_decision_records(decisions_state)
+    k = lambda r: (re.sub(r"\s+|㈜|\(주\)|주식회사", "", r.get("org") or ""), r.get("date"))
+    have = {k(r) for r in dec}
+    return dec + [r for r in pipc_records(pipc_state) if k(r) not in have]
+
+
 def pipc_records(state):
     return [r for recs in ((state or {}).get("posts") or {}).values() for r in recs]
 
@@ -342,6 +483,8 @@ def clean_respondent(x):
 
 FTC_AUDIT_PAGES = 80        # 한 해 창 최대 쪽(탐침 188: 2015년 67쪽이 가장 많다)
 FTC_AUDIT_DAYS = 30         # 올해 창은 한 달마다 다시(지난 해 창은 한 번)
+FTC_AUDIT_YEARS = 3         # 실행마다 볼 해 수(11-06: 하루 한 번 실행)
+FTC_AUDIT_BUDGET = 220      # 실행마다 창 점검 쪽 한도(해당 0.5초 쉼 — 약 2분)
 
 
 def _ftc_put(rows, x, prefer=False):
@@ -401,17 +544,22 @@ def refresh_ftc(state, *, get, now, backfill_pages=100, new_pages=3, pause=None,
             state["nextPage"] = n
         elif audit:
             # 해마다 창(의결일 기준 1년)을 끝까지 다시 훑어 빠진 줄을 채운다(11-05 탐침 188·189: 전체 목록 4,960줄인데 저장 4,537건 —
-            # 같은 사건 두 줄을 빼도 모자라 보였다). 실행마다 한 해. 지난 해 창은 한 번, 올해 창은 한 달마다.
+            # 같은 사건 두 줄을 빼도 모자라 보였다). 지난 해 창은 한 번, 올해 창은 한 달마다.
+            # 11-06: 하루 한 번 실행이라 한 해씩이면 11일 — 실행마다 세 해(쪽 한도 FTC_AUDIT_BUDGET)로 앞당긴다.
             aud = dict(state.get("audit") or {})
             years = [str(y) for y in range(int(since[:4]), now.year + 1)]
             stale = (now - dt.timedelta(days=FTC_AUDIT_DAYS)).isoformat(timespec="seconds")
             todo = [y for y in years if y not in aud] or [y for y in years[-1:] if aud[y].get("at", "") < stale]
-            if todo:
-                y = todo[0]
+            budget = FTC_AUDIT_BUDGET
+            audited = []
+            for y in todo[:FTC_AUDIT_YEARS]:
+                if budget < FTC_AUDIT_PAGES:
+                    break
                 ids, n_rows, added, n, complete = set(), 0, 0, 1, False
                 while n <= FTC_AUDIT_PAGES:
                     got, last = page(n, f"{y}-01-01", min(f"{y}-12-31", today))
                     pages += 1
+                    budget -= 1
                     n_rows += len(got)
                     for x in got:
                         ids.add(x["id"])
@@ -421,10 +569,10 @@ def refresh_ftc(state, *, get, now, backfill_pages=100, new_pages=3, pause=None,
                         break
                     n += 1
                 fresh += added
-                audited = {"year": y, "rows": n_rows, "cases": len(ids), "added": added, "complete": complete}
+                audited.append({"year": y, "rows": n_rows, "cases": len(ids), "added": added, "complete": complete})
                 if complete:
                     aud[y] = {"rows": n_rows, "cases": len(ids), "added": added, "at": now.isoformat(timespec="seconds")}
-                state["audit"] = aud
+                state["audit"] = aud                  # 해마다 저장 — 다음 해에서 끊겨도 앞 해는 남는다
     except Exception as e:
         err = f"{type(e).__name__}: {str(e)[:60]}"
     state.update(rows=rows, since=since, checkedAt=now.isoformat(timespec="seconds"))

@@ -331,7 +331,7 @@ def link_sanctions(people, state, *, web_get, budget, key=None, get=None, sleep=
     """경력 칸 최고 경영 자리(회사·기간) × 공식 제재(금감원·개인정보위). 기간이 겹치고 무거운 처분(금감원 임원 조치·개인정보위 과징금)이면 B,
     그 밖(회사만 제재·시점 미확인)은 C — 목록에만. 공개 기록엔 개인 이름이 없다: 그 사람이 제재 대상이었는지는 확인 대상."""
     fss = state.get("fss") or {}
-    records = osn.fss_records(fss) + osn.pipc_records(state.get("pipc")) + osn.ftc_records(state.get("ftc"))
+    records = osn.fss_records(fss) + osn.pipc_all_records(state.get("pipc"), state.get("pipcd")) + osn.ftc_records(state.get("ftc"))
     details = dict(fss.get("details") or {})
     used, matched, calls, idx = 0, 0, [0], [None]
     old_people = old_people or {}
@@ -861,7 +861,8 @@ def run(key, *, now=None, previous=None, exec_doc=None, market_doc=None, get=Non
         sanctions["fss"], c1 = osn.refresh_fss(sanctions.get("fss"), get=web_get, now=now, pause=sleep)
         sanctions["pipc"], c2 = osn.refresh_pipc(sanctions.get("pipc"), get=web_get, now=now, pause=sleep)
         sanctions["ftc"], c3 = osn.refresh_ftc(sanctions.get("ftc"), get=web_get, now=now, pause=sleep)
-        checks += [c1, c2, c3]
+        sanctions["pipcd"], c4 = osn.refresh_pipc_decisions(sanctions.get("pipcd"), get=web_get, now=now, pause=sleep)
+        checks += [c1, c2, c3, c4]
     checks.append(link_sanctions(people + cands, sanctions, web_get=web_get, budget=SANCTION_DETAIL_BUDGET, key=key, get=get, sleep=sleep,
                                  table=table, now=now, old_people=old_all))
     label_candidate_flags(cands)
@@ -1009,8 +1010,8 @@ def main():
     for k in doc["checks"]:
         if k.get("source") == "기사 본문" and k.get("hosts"):
             print(f"::notice title=kr-exec-check-article-hosts::{json.dumps(k['hosts'], ensure_ascii=False)}")
-        if k.get("source") in ("금감원 제재내용공개", "개인정보위 결과의 공표", "공정위 의결서 목록", "공식 제재 대조"):
-            print(f"::notice title=kr-exec-check-sanctions::{k['source']} · {k.get('status')} · " + json.dumps({x: k[x] for x in ("pages", "new", "rows", "backfillDone", "audit", "auditedYears", "auditAdded", "posts", "read", "outcomes", "matched", "detailsFetched", "records", "tenureCalls", "ftcDetails", "ftcDetailOutcomes", "error") if x in k}, ensure_ascii=False))
+        if k.get("source") in ("금감원 제재내용공개", "개인정보위 결과의 공표", "개인정보위 위원회 결정문", "공정위 의결서 목록", "공식 제재 대조"):
+            print(f"::notice title=kr-exec-check-sanctions::{k['source']} · {k.get('status')} · " + json.dumps({x: k[x] for x in ("pages", "new", "rows", "backfillDone", "audit", "auditedYears", "auditAdded", "posts", "read", "decisions", "queued", "outcomes", "matched", "detailsFetched", "records", "tenureCalls", "ftcDetails", "ftcDetailOutcomes", "error") if x in k}, ensure_ascii=False))
         if k.get("source") == "겸직 명단 대조":
             print(f"::notice title=kr-exec-check-boards::조회 {k.get('returned')}회 · 회사 {k.get('companies')}곳 · {k.get('status')}{' · ' + k['error'] if k.get('error') else ''}")
     if not token:
