@@ -42,6 +42,7 @@ import earnings_compare as ec  # noqa: E402
 import governance_watch as gw  # noqa: E402
 import kr_exec_watch as kx  # noqa: E402
 import executive_article_evidence as ae  # noqa: E402
+import official_sanctions as osn  # noqa: E402
 from urllib.parse import urlsplit  # noqa: E402
 
 SCHEMA = "kr_exec_check/v1"
@@ -65,7 +66,7 @@ NONCOMPANY = re.compile(r"학회|협회|재단|위원회|연구원|연구소|대
                         re.I)
 CURRENT = re.compile(r"^\s*[\(\[]?\s*(現|현\)|현\s*\)|현재|現\))|~\s*(현재|現)|\(\s*현\s*\)|현재\)?\s*$|~\s*$")
 # '감사위원회 지원센터 자문교수'(11-05 실제: 세아제강 사외이사)는 감사가 아니다 — 직함으로 쓰인 감사·감사위원만
-ROLE_DIRECTOR = re.compile(r"사외이사|독립이사|기타\s*비상무\s*이사|비상임\s*이사|감사위원(?!회)|감사(?!원|팀|실|부|위원회|인|법인|기관|센터|지원)|이사(?!회|장|대우)")
+ROLE_DIRECTOR = re.compile(r"사외이사|독립이사|기타\s*비상무\s*이사|비상임\s*이사|(?:사내|상근|상임|비상근|전무|상무|대표)\s*이사|감사위원(?!회)|감사(?!원|팀|실|부|위원회|인|법인|기관|센터|지원)|이사(?!회|장|대우)")
 EMPLOYEE = re.compile(r"부장|팀장|실장|상무|전무|부사장|사장|본부장|센터장|연구원|직원|임원|대표|그룹장|담당|매니저|과장|차장")
 
 
@@ -198,7 +199,7 @@ def news_hits(items, name, anchors, *, skip_in_title=()):
     return out[:3]
 
 
-REUSABLE_BODY = ("context_linked", "context_unconfirmed", "outcome_requires_review")
+REUSABLE_BODY = ("context_linked", "context_mentioned", "context_unconfirmed", "outcome_requires_review")
 
 
 def body_url(hit):
@@ -241,6 +242,279 @@ def reconcile_events(events, people, checks, stamp):
             e["reviewReason"] = "현재 점검 명단에서 확인 안 됨(퇴임 확정 아님)"
 
 
+SANCTION_DETAIL_BUDGET = 20   # 금감원 공개안 PDF는 경력과 기간이 겹친 것만, 한 실행 20건
+FTC_DETAIL_BUDGET = 10        # 공정위 의결서 원문은 기간이 겹친 과징금·고발 건만, 한 실행 10건(건마다 목록 최대 5쪽 + 원문 1)
+
+
+TENURE_BUDGET = 80            # 재임 확인: 제재받은 회사의 사업보고서 임원 현황 조회(한 실행)
+TENURE_FROM = 2015
+
+
+def table_index(table):
+    """DART 고유번호 표를 공식 제재 쪽 이름 키(주식회사 떼기·영문 약자 한글 읽기)로."""
+    idx = {}
+    for name, rows in (table or {}).items():
+        for k in osn.org_keys(name):
+            idx.setdefault(k, []).extend(rows)
+    return idx
+
+
+def resolve_any(names, idx):
+    for n in names:
+        for k in sorted(osn.org_keys(n)):
+            rows = idx.get(k) or []
+            listed = {r[0] for r in rows if len(r) > 1 and r[1]}
+            codes = listed or {r[0] for r in rows}
+            if len(codes) == 1:
+                return next(iter(codes))
+    return None
+
+
+def confirm_tenure(rec, roles, found, birth, *, key, get, sleep, idx_fn, now, old_tenure, calls, budget):
+    """경력 칸에 기간이 없는 최고 경영 자리 → 제재받은 그 회사의 사업보고서(연말 기준) 임원 현황에서 같은 이름·출생년월이 있는 해를 찾아
+    자리 기간으로 쓴다(11-05 기자 승인 — '우리은행 은행장'처럼 연도 없는 경력에 제재 26건이 붙어 겹침을 못 가리던 것).
+    명단에 없으면 그 자리는 '명단 미확인'(미등기였거나 다른 시기 — 버리지 않고 C로 둔다). 실패·한도는 다음 실행에 다시."""
+    tenure = {k: dict(v) for k, v in (old_tenure or {}).items()}
+    for role in roles:
+        if role.get("start") and role.get("end"):
+            continue
+        ms = [m for m in found if m["role"] is role]
+        if not ms:
+            continue
+        k = min(osn.org_keys(role["org"]) or {role["org"]})
+        t = tenure.get(k) or {"years": [], "checked": []}
+        code = t.get("code") or resolve_any([m["record"]["org"] for m in ms] + [role["org"]], idx_fn())
+        if not code:
+            t["status"] = "unresolved"
+            tenure[k] = t
+            continue
+        years = {int(m["record"]["date"][:4]) for m in ms}
+        cand = sorted({y - d for y in years for d in (0, 1, 2)} & set(range(TENURE_FROM, now.year)), reverse=True)
+        # 재직기간 시작일(since)을 남기기 전 판에서 찾은 해는 한 번 다시 연다
+        redo = set(t["years"]) if t["years"] and not t.get("sinceChecked") else set()
+        for y in [y for y in cand if y not in t["checked"] or y in redo]:
+            if calls[0] >= budget:
+                t["status"] = "budget"
+                break
+            calls[0] += 1
+            try:
+                st, api, _ = kx.api_roster(key, code, y, "11011", get=get, sleep=sleep)
+            except (ec.TransientError, RuntimeError):
+                t["status"] = "failed"
+                break
+            t["checked"].append(y)
+            if st == "ok":
+                t.setdefault("reports", []).append(y)
+                m_, _row = roster_match(api, {"name": rec["name"], "birth": birth})
+                if m_ == "confirmed":
+                    t["years"].append(y)
+                    # 재직기간 칸('2020.03.24~')의 시작 달 — 연도만으로는 취임 전 제재(같은 해 3월 이전)를 못 가린다
+                    ym = re.search(r"((?:19|20)\d{2})\s*[.\-년]\s*(\d{1,2})(?:\s*[.\-월]\s*(\d{1,2}))?", str((_row or {}).get("period") or ""))
+                    if ym:
+                        since = f"{ym.group(1)}-{int(ym.group(2)):02d}" + (f"-{int(ym.group(3)):02d}" if ym.group(3) else "")
+                        t["since"] = min(t.get("since") or since, since)
+        t["code"] = code
+        t["years"], t["checked"] = sorted(set(t["years"])), sorted(set(t["checked"]))
+        if t.get("status") not in ("budget", "failed"):
+            t["sinceChecked"] = True
+        if t.get("status") not in ("budget", "failed"):
+            t["status"] = "found" if t["years"] else ("absent" if t.get("reports") else "no_report")
+        tenure[k] = t
+        if t["years"]:
+            role.update(start=min(t["years"]), end=max(t["years"]), source="명단", **({"since": t["since"]} if t.get("since") else {}))
+        elif t["status"] == "absent":
+            role["rosterAbsent"] = sorted(set(t.get("reports") or []))
+    return tenure
+
+
+def link_sanctions(people, state, *, web_get, budget, key=None, get=None, sleep=time.sleep, table=None, now=None, old_people=None):
+    """경력 칸 최고 경영 자리(회사·기간) × 공식 제재(금감원·개인정보위). 기간이 겹치고 무거운 처분(금감원 임원 조치·개인정보위 과징금)이면 B,
+    그 밖(회사만 제재·시점 미확인)은 C — 목록에만. 공개 기록엔 개인 이름이 없다: 그 사람이 제재 대상이었는지는 확인 대상."""
+    fss = state.get("fss") or {}
+    records = osn.fss_records(fss) + osn.pipc_records(state.get("pipc")) + osn.ftc_records(state.get("ftc"))
+    details = dict(fss.get("details") or {})
+    used, matched, calls, idx = 0, 0, [0], [None]
+    old_people = old_people or {}
+    ftc = state.get("ftc") or {}
+    fdetails, fused, fout = dict(ftc.get("details") or {}), [0], {}
+    recheck = (now - dt.timedelta(days=14)).isoformat(timespec="seconds") if now else ""   # 못 찾은 의결서는 14일 뒤 다시
+
+    def idx_fn():
+        if idx[0] is None:
+            idx[0] = table_index(table)
+        return idx[0]
+
+    for rec in people:
+        roles = rec.pop("_roles", None) or []
+        birth = rec.pop("_birth", None)
+        if not roles or not records:
+            continue
+        found = osn.match(roles, records)
+        if not found:
+            continue
+        if key and get is not None and now is not None:
+            rec["tenure"] = confirm_tenure(rec, roles, found, birth, key=key, get=get, sleep=sleep, idx_fn=idx_fn, now=now,
+                                           old_tenure=(old_people.get(rec["id"]) or {}).get("tenure"), calls=calls, budget=TENURE_BUDGET)
+            found = osn.match(roles, records)               # 명단으로 찾은 기간으로 다시 — 기간 밖 제재는 빠진다
+            if not found:
+                continue
+        matched += 1
+        out = []
+        for m in found:
+            r, role = m["record"], m["role"]
+            item = {"agency": r["agency"], "org": r["org"], "date": r["date"], "url": r.get("url"), "timing": m["timing"],
+                    "career": {**{k: role[k] for k in ("org", "role", "start", "end")},
+                               **({"source": role["source"]} if role.get("source") else {}),
+                               **({"since": role["since"]} if role.get("since") else {}),
+                               **({"rosterAbsent": role["rosterAbsent"]} if role.get("rosterAbsent") else {})}}
+            if r["agency"] == "개인정보위":
+                item.update(what=r.get("what"), inst=r.get("inst"))
+                strong = m["timing"] == "overlap" and bool(r.get("major"))
+            elif r["agency"] == "공정위":
+                item.update(inst=r.get("inst"))
+                strong = m["timing"] == "overlap" and bool(re.search(r"과징금|고발", r.get("inst") or ""))
+                if strong:                                   # 무거운 처분은 의결서 원문에서 사건명·과징금·피심인 대표이사 칸(가린 이름)
+                    ck = r["id"].rsplit(":", 1)[0]
+                    fdet = fdetails.get(ck)
+                    stale = bool(fdet and fdet.get("status") == "not_found" and str(fdet.get("at", "")) < str(recheck))
+                    if (fdet is None or fdet.get("v") != osn.FTC_DETAIL_VERSION or stale) and web_get is not None and fused[0] < FTC_DETAIL_BUDGET:
+                        fdet = osn.ftc_case_detail(r, get=web_get, now=now or dt.datetime.now(KST), pause=sleep)
+                        fused[0] += 1
+                        o_ = f"{fdet.get('status')}{':' + fdet['error'] if fdet.get('error') else ''}"
+                        fout[o_] = fout.get(o_, 0) + 1       # 실패 원인(11-05: 탐침에선 열리는 GS리테일 2건이 운영에선 안 붙었다)
+                        if fdet.get("status") in ("ok", "not_found"):
+                            fdetails[ck] = {**fdet, **({"at": now.isoformat(timespec="seconds")} if now and fdet.get("status") == "not_found" else {})}
+                    if fdet and fdet.get("status") == "ok":
+                        item.update(title=fdet.get("title"), amount=fdet.get("amount"), order=(fdet.get("order") or "")[:160] or None)
+                        same = [c for c in fdet.get("ceos") or [] if c[:1] == rec["name"][:1] and len(c) == len(rec["name"])]
+                        if same:
+                            item["ceoSurname"] = same[0]
+            else:
+                det = details.get(r["id"])
+                if det and det.get("v") != osn.DETAIL_VERSION:
+                    det = None                               # 앞 판 요약(예전 공개안을 못 나눔)은 다시 연다
+                if det is None and m["timing"] == "overlap" and web_get is not None and used < budget:
+                    det = osn.fss_detail(r, get=web_get)
+                    used += 1
+                    if det.get("status") == "ok":
+                        details[r["id"]] = det
+                if det and det.get("status") == "ok":
+                    item.update(inst=det.get("inst"), exec=det.get("exec"), fact=det.get("fact"),
+                                **({"violation": det["violation"]} if det.get("violation") else {}),
+                                **({"ceoText": det["ceoText"][:160]} if det.get("ceoText") else {}))
+                elif det:
+                    item["detail"] = det.get("status")
+                # 위반 기간이 재임 기간 밖(예: 전임 때 일을 재임 중에 제재)이면 무거운 처분이어도 B가 아니다
+                v = det.get("violation") if det else None
+                inside = not v or not (role.get("start") and role.get("end")) or (int(v[:4]) <= role["end"] and int(v[-7:-3]) >= role["start"])
+                if v and not inside:
+                    item["violationOutside"] = True
+                strong = m["timing"] == "overlap" and bool(det and osn.exec_sanctioned(det.get("exec"))) and inside   # 저장된 요약도 지금 규칙으로
+            # 취임 전 제재: 재직기간 칸의 시작 달보다 제재일이 앞서면(같은 해라도) 그 사람 재임 중 제재가 아니다
+            if role.get("since") and r["date"] < role["since"]:           # 같은 달인데 날을 모르면(YYYY-MM) 앞이라고 하지 않는다
+                item["beforeTenure"] = True
+                strong = False
+            item["strong"] = strong
+            out.append(item)
+        # 시점 미확인은 회사·기관별 한 줄로(건수·첫·끝 날짜) — 11-05 실제: 기간 없는 '우리은행 은행장' 경력에 2026년 제재 3줄이 붙었다
+        known = [x for x in out if x["timing"] == "overlap"]
+        groups = {}
+        for x in out:
+            if x["timing"] != "overlap":
+                g = groups.setdefault((x["agency"], x["org"]), {**x, "count": 0, "first": x["date"], "last": x["date"]})
+                g["count"] += 1
+                g["first"], g["last"] = min(g["first"], x["date"]), max(g["last"], x["date"])
+        for g in groups.values():
+            g["date"] = g["last"]
+            g.pop("inst", None), g.pop("exec", None), g.pop("what", None), g.pop("fact", None), g.pop("ceoText", None)
+            g["url"] = osn.FSS_LIST if g["agency"] == "금감원" else g.get("url")
+        known.sort(key=lambda x: x["date"], reverse=True)
+        known.sort(key=lambda x: not x["strong"])
+        rec["sanctions"] = known[:4] + sorted(groups.values(), key=lambda g: g["last"], reverse=True)[:2]
+        strong = [x for x in out if x["strong"]]
+        if strong:
+            def line(x):
+                c = x["career"]
+                period = f"{c['start'] or '?'}~{c['end'] or '?'}"
+                act = x.get("exec") and f"임원 {x['exec']}" or x.get("inst") or ""
+                where = (f"사업보고서 임원 명단 {period}" + (f", 재직 {c['since']}~" if c.get("since") else "")) if c.get("source") == "명단" else f"경력 칸 {period}"
+                viol = f"(위반 기간 {x['violation']})" if x.get("violation") else ""
+                case = (f" {x['amount']}" if x.get("amount") else "") + (f" 「{x['title']}」" if x.get("title") else "") \
+                    + (f"(의결서 피심인 대표이사 칸 '{x['ceoSurname']}' — 성·글자 수 같음)" if x.get("ceoSurname") else "")
+                return f"{c['org']} {c['role']}({where}) — {x['agency']} {x['date']} 제재{viol}: {x.get('what') + ' — ' if x.get('what') else ''}{act}{case}"
+            rec["flags"].append({"kind": "공식 제재: 재임 중 소속 회사 제재", "tier": "B",
+                                 "text": " / ".join(line(x) for x in strong[:2])
+                                         + " — 공개 기록엔 개인 이름이 없음. 그 사람이 제재·책임 대상이었는지와 재임 시점은 원문·회사 확인"})
+    if fss:
+        fss["details"] = details
+    if ftc:
+        ftc["details"] = fdetails
+    limited = calls[0] >= TENURE_BUDGET
+    return {"source": "공식 제재 대조", "status": ("partial" if limited else "ok") if records else "no_data", "matched": matched, "detailsFetched": used,
+            "records": len(records), "tenureCalls": calls[0], "ftcDetails": fused[0], **({"ftcDetailOutcomes": fout} if fout else {}), **({"error": "재임 확인 조회 한도 — 남은 회사는 다음 실행"} if limited else {})}
+
+
+CAND_DAYS = 120               # 주총 소집공고 이사 후보를 점검하는 기간(수시 임원 공시 감시가 남긴 후보 항목)
+
+
+def candidate_people(market_doc, now, people, beat_keys, midx):
+    """출입처 주총 소집공고 이사 후보 → 점검 줄(11-05 기자 승인: 선임 '전'에 같은 점검 — 단독 가치가 큰 쪽).
+    사외·독립이사 후보는 3호(다른 회사 이사·감사 2곳 이상)와 재선임 7호(같은 회사 6년 초과), 모든 후보는 공식 제재 대조."""
+    cut = (now - dt.timedelta(days=CAND_DAYS)).date().isoformat()
+    short_to_name = {kx.SHORT.get(n, n): n for n, _, _ in kx.BEATS}
+    out, seen = [], set()
+    for e in (market_doc or {}).get("events") or []:
+        p = e.get("person") or {}
+        filed = str(e.get("filed") or e.get("detectedAt") or "")[:10]   # 되짚기로 읽은 지난 공고는 접수일 기준
+        if e.get("kind") != "이사 후보" or not p.get("name") or filed < cut:
+            continue
+        short = e.get("company") or ""
+        name = short_to_name.get(short, short)
+        bk = kx.birth_key(p.get("birth"))
+        cid = f"후보|{short}|{kx.name_key(p['name'])}|{bk}"
+        if cid in seen:
+            continue
+        seen.add(cid)
+        group = kx.GROUP.get(name)
+        own = [a for a in kx.RIVALS.get(group, []) if len(a) >= 2] or [short]
+        kind = str(p.get("kind") or "")
+        career = str(p.get("career") or "") + " " + str(p.get("job") or "")
+        rec = {"id": cid, "company": short, "dartName": name, "name": p["name"], "birth": bk[:4], "ofcps": "이사 후보", "reg": kind[:20] or "후보",
+               "career": career[:300], "report": f"주총 소집공고 {filed}{' (지난 공고 — 주총이 이미 끝났을 수 있음)' if e.get('baseline') else ''}",
+               "url": e.get("url"), "flags": [], "candidate": True, **({"past": True} if e.get("baseline") else {}),
+               "_birth": p.get("birth"),
+               "_roles": [x for x in osn.top_roles(career, segs, now=now)
+                          if not any(kx.mentions(x["org"], a) or osn.org_keys(a) & osn.org_keys(x["org"]) for a in own + [short, name])]}
+        outside = bool(re.search(r"사외|독립|^\s*(?:예|해당|○|O)\s*$", kind))
+        if outside:
+            person = {"name": p["name"], "birth": p.get("birth")}
+            others = sorted(kx.SHORT.get(o, o) for o, ks in beat_keys.items() if complete_identity(person) and o != name and kx.person_key(person) in ks)
+            h = hashlib.sha256(kx.person_key(person).encode()).hexdigest()[:8]
+            listed = sorted({n_ for n_, _ in midx.get(h, [])} - {short, name} - set(others)) if complete_identity(person) else []
+            rec["_conc"] = {"filed": others + listed, "orgs": director_orgs(career, own), "birth": p.get("birth")}
+            # 재선임: 지금 명단의 같은 사람(이름·출생연도) 재직기간 → 6년(72개월) 넘김 여부
+            cur = next((x for x in people if x["company"] == short and kx.name_key(x["name"]) == kx.name_key(p["name"]) and x["birth"] == bk[:4]), None)
+            months = tenure_months(cur.get("period"), now.date()) if cur else None
+            if months and months >= 72:
+                rec["flags"].append({"kind": "법정 한도: 재선임되면 6년 초과", "tier": "A",
+                                     "text": f"지금 명단 재직기간 「{cur.get('period')}」 → {months // 12}년 {months % 12}개월 — 상법 시행령 제34조⑤7호(같은 회사 6년 초과 결격). 선임일·연임 경위는 회사 확인"})
+            elif months and months + 24 > 72:
+                rec["flags"].append({"kind": "법정 한도: 재선임 임기 중 6년 넘길 수 있음", "tier": "B",
+                                     "text": f"지금 명단 재직기간 「{cur.get('period')}」 → {months // 12}년 {months % 12}개월 — 새 임기(보통 2~3년) 안에 6년을 넘길 수 있음. 임기·선임일 회사 확인"})
+        out.append(rec)
+    return out
+
+
+def label_candidate_flags(cands):
+    """후보 표시는 '선임되면'으로 바꿔 쓴다 — 아직 이사가 아니다."""
+    for c in cands:
+        for f in c["flags"]:
+            if not f["kind"].startswith("이사 후보"):
+                f["kind"] = "이사 후보: " + f["kind"].replace("법정 한도: 다른 회사 이사·감사 2곳 이상 가능", "선임되면 다른 회사 이사·감사 2곳 이상(3호)") \
+                    .replace("공식 제재: 재임 중 소속 회사 제재", "과거 경영 회사 공식 제재")
+                f["text"] = f"주총 소집공고 후보 — {f['text']}"
+
+
 def market_index(market_doc):
     """kr-exec-market 명단 순환의 등기임원 키 해시 → [(회사, 기간)]"""
     idx = {}
@@ -255,7 +529,8 @@ def market_index(market_doc):
 # 경력 칸 낱말만으로는 현직 여부도 모른다(OCI홀딩스 사외이사 경력 칸: '現)… 부문장 에스엘(주) 독립이사KB자산운용 …'처럼 줄이 붙어 있음).
 # 그래서 경력 칸에 이사·감사로 적힌 회사의 최근 정기보고서 임원 현황을 직접 열어 같은 이름·출생년월(YYYYMM)인지 본다.
 DIRECTOR_BUDGET = 240         # 한 실행 임원 현황 조회 한도(회사 단위로 실행 안 캐시)
-DIRECTOR_RECHECK_DAYS = 14    # 같은 사람·회사 대조 재사용 기간
+DIRECTOR_RECHECK_DAYS = 14    # 같은 사람·회사 대조 재사용 기간(지금 철 보고서까지 본 것)
+DIRECTOR_STALE_DAYS = 3       # 앞 철 보고서로 본 것·보고서 없음은 3일마다 다시(새 분기보고서가 들어오면 바로 반영 — 11-05 기자 승인)
 PAST_SEG = re.compile(r"前|^\s*[\(\[]?\s*전\s*[\)\]]|\(\s*전\s*\)|역임")
 OPEN_SEG = re.compile(r"現|현\s*\)|\(\s*현\s*\)|현재|兼|~\s*$|~\s*[\)\]]")
 CLOSED_RANGE = re.compile(r"(?:(?:19|20)\d{2}|['’]\d{2})[^~∼\-–]{0,6}[~∼\-–]\s*(?:(?:19|20)\d{2}|['’]\d{2})")
@@ -286,7 +561,11 @@ def director_orgs(career, own_aliases):
             org = re.sub(r"^(?:現|現\)|兼\)?|현\)|前|전\))", "", org)
             # 줄바꿈이 사라져 붙은 앞 직함('…비상근 부회장KB자산운용 대표이사')을 떼어 낸다
             org = re.sub(r"^(?:(?:부회장|회장|부사장|사장|전무|상무|부문장|본부장|대표|고문|자문역|위원|교수|변호사|회계사)(?=[A-Za-z가-힣]{2}))+", "", org)
+            org = re.sub(r"^(?:이사|감사)(?=[가-힣A-Za-z]{2})", "", org)          # 붙은 앞 직함('이사한국바스프')
             k = org_key(org)
+            # 부서·직함 낱말은 회사가 아니다(11-05 실제: '철강생산본부장'·'공동대표'·'PB사업팀'·'회장'이 회사 칸에 잡혔다)
+            if re.search(r"(?:팀|실|본부|부문|센터|사업부|본부장|실장|팀장|센터장|대표|회장|사장|부장|위원|교수|변호사)$", org) or org in ("한국", "개방"):
+                continue
             if len(k) < 2 or k in seen or NONCOMPANY.search(org) or re.search(r"법무법인|회계법인|세무법인|로펌|LLC|LLP|대학|협회|학회", org):
                 continue
             if any(kx.mentions(org, a) or org_key(a) == k for a in own_aliases):
@@ -337,9 +616,11 @@ def verify_directorships(people, key, *, now, table, old_people, get, sleep, bud
     명단에 없거나(퇴임 가능) 동명이인이면 세지 않는다. 각 회사 보고서 기준일이 달라 동시 재임 확정은 아니다."""
     stamp = now.isoformat(timespec="seconds")
     fresh_cut = (now - dt.timedelta(days=DIRECTOR_RECHECK_DAYS)).isoformat()
+    stale_cut = (now - dt.timedelta(days=DIRECTOR_STALE_DAYS)).isoformat()
     idx, rosters, calls, limited = None, {}, [0], [False]
     year, report = ec.target_period(now)
     dy, base_report = kx.BASE[report]
+    target = f"{year}{report}"
 
     def roster(code):
         if code in rosters:
@@ -348,17 +629,17 @@ def verify_directorships(people, key, *, now, table, old_people, get, sleep, bud
         for y, r in ((year, report), (year + dy, base_report)):
             if calls[0] >= budget:
                 limited[0] = True
-                return ("budget", [], None, None)
+                return ("budget", [], None, None, None)
             calls[0] += 1
             try:
                 st, api, rcept = kx.api_roster(key, code, y, r, get=get, sleep=sleep)
             except (ec.TransientError, RuntimeError):
-                res = ("failed", [], None, None)
+                res = ("failed", [], None, None, None)
                 break
             if st == "ok":
-                res = ("ok", api, rcept, kx.period_label(y, r))
+                res = ("ok", api, rcept, kx.period_label(y, r), f"{y}{r}")
                 break
-        rosters[code] = res or ("no_report", [], None, None)
+        rosters[code] = res or ("no_report", [], None, None, None)
         return rosters[code]
 
     for rec in people:
@@ -374,8 +655,10 @@ def verify_directorships(people, key, *, now, table, old_people, get, sleep, bud
         for o in orgs:
             k = org_key(o["org"])
             old = prior.get(k)
+            current_season = old and (old.get("period") == target or old.get("status") == "unresolved")
+            cut = fresh_cut if current_season else stale_cut
             if old and old.get("status") in ("confirmed", "absent", "namesake", "identity_incomplete", "birth_mismatch", "unresolved", "no_report") \
-                    and str(old.get("checkedAt", "")) >= fresh_cut:
+                    and str(old.get("checkedAt", "")) >= cut:
                 checks_.append({**old, "current": o["current"]})
                 continue
             d = {"org": o["org"], "orgKey": k, "current": o["current"], "checkedAt": stamp}
@@ -385,13 +668,13 @@ def verify_directorships(people, key, *, now, table, old_people, get, sleep, bud
             if not code:
                 d["status"] = "unresolved"
             else:
-                st, api, rcept, label = roster(code)
+                st, api, rcept, label, period = roster(code)
                 d.update(code=code)
                 if st != "ok":
                     d["status"] = st
                 else:
                     m, row = roster_match(api, {"name": rec["name"], "birth": conc["birth"]})
-                    d.update(status=m, report=label, url=f"https://dart.fss.or.kr/dsaf001/main.do?rcpNo={rcept}" if rcept else None)
+                    d.update(status=m, report=label, period=period, url=f"https://dart.fss.or.kr/dsaf001/main.do?rcpNo={rcept}" if rcept else None)
                     if row:
                         d.update(ofcps=kx.norm_ofcps(row.get("ofcps")), reg=row.get("reg"), birth=kx.birth_key(row.get("birth")))
             checks_.append(d)
@@ -413,7 +696,7 @@ def verify_directorships(people, key, *, now, table, old_people, get, sleep, bud
 
 
 def run(key, *, now=None, previous=None, exec_doc=None, market_doc=None, get=None, news=None, sleep=time.sleep, registry=None, table=None,
-        news_budget=None, article_fetch=ae.fetch_article, article_budget=30):
+        news_budget=None, article_fetch=ae.fetch_article, article_budget=30, web_get=None):
     if get is None:
         import requests
         get = requests.get
@@ -556,14 +839,33 @@ def run(key, *, now=None, previous=None, exec_doc=None, market_doc=None, get=Non
                 reviewed.append(h)
             rec["news"] = reviewed
             linked = [h for h in reviewed if h["bodyReview"]["status"] == "context_linked"]
-            rec["bodyStatus"] = "linked" if linked else "unconfirmed" if reviewed else "no_candidates"
+            mentioned = [h for h in reviewed if h["bodyReview"]["status"] == "context_mentioned"]
+            # 본문 언급(C): 표시·알림 없이 목록에만(근거 문장과 함께) — 11-05 기자 승인
+            rec["bodyStatus"] = "linked" if linked else "mentioned" if mentioned else "unconfirmed" if reviewed else "no_candidates"
             if linked and rec["newsStatus"] in ("ok", "cached"):
                 rec["flags"].append({"kind": "과거 논란 기사", "tier": "B", "evidenceVersion": ae.VERSION,
                                      "text": " / ".join(f"「{h['title']}」({h.get('date') or '날짜 미상'}, '{h['word']}')" for h in linked[:2])
                                              + " — 본문 인물·소속·사건 문맥 연결, 동일 인물·사실관계와 후속 처분은 기자 확인(기보도·단독 아님)"})
+            # 공식 제재 대조용: 경력 칸의 다른 회사 최고 경영 자리(같은 그룹 빼고)
+            rec["_birth"] = p.get("birth")                 # 재임 확인(다른 회사 사업보고서 명단)용 출생년월 — 저장 안 함
+            rec["_roles"] = [x for x in osn.top_roles(p.get("career"), segs, now=now)
+                             if not any(kx.mentions(x["org"], a) or osn.org_keys(a) & osn.org_keys(x["org"]) for a in own + [short, name])]
             people.append(rec)
         checks.append({"source": short, "status": "ok", "returned": len([x for x in api if x["reg"] != "미등기"]), "tops": len(tops), "report": kx.period_label(y, r)})
-    conc = verify_directorships(people, key, now=now, table=table, old_people=old_people, get=get, sleep=sleep, budget=DIRECTOR_BUDGET)
+    cands = candidate_people(market_doc, now, people, beat_keys, midx)
+    old_all = {**old_people, **{c["id"]: c for c in prev.get("candidates") or [] if isinstance(c, dict) and c.get("id")}}
+    conc = verify_directorships(people + cands, key, now=now, table=table, old_people=old_all, get=get, sleep=sleep, budget=DIRECTOR_BUDGET)
+    # 공식 제재 기록(금감원·개인정보위): web_get이 없으면(시험) 앞 상태만 쓴다
+    sanctions = dict(prev.get("sanctions") or {})
+    if web_get is not None:
+        sanctions["fss"], c1 = osn.refresh_fss(sanctions.get("fss"), get=web_get, now=now, pause=sleep)
+        sanctions["pipc"], c2 = osn.refresh_pipc(sanctions.get("pipc"), get=web_get, now=now, pause=sleep)
+        sanctions["ftc"], c3 = osn.refresh_ftc(sanctions.get("ftc"), get=web_get, now=now, pause=sleep)
+        checks += [c1, c2, c3]
+    checks.append(link_sanctions(people + cands, sanctions, web_get=web_get, budget=SANCTION_DETAIL_BUDGET, key=key, get=get, sleep=sleep,
+                                 table=table, now=now, old_people=old_all))
+    label_candidate_flags(cands)
+    checks.append({"source": "주총 이사 후보", "status": "ok" if market_doc else "no_data", "returned": len(cands)})
     if not table and conc["returned"] == 0 and any(d.get("status") == "unresolved" for p in people for d in p.get("directorChecks") or []):
         conc.update(status="partial", error="DART 고유번호 표 없음 — 다른 회사 명단 미확인")
     checks.append({**conc, "coveredMarket": covered})
@@ -573,7 +875,8 @@ def run(key, *, now=None, previous=None, exec_doc=None, market_doc=None, get=Non
         checks.append({"source": "네이버 뉴스", "status": "partial", "pending": sum(1 for p in people if p.get("newsStatus") not in ("ok", "cached")),
                        "error": "한 실행 검색 한도 — 남은 사람은 다음 실행"})
     if article_counts:
-        unresolved = sum(v for k, v in article_counts.items() if k != "context_linked")
+        # 본문을 읽고 내린 판정(연결·언급·미연결·처분 문맥)은 실패가 아니다 — 못 읽은 것만 '미확인'
+        unresolved = sum(v for k, v in article_counts.items() if k not in REUSABLE_BODY)
         checks.append({"source": "기사 본문", "status": "partial" if unresolved else "ok",
                        "returned": article_counts.get("context_linked", 0), "outcomes": article_counts,
                        "pending": unresolved, "note": "본문 문맥 연결은 동일 인물·비위 사실 확정이 아님",
@@ -581,20 +884,33 @@ def run(key, *, now=None, previous=None, exec_doc=None, market_doc=None, get=Non
     events = {k: dict(v) for k, v in old_events.items()}
     fresh = 0
     first = not prev      # 첫 실행은 지금 표시 전부가 '새로' 생긴다 — 오늘의 레이더엔 올리지 않고(기준선) kr_signals 목록으로 본다
-    for p in people:
+    # 같은 사람·같은 종류 표시는 한 항목으로 고쳐 쓴다(11-05 실제: 공정위 원문 요약이 붙어 표시 글이 바뀌자 예전 항목은 '과거 기록',
+    # 새 항목은 [신규]로 다시 올라왔다). 등급이 A로 오를 때만 새로 알린다.
+    by_kind = {}
+    for k_, e_ in events.items():
+        by_kind.setdefault((e_.get("personId"), e_.get("kind")), k_)
+    for p in people + cands:
         for f in p["flags"]:
             eid = "execc:" + hashlib.sha256(f"{p['id']}|{f['kind']}|{f['text'][:60]}".encode()).hexdigest()[:16]
+            if eid not in events and (p["id"], f["kind"]) in by_kind:
+                eid = by_kind[(p["id"], f["kind"])]
             if eid in events:
-                if f["kind"] == "과거 논란 기사":
-                    events[eid].update(tier=f["tier"], flags=[f])
-                    events[eid]["text"] = f"{p['company']} {p['name']} — {f['text']}"
+                e_ = events[eid]
+                up = f["tier"] == "A" and e_.get("tier") != "A"
+                e_.update(tier=f["tier"], flags=[f], kind=f["kind"],
+                          text=(f"{p['company']} {p['name']} — {f['text']}" if f["kind"] == "과거 논란 기사" else
+                                f"{p['company']} {p['ofcps']}({p['reg']}) {p['name']}{' ' + p['birth'] + '년생' if p['birth'] else ''} — {f['kind']}: {f['text']}"))
+                if up:
+                    e_["detectedAt"] = stamp
+                    e_.pop("baseline", None)
+                    fresh += 1
                 continue
-            fresh += 1
+            fresh += 0 if p.get("past") else 1
             events[eid] = {"id": eid, "personId": p["id"], "tier": f["tier"], "kind": f["kind"], "company": p["company"], "detectedAt": stamp, "url": p["url"],
-                           **({"baseline": True} if first else {}),
+                           **({"baseline": True} if first or p.get("past") else {}),   # 지난 소집공고 후보는 기준선(목록에만)
                            "person": {"name": p["name"], "birth": p["birth"], "ofcps": p["ofcps"], "reg": p["reg"]}, "flags": [f],
                            "text": f"{p['company']} {p['ofcps']}({p['reg']}) {p['name']}{' ' + p['birth'] + '년생' if p['birth'] else ''} — {f['kind']}: {f['text']}"}
-    reconcile_events(events, people, checks, stamp)
+    reconcile_events(events, people + cands, checks, stamp)
     keep = (now - dt.timedelta(days=KEEP_DAYS)).isoformat(timespec="seconds")
     ev = sorted((e for e in events.values() if str(e.get("detectedAt", "")) >= keep),
                 key=lambda e: (e.get("detectedAt", ""), {"A": 0, "B": 1}.get(e.get("tier"), 2)), reverse=True)
@@ -602,19 +918,22 @@ def run(key, *, now=None, previous=None, exec_doc=None, market_doc=None, get=Non
     status = "complete" if ok == len(checks) else "failed" if not any(c["status"] in ("ok", "no_data") for c in checks) else "partial"
     flagged = [p for p in people if p["flags"]]
     return {
-        "schema": SCHEMA, "generatedAt": stamp, "status": status, "checks": checks, "people": people, "events": ev,
+        "schema": SCHEMA, "generatedAt": stamp, "status": status, "checks": checks, "people": people, "events": ev, "sanctions": sanctions,
+        "candidates": cands,
         "counts": {"people": len(people), "outside": sum(1 for p in people if OUTSIDE.search(p["reg"] + p["ofcps"])), "flagged": len(flagged),
                    "A": sum(1 for p in flagged if any(f["tier"] == "A" for f in p["flags"])), "newEvents": fresh,
                    "activeEvents": sum(e.get("reviewStatus") == "active" for e in ev),
                    "inactiveEvents": sum(e.get("reviewStatus") == "inactive" for e in ev),
                    "unconfirmedEvents": sum(e.get("reviewStatus") == "unconfirmed" for e in ev),
-                   "newsChecked": queried, "articleReview": article_counts},
+                   "newsChecked": queried, "articleReview": article_counts,
+                   "candidates": len(cands), "candidatesFlagged": sum(1 for c in cands if c["flags"])},
         "unresolvedCompanies": missing,
         "rules": [
             "출입처 최근 정기보고서 등기임원(임원 현황)과 미등기 사장급을 한 사람씩 본다. 표시는 확인할 단서지 판정이 아니다.",
             "독립(사외)이사 법정 결격 가능 — 상법 시행령 제34조⑤: 7호 같은 회사 6년 초과(재직기간 칸이 기간이거나 6년 넘은 시작일일 때만), 3호 해당 회사 외 2곳 이상 다른 회사 이사·감사(경력 칸에 이사·감사로 적힌 회사의 최근 정기보고서 임원 현황을 직접 열어 같은 이름·출생년월이 2곳 이상이면 A — 각 명단은 그 회사 보고서 기준일 현재라 동시 재임 확정 아님. 확인 1곳 + 경력 칸 현직인데 명단을 못 여는 회사(비상장 등)로 2곳이면 B '겸직 확인'. 같은 회사는 한 번만 센다. 명단에 없거나 동명이인이면 세지 않는다), 1호 계열회사 최근 3년 내 상무 종사(경력 칸 같은 그룹 + 직함 + 연도).",
             "과거 논란 기사: 네이버 뉴스 '이름 + 회사'(사외·기타비상무이사는 '이름 + 경력의 주된 기관'도)에서 제목에 비위·사고·제재 낱말이 있는 기사. 사내 임원(사내이사·미등기 사장급)은 제목에 지금 회사 이름이 있는 기사(회사 사고·담합 등 — 이미 보도된 회사 기사)를 뺀다. 첫 실행 표시는 기준선(오늘의 레이더엔 안 올림). 기사 제목에 그 사람 이름이 있는 것만. 제목 낱말은 본문 확인 대상 선정에만 사용. 본문 인물·소속·사건 연결을 읽었어도 B 확인 단서이며 동일 인물·혐의·비위 확정이 아니다. 본문 실패·불명확·무죄 등 후속 처분 문맥은 미확인으로 보존하고 알림에서 제외한다.",
             "혐의·비위를 단정하지 않는다. 기사 제목은 그대로 옮기고, 결격 여부·사실관계는 회사·당사자 확인. 조회 실패는 0건이 아니라 미확인.",
+            "주총 이사 후보(출입처 소집공고, 최근 120일): 선임 전에 같은 점검 — 사외·독립이사 후보는 3호(선임되면 다른 회사 이사·감사 2곳 이상)·재선임 7호(지금 재직기간 6년 넘음 A, 새 임기 안에 넘길 수 있음 B), 모든 후보는 공식 제재(과거 경영 회사). 후보는 아직 이사가 아니다.",
         ],
     }
 
@@ -634,6 +953,12 @@ def annotate(doc):
             rows.append(f"{f['tier']} {p['company']} {p['ofcps']}({p['reg']}) {mask(p['name'])} · {f['kind']} · {t.replace(p['name'], mask(p['name']))[:200]}")
     for i, line in enumerate(sorted(rows)[:40]):
         print(f"::notice title=kr-exec-check-{i + 1}::{line}")
+
+
+def requests_get():
+    """공식 제재 원천용 — 세션(쿠키) 유지: 개인정보위 첨부는 글을 연 세션이라야 내려받힌다(탐침 181)."""
+    import requests
+    return requests.Session().get
 
 
 def main():
@@ -673,7 +998,7 @@ def main():
     except SystemExit:
         table = None
     doc = run(key, previous=None if a.annotate_only else previous, exec_doc=exec_doc, market_doc=market_doc, registry=registry, table=table,
-              news_budget=NEWS_BUDGET, article_budget=a.article_budget)
+              news_budget=NEWS_BUDGET, article_budget=a.article_budget, web_get=requests_get())
     if a.annotate_only:
         annotate(doc)
         return
@@ -684,6 +1009,8 @@ def main():
     for k in doc["checks"]:
         if k.get("source") == "기사 본문" and k.get("hosts"):
             print(f"::notice title=kr-exec-check-article-hosts::{json.dumps(k['hosts'], ensure_ascii=False)}")
+        if k.get("source") in ("금감원 제재내용공개", "개인정보위 결과의 공표", "공정위 의결서 목록", "공식 제재 대조"):
+            print(f"::notice title=kr-exec-check-sanctions::{k['source']} · {k.get('status')} · " + json.dumps({x: k[x] for x in ("pages", "new", "rows", "backfillDone", "audit", "auditedYears", "auditAdded", "posts", "read", "outcomes", "matched", "detailsFetched", "records", "tenureCalls", "ftcDetails", "ftcDetailOutcomes", "error") if x in k}, ensure_ascii=False))
         if k.get("source") == "겸직 명단 대조":
             print(f"::notice title=kr-exec-check-boards::조회 {k.get('returned')}회 · 회사 {k.get('companies')}곳 · {k.get('status')}{' · ' + k['error'] if k.get('error') else ''}")
     if not token:
@@ -691,6 +1018,16 @@ def main():
         return
     if doc["status"] == "failed":
         sys.exit("임원 현황 조회 전체 실패 — 이전 결과 유지(0건 아님)")
+    size = len(json.dumps(doc, ensure_ascii=False).encode())
+    print(f"::notice title=kr-exec-check-size::저장 문서 {size // 1024}KB(한도 2MB)")
+    if size > 1_900_000:                       # 저장 한도 근처면 공식 제재 목록 원본(대조 결과는 사람 칸에 이미 있음)은 앞 상태 대신 줄인다
+        for k_ in ("ftc", "fss"):
+            st_ = (doc.get("sanctions") or {}).get(k_) or {}
+            if st_.get("rows"):
+                keep_ = sorted(st_["rows"].values(), key=lambda r: r.get("date") or r.get("d") or "", reverse=True)[:1500]
+                st_["rows"] = {r["id"]: r for r in keep_}
+                st_["trimmed"] = True               # 채우기를 다시 돌리지 않는다(되풀이 방지) — 별도 저장소로 옮길 때까지 최근 것만
+        print("::warning title=kr-exec-check-size::한도 근처라 제재 목록을 최근 1,500줄씩으로 줄임")
     status = private_store.put('kr-exec-check', doc, token)
     print(f"::notice title=kr-exec-check-push::기자 전용 저장소 전송 HTTP {status}")
     if status != 200:

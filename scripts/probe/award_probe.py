@@ -1,9 +1,13 @@
-"""probe 191: 금감원 공개안 제재대상사실 속 최고 경영자 언급(ceoText) 실제 확인 — 공개안(이름 가림). 저장 안 함."""
-import re, sys, time
+"""probe 192: 출입처 주총 소집공고 세부경력 표 꼴 — 기간·내용이 줄마다 따로 붙는 표(고려아연 2026-08-11)가 얼마나 되나, 원 HTML 꼴.
+공개 공시. 저장 안 함. 후보 이름은 가린다."""
+import json, os, re, sys, time
+from pathlib import Path
 import requests
 
 sys.path.insert(0, "scripts")
-import official_sanctions as osn  # noqa: E402
+import kr_exec_watch as kx  # noqa: E402
+import kr_exec_market as km  # noqa: E402
+import governance_watch as gw  # noqa: E402
 
 OUT = []
 
@@ -12,28 +16,58 @@ def log(*a):
     OUT.append(" ".join(str(x) for x in a))
 
 
+key = os.environ.get("DART_API_KEY", "")
 s = requests.Session()
-s.headers.update({"User-Agent": "Mozilla/5.0 (compatible; ReporterRadar/1.0; public records)"})
 t0 = time.time()
-ids = ["fss:201900890-2", "fss:202200225-1", "fss:202000209-1", "fss:201800707-4"]
-# 최근 목록 1~3쪽에서 임원 조치 있는 건 몇 개 더
-for n in range(1, 4):
-    r = s.get(f"{osn.FSS_LIST}&sdate=2016-01-01&edate=2026-11-05&pageIndex={n}", timeout=30)
-    ids += [x["id"] for x in osn.fss_rows(r.text)]
+registry = json.loads(Path("dart_corp_codes.json").read_text(encoding="utf-8"))
+try:
+    import dart_watch
+    table = dart_watch.load_corp_codes(key)
+except SystemExit:
+    table = None
+codes, _ = gw.resolve_codes([n for n, _, _ in kx.BEATS], registry, table)
+codes.pop("_spellings", None)
+found = []
+for name, code in codes.items():
+    for b, e in (("20260115", "20260410"), ("20260601", "20261106")):
+        r = s.get("https://opendart.fss.or.kr/api/list.json", params={"crtfc_key": key, "corp_code": code, "bgn_de": b, "end_de": e,
+                                                                      "pblntf_ty": "E", "page_count": 100}, timeout=30)
+        for x in r.json().get("list") or []:
+            if "소집공고" in x["report_nm"] and "정정" not in x["report_nm"]:
+                found.append((name, x["rcept_no"], x["report_nm"]))
+        time.sleep(0.3)
+log(f"출입처 {len(codes)}곳 · 소집공고 {len(found)}건")
+GLUE = re.compile(r"(?:\d{2,4}\s*[.]?\s*\d{0,2}\s*[~∼\-–]\s*(?:현재?|\d{2,4}\s*[.]?\s*\d{0,2})\s*){3,}")
+seen_co = set()
+for name, rc, rn in found:
+    if name in seen_co and len(seen_co) < 30:
+        continue
+    seen_co.add(name)
+    texts, err = kx.fetch_document(key, rc, get=s.get, sleep=time.sleep, want=None)
     time.sleep(0.5)
-seen, n_ceo = 0, 0
-for i in ids[:28]:
-    try:
-        d = osn.fss_detail({"id": i}, get=lambda u, **k: s.get(u, timeout=k.get("timeout", 30), headers=k.get("headers")))
-    except Exception as e:
-        log(i, "예외", type(e).__name__)
+    if not texts:
+        log(f"[{name} {rc}] 원문 실패 {err}")
         continue
-    seen += 1
-    if d.get("status") != "ok":
-        log(i, d.get("status"))
-        continue
-    n_ceo += bool(d.get("ceoMentioned"))
-    log(f"{i} 임원 {str(d.get('exec'))[:30]} · 위반 {d.get('violation')} · 언급 {d.get('ceoWord')} · 「{(d.get('ceoText') or '')[:130]}」")
-    time.sleep(0.6)
-log(f"읽음 {seen} · 언급 {n_ceo} · {time.time() - t0:.0f}s")
+    cs = []
+    for t in texts:
+        cs = km.parse_agm_candidates(t)
+        if cs:
+            break
+    glued = [p for p in cs if GLUE.search(p.get("career", ""))]
+    log(f"[{name} {rc} {rn[:14]}] 후보 {len(cs)} · 경력칸 {sum(1 for p in cs if p.get('career'))} · 붙음 {len(glued)}")
+    for p in cs[:2]:
+        log(f"   {p.get('name', '')[:1]}○○ {p.get('kind', '')[:8]} 경력 「{p.get('career', '')[:150]}」")
+    if glued:
+        t = next(t for t in texts if km.parse_agm_candidates(t))
+        for part in kx.TABLE_SPLIT.split(t):
+            if part[:6].upper() == "<TABLE" and re.search(r"세부\s*경력", kx.clean(part)):
+                rows = kx.ROW.findall(part)
+                for tr in rows[2:4]:
+                    raw = re.sub(r"\s+", " ", tr)
+                    raw = re.sub(r"<(TD|TE|TU|TH)\b[^>]*>", r"<\1>", raw, flags=re.I)
+                    log("   RAW " + raw[:700])
+                break
+    if len(seen_co) >= 30 or time.time() - t0 > 900:
+        break
+log(f"\n{time.time() - t0:.0f}s")
 open("/tmp/probe_out.txt", "w").write("\n".join(OUT))
