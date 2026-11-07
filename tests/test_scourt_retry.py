@@ -16,7 +16,7 @@ DETAIL_PAGE = """<table><tr><td><a href="/portal/news/NewsViewAction.work?seqnum
 
 
 class Retry(unittest.TestCase):
-    def run_with(self, outcomes, page=PAGE, prior=None):
+    def run_with(self, outcomes, page=PAGE, prior=None, checked=None):
         calls = []
         day = psr.datetime.now(psr.KST).strftime("%Y-%m-%d")
 
@@ -27,7 +27,7 @@ class Retry(unittest.TestCase):
                 raise TimeoutError("timed out")
             return page.format(day=day).encode()
         with patch.object(psr, "get", fake_get), patch.object(psr.time, "sleep", lambda s: None):
-            psr.fetch_direct_court(max_items=1, prior_items=prior)
+            psr.fetch_direct_court(max_items=1, prior_items=prior, prior_checked=checked)
         return psr.DIRECT_DIAGNOSTICS["scourt-case-releases"], calls
 
     def test_one_failure_is_retried_with_a_longer_timeout(self):
@@ -175,6 +175,61 @@ class ArticleOnly(unittest.TestCase):
 
     def test_court_article_without_view_count_is_empty(self):
         self.assertEqual(psr.court_article("메뉴 회생·파산 공고 특허법원"), "")
+
+
+class CheckedMemo(unittest.TestCase):
+    """11-06~07 운영: 무관한 보도자료 본문 8건을 실행마다 다시 열다 Errno 104로 '부분 수집'이 되풀이됨 — 본문까지 읽고 버린 것은 다시 열지 않는다."""
+    PAGE = """<table><tr><td><a href="/supreme/news/NewsViewAction.work?seqnum=9">대법원 선고 2026도1 허위공문서작성 등 사건에 관한 보도자료</a></td>
+<td>{day}</td></tr></table>"""
+
+    def go(self, outcomes, checked=None, body="형사 사건 보도자료 본문"):
+        calls = []
+        day = psr.datetime.now(psr.KST).strftime("%Y-%m-%d")
+
+        def fake_get(url, timeout=8):
+            calls.append(url)
+            o = outcomes.pop(0) if outcomes else "list"
+            if o == "fail":
+                raise OSError("[Errno 104] Connection reset by peer")
+            if o == "detail":
+                return f"<div class='view'>{body}</div>".encode()
+            return self.PAGE.format(day=day).encode()
+        with patch.object(psr, "get", fake_get), patch.object(psr.time, "sleep", lambda s: None), \
+                patch.object(psr, "court_article", lambda text: text):
+            out = psr.fetch_direct_court(max_items=3, prior_checked=checked)
+        return out, psr.DIRECT_DIAGNOSTICS["scourt-case-releases"], calls
+
+    def test_rejected_after_reading_is_remembered_then_not_reopened(self):
+        out, diag, calls = self.go(["list", "detail", "list"])
+        self.assertEqual(out, [])
+        memo = diag["checkedNoMatch"]
+        self.assertEqual(len(memo), 1)
+        self.assertEqual(memo[0]["title"], "대법원 선고 2026도1 허위공문서작성 등 사건에 관한 보도자료")
+        self.assertEqual(len(calls), 3)  # 목록 두 쪽 + 본문 한 번(같은 주소는 두 번째 쪽에서 건너뜀)
+        # 다음 실행: 본문을 열지 않는다(목록 두 쪽만)
+        out2, diag2, calls2 = self.go(["list", "list"], checked=memo)
+        self.assertEqual(diag2.get("checkedReused"), 1)
+        self.assertEqual(diag2["detailPagesAttempted"], 0)
+        self.assertEqual(diag2["errors"], [])
+        self.assertEqual(diag2["checkedNoMatch"], memo)   # 메모를 이어 간다
+        self.assertEqual(len(calls2), 2)
+
+    def test_rule_change_reopens(self):
+        _, diag, _ = self.go(["list", "detail", "list"])
+        memo = [dict(m, rule="old-rule") for m in diag["checkedNoMatch"]]
+        _, diag2, _ = self.go(["list", "detail", "list"], checked=memo)
+        self.assertEqual(diag2.get("checkedReused", 0), 0)
+        self.assertEqual(diag2["detailPagesAttempted"], 1)
+
+    def test_failed_body_is_not_remembered(self):
+        _, diag, _ = self.go(["list", "fail", "fail", "list"])
+        self.assertEqual(diag["checkedNoMatch"], [])
+        self.assertEqual(len(diag["errors"]), 1)
+
+    def test_industry_body_is_kept_not_memo(self):
+        out, diag, _ = self.go(["list", "detail", "list"], body="현대제철 하도급 손해배상 사건 판결")
+        self.assertEqual(len(out), 1)
+        self.assertEqual(diag["checkedNoMatch"], [])
 
 
 if __name__ == "__main__":

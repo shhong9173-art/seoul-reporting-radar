@@ -1011,8 +1011,18 @@ def keep_prior(item, now):
     return True
 
 
-def fetch_direct_court(max_items=12, prior_items=None):
-    """Collect date-stamped Supreme Court releases and industry-related disputes."""
+def court_rule_key(material_pattern):
+    """본문까지 읽고 버린 보도자료를 다시 열지 않으려면 고르는 규칙이 같아야 한다 — 규칙(낱말·출입처 목록)이 바뀌면 다시 읽는다."""
+    import hashlib
+    raw = "|".join([material_pattern, SIGNAL_TERMS.pattern, json.dumps(TARGET_COMPANIES, ensure_ascii=False, sort_keys=True, default=str)])
+    return hashlib.sha1(raw.encode("utf-8")).hexdigest()[:12]
+
+
+def fetch_direct_court(max_items=12, prior_items=None, prior_checked=None):
+    """Collect date-stamped Supreme Court releases and industry-related disputes.
+
+    prior_checked: 지난 실행이 본문까지 읽고 출입처·업종과 무관해 버린 보도자료(주소·제목·게시일·규칙 키). 11-06~07 운영에서
+    무관한 본문 8건을 실행마다 다시 열다 연결 끊김(Errno 104)으로 '부분 수집'이 되풀이됐다 — 같은 규칙이면 다시 열지 않는다."""
     base="https://www.scourt.go.kr"
     page_paths=[
         "/supreme/news/NewsListAction.work?gubun=702",
@@ -1039,6 +1049,10 @@ def fetch_direct_court(max_items=12, prior_items=None):
         re.I,
     )
     ignore_title_re=re.compile(r"임명식|인사발령|포토뉴스|사법연감|인사말|행사|기념식",re.I)
+    rule=court_rule_key(material_re.pattern)
+    checked_before={(c.get("url"),c.get("title"),c.get("date")) for c in (prior_checked or [])
+                    if isinstance(c,dict) and c.get("rule")==rule}
+    diag["checkedNoMatch"]=[]
     for path in page_paths:
         if len(out)>=max_items: break
         page_url=base+path
@@ -1097,6 +1111,12 @@ def fetch_direct_court(max_items=12, prior_items=None):
                 out.append(dict(hit))
                 if len(out)>=max_items: break
                 continue
+            memo={"url":href,"title":title,"date":dt.date().isoformat(),"rule":rule}
+            if (href,title,memo["date"]) in checked_before:
+                # 지난 실행이 본문까지 읽고 무관해 버린 보도자료 — 다시 열지 않고 메모만 이어 간다
+                diag["checkedReused"]=diag.get("checkedReused",0)+1
+                diag["checkedNoMatch"].append(memo)
+                continue
             detail=""
             detail_failed=False
             title_companies=target_hits(title)
@@ -1121,11 +1141,16 @@ def fetch_direct_court(max_items=12, prior_items=None):
             companies=target_hits(body)
             # '대법원 선고 … 사건에 관한 보도자료'는 그 자체가 판결이다. 본문이 끊겨도(운영 10-31: 3건 Connection reset)
             # 제목의 업종 낱말(중대재해 등)로는 고른다 — 이 경우 bodyFrom='title'로 남겨 다음 실행에 본문을 다시 읽는다.
-            if not SIGNAL_TERMS.search(body) and "선고" not in title: continue
+            if not SIGNAL_TERMS.search(body) and "선고" not in title:
+                if detail and not detail_failed:
+                    diag["checkedNoMatch"].append(memo)
+                continue
             if not companies and not material_re.search(body):
                 if len(diag["sampleRows"])<8:
                     diag["sampleRows"].append({"title":title[:160],"date":dt.isoformat(),
                                                 "reason":"not a tracked-company or industry-related dispute"})
+                if detail and not detail_failed:
+                    diag["checkedNoMatch"].append(memo)   # 본문까지 읽고 버림 — 다음 실행엔 다시 열지 않는다
                 continue
             out.append({
                 "sourceName":"대법원 보도자료","officialLabel":"대한민국 법원",
@@ -1765,7 +1790,12 @@ def main():
     except Exception:
         earlier_items, earlier_dates = [], {}
 
-    direct_court = fetch_direct_court(prior_items=earlier_items)
+    try:
+        earlier_checked = (((earlier.get("directSourceDiagnostics") or {}).get("scourt-case-releases") or {})
+                           .get("checkedNoMatch") or []) if isinstance(earlier, dict) else []
+    except Exception:
+        earlier_checked = []
+    direct_court = fetch_direct_court(prior_items=earlier_items, prior_checked=earlier_checked)
     items.extend(direct_court)
     by_group["법원·분쟁"] = by_group.get("법원·분쟁", 0) + len(direct_court)
 
