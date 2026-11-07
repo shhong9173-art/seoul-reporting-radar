@@ -10,6 +10,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
+sys.path.insert(0, str(ROOT / "tests"))
 import kr_local_notice_watch as w  # noqa: E402
 
 JS = (ROOT / "scripts" / "aside" / "kr_browser_collect.js").read_text(encoding="utf-8")
@@ -77,6 +78,36 @@ class AsideCollect(unittest.TestCase):
         self.assertIn("6000000", PARTS[4])
         # 보내는 줄에는 첨부 링크·Referer를 넣지 않는다
         self.assertIn("({ mgt: x.mgt, cells: x.cells, ...(x.detail ? { detail: x.detail } : {}) })", PARTS[6])
+
+    @unittest.skipUnless(shutil.which("node"), "node 없음")
+    def test_hwp_text_matches_python(self):
+        # 토막 4의 hwpText(기자 컴퓨터에서 hwp 풀기)가 감시 hwp_text와 같은 글자를 낸다 — 시험용 HWP(미니·일반 섹터, 압축·비압축)
+        import hwp_fixture
+        src = JS[JS.index("    const hwpText = async (b64) => {"):JS.index("    // </hwpText>")]
+        sections = [["1. 사업 개요", "가. 공 사 명 : 시험 공장 증설공사"], ["나. 공사기간 : 2026. 11. ~ 2027. 6."],
+                    ["다. 위 치 : 나주시 송월동 일원", "라. 발주자/시공자 : 시험화학 / 시험건설(주)"]]
+        want = ("1. 사업 개요 가. 공 사 명 : 시험 공장 증설공사 나. 공사기간 : 2026. 11. ~ 2027. 6. "
+                "다. 위 치 : 나주시 송월동 일원 라. 발주자/시공자 : 시험화학 / 시험건설(주)")
+        with tempfile.TemporaryDirectory() as d:
+            harness = Path(d) / "h.mjs"
+            harness.write_text(src + "\nimport { readFileSync } from 'node:fs';\n"
+                               "console.log(JSON.stringify(await hwpText(readFileSync(process.argv[2]).toString('base64'))));\n", encoding="utf-8")
+            for compressed in (True, False):
+                raw = hwp_fixture.build(sections, compressed=compressed)
+                f = Path(d) / "t.hwp"
+                f.write_bytes(raw)
+                r = subprocess.run(["node", str(harness), str(f)], capture_output=True, text=True)
+                self.assertEqual(r.returncode, 0, r.stderr)
+                got = json.loads(r.stdout)
+                self.assertEqual(got["text"], want)
+                self.assertEqual(got["chars"], len(want))
+                try:
+                    import olefile  # noqa: F401  (Actions에는 있음)
+                except ImportError:
+                    continue
+                self.assertEqual(w.hwp_text(raw), want)
+            facts = w.attachment_facts(want)
+            self.assertEqual(facts.get("공사기간"), "2026. 11. ~ 2027. 6.")
 
     @unittest.skipUnless(shutil.which("node"), "node 없음")
     def test_parts_parse(self):

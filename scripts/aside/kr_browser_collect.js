@@ -2,7 +2,7 @@
 // 차례로 mcp aside repl(code=…)에 그대로 넣는다. 11-06 기자 승인: 내장 브라우저로 시·군 목록을 하나씩 열던 방식(한 번에 8분 넘게)을 대신한다.
 // 하는 일(읽기만): 해외 IP(GitHub)에서 막히는 시·군 8곳 새올 고시·공고 목록 첫 쪽, 호주 무역구제 공지(TRN) 목록, 노동위원회
 // 회의일정 달력 14곳. 시·군 목록에서 출입처 이름이 든 줄은 상세 페이지(제목 전체·본문 앞 400자·첨부 파일 이름)까지 읽고,
-// 그 공고의 첨부 공고문(hwpx, 공고마다 3개까지 — 11-06 기자 승인)을 같은 사이트에서 내려받아 글자만 앞 4000자 보낸다(파일은 저장하지 않음).
+// 그 공고의 첨부 공고문(hwpx·hwp, 공고마다 3개까지 — 11-06·11-07 기자 승인)을 같은 사이트에서 내려받아 글자만 앞 4000자 보낸다(파일은 저장하지 않음).
 // 마지막 토막이 레이더(Worker /upload/browser)에 직접 올린다 — 열쇠는 Aside 브라우저의 그 사이트 저장소에만 있고(scripts/aside/register_upload_key.js로 한 번 만듦)
 // Worker는 SHA-256 지문만 안다. 열쇠가 없거나 실패하면 sdds local_notice_submit 인자 한 줄 JSON(SUBMIT)을 찍고, 예약 작업이 글자를 고치지 않고 올린다.
 // 지킬 것: 아래 10개 사이트와 레이더 올리기 창 밖은 열지 않는다. 로그인·글쓰기 없음. 첨부는 출입처 줄의 공고문만(디스크에 저장 안 함). 사이트마다 목록 요청 한 번(실패 시 subCheck=N 한 번).
@@ -149,10 +149,10 @@
   }
 }
 
-// ===== 토막 4: 상세를 읽은 줄의 첨부 공고문(hwpx) 글자(공고마다 3개까지, 40초 안) =====
+// ===== 토막 4: 상세를 읽은 줄의 첨부 공고문(hwpx·hwp) 글자(공고마다 3개까지, 40초 안) =====
 {
   // 파이썬 read_attachments와 같은 고르기(hwpx·hwp·pdf 중 이름에 공고문·공고·개요·계획서·고시문·열람이 든 것 먼저)와 같은 내려받기 주소
-  // (/emwp/jsp/ofr/FileDown.jsp). hwpx만 기자 컴퓨터에서 글자로 푼다(zip 안 Contents/section*.xml) — hwp·pdf는 '못 읽음'으로 남긴다.
+  // (/emwp/jsp/ofr/FileDown.jsp). hwpx(zip 안 Contents/section*.xml)와 hwp(OLE 안 BodyText/Section*)를 기자 컴퓨터에서 글자로 푼다 — pdf는 '못 읽음'으로 남긴다.
   // 글자는 앞 4000자까지 보내고 사업 개요(공사기간·위치·발주자 등) 뽑기는 레이더(파이썬 attachment_facts)가 한다. 11-06 시험: 구미 74608 공고문.hwpx 0.1초·491자.
   const R = globalThis.__R;
   const rows = R && R.cities ? R.cities.flatMap((c) => (c.rows || []).filter((x) => x.detail && x.links && x.links.length).map((x) => [c, x])) : [];
@@ -184,6 +184,79 @@
       const text = secs.map(([, x]) => { ta.innerHTML = x.replace(/<[^>]+>/g, ' ').replace(/</g, ' '); return ta.value; }).join(' ').replace(/\s+/g, ' ').trim();
       return { text: text.slice(0, 4000), chars: text.length };
     };
+    // <hwpText> HWP 5.0(OLE 복합 문서): 파이썬 hwp_text·hwp_section_text와 같은 규칙 — FileHeader 36번째 바이트 1비트가 압축,
+    // BodyText/Section* 스트림(숫자 순)을 raw deflate로 풀고 레코드(태그 10비트·크기 12비트, 0xFFF면 다음 4바이트) 중 문단 글자(67)만.
+    const hwpText = async (b64) => {
+      const u8 = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+      const dv = new DataView(u8.buffer);
+      const U = (o) => dv.getUint32(o, true);
+      const ss = 1 << dv.getUint16(30, true), ms = 1 << dv.getUint16(32, true), cutoff = U(56);
+      const off = (s) => (s + 1) * ss;
+      const fatSecs = [];
+      for (let i = 0; i < 109; i++) { const x = U(76 + i * 4); if (x < 0xFFFFFFFA) fatSecs.push(x); }
+      for (let s = U(68), n = 0; s < 0xFFFFFFFA && n < 1000; n++) {          // DIFAT 사슬(큰 파일)
+        for (let i = 0; i < ss / 4 - 1; i++) { const x = U(off(s) + i * 4); if (x < 0xFFFFFFFA) fatSecs.push(x); }
+        s = U(off(s) + ss - 4);
+      }
+      const fat = [];
+      for (const s of fatSecs) for (let i = 0; i < ss / 4; i++) fat.push(U(off(s) + i * 4));
+      const chain = (start, table) => { const out = []; for (let s = start; s < 0xFFFFFFFA && out.length <= table.length; s = table[s]) out.push(s); return out; };
+      const read = (start) => {
+        const secs = chain(start, fat).filter((s) => off(s) + ss <= u8.length);
+        const b = new Uint8Array(secs.length * ss);
+        secs.forEach((s, i) => b.set(u8.subarray(off(s), off(s) + ss), i * ss));
+        return b;
+      };
+      const dir = read(U(48));
+      const ents = [];
+      for (let o = 0; o + 128 <= dir.length; o += 128) {
+        const d = new DataView(dir.buffer, o, 128);
+        ents.push({ name: new TextDecoder('utf-16le').decode(dir.subarray(o, o + Math.max(0, Math.min(64, d.getUint16(64, true)) - 2))), type: dir[o + 66],
+          left: d.getUint32(68, true), right: d.getUint32(72, true), child: d.getUint32(76, true), start: d.getUint32(116, true), size: d.getUint32(120, true) });
+      }
+      const kids = (i, out = [], seen = new Set()) => {
+        if (i >= ents.length || seen.has(i)) return out;
+        seen.add(i); kids(ents[i].left, out, seen); out.push(ents[i]); kids(ents[i].right, out, seen);
+        return out;
+      };
+      if (!ents.length || ents[0].type !== 5) return { error: 'hwp 형식 미상' };
+      const top = kids(ents[0].child);
+      const mini = read(ents[0].start);
+      const mf = read(U(60)), mfv = new DataView(mf.buffer);
+      const minifat = [];
+      for (let i = 0; i + 4 <= mf.length; i += 4) minifat.push(mfv.getUint32(i, true));
+      const stream = (e) => {
+        if (e.size >= cutoff) return read(e.start).subarray(0, e.size);
+        const secs = chain(e.start, minifat);
+        const b = new Uint8Array(secs.length * ms);
+        secs.forEach((s, i) => b.set(mini.subarray(s * ms, s * ms + ms), i * ms));
+        return b.subarray(0, e.size);
+      };
+      const fh = top.find((e) => e.name === 'FileHeader' && e.type === 2), body = top.find((e) => e.name === 'BodyText' && e.type === 1);
+      if (!fh || !body) return { error: 'hwp 형식 미상' };
+      const compressed = (stream(fh)[36] & 1) === 1;
+      const num = (e) => Number(e.name.replace(/\D/g, '') || 0);
+      const secs = kids(body.child).filter((e) => e.type === 2).sort((a, b) => num(a) - num(b));
+      const out = [];
+      for (const e of secs) {
+        let data = stream(e);
+        if (compressed) data = new Uint8Array(await new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer());
+        const v = new DataView(data.buffer, data.byteOffset, data.byteLength);
+        const parts = [];
+        for (let i = 0; i + 4 <= data.length;) {
+          const head = v.getUint32(i, true);
+          let size = (head >>> 20) & 0xFFF;
+          i += 4;
+          if (size === 0xFFF) { size = v.getUint32(i, true); i += 4; }
+          if ((head & 0x3FF) === 67) parts.push(new TextDecoder('utf-16le').decode(data.subarray(i, i + size)).replace(/\ufffd/g, '').replace(/[\x00-\x1f\ue000-\uf8ff]/g, ' '));
+          i += size;
+        }
+        out.push(parts.join(' ').replace(/\s+/g, ' ').trim());
+      }
+      const text = out.join(' ').replace(/\s+/g, ' ').trim();
+      return { text: text.slice(0, 4000), chars: text.length };
+    };
+    // </hwpText>
     let read = 0, failed = 0;
     for (const [c, row] of rows.slice(0, 8)) {
       const pick = row.links.filter((l) => READ.test(l.name)).sort((a, b) => (FIRST.test(a.name) ? 0 : 1) - (FIRST.test(b.name) ? 0 : 1)).slice(0, 3);
@@ -197,12 +270,12 @@
           const buf = Buffer.from(await r.arrayBuffer());
           if (buf.length > 6000000) throw new Error('파일이 큼');
           const head = buf.subarray(0, 4).toString('hex');
-          if (head.startsWith('504b')) {
-            const got = await R.tab.evaluate(hwpxText, buf.toString('base64'));
+          if (head.startsWith('504b') || head === 'd0cf11e0') {
+            const got = await R.tab.evaluate(head === 'd0cf11e0' ? hwpText : hwpxText, buf.toString('base64'));
             if (got.error) throw new Error(got.error);
             out.push({ name: l.name, text: got.text }); read += 1;
           } else {
-            throw new Error(head === '25504446' ? 'pdf — 기자 컴퓨터에서는 안 읽음' : head === 'd0cf11e0' ? 'hwp — 기자 컴퓨터에서는 안 읽음' : '형식 미상');
+            throw new Error(head === '25504446' ? 'pdf — 기자 컴퓨터에서는 안 읽음' : '형식 미상');
           }
         } catch (e) { out.push({ name: l.name, error: String(e && e.message || e).slice(0, 40) }); failed += 1; }
       }
