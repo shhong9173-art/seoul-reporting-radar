@@ -95,6 +95,14 @@ class Candidates(unittest.TestCase):
                 "company": "LG화학", "fact": "조정 결과 확인", "check": {"who": "LG화학", "terms": ["조정 결과"], "after": "2026-11-04"}}
         self.assertEqual(rpc.candidates([item], now=NOW)[0]["since"], "2026-11-04")
 
+    def test_non_dict_hint_is_skipped_not_fatal(self):
+        # 11-05~11-08: 무역위 항목의 check 자리에 안내 글자가 들어와 대조 전체가 AttributeError로 7회 연속 멈췄다
+        bad = {"tier": "B", "watch": "무역구제", "id": "ktc:meeting:00000312", "date": "2026-11-05T09:00:00+09:00",
+               "company": "석도강판", "fact": "무역위원회 회의 안내", "check": "품목의 국내 생산자를 확인"}
+        rows = rpc.candidates([bad] + ITEMS, now=NOW)
+        self.assertNotIn("ktc:meeting:00000312", [r["id"] for r in rows])
+        self.assertEqual(len(rows), len(rpc.candidates(ITEMS, now=NOW)))
+
     def test_limit(self):
         many = [dict(ITEMS[1], id=f"x{i}") for i in range(60)]
         self.assertEqual(len(rpc.candidates(many, now=NOW)), rpc.MAX_ITEMS)
