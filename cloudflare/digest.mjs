@@ -566,7 +566,9 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
       // 국내 무역위원회: 공식 변화(B)는 출입 업종 품목만. 보도자료는 이미 공개된 뉴스(C). 회사 이름은 누리집에 대개 없다.
       push(e.tier === 'B' ? 'B' : 'C', W['trade-remedy'], { kind: KTC_KIND[e.ktcKind] ?? '무역위원회', id: e.id, date: e.detectedAt,
         company: e.product ?? '', fact: `${e.label}: ${e.text}`, url: e.url,
-        check: e.ktcKind === 'news' ? undefined : '품목의 국내 생산자(신청인)를 협회·회사에 확인 → 판정·세율은 회의 뒤 의결서·보도자료로' });
+        // 보도 대조 힌트 없음: 회사 이름이 없어 찾을 낱말이 없다. (11-05~11-08 이 자리에 안내 글자를 넣어 두었더니 보도 대조가
+        // 힌트를 객체로 읽다 멈췄다 — radar_press_check.py AttributeError, 7회 연속 실패)
+        check: undefined });
       continue;
     }
     if (e.pageId === 'kita') {
@@ -1141,7 +1143,7 @@ export async function radarItems(request, env, deps = {}) {
   const { rows: fb } = await storeOp(ctx, 'feedback.latest', {});
   const judged = new Map(fb.map((r) => [r.item_id, r.verdict]));
   const items = collect(docs, cut, kstDate(cut), { now: nowMs })
-    .filter((x) => (x.tier === 'A' || x.tier === 'B') && x.check && !PRESS_SKIP.has(judged.get(x.id)) && !(x.parent && judged.get(x.parent) === '킬'))
+    .filter((x) => (x.tier === 'A' || x.tier === 'B') && x.check && typeof x.check === 'object' && !PRESS_SKIP.has(judged.get(x.id)) && !(x.parent && judged.get(x.parent) === '킬'))
     .map(({ tier, watch, id, date, company, fact, url, check }) => ({ tier, watch, id: String(id), date, company, fact: String(fact ?? '').slice(0, 300), url, check }));
   return Response.json({ generatedAt: ctx.now.toISOString(), hours, items }, { headers: { 'Cache-Control': 'no-store' } });
 }

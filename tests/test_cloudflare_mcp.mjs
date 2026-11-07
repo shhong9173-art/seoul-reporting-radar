@@ -885,6 +885,10 @@ test('trade_remedies ktc: meeting agenda before the meeting, recent cases with l
   const b = today.text.split('[B · ')[1].split('[C · ')[0];
   assert.match(b, /무역구제\n   무역위원회 회의 안내\(개최 2026-11-20\): 제479차 — 의결: 중국산 석도강판 예비판정/);
   assert.doesNotMatch(b, /플라스틱 필름|아연도금냉연 덤핑조사 최종판정/);
+  // 보도 대조로 넘기는 항목: 무역위 항목은 회사 이름이 없어 넘기지 않는다(11-05 안내 글자가 힌트 자리에 들어가 대조가 멈춤)
+  const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=168', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: new Date() })).json();
+  assert.ok(items.items.every((x) => x.check && typeof x.check === 'object'));
+  assert.ok(!items.items.some((x) => String(x.id).startsWith('ktc:')));
 });
 
 test('kr_official workforce: member counts ranked by monthly drop with year-ago, events and new construction sites; radar_today tiers', async () => {
