@@ -40,6 +40,10 @@ class AsideCollect(unittest.TestCase):
         self.assertEqual(dict(part1), worker)
         names = json.loads("[" + re.search(r"const CITY_NAMES = \[(.*?)\];", PARTS[6]).group(1).replace("'", '"') + "]")
         self.assertEqual(names, [n for n, _ in part1])
+        # radar_today 수집 상태가 '이 길뿐인 시·군'으로 보는 목록 = 감시의 BROWSER_CITIES(대신 쓰는 곳 BROWSER_BACKUP은 뺌)
+        only = json.loads("[" + re.search(r"export const BROWSER_ONLY = \[(.*?)\];", WORKER).group(1).replace("'", '"') + "]")
+        self.assertEqual(only, [c[0] for c in w.BROWSER_CITIES])
+        self.assertFalse(set(only) & w.BROWSER_BACKUP)
 
     def test_labor_and_trn_match_worker(self):
         cmit = dict(re.findall(r"'?([가-힣]+위원회)'?: '(\d\d)'", worker_block("LABOR_CMIT")))
