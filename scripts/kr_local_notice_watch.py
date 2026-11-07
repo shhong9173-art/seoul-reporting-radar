@@ -98,7 +98,8 @@ BROWSER_CITIES = [
     ("순천시", "https://eminwon.suncheon.go.kr", "현대제철(순천)"),
     ("함평군", "https://eminwon.hampyeong.go.kr", "금호타이어(함평 이전 공장)"),
 ]
-BROWSER_BACKUP = {"양산시", "광주 광산구", "나주시"}  # GitHub에서 들쑥날쑥한 곳: 직접 조회가 실패하면 브라우저 수집으로 대신
+BROWSER_BACKUP = {"양산시", "광주 광산구", "나주시", "광양시", "천안시"}  # GitHub에서 들쑥날쑥한 곳: 직접 조회가 실패하면 브라우저 수집으로 대신
+# 11-07 광양(포스코)·천안(LS일렉트릭) 추가: 11-05~07 kr-local 열 번 가운데 각각 네 번 시간 초과·일부 실패(GitHub 쪽)
 BROWSER_FRESH_HOURS = 30
 BROWSER_FRESH_MONDAY = 78  # 예약 작업은 평일 오전뿐: 월요일 오전 실행은 금요일 수집(약 70시간 전)까지 받아 준다
 
