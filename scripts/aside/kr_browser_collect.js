@@ -237,6 +237,9 @@
       if (!fh || !body) return { error: 'hwp 형식 미상' };
       const compressed = (stream(fh)[36] & 1) === 1;
       const num = (e) => Number(e.name.replace(/\D/g, '') || 0);
+      // 제어 문자(0x00~0x1f)·사용자 영역(0xE000~0xF8FF) 글자는 빈칸, 깨진 글자(0xFFFD)는 뺀다 — 파이썬 decode('ignore') + re.sub와 같게.
+      // (예약 작업 지시문으로 옮길 때 역슬래시-u 이스케이프가 글자로 바뀌어 정규식이 깨진 일이 있어(11-07) 숫자로 비교한다)
+      const clean = (t) => Array.from(t, (ch) => { const c = ch.charCodeAt(0); return c === 0xfffd ? '' : (c < 0x20 || (c >= 0xe000 && c <= 0xf8ff)) ? ' ' : ch; }).join('');
       const secs = kids(body.child).filter((e) => e.type === 2).sort((a, b) => num(a) - num(b));
       const out = [];
       for (const e of secs) {
@@ -249,7 +252,7 @@
           let size = (head >>> 20) & 0xFFF;
           i += 4;
           if (size === 0xFFF) { size = v.getUint32(i, true); i += 4; }
-          if ((head & 0x3FF) === 67) parts.push(new TextDecoder('utf-16le').decode(data.subarray(i, i + size)).replace(/\ufffd/g, '').replace(/[\x00-\x1f\ue000-\uf8ff]/g, ' '));
+          if ((head & 0x3FF) === 67) parts.push(clean(new TextDecoder('utf-16le').decode(data.subarray(i, i + size))));
           i += size;
         }
         out.push(parts.join(' ').replace(/\s+/g, ' ').trim());
