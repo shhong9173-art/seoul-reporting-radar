@@ -1411,7 +1411,8 @@ export async function radarTodayData(ctx, args) {
   const dh = await dispatchHealth(ctx);
   if (dh) h.unshift(`- ${dh}`);
   // 기자 컴퓨터 Aside 수집(11-08): 컴퓨터가 꺼져 예약 수집이 빠져도 다른 감시 상태로는 안 보인다
-  const bh = await browserHealth(ctx).catch(() => null);
+  // 상태 읽기가 실패하면 줄을 숨기지 않고 미확인으로 적는다(줄이 없으면 '이상 없음'으로 읽히기 때문)
+  const bh = await browserHealth(ctx).catch((e) => `기자 컴퓨터 수집: 상태 읽기 실패(${String(e?.message ?? e).slice(0, 60)}) — 미확인`);
   if (bh) h.push(`- ${bh}`);
   if (!press) h.push('- 보도 대조(자동): 결과 없음 — 미확인(평일 08:50·12:50·18:50 실행 확인)');
   else if (press.broken) h.push('- 보도 대조(자동): 저장 형식 오류 — 미확인');
