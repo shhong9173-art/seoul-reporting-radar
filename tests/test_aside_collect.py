@@ -79,14 +79,21 @@ class AsideCollect(unittest.TestCase):
         # 보내는 줄에는 첨부 링크·Referer를 넣지 않는다
         self.assertIn("({ mgt: x.mgt, cells: x.cells, ...(x.detail ? { detail: x.detail } : {}) })", PARTS[6])
 
+    def test_no_unicode_escapes(self):
+        # 예약 작업 지시문에 코드를 붙일 때 역슬래시-u 네 자리 이스케이프가 실제 글자로 바뀌어(11-07 저장본에서 사용자 영역 글자가 사라져
+        # 정규식이 하이픈을 지우는 꼴이 됨) 코드에 쓰지 않는다
+        self.assertIsNone(re.search(r"\\u[0-9a-fA-F]{4}|\\u\{", JS))
+        reg = (ROOT / "scripts" / "aside" / "register_upload_key.js").read_text(encoding="utf-8")
+        self.assertIsNone(re.search(r"\\u[0-9a-fA-F]{4}|\\u\{", reg))
+
     @unittest.skipUnless(shutil.which("node"), "node 없음")
     def test_hwp_text_matches_python(self):
         # 토막 4의 hwpText(기자 컴퓨터에서 hwp 풀기)가 감시 hwp_text와 같은 글자를 낸다 — 시험용 HWP(미니·일반 섹터, 압축·비압축)
         import hwp_fixture
         src = JS[JS.index("    const hwpText = async (b64) => {"):JS.index("    // </hwpText>")]
-        sections = [["1. 사업 개요", "가. 공 사 명 : 시험 공장 증설공사"], ["나. 공사기간 : 2026. 11. ~ 2027. 6."],
+        sections = [["1. 사업 개요", "가. 공 사 명 : 시험 공장 증설공사(제2026-3101호)\ue003"], ["나. 공사기간 : 2026. 11. ~ 2027. 6."],
                     ["다. 위 치 : 나주시 송월동 일원", "라. 발주자/시공자 : 시험화학 / 시험건설(주)"]]
-        want = ("1. 사업 개요 가. 공 사 명 : 시험 공장 증설공사 나. 공사기간 : 2026. 11. ~ 2027. 6. "
+        want = ("1. 사업 개요 가. 공 사 명 : 시험 공장 증설공사(제2026-3101호) 나. 공사기간 : 2026. 11. ~ 2027. 6. "
                 "다. 위 치 : 나주시 송월동 일원 라. 발주자/시공자 : 시험화학 / 시험건설(주)")
         with tempfile.TemporaryDirectory() as d:
             harness = Path(d) / "h.mjs"
