@@ -307,6 +307,40 @@ class Local(unittest.TestCase):
         browser["cities"][0]["rows"] = [{"mgt": "bad id", "cells": ["제목"]}]
         self.assertEqual(w.browser_rows(browser, "양산시", NOW + dt.timedelta(hours=8)), (None, "브라우저 수집 0줄(형식 변경 가능)"))
 
+    def test_direct_history_suggests_backup_for_cities_that_keep_failing(self):
+        # 11-08: 시·군마다 직접 조회 결과를 이어 쌓고(최근 것이 앞, 20번까지), 대신 수집에 없는 곳이 3번 넘게 문제면 후보로 적는다
+        c = lambda city: (city, "https://x", "")  # noqa: E731
+        fill = [(f"정상{i}시", "o") for i in range(8)]  # 실제 40곳처럼 대부분은 정상
+        res = lambda *pairs: [(c(city), None if code == "f" else [], "일부" if code == "p" else None) for city, code in [*pairs, *fill]]  # noqa: E731
+        h = w.direct_history(None, res(("평택시", "f"), ("당진시", "o")))
+        self.assertEqual((h["평택시"], h["당진시"]), ("f", "o"))
+        h = w.direct_history(h, res(("평택시", "p"), ("당진시", "o")))
+        self.assertEqual(h["평택시"], "pf")
+        self.assertIsNone(w.backup_suggestion(h))
+        h = w.direct_history(h, res(("평택시", "f"), ("당진시", "o"), ("광양시", "f")))
+        # 러너 쪽 장애로 4분의 1 넘게 한꺼번에 실패한 실행은 세지 않는다(11-04·11-06 아침: 40곳 중 12~14곳)
+        everyone = ["평택시", "당진시", "광양시"] + [x for x, _ in fill]
+        mass = w.direct_history(h, [(c(city), None if i < 4 else [], None) for i, city in enumerate(everyone)])  # 11곳 중 4곳
+        self.assertEqual(mass, h)
+        self.assertEqual(h["광양시"], "f")
+        note = w.backup_suggestion(dict(h, 광양시="fff"))
+        self.assertEqual(note, "직접 조회 실패·일부 실패가 잦은 시·군: 평택시 3/3번 — 기자 컴퓨터 대신 수집 후보(추가는 기자 결정, 실패한 날 그 시·군 0건은 미확인)")
+        self.assertNotIn("광양시", note)  # 이미 대신 수집 중
+        self.assertEqual(len(w.direct_history({"당진시": "o" * 25}, res(("당진시", "o")))["당진시"]), w.HISTORY_RUNS)
+        self.assertNotIn("없앤시", w.direct_history({"없앤시": "fff"}, res(("당진시", "o"))))  # 목록에서 빠진 시·군은 잊는다
+
+    def test_run_keeps_direct_history_and_health_note(self):
+        cities = [("평택시", "https://eminwon.pyeongtaek.go.kr", "현대차"), ("당진시", "https://eminwon.dangjin.go.kr", "현대제철"),
+                  ("울주군", "http://eminwon.ulju.ulsan.kr", "고려아연"), ("화성시", "https://eminwon.hscity.go.kr", "기아")]
+        post = fake({"https://eminwon.dangjin.go.kr": page(DJ1, TD_ROW), "http://eminwon.ulju.ulsan.kr": page(UJ1, A_ROW),
+                     "https://eminwon.hscity.go.kr": page(DJ1, TD_ROW)}, down=("https://eminwon.pyeongtaek.go.kr",))
+        doc = None
+        for i in range(3):
+            doc = w.run(now=NOW + dt.timedelta(hours=8 * i), previous=doc, post=post, sleep=lambda s: None, cities=cities, browser_cities=())
+        self.assertEqual(doc["directHistory"]["평택시"], "fff")
+        self.assertEqual(doc["directHistory"]["당진시"], "ooo")
+        self.assertIn("평택시 3/3번", doc["healthNote"])
+
     def test_cheongju_homepage_board(self):
         # 10-30 청주 홈페이지 고시공고 게시판 실제 모양(번호·공고번호·제목·부서·등록일)
         bp = [("청주시", "https://www.cheongju.go.kr", "LS일렉트릭(청주)")]

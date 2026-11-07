@@ -3708,10 +3708,14 @@ test('kr local notices: a beat plant notice in a city is A, a city baseline is h
     attachments: [{ name: '공고문.hwpx', chars: 2542, facts: { 사업명: '#3 TANK 토건공사', 공사기간: '2026. 9. ~ 2027. 2.', 위치: '울주군 온산읍 원산리 892번지 일원',
       '발주자/시공자': '고려아연(주) / 서동건설산업(주)', 규모: '철근콘크리트구조 지상1층', 착공일: '2026. 9. 8.' } },
       { name: '예정공정표.pdf', chars: 2, note: '글자 없음(스캔 이미지일 수 있음)' }] }));
+  // 감시가 남긴 운영 제안(11-08 직접 조회 실패가 잦은 시·군)은 수집 상태와 kr_official local에 그대로
+  doc.healthNote = '직접 조회 실패·일부 실패가 잦은 시·군: 평택시 3/20번 — 기자 컴퓨터 대신 수집 후보(추가는 기자 결정, 실패한 날 그 시·군 0건은 미확인)';
   await worker.fetch(new Request(ORIGIN + '/ingest/kr-local', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {});
   const r3 = await call('radar_today', { hours: 72 }, opts);
+  assert.match(r3.text, /^- 지자체 고시·공고: 직접 조회 실패·일부 실패가 잦은 시·군: 평택시 3\/20번 — 기자 컴퓨터 대신 수집 후보\(추가는 기자 결정, 실패한 날 그 시·군 0건은 미확인\)$/m);
   assert.match(r3.text, /#3 TANK 토건공사\]」 · 건축과 · 등록 2026-10-25 · 첨부 개요: 공사기간 2026\. 9\. ~ 2027\. 2\. · 착공일 2026\. 9\. 8\. · 발주자\/시공자 고려아연\(주\) \/ 서동건설산업\(주\) · 규모 철근콘크리트구조 지상1층 — 제목·본문·첨부 개요 자동 추출/);
   const t3 = await call('kr_official', { section: 'local', company: '고려아연' }, opts);
+  assert.match(t3.text, /\n직접 조회 실패·일부 실패가 잦은 시·군: 평택시 3\/20번 — 기자 컴퓨터 대신 수집 후보/);
   assert.match(t3.text, /첨부 원문에서 뽑은 사업 개요\(자동 — 첨부 원문 확인\): 사업명 #3 TANK 토건공사 · 공사기간 2026\. 9\. ~ 2027\. 2\. · 착공일 2026\. 9\. 8\. · 위치 울주군 온산읍 원산리 892번지 일원 · 발주자\/시공자 고려아연\(주\) \/ 서동건설산업\(주\) · 규모 철근콘크리트구조 지상1층/);
   assert.match(t3.text, /못 읽은 첨부: 예정공정표\.pdf\(글자 없음\(스캔 이미지일 수 있음\)\)\n   첨부 파일\(열지 않음\): 붙임1\.hwpx/);
   assert.deepEqual(dueAt(new Date('2026-10-26T21:30:00Z')), ['page-watch.yml', 'kr-local.yml']);  // Tue 06:30 KST
