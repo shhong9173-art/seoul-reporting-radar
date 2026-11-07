@@ -1,22 +1,25 @@
 {
-  "generatedAt": "2026-11-07T17:42:25+09:00",
+  "generatedAt": "2026-11-08T00:09:16+09:00",
   "status": "reporter_evidence_queue_not_exclusive",
   "sourceCoverage": "partial_source_coverage_not_zero_news",
   "sourceHealth": {
     "officialEvents": {
       "status": "source_partial_coverage",
-      "generatedAt": "2026-11-07T07:42:20+09:00",
+      "generatedAt": "2026-11-07T17:42:27+09:00",
       "rows": 11,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false,
       "incompleteOrStaleFeeds": [
+        "recent_contracts",
+        "overseas_official",
+        "investigation_hunt",
         "nhtsa_official",
         "dart_beat_monitor"
       ]
     },
     "dartBeat": {
       "status": "source_partial_coverage",
-      "generatedAt": "2026-11-07T17:41:51+09:00",
+      "generatedAt": "2026-11-08T00:08:41+09:00",
       "rows": 81,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false,
@@ -59,7 +62,7 @@
     }
   },
   "countsByEvidenceTier": {
-    "new_official_receipt_review": 11,
+    "new_official_receipt_review": 4,
     "new_official_list_heading_review": 0,
     "verified_historical_investment_delta": 3,
     "verified_historical_numeric_delta": 24,
@@ -68,21 +71,21 @@
     "unlinked_correction_text_followup": 1
   },
   "sourceDateWindow": {
-    "recentFrom": "2026-11-05",
-    "through": "2026-11-07"
+    "recentFrom": "2026-11-06",
+    "through": "2026-11-08"
   },
-  "checkedOfficialRecentCandidates": 11,
+  "checkedOfficialRecentCandidates": 4,
   "recentOfficialTitleOnlyCount": 0,
-  "todayOnlyCount": 11,
+  "todayOnlyCount": 4,
   "historicalResearchCount": 33,
   "unlinkedHistoryTextMatchCount": 1,
   "correctionHistorySourceGate": "reviewed_unlinked_candidates_only",
-  "totalRows": 44,
+  "totalRows": 37,
   "excluded": {
     "invalid_original_identity": 0,
-    "old_and_not_relevant": 0,
+    "old_and_not_relevant": 7,
     "unverified_correction": 0,
-    "same_receipt_merged": 2
+    "same_receipt_merged": 0
   },
   "confirmedScoops": 0,
   "approvedArticles": 0,
@@ -171,189 +174,6 @@
       "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
       "officialUrls": [
         "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261106800601"
-      ],
-      "pressFulltextReviewed": false,
-      "sameAngleCoverageVerified": false,
-      "companyImpactVerified": false,
-      "futurePlanVerified": false,
-      "exclusiveConfirmed": false,
-      "approvedForPitch": false,
-      "nextChecks": [
-        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
-        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
-        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
-      ]
-    },
-    {
-      "id": "new_official_receipt_review:DART:20261105800225",
-      "tier": "new_official_receipt_review",
-      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
-      "company": "씨에스윈드",
-      "title": "씨에스윈드 · WIND TOWER 공급계약 체결 (공시 원문)",
-      "officialDocumentDate": "2026-11-05",
-      "officialDateIsSourcePublicationNotScrape": true,
-      "evidenceSummary": "공식 DART 원문 표 확인: WIND TOWER 공급계약 체결 · 계약금액 79,736,125,834원 · 상대 Vestas American Wind Technology. 실제 외부 신규고객 수주·출하·매출 실현은 미확인.",
-      "officialUrls": [
-        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261105800225"
-      ],
-      "pressFulltextReviewed": false,
-      "sameAngleCoverageVerified": false,
-      "companyImpactVerified": false,
-      "futurePlanVerified": false,
-      "exclusiveConfirmed": false,
-      "approvedForPitch": false,
-      "nextChecks": [
-        "동일 계약 보도 기사 전문·첫 공시 날짜 확인",
-        "공시 표상 계약상대·관계·금액·기간 확인",
-        "공개된 최종 고객 자료와 발행법인 구분",
-        "내부 공급망 변경·장래 매출은 추정하지 않음"
-      ],
-      "officialTableTermsRetrieved": true,
-      "verifiedOfficialTableFields": {
-        "contract_subject": "WIND TOWER 공급계약 체결",
-        "contract_amount": "79,736,125,834",
-        "counterparty": "Vestas American Wind Technology",
-        "supply_region": "미국",
-        "contract_start": "2026-11-05",
-        "contract_end": "2027-08-20"
-      },
-      "inGroupCounterpartyPerIssuerFiling": false,
-      "externalNewCustomerVerified": false,
-      "actualShipmentsVerified": false,
-      "pressIndexNoHitsIsNotNoCoverage": true,
-      "editorialPriority": "new_official_filing_manual_review"
-    },
-    {
-      "id": "new_official_receipt_review:DART:20261105800291",
-      "tier": "new_official_receipt_review",
-      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
-      "company": "한온시스템",
-      "title": "한온시스템 · 정기·주요공시 · 연결재무제표기준영업(잠정)실적(공정공시)",
-      "officialDocumentDate": "2026-11-05",
-      "officialDateIsSourcePublicationNotScrape": true,
-      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
-      "officialUrls": [
-        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261105800291"
-      ],
-      "pressFulltextReviewed": false,
-      "sameAngleCoverageVerified": false,
-      "companyImpactVerified": false,
-      "futurePlanVerified": false,
-      "exclusiveConfirmed": false,
-      "approvedForPitch": false,
-      "nextChecks": [
-        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
-        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
-        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
-      ]
-    },
-    {
-      "id": "new_official_receipt_review:DART:20261105800303",
-      "tier": "new_official_receipt_review",
-      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
-      "company": "LG화학",
-      "title": "LG화학 · 정기·주요공시 · 연결재무제표기준영업(잠정)실적(공정공시)",
-      "officialDocumentDate": "2026-11-05",
-      "officialDateIsSourcePublicationNotScrape": true,
-      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
-      "officialUrls": [
-        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261105800303"
-      ],
-      "pressFulltextReviewed": false,
-      "sameAngleCoverageVerified": false,
-      "companyImpactVerified": false,
-      "futurePlanVerified": false,
-      "exclusiveConfirmed": false,
-      "approvedForPitch": false,
-      "nextChecks": [
-        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
-        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
-        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
-      ]
-    },
-    {
-      "id": "new_official_receipt_review:DART:20261105800350",
-      "tier": "new_official_receipt_review",
-      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
-      "company": "GS",
-      "title": "GS · 정기·주요공시 · 연결재무제표기준영업(잠정)실적(공정공시)",
-      "officialDocumentDate": "2026-11-05",
-      "officialDateIsSourcePublicationNotScrape": true,
-      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
-      "officialUrls": [
-        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261105800350"
-      ],
-      "pressFulltextReviewed": false,
-      "sameAngleCoverageVerified": false,
-      "companyImpactVerified": false,
-      "futurePlanVerified": false,
-      "exclusiveConfirmed": false,
-      "approvedForPitch": false,
-      "nextChecks": [
-        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
-        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
-        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
-      ]
-    },
-    {
-      "id": "new_official_receipt_review:DART:20261105800854",
-      "tier": "new_official_receipt_review",
-      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
-      "company": "영풍",
-      "title": "영풍 · 정기·주요공시 · 주식소각결정",
-      "officialDocumentDate": "2026-11-05",
-      "officialDateIsSourcePublicationNotScrape": true,
-      "evidenceSummary": "공식 주식소각결정 원문 표의 예정값 확인; 실제 소각 완료·배당 및 주주환원 산식·기보도 미검증",
-      "officialUrls": [
-        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261105800854"
-      ],
-      "pressFulltextReviewed": false,
-      "sameAngleCoverageVerified": false,
-      "companyImpactVerified": false,
-      "futurePlanVerified": false,
-      "exclusiveConfirmed": false,
-      "approvedForPitch": false,
-      "nextChecks": [
-        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
-        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
-        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
-      ]
-    },
-    {
-      "id": "new_official_receipt_review:DART:20261105800867",
-      "tier": "new_official_receipt_review",
-      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
-      "company": "현대오토에버",
-      "title": "현대오토에버 · 정기·주요공시 · [기재정정]타법인주식및출자증권취득결정",
-      "officialDocumentDate": "2026-11-05",
-      "officialDateIsSourcePublicationNotScrape": true,
-      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
-      "officialUrls": [
-        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261105800867"
-      ],
-      "pressFulltextReviewed": false,
-      "sameAngleCoverageVerified": false,
-      "companyImpactVerified": false,
-      "futurePlanVerified": false,
-      "exclusiveConfirmed": false,
-      "approvedForPitch": false,
-      "nextChecks": [
-        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
-        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
-        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
-      ]
-    },
-    {
-      "id": "new_official_receipt_review:FOREIGN_NOTICE:US Federal Register:2026-22630",
-      "tier": "new_official_receipt_review",
-      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
-      "company": "현대제철",
-      "title": "Circular Welded Non-Alloy Steel Pipe From the Republic of Korea: Final Results of Antidumping Duty Administrative Review; 2023-2024",
-      "officialDocumentDate": "2026-11-05",
-      "officialDateIsSourcePublicationNotScrape": true,
-      "evidenceSummary": "미국 연방고시/유럽 공고의 제목·요약에 출입처 법인명 명시(실제 적용·사업 영향 미확인)",
-      "officialUrls": [
-        "https://www.federalregister.gov/documents/2026/11/05/2026-22630/circular-welded-non-alloy-steel-pipe-from-the-republic-of-korea-final-results-of-antidumping-duty"
       ],
       "pressFulltextReviewed": false,
       "sameAngleCoverageVerified": false,
