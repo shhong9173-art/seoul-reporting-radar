@@ -535,6 +535,34 @@ def read_details(items, get, sleep, budget=DETAIL_MAX):
     return {"read": read, "failed": failed, "skipped": max(0, len(items) - budget)}
 
 
+# 직접 조회 이력(11-08): 기자 컴퓨터 대신 수집(BROWSER_BACKUP)은 사람이 실패를 보고 넣어 왔다(11-07 광양·천안 — kr-local 열 번 중 네 번).
+# 시·군마다 GitHub 직접 조회 결과를 최근 20번까지 이어 쌓고(f 실패·p 일부·o 정상, 최근 것이 앞), 대신 수집에 없는 시·군이
+# 3번 넘게 문제면 radar_today 수집 상태에 후보로 적는다(추가는 기자 결정). 러너 쪽 장애로 4분의 1 넘게 한꺼번에 실패한 실행
+# (11-04·11-06 아침: 40곳 중 12~14곳 ConnectTimeout)은 사이트 탓이 아니라 세지 않는다.
+HISTORY_RUNS = 20
+SUGGEST_FAILS = 3
+
+
+def direct_history(previous, results):
+    hist = {k: str(v)[:HISTORY_RUNS] for k, v in (previous or {}).items() if isinstance(v, str)}
+    codes = {city: "f" if rows is None else "p" if err else "o" for (city, _base, _plants), rows, err in results}
+    if not codes:
+        return hist
+    if sum(1 for v in codes.values() if v == "f") > len(codes) / 4:
+        return {k: v for k, v in hist.items() if k in codes}
+    return {city: (code + hist.get(city, ""))[:HISTORY_RUNS] for city, code in codes.items()}
+
+
+def backup_suggestion(history):
+    bad = sorted(((city, sum(1 for ch in h if ch != "o"), len(h)) for city, h in history.items() if city not in BROWSER_BACKUP),
+                 key=lambda x: (-x[1], x[0]))
+    bad = [x for x in bad if x[1] >= SUGGEST_FAILS]
+    if not bad:
+        return None
+    return ("직접 조회 실패·일부 실패가 잦은 시·군: " + ", ".join(f"{c} {n}/{t}번" for c, n, t in bad[:5])
+            + " — 기자 컴퓨터 대신 수집 후보(추가는 기자 결정, 실패한 날 그 시·군 0건은 미확인)")
+
+
 def run(*, now, previous=None, post=None, sleep=time.sleep, cities=CITIES, browser=None, browser_cities=BROWSER_CITIES, get=None):
     if post is None:
         import requests
@@ -557,6 +585,7 @@ def run(*, now, previous=None, post=None, sleep=time.sleep, cities=CITIES, brows
     with ThreadPoolExecutor(6) as ex:
         results = list(ex.map(one, cities))
     sources = {}
+    history = direct_history(prev.get("directHistory"), results)
     for i, ((city, base, plants), rows, err) in enumerate(results):
         if rows is None and city in BROWSER_BACKUP:
             brows, note = browser_rows(browser, city, now)
@@ -633,8 +662,10 @@ def run(*, now, previous=None, post=None, sleep=time.sleep, cities=CITIES, brows
                    key=lambda x: (str(x.get("date") or ""), x["id"]), reverse=True)[:KEEP_MAX]
     failed = [c for c in checks if c["status"] == "failed"]
     status = "failed" if len(failed) == len(checks) else "partial" if any(c["status"] != "ok" for c in checks) else "complete"
+    note = backup_suggestion(history)
     return {"schema": SCHEMA, "generatedAt": stamp, "status": status, "checks": checks, "items": items, "seen": seen,
-            "rules": RULES, "cities": len(cities) + len(browser_cities), **({"details": details} if details else {})}
+            "rules": RULES, "cities": len(cities) + len(browser_cities), "directHistory": history,
+            **({"healthNote": note} if note else {}), **({"details": details} if details else {})}
 
 
 def main():
