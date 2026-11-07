@@ -5,6 +5,7 @@ import { readFeed, weekdayHours } from './screen.mjs';
 import { storeOp } from './store.mjs';
 import { dispatchHealth } from './dispatch.mjs';
 import { browserHealth } from './local_browser.mjs';
+import { runsHealth } from './gh_runs.mjs';
 import { clampInt, fetchJson, safeEqual, textResult, uniqueList } from './common.mjs';
 import { peerLines } from './radar_tools.mjs';
 import { classLabel, waitReason } from './trademarks.mjs';
@@ -1412,6 +1413,9 @@ export async function radarTodayData(ctx, args) {
   const h = health(ctx, docs);
   const dh = await dispatchHealth(ctx);
   if (dh) h.unshift(`- ${dh}`);
+  // GitHub 실행이 연달아 실패한 프로그램(11-08 보도 대조 7회 연속 실패가 36시간 뒤에야 보였다) — 감시 결과 나이보다 먼저 본다
+  const gh = await runsHealth(ctx).catch((e) => [`GitHub 실행 상태: 읽기 실패(${String(e?.message ?? e).slice(0, 60)}) — 미확인`]);
+  h.unshift(...gh.map((x) => `- ${x}`));
   // 기자 컴퓨터 Aside 수집(11-08): 컴퓨터가 꺼져 예약 수집이 빠져도 다른 감시 상태로는 안 보인다
   // 상태 읽기가 실패하면 줄을 숨기지 않고 미확인으로 적는다(줄이 없으면 '이상 없음'으로 읽히기 때문)
   const bh = await browserHealth(ctx).catch((e) => `기자 컴퓨터 수집: 상태 읽기 실패(${String(e?.message ?? e).slice(0, 60)}) — 미확인`);

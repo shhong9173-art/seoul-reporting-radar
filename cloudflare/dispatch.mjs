@@ -2,6 +2,7 @@
 // so a Cloudflare cron (every 10 minutes, all day) asks GitHub to run each
 // watch at its slot through workflow_dispatch. GitHub's cron stays as a fallback. Results go to a private log blob.
 import { storeOp } from './store.mjs';
+import { pollDue, pollRuns } from './gh_runs.mjs';
 
 const REPO = 'shhong9173-art/seoul-reporting-radar';
 const KST_MS = 9 * 3600000;
@@ -149,6 +150,15 @@ async function appendLog(ctx, entries) {
 }
 
 export async function runSchedule(env, when, deps = {}) {
+  const entries = await requestSlots(env, when, deps);
+  // GitHub 실행 실패 감시(gh_runs.mjs): 매시 00·30분 칸, 요청을 보낸 뒤. 실패해도 다음 칸에 다시 읽는다.
+  if (pollDue(when)) {
+    try { await pollRuns(env, when, deps.fetch ?? fetch); } catch { /* 저장소 오류 등 — radar_today가 '확인이 멈춤'으로 알림 */ }
+  }
+  return entries;
+}
+
+async function requestSlots(env, when, deps) {
   const ctx = { env, now: when };
   const due = dueAt(when);
   const news = newsDue(when);

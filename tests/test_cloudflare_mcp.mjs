@@ -13,6 +13,7 @@ import { publicationDate, verifyEvidence } from '../cloudflare/evidence.mjs';
 import { allowedUrl } from '../cloudflare/live_tools.mjs';
 import { ageNote, handleIngest, weekdayHours } from '../cloudflare/screen.mjs';
 import { dueAt, newsDue, nextSlot, runSchedule } from '../cloudflare/dispatch.mjs';
+import { failStreak, mergeRuns, pollDue } from '../cloudflare/gh_runs.mjs';
 import { boardKey, factParts, groupSame, splitTop } from '../cloudflare/board.mjs';
 import { cleanOutput, cleanSummary, LLM_MODELS, MT_MODEL } from '../cloudflare/translate.mjs';
 import { background, billHint, clipAt, convergence, convergenceRows, countForms, hint, insolvencyWord, usRecallHint, usRecallModels, kepcoHint, localWord, plantTokens, radarItems, siteCity, splitByPlant, stackAlert, stackHint, workforceHint } from '../cloudflare/digest.mjs';
@@ -3754,6 +3755,56 @@ test('Aside 직접 올리기(/upload/browser): 등록한 열쇠 지문과 맞을
   assert.equal((await post(key, { via: 'aside' })).status, 404);
   assert.equal((await post('n'.repeat(43), { via: 'aside', labor: [{ commission: '제주지방노동위원회', error: '시험' }] })).status, 200);
   assert.ok((await call('local_notice_submit', { uploadKeySha256: 'zz' }, opts)).isError);
+});
+
+test('GitHub 실행 실패 감시: 매시 00·30분에 main 실행을 읽어 쌓고, 두 번 이상 연달아 실패한 프로그램을 radar_today 맨 위에', async () => {
+  assert.equal(pollDue(new Date('2026-11-08T00:00:30Z')), true);   // 09:00 KST
+  assert.equal(pollDue(new Date('2026-11-08T00:35:00Z')), true);   // 09:30 칸
+  assert.equal(pollDue(new Date('2026-11-08T00:20:00Z')), false);
+  const run = (id, path, at, c, name = 'Radar Press Check', status = 'completed') => ({ id, path: `.github/workflows/${path}`, name, run_started_at: at, created_at: at, status, conclusion: c, event: 'schedule' });
+  // 취소는 건너뛰고, 성공을 만나면 멈춘다
+  const wf = mergeRuns({}, [run(1, 'p.yml', '2026-11-05T03:50:00Z', 'success'), run(2, 'p.yml', '2026-11-05T09:50:00Z', 'failure'),
+    run(3, 'p.yml', '2026-11-05T17:40:00Z', 'cancelled'), run(4, 'p.yml', '2026-11-05T23:50:00Z', 'timed_out'), run(5, 'p.yml', '2026-11-06T01:00:00Z', null, 'x', 'in_progress')],
+  Date.parse('2026-11-06T02:00:00Z'));
+  assert.deepEqual(wf['p.yml'].runs.map((r) => r.id), [4, 3, 2, 1]);
+  assert.equal(failStreak(wf['p.yml']), 2);
+  assert.equal(wf['p.yml'].lastSuccessAt, '2026-11-05T03:50:00Z');
+  // 다시 실행해 결과가 바뀌면 같은 id를 덮는다, 오래 안 돈 워크플로는 잊는다
+  const again = mergeRuns(wf, [run(4, 'p.yml', '2026-11-05T23:50:00Z', 'success')], Date.parse('2026-11-06T02:00:00Z'));
+  assert.equal(failStreak(again['p.yml']), 0);
+  assert.deepEqual(mergeRuns(wf, [], Date.parse('2026-12-10T00:00:00Z')), {});
+  // 예약(00분 칸) → GitHub 목록 읽기 → radar_today 맨 위
+  const opts = PRIVATE({ GITHUB_DISPATCH_TOKEN: 'ghp_test' });
+  const seen = [];
+  const list = [run(10, 'radar-press-check.yml', '2026-11-05T03:50:00Z', 'success'), run(11, 'radar-press-check.yml', '2026-11-05T09:50:00Z', 'failure'),
+    run(12, 'radar-press-check.yml', '2026-11-06T09:50:00Z', 'failure'), run(13, 'radar-press-check.yml', '2026-11-06T16:57:00Z', 'failure'),
+    run(20, 'kr-local.yml', '2026-11-07T15:21:00Z', 'success', 'Local Government Notices Watch'), run(21, 'kr-local.yml', '2026-11-07T07:20:00Z', 'failure', 'Local Government Notices Watch')];
+  const fetchMock = async (url, init) => { seen.push({ url, init }); return url.includes('/actions/runs?') ? Response.json({ workflow_runs: list }) : new Response(null, { status: 204 }); };
+  await runSchedule(opts.env, new Date('2026-11-07T15:00:00Z'), { fetch: fetchMock });  // 일 00:00 KST(요청 칸 없음, 확인 칸)
+  const get = seen.find((x) => x.url.includes('/actions/runs?'));
+  assert.equal(get.url, 'https://api.github.com/repos/shhong9173-art/seoul-reporting-radar/actions/runs?branch=main&status=completed&per_page=100&exclude_pull_requests=true');
+  assert.equal(get.init.headers.Authorization, 'Bearer ghp_test');
+  assert.equal(get.init.method, undefined);  // 읽기만
+  const top = async (iso) => (await call('radar_today', { hours: 24 }, { ...opts, now: new Date(iso) })).text.split('[먼저 볼 것: 수집 상태]\n')[1]?.split('\n\n')[0] ?? '';
+  const h = await top('2026-11-07T15:20:00Z');
+  assert.match(h, /^- ⚠ GitHub 실행 3회 연속 실패: Radar Press Check\(radar-press-check\.yml\) · 마지막 실패 11-07 01:57 KST · 마지막 성공 11-05 12:50 KST — 이 프로그램이 만드는 결과는 그 성공 때 것, 그 뒤 0건은 미확인$/m);
+  assert.doesNotMatch(h, /kr-local\.yml/);  // 마지막이 성공
+  assert.doesNotMatch(h, /GitHub 실행 상태/);  // 확인 정상
+  // 확인이 두 시간 넘게 멈추면(예약 꺼짐 등) 그 자체를 알린다
+  assert.match(await top('2026-11-07T18:00:00Z'), /- GitHub 실행 상태\(30분마다 확인\): 확인이 멈춤 · 마지막 정상 확인 11-08 00:00 KST — 그 뒤 실패는 미확인/);
+  // 읽기 실패(권한 등)는 그대로 적고, 쌓아 둔 기록은 지우지 않는다
+  await runSchedule(opts.env, new Date('2026-11-07T15:30:00Z'), { fetch: async () => new Response('{}', { status: 403 }) });
+  const h2 = await top('2026-11-07T15:35:00Z');
+  assert.match(h2, /GitHub 실행 상태\(30분마다 확인\): 읽기 실패\(HTTP 403\) · 마지막 정상 확인 11-08 00:00 KST/);
+  assert.match(h2, /3회 연속 실패: Radar Press Check/);
+  // 고친 뒤 성공하면 줄이 사라진다
+  list.push(run(14, 'radar-press-check.yml', '2026-11-07T15:29:00Z', 'success'));
+  await runSchedule(opts.env, new Date('2026-11-07T16:00:00Z'), { fetch: fetchMock });
+  assert.doesNotMatch(await top('2026-11-07T16:05:00Z'), /GitHub 실행/);
+  // 토큰이 없으면 확인하지 못했다고 적는다
+  const none = PRIVATE();
+  await runSchedule(none.env, new Date('2026-11-07T16:00:00Z'), { fetch: async () => { throw new Error('must not call'); } });
+  assert.match((await call('radar_today', {}, { ...none, now: new Date('2026-11-07T16:05:00Z') })).text, /GitHub 실행 상태\(30분마다 확인\): 워커에 GITHUB_DISPATCH_TOKEN 없음/);
 });
 
 test('radar_today 수집 상태: 기자 컴퓨터(Aside) 수집이 예정 시각 뒤 안 올라오거나 이 길뿐인 시·군을 못 읽으면 알린다', async () => {
