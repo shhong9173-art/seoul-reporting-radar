@@ -291,3 +291,64 @@ export async function browserUpload(request, env, deps = {}) {
   await storeOp(ctx, 'blobs.put', { name: KEY_BLOB, body: JSON.stringify({ ...key, lastUploadAt: ctx.now.toISOString() }) });
   return Response.json({ ok: !result.isError, text: result.content?.[0]?.text ?? '' }, { headers: { 'Cache-Control': 'no-store' } });
 }
+
+// 기자 컴퓨터 수집 상태(11-08): 예약 작업(평일 08:40·16:40 KST)은 기자 컴퓨터가 꺼져 있거나 Claude 앱·Aside가 안 떠 있으면 돌지 못하고,
+// 그러면 해외 IP 차단 시·군 고시·공고·노동위 회의·호주 TRN이 조용히 멈춘다(radar_health는 공개 도구라 이 수집을 싣지 않는다).
+// radar_today 수집 상태에 이상이 있을 때만 한 줄로 알린다: 가장 최근 예정 시각 뒤 올림 없음 / 이번 수집에서 못 읽은 시·군 / 대신 쓴 길.
+export const BROWSER_SLOTS = [[8, 40], [16, 40]];  // 예약 작업 '새올 고시·공고 브라우저 수집'(KST, 평일)
+// 이 수집 말고는 길이 없는 시·군(GitHub 직접 조회가 늘 시간 초과) — 나머지는 직접 조회가 실패한 날만 대신 쓰는 곳
+export const BROWSER_ONLY = ['인천 부평구', '구미시', '청주시', '순천시', '함평군'];
+const SLOT_GRACE_MIN = 45;  // 예약 작업이 돌고 올리기까지 기다리는 시간
+const SLOT_EARLY_MIN = 10;
+const KST_MS = 9 * 3600000;
+const kstStamp = (ms) => `${new Date(ms + KST_MS).toISOString().slice(5, 16).replace('T', ' ')} KST`;
+
+// 지금(여유 45분을 뺀 시각) 이전의 가장 최근 예정 시각(ms). 토·일은 건너뛴다(공휴일은 예약 작업도 돌기 때문에 세지 않음).
+export function lastBrowserSlot(nowMs) {
+  const t = nowMs - SLOT_GRACE_MIN * 60000;
+  const day0 = Math.floor((t + KST_MS) / 86400000) * 86400000 - KST_MS;  // 오늘 KST 자정
+  for (let d = 0; d < 8; d++) {
+    const base = day0 - d * 86400000;
+    const dow = new Date(base + KST_MS).getUTCDay();
+    if (dow === 0 || dow === 6) continue;
+    for (const [h, m] of [...BROWSER_SLOTS].reverse()) {
+      const s = base + (h * 60 + m) * 60000;
+      if (s <= t) return s;
+    }
+  }
+  return null;
+}
+
+export async function browserHealth(ctx) {
+  const nowMs = ctx.now.getTime();
+  const slot = lastBrowserSlot(nowMs);
+  const read = async (name) => {
+    const { row } = await storeOp(ctx, 'blobs.get', { name });
+    if (!row) return null;
+    try { return JSON.parse(row.body); } catch { return { broken: true }; }
+  };
+  const [doc, labor, pages, key] = await Promise.all([read(BLOB), read(LABOR_BLOB), read(PAGES_BLOB), read(KEY_BLOB)]);
+  const label = '기자 컴퓨터 수집(Aside 예약 작업, 평일 08:40·16:40 — 해외 IP 차단 시·군 고시·공고·노동위 회의·호주 TRN)';
+  if (!doc) return `${label}: 결과 없음 — 미확인`;
+  if (doc.broken) return `${label}: 저장 형식 오류 — 미확인`;
+  const missed = (t) => slot != null && !(t >= slot - SLOT_EARLY_MIN * 60000);
+  const at = Date.parse(doc.updatedAt ?? '');
+  const short = (c) => c.replace(/^(.+?)(?:시|군)$/, '$1');
+  const issues = [];
+  if (missed(at)) {
+    issues.push(`⚠ 마지막 ${Number.isFinite(at) ? `${kstStamp(at)}(${Math.round((nowMs - at) / 3600000)}시간 전)` : '시각 없음'} — ${kstStamp(slot)} 예정 수집이 안 올라옴`
+      + `(기자 컴퓨터·Claude 앱·Aside가 켜져 있는지 확인). 그 뒤 ${BROWSER_ONLY.map(short).join('·')} 고시·공고는 미확인`);
+  } else {
+    const bad = (doc.cities ?? []).filter((c) => c.fetchedAt === doc.updatedAt && c.error && BROWSER_ONLY.includes(c.city));
+    if (bad.length) issues.push(`시·군 못 읽음 ${bad.length}곳(${bad.map((c) => `${short(c.city)}: ${String(c.error).slice(0, 40)}`).join(', ')})`);
+    if (doc.via === 'browser') issues.push('Aside가 안 돼 내장 브라우저로 대신 수집함');
+    else if (doc.via === 'aside' && key?.sha256 && !(Date.parse(key.lastUploadAt ?? '') >= at - 15 * 60000)) {
+      issues.push('직접 올리기가 안 돼 대화로 옮겨 올림(올리기 열쇠 확인 — browser_upload_key)');
+    }
+    for (const [name, d] of [['노동위 회의일정', labor], ['호주 TRN', pages]]) {
+      const t = Date.parse(d?.updatedAt ?? '');
+      if (missed(t)) issues.push(`${name}은 이번 수집에 빠짐(마지막 ${Number.isFinite(t) ? kstStamp(t) : '없음'})`);
+    }
+  }
+  return issues.length ? `${label}: ${issues.join(' · ')} — 해당 부분 0건은 미확인` : null;
+}

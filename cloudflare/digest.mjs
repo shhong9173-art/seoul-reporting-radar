@@ -4,6 +4,7 @@
 import { readFeed, weekdayHours } from './screen.mjs';
 import { storeOp } from './store.mjs';
 import { dispatchHealth } from './dispatch.mjs';
+import { browserHealth } from './local_browser.mjs';
 import { clampInt, fetchJson, safeEqual, textResult, uniqueList } from './common.mjs';
 import { peerLines } from './radar_tools.mjs';
 import { classLabel, waitReason } from './trademarks.mjs';
@@ -1409,6 +1410,9 @@ export async function radarTodayData(ctx, args) {
   const h = health(ctx, docs);
   const dh = await dispatchHealth(ctx);
   if (dh) h.unshift(`- ${dh}`);
+  // 기자 컴퓨터 Aside 수집(11-08): 컴퓨터가 꺼져 예약 수집이 빠져도 다른 감시 상태로는 안 보인다
+  const bh = await browserHealth(ctx).catch(() => null);
+  if (bh) h.push(`- ${bh}`);
   if (!press) h.push('- 보도 대조(자동): 결과 없음 — 미확인(평일 08:50·12:50·18:50 실행 확인)');
   else if (press.broken) h.push('- 보도 대조(자동): 저장 형식 오류 — 미확인');
   else {
