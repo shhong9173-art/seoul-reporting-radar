@@ -1,7 +1,7 @@
 {
  "schema": "governance/v1",
- "generatedAt": "2026-11-06T07:40:59+09:00",
- "windowStart": "2026-10-07",
+ "generatedAt": "2026-11-09T07:43:50+09:00",
+ "windowStart": "2026-10-10",
  "windowDays": 30,
  "source": "OpenDART 지분공시 종합정보(majorstock·elestock)·주요사항보고서 자기주식 처분 결정(tsstkDpDecsn)",
  "status": "complete",
@@ -101,8 +101,8 @@
    "company": "HL만도",
    "endpoint": "elestock.json",
    "status": "checked",
-   "rowsReturned": 24,
-   "rowsInWindow": 6
+   "rowsReturned": 25,
+   "rowsInWindow": 1
   },
   {
    "company": "HL만도",
@@ -136,7 +136,7 @@
    "company": "한국타이어앤테크놀로지",
    "endpoint": "majorstock.json",
    "status": "checked",
-   "rowsReturned": 23,
+   "rowsReturned": 22,
    "rowsInWindow": 0
   },
   {
@@ -241,8 +241,8 @@
    "company": "KG스틸",
    "endpoint": "majorstock.json",
    "status": "checked",
-   "rowsReturned": 9,
-   "rowsInWindow": 2
+   "rowsReturned": 10,
+   "rowsInWindow": 3
   },
   {
    "company": "KG스틸",
@@ -354,7 +354,7 @@
    "endpoint": "elestock.json",
    "status": "checked",
    "rowsReturned": 11,
-   "rowsInWindow": 1
+   "rowsInWindow": 0
   },
   {
    "company": "고려아연",
@@ -535,14 +535,14 @@
    "company": "SK이노베이션",
    "endpoint": "majorstock.json",
    "status": "checked",
-   "rowsReturned": 10,
+   "rowsReturned": 9,
    "rowsInWindow": 0
   },
   {
    "company": "SK이노베이션",
    "endpoint": "elestock.json",
    "status": "checked",
-   "rowsReturned": 18,
+   "rowsReturned": 15,
    "rowsInWindow": 0
   },
   {
@@ -564,7 +564,7 @@
    "endpoint": "elestock.json",
    "status": "checked",
    "rowsReturned": 230,
-   "rowsInWindow": 1
+   "rowsInWindow": 0
   },
   {
    "company": "한화솔루션",
@@ -605,7 +605,7 @@
    "company": "OCI홀딩스",
    "endpoint": "elestock.json",
    "status": "checked",
-   "rowsReturned": 15,
+   "rowsReturned": 12,
    "rowsInWindow": 0
   },
   {
@@ -647,7 +647,7 @@
    "company": "동성케미칼",
    "endpoint": "elestock.json",
    "status": "checked",
-   "rowsReturned": 29,
+   "rowsReturned": 28,
    "rowsInWindow": 1
   },
   {
@@ -668,7 +668,7 @@
    "company": "LG화학",
    "endpoint": "elestock.json",
    "status": "checked",
-   "rowsReturned": 19,
+   "rowsReturned": 18,
    "rowsInWindow": 0
   },
   {
@@ -726,8 +726,45 @@
  "dartSpellings": {
   "동성케미칼": "동성케미컬"
  },
- "count": 43,
+ "count": 37,
  "items": [
+  {
+   "company": "HL만도",
+   "team": "자동차",
+   "kind": "임원·주요주주",
+   "date": "2026-11-06",
+   "receiptNo": "20261106000134",
+   "reporter": "박영문",
+   "role": "비등기임원 사장",
+   "shares": 2975.0,
+   "sharesChange": 1100.0,
+   "ratio": 0.0,
+   "ratioChange": 0.0,
+   "tags": [
+    "[최고경영진]"
+   ],
+   "routine": false,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261106000134"
+  },
+  {
+   "company": "KG스틸",
+   "team": "철강·비철",
+   "kind": "대량보유(5%)",
+   "date": "2026-11-06",
+   "receiptNo": "20261106000028",
+   "reporter": "KG에코솔루션",
+   "reportType": "일반",
+   "shares": 45368536.0,
+   "sharesChange": 0.0,
+   "ratio": 45.36,
+   "ratioChange": 0.0,
+   "reason": "- 보유주식등에 관한 계약의 변경",
+   "tags": [
+    "[사유: 계약]"
+   ],
+   "routine": false,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261106000028"
+  },
   {
    "company": "세아제강",
    "team": "철강·비철",
@@ -1365,134 +1402,6 @@
    "tags": [],
    "routine": true,
    "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261015000064"
-  },
-  {
-   "company": "HL만도",
-   "team": "자동차",
-   "kind": "임원·주요주주",
-   "date": "2026-10-08",
-   "receiptNo": "20261008000144",
-   "reporter": "구본수",
-   "role": "비등기임원 상무보",
-   "shares": 35.0,
-   "sharesChange": 35.0,
-   "ratio": 0.0,
-   "ratioChange": 0.0,
-   "tags": [],
-   "routine": true,
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261008000144"
-  },
-  {
-   "company": "HL만도",
-   "team": "자동차",
-   "kind": "임원·주요주주",
-   "date": "2026-10-08",
-   "receiptNo": "20261008000164",
-   "reporter": "한주훈",
-   "role": "비등기임원 상무보",
-   "shares": 65.0,
-   "sharesChange": 65.0,
-   "ratio": 0.0,
-   "ratioChange": 0.0,
-   "tags": [],
-   "routine": true,
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261008000164"
-  },
-  {
-   "company": "HL만도",
-   "team": "자동차",
-   "kind": "임원·주요주주",
-   "date": "2026-10-08",
-   "receiptNo": "20261008000222",
-   "reporter": "이기형",
-   "role": "비등기임원 상무보",
-   "shares": 35.0,
-   "sharesChange": 35.0,
-   "ratio": 0.0,
-   "ratioChange": 0.0,
-   "tags": [],
-   "routine": true,
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261008000222"
-  },
-  {
-   "company": "고려아연",
-   "team": "철강·비철",
-   "kind": "임원·주요주주",
-   "date": "2026-10-08",
-   "receiptNo": "20261008000716",
-   "reporter": "서용섭",
-   "role": "비등기임원 담당",
-   "shares": 9.0,
-   "sharesChange": 9.0,
-   "ratio": 0.0,
-   "ratioChange": 0.0,
-   "tags": [],
-   "routine": true,
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261008000716"
-  },
-  {
-   "company": "HL만도",
-   "team": "자동차",
-   "kind": "임원·주요주주",
-   "date": "2026-10-07",
-   "receiptNo": "20261007000364",
-   "reporter": "정정훈",
-   "role": "비등기임원 상무보",
-   "shares": 35.0,
-   "sharesChange": 35.0,
-   "ratio": 0.0,
-   "ratioChange": 0.0,
-   "tags": [],
-   "routine": true,
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261007000364"
-  },
-  {
-   "company": "HL만도",
-   "team": "자동차",
-   "kind": "임원·주요주주",
-   "date": "2026-10-07",
-   "receiptNo": "20261007000385",
-   "reporter": "남웅철",
-   "role": "비등기임원 상무보",
-   "shares": 20.0,
-   "sharesChange": 20.0,
-   "ratio": 0.0,
-   "ratioChange": 0.0,
-   "tags": [],
-   "routine": true,
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261007000385"
-  },
-  {
-   "company": "HL만도",
-   "team": "자동차",
-   "kind": "임원·주요주주",
-   "date": "2026-10-07",
-   "receiptNo": "20261007000396",
-   "reporter": "이세연",
-   "role": "비등기임원 상무보",
-   "shares": 44.0,
-   "sharesChange": 44.0,
-   "ratio": 0.0,
-   "ratioChange": 0.0,
-   "tags": [],
-   "routine": true,
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261007000396"
-  },
-  {
-   "company": "한화솔루션",
-   "team": "화학·소재",
-   "kind": "임원·주요주주",
-   "date": "2026-10-07",
-   "receiptNo": "20261007000044",
-   "reporter": "황일중",
-   "role": "비등기임원 임원",
-   "shares": 49.0,
-   "sharesChange": 49.0,
-   "ratio": 0.0,
-   "ratioChange": 0.0,
-   "tags": [],
-   "routine": true,
-   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261007000044"
   }
  ],
  "rules": [
