@@ -100,7 +100,7 @@ export class RadarStore {
         this.sql.exec('INSERT INTO login_fail (ip, at) VALUES (?, ?)', String(args.ip ?? '?').slice(0, 64), at);
         return { saved: true };
       case 'feedback.latest':
-        return { rows: this.all(`SELECT f.item_id, f.verdict, f.reason FROM feedback f
+        return { rows: this.all(`SELECT f.item_id, f.verdict, f.reason, f.created_at FROM feedback f
           JOIN (SELECT item_id, MAX(id) AS id FROM feedback GROUP BY item_id) m ON f.id = m.id`) };
       case 'feedback.since':
         return { rows: this.all(`SELECT f.item_id, f.verdict, f.reason, f.created_at, m.watch, m.kind, m.tier, m.flag, m.title

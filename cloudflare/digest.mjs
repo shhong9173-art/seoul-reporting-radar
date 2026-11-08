@@ -6,6 +6,8 @@ import { storeOp } from './store.mjs';
 import { dispatchHealth } from './dispatch.mjs';
 import { browserHealth } from './local_browser.mjs';
 import { runsHealth } from './gh_runs.mjs';
+import { MAINT_KINDS, MAINT_RE, kstMD, maintFolded, maintenanceMemo, stackSiteKey } from './stack_memo.mjs';
+export { MAINT_KINDS, MAINT_RE, maintFolded, maintenanceMemo, stackSiteKey };
 import { clampInt, fetchJson, safeEqual, textResult, uniqueList } from './common.mjs';
 import { peerLines } from './radar_tools.mjs';
 import { classLabel, waitReason } from './trademarks.mjs';
@@ -403,7 +405,7 @@ function scoopKind(c) {
 }
 
 // all=true: every stored item regardless of date (used to label judgments), same tiers as the digest.
-function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
+function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = null } = {}) {
   const items = [];
   const push = (tier, w, x) => items.push({ tier, watch: w.label, tool: w.tool, ...x });
   const W = Object.fromEntries(WATCHES.map((w) => [w.feed, w]));
@@ -1072,8 +1074,10 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
   for (const e of docs['kr-stacks']?.events ?? []) {
     if (!recent(e.detectedAt)) continue;
     // 예전 이름('보수·가동중지 전환·해제', 11-03 11:45 첫 읽기 17개 사업장 B)은 C. 새 이름('가동중지 전환·해제')은 굴뚝 감시가 정한 등급 그대로
-    const tier = /보수·가동중지 (전환|해제)/.test(e.kind ?? '') ? 'C' : e.tier ?? 'B';
-    push(tier, W['kr-stacks'], { kind: e.kind, id: e.id, date: e.detectedAt, company: e.company, site: e.site, fact: e.text,
+    const m = maintFolded(e, maint);
+    const tier = m || /보수·가동중지 (전환|해제)/.test(e.kind ?? '') ? 'C' : e.tier ?? 'B';
+    push(tier, W['kr-stacks'], { kind: e.kind, id: e.id, date: e.detectedAt, company: e.company, site: e.site,
+      fact: m ? `${e.text} · ⓘ 기자 판정(${kstMD(m.at)} '${m.reason}') — ${kstMD(m.until)}까지 이 사업장 멈춤·빠짐 신호는 접음` : e.text,
       check: stackHint(e) });
   }
 
@@ -1154,7 +1158,7 @@ export async function radarItems(request, env, deps = {}) {
   const docs = Object.fromEntries(await Promise.all(WATCHES.map(async (w) => [w.feed, await readFeed(ctx, w.feed)])));
   const { rows: fb } = await storeOp(ctx, 'feedback.latest', {});
   const judged = new Map(fb.map((r) => [r.item_id, r.verdict]));
-  const items = collect(docs, cut, kstDate(cut), { now: nowMs })
+  const items = collect(docs, cut, kstDate(cut), { now: nowMs, maint: maintenanceMemo(fb) })
     .filter((x) => (x.tier === 'A' || x.tier === 'B') && x.check && typeof x.check === 'object' && !PRESS_SKIP.has(judged.get(x.id)) && !(x.parent && judged.get(x.parent) === '킬'))
     .map(({ tier, watch, id, date, company, fact, url, check }) => ({ tier, watch, id: String(id), date, company, fact: String(fact ?? '').slice(0, 300), url, check }));
   return Response.json({ generatedAt: ctx.now.toISOString(), hours, items }, { headers: { 'Cache-Control': 'no-store' } });
@@ -1306,7 +1310,7 @@ export function splitByPlant(g) {
   const short = (ks) => [...ks].sort((a, b) => a.length - b.length)[0];
   return clusters.map((c) => ({ ...g, plant: short(c.tokens), items: [...c.items, ...plain] }));
 }
-export function stackAlert(x, conv, stacksDoc, nowMs, judged = new Map()) {
+export function stackAlert(x, conv, stacksDoc, nowMs, judged = new Map(), maint = null) {
   const label = WATCHES.find((w) => w.feed === 'kr-stacks')?.label;
   if (!label || x.watch !== label || !['A', 'B'].includes(x.tier)) return null;
   const s = (stacksDoc?.sites ?? []).find((y) => y.company === x.company && (y.name === x.site || String(x.id).includes(`:${y.name}:`)));
@@ -1327,7 +1331,9 @@ export function stackAlert(x, conv, stacksDoc, nowMs, judged = new Map()) {
     }
   }
   const m = s?.meaningful ?? 0;
-  if (m >= 2) {
+  // 정기보수 메모가 있는 사업장은 '장기 가동중지 신고'로 알리지 않는다(회사가 이미 정기보수라고 확인함)
+  const mm = maint?.get(stackSiteKey(x.id));
+  if (m >= 2 && !(mm && nowMs <= mm.until)) {
     const at = (v) => Date.parse(`${String(v ?? '').replace(' ', 'T')}:00+09:00`);
     // 멈춘 때는 숫자가 끊긴 첫 측정(stoppedSince)을 먼저 쓴다 — 상태 글자는 11-03부터 읽어 '처음 본 때'가 실제 멈춤보다 늦다(순천 10-31 멈춤 → 11-03 10:30 처음 봄)
     const long = Object.values(s.stacks ?? {}).filter((st) => (st.status ?? [])[0] === '가동중지'
@@ -1413,9 +1419,10 @@ export async function radarTodayData(ctx, args) {
   const docs = Object.fromEntries(await Promise.all(WATCHES.map(async (w) => [w.feed, await readFeed(ctx, w.feed)])));
   const { rows: fb } = await storeOp(ctx, 'feedback.latest', {});
   const judged = new Map(fb.map((r) => [r.item_id, r.verdict]));
+  const maint = maintenanceMemo(fb);
   const showJudged = args.include_judged === true || args.include_judged === 'true';
   // 이어 올린 항목(노동위 조정 결과 확인 등)은 원래 항목을 킬했으면 숨긴다
-  const found = collect(docs, cut, cutDay, { now: nowMs }).filter((x) => has(q, x.company, x.fact, x.watch) && !(x.parent && judged.get(x.parent) === '킬'));
+  const found = collect(docs, cut, cutDay, { now: nowMs, maint }).filter((x) => has(q, x.company, x.fact, x.watch) && !(x.parent && judged.get(x.parent) === '킬'));
   const hiddenBy = {};
   const all = found.filter((x) => {
     const v = judged.get(x.id);
@@ -1448,7 +1455,7 @@ export async function radarTodayData(ctx, args) {
     if (Number.isFinite(ageH) && ageH > 36) h.push(`- 보도 대조(자동): ⚠ ${Math.round(ageH)}시간 전 결과 — 이후 항목은 대조 전`);
   }
   const span = nowMs - 14 * 86400000;
-  const conv = convergence([...collect(docs, span, kstDate(span), { now: nowMs }).filter((x) => !(judged.get(x.id) && !showJudged)), ...background(docs, nowMs)]
+  const conv = convergence([...collect(docs, span, kstDate(span), { now: nowMs, maint }).filter((x) => !(judged.get(x.id) && !showJudged)), ...background(docs, nowMs)]
     .filter((x) => has(q, x.company, x.fact, x.watch)), { cut });
   // 묶음을 만든 새 신호(배경 아님)가 모두 이미 보도된 묶음은 뒤로(10-31 운영: 금호타이어 함평 묶음의 유일한 새 신호인
   // 부지 취득 완료 정정은 10-28 '함평 이전 부지 1160억원에 취득 완료' 기사로 '관련 보도 있음'인데 맨 위에 표시 없이 떴다)
@@ -1456,7 +1463,7 @@ export async function radarTodayData(ctx, args) {
   conv.sort((a, b) => Number(coveredGroup(a)) - Number(coveredGroup(b)));
   // 굴뚝 측정 항목의 즉시 알림 대상(11-04 기자 결정: 굴뚝 실시간 신호만 있는 항목 9건을 모두 킬 — '뒷받침할 증거가 없음').
   // 화면에는 그대로 두고, 아래 둘 중 하나일 때만 〔즉시 알림 대상〕을 붙인다(즉시 알림 예약 작업이 이 표시만 본다).
-  for (const t of ['A', 'B']) for (const x of byTierRows[t]) { const why = stackAlert(x, conv, docs['kr-stacks'], nowMs, judged); if (why) x.alert = why; }
+  for (const t of ['A', 'B']) for (const x of byTierRows[t]) { const why = stackAlert(x, conv, docs['kr-stacks'], nowMs, judged, maint); if (why) x.alert = why; }
   // 실적 업종 비교(11-04, earnings_compare 공개 결과): 최근 72시간 안에 처음 본 데이터 기사 후보만 radar_today에 올린다.
   let peerV = null;
   try { peerV = await fetchJson(ctx, 'digests/earnings_compare_latest.json'); } catch { peerV = null; }

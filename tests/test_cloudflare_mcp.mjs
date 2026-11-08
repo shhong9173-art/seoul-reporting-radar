@@ -16,7 +16,7 @@ import { dueAt, newsDue, nextSlot, runSchedule } from '../cloudflare/dispatch.mj
 import { failStreak, mergeRuns, pollDue } from '../cloudflare/gh_runs.mjs';
 import { boardKey, factParts, groupSame, splitTop } from '../cloudflare/board.mjs';
 import { cleanOutput, cleanSummary, LLM_MODELS, MT_MODEL } from '../cloudflare/translate.mjs';
-import { background, billHint, clipAt, convergence, convergenceRows, countForms, hint, insolvencyWord, ktcHint, usRecallHint, usRecallModels, kepcoHint, localWord, plantTokens, radarItems, siteCity, splitByPlant, stackAlert, stackHint, workforceHint } from '../cloudflare/digest.mjs';
+import { background, billHint, clipAt, convergence, convergenceRows, countForms, hint, insolvencyWord, ktcHint, maintenanceMemo, stackSiteKey, usRecallHint, usRecallModels, kepcoHint, localWord, plantTokens, radarItems, siteCity, splitByPlant, stackAlert, stackHint, workforceHint } from '../cloudflare/digest.mjs';
 
 const ORIGIN = 'https://seoul-reporting-radar.shhong9173.workers.dev';
 const TOKEN = 'test-token-0123456789abcdef';
@@ -1148,6 +1148,49 @@ test('굴뚝 즉시 알림 대상(11-04·11-08 기자 결정): 다른 감시가 
     const r2 = (await call('radar_today', args, opts)).text;
     assert.doesNotMatch(r2.split('\n').find((l) => l.includes('id stk:down:현대제철:현대제철(주)순천공장:d') && l.includes('자세히:')), /즉시 알림 대상/);
   }
+});
+
+test('정기보수 메모(11-08): 기자가 굴뚝 항목을 정기보수 사유로 판정하면 그 사업장 멈춤·빠짐 신호를 30일(또는 적힌 날까지) 접는다', async () => {
+  assert.equal(stackSiteKey('stk:longstop:현대제철:현대제철(주)순천공장:81:2026-11-03'), '현대제철:현대제철(주)순천공장');
+  assert.equal(stackSiteKey('dart:123'), null);
+  const at = '2026-11-07T03:00:00.000Z';
+  const memo = maintenanceMemo([
+    { item_id: 'stk:longstop:현대제철:현대제철(주)순천공장:81:2026-11-03', verdict: '킬', reason: '현대제철 확인 결과 정기보수(순천·당진 배출구 가동중지)', created_at: at },
+    { item_id: 'stk:down:세아:(주)세아창원특수강:2026-11-04', verdict: '킬', reason: '회사 확인: 대정비 12월 5일까지', created_at: at },
+    { item_id: 'stk:exceed:포스코:(주)포스코포항제철소:65:sox:x', verdict: '킬', reason: '기자 판단: 실시간 기준 초과 값만으로는 아직 애매', created_at: at }]);
+  assert.deepEqual([...memo.keys()], ['현대제철:현대제철(주)순천공장', '세아:(주)세아창원특수강']);
+  assert.equal(new Date(memo.get('현대제철:현대제철(주)순천공장').until).toISOString(), '2026-12-07T03:00:00.000Z');   // 30일
+  assert.equal(new Date(memo.get('세아:(주)세아창원특수강').until).toISOString(), '2026-12-05T14:59:00.000Z');      // 12-05 23:59 KST
+  assert.equal(new Date(memo.get('현대제철:현대제철(주)순천공장').from).toISOString(), '2026-10-31T03:00:00.000Z');  // 7일 전부터
+  // radar_today: 판정 뒤 같은 사업장(순천)의 가동 중단 신호는 C로 접고, 다른 사업장(당진 현대제철㈜)은 그대로 B
+  const opts = PRIVATE();
+  const recent = new Date(NOW.getTime() - 2 * 3600000).toISOString();
+  const kst = (h) => new Date(NOW.getTime() + 9 * 3600000 - h * 3600000).toISOString().slice(0, 16).replace('T', ' ');
+  const halt = (h) => ({ status: ['가동중지', kst(h)], obs: [] });
+  await call('candidate_feedback', { item_id: 'stk:longstop:현대제철:현대제철(주)순천공장:81:old', verdict: '킬', reason: '회사 확인(기자): 순천공장 정기 보수를 순차 진행 중' },
+    { ...opts, now: new Date(NOW.getTime() - 86400000) });
+  const ev = (id, kind, tier, company, site) => ({ id, kind, tier, company, site, text: `${site}: ${kind}`, detectedAt: recent });
+  await worker.fetch(new Request(ORIGIN + '/ingest/kr-stacks', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify({
+    schema: 'kr_stacks/v1', generatedAt: recent, status: 'complete', baselineSince: '2026-10-01T00:00:00+09:00', checks: [{ source: '굴뚝 자동측정(CleanSYS)', status: 'ok' }],
+    sites: [{ id: '현대제철:현대제철(주)순천공장', company: '현대제철', name: '현대제철㈜순천공장', meaningful: 4, stacks: { 81: halt(90), 82: halt(90), 83: halt(90) } },
+      { id: '현대제철:현대제철(주)', company: '현대제철', name: '현대제철㈜', meaningful: 50, stacks: {} }],
+    events: [ev('stk:down:현대제철:현대제철(주)순천공장:d', '사업장 가동 중단 신호', 'B', '현대제철', '현대제철㈜순천공장'),
+      ev('stk:down:현대제철:현대제철(주):d', '사업장 가동 중단 신호', 'B', '현대제철', '현대제철㈜'),
+      ev('stk:newstack:현대제철:현대제철(주)순천공장:99', '새 배출구', 'B', '현대제철', '현대제철㈜순천공장')] }) }), opts.env, {});
+  const r = (await call('radar_today', { include_minor: true, limit: 30 }, opts)).text;
+  const block = (t) => r.split(`[${t} · `)[1]?.split('\n[')[0] ?? '';
+  assert.match(block('C'), /현대제철㈜순천공장: 사업장 가동 중단 신호 · ⓘ 기자 판정\(\d\d-\d\d '회사 확인\(기자\): 순천공장 정기 보수를 순차 진행 중'\) — \d\d-\d\d까지 이 사업장 멈춤·빠짐 신호는 접음/);
+  assert.match(block('B'), /현대제철㈜: 사업장 가동 중단 신호/);              // 당진(다른 사업장)
+  assert.match(block('B'), /현대제철㈜순천공장: 새 배출구/);                  // 멈춤·빠짐이 아닌 신호는 그대로
+  // 사흘 넘는 가동중지가 절반 넘어도(4개 중 3개) 정기보수 메모가 있으면 즉시 알림 대상이 아니다
+  assert.doesNotMatch(r, /즉시 알림 대상: 장기 가동중지 신고/);
+  const x = { id: 'stk:down:현대제철:현대제철(주)순천공장:d', tier: 'B', watch: '굴뚝 측정(공장 가동 신호)', company: '현대제철', site: '현대제철㈜순천공장' };
+  const sdoc = { sites: [{ company: '현대제철', name: '현대제철㈜순천공장', meaningful: 4, stacks: { 81: halt(90), 82: halt(90), 83: halt(90) } }] };
+  assert.match(stackAlert(x, [], sdoc, NOW.getTime()), /장기 가동중지 신고 — 평소 움직이던 배출구 4개 중 3개/);
+  assert.equal(stackAlert(x, [], sdoc, NOW.getTime(), new Map(), maintenanceMemo([{ item_id: x.id, reason: '정기보수', created_at: new Date(NOW.getTime() - 86400000).toISOString() }])), null);
+  // kr_official 굴뚝 화면에 메모를 보인다
+  const st = (await call('kr_official', { section: 'stacks' }, opts)).text;
+  assert.match(st, /- 정기보수 메모\(기자 판정 — 이 기간 멈춤·빠짐 신호는 레이더에서 접음\) 1곳: 현대제철\(주\)순천공장 \d\d-\d\d '회사 확인\(기자\): 순천공장 정기 보수를 순차 진행 중' → \d\d-\d\d까지/);
 });
 
 test('굴뚝 겹친 신호 공장 이름 맞춤: 같은 시군의 다른 공장 이름은 증거 아님, 같은 공장 이름은 맞음 표시, 숫자뿐인 공장 이름은 무시', () => {
