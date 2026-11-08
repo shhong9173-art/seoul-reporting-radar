@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-11-06T08:11:38+09:00",
+  "generatedAt": "2026-11-09T08:11:22+09:00",
   "lookbackDays": 30,
-  "windowStart": "2026-10-07",
+  "windowStart": "2026-10-10",
   "scope": "US Federal Register 8개 검색 + EU TED 8개 검색. 회사명 검색 결과만 검토하며 주·카운티 인허가 및 EPA 시설별 환경허가는 별도 확인 필요",
   "limits": "미국 주·카운티 건축/환경 인허가, EU 각국 소액 조달, 모든 세계 공장 인허가를 망라하지 않음",
   "checks": [
@@ -81,17 +81,17 @@
       "provider": "US Federal Register",
       "query": "Hyundai Steel",
       "status": "checked",
-      "returned": 6,
-      "matched": 2,
-      "unverified": 4
+      "returned": 3,
+      "matched": 1,
+      "unverified": 2
     },
     {
       "provider": "US Federal Register",
       "query": "POSCO",
       "status": "checked",
-      "returned": 4,
+      "returned": 2,
       "matched": 1,
-      "unverified": 3
+      "unverified": 1
     },
     {
       "provider": "US Federal Register",
@@ -135,6 +135,23 @@
     }
   ],
   "documents": [
+    {
+      "source": "US Federal Register",
+      "sourceType": "federal_notice",
+      "sourceId": "2026-22706",
+      "published": "2026-11-06",
+      "companiesMentioned": [
+        "포스코"
+      ],
+      "companySearchTerm": "POSCO",
+      "nameVerified": true,
+      "title": "Certain Carbon and Alloy Steel Cut-to-Length Plate From the Republic of Korea: Notice of Court Decision Not in Harmony With the Results of Countervailing Duty Administrative Review; Notice of Amended Final Results",
+      "abstract": "On October 27, 2026, the U.S. Court of International Trade (CIT) issued its final judgment in POSCO v. United States Consol. Court No. 24-00006, Slip Op. 26-131, sustaining the U.S. Department of Commerce (Commerce)'s second remand results pertaining to the administrative review of the countervailing duty (CVD) order on of certain carbon and alloy ",
+      "sourceUrl": "https://www.federalregister.gov/documents/2026/11/06/2026-22706/certain-carbon-and-alloy-steel-cut-to-length-plate-from-the-republic-of-korea-notice-of-court",
+      "evidence": "공식 연방 고시의 제목·요약에 기업명 등장",
+      "notProven": "지역 공장허가 취득·회사 사업 확정·직접 수주 여부 미확인",
+      "exclusiveStatus": "공개 문서 취재 단서·단독 미확정"
+    },
     {
       "source": "US Federal Register",
       "sourceType": "federal_notice",
@@ -256,58 +273,10 @@
       "evidence": "연방 고시 검색 색인 일치: 기업명·사건 관계를 원문에서 확인하지 못함",
       "notProven": "지역 공장허가 취득·회사 사업 확정·직접 수주 여부 미확인",
       "exclusiveStatus": "공개 문서 취재 단서·단독 미확정"
-    },
-    {
-      "source": "US Federal Register",
-      "sourceType": "federal_notice",
-      "sourceId": "2026-20778",
-      "published": "2026-10-09",
-      "companiesMentioned": [
-        "현대제철",
-        "포스코"
-      ],
-      "companySearchTerm": "Hyundai Steel",
-      "nameVerified": true,
-      "title": "Certain Hot-Rolled Steel Flat Products From the Republic of Korea: Final Results of Countervailing Duty Administrative Review; 2023",
-      "abstract": "The U.S. Department of Commerce (Commerce) determines Hyundai Steel Company (Hyundai Steel) and POSCO, producers/exporters of certain hot-rolled steel flat products (hot-rolled steel) from the Republic of Korea (Korea), received countervailable subsidies during the period of review (POR) January 1, 2023, through December 31, 2023.",
-      "sourceUrl": "https://www.federalregister.gov/documents/2026/10/09/2026-20778/certain-hot-rolled-steel-flat-products-from-the-republic-of-korea-final-results-of-countervailing",
-      "evidence": "공식 연방 고시의 제목·요약에 기업명 등장",
-      "notProven": "지역 공장허가 취득·회사 사업 확정·직접 수주 여부 미확인",
-      "exclusiveStatus": "공개 문서 취재 단서·단독 미확정"
-    },
-    {
-      "source": "US Federal Register",
-      "sourceType": "federal_notice",
-      "sourceId": "2026-20699",
-      "published": "2026-10-08",
-      "companiesMentioned": [],
-      "companySearchTerm": "Hyundai Steel",
-      "nameVerified": false,
-      "title": "Certain Corrosion-Resistant Steel Products From the Republic of Korea: Preliminary Results and Recission, In Part, of Countervailing Duty Administrative Review; 2024",
-      "abstract": "The U.S. Department of Commerce (Commerce) preliminarily determines that countervailable subsidies were provided to producers and exporters of certain corrosion-resistant steel products (CORE) from the Republic of Korea (Korea), during the period of review (POR) January 1, 2024, through December 31, 2024. In addition, Commerce is rescinding this re",
-      "sourceUrl": "https://www.federalregister.gov/documents/2026/10/08/2026-20699/certain-corrosion-resistant-steel-products-from-the-republic-of-korea-preliminary-results-and",
-      "evidence": "연방 고시 검색 색인 일치: 기업명·사건 관계를 원문에서 확인하지 못함",
-      "notProven": "지역 공장허가 취득·회사 사업 확정·직접 수주 여부 미확인",
-      "exclusiveStatus": "공개 문서 취재 단서·단독 미확정"
-    },
-    {
-      "source": "US Federal Register",
-      "sourceType": "federal_notice",
-      "sourceId": "2026-20698",
-      "published": "2026-10-08",
-      "companiesMentioned": [],
-      "companySearchTerm": "Hyundai Steel",
-      "nameVerified": false,
-      "title": "Certain Corrosion-Resistant Steel Products From the Republic of Korea: Preliminary Results and Rescission, in Part, of Antidumping Duty Administrative Review; 2024-2025",
-      "abstract": "The U.S. Department of Commerce (Commerce) preliminarily determines that producers/exporters subject to this review made sales of subject merchandise at less than normal value (NV) during the period of review (POR), July 1, 2024, through June 30, 2025. Interested parties are invited to comment on these preliminary results of review.",
-      "sourceUrl": "https://www.federalregister.gov/documents/2026/10/08/2026-20698/certain-corrosion-resistant-steel-products-from-the-republic-of-korea-preliminary-results-and",
-      "evidence": "연방 고시 검색 색인 일치: 기업명·사건 관계를 원문에서 확인하지 못함",
-      "notProven": "지역 공장허가 취득·회사 사업 확정·직접 수주 여부 미확인",
-      "exclusiveStatus": "공개 문서 취재 단서·단독 미확정"
     }
   ],
   "matchedCount": 2,
-  "unverifiedSearchMatches": 9,
+  "unverifiedSearchMatches": 7,
   "sourceErrors": 0,
   "scoopConfirmed": 0
 }
