@@ -340,6 +340,8 @@ class Local(unittest.TestCase):
         self.assertEqual(doc["directHistory"]["평택시"], "fff")
         self.assertEqual(doc["directHistory"]["당진시"], "ooo")
         self.assertIn("평택시 3/3번", doc["healthNote"])
+        self.assertEqual(w.history_notice(doc["directHistory"]), " · 직접 조회 이력 4곳·최장 3번(문제 있던 곳 평택시 fff)")
+        self.assertEqual(w.history_notice({}), "")
 
     def test_cheongju_homepage_board(self):
         # 10-30 청주 홈페이지 고시공고 게시판 실제 모양(번호·공고번호·제목·부서·등록일)
