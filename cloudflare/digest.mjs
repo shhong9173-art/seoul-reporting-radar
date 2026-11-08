@@ -1207,6 +1207,12 @@ function health(ctx, docs) {
     if (unset.length) issues.push(`미설정 ${unset.map((c) => `${c.source}(${c.error ?? '열쇠 없음'})`).join(', ')}`);
     if (waiting.length) issues.push(`${waiting.map((c) => `${c.source} 원문 대기 ${c.pending}건`).join(', ')}(실행당 읽기 한도, 다음 실행에서 읽음)`);
     if (paused.length) issues.push(`대기 ${paused.length}곳(${[...new Set(paused.map((c) => waitReason(c.reason)))].join(', ')})`);
+    // 조용한 0건(screen.mjs returnedWatch): 감시는 '정상'인데 원천이 두 번 연달아 0줄·급감 — 사이트 형식이 바뀌었을 수 있다
+    const silent = Array.isArray(d._returnedWatch?.silent) ? d._returnedWatch.silent : [];
+    if (silent.length) {
+      issues.push(`⚠ 형식 변경 의심 ${silent.length}곳(${silent.slice(0, 3).map((x) => `${x.source}: ${x.kind === 'zero' ? '정상 응답인데 0줄' : `${x.now}줄로 급감`}`
+        + `, 이전 ${(x.before ?? []).join('·')}줄`).join(' / ')}) — 원문 사이트 목록이 보이는지 확인`);
+    }
     if (issues.length) lines.push(`- ${w.label}: ${issues.join(' · ')} — 해당 부분 0건은 미확인`);
     // 감시가 남긴 운영 제안(11-08 지자체: 직접 조회 실패가 잦은 시·군 → 기자 컴퓨터 대신 수집 후보)은 실패 줄과 따로
     if (typeof d.healthNote === 'string' && d.healthNote) lines.push(`- ${w.label}: ${d.healthNote.slice(0, 300)}`);
