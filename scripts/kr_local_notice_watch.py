@@ -553,6 +553,15 @@ def direct_history(previous, results):
     return {city: (code + hist.get(city, ""))[:HISTORY_RUNS] for city, code in codes.items()}
 
 
+def history_notice(history):
+    # Actions 요약에서 이력이 쌓이는지 본다(비공개 저장소를 열지 않고) — 시·군 수, 가장 긴 이력, 문제 있던 곳
+    if not history:
+        return ""
+    bad = sorted(c for c, h in history.items() if set(h) - {"o"})
+    return (f" · 직접 조회 이력 {len(history)}곳·최장 {max(len(h) for h in history.values())}번"
+            + (f"(문제 있던 곳 {', '.join(f'{c} {history[c]}' for c in bad[:8])})" if bad else ""))
+
+
 def backup_suggestion(history):
     bad = sorted(((city, sum(1 for ch in h if ch != "o"), len(h)) for city, h in history.items() if city not in BROWSER_BACKUP),
                  key=lambda x: (-x[1], x[0]))
@@ -695,7 +704,10 @@ def main():
     det = doc.get("details") or {}
     print(f"::notice title=kr-local::상태 {doc['status']} · 시·군 {len(ok)}/{len(doc['checks'])} 정상 · 새 고시·공고 {tiers} · 보관 {len(doc['items'])}"
           + (f" · 상세 읽음 {det.get('read', 0)}·실패 {det.get('failed', 0)}" if det else "")
-          + (f" · 미확인 {', '.join(bad)}" if bad else ""))
+          + (f" · 미확인 {', '.join(bad)}" if bad else "")
+          + history_notice(doc.get("directHistory")))
+    if doc.get("healthNote"):
+        print(f"::notice title=kr-local-backup::{doc['healthNote']}")
     if not token:
         print("::warning title=kr-local-push::MCP_ACCESS_TOKEN 미설정 — 결과를 저장하지 않음")
         return
