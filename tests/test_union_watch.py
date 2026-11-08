@@ -13,8 +13,8 @@ KST = dt.timezone(dt.timedelta(hours=9))
 NOW = dt.datetime(2026, 11, 3, 21, 30, tzinfo=KST)
 
 
-def kmwu_list(ids):
-    rows = "".join(f'<tr class=""> <td class="td_subject"> <a href="https://kmwu.kr/bbs/board.php?bo_table=ce_B12&amp;wr_id={i}"> 제목 {i} </a> </td> <td class="td_date">2026-11-03</td> </tr>' for i in ids)
+def kmwu_list(ids, bo="ce_B12"):
+    rows = "".join(f'<tr class=""> <td class="td_subject"> <a href="https://kmwu.kr/bbs/board.php?bo_table={bo}&amp;wr_id={i}"> 제목 {i} </a> </td> <td class="td_date">2026-11-03</td> </tr>' for i in ids)
     return ('<table> <tbody> <tr class="bo_notice"> <td class="td_subject"> <a href="https://kmwu.kr/bbs/board.php?bo_table=ce_B12&amp;wr_id=219977"> 금속노조 관련 보도 참조사항 </a> </td>'
             '<td class="td_date">2025-06-05</td> </tr>' + rows + "</tbody></table>")
 
@@ -85,17 +85,21 @@ class Parse(unittest.TestCase):
 
 class Run(unittest.TestCase):
     def test_baseline_then_new_posts(self):
-        lists = {"ce_B12": kmwu_list(["220884"]), "bodo": kctfu_list("bodo", ["468"]), "news": kctfu_list("news", ["972"])}
+        lists = {"ce_B12": kmwu_list(["220884"]), "bodo": kctfu_list("bodo", ["468"]), "news": kctfu_list("news", ["972"]),
+                 "ce_B13": kmwu_list(["217654"], "ce_B13")}
         get, calls = fake(lists)
         doc = w.run(NOW, None, get=get, sleep=lambda s: None)
         self.assertEqual(doc["status"], "complete")
         self.assertFalse([c for c in calls if c[1]])   # 기준선은 글을 열지 않는다
-        self.assertEqual([c.get("note") for c in doc["checks"]], ["첫 실행 기준선"] * 3)
-        lists2 = {"ce_B12": kmwu_list(["220888", "220887", "220886", "220885", "220884"]), "bodo": kctfu_list("bodo", ["469", "468"]), "news": kctfu_list("news", ["972"])}
+        self.assertEqual([c.get("note") for c in doc["checks"]], ["첫 실행 기준선"] * 4)
+        lists2 = dict(lists, ce_B12=kmwu_list(["220888", "220887", "220886", "220885", "220884"]), bodo=kctfu_list("bodo", ["469", "468"]))
         get2, calls2 = fake(lists2)
         doc2 = w.run(NOW + dt.timedelta(hours=3), doc, get=get2, sleep=lambda s: None)
         self.assertNotIn(("ce_B12", "220884"), calls2)   # 본 글은 다시 안 읽음
-        ev = {e["id"]: e for e in doc2["events"]}
+        # 금속노조 누리집은 robots.txt Crawl-delay 때문에 게시판마다 한 실행에 2개까지 — 나머지는 다음 실행
+        self.assertEqual([c for c in calls2 if c[0] == "ce_B12" and c[1]], [("ce_B12", "220888"), ("ce_B12", "220887")])
+        doc3 = w.run(NOW + dt.timedelta(hours=6), doc2, get=get2, sleep=lambda s: None)
+        ev = {e["id"]: e for e in doc3["events"]}
         self.assertEqual(sorted((e["company"], e["tier"]) for e in ev.values()),
                          [("LG화학", "B"), ("금호타이어", "A"), ("현대위아", "A"), ("현대제철", "B")])
         wia = ev["un:ce_B12:220888"]
@@ -104,17 +108,34 @@ class Run(unittest.TestCase):
         self.assertEqual(wia["url"], "https://www.kmwu.kr/bbs/board.php?bo_table=ce_B12&wr_id=220888")
         self.assertIn("이름은 본문에만", ev["un:ce_B12:220885"]["text"])
         self.assertNotIn("un:ce_B12:220886", ev)   # 포스코퓨처엠만 — 출입처 아님
-        self.assertEqual(len([p for p in doc2["posts"]]), 4)
+        self.assertEqual(len([p for p in doc3["posts"]]), 4)
+
+    def test_crawl_delay_between_kmwu_requests(self):
+        # 11-08: kmwu.kr robots.txt Crawl-delay 180 — 금속노조 누리집 요청 앞에는(처음 빼고) 181초, 화섬식품노조는 2초
+        lists = {"ce_B12": kmwu_list(["220884"]), "bodo": kctfu_list("bodo", ["468"]), "news": kctfu_list("news", ["972"]),
+                 "ce_B13": kmwu_list(["217654"], "ce_B13")}
+        doc = w.run(NOW, None, get=fake(lists)[0], sleep=lambda s: None)
+        posts = {**POSTS, ("ce_B13", "217655"): kmwu_post("구미지부 소식지 44호", "LS전선 구미공장 지회가 파업 찬반투표를 한다.")}
+        lists2 = dict(lists, ce_B12=kmwu_list(["220888", "220884"]), ce_B13=kmwu_list(["217655", "217654"], "ce_B13"))
+        naps = []
+        get2, calls2 = fake(lists2, posts=posts)
+        doc2 = w.run(NOW + dt.timedelta(hours=3), doc, get=get2, sleep=naps.append)
+        self.assertEqual(calls2, [("ce_B12", None), ("ce_B12", "220888"), ("bodo", None), ("news", None), ("ce_B13", None), ("ce_B13", "217655")])
+        self.assertEqual(naps, [181.0, 2.0, 2.0, 181.0, 181.0])   # 금속노조로 돌아올 때도 181초(마지막 요청부터 따지지 않고 넉넉히)
+        ev = {e["id"]: e for e in doc2["events"]}
+        self.assertEqual(ev["un:ce_B13:217655"]["company"], "LS전선")
+        self.assertIn("금속노조 지역소식(지부·지회)", ev["un:ce_B13:217655"]["text"])
 
     def test_failures(self):
-        lists = {"ce_B12": kmwu_list(["220884"]), "bodo": kctfu_list("bodo", ["468"]), "news": kctfu_list("news", ["972"])}
+        lists = {"ce_B12": kmwu_list(["220884"]), "bodo": kctfu_list("bodo", ["468"]), "news": kctfu_list("news", ["972"]),
+                 "ce_B13": kmwu_list(["217654"], "ce_B13")}
         doc = w.run(NOW, None, get=fake(lists)[0], sleep=lambda s: None)
         lists2 = dict(lists, ce_B12=kmwu_list(["220888", "220884"]))
         doc2 = w.run(NOW, doc, get=fake(lists2, fail=(("ce_B12", "220888"), "news"))[0], sleep=lambda s: None)
         by = {c["source"]: c for c in doc2["checks"]}
         self.assertEqual((by["금속노조 보도자료/성명"]["status"], by["화섬식품노조 주요소식"]["status"], doc2["status"]), ("partial", "failed", "partial"))
         self.assertNotIn("220888", doc2["seen"]["https://www.kmwu.kr|ce_B12"])   # 다음 실행에 다시
-        allfail = w.run(NOW, doc, get=fake(lists, fail=("ce_B12", "bodo", "news"))[0], sleep=lambda s: None)
+        allfail = w.run(NOW, doc, get=fake(lists, fail=("ce_B12", "bodo", "news", "ce_B13"))[0], sleep=lambda s: None)
         self.assertEqual(allfail["status"], "failed")
 
 
