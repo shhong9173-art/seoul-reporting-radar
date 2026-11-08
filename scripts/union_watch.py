@@ -5,7 +5,8 @@
 - 원천(11-03 탐침 146·148): 금속노조(kmwu.kr) '보도자료/성명'(ce_B12) — robots.txt는 /adm/만 막음, 11-03 「[보도자료] 현대위아 특수사업부
   노동…」·「[보도자료] 금호타이어 광주공장 끼임…」. 화섬식품노조(kctfu.org) '보도자료/성명'(bodo)·'주요소식'(news) — robots.txt 없음.
   둘 다 그누보드(목록 → 글: <title>·bo_v_info '작성일 26-11-03 21:34'·bo_v_con 본문).
-- 새 글(본 wr_id 아님)만 글을 열어 제목·본문 앞부분에서 출입처 이름을 찾는다(요청 2초 간격, 게시판마다 한 실행 15건).
+- 새 글(본 wr_id 아님)만 글을 열어 제목·본문 앞부분에서 출입처 이름을 찾는다(요청 2초 간격, 게시판마다 한 실행 15건 —
+  금속노조 누리집은 robots.txt Crawl-delay 180초를 지켜 181초 간격·게시판마다 2건, 11-08).
 - 등급: 제목·본문 첫머리에 사망·사고·파업·쟁의·결렬·폐쇄·매각·분할·구조조정·해고·가처분·고발·원청 교섭 같은 낱말이 있으면 A, 아니면 B.
   출입처 이름이 제목에 없고 본문에만 있으면 한 단계 내린다.
 - 노조 발표는 한쪽 주장이다 — 회사 입장·사실관계(사고 경위·교섭 일정)는 확인해야 한다. 첫 실행은 기준선. 공개 로그는 건수만.
@@ -28,9 +29,16 @@ SCHEMA = "union_notices/v1"
 UA = {"User-Agent": "seoul-reporting-radar (newsroom research; union public statements)"}
 BOARDS = [("금속노조 보도자료/성명", "https://www.kmwu.kr", "ce_B12"),
           ("화섬식품노조 보도자료/성명", "https://kctfu.org", "bodo"),
-          ("화섬식품노조 주요소식", "https://kctfu.org", "news")]
+          ("화섬식품노조 주요소식", "https://kctfu.org", "news"),
+          # 지부·지회 소식(11-08 탐침 201): 금속노조 '지역소식'(ce_B13) — 인천·구미·경주지부 소식지, 금속충남통신, GGM지회 단식농성 등.
+          # 현대차지부·기아지부 같은 개별 노조 누리집은 GitHub에서 주소가 열리지 않았다(hhu.or.kr 등 연결 실패).
+          ("금속노조 지역소식(지부·지회)", "https://www.kmwu.kr", "ce_B13")]
 PAUSE = 2.0
 PER_BOARD = 15
+# robots.txt 'Crawl-delay: 180'(kmwu.kr, 11-08 탐침 200 확인 — 11-03 탐침 때는 /adm/ 막음만 보고 2초 간격으로 읽었다). 같은 누리집 요청 사이
+# 181초를 둔다. 그래서 이 누리집은 게시판마다 한 실행에 글 2개까지만 열고(나머지는 다음 실행), 실행은 최대 약 15분이 걸린다.
+CRAWL_DELAY = {"https://www.kmwu.kr": 181.0}
+SLOW_PER_BOARD = 2
 KEEP_DAYS = 60
 UNION_BEATS = [
     ("현대차", r"현대자동차|현대차(?!증권)"), ("기아", r"기아(?=차|자동차|지부|지회|노조|사측|노동자|오토랜드)|기아(?![가-힣])"),
@@ -105,13 +113,20 @@ def run(now, previous=None, *, get=None, sleep=time.sleep):
     known = {x["id"]: x for x in prev.get("posts") or [] if isinstance(x, dict) and x.get("id")}
     events = [e for e in prev.get("events") or [] if isinstance(e, dict)]
     checks = []
-    first_call = True
+    used = set()
+
+    def wait(base):
+        # 같은 누리집은 robots.txt Crawl-delay만큼, 다른 누리집으로 넘어갈 때는 2초
+        if base in used:
+            sleep(CRAWL_DELAY.get(base, PAUSE))
+        elif used:
+            sleep(PAUSE)
+        used.add(base)
+
     for label, base, bo in BOARDS:
         key = f"{base}|{bo}"
         first = key not in seen
-        if not first_call:
-            sleep(PAUSE)
-        first_call = False
+        wait(base)
         try:
             r = get(f"{base}/bbs/board.php", params={"bo_table": bo}, headers=UA, timeout=30)
             if r.status_code != 200:
@@ -126,10 +141,10 @@ def run(now, previous=None, *, get=None, sleep=time.sleep):
             seen[key] = ids[:200]
             checks.append({"source": label, "status": "ok", "returned": len(ids), "note": "첫 실행 기준선"})
             continue
-        new = [i for i in ids if i not in seen[key]][:PER_BOARD]
+        new = [i for i in ids if i not in seen[key]][:SLOW_PER_BOARD if base in CRAWL_DELAY else PER_BOARD]
         bad = 0
         for wid in new:
-            sleep(PAUSE)
+            wait(base)
             try:
                 d = get(f"{base}/bbs/board.php", params={"bo_table": bo, "wr_id": wid}, headers=UA, timeout=30)
                 if d.status_code != 200:
@@ -166,7 +181,8 @@ def run(now, previous=None, *, get=None, sleep=time.sleep):
     return {"schema": SCHEMA, "generatedAt": stamp, "status": status, "checks": checks, "seen": seen,
             "posts": sorted((x for x in known.values() if str(x.get("firstSeen")) >= keep), key=lambda x: str(x.get("date") or x.get("firstSeen")), reverse=True)[:300],
             "events": sorted((e for e in events if str(e.get("detectedAt")) >= keep), key=lambda e: e["detectedAt"], reverse=True)[:200],
-            "rules": ["금속노조·화섬식품노조 공개 게시판(보도자료·성명·주요소식)의 새 글 중 제목·본문 앞부분에 출입처 이름이 나온 것. 노조 발표는 한쪽 주장이다 — 회사 입장·사실관계 확인.",
+            "rules": ["금속노조·화섬식품노조 공개 게시판(보도자료·성명·주요소식, 금속노조 지역소식의 지부·지회 소식지)의 새 글 중 제목·본문 앞부분에 출입처 이름이 나온 것. 노조 발표는 한쪽 주장이다 — 회사 입장·사실관계 확인.",
+                      "금속노조 누리집은 robots.txt의 요청 간격(180초)을 지켜 게시판마다 한 실행에 글 2개까지만 연다 — 새 글이 많으면 다음 실행으로 넘어간다(늦게 잡힐 수 있음).",
                       "사망·사고·파업·쟁의·결렬·폐쇄·매각·분할·구조조정·해고·가처분·고발·원청 교섭 낱말이 있으면 A, 아니면 B. 이름이 본문에만 있으면 한 단계 내림.",
                       "첫 실행은 기준선(그때 목록의 글은 열지 않음). 조회 실패 게시판은 0건이 아니라 미확인."]}
 

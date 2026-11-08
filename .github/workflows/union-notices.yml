@@ -20,7 +20,7 @@ concurrency:
 jobs:
   union:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 25   # 금속노조 누리집 Crawl-delay 180초(요청 최대 6번 ≈ 15분)
     steps:
       - uses: actions/checkout@v4
         with:
