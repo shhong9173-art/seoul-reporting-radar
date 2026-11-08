@@ -19,6 +19,8 @@ export const BROWSER_CITIES = {
   나주시: 'https://eminwon.naju.go.kr',  // 11-01 석유화학 출입처(LG화학 나주공장) — GitHub 직접 조회가 안 되는 날 대신
   광양시: 'https://eminwon.gwangyang.go.kr',  // 11-07 포스코 광양제철소 — GitHub에서 시간 초과가 잦음
   천안시: 'https://eminwon.cheonan.go.kr',    // 11-07 LS일렉트릭 — GitHub에서 ReadTimeout이 잦음
+  평택시: 'https://eminwon.pyeongtaek.go.kr',  // 11-08 KG모빌리티 — 11-03~07 직접 조회 24번 중 3번 실패
+  원주시: 'https://eminwon.wonju.go.kr',       // 11-08 HL만도 — 같은 기간 3번 실패
 };
 const BLOB = 'kr_local_browser';
 const SCHEMA = 'kr_local_browser/v1';

@@ -1,6 +1,6 @@
 // Aside(기자 컴퓨터의 AI 브라우저) REPL에서 돌리는 수집 코드 — 예약 작업 '새올 고시·공고 브라우저 수집'이 아래 여섯 토막을
 // 차례로 mcp aside repl(code=…)에 그대로 넣는다. 11-06 기자 승인: 내장 브라우저로 시·군 목록을 하나씩 열던 방식(한 번에 8분 넘게)을 대신한다.
-// 하는 일(읽기만): 해외 IP(GitHub)에서 막히거나 들쑥날쑥한 시·군 10곳 새올 고시·공고 목록 첫 쪽, 호주 무역구제 공지(TRN) 목록, 노동위원회
+// 하는 일(읽기만): 해외 IP(GitHub)에서 막히거나 들쑥날쑥한 시·군 12곳 새올 고시·공고 목록 첫 쪽, 호주 무역구제 공지(TRN) 목록, 노동위원회
 // 회의일정 달력 14곳. 시·군 목록에서 출입처 이름이 든 줄은 상세 페이지(제목 전체·본문 앞 400자·첨부 파일 이름)까지 읽고,
 // 그 공고의 첨부 공고문(hwpx·hwp, 공고마다 3개까지 — 11-06·11-07 기자 승인)을 같은 사이트에서 내려받아 글자만 앞 4000자 보낸다(파일은 저장하지 않음).
 // 마지막 토막이 레이더(Worker /upload/browser)에 직접 올린다 — 열쇠는 Aside 브라우저의 그 사이트 저장소에만 있고(scripts/aside/register_upload_key.js로 한 번 만듦)
@@ -13,7 +13,7 @@
 // - 맨 위 이름은 세션 안에서 계속 남는다 — 결과는 globalThis.__R에 두고, 코드는 블록 { } 안에 둔다.
 // 출입처 이름 정규식(BEAT)은 scripts/kr_local_notice_watch.py COMPANIES를 이은 것 — tests/test_aside_collect.py가 같음을 확인한다.
 
-// ===== 토막 1: 시·군 10곳 목록(동시에, 40초 안) =====
+// ===== 토막 1: 시·군 12곳 목록(동시에, 40초 안) =====
 {
   const T0 = Date.now();
   const CITIES = [
@@ -21,6 +21,7 @@
     ['순천시', 'https://eminwon.suncheon.go.kr'], ['함평군', 'https://eminwon.hampyeong.go.kr'], ['양산시', 'https://eminwon.yangsan.go.kr'],
     ['광주 광산구', 'https://eminwon.gwangsan.go.kr'], ['나주시', 'https://eminwon.naju.go.kr'],
     ['광양시', 'https://eminwon.gwangyang.go.kr'], ['천안시', 'https://eminwon.cheonan.go.kr'],
+    ['평택시', 'https://eminwon.pyeongtaek.go.kr'], ['원주시', 'https://eminwon.wonju.go.kr'],
   ];
   const P = '/emwp/gov/mogaha/ntis/web/ofr/action/OfrAction.do';
   const form = (sub) => new URLSearchParams({ method: 'selectListOfrNotAncmt', methodnm: 'selectListOfrNotAncmtHomepage', homepage_pbs_yn: 'Y',
@@ -355,7 +356,7 @@
 {
   const R = globalThis.__R;
   const UPLOAD = 'https://seoul-reporting-radar.shhong9173.workers.dev/upload/browser';
-  const CITY_NAMES = ['인천 부평구', '구미시', '청주시', '순천시', '함평군', '양산시', '광주 광산구', '나주시', '광양시', '천안시'];
+  const CITY_NAMES = ['인천 부평구', '구미시', '청주시', '순천시', '함평군', '양산시', '광주 광산구', '나주시', '광양시', '천안시', '평택시', '원주시'];
   const lost = '수집 세션이 끊김(Aside 재시작 등) — 다시 수집 필요';
   const cities = CITY_NAMES.map((name) => {
     const c = R && R.cities.find((x) => x.city === name);
