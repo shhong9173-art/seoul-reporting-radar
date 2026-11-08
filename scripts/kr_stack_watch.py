@@ -429,6 +429,31 @@ MARGINAL = 1.05  # 측정값/기준이 이 아래면 '조금 넘은 값'
 
 RESTART_NOTE = " — 직전까지 '가동중지'·멈춤이던 배출구가 다시 값을 보내며 넘은 것이라 가동 개시 직후 값일 수 있음(처음 넘은 값은 한 단계 낮춤)"
 
+# 기자 판정 반영(11-08): 11-04~11-07 굴뚝 항목 16건이 모두 킬이었다(정기보수 확인 8·'실시간 기준 초과 값만으로는 애매' 3·
+# '굴뚝 실시간 신호만 있고 뒷받침할 증거가 없음' 5), 즉시 알림으로 보낸 굴뚝 21건도 킬 9·판정 없음 12. 기자: '굴뚝 측정 쓸데없는게 너무 많이 와'.
+# 실시간 신호만으로는 A를 주지 않고, 배출구 하나하나의 신호(초과·멈춤·전환·빠짐)는 C로 둔다 — kr_official section=stacks 화면에는 그대로 남는다.
+# 남는 B: 사업장 가동 중단 신호(평소 움직이던 배출구 다수가 멈춤), 새 배출구·새 사업장, 사업장 오래 빠짐, 24시간 넘게 기준의 1.5배 넘게 이어진 초과.
+TIER_CAP = {
+    "배출허용기준 초과(측정값)": "C", "배출허용기준 초과 지속": "C",
+    "배출구 오래 멈춤": "C", "배출구 멈춤 신호": "C", "배출구 가동중지 전환": "C", "배출구 가동중지 해제": "C",
+    "사업장 재가동 신호": "C", "배출구 목록에서 빠짐": "C", "배출구 오래 빠짐": "C", "사업장 목록에서 빠짐(굴뚝 측정)": "C",
+    "사업장 가동 중단 신호": "B", "새 배출구": "B", "새 사업장(굴뚝 측정)": "B", "사업장 오래 빠짐(굴뚝 측정)": "B",
+    "배출허용기준 장기 초과": "B",
+}
+TIER_ORDER = {"A": 0, "B": 1, "C": 2}
+LONG_EXCEED_RUNS = 8      # 이 감시의 실행 8번(3시간마다, 약 하루) 연달아 넘으면 '장기 초과'를 한 번
+LONG_EXCEED_RATIO = 1.5   # 그때 값이 기준의 1.5배 이상이면 B, 아니면 C
+
+
+def cap_tiers(events):
+    """굴뚝 실시간 신호의 등급 상한(11-08 기자 판정). 저장된 옛 이벤트에도 적용한다(이전 등급은 tierWas)."""
+    for e in events:
+        cap = TIER_CAP.get(e.get("kind"))
+        if cap and TIER_ORDER.get(e.get("tier"), 2) < TIER_ORDER[cap]:
+            e.setdefault("tierWas", e.get("tier"))
+            e["tier"] = cap
+
+
 
 EXCEED_ID = re.compile(r"^stk:exceed:(.+):([^:]+):(tsp|sox|nox|hcl|hf|nh3|co):(\d{4}-\d{2}-\d{2} \d{2}:\d{2})$")
 
@@ -804,6 +829,12 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep, clock=time.
                     elif ep["count"] == 2:
                         emit(f"stk:exceed2:{sid}:{code}:{p}:{ep['start']}", "배출허용기준 초과 지속", "B" if small else "A", comp["company"], name,
                              f"{what} — {ep['start']} 측정부터 이 감시의 실행 2번 연속 초과(처음 {ep['first'][0]:g}){note}" + tail)
+                    elif ep["count"] == LONG_EXCEED_RUNS:
+                        # 약 하루 이어진 초과(11-08): 실시간 값 한두 번보다 강한 신호 — 그래도 확정 전 값이라 B까지
+                        strong = m / lim >= LONG_EXCEED_RATIO and not small
+                        emit(f"stk:exceedlong:{sid}:{code}:{p}:{ep['start']}", "배출허용기준 장기 초과", "B" if strong else "C", comp["company"], name,
+                             f"{what} — {ep['start']} 측정부터 이 감시의 실행 {LONG_EXCEED_RUNS}번(약 하루) 연속 초과(처음 {ep['first'][0]:g})"
+                             + ("" if strong else f" — 기준의 {LONG_EXCEED_RATIO}배 아래라 C") + note + tail)
             if new_codes:
                 days = age_days(s.get("firstSeen"), now)
                 tier = new_tier(days)
@@ -996,6 +1027,7 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep, clock=time.
     annotate_late_starts(events, sites, now)
     collapse_gone_bursts(fresh + events)
     collapse_long_gone(fresh + events)
+    cap_tiers(fresh + events)
     total_terms = sum(len(c["terms"]) for c in cfg["companies"])
     status = "failed" if ok_terms == 0 else ("partial" if errors else "complete")
     checks = [{"source": "굴뚝 자동측정(CleanSYS)", "status": "ok" if not errors else ("failed" if not ok_terms else "partial"),
@@ -1004,6 +1036,7 @@ def run(cfg, *, now, previous=None, key, get=None, sleep=time.sleep, clock=time.
             "baselineSince": prev.get("baselineSince") or stamp,
             "sites": sorted(sites.values(), key=lambda s: (s["company"], s["name"])), "events": (fresh + events)[:300],
             "rules": ["굴뚝 자동측정(TMS) 실시간 값을 이 감시가 3시간마다 쌓은 이력이다. 배출구 이름·설비 종류는 자료에 없다(번호만).",
+                      "등급 상한(11-08 기자 판정 — 굴뚝 항목 16건 모두 킬): 실시간 신호만으로는 A를 주지 않는다. 배출구 하나하나의 기준 초과·멈춤·'가동중지' 전환·목록 빠짐은 C로 이 화면에만 남긴다. 레이더 B로 남는 것은 사업장 가동 중단 신호·새 배출구·새 사업장·사업장 오래 빠짐·약 하루(실행 8번) 넘게 기준의 1.5배 넘게 이어진 '장기 초과'뿐이다. 아래 규칙의 A·B는 이 상한 전 등급이다.",
                       "측정값이 평소의 10% 아래로 떨어진 것은 설비 정지·정비·측정기 점검·연료 전환일 수 있다. 가동 중단은 회사 확인 전 미확인.",
                       "평소 값이 1 미만인 배출구(원래 거의 0)는 멈춤 판단을 하지 않는다. 관측이 6번 모이기 전에는 판단하지 않는다.",
                       "멈췄다 다시 움직인 배출구는 시작·끝을 남겨(11-03부터, 최근 8번·90일) 다음 멈춤 알림에 최근 30일 앞선 멈춤을 함께 적는다 — 되풀이되는 짧은 멈춤은 일상 정비·간헐 가동일 수 있다. 기록 시작 전 멈춤은 모른다.",

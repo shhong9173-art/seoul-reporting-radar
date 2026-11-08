@@ -75,6 +75,14 @@ def aged(doc, days):
 
 
 class StackTest(unittest.TestCase):
+    # 이 묶음은 감지 규칙(등급을 매기는 논리)을 본다 — 11-08 기자 판정 상한(cap_tiers)은 TierCapTest에서 따로 본다
+    def setUp(self):
+        self._cap = w.cap_tiers
+        w.cap_tiers = lambda events: None
+
+    def tearDown(self):
+        w.cap_tiers = self._cap
+
     def test_names_and_baseline(self):
         doc = w.run(CFG_SMALL, now=T0, key="k", get=Api(world(T0)), sleep=lambda s: None)
         self.assertEqual(sorted(s["name"] for s in doc["sites"]), ["㈜영풍석포제련소", "㈜포스코 광양제철소", "현대제철㈜", "현대제철㈜포항2공장"])
@@ -837,6 +845,48 @@ class RunBudget(unittest.TestCase):
         done, total = map(int, chk["terms"].split("/"))
         self.assertTrue(0 < done < total)
         self.assertTrue(doc["sites"])
+
+
+
+class TierCapTest(unittest.TestCase):
+    """11-08 기자 판정: 굴뚝 항목 16건 모두 킬('실시간 초과 값만으로는 애매'·정기보수·'뒷받침할 증거가 없음') — 실시간 신호만으로 A 없음,
+    배출구 하나하나의 신호는 C, 남는 B는 사업장 가동 중단·새 배출구·새 사업장·사업장 오래 빠짐·하루 넘게 1.5배 넘는 초과."""
+
+    def run_exceed(self, values):
+        doc, out = series(2), []
+        for i, v in enumerate(values):
+            t = T0 + dt.timedelta(hours=6 + 3 * i)
+            doc = w.run(CFG_SMALL, now=t + dt.timedelta(minutes=20), previous=doc, key="k", get=Api(world(t, dangjin=(v, 8.0, 0.1))), sleep=lambda s: None)
+            out.append([(e["kind"], e["tier"]) for e in doc["events"] if "배출허용기준" in e["kind"] and e["detectedAt"] == doc["generatedAt"]])
+        return doc, out
+
+    def test_exceedance_is_C_and_a_day_long_strong_one_is_B(self):
+        doc, out = self.run_exceed([150.0, 160.0] + [230.0] * 6)          # 기준 140: 처음·지속은 C, 8번째(약 하루)에 1.6배 → B
+        self.assertEqual(out[0], [("배출허용기준 초과(측정값)", "C")])
+        self.assertEqual(out[1], [("배출허용기준 초과 지속", "C")])
+        self.assertEqual(out[2:7], [[]] * 5)
+        self.assertEqual(out[7], [("배출허용기준 장기 초과", "B")])
+        long = next(e for e in doc["events"] if e["kind"] == "배출허용기준 장기 초과")
+        self.assertIn("실행 8번(약 하루) 연속 초과(처음 150)", long["text"])
+        self.assertIn("초과 판정·행정처분은 한국환경공단·관할 지자체 확인", long["text"])
+        self.assertEqual(next(e for e in doc["events"] if e["kind"] == "배출허용기준 초과 지속")["tierWas"], "A")
+        _, weak = self.run_exceed([150.0] * 8)                              # 1.07배로 하루 → C
+        self.assertEqual(weak[7], [("배출허용기준 장기 초과", "C")])
+
+    def test_stored_events_are_capped_and_keep_the_old_tier(self):
+        ev = [{"id": "a", "kind": "배출허용기준 초과 지속", "tier": "A"}, {"id": "b", "kind": "배출구 오래 멈춤", "tier": "B"},
+              {"id": "c", "kind": "사업장 가동 중단 신호", "tier": "A"}, {"id": "d", "kind": "새 배출구", "tier": "A"},
+              {"id": "e", "kind": "새 사업장(굴뚝 측정)", "tier": "A"}, {"id": "f", "kind": "배출구 목록에서 빠짐", "tier": "C"},
+              {"id": "g", "kind": "사업장 오래 빠짐(굴뚝 측정)", "tier": "B"}]
+        w.cap_tiers(ev)
+        self.assertEqual([(e["tier"], e.get("tierWas")) for e in ev],
+                         [("C", "A"), ("C", "B"), ("B", "A"), ("B", "A"), ("B", "A"), ("C", None), ("B", None)])
+        w.cap_tiers(ev)  # 두 번 해도 처음 등급을 지킨다
+        self.assertEqual(ev[0]["tierWas"], "A")
+
+    def test_no_A_from_realtime_signals_in_a_run(self):
+        doc, _ = self.run_exceed([150.0, 160.0, 155.0])
+        self.assertFalse([e for e in doc["events"] if e["tier"] == "A"])
 
 
 if __name__ == "__main__":

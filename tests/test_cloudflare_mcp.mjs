@@ -1106,7 +1106,7 @@ test('converging signals: background (workforce project, recent permit, stopped 
   assert.ok(!g.some((x) => x.place === '당진'));
 });
 
-test('굴뚝 즉시 알림 대상(11-04 기자 결정): 다른 감시가 같은 회사·시군을 가리키거나 배출구 절반 넘게 사흘 넘게 가동중지일 때만 표시', async () => {
+test('굴뚝 즉시 알림 대상(11-04·11-08 기자 결정): 다른 감시가 같은 공장 이름을 가리키거나 배출구 절반 넘게 사흘 넘게 가동중지일 때만 표시', async () => {
   const opts = PRIVATE();
   const env = opts.env;
   const recent = new Date(NOW.getTime() - 2 * 3600000).toISOString();
@@ -1128,7 +1128,8 @@ test('굴뚝 즉시 알림 대상(11-04 기자 결정): 다른 감시가 같은 
     { id: 'wf:delta:현대제철:순천', kind: '인력 감소', tier: 'B', company: '현대제철', month: '202610', detectedAt: recent, text: '현대제철(전라남도 순천시) 국민연금 가입자 1,020→940명(-80명)' }] });
   const r = (await call('radar_today', {}, opts)).text;
   const idLine = (id) => r.split('\n').find((l) => l.includes(`id ${id}`) && l.includes('자세히:'));
-  assert.match(idLine('stk:down:현대제철:현대제철(주)순천공장:d'), /〔즉시 알림 대상: 겹친 신호 — 순천에서 사업장 인력\(국민연금\)도 이 회사를 가리킴\(시군까지만 맞춤 — 같은 공장인지 원문 확인\)〕$/);
+  // 11-08: 시군까지만 맞는 겹침(공장 이름 없는 국민연금 순천)은 세지 않는다
+  assert.doesNotMatch(idLine('stk:down:현대제철:현대제철(주)순천공장:d'), /즉시 알림 대상/);
   assert.match(idLine('stk:down:KG스틸:케이지스틸(주)인천공장:d'), /〔즉시 알림 대상: 장기 가동중지 신고 — 평소 움직이던 배출구 6개 중 4개가 사흘 넘게 '가동중지'〕$/);
   assert.doesNotMatch(idLine('stk:longstop:세아:(주)세아창원특수강:191:d'), /즉시 알림 대상/);   // 굴뚝 신호만(9개 중 1개)
   assert.doesNotMatch(idLine('wf:delta:현대제철:순천'), /즉시 알림 대상/);   // 굴뚝 아닌 항목엔 붙이지 않는다
@@ -1151,7 +1152,7 @@ test('굴뚝 겹친 신호 공장 이름 맞춤: 같은 시군의 다른 공장 
   const doc = { sites: [{ company: '롯데케미칼', name: '롯데케미칼㈜울산2공장', meaningful: 3, stacks: {} }] };
   assert.equal(stackAlert(x, g('울주군 공고 「롯데케미칼 울산1공장 증설 공사」'), doc, Date.now()), null);   // 다른 공장
   assert.match(stackAlert(x, g('울주군 공고 「롯데케미칼 울산2공장 설비 철거」'), doc, Date.now()), /공장 이름까지 맞음/);
-  assert.match(stackAlert(x, g('롯데케미칼(울산광역시 남구) 국민연금 가입자 -40명', '사업장 인력(국민연금)'), doc, Date.now()), /시군까지만 맞춤/);
+  assert.equal(stackAlert(x, g('롯데케미칼(울산광역시 남구) 국민연금 가입자 -40명', '사업장 인력(국민연금)'), doc, Date.now()), null);   // 11-08: 시군까지만 맞으면 아님
 });
 
 test('겹친 신호 공장별 묶음: 같은 시군의 다른 공장 이름은 따로, 회사 이름이 붙은 공장 이름은 같은 공장, 일반 낱말 공장은 무시', () => {
@@ -1607,11 +1608,12 @@ test('주간 점검: 즉시 알림 성적(보낸 id ↔ 판정), 킬이 몰린 �
     body: `[단독 후보 알림 10:45] 4건\n…\n보낸 id: ${stk[0].id}, ${lab[0].id}, ${lab[1].id}, ${lab[2].id}, ins:000249:20263030000212:72:1` }, opts);
   const r = (await call('candidate_weekly_review', {}, opts)).text;
   assert.match(r, /노동위 회의\(조정·심판\): 5개 중 킬 5 — 등급·문턱 점검 후보 · 킬 사유 '조정 신청만으로는 약함'\(5\) · 제안: 즉시 알림·아침 발제는 다른 감시와 겹칠 때만/);
-  assert.match(r, /굴뚝 측정\(공장 가동 신호\): 5개 중 킬 5 — 11-04에 기준을 이미 바꿈\(즉시 알림·아침 발제는 〔즉시 알림 대상〕[^)]*\)[^·]*· 바뀐 뒤 판정 0건\(킬 0\)이라 아직 판단 안 함/);
+  // 같은 감시에 기준을 두 번 바꿨으면(11-04·11-08) 가장 최근 것으로 센다
+  assert.match(r, /굴뚝 측정\(공장 가동 신호\): 5개 중 킬 5 — 11-08에 기준을 이미 바꿈\(실시간 신호는 A 없음[^)]*\) · 바뀐 뒤 판정 0건\(킬 0\)이라 아직 판단 안 함/);
   assert.match(r, /\[즉시 알림 성적 · 최근 7일\] 알림 1일치 · 보낸 항목 5건 — 킬 4 · 판정 없음 1/);
   assert.match(r, /- 협력사 회생·파산 1 — 판정 없음 1/);   // 목록에 없는 id는 앞말로 감시를 짐작
   assert.match(r, /- 노동위 회의\(조정·심판\) 3 — 킬 3 · 제안: 이 감시 즉시 알림 기준 좁히기/);   // id 안 쉼표('8x,82')에도 4건으로 나눔
-  assert.match(r, /- 굴뚝 측정\(공장 가동 신호\) 1 — 킬 1 · 11-04 기준 변경 뒤 보낸 것 0건/);
+  assert.match(r, /- 굴뚝 측정\(공장 가동 신호\) 1 — 킬 1 · 11-08 기준 변경 뒤 보낸 것 0건/);
 });
 
 test('kr_signals shows FTC decisions by role, KEPCO bids and commodity prices, and radar_today ranks them', async () => {

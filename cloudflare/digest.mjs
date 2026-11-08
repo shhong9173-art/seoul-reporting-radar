@@ -1303,14 +1303,16 @@ export function stackAlert(x, conv, stacksDoc, nowMs, judged = new Map()) {
   for (const g of conv ?? []) {
     if (!g.items.some((y) => y.id === x.id)) continue;
     // 킬한 항목은 증거로 세지 않는다(include_judged로 화면에 보일 때도). 같은 시군이라도 다른 공장 이름이 적힌 항목
-    // (울산1공장 굴뚝 ↔ 울산2공장 공고)은 다른 공장이라 세지 않는다. 공장 이름이 없으면 시군까지만 맞춘 것으로 센다.
+    // (울산1공장 굴뚝 ↔ 울산2공장 공고)은 다른 공장이라 세지 않는다.
+    // 11-08: 시군까지만 맞는 겹침은 세지 않고 공장 이름까지 맞을 때만 — 포항·광양·당진처럼 큰 제철소 도시는 도로점용 공고·의회 회의록이
+    // 늘 함께 걸려, 기준의 1.0~1.1배 실시간 초과 값까지 즉시 알림으로 갔다(굴뚝 알림 21건 중 킬 9·판정 없음 12, 판정한 굴뚝 16건 모두 킬).
     const ev = g.items.filter((y) => !y.background && y.watch !== label && judged.get(y.id) !== '킬').map((y) => {
       const theirs = plantTokens(y.fact);
       return { y, same: theirs.length && mine.length ? theirs.some((k) => mine.some((m) => samePlant(k, m))) : null };
-    }).filter((e) => e.same !== false);
+    }).filter((e) => e.same === true);
     if (ev.length) {
       const others = [...new Set(ev.map((e) => e.y.watch))];
-      return `겹친 신호 — ${g.place}에서 ${others.join('·')}도 이 회사를 가리킴(${ev.some((e) => e.same) ? '공장 이름까지 맞음' : '시군까지만 맞춤 — 같은 공장인지 원문 확인'})`;
+      return `겹친 신호 — ${g.place}에서 ${others.join('·')}도 이 공장을 가리킴(공장 이름까지 맞음)`;
     }
   }
   const m = s?.meaningful ?? 0;
