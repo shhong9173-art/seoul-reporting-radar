@@ -200,6 +200,17 @@ export const gbHint = (who, terms, country, published) => {
 
 const sinceMonth = (h, month) => (h && /^\d{4}-\d{2}$/.test(String(month ?? '')) ? { ...h, since: `${month}-01` } : h);
 
+// 무역위 항목 보도 대조(11-08): 회사 이름이 누리집에 대개 없어 품목 이름으로 찾는다('석도강판 반덤핑'). 기사 제목은 짧은 품목 이름을 쓰고
+// '인쇄제판용 평면모양 사진플레이트' 같은 긴 정식 품목명은 제목에 잘 안 나와 '미보도 후보'로 잘못 보일 수 있어, 띄어쓰기·쉼표 없는 10자 이하만.
+// 덤핑·세이프가드 조사만(특허·원산지 같은 불공정무역행위는 사건 낱말이 제각각이라 뺌). 보도자료(news)는 이미 공개된 뉴스라 대조하지 않는다.
+export function ktcHint(e) {
+  const p = String(e?.product ?? '').trim();
+  if (e?.ktcKind === 'news' || !p || /[\s,·]/.test(p) || p.length > 10) return undefined;
+  const t = `${e?.label ?? ''} ${e?.text ?? ''}`;
+  const word = /세이프가드|긴급관세/.test(t) ? '세이프가드' : /덤핑/.test(t) ? '반덤핑' : null;
+  return word ? hint(p, [word, '무역위원회']) : undefined;
+}
+
 export function hint(who, terms, places = [], must = [], names = []) {
   const subject = String(who ?? '').split('·')[0].replace(/\(.*?\)/g, '').trim();
   const t = [...new Set(terms.filter(Boolean).map(String))];
@@ -567,9 +578,9 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
       // 국내 무역위원회: 공식 변화(B)는 출입 업종 품목만. 보도자료는 이미 공개된 뉴스(C). 회사 이름은 누리집에 대개 없다.
       push(e.tier === 'B' ? 'B' : 'C', W['trade-remedy'], { kind: KTC_KIND[e.ktcKind] ?? '무역위원회', id: e.id, date: e.detectedAt,
         company: e.product ?? '', fact: `${e.label}: ${e.text}`, url: e.url,
-        // 보도 대조 힌트 없음: 회사 이름이 없어 찾을 낱말이 없다. (11-05~11-08 이 자리에 안내 글자를 넣어 두었더니 보도 대조가
-        // 힌트를 객체로 읽다 멈췄다 — radar_press_check.py AttributeError, 7회 연속 실패)
-        check: undefined });
+        // 보도 대조: 회사 이름이 없어 품목 이름으로(ktcHint). (11-05~11-08 이 자리에 안내 글자를 넣어 두었더니 보도 대조가
+        // 힌트를 객체로 읽다 멈췄다 — radar_press_check.py AttributeError, 7회 연속 실패. 힌트는 hint()가 만든 객체이거나 undefined만)
+        check: ktcHint(e) });
       continue;
     }
     if (e.pageId === 'kita') {

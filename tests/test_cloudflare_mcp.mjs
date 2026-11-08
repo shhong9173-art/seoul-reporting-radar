@@ -16,7 +16,7 @@ import { dueAt, newsDue, nextSlot, runSchedule } from '../cloudflare/dispatch.mj
 import { failStreak, mergeRuns, pollDue } from '../cloudflare/gh_runs.mjs';
 import { boardKey, factParts, groupSame, splitTop } from '../cloudflare/board.mjs';
 import { cleanOutput, cleanSummary, LLM_MODELS, MT_MODEL } from '../cloudflare/translate.mjs';
-import { background, billHint, clipAt, convergence, convergenceRows, countForms, hint, insolvencyWord, usRecallHint, usRecallModels, kepcoHint, localWord, plantTokens, radarItems, siteCity, splitByPlant, stackAlert, stackHint, workforceHint } from '../cloudflare/digest.mjs';
+import { background, billHint, clipAt, convergence, convergenceRows, countForms, hint, insolvencyWord, ktcHint, usRecallHint, usRecallModels, kepcoHint, localWord, plantTokens, radarItems, siteCity, splitByPlant, stackAlert, stackHint, workforceHint } from '../cloudflare/digest.mjs';
 
 const ORIGIN = 'https://seoul-reporting-radar.shhong9173.workers.dev';
 const TOKEN = 'test-token-0123456789abcdef';
@@ -889,7 +889,16 @@ test('trade_remedies ktc: meeting agenda before the meeting, recent cases with l
   // 보도 대조로 넘기는 항목: 무역위 항목은 회사 이름이 없어 넘기지 않는다(11-05 안내 글자가 힌트 자리에 들어가 대조가 멈춤)
   const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=168', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: new Date() })).json();
   assert.ok(items.items.every((x) => x.check && typeof x.check === 'object'));
-  assert.ok(!items.items.some((x) => String(x.id).startsWith('ktc:')));
+  assert.ok(!items.items.some((x) => String(x.id).startsWith('ktc:')));   // 이 묶음의 B 항목(회의 안내)은 품목이 없어 대조하지 않음
+  // 11-08 품목 이름으로 대조: 짧은 품목 + 덤핑·세이프가드만
+  const k = (product, text, extra = {}) => ktcHint({ ktcKind: 'case', product, label: '무역위 새 조사', text, ...extra });
+  assert.deepEqual(k('석도강판', '중국산 석도강판의 덤핑사실 및 국내산업피해 유무 조사'), { who: '석도강판', terms: ['반덤핑', '무역위원회'], alts: { 반덤핑: ['반덤핑', '덤핑'] } });
+  assert.equal(k('석도강판', '세이프가드 조사').terms[0], '세이프가드');
+  assert.equal(k('인쇄제판용 평면모양 사진플레이트', '덤핑'), undefined);   // 긴 정식 품목명
+  assert.equal(k('커넥티드 전기자동차', '특허권 침해 불공정무역행위'), undefined);
+  assert.equal(k('낚싯대케이스', '원산지 표시위반'), undefined);            // 덤핑·세이프가드 아님
+  assert.equal(k('석도강판', '덤핑', { ktcKind: 'news' }), undefined);
+  assert.equal(ktcHint({ ktcKind: 'meeting', text: '의결: 중국산 석도강판 예비판정' }), undefined);
 });
 
 test('kr_official workforce: member counts ranked by monthly drop with year-ago, events and new construction sites; radar_today tiers', async () => {
