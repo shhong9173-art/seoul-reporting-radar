@@ -11,7 +11,7 @@ import { checkCandidate } from '../cloudflare/scoring.mjs';
 import { readZip } from '../cloudflare/zip.mjs';
 import { publicationDate, verifyEvidence } from '../cloudflare/evidence.mjs';
 import { allowedUrl } from '../cloudflare/live_tools.mjs';
-import { ageNote, handleIngest, weekdayHours } from '../cloudflare/screen.mjs';
+import { ageNote, handleIngest, lastReturnedWatch, returnedWatch, weekdayHours } from '../cloudflare/screen.mjs';
 import { dueAt, newsDue, nextSlot, runSchedule } from '../cloudflare/dispatch.mjs';
 import { failStreak, mergeRuns, pollDue } from '../cloudflare/gh_runs.mjs';
 import { boardKey, factParts, groupSame, splitTop } from '../cloudflare/board.mjs';
@@ -3658,6 +3658,51 @@ test('press-check hints: place words narrow the search but are marked, workforce
   assert.deepEqual(kepcoHint('배전용 자재 구매').terms, ['발주']);
   assert.deepEqual(wf('새 공사 현장', '…'), ['공사', '착공']);
   assert.deepEqual(wf('사업장 탈퇴', '…'), ['공장', '폐쇄']);
+});
+
+test('조용한 0건: 정상 응답인데 원천이 두 번 연달아 0줄·급감하면 형식 변경 의심, 줄 수가 돌아오면 사라진다', async () => {
+  const run = (prev, checks) => returnedWatch(prev, { checks }, '2026-11-09T00:00:00Z');
+  const seq = (source, ns, extra = {}) => ns.reduce((rw, n) => run(rw, [{ source, status: 'ok', returned: n, ...extra }]), null);
+  assert.deepEqual(seq('울주군', [10, 12, 11, 9, 0]).silent, undefined);              // 한 번 0은 아직
+  const z = seq('울주군', [10, 12, 11, 9, 0, 0]);
+  assert.deepEqual(z.silent, [{ source: '울주군', kind: 'zero', now: 0, before: [9, 11, 12, 10], limit: 0, since: '2026-11-09T00:00:00Z' }]);
+  assert.deepEqual(z.hist['울주군'], [0, 0, 9, 11, 12, 10]);
+  assert.equal(run(z, [{ source: '울주군', status: 'ok', returned: 0 }]).silent.length, 1);  // 0이 이어지면 의심도 이어 간다
+  assert.equal(run(z, [{ source: '울주군', status: 'failed', error: 'x' }]).silent.length, 1);  // 실패한 실행은 이력·의심을 그대로
+  assert.equal(run(z, [{ source: '울주군', status: 'ok', returned: 8 }]).silent, undefined);  // 돌아오면 사라짐
+  assert.deepEqual(seq('굴뚝', [300, 280, 310, 290, 12, 9]).silent.map((x) => [x.kind, x.now, x.limit]), [['drop', 9, 29]]);  // 1/10 아래로 두 번
+  assert.equal(seq('굴뚝', [300, 280, 310, 290, 40, 35]).silent, undefined);
+  assert.equal(seq('의회', [1, 2, 1, 1, 0, 0]).silent, undefined);                   // 원래 적은 원천(3줄 미만)은 세지 않음
+  const noted = [0, 0].reduce((rw, n) => run(rw, [{ source: '국민연금', status: 'ok', returned: n, note: '새 달 없음' }]), seq('국민연금', [5, 6, 5, 6]));
+  assert.equal(noted.silent, undefined);  // 감시가 이유를 적은 0은 세지 않는다
+  assert.deepEqual(noted.hist['국민연금'], [6, 5, 6, 5]);
+  assert.equal(run(null, [{ source: 'x', status: 'ok' }]), null);                      // 줄 수 없는 원천만 있으면 붙이지 않음
+  // 저장: 원래 글자는 그대로 두고 끝에 덧붙인다(파이썬 감시가 다시 읽을 때 1.0 → 1처럼 바뀌지 않게) → radar_today 수집 상태
+  const opts = PRIVATE();
+  const post = async (n, at) => {
+    const text = `{"schema": "kr_local/v1", "generatedAt": "${at}", "status": "ok", "score": 1.0, "checks": [{"source": "울주군", "status": "ok", "returned": ${n}}], "items": []}`;
+    assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/kr-local', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: text }), opts.env, {})).status, 200);
+    return text;
+  };
+  let last = '';
+  for (const [i, n] of [10, 12, 11, 9, 0, 0].entries()) last = await post(n, `2026-11-0${3 + i}T06:30:00+09:00`);
+  const stored = await (await worker.fetch(new Request(ORIGIN + '/ingest/kr-local', { headers: { Authorization: `Bearer ${TOKEN}` } }), opts.env, {})).text();
+  assert.ok(stored.startsWith(last.slice(0, -1) + ',"_returnedWatch":'));
+  assert.match(stored, /"score": 1\.0/);
+  assert.equal(lastReturnedWatch(stored).silent[0].source, '울주군');
+  const h = (await call('radar_today', { hours: 24 }, { ...opts, now: new Date('2026-11-08T22:00:00Z') })).text;
+  assert.match(h, /^- 지자체 고시·공고: ⚠ 형식 변경 의심 1곳\(울주군: 정상 응답인데 0줄, 이전 9·11·12·10줄\) — 원문 사이트 목록이 보이는지 확인 — 해당 부분 0건은 미확인$/m);
+  // 이전 문서를 통째로 이어 쓴 감시(옛 이력 키가 들어 있음)도 다시 직렬화하지 않고 덧붙인다 — 마지막 키가 이긴다
+  const carried = JSON.parse(stored);
+  carried.generatedAt = '2026-11-08T16:20:00+09:00';
+  const ctext = JSON.stringify(carried);
+  await worker.fetch(new Request(ORIGIN + '/ingest/kr-local', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: ctext }), opts.env, {});
+  const stored2 = await (await worker.fetch(new Request(ORIGIN + '/ingest/kr-local', { headers: { Authorization: `Bearer ${TOKEN}` } }), opts.env, {})).text();
+  assert.ok(stored2.startsWith(ctext.slice(0, -1) + ',"_returnedWatch":'));
+  assert.equal(JSON.parse(stored2)._returnedWatch.hist['울주군'].length, 6);
+  assert.deepEqual(JSON.parse(stored2)._returnedWatch, lastReturnedWatch(stored2));
+  await post(14, '2026-11-09T06:30:00+09:00');
+  assert.doesNotMatch((await call('radar_today', { hours: 24 }, { ...opts, now: new Date('2026-11-08T22:00:00Z') })).text, /형식 변경 의심/);
 });
 
 test('kr local notices: a beat plant notice in a city is A, a city baseline is hidden, kr_official section=local lists it', async () => {
