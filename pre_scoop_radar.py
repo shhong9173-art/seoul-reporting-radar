@@ -1163,6 +1163,14 @@ def fetch_direct_court(max_items=12, prior_items=None, prior_checked=None):
                 "dateSource":"대법원 보도자료 게시일"
             })
             if len(out)>=max_items: break
+    # 목록을 못 읽은 실행에도 메모를 잃지 않는다(11-08 03:02: 두 쪽 모두 끊겨 메모가 비었고, 다음 실행이 본문 8건을 다시 열었다).
+    # 이번에 못 본 지난 메모는 같은 규칙·게시일이 조회 기간 안이면 이어 간다.
+    kept={(m["url"],m["title"],m["date"]) for m in diag["checkedNoMatch"]}
+    for c in prior_checked or []:
+        key=(c.get("url"),c.get("title"),c.get("date")) if isinstance(c,dict) else None
+        if key and key in checked_before and key not in kept and str(key[2])>=cutoff.date().isoformat():
+            diag["checkedNoMatch"].append({"url":key[0],"title":key[1],"date":key[2],"rule":rule})
+            kept.add(key)
     diag["retained"]=len(out)
     print(f"direct Supreme Court case scout: diagnostics={diag}")
     return out
