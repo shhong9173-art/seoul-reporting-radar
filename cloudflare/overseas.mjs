@@ -2,6 +2,8 @@
 // and domestic official sources (factory registry, gazette legislative notices).
 // Data arrives through the bearer ingest; tools read it only on the private connector path.
 import { ageNote, readFeed } from './screen.mjs';
+import { storeOp } from './store.mjs';
+import { kstMD, maintenanceMemo } from './stack_memo.mjs';
 import { clampInt, textResult, uniqueList } from './common.mjs';
 
 const missing = (what, when) => textResult(`${what} 결과가 아직 없음 — GitHub Secrets의 MCP_ACCESS_TOKEN 설정과 다음 정기 실행(${when})을 확인. 0건이 아니라 미확인.`, true);
@@ -1023,6 +1025,14 @@ export async function stacksSection(ctx, q, days, limit) {
   const out = [`\n[굴뚝 측정(공장 가동 신호) · 출입처 사업장 ${sites.length}곳 · 배출구 ${stacks}개 · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt)}]`,
     `원천: ${(doc.checks ?? []).map((c) => `${c.source} ${c.status}(${c.returned ?? 0}${c.terms ? `, 검색 ${c.terms}` : ''}${c.error ? `, ${c.error}` : ''})`).join(' · ')} · 기준선 ${String(doc.baselineSince ?? '').slice(0, 10)}`,
     ...(doc.rules ?? []).map((r) => `규칙: ${r}`)];
+  // 정기보수 메모(기자 판정, 11-08): 이 기간 이 사업장의 멈춤·빠짐 신호는 radar_today에서 C로 접는다 — 여기에는 그대로 보인다
+  const memo = await storeOp(ctx, 'feedback.latest', {}).then(({ rows }) => maintenanceMemo(rows)).catch(() => new Map());
+  const nowMs = ctx.now.getTime();
+  const live = [...memo.entries()].filter(([key, m]) => m.until >= nowMs && (!q || matches(q, key)));
+  if (live.length) {
+    out.push(`- 정기보수 메모(기자 판정 — 이 기간 멈춤·빠짐 신호는 레이더에서 접음) ${live.length}곳: `
+      + live.map(([key, m]) => `${key.split(':').slice(1).join(':')} ${kstMD(m.at)} '${m.reason}' → ${kstMD(m.until)}까지`).join(' · '));
+  }
   const down = sites.filter((s) => (s.stopped ?? []).length).sort((a, b) => (b.stopped.length / Math.max(1, b.meaningful ?? 1)) - (a.stopped.length / Math.max(1, a.meaningful ?? 1)));
   out.push(`- 지금 멈춤으로 판단한 배출구가 있는 사업장 ${down.length}곳(관측 6번 전 사업장은 판단 안 함)`);
   for (const s of down.slice(0, limit)) {
