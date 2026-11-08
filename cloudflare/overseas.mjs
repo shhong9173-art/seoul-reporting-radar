@@ -270,6 +270,77 @@ export function itcText(o) {
 }
 export const productOf = (title) => String(title ?? '').split(/\s+From\s+/i)[0].replace(/^Certain\s+/i, '').trim().toLowerCase();
 
+// 무역구제 기사 포인트(11-08): 경쟁지 단독 30일 120건 중 레이더 문서에서 나온 4~6건이 모두 미국 관보·판결이었다(직장어린이집 10-23,
+// 탄소배출권 10-28, 도금강판 70% 10-30, 강관 4.20% 11-05). 영어 부록 쟁점·품목을 한국어로 풀어 '기사 포인트' 한 줄로 붙이고,
+// 보도 대조는 품목 낱말까지 맞춘다(11-05 강관 최종이 '현대제철 관세' 일반 기사로 '관련 보도 있음'이 됐다).
+export const MEMO_GLOSS = [
+  [/Workplace Nursery|nursery|child ?care|day ?care/i, '직장어린이집 운영 지원을 보조금으로 볼지'],
+  [/\bKAUs?\b|Korean? Allowance|emission (?:permit|allowance)|K-?ETS|carbon/i, '탄소배출권(K-ETS 할당)을 보조금으로 볼지'],
+  [/Particular Market Situation|\bPMS\b/i, '특별시장상황(PMS) 적용 여부'],
+  [/electricity|KEPCO|power (?:supply|rate)/i, '전기요금(한전 전력 공급)이 보조금인지'],
+  [/hydrogen|renewable|green/i, '친환경·수소 지원'],
+  [/KEXIM|Export-Import Bank/i, '수출입은행 금융'],
+  [/\bKDB\b|Korea Development Bank/i, '산업은행 금융'],
+  [/K-?SURE|Trade Insurance/i, '무역보험공사 보험'],
+  [/RSTA|Restriction of Special Tax|\btax/i, '조세특례(세액공제·감면)'],
+  [/\bport\b|harbor/i, '항만시설 사용료 감면'],
+  [/\bland\b|industrial complex/i, '산업단지 토지 공급'],
+  [/R&D|research and development/i, '연구개발 지원'],
+  [/facts available|\bAFA\b/i, '불리한 가용정보(AFA) 적용'],
+  [/differential pricing|Cohen/i, '차등가격(DP) 분석(마진 계산 방식)'],
+  [/U\.S\. sales|Margin Calculation|Inadvertently Excluded|clerical|ministerial/i, '마진 계산 오류 주장(계산 쟁점)'],
+  [/cost of production|\bCOP\b|constructed value|major input/i, '생산원가 산정'],
+  [/affiliat|cross-own/i, '계열사 간 보조금 귀속'],
+  [/\bscope\b/i, '조사 대상 품목 범위'],
+];
+export const memoGloss = (t) => (MEMO_GLOSS.find(([rx]) => rx.test(String(t ?? ''))) ?? [])[1] ?? null;
+
+export const PRODUCT_KO = [
+  [/oil country tubular|\bOCTG\b/i, '유정용 강관', ['유정용', '강관']],
+  [/line pipe|pipe|tubular|tube/i, '강관', ['강관']],
+  [/tin mill|tinplate/i, '석도강판', ['석도강판', '석도']],
+  [/corrosion-resistant|galvaniz|coated/i, '도금강판', ['도금강판', '도금']],
+  [/hot-rolled/i, '열연강판', ['열연']],
+  [/cold-rolled/i, '냉연강판', ['냉연']],
+  [/stainless/i, '스테인리스강', ['스테인리스']],
+  [/cut-to-length|\bplate\b/i, '후판', ['후판']],
+  [/reinforcing bar|rebar/i, '철근', ['철근']],
+  [/wire rod/i, '선재', ['선재']],
+  [/structural steel|steel beam|H-beam/i, '형강', ['형강']],
+  [/transformer/i, '변압기', ['변압기']],
+  [/wire|cable/i, '전선', ['전선', '케이블']],
+  [/polyethylene terephthalate|\bPET\b/i, 'PET 수지', ['PET']],
+  [/epoxy/i, '에폭시 수지', ['에폭시']],
+  [/silicon/i, '실리콘', ['실리콘']],
+  [/alumin/i, '알루미늄', ['알루미늄']],
+  [/tire/i, '타이어', ['타이어']],
+];
+export function productKo(title) {
+  const p = productOf(title);
+  const hit = PRODUCT_KO.find(([rx]) => rx.test(p));
+  return hit ? { ko: hit[1], words: hit[2] } : null;
+}
+const pp = (v) => `${Number(v).toFixed(2)}%`;
+const diffPp = (a, b) => { const d = Math.round((Number(a) - Number(b)) * 100) / 100; return d === 0 ? '같음' : `${d > 0 ? '+' : '−'}${Math.abs(d).toFixed(2)}%p`; };
+// 기사 포인트 한 줄: 품목·세율(직전 판정과 견줌)·결정문 쟁점(한국어 풀이). 쓸 것이 없으면 ''.
+export function tradePoint(x) {
+  const pk = productKo(x.title);
+  const kind = x.rateTable?.kind ?? (/Countervailing/i.test(x.title ?? '') ? '상계관세' : /Antidumping/i.test(x.title ?? '') ? '반덤핑' : '관세');
+  const fin = x.prior?.final;
+  const rates = Object.entries(x.rateTable?.rates ?? {}).slice(0, 4).map(([c, v]) => {
+    const b = fin?.rates?.[c] ?? (v.via === '비선정' ? fin?.othersRate : undefined);
+    return `${c} ${pp(v.rate)}${v.via === '비선정' ? '(비선정 업체 세율)' : ''}${b != null ? `(직전 최종 ${pp(b)}, ${diffPp(v.rate, b)})` : ''}`;
+  });
+  const topics = [...new Set((x.memoUnusual ?? []).map((t) => {
+    const g = memoGloss(t);
+    const n = /^(Comment \d+[A-Za-z]?)/.exec(String(t))?.[1];
+    return g && !/계산 쟁점/.test(g) ? `${g}${n ? `(결정문 ${n})` : ''}` : null;
+  }).filter(Boolean))].slice(0, 2);
+  if (!rates.length && !topics.length) return '';
+  return `미국 ${pk?.ko ?? productOf(x.title)} ${kind} ${String(x.stage ?? '').replace(/ 판정$/, '')}${rates.length ? ` — ${rates.join(' · ')}` : ''}`
+    + `${topics.length ? ` · 쟁점: ${topics.join(' / ')}` : ''}`;
+}
+
 export function rateChangeText(x) {
   const ch = x.rateChange ?? [];
   if (!ch.length) return '';

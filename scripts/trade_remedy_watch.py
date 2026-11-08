@@ -295,7 +295,13 @@ COMMON = re.compile(r"electricity|K-?ETS|emission|KEXIM|Export-Import|KDB|Korea 
                     r"tax|RSTA|Restriction of Special|loan|cross-own|attribut|LTAR|MTAR|adequate remuneration|uncreditworth|equityworth|"
                     r"debt|grant|R&D|research|port|harbor|land|industrial complex|guarantee|insurance|K-?SURE|currency|exchange rate|"
                     r"sales denominator|de minimis|specificity|financial contribution|facts available|AFA|verification|respondent|"
-                    r"rate|scope|ministerial|clerical|sampl|duty absorption|cash deposit|liquidat", re.I)
+                    r"rate|scope|ministerial|clerical|sampl|duty absorption|cash deposit|liquidat|"
+                    # 반덤핑 결정문의 일상 계산 쟁점(11-08): 11-05 강관 최종의 'Comment 1: Whether Commerce Inadvertently Excluded U.S. Sales
+                    # from Hyundai Steel/HSP's Margin Calculation'이 '흔치 않은 항목'으로 A에 올랐다 — 판매·원가·마진 계산 다툼은 늘 나온다.
+                    # 특별시장상황(PMS)·탄소배출권(KAU)·직장어린이집처럼 계산이 아닌 쟁점만 남긴다.
+                    r"U\.S\. sales|home market|comparison market|differential pricing|Cohen|cost of production|\bCOP\b|constructed value|"
+                    r"\bCEP\b|offset|major input|freight|packing|drawback|inventory|level of trade|zeroing|arm'?s[- ]length|downstream|"
+                    r"programming|margin calculation|calculation|adjustment|expense|revenue|by-?product|reconcil", re.I)
 
 
 def memo_topics(text):
@@ -331,6 +337,10 @@ def topic_flags(topics):
 # 10-08 도금강판 반덤핑 예비 KG스틸(KG Dongbu) 23.40%·동국씨엠 19.43%(직전 최종 2026-05-14 모두 0.00%) → 10-30 경쟁지
 # 「[단독] 美 도금강판 관세 70%대 위협…동국씨엠·KG스틸」. 세율과 같은 사건 직전 판정 세율을 함께 남긴다.
 RATE_ROW = re.compile(r"^(?P<name>[A-Za-z0-9(].*?)\s*\.{3,}\s*(?P<val>\d{1,3}(?:\.\d+)?)\b(?P<rest>[^A-Za-z]*)$")
+# 점선 없이 빈칸만으로 세율을 붙인 줄(11-05 강관 반덤핑 최종: 'Husteel Co., Ltd........ 0.00' 다음 줄이
+# 'Hyundai Steel Company; Hyundai Steel Pipe Co.,                      4.20' — 경쟁지 [단독] '현대제철 강관 4.20% 확정' 그 숫자를 못 읽었다).
+# 표 안(구분선·표 줄 바로 다음)에서만 받는다 — 본문 문장의 숫자와 섞이지 않게.
+RATE_ROW_GAP = re.compile(r"^(?P<name>[A-Za-z(](?:(?!\.{3}).)*?[A-Za-z.,)])\s{6,}(?P<val>\d{1,3}\.\d{2})\s*(?P<rest>[^A-Za-z]*)$")
 FOOTNOTE = re.compile(r"\\\s*\d+\s*\\")
 SEPARATOR = re.compile(r"^-{20,}$")
 OTHERS = re.compile(r"Not Selected|Non-Selected|Non-Examined|All[- ]Others|Review-Specific", re.I)
@@ -361,7 +371,7 @@ def rate_rows(text):
             continue
         if re.match(r"^\[\[Page \d+\]\]$", s):
             continue   # 쪽 표시는 표 중간에도 끼어든다
-        m = RATE_ROW.match(s)
+        m = RATE_ROW.match(s) or (RATE_ROW_GAP.match(ln.strip()) if prev_kind in ("row", "sep") else None)
         if m:
             name = FOOTNOTE.sub(" ", m.group("name")).strip(" .;:")
             if pending:
@@ -429,7 +439,7 @@ def rate_table(text, title):
 
 
 PRIOR_BUDGET = 6   # 직전 판정 원문 읽기(실행당)
-RATE_RULES = 2     # 세율 읽는 규칙을 바꾸면 올린다 — 저장된 세율·직전 판정을 다시 읽는다(v2: 비선정 부록 제목·본문 줄임말)
+RATE_RULES = 3     # 세율 읽는 규칙을 바꾸면 올린다 — 저장된 세율·직전 판정을 다시 읽는다(v2: 비선정 부록 제목·본문 줄임말, v3: 점선 없는 줄)
 
 
 def prior_rates(row, dockets, *, get, sleep, budget):
@@ -576,6 +586,8 @@ def federal_register(now, previous=None, *, get=None, sleep=time.sleep):
         for k in ("named", "memoTopics", "memoNamed", "memoUnusual", "rateTable", "prior", "itcOutcome"):
             if k in old:
                 row[k] = old[k]
+        if row.get("memoTopics"):
+            row["memoNamed"], row["memoUnusual"] = topic_flags(row["memoTopics"])   # 규칙을 바꾸면 저장된 목차에도 다시 적용(본문 다시 안 읽음)
         # 예전 규칙으로 읽은 세율은 다시 읽되, 다시 읽기에 실패하면 예전 값을 그대로 둔다
         # (11-01 14:00 운영: 규칙을 올린 뒤 본문 읽기가 HTTP 429로 막혀 13:55에 읽은 세율이 모두 빠졌다)
         stale_rates = (row.get("rateTable") or {}).get("v") != RATE_RULES and "rateTable" in row

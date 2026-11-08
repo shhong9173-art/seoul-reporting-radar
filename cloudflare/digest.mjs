@@ -12,7 +12,7 @@ import { clampInt, fetchJson, safeEqual, textResult, uniqueList } from './common
 import { peerLines } from './radar_tools.mjs';
 import { classLabel, waitReason } from './trademarks.mjs';
 import { billLine, groupBillEvents } from './assembly.mjs';
-import { attachmentOutline, buildingLine, factoryEventText, identityNote, itcText, productOf, rateChangeText, rateText } from './overseas.mjs';
+import { attachmentOutline, buildingLine, factoryEventText, identityNote, itcText, memoGloss, productKo, productOf, rateChangeText, rateText, tradePoint } from './overseas.mjs';
 
 const KST_MS = 9 * 3600000;
 const kstDate = (ms) => new Date(ms + KST_MS).toISOString().slice(0, 10);
@@ -656,7 +656,8 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
     const names = (x.named ?? []).map((n) => n.company);
     // An unusual topic in the decision-memo appendix of a notice naming a beat company is the story (10-09 열연 'Workplace Nursery' → 10-23 [단독]).
     const odd = names.length ? (x.memoUnusual ?? []) : [];
-    const memo = odd.length ? ` · 결정문 목차에 흔치 않은 항목(관보 부록 원문): "${String(odd[0]).slice(0, 160)}"${odd.length > 1 ? ` 외 ${odd.length - 1}` : ''}`
+    const gl = odd.length ? memoGloss(odd[0]) : null;
+    const memo = odd.length ? ` · 결정문 목차에 흔치 않은 항목(관보 부록 원문): "${String(odd[0]).slice(0, 160)}"${gl ? `(풀이: ${gl})` : ''}${odd.length > 1 ? ` 외 ${odd.length - 1}` : ''}`
       : (x.memoNamed ?? []).length ? ` · 결정문 목차에 출입처: "${String(x.memoNamed[0]).slice(0, 120)}"` : '';
     // 출입처 세율이 같은 사건 직전 판정보다 5%p 넘게 바뀌거나 0.5% 미만↔5% 이상(새 조사는 처음 5% 이상)이면 A(10-08 도금강판 0%→23.40% → 10-30 [단독])
     const changed = x.rateChange ?? [];
@@ -666,8 +667,9 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
     const frTier = odd.length || changed.length ? 'A' : names.length ? 'B' : 'C';
     push(frTier, W['trade-remedy'], { kind, id: x.id, date: x.date, company: [...new Set([...who, ...names])].join('·'),
       fact: `미국 관보 ${x.stage}: ${x.title}${changed.length ? ` — 세율 크게 바뀜: ${rateChangeText(x)}` : ''}${names.length ? ` — 본문에 ${names.join('·')}` : ''}${rates}${memo}`, url: x.url,
-      ...(frTier === 'A' || (frTier === 'B' && x.rateTable) ? tradeReady(x) : {}),
-      check: hint(who[0], ['관세', changed.length ? (x.rateTable?.kind === '상계관세' ? '상계관세' : '반덤핑') : odd.length ? '보조금' : '판정']) });
+      ...(frTier === 'A' || (frTier === 'B' && x.rateTable) ? { ...tradeReady(x), point: tradePoint(x) || undefined } : {}),
+      // 보도 대조는 품목 낱말까지(11-05 강관 최종이 '현대제철 관세' 일반 기사로 '관련 보도 있음'이 됐다) — 품목이 없는 기사는 약한 근거로만 남는다
+      check: hint(who[0], ['관세', changed.length ? (x.rateTable?.kind === '상계관세' ? '상계관세' : '반덤핑') : odd.length ? '보조금' : '판정'], [], productKo(x.title)?.words ?? []) });
   }
 
   const lit = docs['us-litigation'];
@@ -1520,6 +1522,7 @@ export async function radarTodayText(ctx, args) {
       out.push(`- ${x.date ? `${String(x.date).length > 10 ? kstStamp(x.date) : x.date} · ` : ''}${x.watch}${x.company ? ` · ${x.company}` : ''}`);
       out.push(`   ${x.fact}`);
       // 기사 준비(무역구제 등): 다음 절차·회사에 물을 것
+      if (x.point) out.push(`   〔기사 포인트〕 ${x.point}`);
       if (x.next) out.push(`   〔기사 준비〕 다음 절차: ${x.next}`);
       if (x.ask) out.push(`   물을 것: ${x.ask}`);
       out.push(...pressLines(checked.get(String(x.id)), kstStamp(press?.generatedAt)));

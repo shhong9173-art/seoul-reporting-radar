@@ -229,6 +229,16 @@ class MemoTopics(unittest.TestCase):
         self.assertEqual(unusual, ["Comment 8: Whether the Constructing and Operation of Workplace Nursery Program is Countervailable"])
         self.assertIsNone(w.memo_topics("no appendix here"))
 
+    def test_ad_calculation_topics_are_routine_but_kau_and_pms_are_not(self):
+        # 11-08: 11-05 강관 최종 'Comment 1: … U.S. Sales from Hyundai Steel/HSP's Margin Calculation'이 '흔치 않은 항목' A가 됐다
+        topics = ["Comment 1: Whether Commerce Inadvertently Excluded U.S. Sales from Hyundai Steel/HSP's Margin Calculation",
+                  "Comment 2: Whether to Apply the Cohen's d Test (Differential Pricing)",
+                  "Comment 3: Whether Commerce Should Adjust SeAH's Cost of Production for Hot-Rolled Coil",
+                  "Comment 4: Whether a Particular Market Situation Exists in Korea",
+                  "Comment 5: Whether the Provision of KAUs Confers a Countervailable Benefit"]
+        _, unusual = w.topic_flags(topics)
+        self.assertEqual(unusual, topics[3:])
+
     def test_results_notice_body_carries_topics_once(self):
         fr = {"results": [{"title": "Certain Hot-Rolled Steel Flat Products From the Republic of Korea: Final Results of Countervailing Duty Administrative Review; 2024",
                            "publication_date": "2026-10-09", "html_url": "https://www.federalregister.gov/d/2026-20778", "document_number": "2026-20778",
@@ -354,6 +364,26 @@ class BrowserFreshness(unittest.TestCase):
         tuesday = dt.datetime(2026, 11, 3, 7, 40, tzinfo=dt.timezone(dt.timedelta(hours=9)))
         self.assertNotIn("시간 전", str(w.browser_lines(doc, page, sunday)[1]))
         self.assertIn("시간 전", str(w.browser_lines(doc, page, tuesday)[1]))
+
+
+
+class GapRows(unittest.TestCase):
+    def test_rate_row_without_dot_leader(self):
+        # 11-05 강관 반덤핑 최종(2026-22630): 둘째 줄은 점선 없이 빈칸만 — 경쟁지 [단독] '현대제철 강관 4.20% 확정' 그 숫자
+        t = ("------------------------------------------------------------------------\n"
+             "                  Producer/exporter                      dumping margin\n"
+             "                                                            (percent)\n"
+             "------------------------------------------------------------------------\n"
+             "Husteel Co., Ltd.....................................               0.00\n"
+             "Hyundai Steel Company; Hyundai Steel Pipe Co.,                      4.20\n"
+             " Ltd. \\2\\.................................................\n"
+             "------------------------------------------------------------------------\n"
+             "     The review covers sales and there are                           12.50 percent issues.\n"
+             "A sentence in the body with spaces                                   3.50\n")
+        self.assertEqual(w.rate_rows(t), [("Husteel Co., Ltd", 0.0), ("Hyundai Steel Company; Hyundai Steel Pipe Co.,", 4.2)])
+        table = w.rate_table(t, "Circular Welded Non-Alloy Steel Pipe From the Republic of Korea: Final Results of Antidumping Duty Administrative Review")
+        self.assertEqual(table["rates"]["현대제철"]["rate"], 4.2)
+        self.assertEqual(table["v"], w.RATE_RULES)
 
 
 if __name__ == "__main__":
