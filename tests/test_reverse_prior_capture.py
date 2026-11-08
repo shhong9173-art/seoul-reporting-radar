@@ -145,8 +145,8 @@ class Capture(unittest.TestCase):
              "sourceName": "Y", "companies": ["롯데케미칼"]}]}
         doc = r.run(trace, stacks, {"items": []}, now=dt.datetime(2026, 11, 2, 11, 0, tzinfo=r.KST))
         by = {a["articleId"]: a for a in doc["articles"]}
-        self.assertEqual(by["s1"]["verdict"], "먼저 잡은 후보")   # B '배출구 멈춤 신호'(가동 사건)와는 묶인다 — 같은 사건인지는 사람이 본다
-        self.assertEqual(by["s1"]["best"]["id"], "stk:stop:포스코:x:2026-10-31")
+        # 11-08: 약한 개념('생산')과 지명('포항')만 겹친 멈춤 신호는 가열로 증설 기사와 같은 사건 근거가 못 된다 → 같은 회사 항목만
+        self.assertEqual(by["s1"]["verdict"], "같은 회사 항목만")
         stacks["kr-stacks"]["events"] = [e for e in stacks["kr-stacks"]["events"] if e["id"] != "stk:stop:포스코:x:2026-10-31"]
         doc = r.run(trace, stacks, {"items": []}, now=dt.datetime(2026, 11, 2, 11, 0, tzinfo=r.KST))
         by = {a["articleId"]: a for a in doc["articles"]}
@@ -234,6 +234,23 @@ class Capture(unittest.TestCase):
         trace = {"items": [TRACE["items"][1]]}
         a = r.run(trace, docs, {"items": []}, now=NOW)["articles"][0]
         self.assertEqual((a["verdict"], a["best"]["id"]), ("먼저 잡은 후보", "op:1"))
+
+
+    def test_concept_only_long_filings_are_not_captures_but_bilingual_products_are(self):
+        # 11-08: 30일 '먼저' 11건 중 엉뚱한 연결 — 개념 하나만 겹친 긴 영문 공시·다른 소송. 한·영 품목(강관↔pipe)·쟁점(탄소배출권↔KAU)은 센다
+        items = [r.mem("partner-filings", "edgar:aptv", ["현대차"], "Aptiv PLC (APTV) 10-Q equity method goodwill investment", "2026-11-04T07:00:00+09:00"),
+                 r.mem("partner-filings", "edgar:vrsk", ["현대차"], "Verisk Analytics 10-Q District Courts lawsuit", "2026-11-06T07:00:00+09:00"),
+                 r.mem("us-litigation", "cl:posco", ["포스코"], "POSCO v. United States 포스코, 미국 정부를 상대로 국제무역법원에 소송 제기", "2026-11-03T07:50:00+09:00"),
+                 r.mem("trade-remedy", "fr:pipe", ["현대제철"], "Circular Welded Non-Alloy Steel Pipe From the Republic of Korea: Final Results of Antidumping Duty duty",
+                       "2026-11-05T00:00:00+09:00"),
+                 r.mem("trade-remedy", "fr:hr", ["포스코"], "Certain Hot-Rolled Steel Flat Products: Final Results of Countervailing Duty duty Comment 5: Whether the Provision of KAUs Confers a Countervailable Benefit",
+                       "2026-10-26T21:32:00+09:00")]
+        v = lambda title, comp, when: r.match({"title": title, "companies": [comp], "published": when}, items)[0]  # noqa: E731
+        self.assertEqual(v("[단독] 제네시스PE, GS건설 지분 전량 노린다", "제네시스", "2026-11-06T11:04:00+09:00"), "회사 미상")
+        self.assertEqual(v("[단독] 교섭 의제 제한 안 둔 중노위…현대차, 다음주 불복 소송 가닥", "현대차", "2026-11-06T09:36:00+09:00"), "같은 회사 항목만")
+        self.assertEqual(v("[단독] 포스코인터, 러시아서 '떼인 돈' 받는다…현지 법원 '강제집행 승인'", "포스코", "2026-11-05T10:21:00+09:00"), "같은 회사 항목만")
+        self.assertEqual(v("[단독] 美, 현대제철 강관 반덤핑 4.20% 확정…휴스틸은 0%", "현대제철", "2026-11-05T08:35:00+09:00"), "먼저 잡은 후보")
+        self.assertEqual(v("[단독] 포스코, 미국 상계관세 소송서 패소…탄소배출권 무상할당 보조금 인정", "포스코", "2026-10-28T10:50:00+09:00"), "먼저 잡은 후보")
 
 
 class Places(unittest.TestCase):

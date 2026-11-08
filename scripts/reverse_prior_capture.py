@@ -98,6 +98,18 @@ RULING_ITEM = re.compile(r"\bopinion\b|Sustain|Remand|Affirm|Revers|holding|판�
 # '특허·상표'도 약하다: 현대차·기아는 미국 'Schedule A' 상표 위조품 소송이 늘 있어, 상표 기사마다 묶였다
 # (10-31: 쿠키뉴스 'E-pit 상표권 현대엔지니어링 이전' [단독] ↔ Hyundai Motor Company v. The Partnerships … Schedule A). 상표명·특허 이름 같은 낱말이 함께 겹쳐야 한다.
 WEAK_CONCEPTS = {"공장·생산", "배터리", "가격", "신차·인증", "특허·상표"}
+# 11-08 정확도: 30일 '먼저 잡은 후보' 11건을 열어 보니 4~5건이 엉뚱한 연결이었다 — 사건 개념 하나만 겹친 긴 영문 공시
+# (Aptiv 10-Q ↔ 제네시스PE GS건설 지분, Verisk 10-Q ↔ 현대차 중노위 소송, EMAT S-1 ↔ 포스코인터 인니 법인)와 다른 소송
+# (POSCO v. United States ↔ 포스코인터 러시아 강제집행). 이제 '먼저'는 ① 같은 사건 낱말(지명 빼고)·한·영 대응 품목·쟁점·판결↔판결이
+# 하나 이상 겹치거나 ② 사건 개념 점수(강 2·약 1)가 3 이상일 때만이다. 한·영 대응이 있어야 미국 관보(영문)와 한국 기사(강관·후판)가 이어진다.
+SPECIFICS = [("강관", r"강관", r"\bpipe|tube|tubular"), ("후판", r"후판", r"\bplate\b|cut-to-length"), ("열연", r"열연", r"hot-rolled"),
+             ("냉연", r"냉연", r"cold-rolled"), ("도금강판", r"도금", r"corrosion-resistant|galvaniz"), ("석도강판", r"석도", r"tin mill"),
+             ("변압기", r"변압기", r"transformer"), ("철근", r"철근", r"rebar|reinforcing bar"), ("선재", r"선재", r"wire rod"),
+             ("스테인리스", r"스테인리스", r"stainless"), ("전선", r"전선|케이블", r"\bcable|\bwire\b"), ("타이어", r"타이어", r"\btires?\b"),
+             ("탄소배출권", r"탄소배출권|배출권", r"\bKAUs?\b|K-?ETS|emission (?:permit|allowance)"), ("전기요금", r"전기요금|전력요금", r"electricity"),
+             ("특별시장상황", r"특별시장상황|PMS", r"particular market situation")]
+SPECIFIC_RX = [(name, re.compile(ko), re.compile(en, re.I)) for name, ko, en in SPECIFICS]
+NOT_COMPANY = [("제네시스", re.compile(r"제네시스\s*(?:PE|프라이빗|자산운용|랩)"))]   # 사모펀드 제네시스PE는 제네시스(현대차) 아님
 GENERIC_WORDS = {"공장", "배터리", "미국", "생산", "가격", "투자", "계약", "중국", "한국", "글로벌", "사업", "신규"}
 # 장소가 있는 항목(건축허가·굴뚝·지자체 공고·국민연금 현장·공장등록·지방의회·미국 주 환경·OSHA)은 기사 제목에 같은 지역 이름이
 # 있어야 사건 대조에 넣는다. 11-04 기자 기사 대조: 구미 진평동 공장 건축허가가 'LS전선·LS마린솔루션, 504MW 태안해상풍력 해저케이블
@@ -116,6 +128,7 @@ US_PLACES = [("조지아", r"Georgia|조지아"), ("앨라배마", r"Alabama|앨
              ("노스캐롤라이나", r"North Carolina|노스캐롤라이나"), ("애리조나", r"Arizona|애리조나"), ("일리노이", r"Illinois|일리노이"),
              ("펜실베이니아", r"Pennsylvania|펜실베이니아"), ("미시시피", r"Mississippi|미시시피"), ("버지니아", r"(?<!West )Virginia|(?<!웨스트)버지니아")]
 US_PLACE_RX = [(name, re.compile(rx, re.I)) for name, rx in US_PLACES]
+PLACE_WORDS = set(KR_PLACES) | {name for name, _ in US_PLACES}   # 지명만 겹친 것은 같은 사건 낱말로 치지 않는다(11-08)
 
 
 # 기사 종류(제목 낱말, 첫 일치) — 레이더가 놓친 기사를 어떤 원천으로 메울지 보려고 묶는다. 순서가 판정 순서다
@@ -427,10 +440,10 @@ def nouns(title):
 def match(article, items):
     """Best radar item for an article: same group company first seen before publication, ranked by event overlap."""
     pub = parse_time(article.get("published"))
-    comps = {canon(c) for c in article.get("companies") or []}
+    title = article.get("title") or ""
+    comps = {canon(c) for c in article.get("companies") or [] if not any(c == n and rx.search(title) for n, rx in NOT_COMPANY)}
     if not pub or not comps:
         return "회사 미상", None, 0
-    title = article.get("title") or ""
     concepts = {name for name, ko, _ in CONCEPTS if re.search(ko, title)}
     words = nouns(title) - comps
     same = [m for m in items if comps & set(m["companies"]) and pub - dt.timedelta(days=LOOKBACK_DAYS) <= m["seen"] < pub]
@@ -447,9 +460,18 @@ def match(article, items):
             hit_c.remove("소송·판결")
         # 사건 낱말로 이미 센 단어·흔한 단어는 따로 세지 않는다
         hit_w = sorted(w for w in words - concept_words - GENERIC_WORDS if w in m["text"])
-        score = sum(1 if c in WEAK_CONCEPTS else 2 for c in hit_c) + len(hit_w)
+        hit_s = sorted(name for name, ko, en in SPECIFIC_RX if ko.search(title) and en.search(m["text"]) and name not in hit_w)
+        score = sum(1 if c in WEAK_CONCEPTS else 2 for c in hit_c) + len(hit_w) + len(hit_s)
+        # 판결 기사 ↔ 먼저 본 판결 항목은 같은 사건 근거로 센다(위에서 판결 아닌 소송 접수는 이미 뺐다)
+        ruling = "소송·판결" in hit_c and bool(RULING_TITLE.search(title))
+        # 한국어 항목 본문에 기사 제목의 세 글자 넘는 낱말이 그대로 있으면(사건 낱말이라도: '임직원') 같은 사건 근거 — 두 글자 개념 낱말
+        # ('법원'·'소송'·'관세')은 너무 흔해 뺀다
+        literal = [w for w in words - GENERIC_WORDS - PLACE_WORDS if len(w) >= 3 and w in m["text"]]
+        specific = sorted({*[w for w in hit_w if w not in PLACE_WORDS], *literal, *hit_s, *(["판결"] if ruling else [])})
+        if not specific and sum(1 if c in WEAK_CONCEPTS else 2 for c in hit_c) < 3:
+            continue   # 사건 개념 하나(+지명)만 겹침 — 같은 회사 항목으로만 센다
         if score > best_score or (score == best_score and best and m["seen"] > best["seen"]):
-            best, best_score = {**m, "why": hit_c + hit_w}, score
+            best, best_score = {**m, "why": hit_c + hit_s + hit_w}, score
     if best and best_score >= 2:
         verdict = "먼저 잡은 후보"
     elif same:
