@@ -301,7 +301,10 @@ COMMON = re.compile(r"electricity|K-?ETS|emission|KEXIM|Export-Import|KDB|Korea 
                     # 특별시장상황(PMS)·탄소배출권(KAU)·직장어린이집처럼 계산이 아닌 쟁점만 남긴다.
                     r"U\.S\. sales|home market|comparison market|differential pricing|Cohen|cost of production|\bCOP\b|constructed value|"
                     r"\bCEP\b|offset|major input|freight|packing|drawback|inventory|level of trade|zeroing|arm'?s[- ]length|downstream|"
-                    r"programming|margin calculation|calculation|adjustment|expense|revenue|by-?product|reconcil", re.I)
+                    r"programming|margin calculation|calculation|adjustment|expense|revenue|by-?product|reconcil|"
+                    # 11-09 운영: 강관 최종 세율을 다시 읽자 'Comment 3: Whether Commerce Used the Incorrect U.S. and Production Quantity Variables'가
+                    # 흔치 않은 항목으로 올라왔다 — 변수·수량·무게·자료 보고 다툼도 계산 쟁점이다
+                    r"variable|quantit|weight|database|reported|reporting|conversion|control number|product characteristic|\bCONNUM", re.I)
 
 
 def memo_topics(text):

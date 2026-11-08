@@ -234,10 +234,11 @@ class MemoTopics(unittest.TestCase):
         topics = ["Comment 1: Whether Commerce Inadvertently Excluded U.S. Sales from Hyundai Steel/HSP's Margin Calculation",
                   "Comment 2: Whether to Apply the Cohen's d Test (Differential Pricing)",
                   "Comment 3: Whether Commerce Should Adjust SeAH's Cost of Production for Hot-Rolled Coil",
+                  "Comment 3b: Whether Commerce Used the Incorrect U.S. and Production Quantity Variables",
                   "Comment 4: Whether a Particular Market Situation Exists in Korea",
                   "Comment 5: Whether the Provision of KAUs Confers a Countervailable Benefit"]
         _, unusual = w.topic_flags(topics)
-        self.assertEqual(unusual, topics[3:])
+        self.assertEqual(unusual, topics[4:])
 
     def test_results_notice_body_carries_topics_once(self):
         fr = {"results": [{"title": "Certain Hot-Rolled Steel Flat Products From the Republic of Korea: Final Results of Countervailing Duty Administrative Review; 2024",
