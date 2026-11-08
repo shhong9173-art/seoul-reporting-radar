@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-11-08T00:36:19+09:00",
+  "generatedAt": "2026-11-08T10:42:14+09:00",
   "status": "reporter_evidence_queue_not_exclusive",
   "sourceCoverage": "partial_source_coverage_not_zero_news",
   "sourceHealth": {
     "officialEvents": {
       "status": "source_partial_coverage",
-      "generatedAt": "2026-11-08T00:09:19+09:00",
+      "generatedAt": "2026-11-08T01:23:47+09:00",
       "rows": 4,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false,
@@ -20,7 +20,7 @@
     },
     "dartBeat": {
       "status": "source_partial_coverage",
-      "generatedAt": "2026-11-08T00:08:41+09:00",
+      "generatedAt": "2026-11-08T10:41:40+09:00",
       "rows": 81,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false,
@@ -41,21 +41,21 @@
       "zeroItemsProvesNoEvent": false
     },
     "contracts": {
-      "status": "source_snapshot_checked",
+      "status": "old_snapshot_not_a_current_scan",
       "generatedAt": "2026-11-06T08:11:51+09:00",
       "rows": 5,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false
     },
     "recentLedger": {
-      "status": "source_snapshot_checked",
+      "status": "old_snapshot_not_a_current_scan",
       "generatedAt": "2026-11-06T08:11:39+09:00",
       "rows": 5,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false
     },
     "correctionHistory": {
-      "status": "source_snapshot_checked",
+      "status": "old_snapshot_not_a_current_scan",
       "generatedAt": "2026-11-06T08:11:53+09:00",
       "rows": 3,
       "completeAcrossUniverse": false,
@@ -67,9 +67,9 @@
     "new_official_list_heading_review": 0,
     "verified_historical_investment_delta": 3,
     "verified_historical_numeric_delta": 24,
-    "issuer_only_correction_unverified_original": 3,
-    "older_public_contract_reference": 2,
-    "unlinked_correction_text_followup": 1
+    "issuer_only_correction_unverified_original": 0,
+    "older_public_contract_reference": 0,
+    "unlinked_correction_text_followup": 0
   },
   "sourceDateWindow": {
     "recentFrom": "2026-11-06",
@@ -78,10 +78,10 @@
   "checkedOfficialRecentCandidates": 4,
   "recentOfficialTitleOnlyCount": 0,
   "todayOnlyCount": 4,
-  "historicalResearchCount": 33,
-  "unlinkedHistoryTextMatchCount": 1,
-  "correctionHistorySourceGate": "reviewed_unlinked_candidates_only",
-  "totalRows": 37,
+  "historicalResearchCount": 27,
+  "unlinkedHistoryTextMatchCount": 0,
+  "correctionHistorySourceGate": "missing_or_stale_related_snapshots",
+  "totalRows": 31,
   "excluded": {
     "invalid_original_identity": 0,
     "old_and_not_relevant": 0,
@@ -862,161 +862,6 @@
         "동일 분기/반기 수치 변경인지 공시 원문 대조",
         "기존 보도 전문과 기업 공개 IR 자료 확인"
       ]
-    },
-    {
-      "id": "issuer_only_correction_unverified_original:DART:20261102800394",
-      "tier": "issuer_only_correction_unverified_original",
-      "tierLabel": "정정문 자체 기재변경·원공시 미대조",
-      "company": "영풍",
-      "title": "영풍 · [기재정정]생산중단",
-      "officialDocumentDate": "2026-11-02",
-      "officialDateIsSourcePublicationNotScrape": true,
-      "evidenceSummary": "정정 공시의 발행사 기재 변경란 참고 원공시 확인 필요. 최초 원공시 미대조. 동일 계약·실제 계약 조건의 변화는 확정되지 않음.",
-      "officialUrls": [
-        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261102800394"
-      ],
-      "pressFulltextReviewed": false,
-      "sameAngleCoverageVerified": false,
-      "companyImpactVerified": false,
-      "futurePlanVerified": false,
-      "exclusiveConfirmed": false,
-      "approvedForPitch": false,
-      "nextChecks": [
-        "최초 원공시 번호·정정 이력의 같은 계약 여부",
-        "원공시/직전 정정문의 계약조건 전후 실제 비교",
-        "동일 사건 기존 기사 전문·기업 공개 답변 확인"
-      ]
-    },
-    {
-      "id": "issuer_only_correction_unverified_original:DART:20261027800518",
-      "tier": "issuer_only_correction_unverified_original",
-      "tierLabel": "정정문 자체 기재변경·원공시 미대조",
-      "company": "효성중공업",
-      "title": "효성중공업 · [기재정정]단일판매ㆍ공급계약체결",
-      "officialDocumentDate": "2026-10-27",
-      "officialDateIsSourcePublicationNotScrape": true,
-      "evidenceSummary": "정정 공시의 발행사 기재 변경란 참고 2. 계약내역 - 계약금액(원). 최초 원공시 미대조. 동일 계약·실제 계약 조건의 변화는 확정되지 않음.",
-      "officialUrls": [
-        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261027800518"
-      ],
-      "pressFulltextReviewed": false,
-      "sameAngleCoverageVerified": false,
-      "companyImpactVerified": false,
-      "futurePlanVerified": false,
-      "exclusiveConfirmed": false,
-      "approvedForPitch": false,
-      "nextChecks": [
-        "최초 원공시 번호·정정 이력의 같은 계약 여부",
-        "원공시/직전 정정문의 계약조건 전후 실제 비교",
-        "동일 사건 기존 기사 전문·기업 공개 답변 확인"
-      ]
-    },
-    {
-      "id": "issuer_only_correction_unverified_original:DART:20261026800529",
-      "tier": "issuer_only_correction_unverified_original",
-      "tierLabel": "정정문 자체 기재변경·원공시 미대조",
-      "company": "두산에너빌리티",
-      "title": "두산에너빌리티 · [기재정정]단일판매ㆍ공급계약체결",
-      "officialDocumentDate": "2026-10-26",
-      "officialDateIsSourcePublicationNotScrape": true,
-      "evidenceSummary": "정정 공시의 발행사 기재 변경란 참고 5. 계약기간 종료일. 최초 원공시 미대조. 동일 계약·실제 계약 조건의 변화는 확정되지 않음.",
-      "officialUrls": [
-        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261026800529"
-      ],
-      "pressFulltextReviewed": false,
-      "sameAngleCoverageVerified": false,
-      "companyImpactVerified": false,
-      "futurePlanVerified": false,
-      "exclusiveConfirmed": false,
-      "approvedForPitch": false,
-      "nextChecks": [
-        "최초 원공시 번호·정정 이력의 같은 계약 여부",
-        "원공시/직전 정정문의 계약조건 전후 실제 비교",
-        "동일 사건 기존 기사 전문·기업 공개 답변 확인"
-      ]
-    },
-    {
-      "id": "older_public_contract_reference:DART:20261027800235",
-      "tier": "older_public_contract_reference",
-      "tierLabel": "이전 공식 계약 공시 참고자료",
-      "company": "HD현대일렉트릭",
-      "title": "HD현대일렉트릭 · 신규시설투자등",
-      "officialDocumentDate": "2026-10-27",
-      "officialDateIsSourcePublicationNotScrape": true,
-      "evidenceSummary": "이미 접수된 공식 계약 공시. 상세 상대방·계약금액·현지 출하·기업 영향과 기존 보도는 별도 확인.",
-      "officialUrls": [
-        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261027800235"
-      ],
-      "pressFulltextReviewed": false,
-      "sameAngleCoverageVerified": false,
-      "companyImpactVerified": false,
-      "futurePlanVerified": false,
-      "exclusiveConfirmed": false,
-      "approvedForPitch": false,
-      "nextChecks": [
-        "원 공시 계약 상대방·계약금액·기간 확인",
-        "기존 언론 기사와 같은 계약인지 기사 전문 검증",
-        "해당 기업의 공개 사업부 자료 중 실제 실적 반영 확인"
-      ]
-    },
-    {
-      "id": "older_public_contract_reference:DART:20261019800108",
-      "tier": "older_public_contract_reference",
-      "tierLabel": "이전 공식 계약 공시 참고자료",
-      "company": "엘에스일렉트릭",
-      "title": "엘에스일렉트릭 · 단일판매ㆍ공급계약체결",
-      "officialDocumentDate": "2026-10-19",
-      "officialDateIsSourcePublicationNotScrape": true,
-      "evidenceSummary": "이미 접수된 공식 계약 공시. 상세 상대방·계약금액·현지 출하·기업 영향과 기존 보도는 별도 확인.",
-      "officialUrls": [
-        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261019800108"
-      ],
-      "pressFulltextReviewed": false,
-      "sameAngleCoverageVerified": false,
-      "companyImpactVerified": false,
-      "futurePlanVerified": false,
-      "exclusiveConfirmed": false,
-      "approvedForPitch": false,
-      "nextChecks": [
-        "원 공시 계약 상대방·계약금액·기간 확인",
-        "기존 언론 기사와 같은 계약인지 기사 전문 검증",
-        "해당 기업의 공개 사업부 자료 중 실제 실적 반영 확인"
-      ]
-    },
-    {
-      "id": "unlinked_correction_text_followup:20261027800518:20260210801094:contract_amount",
-      "tier": "unlinked_correction_text_followup",
-      "tierLabel": "과거·현재 정정문 기재값 일치 · 계약 동일성 미확인",
-      "company": "효성중공업",
-      "title": "효성중공업 · 정정공시 contract_amount 원공시 연결 확인",
-      "officialDocumentDate": "2026-10-27",
-      "officialDateIsSourcePublicationNotScrape": true,
-      "evidenceSummary": "과거 후보 20260210801094의 공시 기재값 113,586,046,173과 이번 정정공시가 밝힌 '정정 전' 값 113,586,046,173의 문자 일치. 이번 정정 후 기재값 113,044,698,813. 단, 동일 계약 및 실제 계약 변경은 증명되지 않음.",
-      "officialUrls": [
-        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261027800518",
-        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260210801094"
-      ],
-      "pressFulltextReviewed": false,
-      "sameAngleCoverageVerified": false,
-      "companyImpactVerified": false,
-      "futurePlanVerified": false,
-      "exclusiveConfirmed": false,
-      "approvedForPitch": false,
-      "nextChecks": [
-        "정정문에 명시된 원공시 접수번호와 해당 계약의 발행사 고유번호를 확인",
-        "과거·현재 정정 공시의 계약 상대방·계약명·원공시 계보를 직접 대조",
-        "해당 변경이 이미 보도됐는지 해당 기사 전문 확인",
-        "확정된 변경 조건·일자만 기업에 공개 확인 요청"
-      ],
-      "contractLinkVerified": false,
-      "textMatchIsNotContractContinuity": true,
-      "priorOfficialReceipt": "20260210801094",
-      "latestCorrectionReceipt": "20261027800518",
-      "matchField": "contract_amount",
-      "sourceProvenance": "three_matching_dart_snapshot_timestamps_unlinked",
-      "newsArticleFulltextVerified": false,
-      "historicalNotNewIncident": true,
-      "editorialSection": "unlinked_deep_check_not_today_news"
     }
   ]
 }
