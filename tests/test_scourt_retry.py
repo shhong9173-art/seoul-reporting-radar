@@ -226,6 +226,20 @@ class CheckedMemo(unittest.TestCase):
         self.assertEqual(diag["checkedNoMatch"], [])
         self.assertEqual(len(diag["errors"]), 1)
 
+    def test_memo_survives_list_failure(self):
+        # 11-08 03:02: 목록 두 쪽이 모두 끊겨 메모가 비었고, 06:46 실행이 본문 8건을 다시 열었다 — 못 본 메모는 이어 간다
+        _, diag, _ = self.go(["list", "detail", "list"])
+        memo = diag["checkedNoMatch"]
+        _, diag2, calls2 = self.go(["fail"] * 4, checked=memo)
+        self.assertEqual(diag2["pagesFetched"], 0)
+        self.assertEqual(diag2["checkedNoMatch"], memo)
+        _, diag3, _ = self.go(["list", "list"], checked=diag2["checkedNoMatch"])
+        self.assertEqual((diag3.get("checkedReused"), diag3["detailPagesAttempted"]), (1, 0))
+        # 조회 기간이 지난 메모·다른 규칙 메모는 이어 가지 않는다
+        old = [dict(memo[0], url="/old", date="2020-01-01"), dict(memo[0], url="/other", rule="old-rule")]
+        _, diag4, _ = self.go(["fail"] * 4, checked=old)
+        self.assertEqual(diag4["checkedNoMatch"], [])
+
     def test_industry_body_is_kept_not_memo(self):
         out, diag, _ = self.go(["list", "detail", "list"], body="현대제철 하도급 손해배상 사건 판결")
         self.assertEqual(len(out), 1)
