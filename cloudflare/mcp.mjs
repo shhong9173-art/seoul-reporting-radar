@@ -11,7 +11,7 @@ import { krFuel, krOfficial, krSignals, krStats, pageChanges, partnerFilings, sc
 import { trademarks } from './trademarks.mjs';
 import { assemblyBills } from './assembly.mjs';
 import { radarToday } from './digest.mjs';
-import { BROWSER_CITIES, BROWSER_LABOR, BROWSER_PAGES, localNoticeSubmit } from './local_browser.mjs';
+import { BROWSER_CITIES, BROWSER_LABOR, BROWSER_PAGES, VIAS, browserUploadKey, localNoticeSubmit } from './local_browser.mjs';
 
 export const SUPPORTED_VERSIONS = ['2025-06-18', '2025-03-26', '2024-11-05'];
 const SERVER_INFO = { name: 'seoul-reporting-radar', title: '산업부 취재 레이더', version: '1.0.0' };
@@ -130,7 +130,7 @@ export const TOOLS = [
     description: `후보를 재점검해 저장(하루 추천 ${POLICY.dailyLimit}건 한도, 같은 날 중복 제목 제외).`,
     inputSchema: obj({ candidates: { type: 'array', items: CANDIDATE_SCHEMA, maxItems: 10 } }, ['candidates']) },
   { name: 'local_notice_submit', access: 'private', handler: localNoticeSubmit,
-    description: `기자 컴퓨터 브라우저로 읽은 목록 올리기(예약 작업용). cities: 해외 IP에서 막히는 시·군 새올 고시·공고(${Object.keys(BROWSER_CITIES).join('·')}) — 목록 첫 쪽 줄마다 관리번호(searchDetail 안 숫자)와 칸 글자만, 저장 뒤 지자체 고시·공고 감시를 한 번 실행 요청(1시간 안 재요청 없음). pages: 해외 IP에서 막히는 무역구제 공고 목록(${Object.keys(BROWSER_PAGES).join('·')}) — 한국이 든 줄의 칸 글자와 그 줄 링크(같은 사이트)만, 다음 정기 무역구제 감시에 반영. labor: 노동위원회 회의일정 달력(중앙·지방 14곳)이 돌려준 회의마다 '회의번호/순번/회의일/회의명' 한 줄(오늘부터 45일 안), 저장 뒤 노동위 회의 감시를 한 번 실행 요청(5시간 안 재요청 없음). 글자를 고치거나 요약하지 말 것. 읽지 못한 곳은 rows 없이 error에 이유.`,
+    description: `기자 컴퓨터 브라우저로 읽은 목록 올리기(예약 작업용). cities: 해외 IP에서 막히는 시·군 새올 고시·공고(${Object.keys(BROWSER_CITIES).join('·')}) — 목록 첫 쪽 줄마다 관리번호(searchDetail 안 숫자)와 칸 글자만, 저장 뒤 지자체 고시·공고 감시를 한 번 실행 요청(1시간 안 재요청 없음). pages: 해외 IP에서 막히는 무역구제 공고 목록(${Object.keys(BROWSER_PAGES).join('·')}) — 한국이 든 줄의 칸 글자와 그 줄 링크(같은 사이트)만, 다음 정기 무역구제 감시에 반영. labor: 노동위원회 회의일정 달력(중앙·지방 14곳)이 돌려준 회의마다 '회의번호/순번/회의일/회의명' 한 줄(오늘부터 45일 안), 저장 뒤 노동위 회의 감시를 한 번 실행 요청(5시간 안 재요청 없음). 글자를 고치거나 요약하지 말 것. 읽지 못한 곳은 rows 없이 error에 이유. rows[].detail: 출입처 이름이 든 줄의 상세 페이지 글자(전체 제목·본문 앞 400자·첨부 파일 이름, 시·군마다 8줄까지, attachments는 첨부 공고문 글자 앞 4000자) — Aside 수집 코드가 붙인 그대로. via: 수집 길(aside·browser).`,
     inputSchema: obj({ labor: { type: 'array', maxItems: 14, items: obj({ commission: { type: 'string', enum: BROWSER_LABOR },
       rows: { type: 'array', maxItems: 300, items: { type: 'string' }, description: "회의마다 '회의번호/순번/회의일/회의명' 한 줄(예: 2611021110520048685/4/20261104/조정회의)" },
       error: str('읽지 못했을 때 이유') }, ['commission']) },
@@ -141,8 +141,16 @@ export const TOOLS = [
     cities: { type: 'array', maxItems: 20, items: obj({
       city: { type: 'string', enum: Object.keys(BROWSER_CITIES) },
       rows: { type: 'array', maxItems: 60, items: obj({ mgt: str('관리번호(searchDetail(\'…\') 안의 값)'),
-        cells: { type: 'array', maxItems: 14, items: { type: 'string' }, description: '그 줄 칸 글자(빈 칸 빼고 화면 순서대로)' } }, ['mgt', 'cells']) },
-      error: str('읽지 못했을 때 이유(예: TypeError: Failed to fetch)') }, ['city']) } }) },
+        cells: { type: 'array', maxItems: 14, items: { type: 'string' }, description: '그 줄 칸 글자(빈 칸 빼고 화면 순서대로)' },
+        detail: obj({ title: str('상세 페이지 전체 제목'), body: str('본문 앞 400자'), files: { type: 'array', maxItems: 6, items: { type: 'string' }, description: '첨부 파일 이름' },
+          attachments: { type: 'array', maxItems: 3, description: '첨부 공고문 글자(hwpx 앞 4000자) 또는 못 읽은 이유',
+            items: obj({ name: str('첨부 파일 이름'), text: str('공고문 글자 앞부분'), error: str('못 읽은 이유') }, ['name']) } }) }, ['mgt', 'cells']) },
+      error: str('읽지 못했을 때 이유(예: TypeError: Failed to fetch)') }, ['city']) },
+    via: { type: 'string', enum: VIAS, description: '수집 길: aside(기자 컴퓨터 Aside REPL) · browser(내장 브라우저)' },
+    uploadKeySha256: str('Aside 직접 올리기 열쇠의 SHA-256 지문(16진수 64자, 등록 코드가 찍은 FINGERPRINT) — browser_upload_key와 같은 등록. 새로 등록하면 이전 열쇠는 못 씀') }) },
+  { name: 'browser_upload_key', access: 'private', handler: browserUploadKey,
+    description: '기자 컴퓨터 Aside가 수집 결과를 직접 올릴 때 쓰는 열쇠의 SHA-256 지문 등록(열쇠 글자는 받지 않는다 — 열쇠는 기자 컴퓨터 Aside 브라우저의 이 사이트 저장소에만 있다). sha256 없이 부르면 등록 상태(지문 앞 8자·등록·마지막 올림 시각). 새로 등록하면 이전 열쇠는 못 쓴다.',
+    inputSchema: obj({ sha256: str('열쇠의 SHA-256 16진수 64자(Aside 등록 코드가 찍은 FINGERPRINT 값)') }) },
   { name: 'radar_today', access: 'private', handler: radarToday,
     description: '오늘의 레이더(하루 시작): 기자 전용 감시 34개(단독 후보 심사, 공장등록·관보, 공정위·한전·원자재, 월간 통계, 무역구제, 미국 소송, 미국 OSHA, 미국 주 환경 허가·공고, 해외 파트너 공시, 미 의견서, 해외 페이지, 상표 출원, 국회 법안, 미국 리콜, 미국 EPA 인증, 국내 연비 신고, 해외 발주처 낙찰, 협력사 회생·파산, 전기위·원안위, 공장 부지 건축허가, 해외 법인 등기, 지자체 고시·공고, 사업장 인력, 굴뚝 측정, 노동위 회의, 노조 성명, 지방의회 회의록, 인도 법인 공시, 타사 공시 속 출입처, 지분·자사주 변동, 임원 명단 변화, 수시 임원 공시·타사 임원 명단, 문제 임원 점검, 출입처 외신)에서 최근 N시간(기본 24, 월요일 72) 새 항목만 모아 A(단독 후보·직접 변화)/B(확인할 공식 변화)/C(참고)로 정렬. A·B 항목마다 자동 보도 대조 결과(평일 08:50·12:50·18:50, 항목 날짜 3일 전 이후 네이버·빙·구글: 미보도 후보·관련 보도 있음·미확인)를 붙이고 미보도 후보를 먼저 보여 줌. 실패·오래된 감시를 맨 위에 표시. 기자가 판정(씀·킬·보류·봤음)한 항목은 숨김, 줄마다 id.',
     inputSchema: obj({ hours: int('최근 N시간(기본 24, 월요일 72)', 1, 336), company: str('기업·낱말로 거르기'),

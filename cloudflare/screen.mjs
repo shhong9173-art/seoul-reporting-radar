@@ -107,8 +107,58 @@ export async function handleIngest(request, env, deps = {}) {
   if (doc?.schema !== feed.schema || !Array.isArray(doc[feed.list])) {
     return Response.json({ error: 'schema' }, { status: 400 });
   }
-  await storeOp(ctx, 'blobs.put', { name: feed.blob, body: text });
+  // 조용한 0건 감시(11-08): 원천별 '받아 온 줄 수(returned)' 이력을 이 문서 끝에 붙여 둔다(원래 글자는 그대로 두고 덧붙임 —
+  // 파이썬 감시가 이전 문서를 다시 읽을 때 숫자 모양(1.0 → 1 등)이 바뀌지 않게)
+  const prevRw = await storeOp(ctx, 'blobs.get', { name: feed.blob }).then(({ row }) => lastReturnedWatch(row?.body)).catch(() => null);
+  const rw = returnedWatch(prevRw, doc, ctx.now.toISOString());
+  // 실패한 실행에서 이전 문서를 통째로 이어 쓰는 감시(council·dart 거래상대·인도: {**prev, …})는 옛 이력 키를 그대로 들고 온다.
+  // 그래도 다시 직렬화하지 않고 끝에 새 키를 덧붙인다 — 같은 키가 두 번이면 자바스크립트·파이썬 JSON 모두 마지막 것을 쓴다.
+  const body = !rw ? text : text.replace(/\}\s*$/, () => `,"${RW_KEY}":${JSON.stringify(rw)}}`);  // 함수로 — 글자 속 $ 기호가 치환 문법으로 읽히지 않게
+  await storeOp(ctx, 'blobs.put', { name: feed.blob, body });
   return Response.json({ saved: true, items: doc[feed.list].length });
+}
+
+// 조용한 0건(형식 변경 의심, 11-08): 감시가 '정상'으로 끝났는데 원천이 아무것도 안 돌려주면 실패 감시(#736)로도 안 잡힌다.
+// 원천(checks[].source)마다 정상 실행의 받아 온 줄 수(returned, 없으면 listed)를 최근 6번까지 쌓고,
+// 이전 4번이 모두 3줄 이상이던 원천이 두 번 연달아 0줄이거나 1/10 아래로 줄면(이전 중앙값 20줄 이상일 때) 의심으로 적는다.
+// 감시가 이유를 적은 줄(note: '새 달 없음' 등)은 세지 않는다. 의심은 줄 수가 돌아올 때까지 이어 간다.
+const RW_KEY = '_returnedWatch';
+const RW_KEEP = 6;
+const RW_FLOOR = 3;
+export function lastReturnedWatch(body) {
+  if (typeof body !== 'string') return null;
+  const tag = `,"${RW_KEY}":`;
+  const i = body.lastIndexOf(tag);
+  if (i < 0) return null;
+  try { return JSON.parse(body.slice(i + tag.length, body.replace(/\s+$/, '').length - 1)); } catch { return null; }
+}
+const median = (xs) => { const v = [...xs].sort((a, b) => a - b); return v.length % 2 ? v[(v.length - 1) / 2] : (v[v.length / 2 - 1] + v[v.length / 2]) / 2; };
+export function returnedWatch(prev, doc, nowIso) {
+  const checks = Array.isArray(doc?.checks) ? doc.checks : [];
+  const hist0 = prev && typeof prev.hist === 'object' ? prev.hist : {};
+  const was = new Map((Array.isArray(prev?.silent) ? prev.silent : []).map((x) => [x.source, x]));
+  const hist = {};
+  const silent = [];
+  for (const c of checks) {
+    const source = String(c?.source ?? c?.company ?? c?.target ?? '').slice(0, 80);
+    if (!source || Object.hasOwn(hist, source)) continue;
+    const n = typeof c.returned === 'number' ? c.returned : typeof c.listed === 'number' ? c.listed : null;
+    const before = (Array.isArray(hist0[source]) ? hist0[source] : []).filter(Number.isFinite);
+    if (n === null || c.status !== 'ok' || c.note) {          // 실패·일부·사유 있는 0은 이력에 넣지 않고 지난 이력만 이어 간다
+      if (before.length) hist[source] = before.slice(0, RW_KEEP);
+      if (was.has(source)) silent.push(was.get(source));
+      continue;
+    }
+    hist[source] = [n, ...before].slice(0, RW_KEEP);
+    const old = was.get(source);
+    if (old && n <= (old.limit ?? 0)) { silent.push({ ...old, now: n }); continue; }
+    const ref = before.slice(1, 5);
+    if (ref.length < 4 || !ref.every((x) => x >= RW_FLOOR)) continue;
+    const med = median(ref);
+    const limit = n === 0 && before[0] === 0 ? 0 : med >= 20 ? Math.floor(med / 10) : -1;
+    if (limit >= 0 && n <= limit && before[0] <= limit) silent.push({ source, kind: n === 0 ? 'zero' : 'drop', now: n, before: ref, limit, since: nowIso });
+  }
+  return Object.keys(hist).length || silent.length ? { hist, ...(silent.length ? { silent: silent.slice(0, 20) } : {}) } : null;
 }
 
 export async function readFeed(ctx, name) {

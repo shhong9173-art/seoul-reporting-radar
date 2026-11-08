@@ -158,6 +158,40 @@ class Parsers(unittest.TestCase):
         self.assertIn("회생", c["이승조"]["insolvent"])
         self.assertTrue(km.NONE.match(c["최윤희"]["insolvent"]))
 
+    def test_agm_career_glued_cells_paired_probe192(self):
+        # 탐침 192(출입처 소집공고 39건): 기간·내용 칸 안 여러 줄이 줄바꿈 없이 붙은 꼴(이름은 가상, 경력 글자는 실제 꼴)
+        glued = table(td("후보자성명", "주된직업", "세부경력", "해당법인과의최근3년간 거래내역"), td("기간", "내용"),
+                      td("황가상", "변호사", "24~현22~현15~2317~2212~17",
+                         "고려아연㈜ 사외이사롯데웰푸드㈜ 사외이사서울고등법원 및 서울중앙지방법원 조정위원하나은행 사외이사한국법학원 상임이사", "해당사항 없음"),
+                      td("최가상", "회장", "22~현21~2219~2114~1912~19",
+                         "<P>고려아연㈜ 회장</P><P>고려아연㈜ 대표이사 부회장고려아연㈜ 대표이사 사장호주 SMC 대표이사 사장고려아연㈜ 부사장</P>", "해당사항 없음"),
+                      td("김가상", "고문", "2012 ~ 20132013 ~ 20152022 ~ 20242024 ~ 현재",
+                         "- KDB산업은행 본부장- 나무코프㈜ 대표이사- 법무법인(유) 현 고문- 성신양회(주) 고문", "-"),
+                      td("박가상", "교수", "2019-현재2025-현재2014-2019",
+                         "서울대학교 경영대학 교수생명보험사회공헌위원회 위원 교보생명 사외이사, 리스크관리위원회 위원 KPMG ACI 자문교수", "해당없음"))
+        c = {x["name"]: x["career"] for x in km.parse_agm_candidates(glued)}
+        self.assertEqual(c["황가상"], "'24~현재 고려아연㈜ 사외이사 / '22~현재 롯데웰푸드㈜ 사외이사 / '15~'23 서울고등법원 및 서울중앙지방법원 조정위원"
+                                    " / '17~'22 하나은행 사외이사 / '12~'17 한국법학원 상임이사 해당사항 없음")
+        self.assertTrue(c["최가상"].startswith("'22~현재 고려아연㈜ 회장 / '21~'22 고려아연㈜ 대표이사 부회장 / '19~'21 고려아연㈜ 대표이사 사장 / '14~'19 호주 SMC"))
+        self.assertTrue(c["김가상"].startswith("2012~2013 KDB산업은행 본부장 / 2013~2015 나무코프㈜ 대표이사 / 2022~2024 법무법인(유) 현 고문 / 2024~현재 성신양회(주) 고문"))
+        self.assertTrue(c["박가상"].startswith("기간(내용과 짝 안 맞음) 2019~현재 , 2025~현재 , 2014~2019 / 서울대학교 경영대학 교수"))   # 수가 안 맞으면 짝짓지 않는다
+        # 따로 줄로 나오는 꼴(현대차)은 예전 그대로
+        self.assertIn("2005년 ~ 현재 - 건국대 교수", {x["name"]: x for x in km.parse_agm_candidates(AGM)}["최윤희"]["career"])
+        self.assertEqual(km.split_periods("2015년~현재 2019년~현재 1997년"), ["2015년~현재", "2019년~현재", "1997년"])
+        self.assertEqual(km.split_periods("'14.12~'15.12 '16.07~현재"), ["'14.12~'15.12", "'16.07~현재"])
+        self.assertIsNone(km.split_periods("2019년 3월 선임"))
+        # 11-06 운영 재읽기에서 본 실제 꼴(고려아연 2026-08-11): 예전 경계로는 '교수부산항만공사'를 못 자르고 '회계감사본부'를 잘못 잘라 수만 맞았다
+        self.assertEqual(km.pair_career("25~현07~현26~현26~현19~2319~23",
+                                        "NH투자증권㈜ 독립이사상명대 경영경제대학 경제금융학부 교수부산항만공사 해외사업 리스크관리위원회 위원국방부 군인복지ㆍ연금기금 운용심의회 위원"
+                                        "한국투자공사 운영위원신용보증기금 자산운용위원회 위원").split(" / ")[:3],
+                         ["'25~현재 NH투자증권㈜ 독립이사", "'07~현재 상명대 경영경제대학 경제금융학부 교수", "'26~현재 부산항만공사 해외사업 리스크관리위원회 위원"])
+        self.assertEqual(km.pair_career("22~현07~현20~2118~19", "조세심판원 비상임심판관성균관대 법학전문대학원 교수국제조세협회 이사장한국세법학회 회장"),
+                         "'22~현재 조세심판원 비상임심판관 / '07~현재 성균관대 법학전문대학원 교수 / '20~'21 국제조세협회 이사장 / '18~'19 한국세법학회 회장")
+        wrong = km.pair_career("26~현25~현21~2620-2496-20", "세진회계법인 회계ㆍ재무 자문단국대 데이터지식서비스공학과 산학협력교수한국 딜로이트 그룹 ESG센터장"
+                                                         "한국 딜로이트 그룹 이사회 의장한국 딜로이트 그룹 회계감사본부, M&A 재무자문본부")
+        self.assertTrue(wrong.startswith("기간(내용과 짝 안 맞음)"))           # 애매하면('자문단국대') 짝짓지 않는다 — 수만 맞춘 오짝 금지
+        self.assertNotIn("/ 본부", wrong)
+
 
 class Runs(unittest.TestCase):
     def fake(self):
@@ -192,6 +226,66 @@ class Runs(unittest.TestCase):
         again = run(self.fake(), previous=doc, skip_roster=True)
         self.assertEqual(again["counts"]["newEvents"], 0)
         self.assertEqual(again["counts"]["opened"], 0)        # 본 접수번호는 다시 열지 않는다
+
+    def test_agm_backfill_reads_older_beat_notices_as_baseline(self):
+        class Dated(Fake):   # 목록이 기간·회사로 거른다(실제 OpenDART처럼)
+            def __call__(self, url, params=None, **kw):
+                if url.endswith("list.json"):
+                    self.calls.append(("list.json", params.get("corp_code") or params.get("pblntf_ty"), None))
+                    rows = [f for f in self.filings if f["ty"] == params["pblntf_ty"] and params["bgn_de"] <= f["rcept_dt"] <= params["end_de"]
+                            and (not params.get("corp_code") or f["corp_code"] == params["corp_code"])]
+                    return R({"status": "000" if rows else "013", "total_page": 1, "list": rows})
+                return super().__call__(url, params, **kw)
+        files = [filing("E", "20260910000111", "임시주주총회소집공고", "현대자동차", "00164742"),
+                 filing("E", "20260601000222", "주주총회소집공고", "현대자동차", "00164742"),     # 120일 밖
+                 filing("E", "20260911000333", "임시주주총회소집공고", "남의회사", "00999003")]
+        g = Dated(files, {"20260910000111": AGM})
+        old = km.AGM_DAYS
+        try:
+            km.AGM_DAYS = 0
+            off = run(g, skip_roster=True)
+            self.assertEqual([e for e in off["events"] if e["source"] == "주총 소집공고"], [])   # 끄면 3일 목록만
+            km.AGM_DAYS = 120
+            doc = run(Dated(files, {"20260910000111": AGM}), skip_roster=True)
+        finally:
+            km.AGM_DAYS = old
+        agm = [e for e in doc["events"] if e["source"] == "주총 소집공고"]
+        self.assertTrue(agm)
+        self.assertTrue(all(e.get("baseline") and e.get("filed") == "2026-09-10" for e in agm))   # 지난 공고 후보는 기준선(오늘의 레이더 X)
+        self.assertEqual({e["url"][-14:] for e in agm}, {"20260910000111"})                       # 120일 밖·출입처 아닌 회사 공고는 안 읽음
+        back = next(c for c in doc["checks"] if c["source"].startswith("출입처 소집공고 되짚기"))
+        self.assertEqual((back["status"], back["returned"]), ("ok", 1))
+        self.assertEqual(doc["agmParse"], km.AGM_PARSE_VERSION)
+        # 경력 칸 읽는 법이 바뀌면(판 올림) 저장된 후보 공고를 한 번 다시 읽어 경력만 고쳐 쓴다 — 처음 잡힌 때·기준선은 그대로
+        old_doc = dict(doc, agmParse=1, events=[dict(e, person=dict(e["person"], career="붙은 옛 경력"), detectedAt="2026-11-05T23:53:00+09:00")
+                                                 if e["source"] == "주총 소집공고" else e for e in doc["events"]])
+        try:
+            km.AGM_DAYS = 120
+            g2 = Dated(files, {"20260910000111": AGM})
+            again = run(g2, previous=old_doc, skip_roster=True)
+            same = run(Dated(files, {"20260910000111": AGM}), previous=again, skip_roster=True)
+        finally:
+            km.AGM_DAYS = old
+        agm2 = [e for e in again["events"] if e["source"] == "주총 소집공고"]
+        self.assertTrue(all(e["person"]["career"] != "붙은 옛 경력" and e.get("reparsed") and e.get("baseline")
+                            and e["detectedAt"] == "2026-11-05T23:53:00+09:00" for e in agm2))
+        self.assertEqual(again["counts"]["newEvents"], 0)
+        self.assertEqual(next(c for c in again["checks"] if c["source"] == "이사 후보 경력 다시 읽기")["returned"], len(agm2))
+        self.assertFalse(any(c["source"] == "이사 후보 경력 다시 읽기" for c in same["checks"]))     # 같은 판이면 다시 안 읽음
+
+    def test_disqualification_column_none_words_real_1105(self):
+        # 11-05 실제(고려아연 2026-08-11 소집공고): 「결격사유 없음」을 '없음 아님'으로 읽어 후보 6명이 A가 됐다
+        for v in ("결격사유 없음", "결격 사유 없음.", "체납사실 없음", "해당사항 없음", "부실기업 경영진 아님", "-", "無"):
+            self.assertTrue(km.none_value(v), v)
+        for v in ("결격사유 있음", "2019년 ○○건설 회생절차 사내이사", "있음", "해당"):
+            self.assertFalse(km.none_value(v), v)
+        old = {"kind": "이사 후보", "tier": "A", "flags": [{"kind": "결격·부실 칸", "text": "법령상 결격 사유 칸 「결격사유 없음」(회사 기재 그대로)"},
+                                                       {"kind": "전관", "text": "경력에 '판사'"}]}
+        self.assertTrue(km.refresh_agm_flags(old))
+        self.assertEqual((old["tier"], [f["kind"] for f in old["flags"]]), ("B", ["전관"]))
+        real = {"kind": "이사 후보", "tier": "A", "flags": [{"kind": "결격·부실 칸", "text": "부실기업 경영진 여부 칸 「○○건설(2019 회생절차) 사내이사 재직」(회사 기재 그대로)"}]}
+        self.assertFalse(km.refresh_agm_flags(real))
+        self.assertEqual(real["tier"], "A")
 
     def test_roster_baseline_then_new_flagged_director(self):
         def roster(rc, people):

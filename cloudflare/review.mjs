@@ -15,7 +15,12 @@ const ALERT_MIN = 3;    // 즉시 알림 성적: 이 감시로 보낸 알림이 
 export const DECIDED = [
   { watch: '굴뚝 측정(공장 가동 신호)', since: '2026-11-04T05:13:00Z',
     rule: '즉시 알림·아침 발제는 〔즉시 알림 대상〕(다른 감시와 겹친 신호·배출구 절반 넘게 72시간 넘는 가동중지 신고)만' },
+  // 11-08 기자: '굴뚝 측정 쓸데없는게 너무 많이 와' — 실시간 신호는 A 없음, 배출구 하나하나의 신호는 C, 즉시 알림 겹침은 공장 이름까지 맞을 때만
+  { watch: '굴뚝 측정(공장 가동 신호)', since: '2026-11-08T07:00:00Z',
+    rule: '실시간 신호는 A 없음·배출구 하나하나의 초과/멈춤/전환/빠짐은 C, 즉시 알림 겹침은 공장 이름까지 맞을 때만' },
 ];
+// 같은 감시에 기준을 여러 번 바꿨으면 가장 최근 것
+const decidedFor = (watch) => DECIDED.filter((x) => x.watch === watch).sort((a, b) => b.since.localeCompare(a.since))[0];
 const topReasons = (rs, n = 2) => {
   const c = {};
   for (const r of rs.filter((x) => x.verdict === '킬')) c[r.reason || '사유 없음'] = (c[r.reason || '사유 없음'] ?? 0) + 1;
@@ -23,7 +28,7 @@ const topReasons = (rs, n = 2) => {
 };
 // 킬이 몰린 묶음의 점검 문구: 이미 바꾼 기준이면 바뀐 뒤 판정만 보고, 아니면 사유와 함께 바꿀 안을 붙인다(바꾸는 건 기자).
 function killNote(label, rs, killed, watch) {
-  const d = DECIDED.find((x) => x.watch === watch);
+  const d = decidedFor(watch);
   if (d) {
     const after = rs.filter((r) => String(r.created_at) >= d.since);
     const ak = after.filter((r) => r.verdict === '킬').length;
@@ -60,7 +65,7 @@ async function alertLines(ctx, days, judgedById, index) {
   const out = [`\n[즉시 알림 성적 · 최근 ${days}일] 알림 ${names.length}일치 · 보낸 항목 ${rowsOut.length}건 — ${count(rowsOut)}`];
   for (const [watch, rs] of groupBy(rowsOut, (x) => x.watch)) {
     const killed = rs.filter((x) => x.verdict === '킬').length;
-    const d = DECIDED.find((x) => x.watch === watch);
+    const d = decidedFor(watch);
     const afterRs = d ? rs.filter((x) => `${x.day.slice(0, 4)}-${x.day.slice(4, 6)}-${x.day.slice(6)}T23:59:59Z` >= d.since && (!x.r || String(x.r.created_at) >= d.since)) : rs;
     let note = '';
     if (d) note = ` · ${d.since.slice(5, 10)} 기준 변경 뒤 보낸 것 ${afterRs.length}건${afterRs.length ? `(${count(afterRs)})` : ''}`;

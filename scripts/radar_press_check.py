@@ -50,6 +50,8 @@ def candidates(items, *, now, limit=MAX_ITEMS):
     rows = []
     for x in items:
         hint = x.get("check") or {}
+        if not isinstance(hint, dict):  # 힌트가 아닌 값(11-05 무역위 안내 글자) 하나로 전체 대조가 멈추지 않게 그 항목만 건너뜀
+            continue
         who, terms = subject(hint.get("who")), [str(t) for t in hint.get("terms") or [] if str(t).strip()]
         # 항목이 대조 시작일을 따로 주면(바레인 월간 보고서: 낙찰 결정 달) 그날부터
         day = item_day({"date": hint.get("since")}) or item_day(x) or now.date()

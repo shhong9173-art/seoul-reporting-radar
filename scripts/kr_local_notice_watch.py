@@ -98,7 +98,8 @@ BROWSER_CITIES = [
     ("순천시", "https://eminwon.suncheon.go.kr", "현대제철(순천)"),
     ("함평군", "https://eminwon.hampyeong.go.kr", "금호타이어(함평 이전 공장)"),
 ]
-BROWSER_BACKUP = {"양산시", "광주 광산구", "나주시"}  # GitHub에서 들쑥날쑥한 곳: 직접 조회가 실패하면 브라우저 수집으로 대신
+BROWSER_BACKUP = {"양산시", "광주 광산구", "나주시", "광양시", "천안시", "평택시", "원주시"}  # GitHub에서 들쑥날쑥한 곳: 직접 조회가 실패하면 브라우저 수집으로 대신
+# 11-07 광양(포스코)·천안(LS일렉트릭) 추가: 11-05~07 kr-local 열 번 가운데 각각 네 번 시간 초과·일부 실패(GitHub 쪽)
 BROWSER_FRESH_HOURS = 30
 BROWSER_FRESH_MONDAY = 78  # 예약 작업은 평일 오전뿐: 월요일 오전 실행은 금요일 수집(약 70시간 전)까지 받아 준다
 
@@ -122,11 +123,57 @@ def browser_rows(browser, city, now):
             return None, f"브라우저 수집이 {age:.0f}시간 전 — 컴퓨터·앱이 꺼졌을 수 있음"
         if c.get("error"):
             return None, f"브라우저 수집 실패({str(c['error'])[:40]})"
-        rows = [r for r in (parse_cells(x.get("mgt"), x.get("cells") or []) for x in c.get("rows") or [] if isinstance(x, dict)) if r]
+        rows = []
+        for x in c.get("rows") or []:
+            r = parse_cells(x.get("mgt"), x.get("cells") or []) if isinstance(x, dict) else None
+            if not r:
+                continue
+            d = browser_detail(x.get("detail"))
+            if d:
+                r["detail"] = d
+                atts = browser_attachments((x.get("detail") or {}).get("attachments"))
+                if atts is not None:
+                    r["attachments"] = atts
+            rows.append(r)
         if not rows:  # 빈 목록으로 기준선을 만들면 다음 수집 때 첫 쪽 전체가 '신규'가 된다
             return None, "브라우저 수집 0줄(형식 변경 가능)"
-        return rows, at.astimezone(KST).strftime("%Y-%m-%dT%H:%M") + " KST"
+        via = {"aside": " · Aside"}.get(c.get("via") or browser.get("via"), "")
+        return rows, at.astimezone(KST).strftime("%Y-%m-%dT%H:%M") + " KST" + via
     return None, "브라우저 수집 없음(예약 작업 전이거나 컴퓨터·앱이 꺼짐)"
+
+
+def browser_attachments(atts):
+    """기자 컴퓨터가 내려받아 푼 첨부 공고문 글자(11-06 Aside: hwpx만, 앞 4000자) → read_attachments와 같은 모양(사업 개요는 여기서 뽑는다).
+    목록이 없으면 None(아직 안 읽음), 빈 목록이면 읽을 첨부가 없었음."""
+    if not isinstance(atts, list):
+        return None
+    out = []
+    for a in atts[:ATTACH_MAX]:
+        if not isinstance(a, dict) or not norm_space(str(a.get("name") or "")):
+            continue
+        row = {"name": norm_space(str(a["name"]))[:120]}
+        text = norm_space(str(a.get("text") or ""))
+        if text:
+            row["chars"] = len(text)
+            if len(text) < 50:
+                row["note"] = "글자 없음(스캔 이미지일 수 있음)"
+            else:
+                facts = attachment_facts(text)
+                if facts:
+                    row["facts"] = facts
+        else:
+            row["error"] = norm_space(str(a.get("error") or "못 읽음"))[:40]
+        out.append(row)
+    return out
+
+
+def browser_detail(d):
+    """기자 컴퓨터가 읽어 올린 상세(11-06 Aside 수집: 목록 제목에 출입처 이름이 든 줄만) — parse_detail과 같은 모양의 글자 세 칸만 받는다."""
+    if not isinstance(d, dict) or not norm_space(str(d.get("title") or "")):
+        return None
+    files = [norm_space(f)[:120] for f in d.get("files") or [] if isinstance(f, str) and norm_space(f)][:6]
+    body = norm_space(str(d.get("body") or ""))
+    return {"title": norm_space(str(d["title"]))[:300], "body": body[:BODY_CHARS + 1], "files": files}
 
 
 # (출입처, 제목 규칙)
@@ -455,6 +502,15 @@ def error_kind(e):
     return name if name in ("ConnectTimeout", "ReadTimeout", "ConnectionError", "SSLError", "Timeout") else (str(e)[:40] or name)
 
 
+def retier(x, full_title):
+    """상세 페이지 전체 제목으로 다시 매긴다(목록 제목은 잘려 출입처 이름·사업 낱말이 빠질 수 있다). 바뀌면 목록 등급을 listTier로 남긴다."""
+    tier, hits = classify(full_title)
+    if tier and (tier, hits) != (x["tier"], x["companies"]):
+        x.setdefault("listTier", x["tier"])
+        x["tier"], x["companies"] = tier, hits or x["companies"]
+        x["company"] = x["companies"][0] if x["companies"] else None
+
+
 def read_details(items, get, sleep, budget=DETAIL_MAX):
     """새 A·B 공고의 상세 페이지를 읽어 전체 제목으로 다시 매긴다. 실패는 detailError로 남긴다(제목만 확인한 상태 그대로)."""
     read = failed = 0
@@ -474,13 +530,46 @@ def read_details(items, get, sleep, budget=DETAIL_MAX):
         read += 1
         x["attachments"] = read_attachments(x, x["url"], get, sleep) or []  # 빈 목록 = 읽을 첨부 없음(다시 시도 안 함)
         d.pop("links", None)
-        tier, hits = classify(d["title"])
-        if tier and (tier, hits) != (x["tier"], x["companies"]):
-            x["listTier"] = x["tier"]
-            x["tier"], x["companies"] = tier, hits or x["companies"]
-            x["company"] = x["companies"][0] if x["companies"] else None
+        retier(x, d["title"])
         sleep(1.0)
     return {"read": read, "failed": failed, "skipped": max(0, len(items) - budget)}
+
+
+# 직접 조회 이력(11-08): 기자 컴퓨터 대신 수집(BROWSER_BACKUP)은 사람이 실패를 보고 넣어 왔다(11-07 광양·천안 — kr-local 열 번 중 네 번).
+# 시·군마다 GitHub 직접 조회 결과를 최근 20번까지 이어 쌓고(f 실패·p 일부·o 정상, 최근 것이 앞), 대신 수집에 없는 시·군이
+# 3번 넘게 문제면 radar_today 수집 상태에 후보로 적는다(추가는 기자 결정). 러너 쪽 장애로 4분의 1 넘게 한꺼번에 실패한 실행
+# (11-04·11-06 아침: 40곳 중 12~14곳 ConnectTimeout)은 사이트 탓이 아니라 세지 않는다.
+HISTORY_RUNS = 20
+SUGGEST_FAILS = 3
+
+
+def direct_history(previous, results):
+    hist = {k: str(v)[:HISTORY_RUNS] for k, v in (previous or {}).items() if isinstance(v, str)}
+    codes = {city: "f" if rows is None else "p" if err else "o" for (city, _base, _plants), rows, err in results}
+    if not codes:
+        return hist
+    if sum(1 for v in codes.values() if v == "f") > len(codes) / 4:
+        return {k: v for k, v in hist.items() if k in codes}
+    return {city: (code + hist.get(city, ""))[:HISTORY_RUNS] for city, code in codes.items()}
+
+
+def history_notice(history):
+    # Actions 요약에서 이력이 쌓이는지 본다(비공개 저장소를 열지 않고) — 시·군 수, 가장 긴 이력, 문제 있던 곳
+    if not history:
+        return ""
+    bad = sorted(c for c, h in history.items() if set(h) - {"o"})
+    return (f" · 직접 조회 이력 {len(history)}곳·최장 {max(len(h) for h in history.values())}번"
+            + (f"(문제 있던 곳 {', '.join(f'{c} {history[c]}' for c in bad[:8])})" if bad else ""))
+
+
+def backup_suggestion(history):
+    bad = sorted(((city, sum(1 for ch in h if ch != "o"), len(h)) for city, h in history.items() if city not in BROWSER_BACKUP),
+                 key=lambda x: (-x[1], x[0]))
+    bad = [x for x in bad if x[1] >= SUGGEST_FAILS]
+    if not bad:
+        return None
+    return ("직접 조회 실패·일부 실패가 잦은 시·군: " + ", ".join(f"{c} {n}/{t}번" for c, n, t in bad[:5])
+            + " — 기자 컴퓨터 대신 수집 후보(추가는 기자 결정, 실패한 날 그 시·군 0건은 미확인)")
 
 
 def run(*, now, previous=None, post=None, sleep=time.sleep, cities=CITIES, browser=None, browser_cities=BROWSER_CITIES, get=None):
@@ -505,6 +594,7 @@ def run(*, now, previous=None, post=None, sleep=time.sleep, cities=CITIES, brows
     with ThreadPoolExecutor(6) as ex:
         results = list(ex.map(one, cities))
     sources = {}
+    history = direct_history(prev.get("directHistory"), results)
     for i, ((city, base, plants), rows, err) in enumerate(results):
         if rows is None and city in BROWSER_BACKUP:
             brows, note = browser_rows(browser, city, now)
@@ -524,18 +614,33 @@ def run(*, now, previous=None, post=None, sleep=time.sleep, cities=CITIES, brows
         baseline = city not in seen  # a city read for the first time is its own baseline
         new = 0
         for r in rows:
+            iid = f"local:{city}:{r['mgt']}"
             if r["mgt"] in known:
+                # 지난 실행에 목록 제목으로만 잡힌 공고에 이번 수집의 상세가 붙어 오면(기자 컴퓨터 수집) 그때 붙이고 다시 매긴다
+                x = out.get(iid)
+                if r.get("detail") and x is not None and "detail" not in x:
+                    x["detail"], x["detailVia"] = r["detail"], "browser"
+                    x.pop("detailError", None)
+                    retier(x, r["detail"]["title"])
+                if r.get("attachments") is not None and x is not None and "attachments" not in x:
+                    x["attachments"] = r["attachments"]
                 continue
             known.add(r["mgt"])
             tier, hits = classify(r["title"])
+            if not tier and r.get("detail"):  # 목록 제목이 잘려 출입처 이름이 빠진 경우 — 전체 제목으로 한 번 더
+                tier, hits = classify(r["detail"]["title"])
             if not tier:
                 continue
-            iid = f"local:{city}:{r['mgt']}"
             if iid in out:
                 continue
             out[iid] = {"id": iid, "city": city, "plants": plants, "no": r["no"], "title": r["title"], "dept": r["dept"], "date": r["date"],
                         "companies": hits, "company": hits[0] if hits else None, "tier": tier, "url": detail_url(base, r["mgt"]),
                         "listUrl": list_url(base), "firstSeen": stamp, "baseline": baseline, "isNew": not baseline}
+            if r.get("detail"):
+                out[iid]["detail"], out[iid]["detailVia"] = r["detail"], "browser"
+                retier(out[iid], r["detail"]["title"])
+            if r.get("attachments") is not None:
+                out[iid]["attachments"] = r["attachments"]
             new += 1
         order = [r["mgt"] for r in rows] + [m for m in seen.get(city) or [] if m not in {r["mgt"] for r in rows}]
         seen[city] = order[:SEEN_MAX]
@@ -566,8 +671,10 @@ def run(*, now, previous=None, post=None, sleep=time.sleep, cities=CITIES, brows
                    key=lambda x: (str(x.get("date") or ""), x["id"]), reverse=True)[:KEEP_MAX]
     failed = [c for c in checks if c["status"] == "failed"]
     status = "failed" if len(failed) == len(checks) else "partial" if any(c["status"] != "ok" for c in checks) else "complete"
+    note = backup_suggestion(history)
     return {"schema": SCHEMA, "generatedAt": stamp, "status": status, "checks": checks, "items": items, "seen": seen,
-            "rules": RULES, "cities": len(cities) + len(browser_cities), **({"details": details} if details else {})}
+            "rules": RULES, "cities": len(cities) + len(browser_cities), "directHistory": history,
+            **({"healthNote": note} if note else {}), **({"details": details} if details else {})}
 
 
 def main():
@@ -597,7 +704,10 @@ def main():
     det = doc.get("details") or {}
     print(f"::notice title=kr-local::상태 {doc['status']} · 시·군 {len(ok)}/{len(doc['checks'])} 정상 · 새 고시·공고 {tiers} · 보관 {len(doc['items'])}"
           + (f" · 상세 읽음 {det.get('read', 0)}·실패 {det.get('failed', 0)}" if det else "")
-          + (f" · 미확인 {', '.join(bad)}" if bad else ""))
+          + (f" · 미확인 {', '.join(bad)}" if bad else "")
+          + history_notice(doc.get("directHistory")))
+    if doc.get("healthNote"):
+        print(f"::notice title=kr-local-backup::{doc['healthNote']}")
     if not token:
         print("::warning title=kr-local-push::MCP_ACCESS_TOKEN 미설정 — 결과를 저장하지 않음")
         return

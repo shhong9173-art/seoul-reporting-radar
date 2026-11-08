@@ -240,6 +240,51 @@ class Local(unittest.TestCase):
                      sleep=lambda s: None, cities=CITIES[:1], browser=browser, browser_cities=bp)
         self.assertEqual([x["id"] for x in doc2["items"] if x["isNew"]], ["local:인천 부평구:91010"])
 
+    def test_browser_details_from_aside(self):
+        # 11-06 Aside 수집: 출입처 이름이 든 줄은 기자 컴퓨터가 상세 페이지까지 읽어 제목·본문 앞·첨부 이름을 함께 올린다
+        bp = [("나주시", "https://eminwon.naju.go.kr", "LG화학(나주)")]
+        full = "건설공사 안전점검 수행기관 지정 공고[LG화학 나주공장 가소제 생산라인 증설공사]"
+        browser = {"via": "aside", "cities": [{"city": "나주시", "via": "aside", "fetchedAt": (NOW - dt.timedelta(hours=1)).isoformat(), "rows": [
+            {"mgt": "7001", "cells": ["나주시 공고 제2026-900호", "LG화학(주) 관련 공고", "건축과", "2026-10-29"],
+             "detail": {"title": full, "body": "  나주시 송월동 일원\n공장 증설 " * 40, "files": ["공고문.hwpx", 3, " ", "도면.pdf"]}},
+            {"mgt": "7000", "cells": ["나주시 공고 제2026-899호", "도로점용 허가 공고", "건설과", "2026-10-29"], "detail": {"body": "제목 없음"}}]}]}
+        first = w.run(now=NOW, previous=None, post=fake({}), sleep=lambda s: None, cities=[], browser=browser, browser_cities=bp)
+        self.assertIn("· Aside", first["checks"][0]["via"])
+        x = first["items"][0]
+        self.assertEqual((x["listTier"], x["tier"], x["detailVia"]), ("B", "A", "browser"))  # 목록 제목은 B, 전체 제목에 '증설' → A
+        self.assertEqual(x["detail"]["title"], full)
+        self.assertEqual(x["detail"]["files"], ["공고문.hwpx", "도면.pdf"])
+        self.assertLessEqual(len(x["detail"]["body"]), w.BODY_CHARS + 1)
+        self.assertNotIn("\n", x["detail"]["body"])
+        # 지난 실행에 목록 제목만으로 잡힌 공고에 다음 수집의 상세가 붙어 오면 그때 붙인다(새 항목은 아님)
+        browser["cities"][0]["rows"][0].pop("detail")
+        base = w.run(now=NOW, previous=None, post=fake({}), sleep=lambda s: None, cities=[], browser=browser, browser_cities=bp)
+        self.assertNotIn("detail", base["items"][0])
+        browser["cities"][0]["rows"][0]["detail"] = {"title": full, "body": "본문", "files": []}
+        browser["cities"][0]["fetchedAt"] = (NOW + dt.timedelta(hours=8)).isoformat()
+        later = w.run(now=NOW + dt.timedelta(hours=9), previous=base, post=fake({}), sleep=lambda s: None, cities=[], browser=browser, browser_cities=bp)
+        y = later["items"][0]
+        self.assertEqual((y["tier"], y["listTier"], y["detail"]["body"], y["isNew"]), ("A", "B", "본문", False))
+        # 목록 제목이 잘려 출입처 이름이 빠졌어도 상세 전체 제목에 있으면 잡는다
+        browser["cities"][0]["rows"].insert(0, {"mgt": "7002", "cells": ["나주시 공고 제2026-901호", "건설공사 안전점검 수행기관 지정 공고[송월동 ...", "건축과", "2026-10-30"],
+                                               "detail": {"title": "건설공사 안전점검 수행기관 지정 공고[송월동 엘지화학 나주공장 신설공사]", "body": "", "files": []}})
+        again = w.run(now=NOW + dt.timedelta(hours=10), previous=later, post=fake({}), sleep=lambda s: None, cities=[], browser=browser, browser_cities=bp)
+        z = next(i for i in again["items"] if i["id"] == "local:나주시:7002")
+        self.assertEqual((z["company"], z["tier"], z["isNew"]), ("LG화학", "A", True))
+        # 첨부 공고문 글자(Aside가 hwpx를 풀어 앞 4000자): 사업 개요는 감시가 뽑는다. 지난 실행 항목에도 붙인다
+        text = ("나주시 공고 제2026-900호 건설공사 안전점검 수행기관 지정 공고 1. 사업 개요 가. 공 사 명 : LG화학 나주공장 가소제 생산라인 증설공사 "
+                "나. 공사기간 : 2026. 11. ~ 2027. 6. 다. 위 치 : 나주시 송월동 일원 라. 발주자/시공자 : LG화학 / 시험건설(주) 2. 신청 자격")
+        browser["cities"][0]["rows"][1]["detail"] = {"title": full, "body": "본문", "files": ["공고문.hwpx", "도면.pdf"],
+                                                    "attachments": [{"name": "공고문.hwpx", "text": text}, {"name": "도면.pdf", "error": "pdf — 기자 컴퓨터에서는 안 읽음"}, "x"]}
+        last = w.run(now=NOW + dt.timedelta(hours=11), previous=again, post=fake({}), sleep=lambda s: None, cities=[], browser=browser, browser_cities=bp)
+        y = next(i for i in last["items"] if i["id"] == "local:나주시:7001")
+        self.assertEqual(y["attachments"][0]["facts"], {"사업명": "LG화학 나주공장 가소제 생산라인 증설공사", "공사기간": "2026. 11. ~ 2027. 6.",
+                                                        "위치": "나주시 송월동 일원", "발주자/시공자": "LG화학 / 시험건설(주)"})
+        self.assertEqual(y["attachments"][1], {"name": "도면.pdf", "error": "pdf — 기자 컴퓨터에서는 안 읽음"})
+        self.assertEqual(len(y["attachments"]), 2)
+        self.assertEqual(w.browser_attachments(None), None)
+        self.assertEqual(w.browser_attachments([]), [])
+
     def test_browser_backup_and_monday(self):
         cities = [("양산시", "https://eminwon.yangsan.go.kr", "넥센타이어(양산)")]
         browser = {"cities": [{"city": "양산시", "fetchedAt": "2026-10-30T08:45:00+09:00",
@@ -261,6 +306,42 @@ class Local(unittest.TestCase):
         del browser["cities"][0]["error"]
         browser["cities"][0]["rows"] = [{"mgt": "bad id", "cells": ["제목"]}]
         self.assertEqual(w.browser_rows(browser, "양산시", NOW + dt.timedelta(hours=8)), (None, "브라우저 수집 0줄(형식 변경 가능)"))
+
+    def test_direct_history_suggests_backup_for_cities_that_keep_failing(self):
+        # 11-08: 시·군마다 직접 조회 결과를 이어 쌓고(최근 것이 앞, 20번까지), 대신 수집에 없는 곳이 3번 넘게 문제면 후보로 적는다
+        c = lambda city: (city, "https://x", "")  # noqa: E731
+        fill = [(f"정상{i}시", "o") for i in range(8)]  # 실제 40곳처럼 대부분은 정상
+        res = lambda *pairs: [(c(city), None if code == "f" else [], "일부" if code == "p" else None) for city, code in [*pairs, *fill]]  # noqa: E731
+        h = w.direct_history(None, res(("서산시", "f"), ("당진시", "o")))
+        self.assertEqual((h["서산시"], h["당진시"]), ("f", "o"))
+        h = w.direct_history(h, res(("서산시", "p"), ("당진시", "o")))
+        self.assertEqual(h["서산시"], "pf")
+        self.assertIsNone(w.backup_suggestion(h))
+        h = w.direct_history(h, res(("서산시", "f"), ("당진시", "o"), ("광양시", "f")))
+        # 러너 쪽 장애로 4분의 1 넘게 한꺼번에 실패한 실행은 세지 않는다(11-04·11-06 아침: 40곳 중 12~14곳)
+        everyone = ["서산시", "당진시", "광양시"] + [x for x, _ in fill]
+        mass = w.direct_history(h, [(c(city), None if i < 4 else [], None) for i, city in enumerate(everyone)])  # 11곳 중 4곳
+        self.assertEqual(mass, h)
+        self.assertEqual(h["광양시"], "f")
+        note = w.backup_suggestion(dict(h, 광양시="fff"))
+        self.assertEqual(note, "직접 조회 실패·일부 실패가 잦은 시·군: 서산시 3/3번 — 기자 컴퓨터 대신 수집 후보(추가는 기자 결정, 실패한 날 그 시·군 0건은 미확인)")
+        self.assertNotIn("광양시", note)  # 이미 대신 수집 중
+        self.assertEqual(len(w.direct_history({"당진시": "o" * 25}, res(("당진시", "o")))["당진시"]), w.HISTORY_RUNS)
+        self.assertNotIn("없앤시", w.direct_history({"없앤시": "fff"}, res(("당진시", "o"))))  # 목록에서 빠진 시·군은 잊는다
+
+    def test_run_keeps_direct_history_and_health_note(self):
+        cities = [("서산시", "https://eminwon.seosan.go.kr", "HD현대오일뱅크"), ("당진시", "https://eminwon.dangjin.go.kr", "현대제철"),
+                  ("울주군", "http://eminwon.ulju.ulsan.kr", "고려아연"), ("화성시", "https://eminwon.hscity.go.kr", "기아")]
+        post = fake({"https://eminwon.dangjin.go.kr": page(DJ1, TD_ROW), "http://eminwon.ulju.ulsan.kr": page(UJ1, A_ROW),
+                     "https://eminwon.hscity.go.kr": page(DJ1, TD_ROW)}, down=("https://eminwon.seosan.go.kr",))
+        doc = None
+        for i in range(3):
+            doc = w.run(now=NOW + dt.timedelta(hours=8 * i), previous=doc, post=post, sleep=lambda s: None, cities=cities, browser_cities=())
+        self.assertEqual(doc["directHistory"]["서산시"], "fff")
+        self.assertEqual(doc["directHistory"]["당진시"], "ooo")
+        self.assertIn("서산시 3/3번", doc["healthNote"])
+        self.assertEqual(w.history_notice(doc["directHistory"]), " · 직접 조회 이력 4곳·최장 3번(문제 있던 곳 서산시 fff)")
+        self.assertEqual(w.history_notice({}), "")
 
     def test_cheongju_homepage_board(self):
         # 10-30 청주 홈페이지 고시공고 게시판 실제 모양(번호·공고번호·제목·부서·등록일)

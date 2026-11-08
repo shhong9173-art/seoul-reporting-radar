@@ -4,6 +4,10 @@
 import { readFeed, weekdayHours } from './screen.mjs';
 import { storeOp } from './store.mjs';
 import { dispatchHealth } from './dispatch.mjs';
+import { browserHealth } from './local_browser.mjs';
+import { runsHealth } from './gh_runs.mjs';
+import { MAINT_KINDS, MAINT_RE, kstMD, maintFolded, maintenanceMemo, stackSiteKey } from './stack_memo.mjs';
+export { MAINT_KINDS, MAINT_RE, maintFolded, maintenanceMemo, stackSiteKey };
 import { clampInt, fetchJson, safeEqual, textResult, uniqueList } from './common.mjs';
 import { peerLines } from './radar_tools.mjs';
 import { classLabel, waitReason } from './trademarks.mjs';
@@ -198,6 +202,17 @@ export const gbHint = (who, terms, country, published) => {
 
 const sinceMonth = (h, month) => (h && /^\d{4}-\d{2}$/.test(String(month ?? '')) ? { ...h, since: `${month}-01` } : h);
 
+// 무역위 항목 보도 대조(11-08): 회사 이름이 누리집에 대개 없어 품목 이름으로 찾는다('석도강판 반덤핑'). 기사 제목은 짧은 품목 이름을 쓰고
+// '인쇄제판용 평면모양 사진플레이트' 같은 긴 정식 품목명은 제목에 잘 안 나와 '미보도 후보'로 잘못 보일 수 있어, 띄어쓰기·쉼표 없는 10자 이하만.
+// 덤핑·세이프가드 조사만(특허·원산지 같은 불공정무역행위는 사건 낱말이 제각각이라 뺌). 보도자료(news)는 이미 공개된 뉴스라 대조하지 않는다.
+export function ktcHint(e) {
+  const p = String(e?.product ?? '').trim();
+  if (e?.ktcKind === 'news' || !p || /[\s,·]/.test(p) || p.length > 10) return undefined;
+  const t = `${e?.label ?? ''} ${e?.text ?? ''}`;
+  const word = /세이프가드|긴급관세/.test(t) ? '세이프가드' : /덤핑/.test(t) ? '반덤핑' : null;
+  return word ? hint(p, [word, '무역위원회']) : undefined;
+}
+
 export function hint(who, terms, places = [], must = [], names = []) {
   const subject = String(who ?? '').split('·')[0].replace(/\(.*?\)/g, '').trim();
   const t = [...new Set(terms.filter(Boolean).map(String))];
@@ -390,7 +405,7 @@ function scoopKind(c) {
 }
 
 // all=true: every stored item regardless of date (used to label judgments), same tiers as the digest.
-function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
+function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = null } = {}) {
   const items = [];
   const push = (tier, w, x) => items.push({ tier, watch: w.label, tool: w.tool, ...x });
   const W = Object.fromEntries(WATCHES.map((w) => [w.feed, w]));
@@ -565,7 +580,9 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
       // 국내 무역위원회: 공식 변화(B)는 출입 업종 품목만. 보도자료는 이미 공개된 뉴스(C). 회사 이름은 누리집에 대개 없다.
       push(e.tier === 'B' ? 'B' : 'C', W['trade-remedy'], { kind: KTC_KIND[e.ktcKind] ?? '무역위원회', id: e.id, date: e.detectedAt,
         company: e.product ?? '', fact: `${e.label}: ${e.text}`, url: e.url,
-        check: e.ktcKind === 'news' ? undefined : '품목의 국내 생산자(신청인)를 협회·회사에 확인 → 판정·세율은 회의 뒤 의결서·보도자료로' });
+        // 보도 대조: 회사 이름이 없어 품목 이름으로(ktcHint). (11-05~11-08 이 자리에 안내 글자를 넣어 두었더니 보도 대조가
+        // 힌트를 객체로 읽다 멈췄다 — radar_press_check.py AttributeError, 7회 연속 실패. 힌트는 hint()가 만든 객체이거나 undefined만)
+        check: ktcHint(e) });
       continue;
     }
     if (e.pageId === 'kita') {
@@ -987,7 +1004,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
 
   // 수시 임원 공시·타사 임원 명단(kr-exec-market): A·B만. 회사는 공시 낸 회사(타사면 그 회사) — 기사엔 그 사람 이름이 있어야 같은 건
   for (const e of docs['kr-exec-market']?.events ?? []) {
-    if (!['A', 'B'].includes(e.tier) || !recent(e.detectedAt)) continue;
+    if (!['A', 'B'].includes(e.tier) || !recent(e.detectedAt) || e.baseline) continue;   // 지난 소집공고 되짚기 후보는 기준선
     const name = String(e.person?.name ?? '').trim();
     const flags = (e.flags ?? []).map((f) => f.text).filter(Boolean).join(' / ');
     push(e.tier, W['kr-exec-market'], { kind: `${e.source ?? '임원 공시'} · ${e.kind}`, id: e.id, date: e.detectedAt, company: e.company, url: e.url ?? undefined,
@@ -1001,7 +1018,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
     if (e.reviewStatus !== 'active') continue; // 과거 오탐·재검색 실패·구버전 미검증 기록은 알림으로 재노출하지 않음
     if (!['A', 'B'].includes(e.tier) || e.baseline || !recent(e.detectedAt)) continue;   // 첫 실행 표시는 kr_signals 목록으로만
     const name = String(e.person?.name ?? '').trim();
-    const word = /논란 기사/.test(e.kind) ? '논란' : '사외이사';
+    const word = /논란 기사/.test(e.kind) ? '논란' : /공식 제재/.test(e.kind) ? '제재' : '사외이사';
     push(e.tier, W['kr-exec-check'], { kind: e.kind, id: e.id, date: e.detectedAt, company: e.company, url: e.url ?? undefined,
       fact: `${e.text} (확인할 단서 — 결격·비위 단정 아님, 회사·당사자 확인)`,
       check: name ? hint(e.company, [name, word], [], [name]) : hint(e.company, [word]) });
@@ -1057,8 +1074,10 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now() } = {}) {
   for (const e of docs['kr-stacks']?.events ?? []) {
     if (!recent(e.detectedAt)) continue;
     // 예전 이름('보수·가동중지 전환·해제', 11-03 11:45 첫 읽기 17개 사업장 B)은 C. 새 이름('가동중지 전환·해제')은 굴뚝 감시가 정한 등급 그대로
-    const tier = /보수·가동중지 (전환|해제)/.test(e.kind ?? '') ? 'C' : e.tier ?? 'B';
-    push(tier, W['kr-stacks'], { kind: e.kind, id: e.id, date: e.detectedAt, company: e.company, site: e.site, fact: e.text,
+    const m = maintFolded(e, maint);
+    const tier = m || /보수·가동중지 (전환|해제)/.test(e.kind ?? '') ? 'C' : e.tier ?? 'B';
+    push(tier, W['kr-stacks'], { kind: e.kind, id: e.id, date: e.detectedAt, company: e.company, site: e.site,
+      fact: m ? `${e.text} · ⓘ 기자 판정(${kstMD(m.at)} '${m.reason}') — ${kstMD(m.until)}까지 이 사업장 멈춤·빠짐 신호는 접음` : e.text,
       check: stackHint(e) });
   }
 
@@ -1139,8 +1158,8 @@ export async function radarItems(request, env, deps = {}) {
   const docs = Object.fromEntries(await Promise.all(WATCHES.map(async (w) => [w.feed, await readFeed(ctx, w.feed)])));
   const { rows: fb } = await storeOp(ctx, 'feedback.latest', {});
   const judged = new Map(fb.map((r) => [r.item_id, r.verdict]));
-  const items = collect(docs, cut, kstDate(cut), { now: nowMs })
-    .filter((x) => (x.tier === 'A' || x.tier === 'B') && x.check && !PRESS_SKIP.has(judged.get(x.id)) && !(x.parent && judged.get(x.parent) === '킬'))
+  const items = collect(docs, cut, kstDate(cut), { now: nowMs, maint: maintenanceMemo(fb) })
+    .filter((x) => (x.tier === 'A' || x.tier === 'B') && x.check && typeof x.check === 'object' && !PRESS_SKIP.has(judged.get(x.id)) && !(x.parent && judged.get(x.parent) === '킬'))
     .map(({ tier, watch, id, date, company, fact, url, check }) => ({ tier, watch, id: String(id), date, company, fact: String(fact ?? '').slice(0, 300), url, check }));
   return Response.json({ generatedAt: ctx.now.toISOString(), hours, items }, { headers: { 'Cache-Control': 'no-store' } });
 }
@@ -1203,7 +1222,15 @@ function health(ctx, docs) {
     if (unset.length) issues.push(`미설정 ${unset.map((c) => `${c.source}(${c.error ?? '열쇠 없음'})`).join(', ')}`);
     if (waiting.length) issues.push(`${waiting.map((c) => `${c.source} 원문 대기 ${c.pending}건`).join(', ')}(실행당 읽기 한도, 다음 실행에서 읽음)`);
     if (paused.length) issues.push(`대기 ${paused.length}곳(${[...new Set(paused.map((c) => waitReason(c.reason)))].join(', ')})`);
+    // 조용한 0건(screen.mjs returnedWatch): 감시는 '정상'인데 원천이 두 번 연달아 0줄·급감 — 사이트 형식이 바뀌었을 수 있다
+    const silent = Array.isArray(d._returnedWatch?.silent) ? d._returnedWatch.silent : [];
+    if (silent.length) {
+      issues.push(`⚠ 형식 변경 의심 ${silent.length}곳(${silent.slice(0, 3).map((x) => `${x.source}: ${x.kind === 'zero' ? '정상 응답인데 0줄' : `${x.now}줄로 급감`}`
+        + `, 이전 ${(x.before ?? []).join('·')}줄`).join(' / ')}) — 원문 사이트 목록이 보이는지 확인`);
+    }
     if (issues.length) lines.push(`- ${w.label}: ${issues.join(' · ')} — 해당 부분 0건은 미확인`);
+    // 감시가 남긴 운영 제안(11-08 지자체: 직접 조회 실패가 잦은 시·군 → 기자 컴퓨터 대신 수집 후보)은 실패 줄과 따로
+    if (typeof d.healthNote === 'string' && d.healthNote) lines.push(`- ${w.label}: ${d.healthNote.slice(0, 300)}`);
   }
   return lines;
 }
@@ -1283,7 +1310,7 @@ export function splitByPlant(g) {
   const short = (ks) => [...ks].sort((a, b) => a.length - b.length)[0];
   return clusters.map((c) => ({ ...g, plant: short(c.tokens), items: [...c.items, ...plain] }));
 }
-export function stackAlert(x, conv, stacksDoc, nowMs, judged = new Map()) {
+export function stackAlert(x, conv, stacksDoc, nowMs, judged = new Map(), maint = null) {
   const label = WATCHES.find((w) => w.feed === 'kr-stacks')?.label;
   if (!label || x.watch !== label || !['A', 'B'].includes(x.tier)) return null;
   const s = (stacksDoc?.sites ?? []).find((y) => y.company === x.company && (y.name === x.site || String(x.id).includes(`:${y.name}:`)));
@@ -1291,18 +1318,22 @@ export function stackAlert(x, conv, stacksDoc, nowMs, judged = new Map()) {
   for (const g of conv ?? []) {
     if (!g.items.some((y) => y.id === x.id)) continue;
     // 킬한 항목은 증거로 세지 않는다(include_judged로 화면에 보일 때도). 같은 시군이라도 다른 공장 이름이 적힌 항목
-    // (울산1공장 굴뚝 ↔ 울산2공장 공고)은 다른 공장이라 세지 않는다. 공장 이름이 없으면 시군까지만 맞춘 것으로 센다.
+    // (울산1공장 굴뚝 ↔ 울산2공장 공고)은 다른 공장이라 세지 않는다.
+    // 11-08: 시군까지만 맞는 겹침은 세지 않고 공장 이름까지 맞을 때만 — 포항·광양·당진처럼 큰 제철소 도시는 도로점용 공고·의회 회의록이
+    // 늘 함께 걸려, 기준의 1.0~1.1배 실시간 초과 값까지 즉시 알림으로 갔다(굴뚝 알림 21건 중 킬 9·판정 없음 12, 판정한 굴뚝 16건 모두 킬).
     const ev = g.items.filter((y) => !y.background && y.watch !== label && judged.get(y.id) !== '킬').map((y) => {
       const theirs = plantTokens(y.fact);
       return { y, same: theirs.length && mine.length ? theirs.some((k) => mine.some((m) => samePlant(k, m))) : null };
-    }).filter((e) => e.same !== false);
+    }).filter((e) => e.same === true);
     if (ev.length) {
       const others = [...new Set(ev.map((e) => e.y.watch))];
-      return `겹친 신호 — ${g.place}에서 ${others.join('·')}도 이 회사를 가리킴(${ev.some((e) => e.same) ? '공장 이름까지 맞음' : '시군까지만 맞춤 — 같은 공장인지 원문 확인'})`;
+      return `겹친 신호 — ${g.place}에서 ${others.join('·')}도 이 공장을 가리킴(공장 이름까지 맞음)`;
     }
   }
   const m = s?.meaningful ?? 0;
-  if (m >= 2) {
+  // 정기보수 메모가 있는 사업장은 '장기 가동중지 신고'로 알리지 않는다(회사가 이미 정기보수라고 확인함)
+  const mm = maint?.get(stackSiteKey(x.id));
+  if (m >= 2 && !(mm && nowMs <= mm.until)) {
     const at = (v) => Date.parse(`${String(v ?? '').replace(' ', 'T')}:00+09:00`);
     // 멈춘 때는 숫자가 끊긴 첫 측정(stoppedSince)을 먼저 쓴다 — 상태 글자는 11-03부터 읽어 '처음 본 때'가 실제 멈춤보다 늦다(순천 10-31 멈춤 → 11-03 10:30 처음 봄)
     const long = Object.values(s.stacks ?? {}).filter((st) => (st.status ?? [])[0] === '가동중지'
@@ -1388,9 +1419,10 @@ export async function radarTodayData(ctx, args) {
   const docs = Object.fromEntries(await Promise.all(WATCHES.map(async (w) => [w.feed, await readFeed(ctx, w.feed)])));
   const { rows: fb } = await storeOp(ctx, 'feedback.latest', {});
   const judged = new Map(fb.map((r) => [r.item_id, r.verdict]));
+  const maint = maintenanceMemo(fb);
   const showJudged = args.include_judged === true || args.include_judged === 'true';
   // 이어 올린 항목(노동위 조정 결과 확인 등)은 원래 항목을 킬했으면 숨긴다
-  const found = collect(docs, cut, cutDay, { now: nowMs }).filter((x) => has(q, x.company, x.fact, x.watch) && !(x.parent && judged.get(x.parent) === '킬'));
+  const found = collect(docs, cut, cutDay, { now: nowMs, maint }).filter((x) => has(q, x.company, x.fact, x.watch) && !(x.parent && judged.get(x.parent) === '킬'));
   const hiddenBy = {};
   const all = found.filter((x) => {
     const v = judged.get(x.id);
@@ -1409,6 +1441,13 @@ export async function radarTodayData(ctx, args) {
   const h = health(ctx, docs);
   const dh = await dispatchHealth(ctx);
   if (dh) h.unshift(`- ${dh}`);
+  // GitHub 실행이 연달아 실패한 프로그램(11-08 보도 대조 7회 연속 실패가 36시간 뒤에야 보였다) — 감시 결과 나이보다 먼저 본다
+  const gh = await runsHealth(ctx).catch((e) => [`GitHub 실행 상태: 읽기 실패(${String(e?.message ?? e).slice(0, 60)}) — 미확인`]);
+  h.unshift(...gh.map((x) => `- ${x}`));
+  // 기자 컴퓨터 Aside 수집(11-08): 컴퓨터가 꺼져 예약 수집이 빠져도 다른 감시 상태로는 안 보인다
+  // 상태 읽기가 실패하면 줄을 숨기지 않고 미확인으로 적는다(줄이 없으면 '이상 없음'으로 읽히기 때문)
+  const bh = await browserHealth(ctx).catch((e) => `기자 컴퓨터 수집: 상태 읽기 실패(${String(e?.message ?? e).slice(0, 60)}) — 미확인`);
+  if (bh) h.push(`- ${bh}`);
   if (!press) h.push('- 보도 대조(자동): 결과 없음 — 미확인(평일 08:50·12:50·18:50 실행 확인)');
   else if (press.broken) h.push('- 보도 대조(자동): 저장 형식 오류 — 미확인');
   else {
@@ -1416,7 +1455,7 @@ export async function radarTodayData(ctx, args) {
     if (Number.isFinite(ageH) && ageH > 36) h.push(`- 보도 대조(자동): ⚠ ${Math.round(ageH)}시간 전 결과 — 이후 항목은 대조 전`);
   }
   const span = nowMs - 14 * 86400000;
-  const conv = convergence([...collect(docs, span, kstDate(span), { now: nowMs }).filter((x) => !(judged.get(x.id) && !showJudged)), ...background(docs, nowMs)]
+  const conv = convergence([...collect(docs, span, kstDate(span), { now: nowMs, maint }).filter((x) => !(judged.get(x.id) && !showJudged)), ...background(docs, nowMs)]
     .filter((x) => has(q, x.company, x.fact, x.watch)), { cut });
   // 묶음을 만든 새 신호(배경 아님)가 모두 이미 보도된 묶음은 뒤로(10-31 운영: 금호타이어 함평 묶음의 유일한 새 신호인
   // 부지 취득 완료 정정은 10-28 '함평 이전 부지 1160억원에 취득 완료' 기사로 '관련 보도 있음'인데 맨 위에 표시 없이 떴다)
@@ -1424,7 +1463,7 @@ export async function radarTodayData(ctx, args) {
   conv.sort((a, b) => Number(coveredGroup(a)) - Number(coveredGroup(b)));
   // 굴뚝 측정 항목의 즉시 알림 대상(11-04 기자 결정: 굴뚝 실시간 신호만 있는 항목 9건을 모두 킬 — '뒷받침할 증거가 없음').
   // 화면에는 그대로 두고, 아래 둘 중 하나일 때만 〔즉시 알림 대상〕을 붙인다(즉시 알림 예약 작업이 이 표시만 본다).
-  for (const t of ['A', 'B']) for (const x of byTierRows[t]) { const why = stackAlert(x, conv, docs['kr-stacks'], nowMs, judged); if (why) x.alert = why; }
+  for (const t of ['A', 'B']) for (const x of byTierRows[t]) { const why = stackAlert(x, conv, docs['kr-stacks'], nowMs, judged, maint); if (why) x.alert = why; }
   // 실적 업종 비교(11-04, earnings_compare 공개 결과): 최근 72시간 안에 처음 본 데이터 기사 후보만 radar_today에 올린다.
   let peerV = null;
   try { peerV = await fetchJson(ctx, 'digests/earnings_compare_latest.json'); } catch { peerV = null; }

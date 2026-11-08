@@ -1,19 +1,22 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { deflateRawSync } from 'node:zlib';
+import { createHash } from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
 import worker from '../cloudflare/worker.mjs';
 import { handleMcp, TOOLS } from '../cloudflare/mcp.mjs';
 import { RadarStore } from '../cloudflare/store.mjs';
+import { browserUpload, lastBrowserSlot } from '../cloudflare/local_browser.mjs';
 import { checkCandidate } from '../cloudflare/scoring.mjs';
 import { readZip } from '../cloudflare/zip.mjs';
 import { publicationDate, verifyEvidence } from '../cloudflare/evidence.mjs';
 import { allowedUrl } from '../cloudflare/live_tools.mjs';
-import { ageNote, handleIngest, weekdayHours } from '../cloudflare/screen.mjs';
+import { ageNote, handleIngest, lastReturnedWatch, returnedWatch, weekdayHours } from '../cloudflare/screen.mjs';
 import { dueAt, newsDue, nextSlot, runSchedule } from '../cloudflare/dispatch.mjs';
+import { failStreak, mergeRuns, pollDue } from '../cloudflare/gh_runs.mjs';
 import { boardKey, factParts, groupSame, splitTop } from '../cloudflare/board.mjs';
 import { cleanOutput, cleanSummary, LLM_MODELS, MT_MODEL } from '../cloudflare/translate.mjs';
-import { background, billHint, clipAt, convergence, convergenceRows, countForms, hint, insolvencyWord, usRecallHint, usRecallModels, kepcoHint, localWord, plantTokens, radarItems, siteCity, splitByPlant, stackAlert, stackHint, workforceHint } from '../cloudflare/digest.mjs';
+import { background, billHint, clipAt, convergence, convergenceRows, countForms, hint, insolvencyWord, ktcHint, maintenanceMemo, stackSiteKey, usRecallHint, usRecallModels, kepcoHint, localWord, plantTokens, radarItems, siteCity, splitByPlant, stackAlert, stackHint, workforceHint } from '../cloudflare/digest.mjs';
 
 const ORIGIN = 'https://seoul-reporting-radar.shhong9173.workers.dev';
 const TOKEN = 'test-token-0123456789abcdef';
@@ -883,6 +886,19 @@ test('trade_remedies ktc: meeting agenda before the meeting, recent cases with l
   const b = today.text.split('[B · ')[1].split('[C · ')[0];
   assert.match(b, /무역구제\n   무역위원회 회의 안내\(개최 2026-11-20\): 제479차 — 의결: 중국산 석도강판 예비판정/);
   assert.doesNotMatch(b, /플라스틱 필름|아연도금냉연 덤핑조사 최종판정/);
+  // 보도 대조로 넘기는 항목: 무역위 항목은 회사 이름이 없어 넘기지 않는다(11-05 안내 글자가 힌트 자리에 들어가 대조가 멈춤)
+  const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=168', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: new Date() })).json();
+  assert.ok(items.items.every((x) => x.check && typeof x.check === 'object'));
+  assert.ok(!items.items.some((x) => String(x.id).startsWith('ktc:')));   // 이 묶음의 B 항목(회의 안내)은 품목이 없어 대조하지 않음
+  // 11-08 품목 이름으로 대조: 짧은 품목 + 덤핑·세이프가드만
+  const k = (product, text, extra = {}) => ktcHint({ ktcKind: 'case', product, label: '무역위 새 조사', text, ...extra });
+  assert.deepEqual(k('석도강판', '중국산 석도강판의 덤핑사실 및 국내산업피해 유무 조사'), { who: '석도강판', terms: ['반덤핑', '무역위원회'], alts: { 반덤핑: ['반덤핑', '덤핑'] } });
+  assert.equal(k('석도강판', '세이프가드 조사').terms[0], '세이프가드');
+  assert.equal(k('인쇄제판용 평면모양 사진플레이트', '덤핑'), undefined);   // 긴 정식 품목명
+  assert.equal(k('커넥티드 전기자동차', '특허권 침해 불공정무역행위'), undefined);
+  assert.equal(k('낚싯대케이스', '원산지 표시위반'), undefined);            // 덤핑·세이프가드 아님
+  assert.equal(k('석도강판', '덤핑', { ktcKind: 'news' }), undefined);
+  assert.equal(ktcHint({ ktcKind: 'meeting', text: '의결: 중국산 석도강판 예비판정' }), undefined);
 });
 
 test('kr_official workforce: member counts ranked by monthly drop with year-ago, events and new construction sites; radar_today tiers', async () => {
@@ -1099,7 +1115,7 @@ test('converging signals: background (workforce project, recent permit, stopped 
   assert.ok(!g.some((x) => x.place === '당진'));
 });
 
-test('굴뚝 즉시 알림 대상(11-04 기자 결정): 다른 감시가 같은 회사·시군을 가리키거나 배출구 절반 넘게 사흘 넘게 가동중지일 때만 표시', async () => {
+test('굴뚝 즉시 알림 대상(11-04·11-08 기자 결정): 다른 감시가 같은 공장 이름을 가리키거나 배출구 절반 넘게 사흘 넘게 가동중지일 때만 표시', async () => {
   const opts = PRIVATE();
   const env = opts.env;
   const recent = new Date(NOW.getTime() - 2 * 3600000).toISOString();
@@ -1121,7 +1137,8 @@ test('굴뚝 즉시 알림 대상(11-04 기자 결정): 다른 감시가 같은 
     { id: 'wf:delta:현대제철:순천', kind: '인력 감소', tier: 'B', company: '현대제철', month: '202610', detectedAt: recent, text: '현대제철(전라남도 순천시) 국민연금 가입자 1,020→940명(-80명)' }] });
   const r = (await call('radar_today', {}, opts)).text;
   const idLine = (id) => r.split('\n').find((l) => l.includes(`id ${id}`) && l.includes('자세히:'));
-  assert.match(idLine('stk:down:현대제철:현대제철(주)순천공장:d'), /〔즉시 알림 대상: 겹친 신호 — 순천에서 사업장 인력\(국민연금\)도 이 회사를 가리킴\(시군까지만 맞춤 — 같은 공장인지 원문 확인\)〕$/);
+  // 11-08: 시군까지만 맞는 겹침(공장 이름 없는 국민연금 순천)은 세지 않는다
+  assert.doesNotMatch(idLine('stk:down:현대제철:현대제철(주)순천공장:d'), /즉시 알림 대상/);
   assert.match(idLine('stk:down:KG스틸:케이지스틸(주)인천공장:d'), /〔즉시 알림 대상: 장기 가동중지 신고 — 평소 움직이던 배출구 6개 중 4개가 사흘 넘게 '가동중지'〕$/);
   assert.doesNotMatch(idLine('stk:longstop:세아:(주)세아창원특수강:191:d'), /즉시 알림 대상/);   // 굴뚝 신호만(9개 중 1개)
   assert.doesNotMatch(idLine('wf:delta:현대제철:순천'), /즉시 알림 대상/);   // 굴뚝 아닌 항목엔 붙이지 않는다
@@ -1131,6 +1148,49 @@ test('굴뚝 즉시 알림 대상(11-04 기자 결정): 다른 감시가 같은 
     const r2 = (await call('radar_today', args, opts)).text;
     assert.doesNotMatch(r2.split('\n').find((l) => l.includes('id stk:down:현대제철:현대제철(주)순천공장:d') && l.includes('자세히:')), /즉시 알림 대상/);
   }
+});
+
+test('정기보수 메모(11-08): 기자가 굴뚝 항목을 정기보수 사유로 판정하면 그 사업장 멈춤·빠짐 신호를 30일(또는 적힌 날까지) 접는다', async () => {
+  assert.equal(stackSiteKey('stk:longstop:현대제철:현대제철(주)순천공장:81:2026-11-03'), '현대제철:현대제철(주)순천공장');
+  assert.equal(stackSiteKey('dart:123'), null);
+  const at = '2026-11-07T03:00:00.000Z';
+  const memo = maintenanceMemo([
+    { item_id: 'stk:longstop:현대제철:현대제철(주)순천공장:81:2026-11-03', verdict: '킬', reason: '현대제철 확인 결과 정기보수(순천·당진 배출구 가동중지)', created_at: at },
+    { item_id: 'stk:down:세아:(주)세아창원특수강:2026-11-04', verdict: '킬', reason: '회사 확인: 대정비 12월 5일까지', created_at: at },
+    { item_id: 'stk:exceed:포스코:(주)포스코포항제철소:65:sox:x', verdict: '킬', reason: '기자 판단: 실시간 기준 초과 값만으로는 아직 애매', created_at: at }]);
+  assert.deepEqual([...memo.keys()], ['현대제철:현대제철(주)순천공장', '세아:(주)세아창원특수강']);
+  assert.equal(new Date(memo.get('현대제철:현대제철(주)순천공장').until).toISOString(), '2026-12-07T03:00:00.000Z');   // 30일
+  assert.equal(new Date(memo.get('세아:(주)세아창원특수강').until).toISOString(), '2026-12-05T14:59:00.000Z');      // 12-05 23:59 KST
+  assert.equal(new Date(memo.get('현대제철:현대제철(주)순천공장').from).toISOString(), '2026-10-31T03:00:00.000Z');  // 7일 전부터
+  // radar_today: 판정 뒤 같은 사업장(순천)의 가동 중단 신호는 C로 접고, 다른 사업장(당진 현대제철㈜)은 그대로 B
+  const opts = PRIVATE();
+  const recent = new Date(NOW.getTime() - 2 * 3600000).toISOString();
+  const kst = (h) => new Date(NOW.getTime() + 9 * 3600000 - h * 3600000).toISOString().slice(0, 16).replace('T', ' ');
+  const halt = (h) => ({ status: ['가동중지', kst(h)], obs: [] });
+  await call('candidate_feedback', { item_id: 'stk:longstop:현대제철:현대제철(주)순천공장:81:old', verdict: '킬', reason: '회사 확인(기자): 순천공장 정기 보수를 순차 진행 중' },
+    { ...opts, now: new Date(NOW.getTime() - 86400000) });
+  const ev = (id, kind, tier, company, site) => ({ id, kind, tier, company, site, text: `${site}: ${kind}`, detectedAt: recent });
+  await worker.fetch(new Request(ORIGIN + '/ingest/kr-stacks', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify({
+    schema: 'kr_stacks/v1', generatedAt: recent, status: 'complete', baselineSince: '2026-10-01T00:00:00+09:00', checks: [{ source: '굴뚝 자동측정(CleanSYS)', status: 'ok' }],
+    sites: [{ id: '현대제철:현대제철(주)순천공장', company: '현대제철', name: '현대제철㈜순천공장', meaningful: 4, stacks: { 81: halt(90), 82: halt(90), 83: halt(90) } },
+      { id: '현대제철:현대제철(주)', company: '현대제철', name: '현대제철㈜', meaningful: 50, stacks: {} }],
+    events: [ev('stk:down:현대제철:현대제철(주)순천공장:d', '사업장 가동 중단 신호', 'B', '현대제철', '현대제철㈜순천공장'),
+      ev('stk:down:현대제철:현대제철(주):d', '사업장 가동 중단 신호', 'B', '현대제철', '현대제철㈜'),
+      ev('stk:newstack:현대제철:현대제철(주)순천공장:99', '새 배출구', 'B', '현대제철', '현대제철㈜순천공장')] }) }), opts.env, {});
+  const r = (await call('radar_today', { include_minor: true, limit: 30 }, opts)).text;
+  const block = (t) => r.split(`[${t} · `)[1]?.split('\n[')[0] ?? '';
+  assert.match(block('C'), /현대제철㈜순천공장: 사업장 가동 중단 신호 · ⓘ 기자 판정\(\d\d-\d\d '회사 확인\(기자\): 순천공장 정기 보수를 순차 진행 중'\) — \d\d-\d\d까지 이 사업장 멈춤·빠짐 신호는 접음/);
+  assert.match(block('B'), /현대제철㈜: 사업장 가동 중단 신호/);              // 당진(다른 사업장)
+  assert.match(block('B'), /현대제철㈜순천공장: 새 배출구/);                  // 멈춤·빠짐이 아닌 신호는 그대로
+  // 사흘 넘는 가동중지가 절반 넘어도(4개 중 3개) 정기보수 메모가 있으면 즉시 알림 대상이 아니다
+  assert.doesNotMatch(r, /즉시 알림 대상: 장기 가동중지 신고/);
+  const x = { id: 'stk:down:현대제철:현대제철(주)순천공장:d', tier: 'B', watch: '굴뚝 측정(공장 가동 신호)', company: '현대제철', site: '현대제철㈜순천공장' };
+  const sdoc = { sites: [{ company: '현대제철', name: '현대제철㈜순천공장', meaningful: 4, stacks: { 81: halt(90), 82: halt(90), 83: halt(90) } }] };
+  assert.match(stackAlert(x, [], sdoc, NOW.getTime()), /장기 가동중지 신고 — 평소 움직이던 배출구 4개 중 3개/);
+  assert.equal(stackAlert(x, [], sdoc, NOW.getTime(), new Map(), maintenanceMemo([{ item_id: x.id, reason: '정기보수', created_at: new Date(NOW.getTime() - 86400000).toISOString() }])), null);
+  // kr_official 굴뚝 화면에 메모를 보인다
+  const st = (await call('kr_official', { section: 'stacks' }, opts)).text;
+  assert.match(st, /- 정기보수 메모\(기자 판정 — 이 기간 멈춤·빠짐 신호는 레이더에서 접음\) 1곳: 현대제철\(주\)순천공장 \d\d-\d\d '회사 확인\(기자\): 순천공장 정기 보수를 순차 진행 중' → \d\d-\d\d까지/);
 });
 
 test('굴뚝 겹친 신호 공장 이름 맞춤: 같은 시군의 다른 공장 이름은 증거 아님, 같은 공장 이름은 맞음 표시, 숫자뿐인 공장 이름은 무시', () => {
@@ -1144,7 +1204,7 @@ test('굴뚝 겹친 신호 공장 이름 맞춤: 같은 시군의 다른 공장 
   const doc = { sites: [{ company: '롯데케미칼', name: '롯데케미칼㈜울산2공장', meaningful: 3, stacks: {} }] };
   assert.equal(stackAlert(x, g('울주군 공고 「롯데케미칼 울산1공장 증설 공사」'), doc, Date.now()), null);   // 다른 공장
   assert.match(stackAlert(x, g('울주군 공고 「롯데케미칼 울산2공장 설비 철거」'), doc, Date.now()), /공장 이름까지 맞음/);
-  assert.match(stackAlert(x, g('롯데케미칼(울산광역시 남구) 국민연금 가입자 -40명', '사업장 인력(국민연금)'), doc, Date.now()), /시군까지만 맞춤/);
+  assert.equal(stackAlert(x, g('롯데케미칼(울산광역시 남구) 국민연금 가입자 -40명', '사업장 인력(국민연금)'), doc, Date.now()), null);   // 11-08: 시군까지만 맞으면 아님
 });
 
 test('겹친 신호 공장별 묶음: 같은 시군의 다른 공장 이름은 따로, 회사 이름이 붙은 공장 이름은 같은 공장, 일반 낱말 공장은 무시', () => {
@@ -1600,11 +1660,12 @@ test('주간 점검: 즉시 알림 성적(보낸 id ↔ 판정), 킬이 몰린 �
     body: `[단독 후보 알림 10:45] 4건\n…\n보낸 id: ${stk[0].id}, ${lab[0].id}, ${lab[1].id}, ${lab[2].id}, ins:000249:20263030000212:72:1` }, opts);
   const r = (await call('candidate_weekly_review', {}, opts)).text;
   assert.match(r, /노동위 회의\(조정·심판\): 5개 중 킬 5 — 등급·문턱 점검 후보 · 킬 사유 '조정 신청만으로는 약함'\(5\) · 제안: 즉시 알림·아침 발제는 다른 감시와 겹칠 때만/);
-  assert.match(r, /굴뚝 측정\(공장 가동 신호\): 5개 중 킬 5 — 11-04에 기준을 이미 바꿈\(즉시 알림·아침 발제는 〔즉시 알림 대상〕[^)]*\)[^·]*· 바뀐 뒤 판정 0건\(킬 0\)이라 아직 판단 안 함/);
+  // 같은 감시에 기준을 두 번 바꿨으면(11-04·11-08) 가장 최근 것으로 센다
+  assert.match(r, /굴뚝 측정\(공장 가동 신호\): 5개 중 킬 5 — 11-08에 기준을 이미 바꿈\(실시간 신호는 A 없음[^)]*\) · 바뀐 뒤 판정 0건\(킬 0\)이라 아직 판단 안 함/);
   assert.match(r, /\[즉시 알림 성적 · 최근 7일\] 알림 1일치 · 보낸 항목 5건 — 킬 4 · 판정 없음 1/);
   assert.match(r, /- 협력사 회생·파산 1 — 판정 없음 1/);   // 목록에 없는 id는 앞말로 감시를 짐작
   assert.match(r, /- 노동위 회의\(조정·심판\) 3 — 킬 3 · 제안: 이 감시 즉시 알림 기준 좁히기/);   // id 안 쉼표('8x,82')에도 4건으로 나눔
-  assert.match(r, /- 굴뚝 측정\(공장 가동 신호\) 1 — 킬 1 · 11-04 기준 변경 뒤 보낸 것 0건/);
+  assert.match(r, /- 굴뚝 측정\(공장 가동 신호\) 1 — 킬 1 · 11-08 기준 변경 뒤 보낸 것 0건/);
 });
 
 test('kr_signals shows FTC decisions by role, KEPCO bids and commodity prices, and radar_today ranks them', async () => {
@@ -2822,23 +2883,28 @@ test('수시 임원 공시·타사 임원 명단(kr-exec-market): radar_today A�
       { id: 'execm:20261104000229|appointed|김전무', tier: 'B', kind: '독립이사 선임', company: '부품사', beat: '현대차', source: '독립이사 신고', detectedAt: now,
         url: 'https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261104000229', text: '부품사 독립이사 선임 신고(2026-11-04 접수) — 김전무 1962년생 · 경력 「현대자동차 구매본부장(전무)」',
         person: { name: '김전무' }, flags: [{ kind: '출입처 출신', text: '경력 「현대자동차 구매본부장(전무)」 · 같은 업종 회사' }] },
-      { id: 'execm:00999009|202611012|x', tier: 'C', kind: '타사 등기임원', company: '작은회사', source: '임원 현황', detectedAt: now, url: 'https://dart.fss.or.kr/x', text: '작은회사 … 박작은', person: { name: '박작은' }, flags: [] }],
+      { id: 'execm:00999009|202611012|x', tier: 'C', kind: '타사 등기임원', company: '작은회사', source: '임원 현황', detectedAt: now, url: 'https://dart.fss.or.kr/x', text: '작은회사 … 박작은', person: { name: '박작은' }, flags: [] },
+      { id: 'execm:20260811000705|지난후보', tier: 'B', kind: '이사 후보', company: '고려아연', source: '주총 소집공고', detectedAt: now, baseline: true, filed: '2026-08-11',
+        url: 'https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260811000705', text: '고려아연 주총 소집공고(2026-08-11) 이사 후보 — 지난후보 1960년생 독립이사', person: { name: '지난후보' },
+        flags: [{ kind: '전관', text: '경력에 \'판사\'' }] }],
     rules: ['조회 실패·한도로 못 본 공시·회사는 0건이 아니라 미확인.'] };
   assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/kr-exec-market', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
   const r = await call('radar_today', {}, opts);
   assert.match(r.text.split('[A · ')[1].split('[B · ')[0], /수시 임원 공시·타사 임원 명단 · 현대차\n   현대차 주총 소집공고\(2026-02-25\) 이사 후보 — 이승조 1969년생 사내이사 〔표시: 부실기업 경영진 여부 칸/);
   assert.match(r.text, /수시 임원 공시·타사 임원 명단 · 부품사\n   부품사 독립이사 선임 신고/);
   assert.doesNotMatch(r.text, /박작은/);
+  assert.doesNotMatch(r.text, /지난후보/);                       // 지난 소집공고 되짚기 항목은 오늘의 레이더에 안 올림
   const radar = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
   const hit = radar.items.find((x) => x.id === 'execm:20261104000229|appointed|김전무');
   assert.deepEqual([hit.check.who, hit.check.terms, hit.check.must], ['부품사', ['김전무', '인사'], ['김전무']]);
   const k = await call('kr_signals', { section: 'exec' }, opts);
   assert.match(k.text, /\[임원 명단 변화\(정기보고서\)\] 아직 수집 전/);
-  assert.match(k.text, /\[수시 임원 공시·타사 임원 명단 · 확인 [^\]]+ · 최근 60일\] A 1 · B 1 · C 1\(C는 show_all=true 또는 company 낱말로\)/);
+  assert.match(k.text, /\[수시 임원 공시·타사 임원 명단 · 확인 [^\]]+ · 최근 60일\] A 1 · B 2 · C 1\(C는 show_all=true 또는 company 낱말로\)/);
   assert.match(k.text, /명단 순환 800\/4013곳 본 적 있음\(처음 본 회사는 기준선\)/);
   assert.match(k.text, /- \[신규\] B · [\d-]+ [\d:]+ · 부품사 · 독립이사 신고 독립이사 선임 · 출입처 현대차 출신\n   잡힌 사실: 부품사 독립이사 선임 신고/);
   assert.doesNotMatch(k.text, /박작은/);
   assert.match((await call('kr_signals', { section: 'exec', company: '박작은' }, opts)).text, /작은회사 … 박작은/);
+  assert.match(k.text, /- \[지난 공고·기준선\] B · [\d-]+ [\d:]+ · 고려아연 · 주총 소집공고 이사 후보/);
   assert.match(k.text, /\[출입처 출신 타사 등기임원 현황 · 명단 순환 800\/4013곳 기준\] 2명 — 현대차 1 · 포스코 1/);
   const ph = (await call('kr_signals', { section: 'exec', company: '포스코' }, opts)).text;
   assert.match(ph, /- 철강상사 · 정상무 1966년생 대표이사\(사내이사\) · 포스코 출신 · 경력 「포스코 마케팅본부 상무」/);
@@ -2888,6 +2954,46 @@ test('문제 임원 점검(kr-exec-check): radar_today A·B(단서 표시), kr_s
   const legacyScreen = await call('kr_signals', { section: 'exec' }, opts);
   assert.match(legacyScreen.text, /미확인 · 기아 · 박논란/);
   assert.match(legacyScreen.text, /본문 확인: 미검증/);
+  // C(본문 언급): 표시·알림 없이 목록에만 근거 문장과 함께
+  const withC = structuredClone(doc);
+  withC.people[2].news = [{ title: '한빛카드 정보 유출 논란', url: 'https://news.example/c', date: '2025-03-01',
+    bodyReview: { status: 'context_mentioned', excerpt: '유출 당시 이무탈 한빛카드 부회장이 회사를 이끌었다', checkedAt: now } }];
+  await worker.fetch(new Request(ORIGIN + '/ingest/kr-exec-check', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(withC) }), env, {});
+  const cScreen = (await call('kr_signals', { section: 'exec' }, opts)).text;
+  assert.match(cScreen, /표시 2명\(A 1\) · C\(본문 언급·공식 제재\) 1명/);
+  assert.match(cScreen, /- C · 기아 · 이무탈[^\n]*\n(?:[^\n]*\n)*?   본문 확인: 본문 언급\(C[^\n]*\n   본문 언급: 유출 당시 이무탈 한빛카드 부회장이/);
+  const cRadar = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
+  assert(!cRadar.items.some((x) => /이무탈/.test(JSON.stringify(x))));
+  // 공식 제재(금감원·개인정보위 × 경력 칸 최고 경영 자리): 겹치고 무거우면 B 알림(대조 낱말 '제재'), 시점 미확인은 C 목록만
+  const sanc = structuredClone(withC);
+  const sflag = { kind: '공식 제재: 재임 중 소속 회사 제재', tier: 'B', text: '한빛카드 대표이사(경력 칸 2019~2021) — 개인정보위 2022-03-18 제재: 안전조치의무 — 과징금 7,088만원 — 공개 기록엔 개인 이름이 없음' };
+  sanc.people[0].flags.push(sflag);
+  sanc.people[0].sanctions = [{ agency: '개인정보위', org: '한빛카드', date: '2022-03-18', what: '안전조치의무', inst: '과징금 7,088만원', timing: 'overlap', strong: true, url: 'https://www.pipc.go.kr/x',
+    career: { org: '한빛카드', role: '대표이사', start: 2019, end: 2021 } },
+  { agency: '금감원', org: '오성증권㈜', date: '2015-01-01', timing: 'timing_unknown', strong: false, count: 3, first: '2013-02-01', last: '2015-01-01', url: 'https://www.fss.or.kr/y', career: { org: '오성증권', role: '사장', start: null, end: null, rosterAbsent: [2014, 2015] } },
+  { agency: '금감원', org: '한빛은행', date: '2021-03-01', timing: 'overlap', strong: false, inst: '기관주의', violation: '2016-01~2018-09', violationOutside: true, ceoText: '…한빛은행은 前 은행장 甲 재임 중 내부통제기준을…', url: 'https://www.fss.or.kr/z', career: { org: '한빛은행', role: '은행장', start: 2020, end: 2021, source: '명단' } }];
+  sanc.events.push({ id: 'execc:cccc', reviewStatus: 'active', tier: 'B', kind: sflag.kind, company: '현대차', detectedAt: now, url: 'https://dart.fss.or.kr/x1', person: { name: '김오래' }, flags: [sflag],
+    text: `현대차 이사(사외이사) 김오래 1955년생 — ${sflag.kind}: ${sflag.text}` });
+  await worker.fetch(new Request(ORIGIN + '/ingest/kr-exec-check', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(sanc) }), env, {});
+  const sRadar = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
+  assert.deepEqual(sRadar.items.find((x) => x.id === 'execc:cccc').check.terms, ['김오래', '제재']);
+  const sScreen = (await call('kr_signals', { section: 'exec', company: '김오래' }, opts)).text;
+  assert.match(sScreen, /   공식 제재: 개인정보위 2022-03-18 한빛카드 — 안전조치의무 — 과징금 7,088만원 · 경력 「한빛카드 대표이사 2019~2021」 기간 겹침 · https:\/\/www\.pipc\.go\.kr\/x/);
+  assert.match(sScreen, /   공식 제재\(C\): 금감원 오성증권㈜ 제재 3건\(2013-02-01~2015-01-01\) · 경력 「오성증권 사장 \?~\?」 재임 기간 미확인 · 그 회사 연말 등기임원 명단\(2014·2015\)에 없음/);
+  assert.match(sScreen, /   공식 제재\(C\): 금감원 2021-03-01 한빛은행 — 기관주의 · 위반 기간 2016-01~2018-09\(재임 기간 밖\) · 사업보고서 임원 명단 「한빛은행 은행장 2020~2021」 기간 겹침/);
+  assert.match(sScreen, /기간 겹침 · https:\/\/www\.fss\.or\.kr\/z\n     제재대상사실 최고 경영자 언급\(공개안엔 이름 없음 — 그 사람이라는 근거 아님\): 「…한빛은행은 前 은행장 甲 재임 중 내부통제기준을…」/);
+  // 공정위 원문 요약(과징금·사건명·의결서 대표이사 칸)과 주총 이사 후보 점검
+  const ftcDoc = structuredClone(sanc);
+  ftcDoc.people[0].sanctions = [{ agency: '공정위', org: '한빛리테일', date: '2023-01-19', inst: '과징금', amount: '15억8200만원', title: '(주) 한빛리테일의 대규모유통업법 위반행위에 대한 건',
+    ceoSurname: '김○○', timing: 'overlap', strong: true, url: 'https://case.ftc.go.kr/x', career: { org: '한빛리테일', role: '대표이사', start: 2016, end: 2024 } }];
+  ftcDoc.candidates = [{ id: '후보|현대차|신후보|196005', company: '현대차', name: '신후보', birth: '1960', ofcps: '이사 후보', reg: '사외이사', report: '주총 소집공고 2026-11-01',
+    url: 'https://dart.fss.or.kr/agm', flags: [{ kind: '이사 후보: 선임되면 다른 회사 이사·감사 2곳 이상(3호)', tier: 'A', text: '주총 소집공고 후보 — 같은 이름·출생년월이 다른 회사 등기임원 명단에 2곳' }] },
+    { id: '후보|현대차|평온후보|197001', company: '현대차', name: '평온후보', birth: '1970', reg: '사내이사', report: '주총 소집공고 2026-11-01', flags: [] }];
+  await worker.fetch(new Request(ORIGIN + '/ingest/kr-exec-check', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(ftcDoc) }), env, {});
+  const fScreen = (await call('kr_signals', { section: 'exec' }, opts)).text;
+  assert.match(fScreen, /공식 제재: 공정위 2023-01-19 한빛리테일 — 과징금 — 15억8200만원 — 「\(주\) 한빛리테일의 대규모유통업법 위반행위에 대한 건」 — 의결서 피심인 대표이사 칸 '김○○'\(성·글자 수 같음\)/);
+  assert.match(fScreen, /\[주총 이사 후보 점검\] 후보 2명 · 표시 1명\n- A · 현대차 · 신후보 1960년생 사외이사 후보 · 주총 소집공고 2026-11-01\n   이사 후보: 선임되면 다른 회사 이사·감사 2곳 이상\(3호\): 주총 소집공고 후보/);
+  assert.doesNotMatch(fScreen, /평온후보/);
   for (const status of ['inactive', 'unconfirmed', undefined]) {
     const historical = { ...doc, events: doc.events.map((e) => ({ ...e, reviewStatus: status })) };
     await worker.fetch(new Request(ORIGIN + '/ingest/kr-exec-check', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(historical) }), env, {});
@@ -3608,6 +3714,51 @@ test('press-check hints: place words narrow the search but are marked, workforce
   assert.deepEqual(wf('사업장 탈퇴', '…'), ['공장', '폐쇄']);
 });
 
+test('조용한 0건: 정상 응답인데 원천이 두 번 연달아 0줄·급감하면 형식 변경 의심, 줄 수가 돌아오면 사라진다', async () => {
+  const run = (prev, checks) => returnedWatch(prev, { checks }, '2026-11-09T00:00:00Z');
+  const seq = (source, ns, extra = {}) => ns.reduce((rw, n) => run(rw, [{ source, status: 'ok', returned: n, ...extra }]), null);
+  assert.deepEqual(seq('울주군', [10, 12, 11, 9, 0]).silent, undefined);              // 한 번 0은 아직
+  const z = seq('울주군', [10, 12, 11, 9, 0, 0]);
+  assert.deepEqual(z.silent, [{ source: '울주군', kind: 'zero', now: 0, before: [9, 11, 12, 10], limit: 0, since: '2026-11-09T00:00:00Z' }]);
+  assert.deepEqual(z.hist['울주군'], [0, 0, 9, 11, 12, 10]);
+  assert.equal(run(z, [{ source: '울주군', status: 'ok', returned: 0 }]).silent.length, 1);  // 0이 이어지면 의심도 이어 간다
+  assert.equal(run(z, [{ source: '울주군', status: 'failed', error: 'x' }]).silent.length, 1);  // 실패한 실행은 이력·의심을 그대로
+  assert.equal(run(z, [{ source: '울주군', status: 'ok', returned: 8 }]).silent, undefined);  // 돌아오면 사라짐
+  assert.deepEqual(seq('굴뚝', [300, 280, 310, 290, 12, 9]).silent.map((x) => [x.kind, x.now, x.limit]), [['drop', 9, 29]]);  // 1/10 아래로 두 번
+  assert.equal(seq('굴뚝', [300, 280, 310, 290, 40, 35]).silent, undefined);
+  assert.equal(seq('의회', [1, 2, 1, 1, 0, 0]).silent, undefined);                   // 원래 적은 원천(3줄 미만)은 세지 않음
+  const noted = [0, 0].reduce((rw, n) => run(rw, [{ source: '국민연금', status: 'ok', returned: n, note: '새 달 없음' }]), seq('국민연금', [5, 6, 5, 6]));
+  assert.equal(noted.silent, undefined);  // 감시가 이유를 적은 0은 세지 않는다
+  assert.deepEqual(noted.hist['국민연금'], [6, 5, 6, 5]);
+  assert.equal(run(null, [{ source: 'x', status: 'ok' }]), null);                      // 줄 수 없는 원천만 있으면 붙이지 않음
+  // 저장: 원래 글자는 그대로 두고 끝에 덧붙인다(파이썬 감시가 다시 읽을 때 1.0 → 1처럼 바뀌지 않게) → radar_today 수집 상태
+  const opts = PRIVATE();
+  const post = async (n, at) => {
+    const text = `{"schema": "kr_local/v1", "generatedAt": "${at}", "status": "ok", "score": 1.0, "checks": [{"source": "울주군", "status": "ok", "returned": ${n}}], "items": []}`;
+    assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/kr-local', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: text }), opts.env, {})).status, 200);
+    return text;
+  };
+  let last = '';
+  for (const [i, n] of [10, 12, 11, 9, 0, 0].entries()) last = await post(n, `2026-11-0${3 + i}T06:30:00+09:00`);
+  const stored = await (await worker.fetch(new Request(ORIGIN + '/ingest/kr-local', { headers: { Authorization: `Bearer ${TOKEN}` } }), opts.env, {})).text();
+  assert.ok(stored.startsWith(last.slice(0, -1) + ',"_returnedWatch":'));
+  assert.match(stored, /"score": 1\.0/);
+  assert.equal(lastReturnedWatch(stored).silent[0].source, '울주군');
+  const h = (await call('radar_today', { hours: 24 }, { ...opts, now: new Date('2026-11-08T22:00:00Z') })).text;
+  assert.match(h, /^- 지자체 고시·공고: ⚠ 형식 변경 의심 1곳\(울주군: 정상 응답인데 0줄, 이전 9·11·12·10줄\) — 원문 사이트 목록이 보이는지 확인 — 해당 부분 0건은 미확인$/m);
+  // 이전 문서를 통째로 이어 쓴 감시(옛 이력 키가 들어 있음)도 다시 직렬화하지 않고 덧붙인다 — 마지막 키가 이긴다
+  const carried = JSON.parse(stored);
+  carried.generatedAt = '2026-11-08T16:20:00+09:00';
+  const ctext = JSON.stringify(carried);
+  await worker.fetch(new Request(ORIGIN + '/ingest/kr-local', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: ctext }), opts.env, {});
+  const stored2 = await (await worker.fetch(new Request(ORIGIN + '/ingest/kr-local', { headers: { Authorization: `Bearer ${TOKEN}` } }), opts.env, {})).text();
+  assert.ok(stored2.startsWith(ctext.slice(0, -1) + ',"_returnedWatch":'));
+  assert.equal(JSON.parse(stored2)._returnedWatch.hist['울주군'].length, 6);
+  assert.deepEqual(JSON.parse(stored2)._returnedWatch, lastReturnedWatch(stored2));
+  await post(14, '2026-11-09T06:30:00+09:00');
+  assert.doesNotMatch((await call('radar_today', { hours: 24 }, { ...opts, now: new Date('2026-11-08T22:00:00Z') })).text, /형식 변경 의심/);
+});
+
 test('kr local notices: a beat plant notice in a city is A, a city baseline is hidden, kr_official section=local lists it', async () => {
   const opts = PRIVATE();
   const env = opts.env;
@@ -3656,14 +3807,176 @@ test('kr local notices: a beat plant notice in a city is A, a city baseline is h
     attachments: [{ name: '공고문.hwpx', chars: 2542, facts: { 사업명: '#3 TANK 토건공사', 공사기간: '2026. 9. ~ 2027. 2.', 위치: '울주군 온산읍 원산리 892번지 일원',
       '발주자/시공자': '고려아연(주) / 서동건설산업(주)', 규모: '철근콘크리트구조 지상1층', 착공일: '2026. 9. 8.' } },
       { name: '예정공정표.pdf', chars: 2, note: '글자 없음(스캔 이미지일 수 있음)' }] }));
+  // 감시가 남긴 운영 제안(11-08 직접 조회 실패가 잦은 시·군)은 수집 상태와 kr_official local에 그대로
+  doc.healthNote = '직접 조회 실패·일부 실패가 잦은 시·군: 평택시 3/20번 — 기자 컴퓨터 대신 수집 후보(추가는 기자 결정, 실패한 날 그 시·군 0건은 미확인)';
   await worker.fetch(new Request(ORIGIN + '/ingest/kr-local', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {});
   const r3 = await call('radar_today', { hours: 72 }, opts);
+  assert.match(r3.text, /^- 지자체 고시·공고: 직접 조회 실패·일부 실패가 잦은 시·군: 평택시 3\/20번 — 기자 컴퓨터 대신 수집 후보\(추가는 기자 결정, 실패한 날 그 시·군 0건은 미확인\)$/m);
   assert.match(r3.text, /#3 TANK 토건공사\]」 · 건축과 · 등록 2026-10-25 · 첨부 개요: 공사기간 2026\. 9\. ~ 2027\. 2\. · 착공일 2026\. 9\. 8\. · 발주자\/시공자 고려아연\(주\) \/ 서동건설산업\(주\) · 규모 철근콘크리트구조 지상1층 — 제목·본문·첨부 개요 자동 추출/);
   const t3 = await call('kr_official', { section: 'local', company: '고려아연' }, opts);
+  assert.match(t3.text, /\n직접 조회 실패·일부 실패가 잦은 시·군: 평택시 3\/20번 — 기자 컴퓨터 대신 수집 후보/);
   assert.match(t3.text, /첨부 원문에서 뽑은 사업 개요\(자동 — 첨부 원문 확인\): 사업명 #3 TANK 토건공사 · 공사기간 2026\. 9\. ~ 2027\. 2\. · 착공일 2026\. 9\. 8\. · 위치 울주군 온산읍 원산리 892번지 일원 · 발주자\/시공자 고려아연\(주\) \/ 서동건설산업\(주\) · 규모 철근콘크리트구조 지상1층/);
   assert.match(t3.text, /못 읽은 첨부: 예정공정표\.pdf\(글자 없음\(스캔 이미지일 수 있음\)\)\n   첨부 파일\(열지 않음\): 붙임1\.hwpx/);
   assert.deepEqual(dueAt(new Date('2026-10-26T21:30:00Z')), ['page-watch.yml', 'kr-local.yml']);  // Tue 06:30 KST
   assert.deepEqual(dueAt(new Date('2026-10-27T07:20:00Z')), ['kr-local.yml']);                    // Tue 16:20 KST
+});
+
+test('Aside 직접 올리기(/upload/browser): 등록한 열쇠 지문과 맞을 때만 local_notice_submit과 같은 규칙으로 저장, 틀리면 404', async () => {
+  const seen = [];
+  const fetch = async (url) => { seen.push(url); return new Response(null, { status: 204 }); };
+  const opts = { ...PRIVATE({ GITHUB_DISPATCH_TOKEN: 'ghp_test' }), fetch };
+  const page = await worker.fetch(new Request(ORIGIN + '/upload/browser'), opts.env, {});
+  assert.equal(page.status, 200);
+  assert.match(page.headers.get('Content-Security-Policy'), /connect-src 'self'/);
+  assert.doesNotMatch(await page.text(), /script/i);
+  const sha = (k) => createHash('sha256').update(k).digest('hex');
+  const key = 'k'.repeat(43);
+  const post = (k, body) => browserUpload(new Request(ORIGIN + '/upload/browser', { method: 'POST',
+    headers: { Authorization: `Bearer ${k}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body) }), opts.env, { fetch });
+  assert.equal((await post(key, { via: 'aside' })).status, 404);  // 등록 전
+  assert.match((await call('browser_upload_key', {}, opts)).text, /등록된 열쇠 없음/);
+  assert.ok((await call('browser_upload_key', { sha256: 'xyz' }, opts)).isError);
+  assert.match((await call('browser_upload_key', { sha256: sha(key) }, opts)).text, /열쇠 등록함 · 지문 [0-9a-f]{8}…/);
+  assert.equal((await post('w'.repeat(43), { via: 'aside' })).status, 404);  // 틀린 열쇠
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/upload/browser', { method: 'POST', body: '{}' }), opts.env, {})).status, 404);  // 열쇠 없음
+  const ok = await (await post(key, { via: 'aside', cities: [{ city: '나주시', rows: [{ mgt: '42465',
+    cells: ['나주시 고시 제2026-253호', '도로명주소 부여 고시', '시민봉사과', '2026-11-06'] }, { mgt: "1');x", cells: ['x'] }] }, { city: '서울 강남구' }] })).json();
+  assert.equal(ok.ok, true);
+  assert.match(ok.text, /· Aside · 시·군 1곳 \(정상 1\)/);
+  assert.match(ok.text, /- 나주시: 1줄 · 버린 줄 1/);
+  assert.match(ok.text, /받지 않은 이름\(허용 목록 밖\): 서울 강남구/);
+  assert.deepEqual(seen.map((u) => u.split('/').slice(-2)[0]), ['kr-local.yml']);
+  const got = await (await worker.fetch(new Request(ORIGIN + '/ingest/kr-local-browser', { headers: { Authorization: `Bearer ${TOKEN}` } }), opts.env, {})).json();
+  assert.equal(got.cities.find((c) => c.city === '나주시').via, 'aside');
+  assert.match((await call('browser_upload_key', {}, opts)).text, /마지막 올림 20\d\d-/);
+  assert.equal((await (await post(key, {})).json()).ok, false);  // 빈 인자는 저장하지 않음
+  assert.equal((await browserUpload(new Request(ORIGIN + '/upload/browser', { method: 'POST', headers: { Authorization: `Bearer ${key}` }, body: 'x'.repeat(400_001) }), opts.env, { fetch })).status, 413);
+  // 새 열쇠를 등록하면 이전 열쇠는 못 쓴다 — local_notice_submit으로도 등록(새 도구를 모르는 세션용)
+  const viaSubmit = await call('local_notice_submit', { uploadKeySha256: sha('n'.repeat(43)) }, opts);
+  assert.ok(!viaSubmit.isError);
+  assert.match(viaSubmit.text, /열쇠 등록함 · 지문 [0-9a-f]{8}… · .*이전 열쇠는 이제 못 씀/);
+  assert.equal((await post(key, { via: 'aside' })).status, 404);
+  assert.equal((await post('n'.repeat(43), { via: 'aside', labor: [{ commission: '제주지방노동위원회', error: '시험' }] })).status, 200);
+  assert.ok((await call('local_notice_submit', { uploadKeySha256: 'zz' }, opts)).isError);
+});
+
+test('GitHub 실행 실패 감시: 매시 00·30분에 main 실행을 읽어 쌓고, 두 번 이상 연달아 실패한 프로그램을 radar_today 맨 위에', async () => {
+  assert.equal(pollDue(new Date('2026-11-08T00:00:30Z')), true);   // 09:00 KST
+  assert.equal(pollDue(new Date('2026-11-08T00:35:00Z')), true);   // 09:30 칸
+  assert.equal(pollDue(new Date('2026-11-08T00:20:00Z')), false);
+  const run = (id, path, at, c, name = 'Radar Press Check', status = 'completed') => ({ id, path: `.github/workflows/${path}`, name, run_started_at: at, created_at: at, status, conclusion: c, event: 'schedule' });
+  // 취소는 건너뛰고, 성공을 만나면 멈춘다
+  const wf = mergeRuns({}, [run(1, 'p.yml', '2026-11-05T03:50:00Z', 'success'), run(2, 'p.yml', '2026-11-05T09:50:00Z', 'failure'),
+    run(3, 'p.yml', '2026-11-05T17:40:00Z', 'cancelled'), run(4, 'p.yml', '2026-11-05T23:50:00Z', 'timed_out'), run(5, 'p.yml', '2026-11-06T01:00:00Z', null, 'x', 'in_progress')],
+  Date.parse('2026-11-06T02:00:00Z'));
+  assert.deepEqual(wf['p.yml'].runs.map((r) => r.id), [4, 3, 2, 1]);
+  assert.equal(failStreak(wf['p.yml']), 2);
+  assert.equal(wf['p.yml'].lastSuccessAt, '2026-11-05T03:50:00Z');
+  // 다시 실행해 결과가 바뀌면 같은 id를 덮는다, 오래 안 돈 워크플로는 잊는다
+  const again = mergeRuns(wf, [run(4, 'p.yml', '2026-11-05T23:50:00Z', 'success')], Date.parse('2026-11-06T02:00:00Z'));
+  assert.equal(failStreak(again['p.yml']), 0);
+  assert.deepEqual(mergeRuns(wf, [], Date.parse('2026-12-10T00:00:00Z')), {});
+  // 예약(00분 칸) → GitHub 목록 읽기 → radar_today 맨 위
+  const opts = PRIVATE({ GITHUB_DISPATCH_TOKEN: 'ghp_test' });
+  const seen = [];
+  const list = [run(10, 'radar-press-check.yml', '2026-11-05T03:50:00Z', 'success'), run(11, 'radar-press-check.yml', '2026-11-05T09:50:00Z', 'failure'),
+    run(12, 'radar-press-check.yml', '2026-11-06T09:50:00Z', 'failure'), run(13, 'radar-press-check.yml', '2026-11-06T16:57:00Z', 'failure'),
+    run(20, 'kr-local.yml', '2026-11-07T15:21:00Z', 'success', 'Local Government Notices Watch'), run(21, 'kr-local.yml', '2026-11-07T07:20:00Z', 'failure', 'Local Government Notices Watch')];
+  const fetchMock = async (url, init) => { seen.push({ url, init }); return url.includes('/actions/runs?') ? Response.json({ workflow_runs: list }) : new Response(null, { status: 204 }); };
+  await runSchedule(opts.env, new Date('2026-11-07T15:00:00Z'), { fetch: fetchMock });  // 일 00:00 KST(요청 칸 없음, 확인 칸)
+  const get = seen.find((x) => x.url.includes('/actions/runs?'));
+  assert.equal(get.url, 'https://api.github.com/repos/shhong9173-art/seoul-reporting-radar/actions/runs?branch=main&status=completed&per_page=100&exclude_pull_requests=true');
+  assert.equal(get.init.headers.Authorization, 'Bearer ghp_test');
+  assert.equal(get.init.method, undefined);  // 읽기만
+  const top = async (iso) => (await call('radar_today', { hours: 24 }, { ...opts, now: new Date(iso) })).text.split('[먼저 볼 것: 수집 상태]\n')[1]?.split('\n\n')[0] ?? '';
+  const h = await top('2026-11-07T15:20:00Z');
+  assert.match(h, /^- ⚠ GitHub 실행 3회 연속 실패: Radar Press Check\(radar-press-check\.yml\) · 마지막 실패 11-07 01:57 KST · 마지막 성공 11-05 12:50 KST — 이 프로그램이 만드는 결과는 그 성공 때 것, 그 뒤 0건은 미확인$/m);
+  assert.doesNotMatch(h, /kr-local\.yml/);  // 마지막이 성공
+  assert.doesNotMatch(h, /GitHub 실행 상태/);  // 확인 정상
+  // 확인이 두 시간 넘게 멈추면(예약 꺼짐 등) 그 자체를 알린다
+  assert.match(await top('2026-11-07T18:00:00Z'), /- GitHub 실행 상태\(30분마다 확인\): 확인이 멈춤 · 마지막 정상 확인 11-08 00:00 KST — 그 뒤 실패는 미확인/);
+  // 읽기 실패(권한 등)는 그대로 적고, 쌓아 둔 기록은 지우지 않는다
+  await runSchedule(opts.env, new Date('2026-11-07T15:30:00Z'), { fetch: async () => new Response('{}', { status: 403 }) });
+  const h2 = await top('2026-11-07T15:35:00Z');
+  assert.match(h2, /GitHub 실행 상태\(30분마다 확인\): 읽기 실패\(HTTP 403\) · 마지막 정상 확인 11-08 00:00 KST/);
+  assert.match(h2, /3회 연속 실패: Radar Press Check/);
+  // 고친 뒤 성공하면 줄이 사라진다
+  list.push(run(14, 'radar-press-check.yml', '2026-11-07T15:29:00Z', 'success'));
+  await runSchedule(opts.env, new Date('2026-11-07T16:00:00Z'), { fetch: fetchMock });
+  assert.doesNotMatch(await top('2026-11-07T16:05:00Z'), /GitHub 실행/);
+  // 토큰이 없으면 확인하지 못했다고 적는다
+  const none = PRIVATE();
+  await runSchedule(none.env, new Date('2026-11-07T16:00:00Z'), { fetch: async () => { throw new Error('must not call'); } });
+  assert.match((await call('radar_today', {}, { ...none, now: new Date('2026-11-07T16:05:00Z') })).text, /GitHub 실행 상태\(30분마다 확인\): 워커에 GITHUB_DISPATCH_TOKEN 없음/);
+});
+
+test('radar_today 수집 상태: 기자 컴퓨터(Aside) 수집이 예정 시각 뒤 안 올라오거나 이 길뿐인 시·군을 못 읽으면 알린다', async () => {
+  const slot = (iso) => new Date(lastBrowserSlot(Date.parse(iso))).toISOString();
+  assert.equal(slot('2026-11-09T00:00:00Z'), '2026-11-06T07:40:00.000Z');  // 월 09:00 KST → 금 16:40(월 08:40은 여유 45분 안)
+  assert.equal(slot('2026-11-09T00:30:00Z'), '2026-11-08T23:40:00.000Z');  // 월 09:30 → 월 08:40
+  assert.equal(slot('2026-11-07T03:00:00Z'), '2026-11-06T07:40:00.000Z');  // 토 12:00 → 금 16:40
+  assert.equal(slot('2026-11-10T05:00:00Z'), '2026-11-09T23:40:00.000Z');  // 화 14:00 → 화 08:40
+  const fetch = async () => new Response(null, { status: 204 });
+  const opts = { ...PRIVATE({ GITHUB_DISPATCH_TOKEN: 'ghp_test' }), fetch };
+  const line = async (iso) => ((await call('radar_today', { hours: 24 }, { ...opts, now: new Date(iso) })).text.match(/^- 기자 컴퓨터 수집.*$/m) ?? [null])[0];
+  assert.match(await line('2026-11-09T00:00:00Z'), /^- 기자 컴퓨터 수집\(Aside 예약 작업, 평일 08:40·16:40[^)]*\): 결과 없음 — 미확인$/);
+  const rows = [{ mgt: '1', cells: ['제2026-1호', '고시', '과', '2026-11-06'] }];
+  const cities = ['인천 부평구', '구미시', '청주시', '순천시', '함평군', '양산시']
+    .map((city) => (city === '구미시' ? { city, error: 'ReadTimeout' } : city === '양산시' ? { city, error: '시간 초과' } : { city, rows }));
+  const submit = (via, iso) => call('local_notice_submit', { via, cities, labor: [{ commission: '중앙노동위원회', error: '시험' }],
+    pages: [{ id: 'au-trn', error: '시험' }] }, { ...opts, now: new Date(iso) });
+  assert.ok(!(await submit('aside', '2026-11-06T07:42:00Z')).isError);  // 금 16:42 KST
+  // 월 09:00: 가장 최근 예정(금 16:40)은 올라옴 — 이 길뿐인 시·군 중 못 읽은 곳만(양산은 GitHub 직접 조회가 있어 뺌)
+  assert.equal(await line('2026-11-09T00:00:00Z'), '- 기자 컴퓨터 수집(Aside 예약 작업, 평일 08:40·16:40 — 해외 IP 차단 시·군 고시·공고·노동위 회의·호주 TRN): '
+    + '시·군 못 읽음 1곳(구미: ReadTimeout) — 해당 부분 0건은 미확인');
+  // 월 10:00: 08:40 예정 수집이 안 올라옴(컴퓨터 꺼짐 등)
+  assert.match(await line('2026-11-09T01:00:00Z'), /: ⚠ 마지막 11-06 16:42 KST\(65시간 전\) — 11-09 08:40 KST 예정 수집이 안 올라옴\(기자 컴퓨터·Claude 앱·Aside가 켜져 있는지 확인\)\. 그 뒤 인천 부평구·구미·청주·순천·함평 고시·공고는 미확인 — /);
+  // 직접 올리기 열쇠가 있는데 대화로 옮겨 올린 경우, 내장 브라우저로 대신한 경우
+  const sha = createHash('sha256').update('k'.repeat(43)).digest('hex');
+  await call('browser_upload_key', { sha256: sha }, { ...opts, now: new Date('2026-11-09T00:00:00Z') });
+  assert.ok(!(await submit('aside', '2026-11-09T23:43:00Z')).isError);  // 화 08:43
+  assert.match(await line('2026-11-10T01:00:00Z'), /구미: ReadTimeout\) · 직접 올리기가 안 돼 대화로 옮겨 올림\(올리기 열쇠 확인 — browser_upload_key\) — /);
+  assert.ok(!(await submit('browser', '2026-11-10T07:45:00Z')).isError);  // 화 16:45
+  assert.match(await line('2026-11-10T08:30:00Z'), / · Aside가 안 돼 내장 브라우저로 대신 수집함 — /);
+  // 시·군만 올리고 노동위·TRN이 빠진 경우
+  await call('local_notice_submit', { via: 'aside', cities: [{ city: '청주시', rows }] }, { ...opts, now: new Date('2026-11-10T23:42:00Z') });
+  assert.match(await line('2026-11-11T01:00:00Z'), /노동위 회의일정은 이번 수집에 빠짐\(마지막 11-10 16:45 KST\) · 호주 TRN은 이번 수집에 빠짐\(마지막 11-10 16:45 KST\)/);
+});
+
+test('local_notice_submit via Aside: 출입처 줄 상세(제목·본문 앞·첨부 이름)를 글자만 크기 제한해 받고, 수집 길(via)을 남긴다', async () => {
+  const fetch = async () => new Response(null, { status: 204 });
+  const opts = { ...PRIVATE({ GITHUB_DISPATCH_TOKEN: 'ghp_test' }), fetch };
+  const tool = (await rpc('tools/list', {}, opts)).body.result.tools.find((x) => x.name === 'local_notice_submit');
+  assert.deepEqual(tool.inputSchema.properties.via.enum, ['aside', 'browser']);
+  assert.ok(tool.inputSchema.properties.cities.items.properties.rows.items.properties.detail);
+  const rows = Array.from({ length: 10 }, (_, i) => ({ mgt: String(500 + i), cells: [`공고 ${i}`, '2026-11-06'],
+    detail: { title: `LG화학 나주공장 공고 ${i} `.repeat(30), body: '본문 '.repeat(300), files: ['a.hwp', ' ', 'b.pdf', 'c', 'd', 'e', 'f', 'g'] } }));
+  rows[0].detail.attachments = [{ name: '공고문.hwpx', text: '공 사 명 : 시험 '.repeat(600) }, { name: '도면.pdf', error: 'pdf — 기자 컴퓨터에서는 안 읽음' },
+    { name: '' }, { name: '빈.hwpx' }, { name: '넷째.hwpx', text: 'x' }];
+  rows.push({ mgt: '999', cells: ['제목 없는 상세'], detail: { body: 'x' } });
+  const r = await call('local_notice_submit', { via: 'aside', cities: [{ city: '나주시', rows }] }, opts);
+  assert.equal(r.isError, false);
+  assert.match(r.text, /브라우저 수집 저장 · [^\n]*· Aside · 시·군 1곳/);
+  assert.match(r.text, /- 나주시: 11줄 · 상세 8/);
+  const got = await (await worker.fetch(new Request(ORIGIN + '/ingest/kr-local-browser', { headers: { Authorization: `Bearer ${TOKEN}` } }), opts.env, {})).json();
+  assert.equal(got.via, 'aside');
+  const city = got.cities.find((c) => c.city === '나주시');
+  assert.equal(city.via, 'aside');
+  assert.equal(city.details, 8);
+  const d = city.rows[0].detail;
+  assert.ok(d.title.length <= 300 && d.body.length <= 420);
+  assert.deepEqual(d.files, ['a.hwp', 'b.pdf', 'c', 'd', 'e']);  // 6개까지, 빈 이름은 버림
+  assert.equal(d.attachments.length, 2);                            // 3개까지 보고 이름 없는 것은 버림
+  assert.equal(d.attachments[0].text.length, 4000);
+  assert.deepEqual(d.attachments[1], { name: '도면.pdf', error: 'pdf — 기자 컴퓨터에서는 안 읽음' });
+  assert.equal(city.rows[1].detail.attachments, undefined);
+  assert.equal(city.rows.filter((x) => x.detail).length, 8);     // 시·군마다 8줄까지
+  assert.equal(city.rows.at(-1).detail, undefined);              // 제목 없는 상세는 버림
+  // 모르는 수집 길은 남기지 않는다
+  await call('local_notice_submit', { via: 'evil', cities: [{ city: '구미시', rows: [{ mgt: '7', cells: ['x'] }] }] }, opts);
+  const got2 = await (await worker.fetch(new Request(ORIGIN + '/ingest/kr-local-browser', { headers: { Authorization: `Bearer ${TOKEN}` } }), opts.env, {})).json();
+  assert.equal(got2.via, undefined);
+  assert.equal(got2.cities.find((c) => c.city === '구미시').via, undefined);
 });
 
 test('local_notice_submit: the reporter computer posts browser-read 새올 rows for fixed cities, kr-local runs once an hour at most', async () => {
@@ -3717,7 +4030,23 @@ test('local_notice_submit: the reporter computer posts browser-read 새올 rows 
   assert.ok((await call('local_notice_submit', {}, opts)).isError);
   // kr_official names the cities read on the reporter's computer
   const doc = { schema: 'kr_local/v1', generatedAt: '2026-10-26T08:50:00+09:00', status: 'complete', items: [],
-    checks: [{ source: '인천 부평구', status: 'ok', returned: 30, via: '기자 컴퓨터 브라우저 수집 2026-10-25T23:45' }, { source: '당진시', status: 'ok', returned: 60 }] };
+    checks: [{ source: '인천 부평구', status: 'ok', returned: 30, via: '기자 컴퓨터 브라우저 수집 2026-10-25T23:45' }, { source: '당진시', status: 'ok', returned: 60 },
+      { source: '나주시', status: 'ok', returned: 30, via: '기자 컴퓨터 브라우저 수집 2026-11-06T08:45 KST · Aside' }] };
+  doc.items.push({ id: 'local:나주시:7001', city: '나주시', no: '나주시 공고 제2026-900호', title: 'LG화학(주) 관련 공고', dept: '건축과', date: '2026-11-06',
+    company: 'LG화학', companies: ['LG화학'], tier: 'A', listTier: 'B', firstSeen: '2026-11-06T08:50:00+09:00', isNew: true, detailVia: 'browser',
+    detail: { title: '건설공사 안전점검 수행기관 지정 공고[LG화학 나주공장 증설공사]', body: '나주시 송월동 일원', files: ['공고문.hwpx'] },
+    url: 'https://eminwon.naju.go.kr/x', listUrl: 'https://eminwon.naju.go.kr/y' });
+  doc.generatedAt = '2026-11-06T08:50:00+09:00';
   await worker.fetch(new Request(ORIGIN + '/ingest/kr-local', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), opts.env, {});
-  assert.match((await call('kr_official', { section: 'local' }, opts)).text, /기자 컴퓨터 브라우저로 읽은 곳\(해외 IP 차단\): 인천 부평구\(2026-10-25 23:45\)/);
+  const local = (await call('kr_official', { section: 'local' }, opts)).text;
+  assert.match(local, /기자 컴퓨터 브라우저로 읽은 곳\(해외 IP 차단\): 인천 부평구\(2026-10-25 23:45\), 나주시\(2026-11-06 08:45 Aside\)/);
+  assert.match(local, /본문 앞부분\(상세 페이지, 기자 컴퓨터에서 읽음\): 나주시 송월동 일원/);
+  assert.match(local, /첨부 파일\(열지 않음 — 해외 IP 차단 시·군이라 첨부는 기자가 직접\): 공고문\.hwpx/);
+  doc.items.at(-1).attachments = [{ name: '공고문.hwpx', chars: 900, facts: { 공사기간: '2026. 11. ~ 2027. 6.' } }];
+  doc.generatedAt = '2026-11-06T09:50:00+09:00';
+  await worker.fetch(new Request(ORIGIN + '/ingest/kr-local', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), opts.env, {});
+  const local2 = (await call('kr_official', { section: 'local' }, opts)).text;
+  assert.match(local2, /첨부 원문에서 뽑은 사업 개요\(자동·기자 컴퓨터에서 읽음 — 첨부 원문 확인\): 공사기간 2026\. 11\. ~ 2027\. 6\./);
+  assert.doesNotMatch(local2, /첨부는 기자가 직접/);
+  assert.match(local, /등급: 목록 제목으로 B → 전체 제목으로 A/);
 });
