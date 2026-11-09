@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths:
       - 'scripts/reverse_prior_capture.py'
+      - 'scripts/title_numbers.py'
       - 'tests/test_reverse_prior_capture.py'
       - '.github/workflows/reverse-check.yml'
   schedule:

@@ -28,6 +28,7 @@ from urllib.parse import quote, parse_qs, urlparse
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "scripts"))
+from title_numbers import same_numbers  # noqa: E402  (역추적과 같은 숫자 규칙)
 
 KST = dt.timezone(dt.timedelta(hours=9))
 WORKER = "https://seoul-reporting-radar.shhong9173.workers.dev"
@@ -802,7 +803,7 @@ def judge(c, channels, *, now):
                 key = a.get("url") or a.get("title")
                 if key not in evidence or evidence[key]["rank"] < rank:
                     evidence[key] = {"title": a.get("title", "")[:160], "url": a.get("url"), "date": a.get("date"),
-                                     "channel": ch, "why": why, "rank": rank}
+                                     "channel": ch, "why": why, "rank": rank, **title_numbers(a.get("title", ""), c)}
                 continue
             if lawsuit:
                 observed=case_numbers(text)
@@ -848,7 +849,7 @@ def judge(c, channels, *, now):
             key = a.get("url") or a.get("title")
             if key not in evidence or evidence[key]["rank"] < rank:
                 evidence[key] = {"title": a.get("title", "")[:160], "url": a.get("url"), "date": a.get("date"),
-                                 "channel": ch, "why": why, "rank": rank}
+                                 "channel": ch, "why": why, "rank": rank, **title_numbers(a.get("title", ""), c)}
     # 같은 등급 안에서는 항목 날짜(레이더 항목 since, 공시 게시·접수일) 이후 기사를 먼저(먼저 난 순), 그 전 기사는 최근 순.
     # 365일 창의 단서 심사에서 몇 달 전 다른 사건 기사가 앞을 채워 이번 공시 기사가 잘리던 것(10-31 운영: 영풍 장세환 거래계획 —
     # 10-29 페로타임즈 기사 대신 3~4월 지분 공시 기사 3건이 보였다).
@@ -856,11 +857,12 @@ def judge(c, channels, *, now):
 
     def order(e):
         d = article_day(e.get("date"))
+        same = 0 if (e.get("numbers") or {}).get("found") else 1   # 같은 등급 안에서 제목 숫자가 항목과 같은 기사 먼저
         if not d:
-            return (-e["rank"], 2, 0)
+            return (-e["rank"], 2, same, 0)
         if anchor and d < anchor:
-            return (-e["rank"], 1, -d.toordinal())
-        return (-e["rank"], 0, d.toordinal())
+            return (-e["rank"], 1, same, -d.toordinal())
+        return (-e["rank"], 0, same, d.toordinal())
     ev = sorted(evidence.values(), key=order)
     web_ok = any(channels.get(k, {}).get("status") == "ok" for k in ("bing", "google"))
     naver_ok = channels.get("naver", {}).get("status") == "ok"
@@ -904,6 +906,20 @@ def earlier_coverage(c, earlier, limit=2):
         if len(out) >= limit:
             break
     return out
+
+
+# 근거 기사 제목의 숫자(세율·금액·규모)가 레이더 항목 글에도 있는지(11-09) — 판정은 바꾸지 않고 근거 줄에만 붙인다.
+# 숫자까지 같으면 같은 사건일 가능성이 높고(강관 관보 '현대제철 4.20%' ↔ 「美, 현대제철 강관 반덤핑 4.20% 확정」), 다르면 다른 건일 수 있다.
+# 항목 글의 '(직전 최종 …·예비 …)'는 앞 단계 숫자라 뺀다 — 예비 판정 기사(4.19%)를 이번 최종 기사로 읽지 않게.
+PRIOR_STAGE = re.compile(r"\((?:직전|예비)[^)]*\)")
+
+
+def title_numbers(title, c):
+    item = PRIOR_STAGE.sub(" ", str(c.get("title") or ""))
+    art, found, comparable = same_numbers(title, item)
+    if not art or not comparable:
+        return {}   # 기사 제목에 숫자가 없거나 항목 글에 같은 단위 숫자가 없으면 아무것도 안 붙임
+    return {"numbers": {"article": art, "found": found}}
 
 
 def screen(cands, *, now, get=None, sleep=time.sleep):
