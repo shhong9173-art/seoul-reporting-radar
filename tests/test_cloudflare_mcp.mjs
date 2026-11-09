@@ -2264,6 +2264,13 @@ test('radar-items hands hinted A/B items to the press checker; radar_today shows
   assert.match(a, /↳ 2026-10-23 \[bing\] LS일렉트릭, ESS 특허 폭증 https:\/\/n\/4 \(약한 근거: PTAB 없음 — 다른 건일 수 있음\)/);
   // 판정에 안 세는 앞선 기사(10-31): 미보도 후보에 맥락 한 줄
   assert.match(a, /↳ 2026-08-02 \[naver\] LS일렉트릭, 美 특허심판원 결정 불복 https:\/\/n\/3 \(앞선 기사: 항목 날짜 전이라 판정에 안 셈 — 같은 사업의 앞선 보도일 수 있음\)/);
+  // 앞 실행에서 규칙이 바뀌어 다시 본 항목이 이번 실행엔 안 보임: 한 줄로
+  {
+    const { pressLines } = await import('../cloudflare/digest.mjs');
+    const line = pressLines({ verdict: '관련 보도 있음', queries: ['현대제철 강관 관세'], evidence: [], checkedAt: '2026-11-09T11:02:00+09:00', recheck: true },
+      '11-09 12:50', '2026-11-09T12:50:00+09:00')[0];
+    assert.match(line, /보도 대조\(자동 11-09 11:02\): 관련 보도 있음 — "현대제철 강관 관세" · 대조 규칙이 바뀌어 72시간 지난 뒤 11-09 11:02에 한 번 다시 봄\(그 뒤로는 범위 밖\)$/);
+  }
   // 이번 실행에서 다시 대조하지 않은 항목(11-09 강관 관보): 자기 대조 시각과 '다시 안 봄'
   assert.match(a, /보도 대조\(자동 10-23 12:50\): 미확인 — 채널 naver failed\(ConnectTimeout\)\(0건 아님\) · 그 뒤 대조에서는 다시 안 봄\(최근 72시간 범위 밖 등\) — 질의·판정은 10-23 12:50 것/);
   assert.match(r.text, /보도 대조\(자동\)는 네이버 뉴스 API·빙·구글에서 항목 날짜 3일 전부터 찾은 결과다/);
