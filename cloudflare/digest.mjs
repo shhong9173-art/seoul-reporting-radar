@@ -1167,8 +1167,14 @@ export async function radarItems(request, env, deps = {}) {
 }
 
 const PRESS_RANK = { '미보도 후보': 0, 미확인: 1, '관련 보도 있음': 2, '같은 수치 선행': 2 };
-function pressLines(r, stamp) {
+// 항목마다 자기 대조 시각을 쓴다(11-09: 11-05 강관·후판 관보 항목은 72시간 대조 범위를 벗어나 08:50에 다시 대조되지 않았는데,
+// 이전 결과(바뀌기 전 낱말 '현대제철 관세 보조금')가 '자동 11-09 08:50'으로 보였다).
+function pressLines(r, stamp, docAt) {
   if (!r) return [];
+  const at = Date.parse(r.checkedAt ?? '');
+  const own = Number.isFinite(at) ? kstStamp(r.checkedAt) : stamp;
+  const stale = Number.isFinite(at) && at < Date.parse(docAt ?? '') - 60000
+    ? ` · 그 뒤 대조에서는 다시 안 봄(최근 72시간 범위 밖 등) — 질의·판정은 ${own} 것` : '';
   const failed = Object.entries(r.channels ?? {}).filter(([, v]) => v.status !== 'ok').map(([k, v]) => `${k} ${v.status}${v.error ? `(${v.error})` : ''}`);
   const qs = (r.queries ?? []).map((q) => `"${q}"`).join(', ');
   const tail = r.verdict === '미보도 후보' ? ` — ${qs}로 ${r.since} 이후 관련 기사 못 찾음(검색 범위 결과, 단독 판정 아님)`
@@ -1177,7 +1183,7 @@ function pressLines(r, stamp) {
   // 판정에 안 세는 앞선 기사(항목 날짜 전, 제목에 회사·사건 낱말)는 미보도 후보에 한 줄 맥락으로(10-31 울주 산소공장 안전점검 공고 ↔ 10-20 증설 기사)
   const ev = r.evidence ?? [];
   const shown = [...ev.filter((e) => !e.before).slice(0, 2), ...ev.filter((e) => e.before).slice(0, 1)];
-  return [`   보도 대조(자동 ${stamp}): ${r.verdict}${tail}${was}`,
+  return [`   보도 대조(자동 ${own}): ${r.verdict}${tail}${was}${stale}`,
     ...shown.map((e) => `     ↳ ${e.date ?? '날짜?'} [${e.channel}] ${e.title}${e.url ? ` ${e.url}` : ''}${evidenceNote(e, r.verdict)}`)];
 }
 // 근거 줄 꼬리표. 미보도 후보에 붙은 근거는 모두 판정에 안 센 약한 근거다 — 꼬리표가 없으면 뒷받침 기사로 읽힌다
@@ -1525,7 +1531,7 @@ export async function radarTodayText(ctx, args) {
       if (x.point) out.push(`   〔기사 포인트〕 ${x.point}`);
       if (x.next) out.push(`   〔기사 준비〕 다음 절차: ${x.next}`);
       if (x.ask) out.push(`   물을 것: ${x.ask}`);
-      out.push(...pressLines(checked.get(String(x.id)), kstStamp(press?.generatedAt)));
+      out.push(...pressLines(checked.get(String(x.id)), kstStamp(press?.generatedAt), press?.generatedAt));
       const w = d.wrote?.get(String(x.id));
       out.push(`   ${x.url ? `원문: ${x.url} · ` : ''}자세히: ${x.tool} · id ${x.id}${judged.get(x.id) ? ` 〔판정: ${judged.get(x.id)}〕` : ''}${w ? ` 〔기자 기사(자동 대조) ${String(w.published).slice(5, 10)} 「${String(w.title).slice(0, 40)}」〕` : ''}${x.alert ? ` 〔즉시 알림 대상: ${x.alert}〕` : ''}`);
     }

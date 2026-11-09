@@ -2249,7 +2249,7 @@ test('radar-items hands hinted A/B items to the press checker; radar_today shows
         { date: '2026-10-23', channel: 'bing', title: 'LS일렉트릭, ESS 특허 폭증', url: 'https://n/4', why: '제목에 회사·낱말(특허)이 있으나 PTAB 없음 — 다른 사업장·다른 건 기사일 수 있음' },
         { date: '2026-08-02', channel: 'naver', title: 'LS일렉트릭, 美 특허심판원 결정 불복', url: 'https://n/3', before: true, why: '항목 날짜보다 앞선 기사(항소) — 판정에 안 셈' }],
       channels: { naver: { status: 'ok', returned: 0 }, bing: { status: 'ok', returned: 0 }, google: { status: 'ok', returned: 0 } } },
-    { id: 'fac:1:x', verdict: '미확인', since: '2026-10-22', queries: ['KG스틸 인력'], evidence: [],
+    { id: 'fac:1:x', verdict: '미확인', since: '2026-10-22', queries: ['KG스틸 인력'], evidence: [], checkedAt: '2026-10-23T12:50:00+09:00',
       channels: { naver: { status: 'failed', error: 'ConnectTimeout' }, bing: { status: 'ok', returned: 0 } } }] });
   const r = await call('radar_today', {}, opts);
   const a = r.text.split('[A · ')[1].split('[B · ')[0];
@@ -2264,7 +2264,8 @@ test('radar-items hands hinted A/B items to the press checker; radar_today shows
   assert.match(a, /↳ 2026-10-23 \[bing\] LS일렉트릭, ESS 특허 폭증 https:\/\/n\/4 \(약한 근거: PTAB 없음 — 다른 건일 수 있음\)/);
   // 판정에 안 세는 앞선 기사(10-31): 미보도 후보에 맥락 한 줄
   assert.match(a, /↳ 2026-08-02 \[naver\] LS일렉트릭, 美 특허심판원 결정 불복 https:\/\/n\/3 \(앞선 기사: 항목 날짜 전이라 판정에 안 셈 — 같은 사업의 앞선 보도일 수 있음\)/);
-  assert.match(a, /보도 대조\(자동 10-26 08:50\): 미확인 — 채널 naver failed\(ConnectTimeout\)\(0건 아님\)/);
+  // 이번 실행에서 다시 대조하지 않은 항목(11-09 강관 관보): 자기 대조 시각과 '다시 안 봄'
+  assert.match(a, /보도 대조\(자동 10-23 12:50\): 미확인 — 채널 naver failed\(ConnectTimeout\)\(0건 아님\) · 그 뒤 대조에서는 다시 안 봄\(최근 72시간 범위 밖 등\) — 질의·판정은 10-23 12:50 것/);
   assert.match(r.text, /보도 대조\(자동\)는 네이버 뉴스 API·빙·구글에서 항목 날짜 3일 전부터 찾은 결과다/);
   assert.doesNotMatch(r.text, /보도 대조\(자동\): 결과 없음/);
   const none = await call('radar_today', {}, PRIVATE());
