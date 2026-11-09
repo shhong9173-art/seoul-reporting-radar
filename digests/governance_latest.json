@@ -1,7 +1,7 @@
 {
  "schema": "governance/v1",
- "generatedAt": "2026-11-09T07:43:50+09:00",
- "windowStart": "2026-10-10",
+ "generatedAt": "2026-11-10T07:41:01+09:00",
+ "windowStart": "2026-10-11",
  "windowDays": 30,
  "source": "OpenDART 지분공시 종합정보(majorstock·elestock)·주요사항보고서 자기주식 처분 결정(tsstkDpDecsn)",
  "status": "complete",
@@ -17,8 +17,8 @@
    "company": "현대자동차",
    "endpoint": "elestock.json",
    "status": "checked",
-   "rowsReturned": 548,
-   "rowsInWindow": 0
+   "rowsReturned": 549,
+   "rowsInWindow": 1
   },
   {
    "company": "현대자동차",
@@ -164,8 +164,8 @@
    "company": "넥센타이어",
    "endpoint": "elestock.json",
    "status": "checked",
-   "rowsReturned": 4,
-   "rowsInWindow": 0
+   "rowsReturned": 5,
+   "rowsInWindow": 1
   },
   {
    "company": "넥센타이어",
@@ -710,8 +710,8 @@
    "company": "금호석유화학",
    "endpoint": "elestock.json",
    "status": "checked",
-   "rowsReturned": 60,
-   "rowsInWindow": 2
+   "rowsReturned": 61,
+   "rowsInWindow": 3
   },
   {
    "company": "금호석유화학",
@@ -726,8 +726,26 @@
  "dartSpellings": {
   "동성케미칼": "동성케미컬"
  },
- "count": 37,
+ "count": 40,
  "items": [
+  {
+   "company": "넥센타이어",
+   "team": "자동차",
+   "kind": "임원·주요주주",
+   "date": "2026-11-09",
+   "receiptNo": "20261109000113",
+   "reporter": "넥센",
+   "role": "사실상지배주주",
+   "shares": 45664178.0,
+   "sharesChange": 271755.0,
+   "ratio": 43.84,
+   "ratioChange": 0.26,
+   "tags": [
+    "[지분율 +0.26%p]"
+   ],
+   "routine": false,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261109000113"
+  },
   {
    "company": "HL만도",
    "team": "자동차",
@@ -1011,6 +1029,38 @@
    ],
    "routine": false,
    "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261014000316"
+  },
+  {
+   "company": "현대자동차",
+   "team": "자동차",
+   "kind": "임원·주요주주",
+   "date": "2026-11-09",
+   "receiptNo": "20261109000357",
+   "reporter": "이승애",
+   "role": "비등기임원 상무",
+   "shares": 81.0,
+   "sharesChange": 81.0,
+   "ratio": 0.0,
+   "ratioChange": 0.0,
+   "tags": [],
+   "routine": true,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261109000357"
+  },
+  {
+   "company": "금호석유화학",
+   "team": "화학·소재",
+   "kind": "임원·주요주주",
+   "date": "2026-11-09",
+   "receiptNo": "20261109000132",
+   "reporter": "김태환",
+   "role": "비등기임원 상무대우",
+   "shares": 800.0,
+   "sharesChange": 20.0,
+   "ratio": 0.0,
+   "ratioChange": 0.0,
+   "tags": [],
+   "routine": true,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261109000132"
   },
   {
    "company": "포스코홀딩스",
