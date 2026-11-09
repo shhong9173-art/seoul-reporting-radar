@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-11-09T09:31:48.623152+09:00",
+  "generatedAt": "2026-11-09T16:09:03.629710+09:00",
   "feeds": [
     {
       "name": "DART",
       "status": "ready",
       "rows": 1,
-      "generatedAt": "2026-11-06T12:41:54+09:00",
+      "generatedAt": "2026-11-09T12:02:34+09:00",
       "checkedQueries": null,
       "failedQueries": null
     },
@@ -21,7 +21,7 @@
       "name": "CUSTOMS",
       "status": "ready",
       "rows": 4,
-      "generatedAt": "2026-11-02T10:55:34+09:00",
+      "generatedAt": "2026-11-09T11:05:58+09:00",
       "checkedQueries": null,
       "failedQueries": null
     },
@@ -37,7 +37,7 @@
       "name": "DART_METRIC",
       "status": "ready",
       "rows": 24,
-      "generatedAt": "2026-11-06T23:56:47+09:00",
+      "generatedAt": "2026-11-09T15:24:18+09:00",
       "checkedQueries": null,
       "failedQueries": null
     },
@@ -52,8 +52,8 @@
     {
       "name": "나라장터 공공조달",
       "status": "ready",
-      "rows": 0,
-      "generatedAt": "2026-11-09T09:31:44+09:00"
+      "rows": 3,
+      "generatedAt": "2026-11-09T16:08:10+09:00"
     },
     {
       "name": "NTIS 연구과제",
@@ -370,6 +370,27 @@
       "fact": "관세청 구분별 공개 집계(202609) · 기업 실적 아님",
       "url": "https://www.data.go.kr/data/15101634/openapi.do",
       "verification": "시도·성질/국가별 모집단·단위 확인"
+    },
+    {
+      "source": "나라장터 공공조달",
+      "headline": "제주에너지공사 전기버스 충전기 제조 및 설치",
+      "fact": "조달청 공개 입찰공고 · 제주에너지공사 · 낙찰·계약·당사자 공급업체 미확인",
+      "url": "https://www.g2b.go.kr/link/PNPE027_01/single/?bidPbancNo=R26BK01802668&bidPbancOrd=000",
+      "verification": "원문 공고번호 R26BK01802668 확인 후 낙찰자·계약·공급사·기보도 대조"
+    },
+    {
+      "source": "나라장터 공공조달",
+      "headline": "칠산3지구 배수장 성능개선사업 수배전반 제조·구매",
+      "fact": "조달청 공개 입찰공고 · 한국농어촌공사 충남지역본부 · 낙찰·계약·당사자 공급업체 미확인",
+      "url": "https://www.g2b.go.kr/link/PNPE027_01/single/?bidPbancNo=R26BK01817101&bidPbancOrd=000",
+      "verification": "원문 공고번호 R26BK01817101 확인 후 낙찰자·계약·공급사·기보도 대조"
+    },
+    {
+      "source": "나라장터 공공조달",
+      "headline": "국립공주대 대학본부 변압기 및 수배전반 교체공사 관급자재(수배전반) 구입",
+      "fact": "조달청 공개 입찰공고 · 국립공주대학교 · 낙찰·계약·당사자 공급업체 미확인",
+      "url": "https://www.g2b.go.kr/link/PNPE027_01/single/?bidPbancNo=R26BK01817234&bidPbancOrd=000",
+      "verification": "원문 공고번호 R26BK01817234 확인 후 낙찰자·계약·공급사·기보도 대조"
     }
   ],
   "confirmedScoops": 0,
