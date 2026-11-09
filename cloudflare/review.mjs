@@ -5,7 +5,7 @@ import { storeOp, candidateFeedback } from './store.mjs';
 import { itemIndex, WATCHES } from './digest.mjs';
 import { clampInt, kstStamp, textResult } from './common.mjs';
 import { readFeed, ageNote } from './screen.mjs';
-import { reverseNumbersNote, reverseTallyLines } from './overseas.mjs';
+import { reverseClip, reverseNumbersNote, reverseTallyLines } from './overseas.mjs';
 
 const VERDICTS = ['씀', '킬', '보류', '봤음'];
 const MIN_SAMPLE = 5;   // groups smaller than this get counts only, no "점검 후보" note
@@ -123,7 +123,7 @@ export async function myArticlesLines(ctx, days) {
   if (groups.length) out.push('감시별(먼저 잡은 후보): ' + groups.map(([k, v]) => `${k} ${v.length}`).join(' · '));
   for (const a of rows.filter((x) => x.verdict === '먼저 잡은 후보' && x.best).slice(0, 8)) {
     out.push(`- 기사 ${String(a.published).slice(5, 16).replace('T', ' ')} 「${String(a.title).slice(0, 60)}」${a.verified === false ? '(작성자 미확인)' : ''}`);
-    out.push(`   레이더: ${String(a.best.seen).slice(5, 16).replace('T', ' ')} ${a.best.label} — ${String(a.best.text ?? '').slice(0, 90)} (${a.best.leadHours}시간 앞${(a.best.why ?? []).length ? `, 겹친 낱말 ${a.best.why.join('·')}` : ''})${reverseNumbersNote(a.best)} · id ${a.best.id}`);
+    out.push(`   레이더: ${String(a.best.seen).slice(5, 16).replace('T', ' ')} ${a.best.label} — ${reverseClip(a.best.text, 90)} (${a.best.leadHours}시간 앞${(a.best.why ?? []).length ? `, 겹친 낱말 ${a.best.why.join('·')}` : ''})${reverseNumbersNote(a.best)} · id ${a.best.id}`);
   }
   // 레이더가 놓친 기사(11-04 기자 요청 뒤): 어떤 원천을 더할지 보려고 종류별로 묶고 '없음' 제목을 보여 준다(기자 전용 화면).
   const byKind = (rs) => Object.entries(rs.reduce((m, a) => ({ ...m, [a.kind ?? '기타']: (m[a.kind ?? '기타'] ?? 0) + 1 }), {}))

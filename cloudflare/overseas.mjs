@@ -315,6 +315,11 @@ export const PRODUCT_KO = [
   [/alumin/i, '알루미늄', ['알루미늄']],
   [/tire/i, '타이어', ['타이어']],
 ];
+// 역추적 레이더 글 자르기: 낱말 중간에서 자르지 않는다(11-09: 관보 글 끝의 세율 '1.21%'가 '1.2'로 잘려 다른 세율처럼 보였다)
+export function reverseClip(text, n) {
+  const t = String(text ?? '');
+  return t.length <= n ? t : `${t.slice(0, n).replace(/\s+\S*$/, '')}…`;
+}
 // 역추적 '먼저 잡은 후보'의 기사 제목 숫자(세율·금액·규모)가 레이더 원문에도 있는지(11-09, reverse_prior_capture.same_numbers)
 export function reverseNumbersNote(best) {
   const n = best?.numbers;
@@ -673,7 +678,7 @@ export async function scoopReverse(ctx, args) {
     out.push(`\n[${v}] ${g.length}건`);
     for (const x of g.slice(0, v === '없음' && !want ? Math.min(limit, 8) : limit)) {
       out.push(`- ${kmd(x.published)} · ${x.source ?? ''} 「${x.title}」(${(x.companies ?? []).join('·')})`);
-      if (x.best) out.push(`   레이더: ${kmd(x.best.seen)} ${x.best.label} — ${x.best.text.slice(0, 140)} (${x.best.leadHours}시간 앞${x.best.why?.length ? `, 겹친 낱말 ${x.best.why.join('·')}` : ''})${reverseNumbersNote(x.best)} · id ${x.best.id}`);
+      if (x.best) out.push(`   레이더: ${kmd(x.best.seen)} ${x.best.label} — ${reverseClip(x.best.text, 140)} (${x.best.leadHours}시간 앞${x.best.why?.length ? `, 겹친 낱말 ${x.best.why.join('·')}` : ''})${reverseNumbersNote(x.best)} · id ${x.best.id}`);
     }
     if (g.length > limit) out.push(`… 남은 ${g.length - limit}건`);
   }

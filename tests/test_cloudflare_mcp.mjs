@@ -3309,6 +3309,10 @@ test('scoop_reverse shows automatic prior-capture candidates by source with lead
   assert.match(r.text, /원천별 먼저 잡은 후보: 무역구제·미국 관보 3건\(중간 41시간 앞\) · 미국 소송·판결 1건\(중간 48시간 앞\)/);
   assert.match(r.text, /\(40시간 앞, 겹친 낱말 관세·무역구제·변압기\) · 기사 숫자 12\.5% 레이더 원문 숫자와 다름 — 같은 분야 다른 사실일 수 있음 · id fr:1/);
   assert.match(r.text, /· 기사 숫자 1조원 — 레이더 글에 비교할 숫자 없음\(원문에서 확인\) · id fr:2/);
+  // 레이더 글은 낱말 중간에서 자르지 않는다(세율 '1.21%'가 '1.2'로 잘리지 않게)
+  const { reverseClip } = await import('../cloudflare/overseas.mjs');
+  assert.equal(reverseClip('Hot-Rolled Final Results duty 1.21% 0.55%', 33), 'Hot-Rolled Final Results duty…');
+  assert.equal(reverseClip('short', 33), 'short');
   assert.match(r.text, /\(41시간 앞, 겹친 낱말 관세·무역구제·변압기\) · 기사 숫자 3\.10% 레이더 원문에도 있음 · id fr:1/);
   assert.match(r.text, /레이더: 10-24 07:50 미국 소송·판결 — In re: LS Electric/);
   assert.match(r.text, /48\.2시간 앞, 겹친 낱말 소송·판결·특허·상표\) · id cl:75019340/);
