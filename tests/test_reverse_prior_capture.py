@@ -266,6 +266,30 @@ class Capture(unittest.TestCase):
         verdict, best, _ = v("[단독] LS전선, 영국에 해저케이블 법인 세운다", "LS전선", "2026-11-03T09:00:00+09:00")
         self.assertEqual((verdict, best["id"]), ("먼저 잡은 후보", "ch:ls"))
 
+    def test_article_numbers_are_checked_against_the_radar_text(self):
+        # 11-09: '먼저 잡은 후보'에 같은 분야 다른 사실이 섞인다 — 기사 제목 숫자가 레이더 원문(관보 표 세율)에도 있는지 붙인다
+        docs = {"trade-remedy": {"federalRegister": [
+            {"id": "fr:2026-22630", "named": [{"company": "현대제철"}], "title": "Circular Welded Non-Alloy Steel Pipe From the Republic of Korea: Final Results",
+             "rateTable": {"kind": "반덤핑", "rates": {"현대제철": {"rate": 4.2}}, "othersRate": 0.0}, "memoTopics": ["Comment 1"], "firstSeen": "2026-11-05T00:00:00+09:00"},
+            {"id": "fr:core", "named": [{"company": "KG스틸"}], "title": "Certain Corrosion-Resistant Steel Products From the Republic of Korea: Preliminary Results of Countervailing Duty",
+             "rateTable": {"kind": "상계관세", "rates": {"KG스틸": {"rate": 1.05}}}, "firstSeen": "2026-10-26T21:32:00+09:00"}]}}
+        items = r.memory(docs, {})
+        self.assertIn("4.20% 0.00%", next(m["text"] for m in items if m["id"] == "fr:2026-22630"))
+        # 관보 다음에 본 단서(세율 없음)보다 숫자까지 같은 관보 항목을 고른다
+        items.append(r.mem("clues", "clue:pipe", ["현대제철"], "Circular Welded Non-Alloy Steel Pipe From the Republic of Korea: Final Results duty", "2026-11-05T01:00:00+09:00"))
+        v, best, _ = r.match({"title": "[단독] 美, 현대제철 강관 반덤핑 4.20% 확정…휴스틸은 0%", "companies": ["현대제철"], "published": "2026-11-05T08:35:00+09:00"}, items)
+        self.assertEqual((v, best["id"], best["numbers"]), ("먼저 잡은 후보", "fr:2026-22630", {"article": ["4.20%"], "found": ["4.20%"]}))
+        v, best, _ = r.match({"title": "[단독] 美 도금강판 관세 70%대 위협…동국씨엠·KG스틸, 법적 대응 저울질", "companies": ["KG스틸"], "published": "2026-10-30T05:00:00+09:00"}, items)
+        self.assertEqual((v, best["numbers"]), ("먼저 잡은 후보", {"article": ["70%대"], "found": []}))
+        v, best, _ = r.match({"title": "[단독] 포스코, 美 변압기 관세 정산 보류", "companies": ["현대제철"], "published": "2026-11-05T08:35:00+09:00"}, items)
+        self.assertNotIn("numbers", best or {})                                     # 기사 제목에 숫자가 없으면 안 붙임
+
+    def test_numbers_in(self):
+        self.assertEqual([x[2] for x in r.numbers_in("1조2000억원 투자·3500억·504MW·휴스틸 0%")], ["1조2000억원", "3500억", "504MW"])
+        self.assertEqual(r.same_numbers("3000억대 증설", "투자 3,450억원"), (["3000억대"], ["3000억대"]))
+        self.assertEqual(r.same_numbers("강관 4.2%", "duty 4.20%"), (["4.2%"], ["4.2%"]))
+        self.assertEqual(r.same_numbers("관세 70%대", "duty 80.10%"), (["70%대"], []))
+
 class Places(unittest.TestCase):
     """11-04 기자 기사 대조: 장소 있는 항목은 기사 제목에 같은 지역 이름이 있어야 '먼저 잡은 후보'."""
     ITEMS = [r.mem("kr-building", "bld:947602", ["LS전선"], "공장 건축허가 경상북도 구미시 진평동 643번지 증설 신축 plant factory", "2026-10-29T16:21:00+09:00"),
