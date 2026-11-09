@@ -2117,16 +2117,19 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
     s.generatedAt = '2026-10-26T07:30:00+09:00';
     s.us = { source: 'USPTO 상표 출원(Signa 경유)', office: 'US', generatedAt: '2026-10-26T07:30:30+09:00', status: 'complete', window: { from: '2026-06-28', to: '2026-10-26' },
       provider: 'signa', providerNote: 'Signa(USPTO 자료를 매일 맞추는 2차 원천)', signaCreditsLeft: 2500, carried: ['포스코'],
-      checks: [{ company: '현대자동차', status: 'ok', rawTotal: 5, kept: 5, via: 'signa' }, { company: '포스코', status: 'ok', rawTotal: 2, kept: 1, via: 'signa', carried: true }],
+      checks: [{ company: '현대자동차', status: 'ok', rawTotal: 5, kept: 5, via: 'signa' }, { company: '포스코', status: 'ok', rawTotal: 2, kept: 1, via: 'signa', carried: true },
+        { company: 'LG화학', status: 'ok', rawTotal: 0, kept: 0, via: 'signa' }],
       filings: [{ id: 'uspto:50141613', company: '현대자동차', applicationNumber: '50141613', title: 'GENESIS BOX BUGGY', applicationDate: '2026-10-02', classes: ['28'],
         coreClasses: [], status: 'NEW_APPLICATION', applicants: ['HYUNDAI MOTOR COMPANY'], firstSeen: '2026-10-26T07:30:30+09:00', isNew: true, titleNew: true, tier: 'C', via: 'signa',
         url: 'https://tsdr.uspto.gov/#caseNumber=50141613&caseType=SERIAL_NO&searchType=statusSearch' }] };
     assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/trademarks', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(s) }), env, {})).status, 200);
     const us = (await call('trademarks', {}, opts)).text;
-    assert.match(us, /\[미국 상표 출원\(USPTO · Signa 경유\) · 출원일 2026-06-28~2026-10-26 · 확인 2026-10-26T07:30\] 조회 정상 2\/2/);
-    assert.match(us, /원천: USPTO 직접 API\(ID\.me 인증 실패\)는 막힘 — Signa\(USPTO 자료를 매일 맞추는 2차 원천\)로 읽음 1곳 · 크레딧 아끼려 이번 주 안 물음 1곳\(직전 결과\) · 남은 크레딧 2500 — 2차 자료라 기사 전 USPTO TSDR 원문\(일련번호\) 확인/);
+    assert.match(us, /\[미국 상표 출원\(USPTO · Signa 경유\) · 출원일 2026-06-28~2026-10-26 · 확인 2026-10-26T07:30\] 조회 정상 3\/3/);
+    assert.match(us, /원천: USPTO 직접 API\(ID\.me 인증 실패\)는 막힘 — Signa\(USPTO 자료를 매일 맞추는 2차 원천\)로 읽음 2곳 · 크레딧 아끼려 이번 주 안 물음 1곳\(직전 결과\) · 남은 크레딧 2500 — 2차 자료라 기사 전 USPTO TSDR 원문\(일련번호\) 확인/);
     assert.match(us, /\[새로 본 미국 출원\] 1건\n- \[C · 처음 보는 이름\] 현대자동차 · 「GENESIS BOX BUGGY」 · 출원 2026-10-02 · 28류/);
     assert.match(us, /검증 상태: USPTO 공개 출원 정보\(자동 수집, Signa 2차 자료/);
+    assert.match(us, /출원일 창 안 0건: LG화학 — 이름은 11-09 탐침으로 확인\(2년 안 출원이 있던 곳은 최근 출원이 없는 것, 0건 확정은 아님\)/);   // Signa 0건(11-10)
+    assert.doesNotMatch(us.slice(us.indexOf('[미국 상표 출원')), /영문 출원인 이름 형식 확인/);
     const minorUs = (await call('radar_today', { include_minor: true }, opts)).text;
     assert.match(minorUs, /미국\(USPTO\) 상표 출원 「GENESIS BOX BUGGY」 28류[^\n]* — 감시 시작 이후 처음 보는 이름 \(출원 2026-10-02, 일련번호 50141613, 출원인 HYUNDAI MOTOR COMPANY\) · Signa 2차 자료 — USPTO TSDR 원문 확인/);
   }

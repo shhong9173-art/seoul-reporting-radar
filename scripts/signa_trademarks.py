@@ -16,6 +16,17 @@ PAGE_CREDITS = 10
 MIN_CREDITS = 30      # 남은 크레딧이 이보다 적으면 더 묻지 않는다(다음 달 초기화 전까지 미확인)
 
 
+def _status(st, raw):
+    """EUIPO는 원래 상태 글(APPLICATION_PUBLISHED), USPTO는 숫자 코드(630)라 단계 글을 앞에 붙인다(11-10: 화면에 '상태 630'만 보였다)."""
+    code = str((raw or {}).get("code") or "").strip()
+    stage = str((st or {}).get("stage") or (st or {}).get("primary") or "").strip() if isinstance(st, dict) else ""
+    if code and not code.isdigit():
+        return code
+    if stage:
+        return f"{stage}(USPTO 코드 {code})" if code else stage
+    return code or None
+
+
 def _row(x):
     if not isinstance(x, dict):
         return None
@@ -27,7 +38,7 @@ def _row(x):
             "markFeature": (x.get("mark_feature_type") or "").upper() or None,
             "niceClasses": x.get("nice_classes") or [],
             "applicants": [{"name": o.get("name")} for o in x.get("owners") or [] if isinstance(o, dict) and o.get("name")],
-            "status": (raw or {}).get("code") or (st.get("stage") if isinstance(st, dict) else None),
+            "status": _status(st, raw),
             "filingRoute": x.get("filing_route")}
 
 
