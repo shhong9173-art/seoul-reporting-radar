@@ -1169,12 +1169,12 @@ export async function radarItems(request, env, deps = {}) {
 const PRESS_RANK = { '미보도 후보': 0, 미확인: 1, '관련 보도 있음': 2, '같은 수치 선행': 2 };
 // 항목마다 자기 대조 시각을 쓴다(11-09: 11-05 강관·후판 관보 항목은 72시간 대조 범위를 벗어나 08:50에 다시 대조되지 않았는데,
 // 이전 결과(바뀌기 전 낱말 '현대제철 관세 보조금')가 '자동 11-09 08:50'으로 보였다).
-function pressLines(r, stamp, docAt) {
+export function pressLines(r, stamp, docAt) {
   if (!r) return [];
   const at = Date.parse(r.checkedAt ?? '');
   const own = Number.isFinite(at) ? kstStamp(r.checkedAt) : stamp;
-  const stale = Number.isFinite(at) && at < Date.parse(docAt ?? '') - 60000
-    ? ` · 그 뒤 대조에서는 다시 안 봄(최근 72시간 범위 밖 등) — 질의·판정은 ${own} 것` : '';
+  const old = Number.isFinite(at) && at < Date.parse(docAt ?? '') - 60000;
+  const stale = old && !r.recheck ? ` · 그 뒤 대조에서는 다시 안 봄(최근 72시간 범위 밖 등) — 질의·판정은 ${own} 것` : '';
   const failed = Object.entries(r.channels ?? {}).filter(([, v]) => v.status !== 'ok').map(([k, v]) => `${k} ${v.status}${v.error ? `(${v.error})` : ''}`);
   const qs = (r.queries ?? []).map((q) => `"${q}"`).join(', ');
   const tail = r.verdict === '미보도 후보' ? ` — ${qs}로 ${r.since} 이후 관련 기사 못 찾음(검색 범위 결과, 단독 판정 아님)`
@@ -1183,7 +1183,8 @@ function pressLines(r, stamp, docAt) {
   // 판정에 안 세는 앞선 기사(항목 날짜 전, 제목에 회사·사건 낱말)는 미보도 후보에 한 줄 맥락으로(10-31 울주 산소공장 안전점검 공고 ↔ 10-20 증설 기사)
   const ev = r.evidence ?? [];
   const shown = [...ev.filter((e) => !e.before).slice(0, 2), ...ev.filter((e) => e.before).slice(0, 1)];
-  const again = r.recheck ? ' · 대조 규칙이 바뀌어 72시간 지난 뒤 다시 봄' : '';
+  // 다시 본 항목은 그 뒤 실행에서 또 보지 않는다 — 두 표시를 한 줄로(11-09 13:10: '다시 봄 · 다시 안 봄'이 함께 떠 헷갈림)
+  const again = r.recheck ? (old ? ` · 대조 규칙이 바뀌어 72시간 지난 뒤 ${own}에 한 번 다시 봄(그 뒤로는 범위 밖)` : ' · 대조 규칙이 바뀌어 72시간 지난 뒤 다시 봄') : '';
   return [`   보도 대조(자동 ${own}): ${r.verdict}${tail}${was}${again}${stale}`,
     ...shown.map((e) => `     ↳ ${e.date ?? '날짜?'} [${e.channel}] ${e.title}${e.url ? ` ${e.url}` : ''}${evidenceNote(e, r.verdict)}`)];
 }
