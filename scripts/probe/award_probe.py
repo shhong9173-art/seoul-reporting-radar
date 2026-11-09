@@ -1,5 +1,5 @@
-"""probe 206: Signa — 출입처 23곳 owner_name 맞추기 확인(유럽 EM, 출원일 2년). 짧은 이름이 0건이면 정식 영문 이름으로 한 번 더.
-키 값은 찍지 않는다. 저장 안 함. 크레딧: 검색 1쪽 10(최대 46번)."""
+"""probe 207: Signa — ① 미국(US) 2년 출원 수 23곳(어느 회사를 자주 볼지) ② 유럽 0건 8곳 다른 영문 이름(옛 이름·넓은 낱말).
+키 값은 찍지 않는다. 저장 안 함. 크레딧: 검색 1쪽 10."""
 import collections
 import json
 import os
@@ -17,34 +17,33 @@ KEY = os.environ.get("SIGNA_API_KEY", "").strip()
 BASE = "https://api.signa.so"
 A = {"User-Agent": "seoul-reporting-radar/1.0 (+https://github.com/shhong9173-art/seoul-reporting-radar)", "Accept": "application/json",
      "Authorization": f"Bearer {KEY}"}
-FULL = {"Hankook Tire": "Hankook Tire & Technology Co., Ltd.", "Nexen Tire": "Nexen Tire Corporation", "Kumho Tire": "Kumho Tire Co., Inc.",
-        "Hyundai Steel": "Hyundai Steel Company", "Korea Zinc": "Korea Zinc Company, Ltd.", "HD Hyundai Electric": "HD Hyundai Electric Co., Ltd.",
-        "LS Electric": "LS Electric Co., Ltd.", "LS Cable": "LS Cable & System Ltd.", "Taihan": "Taihan Cable & Solution Co., Ltd.",
-        "Hyosung Heavy": "Hyosung Heavy Industries Corporation", "Doosan Enerbility": "Doosan Enerbility Co., Ltd.",
-        "Hanwha Solutions": "Hanwha Solutions Corporation", "LG Chem": "LG Chem, Ltd.", "Lotte Chemical": "Lotte Chemical Corporation",
-        "Kumho Petrochemical": "Korea Kumho Petrochemical Co., Ltd.", "S-Oil": "S-Oil Corporation", "SK Innovation": "SK Innovation Co., Ltd.",
-        "Hyundai Mobis": "Hyundai Mobis Co., Ltd.", "HL Mando": "HL Mando Corporation", "KG Mobility": "KG Mobility Corp.", "POSCO": "POSCO Holdings Inc."}
 cfg = json.load(open("data/trademark_watch.json"))["euipo"]["applicants"]
 left = None
 
 
-def search(name):
+def search(name, office, since="2024-11-01", limit=100):
     global left
     r = requests.get(BASE + "/v1/trademarks", headers=A, timeout=60,
-                     params={"owner_name": name, "office": "EM", "filing_date_gte": "2024-11-01", "sort": "-filing_date", "limit": 5})
+                     params={"owner_name": name, "office": office, "filing_date_gte": since, "sort": "-filing_date", "limit": limit})
     left = r.headers.get("X-Credits-Remaining", left)
     b = r.json() if r.ok else {}
     data = b.get("data") or []
     owners = collections.Counter(o.get("name") for x in data for o in x.get("owners") or [] if isinstance(o, dict))
-    return r.status_code, len(data), b.get("has_more"), dict(owners.most_common(4)), [(x.get("application_number"), x.get("mark_text"), x.get("filing_date")) for x in data[:3]]
+    last90 = sum(1 for x in data if str(x.get("filing_date") or "") >= "2026-08-11")
+    return r.status_code, len(data), b.get("has_more"), last90, dict(owners.most_common(5)), [(x.get("application_number"), x.get("mark_text"), x.get("filing_date")) for x in data[:3]]
 
 
 for c in cfg:
     q = c["query"].strip("*")
-    st, n, more, owners, ex = search(q)
-    log("Q", c["company"], repr(q), st, "n", n, "more", more, "|", owners, "|", ex)
-    if st == 200 and n == 0 and q in FULL:
-        st, n, more, owners, ex = search(FULL[q])
-        log("   FULL", repr(FULL[q]), st, "n", n, "more", more, "|", owners, "|", ex)
+    st, n, more, last90, owners, ex = search(q, "US")
+    log("US", c["company"], repr(q), st, "n", n, "more", more, "90d", last90, "|", owners, "|", ex)
+
+ALT = {"한국타이어": ["Hankook", "Hankook Tire Co"], "현대제철": ["Hyundai Steel Co", "HYUNDAI STEEL"], "고려아연": ["Korea Zinc Co", "KOREA ZINC"],
+       "HD현대일렉트릭": ["Hyundai Electric", "Hyundai Electric & Energy Systems"], "대한전선": ["Taihan Electric Wire", "Taihan Cable"],
+       "한화솔루션": ["Hanwha Chemical", "Hanwha"], "금호석유화학": ["Kumho Petrochemical Co", "KOREA KUMHO"], "S-OIL": ["S-OIL", "SOIL Corporation"]}
+for comp, names in ALT.items():
+    for nm in names:
+        st, n, more, last90, owners, ex = search(nm, "EM", since="2021-11-01", limit=50)
+        log("EU-ALT", comp, repr(nm), st, "n", n, "more", more, "|", owners, "|", ex)
 log("CREDITS LEFT", left)
 open("/tmp/probe_out.txt", "w").write("\n".join(OUT))
