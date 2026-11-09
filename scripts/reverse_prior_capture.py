@@ -469,8 +469,10 @@ def numbers_in(text):
 
 
 def same_numbers(title, text):
-    """기사 제목 숫자 중 레이더 원문에도 있는 것: (제목 숫자 원문 목록, 원문에도 있는 것 목록)."""
+    """기사 제목 숫자 중 레이더 원문에도 있는 것: (제목 숫자 원문 목록, 원문에도 있는 것 목록, 비교할 숫자가 원문에 있었는지).
+    원문 글에 같은 단위 숫자가 하나도 없으면 '다름'이 아니라 비교 못 함이다(11-09: 세율 없는 단서 글 ↔ 강관 4.20%)."""
     art, item = numbers_in(title), numbers_in(text)
+    comparable = any(u2 == unit for _, unit, _, _ in art for _, u2, _, _ in item)
     found = []
     for v, unit, raw, band in art:
         for w, u2, _, _ in item:
@@ -479,7 +481,14 @@ def same_numbers(title, text):
             if (band and v <= w < v + (10 if unit == "%" else 10 ** math.floor(math.log10(v)))) or (not band and (abs(v - w) < 0.005 if unit == "%" else abs(v - w) <= max(v, w) * 0.01)):
                 found.append(raw)
                 break
-    return [raw for _, _, raw, _ in art], found
+    return [raw for _, _, raw, _ in art], found, comparable
+
+
+def doc_key(url):
+    """같은 원문 문서를 가리키는 열쇠: 미국 관보는 문서 번호(관보 항목·단서·심사가 주소 모양이 달라도 같은 문서), 그 밖은 주소."""
+    u = str(url or "").strip()
+    m = re.search(r"federalregister\.gov/(?:documents|d|api/v1/documents)/(?:\d{4}/\d{2}/\d{2}/)?(\d{4}-\d{4,6})", u)
+    return f"fr:{m.group(1)}" if m else re.sub(r"^https?://|/+$", "", u.split("#")[0])
 
 
 def nouns(title):
@@ -503,6 +512,12 @@ def match(article, items):
     tplaces = places_in(title)
     best, best_score = None, 0
     concept_words = {w for w in words if any(name in concepts and re.search(ko, w) for name, ko, _ in CONCEPTS)}
+    # 숫자 대조는 같은 원문 문서(같은 주소)를 가리키는 항목 글을 모두 본다 — 단서 글엔 세율이 없어도 같은 관보 항목 글(표 세율)엔 있다.
+    # 시점과 상관없이 같은 문서라 레이더가 그때 이미 그 문서를 가졌다(숫자를 언제 읽었는지는 따지지 않는다).
+    pool = {}
+    for m in items:
+        if m.get("url"):
+            pool.setdefault(doc_key(m["url"]), []).append(m["text"])
     for m in same:
         if m["source"] in PLACE_SOURCES:
             mp = places_in(m["text"])
@@ -515,7 +530,7 @@ def match(article, items):
         hit_w = sorted(w for w in words - concept_words - GENERIC_WORDS if w in m["text"])
         hit_s = sorted(name for name, ko, en in SPECIFIC_RX if ko.search(bare) and en.search(EN_COMPANY.sub(" ", m["text"])) and name not in hit_w)
         score = sum(1 if c in WEAK_CONCEPTS else 2 for c in hit_c) + len(hit_w) + len(hit_s)
-        art_nums, same_nums = same_numbers(title, m["text"])
+        art_nums, same_nums, comparable = same_numbers(title, " ".join(pool.get(doc_key(m.get("url")), []) + [m["text"]]) if m.get("url") else m["text"])
         # 판결 기사 ↔ 먼저 본 판결 항목은 같은 사건 근거로 센다(위에서 판결 아닌 소송 접수는 이미 뺐다)
         ruling = "소송·판결" in hit_c and bool(RULING_TITLE.search(title))
         # 한국어 항목 본문에 기사 제목의 세 글자 넘는 낱말이 그대로 있으면(사건 낱말이라도: '임직원') 같은 사건 근거 — 두 글자 개념 낱말
@@ -526,7 +541,7 @@ def match(article, items):
             continue   # 사건 개념 하나(+지명)만 겹침 — 같은 회사 항목으로만 센다
         score += 1 if same_nums else 0   # 사건 낱말이 겹친 항목끼리는 숫자까지 같은 쪽을 고른다
         if score > best_score or (score == best_score and best and m["seen"] > best["seen"]):
-            best, best_score = {**m, "why": hit_c + hit_s + hit_w, **({"numbers": {"article": art_nums, "found": same_nums}} if art_nums else {})}, score
+            best, best_score = {**m, "why": hit_c + hit_s + hit_w, **({"numbers": {"article": art_nums, "found": same_nums, "comparable": comparable}} if art_nums else {})}, score
     if best and best_score >= 2:
         verdict = "먼저 잡은 후보"
     elif same:
@@ -585,7 +600,7 @@ def run(trace, docs, clues, *, now):
     return {"schema": SCHEMA, "generatedAt": now.isoformat(timespec="seconds"), "windowDays": WINDOW_DAYS, "articles": rows, "counts": counts, "byType": by_type, "byOutlet": by_outlet,
             "bySource": summary, "memoryItems": len(items), "feedsLoaded": loaded, "adapterErrors": adapter_errors, "traceGeneratedAt": trace.get("generatedAt"),
             "rules": ["자동 후보다. 사람이 기사 전문과 원자료를 비교하는 Y/P/N 판정(역추적 기록)과 다르고, 그 수를 바꾸지 않는다.",
-                      "먼저 잡은 후보마다 기사 제목의 숫자(세율·금액·규모)가 레이더 원문에도 있는지 붙인다 — 숫자까지 같으면 같은 사실일 가능성이 높고, 원문에 없으면 같은 분야 다른 사실일 수 있다(0은 흔해서 안 셈).",
+                      "먼저 잡은 후보마다 기사 제목의 숫자(세율·금액·규모)가 레이더 원문(같은 문서를 가리키는 항목 글 포함)에도 있는지 붙인다 — 숫자까지 같으면 같은 사실일 가능성이 높고, 원문 숫자와 다르면 같은 분야 다른 사실일 수 있다. 원문 글에 같은 단위 숫자가 없으면 비교 못 함(0은 흔해서 안 셈).",
                       "'먼저 잡은 후보'는 같은 회사(그룹) 항목을 기사 60일 전~직전에 레이더가 처음 봤고, 사건 낱말(한·영 대응)이 겹친 경우다. 같은 사건인지는 열어 봐야 한다.",
                       "장소가 있는 항목(건축허가·굴뚝·지자체 공고·국민연금 현장·공장등록·지방의회·미국 주 정부·OSHA)은 기사 제목에 같은 지역 이름이 있어야 센다.",
                       "레이더 기억은 지금 저장된 결과뿐이다(보관 기간이 지나 지워진 항목·저장 실패한 감시는 '없음'으로 나올 수 있다 — 0건 아님).",
