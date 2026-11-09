@@ -1,5 +1,5 @@
-"""probe 204: Signa — 검색 limit 최대값(명세), owner_name 맞추는 방식(부분·정확), 한 쪽에 몇 건(크레딧). 키 값은 찍지 않는다. 저장 안 함."""
-import collections
+"""probe 205: Signa — 출입처 23곳 영문 이름으로 출원인(owner) 찾기(이름·나라·상표 수·id), owner_name이 정확히 같아야 하는지(Kia Corporation),
+'expanded_fallback' 경고 뜻. 키 값은 찍지 않는다. 저장 안 함. 크레딧: 검색 1쪽 10."""
 import json
 import os
 import re
@@ -15,33 +15,32 @@ def log(*a):
 
 KEY = os.environ.get("SIGNA_API_KEY", "").strip()
 BASE = "https://api.signa.so"
-H = {"User-Agent": "seoul-reporting-radar/1.0 (+https://github.com/shhong9173-art/seoul-reporting-radar)", "Accept": "application/json"}
-A = {**H, "Authorization": f"Bearer {KEY}"}
-spec = requests.get(BASE + "/openapi.json", headers=H, timeout=60).json()
-op = spec["paths"]["/v1/trademarks"]["get"]
-for p in op.get("parameters") or []:
-    if "$ref" in p:
-        p = spec["components"]["parameters"][p["$ref"].split("/")[-1]]
-    if p.get("name") in ("limit", "owner_name", "sort", "office"):
-        log("SPEC", p.get("name"), json.dumps(p.get("schema"), ensure_ascii=False)[:300], "|", re.sub(r"\s+", " ", str(p.get("description") or ""))[:400])
+A = {"User-Agent": "seoul-reporting-radar/1.0 (+https://github.com/shhong9173-art/seoul-reporting-radar)", "Accept": "application/json",
+     "Authorization": f"Bearer {KEY}"}
+cfg = json.load(open("data/trademark_watch.json"))["euipo"]["applicants"]
 
-for owner, limit in (("Hyundai Motor Company", 100), ("Kia", 50), ("LG Chem", 50), ("Hankook Tire", 50)):
-    r = requests.get(BASE + "/v1/trademarks", headers=A, timeout=60,
-                     params={"owner_name": owner, "office": "EM", "filing_date_gte": "2026-07-12", "sort": "-filing_date", "limit": limit})
-    meta = {k: v for k, v in r.headers.items() if re.search(r"credits-(charged|remaining)", k, re.I)}
+r = requests.get(BASE + "/v1/trademarks", headers=A, timeout=60,
+                 params={"owner_name": "Kia Corporation", "office": "EM", "filing_date_gte": "2026-01-01", "sort": "-filing_date", "limit": 5})
+b = r.json() if r.ok else {}
+log("KIA exact", r.status_code, len(b.get("data") or []), "| warnings", json.dumps((b.get("search_meta") or {}).get("warnings"), ensure_ascii=False)[:600])
+for x in (b.get("data") or [])[:5]:
+    log("   -", x.get("application_number"), x.get("mark_text"), x.get("filing_date"), [o.get("name") for o in x.get("owners") or []][:2])
+
+for c in cfg:
+    q = c["query"].strip("*")
+    r = requests.get(BASE + "/v1/owners", headers=A, timeout=60, params={"q": q, "limit": 8, "sort": "-trademark_count"})
     try:
-        body = r.json()
+        b = r.json()
     except ValueError:
-        body = {}
+        b = {}
     if r.status_code != 200:
-        log("SEARCH", owner, limit, r.status_code, json.dumps(body, ensure_ascii=False)[:500])
+        log("OWNERS", c["company"], q, r.status_code, json.dumps(b, ensure_ascii=False)[:300])
         continue
-    data = body.get("data") or []
-    names = collections.Counter(o.get("name") for x in data for o in x.get("owners") or [] if isinstance(o, dict))
-    routes = collections.Counter(x.get("filing_route") for x in data)
-    log("SEARCH", owner, "limit", limit, "| n", len(data), "has_more", body.get("has_more"), meta, "| owners", dict(names.most_common(6)), "| routes", dict(routes))
-    log("   pagination", json.dumps(body.get("pagination"), ensure_ascii=False)[:200], "| search_meta", json.dumps(body.get("search_meta"), ensure_ascii=False)[:300])
-    for x in data[:6]:
-        log("   -", x.get("application_number"), "|", x.get("mark_text"), "| filed", x.get("filing_date"), "| pub", x.get("publication_date"),
-            "|", x.get("filing_route"), "| classes", x.get("nice_classes"), "|", (x.get("status") or {}).get("raw"))
+    rows = []
+    for o in b.get("data") or []:
+        rows.append(f'{o.get("id")}|{o.get("name")}|{o.get("country_code")}|tm {o.get("trademark_count") or (o.get("stats") or {}).get("trademark_count")}'
+                    f'|offices {",".join((o.get("offices") or [])[:6]) if isinstance(o.get("offices"), list) else o.get("offices")}')
+    log("OWNERS", c["company"], q, "|", " ;; ".join(rows))
+    if c["company"] == "현대자동차" and b.get("data"):
+        log("   FIRST", json.dumps(b["data"][0], ensure_ascii=False)[:900])
 open("/tmp/probe_out.txt", "w").write("\n".join(OUT))
