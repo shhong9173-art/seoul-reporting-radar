@@ -415,7 +415,7 @@
     }
   ],
   "euipo": {
-    "_note": "유럽연합 상표 출원(EUIPO Trademark Search). query는 applicants.name 와일드카드(RSQL), accept는 응답 출원인 이름을 다시 거르는 규칙(대소문자 무시). 11-02 기준 운영 검색이 403(구독 승인 대기) — 열리면 첫 실행이 회사별 기준선. 회사별 0건이 이어지면 영문 출원인 이름 형식을 확인한다. docs/euipo-api.md",
+    "_note": "유럽연합 상표 출원(EUIPO Trademark Search). query는 applicants.name 와일드카드(RSQL), accept는 응답 출원인 이름을 다시 거르는 규칙(대소문자 무시). 11-02 기준 운영 검색이 403(구독 승인 대기) — 열리면 첫 실행이 회사별 기준선. 회사별 0건이 이어지면 영문 출원인 이름 형식을 확인한다. docs/euipo-api.md 11-09: EUIPO 구독 승인 대기 동안 Signa(2차 원천)로 대신 읽는다. euEvery·usEvery는 Signa 크레딧이 모자랄 때(직전 남은 3,000 아래)의 조회 주기(주) — 11-09 탐침 2년 출원 수로 정함(유럽: 매주 7곳·2주 5곳·4주 11곳, 미국: 매주 5곳·2주 4곳·4주 14곳 ≈ 월 99쪽, 무료 월 1,000크레딧 안). 크레딧이 넉넉하면 매주 다 본다.",
     "windowDays": 120,
     "size": 30,
     "keepDays": 180,
@@ -423,122 +423,173 @@
       {
         "company": "현대자동차",
         "industry": "auto",
-        "query": "*Hyundai Motor Company*"
+        "query": "*Hyundai Motor Company*",
+        "euEvery": 1,
+        "usEvery": 1
       },
       {
         "company": "기아",
         "industry": "auto",
-        "query": "*Kia Corporation*"
+        "query": "*Kia Corporation*",
+        "euEvery": 1,
+        "usEvery": 1
       },
       {
         "company": "KG모빌리티",
         "industry": "auto",
-        "query": "*KG Mobility*"
+        "query": "*KG Mobility*",
+        "euEvery": 4,
+        "usEvery": 4
       },
       {
         "company": "현대모비스",
         "industry": "parts",
-        "query": "*Hyundai Mobis*"
+        "query": "*Hyundai Mobis*",
+        "euEvery": 2,
+        "usEvery": 4
       },
       {
         "company": "HL만도",
         "industry": "parts",
-        "query": "*HL Mando*"
+        "query": "*HL Mando*",
+        "euEvery": 1,
+        "usEvery": 2
       },
       {
         "company": "한국타이어",
         "industry": "tire",
-        "query": "*Hankook Tire*"
+        "query": "*Hankook Tire*",
+        "euEvery": 4,
+        "usEvery": 4
       },
       {
         "company": "넥센타이어",
         "industry": "tire",
-        "query": "*Nexen Tire*"
+        "query": "*Nexen Tire*",
+        "euEvery": 1,
+        "usEvery": 4
       },
       {
         "company": "금호타이어",
         "industry": "tire",
-        "query": "*Kumho Tire*"
+        "query": "*Kumho Tire*",
+        "euEvery": 1,
+        "usEvery": 2
       },
       {
         "company": "현대제철",
         "industry": "steel",
-        "query": "*Hyundai Steel*"
+        "query": "*Hyundai Steel*",
+        "euEvery": 4,
+        "usEvery": 2
       },
       {
         "company": "포스코",
         "industry": "steel",
         "query": "*POSCO*",
         "accept": "^POSCO(?: Holdings)?(?: Inc\\.?| Co\\.?(?:,? Ltd\\.?)?)?$|^POSCO$",
-        "exclude": "Future\\s*M|International|E&C|DX|Steeleon|M-?Tech|Eco"
+        "exclude": "Future\\s*M|International|E&C|DX|Steeleon|M-?Tech|Eco",
+        "euEvery": 1,
+        "usEvery": 1
       },
       {
         "company": "고려아연",
         "industry": "nonferrous",
-        "query": "*Korea Zinc*"
+        "query": "*Korea Zinc*",
+        "euEvery": 4,
+        "usEvery": 1
       },
       {
         "company": "HD현대일렉트릭",
         "industry": "electric",
-        "query": "*HD Hyundai Electric*"
+        "query": "*HD Hyundai Electric*",
+        "euEvery": 4,
+        "usEvery": 4
       },
       {
         "company": "LS일렉트릭",
         "industry": "electric",
-        "query": "*LS Electric*"
+        "query": "*LS Electric*",
+        "euEvery": 1,
+        "usEvery": 2
       },
       {
         "company": "LS전선",
         "industry": "electric",
-        "query": "*LS Cable*"
+        "query": "*LS Cable*",
+        "euEvery": 2,
+        "usEvery": 4
       },
       {
         "company": "대한전선",
         "industry": "electric",
-        "query": "*Taihan*"
+        "query": "*Taihan*",
+        "euEvery": 4,
+        "usEvery": 4
       },
       {
         "company": "효성중공업",
         "industry": "electric",
-        "query": "*Hyosung Heavy*"
+        "query": "*Hyosung Heavy*",
+        "euEvery": 2,
+        "usEvery": 4
       },
       {
         "company": "두산에너빌리티",
         "industry": "energy",
-        "query": "*Doosan Enerbility*"
+        "query": "*Doosan Enerbility*",
+        "euEvery": 2,
+        "usEvery": 4
       },
       {
         "company": "한화솔루션",
         "industry": "energy",
-        "query": "*Hanwha Solutions*"
+        "query": "*Hanwha Solutions*",
+        "euEvery": 4,
+        "usEvery": 1
       },
       {
         "company": "LG화학",
         "industry": "chemical",
         "query": "*LG Chem*",
-        "exclude": "LG Chemical America|Chemicals? Europe"
+        "exclude": "LG Chemical America|Chemicals? Europe",
+        "euEvery": 2,
+        "usEvery": 4
       },
       {
         "company": "롯데케미칼",
         "industry": "chemical",
-        "query": "*Lotte Chemical*"
+        "query": "*Lotte Chemical*",
+        "euEvery": 4,
+        "usEvery": 4
       },
       {
         "company": "금호석유화학",
         "industry": "chemical",
-        "query": "*Kumho Petrochemical*"
+        "query": "*Kumho Petrochemical*",
+        "euEvery": 4,
+        "usEvery": 4
       },
       {
         "company": "S-OIL",
         "industry": "chemical",
-        "query": "*S-Oil*"
+        "query": "*S-Oil*",
+        "euEvery": 4,
+        "usEvery": 4
       },
       {
         "company": "SK이노베이션",
         "industry": "chemical",
         "query": "*SK Innovation*",
-        "exclude": "Ventures"
+        "exclude": "Ventures",
+        "euEvery": 4,
+        "usEvery": 4
       }
     ]
+  },
+  "uspto": {
+    "_note": "미국 상표 출원(USPTO) — 직접 API는 ID.me 인증 실패(11-01)라 Signa(USPTO 자료를 매일 맞추는 2차 원천)로만 읽는다(11-09). 회사·영문 이름·거르기 규칙은 euipo 칸 applicants를 같이 쓰고 주기는 usEvery. 첫 실행은 회사별 기준선. 원문은 USPTO TSDR에서 일련번호로 확인.",
+    "windowDays": 120,
+    "keepDays": 180
   }
 }
