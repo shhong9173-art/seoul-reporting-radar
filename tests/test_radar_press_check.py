@@ -143,6 +143,41 @@ class Run(unittest.TestCase):
             old = rpc.run([], now=NOW + dt.timedelta(days=20), previous=doc, get=channels({}), sleep=lambda s: None)
         self.assertEqual(old["items"], [])
 
+    def test_older_items_are_rechecked_once_when_their_queries_change(self):
+        # 11-09: 72시간이 지난 강관 관보는 질의가 바뀌어도('현대제철 관세 보조금' → 품목 '강관' 질의) 옛 결과 그대로였다
+        pipe = {"tier": "B", "watch": "무역구제", "id": "fr:2026-22630", "date": "2026-10-23", "company": "현대제철",
+                "fact": "미국 관보 최종 판정: Circular Welded Non-Alloy Steel Pipe", "check": {"who": "현대제철", "terms": ["관세", "판정"], "must": ["강관"],
+                                                                                         "alts": {"관세": ["관세", "반덤핑"], "판정": ["판정", "확정"]}}}
+        same = dict(pipe, id="fr:same", check={"who": "현대제철", "terms": ["관세", "판정"]})
+        never = dict(pipe, id="fr:never")
+        prev = {"items": [{"id": "fr:2026-22630", "verdict": "관련 보도 있음", "queries": ["현대제철 관세", "현대제철 관세 보조금"],
+                           "checkedAt": "2026-10-25T00:29:00+09:00", "firstVerdict": "미보도 후보", "firstCheckedAt": "2026-10-24T08:50:00+09:00"},
+                          {"id": "fr:same", "verdict": "미보도 후보", "queries": ["현대제철 관세", "현대제철 관세 판정"], "checkedAt": "2026-10-25T00:29:00+09:00"}]}
+        seen = []
+        news = [article("美, 현대제철 강관 반덤핑 4.20% 확정", "2026-10-24")]
+        with patch.dict(os.environ, {"NAVER_CLIENT_ID": "i", "NAVER_CLIENT_SECRET": "k"}):
+            doc = rpc.run(ITEMS[:1], now=NOW, previous=prev, older=[ITEMS[0], pipe, same, never], get=channels({"강관": news}, seen), sleep=lambda s: None)
+        rows = {r["id"]: r for r in doc["items"]}
+        stamp = NOW.isoformat(timespec="seconds")
+        self.assertEqual(doc["rechecked"], 1)
+        self.assertEqual((rows["fr:2026-22630"]["checkedAt"], rows["fr:2026-22630"]["recheck"]), (stamp, True))
+        self.assertEqual(rows["fr:2026-22630"]["queries"], ["현대제철 관세", "현대제철 관세 판정", "현대제철 강관 관세"])
+        self.assertEqual(rows["fr:2026-22630"]["prevQueries"], ["현대제철 관세", "현대제철 관세 보조금"])
+        self.assertEqual((rows["fr:2026-22630"]["verdict"], rows["fr:2026-22630"]["firstVerdict"]), ("관련 보도 있음", "미보도 후보"))
+        self.assertIn("현대제철 강관 관세", seen)
+        self.assertEqual(rows["fr:same"]["checkedAt"], "2026-10-25T00:29:00+09:00")   # 규칙 같음 — 옛 결과 그대로
+        self.assertNotIn("fr:never", rows)                                             # 대조한 적 없는 오래된 항목은 새로 안 봄
+        self.assertNotIn("recheck", rows["cl:74869986"])                               # 72시간 항목은 평소대로
+        with patch.dict(os.environ, {"NAVER_CLIENT_ID": "i", "NAVER_CLIENT_SECRET": "k"}):
+            again = rpc.run(ITEMS[:1], now=NOW + dt.timedelta(hours=10), previous=doc, older=[pipe], get=channels({}), sleep=lambda s: None)
+        self.assertEqual(again["rechecked"], 0)                                        # 한 번 다시 본 뒤에는 질의가 같아 안 봄
+
+    def test_recheck_limit(self):
+        olds = [{"tier": "B", "watch": "무역구제", "id": f"fr:{i}", "date": "2026-10-20", "company": "현대제철", "fact": "x",
+                 "check": {"who": "현대제철", "terms": ["관세", "판정"]}} for i in range(12)]
+        prev = {"items": [{"id": f"fr:{i}", "queries": ["옛 질의"]} for i in range(12)]}
+        self.assertEqual(len(rpc.rechecks(olds, set(), prev, now=NOW)), rpc.RECHECK_MAX)
+
     def test_missing_naver_is_unconfirmed_not_unreported(self):
         doc = go(channels({}), naver=False)
         self.assertTrue(all(r["verdict"] == "미확인" for r in doc["items"]))

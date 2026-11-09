@@ -1183,7 +1183,8 @@ function pressLines(r, stamp, docAt) {
   // 판정에 안 세는 앞선 기사(항목 날짜 전, 제목에 회사·사건 낱말)는 미보도 후보에 한 줄 맥락으로(10-31 울주 산소공장 안전점검 공고 ↔ 10-20 증설 기사)
   const ev = r.evidence ?? [];
   const shown = [...ev.filter((e) => !e.before).slice(0, 2), ...ev.filter((e) => e.before).slice(0, 1)];
-  return [`   보도 대조(자동 ${own}): ${r.verdict}${tail}${was}${stale}`,
+  const again = r.recheck ? ' · 대조 규칙이 바뀌어 72시간 지난 뒤 다시 봄' : '';
+  return [`   보도 대조(자동 ${own}): ${r.verdict}${tail}${was}${again}${stale}`,
     ...shown.map((e) => `     ↳ ${e.date ?? '날짜?'} [${e.channel}] ${e.title}${e.url ? ` ${e.url}` : ''}${evidenceNote(e, r.verdict)}`)];
 }
 // 근거 줄 꼬리표. 미보도 후보에 붙은 근거는 모두 판정에 안 센 약한 근거다 — 꼬리표가 없으면 뒷받침 기사로 읽힌다
