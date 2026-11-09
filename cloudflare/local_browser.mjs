@@ -297,6 +297,8 @@ export async function browserUpload(request, env, deps = {}) {
 // 기자 컴퓨터 수집 상태(11-08): 예약 작업(평일 08:40·16:40 KST)은 기자 컴퓨터가 꺼져 있거나 Claude 앱·Aside가 안 떠 있으면 돌지 못하고,
 // 그러면 해외 IP 차단 시·군 고시·공고·노동위 회의·호주 TRN이 조용히 멈춘다(radar_health는 공개 도구라 이 수집을 싣지 않는다).
 // radar_today 수집 상태에 이상이 있을 때만 한 줄로 알린다: 가장 최근 예정 시각 뒤 올림 없음 / 이번 수집에서 못 읽은 시·군 / 대신 쓴 길.
+// 11-09: 월 08:40 예정 시각에 기자 컴퓨터가 연결돼 있지 않자 예약 작업이 '기기 없음'으로 정지·꺼짐(enabled=false)이 됐다 — 컴퓨터를 켜도 저절로
+// 다시 켜지는지 확인되지 않아, 놓친 줄에 예약 작업 목록에서 켜져 있는지 보라고 붙인다.
 export const BROWSER_SLOTS = [[8, 40], [16, 40]];  // 예약 작업 '새올 고시·공고 브라우저 수집'(KST, 평일)
 // 이 수집 말고는 길이 없는 시·군(GitHub 직접 조회가 늘 시간 초과) — 나머지는 직접 조회가 실패한 날만 대신 쓰는 곳
 export const BROWSER_ONLY = ['인천 부평구', '구미시', '청주시', '순천시', '함평군'];
@@ -339,7 +341,8 @@ export async function browserHealth(ctx) {
   const issues = [];
   if (missed(at)) {
     issues.push(`⚠ 마지막 ${Number.isFinite(at) ? `${kstStamp(at)}(${Math.round((nowMs - at) / 3600000)}시간 전)` : '시각 없음'} — ${kstStamp(slot)} 예정 수집이 안 올라옴`
-      + `(기자 컴퓨터·Claude 앱·Aside가 켜져 있는지 확인). 그 뒤 ${BROWSER_ONLY.map(short).join('·')} 고시·공고는 미확인`);
+      + `(기자 컴퓨터·Claude 앱·Aside가 켜져 있는지 확인. 예정 시각에 컴퓨터 연결이 없으면 예약 작업이 저절로 꺼질 수 있다 — Claude 앱 예약 작업 목록에서 '새올 고시·공고 브라우저 수집'이 켜져 있는지도 확인)`
+      + `. 그 뒤 ${BROWSER_ONLY.map(short).join('·')} 고시·공고는 미확인`);
   } else {
     const bad = (doc.cities ?? []).filter((c) => c.fetchedAt === doc.updatedAt && c.error && BROWSER_ONLY.includes(c.city));
     if (bad.length) issues.push(`시·군 못 읽음 ${bad.length}곳(${bad.map((c) => `${short(c.city)}: ${String(c.error).slice(0, 40)}`).join(', ')})`);
