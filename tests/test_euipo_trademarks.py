@@ -193,6 +193,8 @@ class Euipo(unittest.TestCase):
         self.assertEqual(by["50141613"]["id"], "uspto:50141613")
         self.assertIn("tsdr.uspto.gov/#caseNumber=50141613", by["50141613"]["url"])
         self.assertEqual(by["79455640"]["route"], "마드리드 지정")
+        self.assertEqual(eu.signa._status({"stage": "examining"}, {"code": "630"}), "examining(USPTO 코드 630)")   # 숫자 코드만 보이지 않게
+        self.assertEqual(eu.signa._status({"stage": "examining"}, {"code": "APPLICATION_PUBLISHED"}), "APPLICATION_PUBLISHED")
         self.assertNotIn("blocked", doc)
         doc = eu.run(CFG_SIGNA, None, NOW, client_id="", secret="", post=f.post, get=f.get, office="US")
         self.assertEqual((doc["status"], doc["checks"][0]["error"]), ("unset", "SIGNA_API_KEY 없음"))

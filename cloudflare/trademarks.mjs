@@ -92,7 +92,10 @@ function euSection(eu, { q, name, cls, all, from, limit, office = 'EM' }) {
   if (bad.length) out.push(`미확인(0건 아님): ${bad.slice(0, 6).map((c) => `${c.company}(${c.error ?? c.status})`).join(', ')}`);
   if (eu.provider === 'signa' && waitingEu.length) out.push(`미확인(0건 아님): ${waitingEu.slice(0, 6).map((c) => `${c.company}(${c.reason ?? '대기'})`).join(', ')}`);
   const zero = ok.filter((c) => !c.rawTotal);
-  if (zero.length) out.push(`검색 0건(영문 출원인 이름 형식 확인): ${zero.map((c) => c.company).join(', ')}`);
+  // 11-10: Signa는 이름을 넓게 맞춰 0건이면 이름 문제보다 '창 안 출원 없음'인 경우가 많다(11-09 탐침: 2년 출원이 잡힌 곳도 120일 안엔 0)
+  if (zero.length) out.push(eu.provider === 'signa'
+    ? `출원일 창 안 0건: ${zero.map((c) => c.company).join(', ')} — 이름은 11-09 탐침으로 확인(2년 안 출원이 있던 곳은 최근 출원이 없는 것, 0건 확정은 아님)`
+    : `검색 0건(영문 출원인 이름 형식 확인): ${zero.map((c) => c.company).join(', ')}`);
   const rows = (eu.filings ?? []).filter((f) => all || f.isNew)
     .filter((f) => String(f.firstSeen ?? '').slice(0, 10) >= from || (all && String(f.applicationDate ?? '') >= from))
     .filter((f) => matches(q, f.company) && matches(name, f.title) && (!cls || (f.classes ?? []).includes(cls)))
