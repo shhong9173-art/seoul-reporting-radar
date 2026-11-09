@@ -70,9 +70,16 @@ function euSection(eu, { q, name, cls, all, from, limit }) {
   const checks = eu.checks ?? [];
   const ok = checks.filter((c) => c.status === 'ok');
   const out = [`\n[유럽 상표 출원(EUIPO) · 출원일 ${eu.window?.from ?? '?'}~${eu.window?.to ?? '?'} · 확인 ${String(eu.generatedAt ?? '').slice(0, 16)}] 조회 정상 ${ok.length}/${checks.length}`];
-  if (eu.blocked) out.push(`대기: ${eu.blocked} — EUIPO 개발자 포털에서 앱 구독 상태 확인(0건이 아니라 미확인)`);
+  // 11-09: EUIPO 운영 검색이 막힌 동안 Signa(2차 원천)로 대신 읽는다 — 원천을 밝히고 원문 확인을 붙인다
+  const viaSigna = ok.filter((c) => c.via === 'signa').length;
+  if (eu.provider === 'signa') {
+    out.push(`원천: EUIPO 직접 조회는 ${eu.blocked ? '구독 승인 대기' : '쓸 수 없음'} — ${eu.providerNote ?? 'Signa(2차 원천)'}로 대신 읽음 ${viaSigna}곳`
+      + `${eu.signaCreditsLeft != null ? ` · 남은 크레딧 ${eu.signaCreditsLeft}` : ''} — 2차 자료라 기사 전 EUIPO eSearch 원문(출원번호) 확인`);
+  } else if (eu.blocked) out.push(`대기: ${eu.blocked} — EUIPO 개발자 포털에서 앱 구독 상태 확인(0건이 아니라 미확인)`);
+  const waitingEu = checks.filter((c) => c.status === 'waiting');
   const bad = checks.filter((c) => !['ok', 'waiting'].includes(c.status));
   if (bad.length) out.push(`미확인(0건 아님): ${bad.slice(0, 6).map((c) => `${c.company}(${c.error ?? c.status})`).join(', ')}`);
+  if (eu.provider === 'signa' && waitingEu.length) out.push(`미확인(0건 아님): ${waitingEu.slice(0, 6).map((c) => `${c.company}(${c.reason ?? '대기'})`).join(', ')}`);
   const zero = ok.filter((c) => !c.rawTotal);
   if (zero.length) out.push(`검색 0건(영문 출원인 이름 형식 확인): ${zero.map((c) => c.company).join(', ')}`);
   const rows = (eu.filings ?? []).filter((f) => all || f.isNew)
@@ -82,9 +89,9 @@ function euSection(eu, { q, name, cls, all, from, limit }) {
   out.push(`[${all ? '저장된 유럽 출원' : '새로 본 유럽 출원'}] ${rows.length}건`);
   for (const f of rows.slice(0, limit)) {
     out.push(`- ${f.isNew ? `[${f.tier ?? 'C'}${f.titleNew ? ' · 처음 보는 이름' : ''}] ` : ''}${f.company} · 「${f.title}」 · 출원 ${f.applicationDate || '?'} · ${(f.classes ?? []).map(classLabel).join(', ') || '상품류 미기재'}`
-      + ` · 출원번호 ${f.applicationNumber} · 출원인 ${(f.applicants ?? []).join(' | ') || '?'} · 상태 ${f.status ?? '?'}`);
+      + ` · 출원번호 ${f.applicationNumber}${f.route ? `(${f.route})` : ''} · 출원인 ${(f.applicants ?? []).join(' | ') || '?'} · 상태 ${f.status ?? '?'}${f.via === 'signa' ? ' · Signa' : ''}`);
   }
-  if (!rows.length) out.push(eu.blocked || bad.length ? '없음 — 다만 대기·실패한 회사는 미확인' : '없음');
-  out.push('검증 상태: EUIPO 공개 출원 정보(자동 수집). 원문은 EUIPO eSearch plus에서 출원번호로 조회 — 출원인(유럽 법인일 수 있음)·지정상품 확인.');
+  if (!rows.length) out.push((eu.blocked && eu.provider !== 'signa') || bad.length || waitingEu.length ? '없음 — 다만 대기·실패한 회사는 미확인' : '없음');
+  out.push(`검증 상태: EUIPO 공개 출원 정보(자동 수집${eu.provider === 'signa' ? ', Signa 2차 자료 — 불완전·부정확할 수 있음' : ''}). 원문은 EUIPO eSearch plus에서 출원번호로 조회 — 출원인(유럽 법인일 수 있음)·지정상품 확인. 마드리드 지정의 출원일은 유럽 지정일이다.`);
   return out;
 }

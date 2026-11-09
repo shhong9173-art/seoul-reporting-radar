@@ -2093,6 +2093,27 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
   assert.match(b, /유럽연합\(EUIPO\) 상표 출원 「AERO DRIVE」 12류\(차량·부품\), 35류\(광고·사업관리\) — 감시 시작 이후 처음 보는 이름 \(출원 2026-10-20, 출원번호 019000002, 출원인 Hyundai Motor Company\)/);
   const minor = await call('radar_today', { include_minor: true }, opts);
   assert.match(minor.text, /상표 출원 「NUTRIMACY」[^\n]* — 같은 이름 상품류 추가/);
+  // 11-09: EUIPO 운영 검색이 막힌 동안 Signa(2차 원천)로 대신 읽은 유럽 출원 — 원천·남은 크레딧·원문 확인·마드리드 지정 표시
+  {
+    const s = JSON.parse(JSON.stringify(doc));
+    s.generatedAt = '2026-10-26T07:20:00+09:00';
+    Object.assign(s.eu, { generatedAt: '2026-10-26T07:20:30+09:00', status: 'partial', blocked: '상품 구독 운영 승인 대기(403 access-forbidden)', provider: 'signa',
+      providerNote: 'Signa(EUIPO 자료를 매일 맞추는 2차 원천)', signaCreditsLeft: 10390,
+      checks: [{ company: '현대자동차', status: 'ok', rawTotal: 3, kept: 2, via: 'signa' }, { company: '포스코', status: 'ok', rawTotal: 1, kept: 1, via: 'signa' },
+        { company: 'LG화학', status: 'waiting', reason: 'Signa 크레딧 부족(남은 20) — 다음 달 초기화 뒤', via: 'signa' }] });
+    s.eu.filings = [{ ...s.eu.filings[0], via: 'signa' }, { id: 'euipo:W11481965', company: '포스코', applicationNumber: 'W11481965', title: 'PosZET', applicationDate: '2026-10-22',
+      classes: ['06', '12'], coreClasses: ['06'], status: 'UNDER_EXAMINATION', applicants: ['POSCO Co.'], firstSeen: '2026-10-26T07:20:30+09:00', isNew: true, titleNew: true,
+      tier: 'B', via: 'signa', route: '마드리드 지정', url: 'https://euipo.europa.eu/eSearch/#details/trademarks/W11481965' }];
+    assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/trademarks', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(s) }), env, {})).status, 200);
+    const st = (await call('trademarks', {}, opts)).text;
+    assert.match(st, /원천: EUIPO 직접 조회는 구독 승인 대기 — Signa\(EUIPO 자료를 매일 맞추는 2차 원천\)로 대신 읽음 2곳 · 남은 크레딧 10390 — 2차 자료라 기사 전 EUIPO eSearch 원문\(출원번호\) 확인/);
+    assert.doesNotMatch(st, /대기: 상품 구독 운영 승인 대기/);
+    assert.match(st, /미확인\(0건 아님\): LG화학\(Signa 크레딧 부족\(남은 20\) — 다음 달 초기화 뒤\)/);
+    assert.match(st, /「PosZET」 · 출원 2026-10-22 · [^\n]* · 출원번호 W11481965\(마드리드 지정\) · 출원인 POSCO Co\. · 상태 UNDER_EXAMINATION · Signa/);
+    assert.match(st, /Signa 2차 자료 — 불완전·부정확할 수 있음[^\n]*마드리드 지정의 출원일은 유럽 지정일이다/);
+    const sb = (await call('radar_today', {}, opts)).text;
+    assert.match(sb, /유럽연합\(EUIPO\) 상표 출원 「PosZET」[^\n]*\(출원 2026-10-22\(마드리드 지정\), 출원번호 W11481965, 출원인 POSCO Co\.\) · Signa 2차 자료 — EUIPO eSearch 원문 확인/);
+  }
   const list = await rpc('tools/list', {}, { path: `/mcp/${TOKEN}`, env });
   assert.ok(list.body.result.tools.some((x) => x.name === 'trademarks'));
   assert.match(list.body.result.tools.find((x) => x.name === 'radar_today').description, /감시 34개\([^)]*상표 출원, 국회 법안, 미국 리콜, 미국 EPA 인증, 국내 연비 신고, 해외 발주처 낙찰, 협력사 회생·파산, 전기위·원안위, 공장 부지 건축허가, 해외 법인 등기, 지자체 고시·공고, 사업장 인력, 굴뚝 측정, 노동위 회의, 노조 성명, 지방의회 회의록, 인도 법인 공시, 타사 공시 속 출입처, 지분·자사주 변동, 임원 명단 변화, 수시 임원 공시·타사 임원 명단, 문제 임원 점검, 출입처 외신\)/);

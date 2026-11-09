@@ -45,6 +45,45 @@ class Fake:
         return R(200, {"trademarks": rows, "totalElements": len(rows), "page": 0, "size": params["size"]})
 
 
+CFG_SIGNA = {**CFG, "applicants": [CFG["applicants"][0],
+                                    {"company": "포스코", "industry": "steel", "query": "*POSCO*",
+                                     "accept": "^POSCO(?: Holdings)?(?: Inc\\.?| Co\\.?(?:,? Ltd\\.?)?)?$|^POSCO$", "exclude": "Future\\s*M|International"}]}
+
+
+def sg(no, mark, day, classes, who="Hyundai Motor Company", route="direct_regional"):
+    """Signa /v1/trademarks 응답 한 줄(11-09 탐침 모양)."""
+    return {"id": f"tm_{no}", "object": "trademark", "mark_text": mark, "mark_feature_type": "figurative" if mark.startswith("[") else "word",
+            "status": {"primary": "pending", "stage": "examining", "raw": {"code": "UNDER_EXAMINATION" if route.startswith("madrid") else "APPLICATION_PUBLISHED"}},
+            "office_code": "EM", "filing_route": route, "application_number": no, "filing_date": day, "nice_classes": classes,
+            "owners": [{"id": "own_x", "name": who}], "office_url": f"https://euipo.europa.eu/eSearch/#details/trademarks/{no}"}
+
+
+class SR(R):
+    def __init__(self, status, body=None, headers=None):
+        super().__init__(status, body)
+        self.headers = headers or {}
+
+
+class SignaFake(Fake):
+    """EUIPO는 403(승인 대기, euipo_rows가 있으면 정상), Signa는 owner_name별 응답·남은 크레딧(한 번에 10씩 줄어듦)."""
+    def __init__(self, by_owner, left=10000, status=200, euipo_rows=None):
+        super().__init__(euipo_rows or {}, search_status=200 if euipo_rows else 403)
+        self.by_owner, self.left, self.status, self.signa, self.signa_params, self.euipo = by_owner, left, status, [], [], []
+
+    def get(self, url, params=None, headers=None, timeout=None):
+        if url == eu.signa.SEARCH_URL:
+            assert headers["Authorization"].startswith("Bearer ")
+            self.signa.append(params["owner_name"])
+            self.signa_params.append(params)
+            if self.status != 200:
+                return SR(self.status, {"type": "insufficient_credits"})
+            self.left -= 10
+            rows = self.by_owner.get(params["owner_name"], [])
+            return SR(200, {"object": "list", "data": rows, "has_more": False}, {"X-Credits-Remaining": str(self.left)})
+        self.euipo.append(params["query"])
+        return super().get(url, params=params, headers=headers, timeout=timeout)
+
+
 class Euipo(unittest.TestCase):
     def test_403_is_waiting_and_stops_asking(self):
         f = Fake(search_status=403)
@@ -99,6 +138,51 @@ class Euipo(unittest.TestCase):
         self.assertEqual(f.searches, ['applicants.name=="*POSCO*"'])
         self.assertEqual([c["status"] for c in d["checks"]], ["ok", "ok"])
         self.assertTrue(next(c for c in d["checks"] if c["company"] == "포스코").get("baseline"))
+
+    def test_signa_reads_while_euipo_is_blocked(self):
+        # 11-09: EUIPO 운영 검색 403(구독 승인 대기) 동안 SIGNA_API_KEY로 같은 회사를 읽는다(11-09 탐침 응답 모양)
+        f = SignaFake({"Hyundai Motor Company": [sg("019422142", "Genesis Box Buggy", "2026-09-14", [28]),
+                                                 sg("019403488", "[Design Mark]", "2026-07-31", [12])],
+                       "POSCO": [sg("W11481965", "PosZET", "2026-07-22", [6, 12, 40, 42], who="POSCO Co.", route="madrid_designation"),
+                                 sg("019390922", "DAEWOO", "2026-07-06", [6], who="Posco International Corporation")]}, left=10390)
+        doc = eu.run(CFG_SIGNA, None, NOW, client_id="CID", secret="SEC", post=f.post, get=f.get, signa_key="SIGNA-KEY")
+        self.assertEqual(len(f.euipo), 1)                                   # EUIPO는 한 번 확인(403)하고 그 뒤로 묻지 않음
+        self.assertEqual(f.signa, ["Hyundai Motor Company", "POSCO"])      # 별표 뺀 이름으로
+        self.assertEqual([(c["status"], c["via"]) for c in doc["checks"]], [("ok", "signa"), ("ok", "signa")])
+        self.assertEqual((doc["status"], doc["provider"], doc["signaCreditsLeft"]), ("complete", "signa", 10370))
+        self.assertIn("승인 대기", doc["blocked"])                          # EUIPO 직접 조회는 여전히 대기로 남김
+        by = {x["applicationNumber"]: x for x in doc["filings"]}
+        self.assertEqual(sorted(by), ["019403488", "019422142", "W11481965"])  # 포스코인터내셔널은 거름
+        self.assertEqual((by["019403488"]["title"], by["019422142"]["via"]), ("(FIGURATIVE)", "signa"))   # '[Design Mark]'는 이름이 아님
+        self.assertEqual((by["W11481965"]["route"], by["W11481965"]["status"]), ("마드리드 지정", "UNDER_EXAMINATION"))
+        self.assertTrue(by["W11481965"]["url"].endswith("/W11481965"))   # EUIPO eSearch 원문 링크
+        dump = json.dumps(doc, ensure_ascii=False)
+        self.assertNotIn("SIGNA-KEY", dump)
+        self.assertNotIn("TOK", dump)
+        self.assertEqual(f.signa_params[0]["office"], "EM")
+        self.assertEqual(f.signa_params[0]["filing_date_gte"], (NOW.date() - dt.timedelta(days=120)).isoformat())
+
+    def test_signa_credit_floor_and_errors_are_unconfirmed(self):
+        low = SignaFake({}, left=25)
+        doc = eu.run(CFG_SIGNA, None, NOW, client_id="", secret="", post=low.post, get=low.get, signa_key="K")
+        self.assertEqual(low.signa, ["Hyundai Motor Company"])               # 남은 25 < 30 — 둘째 회사부터 안 물음
+        self.assertEqual([c["status"] for c in doc["checks"]], ["ok", "waiting"])
+        self.assertIn("크레딧 부족", doc["checks"][1]["reason"])
+        bad = SignaFake({}, status=402)
+        doc = eu.run(CFG_SIGNA, None, NOW, client_id="", secret="", post=bad.post, get=bad.get, signa_key="K")
+        self.assertEqual({(c["status"], c["via"]) for c in doc["checks"]}, {("failed", "signa")})
+        self.assertIn("402", doc["checks"][0]["error"])
+        self.assertNotIn("provider", doc)
+        # 키가 없으면 예전처럼 미설정
+        doc = eu.run(CFG_SIGNA, None, NOW, client_id="", secret="", post=bad.post, get=bad.get)
+        self.assertEqual(doc["status"], "unset")
+
+    def test_euipo_wins_when_approved(self):
+        f = SignaFake({}, euipo_rows={"Hyundai Motor Company": [tm("019000001", "PLEOS", "2026-09-10", [9, 12])]})
+        doc = eu.run(CFG_SIGNA, None, NOW, client_id="C", secret="S", post=f.post, get=f.get, signa_key="K")
+        self.assertEqual(f.signa, [])
+        self.assertEqual({c["via"] for c in doc["checks"]}, {"euipo"})
+        self.assertNotIn("provider", doc)
 
     def test_config_has_unique_companies_and_queries(self):
         cfg = json.loads((Path(__file__).resolve().parents[1] / "data" / "trademark_watch.json").read_text(encoding="utf-8"))["euipo"]

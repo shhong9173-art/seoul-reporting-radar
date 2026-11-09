@@ -469,7 +469,7 @@
         "company": "포스코",
         "industry": "steel",
         "query": "*POSCO*",
-        "accept": "^POSCO(?: Holdings)?(?: Inc\\.?| Co\\.?,? Ltd\\.?)?$|^POSCO$",
+        "accept": "^POSCO(?: Holdings)?(?: Inc\\.?| Co\\.?(?:,? Ltd\\.?)?)?$|^POSCO$",
         "exclude": "Future\\s*M|International|E&C|DX|Steeleon|M-?Tech|Eco"
       },
       {
@@ -536,7 +536,8 @@
       {
         "company": "SK이노베이션",
         "industry": "chemical",
-        "query": "*SK Innovation*"
+        "query": "*SK Innovation*",
+        "exclude": "Ventures"
       }
     ]
   }
