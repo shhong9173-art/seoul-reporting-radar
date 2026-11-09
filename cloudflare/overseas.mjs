@@ -315,6 +315,13 @@ export const PRODUCT_KO = [
   [/alumin/i, '알루미늄', ['알루미늄']],
   [/tire/i, '타이어', ['타이어']],
 ];
+// 역추적 '먼저 잡은 후보'의 기사 제목 숫자(세율·금액·규모)가 레이더 원문에도 있는지(11-09, reverse_prior_capture.same_numbers)
+export function reverseNumbersNote(best) {
+  const n = best?.numbers;
+  if (!n?.article?.length) return '';
+  return n.found?.length ? ` · 기사 숫자 ${n.found.join('·')} 레이더 원문에도 있음`
+    : ` · 기사 숫자 ${n.article.join('·')} 레이더 원문엔 없음 — 같은 분야 다른 사실일 수 있음`;
+}
 export function productKo(title) {
   const p = productOf(title);
   const hit = PRODUCT_KO.find(([rx]) => rx.test(p));
@@ -643,12 +650,17 @@ export async function scoopReverse(ctx, args) {
   const from = Date.parse(doc.generatedAt) - days * 86400000;
   const rows = (doc.articles ?? []).filter((x) => Date.parse(x.published) >= from && matches(q, x.title, (x.companies ?? []).join(' ')));
   const n = (v) => rows.filter((x) => x.verdict === v).length;
+  const numTally = (rs) => {
+    const w = rs.filter((x) => x.verdict === '먼저 잡은 후보' && x.best?.numbers?.article?.length);
+    const same = w.filter((x) => x.best.numbers.found?.length).length;
+    return w.length ? `(기사 숫자가 레이더 원문에도 있음 ${same} · 없음 ${w.length - same})` : '';
+  };
   const by = {};
   for (const x of rows) if (x.verdict === '먼저 잡은 후보') (by[x.best.label] ??= []).push(x.best.leadHours);
   const med = (a) => { const s = [...a].sort((p, q2) => p - q2); return s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2; };
   const loaded = Object.values(doc.feedsLoaded ?? {}).filter(Boolean).length;
   const out = [`경쟁지 [단독] 자동 역추적 · 최근 ${days}일 ${rows.length}건 · 확인 ${String(doc.generatedAt).slice(0, 16)}${ageNote(ctx, doc.generatedAt, 48)}`,
-    `먼저 잡은 후보 ${n('먼저 잡은 후보')} · 같은 회사 항목만 ${n('같은 회사 항목만')} · 없음 ${n('없음')} · 회사 미상 ${n('회사 미상')} (레이더 기억 ${doc.memoryItems}건, 감시 ${loaded}/${Object.keys(doc.feedsLoaded ?? {}).length} 읽음${(doc.feedsFailed ?? []).length ? `, 실패 ${doc.feedsFailed.join('·')} — 미확인` : ''}${(doc.feedsEmpty ?? []).length ? `, 저장 결과 없음 ${doc.feedsEmpty.join('·')} — 그 감시 항목은 대조 못 함` : ''})`,
+    `먼저 잡은 후보 ${n('먼저 잡은 후보')}${numTally(rows)} · 같은 회사 항목만 ${n('같은 회사 항목만')} · 없음 ${n('없음')} · 회사 미상 ${n('회사 미상')} (레이더 기억 ${doc.memoryItems}건, 감시 ${loaded}/${Object.keys(doc.feedsLoaded ?? {}).length} 읽음${(doc.feedsFailed ?? []).length ? `, 실패 ${doc.feedsFailed.join('·')} — 미확인` : ''}${(doc.feedsEmpty ?? []).length ? `, 저장 결과 없음 ${doc.feedsEmpty.join('·')} — 그 감시 항목은 대조 못 함` : ''})`,
     `원천별 먼저 잡은 후보: ${Object.entries(by).sort((a, b) => b[1].length - a[1].length).map(([k, v]) => `${k} ${v.length}건(중간 ${Math.round(med(v))}시간 앞)`).join(' · ') || '없음'}`,
     ...reverseTallyLines(rows),
     ...(doc.rules ?? []).map((r) => `규칙: ${r}`)];
@@ -658,7 +670,7 @@ export async function scoopReverse(ctx, args) {
     out.push(`\n[${v}] ${g.length}건`);
     for (const x of g.slice(0, v === '없음' && !want ? Math.min(limit, 8) : limit)) {
       out.push(`- ${kmd(x.published)} · ${x.source ?? ''} 「${x.title}」(${(x.companies ?? []).join('·')})`);
-      if (x.best) out.push(`   레이더: ${kmd(x.best.seen)} ${x.best.label} — ${x.best.text.slice(0, 140)} (${x.best.leadHours}시간 앞${x.best.why?.length ? `, 겹친 낱말 ${x.best.why.join('·')}` : ''}) · id ${x.best.id}`);
+      if (x.best) out.push(`   레이더: ${kmd(x.best.seen)} ${x.best.label} — ${x.best.text.slice(0, 140)} (${x.best.leadHours}시간 앞${x.best.why?.length ? `, 겹친 낱말 ${x.best.why.join('·')}` : ''})${reverseNumbersNote(x.best)} · id ${x.best.id}`);
     }
     if (g.length > limit) out.push(`… 남은 ${g.length - limit}건`);
   }

@@ -3292,18 +3292,28 @@ test('scoop_reverse shows automatic prior-capture candidates by source with lead
       art('a1', '[단독] LS일렉트릭, 미국 전기차 충전 특허 거절에 불복…연방항소법원 항소', '먼저 잡은 후보',
         { source: 'us-litigation', label: '미국 소송·판결', id: 'cl:75019340', text: 'In re: LS Electric Co., Ltd. LS일렉트릭, 미국 특허청 특허심판원(PTAB) 결정에 불복해 연방순회항소법원에 항소',
           seen: '2026-10-24T07:50+09:00', leadHours: 48.2, why: ['소송·판결', '특허·상표'] }),
-      art('a2', '[단독] LG그룹, 현대차 로봇사업 수장 품었다', '없음', null, '2026-10-23T09:00:00+09:00')] };
+      art('a2', '[단독] LG그룹, 현대차 로봇사업 수장 품었다', '없음', null, '2026-10-23T09:00:00+09:00'),
+      // 11-09: 기사 제목 숫자가 레이더 원문에도 있는지
+      art('a3', '[단독] 美 변압기 반덤핑 12.5%…LS일렉트릭 대응', '먼저 잡은 후보',
+        { source: 'trade-remedy', label: '무역구제·미국 관보', id: 'fr:1', text: 'Large Power Transformers duty 3.10%', seen: '2026-10-24T07:50+09:00', leadHours: 40,
+          why: ['관세·무역구제', '변압기'], numbers: { article: ['12.5%'], found: [] } }, '2026-10-25T23:50:00+09:00'),
+      art('a4', '[단독] LS일렉트릭 변압기 반덤핑 3.10% 확정', '먼저 잡은 후보',
+        { source: 'trade-remedy', label: '무역구제·미국 관보', id: 'fr:1', text: 'Large Power Transformers duty 3.10%', seen: '2026-10-24T07:50+09:00', leadHours: 41,
+          why: ['관세·무역구제', '변압기'], numbers: { article: ['3.10%'], found: ['3.10%'] } }, '2026-10-26T00:50:00+09:00')] };
   assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/reverse-check', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
   const r = await call('scoop_reverse', {}, opts);
-  assert.match(r.text, /먼저 잡은 후보 1 · 같은 회사 항목만 0 · 없음 1 · 회사 미상 0 \(레이더 기억 812건, 감시 2\/3 읽음, 저장 결과 없음 trademarks — 그 감시 항목은 대조 못 함\)/);
-  assert.match(r.text, /원천별 먼저 잡은 후보: 미국 소송·판결 1건\(중간 48시간 앞\)/);
+  assert.match(r.text, /먼저 잡은 후보 3\(기사 숫자가 레이더 원문에도 있음 1 · 없음 1\) · 같은 회사 항목만 0 · 없음 1 · 회사 미상 0 \(레이더 기억 812건, 감시 2\/3 읽음, 저장 결과 없음 trademarks — 그 감시 항목은 대조 못 함\)/);
+  assert.match(r.text, /원천별 먼저 잡은 후보: 무역구제·미국 관보 2건\(중간 41시간 앞\) · 미국 소송·판결 1건\(중간 48시간 앞\)/);
+  assert.match(r.text, /\(40시간 앞, 겹친 낱말 관세·무역구제·변압기\) · 기사 숫자 12\.5% 레이더 원문엔 없음 — 같은 분야 다른 사실일 수 있음 · id fr:1/);
+  assert.match(r.text, /\(41시간 앞, 겹친 낱말 관세·무역구제·변압기\) · 기사 숫자 3\.10% 레이더 원문에도 있음 · id fr:1/);
   assert.match(r.text, /레이더: 10-24 07:50 미국 소송·판결 — In re: LS Electric/);
   assert.match(r.text, /48\.2시간 앞, 겹친 낱말 소송·판결·특허·상표\) · id cl:75019340/);
   assert.match(r.text, /\[없음\] 1건\n- 10-23 09:00 · 뉴스저널리즘 「\[단독\] LG그룹, 현대차 로봇사업 수장 품었다」/);
   assert.match(r.text, /사람 판정 Y\/P\/N은 역추적 기록에 따로/);
   // radar_today shows the same automatic candidates (for chats whose connector list lacks scoop_reverse)
   const today = await call('radar_today', { hours: 72 }, opts);
-  assert.match(today.text, /\[경쟁지 단독 역추적 · 자동 후보, 사람 판정\(Y\/P\/N\) 전\] 최근 14일 레이더가 먼저 잡은 후보 1건/);
+  assert.match(today.text, /\[경쟁지 단독 역추적 · 자동 후보, 사람 판정\(Y\/P\/N\) 전\] 최근 14일 레이더가 먼저 잡은 후보 3건/);
+  assert.match(today.text, /· 기사 숫자 3\.10% 레이더 원문에도 있음 · id fr:1/);
   assert.match(today.text, /- 기사 10-26 08:00 · 뉴스저널리즘 「\[단독\] LS일렉트릭, 미국 전기차 충전 특허 거절에 불복…연방항소법원 항소」 · 기사 id a1/);
   assert.match(today.text, /레이더: 10-24 07:50 미국 소송·판결 — In re: LS Electric[^\n]*\(48\.2시간 앞, 겹친 낱말 소송·판결·특허·상표\) · id cl:75019340/);
   assert.doesNotMatch((await call('radar_today', { hours: 72, company: '포스코' }, opts)).text, /경쟁지 단독 역추적/);

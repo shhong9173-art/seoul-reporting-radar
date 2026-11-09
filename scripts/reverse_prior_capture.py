@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import math
 import os
 import re
 import sys
@@ -238,8 +239,12 @@ def _partners(d, add):
 
 def _trade(d, add):
     for x in d.get("federalRegister") or []:
+        # 관보 표에서 읽은 세율도 글에 넣는다(11-09): 기사 제목의 '4.20%'가 레이더 원문에도 있는지 본다. 500자에서 잘리지 않게 결정문 목차 앞에.
+        table = x.get("rateTable") or {}
+        rates = [v.get("rate") for v in (table.get("rates") or {}).values() if isinstance(v, dict)] + [table.get("othersRate")]
+        rate_text = " ".join(f"{float(v):.2f}%" for v in rates if isinstance(v, (int, float)))
         add(mem("trade-remedy", x.get("id"), [n.get("company") for n in x.get("named") or []],
-                f"{x.get('title')} duty {' '.join(x.get('memoTopics') or [])}", x.get("firstSeen") or x.get("date"), x.get("url")))
+                f"{x.get('title')} duty {rate_text} {' '.join(x.get('memoTopics') or [])}", x.get("firstSeen") or x.get("date"), x.get("url")))
 
 
 def _official(d, add):
@@ -437,6 +442,46 @@ ADAPTERS = [("us-litigation", _litigation), ("partner-filings", _partners), ("tr
             ("governance", _governance), *[(f, _events_of(f)) for f in ("us-osha", "us-state-env", "kr-labor", "india-filings", "dart-counterparty", "union-notices", "council-minutes")]]
 
 
+# 기사 제목의 핵심 숫자(세율·금액·규모)가 레이더 원문에도 있는지(11-09): 품목·쟁점 낱말만 겹치면 '같은 분야'일 뿐이다 — 숫자까지
+# 같으면 같은 사실일 가능성이 높다(강관 '4.20%' ↔ 관보 표 4.20%), 숫자가 원문에 없으면 같은 분야 다른 사실일 수 있다(도금강판 '70%대').
+NUM_RX = re.compile(r"(\d[\d,]*(?:\.\d+)?)\s*(%|％|조\s*원|억\s*원|조|억|MW|GW|kV|만\s*대|만\s*톤|톤)(대)?")
+NUM_UNIT = {"％": "%", "조원": "억", "조": "억", "억원": "억", "만대": "만대", "만톤": "만톤"}
+
+
+def numbers_in(text):
+    """[(값, 단위, 원문, '대' 여부)] — 조는 억으로 바꾼다('1조2000억'은 한 값). 0은 흔해서 뺀다(휴스틸 0%)."""
+    both = re.compile(r"(\d[\d,]*)\s*조\s*(\d[\d,]*)\s*억\s*원?")
+    out = [(int(m.group(1).replace(",", "")) * 10000 + int(m.group(2).replace(",", "")), "억", m.group(0).strip(), False)
+           for m in both.finditer(text or "")]
+    t = both.sub(" ", text or "")
+    for m in NUM_RX.finditer(t):
+        try:
+            v = float(m.group(1).replace(",", ""))
+        except ValueError:
+            continue
+        unit = re.sub(r"\s+", "", m.group(2))
+        if unit in ("조", "조원"):
+            v *= 10000
+        unit = NUM_UNIT.get(unit, unit)
+        if v:
+            out.append((v, unit, m.group(0).strip(), bool(m.group(3))))
+    return out
+
+
+def same_numbers(title, text):
+    """기사 제목 숫자 중 레이더 원문에도 있는 것: (제목 숫자 원문 목록, 원문에도 있는 것 목록)."""
+    art, item = numbers_in(title), numbers_in(text)
+    found = []
+    for v, unit, raw, band in art:
+        for w, u2, _, _ in item:
+            if u2 != unit:
+                continue
+            if (band and v <= w < v + (10 if unit == "%" else 10 ** math.floor(math.log10(v)))) or (not band and (abs(v - w) < 0.005 if unit == "%" else abs(v - w) <= max(v, w) * 0.01)):
+                found.append(raw)
+                break
+    return [raw for _, _, raw, _ in art], found
+
+
 def nouns(title):
     t = re.sub(r"\[[^\]]*\]|\([^)]*\)|\s+-\s+[^-]{1,40}$", " ", title)
     return {w for w in re.findall(r"[가-힣A-Za-z0-9]{2,}", t) if w not in STOP and not re.fullmatch(r"\d+", w)}
@@ -470,6 +515,7 @@ def match(article, items):
         hit_w = sorted(w for w in words - concept_words - GENERIC_WORDS if w in m["text"])
         hit_s = sorted(name for name, ko, en in SPECIFIC_RX if ko.search(bare) and en.search(EN_COMPANY.sub(" ", m["text"])) and name not in hit_w)
         score = sum(1 if c in WEAK_CONCEPTS else 2 for c in hit_c) + len(hit_w) + len(hit_s)
+        art_nums, same_nums = same_numbers(title, m["text"])
         # 판결 기사 ↔ 먼저 본 판결 항목은 같은 사건 근거로 센다(위에서 판결 아닌 소송 접수는 이미 뺐다)
         ruling = "소송·판결" in hit_c and bool(RULING_TITLE.search(title))
         # 한국어 항목 본문에 기사 제목의 세 글자 넘는 낱말이 그대로 있으면(사건 낱말이라도: '임직원') 같은 사건 근거 — 두 글자 개념 낱말
@@ -478,8 +524,9 @@ def match(article, items):
         specific = sorted({*[w for w in hit_w if w not in PLACE_WORDS], *literal, *hit_s, *(["판결"] if ruling else [])})
         if not specific and sum(1 if c in WEAK_CONCEPTS else 2 for c in hit_c) < 3:
             continue   # 사건 개념 하나(+지명)만 겹침 — 같은 회사 항목으로만 센다
+        score += 1 if same_nums else 0   # 사건 낱말이 겹친 항목끼리는 숫자까지 같은 쪽을 고른다
         if score > best_score or (score == best_score and best and m["seen"] > best["seen"]):
-            best, best_score = {**m, "why": hit_c + hit_s + hit_w}, score
+            best, best_score = {**m, "why": hit_c + hit_s + hit_w, **({"numbers": {"article": art_nums, "found": same_nums}} if art_nums else {})}, score
     if best and best_score >= 2:
         verdict = "먼저 잡은 후보"
     elif same:
@@ -491,7 +538,7 @@ def match(article, items):
     if best:
         best = {"source": best["source"], "label": label_of(best), "id": best["id"], "text": best["text"][:240],
                 "seen": best["seen"].isoformat(timespec="minutes"), "url": best.get("url"), "why": best["why"][:6],
-                "leadHours": round((pub - best["seen"]).total_seconds() / 3600, 1)}
+                "leadHours": round((pub - best["seen"]).total_seconds() / 3600, 1), **({"numbers": best["numbers"]} if best.get("numbers") else {})}
     return verdict, best, len(same)
 
 
@@ -538,6 +585,7 @@ def run(trace, docs, clues, *, now):
     return {"schema": SCHEMA, "generatedAt": now.isoformat(timespec="seconds"), "windowDays": WINDOW_DAYS, "articles": rows, "counts": counts, "byType": by_type, "byOutlet": by_outlet,
             "bySource": summary, "memoryItems": len(items), "feedsLoaded": loaded, "adapterErrors": adapter_errors, "traceGeneratedAt": trace.get("generatedAt"),
             "rules": ["자동 후보다. 사람이 기사 전문과 원자료를 비교하는 Y/P/N 판정(역추적 기록)과 다르고, 그 수를 바꾸지 않는다.",
+                      "먼저 잡은 후보마다 기사 제목의 숫자(세율·금액·규모)가 레이더 원문에도 있는지 붙인다 — 숫자까지 같으면 같은 사실일 가능성이 높고, 원문에 없으면 같은 분야 다른 사실일 수 있다(0은 흔해서 안 셈).",
                       "'먼저 잡은 후보'는 같은 회사(그룹) 항목을 기사 60일 전~직전에 레이더가 처음 봤고, 사건 낱말(한·영 대응)이 겹친 경우다. 같은 사건인지는 열어 봐야 한다.",
                       "장소가 있는 항목(건축허가·굴뚝·지자체 공고·국민연금 현장·공장등록·지방의회·미국 주 정부·OSHA)은 기사 제목에 같은 지역 이름이 있어야 센다.",
                       "레이더 기억은 지금 저장된 결과뿐이다(보관 기간이 지나 지워진 항목·저장 실패한 감시는 '없음'으로 나올 수 있다 — 0건 아님).",
