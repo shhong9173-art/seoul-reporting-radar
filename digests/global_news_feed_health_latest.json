@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-09T12:51:12+09:00",
+  "generatedAt": "2026-11-09T13:11:18+09:00",
   "status": "source_requests_completed",
   "expectedQueries": 40,
   "attemptedQueries": 40,
@@ -14,34 +14,34 @@
   "exclusiveQueryRecentRowsBeforeDedupe": 0,
   "slowestQueries": [
     {
-      "category": "Transformers Magazine",
-      "globalFeed": true,
-      "status": "checked_no_recent_rows",
-      "durationMs": 4315
-    },
-    {
       "category": "Tyrepress",
       "globalFeed": true,
       "status": "checked_recent_rows",
-      "durationMs": 3550
+      "durationMs": 2445
+    },
+    {
+      "category": "Transformers Magazine",
+      "globalFeed": true,
+      "status": "checked_no_recent_rows",
+      "durationMs": 2358
     },
     {
       "category": "World Nuclear News",
       "globalFeed": true,
       "status": "checked_no_recent_rows",
-      "durationMs": 1194
+      "durationMs": 843
     },
     {
       "category": "CarNewsChina",
       "globalFeed": true,
       "status": "checked_recent_rows",
-      "durationMs": 788
+      "durationMs": 540
     },
     {
-      "category": "Automotive News",
+      "category": "Automotive World",
       "globalFeed": true,
-      "status": "checked_recent_rows",
-      "durationMs": 708
+      "status": "checked_no_recent_rows",
+      "durationMs": 480
     }
   ],
   "recentArticleItemsAfterDedupe": 60,
@@ -58,7 +58,7 @@
       "status": "checked_no_recent_rows",
       "recentRows": 0,
       "errorType": null,
-      "durationMs": 245,
+      "durationMs": 314,
       "feedItems": 51,
       "dropped": {
         "notNews": 0,
@@ -74,7 +74,7 @@
       "status": "checked_no_recent_rows",
       "recentRows": 0,
       "errorType": null,
-      "durationMs": 318,
+      "durationMs": 352,
       "feedItems": 62,
       "dropped": {
         "notNews": 0,
@@ -90,7 +90,7 @@
       "status": "checked_recent_rows",
       "recentRows": 1,
       "errorType": null,
-      "durationMs": 372,
+      "durationMs": 455,
       "feedItems": 100,
       "dropped": {
         "notNews": 0,
@@ -101,12 +101,28 @@
       }
     },
     {
+      "category": "WardsAuto",
+      "globalFeed": true,
+      "status": "checked_no_recent_rows",
+      "recentRows": 0,
+      "errorType": null,
+      "durationMs": 302,
+      "feedItems": 72,
+      "dropped": {
+        "notNews": 0,
+        "domestic": 0,
+        "outlet": 0,
+        "old": 66,
+        "unscored": 6
+      }
+    },
+    {
       "category": "Automotive News",
       "globalFeed": true,
       "status": "checked_recent_rows",
       "recentRows": 4,
       "errorType": null,
-      "durationMs": 396,
+      "durationMs": 470,
       "feedItems": 100,
       "dropped": {
         "notNews": 0,
@@ -122,45 +138,29 @@
       "status": "checked_no_recent_rows",
       "recentRows": 0,
       "errorType": null,
-      "durationMs": 329,
-      "feedItems": 89,
+      "durationMs": 480,
+      "feedItems": 87,
       "dropped": {
         "notNews": 0,
         "domestic": 0,
         "outlet": 0,
-        "old": 77,
-        "unscored": 12
-      }
-    },
-    {
-      "category": "WardsAuto",
-      "globalFeed": true,
-      "status": "checked_no_recent_rows",
-      "recentRows": 0,
-      "errorType": null,
-      "durationMs": 282,
-      "feedItems": 72,
-      "dropped": {
-        "notNews": 0,
-        "domestic": 0,
-        "outlet": 0,
-        "old": 66,
-        "unscored": 6
+        "old": 76,
+        "unscored": 11
       }
     },
     {
       "category": "InsideEVs",
       "globalFeed": true,
       "status": "checked_recent_rows",
-      "recentRows": 3,
+      "recentRows": 4,
       "errorType": null,
-      "durationMs": 387,
+      "durationMs": 414,
       "feedItems": 100,
       "dropped": {
         "notNews": 0,
         "domestic": 0,
         "outlet": 0,
-        "old": 79,
+        "old": 78,
         "unscored": 18
       }
     },
@@ -170,14 +170,14 @@
       "status": "checked_recent_rows",
       "recentRows": 1,
       "errorType": null,
-      "durationMs": 463,
+      "durationMs": 365,
       "feedItems": 100,
       "dropped": {
         "notNews": 0,
         "domestic": 0,
         "outlet": 0,
-        "old": 81,
-        "unscored": 18
+        "old": 79,
+        "unscored": 20
       }
     },
     {
@@ -186,14 +186,14 @@
       "status": "checked_recent_rows",
       "recentRows": 4,
       "errorType": null,
-      "durationMs": 556,
+      "durationMs": 461,
       "feedItems": 100,
       "dropped": {
-        "notNews": 2,
+        "notNews": 1,
         "domestic": 0,
         "outlet": 0,
-        "old": 63,
-        "unscored": 31
+        "old": 62,
+        "unscored": 33
       }
     },
     {
@@ -202,7 +202,7 @@
       "status": "checked_no_recent_rows",
       "recentRows": 0,
       "errorType": null,
-      "durationMs": 210,
+      "durationMs": 276,
       "feedItems": 57,
       "dropped": {
         "notNews": 0,
@@ -218,14 +218,14 @@
       "status": "checked_no_recent_rows",
       "recentRows": 0,
       "errorType": null,
-      "durationMs": 356,
-      "feedItems": 99,
+      "durationMs": 428,
+      "feedItems": 100,
       "dropped": {
         "notNews": 0,
         "domestic": 0,
         "outlet": 0,
         "old": 78,
-        "unscored": 21
+        "unscored": 22
       }
     },
     {
@@ -234,7 +234,7 @@
       "status": "checked_no_recent_rows",
       "recentRows": 0,
       "errorType": null,
-      "durationMs": 408,
+      "durationMs": 425,
       "feedItems": 100,
       "dropped": {
         "notNews": 0,
@@ -250,13 +250,13 @@
       "status": "checked_no_recent_rows",
       "recentRows": 0,
       "errorType": null,
-      "durationMs": 330,
-      "feedItems": 70,
+      "durationMs": 387,
+      "feedItems": 69,
       "dropped": {
         "notNews": 0,
         "domestic": 18,
         "outlet": 40,
-        "old": 12,
+        "old": 11,
         "unscored": 0
       }
     },
@@ -266,7 +266,7 @@
       "status": "checked_no_recent_rows",
       "recentRows": 0,
       "errorType": null,
-      "durationMs": 303,
+      "durationMs": 358,
       "feedItems": 54,
       "dropped": {
         "notNews": 0,
@@ -282,7 +282,7 @@
       "status": "checked_no_recent_rows",
       "recentRows": 0,
       "errorType": null,
-      "durationMs": 284,
+      "durationMs": 339,
       "feedItems": 50,
       "dropped": {
         "notNews": 0,
@@ -298,7 +298,7 @@
       "status": "checked_no_recent_rows",
       "recentRows": 0,
       "errorType": null,
-      "durationMs": 286,
+      "durationMs": 318,
       "feedItems": 56,
       "dropped": {
         "notNews": 0,
@@ -314,12 +314,12 @@
       "status": "checked_no_recent_rows",
       "recentRows": 0,
       "errorType": null,
-      "durationMs": 499,
-      "feedItems": 63,
+      "durationMs": 409,
+      "feedItems": 62,
       "dropped": {
         "notNews": 0,
         "domestic": 17,
-        "outlet": 40,
+        "outlet": 39,
         "old": 6,
         "unscored": 0
       }
@@ -330,7 +330,7 @@
       "status": "checked_recent_rows",
       "recentRows": 10,
       "errorType": null,
-      "durationMs": 125
+      "durationMs": 110
     },
     {
       "category": "InsideEVs",
@@ -338,7 +338,7 @@
       "status": "checked_recent_rows",
       "recentRows": 6,
       "errorType": null,
-      "durationMs": 79
+      "durationMs": 88
     },
     {
       "category": "CnEVPost",
@@ -346,7 +346,7 @@
       "status": "checked_recent_rows",
       "recentRows": 3,
       "errorType": null,
-      "durationMs": 499
+      "durationMs": 261
     },
     {
       "category": "CarNewsChina",
@@ -354,7 +354,7 @@
       "status": "checked_recent_rows",
       "recentRows": 2,
       "errorType": null,
-      "durationMs": 788
+      "durationMs": 540
     },
     {
       "category": "Automotive World",
@@ -362,15 +362,15 @@
       "status": "checked_recent_rows",
       "recentRows": 2,
       "errorType": null,
-      "durationMs": 320
+      "durationMs": 101
     },
     {
       "category": "Automotive News",
       "globalFeed": true,
       "status": "checked_recent_rows",
-      "recentRows": 20,
+      "recentRows": 21,
       "errorType": null,
-      "durationMs": 708
+      "durationMs": 354
     },
     {
       "category": "Just Auto",
@@ -378,7 +378,7 @@
       "status": "checked_recent_rows",
       "recentRows": 4,
       "errorType": null,
-      "durationMs": 113
+      "durationMs": 108
     },
     {
       "category": "electrive",
@@ -386,7 +386,7 @@
       "status": "checked_recent_rows",
       "recentRows": 11,
       "errorType": null,
-      "durationMs": 647
+      "durationMs": 206
     },
     {
       "category": "Utility Dive",
@@ -394,7 +394,7 @@
       "status": "checked_no_recent_rows",
       "recentRows": 0,
       "errorType": null,
-      "durationMs": 106
+      "durationMs": 78
     },
     {
       "category": "pv magazine",
@@ -402,7 +402,7 @@
       "status": "checked_no_recent_rows",
       "recentRows": 0,
       "errorType": null,
-      "durationMs": 317
+      "durationMs": 463
     },
     {
       "category": "Energy-Storage.news",
@@ -410,7 +410,7 @@
       "status": "checked_no_recent_rows",
       "recentRows": 0,
       "errorType": null,
-      "durationMs": 152
+      "durationMs": 297
     },
     {
       "category": "GMK Center",
@@ -418,7 +418,7 @@
       "status": "checked_no_recent_rows",
       "recentRows": 0,
       "errorType": null,
-      "durationMs": 383
+      "durationMs": 479
     },
     {
       "category": "MetalMiner",
@@ -426,7 +426,7 @@
       "status": "checked_no_recent_rows",
       "recentRows": 0,
       "errorType": null,
-      "durationMs": 392
+      "durationMs": 161
     },
     {
       "category": "Northern Miner",
@@ -434,7 +434,7 @@
       "status": "checked_no_recent_rows",
       "recentRows": 0,
       "errorType": null,
-      "durationMs": 409
+      "durationMs": 250
     },
     {
       "category": "Transformers Magazine",
@@ -442,7 +442,7 @@
       "status": "checked_no_recent_rows",
       "recentRows": 0,
       "errorType": null,
-      "durationMs": 4315
+      "durationMs": 2358
     },
     {
       "category": "offshoreWIND.biz",
@@ -450,7 +450,7 @@
       "status": "checked_no_recent_rows",
       "recentRows": 0,
       "errorType": null,
-      "durationMs": 258
+      "durationMs": 289
     },
     {
       "category": "Offshore Energy",
@@ -458,7 +458,7 @@
       "status": "checked_no_recent_rows",
       "recentRows": 0,
       "errorType": null,
-      "durationMs": 256
+      "durationMs": 303
     },
     {
       "category": "Canary Media",
@@ -466,7 +466,7 @@
       "status": "checked_no_recent_rows",
       "recentRows": 0,
       "errorType": null,
-      "durationMs": 226
+      "durationMs": 134
     },
     {
       "category": "World Nuclear News",
@@ -474,7 +474,7 @@
       "status": "checked_no_recent_rows",
       "recentRows": 0,
       "errorType": null,
-      "durationMs": 1194
+      "durationMs": 843
     },
     {
       "category": "PV Tech",
@@ -482,7 +482,7 @@
       "status": "checked_no_recent_rows",
       "recentRows": 0,
       "errorType": null,
-      "durationMs": 148
+      "durationMs": 210
     },
     {
       "category": "Tire Business",
@@ -490,7 +490,7 @@
       "status": "checked_no_recent_rows",
       "recentRows": 0,
       "errorType": null,
-      "durationMs": 555
+      "durationMs": 345
     },
     {
       "category": "Tyrepress",
@@ -498,15 +498,15 @@
       "status": "checked_recent_rows",
       "recentRows": 2,
       "errorType": null,
-      "durationMs": 3550
+      "durationMs": 2445
     },
     {
       "category": "Automotive News Europe",
       "globalFeed": true,
       "status": "checked_recent_rows",
-      "recentRows": 20,
+      "recentRows": 21,
       "errorType": null,
-      "durationMs": 305
+      "durationMs": 302
     }
   ],
   "publisherFeedBackoff": {}
