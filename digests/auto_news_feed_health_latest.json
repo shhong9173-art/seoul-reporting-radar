@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-09T11:15:27+09:00",
+  "generatedAt": "2026-11-09T11:31:05+09:00",
   "status": "source_requests_completed",
   "expectedQueries": 22,
   "attemptedQueries": 22,
@@ -11,37 +11,37 @@
   "exclusiveQueriesAttempted": 5,
   "exclusiveQueriesFailedOrPartial": 0,
   "exclusiveQueriesWithRecentRows": 3,
-  "exclusiveQueryRecentRowsBeforeDedupe": 5,
+  "exclusiveQueryRecentRowsBeforeDedupe": 7,
   "slowestQueries": [
     {
       "category": "글로벌",
       "globalFeed": true,
       "status": "checked_recent_rows",
-      "durationMs": 541
+      "durationMs": 508
+    },
+    {
+      "category": "글로벌",
+      "globalFeed": true,
+      "status": "checked_recent_rows",
+      "durationMs": 495
+    },
+    {
+      "category": "글로벌",
+      "globalFeed": true,
+      "status": "checked_recent_rows",
+      "durationMs": 445
+    },
+    {
+      "category": "배터리",
+      "globalFeed": false,
+      "status": "checked_recent_rows",
+      "durationMs": 441
     },
     {
       "category": "부품",
       "globalFeed": false,
       "status": "checked_recent_rows",
-      "durationMs": 498
-    },
-    {
-      "category": "글로벌",
-      "globalFeed": true,
-      "status": "checked_recent_rows",
-      "durationMs": 498
-    },
-    {
-      "category": "글로벌",
-      "globalFeed": true,
-      "status": "checked_recent_rows",
-      "durationMs": 467
-    },
-    {
-      "category": "완성차",
-      "globalFeed": false,
-      "status": "checked_recent_rows",
-      "durationMs": 463
+      "durationMs": 437
     }
   ],
   "recentArticleItemsAfterDedupe": 220,
@@ -53,23 +53,12 @@
   "warning": "RSS 검색/형식/기간 장애는 기사 부재를 입증하지 않습니다. 수집 미달 시 기존 data.js/data.json 유지.",
   "checks": [
     {
-      "category": "배터리",
-      "globalFeed": false,
-      "status": "checked_recent_rows",
-      "recentRows": 38,
-      "errorType": null,
-      "durationMs": 439,
-      "invalidPubDateRows": 0,
-      "futurePubDateRows": 0,
-      "exclusiveQuery": false
-    },
-    {
       "category": "완성차",
       "globalFeed": false,
       "status": "checked_recent_rows",
       "recentRows": 99,
       "errorType": null,
-      "durationMs": 463,
+      "durationMs": 429,
       "invalidPubDateRows": 0,
       "futurePubDateRows": 0,
       "exclusiveQuery": false
@@ -78,9 +67,20 @@
       "category": "부품",
       "globalFeed": false,
       "status": "checked_recent_rows",
-      "recentRows": 53,
+      "recentRows": 55,
       "errorType": null,
-      "durationMs": 498,
+      "durationMs": 437,
+      "invalidPubDateRows": 0,
+      "futurePubDateRows": 0,
+      "exclusiveQuery": false
+    },
+    {
+      "category": "배터리",
+      "globalFeed": false,
+      "status": "checked_recent_rows",
+      "recentRows": 37,
+      "errorType": null,
+      "durationMs": 441,
       "invalidPubDateRows": 0,
       "futurePubDateRows": 0,
       "exclusiveQuery": false
@@ -91,18 +91,7 @@
       "status": "checked_no_recent_rows",
       "recentRows": 0,
       "errorType": null,
-      "durationMs": 296,
-      "invalidPubDateRows": 0,
-      "futurePubDateRows": 0,
-      "exclusiveQuery": false
-    },
-    {
-      "category": "정책·관세",
-      "globalFeed": false,
-      "status": "checked_recent_rows",
-      "recentRows": 14,
-      "errorType": null,
-      "durationMs": 382,
+      "durationMs": 303,
       "invalidPubDateRows": 0,
       "futurePubDateRows": 0,
       "exclusiveQuery": false
@@ -111,20 +100,20 @@
       "category": "중국차",
       "globalFeed": false,
       "status": "checked_recent_rows",
-      "recentRows": 31,
+      "recentRows": 33,
       "errorType": null,
-      "durationMs": 370,
+      "durationMs": 380,
       "invalidPubDateRows": 0,
       "futurePubDateRows": 0,
       "exclusiveQuery": false
     },
     {
-      "category": "리콜·안전",
+      "category": "정책·관세",
       "globalFeed": false,
       "status": "checked_recent_rows",
-      "recentRows": 1,
+      "recentRows": 13,
       "errorType": null,
-      "durationMs": 305,
+      "durationMs": 400,
       "invalidPubDateRows": 0,
       "futurePubDateRows": 0,
       "exclusiveQuery": false
@@ -135,7 +124,18 @@
       "status": "checked_recent_rows",
       "recentRows": 1,
       "errorType": null,
-      "durationMs": 350,
+      "durationMs": 332,
+      "invalidPubDateRows": 0,
+      "futurePubDateRows": 0,
+      "exclusiveQuery": false
+    },
+    {
+      "category": "리콜·안전",
+      "globalFeed": false,
+      "status": "checked_recent_rows",
+      "recentRows": 1,
+      "errorType": null,
+      "durationMs": 329,
       "invalidPubDateRows": 0,
       "futurePubDateRows": 0,
       "exclusiveQuery": false
@@ -146,7 +146,7 @@
       "status": "checked_recent_rows",
       "recentRows": 2,
       "errorType": null,
-      "durationMs": 342,
+      "durationMs": 363,
       "invalidPubDateRows": 0,
       "futurePubDateRows": 0,
       "exclusiveQuery": true
@@ -157,7 +157,7 @@
       "status": "checked_no_recent_rows",
       "recentRows": 0,
       "errorType": null,
-      "durationMs": 315,
+      "durationMs": 372,
       "invalidPubDateRows": 0,
       "futurePubDateRows": 0,
       "exclusiveQuery": true
@@ -166,9 +166,9 @@
       "category": "단독",
       "globalFeed": false,
       "status": "checked_recent_rows",
-      "recentRows": 1,
+      "recentRows": 2,
       "errorType": null,
-      "durationMs": 334,
+      "durationMs": 314,
       "invalidPubDateRows": 0,
       "futurePubDateRows": 0,
       "exclusiveQuery": true
@@ -179,7 +179,18 @@
       "status": "checked_no_recent_rows",
       "recentRows": 0,
       "errorType": null,
-      "durationMs": 345,
+      "durationMs": 326,
+      "invalidPubDateRows": 0,
+      "futurePubDateRows": 0,
+      "exclusiveQuery": true
+    },
+    {
+      "category": "단독",
+      "globalFeed": false,
+      "status": "checked_recent_rows",
+      "recentRows": 3,
+      "errorType": null,
+      "durationMs": 327,
       "invalidPubDateRows": 0,
       "futurePubDateRows": 0,
       "exclusiveQuery": true
@@ -190,21 +201,10 @@
       "status": "checked_recent_rows",
       "recentRows": 1,
       "errorType": null,
-      "durationMs": 327,
+      "durationMs": 367,
       "invalidPubDateRows": 0,
       "futurePubDateRows": 0,
       "exclusiveQuery": false
-    },
-    {
-      "category": "단독",
-      "globalFeed": false,
-      "status": "checked_recent_rows",
-      "recentRows": 2,
-      "errorType": null,
-      "durationMs": 414,
-      "invalidPubDateRows": 0,
-      "futurePubDateRows": 0,
-      "exclusiveQuery": true
     },
     {
       "category": "글로벌",
@@ -212,7 +212,7 @@
       "status": "checked_recent_rows",
       "recentRows": 39,
       "errorType": null,
-      "durationMs": 541,
+      "durationMs": 495,
       "invalidPubDateRows": 0,
       "futurePubDateRows": 0,
       "exclusiveQuery": false
@@ -223,7 +223,7 @@
       "status": "checked_recent_rows",
       "recentRows": 9,
       "errorType": null,
-      "durationMs": 347,
+      "durationMs": 301,
       "invalidPubDateRows": 0,
       "futurePubDateRows": 0,
       "exclusiveQuery": false
@@ -234,7 +234,7 @@
       "status": "checked_recent_rows",
       "recentRows": 20,
       "errorType": null,
-      "durationMs": 498,
+      "durationMs": 398,
       "invalidPubDateRows": 0,
       "futurePubDateRows": 0,
       "exclusiveQuery": false
@@ -243,20 +243,9 @@
       "category": "글로벌",
       "globalFeed": true,
       "status": "checked_recent_rows",
-      "recentRows": 16,
+      "recentRows": 15,
       "errorType": null,
-      "durationMs": 415,
-      "invalidPubDateRows": 0,
-      "futurePubDateRows": 0,
-      "exclusiveQuery": false
-    },
-    {
-      "category": "글로벌",
-      "globalFeed": true,
-      "status": "checked_recent_rows",
-      "recentRows": 23,
-      "errorType": null,
-      "durationMs": 434,
+      "durationMs": 351,
       "invalidPubDateRows": 0,
       "futurePubDateRows": 0,
       "exclusiveQuery": false
@@ -267,7 +256,7 @@
       "status": "checked_recent_rows",
       "recentRows": 11,
       "errorType": null,
-      "durationMs": 426,
+      "durationMs": 348,
       "invalidPubDateRows": 0,
       "futurePubDateRows": 0,
       "exclusiveQuery": false
@@ -276,9 +265,20 @@
       "category": "글로벌",
       "globalFeed": true,
       "status": "checked_recent_rows",
-      "recentRows": 40,
+      "recentRows": 23,
       "errorType": null,
-      "durationMs": 427,
+      "durationMs": 445,
+      "invalidPubDateRows": 0,
+      "futurePubDateRows": 0,
+      "exclusiveQuery": false
+    },
+    {
+      "category": "글로벌",
+      "globalFeed": true,
+      "status": "checked_recent_rows",
+      "recentRows": 41,
+      "errorType": null,
+      "durationMs": 508,
       "invalidPubDateRows": 0,
       "futurePubDateRows": 0,
       "exclusiveQuery": false
@@ -289,7 +289,7 @@
       "status": "checked_recent_rows",
       "recentRows": 35,
       "errorType": null,
-      "durationMs": 467,
+      "durationMs": 426,
       "invalidPubDateRows": 0,
       "futurePubDateRows": 0,
       "exclusiveQuery": false
