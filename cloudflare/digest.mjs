@@ -1115,7 +1115,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
     if (!f.isNew) continue;
     if (!all && !(Date.parse(f.firstSeen) >= Math.min(cut, now - 7 * 86400000))) continue;
     push(f.tier === 'B' ? 'B' : 'C', W.trademarks, { kind: f.titleNew ? '유럽 상표 새 이름' : '유럽 상표 출원', id: f.id, date: f.applicationDate, company: f.company,
-      fact: `유럽연합(EUIPO) 상표 출원 「${f.title}」 ${(f.classes ?? []).map(classLabel).join(', ')}${f.titleNew ? ' — 감시 시작 이후 처음 보는 이름' : ''} (출원 ${f.applicationDate || '?'}, 출원번호 ${f.applicationNumber}, 출원인 ${(f.applicants ?? [])[0] ?? '?'})`,
+      fact: `유럽연합(EUIPO) 상표 출원 「${f.title}」 ${(f.classes ?? []).map(classLabel).join(', ')}${f.titleNew ? ' — 감시 시작 이후 처음 보는 이름' : ''} (출원 ${f.applicationDate || '?'}${f.route ? `(${f.route})` : ''}, 출원번호 ${f.applicationNumber}, 출원인 ${(f.applicants ?? [])[0] ?? '?'})${f.via === 'signa' ? ' · Signa 2차 자료 — EUIPO eSearch 원문 확인' : ''}`,
       url: f.url, check: hint(f.company, ['상표', f.title]) });
   }
 

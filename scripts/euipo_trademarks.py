@@ -5,11 +5,15 @@
 - 검색: applicants.name 와일드카드(RSQL), 출원일 내림차순. 응답의 출원인 이름을 회사 규칙으로 다시 거른다(이름 일부만 같은 다른 회사).
 - 403(access-forbidden)은 앱의 상품 구독이 운영 승인 전일 때 — 실패가 아니라 '승인 대기'로 남기고 다음 회사는 묻지 않는다.
 - 회사마다 첫 성공 읽기는 기준선. 처음 보는 출원번호만 새 출원. 키·토큰은 저장·출력하지 않는다.
+- 11-09: 운영 검색이 막혀 있는 동안(토큰 실패·403) SIGNA_API_KEY가 있으면 같은 회사를 Signa(2차 원천, signa_trademarks.py)로 읽는다.
+  EUIPO는 실행마다 토큰 1·검색 1로 계속 확인해 승인되면 저절로 EUIPO로 돌아간다. 원천은 회사별 checks[].via·filings[].via에 남긴다.
 """
 from __future__ import annotations
 
 import datetime as dt
 import re
+
+import signa_trademarks as signa
 
 TOKEN_URL = "https://euipo.europa.eu/cas-server-webapp/oidc/accessToken"
 SEARCH_URL = "https://api.euipo.europa.eu/trademark-search/trademarks"
@@ -56,7 +60,7 @@ def token(client_id, secret, post):
     return tok
 
 
-def run(cfg, previous, now, *, client_id, secret, post, get, only_unsettled=False):
+def run(cfg, previous, now, *, client_id, secret, post, get, only_unsettled=False, signa_key=None):
     """cfg = trademark_watch.json의 euipo 칸. previous = 직전 문서의 eu 칸. only_unsettled면(평일 재시도) 직전이 정상인 회사는 그대로 둔다."""
     stamp = now.isoformat(timespec="seconds")
     prev = previous if isinstance(previous, dict) else {}
@@ -73,30 +77,44 @@ def run(cfg, previous, now, *, client_id, secret, post, get, only_unsettled=Fals
     except Exception as e:  # noqa: BLE001
         tok, tok_err = None, str(e)[:60] or type(e).__name__
     blocked = None
+    signa_left = None
     for c in cfg.get("applicants") or []:
         name = c["company"]
         pc = prev_checks.get(name)
         if only_unsettled and pc and pc.get("status") == "ok":
             checks.append(pc)
             continue
-        if not tok:
-            checks.append({"company": name, "status": "unset" if "없음" in (tok_err or "") else "failed", "error": tok_err})
-            continue
-        if blocked:
-            checks.append({"company": name, "status": "waiting", "reason": blocked})
-            continue
-        try:
-            r = get(SEARCH_URL, params={"query": f'applicants.name=="{c["query"]}"', "size": int(cfg.get("size", 30)), "sort": "applicationDate:desc"},
-                    headers={"Authorization": f"Bearer {tok}", "X-IBM-Client-Id": client_id, "Accept": "application/json"}, timeout=40)
-            if r.status_code == 403:
-                blocked = "상품 구독 운영 승인 대기(403 access-forbidden)"
-                checks.append({"company": name, "status": "waiting", "reason": blocked})
+        body, via, err = None, None, None
+        if tok and not blocked:
+            try:
+                r = get(SEARCH_URL, params={"query": f'applicants.name=="{c["query"]}"', "size": int(cfg.get("size", 30)), "sort": "applicationDate:desc"},
+                        headers={"Authorization": f"Bearer {tok}", "X-IBM-Client-Id": client_id, "Accept": "application/json"}, timeout=40)
+                if r.status_code == 403:
+                    blocked = "상품 구독 운영 승인 대기(403 access-forbidden)"
+                elif r.status_code != 200:
+                    raise RuntimeError(f"HTTP {r.status_code}")
+                else:
+                    body, via = r.json() or {}, "euipo"
+            except Exception as e:  # noqa: BLE001
+                err = str(e)[:60] or type(e).__name__
+        if body is None and err is None and signa_key and (blocked or not tok):
+            # EUIPO 직접 조회가 막힌 동안만 Signa — 크레딧이 바닥이면 더 묻지 않는다(미확인)
+            if signa_left is not None and signa_left < signa.MIN_CREDITS:
+                checks.append({"company": name, "status": "waiting", "reason": f"Signa 크레딧 부족(남은 {signa_left}) — 다음 달 초기화 뒤", "via": "signa"})
                 continue
-            if r.status_code != 200:
-                raise RuntimeError(f"HTTP {r.status_code}")
-            body = r.json() or {}
-        except Exception as e:  # noqa: BLE001
-            checks.append({"company": name, "status": "failed", "error": str(e)[:60] or type(e).__name__})
+            try:
+                rows, signa_left, _more = signa.search(c["query"].strip("*"), since, key=signa_key, get=get)
+                body, via = {"trademarks": rows, "totalElements": len(rows)}, "signa"
+            except Exception as e:  # noqa: BLE001
+                checks.append({"company": name, "status": "failed", "error": str(e)[:60] or type(e).__name__, "via": "signa"})
+                continue
+        if body is None:
+            if err:
+                checks.append({"company": name, "status": "failed", "error": err})
+            elif blocked:
+                checks.append({"company": name, "status": "waiting", "reason": blocked})
+            else:
+                checks.append({"company": name, "status": "unset" if "없음" in (tok_err or "") else "failed", "error": tok_err})
             continue
         accept = re.compile(c.get("accept") or re.escape(c["query"].strip("*")), re.I)
         exclude = re.compile(c["exclude"], re.I) if c.get("exclude") else None
@@ -135,12 +153,14 @@ def run(cfg, previous, now, *, client_id, secret, post, get, only_unsettled=Fals
                  "applicants": apps[:3], "firstSeen": stamp, "isNew": is_new, "baseline": first_read,
                  "titleNew": is_new and title_new,
                  "tier": ("B" if title_new and core & set(classes) else "C") if is_new else None,
-                 "url": f"https://euipo.europa.eu/eSearch/#details/trademarks/{no}"}
+                 "url": f"https://euipo.europa.eu/eSearch/#details/trademarks/{no}",
+                 **({"via": "signa"} if via == "signa" else {}),
+                 **({"route": "마드리드 지정"} if str(it.get("filingRoute") or "").startswith("madrid") else {})}
             old[fid] = f
             if is_new:
                 fresh.append(fid)
         checks.append({"company": name, "status": "ok", "query": c["query"], "rawTotal": body.get("totalElements"), "read": len(rows),
-                       "kept": kept, **({"otherApplicants": other} if other else {}), **({"baseline": True} if first_read else {})})
+                       "kept": kept, "via": via, **({"otherApplicants": other} if other else {}), **({"baseline": True} if first_read else {})})
     keep_from = (now.date() - dt.timedelta(days=int(cfg.get("keepDays", 180)))).isoformat()
     filings = sorted((f for f in old.values() if f.get("firstSeen", "")[:10] >= keep_from or (f.get("applicationDate") or "") >= keep_from),
                      key=lambda f: (f.get("firstSeen", ""), f.get("applicationDate", "")), reverse=True)[:KEEP]
@@ -148,7 +168,9 @@ def run(cfg, previous, now, *, client_id, secret, post, get, only_unsettled=Fals
     waiting = sum(1 for c in checks if c["status"] == "waiting")
     status = ("unset" if checks and all(c["status"] == "unset" for c in checks) else "complete" if ok == len(checks) and ok
               else "waiting" if waiting and not ok else "failed" if not ok else "partial")
+    via_signa = sum(1 for c in checks if c.get("via") == "signa" and c["status"] == "ok")
     return {"source": SOURCE, "generatedAt": stamp, "status": status, "window": {"from": since, "to": now.date().isoformat()},
             "baselineSince": prev.get("baselineSince") or (stamp if ok else None), "checks": checks, "filings": filings,
             "fresh": fresh, "seen": seen, "titles": {k: dict(list(v.items())[-2000:]) for k, v in titles.items()},
-            **({"blocked": blocked} if blocked else {})}
+            **({"blocked": blocked} if blocked else {}),
+            **({"provider": "signa", "providerNote": signa.SOURCE, "signaCreditsLeft": signa_left} if via_signa else {})}
