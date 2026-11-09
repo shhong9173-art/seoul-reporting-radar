@@ -253,6 +253,19 @@ class Capture(unittest.TestCase):
         self.assertEqual(v("[단독] 포스코, 미국 상계관세 소송서 패소…탄소배출권 무상할당 보조금 인정", "포스코", "2026-10-28T10:50:00+09:00"), "먼저 잡은 후보")
 
 
+    def test_product_words_inside_company_names_are_not_event_words(self):
+        # 11-09: 'LS전선'의 전선 ↔ 'LS Cable & System Ltd.'의 cable, 자회사 설립 ↔ Ltd.로 노동위 재심 사건이 '먼저'가 됐다
+        items = [r.mem("kr-labor", "labor:00:2026부노46", ["LS전선"], "노동위 심판 회의 중앙노동위원회 사건 2026부노46 「엘에스전선 주식회사(LS Cable & System Ltd.) 부당노동행위 구제 재심신청」",
+                       "2026-11-04T10:28:00+09:00"),
+                 r.mem("us-litigation", "cl:kumho", ["금호타이어"], "Kumho Tire U.S.A., Inc. employment complaint", "2026-11-02T09:00:00+09:00"),
+                 r.mem("overseas-registry", "ch:ls", ["LS전선"], "영국 법인 설립 Companies House LS SUBSEA CABLES UK LIMITED", "2026-11-01T09:00:00+09:00")]
+        v = lambda title, comp, when: r.match({"title": title, "companies": [comp], "published": when}, items)  # noqa: E731
+        self.assertEqual(v("[단독] LS전선, 장애인 예술단 자회사 ‘누리이음’ 설립…ESG 경쟁력 강화 포석", "LS전선", "2026-11-03T17:00:00+09:00")[0], "같은 회사 항목만")
+        self.assertEqual(v("[단독] 금호타이어, 노조 임단협 결렬", "금호타이어", "2026-11-03T09:00:00+09:00")[0], "같은 회사 항목만")
+        # 품목 낱말이 회사 이름 밖에 있으면 센다(기사 해저케이블 ↔ 등기 이름 SUBSEA CABLES — 'LS Cable' 회사 이름이 아님)
+        verdict, best, _ = v("[단독] LS전선, 영국에 해저케이블 법인 세운다", "LS전선", "2026-11-03T09:00:00+09:00")
+        self.assertEqual((verdict, best["id"]), ("먼저 잡은 후보", "ch:ls"))
+
 class Places(unittest.TestCase):
     """11-04 기자 기사 대조: 장소 있는 항목은 기사 제목에 같은 지역 이름이 있어야 '먼저 잡은 후보'."""
     ITEMS = [r.mem("kr-building", "bld:947602", ["LS전선"], "공장 건축허가 경상북도 구미시 진평동 643번지 증설 신축 plant factory", "2026-10-29T16:21:00+09:00"),
