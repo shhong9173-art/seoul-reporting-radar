@@ -93,6 +93,18 @@ jobs:
           python -m unittest discover -s tests -p 'test_patent_reporting_triage.py' -v
           node tests/test_patent_hunt_view.cjs
           node tests/test_patent_joint_verification_view.cjs
+      # 11-09: 석유화학·정유 등 출입처 13곳은 월요일(KST)에만 한 번 — 결과는 별도 파일, 매일 실행이 붙인다(완료 판정과 별개).
+      - name: Monday weekly group (petrochemical·refining and other beat companies)
+        id: weekly
+        continue-on-error: true
+        env:
+          KIPRIS_SERVICE_KEY: ${{ secrets.KIPRIS_SERVICE_KEY }}
+        run: |
+          if [ "$(TZ=Asia/Seoul date +%u)" = "1" ]; then
+            python scripts/patent_hunt.py --weekly --max-news 2
+          else
+            echo "월요일이 아님 — 묶음 조회 안 함(직전 묶음 결과를 매일 실행이 붙임)"
+          fi
       - name: Query KIPRISPlus applicant publications when separately authorized
         id: source
         env:
@@ -154,6 +166,8 @@ jobs:
           if [ -f digests/kipris_source_request_budget_latest.json ]; then git add digests/kipris_source_request_budget_latest.json; fi
           if [ -f digests/kipris_account_ledger_latest.json ]; then git add digests/kipris_account_ledger_latest.json; fi
           if [ "${{ steps.source.outcome }}" = "success" ]; then git add digests/patent_hunt_latest.json; fi
+          if [ -f digests/patent_hunt_weekly_latest.json ]; then git add digests/patent_hunt_weekly_latest.json; fi
+          if [ -f digests/patent_source_status_weekly_latest.json ]; then git add digests/patent_source_status_weekly_latest.json; fi
           if [ "${{ steps.deep.outcome }}" = "success" ] && [ -f digests/patent_deep_latest.json ]; then git add digests/patent_deep_latest.json; fi
           if [ "${{ steps.joint_review.outcome }}" = "success" ] && [ -f digests/patent_joint_verification_latest.json ]; then git add digests/patent_joint_verification_latest.json; fi
           if [ "${{ steps.claims.outcome }}" = "success" ] && [ -f digests/patent_claim_review_latest.json ]; then git add digests/patent_claim_review_latest.json; fi

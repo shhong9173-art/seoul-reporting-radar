@@ -406,6 +406,67 @@ class SafeDiagnosticTests(unittest.TestCase):
         self.assertTrue(all('공개' in q for q in candidate['questions']))
         self.assertNotIn('현재 양산',' '.join(candidate['questions']))
 
+class WeeklyGroupTests(unittest.TestCase):
+    """11-09: 석유화학·정유 등은 월요일 묶음(--weekly)만 — 매일 목록·완료 판정과 분리."""
+    def test_weekly_companies_are_not_in_the_daily_list(self):
+        self.assertFalse(set(p.WEEKLY_APPLICANTS)&set(p.APPLICANTS))
+        self.assertIn("LG화학",p.WEEKLY_APPLICANTS)
+        asked=[]
+        def search(key,term,start,end):
+            asked.append(term)
+            return {"rows":[],"total":0,"complete":True}
+        daily=p.build("fake",now=NOW,search=search,news_limit=0)
+        self.assertEqual(len(asked),len(p.APPLICANTS))
+        self.assertNotIn("엘지화학",asked)
+        self.assertEqual(daily["applicantCount"],len(p.APPLICANTS))
+
+    def test_weekly_build_verifies_its_own_legal_names(self):
+        def search(key,term,start,end):
+            if term=="엘지화학":
+                return {"rows":[row(applicant="주식회사 엘지화학",title="양극재 제조 방법"),
+                                row(applicant="주식회사 엘지에너지솔루션",title="이차전지")],"total":2,"complete":True}
+            return {"rows":[],"total":0,"complete":True}
+        weekly=p.build("fake",now=NOW,search=search,names=list(p.WEEKLY_APPLICANTS),news_limit=0)
+        self.assertEqual([r["company"] for r in weekly["items"]],["LG화학"])   # LG에너지솔루션(계열사)은 버림
+        self.assertTrue(weekly["sourceWindowComplete"])
+        self.assertEqual(next(c for c in weekly["companyChecks"] if c["company"]=="LG화학")["rawTotal"],2)
+
+    def _weekly(self,when):
+        def search(key,term,start,end):
+            return {"rows":[row(applicant="주식회사 엘지화학",title="양극재 제조 방법")] if term=="엘지화학" else [],
+                    "total":1 if term=="엘지화학" else 0,"complete":True}
+        prior=p.build("fake",now=when-timedelta(days=7),search=lambda *a:{"rows":[],"total":0,"complete":True},
+                      names=list(p.WEEKLY_APPLICANTS),news_limit=0)
+        return p.build("fake",previous=prior,now=when,search=search,names=list(p.WEEKLY_APPLICANTS),news_limit=0)
+
+    def test_merge_marks_fresh_only_on_the_weekly_day(self):
+        weekly=self._weekly(NOW)
+        self.assertTrue(weekly["items"][0]["freshObservation"])
+        daily=lambda: p.build("fake",now=NOW,search=lambda *a:{"rows":[row()],"total":1,"complete":True},
+                              names=["현대자동차"],news_limit=0)
+        same=p.merge_weekly(daily(),weekly,now=NOW)
+        lg=next(r for r in same["items"] if r["company"]=="LG화학")
+        self.assertTrue(lg["freshObservation"] and lg["weeklyGroup"])
+        self.assertEqual(same["weeklyGroup"]["merged"],1)
+        self.assertTrue(same["sourceWindowComplete"])                       # 묶음은 매일 완료 판정에 안 셈
+        later=p.merge_weekly(daily(),weekly,now=NOW+timedelta(days=2))
+        lg=next(r for r in later["items"] if r["company"]=="LG화학")
+        self.assertFalse(lg["freshObservation"])
+        self.assertTrue(lg["reusedFromPriorVerifiedSnapshot"])
+        stale=p.merge_weekly(daily(),weekly,now=NOW+timedelta(days=9))
+        self.assertFalse(any(r["company"]=="LG화학" for r in stale["items"]))
+        self.assertIn("미확인",stale["weeklyGroup"]["status"])
+        none=p.merge_weekly(daily(),None,now=NOW)
+        self.assertEqual(none["weeklyGroup"]["merged"],0)
+
+    def test_merge_drops_rows_that_do_not_match_the_legal_name(self):
+        weekly=self._weekly(NOW)
+        weekly["items"].append({**weekly["items"][0],"publicationNumber":"10-2026-0999999","applicants":["주식회사 엘지에너지솔루션"]})
+        merged=p.merge_weekly(p.build("fake",now=NOW,search=lambda *a:{"rows":[],"total":0,"complete":True},names=["현대자동차"],news_limit=0),
+                              weekly,now=NOW)
+        self.assertEqual([r["publicationNumber"] for r in merged["items"] if r["company"]=="LG화학"],[weekly["items"][0]["publicationNumber"]])
+
+
 if __name__=="__main__":
     unittest.main()
 

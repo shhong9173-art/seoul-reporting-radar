@@ -141,6 +141,7 @@
 - 유럽연합 출원(EUIPO, 11-02): 같은 실행에서 출입처 23곳 영문 출원인 이름으로 EUIPO Trademark Search를 본다(출원일 120일, 회사당 1회 30건). 응답 출원인 이름을 회사 규칙으로 다시 거르고(POSCO Future M 등 제외) 회사별 첫 성공은 기준선, 처음 보는 이름+업종 핵심 상품류 B. 11-02 현재 운영 검색이 403(앱 구독 운영 승인 대기로 추정) — '승인 대기'로 표시하고 평일마다 한 번(토큰 1·검색 1) 다시 본다. Secrets `EUIPO_CLIENT_ID`·`EUIPO_CLIENT_SECRET`. 주소·상태는 docs/euipo-api.md.
 - 유럽 출원 대체 원천(Signa, 11-09): EUIPO 구독 승인 대기(403) 동안 `SIGNA_API_KEY`로 같은 23곳을 Signa(EUIPO 자료를 매일 맞추는 2차 원천)에서 읽는다 — 회사당 1쪽(최대 100건) 10크레딧, 무료 월 1,000. 응답 출원인을 기존 규칙으로 다시 거르고, 기준선·새 출원·등급 규칙은 같다. 화면에 원천·남은 크레딧·'EUIPO eSearch 원문 확인'·마드리드 지정 표시. EUIPO가 승인되면 저절로 EUIPO로 돌아간다. docs/euipo-api.md.
 - 미국 상표 출원(USPTO, Signa 경유, 11-09): USPTO 직접 API가 막혀(ID.me) Signa로만 같은 23곳을 읽어 `trademarks`에 '[미국 상표 출원(USPTO · Signa 경유)]' 구역, radar_today '미국 상표 출원'(처음 보는 이름+업종 핵심 상품류 B, 그 밖 C). Signa 크레딧이 3,000 아래면 회사별 주기(`euEvery`·`usEvery`)로 줄여 무료 월 1,000 안에서 돈다. 원문은 USPTO TSDR 일련번호.
+- 특허 월요일 묶음(11-09): 석유화학·정유 6곳(LG화학·롯데케미칼·금호석유화학·S-OIL·SK이노베이션·HD현대오일뱅크)과 GS칼텍스·KG모빌리티·KG스틸·동국씨엠·LS MnM·DL케미칼·태광산업 13곳은 11-01 출입처가 된 뒤에도 KIPRIS 한도(실행당 28·월 650회) 때문에 특허를 안 봤다. 이제 월요일(KST)에만 `patent_hunt.py --weekly`로 한 번 묻고(직전 묶음 날짜 2일 겹침, 첫 실행은 기준선) `digests/patent_hunt_weekly_latest.json`에 따로 둔다. 매일 실행이 그 결과를 붙여(`merge_weekly`, 8일 넘으면 버림) 심층·청구항·보도 판단 단계로 흘려보내되, 매일 출입처 완료 판정(`sourceWindowComplete`)에는 세지 않는다. 묶음 실행 날이 아니면 새 관측으로 다시 알리지 않는다. 법인명은 상표 감시가 확인한 특허고객 이름 — KG스틸·동국씨엠·LS MnM·DL케미칼·태광산업은 첫 실행의 rawTotal로 확인. 추가 호출은 주 13~16회(월 약 60회) 추정.
 
 ## 국회 법안(assembly_bills, 기자 전용)
 

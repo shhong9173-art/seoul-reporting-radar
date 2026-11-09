@@ -55,6 +55,28 @@ APPLICANTS={
  "한화솔루션":("한화솔루션주식회사","한화솔루션 주식회사"),
  "OCI":("오씨아이주식회사","오씨아이 주식회사"),
 }
+# 11-09: 출입처지만 매일 묻지 않는 곳 — 월요일에만 한 번(--weekly), 직전 주 묶음 결과 다음 날짜(겹침 2일)부터.
+# LG화학 등 석유화학·정유는 11-01 출입처가 됐지만 출원량이 커서 매일 넣으면 실행당 28회·월 650회 한도를 넘는다(그래서 빠져 있었다).
+# 이름은 상표 감시(data/trademark_watch.json)에서 KIPRIS로 확인한 특허고객 법인명과 같다. KG스틸·동국씨엠·LS MnM·DL케미칼·태광산업은
+# 첫 실행(rawTotal 대 matched)으로 확인한다 — 0이 이어지면 법인명을 다시 본다.
+WEEKLY_APPLICANTS={
+ "LG화학":("주식회사엘지화학","주식회사 엘지화학"),
+ "롯데케미칼":("롯데케미칼주식회사","롯데케미칼 주식회사"),
+ "금호석유화학":("금호석유화학주식회사","금호석유화학 주식회사"),
+ "S-OIL":("에쓰대시오일주식회사","에쓰대시오일 주식회사"),
+ "SK이노베이션":("에스케이이노베이션주식회사","에스케이이노베이션 주식회사"),
+ "HD현대오일뱅크":("에이치디현대오일뱅크주식회사","에이치디현대오일뱅크 주식회사"),
+ "GS칼텍스":("지에스칼텍스주식회사","지에스칼텍스 주식회사"),
+ "KG모빌리티":("케이지모빌리티주식회사","케이지모빌리티 주식회사"),
+ "KG스틸":("케이지스틸주식회사","케이지스틸 주식회사"),
+ "동국씨엠":("동국씨엠주식회사","동국씨엠 주식회사"),
+ "LS MnM":("엘에스엠앤엠주식회사","엘에스엠앤엠 주식회사"),
+ "DL케미칼":("디엘케미칼주식회사","디엘케미칼 주식회사"),
+ "태광산업":("태광산업주식회사","태광산업 주식회사"),
+}
+ALL_APPLICANTS={**APPLICANTS,**WEEKLY_APPLICANTS}
+WEEKLY_OUT="digests/patent_hunt_weekly_latest.json"
+WEEKLY_MAX_AGE_DAYS=8
 # Short, cross-company names are intentionally not queried unguarded.
 # Unlisted corporate aliases/renames require manual checking before addition.
 TERMS={
@@ -355,7 +377,7 @@ def retained_verified_publications(previous,companies,lower_bound,new_start):
         comp=row.get("company")
         number=row.get("publicationNumber")
         published=row.get("publicationDate")
-        if (comp not in companies or comp not in APPLICANTS or
+        if (comp not in companies or comp not in ALL_APPLICANTS or
             not isinstance(number,str) or not PATENT_NUMBER.fullmatch(number) or
             not isinstance(published,str) or not DATE8.fullmatch(published) or
             not lower_bound<=published<new_start or
@@ -364,7 +386,7 @@ def retained_verified_publications(previous,companies,lower_bound,new_start):
             row.get("lookupNumber")!=number or
             row.get("scoopConfirmed") is not False or
             not isinstance(row.get("applicants"),list) or
-            not applicant_matches("|".join(row["applicants"]),APPLICANTS[comp])):
+            not applicant_matches("|".join(row["applicants"]),ALL_APPLICANTS[comp])):
             continue
         ret.append({**row,"questions":public_fact_questions(number),
             "previouslyObserved":True,"freshObservation":False,
@@ -404,7 +426,7 @@ def build(key,previous=None,now=None,search=search_applicant,coverage=None,
             checks.append({"company":company,"status":"not_attempted_after_provider_error",
                            "errorType":"UpstreamProviderError"})
             continue
-        aliases=APPLICANTS.get(company)
+        aliases=ALL_APPLICANTS.get(company)
         if not aliases:
             checks.append({"company":company,"status":"unlisted_issuer"})
             continue
@@ -503,6 +525,49 @@ def build(key,previous=None,now=None,search=search_applicant,coverage=None,
 
 
 
+def merge_weekly(report,weekly,now=None):
+    """월요일 묶음(--weekly) 결과를 매일 결과에 붙인다 — 매일 출입처 완료 여부(sourceWindowComplete)에는 세지 않는다.
+    묶음 실행 날이 아니면 새 관측으로 다시 알리지 않는다(이전 검증 공보 유지). 8일 넘은 묶음·이름 안 맞는 줄·창 밖 공보는 버린다."""
+    now=now or datetime.now(KST)
+    if not isinstance(report,dict) or not isinstance(report.get("items"),list):
+        return report
+    info={"file":WEEKLY_OUT,"companies":len(WEEKLY_APPLICANTS),"merged":0}
+    try:
+        stamp=datetime.fromisoformat(str((weekly or {}).get("generatedAt")))
+        age=(now.date()-stamp.astimezone(KST).date()).days if stamp.utcoffset() is not None else None
+    except (TypeError,ValueError):
+        age=None
+    if not isinstance(weekly,dict) or age is None or not 0<=age<=WEEKLY_MAX_AGE_DAYS or not isinstance(weekly.get("items"),list):
+        report["weeklyGroup"]={**info,"status":"없음·오래됨 — 이 묶음 회사는 미확인(0건 아님)"}
+        return report
+    window=str(report.get("reportingWindow") or "").split("~")
+    have={(r.get("company"),r.get("publicationNumber")) for r in report["items"] if isinstance(r,dict)}
+    same_day=age==0
+    added=[]
+    for row in weekly["items"][:2000]:
+        if not isinstance(row,dict):continue
+        comp=row.get("company")
+        published=str(row.get("publicationDate") or "")
+        if (comp not in WEEKLY_APPLICANTS or (comp,row.get("publicationNumber")) in have or
+            not isinstance(row.get("applicants"),list) or
+            not applicant_matches("|".join(row["applicants"]),WEEKLY_APPLICANTS[comp]) or
+            len(window)!=2 or not window[0]<=published<=window[1]):
+            continue
+        out={**row,"weeklyGroup":True}
+        if not same_day:
+            out.update(freshObservation=False,reusedFromPriorVerifiedSnapshot=True,
+                       observationNote="월요일 묶음 결과 유지(이번 실행 신규 조회 아님)")
+        added.append(out)
+    report["items"]=sorted(report["items"]+added,key=lambda r:(-r.get("priorityScore",0),-int(r.get("publicationDate") or 0),str(r.get("company"))))
+    report["candidateCount"]=report["displayedCount"]=len(report["items"])
+    report["alertCount"]=sum(bool(r.get("freshObservation")) for r in report["items"])
+    checks=weekly.get("companyChecks") or []
+    report["weeklyGroup"]={**info,"generatedAt":weekly.get("generatedAt"),"merged":len(added),
+                           "checked":sum(1 for c in checks if isinstance(c,dict) and c.get("status")=="checked"),
+                           "status":("완료" if weekly.get("sourceWindowComplete") else "일부 미확인 — 실패한 회사는 0건 아님")}
+    return report
+
+
 def publication_diagnostics(report):
     """Public, secret-free capture diagnostics for incomplete issuer searches."""
     checks=report.get("companyChecks") or []
@@ -549,14 +614,18 @@ def save_publication_diagnostics(report,output=Path("digests/patent_source_statu
 
 def main():
     parser=argparse.ArgumentParser()
-    parser.add_argument("--out",default="digests/patent_hunt_latest.json")
+    parser.add_argument("--out",default=None)
+    parser.add_argument("--weekly",action="store_true",help="월요일 묶음: WEEKLY_APPLICANTS만 조회해 별도 파일에")
     parser.add_argument("--max-news",type=int,default=5)
     parser.add_argument("--force-provider-probe",action="store_true",
                         help="Manual only: bypass provider cooldown, NEVER limits")
     args=parser.parse_args()
     if not 0<=args.max_news<=10:
         parser.error("검색 건수는 0~10")
-    output=Path(args.out)
+    output=Path(args.out or (WEEKLY_OUT if args.weekly else "digests/patent_hunt_latest.json"))
+    names=list(WEEKLY_APPLICANTS) if args.weekly else None
+    status_out=Path("digests/patent_source_status_weekly_latest.json" if args.weekly else "digests/patent_source_status_latest.json")
+    group=WEEKLY_APPLICANTS if args.weekly else APPLICANTS
     previous=None
     if output.is_file():
         try:
@@ -566,10 +635,10 @@ def main():
     key=os.environ.get("KIPRIS_SERVICE_KEY","").strip()
     if not key:
         save_publication_diagnostics({"generatedAt":datetime.now(KST).isoformat(timespec="seconds"),
-                                      "applicantCount":len(APPLICANTS),
+                                      "applicantCount":len(group),
                                       "sourceWindowComplete":False,
                                       "companyChecks":[{"company":c,"status":"api_key_missing"}
-                                                       for c in APPLICANTS]})
+                                                       for c in group]},status_out)
         print("KIPRIS_SERVICE_KEY 미설정: 기존 공식 특허 데이터 파일 보존")
         raise SystemExit(2)
     # Safe account-independent ceiling; the official provider's actual usage
@@ -586,19 +655,19 @@ def main():
         # No network request; do not turn source failure into zero patents.
         save_publication_diagnostics({
             "generatedAt":datetime.now(KST).isoformat(timespec="seconds"),
-            "applicantCount":len(APPLICANTS),
+            "applicantCount":len(group),
             "sourceWindowComplete":False,
             "companyChecks":[{"company":name,"status":"provider_22_probe_cooldown",
                               "providerResultCode":"22",
                               "providerMessageCategory":meter.provider_message_category}
-                             for name in APPLICANTS],
-            "providerDiagnostics":meter.public()})
+                             for name in group],
+            "providerDiagnostics":meter.public()},status_out)
         meter.persist()
         ledger.persist()
         print("KIPRISPlus 제공기관 응답 22 재확인 대기: 공식 특허 이전 자료 보존")
         raise SystemExit(2)
     try:
-        report=build(key,previous=previous,news_limit=args.max_news,
+        report=build(key,previous=previous,news_limit=args.max_news,names=names,
                      search=lambda k,term,start,end:search_applicant(
                          k,term,start,end,fetch=meter.get))
         codes=[str(row.get("providerResultCode"))
@@ -615,10 +684,17 @@ def main():
         ledger.persist()
     report["providerDiagnostics"]=meter.public()
     report["kiprisAccountLedger"]=ledger.public()
-    save_publication_diagnostics(report)
+    save_publication_diagnostics(report,status_out)
     if key and not report.get("sourceWindowComplete"):
-        print("KIPRISPlus 24개 출입처 공식 검색에 오류·누락·페이지 절단 발생: 이전 검증 데이터 보존")
+        print(f"KIPRISPlus {len(group)}개 출입처{'(월요일 묶음)' if args.weekly else ''} 공식 검색에 오류·누락·페이지 절단 발생: 이전 검증 데이터 보존")
         raise SystemExit(2)
+    if not args.weekly:
+        # 월요일 묶음(석유화학·정유 등) 결과를 붙인다 — 매일 완료 판정과 별개, 묶음 실행 날이 아니면 새 관측으로 다시 알리지 않음
+        try:
+            weekly=json.loads(Path(WEEKLY_OUT).read_text(encoding="utf-8")) if Path(WEEKLY_OUT).is_file() else None
+        except (OSError,ValueError):
+            weekly=None
+        merge_weekly(report,weekly)
     output.parent.mkdir(parents=True,exist_ok=True)
     tmp=output.with_suffix(".json.tmp")
     tmp.write_text(json.dumps(report,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")

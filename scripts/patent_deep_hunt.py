@@ -22,7 +22,7 @@ from urllib.parse import urlencode
 
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/"scripts"))
-from patent_hunt import BASE,parse_response,request_xml,normalize,applicant_matches,APPLICANTS
+from patent_hunt import BASE,parse_response,request_xml,normalize,applicant_matches,ALL_APPLICANTS as APPLICANTS  # 월요일 묶음 회사 포함(11-09)
 from kipris_account_ledger import KiprisAccountLedger
 
 KST=timezone(timedelta(hours=9))
