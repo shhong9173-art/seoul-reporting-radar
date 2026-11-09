@@ -1,4 +1,5 @@
-"""유럽 상표 출원 대체 원천(Signa, 11-09) — EUIPO 운영 검색이 구독 승인 대기(403)로 막힌 동안 같은 회사·같은 창으로 읽는다.
+"""유럽·미국 상표 출원 원천(Signa, 11-09) — 유럽은 EUIPO 운영 검색이 구독 승인 대기(403)로 막힌 동안 대신, 미국(USPTO)은 이것만으로 읽는다
+(USPTO 직접 API는 ID.me 인증 실패, 11-01).
 
 - Signa는 EUIPO 등 상표청 자료를 매일 맞추는 2차 원천이다(약관 3.1: 불완전·부정확할 수 있음). 기사 전 EUIPO eSearch 원문 확인.
 - 검색: GET /v1/trademarks?owner_name=…&office=EM&filing_date_gte=…&sort=-filing_date&limit=100 — 한 쪽 10크레딧(무료 요금제 월 1,000).
@@ -10,6 +11,7 @@ from __future__ import annotations
 
 SEARCH_URL = "https://api.signa.so/v1/trademarks"
 SOURCE = "Signa(EUIPO 자료를 매일 맞추는 2차 원천)"
+SOURCES = {"EM": SOURCE, "US": "Signa(USPTO 자료를 매일 맞추는 2차 원천)"}
 PAGE_CREDITS = 10
 MIN_CREDITS = 30      # 남은 크레딧이 이보다 적으면 더 묻지 않는다(다음 달 초기화 전까지 미확인)
 
@@ -29,9 +31,9 @@ def _row(x):
             "filingRoute": x.get("filing_route")}
 
 
-def search(owner, since, *, key, get, limit=100):
+def search(owner, since, *, key, get, limit=100, office="EM"):
     """→ (rows, 남은 크레딧 또는 None, 다음 쪽 있음). HTTP 오류는 RuntimeError(상태 코드만)."""
-    r = get(SEARCH_URL, params={"owner_name": owner, "office": "EM", "filing_date_gte": since, "sort": "-filing_date", "limit": limit},
+    r = get(SEARCH_URL, params={"owner_name": owner, "office": office, "filing_date_gte": since, "sort": "-filing_date", "limit": limit},
             headers={"Authorization": f"Bearer {key}", "Accept": "application/json",
                      "User-Agent": "seoul-reporting-radar/1.0 (+https://github.com/shhong9173-art/seoul-reporting-radar)"}, timeout=60)
     left = None

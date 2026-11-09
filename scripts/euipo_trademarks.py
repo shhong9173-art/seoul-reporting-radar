@@ -18,6 +18,12 @@ import signa_trademarks as signa
 TOKEN_URL = "https://euipo.europa.eu/cas-server-webapp/oidc/accessToken"
 SEARCH_URL = "https://api.euipo.europa.eu/trademark-search/trademarks"
 SOURCE = "EUIPO Trademark Search(유럽연합 상표 출원)"
+# 관청별 표시(11-09: 미국은 Signa만으로 같은 규칙을 쓴다 — USPTO 직접 API는 ID.me 인증 실패)
+OFFICES = {"EM": {"source": SOURCE, "prefix": "euipo", "url": "https://euipo.europa.eu/eSearch/#details/trademarks/{no}"},
+           "US": {"source": "USPTO 상표 출원(Signa 경유)", "prefix": "uspto",
+                  "url": "https://tsdr.uspto.gov/#caseNumber={no}&caseType=SERIAL_NO&searchType=statusSearch"}}
+RICH_CREDITS = 3000   # 직전 남은 Signa 크레딧이 이 이상이면 회사별 조회 주기(signaEvery)를 무시하고 매주 다 본다
+
 KEEP = 300
 
 
@@ -60,7 +66,7 @@ def token(client_id, secret, post):
     return tok
 
 
-def run(cfg, previous, now, *, client_id, secret, post, get, only_unsettled=False, signa_key=None):
+def run(cfg, previous, now, *, client_id, secret, post, get, only_unsettled=False, signa_key=None, office="EM"):
     """cfg = trademark_watch.json의 euipo 칸. previous = 직전 문서의 eu 칸. only_unsettled면(평일 재시도) 직전이 정상인 회사는 그대로 둔다."""
     stamp = now.isoformat(timespec="seconds")
     prev = previous if isinstance(previous, dict) else {}
@@ -72,20 +78,32 @@ def run(cfg, previous, now, *, client_id, secret, post, get, only_unsettled=Fals
     industries = cfg.get("industries") or {}
     checks, fresh = [], []
     try:
-        tok = token(client_id, secret, post) if client_id and secret else None
-        tok_err = None if tok else "EUIPO_CLIENT_ID·SECRET 없음"
+        tok = token(client_id, secret, post) if client_id and secret and office == "EM" else None
+        tok_err = None if tok else ("EUIPO_CLIENT_ID·SECRET 없음" if office == "EM" else "SIGNA_API_KEY 없음")
     except Exception as e:  # noqa: BLE001
         tok, tok_err = None, str(e)[:60] or type(e).__name__
     blocked = None
     signa_left = None
+    meta = OFFICES[office]
+    # Signa 크레딧이 넉넉하면(가입 크레딧) 매주 다 보고, 모자라면 회사별 주기(signaEvery 주)대로 — 유럽·미국 출원이 드문 곳은 4주에 한 번
+    rich = not isinstance(prev.get("signaCreditsLeft"), int) or prev["signaCreditsLeft"] >= RICH_CREDITS
     for c in cfg.get("applicants") or []:
         name = c["company"]
         pc = prev_checks.get(name)
         if only_unsettled and pc and pc.get("status") == "ok":
             checks.append(pc)
             continue
+        every = int(c.get("signaEvery") or 1)
+        if not rich and every > 1 and pc and pc.get("status") == "ok" and pc.get("via") == "signa":
+            try:
+                age = (now - dt.datetime.fromisoformat(str(pc.get("checkedAt")))).days
+            except (TypeError, ValueError):
+                age = None
+            if age is not None and 0 <= age < every * 7 - 1:
+                checks.append({**pc, "carried": True})   # 이번 주는 안 묻고 직전 결과를 둔다(크레딧 아낌)
+                continue
         body, via, err = None, None, None
-        if tok and not blocked:
+        if tok and not blocked and office == "EM":
             try:
                 r = get(SEARCH_URL, params={"query": f'applicants.name=="{c["query"]}"', "size": int(cfg.get("size", 30)), "sort": "applicationDate:desc"},
                         headers={"Authorization": f"Bearer {tok}", "X-IBM-Client-Id": client_id, "Accept": "application/json"}, timeout=40)
@@ -103,7 +121,7 @@ def run(cfg, previous, now, *, client_id, secret, post, get, only_unsettled=Fals
                 checks.append({"company": name, "status": "waiting", "reason": f"Signa 크레딧 부족(남은 {signa_left}) — 다음 달 초기화 뒤", "via": "signa"})
                 continue
             try:
-                rows, signa_left, _more = signa.search(c["query"].strip("*"), since, key=signa_key, get=get)
+                rows, signa_left, _more = signa.search(c["query"].strip("*"), since, key=signa_key, get=get, office=office)
                 body, via = {"trademarks": rows, "totalElements": len(rows)}, "signa"
             except Exception as e:  # noqa: BLE001
                 checks.append({"company": name, "status": "failed", "error": str(e)[:60] or type(e).__name__, "via": "signa"})
@@ -134,7 +152,7 @@ def run(cfg, previous, now, *, client_id, secret, post, get, only_unsettled=Fals
             if not no or (day and day < since):
                 continue
             kept += 1
-            fid = f"euipo:{no}"
+            fid = f"{meta['prefix']}:{no}"
             mark = _mark(it)
             nt = re.sub(r"[\W_]+", "", mark.casefold())
             new = no not in seen.get(name, {})
@@ -153,14 +171,14 @@ def run(cfg, previous, now, *, client_id, secret, post, get, only_unsettled=Fals
                  "applicants": apps[:3], "firstSeen": stamp, "isNew": is_new, "baseline": first_read,
                  "titleNew": is_new and title_new,
                  "tier": ("B" if title_new and core & set(classes) else "C") if is_new else None,
-                 "url": f"https://euipo.europa.eu/eSearch/#details/trademarks/{no}",
+                 "url": meta["url"].format(no=no),
                  **({"via": "signa"} if via == "signa" else {}),
                  **({"route": "마드리드 지정"} if str(it.get("filingRoute") or "").startswith("madrid") else {})}
             old[fid] = f
             if is_new:
                 fresh.append(fid)
         checks.append({"company": name, "status": "ok", "query": c["query"], "rawTotal": body.get("totalElements"), "read": len(rows),
-                       "kept": kept, "via": via, **({"otherApplicants": other} if other else {}), **({"baseline": True} if first_read else {})})
+                       "kept": kept, "via": via, "checkedAt": stamp, **({"otherApplicants": other} if other else {}), **({"baseline": True} if first_read else {})})
     keep_from = (now.date() - dt.timedelta(days=int(cfg.get("keepDays", 180)))).isoformat()
     filings = sorted((f for f in old.values() if f.get("firstSeen", "")[:10] >= keep_from or (f.get("applicationDate") or "") >= keep_from),
                      key=lambda f: (f.get("firstSeen", ""), f.get("applicationDate", "")), reverse=True)[:KEEP]
@@ -169,8 +187,10 @@ def run(cfg, previous, now, *, client_id, secret, post, get, only_unsettled=Fals
     status = ("unset" if checks and all(c["status"] == "unset" for c in checks) else "complete" if ok == len(checks) and ok
               else "waiting" if waiting and not ok else "failed" if not ok else "partial")
     via_signa = sum(1 for c in checks if c.get("via") == "signa" and c["status"] == "ok")
-    return {"source": SOURCE, "generatedAt": stamp, "status": status, "window": {"from": since, "to": now.date().isoformat()},
+    return {"source": meta["source"], "office": office, "generatedAt": stamp, "status": status, "window": {"from": since, "to": now.date().isoformat()},
             "baselineSince": prev.get("baselineSince") or (stamp if ok else None), "checks": checks, "filings": filings,
             "fresh": fresh, "seen": seen, "titles": {k: dict(list(v.items())[-2000:]) for k, v in titles.items()},
             **({"blocked": blocked} if blocked else {}),
-            **({"provider": "signa", "providerNote": signa.SOURCE, "signaCreditsLeft": signa_left} if via_signa else {})}
+            **({"provider": "signa", "providerNote": signa.SOURCES.get(office, signa.SOURCE),
+                "signaCreditsLeft": signa_left if signa_left is not None else prev.get("signaCreditsLeft")} if via_signa else {}),
+            **({"carried": [c["company"] for c in checks if c.get("carried")]} if any(c.get("carried") for c in checks) else {})}

@@ -177,6 +177,45 @@ class Euipo(unittest.TestCase):
         doc = eu.run(CFG_SIGNA, None, NOW, client_id="", secret="", post=bad.post, get=bad.get)
         self.assertEqual(doc["status"], "unset")
 
+    def test_us_office_reads_signa_only(self):
+        # 11-09: 미국(USPTO)은 직접 API가 막혀(ID.me) Signa로만 — EUIPO 토큰·검색은 부르지 않는다
+        f = SignaFake({"Hyundai Motor Company": [sg("50141613", "GENESIS BOX BUGGY", "2026-10-02", [28], who="HYUNDAI MOTOR COMPANY")],
+                       "POSCO": [sg("79455640", "POSCLESS", "2026-09-26", [6], who="POSCO Co., Ltd", route="madrid_extension"),
+                                 sg("99742964", "AGENTEE", "2026-08-03", [9], who="POSCO DX COMPANY LTD.")]})
+        doc = eu.run({**CFG_SIGNA, "applicants": [CFG_SIGNA["applicants"][0], {**CFG_SIGNA["applicants"][1], "exclude": "Future\\s*M|International|DX"}]},
+                     None, NOW, client_id="", secret="", post=f.post, get=f.get, signa_key="K", office="US")
+        self.assertEqual(f.euipo, [])
+        self.assertEqual({p["office"] for p in f.signa_params}, {"US"})
+        self.assertEqual((doc["office"], doc["source"], doc["provider"]), ("US", "USPTO 상표 출원(Signa 경유)", "signa"))
+        self.assertIn("USPTO", doc["providerNote"])
+        by = {x["applicationNumber"]: x for x in doc["filings"]}
+        self.assertEqual(sorted(by), ["50141613", "79455640"])                          # 포스코DX는 거름
+        self.assertEqual(by["50141613"]["id"], "uspto:50141613")
+        self.assertIn("tsdr.uspto.gov/#caseNumber=50141613", by["50141613"]["url"])
+        self.assertEqual(by["79455640"]["route"], "마드리드 지정")
+        self.assertNotIn("blocked", doc)
+        doc = eu.run(CFG_SIGNA, None, NOW, client_id="", secret="", post=f.post, get=f.get, office="US")
+        self.assertEqual((doc["status"], doc["checks"][0]["error"]), ("unset", "SIGNA_API_KEY 없음"))
+
+    def test_cadence_only_when_credits_run_low(self):
+        cfg = {**CFG_SIGNA, "applicants": [{**CFG_SIGNA["applicants"][0], "signaEvery": 1}, {**CFG_SIGNA["applicants"][1], "signaEvery": 4}]}
+        week_ago = (NOW - dt.timedelta(days=7)).isoformat(timespec="seconds")
+        prev = {"signaCreditsLeft": 900, "checks": [{"company": "현대자동차", "status": "ok", "via": "signa", "checkedAt": week_ago},
+                                                    {"company": "포스코", "status": "ok", "via": "signa", "checkedAt": week_ago, "kept": 1}]}
+        f = SignaFake({})
+        doc = eu.run(cfg, prev, NOW, client_id="", secret="", post=f.post, get=f.get, signa_key="K", office="US")
+        self.assertEqual(f.signa, ["Hyundai Motor Company"])                          # 포스코는 4주 주기 — 이번 주 안 물음
+        self.assertEqual(doc["carried"], ["포스코"])
+        self.assertEqual(next(c for c in doc["checks"] if c["company"] == "포스코")["checkedAt"], week_ago)   # 직전 확인 시각 그대로
+        rich = SignaFake({})
+        eu.run(cfg, {**prev, "signaCreditsLeft": 5000}, NOW, client_id="", secret="", post=rich.post, get=rich.get, signa_key="K", office="US")
+        self.assertEqual(rich.signa, ["Hyundai Motor Company", "POSCO"])              # 크레딧이 넉넉하면 매주 다
+        old = SignaFake({})
+        month_ago = (NOW - dt.timedelta(days=28)).isoformat(timespec="seconds")
+        eu.run(cfg, {**prev, "checks": [dict(c, checkedAt=month_ago) for c in prev["checks"]]}, NOW, client_id="", secret="", post=old.post, get=old.get,
+               signa_key="K", office="US")
+        self.assertEqual(old.signa, ["Hyundai Motor Company", "POSCO"])               # 4주 지나면 다시
+
     def test_euipo_wins_when_approved(self):
         f = SignaFake({}, euipo_rows={"Hyundai Motor Company": [tm("019000001", "PLEOS", "2026-09-10", [9, 12])]})
         doc = eu.run(CFG_SIGNA, None, NOW, client_id="C", secret="S", post=f.post, get=f.get, signa_key="K")

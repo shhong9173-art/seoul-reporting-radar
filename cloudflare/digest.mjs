@@ -1119,6 +1119,15 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
       url: f.url, check: hint(f.company, ['상표', f.title]) });
   }
 
+  // 미국 상표 출원(USPTO, Signa 경유 — 11-09, 같은 실행의 'us' 칸): 유럽과 같은 등급
+  for (const f of docs.trademarks?.us?.filings ?? []) {
+    if (!f.isNew) continue;
+    if (!all && !(Date.parse(f.firstSeen) >= Math.min(cut, now - 7 * 86400000))) continue;
+    push(f.tier === 'B' ? 'B' : 'C', W.trademarks, { kind: f.titleNew ? '미국 상표 새 이름' : '미국 상표 출원', id: f.id, date: f.applicationDate, company: f.company,
+      fact: `미국(USPTO) 상표 출원 「${f.title}」 ${(f.classes ?? []).map(classLabel).join(', ')}${f.titleNew ? ' — 감시 시작 이후 처음 보는 이름' : ''} (출원 ${f.applicationDate || '?'}${f.route ? `(${f.route})` : ''}, 일련번호 ${f.applicationNumber}, 출원인 ${(f.applicants ?? [])[0] ?? '?'}) · Signa 2차 자료 — USPTO TSDR 원문 확인`,
+      url: f.url, check: hint(f.company, ['상표', f.title]) });
+  }
+
   const ab = docs['assembly-bills'];
   for (const g of groupBillEvents(ab, { all: true })) {
     if (!recent(g.detectedAt)) continue;
