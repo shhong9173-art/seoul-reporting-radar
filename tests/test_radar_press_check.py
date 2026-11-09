@@ -172,6 +172,25 @@ class Run(unittest.TestCase):
             again = rpc.run(ITEMS[:1], now=NOW + dt.timedelta(hours=10), previous=doc, older=[pipe], get=channels({}), sleep=lambda s: None)
         self.assertEqual(again["rechecked"], 0)                                        # 한 번 다시 본 뒤에는 질의가 같아 안 봄
 
+    def test_evidence_titles_get_number_match_with_the_item(self):
+        # 11-09: '관련 보도 있음' 근거 기사 제목의 숫자가 항목 숫자와 같은지 — 같은 사건인지 가르는 근거(판정은 안 바꿈)
+        pipe = {"tier": "B", "watch": "무역구제", "id": "fr:2026-22630", "date": "2026-10-27", "company": "현대제철",
+                "fact": "미국 관보 최종 판정: Circular Welded Pipe · 반덤핑 세율(관보 표): 현대제철 4.20%(직전 최종 0.00%·예비 4.19%)",
+                "check": {"who": "현대제철", "terms": ["관세", "판정"], "must": ["강관"], "alts": {"관세": ["관세", "반덤핑"], "판정": ["판정", "확정"]}}}
+        news = [article("[미르의 글로벌 레이더] 현대제철 강관 반덤핑 예비 4.19% 판정 뒤 최종", "2026-10-27"),
+                article("[단독] 美, 현대제철 강관 반덤핑 4.20% 확정…휴스틸은 0%", "2026-10-27"),
+                article("현대제철 강관 반덤핑 관세 확정 소식", "2026-10-27")]
+        with patch.dict(os.environ, {"NAVER_CLIENT_ID": "i", "NAVER_CLIENT_SECRET": "k"}):
+            doc = rpc.run([pipe], now=NOW, get=channels({"강관": news}), sleep=lambda s: None)
+        row = doc["items"][0]
+        self.assertEqual(row["verdict"], "관련 보도 있음")
+        ev = row["evidence"]
+        self.assertEqual(ev[0]["title"], "[단독] 美, 현대제철 강관 반덤핑 4.20% 확정…휴스틸은 0%")   # 숫자까지 같은 기사 먼저
+        self.assertEqual(ev[0]["numbers"], {"article": ["4.20%"], "found": ["4.20%"]})
+        prelim = next(e for e in ev if "4.19%" in e["title"])
+        self.assertEqual(prelim["numbers"], {"article": ["4.19%"], "found": []})               # 예비 숫자는 항목의 '직전·예비' 괄호라 안 셈
+        self.assertNotIn("numbers", next(e for e in ev if e["title"] == "현대제철 강관 반덤핑 관세 확정 소식"))   # 제목에 숫자 없음
+
     def test_recheck_limit(self):
         olds = [{"tier": "B", "watch": "무역구제", "id": f"fr:{i}", "date": "2026-10-20", "company": "현대제철", "fact": "x",
                  "check": {"who": "현대제철", "terms": ["관세", "판정"]}} for i in range(12)]

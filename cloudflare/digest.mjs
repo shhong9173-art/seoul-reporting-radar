@@ -1185,8 +1185,16 @@ export function pressLines(r, stamp, docAt) {
   const shown = [...ev.filter((e) => !e.before).slice(0, 2), ...ev.filter((e) => e.before).slice(0, 1)];
   // 다시 본 항목은 그 뒤 실행에서 또 보지 않는다 — 두 표시를 한 줄로(11-09 13:10: '다시 봄 · 다시 안 봄'이 함께 떠 헷갈림)
   const again = r.recheck ? (old ? ` · 대조 규칙이 바뀌어 72시간 지난 뒤 ${own}에 한 번 다시 봄(그 뒤로는 범위 밖)` : ' · 대조 규칙이 바뀌어 72시간 지난 뒤 다시 봄') : '';
-  return [`   보도 대조(자동 ${own}): ${r.verdict}${tail}${was}${again}${stale}`,
-    ...shown.map((e) => `     ↳ ${e.date ?? '날짜?'} [${e.channel}] ${e.title}${e.url ? ` ${e.url}` : ''}${evidenceNote(e, r.verdict)}`)];
+  // 근거 기사 제목 숫자가 항목 숫자와 같은지(11-09, scoop_screen.title_numbers) — 같은 사건인지 가르는 근거, 판정은 그대로
+  const sameNum = ev.filter((e) => !e.before && e.numbers?.found?.length).length;
+  const numSum = r.verdict === '관련 보도 있음' && sameNum ? ` · 제목 숫자까지 항목과 같은 기사 ${sameNum}건 — 같은 사건일 가능성 높음` : '';
+  return [`   보도 대조(자동 ${own}): ${r.verdict}${tail}${was}${numSum}${again}${stale}`,
+    ...shown.map((e) => `     ↳ ${e.date ?? '날짜?'} [${e.channel}] ${e.title}${e.url ? ` ${e.url}` : ''}${evidenceNote(e, r.verdict)}${numberNote(e)}`)];
+}
+function numberNote(e) {
+  const n = e.numbers;
+  if (!n?.article?.length) return '';
+  return n.found?.length ? ` (숫자 ${n.found.join('·')} 항목과 같음)` : ` (숫자 ${n.article.join('·')} — 항목 숫자와 다름, 다른 건일 수 있음)`;
 }
 // 근거 줄 꼬리표. 미보도 후보에 붙은 근거는 모두 판정에 안 센 약한 근거다 — 꼬리표가 없으면 뒷받침 기사로 읽힌다
 // (10-31 운영: 퍼스트솔라 10-Q 항목에 「한화솔루션, ESS·태양전지 특허 폭증」이 꼬리표 없이 붙었다 — 퍼스트솔라 없음).

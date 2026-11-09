@@ -2270,6 +2270,14 @@ test('radar-items hands hinted A/B items to the press checker; radar_today shows
     const line = pressLines({ verdict: '관련 보도 있음', queries: ['현대제철 강관 관세'], evidence: [], checkedAt: '2026-11-09T11:02:00+09:00', recheck: true },
       '11-09 12:50', '2026-11-09T12:50:00+09:00')[0];
     assert.match(line, /보도 대조\(자동 11-09 11:02\): 관련 보도 있음 — "현대제철 강관 관세" · 대조 규칙이 바뀌어 72시간 지난 뒤 11-09 11:02에 한 번 다시 봄\(그 뒤로는 범위 밖\)$/);
+    // 근거 기사 제목 숫자가 항목 숫자와 같은지(11-09)
+    const lines = pressLines({ verdict: '관련 보도 있음', queries: ['현대제철 강관 관세'], checkedAt: '2026-11-09T12:50:00+09:00', evidence: [
+      { date: '2026-11-05', channel: 'naver', title: '[단독] 美, 현대제철 강관 반덤핑 4.20% 확정', url: 'https://a', numbers: { article: ['4.20%'], found: ['4.20%'] } },
+      { date: '2026-11-05', channel: 'naver', title: '현대제철 강관 예비 4.19%', url: 'https://b', numbers: { article: ['4.19%'], found: [] } }] },
+    '11-09 12:50', '2026-11-09T12:50:00+09:00');
+    assert.match(lines[0], / · 제목 숫자까지 항목과 같은 기사 1건 — 같은 사건일 가능성 높음$/);
+    assert.match(lines[1], /4\.20% 확정 https:\/\/a \(숫자 4\.20% 항목과 같음\)$/);
+    assert.match(lines[2], /예비 4\.19% https:\/\/b \(숫자 4\.19% — 항목 숫자와 다름, 다른 건일 수 있음\)$/);
   }
   // 이번 실행에서 다시 대조하지 않은 항목(11-09 강관 관보): 자기 대조 시각과 '다시 안 봄'
   assert.match(a, /보도 대조\(자동 10-23 12:50\): 미확인 — 채널 naver failed\(ConnectTimeout\)\(0건 아님\) · 그 뒤 대조에서는 다시 안 봄\(최근 72시간 범위 밖 등\) — 질의·판정은 10-23 12:50 것/);
