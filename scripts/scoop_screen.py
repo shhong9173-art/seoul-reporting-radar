@@ -607,6 +607,12 @@ def queries(c):
         qs.append(f"{names[-1]} {t[0]}")
     if len(t) > 1:
         qs.append(f"{a} {t[0]} {t[1]}")
+    # 필수 낱말(품목·사업장 지명·공시 회사)이 질의에 없으면 마지막 질의로 넣는다 — 빙·구글은 마지막 질의만 쓴다.
+    # 11-09: 강관 관보 최종(현대제철 4.20%)은 '현대제철 관세'로만 찾아 실제 보도 「美, 현대제철 강관 반덤핑 4.20% 확정」 대신
+    # 품목 없는 관세 일반 기사가 걸렸다(필수 낱말은 걸러 내기에만 쓰였다).
+    must = [m for m in c.get("must") or [] if m]
+    if must and not any(must[0] in q for q in qs):
+        qs.append(f"{a} {must[0]} {t[0]}")
     return qs
 
 

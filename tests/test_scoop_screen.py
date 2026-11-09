@@ -54,6 +54,10 @@ class EnglishTradeTitles(unittest.TestCase):
                          "source": "OVERSEAS", "tier": "취재 단서·단독 미확정"})
         self.assertEqual(c["terms"][:3], ["상계관세", "열연", "연례재심"])
         self.assertEqual(s.queries(c), ["포스코 상계관세", "포스코 상계관세 열연"])
+        # 레이더 항목의 필수 낱말(품목)이 질의에 없으면 마지막 질의로 — 빙·구글은 마지막 질의만 쓴다(11-09 강관 관보 최종)
+        pipe = {"company": "현대제철", "terms": ["관세", "판정"], "must": ["강관"]}
+        self.assertEqual(s.queries(pipe), ["현대제철 관세", "현대제철 관세 판정", "현대제철 강관 관세"])
+        self.assertEqual(s.queries({"company": "기아", "terms": ["쏘렌토", "리콜"], "must": ["쏘렌토"]}), ["기아 쏘렌토", "기아 쏘렌토 리콜"])
         self.assertNotIn("명시적", c["terms"])
         self.assertEqual(s.terms_from("Large Power Transformers From the Republic of Korea: Preliminary Results of Antidumping "
                                       "Duty Administrative Review", "HD현대일렉트릭")[:2], ["반덤핑", "변압기"])
