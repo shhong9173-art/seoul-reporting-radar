@@ -278,17 +278,30 @@ class Capture(unittest.TestCase):
         # 관보 다음에 본 단서(세율 없음)보다 숫자까지 같은 관보 항목을 고른다
         items.append(r.mem("clues", "clue:pipe", ["현대제철"], "Circular Welded Non-Alloy Steel Pipe From the Republic of Korea: Final Results duty", "2026-11-05T01:00:00+09:00"))
         v, best, _ = r.match({"title": "[단독] 美, 현대제철 강관 반덤핑 4.20% 확정…휴스틸은 0%", "companies": ["현대제철"], "published": "2026-11-05T08:35:00+09:00"}, items)
-        self.assertEqual((v, best["id"], best["numbers"]), ("먼저 잡은 후보", "fr:2026-22630", {"article": ["4.20%"], "found": ["4.20%"]}))
+        self.assertEqual((v, best["id"], best["numbers"]), ("먼저 잡은 후보", "fr:2026-22630", {"article": ["4.20%"], "found": ["4.20%"], "comparable": True}))
         v, best, _ = r.match({"title": "[단독] 美 도금강판 관세 70%대 위협…동국씨엠·KG스틸, 법적 대응 저울질", "companies": ["KG스틸"], "published": "2026-10-30T05:00:00+09:00"}, items)
-        self.assertEqual((v, best["numbers"]), ("먼저 잡은 후보", {"article": ["70%대"], "found": []}))
+        self.assertEqual((v, best["numbers"]), ("먼저 잡은 후보", {"article": ["70%대"], "found": [], "comparable": True}))
+        # 기사보다 늦게 본 관보 항목은 후보가 못 되지만, 먼저 본 단서가 같은 문서(관보 번호)를 가리키면 그 글의 세율로 숫자를 본다
+        late = r.memory({"trade-remedy": {"federalRegister": [dict(docs["trade-remedy"]["federalRegister"][0], firstSeen="2026-11-05T09:00:00+09:00",
+                                                                    url="https://www.federalregister.gov/documents/2026/11/05/2026-22630/circular-welded")]}}, {})
+        clue = r.mem("clues", "clue:pipe", ["현대제철"], "Circular Welded Non-Alloy Steel Pipe From the Republic of Korea: Final Results duty", "2026-11-05T00:00:00+09:00",
+                     "https://www.federalregister.gov/d/2026-22630")
+        v, best, _ = r.match({"title": "[단독] 美, 현대제철 강관 반덤핑 4.20% 확정", "companies": ["현대제철"], "published": "2026-11-05T08:35:00+09:00"}, late + [clue])
+        self.assertEqual((v, best["id"], best["numbers"]["found"]), ("먼저 잡은 후보", "clue:pipe", ["4.20%"]))
+        v, best, _ = r.match({"title": "[단독] 美, 현대제철 강관 반덤핑 4.20% 확정", "companies": ["현대제철"], "published": "2026-11-05T08:35:00+09:00"},
+                             [dict(clue, url=None)])
+        self.assertEqual(best["numbers"], {"article": ["4.20%"], "found": [], "comparable": False})     # 세율 없는 글 — 비교 못 함
         v, best, _ = r.match({"title": "[단독] 포스코, 美 변압기 관세 정산 보류", "companies": ["현대제철"], "published": "2026-11-05T08:35:00+09:00"}, items)
         self.assertNotIn("numbers", best or {})                                     # 기사 제목에 숫자가 없으면 안 붙임
 
     def test_numbers_in(self):
         self.assertEqual([x[2] for x in r.numbers_in("1조2000억원 투자·3500억·504MW·휴스틸 0%")], ["1조2000억원", "3500억", "504MW"])
-        self.assertEqual(r.same_numbers("3000억대 증설", "투자 3,450억원"), (["3000억대"], ["3000억대"]))
-        self.assertEqual(r.same_numbers("강관 4.2%", "duty 4.20%"), (["4.2%"], ["4.2%"]))
-        self.assertEqual(r.same_numbers("관세 70%대", "duty 80.10%"), (["70%대"], []))
+        self.assertEqual(r.same_numbers("3000억대 증설", "투자 3,450억원"), (["3000억대"], ["3000억대"], True))
+        self.assertEqual(r.same_numbers("강관 4.2%", "duty 4.20%"), (["4.2%"], ["4.2%"], True))
+        self.assertEqual(r.same_numbers("관세 70%대", "duty 80.10%"), (["70%대"], [], True))
+        self.assertEqual(r.same_numbers("관세 70%대", "투자 3,450억원"), (["70%대"], [], False))
+        self.assertEqual(r.doc_key("https://www.federalregister.gov/documents/2026/11/05/2026-22630/circular"), "fr:2026-22630")
+        self.assertEqual(r.doc_key("https://www.federalregister.gov/d/2026-22630"), "fr:2026-22630")
 
 class Places(unittest.TestCase):
     """11-04 기자 기사 대조: 장소 있는 항목은 기사 제목에 같은 지역 이름이 있어야 '먼저 잡은 후보'."""

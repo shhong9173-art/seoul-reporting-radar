@@ -319,8 +319,10 @@ export const PRODUCT_KO = [
 export function reverseNumbersNote(best) {
   const n = best?.numbers;
   if (!n?.article?.length) return '';
-  return n.found?.length ? ` · 기사 숫자 ${n.found.join('·')} 레이더 원문에도 있음`
-    : ` · 기사 숫자 ${n.article.join('·')} 레이더 원문엔 없음 — 같은 분야 다른 사실일 수 있음`;
+  if (n.found?.length) return ` · 기사 숫자 ${n.found.join('·')} 레이더 원문에도 있음`;
+  // 레이더 글에 같은 단위 숫자가 없으면 '다름'이 아니라 비교 못 함(11-09: 세율 없는 단서 글 ↔ 강관 4.20%)
+  if (n.comparable === false) return ` · 기사 숫자 ${n.article.join('·')} — 레이더 글에 비교할 숫자 없음(원문에서 확인)`;
+  return ` · 기사 숫자 ${n.article.join('·')} 레이더 원문 숫자와 다름 — 같은 분야 다른 사실일 수 있음`;
 }
 export function productKo(title) {
   const p = productOf(title);
@@ -653,7 +655,8 @@ export async function scoopReverse(ctx, args) {
   const numTally = (rs) => {
     const w = rs.filter((x) => x.verdict === '먼저 잡은 후보' && x.best?.numbers?.article?.length);
     const same = w.filter((x) => x.best.numbers.found?.length).length;
-    return w.length ? `(기사 숫자가 레이더 원문에도 있음 ${same} · 없음 ${w.length - same})` : '';
+    const blind = w.filter((x) => !x.best.numbers.found?.length && x.best.numbers.comparable === false).length;
+    return w.length ? `(기사 숫자가 레이더 원문에도 있음 ${same} · 다름 ${w.length - same - blind}${blind ? ` · 비교 못 함 ${blind}` : ''})` : '';
   };
   const by = {};
   for (const x of rows) if (x.verdict === '먼저 잡은 후보') (by[x.best.label] ??= []).push(x.best.leadHours);
