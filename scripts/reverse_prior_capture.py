@@ -74,7 +74,9 @@ CONCEPTS = [
     ("건축·증설", r"증설|신설|착공|짓는다|짓기로|신축|증축|새 공장", r"건축허가|신축|증축"),
     ("회생·파산", r"회생|파산|법정관리|부도|워크아웃", r"회생|파산|포괄적 금지명령"),
     ("허가·원전", r"허가|원전|원자력|발전사업|해상풍력|계속운전|원안위", r"허가|원자력|발전사업|해상풍력|계속운전|원안의결|심의"),
-    ("법인 설립", r"법인|현지법인|자회사|설립", r"법인 설립|incorporat|Companies House|LIMITED|LTD"),
+    # 11-09: 영문 회사 이름 끝의 Ltd.가 법인 설립으로 잡혔다(LS전선 누리이음 자회사 [단독] ↔ 노동위 'LS Cable & System Ltd.' 재심 사건).
+    # 영국 법인 등기 항목은 글에 '법인 설립 Companies House'가 있어 LIMITED·LTD 없이도 맞는다.
+    ("법인 설립", r"법인|현지법인|자회사|설립", r"법인 설립|incorporat|Companies House"),
     # 11-04: 「주주가치 높인다며 산 자사주…KG스틸, 임직원 보상에 쓴다」가 자기주식 처분 결정과 '자사주' 한 낱말만 겹쳐 '같은 회사 항목만'이었다
     ("자사주·주주환원", r"자사주|자기주식|주주환원|주식\s*소각|주주가치", r"자기주식|자사주|treasury|share buyback|소각"),
     ("인력·고용", r"인력|감원|희망퇴직|구조조정|채용|고용|직원|인원|감축", r"국민연금 가입자|인력 감소|인력 증가|취득|상실"),
@@ -109,6 +111,9 @@ SPECIFICS = [("강관", r"강관", r"\bpipe|tube|tubular"), ("후판", r"후판"
              ("탄소배출권", r"탄소배출권|배출권", r"\bKAUs?\b|K-?ETS|emission (?:permit|allowance)"), ("전기요금", r"전기요금|전력요금", r"electricity"),
              ("특별시장상황", r"특별시장상황|PMS", r"particular market situation")]
 SPECIFIC_RX = [(name, re.compile(ko), re.compile(en, re.I)) for name, ko, en in SPECIFICS]
+# 회사 이름 속 품목 낱말은 사건 낱말이 아니다(11-09: 기사 'LS전선'의 전선 ↔ 항목 'LS Cable & System'의 cable로 '먼저'가 됨).
+# 기사 쪽은 그 기사의 회사 이름을 지운 제목, 항목 쪽은 아래 영문 회사 이름을 지운 글로 품목을 맞춘다.
+EN_COMPANY = re.compile(r"LS\s*Cable(?:\s*&\s*System)?|Taihan\s*Cable|(?:Kumho|Hankook|Nexen)\s*Tires?", re.I)
 NOT_COMPANY = [("제네시스", re.compile(r"제네시스\s*(?:PE|프라이빗|자산운용|랩)"))]   # 사모펀드 제네시스PE는 제네시스(현대차) 아님
 GENERIC_WORDS = {"공장", "배터리", "미국", "생산", "가격", "투자", "계약", "중국", "한국", "글로벌", "사업", "신규"}
 # 장소가 있는 항목(건축허가·굴뚝·지자체 공고·국민연금 현장·공장등록·지방의회·미국 주 환경·OSHA)은 기사 제목에 같은 지역 이름이
@@ -445,6 +450,9 @@ def match(article, items):
     if not pub or not comps:
         return "회사 미상", None, 0
     concepts = {name for name, ko, _ in CONCEPTS if re.search(ko, title)}
+    bare = title
+    for c in sorted({*(article.get("companies") or []), *comps}, key=len, reverse=True):
+        bare = bare.replace(c, " ")
     words = nouns(title) - comps
     same = [m for m in items if comps & set(m["companies"]) and pub - dt.timedelta(days=LOOKBACK_DAYS) <= m["seen"] < pub]
     tplaces = places_in(title)
@@ -460,7 +468,7 @@ def match(article, items):
             hit_c.remove("소송·판결")
         # 사건 낱말로 이미 센 단어·흔한 단어는 따로 세지 않는다
         hit_w = sorted(w for w in words - concept_words - GENERIC_WORDS if w in m["text"])
-        hit_s = sorted(name for name, ko, en in SPECIFIC_RX if ko.search(title) and en.search(m["text"]) and name not in hit_w)
+        hit_s = sorted(name for name, ko, en in SPECIFIC_RX if ko.search(bare) and en.search(EN_COMPANY.sub(" ", m["text"])) and name not in hit_w)
         score = sum(1 if c in WEAK_CONCEPTS else 2 for c in hit_c) + len(hit_w) + len(hit_s)
         # 판결 기사 ↔ 먼저 본 판결 항목은 같은 사건 근거로 센다(위에서 판결 아닌 소송 접수는 이미 뺐다)
         ruling = "소송·판결" in hit_c and bool(RULING_TITLE.search(title))
