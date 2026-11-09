@@ -22,6 +22,10 @@ import scoop_screen as ss  # noqa: E402
 SCHEMA = "radar_check/v1"
 HOURS = 72
 MAX_ITEMS = 40
+# 11-09: 72시간이 지난 항목은 다시 대조하지 않아, 대조 규칙(질의)이 바뀐 뒤에도 옛 결과가 남았다(11-05 강관 관보가 품목 없는
+# '현대제철 관세' 결과 그대로). 7일(Worker 최대) 안 항목 중 지난 대조 때 질의와 지금 질의가 다른 것만 실행마다 몇 건씩 한 번 더 본다.
+RECHECK_HOURS = 168
+RECHECK_MAX = 8
 LEAD_DAYS = 3
 KEEP_DAYS = 14
 # Words that cannot mark a story on their own (a headline needs another event word with the company).
@@ -72,8 +76,21 @@ def candidates(items, *, now, limit=MAX_ITEMS):
     return (a + b)[:limit]
 
 
-def run(items, *, now, previous=None, get=None, sleep=time.sleep):
+def rechecks(older, recent_ids, previous, *, now, limit=RECHECK_MAX):
+    """대조 범위(72시간)를 지난 항목 중 이미 대조한 적 있고, 그때 질의와 지금 질의가 다른 것(대조 규칙이 바뀜) — A 먼저, 최근 먼저."""
+    prev = {str(r.get("id")): r for r in (previous or {}).get("items", []) if isinstance(r, dict)}
+    out = []
+    for r in candidates([x for x in older or [] if str(x.get("id")) not in recent_ids], now=now, limit=len(older or [])):
+        old = prev.get(r["id"])
+        if old is None or list(old.get("queries") or []) == ss.queries(r):
+            continue   # 대조한 적 없는 오래된 항목은 새로 보지 않는다 · 규칙이 같으면 결과도 같다
+        out.append({**r, "recheck": True})
+    return out[:limit]
+
+
+def run(items, *, now, previous=None, get=None, sleep=time.sleep, older=None):
     cands = candidates(items, now=now)
+    cands += rechecks(older, {str(x.get("id")) for x in items}, previous, now=now)
     rows = ss.screen(cands, now=now, get=get, sleep=sleep)
     stamp = now.isoformat(timespec="seconds")
     prev = {str(r.get("id")): r for r in (previous or {}).get("items", []) if isinstance(r, dict)}
@@ -83,14 +100,15 @@ def run(items, *, now, previous=None, get=None, sleep=time.sleep):
         out.append({"id": r["id"], "tier": r["tier"], "watch": r["watch"], "who": r["company"], "terms": r["terms"],
                     "since": r["since"], "queries": r["queries"], "verdict": r["verdict"], "evidence": r["evidence"],
                     "channels": r["channels"], "checkedAt": stamp,
-                    "firstVerdict": old.get("firstVerdict") or r["verdict"], "firstCheckedAt": old.get("firstCheckedAt") or stamp})
+                    "firstVerdict": old.get("firstVerdict") or r["verdict"], "firstCheckedAt": old.get("firstCheckedAt") or stamp,
+                    **({"recheck": True, "prevQueries": old.get("queries")} if r.get("recheck") else {})})
     have = {r["id"] for r in out}
     keep_from = (now - dt.timedelta(days=KEEP_DAYS)).isoformat(timespec="seconds")
     out += [r for i, r in prev.items() if i not in have and str(r.get("checkedAt") or "") >= keep_from]
     counts = {v: sum(1 for r in out if r.get("checkedAt") == stamp and r["verdict"] == v)
               for v in ("미보도 후보", "관련 보도 있음", "같은 수치 선행", "미확인")}
     return {"schema": SCHEMA, "generatedAt": stamp, "hours": HOURS, "leadDays": LEAD_DAYS, "received": len(items),
-            "screened": len(rows), "counts": counts, "items": out,
+            "screened": len(rows), "rechecked": sum(1 for r in rows if r.get("recheck")), "counts": counts, "items": out,
             "rules": ["오늘의 레이더 A·B 항목 중 대조 낱말이 있는 것만(회사·법안 이름 + 사건 낱말). 낱말은 검색어일 뿐 사실이 아니다.",
                       "관련 보도 있음은 기사 제목에 회사와 사건 낱말이 함께 있을 때(법안은 본문의 법 이름). 본문에만 있으면 약한 근거로만 붙이고 판정은 바꾸지 않는다.",
                       "시·군·나라 이름은 검색을 좁히는 낱말일 뿐, 회사+지명만 겹친 제목은 같은 사건으로 치지 않는다(사건 낱말이 있어야 함).",
@@ -98,7 +116,8 @@ def run(items, *, now, previous=None, get=None, sleep=time.sleep):
                       "해외 파트너 공시 항목은 그 공시 회사 이름(퍼스트솔라 등)이 기사에 있어야 관련 보도로 친다(없으면 약한 근거).",
                       f"항목 날짜 {LEAD_DAYS}일 전 이후 기사만 센다. 미보도 후보는 검색 범위 안에서 못 찾았다는 뜻이고 단독 판정이 아니다.",
                       "미보도 후보에 붙는 '앞선 기사'는 항목 날짜 전 기사(제목에 회사·사건 낱말)라 판정에 안 센다 — 같은 사업의 앞선 보도일 수 있어 맥락으로만 본다.",
-                      "관련 보도 있음은 회사명+낱말이 겹친 기사. 같은 사건인지는 열어 봐야 한다. 채널 실패·미설정은 미확인(0건 아님)."]}
+                      "관련 보도 있음은 회사명+낱말이 겹친 기사. 같은 사건인지는 열어 봐야 한다. 채널 실패·미설정은 미확인(0건 아님).",
+                      f"대조 범위({HOURS}시간)를 지난 항목은 다시 보지 않는다 — 단 {RECHECK_HOURS // 24}일 안 항목 중 대조 규칙(질의)이 바뀐 것은 실행마다 {RECHECK_MAX}건까지 한 번 더 본다."]}
 
 
 def fetch_items(token, *, hours=HOURS, get=None):
@@ -133,11 +152,16 @@ def main():
     except Exception as e:  # network/HTTP/format: nothing was checked — keep the previous result
         print(f"::error title=radar-check-items::레이더 항목 조회 실패({type(e).__name__}: {str(e)[:60]}) — 이전 결과 유지")
         sys.exit(1)
-    doc = run(items, now=now, previous=previous)
+    older = []
+    try:
+        older = fetch_items(token, hours=RECHECK_HOURS)
+    except Exception as e:  # 다시 대조만 건너뛴다 — 72시간 항목 대조는 그대로
+        print(f"::warning title=radar-check-recheck::7일 항목 조회 실패({type(e).__name__}) — 규칙 바뀐 항목 다시 대조는 다음 실행에")
+    doc = run(items, now=now, previous=previous, older=older)
     ch = {k: sum(1 for r in doc["items"] if r.get("checkedAt") == doc["generatedAt"] and r["channels"].get(k, {}).get("status") == "ok")
           for k in ("naver", "bing", "google")}
     # Public log: counts only — never companies, titles or queries.
-    print(f"::notice title=radar-check::항목 {doc['received']} · 대조 {doc['screened']} · "
+    print(f"::notice title=radar-check::항목 {doc['received']} · 대조 {doc['screened']}(규칙 바뀌어 다시 {doc['rechecked']}) · "
           + " · ".join(f"{k} {v}" for k, v in doc["counts"].items())
           + f" · 채널 정상 naver {ch['naver']} bing {ch['bing']} google {ch['google']}")
     if doc["screened"] and not any(ch.values()):
