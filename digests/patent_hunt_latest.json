@@ -1,38 +1,38 @@
 {
-  "generatedAt": "2026-11-10T08:31:31+09:00",
+  "generatedAt": "2026-11-11T08:31:49+09:00",
   "source": "KIPRISPlus Patent/Utility Publication official Open API",
   "status": "official_search_completed",
-  "reportingWindow": "20261006~20261110",
-  "actualApiRequestWindow": "20261107~20261110",
+  "reportingWindow": "20261007~20261111",
+  "actualApiRequestWindow": "20261108~20261111",
   "windowMode": "verified_snapshot_plus_overlap_delta",
-  "retainedPriorVerifiedDocuments": 984,
+  "retainedPriorVerifiedDocuments": 946,
   "priorVerifiedSnapshotUsed": true,
   "applicantCount": 24,
   "companyChecks": [
     {
       "company": "현대자동차",
       "status": "checked",
-      "matched": 2,
-      "rawTotal": 2,
-      "rawRetrieved": 2,
+      "matched": 12,
+      "rawTotal": 12,
+      "rawRetrieved": 12,
       "requests": 1,
       "windows": 1
     },
     {
       "company": "기아",
       "status": "checked",
-      "matched": 2,
-      "rawTotal": 2,
-      "rawRetrieved": 2,
+      "matched": 12,
+      "rawTotal": 12,
+      "rawRetrieved": 12,
       "requests": 1,
       "windows": 1
     },
     {
       "company": "현대모비스",
       "status": "checked",
-      "matched": 3,
-      "rawTotal": 3,
-      "rawRetrieved": 3,
+      "matched": 5,
+      "rawTotal": 5,
+      "rawRetrieved": 5,
       "requests": 1,
       "windows": 1
     },
@@ -93,9 +93,9 @@
     {
       "company": "포스코",
       "status": "checked",
-      "matched": 0,
-      "rawTotal": 0,
-      "rawRetrieved": 0,
+      "matched": 1,
+      "rawTotal": 1,
+      "rawRetrieved": 1,
       "requests": 1,
       "windows": 1
     },
@@ -192,9 +192,9 @@
     {
       "company": "LS전선",
       "status": "checked",
-      "matched": 0,
-      "rawTotal": 0,
-      "rawRetrieved": 0,
+      "matched": 1,
+      "rawTotal": 1,
+      "rawRetrieved": 1,
       "requests": 1,
       "windows": 1
     },
@@ -226,14 +226,14 @@
       "windows": 1
     }
   ],
-  "candidateCount": 994,
-  "topicMatchedCount": 286,
-  "unclassifiedCount": 708,
+  "candidateCount": 980,
+  "topicMatchedCount": 285,
+  "unclassifiedCount": 695,
   "capturePolicy": "35일 공개공보에서 공식 출입처 법인명·공개번호·공개일 검증; 기술 키워드 제외 없음",
   "completelyCheckedCompanies": 24,
   "baselineInitialized": false,
   "alertCount": 0,
-  "historicalBackfillCount": 10,
+  "historicalBackfillCount": 24,
   "items": [
     {
       "company": "기아",
@@ -1485,56 +1485,209 @@
         "현대자동차주식회사",
         "기아 주식회사"
       ],
-      "applicationNumber": "1020250038883",
-      "publicationNumber": "1020260144678",
-      "applicationDate": "20250326",
-      "publicationDate": "20261006",
+      "applicationNumber": "1020250058007",
+      "publicationNumber": "1020260161976",
+      "applicationDate": "20250502",
+      "publicationDate": "20261110",
       "registrationDate": null,
       "registerStatus": "공개",
-      "title": "차량용 배터리 팩",
-      "abstract": "본 발명의 일 실시 형태에 따른 차량용 배터리 팩은 복수의 배터리 모듈 및 내부에 냉각 매체가 흐르는 유로가 형성된 제1 냉각 자켓을 포함하며, 복수의 배터리 모듈 각각은 배터리, 배터리의 전력을 변환하는 전력 변환 모듈 및 배터리와 전력 변환 모듈을 연결하는 버스 바를 포함하며, 버스 바는 제1 냉각 자켓에 밀착되어 제1 냉각 자켓과 일체형으로 형성될 수 있다.",
-      "ipc": "H01M 10/6556|H01M 10/613|H01M 10/625|H01M 10/63|H01M 10/6567|H01M 50/249|H05K 7/20",
+      "title": "배터리셀의 스웰링 현상 모의 테스트 장치",
+      "abstract": "개시되는 내용의 일 실시예에 따른 모의 테스트 장치는 지그베이스, 승강칼럼, 제1플레이트, 로드셀, 제2플레이트, 변위센서 및 제어부를 포함한다. 지그베이스는 상면에 편평한 설치면이 형성되고, 설치면 상에 수직하게 설치되는 복수의 승강칼럼을 따라 제1플레이트 및 제2플레이트가 각각 승강하게 되며, 제1플레이트 및 제2플레이트 사이에는 적어도 하나의 테스트셀이 결합될 수 있다. 제2플레이트는 테스트셀의 상면과 접하여 테스트셀을 하부로 가압하고, 로드셀은 제1플레이트의 정해진 지점에 가해지는 수직하중을, 변위센서는 제2플레이트 상면 중 정해진 지점에 대한 수직변위를 각각 계측하여 제어부로 전송한다. 제어부는 계측된 정보를 기초로 테스트셀의 스웰링 특성을 도출한다.",
+      "ipc": "H01M 10/42|G01B 7/16",
       "themes": [
         {
           "theme": "전기차·배터리",
           "titleHits": [
             "배터리"
           ],
-          "abstractHits": [
-            "배터리"
-          ]
-        },
-        {
-          "theme": "전력망·HVDC",
-          "titleHits": [],
-          "abstractHits": [
-            "전력변환",
-            "전력 변환"
-          ]
+          "abstractHits": []
         }
       ],
-      "priorityScore": 65,
+      "priorityScore": 60,
       "themeMatched": true,
       "classificationStatus": "기술 키워드 일치 · 별도 원문 검증 필요",
       "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
       "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
-      "lookupNumber": "1020260144678",
+      "lookupNumber": "1020260161976",
       "status": "공개된 특허 문헌: 기술 방향 취재 후보",
       "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
       "questions": [
-        "공개번호 1020260144678의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
+        "공개번호 1020260161976의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
         "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
         "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
         "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
       ],
       "scoopConfirmed": false,
-      "previouslyObserved": true,
-      "firstObservedAt": "2026-10-13",
+      "previouslyObserved": false,
+      "firstObservedAt": "2026-11-11",
       "initialBaseline": false,
-      "historicalBackfill": false,
+      "historicalBackfill": true,
       "freshObservation": false,
-      "observationNote": "이전 검증 공개공보 유지(이번 실행 신규 조회 아님)",
-      "reusedFromPriorVerifiedSnapshot": true
+      "observationNote": "직전 스냅샷 이전 공개 공보를 뒤늦게 수집(신규 공개 아님)",
+      "pressCoverage": {
+        "status": "번호 직접 검색 결과 미발견: 미보도 의미 아님",
+        "query": "\"1020260161976\" \"기아\"",
+        "articles": []
+      }
+    },
+    {
+      "company": "기아",
+      "applicants": [
+        "현대자동차주식회사",
+        "기아 주식회사",
+        "(주)노루페인트"
+      ],
+      "applicationNumber": "1020250058069",
+      "publicationNumber": "1020260161998",
+      "applicationDate": "20250502",
+      "publicationDate": "20261110",
+      "registrationDate": null,
+      "registerStatus": "공개",
+      "title": "바이오 유래 성분을 포함하는 도료 조성물 및 이를 포함하는 자동차 내장재",
+      "abstract": "개시된 실시예는 바이오 유래 성분을 포함하는 도료 조성물 및 이를 포함하는 자동차 내장재에 대한 것이다.",
+      "ipc": "C09D 133/06|C09D 175/14|C08L 33/06",
+      "themes": [
+        {
+          "theme": "순환소재·폐차재활용",
+          "titleHits": [
+            "자동차 내장재"
+          ],
+          "abstractHits": [
+            "자동차 내장재"
+          ]
+        }
+      ],
+      "priorityScore": 60,
+      "themeMatched": true,
+      "classificationStatus": "기술 키워드 일치 · 별도 원문 검증 필요",
+      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
+      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
+      "lookupNumber": "1020260161998",
+      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
+      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
+      "questions": [
+        "공개번호 1020260161998의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
+        "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
+        "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
+        "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
+      ],
+      "scoopConfirmed": false,
+      "previouslyObserved": false,
+      "firstObservedAt": "2026-11-11",
+      "initialBaseline": false,
+      "historicalBackfill": true,
+      "freshObservation": false,
+      "observationNote": "직전 스냅샷 이전 공개 공보를 뒤늦게 수집(신규 공개 아님)",
+      "pressCoverage": {
+        "status": "번호 직접 검색 결과 미발견: 미보도 의미 아님",
+        "query": "\"1020260161998\" \"기아\"",
+        "articles": []
+      }
+    },
+    {
+      "company": "기아",
+      "applicants": [
+        "현대자동차주식회사",
+        "기아 주식회사"
+      ],
+      "applicationNumber": "1020250058318",
+      "publicationNumber": "1020260162074",
+      "applicationDate": "20250502",
+      "publicationDate": "20261110",
+      "registrationDate": null,
+      "registerStatus": "공개",
+      "title": "연료전지 차량의 애노드 피독 진단 시스템 및 방법",
+      "abstract": "본 발명은 구동 전류의 인출 시, 연료전지 스택의 전압이 설정된 임계 전압에 도달함에 따라, 상기 연료전지 스택의 이상으로 감지하는 감지부, 상기 연료전지 스택으로 인가되기 위한 제1 교류 전류 신호 및 상기 제2 교류 전류 신호를 생성하는 신호 생성부, 상기 연료전지 스택으로 상기 제1 교류 전류 신호를 인가하여 성능 변화량에 따라 CO 피독 여부와 수소 농도 불량 여부를 구분하여 진단하는 피독 진단부 및 상기 연료전지 스택에 대한 CO 피독이 진단된 상태에서, 상기 제2 교류 전류 신호를 상기 연료전지 스택으로 반복적으로 인가하도록 제어하는 제어부를 포함한다.",
+      "ipc": "H01M 8/04664|H01M 8/04537|H01M 8/0444|H01M 8/04858|H01M 8/04992",
+      "themes": [
+        {
+          "theme": "수소·연료전지",
+          "titleHits": [
+            "연료전지"
+          ],
+          "abstractHits": [
+            "연료전지"
+          ]
+        }
+      ],
+      "priorityScore": 60,
+      "themeMatched": true,
+      "classificationStatus": "기술 키워드 일치 · 별도 원문 검증 필요",
+      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
+      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
+      "lookupNumber": "1020260162074",
+      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
+      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
+      "questions": [
+        "공개번호 1020260162074의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
+        "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
+        "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
+        "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
+      ],
+      "scoopConfirmed": false,
+      "previouslyObserved": false,
+      "firstObservedAt": "2026-11-11",
+      "initialBaseline": false,
+      "historicalBackfill": true,
+      "freshObservation": false,
+      "observationNote": "직전 스냅샷 이전 공개 공보를 뒤늦게 수집(신규 공개 아님)",
+      "pressCoverage": {
+        "status": "번호 직접 검색 결과 미발견: 미보도 의미 아님",
+        "query": "\"1020260162074\" \"기아\"",
+        "articles": []
+      }
+    },
+    {
+      "company": "포스코",
+      "applicants": [
+        "주식회사 포스코"
+      ],
+      "applicationNumber": "1020250058241",
+      "publicationNumber": "1020260162051",
+      "applicationDate": "20250502",
+      "publicationDate": "20261110",
+      "registrationDate": null,
+      "registerStatus": "공개",
+      "title": "밸브 장치 및 전기로 설비",
+      "abstract": "본 발명은, 일방향으로 연장되는 복수개의 관부, 관부를 폐쇄하기 위해 일부가 관부의 상측으로 회전할 수 있고, 관부를 개방시키기 위해 일부가 관부 측으로 회전할 수 있고, 복수개의 관부에 각각 장착되는 복수개의 밸브부, 및 복수개의 밸브부의 폐쇄 상태를 일괄적으로 구속할 수 있도록 설치되는 구속부를 포함하는 밸브 장치와, 이를 포함하는 전기로 설비로서, 작업 안전성을 향상시킬 수 있는 밸브 장치 및 전기로 설비가 제시된다.",
+      "ipc": "F27D 19/00|F27D 11/10|C21C 5/52",
+      "themes": [
+        {
+          "theme": "저탄소 제철",
+          "titleHits": [
+            "전기로"
+          ],
+          "abstractHits": [
+            "전기로"
+          ]
+        }
+      ],
+      "priorityScore": 60,
+      "themeMatched": true,
+      "classificationStatus": "기술 키워드 일치 · 별도 원문 검증 필요",
+      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
+      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
+      "lookupNumber": "1020260162051",
+      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
+      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
+      "questions": [
+        "공개번호 1020260162051의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
+        "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
+        "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
+        "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
+      ],
+      "scoopConfirmed": false,
+      "previouslyObserved": false,
+      "firstObservedAt": "2026-11-11",
+      "initialBaseline": false,
+      "historicalBackfill": true,
+      "freshObservation": false,
+      "observationNote": "직전 스냅샷 이전 공개 공보를 뒤늦게 수집(신규 공개 아님)",
+      "pressCoverage": {
+        "status": "번호 직접 검색 결과 미발견: 미보도 의미 아님",
+        "query": "\"1020260162051\" \"포스코\"",
+        "articles": []
+      }
     },
     {
       "company": "현대자동차",
@@ -1542,56 +1695,147 @@
         "현대자동차주식회사",
         "기아 주식회사"
       ],
-      "applicationNumber": "1020250038883",
-      "publicationNumber": "1020260144678",
-      "applicationDate": "20250326",
-      "publicationDate": "20261006",
+      "applicationNumber": "1020250058007",
+      "publicationNumber": "1020260161976",
+      "applicationDate": "20250502",
+      "publicationDate": "20261110",
       "registrationDate": null,
       "registerStatus": "공개",
-      "title": "차량용 배터리 팩",
-      "abstract": "본 발명의 일 실시 형태에 따른 차량용 배터리 팩은 복수의 배터리 모듈 및 내부에 냉각 매체가 흐르는 유로가 형성된 제1 냉각 자켓을 포함하며, 복수의 배터리 모듈 각각은 배터리, 배터리의 전력을 변환하는 전력 변환 모듈 및 배터리와 전력 변환 모듈을 연결하는 버스 바를 포함하며, 버스 바는 제1 냉각 자켓에 밀착되어 제1 냉각 자켓과 일체형으로 형성될 수 있다.",
-      "ipc": "H01M 10/6556|H01M 10/613|H01M 10/625|H01M 10/63|H01M 10/6567|H01M 50/249|H05K 7/20",
+      "title": "배터리셀의 스웰링 현상 모의 테스트 장치",
+      "abstract": "개시되는 내용의 일 실시예에 따른 모의 테스트 장치는 지그베이스, 승강칼럼, 제1플레이트, 로드셀, 제2플레이트, 변위센서 및 제어부를 포함한다. 지그베이스는 상면에 편평한 설치면이 형성되고, 설치면 상에 수직하게 설치되는 복수의 승강칼럼을 따라 제1플레이트 및 제2플레이트가 각각 승강하게 되며, 제1플레이트 및 제2플레이트 사이에는 적어도 하나의 테스트셀이 결합될 수 있다. 제2플레이트는 테스트셀의 상면과 접하여 테스트셀을 하부로 가압하고, 로드셀은 제1플레이트의 정해진 지점에 가해지는 수직하중을, 변위센서는 제2플레이트 상면 중 정해진 지점에 대한 수직변위를 각각 계측하여 제어부로 전송한다. 제어부는 계측된 정보를 기초로 테스트셀의 스웰링 특성을 도출한다.",
+      "ipc": "H01M 10/42|G01B 7/16",
       "themes": [
         {
           "theme": "전기차·배터리",
           "titleHits": [
             "배터리"
           ],
-          "abstractHits": [
-            "배터리"
-          ]
-        },
-        {
-          "theme": "전력망·HVDC",
-          "titleHits": [],
-          "abstractHits": [
-            "전력변환",
-            "전력 변환"
-          ]
+          "abstractHits": []
         }
       ],
-      "priorityScore": 65,
+      "priorityScore": 60,
       "themeMatched": true,
       "classificationStatus": "기술 키워드 일치 · 별도 원문 검증 필요",
       "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
       "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
-      "lookupNumber": "1020260144678",
+      "lookupNumber": "1020260161976",
       "status": "공개된 특허 문헌: 기술 방향 취재 후보",
       "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
       "questions": [
-        "공개번호 1020260144678의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
+        "공개번호 1020260161976의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
         "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
         "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
         "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
       ],
       "scoopConfirmed": false,
-      "previouslyObserved": true,
-      "firstObservedAt": "2026-10-13",
+      "previouslyObserved": false,
+      "firstObservedAt": "2026-11-11",
       "initialBaseline": false,
-      "historicalBackfill": false,
+      "historicalBackfill": true,
       "freshObservation": false,
-      "observationNote": "이전 검증 공개공보 유지(이번 실행 신규 조회 아님)",
-      "reusedFromPriorVerifiedSnapshot": true
+      "observationNote": "직전 스냅샷 이전 공개 공보를 뒤늦게 수집(신규 공개 아님)",
+      "pressCoverage": {
+        "status": "번호 직접 검색 결과 미발견: 미보도 의미 아님",
+        "query": "\"1020260161976\" \"현대자동차\"",
+        "articles": []
+      }
+    },
+    {
+      "company": "현대자동차",
+      "applicants": [
+        "현대자동차주식회사",
+        "기아 주식회사",
+        "(주)노루페인트"
+      ],
+      "applicationNumber": "1020250058069",
+      "publicationNumber": "1020260161998",
+      "applicationDate": "20250502",
+      "publicationDate": "20261110",
+      "registrationDate": null,
+      "registerStatus": "공개",
+      "title": "바이오 유래 성분을 포함하는 도료 조성물 및 이를 포함하는 자동차 내장재",
+      "abstract": "개시된 실시예는 바이오 유래 성분을 포함하는 도료 조성물 및 이를 포함하는 자동차 내장재에 대한 것이다.",
+      "ipc": "C09D 133/06|C09D 175/14|C08L 33/06",
+      "themes": [
+        {
+          "theme": "순환소재·폐차재활용",
+          "titleHits": [
+            "자동차 내장재"
+          ],
+          "abstractHits": [
+            "자동차 내장재"
+          ]
+        }
+      ],
+      "priorityScore": 60,
+      "themeMatched": true,
+      "classificationStatus": "기술 키워드 일치 · 별도 원문 검증 필요",
+      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
+      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
+      "lookupNumber": "1020260161998",
+      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
+      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
+      "questions": [
+        "공개번호 1020260161998의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
+        "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
+        "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
+        "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
+      ],
+      "scoopConfirmed": false,
+      "previouslyObserved": false,
+      "firstObservedAt": "2026-11-11",
+      "initialBaseline": false,
+      "historicalBackfill": true,
+      "freshObservation": false,
+      "observationNote": "직전 스냅샷 이전 공개 공보를 뒤늦게 수집(신규 공개 아님)"
+    },
+    {
+      "company": "현대자동차",
+      "applicants": [
+        "현대자동차주식회사",
+        "기아 주식회사"
+      ],
+      "applicationNumber": "1020250058318",
+      "publicationNumber": "1020260162074",
+      "applicationDate": "20250502",
+      "publicationDate": "20261110",
+      "registrationDate": null,
+      "registerStatus": "공개",
+      "title": "연료전지 차량의 애노드 피독 진단 시스템 및 방법",
+      "abstract": "본 발명은 구동 전류의 인출 시, 연료전지 스택의 전압이 설정된 임계 전압에 도달함에 따라, 상기 연료전지 스택의 이상으로 감지하는 감지부, 상기 연료전지 스택으로 인가되기 위한 제1 교류 전류 신호 및 상기 제2 교류 전류 신호를 생성하는 신호 생성부, 상기 연료전지 스택으로 상기 제1 교류 전류 신호를 인가하여 성능 변화량에 따라 CO 피독 여부와 수소 농도 불량 여부를 구분하여 진단하는 피독 진단부 및 상기 연료전지 스택에 대한 CO 피독이 진단된 상태에서, 상기 제2 교류 전류 신호를 상기 연료전지 스택으로 반복적으로 인가하도록 제어하는 제어부를 포함한다.",
+      "ipc": "H01M 8/04664|H01M 8/04537|H01M 8/0444|H01M 8/04858|H01M 8/04992",
+      "themes": [
+        {
+          "theme": "수소·연료전지",
+          "titleHits": [
+            "연료전지"
+          ],
+          "abstractHits": [
+            "연료전지"
+          ]
+        }
+      ],
+      "priorityScore": 60,
+      "themeMatched": true,
+      "classificationStatus": "기술 키워드 일치 · 별도 원문 검증 필요",
+      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
+      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
+      "lookupNumber": "1020260162074",
+      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
+      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
+      "questions": [
+        "공개번호 1020260162074의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
+        "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
+        "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
+        "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
+      ],
+      "scoopConfirmed": false,
+      "previouslyObserved": false,
+      "firstObservedAt": "2026-11-11",
+      "initialBaseline": false,
+      "historicalBackfill": true,
+      "freshObservation": false,
+      "observationNote": "직전 스냅샷 이전 공개 공보를 뒤늦게 수집(신규 공개 아님)"
     },
     {
       "company": "기아",
@@ -1636,17 +1880,12 @@
         "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
       ],
       "scoopConfirmed": false,
-      "previouslyObserved": false,
+      "previouslyObserved": true,
       "firstObservedAt": "2026-11-10",
       "initialBaseline": false,
-      "historicalBackfill": true,
+      "historicalBackfill": false,
       "freshObservation": false,
-      "observationNote": "직전 스냅샷 이전 공개 공보를 뒤늦게 수집(신규 공개 아님)",
-      "pressCoverage": {
-        "status": "번호 직접 검색 결과 미발견: 미보도 의미 아님",
-        "query": "\"1020260161366\" \"기아\"",
-        "articles": []
-      }
+      "observationNote": "이미 관측된 공개공보"
     },
     {
       "company": "동국제강",
@@ -1689,17 +1928,12 @@
         "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
       ],
       "scoopConfirmed": false,
-      "previouslyObserved": false,
+      "previouslyObserved": true,
       "firstObservedAt": "2026-11-10",
       "initialBaseline": false,
-      "historicalBackfill": true,
+      "historicalBackfill": false,
       "freshObservation": false,
-      "observationNote": "직전 스냅샷 이전 공개 공보를 뒤늦게 수집(신규 공개 아님)",
-      "pressCoverage": {
-        "status": "번호 직접 검색 결과 미발견: 미보도 의미 아님",
-        "query": "\"1020260161429\" \"동국제강\"",
-        "articles": []
-      }
+      "observationNote": "이미 관측된 공개공보"
     },
     {
       "company": "현대자동차",
@@ -1744,17 +1978,12 @@
         "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
       ],
       "scoopConfirmed": false,
-      "previouslyObserved": false,
+      "previouslyObserved": true,
       "firstObservedAt": "2026-11-10",
       "initialBaseline": false,
-      "historicalBackfill": true,
+      "historicalBackfill": false,
       "freshObservation": false,
-      "observationNote": "직전 스냅샷 이전 공개 공보를 뒤늦게 수집(신규 공개 아님)",
-      "pressCoverage": {
-        "status": "번호 직접 검색 결과 미발견: 미보도 의미 아님",
-        "query": "\"1020260161366\" \"현대자동차\"",
-        "articles": []
-      }
+      "observationNote": "이미 관측된 공개공보"
     },
     {
       "company": "기아",
@@ -10197,412 +10426,6 @@
       "reusedFromPriorVerifiedSnapshot": true
     },
     {
-      "company": "기아",
-      "applicants": [
-        "현대자동차주식회사",
-        "기아 주식회사"
-      ],
-      "applicationNumber": "1020250038201",
-      "publicationNumber": "1020260144507",
-      "applicationDate": "20250325",
-      "publicationDate": "20261006",
-      "registrationDate": null,
-      "registerStatus": "공개",
-      "title": "AI 모듈 및 자율 주행 센서에 의해 오브젝트를 인식하고 추적하는 시스템 및 방법",
-      "abstract": "본 발명은 AI 모듈 및 자율 주행 센서에 의해 오브젝트를 인식하고 추적하는 시스템 및 방법에 관한 것이다. 본 발명에 따른 시스템은, 상기 자율 주행 센서에서 입력된 복수의 포인트 데이터로부터 주변 환경의 오브젝트를 인식 및 추적하는 상기 AI 모듈을 탑재한 프로세서; 및 상기 입력된 복수의 포인트 데이터를 저장하는 메모리를 구비하고, 상기 AI 모듈은, 상기 오브젝트가 차량인 경우 상기 오브젝트의 주행 상황이 일반 주행 상황인지 특수 주행 상황인지 판단하는 제1 단계; 상기 특수 주행 상황 혹은 상기 일반 주행 상황이라 판단되는 경우, 상기 특수 주행의 세부 타입에 매칭되는 혹은 상기 일반 주행 상황에 특화된 변위 추정 프로세스를 실행하는 제2 단계; 및 상기 변위 추정 프로세스에 의해 결정된 변위에 기초하여 상기 오브젝트에 대한 변위 정보 및 속도 정보를 업데이트하는 제3 단계를 실행하는 것을 특징으로 한다.",
-      "ipc": "G06V 20/58|G06V 10/62|G06V 10/82|G01S 17/894|G01S 17/931|B60W 40/02|B60W 60/00",
-      "themes": [
-        {
-          "theme": "자율주행·SDV",
-          "titleHits": [
-            "자율주행",
-            "자율 주행"
-          ],
-          "abstractHits": [
-            "자율주행",
-            "자율 주행"
-          ]
-        }
-      ],
-      "priorityScore": 60,
-      "themeMatched": true,
-      "classificationStatus": "기술 키워드 일치 · 별도 원문 검증 필요",
-      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
-      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
-      "lookupNumber": "1020260144507",
-      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
-      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
-      "questions": [
-        "공개번호 1020260144507의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
-        "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
-        "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
-        "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
-      ],
-      "scoopConfirmed": false,
-      "previouslyObserved": true,
-      "firstObservedAt": "2026-10-13",
-      "initialBaseline": false,
-      "historicalBackfill": false,
-      "freshObservation": false,
-      "observationNote": "이전 검증 공개공보 유지(이번 실행 신규 조회 아님)",
-      "reusedFromPriorVerifiedSnapshot": true
-    },
-    {
-      "company": "기아",
-      "applicants": [
-        "현대자동차주식회사",
-        "기아 주식회사"
-      ],
-      "applicationNumber": "1020250038200",
-      "publicationNumber": "1020260144506",
-      "applicationDate": "20250325",
-      "publicationDate": "20261006",
-      "registrationDate": null,
-      "registerStatus": "공개",
-      "title": "자율 주행을 위한 AI 딥 러닝 기반의 3차원 오브젝트 검출 및 헤딩 각도 보정 시스템 및 방법",
-      "abstract": "본 발명은 AI 모듈 및 자율 주행 센서에 의해 오브젝트를 인식하고 헤딩 각도를 보정하는 시스템 및 방법에 관한 것이다. 본 발명에 따른 시스템은 상기 자율 주행 센서로부터 입력된 데이터로부터 주변 환경에 존재하는 오브젝트를 인식하는 오브젝트 인식 모듈을 상기 AI 모듈의 일부로서 탑재하고 있는 프로세서; 및 상기 포인트 클라우드 데이터를 저장하는 메모리를 구비하고, 상기 AI 모듈은, 커널 밀도 추정에 기반하여 헤딩 각도의 보정 여부를 판정하는 제1 단계; 및 상기 제1 단계의 판정 결과 보정이 필요하다고 판단될 경우 상기 자율 주행 센서 및 AI 모듈로 예측된 P-Box에 대한 헤딩 각도를 보정하는 제2 단계를 실행하는 것을 특징으로 하는 한다.",
-      "ipc": "G06V 20/56|G06V 20/64|G06V 10/764|G06V 10/422|G06V 10/82|G06N 3/08|G01S 17/894|G01S 17/931|B60W 40/02|B60W 60/00|B60W 50/00",
-      "themes": [
-        {
-          "theme": "자율주행·SDV",
-          "titleHits": [
-            "자율주행",
-            "자율 주행"
-          ],
-          "abstractHits": [
-            "자율주행",
-            "자율 주행"
-          ]
-        }
-      ],
-      "priorityScore": 60,
-      "themeMatched": true,
-      "classificationStatus": "기술 키워드 일치 · 별도 원문 검증 필요",
-      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
-      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
-      "lookupNumber": "1020260144506",
-      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
-      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
-      "questions": [
-        "공개번호 1020260144506의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
-        "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
-        "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
-        "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
-      ],
-      "scoopConfirmed": false,
-      "previouslyObserved": true,
-      "firstObservedAt": "2026-10-13",
-      "initialBaseline": false,
-      "historicalBackfill": false,
-      "freshObservation": false,
-      "observationNote": "이전 검증 공개공보 유지(이번 실행 신규 조회 아님)",
-      "reusedFromPriorVerifiedSnapshot": true
-    },
-    {
-      "company": "기아",
-      "applicants": [
-        "현대자동차주식회사",
-        "기아 주식회사"
-      ],
-      "applicationNumber": "1020250038638",
-      "publicationNumber": "1020260144596",
-      "applicationDate": "20250326",
-      "publicationDate": "20261006",
-      "registrationDate": null,
-      "registerStatus": "공개",
-      "title": "생체인증 정보 등록을 통한 차량 제어 권한 부여 방법 및 장치",
-      "abstract": "본 개시는 차량과 연동되는 서버에서의 이용자 등록 및 차량 제어 권한을 부여하는 방법에 있어서, 생체인증 정보 등록을 통한 차량 제어 권한 부여 방법 및 장치에 관한 것으로, 보다 구체적으로는 차량 소유자 외의 이용자의 생체인증정보 등록 시도를 확인하는 단계, 다수의 인증수단 중 복수개의 인증수단을 보유한 이용자에게 상기 생체인증정보 등록 권한을 허용하는 단계, 차량 내 생체인증 모듈을 통해 생체인증 등록이 완료된 이용자에게 차량 제어권한을 부여하는 단계를 포함할 수 있다.",
-      "ipc": "B60R 25/25|B60R 25/102|B60R 25/24|G06Q 50/43|G06Q 20/32|H04L 9/32|G07B 15/06",
-      "themes": [
-        {
-          "theme": "자율주행·SDV",
-          "titleHits": [
-            "차량제어",
-            "차량 제어"
-          ],
-          "abstractHits": [
-            "차량제어",
-            "차량 제어"
-          ]
-        }
-      ],
-      "priorityScore": 60,
-      "themeMatched": true,
-      "classificationStatus": "기술 키워드 일치 · 별도 원문 검증 필요",
-      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
-      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
-      "lookupNumber": "1020260144596",
-      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
-      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
-      "questions": [
-        "공개번호 1020260144596의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
-        "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
-        "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
-        "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
-      ],
-      "scoopConfirmed": false,
-      "previouslyObserved": true,
-      "firstObservedAt": "2026-10-13",
-      "initialBaseline": false,
-      "historicalBackfill": false,
-      "freshObservation": false,
-      "observationNote": "이전 검증 공개공보 유지(이번 실행 신규 조회 아님)",
-      "reusedFromPriorVerifiedSnapshot": true
-    },
-    {
-      "company": "기아",
-      "applicants": [
-        "현대자동차주식회사",
-        "기아 주식회사",
-        "숭실대학교산학협력단"
-      ],
-      "applicationNumber": "1020250038960",
-      "publicationNumber": "1020260144712",
-      "applicationDate": "20250326",
-      "publicationDate": "20261006",
-      "registrationDate": null,
-      "registerStatus": "공개",
-      "title": "음극, 이를 포함하는 전고체전지 및 음극 제조방법",
-      "abstract": "본 발명은 수명 및 효율 특성이 개선된 음극, 이를 포함하는 전고체전지 및 음극 제조방법에 관한 것이다.",
-      "ipc": "H01M 4/134|H01M 4/66|H01M 10/0562|H01M 4/62|H01M 4/1395|H01M 10/052|H01M 4/02",
-      "themes": [
-        {
-          "theme": "전기차·배터리",
-          "titleHits": [
-            "전고체"
-          ],
-          "abstractHits": [
-            "전고체"
-          ]
-        }
-      ],
-      "priorityScore": 60,
-      "themeMatched": true,
-      "classificationStatus": "기술 키워드 일치 · 별도 원문 검증 필요",
-      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
-      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
-      "lookupNumber": "1020260144712",
-      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
-      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
-      "questions": [
-        "공개번호 1020260144712의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
-        "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
-        "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
-        "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
-      ],
-      "scoopConfirmed": false,
-      "previouslyObserved": true,
-      "firstObservedAt": "2026-10-13",
-      "initialBaseline": false,
-      "historicalBackfill": false,
-      "freshObservation": false,
-      "observationNote": "이전 검증 공개공보 유지(이번 실행 신규 조회 아님)",
-      "reusedFromPriorVerifiedSnapshot": true
-    },
-    {
-      "company": "현대자동차",
-      "applicants": [
-        "현대자동차주식회사",
-        "기아 주식회사"
-      ],
-      "applicationNumber": "1020250038201",
-      "publicationNumber": "1020260144507",
-      "applicationDate": "20250325",
-      "publicationDate": "20261006",
-      "registrationDate": null,
-      "registerStatus": "공개",
-      "title": "AI 모듈 및 자율 주행 센서에 의해 오브젝트를 인식하고 추적하는 시스템 및 방법",
-      "abstract": "본 발명은 AI 모듈 및 자율 주행 센서에 의해 오브젝트를 인식하고 추적하는 시스템 및 방법에 관한 것이다. 본 발명에 따른 시스템은, 상기 자율 주행 센서에서 입력된 복수의 포인트 데이터로부터 주변 환경의 오브젝트를 인식 및 추적하는 상기 AI 모듈을 탑재한 프로세서; 및 상기 입력된 복수의 포인트 데이터를 저장하는 메모리를 구비하고, 상기 AI 모듈은, 상기 오브젝트가 차량인 경우 상기 오브젝트의 주행 상황이 일반 주행 상황인지 특수 주행 상황인지 판단하는 제1 단계; 상기 특수 주행 상황 혹은 상기 일반 주행 상황이라 판단되는 경우, 상기 특수 주행의 세부 타입에 매칭되는 혹은 상기 일반 주행 상황에 특화된 변위 추정 프로세스를 실행하는 제2 단계; 및 상기 변위 추정 프로세스에 의해 결정된 변위에 기초하여 상기 오브젝트에 대한 변위 정보 및 속도 정보를 업데이트하는 제3 단계를 실행하는 것을 특징으로 한다.",
-      "ipc": "G06V 20/58|G06V 10/62|G06V 10/82|G01S 17/894|G01S 17/931|B60W 40/02|B60W 60/00",
-      "themes": [
-        {
-          "theme": "자율주행·SDV",
-          "titleHits": [
-            "자율주행",
-            "자율 주행"
-          ],
-          "abstractHits": [
-            "자율주행",
-            "자율 주행"
-          ]
-        }
-      ],
-      "priorityScore": 60,
-      "themeMatched": true,
-      "classificationStatus": "기술 키워드 일치 · 별도 원문 검증 필요",
-      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
-      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
-      "lookupNumber": "1020260144507",
-      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
-      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
-      "questions": [
-        "공개번호 1020260144507의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
-        "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
-        "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
-        "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
-      ],
-      "scoopConfirmed": false,
-      "previouslyObserved": true,
-      "firstObservedAt": "2026-10-13",
-      "initialBaseline": false,
-      "historicalBackfill": false,
-      "freshObservation": false,
-      "observationNote": "이전 검증 공개공보 유지(이번 실행 신규 조회 아님)",
-      "reusedFromPriorVerifiedSnapshot": true
-    },
-    {
-      "company": "현대자동차",
-      "applicants": [
-        "현대자동차주식회사",
-        "기아 주식회사"
-      ],
-      "applicationNumber": "1020250038200",
-      "publicationNumber": "1020260144506",
-      "applicationDate": "20250325",
-      "publicationDate": "20261006",
-      "registrationDate": null,
-      "registerStatus": "공개",
-      "title": "자율 주행을 위한 AI 딥 러닝 기반의 3차원 오브젝트 검출 및 헤딩 각도 보정 시스템 및 방법",
-      "abstract": "본 발명은 AI 모듈 및 자율 주행 센서에 의해 오브젝트를 인식하고 헤딩 각도를 보정하는 시스템 및 방법에 관한 것이다. 본 발명에 따른 시스템은 상기 자율 주행 센서로부터 입력된 데이터로부터 주변 환경에 존재하는 오브젝트를 인식하는 오브젝트 인식 모듈을 상기 AI 모듈의 일부로서 탑재하고 있는 프로세서; 및 상기 포인트 클라우드 데이터를 저장하는 메모리를 구비하고, 상기 AI 모듈은, 커널 밀도 추정에 기반하여 헤딩 각도의 보정 여부를 판정하는 제1 단계; 및 상기 제1 단계의 판정 결과 보정이 필요하다고 판단될 경우 상기 자율 주행 센서 및 AI 모듈로 예측된 P-Box에 대한 헤딩 각도를 보정하는 제2 단계를 실행하는 것을 특징으로 하는 한다.",
-      "ipc": "G06V 20/56|G06V 20/64|G06V 10/764|G06V 10/422|G06V 10/82|G06N 3/08|G01S 17/894|G01S 17/931|B60W 40/02|B60W 60/00|B60W 50/00",
-      "themes": [
-        {
-          "theme": "자율주행·SDV",
-          "titleHits": [
-            "자율주행",
-            "자율 주행"
-          ],
-          "abstractHits": [
-            "자율주행",
-            "자율 주행"
-          ]
-        }
-      ],
-      "priorityScore": 60,
-      "themeMatched": true,
-      "classificationStatus": "기술 키워드 일치 · 별도 원문 검증 필요",
-      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
-      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
-      "lookupNumber": "1020260144506",
-      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
-      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
-      "questions": [
-        "공개번호 1020260144506의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
-        "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
-        "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
-        "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
-      ],
-      "scoopConfirmed": false,
-      "previouslyObserved": true,
-      "firstObservedAt": "2026-10-13",
-      "initialBaseline": false,
-      "historicalBackfill": false,
-      "freshObservation": false,
-      "observationNote": "이전 검증 공개공보 유지(이번 실행 신규 조회 아님)",
-      "reusedFromPriorVerifiedSnapshot": true
-    },
-    {
-      "company": "현대자동차",
-      "applicants": [
-        "현대자동차주식회사",
-        "기아 주식회사"
-      ],
-      "applicationNumber": "1020250038638",
-      "publicationNumber": "1020260144596",
-      "applicationDate": "20250326",
-      "publicationDate": "20261006",
-      "registrationDate": null,
-      "registerStatus": "공개",
-      "title": "생체인증 정보 등록을 통한 차량 제어 권한 부여 방법 및 장치",
-      "abstract": "본 개시는 차량과 연동되는 서버에서의 이용자 등록 및 차량 제어 권한을 부여하는 방법에 있어서, 생체인증 정보 등록을 통한 차량 제어 권한 부여 방법 및 장치에 관한 것으로, 보다 구체적으로는 차량 소유자 외의 이용자의 생체인증정보 등록 시도를 확인하는 단계, 다수의 인증수단 중 복수개의 인증수단을 보유한 이용자에게 상기 생체인증정보 등록 권한을 허용하는 단계, 차량 내 생체인증 모듈을 통해 생체인증 등록이 완료된 이용자에게 차량 제어권한을 부여하는 단계를 포함할 수 있다.",
-      "ipc": "B60R 25/25|B60R 25/102|B60R 25/24|G06Q 50/43|G06Q 20/32|H04L 9/32|G07B 15/06",
-      "themes": [
-        {
-          "theme": "자율주행·SDV",
-          "titleHits": [
-            "차량제어",
-            "차량 제어"
-          ],
-          "abstractHits": [
-            "차량제어",
-            "차량 제어"
-          ]
-        }
-      ],
-      "priorityScore": 60,
-      "themeMatched": true,
-      "classificationStatus": "기술 키워드 일치 · 별도 원문 검증 필요",
-      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
-      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
-      "lookupNumber": "1020260144596",
-      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
-      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
-      "questions": [
-        "공개번호 1020260144596의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
-        "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
-        "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
-        "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
-      ],
-      "scoopConfirmed": false,
-      "previouslyObserved": true,
-      "firstObservedAt": "2026-10-13",
-      "initialBaseline": false,
-      "historicalBackfill": false,
-      "freshObservation": false,
-      "observationNote": "이전 검증 공개공보 유지(이번 실행 신규 조회 아님)",
-      "reusedFromPriorVerifiedSnapshot": true
-    },
-    {
-      "company": "현대자동차",
-      "applicants": [
-        "현대자동차주식회사",
-        "기아 주식회사",
-        "숭실대학교산학협력단"
-      ],
-      "applicationNumber": "1020250038960",
-      "publicationNumber": "1020260144712",
-      "applicationDate": "20250326",
-      "publicationDate": "20261006",
-      "registrationDate": null,
-      "registerStatus": "공개",
-      "title": "음극, 이를 포함하는 전고체전지 및 음극 제조방법",
-      "abstract": "본 발명은 수명 및 효율 특성이 개선된 음극, 이를 포함하는 전고체전지 및 음극 제조방법에 관한 것이다.",
-      "ipc": "H01M 4/134|H01M 4/66|H01M 10/0562|H01M 4/62|H01M 4/1395|H01M 10/052|H01M 4/02",
-      "themes": [
-        {
-          "theme": "전기차·배터리",
-          "titleHits": [
-            "전고체"
-          ],
-          "abstractHits": [
-            "전고체"
-          ]
-        }
-      ],
-      "priorityScore": 60,
-      "themeMatched": true,
-      "classificationStatus": "기술 키워드 일치 · 별도 원문 검증 필요",
-      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
-      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
-      "lookupNumber": "1020260144712",
-      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
-      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
-      "questions": [
-        "공개번호 1020260144712의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
-        "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
-        "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
-        "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
-      ],
-      "scoopConfirmed": false,
-      "previouslyObserved": true,
-      "firstObservedAt": "2026-10-13",
-      "initialBaseline": false,
-      "historicalBackfill": false,
-      "freshObservation": false,
-      "observationNote": "이전 검증 공개공보 유지(이번 실행 신규 조회 아님)",
-      "reusedFromPriorVerifiedSnapshot": true
-    },
-    {
       "company": "한화솔루션",
       "applicants": [
         "한화솔루션 주식회사"
@@ -10657,6 +10480,100 @@
       "reusedFromPriorVerifiedSnapshot": true
     },
     {
+      "company": "기아",
+      "applicants": [
+        "현대자동차주식회사",
+        "기아 주식회사"
+      ],
+      "applicationNumber": "1020250058317",
+      "publicationNumber": "1020260162073",
+      "applicationDate": "20250502",
+      "publicationDate": "20261110",
+      "registrationDate": null,
+      "registerStatus": "공개",
+      "title": "모바일 로봇 제어 장치, 시스템 및 방법",
+      "abstract": "본 개시는 모바일 로봇 제어 장치, 시스템 및 방법에 관한 것으로, 해결하고자 하는 기술적 과제는 모바일 로봇의 운영 상태를 기반으로 모바일 로봇의 전력 공급을 부분적으로 또는 전체적으로 제어할 수 있는 모바일 로봇 제어 장치, 시스템 및 방법을 제공하는데 있다. 이를 위해, 본 개시는 모바일 로봇(Mobile Robot)의 구동부의 전력 공급을 제어하는 제1 프로세서, 모바일 로봇의 전원 공급을 수행하는 배터리관리시스템 및 배터리관리시스템의 동작을 제어하는 제2 프로세서를 포함하고, 모바일 로봇의 운영 상태에 기초하여, 제1 프로세서 또는 제2 프로세서 중 적어도 하나가, 구동부의 전력 공급을 차단하는 것을 특징으로 한다.",
+      "ipc": "B60L 58/10|B25J 19/00|B25J 5/00|B25J 9/16|B25J 13/00",
+      "themes": [
+        {
+          "theme": "전기차·배터리",
+          "titleHits": [],
+          "abstractHits": [
+            "배터리",
+            "배터리 관리"
+          ]
+        }
+      ],
+      "priorityScore": 46,
+      "themeMatched": true,
+      "classificationStatus": "기술 키워드 일치 · 별도 원문 검증 필요",
+      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
+      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
+      "lookupNumber": "1020260162073",
+      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
+      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
+      "questions": [
+        "공개번호 1020260162073의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
+        "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
+        "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
+        "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
+      ],
+      "scoopConfirmed": false,
+      "previouslyObserved": false,
+      "firstObservedAt": "2026-11-11",
+      "initialBaseline": false,
+      "historicalBackfill": true,
+      "freshObservation": false,
+      "observationNote": "직전 스냅샷 이전 공개 공보를 뒤늦게 수집(신규 공개 아님)"
+    },
+    {
+      "company": "현대자동차",
+      "applicants": [
+        "현대자동차주식회사",
+        "기아 주식회사"
+      ],
+      "applicationNumber": "1020250058317",
+      "publicationNumber": "1020260162073",
+      "applicationDate": "20250502",
+      "publicationDate": "20261110",
+      "registrationDate": null,
+      "registerStatus": "공개",
+      "title": "모바일 로봇 제어 장치, 시스템 및 방법",
+      "abstract": "본 개시는 모바일 로봇 제어 장치, 시스템 및 방법에 관한 것으로, 해결하고자 하는 기술적 과제는 모바일 로봇의 운영 상태를 기반으로 모바일 로봇의 전력 공급을 부분적으로 또는 전체적으로 제어할 수 있는 모바일 로봇 제어 장치, 시스템 및 방법을 제공하는데 있다. 이를 위해, 본 개시는 모바일 로봇(Mobile Robot)의 구동부의 전력 공급을 제어하는 제1 프로세서, 모바일 로봇의 전원 공급을 수행하는 배터리관리시스템 및 배터리관리시스템의 동작을 제어하는 제2 프로세서를 포함하고, 모바일 로봇의 운영 상태에 기초하여, 제1 프로세서 또는 제2 프로세서 중 적어도 하나가, 구동부의 전력 공급을 차단하는 것을 특징으로 한다.",
+      "ipc": "B60L 58/10|B25J 19/00|B25J 5/00|B25J 9/16|B25J 13/00",
+      "themes": [
+        {
+          "theme": "전기차·배터리",
+          "titleHits": [],
+          "abstractHits": [
+            "배터리",
+            "배터리 관리"
+          ]
+        }
+      ],
+      "priorityScore": 46,
+      "themeMatched": true,
+      "classificationStatus": "기술 키워드 일치 · 별도 원문 검증 필요",
+      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
+      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
+      "lookupNumber": "1020260162073",
+      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
+      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
+      "questions": [
+        "공개번호 1020260162073의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
+        "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
+        "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
+        "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
+      ],
+      "scoopConfirmed": false,
+      "previouslyObserved": false,
+      "firstObservedAt": "2026-11-11",
+      "initialBaseline": false,
+      "historicalBackfill": true,
+      "freshObservation": false,
+      "observationNote": "직전 스냅샷 이전 공개 공보를 뒤늦게 수집(신규 공개 아님)"
+    },
+    {
       "company": "HD현대일렉트릭",
       "applicants": [
         "에이치디한국조선해양 주식회사",
@@ -10696,17 +10613,12 @@
         "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
       ],
       "scoopConfirmed": false,
-      "previouslyObserved": false,
+      "previouslyObserved": true,
       "firstObservedAt": "2026-11-10",
       "initialBaseline": false,
-      "historicalBackfill": true,
+      "historicalBackfill": false,
       "freshObservation": false,
-      "observationNote": "직전 스냅샷 이전 공개 공보를 뒤늦게 수집(신규 공개 아님)",
-      "pressCoverage": {
-        "status": "번호 직접 검색 결과 미발견: 미보도 의미 아님",
-        "query": "\"1020260161434\" \"HD현대일렉트릭\"",
-        "articles": []
-      }
+      "observationNote": "이미 관측된 공개공보"
     },
     {
       "company": "현대모비스",
@@ -10747,17 +10659,12 @@
         "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
       ],
       "scoopConfirmed": false,
-      "previouslyObserved": false,
+      "previouslyObserved": true,
       "firstObservedAt": "2026-11-10",
       "initialBaseline": false,
-      "historicalBackfill": true,
+      "historicalBackfill": false,
       "freshObservation": false,
-      "observationNote": "직전 스냅샷 이전 공개 공보를 뒤늦게 수집(신규 공개 아님)",
-      "pressCoverage": {
-        "status": "번호 직접 검색 결과 미발견: 미보도 의미 아님",
-        "query": "\"1020260161411\" \"현대모비스\"",
-        "articles": []
-      }
+      "observationNote": "이미 관측된 공개공보"
     },
     {
       "company": "현대모비스",
@@ -10798,12 +10705,12 @@
         "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
       ],
       "scoopConfirmed": false,
-      "previouslyObserved": false,
+      "previouslyObserved": true,
       "firstObservedAt": "2026-11-10",
       "initialBaseline": false,
-      "historicalBackfill": true,
+      "historicalBackfill": false,
       "freshObservation": false,
-      "observationNote": "직전 스냅샷 이전 공개 공보를 뒤늦게 수집(신규 공개 아님)"
+      "observationNote": "이미 관측된 공개공보"
     },
     {
       "company": "기아",
@@ -14635,6 +14542,573 @@
       "reusedFromPriorVerifiedSnapshot": true
     },
     {
+      "company": "LS전선",
+      "applicants": [
+        "엘에스전선 주식회사"
+      ],
+      "applicationNumber": "1020260217389",
+      "publicationNumber": "1020260162274",
+      "applicationDate": "20261104",
+      "publicationDate": "20261110",
+      "registrationDate": null,
+      "registerStatus": "공개",
+      "title": "전력 케이블",
+      "abstract": "본 발명은 표피효과를 억제함으로써 교류 저항을 최소화하여 교류 송전 시 높은 허용전류를 확보할 수 있는 동시에 구조적으로 안정적인 전력 케이블을 제공하는 것을 목적으로 한다.",
+      "ipc": "H01B 7/30|H01B 9/02|H01B 7/18|H01B 7/02|H01B 7/00|H01B 3/30|H01B 7/282|H01B 3/08",
+      "themes": [],
+      "priorityScore": 20,
+      "themeMatched": false,
+      "classificationStatus": "기존 기술사전에 없음 · 공동출원인/초록 검토",
+      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
+      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
+      "lookupNumber": "1020260162274",
+      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
+      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
+      "questions": [
+        "공개번호 1020260162274의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
+        "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
+        "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
+        "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
+      ],
+      "scoopConfirmed": false,
+      "previouslyObserved": false,
+      "firstObservedAt": "2026-11-11",
+      "initialBaseline": false,
+      "historicalBackfill": true,
+      "freshObservation": false,
+      "observationNote": "직전 스냅샷 이전 공개 공보를 뒤늦게 수집(신규 공개 아님)"
+    },
+    {
+      "company": "기아",
+      "applicants": [
+        "현대자동차주식회사",
+        "기아 주식회사"
+      ],
+      "applicationNumber": "1020250058010",
+      "publicationNumber": "1020260161979",
+      "applicationDate": "20250502",
+      "publicationDate": "20261110",
+      "registrationDate": null,
+      "registerStatus": "공개",
+      "title": "모델 프로파일링 기반의 모델 압축 방법 및 장치",
+      "abstract": "모델 프로파일링(model profiling) 기반의 모델 압축 방법 및 장치가 제공된다. 모델 압축 방법은, 프로세서 및 메모리를 포함하는 컴퓨팅 장치에 의해 수행되는 모델 압축 방법으로서, 상기 프로세서가, 타깃 모델(target model)에 관한 정보와 타깃 디바이스(target device)에 대한 정보를 수신하는 단계; 상기 프로세서가, 상기 타깃 디바이스에 대한 상기 타깃 모델의 레이어 별 지연 시간(latency)을 결정하는 단계; 상기 프로세서가, 상기 레이어 별 지연 시간을 포함하는 지연 시간 데이터베이스(latency database)를 생성하는 단계; 상기 프로세서가, 상기 지연 시간 데이터베이스에서, 지연 시간이 큰 순서대로 선정된 하나 이상의 타깃 레이어(target layer)를 결정하는 단계; 상기 프로세서가, 상기 타깃 레이어 별로 레이어 압축 중요도(layer compression importance)를 계산하는 단계; 및 상기 프로세서가, 상기 레이어 압축 중요도의 값에 따라 상이한 방식으로 상기 타깃 레이어에 대해 압축을 수행하는 단계를 포함할 수 있다.",
+      "ipc": "G06N 3/0495|G06N 3/082",
+      "themes": [],
+      "priorityScore": 20,
+      "themeMatched": false,
+      "classificationStatus": "기존 기술사전에 없음 · 공동출원인/초록 검토",
+      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
+      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
+      "lookupNumber": "1020260161979",
+      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
+      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
+      "questions": [
+        "공개번호 1020260161979의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
+        "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
+        "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
+        "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
+      ],
+      "scoopConfirmed": false,
+      "previouslyObserved": false,
+      "firstObservedAt": "2026-11-11",
+      "initialBaseline": false,
+      "historicalBackfill": true,
+      "freshObservation": false,
+      "observationNote": "직전 스냅샷 이전 공개 공보를 뒤늦게 수집(신규 공개 아님)"
+    },
+    {
+      "company": "기아",
+      "applicants": [
+        "현대자동차주식회사",
+        "기아 주식회사"
+      ],
+      "applicationNumber": "1020250058057",
+      "publicationNumber": "1020260161995",
+      "applicationDate": "20250502",
+      "publicationDate": "20261110",
+      "registrationDate": null,
+      "registerStatus": "공개",
+      "title": "압출 복합재 부품, 그것의 제조 방법 및 압출 복합재 부품 제조용 금형 장치",
+      "abstract": "본 발명은 압출 다이의 내부 공간에 강화부재를 삽입하는 단계 및 상기 압출 다이의 내부 공간에 공급된 압출재를 가압하여 상기 압출 다이의 다이 홀로부터 압출하는 단계를 포함하는 압출 복합재 부품의 제조 방법으로서, 본 발명에 의하면, 압출재에 강화 부재가 삽입된 압출 복합재를 적용하여, 알루미늄 소재 대비 고강도, 고인성을 갖는 압출 복합재 부품을 제공할 수 있다.",
+      "ipc": "B21C 23/22|B21C 23/08|B21C 25/02",
+      "themes": [],
+      "priorityScore": 20,
+      "themeMatched": false,
+      "classificationStatus": "기존 기술사전에 없음 · 공동출원인/초록 검토",
+      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
+      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
+      "lookupNumber": "1020260161995",
+      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
+      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
+      "questions": [
+        "공개번호 1020260161995의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
+        "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
+        "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
+        "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
+      ],
+      "scoopConfirmed": false,
+      "previouslyObserved": false,
+      "firstObservedAt": "2026-11-11",
+      "initialBaseline": false,
+      "historicalBackfill": true,
+      "freshObservation": false,
+      "observationNote": "직전 스냅샷 이전 공개 공보를 뒤늦게 수집(신규 공개 아님)"
+    },
+    {
+      "company": "기아",
+      "applicants": [
+        "현대자동차주식회사",
+        "기아 주식회사"
+      ],
+      "applicationNumber": "1020250058011",
+      "publicationNumber": "1020260161980",
+      "applicationDate": "20250502",
+      "publicationDate": "20261110",
+      "registrationDate": null,
+      "registerStatus": "공개",
+      "title": "가상 시나리오 생성 방법 및 장치",
+      "abstract": "가상 시나리오 생성 방법 및 장치가 제공된다. 가상 시나리오 생성 방법은, 프로세서 및 메모리를 포함하는 컴퓨팅 장치에 의해 수행되는, 차량 기능을 검증하기 위한 시뮬레이션에서 사용되는 가상 시나리오 생성 방법으로서, 상기 프로세서가, 상기 가상 시나리오의 사건에 참여하는 가상 개체를 결정하는 단계; 상기 프로세서가, 상기 가상 시나리오의 사건 구성을 분석하고, 상기 가상 개체의 동작을 동기화하기 위한 트리거 조건을 설정하는 단계; 상기 프로세서가, 상기 가상 개체의 상태를 구분하여 상태 별 동작을 결정하는 단계; 상기 프로세서가, 상기 가상 시나리오의 도로 환경 및 도로 환경 관련 객체를 분석하는 단계; 상기 프로세서가, 상기 도로 환경 및 상기 도로 환경 관련 객체를 포함하는 도로망 모델을 획득하는 단계; 및 상기 프로세서가, 상기 가상 개체, 상기 트리거 조건, 상기 상태 별 동작 및 상기 도로망 모델에 기초하여, 미리 정해진 스키마(schema)에 따라 상기 가상 시나리오를 기술한 가상 시나리오 파일을 생성하는 단계를 포함할 수 있다.",
+      "ipc": "G06F 11/3668|B60W 60/00|G06T 19/00|G06T 19/20",
+      "themes": [],
+      "priorityScore": 20,
+      "themeMatched": false,
+      "classificationStatus": "기존 기술사전에 없음 · 공동출원인/초록 검토",
+      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
+      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
+      "lookupNumber": "1020260161980",
+      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
+      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
+      "questions": [
+        "공개번호 1020260161980의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
+        "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
+        "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
+        "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
+      ],
+      "scoopConfirmed": false,
+      "previouslyObserved": false,
+      "firstObservedAt": "2026-11-11",
+      "initialBaseline": false,
+      "historicalBackfill": true,
+      "freshObservation": false,
+      "observationNote": "직전 스냅샷 이전 공개 공보를 뒤늦게 수집(신규 공개 아님)"
+    },
+    {
+      "company": "기아",
+      "applicants": [
+        "현대자동차주식회사",
+        "기아 주식회사"
+      ],
+      "applicationNumber": "1020250058012",
+      "publicationNumber": "1020260161981",
+      "applicationDate": "20250502",
+      "publicationDate": "20261110",
+      "registrationDate": null,
+      "registerStatus": "공개",
+      "title": "센서 클리닝 방법 및 장치",
+      "abstract": "센서 클리닝 방법 및 장치가 제공된다. 센서 클리닝 방법은, 차량에 구현되고, 프로세서 및 메모리를 포함하는 컴퓨팅 장치에 의해 수행되는, 센서 클리닝 방법으로서, 상기 프로세서가, 상기 차량의 워셔 리저버로부터 출력되는 워셔액의 압력을 조절하기 위해 워셔 펌프를 제어하는 단계; 상기 워셔 펌프로부터 출력되는 상기 워셔액은 열교환기를 통과하고, 상기 프로세서가, 상기 열교환기를 통과하는 워셔액의 온도를 조절하기 위해 히트펌프를 제어하는 단계; 및 상기 열교환기를 통과한 상기 워셔액은 분배기로 전달되고, 상기 프로세서가, 상기 분배기의 복수의 밸브 중 클리닝이 필요한 센서에 대응하는 밸브가 개방되도록 상기 분배기를 제어하는 단계를 포함할 수 있다.",
+      "ipc": "B60S 1/56|B60S 1/48",
+      "themes": [],
+      "priorityScore": 20,
+      "themeMatched": false,
+      "classificationStatus": "기존 기술사전에 없음 · 공동출원인/초록 검토",
+      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
+      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
+      "lookupNumber": "1020260161981",
+      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
+      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
+      "questions": [
+        "공개번호 1020260161981의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
+        "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
+        "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
+        "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
+      ],
+      "scoopConfirmed": false,
+      "previouslyObserved": false,
+      "firstObservedAt": "2026-11-11",
+      "initialBaseline": false,
+      "historicalBackfill": true,
+      "freshObservation": false,
+      "observationNote": "직전 스냅샷 이전 공개 공보를 뒤늦게 수집(신규 공개 아님)"
+    },
+    {
+      "company": "기아",
+      "applicants": [
+        "현대자동차주식회사",
+        "기아 주식회사"
+      ],
+      "applicationNumber": "1020250058013",
+      "publicationNumber": "1020260161982",
+      "applicationDate": "20250502",
+      "publicationDate": "20261110",
+      "registrationDate": null,
+      "registerStatus": "공개",
+      "title": "차량의 안전 장비에 관한 제어 로직 도출 방법 및 장치",
+      "abstract": "제어 로직 도출 방법 및 장치가 제공된다. 제어 로직 도출 방법은, 프로세서 및 메모리를 포함하는 컴퓨팅 장치에 의해 수행되는, 차량의 안전 장비에 관한 제어 로직 도출 방법으로서, 상기 프로세서가, 상기 차량의 주행 시뮬레이션을 수행하여 충돌 발생에 관련된 차량 거동 데이터를 추출하는 단계; 상기 프로세서가, 상기 추출된 차량 거동 데이터를 사고 시나리오 재현 모델에 입력하고, 상기 차량 및 승객에게 가해진 하중 레벨을 계산하여 사고 가혹도를 판단하고 가혹 사고 시나리오를 결정하는 단계; 상기 프로세서가, 상기 가혹 사고 시나리오에 대해 상기 승객의 착좌 위치를 고려하는 안전 해석 모델을 이용하여 승객 거동 및 상해를 평가하는 단계; 상기 프로세서가, 상기 승객 거동 및 상해에 관한 데이터에 기반하여, 상기 착좌 위치를 포함하는 설계 인자에 따라 전수 요인 실험계획법(Full Factorial DOE(Design of Experiments))을 구성하는 단계; 상기 프로세서가, 상기 전수 요인 실험계획법을 기반으로 상해 경향성을 분석하는 단계; 상기 프로세서가, 상기 상해 경향성에서 제어 로직 적용 구간과 제어 로직 미적용 구간을 도출하는 단계; 및 상기 프로세서가, 상기 제어 로직 적용 구간에서 동작하는 제어 로직을 도출하는 단계를 포함할 수 있다.",
+      "ipc": "G01M 17/007|G06F 30/15|G06F 30/20",
+      "themes": [],
+      "priorityScore": 20,
+      "themeMatched": false,
+      "classificationStatus": "기존 기술사전에 없음 · 공동출원인/초록 검토",
+      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
+      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
+      "lookupNumber": "1020260161982",
+      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
+      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
+      "questions": [
+        "공개번호 1020260161982의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
+        "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
+        "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
+        "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
+      ],
+      "scoopConfirmed": false,
+      "previouslyObserved": false,
+      "firstObservedAt": "2026-11-11",
+      "initialBaseline": false,
+      "historicalBackfill": true,
+      "freshObservation": false,
+      "observationNote": "직전 스냅샷 이전 공개 공보를 뒤늦게 수집(신규 공개 아님)"
+    },
+    {
+      "company": "기아",
+      "applicants": [
+        "현대자동차주식회사",
+        "기아 주식회사"
+      ],
+      "applicationNumber": "1020250058231",
+      "publicationNumber": "1020260162047",
+      "applicationDate": "20250502",
+      "publicationDate": "20261110",
+      "registrationDate": null,
+      "registerStatus": "공개",
+      "title": "열교환이 가능한 어큐뮬레이터",
+      "abstract": "본 발명은 냉난방 시스템의 냉매회로에 포함된 어큐뮬레이터를 기액 분리 기능 외에 냉각수와 냉매 간의 열교환 기능을 수행할 수 있도록 개선하여, 별도의 열교환기를 추가하지 않고, 어큐뮬레이터를 순환하는 냉매와 냉각수회로를 순환하는 냉각수 간의 열교환이 이루어질 수 있도록 함으로써, 열교환 시스템의 부품수 절감 및 단순화를 실현할 수 있도록 한 열교환이 가능한 어큐뮬레이터를 제공하고자 한 것이다.",
+      "ipc": "F25B 43/00|B60H 1/32|B60H 1/00",
+      "themes": [],
+      "priorityScore": 20,
+      "themeMatched": false,
+      "classificationStatus": "기존 기술사전에 없음 · 공동출원인/초록 검토",
+      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
+      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
+      "lookupNumber": "1020260162047",
+      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
+      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
+      "questions": [
+        "공개번호 1020260162047의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
+        "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
+        "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
+        "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
+      ],
+      "scoopConfirmed": false,
+      "previouslyObserved": false,
+      "firstObservedAt": "2026-11-11",
+      "initialBaseline": false,
+      "historicalBackfill": true,
+      "freshObservation": false,
+      "observationNote": "직전 스냅샷 이전 공개 공보를 뒤늦게 수집(신규 공개 아님)"
+    },
+    {
+      "company": "현대모비스",
+      "applicants": [
+        "현대모비스 주식회사"
+      ],
+      "applicationNumber": "1020250058397",
+      "publicationNumber": "1020260162099",
+      "applicationDate": "20250502",
+      "publicationDate": "20261110",
+      "registrationDate": null,
+      "registerStatus": "공개",
+      "title": "루프 에어백 장치",
+      "abstract": "본 발명의 일 실시예에 따른 루프 에어백 장치는 차량의 루프에 설치되는 루프 에어백 장치에 있어서, 전개 시 승객을 보호하도록 형성되는 에어백 쿠션; 및 상기 에어백 쿠션의 양측에 각각 배치되며, 차량의 루프에 설치된 가이드 와이어에 에어백 쿠션을 지지하기 위한 지지링을 포함하고, 상기 지지링은 적어도 일부분이 소정의 각도로 비틀린 형상을 가져 상기 에어백 쿠션의 전개 시 비틀리면서 상기 에어백 쿠션을 지지할 수 있다.",
+      "ipc": "B60R 21/231|B60R 21/214|B60R 21/00",
+      "themes": [],
+      "priorityScore": 20,
+      "themeMatched": false,
+      "classificationStatus": "기존 기술사전에 없음 · 공동출원인/초록 검토",
+      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
+      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
+      "lookupNumber": "1020260162099",
+      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
+      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
+      "questions": [
+        "공개번호 1020260162099의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
+        "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
+        "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
+        "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
+      ],
+      "scoopConfirmed": false,
+      "previouslyObserved": false,
+      "firstObservedAt": "2026-11-11",
+      "initialBaseline": false,
+      "historicalBackfill": true,
+      "freshObservation": false,
+      "observationNote": "직전 스냅샷 이전 공개 공보를 뒤늦게 수집(신규 공개 아님)"
+    },
+    {
+      "company": "현대모비스",
+      "applicants": [
+        "현대모비스 주식회사"
+      ],
+      "applicationNumber": "1020250058243",
+      "publicationNumber": "1020260162052",
+      "applicationDate": "20250502",
+      "publicationDate": "20261110",
+      "registrationDate": null,
+      "registerStatus": "공개",
+      "title": "실시간 환경 조건에 따른 페달 스트로크 센서 보정 장치 및 방법",
+      "abstract": "본 실시예는 실시간 환경 조건에 따른 페달 스트로크 센서 보정 장치에 있어서, 주행 이전에, 측정된 초기 스트로크 값 및 초기 듀티값을 저장하는 저장부; 주행 중에, 스트로크값에 대응하는 듀티값을 측정하는 듀티값 측정부; 상기 듀티값을 머신러닝에 적용하여 제1 스트로크값을 산출하는 제1 스트로크값 산출부; 압력 센서를 이용하여 측정된 압력값을 역산하여 제2 스트로크값을 산출하는 제2 스트로크값 산출부; 및 상기 제1 스트로크값과 상기 제2 스트로크값을 비교하고, 비교 결과를 기초로 하여, 선형 모델의 보정 여부를 결정하는 보정부를 포함하는, 상기 선형 모델은 상기 초기 스트로크 값 및 초기 듀티값을 기초로 한 모델이다.",
+      "ipc": "B60T 7/04|B60T 17/22|B60T 8/171|B60T 8/172",
+      "themes": [],
+      "priorityScore": 20,
+      "themeMatched": false,
+      "classificationStatus": "기존 기술사전에 없음 · 공동출원인/초록 검토",
+      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
+      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
+      "lookupNumber": "1020260162052",
+      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
+      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
+      "questions": [
+        "공개번호 1020260162052의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
+        "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
+        "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
+        "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
+      ],
+      "scoopConfirmed": false,
+      "previouslyObserved": false,
+      "firstObservedAt": "2026-11-11",
+      "initialBaseline": false,
+      "historicalBackfill": true,
+      "freshObservation": false,
+      "observationNote": "직전 스냅샷 이전 공개 공보를 뒤늦게 수집(신규 공개 아님)"
+    },
+    {
+      "company": "현대자동차",
+      "applicants": [
+        "현대자동차주식회사",
+        "기아 주식회사"
+      ],
+      "applicationNumber": "1020250058010",
+      "publicationNumber": "1020260161979",
+      "applicationDate": "20250502",
+      "publicationDate": "20261110",
+      "registrationDate": null,
+      "registerStatus": "공개",
+      "title": "모델 프로파일링 기반의 모델 압축 방법 및 장치",
+      "abstract": "모델 프로파일링(model profiling) 기반의 모델 압축 방법 및 장치가 제공된다. 모델 압축 방법은, 프로세서 및 메모리를 포함하는 컴퓨팅 장치에 의해 수행되는 모델 압축 방법으로서, 상기 프로세서가, 타깃 모델(target model)에 관한 정보와 타깃 디바이스(target device)에 대한 정보를 수신하는 단계; 상기 프로세서가, 상기 타깃 디바이스에 대한 상기 타깃 모델의 레이어 별 지연 시간(latency)을 결정하는 단계; 상기 프로세서가, 상기 레이어 별 지연 시간을 포함하는 지연 시간 데이터베이스(latency database)를 생성하는 단계; 상기 프로세서가, 상기 지연 시간 데이터베이스에서, 지연 시간이 큰 순서대로 선정된 하나 이상의 타깃 레이어(target layer)를 결정하는 단계; 상기 프로세서가, 상기 타깃 레이어 별로 레이어 압축 중요도(layer compression importance)를 계산하는 단계; 및 상기 프로세서가, 상기 레이어 압축 중요도의 값에 따라 상이한 방식으로 상기 타깃 레이어에 대해 압축을 수행하는 단계를 포함할 수 있다.",
+      "ipc": "G06N 3/0495|G06N 3/082",
+      "themes": [],
+      "priorityScore": 20,
+      "themeMatched": false,
+      "classificationStatus": "기존 기술사전에 없음 · 공동출원인/초록 검토",
+      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
+      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
+      "lookupNumber": "1020260161979",
+      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
+      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
+      "questions": [
+        "공개번호 1020260161979의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
+        "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
+        "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
+        "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
+      ],
+      "scoopConfirmed": false,
+      "previouslyObserved": false,
+      "firstObservedAt": "2026-11-11",
+      "initialBaseline": false,
+      "historicalBackfill": true,
+      "freshObservation": false,
+      "observationNote": "직전 스냅샷 이전 공개 공보를 뒤늦게 수집(신규 공개 아님)"
+    },
+    {
+      "company": "현대자동차",
+      "applicants": [
+        "현대자동차주식회사",
+        "기아 주식회사"
+      ],
+      "applicationNumber": "1020250058057",
+      "publicationNumber": "1020260161995",
+      "applicationDate": "20250502",
+      "publicationDate": "20261110",
+      "registrationDate": null,
+      "registerStatus": "공개",
+      "title": "압출 복합재 부품, 그것의 제조 방법 및 압출 복합재 부품 제조용 금형 장치",
+      "abstract": "본 발명은 압출 다이의 내부 공간에 강화부재를 삽입하는 단계 및 상기 압출 다이의 내부 공간에 공급된 압출재를 가압하여 상기 압출 다이의 다이 홀로부터 압출하는 단계를 포함하는 압출 복합재 부품의 제조 방법으로서, 본 발명에 의하면, 압출재에 강화 부재가 삽입된 압출 복합재를 적용하여, 알루미늄 소재 대비 고강도, 고인성을 갖는 압출 복합재 부품을 제공할 수 있다.",
+      "ipc": "B21C 23/22|B21C 23/08|B21C 25/02",
+      "themes": [],
+      "priorityScore": 20,
+      "themeMatched": false,
+      "classificationStatus": "기존 기술사전에 없음 · 공동출원인/초록 검토",
+      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
+      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
+      "lookupNumber": "1020260161995",
+      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
+      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
+      "questions": [
+        "공개번호 1020260161995의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
+        "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
+        "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
+        "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
+      ],
+      "scoopConfirmed": false,
+      "previouslyObserved": false,
+      "firstObservedAt": "2026-11-11",
+      "initialBaseline": false,
+      "historicalBackfill": true,
+      "freshObservation": false,
+      "observationNote": "직전 스냅샷 이전 공개 공보를 뒤늦게 수집(신규 공개 아님)"
+    },
+    {
+      "company": "현대자동차",
+      "applicants": [
+        "현대자동차주식회사",
+        "기아 주식회사"
+      ],
+      "applicationNumber": "1020250058011",
+      "publicationNumber": "1020260161980",
+      "applicationDate": "20250502",
+      "publicationDate": "20261110",
+      "registrationDate": null,
+      "registerStatus": "공개",
+      "title": "가상 시나리오 생성 방법 및 장치",
+      "abstract": "가상 시나리오 생성 방법 및 장치가 제공된다. 가상 시나리오 생성 방법은, 프로세서 및 메모리를 포함하는 컴퓨팅 장치에 의해 수행되는, 차량 기능을 검증하기 위한 시뮬레이션에서 사용되는 가상 시나리오 생성 방법으로서, 상기 프로세서가, 상기 가상 시나리오의 사건에 참여하는 가상 개체를 결정하는 단계; 상기 프로세서가, 상기 가상 시나리오의 사건 구성을 분석하고, 상기 가상 개체의 동작을 동기화하기 위한 트리거 조건을 설정하는 단계; 상기 프로세서가, 상기 가상 개체의 상태를 구분하여 상태 별 동작을 결정하는 단계; 상기 프로세서가, 상기 가상 시나리오의 도로 환경 및 도로 환경 관련 객체를 분석하는 단계; 상기 프로세서가, 상기 도로 환경 및 상기 도로 환경 관련 객체를 포함하는 도로망 모델을 획득하는 단계; 및 상기 프로세서가, 상기 가상 개체, 상기 트리거 조건, 상기 상태 별 동작 및 상기 도로망 모델에 기초하여, 미리 정해진 스키마(schema)에 따라 상기 가상 시나리오를 기술한 가상 시나리오 파일을 생성하는 단계를 포함할 수 있다.",
+      "ipc": "G06F 11/3668|B60W 60/00|G06T 19/00|G06T 19/20",
+      "themes": [],
+      "priorityScore": 20,
+      "themeMatched": false,
+      "classificationStatus": "기존 기술사전에 없음 · 공동출원인/초록 검토",
+      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
+      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
+      "lookupNumber": "1020260161980",
+      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
+      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
+      "questions": [
+        "공개번호 1020260161980의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
+        "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
+        "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
+        "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
+      ],
+      "scoopConfirmed": false,
+      "previouslyObserved": false,
+      "firstObservedAt": "2026-11-11",
+      "initialBaseline": false,
+      "historicalBackfill": true,
+      "freshObservation": false,
+      "observationNote": "직전 스냅샷 이전 공개 공보를 뒤늦게 수집(신규 공개 아님)"
+    },
+    {
+      "company": "현대자동차",
+      "applicants": [
+        "현대자동차주식회사",
+        "기아 주식회사"
+      ],
+      "applicationNumber": "1020250058012",
+      "publicationNumber": "1020260161981",
+      "applicationDate": "20250502",
+      "publicationDate": "20261110",
+      "registrationDate": null,
+      "registerStatus": "공개",
+      "title": "센서 클리닝 방법 및 장치",
+      "abstract": "센서 클리닝 방법 및 장치가 제공된다. 센서 클리닝 방법은, 차량에 구현되고, 프로세서 및 메모리를 포함하는 컴퓨팅 장치에 의해 수행되는, 센서 클리닝 방법으로서, 상기 프로세서가, 상기 차량의 워셔 리저버로부터 출력되는 워셔액의 압력을 조절하기 위해 워셔 펌프를 제어하는 단계; 상기 워셔 펌프로부터 출력되는 상기 워셔액은 열교환기를 통과하고, 상기 프로세서가, 상기 열교환기를 통과하는 워셔액의 온도를 조절하기 위해 히트펌프를 제어하는 단계; 및 상기 열교환기를 통과한 상기 워셔액은 분배기로 전달되고, 상기 프로세서가, 상기 분배기의 복수의 밸브 중 클리닝이 필요한 센서에 대응하는 밸브가 개방되도록 상기 분배기를 제어하는 단계를 포함할 수 있다.",
+      "ipc": "B60S 1/56|B60S 1/48",
+      "themes": [],
+      "priorityScore": 20,
+      "themeMatched": false,
+      "classificationStatus": "기존 기술사전에 없음 · 공동출원인/초록 검토",
+      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
+      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
+      "lookupNumber": "1020260161981",
+      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
+      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
+      "questions": [
+        "공개번호 1020260161981의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
+        "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
+        "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
+        "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
+      ],
+      "scoopConfirmed": false,
+      "previouslyObserved": false,
+      "firstObservedAt": "2026-11-11",
+      "initialBaseline": false,
+      "historicalBackfill": true,
+      "freshObservation": false,
+      "observationNote": "직전 스냅샷 이전 공개 공보를 뒤늦게 수집(신규 공개 아님)"
+    },
+    {
+      "company": "현대자동차",
+      "applicants": [
+        "현대자동차주식회사",
+        "기아 주식회사"
+      ],
+      "applicationNumber": "1020250058013",
+      "publicationNumber": "1020260161982",
+      "applicationDate": "20250502",
+      "publicationDate": "20261110",
+      "registrationDate": null,
+      "registerStatus": "공개",
+      "title": "차량의 안전 장비에 관한 제어 로직 도출 방법 및 장치",
+      "abstract": "제어 로직 도출 방법 및 장치가 제공된다. 제어 로직 도출 방법은, 프로세서 및 메모리를 포함하는 컴퓨팅 장치에 의해 수행되는, 차량의 안전 장비에 관한 제어 로직 도출 방법으로서, 상기 프로세서가, 상기 차량의 주행 시뮬레이션을 수행하여 충돌 발생에 관련된 차량 거동 데이터를 추출하는 단계; 상기 프로세서가, 상기 추출된 차량 거동 데이터를 사고 시나리오 재현 모델에 입력하고, 상기 차량 및 승객에게 가해진 하중 레벨을 계산하여 사고 가혹도를 판단하고 가혹 사고 시나리오를 결정하는 단계; 상기 프로세서가, 상기 가혹 사고 시나리오에 대해 상기 승객의 착좌 위치를 고려하는 안전 해석 모델을 이용하여 승객 거동 및 상해를 평가하는 단계; 상기 프로세서가, 상기 승객 거동 및 상해에 관한 데이터에 기반하여, 상기 착좌 위치를 포함하는 설계 인자에 따라 전수 요인 실험계획법(Full Factorial DOE(Design of Experiments))을 구성하는 단계; 상기 프로세서가, 상기 전수 요인 실험계획법을 기반으로 상해 경향성을 분석하는 단계; 상기 프로세서가, 상기 상해 경향성에서 제어 로직 적용 구간과 제어 로직 미적용 구간을 도출하는 단계; 및 상기 프로세서가, 상기 제어 로직 적용 구간에서 동작하는 제어 로직을 도출하는 단계를 포함할 수 있다.",
+      "ipc": "G01M 17/007|G06F 30/15|G06F 30/20",
+      "themes": [],
+      "priorityScore": 20,
+      "themeMatched": false,
+      "classificationStatus": "기존 기술사전에 없음 · 공동출원인/초록 검토",
+      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
+      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
+      "lookupNumber": "1020260161982",
+      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
+      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
+      "questions": [
+        "공개번호 1020260161982의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
+        "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
+        "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
+        "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
+      ],
+      "scoopConfirmed": false,
+      "previouslyObserved": false,
+      "firstObservedAt": "2026-11-11",
+      "initialBaseline": false,
+      "historicalBackfill": true,
+      "freshObservation": false,
+      "observationNote": "직전 스냅샷 이전 공개 공보를 뒤늦게 수집(신규 공개 아님)"
+    },
+    {
+      "company": "현대자동차",
+      "applicants": [
+        "현대자동차주식회사",
+        "기아 주식회사"
+      ],
+      "applicationNumber": "1020250058231",
+      "publicationNumber": "1020260162047",
+      "applicationDate": "20250502",
+      "publicationDate": "20261110",
+      "registrationDate": null,
+      "registerStatus": "공개",
+      "title": "열교환이 가능한 어큐뮬레이터",
+      "abstract": "본 발명은 냉난방 시스템의 냉매회로에 포함된 어큐뮬레이터를 기액 분리 기능 외에 냉각수와 냉매 간의 열교환 기능을 수행할 수 있도록 개선하여, 별도의 열교환기를 추가하지 않고, 어큐뮬레이터를 순환하는 냉매와 냉각수회로를 순환하는 냉각수 간의 열교환이 이루어질 수 있도록 함으로써, 열교환 시스템의 부품수 절감 및 단순화를 실현할 수 있도록 한 열교환이 가능한 어큐뮬레이터를 제공하고자 한 것이다.",
+      "ipc": "F25B 43/00|B60H 1/32|B60H 1/00",
+      "themes": [],
+      "priorityScore": 20,
+      "themeMatched": false,
+      "classificationStatus": "기존 기술사전에 없음 · 공동출원인/초록 검토",
+      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
+      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
+      "lookupNumber": "1020260162047",
+      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
+      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
+      "questions": [
+        "공개번호 1020260162047의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
+        "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
+        "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
+        "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
+      ],
+      "scoopConfirmed": false,
+      "previouslyObserved": false,
+      "firstObservedAt": "2026-11-11",
+      "initialBaseline": false,
+      "historicalBackfill": true,
+      "freshObservation": false,
+      "observationNote": "직전 스냅샷 이전 공개 공보를 뒤늦게 수집(신규 공개 아님)"
+    },
+    {
       "company": "기아",
       "applicants": [
         "현대자동차주식회사",
@@ -14665,12 +15139,12 @@
         "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
       ],
       "scoopConfirmed": false,
-      "previouslyObserved": false,
+      "previouslyObserved": true,
       "firstObservedAt": "2026-11-10",
       "initialBaseline": false,
-      "historicalBackfill": true,
+      "historicalBackfill": false,
       "freshObservation": false,
-      "observationNote": "직전 스냅샷 이전 공개 공보를 뒤늦게 수집(신규 공개 아님)"
+      "observationNote": "이미 관측된 공개공보"
     },
     {
       "company": "현대모비스",
@@ -14702,12 +15176,12 @@
         "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
       ],
       "scoopConfirmed": false,
-      "previouslyObserved": false,
+      "previouslyObserved": true,
       "firstObservedAt": "2026-11-10",
       "initialBaseline": false,
-      "historicalBackfill": true,
+      "historicalBackfill": false,
       "freshObservation": false,
-      "observationNote": "직전 스냅샷 이전 공개 공보를 뒤늦게 수집(신규 공개 아님)"
+      "observationNote": "이미 관측된 공개공보"
     },
     {
       "company": "현대자동차",
@@ -14740,12 +15214,12 @@
         "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
       ],
       "scoopConfirmed": false,
-      "previouslyObserved": false,
+      "previouslyObserved": true,
       "firstObservedAt": "2026-11-10",
       "initialBaseline": false,
-      "historicalBackfill": true,
+      "historicalBackfill": false,
       "freshObservation": false,
-      "observationNote": "직전 스냅샷 이전 공개 공보를 뒤늦게 수집(신규 공개 아님)"
+      "observationNote": "이미 관측된 공개공보"
     },
     {
       "company": "현대제철",
@@ -14777,12 +15251,12 @@
         "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
       ],
       "scoopConfirmed": false,
-      "previouslyObserved": false,
+      "previouslyObserved": true,
       "firstObservedAt": "2026-11-10",
       "initialBaseline": false,
-      "historicalBackfill": true,
+      "historicalBackfill": false,
       "freshObservation": false,
-      "observationNote": "직전 스냅샷 이전 공개 공보를 뒤늦게 수집(신규 공개 아님)"
+      "observationNote": "이미 관측된 공개공보"
     },
     {
       "company": "기아",
@@ -41096,1102 +41570,6 @@
       "freshObservation": false,
       "observationNote": "이전 검증 공개공보 유지(이번 실행 신규 조회 아님)",
       "reusedFromPriorVerifiedSnapshot": true
-    },
-    {
-      "company": "기아",
-      "applicants": [
-        "현대자동차주식회사",
-        "기아 주식회사"
-      ],
-      "applicationNumber": "1020250038622",
-      "publicationNumber": "1020260144593",
-      "applicationDate": "20250326",
-      "publicationDate": "20261006",
-      "registrationDate": null,
-      "registerStatus": "공개",
-      "title": "모빌리티용 충전 장치 및 이를 포함하는 모빌리티",
-      "abstract": "본 발명은, 외부 충전기가 연결되고, 위치가 상이한 복수 개의 충전 커넥터;및 상기 복수 개의 충전 커넥터와 연결되는 충전부를 포함하고, 상기 복수 개의 충전 커넥터는 각각, 상기 충전부와 연결된 제1 단자와, 상기 제1 단자와 전기적으로 분리되며. 외부 충전기와 접촉하는 제2 단자를 포함하고, 상기 제1 단자 및 상기 제2 단자 중 어느 하나는 외부 충전기에 의해 움직여 상기 제1 단자 및 상기 제2 단자 중 다른 하나와 접촉함으로써, 외부 충전기와 상기 충전부를 전기적으로 연결되는 모빌리티용 충전 장치를 제공할 수 있다.",
-      "ipc": "B60L 53/16|B60L 53/31|B60L 53/35",
-      "themes": [],
-      "priorityScore": 20,
-      "themeMatched": false,
-      "classificationStatus": "기존 기술사전에 없음 · 공동출원인/초록 검토",
-      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
-      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
-      "lookupNumber": "1020260144593",
-      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
-      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
-      "questions": [
-        "공개번호 1020260144593의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
-        "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
-        "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
-        "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
-      ],
-      "scoopConfirmed": false,
-      "previouslyObserved": true,
-      "firstObservedAt": "2026-10-13",
-      "initialBaseline": false,
-      "historicalBackfill": false,
-      "freshObservation": false,
-      "observationNote": "이전 검증 공개공보 유지(이번 실행 신규 조회 아님)",
-      "reusedFromPriorVerifiedSnapshot": true
-    },
-    {
-      "company": "기아",
-      "applicants": [
-        "현대자동차주식회사",
-        "기아 주식회사",
-        "한양대학교 산학협력단"
-      ],
-      "applicationNumber": "1020250038684",
-      "publicationNumber": "1020260144616",
-      "applicationDate": "20250326",
-      "publicationDate": "20261006",
-      "registrationDate": null,
-      "registerStatus": "공개",
-      "title": "전단 시험 장치",
-      "abstract": "개시되는 내용의 일 실시예에 따른 전단 시험 장치는 고정지그, 가동지그, 센싱어레이 및 제어부를 포함한다. 고정지그는 소재시편의 일측에 형성된 고정파트를 파지하고 베이스클램프에 고정된다. 가동지그는 소재시편의 타측에 형성된 가동파트를 파지하고 베이스클램프의 연직 상부에서 승강하는 승강프레스에 결합된다. 센싱어레이는 테스트라인이 지나는 소재시편의 전단 특성 정보를 수집한다. 제어부는 센싱어레이로부터 수집된 정보가 입력되고 승강프레스의 승강을 제어한다. 특히, 고정지그는 승강프레스의 승강 경로와 평행한 가상의 직선을 따라 상부로 연장되는 원기둥 형상의 고정가이드축, 고정가이드축과 평행한 원통형 통로로 형성되고 테스트라인을 중심으로 고정가이드축의 반대편에 형성되는 고정레일을 포함하며, 가동지그는 고정가이드축이 상하 방향으로 통과하여 승강 가능하도록 관통된 가동레일, 고정레일의 연직상부에서 하부로 곧게 연장되고 고정레일을 통과하여 승강하게 되는 원기둥 형상의 가동가이드축을 포함한다.",
-      "ipc": "G01N 3/24|G01N 3/04",
-      "themes": [],
-      "priorityScore": 20,
-      "themeMatched": false,
-      "classificationStatus": "기존 기술사전에 없음 · 공동출원인/초록 검토",
-      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
-      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
-      "lookupNumber": "1020260144616",
-      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
-      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
-      "questions": [
-        "공개번호 1020260144616의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
-        "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
-        "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
-        "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
-      ],
-      "scoopConfirmed": false,
-      "previouslyObserved": true,
-      "firstObservedAt": "2026-10-13",
-      "initialBaseline": false,
-      "historicalBackfill": false,
-      "freshObservation": false,
-      "observationNote": "이전 검증 공개공보 유지(이번 실행 신규 조회 아님)",
-      "reusedFromPriorVerifiedSnapshot": true
-    },
-    {
-      "company": "기아",
-      "applicants": [
-        "현대자동차주식회사",
-        "기아 주식회사",
-        "인하대학교 산학협력단"
-      ],
-      "applicationNumber": "1020250038642",
-      "publicationNumber": "1020260144597",
-      "applicationDate": "20250326",
-      "publicationDate": "20261006",
-      "registrationDate": null,
-      "registerStatus": "공개",
-      "title": "확산부의 레이아웃 최적의 설계안 도출을 위한 방법 및 시스템",
-      "abstract": "본 발명의 실시예에 따른 확산부의 레이아웃 최적의 설계안 도출을 위한 방법을 제공한다. 확산부의 레이아웃 최적의 설계안 도출을 위한 방법은 미리 결정된 제1 매니폴드의 위치를 고려한 적어도 하나의 설계 변수 및 적어도 하나의 설계 제한 조건을 고려하여 샘플 데이터를 선정하는 단계, 분리판의 확산부의 차압이 최소화되거나 또는 상기 분리판의 반응 영역에서의 반응기체의 유량 분배의 균일성을 판단하기 위한 목적 함수에 따라 대체 모델(Surrogate Model)을 생성하는 단계, 상기 샘플 데이터를 이용하여 상기 대체 모델에 대한 학습을 진행하는 단계 및 상기 대체 모델을 최적화 알고리즘에 대입하여 상기 확산부의 최적의 레이아웃을 도출하기 위한 최적의 설계 변수를 결정하는 단계를 포함한다.",
-      "ipc": "G06F 30/27|G06F 30/28|G06F 111/06|G06F 111/04|G06F 111/10|G06F 113/08",
-      "themes": [],
-      "priorityScore": 20,
-      "themeMatched": false,
-      "classificationStatus": "기존 기술사전에 없음 · 공동출원인/초록 검토",
-      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
-      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
-      "lookupNumber": "1020260144597",
-      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
-      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
-      "questions": [
-        "공개번호 1020260144597의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
-        "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
-        "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
-        "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
-      ],
-      "scoopConfirmed": false,
-      "previouslyObserved": true,
-      "firstObservedAt": "2026-10-13",
-      "initialBaseline": false,
-      "historicalBackfill": false,
-      "freshObservation": false,
-      "observationNote": "이전 검증 공개공보 유지(이번 실행 신규 조회 아님)",
-      "reusedFromPriorVerifiedSnapshot": true
-    },
-    {
-      "company": "기아",
-      "applicants": [
-        "현대자동차주식회사",
-        "기아 주식회사"
-      ],
-      "applicationNumber": "1020250038958",
-      "publicationNumber": "1020260144711",
-      "applicationDate": "20250326",
-      "publicationDate": "20261006",
-      "registrationDate": null,
-      "registerStatus": "공개",
-      "title": "고체전해질 막이 코팅된 전극의 제조방법",
-      "abstract": "본 발명의 일 실시예에 따른 고체전해질 막이 코팅된 전극의 제조방법은 고체전해질 분말 및 섬유화가 가능한 고분자 분말을 투입 및 혼합하고, 상기 섬유화가 가능한 고분자 분말을 섬유화시켜 고체전해질막을 제조하는 단계(S1); 상기 고체전해질막을 전극 상에 배치하여 고체전해질막-전극 복합재를 제조하는 단계(S2); 및 상기 고체전해질막-전극 복합재를 면압 프레스 및/또는 롤 프레스로 가압하여 상기 전극 상에 상기 고체전해질막을 코팅하는 단계(S3);를 포함할 수 있다.",
-      "ipc": "H01M 4/139|H01M 4/04|B30B 3/04",
-      "themes": [],
-      "priorityScore": 20,
-      "themeMatched": false,
-      "classificationStatus": "기존 기술사전에 없음 · 공동출원인/초록 검토",
-      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
-      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
-      "lookupNumber": "1020260144711",
-      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
-      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
-      "questions": [
-        "공개번호 1020260144711의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
-        "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
-        "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
-        "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
-      ],
-      "scoopConfirmed": false,
-      "previouslyObserved": true,
-      "firstObservedAt": "2026-10-13",
-      "initialBaseline": false,
-      "historicalBackfill": false,
-      "freshObservation": false,
-      "observationNote": "이전 검증 공개공보 유지(이번 실행 신규 조회 아님)",
-      "reusedFromPriorVerifiedSnapshot": true
-    },
-    {
-      "company": "기아",
-      "applicants": [
-        "현대자동차주식회사",
-        "기아 주식회사"
-      ],
-      "applicationNumber": "1020250038942",
-      "publicationNumber": "1020260144706",
-      "applicationDate": "20250326",
-      "publicationDate": "20261006",
-      "registrationDate": null,
-      "registerStatus": "공개",
-      "title": "하이브리드 자동차 및 그 제어 방법",
-      "abstract": "엔진이 오프된 후의 냉각수의 온도 변화 정보로 기 학습된 제1 모델을 기반으로, 현재 냉각수의 온도가 기 설정된 제1 온도에 도달되는 시점인 제1 시점을 결정하는 제1 시점 결정부; 운전 상황에 따라 기 학습된 제2 모델을 기반으로, 현재 운전 상황 정보에 대응되는 엔진 기동 예상 시점인 제2 시점을 결정하는 제2 시점 결정부; 및 상기 제1 시점 및 상기 제2 시점을 기반으로, 상기 엔진이 기동되는 기준 온도를 결정하고, 상기 냉각수의 온도가 상기 기준 온도에 도달했는지 여부를 기반으로 기반으로 상기 엔진을 기동시키는 엔진 기동부를 포함하는, 하이브리드 자동차 및 그 제어 방법이 소개된다.",
-      "ipc": "B60W 20/15|B60W 10/06|B60W 10/30|B60W 40/09|B60W 40/06|B60W 40/105",
-      "themes": [],
-      "priorityScore": 20,
-      "themeMatched": false,
-      "classificationStatus": "기존 기술사전에 없음 · 공동출원인/초록 검토",
-      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
-      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
-      "lookupNumber": "1020260144706",
-      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
-      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
-      "questions": [
-        "공개번호 1020260144706의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
-        "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
-        "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
-        "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
-      ],
-      "scoopConfirmed": false,
-      "previouslyObserved": true,
-      "firstObservedAt": "2026-10-13",
-      "initialBaseline": false,
-      "historicalBackfill": false,
-      "freshObservation": false,
-      "observationNote": "이전 검증 공개공보 유지(이번 실행 신규 조회 아님)",
-      "reusedFromPriorVerifiedSnapshot": true
-    },
-    {
-      "company": "기아",
-      "applicants": [
-        "현대자동차주식회사",
-        "기아 주식회사"
-      ],
-      "applicationNumber": "1020250038464",
-      "publicationNumber": "1020260144527",
-      "applicationDate": "20250326",
-      "publicationDate": "20261006",
-      "registrationDate": null,
-      "registerStatus": "공개",
-      "title": "새로운 구조의 막-전극 접합체 및 이의 제조방법",
-      "abstract": "본 발명은 구성 요소간 간극(Gap)이 없어 내구성이 우수한 새로운 구조의 막-전극 접합체 및 이의 제조방법에 대한 것이다.",
-      "ipc": "H01M 8/1004|H01M 8/0271|H01M 4/88|H01M 8/10",
-      "themes": [],
-      "priorityScore": 20,
-      "themeMatched": false,
-      "classificationStatus": "기존 기술사전에 없음 · 공동출원인/초록 검토",
-      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
-      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
-      "lookupNumber": "1020260144527",
-      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
-      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
-      "questions": [
-        "공개번호 1020260144527의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
-        "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
-        "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
-        "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
-      ],
-      "scoopConfirmed": false,
-      "previouslyObserved": true,
-      "firstObservedAt": "2026-10-13",
-      "initialBaseline": false,
-      "historicalBackfill": false,
-      "freshObservation": false,
-      "observationNote": "이전 검증 공개공보 유지(이번 실행 신규 조회 아님)",
-      "reusedFromPriorVerifiedSnapshot": true
-    },
-    {
-      "company": "기아",
-      "applicants": [
-        "현대자동차주식회사",
-        "기아 주식회사",
-        "클리블랜드-클리프스 스틸 프로퍼티즈 인코포레이티드"
-      ],
-      "applicationNumber": "1020250116239",
-      "publicationNumber": "1020260144818",
-      "applicationDate": "20250821",
-      "publicationDate": "20261006",
-      "registrationDate": null,
-      "registerStatus": "공개",
-      "title": "차량 충격 흡수 시스템들",
-      "abstract": "차량의 측면에 대한 충격으로부터의 에너지를 흡수하도록 구성된 복수의 지지 부재들을 포함하는 시스템들을 포함하는 차량 보강 시스템들이 제공된다. 바람직한 지지 부재들은 관형 구성을 가지며, 하나 이상의 특성들이 상이한 별개의 강 조성들로 구성될 수 있다.",
-      "ipc": "B62D 25/20|B62D 25/02|B60K 1/04",
-      "themes": [],
-      "priorityScore": 20,
-      "themeMatched": false,
-      "classificationStatus": "기존 기술사전에 없음 · 공동출원인/초록 검토",
-      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
-      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
-      "lookupNumber": "1020260144818",
-      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
-      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
-      "questions": [
-        "공개번호 1020260144818의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
-        "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
-        "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
-        "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
-      ],
-      "scoopConfirmed": false,
-      "previouslyObserved": true,
-      "firstObservedAt": "2026-10-13",
-      "initialBaseline": false,
-      "historicalBackfill": false,
-      "freshObservation": false,
-      "observationNote": "이전 검증 공개공보 유지(이번 실행 신규 조회 아님)",
-      "reusedFromPriorVerifiedSnapshot": true
-    },
-    {
-      "company": "기아",
-      "applicants": [
-        "현대자동차주식회사",
-        "기아 주식회사",
-        "피에이치에이 주식회사"
-      ],
-      "applicationNumber": "1020250038924",
-      "publicationNumber": "1020260144698",
-      "applicationDate": "20250326",
-      "publicationDate": "20261006",
-      "registrationDate": null,
-      "registerStatus": "공개",
-      "title": "파워 트렁크 기구",
-      "abstract": "개시된 실시예는, 트렁크리드에 결합되고, 트렁크 공간을 이루는 차체패널에 회전 가능하게 결합되어 트렁크리드를 개폐시키는 힌지암; 상기 차체패널 및 힌지암과 연결되어 4절링크 운동을 구현하는 레버유닛; 및 상기 힌지암에 회전력을 제공하고, 상기 힌지암 및 레버유닛과 상대 회전 가능하게 결합되는 전동드라이브유닛;을 포함하는 것을 특징으로 하는 파워 트렁크 기구가 소개된다.",
-      "ipc": "E05F 15/616|E05F 1/12|E05D 5/06",
-      "themes": [],
-      "priorityScore": 20,
-      "themeMatched": false,
-      "classificationStatus": "기존 기술사전에 없음 · 공동출원인/초록 검토",
-      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
-      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
-      "lookupNumber": "1020260144698",
-      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
-      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
-      "questions": [
-        "공개번호 1020260144698의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
-        "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
-        "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
-        "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
-      ],
-      "scoopConfirmed": false,
-      "previouslyObserved": true,
-      "firstObservedAt": "2026-10-13",
-      "initialBaseline": false,
-      "historicalBackfill": false,
-      "freshObservation": false,
-      "observationNote": "이전 검증 공개공보 유지(이번 실행 신규 조회 아님)",
-      "reusedFromPriorVerifiedSnapshot": true
-    },
-    {
-      "company": "기아",
-      "applicants": [
-        "현대자동차주식회사",
-        "기아 주식회사"
-      ],
-      "applicationNumber": "1020250038685",
-      "publicationNumber": "1020260144617",
-      "applicationDate": "20250326",
-      "publicationDate": "20261006",
-      "registrationDate": null,
-      "registerStatus": "공개",
-      "title": "이종소재로 이루어진 전기자동차의 모터 코어 및 이의 제작 방법",
-      "abstract": "본 발명의 일 실시 예에 따른 전기자동차의 모터 코어는 강자성체인 제1소재로 형성되고 원통 형상을 지니는 백요크부, 백요크부의 내주연에 형성되는 직선 장홈으로서 간격이 일정하게 복수로 구비되는 티스결합홈, 각각의 티스결합홈에 결합되고 고정자권선이 결합되는 고정자슬롯들을 형성하는 복수의 고정자티스를 포함하고, 고정자티스는 연자성 비정질 소재인 제2소재로 이루어진다.",
-      "ipc": "H02K 1/14|H02K 1/16|H02K 1/02",
-      "themes": [],
-      "priorityScore": 20,
-      "themeMatched": false,
-      "classificationStatus": "기존 기술사전에 없음 · 공동출원인/초록 검토",
-      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
-      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
-      "lookupNumber": "1020260144617",
-      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
-      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
-      "questions": [
-        "공개번호 1020260144617의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
-        "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
-        "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
-        "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
-      ],
-      "scoopConfirmed": false,
-      "previouslyObserved": true,
-      "firstObservedAt": "2026-10-13",
-      "initialBaseline": false,
-      "historicalBackfill": false,
-      "freshObservation": false,
-      "observationNote": "이전 검증 공개공보 유지(이번 실행 신규 조회 아님)",
-      "reusedFromPriorVerifiedSnapshot": true
-    },
-    {
-      "company": "기아",
-      "applicants": [
-        "현대자동차주식회사",
-        "기아 주식회사"
-      ],
-      "applicationNumber": "1020250038809",
-      "publicationNumber": "1020260144652",
-      "applicationDate": "20250326",
-      "publicationDate": "20261006",
-      "registrationDate": null,
-      "registerStatus": "공개",
-      "title": "차량용 램프",
-      "abstract": "본 발명의 일 실시예에 따른 차량용 램프는 광원; 함입 공간을 구비하고 상기 광원을 지지하는 방열판; 상기 함입 공간의 적어도 일부를 커버하는 회로 기판; 및 상기 광원과 전기적으로 연결되는 커넥터를 포함하며, 상기 회로 기판은 라이트 홀을 구비하며, 상기 라이트 홀은 상기 함입 공간 상에 위치할 수 있다.",
-      "ipc": "F21S 45/47|F21V 23/00|F21S 41/19|F21V 23/06|F21S 41/24|F21S 41/29|F21S 41/25|F21V 5/04",
-      "themes": [],
-      "priorityScore": 20,
-      "themeMatched": false,
-      "classificationStatus": "기존 기술사전에 없음 · 공동출원인/초록 검토",
-      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
-      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
-      "lookupNumber": "1020260144652",
-      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
-      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
-      "questions": [
-        "공개번호 1020260144652의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
-        "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
-        "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
-        "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
-      ],
-      "scoopConfirmed": false,
-      "previouslyObserved": true,
-      "firstObservedAt": "2026-10-13",
-      "initialBaseline": false,
-      "historicalBackfill": false,
-      "freshObservation": false,
-      "observationNote": "이전 검증 공개공보 유지(이번 실행 신규 조회 아님)",
-      "reusedFromPriorVerifiedSnapshot": true
-    },
-    {
-      "company": "기아",
-      "applicants": [
-        "현대자동차주식회사",
-        "기아 주식회사",
-        "주식회사 서연이화"
-      ],
-      "applicationNumber": "1020250038463",
-      "publicationNumber": "1020260144526",
-      "applicationDate": "20250326",
-      "publicationDate": "20261006",
-      "registrationDate": null,
-      "registerStatus": "공개",
-      "title": "센서 클리닝 장치",
-      "abstract": "센서 클리닝 장치는 하우징, 상기 하우징 내에 배치되고 진동하도록 구성되는 압전소자 및 상기 하우징 내에 삽입되어 상기 압전소자에 연결되는 커버를 포함할 수 있다.",
-      "ipc": "B60S 1/56|B08B 7/02",
-      "themes": [],
-      "priorityScore": 20,
-      "themeMatched": false,
-      "classificationStatus": "기존 기술사전에 없음 · 공동출원인/초록 검토",
-      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
-      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
-      "lookupNumber": "1020260144526",
-      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
-      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
-      "questions": [
-        "공개번호 1020260144526의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
-        "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
-        "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
-        "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
-      ],
-      "scoopConfirmed": false,
-      "previouslyObserved": true,
-      "firstObservedAt": "2026-10-13",
-      "initialBaseline": false,
-      "historicalBackfill": false,
-      "freshObservation": false,
-      "observationNote": "이전 검증 공개공보 유지(이번 실행 신규 조회 아님)",
-      "reusedFromPriorVerifiedSnapshot": true
-    },
-    {
-      "company": "두산에너빌리티",
-      "applicants": [
-        "두산에너빌리티 주식회사"
-      ],
-      "applicationNumber": "1020250038817",
-      "publicationNumber": "1020260144656",
-      "applicationDate": "20250326",
-      "publicationDate": "20261006",
-      "registrationDate": null,
-      "registerStatus": "공개",
-      "title": "점진적 영역 단조 방법",
-      "abstract": "본 발명의 일 실시예는, 오목베드에 거치된 예비성형체의 일측면의 중심 영역을 제1금형으로 압하 성형하여, 상기 예비성형체의 타측면의 중심 영역에 제1볼록부가 성형되는 제1단조단계; 및 압하 성형된 상기 예비성형체의 일측면의 주위 영역을 제2금형으로 압하 성형하여, 상기 예비성형체의 일측면이 편평하게 성형되는 제2단조단계;를 포함하는, 점진적 영역 단조 방법을 제공한다.",
-      "ipc": "B21J 9/02|B21J 5/02|B21J 1/06|B21K 3/00",
-      "themes": [],
-      "priorityScore": 20,
-      "themeMatched": false,
-      "classificationStatus": "기존 기술사전에 없음 · 공동출원인/초록 검토",
-      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
-      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
-      "lookupNumber": "1020260144656",
-      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
-      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
-      "questions": [
-        "공개번호 1020260144656의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
-        "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
-        "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
-        "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
-      ],
-      "scoopConfirmed": false,
-      "previouslyObserved": true,
-      "firstObservedAt": "2026-10-13",
-      "initialBaseline": false,
-      "historicalBackfill": false,
-      "freshObservation": false,
-      "observationNote": "이전 검증 공개공보 유지(이번 실행 신규 조회 아님)",
-      "reusedFromPriorVerifiedSnapshot": true
-    },
-    {
-      "company": "한국타이어앤테크놀로지",
-      "applicants": [
-        "한국타이어앤테크놀로지 주식회사"
-      ],
-      "applicationNumber": "1020250038588",
-      "publicationNumber": "1020260144575",
-      "applicationDate": "20250326",
-      "publicationDate": "20261006",
-      "registrationDate": null,
-      "registerStatus": "공개",
-      "title": "공기입 타이어",
-      "abstract": "공기입 타이어가 개시된다. 본 실시 예에 의한 공기입 타이어는 폭 방향으로 따라 기 설정된 간격으로 카커스 코드가 배치되는 카커스층, 폭 방향으로 따라 기 설정된 간격으로 제1벨트 코드가 배치되어 카커스층의 상측에 적층 마련되는 제1벨트층, 폭 방향으로 따라 기 설정된 간격으로 제2벨트 코드가 배치되어 제1벨트층의 상측에 적층 마련되는 제2벨트층 및 폭 방향으로 따라 기 설정된 간격으로 보강벨트 코드가 배치되어 제2벨트층의 상측에 적층 마련되는 보강벨트층을 포함하고, 카커스층의 단위 코드 당 강력은 390 내지 450kgf이고, 제1벨트층과 제2벨트층의 단위 코드 당 강력은 720 내지 960kgf이고, 보강벨트층의 단위 코드 당 강력은 198 내지 264kgf으로 제공될 수 있다.",
-      "ipc": "B60C 9/20|B60C 9/00|B60C 9/22",
-      "themes": [],
-      "priorityScore": 20,
-      "themeMatched": false,
-      "classificationStatus": "기존 기술사전에 없음 · 공동출원인/초록 검토",
-      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
-      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
-      "lookupNumber": "1020260144575",
-      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
-      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
-      "questions": [
-        "공개번호 1020260144575의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
-        "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
-        "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
-        "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
-      ],
-      "scoopConfirmed": false,
-      "previouslyObserved": true,
-      "firstObservedAt": "2026-10-13",
-      "initialBaseline": false,
-      "historicalBackfill": false,
-      "freshObservation": false,
-      "observationNote": "이전 검증 공개공보 유지(이번 실행 신규 조회 아님)",
-      "reusedFromPriorVerifiedSnapshot": true
-    },
-    {
-      "company": "한국타이어앤테크놀로지",
-      "applicants": [
-        "한국타이어앤테크놀로지 주식회사"
-      ],
-      "applicationNumber": "1020250038547",
-      "publicationNumber": "1020260144562",
-      "applicationDate": "20250326",
-      "publicationDate": "20261006",
-      "registrationDate": null,
-      "registerStatus": "공개",
-      "title": "흡음재 부착장치 및 이를 포함하는 타이어 생산장치, 흡음재 부착방법 및 이를 포함하는 타이어 생산방법",
-      "abstract": "본 발명의 일실시예는 격벽 구조의 다수 개의 흡음재를 타이어에 효과적으로 부착할 수 있는 흡음재 부착장치 및 이를 포함하는 타이어 생산장지, 흡음재 부착방법 및 이를 포함하는 타이어 생산방법을 제공한다. 여기서, 흡음재 부착장치는 다축 로봇 암, 베이스 프레임, 그립 프레임, 동력 제공부, 이동 프레임, 니들 및 제1제어부를 포함한다. 다축 로봇 암은 공급되는 흡음재와, 공급되는 타이어의 사이에서 동작한다. 베이스 프레임은 다축 로봇 암의 일단부에 구비되고, 그립 프레임은 베이스 프레임에 구비되고, 공급되는 흡음재에 밀착 가능하게 형성된다. 동력 제공부는 베이스 프레임에 구비되고, 이동 프레임은 동력 제공부와 연결되어 왕복 이동한다. 니들은 이동 프레임에 구비되고, 흡음재 방향으로 이동하면 흡음재에 꽂혀 흡음재가 그립 프레임에 그립되도록 하고, 흡음재 반대 방향으로 이동하면 흡음재에서 빠져 흡음재가 그립 프레임에서 그립 해제되도록 한다. 제1제어부는 다축 로봇 암 및 동력 제공부를 제어하여 그립 프레임이 공급되는 흡음재를 그립하여 공급되는 타이어의 이너 라이너(Inner Liner)에 접착되도록 한다.",
-      "ipc": "B29D 30/06|B29D 30/00|B60C 19/00|B29C 65/48|B25J 18/00|B29D 30/08",
-      "themes": [],
-      "priorityScore": 20,
-      "themeMatched": false,
-      "classificationStatus": "기존 기술사전에 없음 · 공동출원인/초록 검토",
-      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
-      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
-      "lookupNumber": "1020260144562",
-      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
-      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
-      "questions": [
-        "공개번호 1020260144562의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
-        "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
-        "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
-        "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
-      ],
-      "scoopConfirmed": false,
-      "previouslyObserved": true,
-      "firstObservedAt": "2026-10-13",
-      "initialBaseline": false,
-      "historicalBackfill": false,
-      "freshObservation": false,
-      "observationNote": "이전 검증 공개공보 유지(이번 실행 신규 조회 아님)",
-      "reusedFromPriorVerifiedSnapshot": true
-    },
-    {
-      "company": "현대모비스",
-      "applicants": [
-        "현대모비스 주식회사"
-      ],
-      "applicationNumber": "1020250038891",
-      "publicationNumber": "1020260144683",
-      "applicationDate": "20250326",
-      "publicationDate": "20261006",
-      "registrationDate": null,
-      "registerStatus": "공개",
-      "title": "차량용 크로스멤버",
-      "abstract": "본 발명에 따른 차량용 크로스멤버는: 제1사이드몸체부와, 제1사이드몸체부의 양단부에 각각 연장되는 제2사이드몸체부를 구비하며, 이격되게 배치되는 한 쌍의 사이드멤버부와, 이격된 한 쌍의 제1사이드몸체부와 결합되는 제1패널부와, 제1패널부와 이격되게 배치되고, 이격된 한 쌍의 제2사이드몸체부와 결합되는 제2패널부를 포함하는 것을 특징으로 한다.",
-      "ipc": "B62D 21/15|B62D 27/02",
-      "themes": [],
-      "priorityScore": 20,
-      "themeMatched": false,
-      "classificationStatus": "기존 기술사전에 없음 · 공동출원인/초록 검토",
-      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
-      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
-      "lookupNumber": "1020260144683",
-      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
-      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
-      "questions": [
-        "공개번호 1020260144683의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
-        "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
-        "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
-        "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
-      ],
-      "scoopConfirmed": false,
-      "previouslyObserved": true,
-      "firstObservedAt": "2026-10-13",
-      "initialBaseline": false,
-      "historicalBackfill": false,
-      "freshObservation": false,
-      "observationNote": "이전 검증 공개공보 유지(이번 실행 신규 조회 아님)",
-      "reusedFromPriorVerifiedSnapshot": true
-    },
-    {
-      "company": "현대모비스",
-      "applicants": [
-        "현대모비스 주식회사"
-      ],
-      "applicationNumber": "1020250038798",
-      "publicationNumber": "1020260144649",
-      "applicationDate": "20250326",
-      "publicationDate": "20261006",
-      "registrationDate": null,
-      "registerStatus": "공개",
-      "title": "차량용 램프",
-      "abstract": "본 발명은 볼트 등의 고정부재 없이 기판을 리플렉터에 고정시킬 수 있도록 개선된 차량용 램프에 관한 것이다.  차량용 램프는 광을 반사시키는 리플렉터 및 리플렉터에 탈착 가능하게 슬라이딩 결합되어 리플렉터에 고정되는 기판을 포함하고, 기판은, 인쇄 패턴 및 소자들이 배치되는 플레이트부 및 플레이트부로부터 복수번 꺽인 형상을 가지며, 기판이 리플렉터에 결합될 때 리플렉터에 접촉되어 플레이트부의 내측으로 탄성 이동되는 조립부를 포함한다.",
-      "ipc": "F21S 41/39|F21S 41/32|F21S 41/19|F21V 23/00|F21V 19/00",
-      "themes": [],
-      "priorityScore": 20,
-      "themeMatched": false,
-      "classificationStatus": "기존 기술사전에 없음 · 공동출원인/초록 검토",
-      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
-      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
-      "lookupNumber": "1020260144649",
-      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
-      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
-      "questions": [
-        "공개번호 1020260144649의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
-        "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
-        "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
-        "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
-      ],
-      "scoopConfirmed": false,
-      "previouslyObserved": true,
-      "firstObservedAt": "2026-10-13",
-      "initialBaseline": false,
-      "historicalBackfill": false,
-      "freshObservation": false,
-      "observationNote": "이전 검증 공개공보 유지(이번 실행 신규 조회 아님)",
-      "reusedFromPriorVerifiedSnapshot": true
-    },
-    {
-      "company": "현대모비스",
-      "applicants": [
-        "현대모비스 주식회사"
-      ],
-      "applicationNumber": "1020250038608",
-      "publicationNumber": "1020260144585",
-      "applicationDate": "20250326",
-      "publicationDate": "20261006",
-      "registrationDate": null,
-      "registerStatus": "공개",
-      "title": "전동식 브레이크 및 그 제어방법",
-      "abstract": "전동식 브레이크 및 그 제어방법을 개시한다.  본 개시의 일 실시예에 의하면, 휠디스크를 가압하는 브레이크 패드 및 모터 구동에 의하여 상기 브레이크 패드를 가압하는 피스톤을 포함하는 전동식 브레이크에 있어서, 페달의 답입량을 기초로 제동력 요구값을 연산하는 중앙제어부; 및 상기 제동력 요구값에 기초하여 목표제동력을 연산하고, 상기 목표제동력에 기초하여 상기 피스톤의 위치를 제어하는 제동력제어부를 포함하고, 상기 제동력제어부는, 제동력을 감소시키기 위하여 상기 목표제동력을 상기 제동력 요구값보다 더 작은 값으로 설정하고, 제동력이 감소되어 현재 추정제동력이 상기 목표제동력과 같거나 더 낮은 경우, 상기 제동력제어부는, 상기 제동력 요구값과 동일한 값으로 새로운 목표제동력을 생성하는, 전동식 브레이크를 제공한다.",
-      "ipc": "B60T 13/74|B60T 8/171|B60T 8/172|B60T 7/04|F16D 121/24",
-      "themes": [],
-      "priorityScore": 20,
-      "themeMatched": false,
-      "classificationStatus": "기존 기술사전에 없음 · 공동출원인/초록 검토",
-      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
-      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
-      "lookupNumber": "1020260144585",
-      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
-      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
-      "questions": [
-        "공개번호 1020260144585의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
-        "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
-        "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
-        "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
-      ],
-      "scoopConfirmed": false,
-      "previouslyObserved": true,
-      "firstObservedAt": "2026-10-13",
-      "initialBaseline": false,
-      "historicalBackfill": false,
-      "freshObservation": false,
-      "observationNote": "이전 검증 공개공보 유지(이번 실행 신규 조회 아님)",
-      "reusedFromPriorVerifiedSnapshot": true
-    },
-    {
-      "company": "현대자동차",
-      "applicants": [
-        "현대자동차주식회사",
-        "기아 주식회사"
-      ],
-      "applicationNumber": "1020250038622",
-      "publicationNumber": "1020260144593",
-      "applicationDate": "20250326",
-      "publicationDate": "20261006",
-      "registrationDate": null,
-      "registerStatus": "공개",
-      "title": "모빌리티용 충전 장치 및 이를 포함하는 모빌리티",
-      "abstract": "본 발명은, 외부 충전기가 연결되고, 위치가 상이한 복수 개의 충전 커넥터;및 상기 복수 개의 충전 커넥터와 연결되는 충전부를 포함하고, 상기 복수 개의 충전 커넥터는 각각, 상기 충전부와 연결된 제1 단자와, 상기 제1 단자와 전기적으로 분리되며. 외부 충전기와 접촉하는 제2 단자를 포함하고, 상기 제1 단자 및 상기 제2 단자 중 어느 하나는 외부 충전기에 의해 움직여 상기 제1 단자 및 상기 제2 단자 중 다른 하나와 접촉함으로써, 외부 충전기와 상기 충전부를 전기적으로 연결되는 모빌리티용 충전 장치를 제공할 수 있다.",
-      "ipc": "B60L 53/16|B60L 53/31|B60L 53/35",
-      "themes": [],
-      "priorityScore": 20,
-      "themeMatched": false,
-      "classificationStatus": "기존 기술사전에 없음 · 공동출원인/초록 검토",
-      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
-      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
-      "lookupNumber": "1020260144593",
-      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
-      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
-      "questions": [
-        "공개번호 1020260144593의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
-        "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
-        "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
-        "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
-      ],
-      "scoopConfirmed": false,
-      "previouslyObserved": true,
-      "firstObservedAt": "2026-10-13",
-      "initialBaseline": false,
-      "historicalBackfill": false,
-      "freshObservation": false,
-      "observationNote": "이전 검증 공개공보 유지(이번 실행 신규 조회 아님)",
-      "reusedFromPriorVerifiedSnapshot": true
-    },
-    {
-      "company": "현대자동차",
-      "applicants": [
-        "현대자동차주식회사",
-        "기아 주식회사",
-        "한양대학교 산학협력단"
-      ],
-      "applicationNumber": "1020250038684",
-      "publicationNumber": "1020260144616",
-      "applicationDate": "20250326",
-      "publicationDate": "20261006",
-      "registrationDate": null,
-      "registerStatus": "공개",
-      "title": "전단 시험 장치",
-      "abstract": "개시되는 내용의 일 실시예에 따른 전단 시험 장치는 고정지그, 가동지그, 센싱어레이 및 제어부를 포함한다. 고정지그는 소재시편의 일측에 형성된 고정파트를 파지하고 베이스클램프에 고정된다. 가동지그는 소재시편의 타측에 형성된 가동파트를 파지하고 베이스클램프의 연직 상부에서 승강하는 승강프레스에 결합된다. 센싱어레이는 테스트라인이 지나는 소재시편의 전단 특성 정보를 수집한다. 제어부는 센싱어레이로부터 수집된 정보가 입력되고 승강프레스의 승강을 제어한다. 특히, 고정지그는 승강프레스의 승강 경로와 평행한 가상의 직선을 따라 상부로 연장되는 원기둥 형상의 고정가이드축, 고정가이드축과 평행한 원통형 통로로 형성되고 테스트라인을 중심으로 고정가이드축의 반대편에 형성되는 고정레일을 포함하며, 가동지그는 고정가이드축이 상하 방향으로 통과하여 승강 가능하도록 관통된 가동레일, 고정레일의 연직상부에서 하부로 곧게 연장되고 고정레일을 통과하여 승강하게 되는 원기둥 형상의 가동가이드축을 포함한다.",
-      "ipc": "G01N 3/24|G01N 3/04",
-      "themes": [],
-      "priorityScore": 20,
-      "themeMatched": false,
-      "classificationStatus": "기존 기술사전에 없음 · 공동출원인/초록 검토",
-      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
-      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
-      "lookupNumber": "1020260144616",
-      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
-      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
-      "questions": [
-        "공개번호 1020260144616의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
-        "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
-        "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
-        "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
-      ],
-      "scoopConfirmed": false,
-      "previouslyObserved": true,
-      "firstObservedAt": "2026-10-13",
-      "initialBaseline": false,
-      "historicalBackfill": false,
-      "freshObservation": false,
-      "observationNote": "이전 검증 공개공보 유지(이번 실행 신규 조회 아님)",
-      "reusedFromPriorVerifiedSnapshot": true
-    },
-    {
-      "company": "현대자동차",
-      "applicants": [
-        "현대자동차주식회사",
-        "기아 주식회사",
-        "인하대학교 산학협력단"
-      ],
-      "applicationNumber": "1020250038642",
-      "publicationNumber": "1020260144597",
-      "applicationDate": "20250326",
-      "publicationDate": "20261006",
-      "registrationDate": null,
-      "registerStatus": "공개",
-      "title": "확산부의 레이아웃 최적의 설계안 도출을 위한 방법 및 시스템",
-      "abstract": "본 발명의 실시예에 따른 확산부의 레이아웃 최적의 설계안 도출을 위한 방법을 제공한다. 확산부의 레이아웃 최적의 설계안 도출을 위한 방법은 미리 결정된 제1 매니폴드의 위치를 고려한 적어도 하나의 설계 변수 및 적어도 하나의 설계 제한 조건을 고려하여 샘플 데이터를 선정하는 단계, 분리판의 확산부의 차압이 최소화되거나 또는 상기 분리판의 반응 영역에서의 반응기체의 유량 분배의 균일성을 판단하기 위한 목적 함수에 따라 대체 모델(Surrogate Model)을 생성하는 단계, 상기 샘플 데이터를 이용하여 상기 대체 모델에 대한 학습을 진행하는 단계 및 상기 대체 모델을 최적화 알고리즘에 대입하여 상기 확산부의 최적의 레이아웃을 도출하기 위한 최적의 설계 변수를 결정하는 단계를 포함한다.",
-      "ipc": "G06F 30/27|G06F 30/28|G06F 111/06|G06F 111/04|G06F 111/10|G06F 113/08",
-      "themes": [],
-      "priorityScore": 20,
-      "themeMatched": false,
-      "classificationStatus": "기존 기술사전에 없음 · 공동출원인/초록 검토",
-      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
-      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
-      "lookupNumber": "1020260144597",
-      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
-      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
-      "questions": [
-        "공개번호 1020260144597의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
-        "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
-        "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
-        "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
-      ],
-      "scoopConfirmed": false,
-      "previouslyObserved": true,
-      "firstObservedAt": "2026-10-13",
-      "initialBaseline": false,
-      "historicalBackfill": false,
-      "freshObservation": false,
-      "observationNote": "이전 검증 공개공보 유지(이번 실행 신규 조회 아님)",
-      "reusedFromPriorVerifiedSnapshot": true
-    },
-    {
-      "company": "현대자동차",
-      "applicants": [
-        "현대자동차주식회사",
-        "기아 주식회사"
-      ],
-      "applicationNumber": "1020250038958",
-      "publicationNumber": "1020260144711",
-      "applicationDate": "20250326",
-      "publicationDate": "20261006",
-      "registrationDate": null,
-      "registerStatus": "공개",
-      "title": "고체전해질 막이 코팅된 전극의 제조방법",
-      "abstract": "본 발명의 일 실시예에 따른 고체전해질 막이 코팅된 전극의 제조방법은 고체전해질 분말 및 섬유화가 가능한 고분자 분말을 투입 및 혼합하고, 상기 섬유화가 가능한 고분자 분말을 섬유화시켜 고체전해질막을 제조하는 단계(S1); 상기 고체전해질막을 전극 상에 배치하여 고체전해질막-전극 복합재를 제조하는 단계(S2); 및 상기 고체전해질막-전극 복합재를 면압 프레스 및/또는 롤 프레스로 가압하여 상기 전극 상에 상기 고체전해질막을 코팅하는 단계(S3);를 포함할 수 있다.",
-      "ipc": "H01M 4/139|H01M 4/04|B30B 3/04",
-      "themes": [],
-      "priorityScore": 20,
-      "themeMatched": false,
-      "classificationStatus": "기존 기술사전에 없음 · 공동출원인/초록 검토",
-      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
-      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
-      "lookupNumber": "1020260144711",
-      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
-      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
-      "questions": [
-        "공개번호 1020260144711의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
-        "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
-        "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
-        "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
-      ],
-      "scoopConfirmed": false,
-      "previouslyObserved": true,
-      "firstObservedAt": "2026-10-13",
-      "initialBaseline": false,
-      "historicalBackfill": false,
-      "freshObservation": false,
-      "observationNote": "이전 검증 공개공보 유지(이번 실행 신규 조회 아님)",
-      "reusedFromPriorVerifiedSnapshot": true
-    },
-    {
-      "company": "현대자동차",
-      "applicants": [
-        "현대자동차주식회사",
-        "기아 주식회사"
-      ],
-      "applicationNumber": "1020250038942",
-      "publicationNumber": "1020260144706",
-      "applicationDate": "20250326",
-      "publicationDate": "20261006",
-      "registrationDate": null,
-      "registerStatus": "공개",
-      "title": "하이브리드 자동차 및 그 제어 방법",
-      "abstract": "엔진이 오프된 후의 냉각수의 온도 변화 정보로 기 학습된 제1 모델을 기반으로, 현재 냉각수의 온도가 기 설정된 제1 온도에 도달되는 시점인 제1 시점을 결정하는 제1 시점 결정부; 운전 상황에 따라 기 학습된 제2 모델을 기반으로, 현재 운전 상황 정보에 대응되는 엔진 기동 예상 시점인 제2 시점을 결정하는 제2 시점 결정부; 및 상기 제1 시점 및 상기 제2 시점을 기반으로, 상기 엔진이 기동되는 기준 온도를 결정하고, 상기 냉각수의 온도가 상기 기준 온도에 도달했는지 여부를 기반으로 기반으로 상기 엔진을 기동시키는 엔진 기동부를 포함하는, 하이브리드 자동차 및 그 제어 방법이 소개된다.",
-      "ipc": "B60W 20/15|B60W 10/06|B60W 10/30|B60W 40/09|B60W 40/06|B60W 40/105",
-      "themes": [],
-      "priorityScore": 20,
-      "themeMatched": false,
-      "classificationStatus": "기존 기술사전에 없음 · 공동출원인/초록 검토",
-      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
-      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
-      "lookupNumber": "1020260144706",
-      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
-      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
-      "questions": [
-        "공개번호 1020260144706의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
-        "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
-        "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
-        "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
-      ],
-      "scoopConfirmed": false,
-      "previouslyObserved": true,
-      "firstObservedAt": "2026-10-13",
-      "initialBaseline": false,
-      "historicalBackfill": false,
-      "freshObservation": false,
-      "observationNote": "이전 검증 공개공보 유지(이번 실행 신규 조회 아님)",
-      "reusedFromPriorVerifiedSnapshot": true
-    },
-    {
-      "company": "현대자동차",
-      "applicants": [
-        "현대자동차주식회사",
-        "기아 주식회사"
-      ],
-      "applicationNumber": "1020250038464",
-      "publicationNumber": "1020260144527",
-      "applicationDate": "20250326",
-      "publicationDate": "20261006",
-      "registrationDate": null,
-      "registerStatus": "공개",
-      "title": "새로운 구조의 막-전극 접합체 및 이의 제조방법",
-      "abstract": "본 발명은 구성 요소간 간극(Gap)이 없어 내구성이 우수한 새로운 구조의 막-전극 접합체 및 이의 제조방법에 대한 것이다.",
-      "ipc": "H01M 8/1004|H01M 8/0271|H01M 4/88|H01M 8/10",
-      "themes": [],
-      "priorityScore": 20,
-      "themeMatched": false,
-      "classificationStatus": "기존 기술사전에 없음 · 공동출원인/초록 검토",
-      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
-      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
-      "lookupNumber": "1020260144527",
-      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
-      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
-      "questions": [
-        "공개번호 1020260144527의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
-        "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
-        "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
-        "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
-      ],
-      "scoopConfirmed": false,
-      "previouslyObserved": true,
-      "firstObservedAt": "2026-10-13",
-      "initialBaseline": false,
-      "historicalBackfill": false,
-      "freshObservation": false,
-      "observationNote": "이전 검증 공개공보 유지(이번 실행 신규 조회 아님)",
-      "reusedFromPriorVerifiedSnapshot": true
-    },
-    {
-      "company": "현대자동차",
-      "applicants": [
-        "현대자동차주식회사",
-        "기아 주식회사",
-        "클리블랜드-클리프스 스틸 프로퍼티즈 인코포레이티드"
-      ],
-      "applicationNumber": "1020250116239",
-      "publicationNumber": "1020260144818",
-      "applicationDate": "20250821",
-      "publicationDate": "20261006",
-      "registrationDate": null,
-      "registerStatus": "공개",
-      "title": "차량 충격 흡수 시스템들",
-      "abstract": "차량의 측면에 대한 충격으로부터의 에너지를 흡수하도록 구성된 복수의 지지 부재들을 포함하는 시스템들을 포함하는 차량 보강 시스템들이 제공된다. 바람직한 지지 부재들은 관형 구성을 가지며, 하나 이상의 특성들이 상이한 별개의 강 조성들로 구성될 수 있다.",
-      "ipc": "B62D 25/20|B62D 25/02|B60K 1/04",
-      "themes": [],
-      "priorityScore": 20,
-      "themeMatched": false,
-      "classificationStatus": "기존 기술사전에 없음 · 공동출원인/초록 검토",
-      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
-      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
-      "lookupNumber": "1020260144818",
-      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
-      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
-      "questions": [
-        "공개번호 1020260144818의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
-        "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
-        "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
-        "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
-      ],
-      "scoopConfirmed": false,
-      "previouslyObserved": true,
-      "firstObservedAt": "2026-10-13",
-      "initialBaseline": false,
-      "historicalBackfill": false,
-      "freshObservation": false,
-      "observationNote": "이전 검증 공개공보 유지(이번 실행 신규 조회 아님)",
-      "reusedFromPriorVerifiedSnapshot": true
-    },
-    {
-      "company": "현대자동차",
-      "applicants": [
-        "현대자동차주식회사",
-        "기아 주식회사",
-        "피에이치에이 주식회사"
-      ],
-      "applicationNumber": "1020250038924",
-      "publicationNumber": "1020260144698",
-      "applicationDate": "20250326",
-      "publicationDate": "20261006",
-      "registrationDate": null,
-      "registerStatus": "공개",
-      "title": "파워 트렁크 기구",
-      "abstract": "개시된 실시예는, 트렁크리드에 결합되고, 트렁크 공간을 이루는 차체패널에 회전 가능하게 결합되어 트렁크리드를 개폐시키는 힌지암; 상기 차체패널 및 힌지암과 연결되어 4절링크 운동을 구현하는 레버유닛; 및 상기 힌지암에 회전력을 제공하고, 상기 힌지암 및 레버유닛과 상대 회전 가능하게 결합되는 전동드라이브유닛;을 포함하는 것을 특징으로 하는 파워 트렁크 기구가 소개된다.",
-      "ipc": "E05F 15/616|E05F 1/12|E05D 5/06",
-      "themes": [],
-      "priorityScore": 20,
-      "themeMatched": false,
-      "classificationStatus": "기존 기술사전에 없음 · 공동출원인/초록 검토",
-      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
-      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
-      "lookupNumber": "1020260144698",
-      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
-      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
-      "questions": [
-        "공개번호 1020260144698의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
-        "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
-        "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
-        "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
-      ],
-      "scoopConfirmed": false,
-      "previouslyObserved": true,
-      "firstObservedAt": "2026-10-13",
-      "initialBaseline": false,
-      "historicalBackfill": false,
-      "freshObservation": false,
-      "observationNote": "이전 검증 공개공보 유지(이번 실행 신규 조회 아님)",
-      "reusedFromPriorVerifiedSnapshot": true
-    },
-    {
-      "company": "현대자동차",
-      "applicants": [
-        "현대자동차주식회사",
-        "기아 주식회사"
-      ],
-      "applicationNumber": "1020250038685",
-      "publicationNumber": "1020260144617",
-      "applicationDate": "20250326",
-      "publicationDate": "20261006",
-      "registrationDate": null,
-      "registerStatus": "공개",
-      "title": "이종소재로 이루어진 전기자동차의 모터 코어 및 이의 제작 방법",
-      "abstract": "본 발명의 일 실시 예에 따른 전기자동차의 모터 코어는 강자성체인 제1소재로 형성되고 원통 형상을 지니는 백요크부, 백요크부의 내주연에 형성되는 직선 장홈으로서 간격이 일정하게 복수로 구비되는 티스결합홈, 각각의 티스결합홈에 결합되고 고정자권선이 결합되는 고정자슬롯들을 형성하는 복수의 고정자티스를 포함하고, 고정자티스는 연자성 비정질 소재인 제2소재로 이루어진다.",
-      "ipc": "H02K 1/14|H02K 1/16|H02K 1/02",
-      "themes": [],
-      "priorityScore": 20,
-      "themeMatched": false,
-      "classificationStatus": "기존 기술사전에 없음 · 공동출원인/초록 검토",
-      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
-      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
-      "lookupNumber": "1020260144617",
-      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
-      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
-      "questions": [
-        "공개번호 1020260144617의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
-        "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
-        "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
-        "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
-      ],
-      "scoopConfirmed": false,
-      "previouslyObserved": true,
-      "firstObservedAt": "2026-10-13",
-      "initialBaseline": false,
-      "historicalBackfill": false,
-      "freshObservation": false,
-      "observationNote": "이전 검증 공개공보 유지(이번 실행 신규 조회 아님)",
-      "reusedFromPriorVerifiedSnapshot": true
-    },
-    {
-      "company": "현대자동차",
-      "applicants": [
-        "현대자동차주식회사",
-        "기아 주식회사"
-      ],
-      "applicationNumber": "1020250038809",
-      "publicationNumber": "1020260144652",
-      "applicationDate": "20250326",
-      "publicationDate": "20261006",
-      "registrationDate": null,
-      "registerStatus": "공개",
-      "title": "차량용 램프",
-      "abstract": "본 발명의 일 실시예에 따른 차량용 램프는 광원; 함입 공간을 구비하고 상기 광원을 지지하는 방열판; 상기 함입 공간의 적어도 일부를 커버하는 회로 기판; 및 상기 광원과 전기적으로 연결되는 커넥터를 포함하며, 상기 회로 기판은 라이트 홀을 구비하며, 상기 라이트 홀은 상기 함입 공간 상에 위치할 수 있다.",
-      "ipc": "F21S 45/47|F21V 23/00|F21S 41/19|F21V 23/06|F21S 41/24|F21S 41/29|F21S 41/25|F21V 5/04",
-      "themes": [],
-      "priorityScore": 20,
-      "themeMatched": false,
-      "classificationStatus": "기존 기술사전에 없음 · 공동출원인/초록 검토",
-      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
-      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
-      "lookupNumber": "1020260144652",
-      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
-      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
-      "questions": [
-        "공개번호 1020260144652의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
-        "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
-        "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
-        "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
-      ],
-      "scoopConfirmed": false,
-      "previouslyObserved": true,
-      "firstObservedAt": "2026-10-13",
-      "initialBaseline": false,
-      "historicalBackfill": false,
-      "freshObservation": false,
-      "observationNote": "이전 검증 공개공보 유지(이번 실행 신규 조회 아님)",
-      "reusedFromPriorVerifiedSnapshot": true
-    },
-    {
-      "company": "현대자동차",
-      "applicants": [
-        "현대자동차주식회사",
-        "기아 주식회사",
-        "주식회사 서연이화"
-      ],
-      "applicationNumber": "1020250038463",
-      "publicationNumber": "1020260144526",
-      "applicationDate": "20250326",
-      "publicationDate": "20261006",
-      "registrationDate": null,
-      "registerStatus": "공개",
-      "title": "센서 클리닝 장치",
-      "abstract": "센서 클리닝 장치는 하우징, 상기 하우징 내에 배치되고 진동하도록 구성되는 압전소자 및 상기 하우징 내에 삽입되어 상기 압전소자에 연결되는 커버를 포함할 수 있다.",
-      "ipc": "B60S 1/56|B08B 7/02",
-      "themes": [],
-      "priorityScore": 20,
-      "themeMatched": false,
-      "classificationStatus": "기존 기술사전에 없음 · 공동출원인/초록 검토",
-      "source": "KIPRISPlus 특허·실용 공개·등록공보 API",
-      "sourceLookup": "https://plus.kipris.or.kr/eng/data/service/DBII_000000000000001/view.do?menuNo=300100&subTab=SC001",
-      "lookupNumber": "1020260144526",
-      "status": "공개된 특허 문헌: 기술 방향 취재 후보",
-      "notProven": "실제 제품화·양산·인허가·특허등록/독점권·미보도·단독 여부 미확인",
-      "questions": [
-        "공개번호 1020260144526의 제1항에서 확인할 수 있는 핵심 구성과 해당 문구는 무엇인가?",
-        "공개 서지정보에 기재된 우선권·관련 출원·해외 패밀리 번호를 확인해 줄 수 있는가?",
-        "이 기술의 제품·설비 적용을 이미 공개한 회사 발표가 있다면 발표일과 공개 URL은 무엇인가?",
-        "종전 회사 발표와 달라진 내용이 공개 문헌에 있다면 문서 번호와 해당 부분은 어디인가?"
-      ],
-      "scoopConfirmed": false,
-      "previouslyObserved": true,
-      "firstObservedAt": "2026-10-13",
-      "initialBaseline": false,
-      "historicalBackfill": false,
-      "freshObservation": false,
-      "observationNote": "이전 검증 공개공보 유지(이번 실행 신규 조회 아님)",
-      "reusedFromPriorVerifiedSnapshot": true
     }
   ],
   "seen": {
@@ -43685,17 +43063,41 @@
     "현대모비스|1020260161415": "2026-11-10",
     "현대제철|1020260161384": "2026-11-10",
     "동국제강|1020260161429": "2026-11-10",
-    "HD현대일렉트릭|1020260161434": "2026-11-10"
+    "HD현대일렉트릭|1020260161434": "2026-11-10",
+    "현대자동차|1020260161979": "2026-11-11",
+    "현대자동차|1020260161995": "2026-11-11",
+    "현대자동차|1020260161980": "2026-11-11",
+    "현대자동차|1020260161981": "2026-11-11",
+    "현대자동차|1020260162073": "2026-11-11",
+    "현대자동차|1020260161982": "2026-11-11",
+    "현대자동차|1020260161976": "2026-11-11",
+    "현대자동차|1020260162047": "2026-11-11",
+    "현대자동차|1020260161998": "2026-11-11",
+    "현대자동차|1020260162074": "2026-11-11",
+    "기아|1020260161979": "2026-11-11",
+    "기아|1020260161995": "2026-11-11",
+    "기아|1020260161980": "2026-11-11",
+    "기아|1020260161981": "2026-11-11",
+    "기아|1020260162073": "2026-11-11",
+    "기아|1020260161982": "2026-11-11",
+    "기아|1020260161976": "2026-11-11",
+    "기아|1020260162047": "2026-11-11",
+    "기아|1020260161998": "2026-11-11",
+    "기아|1020260162074": "2026-11-11",
+    "현대모비스|1020260162099": "2026-11-11",
+    "현대모비스|1020260162052": "2026-11-11",
+    "포스코|1020260162051": "2026-11-11",
+    "LS전선|1020260162274": "2026-11-11"
   },
   "confirmedScoops": 0,
-  "displayedCount": 994,
+  "displayedCount": 980,
   "unshownCount": 0,
   "sourceWindowComplete": true,
   "coverageWarning": "첫 조회는 과거 35일 공개공보의 기준선. 출원일과 공개일이 다르고 특허 공개는 출시/양산·단독 확정이 아님. API 미지원/절단/장애는 회사 0건 아님",
   "providerDiagnostics": {
     "month": "2026-11",
     "status": "source_request_counted_not_account_quota",
-    "sourceRequestsCounted": 196,
+    "sourceRequestsCounted": 220,
     "thisRunAttempted": 24,
     "runLimit": 28,
     "monthlySourceLimit": 650,
@@ -43712,12 +43114,12 @@
   "kiprisAccountLedger": {
     "month": "2026-11",
     "status": "repository_requests_counted_not_account_quota",
-    "counted": 422,
+    "counted": 466,
     "monthlyLimit": 900,
     "byPurpose": {
-      "patent_source": 196,
-      "patent_deep": 48,
-      "patent_claims": 72,
+      "patent_source": 220,
+      "patent_deep": 56,
+      "patent_claims": 84,
       "trademark": 106,
       "diagnostic": 0
     },
@@ -43727,7 +43129,7 @@
       "diagnostic": 20
     },
     "groupUsed": {
-      "patent": 316,
+      "patent": 360,
       "trademark": 106,
       "diagnostic": 0
     },
@@ -43737,7 +43139,7 @@
     "providerCodeMeaningVerified": false,
     "lastSuccessAt": {
       "trademark": "2026-11-10T07:11:46+09:00",
-      "patent": "2026-11-10T08:31:31+09:00"
+      "patent": "2026-11-11T08:31:49+09:00"
     },
     "officialAccountUsageVerified": false,
     "freeTierNote": "KIPRIS Plus 무료: 매월 1,000회, 매월 1일 초기화(서비스 수수료 안내). 900에서 멈춤.",
