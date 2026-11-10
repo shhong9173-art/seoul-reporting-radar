@@ -368,6 +368,10 @@ def run(cfg, previous, now, *, key, secret, post, get, sleep=time.sleep, only=No
     end = now.date()
     companies = [c for c in cfg["companies"] if only is None or c["company"] in only]
     prev_checks = {c.get("company"): c for c in prev.get("checks") or []}
+    # 기준선 조회가 300건(3쪽)을 넘어 잘린 회사(11-10 포스코 331건): 다음 조회에서 그 기준선 창 끝 이전 공개는 기준선으로 친다
+    # (못 읽은 31건이 다음 주 '새 공개'로 뜨지 않게). 한 번만 — 그 뒤 검사는 baseline이 아니라 다시 걸리지 않는다.
+    catchup = {name: str((pc.get("window") or {}).get("to") or "") for name, pc in prev_checks.items()
+               if pc.get("status") == "ok" and pc.get("baseline") and pc.get("truncated") and (pc.get("window") or {}).get("to")}
     token, tok_err = None, None
     if not key or not secret:
         tok_err = "EPO_OPS_KEY·EPO_OPS_SECRET 없음"
@@ -432,7 +436,8 @@ def run(cfg, previous, now, *, key, secret, post, get, sleep=time.sleep, only=No
             checks.append({"company": c["company"], "query": c["query"], "status": "waiting" if err == stopped else "failed",
                            **({"reason": err} if err == stopped else {"error": err}), "checkedAt": stamp})
             continue
-        mine, others = 0, {}
+        mine, others, caught = 0, {}, 0
+        cut_to = catchup.get(c["company"]) if not first else None
         for row in rows:
             ok = accepted(row["applicants"], c)
             if ok:
@@ -441,14 +446,16 @@ def run(cfg, previous, now, *, key, secret, post, get, sleep=time.sleep, only=No
                 if c["company"] not in f["companies"]:
                     f["companies"].append(c["company"])
                 f.setdefault("baselineFor", set())
-                if first:
+                if first or (cut_to and str(row.get("date") or "") <= cut_to):
                     f["baselineFor"].add(c["company"])
+                    caught += 0 if first else 1
             else:
                 for n in row["applicants"][:2]:
                     others[n] = others.get(n, 0) + 1
         checks.append({"company": c["company"], "query": c["query"], "status": "ok", "total": total, "got": len(rows), "matched": mine,
                        "window": {"from": start.isoformat(), "to": end.isoformat()}, "baseline": first,
                        **({"truncated": True} if total > PAGE * MAX_PAGES else {}),
+                       **({"catchup": {"to": cut_to, "asBaseline": caught}} if cut_to else {}),
                        **({"otherApplicants": sorted(others, key=lambda n: -others[n])[:3]} if others else {}), "checkedAt": stamp})
         if first:
             baselined.add(c["company"])
