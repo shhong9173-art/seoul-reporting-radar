@@ -30,6 +30,7 @@ export async function patentsAbroad(ctx, args) {
   const days = clampInt(args.days, 1, 200, 30);
   const limit = clampInt(args.limit, 1, 80, 25);
   const all = args.show_all === true || args.show_all === 'true';
+  const link = String(args.link ?? '').trim();
   const from = new Date(ctx.now.getTime() + KST_MS - days * 86400000).toISOString().slice(0, 10);
   const checks = doc.checks ?? [];
   const ok = checks.filter((c) => c.status === 'ok');
@@ -50,11 +51,19 @@ export async function patentsAbroad(ctx, args) {
   if (cut.length) out.push(`⚠ 300건 넘어 앞 300건만 읽은 회사: ${cut.map((c) => `${c.company}(${c.total})`).join(', ')} — 나머지는 미확인`);
   const zero = ok.filter((c) => !c.total);
   if (zero.length) out.push(`조회 창 안 공개 0건: ${zero.map((c) => c.company).join(', ')} (조회는 정상 — 0건 확정은 아님, 색인 지연 가능)`);
+  const kl = doc.krLinks;
+  if (kl) out.push(`국내 공개 연결(저장된 공개 전체, ${String(kl.at ?? '').slice(5, 16).replace('T', ' ')}): 레이더 특허 감시(KIPRIS)와 이어짐 ${kl.linked ?? 0} · 국내 우선권이지만 레이더 창 밖 ${kl.krOutside ?? 0} · 해외 우선권 ${kl.abroad ?? 0} · 우선권 없음 ${kl.none ?? 0} (KIPRIS 감시 문서 ${kl.kiprisDocs ?? 0}건 — 최근 약 35일 공개라 이어지지 않은 것이 국내 미출원은 아님)`);
+  if (doc.newFieldFrom) {
+    const today = new Date(ctx.now.getTime() + KST_MS).toISOString().slice(0, 10);
+    out.push(today >= doc.newFieldFrom ? `기술 분야 이력: ${doc.ipcHistorySince}부터(EP·WO·국내 공개 IPC) — 이력에 없던 분야는 '처음 보는 기술 분야'로 표시`
+      : `기술 분야 이력: ${doc.ipcHistorySince}부터 쌓는 중 — ${doc.newFieldFrom}부터 '처음 보는 기술 분야' 표시(짧은 이력의 헛신호 막기)`);
+  }
 
   const rows = (doc.filings ?? [])
     .filter((f) => all || f.isNew)
     .filter((f) => String(all ? f.date ?? f.firstSeen : f.firstSeen ?? '').slice(0, 10) >= from)
-    .filter((f) => has(q, ...(f.companies ?? [])) && has(word, f.title, ...(f.ipc ?? []), ...(f.applicants ?? [])) && (!office || f.country === office))
+    .filter((f) => has(q, ...(f.companies ?? [])) && has(word, f.title, f.kr?.title, ...(f.ipc ?? []), ...(f.applicants ?? [])) && (!office || f.country === office))
+    .filter((f) => !link || (link === 'kr' ? f.kr : link === 'abroad' ? f.priorityAbroad : link === 'new_field' ? f.newField : true))
     .sort((a, b) => String(b.date).localeCompare(String(a.date)) || String(a.id).localeCompare(String(b.id)));
   out.push(`\n[${all ? '저장된 공개' : '새로 본 공개'} · 최근 ${days}일${q ? ` · ${q}` : ''}${word ? ` · "${word}"` : ''}${office ? ` · ${office}` : ''}] ${rows.length}건`);
   // 같은 패밀리(EP와 WO 등)는 한 묶음으로 보인다
@@ -69,15 +78,25 @@ export async function patentsAbroad(ctx, args) {
     if (shown >= limit) break;
     shown += 1;
     const f = group[0];
+    const kr = group.find((g) => g.kr)?.kr;
+    const newField = group.find((g) => g.newField)?.newField;
     const ids = group.map((g) => `${g.id}(${KIND[g.country] ?? g.country} ${g.date ?? '?'})`).join(' · ');
-    out.push(`- ${f.isNew ? '[새 공개] ' : ''}${(f.companies ?? []).join('·')} · 「${f.title ?? '제목 없음'}」${f.titleLang && f.titleLang !== 'en' ? `(${f.titleLang})` : ''}`);
+    const en = `「${f.title ?? '제목 없음'}」${f.titleLang && f.titleLang !== 'en' ? `(${f.titleLang})` : ''}`;
+    out.push(`- ${f.isNew ? '[새 공개] ' : ''}${newField ? '[처음 보는 기술 분야] ' : ''}${(f.companies ?? []).join('·')} · ${kr?.title ? `「${kr.title}」(국내 공개 제목) · 영문 ${en}` : en}`);
     out.push(`   ${ids} · 출원인 ${(f.applicants ?? []).filter((n) => !/^[A-Z0-9 ,.&()'-]+$/.test(n) || !(f.applicants ?? []).some((m) => m !== n && m.toUpperCase() === n)).slice(0, 4).join(' / ') || '?'}`);
-    out.push(`   IPC ${(f.ipc ?? []).map(ipcLabel).join(', ') || '미기재'} · 출원 ${f.applicationDate ?? '?'}${f.priority ? ` · 우선권 ${f.priority.number}(${f.priority.date ?? '?'})` : ''} · 처음 본 날 ${String(f.firstSeen ?? '').slice(0, 10)}`);
+    const prios = f.priorities ?? (f.priority ? [f.priority] : []);
+    out.push(`   IPC ${(f.ipc ?? []).map(ipcLabel).join(', ') || '미기재'} · 출원 ${f.applicationDate ?? '?'}${prios.length ? ` · 우선권 ${prios.slice(0, 3).map((p) => `${p.number}(${p.date ?? '?'})`).join(', ')}` : ''} · 처음 본 날 ${String(f.firstSeen ?? '').slice(0, 10)}`);
+    const krp = group.find((g) => g.krPriority)?.krPriority;
+    const abroad = group.find((g) => g.priorityAbroad)?.priorityAbroad;
+    if (kr) out.push(`   국내 공개: ${kr.publicationNumber ?? '?'}(${kr.publicationDate ?? '?'}, ${kr.status ?? '공개'}) · 출원 ${kr.applicationNumber} — 레이더 특허 감시(KIPRIS)에도 있음${kr.company ? `(${kr.company})` : ''}`);
+    else if (krp) out.push(`   국내 우선권 출원 ${krp} — 레이더 KIPRIS 창(최근 약 35일 공개) 밖: 국내 미공개이거나 더 일찍 공개 — KIPRIS에서 출원번호로 확인`);
+    else if (abroad) out.push(`   ⚑ 해외 우선권(${abroad.join('·')}) — 국내 출원 없이 해외에서 먼저 냈을 수 있음(해외 연구소 등) — 회사 확인`);
+    if (newField) out.push(`   ⚑ 처음 보는 기술 분야: ${Object.entries(newField).map(([c, v]) => `${c} ${v.map(ipcLabel).join(', ')}`).join(' · ')} — 이 회사 EP·WO·국내 공개 이력(${doc.ipcHistorySince}부터)에 없던 IPC. 새 사업 단서일 뿐 진출 확정 아님`);
     out.push(`   원문: ${f.url}`);
   }
   if (fam.size > limit) out.push(`… 남은 ${fam.size - limit}묶음(company·query·office로 좁히기)`);
   if (!rows.length) out.push(waiting.length || bad.length ? '없음 — 다만 대기·실패한 회사는 미확인' : '없음');
   out.push('\n검증 상태: EPO OPS 서지(자동 수집). 원문은 Espacenet 링크에서 청구항·도면·패밀리(국내 KR 출원) 확인.');
-  out.push('다음: 우선권 KR 번호로 KIPRIS 국내 공개 여부 확인 → news_check(회사+기술 낱말) → 회사에 "출원 사실과 적용 계획(양산·제품 연결 여부)" 확인. 공개만으로 개발 완료·양산을 쓰지 않는다.');
+  out.push('다음: 국내 공개가 이어진 것은 KIPRIS 원문(청구항)부터, 아니면 우선권 KR 번호로 KIPRIS 확인 → news_check(회사+기술 낱말, 한글 제목 낱말) → 회사에 "출원 사실과 적용 계획(양산·제품 연결 여부)" 확인. 공개만으로 개발 완료·양산을 쓰지 않는다.');
   return textResult(out.join('\n'));
 }

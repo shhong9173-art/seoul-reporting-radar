@@ -37,6 +37,11 @@ MAX_FILINGS = 4000
 SEEN_KEEP = 8000
 RETRY_DAYS = 3       # 직전 결과가 3일 안이고 완료가 아니면 실패·대기한 회사만 다시
 MIN_GAP = 3.0
+MAX_BYTES = 1_800_000   # Worker 저장 한도 2,000,000바이트 아래로
+
+KIPRIS_FILES = (ROOT / "digests" / "patent_hunt_latest.json", ROOT / "digests" / "patent_hunt_weekly_latest.json")
+KIPRIS_ALIAS = {"한국타이어앤테크놀로지": "한국타이어", "포스코홀딩스": "포스코"}   # 특허 감시(KIPRIS) 회사 이름 → 이 감시 이름
+NEW_FIELD_AFTER_DAYS = 180   # 기술 분야 이력이 이만큼 쌓인 뒤부터 '처음 보는 기술 분야'를 붙인다(짧은 이력의 헛신호 막기)
 
 RULES = [
     "특허 공개는 출원 뒤 약 18개월(또는 조기 공개)에 나오는 공보다. 개발 완료·양산·사업 진출이 아니다.",
@@ -44,6 +49,9 @@ RULES = [
     "'새 공개'는 이 감시가 처음 본 공개번호다. 회사마다 처음 성공한 조회(최근 120일)는 기준선이라 새 공개로 치지 않는다.",
     "출원인 검색(pa=)은 낱말로 넓게 맞아 회사 규칙으로 다시 거른다. 공동 출원(현대차·기아, 대학·연구소)은 해당 회사 모두에 붙는다.",
     "조회 실패·EPO 서버 과부하로 멈춘 회사는 0건이 아니라 미확인.",
+    "국내 공개 연결: 우선권의 한국 출원번호가 레이더 특허 감시(KIPRIS, 최근 약 35일 공개)에 있으면 그 국내 공개(한글 제목)를 붙인다. 없으면 '국내 우선권(레이더 창 밖)' — 국내 미공개이거나 창 밖, KIPRIS에서 출원번호로 확인.",
+    "해외 우선권: 우선권이 있지만 한국 출원이 아니다 — 해외(미국 가출원 등)에서 먼저 냈을 수 있다(해외 연구소 출원 등). 회사 확인.",
+    "처음 보는 기술 분야: 회사의 EP·WO·국내 공개 IPC(앞 네 자리) 이력에 없던 분야. 이력이 180일 쌓인 뒤부터 붙인다. 새 사업 단서일 뿐 진출 확정이 아니다.",
     "EPO OPS 약관 3.2: 자료 그 자체를 공개하지 않는다 — 기자 전용 저장소에만 둔다(공개 저장소·Pages·공개 도구에 싣지 않음).",
 ]
 
@@ -112,6 +120,43 @@ def get_token(key, secret, post):
     return tok
 
 
+def priorities(bd):
+    """우선권 주장 전부(최대 5) → [{number, date, country}]. 번호 꼴: EPODOC(KR20250055682) > DOCDB(국가+20250055682) > 원문."""
+    out = []
+    for p in as_list((bd.get("priority-claims") or {}).get("priority-claim")):
+        ids = [d for d in as_list((p or {}).get("document-id")) if isinstance(d, dict)]
+        by = {d.get("@document-id-type"): d for d in ids}
+        ep, dd, og = by.get("epodoc") or {}, by.get("docdb") or {}, by.get("original") or {}
+        cc = _t(dd.get("country")) or _t(og.get("country"))
+        num = (_t(ep.get("doc-number")) or (f"{cc or ''}{_t(dd.get('doc-number'))}" if _t(dd.get("doc-number")) else None)
+               or _t(og.get("doc-number")))
+        if not num:
+            continue
+        cc = cc or (num[:2].upper() if num[:2].isalpha() else None)
+        date = _t(ep.get("date")) or _t(dd.get("date")) or _t(og.get("date"))
+        row = {"number": num, "date": iso(date), "country": cc}
+        if row not in out:
+            out.append(row)
+    return out[:5]
+
+
+KR_APP = re.compile(r"(?:KR)?(10|20)?((?:19|20)\d{2})(\d{7})(U)?")
+
+
+def kr_application(p):
+    """우선권 → 한국 출원번호 13자리(1020250055682) 또는 None. EPODOC KR20250055682·원문 10-2025-0055682 모두."""
+    if not isinstance(p, dict):
+        return None
+    num = re.sub(r"[^0-9A-Za-z]", "", str(p.get("number") or "")).upper()
+    cc = str(p.get("country") or "").upper()
+    if not (num.startswith("KR") or cc == "KR"):
+        return None
+    m = KR_APP.fullmatch(num)
+    if not m:
+        return None
+    return f"{m.group(1) or ('20' if m.group(4) else '10')}{m.group(2)}{m.group(3)}"
+
+
 def _doc(e):
     bd = e.get("bibliographic-data") or {}
     ids = as_list((bd.get("publication-reference") or {}).get("document-id"))
@@ -137,15 +182,12 @@ def _doc(e):
             ipc.append(code)
     app = next((_t(d.get("date")) for d in as_list((bd.get("application-reference") or {}).get("document-id"))
                 if isinstance(d, dict) and _t(d.get("date"))), None)
-    prio = None
-    for p in as_list((bd.get("priority-claims") or {}).get("priority-claim")):
-        for d in as_list((p or {}).get("document-id")):
-            if isinstance(d, dict) and d.get("@document-id-type") in ("epodoc", "original") and _t(d.get("doc-number")):
-                prio = prio or {"number": _t(d.get("doc-number")), "date": iso(_t(d.get("date")))}
+    prios = priorities(bd)
+    prio = prios[0] if prios else None
     pid = f"{cc}{no}{kind}"
     return {"id": pid, "country": cc, "number": no, "kind": kind, "date": iso(_t(pub.get("date"))),
             "title": _t(pick), "titleLang": (pick or {}).get("@lang") if isinstance(pick, dict) else None,
-            "applicants": names, "ipc": ipc[:4], "applicationDate": iso(app), "priority": prio,
+            "applicants": names, "ipc": ipc[:4], "applicationDate": iso(app), "priority": prio, "priorities": prios,
             "family": e.get("@family-id"), "url": f"https://worldwide.espacenet.com/patent/search?q=pn%3D{pid}"}
 
 
@@ -174,10 +216,117 @@ def query(c, start, end):
     return f'pa="{c["query"]}" and pd within "{start:%Y%m%d} {end:%Y%m%d}" and (pn=EP or pn=WO)'
 
 
+def subclasses(ipc):
+    """'H01M 8/04858|B60L 58/40' 또는 ['H01M 50/204'] → ['H01M', 'B60L'] (IPC 앞 네 자리)."""
+    items = ipc if isinstance(ipc, list) else re.split(r"[|,;]", str(ipc or ""))
+    out = []
+    for c in items:
+        m = re.match(r"\s*([A-H]\d{2}[A-Z])", str(c))
+        if m and m.group(1) not in out:
+            out.append(m.group(1))
+    return out
+
+
+def kipris_index(paths=KIPRIS_FILES):
+    """레이더 특허 감시(KIPRIS 공개, 공개 저장소의 digests) → {한국 출원번호 13자리: 국내 공개 요약}. 파일이 없거나 깨지면 건너뜀."""
+    idx = {}
+    for path in paths:
+        try:
+            d = json.loads(Path(path).read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        for x in d.get("items") or [] if isinstance(d, dict) else []:
+            app = re.sub(r"\D", "", str(x.get("applicationNumber") or ""))
+            if len(app) != 13 or app in idx:
+                continue
+            idx[app] = {"applicationNumber": app, "publicationNumber": x.get("publicationNumber"),
+                        "publicationDate": iso(x.get("publicationDate")), "title": x.get("title"),
+                        "company": KIPRIS_ALIAS.get(x.get("company"), x.get("company")),
+                        "status": x.get("registerStatus"), "ipc": subclasses(x.get("ipc"))}
+    return idx
+
+
+def link_kr(filings, idx):
+    """우선권 한국 출원번호를 KIPRIS 감시 자료와 잇는다 — 매 실행 다시(KIPRIS 창이 날마다 움직임). → 집계."""
+    tally = {"linked": 0, "krOutside": 0, "abroad": 0, "none": 0}
+    for f in filings:
+        for k in ("kr", "krPriority", "priorityAbroad"):
+            f.pop(k, None)
+        prios = f.get("priorities") or ([f["priority"]] if f.get("priority") else [])
+        apps = [a for a in (kr_application(p) for p in prios) if a]
+        hit = next((idx[a] for a in apps if a in idx), None)
+        if hit:
+            f["kr"] = {k: v for k, v in hit.items() if k != "ipc" and v}
+            tally["linked"] += 1
+        elif apps:
+            f["krPriority"] = apps[0]
+            tally["krOutside"] += 1
+        elif prios:
+            f["priorityAbroad"] = sorted({str(p.get("country") or "?") for p in prios})
+            tally["abroad"] += 1
+        else:
+            tally["none"] += 1
+    return tally
+
+
+def prio_shapes(filings):
+    """우선권 번호 꼴(숫자는 9로) 분포 — 로그 진단용, 실제 번호는 찍지 않는다."""
+    c = {}
+    for f in filings:
+        for p in f.get("priorities") or ([f["priority"]] if f.get("priority") else []):
+            shape = f"{p.get('country') or '?'}:{re.sub(r'[0-9]', '9', re.sub(r'[^0-9A-Za-z]', '', str(p.get('number') or '')))[:16]}"
+            c[shape] = c.get(shape, 0) + 1
+    return sorted(c.items(), key=lambda kv: -kv[1])[:6]
+
+
+def annotate(doc, prev, idx, now, *, fresh=()):
+    """국내 공개 연결 + 회사별 기술 분야(IPC) 이력. fresh(이번에 새로 본 공개)만 '처음 보는 기술 분야' 판정."""
+    filings = doc.get("filings") or []
+    tally = link_kr(filings, idx)
+    since = (prev or {}).get("ipcHistorySince") or (now.date() - dt.timedelta(days=FIRST_DAYS)).isoformat()
+    flag_from = (dt.date.fromisoformat(since) + dt.timedelta(days=NEW_FIELD_AFTER_DAYS)).isoformat()
+    hist = {c: set(v) for c, v in ((prev or {}).get("ipcHistory") or {}).items() if isinstance(v, list)}
+    fresh = set(fresh)
+    mine = {f["kr"]["applicationNumber"] for f in filings if f.get("id") in fresh and f.get("kr")}
+
+    def add(companies, scs):
+        for c in companies:
+            if c:
+                hist.setdefault(c, set()).update(scs)
+    for f in filings:
+        if f.get("id") not in fresh:
+            add(f.get("companies") or [], subclasses(f.get("ipc")))
+    for app, x in idx.items():
+        if app not in mine:   # 이번 새 공개의 국내 짝은 판정 뒤에 더한다(같은 주 국내 공개가 '처음'을 가리지 않게)
+            add([x.get("company")], x.get("ipc") or [])
+    newf = 0
+    for f in filings:
+        if f.get("id") not in fresh:
+            continue
+        f.pop("newField", None)
+        new = {c: [sc for sc in subclasses(f.get("ipc")) if sc not in hist.get(c, set())] for c in f.get("companies") or []}
+        new = {c: v for c, v in new.items() if v}
+        if new and now.date().isoformat() >= flag_from:
+            f["newField"] = new
+            newf += 1
+    for f in filings:
+        if f.get("id") in fresh:
+            add(f.get("companies") or [], subclasses(f.get("ipc")))
+    for app in mine:
+        add([idx[app].get("company")], idx[app].get("ipc") or [])
+    doc["ipcHistory"] = {c: sorted(v) for c, v in sorted(hist.items())}
+    doc["ipcHistorySince"], doc["newFieldFrom"] = since, flag_from
+    doc["krLinks"] = {**tally, "kiprisDocs": len(idx), "newField": newf, "at": now.isoformat(timespec="seconds")}
+    return tally
+
+
 def plan(previous, now, *, force=False):
-    """None = 전체, set() = 건너뜀, {회사} = 그 회사만(직전 실행이 3일 안이고 완료가 아닐 때)."""
+    """None = 전체, set() = EPO 안 부름(국내 공개 연결만 다시), {회사} = 그 회사만(직전 실행이 3일 안이고 완료가 아닐 때).
+    평일(KST)은 EPO를 부르지 않는다 — 평일 실행(10:50)은 날마다 바뀌는 KIPRIS 감시와 다시 잇기만 한다(병합 때 실행도 같음)."""
     if force or not isinstance(previous, dict) or previous.get("schema") != SCHEMA:
         return None
+    if now.astimezone(KST).weekday() < 5:
+        return set()
     try:
         age = (now - dt.datetime.fromisoformat(str(previous.get("generatedAt")))).total_seconds() / 86400
     except (TypeError, ValueError):
@@ -189,7 +338,7 @@ def plan(previous, now, *, force=False):
     return {c["company"] for c in previous.get("checks") or [] if c.get("status") != "ok"}
 
 
-def run(cfg, previous, now, *, key, secret, post, get, sleep=time.sleep, only=None):
+def run(cfg, previous, now, *, key, secret, post, get, sleep=time.sleep, only=None, kipris=None):
     prev = previous if isinstance(previous, dict) and previous.get("schema") == SCHEMA else {}
     baselined = set(prev.get("baselinedCompanies") or [])
     stamp = now.isoformat(timespec="seconds")
@@ -318,7 +467,7 @@ def run(cfg, previous, now, *, key, secret, post, get, sleep=time.sleep, only=No
     status = ("complete" if len(oks) == len(checks) and checks else
               "failed" if not oks and not waits else
               "waiting" if not oks else "partial")
-    return {
+    doc = {
         "schema": SCHEMA, "generatedAt": stamp, "status": status,
         "source": "EPO OPS 3.2(Open Patent Services) — 유럽특허(EP)·국제특허(WO·PCT) 공개 서지",
         "terms": RULES[-1],
@@ -330,6 +479,29 @@ def run(cfg, previous, now, *, key, secret, post, get, sleep=time.sleep, only=No
         "checks": checks, "filings": kept, "fresh": fresh, "seen": seen[-SEEN_KEEP:],
         "rules": RULES, "confirmedScoops": 0,
     }
+    annotate(doc, prev, kipris or {}, now, fresh=fresh)
+    return doc
+
+
+def link_note(t, kipris):
+    return (f"이어짐 {t.get('linked', 0)} · 국내 우선권(창 밖) {t.get('krOutside', 0)} · 해외 우선권 {t.get('abroad', 0)}"
+            f" · 우선권 없음 {t.get('none', 0)} · KIPRIS 감시 문서 {len(kipris)}")
+
+
+def size_note(doc):
+    n = len(json.dumps(doc, ensure_ascii=False).encode("utf-8"))
+    return f"문서 {n / 1e6:.2f}MB(저장 한도 2MB)"
+
+
+def fit(doc, limit=MAX_BYTES):
+    """저장 한도(Worker 2MB) 안으로 — 넘으면 오래된 기존(새 공개 아님) 공개부터 덜어 낸다. seen은 그대로라 다시 '새 공개'로 뜨지 않는다."""
+    filings = doc.get("filings") or []
+    while filings and len(json.dumps(doc, ensure_ascii=False).encode("utf-8")) > limit:
+        old = [f for f in filings if not f.get("isNew")] or filings
+        drop = min(old, key=lambda f: (str(f.get("date") or ""), f.get("id") or ""))
+        filings.remove(drop)
+        doc["trimmed"] = doc.get("trimmed", 0) + 1
+    return doc
 
 
 def main():
@@ -350,14 +522,26 @@ def main():
             sys.exit(1)
     if private_store.late_scheduled_duplicate(previous, now):
         return
+    kipris = kipris_index()
     only = plan(previous, now, force=force)
     if only is not None and not only:
-        print("::notice title=epo-patents::직전 결과(3일 안)가 정상 — EPO를 부르지 않고 끝냄")
+        # EPO는 부르지 않고 저장된 공개만 국내 공개(KIPRIS 감시, 날마다 바뀜)와 다시 잇는다
+        doc = {k: v for k, v in previous.items() if not k.startswith("_")}
+        before = json.dumps([(f.get("kr"), f.get("krPriority"), f.get("priorityAbroad")) for f in doc.get("filings") or []], ensure_ascii=False)
+        tally = annotate(doc, previous, kipris, now)
+        after = json.dumps([(f.get("kr"), f.get("krPriority"), f.get("priorityAbroad")) for f in doc.get("filings") or []], ensure_ascii=False)
+        print(f"::notice title=epo-patents::직전 결과(3일 안)가 정상 — EPO를 부르지 않음 · 국내 공개 다시 잇기 {link_note(tally, kipris)}"
+              f" · 우선권 꼴 {prio_shapes(doc.get('filings') or [])}")
+        if token and (before != after or "ipcHistory" not in previous):
+            status = private_store.put(FEED, fit(doc), token)
+            print(f"::notice title=epo-patents-push::국내 공개 연결만 바꿔 저장 HTTP {status} · {size_note(doc)}")
+            if status != 200:
+                sys.exit(1)
         return
     if only:
         print(f"::notice title=epo-patents-retry::직전에 실패·대기한 회사만 다시: {len(only)}곳")
     import requests
-    doc = run(cfg, previous, now, key=key, secret=secret, post=requests.post, get=requests.get, only=only)
+    doc = run(cfg, previous, now, key=key, secret=secret, post=requests.post, get=requests.get, only=only, kipris=kipris)
     counts = {}
     for c in doc["checks"]:
         counts[c["status"]] = counts.get(c["status"], 0) + 1
@@ -365,14 +549,15 @@ def main():
     print(f"::notice title=epo-patents::상태 {doc['status']} · 회사 {' · '.join(f'{k} {v}' for k, v in sorted(counts.items()))}"
           f" · 저장 공개 {len(doc['filings'])} · 새 공개 {len(doc['fresh'])} · 기준선 회사 {len(doc['baselinedCompanies'])}"
           f" · EPO 서버 {th.get('state') or '?'}/검색 {th.get('search') or '?'}{' · ' + th['stopped'] if th.get('stopped') else ''}")
+    print(f"::notice title=epo-patents-kr::국내 공개 연결 {link_note(doc.get('krLinks') or {}, kipris)} · 우선권 꼴 {prio_shapes(doc['filings'])}")
     errors = sorted({c.get("error") for c in doc["checks"] if c.get("error")})
     if errors:
         print(f"::notice title=epo-patents-errors::{', '.join(errors)[:300]}")
     if not token:
         print("::warning title=epo-patents-push::MCP_ACCESS_TOKEN 미설정 — 결과를 저장하지 않음")
         return
-    status = private_store.put(FEED, doc, token)
-    print(f"::notice title=epo-patents-push::기자 전용 저장소 전송 HTTP {status}")
+    status = private_store.put(FEED, fit(doc), token)
+    print(f"::notice title=epo-patents-push::기자 전용 저장소 전송 HTTP {status} · {size_note(doc)}")
     if status != 200:
         sys.exit(1)
     if any(c["status"] == "failed" for c in doc["checks"]):
