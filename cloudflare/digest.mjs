@@ -777,14 +777,19 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
     // titleCompanies가 없는 예전 항목은 그대로 둔다.
     const bodyOnly = Array.isArray(x.titleCompanies) && companies.length
       && !companies.some((c) => x.titleCompanies.includes(c) || String(x.koTitle ?? '').includes(c));
+    // 보도 대조·표시의 주체는 제목에 나온 출입처를 먼저(한국어 제목에서 앞에 나온 순). 출입처 목록 순서(현대차가 기아보다 앞)를 쓰면
+    // 11-10 운영: Just Auto 「기아, 광주에 새 전기차 공장」이 "현대차 공장"으로 대조돼 '미보도 후보'가 떴다.
+    const ko = String(x.koTitle ?? '');
+    const at = (c) => (ko.includes(c) ? ko.indexOf(c) : (x.titleCompanies ?? []).includes(c) ? 5000 : 9999);
+    const ordered = [...companies].sort((a, b) => at(a) - at(b));
     const terms = affiliate.length || bodyOnly ? [] : (x.checkTerms ?? []).slice(0, 2);
-    push(terms.length ? 'B' : 'C', W['global-beat'], { kind: '출입처 외신', id: x.id, date: x.published, company: companies.join('·'),
+    push(terms.length ? 'B' : 'C', W['global-beat'], { kind: '출입처 외신', id: x.id, date: x.published, company: ordered.join('·'),
       fact: (affiliate.length ? `⚠ 본문 첫머리 주체가 계열사(${affiliate.join('·')}) — 출입처 외일 수 있음 · ` : '')
         + (bodyOnly ? `⚠ 출입처 이름(${companies.join('·')})이 제목엔 없고 본문에만 — 다른 회사 기사일 수 있음 · ` : '')
         + `외신 ${x.source ?? ''} 「${x.koTitle || x.title}」${x.koSummary ? ` — ${clipAt(x.koSummary, 220)}` : ''} · 원제 "${clipAt(x.title ?? '', 140)}" (AI 번역·요약 — 원문 확인)`
         // AI가 받은 영어(제목·RSS 발췌)에서 같은 값을 못 찾은 숫자 — 지어냈거나 환산했거나 표기가 달라 못 맞춘 것(global_news_pipeline.check_numbers)
         + (Array.isArray(x.numbersNotInSource) && x.numbersNotInSource.length ? ` · ⚠ 원문 발췌에 없는 숫자: ${x.numbersNotInSource.slice(0, 4).join(', ')} — 기사에 쓰기 전 원문 대조` : ''),
-      url: x.url, check: terms.length && companies.length ? gbHint(companies[0], terms, (GB_COUNTRY.exec(String(x.koTitle ?? '')) ?? [])[0], x.published) : undefined });
+      url: x.url, check: terms.length && companies.length ? gbHint(ordered[0], terms, (GB_COUNTRY.exec(String(x.koTitle ?? '')) ?? [])[0], x.published) : undefined });
   }
 
   // US OSHA: new inspection (fatality/accident A, complaint/referral B), new citations (willful/repeat or $100k+ A, serious B), fatal accident summary A.

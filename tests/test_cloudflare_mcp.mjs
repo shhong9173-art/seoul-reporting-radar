@@ -2846,7 +2846,9 @@ test('출입처 외신 (global-beat): event words → B with press-check hint, n
     it('gl:honda', { title: 'Honda confirms $3 billion assembly plant in Ohio that will add 2,000 jobs', koTitle: '혼다, 30억달러 규모 오하이오 조립 공장 신설',
       beatCompanies: ['현대차'], titleCompanies: [], checkTerms: ['공장'] }),
     it('gl:hy', { title: 'Hyundai Motor opens Georgia battery line', koTitle: '현대차, 조지아 배터리 라인 가동', beatCompanies: ['현대차'], titleCompanies: ['현대차'], checkTerms: ['배터리'] }),
-    it('gl:ko', { title: 'Korean automaker opens plant', koTitle: '현대차, 멕시코 공장 가동', beatCompanies: ['현대차'], titleCompanies: [], checkTerms: ['공장'] })] };
+    it('gl:ko', { title: 'Korean automaker opens plant', koTitle: '현대차, 멕시코 공장 가동', beatCompanies: ['현대차'], titleCompanies: [], checkTerms: ['공장'] }),
+    // 11-10 운영: 제목 주체는 기아 — 출입처 목록 순서(현대차 먼저)가 아니라 제목에 나온 회사로 대조
+    it('gl:kia', { title: 'Kia to build new EV plant in Gwangju', koTitle: '기아, 광주에 새 전기차 공장 짓는다', beatCompanies: ['현대차', '기아'], titleCompanies: ['기아'], checkTerms: ['공장'] })] };
   assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/global-beat', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
   const r = await call('radar_today', { include_minor: true }, opts);
   const b = r.text.split('[B · ')[1].split('[C · ')[0];
@@ -2875,6 +2877,8 @@ test('출입처 외신 (global-beat): event words → B with press-check hint, n
   assert.match(r.text.split('[C · ')[1], /⚠ 출입처 이름\(현대차\)이 제목엔 없고 본문에만 — 다른 회사 기사일 수 있음 · 외신 World Nuclear News 「혼다, 30억달러 규모 오하이오 조립 공장 신설」/);
   assert.equal(items.items.find((x) => x.id === 'gl:hy').tier, 'B');
   assert.equal(items.items.find((x) => x.id === 'gl:ko').tier, 'B');   // 영어 제목엔 없어도 한국어 제목에 출입처가 있으면 B
+  const kia = items.items.find((x) => x.id === 'gl:kia');
+  assert.deepEqual([kia.check.who, kia.company], ['기아', '기아·현대차']);
 });
 
 test('미국 주 환경 허가·공고(us-state-env): radar_today에 허가 신청 A·제재 B, us_litigation 구역에 기준선·신규', async () => {
