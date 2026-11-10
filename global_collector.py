@@ -573,7 +573,7 @@ def push_beat(rows: list[dict], stamp: str) -> None:
               "koTitle": x.get("koTitle", ""), "koSummary": (x.get("koSummary") or "")[:500], "source": x.get("sourceName") or x.get("globalSource"),
               "published": x.get("published"), "firstSeen": x.get("firstSeen"), "beatCompanies": x.get("beatCompanies") or [],
               "checkTerms": x.get("checkTerms") or [], "numbersNotInSource": (x.get("numbersNotInSource") or [])[:6],
-              "affiliateLead": (x.get("affiliateLead") or [])[:3]} for x in rows
+              "affiliateLead": (x.get("affiliateLead") or [])[:3], "titleCompanies": x.get("titleCompanies") or []} for x in rows
              if x.get("beatCompanies") and (x.get("sourceName") or "").strip().lower() not in MARKETPLACES]
     refused = sorted({c["category"] for c in GLOBAL_FEED_CHECKS if c.get("status") == "transport_or_xml_error"})
     doc = {"schema": "global_beat/v1", "generatedAt": stamp, "items": items, "checks": [{"source": "외신 수집", "status": "ok"}],
@@ -632,6 +632,8 @@ def main() -> None:
         x["firstSeen"]=seen_at.get(x.get("url")) or stamp
         x["checkTerms"]=check_terms(x.get("koTitle",""),x.get("beatCompanies") or []) if x.get("beatCompanies") else []
         x["affiliateLead"]=affiliate_lead(x.get("beatCompanies") or [], x.get("articleText") or x.get("summary") or "", x.get("koSummary") or "")
+        # 영어 제목에 나온 출입처(11-10 운영: Automotive News '혼다 오하이오 30억달러 공장' — 본문에 Hyundai가 나와 '현대차' B로 떴다)
+        x["titleCompanies"]=beat_companies(x.get("title",""))
     push_beat(unique,stamp)
 
     merged = domestic + unique

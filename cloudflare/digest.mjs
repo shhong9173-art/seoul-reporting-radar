@@ -772,9 +772,15 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
     const companies = x.beatCompanies ?? [];
     // 본문 첫머리 주체가 계열사(global_collector.affiliate_lead) — 참고(C)로 내리고 보도 대조도 하지 않는다(11-03 운영: 포스코퓨처엠 계약이 '포스코' B)
     const affiliate = (x.affiliateLead ?? []).filter(Boolean);
-    const terms = affiliate.length ? [] : (x.checkTerms ?? []).slice(0, 2);
+    // 출입처 이름이 영어 제목에도 한국어 제목에도 없고 본문(RSS 발췌)에만 있으면 다른 회사 기사일 수 있다 — 참고(C), 대조 안 함
+    // (11-10 운영: Automotive News '혼다, 오하이오 조립 공장' 외신이 본문의 Hyundai 언급으로 '현대차' B·"현대차 공장 오하이오" 대조).
+    // titleCompanies가 없는 예전 항목은 그대로 둔다.
+    const bodyOnly = Array.isArray(x.titleCompanies) && companies.length
+      && !companies.some((c) => x.titleCompanies.includes(c) || String(x.koTitle ?? '').includes(c));
+    const terms = affiliate.length || bodyOnly ? [] : (x.checkTerms ?? []).slice(0, 2);
     push(terms.length ? 'B' : 'C', W['global-beat'], { kind: '출입처 외신', id: x.id, date: x.published, company: companies.join('·'),
       fact: (affiliate.length ? `⚠ 본문 첫머리 주체가 계열사(${affiliate.join('·')}) — 출입처 외일 수 있음 · ` : '')
+        + (bodyOnly ? `⚠ 출입처 이름(${companies.join('·')})이 제목엔 없고 본문에만 — 다른 회사 기사일 수 있음 · ` : '')
         + `외신 ${x.source ?? ''} 「${x.koTitle || x.title}」${x.koSummary ? ` — ${clipAt(x.koSummary, 220)}` : ''} · 원제 "${clipAt(x.title ?? '', 140)}" (AI 번역·요약 — 원문 확인)`
         // AI가 받은 영어(제목·RSS 발췌)에서 같은 값을 못 찾은 숫자 — 지어냈거나 환산했거나 표기가 달라 못 맞춘 것(global_news_pipeline.check_numbers)
         + (Array.isArray(x.numbersNotInSource) && x.numbersNotInSource.length ? ` · ⚠ 원문 발췌에 없는 숫자: ${x.numbersNotInSource.slice(0, 4).join(', ')} — 기사에 쓰기 전 원문 대조` : ''),

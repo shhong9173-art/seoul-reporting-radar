@@ -15,6 +15,7 @@ const SYSTEM = '너는 한국 경제신문의 외신 담당 번역 기자다. �
   + 'Korea Zinc→고려아연, LS Electric→LS일렉트릭, HD Hyundai Electric→HD현대일렉트릭, Hyosung Heavy Industries→효성중공업, LS Cable→LS전선, '
   + 'Hanwha Qcells→한화큐셀, Hankook Tire→한국타이어, LG Chem→LG화학, Lotte Chemical→롯데케미칼, Kumho Petrochemical→금호석유화학, '
   + 'S-Oil→에쓰오일, SK Innovation→SK이노베이션, HD Hyundai Oilbank→HD현대오일뱅크, Tesla→테슬라, BYD→BYD), 숫자·단위·고유명사는 그대로 둔다. 뜻을 더하거나 빼지 않는다. '
+  + '금액은 원문 통화 그대로 옮긴다($3 billion→30억달러, $450 million→4억5천만달러, €2 billion→20억유로) — 원화로 환산하지 않는다. '
   + '끝에 붙은 매체 이름(" - Reuters" 등)은 옮기지 않는다. 제목에 없는 사실(상표 출원·확정·계약 체결 등)을 지어내지 않는다 — '
   + "hints at·plans·considers·may·reportedly 같은 불확실한 표현은 '시사'·'검토'·'계획'·'~할 듯'·'~한 것으로 알려져'처럼 그대로 살린다. "
   + '번역문 한 줄만 출력한다(설명·따옴표·접두어 없이).';
@@ -25,6 +26,7 @@ const SUMMARY_SYSTEM = '너는 한국 경제신문의 외신 담당 기자다. �
   + '(Hyundai Motor→현대차, Kia→기아, LG Energy Solution→LG에너지솔루션, Samsung SDI→삼성SDI, SK On→SK온, POSCO→포스코, Korea Zinc→고려아연, '
   + 'Hanwha Qcells→한화큐셀, LS Electric→LS일렉트릭, HD Hyundai Electric→HD현대일렉트릭, LG Chem→LG화학, Lotte Chemical→롯데케미칼, '
   + 'Kumho Petrochemical→금호석유화학, S-Oil→에쓰오일, SK Innovation→SK이노베이션, HD Hyundai Oilbank→HD현대오일뱅크, Tesla→테슬라). '
+  + '금액은 원문 통화 그대로 쓴다($3 billion→30억달러, €2 billion→20억유로) — 원화로 환산하지 않는다(11-10 운영: $3 billion이 3조원으로 바뀌었다). '
   + "'may·plans·reportedly·could' 같은 불확실한 표현은 '~할 수 있다·계획·~한 것으로 알려졌다'로 살린다. 요약문만 출력한다(제목·머리말·목록 기호 없이).";
 const SUMMARY_MAX_CHARS = 2600;
 

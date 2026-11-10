@@ -2841,7 +2841,12 @@ test('출입처 외신 (global-beat): event words → B with press-check hint, n
     it('gl:dl', { title: 'Kia deliveries', koTitle: '기아, 3분기 인도량 늘려 투자', beatCompanies: ['기아'], checkTerms: ['투자'] }),
     // 11-03 운영: 영어 제목은 그룹 이름, 본문 주체는 계열사 → 참고(C)·대조 안 함
     it('gl:af', { title: 'Posco to supply new battery materials to LGES', koTitle: '포스코, LG에너지솔루션에 신규 배터리 소재 공급', beatCompanies: ['포스코'],
-      checkTerms: ['배터리'], affiliateLead: ['포스코퓨처엠'] })] };
+      checkTerms: ['배터리'], affiliateLead: ['포스코퓨처엠'] }),
+    // 11-10 운영: 출입처 이름이 본문에만(제목은 혼다) → 참고(C)·대조 안 함. 제목에 출입처가 있으면 그대로 B
+    it('gl:honda', { title: 'Honda confirms $3 billion assembly plant in Ohio that will add 2,000 jobs', koTitle: '혼다, 30억달러 규모 오하이오 조립 공장 신설',
+      beatCompanies: ['현대차'], titleCompanies: [], checkTerms: ['공장'] }),
+    it('gl:hy', { title: 'Hyundai Motor opens Georgia battery line', koTitle: '현대차, 조지아 배터리 라인 가동', beatCompanies: ['현대차'], titleCompanies: ['현대차'], checkTerms: ['배터리'] }),
+    it('gl:ko', { title: 'Korean automaker opens plant', koTitle: '현대차, 멕시코 공장 가동', beatCompanies: ['현대차'], titleCompanies: [], checkTerms: ['공장'] })] };
   assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/global-beat', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
   const r = await call('radar_today', { include_minor: true }, opts);
   const b = r.text.split('[B · ')[1].split('[C · ')[0];
@@ -2866,6 +2871,10 @@ test('출입처 외신 (global-beat): event words → B with press-check hint, n
   assert.equal(items.items.find((x) => x.id === 'gl:dl').check.must, undefined);
   assert.ok(!items.items.find((x) => x.id === 'gl:af'));
   assert.match(r.text.split('[C · ')[1], /⚠ 본문 첫머리 주체가 계열사\(포스코퓨처엠\) — 출입처 외일 수 있음 · 외신 World Nuclear News 「포스코, LG에너지솔루션에 신규 배터리 소재 공급」/);
+  assert.ok(!items.items.find((x) => x.id === 'gl:honda'));
+  assert.match(r.text.split('[C · ')[1], /⚠ 출입처 이름\(현대차\)이 제목엔 없고 본문에만 — 다른 회사 기사일 수 있음 · 외신 World Nuclear News 「혼다, 30억달러 규모 오하이오 조립 공장 신설」/);
+  assert.equal(items.items.find((x) => x.id === 'gl:hy').tier, 'B');
+  assert.equal(items.items.find((x) => x.id === 'gl:ko').tier, 'B');   // 영어 제목엔 없어도 한국어 제목에 출입처가 있으면 B
 });
 
 test('미국 주 환경 허가·공고(us-state-env): radar_today에 허가 신청 A·제재 B, us_litigation 구역에 기준선·신규', async () => {

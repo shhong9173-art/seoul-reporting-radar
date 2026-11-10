@@ -230,6 +230,13 @@ class GlobalCollectorBeatTests(unittest.TestCase):
         self.assertEqual((name,doc["schema"],[x["url"] for x in doc["items"]]),("global-beat","global_beat/v1",["https://w/a"]))
         self.assertTrue(doc["items"][0]["id"].startswith("gl:"))
         self.assertEqual((doc["items"][0]["checkTerms"],doc["items"][0]["numbersNotInSource"]),(["원자로"],["6천억 원"]))
+        self.assertEqual(doc["items"][0]["titleCompanies"],[])   # 행에 없으면 빈 목록(본 수집은 영어 제목으로 채운다)
+
+    def test_title_companies_from_english_title_only(self):
+        # 11-10 운영: 혼다 오하이오 공장 기사 — 본문에 Hyundai가 나와도 제목 출입처는 없다
+        self.assertEqual(gc.beat_companies("Honda confirms $3 billion assembly plant in Ohio that will add 2,000 jobs"),[])
+        self.assertEqual(gc.beat_companies("Honda confirms plant. The site joins Hyundai and Toyota in the state."),["현대차"])
+        self.assertEqual(gc.beat_companies("Hyundai to invest US$450m in Alabama plant"),["현대차"])
 
     def test_summary_numbers_checked_against_text_ai_received(self):
         from number_check import unmatched_numbers,ko_numbers
