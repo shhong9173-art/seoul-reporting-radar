@@ -57,7 +57,7 @@ async function alertLines(ctx, days, judgedById, index) {
   // 판정·지금 목록에 없는 id는 앞말로 감시를 짐작한다(11-03 알림의 회생 공고 'ins:'가 '감시 미상'으로 떴다)
   const PREFIX = { stk: 'kr-stacks', labor: 'kr-labor', ins: 'kr-insolvency', un: 'union-notices', clik: 'council-minutes', fac: 'kr-official',
     wf: 'kr-workforce', local: 'kr-local', bld: 'kr-building', edgar: 'partner-filings', nse: 'india-filings', clue: 'scoop-screen', gl: 'global-beat',
-    gov: 'governance', cp: 'dart-counterparty', exec: 'kr-exec', execm: 'kr-exec-market', execc: 'kr-exec-check' };
+    gov: 'governance', cp: 'dart-counterparty', exec: 'kr-exec', execm: 'kr-exec-market', execc: 'kr-exec-check', epo: 'epo-patents' };
   const byPrefix = (id) => WATCHES.find((w) => w.feed === PREFIX[String(id).split(':')[0]])?.label;
   const watchOf = (id) => real(judgedById.get(id)?.watch) || real(index.get(id)?.watch) || byPrefix(id) || '감시 미상';
   const rowsOut = sent.map((x) => ({ ...x, watch: watchOf(x.id), verdict: judgedById.get(x.id)?.verdict ?? '판정 없음', r: judgedById.get(x.id) }));

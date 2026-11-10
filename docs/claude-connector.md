@@ -143,6 +143,15 @@
 - 미국 상표 출원(USPTO, Signa 경유, 11-09): USPTO 직접 API가 막혀(ID.me) Signa로만 같은 23곳을 읽어 `trademarks`에 '[미국 상표 출원(USPTO · Signa 경유)]' 구역, radar_today '미국 상표 출원'(처음 보는 이름+업종 핵심 상품류 B, 그 밖 C). Signa 크레딧이 3,000 아래면 회사별 주기(`euEvery`·`usEvery`)로 줄여 무료 월 1,000 안에서 돈다. 원문은 USPTO TSDR 일련번호.
 - 특허 월요일 묶음(11-09): 석유화학·정유 6곳(LG화학·롯데케미칼·금호석유화학·S-OIL·SK이노베이션·HD현대오일뱅크)과 GS칼텍스·KG모빌리티·KG스틸·동국씨엠·LS MnM·DL케미칼·태광산업 13곳은 11-01 출입처가 된 뒤에도 KIPRIS 한도(실행당 28·월 650회) 때문에 특허를 안 봤다. 이제 월요일(KST)에만 `patent_hunt.py --weekly`로 한 번 묻고(직전 묶음 날짜 2일 겹침, 첫 실행은 기준선) `digests/patent_hunt_weekly_latest.json`에 따로 둔다. 매일 실행이 그 결과를 붙여(`merge_weekly`, 8일 넘으면 버림) 심층·청구항·보도 판단 단계로 흘려보내되, 매일 출입처 완료 판정(`sourceWindowComplete`)에는 세지 않는다. 묶음 실행 날이 아니면 새 관측으로 다시 알리지 않는다. 법인명은 상표 감시가 확인한 특허고객 이름 — KG스틸·동국씨엠·LS MnM·DL케미칼·태광산업은 첫 실행의 rawTotal로 확인. 추가 호출은 주 13~16회(월 약 60회) 추정.
 
+## 해외 특허 공개(patents_abroad, 기자 전용 — 11-10)
+
+- GitHub Actions `EPO OPS Patent Watch`(`scripts/epo_ops_watch.py`)가 토요일 06:40 KST 주 1회(Cloudflare 요청 `days: [6]`, GitHub 예약 금 21:40 UTC는 예비). EP 공개는 수요일·WO(PCT) 공개는 목요일이라 그 뒤에 읽는다. 토 14:40·일 06:40은 재시도 칸 — 직전(3일 안)이 완료면 EPO를 부르지 않고, 아니면 실패·대기한 회사만. Secrets: `EPO_OPS_KEY`·`EPO_OPS_SECRET`(EPO 개발자 포털 앱의 Consumer Key·Secret), `MCP_ACCESS_TOKEN`.
+- EPO OPS 3.2 `published-data/search/biblio`에 `pa="영문 출원인" and pd within "시작 끝" and (pn=EP or pn=WO)` — 회사당 한 쪽 100건, 최대 3쪽. 회사 첫 성공은 최근 120일 기준선, 이후 매주 35일을 겹쳐 읽어 처음 보는 공개번호만 새 공개. 출입처 25곳(`data/epo_ops_watch.json`, 상표 감시 23곳 + HD현대오일뱅크·GS칼텍스). 출원인 이름(영문·한글 원문)을 회사 규칙으로 다시 거른다(포스코퓨처엠·포스코인터내셔널 등 제외). 현대차·기아 공동 출원은 두 회사에 함께 붙는다.
+- 공정 이용: 응답마다 `X-Throttling-Control`을 읽어 검색 신호가 red·black이거나 HTTP 403(CLIENT.RobotDetected 등)이면 그 자리에서 멈추고 남은 회사는 '대기'(0건 아님 — 미확인). 간격은 idle 3초 이상, busy 5초, overloaded·yellow 10초 이상. 11-10 탐침에서 1.2초 간격·서버 overloaded 때 검색 black과 robot 판정을 받았다 — 회피·반복 호출하지 않는다.
+- EPO OPS 약관 3.2(자료 그 자체 공개 금지): 결과는 `epo-patents` 비공개 저장소에만. 공개 저장소·Pages·공개 연결 도구에 싣지 않고, Actions 로그엔 건수만 남긴다. `patents_abroad`는 기자 전용 연결에서만 보인다.
+- 화면: 새 공개를 같은 패밀리(EP·WO)끼리 묶어 회사·제목(영문)·IPC(기술 분야 대략)·출원일·우선권(KR 번호)·Espacenet 원문. radar_today에는 참고(C) '유럽특허 공개'·'국제특허(PCT) 공개'로 처음 본 날부터 7일(보도 대조 없음).
+- 특허 공개는 출원 약 18개월 뒤 공보다. 개발 완료·양산·사업 진출로 쓰지 않는다. 우선권 KR 번호로 KIPRIS 국내 공개 여부와 청구항을 먼저 본다.
+
 ## 국회 법안(assembly_bills, 기자 전용)
 
 - GitHub Actions `Assembly Bills Watch`가 평일 08:40·17:40 KST(Cloudflare 요청, GitHub 예약은 예비)에 실행. 결과는 `assembly-bills` 비공개 저장소로만. Secrets: `ASSEMBLY_API_KEY`(열린국회정보 인증키).
