@@ -55,6 +55,8 @@ export const FEEDS = {
   // 문제 임원 점검(kr_exec_check.py, 11-05): 출입처 임원 한 사람씩 법정 결격·한도와 과거 논란 기사
   'kr-exec-check': { blob: 'kr_exec_check', schema: 'kr_exec_check/v1', list: 'people' },
   'global-beat': { blob: 'global_beat', schema: 'global_beat/v1', list: 'items' },
+  // 출입처 유럽(EP)·국제(WO) 특허 공개(epo_ops_watch.py, 11-10) — EPO OPS 약관 3.2: 자료 그 자체 공개 금지라 이 기자 전용 저장소에만
+  'epo-patents': { blob: 'epo_patents', schema: 'epo_patents/v1', list: 'filings' },
 };
 
 // Official trade-remedy listing pages that do not answer GitHub runners (ReadTimeout). Collectors fetch them through

@@ -1,0 +1,47 @@
+name: EPO OPS Patent Watch
+# 출입처 유럽(EP)·국제(WO) 특허 공개 — EPO OPS 3.2(Open Patent Services), 주 1회 토요일 06:40 KST(Cloudflare 요청, 아래 cron은 예비).
+# EP 공개는 수요일·WO(PCT) 공개는 목요일이라 금요일 밤(유럽) 뒤에 읽는다. 토 14:40·일 06:40은 재시도 칸 — EPO 서버 과부하로 멈춘 회사만,
+# 직전(3일 안)이 정상이면 EPO를 부르지 않고 끝난다. 공정 이용: 응답의 X-Throttling-Control이 검색 red·black이거나 403이면 그 자리에서 멈춘다.
+# EPO OPS 약관 3.2(자료 그 자체 공개 금지): 결과는 기자 전용 저장소(epo-patents)에만, 이 로그엔 건수만. 키는 출력하지 않는다.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/epo_ops_watch.py'
+      - 'data/epo_ops_watch.json'
+      - '.github/workflows/epo-ops-watch.yml'
+  schedule:
+    - cron: '40 21 * * 5'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: '직전 결과가 있어도 전체 다시 조회'
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: epo-ops
+  cancel-in-progress: false
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install "requests>=2.31,<3"
+      - name: Test parsing, throttle and baseline rules before any request
+        run: python -m unittest tests.test_epo_ops_watch tests.test_private_store -v
+      - name: Watch beat-company EP/WO publications (counts-only log)
+        env:
+          MCP_ACCESS_TOKEN: ${{ secrets.MCP_ACCESS_TOKEN }}
+          EPO_OPS_KEY: ${{ secrets.EPO_OPS_KEY }}
+          EPO_OPS_SECRET: ${{ secrets.EPO_OPS_SECRET }}
+          FORCE_RUN: ${{ inputs.force && 'true' || 'false' }}
+        run: python scripts/epo_ops_watch.py

@@ -61,6 +61,10 @@ export const SLOTS = [
   { at: '07:10', workflow: 'trademark-watch.yml', days: [1] },
   // 화~금 같은 칸: 월요일에 실패·대기한 회사만 다시 묻는다(모두 정상이면 KIPRIS를 부르지 않고 끝남 — 11-02 영풍 이름 불일치 실패가 한 주 남았다).
   { at: '07:10', workflow: 'trademark-watch.yml', days: [2, 3, 4, 5] },
+  // 11-10: 출입처 유럽(EP)·국제(WO) 특허 공개(EPO OPS) — EP는 수요일·WO는 목요일 공개라 토요일 아침 한 번.
+  // 토 14:40·일 06:40은 재시도 칸: EPO 서버 과부하(검색 red·black·robot 판정)로 멈춘 회사만 다시 묻고, 직전이 정상이면 EPO를 부르지 않는다.
+  { at: '06:40', workflow: 'epo-ops-watch.yml', days: [6] }, { at: '14:40', workflow: 'epo-ops-watch.yml', days: [6] },
+  { at: '06:40', workflow: 'epo-ops-watch.yml', days: [0] },
   // 협력사 회생·파산(대법원 공고): 아침에 전날 공고, 저녁에 그날 공고.
   { at: '07:20', workflow: 'kr-insolvency.yml' },
   // 경쟁지 [단독] 역추적: GitHub 예약(19:20 KST)이 11-03엔 05:25에야 돌았다(10시간 늦음). 아침 레이더 전에 한 번 더.

@@ -36,6 +36,8 @@ export const WATCHES = [
   { feed: 'us-comments', label: '미 연방 의견서', tool: 'us_comments', schedule: '평일 08:20' },
   { feed: 'page-watch', label: '해외 공식 페이지', tool: 'page_changes', schedule: '평일 06:30·18:30' },
   { feed: 'trademarks', label: '상표 출원', tool: 'trademarks', schedule: '월 07:10', staleHours: 192 },
+  // 11-10: 출입처 유럽(EP)·국제(WO) 특허 공개(EPO OPS) — EP 수요일·WO 목요일 공개 뒤 토요일 아침 주 1회. 약관상 기자 전용 연결에서만.
+  { feed: 'epo-patents', label: '해외 특허 공개(EP·WO)', tool: 'patents_abroad', schedule: '토 06:40', staleHours: 192 },
   { feed: 'assembly-bills', label: '국회 법안', tool: 'assembly_bills', schedule: '평일 08:40·17:40' },
   { feed: 'us-recalls', label: '미국 리콜(NHTSA 전체)', tool: 'us_recalls', schedule: '매일 17:10' },
   { feed: 'us-epa', label: '미국 EPA 인증', tool: 'us_epa', schedule: '매일 06:20', staleHours: 60 },
@@ -1126,6 +1128,20 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
     push(f.tier === 'B' ? 'B' : 'C', W.trademarks, { kind: f.titleNew ? '미국 상표 새 이름' : '미국 상표 출원', id: f.id, date: f.applicationDate, company: f.company,
       fact: `미국(USPTO) 상표 출원 「${f.title}」 ${(f.classes ?? []).map(classLabel).join(', ')}${f.titleNew ? ' — 감시 시작 이후 처음 보는 이름' : ''} (출원 ${f.applicationDate || '?'}${f.route ? `(${f.route})` : ''}, 일련번호 ${f.applicationNumber}, 출원인 ${(f.applicants ?? [])[0] ?? '?'}) · Signa 2차 자료 — USPTO TSDR 원문 확인`,
       url: f.url, check: hint(f.company, ['상표', f.title]) });
+  }
+
+  // 해외 특허 공개(EPO OPS, 주 1회 토요일): 새로 본 EP·WO 공개는 참고(C) — 공개는 출원 약 18개월 뒤라 개발 완료·양산이 아니다.
+  // 같은 패밀리(EP와 WO)는 한 줄. 보도 대조는 하지 않는다(기술 낱말이 영문 제목뿐이라 네이버 대조가 맞지 않음 — patents_abroad에서 직접).
+  const epoFam = new Set();
+  for (const f of docs['epo-patents']?.filings ?? []) {
+    if (!f.isNew) continue;
+    if (!all && !(Date.parse(f.firstSeen) >= Math.min(cut, now - 7 * 86400000))) continue;
+    const famKey = f.family ? `fam:${f.family}` : f.id;
+    if (epoFam.has(famKey)) continue;
+    epoFam.add(famKey);
+    push('C', W['epo-patents'], { kind: f.country === 'WO' ? '국제특허(PCT) 공개' : '유럽특허 공개', id: `epo:${f.id}`, date: f.date, company: (f.companies ?? []).join('·'),
+      fact: `${f.country === 'WO' ? '국제특허(PCT·WO)' : '유럽특허(EP)'} 공개 「${f.title ?? '제목 없음'}」 (공개 ${f.date ?? '?'}, ${f.id}${(f.ipc ?? []).length ? `, IPC ${f.ipc.slice(0, 2).join('·')}` : ''}${f.priority ? `, 우선권 ${f.priority.number}` : ''})`,
+      url: f.url });
   }
 
   const ab = docs['assembly-bills'];

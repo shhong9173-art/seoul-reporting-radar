@@ -1,0 +1,31 @@
+{
+  "_note": "출입처 유럽(EP)·국제(WO) 특허 공개 감시(EPO OPS 3.2, scripts/epo_ops_watch.py). query는 OPS 출원인 검색(pa=)에 넣는 영문 이름 — 낱말로 넓게 맞으므로 accept(출원인 이름이 이 규칙에 맞아야 그 회사 공개)·exclude(계열사·다른 회사)로 다시 거른다. 이름은 영문(EPODOC·원문)과 한글 원문(한국 수리관청 PCT) 모두 온다. 11-10 탐침: 현대자동차·기아는 공동 출원이 대부분이라 같은 공개가 두 회사에 함께 붙는다. KG모빌리티·넥센타이어·S-OIL은 120일 안 EP·WO 공개 0건.",
+  "companies": [
+    {"company": "현대자동차", "query": "Hyundai Motor", "accept": "HYUNDAI MOTOR|현대자동차"},
+    {"company": "기아", "query": "Kia", "accept": "^KIA(?: CORP| MOTORS|\\b)|기아\\s*주식회사|^기아$"},
+    {"company": "KG모빌리티", "query": "KG Mobility", "accept": "KG MOBILITY|케이지모빌리티|SSANGYONG MOTOR|쌍용자동차"},
+    {"company": "현대모비스", "query": "Hyundai Mobis", "accept": "MOBIS|현대모비스"},
+    {"company": "HL만도", "query": "HL Mando", "accept": "\\bMANDO\\b|만도"},
+    {"company": "한국타이어", "query": "Hankook Tire", "accept": "HANKOOK TIRE|한국타이어"},
+    {"company": "넥센타이어", "query": "Nexen Tire", "accept": "NEXEN TIRE|넥센타이어"},
+    {"company": "금호타이어", "query": "Kumho Tire", "accept": "KUMHO TIRE|금호타이어"},
+    {"company": "현대제철", "query": "Hyundai Steel", "accept": "HYUNDAI STEEL|현대제철"},
+    {"company": "포스코", "query": "POSCO", "accept": "^POSCO(?: HOLDINGS)?(?: INC| CO)?\\b|^(?:주식회사\\s*)?포스코(?:홀딩스)?(?:\\s*주식회사)?$",
+     "exclude": "FUTURE\\s*M|INTERNATIONAL|E\\s*&\\s*C|\\bDX\\b|STEELEON|M-?TECH|\\bECO\\b|퓨처엠|인터내셔널|이앤씨|스틸리온|엠텍"},
+    {"company": "고려아연", "query": "Korea Zinc", "accept": "KOREA ZINC|고려아연"},
+    {"company": "HD현대일렉트릭", "query": "HD Hyundai Electric", "accept": "HYUNDAI ELECTRIC|현대일렉트릭"},
+    {"company": "LS일렉트릭", "query": "LS Electric", "accept": "LS ELECTRIC|엘에스일렉트릭|LSIS"},
+    {"company": "LS전선", "query": "LS Cable", "accept": "LS CABLE|엘에스전선"},
+    {"company": "대한전선", "query": "Taihan", "accept": "TAIHAN|대한전선"},
+    {"company": "효성중공업", "query": "Hyosung Heavy", "accept": "HYOSUNG HEAVY|효성중공업"},
+    {"company": "두산에너빌리티", "query": "Doosan Enerbility", "accept": "DOOSAN ENERBILITY|DOOSAN HEAVY|두산에너빌리티|두산중공업"},
+    {"company": "한화솔루션", "query": "Hanwha Solutions", "accept": "HANWHA SOLUTIONS|한화솔루션"},
+    {"company": "LG화학", "query": "LG Chem", "accept": "LG CHEM|엘지화학", "exclude": "LG CHEMICAL AMERICA|CHEMICALS? EUROPE"},
+    {"company": "롯데케미칼", "query": "Lotte Chemical", "accept": "LOTTE CHEMICAL|롯데케미칼"},
+    {"company": "금호석유화학", "query": "Kumho Petrochemical", "accept": "KUMHO PETROCHEMICAL|금호석유화학"},
+    {"company": "S-OIL", "query": "S-Oil", "accept": "S-?OIL\\b|에쓰-?오일|에쓰대시오일"},
+    {"company": "SK이노베이션", "query": "SK Innovation", "accept": "SK INNOVATION|에스케이이노베이션", "exclude": "VENTURES"},
+    {"company": "HD현대오일뱅크", "query": "Hyundai Oilbank", "accept": "OILBANK|오일뱅크"},
+    {"company": "GS칼텍스", "query": "GS Caltex", "accept": "GS CALTEX|지에스칼텍스"}
+  ]
+}
