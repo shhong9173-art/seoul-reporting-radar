@@ -207,6 +207,22 @@ class RunTests(unittest.TestCase):
         self.assertEqual([r for q, r in fake.calls if "Hyundai" in q], ["1-100", "101-200"])
         self.assertEqual(next(c for c in doc["checks"] if c["company"] == "현대자동차")["matched"], 112)
 
+    def test_truncated_baseline_catches_up_once(self):
+        page = [ex("EP", str(5000000 + i), "A1", "20261104", ["POSCO Co., Ltd"]) for i in range(100)]
+        first = go(Fake([("POSCO", lambda rng: Resp(200, body(page, total=331)))]))
+        po = next(c for c in first["checks"] if c["company"] == "포스코")
+        self.assertTrue(po["truncated"] and po["baseline"])
+        later = NOW + dt.timedelta(days=7)
+        unread = ex("WO", "2026999001", "A1", "20261103", ["POSCO Co., Ltd"])      # 기준선 때 잘려 못 읽은 공개(기준선 창 안)
+        newer = ex("WO", "2026999002", "A1", "20261119", ["POSCO Co., Ltd"])       # 기준선 창 뒤 공개 — 진짜 새 공개
+        doc = go(Fake([("POSCO", Resp(200, body(page[:3] + [unread, newer])))]), previous=first, now=later)
+        self.assertEqual(doc["fresh"], ["WO2026999002A1"])
+        po2 = next(c for c in doc["checks"] if c["company"] == "포스코")
+        self.assertEqual(po2["catchup"], {"to": "2026-11-14", "asBaseline": 4})
+        doc3 = go(Fake([("POSCO", Resp(200, body([ex("WO", "2026999003", "A1", "20261110", ["POSCO Co., Ltd"])])))]), previous=doc, now=later + dt.timedelta(days=7))
+        self.assertEqual(doc3["fresh"], ["WO2026999003A1"])                         # 한 번만 — 다음부터는 평소대로
+        self.assertNotIn("catchup", next(c for c in doc3["checks"] if c["company"] == "포스코"))
+
     def test_missing_key_fails_without_requests(self):
         fake = Fake([])
         doc = go(fake, key="")
