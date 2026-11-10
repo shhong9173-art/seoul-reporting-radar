@@ -106,7 +106,8 @@ class ParseTests(unittest.TestCase):
         self.assertIn("Hyundai Motor Company", r["applicants"])
         self.assertIn("HYUNDAI MOTOR COMPANY", r["applicants"])  # [KR] 꼬리 제거
         self.assertEqual(r["ipc"], ["H01M 50/204", "B60L 53/80"])
-        self.assertEqual(r["priority"], {"number": "KR20230045678", "date": "2023-04-10"})
+        self.assertEqual(r["priority"], {"number": "KR20230045678", "date": "2023-04-10", "country": "KR"})
+        self.assertEqual(r["priorities"], [r["priority"]])
         self.assertEqual(r["applicationDate"], "2024-03-05")
         self.assertTrue(r["url"].endswith("pn%3DEP4567890A1"))
         total, rows = w.parse(body([ex("WO", "2026123456", "A1", "20261105", ["LG CHEM, LTD."]),
@@ -191,6 +192,10 @@ class RunTests(unittest.TestCase):
 
     def test_plan(self):
         self.assertIsNone(w.plan(None, NOW))
+        wed = NOW + dt.timedelta(days=4)   # 11-18(수) — 직전이 나흘 전이어도 평일엔 EPO를 부르지 않는다
+        self.assertEqual(w.plan({"schema": w.SCHEMA, "generatedAt": NOW.isoformat(), "status": "complete"}, wed), set())
+        self.assertEqual(w.plan({"schema": w.SCHEMA, "generatedAt": NOW.isoformat(), "status": "partial", "checks": []}, wed), set())
+        self.assertIsNone(w.plan({"schema": w.SCHEMA, "generatedAt": NOW.isoformat(), "status": "complete"}, wed, force=True))
         self.assertIsNone(w.plan({"schema": w.SCHEMA, "generatedAt": (NOW - dt.timedelta(days=7)).isoformat(), "status": "partial"}, NOW))
         self.assertIsNone(w.plan({"schema": w.SCHEMA, "generatedAt": NOW.isoformat(), "status": "complete"}, NOW, force=True))
 
@@ -221,6 +226,99 @@ class RunTests(unittest.TestCase):
         doc = go(Fake([]), previous=prev)
         self.assertEqual(doc["filings"], [])
         self.assertIn("EP1A1", doc["seen"])
+
+
+class KrLinkTests(unittest.TestCase):
+    def test_kr_application_forms(self):
+        self.assertEqual(w.kr_application({"number": "KR20250055682"}), "1020250055682")
+        self.assertEqual(w.kr_application({"number": "20250055682", "country": "KR"}), "1020250055682")
+        self.assertEqual(w.kr_application({"number": "10-2025-0055682", "country": "KR"}), "1020250055682")
+        self.assertEqual(w.kr_application({"number": "KR20200012345"}), "1020200012345")
+        self.assertEqual(w.kr_application({"number": "KR20250001234U"}), "2020250001234")
+        self.assertIsNone(w.kr_application({"number": "US202563123456", "country": "US"}))
+        self.assertIsNone(w.kr_application({"number": "KR2025005568"}))   # 자릿수 틀림
+        self.assertIsNone(w.kr_application(None))
+
+    def test_priorities_all_claims_and_formats(self):
+        bd = {"priority-claims": {"priority-claim": [
+            {"document-id": [{"@document-id-type": "docdb", "country": {"$": "KR"}, "doc-number": {"$": "20250055682"}, "date": {"$": "20250428"}},
+                             {"@document-id-type": "epodoc", "doc-number": {"$": "KR20250055682"}, "date": {"$": "20250428"}}]},
+            {"document-id": {"@document-id-type": "docdb", "country": {"$": "US"}, "doc-number": {"$": "202563123456"}, "date": {"$": "20250301"}}},
+            {"document-id": {"@document-id-type": "original", "doc-number": {"$": "1020250077777"}}}]}}
+        pr = w.priorities(bd)
+        self.assertEqual(pr[0], {"number": "KR20250055682", "date": "2025-04-28", "country": "KR"})
+        self.assertEqual(pr[1], {"number": "US202563123456", "date": "2025-03-01", "country": "US"})
+        self.assertEqual(pr[2]["number"], "1020250077777")
+
+    def kipris_file(self, items):
+        import json, tempfile
+        f = tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8")
+        json.dump({"items": items}, f, ensure_ascii=False)
+        f.close()
+        return f.name
+
+    def test_index_and_link(self):
+        path = self.kipris_file([
+            {"company": "기아", "applicationNumber": "1020250055682", "publicationNumber": "1020260159700", "publicationDate": "20261105",
+             "title": "연료전지 스택의 셀 전압 제어 장치", "ipc": "H01M 8/04858|B60L 58/40", "registerStatus": "공개"},
+            {"company": "한국타이어앤테크놀로지", "applicationNumber": "1020250011111", "publicationDate": "20261020", "title": "타이어", "ipc": "B60C 11/03"}])
+        idx = w.kipris_index([path, "/nonexistent.json"])
+        self.assertEqual(idx["1020250055682"]["ipc"], ["H01M", "B60L"])
+        self.assertEqual(idx["1020250011111"]["company"], "한국타이어")
+        fs = [{"id": "EP1A1", "priorities": [{"number": "KR20250055682", "country": "KR"}]},
+              {"id": "WO2A1", "priority": {"number": "KR20249999999"}},                       # 예전 저장 꼴(priority 하나)
+              {"id": "EP3A1", "priorities": [{"number": "US202563123456", "country": "US"}]},
+              {"id": "EP4A1", "kr": {"stale": 1}}]
+        t = w.link_kr(fs, idx)
+        self.assertEqual(t, {"linked": 1, "krOutside": 1, "abroad": 1, "none": 1})
+        self.assertEqual(fs[0]["kr"]["title"], "연료전지 스택의 셀 전압 제어 장치")
+        self.assertEqual(fs[0]["kr"]["publicationDate"], "2026-11-05")
+        self.assertNotIn("ipc", fs[0]["kr"])
+        self.assertEqual(fs[1]["krPriority"], "1020249999999")
+        self.assertEqual(fs[2]["priorityAbroad"], ["US"])
+        self.assertNotIn("kr", fs[3])                       # 지난 연결은 지우고 다시
+
+    def test_new_field_waits_for_history_then_flags(self):
+        idx = {"1020250055682": {"applicationNumber": "1020250055682", "company": "포스코", "ipc": ["C25B"], "title": "수전해"}}
+        base = {"id": "EP0A1", "companies": ["포스코"], "ipc": ["C21D 8/02"], "date": "2026-09-01"}
+        fresh = {"id": "WO9A1", "companies": ["포스코"], "ipc": ["C25B 1/04", "C21D 9/46"], "date": "2026-11-12",
+                 "priorities": [{"number": "KR20250055682", "country": "KR"}]}
+        doc = {"filings": [dict(base), dict(fresh)]}
+        w.annotate(doc, None, idx, NOW, fresh=["WO9A1"])
+        self.assertEqual(doc["ipcHistorySince"], "2026-07-17")
+        self.assertEqual(doc["newFieldFrom"], "2027-01-13")
+        self.assertNotIn("newField", doc["filings"][1])        # 이력 180일 전 — 판정 안 함
+        self.assertEqual(doc["ipcHistory"]["포스코"], ["C21D", "C25B"])
+        later = NOW + dt.timedelta(days=70)
+        doc2 = {"filings": [dict(base), dict(fresh, id="EP8A1", ipc=["C25B 1/04", "H01M 8/18"])]}
+        prev = {"ipcHistorySince": "2026-07-01", "ipcHistory": {"포스코": ["C21D"]}}
+        w.annotate(doc2, prev, idx, later, fresh=["EP8A1"])
+        # 국내 짝(C25B)은 판정 뒤에 더해 '처음'을 가리지 않는다
+        self.assertEqual(doc2["filings"][1]["newField"], {"포스코": ["C25B", "H01M"]})
+        self.assertEqual(doc2["krLinks"]["newField"], 1)
+        self.assertEqual(doc2["filings"][1]["kr"]["title"], "수전해")
+
+    def test_run_links_with_kipris_index(self):
+        idx = {"1020230045678": {"applicationNumber": "1020230045678", "company": "현대자동차", "ipc": ["H01M"], "title": "배터리 모듈",
+                                  "publicationNumber": "1020240000001", "publicationDate": "2024-10-01"}}
+        hy = [ex("EP", "4567890", "A1", "20261104", ["Hyundai Motor Company"])]
+        doc = w.run(CFG, None, NOW, key="k", secret="s", post=Fake([]).post, get=Fake([("Hyundai Motor", Resp(200, body(hy)))]).get,
+                    sleep=lambda s: None, kipris=idx)
+        f = doc["filings"][0]
+        self.assertEqual(f["kr"]["title"], "배터리 모듈")
+        self.assertEqual(doc["krLinks"]["linked"], 1)
+        self.assertIn("현대자동차", doc["ipcHistory"])
+
+    def test_shapes_hide_numbers(self):
+        shapes = w.prio_shapes([{"priorities": [{"number": "KR20250055682", "country": "KR"}, {"number": "US63/123,456", "country": "US"}]}])
+        self.assertEqual(dict(shapes), {"KR:KR99999999999": 1, "US:US99999999": 1})
+
+    def test_fit_trims_oldest_existing_first(self):
+        doc = {"filings": [{"id": f"EP{i}A1", "date": f"2026-0{1 + i % 9}-01", "title": "x" * 300, "isNew": i == 0} for i in range(40)]}
+        w.fit(doc, limit=6000)
+        self.assertLess(len(__import__("json").dumps(doc, ensure_ascii=False).encode()), 6000)
+        self.assertTrue(any(f["id"] == "EP0A1" for f in doc["filings"]))      # 새 공개는 남김
+        self.assertGreater(doc["trimmed"], 0)
 
 
 if __name__ == "__main__":

@@ -1132,15 +1132,29 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
 
   // 해외 특허 공개(EPO OPS, 주 1회 토요일): 새로 본 EP·WO 공개는 참고(C) — 공개는 출원 약 18개월 뒤라 개발 완료·양산이 아니다.
   // 같은 패밀리(EP와 WO)는 한 줄. 보도 대조는 하지 않는다(기술 낱말이 영문 제목뿐이라 네이버 대조가 맞지 않음 — patents_abroad에서 직접).
-  const epoFam = new Set();
+  const epoFam = new Map();
   for (const f of docs['epo-patents']?.filings ?? []) {
     if (!f.isNew) continue;
     if (!all && !(Date.parse(f.firstSeen) >= Math.min(cut, now - 7 * 86400000))) continue;
     const famKey = f.family ? `fam:${f.family}` : f.id;
-    if (epoFam.has(famKey)) continue;
-    epoFam.add(famKey);
-    push('C', W['epo-patents'], { kind: f.country === 'WO' ? '국제특허(PCT) 공개' : '유럽특허 공개', id: `epo:${f.id}`, date: f.date, company: (f.companies ?? []).join('·'),
-      fact: `${f.country === 'WO' ? '국제특허(PCT·WO)' : '유럽특허(EP)'} 공개 「${f.title ?? '제목 없음'}」 (공개 ${f.date ?? '?'}, ${f.id}${(f.ipc ?? []).length ? `, IPC ${f.ipc.slice(0, 2).join('·')}` : ''}${f.priority ? `, 우선권 ${f.priority.number}` : ''})`,
+    if (!epoFam.has(famKey)) epoFam.set(famKey, []);
+    epoFam.get(famKey).push(f);
+  }
+  for (const group of epoFam.values()) {
+    // 11-10: 같은 패밀리(EP·WO)는 한 줄 — 국내 공개(KIPRIS 감시)와 이어진 쪽을 대표로, 한글 제목을 앞에.
+    // '처음 보는 기술 분야'(이력 180일 뒤부터)는 확인할 변화(B), 나머지는 참고(C)
+    const f = group.find((g) => g.kr) ?? group.find((g) => g.newField) ?? group[0];
+    const kr = group.find((g) => g.kr)?.kr;
+    const krp = group.find((g) => g.krPriority)?.krPriority;
+    const abroad = group.find((g) => g.priorityAbroad)?.priorityAbroad;
+    const nfm = group.find((g) => g.newField)?.newField;
+    const nf = nfm ? Object.entries(nfm).map(([c, v]) => `${c} ${v.join('·')}`).join(', ') : '';
+    const pr = f.priorities ?? (f.priority ? [f.priority] : []);
+    const ids = group.map((g) => g.id).join('·');
+    push(nf ? 'B' : 'C', W['epo-patents'], { kind: `${f.country === 'WO' ? '국제특허(PCT) 공개' : '유럽특허 공개'}${nf ? '(처음 보는 기술 분야)' : ''}`, id: `epo:${f.id}`, date: f.date, company: (f.companies ?? []).join('·'),
+      fact: `${f.country === 'WO' ? '국제특허(PCT·WO)' : '유럽특허(EP)'} 공개 ${kr?.title ? `「${kr.title}」(영문 「${f.title ?? '?'}」)` : `「${f.title ?? '제목 없음'}」`} (공개 ${f.date ?? '?'}, ${ids}${(f.ipc ?? []).length ? `, IPC ${f.ipc.slice(0, 2).join('·')}` : ''}`
+        + `${kr ? `, 국내 공개 ${kr.publicationNumber ?? kr.applicationNumber}(${kr.publicationDate ?? '?'})` : krp ? `, 국내 우선권 출원 ${krp}` : abroad ? `, 해외 우선권(${abroad.join('·')}) — 국내보다 해외 먼저일 수 있음` : pr[0] ? `, 우선권 ${pr[0].number}` : ''})`
+        + `${nf ? ` · 처음 보는 기술 분야(이력 ${docs['epo-patents']?.ipcHistorySince ?? '?'}부터): ${nf} — 새 사업 단서일 뿐 진출 확정 아님` : ''}`,
       url: f.url });
   }
 

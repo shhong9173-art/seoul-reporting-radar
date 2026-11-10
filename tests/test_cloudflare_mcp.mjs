@@ -2157,7 +2157,13 @@ test('patents_abroad: EPO OPS EP·WO publications are private, families grouped,
       pub('WO2026200000A1', 'WO', '2026-11-12', 'WIRELESS CHARGING PAD FOR ELECTRIC VEHICLE'),
       pub('EP4000001A1', 'EP', '2026-09-02', 'OLD BASELINE SEAT', { isNew: false, family: '90002', firstSeen: '2026-11-07T06:40:00+09:00' }),
       pub('WO2026111111A1', 'WO', '2026-11-12', 'HOT-ROLLED STEEL SHEET', { family: '90003', companies: ['포스코'], applicants: ['POSCO Co., Ltd'], ipc: ['C22C 38/02'], priority: null })],
-    fresh: ['EP4567890A1', 'WO2026200000A1', 'WO2026111111A1'], seen: [], rules: ['특허 공개는 출원 뒤 약 18개월(또는 조기 공개)에 나오는 공보다. 개발 완료·양산·사업 진출이 아니다.'], confirmedScoops: 0 };
+    fresh: ['EP4567890A1', 'WO2026200000A1', 'WO2026111111A1'], seen: [], rules: ['특허 공개는 출원 뒤 약 18개월(또는 조기 공개)에 나오는 공보다. 개발 완료·양산·사업 진출이 아니다.'], confirmedScoops: 0,
+    krLinks: { linked: 1, krOutside: 1, abroad: 1, none: 0, kiprisDocs: 994, newField: 1, at: '2026-11-14T06:40:00+09:00' },
+    ipcHistorySince: '2026-07-17', newFieldFrom: '2027-01-13' };
+  // 국내 공개 연결(11-10): 현대차 패밀리 WO는 KIPRIS 감시의 국내 공개와 이어짐, EP는 우선권만, 포스코 WO는 해외 우선권 + 처음 보는 기술 분야
+  doc.filings[1].kr = { applicationNumber: '1020240123456', publicationNumber: '1020260159700', publicationDate: '2026-11-05', title: '전기차용 무선 충전 패드', company: '현대자동차', status: '공개' };
+  doc.filings[0].krPriority = '1020240123456';
+  Object.assign(doc.filings[3], { priorities: [{ number: 'US202563123456', date: '2025-03-01', country: 'US' }], priorityAbroad: ['US'], newField: { 포스코: ['C25B'] }, ipc: ['C25B 1/04'] });
   const at = { ...opts, now: new Date('2026-11-14T00:00:00Z') };
   assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/epo-patents', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
   const t = (await call('patents_abroad', {}, at)).text;
@@ -2166,21 +2172,34 @@ test('patents_abroad: EPO OPS EP·WO publications are private, families grouped,
   assert.match(t, /이름 낱말만 같은 다른 출원인\(걸러 냄\): 포스코\(POSCO FUTURE M CO\., LTD\.\)/);
   assert.match(t, /조회 창 안 공개 0건: KG모빌리티 \(조회는 정상/);
   assert.match(t, /\[새로 본 공개 · 최근 30일\] 3건/);
+  assert.match(t, /국내 공개 연결\(저장된 공개 전체, 11-14 06:40\): 레이더 특허 감시\(KIPRIS\)와 이어짐 1 · 국내 우선권이지만 레이더 창 밖 1 · 해외 우선권 1 · 우선권 없음 0 \(KIPRIS 감시 문서 994건/);
+  assert.match(t, /기술 분야 이력: 2026-07-17부터 쌓는 중 — 2027-01-13부터 '처음 보는 기술 분야' 표시/);
+  assert.match(t, /- \[새 공개\] 현대자동차·기아 · 「전기차용 무선 충전 패드」\(국내 공개 제목\) · 영문 「WIRELESS CHARGING PAD FOR ELECTRIC VEHICLE」/);
+  assert.match(t, /   국내 공개: 1020260159700\(2026-11-05, 공개\) · 출원 1020240123456 — 레이더 특허 감시\(KIPRIS\)에도 있음\(현대자동차\)/);
+  assert.match(t, /- \[새 공개\] \[처음 보는 기술 분야\] 포스코 · 「HOT-ROLLED STEEL SHEET」/);
+  assert.match(t, /⚑ 해외 우선권\(US\) — 국내 출원 없이 해외에서 먼저 냈을 수 있음/);
+  assert.match(t, /⚑ 처음 보는 기술 분야: 포스코 C25B 1\/04\(전기분해\(수소\)\)|⚑ 처음 보는 기술 분야: 포스코 C25B/);
+  assert.match((await call('patents_abroad', { query: '무선 충전' }, at)).text, /WIRELESS CHARGING PAD/);
+  assert.doesNotMatch((await call('patents_abroad', { link: 'kr' }, at)).text, /HOT-ROLLED/);
+  assert.match((await call('patents_abroad', { link: 'abroad' }, at)).text, /HOT-ROLLED/);
+  assert.match((await call('patents_abroad', { link: 'new_field' }, at)).text, /\] 1건/);
   // EP와 WO 같은 패밀리는 한 묶음
-  assert.match(t, /- \[새 공개\] 현대자동차·기아 · 「WIRELESS CHARGING PAD FOR ELECTRIC VEHICLE」\n   WO2026200000A1\(국제특허\(PCT·WO\) 공개 2026-11-12\) · EP4567890A1\(유럽특허\(EP\) 공개 2026-11-11\)/);
+  assert.match(t, /- \[새 공개\] 현대자동차·기아 · 「전기차용 무선 충전 패드」\(국내 공개 제목\) · 영문 「WIRELESS CHARGING PAD FOR ELECTRIC VEHICLE」\n   WO2026200000A1\(국제특허\(PCT·WO\) 공개 2026-11-12\) · EP4567890A1\(유럽특허\(EP\) 공개 2026-11-11\)/);
   assert.equal((t.match(/WIRELESS CHARGING PAD/g) ?? []).length, 1);
   assert.match(t, /IPC B60L 53\/80\(전기차 동력·충전\), H01M 50\/204\(전지\) · 출원 2025-04-30 · 우선권 KR20240123456\(2024-05-02\)/);
   assert.match(t, /원문: https:\/\/worldwide\.espacenet\.com\/patent\/search\?q=pn%3DWO2026200000A1/);
   assert.doesNotMatch(t, /OLD BASELINE SEAT/);
   assert.match((await call('patents_abroad', { show_all: true, days: 120 }, at)).text, /OLD BASELINE SEAT/);
   assert.doesNotMatch((await call('patents_abroad', { company: '포스코' }, at)).text, /WIRELESS/);
-  assert.match((await call('patents_abroad', { query: 'C22C' }, at)).text, /HOT-ROLLED STEEL SHEET/);
+  assert.match((await call('patents_abroad', { query: 'C25B' }, at)).text, /HOT-ROLLED STEEL SHEET/);
   assert.doesNotMatch((await call('patents_abroad', { office: 'EP' }, at)).text, /HOT-ROLLED/);
   const r = (await call('radar_today', { include_minor: true }, at)).text;
   assert.match(r, /- 해외 특허 공개\(EP·WO\): 대기 1곳\(EPO 검색 black/);
   assert.equal((r.match(/WIRELESS CHARGING PAD/g) ?? []).length, 1);   // 패밀리 한 줄
-  assert.match(r, /국제특허\(PCT·WO\) 공개 「HOT-ROLLED STEEL SHEET」 \(공개 2026-11-12, WO2026111111A1, IPC C22C 38\/02\)/);
-  assert.doesNotMatch(r.split('[C · ')[0], /HOT-ROLLED/);   // A·B가 아니라 참고(C)
+  // 패밀리 한 줄 — 국내 공개와 이어진 WO를 대표로 한글 제목을 앞에, 묶인 공개번호를 함께
+  assert.match(r, /국제특허\(PCT·WO\) 공개 「전기차용 무선 충전 패드」\(영문 「WIRELESS CHARGING PAD FOR ELECTRIC VEHICLE」\) \(공개 2026-11-12, EP4567890A1·WO2026200000A1, IPC B60L 53\/80·H01M 50\/204, 국내 공개 1020260159700\(2026-11-05\)\)/);
+  // 처음 보는 기술 분야는 B(확인할 변화), 해외 우선권 표시
+  assert.match(r.split('[C · ')[0], /국제특허\(PCT·WO\) 공개 「HOT-ROLLED STEEL SHEET」 \(공개 2026-11-12, WO2026111111A1, IPC C25B 1\/04, 해외 우선권\(US\) — 국내보다 해외 먼저일 수 있음\) · 처음 보는 기술 분야\(이력 2026-07-17부터\): 포스코 C25B — 새 사업 단서일 뿐 진출 확정 아님/);
   const list = await rpc('tools/list', {}, { path: `/mcp/${TOKEN}`, env });
   assert.ok(list.body.result.tools.some((x) => x.name === 'patents_abroad'));
   assert.ok(!(await rpc('tools/list', {}, { env })).body.result.tools.some((x) => x.name === 'patents_abroad'));  // 약관 3.2: 공개 연결엔 없음
@@ -2392,7 +2411,9 @@ test('press check is dispatched after the morning watches and after the evening 
   assert.deepEqual(dueAt(new Date('2026-10-30T21:40:00Z')), ['us-osha.yml', 'epo-ops-watch.yml']);      // Sat 06:40 KST (scoop-radar는 평일만, 해외 특허 공개는 토요일 11-10)
   assert.deepEqual(dueAt(new Date('2026-10-31T05:40:00Z')), ['epo-ops-watch.yml']);   // Sat 14:40 KST — EPO 과부하로 멈춘 회사 재시도 칸
   assert.deepEqual(dueAt(new Date('2026-10-31T21:40:00Z')), ['us-osha.yml', 'epo-ops-watch.yml']);   // Sun 06:40 KST — 재시도 칸
-  assert.ok(!dueAt(new Date('2026-10-28T21:40:00Z')).includes('epo-ops-watch.yml'));   // Thu 06:40 KST — 평일엔 안 돎
+  assert.ok(!dueAt(new Date('2026-10-28T21:40:00Z')).includes('epo-ops-watch.yml'));   // Thu 06:40 KST — 평일 아침엔 안 돎
+  assert.ok(dueAt(new Date('2026-10-29T01:50:00Z')).includes('epo-ops-watch.yml'));    // Thu 10:50 KST — EPO 없이 국내 공개 다시 잇기
+  assert.ok(!dueAt(new Date('2026-10-31T01:50:00Z')).includes('epo-ops-watch.yml'));   // Sat 10:50 KST — 주말은 06:40·14:40 칸만
   assert.deepEqual(dueAt(new Date('2026-10-31T08:10:00Z')), ['us-recalls.yml']);   // Sat 17:10 KST — 미국 금요일 파일
   assert.deepEqual(dueAt(new Date('2026-11-01T08:10:00Z')), ['us-recalls.yml']);   // Sun 17:10 KST
   assert.deepEqual(dueAt(new Date('2026-10-30T21:30:00Z')), []);                   // Sat 06:30 KST (page-watch·kr-local 평일만)
