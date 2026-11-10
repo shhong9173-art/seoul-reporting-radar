@@ -52,7 +52,7 @@ export async function patentsAbroad(ctx, args) {
   const zero = ok.filter((c) => !c.total);
   if (zero.length) out.push(`조회 창 안 공개 0건: ${zero.map((c) => c.company).join(', ')} (조회는 정상 — 0건 확정은 아님, 색인 지연 가능)`);
   const kl = doc.krLinks;
-  if (kl) out.push(`국내 공개 연결(저장된 공개 전체, ${String(kl.at ?? '').slice(5, 16).replace('T', ' ')}): 레이더 특허 감시(KIPRIS)와 이어짐 ${kl.linked ?? 0} · 국내 우선권이지만 레이더 창 밖 ${kl.krOutside ?? 0} · 해외 우선권 ${kl.abroad ?? 0} · 우선권 없음 ${kl.none ?? 0} (KIPRIS 감시 문서 ${kl.kiprisDocs ?? 0}건 — 최근 약 35일 공개라 이어지지 않은 것이 국내 미출원은 아님)`);
+  if (kl) out.push(`국내 공개 연결(저장된 공개 전체, ${String(kl.at ?? '').slice(5, 16).replace('T', ' ')}): 레이더 특허 감시(KIPRIS)와 이어짐 ${kl.linked ?? 0} · 국내 우선권이지만 레이더 창 밖 ${kl.krOutside ?? 0}${kl.krPct != null ? ` · 한국 특허청 PCT ${kl.krPct} · 다른 수리관청 PCT ${kl.pct ?? 0}` : ''} · 외국 출원 우선권 ${kl.abroad ?? 0} · 우선권 없음 ${kl.none ?? 0} (KIPRIS 감시 문서 ${kl.kiprisDocs ?? 0}건 — 최근 약 35일 공개라 이어지지 않은 것이 국내 미출원은 아님)`);
   if (doc.newFieldFrom) {
     const today = new Date(ctx.now.getTime() + KST_MS).toISOString().slice(0, 10);
     out.push(today >= doc.newFieldFrom ? `기술 분야 이력: ${doc.ipcHistorySince}부터(EP·WO·국내 공개 IPC) — 이력에 없던 분야는 '처음 보는 기술 분야'로 표시`
@@ -88,9 +88,13 @@ export async function patentsAbroad(ctx, args) {
     out.push(`   IPC ${(f.ipc ?? []).map(ipcLabel).join(', ') || '미기재'} · 출원 ${f.applicationDate ?? '?'}${prios.length ? ` · 우선권 ${prios.slice(0, 3).map((p) => `${p.number}(${p.date ?? '?'})`).join(', ')}` : ''} · 처음 본 날 ${String(f.firstSeen ?? '').slice(0, 10)}`);
     const krp = group.find((g) => g.krPriority)?.krPriority;
     const abroad = group.find((g) => g.priorityAbroad)?.priorityAbroad;
+    const krPct = group.find((g) => g.krPct)?.krPct;
+    const pct = group.find((g) => g.pctPriority)?.pctPriority;
     if (kr) out.push(`   국내 공개: ${kr.publicationNumber ?? '?'}(${kr.publicationDate ?? '?'}, ${kr.status ?? '공개'}) · 출원 ${kr.applicationNumber} — 레이더 특허 감시(KIPRIS)에도 있음${kr.company ? `(${kr.company})` : ''}`);
     else if (krp) out.push(`   국내 우선권 출원 ${krp} — 레이더 KIPRIS 창(최근 약 35일 공개) 밖: 국내 미공개이거나 더 일찍 공개 — KIPRIS에서 출원번호로 확인`);
-    else if (abroad) out.push(`   ⚑ 해외 우선권(${abroad.join('·')}) — 국내 출원 없이 해외에서 먼저 냈을 수 있음(해외 연구소 등) — 회사 확인`);
+    else if (krPct) out.push(`   우선권 ${krPct} — 한국 특허청에 낸 국제출원(PCT)이 먼저(국내 출원 여부는 Espacenet 패밀리·KIPRIS에서)`);
+    else if (pct) out.push(`   우선권 ${pct.join(', ')} — 국제사무국 등에 낸 국제출원(PCT)이 먼저 — 국내 출원 여부·먼저 낸 곳 미확인`);
+    else if (abroad) out.push(`   ⚑ 외국 출원 우선권(${abroad.join('·')}) — 국내 출원 없이 해외에서 먼저 냈을 수 있음(해외 연구소 등) — 회사 확인`);
     if (newField) out.push(`   ⚑ 처음 보는 기술 분야: ${Object.entries(newField).map(([c, v]) => `${c} ${v.map(ipcLabel).join(', ')}`).join(' · ')} — 이 회사 EP·WO·국내 공개 이력(${doc.ipcHistorySince}부터)에 없던 IPC. 새 사업 단서일 뿐 진출 확정 아님`);
     out.push(`   원문: ${f.url}`);
   }

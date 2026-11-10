@@ -50,7 +50,7 @@ RULES = [
     "출원인 검색(pa=)은 낱말로 넓게 맞아 회사 규칙으로 다시 거른다. 공동 출원(현대차·기아, 대학·연구소)은 해당 회사 모두에 붙는다.",
     "조회 실패·EPO 서버 과부하로 멈춘 회사는 0건이 아니라 미확인.",
     "국내 공개 연결: 우선권의 한국 출원번호가 레이더 특허 감시(KIPRIS, 최근 약 35일 공개)에 있으면 그 국내 공개(한글 제목)를 붙인다. 없으면 '국내 우선권(레이더 창 밖)' — 국내 미공개이거나 창 밖, KIPRIS에서 출원번호로 확인.",
-    "해외 우선권: 우선권이 있지만 한국 출원이 아니다 — 해외(미국 가출원 등)에서 먼저 냈을 수 있다(해외 연구소 출원 등). 회사 확인.",
+    "우선권 갈래: 한국 출원이 없으면 한국 특허청에 낸 PCT(국내 출원 먼저일 수 있음) → 국제사무국 등 다른 수리관청 PCT(먼저 낸 곳 미확인) → 외국 출원(유럽·미국 등에 먼저 냈을 수 있음 — 해외 연구소 출원 등, 회사 확인).",
     "처음 보는 기술 분야: 회사의 EP·WO·국내 공개 IPC(앞 네 자리) 이력에 없던 분야. 이력이 180일 쌓인 뒤부터 붙인다. 새 사업 단서일 뿐 진출 확정이 아니다.",
     "EPO OPS 약관 3.2: 자료 그 자체를 공개하지 않는다 — 기자 전용 저장소에만 둔다(공개 저장소·Pages·공개 도구에 싣지 않음).",
 ]
@@ -246,13 +246,30 @@ def kipris_index(paths=KIPRIS_FILES):
     return idx
 
 
+PCT_RO = re.compile(r"WO(?:19|20)\d{2}([A-Z]{2})\d+")
+
+
+def prio_kind(p):
+    """우선권 갈래: 'KR'(한국 출원) · 'WO-KR'(한국 특허청에 낸 PCT) · 'WO'(국제사무국 등 다른 수리관청 PCT) · 그 밖 국가 코드."""
+    if kr_application(p):
+        return "KR"
+    num = re.sub(r"[^0-9A-Za-z]", "", str((p or {}).get("number") or "")).upper()
+    cc = str((p or {}).get("country") or "").upper() or (num[:2] if num[:2].isalpha() else "?")
+    if cc == "WO" or num.startswith("WO"):
+        m = PCT_RO.match(num)
+        return "WO-KR" if m and m.group(1) == "KR" else "WO"
+    return cc
+
+
 def link_kr(filings, idx):
-    """우선권 한국 출원번호를 KIPRIS 감시 자료와 잇는다 — 매 실행 다시(KIPRIS 창이 날마다 움직임). → 집계."""
-    tally = {"linked": 0, "krOutside": 0, "abroad": 0, "none": 0}
+    """우선권 한국 출원번호를 KIPRIS 감시 자료와 잇는다 — 매 실행 다시(KIPRIS 창이 날마다 움직임). → 집계.
+    한국 출원이 없으면: 한국 특허청 PCT(krPct, 국내 출원 먼저일 수 있음) → 다른 수리관청 PCT(pctPriority, 출처 미확인) → 외국 출원(priorityAbroad)."""
+    tally = {"linked": 0, "krOutside": 0, "krPct": 0, "pct": 0, "abroad": 0, "none": 0}
     for f in filings:
-        for k in ("kr", "krPriority", "priorityAbroad"):
+        for k in ("kr", "krPriority", "krPct", "pctPriority", "priorityAbroad"):
             f.pop(k, None)
         prios = f.get("priorities") or ([f["priority"]] if f.get("priority") else [])
+        kinds = [(prio_kind(p), p) for p in prios]
         apps = [a for a in (kr_application(p) for p in prios) if a]
         hit = next((idx[a] for a in apps if a in idx), None)
         if hit:
@@ -261,8 +278,14 @@ def link_kr(filings, idx):
         elif apps:
             f["krPriority"] = apps[0]
             tally["krOutside"] += 1
+        elif any(k == "WO-KR" for k, _ in kinds):
+            f["krPct"] = next(str(p.get("number")) for k, p in kinds if k == "WO-KR")
+            tally["krPct"] += 1
+        elif any(k == "WO" for k, _ in kinds):
+            f["pctPriority"] = [str(p.get("number")) for k, p in kinds if k == "WO"][:2]
+            tally["pct"] += 1
         elif prios:
-            f["priorityAbroad"] = sorted({str(p.get("country") or "?") for p in prios})
+            f["priorityAbroad"] = sorted({k for k, _ in kinds})
             tally["abroad"] += 1
         else:
             tally["none"] += 1
@@ -274,7 +297,7 @@ def prio_shapes(filings):
     c = {}
     for f in filings:
         for p in f.get("priorities") or ([f["priority"]] if f.get("priority") else []):
-            shape = f"{p.get('country') or '?'}:{re.sub(r'[0-9]', '9', re.sub(r'[^0-9A-Za-z]', '', str(p.get('number') or '')))[:16]}"
+            shape = f"{prio_kind(p)}:{re.sub(r'[0-9]', '9', re.sub(r'[^0-9A-Za-z]', '', str(p.get('number') or '')))[:16]}"
             c[shape] = c.get(shape, 0) + 1
     return sorted(c.items(), key=lambda kv: -kv[1])[:6]
 
@@ -484,7 +507,8 @@ def run(cfg, previous, now, *, key, secret, post, get, sleep=time.sleep, only=No
 
 
 def link_note(t, kipris):
-    return (f"이어짐 {t.get('linked', 0)} · 국내 우선권(창 밖) {t.get('krOutside', 0)} · 해외 우선권 {t.get('abroad', 0)}"
+    return (f"이어짐 {t.get('linked', 0)} · 국내 우선권(창 밖) {t.get('krOutside', 0)} · 한국 특허청 PCT {t.get('krPct', 0)}"
+            f" · 다른 수리관청 PCT {t.get('pct', 0)} · 외국 출원 우선권 {t.get('abroad', 0)}"
             f" · 우선권 없음 {t.get('none', 0)} · KIPRIS 감시 문서 {len(kipris)}")
 
 

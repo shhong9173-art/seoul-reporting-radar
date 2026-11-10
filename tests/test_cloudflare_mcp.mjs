@@ -2158,7 +2158,7 @@ test('patents_abroad: EPO OPS EP·WO publications are private, families grouped,
       pub('EP4000001A1', 'EP', '2026-09-02', 'OLD BASELINE SEAT', { isNew: false, family: '90002', firstSeen: '2026-11-07T06:40:00+09:00' }),
       pub('WO2026111111A1', 'WO', '2026-11-12', 'HOT-ROLLED STEEL SHEET', { family: '90003', companies: ['포스코'], applicants: ['POSCO Co., Ltd'], ipc: ['C22C 38/02'], priority: null })],
     fresh: ['EP4567890A1', 'WO2026200000A1', 'WO2026111111A1'], seen: [], rules: ['특허 공개는 출원 뒤 약 18개월(또는 조기 공개)에 나오는 공보다. 개발 완료·양산·사업 진출이 아니다.'], confirmedScoops: 0,
-    krLinks: { linked: 1, krOutside: 1, abroad: 1, none: 0, kiprisDocs: 994, newField: 1, at: '2026-11-14T06:40:00+09:00' },
+    krLinks: { linked: 1, krOutside: 1, krPct: 0, pct: 0, abroad: 1, none: 0, kiprisDocs: 994, newField: 1, at: '2026-11-14T06:40:00+09:00' },
     ipcHistorySince: '2026-07-17', newFieldFrom: '2027-01-13' };
   // 국내 공개 연결(11-10): 현대차 패밀리 WO는 KIPRIS 감시의 국내 공개와 이어짐, EP는 우선권만, 포스코 WO는 해외 우선권 + 처음 보는 기술 분야
   doc.filings[1].kr = { applicationNumber: '1020240123456', publicationNumber: '1020260159700', publicationDate: '2026-11-05', title: '전기차용 무선 충전 패드', company: '현대자동차', status: '공개' };
@@ -2172,12 +2172,12 @@ test('patents_abroad: EPO OPS EP·WO publications are private, families grouped,
   assert.match(t, /이름 낱말만 같은 다른 출원인\(걸러 냄\): 포스코\(POSCO FUTURE M CO\., LTD\.\)/);
   assert.match(t, /조회 창 안 공개 0건: KG모빌리티 \(조회는 정상/);
   assert.match(t, /\[새로 본 공개 · 최근 30일\] 3건/);
-  assert.match(t, /국내 공개 연결\(저장된 공개 전체, 11-14 06:40\): 레이더 특허 감시\(KIPRIS\)와 이어짐 1 · 국내 우선권이지만 레이더 창 밖 1 · 해외 우선권 1 · 우선권 없음 0 \(KIPRIS 감시 문서 994건/);
+  assert.match(t, /국내 공개 연결\(저장된 공개 전체, 11-14 06:40\): 레이더 특허 감시\(KIPRIS\)와 이어짐 1 · 국내 우선권이지만 레이더 창 밖 1 · 한국 특허청 PCT 0 · 다른 수리관청 PCT 0 · 외국 출원 우선권 1 · 우선권 없음 0 \(KIPRIS 감시 문서 994건/);
   assert.match(t, /기술 분야 이력: 2026-07-17부터 쌓는 중 — 2027-01-13부터 '처음 보는 기술 분야' 표시/);
   assert.match(t, /- \[새 공개\] 현대자동차·기아 · 「전기차용 무선 충전 패드」\(국내 공개 제목\) · 영문 「WIRELESS CHARGING PAD FOR ELECTRIC VEHICLE」/);
   assert.match(t, /   국내 공개: 1020260159700\(2026-11-05, 공개\) · 출원 1020240123456 — 레이더 특허 감시\(KIPRIS\)에도 있음\(현대자동차\)/);
   assert.match(t, /- \[새 공개\] \[처음 보는 기술 분야\] 포스코 · 「HOT-ROLLED STEEL SHEET」/);
-  assert.match(t, /⚑ 해외 우선권\(US\) — 국내 출원 없이 해외에서 먼저 냈을 수 있음/);
+  assert.match(t, /⚑ 외국 출원 우선권\(US\) — 국내 출원 없이 해외에서 먼저 냈을 수 있음/);
   assert.match(t, /⚑ 처음 보는 기술 분야: 포스코 C25B 1\/04\(전기분해\(수소\)\)|⚑ 처음 보는 기술 분야: 포스코 C25B/);
   assert.match((await call('patents_abroad', { query: '무선 충전' }, at)).text, /WIRELESS CHARGING PAD/);
   assert.doesNotMatch((await call('patents_abroad', { link: 'kr' }, at)).text, /HOT-ROLLED/);
@@ -2199,7 +2199,7 @@ test('patents_abroad: EPO OPS EP·WO publications are private, families grouped,
   // 패밀리 한 줄 — 국내 공개와 이어진 WO를 대표로 한글 제목을 앞에, 묶인 공개번호를 함께
   assert.match(r, /국제특허\(PCT·WO\) 공개 「전기차용 무선 충전 패드」\(영문 「WIRELESS CHARGING PAD FOR ELECTRIC VEHICLE」\) \(공개 2026-11-12, EP4567890A1·WO2026200000A1, IPC B60L 53\/80·H01M 50\/204, 국내 공개 1020260159700\(2026-11-05\)\)/);
   // 처음 보는 기술 분야는 B(확인할 변화), 해외 우선권 표시
-  assert.match(r.split('[C · ')[0], /국제특허\(PCT·WO\) 공개 「HOT-ROLLED STEEL SHEET」 \(공개 2026-11-12, WO2026111111A1, IPC C25B 1\/04, 해외 우선권\(US\) — 국내보다 해외 먼저일 수 있음\) · 처음 보는 기술 분야\(이력 2026-07-17부터\): 포스코 C25B — 새 사업 단서일 뿐 진출 확정 아님/);
+  assert.match(r.split('[C · ')[0], /국제특허\(PCT·WO\) 공개 「HOT-ROLLED STEEL SHEET」 \(공개 2026-11-12, WO2026111111A1, IPC C25B 1\/04, 외국 출원 우선권\(US\) — 국내보다 해외 먼저일 수 있음\) · 처음 보는 기술 분야\(이력 2026-07-17부터\): 포스코 C25B — 새 사업 단서일 뿐 진출 확정 아님/);
   const list = await rpc('tools/list', {}, { path: `/mcp/${TOKEN}`, env });
   assert.ok(list.body.result.tools.some((x) => x.name === 'patents_abroad'));
   assert.ok(!(await rpc('tools/list', {}, { env })).body.result.tools.some((x) => x.name === 'patents_abroad'));  // 약관 3.2: 공개 연결엔 없음
