@@ -268,9 +268,15 @@ class KrLinkTests(unittest.TestCase):
         fs = [{"id": "EP1A1", "priorities": [{"number": "KR20250055682", "country": "KR"}]},
               {"id": "WO2A1", "priority": {"number": "KR20249999999"}},                       # 예전 저장 꼴(priority 하나)
               {"id": "EP3A1", "priorities": [{"number": "US202563123456", "country": "US"}]},
-              {"id": "EP4A1", "kr": {"stale": 1}}]
+              {"id": "EP4A1", "kr": {"stale": 1}},
+              {"id": "WO5A1", "priority": {"number": "WO2025KR012345"}},                     # 한국 특허청 PCT
+              {"id": "WO6A1", "priority": {"number": "WO2025IB054321"}},                     # 국제사무국 PCT
+              {"id": "EP7A1", "priorities": [{"number": "EP25123456", "country": "EP"}, {"number": "WO2025IB000001"}]}]
         t = w.link_kr(fs, idx)
-        self.assertEqual(t, {"linked": 1, "krOutside": 1, "abroad": 1, "none": 1})
+        self.assertEqual(t, {"linked": 1, "krOutside": 1, "krPct": 1, "pct": 2, "abroad": 1, "none": 1})
+        self.assertEqual(fs[4]["krPct"], "WO2025KR012345")
+        self.assertEqual(fs[5]["pctPriority"], ["WO2025IB054321"])
+        self.assertEqual(fs[6]["pctPriority"], ["WO2025IB000001"])     # PCT가 있으면 외국 출원보다 PCT 갈래
         self.assertEqual(fs[0]["kr"]["title"], "연료전지 스택의 셀 전압 제어 장치")
         self.assertEqual(fs[0]["kr"]["publicationDate"], "2026-11-05")
         self.assertNotIn("ipc", fs[0]["kr"])
@@ -312,6 +318,9 @@ class KrLinkTests(unittest.TestCase):
     def test_shapes_hide_numbers(self):
         shapes = w.prio_shapes([{"priorities": [{"number": "KR20250055682", "country": "KR"}, {"number": "US63/123,456", "country": "US"}]}])
         self.assertEqual(dict(shapes), {"KR:KR99999999999": 1, "US:US99999999": 1})
+        self.assertEqual(w.prio_kind({"number": "WO2025KR012345"}), "WO-KR")
+        self.assertEqual(w.prio_kind({"number": "WO2025IB054321"}), "WO")
+        self.assertEqual(w.prio_kind({"number": "EP25123456"}), "EP")
 
     def test_fit_trims_oldest_existing_first(self):
         doc = {"filings": [{"id": f"EP{i}A1", "date": f"2026-0{1 + i % 9}-01", "title": "x" * 300, "isNew": i == 0} for i in range(40)]}

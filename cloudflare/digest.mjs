@@ -1147,13 +1147,15 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
     const kr = group.find((g) => g.kr)?.kr;
     const krp = group.find((g) => g.krPriority)?.krPriority;
     const abroad = group.find((g) => g.priorityAbroad)?.priorityAbroad;
+    const krPct = group.find((g) => g.krPct)?.krPct;
+    const pct = group.find((g) => g.pctPriority)?.pctPriority;
     const nfm = group.find((g) => g.newField)?.newField;
     const nf = nfm ? Object.entries(nfm).map(([c, v]) => `${c} ${v.join('·')}`).join(', ') : '';
     const pr = f.priorities ?? (f.priority ? [f.priority] : []);
     const ids = group.map((g) => g.id).join('·');
     push(nf ? 'B' : 'C', W['epo-patents'], { kind: `${f.country === 'WO' ? '국제특허(PCT) 공개' : '유럽특허 공개'}${nf ? '(처음 보는 기술 분야)' : ''}`, id: `epo:${f.id}`, date: f.date, company: (f.companies ?? []).join('·'),
       fact: `${f.country === 'WO' ? '국제특허(PCT·WO)' : '유럽특허(EP)'} 공개 ${kr?.title ? `「${kr.title}」(영문 「${f.title ?? '?'}」)` : `「${f.title ?? '제목 없음'}」`} (공개 ${f.date ?? '?'}, ${ids}${(f.ipc ?? []).length ? `, IPC ${f.ipc.slice(0, 2).join('·')}` : ''}`
-        + `${kr ? `, 국내 공개 ${kr.publicationNumber ?? kr.applicationNumber}(${kr.publicationDate ?? '?'})` : krp ? `, 국내 우선권 출원 ${krp}` : abroad ? `, 해외 우선권(${abroad.join('·')}) — 국내보다 해외 먼저일 수 있음` : pr[0] ? `, 우선권 ${pr[0].number}` : ''})`
+        + `${kr ? `, 국내 공개 ${kr.publicationNumber ?? kr.applicationNumber}(${kr.publicationDate ?? '?'})` : krp ? `, 국내 우선권 출원 ${krp}` : krPct ? `, 우선권 한국 특허청 PCT ${krPct}` : pct ? `, 우선권 PCT ${pct[0]}(먼저 낸 곳 미확인)` : abroad ? `, 외국 출원 우선권(${abroad.join('·')}) — 국내보다 해외 먼저일 수 있음` : pr[0] ? `, 우선권 ${pr[0].number}` : ''})`
         + `${nf ? ` · 처음 보는 기술 분야(이력 ${docs['epo-patents']?.ipcHistorySince ?? '?'}부터): ${nf} — 새 사업 단서일 뿐 진출 확정 아님` : ''}`,
       url: f.url });
   }
