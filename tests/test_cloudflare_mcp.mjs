@@ -4097,34 +4097,35 @@ test('GitHub 실행 실패 감시: 매시 00·30분에 main 실행을 읽어 쌓
 
 test('radar_today 수집 상태: 기자 컴퓨터(Aside) 수집이 예정 시각 뒤 안 올라오거나 이 길뿐인 시·군을 못 읽으면 알린다', async () => {
   const slot = (iso) => new Date(lastBrowserSlot(Date.parse(iso))).toISOString();
-  assert.equal(slot('2026-11-09T00:00:00Z'), '2026-11-06T07:40:00.000Z');  // 월 09:00 KST → 금 16:40(월 08:40은 여유 45분 안)
-  assert.equal(slot('2026-11-09T00:30:00Z'), '2026-11-08T23:40:00.000Z');  // 월 09:30 → 월 08:40
-  assert.equal(slot('2026-11-07T03:00:00Z'), '2026-11-06T07:40:00.000Z');  // 토 12:00 → 금 16:40
-  assert.equal(slot('2026-11-10T05:00:00Z'), '2026-11-09T23:40:00.000Z');  // 화 14:00 → 화 08:40
+  assert.equal(slot('2026-11-09T00:00:00Z'), '2026-11-06T07:00:00.000Z');  // 월 09:00 KST → 금 16:00(월 09:00은 여유 45분 안) — 11-11부터 09:00·16:00
+  assert.equal(slot('2026-11-09T00:30:00Z'), '2026-11-06T07:00:00.000Z');  // 월 09:30 → 아직 금 16:00
+  assert.equal(slot('2026-11-09T01:00:00Z'), '2026-11-09T00:00:00.000Z');  // 월 10:00 → 월 09:00
+  assert.equal(slot('2026-11-07T03:00:00Z'), '2026-11-06T07:00:00.000Z');  // 토 12:00 → 금 16:00
+  assert.equal(slot('2026-11-10T05:00:00Z'), '2026-11-10T00:00:00.000Z');  // 화 14:00 → 화 09:00
   const fetch = async () => new Response(null, { status: 204 });
   const opts = { ...PRIVATE({ GITHUB_DISPATCH_TOKEN: 'ghp_test' }), fetch };
   const line = async (iso) => ((await call('radar_today', { hours: 24 }, { ...opts, now: new Date(iso) })).text.match(/^- 기자 컴퓨터 수집.*$/m) ?? [null])[0];
-  assert.match(await line('2026-11-09T00:00:00Z'), /^- 기자 컴퓨터 수집\(Aside 예약 작업, 평일 08:40·16:40[^)]*\): 결과 없음 — 미확인$/);
+  assert.match(await line('2026-11-09T00:00:00Z'), /^- 기자 컴퓨터 수집\(Aside 예약 작업, 평일 09:00·16:00[^)]*\): 결과 없음 — 미확인$/);
   const rows = [{ mgt: '1', cells: ['제2026-1호', '고시', '과', '2026-11-06'] }];
   const cities = ['인천 부평구', '구미시', '청주시', '순천시', '함평군', '양산시']
     .map((city) => (city === '구미시' ? { city, error: 'ReadTimeout' } : city === '양산시' ? { city, error: '시간 초과' } : { city, rows }));
   const submit = (via, iso) => call('local_notice_submit', { via, cities, labor: [{ commission: '중앙노동위원회', error: '시험' }],
     pages: [{ id: 'au-trn', error: '시험' }] }, { ...opts, now: new Date(iso) });
   assert.ok(!(await submit('aside', '2026-11-06T07:42:00Z')).isError);  // 금 16:42 KST
-  // 월 09:00: 가장 최근 예정(금 16:40)은 올라옴 — 이 길뿐인 시·군 중 못 읽은 곳만(양산은 GitHub 직접 조회가 있어 뺌)
-  assert.equal(await line('2026-11-09T00:00:00Z'), '- 기자 컴퓨터 수집(Aside 예약 작업, 평일 08:40·16:40 — 해외 IP 차단 시·군 고시·공고·노동위 회의·호주 TRN): '
+  // 월 09:00: 가장 최근 예정(금 16:00)은 올라옴 — 이 길뿐인 시·군 중 못 읽은 곳만(양산은 GitHub 직접 조회가 있어 뺌)
+  assert.equal(await line('2026-11-09T00:00:00Z'), '- 기자 컴퓨터 수집(Aside 예약 작업, 평일 09:00·16:00 — 해외 IP 차단 시·군 고시·공고·노동위 회의·호주 TRN): '
     + '시·군 못 읽음 1곳(구미: ReadTimeout) — 해당 부분 0건은 미확인');
-  // 월 10:00: 08:40 예정 수집이 안 올라옴(컴퓨터 꺼짐 등)
-  assert.match(await line('2026-11-09T01:00:00Z'), /: ⚠ 마지막 11-06 16:42 KST\(65시간 전\) — 11-09 08:40 KST 예정 수집이 안 올라옴\(기자 컴퓨터·Claude 앱·Aside가 켜져 있는지 확인\. 예정 시각에 컴퓨터 연결이 없으면 예약 작업이 저절로 꺼질 수 있다 — Claude 앱 예약 작업 목록에서 '새올 고시·공고 브라우저 수집'이 켜져 있는지도 확인\)\. 그 뒤 인천 부평구·구미·청주·순천·함평 고시·공고는 미확인 — /);
+  // 월 10:00: 09:00 예정 수집이 안 올라옴(컴퓨터 꺼짐 등)
+  assert.match(await line('2026-11-09T01:00:00Z'), /: ⚠ 마지막 11-06 16:42 KST\(65시간 전\) — 11-09 09:00 KST 예정 수집이 안 올라옴\(기자 컴퓨터·Claude 앱·Aside가 켜져 있는지 확인\. 예정 시각에 컴퓨터 연결이 없으면 예약 작업이 저절로 꺼질 수 있다 — Claude 앱 예약 작업 목록에서 '새올 고시·공고 브라우저 수집'이 켜져 있는지도 확인\)\. 그 뒤 인천 부평구·구미·청주·순천·함평 고시·공고는 미확인 — /);
   // 직접 올리기 열쇠가 있는데 대화로 옮겨 올린 경우, 내장 브라우저로 대신한 경우
   const sha = createHash('sha256').update('k'.repeat(43)).digest('hex');
   await call('browser_upload_key', { sha256: sha }, { ...opts, now: new Date('2026-11-09T00:00:00Z') });
-  assert.ok(!(await submit('aside', '2026-11-09T23:43:00Z')).isError);  // 화 08:43
+  assert.ok(!(await submit('aside', '2026-11-10T00:03:00Z')).isError);  // 화 09:03
   assert.match(await line('2026-11-10T01:00:00Z'), /구미: ReadTimeout\) · 직접 올리기가 안 돼 대화로 옮겨 올림\(올리기 열쇠 확인 — browser_upload_key\) — /);
   assert.ok(!(await submit('browser', '2026-11-10T07:45:00Z')).isError);  // 화 16:45
   assert.match(await line('2026-11-10T08:30:00Z'), / · Aside가 안 돼 내장 브라우저로 대신 수집함 — /);
   // 시·군만 올리고 노동위·TRN이 빠진 경우
-  await call('local_notice_submit', { via: 'aside', cities: [{ city: '청주시', rows }] }, { ...opts, now: new Date('2026-11-10T23:42:00Z') });
+  await call('local_notice_submit', { via: 'aside', cities: [{ city: '청주시', rows }] }, { ...opts, now: new Date('2026-11-11T00:02:00Z') });   // 수 09:02
   assert.match(await line('2026-11-11T01:00:00Z'), /노동위 회의일정은 이번 수집에 빠짐\(마지막 11-10 16:45 KST\) · 호주 TRN은 이번 수집에 빠짐\(마지막 11-10 16:45 KST\)/);
 });
 
