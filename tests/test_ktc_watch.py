@@ -145,6 +145,12 @@ GALV = ("아연도금냉연은 건축자재, 자동차 부품 등에 활용된�
         "덤핑조사 개시를 보고받았다. 동 덤핑조사 건은 일진제강이 조사신청하여 10월 8일 조사가 개시되었으며, - 3 - 참고1 (최종판정) 중국산 아연도금냉연 덤핑조사 "
         "(원심)□ 조사 개요 ㅇ (신청인) 동국씨엠㈜, 케이지스틸㈜, ㈜세아씨엠 ㅇ (조사대상공급자)")
 TUBE = "- 2 - 참고[의결] 태국산 이음매 없는 동관 덤핑조사 최종판정□조사개요ㅇ (신청인)능원금속공업주식회사,엘에스메탈주식회사ㅇ (조사대상"
+# probe 213 운영 원문: 대리인 괄호, 조사종결 불공정 사건, 글자 사이를 띄운 머리(한화솔루션 PVC 페이스트 수지), 표 다음 품목 모르는 문장
+BUTYL_TABLE = ("- 3 - 참고1 (최종판정) 중국산 부틸 아크릴레이트 (원심)□조사개요ㅇ (신청인)㈜엘지화학(대리인: 법무법인 정률, DKC글로벌컨설팅)ㅇ (조사대상공급자)중국타이싱순커 "
+               "- 4 - 참고2 (조사종결) 자동차용 배터리팩 특허권 침해 조사□조사개요ㅇ (신청인)튤립이노베이션케이에프티ㅇ (피신청인)외국기업A,Bㅇ")
+PSR = ("- 3 - 참고1[의 결] 독·프·노 르 웨 이 및 스 웨 덴 산 폴 리 염 화 비 닐 페 이 스 트 수 지 덤 핑 조 사 □조사개요ㅇ (신청인)한화솔루션주식회사ㅇ (조사대상공급자)독비놀릿")
+ROBOT = ("이번 덤핑조사건은 ‘25년 3월에 HD현대로보틱스가 조사 신청한 것으로, 지난해 5월에 조사를 개시하여 - 3 - 참고1 (최종판정) 일본 및 중국산 산업용 로봇 (원심)□조사개요ㅇ "
+         "(신청인)에이치디현대로보틱스㈜ ㅇ (조사대상공급자)일본 화낙")
 NEWS_PDF = {"00002297": GALV, "00002147": BUTYL}
 
 
@@ -194,6 +200,11 @@ class KtcTest(unittest.TestCase):
         self.assertEqual((galv[1]["names"], galv[1]["product"], galv[1]["how"]), (["일진제강"], "중국산 무계목강관", "문장"))
         self.assertEqual(k.applicants_in(TUBE), [{"product": "태국산 이음매 없는 동관", "names": ["능원금속공업", "엘에스메탈"], "beat": [], "how": "표"}])
         self.assertEqual(k.applicants_in("무역위원회는 공청회를 개최하였다. 신청인측과 피신청인측 이해관계인 등 20여 명이 참석하였다."), [])
+        bt = k.applicants_in(BUTYL_TABLE)
+        self.assertEqual(bt[0], {"product": "중국산 부틸 아크릴레이트", "names": ["엘지화학"], "beat": ["LG화학"], "how": "표"})   # 대리인(법무법인·컨설팅) 뺌
+        self.assertEqual((bt[1]["product"], bt[1]["names"]), ("자동차용 배터리팩 특허권 침해", ["튤립이노베이션케이에프티"]))
+        self.assertEqual(k.applicants_in(PSR), [{"product": "독·프·노르웨이및스웨덴산폴리염화비닐페이스트수지", "names": ["한화솔루션"], "beat": ["한화솔루션"], "how": "표"}])
+        self.assertEqual(k.applicants_in(ROBOT), [{"product": "일본 및 중국산 산업용 로봇", "names": ["에이치디현대로보틱스"], "beat": [], "how": "표"}])
 
     def test_press_applicant_makes_beat_item_and_backfills(self):
         site = Site([EV], news=[("00002147", "무역위, 중국산 부틸 아크릴레이트에 덤핑방지관세 부과 건의")])
@@ -211,11 +222,17 @@ class KtcTest(unittest.TestCase):
         # 지난 판정 보도자료(기준선 때 본 부틸)는 이벤트 없이 신청인만 채운다
         butyl = next(n for n in doc["news"] if n["id"] == "00002147")
         self.assertEqual(butyl["applicants"][0]["beat"], ["LG화학"])
+        self.assertEqual(butyl["applicantsV"], k.APPLICANTS_V)
         self.assertNotIn("ktc:news:00002147", news_ev)
         # 다시 돌려도 첨부를 또 받지 않는다
         site3 = Site([EV], news=site2.news)
         k.collect(doc, NOW + dt.timedelta(days=2), site3, sleep=lambda s: None)
         self.assertFalse([c for c in site3.calls if c[0] == "/boardFileDownload.do"])
+        # 규칙 판이 바뀌면(예전 판 결과) 다시 읽는다
+        old_v = {**doc, "news": [{**n, "applicantsV": 1} if n["id"] == "00002147" else n for n in doc["news"]]}
+        site4 = Site([EV], news=site2.news)
+        k.collect(old_v, NOW + dt.timedelta(days=3), site4, sleep=lambda s: None)
+        self.assertIn(("/boardFileDownload.do", {"bbs_id": "00002147", "seq_no": "0001"}), site4.calls)
 
     def test_baseline_then_changes(self):
         site = Site([EV, OLD, TINPLATE], meetings=[M478], meeting_pages=PAGES, news=[("00002297", "무역위, 중국산 아연도금냉연 덤핑조사 최종판정")])

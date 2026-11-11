@@ -32,6 +32,7 @@ AGENDA_TRIES = 6
 KEEP_MEETINGS = 12
 KEEP_NEWS = 60
 NEWS_BACKFILL = 12   # 신청인 규칙 전 판정 보도자료를 한 실행에 읽는 수(PDF 사이 1초)
+APPLICANTS_V = 2     # 신청인 읽기 규칙 판(11-11: 2 = 대리인 괄호·품목 꼬리·글자 띄운 머리 정리) — 판이 다르면 다시 읽는다
 APPLICANT_TITLE = re.compile(r"덤핑|상계|세이프가드|판정|부과\s*건의|조사\s*개시|무역구제조치")
 KEEP_LEFT = 40
 LEFT_MAX = 5  # 한 번에 이보다 많이 빠지면 누리집 이상으로 보고 판단을 미룬다
@@ -150,7 +151,11 @@ def parse_news(page):
 # 누리집 사건 상세엔 신청인 이름이 없으니, 출입처가 신청인으로 적힌 보도자료는 출입처 항목으로 올린다.
 APPLICANT_ROW = re.compile(r"\(\s*신청인\s*\)\s*(.{2,120}?)\s*(?=ㅇ|□|\(\s*조사대상|$)")
 APPLICANT_SENT = re.compile(r"([^.。]{2,40}?)(?:이|가)\s*(?:반?덤핑)?\s*조사\s*(?:를\s*)?신청")
-REF_HEAD = re.compile(r"참고\s*\d*\s*[\(\[]?\s*(?:최종판정|예비판정|의결|판정)?\s*[\)\]]?\s*(.{2,50}?)\s*(?:덤핑조사|덤핑사실|조사)")
+REF_HEAD = re.compile(r"참고\s*\d*\s*[\(\[]?\s*(?:최종판정|예비판정|의결|판정|조사개시|조사종결)?\s*[\)\]]?\s*(.{2,50}?)\s*(?:덤핑조사|덤핑사실|조사)")
+# 글자 사이를 띄운 머리(probe 213: '참고1[의 결] 독·프·노 르 웨 이 및 스 웨 덴 산 폴 리 염 화 비 닐 페 이 스 트 수 지 덤 핑 조 사') — 공백을 빼고 다시 본다
+REF_HEAD_NS = re.compile(r"참고\d*[\(\[]?(?:최종판정|예비판정|의결|판정|조사개시|조사종결)?[\)\]]?(.{2,50}?)(?:덤핑조사|덤핑사실|조사)")
+AGENT = re.compile(r"\(\s*대리인[^)]*\)")   # '㈜엘지화학(대리인: 법무법인 정률, DKC글로벌컨설팅)' — 대리인은 신청인이 아니다
+NOT_APPLICANT = re.compile(r"법무법인|회계법인|관세법인|컨설팅|특허법인")
 SENT_PRODUCT = re.compile(r"((?:[가-힣]+(?:·|‧|,\s*|\s및\s))*[가-힣]+산\s[^.,]{2,30}?)(?:에\s*대한|의)\s*(?:반?덤핑)")
 NOT_NAME = {"신청인", "업계", "국내업계", "우리", "국내기업", "기업", "국내", "동", "이", "당사자", "피신청인"}
 CORP_MARK = re.compile(r"㈜|\(주\)|주식회사|\s+")
@@ -167,12 +172,19 @@ BEAT_ALIAS = {"엘지화학": "LG화학", "LG화학": "LG화학", "케이지스�
               "두산에너빌리티": "두산에너빌리티"}
 
 
+def _product(p):
+    """'중국산 부틸 아크릴레이트 (원심)□' → '중국산 부틸 아크릴레이트', '조사종결) 자동차용 배터리팩 특허권 침해' → '자동차용 배터리팩 특허권 침해'."""
+    p = re.sub(r"\s*\((?:원심|재심)\)\s*", " ", p or "")
+    p = re.sub(r"^[^(]*?\)\s*", "", p) if re.match(r"^[^(]*\)", p) else p
+    return p.strip(" □ㅇ·-") or None
+
+
 def _names(raw):
     out = []
-    for part in re.split(r"(?<=[가-힣㈜)])(?:과|와)\s+|\s*[,·‧]\s*|\s및\s", raw or ""):
+    for part in re.split(r"(?<=[가-힣㈜)])(?:과|와)\s+|\s*[,·‧]\s*|\s및\s", AGENT.sub("", raw or "")):
         tok = (re.findall(r"[가-힣A-Za-z0-9㈜()\-]+", part) or [""])[-1]
         name = CORP_MARK.sub("", tok).strip("()")
-        if len(name) >= 2 and name not in NOT_NAME and not re.fullmatch(r"\d+월?|작년|올해|지난해|금년", name):
+        if len(name) >= 2 and name not in NOT_NAME and not NOT_APPLICANT.search(name) and not re.fullmatch(r"\d+월?|작년|올해|지난해|금년", name):
             out.append(name)
     return out
 
@@ -192,11 +204,13 @@ def applicants_in(text):
                 b = BEAT_ALIAS.get(n)
                 if b and b not in beat:
                     beat.append(b)
-            out.append({"product": (product or "").strip()[:60] or None, "names": names[:6], "beat": beat, "how": how})
+            out.append({"product": _product(product or "")[:60] if product else None, "names": names[:6], "beat": beat, "how": how})
 
     for m in APPLICANT_ROW.finditer(t):
-        heads = REF_HEAD.findall(t[max(0, m.start() - 160):m.start()])
+        window = t[max(0, m.start() - 160):m.start()]
+        heads = REF_HEAD.findall(window) or REF_HEAD_NS.findall(re.sub(r"\s+", "", window))
         add(heads[-1] if heads else None, _names(m.group(1)), "표")
+    tables = bool(out)
     for m in APPLICANT_SENT.finditer(t):
         # 문장 꼴은 '…것으로, 올해 2월 세아베스틸과 세아창원특수강이' — 마지막 쉼표 뒤 마디만 이름 자리
         names = _names(re.split(r"[,，]", m.group(1))[-1])
@@ -204,7 +218,7 @@ def applicants_in(text):
             continue
         prods = SENT_PRODUCT.findall(t[max(0, m.start() - 160):m.end()])
         known = {n for x in out for n in x["names"]}
-        if set(names) <= known:   # 표에 이미 있는 신청인
+        if set(names) <= known or (tables and not prods):   # 표에 이미 있거나, 표가 있는데 품목 모르는 문장('HD현대로보틱스가 조사 신청')
             continue
         add(prods[-1] if prods else None, names, "문장")
     return out
@@ -483,6 +497,7 @@ def collect(prev, now, http, *, sleep=time.sleep):
             rec["applicantsError"] = err2 or err
             return
         rec["applicants"] = applicants_in(text)
+        rec["applicantsV"] = APPLICANTS_V
         rec.pop("applicantsError", None)
 
     for row in parse_news(newsp) if newsp else []:
@@ -509,7 +524,7 @@ def collect(prev, now, http, *, sleep=time.sleep):
         for rec in sorted(news.values(), key=lambda n: n["id"], reverse=True):
             if pdf_reads >= NEWS_BACKFILL + 3:
                 break
-            if "applicants" in rec or rec.get("applicantsError") or not APPLICANT_TITLE.search(rec.get("title") or ""):
+            if rec.get("applicantsV") == APPLICANTS_V or rec.get("applicantsError") or not APPLICANT_TITLE.search(rec.get("title") or ""):
                 continue
             read_applicants(rec)
     news = sorted(news.values(), key=lambda n: n["id"], reverse=True)[:KEEP_NEWS]
