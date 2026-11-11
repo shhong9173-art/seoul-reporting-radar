@@ -346,6 +346,25 @@ class Governance(unittest.TestCase):
         self.assertEqual(v2, "같은 회사 항목만")
 
 
+    def test_ktc_product_item_matches_article_lead_11_11(self):
+        docs = {"trade-remedy": {"events": [
+            {"id": "ktc:case:00000873", "pageId": "ktc", "ktcKind": "case", "product": "아크릴산 2-에틸헥실", "label": "무역위 새 조사 · 구제23-2026-10호",
+             "text": "중국, 미국, 말레이시아산 아크릴산 2-에틸헥실 — 품목 아크릴산 2-에틸헥실, 개시 2026-11-05", "detectedAt": "2026-11-05T16:49:00+09:00",
+             "url": "https://www.ktc.go.kr/viewInvest.do?menuId=11&masterId=00000873&invstg_type_code=10100001"},
+            {"id": "ktc:meeting:1", "pageId": "ktc", "ktcKind": "meeting", "text": "제479차", "detectedAt": "2026-11-05T16:49:00+09:00"}]}}
+        items = r.memory(docs, {})
+        self.assertEqual([m["id"] for m in items if m["source"] == "ktc"], ["ktc:case:00000873"])   # 회의 안내는 품목 항목 아님
+        art = {"title": "[단독] LG화학, 수입산 점착제 원료 반덤핑 조사 신청", "companies": ["LG화학"], "published": "2026-11-06T14:42:00+09:00",
+               "lead": "무역위원회가 착수한 중국·미국·말레이시아산 '아크릴산 2-에틸헥실'(2-EHA) 반덤핑 조사의 신청인이 LG화학으로 확인됐다."}
+        v, best, _ = r.match(art, items)
+        self.assertEqual((v, best["id"], best["label"]), ("먼저 잡은 후보", "ktc:case:00000873", "국내 무역위원회"))
+        self.assertIn("품목 아크릴산 2-에틸헥실", best["why"])
+        self.assertAlmostEqual(best["leadHours"], 21.9, places=1)
+        self.assertEqual(r.match({**art, "lead": ""}, items)[0], "없음")                         # 제목에 품목 없고 첫 문단도 없으면 못 묶음
+        self.assertEqual(r.match({**art, "title": "LG화학, 점착제 원료 증설", "lead": art["lead"]}, items)[0], "없음")   # 무역구제 기사 아님
+        self.assertEqual(r.match({**art, "published": "2026-11-05T09:00:00+09:00"}, items)[0], "없음")                  # 항목보다 먼저 난 기사
+
+
 class Tally(unittest.TestCase):
     def test_type_and_outlet_tallies(self):
         trace = {"items": [

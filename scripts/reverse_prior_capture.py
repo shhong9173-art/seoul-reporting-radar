@@ -38,7 +38,7 @@ LABEL = {"us-litigation": "미국 소송·판결", "partner-filings": "해외 �
          "kr-workforce": "사업장 인력(국민연금)", "kr-stacks": "굴뚝 측정(가동 신호)", "clues": "공개 원자료 단서(DART 등)",
          "us-osha": "미국 OSHA 점검·위반", "us-state-env": "미국 주 환경 허가·공고", "kr-labor": "노동위 회의", "india-filings": "인도 법인 공시",
          "dart-counterparty": "타사 공시 속 출입처", "union-notices": "노조 성명·보도자료", "council-minutes": "지방의회 회의록",
-         "governance": "지분·자사주 변동"}
+         "governance": "지분·자사주 변동", "ktc": "국내 무역위원회"}
 # Group-level names: an article about 포스코 and a radar item about 포스코홀딩스 concern the same group.
 GROUP = {"한국타이어앤테크놀로지": "한국타이어", "S-Oil": "S-OIL", "현대자동차": "현대차", "제네시스": "현대차", "현대차(제네시스)": "현대차", "포스코홀딩스": "포스코", "엘에스일렉트릭": "LS일렉트릭",
          "아우디코리아": "아우디", "폭스바겐코리아": "폭스바겐", "BMW코리아": "BMW", "메르세데스-벤츠 코리아": "벤츠", "혼다코리아": "혼다",
@@ -194,6 +194,16 @@ def mem(source, iid, companies, text, seen, url=None, origin=None):
             **({"origin": str(origin)[:40]} if origin else {})}
 
 
+def product_mem(source, iid, product, text, seen, url=None):
+    """회사 이름 없이 품목 이름만 있는 항목(무역위 조사 — 누리집에 신청인·피신청인 이름이 없다, 11-11). 같은 회사 대조에는 안 쓰고,
+    기사 제목·첫 문단에 그 품목 이름이 그대로 있을 때만 쓴다(match)."""
+    when = parse_time(seen)
+    p = re.sub(r"\s+", " ", str(product or "")).strip()
+    if not when or len(p) < 2:
+        return None
+    return {"source": source, "id": str(iid), "companies": [], "products": [p], "text": re.sub(r"\s+", " ", str(text or ""))[:500], "seen": when, "url": url}
+
+
 # 단서 원천 이름 중 영문 코드(11-03 역추적 화면: '공개 원자료 단서(OVERSEAS)')
 ORIGIN_KO = {"OVERSEAS": "해외 원자료", "DART_METRIC": "DART 수치", "CUSTOMS_FIVE": "관세청 수출입"}
 
@@ -247,6 +257,13 @@ def _trade(d, add):
         rate_text = " ".join(f"{float(v):.2f}%" for v in rates if isinstance(v, (int, float)))
         add(mem("trade-remedy", x.get("id"), [n.get("company") for n in x.get("named") or []],
                 f"{x.get('title')} duty {rate_text} {' '.join(x.get('memoTopics') or [])}", x.get("firstSeen") or x.get("date"), x.get("url")))
+
+
+def _ktc(d, add):
+    # 국내 무역위원회 새 조사·새 진행일정(11-11): 이벤트만 — 기준선에 있던 옛 사건 목록은 그때 새로 본 게 아니라 넣지 않는다
+    for e in d.get("events") or []:
+        if e.get("pageId") == "ktc" and e.get("ktcKind") in ("case", "step") and e.get("product"):
+            add(product_mem("ktc", e.get("id"), e.get("product"), f"{e.get('label') or ''} {e.get('text') or ''}", e.get("detectedAt"), e.get("url")))
 
 
 def _official(d, add):
@@ -436,7 +453,7 @@ def _clues(d, add):
                 origin=x.get("source")))
 
 
-ADAPTERS = [("us-litigation", _litigation), ("partner-filings", _partners), ("trade-remedy", _trade), ("kr-official", _official), ("kr-official", _eia),
+ADAPTERS = [("us-litigation", _litigation), ("partner-filings", _partners), ("trade-remedy", _trade), ("trade-remedy", _ktc), ("kr-official", _official), ("kr-official", _eia),
             ("kr-signals", _signals), ("us-comments", _comments), ("page-watch", _pages), ("trademarks", _marks),
             ("us-recalls", _recalls), ("scoop-screen", _screen), ("us-epa", _epa), ("us-epa", _vin), ("kr-fuel", _fuel), ("overseas-awards", _awards),
             ("us-recalls", _investigations), ("kr-insolvency", _insolvency), ("kr-energy", _energy), ("kr-building", _building),
@@ -506,6 +523,16 @@ def match(article, items):
         score += 1 if same_nums else 0   # 사건 낱말이 겹친 항목끼리는 숫자까지 같은 쪽을 고른다
         if score > best_score or (score == best_score and best and m["seen"] > best["seen"]):
             best, best_score = {**m, "why": hit_c + hit_s + hit_w, **({"numbers": {"article": art_nums, "found": same_nums, "comparable": comparable}} if art_nums else {})}, score
+    # 품목 항목(11-11): 무역위 조사처럼 회사 이름이 없는 항목은 기사 제목·첫 문단(lead)에 그 품목 이름이 그대로 있고 제목이 무역구제
+    # 기사일 때만 같은 사건으로 본다. 11-06 「[단독] LG화학, 수입산 점착제 원료 반덤핑 조사 신청」(첫 문단 '아크릴산 2-에틸헥실') ↔
+    # 11-05 무역위 새 조사 '아크릴산 2-에틸헥실'이 '같은 회사 항목만'으로 남았다(Claude가 이 항목으로 발제를 추천해 쓴 기사).
+    if not (best and best_score >= 2) and "관세·무역구제" in concepts:
+        body = f"{title} {article.get('lead') or ''}"
+        prods = [m for m in items if m.get("products") and pub - dt.timedelta(days=LOOKBACK_DAYS) <= m["seen"] < pub
+                 and any(p in body for p in m["products"])]
+        if prods:
+            m = max(prods, key=lambda x: x["seen"])
+            best, best_score = {**m, "why": ["관세·무역구제", *[f"품목 {p}" for p in m["products"] if p in body]]}, 3
     if best and best_score >= 2:
         verdict = "먼저 잡은 후보"
     elif same:

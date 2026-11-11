@@ -189,5 +189,30 @@ class MyArticles(unittest.TestCase):
         self.assertEqual(doc2["pressCounts"]["보도자료·공시"], doc["pressCounts"]["보도자료·공시"] + 1)
 
 
+    def test_lead_is_read_from_meta_and_backfilled_once_11_11(self):
+        self.assertEqual(w.lead_of('<meta property="og:description" content="무역위원회가 착수한 &#39;아크릴산 2-에틸헥실&#39; 반덤핑 조사">'),
+                         "무역위원회가 착수한 '아크릴산 2-에틸헥실' 반덤핑 조사")
+        self.assertEqual(w.lead_of('<meta content="첫 문단" name="description">'), "첫 문단")
+        self.assertIsNone(w.lead_of('<meta property="article:author" content="홍성효">'))
+        get, calls = fake()
+        doc = w.run(NOW, None, DOCS, {}, get=get, sleep=lambda s: None)
+        kia = next(a for a in doc["mine"] if a["title"].startswith("기아, 화성"))
+        self.assertEqual(kia["lead"], "")                                                   # 새로 연 기사: 메타 없으면 빈 값(다시 안 엶)
+        old = {"url": "https://www.inews24.com/view/2023473", "title": "[단독] LG화학, 수입산 점착제 원료 반덤핑 조사 신청", "published": "2026-11-04T14:42:00+09:00",
+               "companies": ["LG화학"], "verified": True}
+        PAGES[old["url"]] = '<meta property="og:description" content="무역위원회가 착수한 중국·미국·말레이시아산 \'아크릴산 2-에틸헥실\'(2-EHA) 반덤핑 조사">'
+        try:
+            n = len(calls)
+            doc2 = w.run(NOW + dt.timedelta(hours=1), {**doc, "mine": doc["mine"] + [old]}, DOCS, {}, get=get, sleep=lambda s: None)
+            got = next(a for a in doc2["mine"] if a["url"] == old["url"])
+            self.assertIn("아크릴산 2-에틸헥실", got["lead"])
+            self.assertEqual(doc2["checks"][0]["leadOpened"], 1)                             # 첫 문단 없는 지난 기사만 다시 엶
+            self.assertEqual(calls[n:].count(old["url"]), 1)
+            doc3 = w.run(NOW + dt.timedelta(hours=2), doc2, DOCS, {}, get=get, sleep=lambda s: None)
+            self.assertEqual(doc3["checks"][0]["leadOpened"], 0)                             # 한 번 채우면 다시 안 엶
+        finally:
+            PAGES.pop(old["url"], None)
+
+
 if __name__ == "__main__":
     unittest.main()

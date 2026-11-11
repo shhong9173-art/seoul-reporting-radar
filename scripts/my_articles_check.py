@@ -42,6 +42,7 @@ UA = {"User-Agent": "seoul-reporting-radar (newsroom research; own byline check)
 PAUSE = 1.5
 OPEN_BUDGET = 80
 KEEP_DAYS = 120
+LEAD_BUDGET = 40   # 첫 문단이 없는 지난 기자 기사를 한 실행에 다시 여는 수(11-11, 한 번 연 기사는 다시 안 엶)
 WINDOW_DAYS = 30
 # 제목에서 출입처 찾기(대조용 회사 이름). 계열사(포스코퓨처엠·포스코인터내셔널·포스코이앤씨, LG에너지솔루션, SK온 등)는 출입처가 아니다.
 BEAT_RX = [
@@ -164,6 +165,16 @@ def author_of(page):
     return html.unescape(m.group(1)).strip() if m else None
 
 
+def lead_of(page):
+    """기사 첫 문단(og:description, 없으면 description 메타) 300자 — 제목에 없는 품목 이름(무역위 조사 등)을 대조하려고(11-11).
+    기자 전용 저장소에만 둔다(공개 로그에 찍지 않는다)."""
+    for prop in (r'property="og:description"', r'name="description"'):
+        m = re.search(r'<meta[^>]+' + prop + r'[^>]*content="([^"]*)"', page or "") or re.search(r'<meta[^>]+content="([^"]*)"[^>]*' + prop, page or "")
+        if m and m.group(1).strip():
+            return re.sub(r"\s+", " ", html.unescape(m.group(1))).strip()[:300]
+    return None
+
+
 def google_backfill(get, now):
     """처음 실행용: 구글 뉴스 제목 색인(작성자 메타 미확인)."""
     q = {"q": f'"{AUTHOR}" site:inews24.com when:{WINDOW_DAYS}d', "hl": "ko", "gl": "KR", "ceid": "KR:ko"}
@@ -211,16 +222,34 @@ def run(now, previous=None, docs=None, clues=None, *, get=None, sleep=time.sleep
             if getattr(page, "status_code", 200) != 200:
                 raise RuntimeError(f"HTTP {page.status_code}")
             who = author_of(page.text)
+            lead = lead_of(page.text)
         except Exception as ex:  # noqa: BLE001
             errors.append(f"기사:{type(ex).__name__}")
             continue   # 다음 실행에 다시(사이트맵에 남아 있으면)
         checked[e["url"]] = who or ""
         if who == AUTHOR:
             found += 1
-            a = {**e, "companies": companies_in(e["title"]), "verified": True}
+            a = {**e, "companies": companies_in(e["title"]), "verified": True, "lead": lead or ""}
             # 구글 색인으로 먼저 넣은 같은 기사(제목·날짜)는 확인된 것으로 바꾼다
             mine.pop(key_of(a), None)
             mine[key_of(a)] = a
+    # 첫 문단 채우기(11-11): 이 규칙 전에 확인한 기자 기사는 첫 문단이 없다 — 최근 30일 것만, 한 실행 LEAD_BUDGET건
+    lead_opened, since_lead = 0, (now - dt.timedelta(days=WINDOW_DAYS)).isoformat(timespec="seconds")
+    for a in sorted(mine.values(), key=lambda x: str(x.get("published")), reverse=True):
+        if lead_opened >= LEAD_BUDGET:
+            break
+        if "lead" in a or not a.get("verified") or "/view/" not in str(a.get("url") or "") or str(a.get("published")) < since_lead:
+            continue
+        sleep(PAUSE)
+        lead_opened += 1
+        try:
+            page = get(a["url"], headers=UA, timeout=25)
+            if getattr(page, "status_code", 200) != 200:
+                raise RuntimeError(f"HTTP {page.status_code}")
+            a["lead"] = lead_of(page.text) or ""
+        except Exception as ex:  # noqa: BLE001
+            errors.append(f"첫 문단:{type(ex).__name__}")
+            break   # 다음 실행에 다시
     backfill = None
     if not prev.get("backfilledAt"):
         try:
@@ -260,7 +289,7 @@ def run(now, previous=None, docs=None, clues=None, *, get=None, sleep=time.sleep
     for a in mine_list:
         if str(a["published"]) < since:
             continue
-        verdict, best, n = rpc.match({"published": a["published"], "title": a["title"], "companies": a.get("companies") or []}, items)
+        verdict, best, n = rpc.match({"published": a["published"], "title": a["title"], "companies": a.get("companies") or [], "lead": a.get("lead") or ""}, items)
         kind = kind_of(a["title"])
         press, note = press_of(a, kind)
         rows.append({**{k: a.get(k) for k in ("url", "title", "published", "companies", "verified", "pressN")}, "press": press, **({"pressNote": note} if note else {}),
@@ -283,7 +312,7 @@ def run(now, previous=None, docs=None, clues=None, *, get=None, sleep=time.sleep
             **({"backfilledAt": prev.get("backfilledAt") or (stamp if backfill is not None else None)} if (prev.get("backfilledAt") or backfill is not None) else {}),
             "checks": [{"source": "아이뉴스24 뉴스 사이트맵", "status": "failed" if status == "failed" else "partial" if errors else "ok",
                         "returned": len(entries), "candidates": len(cands), "opened": opened, **({"pending": pending} if pending else {}),
-                        "mineNew": found, "pressAsked": asked,
+                        "mineNew": found, "pressAsked": asked, "leadOpened": lead_opened,
                         **({"backfill": backfill} if backfill is not None else {}),
                         **({"error": "; ".join(errors[:4])} if errors else {})}],
             "checked": dict(list(checked.items())[-4000:]), "mine": mine_list[:600],
@@ -330,7 +359,8 @@ def main():
     print(f"::notice title=my-articles::상태 {doc['status']} · 사이트맵 {c['returned']} · 출입처 제목 새 기사 {c['candidates']} · 열람 {c['opened']}"
           f" · 기자 기사(30일) {len(doc['articles'])} · {json.dumps(doc['counts'], ensure_ascii=False)}"
           + f" · 보도자료 가리기 {c.get('pressAsked', 0)}건 {json.dumps(doc['pressCounts'], ensure_ascii=False)}"
-          + (f" · 구글 색인 채움 {c['backfill']}" if "backfill" in c else "") + (f" · 감시 조회 실패 {failed}" if failed else "")
+          + (f" · 구글 색인 채움 {c['backfill']}" if "backfill" in c else "")
+          + f" · 첫 문단 채움 {c.get('leadOpened', 0)}건(본문 첫 문단 있음 {sum(1 for a in doc['mine'] if a.get('lead'))})" + (f" · 감시 조회 실패 {failed}" if failed else "")
           + (f" · {c['error']}" if c.get("error") else ""))
     try:
         status = private_store.put("my-articles", doc, token)
