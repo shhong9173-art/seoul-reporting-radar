@@ -358,30 +358,48 @@ def not_news(title: str, url: str = "") -> bool:
 
 # 원화 환산(11-11 기자 요청 방향): 한국어 제목·요약의 달러 금액에 한국은행 ECOS 원/달러 매매기준율(731Y001·0000001, 일별)로
 # 코드가 계산한 원화를 붙인다. AI는 환산하지 않는다(번역 지시: 원문 통화 그대로). 기사에 쓸 때는 작성일 환율로 다시 계산.
-FX_URL = "https://ecos.bok.or.kr/api/StatisticSearch/{key}/json/kr/1/30/731Y001/D/{start}/{end}/0000001"
+FX_URL = "https://ecos.bok.or.kr/api/StatisticSearch/{key}/json/kr/1/30/731Y001/D/{start}/{end}/{item}"
+# 한국은행 731Y001 주요국 통화의 대원화환율(매매기준율) 항목 — 11-11 ecos_find로 확인. 엔은 100엔당 값이라 1엔으로 나눈다.
+FX_ITEMS = {"달러": ("0000001", 1), "유로": ("0000003", 1), "엔": ("0000002", 100), "파운드": ("0000012", 1), "위안": ("0000053", 1)}
+FX_LABEL = {"달러": "원/달러", "유로": "원/유로", "엔": "원/100엔", "파운드": "원/파운드", "위안": "원/위안"}
 
 
-def usd_krw(key: str, now, cached=None, fetch=None):
-    """원/달러 매매기준율 → {"rate", "date"(기준일), "fetched"(받은 날 KST)}. 같은 날 받은 것은 다시 묻지 않는다(뉴스 수집 20분마다).
-    키가 없거나 조회가 실패하면 직전 값(날짜 그대로) 또는 None. 키는 출력하지 않는다."""
-    today = now.strftime("%Y-%m-%d")
-    ok = cached if isinstance(cached, dict) and cached.get("rate") else None
-    if ok and ok.get("fetched") == today:
-        return ok
-    if not key:
-        return ok
-    url = FX_URL.format(key=urllib.parse.quote(key), start=(now - timedelta(days=14)).strftime("%Y%m%d"), end=now.strftime("%Y%m%d"))
-    try:
-        body = json.loads((fetch or get)(url, 15))
-        rows = ((body or {}).get("StatisticSearch") or {}).get("row") or []
-        pts = sorted((str(r.get("TIME")), float(str(r.get("DATA_VALUE")).replace(",", ""))) for r in rows
-                     if re.fullmatch(r"\d{8}", str(r.get("TIME") or "")) and r.get("DATA_VALUE") not in (None, ""))
-    except Exception:  # noqa: BLE001 — 조회 실패는 환산을 빼고 넘어간다(주소에 키가 있어 오류 글은 찍지 않는다)
-        return ok
+def _fx_one(key, item, now, fetch):
+    url = FX_URL.format(key=urllib.parse.quote(key), start=(now - timedelta(days=14)).strftime("%Y%m%d"), end=now.strftime("%Y%m%d"), item=item)
+    body = json.loads((fetch or get)(url, 15))
+    rows = ((body or {}).get("StatisticSearch") or {}).get("row") or []
+    pts = sorted((str(r.get("TIME")), float(str(r.get("DATA_VALUE")).replace(",", ""))) for r in rows
+                 if re.fullmatch(r"\d{8}", str(r.get("TIME") or "")) and r.get("DATA_VALUE") not in (None, ""))
     if not pts:
-        return ok
+        return None
     t, v = pts[-1]
-    return {"rate": round(v, 2), "date": f"{t[:4]}-{t[4:6]}-{t[6:]}", "fetched": today}
+    return {"rate": round(v, 2), "date": f"{t[:4]}-{t[4:6]}-{t[6:]}"}
+
+
+def fx_rates(key: str, now, cached=None, fetch=None):
+    """매매기준율(통화마다 최근 14일 중 최신 기준일) → {"rates": {"달러": {"rate", "date"}, …}, "fetched"(받은 날 KST)}.
+    같은 날 받은 것은 다시 묻지 않는다(뉴스 수집 20분마다 — 하루 통화 수만큼만). 키가 없거나 통화별 조회가 실패하면 그 통화는
+    직전 값(기준일 그대로)을 쓰고, 그것도 없으면 뺀다. 키가 든 주소·오류 글은 찍지 않는다. 예전 캐시(원/달러 하나, 'rate')도 읽는다."""
+    today = now.strftime("%Y-%m-%d")
+    old = {}
+    if isinstance(cached, dict):
+        if isinstance(cached.get("rates"), dict):
+            old = {c: v for c, v in cached["rates"].items() if isinstance(v, dict) and v.get("rate")}
+        elif cached.get("rate"):
+            old = {"달러": {"rate": cached["rate"], "date": cached.get("date")}}
+        if cached.get("fetched") == today and set(old) >= set(FX_ITEMS):
+            return cached
+    if not key:
+        return {"rates": old, "fetched": cached.get("fetched")} if old else None
+    rates = {}
+    for cur, (item, _per) in FX_ITEMS.items():
+        try:
+            got = _fx_one(key, item, now, fetch)
+        except Exception:  # noqa: BLE001 — 조회 실패는 그 통화 직전 값으로(주소에 키가 있어 오류 글은 찍지 않는다)
+            got = None
+        if got or old.get(cur):
+            rates[cur] = got or old[cur]
+    return {"rates": rates, "fetched": today} if rates else None
 
 
 def krw_text(won: float) -> str:
@@ -397,24 +415,48 @@ def krw_text(won: float) -> str:
     return f"약 {int(round(won))}원"
 
 
-def dollar_amounts(korean: str) -> list[tuple[str, float]]:
-    """한국어 글의 달러 금액(표기, 값) — '30억달러'·'4억5천만 달러'·'2,600만달러'. 같은 표기는 한 번."""
+def foreign_amounts(korean: str) -> list[tuple[str, float, str]]:
+    """한국어 글의 외화 금액(표기, 값, 통화) — '30억달러'·'4억5천만 달러'·'20억유로'·'1조엔'·'5억파운드'·'100억위안'.
+    '엔진'·'파운드리'·'유로존'은 통화가 아니다. 같은 표기는 한 번."""
     try:
-        from scripts.number_check import ko_numbers
+        from scripts.number_check import KO_SPAN, ko_value
     except ImportError:  # pragma: no cover
-        from number_check import ko_numbers
+        from number_check import KO_SPAN, ko_value
+    rx = re.compile("(" + KO_SPAN.pattern + r")\s*(달러|유로(?!존)|파운드(?!리)|위안|엔(?![진트터지드씨비]))")
     out = []
-    for raw, value in ko_numbers(korean or ""):
-        if raw.rstrip().endswith("달러") and value > 0 and raw not in [r for r, _ in out]:
-            out.append((raw.strip(), value))
+    for m in rx.finditer(korean or ""):
+        raw = m.group(0).strip()
+        try:
+            value = ko_value(m.group(1).strip())
+        except ValueError:
+            continue
+        if value > 0 and raw not in [r for r, _, _ in out]:
+            out.append((raw, value, m.group(2)))
     return out
 
 
+def dollar_amounts(korean: str) -> list[tuple[str, float]]:
+    return [(raw, v) for raw, v, cur in foreign_amounts(korean) if cur == "달러"]
+
+
+def fx_note(fx) -> str:
+    rates = (fx or {}).get("rates") or {}
+    if not rates:
+        return "환율 없음(ECOS_API_KEY 미설정 또는 조회 실패) — 원화 환산 생략"
+    return " · ".join(f"{FX_LABEL[c]} {v['rate']}({v.get('date')})" for c, v in rates.items())
+
+
 def krw_notes(item: dict, fx) -> list[dict]:
-    if not fx or not fx.get("rate"):
+    rates = (fx or {}).get("rates") or ({"달러": {"rate": fx["rate"]}} if (fx or {}).get("rate") else {})
+    if not rates:
         return []
     text = f"{item.get('koTitle') or ''}\n{item.get('koSummary') or ''}"
-    return [{"usd": raw, "krw": krw_text(v * float(fx["rate"]))} for raw, v in dollar_amounts(text)][:3]
+    out = []
+    for raw, v, cur in foreign_amounts(text):
+        r = rates.get(cur)
+        if r and r.get("rate"):
+            out.append({"amount": raw, "cur": cur, "krw": krw_text(v * float(r["rate"]) / FX_ITEMS[cur][1])})
+    return out[:3]
 
 
 SOURCE_SEP = re.compile(r"\s+[-–—|]\s+")
@@ -648,7 +690,9 @@ def push_beat(rows: list[dict], stamp: str, fx=None) -> None:
     refused = sorted({c["category"] for c in GLOBAL_FEED_CHECKS if c.get("status") == "transport_or_xml_error"})
     doc = {"schema": "global_beat/v1", "generatedAt": stamp, "items": items, "checks": [{"source": "외신 수집", "status": "ok"}],
            "feedErrors": refused,
-           **({"fx": {"rate": fx["rate"], "date": fx["date"], "source": "한국은행 ECOS 731Y001 원/달러 매매기준율"}} if fx else {}),
+           **({"fx": {"rates": {c: {"rate": v["rate"], "date": v.get("date"), "label": FX_LABEL[c], "per": FX_ITEMS[c][1]}
+                              for c, v in fx["rates"].items()},
+                    "source": "한국은행 ECOS 731Y001 주요국 통화의 대원화환율(매매기준율)"}} if fx and fx.get("rates") else {}),
            "rules": ["해외 매체 기사(구글 뉴스·매체 RSS) 중 직접 출입처 이름이 나온 것만. 제목·요약은 AI 번역·요약이라 원문 확인.",
                      "사건 낱말(공장·투자·수주·원자로 등)이 한국어 제목에 있으면 B(자동 보도 대조), 없으면 참고(C)."]}
     try:
@@ -696,7 +740,7 @@ def main() -> None:
         _prev_fx=(json.loads(FEED_HEALTH.read_text(encoding="utf-8")) or {}).get("fx")
     except (OSError, ValueError):
         _prev_fx=None
-    fx=usd_krw(_os.environ.get("ECOS_API_KEY","").strip(),datetime.now(KST),_prev_fx)
+    fx=fx_rates(_os.environ.get("ECOS_API_KEY","").strip(),datetime.now(KST),_prev_fx)
     if fx:
         diagnostic["fx"]=fx
     persist_feed_health(diagnostic,FEED_HEALTH)
@@ -714,7 +758,7 @@ def main() -> None:
         # 영어 제목에 나온 출입처(11-10 운영: Automotive News '혼다 오하이오 30억달러 공장' — 본문에 Hyundai가 나와 '현대차' B로 떴다)
         x["titleCompanies"]=beat_companies(x.get("title",""))
         x["krw"]=krw_notes(x,fx)
-    print(f"global fx: {'원/달러 ' + str(fx['rate']) + ' (' + fx['date'] + ')' if fx else '환율 없음(ECOS_API_KEY 미설정 또는 조회 실패) — 원화 환산 생략'}"
+    print(f"global fx: {fx_note(fx)}"
           f" · 환산 붙인 기사 {sum(1 for x in unique if x.get('krw'))}")
     push_beat(unique,stamp,fx=fx)
 

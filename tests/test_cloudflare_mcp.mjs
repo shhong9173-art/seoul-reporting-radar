@@ -2831,14 +2831,17 @@ test('출입처 외신 (global-beat): event words → B with press-check hint, n
     koTitle: '두산, 뉴스케일 소형모듈원전 상부 원자로 용기 제작', koSummary: '두산에너빌리티가 뉴스케일파워와 상부 원자로 용기 제작 계약을 맺었다.', source: 'World Nuclear News',
     published: now, firstSeen: now, beatCompanies: ['두산에너빌리티'], checkTerms: ['원자로'], ...extra });
   const doc = { schema: 'global_beat/v1', generatedAt: now, checks: [{ source: '외신 수집', status: 'ok' }], feedErrors: ['Automotive News'],
-    fx: { rate: 1462.3, date: '2026-11-10', source: '한국은행 ECOS 731Y001 원/달러 매매기준율' }, items: [
+    fx: { rates: { 달러: { rate: 1462.3, date: '2026-11-10', label: '원/달러', per: 1 }, 유로: { rate: 1550.2, date: '2026-11-10', label: '원/유로', per: 1 },
+      엔: { rate: 905.1, date: '2026-11-10', label: '원/100엔', per: 100 } }, source: '한국은행 ECOS 731Y001' }, items: [
     it('gl:a'),
     it('gl:b', { title: 'Nexen Tire receives EcoVadis Gold', koTitle: '넥센타이어, 에코바디스 골드 3년 연속', koSummary: '넥센타이어가 약 30억 원 규모 상을 받았다.', source: 'Tyrepress', beatCompanies: ['넥센타이어'], checkTerms: [], numbersNotInSource: ['30억 원'] }),
     it('gl:old', { published: base, firstSeen: base, koTitle: '포스코, 오래된 기사', beatCompanies: ['포스코'], checkTerms: ['투자'] }),
     // 11-02 운영: 나라 이름이 든 외신 — 대조 낱말에 나라를 더하고 기사에 그 나라가 있어야 같은 건
     it('gl:cz', { title: 'KHNP ends negotiations with construction consortium for Czech units', koTitle: '한국수력원자력, 체코 원전 건설 컨소시엄과 협상 종료' }),
     it('gl:us', { title: 'Hyundai to invest US$450m in Alabama plant', koTitle: '현대차, 4억 5천만 달러 미국 앨라배마 공장 투자', beatCompanies: ['현대차'], checkTerms: ['공장', '투자'],
-      krw: [{ usd: '4억 5천만 달러', krw: '약 6580억원' }] }),
+      krw: [{ usd: '4억 5천만 달러', krw: '약 6580억원' }] }),   // 예전 꼴(usd, 통화 없음 = 달러)
+    it('gl:eu', { title: 'Hyundai Motor to invest EUR 2 billion in Czech plant', koTitle: '현대차, 체코 공장에 20억유로 투자', beatCompanies: ['현대차'], titleCompanies: ['현대차'], checkTerms: ['공장', '투자'],
+      krw: [{ amount: '20억유로', cur: '유로', krw: '약 3조1004억원' }, { amount: '1조엔', cur: '엔', krw: '약 9조51억원' }, { amount: '5억파운드', cur: '파운드', krw: '약 8800억원' }] }),
     it('gl:id', { title: 'Hyundai expands Indonesia plant', koTitle: '현대차, 인도네시아 공장 투자', beatCompanies: ['현대차'], checkTerms: ['투자'] }),
     it('gl:dl', { title: 'Kia deliveries', koTitle: '기아, 3분기 인도량 늘려 투자', beatCompanies: ['기아'], checkTerms: ['투자'] }),
     // 11-03 운영: 영어 제목은 그룹 이름, 본문 주체는 계열사 → 참고(C)·대조 안 함
@@ -2880,7 +2883,9 @@ test('출입처 외신 (global-beat): event words → B with press-check hint, n
   assert.equal(items.items.find((x) => x.id === 'gl:hy').tier, 'B');
   assert.equal(items.items.find((x) => x.id === 'gl:ko').tier, 'B');   // 영어 제목엔 없어도 한국어 제목에 출입처가 있으면 B
   // 11-11: 달러 금액의 원화 환산(한국은행 매매기준율로 코드가 계산)
-  assert.match(b, /현대차, 4억 5천만 달러 미국 앨라배마 공장 투자[^\n]*· 원화 환산\(자동, 2026-11-10 원\/달러 1,462\.3\): 4억 5천만 달러\(약 6580억원\)/);
+  assert.match(b, /현대차, 4억 5천만 달러 미국 앨라배마 공장 투자[^\n]*· 원화 환산\(자동, 한국은행 매매기준율 원\/달러 1,462\.3\(2026-11-10\)\): 4억 5천만 달러\(약 6580억원\)/);
+  // 유로·엔은 그 통화 환율, 환율이 없는 통화(파운드)는 빼고 적는다
+  assert.match(b, /현대차, 체코 공장에 20억유로 투자[^\n]*· 원화 환산\(자동, 한국은행 매매기준율 원\/유로 1,550\.2\(2026-11-10\) · 원\/100엔 905\.1\(2026-11-10\)\): 20억유로\(약 3조1004억원\), 1조엔\(약 9조51억원\)(?!, 5억파운드)/);
   const kia = items.items.find((x) => x.id === 'gl:kia');
   assert.deepEqual([kia.check.who, kia.company], ['기아', '기아·현대차']);
 });

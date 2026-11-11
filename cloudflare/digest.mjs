@@ -767,6 +767,15 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
   const GB_COUNTRY = /체코|폴란드|루마니아|불가리아|헝가리|슬로바키아|멕시코|캐나다|브라질|칠레|페루|아르헨티나|콜롬비아|튀르키예|이집트|카타르|쿠웨이트|오만|사우디|아랍에미리트|이라크|요르단|모로코|남아공|필리핀|태국|말레이시아|베트남|싱가포르|인도네시아|인도(?!량|분)|대만|몽골|호주|뉴질랜드|우즈베키스탄|카자흐스탄|네덜란드|스웨덴|노르웨이|핀란드|덴마크|스페인|포르투갈|이탈리아|그리스|아일랜드|독일|영국|프랑스|오스트리아|벨기에|스위스|앨라배마|조지아|텍사스|테네시|사우스캐롤라이나|노스캐롤라이나|미시간|오하이오|켄터키|인디애나|애리조나|루이지애나|캘리포니아|일리노이|펜실베이니아|버지니아|뉴저지|네바다|미시시피|오클라호마|캔자스|위스콘신|미네소타|아이오와|유타|콜로라도|온타리오|퀘벡|누에보레온/;
   const gbItems = docs['global-beat']?.items ?? [];
   const gbFx = docs['global-beat']?.fx;
+  // 예전 문서(원/달러 하나: {rate, date})와 지금 문서({rates: {달러: {rate, date, label, per}}}) 둘 다 읽는다
+  const gbRates = gbFx?.rates ?? (gbFx?.rate ? { 달러: { rate: gbFx.rate, date: gbFx.date, label: '원/달러' } } : {});
+  const gbKrw = (krw) => {
+    if (!Array.isArray(krw) || !krw.length) return '';
+    const used = [...new Set(krw.map((k) => k.cur ?? '달러'))].filter((c) => gbRates[c]);
+    if (!used.length) return '';
+    const label = used.map((c) => `${gbRates[c].label ?? `원/${c}`} ${Number(gbRates[c].rate).toLocaleString('en-US')}(${gbRates[c].date ?? '?'})`).join(' · ');
+    return ` · 원화 환산(자동, 한국은행 매매기준율 ${label}): ${krw.filter((k) => gbRates[k.cur ?? '달러']).map((k) => `${k.amount ?? k.usd}(${k.krw})`).join(', ')}`;
+  };
   const gbBase = baselineOf(gbItems);
   for (const x of gbItems) {
     if (!fresh(x, gbBase, 'published')) continue;
@@ -790,8 +799,8 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
         + `외신 ${x.source ?? ''} 「${x.koTitle || x.title}」${x.koSummary ? ` — ${clipAt(x.koSummary, 220)}` : ''} · 원제 "${clipAt(x.title ?? '', 140)}" (AI 번역·요약 — 원문 확인)`
         // AI가 받은 영어(제목·RSS 발췌)에서 같은 값을 못 찾은 숫자 — 지어냈거나 환산했거나 표기가 달라 못 맞춘 것(global_news_pipeline.check_numbers)
         + (Array.isArray(x.numbersNotInSource) && x.numbersNotInSource.length ? ` · ⚠ 원문 발췌에 없는 숫자: ${x.numbersNotInSource.slice(0, 4).join(', ')} — 기사에 쓰기 전 원문 대조` : '')
-        // 달러 금액의 원화(11-11): 한국은행 원/달러 매매기준율로 코드가 계산. 기사에 쓸 땐 작성일 환율로 다시
-        + (Array.isArray(x.krw) && x.krw.length && gbFx ? ` · 원화 환산(자동, ${gbFx.date} 원/달러 ${Number(gbFx.rate).toLocaleString('en-US')}): ${x.krw.map((k) => `${k.usd}(${k.krw})`).join(', ')}` : ''),
+        // 외화 금액의 원화(11-11): 한국은행 매매기준율로 코드가 계산(달러·유로·엔·파운드·위안). 기사에 쓸 땐 작성일 환율로 다시
+        + gbKrw(x.krw),
       url: x.url, check: terms.length && companies.length ? gbHint(ordered[0], terms, (GB_COUNTRY.exec(String(x.koTitle ?? '')) ?? [])[0], x.published) : undefined });
   }
 
