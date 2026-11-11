@@ -17,7 +17,7 @@ import { failStreak, mergeRuns, pollDue } from '../cloudflare/gh_runs.mjs';
 import { memoGloss, productKo, tradePoint } from '../cloudflare/overseas.mjs';
 import { boardKey, factParts, groupSame, splitTop } from '../cloudflare/board.mjs';
 import { cleanOutput, cleanSummary, LLM_MODELS, MT_MODEL } from '../cloudflare/translate.mjs';
-import { background, billHint, clipAt, convergence, convergenceRows, countForms, hint, insolvencyWord, ktcHint, maintenanceMemo, stackSiteKey, usRecallHint, usRecallModels, kepcoHint, localWord, plantTokens, radarItems, siteCity, splitByPlant, stackAlert, stackHint, workforceHint } from '../cloudflare/digest.mjs';
+import { background, billHint, clipAt, convergence, convergenceRows, countForms, hint, insolvencyWord, ktcHint, ktcNewDumping, maintenanceMemo, stackSiteKey, usRecallHint, usRecallModels, kepcoHint, localWord, plantTokens, radarItems, siteCity, splitByPlant, stackAlert, stackHint, workforceHint } from '../cloudflare/digest.mjs';
 
 const ORIGIN = 'https://seoul-reporting-radar.shhong9173.workers.dev';
 const TOKEN = 'test-token-0123456789abcdef';
@@ -900,6 +900,42 @@ test('trade_remedies ktc: meeting agenda before the meeting, recent cases with l
   assert.equal(k('낚싯대케이스', '원산지 표시위반'), undefined);            // 덤핑·세이프가드 아님
   assert.equal(k('석도강판', '덤핑', { ktcKind: 'news' }), undefined);
   assert.equal(ktcHint({ ktcKind: 'meeting', text: '의결: 중국산 석도강판 예비판정' }), undefined);
+  // 11-11: 띄어쓰기 한 번인 품목('아크릴산 2-에틸헥실'), 제목에 '덤핑'이 없어도 누리집 조사 유형 코드 10100001이면 덤핑
+  const u = (code) => ({ url: `https://www.ktc.go.kr/viewInvest.do?menuId=11&masterId=00000873&invstg_type_code=${code}` });
+  const ehaText = '중국, 미국, 말레이시아산 아크릴산 2-에틸헥실 — 품목 아크릴산 2-에틸헥실, 개시 2026-11-05';
+  assert.deepEqual(k('아크릴산 2-에틸헥실', ehaText, u('10100001')), { who: '아크릴산 2-에틸헥실', terms: ['반덤핑', '무역위원회'], alts: { 반덤핑: ['반덤핑', '덤핑'] } });
+  assert.equal(k('아크릴산 2-에틸헥실', ehaText, u('10100002')), undefined);   // 불공정무역행위 코드
+  assert.equal(k('아크릴산 2-에틸헥실', ehaText), undefined);                  // 유형을 모르면 대조 안 함
+  const ev = (text, extra = {}) => ({ ktcKind: 'case', beat: true, tier: 'B', label: '무역위 새 조사 · 구제23-2026-10호', text, product: '아크릴산 2-에틸헥실', ...u('10100001'), ...extra });
+  assert.equal(ktcNewDumping(ev(ehaText)), true);
+  assert.equal(ktcNewDumping(ev('대만, 태국, 아랍에미리트연합산 PET 필름 종료재심사(2차)')), false);   // 재심은 B 그대로
+  assert.equal(ktcNewDumping(ev(ehaText, { beat: false })), false);                                    // 출입 업종 품목 아님
+  assert.equal(ktcNewDumping(ev('자동차용 배터리팩 특허권 침해', u('10100002'))), false);              // 불공정무역행위
+  assert.equal(ktcNewDumping(ev('중국산 석도강판의 덤핑사실 및 국내산업피해 유무 조사', { url: 'https://k/c' })), true);   // 제목에 덤핑
+  assert.equal(ktcNewDumping(ev(ehaText, { ktcKind: 'step' })), false);                                // 진행일정은 새 조사 아님
+});
+
+test('무역위 새 반덤핑 조사(출입 업종 품목)는 A — 신청인 확인 문구·유형 코드 표시·품목 이름 보도 대조(11-11 2-EHA)', async () => {
+  const env = PRIVATE().env;
+  const recent = new Date(NOW.getTime() - 3600000).toISOString();
+  const url = (id, code) => `https://www.ktc.go.kr/viewInvest.do?menuId=11&masterId=${id}&invstg_type_code=${code}`;
+  const doc = { schema: 'trade_remedy/v1', generatedAt: recent, quarter: '2026-10-01', rules: [], quotas: [], federalRegister: [], pages: [],
+    checks: [{ source: '무역위원회', status: 'ok', returned: 45 }], ktc: { checkedAt: recent, cases: [], meetings: [], news: [] },
+    events: [
+      { id: 'ktc:case:00000873', pageId: 'ktc', country: 'KR', label: '무역위 새 조사 · 구제23-2026-10호', text: '중국, 미국, 말레이시아산 아크릴산 2-에틸헥실 — 품목 아크릴산 2-에틸헥실, 개시 2026-11-05',
+        url: url('00000873', '10100001'), detectedAt: recent, tier: 'B', beat: true, ktcKind: 'case', product: '아크릴산 2-에틸헥실' },
+      { id: 'ktc:case:00000870', pageId: 'ktc', country: 'KR', label: '무역위 새 조사 · 구제23-2026-7호', text: '대만, 태국, 아랍에미리트연합산 PET 필름 종료재심사(2차) — 품목 PET 필름, 개시 2026-08-26, 반덤핑조사/재심',
+        url: url('00000870', '10100001'), detectedAt: recent, tier: 'B', beat: true, ktcKind: 'case', product: 'PET 필름' }] };
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/trade-remedy', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
+  const r = (await call('radar_today', {}, { path: `/mcp/${TOKEN}`, env })).text;
+  const a = r.split('[A · ')[1].split('[B · ')[0];
+  const b = r.split('[B · ')[1].split('[C · ')[0];
+  assert.match(a, /무역구제 · 아크릴산 2-에틸헥실\n   무역위 새 조사 · 구제23-2026-10호: 중국, 미국, 말레이시아산 아크릴산 2-에틸헥실 — 품목 아크릴산 2-에틸헥실, 개시 2026-11-05 · 덤핑 조사\(누리집 조사 유형 코드 — 상세 유형은 아직 비어 있음\) — 국내 생산자가 신청해야 열리는 조사\. 신청인 이름은 누리집에 없음: 출입처가 이 품목을 만드는지·신청했는지 회사 확인/);
+  assert.match(b, /PET 필름 종료재심사\(2차\)/);   // 재심은 B 그대로
+  assert.doesNotMatch(b, /아크릴산/);
+  const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
+  assert.deepEqual(items.items.find((x) => x.id === 'ktc:case:00000873').check.terms, ['반덤핑', '무역위원회']);
+  assert.equal(items.items.find((x) => x.id === 'ktc:case:00000873').tier, 'A');
 });
 
 test('kr_official workforce: member counts ranked by monthly drop with year-ago, events and new construction sites; radar_today tiers', async () => {
