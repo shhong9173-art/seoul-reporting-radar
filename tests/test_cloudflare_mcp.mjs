@@ -2853,7 +2853,11 @@ test('출입처 외신 (global-beat): event words → B with press-check hint, n
     it('gl:hy', { title: 'Hyundai Motor opens Georgia battery line', koTitle: '현대차, 조지아 배터리 라인 가동', beatCompanies: ['현대차'], titleCompanies: ['현대차'], checkTerms: ['배터리'] }),
     it('gl:ko', { title: 'Korean automaker opens plant', koTitle: '현대차, 멕시코 공장 가동', beatCompanies: ['현대차'], titleCompanies: [], checkTerms: ['공장'] }),
     // 11-10 운영: 제목 주체는 기아 — 출입처 목록 순서(현대차 먼저)가 아니라 제목에 나온 회사로 대조
-    it('gl:kia', { title: 'Kia to build new EV plant in Gwangju', koTitle: '기아, 광주에 새 전기차 공장 짓는다', beatCompanies: ['현대차', '기아'], titleCompanies: ['기아'], checkTerms: ['공장'] })] };
+    it('gl:kia', { title: 'Kia to build new EV plant in Gwangju', koTitle: '기아, 광주에 새 전기차 공장 짓는다', beatCompanies: ['현대차', '기아'], titleCompanies: ['기아'], checkTerms: ['공장'] }),
+    // 11-10 운영: 나라 이름 없는 외신 — 제목의 라틴 고유어(HTWO)가 기사에 있어야 같은 건(MOU·회사 영문 이름은 고유어 아님)
+    it('gl:htwo', { title: 'HTWO Guangzhou and Air Liquide China sign hydrogen mobility MoU', koTitle: '현대차 HTWO 광저우와 에어리퀴드 차이나, 수소 모빌리티 MOU 체결',
+      beatCompanies: ['현대차'], titleCompanies: [], checkTerms: ['MOU'] }),
+    it('gl:pv5', { title: 'Kia reveals UK prices for PV5 Chassis', koTitle: '기아, PV5 Chassis 및 고성능 EV 밴 가격 공개', beatCompanies: ['기아'], titleCompanies: ['기아'], checkTerms: ['투자'] })] };
   assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/global-beat', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
   const r = await call('radar_today', { include_minor: true }, opts);
   const b = r.text.split('[B · ')[1].split('[C · ')[0];
@@ -2888,6 +2892,10 @@ test('출입처 외신 (global-beat): event words → B with press-check hint, n
   assert.match(b, /현대차, 체코 공장에 20억유로 투자[^\n]*· 원화 환산\(자동, 한국은행 매매기준율 원\/유로 1,550\.2\(2026-11-10\) · 원\/100엔 905\.1\(2026-11-10\)\): 20억유로\(약 3조1004억원\), 1조엔\(약 9조51억원\)(?!, 5억파운드)/);
   const kia = items.items.find((x) => x.id === 'gl:kia');
   assert.deepEqual([kia.check.who, kia.company], ['기아', '기아·현대차']);
+  assert.equal(kia.check.must, undefined);                                                   // 라틴 고유어 없음 — 예전대로
+  assert.deepEqual(items.items.find((x) => x.id === 'gl:htwo').check.must, ['HTWO']);
+  assert.deepEqual(items.items.find((x) => x.id === 'gl:pv5').check.must, ['PV5', 'Chassis']);   // EV는 흔한 약어
+  assert.deepEqual(us.check.must, ['앨라배마']);                                                // 나라·주 이름이 있으면 그것만(예전대로)
 });
 
 test('미국 주 환경 허가·공고(us-state-env): radar_today에 허가 신청 A·제재 B, us_litigation 구역에 기준선·신규', async () => {
