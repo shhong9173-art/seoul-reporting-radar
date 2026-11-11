@@ -220,11 +220,30 @@ const sinceMonth = (h, month) => (h && /^\d{4}-\d{2}$/.test(String(month ?? ''))
 // 무역위 항목 보도 대조(11-08): 회사 이름이 누리집에 대개 없어 품목 이름으로 찾는다('석도강판 반덤핑'). 기사 제목은 짧은 품목 이름을 쓰고
 // '인쇄제판용 평면모양 사진플레이트' 같은 긴 정식 품목명은 제목에 잘 안 나와 '미보도 후보'로 잘못 보일 수 있어, 띄어쓰기·쉼표 없는 10자 이하만.
 // 덤핑·세이프가드 조사만(특허·원산지 같은 불공정무역행위는 사건 낱말이 제각각이라 뺌). 보도자료(news)는 이미 공개된 뉴스라 대조하지 않는다.
+// 무역위 조사 유형(11-11): 누리집 사건 주소의 invstg_type_code — 10100001은 덤핑(사건번호 '구제 23-…', 운영 진행 목록의 이 코드 사건은
+// 모두 반덤핑조사), 10100002는 불공정무역행위('구제 4-1-…'). 막 개시한 사건은 상세에 유형이 비어 있다
+// (11-05 '중국, 미국, 말레이시아산 아크릴산 2-에틸헥실' — 유형 미상·제목에 '덤핑' 없음).
+export function ktcType(e) {
+  const code = /invstg_type_code=(\d+)/.exec(String(e?.url ?? ''))?.[1];
+  return code === '10100001' ? '덤핑' : code === '10100002' ? '불공정무역행위' : null;
+}
+
+// 무역위 새 반덤핑 원심 조사(출입 업종 품목)는 A(11-11): 11-05 16:49 레이더가 B로 잡은 '아크릴산 2-에틸헥실' 새 조사가 다음 날
+// 기자 [단독] 「LG화학, 수입산 점착제 원료 반덤핑 조사 신청」(11-06 14:42)이었다 — B·보도 대조 안 함·회사 이름 없음이라 묻혔다.
+// 국내 생산자가 신청해야 열리는 조사라 출입처가 신청인일 수 있다(누리집엔 신청인 이름이 없다). 재심(종료·연장)·불공정무역행위는 그대로.
+export function ktcNewDumping(e) {
+  if (e?.ktcKind !== 'case' || !e?.beat) return false;
+  const t = `${e?.label ?? ''} ${e?.text ?? ''}`;
+  if (/재심|종료|연장|우회|불공정|원산지|특허|상표|디자인|영업비밀/.test(t)) return false;
+  return ktcType(e) === '덤핑' || /덤핑/.test(t);
+}
+
 export function ktcHint(e) {
   const p = String(e?.product ?? '').trim();
-  if (e?.ktcKind === 'news' || !p || /[\s,·]/.test(p) || p.length > 10) return undefined;
+  // 품목 이름은 두 낱말·14자까지(11-11: '아크릴산 2-에틸헥실'이 띄어쓰기 하나 때문에 대조에서 빠졌다). 긴 정식 품목명은 그대로 뺀다.
+  if (e?.ktcKind === 'news' || !p || /[,·]/.test(p) || p.split(/\s+/).length > 2 || p.length > 14) return undefined;
   const t = `${e?.label ?? ''} ${e?.text ?? ''}`;
-  const word = /세이프가드|긴급관세/.test(t) ? '세이프가드' : /덤핑/.test(t) ? '반덤핑' : null;
+  const word = /세이프가드|긴급관세/.test(t) ? '세이프가드' : /덤핑/.test(t) || ktcType(e) === '덤핑' ? '반덤핑' : null;
   return word ? hint(p, [word, '무역위원회']) : undefined;
 }
 
@@ -593,8 +612,11 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
     if (!recent(e.detectedAt) || e.renumbered) continue;  // 목록 일련번호만 밀린 재감지(수집기 표시)
     if (e.pageId === 'ktc') {
       // 국내 무역위원회: 공식 변화(B)는 출입 업종 품목만. 보도자료는 이미 공개된 뉴스(C). 회사 이름은 누리집에 대개 없다.
-      push(e.tier === 'B' ? 'B' : 'C', W['trade-remedy'], { kind: KTC_KIND[e.ktcKind] ?? '무역위원회', id: e.id, date: e.detectedAt,
-        company: e.product ?? '', fact: `${e.label}: ${e.text}`, url: e.url,
+      const fresh = e.tier === 'B' && ktcNewDumping(e);
+      const typeNote = ktcType(e) === '덤핑' && !/덤핑/.test(`${e.label} ${e.text}`) ? ' · 덤핑 조사(누리집 조사 유형 코드 — 상세 유형은 아직 비어 있음)' : '';
+      push(fresh ? 'A' : e.tier === 'B' ? 'B' : 'C', W['trade-remedy'], { kind: fresh ? '무역위 새 반덤핑 조사' : KTC_KIND[e.ktcKind] ?? '무역위원회', id: e.id, date: e.detectedAt,
+        company: e.product ?? '', fact: `${e.label}: ${e.text}${typeNote}`
+          + (fresh ? ' — 국내 생산자가 신청해야 열리는 조사. 신청인 이름은 누리집에 없음: 출입처가 이 품목을 만드는지·신청했는지 회사 확인' : ''), url: e.url,
         // 보도 대조: 회사 이름이 없어 품목 이름으로(ktcHint). (11-05~11-08 이 자리에 안내 글자를 넣어 두었더니 보도 대조가
         // 힌트를 객체로 읽다 멈췄다 — radar_press_check.py AttributeError, 7회 연속 실패. 힌트는 hint()가 만든 객체이거나 undefined만)
         check: ktcHint(e) });
