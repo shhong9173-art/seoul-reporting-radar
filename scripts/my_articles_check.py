@@ -121,6 +121,19 @@ def press_label(article, items):
     return "자체", len(when)
 
 
+# 실적 기사는 매체마다 제목(영업익 숫자·낱말)이 달라 비슷한 제목 세기로는 '자체'로 남는다(11-11 주간 점검: 14일 '자체' 18건 중
+# 고려아연·KG스틸·포스코홀딩스 3분기 실적 3건 — 모두 그날 DART 잠정실적 공시 기사). 제목에 '단독'이 없는 실적 기사는 공시 기사로 센다.
+EARNINGS_NOTE = "실적 기사(잠정실적 공시)"
+
+
+def press_of(article, kind):
+    """(보도 구분, 메모) — 저장된 판정(press)에 실적 규칙을 얹는다. 저장값은 바꾸지 않는다(규칙이 바뀌면 다시 계산)."""
+    p = article.get("press")
+    if p == "자체" and kind == "실적" and "단독" not in str(article.get("title") or ""):
+        return "보도자료·공시", EARNINGS_NOTE
+    return p, None
+
+
 def companies_in(title):
     return [name for name, rx in BEAT if rx.search(title or "")]
 
@@ -248,8 +261,10 @@ def run(now, previous=None, docs=None, clues=None, *, get=None, sleep=time.sleep
         if str(a["published"]) < since:
             continue
         verdict, best, n = rpc.match({"published": a["published"], "title": a["title"], "companies": a.get("companies") or []}, items)
-        rows.append({**{k: a.get(k) for k in ("url", "title", "published", "companies", "verified", "press", "pressN")}, "kind": kind_of(a["title"]),
-                     "verdict": verdict, "best": best, "sameCompanyItems": n})
+        kind = kind_of(a["title"])
+        press, note = press_of(a, kind)
+        rows.append({**{k: a.get(k) for k in ("url", "title", "published", "companies", "verified", "pressN")}, "press": press, **({"pressNote": note} if note else {}),
+                     "kind": kind, "verdict": verdict, "best": best, "sameCompanyItems": n})
         if verdict == "먼저 잡은 후보" and best:
             hits.setdefault(best["id"], {"title": a["title"], "published": a["published"], "url": a.get("url"), "verified": a.get("verified", False)})
     by_source = {}
