@@ -31,6 +31,8 @@ MEETINGS_READ = 3
 AGENDA_TRIES = 6
 KEEP_MEETINGS = 12
 KEEP_NEWS = 60
+NEWS_BACKFILL = 12   # 신청인 규칙 전 판정 보도자료를 한 실행에 읽는 수(PDF 사이 1초)
+APPLICANT_TITLE = re.compile(r"덤핑|상계|세이프가드|판정|부과\s*건의|조사\s*개시|무역구제조치")
 KEEP_LEFT = 40
 LEFT_MAX = 5  # 한 번에 이보다 많이 빠지면 누리집 이상으로 보고 판단을 미룬다
 # 출입 업종(철강·비철·전력기기·자동차·배터리·화학·에너지) 품목 낱말. 품목 표시일 뿐 회사 사건 근거가 아니다.
@@ -141,6 +143,86 @@ def parse_news(page):
     return out
 
 
+# 보도자료 첨부 PDF의 신청인(11-11 probe 210~212): 누리집 보도자료 상세엔 본문이 없고 첨부(hwpx·pdf, POST /boardFileDownload.do
+# bbs_id·seq_no)에 있다. 판정 보도자료 PDF엔 '참고N (최종판정) 중국산 아연도금냉연 덤핑조사 (원심) □ 조사 개요 ㅇ (신청인) 동국씨엠㈜,
+# 케이지스틸㈜, ㈜세아씨엠 ㅇ (조사대상공급자) …' 표와 '작년 7월 엘지화학이 조사를 신청한 건으로' 같은 문장이 있다(부틸 아크릴레이트·
+# 수산화나트륨(영진)·봉강(세아베스틸·세아창원특수강)·무계목강관(일진제강)·동관(능원금속공업·엘에스메탈)·산업용로봇(HD현대로보틱스)).
+# 누리집 사건 상세엔 신청인 이름이 없으니, 출입처가 신청인으로 적힌 보도자료는 출입처 항목으로 올린다.
+APPLICANT_ROW = re.compile(r"\(\s*신청인\s*\)\s*(.{2,120}?)\s*(?=ㅇ|□|\(\s*조사대상|$)")
+APPLICANT_SENT = re.compile(r"([^.。]{2,40}?)(?:이|가)\s*(?:반?덤핑)?\s*조사\s*(?:를\s*)?신청")
+REF_HEAD = re.compile(r"참고\s*\d*\s*[\(\[]?\s*(?:최종판정|예비판정|의결|판정)?\s*[\)\]]?\s*(.{2,50}?)\s*(?:덤핑조사|덤핑사실|조사)")
+SENT_PRODUCT = re.compile(r"((?:[가-힣]+(?:·|‧|,\s*|\s및\s))*[가-힣]+산\s[^.,]{2,30}?)(?:에\s*대한|의)\s*(?:반?덤핑)")
+NOT_NAME = {"신청인", "업계", "국내업계", "우리", "국내기업", "기업", "국내", "동", "이", "당사자", "피신청인"}
+CORP_MARK = re.compile(r"㈜|\(주\)|주식회사|\s+")
+# 신청인 이름 → 출입처(AGENTS.md 명시 기업만). 세아씨엠·세아베스틸·엘에스메탈 같은 계열·관련 회사는 출입처로 바꾸지 않는다.
+BEAT_ALIAS = {"엘지화학": "LG화학", "LG화학": "LG화학", "케이지스틸": "KG스틸", "KG스틸": "KG스틸", "동국씨엠": "동국씨엠", "동국제강": "동국제강",
+              "현대제철": "현대제철", "포스코": "포스코", "POSCO": "포스코", "세아제강": "세아제강", "롯데케미칼": "롯데케미칼", "한화솔루션": "한화솔루션",
+              "금호석유화학": "금호석유화학", "고려아연": "고려아연", "영풍": "영풍", "오씨아이": "OCI", "OCI": "OCI", "태광산업": "태광",
+              "에스오일": "S-OIL", "S-OIL": "S-OIL", "에쓰오일": "S-OIL", "에이치디현대일렉트릭": "HD현대일렉트릭", "HD현대일렉트릭": "HD현대일렉트릭",
+              "엘에스일렉트릭": "LS일렉트릭", "LS일렉트릭": "LS일렉트릭", "엘에스전선": "LS전선", "LS전선": "LS전선", "대한전선": "대한전선",
+              "엘에스엠앤엠": "LS MnM", "LS엠앤엠": "LS MnM", "LSMnM": "LS MnM", "디엘케미칼": "DL케미칼", "DL케미칼": "DL케미칼", "동성케미칼": "동성케미칼",
+              "에스케이이노베이션": "SK이노베이션", "SK이노베이션": "SK이노베이션", "에이치디현대오일뱅크": "HD현대오일뱅크", "HD현대오일뱅크": "HD현대오일뱅크",
+              "지에스칼텍스": "GS칼텍스", "GS칼텍스": "GS칼텍스", "현대자동차": "현대차", "기아": "기아", "현대모비스": "현대모비스", "현대위아": "현대위아",
+              "에이치엘만도": "HL만도", "HL만도": "HL만도", "한국타이어앤테크놀로지": "한국타이어", "금호타이어": "금호타이어", "넥센타이어": "넥센타이어",
+              "두산에너빌리티": "두산에너빌리티"}
+
+
+def _names(raw):
+    out = []
+    for part in re.split(r"(?<=[가-힣㈜)])(?:과|와)\s+|\s*[,·‧]\s*|\s및\s", raw or ""):
+        tok = (re.findall(r"[가-힣A-Za-z0-9㈜()\-]+", part) or [""])[-1]
+        name = CORP_MARK.sub("", tok).strip("()")
+        if len(name) >= 2 and name not in NOT_NAME and not re.fullmatch(r"\d+월?|작년|올해|지난해|금년", name):
+            out.append(name)
+    return out
+
+
+def applicants_in(text):
+    """보도자료 PDF 글 → [{'product', 'names', 'beat', 'how'}]. 표('(신청인) …')를 먼저, 없으면 '…이 조사를 신청' 문장."""
+    t = re.sub(r"\s+", " ", text or "")
+    out, seen = [], set()
+
+    def add(product, names, how):
+        names = [n for n in names if n]
+        key = (product or "", tuple(names))
+        if names and key not in seen:
+            seen.add(key)
+            beat = []
+            for n in names:
+                b = BEAT_ALIAS.get(n)
+                if b and b not in beat:
+                    beat.append(b)
+            out.append({"product": (product or "").strip()[:60] or None, "names": names[:6], "beat": beat, "how": how})
+
+    for m in APPLICANT_ROW.finditer(t):
+        heads = REF_HEAD.findall(t[max(0, m.start() - 160):m.start()])
+        add(heads[-1] if heads else None, _names(m.group(1)), "표")
+    for m in APPLICANT_SENT.finditer(t):
+        # 문장 꼴은 '…것으로, 올해 2월 세아베스틸과 세아창원특수강이' — 마지막 쉼표 뒤 마디만 이름 자리
+        names = _names(re.split(r"[,，]", m.group(1))[-1])
+        if not names:
+            continue
+        prods = SENT_PRODUCT.findall(t[max(0, m.start() - 160):m.end()])
+        known = {n for x in out for n in x["names"]}
+        if set(names) <= known:   # 표에 이미 있는 신청인
+            continue
+        add(prods[-1] if prods else None, names, "문장")
+    return out
+
+
+def attachment_pdf(http, bid, sleep):
+    """보도자료 첨부 중 PDF(첫 4바이트 %PDF) — seq 0001 먼저(대개 hwpx 다음), 없으면 0000. (bytes|None, 오류|None)."""
+    for seq in ("0001", "0000"):
+        sleep(1)
+        try:
+            st, body = http.post_binary("/boardFileDownload.do", {"bbs_id": bid, "seq_no": seq}, f"{SITE}/boardView.do?bbs_id={bid}&menuId={NEWS[1]}")
+        except Exception as e:  # noqa: BLE001
+            return None, type(e).__name__
+        if st == 200 and body[:4] == b"%PDF":
+            return body, None
+    return None, "PDF 첨부 없음"
+
+
 def pdf_text(data):
     try:
         from pypdf import PdfReader
@@ -180,6 +262,11 @@ class Http:
         self._open()
         r = self.s.post(SITE + path, data=data, headers={**UA, "Referer": SITE + "/"}, timeout=TIMEOUT)
         return r.status_code, self._text(r)
+
+    def post_binary(self, path, data, referer=None):
+        self._open()
+        r = self.s.post(SITE + path, data=data, headers={**UA, "Referer": referer or SITE + "/"}, timeout=TIMEOUT)
+        return r.status_code, r.content
 
     def get(self, path, params, referer=None, binary=False):
         self._open()
@@ -260,9 +347,10 @@ def collect(prev, now, http, *, sleep=time.sleep):
     prev = prev or {}
     errors, events = [], []
 
-    def event(kind, eid, label, text, url, tier, beat, product=None):
+    def event(kind, eid, label, text, url, tier, beat, product=None, company=None):
         events.append({"id": f"ktc:{kind}:{eid}", "pageId": "ktc", "country": "KR", "label": label, "text": text[:600], "url": url,
-                       "detectedAt": stamp, "tier": tier, "beat": beat, "ktcKind": kind, **({"product": product} if product else {})})
+                       "detectedAt": stamp, "tier": tier, "beat": beat, "ktcKind": kind, **({"product": product} if product else {}),
+                       **({"company": company} if company else {})})
 
     # 1) 진행 사건 목록 — 새 ID가 없는 쪽이 나오면 끝
     cases, ids, list_done = [], set(), False
@@ -384,6 +472,19 @@ def collect(prev, now, http, *, sleep=time.sleep):
     prev_news = {n["id"]: n for n in prev.get("news") or [] if isinstance(n, dict) and n.get("id")}
     news = dict(prev_news)
     newsp = _try(errors, "보도자료 목록", http.post, NEWS[0], {"menuId": NEWS[1]})
+    pdf_reads = 0
+
+    def read_applicants(rec):
+        nonlocal pdf_reads
+        pdf_reads += 1
+        data, err = attachment_pdf(http, rec["id"], sleep)
+        text, err2 = pdf_text(data) if data else (None, err)
+        if text is None:
+            rec["applicantsError"] = err2 or err
+            return
+        rec["applicants"] = applicants_in(text)
+        rec.pop("applicantsError", None)
+
     for row in parse_news(newsp) if newsp else []:
         if row["id"] in prev_news:
             continue
@@ -393,9 +494,24 @@ def collect(prev, now, http, *, sleep=time.sleep):
             body = _try([], "", http.get, "/boardView.do", {"bbs_id": row["id"], "menuId": "57"})
             m = re.search(r"등록일\s*(\d{4}-\d{2}-\d{2})", plain(body)) if body else None
             rec["posted"] = m.group(1) if m else None
-            beat = bool(BEAT.search(row["title"]))
-            event("news", row["id"], "무역위 보도자료", f"{row['title']}" + (f" (등록 {rec['posted']})" if rec["posted"] else ""), rec["url"], "C", beat)
+            if APPLICANT_TITLE.search(row["title"]):
+                read_applicants(rec)
+            beat_names = [b for a in rec.get("applicants") or [] for b in a["beat"]]
+            beat_names = list(dict.fromkeys(beat_names))
+            beat = bool(BEAT.search(row["title"])) or bool(beat_names)
+            who = "; ".join(f"{a['product'] or '품목 미상'}: {', '.join(a['names'])}" for a in rec.get("applicants") or [])
+            event("news", row["id"], "무역위 보도자료", f"{row['title']}" + (f" (등록 {rec['posted']})" if rec["posted"] else "")
+                  + (f" · 첨부 PDF의 신청인 — {who}" if who else ""), rec["url"], "B" if beat_names else "C", beat,
+                  company="·".join(beat_names) or None)
         news[row["id"]] = rec
+    # 신청인을 아직 안 읽은 지난 판정 보도자료(이 규칙 전 것) — 한 실행 NEWS_BACKFILL건, 이벤트 없이 기록만
+    if not baseline:
+        for rec in sorted(news.values(), key=lambda n: n["id"], reverse=True):
+            if pdf_reads >= NEWS_BACKFILL + 3:
+                break
+            if "applicants" in rec or rec.get("applicantsError") or not APPLICANT_TITLE.search(rec.get("title") or ""):
+                continue
+            read_applicants(rec)
     news = sorted(news.values(), key=lambda n: n["id"], reverse=True)[:KEEP_NEWS]
 
     listed = [c for c in cases if not c.get("stale")]
