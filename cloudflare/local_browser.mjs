@@ -111,7 +111,7 @@ const LABOR_ROW = /^(\d{10,22})\/(\d{1,3})\/(\d{8})\/([^/]{0,40})$/;
 const LABOR_BLOB = 'kr_labor_browser';
 const LABOR_SCHEMA = 'kr_labor_browser/v1';
 const MAX_LABOR_ROWS = 300;
-const LABOR_DISPATCH_GAP_MS = 5 * 3600000;  // 아침(08:40)·오후(16:40) 수집마다 한 번씩
+const LABOR_DISPATCH_GAP_MS = 5 * 3600000;  // 아침(09:00)·오후(16:00) 수집마다 한 번씩(11-11 전엔 08:40·16:40)
 const DAY = (d) => d.toISOString().slice(0, 10).replaceAll('-', '');
 
 async function submitLabor(ctx, given, nowIso) {
@@ -299,7 +299,8 @@ export async function browserUpload(request, env, deps = {}) {
 // radar_today 수집 상태에 이상이 있을 때만 한 줄로 알린다: 가장 최근 예정 시각 뒤 올림 없음 / 이번 수집에서 못 읽은 시·군 / 대신 쓴 길.
 // 11-09: 월 08:40 예정 시각에 기자 컴퓨터가 연결돼 있지 않자 예약 작업이 '기기 없음'으로 정지·꺼짐(enabled=false)이 됐다 — 컴퓨터를 켜도 저절로
 // 다시 켜지는지 확인되지 않아, 놓친 줄에 예약 작업 목록에서 켜져 있는지 보라고 붙인다.
-export const BROWSER_SLOTS = [[8, 40], [16, 40]];  // 예약 작업 '새올 고시·공고 브라우저 수집'(KST, 평일)
+// 11-11 기자 결정: 08:40은 사흘 연속 컴퓨터 연결 전이라 빠져 09:00으로(한 예약 작업은 분을 하나만 써 오후도 16:00)
+export const BROWSER_SLOTS = [[9, 0], [16, 0]];  // 예약 작업 '새올 고시·공고 브라우저 수집'(KST, 평일)
 // 이 수집 말고는 길이 없는 시·군(GitHub 직접 조회가 늘 시간 초과) — 나머지는 직접 조회가 실패한 날만 대신 쓰는 곳
 export const BROWSER_ONLY = ['인천 부평구', '구미시', '청주시', '순천시', '함평군'];
 const SLOT_GRACE_MIN = 45;  // 예약 작업이 돌고 올리기까지 기다리는 시간
@@ -332,7 +333,7 @@ export async function browserHealth(ctx) {
     try { return JSON.parse(row.body); } catch { return { broken: true }; }
   };
   const [doc, labor, pages, key] = await Promise.all([read(BLOB), read(LABOR_BLOB), read(PAGES_BLOB), read(KEY_BLOB)]);
-  const label = '기자 컴퓨터 수집(Aside 예약 작업, 평일 08:40·16:40 — 해외 IP 차단 시·군 고시·공고·노동위 회의·호주 TRN)';
+  const label = '기자 컴퓨터 수집(Aside 예약 작업, 평일 09:00·16:00 — 해외 IP 차단 시·군 고시·공고·노동위 회의·호주 TRN)';
   if (!doc) return `${label}: 결과 없음 — 미확인`;
   if (doc.broken) return `${label}: 저장 형식 오류 — 미확인`;
   const missed = (t) => slot != null && !(t >= slot - SLOT_EARLY_MIN * 60000);
