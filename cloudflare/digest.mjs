@@ -196,8 +196,21 @@ export const insolvencyWord = (kind) => (/파산/.test(String(kind ?? '')) ? '�
 // 둘째에 넣어야 두 번째 질의('회사 사건 지명')가 좁혀진다 — 셋째면 질의에 안 들어간다(scoop_screen.queries는 앞 두 낱말만).
 // since: 외신은 국내 기사보다 늦게 나오는 일이 많아 대조 시작을 게재일 GB_LEAD_DAYS일 전으로 당긴다(대조기의 3일 여유를 더해 10일).
 export const GB_LEAD_DAYS = 7;
-export const gbHint = (who, terms, country, published) => {
-  const h = country ? hint(who, [terms[0], country, ...terms.slice(1)], [country], [country]) : hint(who, terms);
+// 한국어 제목의 라틴 글자 고유어(HTWO·PV5·EV7·CATL 등) — 나라 이름이 없을 때 기사에 이 중 하나는 있어야 같은 건으로 센다(없으면 약한 근거).
+// 11-10 운영: Just Auto 「현대차 HTWO 광저우와 에어리퀴드 차이나, 수소 모빌리티 MOU 체결」이 "현대차 MOU"로 대조돼 포스코퓨처엠·현대차
+// 흑연 협력 기사로 '관련 보도 있음'. 회사 영문 이름·흔한 약어(MOU·EV·SUV·ESS·H2 등)는 고유어가 아니다.
+const GB_LATIN_SKIP = new Set(['MOU', 'EV', 'EVS', 'SUV', 'SUVS', 'AI', 'ESS', 'CEO', 'CFO', 'CTO', 'COO', 'IPO', 'OE', 'OEM', 'US', 'USA', 'UK', 'EU', 'IRA',
+  'HVDC', 'SMR', 'LNG', 'LPG', 'GW', 'MW', 'GWH', 'MWH', 'KWH', 'KW', 'CO2', 'ESG', 'IT', 'SW', 'SDV', 'HEV', 'PHEV', 'BEV', 'FCEV', 'ICE', 'NCC', 'KRW',
+  'USD', 'EUR', 'JV', 'B2B', 'B2C', 'Q1', 'Q2', 'Q3', 'Q4', 'PE', 'PP', 'ABS', 'NEV', 'LFP', 'NCM', 'NCA', 'RE100', 'H2', 'R&D', 'M&A', 'TV', 'PR', 'VS',
+  'HYUNDAI', 'KIA', 'POSCO', 'LG', 'SK', 'LS', 'HD', 'GS', 'OCI', 'KG', 'HL', 'DL', 'S-OIL', 'MOBIS', 'MANDO', 'HANKOOK', 'NEXEN', 'KUMHO', 'HANWHA',
+  'DOOSAN', 'HYOSUNG', 'TAIHAN', 'LOTTE', 'GENESIS']);
+export const gbNames = (koTitle) => [...new Set((String(koTitle ?? '').match(/[A-Za-z][A-Za-z0-9&-]*[A-Za-z0-9]/g) ?? [])
+  .filter((w) => !GB_LATIN_SKIP.has(w.toUpperCase())))].slice(0, 3);
+
+export const gbHint = (who, terms, country, published, koTitle = '') => {
+  const names = country ? [] : gbNames(koTitle);
+  const h = country ? hint(who, [terms[0], country, ...terms.slice(1)], [country], [country])
+    : names.length ? hint(who, terms, [], names) : hint(who, terms);
   const t = Date.parse(published ?? '');
   return h && Number.isFinite(t) ? { ...h, since: kstDate(t - GB_LEAD_DAYS * 86400000) } : h;
 };
@@ -801,7 +814,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
         + (Array.isArray(x.numbersNotInSource) && x.numbersNotInSource.length ? ` · ⚠ 원문 발췌에 없는 숫자: ${x.numbersNotInSource.slice(0, 4).join(', ')} — 기사에 쓰기 전 원문 대조` : '')
         // 외화 금액의 원화(11-11): 한국은행 매매기준율로 코드가 계산(달러·유로·엔·파운드·위안). 기사에 쓸 땐 작성일 환율로 다시
         + gbKrw(x.krw),
-      url: x.url, check: terms.length && companies.length ? gbHint(ordered[0], terms, (GB_COUNTRY.exec(String(x.koTitle ?? '')) ?? [])[0], x.published) : undefined });
+      url: x.url, check: terms.length && companies.length ? gbHint(ordered[0], terms, (GB_COUNTRY.exec(String(x.koTitle ?? '')) ?? [])[0], x.published, x.koTitle) : undefined });
   }
 
   // US OSHA: new inspection (fatality/accident A, complaint/referral B), new citations (willful/repeat or $100k+ A, serious B), fatal accident summary A.
