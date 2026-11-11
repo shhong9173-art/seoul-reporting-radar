@@ -1,13 +1,13 @@
 {
-  "generatedAt": "2026-11-11T02:16:09+09:00",
-  "deskGeneratedAt": "2026-11-10T08:32:48+09:00",
-  "crossGeneratedAt": "2026-11-11T02:09:25+09:00",
-  "triageGeneratedAt": "2026-11-11T02:09:25+09:00",
+  "generatedAt": "2026-11-11T11:03:25+09:00",
+  "deskGeneratedAt": "2026-11-11T08:33:13+09:00",
+  "crossGeneratedAt": "2026-11-11T10:52:54+09:00",
+  "triageGeneratedAt": "2026-11-11T10:52:54+09:00",
   "status": "research_only",
-  "totalCurrentCandidates": 107,
+  "totalCurrentCandidates": 115,
   "dossiersDisplayed": 15,
   "mediaCompleteInDisplayed": 15,
-  "freshPublicationsInDisplayed": 0,
+  "freshPublicationsInDisplayed": 1,
   "sourceStatus": {
     "kipris": "validated_existing_snapshot",
     "dart": "partial_official_reference_snapshot",
@@ -61,6 +61,65 @@
       "cautions": [
         "old_patent_publication_not_new_event",
         "no_dart_related_source_coverage"
+      ],
+      "questions": [
+        "동일 공개번호·청구항과 이전 특허의 우선권·패밀리/기술 차이를 확인했는가?",
+        "국가과제 과제번호와 수행기관 법인명이 이 특허의 출원인과 일치하는가?",
+        "공식 NTIS 수행과제 결과가 이 특허의 연구성과로 명시됐는가?",
+        "DART에 실제 차종·공장·생산공정 적용 근거가 있으며 기업이 확인했는가?",
+        "기보도, 회사 보도자료, 공개일과 관측일을 구분했는가?"
+      ]
+    },
+    {
+      "publicationNumber": "1020260161434",
+      "title": "고조파를 보상하는 방법 및 장치",
+      "companies": [
+        "HD현대일렉트릭"
+      ],
+      "outsideCoApplicants": [
+        "에이치디한국조선해양 주식회사"
+      ],
+      "publicationDate": "2026-11-09",
+      "daysSincePublication": 2,
+      "recentPatentWithin3Days": true,
+      "claim1OfficiallyRetrieved": false,
+      "claim1Excerpt": "",
+      "olderSameTitleSearchState": "searched_same_title_only",
+      "olderSameTitleSearchComplete": true,
+      "earlierPublicationsWithin35Days": [],
+      "olderSameTitlePublications": [],
+      "officialClaim1Comparisons": [],
+      "patentNoveltyOrTechnicalSuperiorityProven": false,
+      "pressLookupCompleted": true,
+      "pressRisk": "index_no_hits_not_proof",
+      "pressIndexArticlesForManualReview": [],
+      "pressEarlierCoverageProven": false,
+      "candidateStage": "source_review_company_call",
+      "eligibleForResearchQueue": true,
+      "dartDocuments": [
+        {
+          "relation": "same_issuer_only_no_patent_relation",
+          "type": "dart_business_table",
+          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003228",
+          "filingDate": "2026-08-14",
+          "filedWithin3Days": false,
+          "technicalTerms": [],
+          "patentBusinessRelationshipProven": false
+        }
+      ],
+      "dartRecentDocuments": 0,
+      "ntisResearchQueries": [],
+      "ntisProjectApiStatus": "not_connected",
+      "ntisProjectConfirmed": false,
+      "irisProjectResultStatus": "not_connected",
+      "officialResearchProjectAwardConfirmed": false,
+      "patentToProjectIdentityVerified": false,
+      "commercialApplicationVerified": false,
+      "industryImpactVerified": false,
+      "exclusiveVerified": false,
+      "publicationApproved": false,
+      "cautions": [
+        "dart_evidence_is_historical_context"
       ],
       "questions": [
         "동일 공개번호·청구항과 이전 특허의 우선권·패밀리/기술 차이를 확인했는가?",
@@ -299,89 +358,6 @@
       ],
       "dartRecentDocuments": 0,
       "ntisResearchQueries": [],
-      "ntisProjectApiStatus": "not_connected",
-      "ntisProjectConfirmed": false,
-      "irisProjectResultStatus": "not_connected",
-      "officialResearchProjectAwardConfirmed": false,
-      "patentToProjectIdentityVerified": false,
-      "commercialApplicationVerified": false,
-      "industryImpactVerified": false,
-      "exclusiveVerified": false,
-      "publicationApproved": false,
-      "cautions": [
-        "old_patent_publication_not_new_event",
-        "dart_evidence_is_historical_context"
-      ],
-      "questions": [
-        "동일 공개번호·청구항과 이전 특허의 우선권·패밀리/기술 차이를 확인했는가?",
-        "국가과제 과제번호와 수행기관 법인명이 이 특허의 출원인과 일치하는가?",
-        "공식 NTIS 수행과제 결과가 이 특허의 연구성과로 명시됐는가?",
-        "DART에 실제 차종·공장·생산공정 적용 근거가 있으며 기업이 확인했는가?",
-        "기보도, 회사 보도자료, 공개일과 관측일을 구분했는가?"
-      ]
-    },
-    {
-      "publicationNumber": "1020260155217",
-      "title": "재활용 소재용 복합 저감제의 평가 방법",
-      "companies": [
-        "기아",
-        "현대자동차"
-      ],
-      "outsideCoApplicants": [
-        "주식회사 에이치엠솔루션"
-      ],
-      "publicationDate": "2026-10-27",
-      "daysSincePublication": 15,
-      "recentPatentWithin3Days": false,
-      "claim1OfficiallyRetrieved": false,
-      "claim1Excerpt": "",
-      "olderSameTitleSearchState": "searched_same_title_only",
-      "olderSameTitleSearchComplete": false,
-      "earlierPublicationsWithin35Days": [],
-      "olderSameTitlePublications": [],
-      "officialClaim1Comparisons": [],
-      "patentNoveltyOrTechnicalSuperiorityProven": false,
-      "pressLookupCompleted": true,
-      "pressRisk": "index_no_hits_not_proof",
-      "pressIndexArticlesForManualReview": [],
-      "pressEarlierCoverageProven": false,
-      "candidateStage": "source_review_company_call",
-      "eligibleForResearchQueue": true,
-      "dartDocuments": [
-        {
-          "relation": "same_issuer_only_no_patent_relation",
-          "type": "dart_business_table",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003521",
-          "filingDate": "2026-08-14",
-          "filedWithin3Days": false,
-          "technicalTerms": [],
-          "patentBusinessRelationshipProven": false
-        },
-        {
-          "relation": "same_issuer_only_no_patent_relation",
-          "type": "dart_business_table",
-          "sourceUrl": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260916000427",
-          "filingDate": "2026-09-16",
-          "filedWithin3Days": false,
-          "technicalTerms": [],
-          "patentBusinessRelationshipProven": false
-        }
-      ],
-      "dartRecentDocuments": 0,
-      "ntisResearchQueries": [
-        {
-          "query": "기아 재활용",
-          "url": "https://www.ntis.go.kr/ThSearchProjectList.do?searchWord=%EA%B8%B0%EC%95%84%20%EC%9E%AC%ED%99%9C%EC%9A%A9",
-          "resultStatus": "not_queried_api_unconnected",
-          "participationConfirmed": false
-        },
-        {
-          "query": "에이치엠솔루션 재활용",
-          "url": "https://www.ntis.go.kr/ThSearchProjectList.do?searchWord=%EC%97%90%EC%9D%B4%EC%B9%98%EC%97%A0%EC%86%94%EB%A3%A8%EC%85%98%20%EC%9E%AC%ED%99%9C%EC%9A%A9",
-          "resultStatus": "not_queried_api_unconnected",
-          "participationConfirmed": false
-        }
-      ],
       "ntisProjectApiStatus": "not_connected",
       "ntisProjectConfirmed": false,
       "irisProjectResultStatus": "not_connected",
