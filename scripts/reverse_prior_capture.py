@@ -109,7 +109,10 @@ SPECIFICS = [("강관", r"강관", r"\bpipe|tube|tubular"), ("후판", r"후판"
              ("변압기", r"변압기", r"transformer"), ("철근", r"철근", r"rebar|reinforcing bar"), ("선재", r"선재", r"wire rod"),
              ("스테인리스", r"스테인리스", r"stainless"), ("전선", r"전선|케이블", r"\bcable|\bwire\b"), ("타이어", r"타이어", r"\btires?\b"),
              ("탄소배출권", r"탄소배출권|배출권", r"\bKAUs?\b|K-?ETS|emission (?:permit|allowance)"), ("전기요금", r"전기요금|전력요금", r"electricity"),
-             ("특별시장상황", r"특별시장상황|PMS", r"particular market situation")]
+             ("특별시장상황", r"특별시장상황|PMS", r"particular market situation"),
+             # 11-11 기자 기사 대조: 「금호석유화학, 특수가스 자회사 흡수합병 마무리」(11-11)가 전날 DART '합병등종료보고서(합병)' 단서와
+             # '합병' 개념 하나만 겹쳐 '같은 회사 항목만'이었다. 합병을 끝냈다는 기사 ↔ 합병 종료 보고서는 같은 사건.
+             ("합병 종료", r"합병.{0,12}(?:마무리|완료|종료|마쳐|마친|매듭)", r"합병등\s*종료\s*보고서|합병\s*종료")]
 SPECIFIC_RX = [(name, re.compile(ko), re.compile(en, re.I)) for name, ko, en in SPECIFICS]
 # 회사 이름 속 품목 낱말은 사건 낱말이 아니다(11-09: 기사 'LS전선'의 전선 ↔ 항목 'LS Cable & System'의 cable로 '먼저'가 됨).
 # 기사 쪽은 그 기사의 회사 이름을 지운 제목, 항목 쪽은 아래 영문 회사 이름을 지운 글로 품목을 맞춘다.

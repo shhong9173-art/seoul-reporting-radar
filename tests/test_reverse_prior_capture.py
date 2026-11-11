@@ -335,6 +335,17 @@ class Governance(unittest.TestCase):
         v, best, _ = r.match({"title": "주주가치 높인다며 산 자사주…KG스틸, 임직원 보상에 쓴다", "companies": ["KG스틸"], "published": "2026-10-24T09:00:00+09:00"}, items)
         self.assertEqual((v, best["label"]), ("먼저 잡은 후보", "지분·자사주 변동"))
 
+    def test_merger_completion_article_matches_completion_report_11_11(self):
+        clues = {"items": [{"id": "c-kumho", "companies": ["금호석유화학"], "title": "금호석유화학 · 합병등종료보고서(합병)", "published": "2026-11-10"}]}
+        items = r.memory({}, clues)
+        v, best, _ = r.match({"title": "금호석유화학, 특수가스 자회사 흡수합병 마무리", "companies": ["금호석유화학"], "published": "2026-11-11T10:00:00+09:00"}, items)
+        self.assertEqual((v, best["id"]), ("먼저 잡은 후보", "c-kumho"))
+        self.assertIn("합병 종료", best["why"])
+        # 합병을 '추진'한다는 기사는 종료 보고서와 같은 사건이 아니다(개념 '합병' 하나만 겹침)
+        v2, _, _ = r.match({"title": "금호석유화학, 특수가스 자회사 흡수합병 추진", "companies": ["금호석유화학"], "published": "2026-11-11T10:00:00+09:00"}, items)
+        self.assertEqual(v2, "같은 회사 항목만")
+
+
 class Tally(unittest.TestCase):
     def test_type_and_outlet_tallies(self):
         trace = {"items": [

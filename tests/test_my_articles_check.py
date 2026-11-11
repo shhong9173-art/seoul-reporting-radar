@@ -166,5 +166,28 @@ class MyArticles(unittest.TestCase):
         self.assertEqual(doc3["pressCounts"]["미확인"], len(doc3["articles"]))         # 검색 실패는 판정 안 함
         self.assertIn("뉴스 검색:RuntimeError", doc3["checks"][0]["error"])
 
+    def test_earnings_articles_count_as_filings_11_11(self):
+        self.assertEqual(w.press_of({"title": "KG스틸, 3분기 영업익 248억원⋯전년比 53.9% 감소", "press": "자체"}, "실적"), ("보도자료·공시", w.EARNINGS_NOTE))
+        self.assertEqual(w.press_of({"title": "[단독] 현대제철, 4분기 적자 전환 유력", "press": "자체"}, "실적"), ("자체", None))   # 단독은 그대로
+        self.assertEqual(w.press_of({"title": "금호석유화학, 특수가스 자회사 흡수합병 마무리", "press": "자체"}, "기타"), ("자체", None))
+        self.assertEqual(w.press_of({"title": "KG스틸, 3분기 영업익", "press": None}, "실적"), (None, None))          # 판정 전은 판정 전
+        self.assertEqual(w.press_of({"title": "KG스틸, 3분기 영업익", "press": "선행"}, "실적"), ("선행", None))        # 기자가 먼저 쓴 기사는 그대로
+
+        def search(params):
+            return []   # 비슷한 제목 없음 → 저장 판정은 '자체'
+        get, _ = fake()
+        doc = w.run(NOW, None, DOCS, {}, get=get, sleep=lambda s: None, search=search)
+        art = next(a for a in doc["mine"] if a["title"].startswith("기아, 화성"))
+        self.assertEqual(art["press"], "자체")
+        earn = {"url": "https://www.inews24.com/view/3000009", "title": "현대제철, 3분기 영업익 871억원", "published": "2026-11-04T16:00:00+09:00",
+                "companies": ["현대제철"], "verified": True, "press": "자체", "pressN": 0, "pressAt": "2026-11-04T19:40:00+09:00", "pressV": w.PRESS_V}
+        doc2 = w.run(NOW + dt.timedelta(hours=1), {**doc, "mine": doc["mine"] + [earn]}, DOCS, {}, get=fake()[0], sleep=lambda s: None, search=search)
+        row = next(a for a in doc2["articles"] if a["title"].startswith("현대제철, 3분기"))
+        self.assertEqual((row["press"], row["pressNote"], row["kind"]), ("보도자료·공시", w.EARNINGS_NOTE, "실적"))
+        self.assertEqual(next(a for a in doc2["mine"] if a["title"].startswith("현대제철, 3분기"))["press"], "자체")   # 저장값은 그대로
+        self.assertEqual(doc2["pressCounts"]["자체"], doc["pressCounts"]["자체"])                       # 실적 기사는 '자체'에 안 더해짐
+        self.assertEqual(doc2["pressCounts"]["보도자료·공시"], doc["pressCounts"]["보도자료·공시"] + 1)
+
+
 if __name__ == "__main__":
     unittest.main()
