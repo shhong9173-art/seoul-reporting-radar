@@ -1,12 +1,12 @@
 {
-  "generatedAt": "2026-11-11T17:46:43+09:00",
+  "generatedAt": "2026-11-12T01:37:16+09:00",
   "status": "reporter_evidence_queue_not_exclusive",
   "sourceCoverage": "partial_source_coverage_not_zero_news",
   "sourceHealth": {
     "officialEvents": {
       "status": "source_partial_coverage",
-      "generatedAt": "2026-11-11T16:17:06+09:00",
-      "rows": 0,
+      "generatedAt": "2026-11-11T17:46:45+09:00",
+      "rows": 1,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false,
       "incompleteOrStaleFeeds": [
@@ -16,8 +16,8 @@
     },
     "dartBeat": {
       "status": "source_partial_coverage",
-      "generatedAt": "2026-11-11T17:45:49+09:00",
-      "rows": 81,
+      "generatedAt": "2026-11-12T01:36:42+09:00",
+      "rows": 79,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false,
       "uninspectedRelevantDetails": 0
@@ -31,7 +31,7 @@
     },
     "metrics": {
       "status": "source_snapshot_checked",
-      "generatedAt": "2026-11-11T15:14:15+09:00",
+      "generatedAt": "2026-11-12T00:03:52+09:00",
       "rows": 24,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false
@@ -59,7 +59,7 @@
     }
   },
   "countsByEvidenceTier": {
-    "new_official_receipt_review": 0,
+    "new_official_receipt_review": 1,
     "new_official_list_heading_review": 0,
     "verified_historical_investment_delta": 3,
     "verified_historical_numeric_delta": 24,
@@ -68,16 +68,16 @@
     "unlinked_correction_text_followup": 1
   },
   "sourceDateWindow": {
-    "recentFrom": "2026-11-09",
-    "through": "2026-11-11"
+    "recentFrom": "2026-11-10",
+    "through": "2026-11-12"
   },
-  "checkedOfficialRecentCandidates": 0,
+  "checkedOfficialRecentCandidates": 1,
   "recentOfficialTitleOnlyCount": 0,
-  "todayOnlyCount": 0,
+  "todayOnlyCount": 1,
   "historicalResearchCount": 32,
   "unlinkedHistoryTextMatchCount": 1,
   "correctionHistorySourceGate": "reviewed_unlinked_candidates_only",
-  "totalRows": 32,
+  "totalRows": 33,
   "excluded": {
     "invalid_original_identity": 0,
     "old_and_not_relevant": 0,
@@ -88,6 +88,30 @@
   "approvedArticles": 0,
   "warning": "공식 발행일≠수집일, 투자 종료 예정월 변경≠실제 지연, 정정문 변경란≠원공시 대조, 보도 검색 0건≠미보도. 미수집/부분수집≠사건 0건.",
   "items": [
+    {
+      "id": "new_official_receipt_review:DART:20261111000194",
+      "tier": "new_official_receipt_review",
+      "tierLabel": "최근 공식 접수 확인·본문 검증 전",
+      "company": "일진전기",
+      "title": "일진전기 · 정기·주요공시 · 분기보고서 (2026.09)",
+      "officialDocumentDate": "2026-11-11",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 공시 접수 확인. 계약 이행·실제 산업 영향 및 단독 여부 미확인",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261111000194"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 문서 본문에서 실제 계약·규제·금액·효력 범위 확인",
+        "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
+        "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
+      ]
+    },
     {
       "id": "verified_historical_investment_delta:20260814003228:변압기 철심공장",
       "tier": "verified_historical_investment_delta",
