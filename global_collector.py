@@ -343,9 +343,78 @@ MARKETPLACES = {"ev.com"}
 NOT_NEWS_DROPPED = []
 
 
-def not_news(title: str) -> bool:
+# 매체 주소의 광고성(스폰서·제휴) 구역 — 제목에는 'sponsored'가 없다(11-10 운영: Automotive News
+# /sponsored/publishing-partners/ 'Hyundai's Boldest SUV, the All-New Tucson, is More American Than Ever'가 출입처 외신 C로 올라왔다).
+# 구글 뉴스 중계 주소(news.google.com)는 경로를 알 수 없어 매체 RSS로 직접 주소가 붙은 기사에만 걸린다.
+SPONSORED_PATH = re.compile(r"/(?:sponsored(?:-content)?|publishing-partners|partner-content|brandvoice|brand-?studio|branded-content|"
+                            r"paid-?post|advertorials?|presented-by)(?:/|$)", re.I)
+
+
+def not_news(title: str, url: str = "") -> bool:
     t = (title or "").strip()
-    return bool(NOT_NEWS.search(t) or MODEL_ONLY.match(t))
+    path = urllib.parse.urlsplit(url or "").path if url else ""
+    return bool(NOT_NEWS.search(t) or MODEL_ONLY.match(t) or (path and SPONSORED_PATH.search(path)))
+
+
+# 원화 환산(11-11 기자 요청 방향): 한국어 제목·요약의 달러 금액에 한국은행 ECOS 원/달러 매매기준율(731Y001·0000001, 일별)로
+# 코드가 계산한 원화를 붙인다. AI는 환산하지 않는다(번역 지시: 원문 통화 그대로). 기사에 쓸 때는 작성일 환율로 다시 계산.
+FX_URL = "https://ecos.bok.or.kr/api/StatisticSearch/{key}/json/kr/1/30/731Y001/D/{start}/{end}/0000001"
+
+
+def usd_krw(key: str, now, cached=None, fetch=None):
+    """원/달러 매매기준율 → {"rate", "date"(기준일), "fetched"(받은 날 KST)}. 같은 날 받은 것은 다시 묻지 않는다(뉴스 수집 20분마다).
+    키가 없거나 조회가 실패하면 직전 값(날짜 그대로) 또는 None. 키는 출력하지 않는다."""
+    today = now.strftime("%Y-%m-%d")
+    ok = cached if isinstance(cached, dict) and cached.get("rate") else None
+    if ok and ok.get("fetched") == today:
+        return ok
+    if not key:
+        return ok
+    url = FX_URL.format(key=urllib.parse.quote(key), start=(now - timedelta(days=14)).strftime("%Y%m%d"), end=now.strftime("%Y%m%d"))
+    try:
+        body = json.loads((fetch or get)(url, 15))
+        rows = ((body or {}).get("StatisticSearch") or {}).get("row") or []
+        pts = sorted((str(r.get("TIME")), float(str(r.get("DATA_VALUE")).replace(",", ""))) for r in rows
+                     if re.fullmatch(r"\d{8}", str(r.get("TIME") or "")) and r.get("DATA_VALUE") not in (None, ""))
+    except Exception:  # noqa: BLE001 — 조회 실패는 환산을 빼고 넘어간다(주소에 키가 있어 오류 글은 찍지 않는다)
+        return ok
+    if not pts:
+        return ok
+    t, v = pts[-1]
+    return {"rate": round(v, 2), "date": f"{t[:4]}-{t[4:6]}-{t[6:]}", "fetched": today}
+
+
+def krw_text(won: float) -> str:
+    """원화 금액 → '약 4조3860억원'·'약 6604억원'·'약 150만원' (기사 표기: 쉼표 없이)."""
+    if won >= 1e8:
+        t = int(round(won / 1e8))          # 억 단위로 먼저 반올림(9999.99억 → 1조)
+        if t >= 10000:
+            jo, eok = divmod(t, 10000)
+            return f"약 {jo}조{eok}억원" if eok else f"약 {jo}조원"
+        return f"약 {t}억원"
+    if won >= 1e4:
+        return f"약 {int(round(won / 1e4))}만원"
+    return f"약 {int(round(won))}원"
+
+
+def dollar_amounts(korean: str) -> list[tuple[str, float]]:
+    """한국어 글의 달러 금액(표기, 값) — '30억달러'·'4억5천만 달러'·'2,600만달러'. 같은 표기는 한 번."""
+    try:
+        from scripts.number_check import ko_numbers
+    except ImportError:  # pragma: no cover
+        from number_check import ko_numbers
+    out = []
+    for raw, value in ko_numbers(korean or ""):
+        if raw.rstrip().endswith("달러") and value > 0 and raw not in [r for r, _ in out]:
+            out.append((raw.strip(), value))
+    return out
+
+
+def krw_notes(item: dict, fx) -> list[dict]:
+    if not fx or not fx.get("rate"):
+        return []
+    text = f"{item.get('koTitle') or ''}\n{item.get('koSummary') or ''}"
+    return [{"usd": raw, "krw": krw_text(v * float(fx["rate"]))} for raw, v in dollar_amounts(text)][:3]
 
 
 SOURCE_SEP = re.compile(r"\s+[-–—|]\s+")
@@ -400,7 +469,7 @@ def parse_publisher(source: str, url: str) -> list[dict]:
         link = (item.findtext("link") or "").strip()
         if not title or not link.startswith("https://") or looks_korean(title):
             continue
-        if not_news(title):
+        if not_news(title, link):
             NOT_NEWS_DROPPED.append(source)
             continue
         try:
@@ -490,7 +559,7 @@ def parse(source: str, query: str) -> list[dict]:
         src = item.find("source")
         actual_source = (src.text or "").strip() if src is not None else source
         title = strip_source_suffix(title, actual_source)
-        if not_news(title):
+        if not_news(title, link):
             NOT_NEWS_DROPPED.append(actual_source or source)
             dropped["notNews"] += 1
             continue
@@ -548,7 +617,7 @@ def parse(source: str, query: str) -> list[dict]:
     return rows
 
 
-def push_beat(rows: list[dict], stamp: str) -> None:
+def push_beat(rows: list[dict], stamp: str, fx=None) -> None:
     """직접 출입처 이름이 나온 외신만 기자 전용 저장소(global-beat)로 — 오늘의 레이더 '출입처 외신'과 자동 보도 대조가 읽는다.
     공개 자료(외신 제목·한국어 요약)라도 레이더 판단과 함께 보이므로 저장소로 보낸다. 공개 로그는 건수만."""
     import os
@@ -573,11 +642,13 @@ def push_beat(rows: list[dict], stamp: str) -> None:
               "koTitle": x.get("koTitle", ""), "koSummary": (x.get("koSummary") or "")[:500], "source": x.get("sourceName") or x.get("globalSource"),
               "published": x.get("published"), "firstSeen": x.get("firstSeen"), "beatCompanies": x.get("beatCompanies") or [],
               "checkTerms": x.get("checkTerms") or [], "numbersNotInSource": (x.get("numbersNotInSource") or [])[:6],
-              "affiliateLead": (x.get("affiliateLead") or [])[:3], "titleCompanies": x.get("titleCompanies") or []} for x in rows
+              "affiliateLead": (x.get("affiliateLead") or [])[:3], "titleCompanies": x.get("titleCompanies") or [],
+              **({"krw": x["krw"]} if x.get("krw") else {})} for x in rows
              if x.get("beatCompanies") and (x.get("sourceName") or "").strip().lower() not in MARKETPLACES]
     refused = sorted({c["category"] for c in GLOBAL_FEED_CHECKS if c.get("status") == "transport_or_xml_error"})
     doc = {"schema": "global_beat/v1", "generatedAt": stamp, "items": items, "checks": [{"source": "외신 수집", "status": "ok"}],
            "feedErrors": refused,
+           **({"fx": {"rate": fx["rate"], "date": fx["date"], "source": "한국은행 ECOS 731Y001 원/달러 매매기준율"}} if fx else {}),
            "rules": ["해외 매체 기사(구글 뉴스·매체 RSS) 중 직접 출입처 이름이 나온 것만. 제목·요약은 AI 번역·요약이라 원문 확인.",
                      "사건 낱말(공장·투자·수주·원자로 등)이 한국어 제목에 있으면 B(자동 보도 대조), 없으면 참고(C)."]}
     try:
@@ -620,6 +691,14 @@ def main() -> None:
     diagnostic=build_feed_health(GLOBAL_FEED_CHECKS,expected=len(QUERIES)+len(PUBLISHER_FEEDS),
         news_items=len(unique),now=datetime.now(KST),threshold=1)
     diagnostic["publisherFeedBackoff"]=backoff
+    import os as _os
+    try:
+        _prev_fx=(json.loads(FEED_HEALTH.read_text(encoding="utf-8")) or {}).get("fx")
+    except (OSError, ValueError):
+        _prev_fx=None
+    fx=usd_krw(_os.environ.get("ECOS_API_KEY","").strip(),datetime.now(KST),_prev_fx)
+    if fx:
+        diagnostic["fx"]=fx
     persist_feed_health(diagnostic,FEED_HEALTH)
     # Do not overwrite previously verified worldwide stories with a blackout.
     if not unique:
@@ -634,7 +713,10 @@ def main() -> None:
         x["affiliateLead"]=affiliate_lead(x.get("beatCompanies") or [], x.get("articleText") or x.get("summary") or "", x.get("koSummary") or "")
         # 영어 제목에 나온 출입처(11-10 운영: Automotive News '혼다 오하이오 30억달러 공장' — 본문에 Hyundai가 나와 '현대차' B로 떴다)
         x["titleCompanies"]=beat_companies(x.get("title",""))
-    push_beat(unique,stamp)
+        x["krw"]=krw_notes(x,fx)
+    print(f"global fx: {'원/달러 ' + str(fx['rate']) + ' (' + fx['date'] + ')' if fx else '환율 없음(ECOS_API_KEY 미설정 또는 조회 실패) — 원화 환산 생략'}"
+          f" · 환산 붙인 기사 {sum(1 for x in unique if x.get('krw'))}")
+    push_beat(unique,stamp,fx=fx)
 
     merged = domestic + unique
     merged.sort(key=lambda x: x.get("published", ""), reverse=True)
@@ -647,7 +729,7 @@ def main() -> None:
     for x in unique:
         statuses[x.get("translationStatus")]=statuses.get(x.get("translationStatus"),0)+1
     print(f"global translation status counts: {statuses}")
-    print(f"global not-news dropped: {len(NOT_NEWS_DROPPED)} (판매·광고·팟캐스트 안내)")
+    print(f"global not-news dropped: {len(NOT_NEWS_DROPPED)} (판매·광고·팟캐스트 안내·광고성 주소)")
     print(f"global numbers not in source: {sum(1 for x in unique if x.get('numbersNotInSource'))} items")
     print(f"global summaries: {sum(1 for x in unique if x.get('summaryTranslationStatus')=='summarized_ai')} AI 요약 / "
           f"publisher RSS rows {len(publisher_rows)}")
