@@ -126,7 +126,7 @@ def correction(documents):
     """정정신고 표: 정정사유와 (항목, 정정전, 정정후). '정정항목 | 정정전 | 정정후' 머리 줄 다음의 3칸 줄만 읽는다
     (2026-10-31 실제 공시로 형식 확인: 효성중공업 20261027800518 — 정정사유 '계약 사양 일부 변경에 따른 계약금액 조정',
     계약금액(원) 113,586,046,173 → 113,044,698,813). 정정 공시가 아니면 None."""
-    reason, changes, row_reasons, numbers = None, [], [], []
+    reason, changes, row_reasons, numbers, afters = None, [], [], [], []
     clip = lambda v: v if len(v) <= 120 else v[:117] + "…"  # noqa: E731
     for doc in documents:
         if not isinstance(doc, str):
@@ -164,6 +164,7 @@ def correction(documents):
                 if width == 4 and plain(cells[1]) and plain(cells[1]) not in row_reasons:
                     row_reasons.append(plain(cells[1])[:60])
                 if item and (before, after) != ("", ""):
+                    afters.append(after)   # 판결 문구는 120자에서 잘리기 전 전체 칸에서 찾는다
                     changes.append([item[:60], clip(before), clip(after)])
                     # 숫자 변경은 자르기 전 전체 문구로 찾는다(긴 칸은 120자에서 잘려 끝이 어긋날 수 있다)
                     numbers.append([[n, b, a, None if pct is None else round(pct, 1)] for n, b, a, pct in number_changes(before, after) or []] or None)
@@ -171,12 +172,34 @@ def correction(documents):
     if not reason and not changes:
         return None
     out = {"reason": reason, "changes": changes[:10]}
+    rule = ruling(reason, afters)
+    if rule:
+        out["ruling"] = rule
     if any(numbers[:10]):
         out["numbers"] = numbers[:10]  # changes와 같은 순서: 칸 안에서 숫자만 바뀐 곳 [이름, 전, 후, 증감%]
     big = material(out)
     if big:
         out["material"] = big
     return out
+
+
+# 소송·판결로 고친 정정(11-11 경쟁지 단독 역추적): 영풍 20261102800394 [기재정정]생산중단 — 정정사유 '조업정지처분취소 소송 1심 판결에
+# 따른 정정', 정정 후 칸에 '"원고(당사)에게 한 10일 의 조업정지 처분을 취소한다."라고 결정받음'. 레이더는 15:07에 잡았지만 한 줄이
+# '이사회결의일 2025-10-02→2026-11-02 · 문구 1곳'이라 판결이 안 보였고, 사유의 '취소'가 '해지·취소'로 읽혔다. 44분 뒤 조선비즈 [단독]
+# 「영풍, '조업정지 10일' 취소소송 1심 승소」.
+LEGAL = re.compile(r"판결|소송|승소|패소|집행정지|가처분|항소|상고|선고|결정문|행정심판|중재")
+QUOTED = re.compile(r'["“”]([^"“”]{8,200})["“”]')
+
+
+def ruling(reason, cells):
+    """정정 후 칸에 회사가 옮겨 적은 판결·결정 문구(따옴표 안) — 사유나 그 칸에 소송·판결 낱말이 있을 때만. 없으면 None."""
+    if not (LEGAL.search(reason or "") or any(LEGAL.search(c or "") for c in cells)):
+        return None
+    for c in cells:
+        q = QUOTED.search(c or "")
+        if q and (LEGAL.search(c) or LEGAL.search(reason or "")):
+            return re.sub(r"\s+", " ", q.group(1)).strip()[:160]
+    return None
 
 
 FOOTNOTE = re.compile(r"^주\s*\d+\)")  # '주1) 정정 전' — 본문 각주로 넘긴 칸
@@ -189,7 +212,9 @@ def material(fix):
     """정정 중 큰 변경: 금액 ±10% 이상, 기간·종료일·예정일 90일 이상 이동, 사유에 해지·취소. 원 계약 기사가 이미 있어도
     이 변경은 새 사실일 수 있다(10-31 두산에너빌리티 영광 야월 해상풍력 EPC 정정: 계약기간 종료일 2029-07-01 → 2030-01-28)."""
     out = []
-    if CANCEL.search(fix.get("reason") or ""):
+    if LEGAL.search(fix.get("reason") or ""):
+        out.append("사유에 소송·판결")   # '처분취소 소송'의 '취소'를 계약 해지로 읽지 않는다
+    elif CANCEL.search(fix.get("reason") or ""):
         out.append("사유에 해지·취소")
     for item, before, after in fix.get("changes") or []:
         name = item.split(" - ")[-1]
@@ -381,7 +406,8 @@ def correction_line(fix, kind=None):
     parts = [t for _, t in sorted(parts, key=lambda x: bool(PROCEDURAL.search(x[0])))]
     head = f"정정({fix['reason']})" if fix.get("reason") else "정정"
     tail = [f"문구·표 변경 {len(texts)}곳({', '.join(texts[:3])}{' 등' if len(texts) > 3 else ''})"] if texts else []
-    body = parts[:5] + tail
+    lead = [f"공시에 옮긴 판결·결정 문구 「{fix['ruling']}」(칸 줄바꿈을 띄어 씀 — 인용은 원문 대조)"] if fix.get("ruling") else []
+    body = lead + parts[:5] + tail
     return f"{head}: " + (" · ".join(body) if body else "바뀐 항목 표 없음")
 
 
@@ -411,6 +437,9 @@ def correction_short(fix):
     parts = [t for _, t in sorted(parts, key=lambda x: bool(PROCEDURAL.search(x[0])))]
     if text_changes:
         parts.append(f"문구 {text_changes}곳")
+    if fix.get("ruling"):   # 판결 문구가 바뀐 날짜보다 먼저다
+        r = fix["ruling"]
+        return f"정정({(fix.get('reason') or '소송·판결')[:30]}): 판결 문구(원문 대조) 「{r if len(r) <= 70 else r[:69] + '…'}」" + (f" · {parts[0]}" if parts else "")
     return "정정: " + (" · ".join(parts[:3]) if parts else (fix.get("reason") or "바뀐 항목 표 없음")[:40])
 
 
