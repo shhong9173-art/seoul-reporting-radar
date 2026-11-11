@@ -1,5 +1,4 @@
-"""probe 211: 무역위 보도자료 첨부 PDF — 내려받기 주소 꼴과 본문의 신청인 문구. 공개 자료. 저장 안 함. 요청 사이 1초, PDF 최대 8개."""
-import io
+"""probe 212: 무역위 보도자료 첨부(POST /boardFileDownload.do bbs_id·seq_no) — PDF 본문의 신청인 문구. 공개 자료. 저장 안 함. 요청 사이 1초."""
 import re
 import sys
 import time
@@ -16,46 +15,30 @@ def log(*a):
 
 
 http = k.Http(requests.Session())
-rows = []
-for page in (1, 2, 3, 4):
-    st, body = http.post(k.NEWS[0], {"menuId": k.NEWS[1], "pageIndex": str(page)})
-    rows += k.parse_news(body) if body else []
-    time.sleep(1)
-pick = [r for r in rows if re.search(r"덤핑방지관세|판정|잠정|부과 건의|부과건의", r["title"])][:8]
-log("rows", len(rows), "pick", len(pick))
-first = True
-for r in pick:
-    time.sleep(1)
-    st, raw = http.get("/boardView.do", {"bbs_id": r["id"], "menuId": "57"})
-    raw = raw or ""
-    links = re.findall(r"""(?:href|onclick)\s*=\s*["']([^"']*(?:[Ff]ile|[Dd]own)[^"']*)["']""", raw)
-    if first:
-        log("LINKS", r["id"], links[:6])
-        first = False
-    pdf = next((l for l in links if ".pdf" in l.lower() or "pdf" in l.lower()), None)
-    # 자바스크립트 호출이면 인자를 뽑는다
-    args = re.findall(r"""fn_?[Ff]ile[Dd]own\w*\(([^)]*)\)|fileDown\w*\(([^)]*)\)|download\w*\(([^)]*)\)""", raw)
-    log("D", r["id"], r["title"][:40], "| pdf link", (pdf or "")[:160], "| args", [a for t in args[:4] for a in t if a][:4])
-    url = None
-    if pdf and pdf.startswith(("/", "http")):
-        url = pdf if pdf.startswith("http") else k.SITE + pdf
-    if not url:
-        continue
-    time.sleep(1)
-    try:
-        resp = http.s.get(url, headers=k.UA, timeout=60)
-        log("   GET", resp.status_code, resp.headers.get("Content-Type"), len(resp.content))
-        text, err = k.pdf_text(resp.content)
+http.post(k.NEWS[0], {"menuId": k.NEWS[1]})   # 세션
+IDS = [("00002147", "부틸 아크릴레이트"), ("00002157", "수산화나트륨"), ("00002167", "H형강·봉강"), ("00002297", "아연도금냉연"),
+       ("00002129", "동관"), ("00002128", "PVC 페이스트"), ("00002113", "아연 표면처리 냉연"), ("00002109", "산업용로봇")]
+for bid, name in IDS:
+    for seq in ("0000", "0001"):
+        time.sleep(1)
+        try:
+            r = http.s.post(k.SITE + "/boardFileDownload.do", data={"bbs_id": bid, "seq_no": seq}, headers={**k.UA, "Referer": k.SITE + f"/boardView.do?bbs_id={bid}&menuId=57"}, timeout=60)
+        except Exception as e:  # noqa: BLE001
+            log("F", bid, seq, "ERR", type(e).__name__)
+            continue
+        is_pdf = r.content[:4] == b"%PDF"
+        log("F", bid, name, seq, r.status_code, r.headers.get("Content-Type"), len(r.content), "PDF" if is_pdf else "")
+        if not is_pdf:
+            continue
+        text, err = k.pdf_text(r.content)
         if err:
             log("   PDF", err)
-            continue
+            break
         t = re.sub(r"\s+", " ", text or "")
-        log("   textlen", len(t))
-        hits = [t[max(0, m.start() - 120):m.end() + 30] for m in re.finditer(r"신청", t)][:4]
+        hits = [t[max(0, m.start() - 110):m.end() + 25] for m in re.finditer(r"신청", t)][:4]
         for h in hits:
             log("   ctx:", h)
         if not hits:
-            log("   head:", t[:300])
-    except Exception as e:  # noqa: BLE001
-        log("   ERR", type(e).__name__)
+            log("   head:", t[:250])
+        break
 open("/tmp/probe_out.txt", "w").write("\n".join(OUT))
