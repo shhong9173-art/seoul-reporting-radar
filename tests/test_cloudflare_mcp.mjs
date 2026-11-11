@@ -857,7 +857,8 @@ test('trade_remedies ktc: meeting agenda before the meeting, recent cases with l
       agenda: [{ kind: '의결', no: '2026-27', text: '중국산 석도강판의 덤핑사실및국내산업피해유무 예비판정(원심)', beat: true },
         { kind: '보고', no: '2026-21', text: '화장품 상표권 침해 조사개시 보고', beat: false }] },
       { id: '00000311', title: '제478차 10월 무역위원회 개최 안내', posted: '2026-10-16', agenda: null, agendaError: 'PDF 받기 실패' }],
-    news: [{ id: '00002297', title: '무역위, 중국산 아연도금냉연, 옵셋인쇄판 덤핑조사 최종판정', posted: '2026-10-26' }] };
+    news: [{ id: '00002297', title: '무역위, 중국산 아연도금냉연, 옵셋인쇄판 덤핑조사 최종판정', posted: '2026-10-26',
+      applicants: [{ product: '중국산 아연도금냉연', names: ['동국씨엠', '케이지스틸', '세아씨엠'], beat: ['동국씨엠', 'KG스틸'], how: '표' }] }] };
   const doc = { schema: 'trade_remedy/v1', generatedAt: '2026-10-30T07:40:00+09:00', quarter: '2026-10-01', rules: [], quotas: [], federalRegister: [], pages: [],
     checks: [{ source: '무역위원회', status: 'ok', returned: 4 }], ktc,
     events: [
@@ -878,7 +879,7 @@ test('trade_remedies ktc: meeting agenda before the meeting, recent cases with l
   assert.match(r.text, /2019년 전 개시 1건은 목록에 '조사실행'으로 남은 옛 사건 — 숨김/);
   assert.doesNotMatch(r.text, /낚싯대케이스/);
   assert.match(r.text, /진행 목록에서 빠짐 2026-10-30: 구제23-2026-5호 중국산 석도강판의 덤핑사실 및 국내산업피해 유무 · 판정결과 부정 · 조사종결/);
-  assert.match(r.text, /최근 보도자료: 무역위, 중국산 아연도금냉연, 옵셋인쇄판 덤핑조사 최종판정\(2026-10-26\)/);
+  assert.match(r.text, /최근 보도자료: 무역위, 중국산 아연도금냉연, 옵셋인쇄판 덤핑조사 최종판정\(2026-10-26\) \[신청인\(첨부 PDF\) 중국산 아연도금냉연: 동국씨엠·케이지스틸·세아씨엠\(출입처 동국씨엠·KG스틸\)\]/);
   assert.doesNotMatch(r.text, /EU 철강 쿼터/);
   const steel = await call('trade_remedies', { section: 'ktc', company: '석도' }, opts);
   assert.doesNotMatch(steel.text, /커넥티드/);
@@ -926,7 +927,11 @@ test('무역위 새 반덤핑 조사(출입 업종 품목)는 A — 신청인 �
       { id: 'ktc:case:00000873', pageId: 'ktc', country: 'KR', label: '무역위 새 조사 · 구제23-2026-10호', text: '중국, 미국, 말레이시아산 아크릴산 2-에틸헥실 — 품목 아크릴산 2-에틸헥실, 개시 2026-11-05',
         url: url('00000873', '10100001'), detectedAt: recent, tier: 'B', beat: true, ktcKind: 'case', product: '아크릴산 2-에틸헥실' },
       { id: 'ktc:case:00000870', pageId: 'ktc', country: 'KR', label: '무역위 새 조사 · 구제23-2026-7호', text: '대만, 태국, 아랍에미리트연합산 PET 필름 종료재심사(2차) — 품목 PET 필름, 개시 2026-08-26, 반덤핑조사/재심',
-        url: url('00000870', '10100001'), detectedAt: recent, tier: 'B', beat: true, ktcKind: 'case', product: 'PET 필름' }] };
+        url: url('00000870', '10100001'), detectedAt: recent, tier: 'B', beat: true, ktcKind: 'case', product: 'PET 필름' },
+      // 11-11: 판정 보도자료 첨부 PDF에 출입처가 신청인 — 회사 항목 B, 회사 이름으로 보도 대조
+      { id: 'ktc:news:00002297', pageId: 'ktc', country: 'KR', label: '무역위 보도자료', url: 'https://www.ktc.go.kr/boardView.do?bbs_id=00002297&menuId=57&pageIndex=1&searchCondition=&searchKeyword=',
+        text: '무역위, 중국산 아연도금냉연, 옵셋인쇄판 덤핑조사 최종판정 (등록 2026-10-26) · 첨부 PDF의 신청인 — 중국산 아연도금냉연: 동국씨엠, 케이지스틸, 세아씨엠',
+        detectedAt: recent, tier: 'B', beat: true, ktcKind: 'news', company: '동국씨엠·KG스틸' }] };
   assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/trade-remedy', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
   const r = (await call('radar_today', {}, { path: `/mcp/${TOKEN}`, env })).text;
   const a = r.split('[A · ')[1].split('[B · ')[0];
@@ -937,6 +942,8 @@ test('무역위 새 반덤핑 조사(출입 업종 품목)는 A — 신청인 �
   assert.doesNotMatch(b, /아크릴산/);
   const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
   assert.deepEqual(items.items.find((x) => x.id === 'ktc:case:00000873').check.terms, ['반덤핑', '무역위원회']);
+  assert.match(b, /무역구제 · 동국씨엠·KG스틸\n   무역위 보도자료: 무역위, 중국산 아연도금냉연, 옵셋인쇄판 덤핑조사 최종판정 \(등록 2026-10-26\) · 첨부 PDF의 신청인 — 중국산 아연도금냉연: 동국씨엠, 케이지스틸, 세아씨엠/);
+  assert.deepEqual(items.items.find((x) => x.id === 'ktc:news:00002297').check, { who: '동국씨엠', terms: ['반덤핑', '무역위원회'], alts: { 반덤핑: ['반덤핑', '덤핑'] } });
   assert.equal(items.items.find((x) => x.id === 'ktc:case:00000873').tier, 'A');
 });
 

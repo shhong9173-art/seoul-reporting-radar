@@ -936,7 +936,10 @@ def main():
     k = doc.get("ktc") or {}
     kev = [e for e in doc["events"] if e.get("pageId") == "ktc" and e["detectedAt"] == doc["generatedAt"]]
     print(f"::notice title=trade-remedy-ktc::무역위 진행 사건 {len([c for c in k.get('cases', []) if not c.get('stale')])} · "
-          f"회의 {len(k.get('meetings', []))}(안건 읽음 {sum(1 for m in k.get('meetings', []) if m.get('agenda'))}) · 보도자료 {len(k.get('news', []))} · 이번 이벤트 {len(kev)}")
+          f"회의 {len(k.get('meetings', []))}(안건 읽음 {sum(1 for m in k.get('meetings', []) if m.get('agenda'))}) · 보도자료 {len(k.get('news', []))}"
+          f"(첨부 신청인 읽음 {sum(1 for n in k.get('news', []) if 'applicants' in n)}, 신청인 있음 {sum(1 for n in k.get('news', []) if n.get('applicants'))}, "
+          f"출입처 신청 {sum(1 for n in k.get('news', []) if any(a.get('beat') for a in n.get('applicants') or []))}, 첨부 실패 {sum(1 for n in k.get('news', []) if n.get('applicantsError'))})"
+          f" · 이번 이벤트 {len(kev)}")
     ki = doc.get("kita") or {}
     kiev = [e for e in doc["events"] if e.get("pageId") == "kita" and e["detectedAt"] == doc["generatedAt"]]
     print(f"::notice title=trade-remedy-kita::무역협회 수입규제DB 사건 {len(ki.get('cases', {}))} · 이번 이벤트 {len(kiev)}"

@@ -392,7 +392,9 @@ export function ktcSection(k, q = '', limit = 15) {
     out.push(`- 진행 목록에서 빠짐 ${String(x.leftAt).slice(0, 10)}: ${x.no} ${x.title}${x.result ? ` · 판정결과 ${x.result}` : ''}`);
   }
   const news = (k.news ?? []).filter((n) => matches(q, n.title)).slice(0, 5);
-  if (news.length) out.push(`- 최근 보도자료: ${news.map((n) => `${n.title}${n.posted ? `(${n.posted})` : ''}`).join(' / ')}`);
+  // 판정 보도자료 첨부 PDF의 신청인(11-11) — 출입처로 바뀐 이름은 괄호로
+  const who = (n) => (n.applicants ?? []).map((a) => `${a.product ? `${a.product}: ` : ''}${(a.names ?? []).join('·')}${a.beat?.length ? `(출입처 ${a.beat.join('·')})` : ''}`).join('; ');
+  if (news.length) out.push(`- 최근 보도자료: ${news.map((n) => `${n.title}${n.posted ? `(${n.posted})` : ''}${who(n) ? ` [신청인(첨부 PDF) ${who(n)}]` : ''}`).join(' / ')}`);
   out.push('   검증 상태: 무역위 누리집 목록·상세·회의 개요 PDF(자동). 신청인(국내 생산자)·피신청인 이름은 누리집에 대개 없어 회사 확인 필요. '
     + '회의 안건은 결과가 아니다 — 판정·세율은 회의 뒤 보도자료·의결서로 확인');
   return out;

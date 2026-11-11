@@ -105,6 +105,14 @@ class Site:
             return 200, "<table>" + "".join(NEWS_ROW.format(n=300 + j, i=i, t=t) for j, (i, t) in enumerate(self.news)) + "</table>"
         raise AssertionError(path)
 
+    def post_binary(self, path, data, referer=None):
+        self.calls.append((path, dict(data)))
+        assert path == "/boardFileDownload.do"
+        bid = data["bbs_id"]
+        if bid in NEWS_PDF and data["seq_no"] == "0001":
+            return 200, b"%PDF-1.7 news:" + bid.encode()
+        return 200, b"PK\x03\x04hwpx"
+
     def get(self, path, params, referer=None, binary=False):
         self.calls.append((path, dict(params)))
         if path in self.down:
@@ -125,8 +133,26 @@ PAGES = {"00000311": meeting_detail("00000311", "0000", 478, "26.10.23", "7건(�
 PDF_TEXT = {"00000311": AGENDA_478, "00000312": AGENDA_479}
 
 
+# 보도자료 첨부 PDF 글(11-11 probe 212 운영 원문에서 옮긴 구간)
+BUTYL = ("중국산 부틸 아크릴레이트에 대한 덤핑조사 최종판정 1건과 자동차용 배터리팩 등 불공정무역행위 조사 5건, 총 6건을 심의‧의결하였다. 중국산 부틸 아크릴레이트에 "
+         "대한 덤핑조사 건은 작년 7월 엘지화학이 조사를 신청한 건으로, 지난 2월 12일 예비판정을 거쳐 … 조사과정에서 당사자간 라이선스 계약이 체결되어 당사자간 합의하에 "
+         "신청인이 조사신청 철회를 요청하였다. 무역위 무역조사실은 그간 우리 업계로부터 중국산 봉강에 대한 반덤핑 조사신청을 받아")
+NAOH = ("고체 수산화나트륨은 백색의 고체로서 비누‧세제 제조 등에 사용된다. 올해 3월 ㈜영진이 덤핑조사를 신청하였고, 조사대상 공급자는 중국 동루이 등 3 - 3 - "
+        "참고1 (예비판정) 중국 및 대만산 고체수산화나트륨 덤핑조사 (원심)□ 조사 개요ㅇ (신청인)주식회사영진 ㅇ (조사대상공급자)중국동루이")
+BAR = ("봉강은 자동차, 건설 중장비 등의 부품 제조 등에 활용되는 것으로, 올해 2월 세아베스틸과 세아창원특수강이 덤핑조사를 신청하였으며 조사대상공급자는 중국 다예 "
+       "- 4 - 참고2 (예비판정) 중국산 봉강 덤핑조사 (원심)□ 조사 개요ㅇ (신청인)㈜세아베스틸,㈜세아창원특수강ㅇ (조사대상공")
+GALV = ("아연도금냉연은 건축자재, 자동차 부품 등에 활용된다. 금번 조사건은 작년 11월 동국씨엠 등 3사의 신청에 따라 조사가 개시되었다. 무역위원회는 중국산 무계목강관에 대한 "
+        "덤핑조사 개시를 보고받았다. 동 덤핑조사 건은 일진제강이 조사신청하여 10월 8일 조사가 개시되었으며, - 3 - 참고1 (최종판정) 중국산 아연도금냉연 덤핑조사 "
+        "(원심)□ 조사 개요 ㅇ (신청인) 동국씨엠㈜, 케이지스틸㈜, ㈜세아씨엠 ㅇ (조사대상공급자)")
+TUBE = "- 2 - 참고[의결] 태국산 이음매 없는 동관 덤핑조사 최종판정□조사개요ㅇ (신청인)능원금속공업주식회사,엘에스메탈주식회사ㅇ (조사대상"
+NEWS_PDF = {"00002297": GALV, "00002147": BUTYL}
+
+
 def fake_pdf(data):
-    return PDF_TEXT.get(data.decode().split()[-1]), None
+    tail = data.decode(errors="ignore").split()[-1]
+    if tail.startswith("news:"):
+        return NEWS_PDF.get(tail[5:]), None
+    return PDF_TEXT.get(tail), None
 
 
 class KtcTest(unittest.TestCase):
@@ -158,6 +184,38 @@ class KtcTest(unittest.TestCase):
         self.assertTrue(agenda[3]["text"].endswith("최종판정"))
         news = k.parse_news("<table>" + NEWS_ROW.format(n=1, i="00002113", t="중국산 아연 표면처리 냉연제품에 잠정 덤핑방지관세 부과 건의 의결 <span>새글</span>") + "</table>")
         self.assertEqual(news, [{"id": "00002113", "title": "중국산 아연 표면처리 냉연제품에 잠정 덤핑방지관세 부과 건의 의결"}])
+
+    def test_applicants_from_press_pdf_11_11(self):
+        self.assertEqual(k.applicants_in(BUTYL), [{"product": "중국산 부틸 아크릴레이트", "names": ["엘지화학"], "beat": ["LG화학"], "how": "문장"}])
+        self.assertEqual(k.applicants_in(NAOH), [{"product": "중국 및 대만산 고체수산화나트륨", "names": ["영진"], "beat": [], "how": "표"}])
+        self.assertEqual(k.applicants_in(BAR), [{"product": "중국산 봉강", "names": ["세아베스틸", "세아창원특수강"], "beat": [], "how": "표"}])   # 세아 계열사는 출입처 아님
+        galv = k.applicants_in(GALV)
+        self.assertEqual(galv[0], {"product": "중국산 아연도금냉연", "names": ["동국씨엠", "케이지스틸", "세아씨엠"], "beat": ["동국씨엠", "KG스틸"], "how": "표"})
+        self.assertEqual((galv[1]["names"], galv[1]["product"], galv[1]["how"]), (["일진제강"], "중국산 무계목강관", "문장"))
+        self.assertEqual(k.applicants_in(TUBE), [{"product": "태국산 이음매 없는 동관", "names": ["능원금속공업", "엘에스메탈"], "beat": [], "how": "표"}])
+        self.assertEqual(k.applicants_in("무역위원회는 공청회를 개최하였다. 신청인측과 피신청인측 이해관계인 등 20여 명이 참석하였다."), [])
+
+    def test_press_applicant_makes_beat_item_and_backfills(self):
+        site = Site([EV], news=[("00002147", "무역위, 중국산 부틸 아크릴레이트에 덤핑방지관세 부과 건의")])
+        first = k.collect(None, NOW, site, sleep=lambda s: None)[0]
+        self.assertNotIn("applicants", first["news"][0])   # 기준선은 첨부를 안 읽는다
+        site2 = Site([EV], news=[("00002297", "무역위, 중국산 아연도금냉연, 옵셋인쇄판 덤핑조사 최종판정"), ("00002147", "무역위, 중국산 부틸 아크릴레이트에 덤핑방지관세 부과 건의"),
+                                 ("00002306", "청년의 시각에서 바라본 무역구제")])
+        doc, ev, _ = k.collect(first, NOW + dt.timedelta(days=1), site2, sleep=lambda s: None)
+        news_ev = {e["id"]: e for e in ev if e["ktcKind"] == "news"}
+        g = news_ev["ktc:news:00002297"]
+        self.assertEqual((g["tier"], g["company"], g["beat"]), ("B", "동국씨엠·KG스틸", True))
+        self.assertIn("· 첨부 PDF의 신청인 — 중국산 아연도금냉연: 동국씨엠, 케이지스틸, 세아씨엠; 중국산 무계목강관: 일진제강", g["text"])
+        self.assertEqual((news_ev["ktc:news:00002306"]["tier"], news_ev["ktc:news:00002306"].get("company")), ("C", None))   # 판정 아닌 글은 첨부 안 읽음
+        self.assertNotIn(("/boardFileDownload.do", {"bbs_id": "00002306", "seq_no": "0001"}), site2.calls)
+        # 지난 판정 보도자료(기준선 때 본 부틸)는 이벤트 없이 신청인만 채운다
+        butyl = next(n for n in doc["news"] if n["id"] == "00002147")
+        self.assertEqual(butyl["applicants"][0]["beat"], ["LG화학"])
+        self.assertNotIn("ktc:news:00002147", news_ev)
+        # 다시 돌려도 첨부를 또 받지 않는다
+        site3 = Site([EV], news=site2.news)
+        k.collect(doc, NOW + dt.timedelta(days=2), site3, sleep=lambda s: None)
+        self.assertFalse([c for c in site3.calls if c[0] == "/boardFileDownload.do"])
 
     def test_baseline_then_changes(self):
         site = Site([EV, OLD, TINPLATE], meetings=[M478], meeting_pages=PAGES, news=[("00002297", "무역위, 중국산 아연도금냉연 덤핑조사 최종판정")])
