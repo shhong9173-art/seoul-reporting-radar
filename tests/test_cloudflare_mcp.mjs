@@ -920,7 +920,8 @@ test('무역위 새 반덤핑 조사(출입 업종 품목)는 A — 신청인 �
   const recent = new Date(NOW.getTime() - 3600000).toISOString();
   const url = (id, code) => `https://www.ktc.go.kr/viewInvest.do?menuId=11&masterId=${id}&invstg_type_code=${code}`;
   const doc = { schema: 'trade_remedy/v1', generatedAt: recent, quarter: '2026-10-01', rules: [], quotas: [], federalRegister: [], pages: [],
-    checks: [{ source: '무역위원회', status: 'ok', returned: 45 }], ktc: { checkedAt: recent, cases: [], meetings: [], news: [] },
+    checks: [{ source: '무역위원회', status: 'ok', returned: 45 }], ktc: { checkedAt: recent, cases: [], meetings: [], news: [],
+      producers: { 'ktc:case:00000873': { line: "출입처 2025 사업보고서(II. 사업의 내용) 품목 낱말 대조[아크릴산]: LG화학 '아크릴산' 2곳(접수 20260310000001) — 신청인 확정 아님(회사 확인)" } } },
     events: [
       { id: 'ktc:case:00000873', pageId: 'ktc', country: 'KR', label: '무역위 새 조사 · 구제23-2026-10호', text: '중국, 미국, 말레이시아산 아크릴산 2-에틸헥실 — 품목 아크릴산 2-에틸헥실, 개시 2026-11-05',
         url: url('00000873', '10100001'), detectedAt: recent, tier: 'B', beat: true, ktcKind: 'case', product: '아크릴산 2-에틸헥실' },
@@ -931,6 +932,7 @@ test('무역위 새 반덤핑 조사(출입 업종 품목)는 A — 신청인 �
   const a = r.split('[A · ')[1].split('[B · ')[0];
   const b = r.split('[B · ')[1].split('[C · ')[0];
   assert.match(a, /무역구제 · 아크릴산 2-에틸헥실\n   무역위 새 조사 · 구제23-2026-10호: 중국, 미국, 말레이시아산 아크릴산 2-에틸헥실 — 품목 아크릴산 2-에틸헥실, 개시 2026-11-05 · 덤핑 조사\(누리집 조사 유형 코드 — 상세 유형은 아직 비어 있음\) — 국내 생산자가 신청해야 열리는 조사\. 신청인 이름은 누리집에 없음: 출입처가 이 품목을 만드는지·신청했는지 회사 확인/);
+  assert.match(a, /회사 확인 · 출입처 2025 사업보고서\(II\. 사업의 내용\) 품목 낱말 대조\[아크릴산\]: LG화학 '아크릴산' 2곳\(접수 20260310000001\) — 신청인 확정 아님\(회사 확인\)/);
   assert.match(b, /PET 필름 종료재심사\(2차\)/);   // 재심은 B 그대로
   assert.doesNotMatch(b, /아크릴산/);
   const items = await (await radarItems(new Request(ORIGIN + '/ingest/radar-items?hours=72', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, { now: NOW })).json();
