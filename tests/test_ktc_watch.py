@@ -205,6 +205,11 @@ class KtcTest(unittest.TestCase):
         self.assertEqual((bt[1]["product"], bt[1]["names"]), ("자동차용 배터리팩 특허권 침해", ["튤립이노베이션케이에프티"]))
         self.assertEqual(k.applicants_in(PSR), [{"product": "독·프·노르웨이및스웨덴산폴리염화비닐페이스트수지", "names": ["한화솔루션"], "beat": ["한화솔루션"], "how": "표"}])
         self.assertEqual(k.applicants_in(ROBOT), [{"product": "일본 및 중국산 산업용 로봇", "names": ["에이치디현대로보틱스"], "beat": [], "how": "표"}])
+        # 운영 PDF 글 조각: 표 칸 이름 안 띄어쓰기(pypdf 판에 따라 '튤립 이노베이션케이에프티'·'한 화 솔 루 션')는 붙인다
+        self.assertEqual(k.applicants_in("참고2 (조사종결) 자동차용 배터리팩 특허권 침해 조사□조사개요ㅇ (신청인)튤립 이노베이션케이에프티ㅇ (피신청인)외국기업A")[0]["names"],
+                         ["튤립이노베이션케이에프티"])
+        self.assertEqual(k.applicants_in("참고1 (의결) 중국산 PVC 페이스트 수지 덤핑조사 □ ㅇ (신청인) 한 화 솔 루 션 주식회사, ㈜ 엘지 화학 ㅇ (조사대상")[0]["beat"],
+                         ["한화솔루션", "LG화학"])
 
     def test_press_applicant_makes_beat_item_and_backfills(self):
         site = Site([EV], news=[("00002147", "무역위, 중국산 부틸 아크릴레이트에 덤핑방지관세 부과 건의")])
