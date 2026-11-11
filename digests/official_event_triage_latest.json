@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-12T01:37:19+09:00",
+  "generatedAt": "2026-11-12T02:53:10+09:00",
   "status": "official_date_triage",
   "windowStart": "2026-11-10",
   "windowEnd": "2026-11-12",
@@ -9,7 +9,7 @@
       "name": "recent_contracts",
       "status": "checked_source",
       "sourceAt": "2026-11-11T08:11:54+09:00",
-      "sourceAgeHours": 17.4,
+      "sourceAgeHours": 18.7,
       "records": 4,
       "checkedQueries": 13,
       "failedQueries": 0,
@@ -19,7 +19,7 @@
       "name": "overseas_official",
       "status": "checked_source",
       "sourceAt": "2026-11-11T08:11:26+09:00",
-      "sourceAgeHours": 17.4,
+      "sourceAgeHours": 18.7,
       "records": 9,
       "checkedQueries": 16,
       "failedQueries": 0,
@@ -29,7 +29,7 @@
       "name": "investigation_hunt",
       "status": "checked_source",
       "sourceAt": "2026-11-11T12:06:34+09:00",
-      "sourceAgeHours": 13.5,
+      "sourceAgeHours": 14.8,
       "records": 1,
       "checkedQueries": null,
       "failedQueries": null,
@@ -39,7 +39,7 @@
       "name": "recent_metric_changes",
       "status": "checked_source",
       "sourceAt": "2026-11-12T00:03:52+09:00",
-      "sourceAgeHours": 1.6,
+      "sourceAgeHours": 2.8,
       "records": 24,
       "checkedQueries": null,
       "failedQueries": null,
@@ -48,8 +48,8 @@
     {
       "name": "nhtsa_official",
       "status": "partial_collection",
-      "sourceAt": "2026-11-11T16:17:06.782862+09:00",
-      "sourceAgeHours": 9.3,
+      "sourceAt": "2026-11-12T02:53:10.296060+09:00",
+      "sourceAgeHours": 0.0,
       "records": 79,
       "checkedQueries": 7,
       "failedQueries": 1,
@@ -73,11 +73,11 @@
   ],
   "sourceCompletenessVerified": false,
   "freshOfficialReviewCount": 1,
-  "backgroundReferenceCount": 129,
+  "backgroundReferenceCount": 130,
   "excluded": {
     "correction_without_original": 3,
     "unverified_foreign_search_hit": 7,
-    "source_without_official_identity": 49,
+    "source_without_official_identity": 48,
     "duplicate_event_id": 2
   },
   "seen": {
@@ -122,6 +122,7 @@
     "NHTSA:26V254000": "2026-10-15",
     "NHTSA:26V316000": "2026-10-15",
     "NHTSA:26V400000": "2026-10-15",
+    "NHTSA:11776701": "2026-11-12",
     "NHTSA:11774961": "2026-11-04",
     "NHTSA:11769400": "2026-10-30",
     "NHTSA:11768285": "2026-10-30",
@@ -312,7 +313,7 @@
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-11T16:17:06.782862+09:00"
+      "sourceSnapshotAt": "2026-11-12T02:53:10.296060+09:00"
     },
     {
       "id": "FOREIGN_NOTICE:US Federal Register:2026-22706",
@@ -472,7 +473,7 @@
       "officialDateInRecentWindow": false,
       "editorialBucket": "published_background",
       "freshArticleConfirmed": false,
-      "sourceSnapshotAt": "2026-11-11T16:17:06.782862+09:00"
+      "sourceSnapshotAt": "2026-11-12T02:53:10.296060+09:00"
     },
     {
       "id": "FOREIGN_NOTICE:US Federal Register:2026-22630",
@@ -981,7 +982,7 @@
       "editorialBucket": "published_background"
     }
   ],
-  "truncatedBackgroundReference": 104,
+  "truncatedBackgroundReference": 105,
   "confirmedScoops": 0,
   "approvedArticles": 0,
   "warning": "공개 원문 확인 후 기보도·해당 회사 실제 영향·직접 답변 검증 필요. 단독 미확정. 지난 데이터 수집시각은 공시/고시 발생일과 다름; 원천 미수집/부분수집을 0건으로 해석하지 말 것.",
@@ -1063,5 +1064,5 @@
   ],
   "beatWideDartExcluded": 6,
   "beatWideDartSourceAt": "2026-11-12T01:36:42+09:00",
-  "baseTriageGeneratedAt": "2026-11-12T01:37:19+09:00"
+  "baseTriageGeneratedAt": "2026-11-12T02:53:10+09:00"
 }
