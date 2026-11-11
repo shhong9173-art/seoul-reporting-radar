@@ -20,7 +20,8 @@ rows = []
 for page in (1, 2, 3):
     body = None
     try:
-        body = http.post(k.NEWS[0], {"menuId": k.NEWS[1], "pageIndex": str(page)})
+        st, body = http.post(k.NEWS[0], {"menuId": k.NEWS[1], "pageIndex": str(page)})
+        log("LIST", page, "HTTP", st)
     except Exception as e:  # noqa: BLE001
         log("LIST", page, "ERR", type(e).__name__)
     got = k.parse_news(body) if body else []
@@ -32,7 +33,7 @@ pick = [r for r in rows if re.search(r"덤핑|관세|판정|조사|세이프가�
 for r in pick:
     time.sleep(1)
     try:
-        raw = http.get("/boardView.do", {"bbs_id": r["id"], "menuId": "57"})
+        st, raw = http.get("/boardView.do", {"bbs_id": r["id"], "menuId": "57"})
     except Exception as e:  # noqa: BLE001
         log("D", r["id"], "ERR", type(e).__name__)
         continue
