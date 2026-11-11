@@ -148,7 +148,13 @@ export async function myArticlesLines(ctx, days) {
     for (const a of miss.slice(0, 15)) out.push(`  · ${String(a.published).slice(5, 10)} [${a.kind ?? '기타'}${a.press ? `·${a.press}` : ''}] 「${String(a.title).slice(0, 60)}」${a.verified === false ? '(작성자 미확인)' : ''}`);
     if (miss.length > 15) out.push(`  … ${miss.length - 15}건 더`);
   }
-  if (sameOnly.length) out.push(`같은 회사 항목만 있던 기사 ${sameOnly.length}건(사건은 달랐음) — ${byKind(sameOnly)}`);
+  if (sameOnly.length) {
+    out.push(`같은 회사 항목만 있던 기사 ${sameOnly.length}건(사건은 달랐음) — ${byKind(sameOnly)}`);
+    // 11-11 주간 점검: 자체 기사가 모두 '같은 회사 항목만'이었는데 제목이 안 보여 어떤 원천이 있었으면 먼저 잡았을지 거꾸로 따라갈 수 없었다
+    for (const a of sameOnly.slice(0, 12)) out.push(`  · ${String(a.published).slice(5, 10)} [${a.kind ?? '기타'}${a.press ? `·${a.press}` : ''}] 「${String(a.title).slice(0, 60)}」`
+      + ` — 같은 회사 레이더 항목 ${a.sameCompanyItems ?? '?'}개(사건 낱말 안 겹침)${a.verified === false ? ' · 작성자 미확인' : ''}`);
+    if (sameOnly.length > 12) out.push(`  … ${sameOnly.length - 12}건 더`);
+  }
   out.push('읽는 법: 자동 대조다(같은 사건인지는 열어 봐야 함). 쓴 기사만 찾는다 — 안 쓴 항목은 킬이 아니다(이유 모름). 출입처 이름이 제목에 없는 업계 기사·당직 기사는 빠진다. 실적·인사·제품 기사는 보도자료·공시로 나와 공개 원천이 앞서기 어렵다.');
   return out;
 }
