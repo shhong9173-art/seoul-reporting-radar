@@ -1053,6 +1053,23 @@ export async function unionSection(ctx, q, days, limit, includeMinor = false) {
   return out;
 }
 
+// 지난 노동쟁의 조정·중재 회의(A)인가(11-04 조정 결과 확인): radar_today가 회의 다음 날 09시 B로 다시 올리는 대상.
+// radar_today(digest.mjs)와 kr_official 노동위 구역이 같은 기준을 쓴다.
+export const mediationPast = (n, todayKst) => n?.tier === 'A' && /조정|중재/.test(`${n.caseNo ?? ''} ${n.meeting ?? ''}`) && String(n.day ?? '') < todayKst;
+
+// 지난 조정 회의마다 결과 확인을 올렸는지(11-11 주간 점검: LG화학 11-04 조정회의의 결과 확인이 화면에 없었는데 이유가 안 보였다 —
+// 원래 회의를 킬하면 결과 확인을 올리지 않는다). fb: item_id → 마지막 판정 행(null이면 판정 기록 조회 실패).
+export function mediationFollowupLine(n, fb) {
+  const next = new Date(Date.parse(`${n.day}T00:00:00Z`) + 86400000).toISOString().slice(5, 10);
+  const own = fb?.get(n.id);
+  const res = fb?.get(`${n.id}:result`);
+  const said = (r) => `${r.verdict}${Number.isFinite(Date.parse(r.created_at ?? '')) ? ` ${kstMD(Date.parse(r.created_at))}` : ''}${r.reason ? ` '${String(r.reason).slice(0, 50)}'` : ''}`;
+  const state = !fb ? '판정 기록 조회 실패 — 결과 확인을 올렸는지 미확인'
+    : own?.verdict === '킬' ? `결과 확인 안 올림 — 원래 회의를 킬함(${said(own)})`
+      : `결과 확인 B를 ${next} 09:00 날짜로 올림(radar_today 창 안일 때 보임, 회의일 이후 보도만 대조)${res ? ` · 결과 확인 판정 ${said(res)}` : ''}`;
+  return `  ${n.day} ${n.time ?? ''} · ${n.company} · ${n.commissionName ?? ''} ${n.meeting ?? ''} · 사건 ${n.caseNo} — ${state}`;
+}
+
 // 노동위원회 회의(kr-labor feed): 중앙·지방 14곳 첫 화면 '오늘 회의'의 사건명 앞 당사자가 출입처인 것. Shown under kr_official.
 export async function laborSection(ctx, q, days, limit) {
   const doc = await readFeed(ctx, 'kr-labor');
@@ -1094,6 +1111,16 @@ export async function laborSection(ctx, q, days, limit) {
     out.push(`     원문: ${n.url}`);
   }
   if (rows.length > limit) out.push(`  … 남은 ${rows.length - limit}건(company 낱말로 좁히기)`);
+  // 지난 조정·중재 회의의 결과 확인 상태(11-11): 회의일 기준 최근 N일
+  const fromDay = new Date(ctx.now.getTime() + 9 * 3600000 - days * 86400000).toISOString().slice(0, 10);
+  const past = (doc.notices ?? []).filter((n) => mediationPast(n, todayKst) && String(n.day) >= fromDay && matches(q, n.company, n.caseName, n.commissionName))
+    .sort((a, b) => `${b.day} ${b.time}`.localeCompare(`${a.day} ${a.time}`));
+  if (past.length) {
+    const fb = await storeOp(ctx, 'feedback.latest', {}).then(({ rows: r }) => new Map((r ?? []).map((x) => [x.item_id, x]))).catch(() => null);
+    out.push(`- 지난 조정·중재 회의 결과 확인 · 회의일 최근 ${days}일 ${past.length}건 — 조정 중지(쟁의권)·성립·연장은 공개 일정에 안 나와 다음 날 B로 다시 올림`);
+    for (const n of past.slice(0, limit)) out.push(mediationFollowupLine(n, fb));
+    if (past.length > limit) out.push(`  … 남은 ${past.length - limit}건`);
+  }
   out.push('   검증 상태: 노동위원회 공개 회의 일정(자동). 사건명은 신청 주장 — 조정 중지·성립, 인정·기각 결정과 신청 내용은 위원회·노사 확인. 같은 사건이 여러 회의일에 다시 나올 수 있다');
   return out;
 }

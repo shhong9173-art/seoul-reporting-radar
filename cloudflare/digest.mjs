@@ -12,7 +12,7 @@ import { clampInt, fetchJson, safeEqual, textResult, uniqueList } from './common
 import { peerLines } from './radar_tools.mjs';
 import { classLabel, waitReason } from './trademarks.mjs';
 import { billLine, groupBillEvents } from './assembly.mjs';
-import { attachmentOutline, buildingLine, factoryEventText, identityNote, itcText, memoGloss, productKo, productOf, rateChangeText, rateText, reverseClip, reverseNumbersNote, tradePoint } from './overseas.mjs';
+import { attachmentOutline, buildingLine, factoryEventText, identityNote, itcText, mediationPast, memoGloss, productKo, productOf, rateChangeText, rateText, reverseClip, reverseNumbersNote, tradePoint } from './overseas.mjs';
 
 const KST_MS = 9 * 3600000;
 const kstDate = (ms) => new Date(ms + KST_MS).toISOString().slice(0, 10);
@@ -1004,7 +1004,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
   // 09시 날짜로 B를 다시 올려 자동 보도 대조(회의일 이후 기사만)에 태운다. '미보도 후보'면 결과를 노사에 물을 차례. 원래 항목을 킬했으면 안 올린다(parent).
   const todayKst = kstDate(now);
   for (const n of laborNotices) {
-    if (n.tier !== 'A' || !/조정|중재/.test(`${n.caseNo ?? ''} ${n.meeting ?? ''}`) || !(String(n.day) < todayKst)) continue;
+    if (!mediationPast(n, todayKst)) continue;
     const next = new Date(Date.parse(`${n.day}T09:00:00+09:00`) + 86400000);
     if (!Number.isFinite(next.getTime()) || !recent(next.toISOString())) continue;
     push('B', W['kr-labor'], { kind: '노동위 조정 결과 확인', id: `${n.id}:result`, parent: n.id, date: next.toISOString(), company: n.company,

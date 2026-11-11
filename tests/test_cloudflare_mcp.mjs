@@ -3333,6 +3333,18 @@ test('노동위 조정 결과 확인: A 조정 회의 다음 날 B로 다시 올
   assert.ok(!items.items.some((x) => x.id === `${notices[1].id}:result`));
   const k = (await call('kr_official', { section: 'labor' }, opts)).text;
   assert.match(k, new RegExp(`- 앞으로 열릴 출입처 회의\\(오늘 포함, 달력·첫 화면\\) 2건 — 미뤄지거나 취소될 수 있음\\n  ${day(0)} 15:00 · A · 포스코 · 충남지방노동위원회 조정회의 · 사건 2026조정62[^\\n]*\\n  ${day(6)} 15:00 · A · 현대제철`));
+  // 11-11: 지난 조정 회의마다 결과 확인을 올렸는지 — 킬해서 안 올린 회의는 이유(판정 사유)를 보인다. B 구제신청·오늘·앞날 회의는 대상 아님
+  const fu = k.split('- 지난 조정·중재 회의 결과 확인')[1] ?? '';
+  assert.match(k, /- 지난 조정·중재 회의 결과 확인 · 회의일 최근 30일 3건 — 조정 중지\(쟁의권\)·성립·연장은 공개 일정에 안 나와 다음 날 B로 다시 올림/);
+  assert.match(fu, new RegExp(`  ${day(-1)} 15:00 · LG화학 · 충남지방노동위원회 조정회의 · 사건 2026조정59 — 결과 확인 B를 ${day(0).slice(5)} 09:00 날짜로 올림\\(radar_today 창 안일 때 보임, 회의일 이후 보도만 대조\\)\\n`));
+  assert.match(fu, /롯데케미칼 · 충남지방노동위원회 조정회의 · 사건 2026조정60 — 결과 확인 안 올림 — 원래 회의를 킬함\(킬 \d\d-\d\d '작음'\)/);
+  assert.match(fu, new RegExp(`${day(-5)} 15:00 · 기아 [^\\n]*2026조정64 — 결과 확인 B를`));   // radar_today 창 밖이어도 kr_official(30일)에는 보인다
+  assert.doesNotMatch(fu.split('검증 상태')[0], /2026부해61|2026조정62|2026조정63/);
+  // 결과 확인 항목 자체를 판정하면 그 판정도 붙는다
+  await call('candidate_feedback', { item_id: `${notices[0].id}:result`, verdict: '봤음', reason: '조정 중지 기사 확인' }, opts);
+  const k2 = (await call('kr_official', { section: 'labor', company: 'LG화학' }, opts)).text;
+  assert.match(k2, /2026조정59 — 결과 확인 B를 [^\n]*· 결과 확인 판정 봤음 \d\d-\d\d '조정 중지 기사 확인'/);
+  assert.doesNotMatch(k2.split('- 지난 조정·중재 회의')[1] ?? '', /롯데케미칼/);   // company로 좁힘
 });
 
 test('지분·자사주 변동(governance): 임원 집단 보고·일상 아닌 자사주 처분은 B, 일상 보상 처분은 숨김', async () => {
