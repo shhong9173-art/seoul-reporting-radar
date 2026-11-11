@@ -1,7 +1,7 @@
 {
  "schema": "governance/v1",
- "generatedAt": "2026-11-11T07:44:18+09:00",
- "windowStart": "2026-10-12",
+ "generatedAt": "2026-11-12T07:40:58+09:00",
+ "windowStart": "2026-10-13",
  "windowDays": 30,
  "source": "OpenDART 지분공시 종합정보(majorstock·elestock)·주요사항보고서 자기주식 처분 결정(tsstkDpDecsn)",
  "status": "complete",
@@ -346,7 +346,7 @@
    "company": "고려아연",
    "endpoint": "majorstock.json",
    "status": "checked",
-   "rowsReturned": 31,
+   "rowsReturned": 29,
    "rowsInWindow": 0
   },
   {
@@ -563,8 +563,8 @@
    "company": "한화솔루션",
    "endpoint": "elestock.json",
    "status": "checked",
-   "rowsReturned": 230,
-   "rowsInWindow": 0
+   "rowsReturned": 231,
+   "rowsInWindow": 1
   },
   {
    "company": "한화솔루션",
@@ -726,7 +726,7 @@
  "dartSpellings": {
   "동성케미칼": "동성케미컬"
  },
- "count": 41,
+ "count": 42,
  "items": [
   {
    "company": "넥센타이어",
@@ -1029,6 +1029,22 @@
    ],
    "routine": false,
    "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261014000316"
+  },
+  {
+   "company": "한화솔루션",
+   "team": "화학·소재",
+   "kind": "임원·주요주주",
+   "date": "2026-11-11",
+   "receiptNo": "20261111000115",
+   "reporter": "김재영",
+   "role": "비등기임원 임원",
+   "shares": 236.0,
+   "sharesChange": 236.0,
+   "ratio": 0.0,
+   "ratioChange": 0.0,
+   "tags": [],
+   "routine": true,
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261111000115"
   },
   {
    "company": "엘에스일렉트릭",
