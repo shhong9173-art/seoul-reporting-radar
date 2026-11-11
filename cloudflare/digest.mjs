@@ -617,7 +617,9 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
       const typeNote = ktcType(e) === '덤핑' && !/덤핑/.test(`${e.label} ${e.text}`) ? ' · 덤핑 조사(누리집 조사 유형 코드 — 상세 유형은 아직 비어 있음)' : '';
       push(fresh ? 'A' : e.tier === 'B' ? 'B' : 'C', W['trade-remedy'], { kind: fresh ? '무역위 새 반덤핑 조사' : KTC_KIND[e.ktcKind] ?? '무역위원회', id: e.id, date: e.detectedAt,
         company: e.product ?? '', fact: `${e.label}: ${e.text}${typeNote}`
-          + (fresh ? ' — 국내 생산자가 신청해야 열리는 조사. 신청인 이름은 누리집에 없음: 출입처가 이 품목을 만드는지·신청했는지 회사 확인' : ''), url: e.url,
+          + (fresh ? ' — 국내 생산자가 신청해야 열리는 조사. 신청인 이름은 누리집에 없음: 출입처가 이 품목을 만드는지·신청했는지 회사 확인' : '')
+          // 품목 낱말이 나온 출입처 사업보고서(11-11, scripts/ktc_producers.py) — 신청인 확인 질문을 누구에게 먼저 할지
+          + (fresh && docs['trade-remedy']?.ktc?.producers?.[e.id]?.line ? ` · ${docs['trade-remedy'].ktc.producers[e.id].line}` : ''), url: e.url,
         // 보도 대조: 회사 이름이 없어 품목 이름으로(ktcHint). (11-05~11-08 이 자리에 안내 글자를 넣어 두었더니 보도 대조가
         // 힌트를 객체로 읽다 멈췄다 — radar_press_check.py AttributeError, 7회 연속 실패. 힌트는 hint()가 만든 객체이거나 undefined만)
         check: ktcHint(e) });
