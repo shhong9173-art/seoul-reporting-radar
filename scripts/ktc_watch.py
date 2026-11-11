@@ -32,7 +32,7 @@ AGENDA_TRIES = 6
 KEEP_MEETINGS = 12
 KEEP_NEWS = 60
 NEWS_BACKFILL = 12   # 신청인 규칙 전 판정 보도자료를 한 실행에 읽는 수(PDF 사이 1초)
-APPLICANTS_V = 2     # 신청인 읽기 규칙 판(11-11: 2 = 대리인 괄호·품목 꼬리·글자 띄운 머리 정리) — 판이 다르면 다시 읽는다
+APPLICANTS_V = 3     # 신청인 읽기 규칙 판(11-11: 2 = 대리인 괄호·품목 꼬리·글자 띄운 머리 정리, 3 = 표 칸 이름 안 띄어쓰기 붙임) — 판이 다르면 다시 읽는다
 APPLICANT_TITLE = re.compile(r"덤핑|상계|세이프가드|판정|부과\s*건의|조사\s*개시|무역구제조치")
 KEEP_LEFT = 40
 LEFT_MAX = 5  # 한 번에 이보다 많이 빠지면 누리집 이상으로 보고 판단을 미룬다
@@ -179,10 +179,12 @@ def _product(p):
     return p.strip(" □ㅇ·-") or None
 
 
-def _names(raw):
+def _names(raw, table=False):
+    """table=True: '(신청인)' 칸 — 쉼표로 나뉜 한 마디가 한 회사(마디 안 띄어쓰기는 PDF 글자 조각이라 붙인다: 11-11 운영
+    '튤립 이노베이션케이에프티'가 '이노베이션케이에프티'로 잘렸다). 문장 꼴은 날짜 낱말을 버리려고 마디의 마지막 낱말만."""
     out = []
     for part in re.split(r"(?<=[가-힣㈜)])(?:과|와)\s+|\s*[,·‧]\s*|\s및\s", AGENT.sub("", raw or "")):
-        tok = (re.findall(r"[가-힣A-Za-z0-9㈜()\-]+", part) or [""])[-1]
+        tok = part if table else (re.findall(r"[가-힣A-Za-z0-9㈜()\-]+", part) or [""])[-1]
         name = CORP_MARK.sub("", tok).strip("()")
         if len(name) >= 2 and name not in NOT_NAME and not NOT_APPLICANT.search(name) and not re.fullmatch(r"\d+월?|작년|올해|지난해|금년", name):
             out.append(name)
@@ -209,7 +211,7 @@ def applicants_in(text):
     for m in APPLICANT_ROW.finditer(t):
         window = t[max(0, m.start() - 160):m.start()]
         heads = REF_HEAD.findall(window) or REF_HEAD_NS.findall(re.sub(r"\s+", "", window))
-        add(heads[-1] if heads else None, _names(m.group(1)), "표")
+        add(heads[-1] if heads else None, _names(m.group(1), table=True), "표")
     tables = bool(out)
     for m in APPLICANT_SENT.finditer(t):
         # 문장 꼴은 '…것으로, 올해 2월 세아베스틸과 세아창원특수강이' — 마지막 쉼표 뒤 마디만 이름 자리
