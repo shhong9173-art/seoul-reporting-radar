@@ -57,6 +57,44 @@ def tokens(product):
     return sorted(out, key=len, reverse=True)[:4]
 
 
+# 엄격 대조(11-11 첫 실제 실행 뒤): 낱말 하나씩 세면 '아크릴산 2-에틸헥실'에 SK이노베이션의 '에틸렌 아크릴산'(EAA, 다른 품목)이
+# 걸리고, 실제 신청인 LG화학 사업보고서엔 낱말이 하나도 없었다 — 잘못된 회사를 가리켰다. 품목 이름의 낱말이 모두 40자 안에 함께 나올 때만 센다.
+EV_VERSION = 2
+SPAN = 40
+
+
+def core_words(product):
+    """품목 이름의 낱말마다 찾을 꼴 목록. '2-에틸헥실' → ['2-에틸헥실', '에틸헥실'], '무계목강관' → ['무계목강관', '무계목']."""
+    cores = []
+    for w in re.findall(r"[0-9A-Za-z가-힣][0-9A-Za-z가-힣\-]*", str(product or "")):
+        if (w.endswith("산") and w[:-1] in COUNTRIES) or w in STOP or len(w) < 2 or w.isdigit():
+            continue
+        alts = [w]
+        v = re.sub(r"^\d+-", "", w)
+        if v != w and len(v) >= 2:
+            alts.append(v)
+        stem = STEM.match(w)
+        if stem:
+            alts.append(stem.group(1))
+        cores.append(alts)
+    return cores[:3]
+
+
+def windows(text, cores):
+    """첫 낱말이 나온 곳마다 앞뒤 SPAN자 안에 나머지 낱말이 모두 있는 구간(문맥)."""
+    if not cores:
+        return []
+    rx = re.compile("|".join(re.escape(a) for a in sorted(cores[0], key=len, reverse=True)))
+    out = []
+    for m in rx.finditer(text):
+        seg = text[max(0, m.start() - SPAN):min(len(text), m.end() + SPAN)]
+        if all(any(a in seg for a in alts) for alts in cores[1:]):
+            s = re.sub(r"\s+", " ", seg).strip()
+            if s not in out:
+                out.append(s)
+    return out
+
+
 def snippets(text, token, n=2):
     out = []
     for m in re.finditer(re.escape(token), text):
@@ -88,7 +126,7 @@ def case_evidence(case, key, now, codes, cache, *, list_fetch=None, doc_fetch=No
     doc_fetch = doc_fetch or bc.api_bytes
     plain = plain or bc.plain
     group, toks, year = group_of(case.get("product")), tokens(case.get("product")), report_year(now)
-    out = {"caseId": case["id"], "product": case.get("product"), "group": group, "tokens": toks, "year": year,
+    out = {"v": EV_VERSION, "caseId": case["id"], "product": case.get("product"), "group": group, "tokens": toks, "year": year,
            "checkedAt": now.isoformat(timespec="seconds"), "companies": []}
     for name in GROUPS.get(group, ()):
         row = {"company": name}
@@ -109,10 +147,9 @@ def case_evidence(case, key, now, codes, cache, *, list_fetch=None, doc_fetch=No
             if got.get("status") != "found":
                 out["companies"].append({**row, "status": got.get("status") or "error", **({"receiptNo": got["receiptNo"]} if got.get("receiptNo") else {})})
                 continue
-            hits = {t: got["text"].count(t) for t in toks if got["text"].count(t)}
-            first = next(iter(hits), None)
-            out["companies"].append({**row, "status": "found" if hits else "none", "receiptNo": got["receiptNo"], "hits": hits,
-                                     **({"snippets": snippets(got["text"], first)} if first else {})})
+            found = windows(got["text"], core_words(case.get("product")))
+            out["companies"].append({**row, "status": "found" if found else "none", "receiptNo": got["receiptNo"], "hits": len(found),
+                                     **({"snippets": found[:2]} if found else {})})
         except Exception as e:  # noqa: BLE001 — 한 회사 실패가 다른 회사를 막지 않는다(미확인으로 남김)
             out["companies"].append({**row, "status": "error", "error": type(e).__name__})
     return out
@@ -129,7 +166,9 @@ def attach(doc, previous, key, now, **kw):
     since = (now - timedelta(days=WINDOW_DAYS)).isoformat()
     cases = [e for e in doc.get("events") or [] if e.get("pageId") == "ktc" and e.get("ktcKind") == "case" and e.get("beat")
              and str(e.get("detectedAt") or "") >= since and group_of(e.get("product")) and tokens(e.get("product"))]
-    todo = [e for e in sorted(cases, key=lambda e: str(e.get("detectedAt")), reverse=True) if e["id"] not in prod][:MAX_CASES]
+    # 규칙이 바뀐 예전 결과(v 없음·낮음)는 다시 본다
+    todo = [e for e in sorted(cases, key=lambda e: str(e.get("detectedAt")), reverse=True)
+            if (prod.get(e["id"]) or {}).get("v") != EV_VERSION][:MAX_CASES]
     if not key or not todo:
         k["producers"] = prod
         return 0, 0
@@ -143,14 +182,14 @@ def attach(doc, previous, key, now, **kw):
 
 
 def line(ev):
-    """오늘의 레이더 한 줄: '출입처 2025 사업보고서(사업의 내용) 대조: LG화학 「아크릴산」 3곳 「…」 · 낱말 없음 6곳(안 만든다는 뜻 아님) · 미확인 1곳'."""
+    """오늘의 레이더 한 줄: '품목 이름이 나온 출입처 2025 사업보고서(II. 사업의 내용): 세아제강 2곳 「…」(접수 …) — 신청인 확정 아님'. 없으면 ''."""
     if not isinstance(ev, dict) or not ev.get("companies"):
         return ""
     found = [c for c in ev["companies"] if c.get("status") == "found"]
-    none = [c["company"] for c in ev["companies"] if c.get("status") == "none"]
+    if not found:   # 품목 이름이 어느 보고서에도 없으면 줄을 안 붙인다(없다는 게 안 만든다는 뜻이 아니어서 화면만 늘림)
+        return ""
     bad = [c["company"] for c in ev["companies"] if c.get("status") not in ("found", "none")]
-    parts = [f"{c['company']} " + ", ".join(f"'{t}' {n}곳" for t, n in c["hits"].items())
-             + (f" 「{c['snippets'][0]}」" if c.get("snippets") else "") + f"(접수 {c['receiptNo']})" for c in found]
-    tail = ([f"낱말 없음 {len(none)}곳({'·'.join(none)}) — 안 만든다는 뜻 아님"] if none else []) + ([f"미확인 {len(bad)}곳({'·'.join(bad)})"] if bad else [])
-    return (f"출입처 {ev.get('year')} 사업보고서(II. 사업의 내용) 품목 낱말 대조[{', '.join(ev.get('tokens') or [])}]: "
-            + " · ".join(parts + tail) + " — 신청인 확정 아님(회사 확인)")
+    parts = [f"{c['company']} {c['hits']}곳 「{c['snippets'][0]}」(접수 {c['receiptNo']})" for c in found]
+    tail = [f"미확인 {len(bad)}곳"] if bad else []
+    return (f"품목 이름이 나온 출입처 {ev.get('year')} 사업보고서(II. 사업의 내용): " + " · ".join(parts + tail)
+            + " — 신청인 확정 아님(회사 확인)")
