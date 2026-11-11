@@ -1,5 +1,5 @@
-"""probe 210: 무역위 보도자료 상세 본문·첨부 — 판정 보도자료에 신청인(국내 생산자) 이름이 적히는지.
-공개 자료. 저장 안 함. 요청 사이 1초. 목록 3쪽·상세 최대 14건."""
+"""probe 211: 무역위 보도자료 첨부 PDF — 내려받기 주소 꼴과 본문의 신청인 문구. 공개 자료. 저장 안 함. 요청 사이 1초, PDF 최대 8개."""
+import io
 import re
 import sys
 import time
@@ -17,34 +17,45 @@ def log(*a):
 
 http = k.Http(requests.Session())
 rows = []
-for page in (1, 2, 3):
-    body = None
-    try:
-        st, body = http.post(k.NEWS[0], {"menuId": k.NEWS[1], "pageIndex": str(page)})
-        log("LIST", page, "HTTP", st)
-    except Exception as e:  # noqa: BLE001
-        log("LIST", page, "ERR", type(e).__name__)
-    got = k.parse_news(body) if body else []
-    log("LIST", page, len(got))
-    rows += got
+for page in (1, 2, 3, 4):
+    st, body = http.post(k.NEWS[0], {"menuId": k.NEWS[1], "pageIndex": str(page)})
+    rows += k.parse_news(body) if body else []
     time.sleep(1)
-seen = set()
-pick = [r for r in rows if re.search(r"덤핑|관세|판정|조사|세이프가드", r["title"]) and not (r["id"] in seen or seen.add(r["id"]))][:14]
+pick = [r for r in rows if re.search(r"덤핑방지관세|판정|잠정|부과 건의|부과건의", r["title"])][:8]
+log("rows", len(rows), "pick", len(pick))
+first = True
 for r in pick:
     time.sleep(1)
-    try:
-        st, raw = http.get("/boardView.do", {"bbs_id": r["id"], "menuId": "57"})
-    except Exception as e:  # noqa: BLE001
-        log("D", r["id"], "ERR", type(e).__name__)
+    st, raw = http.get("/boardView.do", {"bbs_id": r["id"], "menuId": "57"})
+    raw = raw or ""
+    links = re.findall(r"""(?:href|onclick)\s*=\s*["']([^"']*(?:[Ff]ile|[Dd]own)[^"']*)["']""", raw)
+    if first:
+        log("LINKS", r["id"], links[:6])
+        first = False
+    pdf = next((l for l in links if ".pdf" in l.lower() or "pdf" in l.lower()), None)
+    # 자바스크립트 호출이면 인자를 뽑는다
+    args = re.findall(r"""fn_?[Ff]ile[Dd]own\w*\(([^)]*)\)|fileDown\w*\(([^)]*)\)|download\w*\(([^)]*)\)""", raw)
+    log("D", r["id"], r["title"][:40], "| pdf link", (pdf or "")[:160], "| args", [a for t in args[:4] for a in t if a][:4])
+    url = None
+    if pdf and pdf.startswith(("/", "http")):
+        url = pdf if pdf.startswith("http") else k.SITE + pdf
+    if not url:
         continue
-    t = k.plain(raw or "")
-    i = t.find(r["title"][:10])
-    body = t[i:i + 2500] if i >= 0 else t[:2500]
-    files = re.findall(r"(?:fileDown|download)[^'\"]*['\"]([^'\"]+)['\"]", raw or "")[:4]
-    fnames = re.findall(r"[\w가-힣()\-\s\.]+\.(?:hwp|hwpx|pdf|docx)", raw or "")[:4]
-    log("D", r["id"], r["title"][:50], "| len", len(t), "| files", fnames)
-    for m in re.finditer(r"신청", body):
-        log("   ctx:", body[max(0, m.start() - 90):m.end() + 40].replace("\n", " "))
-    if "신청" not in body:
-        log("   head:", body[:400])
+    time.sleep(1)
+    try:
+        resp = http.s.get(url, headers=k.UA, timeout=60)
+        log("   GET", resp.status_code, resp.headers.get("Content-Type"), len(resp.content))
+        text, err = k.pdf_text(resp.content)
+        if err:
+            log("   PDF", err)
+            continue
+        t = re.sub(r"\s+", " ", text or "")
+        log("   textlen", len(t))
+        hits = [t[max(0, m.start() - 120):m.end() + 30] for m in re.finditer(r"신청", t)][:4]
+        for h in hits:
+            log("   ctx:", h)
+        if not hits:
+            log("   head:", t[:300])
+    except Exception as e:  # noqa: BLE001
+        log("   ERR", type(e).__name__)
 open("/tmp/probe_out.txt", "w").write("\n".join(OUT))
