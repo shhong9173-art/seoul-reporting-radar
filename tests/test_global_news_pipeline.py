@@ -219,7 +219,8 @@ class GlobalCollectorBeatTests(unittest.TestCase):
             rows=[{**item("Doosan wins SMR vessel order","https://w/a"),"beatCompanies":["두산에너빌리티"],"checkTerms":["원자로"],"koTitle":"두산, SMR 용기 수주","firstSeen":"2026-11-01T09:00:00+09:00","numbersNotInSource":["6천억 원"]},
                   {**item("CATL opens plant","https://w/b"),"beatCompanies":[]},
                   {**item("Toyota bZ Closes In on Hyundai Ioniq 5","https://w/c"),"beatCompanies":["현대차"],"sourceName":"EV.com"}]
-            gc.push_beat(rows,"2026-11-01T09:00:00+09:00")
+            rows[0]["krw"]=[{"usd":"30억달러","krw":"약 4조3869억원"}]
+            gc.push_beat(rows,"2026-11-01T09:00:00+09:00",fx={"rate":1462.3,"date":"2026-11-10","fetched":"2026-11-11"})
         finally:
             os.environ.pop("MCP_ACCESS_TOKEN",None)
             if orig is not None: scripts.private_store=orig
@@ -231,6 +232,8 @@ class GlobalCollectorBeatTests(unittest.TestCase):
         self.assertTrue(doc["items"][0]["id"].startswith("gl:"))
         self.assertEqual((doc["items"][0]["checkTerms"],doc["items"][0]["numbersNotInSource"]),(["원자로"],["6천억 원"]))
         self.assertEqual(doc["items"][0]["titleCompanies"],[])   # 행에 없으면 빈 목록(본 수집은 영어 제목으로 채운다)
+        self.assertEqual(doc["items"][0]["krw"],[{"usd":"30억달러","krw":"약 4조3869억원"}])
+        self.assertEqual(doc["fx"],{"rate":1462.3,"date":"2026-11-10","source":"한국은행 ECOS 731Y001 원/달러 매매기준율"})
 
     def test_title_companies_from_english_title_only(self):
         # 11-10 운영: 혼다 오하이오 공장 기사 — 본문에 Hyundai가 나와도 제목 출입처는 없다
@@ -277,6 +280,48 @@ class GlobalCollectorBeatTests(unittest.TestCase):
                   "Mazda adds solar power deals at Miyoshi and new KD Center","2027 Kia EV9 Gets Some Standard Features That Used To Be Optional",
                   "Tesla drops car referral rewards, now pays owners in FSD for referrals","Korea Zinc cuts zinc price 20% off benchmark"]:
             self.assertFalse(gc.not_news(t),t)   # 계약·매각·가격 기사는 그대로
+        # 11-10 운영: 제목엔 광고 표시가 없고 주소가 스폰서 구역
+        sp="https://www.autonews.com/sponsored/publishing-partners/an-hyundais-boldest-suv-all-new-tucson-more-american-than-ever/"
+        self.assertTrue(gc.not_news("Hyundai’s Boldest SUV, the All-New Tucson, is More American Than Ever",sp))
+        self.assertTrue(gc.not_news("Charging made simple","https://www.electrive.com/partner-content/charging-made-simple/"))
+        self.assertTrue(gc.not_news("The future of steel","https://www.forbes.com/sites/brandvoice/2026/11/01/x/"))
+        for url in ["https://www.autonews.com/retail/canada-best-practices/anc-kia-hyundai-dealerships/",
+                    "https://www.autonews.com/honda/an-honda-to-build-3-billion-ohio-plant-1109/",
+                    "https://example.com/news/sponsorship-deal-hyundai-fifa/",                  # 후원 계약 기사는 광고가 아니다
+                    "https://news.google.com/rss/articles/CBMi?oc=5"]:
+            self.assertFalse(gc.not_news("Hyundai renews sponsorship deal",url),url)
+
+    def test_usd_krw_from_ecos_cached_per_day(self):
+        import json as _json
+        from datetime import datetime, timedelta, timezone
+        kst=timezone(timedelta(hours=9))
+        now=datetime(2026,11,11,10,0,tzinfo=kst)
+        calls=[]
+        body={"StatisticSearch":{"row":[{"TIME":"20261109","DATA_VALUE":"1458.5"},{"TIME":"20261110","DATA_VALUE":"1,462.30"}]}}
+        fetch=lambda url,timeout: calls.append(url) or _json.dumps(body).encode()
+        fx=gc.usd_krw("k",now,None,fetch)
+        self.assertEqual(fx,{"rate":1462.3,"date":"2026-11-10","fetched":"2026-11-11"})
+        self.assertIn("/731Y001/D/20261028/20261111/0000001",calls[0])
+        self.assertIs(gc.usd_krw("k",now,fx,fetch),fx)                       # 같은 날은 다시 묻지 않는다
+        self.assertEqual(len(calls),1)
+        later=now+timedelta(days=1)
+        self.assertEqual(gc.usd_krw("",later,fx,fetch),fx)                    # 키 없으면 직전 값(기준일 그대로)
+        def boom(url,timeout): raise OSError("x")
+        self.assertEqual(gc.usd_krw("k",later,fx,boom),fx)                   # 실패하면 직전 값
+        self.assertIsNone(gc.usd_krw("k",later,None,boom))
+        self.assertIsNone(gc.usd_krw("k",later,None,lambda u,t: b'{"RESULT":{"CODE":"INFO-200"}}'))
+
+    def test_krw_notes_from_korean_dollar_amounts(self):
+        self.assertEqual(gc.krw_text(3e9*1462.3),"약 4조3869억원")
+        self.assertEqual(gc.krw_text(4.5e8*1462.3),"약 6580억원")
+        self.assertEqual(gc.krw_text(1500*1462.3),"약 219만원")
+        self.assertEqual(gc.krw_text(684e9*1462.3),"약 1000조2132억원")
+        self.assertEqual(gc.krw_text(1e12-1),"약 1조원")                      # 9999.99억 → 1조로 올림
+        fx={"rate":1462.3,"date":"2026-11-10"}
+        x={"koTitle":"혼다, 30억달러 규모 오하이오 공장","koSummary":"현대차는 4억5천만 달러를 투자한다. 30억달러는 …"}
+        self.assertEqual(gc.krw_notes(x,fx),[{"usd":"30억달러","krw":"약 4조3869억원"},{"usd":"4억5천만 달러","krw":"약 6580억원"}])
+        self.assertEqual(gc.krw_notes(x,None),[])
+        self.assertEqual(gc.krw_notes({"koTitle":"기아, 광주에 3조원 투자"},fx),[])   # 원화 금액은 건드리지 않는다
 
     def test_beat_queries_cover_non_auto_beats(self):
         q = " ".join(x[1] for x in gc.QUERIES)
