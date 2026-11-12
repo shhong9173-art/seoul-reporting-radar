@@ -6,6 +6,7 @@ import {
   readCapped, sha256Hex, textResult, ymd,
 } from './common.mjs';
 import { issueEvidence, publicationDate } from './evidence.mjs';
+import { readFeed } from './screen.mjs';
 import { readZip } from './zip.mjs';
 
 const TIMEOUT_MS = 15000;
@@ -191,6 +192,27 @@ async function dandokIndex(ctx, q, days) {
   }
 }
 
+// 구글 뉴스가 Worker에서 막혔을 때(11-12 기자 질문 '구글뉴스 수집은 왜 계속 실패하지'): 구글은 Cloudflare 서버(Worker)에서 오는
+// 요청에 HTTP 503을 준다 — 즉석 news_check만 막히고, GitHub에서 도는 자동 보도 대조(radar_press_check)는 정상이다
+// (11-11~12 최근 5회 구글 31/31·32/32·29/29·34/34·40/40). 'failed'만 찍으면 고장처럼 보여, 막힌 곳과 자동 대조의 마지막 구글 성적을 함께 보인다.
+async function googleRelayNote(ctx) {
+  try {
+    const doc = await readFeed(ctx, 'radar-check');
+    const at = doc?.generatedAt;
+    if (!at || !Array.isArray(doc.items)) return '';
+    const ran = doc.items.filter((r) => r.checkedAt === at);
+    if (!ran.length) return '';
+    const ok = ran.filter((r) => r.channels?.google?.status === 'ok').length;
+    return ` · 자동 보도 대조(GitHub) 마지막 실행 ${kstStamp(new Date(at)).slice(5, 16)} 구글 ${ok}/${ran.length} 정상`;
+  } catch {
+    return '';
+  }
+}
+
+function googleBlocked(ch) {
+  return ch.status === 'failed' && /HTTP 503|HTTP 429|RSS 형식 아님/.test(ch.error ?? '');
+}
+
 export async function newsCheck(ctx, args) {
   const q = String(args.q ?? '').trim();
   if (q.length < 2) return textResult('q(검색 낱말 2~3개)를 넣어 주세요.', true);
@@ -209,6 +231,10 @@ export async function newsCheck(ctx, args) {
   for (const [name, ch] of Object.entries(channels)) {
     if (ch.status !== 'ok') {
       const standIn = name === '구글 뉴스' && bing.status === 'ok' ? ' (웹 색인은 빙이 대신 — 판정에 영향 없음)' : '';
+      if (name === '구글 뉴스' && googleBlocked(ch)) {
+        out.push(`\n■ ${name}: 이 서버(Cloudflare Worker)에서는 구글이 접속을 막음(${ch.error}) — 레이더 고장 아님${await googleRelayNote(ctx)}${standIn}`);
+        continue;
+      }
       out.push(`\n■ ${name}: ${ch.status} — ${ch.error}${standIn}`);
       continue;
     }
