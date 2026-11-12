@@ -938,7 +938,9 @@ def main():
     print(f"::notice title=trade-remedy-ktc::무역위 진행 사건 {len([c for c in k.get('cases', []) if not c.get('stale')])} · "
           f"회의 {len(k.get('meetings', []))}(안건 읽음 {sum(1 for m in k.get('meetings', []) if m.get('agenda'))}) · 보도자료 {len(k.get('news', []))}"
           f"(첨부 신청인 읽음 {sum(1 for n in k.get('news', []) if 'applicants' in n)}, 신청인 있음 {sum(1 for n in k.get('news', []) if n.get('applicants'))}, "
-          f"출입처 신청 {sum(1 for n in k.get('news', []) if any(a.get('beat') for a in n.get('applicants') or []))}, 첨부 실패 {sum(1 for n in k.get('news', []) if n.get('applicantsError'))})"
+          f"출입처 신청 {sum(1 for n in k.get('news', []) if any(a.get('beat') for a in n.get('applicants') or []))}, 한글 파일로 읽음 {sum(1 for n in k.get('news', []) if str(n.get('applicantsFrom') or '').startswith('hwp'))}, "
+          f"첨부 실패 {sum(1 for n in k.get('news', []) if n.get('applicantsError'))}, 새 규칙으로 읽기 대기 "
+          f"{sum(1 for n in k.get('news', []) if ktc_watch.APPLICANT_TITLE.search(n.get('title') or '') and n.get('applicantsV') != ktc_watch.APPLICANTS_V and not (n.get('applicantsError') and n.get('applicantsErrorV') == ktc_watch.APPLICANTS_V))})"
           f" · 이번 이벤트 {len(kev)}")
     ki = doc.get("kita") or {}
     kiev = [e for e in doc["events"] if e.get("pageId") == "kita" and e["detectedAt"] == doc["generatedAt"]]
