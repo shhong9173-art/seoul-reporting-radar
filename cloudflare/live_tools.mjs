@@ -238,8 +238,9 @@ async function googleRelay(ctx, q, days) {
     const items = (hit.items ?? []).filter((x) => x.date && x.date >= from && x.date <= kstDate(ctx.now));
     return { used: { status: 'ok', returned: hit.returned ?? items.length, items, via: `GitHub 경유 ${kstStamp(new Date(hit.fetchedAt)).slice(5, 16)} 조회` } };
   }
-  const token = ctx.env?.GH_DISPATCH_TOKEN;
-  if (!token) return { used: null, note: ' · GitHub 경유 조회 미설정(Cloudflare 비밀값 GH_DISPATCH_TOKEN)' };
+  // 예약 실행 요청(dispatch.mjs)이 이미 쓰는 GITHUB_DISPATCH_TOKEN(이 저장소 Actions 실행 권한)을 같이 쓴다(11-12: 새 토큰 불필요)
+  const token = ctx.env?.GITHUB_DISPATCH_TOKEN || ctx.env?.GH_DISPATCH_TOKEN;
+  if (!token) return { used: null, note: ' · GitHub 경유 조회 미설정(Cloudflare 비밀값 GITHUB_DISPATCH_TOKEN)' };
   const now = ctx.now.getTime();
   const today = kstDate(ctx.now);
   const book = (await readFeed(ctx, 'google-relay-pending').catch(() => null)) ?? {};
