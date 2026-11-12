@@ -17,7 +17,7 @@ import { failStreak, mergeRuns, pollDue } from '../cloudflare/gh_runs.mjs';
 import { memoGloss, productKo, tradePoint } from '../cloudflare/overseas.mjs';
 import { boardKey, factParts, groupSame, splitTop } from '../cloudflare/board.mjs';
 import { cleanOutput, cleanSummary, LLM_MODELS, MT_MODEL } from '../cloudflare/translate.mjs';
-import { background, billHint, clipAt, convergence, convergenceRows, countForms, hint, insolvencyWord, ktcHint, ktcNewDumping, maintenanceMemo, stackSiteKey, usRecallHint, usRecallModels, kepcoHint, localWord, plantTokens, radarItems, siteCity, splitByPlant, stackAlert, stackHint, workforceHint } from '../cloudflare/digest.mjs';
+import { background, billHint, clipAt, convergence, convergenceRows, countForms, hint, insolvencyWord, ktcHint, ktcNewDumping, maintenanceMemo, stackSiteKey, usRecallHint, usRecallModels, kepcoHint, localWord, plantTokens, radarItems, siteCity, splitByPlant, stackAlert, stackHint, workforceHint, zeroOnlyLongStop } from '../cloudflare/digest.mjs';
 
 const ORIGIN = 'https://seoul-reporting-radar.shhong9173.workers.dev';
 const TOKEN = 'test-token-0123456789abcdef';
@@ -1320,6 +1320,32 @@ test('정기보수 메모(11-08): 기자가 굴뚝 항목을 정기보수 사유
   const sdoc = { sites: [{ company: '현대제철', name: '현대제철㈜순천공장', meaningful: 4, stacks: { 81: halt(90), 82: halt(90), 83: halt(90) } }] };
   assert.match(stackAlert(x, [], sdoc, NOW.getTime()), /장기 가동중지 신고 — 평소 움직이던 배출구 4개 중 3개/);
   assert.equal(stackAlert(x, [], sdoc, NOW.getTime(), new Map(), maintenanceMemo([{ item_id: x.id, reason: '정기보수', created_at: new Date(NOW.getTime() - 86400000).toISOString() }])), null);
+  // 11-12 기자 결정: '가동중지' 신고가 없어도 측정값 0만 사흘 넘게 이어진 배출구도 센다(KG스틸 당진 34번 — 11-04 19:00부터 값 0, 신고 없음)
+  const obsOf = (n, v = 0, from = 80) => Array.from({ length: n }, (_, i) => [kst(from - i * 3), v]);
+  const zx = { id: 'stk:down:KG스틸:케이지스틸(주) 당진공장:d', tier: 'B', watch: '굴뚝 측정(공장 가동 신호)', company: 'KG스틸', site: '케이지스틸(주) 당진공장' };
+  const zdoc = (stacks, stopped, meaningful = 3) => ({ sites: [{ company: 'KG스틸', name: '케이지스틸(주) 당진공장', meaningful, stopped, stacks }] });
+  const z34 = { stoppedSince: kst(190), longStopFor: kst(190), obs: obsOf(20) };
+  const running = { obs: obsOf(20, 15) };
+  assert.equal(stackAlert(zx, [], zdoc({ 6: halt(80), 34: z34, 7: running }, ['34', '6']), NOW.getTime()),
+    "장기 멈춤 — 평소 움직이던 배출구 3개 중 2개가 사흘 넘게 멈춤('가동중지' 신고 1개 · 신고 없이 측정값 0만 1개: 34번)");
+  assert.equal(stackAlert(zx, [], zdoc({ 34: z34, 35: { ...z34 }, 7: running }, ['34', '35']), NOW.getTime()),
+    "장기 멈춤 — 평소 움직이던 배출구 3개 중 2개가 사흘 넘게 멈춤('가동중지' 신고 0개 · 신고 없이 측정값 0만 2개: 34번, 35번)");
+  assert.equal(stackAlert(zx, [], zdoc({ 34: z34, 6: running, 7: running }, ['34']), NOW.getTime()), null);                    // 3개 중 1개
+  assert.equal(stackAlert(zx, [], zdoc({ 34: z34, 6: running }, ['34'], 2), NOW.getTime()), null);                              // 2개 중 1개(지금 당진) — 절반을 넘지 않음
+  // 세지 않는 것: 낮게 도는 배출구(0이 아님), 측정기 쪽 상태, 사흘이 안 된 멈춤(감시가 오래 멈춤으로 표시 안 함), 지금 멈춤 목록에 없는 배출구, 멈춘 뒤 숫자가 3번 안 됨
+  const not = (st, stopped = ['34', '6']) => assert.equal(stackAlert(zx, [], zdoc({ 6: halt(80), 34: st, 7: running }, stopped), NOW.getTime()), null);
+  not({ ...z34, obs: obsOf(20, 0.8) });
+  for (const word of ['기기점검', '보수중', '미수신', '측정자료확인중']) not({ ...z34, status: [word, kst(100)] });
+  not({ stoppedSince: kst(30), obs: obsOf(10, 0, 30) });
+  not(z34, ['6']);
+  not({ ...z34, obs: obsOf(2) });
+  not({ ...z34, obs: [...obsOf(5), [kst(20), 0.3]] });                                                                           // 중간에 값이 돌아온 적 있음
+  // 멈추기 전 숫자는 보지 않는다(멈춘 뒤 관측만), 숫자가 아닌 칸(null)은 건너뛴다
+  assert.equal(zeroOnlyLongStop({ stoppedSince: kst(75), longStopFor: kst(75), obs: [[kst(90), 12.8], [kst(84), 13.1], [kst(72), 0], [kst(60), null], [kst(48), 0], [kst(24), 0]] }), true);
+  assert.equal(zeroOnlyLongStop({ stoppedSince: kst(75), longStopFor: kst(75), status: ['가동중지', kst(70)], obs: obsOf(20) }), false);    // 신고가 있으면 신고 쪽에서 센다
+  // 정기보수 메모가 있으면 이 경우도 알리지 않는다
+  assert.equal(stackAlert(zx, [], zdoc({ 6: halt(80), 34: z34, 7: running }, ['34', '6']), NOW.getTime(), new Map(),
+    maintenanceMemo([{ item_id: zx.id, reason: '정기보수', created_at: new Date(NOW.getTime() - 86400000).toISOString() }])), null);
   // kr_official 굴뚝 화면에 메모를 보인다
   const st = (await call('kr_official', { section: 'stacks' }, opts)).text;
   assert.match(st, /- 정기보수 메모\(기자 판정 — 이 기간 멈춤·빠짐 신호는 레이더에서 접음\) 1곳: 현대제철\(주\)순천공장 \d\d-\d\d '회사 확인\(기자\): 순천공장 정기 보수를 순차 진행 중' → \d\d-\d\d까지/);

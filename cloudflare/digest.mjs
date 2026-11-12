@@ -1401,7 +1401,8 @@ export function background(docs, nowMs) {
 }
 
 // 굴뚝 측정 항목이 즉시 알림 대상인지(11-04): ① 같은 출입처·같은 시군을 다른 감시의 새 항목(배경 아님, 킬 안 한 것)이 함께 가리킴,
-// ② 그 사업장에서 평소 움직이던 배출구의 절반 넘게가 사흘 넘게 '가동중지'(사업장이 보낸 시설 멈춤 신고). 아니면 null.
+// ② 그 사업장에서 평소 움직이던 배출구의 절반 넘게가 사흘 넘게 '가동중지'(사업장이 보낸 시설 멈춤 신고)이거나, 11-12부터 신고 없이
+//    측정값 0만 사흘 넘게 이어짐(zeroOnlyLongStop). 아니면 null.
 export const STACK_ALERT_HOURS = 72;
 // 공장 이름 조각(11-04): '현대제철㈜순천공장' → 순천공장, '롯데케미칼㈜울산2공장' → 울산2공장, '㈜엘지화학 여수공장(용성1단지)' → 여수공장·용성1단지.
 // 숫자뿐인 앞말('PBV 2공장'의 2공장)은 어느 공장인지 말해 주지 않아 뺀다.
@@ -1431,6 +1432,18 @@ export function splitByPlant(g) {
   const short = (ks) => [...ks].sort((a, b) => a.length - b.length)[0];
   return clusters.map((c) => ({ ...g, plant: short(c.tokens), items: [...c.items, ...plain] }));
 }
+// 신고('가동중지') 없이 측정값 0만 이어진 오래 멈춘 배출구(11-12 기자 결정). 셋 다 맞아야 센다:
+// ① 굴뚝 감시가 '사흘 넘게 멈춤'으로 표시(longStopFor — 평일 교대 공장은 일하는 시간 72시간으로 센 것),
+// ② 측정기 쪽 상태(보수중·기기점검·미수신·측정자료확인중)가 아님 — 그건 측정기 사정이라 판단하지 않는다,
+// ③ 쌓인 관측(약 4일) 가운데 멈춘 뒤 숫자가 3번 넘게 있고 모두 0(화면 한 자리 반올림 0.0) — 평소의 10% 아래로 낮게 도는 배출구는 세지 않는다.
+const INSTRUMENT_STATUS = new Set(['보수중', '기기점검', '미수신', '측정자료확인중']);
+export function zeroOnlyLongStop(st) {
+  const status = (st?.status ?? [])[0];
+  if (!st?.longStopFor || status === '가동중지' || INSTRUMENT_STATUS.has(status)) return false;
+  const since = String(st.stoppedSince ?? '');
+  const vals = (st.obs ?? []).filter((o) => Array.isArray(o) && String(o[0] ?? '') >= since).map((o) => o[1]).filter((v) => typeof v === 'number');
+  return vals.length >= 3 && vals.every((v) => Math.abs(v) < 0.05);
+}
 export function stackAlert(x, conv, stacksDoc, nowMs, judged = new Map(), maint = null) {
   const label = WATCHES.find((w) => w.feed === 'kr-stacks')?.label;
   if (!label || x.watch !== label || !['A', 'B'].includes(x.tier)) return null;
@@ -1457,9 +1470,18 @@ export function stackAlert(x, conv, stacksDoc, nowMs, judged = new Map(), maint 
   if (m >= 2 && !(mm && nowMs <= mm.until)) {
     const at = (v) => Date.parse(`${String(v ?? '').replace(' ', 'T')}:00+09:00`);
     // 멈춘 때는 숫자가 끊긴 첫 측정(stoppedSince)을 먼저 쓴다 — 상태 글자는 11-03부터 읽어 '처음 본 때'가 실제 멈춤보다 늦다(순천 10-31 멈춤 → 11-03 10:30 처음 봄)
-    const long = Object.values(s.stacks ?? {}).filter((st) => (st.status ?? [])[0] === '가동중지'
-      && nowMs - Math.min(...[at(st.stoppedSince), at(st.status[1])].filter(Number.isFinite)) >= STACK_ALERT_HOURS * 3600000).length;
-    if (long * 2 > m) return `장기 가동중지 신고 — 평소 움직이던 배출구 ${m}개 중 ${long}개가 사흘 넘게 '가동중지'`;
+    const entries = Object.entries(s.stacks ?? {});
+    const halted = entries.filter(([, st]) => (st.status ?? [])[0] === '가동중지'
+      && nowMs - Math.min(...[at(st.stoppedSince), at(st.status[1])].filter(Number.isFinite)) >= STACK_ALERT_HOURS * 3600000).map(([c]) => c);
+    // 11-12 기자 결정: '가동중지' 신고가 없어도 측정값 0만 사흘 넘게 이어진 배출구도 센다(KG스틸 당진 34번 — 11-04 19:00부터 값 0, 신고 없음).
+    const stoppedNow = new Set((s.stopped ?? []).map(String));
+    const zero = entries.filter(([c, st]) => !halted.includes(c) && stoppedNow.has(String(c)) && zeroOnlyLongStop(st)).map(([c]) => c);
+    const long = halted.length + zero.length;
+    if (long * 2 > m) {
+      return zero.length
+        ? `장기 멈춤 — 평소 움직이던 배출구 ${m}개 중 ${long}개가 사흘 넘게 멈춤('가동중지' 신고 ${halted.length}개 · 신고 없이 측정값 0만 ${zero.length}개: ${zero.slice(0, 4).map((c) => `${c}번`).join(', ')})`
+        : `장기 가동중지 신고 — 평소 움직이던 배출구 ${m}개 중 ${long}개가 사흘 넘게 '가동중지'`;
+    }
   }
   return null;
 }
