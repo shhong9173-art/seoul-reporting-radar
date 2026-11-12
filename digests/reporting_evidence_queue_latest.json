@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-12T17:09:41+09:00",
+  "generatedAt": "2026-11-12T20:46:30+09:00",
   "status": "reporter_evidence_queue_not_exclusive",
   "sourceCoverage": "partial_source_coverage_not_zero_news",
   "sourceHealth": {
@@ -16,8 +16,8 @@
     },
     "dartBeat": {
       "status": "source_partial_coverage",
-      "generatedAt": "2026-11-12T07:41:55+09:00",
-      "rows": 79,
+      "generatedAt": "2026-11-12T20:45:36+09:00",
+      "rows": 85,
       "completeAcrossUniverse": false,
       "zeroItemsProvesNoEvent": false,
       "uninspectedRelevantDetails": 0
@@ -60,7 +60,7 @@
   },
   "countsByEvidenceTier": {
     "new_official_receipt_review": 1,
-    "new_official_list_heading_review": 0,
+    "new_official_list_heading_review": 1,
     "verified_historical_investment_delta": 3,
     "verified_historical_numeric_delta": 24,
     "issuer_only_correction_unverified_original": 3,
@@ -71,13 +71,13 @@
     "recentFrom": "2026-11-10",
     "through": "2026-11-12"
   },
-  "checkedOfficialRecentCandidates": 1,
-  "recentOfficialTitleOnlyCount": 0,
-  "todayOnlyCount": 1,
+  "checkedOfficialRecentCandidates": 2,
+  "recentOfficialTitleOnlyCount": 1,
+  "todayOnlyCount": 2,
   "historicalResearchCount": 32,
   "unlinkedHistoryTextMatchCount": 1,
   "correctionHistorySourceGate": "reviewed_unlinked_candidates_only",
-  "totalRows": 33,
+  "totalRows": 34,
   "excluded": {
     "invalid_original_identity": 0,
     "old_and_not_relevant": 0,
@@ -111,6 +111,43 @@
         "같은 사안의 기존 보도 전문 및 최초 공표 시각 확인",
         "기업의 이미 발표한 실적·판매·공시 사실과 실제 영향 확인"
       ]
+    },
+    {
+      "id": "new_official_list_heading_review:DART:20261112800679",
+      "tier": "new_official_list_heading_review",
+      "tierLabel": "최근 DART 중요 공시 · 제목만 확인",
+      "company": "세아홀딩스",
+      "title": "세아홀딩스 · 기업가치제고계획(자율공시)              (2026년 이행현황)",
+      "officialDocumentDate": "2026-11-12",
+      "officialDateIsSourcePublicationNotScrape": true,
+      "evidenceSummary": "공식 DART 목록의 공시 제목·접수번호·접수일만 확인. 가치제고 목표·주식소각 수량·확정 재무영향은 본문 대조 전이며, 기보도·기업 답변 모두 미확인.",
+      "officialUrls": [
+        "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261112800679"
+      ],
+      "pressFulltextReviewed": false,
+      "sameAngleCoverageVerified": false,
+      "companyImpactVerified": false,
+      "futurePlanVerified": false,
+      "exclusiveConfirmed": false,
+      "approvedForPitch": false,
+      "nextChecks": [
+        "공식 공시 본문에서 수치·대상·결의일, 완료/예정 상태 확인",
+        "이전 가치제고 계획·자사주 처분/소각 공시와 수치 차이 검산",
+        "기존 매체 기사 전문 및 최초 공표 시각 대조",
+        "기업의 이미 공개된 공시 내용만 확인"
+      ],
+      "officialOriginalTextRetrieved": true,
+      "officialOriginalTargetTextExcerpts": {},
+      "officialAttachmentPdfReviewed": false,
+      "originalTextEvidenceIsNotSameYearTargetDefinition": true,
+      "officialListTitleOnly": true,
+      "officialDocumentBodyReviewed": false,
+      "filingTypeFromOfficialTitle": "기업가치제고계획",
+      "disclosedFinancialImpactVerified": false,
+      "priorPressArticleFulltextReviewed": false,
+      "companyResponseVerified": false,
+      "firstObservedHereNotFirstReported": true,
+      "editorialPriority": "primary_title_manual_document_review_only"
     },
     {
       "id": "verified_historical_investment_delta:20260814003228:변압기 철심공장",
