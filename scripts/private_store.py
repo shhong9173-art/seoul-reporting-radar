@@ -13,7 +13,7 @@ import re
 
 WORKER = "https://seoul-reporting-radar.shhong9173.workers.dev"
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
-FEEDS = {"scoop-screen", "us-comments", "page-watch", "partner-filings", "trade-remedy", "us-litigation", "kr-official", "kr-signals", "kr-stats", "trademarks", "assembly-bills", "radar-check", "us-recalls", "reverse-check", "us-epa", "us-osha", "kr-fuel", "overseas-awards", "kr-insolvency", "kr-energy", "kr-building", "overseas-registry", "kr-local", "kr-workforce", "kr-stacks", "kr-local-browser", "trade-remedy-browser", "global-beat", "us-state-env", "kr-labor", "india-filings", "dart-counterparty", "union-notices", "council-minutes", "my-articles", "governance", "kr-labor-browser", "kr-exec", "kr-exec-market", "kr-exec-check", "epo-patents"}
+FEEDS = {"scoop-screen", "us-comments", "page-watch", "partner-filings", "trade-remedy", "us-litigation", "kr-official", "kr-signals", "kr-stats", "trademarks", "assembly-bills", "radar-check", "us-recalls", "reverse-check", "us-epa", "us-osha", "kr-fuel", "overseas-awards", "kr-insolvency", "kr-energy", "kr-building", "overseas-registry", "kr-local", "kr-workforce", "kr-stacks", "kr-local-browser", "trade-remedy-browser", "global-beat", "us-state-env", "kr-labor", "india-filings", "dart-counterparty", "union-notices", "council-minutes", "my-articles", "governance", "kr-labor-browser", "kr-exec", "kr-exec-market", "kr-exec-check", "epo-patents", "google-relay-pending", "google-relay"}
 
 
 class StoreError(RuntimeError):

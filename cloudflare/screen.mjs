@@ -21,6 +21,9 @@ export const FEEDS = {
   trademarks: { blob: 'trademarks', schema: 'trademarks/v1', list: 'filings' },
   'assembly-bills': { blob: 'assembly_bills', schema: 'assembly_bills/v1', list: 'bills' },
   'radar-check': { blob: 'radar_check', schema: 'radar_check/v1', list: 'items' },
+  // 구글 뉴스 GitHub 경유 조회(11-12): Worker가 맡긴 낱말(기자 전용, GitHub 로그·입력값엔 안 남김)과 GitHub가 받아 온 결과
+  'google-relay-pending': { blob: 'google_relay_pending', schema: 'google_relay_pending/v1', list: 'pending' },
+  'google-relay': { blob: 'google_relay', schema: 'google_relay/v1', list: 'results' },
   'us-recalls': { blob: 'us_recalls', schema: 'us_recalls/v1', list: 'recalls' },
   'reverse-check': { blob: 'reverse_check', schema: 'reverse_check/v1', list: 'articles' },
   'us-epa': { blob: 'us_epa', schema: 'us_epa/v1', list: 'vehicles' },
