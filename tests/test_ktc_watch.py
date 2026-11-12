@@ -332,6 +332,50 @@ class KtcTest(unittest.TestCase):
         finally:
             k.hwpx_text, k.hwp_text = keep
 
+    def test_tidy_products_and_names_from_live_screen_11_12(self):
+        # 11-12 운영 화면(PDF 뒤쪽 쪽까지 읽은 뒤)에서 본 줄
+        tp = k.tidy_product
+        self.assertEqual(tp("(최종판정) 베트남산 스테인리스강 냉간압연 제품(원 심) 덤 핑 조 사"), "베트남산 스테인리스강 냉간압연 제품")
+        self.assertEqual(tp("(공청회) 중국산 스테인리스스틸 후판 (원 심)"), "중국산 스테인리스스틸 후판")
+        self.assertEqual(tp("(예비판정) 중국산 차아황산소다"), "중국산 차아황산소다")
+        self.assertEqual(tp("독일·프랑스·노르웨이및스웨덴산폴리염화비닐페이스트수지덤핑방지관세부과"), "독일·프랑스·노르웨이및스웨덴산폴리염화비닐페이스트수지")
+        self.assertIsNone(tp("무역위안건:"))
+        self.assertEqual(tp("중국산 아연도금냉연"), "중국산 아연도금냉연")
+        self.assertEqual(tp("리튬 건전지Ⅰ,Ⅱ,Ⅲ 디자인권 침해 불공정무역행위"), "리튬 건전지Ⅰ,Ⅱ,Ⅲ 디자인권 침해 불공정무역행위")
+        self.assertEqual(k.tidy_names(["OOO", "여행용품제조", "판매"]), [])
+        self.assertEqual(k.tidy_names(["휴렛-팩커드디벨롭먼트컴퍼니", "엘.피."]), ["휴렛-팩커드디벨롭먼트컴퍼니엘.피."])
+        self.assertEqual(k.tidy_names(["오스테오시스", "국내기업A"]), ["오스테오시스"])
+        self.assertEqual(k.tidy_names(["동국씨엠", "케이지스틸", "세아씨엠"]), ["동국씨엠", "케이지스틸", "세아씨엠"])
+        stored = [{"product": "무역위안건:", "names": ["동국씨엠", "케이지스틸", "세아씨엠"], "beat": ["동국씨엠", "KG스틸"], "how": "표"},
+                  {"product": "텐트·침낭 상표권 침해", "names": ["OOO", "여행용품제조", "판매"], "beat": [], "how": "표"},
+                  {"product": "(최종판정) 베트남산 스테인리스강 냉간압연 제품(원 심) 덤 핑 조 사", "names": ["포스코"], "beat": ["포스코"], "how": "표"},
+                  {"product": "베트남산 스테인리스강 냉간압연 제품", "names": ["포스코"], "beat": ["포스코"], "how": "표"}]
+        self.assertEqual([(a["product"], a["names"], a["beat"]) for a in k.tidy_applicants(stored)],
+                         [(None, ["동국씨엠", "케이지스틸", "세아씨엠"], ["동국씨엠", "KG스틸"]), ("베트남산 스테인리스강 냉간압연 제품", ["포스코"], ["포스코"])])
+        # 새로 읽을 때: 괄호 안 설명은 나누기 전에 뺀다
+        got = k.applicants_in("참고 4 텐트·침낭 상표권 침해 조사 □ 조사 개요 ㅇ (신청인) OOO(여행용품 제조·판매) ㅇ (조사대상공급자) A사 "
+                              "참고 5 토너 카트리지 특허권 침해 조사 □ 조사 개요 ㅇ (신청인) 휴렛-팩커드 디벨롭먼트 컴퍼니, 엘.피. ㅇ (조사대상공급자) B사")
+        self.assertEqual([(a["product"], a["names"]) for a in got], [("토너 카트리지 특허권 침해", ["휴렛-팩커드디벨롭먼트컴퍼니엘.피."])])
+        # PET 수지 = 폴리(에틸렌 테레프탈레이트) — 같은 나라일 때만, PET 필름은 다른 품목
+        self.assertTrue(k.same_product("중국산 폴리(에틸렌 테레프탈레이트)에 대한 덤핑방지관세부과 중간재심사", "중국산 PET 수지"))
+        self.assertFalse(k.same_product("대만, 태국, 아랍에미리트연합산 PET 필름 종료재심사(2차)", "중국산 PET 수지"))
+        self.assertFalse(k.same_product("중국산 폴리(에틸렌 테레프탈레이트)에 대한 덤핑방지관세부과 중간재심사", "대만, 태국 및 UAE산 PET 필름"))
+
+        # 저장된 결과는 첨부를 다시 받지 않고 정리하고, 등록일 없는 신청인 보도자료는 상세에서 등록일만 읽는다
+        title = "무역위, 베트남산 스테인리스강 냉간압연 덤핑방지관세 부과 건의"
+        first = k.collect(None, NOW, Site([EV], news=[("00002060", title)]), sleep=lambda s: None)[0]
+        stuck = {**first, "news": [{**n, "applicants": stored, "applicantsV": k.APPLICANTS_V, "applicantsFrom": "pdf"} for n in first["news"]]}
+        site = Site([EV], news=[("00002060", title)])
+        doc, ev, _ = k.collect(stuck, NOW + dt.timedelta(days=1), site, sleep=lambda s: None)
+        rec = doc["news"][0]
+        self.assertEqual([a["product"] for a in rec["applicants"]], [None, "베트남산 스테인리스강 냉간압연 제품"])
+        self.assertFalse([c for c in site.calls if c[0] == "/boardFileDownload.do"])
+        self.assertIn(("/boardView.do", {"bbs_id": "00002060", "menuId": "57"}), site.calls)
+        self.assertRegex(rec["posted"], r"^2026-10-\d\d$")
+        site2 = Site([EV], news=[("00002060", title)])
+        k.collect(doc, NOW + dt.timedelta(days=2), site2, sleep=lambda s: None)
+        self.assertFalse([c for c in site2.calls if c[0] == "/boardView.do"])         # 등록일을 읽었으면 다시 안 읽는다
+
     def test_same_product_across_press_case_agenda_11_12(self):
         sp = k.same_product
         self.assertTrue(sp("중국산 아연도금냉연", "중국산 아연 및 아연합금 표면처리 냉간압연 제품의 덤핑사실및국내산업 피해유무(원심) 최종판정"))

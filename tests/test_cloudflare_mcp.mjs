@@ -925,7 +925,7 @@ test('trade_remedies ktc: meeting agenda before the meeting, recent cases with l
     news: [{ id: '00002297', title: '무역위, 중국산 아연도금냉연, 옵셋인쇄판 덤핑조사 최종판정', posted: '2026-10-26',
       applicants: [{ product: '중국산 아연도금냉연', names: ['동국씨엠', '케이지스틸', '세아씨엠'], beat: ['동국씨엠', 'KG스틸'], how: '표' }] },
     // 11-12: PDF 없이 한글 파일만 붙은 옛 보도자료(probe 214) — 신청인은 한글 파일에서
-    { id: '00001776', title: '무역위, 스테인리스강 냉간압연 및 평판압연 반덤핑조사 개시', posted: '2022-07-21', older: true, applicantsFrom: 'hwpx',
+    { id: '00001776', title: '무역위, 스테인리스강 냉간압연 및 평판압연 반덤핑조사 개시', posted: '2024-06-03', older: true, applicantsFrom: 'hwpx',
       applicants: [{ product: '베트남산 스테인리스강 냉간압연 제품', names: ['포스코'], beat: ['포스코'], how: '개요' }] }] };
   const doc = { schema: 'trade_remedy/v1', generatedAt: '2026-10-30T07:40:00+09:00', quarter: '2026-10-01', rules: [], quotas: [], federalRegister: [], pages: [],
     checks: [{ source: '무역위원회', status: 'ok', returned: 4 }], ktc,
@@ -956,7 +956,7 @@ test('trade_remedies ktc: meeting agenda before the meeting, recent cases with l
   assert.doesNotMatch(steel.text, /커넥티드/);
   assert.match(steel.text, /제479차/);
   // 11-12: 한글 파일에서 읽은 신청인 표시, 신청인 이름으로 찾기(사건·안건·보도자료)
-  assert.match(r.text, / \/ 무역위, 스테인리스강 냉간압연 및 평판압연 반덤핑조사 개시\(2022-07-21\) \[신청인\(첨부 한글 파일\) 베트남산 스테인리스강 냉간압연 제품: 포스코\(출입처 포스코\)\]/);
+  assert.match(r.text, / \/ 무역위, 스테인리스강 냉간압연 및 평판압연 반덤핑조사 개시\(2024-06-03\) \[신청인\(첨부 한글 파일\) 베트남산 스테인리스강 냉간압연 제품: 포스코\(출입처 포스코\)\]/);
   const byApplicant = await call('trade_remedies', { section: 'ktc', company: 'KG스틸' }, opts);
   assert.match(byApplicant.text, /제479차[^\n]*\n   의결\(출입 업종 품목\): 중국산 석도강판[^\n]*케이지스틸·테스트석도\(출입처 KG스틸\)/);
   assert.match(byApplicant.text, /최근 보도자료: 무역위, 중국산 아연도금냉연, 옵셋인쇄판 덤핑조사 최종판정/);
