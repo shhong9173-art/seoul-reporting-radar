@@ -40,6 +40,7 @@ APPLICANTS_V = 5     # 신청인 읽기 규칙 판(11-11: 2 = 대리인 괄호·
                      # 5 = 한글 첨부(hwpx·hwp)·PDF 뒤쪽 쪽·옛 '신청인 :' 꼴) — 판이 다르면 다시 읽는다(실패한 것도 판이 바뀌면 한 번 더)
 PRESS_PDF_PAGES = 20  # 보도자료 PDF를 읽는 쪽 수(11-12 probe 214: 앞 5쪽만 읽어 뒤쪽 참고(석도강판 티씨씨스틸·PVC 서스펜션 한화솔루션)를 놓쳤다)
 FROM_LABEL = {"pdf": "PDF", "hwpx": "한글 파일", "hwp": "한글 파일"}
+POSTED_FILL = 10      # 등록일 없는 신청인 보도자료(기준선 때 본 글)의 등록일을 한 실행에 읽는 수 — 신청인 출처에 날짜를 붙이려고
 APPLICANT_TITLE = re.compile(r"덤핑|상계|세이프가드|판정|부과\s*건의|조사\s*개시|무역구제조치")
 KEEP_LEFT = 40
 LEFT_MAX = 5  # 한 번에 이보다 많이 빠지면 누리집 이상으로 보고 판단을 미룬다
@@ -195,11 +196,61 @@ def _product(p):
     return p.strip(" □ㅇ·-") or None
 
 
+# 운영 화면에서 본 지저분한 품목·이름(11-12, PDF 뒤쪽 쪽까지 읽은 뒤): '(최종판정) 베트남산 스테인리스강 냉간압연 제품(원 심) 덤 핑 조 사',
+# '독일·프랑스·노르웨이및스웨덴산폴리염화비닐페이스트수지덤핑방지관세부과', '무역위안건:', 'OOO·여행용품제조·판매'(익명 신청인 'OOO(여행용품 제조·판매)'),
+# '휴렛-팩커드디벨롭먼트컴퍼니·엘.피.', '오스테오시스·국내기업A'. 저장된 결과에도 실행마다 같은 정리를 한다(첨부를 다시 받지 않는다).
+STAGE_HEAD = re.compile(r"^\s*[\(\[]\s*(?:최종\s*판정|예비\s*판정|조사\s*개시|공청회|의결|판정|조사\s*종결|재심사?)\s*[\)\]]\s*")
+SPACED = re.compile(r"(?<![가-힣])(?:[가-힣]\s){2,}[가-힣](?![가-힣])")   # '덤 핑 조 사'
+PRODUCT_TAIL = re.compile(r"\s*(?:[\(\[]\s*(?:원\s*심|재\s*심)\s*[\)\]]|반?덤핑\s*조사|덤핑\s*방지\s*관세\s*부과|개요)\s*$")
+ANON_NAME = re.compile(r"^(?:[OＯ○◯oX×]{2,}|(?:국내|해외)\s*기업\s*[A-Za-z]?|[A-Z]사?)$")
+NAME_SUFFIX = re.compile(r"^(?:엘\.?피\.?|L\.?P\.?|Ltd\.?|Inc\.?|LLC\.?|Corp\.?|GmbH)$", re.I)
+
+
+def tidy_product(p):
+    if not p:
+        return None
+    p = STAGE_HEAD.sub("", SPACED.sub(lambda m: m.group(0).replace(" ", ""), p))
+    while True:
+        q = PRODUCT_TAIL.sub("", p).strip(" □ㅇ·-:")
+        if q == p:
+            break
+        p = q
+    return None if not p or "안건" in p else p
+
+
+def tidy_names(names):
+    out = []
+    for n in names or []:
+        if NAME_SUFFIX.match(n) and out:      # '휴렛-팩커드 디벨롭먼트 컴퍼니, 엘.피.'는 한 회사
+            out[-1] += n
+        else:
+            out.append(n)
+    if out and ANON_NAME.match(out[0]):       # 'OOO(여행용품 제조·판매)' — 익명 신청인 뒤 낱말은 업종 설명이라 통째로 버린다
+        return []
+    return [n for n in out if not ANON_NAME.match(n)]
+
+
+def tidy_applicants(apps):
+    out, seen = [], set()
+    for a in apps or []:
+        names = tidy_names(a.get("names"))
+        product = tidy_product(a.get("product"))
+        key = (product or "", tuple(names))
+        if not names or key in seen:
+            continue
+        seen.add(key)
+        beat = list(dict.fromkeys(BEAT_ALIAS[n] for n in names if n in BEAT_ALIAS))
+        out.append({**a, "product": product, "names": names, "beat": beat})
+    return out
+
+
 def _names(raw, table=False):
     """table=True: '(신청인)' 칸 — 쉼표로 나뉜 한 마디가 한 회사(마디 안 띄어쓰기는 PDF 글자 조각이라 붙인다: 11-11 운영
     '튤립 이노베이션케이에프티'가 '이노베이션케이에프티'로 잘렸다). 문장 꼴은 날짜 낱말을 버리려고 마디의 마지막 낱말만."""
     out = []
     raw = re.sub(r",\s*(?=(?:Ltd|Inc|LLC|Corp|GmbH)\b)", " ", AGENT.sub("", raw or ""))   # 'Sekisui Chemical Co., Ltd.'는 한 회사
+    if table:   # 괄호 안 설명('OOO(여행용품 제조·판매)', '유닉스(UNIX)')은 나누기 전에 뺀다 — (주)·(사)는 이름 표지라 둔다
+        raw = re.sub(r"\((?!\s*(?:주|사|재|유)\s*\))[^)]*\)", " ", raw)
     for part in re.split(r"(?<=[가-힣㈜)])(?:과|와)\s+|\s*[,·‧]\s*|\s및\s", raw):
         tok = part if table else (re.findall(r"[가-힣A-Za-z0-9㈜()\-]+", part) or [""])[-1]
         tok = re.split(r"\*|※", tok)[0]   # 각주(11-12 운영: '와이어쓰엘엘씨**미국화이자(PfizerInc.)가‘09년인수한자회사…')
@@ -259,7 +310,7 @@ def applicants_in(text):
         if set(names) <= known or (tables and not prods):   # 표에 이미 있거나, 표가 있는데 품목 모르는 문장('HD현대로보틱스가 조사 신청')
             continue
         add(prods[-1] if prods else None, names, "문장")
-    return out
+    return tidy_applicants(out)
 
 
 # 품목 맞추기(11-12 판정 예고): 같은 품목을 보도자료·사건 목록·회의 안건이 다르게 쓴다 — '중국산 아연도금냉연'(보도자료) ↔
@@ -271,7 +322,8 @@ KTC_COUNTRIES = ("중국", "대만", "일본", "미국", "말레이시아", "태
                  "스웨덴", "아랍에미리트연합", "아랍에미리트연방", "아랍에미리트", "싱가포르", "사우디아라비아", "이탈리아", "스페인", "브라질", "튀르키예", "타이")
 COUNTRY_SHORT = {"독": "독일", "프": "프랑스", "노": "노르웨이", "스": "스웨덴", "중": "중국", "일": "일본", "미": "미국", "대": "대만"}
 PRODUCT_ALIAS = (("아연도금냉연", "아연및아연합금표면처리냉간압연"), ("아연표면처리냉연", "아연및아연합금표면처리냉간압연"),
-                 ("PVC", "폴리염화비닐"), ("PSR", "폴리염화비닐페이스트수지"), ("고체수산화나트륨", "수산화나트륨"), ("BA", "부틸아크릴레이트"))
+                 ("PVC", "폴리염화비닐"), ("PSR", "폴리염화비닐페이스트수지"), ("고체수산화나트륨", "수산화나트륨"), ("BA", "부틸아크릴레이트"),
+                 ("PET수지", "폴리에틸렌테레프탈레이트"))   # 11-12 운영: 보도자료 '중국산 PET 수지' ↔ 사건 '중국산 폴리(에틸렌 테레프탈레이트) … 중간재심사
 PRODUCT_NOISE = re.compile(r"\(\s*(?:원심|재심|PSR|BA)\s*\)|의?\s*덤핑\s*사실\s*및?\s*국내\s*산업\s*피해\s*유무|에\s*대한|덤핑\s*방지\s*관세|부과\s*종료\s*재심사"
                            r"|종료\s*재심사|\(\s*\d+\s*차\s*\)|\d+\s*차|조사\s*개시|개시\s*결정|최종\s*판정|예비\s*판정|판정|보고|조사|덤핑|제품|건의|부과|의결|원심|재심|유럽\s*\d+\s*개국"
                            # 불공정무역행위 사건의 공통 꼬리(11-12 운영: '임플란트 개질기 특허권 침해 불공정무역행위'가 공통 꼬리 때문에 다른 사건 신청인과 맞음)
@@ -737,6 +789,24 @@ def collect(prev, now, http, *, sleep=time.sleep):
             if rec.get("applicantsV") == APPLICANTS_V or failed or not APPLICANT_TITLE.search(rec.get("title") or ""):
                 continue
             read_applicants(rec)
+    if not baseline:
+        filled = 0
+        for rec in sorted(news.values(), key=lambda n: n["id"], reverse=True):
+            if filled >= POSTED_FILL:
+                break
+            if rec.get("posted") or rec.get("postedTried") or not rec.get("applicants"):
+                continue
+            filled += 1
+            sleep(0.5)
+            page = _try([], "", http.get, "/boardView.do", {"bbs_id": rec["id"], "menuId": NEWS[1]})
+            m = re.search(r"등록일\s*(\d{4}-\d{2}-\d{2})", plain(page)) if page else None
+            if m:
+                rec["posted"] = m.group(1)
+            elif page:
+                rec["postedTried"] = True      # 상세는 열렸는데 등록일이 없음 — 다시 안 읽는다(못 연 것은 다음 실행에)
+    for rec in news.values():                  # 저장된 신청인도 같은 정리(첨부를 다시 받지 않는다)
+        if rec.get("applicants"):
+            rec["applicants"] = tidy_applicants(rec["applicants"])
     news = sorted(news.values(), key=lambda n: n["id"], reverse=True)[:KEEP_NEWS]
 
     # 6) 판정 예고(11-12): 보도자료 신청인을 사건·회의 안건 품목에 붙인다. 다가오는 회의(오늘 이후 개최) 안건에 출입처 신청인이
