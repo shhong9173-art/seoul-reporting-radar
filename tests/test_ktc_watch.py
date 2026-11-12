@@ -209,6 +209,8 @@ class KtcTest(unittest.TestCase):
         self.assertEqual((bt[1]["product"], bt[1]["names"]), ("자동차용 배터리팩 특허권 침해", ["튤립이노베이션케이에프티"]))
         self.assertEqual(k.applicants_in(PSR), [{"product": "독·프·노르웨이및스웨덴산폴리염화비닐페이스트수지", "names": ["한화솔루션"], "beat": ["한화솔루션"], "how": "표"}])
         self.assertEqual(k.applicants_in(ROBOT), [{"product": "일본 및 중국산 산업용 로봇", "names": ["에이치디현대로보틱스"], "beat": [], "how": "표"}])
+        self.assertEqual(k.applicants_in("참고3 (판정) 폐렴구균 단백접합백신 특허권 침해 II 조사□ㅇ (신청인)와이어쓰엘엘씨**미국화이자(PfizerInc.)가‘09년인수한자회사(미국소재)ㅇ (피신청인)")[0]["names"],
+                         ["와이어쓰엘엘씨"])
         # 운영 PDF 글 조각: 표 칸 이름 안 띄어쓰기(pypdf 판에 따라 '튤립 이노베이션케이에프티'·'한 화 솔 루 션')는 붙인다
         self.assertEqual(k.applicants_in("참고2 (조사종결) 자동차용 배터리팩 특허권 침해 조사□조사개요ㅇ (신청인)튤립 이노베이션케이에프티ㅇ (피신청인)외국기업A")[0]["names"],
                          ["튤립이노베이션케이에프티"])
@@ -228,6 +230,10 @@ class KtcTest(unittest.TestCase):
         self.assertFalse(sp("중국산 폴리에스테르 장섬유 완전연신사", "중국산 폴리염화비닐 서스펜션 수지의 덤핑사실 및 국내산업피해 유무"))
         self.assertFalse(sp("대만산 PET 필름", "중국산 PET 필름의 덤핑사실"))                   # 같은 품목이라도 나라가 다르면 다른 사건
         self.assertFalse(sp("중국산 PET 필름", "중국산 PET 수지의 덤핑사실"))
+        # 불공정무역행위 공통 꼬리로 맞추지 않는다(11-12 운영: 임플란트 개질기 사건에 다른 특허 사건 신청인이 붙음)
+        self.assertFalse(sp("착즙기 특허권 침해 불공정무역행위", "임플란트 개질기 특허권 침해 불공정무역행위 조사"))
+        self.assertTrue(sp("자동차용 배터리팩 특허권 침해", "자동차용 배터리팩 특허권 침해"))
+        self.assertFalse(sp("리튬이차전지 전기자동차 특허권 침해", "커넥티드 전기자동차 특허권 침해 불공정무역행위 조사"))
 
     def test_preview_from_older_press_page_11_12(self):
         first = k.collect(None, NOW, Site([TINPLATE], meetings=[M478], meeting_pages=PAGES, news=[("00002297", "무역위, 중국산 아연도금냉연 덤핑조사 최종판정")]),
