@@ -412,10 +412,24 @@ class KtcTest(unittest.TestCase):
         self.assertEqual((pv[0]["tier"], pv[0]["company"], pv[0]["label"]), ("B", "KG스틸", "무역위 회의 예고(개최 2026-11-20)"))
         self.assertIn("의결: 중국산 석도강판의 덤핑사실및국내산업피해유무 예비판정(원심) — 신청인 케이지스틸, 테스트석도(보도자료 「무역위, 중국산 석도강판 덤핑조사 개시」", pv[0]["text"])
         self.assertIn("결과(판정·세율)는 회의 뒤 보도자료·의결서로 확인", pv[0]["text"])
+        self.assertNotIn("재심 안건", pv[0]["text"])                                    # 원심 안건엔 재심 주의가 안 붙는다
         tin = next(c for c in doc["cases"] if c["id"] == "00000868")
         self.assertEqual(tin["applicant"]["beat"], ["KG스틸"])                           # 사건에도 신청인
         m479 = next(m for m in doc["meetings"] if m["id"] == "00000312")
         self.assertEqual(m479["agenda"][0]["applicant"]["names"], ["케이지스틸", "테스트석도"])
+        # 재심 안건에 붙은 이름은 원심 보도자료의 신청인 — 예고 글에 그렇게 적는다
+        m480 = ("00000313", 312, "제480차 12월 무역위원회 개최 안내", "2026-12-11")
+        pages480 = {**PAGES, "00000313": meeting_detail("00000313", "0000", 480, "26.12.18", "1건(의결1)")}
+        PDF_TEXT["00000313"] = ("제480차 무역위원회 본회의 개요 2. 회의 안건 □ 의결 ㅇ (의결 제2026-30호) 중국산 석도강판에 대한 덤핑방지관세 부과 종료재심사(1차) 최종판정")
+        try:
+            import copy
+            _, ev480, _ = k.collect(copy.deepcopy(doc), NOW + dt.timedelta(days=2), Site([TINPLATE], meetings=[m480, M479, M478], meeting_pages=pages480,
+                                                                                         news=[("00002297", "무역위, 중국산 아연도금냉연 덤핑조사 최종판정")]), sleep=lambda s: None)
+        finally:
+            PDF_TEXT.pop("00000313", None)
+        pv480 = [e for e in ev480 if e["ktcKind"] == "preview"]
+        self.assertEqual(len(pv480), 1)
+        self.assertIn("첨부) · 재심 안건 — 그 보도자료 때 신청인(재심 요청인은 다를 수 있음) · 결과(판정·세율)는", pv480[0]["text"])
         # 다시 돌려도 예고는 한 번만
         _, ev2, _ = k.collect(doc, NOW + dt.timedelta(days=1, hours=3), Site([TINPLATE], meetings=[M479, M478], meeting_pages=PAGES,
                                                                               news=[("00002297", "무역위, 중국산 아연도금냉연 덤핑조사 최종판정")]), sleep=lambda s: None)
