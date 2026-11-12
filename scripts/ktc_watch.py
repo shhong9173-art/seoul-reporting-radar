@@ -832,7 +832,8 @@ def collect(prev, now, http, *, sleep=time.sleep):
             posted = f" {hit['posted']}" if hit.get("posted") else ""
             event("preview", f"{mt['id']}:{a.get('no') or a.get('text', '')[:20]}", f"무역위 회의 예고(개최 {mt.get('meetingOn')})",
                   f"{a['kind']}: {a['text']} — 신청인 {', '.join(hit['names'])}(보도자료 「{hit['title']}」{posted} 첨부)"
-                  f" · 결과(판정·세율)는 회의 뒤 보도자료·의결서로 확인", mt.get("url"), "B", True, company="·".join(hit["beat"]))
+                  + (" · 재심 안건 — 그 보도자료 때 신청인(재심 요청인은 다를 수 있음)" if "재심" in (a.get("text") or "") else "")
+                  + " · 결과(판정·세율)는 회의 뒤 보도자료·의결서로 확인", mt.get("url"), "B", True, company="·".join(hit["beat"]))
 
     listed = [c for c in cases if not c.get("stale")]
     status = "failed" if not listed and sched is None and newsp is None else ("partial" if errors or not listed else "ok")

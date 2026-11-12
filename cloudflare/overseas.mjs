@@ -362,8 +362,11 @@ export function rateChangeText(x) {
 }
 
 // 보도자료 첨부(PDF, 없으면 한글 파일)에서 읽은 신청인을 사건·안건에 붙인 것(11-12 판정 예고, ktc_watch.applicant_for — 품목 이름 맞추기라 원문 확인)
-const applicantNote = (a) => (a?.names?.length
+// 재심(종료·중간재심사) 사건·안건에 붙은 이름은 대개 원심 보도자료의 신청인이다(11-12 운영: 'PET 중간재심사'에 2024-10 원심 판정 보도자료의
+// 티케이케미칼) — 재심을 요청한 쪽은 다를 수 있어 그렇게 적는다.
+const applicantNote = (a, review = false) => (a?.names?.length
   ? ` · 신청인(보도자료 「${String(a.title ?? '').slice(0, 30)}」${a.posted ? ` ${a.posted}` : ''} 첨부) ${a.names.join('·')}${a.beat?.length ? `(출입처 ${a.beat.join('·')})` : ''}`
+    + (review ? ' — 재심 건: 그 보도자료 때 신청인(재심 요청인은 다를 수 있음)' : '')
   : '');
 // 신청인 이름으로도 찾게(11-12: company=LG화학·포스코로 그 회사가 신청한 사건·안건·보도자료)
 const applicantWords = (a) => [...(a?.names ?? []), ...(a?.beat ?? [])].join(' ');
@@ -379,7 +382,7 @@ export function ktcSection(k, q = '', limit = 15) {
     + ` · 2019년 이후 개시 ${active.length}건(출입 업종 품목 ${active.filter((c) => c.beat).length})${k.listComplete === false ? ' · 목록 일부만 읽음' : ''}`);
   for (const m of (k.meetings ?? []).filter((m) => !q || matches(q, m.title, (m.agenda ?? []).map((a) => `${a.text} ${applicantWords(a.applicant)}`).join(' '))).slice(0, 2)) {
     out.push(`- 회의: ${m.title}${m.meetingOn ? ` · 개최 ${m.meetingOn}` : ''}${m.posted ? ` · 게시 ${m.posted}` : ''}${m.summary ? ` · 안건 ${m.summary}` : ''}`);
-    if (m.agenda) for (const a of m.agenda.slice(0, 8)) out.push(`   ${a.kind}${a.beat ? '(출입 업종 품목)' : ''}: ${a.text}${applicantNote(a.applicant)}`);
+    if (m.agenda) for (const a of m.agenda.slice(0, 8)) out.push(`   ${a.kind}${a.beat ? '(출입 업종 품목)' : ''}: ${a.text}${applicantNote(a.applicant, /재심/.test(a.text ?? ''))}`);
     else out.push(`   안건 미확인(${m.agendaError ?? '읽지 않음'}) — 0건 아님`);
     out.push(`   원문: ${m.url}`);
   }
@@ -389,7 +392,7 @@ export function ktcSection(k, q = '', limit = 15) {
     const ls = lastStep(c);
     out.push(`- ${c.no} · ${c.title} · ${c.country || '대상국 미기재'} · ${c.kind ?? '유형 미상'}${c.review ? `/${c.review}` : ''} · 개시 ${c.opened ?? '?'}`
       + `${ls ? ` · 최근 ${ls[0]} ${ls[1]}` : ''}${(c.pending ?? []).length ? ` · 남은 단계 ${c.pending.join('·')}` : ''}${c.beat ? ' · 출입 업종 품목' : ''}`
-      + `${c.detailError ? ` · ${c.detailError}` : ''}${c.stale ? ' · 이번 목록에서 확인 못 함' : ''}${applicantNote(c.applicant)}`);
+      + `${c.detailError ? ` · ${c.detailError}` : ''}${c.stale ? ' · 이번 목록에서 확인 못 함' : ''}${applicantNote(c.applicant, c.review === '재심' || /재심/.test(c.title ?? ''))}`);
     out.push(`   원문: ${c.url}`);
   }
   if (sorted.length > limit) out.push(`… 남은 ${sorted.length - limit}건`);

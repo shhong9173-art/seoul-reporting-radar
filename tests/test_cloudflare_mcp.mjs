@@ -913,7 +913,9 @@ test('trade_remedies ktc: meeting agenda before the meeting, recent cases with l
         kind: '반덤핑조사', review: '원심', country: '중국', beat: true, timeline: [['조사개시', '2026-10-08']], pending: ['예비조사', '공청회', '최종판정'], url: 'https://www.ktc.go.kr/v?875',
         applicant: { names: ['일진제강'], beat: [], newsId: '00002297', title: '무역위, 중국산 아연도금냉연, 옵셋인쇄판 덤핑조사 최종판정', posted: '2026-10-26' } },
       { id: '00000859', no: '구제 23-2025-13호', title: '중국산 인쇄제판용 평면모양 사진플레이트', product: '인쇄제판용 평면모양 사진플레이트', opened: '2026-01-08', stage: '조사실행',
-        kind: '반덤핑조사', review: '재심', country: '중국', beat: false, timeline: [['조사개시', '2026-01-08']], pending: ['최종판정'], url: 'https://www.ktc.go.kr/v?859' },
+        kind: '반덤핑조사', review: '재심', country: '중국', beat: false, timeline: [['조사개시', '2026-01-08']], pending: ['최종판정'], url: 'https://www.ktc.go.kr/v?859',
+        // 11-12: 재심 사건에 붙은 이름은 원심 보도자료의 신청인(시험 값)
+        applicant: { names: ['테스트인쇄판'], beat: [], newsId: '00001723', title: '옵셋인쇄판 반덤핑 원심 최종판정', posted: '2021-11-08' } },
       { id: '00000493', no: '제 4-1-2008-6', title: '낚싯대케이스', product: '낚싯대케이스', opened: '2008-07-23', stage: '조사실행', beat: false, url: 'https://www.ktc.go.kr/v?493' }],
     left: [{ id: '00000868', no: '구제23-2026-5호', title: '중국산 석도강판의 덤핑사실 및 국내산업피해 유무', product: '석도강판', leftAt: '2026-10-30T07:40:00+09:00', result: '부정 · 조사종결' }],
     meetings: [{ id: '00000312', title: '제479차 11월 무역위원회 개최 안내', posted: '2026-11-13', meetingOn: '2026-11-20', summary: '3건(정기보고1, 의결2)',
@@ -955,6 +957,10 @@ test('trade_remedies ktc: meeting agenda before the meeting, recent cases with l
   const steel = await call('trade_remedies', { section: 'ktc', company: '석도' }, opts);
   assert.doesNotMatch(steel.text, /커넥티드/);
   assert.match(steel.text, /제479차/);
+  // 11-12: 재심 사건의 신청인은 그 보도자료(원심) 때 이름이라고 적는다 — 원심 사건·안건엔 안 붙는다
+  assert.match(r.text, /구제 23-2025-13호 · 중국산 인쇄제판용 평면모양 사진플레이트[^\n]*반덤핑조사\/재심[^\n]* · 신청인\(보도자료 「옵셋인쇄판 반덤핑 원심 최종판정」 2021-11-08 첨부\) 테스트인쇄판 — 재심 건: 그 보도자료 때 신청인\(재심 요청인은 다를 수 있음\)\n/);
+  assert.doesNotMatch(r.text, /일진제강 — 재심 건/);
+  assert.doesNotMatch(r.text, /케이지스틸·테스트석도\(출입처 KG스틸\) — 재심 건/);
   // 11-12: 한글 파일에서 읽은 신청인 표시, 신청인 이름으로 찾기(사건·안건·보도자료)
   assert.match(r.text, / \/ 무역위, 스테인리스강 냉간압연 및 평판압연 반덤핑조사 개시\(2024-06-03\) \[신청인\(첨부 한글 파일\) 베트남산 스테인리스강 냉간압연 제품: 포스코\(출입처 포스코\)\]/);
   const byApplicant = await call('trade_remedies', { section: 'ktc', company: 'KG스틸' }, opts);
