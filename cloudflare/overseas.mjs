@@ -361,6 +361,11 @@ export function rateChangeText(x) {
   return ch.slice(0, 5).map((c) => (c.before == null ? `${c.company} 새 조사에서 ${pct(c.rate)}` : `${c.company} ${pct(c.before)}→${pct(c.rate)}`)).join(', ');
 }
 
+// 보도자료 첨부 PDF에서 읽은 신청인을 사건·안건에 붙인 것(11-12 판정 예고, ktc_watch.applicant_for — 품목 이름 맞추기라 원문 확인)
+const applicantNote = (a) => (a?.names?.length
+  ? ` · 신청인(보도자료 「${String(a.title ?? '').slice(0, 30)}」${a.posted ? ` ${a.posted}` : ''} 첨부) ${a.names.join('·')}${a.beat?.length ? `(출입처 ${a.beat.join('·')})` : ''}`
+  : '');
+
 export function ktcSection(k, q = '', limit = 15) {
   if (!k) return ['\n[국내 무역위원회] 아직 수집 전 — 미확인'];
   const out = [];
@@ -372,7 +377,7 @@ export function ktcSection(k, q = '', limit = 15) {
     + ` · 2019년 이후 개시 ${active.length}건(출입 업종 품목 ${active.filter((c) => c.beat).length})${k.listComplete === false ? ' · 목록 일부만 읽음' : ''}`);
   for (const m of (k.meetings ?? []).filter((m) => !q || matches(q, m.title, (m.agenda ?? []).map((a) => a.text).join(' '))).slice(0, 2)) {
     out.push(`- 회의: ${m.title}${m.meetingOn ? ` · 개최 ${m.meetingOn}` : ''}${m.posted ? ` · 게시 ${m.posted}` : ''}${m.summary ? ` · 안건 ${m.summary}` : ''}`);
-    if (m.agenda) for (const a of m.agenda.slice(0, 8)) out.push(`   ${a.kind}${a.beat ? '(출입 업종 품목)' : ''}: ${a.text}`);
+    if (m.agenda) for (const a of m.agenda.slice(0, 8)) out.push(`   ${a.kind}${a.beat ? '(출입 업종 품목)' : ''}: ${a.text}${applicantNote(a.applicant)}`);
     else out.push(`   안건 미확인(${m.agendaError ?? '읽지 않음'}) — 0건 아님`);
     out.push(`   원문: ${m.url}`);
   }
@@ -382,7 +387,7 @@ export function ktcSection(k, q = '', limit = 15) {
     const ls = lastStep(c);
     out.push(`- ${c.no} · ${c.title} · ${c.country || '대상국 미기재'} · ${c.kind ?? '유형 미상'}${c.review ? `/${c.review}` : ''} · 개시 ${c.opened ?? '?'}`
       + `${ls ? ` · 최근 ${ls[0]} ${ls[1]}` : ''}${(c.pending ?? []).length ? ` · 남은 단계 ${c.pending.join('·')}` : ''}${c.beat ? ' · 출입 업종 품목' : ''}`
-      + `${c.detailError ? ` · ${c.detailError}` : ''}${c.stale ? ' · 이번 목록에서 확인 못 함' : ''}`);
+      + `${c.detailError ? ` · ${c.detailError}` : ''}${c.stale ? ' · 이번 목록에서 확인 못 함' : ''}${applicantNote(c.applicant)}`);
     out.push(`   원문: ${c.url}`);
   }
   if (sorted.length > limit) out.push(`… 남은 ${sorted.length - limit}건`);

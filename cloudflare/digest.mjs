@@ -22,7 +22,7 @@ const DEAL_WORDS = /\b(agreement|supply|offtake|off-take|joint venture|\bJV\b|me
 const ymd8 = (v) => (/^\d{8}/.test(String(v ?? '')) ? `${String(v).slice(0, 4)}-${String(v).slice(4, 6)}-${String(v).slice(6, 8)}` : String(v ?? '').slice(0, 10));
 const has = (q, ...fields) => !q || fields.some((f) => String(f ?? '').toLowerCase().includes(q.toLowerCase()));
 
-const KTC_KIND = { case: '무역위 새 조사', step: '무역위 진행일정', left: '무역위 진행 목록에서 빠짐', meeting: '무역위 회의 안건', agenda: '무역위 회의 안건',
+const KTC_KIND = { case: '무역위 새 조사', step: '무역위 진행일정', left: '무역위 진행 목록에서 빠짐', meeting: '무역위 회의 안건', agenda: '무역위 회의 안건', preview: '무역위 회의 예고(출입처 신청 품목)',
   news: '무역위 보도자료' };
 
 export const WATCHES = [

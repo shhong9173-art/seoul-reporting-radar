@@ -30,7 +30,8 @@ DETAIL_SINCE = "2019-01-01"
 MEETINGS_READ = 3
 AGENDA_TRIES = 6
 KEEP_MEETINGS = 12
-KEEP_NEWS = 60
+KEEP_NEWS = 120
+NEWS_PAGES = 8       # 보도자료 목록을 거슬러 읽는 쪽 수(한 실행에 한 쪽씩, 11-12 판정 예고 — 진행 사건의 개시·예비판정 보도자료 신청인)
 NEWS_BACKFILL = 12   # 신청인 규칙 전 판정 보도자료를 한 실행에 읽는 수(PDF 사이 1초)
 APPLICANTS_V = 3     # 신청인 읽기 규칙 판(11-11: 2 = 대리인 괄호·품목 꼬리·글자 띄운 머리 정리, 3 = 표 칸 이름 안 띄어쓰기 붙임) — 판이 다르면 다시 읽는다
 APPLICANT_TITLE = re.compile(r"덤핑|상계|세이프가드|판정|부과\s*건의|조사\s*개시|무역구제조치")
@@ -224,6 +225,72 @@ def applicants_in(text):
             continue
         add(prods[-1] if prods else None, names, "문장")
     return out
+
+
+# 품목 맞추기(11-12 판정 예고): 같은 품목을 보도자료·사건 목록·회의 안건이 다르게 쓴다 — '중국산 아연도금냉연'(보도자료) ↔
+# '중국산 아연 및 아연합금 표면처리 냉간압연 제품의 덤핑사실및국내산업 피해유무(원심) 최종판정'(안건) ↔ '… 유무 조사'(사건),
+# '독·프·노르웨이및스웨덴산폴리염화비닐페이스트수지'(보도자료) ↔ '유럽 4개국산 PVC 페이스트 수지(PSR)'(보도자료 제목).
+# 나라 이름·절차 낱말·띄어쓰기를 빼고 운영에서 본 줄임만 바꾼 뒤, 한쪽이 다른 쪽을 품거나 두 글자 조각이 60% 넘게 겹치면 같은 품목,
+# 나라가 둘 다 적혔는데 하나도 안 겹치면 다른 품목으로 본다.
+KTC_COUNTRIES = ("중국", "대만", "일본", "미국", "말레이시아", "태국", "인도네시아", "인도", "베트남", "러시아", "독일", "프랑스", "노르웨이",
+                 "스웨덴", "아랍에미리트연합", "아랍에미리트연방", "아랍에미리트", "싱가포르", "사우디아라비아", "이탈리아", "스페인", "브라질", "튀르키예", "타이")
+COUNTRY_SHORT = {"독": "독일", "프": "프랑스", "노": "노르웨이", "스": "스웨덴", "중": "중국", "일": "일본", "미": "미국", "대": "대만"}
+PRODUCT_ALIAS = (("아연도금냉연", "아연및아연합금표면처리냉간압연"), ("아연표면처리냉연", "아연및아연합금표면처리냉간압연"),
+                 ("PVC", "폴리염화비닐"), ("PSR", "폴리염화비닐페이스트수지"), ("고체수산화나트륨", "수산화나트륨"), ("BA", "부틸아크릴레이트"))
+PRODUCT_NOISE = re.compile(r"\(\s*(?:원심|재심|PSR|BA)\s*\)|의?\s*덤핑\s*사실\s*및?\s*국내\s*산업\s*피해\s*유무|에\s*대한|덤핑\s*방지\s*관세|부과\s*종료\s*재심사"
+                           r"|종료\s*재심사|\(\s*\d+\s*차\s*\)|\d+\s*차|조사\s*개시|개시\s*결정|최종\s*판정|예비\s*판정|판정|보고|조사|덤핑|제품|건의|부과|의결|원심|재심|유럽\s*\d+\s*개국")
+
+
+def countries_in(text):
+    t = str(text or "")
+    found = {c for c in KTC_COUNTRIES if c in t}
+    for m in re.finditer(r"(?<![가-힣])([독프노스중일미대])(?=\s*[·‧,])|(?<=[·‧,])\s*([독프노스중일미대])(?![가-힣])", t):
+        found.add(COUNTRY_SHORT[m.group(1) or m.group(2)])
+    return {"아랍에미리트" if c.startswith("아랍에미리트") else ("태국" if c == "타이" else c) for c in found}
+
+
+def product_key(text):
+    t = PRODUCT_NOISE.sub(" ", str(text or ""))
+    head, sep, tail = t.rpartition("산 ")
+    if sep and (countries_in(head) or re.search(r"[·‧,]", head)):   # '중국, 미국, 말레이시아산 …' → 뒤만
+        t = tail
+    t = re.sub(r"[^0-9A-Za-z가-힣]", "", t)
+    for c in sorted(KTC_COUNTRIES, key=len, reverse=True):
+        if t.startswith(c):
+            t = t[len(c):]
+    t = re.sub(r"^(?:및|산)+", "", t)
+    for a, b in PRODUCT_ALIAS:
+        t = t.replace(a, b)
+    return t
+
+
+def same_product(a, b):
+    ka, kb = product_key(a), product_key(b)
+    if len(ka) < 2 or len(kb) < 2:
+        return False
+    ca, cb = countries_in(a), countries_in(b)
+    if ca and cb and not (ca & cb):
+        return False
+    if (len(ka) >= 3 and ka in kb) or (len(kb) >= 3 and kb in ka):
+        return True
+    ga = {ka[i:i + 2] for i in range(len(ka) - 1)}
+    gb = {kb[i:i + 2] for i in range(len(kb) - 1)}
+    return bool(ga and gb) and len(ga & gb) / len(ga | gb) >= 0.6
+
+
+def applicant_index(news):
+    """보도자료 신청인 → [{product, names, beat, newsId, title, posted}] 최근 보도자료 먼저."""
+    out = []
+    for n in sorted(news, key=lambda x: x.get("id") or "", reverse=True):
+        for a in n.get("applicants") or []:
+            if a.get("product") and a.get("names"):
+                out.append({"product": a["product"], "names": a["names"], "beat": a.get("beat") or [], "newsId": n["id"],
+                            "title": n.get("title"), "posted": n.get("posted")})
+    return out
+
+
+def applicant_for(text, index):
+    return next((x for x in index if same_product(text, x["product"])), None)
 
 
 def attachment_pdf(http, bid, sleep):
@@ -502,6 +569,16 @@ def collect(prev, now, http, *, sleep=time.sleep):
         rec["applicantsV"] = APPLICANTS_V
         rec.pop("applicantsError", None)
 
+    # 지난 보도자료 쪽(11-12 판정 예고): 한 실행에 한 쪽씩 NEWS_PAGES쪽까지 — 이벤트 없이 기록만, 신청인은 아래 채우기에서
+    depth = int(prev.get("newsDepth") or 1)
+    if not baseline and newsp and depth < NEWS_PAGES:
+        sleep(0.7)
+        older = _try(errors, f"보도자료 목록 {depth + 1}쪽", http.post, NEWS[0], {"menuId": NEWS[1], "pageIndex": str(depth + 1)})
+        if older is not None:
+            depth += 1
+            for row in parse_news(older):
+                if row["id"] not in news:
+                    news[row["id"]] = {**row, "url": _news_url(row["id"]), "firstSeen": stamp, "older": True}
     for row in parse_news(newsp) if newsp else []:
         if row["id"] in prev_news:
             continue
@@ -531,9 +608,35 @@ def collect(prev, now, http, *, sleep=time.sleep):
             read_applicants(rec)
     news = sorted(news.values(), key=lambda n: n["id"], reverse=True)[:KEEP_NEWS]
 
+    # 6) 판정 예고(11-12): 보도자료 신청인을 사건·회의 안건 품목에 붙인다. 다가오는 회의(오늘 이후 개최) 안건에 출입처 신청인이
+    #    처음 붙으면 회의 전 출입처 항목(B)으로 — 판정 결과는 회의 뒤 보도자료·의결서로 확인.
+    index = applicant_index(news)
+    for c in cases:
+        hit = applicant_for(c.get("title") or c.get("product"), index)
+        if hit:
+            c["applicant"] = {k: hit[k] for k in ("names", "beat", "newsId", "title", "posted")}
+        else:
+            c.pop("applicant", None)
+    today = now.astimezone(dt.timezone(dt.timedelta(hours=9))).date().isoformat()
+    for mt in meetings:
+        for a in mt.get("agenda") or []:
+            hit = applicant_for(a.get("text"), index)
+            if not hit:
+                continue
+            had = a.get("applicant")
+            a["applicant"] = {k: hit[k] for k in ("names", "beat", "newsId", "title", "posted")}
+            upcoming = (mt.get("meetingOn") or "") >= today
+            if baseline or not upcoming or not hit["beat"] or (had and had.get("beat")):
+                continue
+            posted = f" {hit['posted']}" if hit.get("posted") else ""
+            event("preview", f"{mt['id']}:{a.get('no') or a.get('text', '')[:20]}", f"무역위 회의 예고(개최 {mt.get('meetingOn')})",
+                  f"{a['kind']}: {a['text']} — 신청인 {', '.join(hit['names'])}(보도자료 「{hit['title']}」{posted} 첨부 PDF)"
+                  f" · 결과(판정·세율)는 회의 뒤 보도자료·의결서로 확인", mt.get("url"), "B", True, company="·".join(hit["beat"]))
+
     listed = [c for c in cases if not c.get("stale")]
     status = "failed" if not listed and sched is None and newsp is None else ("partial" if errors or not listed else "ok")
     check = {"source": "무역위원회", "status": status, "returned": len(listed), **({"error": "; ".join(errors[:4])} if errors else {})}
     ktc = {"checkedAt": stamp, "baselineSince": prev.get("baselineSince") or stamp, "listComplete": list_done,
-           "cases": cases, "left": left[:KEEP_LEFT], "meetings": meetings, "news": news}
+           "cases": cases, "left": left[:KEEP_LEFT], "meetings": meetings, "news": news,
+           "newsDepth": depth if not baseline else int(prev.get("newsDepth") or 1)}
     return ktc, events, check

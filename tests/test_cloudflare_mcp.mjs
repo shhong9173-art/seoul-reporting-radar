@@ -910,14 +910,16 @@ test('trade_remedies ktc: meeting agenda before the meeting, recent cases with l
         kind: '불공정무역행위', review: '원심', country: null, beat: true, timeline: [['조사개시', '2025-06-30'], ['판정시한 2차 연장', '2026-02-25']], pending: [],
         url: 'https://www.ktc.go.kr/viewInvest.do?menuId=11&masterId=00000845&invstg_type_code=10100002' },
       { id: '00000875', no: '구제 23-2026-9호', title: '중국산 무계목강관의 덤핑사실 및 국내산업피해 유무 조사', product: '무계목강관', opened: '2026-10-08', stage: '조사실행',
-        kind: '반덤핑조사', review: '원심', country: '중국', beat: true, timeline: [['조사개시', '2026-10-08']], pending: ['예비조사', '공청회', '최종판정'], url: 'https://www.ktc.go.kr/v?875' },
+        kind: '반덤핑조사', review: '원심', country: '중국', beat: true, timeline: [['조사개시', '2026-10-08']], pending: ['예비조사', '공청회', '최종판정'], url: 'https://www.ktc.go.kr/v?875',
+        applicant: { names: ['일진제강'], beat: [], newsId: '00002297', title: '무역위, 중국산 아연도금냉연, 옵셋인쇄판 덤핑조사 최종판정', posted: '2026-10-26' } },
       { id: '00000859', no: '구제 23-2025-13호', title: '중국산 인쇄제판용 평면모양 사진플레이트', product: '인쇄제판용 평면모양 사진플레이트', opened: '2026-01-08', stage: '조사실행',
         kind: '반덤핑조사', review: '재심', country: '중국', beat: false, timeline: [['조사개시', '2026-01-08']], pending: ['최종판정'], url: 'https://www.ktc.go.kr/v?859' },
       { id: '00000493', no: '제 4-1-2008-6', title: '낚싯대케이스', product: '낚싯대케이스', opened: '2008-07-23', stage: '조사실행', beat: false, url: 'https://www.ktc.go.kr/v?493' }],
     left: [{ id: '00000868', no: '구제23-2026-5호', title: '중국산 석도강판의 덤핑사실 및 국내산업피해 유무', product: '석도강판', leftAt: '2026-10-30T07:40:00+09:00', result: '부정 · 조사종결' }],
     meetings: [{ id: '00000312', title: '제479차 11월 무역위원회 개최 안내', posted: '2026-11-13', meetingOn: '2026-11-20', summary: '3건(정기보고1, 의결2)',
       url: 'https://www.ktc.go.kr/noticeScheduleView.do?dltnc_id=00000312&menuId=24',
-      agenda: [{ kind: '의결', no: '2026-27', text: '중국산 석도강판의 덤핑사실및국내산업피해유무 예비판정(원심)', beat: true },
+      agenda: [{ kind: '의결', no: '2026-27', text: '중국산 석도강판의 덤핑사실및국내산업피해유무 예비판정(원심)', beat: true,
+        applicant: { names: ['케이지스틸', '테스트석도'], beat: ['KG스틸'], newsId: '00002050', title: '무역위, 중국산 석도강판 덤핑조사 개시', posted: '2026-07-14' } },
         { kind: '보고', no: '2026-21', text: '화장품 상표권 침해 조사개시 보고', beat: false }] },
       { id: '00000311', title: '제478차 10월 무역위원회 개최 안내', posted: '2026-10-16', agenda: null, agendaError: 'PDF 받기 실패' }],
     news: [{ id: '00002297', title: '무역위, 중국산 아연도금냉연, 옵셋인쇄판 덤핑조사 최종판정', posted: '2026-10-26',
@@ -943,6 +945,9 @@ test('trade_remedies ktc: meeting agenda before the meeting, recent cases with l
   assert.doesNotMatch(r.text, /낚싯대케이스/);
   assert.match(r.text, /진행 목록에서 빠짐 2026-10-30: 구제23-2026-5호 중국산 석도강판의 덤핑사실 및 국내산업피해 유무 · 판정결과 부정 · 조사종결/);
   assert.match(r.text, /최근 보도자료: 무역위, 중국산 아연도금냉연, 옵셋인쇄판 덤핑조사 최종판정\(2026-10-26\) \[신청인\(첨부 PDF\) 중국산 아연도금냉연: 동국씨엠·케이지스틸·세아씨엠\(출입처 동국씨엠·KG스틸\)\]/);
+  // 11-12 판정 예고: 사건·안건에 보도자료 신청인
+  assert.match(r.text, /의결\(출입 업종 품목\): 중국산 석도강판의 덤핑사실및국내산업피해유무 예비판정\(원심\) · 신청인\(보도자료 「무역위, 중국산 석도강판 덤핑조사 개시」 2026-07-14 첨부\) 케이지스틸·테스트석도\(출입처 KG스틸\)/);
+  assert.match(r.text, /구제 23-2026-9호 · 중국산 무계목강관[^\n]* · 신청인\(보도자료 「무역위, 중국산 아연도금냉연, 옵셋인쇄판 덤핑조사 최종」 2026-10-26 첨부\) 일진제강\n/);
   assert.doesNotMatch(r.text, /EU 철강 쿼터/);
   const steel = await call('trade_remedies', { section: 'ktc', company: '석도' }, opts);
   assert.doesNotMatch(steel.text, /커넥티드/);

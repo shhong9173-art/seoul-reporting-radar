@@ -83,9 +83,10 @@ NEWS_ROW = ('<tr > <td class="a"><i>{n}</i></td> <td class="ta-l"> <div class="b
 class Site:
     """가짜 무역위원회 누리집: 경로·인자별 응답, 내려간 경로, 호출 기록."""
 
-    def __init__(self, cases, details=None, meetings=(), meeting_pages=None, news=(), down=(), list_status=200):
+    def __init__(self, cases, details=None, meetings=(), meeting_pages=None, news=(), down=(), list_status=200, news_pages=None):
         self.cases, self.details = list(cases), dict(DETAILS if details is None else details)
         self.meetings, self.meeting_pages, self.news = list(meetings), dict(meeting_pages or {}), list(news)
+        self.news_pages = dict(news_pages or {})
         self.down, self.list_status, self.calls = set(down), list_status, []
 
     def post(self, path, data):
@@ -102,7 +103,8 @@ class Site:
         if path == "/noticeScheduleList.do":
             return 200, "<table>" + "".join(meeting_row(*m) for m in self.meetings) + "</table>"
         if path == "/reportNewsList.do":
-            return 200, "<table>" + "".join(NEWS_ROW.format(n=300 + j, i=i, t=t) for j, (i, t) in enumerate(self.news)) + "</table>"
+            rows = self.news if data.get("pageIndex", "1") == "1" else self.news_pages.get(int(data["pageIndex"]), [])
+            return 200, "<table>" + "".join(NEWS_ROW.format(n=300 + j, i=i, t=t) for j, (i, t) in enumerate(rows)) + "</table>"
         raise AssertionError(path)
 
     def post_binary(self, path, data, referer=None):
@@ -151,7 +153,9 @@ BUTYL_TABLE = ("- 3 - 참고1 (최종판정) 중국산 부틸 아크릴레이트
 PSR = ("- 3 - 참고1[의 결] 독·프·노 르 웨 이 및 스 웨 덴 산 폴 리 염 화 비 닐 페 이 스 트 수 지 덤 핑 조 사 □조사개요ㅇ (신청인)한화솔루션주식회사ㅇ (조사대상공급자)독비놀릿")
 ROBOT = ("이번 덤핑조사건은 ‘25년 3월에 HD현대로보틱스가 조사 신청한 것으로, 지난해 5월에 조사를 개시하여 - 3 - 참고1 (최종판정) 일본 및 중국산 산업용 로봇 (원심)□조사개요ㅇ "
          "(신청인)에이치디현대로보틱스㈜ ㅇ (조사대상공급자)일본 화낙")
-NEWS_PDF = {"00002297": GALV, "00002147": BUTYL}
+# 판정 예고 테스트용 가상 보도자료(신청인 이름은 테스트 값)
+TIN_OPEN = "- 3 - 참고1 (조사개시) 중국산 석도강판 덤핑조사 (원심)□ 조사 개요 ㅇ (신청인) 케이지스틸㈜, ㈜테스트석도 ㅇ (조사대상공급자) 중국 A사"
+NEWS_PDF = {"00002297": GALV, "00002147": BUTYL, "00002050": TIN_OPEN}
 
 
 def fake_pdf(data):
@@ -210,6 +214,50 @@ class KtcTest(unittest.TestCase):
                          ["튤립이노베이션케이에프티"])
         self.assertEqual(k.applicants_in("참고1 (의결) 중국산 PVC 페이스트 수지 덤핑조사 □ ㅇ (신청인) 한 화 솔 루 션 주식회사, ㈜ 엘지 화학 ㅇ (조사대상")[0]["beat"],
                          ["한화솔루션", "LG화학"])
+
+    def test_same_product_across_press_case_agenda_11_12(self):
+        sp = k.same_product
+        self.assertTrue(sp("중국산 아연도금냉연", "중국산 아연 및 아연합금 표면처리 냉간압연 제품의 덤핑사실및국내산업 피해유무(원심) 최종판정"))
+        self.assertTrue(sp("중국산 아연도금냉연", "중국산 아연 및 아연합금 표면처리 냉간압연 제품의 덤핑사실 및 국내산업피해 유무 조사"))
+        self.assertTrue(sp("독·프·노르웨이및스웨덴산폴리염화비닐페이스트수지", "독일, 프랑스, 노르웨이 및 스웨덴산 폴리염화비닐 페이스트 수지의 덤핑사실 및 국내산업피해 유무"))
+        self.assertTrue(sp("중국산 무계목강관", "중국산 무계목강관 에 대한 덤핑사실 및 국내산업피해 유무(원심) 개시결정 보고"))
+        self.assertTrue(sp("중국 및 대만산 고체수산화나트륨", "중국 및 대만산 고체 수산화나트륨의 덤핑사실 및 국내산업피해 유무"))
+        self.assertTrue(sp("중국산 석도강판", "중국산 석도강판의 덤핑사실및국내산업피해유무 예비판정(원심)"))
+        self.assertFalse(sp("중국산 봉강", "중국산 H형강의 덤핑사실 및 국내산업피해 유무"))
+        self.assertFalse(sp("태국산 이음매 없는 동관", "중국산 무계목강관의 덤핑사실 및 국내산업피해 유무"))
+        self.assertFalse(sp("중국산 폴리에스테르 장섬유 완전연신사", "중국산 폴리염화비닐 서스펜션 수지의 덤핑사실 및 국내산업피해 유무"))
+        self.assertFalse(sp("대만산 PET 필름", "중국산 PET 필름의 덤핑사실"))                   # 같은 품목이라도 나라가 다르면 다른 사건
+        self.assertFalse(sp("중국산 PET 필름", "중국산 PET 수지의 덤핑사실"))
+
+    def test_preview_from_older_press_page_11_12(self):
+        first = k.collect(None, NOW, Site([TINPLATE], meetings=[M478], meeting_pages=PAGES, news=[("00002297", "무역위, 중국산 아연도금냉연 덤핑조사 최종판정")]),
+                          sleep=lambda s: None)[0]
+        self.assertEqual(first.get("newsDepth"), 1)
+        # 다음 실행: 보도자료 2쪽(지난 석도강판 개시 보도자료)을 읽고 첨부 신청인을 채운 뒤, 다가오는 제479차(11-20) 안건 석도강판 예비판정에 붙인다
+        site = Site([TINPLATE], meetings=[M479, M478], meeting_pages=PAGES, news=[("00002297", "무역위, 중국산 아연도금냉연 덤핑조사 최종판정")],
+                    news_pages={2: [("00002050", "무역위, 중국산 석도강판 덤핑조사 개시")]})
+        doc, ev, _ = k.collect(first, NOW + dt.timedelta(days=1), site, sleep=lambda s: None)
+        self.assertEqual(doc["newsDepth"], 2)
+        old = next(n for n in doc["news"] if n["id"] == "00002050")
+        self.assertTrue(old["older"])
+        self.assertEqual(old["applicants"][0]["beat"], ["KG스틸"])
+        self.assertFalse([e for e in ev if e["id"] == "ktc:news:00002050"])            # 지난 보도자료는 이벤트 없음
+        pv = [e for e in ev if e["ktcKind"] == "preview"]
+        self.assertEqual(len(pv), 1)
+        self.assertEqual((pv[0]["tier"], pv[0]["company"], pv[0]["label"]), ("B", "KG스틸", "무역위 회의 예고(개최 2026-11-20)"))
+        self.assertIn("의결: 중국산 석도강판의 덤핑사실및국내산업피해유무 예비판정(원심) — 신청인 케이지스틸, 테스트석도(보도자료 「무역위, 중국산 석도강판 덤핑조사 개시」", pv[0]["text"])
+        self.assertIn("결과(판정·세율)는 회의 뒤 보도자료·의결서로 확인", pv[0]["text"])
+        tin = next(c for c in doc["cases"] if c["id"] == "00000868")
+        self.assertEqual(tin["applicant"]["beat"], ["KG스틸"])                           # 사건에도 신청인
+        m479 = next(m for m in doc["meetings"] if m["id"] == "00000312")
+        self.assertEqual(m479["agenda"][0]["applicant"]["names"], ["케이지스틸", "테스트석도"])
+        # 다시 돌려도 예고는 한 번만
+        _, ev2, _ = k.collect(doc, NOW + dt.timedelta(days=1, hours=3), Site([TINPLATE], meetings=[M479, M478], meeting_pages=PAGES,
+                                                                              news=[("00002297", "무역위, 중국산 아연도금냉연 덤핑조사 최종판정")]), sleep=lambda s: None)
+        self.assertFalse([e for e in ev2 if e["ktcKind"] == "preview"])
+        # 지난 회의(제478차 10-23) 안건엔 신청인만 붙고 예고는 없다
+        m478 = next(m for m in doc["meetings"] if m["id"] == "00000311")
+        self.assertEqual(next(a for a in m478["agenda"] if "아연" in a["text"])["applicant"]["beat"], ["동국씨엠", "KG스틸"])
 
     def test_press_applicant_makes_beat_item_and_backfills(self):
         site = Site([EV], news=[("00002147", "무역위, 중국산 부틸 아크릴레이트에 덤핑방지관세 부과 건의")])
