@@ -244,9 +244,28 @@ test('news_check: all channels ok and empty is not proof of non-coverage', async
   assert.match(r.text, /모두 0건 — 미보도 증거 아님/);
   const failing = fakeFetch({ 'https://news.google.com/': new Response('x', { status: 503 }) });
   const f = await call('news_check', { q: '낱말 두개' }, { ...PRIVATE(), fetch: failing });
-  assert.match(f.text, /구글 뉴스: failed — HTTP 503/);
+  // 11-12: 구글 503은 Worker에서만 막히는 것 — 고장처럼 'failed'만 찍지 않는다
+  assert.match(f.text, /구글 뉴스: 이 서버\(Cloudflare Worker\)에서는 구글이 접속을 막음\(HTTP 503\) — 레이더 고장 아님/);
   assert.match(f.text, /네이버 뉴스: not_configured/);
   assert.match(f.text, /판정: 미확인/);
+  // 다른 실패(시간 초과 등)는 그대로 failed
+  const slow = fakeFetch({ 'https://news.google.com/': () => { throw Object.assign(new Error('t'), { name: 'TimeoutError' }); } });
+  assert.match((await call('news_check', { q: '낱말 두개' }, { ...PRIVATE(), fetch: slow })).text, /구글 뉴스: failed — 시간 초과/);
+});
+
+test('news_check: 구글이 막히면 자동 보도 대조(GitHub)의 마지막 구글 성적을 함께 보인다(11-12)', async () => {
+  const env = PRIVATE().env;
+  const at = new Date(NOW.getTime() - 2 * 3600000).toISOString();
+  const ch = (g) => ({ naver: { status: 'ok' }, bing: { status: 'ok' }, google: { status: g } });
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/radar-check', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` },
+    body: JSON.stringify({ schema: 'radar_check/v1', generatedAt: at, items: [
+      { id: 'a', verdict: '미보도 후보', checkedAt: at, queries: ['x'], evidence: [], channels: ch('ok') },
+      { id: 'b', verdict: '관련 보도 있음', checkedAt: at, queries: ['y'], evidence: [], channels: ch('ok') },
+      { id: 'c', verdict: '미확인', checkedAt: at, queries: ['z'], evidence: [], channels: ch('failed') },
+      { id: 'd', verdict: '관련 보도 있음', checkedAt: '2026-10-01T00:00:00Z', queries: ['w'], evidence: [], channels: ch('failed') }] }) }), env, {})).status, 200);
+  const failing = fakeFetch({ 'https://news.google.com/': new Response('x', { status: 503 }) });
+  const r = await call('news_check', { q: '낱말 두개' }, { path: `/mcp/${TOKEN}`, env, fetch: failing });
+  assert.match(r.text, /구글 뉴스: 이 서버\(Cloudflare Worker\)에서는 구글이 접속을 막음\(HTTP 503\) — 레이더 고장 아님 · 자동 보도 대조\(GitHub\) 마지막 실행 \d\d-\d\d \d\d:\d\d 구글 2\/3 정상/);
 });
 
 test('news_check: the collector status of the [단독] index counts as healthy; unknown or stale ones fail', async () => {
@@ -275,7 +294,7 @@ test('news_check: Bing stands in for Google and unwraps the original link', asyn
     'https://naverapihub.apigw.ntruss.com/': Response.json({ items: [] }),
   });
   const r = await call('news_check', { q: '동국씨엠 컬러강판', days: 30 }, { ...PRIVATE({ NAVER_CLIENT_ID: 'i', NAVER_CLIENT_SECRET: 's' }), fetch });
-  assert.match(r.text, /구글 뉴스: failed — HTTP 503/);
+  assert.match(r.text, /구글 뉴스: 이 서버\(Cloudflare Worker\)에서는 구글이 접속을 막음\(HTTP 503\) — 레이더 고장 아님/);
   assert.match(r.text, /빙 뉴스: 1건/);
   assert.match(r.text, /https:\/\/www\.example-news\.kr\/a\/1/);
   assert.match(r.text, /판정: 관련 보도 후보 1건/);
@@ -307,7 +326,7 @@ test('news_check: Bing adds its newest-first list, and English words also the US
   assert.match(r.text, /빙 뉴스: 3건 \(응답 7건\) · 한국판 1건 · 한국판 최신순 \+1건 · 미국판 \+1건 · 미국판 최신순 \+0건 \(겹침 뺌\)/);
   assert.match(r.text, /https:\/\/local\.example\/2/);
   assert.match(r.text, /https:\/\/kr\.example\/3/);
-  assert.match(r.text, /구글 뉴스: failed — HTTP 503 \(웹 색인은 빙이 대신 — 판정에 영향 없음\)/);
+  assert.match(r.text, /구글 뉴스: 이 서버\(Cloudflare Worker\)에서는 구글이 접속을 막음\(HTTP 503\) — 레이더 고장 아님 \(웹 색인은 빙이 대신 — 판정에 영향 없음\)/);
   assert.match(r.text, /판정: 관련 보도 후보 3건/);
   // 미국판 실패는 현지 보도 미확인으로만 — 한국판이 정상이면 판정 기준은 그대로
   const down = fakeFetch(routes(new Response('x', { status: 503 })));
