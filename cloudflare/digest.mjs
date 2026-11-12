@@ -779,7 +779,8 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
       url: x.url, check: x.tier === 'C' ? undefined : (models.length ? hint(x.brand, [models[0], '리콜'], [models[0]], models) : hint(x.brand, ['리콜', '미국'])) });
   }
 
-  // 미국 제조사 통신(nhtsa_tsbs.py, 캠페인 단위): 동력계통 보증 연장 A, 그 밖 보증 연장·서비스 캠페인·안전 낱말 통신 B, 나머지·재통지 C.
+  // 미국 제조사 통신(nhtsa_tsbs.py, 캠페인 단위). 11-12 기자 결정(한 단계 내림): 동력계통 보증 연장 B(예전 A), 그 밖 보증 연장·서비스 캠페인·
+  // 보증 프로그램 C(예전 B), 캠페인이 아닌 서비스 공지의 안전 낱말 통신 B 그대로, 나머지·재통지 C.
   // 딜러용 통신이라 리콜·결함 인정이 아니다 — 국내 무상수리 여부는 회사 확인.
   const tsItems = ur?.tsbs?.items ?? [];
   const tsBase = baselineOf(tsItems);
