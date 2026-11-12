@@ -46,6 +46,14 @@ const discovery={
  status:"official_listing_links_observed_not_verified_scoops",
  generatedAt:"2026-10-21T22:44:02+09:00",
  candidates:[{
+ url:"https://svdisposition.com/auction-detail/884",
+ title:"Supernal equipment earlier auction",
+ companiesMentionedInListingAndOriginal:["Supernal"],
+ originalPageRead:true,confirmedExclusive:false,
+ eventFieldsQuotedFromOriginal:[{field:"announced_auction_dates",verbatimValue:"Sep 21–23, 2026",
+  originalQuote:"Auction Dates Sep 21–23, 2026",notIndependentlyVerified:true}],
+ publicConfirmationQuestions:["경매 공고 원문의 기간 확인 가능한가?"]
+ },{
  url:"https://svdisposition.com/auction-detail/891",
  title:"Supernal repeated equipment auction",
  companiesMentionedInListingAndOriginal:["Supernal"],
@@ -92,6 +100,13 @@ assert.equal(result.rows.filter(x=>x.id.startsWith("case:supernal")).length,1);
 assert.equal(result.rows.filter(x=>x.id.startsWith("nhtsa:26V588000")).length,1);
 assert(result.rows[0].id.startsWith("case:"));
 assert(result.rows[0].facts.some(x=>x.text.includes("Oct 12–14")));
+const compare=result.rows.find(x=>x.id==="case:supernal").originalDocumentComparisons;
+assert.equal(compare.length,1);
+assert.equal(compare[0].field,"announced_auction_dates");
+assert.deepEqual(compare[0].records.map(x=>x.value),
+ ["Sep 21–23, 2026","Oct 12–14, 2026"]);
+assert.equal(compare[0].actualCompanyOperationalChangeVerified,false);
+assert.equal(compare[0].originalPublicationOrderVerified,false);
 assert(result.rows.every(x=>x.businessImpactVerified===false));
 assert(result.rows.every(x=>x.noPriorNewsProved===false));
 assert(result.rows.every(x=>x.sameAngleFullTextReviewed===false));
@@ -124,6 +139,8 @@ assert(script,"inline UI script not found");
 new vm.Script(script[1]);
 assert(page.includes("scoop_request.js"));
 assert(page.includes("단독거리 5건 찾아줘"));
+assert(page.includes("기존 등록 조사 사례 · 새 단독 발견 아님"));
+assert(page.includes("공식 문서 사이의 표기 변화"));
 assert(!page.includes("innerHTML"),"No source text may be injected as raw HTML");
 assert(page.includes("textContent"));
 assert(page.includes('addReviewLink(line,item.url,"보도 검색 결과 열기 ↗","press")'));
