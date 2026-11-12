@@ -381,23 +381,23 @@ class Tsbs(unittest.TestCase):
                                       "KIA:SC330", "KIA:SC380", "KIA:WTY046", "KIA:WTY050", "KIA:WTY051"])
         self.assertNotIn("KIA:SC100", by)   # 120일 밖
         iccu = by["KIA:WTY050"]
-        self.assertEqual((iccu["tier"], iccu["kindName"], iccu["docCount"], iccu["ids"]), ("A", "보증 연장", 3, ["11012001", "11012002", "11012003"]))
+        self.assertEqual((iccu["tier"], iccu["kindName"], iccu["docCount"], iccu["ids"]), ("B", "보증 연장", 3, ["11012001", "11012002", "11012003"]))   # 11-12: 동력계통 보증 연장 A→B
         self.assertEqual((iccu["doc"], iccu["added"], iccu["lastAdded"]), ("WTY050_DP", "2026-10-20", "2026-10-21"))   # 환급 양식 말고 가장 긴 통지문 요약
         self.assertEqual(iccu["models"], [{"model": "EV6", "years": ["2023", "2024"]}])
         self.assertEqual(iccu["url"], "https://static.nhtsa.gov/odi/tsbs/2026/MC-11012002-0001.pdf")
-        self.assertEqual((by["KIA:WTY046"]["tier"], by["KIA:WTY046"]["kindName"]), ("B", "보증 연장"))   # 공조 송풍 모터는 동력계통 아님
-        self.assertEqual((by["KIA:SC380"]["tier"], by["KIA:SC380"]["kindName"]), ("B", "서비스 캠페인"))
+        self.assertEqual((by["KIA:WTY046"]["tier"], by["KIA:WTY046"]["kindName"]), ("C", "보증 연장"))   # 공조 송풍 모터는 동력계통 아님 — 11-12: 그 밖 보증 연장 B→C
+        self.assertEqual((by["KIA:SC380"]["tier"], by["KIA:SC380"]["kindName"]), ("C", "서비스 캠페인"))   # 11-12: 서비스 캠페인 B→C
         self.assertEqual((by["KIA:SC330"]["tier"], by["KIA:SC330"].get("renotice")), ("C", True))      # 지난 캠페인 재통지
         self.assertEqual((by["HMA:L22G"]["tier"], by["HMA:L22G"]["docCount"], by["HMA:L22G"]["brands"]), ("C", 2, ["제네시스"]))
-        self.assertEqual(by["HMA:LA42"]["tier"], "B")    # 고전압 배터리 침수 — 보증 연장 문구는 없음
+        self.assertEqual((by["HMA:LA42"]["tier"], by["HMA:LA42"]["kindName"]), ("C", "보증 프로그램·캠페인"))    # 고전압 배터리 침수 캠페인(보증 연장 문구 없음) — 11-12: 보증 프로그램 캠페인 B→C
         self.assertEqual(by["HMA:LA13"]["tier"], "C")    # 분류 칸 'ENGINE'만으로는 안 올림
-        self.assertEqual(by["HMA:doc:26-01-090G"]["tier"], "B")
+        self.assertEqual((by["HMA:doc:26-01-090G"]["tier"], by["HMA:doc:26-01-090G"]["kindName"]), ("B", "서비스 공지(수리 지침)"))   # 캠페인 아닌 서비스 공지의 시동 꺼짐 — 그대로 B
         self.assertEqual(by["HMA:doc:26-AV-011H"]["tier"], "C")
         self.assertEqual((by["GM:doc:25-NA-123"]["tier"], by["GM:doc:25-NA-123"]["otherRows"]), ("C", 1))   # GM 공통 통신
         gm = by["GM:N242484750-02"]
-        self.assertEqual((gm["tier"], gm["companies"], gm["modelCount"]), ("A", ["한국GM"], 2))           # 한국 생산 차종만의 터보 특별 보증
+        self.assertEqual((gm["tier"], gm["companies"], gm["modelCount"]), ("B", ["한국GM"], 2))           # 한국 생산 차종만의 터보 특별 보증 — 11-12: A→B(11-09 기자가 킬한 유형)
         ev9 = by["KIA:WTY051"]
-        self.assertEqual((ev9["type"], ev9["tier"]), ("WARRANTY PROGRAM/EXTENSION", "B"))   # 띄어쓴 종류 이름도 같게, 12V 보조 배터리는 동력계통 아님
+        self.assertEqual((ev9["type"], ev9["tier"]), ("WARRANTY PROGRAM/EXTENSION", "C"))   # 띄어쓴 종류 이름도 같게, 12V 보조 배터리는 동력계통 아님 — 11-12: B→C
         self.assertIn("doesn\u2019t", ev9["summary"])
         self.assertTrue(all(not x["isNew"] for x in doc["items"]))
 
@@ -411,7 +411,8 @@ class Tsbs(unittest.TestCase):
         new = [x["id"] for x in second["items"] if x["isNew"]]
         self.assertEqual((new, check["new"]), (["KIA:WTY052"], 1))            # 이미 본 캠페인의 새 문서(Q&A)는 신규 아님
         tel = next(x for x in second["items"] if x["id"] == "KIA:WTY052")
-        self.assertEqual(tel["tier"], "A")
+        self.assertEqual(tel["tier"], "B")   # 엔진 손상 보증 연장 — 11-12: A→B
+        self.assertFalse([x["id"] for x in second["items"] if x["tier"] == "A"])   # 제조사 통신에 A는 없다
         iccu = next(x for x in second["items"] if x["id"] == "KIA:WTY050")
         self.assertEqual((iccu["docCount"], iccu["firstSeen"]), (4, next(x for x in first["items"] if x["id"] == "KIA:WTY050")["firstSeen"]))
         self.assertEqual(second["baselineSince"], first["baselineSince"])
