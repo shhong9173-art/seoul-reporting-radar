@@ -62,6 +62,7 @@
    - `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET`: 네이버 뉴스 검색. 새로 받는 키는 네이버 클라우드 플랫폼 NAVER API HUB(Application 등록에서 '뉴스' 선택 → [인증 정보])에서 발급한다. 개발자센터 신규 신청은 막혔다. 서버는 HUB 방식으로 먼저 호출하고, 거부(401·403)될 때만 예전 개발자센터 방식으로 다시 호출한다.
    - `G2B_API_KEY`(또는 `DATA_GO_KR_KEY`): 공공데이터포털 일반 인증키.
    - `SEC_USER_AGENT`: SEC EDGAR 원문(`source_document`의 sec.gov 주소)을 열 때 보내는 접속 표시. SEC 공개 접속 규칙대로 '회사·이름 연락이메일' 한 줄을 영문으로(예: `iNews24 이름 이메일주소`). HTTP 머리글이라 한글이 섞이면 보낼 수 없어 쓰지 않고 안내한다. GitHub Secrets의 같은 이름 값(해외 파트너 공시 감시가 씀)과 같게 둔다. sec.gov에만 보내고 다른 곳에는 보내지 않는다. 없으면 SEC가 HTTP 403을 줄 수 있고, 도구가 '비밀값에 없음'이라고 알려 준다(10-31 운영: 퍼스트솔라 10-Q 403).
+   - `GH_DISPATCH_TOKEN`(11-12, 선택): 즉석 보도 대조(`news_check`)가 구글 뉴스에 막힐 때 GitHub 작업 `google-news-relay.yml`을 부르는 GitHub 토큰. 세분화 토큰(Fine-grained), 저장소는 이 저장소 하나, 권한은 Actions 읽기·쓰기만. 낱말은 GitHub 입력값·로그에 싣지 않고 기자 전용 저장소(`google-relay-pending`)에 맡기며, GitHub가 받아 온 결과(`google-relay`, 24시간 보관)를 6시간 안 같은 낱말·기간이면 구글 채널로 쓴다. 하루 40번, 같은 낱말은 10분 안에 다시 안 맡긴다. 없으면 '미설정'으로 알리고 빙이 웹 색인을 대신한다.
 3. Claude 설정의 커넥터에서 사용자 지정 커넥터를 추가하고 기자 전용 주소를 넣는다.
 
 키 값은 응답·로그·저장소 어디에도 출력하지 않는다.

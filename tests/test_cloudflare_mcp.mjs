@@ -10,7 +10,7 @@ import { browserUpload, lastBrowserSlot } from '../cloudflare/local_browser.mjs'
 import { checkCandidate } from '../cloudflare/scoring.mjs';
 import { readZip } from '../cloudflare/zip.mjs';
 import { publicationDate, verifyEvidence } from '../cloudflare/evidence.mjs';
-import { allowedUrl } from '../cloudflare/live_tools.mjs';
+import { allowedUrl, relayKey } from '../cloudflare/live_tools.mjs';
 import { ageNote, handleIngest, lastReturnedWatch, returnedWatch, weekdayHours } from '../cloudflare/screen.mjs';
 import { dueAt, newsDue, nextSlot, runSchedule } from '../cloudflare/dispatch.mjs';
 import { failStreak, mergeRuns, pollDue } from '../cloudflare/gh_runs.mjs';
@@ -253,6 +253,50 @@ test('news_check: all channels ok and empty is not proof of non-coverage', async
   assert.match((await call('news_check', { q: '낱말 두개' }, { ...PRIVATE(), fetch: slow })).text, /구글 뉴스: failed — 시간 초과/);
 });
 
+test('news_check: 구글이 막히면 GitHub 경유로 맡기고, 받아 둔 결과를 구글 채널로 쓴다(11-12)', async () => {
+  const { env } = PRIVATE({ NAVER_CLIENT_ID: 'i', NAVER_CLIENT_SECRET: 's' });
+  const opts = (extra = {}, fetch) => ({ path: `/mcp/${TOKEN}`, env: { ...env, ...extra }, fetch });
+  const routes = (gh = new Response(null, { status: 204 })) => fakeFetch({ 'https://news.google.com/': new Response('x', { status: 503 }),
+    'https://api.github.com/': gh, 'https://naverapihub.apigw.ntruss.com/': Response.json({ items: [] }) });
+  // 토큰이 없으면 맡기지 않고 그 사실만
+  const none = await call('news_check', { q: 'LG화학 2-EHA', days: 30 }, opts({}, routes()));
+  assert.match(none.text, /레이더 고장 아님 · GitHub 경유 조회 미설정\(Cloudflare 비밀값 GH_DISPATCH_TOKEN\)/);
+  // 토큰이 있으면 낱말은 기자 전용 저장소에, GitHub엔 입력값 없이 작업만 부른다
+  const f1 = routes();
+  const r1 = await call('news_check', { q: 'LG화학 2-EHA', days: 30 }, opts({ GH_DISPATCH_TOKEN: 'ghp_test' }, f1));
+  assert.match(r1.text, /GitHub에 구글 조회를 맡김 — 1~2분 뒤 같은 낱말·기간으로 다시 부르면 붙음/);
+  const gh = f1.calls.filter((c) => c.url.startsWith('https://api.github.com/'));
+  assert.equal(gh.length, 1);
+  assert.equal(gh[0].url, 'https://api.github.com/repos/shhong9173-art/seoul-reporting-radar/actions/workflows/google-news-relay.yml/dispatches');
+  assert.equal(gh[0].init.body, JSON.stringify({ ref: 'main' }));          // 낱말을 GitHub에 싣지 않는다
+  assert.doesNotMatch(gh[0].init.body, /LG화학/);
+  const book = await (await worker.fetch(new Request(ORIGIN + '/ingest/google-relay-pending', { headers: { Authorization: `Bearer ${TOKEN}` } }), env, {})).json();
+  assert.equal(book.pending[0].q, 'LG화학 2-EHA');
+  assert.equal(book.pending[0].qid, await relayKey('LG화학 2-EHA', 30));
+  assert.equal(book.count, 1);
+  // 10분 안 같은 낱말은 다시 안 부름
+  const f2 = routes();
+  assert.match((await call('news_check', { q: 'LG화학 2-EHA', days: 30 }, opts({ GH_DISPATCH_TOKEN: 'ghp_test' }, f2))).text, /GitHub에 구글 조회를 맡겨 둠/);
+  assert.equal(f2.calls.filter((c) => c.url.startsWith('https://api.github.com/')).length, 0);
+  // 토큰 권한 문제는 그대로 알린다
+  const f3 = routes(new Response('{}', { status: 403 }));
+  assert.match((await call('news_check', { q: '다른 낱말', days: 30 }, opts({ GH_DISPATCH_TOKEN: 'ghp_test' }, f3))).text, /GitHub 경유 조회 요청 실패\(HTTP 403 — 토큰 권한·만료 확인\)/);
+  // GitHub가 받아 온 결과가 있으면 구글 채널로 쓴다(판정의 웹 색인에도 든다)
+  const at = new Date(NOW.getTime() - 3 * 60000).toISOString();
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/google-relay', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` },
+    body: JSON.stringify({ schema: 'google_relay/v1', generatedAt: at, results: [{ qid: await relayKey('LG화학 2-EHA', 30), q: 'LG화학 2-EHA', days: 30,
+      fetchedAt: at, status: 'ok', returned: 2, items: [{ title: '[단독] LG화학, 수입산 점착제 원료 반덤핑 조사 신청', url: 'https://n/1', date: '2026-10-25', source: '아이뉴스24' },
+        { title: '오래된 기사', url: 'https://n/2', date: '2026-01-01', source: 'x' }] }] }) }), env, {})).status, 200);
+  const f4 = routes();
+  const r4 = await call('news_check', { q: 'LG화학 2-EHA', days: 30 }, opts({ GH_DISPATCH_TOKEN: 'ghp_test' }, f4));
+  assert.match(r4.text, /■ 구글 뉴스\(GitHub 경유 \d\d-\d\d \d\d:\d\d 조회\): 1건 \(응답 2건\)/);
+  assert.match(r4.text, /2026-10-25 \| 아이뉴스24 \| \[단독\] LG화학, 수입산 점착제 원료 반덤핑 조사 신청 ★단독/);
+  assert.equal(f4.calls.filter((c) => c.url.startsWith('https://api.github.com/')).length, 0);
+  // 공개 연결은 맡기지 않는다
+  const pub = await call('news_check', { q: 'LG화학 2-EHA', days: 30 }, { fetch: routes() });
+  assert.doesNotMatch(pub.text, /GitHub 경유/);
+});
+
 test('news_check: 구글이 막히면 자동 보도 대조(GitHub)의 마지막 구글 성적을 함께 보인다(11-12)', async () => {
   const env = PRIVATE().env;
   const at = new Date(NOW.getTime() - 2 * 3600000).toISOString();
@@ -326,7 +370,7 @@ test('news_check: Bing adds its newest-first list, and English words also the US
   assert.match(r.text, /빙 뉴스: 3건 \(응답 7건\) · 한국판 1건 · 한국판 최신순 \+1건 · 미국판 \+1건 · 미국판 최신순 \+0건 \(겹침 뺌\)/);
   assert.match(r.text, /https:\/\/local\.example\/2/);
   assert.match(r.text, /https:\/\/kr\.example\/3/);
-  assert.match(r.text, /구글 뉴스: 이 서버\(Cloudflare Worker\)에서는 구글이 접속을 막음\(HTTP 503\) — 레이더 고장 아님 \(웹 색인은 빙이 대신 — 판정에 영향 없음\)/);
+  assert.match(r.text, /구글 뉴스: 이 서버\(Cloudflare Worker\)에서는 구글이 접속을 막음\(HTTP 503\) — 레이더 고장 아님[^\n]* \(웹 색인은 빙이 대신 — 판정에 영향 없음\)/);
   assert.match(r.text, /판정: 관련 보도 후보 3건/);
   // 미국판 실패는 현지 보도 미확인으로만 — 한국판이 정상이면 판정 기준은 그대로
   const down = fakeFetch(routes(new Response('x', { status: 503 })));

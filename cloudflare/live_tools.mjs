@@ -7,6 +7,7 @@ import {
 } from './common.mjs';
 import { issueEvidence, publicationDate } from './evidence.mjs';
 import { readFeed } from './screen.mjs';
+import { storeOp } from './store.mjs';
 import { readZip } from './zip.mjs';
 
 const TIMEOUT_MS = 15000;
@@ -213,13 +214,68 @@ function googleBlocked(ch) {
   return ch.status === 'failed' && /HTTP 503|HTTP 429|RSS 형식 아님/.test(ch.error ?? '');
 }
 
+// 구글 뉴스 GitHub 경유(11-12 기자 승인): 구글은 Worker에 503을 주지만 GitHub Actions에는 정상이다. 기자 전용 연결에서 구글이 막히면
+// ① 같은 낱말·기간을 GitHub가 6시간 안에 받아 둔 결과가 있으면 그것을 구글 채널로 쓰고, ② 없으면 낱말을 기자 전용 저장소에 맡기고
+// GitHub 작업(google-news-relay.yml)을 부른다 — 1~2분 뒤 같은 낱말로 다시 부르면 붙는다. 낱말은 GitHub 입력값·로그에 싣지 않는다
+// (공개 저장소라 기자가 무엇을 확인 중인지 드러나면 안 된다). 하루 RELAY_DAILY번까지, 같은 낱말은 RELAY_REASK분 안에 다시 맡기지 않는다.
+export const RELAY_WORKFLOW = 'google-news-relay.yml';
+export const RELAY_REPO = 'shhong9173-art/seoul-reporting-radar';
+const RELAY_FRESH_MS = 6 * 3600000;
+const RELAY_DAILY = 40;
+const RELAY_REASK_MS = 10 * 60000;
+
+export async function relayKey(q, days) {
+  return (await sha256Hex(`${q.trim().replace(/\s+/g, ' ')}|${days}`)).slice(0, 16);
+}
+
+async function googleRelay(ctx, q, days) {
+  const qid = await relayKey(q, days);
+  const done = await readFeed(ctx, 'google-relay').catch(() => null);
+  const hit = (done?.results ?? []).find((r) => r.qid === qid);
+  if (hit && ctx.now.getTime() - Date.parse(hit.fetchedAt) <= RELAY_FRESH_MS) {
+    if (hit.status !== 'ok') return { used: null, note: ` · GitHub 경유 조회도 실패(${hit.error ?? '원인 미상'}, ${kstStamp(new Date(hit.fetchedAt)).slice(11, 16)})` };
+    const from = kstDate(ctx.now, days);
+    const items = (hit.items ?? []).filter((x) => x.date && x.date >= from && x.date <= kstDate(ctx.now));
+    return { used: { status: 'ok', returned: hit.returned ?? items.length, items, via: `GitHub 경유 ${kstStamp(new Date(hit.fetchedAt)).slice(5, 16)} 조회` } };
+  }
+  const token = ctx.env?.GH_DISPATCH_TOKEN;
+  if (!token) return { used: null, note: ' · GitHub 경유 조회 미설정(Cloudflare 비밀값 GH_DISPATCH_TOKEN)' };
+  const now = ctx.now.getTime();
+  const today = kstDate(ctx.now);
+  const book = (await readFeed(ctx, 'google-relay-pending').catch(() => null)) ?? {};
+  const pending = (book.pending ?? []).filter((p) => now - Date.parse(p.askedAt) <= 30 * 60000);
+  const count = book.day === today ? (book.count ?? 0) : 0;
+  const mine = pending.find((p) => p.qid === qid);
+  if (mine && now - Date.parse(mine.askedAt) < RELAY_REASK_MS) return { used: null, note: ' · GitHub에 구글 조회를 맡겨 둠 — 1~2분 뒤 같은 낱말·기간으로 다시 부르면 붙음' };
+  if (count >= RELAY_DAILY) return { used: null, note: ` · GitHub 경유 조회 오늘 한도(${RELAY_DAILY}번) 다 씀` };
+  const next = { schema: 'google_relay_pending/v1', day: today, count: count + 1,
+    pending: [...pending.filter((p) => p.qid !== qid), { qid, q, days, askedAt: ctx.now.toISOString() }].slice(-20) };
+  await storeOp(ctx, 'blobs.put', { name: 'google_relay_pending', body: JSON.stringify(next) });
+  try {
+    const r = await ctx.fetch(`https://api.github.com/repos/${RELAY_REPO}/actions/workflows/${RELAY_WORKFLOW}/dispatches`, {
+      method: 'POST', signal: signal(), body: JSON.stringify({ ref: 'main' }),
+      headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28',
+        'User-Agent': 'seoul-reporting-radar-worker', 'Content-Type': 'application/json' } });
+    if (r.status !== 204) return { used: null, note: ` · GitHub 경유 조회 요청 실패(HTTP ${r.status}${r.status === 401 || r.status === 403 || r.status === 404 ? ' — 토큰 권한·만료 확인' : ''})` };
+  } catch (e) {
+    return { used: null, note: ` · GitHub 경유 조회 요청 실패(${e.name === 'TimeoutError' ? '시간 초과' : e.name})` };
+  }
+  return { used: null, note: ' · GitHub에 구글 조회를 맡김 — 1~2분 뒤 같은 낱말·기간으로 다시 부르면 붙음' };
+}
+
 export async function newsCheck(ctx, args) {
   const q = String(args.q ?? '').trim();
   if (q.length < 2) return textResult('q(검색 낱말 2~3개)를 넣어 주세요.', true);
   const days = clampInt(args.days, 1, 365, 365);
   const limit = clampInt(args.limit, 1, 30, 10);
-  const [google, bing, naver, dandok] = await Promise.all([googleNews(ctx, q, days), bingNews(ctx, q, days),
+  let [google, bing, naver, dandok] = await Promise.all([googleNews(ctx, q, days), bingNews(ctx, q, days),
     naverNews(ctx, q, days), dandokIndex(ctx, q, days)]);
+  let relayNote = '';
+  if (ctx.private && googleBlocked(google)) {
+    const relay = await googleRelay(ctx, q, days).catch((e) => ({ used: null, note: ` · GitHub 경유 조회 오류(${e.name})` }));
+    if (relay.used) google = relay.used;
+    relayNote = relay.note ?? '';
+  }
   const channels = { '구글 뉴스': google, '빙 뉴스': bing, '네이버 뉴스': naver, '[단독] 색인': dandok };
   const out = [`보도 대조: "${q}" · 최근 ${days}일 · ${kstStamp(ctx.now)}`];
   let hits = 0;
@@ -232,7 +288,7 @@ export async function newsCheck(ctx, args) {
     if (ch.status !== 'ok') {
       const standIn = name === '구글 뉴스' && bing.status === 'ok' ? ' (웹 색인은 빙이 대신 — 판정에 영향 없음)' : '';
       if (name === '구글 뉴스' && googleBlocked(ch)) {
-        out.push(`\n■ ${name}: 이 서버(Cloudflare Worker)에서는 구글이 접속을 막음(${ch.error}) — 레이더 고장 아님${await googleRelayNote(ctx)}${standIn}`);
+        out.push(`\n■ ${name}: 이 서버(Cloudflare Worker)에서는 구글이 접속을 막음(${ch.error}) — 레이더 고장 아님${await googleRelayNote(ctx)}${relayNote}${standIn}`);
         continue;
       }
       out.push(`\n■ ${name}: ${ch.status} — ${ch.error}${standIn}`);

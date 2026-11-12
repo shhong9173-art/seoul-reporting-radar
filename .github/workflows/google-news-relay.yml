@@ -1,0 +1,33 @@
+name: Google News Relay
+# 즉석 보도 대조(news_check)가 Cloudflare Worker에서 구글 뉴스에 막히면(HTTP 503) Worker가 이 작업을 부른다(11-12).
+# 낱말은 입력값으로 받지 않는다 — 기자 전용 저장소(google-relay-pending)에서 읽고, 결과는 google-relay에 둔다.
+# 공개 저장소라 로그엔 건수만(낱말·기사 제목 없음).
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: google-relay
+  cancel-in-progress: false
+jobs:
+  relay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+          sparse-checkout: |
+            scripts
+            tests
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install "requests>=2.31,<3"
+      - name: Test relay rules before any request
+        run: python -m unittest tests.test_google_news_relay -v
+      - name: Fetch queued Google News queries (counts-only log)
+        env:
+          MCP_ACCESS_TOKEN: ${{ secrets.MCP_ACCESS_TOKEN }}
+        run: python scripts/google_news_relay.py
