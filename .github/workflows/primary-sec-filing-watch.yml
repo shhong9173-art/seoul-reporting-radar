@@ -1,0 +1,71 @@
+name: SEC Partner Original Filings
+on:
+  pull_request:
+    paths:
+      - 'data/primary_sec_filer_watches.json'
+      - 'scripts/primary_sec_filing_watch.py'
+      - 'scripts/publish_newsroom_outputs.py'
+      - 'tests/test_primary_sec_filing_watch.py'
+      - 'tests/test_sec_filing_publisher.py'
+      - 'primary-dossiers.html'
+      - '.github/workflows/primary-sec-filing-watch.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'data/primary_sec_filer_watches.json'
+      - 'scripts/primary_sec_filing_watch.py'
+      - 'primary-dossiers.html'
+      - '.github/workflows/primary-sec-filing-watch.yml'
+  schedule:
+    # KST weekdays 08:50 / 16:50
+    - cron: '50 23 * * 0-4'
+    - cron: '50 7 * * 1-5'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+concurrency:
+  group: direct-sec-filing-source-intake
+  cancel-in-progress: false
+
+jobs:
+  sec-originals:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.head_ref || 'main' }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify SEC CIK, official receipt and sourcing safety
+        run: |
+          python -m compileall -q scripts/primary_sec_filing_watch.py scripts/publish_newsroom_outputs.py
+          python -m unittest discover -s tests -p 'test_primary_sec_filing_watch.py' -v
+          python -m unittest discover -s tests -p 'test_sec_filing_publisher.py' -v
+          node tests/test_primary_dossiers_view.cjs
+      - name: Verify real SEC data feed and CLI publisher before merge
+        if: github.event_name == 'pull_request'
+        run: |
+          python -m scripts.primary_sec_filing_watch
+          python scripts/publish_newsroom_outputs.py --mode sec_filings --check-only
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path("digests/primary_sec_filing_watch_latest.json").read_text())
+          print("SEC direct source health",[(s["company"],s["status"],
+                s.get("errorType")) for s in d["sources"]])
+          assert d["sourcesChecked"]>0, "no_official_sec_feed_responded"
+          assert d["confirmedScoops"]==0
+          assert d["allOriginalDocumentBodiesRead"] is False
+          PY
+      - name: Refresh latest official SEC filing receipt index
+        if: github.event_name != 'pull_request'
+        run: |
+          python -m scripts.primary_sec_filing_watch
+          python scripts/publish_newsroom_outputs.py --mode sec_filings --check-only
+      - name: Publish verified SEC public receipts without making scoop claims
+        if: github.event_name != 'pull_request'
+        run: python scripts/publish_newsroom_outputs.py --mode sec_filings
