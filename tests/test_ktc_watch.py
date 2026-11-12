@@ -158,7 +158,7 @@ TIN_OPEN = "- 3 - 참고1 (조사개시) 중국산 석도강판 덤핑조사 (�
 NEWS_PDF = {"00002297": GALV, "00002147": BUTYL, "00002050": TIN_OPEN}
 
 
-def fake_pdf(data):
+def fake_pdf(data, pages=5):
     tail = data.decode(errors="ignore").split()[-1]
     if tail.startswith("news:"):
         return NEWS_PDF.get(tail[5:]), None
@@ -216,6 +216,121 @@ class KtcTest(unittest.TestCase):
                          ["튤립이노베이션케이에프티"])
         self.assertEqual(k.applicants_in("참고1 (의결) 중국산 PVC 페이스트 수지 덤핑조사 □ ㅇ (신청인) 한 화 솔 루 션 주식회사, ㈜ 엘지 화학 ㅇ (조사대상")[0]["beat"],
                          ["한화솔루션", "LG화학"])
+
+    def test_old_press_colon_form_and_hwp_attachments_11_12(self):
+        # probe 214(11-12): PDF 없이 한글 파일만 붙은 옛 보도자료의 '신청인 :' 꼴 — 실제 글 발췌
+        cases = [
+            ("참고 1 베트남산 스테인리스강 냉간압연 제품 (원심) 개요 □ 조사 개요 ㅇ 신청인 : ㈜포스코 ㅇ 조사대상공급자(베트남) : 용진 메탈 테크놀로지(베트남), 티브이엘 ㅇ 신청인 주장 덤핑률 : 37.62% □ 조사개시 내용",
+             ("베트남산 스테인리스강 냉간압연 제품", ["포스코"], ["포스코"])),
+            ("↓ 참고 6 중국산 스티렌모노머 반덤핑조사(원심) 개요 □ 조사신청 개요 ㅇ 신청인 : 한화토탈에너지스㈜, 여천NCC㈜ ㅇ 신청일 : `24.3.22. ㅇ 조사신청물품 : 중국산 스티렌모노머",
+             ("중국산 스티렌모노머", ["한화토탈에너지스", "여천NCC"], [])),
+            ("참고2 대만 및 이탈리아산 스테인리스스틸바 원심 개요 □ 원심 개요 ㅇ 신청인(신청일) : ㈜세아창원특수강, ㈜세아특수강, 동일제강㈜ (‘18.4.19.) ㅇ 피신청인 : (대만) 왈신, GMTC, (이탈리아) 발브루나 ㅇ 끝",
+             ("대만 및 이탈리아산 스테인리스스틸바", ["세아창원특수강", "세아특수강", "동일제강"], [])),
+            ("참고 2 중국산 더블레이어 옵셋인쇄판 반덤핑조사(원심) 개요 □ 조사 개요 ㅇ 신청인 : 제일씨앤피(주) (‘21.3.4. 신청접수) * 대리인 : 덴톤스 리 법률사무소(변호사 장영철), 리인타 (공인회계사 김동준) ㅇ 조사대상공급자 : 중국 러차이",
+             ("중국산 더블레이어 옵셋인쇄판", ["제일씨앤피"], [])),
+            ("참고 3 중국산 폴리에스테르 장섬유 완전연신사 반덤핑조사 개시 결정 □ 신청 개요 ㅇ 신청인 : 한국화학섬유협회 ㅇ 신청일 : ’20.11.26. ㅇ 조사신청물품",
+             ("중국산 폴리에스테르 장섬유 완전연신사", ["한국화학섬유협회"], [])),
+            ("참고 1 베트남산 합판의 반덤핑조사 개요 □ 조사 개요 ㅇ 신청인(신청일) : (사)한국합판보드협회(’19. 9. 27.) ㅇ 조사대상공급자 : 준마 푸토",
+             ("베트남산 합판", ["한국합판보드협회"], [])),
+            ("참고 1 중국, 인니, 대만산 스테인리스강 평판압연제품 반덤핑조사 개요 □ 조사 개요 ㅇ 신청인 : (주)포스코 (’20.7.20.접수) ㅇ 조사대상공급자 : 중국 산시타이강",
+             ("중국, 인니, 대만산 스테인리스강 평판압연제품", ["포스코"], ["포스코"])),
+            ("참고1 중국산 스테인리스스틸 후판 (원심) 개요 □ 신청 개요 ㅇ 신청인 : 주식회사 디케이씨 * 대리인: 법무법인 울림, 더인터내셔날트레이드컨설팅 / ㅇ 끝",
+             ("중국산 스테인리스스틸 후판", ["디케이씨"], [])),
+            ("참고 2 중국 및 호주산 수산화알루미늄 일반제품 반덤핑 조사 개요 □ 조사 개요 ㅇ 신청인 : ㈜케이씨 ㅇ 조사대상공급자 : 중국 A",
+             ("중국 및 호주산 수산화알루미늄 일반제품", ["케이씨"], [])),
+        ]
+        for text, (product, names, beat) in cases:
+            got = k.applicants_in(text)
+            self.assertEqual([(a["product"], a["names"], a["beat"], a["how"]) for a in got], [(product, names, beat, "개요")], text[:30])
+        # 신청인 줄이 아닌 것: '피신청인 :', '신청인 주장 덤핑률 :', '신청인은 …'
+        self.assertEqual(k.applicants_in("ㅇ 피신청인 : (대만) 왈신 ㅇ 신청인 주장 덤핑률 : 37.62% □ ㅇ 신청인은 중국산 덤핑수입으로 피해를 입었다고 주장 ㅇ"), [])
+        # 옛 개요의 품목도 지금 사건·안건과 맞는다(나라가 겹치고 품목이 같음)
+        self.assertTrue(k.same_product("중국, 인도네시아 및 대만산 스테인리스강 평판압연 제품에 대한 덤핑방지관세 부과 종료재심사", "중국, 인니, 대만산 스테인리스강 평판압연제품"))
+        # 외국 회사 이름의 쉼표·괄호 안 영문 이름
+        got = k.applicants_in("참고 2 헤드업 디스플레이용 중간막 특허권 침해 개요 □ 조사 개요 ㅇ (신청인) Sekisui Chemical Co., Ltd. ㅇ (조사대상공급자) A사 "
+                              "참고 3 헤어드라이어 컬링 헤드 특허권 침해 조사 □ 조사 개요 ㅇ (신청인) ㈜유닉스(UNIX) ㅇ (조사대상공급자) B사")
+        self.assertEqual([a["names"] for a in got], [["SekisuiChemicalCo.Ltd."], ["유닉스"]])
+        self.assertEqual([a["product"] for a in got], ["헤드업 디스플레이용 중간막 특허권 침해", "헤어드라이어 컬링 헤드 특허권 침해"])
+
+        # 한글 파일 읽기: hwpx(zip 안 section xml), hwp 문단 글자(8낱자 제어 건너뜀 — 'tbl ' 같은 제어 이름이 한자로 읽히지 않게)
+        import io, struct, zipfile
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as z:
+            z.writestr("Contents/section0.xml", "<hp:p><hp:t>참고 1 베트남산 합판 원심 개요 □ 조사 개요 ㅇ 신청인 : </hp:t><hp:t>(사)한국합판보드협회 ㅇ 끝 &amp; 다음</hp:t></hp:p>")
+            z.writestr("Contents/header.xml", "<x>머리</x>")
+        text, err = k.hwpx_text(buf.getvalue())
+        self.assertIsNone(err)
+        self.assertEqual(k.applicants_in(text)[0]["names"], ["한국합판보드협회"])
+        self.assertIn("& 다음", text)
+        self.assertEqual(k.hwpx_text(b"PK\x03\x04broken")[0], None)
+
+        def units(*parts):
+            out = []
+            for x in parts:
+                out += x if isinstance(x, list) else [ord(c) for c in x]
+            return struct.pack(f"<{len(out)}H", *out)
+        tbl = [11, 0x6C20, 0x7462, 0, 0, 0, 0, 11]          # 표 제어(8낱자, 이름 'tbl ')
+        para = units("신청인 : ", tbl, "㈜포스코", [13])
+        self.assertEqual(k.hwp_para_text(para).split(), ["신청인", ":", "㈜포스코"])
+        self.assertNotIn("氠", k.hwp_para_text(para))
+
+        def record(tag, payload):
+            if len(payload) < 0xFFF:
+                return struct.pack("<I", tag | (len(payload) << 20)) + payload
+            return struct.pack("<II", tag | (0xFFF << 20), len(payload)) + payload
+        long_para = units("가" * 2100)                       # 4095바이트 넘는 문단(크기 칸 0xFFF + 다음 4바이트)
+        section = record(66, b"\x00" * 22) + record(67, para) + record(68, b"\x01\x02") + record(67, long_para)
+        got = k.hwp_section_text(section)
+        self.assertIn("㈜포스코", got)
+        self.assertEqual(got.count("가"), 2100)
+
+    def test_attachment_choice_and_retry_after_rule_change_11_12(self):
+        class Files:
+            def __init__(self, files):
+                self.files, self.calls = files, []
+
+            def post_binary(self, path, data, referer=None):
+                self.calls.append(data["seq_no"])
+                return 200, self.files.get(data["seq_no"], b"")
+        nosleep = lambda s: None  # noqa: E731
+        pdf, hwp, hwpx = b"%PDF-1.7 x", b"\xd0\xcf\x11\xe0 x", b"PK\x03\x04 x"
+        f = Files({"0000": hwp, "0001": pdf})
+        self.assertEqual(k.attachment_file(f, "1", nosleep)[1:], ("pdf", None))
+        self.assertEqual(f.calls, ["0001"])                                   # PDF를 찾으면 더 받지 않는다
+        f = Files({"0000": pdf, "0001": hwpx})
+        self.assertEqual((k.attachment_file(f, "1", nosleep)[1], f.calls), ("pdf", ["0001", "0000"]))
+        f = Files({"0000": hwp})                                              # 옛 보도자료: 한글 파일만
+        self.assertEqual((k.attachment_file(f, "1", nosleep)[1], f.calls), ("hwp", ["0001", "0000"]))
+        f = Files({"0001": hwpx})
+        self.assertEqual((k.attachment_file(f, "1", nosleep)[1], f.calls), ("hwpx", ["0001", "0000"]))
+        f = Files({"0002": pdf})                                              # 앞 둘이 비었을 때만 0002
+        self.assertEqual((k.attachment_file(f, "1", nosleep)[1], f.calls), ("pdf", ["0001", "0000", "0002"]))
+        f = Files({})
+        self.assertEqual(k.attachment_file(f, "1", nosleep), (None, None, "읽을 첨부 없음(PDF·한글 파일 아님)"))
+
+        # 한글 파일만 붙은 지난 판정 보도자료: 예전 판에서 'PDF 첨부 없음'으로 남은 것을 새 판에서 한 번 다시 읽고, 또 실패하면 그 판에서는 다시 안 한다
+        title = "무역위, 스테인리스강 냉간압연 반덤핑조사 개시"
+        old_text = "참고 1 베트남산 스테인리스강 냉간압연 제품 (원심) 개요 □ 조사 개요 ㅇ 신청인 : ㈜포스코 ㅇ 조사대상공급자(베트남) : 용진"
+        keep = (k.hwpx_text, k.hwp_text)
+        k.hwpx_text = lambda data: (old_text, None)
+        try:
+            site = Site([EV], news=[("00001776", title)])
+            first = k.collect(None, NOW, site, sleep=lambda s: None)[0]
+            stuck = {**first, "news": [{**n, "applicantsError": "PDF 첨부 없음"} for n in first["news"]]}
+            import copy
+            doc, ev, _ = k.collect(copy.deepcopy(stuck), NOW + dt.timedelta(days=1), Site([EV], news=[("00001776", title)]), sleep=lambda s: None)
+            rec = doc["news"][0]
+            self.assertEqual((rec["applicants"][0]["names"], rec["applicants"][0]["beat"], rec["applicantsFrom"]), (["포스코"], ["포스코"], "hwpx"))
+            self.assertNotIn("applicantsError", rec)
+            self.assertFalse([e for e in ev if e["ktcKind"] == "news"])            # 지난 글은 이벤트 없음
+            k.hwpx_text = lambda data: (None, "hwpx 해석 실패(BadZipFile)")
+            doc2, _, _ = k.collect(copy.deepcopy(stuck), NOW + dt.timedelta(days=1), Site([EV], news=[("00001776", title)]), sleep=lambda s: None)
+            self.assertEqual((doc2["news"][0]["applicantsError"], doc2["news"][0]["applicantsErrorV"]), ("hwpx 해석 실패(BadZipFile)", k.APPLICANTS_V))
+            site3 = Site([EV], news=[("00001776", title)])
+            k.collect(doc2, NOW + dt.timedelta(days=2), site3, sleep=lambda s: None)
+            self.assertFalse([c for c in site3.calls if c[0] == "/boardFileDownload.do"])
+        finally:
+            k.hwpx_text, k.hwp_text = keep
 
     def test_same_product_across_press_case_agenda_11_12(self):
         sp = k.same_product
@@ -275,7 +390,7 @@ class KtcTest(unittest.TestCase):
         news_ev = {e["id"]: e for e in ev if e["ktcKind"] == "news"}
         g = news_ev["ktc:news:00002297"]
         self.assertEqual((g["tier"], g["company"], g["beat"]), ("B", "동국씨엠·KG스틸", True))
-        self.assertIn("· 첨부 PDF의 신청인 — 중국산 아연도금냉연: 동국씨엠, 케이지스틸, 세아씨엠; 중국산 무계목강관: 일진제강", g["text"])
+        self.assertIn("· 첨부(PDF)의 신청인 — 중국산 아연도금냉연: 동국씨엠, 케이지스틸, 세아씨엠; 중국산 무계목강관: 일진제강", g["text"])
         self.assertEqual((news_ev["ktc:news:00002306"]["tier"], news_ev["ktc:news:00002306"].get("company")), ("C", None))   # 판정 아닌 글은 첨부 안 읽음
         self.assertNotIn(("/boardFileDownload.do", {"bbs_id": "00002306", "seq_no": "0001"}), site2.calls)
         # 지난 판정 보도자료(기준선 때 본 부틸)는 이벤트 없이 신청인만 채운다

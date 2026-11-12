@@ -361,21 +361,23 @@ export function rateChangeText(x) {
   return ch.slice(0, 5).map((c) => (c.before == null ? `${c.company} 새 조사에서 ${pct(c.rate)}` : `${c.company} ${pct(c.before)}→${pct(c.rate)}`)).join(', ');
 }
 
-// 보도자료 첨부 PDF에서 읽은 신청인을 사건·안건에 붙인 것(11-12 판정 예고, ktc_watch.applicant_for — 품목 이름 맞추기라 원문 확인)
+// 보도자료 첨부(PDF, 없으면 한글 파일)에서 읽은 신청인을 사건·안건에 붙인 것(11-12 판정 예고, ktc_watch.applicant_for — 품목 이름 맞추기라 원문 확인)
 const applicantNote = (a) => (a?.names?.length
   ? ` · 신청인(보도자료 「${String(a.title ?? '').slice(0, 30)}」${a.posted ? ` ${a.posted}` : ''} 첨부) ${a.names.join('·')}${a.beat?.length ? `(출입처 ${a.beat.join('·')})` : ''}`
   : '');
+// 신청인 이름으로도 찾게(11-12: company=LG화학·포스코로 그 회사가 신청한 사건·안건·보도자료)
+const applicantWords = (a) => [...(a?.names ?? []), ...(a?.beat ?? [])].join(' ');
 
 export function ktcSection(k, q = '', limit = 15) {
   if (!k) return ['\n[국내 무역위원회] 아직 수집 전 — 미확인'];
   const out = [];
   const lastStep = (c) => (c.timeline ?? []).at(-1) ?? null;
   const live = (k.cases ?? []).filter((c) => !c.stale);
-  const cases = (k.cases ?? []).filter((c) => matches(q, c.title, c.product, c.no, c.country, c.kind));
+  const cases = (k.cases ?? []).filter((c) => matches(q, c.title, c.product, c.no, c.country, c.kind, applicantWords(c.applicant)));
   const active = cases.filter((c) => String(c.opened ?? '') >= '2019-01-01');
   out.push(`\n[국내 무역위원회 · 확인 ${String(k.checkedAt).slice(0, 16)}${k.stale ? ' · ⚠ 이번 조회 실패, 직전 목록' : ''}] 진행 목록 ${live.length}건`
     + ` · 2019년 이후 개시 ${active.length}건(출입 업종 품목 ${active.filter((c) => c.beat).length})${k.listComplete === false ? ' · 목록 일부만 읽음' : ''}`);
-  for (const m of (k.meetings ?? []).filter((m) => !q || matches(q, m.title, (m.agenda ?? []).map((a) => a.text).join(' '))).slice(0, 2)) {
+  for (const m of (k.meetings ?? []).filter((m) => !q || matches(q, m.title, (m.agenda ?? []).map((a) => `${a.text} ${applicantWords(a.applicant)}`).join(' '))).slice(0, 2)) {
     out.push(`- 회의: ${m.title}${m.meetingOn ? ` · 개최 ${m.meetingOn}` : ''}${m.posted ? ` · 게시 ${m.posted}` : ''}${m.summary ? ` · 안건 ${m.summary}` : ''}`);
     if (m.agenda) for (const a of m.agenda.slice(0, 8)) out.push(`   ${a.kind}${a.beat ? '(출입 업종 품목)' : ''}: ${a.text}${applicantNote(a.applicant)}`);
     else out.push(`   안건 미확인(${m.agendaError ?? '읽지 않음'}) — 0건 아님`);
@@ -396,10 +398,10 @@ export function ktcSection(k, q = '', limit = 15) {
   for (const x of (k.left ?? []).filter((x) => matches(q, x.title, x.product)).slice(0, 5)) {
     out.push(`- 진행 목록에서 빠짐 ${String(x.leftAt).slice(0, 10)}: ${x.no} ${x.title}${x.result ? ` · 판정결과 ${x.result}` : ''}`);
   }
-  const news = (k.news ?? []).filter((n) => matches(q, n.title)).slice(0, 5);
-  // 판정 보도자료 첨부 PDF의 신청인(11-11) — 출입처로 바뀐 이름은 괄호로
+  const news = (k.news ?? []).filter((n) => matches(q, n.title, (n.applicants ?? []).map(applicantWords).join(' '))).slice(0, 5);
+  // 판정 보도자료 첨부의 신청인(11-11, 11-12부터 PDF 없으면 한글 파일) — 출입처로 바뀐 이름은 괄호로
   const who = (n) => (n.applicants ?? []).map((a) => `${a.product ? `${a.product}: ` : ''}${(a.names ?? []).join('·')}${a.beat?.length ? `(출입처 ${a.beat.join('·')})` : ''}`).join('; ');
-  if (news.length) out.push(`- 최근 보도자료: ${news.map((n) => `${n.title}${n.posted ? `(${n.posted})` : ''}${who(n) ? ` [신청인(첨부 PDF) ${who(n)}]` : ''}`).join(' / ')}`);
+  if (news.length) out.push(`- 최근 보도자료: ${news.map((n) => `${n.title}${n.posted ? `(${n.posted})` : ''}${who(n) ? ` [신청인(첨부 ${/^hwp/.test(n.applicantsFrom ?? '') ? '한글 파일' : 'PDF'}) ${who(n)}]` : ''}`).join(' / ')}`);
   out.push('   검증 상태: 무역위 누리집 목록·상세·회의 개요 PDF(자동). 신청인(국내 생산자)·피신청인 이름은 누리집에 대개 없어 회사 확인 필요. '
     + '회의 안건은 결과가 아니다 — 판정·세율은 회의 뒤 보도자료·의결서로 확인');
   return out;

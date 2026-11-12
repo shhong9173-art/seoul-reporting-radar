@@ -13,7 +13,10 @@ import datetime as dt
 import html
 import io
 import re
+import struct
 import time
+import zipfile
+import zlib
 
 SITE = "https://www.ktc.go.kr"
 UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
@@ -33,7 +36,10 @@ KEEP_MEETINGS = 12
 KEEP_NEWS = 120
 NEWS_PAGES = 8       # 보도자료 목록을 거슬러 읽는 쪽 수(한 실행에 한 쪽씩, 11-12 판정 예고 — 진행 사건의 개시·예비판정 보도자료 신청인)
 NEWS_BACKFILL = 12   # 신청인 규칙 전 판정 보도자료를 한 실행에 읽는 수(PDF 사이 1초)
-APPLICANTS_V = 4     # 신청인 읽기 규칙 판(11-11: 2 = 대리인 괄호·품목 꼬리·글자 띄운 머리 정리, 3 = 표 칸 이름 안 띄어쓰기 붙임, 11-12: 4 = 각주·긴 이름 뺌) — 판이 다르면 다시 읽는다
+APPLICANTS_V = 5     # 신청인 읽기 규칙 판(11-11: 2 = 대리인 괄호·품목 꼬리·글자 띄운 머리 정리, 3 = 표 칸 이름 안 띄어쓰기 붙임, 11-12: 4 = 각주·긴 이름 뺌,
+                     # 5 = 한글 첨부(hwpx·hwp)·PDF 뒤쪽 쪽·옛 '신청인 :' 꼴) — 판이 다르면 다시 읽는다(실패한 것도 판이 바뀌면 한 번 더)
+PRESS_PDF_PAGES = 20  # 보도자료 PDF를 읽는 쪽 수(11-12 probe 214: 앞 5쪽만 읽어 뒤쪽 참고(석도강판 티씨씨스틸·PVC 서스펜션 한화솔루션)를 놓쳤다)
+FROM_LABEL = {"pdf": "PDF", "hwpx": "한글 파일", "hwp": "한글 파일"}
 APPLICANT_TITLE = re.compile(r"덤핑|상계|세이프가드|판정|부과\s*건의|조사\s*개시|무역구제조치")
 KEEP_LEFT = 40
 LEFT_MAX = 5  # 한 번에 이보다 많이 빠지면 누리집 이상으로 보고 판단을 미룬다
@@ -145,7 +151,7 @@ def parse_news(page):
     return out
 
 
-# 보도자료 첨부 PDF의 신청인(11-11 probe 210~212): 누리집 보도자료 상세엔 본문이 없고 첨부(hwpx·pdf, POST /boardFileDownload.do
+# 보도자료 첨부의 신청인(11-11 probe 210~212, 11-12 probe 214부터 PDF가 없으면 한글 파일): 누리집 보도자료 상세엔 본문이 없고 첨부(hwpx·pdf, POST /boardFileDownload.do
 # bbs_id·seq_no)에 있다. 판정 보도자료 PDF엔 '참고N (최종판정) 중국산 아연도금냉연 덤핑조사 (원심) □ 조사 개요 ㅇ (신청인) 동국씨엠㈜,
 # 케이지스틸㈜, ㈜세아씨엠 ㅇ (조사대상공급자) …' 표와 '작년 7월 엘지화학이 조사를 신청한 건으로' 같은 문장이 있다(부틸 아크릴레이트·
 # 수산화나트륨(영진)·봉강(세아베스틸·세아창원특수강)·무계목강관(일진제강)·동관(능원금속공업·엘에스메탈)·산업용로봇(HD현대로보틱스)).
@@ -156,10 +162,18 @@ REF_HEAD = re.compile(r"참고\s*\d*\s*[\(\[]?\s*(?:최종판정|예비판정|�
 # 글자 사이를 띄운 머리(probe 213: '참고1[의 결] 독·프·노 르 웨 이 및 스 웨 덴 산 폴 리 염 화 비 닐 페 이 스 트 수 지 덤 핑 조 사') — 공백을 빼고 다시 본다
 REF_HEAD_NS = re.compile(r"참고\d*[\(\[]?(?:최종판정|예비판정|의결|판정|조사개시|조사종결)?[\)\]]?(.{2,50}?)(?:덤핑조사|덤핑사실|조사)")
 AGENT = re.compile(r"\(\s*대리인[^)]*\)")   # '㈜엘지화학(대리인: 법무법인 정률, DKC글로벌컨설팅)' — 대리인은 신청인이 아니다
+# 옛 보도자료(2019~2022, 한글 파일만 첨부 — probe 214): '참고 1 베트남산 스테인리스강 냉간압연 제품 (원심) 개요 □ 조사 개요 ㅇ 신청인 : ㈜포스코 ㅇ …',
+# '참고2 대만 및 이탈리아산 스테인리스스틸바 원심 개요 □ 원심 개요 ㅇ 신청인(신청일) : ㈜세아창원특수강, ㈜세아특수강, 동일제강㈜ (‘18.4.19.) ㅇ 피신청인 …',
+# '참고 2 중국산 더블레이어 옵셋인쇄판 반덤핑조사(원심) 개요 □ 조사 개요 ㅇ 신청인 : 제일씨앤피(주) (‘21.3.4. 신청접수) * 대리인 : …'.
+# '피신청인 :'·'신청인 주장 덤핑률 :'·'신청인은 …'은 아니다.
+APPLICANT_COLON = re.compile(r"(?<![가-힣])신청인\s*(?:\(\s*신청일\s*\))?\s*[:：]\s*(.{2,120}?)\s*(?=ㅇ|○|◦|□|■|\*|※)")
+REF_OLD = re.compile(r"참고\s*\d+\s*(.{2,70}?)\s*(?:개요|□|ㅇ)")
+HEAD_TAIL = re.compile(r"\s*(?:[\(\[]\s*(?:원심|재심)\s*[\)\]]|원심|재심|반?덤핑\s*조사|반?덤핑|조사\s*개시|개시\s*결정|결정|조사|개요|의)\s*$")
+DATE_PAREN = re.compile(r"\(\s*[‘’'`´]?\s*\d{2,4}\s*\.[^)]*\)")   # '(‘18.4.19.)', '(’20.11.26.접수)', '(‘21.3.4. 신청접수)'
 NOT_APPLICANT = re.compile(r"법무법인|회계법인|관세법인|컨설팅|특허법인")
 SENT_PRODUCT = re.compile(r"((?:[가-힣]+(?:·|‧|,\s*|\s및\s))*[가-힣]+산\s[^.,]{2,30}?)(?:에\s*대한|의)\s*(?:반?덤핑)")
 NOT_NAME = {"신청인", "업계", "국내업계", "우리", "국내기업", "기업", "국내", "동", "이", "당사자", "피신청인"}
-CORP_MARK = re.compile(r"㈜|\(주\)|주식회사|\s+")
+CORP_MARK = re.compile(r"㈜|\((?:주|사|재|유)\)|주식회사|사단법인|\s+")   # (사)한국합판보드협회
 # 신청인 이름 → 출입처(AGENTS.md 명시 기업만). 세아씨엠·세아베스틸·엘에스메탈 같은 계열·관련 회사는 출입처로 바꾸지 않는다.
 BEAT_ALIAS = {"엘지화학": "LG화학", "LG화학": "LG화학", "케이지스틸": "KG스틸", "KG스틸": "KG스틸", "동국씨엠": "동국씨엠", "동국제강": "동국제강",
               "현대제철": "현대제철", "포스코": "포스코", "POSCO": "포스코", "세아제강": "세아제강", "롯데케미칼": "롯데케미칼", "한화솔루션": "한화솔루션",
@@ -177,6 +191,7 @@ def _product(p):
     """'중국산 부틸 아크릴레이트 (원심)□' → '중국산 부틸 아크릴레이트', '조사종결) 자동차용 배터리팩 특허권 침해' → '자동차용 배터리팩 특허권 침해'."""
     p = re.sub(r"\s*\((?:원심|재심)\)\s*", " ", p or "")
     p = re.sub(r"^[^(]*?\)\s*", "", p) if re.match(r"^[^(]*\)", p) else p
+    p = re.sub(r"\s*개요\s*$", "", p.strip(" □ㅇ·-"))   # '헤드업 디스플레이용 중간막 특허권 침해 개요 □'(옛 보도자료 머리)
     return p.strip(" □ㅇ·-") or None
 
 
@@ -184,10 +199,11 @@ def _names(raw, table=False):
     """table=True: '(신청인)' 칸 — 쉼표로 나뉜 한 마디가 한 회사(마디 안 띄어쓰기는 PDF 글자 조각이라 붙인다: 11-11 운영
     '튤립 이노베이션케이에프티'가 '이노베이션케이에프티'로 잘렸다). 문장 꼴은 날짜 낱말을 버리려고 마디의 마지막 낱말만."""
     out = []
-    for part in re.split(r"(?<=[가-힣㈜)])(?:과|와)\s+|\s*[,·‧]\s*|\s및\s", AGENT.sub("", raw or "")):
+    raw = re.sub(r",\s*(?=(?:Ltd|Inc|LLC|Corp|GmbH)\b)", " ", AGENT.sub("", raw or ""))   # 'Sekisui Chemical Co., Ltd.'는 한 회사
+    for part in re.split(r"(?<=[가-힣㈜)])(?:과|와)\s+|\s*[,·‧]\s*|\s및\s", raw):
         tok = part if table else (re.findall(r"[가-힣A-Za-z0-9㈜()\-]+", part) or [""])[-1]
         tok = re.split(r"\*|※", tok)[0]   # 각주(11-12 운영: '와이어쓰엘엘씨**미국화이자(PfizerInc.)가‘09년인수한자회사…')
-        name = CORP_MARK.sub("", tok).strip("()")
+        name = re.sub(r"\([^)]*\)?", "", CORP_MARK.sub("", tok)).strip("()")   # '유닉스(UNIX)' → 유닉스(괄호 안 영문 이름은 뺀다)
         if len(name) > 25:
             continue
         if len(name) >= 2 and name not in NOT_NAME and not NOT_APPLICANT.search(name) and not re.fullmatch(r"\d+월?|작년|올해|지난해|금년", name):
@@ -195,8 +211,22 @@ def _names(raw, table=False):
     return out
 
 
+def _old_head(window):
+    """'… 참고 6 중국산 스티렌모노머 반덤핑조사(원심) 개요 □ 조사신청 개요 ㅇ' → '중국산 스티렌모노머'. 머리가 없으면 None."""
+    heads = REF_OLD.findall(window)
+    if not heads:
+        return None
+    p = heads[-1]
+    while True:
+        q = HEAD_TAIL.sub("", p)
+        if q == p:
+            break
+        p = q
+    return p.strip() or None
+
+
 def applicants_in(text):
-    """보도자료 PDF 글 → [{'product', 'names', 'beat', 'how'}]. 표('(신청인) …')를 먼저, 없으면 '…이 조사를 신청' 문장."""
+    """보도자료 첨부 글 → [{'product', 'names', 'beat', 'how'}]. 표('(신청인) …')·옛 개요('신청인 : …')를 먼저, 없으면 '…이 조사를 신청' 문장."""
     t = re.sub(r"\s+", " ", text or "")
     out, seen = [], set()
 
@@ -216,6 +246,8 @@ def applicants_in(text):
         window = t[max(0, m.start() - 160):m.start()]
         heads = REF_HEAD.findall(window) or REF_HEAD_NS.findall(re.sub(r"\s+", "", window))
         add(heads[-1] if heads else None, _names(m.group(1), table=True), "표")
+    for m in APPLICANT_COLON.finditer(t):
+        add(_old_head(t[max(0, m.start() - 200):m.start()]), _names(DATE_PAREN.sub(" ", m.group(1)), table=True), "개요")
     tables = bool(out)
     for m in APPLICANT_SENT.finditer(t):
         # 문장 꼴은 '…것으로, 올해 2월 세아베스틸과 세아창원특수강이' — 마지막 쉼표 뒤 마디만 이름 자리
@@ -298,28 +330,113 @@ def applicant_for(text, index):
     return next((x for x in index if same_product(text, x["product"])), None)
 
 
-def attachment_pdf(http, bid, sleep):
-    """보도자료 첨부 중 PDF(첫 4바이트 %PDF) — seq 0001 먼저(대개 hwpx 다음), 없으면 0000. (bytes|None, 오류|None)."""
-    for seq in ("0001", "0000"):
+def attachment_kind(body):
+    return "pdf" if body[:4] == b"%PDF" else "hwpx" if body[:2] == b"PK" else "hwp" if body[:4] == b"\xd0\xcf\x11\xe0" else None
+
+
+def attachment_file(http, bid, sleep):
+    """보도자료 첨부 한 개: PDF(첫 4바이트 %PDF) 먼저, 없으면 한글 파일(hwpx·hwp) — seq 0001(대개 한글 파일 다음), 0000,
+    둘 다 읽을 꼴이 아니면 0002까지(probe 214: 옛 보도자료 14건은 PDF 없이 hwp 12·hwpx 2, 빈 seq는 0바이트). (bytes|None, 꼴|None, 오류|None)."""
+    spare = None
+    for seq in ("0001", "0000", "0002"):
+        if seq == "0002" and spare:
+            break
         sleep(1)
         try:
             st, body = http.post_binary("/boardFileDownload.do", {"bbs_id": bid, "seq_no": seq}, f"{SITE}/boardView.do?bbs_id={bid}&menuId={NEWS[1]}")
         except Exception as e:  # noqa: BLE001
-            return None, type(e).__name__
-        if st == 200 and body[:4] == b"%PDF":
-            return body, None
-    return None, "PDF 첨부 없음"
+            return (*spare, None) if spare else (None, None, type(e).__name__)
+        kind = attachment_kind(body) if st == 200 else None
+        if kind == "pdf":
+            return body, kind, None
+        if kind and not spare:
+            spare = (body, kind)
+    return (*spare, None) if spare else (None, None, "읽을 첨부 없음(PDF·한글 파일 아님)")
 
 
-def pdf_text(data):
+def pdf_text(data, pages=5):
     try:
         from pypdf import PdfReader
     except ImportError:
         return None, "PDF 읽기 도구 없음"
     try:
-        return " ".join((p.extract_text() or "") for p in PdfReader(io.BytesIO(data)).pages[:5]), None
+        return " ".join((p.extract_text() or "") for p in PdfReader(io.BytesIO(data)).pages[:pages]), None
     except Exception as e:  # noqa: BLE001 — a broken attachment is recorded, not fatal
         return None, f"PDF 해석 실패({type(e).__name__})"
+
+
+def hwpx_text(data):
+    """hwpx(zip): Contents/section*.xml의 글자."""
+    try:
+        z = zipfile.ZipFile(io.BytesIO(data))
+        secs = sorted(n for n in z.namelist() if re.fullmatch(r"Contents/section\d+\.xml", n))
+        if not secs:
+            return None, "hwpx 본문 없음"
+        return " ".join(html.unescape(re.sub(r"<[^>]+>", " ", z.read(n).decode("utf-8", "ignore"))) for n in secs), None
+    except Exception as e:  # noqa: BLE001
+        return None, f"hwpx 해석 실패({type(e).__name__})"
+
+
+# HWP 5.0 문단 글자(HWPTAG_PARA_TEXT=67)는 UTF-16LE 16비트 낱자 줄이다. 32 미만 값 중 아래는 8낱자짜리 제어(표·그림·구역 정의·필드 등)라
+# 통째로 건너뛴다 — 안 건너뛰면 제어 이름('tbl '·'secd')이 '氠瑢'·'捤獥' 같은 한자로 읽힌다(probe 214).
+HWP_CTRL8 = frozenset({1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23})
+
+
+def hwp_para_text(data):
+    n = len(data) // 2
+    units, keep, i = struct.unpack_from(f"<{n}H", data), [], 0
+    while i < n:
+        c = units[i]
+        if c in HWP_CTRL8:
+            keep.append(32)
+            i += 8
+            continue
+        keep.append(32 if c < 32 or 0xE000 <= c <= 0xF8FF else c)
+        i += 1
+    return struct.pack(f"<{len(keep)}H", *keep).decode("utf-16le", "ignore")
+
+
+def hwp_section_text(data):
+    """HWP 본문 레코드(머리 4바이트: 태그 10비트·크기 12비트, 크기 0xFFF면 다음 4바이트)에서 문단 글자(태그 67)만."""
+    out, i = [], 0
+    while i + 4 <= len(data):
+        head = struct.unpack_from("<I", data, i)[0]
+        tag, size = head & 0x3FF, (head >> 20) & 0xFFF
+        i += 4
+        if size == 0xFFF:
+            size = struct.unpack_from("<I", data, i)[0]
+            i += 4
+        if tag == 67:
+            out.append(hwp_para_text(data[i:i + size]))
+        i += size
+    return " ".join(out)
+
+
+def hwp_text(data):
+    """HWP 5.0(OLE): BodyText/Section* 스트림(FileHeader 36번째 바이트 1비트가 압축 → raw deflate)."""
+    try:
+        import olefile
+    except ImportError:
+        return None, "hwp 읽기 도구 없음"
+    try:
+        ole = olefile.OleFileIO(io.BytesIO(data))
+        compressed = bool(ole.openstream("FileHeader").read()[36] & 1)
+        out = []
+        for entry in sorted((e for e in ole.listdir() if len(e) == 2 and e[0] == "BodyText"), key=lambda e: int(re.sub(r"\D", "", e[1]) or 0)):
+            raw = ole.openstream(entry).read()
+            out.append(hwp_section_text(zlib.decompress(raw, -15) if compressed else raw))
+        return " ".join(out), None
+    except Exception as e:  # noqa: BLE001
+        return None, f"hwp 해석 실패({type(e).__name__})"
+
+
+def attachment_text(http, bid, sleep):
+    """보도자료 첨부 글자 → (글자|None, 오류|None, 꼴|None)."""
+    data, kind, err = attachment_file(http, bid, sleep)
+    if data is None:
+        return None, err, None
+    text, err = pdf_text(data, PRESS_PDF_PAGES) if kind == "pdf" else hwpx_text(data) if kind == "hwpx" else hwp_text(data)
+    return text, err, kind
 
 
 class Http:
@@ -565,14 +682,22 @@ def collect(prev, now, http, *, sleep=time.sleep):
     def read_applicants(rec):
         nonlocal pdf_reads
         pdf_reads += 1
-        data, err = attachment_pdf(http, rec["id"], sleep)
-        text, err2 = pdf_text(data) if data else (None, err)
+        if not rec.get("posted") and rec.get("older"):   # 지난 쪽 글은 목록에 날짜가 없다 — 신청인 출처에 날짜를 붙이려고 상세에서 등록일만
+            sleep(0.5)
+            page = _try([], "", http.get, "/boardView.do", {"bbs_id": rec["id"], "menuId": NEWS[1]})
+            m = re.search(r"등록일\s*(\d{4}-\d{2}-\d{2})", plain(page)) if page else None
+            if m:
+                rec["posted"] = m.group(1)
+        text, err, kind = attachment_text(http, rec["id"], sleep)
         if text is None:
-            rec["applicantsError"] = err2 or err
+            rec["applicantsError"] = err
+            rec["applicantsErrorV"] = APPLICANTS_V
             return
         rec["applicants"] = applicants_in(text)
         rec["applicantsV"] = APPLICANTS_V
+        rec["applicantsFrom"] = kind
         rec.pop("applicantsError", None)
+        rec.pop("applicantsErrorV", None)
 
     # 지난 보도자료 쪽(11-12 판정 예고): 한 실행에 한 쪽씩 NEWS_PAGES쪽까지 — 이벤트 없이 기록만, 신청인은 아래 채우기에서
     depth = int(prev.get("newsDepth") or 1)
@@ -600,7 +725,7 @@ def collect(prev, now, http, *, sleep=time.sleep):
             beat = bool(BEAT.search(row["title"])) or bool(beat_names)
             who = "; ".join(f"{a['product'] or '품목 미상'}: {', '.join(a['names'])}" for a in rec.get("applicants") or [])
             event("news", row["id"], "무역위 보도자료", f"{row['title']}" + (f" (등록 {rec['posted']})" if rec["posted"] else "")
-                  + (f" · 첨부 PDF의 신청인 — {who}" if who else ""), rec["url"], "B" if beat_names else "C", beat,
+                  + (f" · 첨부({FROM_LABEL.get(rec.get('applicantsFrom'), '파일')})의 신청인 — {who}" if who else ""), rec["url"], "B" if beat_names else "C", beat,
                   company="·".join(beat_names) or None)
         news[row["id"]] = rec
     # 신청인을 아직 안 읽은 지난 판정 보도자료(이 규칙 전 것) — 한 실행 NEWS_BACKFILL건, 이벤트 없이 기록만
@@ -608,7 +733,8 @@ def collect(prev, now, http, *, sleep=time.sleep):
         for rec in sorted(news.values(), key=lambda n: n["id"], reverse=True):
             if pdf_reads >= NEWS_BACKFILL + 3:
                 break
-            if rec.get("applicantsV") == APPLICANTS_V or rec.get("applicantsError") or not APPLICANT_TITLE.search(rec.get("title") or ""):
+            failed = rec.get("applicantsError") and rec.get("applicantsErrorV") == APPLICANTS_V   # 이 판에서 이미 못 읽은 것은 다시 안 한다
+            if rec.get("applicantsV") == APPLICANTS_V or failed or not APPLICANT_TITLE.search(rec.get("title") or ""):
                 continue
             read_applicants(rec)
     news = sorted(news.values(), key=lambda n: n["id"], reverse=True)[:KEEP_NEWS]
@@ -635,7 +761,7 @@ def collect(prev, now, http, *, sleep=time.sleep):
                 continue
             posted = f" {hit['posted']}" if hit.get("posted") else ""
             event("preview", f"{mt['id']}:{a.get('no') or a.get('text', '')[:20]}", f"무역위 회의 예고(개최 {mt.get('meetingOn')})",
-                  f"{a['kind']}: {a['text']} — 신청인 {', '.join(hit['names'])}(보도자료 「{hit['title']}」{posted} 첨부 PDF)"
+                  f"{a['kind']}: {a['text']} — 신청인 {', '.join(hit['names'])}(보도자료 「{hit['title']}」{posted} 첨부)"
                   f" · 결과(판정·세율)는 회의 뒤 보도자료·의결서로 확인", mt.get("url"), "B", True, company="·".join(hit["beat"]))
 
     listed = [c for c in cases if not c.get("stale")]
