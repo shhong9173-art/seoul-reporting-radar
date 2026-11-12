@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-11-12T02:30:51+09:00",
+ "generatedAt": "2026-11-12T17:44:37+09:00",
  "period": {
   "year": 2026,
   "report": "11014",
@@ -8,8 +8,8 @@
  },
  "source": "OpenDART 단일회사 전체 재무제표(fnlttSinglAcntAll)·직원 현황(empSttus)",
  "counts": {
-  "filed": 0,
-  "not_filed": 35,
+  "filed": 2,
+  "not_filed": 33,
   "failed": 0,
   "no_comparable_accounts": 0
  },
@@ -68,7 +68,90 @@
    "company": "금호타이어",
    "team": "자동차",
    "corpCode": "00481454",
-   "status": "not_filed"
+   "status": "filed",
+   "basis": "연결",
+   "receipts": [
+    "20261112000682"
+   ],
+   "filedOn": "2026-11-12",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261112000682",
+   "quarter": {
+    "values": {
+     "revenue": 1237395041247,
+     "cost": 865752725186,
+     "sga": 241121697320,
+     "operating": 130520618741
+    },
+    "prior": {
+     "revenue": 1113745691721,
+     "cost": 791561826453,
+     "sga": 213676776208,
+     "operating": 108507089060
+    },
+    "ratios": {
+     "costRatio": 69.97,
+     "sgaRatio": 19.49,
+     "opMargin": 10.55
+    },
+    "priorRatios": {
+     "costRatio": 71.07,
+     "sgaRatio": 19.19,
+     "opMargin": 9.74
+    },
+    "deltaPp": {
+     "costRatio": -1.1,
+     "sgaRatio": 0.3,
+     "opMargin": 0.81
+    }
+   },
+   "cumulative": {
+    "values": {
+     "revenue": 3737972279749,
+     "cost": 2560024914324,
+     "sga": 718162252407,
+     "operating": 459785113018
+    },
+    "prior": {
+     "revenue": 3541211826721,
+     "cost": 2471315484422,
+     "sga": 639663551388,
+     "operating": 430232790911
+    },
+    "ratios": {
+     "costRatio": 68.49,
+     "sgaRatio": 19.21,
+     "opMargin": 12.3
+    },
+    "priorRatios": {
+     "costRatio": 69.79,
+     "sgaRatio": 18.06,
+     "opMargin": 12.15
+    },
+    "deltaPp": {
+     "costRatio": -1.3,
+     "sgaRatio": 1.15,
+     "opMargin": 0.15
+    }
+   },
+   "capex": {
+    "current": 258687071832,
+    "prior": 232059847330,
+    "changePct": 11.5
+   },
+   "employees": {
+    "report": "2026년 반기",
+    "count": 5339,
+    "asOf": "2026-06-30",
+    "priorCount": 5548,
+    "priorAsOf": "2025-06-30",
+    "avgSalary": 43098333,
+    "priorAvgSalary": 44249459,
+    "salaryPct": -2.6,
+    "method": "세부 행 합산",
+    "note": "3분기 보고서에 직원 현황이 없어 2026년 반기 기준",
+    "changePct": -3.8
+   },
+   "tags": []
   },
   {
    "company": "포스코홀딩스",
@@ -176,7 +259,94 @@
    "company": "한화솔루션",
    "team": "화학·소재",
    "corpCode": "00162461",
-   "status": "not_filed"
+   "status": "filed",
+   "basis": "연결",
+   "receipts": [
+    "20261112000489"
+   ],
+   "filedOn": "2026-11-12",
+   "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261112000489",
+   "quarter": {
+    "values": {
+     "revenue": 3948609000000,
+     "cost": 3462067000000,
+     "sga": 396041000000,
+     "operating": 90501000000
+    },
+    "prior": {
+     "revenue": 3364316000000,
+     "cost": 2965453000000,
+     "sga": 406281000000,
+     "operating": -7418000000
+    },
+    "ratios": {
+     "costRatio": 87.68,
+     "sgaRatio": 10.03,
+     "opMargin": 2.29
+    },
+    "priorRatios": {
+     "costRatio": 88.14,
+     "sgaRatio": 12.08,
+     "opMargin": -0.22
+    },
+    "deltaPp": {
+     "costRatio": -0.46,
+     "sgaRatio": -2.05,
+     "opMargin": 2.51
+    }
+   },
+   "cumulative": {
+    "values": {
+     "revenue": 12413216000000,
+     "cost": 10584311000000,
+     "sga": 1339260000000,
+     "operating": 489645000000
+    },
+    "prior": {
+     "revenue": 9576057000000,
+     "cost": 8177205000000,
+     "sga": 1273889000000,
+     "operating": 124963000000
+    },
+    "ratios": {
+     "costRatio": 85.27,
+     "sgaRatio": 10.79,
+     "opMargin": 3.94
+    },
+    "priorRatios": {
+     "costRatio": 85.39,
+     "sgaRatio": 13.3,
+     "opMargin": 1.3
+    },
+    "deltaPp": {
+     "costRatio": -0.12,
+     "sgaRatio": -2.51,
+     "opMargin": 2.64
+    }
+   },
+   "capex": {
+    "current": 644732000000,
+    "prior": 1632276000000,
+    "changePct": -60.5
+   },
+   "employees": {
+    "report": "2026년 반기",
+    "count": 5135,
+    "asOf": "2026-06-30",
+    "priorCount": 5790,
+    "priorAsOf": "2025-06-30",
+    "avgSalary": 47834275,
+    "priorAvgSalary": 45360967,
+    "salaryPct": 5.5,
+    "method": "세부 행 합산",
+    "note": "3분기 보고서에 직원 현황이 없어 2026년 반기 기준",
+    "changePct": -11.3
+   },
+   "tags": [
+    "[판관비율 -2.0%p]",
+    "[직원 -11.3%]",
+    "[설비투자 -60.5%]"
+   ]
   },
   {
    "company": "OCI",
@@ -258,7 +428,9 @@
      "넥센타이어",
      "금호타이어"
     ],
-    "filed": [],
+    "filed": [
+     "금호타이어"
+    ],
     "metrics": {},
     "skipped": []
    },
@@ -316,7 +488,9 @@
      "금호석유화학",
      "한화솔루션"
     ],
-    "filed": [],
+    "filed": [
+     "한화솔루션"
+    ],
     "metrics": {},
     "skipped": []
    }
