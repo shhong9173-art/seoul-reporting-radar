@@ -657,7 +657,9 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
     }
     // repeats: 같은 줄이 목록 일련번호만 바뀌어 다시 잡힌 적 있음 → 이 첫 감지도 번호 이동일 수 있어 C(원문 개시일 확인)
     push(e.repeats ? 'C' : e.pageId === 'taric' && /한국 전용/.test(e.label) ? 'A' : 'B', W['trade-remedy'], { kind: e.pageId === 'taric' ? 'EU 쿼터(TARIC)' : `해외 조사 ${e.pageId}`, id: e.id, date: e.detectedAt, company: e.country,
-      fact: `${e.label}: ${e.text}${e.repeats ? ` — 목록 일련번호만 바뀌어 ${e.repeats}번 다시 잡힌 줄이라 이 감지도 번호 이동일 수 있음(원문 개시일 확인)` : ''}`, url: e.url });
+      fact: `${e.label}: ${e.text}${e.repeats ? ` — 목록 일련번호만 바뀌어 ${e.repeats}번 다시 잡힌 줄이라 이 감지도 번호 이동일 수 있음(원문 개시일 확인)` : ''}`
+        // 영문 품목 낱말이 나온 출입처 사업보고서(11-14, scripts/listing_producers.py) — 누구에게 먼저 물을지. 조사 대상 수출자라는 뜻이 아니다
+        + (tr?.listingProducers?.[e.id]?.line ? ` · ${tr.listingProducers[e.id].line}` : ''), url: e.url });
   }
   // 기사 준비(11-04): 레이더가 먼저 잡은 경쟁지 [단독] 5건 중 4건이 무역구제(철강금속신문) — 판정이 뜬 날 바로 쓸 수 있게
   // 다음 절차(미국 법정 기한)와 회사에 물을 것을 붙인다. 기한은 관보 게재일 기준 법정 기한이고, 관보 본문 날짜가 있으면 그 날짜가 우선.
