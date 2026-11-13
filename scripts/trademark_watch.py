@@ -308,6 +308,20 @@ def run(cfg, *, now, previous=None, key="", ledger=None, fetch=None, only=None):
     return doc
 
 
+def list_note(d):
+    """공개 로그용 한 토막(건수만): 출원인 id 목록 조회 쪽·줄 수, id를 모은 회사 수, Signa가 그 관청을 마지막으로 맞춘 때."""
+    lst = d.get("list") or {}
+    ids = d.get("ownerIds") or {}
+    out = f" · 출원인 id 모은 회사 {sum(1 for m in ids.values() if m)}곳({sum(len(m) for m in ids.values())}개)"
+    if lst:
+        out += (f" · 목록 조회 {lst.get('pages', 0)}쪽 {lst.get('rows', 0)}줄(회사 {lst.get('companies', 0)}곳"
+                f"{', ' + lst['updatedSince'] + ' 이후 바뀐 줄만' if lst.get('updatedSince') else ', 출원일 창 전체'})"
+                f"{' · 덜 읽음(쪽 한도)' if lst.get('truncated') else ''}{' · 목록 조회 실패 ' + lst['error'] if lst.get('error') else ''}")
+    if d.get("providerSyncedAt"):
+        out += f" · Signa 마지막 맞춤 {str(d['providerSyncedAt'])[:16]}Z"
+    return out
+
+
 def main():
     argparse.ArgumentParser(description="출입처 상표 출원 감시(기자 전용 저장소로)").parse_args()
     now = now_kst()
@@ -329,10 +343,13 @@ def main():
     eu_cid, eu_sec = os.environ.get("EUIPO_CLIENT_ID", "").strip(), os.environ.get("EUIPO_CLIENT_SECRET", "").strip()
     signa_key = os.environ.get("SIGNA_API_KEY", "").strip()   # EUIPO 운영 검색이 막힌 동안 대신(11-09)
     # 유럽(EUIPO): 월요일 전체 실행, 평일에는 직전이 완료가 아니면(승인 대기·실패) 그 회사들만 다시
-    eu_due = bool(cfg.get("euipo")) and bool(eu_cid or prev_eu or signa_key) and (only is None or not (prev_eu and prev_eu.get("status") == "complete"))
+    # 11-14: 출원인 id를 모아 둔 관청은 평일에도 목록 한 번 조회(쪽마다 10크레딧)로 본다 — 주 1회이던 유럽·미국 상표를 평일 매일로
+    def list_ready(d):
+        return bool(signa_key) and isinstance(d, dict) and d.get("provider") == "signa" and any((d.get("ownerIds") or {}).values())
+    eu_due = bool(cfg.get("euipo")) and bool(eu_cid or prev_eu or signa_key) and (only is None or not (prev_eu and prev_eu.get("status") == "complete") or list_ready(prev_eu))
     prev_us = (previous or {}).get("us") if isinstance(previous, dict) else None
     # 미국(USPTO, Signa 경유 — 11-09): 유럽과 같은 회사. 월요일 전체, 평일엔 직전이 완료가 아닐 때만
-    us_due = bool(cfg.get("uspto")) and bool(signa_key) and (only is None or not (prev_us and prev_us.get("status") == "complete"))
+    us_due = bool(cfg.get("uspto")) and bool(signa_key) and (only is None or not (prev_us and prev_us.get("status") == "complete") or list_ready(prev_us))
     if only is not None and not only and not eu_due and not us_due:
         print("::notice title=trademarks::이번 주 정기 조회가 모두 정상 — 평일 재시도할 회사 없음(KIPRIS 호출 0)")
         return
@@ -354,11 +371,13 @@ def main():
         doc["eu"] = euipo_trademarks.run({**cfg["euipo"], "industries": cfg["industries"],
                                           "applicants": [{**a, "signaEvery": a.get("euEvery", 1)} for a in cfg["euipo"]["applicants"]]},
                                          prev_eu, now, client_id=eu_cid, secret=eu_sec,
-                                         post=requests.post, get=requests.get, only_unsettled=only is not None, signa_key=signa_key or None)
+                                         post=requests.post, get=requests.get, only_unsettled=only is not None, signa_key=signa_key or None,
+                                         daily_list=only is not None)
         eu = doc["eu"]
         print(f"::notice title=trademarks-eu::유럽(EUIPO) 상태 {eu['status']} · 정상 {sum(1 for c in eu['checks'] if c['status'] == 'ok')}/{len(eu['checks'])}"
               f" · 새 출원 {len(eu['fresh'])}{' · ' + eu['blocked'] if eu.get('blocked') else ''}"
-              f"{' · Signa로 대신 읽음 ' + str(sum(1 for c in eu['checks'] if c.get('via') == 'signa' and c['status'] == 'ok')) + '곳(남은 크레딧 ' + str(eu.get('signaCreditsLeft')) + ')' if eu.get('provider') == 'signa' else ''}")
+              f"{' · Signa로 대신 읽음 ' + str(sum(1 for c in eu['checks'] if c.get('via') == 'signa' and c['status'] == 'ok')) + '곳(남은 크레딧 ' + str(eu.get('signaCreditsLeft')) + ')' if eu.get('provider') == 'signa' else ''}"
+              f"{list_note(eu)}")
     elif prev_eu:
         doc["eu"] = prev_eu
     if us_due:
@@ -367,10 +386,10 @@ def main():
         doc["us"] = euipo_trademarks.run({**cfg["uspto"], "industries": cfg["industries"],
                                           "applicants": [{**a, "signaEvery": a.get("usEvery", 1)} for a in cfg["euipo"]["applicants"]]},
                                          prev_us, now, client_id="", secret="", post=requests.post, get=requests.get,
-                                         only_unsettled=only is not None, signa_key=signa_key, office="US")
+                                         only_unsettled=only is not None, signa_key=signa_key, office="US", daily_list=only is not None)
         us = doc["us"]
         print(f"::notice title=trademarks-us::미국(USPTO·Signa) 상태 {us['status']} · 정상 {sum(1 for c in us['checks'] if c['status'] == 'ok')}/{len(us['checks'])}"
-              f" · 새 출원 {len(us['fresh'])} · 이번에 안 물음(주기) {len(us.get('carried') or [])} · 남은 크레딧 {us.get('signaCreditsLeft')}")
+              f" · 새 출원 {len(us['fresh'])} · 이번에 안 물음(주기) {len(us.get('carried') or [])} · 남은 크레딧 {us.get('signaCreditsLeft')}{list_note(us)}")
     elif prev_us:
         doc["us"] = prev_us
     counts = {}

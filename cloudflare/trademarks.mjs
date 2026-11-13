@@ -58,8 +58,8 @@ export async function trademarks(ctx, args) {
   }
   if (rows.length > limit) out.push(`… 남은 ${rows.length - limit}건(company·name·class로 좁히기)`);
   if (!rows.length) out.push(waiting.length || bad.length ? '없음 — 다만 대기·실패한 회사는 미확인' : '없음');
-  out.push(...euSection(doc.eu, { q, name, cls: args.class ? cls : '', all, from, limit }));
-  out.push(...euSection(doc.us, { q, name, cls: args.class ? cls : '', all, from, limit, office: 'US' }));
+  out.push(...euSection(doc.eu, { q, name, cls: args.class ? cls : '', all, from, limit, nowMs: ctx.now.getTime() }));
+  out.push(...euSection(doc.us, { q, name, cls: args.class ? cls : '', all, from, limit, office: 'US', nowMs: ctx.now.getTime() }));
   out.push('\n검증 상태: KIPRIS 공개 출원 정보(자동 수집). 원문은 KIPRIS(kipris.or.kr)에서 출원번호로 조회 — 견본 이미지·지정상품 확인.');
   out.push('다음: 같은 이름 과거 출원(KIPRIS 상표명 검색) → news_check(상표명·회사명) → 회사에 "출원 사실과 용도(차명·서비스명·방어 출원)" 확인. 상표 출원만으로 출시·진출을 쓰지 않는다.');
   return textResult(out.join('\n'));
@@ -73,7 +73,11 @@ const OFFICE_TEXT = {
   US: { title: '미국 상표 출원(USPTO · Signa 경유)', short: '미국', direct: 'USPTO 직접 API(ID.me 인증 실패)', check: 'USPTO TSDR 원문(일련번호)',
     verify: 'USPTO 공개 출원 정보', how: '원문은 USPTO TSDR에서 일련번호로 조회 — 출원인(미국 법인일 수 있음)·지정상품·출원 근거(사용·사용 의사) 확인. 마드리드 지정(79로 시작)의 출원일은 미국 지정일이다.' },
 };
-function euSection(eu, { q, name, cls, all, from, limit, office = 'EM' }) {
+// 미국 출원 근거(Signa filing_bases, 출원 때 적은 것 — 1(b)가 나중에 사용 진술서를 내도 '사용 의사'로 남는다). EUIPO는 근거를 공개하지 않는다
+const BASIS_KO = { intent_to_use: '사용 의사(1B) — 아직 안 쓰는 이름', use_in_commerce: '사용 중(1A)', foreign_application: '외국 출원 우선권(44D)', foreign_registration: '외국 등록 기초(44E)', madrid_extension: '마드리드 지정(66A)' };
+export const basisNote = (f) => ((f.basis ?? []).length ? ` · 출원 근거 ${f.basis.map((b) => BASIS_KO[b] ?? b).join('·')}` : '');
+const kstShort = (t) => (Number.isFinite(Date.parse(t)) ? `${new Date(Date.parse(t) + 9 * 3600000).toISOString().slice(5, 16).replace('T', ' ')} KST` : String(t));
+function euSection(eu, { q, name, cls, all, from, limit, office = 'EM', nowMs = Date.now() }) {
   if (!eu) return [];
   const T = OFFICE_TEXT[office] ?? OFFICE_TEXT.EM;
   const checks = eu.checks ?? [];
@@ -86,6 +90,11 @@ function euSection(eu, { q, name, cls, all, from, limit, office = 'EM' }) {
     out.push(`원천: ${T.direct}${office === 'EM' ? `는 ${eu.blocked ? '구독 승인 대기' : '쓸 수 없음'}` : '는 막힘'} — ${eu.providerNote ?? 'Signa(2차 원천)'}로 ${office === 'EM' ? '대신 ' : ''}읽음 ${viaSigna}곳`
       + `${carried.length ? ` · 크레딧 아끼려 이번 주 안 물음 ${carried.length}곳(직전 결과)` : ''}`
       + `${eu.signaCreditsLeft != null ? ` · 남은 크레딧 ${eu.signaCreditsLeft}` : ''} — 2차 자료라 기사 전 ${T.check} 확인`);
+    // 11-14(Signa 답장): 출원인 id 목록 한 번 조회로 전 회사를 본다(평일 매일). Signa가 이 관청 자료를 마지막으로 맞춘 때가 이틀 넘게 지났으면 새 출원 0건은 미확인
+    const ids = Object.values(eu.ownerIds ?? {}).filter((m) => m && Object.keys(m).length).length;
+    const syncH = eu.providerSyncedAt ? (nowMs - Date.parse(eu.providerSyncedAt)) / 3600000 : null;
+    if (ids || eu.providerSyncedAt) out.push(`조회 방식: 출원인 id를 모은 회사 ${ids}곳은 목록 한 번 조회(평일 매일)${eu.list ? ` — 이번 ${eu.list.pages}쪽 ${eu.list.rows}줄${eu.list.updatedSince ? `(${eu.list.updatedSince} 이후 Signa가 넣거나 고친 줄만)` : '(출원일 창 전체)'}${eu.list.truncated ? ' · ⚠ 쪽 한도로 덜 읽음' : ''}${eu.list.error ? ` · ⚠ 목록 조회 실패(${eu.list.error}) — 미확인` : ''}` : ''}`
+      + `${eu.providerSyncedAt ? ` · Signa가 ${office === 'EM' ? 'EUIPO' : 'USPTO'} 자료를 마지막으로 맞춘 때 ${kstShort(eu.providerSyncedAt)}${Number.isFinite(syncH) && syncH > 48 ? ` (⚠ ${Math.round(syncH)}시간 전 — 그 뒤 출원은 미확인)` : ''}` : ''}`);
   } else if (eu.blocked) out.push(`대기: ${eu.blocked} — EUIPO 개발자 포털에서 앱 구독 상태 확인(0건이 아니라 미확인)`);
   const waitingEu = checks.filter((c) => c.status === 'waiting');
   const bad = checks.filter((c) => !['ok', 'waiting'].includes(c.status));
@@ -103,7 +112,7 @@ function euSection(eu, { q, name, cls, all, from, limit, office = 'EM' }) {
   out.push(`[${all ? `저장된 ${T.short} 출원` : `새로 본 ${T.short} 출원`}] ${rows.length}건`);
   for (const f of rows.slice(0, limit)) {
     out.push(`- ${f.isNew ? `[${f.tier ?? 'C'}${f.titleNew ? ' · 처음 보는 이름' : ''}] ` : ''}${f.company} · 「${f.title}」 · 출원 ${f.applicationDate || '?'} · ${(f.classes ?? []).map(classLabel).join(', ') || '상품류 미기재'}`
-      + ` · 출원번호 ${f.applicationNumber}${f.route ? `(${f.route})` : ''} · 출원인 ${(f.applicants ?? []).join(' | ') || '?'} · 상태 ${f.status ?? '?'}${f.via === 'signa' ? ' · Signa' : ''}`);
+      + ` · 출원번호 ${f.applicationNumber}${f.route ? `(${f.route})` : ''} · 출원인 ${(f.applicants ?? []).join(' | ') || '?'} · 상태 ${f.status ?? '?'}${basisNote(f)}${f.via === 'signa' ? ' · Signa' : ''}`);
   }
   if (!rows.length) out.push((eu.blocked && eu.provider !== 'signa') || bad.length || waitingEu.length ? '없음 — 다만 대기·실패한 회사는 미확인' : '없음');
   out.push(`검증 상태: ${T.verify}(자동 수집${eu.provider === 'signa' ? ', Signa 2차 자료 — 불완전·부정확할 수 있음' : ''}). ${T.how}`);

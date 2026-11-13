@@ -23,6 +23,11 @@ OFFICES = {"EM": {"source": SOURCE, "prefix": "euipo", "url": "https://euipo.eur
            "US": {"source": "USPTO 상표 출원(Signa 경유)", "prefix": "uspto",
                   "url": "https://tsdr.uspto.gov/#caseNumber={no}&caseType=SERIAL_NO&searchType=statusSearch"}}
 RICH_CREDITS = 3000   # 직전 남은 Signa 크레딧이 이 이상이면 회사별 조회 주기(signaEvery)를 무시하고 매주 다 본다
+# 11-14(Signa 답장): 회사 이름 조회(회사마다 10크레딧)에서 얻은 출원인 id를 모아 두고, 다음부터는 id 목록 한 번(쪽마다 10크레딧)으로 전 회사를 본다.
+# 새 출원인 기록(다른 주소·표기)이 생길 수 있어 회사 이름 조회는 28일마다 다시 — 한 실행에 6곳씩 돌아가며(크레딧이 한 주에 몰리지 않게).
+REDISCOVER_DAYS = 28
+REDISCOVER_PER_RUN = 6
+DAILY_OVERLAP_DAYS = 3   # 평일 목록 조회는 '직전 목록 조회 3일 전부터 Signa가 새로 넣거나 고친 줄'만(월요일 정기 실행은 출원일 창 전체)
 
 KEEP = 300
 
@@ -66,8 +71,16 @@ def token(client_id, secret, post):
     return tok
 
 
-def run(cfg, previous, now, *, client_id, secret, post, get, only_unsettled=False, signa_key=None, office="EM"):
-    """cfg = trademark_watch.json의 euipo 칸. previous = 직전 문서의 eu 칸. only_unsettled면(평일 재시도) 직전이 정상인 회사는 그대로 둔다."""
+def _days_since(v, now):
+    try:
+        return (now - dt.datetime.fromisoformat(str(v))).days
+    except (TypeError, ValueError):
+        return None
+
+
+def run(cfg, previous, now, *, client_id, secret, post, get, only_unsettled=False, signa_key=None, office="EM", daily_list=False):
+    """cfg = trademark_watch.json의 euipo 칸. previous = 직전 문서의 eu 칸. only_unsettled면(평일 재시도) 직전이 정상인 회사는 그대로 둔다.
+    daily_list면 평일에도 출원인 id를 아는 회사는 목록 한 번 조회로 본다(직전이 정상이어도)."""
     stamp = now.isoformat(timespec="seconds")
     prev = previous if isinstance(previous, dict) else {}
     prev_checks = {c.get("company"): c for c in prev.get("checks") or [] if isinstance(c, dict)}
@@ -87,14 +100,48 @@ def run(cfg, previous, now, *, client_id, secret, post, get, only_unsettled=Fals
     meta = OFFICES[office]
     # Signa 크레딧이 넉넉하면(가입 크레딧) 매주 다 보고, 모자라면 회사별 주기(signaEvery 주)대로 — 유럽·미국 출원이 드문 곳은 4주에 한 번
     rich = not isinstance(prev.get("signaCreditsLeft"), int) or prev["signaCreditsLeft"] >= RICH_CREDITS
+    # 출원인 id 목록 방식(Signa): 회사별로 모아 둔 id, 회사 이름으로 마지막으로 찾아본 때
+    owner_ids = {k: dict(v) for k, v in (prev.get("ownerIds") or {}).items() if isinstance(v, dict)}
+    discovered = dict(prev.get("discoveredAt") or {})
+    due = sorted((n for n, m in owner_ids.items() if m and ((_days_since(discovered.get(n), now) is None) or _days_since(discovered.get(n), now) >= REDISCOVER_DAYS)),
+                 key=lambda n: str(discovered.get(n) or ""))
+    rediscover = set() if only_unsettled else set(due[:REDISCOVER_PER_RUN])
+    list_ids = {n: set(m) for n, m in owner_ids.items() if m and n not in rediscover} if signa_key else {}
+    listed, lst = {}, {"done": False, "err": None, "pages": 0, "truncated": False, "rows": 0}
+    last_list = _days_since(prev.get("listCheckedAt"), now)
+    # 목록 조회를 처음 하는 실행: 회사 이름 조회(100줄 한도)가 못 본 예전 출원이 한꺼번에 '새 출원'으로 뜨지 않게, 출원일이 3주 넘은 것은 기준선으로 둔다
+    list_first = not prev.get("listCheckedAt")
+    old_cut = (now.date() - dt.timedelta(days=21)).isoformat()
+    updated_since = ((dt.datetime.fromisoformat(str(prev["listCheckedAt"])).date() - dt.timedelta(days=DAILY_OVERLAP_DAYS)).isoformat()
+                     if only_unsettled and daily_list and last_list is not None and last_list <= 10 else None)
+
+    def ensure_list():
+        nonlocal signa_left
+        if lst["done"]:
+            return
+        lst["done"] = True
+        by_id = {i: n for n, m in list_ids.items() for i in m}
+        try:
+            rows, left, pages, trunc = signa.search_ids(by_id, since, key=signa_key, get=get, office=office, updated_since=updated_since)
+            signa_left = left if left is not None else signa_left
+            for it in rows:
+                for o in it.get("owners") or []:
+                    n = by_id.get(o.get("id"))
+                    if n and it not in listed.setdefault(n, []):
+                        listed[n].append(it)
+            lst.update(pages=pages, truncated=trunc, rows=len(rows))
+        except Exception as e:  # noqa: BLE001
+            lst["err"] = str(e)[:60] or type(e).__name__
+
     for c in cfg.get("applicants") or []:
         name = c["company"]
         pc = prev_checks.get(name)
-        if only_unsettled and pc and pc.get("status") == "ok":
+        in_list = name in list_ids
+        if only_unsettled and pc and pc.get("status") == "ok" and not (daily_list and in_list):
             checks.append(pc)
             continue
         every = int(c.get("signaEvery") or 1)
-        if not rich and every > 1 and pc and pc.get("status") == "ok" and pc.get("via") == "signa":
+        if not in_list and not rich and every > 1 and pc and pc.get("status") == "ok" and pc.get("via") == "signa":
             try:
                 age = (now - dt.datetime.fromisoformat(str(pc.get("checkedAt")))).days
             except (TypeError, ValueError):
@@ -102,7 +149,7 @@ def run(cfg, previous, now, *, client_id, secret, post, get, only_unsettled=Fals
             if age is not None and 0 <= age < every * 7 - 1:
                 checks.append({**pc, "carried": True})   # 이번 주는 안 묻고 직전 결과를 둔다(크레딧 아낌)
                 continue
-        body, via, err = None, None, None
+        body, via, err, mode = None, None, None, None
         if tok and not blocked and office == "EM":
             try:
                 r = get(SEARCH_URL, params={"query": f'applicants.name=="{c["query"]}"', "size": int(cfg.get("size", 30)), "sort": "applicationDate:desc"},
@@ -120,12 +167,22 @@ def run(cfg, previous, now, *, client_id, secret, post, get, only_unsettled=Fals
             if signa_left is not None and signa_left < signa.MIN_CREDITS:
                 checks.append({"company": name, "status": "waiting", "reason": f"Signa 크레딧 부족(남은 {signa_left}) — 다음 달 초기화 뒤", "via": "signa"})
                 continue
-            try:
-                rows, signa_left, _more = signa.search(c["query"].strip("*"), since, key=signa_key, get=get, office=office)
-                body, via = {"trademarks": rows, "totalElements": len(rows)}, "signa"
-            except Exception as e:  # noqa: BLE001
-                checks.append({"company": name, "status": "failed", "error": str(e)[:60] or type(e).__name__, "via": "signa"})
-                continue
+            if in_list:
+                ensure_list()       # 목록 조회는 실행당 한 번 — 회사 수와 무관하게 쪽마다 10크레딧
+                if lst["err"]:
+                    checks.append({"company": name, "status": "failed", "error": lst["err"], "via": "signa", "mode": "list"})
+                    continue
+                rows = listed.get(name, [])
+                body, via, mode = {"trademarks": rows, "totalElements": len(rows)}, "signa", "list"
+            else:
+                try:
+                    rows, left, _more = signa.search(c["query"].strip("*"), since, key=signa_key, get=get, office=office, phrase=bool(c.get("phrase")))
+                    signa_left = left if left is not None else signa_left
+                    body, via = {"trademarks": rows, "totalElements": len(rows)}, "signa"
+                    discovered[name] = stamp
+                except Exception as e:  # noqa: BLE001
+                    checks.append({"company": name, "status": "failed", "error": str(e)[:60] or type(e).__name__, "via": "signa"})
+                    continue
         if body is None:
             if err:
                 checks.append({"company": name, "status": "failed", "error": err})
@@ -147,6 +204,10 @@ def run(cfg, previous, now, *, client_id, secret, post, get, only_unsettled=Fals
             if not any(accept.search(a) and not (exclude and exclude.search(a)) for a in apps):
                 other += 1
                 continue
+            for o in it.get("owners") or []:      # 회사 규칙을 통과한 출원인 기록의 id를 모아 둔다(다음부터 목록 조회)
+                on = str(o.get("name") or "")
+                if o.get("id") and accept.search(on) and not (exclude and exclude.search(on)):
+                    owner_ids.setdefault(name, {})[o["id"]] = on[:80]
             day = _date(it.get("applicationDate"))
             no = str(it.get("applicationNumber") or "").strip()
             if not no or (day and day < since):
@@ -163,22 +224,25 @@ def run(cfg, previous, now, *, client_id, secret, post, get, only_unsettled=Fals
                 titles.setdefault(name, {}).setdefault(nt, now.date().isoformat())
             if fid in old:
                 f = old[fid]
-                f.update(status=it.get("status") or f.get("status"), classes=classes or f.get("classes"))
+                f.update(status=it.get("status") or f.get("status"), classes=classes or f.get("classes"), **({"basis": it["bases"]} if it.get("bases") else {}))
                 continue
-            is_new = new and not first_read
+            late_first = mode == "list" and list_first and bool(day) and day < old_cut
+            is_new = new and not first_read and not late_first
             f = {"id": fid, "company": name, "applicationNumber": no, "title": mark, "applicationDate": day, "classes": classes,
                  "coreClasses": sorted(core & set(classes)), "status": it.get("status"), "markFeature": it.get("markFeature"),
-                 "applicants": apps[:3], "firstSeen": stamp, "isNew": is_new, "baseline": first_read,
+                 "applicants": apps[:3], "firstSeen": stamp, "isNew": is_new, "baseline": first_read or late_first,
                  "titleNew": is_new and title_new,
                  "tier": ("B" if title_new and core & set(classes) else "C") if is_new else None,
                  "url": meta["url"].format(no=no),
                  **({"via": "signa"} if via == "signa" else {}),
+                 **({"basis": it["bases"]} if it.get("bases") else {}),      # 미국 출원 근거(출원 때 적은 것): intent_to_use = 아직 안 쓰는 이름
                  **({"route": "마드리드 지정"} if str(it.get("filingRoute") or "").startswith("madrid") else {})}
             old[fid] = f
             if is_new:
                 fresh.append(fid)
         checks.append({"company": name, "status": "ok", "query": c["query"], "rawTotal": body.get("totalElements"), "read": len(rows),
-                       "kept": kept, "via": via, "checkedAt": stamp, **({"otherApplicants": other} if other else {}), **({"baseline": True} if first_read else {})})
+                       "kept": kept, "via": via, "checkedAt": stamp, **({"mode": mode} if mode else {}),
+                       **({"otherApplicants": other} if other else {}), **({"baseline": True} if first_read else {})})
     keep_from = (now.date() - dt.timedelta(days=int(cfg.get("keepDays", 180)))).isoformat()
     filings = sorted((f for f in old.values() if f.get("firstSeen", "")[:10] >= keep_from or (f.get("applicationDate") or "") >= keep_from),
                      key=lambda f: (f.get("firstSeen", ""), f.get("applicationDate", "")), reverse=True)[:KEEP]
@@ -192,5 +256,12 @@ def run(cfg, previous, now, *, client_id, secret, post, get, only_unsettled=Fals
             "fresh": fresh, "seen": seen, "titles": {k: dict(list(v.items())[-2000:]) for k, v in titles.items()},
             **({"blocked": blocked} if blocked else {}),
             **({"provider": "signa", "providerNote": signa.SOURCES.get(office, signa.SOURCE),
-                "signaCreditsLeft": signa_left if signa_left is not None else prev.get("signaCreditsLeft")} if via_signa else {}),
+                "signaCreditsLeft": signa_left if signa_left is not None else prev.get("signaCreditsLeft"),
+                "providerSyncedAt": signa.synced_at(office, key=signa_key, get=get)} if via_signa else {}),
+            # 출원인 id 목록 방식의 상태(값은 Signa의 공개 식별자). list*는 이번 실행의 목록 조회
+            "ownerIds": owner_ids, "discoveredAt": discovered,
+            "listCheckedAt": stamp if lst["done"] and not lst["err"] else prev.get("listCheckedAt"),
+            **({"list": {"pages": lst["pages"], "rows": lst["rows"], "companies": len(list_ids), "ids": sum(len(m) for m in list_ids.values()),
+                         **({"updatedSince": updated_since} if updated_since else {}), **({"truncated": True} if lst["truncated"] else {}),
+                         **({"error": lst["err"]} if lst["err"] else {})}} if lst["done"] else {}),
             **({"carried": [c["company"] for c in checks if c.get("carried")]} if any(c.get("carried") for c in checks) else {})}
