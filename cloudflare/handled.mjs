@@ -85,7 +85,8 @@ export function codesOf(text) {
   const out = new Set();
   for (const m of t.matchAll(/(?<![A-Za-z0-9])(?=[A-Za-z0-9]*[A-Za-z])(?=[A-Za-z0-9]*\d)[A-Za-z0-9]{4,}(?![A-Za-z0-9])/g)) if (!MODEL.test(m[0])) out.add(m[0].toUpperCase());
   for (const m of t.matchAll(/\d{4}[가-힣]{1,3}\d{1,6}/g)) out.add(m[0]);
-  for (const m of t.matchAll(/(?<![A-Za-z0-9.,])\d{4,}(?![A-Za-z0-9.,]|\s*(?:원|달러|명|대|톤|건|억|만|조|%|년|㎡|주|kg|MW|GWh))/g)) {
+  // 쉼표·마침표는 숫자가 이어질 때만 수량으로 본다(1,121대·3.68%) — '신청(30376, RTO …)'의 30376은 부호다
+  for (const m of t.matchAll(/(?<![A-Za-z0-9])(?<!\d[.,])\d{4,}(?![A-Za-z0-9]|[.,]\d|\s*(?:원|달러|명|대|톤|건|억|만|조|%|년|㎡|주|kg|MW|GWh))/g)) {
     const n = Number(m[0]);
     if (m[0].length === 4 && n >= 1990 && n <= 2039) continue;
     if (m[0].length === 4 && /^(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01])$/.test(m[0])) continue;   // 패키지 이름 끝의 날짜(1104·0901)
@@ -116,7 +117,7 @@ const latinRe = (w) => new RegExp(`(?<![a-z])${escRe(w.toLowerCase()).replace(/\
 function compile(e) {
   // 숫자뿐인 부호(337-1494의 1494)는 codesOf와 같은 조건으로만 맞춘다 — '종업원 1494명'·'1,494대' 같은 수량에 걸려 다른 항목을 숨기지 않게
   e.codeM = [...e.codes].map((c) => [c, /^\d+$/.test(c)
-    ? new RegExp(`(?<![A-Z0-9.,])${c}(?![A-Z0-9.,]|\\s*(?:원|달러|명|대|톤|건|억|만|조|%|년|㎡|주|KG|MW|GWH))`)
+    ? new RegExp(`(?<![A-Z0-9])(?<!\\d[.,])${c}(?![A-Z0-9]|[.,]\\d|\\s*(?:원|달러|명|대|톤|건|억|만|조|%|년|㎡|주|KG|MW|GWH))`)
     : new RegExp(`(?<![A-Z0-9])${escRe(c.toUpperCase())}(?![A-Z0-9])`)]);
   e.majorM = [...e.words.major].map((w) => ({ w, rare: rare(w), re: /^[A-Za-z]+$/.test(w) ? latinRe(w) : null, s: w.toLowerCase(), place: PLACE_EN[w] ? latinRe(PLACE_EN[w]) : null }));
   e.minorL = [...e.words.minor];
@@ -239,15 +240,24 @@ export function annotateHandled(text, ledger) {
     const block = lines.slice(from, to).join('\n');
     if (block.length < 12 || block.includes('〔이미 처리') || block.includes('〔처리 이력')) return;
     let hit = null;
+    let linked = false;   // 패키지에 적힌 원문 주소·레이더 id로 맞음 = 같은 문서
     const prep = prepare(block, block, anyCodeRe);
+    const d = /(?<!\d)(20\d{2})[-/.](\d{2})[-/.](\d{2})(?!\d)/.exec(lines[from]);   // 2026-11-24 · 2026/11/24(EDIS 접수일)
+    const lineMs = d ? Date.parse(`${d[1]}-${d[2]}-${d[3]}T00:00:00+09:00`) : null;
     for (const e of entries) {
       if (!e.codeM) compile(e);
-      if (e.urlL.some((u) => block.includes(u)) || e.idL.some((needle) => block.includes(needle))) { hit = e; break; }
-      if (matchEntry(prep, e)) { hit = e; break; }
+      if (e.urlL.some((u) => block.includes(u)) || e.idL.some((needle) => block.includes(needle))) { hit = e; linked = true; break; }
+      const w = matchEntry(prep, e);
+      if (!w) continue;
+      // 낱말만 맞은 오래된 줄(처리한 때보다 120일 넘게 앞선 날짜)은 그 건이 아니다 — 11-13 운영: '한화큐셀 조지아 대기허가 신청(30376)' 보류 건이
+      // 2018~2024년에 발급된 조지아 대기 허가 기준선 10줄에 붙었다(조지아 + 대기허가). 부호·주소·id로 맞은 줄은 그대로 붙인다.
+      if (!w.codes.length && lineMs && lineMs < e.at - 120 * DAY) continue;
+      hit = e;
+      break;
     }
     if (!hit) return;
-    const d = /(?<!\d)(20\d{2})[-/.](\d{2})[-/.](\d{2})(?!\d)/.exec(lines[from]);   // 2026-11-24 · 2026/11/24(EDIS 접수일)
-    const later = d && Date.parse(`${d[1]}-${d[2]}-${d[3]}T00:00:00+09:00`) > hit.at + DAY;
+    // 같은 문서(주소·id)는 줄에 적힌 날짜가 뒤여도(의견 마감일 등) 처리한 그 건이다
+    const later = !linked && lineMs && lineMs > hit.at + DAY;
     lines[from] += later ? ` 〔처리 이력 있음: ${entryLabel(hit)} · ${mmdd(hit.at)} — 그 뒤 새 항목일 수 있음(새 사실인지 확인)〕`
       : ` 〔이미 처리: ${entryLabel(hit)} · ${mmdd(hit.at)} — 단독 추천에서 뺀다(새 사실이 붙었을 때만 다시)〕`;
     marked += 1;
