@@ -3272,6 +3272,23 @@ test('해외 조사 목록 줄 합치기(11-13): 같은 조사의 제목 줄·�
   assert.match(r, /무역구제 · 인도\n   인도 DGTR 반덤핑 조사: Ongoing Investigation Anti-dumping investigation concerning imports of Toluene[^\n]* · Country: China PR, Japan and Korea RP[^\n]*Sunset Review Investigation/);
   // 구역 도구(공고 변화)는 수집한 줄 그대로 보여 준다
   assert.equal(((await call('trade_remedies', { section: 'notices' }, opts)).text.match(/인도 DGTR 반덤핑 조사\n/g) ?? []).length, 3);
+  // 11-14: 영문 품목 낱말이 나온 출입처 사업보고서 단서(listing_producers.py)를 남긴 줄 끝에 붙인다 — 문서에 출입처 이름이 나온 것은 아니라서
+  // 단독 데스크 유형은 '목록 새 줄'(보통) 그대로다(실적 유형 '해외 무역구제·규제 문서'로 올리지 않는다)
+  const lead = '품목 낱말이 나온 출입처 2025 사업보고서(II. 사업의 내용): TDI — 한화솔루션 4곳 「케미칼 부문은 PVC, 가성소다, TDI 등을 생산」(접수 20260310000001) — 보고서에 낱말이 있다는 것뿐, 조사 대상 수출자인지·그 나라 수출 여부는 미확인(회사 확인)';
+  const opts2 = PRIVATE();
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/trade-remedy', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` },
+    body: JSON.stringify({ schema: 'trade_remedy/v1', generatedAt: at, quotas: [], notices: [], checks: [{ source: '인도 DGTR 반덤핑 조사', status: 'ok' }], events: three,
+      listingProducers: { 'dgtr:2': { v: 1, line: lead }, 'dgtr:1': { v: 1, line: lead } } }) }), opts2.env, {})).status, 200);
+  const r2 = (await call('radar_today', {}, opts2)).text;
+  assert.match(r2, /Sunset Review Investigation · 품목 낱말이 나온 출입처 2025 사업보고서\(II\. 사업의 내용\): TDI — 한화솔루션 4곳 「케미칼 부문은 PVC, 가성소다, TDI 등을 생산」/);
+  assert.equal((r2.match(/품목 낱말이 나온 출입처/g) ?? []).length, 1);
+  const row = { watch: '무역구제', tier: 'B', kind: '해외 조사 dgtr', id: 'dgtr:2', company: '인도', fact: `인도 DGTR 반덤핑 조사: ${three[1].text} · ${lead}` };
+  assert.equal(deskType(row).key, 'foreignlist');
+  assert.equal(deskType({ ...row, fact: `${row.fact.split(' · 품목 낱말')[0]} — Hanwha Solutions Corporation 의견서` }).key, 'foreigndoc');   // 문서 자체에 출입처 이름이 있으면 실적 유형
+  const desk2 = (await call('scoop_desk', {}, opts2)).text;
+  assert.match(desk2, /해외 무역구제 목록 새 줄\(한국산\) · 인도\n[^\n]*Sunset Review Investigation\n   〔출입처 단서〕 품목 낱말이 나온 출입처 2025 사업보고서\(II\. 사업의 내용\): TDI — 한화솔루션 4곳[^\n]*미확인\(회사 확인\)\n   〔볼 것〕/);
+  assert.doesNotMatch(desk2.split('〈그 밖')[0], /Toluene DiIsocyanate/);          // 실적 있는 유형 칸에는 올리지 않는다
+  assert.match((await call('trade_remedies', { section: 'notices' }, opts2)).text, /잡힌 사실: Ongoing Investigation[^\n]*\n   출입처 단서: 품목 낱말이 나온 출입처 2025 사업보고서/);
 });
 
 test('영국 TRA 공개기록(11-13): 출입처·한국 정부가 낸 문서와 조사기관 쟁점 문서가 radar_today·단독 데스크 맨 위에, trade_remedies section=tra에 낸 곳·파일·본문 대목', async () => {

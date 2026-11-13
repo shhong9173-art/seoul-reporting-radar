@@ -20,7 +20,9 @@ const W = { screen: '단독 후보 심사', official: '공장등록·관보', si
 
 const foreignDoc = (x) => (x.watch === W.remedy && x.tier !== 'C' && /^(?:미국 ITC|해외 조사|대한 수입규제|영국 TRA)/.test(x.kind ?? '')) || (x.watch === W.comments && x.tier !== 'C');
 const GOV = /한국 정부|대한민국 정부|산업통상부|Government of (?:the Republic of )?Korea|Korean [Gg]overnment|MOTIE/;
-const namesBeatOrGov = (x) => companiesIn(`${x.company ?? ''} ${x.fact ?? ''}`).size > 0 || GOV.test(x.fact ?? '') || /조사기관의 판단·쟁점 문서/.test(x.fact ?? '');
+// 줄 끝에 붙는 사업보고서 단서('품목 낱말이 나온 출입처 …', listing_producers.py)는 문서에 출입처 이름이 나온 것이 아니다 — 떼고 본다
+const ownText = (x) => String(x.fact ?? '').split(/ · 품목 (?:이름|낱말)이 나온 출입처 /)[0];
+const namesBeatOrGov = (x) => companiesIn(`${x.company ?? ''} ${ownText(x)}`).size > 0 || GOV.test(ownText(x)) || /조사기관의 판단·쟁점 문서/.test(ownText(x));
 
 // 위에서부터 처음 맞는 유형. strength: strong(기자가 단독을 썼거나 기사로 이어진 유형) · normal · weak(기자가 여러 번 킬·접음)
 // why는 그 근거(기자 판정·기사 기록). 새 판정이 쌓이면 이 표를 고친다 — 고치는 건 기자가 정한다.
@@ -34,7 +36,7 @@ export const DESK_TYPES = [
   { key: 'foreigndoc', strength: 'strong', label: '해외 무역구제·규제 문서(출입처·한국 정부 이름)', why: "11-10 [단독] 英 S-PVC 반덤핑 '한국 특별시장상황' 의견서",
     test: (x) => foreignDoc(x) && namesBeatOrGov(x) },
   { key: 'foreignlist', strength: 'normal', label: '해외 무역구제 목록 새 줄(한국산)', why: '',
-    note: "목록에 한국산 줄이 생겼다는 것뿐 — 그 품목을 만드는 출입처가 있는지(사업보고서 '사업의 내용'·회사 확인)부터. 같은 조사가 여러 줄로 잡히면 한 줄만 보인다",
+    note: "목록에 한국산 줄이 생겼다는 것뿐 — 그 품목을 만드는 출입처가 있는지부터(〔출입처 단서〕가 붙어 있으면 그 회사에 먼저, 없으면 사업보고서 '사업의 내용'·회사 확인). 같은 조사가 여러 줄로 잡히면 한 줄만 보인다",
     test: (x) => foreignDoc(x) },
   { key: 'filing', strength: 'strong', label: '공시(정정 중 큰 변경·소송·계약 — 미보도 후보)', why: '11-11 기사(금호석유화학 합병 종료) 12시간 앞 · 11-09 경쟁지 단독(고려아연 소송 정정) 18시간 앞 — 둘 다 자동 대조',
     test: (x) => x.watch === W.screen && x.tier === 'A' },
@@ -134,7 +136,10 @@ export async function scoopDesk(ctx, args) {
     const { x, type } = r;
     if (type.strength !== lastStrength) { out.push(type.strength === 'strong' ? '〈실적 있는 유형〉' : '〈그 밖 — 원문·회사 확인으로 가를 것〉'); lastStrength = type.strength; }
     out.push(`- ${x.tier} · ${x.date ? `${String(x.date).length > 10 ? kstStamp(x.date) : x.date} · ` : ''}${type.key === 'other' ? x.watch : type.label}${x.company ? ` · ${x.company}` : ''}`);
-    out.push(`   ${clipAt(x.fact, 420)}`);
+    // 줄 끝의 사업보고서 단서(listing_producers.py·ktc_producers.py)는 긴 줄에 묻혀 잘리지 않게 따로 적는다
+    const lead = String(x.fact ?? '').slice(ownText(x).length).replace(/^ · /, '');
+    out.push(`   ${clipAt(lead ? ownText(x) : x.fact, 420)}`);
+    if (lead) out.push(`   〔출입처 단서〕 ${clipAt(lead, 520)}`);
     if (type.why) out.push(`   〔이 유형 실적〕 ${type.why}`);
     if (type.note) out.push(`   〔볼 것〕 ${type.note}`);
     if (x.point) out.push(`   〔기사 포인트〕 ${x.point}`);

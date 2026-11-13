@@ -567,6 +567,7 @@ export async function tradeRemedies(ctx, args) {
     for (const e of ev.slice(0, limit)) {
       out.push(`- ${String(e.detectedAt).slice(0, 16)} · ${e.country} · ${e.label}`);
       out.push(`   잡힌 사실: ${e.text}`);
+      if (doc.listingProducers?.[e.id]?.line) out.push(`   출입처 단서: ${doc.listingProducers[e.id].line}`);
       if (e.repeats) out.push(`   주의: 목록 일련번호만 바뀌어 ${e.repeats}번 다시 잡힌 줄 — 이 감지도 번호 이동일 수 있음. 원문의 개시일·공고일로 새 사건인지 확인`);
       out.push(`   원문: ${e.url}`);
     }

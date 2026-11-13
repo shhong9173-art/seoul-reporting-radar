@@ -926,6 +926,16 @@ def main():
               + ("" if os.environ.get("DART_API_KEY", "").strip() else " · DART 키 없음(대조 안 함)"))
     except Exception as e:  # noqa: BLE001 — 대조 실패가 무역구제 저장을 막지 않는다
         print(f"::warning title=trade-remedy-ktc-producers::사업보고서 대조 실패({type(e).__name__}) — 미확인")
+    # 해외 조사 목록 새 줄(영문 품목) → 그 품목 낱말이 나온 출입처 사업보고서(11-14, scripts/listing_producers.py)
+    import listing_producers
+    try:
+        lc, lr = listing_producers.attach(doc, previous, os.environ.get("DART_API_KEY", "").strip(), now)
+        store = doc.get("listingProducers") or {}
+        print(f"::notice title=trade-remedy-listing-producers::해외 조사 목록 품목 사업보고서 대조 이번 {lc}줄(보고서 {lr}곳) · 저장 {len(store)}줄 · "
+              f"낱말 찾은 줄 {sum(1 for v in store.values() if v.get('line'))}")
+    except Exception as e:  # noqa: BLE001 — 대조 실패가 무역구제 저장을 막지 않는다(지난 결과는 이어 간다)
+        doc["listingProducers"] = (previous or {}).get("listingProducers") or {}
+        print(f"::warning title=trade-remedy-listing-producers::사업보고서 대조 실패({type(e).__name__}) — 미확인")
     q = [x for x in doc["quotas"] if x["status"] == "ok"]
     exhausted = sum(1 for x in q if x.get("exhaustedOn"))
     hot = sum(1 for x in q if x.get("tags"))
