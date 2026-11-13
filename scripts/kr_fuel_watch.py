@@ -8,6 +8,8 @@
   나머지는 '사양·연식 추가'. 한 번에 너무 많이 바뀌면(자료 일괄 갱신) 모두 참고로만 둔다.
 - 연비 신고는 출시 전에 나오는 경우가 많지만 출시 확정이 아니다. 결과는 기자 전용 저장소(kr-fuel)로만, 공개 로그는 건수만.
 - 키가 이 데이터에 활용신청되지 않았으면 '미설정(활용신청 필요)'로 남긴다 — 0건이 아니다.
+- 같은 저장소(kr-fuel)의 freeRepair 구역에 자동차리콜센터 '무상점검·수리' 게시판 새 글(kr_free_repair.py, 11-14)을 함께 싣는다.
+  게시판은 낮에도 본다(평일 11:30·14:30·16:30) — 그 실행들은 연비 목록을 다시 받지 않는다(18시간 안에 정상으로 받았으면 건너뜀).
 """
 from __future__ import annotations
 
@@ -237,6 +239,23 @@ RULES = ["에너지공단 자동차 표시연비 목록(공공데이터포털)�
          "연비 신고는 출시 확정이 아니다. 출시 시점·가격은 회사 확인. 조회 실패·활용신청 전은 0건이 아니라 미확인."]
 
 
+FUEL_EVERY_HOURS = 18
+
+
+def fuel_is_fresh(previous, now):
+    """연비 목록을 이 시간 안에 정상으로 받았으면 True — 낮 실행(무상점검 게시판용)에서 연비 API를 다시 부르지 않는다."""
+    if not isinstance(previous, dict) or not previous.get("fuelAt") or not isinstance(previous.get("vehicles"), list):
+        return False
+    fuel_check = next((c for c in previous.get("checks", []) if c.get("source") == SOURCE), {})
+    if fuel_check.get("status") != "ok":
+        return False
+    try:
+        age = (now - dt.datetime.fromisoformat(str(previous["fuelAt"]))).total_seconds() / 3600
+    except (TypeError, ValueError):
+        return False
+    return 0 <= age < FUEL_EVERY_HOURS
+
+
 def resolve_keys(env):
     """Every configured data.go.kr account key, in order (several accounts may exist; the dataset may be approved on only one)."""
     out, seen = [], set()
@@ -262,6 +281,37 @@ def run_any(keys, **kw):
     return (doc if keys else run("", **kw)), None, refused
 
 
+def build(previous, now, keys, *, get=None, session=None, sleep=time.sleep):
+    """한 번 실행의 저장 문서. 돌려줌: (doc, {keyName, refused, fuelFailed, free}).
+    연비 목록과 무상점검·수리 게시판(kr_free_repair.py)은 따로 읽는다 — 한쪽이 실패해도 다른 쪽은 저장한다."""
+    import kr_free_repair
+    stamp = now.isoformat(timespec="seconds")
+    prev = previous if isinstance(previous, dict) else None
+    if fuel_is_fresh(prev, now):
+        # 연비 쪽은 아침 결과 그대로([신규] 표시도 그대로 — 다시 받지 않았으니 '직전 수집 뒤 새 신고'가 바뀌지 않았다)
+        doc, key_name, refused = dict(prev, generatedAt=stamp, status="complete"), "건너뜀(연비 목록은 오늘 받음)", []
+        doc["checks"] = [c for c in prev.get("checks", []) if c.get("source") == SOURCE][:1]
+    else:
+        doc, key_name, refused = run_any(keys, now=now, previous=prev, get=get, sleep=sleep)
+        doc["fuelAt"] = stamp if doc["status"] == "complete" else (prev or {}).get("fuelAt")
+    if refused:
+        doc["checks"][0]["keysRefused"] = refused  # 이름만(값 없음)
+    if session is None:
+        import requests
+        session = requests.Session()
+    free, fcheck = kr_free_repair.collect((prev or {}).get("freeRepair"), now, session, sleep=sleep)
+    if free:
+        doc["freeRepair"] = free
+    doc["checks"] = [doc["checks"][0], fcheck]
+    fuel_failed = doc["status"] == "failed" and bool(prev)
+    if fuel_failed:
+        # 연비 목록만 실패: 연비 쪽은 이전 결과 그대로 두고(0건 아님) 무상점검 구역과 실패 표시만 새로 저장한다
+        doc = {**prev, "generatedAt": stamp, "status": "partial", "checks": doc["checks"], **({"freeRepair": doc["freeRepair"]} if doc.get("freeRepair") else {})}
+    elif doc["status"] == "complete" and fcheck["status"] != "ok":
+        doc["status"] = "partial"
+    return doc, {"keyName": key_name, "refused": refused, "fuelFailed": fuel_failed, "free": free}
+
+
 def main():
     import private_store
     now = dt.datetime.now(KST)
@@ -275,25 +325,30 @@ def main():
             print(f"::warning title=kr-fuel-state::이전 상태 조회 실패({e}) — 이번 실행은 기준선")
     if private_store.late_scheduled_duplicate(previous, now):
         return
-    doc, key_name, refused = run_any(keys, now=now, previous=previous)
-    if refused:
-        doc["checks"][0]["keysRefused"] = refused  # 이름만(값 없음)
+    doc, info = build(previous, now, keys)
+    fcheck = doc["checks"][1]
+    fitems = (info["free"] or {}).get("items", [])
+    print(f"::notice title=kr-free-repair::무상점검·수리 게시판 상태 {fcheck['status']} · 목록 {fcheck.get('pages', 0)}쪽 {fcheck.get('returned', 0)}건(전체 {fcheck.get('total')}) · "
+          f"새 글 {fcheck.get('newPosts', 0)}(출입처 {fcheck.get('newBeat', 0)}) · 상세 {fcheck.get('detailsRead', 0)} · 읽기 대기 {fcheck.get('pending', 0)} · "
+          f"저장 {len(fitems)}건(A {sum(1 for x in fitems if x.get('tier') == 'A')}·B {sum(1 for x in fitems if x.get('tier') == 'B')})"
+          f"{' · ' + fcheck['robots'] if fcheck.get('robots') else ''}{' · ' + fcheck['error'] if fcheck.get('error') else ''}")
     kinds = {}
-    for v in doc["vehicles"]:
+    for v in doc.get("vehicles", []):
         if v.get("isNew"):
             kinds[v["kind"]] = kinds.get(v["kind"], 0) + 1
     c = doc["checks"][0]
-    print(f"::notice title=kr-fuel::상태 {doc['status']} · 키 {key_name or '없음'}{f' (거부: {refused})' if refused else ''} · 전체 {c.get('rows')}행 · 출입처 {c.get('beatRows')}행 · "
+    refused_note = f" (거부: {info['refused']})" if info["refused"] else ""
+    print(f"::notice title=kr-fuel::상태 {doc['status']} · 키 {info['keyName'] or '없음'}{refused_note} · 전체 {c.get('rows')}행 · 출입처 {c.get('beatRows')}행 · "
           f"새 신고 {kinds}{' · 일괄 갱신' if doc.get('bulk') else ''}{' · ' + c['error'] if c.get('error') else ''}")
     if not token:
         print("::warning title=kr-fuel-push::MCP_ACCESS_TOKEN 미설정 — 결과를 저장하지 않음")
         return
-    if doc["status"] == "failed" and previous:
-        sys.exit("연비 목록 조회 실패 — 이전 결과 유지(0건 아님)")
     status = private_store.put("kr-fuel", doc, token)
     print(f"::notice title=kr-fuel-push::기자 전용 저장소 전송 HTTP {status}")
     if status != 200:
         sys.exit(1)
+    if info["fuelFailed"]:
+        sys.exit("연비 목록 조회 실패 — 연비는 이전 결과 유지(0건 아님), 무상점검 구역은 저장함")
 
 
 if __name__ == "__main__":

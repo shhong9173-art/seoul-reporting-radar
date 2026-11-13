@@ -16,6 +16,9 @@ export const SLOTS = [
   // 영국 Companies House: 영국 업무일이 끝난 뒤.
   { at: '06:00', workflow: 'overseas-registry.yml' },
   { at: '06:10', workflow: 'kr-fuel.yml', daily: true },
+  // 11-14: 같은 워크플로가 자동차리콜센터 '무상점검·수리' 게시판도 읽는다 — 공지는 업무시간에 올라온다. 낮 칸은 게시판만 읽고
+  // 연비 목록은 다시 받지 않는다(18시간 안에 정상으로 받았으면 건너뜀). 즉시 알림(:43) 전에 끝나게 :30.
+  { at: '11:30', workflow: 'kr-fuel.yml' }, { at: '14:30', workflow: 'kr-fuel.yml' }, { at: '16:30', workflow: 'kr-fuel.yml' },
   // EPA·vPIC: GitHub 예약('20 21 * * *')이 10-29 아침에 돌지 않았다.
   { at: '06:20', workflow: 'us-epa.yml', daily: true },
   { at: '06:30', workflow: 'page-watch.yml' },

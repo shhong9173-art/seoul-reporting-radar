@@ -139,5 +139,73 @@ class Watch(unittest.TestCase):
         self.assertIn("본문 형식 미상(20자)", html["checks"][0]["error"])
 
 
+class Board:
+    """가짜 무상점검·수리 게시판(목록 한 쪽, 상세 없음). down=True면 목록이 HTTP 500."""
+
+    def __init__(self, titles, down=False):
+        self.titles, self.down, self.calls = titles, down, 0
+
+    def get(self, url, headers=None, timeout=None):
+        if url.endswith("robots.txt"):
+            return Resp("<html>404</html>", 404)
+        return self.post(url, data={"currentPageNo": "1"})
+
+    def post(self, url, data=None, headers=None, timeout=None):
+        self.calls += 1
+        if self.down:
+            return Resp("", 500)
+        if "detail.do" in url:
+            return Resp("<table><tr><th>제작(수입)사</th><td>기아(주)</td><th>대수</th><td>77,043 대</td></tr></table>")
+        rows = "".join(f"<li><a onclick=\"$main.event.detailView('{no}','O');\"><strong>{t}</strong></a><ol><li>국토교통부</li><li>{d}</li></ol></li>"
+                       for no, t, d in self.titles) if data["currentPageNo"] == "1" else ""
+        return Resp(f"<p>전체 4,177건</p><ul>{rows}</ul>")
+
+
+class Build(unittest.TestCase):
+    """연비 목록과 무상점검·수리 게시판은 한 저장소에 싣되 따로 읽는다(11-14)."""
+    KEYS = [("key", "KR_FUEL_API_KEY")]
+    OLD_POST = ("4870", "[포르쉐] 카이엔 - 무상수리", "2026-10-01")
+    K8 = ("4874", "[기아] K8 HEV - HPCU 관련 무상수리", "2026-10-29")
+
+    def test_daytime_run_skips_the_fuel_api_and_still_reads_the_board(self):
+        get = api(BASE)
+        morning, info = k.build(None, NOW, self.KEYS, get=get, session=Board([self.OLD_POST]), sleep=lambda s: None)
+        self.assertEqual((morning["status"], morning["fuelAt"], len(get.calls)), ("complete", NOW.isoformat(timespec="seconds"), 1))
+        self.assertEqual([c["status"] for c in morning["checks"]], ["ok", "ok"])
+        self.assertTrue(k.fuel_is_fresh(morning, NOW + dt.timedelta(hours=5)))
+        self.assertFalse(k.fuel_is_fresh(morning, NOW + dt.timedelta(hours=24)))       # 다음 날 아침에는 다시 받는다
+        self.assertFalse(k.fuel_is_fresh({**morning, "fuelAt": None}, NOW))             # 예전 저장본(fuelAt 없음)
+
+        def boom(*a, **kw):
+            raise AssertionError("낮 실행은 연비 API를 부르지 않는다")
+        noon, info = k.build(morning, NOW + dt.timedelta(hours=5, minutes=30), self.KEYS, get=boom, session=Board([self.K8, self.OLD_POST]), sleep=lambda s: None)
+        self.assertEqual((noon["status"], noon["fuelAt"], info["keyName"]), ("complete", morning["fuelAt"], "건너뜀(연비 목록은 오늘 받음)"))
+        self.assertEqual(noon["seenKeys"], morning["seenKeys"])
+        new = [x for x in noon["freeRepair"]["items"] if x["isNew"]]
+        self.assertEqual([(x["no"], x["company"], x["tier"], x["units"]) for x in new], [("4874", "기아", "A", 77043)])
+        self.assertEqual(noon["checks"][1]["newBeat"], 1)
+
+    def test_one_side_failing_keeps_the_other(self):
+        morning, _ = k.build(None, NOW, self.KEYS, get=api(BASE), session=Board([self.OLD_POST]), sleep=lambda s: None)
+        morning["vehicles"] = [{"id": "kf:x", "firstSeen": "2026-10-29T06:10:00+09:00", "registered": "2026-10-28", "model": "m", "company": "현대차", "kind": "새 모델명"}]
+
+        def boom(*a, **kw):
+            raise ConnectionError("x")
+        nxt = NOW + dt.timedelta(days=1)
+        # 연비 API만 실패: 연비 결과는 그대로, 게시판 새 글은 저장, 상태는 일부
+        doc, info = k.build(morning, nxt, self.KEYS, get=boom, session=Board([self.K8, self.OLD_POST]), sleep=lambda s: None)
+        self.assertEqual((doc["status"], info["fuelFailed"]), ("partial", True))
+        self.assertEqual(doc["vehicles"][0]["id"], "kf:x")
+        self.assertEqual([c["status"] for c in doc["checks"]], ["failed", "ok"])
+        self.assertEqual(doc["fuelAt"], morning["fuelAt"])
+        self.assertTrue(any(x["no"] == "4874" for x in doc["freeRepair"]["items"]))
+        # 게시판만 실패: 연비는 새로 받고, 게시판은 직전 구역 그대로(미확인 표시), 상태는 일부
+        doc2, info2 = k.build(morning, nxt, self.KEYS, get=api(BASE), session=Board([], down=True), sleep=lambda s: None)
+        self.assertEqual((doc2["status"], info2["fuelFailed"]), ("partial", False))
+        self.assertEqual([c["status"] for c in doc2["checks"]], ["ok", "failed"])
+        self.assertTrue(doc2["freeRepair"]["stale"])
+        self.assertEqual(len(doc2["freeRepair"]["items"]), 1)
+
+
 if __name__ == "__main__":
     unittest.main()
