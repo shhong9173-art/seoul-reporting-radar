@@ -1,4 +1,4 @@
-"""probe 217(216 이어서): 운영 Worker의 scoop_desk(단독 데스크)가 실제 자료로 도는지 본다. 비공개 저장소 내용은 찍지 않는다 — 건수·구역 머리줄·참/거짓만.
+"""probe 218(216 이어서): 운영 Worker의 scoop_desk(단독 데스크)가 실제 자료로 도는지 본다. 비공개 저장소 내용은 찍지 않는다 — 건수·구역 머리줄·참/거짓만.
 주소(토큰 포함)·응답 본문은 찍지 않는다. 쓰기 도구는 부르지 않는다. 호출 4번."""
 import collections
 import json
@@ -24,7 +24,10 @@ def rpc(method, params, n):
         return None, type(e).__name__
     if r.status_code != 200:
         code = re.search(r"error code:? ?(\d{3,4})", r.text or "")   # Cloudflare 오류 번호만(본문·주소는 안 찍음)
-        return None, f"HTTP {r.status_code} cf {code.group(1) if code else '-'} 본문 {len(r.text or '')}자"
+        # Cloudflare 오류 화면 글(우리 자료 아님)만 본다: 태그·토큰을 지우고 앞 500자
+        plain = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", re.sub(r"<(script|style)[\s\S]*?</\1>", " ", r.text or ""))).replace(tok, "***")
+        hdr = {k: r.headers.get(k) for k in ("cf-ray", "server", "content-type", "retry-after") if r.headers.get(k)}
+        return None, f"HTTP {r.status_code} cf {code.group(1) if code else '-'} 본문 {len(r.text or '')}자 헤더 {hdr} 글 「{plain[:500]}」"
     try:
         body = r.json()
     except Exception:  # noqa: BLE001
@@ -79,14 +82,11 @@ def timed(label, args, n):
     summarize(label, res, err)
 
 
-t0 = time.time()
-res, err = rpc("tools/call", {"name": "radar_today", "arguments": {"hours": 168, "limit": 5}}, 1)
-OUT.append(f"radar_today(168h): {'ok' if res is not None else '실패 ' + err} {time.time() - t0:.1f}초")
-for i in range(3):
-    timed(f"scoop_desk() {i + 1}번째", {}, 10 + i)
-    time.sleep(3)
-timed("scoop_desk(days=3)", {"days": 3}, 20)
-timed("scoop_desk(days=10)", {"days": 10}, 21)
-timed("scoop_desk(company=한화)", {"company": "한화"}, 22)
+for name, args in (("radar_today", {"hours": 24, "limit": 3}), ("scoop_desk", {"days": 1}), ("scoop_desk", {}), ("radar_today", {"hours": 168, "limit": 3}), ("scoop_desk", {"company": "포스코"}), ("us_litigation", {"limit": 3})):
+    t0 = time.time()
+    res, err = rpc("tools/call", {"name": name, "arguments": args}, 5)
+    text = "" if res is None else "\n".join(c.get("text", "") for c in res.get("content", []) if c.get("type") == "text")
+    OUT.append(f"{name}{json.dumps(args, ensure_ascii=False)}: {time.time() - t0:.1f}초 · {'ok 글자 ' + str(len(text)) + ' 실패글 ' + str('도구 실행 실패' in text) if res is not None else '실패 ' + err}")
+    time.sleep(2)
 open("/tmp/probe_out.txt", "w").write("\n".join(OUT))
 print(len(OUT), "lines")
