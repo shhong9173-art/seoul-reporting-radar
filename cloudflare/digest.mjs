@@ -657,7 +657,8 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
     }
     // repeats: 같은 줄이 목록 일련번호만 바뀌어 다시 잡힌 적 있음 → 이 첫 감지도 번호 이동일 수 있어 C(원문 개시일 확인)
     push(e.repeats ? 'C' : e.pageId === 'taric' && /한국 전용/.test(e.label) ? 'A' : 'B', W['trade-remedy'], { kind: e.pageId === 'taric' ? 'EU 쿼터(TARIC)' : `해외 조사 ${e.pageId}`, id: e.id, date: e.detectedAt, company: e.country,
-      fact: `${e.label}: ${e.text}${e.repeats ? ` — 목록 일련번호만 바뀌어 ${e.repeats}번 다시 잡힌 줄이라 이 감지도 번호 이동일 수 있음(원문 개시일 확인)` : ''}`
+      // 해외 조사 목록(인도 DGTR 등)의 '새 줄'은 새 조사가 아닐 수 있다 — 11-14 확인: '페놀' 줄은 3-19 개시 조사에 절차 공지가 붙어 다시 뜬 것
+      fact: `${e.label}: ${e.text}${e.repeats ? ` — 목록 일련번호만 바뀌어 ${e.repeats}번 다시 잡힌 줄이라 이 감지도 번호 이동일 수 있음(원문 개시일 확인)` : e.pageId === 'taric' ? '' : ' — 목록에 새로 보인 줄(새 조사인지는 원문의 개시일 확인)'}`
         // 영문 품목 낱말이 나온 출입처 사업보고서(11-14, scripts/listing_producers.py) — 누구에게 먼저 물을지. 조사 대상 수출자라는 뜻이 아니다
         + (tr?.listingProducers?.[e.id]?.line ? ` · ${tr.listingProducers[e.id].line}` : ''), url: e.url });
   }

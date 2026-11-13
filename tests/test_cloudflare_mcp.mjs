@@ -3286,13 +3286,13 @@ test('해외 조사 목록 줄 합치기(11-13): 같은 조사의 제목 줄·�
     body: JSON.stringify({ schema: 'trade_remedy/v1', generatedAt: at, quotas: [], notices: [], checks: [{ source: '인도 DGTR 반덤핑 조사', status: 'ok' }], events: three,
       listingProducers: { 'dgtr:2': { v: 1, line: lead }, 'dgtr:1': { v: 1, line: lead } } }) }), opts2.env, {})).status, 200);
   const r2 = (await call('radar_today', {}, opts2)).text;
-  assert.match(r2, /Sunset Review Investigation · 품목 낱말이 나온 출입처 2025 사업보고서\(II\. 사업의 내용\): TDI — 한화솔루션 4곳 「케미칼 부문은 PVC, 가성소다, TDI 등을 생산」/);
+  assert.match(r2, /Sunset Review Investigation — 목록에 새로 보인 줄\(새 조사인지는 원문의 개시일 확인\) · 품목 낱말이 나온 출입처 2025 사업보고서\(II\. 사업의 내용\): TDI — 한화솔루션 4곳 「케미칼 부문은 PVC, 가성소다, TDI 등을 생산」/);
   assert.equal((r2.match(/품목 낱말이 나온 출입처/g) ?? []).length, 1);
   const row = { watch: '무역구제', tier: 'B', kind: '해외 조사 dgtr', id: 'dgtr:2', company: '인도', fact: `인도 DGTR 반덤핑 조사: ${three[1].text} · ${lead}` };
   assert.equal(deskType(row).key, 'foreignlist');
   assert.equal(deskType({ ...row, fact: `${row.fact.split(' · 품목 낱말')[0]} — Hanwha Solutions Corporation 의견서` }).key, 'foreigndoc');   // 문서 자체에 출입처 이름이 있으면 실적 유형
   const desk2 = (await call('scoop_desk', {}, opts2)).text;
-  assert.match(desk2, /해외 무역구제 목록 새 줄\(한국산\) · 인도\n[^\n]*Sunset Review Investigation\n   〔출입처 단서〕 품목 낱말이 나온 출입처 2025 사업보고서\(II\. 사업의 내용\): TDI — 한화솔루션 4곳[^\n]*미확인\(회사 확인\)\n   〔볼 것〕/);
+  assert.match(desk2, /해외 무역구제 목록 새 줄\(한국산\) · 인도\n[^\n]*Sunset Review Investigation — 목록에 새로 보인 줄\(새 조사인지는 원문의 개시일 확인\)\n   〔출입처 단서〕 품목 낱말이 나온 출입처 2025 사업보고서\(II\. 사업의 내용\): TDI — 한화솔루션 4곳[^\n]*미확인\(회사 확인\)\n   〔볼 것〕/);
   assert.doesNotMatch(desk2.split('〈그 밖')[0], /Toluene DiIsocyanate/);          // 실적 있는 유형 칸에는 올리지 않는다
   assert.match((await call('trade_remedies', { section: 'notices' }, opts2)).text, /잡힌 사실: Ongoing Investigation[^\n]*\n   출입처 단서: 품목 낱말이 나온 출입처 2025 사업보고서/);
 });
@@ -4822,7 +4822,7 @@ test('단독 데스크(11-13): 처리한 것·이미 보도된 것·여러 번 �
   assert.match(df, /후보 3건\n/);
   assert.match(df, /\[1\. 새 후보 — 실적 있는 유형부터\] 3건\n〈실적 있는 유형〉\n/);   // 같은 조사의 두 줄은 이미 한 줄로 합쳐져 온다(mergeListingLines)
   assert.match(df, /- B · [^\n]* · 해외 무역구제·규제 문서\(출입처·한국 정부 이름\) · 영국\n   영국 무역구제청\(TRA\) 공개 기록: AD0092 Submission by LG Chem Ltd and Hanwha Solutions[^\n]*\n   〔이 유형 실적〕 11-10 \[단독\] 英 S-PVC/);
-  assert.match(df, /〈그 밖 — 원문·회사 확인으로 가를 것〉\n- B · [^\n]* · 해외 무역구제 목록 새 줄\(한국산\) · 인도\n   인도 DGTR 반덤핑 조사: Ongoing Investigation Anti-dumping investigation concerning imports of Toluene[^\n]*\n   〔볼 것〕 목록에 한국산 줄이 생겼다는 것뿐/);
+  assert.match(df, /〈그 밖 — 원문·회사 확인으로 가를 것〉\n- B · [^\n]* · 해외 무역구제 목록 새 줄\(한국산\) · 인도\n   인도 DGTR 반덤핑 조사: Ongoing Investigation Anti-dumping investigation concerning imports of Toluene[^\n]*\n   〔볼 것〕 목록에 줄이 새로 보였다는 것뿐 — 새 조사가 아닐 수 있다/);
   assert.equal((df.match(/Toluene DiIsocyanate/g) ?? []).length, 1);
   // 후보는 있는데 실적 있는 유형이 없는 날은 그렇다고 먼저 말한다
   await post('trade-remedy', { schema: 'trade_remedy/v1', generatedAt: recent, quotas: [], notices: [], checks: [{ source: '인도 DGTR 반덤핑 조사', status: 'ok' }], events: [dg(1, 'Anti-dumping investigation concerning imports of Toluene DiIsocyanate-(TDI) from Korea RP', tdi)] });
