@@ -4503,6 +4503,17 @@ test('처리 장부(11-13): 기자가 접음·보류·발제함으로 남긴 패
   const up = annotateHandled(['- 앞으로 열릴 출입처 회의(오늘 포함, 달력·첫 화면) 3건 — 미뤄지거나 취소될 수 있음', '  2026-11-10 13:30 · A · LS전선 · 중앙노동위원회 심판회의 · 사건 2026부노46 「엘에스전선 주식회사 부당노동행위 구제 재심신청」',
     '  2026-11-16 13:30 · B · 기아 · 강원지방노동위원회 심판회의 · 사건 2026부해346 「기아 주식회사 부당해고 구제신청 사건」', '  2026-11-19 16:00 · B · 한국GM · 인천지방노동위원회 심판회의 · 사건 2026부해920 「한국지엠 주식회사 부당해고 구제신청」'].join('\n'), L);
   assert.deepEqual(up.text.split('\n').map((l) => l.includes('〔이미 처리')), [false, true, false, false]);
+  // 낱말만 맞은 오래된 기준선 줄에는 붙이지 않는다(11-13 운영: 한화큐셀 조지아 대기허가 신청 보류 건이 2018~2024년 발급 허가 10줄에 붙음). 신청 번호가 같은 줄은 붙인다.
+  const LQ = ledgerEntries([pk('hanwha-qcells-georgia-air-permit', '한화큐셀 조지아 카터스빌 대기허가 신청(30376, RTO·비상발전기 5대) + 달튼 Title V 재분류 — 설비 용도 회사 확인 전 보류', '보류', '2026-11-03T08:22:00Z')], []);
+  const qc = annotateHandled(['- [기준선] 조지아 · 한화솔루션 · Hanwha Q Cells USA, Inc. · 대기 허가 발급(SIP) · 허가 3674-313-0165-S-01-0(시설 313-00165) · 발급 2018-09-07', '   원문: https://air.gaepd.org/Permits/View/OP-26648',
+    '- [기준선] 조지아 · 한화솔루션 · Hanwha Q Cells USA, Inc. · 대기 허가 발급(SIP) · 허가 3674-313-0165-E-02-0(시설 313-00165) · 발급 2026-06-01',
+    '- 조지아 · 한화솔루션 · Hanwha Q Cells Georgia, Inc. · 대기 허가 발급(SIP) · 허가 3674-015-0150-S-03-0 · 발급 2026-10-20',
+    '- [기준선] 조지아 · 한화솔루션 · Hanwha Q Cells Georgia, Inc.(Bartow County) · Permit Application · 신청 30376 · 의견 마감 2026-11-06'].join('\n'), LQ).text.split('\n');
+  assert.deepEqual(qc.map((l) => (l.includes('〔이미 처리') ? '처리' : l.includes('〔처리 이력') ? '이력' : '-')), ['-', '-', '-', '처리', '이력']);
+  assert.deepEqual([...codesOf('대기허가 신청(30376, RTO·비상발전기 5대) 판매 1,121대 · 12,345대 · 세율 3.68% · 공고 제2026-2760호')].sort(), ['2760', '30376']);
+  // 패키지에 원문 주소가 적혀 있으면 줄에 적힌 날짜(의견 마감일)가 뒤여도 같은 문서다 → 〔이미 처리〕
+  const LQ2 = ledgerEntries([pk('hanwha-qcells-georgia-air-permit', '한화큐셀 조지아 카터스빌 대기허가 신청 — 보류', '보류', '2026-11-03T08:22:00Z', '원문 https://epd.georgia.gov/document/document/pa1026-1/download')], []);
+  assert.match(annotateHandled('- [기준선] 조지아 · 한화솔루션 · Hanwha Q Cells Georgia, Inc. · Permit Application · 의견 마감 2026-11-06\n   원문: https://epd.georgia.gov/document/document/pa1026-1/download (pa1026-1)', LQ2).text, /의견 마감 2026-11-06 〔이미 처리: \[보류\] 한화큐셀 조지아 카터스빌 대기허가 신청/);
   // ④ 흔한 말뿐인 제목(굴뚝 '가동중지')도 같은 회사 + 지역·품목 낱말 둘이면 잇는다 — 처리한 뒤 새로 잡힌 줄은 이력만
   const L2 = ledgerEntries([pk('kgsteel-incheon-dangjin-stacks', "KG스틸 인천·당진 굴뚝 동시 '가동중지' — 당진은 회사 '설비 합리화 투자 공사' 답변, 인천 미확인", '보류', '2026-11-04T01:23:00Z'),
     pk('uk-tra-pvc-korea-pms-1113', '[보강 메모] 영국 S-PVC(AD0092) PMS — 11/9 정부·수출자 PMS 질의서(회신 11/24)', '접음', '2026-11-13T07:16:00Z')], []);
