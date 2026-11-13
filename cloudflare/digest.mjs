@@ -644,6 +644,14 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
         check: firms.length ? hint(firms[0], is337 ? ['ITC', '특허'] : ['ITC', '반덤핑']) : undefined });
       continue;
     }
+    if (e.pageId === 'trafile') {
+      // 영국 TRA 공개기록(11-13): 출입처·한국 정부가 낸 문서와 조사기관의 판단·쟁점 문서(A), 절차 문서·출입처 이름이 나온 다른 당사자 문서(B). 등급은 수집기.
+      const firms = e.companies ?? [];
+      push(['A', 'B'].includes(e.tier) ? e.tier : 'C', W['trade-remedy'], { kind: '영국 TRA 공개기록 문서', id: e.id, date: e.detectedAt,
+        company: firms.join('·') || '영국', fact: `${e.label}: ${e.text} — ${e.why ?? ''}(당사자 주장 — 조사기관 판단 아님)`, url: e.url,
+        check: firms.length ? hint(firms[0], ['영국', '반덤핑']) : undefined });
+      continue;
+    }
     // repeats: 같은 줄이 목록 일련번호만 바뀌어 다시 잡힌 적 있음 → 이 첫 감지도 번호 이동일 수 있어 C(원문 개시일 확인)
     push(e.repeats ? 'C' : e.pageId === 'taric' && /한국 전용/.test(e.label) ? 'A' : 'B', W['trade-remedy'], { kind: e.pageId === 'taric' ? 'EU 쿼터(TARIC)' : `해외 조사 ${e.pageId}`, id: e.id, date: e.detectedAt, company: e.country,
       fact: `${e.label}: ${e.text}${e.repeats ? ` — 목록 일련번호만 바뀌어 ${e.repeats}번 다시 잡힌 줄이라 이 감지도 번호 이동일 수 있음(원문 개시일 확인)` : ''}`, url: e.url });

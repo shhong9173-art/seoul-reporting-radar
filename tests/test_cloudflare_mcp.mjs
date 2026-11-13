@@ -3245,6 +3245,51 @@ test('수시 임원 공시·타사 임원 명단(kr-exec-market): radar_today A�
   assert.doesNotMatch(ph, /- 부품사 · 김전무/);
 });
 
+test('영국 TRA 공개기록(11-13): 출입처·한국 정부가 낸 문서와 조사기관 쟁점 문서가 radar_today·단독 데스크 맨 위에, trade_remedies section=tra에 낸 곳·파일·본문 대목', async () => {
+  const opts = PRIVATE();
+  const env = opts.env;
+  const now = new Date(NOW.getTime() - 3600000).toISOString();
+  const base = 'https://public-file.trade-remedies.service.gov.uk/case/ad0092';
+  const docs = [
+    { id: 'tra:AD0092:1244', case: 'AD0092', sid: '1244', title: 'Note to the public file – proposed representative third country', party: 'Trade Remedies Authority', ptype: 'TRA', published: '2026-10-25', files: 1,
+      url: `${base}/submission/1244`, tier: 'A', why: '조사기관의 판단·쟁점 문서', companies: ['한화솔루션', 'LG화학'], mentions: ['한화솔루션', 'LG화학'], firstSeen: now, isNew: true, detail: 'ok', pdfPages: 3, pdfFile: 'CD-01890_Note.pdf',
+      fileList: [{ name: 'CD-01890_Note.pdf', url: 'https://afd.azurefd.net/content/CD-01890_Note.pdf' }], snippets: ['If so, the normal value for LG Chem, Ltd. and Hanwha Solutions Corporation may be constructed using costs from a representative third country.'] },
+    { id: 'tra:AD0092:s-1', case: 'AD0092', sid: 's-1', title: 'General', party: 'LG Chem, Ltd.', ptype: 'Exporter', published: '2026-10-25', files: 8, url: `${base}/submission/s-1`, tier: 'A', why: '출입처가 낸 문서', companies: ['LG화학'],
+      firstSeen: now, isNew: true, detail: 'ok', fileList: [{ name: '0-LGC-Request-for-Immediate-Termination.pdf', url: 'https://afd.azurefd.net/content/0.pdf' }], pdfError: '글자 없음(스캔 이미지일 수 있음)' },
+    { id: 'tra:AD0092:s-2', case: 'AD0092', sid: 's-2', title: 'Pre-Sampling Questionnaire', party: 'Tianjin Bohua Chemical Development Co.,Ltd', ptype: 'Exporter', published: '2026-10-24', files: 1, url: `${base}/submission/s-2`, tier: 'C', why: '다른 당사자 문서', companies: [], firstSeen: now, isNew: true }];
+  const ev = (d, text) => ({ id: `trafile:AD0092:${d.sid}`, pageId: 'trafile', country: '영국', caseId: 'AD0092', label: '영국 TRA 공개기록 · AD0092 Suspension polyvinylchloride (S-PVC)', text, url: d.url, detectedAt: now,
+    tier: d.tier, why: d.why, companies: d.companies, party: d.party, published: d.published });
+  const doc = { schema: 'trade_remedy/v1', generatedAt: now, quotas: [], notices: [], checks: [{ source: '영국 TRA 공개기록', status: 'ok', returned: 104 }],
+    events: [ev(docs[0], 'Trade Remedies Authority 제출 「Note to the public file – proposed representative third country」(게시 2026-10-25) · 파일 1개: CD-01890_Note.pdf · 본문 대목 「If so, the normal value for LG Chem, Ltd. and Hanwha Solutions Corporation may be constructed」'),
+      ev(docs[1], 'LG Chem, Ltd. 제출 「General」(게시 2026-10-25) · 파일 8개: 0-LGC-Request-for-Immediate-Termination.pdf 외 · 본문 못 읽음(글자 없음)')],
+    tra: { checkedAt: now, baselineAt: '2026-10-20T07:40:00+09:00', docs,
+      cases: [{ id: 'AD0092', title: 'Suspension Polyvinyl Chloride from China, Mexico, and South Korea', commodity: 'Suspension polyvinylchloride (S-PVC)', country: 'China / Korea (the Republic of) / Mexico', type: 'Dumping Investigation',
+        initiated: '2026-08-04', updated: '2026-10-25', active: true, url: base, rows: 29, parties: 14, beatParties: ['LG화학', '한화솔루션'], govParty: true }] } };
+  assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/trade-remedy', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(doc) }), env, {})).status, 200);
+  const r = (await call('radar_today', {}, opts)).text;
+  const a = r.split('[A · ')[1].split('[B · ')[0];
+  assert.match(a, /무역구제 · LG화학\n   영국 TRA 공개기록 · AD0092 Suspension polyvinylchloride \(S-PVC\): LG Chem, Ltd\. 제출 「General」\(게시 2026-10-25\) · 파일 8개: 0-LGC-Request-for-Immediate-Termination\.pdf 외[^\n]* — 출입처가 낸 문서\(당사자 주장 — 조사기관 판단 아님\)/);
+  assert.match(a, /무역구제 · 한화솔루션·LG화학\n   영국 TRA 공개기록[^\n]*proposed representative third country/);
+  // 단독 데스크: 기자가 단독을 쓴 유형으로 맨 위
+  const d = (await call('scoop_desk', {}, opts)).text;
+  assert.match(d, /〈실적 있는 유형〉\n- A · [^\n]* · 해외 무역구제·규제 문서\(출입처·한국 정부 이름\) · (?:LG화학|한화솔루션·LG화학)\n   영국 TRA 공개기록/);
+  assert.equal((d.match(/〔이 유형 실적〕 11-10 \[단독\] 英 S-PVC/g) ?? []).length, 2);
+  // trade_remedies section=tra
+  const t = (await call('trade_remedies', { section: 'tra' }, opts)).text;
+  assert.match(t, /\[영국 TRA 공개기록 · 한국산 진행 조사 1건 · 확인 [^\]]+ · 기준선 2026-10-20\]\n- AD0092 Suspension Polyvinyl Chloride from China, Mexico, and South Korea · Dumping Investigation · 개시 2026-08-04 · 목록 갱신 2026-10-25 · 공개기록 29줄\(낸 곳 14곳\) · 출입처 당사자 LG화학·한화솔루션 · 한국 정부 참여\n   원문: https:\/\/public-file/);
+  assert.match(t, /문서\(게시일 기준\): A·B 2건 · 그 밖 C 1건 숨김\(show_all=true\)/);
+  assert.match(t, /- A \[신규\] · 게시 2026-10-25 · AD0092 · LG Chem, Ltd\.\(Exporter\) · 「General」\n   출입처가 낸 문서 · 출입처 LG화학\n   파일 1개: 0-LGC-Request-for-Immediate-Termination\.pdf\n   본문 못 읽음\(글자 없음\(스캔 이미지일 수 있음\)\)\n   원문: /);
+  assert.match(t, /   본문 대목\(CD-01890_Note\.pdf, 3쪽 중 앞 40쪽\): "If so, the normal value for LG Chem, Ltd\. and Hanwha Solutions Corporation/);
+  assert.doesNotMatch(t, /Tianjin Bohua/);
+  assert.match((await call('trade_remedies', { section: 'tra', show_all: true }, opts)).text, /- C \[신규\] · 게시 2026-10-24 · AD0092 · Tianjin Bohua/);
+  assert.match((await call('trade_remedies', { section: 'tra', company: 'LG화학' }, opts)).text, /문서\(게시일 기준\): A·B 2건/);
+  // 공고 변화 구역에는 겹쳐 나오지 않는다(위 구역에 본문 대목과 함께)
+  assert.doesNotMatch((await call('trade_remedies', { section: 'notices' }, opts)).text, /영국 TRA 공개기록 · AD0092/);
+  // 수집 전이면 미확인
+  await worker.fetch(new Request(ORIGIN + '/ingest/trade-remedy', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify({ ...doc, tra: undefined, events: [] }) }), env, {});
+  assert.match((await call('trade_remedies', { section: 'tra' }, opts)).text, /\[영국 TRA 공개기록\] 아직 수집 전 — 미확인/);
+});
+
 test('등급 조정(11-13 기자 결정): 타사 임원 명단 속 출입처 출신은 한 단계 내리고, 해외 파트너 공시는 본문 대목을 붙이며 대목 없는 것은 A를 주지 않는다', async () => {
   const opts = PRIVATE();
   const env = opts.env;
