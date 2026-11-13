@@ -1,10 +1,11 @@
-"""probe 216: 운영 Worker의 scoop_desk(단독 데스크)가 실제 자료로 도는지 본다. 비공개 저장소 내용은 찍지 않는다 — 건수·구역 머리줄·참/거짓만.
+"""probe 217(216 이어서): 운영 Worker의 scoop_desk(단독 데스크)가 실제 자료로 도는지 본다. 비공개 저장소 내용은 찍지 않는다 — 건수·구역 머리줄·참/거짓만.
 주소(토큰 포함)·응답 본문은 찍지 않는다. 쓰기 도구는 부르지 않는다. 호출 4번."""
 import collections
 import json
 import os
 import re
 import sys
+import time
 
 sys.path.insert(0, "scripts")
 import requests  # noqa: E402
@@ -22,7 +23,8 @@ def rpc(method, params, n):
     except Exception as e:  # noqa: BLE001 — 예외 글에는 주소가 들어갈 수 있어 종류만
         return None, type(e).__name__
     if r.status_code != 200:
-        return None, f"HTTP {r.status_code}"
+        code = re.search(r"error code:? ?(\d{3,4})", r.text or "")   # Cloudflare 오류 번호만(본문·주소는 안 찍음)
+        return None, f"HTTP {r.status_code} cf {code.group(1) if code else '-'} 본문 {len(r.text or '')}자"
     try:
         body = r.json()
     except Exception:  # noqa: BLE001
@@ -51,6 +53,7 @@ def summarize(label, res, err):
     sec = None
     count = collections.Counter()
     tiers = collections.Counter()
+    labels = collections.Counter()
     for ln in lines:
         m = re.match(r"^\[(\d)\. ", ln)
         if m:
@@ -60,22 +63,30 @@ def summarize(label, res, err):
             if sec == "1":
                 parts = ln[2:].split(" · ")
                 tiers[parts[0][:1]] += 1
+                labels[parts[2] if len(parts) > 2 else "?"] += 1   # 유형 이름(코드에 적힌 감시 이름) — 회사·내용은 안 찍음
         if SAFE_HEAD.match(ln):
             # 머리줄은 코드에 적힌 글 + 건수뿐이다. 수집 상태 줄 아래 내용·후보 줄·패키지 제목은 찍지 않는다.
             OUT.append("   " + (ln if len(ln) < 300 else ln[:300] + "…"))
+    OUT.append(f"   1구역 유형: {dict(labels)}")
     OUT.append(f"   구역별 '- ' 줄: {dict(sorted(count.items()))} · 1구역 등급 {dict(tiers)} · 〔이 유형 실적〕 {text.count('〔이 유형 실적〕')} · 〔기사 포인트〕 {text.count('〔기사 포인트〕')}"
                f" · 보도 대조 줄 {len(re.findall(r'^   보도 대조', text, re.M))} · ⚠앞선 기사 {text.count('⚠ 항목 날짜 전 기사')} · 표시 {text.count('〔비슷한 건 처리 이력')}/{text.count('〔앞서 추천')}/{text.count('〔즉시 알림 보냄')}")
 
 
-res, err = rpc("tools/list", {}, 1)
-if res is None:
-    OUT.append(f"tools/list: 실패 {err}")
-else:
-    names = [t.get("name") for t in res.get("tools", [])]
-    ps_tool = next((t for t in res.get("tools", []) if t.get("name") == "package_save"), {})
-    OUT.append(f"tools/list: {len(names)}개 · scoop_desk {'scoop_desk' in names} · package_save item_ids {'item_ids' in (ps_tool.get('inputSchema', {}).get('properties', {}))}")
-summarize("scoop_desk()", *rpc("tools/call", {"name": "scoop_desk", "arguments": {}}, 2))
-summarize("scoop_desk(include_weak, days=14)", *rpc("tools/call", {"name": "scoop_desk", "arguments": {"include_weak": True, "days": 14, "limit": 30}}, 3))
-summarize("scoop_desk(company=포스코)", *rpc("tools/call", {"name": "scoop_desk", "arguments": {"company": "포스코"}}, 4))
+def timed(label, args, n):
+    t0 = time.time()
+    res, err = rpc("tools/call", {"name": "scoop_desk", "arguments": args}, n)
+    OUT.append(f"[{label}] {time.time() - t0:.1f}초")
+    summarize(label, res, err)
+
+
+t0 = time.time()
+res, err = rpc("tools/call", {"name": "radar_today", "arguments": {"hours": 168, "limit": 5}}, 1)
+OUT.append(f"radar_today(168h): {'ok' if res is not None else '실패 ' + err} {time.time() - t0:.1f}초")
+for i in range(3):
+    timed(f"scoop_desk() {i + 1}번째", {}, 10 + i)
+    time.sleep(3)
+timed("scoop_desk(days=3)", {"days": 3}, 20)
+timed("scoop_desk(days=10)", {"days": 10}, 21)
+timed("scoop_desk(company=한화)", {"company": "한화"}, 22)
 open("/tmp/probe_out.txt", "w").write("\n".join(OUT))
 print(len(OUT), "lines")
