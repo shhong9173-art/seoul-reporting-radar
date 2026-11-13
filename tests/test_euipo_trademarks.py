@@ -232,5 +232,120 @@ class Euipo(unittest.TestCase):
         self.assertTrue(all(a["query"].startswith("*") and a["query"].endswith("*") for a in cfg["applicants"]))
 
 
+def us(no, mark, day, classes, oid, who, bases=(), updated=None):
+    """Signa 미국 줄(11-14 탐침 229 모양): owners[].id·filing_bases[].basis_type·updated_at."""
+    return {"id": f"tm_{no}", "object": "trademark", "mark_text": mark, "mark_feature_type": "word",
+            "status": {"primary": "pending", "stage": "examining", "raw": {"code": "630"}}, "office_code": "US", "filing_route": "direct_national",
+            "application_number": no, "filing_date": day, "nice_classes": classes, "updated_at": f"{updated or day}T10:00:00.000Z",
+            "owners": [{"id": oid, "name": who, "country_code": "KR", "entity_id": "ent_1"}],
+            "filing_bases": [{"basis_type": b, "nice_class": classes[0]} for b in bases]}
+
+
+class ListFake(SignaFake):
+    """owner_id 목록 조회(쪽마다 10크레딧)와 /v1/offices(크레딧 0)까지 흉내 낸다."""
+    def __init__(self, by_owner, by_id, list_status=200, **kw):
+        super().__init__(by_owner, **kw)
+        self.by_id, self.list_status, self.id_calls, self.office_calls = by_id, list_status, [], 0
+
+    def get(self, url, params=None, headers=None, timeout=None):
+        if url == eu.signa.OFFICES_URL:
+            self.office_calls += 1
+            return SR(200, {"object": "list", "data": [{"code": "EM", "last_synced_at": "2026-11-13T07:06:04.087Z"}, {"code": "US", "last_synced_at": "2026-11-13T13:14:40.468Z"}]})
+        if url == eu.signa.SEARCH_URL and "owner_id" in (params or {}):
+            self.id_calls.append(dict(params))
+            if self.list_status != 200:
+                return SR(self.list_status, {"type": "error"})
+            self.left -= 10
+            rows = [r for i in params["owner_id"].split(",") for r in self.by_id.get(i, [])]
+            if params.get("updated_at_gte"):
+                rows = [r for r in rows if r["updated_at"][:10] >= params["updated_at_gte"]]
+            return SR(200, {"object": "list", "data": rows, "has_more": False, "pagination": {"cursor": None}}, {"X-Credits-Remaining": str(self.left)})
+        return super().get(url, params=params, headers=headers, timeout=timeout)
+
+
+class SignaOwnerList(unittest.TestCase):
+    """11-14 Signa 답장: 회사 이름 조회에서 얻은 출원인 id를 모아 두고, 다음부터는 id 목록 한 번으로 전 회사를 본다(평일 매일)."""
+    CFG_US = {**CFG_SIGNA, "applicants": CFG_SIGNA["applicants"] + [{"company": "KG모빌리티", "industry": "auto", "query": "*KG Mobility*", "phrase": True}]}
+    H_OLD = us("99000001", "IONIQ", "2026-09-01", [12], "own_h1", "Hyundai Motor Company", ["use_in_commerce"])
+    P_OLD = us("99000002", "PosZET", "2026-08-20", [6], "own_p1", "POSCO Co.")
+    JUNK = us("99000003", "E-BIKE", "2026-10-01", [12], "own_junk", "Zweirad Union e-mobility GmbH & Co. KG")
+
+    def monday(self):
+        f = ListFake({"Hyundai Motor Company": [self.H_OLD], "POSCO": [self.P_OLD, self.JUNK], "KG Mobility": []}, {})
+        doc = eu.run(self.CFG_US, None, NOW, client_id="", secret="", post=f.post, get=f.get, signa_key="K", office="US")
+        return f, doc
+
+    def test_ids_are_harvested_from_accepted_rows_and_phrase_is_per_company(self):
+        f, doc = self.monday()
+        self.assertEqual(f.signa, ["Hyundai Motor Company", "POSCO", "KG Mobility"])
+        self.assertEqual([p.get("owner_name_match") for p in f.signa_params], [None, None, "phrase"])     # KG모빌리티만 phrase(낱말 맞춤이 'Co. KG'를 데려옴)
+        self.assertEqual(doc["ownerIds"], {"현대자동차": {"own_h1": "Hyundai Motor Company"}, "포스코": {"own_p1": "POSCO Co."}})   # 회사 규칙에 안 맞는 출원인 id는 안 모은다
+        self.assertEqual(sorted(doc["discoveredAt"]), ["KG모빌리티", "포스코", "현대자동차"])
+        self.assertEqual((f.id_calls, doc.get("listCheckedAt"), doc["providerSyncedAt"]), ([], None, "2026-11-13T13:14:40.468Z"))
+        self.assertEqual(next(x for x in doc["filings"] if x["applicationNumber"] == "99000001")["basis"], ["use_in_commerce"])
+        self.assertFalse(any(x["isNew"] for x in doc["filings"]))                                          # 첫 읽기는 기준선
+
+    def test_weekday_list_query_covers_every_company_in_one_request(self):
+        _, mon = self.monday()
+        new = us("99000010", "NEXO ZERO", "2026-11-09", [12], "own_h1", "Hyundai Motor Company", ["intent_to_use"], updated="2026-11-10")
+        late = us("98000001", "OLD NAME", "2026-08-01", [12], "own_h1", "Hyundai Motor Company")        # 이름 조회(100줄 한도)가 못 본 예전 출원
+        f = ListFake({}, {"own_h1": [new, self.H_OLD, late], "own_p1": [self.P_OLD]})
+        tue = eu.run(self.CFG_US, mon, NOW + dt.timedelta(days=1), client_id="", secret="", post=f.post, get=f.get, signa_key="K", office="US",
+                     only_unsettled=True, daily_list=True)
+        self.assertEqual((f.signa, len(f.id_calls)), ([], 1))                                               # 이름 조회 0번, 목록 조회 1번(10크레딧)
+        q = f.id_calls[0]
+        self.assertEqual((q["owner_id"], q["office"], q["filing_date_gte"], "updated_at_gte" in q),
+                         ("own_h1,own_p1", "US", (NOW.date() + dt.timedelta(days=1) - dt.timedelta(days=120)).isoformat(), False))   # 첫 목록 조회는 출원일 창 전체
+        by = {x["applicationNumber"]: x for x in tue["filings"]}
+        self.assertEqual((by["99000010"]["isNew"], by["99000010"]["basis"], by["99000010"]["tier"]), (True, ["intent_to_use"], "B"))
+        self.assertEqual((by["98000001"]["isNew"], by["98000001"]["baseline"]), (False, True))            # 첫 목록 조회에 딸려 온 3주 넘은 출원은 기준선
+        self.assertEqual(tue["fresh"], ["uspto:99000010"])
+        self.assertEqual([(c["company"], c["status"], c.get("mode")) for c in tue["checks"]],
+                         [("현대자동차", "ok", "list"), ("포스코", "ok", "list"), ("KG모빌리티", "ok", None)])   # id 없는 회사는 평일엔 직전 결과 그대로
+        self.assertEqual((tue["list"]["pages"], tue["list"]["rows"], tue["list"]["companies"], tue["signaCreditsLeft"]), (1, 4, 2, 9990))
+        self.assertEqual(tue["status"], "complete")
+        # 다음 평일: 직전 목록 조회 3일 전부터 Signa가 새로 넣거나 고친 줄만
+        f2 = ListFake({}, {"own_h1": [new, self.H_OLD, late], "own_p1": [self.P_OLD]})
+        wed = eu.run(self.CFG_US, tue, NOW + dt.timedelta(days=2), client_id="", secret="", post=f2.post, get=f2.get, signa_key="K", office="US",
+                     only_unsettled=True, daily_list=True)
+        self.assertEqual(f2.id_calls[0]["updated_at_gte"], (NOW.date() + dt.timedelta(days=1) - dt.timedelta(days=3)).isoformat())
+        self.assertEqual((wed["fresh"], wed["list"]["rows"], wed["list"]["updatedSince"]), ([], 1, f2.id_calls[0]["updated_at_gte"]))
+        self.assertEqual(len(wed["filings"]), len(tue["filings"]))                                          # 안 딸려 온 줄을 지우지 않는다
+        # daily_list가 아니면(예전 평일 재시도) 정상인 회사는 그대로 둔다 — 목록 조회도 안 한다
+        f3 = ListFake({}, {"own_h1": [new]})
+        eu.run(self.CFG_US, tue, NOW + dt.timedelta(days=2), client_id="", secret="", post=f3.post, get=f3.get, signa_key="K", office="US", only_unsettled=True)
+        self.assertEqual((f3.signa, f3.id_calls), ([], []))
+
+    def test_list_failure_is_unconfirmed_and_names_are_rechecked_every_four_weeks(self):
+        _, mon = self.monday()
+        bad = ListFake({}, {}, list_status=500)
+        doc = eu.run(self.CFG_US, mon, NOW + dt.timedelta(days=1), client_id="", secret="", post=bad.post, get=bad.get, signa_key="K", office="US",
+                     only_unsettled=True, daily_list=True)
+        self.assertEqual([(c["status"], c.get("error")) for c in doc["checks"][:2]], [("failed", "Signa HTTP 500"), ("failed", "Signa HTTP 500")])
+        self.assertEqual((bad.signa, doc["list"]["error"], doc.get("listCheckedAt")), ([], "Signa HTTP 500", None))   # 이름 조회로 돌아가 크레딧을 쓰지 않는다
+        self.assertEqual(len(doc["filings"]), len(mon["filings"]))
+        # 월요일 정기 실행: 28일이 안 지났으면 id 있는 회사는 목록으로, 지났으면 회사 이름으로 다시 찾는다(새 출원인 기록)
+        wk = ListFake({"KG Mobility": []}, {"own_h1": [self.H_OLD], "own_p1": [self.P_OLD]})
+        eu.run(self.CFG_US, mon, NOW + dt.timedelta(days=7), client_id="", secret="", post=wk.post, get=wk.get, signa_key="K", office="US")
+        self.assertEqual((wk.signa, len(wk.id_calls)), (["KG Mobility"], 1))
+        late = ListFake({"Hyundai Motor Company": [self.H_OLD], "POSCO": [self.P_OLD], "KG Mobility": []}, {})
+        doc5 = eu.run(self.CFG_US, mon, NOW + dt.timedelta(days=35), client_id="", secret="", post=late.post, get=late.get, signa_key="K", office="US")
+        self.assertEqual((late.signa, late.id_calls), (["Hyundai Motor Company", "POSCO", "KG Mobility"], []))
+        self.assertEqual(doc5["discoveredAt"]["현대자동차"][:10], (NOW + dt.timedelta(days=35)).date().isoformat())
+
+    def test_id_list_is_chunked_and_paged_with_a_page_limit(self):
+        calls = []
+
+        def get(url, params=None, headers=None, timeout=None):
+            calls.append(dict(params))
+            more = len(calls) < 9
+            return SR(200, {"data": [us(f"9{len(calls):07d}", "M", "2026-11-01", [12], "own_1", "X")], "has_more": more, "pagination": {"cursor": f"c{len(calls)}" if more else None}},
+                      {"X-Credits-Remaining": str(1000 - 10 * len(calls))})
+        rows, left, pages, trunc = eu.signa.search_ids([f"own_{i}" for i in range(50)], "2026-07-01", key="K", get=get, office="US")
+        self.assertEqual((len(rows), pages, trunc, left), (eu.signa.MAX_PAGES, eu.signa.MAX_PAGES, True, 1000 - 10 * eu.signa.MAX_PAGES))   # 쪽 한도에서 멈추고 '덜 읽음'
+        self.assertEqual((len(calls[0]["owner_id"].split(",")), calls[1].get("cursor")), (eu.signa.ID_CHUNK, "c1"))
+        self.assertEqual(eu.signa.BASIS_KO["intent_to_use"], "사용 의사(1B)")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -2297,6 +2297,19 @@ test('trademarks: weekly filings grouped by name, new names in core classes are 
     assert.doesNotMatch(us.slice(us.indexOf('[미국 상표 출원')), /영문 출원인 이름 형식 확인/);
     const minorUs = (await call('radar_today', { include_minor: true }, opts)).text;
     assert.match(minorUs, /미국\(USPTO\) 상표 출원 「GENESIS BOX BUGGY」 28류[^\n]* — 감시 시작 이후 처음 보는 이름 \(출원 2026-10-02, 일련번호 50141613, 출원인 HYUNDAI MOTOR COMPANY\) · Signa 2차 자료 — USPTO TSDR 원문 확인/);
+    // 11-14(Signa 답장): 출원 근거(사용 의사 1B)·출원인 id 목록 조회·Signa가 관청 자료를 마지막으로 맞춘 때
+    s.us.filings[0].basis = ['intent_to_use'];
+    Object.assign(s.us, { ownerIds: { 현대자동차: { own_h1: 'HYUNDAI MOTOR COMPANY' }, 포스코: { own_p1: 'POSCO Co.' }, LG화학: {} }, providerSyncedAt: '2026-10-25T13:14:40.468Z',
+      list: { pages: 1, rows: 26, companies: 2, ids: 2, updatedSince: '2026-10-23' } });
+    assert.equal((await worker.fetch(new Request(ORIGIN + '/ingest/trademarks', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(s) }), env, {})).status, 200);
+    const us2 = (await call('trademarks', {}, opts)).text;
+    assert.match(us2, /조회 방식: 출원인 id를 모은 회사 2곳은 목록 한 번 조회\(평일 매일\) — 이번 1쪽 26줄\(2026-10-23 이후 Signa가 넣거나 고친 줄만\) · Signa가 USPTO 자료를 마지막으로 맞춘 때 10-25 22:14 KST\n/);
+    assert.match(us2, /(?:일련번호|출원번호) 50141613[^\n]* · 상태 NEW_APPLICATION · 출원 근거 사용 의사\(1B\) — 아직 안 쓰는 이름 · Signa/);
+    assert.match((await call('radar_today', { include_minor: true }, opts)).text, /출원인 HYUNDAI MOTOR COMPANY\) · 출원 근거 사용 의사\(1B\) — 아직 안 쓰는 이름 · Signa 2차 자료/);
+    // 맞춘 지 이틀이 넘었으면 그 뒤 출원은 미확인이라고 적는다
+    s.us.providerSyncedAt = '2026-10-22T13:14:40.468Z';
+    await worker.fetch(new Request(ORIGIN + '/ingest/trademarks', { method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(s) }), env, {});
+    assert.match((await call('trademarks', {}, opts)).text, /마지막으로 맞춘 때 10-22 22:14 KST \(⚠ 83시간 전 — 그 뒤 출원은 미확인\)/);
   }
   const list = await rpc('tools/list', {}, { path: `/mcp/${TOKEN}`, env });
   assert.ok(list.body.result.tools.some((x) => x.name === 'trademarks'));

@@ -11,7 +11,7 @@ import { MAINT_KINDS, MAINT_RE, kstMD, maintFolded, maintenanceMemo, stackSiteKe
 export { MAINT_KINDS, MAINT_RE, maintFolded, maintenanceMemo, stackSiteKey };
 import { clampInt, fetchJson, safeEqual, textResult, uniqueList } from './common.mjs';
 import { peerLines } from './radar_tools.mjs';
-import { classLabel, waitReason } from './trademarks.mjs';
+import { basisNote, classLabel, waitReason } from './trademarks.mjs';
 import { billLine, groupBillEvents } from './assembly.mjs';
 import { attachmentOutline, buildingLine, factoryEventText, identityNote, itcText, mediationPast, memoGloss, productKo, productOf, rateChangeText, rateText, reverseClip, reverseNumbersNote, tradePoint } from './overseas.mjs';
 
@@ -1231,7 +1231,7 @@ function collect(docs, cut, cutDay, { all = false, now = Date.now(), maint = nul
     if (!f.isNew) continue;
     if (!all && !(Date.parse(f.firstSeen) >= Math.min(cut, now - 7 * 86400000))) continue;
     push(f.tier === 'B' ? 'B' : 'C', W.trademarks, { kind: f.titleNew ? '미국 상표 새 이름' : '미국 상표 출원', id: f.id, date: f.applicationDate, company: f.company,
-      fact: `미국(USPTO) 상표 출원 「${f.title}」 ${(f.classes ?? []).map(classLabel).join(', ')}${f.titleNew ? ' — 감시 시작 이후 처음 보는 이름' : ''} (출원 ${f.applicationDate || '?'}${f.route ? `(${f.route})` : ''}, 일련번호 ${f.applicationNumber}, 출원인 ${(f.applicants ?? [])[0] ?? '?'}) · Signa 2차 자료 — USPTO TSDR 원문 확인`,
+      fact: `미국(USPTO) 상표 출원 「${f.title}」 ${(f.classes ?? []).map(classLabel).join(', ')}${f.titleNew ? ' — 감시 시작 이후 처음 보는 이름' : ''} (출원 ${f.applicationDate || '?'}${f.route ? `(${f.route})` : ''}, 일련번호 ${f.applicationNumber}, 출원인 ${(f.applicants ?? [])[0] ?? '?'})${basisNote(f)} · Signa 2차 자료 — USPTO TSDR 원문 확인`,
       url: f.url, check: hint(f.company, ['상표', f.title]) });
   }
 
