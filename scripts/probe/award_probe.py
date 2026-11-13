@@ -1,6 +1,5 @@
-"""probe 227: 무상점검·수리 상세(POST detail.do) 본문 꼴, 전파연구원 새 목록 상호 검색. 공개 페이지만, 저장 안 함."""
+"""probe 228: 자동차리콜센터 robots.txt·무상점검 상세 GET 주소, 전파연구원 robots.txt·새 목록 줄 꼴. 공개 페이지만, 저장 안 함."""
 import re
-from urllib.parse import quote
 
 import requests
 
@@ -15,53 +14,53 @@ def text_of(html):
     return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", t)).strip()
 
 
+def robots(host):
+    try:
+        r = S.get(f"https://{host}/robots.txt", timeout=30)
+        body = (r.text or "")
+        kind = "HTML" if "<html" in body[:400].lower() else "글"
+        OUT.append(f"## robots {host}: {r.status_code} {r.headers.get('content-type')} {len(body)}자 {kind}")
+        if r.status_code == 200 and kind == "글":
+            OUT.append("   " + " | ".join(x.strip() for x in body.splitlines() if x.strip())[:700])
+    except Exception as e:  # noqa: BLE001
+        OUT.append(f"## robots {host}: 실패 {type(e).__name__}")
+
+
+robots("www.car.go.kr")
 h = S.get("https://www.car.go.kr/ri/grts/list.do", timeout=40)
 h.encoding = "utf-8"
 ids = re.findall(r"detailView\('(\d+)','(\w)'\)", h.text)
 OUT.append(f"## 목록 {h.status_code} 글 번호 {ids[:5]}")
-items = re.findall(r"detailView\('(\d+)','(\w)'\);\">\s*<strong>([\s\S]*?)</strong>[\s\S]*?<ol>([\s\S]*?)</ol>", h.text)
-for nid, ty, title, meta in items[:5]:
-    OUT.append(f"   {nid} {ty} ¦ {text_of(title)[:80]} ¦ {' / '.join(text_of(x) for x in re.findall(r'<li>([\s\S]*?)</li>', meta))}")
-total = re.search(r"전체\s*([\d,]+)\s*건\s*\(페이지\s*(\d+)/(\d+)", text_of(h.text))
-OUT.append(f"   전체 {total.groups() if total else '?'}")
+m = re.search(r"detailView\s*[:=]\s*function\s*\(([^)]*)\)\s*\{([\s\S]{0,700})", h.text)
+OUT.append("   detailView: " + (re.sub(r"\s+", " ", m.group(0))[:600] if m else "함수 못 찾음"))
+for src in re.findall(r'<script[^>]+src="([^"]+)"', h.text)[:30]:
+    if "grts" in src or "main" in src.lower():
+        OUT.append("   script: " + src[:160])
 if ids:
     nid, ty = ids[0]
-    d = S.post("https://www.car.go.kr/ri/grts/detail.do", data={"gratischeckId": nid, "ctype": ty, "currentPageNo": "1", "searchFld": "", "searchWord": "", "searchFromDate": "", "searchToDate": ""},
-               headers={"Referer": "https://www.car.go.kr/ri/grts/list.do"}, timeout=40)
-    d.encoding = "utf-8"
-    t = text_of(d.text)
-    OUT.append(f"## 상세 POST {d.status_code} {len(d.content)}바이트")
-    i = t.find("서브메뉴")
-    OUT.append("   글: " + t[i + 380:i + 1700])
-    OUT.append("   첨부: " + " | ".join(dict.fromkeys(re.findall(r'(?:href|onclick)="([^"]*(?:download|file|atch)[^"]*)"', d.text, re.I)))[:400])
-    OUT.append("   표: " + " / ".join(" ¦ ".join(text_of(c)[:40] for c in re.findall(r"<t[dh][^>]*>([\s\S]*?)</t[dh]>", r, re.I)) for r in re.findall(r"<tr[^>]*>([\s\S]*?)</tr>", d.text, re.I)[:8])[:900])
-    # 기아 K8 HEV 글(2쪽)
-    h2 = S.post("https://www.car.go.kr/ri/grts/list.do", data={"currentPageNo": "2"}, timeout=40)
-    h2.encoding = "utf-8"
-    ids2 = re.findall(r"detailView\('(\d+)','(\w)'\);\">\s*<strong>([\s\S]*?)</strong>", h2.text)
-    OUT.append(f"## 2쪽 POST {h2.status_code}: " + " | ".join(f"{a} {text_of(c)[:40]}" for a, b, c in ids2[:5]))
-    kia = next(((a, b) for a, b, c in ids2 if "기아" in c or "현대" in c), None)
-    if kia:
-        d = S.post("https://www.car.go.kr/ri/grts/detail.do", data={"gratischeckId": kia[0], "ctype": kia[1], "currentPageNo": "2"}, timeout=40)
-        d.encoding = "utf-8"
-        t = text_of(d.text)
-        i = t.find("서브메뉴")
-        OUT.append(f"## 상세 {kia[0]} {d.status_code}: " + t[i + 380:i + 1900])
-# 전파연구원 상호 검색
-for name in ("현대자동차", "기아", "현대모비스", "비엠더블유"):
+    for label, url in (("GET 쿼리", f"https://www.car.go.kr/ri/grts/detail.do?gratischeckId={nid}&ctype={ty}"),
+                       ("GET 쿼리+쪽", f"https://www.car.go.kr/ri/grts/detail.do?gratischeckId={nid}&ctype={ty}&currentPageNo=1")):
+        try:
+            d = requests.get(url, headers={"User-Agent": UA, "Accept-Language": "ko"}, timeout=40, allow_redirects=False)
+            d.encoding = "utf-8"
+            t = text_of(d.text)
+            has = [k for k in ("제작(수입)사", "차명", "생산기간", "대수", "무상점검내용", "조치사항") if k in t]
+            OUT.append(f"## 상세 {label} {d.status_code} {len(d.content)}바이트 Location={d.headers.get('location')} 표 낱말 {has}")
+        except Exception as e:  # noqa: BLE001
+            OUT.append(f"## 상세 {label}: 실패 {type(e).__name__}")
+robots("www.rra.go.kr")
+for page in (1, 2, 40, 88):
     try:
-        r = S.get(f"https://www.rra.go.kr/ko/license/A_b_newlist.do?cpage=1&searchCon=PASSER&searchTxt={quote(name.encode('euc-kr'))}", timeout=40)
+        r = S.get(f"https://www.rra.go.kr/ko/license/A_b_newlist.do?cpage={page}", timeout=40)
         r.encoding = "euc-kr"
         rows = re.findall(r"<tr[^>]*>([\s\S]*?)</tr>", r.text, re.I)
         pages = re.findall(r"cpage=(\d+)", r.text)
-        OUT.append(f"## RRA 상호={name}: {r.status_code} 줄 {len(rows) - 1} 마지막 쪽 {max(map(int, pages)) if pages else 1} · "
-                   + " / ".join(" ¦ ".join(text_of(c)[:26] for c in re.findall(r"<t[dh][^>]*>([\s\S]*?)</t[dh]>", x, re.I)) for x in rows[1:5]))
+        OUT.append(f"## RRA 새 목록 {page}쪽: {r.status_code} 줄 {len(rows)} 쪽 링크 최대 {max(map(int, pages)) if pages else '?'}")
+        for x in rows[:1] + rows[1:4]:
+            cells = [text_of(c)[:34] for c in re.findall(r"<t[dh][^>]*>([\s\S]*?)</t[dh]>", x, re.I)]
+            link = re.search(r"app_no=(\d+)", x)
+            OUT.append("   " + " ¦ ".join(cells) + (f" ¦ app_no {link.group(1)}" if link else ""))
     except Exception as e:  # noqa: BLE001
-        OUT.append(f"## RRA 상호={name}: 실패 {type(e).__name__}")
-p = S.get("https://www.rra.go.kr/ko/license/A_b_popup.do?app_no=202617210000428607", timeout=40)
-cs = re.findall(r"charset=[^A-Za-z0-9]?([A-Za-z0-9-]+)", p.text[:600])
-OUT.append(f"## RRA 팝업 {p.status_code} 문자셋 헤더 {p.headers.get('content-type')} 선언 {cs}")
-p.encoding = "utf-8"
-OUT.append("   글(utf-8): " + text_of(p.text)[:420])
+        OUT.append(f"## RRA 새 목록 {page}쪽: 실패 {type(e).__name__}")
 open("/tmp/probe_out.txt", "w").write("\n".join(OUT))
 print(len(OUT), "lines")
