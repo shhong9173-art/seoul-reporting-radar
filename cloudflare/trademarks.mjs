@@ -76,7 +76,7 @@ const OFFICE_TEXT = {
 // 미국 출원 근거(Signa filing_bases, 출원 때 적은 것 — 1(b)가 나중에 사용 진술서를 내도 '사용 의사'로 남는다). EUIPO는 근거를 공개하지 않는다
 const BASIS_KO = { intent_to_use: '사용 의사(1B) — 아직 안 쓰는 이름', use_in_commerce: '사용 중(1A)', foreign_application: '외국 출원 우선권(44D)', foreign_registration: '외국 등록 기초(44E)', madrid_extension: '마드리드 지정(66A)' };
 // 마드리드 지정 줄(Signa, 탐침 230): '출원일' 칸은 이 관청을 지정한 날이다. 국제등록일이 1년 넘게 앞이면 예전 국제등록에 이 관청을 나중에 지정한 것 —
-// 새 이름이 아닐 수 있다(POSCO 유럽 지정 2026-07-22 줄의 국제등록일이 2019-06-24였다).
+// 새 이름이 아닐 수 있다(탐침에서 출원인 이름에 'POSCO'가 든 유럽 지정 2026-07-22 줄의 국제등록일이 2019-06-24였다).
 export const irNote = (f) => {
   const ir = f.ir;
   if (!ir) return '';

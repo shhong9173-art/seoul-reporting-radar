@@ -10,7 +10,7 @@
   madrid_extension(66A). **출원 때 적은 근거**라 1(b)가 나중에 사용 진술서를 내도 intent_to_use로 남는다. EUIPO는 근거를 공개하지 않아 비어 있다
   ④ updated_at_gte로 최근 며칠에 Signa가 새로 넣거나 고친 줄만(탐침: 4일 → 11-11 출원 26줄) ⑤ GET /v1/offices의 last_synced_at(크레딧 0).
   머리글 X-Credits-Remaining·X-Credits-Charged. GET 주소는 2KB까지라 id는 한 번에 45개.
-- 마드리드(탐침 230): 지정 줄에 ir_number·registration_date(국제등록일)가 온다. 상세 GET /v1/trademarks/{id}는 1크레딧, POSCO 지정 줄과 그 국제등록(WO) 줄
+- 마드리드(탐침 230): 지정 줄에 ir_number·registration_date(국제등록일)가 온다. 상세 GET /v1/trademarks/{id}는 1크레딧, 출원인 이름에 'POSCO'가 든 지정 줄 하나와 그 국제등록(WO) 줄
   모두 relationships 0건이었다(기초출원 번호는 못 얻음). 국제등록 줄은 origin_office_code KR·filing_date(국제등록일)·priority_date를 준다(ir_number 조회 10크레딧).
 - 여러 관청을 한 요청으로: offices=EM,US(쪽마다 10크레딧은 같다) — trademark_watch.main이 유럽·미국 목록 조회를 한 번에 받아 run()에 넘긴다.
 - 응답을 EUIPO Trademark Search 모양(applicationNumber·applicationDate·wordMarkSpecification·niceClasses·applicants·status)으로 바꿔
